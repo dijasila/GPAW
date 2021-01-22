@@ -9,7 +9,7 @@ def mom_calculation(calc, atoms,
                     numbers,
                     width=0.0,
                     width_increment=0.0,
-                    niter_smearing=10):
+                    niter_width_update=10):
 
     if calc.wfs is None:
         # We need the wfs object to initialize OccupationsMOM
@@ -23,7 +23,7 @@ def mom_calculation(calc, atoms,
                              numbers,
                              width,
                              width_increment,
-                             niter_smearing)
+                             niter_width_update)
 
     # Set MOM occupations and let calculator.py take care of the rest
     calc.set(occupations=occ_mom)
@@ -36,14 +36,14 @@ class OccupationsMOM:
                  numbers,
                  width=0.0,
                  width_increment=0.0,
-                 niter_smearing=10):
+                 niter_width_update=10):
         self.wfs = wfs
         self.occ = occ
         self.extrapolate_factor = occ.extrapolate_factor
         self.numbers = np.array(numbers)
         self.width = width / Ha
         self.width_increment = width_increment / Ha
-        self.niter_smearing = niter_smearing
+        self.niter_width_update = niter_width_update
 
         self.name = 'mom'
         self.iters = 0
@@ -132,11 +132,11 @@ class OccupationsMOM:
 
         if self.width != 0.0:
             if self.iters == 0:
-                self.width_increment_ct = 0
-            if self.iters % self.niter_smearing == 0:
-                self.gauss_width = self.width + self.width_increment_ct \
+                self.width_update_counter = 0
+            if self.iters % self.niter_width_update == 0:
+                self.gauss_width = self.width + self.width_update_counter \
                     * self.width_increment
-                self.width_increment_ct += 1
+                self.width_update_counter += 1
 
         for kpt in self.wfs.kpt_u:
             # Compute projections within equally occupied subspaces
