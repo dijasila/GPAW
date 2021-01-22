@@ -131,7 +131,8 @@ class SJM(SolvationGPAW):
         Default: False.
     """
     implemented_properties = ['energy', 'forces', 'stress', 'dipole',
-                              'magmom', 'magmoms', 'ne', 'electrode_potential']
+                              'magmom', 'magmoms',
+                              'excess_electrons', 'electrode_potential']
 
     default_parameters = copy.deepcopy(SolvationGPAW.default_parameters)
     default_parameters.update(
@@ -521,7 +522,7 @@ class SJM(SolvationGPAW):
         else:
             self.sog('Canonical energy was written into results.\n')
 
-        self.results['ne'] = p.ne
+        self.results['excess_electrons'] = p.ne
         self.results['electrode_potential'] = self.get_electrode_potential()
 
         # FIXME: I believe that in the current version if you call
