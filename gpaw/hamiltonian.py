@@ -325,7 +325,7 @@ class Hamiltonian:
         return np.array([e_kinetic, e_coulomb, e_zero, e_external, e_xc])
 
     def get_energy(self, e_entropy, wfs):
-        """Sum up all eigenvalues weighted with occupation numbers"""
+        # Sum up all eigenvalues weighted with occupation numbers:
         self.e_band = wfs.calculate_band_energy()
         self.e_kinetic = self.e_kinetic0 + self.e_band
         self.e_entropy = e_entropy
@@ -336,6 +336,7 @@ class Hamiltonian:
         if 0:
             print(self.e_band,
                   self.e_kinetic,
+                  self.e_kinetic0,
                   self.e_coulomb,
                   self.e_external,
                   self.e_zero,

@@ -13,6 +13,9 @@ class Repulsion:
                  nderivs: int = 0) -> float:
         raise NotImplementedError
 
+    def __repr__(self):
+        return f'{self.__class__.name}{self.params}'
+
     def plot(self):
         import matplotlib.pyplot as plt
         r = np.linspace(0, 4, 101)
@@ -39,14 +42,20 @@ class ExpRepulsion(Repulsion):
         assert nderivs == 1
         return (b - (a + b * r) / c) * np.exp(-r / c)
 
-    def __repr__(self):
-        return f'Repulsion({self.params})'
 
-    def plot(self):
-        import matplotlib.pyplot as plt
-        r = np.linspace(0, 4, 101)
-        plt.plot(r, self(r))
-        plt.show()
+class PolynomialRepulsion(Repulsion):
+    def __init__(self, a, b, c, eps=1e-6):
+        self.params = a, b, c
+        self.cutoff = c
+
+    def __call__(self, r, nderivs: int = 0) -> float:
+        a, b, c = self.params
+        r[r > c] = 0.0
+        if nderivs == 0:
+            d = r - c
+            return (a + b * d) * d**2
+        assert nderivs == 1
+        return (2 * a + 3 * b * d) * d
 
 
 def evaluate_pair_potential(repulsions, symbol_a, position_av, cell_cv, pbc_c):

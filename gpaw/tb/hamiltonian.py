@@ -70,18 +70,17 @@ def calculate_reference_energies(setups, xc):
         D_sp = D_p[np.newaxis]
         dH_sp = np.zeros_like(D_sp)
 
-        e_xc += xc.calculate_paw_correction(setup, D_sp, dH_sp, a=None)
+        e_xc += n * xc.calculate_paw_correction(setup, D_sp, dH_sp, a=None)
         e_kin += n * (np.dot(setup.K_p, D_p) + setup.Kc)
         e_zero += n * (setup.MB + np.dot(setup.MB_p, D_p))
         e_coulomb += n * (setup.M + D_p.dot(setup.M_p + setup.M_pp.dot(D_p)))
 
-        e_kin -= D_p @ (dH_sp[0] +
-                        setup.K_p +
-                        setup.MB_p +
-                        setup.M_p + 2 * setup.M_pp @ D_p +
-                        setup.Delta_pL[:, 0] * setup.W)
-        e_kin += np.dot(setup.data.eps_j, setup.f_j)
-        print('BAND:', np.dot(setup.data.eps_j, setup.f_j))
+        e_kin -= n * D_p @ (dH_sp[0] +
+                            setup.K_p +
+                            setup.MB_p +
+                            setup.M_p + 2 * setup.M_pp @ D_p +
+                            setup.Delta_pL[:, 0] * setup.W)
+        e_kin += n * np.dot(setup.data.eps_j, setup.f_j)
 
     return e_xc, e_kin, e_zero, e_coulomb
 

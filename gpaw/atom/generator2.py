@@ -1077,6 +1077,7 @@ class PAWSetupGenerator:
         setup.vt_g[0] = setup.vt_g[1]
         setup.W = self.rgd.integrate(self.vHtr_g * self.ghat_g,
                                      n=-1) * sqrt(4 * pi)
+        print('W', setup.W)
         setup.Z = aea.Z
         setup.Nc = self.ncore
         setup.Nv = self.nvalence
