@@ -12,6 +12,9 @@ Git master branch
 
 * Corresponding ASE release: ASE-3.21.1b1
 
+* True occupation numbers are now printed in the text output for the
+  Kohn–Sham states.  Previously, the printed occupation numbers were
+  scaled by **k**-point weight.
 
 Version 21.1.0
 ===============
