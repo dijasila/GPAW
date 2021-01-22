@@ -15,7 +15,6 @@ def test_coreeig(in_tmp_dir):
     system = Atoms('Ne', calculator=calc)
     system.center(vacuum=a / 2)
     e0 = system.get_potential_energy()
-    niter0 = calc.get_number_of_iterations()
     calc.write('Ne.gpw')
 
     del calc, system

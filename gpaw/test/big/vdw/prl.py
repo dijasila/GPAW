@@ -10,11 +10,11 @@ S = ['Ar', 'Kr']
 S = ['Kr']
 for symbol in S:
     d, e, de = pickle.load(open(symbol + '.pckl', 'rb'))
-    #plt.plot(d, e * 1000)
+    # plt.plot(d, e * 1000)
     plt.plot(d, (e + de) * 1000, label=symbol)
 for symbol in S:
     e, de, e0, de0 = pickle.load(open(symbol + '.new.pckl', 'rb'))
-    #plt.plot(d, (e-2*e0) * 1000)
+    # plt.plot(d, (e-2*e0) * 1000)
     plt.plot(d, (e + de - 2 * e0 - 2 * de0) * 1000, label=symbol + '.new')
 for symbol in S:
     e, de, e0, de0 = pickle.load(open(symbol + '.fft.pckl', 'rb'))

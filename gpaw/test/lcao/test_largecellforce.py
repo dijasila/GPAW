@@ -25,8 +25,6 @@ def test_lcao_largecellforce():
     atom.center(vacuum=.8)
     system = atom.repeat((1, 1, 4))
 
-    rc = hbasis.bf_j[0].rc
-
     system.center(vacuum=2.5)
 
     calc = GPAW(h=0.23,

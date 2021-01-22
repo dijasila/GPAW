@@ -111,8 +111,9 @@ dashed grey lines. The plot is shown below.
 .. image:: WS2_bands.png
            :height: 500 px
 
-Here, spin up is displayed as red and spin down is displayed as blue. Most
-places the bands are either red or blue signaling that the bands are
+Here, spin is displayed as light yellow and spin down is displayed as
+dark green. Most
+places the bands are +1 or -1 signaling that the bands are
 approximate eigenstates of the spin projection operator along the z axis.
 Exceptions occur near avoided crossings where the spin-orbit coupling gives
 rise to strong hybridization between spin up and spin down states. Note also

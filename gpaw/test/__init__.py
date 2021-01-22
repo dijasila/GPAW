@@ -1,10 +1,13 @@
+from typing import Tuple
+
 import numpy as np
 import pytest
 
-from gpaw.atom.generator import Generator
-from gpaw.atom.configurations import parameters, tf_parameters
+import gpaw.mpi as mpi
 from gpaw import setup_paths
-from gpaw import mpi
+from gpaw.atom.configurations import parameters, tf_parameters
+from gpaw.atom.generator import Generator
+from gpaw.hints import Array1D
 
 
 def equal(x, y, tolerance=0):
@@ -23,13 +26,21 @@ def print_reference(data_i, name='ref_i', fmt='%.12le'):
         print('\b]')
 
 
-def findpeak(x, y):
-    dx = x[1] - x[0]
+def findpeak(x: Array1D, y: Array1D) -> Tuple[float, float]:
+    """Find peak.
+
+    >>> x = np.linspace(1, 5, 10)
+    >>> y = 1 - (x - np.pi)**2
+    >>> x0, y0 = findpeak(x, y)
+    >>> f'x0={x0:.6f}, y0={y0:.6f}'
+    'x0=3.141593, y0=1.000000'
+    """
     i = y.argmax()
-    a, b, c = np.polyfit([-1, 0, 1], y[i - 1:i + 2], 2)
+    a, b, c = np.polyfit(x[i - 1:i + 2] - x[i], y[i - 1:i + 2], 2)
     assert a < 0
-    x = -0.5 * b / a
-    return dx * (i + x), a * x**2 + b * x + c
+    dx = -0.5 * b / a
+    x0 = x[i] + dx
+    return x0, a * dx**2 + b * dx + c
 
 
 def gen(symbol, exx=False, name=None, yukawa_gamma=None,

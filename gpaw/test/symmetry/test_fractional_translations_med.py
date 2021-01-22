@@ -5,7 +5,7 @@ from gpaw.test import equal
 
 
 def test_symmetry_fractional_translations_med():
-    name = 'quartz'
+    'quartz'
     # no. 152 - trigonal
 
     a = 5.032090

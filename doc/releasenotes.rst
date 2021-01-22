@@ -10,9 +10,22 @@ Git master branch
 
 :git:`master <>`.
 
-* Corresponding ASE release: ASE-3.20.1b1
+* Corresponding ASE release: ASE-3.21.1b1
+
+* True occupation numbers are now printed in the text output for the
+  Kohn–Sham states.  Previously, the printed occupation numbers were
+  scaled by **k**-point weight.
+
+Version 21.1.0
+===============
+
+18 Jan 2021: :git:`21.1.0 <../21.1.0>`
+
+* Corresponding ASE release: ASE-3.21.0.
 
 * New :ref:`zfs` module.
+
+* New :ref:`scissors operator`.
 
 * Nonlinear optical responses can now be calculated in the independent
   particle approximations. See the :ref:`nlo_tutorial` tutorial for how
@@ -410,7 +423,7 @@ Version 1.4.0
 * Improved parallelization of operations with localized functions in
   PW mode.  This solves the current size bottleneck in PW mode.
 
-* Added QNA XC functional.
+* Added QNA XC functional: :ref:`qna`.
 
 * Major refactoring of the LCAOTDDFT code and added Kohn--Sham decomposition
   analysis within LCAOTDDFT, see :ref:`the documentation <lcaotddft>`.
