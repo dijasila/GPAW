@@ -331,20 +331,27 @@ def scalapack_inverse(desca, a, uplo):
 
 
 def scalapack_solve(desca, descb, a, b):
-    """Perform general matrix solution to Ax=b. Result will be replaces with b.
-       Equivalent to numpy.linalg.solve(a, b.T.conjugate()).T.conjugate()
+    """General matrix solve.
 
+    Solve X from A*X = B. The array b will be replaced with the result.
+
+    This function works on the transposed form. The equivalent
+    non-distributed operation is numpy.linalg.solve(a.T, b.T).T.
+
+    This function executes the following scalapack routine:
+    * pzgesv if matrices are complex
+    * pdgesv if matrices are real
     """
     desca.checkassert(a)
     descb.checkassert(b)
-    # only symmetric matrices
-    assert desca.gshape[0] == desca.gshape[1]
-    # valid equation
-    assert desca.gshape[1] == descb.gshape[1]
+    assert desca.gshape[0] == desca.gshape[1], 'A not a square matrix'
+    assert desca.bshape[0] == desca.bshape[1], 'A not having square blocks'
+    assert desca.gshape[1] == descb.gshape[1], 'B shape not compatible with A'
+    assert desca.bshape[1] == descb.bshape[1], 'B blocks not compatible with A'
 
     if not desca.blacsgrid.is_active():
         return
-    info = _gpaw.scalapack_solve(a.T, desca.asarray(), b.T, descb.asarray())
+    info = _gpaw.scalapack_solve(a, desca.asarray(), b, descb.asarray())
     if info != 0:
         raise RuntimeError('scalapack_solve error: %d' % info)
 
