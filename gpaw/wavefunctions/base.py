@@ -597,7 +597,6 @@ def eigenvalue_string(wfs, comment=' '):
     The parameter comment can be used to comment out non-numers,
     for example to escape it for gnuplot.
     """
-
     tokens = []
 
     def add(*line):
@@ -611,8 +610,7 @@ def eigenvalue_string(wfs, comment=' '):
 
     def occs(k, s):
         occ_n = wfs.collect_occupations(k, s)
-        occ_n /= wfs.kd.weight_k[k]
-        return occ_n
+        return occ_n / wfs.kd.weight_k[k]
 
     if len(wfs.kd.ibzk_kc) == 1:
         if wfs.nspins == 1:
