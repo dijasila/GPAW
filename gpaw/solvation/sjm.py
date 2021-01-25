@@ -136,12 +136,12 @@ class SJM(SolvationGPAW):
 
     default_parameters = copy.deepcopy(SolvationGPAW.default_parameters)
     default_parameters.update(
-        {'sj': {'ne': 0.,
+        {'sj': {'excess_electrons': 0.,
                 'jelliumregion': None,  # FIXME: put in defaults?
                 'target_potential': None,
                 'write_grandpotential_energy': True,
                 'tol': 0.01,
-                'always_adjust_ne': False,
+                'always_adjust_ne': False, #FIXME: rename to not use 'ne'.
                 'verbose': False,
                 'max_iters': 10.}})
 
@@ -171,8 +171,10 @@ class SJM(SolvationGPAW):
 
         self.sog('Solvated jellium method (SJM):')
         if not p.target_potential:
+            # FIXME/ap: This log message seems to show up later, too, in
+            # calculate.
             self.sog(' Constant-charge mode. Excess electrons: {:.5f}'
-                     .format(p.ne))
+                     .format(p.excess_electrons))
         else:
             self.sog(' Constant-potential mode.')
             self.sog(' Target potential: {:.5f} +/- {:.5f}'
@@ -181,7 +183,8 @@ class SJM(SolvationGPAW):
                 self.sog('Warning! Your target potential might be '
                          'unphysical. Keep in mind 0 V_SHE is ~4.4 '
                          'in the input')
-            self.sog(' Initial guess of excess electrons: {:.5f}'.format(p.ne))
+            self.sog(' Initial guess of excess electrons: {:.5f}'
+                     .format(p.excess_electrons))
 
     def set(self, **kwargs):
         """Change parameters for calculator.
@@ -237,17 +240,17 @@ class SJM(SolvationGPAW):
                 # change this?
                 self.sog('  Lower boundary: %s' % p.jelliumregion['start'])
             if 'upper_limit' in p.jelliumregion:
-                self.sog('  Upper boundary: %s'
-                         % p.jelliumregion['upper_limit'])
+                self.sog('  Upper boundary: {:s}'
+                         .format(p.jelliumregion['upper_limit']))
             if self.atoms:
                 # FIXME/AP: Is this needed here? Isn't called everytime in
                 # self.calculate, and since the results are {}'d out above
                 # it will be called then?
                 self.set(background_charge=self.define_jellium(self.atoms))
-        if 'ne' in changes:
+        if 'excess_electrons' in changes:
             self.results = {}
-            self.sog('Number of Excess electrons manually changed '
-                     'to %1.8f' % (p.ne))
+            self.sog('Number of excess electrons manually changed '
+                     'to {:1.8f}'.format(p.excess_electrons))
         if 'tol' in changes:
             self.sog('Potential tolerance has been changed to %1.4f V'
                      % changes[key])
@@ -285,21 +288,19 @@ class SJM(SolvationGPAW):
                     self.wfs.eigensolver.reset()
                     self.scf.reset()
 
-                self.wfs.nvalence = self.setups.nvalence + p.ne
+                self.wfs.nvalence = (self.setups.nvalence +
+                                     p.excess_electrons)
                 self.sog('Number of valence electrons is now {:.5f}'
                          .format(self.wfs.nvalence))
-                # FIXME: background_charge not always called when ne
-                # changes? Doesn't this screw up nvalence in wfs?
-                # (I.e., see below where key == 'ne'.)
+                # FIXME: background_charge not always called when
+                # excess_electrons changes? Doesn't this screw up nvalence
+                # in wfs?
+                # (I.e., see below where key == 'excess_electrons'.)
                 # GK: Have think about this one, but I'm fairly certain
                 # it was needed in order to avoid what you mentioned
                 # AP: Ok, I don't fully get what's going on in this part,
                 # so please check that it's doing what you want with the
                 # new layout.
-
-            # FIXME: ASE or GPAW calculator returns something, should we
-            # too? In case it's used by something else we don't know about?
-            return
 
     def sog(self, message=''):
         # FIXME: Delete after all is set up.
@@ -372,14 +373,15 @@ class SJM(SolvationGPAW):
             self.set(background_charge=self.define_jellium(atoms))
             SolvationGPAW.calculate(self, atoms, ['energy'], system_changes)
             self.sog('Potential found to be {:.5f} V (with {:+.5f} '
-                     'electrons)'.format(self.get_electrode_potential(), p.ne))
+                     'electrons)'.format(self.get_electrode_potential(),
+                                         p.excess_electrons))
             # FIXME: I think we can do a return here and cut out the next
             # else statement and indents? Or maybe not, there's junk at
             # the end?
 
         else:
             iteration = 0
-            p.previous_nes = []
+            p.previous_electrons = []
             p.previous_potentials = []
             p.previous_slopes = []
             equilibrated = False
@@ -389,7 +391,7 @@ class SJM(SolvationGPAW):
                          ' {:.3f} V'
                          .format(iteration, p.target_potential, p.tol))
                 self.sog('Current guess of excess electrons: {:+.5f}'
-                         .format(p.ne))
+                         .format(p.excess_electrons))
                 if iteration == 0:
                     # If we don't do this, GPAW.calculate *may* try to call
                     # self.density.reset(), which will not exist.
@@ -421,13 +423,14 @@ class SJM(SolvationGPAW):
                 true_potential = self.get_electrode_potential()
                 self.sog()
                 self.sog('Potential found to be {:.5f} V (with {:+.5f} '
-                         'electrons, attempt {:d})'
-                         .format(true_potential, p.ne, iteration))
-                p.previous_nes += [p.ne]
+                         'excess electrons, attempt {:d})'
+                         .format(true_potential, p.excess_electrons,
+                                 iteration))
+                p.previous_electrons += [p.excess_electrons]
                 p.previous_potentials += [true_potential]
 
                 # Update slope based only on last two points.
-                if len(p.previous_nes) > 1:
+                if len(p.previous_electrons) > 1:
                     p.slope = self.calculate_slope()
                     p.previous_slopes += [p.slope]
                     self.sog(str(p.slope))
@@ -437,11 +440,12 @@ class SJM(SolvationGPAW):
                              '{:.4f} V/(electron/Angstrom).'
                              .format(p.slope * np.product(np.diag(
                                  atoms.cell[:2, :2]))))
+                    # FIXME/ap: should it be Angstrom^2 above?
 
                     area = np.product(np.diag(atoms.cell[:2, :2]))
                     cap = -1.6022 * 1e3 / (area * p.slope)
 
-                    self.sog('And a capacitance of {:.4f} muF/cm2'
+                    self.sog('and apparent capacitance of {:.4f} muF/cm^2'
                              .format(cap))
 
                 if abs(true_potential - p.target_potential) < p.tol:
@@ -452,13 +456,15 @@ class SJM(SolvationGPAW):
                     if p.always_adjust_ne is False:
                         break
 
-                # Change ne based on slope.
+                # Change excess electrons based on slope.
                 usr_warned = False
                 if p.slope is None:
-                    self.sog('No slope information; changing ne by 0.1 to '
-                             'learn slope.')
-                    p.ne += 0.1 * np.sign(true_potential -
-                                          p.target_potential)
+                    # FIXME/ap: Here's where we should use the electrode
+                    # area to make this more robust, right?
+                    self.sog('No slope information; changing electrons by 0.1'
+                             ' to learn slope.')
+                    p.excess_electrons += (0.1 * np.sign(true_potential -
+                                           p.target_potential))
                 else:
                     if true_potential < 2 and len(p.previous_potentials) > 1:
                         if np.diff(p.previous_potentials[-2:])[0] < -1:
@@ -476,10 +482,11 @@ class SJM(SolvationGPAW):
                                 'of the charges.\n' + '-' * 13)
                         usr_warned = True
 
-                    p.ne += (p.target_potential - true_potential) / p.slope
+                    p.excess_electrons += ((p.target_potential -
+                                            true_potential) / p.slope)
                     self.sog('Number of electrons changed to {:.4f} based '
                              'on slope of {:.4f} V/electron.'
-                             .format(p.ne, p.slope))
+                             .format(p.excess_electrons, p.slope))
 
                 if not 2 < true_potential < 7 and not usr_warned:
                     self.sog('-' * 13)
@@ -487,8 +494,8 @@ class SJM(SolvationGPAW):
                              "region where a linear slope between\n potential "
                              "and charge is not guaranteed. You might want "
                              "to rethink\n the inital charge guess. If the "
-                             "potential is too high increase 'ne' and vice "
-                             "versa")
+                             "potential is too high increase "
+                             "'excess_electrons' or vice versa.")
                     self.sog('-' * 13)
 
                 iteration += 1
@@ -502,14 +509,6 @@ class SJM(SolvationGPAW):
                     raise Exception(msg)
 
         if properties != ['energy']:
-            # FIXME: A sequential call to get_potential_energy then
-            # get_forces triggers a whole new (but very fast) SJM
-            # calculation because the above re-sets the jellium
-            # and such. This shouldn't be the case, I believe. Check
-            # how GPAW does it.
-            # GK: I will test this. I am certain this was not the
-            # case in the past, since it was part of my test suite.
-
             SolvationGPAW.calculate(self, atoms, properties, [])
 
         # Note that grand-potential energies were assembled in summary,
@@ -522,7 +521,7 @@ class SJM(SolvationGPAW):
         else:
             self.sog('Canonical energy was written into results.\n')
 
-        self.results['excess_electrons'] = p.ne
+        self.results['excess_electrons'] = p.excess_electrons
         self.results['electrode_potential'] = self.get_electrode_potential()
 
         # FIXME: I believe that in the current version if you call
@@ -539,7 +538,7 @@ class SJM(SolvationGPAW):
     def calculate_slope(self, coeff=1.):
         p = self.parameters['sj']
         return coeff * (np.diff(p.previous_potentials[-2:]) /
-                        np.diff(p.previous_nes[-2:]))[0]
+                        np.diff(p.previous_electrons[-2:]))[0]
 
     def half_last_step(self):
         p = self.parameters['sj']
@@ -554,12 +553,12 @@ class SJM(SolvationGPAW):
                  'initial charge guess\n' + '-' * 13)
 
         del p.previous_potentials[-1]
-        del p.previous_nes[-1]
+        del p.previous_electrons[-1]
 
         self.wfs.nvalence = self.setups.nvalence + \
-            p.previous_nes[-2]
+            p.previous_electrons[-2]
         p.slope = self.calculate_slope(coeff=2.)
-        p.ne = p.previous_nes[-1]
+        p.excess_electrons = p.previous_electrons[-1]
         return p.previous_potentials[-1]
 
     def write_cavity_and_bckcharge(self):
@@ -580,18 +579,19 @@ class SJM(SolvationGPAW):
         self.hamiltonian.summary(self.wfs, self.log)
         # Add grand-canonical terms.
         self.sog()
-        self.omega_free = (self.hamiltonian.e_total_free +
-                           self.get_electrode_potential() * p.ne / Ha)
-        self.omega_extrapolated = (self.hamiltonian.e_total_extrapolated +
-                                   self.get_electrode_potential() * p.ne / Ha)
+        mu_N = self.get_electrode_potential() * p.excess_electrons / Ha
+        self.omega_free = self.hamiltonian.e_total_free + mu_N
+        self.omega_extrapolated = self.hamiltonian.e_total_extrapolated + mu_N
         self.sog('Legendre-transformed energies (Omega = E - N mu)')
         self.sog('  (grand potential energies)')
-        self.sog('  N (excess electrons):  {:+11.6f}'.format(p.ne))
+        self.sog('  N (excess electrons): {:+11.6f}'
+                 .format(p.excess_electrons))
         self.sog('  mu (workfunction, eV): {:+11.6f}'
                  .format(self.get_electrode_potential()))
         self.sog('-' * 26)
-        self.sog('Free energy:   %+11.6f' % (Ha * self.omega_free))
-        self.sog('Extrapolated:  %+11.6f' % (Ha * self.omega_extrapolated))
+        self.sog('Free energy:   {:+11.6f}'.format(Ha * self.omega_free))
+        self.sog('Extrapolated:  {:+11.6f}'
+                 .format(Ha * self.omega_extrapolated)
         self.sog()
 
         # Back to standard output.
@@ -615,7 +615,7 @@ class SJM(SolvationGPAW):
 
         p = self.parameters['sj']
 
-        if np.isclose(p.ne, 0., atol=1e-5):
+        if np.isclose(p.excess_electrons, 0., atol=1e-5):
             return None
 
         if p.jelliumregion is None:
@@ -655,12 +655,10 @@ class SJM(SolvationGPAW):
                 # XXX This part can definitely be improved
                 if self.hamiltonian is None:
                     filename = self.log.fd
-                    self.sog('WHY DELETE 1')
                     # self.log.fd = None  # FIXME This was causing crashes.
                     self.initialize(atoms)
                     self.set_positions(atoms)
                     # self.log.fd = filename
-                    self.sog('WHY DELETE 2')
                     g_g = self.hamiltonian.cavity.g_g.copy()
                     self.wfs = None
                     self.density = None
@@ -674,7 +672,7 @@ class SJM(SolvationGPAW):
                     self.log.fd = filename
                     g_g = self.hamiltonian.cavity.g_g
 
-                return CavityShapedJellium(p.ne, g_g=g_g,
+                return CavityShapedJellium(p.excess_electrons, g_g=g_g,
                                            z2=p.jelliumregion['upper_limit'])
 
             elif isinstance(p.jelliumregion['lower_limit'], numbers.Real):
@@ -711,7 +709,7 @@ class SJM(SolvationGPAW):
                           'cell size or translate the atomic system down '
                           'along the z-axis.')
 
-        return JelliumSlab(p.ne, z1=p.jelliumregion['start'],
+        return JelliumSlab(p.excess_electrons, z1=p.jelliumregion['start'],
                            z2=p.jelliumregion['upper_limit'])
 
     def get_electrode_potential(self):
