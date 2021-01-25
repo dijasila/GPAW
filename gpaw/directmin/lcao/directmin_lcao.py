@@ -28,7 +28,8 @@ class DirectMinLCAO(DirectLCAO):
                  representation='sparse',
                  odd_parameters='Zero',
                  init_from_ks_eigsolver=False,
-                 orthonormalization='gramschmidt'):
+                 orthonormalization='loewdin',
+                 donothingwithintiwfs=False):
 
         super(DirectMinLCAO, self).__init__(diagonalizer, error)
 
@@ -48,6 +49,7 @@ class DirectMinLCAO(DirectLCAO):
         self.restart = False
         self.name = 'direct_min'
 
+        self.donothingwithintiwfs = donothingwithintiwfs
         self.a_mat_u = None  # skew-hermitian matrix to be exponented
         self.g_mat_u = None  # gradient matrix
         self.c_nm_ref = None  # reference orbitals to be rotated
@@ -811,7 +813,9 @@ class DirectMinLCAO(DirectLCAO):
                 'use_prec': self.use_prec,
                 'matrix_exp': self.matrix_exp,
                 'representation': self.representation,
-                'odd_parameters': self.odd_parameters}
+                'odd_parameters': self.odd_parameters,
+                'orthonormalization': self.orthonormalization
+                }
 
     def get_numerical_gradients(self, n_dim, ham, wfs, dens, occ,
                                 c_nm_ref, eps=1.0e-7):
@@ -1026,8 +1030,14 @@ class DirectMinLCAO(DirectLCAO):
         # if it is the first use of the scf then initialize
         # coefficient matrix using eigensolver
         # and then localise orbitals
-        if (not wfs.coefficients_read_from_file and
-                self.c_nm_ref is None) or self.init_from_ks_eigsolver:
+        if self.donothingwithintiwfs:
+            self.donothingwithintiwfs = False
+            return 0
+
+        need_canon_coef = (not wfs.coefficients_read_from_file and
+                self.c_nm_ref is None) or self.init_from_ks_eigsolver
+
+        if need_canon_coef:
             super(DirectMinLCAO, self).iterate(ham, wfs)
             occ.calculate(wfs)
             if occ_name == 'mom':

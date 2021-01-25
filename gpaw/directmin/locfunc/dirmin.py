@@ -29,10 +29,16 @@ class DirectMinLocalize:
                 k = self.iloop.n_kps * kpt.s + kpt.q
                 # n_occ = self.n_occ[k]
                 dim1 = self.iloop.U_k[k].shape[0]
-                kpt.psit_nG[:dim1] = np.tensordot(self.iloop.U_k[k].T,
-                                                kpt.psit_nG[:dim1],
-                                                axes=1)
-                wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+                if wfs.mode == 'lcao':
+                    kpt.C_nM[:dim1] = self.iloop.U_k[k].T @ \
+                                      kpt.C_nM[:dim1]
+                    wfs.atomic_correction.calculate_projections(
+                        wfs, kpt)
+                else:
+                    kpt.psit_nG[:dim1] = np.tensordot(
+                        self.iloop.U_k[k].T, kpt.psit_nG[:dim1], axes=1)
+                    wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+
         wfs.timer.stop('Inner loop')
 
         return counter

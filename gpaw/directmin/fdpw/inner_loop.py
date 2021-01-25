@@ -63,12 +63,15 @@ class InnerLoop:
             u_mat, evecs, evals = expm_ed(a_k[k], evalevec=True)
             wfs.timer.stop('Unitary matrix')
             self.Unew_k[k] = u_mat.copy()
-            kpt.psit_nG[:dim2] = \
-                np.tensordot(u_mat.T, self.psit_knG[k][:dim2],
-                             axes=1)
-
-            # calc projectors
-            wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+            if wfs.mode == 'lcao':
+                kpt.C_nM[:dim2] = u_mat.T @ self.c_knm[k][:dim2]
+                wfs.atomic_correction.calculate_projections(wfs, kpt)
+            else:
+                kpt.psit_nG[:dim2] = \
+                    np.tensordot(u_mat.T, self.psit_knG[k][:dim2],
+                                 axes=1)
+                # calc projectors
+                wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
 
             del u_mat
             wfs.timer.start('Energy and gradients')
@@ -148,14 +151,18 @@ class InnerLoop:
         self.counter = 0
         self.eg_count = 0
         # initial things
+        self.c_knm = {}
         self.psit_knG = {}
+
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
-            # n_occ = self.n_occ[k]
             dim1 = self.U_k[k].shape[0]
-            self.psit_knG[k] = np.tensordot(self.U_k[k].T,
-                                            kpt.psit_nG[:dim1],
-                                            axes=1)
+            if wfs.mode == 'lcao':
+                self.c_knm[k] = self.U_k[k].T @ kpt.C_nM[:dim1]
+            else:
+                self.psit_knG[k] = np.tensordot(self.U_k[k].T,
+                                                kpt.psit_nG[:dim1],
+                                                axes=1)
 
         a_k = {}
         for kpt in wfs.kpt_u:
@@ -173,6 +180,7 @@ class InnerLoop:
                 a_k[k] = np.zeros(shape=(d, d), dtype=self.dtype)
 
         self.sd = LBFGS_P(wfs, memory=20)
+        # self.ls = US(self.evaluate_phi_and_der_phi)
         self.ls = SWC(
             self.evaluate_phi_and_der_phi,
             method=self.method, awc=True,
@@ -188,11 +196,16 @@ class InnerLoop:
                 k = self.n_kps * kpt.s + kpt.q
                 # n_occ = self.n_occ[k]
                 dim1 = self.U_k[k].shape[0]
-                kpt.psit_nG[:dim1] = np.tensordot(self.U_k[k].conj(),
-                                                   self.psit_knG[k],
-                                                   axes=1)
-                # calc projectors
-                wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+                if wfs.mode == 'lcao':
+                    kpt.C_nM[:dim1] = self.U_k[k].conj() @ self.c_knm[k]
+                    wfs.atomic_correction.calculate_projections(wfs,
+                                                                kpt)
+                else:
+                    kpt.psit_nG[:dim1] = np.tensordot(self.U_k[k].conj(),
+                                                       self.psit_knG[k],
+                                                       axes=1)
+                    # calc projectors
+                    wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
 
                 dim2 = self.Unew_k[k].shape[0]
                 if dim1 == dim2:
@@ -207,6 +220,7 @@ class InnerLoop:
                     self.U_k[k] = self.U_k[k] @ unew
 
             del self.psit_knG
+            del self.c_knm
             if outer_counter is None:
                 return self.e_total, self.counter
             else:
@@ -370,11 +384,15 @@ class InnerLoop:
             k = self.n_kps * kpt.s + kpt.q
             # n_occ = self.n_occ[k]
             dim1 = self.U_k[k].shape[0]
-            kpt.psit_nG[:dim1] = np.tensordot(self.U_k[k].conj(),
-                                               self.psit_knG[k][:dim1],
-                                               axes=1)
-            # calc projectors
-            wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+            if wfs.mode == 'lcao':
+                kpt.C_nM[:dim1] = self.U_k[k].conj() @ self.c_knm[k][:dim1]
+                wfs.atomic_correction.calculate_projections(wfs, kpt)
+            else:
+                kpt.psit_nG[:dim1] = np.tensordot(self.U_k[k].conj(),
+                                                   self.psit_knG[k][:dim1],
+                                                   axes=1)
+                # calc projectors
+                wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
             dim2 = self.Unew_k[k].shape[0]
             if dim1 == dim2:
                 self.U_k[k] = self.U_k[k] @ self.Unew_k[k]
@@ -388,6 +406,7 @@ class InnerLoop:
                 self.U_k[k] = self.U_k[k] @ unew
 
         del self.psit_knG
+        del self.c_knm
         if outer_counter is None:
             return self.e_total, self.counter
         else:
@@ -551,11 +570,15 @@ class InnerLoop:
             wfs.timer.stop('Unitary matrix')
             self.U_k[k] = u_mat.copy()
 
-            kpt.psit_nG[:n_occ] = \
-                np.tensordot(u_mat.T, self.psit_knG[k][:n_occ],
-                             axes=1)
-            # calc projectors
-            wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+            if wfs.mode == 'lcao':
+                kpt.C_nM[:n_occ] = u_mat.T @ self.c_knm[k][:n_occ]
+                wfs.atomic_correction.calculate_projections(wfs, kpt)
+            else:
+                kpt.psit_nG[:n_occ] = \
+                    np.tensordot(u_mat.T, self.psit_knG[k][:n_occ],
+                                 axes=1)
+                # calc projectors
+                wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
             evals_k[k] = evals
             evecs_k[k] = evecs
             del u_mat
