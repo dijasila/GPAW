@@ -191,6 +191,11 @@ class GPAW(Calculator):
 
         params = self.parameters.copy()
         params.update(kwargs)
+
+        if params['h'] is None:
+            # Backwards compatibility
+            params['gpts'] = self.density.gd.N_c
+
         calc = GPAW(communicator=communicator,
                     txt=txt,
                     parallel=parallel,
