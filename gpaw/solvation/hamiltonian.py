@@ -196,7 +196,8 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
         for ia in self.interactions:
             self.e_total_free += getattr(self, 'e_' + ia.subscript)
         self.e_total_extrapolated = (self.e_total_free +
-            wfs.occupations.extrapolate_factor * e_entropy)
+                                     wfs.occupations.extrapolate_factor *
+                                     e_entropy)
         return self.e_total_free
 
     def grad_squared(self, x):

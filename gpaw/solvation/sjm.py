@@ -141,7 +141,7 @@ class SJM(SolvationGPAW):
                 'target_potential': None,
                 'write_grandpotential_energy': True,
                 'tol': 0.01,
-                'always_adjust_ne': False, #FIXME: rename to not use 'ne'.
+                'always_adjust_ne': False,  # FIXME: rename to not use 'ne'.
                 'verbose': False,
                 'max_iters': 10.}})
 
@@ -240,7 +240,7 @@ class SJM(SolvationGPAW):
                 # change this?
                 self.sog('  Lower boundary: %s' % p.jelliumregion['start'])
             if 'upper_limit' in p.jelliumregion:
-                self.sog('  Upper boundary: {:s}'
+                self.sog('  Upper boundary: {:.3f} Angstroms'
                          .format(p.jelliumregion['upper_limit']))
             if self.atoms:
                 # FIXME/AP: Is this needed here? Isn't called everytime in
@@ -591,7 +591,7 @@ class SJM(SolvationGPAW):
         self.sog('-' * 26)
         self.sog('Free energy:   {:+11.6f}'.format(Ha * self.omega_free))
         self.sog('Extrapolated:  {:+11.6f}'
-                 .format(Ha * self.omega_extrapolated)
+                 .format(Ha * self.omega_extrapolated))
         self.sog()
 
         # Back to standard output.
