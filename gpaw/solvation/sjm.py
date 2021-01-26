@@ -209,12 +209,13 @@ class SJM(SolvationGPAW):
             raise KeyError('Unexpected key provided to sj dict. '
                            'Only keys allowed are {}'.format(
                                self.default_parameters['sj'].keys()))
-        if any(key != 'sj' for key in kwargs):
+        #GK: We exclude both sj keywords and background_charge from the
+        #    keyword that should triger a initialization. background_charge
+        #    is handled internally.
+        if any(key not in ['sj','background_charge'] for key in kwargs):
             major_change = True  # something in parent changed
+            SolvationGPAW.set(self, **kwargs)
 
-        # XXX/ap: Note for Issue 7: the next command deletes the density
-        # if background_charge key provided.
-        SolvationGPAW.set(self, **kwargs)
         if not isinstance(self.parameters['sj'], Parameters):
             self.parameters['sj'] = Parameters(self.parameters['sj'])
         p = self.parameters['sj']
@@ -253,7 +254,7 @@ class SJM(SolvationGPAW):
                      'to {:1.8f}'.format(p.excess_electrons))
         if 'tol' in changes:
             self.sog('Potential tolerance has been changed to %1.4f V'
-                     % changes[key])
+                     % p.tol)
             try:
                 true_potential = self.get_electrode_potential()
             except AttributeError:
@@ -266,7 +267,10 @@ class SJM(SolvationGPAW):
                     self.sog('Potential already reached the criterion.\n')
         if 'background_charge' in kwargs:
             # background_charge is a GPAW parameter.
-            if self.wfs is not None:
+            if self.wfs is None:
+#            if self.wfs is not None:
+                SolvationGPAW.set(self, **kwargs)
+            else:
                 if major_change:
                     self.density = None
                 else:
@@ -354,7 +358,7 @@ class SJM(SolvationGPAW):
         It is essentially a wrapper around GPAW.calculate()
 
         """
-        
+
         if atoms is not None:
             # Need to be set before ASE's Calculator.calculate gets to it.
             self.atoms = atoms.copy()
@@ -368,7 +372,7 @@ class SJM(SolvationGPAW):
 
         if not p.target_potential:
             self.sog('Constant-charge calculation with {:.5f} excess '
-                     'electrons'.format(p.ne))
+                     'electrons'.format(p.excess_electrons))
             # Background charge is set here, not earlier, because atoms needed.
             self.set(background_charge=self.define_jellium(atoms))
             SolvationGPAW.calculate(self, atoms, ['energy'], system_changes)
@@ -392,7 +396,8 @@ class SJM(SolvationGPAW):
                          .format(iteration, p.target_potential, p.tol))
                 self.sog('Current guess of excess electrons: {:+.5f}'
                          .format(p.excess_electrons))
-                if iteration == 0:
+                if 0:
+                 if iteration == 0:
                     # If we don't do this, GPAW.calculate *may* try to call
                     # self.density.reset(), which will not exist.
                     # FIXME/ap: to GK, I'm not clear on what things (like
@@ -403,7 +408,7 @@ class SJM(SolvationGPAW):
                     # wasteful. Note this is done when
                     # set(background_charge) is called.
                     system_changes += ['background_charge']
-                elif iteration == 1:
+                if iteration == 1:
                     self.timer.start('Potential equilibration loop')
                     # We don't want SolvationGPAW to see any more system
                     # changes, like positions, after attempt 0.
@@ -417,7 +422,9 @@ class SJM(SolvationGPAW):
                 # need a way for this to work, as otherwise what happens
                 # when a user changes ne or target potential manually? Oh,
                 # I just tried that, let's see.
-                self.set(background_charge=self.define_jellium(atoms))
+                if iteration > 0 or 'positions' in system_changes:
+                    self.set(background_charge=self.define_jellium(atoms))
+
                 SolvationGPAW.calculate(self, atoms, ['energy'],
                                         system_changes)
                 true_potential = self.get_electrode_potential()
@@ -433,7 +440,6 @@ class SJM(SolvationGPAW):
                 if len(p.previous_electrons) > 1:
                     p.slope = self.calculate_slope()
                     p.previous_slopes += [p.slope]
-                    self.sog(str(p.slope))
                     self.sog('Slope regressed from last two attempts is '
                              '{:.4f} V/electron.'.format(p.slope))
                     self.sog('Corresponding to a size-normalized slope of '
