@@ -185,41 +185,28 @@ class LCAOTDDFT(GPAW):
         self.td_hamiltonian.update()
         self.update_eigenvalues()
 
-#        return self.Etot
+        return self.Etot
 
     def update_eigenvalues(self):
-#        print ('in update eig',type(self),type(self.hamiltonian),type(self.wfs))
-        self.wfs.eigensolver.iterate(self.hamiltonian, self.wfs) # Vlad ED
-        ''' THIS NEEDS TO BE MODIFIED FOR LCAO '''
-        '''
-        kpt_u = self.wfs.kpt_u
-        if self.hpsit is None:
-            self.hpsit = self.wfs.gd.zeros(len(kpt_u[0].psit_nG),
-                                           dtype=complex)
-        if self.eps_tmp is None:
-            self.eps_tmp = np.zeros(len(kpt_u[0].eps_n),
-                                    dtype=complex)
 
-        # self.Eband = sum_i <psi_i|H|psi_j>
-        for kpt in kpt_u:
-            self.td_hamiltonian.apply(kpt, kpt.psit_nG, self.hpsit,
-                                      calculate_P_ani=False)
-            self.mblas.multi_zdotc(self.eps_tmp, kpt.psit_nG,
-                                   self.hpsit, len(kpt_u[0].psit_nG))
-            self.eps_tmp *= self.wfs.gd.dv
-            kpt.eps_n[:] = self.eps_tmp.real
+        for kpt in self.wfs.kpt_u:
+            eig  = self.wfs.eigensolver
+            H_MM = eig.calculate_hamiltonian_matrix(self.hamiltonian, self.wfs, kpt)
+            C_nM = kpt.C_nM.copy()
+            eig.iterate_one_k_point(self.hamiltonian, self.wfs, kpt, C_nM)
+            kpt.C_nM=C_nM.copy()  
 
         H = self.td_hamiltonian.hamiltonian
 
-        # Nonlocal
-        self.Enlkin = H.xc.get_kinetic_energy_correction()
+# Nonlocal
+#        self.Enlkin = H.xc.get_kinetic_energy_correction() # Need change for LCAO 
 
         # PAW
         e_band = self.wfs.calculate_band_energy()
-        self.Ekin = H.e_kinetic0 + e_band + self.Enlkin
+        self.Ekin = H.e_kinetic0 + e_band # + self.Enlkin
         self.e_coulomb = H.e_coulomb
         self.Eext = H.e_external
         self.Ebar = H.e_zero
         self.Exc = H.e_xc
         self.Etot = self.Ekin + self.e_coulomb + self.Ebar + self.Exc
-        '''
+
