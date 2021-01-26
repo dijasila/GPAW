@@ -9,6 +9,7 @@ from gpaw.mpi import world, serial_comm, broadcast_float, broadcast
 from gpaw.poisson import PoissonSolver
 from gpaw.lcaotddft import LCAOTDDFT
 from gpaw.lcaotddft.dipolemomentwriter import DipoleMomentWriter
+from gpaw.lcaotddft.wfwriter import WaveFunctionWriter, WaveFunctionReader
 from gpaw.lcaotddft.densitymatrix import DensityMatrix
 from gpaw.lcaotddft.frequencydensitymatrix import FrequencyDensityMatrix
 from gpaw.lcaotddft.ksdecomposition import KohnShamDecomposition
@@ -96,6 +97,7 @@ def initialize_system():
     ffreqs = frequencies(range(0, 31, 5), 'Gauss', 0.1)
     fdm = FrequencyDensityMatrix(td_calc, dmat, frequencies=ffreqs)
     DipoleMomentWriter(td_calc, 'dm.dat')
+    WaveFunctionWriter(td_calc, 'wf.ulm')
     td_calc.absorption_kick(np.ones(3) * 1e-5)
     td_calc.propagate(20, 3)
     fdm.write('fdm.ulm')
@@ -106,6 +108,43 @@ def initialize_system():
                                     txt='unocc.out')
     unocc_calc.write('unocc.gpw', mode='all')
     return unocc_calc, fdm
+
+
+def test_propagated_wave_function(initialize_system, module_tmp_path):
+    wfr = WaveFunctionReader(module_tmp_path / 'wf.ulm')
+    coeff = wfr[-1].wave_functions.coefficients
+    ref = [[[[1.656477675563e-02 + 1.215894334014e-01j,
+              4.746449765728e-03 + 3.491779944450e-02j,
+              8.215204826650e-07 - 1.634433377660e-06j],
+             [1.517708923937e-01 + 7.650271202393e-02j,
+              8.049755615495e-01 + 4.057383918879e-01j,
+              -5.150595297011e-06 - 1.150791895540e-05j],
+             [3.059618568063e-06 - 1.784932558247e-05j,
+              7.374937358924e-07 + 1.734133842468e-05j,
+              1.375425239727e-04 + 5.943002725402e-05j]]]]
+    err = calculate_error(coeff[..., :3, :3], ref)
+    assert err < 1e-13
+
+
+@pytest.mark.parametrize('parallel', parallel_i)
+def test_propagation(initialize_system, module_tmp_path, parallel, in_tmp_dir):
+    td_calc = LCAOTDDFT(module_tmp_path / 'gs.gpw',
+                        parallel=parallel,
+                        txt='td.out')
+    WaveFunctionWriter(td_calc, 'wf.ulm')
+    td_calc.absorption_kick(np.ones(3) * 1e-5)
+    td_calc.propagate(20, 3)
+    world.barrier()
+
+    wfr_ref = WaveFunctionReader(module_tmp_path / 'wf.ulm')
+    wfr = WaveFunctionReader('wf.ulm')
+    assert len(wfr) == len(wfr_ref)
+    for i in range(1, len(wfr)):
+        ref = wfr_ref[i].wave_functions.coefficients
+        coeff = wfr[i].wave_functions.coefficients
+        err = calculate_error(coeff, ref)
+        atol = 1e-12
+        assert err < atol, f'error at i={i}'
 
 
 @pytest.fixture(scope='module')
