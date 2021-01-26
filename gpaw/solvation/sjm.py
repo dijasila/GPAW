@@ -209,10 +209,10 @@ class SJM(SolvationGPAW):
             raise KeyError('Unexpected key provided to sj dict. '
                            'Only keys allowed are {}'.format(
                                self.default_parameters['sj'].keys()))
-        #GK: We exclude both sj keywords and background_charge from the
-        #    keyword that should triger a initialization. background_charge
-        #    is handled internally.
-        if any(key not in ['sj','background_charge'] for key in kwargs):
+        # GK: We exclude both sj keywords and background_charge from the
+        #     keyword that should triger a initialization. background_charge
+        #     is handled internally.
+        if any(key not in ['sj', 'background_charge'] for key in kwargs):
             major_change = True  # something in parent changed
             SolvationGPAW.set(self, **kwargs)
 
@@ -268,7 +268,6 @@ class SJM(SolvationGPAW):
         if 'background_charge' in kwargs:
             # background_charge is a GPAW parameter.
             if self.wfs is None:
-#            if self.wfs is not None:
                 SolvationGPAW.set(self, **kwargs)
             else:
                 if major_change:
@@ -397,22 +396,22 @@ class SJM(SolvationGPAW):
                 self.sog('Current guess of excess electrons: {:+.5f}'
                          .format(p.excess_electrons))
                 if 0:
-                 if iteration == 0:
-                    # If we don't do this, GPAW.calculate *may* try to call
-                    # self.density.reset(), which will not exist.
-                    # FIXME/ap: to GK, I'm not clear on what things (like
-                    # density, wfs, hamiltonian, scf) should be deleted
-                    # and/or reset when. In the behavior here, gpaw is
-                    # going to delete all of those at the beginning of
-                    # every potential equilibration loop, but this seems
-                    # wasteful. Note this is done when
-                    # set(background_charge) is called.
-                    system_changes += ['background_charge']
-                if iteration == 1:
-                    self.timer.start('Potential equilibration loop')
-                    # We don't want SolvationGPAW to see any more system
-                    # changes, like positions, after attempt 0.
-                    system_changes = []
+                    if iteration == 0:
+                        # If we don't do this, GPAW.calculate *may* try to call
+                        # self.density.reset(), which will not exist.
+                        # FIXME/ap: to GK, I'm not clear on what things (like
+                        # density, wfs, hamiltonian, scf) should be deleted
+                        # and/or reset when. In the behavior here, gpaw is
+                        # going to delete all of those at the beginning of
+                        # every potential equilibration loop, but this seems
+                        # wasteful. Note this is done when
+                        # set(background_charge) is called.
+                        system_changes += ['background_charge']
+                    if iteration == 1:
+                        self.timer.start('Potential equilibration loop')
+                        # We don't want SolvationGPAW to see any more system
+                        # changes, like positions, after attempt 0.
+                        system_changes = []
 
                 # XXX: should it really be calling this every time?
                 # Meaning: if the number of electrons did not change, then
