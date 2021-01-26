@@ -113,17 +113,20 @@ def initialize_system():
 def test_propagated_wave_function(initialize_system, module_tmp_path):
     wfr = WaveFunctionReader(module_tmp_path / 'wf.ulm')
     coeff = wfr[-1].wave_functions.coefficients
-    ref = [[[[1.656477675563e-02 + 1.215894334014e-01j,
-              4.746449765728e-03 + 3.491779944450e-02j,
-              8.215204826650e-07 - 1.634433377660e-06j],
-             [1.517708923937e-01 + 7.650271202393e-02j,
-              8.049755615495e-01 + 4.057383918879e-01j,
-              -5.150595297011e-06 - 1.150791895540e-05j],
-             [3.059618568063e-06 - 1.784932558247e-05j,
-              7.374937358924e-07 + 1.734133842468e-05j,
-              1.375425239727e-04 + 5.943002725402e-05j]]]]
-    err = calculate_error(coeff[..., :3, :3], ref)
-    assert err < 1e-13
+    # Pick a few coefficients corresponding to non-degenerate states;
+    # degenerate states should be normalized so that they can be compared
+    coeff = coeff[np.ix_([0], [0], [0, 1, 4], [0, 1, 2])]
+    ref = [[[[1.6564776755628504e-02 + 1.2158943340143986e-01j,
+              4.7464497657284752e-03 + 3.4917799444496286e-02j,
+              8.2152048273399657e-07 - 1.6344333784831069e-06j],
+             [1.5177089239371724e-01 + 7.6502712023931621e-02j,
+              8.0497556154952932e-01 + 4.0573839188792121e-01j,
+              -5.1505952970811632e-06 - 1.1507918955641119e-05j],
+             [2.5116252101774323e+00 + 3.6776360873471503e-01j,
+              1.9024613198566329e-01 + 2.7843314959952882e-02j,
+              -1.3848736953929574e-05 - 2.6402210145403184e-05j]]]]
+    err = calculate_error(coeff, ref)
+    assert err < 1e-12
 
 
 @pytest.mark.parametrize('parallel', parallel_i)
