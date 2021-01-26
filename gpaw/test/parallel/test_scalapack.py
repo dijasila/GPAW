@@ -16,9 +16,17 @@ from gpaw.blacs import BlacsGrid, Redistributor
 from gpaw.utilities.tools import tri2full
 from gpaw.utilities import compiled_with_sl
 from gpaw.utilities.blas import rk
-from gpaw.utilities.scalapack import scalapack_general_diagonalize_dc, \
+from gpaw.utilities.scalapack import \
+    scalapack_general_diagonalize_dc, \
     scalapack_diagonalize_dc, \
-    scalapack_inverse_cholesky, scalapack_inverse
+    scalapack_inverse_cholesky, \
+    scalapack_inverse, \
+    scalapack_solve
+
+from .test_pblas import \
+    initialize_random, initialize_matrix, \
+    calculate_error, mnprocs_i
+
 
 pytestmark = pytest.mark.skipif(
     world.size < 4 or not compiled_with_sl(),
@@ -183,3 +191,32 @@ def main(N=72, seed=42, mprocs=2, nprocs=2, dtype=float):
 def test_parallel_scalapack():
     main(dtype=complex)
     main(dtype=float)
+
+
+@pytest.mark.parametrize('mprocs, nprocs', mnprocs_i)
+@pytest.mark.parametrize('dtype', [float, complex])
+def test_scalapack_solve(dtype, mprocs, nprocs,
+                         M=160, K=120, seed=42):
+    """Test scalapack_solve()"""
+    random = initialize_random(seed, dtype)
+    grid = BlacsGrid(world, mprocs, nprocs)
+
+    # Initialize matrices
+    shapeA = (M, M)
+    shapeB = (K, M)
+    A0, A, descA = initialize_matrix(grid, *shapeA, 2, 2, random)
+    B0, B, descB = initialize_matrix(grid, *shapeB, 3, 2, random)
+
+    if grid.comm.rank == 0:
+        # Calculate reference with numpy
+        ref_B0 = np.linalg.solve(A0.T, B0.T).T
+    else:
+        ref_B0 = None
+
+    # Calculate with scalapack
+    scalapack_solve(descA, descB, A, B)
+
+    # Check error
+    err = calculate_error(ref_B0, B, descB)
+    tol = {float: 8e-12, complex: 2e-13}[dtype]
+    assert err < tol
