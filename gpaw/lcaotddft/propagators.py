@@ -202,6 +202,7 @@ class ECNPropagator(LCAOPropagator):
 
             for kpt in self.wfs.kpt_u:
                 scalapack_tri2full(self.mm_block_descriptor, kpt.S_MM)
+                scalapack_tri2full(self.mm_block_descriptor, kpt.T_MM)
 
             if self.density.gd.comm.rank != 0:
                 # This is a (0, 0) dummy array that is needed for
@@ -260,8 +261,10 @@ class ECNPropagator(LCAOPropagator):
                 source = source_C_nM
             self.CnM2nm.redistribute(source, source_C_nm)
 
-            # Note: tri2full(S_MM) is done already in initialize()
-            scalapack_tri2full(self.mm_block_descriptor, H_MM)
+            # Note: tri2full for S_MM and T_MM is done already in initialize().
+            # H_MM seems to be a full matrix as we are working with complex
+            # dtype, so no need to do tri2full here again XXX
+            # scalapack_tri2full(self.mm_block_descriptor, H_MM)
             SjH_mm = S_MM + (0.5j * dt) * H_MM
 
             # 1. target = (S - 0.5j*H*dt) * source
