@@ -17,9 +17,9 @@ if [[ "$2" == "intel" || "$2" == "Intel" ]]; then
     echo "Using Intel toolchain."
 else
     if [[ $# -eq 2 ]]; then
-	echo "Illegal second argument, only 'intel' is allowed.  Got $2"
-	echo $USAGE
-	exit 1
+        echo "Illegal second argument, only 'intel' is allowed.  Got $2"
+        echo $USAGE
+        exit 1
     fi
     TCHAIN=foss
 fi
@@ -68,7 +68,7 @@ rm old
 git clone https://gitlab.com/ase/ase.git
 $PIP install -e ase/
 
-$PIP install myqueue graphviz
+$PIP install myqueue graphviz qeh
 
 CMD="cd $VENV &&
      . bin/activate &&
