@@ -417,7 +417,6 @@ class SJM(SolvationGPAW):
                         # We don't want SolvationGPAW to see any more system
                         # changes, like positions, after attempt 0.
                         system_changes = []
->>>>>>> 1fc6eae4fc3c8131fda7c0fb34644a381a94c1e5
 
                 # XXX: should it really be calling this every time?
                 # Meaning: if the number of electrons did not change, then
