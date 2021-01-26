@@ -123,7 +123,7 @@ class SJM(SolvationGPAW):
     write_grandpotential_energy: bool
         Write the grand-potential energy into output files such as
         trajectory files. Default: True
-    always_adjust_ne: bool
+    always_adjust: bool
         Adjust ne again even when potential is within tolerance.
         This is useful to set to True along with a loose potential
         tolerance (tol) to allow the potential and structure to be
@@ -141,7 +141,7 @@ class SJM(SolvationGPAW):
                 'target_potential': None,
                 'write_grandpotential_energy': True,
                 'tol': 0.01,
-                'always_adjust_ne': False,  # FIXME: rename to not use 'ne'.
+                'always_adjust': False,  # FIXME: rename to not use 'ne'.
                 'verbose': False,
                 'max_iters': 10.}})
 
@@ -195,16 +195,13 @@ class SJM(SolvationGPAW):
           background charge is changed.
 
         """
-        # FIXME/ap When is major_change used?? Maybe it needs a name telling
-        # us what it will be used for. I.e., resetting density, wfs,
-        # initialized keyword...
         old_sj_parameters = copy.deepcopy(self.parameters['sj'])
 
-        major_change = False
+        parent_changed = False  # if something changed outside the SJ wrapper
         sj_dict = kwargs['sj'] if 'sj' in kwargs else {}
         try:
-            changes = [key for key, value in sj_dict.items() if not
-                       equal(value, self.parameters['sj'].get(key))]
+            sj_changes = [key for key, value in sj_dict.items() if not
+                          equal(value, self.parameters['sj'].get(key))]
         except KeyError:
             raise KeyError('Unexpected key provided to sj dict. '
                            'Only keys allowed are {}'.format(
@@ -213,7 +210,7 @@ class SJM(SolvationGPAW):
         #     keyword that should triger a initialization. background_charge
         #     is handled internally.
         if any(key not in ['sj', 'background_charge'] for key in kwargs):
-            major_change = True  # something in parent changed
+            parent_changed = True
             SolvationGPAW.set(self, **kwargs)
 
         if not isinstance(self.parameters['sj'], Parameters):
@@ -226,14 +223,14 @@ class SJM(SolvationGPAW):
                 p[key] = value
 
         # FIXME: make sure all key names are still right.
-        if 'target_potential' in changes:
+        if 'target_potential' in sj_changes:
             self.results = {}
             if p.target_potential is None:
                 self.sog('Potential equilibration has been turned off')
             else:
                 self.sog('Target electrode potential set to {:1.4f} V'
                          .format(p.target_potential))
-        if 'jelliumregion' in changes:
+        if 'jelliumregion' in sj_changes:
             self.results = {}
             self.sog(' Jellium size parameters:')
             if 'start' in p.jelliumregion:
@@ -248,11 +245,11 @@ class SJM(SolvationGPAW):
                 # self.calculate, and since the results are {}'d out above
                 # it will be called then?
                 self.set(background_charge=self.define_jellium(self.atoms))
-        if 'excess_electrons' in changes:
+        if 'excess_electrons' in sj_changes:
             self.results = {}
             self.sog('Number of excess electrons manually changed '
                      'to {:1.8f}'.format(p.excess_electrons))
-        if 'tol' in changes:
+        if 'tol' in sj_changes:
             self.sog('Potential tolerance has been changed to %1.4f V'
                      % p.tol)
             try:
@@ -260,7 +257,7 @@ class SJM(SolvationGPAW):
             except AttributeError:
                 pass
             else:
-                if (abs(true_potential - p.target_potential) > changes[key]):
+                if abs(true_potential - p.target_potential) > sj_changes[key]:
                     self.results = {}
                     self.sog('Recalculating...\n')
                 else:
@@ -270,7 +267,7 @@ class SJM(SolvationGPAW):
             if self.wfs is None:
                 SolvationGPAW.set(self, **kwargs)
             else:
-                if major_change:
+                if parent_changed:
                     self.density = None
                 else:
                     if self.density.nct_G is None:
@@ -458,7 +455,7 @@ class SJM(SolvationGPAW):
                     self.sog('Potential is within tolerance. Equilibrated.')
                     if iteration >= 1:
                         self.timer.stop('Potential equilibration loop')
-                    if p.always_adjust_ne is False:
+                    if p.always_adjust is False:
                         break
 
                 # Change excess electrons based on slope.
