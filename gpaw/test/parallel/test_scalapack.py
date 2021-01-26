@@ -28,15 +28,17 @@ from .test_pblas import \
     calculate_error, mnprocs_i
 
 
-pytestmark = pytest.mark.skipif(
-    world.size < 4 or not compiled_with_sl(),
-    reason='world.size < 4 or not compiled_with_sl()')
+pytestmark = pytest.mark.skipif(not compiled_with_sl(),
+                                reason='not compiled with scalapack')
 
 
 tol = 1.0e-8
 
 
-def main(N=72, seed=42, mprocs=2, nprocs=2, dtype=float):
+@pytest.mark.parametrize('mprocs, nprocs', mnprocs_i)
+@pytest.mark.parametrize('dtype', [float, complex])
+def test_scalapack_diagonalize_inverse(dtype, mprocs, nprocs,
+                                       N=72, seed=42):
     gen = np.random.RandomState(seed)
     grid = BlacsGrid(world, mprocs, nprocs)
 
@@ -186,11 +188,6 @@ def main(N=72, seed=42, mprocs=2, nprocs=2, dtype=float):
     assert inverse_chol_err < tol
     if dtype == complex:
         assert inverse_err < tol
-
-
-def test_parallel_scalapack():
-    main(dtype=complex)
-    main(dtype=float)
 
 
 @pytest.mark.parametrize('mprocs, nprocs', mnprocs_i)
