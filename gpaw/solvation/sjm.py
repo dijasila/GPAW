@@ -225,11 +225,15 @@ class SJM(SolvationGPAW):
         # FIXME: make sure all key names are still right.
         if 'target_potential' in sj_changes:
             self.results = {}
+            # GK: p does not seem to update if it is not done explicitly
+            # here
+            p.target_potential = sj_dict['target_potential']
             if p.target_potential is None:
                 self.sog('Potential equilibration has been turned off')
             else:
                 self.sog('Target electrode potential set to {:1.4f} V'
                          .format(p.target_potential))
+
         if 'jelliumregion' in sj_changes:
             self.results = {}
             self.sog(' Jellium size parameters:')
@@ -244,12 +248,23 @@ class SJM(SolvationGPAW):
                 # FIXME/AP: Is this needed here? Isn't called everytime in
                 # self.calculate, and since the results are {}'d out above
                 # it will be called then?
+                # GK: That's what I did before, but now it seems having
+                #     an empty results dictionary is not triggering a
+                #     calculation anymore. So I am triggering it by using
+                #     define_jellium ;).
                 self.set(background_charge=self.define_jellium(self.atoms))
+
         if 'excess_electrons' in sj_changes:
             self.results = {}
+
+            p.excess_electrons = sj_dict['excess_electrons']
             self.sog('Number of excess electrons manually changed '
                      'to {:1.8f}'.format(p.excess_electrons))
+            if self.atoms is not None:
+                self.set(background_charge=self.define_jellium(self.atoms))
+
         if 'tol' in sj_changes:
+            p.tol = sj_dict['tol']
             self.sog('Potential tolerance has been changed to %1.4f V'
                      % p.tol)
             try:
@@ -257,11 +272,17 @@ class SJM(SolvationGPAW):
             except AttributeError:
                 pass
             else:
-                if abs(true_potential - p.target_potential) > sj_changes[key]:
+                if abs(true_potential - p.target_potential) > p.tol:
                     self.results = {}
                     self.sog('Recalculating...\n')
+                    if self.atoms is not None:
+                        p.excess_electrons = ((p.target_potential -
+                                              true_potential) / p.slope)
+                        self.set(background_charge=self.define_jellium(
+                            self.atoms))
                 else:
                     self.sog('Potential already reached the criterion.\n')
+
         if 'background_charge' in kwargs:
             # background_charge is a GPAW parameter.
             if self.wfs is None:
@@ -412,11 +433,6 @@ class SJM(SolvationGPAW):
                     # We don't want SolvationGPAW to see any more system
                     # changes, like positions, after attempt 0.
                     system_changes = []
-                    if iteration == 1:
-                        self.timer.start('Potential equilibration loop')
-                        # We don't want SolvationGPAW to see any more system
-                        # changes, like positions, after attempt 0.
-                        system_changes = []
 
                 # XXX: should it really be calling this every time?
                 # Meaning: if the number of electrons did not change, then
@@ -446,11 +462,6 @@ class SJM(SolvationGPAW):
                     p.previous_slopes += [p.slope]
                     self.sog('Slope regressed from last two attempts is '
                              '{:.4f} V/electron.'.format(p.slope))
-                    self.sog('Corresponding to a size-normalized slope of '
-                             '{:.4f} V/(electron/Angstrom).'
-                             .format(p.slope * np.product(np.diag(
-                                 atoms.cell[:2, :2]))))
-                    # FIXME/ap: should it be Angstrom^2 above?
 
                     area = np.product(np.diag(atoms.cell[:2, :2]))
                     cap = -1.6022 * 1e3 / (area * p.slope)
