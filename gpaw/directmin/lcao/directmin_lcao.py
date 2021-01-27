@@ -696,7 +696,9 @@ class DirectMinLCAO(DirectLCAO):
     def calculate_residual(self, kpt, H_MM, S_MM, wfs):
         return np.inf
 
-    def get_canonical_representation(self, ham, wfs, occ):
+    def get_canonical_representation(self, ham, wfs, occ,
+                                     update_eigenvalues=True,
+                                     update_wfs=False):
 
         # choose canonical orbitals which diagonalise
         # lagrange matrix. it's probably necessary
@@ -728,7 +730,8 @@ class DirectMinLCAO(DirectLCAO):
             elif self.odd.name == 'PZ_SIC':
                 self.odd.get_lagrange_matrices(h_mm, kpt.C_nM,
                                                kpt.f_n, kpt, wfs,
-                                               update_eigenvalues=True)
+                                               update_eigenvalues=update_eigenvalues,
+                                               update_wfs=update_wfs)
 
         occ.calculate(wfs)
         occ_name = getattr(occ, "name", None)

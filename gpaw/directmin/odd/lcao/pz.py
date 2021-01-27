@@ -939,7 +939,8 @@ class PzCorrectionsLcao:
 
     def get_lagrange_matrices(self, h_mm, c_nm, f_n, kpt,
                               wfs, occupied_only=False,
-                              update_eigenvalues=False):
+                              update_eigenvalues=False,
+                              update_wfs=False):
         n_occ = 0
         nbands = len(f_n)
         while n_occ < nbands and f_n[n_occ] > 1e-10:
@@ -968,10 +969,16 @@ class PzCorrectionsLcao:
 
         k = self.n_kps * kpt.s + kpt.q
 
-        if update_eigenvalues:
-            self.lagr_diag_s[k] = np.diagonal(h_mm + l_odd).real
-            kpt.eps_n[:nbs] = \
-                np.linalg.eigh(h_mm + 0.5 * (l_odd + l_odd.T.conj()))[0]
+        fullham = h_mm + 0.5 * (l_odd + l_odd.T.conj())
+        self.lagr_diag_s[k] = np.diagonal(fullham).real
+        eigval, eigvec = np.linalg.eigh(fullham)
+        if update_eigenvalues and update_wfs:
+            kpt.eps_n[:nbs] = eigval
+            kpt.C_nM[:nbs] = eigvec.T.conj() @ c_nm
+        elif update_eigenvalues:
+            kpt.eps_n[:nbs] = eigval
+        elif update_wfs:
+            kpt.C_nM[:nbs] = eigvec @ c_nm
 
         return h_mm, l_odd
 
