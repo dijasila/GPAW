@@ -975,7 +975,7 @@ class WLDA(XCFunctional):
             # Density already multipled by 2 so don't need to do it
             # here
             e1_g = np.zeros_like(e_g)
-            v1_sg = np.zeros_like(v1_sg)
+            v1_sg = np.zeros_like(v_sg)
             self.do_hartree_corr(gd, n_g[0], nstar_sg[0], e1_g, v1_sg, [0], my_alpha_indices)
             self.do_hartree_corr(gd, n_g[1], nstar_sg[1], e1_g, v1_sg, [1], my_alpha_indices)
 
