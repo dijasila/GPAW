@@ -6,7 +6,6 @@ from gpaw.fd_operators import Gradient
 from gpaw.utilities.tools import coordinates
 from gpaw.lcaotddft.observer import TDDFTObserver
 from gpaw.lcaotddft.densitymatrix import DensityMatrix
-from gpaw.lcaotddft.dipolemomentwriter import convert_repr
 
 
 def skew(a):
@@ -194,15 +193,15 @@ class SerialEMatrix:
 
 
 class MagneticMomentWriter(TDDFTObserver):
-    version = 1
+    version = 2
 
-    def __init__(self, paw, filename, center=True, interval=1,
+    def __init__(self, paw, filename, center=None, interval=1,
                  calculate_on_grid=False, only_pseudo=False):
         TDDFTObserver.__init__(self, paw, interval)
         self.master = paw.world.rank == 0
+        self.center_v = center
         if paw.niter == 0:
             # Initialize
-            self.do_center = center
             if self.master:
                 self.fd = open(filename, 'w')
         else:
@@ -221,9 +220,10 @@ class MagneticMomentWriter(TDDFTObserver):
         gd = paw.wfs.gd
         self.timer = paw.timer
 
-        assert center
-        # TODO: change R0 to choose another origin
-        R0 = 0.5 * np.diag(gd.cell_cv)
+        if self.center_v is None:
+            R0 = 0.5 * gd.cell_cv.sum(0)
+        else:
+            R0 = np.asarray(self.center_v, dtype=float) / Bohr
         Ra_a = paw.atoms.positions / Bohr - R0[None, :]
         r_cG, _ = coordinates(gd, origin=R0)
 
@@ -261,8 +261,10 @@ class MagneticMomentWriter(TDDFTObserver):
         if paw.niter != 0:
             return
         line = '# %s[version=%s]' % (self.__class__.__name__, self.version)
-        line += ('(center=%s)\n' %
-                 (repr(self.do_center)))
+        line += '('
+        if self.center_v is not None:
+            line += 'center=[%.6f, %.6f, %.6f]' % tuple(self.center_v)
+        line += ')\n'
         line += ('# %15s %22s %22s %22s\n' %
                  ('time', 'cmx', 'cmy', 'cmz'))
         self._write(line)
@@ -270,20 +272,17 @@ class MagneticMomentWriter(TDDFTObserver):
     def read_header(self, filename):
         with open(filename, 'r') as f:
             line = f.readline()
-        m_i = re.split("[^a-zA-Z0-9_=']+", line[2:])
-        name = m_i.pop(0)
-        assert name == self.__class__.__name__
-        for m in m_i:
-            if '=' not in m:
-                continue
-            k, v = m.split('=')
-            v = convert_repr(v)
-            if k == 'version':
-                assert v == self.version
-                continue
-            # Translate key
-            k = {'center': 'do_center'}[k]
-            setattr(self, k, v)
+        regexp = r"^(?P<name>\w+)\[version=(?P<version>\d+)\]\((?P<args>.*)\)$"
+        m = re.match(regexp, line[2:])
+        assert m is not None, 'Unknown fileformat'
+        assert m.group('name') == self.__class__.__name__
+        assert int(m.group('version')) == self.version
+        m = re.search(r"center=\[([-+0-9\.]+), ([-+0-9\.]+), ([-+0-9\.]+)\]",
+                      m.group('args'))
+        if m is None:
+            self.center_v = None
+        else:
+            self.center_v = [float(m.group(v + 1)) for v in range(3)]
 
     def _write_kick(self, paw):
         time = paw.time
