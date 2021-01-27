@@ -1,1348 +1,513 @@
 from gpaw.xc.functional import XCFunctional
 import numpy as np
-from gpaw.xc.lda import PurePythonLDAKernel, lda_c, lda_x, lda_constants
 from gpaw.utilities.tools import construct_reciprocal
 import gpaw.mpi as mpi
+import datetime
+from functools import wraps
+from time import time
+from ase.parallel import parprint
+
+def timer(f):
+    
+    @wraps(f)
+    def wrapped(*args):
+        t1 = time()
+        res = f(*args)
+        t2 = time()
+        parprint(f"{f.__name__} took {t2-t1} seconds")
+        return res
+
+    return wrapped
+
+
+def define_indicator(ia, alphas):
+    nalphas = len(alphas)
+    na = np.logical_and
+    if ia == 0:
+        def _i(n_g):
+            res_g = np.zeros_like(n_g)
+            inds = n_g < alphas[1]
+            res_g[inds] = (alphas[1] - n_g[inds]) / (alphas[1] - alphas[0])
+            inds = n_g <= alphas[0]
+            res_g[inds] = 1.0 
+            return res_g
+            
+        def _di(n_g):
+            res_g = np.zeros_like(n_g)
+            inds = n_g < alphas[1]
+            res_g[inds] = -1.0 / (alphas[1] - alphas[0])
+            inds = n_g <= alphas[0]
+            res_g[inds] = 0.0
+            return res_g
+
+
+    elif ia == nalphas - 1:
+        def _i(n_g):
+            res_g = np.zeros_like(n_g)
+            inds = n_g >= alphas[ia - 1]
+            res_g[inds] = (n_g[inds] - alphas[ia - 1]) / (alphas[-1] - alphas[-2])
+            inds = n_g >= alphas[ia]
+            res_g[inds] = 1.0
+            return res_g
+            
+        def _di(n_g):
+            res_g = np.zeros_like(n_g)
+            inds = n_g >= alphas[ia - 1]
+            res_g[inds] = 1.0 / (alphas[-1] - alphas[-2])
+            inds = n_g >= alphas[ia]
+            res_g[inds] = 0.0
+            return res_g
+    else:
+        def _i(n_g):
+            res_g = np.zeros_like(n_g)
+            inds = na(n_g >= alphas[ia - 1], n_g < alphas[ia])
+            res_g[inds] = (n_g[inds] - alphas[ia - 1]) / (alphas[ia] - alphas[ia - 1])
+            inds = na(n_g >= alphas[ia], n_g < alphas[ia + 1])
+            res_g[inds] = (alphas[ia + 1] - n_g[inds]) / (alphas[ia + 1] - alphas[ia])
+            return res_g
+
+        def _di(n_g):
+            res_g = np.zeros_like(n_g)
+            inds = na(n_g > alphas[ia - 1], n_g <= alphas[ia])
+            res_g[inds] = 1.0 / (alphas[ia] - alphas[ia - 1])
+            inds = na(n_g > alphas[ia], n_g < alphas[ia + 1])
+            res_g[inds] = -1.0 / (alphas[ia + 1] - alphas[ia])
+            return res_g
+
+    return _i, _di
+
+def define_alphas(n_sg, nalphas):
+    minn = np.min(n_sg)
+    maxn = np.max(n_sg)
+    if np.allclose(minn, maxn):
+        maxn *= 1.05
+    # The indicator anchors
+    minanchor = 1e-5 # 1e-4 * 200 / nalphas + 5*1e-4
+    minn = max(minn, minanchor)
+    # alphas = np.linspace(minn, maxn, nalphas)
+    alphas = np.exp(np.linspace(np.log(minn), np.log(maxn), nalphas))
+    
+    return alphas
 
 
 class WLDA(XCFunctional):
-    def __init__(self, kernel=None, mode="", filter_kernel=""):
-        XCFunctional.__init__(self, 'WLDA','LDA')
-        #if kernel is None:
-        #    kernel = PurePythonLDAKernel()
-        self.kernel = kernel
-        self.stepsize = 0.1
-        self.stepfactor = 1.1
-        self.nalpha = 5
-        self.alpha_n = None
-        self.mode = mode
-        self.lmax = 1
-        self.n_gi = None
+    def __init__(self, settings):
+        """Init WLDA.
 
-        self.gd1 = None
+        Allowed keys and values for settings:
+        weightfunction: "lorentz", "gauss", "exponential"
+        c1: positive float
+        hartreexc: bool 
+        """
+        XCFunctional.__init__(self, 'WLDA', 'LDA')
 
-        self.nindicators = int(1e3)
-        if "test" in filter_kernel:
-            self.nindicators = int(1e2)
-
-        if "param" in filter_kernel:
-            alphaw = float(filter_kernel.replace("param", ""))
-            self.alphaw = alphaw
-        else:
-            self.alphaw = 20.0
-
-        # self.pot_plotter = Plotter("potential" + mode + filter_kernel, "")
-        # self.dens_plotter = Plotter("density" + mode + filter_kernel, "")
-        # self.inputdens_plotter = Plotter("inputdensity" + mode + filter_kernel, "")
-        # self.corrdens_plotter = Plotter("corrdensity" + mode + filter_kernel, "")
-
-        if filter_kernel.lower() == "fermikinetic":
-            self.filter_kernel = self._fermi_kinetic
-        elif filter_kernel.lower() == "fermicoulomb":
-            self.filter_kernel = self._fermi_coulomb
-        else:
-            filter_kernel = "step function filter"
-            self.filter_kernel = self._theta_filter
-
-        self.num_nis = 10
-        # self.lda_kernel = PurePythonLDAKernel()
-
+        self.nindicators = settings.get('nindicators', None) or int(5 * 1e2)
+        self.rcut_factor = settings.get("rc", None)
+        self.settings = settings
+        # self.wlda_type = 'c'
+        # self.energies = []
         
-    def initialize(self, density, hamiltonian, wfs, occupations):
-        self.density = density #.D_asp
+        self._K_G = None
+        
+    def initialize(self, density, hamiltonian, wfs, occupations=None):
+        self.density = density
         self.hamiltonian = hamiltonian
         self.wfs = wfs
         self.occupations = occupations
 
     def calculate_impl(self, gd, n_sg, v_sg, e_g):
-        if self.mode.lower() == "parallel":
-            self.parallel_calc_impl(gd, n_sg, v_sg, e_g)
-            return
-        if self.mode.lower() == "renorm":
-            self.renorm_mode(gd, n_sg, v_sg, e_g)
-            return
-        if self.mode.lower() == "normal":
-            self.normal_mode(gd, n_sg, v_sg, e_g)
-            return
-        if self.mode.lower() == "altmethod":
-            self.alt_method(gd, n_sg, v_sg, e_g)
-            return
-            
-        assert len(n_sg) == 1
-        if self.gd1 is None:
-            self.gd1 = gd.new_descriptor(comm=mpi.serial_comm)
-        self.alpha_n = None #Reset alpha grid for each calc
+        """Interface for GPAW."""
+        n_sg = n_sg.copy()
+        wn_sg = self.get_working_density(n_sg, gd)
 
-        n1_sg = gd.collect(n_sg)
-        v1_sg = gd.collect(v_sg)
-        e1_g = gd.collect(e_g)
-        if gd.comm.rank == 0:
-            _, nx, ny, nz = n1_sg.shape
-            pre = n1_sg.copy()
-            # self.inputdens_plotter.plot(n1_sg[0, :, ny//2, nz//2])
-            self.calc_corrected_density(n1_sg)
-            # self.corrdens_plotter.plot(n1_sg[0, :, ny//2, nz//2])
-            if self.mode == "" or self.mode == "normal":
-                self.apply_weighting(self.gd1, n1_sg)
-            
-            elif self.mode.lower() == "altcenter":
-                prenorm = self.gd1.integrate(n1_sg[0])
-                n1_g = self.calculate_nstar(n1_sg[0], self.gd1)
-                postnorm = self.gd1.integrate(n1_g)
-                assert np.allclose(prenorm, postnorm)
-                n1_sg[0, :] = n1_g
-        
-            elif self.mode.lower() == "renorm":
-                norm_s = gd.integrate(n_sg)
-                self.apply_weighting(self.gd1, n1_sg)
-                # unnormed_n_sg = n1_sg.copy()
-                newnorm_s = gd.integrate(n1_sg)
-                # Dont renorm because we would have to save another copy of the unnormed array for the corrections.
-                # Instead manually multiply by the renorm factor where needed
-                # n1_sg[0, :] = n1_sg[0,:]
-            elif self.mode.lower() == "constant":
-                self.apply_const_weighting(self.gd1, n1_sg)
-            elif self.mode.lower() == "function":
-                norm_s = self.gd1.integrate(n1_sg)
-                fct = np.exp
-                fn_sg = fct(n1_sg)
-                self.apply_weighting(self.gd1, fn_sg)
-                newnorm_s = self.gd1.integrate(fn_sg)
-                n1_sg[0, :] = fn_sg[0, :] * norm_s[0]/newnorm_s[0]
-            elif self.mode.lower() == "new" or self.mode.lower() == "newrenorm":
-                real_n_sg = n1_sg.copy()
-                self.apply_weighting(self.gd1, n1_sg)
-            elif self.mode.lower() == "lda":
-                from gpaw.xc.lda import lda_x, lda_c
-                n = n1_sg[0]
-                n[n < 1e-20] = 1e-40
+        # Construct arrays for un-distributed energy and potential
+        exc_g = np.zeros_like(wn_sg[0])
+        vxc_sg = np.zeros_like(wn_sg)
 
-                # exchange
-                lda_x(0, e1_g, n, v1_sg[0])
-                # correlation
-                lda_c(0, e1_g, n, v1_sg[0], 0)
-            else:
-                raise ValueError("WLDA mode not recognized")
-
-            from gpaw.xc.lda import lda_c, lda_x
-            C0I, C1, CC1, CC2, IF2 = lda_constants()
-            if len(n_sg) == 2:
-                na = 2. * n_sg[0]
-                na[na < 1e-20] = 1e-40
-                nb = 2. * n_sg[1]
-                nb[nb < 1e-20] = 1e-40
-                n = 0.5 * (na + nb)
-                zeta = 0.5 * (na - nb) / n
-                lda_x(1, e_g, na, v_sg[0])
-                lda_x(1, e_g, nb, v_sg[1])
-                lda_c(1, e_g, n, v_sg, zeta)
-            else:
-                if self.mode.lower() == "renorm":
-                    
-
-                    n = n1_sg[0]
-                    n[n < 1e-20] = 1e-40
-                    n = n * norm_s[0] / newnorm_s[0]
-                    lda_x(0, e1_g, n, v1_sg[0])
-
-    
-                    zeta = 0
-                    lda_c(0, e1_g, n, v1_sg, zeta)
-
-
-                    # rs = (C0I/n)**(1/3) * (newnorm_s[0] / norm_s[0])**(1/3)
-                    # ex = C1/rs
-                    # dexdrs = -ex/rs
-                    # e1_g[:] = n * ex * norm_s[0] / newnorm_s[0]
-                    # v1_sg[0] += ex - rs*dexdrs/3            
-                elif self.mode.lower() == "new":
-                    # Exchange 
-                    n = n1_sg[0]
-                    n[n < 1e-20] = 1e-40
-                    rs = (C0I/n)**(1/3)
-                    ex = C1 / rs
-                    dexdrs = -ex / rs
-                    e1_g[:] = real_n_sg[0] * ex
-                    
-                    # a is defined by a = de_xc / dn* * n
-                    a_x = rs * dexdrs / 3 * real_n_sg[0] / n1_sg[0]
-                    self.potential_correction(np.array([a_x]), self.gd1, n1_sg)
-                    v1_sg[0] += ex - a_x
-
-                    # Correlation
-                    from gpaw.xc.lda import G
-                    ec, decdrs_0 = G(rs ** 0.5,
-                                     0.031091, 0.21370, 7.5957, 3.5876, 1.6382, 0.49294)
-
-                    e1_g[:] += real_n_sg[0] * ec
-                    a_c = rs * decdrs_0 / 3. * real_n_sg[0] / n1_sg[0]
-                    self.potential_correction(np.array([a_c]), self.gd1, n1_sg)
-                    v1_sg[0] += ec - a_c
-
-                elif self.mode.lower() == "newrenorm":
-                    norm = self.gd1.integrate(real_n_sg[0])
-                    newnorm = self.gd1.integrate(n1_sg[0])
-
-                    # Exchange
-                    n = n1_sg[0] *  norm / newnorm
-                    n[n < 1e-20] = 1e-40
-                    rs = (C0I/n)**(1/3)
-                    ex = C1/rs
-                    e1_g[:] = real_n_sg[0] * ex
-
-                    dexdrs = -ex / rs
-
-                    # a is defined by a = de_xc / dn* * n
-                    a = rs * dexdrs / 3 * real_n_sg[0] / (n1_sg[0] * norm / newnorm)
-                    self.renorm_potential_correction(np.array([a]), self.gd1, n1_sg, norm, newnorm)
-                    v1_sg[0] += ex - a
-
-                    # Correlation
-                    from gpaw.xc.lda import G
-                    ec, decdrs_0 = G(rs ** 0.5,
-                                     0.031091, 0.21370, 7.5957, 3.5876, 1.6382, 0.49294)
-
-                    e1_g[:] += real_n_sg[0] * ec
-                    a_c = rs * decdrs_0 / 3.0 * real_n_sg[0] / (n1_sg[0] * norm / newnorm)
-                    self.renorm_potential_correction(np.array([a_c]), self.gd1, n1_sg, norm, newnorm)
-                    v1_sg[0] += ec - a_c
-
-                elif self.mode.lower() == "lda":
-                    pass                    
-                else:
-                    n = n1_sg[0]
-                    n[n < 1e-20] = 1e-40
-                    
-                    lda_x(0, e1_g, n, v1_sg)
-                    
-                    # rs = (C0I/n)**(1/3)
-                    # ex = C1/rs
-                    # dexdrs = -ex/rs
-                    # e1_g[:] = n*ex
-                    # v1_sg[0] += ex - rs*dexdrs/3
-            
-            
-                    zeta = 0
-            
-                    lda_c(0, e1_g, n, v1_sg, zeta)
-
-                if self.mode.lower() == "":
-                    self.potential_correction(v1_sg, self.gd1, n1_sg)
-                    
-                elif self.mode.lower() == "renorm":
-                    self.renorm_potential_correction(v1_sg, self.gd1, n1_sg, norm_s[0], newnorm_s[0])
-
-                _, nx, ny, nz = n1_sg.shape
-                # self.dens_plotter.plot(n1_sg[0, :, :, nz//2])
-                # self.pot_plotter.plot(v1_sg[0, :, :, nz//2])
-                
-        gd.distribute(v1_sg, v_sg)
-        #gd.distribute(n1_sg, n_sg)        
-        gd.distribute(e1_g, e_g)
-
-    def apply_weighting(self, gd, n_sg):
-        if n_sg.shape[0] > 1:
-            raise NotImplementedError
-
-        self.tabulate_weights(n_sg[0], gd)
-        n_g = n_sg[0]
-
-        take_g, weight_g = self.get_take_weight_array(n_g)
-        wtable_gi = self.weight_table
-        wn_g = wtable_gi.take(take_g) * weight_g + wtable_gi.take(take_g + 1) * (1 - weight_g)
-
-        n_sg[0, :] = wn_g
-
-
-
-    def apply_const_weighting(self, gd, n_sg):
-        if n_sg.shape[0] > 1:
-            raise NotImplementedError
-        n_g = n_sg[0]
-        n_g[n_g < 1e-20] = 1e-40
-        prenorm = gd.integrate(n_g)
-        avg_dens = np.mean(n_g)
-        effective_kF = (3*np.pi**2*avg_dens)**(1/3)
-        K_G = self._get_K_G(gd)
-        n_G = np.fft.fftn(n_g)
-        filn_G = self.filter_kernel(effective_kF, K_G, n_G)
-        filn_g = np.fft.ifftn(filn_G)
-        assert np.allclose(filn_g, filn_g.real)
-        postnorm = gd.integrate(filn_g)
-        n_sg[0, :] = filn_g*prenorm/postnorm
-         
-    def apply_other_weighting(self, gd, n_sg):
-        if n_sg.shape[0] > 1:
-            raise NotImplementedError
-
-        n_g = n_sg[0]
-        
-        weight_function_gg = self.get_other_weightfunction(gd, n_g)
-
-        n_g = gd.integrate(weight_function_gg, n_g)
-        n_sg[0, :] = n_g
-
-
-    def get_weightslice(self, gd, n_g, pos, num_cells=5):
-        grid_vg = gd.get_grid_point_coordinates()
-
-        _, Nx, Ny, Nz = grid_vg.shape
-
-        cell_cv = gd.cell_cv
-        
-        w_g = np.zeros((Nx, Ny, Nz))
-        for ix in range(Nx):
-            for iy in range(Ny):
-                w_g[ix, iy, :] = np.array([self.get_weightslice_value(grid_vg[:, ix, iy, iz]-pos, (3*np.pi**2*n_g[ix, iy, iz])**(1/3), gd, num_cells) for iz in range(Nz)])
-                # for iz in range(Nz):
-                #     kF = (3*np.pi**2*n_g[ix, iy, iz])**(1/3)
-
-
-
-                #     r_v = grid_vg[:, ix, iy, iz] - pos                            
-                #     w_g[ix, iy, iz] = self.get_weightslice_value(r_v, kF, gd, num_cells)
+        # If spin-paired we can reuse the weighted density
+        nstar_sg, alpha_indices = self.wlda_x(wn_sg, exc_g, vxc_sg)
         
 
-                #     for n in range(1, num_cells):
-                #         for c, R_v in enumerate(cell_cv):
-                #             R = n*R_v
-                #             r_v = grid_vg[:, ix, iy, iz] + R - pos
-                            
-                #             w_g[ix, iy, iz] += self.get_weightslice_value(r_v, kF, gd, num_cells)
-        
-        return w_g
-
-
-    def get_weightslice_value(self, r_v, kF, gd, num_cells):
-        val = 0
-        r = np.linalg.norm(r_v)
-        if np.allclose(r, 0):
-            val = 0
-        else:
-            val = (1/(2*np.pi**2))*(np.sin(2*kF*r)-2*kF*r*np.cos(2*kF*r))/(r**3)
-
-        for n in range(1, num_cells):
-            for c, R_v in enumerate(gd.cell_cv):
-                R = n*R_v
-                r_v = r_v + R
-                r = np.linalg.norm(r_v)
-                val += (1/(2*np.pi**2))*(np.sin(2*kF*r)-2*kF*r*np.cos(2*kF*r))/(r**3)
-                    
-        return val
-
-
-    def get_other_weightfunction(self, gd, n_g):
-        #grid = gd.get_grid_point_coordinates()
-        #_, Nx, Ny, Nz = grid.shape
-        Nx, Ny, Nz = n_g.shape
-        #assert n_g.shape == grid_gv[:,:,:,0].shape
-        grid = self._get_grid(gd)
-
-
-        dists = np.array([np.linalg.norm(grid[:,ix,iy,iz]-grid[:,ix2,iy2,iz2]) for ix in range(Nx) for iy in range(Ny) for iz in range(Nz) for ix2 in range(Nx) for iy2 in range(Ny) for iz2 in range(Nz)])
-        dists = [d for d in dists if not np.allclose(d, 0)]
-        cutoff = min(dists)
-        weight_function_gg = np.zeros((Nx, Ny, Nz, Nx, Ny, Nz))
-        for ix in range(Nx):
-            for iy in range(Ny):
-                for iz in range(Nz):
-                    for ix2 in range(Nx):
-                        for iy2 in range(Ny):
-                            for iz2 in range(Nz):
-                                diffVec = grid[:, ix, iy, iz] - grid[:, ix2, iy2, iz2]
-                                dist = np.linalg.norm(diffVec)
-                                #dist = max(dist, cutoff)
-                                if np.allclose(dist, 0):
-                                    weight_function_gg[ix, iy, iz, ix2, iy2, iz2] = 0
-                                else:
-                                    dens = 2*(3*np.pi**2*n_g[ix2, iy2, iz2])**(1/3)
-                                    weight_function_gg[ix, iy, iz, ix2, iy2, iz2] = (1/(2*np.pi**2))*(np.sin(dist*dens)-dist*dens*np.cos(dist*dens))/dist**3
-
-        return weight_function_gg
-
-    def _get_grid(self, gd):
-        xs, ys, zs = gd.coords(0), gd.coords(1), gd.coords(2)
-        Nx, Ny, Nz = len(xs), len(ys), len(zs)
-
-        grid = np.zeros((3, Nx, Ny, Nz))
-
-        na = np.newaxis
-        grid[0, :, :, :] = xs[:, na, na]
-        grid[1, :, :, :] = ys[na, :, na]
-        grid[2, :, :, :] = zs[na, na, :]
-
-        return grid
-
-
-    def get_take_weight_array(self, n_g):
-        n_g[n_g < 1e-20] = 1e-40
-        nis = self.get_nis(n_g)
-        nx, ny, nz = n_g.shape
-        take_g = np.array([j * len(nis) for j in range(nx * ny * nz)]).reshape(nx, ny, nz) + (n_g[:, :, :, np.newaxis] >= nis).sum(axis=-1).astype(int) - 1
-
-        nlesser_g = (n_g[:, :, :, np.newaxis] >= nis).sum(axis=-1)
-        ngreater_g = (n_g[:, :, :, np.newaxis] < nis).sum(axis=-1)
-        vallesser_g = nis.take(nlesser_g-1)
-        valgreater_g = nis.take(-ngreater_g)
-        weight_g = (valgreater_g-n_g)/(valgreater_g-vallesser_g)
-
-        return take_g.astype(int), weight_g
-        
-
-    def get_ni_weights(self, n_g):
-        n_g[n_g < 1e-20] = 1e-40
-        nis = self.get_nis(n_g)
-        nlesser_g = (n_g[:, :, :, np.newaxis] >= nis).sum(axis=-1)
-        ngreater_g = (n_g[:, :, :, np.newaxis] < nis).sum(axis=-1)
-        assert (nlesser_g >= 1).all()
-        assert (ngreater_g >= 0).all()
-
-        vallesser_g = nis.take(nlesser_g-1)
-        valgreater_g = nis.take(-ngreater_g)
-
-        partlesser_g = (valgreater_g-n_g)/(valgreater_g-vallesser_g)
-        partgreater_g = (n_g - vallesser_g)/(valgreater_g-vallesser_g)
-
-        n_gi = np.zeros(n_g.shape + nis.shape)
-        for ix, p_yz in enumerate(partlesser_g):
-            for iy, p_z in enumerate(p_yz):
-                for iz, p in enumerate(p_z):
-                    nl = nlesser_g[ix, iy, iz]
-                    n_gi[ix, iy, iz, nl - 1] = p
-                    ng = ngreater_g[ix, iy, iz]
-                    pg = partgreater_g[ix, iy, iz]
-                    n_gi[ix, iy, iz, -ng] = pg
-
-        return n_gi
-
-
-        # vallesser_g2 = np.zeros_like(n_g)
-        # valgreater_g2 = np.zeros_like(n_g)
-
-        # for ix, n_yz in enumerate(nlesser_g):
-        #     for iy, n_z in enumerate(n_yz):
-        #         for iz, n in enumerate(n_z):
-        #             vallesser_g2[ix, iy, iz] = nis[n-1]
-        #             ng = ngreater_g[ix, iy, iz]
-        #             valgreater_g2[ix, iy, iz] = nis[-ng]
-                    
-        # assert np.allclose(vallesser_g, vallesser_g2) ##This is true
-        # assert np.allclose(valgreater_g, valgreater_g2) ##This is also true
-
-
-
-    def _get_ni_weights(self, n_g):
-        flatn_g = n_g.reshape(-1)
-
-        n_gi = np.array([self._get_ni_vector(n) for n in n_g.reshape(-1)]).reshape(n_g.shape + (len(self.nis),))
-
-#np.transpose(np.array([self._get_ni_vector(n) for n in n_g.reshape(-1)]).reshape((len(self.nis),) + n_g.shape), (1, 2, 3, 0))
-
-#.reshape(n_g.shape + (len(self.nis),))
-
-#.reshape((len(self.nis),) + n_g.shape), (1, 2, 3, 0))
-        
-
-
-        return n_gi
-
-    def get_ni_index_weight(self, n, nis):
-        n[n < 1e-20] = 1e-40
-        assert np.min(nis) <= n
-        assert np.max(nis) > n
-        index = (nis <= n).sum()
-        assert index >= 1
-        
-        ngreater = (nis > n).sum()
-        vallesser = nis[index - 1]
-        valgreater = nis[-ngreater]
-        
-        weight = (valgreater-n)/(valgreater-vallesser)
-
-        return int(index), weight
-
-    def get_niindex_niweight(self, n_g):
-        nis = self.get_nis(n_g)
-        nx, ny, nz = n_g.shape
-        
-
-        # niindex_g = np.zeros(len(n_g.reshape(-1)), dtype=int)
-        # niweight_g = np.zeros(len(n_g.reshape(-1)), dtype=np.float)
-        # for index, n in enumerate(n_g.reshape(-1)):
-        #     t = self.get_ni_index_weight(n, nis)
-        #     niindex_g[index] = t[0]
-        #     niweight_g[index] = t[1]
-        from time import time
-        t1 = time()
-        ind_w_g = np.array([self.get_ni_index_weight(n, nis) for n in n_g.reshape(-1)])
-        niindex_g = np.array([t[0] for t in ind_w_g], dtype=int)
-        niweight_g = np.array([t[1] for t in ind_w_g])
-        t2 = time()
-        print("This took: {} s".format(t2 - t1))
-        assert (niindex_g < len(nis) - 1).all()
-        return niindex_g.reshape(nx, ny, nz), niweight_g.reshape(nx, ny, nz)
-        
-                    
-    def _get_ni_vector(self, n):
-        #Find best superposition of nis to interpolate to n
-        nis = self.nis
-        ni_vector = np.zeros_like(nis)
-        nlesser = (nis <= n).sum()
-        ngreater = (nis > n).sum()
-        if ngreater == 0:
-            d = n - nis[-1]
-            m1 = 1 + d/(nis[-1]-nis[-2])
-            m2 = -d/(nis[-1]-nis[-2])
-            ni_vector[-1] = m1
-            ni_vector[-2] = m2
-            return ni_vector
-        
-        if ngreater == len(nis):
-            d = n - nis[0]
-            m1 = 1 - d/(nis[1]-nis[0])
-            m2 = d/(nis[1]-nis[0])
-            ni_vector[0] = m1
-            ni_vector[1] = m2
-            return ni_vector
-
-        vallesser = nis[nlesser - 1]
-        valgreater = nis[-ngreater]
-        
-        partlesser = (valgreater-n)/(valgreater-vallesser)
-        partgreater = (n - vallesser)/(valgreater-vallesser)
-
-
-        ni_vector[nlesser-1] = partlesser
-        ni_vector[-ngreater] = partgreater
-
-        return ni_vector
-
-    def _get_K_G(self, gd):
-        assert gd.comm.size == 1 # Construct_reciprocal doesnt work in parallel
-        k2_Q, _ = construct_reciprocal(gd)
-        k2_Q[0,0,0] = 0
-        return k2_Q**(1/2)
-        
-    def _theta_filter(self, k_F, K_G, n_G):
-        
-        Theta_G = (K_G**2 <= 4*k_F**2).astype(np.complex128)
-
-        return n_G*Theta_G
-
-    def _fermi_kinetic(self, k_F, K_G, n_G):
-        if np.allclose(k_F, 0):
-            return self._theta_filter(k_F, K_G, n_G)
-        rs = (9 * np.pi / 4)**(1/3) * 1 / (k_F)
-        if 1/rs < 1e-3:
-            return self._theta_filter(k_F, K_G, n_G)
-        
-        filter_G = 1 / (np.exp( (K_G**2 - 4 * k_F**2) / (1 / (2 * rs**2))) + 1)
-
-        return n_G * filter_G
-
-    def _fermi_coulomb(self, k_F, K_G, n_G):
-        if np.allclose(k_F, 0):
-            return self._theta_filter(k_F, K_G, n_G)
-        rs = (9 * np.pi / 4)**(1/3) * 1 / (k_F)
-        if 1/rs < 1e-3:
-            return self._theta_filter(k_F, K_G, n_G)
-
-        filter_G = 1 / (np.exp( (K_G - 2 * k_F) / (1 / rs)) + 1)
-
-        return n_G * filter_G
-
-    def _gaussian_filter(self, k_F, K_G, n_G):
-        if np.allclose(k_F, 0):
-            gauss_G = np.zeros_like(K_G).astype(np.complex128)
-            assert np.allclose(K_G[0,0,0], 0)
-            gauss_G[0,0,0] = 1.0
-        else:
-            # If the prefactor becomes too large, the positivity of the weighted
-            # density is no longer conserved
-            # I think this is due to the function no longer being numerically
-            # close enough to a gaussian on the discreet, finite grid.
-            # This leads to the fourier transform of the kernel having negative values in some
-            # regions.
-            # We can enforce positivity of the kernel in real space as below
-            # or do something else...
-            # The problem with enforcing positivity is that the analytical expression for the kernel
-            # is no longer so easy to express
-            # Or we can take another approach and define the kernel in realspace XX Nope.
-            # This doesnt work because we will effectively get a periodic function like
-            # this, and we need a gaussian
-
-            prefactor = 1.0
-            norm = 1.0
-            gauss_G = (np.exp(-K_G**2 / (prefactor * k_F**2)) / norm).astype(np.complex128)
-            gauss_g = np.fft.ifftn(gauss_G).real
-            gauss_g[gauss_g < 1e-8] = 1e-10
-            gauss_G = np.fft.fftn(gauss_g)
-            # This kernel does not preserve the integral..
-
-        res = gauss_G*n_G
-        return res     
-
-    def get_nis(self, n_g):
-        n_g[n_g < 1e-20] = 1e-40
-        # maxLogVal = np.log(np.max(n_g) * 1.1 + 1)
-        # deltaLog = np.log(self.stepfactor)
-        # nis = np.exp(np.arange(0, maxLogVal, deltaLog)) - 1
-        # assert len(nis) > 1
-        # return nis
-        def maxit(a, b):
-            if np.isnan(a):
-                return b
-            if np.isnan(b):
-                return a
-            else:
-                return max(a, b)
-
-        nis = np.arange(0, maxit(np.max(n_g)+2*self.stepsize, 5), self.stepsize)
-        stepsize = self.stepsize
-        while len(nis) > 30:
-            stepsize *= 1.2
-            nis = np.arange(0, maxit(np.max(n_g)+2*self.stepsize, 5), stepsize)
-        return nis
-
-
-    def tabulate_weights(self, n_g, gd):
-        '''
-        Calculate \int  w(r-r', ni)n(r') dr'
-        for various values of ni.
-
-        This is later used to calculate nstar(r) = \int w(r-r', n(r))n(r')
-        by interpolating the values at the ni to the value at n(r).
-
-        '''
-        n_g[n_g < 1e-20] = 1e-40
-        nis = self.get_nis(n_g)
-        K_G = self._get_K_G(gd)
-        self.nis = nis
-        self.weight_table = np.zeros(n_g.shape+(len(nis),))
-        n_G = np.fft.fftn(n_g)
-
-        for i, ni in enumerate(nis):
-            k_F = (3*np.pi**2*ni)**(1/3)
-            fil_n_G = self.filter_kernel(k_F, K_G, n_G)
-            x = np.fft.ifftn(fil_n_G)
-            #if (n_g >= 0).all():
-            #    assert np.allclose(x, x.real)
-
-            self.weight_table[:,:,:,i] = x.real
-
-    
-    def tabulate_weights2(self, n_g, gd):
-        n_g[n_g < 1e-20] = 1e-40
-        nis = self.get_nis(n_g)
-        K_G = self._get_K_G(gd)
-        self.nis = nis
-        #self.weight_table = np.zeros(n_g.shape + (len(nis),))
-        n_G = np.fft.fftn(n_g)
-        k_Fi = (3*np.pi**2*nis)**(1/3)
-        theta_Gi = ((K_G**2)[:, :, :, np.newaxis] <= 4*k_Fi**2).astype(np.complex128)
-        filn_Gi = n_G[:,:, :, np.newaxis]*theta_Gi
-        filn_gi = np.fft.ifftn(filn_Gi, axes=[0,1,2])
-        self.weight_table = filn_gi.real
-
-
-
-    def get_alpha_grid(self, n_g):
-        if self.alpha_n is not None:
-            return self.alpha_n
-        
-        alpha_n = np.linspace(0, np.max(n_g), self.nalpha)
-
-        self.alpha_n = alpha_n
-        return alpha_n
-
-
-    
-    def construct_cubic_splines(self, n_g):
-        '''
-        This construct cubic spline interpolations for the indicator functions f_alpha.
-        See http://en.wikipedia.org/wiki/Spline_(mathematics) (subsection Algorithm for computing natural cubic splines)
-
-        We here calculate the splines for all the indicator functions simultaneously, so our arrays have an extra index. The row-index enumerates the different splines making up and indicator, while the column index enumerates the different indicators
-
-        f_alpha(x) should be 1 in x = alpha and zero otherwise. But this is too strict so we to interpolation instead.
-        '''
-        alpha_n = self.get_alpha_grid(n_g)
-        nalpha = self.nalpha #~n+1 in algo on wikipedia
-
-        y = np.eye(nalpha) #Target values for the indicator functions
-        a = y 
-        h = alpha_n[1:] - alpha_n[:-1]
-        
-        beta_k = 3*(a[2:] - a[1:-1])/h[1:, np.newaxis] - 3*(a[1:-1] - a[:-2])/h[:-1, np.newaxis]
-
-        l = np.ones((nalpha, nalpha))
-        mu = np.zeros((nalpha, nalpha))
-        z = np.zeros((nalpha, nalpha))
-        
-        for i in range(1, nalpha-1):
-            l[i] = 2*(alpha_n[i+1] - alpha_n[i-1]) - h[i-1]*mu[i-1]
-            mu[i] = h[i]/l[i]
-            z[i] = (beta_k[i-1] - h[i-1]*z[i-1])/l[i]
-        
-        b = np.zeros((nalpha, nalpha))
-        c = np.zeros((nalpha, nalpha))
-        d = np.zeros((nalpha, nalpha))
-        
-        for i in range(nalpha-2, -1, -1):
-            c[i] = z[i] - mu[i]*c[i+1]
-            b[i] = (a[i+1]-a[i])/h[i] - (h[i]*(c[i+1] + 2*c[i]))/3
-            d[i] = (c[i+1] - c[i])/(3*h[i])
-
-            
-        #Now we switch the order, so the first index is the indicator, the second is the spline, the third is the coefficient
-        #We also add an extra spline for every indicator. This is just set to be constant
-        self.C_nsc = np.zeros((nalpha, nalpha, 4))
-        self.C_nsc[:, :-1, 0] = a[:-1].T
-        self.C_nsc[:, :-1, 1] = b[:-1].T
-        self.C_nsc[:, :-1, 2] = c[:-1].T
-        self.C_nsc[:, :-1, 3] = d[:-1].T
-        self.C_nsc[-1, -1, 0] = 1.0 #The last indicator should be one at the last alpha-pt, therefore the extra spline should have value 1
-
-        return self.C_nsc
-                                         
-        
-    
-
-    def get_spline_values(self, C_nsc, n_g, gd):
-        grid_vg = gd.get_grid_point_coordinates()
-        
-        grid_vx = grid_vg.reshape(3, -1)
-
-        n_x = n_g.reshape(-1)
-        gridshape = n_g.shape
-        #C_ng2 = np.array([[self.expand_spline(n, C_sc) for n in n_x] for C_sc in C_nsc]).reshape(len(C_nsc), *gridshape)
-        # C_ng = np.array([self.expand_spline2(n_x, C_sc) for C_sc in C_nsc]).reshape(len(C_nsc), *gridshape)
-        C_ng = self.expand_spline3(n_x, C_nsc).reshape(len(C_nsc), *gridshape)
-        #assert np.allclose(C_ng2, C_ng)
-        return C_ng
-
-
-    def expand_spline3(self, n_x, C_nsc):
-
-        n_x[n_x < 1e-20] = 1e-40
-        alpha_i = self.alpha_n
-        nlesser_x = (n_x[:, np.newaxis] >= alpha_i).sum(axis=1)
-        assert (nlesser_x >= 1).all()
-        coeff_nsc = C_nsc[:, nlesser_x - 1]
-        a_xn, b_xn, c_xn, d_xn = coeff_nsc.T
-        alpha_x = alpha_i[nlesser_x - 1]
-        a_nx, b_nx, c_nx, d_nx = a_xn.T, b_xn.T, c_xn.T, d_xn.T
-
-        C_nx = a_nx + b_nx*(n_x-alpha_x) + c_nx*(n_x-alpha_x)**2 + d_nx*(n_x-alpha_x)**3
-
-        return C_nx
-
-    def expand_spline2(self, x, C_sc):
-        x[x < 1e-20] = 1e-40
-        alpha_n = self.alpha_n
-        nlessers = np.array([(alpha_n <= xval).astype(int).sum() for xval in x])
-        assert (nlessers >= 1).all()
-        a, b, c, d = C_sc[nlessers - 1].T
-        alphas = alpha_n[nlessers - 1]
-
-        return a + b*(x-alphas) + c*(x-alphas)**2 + d*(x-alphas)**3
-
-
-
-    def expand_spline(self, x, C_sc):
-        x[x < 1e-20] = 1e-40
-        alpha_n = self.alpha_n
-
-        val = 0
-        nlesser = (alpha_n <= x).astype(int).sum()
-        assert nlesser >= 1
-        a, b, c, d = C_sc[nlesser - 1]
-        alpha = alpha_n[nlesser - 1]
-
-        return a + b*(x-alpha) + c*(x-alpha)**2 + d*(x-alpha)**3
-
-
-
-    def get_weight_alphaG(self, gd):
-        alpha_n = self.get_alpha_grid(None)
-        _, nx, ny, nz = gd.get_grid_point_coordinates().shape
-        K_G = self._get_K_G(gd)
-        w_alphaG = np.zeros((len(alpha_n), *K_G.shape), dtype=np.complex128)
-
-        for ia, alpha in enumerate(alpha_n):
-            k_F = self.get_kF(alpha)
-            step_fct_G = (K_G**2 <= 4*k_F**2).astype(np.complex128)
-            w_alphaG[ia, :, :, :] = step_fct_G
-        
-        # norm_alpha = np.array([gd.integrate(np.fft.ifftn(w_G)) for w_G in w_alphaG])
-        # w_alphaG = np.array([w_G/norm_alpha[a] for a, w_G in enumerate(w_alphaG)])
-        #norm = gd.integrate(np.fft.ifftn(w_alphaG[0]))
-        #w_alphaG /= gd.dv
-        return w_alphaG
-    
-
-    def calculate_nstar(self, n_g, gd):
-        C_nsc = self.construct_cubic_splines(n_g)
-        C_alphag = self.get_spline_values(C_nsc, n_g, gd)
-        product_alphag = np.array([C_g*n_g for C_g in C_alphag])
-        product_alphaG = np.array([np.fft.fftn(product_g) for product_g in product_alphag])
-        w_alphaG = self.get_weight_alphaG(gd)
-        integrand_alphaG = np.array([w_G*product_alphaG[ia] for ia, w_G in enumerate(w_alphaG)])
-        integrand_G = np.sum(integrand_alphaG, axis=0)
-        nstar_g = np.fft.ifftn(integrand_G)
-
-        return nstar_g
-       
-    def get_kF(self, density):
-        return (3*np.pi**2*density)**(1/3)
-
-    def solve_poisson(self, n_g, gd):
-        K_G = self._get_K_G(gd)
-        K2_G = K_G**2
-        K2_G[0,0,0] = 1.0 ##This only works if the norm of nstar is the same as the original density
-        n_G = np.fft.fftn(n_g)
-        
-        v_G = n_G/K2_G
-        
-        return np.fft.ifftn(v_G)
-
-    
-    def calc_hartree_energy(self, n_g, gd):
-        v_g = self.solve_poisson(n_g, gd)
-
-        E_H = gd.integrate(n_g*v_g)/2
-        
-        return E_H.real
-
-    def calc_hartree_potential_correction(self, nstar_g, n_g, gd):
-        vstar_g = self.solve_poisson(nstar_g, gd)
-        v_g = self.solve_poisson(n_g, gd)
-        
-        return (vstar_g - v_g).real
-
-    
-    def calc_hartree_energy_correction(self, nstar_g, n_g, gd):
-        Estar_H = self.calc_hartree_energy(nstar_g, gd)
-        E_H = self.calc_hartree_energy(n_g, gd)
-        
-        return Estar_H - E_H
-
-        
-
-    def calc_corrected_density(self, n_sg, num_l=1):
-        if not hasattr(self.wfs.setups[0], "calculate_pseudized_atomic_density"):
-            return
-        # import matplotlib.pyplot as plt
-        # before = n_sg.copy()
-        # grid_vg = self.wfs.gd.get_grid_point_coordinates()
-
-        # _, nx, ny, nz = n_sg.shape
-        # plt.plot( n_sg[0, :, ny//2,nz//2].copy(), label="before")
-        setups = self.wfs.setups
-        # print("BEFOREDensity norm is: {}".format(self.gd1.integrate(n_sg[0])))
-        dens = n_sg[0].copy()
-        for a, setup in enumerate(setups):
-            spos_ac_indices = list(filter(lambda x : x[1] == setup, enumerate(setups)))
-            spos_ac_indices = [x[0] for x in spos_ac_indices]
-            spos_ac = self.wfs.spos_ac[spos_ac_indices]
-            t = setup.calculate_pseudized_atomic_density(spos_ac)
-            t.add(dens) # setup.pseudized_atomic_density.add(n_sg[0], 1)
-            # n_sg[0] += t
-        n_sg[0] = dens
-
-
-        #print(np.argmax(np.abs(awd)))
-        # print(awd[:10, :10, nz//2])
-        
-        # plt.plot(n_sg[0, :, ny//2, nz//2].copy(), label="after")
-        # plt.plot(n_sg[0, :, ny//2, nz//2] - before[0, :, ny//2, nz//2], label="difference")
-        # plt.legend()
-        # print("AFTERDensity norm is: {}".format(self.gd1.integrate(n_sg[0])))
-        # plt.show()
-        # assert not np.allclose(n_sg-before, 0)
-
-    def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None, a=None):
-        return 0
-        
-    def potential_correction(self, v_sg, gd, n_sg):
-        kF_i = np.array([(3*np.pi**2*ni)**(1/3) for ni in self.get_nis(n_sg[0])])
-        K_G = self._get_K_G(gd)
-        n_gi = self.get_ni_weights(n_sg[0]).astype(np.complex128)
-        w_g = np.zeros_like(v_sg[0], dtype=np.complex128)
-        for i, k_F in enumerate(kF_i):
-            one_G = np.fft.fftn(v_sg[0] * n_gi[:, :, :, i])
-            filv_g = np.fft.ifftn(self.filter_kernel(k_F, K_G, one_G))
-            assert np.allclose(filv_g, filv_g.real), "Filtered potential was not real for kF: {}".format(k_F)
-            w_g += filv_g
-            
-        assert np.allclose(w_g, w_g.real)
-        v_sg[0, :] = w_g.real
-        
-    def renorm_potential_correction(self, v_sg, gd, n_sg, norm, newnorm):
-        N = 1 / newnorm - norm / newnorm**2
-        kF_i = np.array([(3 * np.pi**2 * ni)**(1 / 3) for ni in self.get_nis(n_sg[0])])
-        K_G = self._get_K_G(gd)
-        n_gi = self.get_ni_weights(n_sg[0]).astype(np.complex128)
-        w_g = np.zeros_like(v_sg[0], dtype=np.complex128)
-        ofunc_g = np.zeros_like(v_sg[0], dtype=np.complex128)
-        for i, k_F in enumerate(kF_i):
-            one_G = np.fft.fftn(v_sg[0] * n_gi[:, :, :, i])
-            filv_g = np.fft.ifftn(self.filter_kernel(k_F, K_G, one_G))
-            assert np.allclose(filv_g, filv_g.real)
-            w_g += filv_g
-
-            fi_G = np.fft.ifftn(n_gi[:, :, :, i])
-            ofunc_g += np.fft.ifftn(self.filter_kernel(k_F, K_G, fi_G))
-
-        
-        w_g = w_g * norm / newnorm +  ofunc_g * gd.integrate(n_sg[0] * v_sg[0]) * N
-        assert np.allclose(w_g, w_g.real)
-
-        v_sg[0, :] = w_g.real
-        
-        
-    
-    def parallel_calc_impl(self, gd, n_sg, v_sg, e_g):
-        assert len(n_sg) == 1
-        import gpaw.mpi as mpi
-        world = mpi.world
-        self.world = world
-        self.gd1 = gd.new_descriptor(comm=mpi.serial_comm)        
-
-        n1_sg = gd.collect(n_sg, broadcast=True)
-
-        ##PLOT
-        _, nx, ny, nz = n1_sg.shape
-        # if world.rank == 0:
-        #     self.inputdens_plotter.plot(n1_sg[0, :, ny//2, nz//2])
-        ##ENDPLOT
-        
-        self.calc_corrected_density(n1_sg)
-        n1norm_s = self.gd1.integrate(n1_sg)
-
-        ##PLOT
-        # if world.rank == 0:
-        #     self.corrdens_plotter.plot(n1_sg[0, :, ny//2, nz//2])
-        ##ENDPLOT            
-        
-        my_nis, my_lower, my_upper = self.get_my_nis(n1_sg)
-
-        my_f_sig = self.get_my_weights(n1_sg, my_nis, my_lower, my_upper)
-
-        nustar_sg = self.apply_filter_kernel(n1_sg, my_nis, my_f_sig)
-        
-        world.sum(nustar_sg)
-        nunorm_s = self.gd1.integrate(nustar_sg)
-
-        # Calculate LDA evaluated on weighted density
-        v_lda_sg = np.zeros_like(n1_sg)
-        e1_g = np.zeros_like(n1_sg[0])
-        v1_sg = np.zeros_like(n1_sg)
-        self.do_lda(v_lda_sg, e1_g, n1_sg, nustar_sg, n1norm_s, nunorm_s)
-        
-        # Apply corrections
-        v1_sg = self.fold_pot_with_weights(v_lda_sg, my_nis, my_f_sig, n1norm_s / nunorm_s)
-        v1_sg += self.final_pot_correction(v_lda_sg, my_nis, my_f_sig, nustar_sg, n1norm_s, nunorm_s)
-            
-        
-        world.sum(v1_sg)
-        world.sum(e1_g)
-        ##PLOT
-        # if world.rank == 0:
-        #     self.dens_plotter.plot((nustar_sg[0] *n1norm_s[0]/nunorm_s[0])[:, :, nz//2])
-        #     self.pot_plotter.plot(v1_sg[0, :, :, nz//2])
-        ##ENDPLOT
-        gd.distribute(e1_g, e_g)
-        gd.distribute(v1_sg, v_sg)
-
-    def get_my_nis(self, full_density_sg):
-        assert len(full_density_sg) == 1
-
-        size = self.world.size
-        
-        num_per_bin = self.num_nis // size
-        left_over = self.num_nis % size
-
-        nis = [num_per_bin] * size
-        nis[0] = num_per_bin + left_over
-        assert np.sum(nis) == self.num_nis
-
-        my_number_of_nis = int(nis[self.world.rank])
-
-        my_start_ni_index = np.sum(nis[:self.world.rank])
-        assert np.allclose(my_start_ni_index, int(my_start_ni_index))
-        my_start_ni_index = int(my_start_ni_index)
-
-        total_nis = np.linspace(0, np.max(np.abs(full_density_sg)), self.num_nis, dtype=float)
-        assert (total_nis >= 0).all()
-
-        
-        lower_boundary = total_nis[my_start_ni_index - 1] if my_start_ni_index != 0 else 0
-        upper_boundary = total_nis[my_start_ni_index + my_number_of_nis] if my_start_ni_index + my_number_of_nis != len(total_nis) else total_nis[-1]
-
-        return total_nis[my_start_ni_index:my_start_ni_index + my_number_of_nis], lower_boundary, upper_boundary
-
-    def get_my_weights(self, full_density_sg, my_nis, my_lower, my_upper):
-        assert len(full_density_sg) == 1
-        _, nx, ny, nz = full_density_sg.shape
-        
-        my_num_nis = len(my_nis)
-        my_f_ig = np.zeros((my_num_nis, nx, ny, nz))
-
-        n_xyz = full_density_sg[0]
-
-        # TODO: Make this more efficient by using list comp/numpy stuff by flattening and reshaping array
-        for ini, ni in enumerate(my_nis):
-            for ix, n_yz in enumerate(n_xyz):
-                for iy, n_z in enumerate(n_yz):
-                    for iz, n in enumerate(n_z):
-                        if n <= my_lower or n >= my_upper:
-                            weight = 0
-                        else:
-                            nlesser = (my_nis <= n).sum()
-                            ngreater = (my_nis > n).sum()
-                            vallesser = my_nis[nlesser - 1]
-                            valgreater = my_nis[ngreater]
-                            weight = (valgreater - n) / (valgreater - vallesser)
-                        my_f_ig[ini, ix, iy, iz] = weight
-
-        return np.array([my_f_ig])
-
-    def do_lda(self, v_lda_sg, e1_g, n1_sg, nustar_sg, n1norm_s, nunorm_s):
-        from gpaw.xc.lda import lda_x, lda_c
-        if self.mode.lower() == "renorm" or self.mode.lower() == "parallel":    
-            n = nustar_sg[0]
-            n[n < 1e-20] = 1e-40
-            n = n * n1norm_s[0] / nunorm_s[0]
-            lda_x(0, e1_g, n, v_lda_sg[0])
-            zeta = 0
-            lda_c(0, e1_g, n, v_lda_sg, zeta)
-        else:
-            raise NotImplementedError
-
-    def apply_filter_kernel(self, full_density_sg, my_nis, my_f_sig):
-        assert len(full_density_sg) == 1
-        
-        n = full_density_sg[0]
-        n[n <= 1e-20] = 1e-40
-        
-        n_G = np.fft.fftn(n)
-
-        shape = n_G.shape
-
-        nustar_ig = np.zeros((len(my_nis), ) + shape)
-        K_G = self._get_K_G(self.gd1)
-
-        for ini, ni in enumerate(my_nis):
-            k_F = (3*np.pi**2*ni)**(1/3)
-            a = np.fft.ifftn(self.filter_kernel(k_F, K_G, n_G))
-            assert np.allclose(a, a.real)
-            nustar_ig[ini] += a.real
-
-        nustar_g = np.zeros(shape)
-        for ini, ni in enumerate(my_nis):
-            k_F = (3*np.pi**2*ni)**(1/3)
-            a = np.fft.ifftn(self.filter_kernel(k_F, K_G, n_G))
-            assert np.allclose(a, a.real)
-            nustar_g += a.real * my_f_sig[0, ini]
-        
-        result_g = np.einsum("iabc, iabc -> abc", my_f_sig[0], nustar_ig)    
-        assert np.allclose(result_g, nustar_g)
-
-        return np.array([result_g])
-            
-    def fold_pot_with_weights(self, v_lda_sg, my_nis, my_f_sig, norm_factor):
-        assert len(v_lda_sg) == 1
-        v = v_lda_sg[0]
-        f_ig = my_f_sig[0]
-        K_G = self._get_K_G(self.gd1)
-
-        v_result = np.zeros_like(v)
-        for ini, ni in enumerate(my_nis):
-            integrand_G = np.fft.fftn(v * f_ig[ini])
-            k_F = (3 * np.pi**2 * ni)**(1/3)
-            q = np.fft.ifftn(self.filter_kernel(k_F, K_G, integrand_G))
-            assert np.allclose(q, q.real)
-            v_result += q.real
-
-        v_result *= norm_factor * v_result
-
-        return np.array([v_result])
-
-    def final_pot_correction(self, v_lda_sg, my_nis, my_f_sig, nustar_sg, n1norm_s, nunorm_s):
-        assert len(nustar_sg) == 1
-        
-        prefactor = (1 / nunorm_s[0] - n1norm_s[0] / nunorm_s[0]**2)
-
-        energy_factor = self.gd1.integrate(v_lda_sg[0] * nustar_sg[0])
-        assert energy_factor.ndim == 0
-
-        v_g = np.zeros_like(v_lda_sg[0])
-        
-        K_G = self._get_K_G(self.gd1)
-        for ini, ni in enumerate(my_nis):
-            k_F = (3 * np.pi**2 * ni)**(1/3)
-            f_G = np.fft.fftn(my_f_sig[0, ini])
-            q = np.fft.ifftn(self.filter_kernel(k_F, K_G, f_G))
-            assert np.allclose(q, q.real)
-            v_g += q.real
-        
-        return np.array([v_g * prefactor * energy_factor])
-
-                    
-
-    
-    def renorm_mode(self, gd, n_sg, v_sg, e_g):
-
-        # Get AE density
-        nae_sg = self.get_ae_density(gd, n_sg)
-
-        # Set up and distribute n_i grid
-        ni_j, ni_lower, ni_upper = self.get_ni_grid(mpi.rank, mpi.size, nae_sg)
-
-        # Calculate f_is based on AE density
-        f_isg = self.get_f_isg(ni_j, ni_lower, ni_upper, nae_sg)
-        
-        # Calculate w_isg = \int dr' w(r-r', n_i)n(r')
-        # We need a gd with the full grid
-        gd1 = gd.new_descriptor(comm=mpi.serial_comm)
-        w_isg = self.get_w_isg(ni_j, nae_sg, gd1, self.filter_kernel)
-
-        # Calculate unnormed, weighted density
-        nu_sg = self.weight_density(f_isg, w_isg)
-        # Each rank has only a part of the density
-        # but later each rank needs the full density, so sum it
-        mpi.world.sum(nu_sg)
-        nu_sg[nu_sg < 1e-20] = 1e-40
-
-        # Norms are needed for later calculations
-        weighted_norm = gd1.integrate(nu_sg)
-        ae_norm = gd1.integrate(nae_sg)
-        assert (weighted_norm > 0).all()
-        assert (ae_norm > 0).all()
-        # Calculate WLDA energy, E_WLDA = E_LDA[n^*]
-        # How do we handle the fact the density is not positive definite?
-        # The energy is the correct energy, hence the WLDA suffix.
-        # The potential needs modification hence LDA suffix.
-        EWLDA_g, vLDA_sg = self.calculate_lda_energy_and_potential(nu_sg * ae_norm / weighted_norm)
-
-        # Calculate WLDA potential
-        vWLDA_sg = self.calculate_wlda_potential(f_isg, w_isg, nu_sg, ae_norm, weighted_norm, vLDA_sg, gd1)
-        mpi.world.sum(vWLDA_sg)
-        
-        # Put calculated quantities into arrays
-        gd.distribute(vWLDA_sg, v_sg)
-        gd.distribute(EWLDA_g, e_g)
-
-    def get_ae_density(self, gd, n_sg):
-        from gpaw.xc.WDAUtils import correct_density
-        return correct_density(n_sg, gd, self.wfs.setups, self.wfs.spos_ac)
-
-    def get_ni_grid(self, my_rank, world_size, n_sg):
-        from gpaw.xc.WDAUtils import get_ni_grid
-        return get_ni_grid(my_rank, world_size, np.max(n_sg), self.num_nis)
-
-    def get_f_isg(self, ni_j, ni_lower, ni_upper, n_sg):
-        # We want to construct an array f_isg where f_isg[a,b,c]
-        # gives the weight at n_i[a] for spin b at grid point c
-        # The weights are determined by linear interpolation:
-        # n_i--n----n_i+1 -> f_i: 2/3, f_i+1: 1/3
-                            
-        if ni_upper != ni_j[-1]:
-            augmented = np.hstack([ni_j, [ni_upper]])
-        else:
-            augmented = ni_j
-
-        if len(n_sg) != 1:
-            raise NotImplementedError
-        
-        f_isg = np.zeros((len(ni_j),) + n_sg.shape)
-        for ix, n_yz in enumerate(n_sg[0]):
-            for iy, n_z in enumerate(n_yz):
-                for iz, n in enumerate(n_z):
-                    if n < ni_lower or n > ni_upper:
-                        weights = np.zeros(len(ni_j))
-                    else:
-                        nlesser = (ni_j <= n).sum()
-                        weights = np.zeros(len(ni_j))
-                        
-                        if nlesser != 0:
-                            if nlesser != len(ni_j):
-                                weight_lesser = (ni_j[nlesser] - n) / (ni_j[nlesser] - ni_j[nlesser-1])
-                                weights[nlesser-1] = weight_lesser
-                                weights[nlesser] = 1 - weight_lesser
-                            else:
-                                if ni_j[-1] == ni_upper:
-                                    weights[nlesser-1] = 1
-                                else:
-                                    weights[nlesser-1] = (ni_upper - n) / (ni_upper - ni_j[-1])
-                        else:
-                            if ni_j[0] != ni_lower:
-                                weight_lesser = (ni_j[0] - n) / (ni_j[0] - ni_lower)
-                                weights[0] = 1 - weight_lesser
-                            else:
-                                weights[0] = 1
-
-                    f_isg[:, 0, ix, iy, iz] = weights
-        return f_isg
-        
-    def get_w_isg(self, ni_j, n_sg, gd, kernel):
-        if len(n_sg) != 1:
-            raise NotImplementedError
-        # Calculate convolution of n_sg with the kernel K(r-r; ni_j)
-      
-        K_G = self._get_K_G(gd)
-
-        # Set up kernel in fourier space for each ni
-        w_isg = np.zeros((len(ni_j),) + n_sg.shape)
-        for j, ni in enumerate(ni_j):
-            k_F = (3 * np.pi**2 * ni)**(1/3)
-            n_G = np.fft.fftn(n_sg[0])
-            # Calculate convolution via convolution theorem
-            fn_G = kernel(k_F, K_G, n_G)
-            fn_g = np.fft.ifftn(fn_G)
-            assert np.allclose(fn_g, fn_g.real)
-            w_isg[j, 0, ...] = fn_g.real
-
-        # This calculation does not exactly preserve the norm.
-        # Do we want to fix that manually?
-        return w_isg
-
-    def weight_density(self, f_isg, w_isg):
-        nu_sg = (f_isg*w_isg).sum(axis=0)
-        assert nu_sg.ndim == 4
-
-        return nu_sg
-
-    def calculate_lda_energy_and_potential(self, n_sg):
-        assert n_sg.dtype == np.float64
-        assert (n_sg >= 0).all()
+        ## DEBUG
+        # from gpaw.xc.lda import lda_x
+        # e_lda = np.zeros(wn_sg.shape[1:])
+        # v_lda = np.zeros(wn_sg.shape)
+        # lda_x(0, e_lda, wn_sg[0], v_lda[0])
+        # ratiov = np.mean(np.abs(v_lda[0])) / np.mean(np.abs(vxc_sg[0]))
+        # ratioe = np.mean(np.abs(e_lda)) / np.mean(np.abs(exc_g))
+        # if ratiov > 10 or ratiov < 0.1 or ratioe > 10 or ratioe < 0.1:
+        #     debugdata = {"Nc": self.gd.N_c, "cell": self.gd.cell_cv,
+        #                  "wn_sg": wn_sg, "exc_g": exc_g, "vxc_sg": vxc_sg,
+        #                  "nstar_sg": nstar_sg, "alphas": self.alphas}
+        #     if mpi.world.rank == 0:
+        #         np.save("debugdata.npy", debugdata)
+        #     mpi.world.barrier()
+        #     raise ValueError("Large stuff")
+        ## /DEBUG
+
+
+        # nstar_sg = self.wlda_c(wn_sg, exc_g, vxc_sg,
+        #                        nstar_sg, alpha_indices)
+
+        self.hartree_correction(self.gd, exc_g, vxc_sg, wn_sg, nstar_sg, alpha_indices)
+
+        gd.distribute(exc_g, e_g)
+        gd.distribute(vxc_sg, v_sg)
+
+    def get_working_density(self, n_sg, gd):
+        """Construct the "working" density.
+
+        The working density is an approximation to the AE density
+        (or sometimes not depending on the selected mode).
+
+        The construction consists of the following steps:
+
+        1. Correct negative density values.
+        2. Collect density, so all ranks have full density.
+        3. Construct new grid_descriptor for collected density.
+        4. Apply approximation to AE density (or not).
+
+        The approximation scheme involves truncating the AE density
+        at points closer than some radius of the atoms and replacing full
+        density with a smooth polynomial. This procedure is implemented
+        in the setup class (gpaw/setup.py).
+        """
         n_sg[n_sg < 1e-20] = 1e-40
-        v_sg = np.zeros_like(n_sg).astype(np.float64)
-        e_g = np.zeros_like(n_sg[0]).astype(np.float64)
-        if len(n_sg) == 1:
-            lda_x(0, e_g, n_sg[0], v_sg[0])
-            lda_c(0, e_g, n_sg[0], v_sg[0], 0)
-        else:
-            raise NotImplementedError
-        e_g[np.isnan(e_g)] = 0
-        v_sg[np.isnan(v_sg)] = 0
-        assert np.allclose(e_g, e_g.real)
-        assert not np.isnan(v_sg).any()
-        assert np.allclose(v_sg, v_sg.real), "Mean abs imag: {}. Max val n_sg: {}".format(np.mean(np.abs(v_sg.imag)), np.max(np.abs(n_sg)))
-        return e_g, v_sg
-        
-    def calculate_wlda_potential(self, f_isg, w_isg, nu_sg, ae_norm, weighted_norm, vLDA_sg, gd):
-        vWLDA_sg = np.zeros_like(vLDA_sg)
-        energy_factor = gd.integrate(nu_sg * vLDA_sg)
-        assert energy_factor.ndim == 0 or energy_factor.ndim == 1, "Ndim was: {}".format(energy_factor.ndim)
-        pre_factor = (1 / weighted_norm - ae_norm / weighted_norm**2)
-        assert pre_factor.ndim == 0 or pre_factor.ndim == 1, pre_factor.ndim
-        w1_sg = self.calculate_integral_with_w_isg(f_isg, w_isg)
-        w2_sg = self.calculate_integral_with_F_sg_f_isg_w_isg(vLDA_sg, f_isg, w_isg)
-        assert w1_sg.shape == w2_sg.shape
-
-
-        vWLDA_sg = ae_norm / weighted_norm * w2_sg + pre_factor * energy_factor * w1_sg
-        return vWLDA_sg
-
-    def calculate_integral_with_w_isg(self, f_isg, w_isg):
-        F_isG = np.fft.fftn(f_isg, axes=(2,3,4))
-        W_isG = np.fft.fftn(w_isg, axes=(2,3,4))
-        res_isg = np.fft.ifftn(W_isG*F_isG, axes=(2,3,4))
-        # assert np.allclose(res_isg, res_isg.real)
-        return res_isg.sum(axis=0).real.copy()
-
-    def calculate_integral_with_F_sg_f_isg_w_isg(self, F_sg, f_isg, w_isg):
-        F_isg = f_isg * F_sg[np.newaxis, ...]
-        F_isG = np.fft.fftn(F_isg, axes=(2,3,4))
-        w_isG = np.fft.fftn(w_isg, axes=(2,3,4))
-        
-        res_isg = np.fft.ifftn(w_isG*F_isG, axes=(2,3,4))
-        # assert np.allclose(res_isg, res_isg.real)
-        return res_isg.sum(axis=0).real.copy()
-
-
-
-    def normal_mode(self, gd, n_sg, v_sg, e_g):
-
-        nae_sg = self.get_ae_density(gd, n_sg)
-        
-        ni_j, ni_lower, ni_upper = self.get_ni_grid(mpi.rank, mpi.size, nae_sg)
-
-        f_isg = self.get_f_isg(ni_j, ni_lower, ni_upper, nae_sg)
-
-        gd1 = gd.new_descriptor(comm=mpi.serial_comm)
-        w_isg = self.get_w_isg(ni_j, nae_sg, gd1, self.filter_kernel)
-
-        nu_sg = self.weight_density(f_isg, w_isg)
-        mpi.world.sum(nu_sg)
-
-        nu_sg[nu_sg < 1e-20] = 1e-40
-
-        EWLDA_g, vLDA_sg = self.calculate_lda_energy_and_potential(nu_sg)
-
-        vWLDA_sg = self.calculate_unnormed_wlda_pot(f_isg, w_isg, vLDA_sg)
-        mpi.world.sum(vWLDA_sg)
-
-        gd.distribute(vWLDA_sg, v_sg)
-        gd.distribute(EWLDA_g, e_g)
-
-    def calculate_unnormed_wlda_pot(self, f_isg, w_isg, vLDA_sg):
-        # Fold f_isg * vLDA_sg with w_isg
-        # Use convolution theorem
-
-        result_sg = np.zeros(f_isg.shape[1:])
-
-        assert np.allclose(f_isg, f_isg.real)
-        assert np.allclose(w_isg, w_isg.real)
-        assert np.allclose(vLDA_sg, vLDA_sg.real)
-
-        for i, f_sg in enumerate(f_isg):
-            F1_sG = np.fft.fftn(f_sg * vLDA_sg, axes=(1,2,3))
-            F2_sG = np.fft.fftn(w_isg[i], axes=(1,2,3))
-            
-            result_sg += np.fft.ifftn(F1_sG * F2_sG, axes=(1,2,3)).real
-
-        return result_sg
-
-    def alt_method(self, gd, n_sg, v_sg, e_g):
-        # self.nindicators = int(1e3)
-        alphas = self.setup_indicator_grid(self.nindicators)
-        self.alphas = alphas
-        self.setup_indicators(alphas)
-        my_alpha_indices = self.distribute_alphas(self.nindicators, mpi.rank, mpi.size)
-
-        # 0. Collect density, and get grid_descriptor appropriate for collected density
         wn_sg = gd.collect(n_sg, broadcast=True)
         gd1 = gd.new_descriptor(comm=mpi.serial_comm)
         self.gd = gd1
+        wn_sg = self.density_correction(self.gd, wn_sg)
+        wn_sg[wn_sg < 1e-20] = 1e-20
+
+        return wn_sg
+
+    def wlda_x(self, wn_sg, exc_g, vxc_sg):
+        """
+        Calculate WLDA exchange energy.
         
+        If the system is spin-polarized, we use the formula
+            E_x[n_up, n_down] = (E[2n_up] + E[2n_down])/2
 
-        # 1. Correct density
-        wn_sg = wn_sg # Or correct via self.get_ae_density(gd, n_sg)
+        If the system is spin-paired, we can reuse the
+        weighted density because we don't calculate the
+        exchange functional with 2 times the density.
 
-        # 2. calculate weighted density
-        # This contains contributions for the alphas at this rank, i.e. we need a world.sum to get all contributions
-        nstar_sg = self.alt_weight(wn_sg, my_alpha_indices, gd1)
+        Thus
+
+        If spin-paired return density and alpha_indices
+
+        If spin-polarized return nothing (None)
+        """
+        if len(wn_sg) == 2:
+            # If spin-polarized calculate exchange energy according to
+            # E[n_up, n_down] = (E[2n_up] + E[2n_down]) / 2
+            wn_sg *= 2
+            
+        nstar_sg, alpha_indices = self.get_weighted_density(wn_sg)
+
+        e1_g = np.zeros_like(wn_sg[0])
+        e2_g = np.zeros_like(wn_sg[0])
+        e3_g = np.zeros_like(wn_sg[0])
+        v1_sg = np.zeros_like(wn_sg)
+        v2_sg = np.zeros_like(wn_sg)
+        v3_sg = np.zeros_like(wn_sg)
+
+        if len(wn_sg) == 1:
+            spin = 0
+            self.lda_x1(spin, e1_g, wn_sg[0], nstar_sg[0], v1_sg[0],
+                        alpha_indices)
+
+            self.lda_x2(spin, e2_g, wn_sg[0], nstar_sg[0], v2_sg[0],
+                        alpha_indices)
+
+            self.lda_x3(spin, e3_g, wn_sg[0], nstar_sg[0], v3_sg[0],
+                        alpha_indices)
+            exc_g[:] = e1_g + e2_g - e3_g
+            vxc_sg[:] = v1_sg + v2_sg - v3_sg
+            return nstar_sg, alpha_indices
+        else:
+            spin = 1
+            self.lda_x1(spin, e1_g, wn_sg[0], nstar_sg[0], v1_sg[0],
+                        alpha_indices)
+            self.lda_x1(spin, e1_g, wn_sg[1], nstar_sg[1], v1_sg[1],
+                        alpha_indices)
+
+            self.lda_x2(spin, e2_g, wn_sg[0], nstar_sg[0], v2_sg[0],
+                        alpha_indices)
+            self.lda_x2(spin, e2_g, wn_sg[1], nstar_sg[1], v2_sg[1],
+                        alpha_indices)
+
+            self.lda_x3(spin, e3_g, wn_sg[0], nstar_sg[0], v3_sg[0],
+                        alpha_indices)
+            self.lda_x3(spin, e3_g, wn_sg[1], nstar_sg[1], v3_sg[1],
+                        alpha_indices)
+
+            exc_g[:] = e1_g + e2_g - e3_g
+            vxc_sg[:] = v1_sg + v2_sg - v3_sg
+            return None, None
+
+    def wlda_c(self, wn_sg, exc_g, vxc_sg, nstar_sg, alpha_indices):
+        """Calculate the WLDA correlation energy.
+        
+        If the system is spin-paired we calculate the correlation
+        energy as
+            E_c[n] = int e_ldac(n*)(n-n*) + e_ldac(n)n*
+
+        If the system is spin-polarized we calculate the correlation
+        energy as
+            E_c[n_up, n_down] =
+                   int e_ldac(n*, zeta)(n-n*) + e_ldac(n, zeta)n*
+        """
+        if nstar_sg is None or alpha_indices is None:
+            assert len(wn_sg) == 2
+            n = np.array([wn_sg[0] + wn_sg[1]])
+            nstar_sg, alpha_indices = self.get_weighted_density(n)
+
+        e1_g = np.zeros_like(wn_sg[0])
+        e2_g = np.zeros_like(wn_sg[0])
+        e3_g = np.zeros_like(wn_sg[0])
+        v1_sg = np.zeros_like(wn_sg)
+        v2_sg = np.zeros_like(wn_sg)
+        v3_sg = np.zeros_like(wn_sg)
+            
+        if len(wn_sg) == 1:
+            spin = zeta = 0
+            self.lda_c1(0, e1_g, wn_sg[0], nstar_sg[0],
+                        v1_sg[0], zeta, alpha_indices)
+            self.lda_c2(0, e2_g, wn_sg[0], nstar_sg[0],
+                        v2_sg[0], zeta, alpha_indices)
+            self.lda_c3(0, e3_g, wn_sg[0], nstar_sg[0],
+                        v3_sg[0], zeta, alpha_indices)
+        else:
+            spin = 1
+            zeta_g = (wn_sg[0] - wn_sg[1]) / (wn_sg[0] + wn_sg[1])
+            zeta_g[np.isclose(wn_sg[0] + wn_sg[1], 0.0)] = 0.0
+            self.lda_c1(spin, e1_g, wn_sg, nstar_sg, v1_sg, zeta_g,
+                        alpha_indices)
+            self.lda_c2(spin, e2_g, wn_sg, nstar_sg, v2_sg, zeta_g,
+                        alpha_indices)
+            self.lda_c3(spin, e3_g, wn_sg, nstar_sg, v3_sg, zeta_g,
+                        alpha_indices)
+
+        exc_g[:] += e1_g + e2_g - e3_g
+        vxc_sg[:] += v1_sg + v2_sg - v3_sg
+        return nstar_sg
+
+    def get_weighted_density(self, wn_sg):
+        """Set up the weighted density.
+
+        This is done by applying the mapping
+
+            n |-> n*(r) = int phi(r-r', n(r')) n(r')dr'
+        This is done via the convolution theorem by replacing
+
+            phi(r-r', n(r')) -> sum_a phi(r-r', a)f_a(r')n(r')
+
+        f_a(r') is close to one if n(r') is close to a.
+
+        Each rank has some subset of a's.
+
+        First construct and distribute the as across the ranks.
+        
+        Then apply the weighting functional.
+
+        Sum across ranks so all ranks have
+        the full weighted density.
+
+        Finally correct potentially negative values from
+        numerically inaccuracy to avoid complex energies.
+        """
+        alpha_indices = self.construct_alphas(wn_sg)
+        assert type(alpha_indices[0]) == int
+
+        nstar_sg = self.alt_weight(wn_sg, alpha_indices, self.gd)
+
         mpi.world.sum(nstar_sg)
 
-        # 3. Calculate LDA energy 
-        e1_g, v1_sg = self.calculate_wlda(wn_sg, nstar_sg, my_alpha_indices)
-        # v1_sg here is v_LDA[n*](s, r)
-        assert not np.allclose(v1_sg, 0)
-        assert not np.allclose(e1_g, 0)
+        nstar_sg[nstar_sg < 1e-20] = 1e-40
 
-        v1_sg = np.array([self.fold_with_derivative(v1_g, wn_sg[i], my_alpha_indices) for i, v1_g in enumerate(v1_sg)])
-        mpi.world.sum(v1_sg)
-        # v1_sg here is \int v_LDA[n*](s, r') dn*(r')/dn(r) dr'
+        return nstar_sg, alpha_indices
 
-        gd.distribute(e1_g, e_g)
-        gd.distribute(v1_sg, v_sg)
+    def construct_alphas(self, wn_sg):
+        """Construct indicator data.
         
-        # Done
+        Construct alphas that are used to approximately
+        calculate the weighted density.
+
+        The alphas should cover all the values of the
+        density. A denser grid should be more accurate,
+        but will be more computationally expensive.
+
+        After setting up the full grid of alphas, each rank
+        determines which alphas it should calculate.
+        """
+        #self.setup_radial_indicators(wn_sg, self.nindicators)
+
+        alpha_indices = self.distribute_alphas(self.nindicators,
+                                               mpi.rank, mpi.size)
+        self.alphas = define_alphas(wn_sg, self.nindicators)
+        self.wn_sg = wn_sg
+
+        return alpha_indices
+
+    def _setup_indicator_grid(self, nindicators, n_sg):
+        """Set up indicator values.
+        
+        These values are used to calculate
+            int phi(r-r', n(r'))n(r') dr'
+
+        approximately via the convolution theorem.
+        We approximate it with
+            sum_a int phi(r-r', a) f_a(n(r'))n(r') dr'
+
+        where the a values are the ones chosen here.
+        They should span all the values of the density.
+        A denser grid should be more accurate but will be
+        more computationally heavy.
+        """
+        md = np.min(n_sg)
+        md = max(md, 1e-6)
+        mad = np.max(n_sg)
+        mad = max(mad, 1e-6)
+        if np.allclose(md, mad):
+            mad = 2 * mad
+        # This is an alternate form of the alpha grid
+        # return np.exp(np.linspace(np.log(md * 0.9),
+        # np.log(mad * 1.1), nindicators))
+        return np.linspace(md * 0.9, mad * 1.1, nindicators)
+
+    def _setup_indicators(self, alphas):
+        """Set up indicator functions and derivatives.
+
+        TODO Refactor
+        """
+        
+        def get_ind_alpha(ia):
+            # Returns a function that is 1 at alphas[ia]
+            # and goes smoothly to zero at adjacent points
+            if ia > 0 and ia < len(alphas) - 1:
+                def ind(x):
+                    copy_x = np.zeros_like(x)
+                    ind1 = np.logical_and(x < alphas[ia], x >= alphas[ia - 1])
+                    copy_x[ind1] = ((x[ind1] - alphas[ia - 1])
+                                    / (alphas[ia] - alphas[ia - 1]))
+
+                    ind2 = np.logical_and(x >= alphas[ia], x < alphas[ia + 1])
+                    copy_x[ind2] = ((alphas[ia + 1] - x[ind2])
+                                    / (alphas[ia + 1] - alphas[ia]))
+
+                    return copy_x
+                    
+            elif ia == 0:
+                def ind(x):
+                    copy_x = np.zeros_like(x)
+                    ind1 = (x <= alphas[ia])
+                    copy_x[ind1] = 1
+                        
+                    ind2 = np.logical_and((x <= alphas[ia + 1]),
+                                          np.logical_not(ind1))
+                    copy_x[ind2] = ((alphas[ia + 1] - x[ind2])
+                                    / (alphas[ia + 1] - alphas[ia]))
+
+                    return copy_x
+                    
+            elif ia == len(alphas) - 1:
+                def ind(x):
+                    copy_x = np.zeros_like(x)
+                    ind1 = (x >= alphas[ia])
+                    copy_x[ind1] = 1
+                        
+                    ind2 = np.logical_and((x >= alphas[ia - 1]),
+                                          np.logical_not(ind1))
+                    copy_x[ind2] = ((x[ind2] - alphas[ia - 1])
+                                    / (alphas[ia] - alphas[ia - 1]))
+
+                    return copy_x
+
+            else:
+                raise ValueError("Asked for index: {} in grid of length: {}"
+                                 .format(ia, len(alphas)))
+            return ind
+        self.get_indicator_alpha = get_ind_alpha
+
+        def get_ind_sg(wn_sg, ia):
+            ind_a = self.get_indicator_alpha(ia)
+            ind_sg = ind_a(wn_sg).astype(wn_sg.dtype)
+
+            return ind_sg
+
+        self.get_indicator_sg = timer(get_ind_sg)
+        self.get_indicator_g = timer(get_ind_sg)
+
+        def get_dind_alpha(ia):
+            if ia == 0:
+                def dind(x):
+                    if x <= alphas[ia]:
+                        return 0.0
+                    elif x <= alphas[ia + 1]:
+                        return -1.0
+                    else:
+                        return 0.0
+            elif ia == len(alphas) - 1:
+                def dind(x):
+                    if x >= alphas[ia]:
+                        return 0.0
+                    elif x >= alphas[ia - 1]:
+                        return 1.0
+                    else:
+                        return 0.0
+            else:
+                def dind(x):
+                    if x >= alphas[ia - 1] and x <= alphas[ia]:
+                        return 1.0
+                    elif x >= alphas[ia] and x <= alphas[ia + 1]:
+                        return -1.0
+                    else:
+                        return 0.0
+
+            return dind
+        self.get_dindicator_alpha = get_dind_alpha
+
+        def get_dind_g(wn_sg, ia):
+            dind_a = self.get_dindicator_alpha(ia)
+            dind_g = np.array([dind_a(v)
+                               for v
+                               in wn_sg.reshape(-1)]).reshape(wn_sg.shape)
+
+            return dind_g
+        self.get_dindicator_sg = timer(get_dind_g)
+        self.get_dindicator_g = timer(get_dind_g)
+
+    def ind_asg(self, ia, spin):
+        if type(ia) != int and type(ia) != list:
+            raise ValueError(f"Incorrect type: {ia}, {type(ia)}")
+
+        if type(ia) == list:
+            _is = [define_indicator(x, self.alphas)[0] for x in ia]
+            if type(spin) == list:
+                return np.array([[_i(self.wn_sg[s]) for s in spin] for _i in _is])
+            else:
+                return np.array([_i(self.wn_sg[spin]) for _i in _is])
+
+
+        if type(ia) == int:
+            _i, _ = define_indicator(ia, self.alphas)
+
+            if type(spin) == list:
+                return np.array([_i(self.wn_sg[s]) for s in spin])
+            else:
+                return _i(self.wn_sg[spin])
+
+    def dind_asg(self, ia, spin):
+        _, _di = define_indicator(ia, self.alphas)
+
+        if type(spin) == list:
+            return np.array([_di(self.wn_sg[s]) for s in spin])
+        else:        
+            return _di(self.wn_sg[spin])
 
     def distribute_alphas(self, nindicators, rank, size):
+        """Distribute alphas across mpi ranks."""
         nalphas = nindicators // size
         nalphas0 = nalphas + (nindicators - nalphas * size)
         assert (nalphas * (size - 1) + nalphas0 == nindicators)
@@ -1356,46 +521,43 @@ class WLDA(XCFunctional):
 
         return range(start, end)
 
-    def setup_indicator_grid(self, nindicators):
-        return np.linspace(0, 10, nindicators)
-
     def alt_weight(self, wn_sg, my_alpha_indices, gd):
+        """Calculate the weighted density.
+
+        Calculate
+        
+            n*(r) = int phi(r-r', a)f_a(r')n('r)
+
+        via the convolution theorem
+
+            n*(r) = phi * (f_a n)
+        """
         nstar_sg = np.zeros_like(wn_sg)
         
         for ia in my_alpha_indices:
             nstar_sg += self.apply_kernel(wn_sg, ia, gd)
-         
-        #assert np.abs(np.mean(nstar_sg[nstar_sg < 0]) / np.mean(nstar_sg)) < 1e-4, np.mean(nstar_sg[nstar_sg < 0]) / np.mean(nstar_sg)
-        assert (nstar_sg >= 0).all(), "{}::{}".format(np.sum(nstar_sg[nstar_sg < 0]), np.mean(nstar_sg[nstar_sg < 0])/np.mean(nstar_sg))
+            
         return nstar_sg
-        
+
     def apply_kernel(self, wn_sg, ia, gd):
-        f_sg = self.get_indicator_g(wn_sg, ia) * wn_sg
+        """Apply the WLDA kernel at given alpha.
+        
+        Applies the kernel via the convolution theorem.
+        """
+        #f_sg = self.get_indicator_sg(wn_sg, ia) * wn_sg
+        spins = list(range(wn_sg.shape[0]))
+        f_sg = self.ind_asg(ia, spins) * wn_sg
+        assert len(wn_sg.shape) == len(f_sg.shape), spins
         f_sG = self.fftn(f_sg, axes=(1, 2, 3))
 
-        w_sG = self.get_weight_function(ia, gd, self.alphas)
-        
+        w_sG = np.array([self.get_weight_function(ia, gd, self.alphas) for _ in spins])
+        assert w_sG.shape == f_sG.shape
         r_sg = self.ifftn(w_sG * f_sG, axes=(1, 2, 3))
-
-        assert np.allclose(r_sg, r_sg.real)
 
         return r_sg.real
 
-    def get_weight_function(self, ia, gd, alphas):
-        alpha = alphas[ia]
-
-        kF = (3 * np.pi**2 * alpha)**(1 / 3)
-
-        K_G = self._get_K_G(gd)
-
-        res = (1 / (1 + (K_G / (kF + 0.0001))**2)**self.alphaw).astype(np.complex128)
-        res = res / res[0, 0, 0]
-        assert not np.isnan(res).any()
-        return res
-
-        #return (K_G**2 <= 4 * kF**2).astype(np.complex128)
-
     def fftn(self, arr, axes=None):
+        """Interface for fftn."""
         if axes is None:
             sqrtN = np.sqrt(np.array(arr.shape).prod())
         else:
@@ -1404,9 +566,10 @@ class WLDA(XCFunctional):
                 sqrtN *= arr.shape[ax]
             sqrtN = np.sqrt(sqrtN)
 
-        return np.fft.fftn(arr, axes=axes, norm="ortho") / sqrtN # * self.gd.dv
+        return np.fft.fftn(arr, axes=axes)  # , norm="ortho") / sqrtN
     
     def ifftn(self, arr, axes=None):
+        """Interface for ifftn."""
         if axes is None:
             sqrtN = np.sqrt(np.array(arr.shape).prod())
         else:
@@ -1415,150 +578,121 @@ class WLDA(XCFunctional):
                 sqrtN *= arr.shape[ax]
             sqrtN = np.sqrt(sqrtN)
 
-        return np.fft.ifftn(arr, axes=axes, norm="ortho") * sqrtN#/ self.gd.dv
+        return np.fft.ifftn(arr, axes=axes)  # , norm="ortho") * sqrtN
 
-    def setup_indicators(self, alphas):
+    def get_weight_function(self, ia, gd, alphas):
+        """Evaluates and returns phi(q, alpha).
         
-        def get_ind_alpha(ia):
-            # Returns a function that is 1 at alphas[ia]
-            # and goes smoothly to zero at adjacent points
-            if ia > 0 and ia < len(alphas) - 1:
-                def ind(x):
-                    if isinstance(x, type(np.array([]))):
-                        copy_x = x.copy()
-                        ind1 = np.logical_and(x < alphas[ia], x >= alphas[ia - 1])
-                        copy_x[ind1] = (x[ind1] - alphas[ia - 1]) / (alphas[ia] - alphas[ia -1])
+        The weight function is 
+            phi(q, n) = e^(-qt)
 
-                        ind2 = np.logical_and(x >= alphas[ia], x < alphas[ia + 1])
-                        copy_x[ind2] = (alphas[ia + 1] - x[ind2]) / (alphas[ia + 1] - alphas[ia])
+        with
+            qt = q / (c1 n^(1/3))
 
-                        ind3 = np.logical_not(np.logical_or(ind1, ind2))
-                        copy_x[ind3] = 0
-                        return copy_x
-                    else:
-                        if x < alphas[ia] and x >= alphas[ia - 1]:
-                            return (x - alphas[ia - 1]) / (alphas[ia] - alphas[ia - 1])
-                        elif x >= alphas[ia] and x < alphas[ia + 1]:
-                            return (alphas[ia + 1] - x) / (alphas[ia + 1] - alphas[ia])
-                        else:
-                            return 0
-            elif ia == 0:
-                def ind(x):
-                    if isinstance(x, type(np.array([]))):
-                        copy_x = x.copy()
-                        ind1 = (x <= alphas[ia])
-                        copy_x[ind1] = 1
-                        
-                        ind2 = np.logical_and((x <= alphas[ia + 1]), np.logical_not(ind1))
-                        copy_x[ind2] = (alphas[ia + 1] - x[ind2]) / (alphas[ia + 1] - alphas[ia])
+        c1 is a free parameter.
 
-                        ind3 = np.logical_not(np.logical_or(ind1, ind2))
-                        copy_x[ind3] = 0
-                        return copy_x
-                    else:
-                        if x <= alphas[ia]:
-                            return 1
-                        elif x <= alphas[ia + 1]:
-                            return (alphas[ia + 1] - x) / (alphas[ia + 1] - alphas[ia])
-                        else:
-                            return 0
-            elif ia == len(alphas) - 1:
-                def ind(x):
-                    if isinstance(x, type(np.array([]))):
-                        copy_x = x.copy()
-                        ind1 = (x >= alphas[ia])
-                        copy_x[ind1] = 1
-                        
-                        ind2 = np.logical_and((x >= alphas[ia -1]), np.logical_not(ind1))
-                        copy_x[ind2] = (x[ind2] - alphas[ia - 1]) / (alphas[ia] - alphas[ia - 1])
+        If we choose
+            c1 = 5.8805
 
-                        ind3 = np.logical_not(np.logical_or(ind1, ind2))
-                        copy_x[ind3] = 0
-                        return copy_x
-                    else:
-                        if x >= alphas[ia]:
-                            return 1
-                        elif x >= alphas[ia - 1]:
-                            return (x - alphas[ia - 1]) / (alphas[ia] - alphas[ia - 1])
-                        else:
-                            return 0
-            else:
-                raise ValueError("Asked for index: {} in grid of length: {}".format(ia, len(alphas)))
-            return ind
-        self.get_indicator_alpha = get_ind_alpha
+        then the kernel will give a good representation
+        of the exact kernel in the HEG.
+        """
+        alpha = alphas[ia]
+        c1 = self.settings.get("c1", None) or 5.8805
+        if c1 <= 0:
+            raise ValueError(f'c1 must be positive. Got c1 = {c1}')
 
-        def get_ind_sg(wn_sg, ia):
-            ind_a = self.get_indicator_alpha(ia)
-            ind_sg = ind_a(wn_sg).astype(wn_sg.dtype) #FAST
-            # ind_sg = np.array([ind_a(v) for v in wn_sg.reshape(-1)]).reshape(wn_sg.shape) #SLOW
+        K_G = self._get_K_G(gd)
+        qt = K_G / (c1 * abs(alpha)**(1/3))
 
-            return ind_sg
-        self.get_indicator_sg = get_ind_sg
-        self.get_indicator_g = get_ind_sg
-
-        def get_dind_alpha(ia):
-            if ia == 0:
-                def dind(x):
-                    if x <= alphas[ia]:
-                        return 0
-                    elif x <= alphas[ia + 1]:
-                        return -1
-                    else:
-                        return 0
-            elif ia == len(alphas) - 1:
-                def dind(x):
-                    if x >= alphas[ia]:
-                        return 0
-                    elif x >= alphas[ia - 1]:
-                        return 1
-                    else:
-                        return 0
-            else:
-                def dind(x):
-                    if x >= alphas[ia - 1] and x <= alphas[ia]:
-                        return 1
-                    elif x >= alphas[ia] and x <= alphas[ia + 1]:
-                        return -1
-                    else:
-                        return 0
-
-            return dind
-        self.get_dindicator_alpha = get_dind_alpha
-
-        def get_dind_g(wn_sg, ia):
-            dind_a = self.get_dindicator_alpha(ia)
-            dind_g = np.array([dind_a(v) for v in wn_sg.reshape(-1)]).reshape(wn_sg.shape)
-
-            return dind_g
-        self.get_dindicator_sg = get_dind_g
-        self.get_dindicator_g = get_dind_g
-
-    def calculate_wlda(self, wn_sg, nstar_sg, my_alpha_indices):
-        # Calculate the XC energy and potential that corresponds
-        # to E_XC = \int dr n(r) e_xc(n*(r))
-
-        exc_g = np.zeros_like(wn_sg[0])
-        vxc_sg = np.zeros_like(wn_sg)
-
-        if len(wn_sg) == 1:
-            self.lda_x(0, exc_g, wn_sg[0], nstar_sg[0], vxc_sg[0], my_alpha_indices)
-            zeta = 0
-            self.lda_c(0, exc_g, wn_sg[0], nstar_sg[0], vxc_sg[0], zeta, my_alpha_indices)
+        weightfunc = self.settings.get("weightfunction", None)
+        if weightfunc == "lorentz" or weightfunc is None:
+            return np.exp(-qt)
+        elif weightfunc == "gauss":
+            return np.exp(-qt**2 / 4)
+        elif weightfunc == "exponential":
+            return 1 / (1 + qt**2)**2
         else:
-            assert False
-            na = 2.0 * nstar_sg[0]
-            nb = 2.0 * nstar_sg[1]
-            n = 0.5 * (na + nb)
-            zeta = 0.5 * (na - nb) / n
-            
-            self.lda_x(1, exc_g, na, vxc_sg[0], my_alpha_indices)
-            self.lda_x(1, exc_g, nb, vxc_sg[1], my_alpha_indices)
-            self.lda_c(1, exc_g, n, vxc_sg, zeta, my_alpha_indices)
-        
-        
-        return exc_g, vxc_sg
+            raise ValueError(f'Weightfunction type "{weightfunc}" not allowed.')
 
-    def lda_x(self, spin, e, wn_g, nstar_g, v, my_alpha_indices):
+    # def get_kernel_fn(self, kernel_type, kernel_param):
+    #     """Select kernel type.
+
+    #     Select the functional form for the weight kernel
+    #     based on settings.
+    #     """
+    #     p = self.kernel_param or 1
+    #     if kernel_type == "lorentz5":
+    #         def kernel(kF, K_G):
+    #             return 1 / (1 + 0.005 * p * (K_G / (kF + 0.0001)**5)**2)
+    #         return kernel
+    #     else:
+    #         def kernel(kF, K_G):
+    #             return 1 / (1 + 0.005 * p * (K_G / (kF + 0.0001)**6)**2)
+    #         return kernel
+    #     return kernel
+
+    def _get_K_G(self, gd):
+        """Get the norms of the reciprocal lattice vectors."""
+        if self._K_G is not None:
+            return self._K_G
+        assert gd.comm.size == 1
+        k2_Q, _ = construct_reciprocal(gd)
+        k2_Q[0, 0, 0] = 0
+        self._K_G = k2_Q**(1 / 2)
+        return self._K_G
+
+    def lda_x1(self, spin, e, wn_g, nstar_g, v, my_alpha_indices):
+        """Apply the WLDA-1 exchange functional.
+
+        Calculate e[n*]n
+        """
+        from gpaw.xc.lda import lda_constants
+        assert spin in [0, 1]
+        C0I, C1, CC1, CC2, IF2 = lda_constants()
+        
+        rs = (C0I / nstar_g) ** (1 / 3.)
+        ex = C1 / rs
+
+        dexdrs = -ex / rs
+
+        if spin == 0:
+            e[:] += wn_g * ex
+        else:
+            e[:] += 0.5 * wn_g * ex
+        v += ex
+        t1 = rs * dexdrs / 3.
+        ratio = wn_g / nstar_g
+        ratio[np.isclose(nstar_g, 0.0)] = 0.0
+        v += self.fold_with_derivative(-t1 * ratio,
+                                       wn_g, my_alpha_indices, spin)
+
+    def lda_x2(self, spin, e, wn_g, nstar_g, v, my_alpha_indices):
+        """Apply the WLDA-2 exchange functional.
+
+        Calculate e[n]n*
+        """
+        from gpaw.xc.lda import lda_constants
+        assert spin in [0, 1]
+        C0I, C1, CC1, CC2, IF2 = lda_constants()
+        
+        rs = (C0I / wn_g) ** (1 / 3.)
+        ex = C1 / rs
+        dexdrs = -ex / rs
+        if spin == 0:
+            e[:] += nstar_g * ex
+        else:
+            e[:] += 0.5 * nstar_g * ex
+        v += self.fold_with_derivative(ex, wn_g, my_alpha_indices, spin)
+        ratio = nstar_g / wn_g
+        ratio[np.isclose(wn_g, 0.0)] = 0.0
+        v -= rs * dexdrs / 3 * ratio
+
+    def lda_x3(self, spin, e, wn_g, nstar_g, v, my_alpha_indices):
+        """Apply the WLDA-3 exchange functional.
+
+        Calculate e[n*]n*
+        """
         from gpaw.xc.lda import lda_constants
         assert spin in [0, 1]
         C0I, C1, CC1, CC2, IF2 = lda_constants()
@@ -1567,12 +701,20 @@ class WLDA(XCFunctional):
         ex = C1 / rs
         dexdrs = -ex / rs
         if spin == 0:
-            e[:] += wn_g * ex
+            e[:] += nstar_g * ex
         else:
-            e[:] += 0.5 * wn_g * ex
-        v += ex - rs * dexdrs / 3.
+            e[:] += 0.5 * nstar_g * ex
+        v[:] = ex - rs * dexdrs / 3.
+        v[:] = self.fold_with_derivative(v, wn_g, my_alpha_indices, spin)
 
-    def lda_c(self, spin, e, wn_g, nstar_g, v, zeta, my_alpha_indices):
+    def lda_c1(self, spin, e, wn_g, nstar_g, v, zeta, my_alpha_indices):
+        """Apply the WLDA-1 correlation functional.
+
+        Calculate
+            e^lda_c[n*]n
+        and
+            (de^lda_c[n*] / dn*) * (dn* / dn) + e^lda_c[n*]
+        """
         assert spin in [0, 1]
         from gpaw.xc.lda import lda_constants, G
         C0I, C1, CC1, CC2, IF2 = lda_constants()
@@ -1583,7 +725,742 @@ class WLDA(XCFunctional):
         
         if spin == 0:
             e[:] += wn_g * ec
-            v += ec - rs * decdrs_0 / 3.
+            v += ec
+            ratio = wn_g / nstar_g
+            ratio[np.isclose(nstar_g, 0.0)] = 0.0
+            v -= self.fold_with_derivative(rs * decdrs_0 / 3. * ratio,
+                                           wn_g, my_alpha_indices, spin)
+        else:
+            e1, decdrs_1 = G(rs ** 0.5,
+                             0.015545, 0.20548, 14.1189,
+                             6.1977, 3.3662, 0.62517)
+            alpha, dalphadrs = G(rs ** 0.5,
+                                 0.016887, 0.11125, 10.357, 3.6231, 0.88026,
+                                 0.49671)
+            alpha *= -1.
+            dalphadrs *= -1.
+            zp = 1.0 + zeta
+            zm = 1.0 - zeta
+            xp = zp ** (1 / 3.)
+            xm = zm ** (1 / 3.)
+            f = CC1 * (zp * xp + zm * xm - 2.0)
+            f1 = CC2 * (xp - xm)
+            zeta3 = zeta * zeta * zeta
+            zeta4 = zeta * zeta * zeta * zeta
+            x = 1.0 - zeta4
+            decdrs = (decdrs_0 * (1.0 - f * zeta4) +
+                      decdrs_1 * f * zeta4 +
+                      dalphadrs * f * x * IF2)
+            decdzeta = (4.0 * zeta3 * f * (e1 - ec - alpha * IF2) +
+                        f1 * (zeta4 * e1 - zeta4 * ec + x * alpha * IF2))
+            ec += alpha * IF2 * f * x + (e1 - ec) * f * zeta4
+            e[:] += wn_g * ec
+
+            v[0] += ec
+            ratio = wn_g / nstar_g
+            ratio[np.isclose(nstar_g, 0.0)] = 0.0
+            v[0] -= self.fold_with_derivative((rs * decdrs / 3.0
+                                               - (zeta - 1.0)
+                                               * decdzeta * ratio[0]),
+                                              wn_g, my_alpha_indices, 0)
+            
+            v[1] += ec
+            v[1] -= self.fold_with_derivative((rs * decdrs / 3.0
+                                               - (zeta + 1.0)
+                                               * decdzeta * ratio[1]),
+                                              wn_g, my_alpha_indices, 1)
+
+    def lda_c2(self, spin, e, wn_g, nstar_g, v, zeta, my_alpha_indices):
+        """Apply the WLDA-2 correlation functional.
+
+        Calculate
+            e^lda_c[n] n*
+        and
+            (e^lda_c[n]) * (dn* / dn) + de^lda_c/dn n*
+        """
+        assert spin in [0, 1]
+        from gpaw.xc.lda import lda_constants, G
+        C0I, C1, CC1, CC2, IF2 = lda_constants()
+        
+        rs = (C0I / wn_g) ** (1 / 3.)
+        ec, decdrs_0 = G(rs ** 0.5,
+                         0.031091, 0.21370, 7.5957, 3.5876, 1.6382, 0.49294)
+        
+        if spin == 0:
+            e[:] += nstar_g * ec
+            v += self.fold_with_derivative(ec, wn_g, my_alpha_indices, spin)
+            ratio = nstar_g / wn_g
+            ratio[np.isclose(wn_g, 0.0)] = 0.0
+            v -= rs * decdrs_0 / 3. * ratio
+        else:
+            e1, decdrs_1 = G(rs ** 0.5,
+                             0.015545, 0.20548, 14.1189,
+                             6.1977, 3.3662, 0.62517)
+            alpha, dalphadrs = G(rs ** 0.5,
+                                 0.016887, 0.11125, 10.357, 3.6231, 0.88026,
+                                 0.49671)
+            alpha *= -1.
+            dalphadrs *= -1.
+            zp = 1.0 + zeta
+            zm = 1.0 - zeta
+            xp = zp ** (1 / 3.)
+            xm = zm ** (1 / 3.)
+            f = CC1 * (zp * xp + zm * xm - 2.0)
+            f1 = CC2 * (xp - xm)
+            zeta3 = zeta * zeta * zeta
+            zeta4 = zeta * zeta * zeta * zeta
+            x = 1.0 - zeta4
+            decdrs = (decdrs_0 * (1.0 - f * zeta4) +
+                      decdrs_1 * f * zeta4 +
+                      dalphadrs * f * x * IF2)
+            decdzeta = (4.0 * zeta3 * f * (e1 - ec - alpha * IF2) +
+                        f1 * (zeta4 * e1 - zeta4 * ec + x * alpha * IF2))
+            ec += alpha * IF2 * f * x + (e1 - ec) * f * zeta4
+            e[:] += wn_g * ec
+
+            v[0] += self.fold_with_derivative(ec, wn_g, my_alpha_indices, 0)
+            ratio = nstar_g / wn_g
+            ratio[np.isclose(wn_g, 0.0)] = 0.0
+            v[0] -= (rs * decdrs / 3.0
+                     - (zeta - 1.0)
+                     * decdzeta * ratio[0])
+
+            v[1] += self.fold_with_derivative(ec, wn_g, my_alpha_indices, 1)
+            v[1] -= (rs * decdrs / 3.0
+                     - (zeta + 1.0) * decdzeta) * ratio[1]
+
+    def lda_c3(self, spin, e, wn_g, nstar_g, v, zeta, my_alpha_indices):
+        """Apply the WLDA-3 correlation functional to n*.
+
+        Calculate
+            e^lda_c[n*]n* (used in the energy)
+        and
+            (v^lda_c[n*]) * (dn* / dn) (the potential from the correlation)
+        """
+        assert spin in [0, 1]
+        from gpaw.xc.lda import lda_constants, G
+        C0I, C1, CC1, CC2, IF2 = lda_constants()
+        
+        rs = (C0I / nstar_g) ** (1 / 3.)
+        ec, decdrs_0 = G(rs ** 0.5,
+                         0.031091, 0.21370, 7.5957, 3.5876, 1.6382, 0.49294)
+        
+        if spin == 0:
+            e[:] += nstar_g * ec
+            v_place = np.zeros_like(v)
+            v_place += ec - rs * decdrs_0 / 3.
+            v += self.fold_with_derivative(v_place,
+                                           wn_g, my_alpha_indices, spin)
+        else:
+            e1, decdrs_1 = G(rs ** 0.5,
+                             0.015545, 0.20548, 14.1189,
+                             6.1977, 3.3662, 0.62517)
+            alpha, dalphadrs = G(rs ** 0.5,
+                                 0.016887, 0.11125, 10.357, 3.6231, 0.88026,
+                                 0.49671)
+            alpha *= -1.
+            dalphadrs *= -1.
+            zp = 1.0 + zeta
+            zm = 1.0 - zeta
+            xp = zp ** (1 / 3.)
+            xm = zm ** (1 / 3.)
+            f = CC1 * (zp * xp + zm * xm - 2.0)
+            f1 = CC2 * (xp - xm)
+            zeta3 = zeta * zeta * zeta
+            zeta4 = zeta * zeta * zeta * zeta
+            x = 1.0 - zeta4
+            decdrs = (decdrs_0 * (1.0 - f * zeta4) +
+                      decdrs_1 * f * zeta4 +
+                      dalphadrs * f * x * IF2)
+            decdzeta = (4.0 * zeta3 * f * (e1 - ec - alpha * IF2) +
+                        f1 * (zeta4 * e1 - zeta4 * ec + x * alpha * IF2))
+            ec += alpha * IF2 * f * x + (e1 - ec) * f * zeta4
+            e[:] += wn_g * ec
+
+            v[0] += ec - (rs * decdrs / 3.0 - (zeta - 1.0) * decdzeta)
+            v[0] = self.fold_with_derivative(v[0],
+                                             wn_g, my_alpha_indices, 0)
+            
+            v[1] += ec - (rs * decdrs / 3.0 - (zeta + 1.0) * decdzeta)
+            v[1] = self.fold_with_derivative(v[1],
+                                             wn_g, my_alpha_indices, 1)
+
+    def fold_with_derivative(self, f_g, n_g, my_alpha_indices, spin):
+        """Fold function f_g with the derivative of the weighted density.
+
+        Calculate
+            (f) * (dn*/dn) = int dr' f(r') dn*(r') / dn(r)
+        """
+        assert np.allclose(f_g, f_g.real)
+        assert np.allclose(n_g, n_g.real)
+        assert type(my_alpha_indices[0]) == int
+
+        res_g = np.zeros_like(f_g)
+
+        for ia in my_alpha_indices:
+            # ind_g = self.get_indicator_g(n_g, ia)
+            # dind_g = self.get_dindicator_g(n_g, ia)
+            ind_g = self.ind_asg(ia, spin)
+            dind_g = self.dind_asg(ia, spin)
+            
+            fac_g = ind_g + dind_g * n_g
+            int_G = self.fftn(f_g)
+            w_G = self.get_weight_function(ia, self.gd, self.alphas)
+            r_g = self.ifftn(w_G * int_G)
+            res_g += r_g.real * fac_g
+            # assert np.allclose(res_g, res_g.real)
+
+        res_g = np.ascontiguousarray(res_g)
+        mpi.world.sum(res_g)
+        assert res_g.shape == f_g.shape
+        assert res_g.shape == n_g.shape
+        return res_g
+
+    def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None, a=None):
+        """Return trivial paw correction."""
+        return 0
+
+    def density_correction(self, gd, n_sg):
+        """Apply density correction.
+
+        This approximates the AE density around the atoms.
+        The true density is replaced by a smooth function
+        close to the atoms. The distance within which the
+        AE density is replaced is determined by self.rcut_factor.
+
+        If self.rcut_factor is None, the pseudo density is returned.
+        """
+        if self.rcut_factor:
+            from gpaw.xc.WDAUtils import correct_density
+            return correct_density(n_sg, gd, self.wfs.setups,
+                                   self.wfs.spos_ac, self.rcut_factor)
+        else:
+            return n_sg
+
+    def hartree_correction(self, gd, e_g, v_sg, wn_sg, nstar_sg, my_alpha_indices):
+        """Apply the correction to the Hartree energy.
+        
+        Calculate
+            Delta E = -0.5 int dr' (n-n*)(r)(n-n*)(r')/|r-r'|
+
+        This corrects the Hartree energy so it is effectively
+        calculated with n* instead of n.
+
+        Also calculate the resulting correction to the
+        potential:
+            Delta v = dDeltaE/dn
+        With
+            V := int dr (n-n*)(r')/|r-r'| 
+        Delta v is equal to
+            Delta v(r) = -2 * (V(r)
+                    -    int dr' dn*(r')/dn(r) V(r')
+        """
+        if self.settings.get("nohartreecorr", False):
+            return
+
+        if len(wn_sg) == 2 and not self.settings.get("hartreexc", False):
+            # Undo modification of density performed by wlda_x
+            wn_sg *= 0.5
+            nsum_sg = np.array([wn_sg.sum(axis=0)])
+            v1_sg = np.zeros_like(nsum_sg)
+            nstar_sg, my_alpha_indices = self.get_weighted_density(nsum_sg)
+            self.do_hartree_corr(gd, nsum_sg.sum(axis=0), nstar_sg.sum(axis=0),
+                                 e_g, v1_sg, [0], my_alpha_indices)
+            v_sg[0] += v1_sg[0]
+            v_sg[1] += v1_sg[0]
+
+        elif len(wn_sg) == 2 and self.settings.get("hartreexc", False):
+            nstar_sg, my_alpha_indices = self.get_weighted_density(wn_sg)
+
+            # Density already multipled by 2 so don't need to do it
+            # here
+            e1_g = np.zeros_like(e_g)
+            v1_sg = np.zeros_like(v_sg)
+            self.do_hartree_corr(gd, n_g[0], nstar_sg[0], e1_g, v1_sg, [0], my_alpha_indices)
+            self.do_hartree_corr(gd, n_g[1], nstar_sg[1], e1_g, v1_sg, [1], my_alpha_indices)
+
+            e_g += 0.5 * e1_g
+            v_sg += 0.5 * v1_sg
+
+            # K_G[0, 0, 0] = 1.0
+            
+            # nstar_g = nstar_sg.sum(axis=0)
+            # n_g = wn_sg.sum(axis=0)
+            
+            # dn_g = n_g - nstar_g
+            
+            # V_G = self.fftn(dn_g) / K_G**2 * 4 * np.pi * 0.5
+            # V_g = self.ifftn(V_G).real
+            
+            # e_g[:] -= (dn_g * V_g)
+            
+            # im = 2 * (V_g - self.fold_with_derivative(V_g, n_g, my_alpha_indices, 0))
+            # if mpi.rank == 0:
+            #     v_sg[0, :] -= im 
+            # if len(v_sg) == 2:
+            #     im = 2 * (V_g - self.fold_with_derivative(V_g, n_g, my_alpha_indices, 1))
+            #     if mpi.rank == 0:
+            #         v_sg[1, :] -= im
+        else:
+            self.do_hartree_corr(gd, wn_sg.sum(axis=0), nstar_sg.sum(axis=0),
+                                 e_g, v_sg, [0], my_alpha_indices)
+        # K_G = self._get_K_G(gd)
+        # K_G[0, 0, 0] = 1.0
+            
+        # nstar_g = nstar_sg.sum(axis=0)
+        # n_g = wn_sg.sum(axis=0)
+            
+        # dn_g = n_g - nstar_g
+            
+        # V_G = self.fftn(dn_g) / K_G**2 * 4 * np.pi * 0.5
+        # V_g = self.ifftn(V_G).real
+        
+        # e_g[:] -= (dn_g * V_g)
+            
+        # im = 2 * (V_g - self.fold_with_derivative(V_g, n_g, my_alpha_indices, 0))
+        # if mpi.rank == 0:
+        #     v_sg[0, :] -= im 
+        # if len(v_sg) == 2:
+        #     im = 2 * (V_g - self.fold_with_derivative(V_g, n_g, my_alpha_indices, 1))
+        #     if mpi.rank == 0:
+        #         v_sg[1, :] -= im
+
+    def do_hartree_corr(self, gd, n_g, nstar_g, e_g, v_sg, spins, my_alpha_indices):
+        K_G = self._get_K_G(gd)
+        K_G[0, 0, 0] = 1.0
+            
+        dn_g = n_g - nstar_g
+            
+        V_G = self.fftn(dn_g) / K_G**2 * 4 * np.pi * 0.5
+        V_g = self.ifftn(V_G).real
+        
+        e_g[:] -= (dn_g * V_g)
+            
+        for s in spins:
+            im = 2 * (V_g - self.fold_with_derivative(V_g, n_g, my_alpha_indices, s))
+            if mpi.rank == 0:
+                v_sg[s, :] -= im
+
+    def calculate_spherical(self, rgd, n_sg, v_sg, e_g=None):
+        """Calculate the XC energy and potential for an atomic system.
+
+        Is called when using GPAW's atom module with WLDA.
+
+        We assume this function is never called in parallel.
+
+        Modifies:
+            v_sg to contain the XC potential
+
+        Returns:
+            The /total/ XC energy
+        """
+        if e_g is None:
+            e_g = rgd.empty()
+        self.rgd = rgd
+        n_sg = n_sg.copy()
+        n_sg[n_sg < 1e-20] = 1e-40
+
+        self.setup_radial_indicators(n_sg, self.nindicators)
+
+        nstar_sg, v1, v2, v3 = self.radial_x(n_sg, e_g, v_sg)
+
+        # nstar_sg = self.radial_c(n_sg, e_g, v_sg,
+        #                          nstar_sg)
+        self.radial_hartree_correction(rgd, n_sg, nstar_sg, v_sg, e_g)
+
+        # import matplotlib.pyplot as plt
+        # plt.plot(rgd.r_g, n_sg[0])
+        # plt.savefig("nsg.png")
+        # plt.close()
+
+        # plt.plot(rgd.r_g, nstar_sg[0])
+        # plt.savefig("nstarsg.png")
+        # plt.close()
+
+        # inds = rgd.r_g < 20
+        # plt.plot(rgd.r_g[inds], v_sg[0, inds])
+        # plt.plot(rgd.r_g[inds], v1[0, inds], label="v1")
+        # plt.plot(rgd.r_g[inds], v2[0, inds], label="v2")
+        # plt.plot(rgd.r_g[inds], v3[0, inds], label="v3")
+        # plt.legend()
+        # plt.savefig("vsg.png")
+        # plt.close()
+
+        # plt.plot(rgd.r_g, e_g)
+        # plt.savefig("eg.png")
+        # plt.close()
+
+        E = rgd.integrate(e_g)
+        # print(f"E = {E}", flush=True)
+        return E
+
+    def radial_x(self, n_sg, e_g, v_sg):
+        """Calculate WLDA exchange energy.
+
+        Returns nstar_sg if the calculation is spin-paired
+        so it can be reused.
+        """
+        if len(n_sg) == 2:
+            n_sg *= 2
+        spin = len(n_sg) - 1
+
+        self.setup_radial_indicators(n_sg)
+
+        nstar_sg = self.radial_weighted_density(n_sg)
+
+        e1_g = np.zeros_like(e_g)
+        e2_g = np.zeros_like(e_g)
+        e3_g = np.zeros_like(e_g)
+
+        v1_sg = np.zeros_like(v_sg)
+        v2_sg = np.zeros_like(v_sg)
+        v3_sg = np.zeros_like(v_sg)
+
+        if spin == 0:
+            self.radial_x1(spin, e1_g, n_sg[0], nstar_sg[0], v1_sg[0])
+            self.radial_x2(spin, e2_g, n_sg[0], nstar_sg[0], v2_sg[0])
+            self.radial_x3(spin, e3_g, n_sg[0], nstar_sg[0], v3_sg[0])
+
+            e_g[:] = e1_g + e2_g - e3_g
+            v_sg[:] = v1_sg + v2_sg - v3_sg
+
+            return nstar_sg, v1_sg, v2_sg, v3_sg
+        else:
+            self.radial_x1(spin, e1_g, n_sg[0], nstar_sg[0], v1_sg[0])
+            self.radial_x2(spin, e2_g, n_sg[0], nstar_sg[0], v2_sg[0])
+            self.radial_x3(spin, e3_g, n_sg[0], nstar_sg[0], v3_sg[0])
+
+            self.radial_x1(spin, e1_g, n_sg[1], nstar_sg[1], v1_sg[1])
+            self.radial_x2(spin, e2_g, n_sg[1], nstar_sg[1], v2_sg[1])
+            self.radial_x3(spin, e3_g, n_sg[1], nstar_sg[1], v3_sg[1])
+
+            e_g[:] = e1_g + e2_g - e3_g
+            v_sg[:] = v1_sg + v2_sg - v3_sg
+
+            return None, v1_sg, v2_sg, v3_sg
+
+    def radial_c(self, n_sg, e_g, v_sg, nstar_sg):
+        """Calculate WLDA correlation energy.
+
+        If the calculation is spin-paired we can reuse
+        the weighted density.
+
+        For a spin-polarized calculation we want to calculate
+
+            n* = int phi (n_up + n_down)
+        and
+            m* = int phi (n_up - n_down)
+            or
+            m* = n* zeta = n* (n_up - n_down) / (n_up + n_down)
+        """
+        spin = len(n_sg) - 1
+
+        e1_g = np.zeros_like(e_g)
+        e2_g = np.zeros_like(e_g)
+        e3_g = np.zeros_like(e_g)
+
+        v1_sg = np.zeros_like(v_sg)
+        v2_sg = np.zeros_like(v_sg)
+        v3_sg = np.zeros_like(v_sg)
+
+        if spin == 0:
+            zeta = 0
+            self.radial_c1(spin, e1_g, n_sg[0], nstar_sg[0], v1_sg[0], zeta)
+            self.radial_c2(spin, e2_g, n_sg[0], nstar_sg[0], v2_sg[0], zeta)
+            self.radial_c3(spin, e3_g, n_sg[0], nstar_sg[0], v3_sg[0], zeta)
+
+            e_g[:] += e1_g + e2_g - e3_g
+            v_sg[:] += v1_sg + v2_sg - v3_sg
+            
+            return nstar_sg
+        else:
+            n_g = np.array([n_sg.sum(axis=0)]) * 0.5
+            self.setup_radial_indicators(n_g)
+            nstar_g = self.radial_weighted_density(n_g)
+            zeta_g = (n_sg[0] - n_sg[1]) / (n_sg[0] + n_sg[1])
+            zeta_g[np.isclose((n_sg[0] + n_sg[1]), 0.0)] = 0.0
+
+            self.radial_c1(spin, e1_g, n_g[0], nstar_g[0], v1_sg, zeta_g)
+            self.radial_c2(spin, e2_g, n_g[0], nstar_g[0], v2_sg, zeta_g)
+            self.radial_c3(spin, e3_g, n_g[0], nstar_g[0], v3_sg, zeta_g)
+
+            e_g[:] += e1_g + e2_g - e3_g
+            v_sg[:] += v1_sg + v2_sg - v3_sg
+
+            return nstar_g
+        
+    def setup_radial_indicators(self, n_sg, nalphas=200):
+        """Set up the indicator functions for an atomic system.
+
+        We first define a grid of indicator-values/anchors.
+
+        Then we evaluate the indicator functions on the
+        density.
+        """
+        if n_sg.ndim == 1:
+            spin = 1
+            n_sg = np.array([n_sg])
+        else:
+            spin = n_sg.shape[0]
+
+        alphas = define_alphas(n_sg, nalphas)
+
+        from scipy.interpolate import InterpolatedUnivariateSpline as IUS
+        N = 2**14
+        r_x = np.linspace(0, self.rgd.r_g[-1], N)
+        G_k = np.linspace(0, 2 * np.pi / r_x[1], N)
+
+        ns = len(n_sg)
+        n_sx = np.zeros((ns, len(r_x)))
+        for s in range(ns):
+            n_sx[s, :] = self.rgd.interpolate(n_sg[s], r_x)
+
+
+
+        i_asg = np.zeros((nalphas,) + n_sg.shape)
+        di_asg = np.zeros((nalphas,) + n_sg.shape)
+        i_asx = np.zeros((nalphas,) + n_sx.shape)
+        di_asx = np.zeros((nalphas,) + n_sx.shape)
+
+
+        for ia, alpha in enumerate(alphas):
+            _i, _di = define_indicator(ia, alphas)
+
+            for s in range(spin):
+                i_asg[ia, s, :] = _i(n_sg[s])
+                di_asg[ia, s, :] = _di(n_sg[s])
+                i_asx[ia, s, :] = _i(n_sx[s])
+                di_asx[ia, s, :] = _di(n_sx[s])
+
+        self.alphas = alphas
+        self.i_asg = i_asg
+        self.di_asx = di_asx
+        self.di_asg = di_asg
+        self.i_asx = i_asx
+
+    def radial_weighted_density(self, n_sg):
+        """Calculate the weighted density for an atomic system.
+
+        n*(k) = sum_a phi(k, a)(i_a[n]n)(k)
+
+        where f(k) is found using spherical Bessel transforms.
+        This is just the standard Fourier transform
+        specialized to a spherically symmetric function.
+
+        The spherical Bessel transform is implemented
+        in gpaw.atom.radialgd.fsbt, where we need the
+        l = 0 version only.
+
+        First we need to define a grid with regular spacing.
+        Then we need to transfer the density to the regular grid.
+        Then we can do the Fourier transform via fsbt.
+        We multiply the weight function and the FT'ed 
+        indicator times density and do inverse FT via fsbt.
+        Finally, we transfer the resulting array back to the
+        radial grid (with uneven spacing probably).
+        """
+        import matplotlib.pyplot as plt
+
+        from gpaw.atom.radialgd import fsbt
+        from scipy.interpolate import InterpolatedUnivariateSpline as IUS
+        rgd = self.rgd
+        N = 2**14
+        r_x = np.linspace(0, rgd.r_g[-1], N)
+        G_k = np.linspace(0, np.pi / r_x[1], N // 2 + 1)
+        
+
+        na, ns = self.i_asx.shape[:2]
+
+        nstar_sg = np.zeros_like(n_sg)
+        for ia in range(na):
+            for s in range(ns):
+                n_x = rgd.interpolate(n_sg[s], r_x)
+                n_x[n_x < 1e-20] = 1e-40
+                
+                i_x = self.i_asx[ia, s, :]
+                in_k = self.radial_fft(r_x, n_x * i_x)
+
+                phi_k = self.radial_weight_function(self.alphas[ia], G_k)
+
+                res_x = self.radial_ifft(r_x, in_k * phi_k)
+                nstar_sg[s, :] += IUS(r_x, res_x)(rgd.r_g)
+
+        nstar_sg[nstar_sg < 1e-20] = 1e-40
+        return nstar_sg
+
+    def radial_fft(self, r_x, f_x):
+        """Calculate the FT for a spherically symmetric function.
+
+        Calculates
+            int d^3r e^(-ikr)f(||r||)
+
+        By a simple calculation this can be shown to be
+        equal to the spherical Bessel transform for l = 0
+        times 4pi.
+        """
+        # Verify that we have a uniform grid
+        assert np.allclose(r_x[0], 0.0)
+        assert np.allclose(r_x[1], r_x[2] - r_x[1])
+        from gpaw.atom.radialgd import fsbt
+        N = len(r_x)
+        assert N % 2 == 0
+        G_k = np.linspace(0, np.pi / r_x[1], N // 2 + 1)
+        return fsbt(0, f_x, r_x, G_k) * 4 * np.pi
+
+    def radial_ifft(self, r_x, f_k):
+        from gpaw.atom.radialgd import fsbt
+        N = len(r_x)
+        assert N % 2 == 0
+        G_k = np.linspace(0, np.pi / r_x[1], N // 2 + 1)
+        res = fsbt(0, f_k, G_k, r_x[:N // 2 + 1]) / (2 * np.pi**2)
+        res_x = np.zeros_like(r_x)
+        res_x[:len(res)] = res
+        return res_x
+
+    def radial_weight_function(self, alpha, G_k):
+        """Evaluates and returns phi(q, alpha).
+        
+        The weight function is 
+            phi(q, n) = e^(-qt)
+
+        with
+            qt = q / (c1 n^(1/3))
+
+        c1 is a free parameter.
+
+        If we choose
+            c1 = 5.8805
+
+        then the kernel will give a good representation
+        of the exact kernel in the HEG.
+        """
+        c1 = self.settings.get("c1", None) or 5.8805
+        if c1 <= 0:
+            raise ValueError(f'c1 must be positive. Got c1 = {c1}')
+            
+        qt = (G_k / (c1 * abs(alpha)**(1 / 3)))
+
+        wf = self.settings.get("weightfunction", None)
+        if wf == "lorentz" or wf is None:        
+            return np.exp(-qt)
+        elif wf == "gauss":
+            return np.exp(-qt**2 / 4)
+        elif wf == "exponential":
+            return 1 / (1 + qt**2)**2
+        else:
+            raise ValueError(f'Weightfunction type "{wf}" not allowed.')
+
+    def radial_x1(self, spin, e_g, n_g, nstar_g, v_g):
+        """Calculate e_x[n*]n and potential."""
+        from gpaw.xc.lda import lda_constants
+        C0I, C1, CC1, CC2, IF2 = lda_constants()
+
+        rs = (C0I / nstar_g)**(1. / 3.)
+        ex = C1 / rs
+        
+        dexdrs = -ex / rs
+
+        if spin == 0:
+            e_g[:] += n_g * ex
+        else:
+            e_g[:] += 0.5 * n_g * ex
+
+        v_g += ex
+        t1 = rs * dexdrs / 3.0
+        ratio = n_g / nstar_g
+        ratio[np.isclose(nstar_g, 0.0)] = 0.0
+        v_g += self.radial_derivative_fold(-t1 * ratio, n_g, spin)
+
+    def radial_c1(self, spin, e_g, n_g, nstar_g, v_g, zeta):
+        """Calculate e_c[n*]n and potential."""
+        from gpaw.xc.lda import lda_constants, G
+        C0I, C1, CC1, CC2, IF2 = lda_constants()
+
+        rs = (C0I / nstar_g) ** (1 / 3.)
+        ec, decdrs_0 = G(rs ** 0.5,
+                         0.031091, 0.21370, 7.5957, 3.5876, 1.6382, 0.49294)
+
+        if spin == 0:
+            e_g[:] += ec * n_g
+
+            v_g[:] += ec
+            t1 = rs * decdrs_0 / 3.0
+            ratio = n_g / nstar_g
+            ratio[np.isclose(nstar_g, 0.0)] = 0.0
+            v_g[:] += self.radial_derivative_fold(-t1 * ratio, n_g, spin)
+        else:
+            e1, decdrs_1 = G(rs**0.5,
+                             0.015545, 0.20548, 14.1189, 6.1977, 3.3662, 0.62517)
+            alpha, dalphadrs = G(rs ** 0.5,
+                                 0.016887, 0.11125, 10.357, 3.6231, 0.88026,
+                                 0.49671)
+
+            alpha *= -1
+            dalphadrs *= -1
+            zp = 1.0 + zeta
+            zm = 1.0 - zeta
+            xp = zp**(1./ 3.)
+            xm = zm ** (1 / 3.)
+            f = CC1 * (zp * xp + zm * xm - 2.0)
+            f1 = CC2 * (xp - xm)
+            zeta3 = zeta * zeta * zeta
+            zeta4 = zeta * zeta * zeta * zeta
+            x = 1.0 - zeta4
+            decdrs = (decdrs_0 * (1.0 - f * zeta4) +
+                      decdrs_1 * f * zeta4 +
+                      dalphadrs * f * x * IF2)
+            decdzeta = (4.0 * zeta3 * f * (e1 - ec - alpha * IF2) +
+                        f1 * (zeta4 * e1 - zeta4 * ec + x * alpha * IF2))
+            ec += alpha * IF2 * f * x + (e1 - ec) * f * zeta4
+            e_g[:] += n_g * ec
+            t1 = rs * decdrs / 3.0
+            ratio = n_g / nstar_g
+            ratio[np.isclose(nstar_g, 0.0)] = 0.0
+            v_g[0] += ec - self.radial_derivative_fold(t1 * ratio, n_g, 0)  - (zeta - 1.0) * decdzeta
+            v_g[1] += ec - self.radial_derivative_fold(t1 * ratio, n_g, 0)  - (zeta + 1.0) * decdzeta
+
+    def radial_x2(self, spin, e_g, n_g, nstar_g, v_g):
+        """Calculate e_x[n]n* and potential.
+        
+        It is necessary to regularize the potential as
+        below to avoid the full potential increasing
+        unphysically.
+        """
+        from gpaw.xc.lda import lda_constants
+        C0I, C1, CC1, CC2, IF2 = lda_constants()
+
+        rs = (C0I / n_g)**(1. / 3.)
+        ex = C1 / rs
+        
+        dexdrs = -ex / rs
+
+        if spin == 0:
+            e_g[:] += ex * nstar_g
+        else:
+            e_g[:] += 0.5 * nstar_g * ex
+
+        v_g[:] += self.radial_derivative_fold(ex, n_g, spin)
+        ratio = nstar_g / n_g
+        ratio[np.isclose(n_g, 0.0)] = 0.0
+        v_g[:] += -rs * dexdrs / 3.0 * ratio * np.logical_not(np.isclose(rs * dexdrs / 3.0, 0.0))
+
+    def radial_c2(self, spin, e_g, n_g, nstar_g, v_g, zeta):
+        """Calculate e_c[n]n* and potential."""
+        from gpaw.xc.lda import lda_constants, G
+
+        C0I, C1, CC1, CC2, IF2 = lda_constants()
+        
+        rs = (C0I / n_g) ** (1 / 3.)
+        ec, decdrs_0 = G(rs ** 0.5,
+                         0.031091, 0.21370, 7.5957, 3.5876, 1.6382, 0.49294)
+
+        if spin == 0:
+            e_g[:] += ec * nstar_g
+
+            v_g[:] += self.radial_derivative_fold(ec, n_g, spin)
+            ratio = nstar_g / n_g
+            ratio[np.isclose(n_g, 0.0)] = 0.0
+            v_g[:] += -rs * decdrs_0 / 3.0 * ratio * np.logical_not(np.isclose(rs * decdrs_0 / 3.0, 0.0))
         else:
             e1, decdrs_1 = G(rs ** 0.5,
                              0.015545, 0.20548, 14.1189, 6.1977, 3.3662, 0.62517)
@@ -1607,28 +1484,313 @@ class WLDA(XCFunctional):
             decdzeta = (4.0 * zeta3 * f * (e1 - ec - alpha * IF2) +
                         f1 * (zeta4 * e1 - zeta4 * ec + x * alpha * IF2))
             ec += alpha * IF2 * f * x + (e1 - ec) * f * zeta4
-            e[:] += wn_g * ec
+            e_g[:] += nstar_g * ec
 
-            # fold_g = self.fold_with_derivative(rs * decdrs / 3.0 - (zeta - 1.0) * decdzeta, wn_g, my_alpha_indices)
-            # mpi.world.sum(fold_g)
-            v[0] += ec - rs * decdrs / 3.0 - (zeta - 1.0) * decdzeta
+            ratio = nstar_g / n_g
+            ratio[np.isclose(n_g, 0.0)] = 0.0
+            ratio *= np.logical_not(np.isclose(rs * decdrs / 3.0, 0.0))
+            
+            v_g[0] += self.radial_derivative_fold(ec, n_g, 0) - rs * decdrs / 3.0 * ratio - (zeta - 1.0) * decdzeta
+            v_g[1] += self.radial_derivative_fold(ec, n_g, 0) - rs * decdrs / 3.0 * ratio - (zeta + 1.0) * decdzeta
 
-            # fold2_g = self.fold_with_derivative(rs * decdrs / 3.0 - (zeta + 1.0) * decdzeta, wn_g, my_alpha_indices)
-            # mpi.world.sum(fold2_g)
-            v[1] += ec - rs * decdrs / 3.0 - (zeta + 1.0) * decdzeta
+    def radial_x3(self, spin, e_g, n_g, nstar_g, v_g):
+        """Calculate e_x[n*]n* and potential."""
+        from gpaw.xc.lda import lda_constants
+        C0I, C1, CC1, CC2, IF2 = lda_constants()
 
-    def fold_with_derivative(self, f_g, n_g, my_alpha_indices):
+        rs = (C0I / nstar_g)**(1. / 3.)
+        ex = C1 / rs
+        
+        dexdrs = -ex / rs
+
+        if spin == 0:
+            e_g[:] += ex * nstar_g
+        else:
+            e_g[:] += 0.5 * nstar_g * ex
+
+        v_g[:] += (ex - rs * dexdrs / 3.0)
+        v_g[:] = self.radial_derivative_fold(v_g, n_g, spin)
+
+    def radial_c3(self, spin, e_g, n_g, nstar_g, v_g, zeta):
+        """Calculate e_c[n*]n* and potential."""
+        from gpaw.xc.lda import lda_constants, G
+        C0I, C1, CC1, CC2, IF2 = lda_constants()
+        
+        rs = (C0I / nstar_g) ** (1 / 3.)
+        ec, decdrs_0 = G(rs ** 0.5,
+                         0.031091, 0.21370, 7.5957, 3.5876, 1.6382, 0.49294)
+
+        if spin == 0:
+            e_g[:] += ec * nstar_g
+
+            v_g[:] += self.radial_derivative_fold(ec - rs * decdrs_0 / 3.0, n_g, spin)
+        else:
+            e1, decdrs_1 = G(rs ** 0.5,
+                             0.015545, 0.20548, 14.1189, 6.1977, 3.3662, 0.62517)
+            alpha, dalphadrs = G(rs ** 0.5,
+                                 0.016887, 0.11125, 10.357, 3.6231, 0.88026,
+                                 0.49671)
+            alpha *= -1.
+            dalphadrs *= -1.
+            zp = 1.0 + zeta
+            zm = 1.0 - zeta
+            xp = zp ** (1 / 3.)
+            xm = zm ** (1 / 3.)
+            f = CC1 * (zp * xp + zm * xm - 2.0)
+            f1 = CC2 * (xp - xm)
+            zeta3 = zeta * zeta * zeta
+            zeta4 = zeta * zeta * zeta * zeta
+            x = 1.0 - zeta4
+            decdrs = (decdrs_0 * (1.0 - f * zeta4) +
+                      decdrs_1 * f * zeta4 +
+                      dalphadrs * f * x * IF2)
+            decdzeta = (4.0 * zeta3 * f * (e1 - ec - alpha * IF2) +
+                        f1 * (zeta4 * e1 - zeta4 * ec + x * alpha * IF2))
+            ec += alpha * IF2 * f * x + (e1 - ec) * f * zeta4
+            e_g[:] += nstar_g * ec
+            
+            t = self.radial_derivative_fold(ec - rs * decdrs / 3.0, n_g, 0)
+            v_g[0] += t - (zeta - 1.0) * decdzeta
+            v_g[1] += t - (zeta + 1.0) * decdzeta
+
+    def radial_derivative_fold(self, f_g, n_g, spin):
+        """Calculate folding expression that appears in
+        the derivative of the energy.
+
+        Implements
+            F(r) = int f(r') dn*(r') / dn(r)
+        
+        Calculates
+            sum_a [(f_g FOLD phi_a) * (i_a + di_a * n)]        
+        """
+        from gpaw.atom.radialgd import fsbt
+        from scipy.interpolate import InterpolatedUnivariateSpline as IUS
+        rgd = self.rgd
+        N = 2**14
+        r_x = np.linspace(0, rgd.r_g[-1], N)
+        G_k = np.linspace(0, np.pi / r_x[1], N // 2 + 1)
+
         res_g = np.zeros_like(f_g)
 
-        for ia in my_alpha_indices:
-            ind_g = self.get_indicator_g(n_g, ia)
-            dind_g = self.get_dindicator_g(n_g, ia)
-            
-            fac_g = ind_g + dind_g * n_g
-            int_G = self.fftn(f_g)
-            w_G = self.get_weight_function(ia, self.gd, self.alphas)
-            r_g = self.ifftn(w_G * int_G)
-            assert np.allclose(r_g, r_g.real)
-            res_g += r_g.real * fac_g
+        for ia, a in enumerate(self.alphas):
+            f_x = rgd.interpolate(f_g, r_x)
+            f_k = self.radial_fft(r_x, f_x)
+            phi_k = self.radial_weight_function(self.alphas[ia], G_k)
+            res_g += (IUS(r_x, self.radial_ifft(r_x, f_k * phi_k))(rgd.r_g)
+                      * (self.i_asg[ia, spin, :] + self.di_asg[ia, spin, :] * n_g))
 
         return res_g
+                    
+    def radial_hartree_correction(self, rgd, n_sg, nstar_sg, v_sg, e_g):
+        """Calculate energy correction -(n-n*)int (n-n*)(r')/(r-r').
+
+        Also potential.
+        """
+        if self.settings.get("nohartreecorr", False):
+            return
+
+        if len(n_sg) == 2 and not self.settings.get("hartreexc", False):
+            # Undo modification by radial_x
+            n_sg *= 0.5
+            nsum_g = np.array([n_sg.sum(axis=0)])
+            self.setup_radial_indicators(nsum_g)
+            nstar_sg = self.radial_weighted_density(nsum_g)
+            v1_sg = np.zeros_like(nstar_sg)
+            self.do_radial_hartree_corr(rgd, nsum_g.sum(axis=0), nstar_sg.sum(axis=0),
+                                        e_g, v1_sg, [0])
+            v_sg[0] += v1_sg[0]
+            v_sg[1] += v1_sg[0]
+
+        elif len(n_sg) == 2 and self.settings.get("hartreexc", False):
+            self.setup_radial_indicators(n_sg)
+            nstar_sg = self.radial_weighted_density(n_sg)
+            e1_g = np.zeros_like(e_g)
+            v1_sg = np.zeros_like(v_sg)
+            self.do_radial_hartree_corr(rgd, n_sg[0], nstar_sg[0], e1_g, v1_sg, [0])
+            self.do_radial_hartree_corr(rgd, n_sg[1], nstar_sg[1], e1_g, v1_sg, [1])
+            
+            e_g += 0.5 * e1_g
+            v_sg += 0.5 * v1_sg
+
+        else:
+            self.do_radial_hartree_corr(rgd, n_sg.sum(axis=0), nstar_sg.sum(axis=0),
+                                        e_g, v_sg, [0])
+
+        # from gpaw.atom.radialgd import fsbt
+        # from scipy.interpolate import InterpolatedUnivariateSpline as IUS
+        # N = 2**14
+        # r_x = np.linspace(0, rgd.r_g[-1], N)
+        # G_k = np.linspace(0, np.pi / r_x[1], N // 2 + 1)
+
+        # nstar_g = nstar_sg.sum(axis=0)
+        # n_g = n_sg.sum(axis=0)
+
+        # dn_g = n_g - nstar_g
+        
+        # dn_x = rgd.interpolate(dn_g, r_x)
+        # dn_k = self.radial_fft(r_x, dn_x)
+        # pot_k = np.zeros_like(dn_k)
+        # pot_k[1:] = dn_k[1:] / G_k[1:]**2 * 4 * np.pi * 0.5
+        # pot_x = self.radial_ifft(r_x, pot_k)
+        # pot_g = IUS(r_x, pot_x)(rgd.r_g)
+            
+        # e_g -= pot_g * dn_g
+        
+        # v_sg[0, :] -= 2 * (pot_g - self.radial_derivative_fold(pot_g, n_g, 0))
+        # if len(v_sg) == 2:    
+        #     v_sg[1, :] -= 2 * (pot_g - self.radial_derivative_fold(pot_g, n_g, 1))
+
+    def do_radial_hartree_corr(self, rgd, n_g, nstar_g, e_g, v_sg, spins):
+        from gpaw.atom.radialgd import fsbt
+        from scipy.interpolate import InterpolatedUnivariateSpline as IUS
+        N = 2**14
+        r_x = np.linspace(0, rgd.r_g[-1], N)
+        G_k = np.linspace(0, np.pi / r_x[1], N // 2 + 1)
+
+        dn_g = n_g - nstar_g
+        
+        dn_x = rgd.interpolate(dn_g, r_x)
+        dn_k = self.radial_fft(r_x, dn_x)
+        pot_k = np.zeros_like(dn_k)
+        pot_k[1:] = dn_k[1:] / G_k[1:]**2 * 4 * np.pi * 0.5
+        pot_x = self.radial_ifft(r_x, pot_k)
+        pot_g = IUS(r_x, pot_x)(rgd.r_g)
+            
+        e_g -= pot_g * dn_g
+        
+        for s in spins:
+            v_sg[s, :] -= 2 * (pot_g - self.radial_derivative_fold(pot_g, n_g, s))
+
+    ###### Abandon all hope ye who enter here #######
+    def _calculate_impl(self, gd, n_sg, v_sg, e_g):
+        """Interface for GPAW."""
+        # 0. Collect density,
+        # and get grid_descriptor appropriate for collected density
+        n_sg[n_sg < 1e-20] = 1e-40
+        wn_sg = gd.collect(n_sg, broadcast=True)
+        gd1 = gd.new_descriptor(comm=mpi.serial_comm)
+        self.gd = gd1
+
+        alphas = self.setup_indicator_grid(self.nindicators, wn_sg)
+        self.alphas = alphas
+        self.setup_indicators(alphas)
+        my_alpha_indices = self.distribute_alphas(self.nindicators,
+                                                  mpi.rank, mpi.size)
+        
+        # 1. Correct density
+        # This or correct via self.get_ae_density(gd, n_sg)
+        wn_sg = self.density_correction(self.gd, wn_sg)
+        wn_sg[wn_sg < 1e-20] = 1e-20
+        # 2. calculate weighted density
+        # This contains contributions for the alphas at this
+        # rank, i.e. we need a world.sum to get all contributions
+        nstar_sg = self.alt_weight(wn_sg, my_alpha_indices, gd1)
+        mpi.world.sum(nstar_sg)
+        nstar_sg[nstar_sg < 1e-20] = 1e-40
+        if mpi.rank == 0 and not (nstar_sg >= 0.0).all():
+            np.save("nstar_sg.npy", nstar_sg)
+        assert (nstar_sg >= 0.0).all()
+        # 3. Calculate LDA energy
+        e1_g, v1_sg = self.calculate_wlda(wn_sg, nstar_sg, my_alpha_indices)
+        
+        e_g *= 0.0
+        v_sg *= 0.0
+        gd.distribute(e1_g, e_g)
+        gd.distribute(v1_sg, v_sg)
+
+        if hasattr(self, "energies"):
+            niter = getattr(self, "niter", 0)
+            ms = datetime.datetime.microsecond
+            print("AWDOJAWPDO")
+            if len(self.energies) >= 2:
+                print("Have and energies")
+                err = abs(self.energies[-1] - self.energies[-2])
+                if self.niter > 5 and err > 1:
+                    if mpi.rank == 0:
+                        np.save(f"{niter}_{ms}_wn_sg.npy", wn_sg)
+                        np.save(f"{niter}_{ms}_v_sg.npy", v_sg)
+
+        else:
+            print("Dont have energies")
+
+    def calculate_wlda(self, wn_sg, nstar_sg, my_alpha_indices):
+        """Perform the old wlda implementation."""
+        # Calculate the XC energy and potential that corresponds
+        # to E_XC = \int dr n(r) e_xc(n*(r))
+        assert (wn_sg >= 0).all()
+
+        exc_g = np.zeros_like(wn_sg[0])
+        vxc_sg = np.zeros_like(wn_sg)
+
+        exc2_g = np.zeros_like(wn_sg[0])
+        vxc2_sg = np.zeros_like(wn_sg)
+
+        exc3_g = np.zeros_like(wn_sg[0])
+        vxc3_sg = np.zeros_like(wn_sg)
+
+        t = self.wlda_type
+        if len(wn_sg) == 1:
+            if t == '1' or t == 'c':
+                self.lda_x1(0, exc_g, wn_sg[0],
+                            nstar_sg[0], vxc_sg[0], my_alpha_indices)
+                zeta = 0
+                self.lda_c1(0, exc_g, wn_sg[0],
+                            nstar_sg[0], vxc_sg[0], zeta, my_alpha_indices)
+
+            if t == '2' or t == 'c':
+                self.lda_x2(0, exc2_g, wn_sg[0],
+                            nstar_sg[0], vxc2_sg[0], my_alpha_indices)
+                zeta = 0
+                self.lda_c2(0, exc2_g, wn_sg[0],
+                            nstar_sg[0], vxc2_sg[0], zeta, my_alpha_indices)
+
+            if t == '3' or t == 'c':
+                self.lda_x3(0, exc3_g, wn_sg[0],
+                            nstar_sg[0], vxc3_sg[0], my_alpha_indices)
+                zeta = 0
+                self.lda_c3(0, exc3_g, wn_sg[0],
+                            nstar_sg[0], vxc3_sg[0], zeta, my_alpha_indices)
+        else:
+            assert False
+            # nstara = 2.0 * nstar_sg[0]
+            # nstarb = 2.0 * nstar_sg[1]
+            # nstar = 0.5 * (na + nb)
+            # zeta = 0.5 * (na - nb) /n
+            
+            # self.lda_x(1, exc_g, na, vxc_sg[0], my_alpha_indices)
+            # self.lda_x(1, exc_g, nb, vxc_sg[1], my_alpha_indices)
+            # self.lda_c(1, exc_g, n, vxc_sg, zeta, my_alpha_indices)
+
+            # if t == '1' or t == 'c':
+            #     self.lda_x1(0, exc_g, wn_sg[0],
+            #                 nstar_sg[0], vxc_sg[0], my_alpha_indices)
+            #     self.lda_x1(0, exc_g, wn_sg[0],
+            #                 nstar_sg[0], vxc_sg[0], my_alpha_indices)
+            #     zeta = 0
+            #     self.lda_c1(0, exc_g, wn_sg[0],
+            #                 nstar_sg[0], vxc_sg[0], zeta, my_alpha_indices)
+
+            # if t == '2' or t == 'c':
+            #     self.lda_x2(0, exc2_g, wn_sg[0],
+            #                 nstar_sg[0], vxc2_sg[0], my_alpha_indices)
+            #     zeta = 0
+            #     self.lda_c2(0, exc2_g, wn_sg[0],
+            #                 nstar_sg[0], vxc2_sg[0], zeta, my_alpha_indices)
+
+            # if t == '3' or t == 'c':
+            #     self.lda_x3(0, exc3_g, wn_sg[0],
+            #                 nstar_sg[0], vxc3_sg[0], my_alpha_indices)
+            #     zeta = 0
+            #     self.lda_c3(0, exc3_g, wn_sg[0],
+            #                 nstar_sg[0], vxc3_sg[0], zeta, my_alpha_indices)
+
+        if t == '1':
+            return exc_g, vxc_sg
+        elif t == '2':
+            return exc2_g, vxc2_sg
+        elif t == '3':
+            return exc3_g, vxc3_sg
+        elif t == 'c':
+            return exc_g + exc2_g - exc3_g, vxc_sg + vxc2_sg - vxc3_sg
+        else:
+            raise ValueError('WLDA type not recognized')

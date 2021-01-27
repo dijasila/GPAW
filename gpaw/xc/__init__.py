@@ -121,7 +121,7 @@ def XC(kernel, parameters=None, atoms=None, collinear=True):
             return QNA(atoms, kernel['parameters'], kernel['setup_name'],
                        alpha=kernel['alpha'], stencil=kwargs.get('stencil', 2))
         elif name == 'WLDA':
-            from gpaw.xc.wlda2 import WLDA
+            from gpaw.xc.wlda import WLDA
             # rc = kernel.get("rc", None)
             # kernel_type = kernel.get("kernel_type", None)
             # kernel_param = kernel.get("kernel_param", None)
