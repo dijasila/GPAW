@@ -709,6 +709,7 @@ class DirectMinLCAO(DirectLCAO):
         wfs.timer.start('Get canonical representation')
 
         for kpt in wfs.kpt_u:
+            wfs.atomic_correction.calculate_projections(wfs, kpt)
             h_mm = self.calculate_hamiltonian_matrix(ham, wfs, kpt)
             tri2full(h_mm)
             if self.odd.name == 'Zero':
@@ -732,7 +733,7 @@ class DirectMinLCAO(DirectLCAO):
                                                kpt.f_n, kpt, wfs,
                                                update_eigenvalues=update_eigenvalues,
                                                update_wfs=update_wfs)
-
+            wfs.atomic_correction.calculate_projections(wfs, kpt)
         occ.calculate(wfs)
         occ_name = getattr(occ, "name", None)
         if occ_name == 'mom':
