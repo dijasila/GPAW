@@ -9,6 +9,7 @@ from gpaw.lfc import LFC
 from gpaw.transformers import Transformer
 from gpaw.poisson import PoissonSolver
 from gpaw.directmin.lcao.tools import D_matrix
+from gpaw.directmin.fdpw.tools import d_matrix
 
 
 class PzCorrectionsLcao:
@@ -938,7 +939,8 @@ class PzCorrectionsLcao:
 
     def get_lagrange_matrices(self, h_mm, c_nm, f_n, kpt,
                               wfs, occupied_only=False,
-                              update_eigenvalues=False):
+                              update_eigenvalues=False,
+                              update_wfs=False):
         n_occ = 0
         nbands = len(f_n)
         while n_occ < nbands and f_n[n_occ] > 1e-10:
@@ -967,9 +969,75 @@ class PzCorrectionsLcao:
 
         k = self.n_kps * kpt.s + kpt.q
 
-        if update_eigenvalues:
-            self.lagr_diag_s[k] = np.diagonal(h_mm + l_odd).real
-            kpt.eps_n[:nbs] = \
-                np.linalg.eigh(h_mm + 0.5 * (l_odd + l_odd.T.conj()))[0]
+        fullham = h_mm + 0.5 * (l_odd + l_odd.T.conj())
+        fullham[:n_occ,n_occ:] = 0.0
+        fullham[n_occ:,:n_occ] = 0.0
+
+        self.lagr_diag_s[k] = np.diagonal(fullham).real
+        eigval, eigvec = np.linalg.eigh(fullham)
+        if update_eigenvalues and update_wfs:
+            kpt.eps_n[:nbs] = eigval
+            kpt.C_nM[:nbs] = eigvec.T.conj() @ c_nm
+        elif update_eigenvalues:
+            kpt.eps_n[:nbs] = eigval
+        elif update_wfs:
+            kpt.C_nM[:nbs] = eigvec @ c_nm
 
         return h_mm, l_odd
+
+    def get_energy_and_gradients_inner_loop(self, wfs, kpt, a_mat,
+                                            evals, evec, dens):
+        """
+          :param C_nM: coefficients of orbitals
+          :return: matrix G - gradients, and orbital SI energies
+
+          which is G_{ij} = (1 - delta_{ij}/2)*( int_0^1 e^{tA} L e^{-tA} dt )_{ji}
+
+          Lambda_ij = (C_i, F_j C_j )
+
+          L_{ij} = Lambda_ji^{cc} - Lambda_ij
+
+          """
+        # 0.
+        n_occ = 0
+        nbands = len(kpt.f_n)
+        while n_occ < nbands and kpt.f_n[n_occ] > 1e-10:
+            n_occ += 1
+        nbs = n_occ
+        n_set = kpt.C_nM.shape[1]
+
+        # odd part
+        b_mn = np.zeros(shape=(n_set, nbs), dtype=self.dtype)
+        e_total_sic = np.array([])
+        for n in range(n_occ):
+            F_MM, sic_energy_n = \
+                self.get_orbital_potential_matrix(kpt.f_n, kpt.C_nM,
+                                                  kpt,
+                                                  wfs, wfs.setups,
+                                                  n, wfs.timer)
+
+            b_mn[:, n] = np.dot(kpt.C_nM[n], F_MM.conj()).T
+            e_total_sic = np.append(e_total_sic, sic_energy_n, axis=0)
+        l_odd = np.dot(kpt.C_nM[:nbs].conj(), b_mn)
+
+        f = kpt.f_n[:nbs]
+        l_odd = -f * l_odd + \
+               f[:, np.newaxis] * (l_odd.T.conj())
+
+        kappa = 0.0
+        # indz = np.absolute(l_odd) > 1.0e-4
+        # l_c = 2.0 * l_odd[indz]
+        # l_odd = f[:, np.newaxis] * l_odd.T.conj() - f * l_odd
+        # kappa = np.max(np.absolute(l_odd[indz])/np.absolute(l_c))
+
+        if a_mat is None:
+            return l_odd.T, np.sum(e_total_sic), kappa
+        else:
+            g_mat = evec.T.conj() @ l_odd.T.conj() @ evec
+            g_mat = g_mat * d_matrix(evals)
+            g_mat = evec @ g_mat @ evec.T.conj()
+            for i in range(g_mat.shape[0]):
+                g_mat[i][i] *= 0.5
+            if a_mat.dtype == float:
+                g_mat = g_mat.real
+            return 2.0 * g_mat, np.sum(e_total_sic), kappa

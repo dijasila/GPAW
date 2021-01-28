@@ -26,7 +26,8 @@ class DirectMinLCAO(DirectLCAO):
                  use_prec=True, matrix_exp='pade_approx',
                  representation='sparse',
                  odd_parameters='Zero',
-                 init_from_ks_eigsolver=False):
+                 init_from_ks_eigsolver=False,
+                 donothingwithintiwfs=False):
 
         super(DirectMinLCAO, self).__init__(diagonalizer, error)
 
@@ -43,6 +44,7 @@ class DirectMinLCAO(DirectLCAO):
         self.iters = 0
         self.name = 'direct_min'
 
+        self.donothingwithintiwfs = donothingwithintiwfs
         self.a_mat_u = None  # skew-hermitian matrix to be exponented
         self.g_mat_u = None  # gradient matrix
         self.c_nm_ref = None  # reference orbitals to be rotated
@@ -176,6 +178,7 @@ class DirectMinLCAO(DirectLCAO):
                     n_occ = get_n_occ(kpt)
                     u = self.n_kps * kpt.s + kpt.q
                     zero_ind = ((M - n_occ) * (M - n_occ - 1)) // 2
+                    # TODO: This breaks if there is only one unoccupied band
                     self.ind_up[u] = (ind_up[0][:-zero_ind].copy(),
                                       ind_up[1][:-zero_ind].copy())
                 del ind_up
@@ -671,7 +674,9 @@ class DirectMinLCAO(DirectLCAO):
     def calculate_residual(self, kpt, H_MM, S_MM, wfs):
         return np.inf
 
-    def get_canonical_representation(self, ham, wfs):
+    def get_canonical_representation(self, ham, wfs,
+                                     update_eigenvalues=True,
+                                     update_wfs=False):
 
         # choose canonical orbitals which diagonalise
         # lagrange matrix. it's probably necessary
@@ -709,7 +714,10 @@ class DirectMinLCAO(DirectLCAO):
             elif self.odd.name == 'PZ_SIC':
                 self.odd.get_lagrange_matrices(h_mm, kpt.C_nM,
                                                kpt.f_n, kpt, wfs,
-                                               update_eigenvalues=True)
+                                               update_eigenvalues=update_eigenvalues,
+                                               update_wfs=update_wfs)
+
+        for kpt in wfs.kpt_u:
             u = kpt.s * self.n_kps + kpt.q
             self.c_nm_ref[u] = kpt.C_nM.copy()
             self.a_mat_u[u] = np.zeros_like(self.a_mat_u[u])
@@ -839,6 +847,69 @@ class DirectMinLCAO(DirectLCAO):
 
         return g_a, g_n
 
+    def get_numerical_hessian(self, n_dim, ham, wfs, dens, occ,
+                              c_nm_ref, eps=1.0e-5):
+
+        occ_name = getattr(occ, "name", None)
+        if occ_name == 'mom':
+            self.sort_wavefunctions_mom(occ, wfs)
+            for kpt in wfs.kpt_u:
+                u = self.n_kps * kpt.s + kpt.q
+                c_nm_ref[u] = kpt.C_nM.copy()
+
+        self.matrix_exp = 'egdecomp'
+
+        h = [eps, -eps]
+        coeif = [1.0, -1.0]
+
+        if self.dtype == complex:
+            range_z = 2
+            complex_gr = [1.0, 1.0j]
+        else:
+            range_z = 1
+            complex_gr = [1.0]
+
+        a_m = {}
+        for kpt in wfs.kpt_u:
+            u = self.n_kps * kpt.s + kpt.q
+            a_m[u] = np.zeros_like(self.a_mat_u[u])
+
+        hess_a = {}
+        hess_n = {}
+        for kpt in wfs.kpt_u:
+            u = self.n_kps * kpt.s + kpt.q
+            hess_a[u] = self.get_hessian(kpt)
+
+            m2 = self.a_mat_u[u].shape[0]
+            hess_n[u] = np.zeros((m2, m2))
+
+            for z in range(range_z):
+                r = 0
+                for i in range(m2):
+                    a = a_m[u][i]
+                    hess = np.zeros(m2)
+                    for l in range(2):
+                        # Does this work when self.dtype == complex?
+                        if z == 0:
+                            a_m[u][i] = a + h[l]
+                        else:
+                            a_m[u][i] = a + 1.0j * h[l]
+
+                        g = self.get_energy_and_gradients(a_m, n_dim, ham,
+                                                              wfs, dens, occ,
+                                                              c_nm_ref)[1]
+
+                        hess += g[u] * coeif[l]
+
+                    hess *= 1.0 / (2.0 * eps)
+
+                    hess_n[u][r] += hess * complex_gr[z]
+                    a_m[u][i] = a
+
+                    r += 1
+
+        return hess_a, hess_n
+
     def rotate_wavefunctions(self, wfs, a_mat_u, n_dim, c_nm_ref):
 
         wfs.timer.start('Unitary rotation')
@@ -921,14 +992,20 @@ class DirectMinLCAO(DirectLCAO):
         # if it is the first use of the scf then initialize
         # coefficient matrix using eigensolver
         # and then localise orbitals
-        if (not wfs.coefficients_read_from_file and
-                self.c_nm_ref is None) or self.init_from_ks_eigsolver:
+        if self.donothingwithintiwfs:
+            self.donothingwithintiwfs = False
+            return 0
+
+        need_canon_coef = (not wfs.coefficients_read_from_file and
+                self.c_nm_ref is None) or self.init_from_ks_eigsolver
+
+        if need_canon_coef:
             super(DirectMinLCAO, self).iterate(ham, wfs)
             occ.calculate(wfs)
             self.localize_wfs(wfs, log)
 
         # if one want to use coefficients saved in gpw file
-        # or to use coefficients from the previous scf circle
+        # or to use coefficients from the previous scf cicle
         else:
             for kpt in wfs.kpt_u:
                 u = kpt.s * wfs.kd.nks // wfs.kd.nspins + kpt.q
