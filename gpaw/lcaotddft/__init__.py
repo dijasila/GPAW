@@ -1,6 +1,6 @@
 import numpy as np
 
-from ase.units import Bohr, Hartree
+from ase.units import Bohr, Hartree, Ha
 
 from gpaw import GPAW
 from gpaw.external import ConstantElectricField
@@ -9,6 +9,7 @@ from gpaw.lcaotddft.logger import TDDFTLogger
 from gpaw.lcaotddft.propagators import create_propagator
 from gpaw.tddft.units import attosec_to_autime
 
+from gpaw.lcaotddft.densitymatrix import DensityMatrix
 from gpaw.tddft.tdopers import  TimeDependentDensity
 
 
@@ -176,8 +177,7 @@ class LCAOTDDFT(GPAW):
 
         if not self.calculate_energy:
            self.Etot = 0.0
-           return 0.0
-#        print ('=====',type(self),dir(self))
+
 #        self.td_overlap.update(self.wfs)
 #        self.td_density.update()
 #        self.td_hamiltonian.update('density')
@@ -188,25 +188,52 @@ class LCAOTDDFT(GPAW):
         return self.Etot
 
     def update_eigenvalues(self):
-
+#  Calculate eigenvalue by non scf consistent hamiltonian diagonalization 
         for kpt in self.wfs.kpt_u:
             eig  = self.wfs.eigensolver
             H_MM = eig.calculate_hamiltonian_matrix(self.hamiltonian, self.wfs, kpt)
             C_nM = kpt.C_nM.copy()
             eig.iterate_one_k_point(self.hamiltonian, self.wfs, kpt, C_nM)
-            kpt.C_nM=C_nM.copy()  
+            kpt.C_nM=C_nM.copy()
+
+#  Calculate eigenvalue by rho_uMM * H_MM
+        
+        dmat=DensityMatrix(self)
+        
+        e_band_rhoH = 0.0
+        rho_uMM = dmat.get_density_matrix((self.niter, self.action))
+        get_H_MM = self.td_hamiltonian.get_hamiltonian_matrix
+        ksl = self.wfs.ksl
+        for u, kpt in enumerate(self.wfs.kpt_u):
+            rho_MM = rho_uMM[u]
+
+            # H_MM = get_H_MM(kpt, paw.time)
+            H_MM = get_H_MM(kpt, self.time, addfxc=False, addpot=False)
+
+            if ksl.using_blacs:
+                # rhoH_MM = (rho_MM * H_MM).real  # General case
+                rhoH_MM = rho_MM.real * H_MM.real  # Hamiltonian is real
+                # Hamiltonian has correct values only in lower half, so
+                # 1. Add lower half and diagonal twice
+                scalapack_zero(ksl.mmdescriptor, rhoH_MM, 'U')
+                e = 2 * np.sum(rhoH_MM)
+                # 2. Reduce the extra diagonal
+                scalapack_zero(ksl.mmdescriptor, rhoH_MM, 'L')
+                e -= np.sum(rhoH_MM)
+                # Sum over all ranks
+                e = ksl.block_comm.sum(e)
+            else:
+                e = np.sum(rho_MM * H_MM).real
+            e_band_rhoH += e
 
         H = self.td_hamiltonian.hamiltonian
 
-# Nonlocal
-#        self.Enlkin = H.xc.get_kinetic_energy_correction() # Need change for LCAO 
-
         # PAW
         e_band = self.wfs.calculate_band_energy()
-        self.Ekin = H.e_kinetic0 + e_band # + self.Enlkin
+        self.Ekin = H.e_kinetic0 + e_band
         self.e_coulomb = H.e_coulomb
         self.Eext = H.e_external
         self.Ebar = H.e_zero
         self.Exc = H.e_xc
         self.Etot = self.Ekin + self.e_coulomb + self.Ebar + self.Exc
-
+        print('e_band_rhoH  e_band',e_band_rhoH,e_band)
