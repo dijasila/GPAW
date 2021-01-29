@@ -977,11 +977,11 @@ class PzCorrectionsLcao:
         eigval, eigvec = np.linalg.eigh(fullham)
         if update_eigenvalues and update_wfs:
             kpt.eps_n[:nbs] = eigval
-            kpt.C_nM[:nbs] = eigvec.T.conj() @ c_nm
+            kpt.C_nM[:nbs] = eigvec.T @ c_nm
         elif update_eigenvalues:
             kpt.eps_n[:nbs] = eigval
         elif update_wfs:
-            kpt.C_nM[:nbs] = eigvec @ c_nm
+            kpt.C_nM[:nbs] = eigvec.T @ c_nm
 
         return h_mm, l_odd
 
