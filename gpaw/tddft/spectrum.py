@@ -267,7 +267,7 @@ def polarizability_spectrum(dipole_moment_file, spectrum_file,
               % spectrum_file)
 
 
-def rotatory_strength_spectrum(magnetic_moment_file, spectrum_file,
+def rotatory_strength_spectrum(magnetic_moment_files, spectrum_file,
                                folding='Gauss', width=0.2123,
                                e_min=0.0, e_max=30.0, delta_e=0.05):
     """Calculates rotatory strength spectrum from the time-dependent
@@ -276,7 +276,7 @@ def rotatory_strength_spectrum(magnetic_moment_file, spectrum_file,
     Parameters:
 
     magnetic_moment_file: string
-        Name of the time-dependent magnetic moment file from which
+        Name of the time-dependent magnetic moment files from which
         the spectrum is calculated
     spectrum_file: string
         Name of the spectrum file
@@ -296,17 +296,23 @@ def rotatory_strength_spectrum(magnetic_moment_file, spectrum_file,
     if world.rank != 0:
         return
 
-    kick_i, time_t, mm_tv = read_magnetic_moment_file(magnetic_moment_file)
-    kick_v, time_t, mm_tv = clean_td_data(kick_i, time_t, mm_tv)
-
     freqs = np.arange(e_min, e_max + 0.5 * delta_e, delta_e)
     folding = Folding(folding, width)
     ff = FoldedFrequencies(freqs, folding)
     omega_w = ff.frequencies * au_to_eV
+    rot_w = np.zeros_like(omega_w)
 
-    rot_wv = calculate_rotatory_strength_components(kick_v, time_t, mm_tv, ff)
-    rot_wv *= -0.5 * rot_au_to_cgs * 1e40 / au_to_eV
-    data_wi = np.hstack((omega_w[:, np.newaxis], rot_wv))
-    col_i = ['R_%s' % 'xyz'[v] for v in range(3)]
+    for v, fpath in enumerate(magnetic_moment_files):
+        kick_i, time_t, mm_tv = read_magnetic_moment_file(fpath)
+        kick_v, time_t, mm_tv = clean_td_data(kick_i, time_t, mm_tv)
+        for v0 in range(3):
+            if v0 == v:
+                continue
+            assert kick_v[v0] == 0.0
+        rot_wv = calculate_rotatory_strength_components(kick_v, time_t, mm_tv, ff)
+        rot_w += rot_wv[:, v]
+
+    rot_w *= -0.5 * rot_au_to_cgs * 1e40 / au_to_eV
+    data_wi = np.vstack((omega_w, rot_w)).T
     np.savetxt(spectrum_file, data_wi,
-               fmt='%12.6lf' + (' %20.10le' * len(col_i)))
+               fmt='%12.6lf' + (' %20.10le' * (data_wi.shape[1] - 1)))
