@@ -69,6 +69,7 @@ class _ArrayND(Sequence):
 '''
 
 
+ArrayLike = np.typing.ArrayLike
 ArrayND = np.ndarray
 Array1D = ArrayND
 Array2D = ArrayND

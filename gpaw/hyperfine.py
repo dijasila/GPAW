@@ -29,7 +29,7 @@ from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.utilities import unpack2
 from gpaw.gaunt import gaunt
 from gpaw.xc.functional import XCFunctional
-from gpaw.hints import Array1D, Array2D, Array3D
+from gpaw.hints import Array1D, Array2D, Array3D, ArrayLike
 
 
 # Fine-structure constant: (~1/137)
@@ -96,7 +96,8 @@ def smooth_part(spin_density_R: Array3D,
     pd = PWDescriptor(ecut, gd)
     spin_density_G = pd.fft(spin_density_R)
     G_Gv = pd.get_reciprocal_vectors()
-    eiGR_aG = np.exp(-1j * spos_ac.dot(gd.cell_cv).dot(G_Gv.T))
+    # eiGR_aG = np.exp(-1j * spos_ac.dot(gd.cell_cv).dot(G_Gv.T))
+    eiGR_aG = np.exp(-1j * spos_ac @ gd.cell_cv) @ G_Gv.T
 
     # Isotropic term:
     W1_a = pd.integrate(spin_density_G, eiGR_aG) / gd.dv * (2 / 3)
@@ -181,7 +182,8 @@ def paw_correction(density_sii: Array3D,
     dn2_mg -= np.einsum('mab, ag, bg -> mg', D2_mjj, phit_jg, phit_jg)
     A_m = dn2_mg[:, 1:].dot(rgd.dr_g[1:] / rgd.r_g[1:]) / 5
     A_m *= Y2_m
-    W_vv = Y2_mvv.T.dot(A_m)
+    # W_vv: Array2D = Y2_mvv.T.dot(A_m)  # type: ignore
+    W_vv = Y2_mvv.T @ A_m
     W = np.trace(W_vv) / 3
     for v in range(3):
         W_vv[v, v] -= W
@@ -211,7 +213,7 @@ def expand(D_ii: Array2D,
     return D_mjj
 
 
-def delta(r: float, rT: float) -> float:
+def delta(r: Array1D, rT: float) -> Array1D:
     """Extended delta function."""
     return 2 / rT / (1 + 2 * r / rT)**2
 
@@ -229,7 +231,7 @@ def integrate(n0_g: Array1D,
     r_j = np.linspace(0, r4, n)
 
     b_i = np.arange(3, -1, -1) + 1 - beta
-    d0 = delta(0, rT)
+    d0 = 2 / rT  # delta(0, rT)
     d1 = -8 / rT**2
     n0 = a_i.dot(d0 * r4**b_i / b_i + d1 * r4**(b_i + 1) / (b_i + 1))
 

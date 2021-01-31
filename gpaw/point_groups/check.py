@@ -8,7 +8,7 @@ from numpy.linalg import inv, det, solve
 from scipy.ndimage import map_coordinates
 
 from . import PointGroup
-from gpaw.hints import Array2D, Array3D
+from gpaw.hints import Array2D, Array3D, ArrayLike
 
 Axis = Union[str, Sequence[float], None]
 
@@ -16,7 +16,7 @@ Axis = Union[str, Sequence[float], None]
 class SymmetryChecker:
     def __init__(self,
                  group: Union[str, PointGroup],
-                 center: Sequence[float],
+                 center: ArrayLike,#Sequence[float],
                  radius: float = 2.0,
                  x: Axis = None,
                  y: Axis = None,
