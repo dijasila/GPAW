@@ -1,7 +1,8 @@
-from typing import Tuple, Sequence, Union
+import numpy as np
+# from typing import Tuple, Sequence, Union
 
-
-class ArrayND(Sequence):
+'''
+class _ArrayND(Sequence):
     """Poor mans type-hints for np.ndarray."""
 
     T: 'ArrayND'
@@ -65,8 +66,10 @@ class ArrayND(Sequence):
 
     def __lt__(self, other) -> 'ArrayND':
         ...
+'''
 
 
+ArrayND = np.ndarray
 Array1D = ArrayND
 Array2D = ArrayND
 Array3D = ArrayND
