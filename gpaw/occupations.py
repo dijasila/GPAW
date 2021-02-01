@@ -140,7 +140,7 @@ class OccupationNumberCalculator:
                   eigenvalues: List[List[float]],
                   weights: List[float],
                   fermi_levels_guess: List[float] = None
-                  ) -> Tuple[List[Array1D],
+                  ) -> Tuple[Array2D,
                              List[float],
                              float]:
         """Calculate occupation numbers and fermi level(s) from eigenvalues.
@@ -173,7 +173,7 @@ class OccupationNumberCalculator:
         if fermi_levels_guess is None:
             fermi_levels_guess = [nan]
 
-        f_qn = [np.empty(len(eig_qn[0])) for _ in weight_q]
+        f_qn = np.empty((len(weight_q), len(eig_qn[0])))
 
         result = np.empty(2)
 
@@ -183,9 +183,7 @@ class OccupationNumberCalculator:
                 nelectrons, eig_qn, weight_q, f_qn, fermi_levels_guess[0])
 
         self.domain_comm.broadcast(result, 0)
-
-        for f_n in f_qn:
-            self.domain_comm.broadcast(f_n, 0)
+        self.domain_comm.broadcast(f_qn, 0)
 
         fermi_level, e_entropy = result
         return f_qn, [fermi_level], e_entropy
@@ -194,7 +192,7 @@ class OccupationNumberCalculator:
                    nelectrons: float,
                    eig_qn: List[Array1D],
                    weight_q: Array1D,
-                   f_qn: List[Array1D],
+                   f_qn: Array2D,
                    fermi_level_guess: float) -> Tuple[float, float]:
         raise NotImplementedError
 
@@ -225,7 +223,7 @@ class FixMagneticMomentOccupationNumberCalculator(OccupationNumberCalculator):
                   eigenvalues: List[List[float]],
                   weights: List[float],
                   fermi_levels_guess: List[float] = None
-                  ) -> Tuple[List[np.ndarray],
+                  ) -> Tuple[Array2D,
                              List[float],
                              float]:
 
@@ -250,7 +248,7 @@ class FixMagneticMomentOccupationNumberCalculator(OccupationNumberCalculator):
         for f1_n, f2_n in zip(f1_qn, f2_qn):
             f_qn += [f1_n, f2_n]
 
-        return (f_qn,
+        return (np.array(f_qn),
                 fermi_levels1 + fermi_levels2,
                 e_entropy1 + e_entropy2)
 
