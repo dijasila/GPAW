@@ -1,5 +1,4 @@
 # Creates: tas2_eps.png
-from __future__ import division
 from ase import Atoms
 from ase.lattice.hexagonal import Hexagonal
 import matplotlib.pyplot as plt
@@ -28,7 +27,7 @@ calc = GPAW(mode=PW(600),
             occupations=FermiDirac(width=0.01),
             kpts={'density': 5})
 
-atoms.set_calculator(calc)
+atoms.calc = calc
 atoms.get_potential_energy()
 calc.write('TaS2-gs.gpw')
 
@@ -36,12 +35,11 @@ calc.write('TaS2-gs.gpw')
 
 kpts = find_high_symmetry_monkhorst_pack('TaS2-gs.gpw', density=5.0)
 
-responseGS = GPAW('TaS2-gs.gpw',
-                  fixdensity=True,
-                  kpts=kpts,
-                  parallel={'band': 1},
-                  nbands=60,
-                  convergence={'bands': 50})
+responseGS = GPAW('TaS2-gs.gpw').fixed_density(
+    kpts=kpts,
+    parallel={'band': 1},
+    nbands=60,
+    convergence={'bands': 50})
 
 responseGS.get_potential_energy()
 responseGS.write('TaS2-gsresponse.gpw', 'all')

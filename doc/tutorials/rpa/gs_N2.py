@@ -1,9 +1,8 @@
-from __future__ import print_function
 from ase.optimize import BFGS
 from ase.build import molecule
 from ase.parallel import paropen
 from gpaw import GPAW, PW
-from gpaw.xc.exx import EXX
+from gpaw.hybrids.energy import non_self_consistent_energy as nsc_energy
 
 # N
 N = molecule('N')
@@ -23,9 +22,7 @@ E1_pbe = N.get_potential_energy()
 
 calc.write('N.gpw', mode='all')
 
-exx = EXX('N.gpw', txt='N_exx.txt')
-exx.calculate()
-E1_hf = exx.get_total_energy()
+E1_hf = nsc_energy('N.gpw', 'EXX')
 
 calc.diagonalize_full_hamiltonian(nbands=4800)
 calc.write('N.gpw', mode='all')
@@ -49,9 +46,7 @@ E2_pbe = N2.get_potential_energy()
 
 calc.write('N2.gpw', mode='all')
 
-exx = EXX('N2.gpw', txt='N2_exx.txt')
-exx.calculate()
-E2_hf = exx.get_total_energy()
+E2_hf = nsc_energy('N2.gpw', 'EXX')
 
 with paropen('PBE_HF.dat', 'w') as fd:
     print('PBE: ', E2_pbe - 2 * E1_pbe, file=fd)

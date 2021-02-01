@@ -16,6 +16,10 @@
 #include <malloc/malloc.h>
 #endif
 
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+
 #ifdef GPAW_HPM
 void HPM_Start(char *);
 void HPM_Stop(char *);
@@ -76,6 +80,18 @@ PyObject* craypat_region_end(PyObject *self, PyObject *args)
   Py_RETURN_NONE;
 }
 #endif
+
+PyObject* get_num_threads(PyObject *self, PyObject *args)
+{
+  int nthreads = 1;
+#ifdef _OPENMP
+  #pragma omp parallel
+  {
+    nthreads = omp_get_num_threads();
+  }
+#endif
+  return Py_BuildValue("i", nthreads);
+}
 
 #ifdef PARALLEL
 #include <mpi.h>
@@ -414,16 +430,6 @@ PyObject* utilities_gaussian_wave(PyObject *self, PyObject *args)
     }
 
   Py_RETURN_NONE;
-}
-
-
-PyObject* errorfunction(PyObject *self, PyObject *args)
-{
-  double x;
-  if (!PyArg_ParseTuple(args, "d", &x))
-    return NULL;
-
-  return Py_BuildValue("d", erf(x));
 }
 
 

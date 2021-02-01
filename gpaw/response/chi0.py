@@ -2,8 +2,8 @@ import numbers
 from time import ctime
 
 import numpy as np
-from ase.units import Hartree
-from ase.utils import devnull
+from ase.units import Ha
+from gpaw.utilities import devnull
 from ase.utils.timing import timer, Timer
 
 import gpaw.mpi as mpi
@@ -201,7 +201,7 @@ class Chi0:
             rate. Note, for consistency with the formalism the rate is
             implemented as omegap^2 / (omega + 1j * rate)^2 which differ from
             some literature by a factor of 2.
-            
+
 
         Attributes
         ----------
@@ -224,7 +224,7 @@ class Chi0:
         self.disable_time_reversal = disable_time_reversal
         self.disable_non_symmorphic = disable_non_symmorphic
         self.integrationmode = integrationmode
-        self.eshift = eshift / Hartree
+        self.eshift = eshift / Ha
 
         calc = self.pair.calc
         self.calc = calc
@@ -253,19 +253,19 @@ class Chi0:
         self.nblocks = nblocks
 
         if ecut is not None:
-            ecut /= Hartree
+            ecut /= Ha
 
         self.ecut = ecut
         self.gammacentered = gammacentered
 
-        self.eta = eta / Hartree
+        self.eta = eta / Ha
         if rate == 'eta':
             self.rate = self.eta
         else:
-            self.rate = rate / Hartree
-        self.domega0 = domega0 / Hartree
-        self.omega2 = omega2 / Hartree
-        self.omegamax = None if omegamax is None else omegamax / Hartree
+            self.rate = rate / Ha
+        self.domega0 = domega0 / Ha
+        self.omega2 = omega2 / Ha
+        self.omegamax = None if omegamax is None else omegamax / Ha
         self.nbands = nbands or self.calc.wfs.bd.nbands
         self.include_intraband = intraband
 
@@ -275,11 +275,11 @@ class Chi0:
             if self.omegamax is None:
                 self.omegamax = omax
             print('Using nonlinear frequency grid from 0 to %.3f eV' %
-                  (self.omegamax * Hartree), file=self.fd)
+                  (self.omegamax * Ha), file=self.fd)
             self.wd = FrequencyDescriptor(self.domega0, self.omega2,
                                           self.omegamax)
         else:
-            self.wd = ArrayDescriptor(np.asarray(frequencies) / Hartree)
+            self.wd = ArrayDescriptor(np.asarray(frequencies) / Ha)
             assert not hilbert
 
         self.omega_w = self.wd.get_data()
@@ -321,9 +321,9 @@ class Chi0:
             self.epsmin = min(self.epsmin, kpt.eps_n[0])
             self.epsmax = max(self.epsmax, kpt.eps_n[self.nbands - 1])
 
-        print('Minimum eigenvalue: %10.3f eV' % (self.epsmin * Hartree),
+        print('Minimum eigenvalue: %10.3f eV' % (self.epsmin * Ha),
               file=self.fd)
-        print('Maximum eigenvalue: %10.3f eV' % (self.epsmax * Hartree),
+        print('Maximum eigenvalue: %10.3f eV' % (self.epsmax * Ha),
               file=self.fd)
 
         return self.epsmax - self.epsmin
@@ -471,7 +471,7 @@ class Chi0:
             wings = True
         else:
             wings = False
-        
+
         # Reset PAW correction in case momentum has change
         self.Q_aGii = self.pair.initialize_paw_corrections(pd)
         A_wxx = chi0_wGG  # Change notation
@@ -546,7 +546,7 @@ class Chi0:
         if wings:
             chi0_wxvG /= prefactor
             chi0_wvv /= prefactor
-        
+
         # The functions that are integrated are defined in the bottom
         # of this file and take a number of constant keyword arguments
         # which the integrator class accepts through the use of the
@@ -706,7 +706,7 @@ class Chi0:
 
             PWSA.symmetrize_wvv(self.plasmafreq_vv[np.newaxis])
             print('Plasma frequency:', file=self.fd)
-            print((self.plasmafreq_vv**0.5 * Hartree).round(2),
+            print((self.plasmafreq_vv**0.5 * Ha).round(2),
                   file=self.fd)
 
         # The response function is integrated only over the IBZ. The
@@ -943,12 +943,13 @@ class Chi0:
 
         ik1 = kd.bz2ibz_k[K1]
         ik2 = kd.bz2ibz_k[K2]
-        kpt1 = wfs.kpt_u[s * wfs.kd.nibzkpts + ik1]
+        kpt1 = wfs.kpt_qs[ik1][s]
+        assert wfs.kd.comm.size == 1
         if self.response in ['+-', '-+']:
             s2 = 1 - s
         else:
             s2 = s
-        kpt2 = wfs.kpt_u[s2 * wfs.kd.nibzkpts + ik2]
+        kpt2 = wfs.kpt_qs[ik2][s2]
         deps_nm = np.subtract(kpt1.eps_n[n1:n2][:, np.newaxis],
                               kpt2.eps_n[m1:m2])
 
@@ -970,7 +971,9 @@ class Chi0:
 
         if self.integrationmode is None:
             f_n = kpt1.f_n
-            width = self.calc.occupations.width
+            assert self.calc.wfs.occupations.name in ['fermi-dirac',
+                                                      'zero-width']
+            width = getattr(self.calc.wfs.occupations, '_width', 0.0) / Ha
             if width > 1e-15:
                 dfde_n = - 1. / width * (f_n - f_n**2.0)
             else:
@@ -996,7 +999,8 @@ class Chi0:
         k_c = np.dot(pd.gd.cell_cv, k_v) / (2 * np.pi)
         K1 = self.pair.find_kpoint(k_c)
         ik = kd.bz2ibz_k[K1]
-        kpt1 = wfs.kpt_u[s * wfs.kd.nibzkpts + ik]
+        kpt1 = wfs.kpt_qs[ik][s]
+        assert wfs.kd.comm.size == 1
 
         return kpt1.eps_n[n1:n2]
 
@@ -1101,13 +1105,13 @@ class Chi0:
 
         q_c = pd.kd.bzk_kc[0]
         nw = len(self.omega_w)
-        ecut = self.ecut * Hartree
+        ecut = self.ecut * Ha
         ns = calc.wfs.nspins
         nbands = self.nbands
         nk = calc.wfs.kd.nbzkpts
         nik = calc.wfs.kd.nibzkpts
         ngmax = pd.ngmax
-        eta = self.eta * Hartree
+        eta = self.eta * Ha
         wsize = world.size
         knsize = self.kncomm.size
         nocc = self.nocc1

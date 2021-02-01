@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-from __future__ import print_function
 import itertools
 import numpy as np
 from gpaw.grid_descriptor import GridDescriptor
@@ -128,16 +126,16 @@ def redistribute(gd, gd2, src, distribute_dir, reduce_dir, operation='forth'):
         raise ValueError('Grids are not compatible.  '
                          'Use get_compatible_grid_descriptor to construct '
                          'a compatible grid.')
-    #assert peer_comm2 is not None
+    # assert peer_comm2 is not None
     assert peer_comm.compare(
         gd2.comm.new_communicator(peer_ranks2)) == 'congruent'
-    #print('COMPARE', peer_ranks, peer_ranks2, peer_comm.compare(peer_comm2))
+    # print('COMPARE', peer_ranks, peer_ranks2, peer_comm.compare(peer_comm2))
 
     # Now check that peer_comm encompasses the same physical processes
     # on the communicators of the two grid descriptors.
-    #test1 = peer_comm.translate_ranks(gd.comm, np.arange(peer_comm.size))
-    #test2 = peer_comm.translate_ranks(gd.comm, np.arange(peer_comm.size))
-    #print(peer_comm)
+    # test1 = peer_comm.translate_ranks(gd.comm, np.arange(peer_comm.size))
+    # test2 = peer_comm.translate_ranks(gd.comm, np.arange(peer_comm.size))
+    # print(peer_comm)
 
     members = peer_comm.get_members()
 
@@ -435,7 +433,7 @@ def general_redistribute(comm, domains1, domains2, rank2parpos1, rank2parpos2,
             start_c -= myoffset_c
             stop_c -= myoffset_c
             return arr_g[:, start_c[0]:stop_c[0], start_c[1]:stop_c[1],
-                            start_c[2]:stop_c[2]]
+                         start_c[2]:stop_c[2]]
         else:
             return None
 
@@ -500,6 +498,7 @@ def general_redistribute(comm, domains1, domains2, rank2parpos1, rank2parpos2,
         elif behavior == 'add':
             recvchunk.flat[:] += buf
 
+
 def test_general_redistribute():
     from gpaw.mpi import world
 
@@ -533,13 +532,9 @@ def test_general_redistribute():
     print(arr3)
 
 
-#if __name__ == '__main__':
-#    main()
-
-
 def playground():
     np.set_printoptions(linewidth=176)
-    #N_c = [4, 7, 9]
+    # N_c = [4, 7, 9]
     N_c = [4, 4, 2]
 
     pbc_c = (1, 1, 1)
@@ -566,18 +561,17 @@ def playground():
     if gd.comm.rank == 0:
         ind = np.indices(src_global.shape)
         src_global += 1j * (ind[0] / 10. + ind[1] / 100. + ind[2] / 1000.)
-        #src_global[1] += 0.5j
+        # src_global[1] += 0.5j
         print('GLOBAL ARRAY', src_global.shape)
         print(src_global.squeeze())
     gd.distribute(src_global, src)
     goal = gd2.zeros(dtype=float)
-    goal[:] = gd.comm.rank # get_members()[gd2.comm.rank]
+    goal[:] = gd.comm.rank  # get_members()[gd2.comm.rank]
     goal_global = gd2.collect(goal)
     if gd.comm.rank == 0:
         print('GOAL GLOBAL')
         print(goal_global.squeeze())
     gd.comm.barrier()
-    #return
 
     recvbuf = redistribute(gd, gd2, src, distribute_dir, reduce_dir,
                            operation='forth')
@@ -610,7 +604,7 @@ def test(N_c, gd, gd2, reduce_dir, distribute_dir, verbose=True):
     if gd.comm.rank == 0:
         ind = np.indices(src_global.shape)
         src_global += 1j * (ind[0] / 10. + ind[1] / 100. + ind[2] / 1000.)
-        #src_global[1] += 0.5j
+        # src_global[1] += 0.5j
         if verbose:
             print('GLOBAL ARRAY', src_global.shape)
             print(src_global)
@@ -626,13 +620,13 @@ def test(N_c, gd, gd2, reduce_dir, distribute_dir, verbose=True):
     recvbuf = redistribute(gd, gd2, src, distribute_dir, reduce_dir,
                            operation='forth')
     recvbuf_master = gd2.collect(recvbuf)
-    #if np.all(N_c == [10, 16, 24]):
-    #    recvbuf_master[5,8,3] = 7
+    # if np.all(N_c == [10, 16, 24]):
+    #     recvbuf_master[5,8,3] = 7
     maxerr = 0.0
     if gd2.comm.rank == 0:
-        #if N_c[0] == 7:
-        #    recvbuf_master[5, 0, 0] = 7
-        #recvbuf_master[0,0,0] = 7
+        # if N_c[0] == 7:
+        #     recvbuf_master[5, 0, 0] = 7
+        # recvbuf_master[0,0,0] = 7
         err = src_global - recvbuf_master
         maxerr = np.abs(err).max()
         if verbose:
@@ -685,12 +679,12 @@ def rigorous_testing():
                     gd2 = get_compatible_grid_descriptor(gd, distribute_dir,
                                                          reduce_dir)
 
-                    #gd2 = gd.new_descriptor(parsize_c=parsize2_c)
+                    # gd2 = gd.new_descriptor(parsize_c=parsize2_c)
                 except ValueError:  # Skip illegal distributions
                     continue
 
                 if gd.comm.rank == 1:
-                    #print(gd, gd2)
+                    # print(gd, gd2)
                     print('N_c=%s[%s] redist %s -> %s [ind=%d dist=%d red=%d]'
                           % (N_c, pbc_c, parsize_c, parsize2_c,
                              independent_dir, distribute_dir, reduce_dir))
@@ -701,5 +695,5 @@ def rigorous_testing():
 
 if __name__ == '__main__':
     test_general_redistribute()
-    #playground()
-    #rigorous_testing()
+    # playground()
+    # rigorous_testing()

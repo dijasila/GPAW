@@ -1,6 +1,6 @@
-from __future__ import print_function
 import sys
 from optparse import OptionParser
+
 
 def build_parser():
     description = 'Generate LCAO basis sets for the specified elements.'
@@ -10,14 +10,14 @@ def build_parser():
     parser.add_option('-n', '--name', default=None, metavar='<name>',
                       help='name of generated basis files')
     parser.add_option('-t', '--type', default='dzp', metavar='<type>',
-                      help='type of basis.  For example: sz, dzp, qztp, '+
+                      help='type of basis.  For example: sz, dzp, qztp, ' +
                       '4z3p.  [default: %default]')
     parser.add_option('-E', '--energy-shift', metavar='<energy>', type='float',
                       default=.1,
                       help='use given energy shift to determine cutoff')
     parser.add_option('-T', '--tail-norm', metavar='<norm>', type='string',
                       default='0.16,0.3,0.6', dest='tailnorm',
-                      help='use the given fractions to define the split'+
+                      help='use the given fractions to define the split' +
                       '-valence cutoffs.  Default: [%default]')
     parser.add_option('-f', '--xcfunctional', default='PBE', metavar='<XC>',
                       help='Exchange-Correlation functional '
@@ -27,17 +27,17 @@ def build_parser():
                       'initial guess')
     parser.add_option('--rcut-max', type='float', default=16.,
                       metavar='<rcut>',
-                      help='max cutoff for confined atomic orbitals.  This '+
-                      'option has no effect on orbitals with smaller cutoff '+
+                      help='max cutoff for confined atomic orbitals.  This ' +
+                      'option has no effect on orbitals with smaller cutoff ' +
                       '[default/Bohr: %default]')
     parser.add_option('--rcut-pol-rel', type='float', default=1.0,
                       metavar='<rcut>',
-                      help='polarization function cutoff relative to largest'+
+                      help='polarization function cutoff relative to largest' +
                       ' single-zeta cutoff [default: %default]')
     parser.add_option('--rchar-pol-rel', type='float', default=None,
                       metavar='<rchar>',
-                      help='characteristic radius of Gaussian when not using '+
-                      'interpolation scheme, relative to rcut')
+                      help='characteristic radius of Gaussian when ' +
+                      'not using interpolation scheme, relative to rcut')
     parser.add_option('--vconf-amplitude', type='float', default=12.,
                       metavar='<alpha>',
                       help='set proportionality constant of smooth '
@@ -84,9 +84,9 @@ smart parameters."""
 def main():
     parser = build_parser()
     opts, args = parser.parse_args()
-    #if __name__ == '__main__' and len(args) == 0:
-    #    parser.print_help()
-    #    sys.exit(0)
+    # if __name__ == '__main__' and len(args) == 0:
+    #     parser.print_help()
+    #     sys.exit(0)
 
     from gpaw.atom.basis import BasisMaker
     from gpaw import ConvergenceError
@@ -104,7 +104,7 @@ def main():
             symbol = symbol_and_file[0]
             symbols.append(symbol)
             if len(symbol_and_file) > 1:
-                referencefiles[i] = symbol_and_file[1] # filename
+                referencefiles[i] = symbol_and_file[1]  # filename
             if len(symbol_and_file) == 3:
                 reference_atom_indices[i] = int(symbol_and_file[2])
     else:

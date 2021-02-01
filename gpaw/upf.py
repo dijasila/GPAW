@@ -7,10 +7,7 @@ provide pseudopotential objects for use with GPAW.
 
 from optparse import OptionParser
 from xml.etree.ElementTree import parse as xmlparse, fromstring
-try:
-    from xml.etree.ElementTree import ParseError
-except ImportError:  # python2.6 compatibility
-    from xml.parsers.expat import ExpatError as ParseError
+from xml.etree.ElementTree import ParseError
 
 import numpy as np
 from ase.data import atomic_numbers
@@ -126,10 +123,10 @@ def parse_upf(fname):
         # This is the crappy format.
         headerlines = [line for line
                        in header_element.text.strip().splitlines()]
-        #header['version'] = headerlines[0].split()[0]
+        # header['version'] = headerlines[0].split()[0]
         header['element'] = headerlines[1].split()[0]
-        #header['has_nlcc'] = {'T': True, 'F': False} .........
-        #assert not header['has_nlcc']
+        # header['has_nlcc'] = {'T': True, 'F': False} .........
+        # assert not header['has_nlcc']
         # XC functional?
         header['z_valence'] = float(headerlines[5].split()[0])
         header['total_psenergy'] = float(headerlines[6].split()[0])
@@ -227,8 +224,8 @@ def parse_upf(fname):
             state = UPFStateSpec(None, label, int(l), np.array(values),
                                  occupation=float(occupation))
             pp['states'].append(state)
-        #print repr(lines[0])
-    #assert len(pp['states']) > 0
+        # print repr(lines[0])
+    # assert len(pp['states']) > 0
 
     pp['rhoatom'] = toarray(root.find('PP_RHOATOM'))
     return pp
@@ -284,11 +281,11 @@ class UPFSetupData:
         self.rcut_j = [data['r'][len(proj.values) - 1]
                        for proj in data['projectors']]
 
-        #beta = 0.1 # XXX nice parameters?
-        #N = 4 * 450 # XXX
+        # beta = 0.1 # XXX nice parameters?
+        # N = 4 * 450 # XXX
         # This is "stolen" from hgh.  Figure out something reasonable
-        #rgd = AERadialGridDescriptor(beta / N, 1.0 / N, N,
-        #                             default_spline_points=100)
+        # rgd = AERadialGridDescriptor(beta / N, 1.0 / N, N,
+        #                              default_spline_points=100)
 
         from gpaw.atom.radialgd import EquidistantRadialGridDescriptor
         rgd = EquidistantRadialGridDescriptor(0.02)
@@ -308,21 +305,21 @@ class UPFSetupData:
                 val /= 2.
                 val[1:] /= data['r'][1:len(val)]
                 val[0] = val[1]
-                pt_g = self._interp(val) #* np.sqrt(4.0 * np.pi)
-                #sqrnorm = (pt_g**2 * self.rgd.dr_g).sum()
+                pt_g = self._interp(val)  # * np.sqrt(4.0 * np.pi)
+                # sqrnorm = (pt_g**2 * self.rgd.dr_g).sum()
                 self.pt_jg.append(pt_g)
 
         else:
             self.l_j = [0]
             gcut = self.rgd.r2g(1.0)
-            self.pt_jg = [np.zeros(gcut)] # XXX yet another "null" function
+            self.pt_jg = [np.zeros(gcut)]  # XXX yet another "null" function
 
-        self.rcgauss = 0.0 # XXX .... what is this used for?
+        self.rcgauss = 0.0  # XXX .... what is this used for?
         self.ni = sum([2 * l + 1 for l in self.l_j])
 
-        self.fingerprint = None # XXX hexdigest the file?
-        self.HubU = None # XXX
-        self.lq = None # XXX
+        self.fingerprint = None  # XXX hexdigest the file?
+        self.HubU = None  # XXX
+        self.lq = None  # XXX
 
         if valence_states is None:
             valence_states = data['states']
@@ -338,7 +335,7 @@ class UPFSetupData:
                 electroncount += state.occupation
                 # The Cl.pz-hgh.UPF from quantum espresso has only 6
                 # but should have 7 electrons.  Oh well....
-            #err = abs(electroncount - self.Nv)
+            # err = abs(electroncount - self.Nv)
             self.f_j = [state.occupation for state in valence_states]
             self.n_j = [state.n for state in valence_states]
             self.l_orb_j = [state.l for state in valence_states]
@@ -358,11 +355,11 @@ class UPFSetupData:
         # One could hack that it looks up some radii to compare e.g. H2O.
         # The results of the below comments still have some numerical error.
         # But it's not huge.
-        #a = None
-        #if self.symbol == 'H':
-        #    a = 0.2
-        #elif self.symbol == 'O':
-        #    a = .247621
+        # a = None
+        # if self.symbol == 'H':
+        #     a = 0.2
+        # elif self.symbol == 'O':
+        #     a = .247621
 
         vbar_g, ghat_g = screen_potential(data['r'], vlocal_unscreened,
                                           self.Nv)
@@ -370,7 +367,6 @@ class UPFSetupData:
                                                        ghat_g)
         self.vbar_g = self._interp(vbar_g) * np.sqrt(4.0 * np.pi)
         self.ghat_lg = [4.0 * np.pi / self.Nv * self._interp(ghat_g)]
-
 
     def get_jargs(self):
         projectors = list(self.data['projectors'])
@@ -535,7 +531,7 @@ def main_plot():
                  help='calculate density and orbitals.')
     opts, args = p.parse_args()
 
-    import pylab as pl
+    import matplotlib.pyplot as plt
     for arg in args:
         if not arg.lower().endswith('.upf'):
             # This is a bit bug prone.  It is subject to files
@@ -553,7 +549,7 @@ def main_plot():
         print(UPFSetupData(pp).tostring())
         print(pp['info'])
         upfplot(pp, show=False, calculate=opts.calculate)
-    pl.show()
+    plt.show()
 
 
 def upfplot(setup, show=True, calculate=False):
@@ -571,8 +567,8 @@ def upfplot(setup, show=True, calculate=False):
         arr = divrl(array, rdividepower, r)
         return r, arr
 
-    import pylab as pl
-    fig = pl.figure()
+    import matplotlib.pyplot as plt
+    fig = plt.figure()
     fig.canvas.set_window_title('%s - UPF setup for %s' % (pp['fname'],
                                                            setup.symbol))
 
@@ -641,4 +637,4 @@ def upfplot(setup, show=True, calculate=False):
     fig.subplots_adjust(wspace=0.3)
 
     if show:
-        pl.show()
+        plt.show()

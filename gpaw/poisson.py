@@ -882,24 +882,24 @@ def rfst2(A_g, axes=[0, 1]):
     return np.transpose(X, np.argsort(axes + third))
 
 
-def irfst2(A_g, axes=[0,1]):
+def irfst2(A_g, axes=[0, 1]):
     if use_scipy_transforms:
         Y = A_g
         for axis in axes:
             Y = scipydst(Y, axis=axis, type=1)
         magic = 1.0 / (16 * np.prod([A_g.shape[axis] + 1 for axis in axes]))
         Y *= magic
-        #Y /= 211200
+        # Y /= 211200
         return Y
 
-    all = set([0,1,2])
-    third = [ all.difference(set(axes)).pop() ]
+    all = set([0, 1, 2])
+    third = [all.difference(set(axes)).pop()]
     A_g = np.transpose(A_g, axes + third)
-    x,y,z = A_g.shape
-    temp_g = np.zeros((x*2+2, (y*2+2)//2+1, z))
-    temp_g[1:x+1, 1:y+1,:] = A_g.real
-    temp_g[x+2:, 1:y+1,:] = -A_g[::-1, :, :].real
-    X = -0.25*irfft2(temp_g, axes=[0,1])[1:x+1, 1:y+1, :]
+    x, y, z = A_g.shape
+    temp_g = np.zeros((x * 2 + 2, (y * 2 + 2) // 2 + 1, z))
+    temp_g[1:x + 1, 1:y + 1, :] = A_g.real
+    temp_g[x + 2:, 1:y + 1, :] = -A_g[::-1, :, :].real
+    X = -0.25 * irfft2(temp_g, axes=[0, 1])[1:x + 1, 1:y + 1, :]
 
     T = np.transpose(X, np.argsort(axes + third))
     return T
@@ -909,52 +909,53 @@ def irfst2(A_g, axes=[0,1]):
 def fst(A_g, axis):
     x, y, z = A_g.shape
     N_c = np.array([x, y, z])
-    N_c[axis] = N_c[axis]*2 + 2
+    N_c[axis] = N_c[axis] * 2 + 2
     temp_g = np.zeros(N_c, dtype=A_g.dtype)
     if axis == 0:
-        temp_g[1:x+1, :,:] = A_g
-        temp_g[x+2:, :,:] = -A_g[::-1, :, :]
+        temp_g[1:x + 1, :, :] = A_g
+        temp_g[x + 2:, :, :] = -A_g[::-1, :, :]
     elif axis == 1:
-        temp_g[:, 1:y+1,:] = A_g
-        temp_g[:, y+2:, :] = -A_g[:, ::-1, :]
+        temp_g[:, 1:y + 1, :] = A_g
+        temp_g[:, y + 2:, :] = -A_g[:, ::-1, :]
     elif axis == 2:
-        temp_g[:, :, 1:z+1] = A_g
-        temp_g[:, :, z+2:] = -A_g[:, ::, ::-1]
+        temp_g[:, :, 1:z + 1] = A_g
+        temp_g[:, :, z + 2:] = -A_g[:, ::, ::-1]
     else:
         raise NotImplementedError()
-    X = 0.5j*fft(temp_g, axis=axis)
+    X = 0.5j * fft(temp_g, axis=axis)
     if axis == 0:
-        return X[1:x+1, :, :]
+        return X[1:x + 1, :, :]
     elif axis == 1:
-        return X[:, 1:y+1, :]
+        return X[:, 1:y + 1, :]
     elif axis == 2:
-        return X[:, :, 1:z+1]
+        return X[:, :, 1:z + 1]
+
 
 def ifst(A_g, axis):
     x, y, z = A_g.shape
     N_c = np.array([x, y, z])
-    N_c[axis] = N_c[axis]*2 + 2
+    N_c[axis] = N_c[axis] * 2 + 2
     temp_g = np.zeros(N_c, dtype=A_g.dtype)
 
     if axis == 0:
-        temp_g[1:x+1, :,:] = A_g
-        temp_g[x+2:, :,:] = -A_g[::-1, :, :]
+        temp_g[1:x + 1, :, :] = A_g
+        temp_g[x + 2:, :, :] = -A_g[::-1, :, :]
     elif axis == 1:
-        temp_g[:, 1:y+1,:] = A_g
-        temp_g[:, y+2:, :] = -A_g[:, ::-1, :]
+        temp_g[:, 1:y + 1, :] = A_g
+        temp_g[:, y + 2:, :] = -A_g[:, ::-1, :]
     elif axis == 2:
-        temp_g[:, :, 1:z+1] = A_g
-        temp_g[:, :, z+2:] = -A_g[:, ::, ::-1]
+        temp_g[:, :, 1:z + 1] = A_g
+        temp_g[:, :, z + 2:] = -A_g[:, ::, ::-1]
     else:
         raise NotImplementedError()
 
     X_g = ifft(temp_g, axis=axis)
     if axis == 0:
-        return -2j*X_g[1:x+1, :, :]
+        return -2j * X_g[1:x + 1, :, :]
     elif axis == 1:
-        return -2j*X_g[:, 1:y+1, :]
+        return -2j * X_g[:, 1:y + 1, :]
     elif axis == 2:
-        return -2j*X_g[:, :, 1:z+1]
+        return -2j * X_g[:, :, 1:z + 1]
 
 
 def transform(A_g, axis=None, pbc=True):

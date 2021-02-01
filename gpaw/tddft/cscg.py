@@ -27,9 +27,8 @@ class CSCG:
     Now x and b are multivectors, i.e., list of vectors.
     """
 
-    def __init__( self, wfs, timer = None,
-                  tolerance = 1e-15, max_iterations = 1000, eps=1e-15,
-                  blocksize=16, cuda=False ):
+    def __init__(self, gd, timer=None,
+                 tolerance=1e-15, max_iterations=1000, eps=1e-15, cuda=False):
         """Create the CSCG-object.
 
         Tolerance should not be smaller than attainable accuracy, which is
@@ -57,12 +56,12 @@ class CSCG:
 
         self.tol = tolerance
         self.max_iter = max_iterations
-        if ( eps <= tolerance ):
+        if eps <= tolerance:
             self.eps = eps
         else:
             raise RuntimeError(
                 "CSCG method got invalid tolerance (tol = %le < eps = %le)." %
-                (tolerance,eps))
+                (tolerance, eps))
 
         self.iterations = -1
 
@@ -81,7 +80,6 @@ class CSCG:
                                  max(1, (224 * 224 * 224) * wfs.gd.comm.size
                                      / (wfs.gd.N_c[0] * wfs.gd.N_c[1]
                                         * wfs.gd.N_c[2])))
-
 
     def solve(self, A, x, b):
         """Solve a set of linear equations A.x = b.
@@ -154,7 +152,7 @@ class CSCG:
 
             for i in range(self.max_iter):
                 # z_i = (M^-1.r)
-                A.apply_preconditioner(r,z)
+                A.apply_preconditioner(r, z)
 
                 # rho_i-1 = r^T z_i-1
                 self.mblas.multi_zdotu(z, r, rho)
@@ -188,7 +186,7 @@ class CSCG:
 
                 # if ( |r|^2 < tol^2 ) done
                 tmp = self.mblas.multi_zdotc(r, r).real
-                if (tmp / scale <  self.tol*self.tol).all():
+                if (tmp / scale < self.tol * self.tol).all():
                     #print 'R2 of proc #', rank, '  = ' , tmp, \
                     #    ' after ', i+1, ' iterations'
                     iterations.append(i)
@@ -207,9 +205,8 @@ class CSCG:
                           ' after ', i+1, ' iterations')
 
             # if max iters reached, raise error
-            if (i >= self.max_iter-1):
+            if (i >= self.max_iter - 1):
                 raise RuntimeError("Conjugate gradient method failed to converged within given number of iterations (= %d)." % self.max_iter)
-
 
         self.iterations = np.max(iterations) + 1
 

@@ -1,4 +1,3 @@
-from __future__ import print_function
 import os
 import re
 import numpy as np
@@ -7,6 +6,7 @@ from gpaw.atom.basis import QuasiGaussian
 from gpaw.atom.radialgd import EquidistantRadialGridDescriptor
 from gpaw.atom.configurations import parameters, parameters_extra
 from gpaw.basis_data import BasisFunction
+from gpaw.basis_data import parse_basis_name
 from gpaw.mpi import world
 
 # Module for generating basis sets that compose of usual basis sets
@@ -56,8 +56,8 @@ def read_gbs(fname):
         for _ in range(Nj):
             line = line_i[i]
             d = line.split()
-            alpha = float(d[0])
-            coeff = float(d[1])
+            alpha = float(d[0].replace('D', 'E'))
+            coeff = float(d[1].replace('D', 'E'))
             alpha_j.append(alpha)
             coeff_j.append(coeff)
             i += 1
@@ -74,10 +74,7 @@ def get_ngto(rgd, l, alpha, rcut):
     return psi_g
 
 
-def add_ngto(basis, l, alpha, tol, label):
-    rgd = basis.get_grid_descriptor()
-    rmax = rgd.r_g[-1]
-
+def create_ngto(rgd, l, alpha, rmax, tol):
     # Get NGTO with the initial (large) rcut=rmax
     psiref_g = get_ngto(rgd, l, alpha, rmax)
 
@@ -116,18 +113,38 @@ def add_ngto(basis, l, alpha, tol, label):
     # Change norm (maybe unnecessary)
     psi_g = psi_g[:(i + 1)] * 0.5
 
+    return psi_g
+
+
+def add_ngto(basis, l, coeff_j, alpha_j, tol, label):
+    rgd = basis.get_grid_descriptor()
+    rmax = rgd.r_g[-1]
+
+    # Create linear combination of NGTO's
+    psi_g = np.zeros(rgd.r_g.shape)
+    i_max = 0
+    for coeff, alpha in zip(coeff_j, alpha_j):
+        contrib = coeff * create_ngto(rgd, l, alpha, rmax, tol)
+        i = contrib.size
+        i_max = max(i, i_max)
+        psi_g[0:i] += contrib
+
+    psi_g = psi_g[0:i_max]
+    rcut = rgd.r_g[i_max]
+
     # Create associated basis function
     bf = BasisFunction(None, l, rcut, psi_g, label)
     basis.bf_j.append(bf)
 
 
-def do_nao_ngto_basis(atom, xc, naobasis, gbsfname, label, rmax=100.0):
+def do_nao_ngto_basis(atom, xc, naobasis, gbsfname, label, rmax=100.0,
+                      tol=0.001):
     # Read Gaussians
     atomgbs, descriptiongbs, gto_k = read_gbs(gbsfname)
     assert atom == atomgbs
 
     # Generate nao basis
-    assert naobasis == 'sz'
+    zetacount, polarizationcount = parse_basis_name(naobasis)
 
     # Choose basis sets without semi-core states XXXXXX
     if atom == 'Ag':
@@ -138,17 +155,16 @@ def do_nao_ngto_basis(atom, xc, naobasis, gbsfname, label, rmax=100.0):
 
     bm = BasisMaker(atom, label, run=False, gtxt=None, xc=xc)
     bm.generator.run(write_xml=False, use_restart_file=False, **p[atom])
-    basis = bm.generate(1, 0, txt=None)
+    basis = bm.generate(zetacount, polarizationcount, txt=None)
 
     # Increase basis function max radius
-    h = basis.rgd.dr_g
-    assert isinstance(h, float)
+    assert isinstance(basis.rgd, EquidistantRadialGridDescriptor)
+    h = basis.rgd.dr_g[0]
     assert basis.rgd.r_g[0] == 0.0
     N = int(rmax / h) + 1
     basis.rgd = EquidistantRadialGridDescriptor(h, N)
 
     # Add NGTOs
-    tol = 0.001
 
     description = []
     msg = 'Augmented with NGTOs'
@@ -161,16 +177,20 @@ def do_nao_ngto_basis(atom, xc, naobasis, gbsfname, label, rmax=100.0):
     description.append(descriptiongbs)
     description.append('')
     description.append('NGTO truncation tolerance: %f' % tol)
-    description.append('Functions: NGTO(l,alpha)')
+    description.append('Functions: NGTO(l,coeff*alpha + ...)')
 
     for gto in gto_k:
         l = gto['l']
-        assert len(gto['alpha_j']) == 1, \
-            'Only non-contracted GTOs supported'
-        alpha = gto['alpha_j'][0]
-        ngtolabel = 'NGTO(%s,%.7f)' % ('spdfghi'[l], alpha)
+        alpha_j = gto['alpha_j']
+        coeff_j = gto['coeff_j']
+        coeff_alpha_list = ['%+.3f*%.3f' % (c, a)
+                            for c, a in zip(coeff_j, alpha_j)]
+        coeff_alpha_label = ''.join(coeff_alpha_list[0:3])
+        if len(coeff_alpha_list) > 3:
+            coeff_alpha_label += '+...'
+        ngtolabel = 'NGTO(%s,%s)' % ('spdfghi'[l], coeff_alpha_label)
         description.append('    ' + ngtolabel)
-        add_ngto(basis, l, alpha, tol, ngtolabel)
+        add_ngto(basis, l, coeff_j, alpha_j, tol, ngtolabel)
 
     basis.generatordata += '\n\n' + '\n'.join(description)
 

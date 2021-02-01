@@ -7,12 +7,13 @@ import os
 import sys
 from sysconfig import get_platform
 from os.path import join, isfile
+from typing import List, Dict
 
 plat = get_platform()
 platform_id = os.getenv('CPU_ARCH')
 if platform_id:
     plat += '-' + platform_id
-build_path = join(__path__[0], '..', 'build')  # noqa
+build_path = join(__path__[0], '..', 'build')  # type: ignore
 arch = '{}-{}.{}'.format(plat, *sys.version_info[0:2])
 
 # If we are running the code from the source directory, then we will
@@ -34,11 +35,12 @@ with broadcast_imports:
 
     import numpy as np
     from ase.cli.run import str2dict
+    import _gpaw
 
 assert not np.version.version.startswith('1.6.0')
 
-__version__ = '20.1.0'
-__ase_version_required__ = '3.19.0'
+__version__ = '21.1.0'
+__ase_version_required__ = '3.21.0'
 
 __all__ = ['GPAW',
            'Mixer', 'MixerSum', 'MixerDif', 'MixerSum2',
@@ -71,6 +73,12 @@ def parse_extra_parameters(arg):
 
 
 is_gpaw_python = '_gpaw' in sys.builtin_module_names
+
+libraries: Dict[str, str] = {}
+if hasattr(_gpaw, 'lxcXCFunctional'):
+    libraries['libxc'] = getattr(_gpaw, 'libxc_version', '2.x.y')
+else:
+    libraries['libxc'] = ''
 
 
 def parse_arguments(argv):
@@ -195,18 +203,10 @@ extra_parameters.update(parse_gpaw_args())
 
 # Check for special command line arguments:
 memory_estimate_depth = gpaw_args.memory_estimate_depth
-parsize_domain = gpaw_args.parsize_domain
-parsize_bands = gpaw_args.parsize_bands
-augment_grids = gpaw_args.augment_grids
-# We deprecate the sl_xxx parameters being set from command line.
-# People can satisfy their lusts by setting gpaw.sl_default = something
-# if they are perverted enough to use global variables.
-sl_default = None
-sl_diagonalize = None
-sl_inverse_cholesky = None
-sl_lcao = None
-sl_lrtddft = None
-buffer_size = gpaw_args.buffer_size
+parsize_domain: int = gpaw_args.parsize_domain
+parsize_bands: int = gpaw_args.parsize_bands
+augment_grids: int = gpaw_args.augment_grids
+buffer_size: int = gpaw_args.buffer_size
 profile = gpaw_args.profile
 
 use_cuda = gpaw_args.cuda
@@ -237,13 +237,14 @@ def main():
 
 
 dry_run = extra_parameters.pop('dry_run', 0)
-debug = extra_parameters.pop('debug', sys.flags.debug)
+debug: bool = extra_parameters.pop('debug', sys.flags.debug)
 benchmark_imports = extra_parameters.pop('benchmark_imports', False)
 
 # Check for typos:
 for p in extra_parameters:
     # We should get rid of most of these!
-    if p not in {'sic', 'log2ng', 'PK', 'vdw0', 'df_dry_run', 'usenewlfc'}:
+    if p not in {'sic', 'log2ng', 'PK', 'vdw0', 'df_dry_run',
+                 'c_precond', 'usenewlfc'}:
         warnings.warn('Unknown parameter: ' + p)
 
 if debug:
@@ -270,7 +271,7 @@ def get_gpaw_python_path():
     raise RuntimeError('Could not find gpaw-python!')
 
 
-setup_paths = []
+setup_paths: List[str] = []
 
 
 with broadcast_imports:
@@ -285,6 +286,15 @@ with broadcast_imports:
     from gpaw.wavefunctions.fd import FD
 
 RMM_DIIS = RMMDIIS
+
+if os.environ.get('GPAW_COVERAGE'):
+    import atexit
+    import coverage
+    from gpaw.mpi import rank
+    name = os.environ['GPAW_COVERAGE']
+    cov = coverage.Coverage(f'coverage-{name}-{rank}', True)
+    cov.start()
+    atexit.register(lambda: [cov.stop(), cov.save()])
 
 
 def restart(filename, Class=GPAW, **kwargs):

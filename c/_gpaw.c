@@ -19,7 +19,9 @@ void gpaw_cuda_init_c();
 #ifdef PARALLEL
 #include <mpi.h>
 #endif
+#ifndef GPAW_WITHOUT_LIBXC
 #include <xc.h>
+#endif
 
 #ifdef GPAW_HPM
 PyObject* ibm_hpm_start(PyObject *self, PyObject *args);
@@ -58,22 +60,23 @@ PyObject* NewTransformerObject(PyObject *self, PyObject *args);
 PyObject* pc_potential(PyObject *self, PyObject *args);
 PyObject* add_to_density(PyObject *self, PyObject *args);
 PyObject* utilities_gaussian_wave(PyObject *self, PyObject *args);
-PyObject* errorfunction(PyObject *self, PyObject *args);
-PyObject* cerf(PyObject *self, PyObject *args);
 PyObject* pack(PyObject *self, PyObject *args);
 PyObject* unpack(PyObject *self, PyObject *args);
 PyObject* unpack_complex(PyObject *self, PyObject *args);
 PyObject* hartree(PyObject *self, PyObject *args);
 PyObject* localize(PyObject *self, PyObject *args);
 PyObject* NewXCFunctionalObject(PyObject *self, PyObject *args);
+#ifndef GPAW_WITHOUT_LIBXC
 PyObject* NewlxcXCFunctionalObject(PyObject *self, PyObject *args);
 PyObject* lxcXCFuncNum(PyObject *self, PyObject *args);
+#endif
 PyObject* exterior_electron_density_region(PyObject *self, PyObject *args);
 PyObject* plane_wave_grid(PyObject *self, PyObject *args);
 PyObject* tci_overlap(PyObject *self, PyObject *args);
 PyObject *pwlfc_expand(PyObject *self, PyObject *args);
 PyObject *pw_insert(PyObject *self, PyObject *args);
 PyObject *pw_precond(PyObject *self, PyObject *args);
+PyObject *fd_precond(PyObject *self, PyObject *args);
 PyObject* vdw(PyObject *self, PyObject *args);
 PyObject* vdw2(PyObject *self, PyObject *args);
 PyObject* spherical_harmonics(PyObject *self, PyObject *args);
@@ -128,6 +131,9 @@ PyObject * FFTWPlan(PyObject *self, PyObject *args);
 PyObject * FFTWExecute(PyObject *self, PyObject *args);
 PyObject * FFTWDestroy(PyObject *self, PyObject *args);
 #endif
+
+// Threading
+PyObject* get_num_threads(PyObject *self, PyObject *args);
 
 #ifdef GPAW_PAPI
 PyObject* papi_mem_info(PyObject *self, PyObject *args);
@@ -221,16 +227,17 @@ static PyMethodDef functions[] = {
     {"pwlfc_expand", pwlfc_expand, METH_VARARGS, 0},
     {"pw_insert", pw_insert, METH_VARARGS, 0},
     {"pw_precond", pw_precond, METH_VARARGS, 0},
-    {"erf", errorfunction, METH_VARARGS, 0},
-    {"cerf", cerf, METH_VARARGS, 0},
+    {"fd_precond", fd_precond, METH_VARARGS, 0},
     {"pack", pack, METH_VARARGS, 0},
     {"unpack", unpack, METH_VARARGS, 0},
     {"unpack_complex", unpack_complex,           METH_VARARGS, 0},
     {"hartree", hartree, METH_VARARGS, 0},
     {"localize", localize, METH_VARARGS, 0},
     {"XCFunctional", NewXCFunctionalObject, METH_VARARGS, 0},
+#ifndef GPAW_WITHOUT_LIBXC
     {"lxcXCFunctional", NewlxcXCFunctionalObject, METH_VARARGS, 0},
     {"lxcXCFuncNum", lxcXCFuncNum, METH_VARARGS, 0},
+#endif
     {"tci_overlap", tci_overlap, METH_VARARGS, 0},
     {"vdw", vdw, METH_VARARGS, 0},
     {"vdw2", vdw2, METH_VARARGS, 0},
@@ -239,6 +246,7 @@ static PyMethodDef functions[] = {
     {"spline_to_grid", spline_to_grid, METH_VARARGS, 0},
     {"LFC", NewLFCObject, METH_VARARGS, 0},
     {"globally_broadcast_bytes", globally_broadcast_bytes, METH_VARARGS, 0},
+    {"get_num_threads", get_num_threads, METH_VARARGS, 0},
 #if defined(GPAW_WITH_SL) && defined(PARALLEL)
     {"new_blacs_context", new_blacs_context, METH_VARARGS, NULL},
     {"get_blacs_gridinfo", get_blacs_gridinfo, METH_VARARGS, NULL},
@@ -361,7 +369,9 @@ extern PyTypeObject WOperatorType;
 extern PyTypeObject SplineType;
 extern PyTypeObject TransformerType;
 extern PyTypeObject XCFunctionalType;
+#ifndef GPAW_WITHOUT_LIBXC
 extern PyTypeObject lxcXCFunctionalType;
+#endif
 
 PyObject* globally_broadcast_bytes(PyObject *self, PyObject *args)
 {
@@ -430,8 +440,10 @@ static PyObject* moduleinit(void)
         return NULL;
     if (PyType_Ready(&XCFunctionalType) < 0)
         return NULL;
+#ifndef GPAW_WITHOUT_LIBXC
     if (PyType_Ready(&lxcXCFunctionalType) < 0)
         return NULL;
+#endif
 
     PyObject* m = PyModule_Create(&moduledef);
 
@@ -444,10 +456,17 @@ static PyObject* moduleinit(void)
     PyModule_AddObject(m, "Communicator", (PyObject *)&MPIType);
 #endif
 
-#if XC_MAJOR_VERSION >= 3
+#ifndef GPAW_WITHOUT_LIBXC
+# if XC_MAJOR_VERSION >= 3
     PyObject_SetAttrString(m,
                            "libxc_version",
                            PyUnicode_FromString(xc_version_string()));
+# endif
+#endif
+#ifdef _OPENMP
+    PyObject_SetAttrString(m, "have_openmp", Py_True);
+#else
+    PyObject_SetAttrString(m, "have_openmp", Py_False);
 #endif
 
     Py_INCREF(&LFCType);
@@ -456,7 +475,9 @@ static PyObject* moduleinit(void)
     Py_INCREF(&SplineType);
     Py_INCREF(&TransformerType);
     Py_INCREF(&XCFunctionalType);
+#ifndef GPAW_WITHOUT_LIBXC
     Py_INCREF(&lxcXCFunctionalType);
+#endif
 #ifndef GPAW_INTERPRETER
     // gpaw-python needs to import arrays at the right time, so this is
     // done in gpaw_main().  In serial, we just do it here:
@@ -558,14 +579,14 @@ main(int argc, char **argv)
     if (granted < MPI_THREAD_MULTIPLE)
         exit(1);
 #else
-#ifndef GPAW_OMP
+#ifndef _OPENMP
     MPI_Init(&argc, &argv);
 #else
     int granted;
     MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &granted);
     if (granted != MPI_THREAD_MULTIPLE)
         exit(1);
-#endif // GPAW_OMP
+#endif 
 #endif
 
 #define PyChar wchar_t

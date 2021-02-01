@@ -5,17 +5,17 @@ Development
 ===========
 
 GPAW development can be done by anyone! Just take a look at the
-`issue tracker`_ and find something that suits your talents!
+`issue tracker`_ and find something that suits your talents.
 
 The primary source of information is still the :ref:`manual` and
 :ref:`documentation`, but as a developer you might need additional
 information which can be found here. For example the :ref:`code_overview`.
 
 As a developer, you should subscribe to the GPAW :ref:`mail list`.
-We would also like to encourage you to join our channel for :ref:`irc`.
+We would also like to encourage you to join our #gpaw channel for :ref:`chat`.
 
 Now you are ready to to perfom a :ref:`developer installation` and
-start development!
+start development.
 
 
 .. _issue tracker: https://gitlab.com/gpaw/gpaw/issues/
@@ -23,7 +23,6 @@ start development!
 .. toctree::
    :maxdepth: 2
 
-   projects/projects
    developer_installation
 
 .. note --- below toctrees are defined in separate files to make sure that the line spacing doesn't get very large (which is of course a bad hack)

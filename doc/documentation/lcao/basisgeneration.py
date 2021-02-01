@@ -3,11 +3,11 @@ from gpaw.atom.configurations import parameters
 from gpaw.atom.basis import BasisMaker
 
 symbol = 'Au'
-args = parameters[symbol] # Dictionary of default setup parameters
-args['rcut'] = 2.6 # Set cutoff of augmentation sphere
+args = parameters[symbol]  # Dictionary of default setup parameters
+args['rcut'] = 2.6  # Set cutoff of augmentation sphere
 
 generator = Generator(symbol, 'RPBE')
-generator.N *= 2 # Increase grid resolution
+generator.N *= 2  # Increase grid resolution
 generator.run(write_xml=False, **args)
 
 bm = BasisMaker(generator, name='special', run=False)
@@ -20,4 +20,4 @@ basis = bm.generate(zetacount=2, polarizationcount=0,
                     energysplit=0.1, jvalues=[0, 1, 2],
                     rcutmax=12.0)
 
-basis.write_xml() # Dump to file 'Au.special.dz.basis'
+basis.write_xml()  # Dump to file 'Au.special.dz.basis'

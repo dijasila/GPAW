@@ -1,4 +1,3 @@
-from __future__ import print_function
 from math import pi, cos, sin
 from ase import Atoms
 from ase.parallel import paropen
@@ -19,7 +18,7 @@ atoms.center()
 calc1 = GPAW(h=0.2,
              txt='h2o_gs.txt',
              xc='PBE')
-atoms.set_calculator(calc1)
+atoms.calc = calc1
 e1 = atoms.get_potential_energy() + calc1.get_reference_energy()
 
 calc2 = GPAW(h=0.2,
@@ -30,7 +29,7 @@ calc2 = GPAW(h=0.2,
              occupations=FermiDirac(0.0, fixmagmom=True),
              setups={0: 'fch1s'})
 atoms[0].magmom = 1
-atoms.set_calculator(calc2)
+atoms.calc = calc2
 e2 = atoms.get_potential_energy() + calc2.get_reference_energy()
 
 with paropen('dks.result', 'w') as fd:

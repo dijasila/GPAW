@@ -1,4 +1,3 @@
-from __future__ import print_function
 import numpy as np
 import pylab as plt
 
@@ -21,7 +20,7 @@ efermi = calc.get_fermi_level()
 
 # Calculate xy averaged potential:
 vz = v.mean(axis=0).mean(axis=0)
-print('Work function: %.2f eV' % (vz.max() - efermi))
+print(f'Work function: {vz.max() - efermi:.2f} eV')
 
 plt.plot(z, vz, label='xy averaged effective potential')
 plt.plot([0, L], [efermi, efermi], label='Fermi level')

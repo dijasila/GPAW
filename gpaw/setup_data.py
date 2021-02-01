@@ -1,6 +1,5 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
-from __future__ import print_function
 import hashlib
 import os
 import re
@@ -10,7 +9,7 @@ from math import sqrt, pi
 from distutils.version import LooseVersion
 
 import numpy as np
-from ase.data import atomic_names
+from ase.data import atomic_names, atomic_numbers
 from ase.units import Bohr, Hartree
 
 from gpaw import setup_paths, extra_parameters
@@ -149,7 +148,7 @@ class SetupData:
             text(self.symbol + '-setup:')
         else:
             text('%s-setup (%.1f core hole):' % (self.symbol, self.fcorehole))
-        text('  name:', atomic_names[self.Z])
+        text('  name:', atomic_names[atomic_numbers[self.symbol]])
         text('  id:', self.fingerprint)
         text('  Z:', self.Z)
         text('  valence:', self.Nv)
@@ -245,14 +244,14 @@ class SetupData:
         print('<paw_dataset version="{version}">'
               .format(version=self.version),
               file=xml)
-        name = atomic_names[self.Z].title()
+        name = atomic_names[atomic_numbers[self.symbol]].title()
         comment1 = name + ' setup for the Projector Augmented Wave method.'
         comment2 = 'Units: Hartree and Bohr radii.'
         comment2 += ' ' * (len(comment1) - len(comment2))
         print('  <!--', comment1, '-->', file=xml)
         print('  <!--', comment2, '-->', file=xml)
 
-        print(('  <atom symbol="%s" Z="%d" core="%r" valence="%d"/>' %
+        print(('  <atom symbol="%s" Z="%r" core="%r" valence="%r"/>' %
                (self.symbol, self.Z, self.Nc, self.Nv)), file=xml)
         if self.orbital_free:
             type = 'OFDFT'
@@ -420,7 +419,7 @@ You need to set the GPAW_SETUP_PATH environment variable to point to
 the directories where PAW dataset and basis files are stored.  See
 https://wiki.fysik.dtu.dk/gpaw/install.html#install-paw-datasets
 for details."""
-        raise RuntimeError('%s\n%s' % (err, helpful_message))
+        raise RuntimeError('%s\n%s\n' % (err, helpful_message))
 
     return filename, source
 
@@ -457,7 +456,7 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
             assert LooseVersion(setup.version) >= '0.4'
         if name == 'atom':
             Z = float(attrs['Z'])
-            setup.Z = int(Z)
+            setup.Z = Z
             assert setup.Z == Z
             setup.Nc = float(attrs['core'])
             Nv = float(attrs['valence'])

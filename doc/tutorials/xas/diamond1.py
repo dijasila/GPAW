@@ -24,7 +24,7 @@ calc = GPAW(h=0.2,
             xc='PBE',
             setups={0: 'hch1s'})
 
-atoms.set_calculator(calc)
+atoms.calc = calc
 
 e = atoms.get_potential_energy()
 

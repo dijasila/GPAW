@@ -26,11 +26,11 @@ poissonsolver = PoissonSolver(eps=1e-16, remove_moment=1 + 3)
 # Ground-state calculation
 calc = GPAW(mode='lcao', xc='GLLBSC', h=0.3, nbands=360,
             setups={'Ag': 'my'},
-            basis={'Ag': 'GLLBSC.dz', 'default': 'dpz'},
+            basis={'Ag': 'GLLBSC.dz', 'default': 'dzp'},
             convergence=convergence, poissonsolver=poissonsolver,
             occupations=occupations, mixer=mixer, parallel=parallel,
             maxiter=1000,
             txt='gs.out')
-atoms.set_calculator(calc)
+atoms.calc = calc
 atoms.get_potential_energy()
 calc.write('gs.gpw', mode='all')

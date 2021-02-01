@@ -1,9 +1,9 @@
-from __future__ import print_function
 
 import numpy as np
 from ase.units import Bohr
 from ase.data import chemical_symbols
 from ase.geometry import cell_to_cellpar
+from _gpaw import get_num_threads
 
 
 def print_cell(gd, pbc_c, log):
@@ -39,19 +39,9 @@ def print_positions(atoms, log, magmom_av):
 
 
 def print_parallelization_details(wfs, ham, log):
-    nibzkpts = wfs.kd.nibzkpts
-
-    # Print parallelization details
-    log('Total number of cores used: %d' % wfs.world.size)
-    if wfs.kd.comm.size > 1:  # kpt/spin parallization
-        if wfs.nspins == 2 and nibzkpts == 1:
-            log('Parallelization over spin')
-        elif wfs.nspins == 2:
-            log('Parallelization over k-points and spin: %d' %
-                wfs.kd.comm.size)
-        else:
-            log('Parallelization over k-points: %d' %
-                wfs.kd.comm.size)
+    log('Total number of cores used:', wfs.world.size)
+    if wfs.kd.comm.size > 1:
+        log('Parallelization over k-points:', wfs.kd.comm.size)
 
     # Domain decomposition settings:
     coarsesize = tuple(wfs.gd.parsize_c)
@@ -62,7 +52,6 @@ def print_parallelization_details(wfs, ham, log):
     except AttributeError:
         xc_gd = ham.finegd
     xcsize = tuple(xc_gd.parsize_c)
-
 
     if any(np.prod(size) != 1 for size in [coarsesize, finesize, xcsize]):
         title = 'Domain decomposition:'
@@ -75,6 +64,9 @@ def print_parallelization_details(wfs, ham, log):
 
     if wfs.bd.comm.size > 1:  # band parallelization
         log('Parallelization over states: %d' % wfs.bd.comm.size)
+
+    if get_num_threads() > 1:  # OpenMP threading
+        log('OpenMP threads: {}'.format(get_num_threads()))
     log()
 
 

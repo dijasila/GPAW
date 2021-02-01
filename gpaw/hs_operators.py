@@ -1,7 +1,6 @@
 # Copyright (C) 2008 CAMd
 # Please see the accompanying LICENSE file for further information.
 
-from __future__ import division
 
 import numpy as np
 

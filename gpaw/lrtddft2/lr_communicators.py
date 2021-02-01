@@ -4,18 +4,18 @@ import gpaw.mpi
 class LrCommunicators:
     def __init__(self, world=None, dd_size=None, eh_size=None):
         """Create communicators for LrTDDFT calculation.
-        
+
         Input parameters:
-        
+
         world
           MPI parent communicator (usually gpaw.mpi.world)
-        
+
         dd_size
           Over how many processes is domain distributed.
-      
+
         eh_size
           Over how many processes are electron-hole pairs distributed.
-      
+
         Note
         ----
         Sizes must match, i.e., world.size must be equal to
@@ -41,33 +41,33 @@ class LrCommunicators:
                                       lr_comms.eh_comm.rank)
           lr = LrTDDFTindexed(GPAW('unocc.gpw', communicator=lr_comms.dd_comm),
                               lr_communicators=lr_comms, txt=txt)
-        
+
         """
 
         self.parent_comm = None
         self.dd_comm = None
         self.eh_comm = None
-        
+
         self.world = world
         self.dd_size = dd_size
         self.eh_size = eh_size
-        
+
         if self.world is None:
             return
         if self.dd_size is None:
             return
-        
+
         if self.eh_size is None:
             self.eh_size = self.world.size // self.dd_size
-            
+
         self.parent_comm = self.world
-        
+
         if self.world.size != self.dd_size * self.eh_size:
             raise RuntimeError('Domain decomposition processes (dd_size) '
                                'times electron-hole (eh_size) processes '
                                'does not match with total processes '
                                '(world size != dd_size * eh_size)')
-            
+
         dd_ranks = []
         eh_ranks = []
         for k in range(self.world.size):
@@ -84,7 +84,14 @@ class LrCommunicators:
                 self.dd_comm = calc.density.gd.comm
                 self.parent_comm = self.dd_comm.parent
                 if self.parent_comm.size != self.dd_comm.size:
-                    raise RuntimeError('Invalid communicators in LrTDDFT2. Ground state calculator domain decomposition communicator and its parent (or actually its parent parent) has different size. Please set up LrCommunicators explicitly to avoid this. Or contact developers if this is intentional.')
+                    raise RuntimeError(
+                        'Invalid communicators in LrTDDFT2. Ground state '
+                        'calculator domain decomposition communicator and '
+                        'its parent (or actually its parent parent) has '
+                        'different size. Please set up LrCommunicators '
+                        'explicitly to avoid this. Or contact developers '
+                        'if this is intentional.'
+                    )
                 self.eh_comm = gpaw.mpi.serial_comm
             else:
                 self.parent_comm = gpaw.mpi.serial_comm

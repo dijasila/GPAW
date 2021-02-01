@@ -10,11 +10,11 @@ import pylab as pl
 def count(dir, pattern):
     if not os.path.isdir(dir):
         return 0
-    files = subprocess.check_output('find {} -name {}'.format(dir, pattern),
+    files = subprocess.check_output(f'find {dir} -name {pattern}',
                                     shell=True).decode().split()[:-1]
     if not files:
         return 0
-    out = subprocess.check_output('wc -l {} | tail -1'.format(' '.join(files)),
+    out = subprocess.check_output(f"wc -l {' '.join(files)} | tail -1",
                                   shell=True)
     return int(out.split()[0])
 

@@ -1,4 +1,3 @@
-from __future__ import print_function
 
 from math import sqrt
 import numpy as np
@@ -29,11 +28,10 @@ calc = GPAW(mode=PW(500),
             # Use smaller Fermi-Dirac smearing to avoid intraband transitions:
             occupations=FermiDirac(0.05))
 
-atoms.set_calculator(calc)
+atoms.calc = calc
 atoms.get_potential_energy()
 
-calc.set(kpts=(20, 20, 7), fixdensity=True)
-atoms.get_potential_energy()
+calc = calc.fixed_density(kpts=(20, 20, 7))
 
 # The result should also be converged with respect to bands:
 calc.diagonalize_full_hamiltonian(nbands=60)

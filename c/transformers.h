@@ -1,5 +1,8 @@
-#ifndef TRANSFORMERS_H
-#define TRANSFORMERS_H
+#ifndef __TRANSFORMERS_H
+#define __TRANSFORMERS_H
+
+/*  Copyright (C) 2009-2012  CSC - IT Center for Science Ltd.
+ *  Please see the accompanying LICENSE file for further information. */
 
 #include "bc.h"
 
@@ -9,6 +12,7 @@
   #define GPAW_ASYNC_D 1
 #endif
 
+#ifdef __TRANSFORMERS_C
 typedef struct
 {
   PyObject_HEAD
@@ -24,9 +28,20 @@ typedef struct
   int cuda;
 #endif
 } TransformerObject;
+#else
+// Provide an opaque type for routines outside transformers.c 
+struct _TransformerObject;
+typedef struct _TransformerObject TransformerObject;
+
+#endif
 
 #ifdef GPAW_CUDA
 void transformer_init_cuda(TransformerObject *self);
 void transformer_dealloc_cuda(int force);
 #endif
+
+void transapply_worker(TransformerObject *self, int chunksize, int start,
+		  int end, int thread_id, int nthreads,
+		  const double* in, double* out,
+		  bool real, const double_complex* ph);
 #endif

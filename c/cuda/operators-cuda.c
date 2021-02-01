@@ -8,7 +8,9 @@
 #include <cuda_runtime_api.h>
 
 #include <../extensions.h>
+#define __OPERATORS_C
 #include <../operators.h>
+#undef __OPERATORS_C
 #include "gpaw-cuda.h"
 
 #ifdef DEBUG_CUDA

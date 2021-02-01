@@ -1,4 +1,5 @@
 # Written by Lauri Lehtovaara 2008
+import numpy as np
 
 from gpaw.utilities.blas import axpy, scal
 from gpaw.utilities.mblas import multi_axpy, multi_dotc, multi_dotu, multi_scal
@@ -66,9 +67,6 @@ class MultiBlas:
         if self.timer is not None:
             self.timer.stop('Multi scale')
 
-# -------------------------------------------------------------------
-
-import numpy as np
 
 class BandPropertyMonitor:
     def __init__(self, wfs, name, interval=1):
@@ -84,7 +82,7 @@ class BandPropertyMonitor:
         self.niter += self.interval
 
     def update(self, wfs):
-        #strictly serial XXX!
+        # strictly serial XXX!
         data_un = []
 
         for u, kpt in enumerate(wfs.kpt_u):
@@ -97,10 +95,11 @@ class BandPropertyMonitor:
     def write(self, data):
         pass
 
+
 class BandPropertyWriter(BandPropertyMonitor):
     def __init__(self, filename, wfs, name, interval=1):
         BandPropertyMonitor.__init__(self, wfs, name, interval)
-        self.fileobj = open(filename,'w')
+        self.fileobj = open(filename, 'w')
 
     def write(self, data):
         self.fileobj.write(data.tostring())
@@ -108,8 +107,6 @@ class BandPropertyWriter(BandPropertyMonitor):
 
     def __del__(self):
         self.fileobj.close()
-
-# -------------------------------------------------------------------
 
 
 class StaticOverlapMonitor:
@@ -127,20 +124,19 @@ class StaticOverlapMonitor:
         self.niter += self.interval
 
     def update(self, wfs, calculate_P_ani=False):
-
-        #strictly serial XXX!
+        # strictly serial XXX!
         Porb_un = []
 
         for u, kpt in enumerate(wfs.kpt_u):
             swf = self.wf_u[u].ravel()
 
-            psit_n = kpt.psit_nG.reshape((len(kpt.f_n),-1))
+            psit_n = kpt.psit_nG.reshape((len(kpt.f_n), -1))
             Porb_n = np.dot(psit_n.conj(), swf) * wfs.gd.dv
 
             P_ani = kpt.P_ani
 
             if calculate_P_ani:
-                #wfs.pt.integrate(psit_nG, P_ani, kpt.q)
+                # wfs.pt.integrate(psit_nG, P_ani, kpt.q)
                 raise NotImplementedError(
                     'In case you were wondering, TODO XXX')
 
@@ -150,8 +146,8 @@ class StaticOverlapMonitor:
                     for i in range(len(P_ni[0])):
                         for j in range(len(P_ni[0])):
                             Porb_n[n] += (P_ni[n][i].conj() *
-                                       wfs.setups[a].dO_ii[i][j] *
-                                       sP_i[j])
+                                          wfs.setups[a].dO_ii[i][j] *
+                                          sP_i[j])
 
             Porb_un.append(Porb_n)
 
@@ -160,10 +156,11 @@ class StaticOverlapMonitor:
     def write(self, data):
         pass
 
+
 class StaticOverlapWriter(StaticOverlapMonitor):
     def __init__(self, filename, wfs, overlap, interval=1):
         StaticOverlapMonitor.__init__(self, wfs, overlap, interval)
-        self.fileobj = open(filename,'w')
+        self.fileobj = open(filename, 'w')
 
     def write(self, data):
         self.fileobj.write(data.tostring())
@@ -171,8 +168,6 @@ class StaticOverlapWriter(StaticOverlapMonitor):
 
     def __del__(self):
         self.fileobj.close()
-
-# -------------------------------------------------------------------
 
 
 class DynamicOverlapMonitor:
@@ -190,7 +185,7 @@ class DynamicOverlapMonitor:
 
     def update(self, wfs, calculate_P_ani=False):
 
-        #strictly serial XXX!
+        # strictly serial XXX!
         S_unn = []
 
         for kpt in wfs.kpt_u:
@@ -198,12 +193,14 @@ class DynamicOverlapMonitor:
             P_ani = kpt.P_ani
 
             if calculate_P_ani:
-                #wfs.pt.integrate(psit_nG, P_ani, kpt.q)
+                # wfs.pt.integrate(psit_nG, P_ani, kpt.q)
                 raise NotImplementedError(
                     'In case you were wondering, TODO XXX')
 
             # Construct the overlap matrix:
-            S = lambda x: x
+            def S(x):
+                return x
+
             dS_aii = dict([(a, self.setups[a].dO_ii) for a in P_ani])
             S_nn = self.operator.calculate_matrix_elements(psit_nG, P_ani,
                                                            S, dS_aii)
@@ -214,10 +211,11 @@ class DynamicOverlapMonitor:
     def write(self, data):
         pass
 
+
 class DynamicOverlapWriter(DynamicOverlapMonitor):
     def __init__(self, filename, wfs, overlap, interval=1):
         DynamicOverlapMonitor.__init__(self, wfs, overlap, interval)
-        self.fileobj = open(filename,'w')
+        self.fileobj = open(filename, 'w')
 
     def write(self, data):
         self.fileobj.write(data.tostring())

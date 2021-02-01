@@ -15,7 +15,7 @@ from ase.build import molecule
 from ase.data.g2_1_ref import diatomic, ex_atomization
 
 from gpaw import GPAW, PW
-from gpaw.xc.exx import EXX
+from gpaw.hybrids.energy import non_self_consistent_energy
 
 
 # Experimental bondlengths:
@@ -59,6 +59,7 @@ extra = {
 c = ase.db.connect('results.db')
 
 for name in list(ex_atomization.keys()) + 'H Li Be B C N O F Cl P'.split():
+    print(name)
     id = c.reserve(name=name)
     if id is None:
         continue
@@ -77,9 +78,7 @@ for name in list(ex_atomization.keys()) + 'H Li Be B C N O F Cl P'.split():
                   txt=name + '.txt')
     a.get_potential_energy()
 
-    exx = EXX(a.calc)
-    exx.calculate()
-    eexx = exx.get_total_energy()
+    e = non_self_consistent_energy(a.calc, 'EXX')
+    eexx = e.sum()
 
     c.write(a, name=name, exx=eexx)
-    del c[id]

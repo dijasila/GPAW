@@ -8,7 +8,9 @@
 #include <cuda_runtime_api.h>
 
 #include "../extensions.h"
+#define __TRANSFORMERS_C
 #include "../transformers.h"
+#undef __TRANSFORMERS_C
 #include "gpaw-cuda.h"
 
 #ifdef DEBUG_CUDA

@@ -1,5 +1,4 @@
 # Creates: optimization.txt
-from __future__ import print_function
 
 from gpaw import restart
 from ase.parallel import paropen as open
@@ -13,8 +12,8 @@ d0 = molecule.get_distance(0, 1)
 
 fd = open('optimization.txt', 'w')
 print('experimental bond length:', file=fd)
-print('hydrogen molecule energy: %5.2f eV' % e2, file=fd)
-print('bondlength              : %5.2f Ang' % d0, file=fd)
+print(f'hydrogen molecule energy: {e2:5.2f} eV', file=fd)
+print(f'bondlength              : {d0:5.2f} Ang', file=fd)
 
 # Find the theoretical bond length:
 relax = QuasiNewton(molecule, logfile='qn.log')
@@ -25,6 +24,6 @@ d0 = molecule.get_distance(0, 1)
 
 print(file=fd)
 print('PBE energy minimum:', file=fd)
-print('hydrogen molecule energy: %5.2f eV' % e2, file=fd)
-print('bondlength              : %5.2f Ang' % d0, file=fd)
+print(f'hydrogen molecule energy: {e2:5.2f} eV', file=fd)
+print(f'bondlength              : {d0:5.2f} Ang', file=fd)
 fd.close()
