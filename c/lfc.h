@@ -62,7 +62,6 @@ typedef struct
   complex double* phase_kW;  // phase factors: exp(ik.R)
   complex double* phase_i;   // phase factors for current volumes
 
-  int nimax;
 #ifdef GPAW_CUDA
   int cuda;
   LFVolume_gpu *volume_W_gpu;
