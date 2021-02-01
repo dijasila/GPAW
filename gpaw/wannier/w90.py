@@ -54,7 +54,7 @@ class Wannier90:
                                 for symbol, spos_c
                                 in zip(overlaps.atoms.symbols,
                                        overlaps.atoms.get_scaled_positions())]
-        kwargs['mp_grid'] = overlaps.monkhorst_pack_size
+        kwargs['mp_grid'] = tuple(overlaps.monkhorst_pack_size)
         kwargs['kpoints'] = overlaps.kpoints
         if overlaps.proj_indices_a:
             kwargs['guiding_centres'] = True
