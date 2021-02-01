@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Union, Tuple
+from typing import Union
 
 import numpy as np
 from ase.units import Ha
@@ -14,12 +14,12 @@ from .coulomb import coulomb_interaction
 from .kpts import get_kpt
 from .paw import calculate_paw_stuff
 from .symmetry import Symmetry
+from gpaw.typing import Array1D
 
 
 def non_self_consistent_energy(calc: Union[GPAW, str, Path],
                                xcname: str,
-                               ftol=1e-9) -> Tuple[float, float, float,
-                                                   float, float, float]:
+                               ftol=1e-9) -> Array1D:
     """Calculate non self-consistent energy for Hybrid functional.
 
     Based on a self-consistent DFT calculation (calc).  EXX integrals involving
@@ -40,7 +40,7 @@ def non_self_consistent_energy(calc: Union[GPAW, str, Path],
     """
 
     if calc == '<gpw-file>':  # for doctest
-        return 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+        return np.zeros(6)
 
     if isinstance(calc, (str, Path)):
         calc = GPAW(calc, txt=None, parallel={'band': 1, 'kpt': 1})
