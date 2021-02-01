@@ -1,77 +1,14 @@
+from typing import Any
 import numpy as np
-# from typing import Tuple, Sequence, Union
 
-'''
-class _ArrayND(Sequence):
-    """Poor mans type-hints for np.ndarray."""
+try:
+    from numpy.typing import ArrayLike
+except ImportError:
+    ArrayLike = Any  # type: ignore
 
-    T: 'ArrayND'
-    size: int
-    shape: Tuple[int, ...]
-    ndim: int
-
-    def sum(self, axis: Union[int, Sequence[int]] = None):
-        ...
-
-    def dot(self, other):
-        ...
-
-    def __getitem__(self, n):
-        ...
-
-    def __setitem__(self, n, v):
-        ...
-
-    def __len__(self) -> int:
-        ...
-
-    def __iter__(self):
-        ...
-
-    def __mul__(self, other) -> 'ArrayND':
-        ...
-
-    def __truediv__(self, other) -> 'ArrayND':
-        ...
-
-    def __rtruediv__(self, other) -> 'ArrayND':
-        ...
-
-    def __rmul__(self, other) -> 'ArrayND':
-        ...
-
-    def __add__(self, other) -> 'ArrayND':
-        ...
-
-    def __sub__(self, other) -> 'ArrayND':
-        ...
-
-    def __rsub__(self, other) -> 'ArrayND':
-        ...
-
-    def __pow__(self, n: int) -> 'ArrayND':
-        ...
-
-    def __neg__(self) -> 'ArrayND':
-        ...
-
-    def copy(self) -> 'ArrayND':
-        ...
-
-    def conj(self) -> 'ArrayND':
-        ...
-
-    def prod(self):
-        ...
-
-    def __lt__(self, other) -> 'ArrayND':
-        ...
-'''
-
-
-ArrayLike = np.typing.ArrayLike
 ArrayLike1D = ArrayLike
 ArrayLike2D = ArrayLike
+
 ArrayND = np.ndarray
 Array1D = ArrayND
 Array2D = ArrayND
