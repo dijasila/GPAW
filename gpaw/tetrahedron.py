@@ -11,7 +11,7 @@ See::
 """
 
 from math import nan
-from typing import List, Tuple
+from typing import List, Tuple, cast
 import numpy as np
 from scipy.spatial import Delaunay
 
@@ -19,7 +19,7 @@ from gpaw.occupations import (ZeroWidth, findroot, collect_eigelvalues,
                               distribute_occupation_numbers,
                               OccupationNumberCalculator, ParallelLayout)
 from gpaw.mpi import broadcast_float
-from gpaw.hints import Array1D, Array2D, Array3D
+from gpaw.typing import Array1D, Array2D, Array3D, ArrayLike1D, ArrayLike2D
 
 
 def bja1(e1: Array1D, e2: Array1D, e3: Array1D, e4: Array1D
@@ -112,7 +112,7 @@ def triangulate_everything(size_c: Array1D,
 
     to i: IBZ k-point index (0, 1, ...,  nibzk - 1).
     """
-    nbzk = size_c.prod()
+    nbzk = cast(int, size_c.prod())
     ABC_ck = np.unravel_index(np.arange(nbzk), size_c)
     ABC_tqck = ABC_tqc[..., np.newaxis] + ABC_ck
     ABC_cktq = np.transpose(ABC_tqck, (2, 3, 0, 1))
@@ -128,10 +128,10 @@ class TetrahedronMethod(OccupationNumberCalculator):
     extrapolate_factor = 0.0
 
     def __init__(self,
-                 rcell: List[List[float]],
-                 size: Tuple[int, int, int],
+                 rcell: ArrayLike2D,
+                 size: ArrayLike1D,
                  improved=False,
-                 bz2ibzmap: List[int] = None,
+                 bz2ibzmap: ArrayLike1D = None,
                  parallel_layout: ParallelLayout = None):
         """Tetrahedron method for calculating occupation numbers.
 
@@ -282,7 +282,7 @@ def count(fermi_level: float,
     for mask_T, bjaa in [(mask1_T, bja1), (mask2_T, bja2), (mask3_T, bja3)]:
         n, dn_T = bjaa(*eig_Tq[mask_T].T)
         ne += n / ntetra
-        dnedef += dn_T.sum() / ntetra
+        dnedef += dn_T.sum() / ntetra  # type: ignore
 
     mask4_T = ~mask1_T & ~mask2_T & ~mask3_T
     ne += mask4_T.sum() / ntetra

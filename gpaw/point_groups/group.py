@@ -1,7 +1,7 @@
 """Point-group object."""
 from typing import Dict
 import numpy as np
-from gpaw.hints import Array2D
+from gpaw.typing import Array2D
 
 
 class PointGroup:

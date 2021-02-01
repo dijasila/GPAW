@@ -2,13 +2,14 @@
 
 import warnings
 from math import pi, nan, inf
-from typing import List, Tuple, NamedTuple, Any, Callable, Dict
+from typing import List, Tuple, NamedTuple, Any, Callable, Dict, cast
 import numpy as np
 from scipy.special import erf
 from ase.units import Ha
 
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.mpi import serial_comm, broadcast_float
+from gpaw.typing import Array1D, Array2D
 
 # typehints:
 MPICommunicator = Any
@@ -139,7 +140,7 @@ class OccupationNumberCalculator:
                   eigenvalues: List[List[float]],
                   weights: List[float],
                   fermi_levels_guess: List[float] = None
-                  ) -> Tuple[List[np.ndarray],
+                  ) -> Tuple[Array2D,
                              List[float],
                              float]:
         """Calculate occupation numbers and fermi level(s) from eigenvalues.
@@ -182,18 +183,16 @@ class OccupationNumberCalculator:
                 nelectrons, eig_qn, weight_q, f_qn, fermi_levels_guess[0])
 
         self.domain_comm.broadcast(result, 0)
-
-        for f_n in f_qn:
-            self.domain_comm.broadcast(f_n, 0)
+        self.domain_comm.broadcast(f_qn, 0)
 
         fermi_level, e_entropy = result
         return f_qn, [fermi_level], e_entropy
 
     def _calculate(self,
                    nelectrons: float,
-                   eig_qn: np.ndarray,
-                   weight_q: np.ndarray,
-                   f_qn: np.ndarray,
+                   eig_qn: List[Array1D],
+                   weight_q: Array1D,
+                   f_qn: Array2D,
                    fermi_level_guess: float) -> Tuple[float, float]:
         raise NotImplementedError
 
@@ -224,7 +223,7 @@ class FixMagneticMomentOccupationNumberCalculator(OccupationNumberCalculator):
                   eigenvalues: List[List[float]],
                   weights: List[float],
                   fermi_levels_guess: List[float] = None
-                  ) -> Tuple[List[np.ndarray],
+                  ) -> Tuple[Array2D,
                              List[float],
                              float]:
 
@@ -249,7 +248,7 @@ class FixMagneticMomentOccupationNumberCalculator(OccupationNumberCalculator):
         for f1_n, f2_n in zip(f1_qn, f2_qn):
             f_qn += [f1_n, f2_n]
 
-        return (f_qn,
+        return (np.array(f_qn),
                 fermi_levels1 + fermi_levels2,
                 e_entropy1 + e_entropy2)
 
@@ -430,13 +429,14 @@ def collect_eigelvalues(eig_qn: np.ndarray,
     nkpts_r = np.zeros(kpt_comm.size, int)
     nkpts_r[kpt_comm.rank] = len(weight_q)
     kpt_comm.sum(nkpts_r)
-    weight_k = np.zeros(nkpts_r.sum())
+    nk = cast(int, nkpts_r.sum())
+    weight_k = np.zeros(nk)
     k1 = nkpts_r[:kpt_comm.rank].sum()
     k2 = k1 + len(weight_q)
     weight_k[k1:k2] = weight_q
     kpt_comm.sum(weight_k, 0)
 
-    eig_kn = None
+    eig_kn: Array2D
     k = 0
     for rank, nkpts in enumerate(nkpts_r):
         for q in range(nkpts):
@@ -446,8 +446,7 @@ def collect_eigelvalues(eig_qn: np.ndarray,
             if bd.comm.rank == 0:
                 if kpt_comm.rank == 0:
                     if k == 0:
-                        eig_kn = np.empty((nkpts_r.sum(), len(eig_n)))
-                    assert eig_kn is not None  # help mypy
+                        eig_kn = np.empty((nk, len(eig_n)))
                     if rank == 0:
                         eig_kn[k] = eig_n
                     else:

@@ -8,7 +8,7 @@ from numpy.linalg import inv, det, solve
 from scipy.ndimage import map_coordinates
 
 from . import PointGroup
-from gpaw.hints import Array2D, Array3D
+from gpaw.typing import Array2D, Array3D, ArrayLike
 
 Axis = Union[str, Sequence[float], None]
 
@@ -16,7 +16,7 @@ Axis = Union[str, Sequence[float], None]
 class SymmetryChecker:
     def __init__(self,
                  group: Union[str, PointGroup],
-                 center: Sequence[float],
+                 center: ArrayLike,
                  radius: float = 2.0,
                  x: Axis = None,
                  y: Axis = None,
@@ -66,8 +66,8 @@ class SymmetryChecker:
         M = inv(grid_vectors).T
         overlaps: List[float] = []
         for op in self.group.operations.values():
-            op = self.rotation.T.dot(op).dot(self.rotation)
-            pts = (self.points.dot(op.T) + self.center).dot(M.T)
+            op = self.rotation.T @ op @ self.rotation
+            pts = (self.points @ op.T + self.center) @ M.T
             pts %= function.shape
             values = map_coordinates(function, pts.T, mode='wrap')
             if not overlaps:
@@ -161,7 +161,7 @@ def rotation_matrix(axes: Sequence[Axis]) -> Array3D:
 
     axes = [normalize(axis) if axis is not None else None
             for axis in axes]
-    axes[j] = np.cross(axes[j - 2], axes[j - 1])
+    axes[j] = np.cross(axes[j - 2], axes[j - 1])  # type: ignore
 
     return np.array(axes)
 
