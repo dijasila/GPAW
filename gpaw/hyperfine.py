@@ -12,25 +12,24 @@ See:
     https://doi.org/10.1103/PhysRevB.62.6158
 
 """
-from typing import List
 from math import pi
+from typing import List
 
+import ase.units as units
 import numpy as np
 from scipy.integrate import simps
-import ase.units as units
 
 from gpaw import GPAW
-from gpaw.atom.radialgd import RadialGridDescriptor
 from gpaw.atom.aeatom import Channel
 from gpaw.atom.configurations import configurations
-from gpaw.setup import Setup
-from gpaw.grid_descriptor import GridDescriptor
-from gpaw.wavefunctions.pw import PWDescriptor
-from gpaw.utilities import unpack2
+from gpaw.atom.radialgd import RadialGridDescriptor
 from gpaw.gaunt import gaunt
+from gpaw.grid_descriptor import GridDescriptor
+from gpaw.setup import Setup
+from gpaw.typing import Array1D, Array2D, Array3D
+from gpaw.utilities import unpack2
+from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.xc.functional import XCFunctional
-from gpaw.typing import Array1D, Array2D, Array3D, ArrayLike
-
 
 # Fine-structure constant: (~1/137)
 alpha = 0.5 * units._mu0 * units._c * units._e**2 / units._hplanck

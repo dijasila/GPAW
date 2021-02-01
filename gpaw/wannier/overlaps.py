@@ -1,24 +1,25 @@
-from typing import Tuple, Dict, Sequence, List, Union
 from pathlib import Path
+from typing import Dict, List, Tuple, Union
 
 import numpy as np
 from ase import Atoms
 
 from gpaw import GPAW
-from gpaw.projections import Projections
-from gpaw.utilities.partition import AtomPartition
-from gpaw.setup import Setup
 from gpaw.kpt_descriptor import KPointDescriptor
+from gpaw.projections import Projections
+from gpaw.setup import Setup
+from gpaw.typing import Array2D, Array3D, Array4D, ArrayLike1D
 from gpaw.utilities.ibz2bz import construct_symmetry_operators
+from gpaw.utilities.partition import AtomPartition
+
 from .functions import WannierFunctions
-from gpaw.typing import Array2D, Array3D, Array4D, ArrayLike
 
 
 class WannierOverlaps:
     def __init__(self,
                  atoms: Atoms,
                  nwannier: int,
-                 monkhorst_pack_size: ArrayLike,#Sequence[int],
+                 monkhorst_pack_size: ArrayLike1D,
                  kpoints: Array2D,
                  fermi_level: float,
                  directions: Dict[Tuple[int, ...], int],
@@ -188,7 +189,7 @@ def calculate_overlaps(calc: GPAW,
 
 
 def find_directions(icell: Array2D,
-                    mpsize: ArrayLike) -> List[Tuple[int, ...]]:
+                    mpsize: ArrayLike1D) -> List[Tuple[int, ...]]:
     """Find nearest neighbors k-points.
 
     icell:
