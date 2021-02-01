@@ -13,7 +13,7 @@ from gpaw.xc import XC
 from gpaw.xc.tools import vxc
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.wavefunctions.pw import PWDescriptor, PWLFC
-from gpaw.hints import Array3D
+from gpaw.typing import Array3D
 from . import parse_name
 from .coulomb import coulomb_interaction
 from .kpts import RSKPoint, to_real_space, get_kpt

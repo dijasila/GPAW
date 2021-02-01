@@ -6,7 +6,7 @@ from ase.dft.dos import linear_tetrahedron_integration as lti
 
 from gpaw.setup import Setup
 from gpaw.spinorbit import soc_eigenstates, BZWaveFunctions
-from gpaw.hints import Array1D, Array2D, Array3D, ArrayLike1D
+from gpaw.typing import Array1D, Array2D, Array3D, ArrayLike1D
 
 if TYPE_CHECKING:
     from gpaw import GPAW

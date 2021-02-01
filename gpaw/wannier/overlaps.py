@@ -11,7 +11,7 @@ from gpaw.setup import Setup
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.utilities.ibz2bz import construct_symmetry_operators
 from .functions import WannierFunctions
-from gpaw.hints import Array2D, Array3D, Array4D, ArrayLike
+from gpaw.typing import Array2D, Array3D, Array4D, ArrayLike
 
 
 class WannierOverlaps:

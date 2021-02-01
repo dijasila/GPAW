@@ -8,7 +8,7 @@ from numpy.linalg import inv, det, solve
 from scipy.ndimage import map_coordinates
 
 from . import PointGroup
-from gpaw.hints import Array2D, Array3D, ArrayLike
+from gpaw.typing import Array2D, Array3D, ArrayLike
 
 Axis = Union[str, Sequence[float], None]
 

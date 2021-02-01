@@ -5,7 +5,7 @@ import numpy as np
 from gpaw.matrix import Matrix
 from gpaw.mpi import serial_comm
 from gpaw.utilities.partition import AtomPartition
-from .hints import Array2D, ArrayLike1D
+from gpaw.typing import Array2D, ArrayLike1D
 
 MPIComm = Any
 

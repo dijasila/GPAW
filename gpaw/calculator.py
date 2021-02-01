@@ -48,7 +48,7 @@ from gpaw.utilities.partition import AtomPartition
 from gpaw.wavefunctions.mode import create_wave_function_mode
 from gpaw.xc import XC
 from gpaw.xc.sic import SIC
-from gpaw.hints import Array1D
+from gpaw.typing import Array1D
 
 
 class GPAW(Calculator):

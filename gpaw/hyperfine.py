@@ -29,7 +29,7 @@ from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.utilities import unpack2
 from gpaw.gaunt import gaunt
 from gpaw.xc.functional import XCFunctional
-from gpaw.hints import Array1D, Array2D, Array3D, ArrayLike
+from gpaw.typing import Array1D, Array2D, Array3D, ArrayLike
 
 
 # Fine-structure constant: (~1/137)

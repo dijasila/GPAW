@@ -19,7 +19,7 @@ from gpaw.occupations import (ZeroWidth, findroot, collect_eigelvalues,
                               distribute_occupation_numbers,
                               OccupationNumberCalculator, ParallelLayout)
 from gpaw.mpi import broadcast_float
-from gpaw.hints import Array1D, Array2D, Array3D, ArrayLike1D, ArrayLike2D
+from gpaw.typing import Array1D, Array2D, Array3D, ArrayLike1D, ArrayLike2D
 
 
 def bja1(e1: Array1D, e2: Array1D, e3: Array1D, e4: Array1D

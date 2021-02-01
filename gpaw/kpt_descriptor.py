@@ -12,7 +12,7 @@ from ase.dft.kpoints import get_monkhorst_pack_size_and_offset, monkhorst_pack
 import _gpaw
 import gpaw.mpi as mpi
 from gpaw import KPointError
-from gpaw.hints import Array1D
+from gpaw.typing import Array1D
 from gpaw.kpoint import KPoint
 
 

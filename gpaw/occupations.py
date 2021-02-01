@@ -9,7 +9,7 @@ from ase.units import Ha
 
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.mpi import serial_comm, broadcast_float
-from gpaw.hints import Array1D, Array2D
+from gpaw.typing import Array1D, Array2D
 
 # typehints:
 MPICommunicator = Any

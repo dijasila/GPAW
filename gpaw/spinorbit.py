@@ -17,7 +17,7 @@ from gpaw.projections import Projections
 from gpaw.setup import Setup
 from gpaw.utilities.partition import AtomPartition
 from gpaw.utilities.ibz2bz import construct_symmetry_operators
-from gpaw.hints import Array1D, Array2D, Array3D, Array4D, ArrayND
+from gpaw.typing import Array1D, Array2D, Array3D, Array4D, ArrayND
 if TYPE_CHECKING:
     from gpaw import GPAW  # noqa
 
