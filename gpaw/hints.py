@@ -70,6 +70,8 @@ class _ArrayND(Sequence):
 
 
 ArrayLike = np.typing.ArrayLike
+ArrayLike1D = ArrayLike
+ArrayLike2D = ArrayLike
 ArrayND = np.ndarray
 Array1D = ArrayND
 Array2D = ArrayND

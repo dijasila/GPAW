@@ -4,7 +4,7 @@ The central object that glues everything together.
 """
 
 import warnings
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 import numpy as np
 from ase import Atoms
@@ -48,6 +48,7 @@ from gpaw.utilities.partition import AtomPartition
 from gpaw.wavefunctions.mode import create_wave_function_mode
 from gpaw.xc import XC
 from gpaw.xc.sic import SIC
+from gpaw.hints import Array1D
 
 
 class GPAW(Calculator):
@@ -1221,7 +1222,7 @@ class GPAW(Calculator):
 
         raise SystemExit
 
-    def get_atomic_electrostatic_potentials(self) -> List[float]:
+    def get_atomic_electrostatic_potentials(self) -> Array1D:
         r"""Return the electrostatic potential at the atomic sites.
 
         Return list of energies in eV, one for each atom:

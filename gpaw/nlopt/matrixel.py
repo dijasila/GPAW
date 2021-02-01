@@ -244,13 +244,11 @@ def make_nlodata(gs_name: str = 'gs.gpw',
             p_kvnn = get_mml(gs_name=gs_name, spin=s1,
                              ni=ni, nf=nf, timer=timer)
             p_skvnn.append(p_kvnn)
-        if world.rank == 0:
-            p_skvnn = np.array(p_skvnn, complex)
 
     # Save the output to the file
     if world.rank == 0:
         np.savez(out_name, w_sk=w_sk, f_skn=f_skn[:, :, ni:nf],
-                 E_skn=E_skn[:, :, ni:nf], p_skvnn=p_skvnn)
+                 E_skn=E_skn[:, :, ni:nf], p_skvnn=np.array(p_skvnn, complex))
 
 
 def get_rml(E_n, p_vnn, pol_v, Etol=1e-6):

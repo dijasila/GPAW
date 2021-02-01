@@ -18,7 +18,8 @@ from .symmetry import Symmetry
 
 def non_self_consistent_energy(calc: Union[GPAW, str, Path],
                                xcname: str,
-                               ftol=1e-9) -> Tuple[float, float, float, float]:
+                               ftol=1e-9) -> Tuple[float, float, float,
+                                                   float, float, float]:
     """Calculate non self-consistent energy for Hybrid functional.
 
     Based on a self-consistent DFT calculation (calc).  EXX integrals involving
@@ -39,7 +40,7 @@ def non_self_consistent_energy(calc: Union[GPAW, str, Path],
     """
 
     if calc == '<gpw-file>':  # for doctest
-        return np.zeros(6)
+        return 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
 
     if isinstance(calc, (str, Path)):
         calc = GPAW(calc, txt=None, parallel={'band': 1, 'kpt': 1})

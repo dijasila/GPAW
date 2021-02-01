@@ -1,6 +1,6 @@
 import subprocess
 from pathlib import Path
-from typing import Union, IO, Dict, Any
+from typing import Union, IO, Dict, Any, cast
 
 from ase import Atoms
 import numpy as np

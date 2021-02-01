@@ -2,13 +2,14 @@
 
 import warnings
 from math import pi, nan, inf
-from typing import List, Tuple, NamedTuple, Any, Callable, Dict
+from typing import List, Tuple, NamedTuple, Any, Callable, Dict, cast
 import numpy as np
 from scipy.special import erf
 from ase.units import Ha
 
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.mpi import serial_comm, broadcast_float
+from gpaw.hints import Array1D, Array2D
 
 # typehints:
 MPICommunicator = Any
@@ -139,7 +140,7 @@ class OccupationNumberCalculator:
                   eigenvalues: List[List[float]],
                   weights: List[float],
                   fermi_levels_guess: List[float] = None
-                  ) -> Tuple[List[np.ndarray],
+                  ) -> Tuple[List[Array1D],
                              List[float],
                              float]:
         """Calculate occupation numbers and fermi level(s) from eigenvalues.
@@ -172,7 +173,7 @@ class OccupationNumberCalculator:
         if fermi_levels_guess is None:
             fermi_levels_guess = [nan]
 
-        f_qn = np.empty((len(weight_q), len(eig_qn[0])))
+        f_qn = [np.empty(len(eig_qn[0])) for _ in weight_q]
 
         result = np.empty(2)
 
@@ -191,9 +192,9 @@ class OccupationNumberCalculator:
 
     def _calculate(self,
                    nelectrons: float,
-                   eig_qn: np.ndarray,
-                   weight_q: np.ndarray,
-                   f_qn: np.ndarray,
+                   eig_qn: List[Array1D],
+                   weight_q: Array1D,
+                   f_qn: List[Array1D],
                    fermi_level_guess: float) -> Tuple[float, float]:
         raise NotImplementedError
 
@@ -430,13 +431,14 @@ def collect_eigelvalues(eig_qn: np.ndarray,
     nkpts_r = np.zeros(kpt_comm.size, int)
     nkpts_r[kpt_comm.rank] = len(weight_q)
     kpt_comm.sum(nkpts_r)
-    weight_k = np.zeros(nkpts_r.sum())
+    nk = cast(int, nkpts_r.sum())
+    weight_k = np.zeros(nk)
     k1 = nkpts_r[:kpt_comm.rank].sum()
     k2 = k1 + len(weight_q)
     weight_k[k1:k2] = weight_q
     kpt_comm.sum(weight_k, 0)
 
-    eig_kn = None
+    eig_kn: Array2D
     k = 0
     for rank, nkpts in enumerate(nkpts_r):
         for q in range(nkpts):
@@ -446,8 +448,7 @@ def collect_eigelvalues(eig_qn: np.ndarray,
             if bd.comm.rank == 0:
                 if kpt_comm.rank == 0:
                     if k == 0:
-                        eig_kn = np.empty((nkpts_r.sum(), len(eig_n)))
-                    assert eig_kn is not None  # help mypy
+                        eig_kn = np.empty((nk, len(eig_n)))
                     if rank == 0:
                         eig_kn[k] = eig_n
                     else:

@@ -6,7 +6,7 @@ from ase.dft.dos import linear_tetrahedron_integration as lti
 
 from gpaw.setup import Setup
 from gpaw.spinorbit import soc_eigenstates, BZWaveFunctions
-from gpaw.hints import Array1D, Array2D, Array3D
+from gpaw.hints import Array1D, Array2D, Array3D, ArrayLike1D
 
 if TYPE_CHECKING:
     from gpaw import GPAW
@@ -179,7 +179,7 @@ class DOSCalculator:
                              shift_fermi_level)
 
     def calculate(self,
-                  energies: Sequence[float],
+                  energies: ArrayLike1D,
                   eig_kn: Array2D,
                   weight_kn: Array2D = None,
                   width: float = 0.1):

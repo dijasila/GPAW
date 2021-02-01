@@ -3,15 +3,17 @@
 
 """K-point descriptor."""
 
+from typing import Optional
+
 import numpy as np
-
-from ase.dft.kpoints import monkhorst_pack, get_monkhorst_pack_size_and_offset
 from ase.calculators.calculator import kptdensity2monkhorstpack
+from ase.dft.kpoints import get_monkhorst_pack_size_and_offset, monkhorst_pack
 
-from gpaw import KPointError
-from gpaw.kpoint import KPoint
-import gpaw.mpi as mpi
 import _gpaw
+import gpaw.mpi as mpi
+from gpaw import KPointError
+from gpaw.hints import Array1D
+from gpaw.kpoint import KPoint
 
 
 def to1bz(bzk_kc, cell_cv):
@@ -118,6 +120,9 @@ class KPointDescriptor:
         ===================  =================================================
         """
 
+        self.N_c: Optional[Array1D] = None
+        self.offset_c: Optional[Array1D] = None
+
         if kpts is None:
             self.bzk_kc = np.zeros((1, 3))
             self.N_c = np.array((1, 1, 1), dtype=int)
@@ -134,9 +139,7 @@ class KPointDescriptor:
                     self.N_c, self.offset_c = \
                         get_monkhorst_pack_size_and_offset(self.bzk_kc)
                 except ValueError:
-                    self.N_c = None
-                    self.offset_c = None
-
+                    pass
         self.nspins = nspins
         self.nbzkpts = len(self.bzk_kc)
 

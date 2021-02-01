@@ -28,7 +28,7 @@ class WannierOverlaps:
 
         self.atoms = atoms
         self.nwannier = nwannier
-        self.monkhorst_pack_size = tuple(monkhorst_pack_size)
+        self.monkhorst_pack_size = np.asarray(monkhorst_pack_size)
         self.kpoints = kpoints
         self.fermi_level = fermi_level
         self.directions = directions
@@ -132,6 +132,7 @@ def calculate_overlaps(calc: GPAW,
     kd = bzwfs.kd
     gd = bzwfs.gd
     size = kd.N_c
+    assert size is not None
 
     icell = calc.atoms.cell.reciprocal()
     directions = {direction: i
@@ -176,7 +177,7 @@ def calculate_overlaps(calc: GPAW,
 
     overlaps = WannierOverlaps(calc.atoms,
                                nwannier,
-                               kd.N_c,
+                               size,
                                kd.bzk_kc,
                                calc.get_fermi_level(),
                                directions,
