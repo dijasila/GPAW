@@ -193,14 +193,19 @@ class SerialEMatrix:
 
 
 class MagneticMomentWriter(TDDFTObserver):
-    version = 2
+    version = 3
 
-    def __init__(self, paw, filename, center=None, interval=1,
-                 calculate_on_grid=False, only_pseudo=False):
+    def __init__(self, paw, filename, origin=None, origin_shift=None,
+                 calculate_on_grid=False, only_pseudo=False, interval=1):
         TDDFTObserver.__init__(self, paw, interval)
         self.master = paw.world.rank == 0
-        self.center_v = center
         if paw.niter == 0:
+            if origin is None:
+                self.origin = 'COM'
+            else:
+                self.origin = origin
+            self.origin_shift = origin_shift
+
             # Initialize
             if self.master:
                 self.fd = open(filename, 'w')
@@ -209,6 +214,13 @@ class MagneticMomentWriter(TDDFTObserver):
             self.read_header(filename)
             if self.master:
                 self.fd = open(filename, 'a')
+
+            if (origin is not None
+                    and origin != self.origin):
+                raise ValueError('origin changed in restart')
+            if (origin_shift is not None
+                    and not np.allclose(origin_shift, self.origin_shift)):
+                raise ValueError('origin_shift changed in restart')
 
         mode = paw.wfs.mode
         assert mode in ['fd', 'lcao'], 'unknown mode: {}'.format(mode)
@@ -220,14 +232,22 @@ class MagneticMomentWriter(TDDFTObserver):
         gd = paw.wfs.gd
         self.timer = paw.timer
 
-        if self.center_v is None:
-            R0 = 0.5 * gd.cell_cv.sum(0)
+        if self.origin == 'COM':
+            origin_v = paw.atoms.get_center_of_mass() / Bohr
+        elif self.origin == 'COC':
+            origin_v = 0.5 * gd.cell_cv.sum(0)
+        elif self.origin == 'zero':
+            origin_v = np.zeros(3, dtype=float)
         else:
-            R0 = np.asarray(self.center_v, dtype=float) / Bohr
-        Ra_a = paw.atoms.positions / Bohr - R0[None, :]
-        r_cG, _ = coordinates(gd, origin=R0)
+            raise ValueError('unknown origin')
+        if self.origin_shift is not None:
+            origin_v += np.asarray(self.origin_shift, dtype=float) / Bohr
 
-        dX0_caii = get_dX0(Ra_a, paw.setups, paw.hamiltonian.dH_asp.partition)
+        Ra_av = paw.atoms.positions / Bohr - origin_v[np.newaxis, :]
+        r_cG, _ = coordinates(gd, origin=origin_v)
+        self.origin_v = origin_v
+
+        dX0_caii = get_dX0(Ra_av, paw.setups, paw.hamiltonian.dH_asp.partition)
 
         if self.calculate_on_grid:
             self.only_pseudo = only_pseudo
@@ -262,9 +282,14 @@ class MagneticMomentWriter(TDDFTObserver):
             return
         line = '# %s[version=%s]' % (self.__class__.__name__, self.version)
         line += '('
-        if self.center_v is not None:
-            line += 'center=[%.6f, %.6f, %.6f]' % tuple(self.center_v)
+        args = []
+        if self.origin is not None:
+            args.append('origin=%s' % repr(self.origin))
+        if self.origin_shift is not None:
+            args.append('origin_shift=[%.6f, %.6f, %.6f]' % tuple(self.origin_shift))
+        line += ', '.join(args)
         line += ')\n'
+        line += '# origin_v = [%.6f, %.6f, %.6f]\n' % tuple(self.origin_v * Bohr)
         line += ('# %15s %22s %22s %22s\n' %
                  ('time', 'cmx', 'cmy', 'cmz'))
         self._write(line)
@@ -277,12 +302,21 @@ class MagneticMomentWriter(TDDFTObserver):
         assert m is not None, 'Unknown fileformat'
         assert m.group('name') == self.__class__.__name__
         assert int(m.group('version')) == self.version
-        m = re.search(r"center=\[([-+0-9\.]+), ([-+0-9\.]+), ([-+0-9\.]+)\]",
-                      m.group('args'))
-        if m is None:
-            self.center_v = None
-        else:
-            self.center_v = [float(m.group(v + 1)) for v in range(3)]
+
+        args = m.group('args')
+        self.origin = None
+        self.origin_shift = None
+
+        m = re.search(r"origin='(\w+)'", args)
+        if m is not None:
+            self.origin = m.group(1)
+        m = re.search(r"origin_shift=\["
+                      r"([-+0-9\.]+), "
+                      r"([-+0-9\.]+), "
+                      r"([-+0-9\.]+)\]",
+                      args)
+        if m is not None:
+            self.origin_shift = [float(m.group(v + 1)) for v in range(3)]
 
     def _write_kick(self, paw):
         time = paw.time
