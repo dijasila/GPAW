@@ -332,10 +332,8 @@ class MagneticMomentWriter(TDDFTObserver):
                                         only_pseudo=self.only_pseudo)
         else:
             u = 0
-            kpt = paw.wfs.kpt_u[u]
-            ksl = self.e_matrix.ksl
-            rho_mm = ksl.calculate_blocked_density_matrix(kpt.f_n, kpt.C_nM)
-            mm_c = self.e_matrix.calculate_mm(rho_mm)
+            rho_MM = self.dmat.get_density_matrix((paw.niter, paw.action))[u]
+            mm_c = self.e_matrix.calculate_mm(rho_MM)
         assert mm_c.shape == (3,)
         assert mm_c.dtype == float
         return mm_c
