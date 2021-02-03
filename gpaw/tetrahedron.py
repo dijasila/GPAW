@@ -205,7 +205,7 @@ class TetrahedronMethod(OccupationNumberCalculator):
         eig_in, weight_i, nkpts_r = collect_eigelvalues(eig_qn, weight_q,
                                                         self.bd, self.kpt_comm)
 
-        if eig_in is not None:
+        if eig_in.size != 0:
             if len(eig_in) == self.nibzkpts:
                 nspins = 1
             else:
