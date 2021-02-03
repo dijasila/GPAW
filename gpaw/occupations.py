@@ -436,7 +436,7 @@ def collect_eigelvalues(eig_qn: np.ndarray,
     weight_k[k1:k2] = weight_q
     kpt_comm.sum(weight_k, 0)
 
-    eig_kn: Array2D
+    eig_kn: Array2D = np.zeros((0, 0))
     k = 0
     for rank, nkpts in enumerate(nkpts_r):
         for q in range(nkpts):
@@ -510,7 +510,7 @@ class ZeroWidth(OccupationNumberCalculator):
         eig_kn, weight_k, nkpts_r = collect_eigelvalues(eig_qn, weight_q,
                                                         self.bd, self.kpt_comm)
 
-        if eig_kn is not None:
+        if eig_kn.size != 0:
             # Try to use integer weights (avoid round-off errors):
             N = int(round(1 / min(weight_k)))
             w_k = (weight_k * N).round().astype(int)
