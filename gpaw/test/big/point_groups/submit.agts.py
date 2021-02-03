@@ -1,7 +1,6 @@
-from myqueue.task import task
+from myqueue.workflow import run
 
 
-def create_tasks():
-    t1 = task('systems.py')
-    t2 = task('analyse.py', tmax='1h', deps=t1)
-    return [t1, t2]
+def workflows():
+    with run(script='systems.py'):
+        run(script='analyse.py', tmax='1h')
