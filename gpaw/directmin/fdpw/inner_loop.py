@@ -144,7 +144,7 @@ class InnerLoop:
         return p_k
 
     def run(self, e_ks, wfs, dens, log, outer_counter=0,
-            small_random=True):
+            small_random=True, randvalue=0.01):
 
         log = log
         self.run_count += 1
@@ -171,7 +171,7 @@ class InnerLoop:
             # a_k[k] = np.zeros(shape=(d, d), dtype=self.dtype)
             if self.run_count == 1 and self.dtype is complex\
                     and small_random:
-                a = 0.01 * np.random.rand(d, d) * 1.0j
+                a = randvalue * np.random.rand(d, d) * 1.0j
                 a = a - a.T.conj()
                 # a = np.zeros(shape=(d, d), dtype=self.dtype)
                 wfs.gd.comm.broadcast(a, 0)
