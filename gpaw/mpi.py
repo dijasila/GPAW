@@ -9,11 +9,15 @@ import pickle
 from contextlib import contextmanager
 from typing import Any
 
+from ase.parallel import world as aseworld
 import numpy as np
 
 import gpaw
 from .broadcast_imports import world
 import _gpaw
+
+if world.size != aseworld.size:
+    raise RuntimeError('Please use "gpaw python" to run in parallel')
 
 MASTER = 0
 
