@@ -110,8 +110,10 @@ XCFunctional_calculate(XCFunctionalObject *self, PyObject *args)
       tau_g = DOUBLEP(tau_array);
       dedtau_g = DOUBLEP(dedtau_array);
       int nspin = PyArray_DIM(n_array, 0) == 1 ? 1 : 2;
+      Py_BEGIN_ALLOW_THREADS;
       calc_mgga(&self->mgga, nspin, ng, n_g, sigma_g, tau_g, e_g, v_g,
                 dedsigma_g, dedtau_g);
+      Py_END_ALLOW_THREADS;
       Py_RETURN_NONE;
     }
 #endif
