@@ -16,9 +16,6 @@ import gpaw
 from .broadcast_imports import world
 import _gpaw
 
-if world.size != aseworld.size:
-    raise RuntimeError('Please use "gpaw python" to run in parallel')
-
 MASTER = 0
 
 
@@ -713,6 +710,9 @@ if gpaw.debug:
 rank = world.rank
 size = world.size
 parallel = (size > 1)
+
+if world.size != aseworld.size:
+    raise RuntimeError('Please use "gpaw python" to run in parallel')
 
 
 def broadcast(obj, root=0, comm=world):
