@@ -26,6 +26,7 @@ from gpaw.external import PointChargePotential
 from gpaw.forces import calculate_forces
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.hamiltonian import RealSpaceHamiltonian
+from gpaw.hybrids import HybridXC
 from gpaw.io import Reader, Writer
 from gpaw.io.logger import GPAWLogger
 from gpaw.jellium import create_background_charge
@@ -754,7 +755,8 @@ class GPAW(Calculator):
             self.create_wave_functions(mode, realspace,
                                        nspins, collinear, nbands, nao,
                                        nvalence, self.setups,
-                                       cell_cv, pbc_c, N_c)
+                                       cell_cv, pbc_c, N_c,
+                                       xc)
         else:
             self.wfs.set_setups(self.setups)
 
@@ -1095,7 +1097,7 @@ class GPAW(Calculator):
 
     def create_wave_functions(self, mode, realspace,
                               nspins, collinear, nbands, nao, nvalence,
-                              setups, cell_cv, pbc_c, N_c):
+                              setups, cell_cv, pbc_c, N_c, xc):
         par = self.parameters
 
         kd = self.create_kpoint_descriptor(nspins)
@@ -1106,6 +1108,11 @@ class GPAW(Calculator):
         parsize_kpt = self.parallel['kpt']
         parsize_domain = self.parallel['domain']
         parsize_bands = self.parallel['band']
+
+        if isinstance(xc, HybridXC):
+            parsize_kpt = 1
+            parsize_domain = self.world.size
+            parsize_bands = 1
 
         ndomains = None
         if parsize_domain is not None:
