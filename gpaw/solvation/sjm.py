@@ -199,9 +199,6 @@ class SJM(SolvationGPAW):
           background charge is changed.
 
         """
-        self.sog('SET INVOKED with kwargs:')
-        self.sog(str(kwargs))
-
         old_sj_parameters = copy.deepcopy(self.parameters['sj'])
 
         parent_changed = False  # if something changed outside the SJ wrapper
@@ -648,7 +645,17 @@ class SJM(SolvationGPAW):
         p = self.parameters['sj']
 
         if np.isclose(p.excess_electrons, 0., atol=1e-5):
-            return None
+            # XXX To GK from AP:
+            # This was causing an issue in constant-charge mode. In the
+            # second ionic step it was trying to call a method of None,
+            # causing a crash. Now I'm letting it create jellium with
+            # charge zero. In my test, it gave identical results to having
+            # background charge be None. However, there is a divide-by-zero
+            # warning that pops up from jellium that doesn't crash
+            # anything. We migh want to just put a try/except around that.
+            # Let me know if you think anything here is problematic.
+            pass
+            # return None
 
         if p.jelliumregion is None:
             p.jelliumregion = {}
@@ -686,7 +693,7 @@ class SJM(SolvationGPAW):
             if p.jelliumregion['lower_limit'] == 'cavity_like':
                 # XXX This part can definitely be improved
                 if self.hamiltonian is None:
-                    filename = self.log.fd
+                    # filename = self.log.fd
                     # self.log.fd = None  # FIXME This was causing crashes.
                     self.initialize(atoms)
                     self.set_positions(atoms)
@@ -698,10 +705,10 @@ class SJM(SolvationGPAW):
                     self.initialized = False
 
                 else:
-                    filename = self.log.fd
-                    self.log.fd = None
+                    # filename = self.log.fd
+                    # self.log.fd = None
                     self.set_positions(atoms)
-                    self.log.fd = filename
+                    # self.log.fd = filename
                     g_g = self.hamiltonian.cavity.g_g
 
                 return CavityShapedJellium(p.excess_electrons, g_g=g_g,
