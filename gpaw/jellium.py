@@ -32,7 +32,10 @@ class Jellium():
         self.gd = gd
         self.mask_g = self.get_mask().astype(float)
         self.volume = self.gd.comm.sum(self.mask_g.sum()) * self.gd.dv
-        self.rs = (3 / pi / 4 * self.volume / abs(self.charge))**(1 / 3)
+        if self.charge != 0.:
+            self.rs = (3 / pi / 4 * self.volume / abs(self.charge))**(1 / 3)
+        else:
+            self.rs = np.inf  # Avoid having to see numpy's warning.
 
     def get_mask(self):
         """Choose which grid points are inside the jellium.
