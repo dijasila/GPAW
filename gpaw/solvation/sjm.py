@@ -89,7 +89,7 @@ class SJM(SolvationGPAW):
     max_iters: int
         In constant-potential mode, the maximum number of iterations to try
         to equilibrate the potential (by varying ne). Default: 10.
-    jelliumregion: dict
+    jelliumregion: dict FIXME shall we write "or None" (to get defaults)
         Parameters regarding the shape of the counter charge region
         Implemented keys:
 
@@ -146,6 +146,7 @@ class SJM(SolvationGPAW):
                 'max_iters': 10.}})
 
     def __init__(self, restart=None, **gpaw_kwargs):
+        # FIXME/ap: change **gpaw_kwargs to **kwargs?
 
         deprecated_keys = ['ne', 'potential', 'write_grandcanonical_energy',
                            'potential_equilibration_mode', 'dpot',
@@ -158,6 +159,7 @@ class SJM(SolvationGPAW):
                 raise TypeError(msg.format(key))
 
         SolvationGPAW.__init__(self, restart, **gpaw_kwargs)
+        # Note the previous line calls self.set().
         p = self.parameters['sj']  # Local parameters.
 
         # FIXME/ap: do we really want to hold local variables like the
@@ -172,7 +174,9 @@ class SJM(SolvationGPAW):
         self.sog('Solvated jellium method (SJM):')
         if not p.target_potential:
             # FIXME/ap: This log message seems to show up later, too, in
-            # calculate.
+            # calculate. We can delete one or the other. Let's delete the
+            # one that makes it consistent with how the code is structured
+            # for constant-potential mode.
             self.sog(' Constant-charge mode. Excess electrons: {:.5f}'
                      .format(p.excess_electrons))
         else:
@@ -195,17 +199,23 @@ class SJM(SolvationGPAW):
           background charge is changed.
 
         """
+        self.sog('SET INVOKED with kwargs:')
+        self.sog(str(kwargs))
+
         old_sj_parameters = copy.deepcopy(self.parameters['sj'])
 
         parent_changed = False  # if something changed outside the SJ wrapper
         sj_dict = kwargs['sj'] if 'sj' in kwargs else {}
-        try:
-            sj_changes = [key for key, value in sj_dict.items() if not
-                          equal(value, self.parameters['sj'].get(key))]
-        except KeyError:
-            raise KeyError('Unexpected key provided to sj dict. '
-                           'Only keys allowed are {}'.format(
-                               self.default_parameters['sj'].keys()))
+        badkeys = [key for key in sj_dict if key not in
+                   self.default_parameters['sj']]
+        if badkeys:
+            raise KeyError('Unexpected key(s) "{}" provided to sj dict. '
+                           'Only keys allowed are "{}".' .format(
+                               ', '.join(badkeys),
+                               ', '.join(self.default_parameters['sj'])))
+
+        sj_changes = [key for key, value in sj_dict.items() if not
+                      equal(value, self.parameters['sj'].get(key))]
         # GK: We exclude both sj keywords and background_charge from the
         #     keyword that should triger a initialization. background_charge
         #     is handled internally.
@@ -362,6 +372,7 @@ class SJM(SolvationGPAW):
     # Maybe there's a syntax change in ASE calculators?
     # I've XXX'd it out and it works on my install; if it works
     # for you we'll delete.
+    # FIXME/ap: Delete when everything works.
     def XXXset_atoms(self, atoms):
         self.atoms = atoms
         self.spos_ac = atoms.get_scaled_positions() % 1.0
