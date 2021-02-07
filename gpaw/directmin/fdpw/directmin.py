@@ -268,6 +268,8 @@ class DirectMin(Eigensolver):
                         self.iloop.U_k[k] = self.iloop_outer.U_k[k].copy()
             else:
                 self.iloop_outer = None
+        self.total_eg_count_iloop = 0
+        self.total_eg_count_iloop_outer = 0
 
         self.initialized = True
 
