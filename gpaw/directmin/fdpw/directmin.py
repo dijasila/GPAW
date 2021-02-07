@@ -413,7 +413,7 @@ class DirectMin(Eigensolver):
         wfs.timer.start('Direct Minimisation step')
         phi_2i[0], grad_knG = \
             self.get_energy_and_tangent_gradients(ham, wfs, dens,
-                                                  occ)
+                                                  occ, updateproj=False)
         wfs.timer.start('Get Search Direction')
         for kpt in wfs.kpt_u:
             k = n_kps * kpt.s + kpt.q
@@ -483,13 +483,14 @@ class DirectMin(Eigensolver):
         self.iters += 1
         self.globaliters += 1
 
-    def update_ks_energy(self, ham, wfs, dens, occ):
+    def update_ks_energy(self, ham, wfs, dens, occ, updateproj=True):
 
         wfs.timer.start('Update Kohn-Sham energy')
 
-        # calc projectors
-        for kpt in wfs.kpt_u:
-            wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+        if updateproj:
+            # calc projectors
+            for kpt in wfs.kpt_u:
+                wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
 
         dens.update(wfs)
         ham.update(dens, wfs, False)
@@ -536,7 +537,7 @@ class DirectMin(Eigensolver):
         return phi, der_phi, grad_k
 
     def get_energy_and_tangent_gradients(self, ham, wfs, dens, occ,
-                                         psit_knG=None):
+                                         psit_knG=None, updateproj=True):
 
         n_kps = self.n_kps
         if psit_knG is not None:
@@ -548,7 +549,7 @@ class DirectMin(Eigensolver):
             wfs.orthonormalize()
 
         if not self.exstopt:
-            energy = self.update_ks_energy(ham, wfs, dens, occ)
+            energy = self.update_ks_energy(ham, wfs, dens, occ, updateproj=updateproj)
             grad = self.get_gradients_2(ham, wfs)
 
             if 'SIC' in self.odd_parameters['name']:
@@ -1262,7 +1263,7 @@ class DirectMin(Eigensolver):
 
     def init_wfs(self, wfs, dens, ham, occ, log):
         # initial orbitals can be localised using Pipek-Mezey
-        # or Wannier functions.
+        # or Foster-Boys functions.
 
         if 'SIC' in self.odd_parameters['name']:
             if (not self.need_init_orbs or wfs.read_from_file_init_wfs_dm) \
