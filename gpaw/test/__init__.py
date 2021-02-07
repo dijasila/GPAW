@@ -424,9 +424,9 @@ tests = [
     'parallel/scalapack_mpirecv_crash.py',  # duration unknown
     'cdft.py',                              # 40s
     'directmin_lcao.py',                    # ~11s
-    'sic/sic_lcao_H2O.py',                   # ~36s
-    'sic/sic_fd_H2O.py',                   # ~180 s
-    'sic/sic_pw_H2O.py'                   # ~94s
+    'sic/sic_lcao_H2O.py',                  # ~30s
+    'sic/sic_pw_H2O.py',                    # ~72s
+    'sic/sic_fd_H2O.py'                     # ~180 s
 ]
 
 # 'response/graphene_EELS.py', disabled while work is in progress
