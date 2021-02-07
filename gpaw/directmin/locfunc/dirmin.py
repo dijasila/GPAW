@@ -4,9 +4,10 @@ import numpy as np
 
 class DirectMinLocalize:
 
-    def __init__(self, obj_f, wfs, maxiter=300, g_tol=1.0e-3):
+    def __init__(self, obj_f, wfs, maxiter=300, g_tol=1.0e-3, randval=0.01):
 
         self.obj_f = obj_f
+        self.randval=randval
         self.iloop = InnerLoop(
             obj_f, wfs, maxiter=maxiter,
             g_tol=g_tol)
@@ -23,7 +24,8 @@ class DirectMinLocalize:
 
         wfs.timer.start('Inner loop')
 
-        counter = self.iloop.run(0.0, wfs, dens, log, 0)
+        counter = self.iloop.run(0.0, wfs, dens, log, 0,
+                                 randvalue=self.randval)
         if rewritepsi:
             for kpt in wfs.kpt_u:
                 k = self.iloop.n_kps * kpt.s + kpt.q

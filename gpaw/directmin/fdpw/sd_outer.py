@@ -47,7 +47,7 @@ class SteepestDescent:
 
         return sum_dot
 
-    def dot_2(self, psi_1, psi_2, wfs):
+    def dot_2(self, psi_1, psi_2, kpt, wfs):
 
         dot_prod = wfs.integrate(psi_1, psi_2, False)
         dot_prod = wfs.gd.comm.sum(dot_prod)
@@ -64,7 +64,7 @@ class SteepestDescent:
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
             for i in range(self.dimensions[k]):
-                dot_pr_x1x2 += self.dot(x1[k][i],
+                dot_pr_x1x2 += self.dot_2(x1[k][i],
                                         x2[k][i],
                                         kpt, wfs)
 

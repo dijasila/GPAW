@@ -202,10 +202,11 @@ class DirectMin(Eigensolver):
 
         # choose search direction and line search algorithm
         if isinstance(self.sda, (basestring, dict)):
-            if lumo:
-                sda = xc_string_to_dict('FRcg')
-            else:
-                sda = self.sda
+            # if lumo:
+            #     sda = xc_string_to_dict('FRcg')
+            # else:
+            #     sda = self.sda
+            sda = self.sda
 
             self.search_direction = sd_outer(sda, wfs,
                                              self.dimensions)
@@ -327,7 +328,7 @@ class DirectMin(Eigensolver):
             for i, g in enumerate(grad_knG[k]):
                 if kpt.f_n[i] > 1.0e-10:
                     der_phi_2i[0] += \
-                        self.dot(wfs, g, p_knG[k][i], kpt).item().real
+                        self.dot(wfs, g, p_knG[k][i], kpt, addpaw=False).item().real
         der_phi_2i[0] = wfs.kd.comm.sum(der_phi_2i[0])
 
         alpha, phi_alpha, der_phi_alpha, grad_knG = \
@@ -529,7 +530,7 @@ class DirectMin(Eigensolver):
                 if kpt.f_n[i] > 1.0e-10:
                     der_phi += self.dot(wfs,
                                         g, search_dir[k][i],
-                                        kpt).item().real
+                                        kpt, addpaw=False).item().real
         der_phi = wfs.kd.comm.sum(der_phi)
 
         return phi, der_phi, grad_k
@@ -612,7 +613,7 @@ class DirectMin(Eigensolver):
 
         nbands = wfs.bd.mynbands
         Hpsi_nG = wfs.empty(nbands, q=kpt.q)
-        wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+        # wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
         wfs.apply_pseudo_hamiltonian(kpt, ham, kpt.psit_nG, Hpsi_nG)
 
         c_axi = {}
@@ -659,7 +660,7 @@ class DirectMin(Eigensolver):
         n_occ = self.dimensions[k]
         psc = wfs.integrate(p_nG[:n_occ], kpt.psit_nG[:n_occ], True)
         psc = 0.5 * (psc.conj() + psc.T)
-        s_psit_nG = self.apply_S(wfs, kpt.psit_nG, kpt)
+        s_psit_nG = self.apply_S(wfs, kpt.psit_nG, kpt, kpt.P_ani)
         p_nG[:n_occ] -= np.tensordot(psc, s_psit_nG[:n_occ], axes=1)
 
     def project_search_direction(self, wfs, p_knG):
@@ -668,15 +669,17 @@ class DirectMin(Eigensolver):
             k = self.n_kps * kpt.s + kpt.q
             n_occ = self.dimensions[k]
             psc = self.dot(wfs, p_knG[k][:n_occ], kpt.psit_nG[:n_occ],
-                           kpt)
+                           kpt, addpaw=False)
             psc = 0.5 * (psc.conj() + psc.T)
             p_knG[k][:n_occ] -= np.tensordot(psc, kpt.psit_nG[:n_occ],
                                              axes=1)
 
-    def apply_S(self, wfs, psit_nG, kpt):
+    def apply_S(self, wfs, psit_nG, kpt, proj_psi=None):
 
-        proj_psi = wfs.pt.dict(shape=wfs.bd.mynbands)
-        wfs.pt.integrate(psit_nG, proj_psi, kpt.q)
+        if proj_psi is None:
+            proj_psi = wfs.pt.dict(shape=wfs.bd.mynbands)
+            wfs.pt.integrate(psit_nG, proj_psi, kpt.q)
+
         s_axi = {}
         for a, P_xi in proj_psi.items():
             dO_ii = wfs.setups[a].dO_ii
@@ -688,7 +691,16 @@ class DirectMin(Eigensolver):
 
         return new_psi_nG
 
-    def dot(self, wfs, psi_1, psi_2, kpt):
+    def dot(self, wfs, psi_1, psi_2, kpt, addpaw=True):
+
+        dot_prod = wfs.integrate(psi_1, psi_2, global_integral=True)
+        if not addpaw:
+            if len(psi_1.shape) == 4 or len(psi_1.shape) == 2:
+                sum_dot = dot_prod
+            else:
+                sum_dot = np.asarray([[dot_prod]])
+
+            return sum_dot
 
         def dS(a, P_ni):
             return np.dot(P_ni, wfs.setups[a].dO_ii)
@@ -702,8 +714,6 @@ class DirectMin(Eigensolver):
         P2_ai = wfs.pt.dict(shape=ndim)
         wfs.pt.integrate(psi_1, P1_ai, kpt.q)
         wfs.pt.integrate(psi_2, P2_ai, kpt.q)
-        dot_prod = wfs.integrate(psi_1, psi_2, global_integral=True)
-
         if ndim == 1:
             if self.dtype is complex:
                 paw_dot_prod = np.array([[0.0 + 0.0j]])
@@ -713,22 +723,13 @@ class DirectMin(Eigensolver):
             for a in P1_ai.keys():
                 paw_dot_prod += \
                     np.dot(dS(a, P2_ai[a]), P1_ai[a].T.conj())
-            # if len(psi_1.shape) == 4 or len(psi_1.shape) == 2:
-            #     sum_dot = dot_prod + paw_dot_prod
-            # else:
-            #     sum_dot = [[dot_prod]] + paw_dot_prod
-            # # self.wfs.gd.comm.sum(sum_dot)
         else:
             paw_dot_prod = np.zeros_like(dot_prod)
             for a in P1_ai.keys():
                 paw_dot_prod += \
                     np.dot(dS(a, P2_ai[a]), P1_ai[a].T.conj()).T
-            # sum_dot = dot_prod + paw_dot_prod
-        # sum_dot = np.ascontiguousarray(sum_dot)
-
         paw_dot_prod = np.ascontiguousarray(paw_dot_prod)
         wfs.gd.comm.sum(paw_dot_prod)
-
         if len(psi_1.shape) == 4 or len(psi_1.shape) == 2:
             sum_dot = dot_prod + paw_dot_prod
         else:
@@ -746,7 +747,7 @@ class DirectMin(Eigensolver):
                 if f > 1.0e-10:
                     a = self.dot(wfs,
                                  grad_knG[k][i] / f,
-                                 grad_knG[k][i] / f, kpt).item() * f
+                                 grad_knG[k][i] / f, kpt, addpaw=False).item() * f
                     a = a.real
                     norm.append(a)
         # error = sum(norm) * Hartree**2 / wfs.nvalence
@@ -992,7 +993,7 @@ class DirectMin(Eigensolver):
             k = n_kps * kpt.s + kpt.q
             for i, g in enumerate(grad_k[k]):
                 der_phi += self.dot(
-                    wfs, g, search_dir[k][i], kpt).item().real
+                    wfs, g, search_dir[k][i], kpt, addpaw=False).item().real
         der_phi = wfs.kd.comm.sum(der_phi)
 
         return phi, der_phi, grad_k
@@ -1075,7 +1076,7 @@ class DirectMin(Eigensolver):
                 norm.append(self.dot(wfs,
                                      grad[k][i],
                                      grad[k][i],
-                                     kpt).item())
+                                     kpt, addpaw=False).item())
             error = sum(norm).real * Hartree ** 2 / len(norm)
             error_t += error
             energy_t += energy
@@ -1121,7 +1122,7 @@ class DirectMin(Eigensolver):
             k = n_kps * kpt.s + kpt.q
             der_phi_2i[0] += \
                 self.dot(wfs, grad_knG[k][0], p_knG[k][0],
-                         kpt).item().real
+                         kpt, addpaw=False).item().real
         der_phi_2i[0] = wfs.kd.comm.sum(der_phi_2i[0])
 
         alpha, phi_alpha, der_phi_alpha, grad_knG = \
@@ -1388,7 +1389,7 @@ class DirectMin(Eigensolver):
             log('Edmiston-Ruedenberg localization started', flush=True)
             dm = DirectMinLocalize(
                 ERL(wfs, dens, ham), wfs,
-                maxiter=200, g_tol=5.0e-5)
+                maxiter=200, g_tol=5.0e-5, randval=0.1)
             dm.run(wfs, dens)
             log('Edmiston-Ruedenberg localization finished', flush=True)
             del dm
