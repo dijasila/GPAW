@@ -12,7 +12,7 @@ def workflow():
     for name in all_optimizers:
         if name == 'Berny':
             continue
-        runs.append(run('run_tests.py',
+        runs.append(run(script='run_tests.py',
                         args=[name], cores=8, tmax='1d'))
 
     run(script='analyze.py', deps=runs)
