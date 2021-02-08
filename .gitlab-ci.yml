@@ -7,6 +7,7 @@ master:
       libopenblas-dev libscalapack-mpi-dev libxc-dev > apt-get.output
     - pip install flake8 mypy pytest interrogate
     - pip install git+https://gitlab.com/ase/ase.git@master > ase-install.output
+    - pip install git+https://gitlab.com/myqueue/myqueue.git@master > mq-install.output
     - mkdir ~/.gpaw
     - echo "scalapack = True" > ~/.gpaw/siteconfig.py
     - echo "libraries += ['scalapack-openmpi']" >> ~/.gpaw/siteconfig.py
@@ -35,3 +36,6 @@ master:
     - echo "libraries += ['blas', 'lapack']" >> ~/.gpaw/siteconfig.py
     - python setup.py install > gpaw-python-install.output
     - su user -c 'gpaw-python -m gpaw  info'
+    - mq init
+    - mq workflow -p agts.py -zT | tail -1 | tee count
+    - python -c "assert int(open('count').read().split()[0]) >= 337"
