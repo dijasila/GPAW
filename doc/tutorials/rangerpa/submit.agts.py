@@ -1,8 +1,8 @@
 # Creates: Ec_rpa.png
-from myqueue.task import task
+from myqueue.workflow import run
 
 
-def create_tasks():
+def workflow():
     return [task('si.groundstate.py'),
             task('si.range_rpa.py@8:30m', deps='si.groundstate.py'),
             task('si.compare.py', deps='si.range_rpa.py'),

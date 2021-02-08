@@ -1,7 +1,7 @@
-from myqueue.task import task
+from myqueue.workflow import run
 
 
-def create_tasks():
+def workflow():
     return [
         task('molecules.py', tmax='1h'),
         task('check.py', deps='molecules.py')]

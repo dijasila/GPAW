@@ -1,7 +1,7 @@
-from myqueue.task import task
+from myqueue.workflow import run
 
 
-def create_tasks():
+def workflow():
     tasks = [task('gaas.py+1@8:1h'),
              task('gaas.py+2@8:1h'),
              task('gaas.py+3@24:2h'),

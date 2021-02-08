@@ -1,7 +1,7 @@
-from myqueue.task import task
+from myqueue.workflow import run
 
 
-def create_tasks():
+def workflow():
     return [
         task('top.py@8:15m'),
         task('pdos.py', deps='top.py'),

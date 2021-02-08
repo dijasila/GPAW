@@ -1,7 +1,7 @@
-from myqueue.task import task
+from myqueue.workflow import run
 
 
-def create_tasks():
+def workflow():
     return [
         task('gs_BaTiO3.py@8:30m'),
         task('polarization_BaTiO3.py@8:1h', deps='gs_BaTiO3.py'),

@@ -1,6 +1,6 @@
-from myqueue.task import task
+from myqueue.workflow import run
 
 
-def create_tasks():
+def workflow():
     return [task('gllbsc_si_simple.py@1:5m'),
             task('gllbsc_si_band_edges.py@1:5m')]

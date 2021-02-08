@@ -1,5 +1,5 @@
-def create_tasks():
-    from myqueue.task import task
+def workflow():
+    from myqueue.workflow import run
     return [task('co.py@4:5h'),
             task('co.agts.py', deps='co.py')]
 

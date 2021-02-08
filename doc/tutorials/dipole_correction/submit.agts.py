@@ -1,7 +1,7 @@
-from myqueue.task import task
+from myqueue.workflow import run
 
 
-def create_tasks():
+def workflow():
     return [
         task('dipole.py@4:1h'),
         task('pwdipole.py@4:5m'),

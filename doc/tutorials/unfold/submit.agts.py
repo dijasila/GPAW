@@ -1,7 +1,7 @@
-from myqueue.task import task
+from myqueue.workflow import run
 
 
-def create_tasks():
+def workflow():
     return [
         task('gs_3x3_defect.py@16:5m'),
         task('unfold_3x3_defect.py@16:10m', deps='gs_3x3_defect.py'),

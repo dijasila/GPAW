@@ -1,7 +1,7 @@
-from myqueue.task import task
+from myqueue.workflow import run
 
 
-def create_tasks():
+def workflow():
     return [
         task('C_ecut_k_conv_GW.py@24:1d'),
         task('C_ecut_k_conv_plot_GW.py', deps='C_ecut_k_conv_GW.py'),

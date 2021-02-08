@@ -1,8 +1,8 @@
 # Creates: xas_h2o_spectrum.png, h2o_xas_box.png
 
 
-def create_tasks():
-    from myqueue.task import task
+def workflow():
+    from myqueue.workflow import run
     return [
         task('setups.py'),
         task('run.py@8:25m', deps='setups.py'),

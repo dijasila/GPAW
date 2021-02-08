@@ -2,8 +2,8 @@
 from ase.optimize.test.test import all_optimizers
 
 
-def create_tasks():
-    from myqueue.task import task
+def workflow():
+    from myqueue.workflow import run
     tasks = [task('agts.py'),
              task('run_tests_emt.py', deps='agts.py')]
     deps = ['run_tests_emt.py']

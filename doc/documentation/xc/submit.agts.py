@@ -1,9 +1,9 @@
-from myqueue.task import task
+from myqueue.workflow import run
 from gpaw.utilities import compiled_with_libvdwxc
 from gpaw.xc.libvdwxc import libvdwxc_has_pfft
 
 
-def create_tasks():
+def workflow():
     jobs = []
     if compiled_with_libvdwxc():
         jobs.append(task('libvdwxc-example.py'))

@@ -1,7 +1,7 @@
-from myqueue.task import task
+from myqueue.workflow import run
 
 
-def create_tasks():
+def workflow():
     return [
         task('plot_freq.py'),
         task('silicon_ABS_simpleversion.py'),

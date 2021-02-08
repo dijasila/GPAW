@@ -61,8 +61,8 @@ def run() -> None:
     assert abs(p1 - p2).max() < 0.15
 
 
-def create_tasks():
-    from myqueue.task import task
+def workflow():
+    from myqueue.workflow import run
     return [task('iron1d_agts.py', cores=4)]
 
 

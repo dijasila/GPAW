@@ -1,5 +1,5 @@
-def create_tasks():
-    from myqueue.task import task
+def workflow():
+    from myqueue.workflow import run
     return [
         task('h2o.py', folder='water'),
         task('CO.py@8:15m', folder='wavefunctions'),

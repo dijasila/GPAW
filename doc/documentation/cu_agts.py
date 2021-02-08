@@ -1,7 +1,7 @@
-from myqueue.task import task
+from myqueue.workflow import run
 
 
-def create_tasks():
+def workflow():
     t1 = task('cu_calc.py', cores=4, tmax='1h')
     t2 = task('cu_plot.py', deps=t1, creates='cu.png')
     t3 = task('cu_agts.py', deps=t1)

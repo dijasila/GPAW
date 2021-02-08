@@ -1,5 +1,5 @@
-def create_tasks():
-    from myqueue.task import task
+def workflow():
+    from myqueue.workflow import run
     return [
         task('HAl100.py'),
         task('stm.agts.py', deps='HAl100.py')]

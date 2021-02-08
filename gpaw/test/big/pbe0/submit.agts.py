@@ -1,5 +1,5 @@
-def create_tasks():
-    from myqueue.task import task
+def workflow():
+    from myqueue.workflow import run
     return [task('gaps.py@16:5h'),
             task('submit.agts.py', deps='gaps.py'),
             task('molecules.py', cores=8, tmax='5h')]

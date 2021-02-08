@@ -1,7 +1,7 @@
-from myqueue.task import task
+from myqueue.workflow import run
 
 
-def create_tasks():
+def workflow():
     return [
         task('timepropagation_calculate.py@8:1h'),
         task('timepropagation_continue.py@8:1h',

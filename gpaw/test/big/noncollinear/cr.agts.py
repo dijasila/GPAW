@@ -3,8 +3,8 @@ from ase import Atoms
 from gpaw import GPAW, PW, MixerDif
 
 
-def create_tasks():
-    from myqueue.task import task
+def workflow():
+    from myqueue.workflow import run
     return [task('cr.agts.py', cores=8)]
 
 

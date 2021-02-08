@@ -1,8 +1,8 @@
 # Creates: h.png
 
 
-def create_tasks():
-    from myqueue.task import task
+def workflow():
+    from myqueue.workflow import run
     return [
         task('h.py'),
         task('h.agts.py', deps='h.py')]

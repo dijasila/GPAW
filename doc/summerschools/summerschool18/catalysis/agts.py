@@ -1,8 +1,8 @@
 # Creates: N2Ru_hollow.png, 2NadsRu.png, TS.xyz
-from myqueue.task import task
+from myqueue.workflow import run
 
 
-def create_tasks():
+def workflow():
     return [
         task('check_convergence.py', tmax='5h', cores=8),
         task('convergence.py', deps='check_convergence.py'),

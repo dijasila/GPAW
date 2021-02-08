@@ -1,5 +1,5 @@
-def create_tasks():
-    from myqueue.task import task
+def workflow():
+    from myqueue.workflow import run
     return [
         task('dos.agts.py',
              deps=['../iron/PBE.py', '../wavefunctions/CO.py',

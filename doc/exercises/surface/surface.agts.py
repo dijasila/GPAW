@@ -1,5 +1,5 @@
-def create_tasks():
-    from myqueue.task import task
+def workflow():
+    from myqueue.workflow import run
     return [
         task('surface.agts.py'),
         task('work_function.py', deps='surface.agts.py')]

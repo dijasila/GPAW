@@ -1,10 +1,10 @@
 import os
 import shutil
 from pathlib import Path
-from myqueue.task import task
+from myqueue.workflow import run
 
 
-def create_tasks():
+def workflow():
     if os.getenv('AGTS_FILES'):
         dir = Path(os.getenv('AGTS_FILES'))
         for file in [Path('lifepo4_wo_li.traj'),
