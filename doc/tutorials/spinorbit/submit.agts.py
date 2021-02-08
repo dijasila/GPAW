@@ -15,7 +15,7 @@ def workflow():
             run(script='plot_Fe_bands.py')
 
     with run(script='gs_Bi2Se3.py', cores=4, tmax='2h'):
-        withrun(script='Bi2Se3_bands.py', cores=32, tmax='5h'):
+        with run(script='Bi2Se3_bands.py', cores=32, tmax='5h'):
             run(script='plot_Bi2Se3_bands.py', tmax='2h')
         with run(script='high_sym.py', cores=4, tmax='30h'):
             run(script='parity.py', tmax='5h')
