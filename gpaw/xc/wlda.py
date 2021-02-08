@@ -103,8 +103,7 @@ class WLDA(XCFunctional):
         hartreexc: bool
         """
         XCFunctional.__init__(self, 'WLDA', 'LDA')
-
-        self.nindicators = settings.get('nindicators', None) or int(5 * 1e2)
+        self.nindicators = settings.get('nindicators', None) or int(2 * 1e2)
         self.rcut_factor = settings.get("rc", None)
         self.settings = settings
         # self.wlda_type = 'c'
@@ -1019,7 +1018,6 @@ class WLDA(XCFunctional):
         # nstar_sg = self.radial_c(n_sg, e_g, v_sg,
         #                          nstar_sg)
         self.radial_hartree_correction(rgd, n_sg, nstar_sg, v_sg, e_g)
-
         # import matplotlib.pyplot as plt
         # plt.plot(rgd.r_g, n_sg[0])
         # plt.savefig("nsg.png")
@@ -1056,7 +1054,7 @@ class WLDA(XCFunctional):
             n_sg *= 2
         spin = len(n_sg) - 1
 
-        self.setup_radial_indicators(n_sg)
+        self.setup_radial_indicators(n_sg, self.nindicators)
 
         nstar_sg = self.radial_weighted_density(n_sg)
 
@@ -1127,7 +1125,7 @@ class WLDA(XCFunctional):
             return nstar_sg
         else:
             n_g = np.array([n_sg.sum(axis=0)]) * 0.5
-            self.setup_radial_indicators(n_g)
+            self.setup_radial_indicators(n_g, self.nindicators)
             nstar_g = self.radial_weighted_density(n_g)
             zeta_g = (n_sg[0] - n_sg[1]) / (n_sg[0] + n_sg[1])
             zeta_g[np.isclose((n_sg[0] + n_sg[1]), 0.0)] = 0.0
@@ -1140,8 +1138,8 @@ class WLDA(XCFunctional):
             v_sg[:] += v1_sg + v2_sg - v3_sg
 
             return nstar_g
-
-    def setup_radial_indicators(self, n_sg, nalphas=200):
+    
+    def setup_radial_indicators(self, n_sg, nalphas):
         """Set up the indicator functions for an atomic system.
 
         We first define a grid of indicator-values/anchors.
@@ -1527,7 +1525,6 @@ class WLDA(XCFunctional):
         G_k = np.linspace(0, np.pi / r_x[1], N // 2 + 1)
 
         res_g = np.zeros_like(f_g)
-
         for ia, a in enumerate(self.alphas):
             f_x = rgd.interpolate(f_g, r_x)
             f_k = self.radial_fft(r_x, f_x)
@@ -1551,7 +1548,7 @@ class WLDA(XCFunctional):
             # Undo modification by radial_x
             n_sg *= 0.5
             nsum_g = np.array([n_sg.sum(axis=0)])
-            self.setup_radial_indicators(nsum_g)
+            self.setup_radial_indicators(nsum_g, self.nindicators)
             nstar_sg = self.radial_weighted_density(nsum_g)
             v1_sg = np.zeros_like(nstar_sg)
             self.do_radial_hartree_corr(rgd, nsum_g.sum(axis=0),
@@ -1561,7 +1558,7 @@ class WLDA(XCFunctional):
             v_sg[1] += v1_sg[0]
 
         elif len(n_sg) == 2 and self.settings.get("hartreexc", False):
-            self.setup_radial_indicators(n_sg)
+            self.setup_radial_indicators(n_sg, self.nindicators)
             nstar_sg = self.radial_weighted_density(n_sg)
             e1_g = np.zeros_like(e_g)
             v1_sg = np.zeros_like(v_sg)
