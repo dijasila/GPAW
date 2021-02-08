@@ -10,4 +10,4 @@ def workflow():
         file = Path('organometal.db')
         if not file.is_file():
             shutil.copyfile(dir / file, file)
-    return [task('machinelearning.py', tmax='8h')]
+    run(script='machinelearning.py', tmax='8h')

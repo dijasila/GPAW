@@ -2,6 +2,5 @@ from myqueue.workflow import run
 
 
 def workflow():
-    return [
-        task('molecules.py', tmax='1h'),
-        task('check.py', deps='molecules.py')]
+    with run(script='molecules.py', tmax='1h'):
+        run(script='check.py')

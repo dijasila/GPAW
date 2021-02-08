@@ -2,5 +2,5 @@ from myqueue.workflow import run
 
 
 def workflow():
-    return [task('g21gpaw.py@1:20h'),
-            task('analyse.py', deps='g21gpaw.py')]
+    with run(script='g21gpaw.py', tmax='20h'):
+        run(script='analyse.py')

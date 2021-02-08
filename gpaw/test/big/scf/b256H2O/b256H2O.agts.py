@@ -2,4 +2,4 @@ from myqueue.workflow import run
 
 
 def workflow():
-    return [task('b256H2O.py@8:5h')]
+    run(script='b256H2O.py', cores=8, tmax='5h')

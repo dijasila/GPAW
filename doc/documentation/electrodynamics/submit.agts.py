@@ -2,5 +2,4 @@ from myqueue.workflow import run
 
 
 def workflow():
-    return [
-        task('plot_permittivity.py')]
+    run(script='plot_permittivity.py')

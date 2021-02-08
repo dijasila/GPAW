@@ -2,8 +2,7 @@ from myqueue.workflow import run
 
 
 def workflow():
-    return [
-        task('Na2TDDFT.py@2:1h'),
-        task('part2.py', deps='Na2TDDFT.py'),
-        task('ground_state.py@8:15s'),
-        task('spectrum.py', deps='ground_state.py')]
+    with run(script='Na2TDDFT.py', cores=2, tmax='1h'):
+        run(script='part2.py')
+    with run(script='ground_state.py', cores=8):
+        run(script='spectrum.py')

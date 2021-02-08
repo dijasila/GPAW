@@ -2,6 +2,5 @@ from myqueue.workflow import run
 
 
 def workflow():
-    return [
-        task('atomize.py@1:30m'),
-        task('relax.py@1:30m', deps='atomize.py')]
+    with run(script='atomize.py', tmax='30m'):
+        run(script='relax.py', tmax='30m')

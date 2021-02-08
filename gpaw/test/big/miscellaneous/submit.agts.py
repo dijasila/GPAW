@@ -5,10 +5,9 @@ from myqueue.workflow import run
 
 
 def workflow():
-    return [
-        task('H2Al110.py'),
-        task('dscf_CO.py'),
-        task('revtpss_tpss_scf.py'),
-        task('ltt.py'),
-        task('scalapack.py', cores=16),
-        task('pblacs_oblong.py@64:5m')]
+    run(script='H2Al110.py')
+    run(script='dscf_CO.py')
+    run(script='revtpss_tpss_scf.py')
+    run(script='ltt.py')
+    run(script='scalapack.py', cores=16)
+    run(script='pblacs_oblong.py', cores=64)

@@ -1,11 +1,10 @@
 def workflow():
     from myqueue.workflow import run
-    return [
-        task('HAl100.py'),
-        task('stm.agts.py', deps='HAl100.py')]
+    with run(script='HAl100.py'):
+        run(function=go)
 
 
-if __name__ == '__main__':
+def go():
     import sys
     sys.argv = ['', 'HAl100.gpw']
     exec(open('stm.py').read())

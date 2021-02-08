@@ -2,8 +2,7 @@ from myqueue.workflow import run
 
 
 def workflow():
-    return [
-        task('Be_gs_8bands.py@2:20m'),
-        task('Be_8bands_lrtddft.py@2:20m', deps='Be_gs_8bands.py'),
-        task('Be_8bands_lrtddft_dE.py@2:20m', deps='Be_gs_8bands.py'),
-        task('Na2_relax_excited.py@4:8h')]
+    with run(script='Be_gs_8bands.py', cores=2, tmax='20m'):
+        run(script='Be_8bands_lrtddft.py', cores=2, tmax='20m')
+        run(script='Be_8bands_lrtddft_dE.py', cores=2, tmax='20m')
+    run(script='Na2_relax_excited.py', cores=4, tmax='8h')

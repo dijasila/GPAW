@@ -2,4 +2,4 @@ from myqueue.workflow import run
 
 
 def workflow():
-    return [task('na2o4.py@4:2h')]
+    run(script='na2o4.py', cores=4, tmax='2h')

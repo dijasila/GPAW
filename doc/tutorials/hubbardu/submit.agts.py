@@ -2,7 +2,6 @@ from myqueue.workflow import run
 
 
 def workflow():
-    return [
-        task('nio.py'),
-        task('n.py'),
-        task('check.py', deps='n.py')]
+    run(script='nio.py')
+    with run(script='n.py'):
+        run(script='check.py')

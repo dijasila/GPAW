@@ -2,18 +2,16 @@ from myqueue.workflow import run
 
 
 def workflow():
-    return [task('gs.py@8:10m'),
-            task('td.py@8:30m', deps='gs.py'),
-            task('tdc.py@8:30m', deps='td.py'),
-            task('td_replay.py@8:30m', deps='tdc.py'),
-            task('spectrum.py@1:2m', deps='tdc.py'),
-            task('td_fdm_replay.py@1:5m', deps='tdc.py'),
-            task('ksd_init.py@1:5m', deps='gs.py'),
-            task('fdm_ind.py@1:2m', deps='td_fdm_replay.py,ksd_init.py'),
-            task('spec_plot.py@1:2m', deps='spectrum.py'),
-            task('tcm_plot.py@1:2m',
-                 deps='ksd_init.py,td_fdm_replay.py,spectrum.py'),
-            task('ind_plot.py@1:2m', deps='fdm_ind.py'),
-            task('td_pulse.py@8:30m', deps='gs.py'),
-            task('plot_pulse.py@1:2m', deps='td_pulse.py'),
-            ]
+    with run(script='gs.py', cores=8):
+        with run(script='td.py', cores=8, tmax='30m'):
+            with run(script='tdc.py', cores=8, tmax='30m'):
+                run(script='td_replay.py', cores=8, tmax='30m')
+                r1 = run(script='spectrum.py')
+                r2 = run(script='td_fdm_replay.py')
+        with run(script='ksd_init.py'):
+            with run(script='fdm_ind.py', deps=[r2]):
+                run(script='ind_plot.py')
+            run(script='tcm_plot.py', deps=[r1, r2])
+        run(script='spec_plot.py', deps=[r1])
+        with run(script='td_pulse.py', cores=8, tmax='30m'):
+            run(script='plot_pulse.py')

@@ -1,8 +1,8 @@
 def workflow():
     from myqueue.workflow import run
-    return [task('gaps.py@16:5h'),
-            task('submit.agts.py', deps='gaps.py'),
-            task('molecules.py', cores=8, tmax='5h')]
+    with run(script='gaps.py', cores=16, tmax='5h'):
+        run(function=test_gaps)
+    run(script='molecules.py', cores=8, tmax='5h')
 
 
 def test_gaps():
@@ -20,7 +20,3 @@ def test_gaps():
             print(k, ' '.join(['%6.3f' % x for x in r]))
             assert epbe < 0.26
             assert epbe0 < 0.26
-
-
-if __name__ == '__main__':
-    test_gaps()

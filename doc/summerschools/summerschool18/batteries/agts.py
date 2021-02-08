@@ -12,7 +12,7 @@ def workflow():
             if not file.is_file():
                 shutil.copyfile(dir / file, file)
 
-    t1 = task('batteries1.py', tmax='1h')
-    t2 = task('batteries2.py', tmax='3h')
-    t3 = task('batteries3.py', tmax='1h', cores=8, deps=[t1, t2])
-    return [t1, t2, t3]
+    r1 = run(script='batteries1.py', tmax='1h')
+    r2 = run(script='batteries2.py', tmax='3h')
+    with r1, r2:
+        run(script='batteries3.py', tmax='1h', cores=8)

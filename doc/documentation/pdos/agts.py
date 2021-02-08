@@ -2,8 +2,7 @@ from myqueue.workflow import run
 
 
 def workflow():
-    return [
-        task('top.py@8:15m'),
-        task('pdos.py', deps='top.py'),
-        task('lcaodos_gs.py@8:15m'),
-        task('lcaodos_plt.py', deps='lcaodos_gs.py')]
+    with run(script='top.py', cores=8, tmax='15m'):
+        run(script='pdos.py')
+    with run(script='lcaodos_gs.py', cores=8, tmax='15m'):
+        run(script='lcaodos_plt.py')

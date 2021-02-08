@@ -2,6 +2,5 @@ from myqueue.workflow import run
 
 
 def workflow():
-    return [
-        task('mnsi.py'),
-        task('plot2d.py', deps='mnsi.py')]
+    with run(script='mnsi.py'):
+        run(script='plot2d.py')

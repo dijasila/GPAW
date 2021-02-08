@@ -2,13 +2,13 @@ from myqueue.workflow import run
 
 
 def workflow():
-    return [
-        task('gs_Si.py@4:20m'),
-        task('eps_Si.py@4:6h', deps='gs_Si.py'),
-        task('plot_Si.py@1:10m', deps='eps_Si.py'),
-        task('gs_MoS2.py@4:1h'),
-        task('pol_MoS2.py@64:33h', deps='gs_MoS2.py'),
-        task('plot_MoS2.py@1:10m', deps='pol_MoS2.py'),
-        task('get_2d_eps.py@1:8h', deps='gs_MoS2.py'),
-        task('plot_2d_eps.py@1:10m', deps='get_2d_eps.py'),
-        task('alpha_MoS2.py@1:10m', deps='gs_MoS2.py')]
+    with run(script='gs_Si.py', cores=4, tmax='20m'):
+        with run(script='eps_Si.py', cores=4, tmax='6h'):
+            run(script='plot_Si.py')
+
+    with run(script='gs_MoS2.py', cores=4, tmax='1h'):
+        with run(script='pol_MoS2.py', cores=64, tmax='33h'):
+            run(script='plot_MoS2.py')
+        with run(script='get_2d_eps.py', tmax='8h'):
+            run(script='plot_2d_eps.py')
+        run(script='alpha_MoS2.py')

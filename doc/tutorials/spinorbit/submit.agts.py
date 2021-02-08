@@ -2,21 +2,24 @@ from myqueue.workflow import run
 
 
 def workflow():
-    return [
-        task('Pt_gs.py@4:20m'),
-        task('Pt_bands.py@32:1h', deps='Pt_gs.py'),
-        task('plot_Pt_bands.py@1:10m', deps='Pt_bands.py'),
-        task('WS2_gs.py@4:20h'),
-        task('WS2_bands.py', cores=24, deps='WS2_gs.py'),
-        task('plot_WS2_bands.py@1:10m', deps='WS2_bands.py'),
-        task('Fe_gs.py@4:20m'),
-        task('Fe_bands.py', cores=24, deps='Fe_gs.py'),
-        task('plot_Fe_bands.py@1:10m', deps='Fe_bands.py'),
-        task('gs_Bi2Se3.py@4:2h'),
-        task('Bi2Se3_bands.py@32:5h', deps='gs_Bi2Se3.py'),
-        task('high_sym.py@4:30h', deps='gs_Bi2Se3.py'),
-        task('parity.py@1:5h', deps='high_sym.py'),
-        task('plot_Bi2Se3_bands.py@1:2h', deps='Bi2Se3_bands.py'),
-        task('gs_Co.py@32:2h'),
-        task('anisotropy.py@1:5h', deps='gs_Co.py'),
-        task('plot_anisotropy.py@1:2m', deps='anisotropy.py')]
+    with run(script='Pt_gs.py', cores=4, tmax='20m'):
+        with run(script='Pt_bands.py', cores=32, tmax='1h'):
+            run(script='plot_Pt_bands.py')
+
+    with run(script='WS2_gs.py', cores=4, tmax='20h'):
+        with run(script='WS2_bands.py', cores=24):
+            run(script='plot_WS2_bands.py')
+
+    with run(script='Fe_gs.py', cores=4, tmax='20m'):
+        with run(script='Fe_bands.py', cores=24):
+            run(script='plot_Fe_bands.py')
+
+    with run(script='gs_Bi2Se3.py', cores=4, tmax='2h'):
+        withrun(script='Bi2Se3_bands.py', cores=32, tmax='5h'):
+            run(script='plot_Bi2Se3_bands.py', tmax='2h')
+        with run(script='high_sym.py', cores=4, tmax='30h'):
+            run(script='parity.py', tmax='5h')
+
+    with run(script='gs_Co.py', cores=32, tmax='2h'):
+        with run(script='anisotropy.py', tmax='5h'):
+            run(script='plot_anisotropy.py')

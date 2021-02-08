@@ -2,27 +2,21 @@ from myqueue.workflow import run
 
 
 def workflow():
-    tasks = [task('gaas.py+1@8:1h'),
-             task('gaas.py+2@8:1h'),
-             task('gaas.py+3@24:2h'),
-             task('gaas.py+4@48:24h'),
-             task('electrostatics.py@8:1:15m', deps=['gaas.py+1',
-                                                     'gaas.py+2',
-                                                     'gaas.py+3',
-                                                     'gaas.py+4']),
-             task('plot_energies.py', deps='electrostatics.py'),
-             task('plot_potentials.py', deps='electrostatics.py'),
-             task('BN.py+1@8:1h'),
-             task('BN.py+2@8:1h'),
-             task('BN.py+3@8:2h'),
-             task('BN.py+4@24:2h'),
-             task('BN.py+5@48:2h'),
-             task('electrostatics_BN.py@1:15m', deps=['BN.py+1',
-                                                      'BN.py+2',
-                                                      'BN.py+3',
-                                                      'BN.py+4',
-                                                      'BN.py+5']),
-             task('plot_energies_BN.py', deps='electrostatics_BN.py'),
-             task('plot_potentials_BN.py', deps='electrostatics_BN.py'),
-             task('plot_epsilon.py', deps='electrostatics_BN.py')]
-    return tasks
+    runs = [run(script='gaas.py', args=[1], tmax='1h'),
+            run(script='gaas.py', args=[2], cores=8, tmax='1h')
+            run(script='gaas.py', args=[3], cores=24, tmax='2h')
+            run(script='gaas.py', args=[4], cores=48, tmax='24h')]
+    with run(script='electrostatics.py', cores=8, processes=1, tmax='15m',
+             deps=runs):
+        run(script='plot_energies.py')
+        run(script='plot_potentials.py')
+
+    runs = [run(script='BN.py', args=[1], cores=8, tmax='1h')
+            run(script='BN.py', args=[2], cores=8, tmax='1h')
+            run(script='BN.py', args=[3], cores=8, tmax='2h')
+            run(script='BN.py', args=[4], cores=24, tmax='2h')
+            run(script='BN.py', args=[5], cores=48, tmax='2h')]
+    with run(script='electrostatics_BN.py', tmax='15m', deps=runs):
+        run(script='plot_energies_BN.py')
+        run(script='plot_potentials_BN.py')
+        run(script='plot_epsilon.py')

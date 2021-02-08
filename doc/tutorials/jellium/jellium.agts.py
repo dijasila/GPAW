@@ -2,8 +2,7 @@ from myqueue.workflow import run
 
 
 def workflow():
-    return [
-        task('bulk.py@4:6m'),
-        task('surface.py@4:6m'),
-        task('sigma.py', deps='bulk.py,surface.py'),
-        task('fig2.py', deps='sigma.py')]
+    run(script='bulk.py', cores=4)
+    with run(script='surface.py', cores=4):
+        with run(script='sigma.py'):
+            run(script='fig2.py')

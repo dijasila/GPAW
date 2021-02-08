@@ -1,7 +1,6 @@
 def workflow():
     from myqueue.workflow import run
-    return [
-        task('dos.agts.py',
+        run(script='dos.agts.py'
              deps=['../iron/PBE.py', '../wavefunctions/CO.py',
                    '../wannier/si.py', '../aluminium/Al_fcc.py'])]
 

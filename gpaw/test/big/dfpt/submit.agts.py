@@ -2,4 +2,4 @@ from myqueue.workflow import run
 
 
 def workflow():
-    return [task('Si_AH.py@1:2h')]
+    run(script='Si_AH.py', tmax='2h')

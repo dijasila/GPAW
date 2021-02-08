@@ -2,5 +2,4 @@ from myqueue.workflow import run
 
 
 def workflow():
-    return [
-        task('lcaotddft.py@4:40m')]
+    run(script='lcaotddft.py', cores=4, tmax='40m')

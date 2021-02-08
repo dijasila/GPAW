@@ -2,10 +2,10 @@ from myqueue.workflow import run
 
 
 def workflow():
-    return [
-        task('gs_MoS2.py@16:25m'),
-        task('gs_WSe2.py@16:25m'),
-        task('bb_MoS2.py@16:20h', deps='gs_MoS2.py'),
-        task('bb_WSe2.py@16:20h', deps='gs_WSe2.py'),
-        task('interpolate_bb.py', deps='bb_MoS2.py,bb_WSe2.py'),
-        task('interlayer.py', deps='interpolate_bb.py')]
+    with run(script='gs_MoS2.py', cores=16, tmax='25m'):
+        r1 = run(script='bb_MoS2.py', cores=16, tmax='20h')
+    with run(script='gs_WSe2.py', cores=16, tmax='25m'):
+        r2 = run(script='bb_WSe2.py', cores=16, tmax='20h')
+    with r1, r2:
+        with run(script='interpolate_bb.py'):
+            run(script='interlayer.py')

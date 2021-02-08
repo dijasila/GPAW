@@ -2,14 +2,11 @@ from myqueue.workflow import run
 
 
 def workflow():
-    return [
-        task('timepropagation_calculate.py@8:1h'),
-        task('timepropagation_continue.py@8:1h',
-             deps='timepropagation_calculate.py'),
-        task('timepropagation_postprocess.py@8:5m',
-             deps='timepropagation_continue.py'),
-        task('timepropagation_plot.py@1:5m',
-             deps='timepropagation_postprocess.py'),
-        task('casida_calculate.py@8:1h'),
-        task('casida_postprocess.py@8:5m', deps='casida_calculate.py'),
-        task('casida_plot.py@1:5m', deps='casida_postprocess.py')]
+    with run(script='timepropagation_calculate.py', cores=8, tmax='1h'):
+        with run(script='timepropagation_continue.py', cores=8, tmax='1h'):
+            with run(script='timepropagation_postprocess.py', cores=8):
+                run(script='timepropagation_plot.py')
+
+    with run(script='casida_calculate.py', cores=8, tmax='1h'):
+        with run(script='casida_postprocess.py', cores=8):
+            run(script='casida_plot.py')

@@ -2,7 +2,6 @@ from myqueue.workflow import run
 
 
 def workflow():
-    return [
-        task('diffusion1.py@4:10m'),
-        task('neb.py@6:1h', deps='diffusion1.py'),
-        task('check.py', deps='neb.py')]
+    with run(script='diffusion1.py', cores=4):
+        with run(script='neb.py', cores=6, tmax='1h'):
+            run(script='check.py')

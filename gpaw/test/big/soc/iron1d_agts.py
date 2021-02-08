@@ -45,7 +45,7 @@ def soc(params: Dict) -> list:
     return s1, atoms.calc
 
 
-def run() -> None:
+def go() -> None:
     """Compare with and without symmetry."""
     params = dict(mode=PW(500),
                   xc='PBE',
@@ -63,8 +63,4 @@ def run() -> None:
 
 def workflow():
     from myqueue.workflow import run
-    return [task('iron1d_agts.py', cores=4)]
-
-
-if __name__ == '__main__':
-    run()
+    run(function=go, cores=4)

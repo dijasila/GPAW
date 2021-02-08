@@ -1,10 +1,4 @@
-def workflow():
-    from myqueue.workflow import run
-    return [task('co.py@4:5h'),
-            task('co.agts.py', deps='co.py')]
-
-
-if __name__ == '__main__':
+def check():
     import numpy as np
     from ase.io import read
 
@@ -23,3 +17,9 @@ if __name__ == '__main__':
     assert abs(c0 - 4.0419) < 0.001
     assert abs(a[4] - a0) < 0.001
     assert abs(c[4] - c0) < 0.005
+
+
+def workflow():
+    from myqueue.workflow import run
+    with run(script='co.py', cores=4, tmax='5h'):
+        run(function=check)

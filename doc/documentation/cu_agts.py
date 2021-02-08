@@ -2,10 +2,9 @@ from myqueue.workflow import run
 
 
 def workflow():
-    t1 = task('cu_calc.py', cores=4, tmax='1h')
-    t2 = task('cu_plot.py', deps=t1, creates='cu.png')
-    t3 = task('cu_agts.py', deps=t1)
-    return [t1, t2, t3]
+    with run(script='cu_calc.py', cores=4, tmax='1h'):
+        run(script='cu_plot.py')
+        run(function=check)
 
 
 def check():
@@ -22,7 +21,3 @@ def check():
     e = np.polyval(np.polyfit([20**-2, 19**-2], [e20, e19], 1), 0)
     energies.append(e)
     assert max(energies) - min(energies) < 0.001
-
-
-if __name__ == '__main__':
-    check()

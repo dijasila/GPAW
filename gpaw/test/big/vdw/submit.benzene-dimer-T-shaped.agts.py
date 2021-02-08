@@ -2,4 +2,4 @@ from myqueue.workflow import run
 
 
 def workflow():
-    return [task('benzene-dimer-T-shaped.py@48:20h')]
+    run(script='benzene-dimer-T-shaped.py', cores=48, tmax='20h')

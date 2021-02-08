@@ -3,7 +3,7 @@ from myqueue.workflow import run
 
 
 def workflow():
-    return [task('si.groundstate.py'),
-            task('si.range_rpa.py@8:30m', deps='si.groundstate.py'),
-            task('si.compare.py', deps='si.range_rpa.py'),
-            task('plot_ec.py', deps='si.range_rpa.py')]
+    with run(script='si.groundstate.py'):
+        with run(script='si.range_rpa.py', cores=8, tmax='30m'):
+            run(script='si.compare.py')
+            run(script='plot_ec.py')
