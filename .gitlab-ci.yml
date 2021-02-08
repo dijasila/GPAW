@@ -37,5 +37,6 @@ master:
     - python setup.py install > gpaw-python-install.output
     - su user -c 'gpaw-python -m gpaw  info'
     - mq init
+    - mq workflow -p agts.py -zT
     - mq workflow -p agts.py -zT | tail -1 | tee count
-    - python -s "assert int(open('count').read().split()[0]) >= 340"
+    - python -c "assert int(open('count').read().split()[0]) >= 340"
