@@ -71,12 +71,11 @@ class SJM(SolvationGPAW):
 
     Parameters in sj dictionary:
 
-    ne: float  FIXME should this be 'excess_electrons' if we are going
-    verbose on other names?????
+    excess_electrons: float
         Number of electrons added in the atomic system and (with opposite
-        sign) in the background charge region. If the `potential` keyword is
-        also supplied, `ne` is taken as  an initial guess for the needed
-        number of electrons.
+        sign) in the background charge region. If the `target_potential`
+        keyword is also supplied, `excess_electrons` is taken as an initial
+        guess for the needed number of electrons.
     target_potential: float
         The potential that should be reached or kept in the course of the
         calculation. If set to "None" (default) a constant-charge
@@ -89,8 +88,9 @@ class SJM(SolvationGPAW):
     max_iters: int
         In constant-potential mode, the maximum number of iterations to try
         to equilibrate the potential (by varying ne). Default: 10.
-    jelliumregion: dict FIXME shall we write "or None" (to get defaults)
-        Parameters regarding the shape of the counter charge region
+    jelliumregion: dict or None
+        Parameters regarding the shape of the counter charge region.
+        If not supplied (None), then defaults will be used.
         Implemented keys:
 
         'upper_limit': float
@@ -137,16 +137,15 @@ class SJM(SolvationGPAW):
     default_parameters = copy.deepcopy(SolvationGPAW.default_parameters)
     default_parameters.update(
         {'sj': {'excess_electrons': 0.,
-                'jelliumregion': None,  # FIXME: put in defaults?
+                'jelliumregion': None,
                 'target_potential': None,
                 'write_grandpotential_energy': True,
                 'tol': 0.01,
-                'always_adjust': False,  # FIXME: rename to not use 'ne'.
+                'always_adjust': False,
                 'verbose': False,
                 'max_iters': 10.}})
 
-    def __init__(self, restart=None, **gpaw_kwargs):
-        # FIXME/ap: change **gpaw_kwargs to **kwargs?
+    def __init__(self, restart=None, **kwargs):
 
         deprecated_keys = ['ne', 'potential', 'write_grandcanonical_energy',
                            'potential_equilibration_mode', 'dpot',
@@ -155,10 +154,10 @@ class SJM(SolvationGPAW):
                'class. All SJM arguments should be sent in via the "sj" '
                'dict.')
         for key in deprecated_keys:
-            if key in gpaw_kwargs:
+            if key in kwargs:
                 raise TypeError(msg.format(key))
 
-        SolvationGPAW.__init__(self, restart, **gpaw_kwargs)
+        SolvationGPAW.__init__(self, restart, **kwargs)
         # Note the previous line calls self.set().
         p = self.parameters['sj']  # Local parameters.
 
@@ -180,6 +179,9 @@ class SJM(SolvationGPAW):
             self.sog(' Constant-charge mode. Excess electrons: {:.5f}'
                      .format(p.excess_electrons))
         else:
+            # FIXME/ap: I think the below should be in the set method, as
+            # the user could change the target potential on the fly in a
+            # script.
             self.sog(' Constant-potential mode.')
             self.sog(' Target potential: {:.5f} +/- {:.5f}'
                      .format(p.target_potential, p.tol))
@@ -229,7 +231,6 @@ class SJM(SolvationGPAW):
             if key not in p:
                 p[key] = value
 
-        # FIXME: make sure all key names are still right.
         if 'target_potential' in sj_changes:
             self.results = {}
             # GK: p does not seem to update if it is not done explicitly
