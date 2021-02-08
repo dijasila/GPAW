@@ -1,14 +1,17 @@
-from myqueue.task import task
+from myqueue.workflow import run
 
 
-def create_tasks():
-    return [
-        task('gs_N2.py@16:10m'),
-        task('frequency.py@1:3h', deps='gs_N2.py'),
-        task('con_freq.py@2:16h', deps='gs_N2.py'),
-        task('rpa_N2.py@48:1h', deps='gs_N2.py'),
-        task('plot_w.py', deps='frequency.py,con_freq.py'),
-        task('plot_con_freq.py', deps='con_freq.py'),
-        task('extrapolate.py', deps='rpa_N2.py'),
-        task('shell:rm N.gpw N2.gpw',  # clean up
-             deps='frequency.py,con_freq.py,rpa_N2.py')]
+def workflow():
+    with run(script='gs_N2.py', cores=16):
+        r1 = run(script='frequency.py', tmax='3h')
+        r2 = run(script='con_freq.py', cores=2, tmax='16h')
+        r3 = run(script='rpa_N2.py', cores=48, tmax='1h')
+    with r1, r2:
+        run(script='plot_w.py')
+    with r2:
+        run(script='plot_con_freq.py')
+    with r3:
+        run(script='extrapolate.py')
+
+    with r1, r2, r3:
+        run(shell='rm', args=['N.gpw', 'N2.gpw'])  # clean up
