@@ -36,4 +36,5 @@ master:
     - echo "libraries += ['blas', 'lapack']" >> ~/.gpaw/siteconfig.py
     - python setup.py install > gpaw-python-install.output
     - su user -c 'gpaw-python -m gpaw  info'
+    - mq init
     - mq workflow -p agts.py
