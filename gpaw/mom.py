@@ -13,7 +13,6 @@ def mom_calculation(calc, atoms,
 
     if calc.wfs is None:
         # We need the wfs object to initialize OccupationsMOM
-        # so initialize calculator
         calc.initialize(atoms)
 
     parallel_layout = calc.wfs.occupations.parallel_layout
@@ -24,8 +23,6 @@ def mom_calculation(calc, atoms,
                              width,
                              width_increment,
                              niter_width_update)
-
-    # Set MOM occupations and let calculator.py take care of the rest
     calc.set(occupations=occ_mom)
 
     calc.log(occ_mom)
@@ -54,11 +51,13 @@ class OccupationsMOM:
                'numbers': self.numbers}
         if self.width != 0.0:
             dct['width'] = self.width * Ha
+            dct['width_increment'] = self.width_increment * Ha
+            dct['niter_width_update'] = self.niter_width_update
         return dct
 
     def __str__(self):
         s = 'Excited-state calculation with Maximum Overlap Method\n'
-        s += '  Smearing of holes and excited electrons: '
+        s += '  Gaussian smearing of holes and excited electrons: '
         if self.width == 0.0:
             s += 'off\n'
         else:
@@ -72,8 +71,11 @@ class OccupationsMOM:
                   fermi_levels_guess):
 
         if not self.initialized:
-            self.initialize_reference_orbitals()
+            # If MOM reference orbitals are not initialized yet (e.g. when
+            # the calculation is initialized from atomic densities), update
+            # the occupation numbers according to the user-supplied numbers
             self.occ.f_sn = self.numbers.copy()
+            self.initialize_reference_orbitals()
         else:
             self.occ.f_sn = self.update_occupations()
             self.iters += 1
@@ -87,34 +89,30 @@ class OccupationsMOM:
 
     def initialize_reference_orbitals(self):
         if self.wfs.kpt_u[0].f_n is None:
-            # If the density is initialized from atomic densities
-            # the occupation numbers are not available yet
-            # If the MOM reference orbitals are not initialized
-            # (e.g. when the density is initialized from atomic
-            # densities) set the occupation numbers according to
-            # the supplied numbers
+            # If the occupation numbers are not available (e.g. when
+            # the calculation is initialized from atomic densities)
+            # we first need to take a step of eigensolver and update
+            # the occupation numbers according to the user-supplied
+            # numbers before initializing the MOM reference orbitals
             return
 
         self.iters = 0
+        # Initialize MOM reference orbitals for each equally
+        # occupied subspace separately
         self.f_sn_unique = self.find_unique_occupation_numbers()
         if self.wfs.mode == 'lcao':
             self.c_ref = {}
             for kpt in self.wfs.kpt_u:
                 self.c_ref[kpt.s] = {}
-
-                # Initialize ref orbitals for each equally occupied subspace
                 for f_n_unique in self.f_sn_unique[kpt.s]:
                     occupied = self.f_sn_unique[kpt.s][f_n_unique]
                     self.c_ref[kpt.s][f_n_unique] = kpt.C_nM[occupied].copy()
-
         else:
             self.wf = {}
             self.p_an = {}
             for kpt in self.wfs.kpt_u:
                 self.wf[kpt.s] = {}
                 self.p_an[kpt.s] = {}
-
-                # Initialize ref orbitals for each equally occupied subspace
                 for f_n_unique in self.f_sn_unique[kpt.s]:
                     occupied = self.f_sn_unique[kpt.s][f_n_unique]
                     # Pseudo wave functions
