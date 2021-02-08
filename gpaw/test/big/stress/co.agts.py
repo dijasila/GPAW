@@ -8,7 +8,6 @@ def check():
     c = np.array([config.cell[2, 2] for config in configs])
     f = np.array([a**0, a, c, 0.5 * a**2, a * c, 0.5 * c**2])
     p = np.linalg.lstsq(f.T, e, rcond=None)[0]
-    p0 = p[0]
     p1 = p[1:3]
     p2 = np.array([(p[3], p[4]),
                    (p[4], p[5])])

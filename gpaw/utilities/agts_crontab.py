@@ -29,7 +29,7 @@ shell = functools.partial(subprocess.check_call, shell=True)
 
 
 def agts(cmd):
-    from myqueue.workflow import runstates
+    from myqueue.task import taskstates
     from myqueue.tasks import Tasks, Selection
 
     allofthem = Selection(None, '', taskstates, [Path('.').absolute()], True)

@@ -4,3 +4,6 @@ def workflow():
             run(script='anti.py', cores=4, tmax='15m'),
             run(script='non.py', cores=2, tmax='15m')]
     run(script='PBE.py', folder='iron', deps=runs)
+    for r, name in zip(runs, ['ferro', 'anti', 'non']):
+        run(script='../dos/dos.py', args=[f'{name}.gpw'], deps=[r])
+    run(script='../dos/pdos.py', deps=[runs[0]])
