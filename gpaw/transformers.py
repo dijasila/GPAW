@@ -81,8 +81,11 @@ class _Transformer:
         if output is None:
             output = self.gdout.empty(input.shape[:-3], dtype=self.dtype,
                                       cuda=use_gpu)
-        assert (type(input) == type(output))
         if use_gpu:
+            _output = None
+            if not isinstance(output, gpaw.cuda.gpuarray.GPUArray):
+                _output = output
+                output = gpaw.cuda.gpuarray.to_gpu(output)
             if gpaw.cuda.debug:
                 input_cpu = input.get()
                 output_cpu = output.get()
@@ -91,8 +94,18 @@ class _Transformer:
                                             input.shape, input.dtype, phases)
             if gpaw.cuda.debug:
                 gpaw.cuda.debug_test(output_cpu, output, "transformer")
+            if _output:
+                output.get(_output)
+                output = _output
         else:
+            _output = None
+            if isinstance(output, gpaw.cuda.gpuarray.GPUArray):
+                _output = output
+                output = output.get()
             self.transformer.apply(input, output, phases)
+            if _output:
+                _output.set(output)
+                output = _output
         return output
 
     def get_async_sizes(self):
