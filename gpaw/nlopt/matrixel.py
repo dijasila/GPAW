@@ -69,13 +69,6 @@ def get_mml(gs_name='gs.gpw', spin=0, ni=None, nf=None, timer=None):
             complex).apply for vv in range(3)]
     phases = np.ones((3, 2), dtype=complex)
 
-    # Get the
-    parprint('Reading PAW setups.')
-    dO_aii = []
-    for ia in calc.wfs.kpt_u[0].P_ani.keys():
-        dO_ii = calc.wfs.setups[ia].dO_ii
-        dO_aii.append(dO_ii)
-
     # Initial call to print 0% progress
     ik = 0
     if world.rank == 0:
@@ -123,14 +116,12 @@ def get_mml(gs_name='gs.gpw', spin=0, ni=None, nf=None, timer=None):
         # The PAW corrections are added
         with timer('Add the PAW correction'):
             for ia in range(na):
-                dO_ii = dO_aii[ia]
                 setup = calc.wfs.setups[ia]
                 P0_ni = P_ani[ia]
 
                 # Loop over components
                 for iv in range(3):
-                    tmp = (-dO_ii * 1j * k_v[iv]
-                           + setup.nabla_iiv[:, :, iv])
+                    tmp = setup.nabla_iiv[:, :, iv]
                     p_vnn[iv] += np.dot(
                         np.dot(P0_ni.conj(), tmp), P0_ni.T)
 
