@@ -14,6 +14,7 @@ from gpaw.utilities import is_contiguous
 import _gpaw
 
 import gpaw.cuda
+from gpaw.gpuarray import GPUArray, to_gpu
 
 
 class _Transformer:
@@ -23,7 +24,7 @@ class _Transformer:
         self.nn = nn
         assert 1 <= nn <= 4
         self.dtype = dtype
-        self.cuda=cuda
+        self.cuda = cuda
 
         pad_cd = np.empty((3, 2), int)
         neighborpad_cd = np.empty((3, 2), int)
@@ -77,15 +78,15 @@ class _Transformer:
                                              self.interpolate, self.cuda)
         
     def apply(self, input, output=None, phases=None):
-        use_gpu = isinstance(input, gpaw.cuda.gpuarray.GPUArray)
+        use_gpu = isinstance(input, GPUArray)
         if output is None:
             output = self.gdout.empty(input.shape[:-3], dtype=self.dtype,
                                       cuda=use_gpu)
         if use_gpu:
             _output = None
-            if not isinstance(output, gpaw.cuda.gpuarray.GPUArray):
+            if not isinstance(output, GPUArray):
                 _output = output
-                output = gpaw.cuda.gpuarray.to_gpu(output)
+                output = to_gpu(output)
             if gpaw.cuda.debug:
                 input_cpu = input.get()
                 output_cpu = output.get()
@@ -99,7 +100,7 @@ class _Transformer:
                 output = _output
         else:
             _output = None
-            if isinstance(output, gpaw.cuda.gpuarray.GPUArray):
+            if isinstance(output, GPUArray):
                 _output = output
                 output = output.get()
             self.transformer.apply(input, output, phases)
