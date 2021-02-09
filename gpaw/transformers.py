@@ -77,14 +77,12 @@ class _Transformer:
                                              self.interpolate, self.cuda)
         
     def apply(self, input, output=None, phases=None):
+        use_gpu = isinstance(input, gpaw.cuda.gpuarray.GPUArray)
         if output is None:
             output = self.gdout.empty(input.shape[:-3], dtype=self.dtype,
-                                      cuda=self.cuda)
+                                      cuda=use_gpu)
         assert (type(input) == type(output))
-
-        if isinstance(input, gpaw.cuda.gpuarray.GPUArray) \
-                and isinstance(output,gpaw.cuda.gpuarray.GPUArray):
-            assert self.cuda
+        if use_gpu:
             if gpaw.cuda.debug:
                 input_cpu = input.get()
                 output_cpu = output.get()
