@@ -94,54 +94,54 @@ class FDOperator:
         return '<' + self.description + '>'
 
     def apply(self, in_xg, out_xg, phase_cd=None):
-        in_cpu, in_gpu = (None, in_xg) if isinstance(in_xg, GPUArray) \
-                                       else (in_xg, None)
-        out_cpu, out_gpu = (None, out_xg) if isinstance(out_xg, GPUArray) \
-                                          else (out_xg, None)
-
-        if self.cuda or in_gpu is not None or out_gpu is not None:
-            if in_gpu is None:
-                in_gpu = to_gpu(in_cpu)
-            if out_gpu is None:
-                out_gpu = to_gpu(out_cpu)
+        if isinstance(in_xg, GPUArray):
+            _out = None
+            if not isinstance(out_xg, GPUArray):
+                _out = out_xg
+                out_xg = to_gpu(out_xg)
             if cuda.debug:
-                in_debug = in_gpu.get()
-                out_debug = out_gpu.get()
+                in_debug = in_xg.get()
+                out_debug = out_xg.get()
                 self.operator.apply(in_debug, out_debug, phase_cd)
-            self.operator.apply_cuda_gpu(in_gpu.gpudata, out_gpu.gpudata,
-                                         in_gpu.shape, in_gpu.dtype, phase_cd)
+            self.operator.apply_cuda_gpu(in_xg.gpudata, out_xg.gpudata,
+                                         in_xg.shape, in_xg.dtype, phase_cd)
             if cuda.debug:
-                cuda.debug_test(out_debug, out_gpu, "fd_operator")
-            if out_cpu is not None:
-                out_gpu.get(out_cpu)
+                cuda.debug_test(out_debug, out_xg, "fd_operator")
+            if _out:
+                out_xg.get(_out)
         else:
-            self.operator.apply(in_cpu, out_cpu, phase_cd)
+            _out = None
+            if isinstance(out_xg, GPUArray):
+                _out = out_xg
+                out_xg = out_xg.get()
+            self.operator.apply(in_xg, out_xg, phase_cd)
+            if _out:
+                _out.set(out_xg)
 
     def relax(self, relax_method, f_g, s_g, n, w=None):
-        f_cpu, f_gpu = (None, f_g) if isinstance(f_g, GPUArray) \
-                                   else (f_g, None)
-        s_cpu, s_gpu = (None, s_g) if isinstance(s_g, GPUArray) \
-                                   else (s_g, None)
-
-        if self.cuda or f_gpu is not None or s_gpu is not None:
-            if f_gpu is None:
-                f_gpu = to_gpu(f_cpu)
-            if s_gpu is None:
-                s_gpu = to_gpu(s_cpu)
+        if isinstance(s_g, GPUArray):
+            _func = None
+            if not isinstance(f_g, GPUArray):
+                _func = f_g
+                f_g = to_gpu(_func)
             if cuda.debug:
-                f_debug = f_gpu.get()
-                s_debug = s_gpu.get()
+                f_debug = f_g.get()
+                s_debug = s_g.get()
                 self.operator.relax(relax_method, f_debug, s_debug, n, w)
-            self.operator.relax_cuda_gpu(relax_method, f_gpu.gpudata,
-                                         s_gpu.gpudata, n, w)
+            self.operator.relax_cuda_gpu(relax_method, f_g.gpudata,
+                                         s_g.gpudata, n, w)
             if cuda.debug:
-                cuda.debug_test(f_debug, f_gpu, "relax")
-            if f_cpu is not None:
-                f_gpu.get(f_cpu)
-            if s_cpu is not None:
-                s_gpu.get(s_cpu)
+                cuda.debug_test(f_debug, f_g, "relax")
+            if _func:
+                f_g.get(_func)
         else:
-            self.operator.relax(relax_method, f_cpu, s_cpu, n, w)
+            _func = None
+            if isinstance(f_g, GPUArray):
+                _func = f_g
+                f_g = f_g.get()
+            self.operator.relax(relax_method, f_g, s_g, n, w)
+            if _func:
+                _func.set(f_g)
 
     def get_diagonal_element(self):
         return self.operator.get_diagonal_element()
