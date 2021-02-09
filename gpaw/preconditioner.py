@@ -38,11 +38,11 @@ class Preconditioner:
 
     def __call__(self, residuals, kpt, ekin=None, out=None):
         if residuals.ndim == 3:
-            local_residuals = residuals.reshape((1,) + residuals.shape)
+            residuals.shape = (1,) + residuals.shape
             if out is None:
-                return self.__call__(local_residuals, kpt)[0]
-            local_out = out.reshape((1,) + out.shape)
-            return self.__call__(local_residuals, kpt, out=local_out)[0]
+                return self.__call__(residuals, kpt)[0]
+            out.shape = (1,) + out.shape
+            return self.__call__(residuals, kpt, out=out)[0]
         nb = len(residuals)  # number of bands
         phases = kpt.phase_cd
         step = self.step
