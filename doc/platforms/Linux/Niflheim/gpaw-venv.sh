@@ -103,6 +103,7 @@ echo "export GPAW_SETUP_PATH=$GPAW_SETUP_PATH" >> bin/activate
 ase completion >> bin/activate
 gpaw completion >> bin/activate
 mq completion >> bin/activate
+$PIP completion --bash >> bin/activate
 
 # Set matplotlib backend:
 echo '
