@@ -6,6 +6,8 @@ from gpaw.xc.noncollinear import NonCollinearLDAKernel
 
 from threading import Thread
 
+use_xc_thread = False
+
 class XCThread(Thread):
     def __init__(self, xc, *args):
         Thread.__init__(self, args=args)

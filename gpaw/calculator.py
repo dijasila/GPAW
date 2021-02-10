@@ -52,6 +52,7 @@ from gpaw.xc.hybrid import HybridXC # needed for disabling CUDA
 from gpaw.xc.mgga import MGGA # needed for disabling CUDA
 
 import gpaw.cuda
+import gpaw.xc
 
 
 class GPAW(Calculator):
@@ -98,6 +99,7 @@ class GPAW(Calculator):
                         'bands': 'occupied',
                         'forces': np.inf},  # eV / Ang
         'cuda': False,
+        'xc_thread': True,
         'verbose': 0,
         'fixdensity': False,  # deprecated
         'dtype': None}  # deprecated
@@ -488,7 +490,7 @@ class GPAW(Calculator):
                 self.wfs.set_eigensolver(None)
 
             if key in ['mixer', 'verbose', 'txt', 'hund', 'random',
-                       'eigensolver', 'idiotproof', 'cuda']:
+                       'eigensolver', 'idiotproof', 'cuda', 'xc_thread']:
                 continue
 
             if key in ['convergence', 'fixdensity', 'maxiter']:
@@ -574,6 +576,8 @@ class GPAW(Calculator):
             self.timer.start('Cuda')
             gpaw.cuda.init(mpi.rank)
             self.timer.stop('Cuda')
+
+        gpaw.xc.use_xc_thread = self.parameters['xc_thread']
 
         if atoms is None:
             atoms = self.atoms

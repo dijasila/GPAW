@@ -14,7 +14,7 @@ from gpaw.external import create_external_potential
 from gpaw.hubbard import hubbard
 from gpaw.lfc import LFC
 from gpaw.poisson import PoissonSolver
-from gpaw.xc import XCThread
+from gpaw.xc import XCThread, use_xc_thread
 from gpaw.utilities.linalg import elementwise_multiply_add, \
         multi_elementwise_multiply_add
 from gpaw.spinorbit import soc
@@ -68,7 +68,7 @@ class Hamiltonian:
         self.timer = timer
         self.xc = xc
         self.cuda = cuda
-        self.use_xc_thread = True
+        self.use_xc_thread = use_xc_thread
         self.world = world
         self.redistributor = redistributor
 
