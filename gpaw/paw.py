@@ -3,17 +3,23 @@ from gpaw.setup import create_setup
 from gpaw.gaunt import gaunt
 
 
-def coulomb(rgd, phi_jg, phit_jg, l_j, gt_lg):
-    n_jjg = np.einsum('jg, kg -> jkg', phi_jg, phi_jg)
-    nt_jjg = np.einsum('jg, kg -> jkg', phit_jg, phit_jg)
-    pad = len(rgd) - gt_lg.shape[1]
-    if pad:
-        gt_lg = np.pad(gt_lg, ((0, 0), (0, pad)), 'constant')
+def coulomb(rgd, phi_jg, phit_jg, l_j, gt0_lg):
+    gcut = gt0_lg.shape[1]
+    phi_jg[:, gcut:] = 0.0
+    phit_jg[:, gcut:] = 0.0
+    n_jjg = np.einsum('jg, kg -> jkg', phi_jg, phi_jg) / (4 * np.pi)
+    nt_jjg = np.einsum('jg, kg -> jkg', phit_jg, phit_jg) / (4 * np.pi)
+    gt_lg = rgd.zeros(len(gt0_lg))
+    gt_lg[:, :gcut] = gt0_lg / (4 * np.pi)
+
+    for l, gt_g in enumerate(gt_lg):
+        print(l, rgd.integrate(gt_g, l))
 
     lmax = max(l_j)
     G_LLL = gaunt(lmax)
     v_jjlg = {}
     vt_jjlg = {}
+    nt_jjlg = {}
     for j1, dn_jg in enumerate(n_jjg - nt_jjg):
         for j2, dn_g in enumerate(dn_jg):
             l12 = l_j[j1] + l_j[j2]
@@ -21,8 +27,12 @@ def coulomb(rgd, phi_jg, phit_jg, l_j, gt_lg):
                 dN = rgd.integrate(dn_g, l)
                 v_g = rgd.poisson(n_jjg[j1, j2], l)
                 v_jjlg[j1, j2, l] = v_g
-                vt_g = rgd.poisson(nt_jjg[j1, j2] + dN * gt_lg[l], l)
+                nt_g = nt_jjg[j1, j2] + dN * gt_lg[l]
+                nt_jjlg[j1, j2, l] = nt_g
+                vt_g = rgd.poisson(nt_g, l)
                 vt_jjlg[j1, j2, l] = vt_g
+                dN2 = rgd.integrate(nt_g - n_jjg[j1, j2], l)
+                print(j1, j2, l, dN, dN2)
 
     I = sum(2 * l + 1 for l in l_j)
     C_iiii = np.empty((I, I, I, I))
@@ -33,9 +43,15 @@ def coulomb(rgd, phi_jg, phit_jg, l_j, gt_lg):
                 LL = slice(l**2, (l + 1)**2)
                 coef = G_LLL[L1, L2, LL] @ G_LLL[L3, L4, LL]
                 if abs(coef) > 1e-14:
-                    C += coef * rgd.integrate(
+                    C += 2 * np.pi * coef * rgd.integrate(
                         (n_jjg[j1, j2] * v_jjlg[j3, j4, l] -
-                         nt_jjg[j1, j2] * vt_jjlg[j3, j4, l]), l)
+                         nt_jjlg[j1, j2, l] * vt_jjlg[j3, j4, l]), l - 1)
+                    if i1 + i2 + i3 + i4 == 0:
+                        print(2 * np.pi * rgd.integrate(
+                            n_jjg[j1, j2] * v_jjlg[j3, j4, l], l - 1))
+                        print(2 * np.pi * rgd.integrate(
+                            nt_jjlg[j1, j2, l] * vt_jjlg[j3, j4, l], l - 1))
+                        print(l, coef, C)
             C_iiii[i1, i2, i3, i4] = C
     return C_iiii
 
@@ -60,7 +76,9 @@ C = coulomb(s.rgd,
             np.array(s.data.phit_jg),
             s.l_j,
             s.g_lg)
-print(C)
+print(C[0,0,0])
+print(s.M_pp[0])
+print(s.dO_ii)
 
 
 
