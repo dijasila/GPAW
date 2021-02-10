@@ -1,6 +1,7 @@
 import numpy as np
 from ase import Atoms
 from gpaw import GPAW
+from gpaw.zfs import BS
 
 d = 1.54
 dx = d * (2 / 3)**0.5
