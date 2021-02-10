@@ -91,9 +91,7 @@ class MatrixOperator:
         self.A_nn = None
         self.work1_xG = None
         self.work2_xG = None
-        if self.cuda:
-            self.work1_xG_gpu = None
-            self.work2_xG_gpu = None
+        self.work1_xG_gpu = None
 
         mynbands = self.bd.mynbands
         ngroups = self.bd.comm.size
@@ -142,8 +140,8 @@ class MatrixOperator:
         if ngroups == 1 and self.nblocks == 1:
             self.work1_xG = self.gd.empty(mynbands, self.dtype)
             if self.cuda:
-                self.work1_xG_gpu = self.gd.empty(mynbands, dtype,
-                                                  cuda=self.cuda)
+                self.work1_xG_gpu = self.gd.empty(mynbands, self.dtype,
+                                                  cuda=True)
         else:
             self.work1_xG = self.gd.empty(self.X, self.dtype)
             self.work2_xG = self.gd.empty(self.X, self.dtype)
