@@ -28,10 +28,10 @@ class Projections:
             assert bcomm is None
             self.bcomm = bdist[0]
 
-        if atom_partition is None:
-            atom_partition = AtomPartition(serial_comm, np.zeros(len(nproj_a)))
-
         self.nproj_a = np.asarray(nproj_a)
+        if atom_partition is None:
+            atom_partition = AtomPartition(serial_comm,
+                                           np.zeros(len(self.nproj_a)))
         self.atom_partition = atom_partition
         self.collinear = collinear
         self.spin = spin
