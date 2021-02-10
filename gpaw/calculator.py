@@ -835,8 +835,8 @@ class GPAW(Calculator):
 
         print_parallelization_details(self.wfs, self.hamiltonian, self.log)
 
-        if gpaw.use_cuda:
-            self.log('Using GPGPUs')
+        if self.cuda:
+            self.log('Using GPUs')
 
         self.log('Number of atoms:', natoms)
         self.log('Number of atomic orbitals:', self.wfs.setups.nao)
