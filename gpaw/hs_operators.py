@@ -316,12 +316,8 @@ class MatrixOperator:
         if B == 1 and J == 1:
             # Simple case:
             Apsit_nG = A(psit2_nG)
-            if self.cuda and isinstance(psit1_nG, gpaw.cuda.gpuarray.GPUArray):
-                self.gd.integrate(psit1_nG, Apsit_nG, hermitian=hermitian,
-                                  _transposed_result=A_NN)
-            else:
-                self.gd.integrate(psit1_nG, Apsit_nG, hermitian=hermitian,
-                                  _transposed_result=A_NN)
+            self.gd.integrate(psit1_nG, Apsit_nG, hermitian=hermitian,
+                              _transposed_result=A_NN)
             for a, P1_ni in P1_ani.items():
                 P2_ni = P2_ani[a]
                 gemm(1.0, P1_ni, dA(a, P2_ni), 1.0, A_NN, 'c')
