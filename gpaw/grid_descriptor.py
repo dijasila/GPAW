@@ -19,7 +19,7 @@ import _gpaw
 import gpaw.mpi as mpi
 from gpaw.domain import Domain
 from gpaw.utilities.blas import rk, r2k, gemm
-from gpaw.hints import Array1D, Array3D
+from gpaw.typing import Array1D, Array3D
 
 
 # Remove this:  XXX

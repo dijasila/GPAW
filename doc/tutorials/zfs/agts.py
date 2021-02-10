@@ -1,8 +1,7 @@
-from myqueue.task import task
+from myqueue.workflow import run
 
 
-def create_tasks():
-    t1 = task('diamond_nv_minus.py', cores=16, tmax='4h')
-    t2 = task('biradical.py', cores=16, tmax='4h')
-    t3 = task('plot.py', deps=[t2])
-    return [t1, t2, t3]
+def workflow():
+    run(script='diamond_nv_minus.py', cores=16, tmax='4h')
+    with run(script='biradical.py', cores=16, tmax='4h'):
+        run(script='plot.py')

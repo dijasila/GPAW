@@ -19,7 +19,7 @@ from ase.units import Bohr, Ha, _c, _e, _hplanck
 
 from gpaw import GPAW
 from gpaw.grid_descriptor import GridDescriptor
-from gpaw.hints import Array1D, Array2D, Array4D
+from gpaw.typing import Array1D, Array2D, Array4D
 from gpaw.hyperfine import alpha  # fine-structure constant: ~ 1 / 137
 from gpaw.projections import Projections
 from gpaw.setup import Setup

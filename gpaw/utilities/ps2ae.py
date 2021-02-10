@@ -15,7 +15,7 @@ from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.mpi import serial_comm
 from gpaw.setup import Setup
 from gpaw.spline import Spline
-from gpaw.hints import Array3D
+from gpaw.typing import Array3D
 
 
 class Interpolator:

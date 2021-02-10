@@ -1,11 +1,11 @@
-from typing import List, Any, Optional, Generator, Tuple
+from typing import Any, Generator, Optional, Tuple
 
 import numpy as np
 
 from gpaw.matrix import Matrix
 from gpaw.mpi import serial_comm
+from gpaw.typing import Array2D, ArrayLike1D, ArrayND
 from gpaw.utilities.partition import AtomPartition
-from .hints import Array2D, ArrayND
 
 MPIComm = Any
 
@@ -13,7 +13,7 @@ MPIComm = Any
 class Projections:
     def __init__(self,
                  nbands: int,
-                 nproj_a: List[int],
+                 nproj_a: ArrayLike1D,
                  atom_partition: AtomPartition = None,
                  bcomm: MPIComm = None,
                  collinear=True,
@@ -42,7 +42,7 @@ class Projections:
         I1 = 0
 
         for a in self.atom_partition.my_indices:
-            ni = nproj_a[a]
+            ni = self.nproj_a[a]
             I2 = I1 + ni
             self.indices.append((a, I1, I2))
             self.map[a] = (I1, I2)
@@ -68,7 +68,10 @@ class Projections:
         else:
             return self.matrix.array.reshape(self.myshape)
 
-    def new(self, bcomm='inherit', nbands=None, atom_partition=None):
+    def new(self,
+            bcomm='inherit',
+            nbands=None,
+            atom_partition=None) -> 'Projections':
         if bcomm == 'inherit':
             bcomm = self.bcomm
         elif bcomm is None:

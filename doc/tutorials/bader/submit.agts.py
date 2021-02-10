@@ -1,8 +1,7 @@
-from myqueue.task import task
+from myqueue.workflow import run
 
 
-def create_tasks():
-    return [
-        task('h2o.py'),
-        task('bader.py', deps='h2o.py'),
-        task('plot.py', deps='bader.py')]
+def workflow():
+    with run(script='h2o.py'):
+        with run(script='bader.py'):
+            run(script='plot.py')
