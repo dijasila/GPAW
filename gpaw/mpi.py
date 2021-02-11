@@ -831,7 +831,7 @@ def receive(rank: int, comm) -> Any:
     """Receive object from rank on the MPI communicator comm."""
     n = np.array(0)
     comm.receive(n, rank)
-    buf = np.empty(n, np.int8)
+    buf = np.empty(int(n), np.int8)
     comm.receive(buf, rank)
     return pickle.loads(buf.tobytes())
 

@@ -6,7 +6,7 @@ def create_tasks():
         task('gs_N2.py@16:10m'),
         task('frequency.py@1:3h', deps='gs_N2.py'),
         task('con_freq.py@2:16h', deps='gs_N2.py'),
-        task('rpa_N2.py@32:20h', deps='gs_N2.py'),
+        task('rpa_N2.py@48:1h', deps='gs_N2.py'),
         task('plot_w.py', deps='frequency.py,con_freq.py'),
         task('plot_con_freq.py', deps='con_freq.py'),
         task('extrapolate.py', deps='rpa_N2.py'),

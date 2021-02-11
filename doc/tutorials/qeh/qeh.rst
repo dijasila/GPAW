@@ -20,11 +20,29 @@ the dielectric building blocks are coupled together through a macroscopic Dyson
 equation. The validity of such an approach strongly relies on the absence of
 hybridization among the layers, condition which is usually satisfied by vdWHs.
 
-A thourough description of the QEH model can be found in [#qeh_theory]_:
+A thourough description of the QEH model can be found in [#qeh_theory]_
+and [#qeh_theory2]_:
 
 .. [#qeh_theory] K. Andersen, S. Latini and K.S. Thygesen
-    Dielectric genome of van der Waals heterostructures
+    :doi:`Dielectric genome of van der Waals heterostructures
+    <https://doi.org/10.1021/acs.nanolett.5b01251>`
     *Nano Letters* **15** (7), 4616-4621 (2015)
+
+.. [#qeh_theory2]
+    M. N. Gjerding, L. S. R. Cavalcante, Andrey Chaves, and K. S. Thygesen
+    :doi:`Efficient Ab Initio Modeling of Dielectric Screening in
+    2D van der Waals Materials: Including Phonons, Substrates, and Doping
+    <https://doi.org/10.1021/acs.jpcc.0c01635>`
+    J. Phys. Chem. C 2020, 124, 21, 11609–11616
+
+
+.. seealso::
+
+    * `Documentation <https://qeh.readthedocs.io/en/latest/>`_
+      for the ``qeh`` Python package.
+    * `qeh on PyPI <https://pypi.org/project/qeh/>`_.
+    * Examples from the
+      `CMR database <https://cmr.fysik.dtu.dk/vdwh/vdwh.html>`_.
 
 
 Constructing a dielectric building block

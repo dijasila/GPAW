@@ -45,5 +45,3 @@ Miscellaneous objects and functions
 .. autofunction:: gpaw.utilities.dipole.dipole_matrix_elements
 
 .. autofunction:: gpaw.utilities.dipole.dipole_matrix_elements_from_calc
-
-.. autoclass:: gpaw.hints.ArrayND

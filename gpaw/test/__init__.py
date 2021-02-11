@@ -7,7 +7,7 @@ import gpaw.mpi as mpi
 from gpaw import setup_paths
 from gpaw.atom.configurations import parameters, tf_parameters
 from gpaw.atom.generator import Generator
-from gpaw.hints import Array1D
+from gpaw.typing import Array1D
 
 
 def equal(x, y, tolerance=0):
