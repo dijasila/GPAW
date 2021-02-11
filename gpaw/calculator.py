@@ -98,7 +98,7 @@ class GPAW(Calculator):
                         'eigenstates': 4.0e-8,  # eV^2
                         'bands': 'occupied',
                         'forces': np.inf},  # eV / Ang
-        'cuda': False,
+        'gpu': {'cuda': False},
         'xc_thread': True,
         'verbose': 0,
         'fixdensity': False,  # deprecated
@@ -449,7 +449,7 @@ class GPAW(Calculator):
             if key != 'txt' and key not in self.default_parameters:
                 raise TypeError('Unknown GPAW parameter: {}'.format(key))
 
-            if key in ['convergence', 'symmetry',
+            if key in ['convergence', 'symmetry', 'gpu',
                        'experimental'] and isinstance(kwargs[key], dict):
                 # For values that are dictionaries, verify subkeys, too.
                 default_dict = self.default_parameters[key]
@@ -490,10 +490,16 @@ class GPAW(Calculator):
                 self.wfs.set_eigensolver(None)
 
             if key in ['mixer', 'verbose', 'txt', 'hund', 'random',
-                       'eigensolver', 'idiotproof', 'cuda', 'xc_thread']:
+                       'eigensolver', 'idiotproof', 'xc_thread']:
                 continue
 
             if key in ['convergence', 'fixdensity', 'maxiter']:
+                continue
+
+            if key in ['gpu']:
+                values = self.default_parameters[key]
+                values.update(changed_parameters[key])
+                self.parameters[key] = values
                 continue
 
             # Check nested arguments
@@ -570,7 +576,7 @@ class GPAW(Calculator):
 
         self.log('Initialize ...\n')
 
-        self.cuda = self.parameters['cuda']
+        self.cuda = self.parameters['gpu']['cuda']
         if self.cuda:
             print('Note: only RMM-DIIS and FD have been implemented in CUDA')
             self.timer.start('Cuda')
