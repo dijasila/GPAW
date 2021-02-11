@@ -7,34 +7,25 @@ from ase.units import Bohr
 
 
 def print_cell(gd, pbc_c, log):
-
-    log("""Unit cell:
-           periodic     x           y           z      points  spacing""")
     h_c = gd.get_grid_spacings()
-    for c in range(3):
-        log('  %d. axis:    %s  %10.6f  %10.6f  %10.6f   %3d   %8.4f'
-            % ((c + 1, ['no ', 'yes'][int(pbc_c[c])]) +
-               tuple(Bohr * gd.cell_cv[c]) +
-               (gd.N_c[c], Bohr * h_c[c])))
-
     par = cell_to_cellpar(gd.cell_cv * Bohr)
-    log('\n  Lengths: {:10.6f} {:10.6f} {:10.6f}'.format(*par[:3]))
-    log('  Angles:  {:10.6f} {:10.6f} {:10.6f}\n'.format(*par[3:]))
-
+    log(cell=Bohr * gd.cell_cv,
+        periodic=pbc_c,
+        points=gd.N_c,
+        spacing=Bohr * h_c,
+        lengths=par[:3],
+        angles=par[3:])
     h_eff = gd.dv**(1.0 / 3.0) * Bohr
-    log('Effective grid spacing dv^(1/3) = {:.4f}'.format(h_eff))
+    log.comment(f'Effective grid spacing dv^(1/3) = {h_eff:.4f}')
     log()
 
 
 def print_positions(atoms, log, magmom_av):
-    log(plot(atoms))
-    log('\nPositions:')
+    log.comment(plot(atoms))
     symbols = atoms.get_chemical_symbols()
-    for a, pos_v in enumerate(atoms.get_positions()):
-        symbol = symbols[a]
-        log('{0:>4} {1:3} {2[0]:11.6f} {2[1]:11.6f} {2[2]:11.6f}'
-            '    ({3[0]:7.4f}, {3[1]:7.4f}, {3[2]:7.4f})'
-            .format(a, symbol, pos_v, magmom_av[a]))
+    log(positions=[[a, symbols[a], pos_v, magmom_av[a]]
+                   for a, pos_v
+                   in enumerate(atoms.get_positions())])
     log()
 
 

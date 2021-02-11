@@ -2,6 +2,7 @@ import os
 import sys
 import time
 import textwrap
+import numbers
 
 import numpy as np
 import ase
@@ -55,7 +56,13 @@ class GPAWLogger(object):
             return
         n = max(len(key) for key in kwargs)
         for key, value in kwargs.items():
-            self._fd.write(f'{self.indent}{key:{n}} = {value!r}\n')
+            self._fd.write(f'{self.indent}{key:{n}} = {toml(value)}\n')
+
+    def __enter__(self):
+        self.indent += '    '
+
+    def __exit__(self):
+        self.indent = self.indent[:-4]
 
     def flush(self):
         self._fd.flush()
@@ -171,6 +178,27 @@ class GPAWLogger(object):
                 self('Memory usage: %.2f GiB' % (mr / 1024**3))
 
         self('Date: ' + time.asctime())
+
+
+def toml(obj):
+    if isinstance(obj, float):
+        return f'{obj:.6f}'
+    if isinstance(obj, numbers.Integral):
+        return str(obj)
+    if isinstance(obj, str):
+        return repr(obj)
+    if isinstance(obj, (bool, np.bool_)):
+        return str(obj).lower()
+    if isinstance(obj, dict):
+        return '{' + ', '.join(f'{key}={toml(value)}'
+                               for key, value in obj.items()) + '}'
+    if len(obj) == 0:
+        return '[]'
+    if not isinstance(obj[0], (list, tuple, np.ndarray)):
+        return '[' + ', '.join(toml(element) for element in obj) + ']'
+    return '[\n [' + '],\n ['.join(', '.join(toml(element)
+                                             for element in x)
+                                   for x in obj) + ']]'
 
 
 def cut(s, indent='        '):
