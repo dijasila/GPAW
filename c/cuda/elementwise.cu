@@ -14,82 +14,71 @@
 #endif
 
 __global__ void axpbyz_kernel(double a, double *x, double b, double *y,
-                              double *z, unsigned long n)
+                              double *z, int n)
 {
-    unsigned tid = threadIdx.x;
-    unsigned threads = gridDim.x*blockDim.x;
-    unsigned start = blockDim.x*blockIdx.x;
-    unsigned i;
+    int tid = threadIdx.x + blockIdx.x * blockDim.x;
+    int stride = gridDim.x * blockDim.x;
 
-    for (i = start + tid; i < n; i += threads) {
-        z[i] = a*x[i] + b*y[i];
+    for (; tid < n; tid += stride) {
+        z[tid] = a * x[tid] + b * y[tid];
     }
 }
 
 __global__ void axpbz_kernel(double a, double *x, double b,
-                             double *z, unsigned long n)
+                             double *z, int n)
 {
-    unsigned tid = threadIdx.x;
-    unsigned threads = gridDim.x*blockDim.x;
-    unsigned start = blockDim.x*blockIdx.x;
-    unsigned i;
+    int tid = threadIdx.x + blockIdx.x * blockDim.x;
+    int stride = gridDim.x * blockDim.x;
 
-    for (i = start + tid; i < n; i += threads) {
-        z[i] = a*x[i] + b;
+    for (; tid < n; tid += stride) {
+        z[tid] = a * x[tid] + b;
     }
 }
 
 __global__ void axpbyz_kernelz(double a, cuDoubleComplex *x,
                                double b, cuDoubleComplex *y,
-                               cuDoubleComplex *z, unsigned long n)
+                               cuDoubleComplex *z, int n)
 {
-    unsigned tid = threadIdx.x;
-    unsigned threads = gridDim.x*blockDim.x;
-    unsigned start = blockDim.x*blockIdx.x;
-    unsigned i;
+    int tid = threadIdx.x + blockIdx.x * blockDim.x;
+    int stride = gridDim.x * blockDim.x;
 
-    for (i = start + tid; i < n; i += threads) {
-        (z[i]).x = a * cuCreal(x[i]) + b * cuCreal(y[i]);
-        (z[i]).y = a * cuCimag(x[i]) + b * cuCimag(y[i]);
+    for (; tid < n; tid += stride) {
+        (z[tid]).x = a * cuCreal(x[tid]) + b * cuCreal(y[tid]);
+        (z[tid]).y = a * cuCimag(x[tid]) + b * cuCimag(y[tid]);
     }
 }
 
 __global__ void axpbz_kernelz(double a, cuDoubleComplex *x, double b,
-                              cuDoubleComplex *z, unsigned long n)
+                              cuDoubleComplex *z, int n)
 {
-    unsigned tid = threadIdx.x;
-    unsigned threads = gridDim.x*blockDim.x;
-    unsigned start = blockDim.x*blockIdx.x;
-    unsigned i;
+    int tid = threadIdx.x + blockIdx.x * blockDim.x;
+    int stride = gridDim.x * blockDim.x;
 
-    for (i = start + tid; i < n; i += threads) {
-        (z[i]).x = a * cuCreal(x[i]) + b;
-        (z[i]).y = a * cuCimag(x[i]) + b;
+    for (; tid < n; tid += stride) {
+        (z[tid]).x = a * cuCreal(x[tid]) + b;
+        (z[tid]).y = a * cuCimag(x[tid]) + b;
     }
 }
 
-__global__ void fill_kernel(double a, double *z, unsigned long n)
+__global__ void fill_kernel(double a, double *z, int n)
 {
-    unsigned tid = threadIdx.x;
-    unsigned threads = gridDim.x*blockDim.x;
-    unsigned start = blockDim.x*blockIdx.x;
-    unsigned i;
+    int tid = threadIdx.x + blockIdx.x * blockDim.x;
+    int stride = gridDim.x * blockDim.x;
 
-    for (i = start + tid; i < n; i += threads) {
-        z[i] = a;
+    for (; tid < n; tid += stride) {
+        z[tid] = a;
     }
 }
 
-__global__ void fill_kernelz(double real, double imag, cuDoubleComplex *z, unsigned long n)
+__global__ void fill_kernelz(double real, double imag, cuDoubleComplex *z,
+                             int n)
 {
-    unsigned tid = threadIdx.x;
-    unsigned threads = gridDim.x*blockDim.x;
-    unsigned start = blockDim.x*blockIdx.x;
-    unsigned i;
+    int tid = threadIdx.x + blockIdx.x * blockDim.x;
+    int stride = gridDim.x * blockDim.x;
 
-    for (i = start + tid; i < n; i += threads) {
-        (z[i]).x = real;
-        (z[i]).y = imag;
+    for (; tid < n; tid += stride) {
+        (z[tid]).x = real;
+        (z[tid]).y = imag;
     }
 }
 
