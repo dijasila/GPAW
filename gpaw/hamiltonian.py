@@ -23,6 +23,7 @@ from gpaw.utilities import (unpack, pack2, unpack_atomic_matrices,
                             pack_atomic_matrices)
 from gpaw.utilities.partition import AtomPartition
 # from gpaw.utilities.debug import frozen
+from gpaw import gpuarray
 
 import gpaw.cuda
 import _gpaw
@@ -220,7 +221,7 @@ class Hamiltonian:
         self.vt_sG = self.vt_xG[:self.nspins]
         self.vt_vG = self.vt_xG[self.nspins:]
         if self.cuda:
-            self.vt_sG_gpu = gpaw.cuda.gpuarray.to_gpu(self.vt_sG)
+            self.vt_sG_gpu = gpuarray.to_gpu(self.vt_sG)
 
     def update(self, density):
         """Calculate effective potential.
@@ -244,7 +245,7 @@ class Hamiltonian:
         if self.cuda:
             if self.vt_sG_gpu is None or \
                     self.vt_sG_gpu.shape != self.vt_sG.shape:
-                self.vt_sG_gpu = gpaw.cuda.gpuarray.to_gpu(self.vt_sG)
+                self.vt_sG_gpu = gpuarray.to_gpu(self.vt_sG)
             else:
                 self.vt_sG_gpu.set(self.vt_sG)
 
@@ -428,13 +429,13 @@ class Hamiltonian:
             are not applied and calculate_projections is ignored.
 
         """
-        if self.cuda or isinstance(psit_nG, gpaw.cuda.gpuarray.GPUArray):
+        if self.cuda or isinstance(psit_nG, gpuarray.GPUArray):
             if self.cuda:
                 vt_G = self.vt_sG_gpu[s]
             else:
-                vt_G = gpaw.cuda.gpuarray.to_gpu(self.vt_sG[s])
-            if not isinstance(psit_nG, gpaw.cuda.gpuarray.GPUArray):
-                psit_nG = gpaw.cuda.gpuarray.to_gpu(psit_nG)
+                vt_G = gpuarray.to_gpu(self.vt_sG[s])
+            if not isinstance(psit_nG, gpuarray.GPUArray):
+                psit_nG = gpuarray.to_gpu(psit_nG)
             if len(psit_nG.shape) == 3:  # XXX Doesn't GPU arrays have ndim attr?
                 elementwise_multiply_add(psit_nG, vt_G, Htpsit_nG);
             else:

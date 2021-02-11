@@ -9,8 +9,8 @@ from gpaw.utilities.blas import axpy
 from gpaw.utilities.linalg import change_sign
 from gpaw.mpi import rank
 from gpaw.tddft.utils import MultiBlas
-
-import gpaw.cuda
+from gpaw.cuda import memcpy_dtod
+from gpaw import gpuarray
 
 
 class CSCG:
@@ -93,7 +93,7 @@ class CSCG:
         if self.timer is not None:
             self.timer.start('CSCG')
 
-        cuda = isinstance(x, gpaw.cuda.gpuarray.GPUArray)
+        cuda = isinstance(x, gpuarray.GPUArray)
 
         # number of vectors
         nvec = len(x)
@@ -105,13 +105,13 @@ class CSCG:
         z = self.gd.empty(B, dtype=complex, cuda=cuda)
 
         if cuda:
-            alpha = gpaw.gpuarray.zeros((B,), dtype=complex)
-            rho  = gpaw.gpuarray.zeros((B,), dtype=complex)
-            rhop  = gpaw.gpuarray.zeros((B,), dtype=complex)
+            alpha = gpuarray.zeros((B,), dtype=complex)
+            rho = gpuarray.zeros((B,), dtype=complex)
+            rhop = gpuarray.zeros((B,), dtype=complex)
         else:
             alpha = np.zeros((B,), dtype=complex)
-            rho  = np.zeros((B,), dtype=complex)
-            rhop  = np.zeros((B,), dtype=complex)
+            rho = np.zeros((B,), dtype=complex)
+            rhop = np.zeros((B,), dtype=complex)
 
         slow_convergence_iters = 100
 
@@ -193,9 +193,8 @@ class CSCG:
                     break
 
                 # finally update rho
-                if isinstance(rhop, gpaw.cuda.gpuarray.GPUArray):
-                    gpaw.cuda.drv.memcpy_dtod(rhop.gpudata, rho.gpudata,
-                                              rho.nbytes)
+                if isinstance(rhop, gpuarray.GPUArray):
+                    memcpy_dtod(rhop.gpudata, rho.gpudata, rho.nbytes)
                 else:
                     rhop[:] = rho
 

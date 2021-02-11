@@ -10,7 +10,8 @@ functions.
 """
 import numpy as np
 
-import gpaw.cuda
+from gpaw.cuda import memcpy_dtod
+from gpaw import gpuarray
 
 
 class OverlapCorrections:
@@ -55,8 +56,8 @@ class Overlap:
 
         """
         self.timer.start('Apply overlap')
-        if isinstance(a_xG, gpaw.cuda.gpuarray.GPUArray):
-            gpaw.cuda.drv.memcpy_dtod(b_xG.gpudata, a_xG.gpudata, a_xG.nbytes)
+        if isinstance(a_xG, gpuarray.GPUArray):
+            memcpy_dtod(b_xG.gpudata, a_xG.gpudata, a_xG.nbytes)
         else:
             b_xG[:] = a_xG
         shape = a_xG.shape[:-3]
@@ -76,8 +77,8 @@ class Overlap:
     def apply_inverse(self, a_xG, b_xG, wfs, kpt, calculate_P_ani=True):
         """Apply approximative inverse overlap operator to wave functions."""
 
-        if isinstance(a_xG, gpaw.cuda.gpuarray.GPUArray):
-            gpaw.cuda.drv.memcpy_dtod(b_xG.gpudata, a_xG.gpudata, a_xG.nbytes)
+        if isinstance(a_xG, gpuarray.GPUArray):
+            memcpy_dtod(b_xG.gpudata, a_xG.gpudata, a_xG.nbytes)
         else:
             b_xG[:] = a_xG
         shape = a_xG.shape[:-3]

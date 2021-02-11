@@ -2,6 +2,7 @@ import numpy as np
 
 from gpaw import debug
 from gpaw.utilities.blas import axpy, scal
+from gpaw import gpuarray
 
 import _gpaw
 import gpaw.cuda
@@ -13,7 +14,7 @@ def elementwise_multiply_add(a, b, c):
     assert(type(a) == type(b))
     assert(type(c) == type(b))
 
-    if isinstance(a, gpaw.cuda.gpuarray.GPUArray):
+    if isinstance(a, gpuarray.GPUArray):
         if gpaw.cuda.debug:
             c_cpu = c.get()
         _gpaw.elementwise_multiply_add_gpu(a.gpudata, a.shape, a.dtype,
@@ -42,7 +43,7 @@ def multi_elementwise_multiply_add(a, b, c):
     if len(a.shape) == len(b.shape):
         elementwise_multiply_add(a, b, c)
 
-    if isinstance(a, gpaw.cuda.gpuarray.GPUArray):
+    if isinstance(a, gpuarray.GPUArray):
         if gpaw.cuda.debug:
             c_cpu = c.get()
         _gpaw.multi_elementwise_multiply_add_gpu(a.gpudata, a.shape, a.dtype,
@@ -57,7 +58,7 @@ def multi_elementwise_multiply_add(a, b, c):
 def change_sign(x):
     """
     """
-    if isinstance(x, gpaw.cuda.gpuarray.GPUArray):
+    if isinstance(x, gpuarray.GPUArray):
         if gpaw.cuda.debug:
             x_cpu =- x.get()
         _gpaw.csign_gpu(x.gpudata, x.shape, x.dtype)
@@ -77,7 +78,7 @@ def ax2py(a, x, y):
     """
     """
     assert(type(x) == type(y))
-    if isinstance(x, gpaw.cuda.gpuarray.GPUArray):
+    if isinstance(x, gpuarray.GPUArray):
         if gpaw.cuda.debug:
             y_cpu = y.get()
         _gpaw.ax2py_gpu(a, x.gpudata, x.shape, y.gpudata, y.shape, x.dtype)
@@ -101,19 +102,20 @@ def multi_ax2py(a, x, y):
     if isinstance(a, (float, complex)):
         ax2py(a, x, y)
     else:
-        if isinstance(x, gpaw.cuda.gpuarray.GPUArray):
+        if isinstance(x, gpuarray.GPUArray):
             if gpaw.cuda.debug:
                 y_cpu = y.get()
-                if isinstance(a, gpaw.cuda.gpuarray.GPUArray):
+                if isinstance(a, gpuarray.GPUArray):
                     multi_ax2py_cpu(a.get(), x.get(), y_cpu)
                 else:
                     multi_ax2py_cpu(a, x.get(), y_cpu)
 
-            if isinstance(a, gpaw.cuda.gpuarray.GPUArray):
+            if isinstance(a, gpuarray.GPUArray):
                 _gpaw.multi_ax2py_gpu(a.gpudata, x.gpudata, x.shape,
                                       y.gpudata, y.shape, x.dtype)
             else:
-                _gpaw.multi_ax2py_gpu(gpaw.cuda.gpuarray.to_gpu(a).gpudata,
+                a_gpu = gpuarray.to_gpu(a)
+                _gpaw.multi_ax2py_gpu(a_gpu.gpudata,
                                       x.gpudata, x.shape, y.gpudata, y.shape,
                                       x.dtype)
             if gpaw.cuda.debug:

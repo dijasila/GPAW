@@ -14,9 +14,9 @@ from gpaw.utilities.linalg import multi_ax2py
 from gpaw.wavefunctions.arrays import UniformGridWaveFunctions
 from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
 from gpaw.wavefunctions.mode import Mode
+from gpaw import gpuarray
 import _gpaw
 
-import gpaw.cuda
 
 class FD(Mode):
     name = 'fd'
@@ -107,8 +107,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
         nt_G = nt_sG[kpt.s]
         if self.cuda and kpt.psit.matrix.on_gpu:
             if self.nt_G_gpu is None:
-                self.nt_G_gpu = gpaw.cuda.gpuarray.empty(
-                        nt_G.shape, nt_G.dtype)
+                self.nt_G_gpu = gpuarray.empty(nt_G.shape, nt_G.dtype)
             self.nt_G_gpu.set(nt_G)
             multi_ax2py(f_n, kpt.psit_nG, self.nt_G_gpu)
         else:

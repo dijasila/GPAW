@@ -5,10 +5,11 @@ import atexit
 try:
     import pycuda.driver as drv
     import pycuda.tools as tools
+    from pycuda.driver import memcpy_dtod
 except ImportError:
     pass
 
-import gpaw.gpuarray as gpuarray
+from gpaw import gpuarray
 import _gpaw
 
 debug = False

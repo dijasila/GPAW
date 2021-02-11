@@ -5,10 +5,11 @@ from gpaw.fd_operators import Laplace
 
 from gpaw.utilities.blas import axpy, scal
 from gpaw.utilities.linalg import change_sign
+from gpaw.cuda import memcpy_dtod
 from gpaw import extra_parameters
+from gpaw import gpuarray
 import _gpaw
 
-import gpaw.cuda
 
 class Preconditioner:
     def __init__(self, gd0, kin0, dtype=float, block=1, cuda=False):
@@ -50,7 +51,7 @@ class Preconditioner:
         if self.cuda:
             # XXX GPUarray does not support properly multi-d slicing
             if out is None:
-                d0, q0 = gpaw.cuda.gpuarray.GPUArray(
+                d0, q0 = gpuarray.GPUArray(
                                 shape=(self.scratch0.shape[0],) + (nb,)
                                      + self.scratch0.shape[2:],
                                 dtype=self.scratch0.dtype,
@@ -59,21 +60,21 @@ class Preconditioner:
                                 gpudata=self.scratch0.gpudata)
             else:
                 d0 = out
-                q0 = gpaw.cuda.gpuarray.GPUArray(
+                q0 = gpuarray.GPUArray(
                                 shape=(self.scratch0.shape[0],) + (nb,)
                                      + self.scratch0.shape[2:],
                                 dtype=self.scratch0.dtype,
                                 allocator=self.scratch0.allocator,
                                 base=self.scratch0,
                                 gpudata=self.scratch0.gpudata)[0]
-            r1, d1, q1 = gpaw.cuda.gpuarray.GPUArray(
+            r1, d1, q1 = gpuarray.GPUArray(
                             shape=(self.scratch1.shape[0],) + (nb,)
                                  + self.scratch1.shape[2:],
                             dtype=self.scratch1.dtype,
                             allocator=self.scratch1.allocator,
                             base=self.scratch1,
                             gpudata=self.scratch1.gpudata)
-            r2, d2, q2 = gpaw.cuda.gpuarray.GPUArray(
+            r2, d2, q2 = gpuarray.GPUArray(
                             shape=(self.scratch2.shape[0],) + (nb,)
                                  + self.scratch2.shape[2:],
                             dtype=self.scratch2.dtype,
@@ -83,12 +84,12 @@ class Preconditioner:
 
             self.restrictor0(residuals, r1, phases)
             change_sign(r1)
-            gpaw.cuda.drv.memcpy_dtod(d1.gpudata, r1.gpudata, r1.nbytes)
+            memcpy_dtod(d1.gpudata, r1.gpudata, r1.nbytes)
             scal(4 * step, d1)
             self.kin1.apply(d1, q1, phases)
             q1 -= r1
             self.restrictor1(q1, r2, phases)
-            gpaw.cuda.drv.memcpy_dtod(d2.gpudata, r2.gpudata, r2.nbytes)
+            memcpy_dtod(d2.gpudata, r2.gpudata, r2.nbytes)
             scal(16 * step, d2)
             self.kin2.apply(d2, q2, phases)
             q2 -= r2

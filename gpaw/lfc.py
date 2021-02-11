@@ -7,6 +7,7 @@ import _gpaw
 from gpaw import debug
 from gpaw.grid_descriptor import GridDescriptor, GridBoundsError
 from gpaw.utilities import smallest_safe_grid_spacing
+from gpaw import gpuarray
 
 import gpaw.cuda
 
@@ -407,13 +408,13 @@ class LocalizedFunctionsCollection(BaseLFC):
             assert q == -1 and a_xG.ndim == 3
             c_xM = np.empty(self.Mmax)
             c_xM.fill(c_axi)
-            if isinstance(a_xG, gpaw.cuda.gpuarray.GPUArray):
+            if isinstance(a_xG, gpuarray.GPUArray):
                 if self.Mmax > 0 :
                     assert self.cuda
                     if gpaw.cuda.debug:
                         a_xG_cpu = a_xG.get()
                         self.lfc.add(c_xM, a_xG_cpu, q)
-                    c_xM_gpu = gpaw.cuda.gpuarray.to_gpu(c_xM)
+                    c_xM_gpu = gpuarray.to_gpu(c_xM)
                     self.lfc.add_cuda_gpu(c_xM_gpu.gpudata, c_xM_gpu.shape,
                                           a_xG.gpudata, a_xG.shape, q)
                     if gpaw.cuda.debug:
@@ -464,13 +465,13 @@ class LocalizedFunctionsCollection(BaseLFC):
             c_xM[..., M1:M2] = c_xi
             M1 = M2
 
-        if isinstance(a_xG, gpaw.cuda.gpuarray.GPUArray):
+        if isinstance(a_xG, gpuarray.GPUArray):
             if self.Mmax > 0:
                 assert self.cuda
                 if gpaw.cuda.debug:
                     a_xG_cpu = a_xG.get()
                     self.lfc.add(c_xM, a_xG_cpu, q)
-                c_xM_gpu = gpaw.cuda.gpuarray.to_gpu(c_xM)
+                c_xM_gpu = gpuarray.to_gpu(c_xM)
                 self.lfc.add_cuda_gpu(c_xM_gpu.gpudata, c_xM_gpu.shape,
                                       a_xG.gpudata, a_xG.shape, q)
                 if gpaw.cuda.debug:
@@ -580,11 +581,10 @@ class LocalizedFunctionsCollection(BaseLFC):
 
         dtype = a_xG.dtype
 
-        if isinstance(a_xG, gpaw.cuda.gpuarray.GPUArray):
+        if isinstance(a_xG, gpuarray.GPUArray):
             assert self.cuda
             if self.Mmax > 0:
-                c_xM_gpu = gpaw.cuda.gpuarray.zeros(xshape + (self.Mmax,),
-                                                    dtype)
+                c_xM_gpu = gpuarray.zeros(xshape + (self.Mmax,), dtype)
                 self.lfc.integrate_cuda_gpu(a_xG.gpudata, a_xG.shape,
                                             c_xM_gpu.gpudata, c_xM_gpu.shape,
                                             q)

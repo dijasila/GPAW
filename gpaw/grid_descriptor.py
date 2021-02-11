@@ -20,6 +20,8 @@ import gpaw.mpi as mpi
 from gpaw.domain import Domain
 from gpaw.utilities.blas import rk, r2k, gemm
 from gpaw.hints import Array1D, Array3D
+from gpaw.cuda import memcpy_dtod
+from gpaw import gpuarray
 
 import gpaw.cuda
 
@@ -264,11 +266,9 @@ class GridDescriptor(Domain):
 
         if cuda:
             if zero:
-                return gpaw.cuda.gpuarray.zeros(tuple(int(x) for x in shape),
-                                                dtype)
+                return gpuarray.zeros(tuple(int(x) for x in shape), dtype)
             else:
-                return gpaw.cuda.gpuarray.empty(tuple(int(x) for x in shape),
-                                                dtype)
+                return gpuarray.empty(tuple(int(x) for x in shape), dtype)
         else:
             if zero:
                 return np.zeros(shape, dtype)
@@ -305,7 +305,7 @@ class GridDescriptor(Domain):
 
         xshape = a_xg.shape[:-3]
 
-        assert(not isinstance(_transposed_result, gpaw.cuda.gpuarray.GPUArray))
+        assert(not isinstance(_transposed_result, gpuarray.GPUArray))
 
         if b_yg is None:
             # Only one array:
@@ -317,7 +317,7 @@ class GridDescriptor(Domain):
                     self.comm.sum(result)
             return result
 
-        if isinstance(a_xg, gpaw.cuda.gpuarray.GPUArray):
+        if isinstance(a_xg, gpuarray.GPUArray):
             nd = a_xg.size / np.prod(a_xg.shape[-3:])
             A_xg = a_xg.reshape((nd,) + a_xg.shape[-3:])
             nd = b_yg.size / np.prod(b_yg.shape[-3:])
@@ -332,8 +332,8 @@ class GridDescriptor(Domain):
             result_yx = _transposed_result
             global_integral = False
 
-        if isinstance(a_xg, gpaw.cuda.gpuarray.GPUArray):
-            result_gpu = gpaw.cuda.gpuarray.to_gpu(result_yx)
+        if isinstance(a_xg, gpuarray.GPUArray):
+            result_gpu = gpuarray.to_gpu(result_yx)
             if a_xg is b_yg:
                 rk(self.dv, A_xg, 0.0, result_gpu, hybrid=True)
             elif hermitian:
@@ -557,13 +557,12 @@ class GridDescriptor(Domain):
         if self.comm.size == 1:
             if out is None:
                 return B_xg
-            elif isinstance(out, gpaw.cuda.gpuarray.GPUArray):
-                if isinstance(B_xg, gpaw.cuda.gpuarray.GPUArray):
+            elif isinstance(out, gpuarray.GPUArray):
+                if isinstance(B_xg, gpuarray.GPUArray):
                     B_xg_gpu = B_xg
                 else:
-                    B_xg_gpu = gpaw.cuda.gpuarray.to_gpu(B_xg)
-                gpaw.cuda.drv.memcpy_dtod(b_xg.gpudata, B_xg_gpu.gpudata,
-                                          B_xg_gpu.nbytes)
+                    B_xg_gpu = gpuarray.to_gpu(B_xg)
+                memcpy_dtod(b_xg.gpudata, B_xg_gpu.gpudata, B_xg_gpu.nbytes)
             else:
                 out[:] = B_xg
             return out

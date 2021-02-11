@@ -14,7 +14,7 @@ from numpy.fft import fftn, ifftn
 import _gpaw
 from gpaw import debug
 from gpaw import cuda
-from gpaw.gpuarray import GPUArray, to_gpu
+from gpaw import gpuarray
 
 # Expansion coefficients for finite difference Laplacian.  The numbers are
 # from J. R. Chelikowsky et al., Phys. Rev. B 50, 11355 (1994):
@@ -94,11 +94,11 @@ class FDOperator:
         return '<' + self.description + '>'
 
     def apply(self, in_xg, out_xg, phase_cd=None):
-        if isinstance(in_xg, GPUArray):
+        if isinstance(in_xg, gpuarray.GPUArray):
             _out = None
-            if not isinstance(out_xg, GPUArray):
+            if not isinstance(out_xg, gpuarray.GPUArray):
                 _out = out_xg
-                out_xg = to_gpu(out_xg)
+                out_xg = gpuarray.to_gpu(out_xg)
             if cuda.debug:
                 in_debug = in_xg.get()
                 out_debug = out_xg.get()
@@ -111,7 +111,7 @@ class FDOperator:
                 out_xg.get(_out)
         else:
             _out = None
-            if isinstance(out_xg, GPUArray):
+            if isinstance(out_xg, gpuarray.GPUArray):
                 _out = out_xg
                 out_xg = out_xg.get()
             self.operator.apply(in_xg, out_xg, phase_cd)
@@ -119,11 +119,11 @@ class FDOperator:
                 _out.set(out_xg)
 
     def relax(self, relax_method, f_g, s_g, n, w=None):
-        if isinstance(s_g, GPUArray):
+        if isinstance(s_g, gpuarray.GPUArray):
             _func = None
-            if not isinstance(f_g, GPUArray):
+            if not isinstance(f_g, gpuarray.GPUArray):
                 _func = f_g
-                f_g = to_gpu(_func)
+                f_g = gpuarray.to_gpu(_func)
             if cuda.debug:
                 f_debug = f_g.get()
                 s_debug = s_g.get()
@@ -136,7 +136,7 @@ class FDOperator:
                 f_g.get(_func)
         else:
             _func = None
-            if isinstance(f_g, GPUArray):
+            if isinstance(f_g, gpuarray.GPUArray):
                 _func = f_g
                 f_g = f_g.get()
             self.operator.relax(relax_method, f_g, s_g, n, w)

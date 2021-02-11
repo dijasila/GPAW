@@ -20,6 +20,7 @@ from gpaw.utilities.grid import grid2grid
 from gpaw.utilities.ewald import madelung
 from gpaw.utilities.tools import construct_reciprocal
 from gpaw.utilities.timing import NullTimer
+from gpaw import gpuarray
 import _gpaw
 
 import gpaw.cuda
@@ -447,12 +448,12 @@ class FDPoissonSolver(BasePoissonSolver):
     def solve_neutral(self, phi, rho, eps=2e-10, timer=None):
         self._init()
 
-        if isinstance(self.phis[1], gpaw.cuda.gpuarray.GPUArray):
-            self.phis[0] = gpaw.cuda.gpuarray.to_gpu(phi)
+        if isinstance(self.phis[1], gpuarray.GPUArray):
+            self.phis[0] = gpuarray.to_gpu(phi)
             if self.B is None:
                 self.rhos[0].set(rho)
             else:
-                self.B.apply(gpaw.cuda.gpuarray.to_gpu(rho), self.rhos[0])
+                self.B.apply(gpuarray.to_gpu(rho), self.rhos[0])
         else:
             self.phis[0] = phi
             if self.B is None:
@@ -468,7 +469,7 @@ class FDPoissonSolver(BasePoissonSolver):
             msg = 'Poisson solver did not converge in %d iterations!' % maxiter
             raise PoissonConvergenceError(msg)
 
-        if isinstance(self.phis[0], gpaw.cuda.gpuarray.GPUArray):
+        if isinstance(self.phis[0], gpuarray.GPUArray):
             self.phis[0].get(phi)
 
         # Set the average potential to zero in periodic systems
@@ -510,7 +511,7 @@ class FDPoissonSolver(BasePoissonSolver):
         if level == 0:
             self.operators[level].apply(self.phis[level], residual)
             residual -= self.rhos[level]
-            if isinstance(residual, gpaw.cuda.gpuarray.GPUArray):
+            if isinstance(residual, gpuarray.GPUArray):
                 error = self.gd.comm.sum(dotu(residual, residual)) * self.gd.dv
             else:
                 error = self.gd.comm.sum(np.dot(residual.ravel(),
