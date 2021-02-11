@@ -387,7 +387,7 @@ def rk(alpha, a, beta, c, trans='c', cuda=None, hybrid=False):
             c_debug = c_gpu.get()
             _gpaw.rk(alpha, a_debug, beta, c_debug, trans)
         _gpaw.rk_cuda_gpu(alpha, a_gpu.gpudata, a_gpu.shape, beta,
-                          c_gpu.gpudata, c_gpu.shape, a_gpu.dtype)
+                          c_gpu.gpudata, c_gpu.shape, a_gpu.dtype, hybrid)
         if gpaw.cuda.debug:
             gpaw.cuda.debug_test(c_debug, c_gpu, "rk")
         if c_cpu is not None:
