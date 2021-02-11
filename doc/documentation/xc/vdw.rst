@@ -1,8 +1,8 @@
 .. _vdw:
 
-========================
+===================
 vdW-DF and BEEF-vdW
-========================
+===================
 
 GPAW supports vdW-DF functionals through a built-in interface as well
 as through the external :ref:`libvdwxc <libvdwxc-doc>` library.
