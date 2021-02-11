@@ -103,9 +103,15 @@ echo "export GPAW_SETUP_PATH=$GPAW_SETUP_PATH" >> bin/activate
 ase completion >> bin/activate
 gpaw completion >> bin/activate
 mq completion >> bin/activate
+$PIP completion --bash >> bin/activate
 
 # Set matplotlib backend:
-echo "export MPLBACKEND=TkAgg" >> bin/activate
+echo '
+if [[ $SLURM_SUBMIT_DIR ]]; then
+    export MPLBACKEND=Agg
+else
+    export MPLBACKEND=TkAgg
+' >> bin/activate
 
 # Run tests:
 mq --version

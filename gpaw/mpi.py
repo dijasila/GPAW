@@ -9,6 +9,7 @@ import pickle
 from contextlib import contextmanager
 from typing import Any
 
+from ase.parallel import world as aseworld
 import numpy as np
 
 import gpaw
@@ -709,6 +710,9 @@ if gpaw.debug:
 rank = world.rank
 size = world.size
 parallel = (size > 1)
+
+if world.size != aseworld.size:
+    raise RuntimeError('Please use "gpaw python" to run in parallel')
 
 
 def broadcast(obj, root=0, comm=world):

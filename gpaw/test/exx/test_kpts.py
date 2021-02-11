@@ -19,7 +19,7 @@ def atoms():
               cell=[2, 2, 2.5, 90, 90, 60],
               pbc=1,
               positions=[[0, 0, 0], [0, 0, 0.75]])
-    a.calc = GPAW(mode=PW(200, force_complex_dtype=True),
+    a.calc = GPAW(mode=PW(200),
                   kpts=(n, n, 1),
                   xc='PBE')
     a.get_potential_energy()
