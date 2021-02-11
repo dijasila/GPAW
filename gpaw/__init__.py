@@ -29,11 +29,13 @@ if 'OMP_NUM_THREADS' not in os.environ:
 # Thus, expose symbols from libraries used by _gpaw
 old_dlflags = sys.getdlopenflags()
 sys.setdlopenflags(old_dlflags | os.RTLD_GLOBAL)
+try:
+    import _gpaw
+finally:
+    sys.setdlopenflags(old_dlflags)
 
 from gpaw.broadcast_imports import broadcast_imports  # noqa
 
-# Restore dlopen flags
-sys.setdlopenflags(old_dlflags)
 
 with broadcast_imports:
     import os
