@@ -45,7 +45,6 @@ with broadcast_imports:
 
     import numpy as np
     from ase.cli.run import str2dict
-    import _gpaw
 
 
 assert not np.version.version.startswith('1.6.0')
