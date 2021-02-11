@@ -433,7 +433,7 @@ class GPAW(Calculator):
                         efermi=self.wfs.fermi_level * Ha)
             except ValueError:
                 pass
-        self.log.fd.flush()
+        self.log.flush()
 
     def set(self, **kwargs):
         """Change parameters for calculator.
@@ -828,7 +828,7 @@ class GPAW(Calculator):
             n += self.wfs.bd.nbands
         self.log('Bands to converge:', n)
 
-        self.log(flush=True)
+        self.log.flush()
 
         self.timer.print_info(self)
 
@@ -839,7 +839,7 @@ class GPAW(Calculator):
             self.hamiltonian.poisson.get_description() == 'FDTD+TDDFT'):
             self.hamiltonian.poisson.set_density(self.density)
             self.hamiltonian.poisson.print_messages(self.log)
-            self.log.fd.flush()
+            self.log.flush()
 
         self.initialized = True
         self.log('... initialized\n')
@@ -1219,7 +1219,7 @@ class GPAW(Calculator):
         # Can be overridden like in gpaw.atom.atompaw
         print_cell(self.wfs.gd, self.atoms.pbc, self.log)
         print_positions(self.atoms, self.log, self.density.magmom_av)
-        self.log.fd.flush()
+        self.log.flush()
 
         # Write timing info now before the interpreter shuts down:
         self.__del__()

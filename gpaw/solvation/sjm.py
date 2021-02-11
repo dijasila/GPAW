@@ -425,7 +425,7 @@ class SJM(SolvationGPAW):
         self.density.summary(self.atoms, self.occupations.magmom, self.log)
         self.occupations.summary(self.log)
         self.wfs.summary(self.log)
-        self.log.fd.flush()
+        self.log.flush()
         if self.verbose:
             self.write_parallel_func_in_z(self.hamiltonian.vHt_g * Hartree -
                                           self.get_fermi_level(),

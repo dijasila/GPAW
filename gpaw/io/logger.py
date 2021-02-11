@@ -1,6 +1,7 @@
 import os
 import sys
 import time
+import textwrap
 
 import numpy as np
 import ase
@@ -23,6 +24,8 @@ class GPAWLogger(object):
         self._fd = None
         self.oldfd = 42
 
+        self.indent = ''
+
     @property
     def fd(self):
         return self._fd
@@ -44,32 +47,43 @@ class GPAWLogger(object):
         self.header()
 
     def __call__(self, *args, **kwargs):
-        flush = kwargs.pop('flush', False)
-        print(*args, file=self._fd, **kwargs)
-        if flush:
-            self._fd.flush()
+        if args:
+            print(*args, file=self._fd, **kwargs)
+            return
+        if not kwargs:
+            self._fd.write('\n')
+            return
+        n = max(len(key) for key in kwargs)
+        for key, value in kwargs.items():
+            self._fd.write(f'{self.indent}{key:{n}} = {value!r}\n')
 
     def flush(self):
         self._fd.flush()
 
+    def comment(self, text, dedent=False):
+        if dedent:
+            text = textwrap.dedent(text)
+        for line in text.splitlines():
+            self._fd.write(f'{self.indent}# {line}\n')
+
     def header(self):
-        self()
-        self('  ___ ___ ___ _ _ _  ')
-        self(' |   |   |_  | | | | ')
-        self(' | | | | | . | | | | ')
-        self(' |__ |  _|___|_____| ', gpaw.__version__)
-        self(' |___|_|             ')
-        self()
+        self.comment(f"""\
+          ___ ___ ___ _ _ _
+         |   |   |_  | | | |
+         | | | | | . | | | |
+         |__ |  _|___|_____|-{gpaw.__version__}
+         |___|_|
+         """, dedent=True)
 
         # We use os.uname() here bacause platform.uname() starts a subprocess,
         # which MPI may not like!
         # This might not work on Windows.  We will see ...
         nodename, machine = os.uname()[1::3]
 
-        self('User:  ', os.getenv('USER', '???') + '@' + nodename)
-        self('Date:  ', time.asctime())
-        self('Arch:  ', machine)
-        self('Pid:   ', os.getpid())
+        self(user=os.getenv('USER', '???') + '@' + nodename,
+             date=time.asctime(),
+             arch=machine,
+             pid=os.getpid())
         self('Python: {0}.{1}.{2}'.format(*sys.version_info[:3]))
         # GPAW
         line = os.path.dirname(gpaw.__file__)

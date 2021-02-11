@@ -205,7 +205,7 @@ class SCFLoop:
             else:
                 log(' {:+.1f},{:+.1f},{:+.1f}'.format(*totmom_v), end='')
 
-        log(flush=True)
+        log.flush()
 
 
 oops = """
