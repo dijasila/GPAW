@@ -10,6 +10,7 @@ See::
     Phys. Rev. Research 2, 022024(R) – Published 30 April 2020
 
 """
+import functools
 from collections import defaultdict
 from math import pi
 from typing import List, Tuple
@@ -25,6 +26,7 @@ from gpaw.projections import Projections
 from gpaw.setup import Setup
 from gpaw.utilities.ps2ae import PS2AE
 from gpaw.wavefunctions.pw import PWLFC, PWDescriptor
+from gpaw.paw import coulomb, coulomb_integrals_zfs
 
 
 def zfs(calc: GPAW,
@@ -37,17 +39,12 @@ def zfs(calc: GPAW,
     """
     compensation_charge = None
 
-    if not with_paw_correction:
-        if grid_spacing != -1.0:
-            raise ValueError(
-                'Only specify grid_spacing for with_paw_correction=True')
-
+    if grid_spacing == -1.0:
         wf1, wf2 = (WaveFunctions.from_calc(calc, spin)
                     for spin in [0, 1])
         compensation_charge = create_compensation_charge(wf1, calc.spos_ac)
     else:
-        if grid_spacing == -1.0:
-            grid_spacing = 0.1
+        with_paw_correction = False
         converter = PS2AE(calc, grid_spacing)
         wf1, wf2 = (WaveFunctions.from_calc_ae(calc, spin, converter)
                     for spin in [0, 1])
@@ -60,7 +57,7 @@ def zfs(calc: GPAW,
     D_vv = np.zeros((3, 3))
     for wfa in [wf1, wf2]:
         for wfb in [wf1, wf2]:
-            d_vv = zfs1(wfa, wfb, compensation_charge)
+            d_vv = zfs1(wfa, wfb, compensation_charge, with_paw_correction)
             D_vv += d_vv
 
     return D_vv
@@ -146,7 +143,7 @@ def zfs1(wf1: WaveFunctions,
          compensation_charge: PWLFC = None,
          with_paw_correction: bool = False) -> Array2D:
     """Compute dipole coupling."""
-    sign = 1.0 if wf1.spin == wf2.spin else -1.0
+    sign = +1 if wf1.spin == wf2.spin else -1
 
     pd = wf1.pd
     setups = wf1.setups
@@ -175,9 +172,8 @@ def zfs1(wf1: WaveFunctions,
     D_vv = zfs2(pd, G_Gv, nn_G)
 
     if with_paw_correction:
-        pass
-        # for a, D_sii in D_asii.items():
-        #     D_vv += zfs2paw(*D_sii, setups[a])
+        for a, D_sii in D_asii.items():
+            D_vv += zfs2paw(*D_sii, setups[a])
 
     n_nG = pd.empty(N2)
     # D_naii = ...
@@ -199,6 +195,10 @@ def zfs1(wf1: WaveFunctions,
         nn_G = (n_nG * n_nG.conj()).sum(axis=0).real
         D_vv -= zfs2(pd, G_Gv, nn_G)
 
+        if with_paw_correction:
+            for a, D_sii in D_asii.items():
+                D_vv += zfs2paw(*D_sii, setups[a])
+
     D_vv -= np.trace(D_vv) / 3 * np.eye(3)  # should be traceless
 
     return sign * alpha**2 * pi * D_vv * Ha
@@ -213,9 +213,20 @@ def zfs2(pd: PWDescriptor,
     return D_vv
 
 
+@functools.lru_cache
+def zfs_tensor(setup):
+    things = coulomb(setup.rgd,
+                     np.array(setup.data.phi_jg),
+                     np.array(setup.data.phit_jg),
+                     setup.l_j,
+                     setup.g_lg)
+    return coulomb_integrals_zfs(setup.rgd, setup.l_j, *things)
+
+
 def zfs2paw(D1_ii, D2_ii, setup):
     """PAW correction."""
-    return ...
+    C_iiiivv = zfs_tensor(setup)
+    return np.einsum('ij, ijklab, kl -> ab', D1_ii, C_iiiivv, D2_ii)
 
 
 def convert_tensor(D_vv: Array2D,
