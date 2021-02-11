@@ -20,7 +20,7 @@ import gpaw.mpi as mpi
 from gpaw.domain import Domain
 from gpaw.utilities.blas import rk, r2k, gemm
 from gpaw.hints import Array1D, Array3D
-from gpaw.cuda import memcpy_dtod
+from gpaw.cuda import memcpy_dtod, use_hybrid_blas
 from gpaw import gpuarray
 
 import gpaw.cuda
@@ -335,11 +335,13 @@ class GridDescriptor(Domain):
         if isinstance(a_xg, gpuarray.GPUArray):
             result_gpu = gpuarray.to_gpu(result_yx)
             if a_xg is b_yg:
-                rk(self.dv, A_xg, 0.0, result_gpu, hybrid=True)
+                rk(self.dv, A_xg, 0.0, result_gpu, hybrid=use_hybrid_blas)
             elif hermitian:
-                r2k(0.5 * self.dv, A_xg, B_yg, 0.0, result_gpu, hybrid=True)
+                r2k(0.5 * self.dv, A_xg, B_yg, 0.0, result_gpu,
+                    hybrid=use_hybrid_blas)
             else:
-                gemm(self.dv, A_xg, B_yg, 0.0, result_gpu, 'c', hybrid=True)
+                gemm(self.dv, A_xg, B_yg, 0.0, result_gpu, 'c',
+                     hybrid=use_hybrid_blas)
             result_gpu.get(result_yx)
         else:
             if a_xg is b_yg:

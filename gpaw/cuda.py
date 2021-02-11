@@ -15,6 +15,7 @@ import _gpaw
 debug = False
 debug_sync = False
 cuda_ctx = None
+use_hybrid_blas = False
 
 class DebugCudaError(Exception):
     pass

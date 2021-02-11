@@ -98,7 +98,8 @@ class GPAW(Calculator):
                         'eigenstates': 4.0e-8,  # eV^2
                         'bands': 'occupied',
                         'forces': np.inf},  # eV / Ang
-        'gpu': {'cuda': False},
+        'gpu': {'cuda': False,
+                'hybrid_blas': True},
         'xc_thread': True,
         'verbose': 0,
         'fixdensity': False,  # deprecated
@@ -583,6 +584,7 @@ class GPAW(Calculator):
             gpaw.cuda.init(mpi.rank)
             self.timer.stop('Cuda')
 
+        gpaw.cuda.use_hybrid_blas = self.parameters['gpu']['hybrid_blas']
         gpaw.xc.use_xc_thread = self.parameters['xc_thread']
 
         if atoms is None:
