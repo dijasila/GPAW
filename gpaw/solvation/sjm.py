@@ -129,6 +129,12 @@ class SJM(SolvationGPAW):
         tolerance (tol) to allow the potential and structure to be
         simultaneously optimized in a geometry optimization, for example.
         Default: False.
+    slope : float or None
+        Initial guess of the slope of the linear relationship between
+        the electrode potential as a function of excess_electrons.
+        This only applies to the first step, as the slope is calculated
+        internally at subsequent steps. If None, will be guessed based on
+        apparent capacitance of 10 uF/cm^2.
     """
     implemented_properties = ['energy', 'forces', 'stress', 'dipole',
                               'magmom', 'magmoms',
@@ -143,7 +149,8 @@ class SJM(SolvationGPAW):
                 'tol': 0.01,
                 'always_adjust': False,
                 'verbose': False,
-                'max_iters': 10.}})
+                'max_iters': 10.,
+                'slope': None}})
 
     def __init__(self, restart=None, **kwargs):
 
@@ -160,12 +167,6 @@ class SJM(SolvationGPAW):
         SolvationGPAW.__init__(self, restart, **kwargs)
         # Note the previous line calls self.set().
         p = self.parameters['sj']  # Local parameters.
-
-        # FIXME/ap: do we really want to hold local variables like the
-        # slope inside of the parameters dictionary? I think everything
-        # else in here is user-defined. Not sure if it creates any
-        # problems.
-        p.slope = None
 
         # FIXME/ap: Need to add back restart stuff, unless it's automagic
         # now that we're using GPAW's parameter scheme.
@@ -467,7 +468,7 @@ class SJM(SolvationGPAW):
 
                 # Update slope based only on last two points.
                 if len(p.previous_electrons) > 1:
-                    p.slope = self.calculate_slope()
+                    p.slope = self._calculate_slope()
                     p.previous_slopes += [p.slope]
                     self.sog('Slope regressed from last two attempts is '
                              '{:.4f} V/electron.'.format(p.slope))
@@ -489,34 +490,33 @@ class SJM(SolvationGPAW):
                 # Change excess electrons based on slope.
                 usr_warned = False
                 if p.slope is None:
-                    # FIXME/ap: Here's where we should use the electrode
-                    # area to make this more robust, right?
-                    self.sog('No slope information; changing electrons by 0.1'
-                             ' to learn slope.')
-                    p.excess_electrons += (0.1 * np.sign(true_potential -
-                                           p.target_potential))
-                else:
-                    if true_potential < 2 and len(p.previous_potentials) > 1:
-                        if np.diff(p.previous_potentials[-2:])[0] < -1:
-                            true_potential = self.half_last_step()
+                    area = np.product(np.diag(atoms.cell[:2, :2]))
+                    p.slope = -1.6022e3 / (area * 10.)
+                    self.sog('No slope provided, guessing a slope of {:.4f}'
+                             ' corresponding\nto an apparent capacitance of '
+                             '10 muF/cm^2.'.format(p.slope))
 
-                        elif ((p.target_potential - true_potential) /
-                              p.slope) > 0:
+                if true_potential < 2 and len(p.previous_potentials) > 1:
+                    if np.diff(p.previous_potentials[-2:])[0] < -1:
+                        true_potential = self.half_last_step()
 
-                            self.sog(
-                                '-' * 13 + '\n'
-                                'Warning! Based on the slope the next step '
-                                'will lead to very unphysical behavior\n '
-                                '(workfunction ~ 0) and will likely '
-                                'not converge.\n Recheck the initial guess '
-                                'of the charges.\n' + '-' * 13)
-                        usr_warned = True
+                    elif ((p.target_potential - true_potential) /
+                          p.slope) > 0:
 
-                    p.excess_electrons += ((p.target_potential -
-                                            true_potential) / p.slope)
-                    self.sog('Number of electrons changed to {:.4f} based '
-                             'on slope of {:.4f} V/electron.'
-                             .format(p.excess_electrons, p.slope))
+                        self.sog(
+                            '-' * 13 + '\n'
+                            'Warning! Based on the slope the next step '
+                            'will lead to very unphysical behavior\n '
+                            '(workfunction ~ 0) and will likely '
+                            'not converge.\n Recheck the initial guess '
+                            'of the charges.\n' + '-' * 13)
+                    usr_warned = True
+
+                p.excess_electrons += ((p.target_potential - true_potential)
+                                       / p.slope)
+                self.sog('Number of electrons changed to {:.4f} based '
+                         'on slope of {:.4f} V/electron.'
+                         .format(p.excess_electrons, p.slope))
 
                 if not 2 < true_potential < 7 and not usr_warned:
                     self.sog('-' * 13)
@@ -565,7 +565,7 @@ class SJM(SolvationGPAW):
         if p.verbose:
             self.write_cavity_and_bckcharge()
 
-    def calculate_slope(self, coeff=1.):
+    def _calculate_slope(self, coeff=1.):
         p = self.parameters['sj']
         return coeff * (np.diff(p.previous_potentials[-2:]) /
                         np.diff(p.previous_electrons[-2:]))[0]
@@ -573,7 +573,7 @@ class SJM(SolvationGPAW):
     def half_last_step(self):
         p = self.parameters['sj']
         self.sog('-' * 13 + '\n'
-                 'Warning! Your last step lead to a '
+                 'Warning! Your last step led to a '
                  'dangerously low potential.\n '
                  'This is most likely due to overshooting the target.\n '
                  'The previous step size will be halved '
@@ -587,7 +587,7 @@ class SJM(SolvationGPAW):
 
         self.wfs.nvalence = self.setups.nvalence + \
             p.previous_electrons[-2]
-        p.slope = self.calculate_slope(coeff=2.)
+        p.slope = self._calculate_slope(coeff=2.)
         p.excess_electrons = p.previous_electrons[-1]
         return p.previous_potentials[-1]
 
