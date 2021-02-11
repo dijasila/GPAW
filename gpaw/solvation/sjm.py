@@ -130,8 +130,9 @@ class SJM(SolvationGPAW):
         simultaneously optimized in a geometry optimization, for example.
         Default: False.
     slope : float or None
-        Initial guess of the slope of the linear relationship between
-        the electrode potential as a function of excess_electrons.
+        Initial guess of the slope, in volts per electron, of the relationship
+        between the electrode potential and excess electrons, used to
+        equilibrate the potential.
         This only applies to the first step, as the slope is calculated
         internally at subsequent steps. If None, will be guessed based on
         apparent capacitance of 10 uF/cm^2.
@@ -164,34 +165,11 @@ class SJM(SolvationGPAW):
             if key in kwargs:
                 raise TypeError(msg.format(key))
 
+        # Note the below line calls self.set().
         SolvationGPAW.__init__(self, restart, **kwargs)
-        # Note the previous line calls self.set().
-        p = self.parameters['sj']  # Local parameters.
 
         # FIXME/ap: Need to add back restart stuff, unless it's automagic
         # now that we're using GPAW's parameter scheme.
-
-        self.sog('Solvated jellium method (SJM):')
-        if not p.target_potential:
-            # FIXME/ap: This log message seems to show up later, too, in
-            # calculate. We can delete one or the other. Let's delete the
-            # one that makes it consistent with how the code is structured
-            # for constant-potential mode.
-            self.sog(' Constant-charge mode. Excess electrons: {:.5f}'
-                     .format(p.excess_electrons))
-        else:
-            # FIXME/ap: I think the below should be in the set method, as
-            # the user could change the target potential on the fly in a
-            # script.
-            self.sog(' Constant-potential mode.')
-            self.sog(' Target potential: {:.5f} +/- {:.5f}'
-                     .format(p.target_potential, p.tol))
-            if not 2. < p.target_potential < 7.:
-                self.sog('Warning! Your target potential might be '
-                         'unphysical. Keep in mind 0 V_SHE is ~4.4 '
-                         'in the input')
-            self.sog(' Initial guess of excess electrons: {:.5f}'
-                     .format(p.excess_electrons))
 
     def set(self, **kwargs):
         """Change parameters for calculator.
@@ -237,22 +215,9 @@ class SJM(SolvationGPAW):
             # GK: p does not seem to update if it is not done explicitly
             # here
             p.target_potential = sj_dict['target_potential']
-            if p.target_potential is None:
-                self.sog('Potential equilibration has been turned off')
-            else:
-                self.sog('Target electrode potential set to {:1.4f} V'
-                         .format(p.target_potential))
 
         if 'jelliumregion' in sj_changes:
             self.results = {}
-            self.sog(' Jellium size parameters:')
-            if 'start' in p.jelliumregion:
-                # FIXME/ap: Since 'start' is no longer a keyword, should we
-                # change this?
-                self.sog('  Lower boundary: %s' % p.jelliumregion['start'])
-            if 'upper_limit' in p.jelliumregion:
-                self.sog('  Upper boundary: {:.3f} Angstroms'
-                         .format(p.jelliumregion['upper_limit']))
             if self.atoms:
                 # FIXME/AP: Is this needed here? Isn't called everytime in
                 # self.calculate, and since the results are {}'d out above
@@ -267,20 +232,18 @@ class SJM(SolvationGPAW):
             self.results = {}
 
             p.excess_electrons = sj_dict['excess_electrons']
-            self.sog('Number of excess electrons manually changed '
-                     'to {:1.8f}'.format(p.excess_electrons))
             if self.atoms is not None:
                 self.set(background_charge=self.define_jellium(self.atoms))
 
         if 'tol' in sj_changes:
             p.tol = sj_dict['tol']
-            self.sog('Potential tolerance has been changed to %1.4f V'
-                     % p.tol)
             try:
                 true_potential = self.get_electrode_potential()
             except AttributeError:
                 pass
             else:
+                self.sog('Potential tolerance has been set to %1.4f V'
+                         % p.tol)
                 if abs(true_potential - p.target_potential) > p.tol:
                     self.results = {}
                     self.sog('Recalculating...\n')
@@ -386,6 +349,8 @@ class SJM(SolvationGPAW):
 
         """
 
+        self.sog('Solvated jellium method (SJM) calculation:')
+
         if atoms is not None:
             # Need to be set before ASE's Calculator.calculate gets to it.
             self.atoms = atoms.copy()
@@ -411,6 +376,15 @@ class SJM(SolvationGPAW):
             # the end?
 
         else:
+            self.sog(' Constant-potential mode.')
+            self.sog(' Target potential: {:.5f} +/- {:.5f}'
+                     .format(p.target_potential, p.tol))
+            if not 2. < p.target_potential < 7.:
+                self.sog('Warning! Your target potential might be '
+                         'unphysical. Keep in mind 0 V_SHE is ~4.4 '
+                         'in the input')
+            self.sog(' Initial guess of excess electrons: {:.5f}'
+                     .format(p.excess_electrons))
             iteration = 0
             p.previous_electrons = []
             p.previous_potentials = []
@@ -712,6 +686,12 @@ class SJM(SolvationGPAW):
                     # self.log.fd = filename
                     g_g = self.hamiltonian.cavity.g_g
 
+                self.sog('Jellium counter-charge defined with:\n'
+                         ' Upper limit: {:7.3f} AA\n'
+                         ' Lower limit: cavity-like\n'
+                         ' Charge: {:5.4f}\n'
+                         .format(p.jelliumregion['upper_limit'],
+                                 p.excess_electrons))
                 return CavityShapedJellium(p.excess_electrons, g_g=g_g,
                                            z2=p.jelliumregion['upper_limit'])
 
@@ -739,8 +719,6 @@ class SJM(SolvationGPAW):
 
         # FIXME/ap: We should get rid of the 'start' keyword I think, making
         # lower_limit.
-        self.sog('Lower jellium boundary: %s' % p.jelliumregion['start'])
-        self.sog('Upper jellium boundary: %s' % p.jelliumregion['upper_limit'])
 
         if p.jelliumregion['start'] > p.jelliumregion['upper_limit']:
             # FIXME/ap: This was checked once earlier, too? Can we cut one?
@@ -749,6 +727,13 @@ class SJM(SolvationGPAW):
                           'cell size or translate the atomic system down '
                           'along the z-axis.')
 
+        self.sog('Jellium counter-charge defined with:\n'
+                 ' Upper limit: {:7.3f} AA\n'
+                 ' Lower limit: {:7.3f} AA\n'
+                 ' Charge: {:5.4f}\n'
+                 .format(p.jelliumregion['upper_limit'],
+                         p.jelliumregion['start'],
+                         p.excess_electrons))
         return JelliumSlab(p.excess_electrons, z1=p.jelliumregion['start'],
                            z2=p.jelliumregion['upper_limit'])
 
