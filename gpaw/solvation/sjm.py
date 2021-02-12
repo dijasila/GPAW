@@ -1,6 +1,5 @@
 import traceback
 from io import StringIO
-import numbers
 import numpy as np
 import copy
 import inspect
@@ -29,6 +28,9 @@ def get_traceback_string():
     traceback.print_stack(file=filelike)
     return filelike.getvalue()
 
+
+# FIXME/ap: I might prefer the simpler "bottom" and "top" keywords for
+# jelliumregion rather than lower_limit and upper_limit.
 
 class SJM(SolvationGPAW):
     """Solvated Jellium method.
@@ -88,22 +90,24 @@ class SJM(SolvationGPAW):
     max_iters: int
         In constant-potential mode, the maximum number of iterations to try
         to equilibrate the potential (by varying ne). Default: 10.
-    jelliumregion: dict or None
+    jelliumregion: dict
         Parameters regarding the shape of the counter charge region.
-        If not supplied (None), then defaults will be used.
         Implemented keys:
 
-        'upper_limit': float
-            Upper boundary of the counter charge region in terms of
-            coordinate in Angstrom (default: z).
-            Default: atoms.cell[2][2] - 1.
-        'lower_limit': float or 'cavity_like'
-            If a float is given it corresponds to the lower
-            boundary coordinate (default: z), where the counter charge
-            starts. If 'cavity_like' is given the counter charge will
-            take the form of the cavity up to the 'upper_limit'.
-            Default: Highest z-coordinate + 3
-        'thickness': float
+        'upper_limit': float or None
+            Upper boundary of the counter charge region (z coordinate).
+            A positive float is taken as the upper boundary coordiate.
+            A negative float is taken as the distance below the uppper
+            cell boundary.  Default: -1.
+        'lower_limit': float or 'cavity_like' or None
+            Lower boundary of the counter-charge region (z coordinate).
+            A positive float is taken as the lower boundary coordinate.
+            A negative float is interpreted as the distance above the highest
+            z coordinate of any atom; this can be fixed by setting
+            fix_lower_limit to True. If 'cavity_like' is given the counter
+            charge will take the form of the cavity up to the 'upper_limit'.
+            Default: -3.
+        'thickness': float or None
             Thickness of the counter charge region in Angstrom.
             Can only be used if start is not 'cavity_like' and will
             be overwritten by 'upper_limit'. Default: None
@@ -144,7 +148,10 @@ class SJM(SolvationGPAW):
     default_parameters = copy.deepcopy(SolvationGPAW.default_parameters)
     default_parameters.update(
         {'sj': {'excess_electrons': 0.,
-                'jelliumregion': None,
+                'jelliumregion': {'upper_limit': -1.,
+                                  'lower_limit': -3.,
+                                  'thickness': None,
+                                  'fix_lower_limit': False},
                 'target_potential': None,
                 'write_grandpotential_energy': True,
                 'tol': 0.01,
@@ -181,6 +188,7 @@ class SJM(SolvationGPAW):
 
         """
         old_sj_parameters = copy.deepcopy(self.parameters['sj'])
+        # Above will just be defaults on first call.
 
         parent_changed = False  # if something changed outside the SJ wrapper
         sj_dict = kwargs['sj'] if 'sj' in kwargs else {}
@@ -195,7 +203,7 @@ class SJM(SolvationGPAW):
         sj_changes = [key for key, value in sj_dict.items() if not
                       equal(value, self.parameters['sj'].get(key))]
         # GK: We exclude both sj keywords and background_charge from the
-        #     keyword that should triger a initialization. background_charge
+        #     keyword that should trigger a initialization. background_charge
         #     is handled internally.
         if any(key not in ['sj', 'background_charge'] for key in kwargs):
             parent_changed = True
@@ -219,7 +227,7 @@ class SJM(SolvationGPAW):
         if 'jelliumregion' in sj_changes:
             self.results = {}
             if self.atoms:
-                # FIXME/AP: Is this needed here? Isn't called everytime in
+                # FIXME/AP: Is this needed here? Isn't called every time in
                 # self.calculate, and since the results are {}'d out above
                 # it will be called then?
                 # GK: That's what I did before, but now it seems having
@@ -615,127 +623,119 @@ class SJM(SolvationGPAW):
                                           'elstat_potential_')
 
     def define_jellium(self, atoms):
-        """Method to define the explicit and counter charge."""
+        """Creates the counter charge."""
 
         p = self.parameters['sj']
+        jellium = self.parameters['sj']['jelliumregion']
+        defaults = self.default_parameters['sj']['jelliumregion']
 
-        if np.isclose(p.excess_electrons, 0., atol=1e-5):
-            # XXX To GK from AP:
-            # This was causing an issue in constant-charge mode. In the
-            # second ionic step it was trying to call a method of None,
-            # causing a crash. Now I'm letting it create jellium with
-            # charge zero. In my test, it gave identical results to having
-            # background charge be None. However, there is a divide-by-zero
-            # warning that pops up from jellium that doesn't crash
-            # anything. We migh want to just put a try/except around that.
-            # Let me know if you think anything here is problematic.
-            pass
-            # return None
+        # Populate missing keywords.
+        missing = {'upper_limit': None,
+                   'lower_limit': None,
+                   'thickness': None,
+                   'fix_lower_limit': False}
+        for key in missing:
+            if key not in jellium:
+                jellium[key] = missing[key]
 
-        if p.jelliumregion is None:
-            p.jelliumregion = {}
-
-        # FIXME/ap: From "The Zen of Python":
-        #   There should be one-- and preferably only one --obvious way to
-        #   do it.
-        # Right now one can equivalently specify the (lower_limit +
-        # thickness) or the (lower_limit + upper_limit) or the (upper_limit
-        # + thickness), I think. Is there a reason to have so many ways to
-        # define two boundaries? Can we drop a keyword? That would make our
-        # lives easier below.
-
-        if 'upper_limit' in p.jelliumregion:
-            pass
-        elif 'thickness' in p.jelliumregion:
-            if p.jelliumregion['lower_limit'] == 'cavity_like':
+        # Catch incompatible specifications.
+        if jellium['thickness'] is not None:
+            if jellium['lower_limit'] == 'cavity_like':
                 raise RuntimeError("With a cavity-like counter charge only "
                                    "the keyword 'upper_limit' (not "
                                    "'thickness') can be used.")
-            else:
-                p.jelliumregion['upper_limit'] = (p.jelliumregion['start'] +
-                                                  p.jelliumregion['thickness'])
-        else:
-            p.jelliumregion['upper_limit'] = atoms.cell[2][2] - 1.0
 
-        if p.jelliumregion['upper_limit'] > atoms.cell[2][2]:
+        # We need 2 of the 3 "specifieds" below.
+        specifieds = [(jellium['upper_limit'] is not None),
+                      (jellium['lower_limit'] is not None),
+                      (jellium['thickness'] is not None)]
+        if sum(specifieds) == 3:
+            raise RuntimeError('The jellium region has been overspecified.')
+        if sum(specifieds) == 0:
+            upper_limit = defaults['upper_limit']
+            lower_limit = defaults['lower_limit']
+            thickness = defaults['thickness']
+        if sum(specifieds) == 2:
+            upper_limit = jellium['upper_limit']
+            lower_limit = jellium['lower_limit']
+            thickness = jellium['thickness']
+        if specifieds == [True, False, False]:
+            upper_limit = jellium['upper_limit']
+            lower_limit = defaults['lower_limit']
+            thickness = None
+        elif specifieds == [False, True, False]:
+            upper_limit = defaults['upper_limit']
+            lower_limit = jellium['lower_limit']
+            thickness = None
+        elif specifieds == [False, False, True]:
+            upper_limit = None
+            lower_limit = defaults['lower_limit']
+            thickness = jellium['thickness']
+
+        # Deal with negative specifications of upper and lower limits;
+        # as well as fixed/free lower limit.
+        if upper_limit is not None:
+            if upper_limit < 0.:
+                upper_limit = atoms.cell[2][2] + upper_limit
+        if lower_limit not in [None, 'cavity_like']:
+            if lower_limit < 0.:
+                lower_limit = (max(atoms.positions[:, 2]) - lower_limit)
+                if jellium['fix_lower_limit'] is True:
+                    try:
+                        lower_limit = self._fixed_lower_limit
+                    except AttributeError:
+                        self._fixed_lower_limit = lower_limit
+
+        # Use thickness if needed.
+        if upper_limit is None:
+            upper_limit = lower_limit + thickness
+        if lower_limit is None:
+            lower_limit = upper_limit - thickness
+
+        # Catch unphysical limits.
+        if upper_limit > atoms.cell[2][2]:
             raise IOError('The upper limit of the jellium region lies '
                           'outside of unit cell. If you did not set it '
                           'manually, increase your unit cell size or '
                           'translate the atomic system down along the '
                           'z-axis.')
+        if lower_limit != 'cavity_like':
+            if lower_limit > upper_limit:
+                raise RuntimeError('Your jellium region has a lower limit '
+                                   'of {:.3f} AA, which is above the upper '
+                                   'limit of {:.3f} AA.'
+                                   .format(lower_limit, upper_limit))
 
-        if 'lower_limit' in p.jelliumregion:
-            if p.jelliumregion['lower_limit'] == 'cavity_like':
-                # XXX This part can definitely be improved
-                if self.hamiltonian is None:
-                    # filename = self.log.fd
-                    # self.log.fd = None  # FIXME This was causing crashes.
-                    self.initialize(atoms)
-                    self.set_positions(atoms)
-                    # self.log.fd = filename
-                    g_g = self.hamiltonian.cavity.g_g.copy()
-                    self.wfs = None
-                    self.density = None
-                    self.hamiltonian = None
-                    self.initialized = False
-
-                else:
-                    # filename = self.log.fd
-                    # self.log.fd = None
-                    self.set_positions(atoms)
-                    # self.log.fd = filename
-                    g_g = self.hamiltonian.cavity.g_g
-
-                self.sog('Jellium counter-charge defined with:\n'
-                         ' Upper limit: {:7.3f} AA\n'
-                         ' Lower limit: cavity-like\n'
-                         ' Charge: {:5.4f}\n'
-                         .format(p.jelliumregion['upper_limit'],
-                                 p.excess_electrons))
-                return CavityShapedJellium(p.excess_electrons, g_g=g_g,
-                                           z2=p.jelliumregion['upper_limit'])
-
-            elif isinstance(p.jelliumregion['lower_limit'], numbers.Real):
-                if p.jelliumregion['lower_limit'] > \
-                        p.jelliumregion['upper_limit']:
-
-                    raise RuntimeError('The lower limit of the jellium region '
-                                       'lies above the upper limit. Recheck '
-                                       'your input.')
-
-                p.jelliumregion['start'] = p.jelliumregion['lower_limit']
+        # Finally, make the jellium.
+        if lower_limit == 'cavity_like':
+            if self.hamiltonian is None:
+                self.initialize(atoms)
+                self.set_positions(atoms)
+                g_g = self.hamiltonian.cavity.g_g.copy()
+                self.wfs = None
+                self.density = None
+                self.hamiltonian = None
+                self.initialized = False
             else:
-                raise RuntimeError("The starting z value of the counter charge"
-                                   "has to be either a number (coordinate),"
-                                   "cavity_like' or not given (default: "
-                                   " max(position)+3)")
-        else:
-            if 'fix_lower_limit' in p.jelliumregion.keys():
-                if p.jelliumregion['fix_lower_limit']:
-                    p.jelliumregion['lower_limit'] = \
-                        max(atoms.positions[:, 2]) + 3.
-
-            p.jelliumregion['start'] = max(atoms.positions[:, 2]) + 3.
-
-        # FIXME/ap: We should get rid of the 'start' keyword I think, making
-        # lower_limit.
-
-        if p.jelliumregion['start'] > p.jelliumregion['upper_limit']:
-            # FIXME/ap: This was checked once earlier, too? Can we cut one?
-            raise IOError('The lower limit of the jellium region '
-                          'lies above the upper limit. Increase your unit '
-                          'cell size or translate the atomic system down '
-                          'along the z-axis.')
+                self.set_positions(atoms)
+                g_g = self.hamiltonian.cavity.g_g
+            self.sog('Jellium counter-charge defined with:\n'
+                     ' Lower limit: cavity-like\n'
+                     ' Upper limit: {:7.3f} AA\n'
+                     ' Charge: {:5.4f}\n'
+                     .format(upper_limit, p.excess_electrons))
+            return CavityShapedJellium(charge=p.excess_electrons,
+                                       g_g=g_g,
+                                       z2=upper_limit)
 
         self.sog('Jellium counter-charge defined with:\n'
-                 ' Upper limit: {:7.3f} AA\n'
                  ' Lower limit: {:7.3f} AA\n'
+                 ' Upper limit: {:7.3f} AA\n'
                  ' Charge: {:5.4f}\n'
-                 .format(p.jelliumregion['upper_limit'],
-                         p.jelliumregion['start'],
-                         p.excess_electrons))
-        return JelliumSlab(p.excess_electrons, z1=p.jelliumregion['start'],
-                           z2=p.jelliumregion['upper_limit'])
+                 .format(lower_limit, upper_limit, p.excess_electrons))
+        return JelliumSlab(charge=p.excess_electrons,
+                           z1=lower_limit,
+                           z2=upper_limit)
 
     def get_electrode_potential(self):
         """Returns the potential of the simulated electrode, in V, relative
