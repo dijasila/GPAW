@@ -219,6 +219,12 @@ class SJM(SolvationGPAW):
             # GK: p does not seem to update if it is not done explicitly
             # here
             p.target_potential = sj_dict['target_potential']
+            # FIXME/ap: The issue is that if something like the target
+            # potential changes but nothing else does, SolvationGPAW.set is
+            # never called, so these keywords never get set. I tried
+            # calling SolvationGPAW in these types of cases but I kept
+            # getting errors about None objects having no method reset when
+            # it was trying to call scf.reset(). Something is tricky here.
 
         if 'jelliumregion' in sj_changes:
             self.results = {}
