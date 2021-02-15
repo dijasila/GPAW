@@ -630,8 +630,9 @@ def g_max_norm(g_k, wfs):
         k = n_kps * kpt.s + kpt.q
         dim = g_k[k].shape[0]
         if dim == 0:
-            continue
-        max_norm.append(np.max(np.absolute(g_k[k])))
+            max_norm.append(0.0)
+        else:
+            max_norm.append(np.max(np.absolute(g_k[k])))
     max_norm = np.max(np.asarray(max_norm))
     g_max = wfs.world.max(max_norm)
 

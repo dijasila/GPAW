@@ -175,7 +175,7 @@ class InnerLoop:
         # get initial energy and gradients
         self.e_total, g_k = self.get_energy_and_gradients(a_k, wfs, dens, ham, occ)
         threelasten.append(self.e_total)
-        g_max = g_max_norm(g_k, wfs, self.n_occ)
+        g_max = g_max_norm(g_k, wfs)
         if g_max < self.g_tol:
             self.converged = True
             for kpt in wfs.kpt_u:
@@ -278,7 +278,7 @@ class InnerLoop:
             if alpha > 1.0e-10:
                 # calculate new matrices at optimal step lenght
                 a_k = {k: a_k[k] + alpha * p_k[k] for k in a_k.keys()}
-                g_max = g_max_norm(g_k, wfs, self.n_occ)
+                g_max = g_max_norm(g_k, wfs)
 
                 # output
                 self.counter += 1
@@ -653,16 +653,18 @@ def log_f(log, niter, kappa, e_ks, e_sic, outer_counter=None, g_max=np.inf):
     log(flush=True)
 
 
-def g_max_norm(g_k, wfs, n_occ):
+def g_max_norm(g_k, wfs):
     # get maximum of gradients
     n_kps = wfs.kd.nks // wfs.kd.nspins
 
     max_norm = []
     for kpt in wfs.kpt_u:
         k = n_kps * kpt.s + kpt.q
-        if n_occ[k] == 0:
-            continue
-        max_norm.append(np.max(np.absolute(g_k[k])))
+        dim = g_k[k].shape[0]
+        if dim == 0:
+            max_norm.append(0.0)
+        else:
+            max_norm.append(np.max(np.absolute(g_k[k])))
     max_norm = np.max(np.asarray(max_norm))
     g_max = wfs.world.max(max_norm)
 
