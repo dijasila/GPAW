@@ -203,7 +203,10 @@ class SJM(SolvationGPAW):
         #     is handled internally.
         if any(key not in ['sj', 'background_charge'] for key in kwargs):
             parent_changed = True
-            SolvationGPAW.set(self, **kwargs)
+        gpaw_kwargs = kwargs.copy()
+        if 'background_charge' in gpaw_kwargs:
+            del gpaw_kwargs['background_charge']
+        SolvationGPAW.set(self, **gpaw_kwargs)
 
         if not isinstance(self.parameters['sj'], Parameters):
             self.parameters['sj'] = Parameters(self.parameters['sj'])
