@@ -198,11 +198,11 @@ class SJM(SolvationGPAW):
 
         sj_changes = [key for key, value in sj_dict.items() if not
                       equal(value, self.parameters['sj'].get(key))]
-        # GK: We exclude both sj keywords and background_charge from the
-        #     keyword that should trigger a initialization. background_charge
-        #     is handled internally.
         if any(key not in ['sj', 'background_charge'] for key in kwargs):
             parent_changed = True
+
+        # We handle background_charge internally; passing this to GPAW's
+        # set function will trigger a deletion of the density, etc.
         gpaw_kwargs = kwargs.copy()
         if 'background_charge' in gpaw_kwargs:
             del gpaw_kwargs['background_charge']
@@ -219,15 +219,6 @@ class SJM(SolvationGPAW):
 
         if 'target_potential' in sj_changes:
             self.results = {}
-            # GK: p does not seem to update if it is not done explicitly
-            # here
-            p.target_potential = sj_dict['target_potential']
-            # FIXME/ap: The issue is that if something like the target
-            # potential changes but nothing else does, SolvationGPAW.set is
-            # never called, so these keywords never get set. I tried
-            # calling SolvationGPAW in these types of cases but I kept
-            # getting errors about None objects having no method reset when
-            # it was trying to call scf.reset(). Something is tricky here.
 
         if 'jelliumregion' in sj_changes:
             self.results = {}
@@ -244,12 +235,10 @@ class SJM(SolvationGPAW):
         if 'excess_electrons' in sj_changes:
             self.results = {}
 
-            p.excess_electrons = sj_dict['excess_electrons']
             if self.atoms is not None:
                 self.set(background_charge=self.define_jellium(self.atoms))
 
         if 'tol' in sj_changes:
-            p.tol = sj_dict['tol']
             try:
                 true_potential = self.get_electrode_potential()
             except AttributeError:
