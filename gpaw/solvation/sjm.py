@@ -2,7 +2,6 @@ import traceback
 from io import StringIO
 import numpy as np
 import copy
-import inspect
 
 from ase.units import Bohr, Ha
 from ase.calculators.calculator import Parameters, equal
@@ -766,21 +765,6 @@ class SJM(SolvationGPAW):
             out = open(name, 'wb')
             pickle.dump(G, out)
             out.close()
-
-    def _write(self, writer, mode):
-        # FIXME/ap: Do we need this with the new parameters scheme?
-        self.sog('in method ' + inspect.stack()[0][3])
-        SolvationGPAW._write(self, writer, mode)
-        writer.child('SJM').write(**self.parameters['sj'])
-
-    def read(self, filename):
-        reader = SolvationGPAW.read(self, filename)
-
-        # FIXME/ap: Do we need this with the new parameters scheme?
-        if 'SJM' in reader:
-            self.parameters['sj'] = Parameters()
-            for sj_key in reader.SJM.keys():
-                self.parameters['sj'][sj_key] = reader.SJM.asdict()[sj_key]
 
     def initialize(self, atoms=None, reading=False):
         """Inexpensive initialization."""
