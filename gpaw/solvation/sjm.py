@@ -768,18 +768,31 @@ class SJM(SolvationGPAW):
             out.close()
 
     def _write(self, writer, mode):
+        # FIXME/ap: Do we need this with the new parameters scheme?
         self.sog('in method ' + inspect.stack()[0][3])
         SolvationGPAW._write(self, writer, mode)
         writer.child('SJM').write(**self.parameters['sj'])
 
     def read(self, filename):
-        self.sog('in method ' + inspect.stack()[0][3])
         reader = SolvationGPAW.read(self, filename)
 
+        # FIXME/ap: Do we need this with the new parameters scheme?
         if 'SJM' in reader:
             self.parameters['sj'] = Parameters()
             for sj_key in reader.SJM.keys():
                 self.parameters['sj'][sj_key] = reader.SJM.asdict()[sj_key]
+
+    def initialize(self, atoms=None, reading=False):
+        """Inexpensive initialization."""
+        background_charge = self.parameters['background_charge']
+        if isinstance(background_charge, dict):
+            if 'z1' in background_charge:
+                if background_charge['z1'] == 'cavity_like':
+                    # This is CavityShapedJellium, which GPAW's initialize
+                    # does not know how to handle. We can delete and it will
+                    # be recreated by the define_jellium method when needed.
+                    self.parameters['background_charge'] = None
+        SolvationGPAW.initialize(self=self, atoms=atoms, reading=reading)
 
 
 class SJMPower12Potential(Power12Potential):
@@ -1108,7 +1121,8 @@ class CavityShapedJellium(Jellium):
 
     def todict(self):
         dct = Jellium.todict(self)
-        dct.update(z2=self.z2 * Bohr + 0.0001)
+        dct.update(z2=self.z2 * Bohr + 0.0001,
+                   z1='cavity_like')
         return dct
 
     def get_mask(self):
