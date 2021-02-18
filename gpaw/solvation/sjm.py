@@ -170,9 +170,6 @@ class SJM(SolvationGPAW):
         # Note the below line calls self.set().
         SolvationGPAW.__init__(self, restart, **kwargs)
 
-        # FIXME/ap: Need to add back restart stuff, unless it's automagic
-        # now that we're using GPAW's parameter scheme.
-
     def set(self, **kwargs):
         """Change parameters for calculator.
 
@@ -210,7 +207,7 @@ class SJM(SolvationGPAW):
         if not isinstance(self.parameters['sj'], Parameters):
             self.parameters['sj'] = Parameters(self.parameters['sj'])
         p = self.parameters['sj']
-        # ase's Calculator.set() loses the dict items not being set.
+        # ASE's Calculator.set() loses the dict items not being set.
         # Add them back.
         for key, value in old_sj_parameters.items():
             if key not in p:
@@ -330,16 +327,6 @@ class SJM(SolvationGPAW):
 
         xc.set_grid_descriptor(self.hamiltonian.finegd)
 
-    # GK: I had to add this again. How did it work without??
-    # AP: self._set_atoms is in gpaw.calculator.GPAW.
-    # Maybe there's a syntax change in ASE calculators?
-    # I've XXX'd it out and it works on my install; if it works
-    # for you we'll delete.
-    # FIXME/ap: Delete when everything works.
-    def XXXset_atoms(self, atoms):
-        self.atoms = atoms
-        self.spos_ac = atoms.get_scaled_positions() % 1.0
-
     def calculate(self, atoms=None, properties=['energy'],
                   system_changes=['cell']):
         """
@@ -386,7 +373,23 @@ class SJM(SolvationGPAW):
                          'in the input')
             self.sog(' Initial guess of excess electrons: {:.5f}'
                      .format(p.excess_electrons))
+            if self.parameters.convergence['workfunction'] >= p.tol:
+                self.sog(' Warning: it appears that your work function '
+                         'convergence criterion ({:g})\n is higher than your '
+                         'desired potential tolerance ({:g}).\n This will '
+                         'likely lead to issues with convergence.'
+                         .format(self.parameters.convergence['workfunction'],
+                                 p.tol))
             iteration = 0
+            # FIXME/ap: I don't think we're using previous_slopes anymore.
+            # I think this is vestigial from when we were doing a linear
+            # regression to get the slope, which we abandoned for some
+            # reason (I forget what was going wrong with it).
+            # Also we probably don't need to store these in the parameters
+            # dictionary, which is not the intention of such a dictionary.
+            # Maybe we just turn the calculate_slope into a separate
+            # function (not a method) and pass it the previous electrons
+            # and previous potentials.
             p.previous_electrons = []
             p.previous_potentials = []
             p.previous_slopes = []
