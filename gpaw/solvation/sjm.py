@@ -3,6 +3,7 @@ from io import StringIO
 import numpy as np
 import copy
 
+import ase.io
 from ase.units import Bohr, Ha
 from ase.calculators.calculator import Parameters, equal
 from ase.dft.bandgap import bandgap
@@ -359,15 +360,16 @@ class SJM(SolvationGPAW):
             self.sog('Potential found to be {:.5f} V (with {:+.5f} '
                      'electrons)'.format(self.get_electrode_potential(),
                                          p.excess_electrons))
-            # FIXME: I think we can do a return here and cut out the next
-            # else statement and indents? Or maybe not, there's junk at
-            # the end?
-
         else:
             self.sog(' Constant-potential mode.')
             self.sog(' Target potential: {:.5f} +/- {:.5f}'
                      .format(p.target_potential, p.tol))
             if not 2. < p.target_potential < 7.:
+                # FIXME/ap: Do we want to hardcode in these limits? I.e.,
+                # Li+ + e- <-> Li(s) is at -3.04 V_SHE. So I think that
+                # would be around a target potential of around 1, and that
+                # would be a very reasonable thing to do if studying
+                # battery electrodes.
                 self.sog('Warning! Your target potential might be '
                          'unphysical. Keep in mind 0 V_SHE is ~4.4 '
                          'in the input')
@@ -380,142 +382,7 @@ class SJM(SolvationGPAW):
                          'likely lead to issues with convergence.'
                          .format(self.parameters.convergence['workfunction'],
                                  p.tol))
-            iteration = 0
-            # FIXME/ap: I don't think we're using previous_slopes anymore.
-            # I think this is vestigial from when we were doing a linear
-            # regression to get the slope, which we abandoned for some
-            # reason (I forget what was going wrong with it).
-            # Also we probably don't need to store these in the parameters
-            # dictionary, which is not the intention of such a dictionary.
-            # Maybe we just turn the calculate_slope into a separate
-            # function (not a method) and pass it the previous electrons
-            # and previous potentials.
-            p.previous_electrons = []
-            p.previous_potentials = []
-            p.previous_slopes = []
-            equilibrated = False
-
-            while not equilibrated:
-                self.sog('Attempt {:d} to equilibrate potential to {:.3f} +/-'
-                         ' {:.3f} V'
-                         .format(iteration, p.target_potential, p.tol))
-                self.sog('Current guess of excess electrons: {:+.5f}'
-                         .format(p.excess_electrons))
-                if 0:
-                    # GK: I took the following out, because I am not able
-                    #     to trigger the error described. In case we can
-                    #     turn it on again.
-                    if iteration == 0:
-                        # If we don't do this, GPAW.calculate *may* try to call
-                        # self.density.reset(), which will not exist.
-                        # FIXME/ap: to GK, I'm not clear on what things (like
-                        # density, wfs, hamiltonian, scf) should be deleted
-                        # and/or reset when. In the behavior here, gpaw is
-                        # going to delete all of those at the beginning of
-                        # every potential equilibration loop, but this seems
-                        # wasteful. Note this is done when
-                        # set(background_charge) is called.
-                        system_changes += ['background_charge']
-                if iteration == 1:
-                    self.timer.start('Potential equilibration loop')
-                    # We don't want SolvationGPAW to see any more system
-                    # changes, like positions, after attempt 0.
-                    system_changes = []
-
-                # XXX: should it really be calling this every time?
-                # Meaning: if the number of electrons did not change, then
-                # I would think this would stay the same. Another question
-                # is why it did not crash the first time through, shouldn't
-                # density also be None then? But even given all that, we
-                # need a way for this to work, as otherwise what happens
-                # when a user changes ne or target potential manually? Oh,
-                # I just tried that, let's see.
-                if iteration > 0 or 'positions' in system_changes:
-                    self.set(background_charge=self.define_jellium(atoms))
-
-                SolvationGPAW.calculate(self, atoms, ['energy'],
-                                        system_changes)
-                true_potential = self.get_electrode_potential()
-                self.sog()
-                self.sog('Potential found to be {:.5f} V (with {:+.5f} '
-                         'excess electrons, attempt {:d})'
-                         .format(true_potential, p.excess_electrons,
-                                 iteration))
-                p.previous_electrons += [p.excess_electrons]
-                p.previous_potentials += [true_potential]
-
-                # Update slope based only on last two points.
-                if len(p.previous_electrons) > 1:
-                    p.slope = self._calculate_slope()
-                    p.previous_slopes += [p.slope]
-                    self.sog('Slope regressed from last two attempts is '
-                             '{:.4f} V/electron.'.format(p.slope))
-
-                    area = np.product(np.diag(atoms.cell[:2, :2]))
-                    cap = -1.6022 * 1e3 / (area * p.slope)
-
-                    self.sog('and apparent capacitance of {:.4f} muF/cm^2'
-                             .format(cap))
-
-                if abs(true_potential - p.target_potential) < p.tol:
-                    equilibrated = True
-                    self.sog('Potential is within tolerance. Equilibrated.')
-                    if iteration >= 1:
-                        self.timer.stop('Potential equilibration loop')
-                    if p.always_adjust is False:
-                        break
-
-                # Change excess electrons based on slope.
-                usr_warned = False
-                if p.slope is None:
-                    area = np.product(np.diag(atoms.cell[:2, :2]))
-                    p.slope = -1.6022e3 / (area * 10.)
-                    self.sog('No slope provided, guessing a slope of {:.4f}'
-                             ' corresponding\nto an apparent capacitance of '
-                             '10 muF/cm^2.'.format(p.slope))
-
-                if true_potential < 2 and len(p.previous_potentials) > 1:
-                    if np.diff(p.previous_potentials[-2:])[0] < -1:
-                        true_potential = self.half_last_step()
-
-                    elif ((p.target_potential - true_potential) /
-                          p.slope) > 0:
-
-                        self.sog(
-                            '-' * 13 + '\n'
-                            'Warning! Based on the slope the next step '
-                            'will lead to very unphysical behavior\n '
-                            '(workfunction ~ 0) and will likely '
-                            'not converge.\n Recheck the initial guess '
-                            'of the charges.\n' + '-' * 13)
-                    usr_warned = True
-
-                p.excess_electrons += ((p.target_potential - true_potential)
-                                       / p.slope)
-                self.sog('Number of electrons changed to {:.4f} based '
-                         'on slope of {:.4f} V/electron.'
-                         .format(p.excess_electrons, p.slope))
-
-                if not 2 < true_potential < 7 and not usr_warned:
-                    self.sog('-' * 13)
-                    self.sog("Warning! The resulting potential is in a "
-                             "region where a linear slope between\n potential "
-                             "and charge is not guaranteed. You might want "
-                             "to rethink\n the inital charge guess. If the "
-                             "potential is too high increase "
-                             "'excess_electrons' or vice versa.")
-                    self.sog('-' * 13)
-
-                iteration += 1
-                if iteration == p.max_iters:
-                    msg = ('Potential could not be reached after {:d} '
-                           'iterations. This may indicate your workfunction '
-                           'is noisier than tol. You may try setting the '
-                           'convergence["workfunction"] keyword in GPAW. '
-                           'Aborting!'.format(iteration))
-                    self.sog(msg)
-                    raise Exception(msg)
-
+            self._equilibrate_potential(atoms, system_changes)
         if properties != ['energy']:
             SolvationGPAW.calculate(self, atoms, properties, [])
 
@@ -543,12 +410,126 @@ class SJM(SolvationGPAW):
         if p.verbose:
             self.write_cavity_and_bckcharge()
 
-    def _calculate_slope(self, coeff=1.):
+    def _equilibrate_potential(self, atoms, system_changes):
+        """Adjusts the number of electrons until the potential reaches the
+        desired value."""
         p = self.parameters['sj']
-        return coeff * (np.diff(p.previous_potentials[-2:]) /
-                        np.diff(p.previous_electrons[-2:]))[0]
+        iteration = 0
+        previous_electrons = []
+        previous_potentials = []
+        equilibrated = False
 
-    def half_last_step(self):
+        while not equilibrated:
+            self.sog('Attempt {:d} to equilibrate potential to {:.3f} +/-'
+                     ' {:.3f} V'
+                     .format(iteration, p.target_potential, p.tol))
+            self.sog('Current guess of excess electrons: {:+.5f}'
+                     .format(p.excess_electrons))
+            if iteration == 1:
+                self.timer.start('Potential equilibration loop')
+                # We don't want SolvationGPAW to see any more system
+                # changes, like positions, after attempt 0.
+                system_changes = []
+
+            if iteration > 0 or 'positions' in system_changes:
+                self.set(background_charge=self.define_jellium(atoms))
+
+            SolvationGPAW.calculate(self, atoms, ['energy'], system_changes)
+            true_potential = self.get_electrode_potential()
+            self.sog()
+            self.sog('Potential found to be {:.5f} V (with {:+.5f} '
+                     'excess electrons, attempt {:d})'
+                     .format(true_potential, p.excess_electrons, iteration))
+            previous_electrons += [p.excess_electrons]
+            previous_potentials += [true_potential]
+
+            if len(previous_electrons) > 1:
+                self.sog('previous potentials: {}'
+                         .format(str(previous_potentials)))
+                self.sog('previous electrons: {}'
+                         .format(str(previous_electrons)))
+                p.slope = calculate_slope(previous_electrons,
+                                          previous_potentials)
+                self.sog('Slope regressed from last two attempts is '
+                         '{:.4f} V/electron.'.format(p.slope))
+                area = np.product(np.diag(atoms.cell[:2, :2]))
+                capacitance = -1.6022 * 1e3 / (area * p.slope)
+                self.sog('and apparent capacitance of {:.4f} muF/cm^2'
+                         .format(capacitance))
+
+            if abs(true_potential - p.target_potential) < p.tol:
+                equilibrated = True
+                self.sog('Potential is within tolerance. Equilibrated.')
+                if iteration >= 1:
+                    self.timer.stop('Potential equilibration loop')
+                if p.always_adjust is False:
+                    break  # out of the while loop
+
+            # Guess slope if we don't have enough information yet.
+            if p.slope is None:
+                area = np.product(np.diag(atoms.cell[:2, :2]))
+                p.slope = -1.6022e3 / (area * 10.)
+                self.sog('No slope provided, guessing a slope of {:.4f}'
+                         ' corresponding\nto an apparent capacitance of '
+                         '10 muF/cm^2.'.format(p.slope))
+
+            # Check to make sure we're doing something reasonable.
+            user_warned = False
+            if true_potential < 2 and len(previous_potentials) > 1:
+                # FIXME/ap: Again, do we want to hardcode in a limit of 2?
+                # This is a reasonable choice for a battery calculation.
+                # What was the motivation for adding in this linesearch
+                # algorithm -- was something failing? If we keep it, maybe
+                # we can make it so if the true_potential is more than X
+                # volts from the target potential we do a half step?
+                if np.diff(previous_potentials[-2:])[0] < -1:
+                    # FIXME/ap: I guess this means the last change in
+                    # potential was at least 1 V, and negative?
+                    true_potential = self._half_last_step(previous_potentials,
+                                                          previous_electrons)
+
+                elif (p.target_potential - true_potential) / p.slope > 0:
+                    # FIXME/ap: I'm also not sure I get the logic here.
+                    # Isn't the above just the calculation of
+                    # excess_electrons that we do below? What's the issue
+                    # with excess_electrons being greater than 0?
+                    self.sog(
+                        '-' * 13 + '\n'
+                        'Warning! Based on the slope the next step '
+                        'will lead to very unphysical behavior\n '
+                        '(workfunction ~ 0) and will likely '
+                        'not converge.\n Recheck the initial guess '
+                        'of the charges.\n' + '-' * 13)
+                user_warned = True
+
+            # Finally, update the number of electrons.
+            p.excess_electrons += ((p.target_potential - true_potential)
+                                   / p.slope)
+            self.sog('Number of electrons changed to {:.4f} based '
+                     'on slope of {:.4f} V/electron.'
+                     .format(p.excess_electrons, p.slope))
+
+            if not 2 < true_potential < 7 and not user_warned:
+                # FIXME/ap: Same issue with hard-coded limits.
+                self.sog('-' * 13)
+                self.sog("Warning! The resulting potential is in a "
+                         "region where a linear slope between\n potential "
+                         "and charge is not guaranteed. You might want "
+                         "to rethink\n the inital charge guess. If the "
+                         "potential is too high increase "
+                         "'excess_electrons' or vice versa.")
+                self.sog('-' * 13)
+
+            iteration += 1
+            if iteration == p.max_iters:
+                msg = ('Potential could not be reached after {:d} iterations. '
+                       'This may indicate your workfunction is noisier than '
+                       'your potential tol. You may try setting the convergence'
+                       '["workfunction"] keyword. Aborting!'.format(iteration))
+                self.sog(msg)
+                raise Exception(msg)
+
+    def _half_last_step(self, previous_potentials, previous_electrons):
         p = self.parameters['sj']
         self.sog('-' * 13 + '\n'
                  'Warning! Your last step led to a '
@@ -560,14 +541,18 @@ class SJM(SolvationGPAW):
                  'will not equilibrate, \n rethink your '
                  'initial charge guess\n' + '-' * 13)
 
-        del p.previous_potentials[-1]
-        del p.previous_electrons[-1]
+        del previous_potentials[-1]
+        del previous_electrons[-1]
 
-        self.wfs.nvalence = self.setups.nvalence + \
-            p.previous_electrons[-2]
-        p.slope = self._calculate_slope(coeff=2.)
-        p.excess_electrons = p.previous_electrons[-1]
-        return p.previous_potentials[-1]
+        # FIXME/ap: Should the next line refer to [-1], not [-2], since we
+        # already deleted the last entry? Otherwise I think we're going
+        # back too far in history.
+        self.wfs.nvalence = self.setups.nvalence + previous_electrons[-2]
+        # FIXME/ap: Although the math works here, it will report an
+        # erroneous slope to the user.
+        p.slope = 2. * calculate_slope(previous_electrons, previous_potentials)
+        p.excess_electrons = previous_electrons[-1]
+        return previous_potentials[-1]
 
     def write_cavity_and_bckcharge(self):
         p = self.parameters['sj']
@@ -738,6 +723,7 @@ class SJM(SolvationGPAW):
         return self.hamiltonian.get_workfunctions(self.wfs.fermi_level)[1] * Ha
 
     """Various tools for writing global functions"""
+    # FIXME/ap: These two methods can probably be made into functions.
 
     def write_parallel_func_in_z(self, g, name='g_z.out'):
         # FIXME: This needs some documentation!
@@ -745,6 +731,7 @@ class SJM(SolvationGPAW):
         from gpaw.mpi import world
         G = gd.collect(g, broadcast=False)
         if world.rank == 0:
+            # FIXME/ap: I guess this could use ASE's paropen?
             G_z = G.mean(0).mean(0)
             name += '.'.join(self.log.fd.name.split('.')[:-1]) + '.out'
             out = open(name, 'w')
@@ -756,14 +743,15 @@ class SJM(SolvationGPAW):
 
     def write_parallel_func_on_grid(self, g, atoms=None, name='func.cube',
                                     outstyle='cube'):
-        from ase.io import write
         gd = self.density.finegd
         G = gd.collect(g, broadcast=False)
         if outstyle == 'cube':
-            write(name + '.cube', atoms, data=G)
+            ase.io.write(name + '.cube', atoms, data=G)
         elif outstyle == 'pckl':
-            # FIXME does this have parallel issues?
-            # GK: Possibly have to check
+            # FIXME/ap to GK: Ask is trying to delete all uses of pickle from
+            # ASE for security issues. The keyword 'outstyle' is never
+            # employed elsewhere in the code, so I'll delete this pickle
+            # stuff if you don't object and we'll just keep the cube.
             import pickle
             out = open(name, 'wb')
             pickle.dump(G, out)
@@ -782,12 +770,13 @@ class SJM(SolvationGPAW):
         SolvationGPAW.initialize(self=self, atoms=atoms, reading=reading)
 
 
-class SJMPower12Potential(Power12Potential):
-    # FIXME. We should state how this differs from its parent.
-    # Also could it be integrated now that we are comfortable with SJM?
-    # GK: This class is explicitly called in the SolvationGPAW keywords.
-    # Thus, I guess it might be a little more of an effort to include it.
+def calculate_slope(previous_electrons, previous_potentials):
+    """Calculates the slope of potential versus number of electrons."""
+    return (np.diff(previous_potentials[-2:]) /
+            np.diff(previous_electrons[-2:]))[0]
 
+
+class SJMPower12Potential(Power12Potential):
     """Inverse power law potential.
 
     An 1 / r ** 12 repulsive potential
@@ -795,40 +784,39 @@ class SJMPower12Potential(Power12Potential):
 
     See also
     A. Held and M. Walter, J. Chem. Phys. 141, 174108 (2014).
+
+    In SJM one also has the option of removing the solvent from the
+    electrode backside and adding ghost plane/atoms to remove the solvent
+    from the electrode-water interface.
+
+    Parameters
+    ----------
+    atomic_radii : float
+        Callable mapping an ase.Atoms object to an iterable of atomic radii
+        in Angstroms.
+    u0 : float
+        Strength of the potential at the atomic radius in eV.
+    pbc_cutoff : float
+        Cutoff in eV for including neighbor cells in a calculation with
+        periodic boundary conditions.
+    H2O_layer: bool,int or 'plane' (default: False)
+        True: Exclude the implicit solvent from the interface region
+            between electrode and water. Ghost atoms will be added below
+            the water layer.
+        int: Explicitly account for the given number of water molecules
+            above electrode. This is handy if H2O is directly adsorbed
+            and a water layer is present in the unit cell at the same time.
+        'plane': Use a plane instead of ghost atoms for freeing the
+            surface.
+    unsolv_backside: bool
+        Exclude implicit solvent from the region behind the electrode
+
     """
     depends_on_el_density = False
     depends_on_atomic_positions = True
 
     def __init__(self, atomic_radii, u0, pbc_cutoff=1e-6, tiny=1e-10,
                  H2O_layer=False, unsolv_backside=True):
-        """Constructor for the SJMPower12Potential class.
-        In SJM one also has the option of removing the solvent from the
-        electrode backside and adding ghost plane/atoms to remove the solvent
-        from the electrode-water interface.
-
-        Parameters
-        ----------
-        atomic_radii : float
-            Callable mapping an ase.Atoms object to an iterable of atomic radii
-            in Angstroms.
-        u0 : float
-            Strength of the potential at the atomic radius in eV.
-        pbc_cutoff : float
-            Cutoff in eV for including neighbor cells in a calculation with
-            periodic boundary conditions.
-        H2O_layer: bool,int or 'plane' (default: False)
-            True: Exclude the implicit solvent from the interface region
-                between electrode and water. Ghost atoms will be added below
-                the water layer.
-            int: Explicitly account for the given number of water molecules
-                above electrode. This is handy if H2O is directly adsorbed
-                and a water layer is present in the unit cell at the same time.
-            'plane': Use a plane instead of ghost atoms for freeing the
-                surface.
-        unsolv_backside: bool
-            Exclude implicit solvent from the region behind the electrode
-
-        """
         Potential.__init__(self)
         self.atomic_radii = atomic_radii
         self.u0 = float(u0)
@@ -1002,9 +990,6 @@ class SJMPower12Potential(Power12Potential):
 
 
 class SJM_RealSpaceHamiltonian(SolvationRealSpaceHamiltonian):
-    # FIXME If the docs are right this just has a dipole added, so it could
-    # be folded into SolvationGPAW's implementation, right?
-    # GK: Yes, I think that is the only reason why it is a separate class
     """Realspace Hamiltonian with continuum solvent model in the context of
     SJM.
 
@@ -1012,22 +997,13 @@ class SJM_RealSpaceHamiltonian(SolvationRealSpaceHamiltonian):
     A. Held and M. Walter, J. Chem. Phys. 141, 174108 (2014).
 
     In contrast to the standard implicit solvent model a dipole correction can
-    also be applied.
+    also be applied; this is the only difference from its parent.
 
     """
 
     def __init__(self, cavity, dielectric, interactions, gd, finegd, nspins,
                  setups, timer, xc, world, redistributor, vext=None,
                  psolver=None, stencil=3, collinear=None):
-        """Constructor of SJM_RealSpaceHamiltonian class.
-
-
-        Notes
-        -----
-        The only difference to SolvationRealSpaceHamiltonian is the
-        possibility to perform a dipole correction
-
-        """
 
         self.cavity = cavity
         self.dielectric = dielectric
@@ -1120,18 +1096,6 @@ class CavityShapedJellium(Jellium):
 
 
 class SJMDipoleCorrection(DipoleCorrection):
-    # FIXME We should document why this needs to be different than the
-    # standard version. It is not obvious to me.
-    # GK: The standard dipole correction does not work for SJM. If used
-    # the potential is not flat outside. The reason is that there's regions
-    # with  varying dielectric properties in the cell. Thus, the dipole alone
-    # is not enough for canceling the field at the outer regions, since field
-    # is proportional to q/epsilon. Just scaling by espilon doesn't work
-    # either, unfortunately, because of the mentioned inhomogenity in epsilon.
-    # This is why it took me so long to get this working and even now it is
-    # only working iteratively. At some point in the future this should be
-    # revisited (again...) and solved in a more rigorous way. The keyword
-    # here is "Polarization charges", I think.
     """Dipole-correcting wrapper around another PoissonSolver specific for SJM.
 
     Iterative dipole correction class as applied in SJM.
