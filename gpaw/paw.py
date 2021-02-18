@@ -28,27 +28,27 @@ def coulomb(rgd, phi_jg, phit_jg, l_j, gt0_lg):
     for l, gt_g in enumerate(gt_lg):
         assert abs(rgd.integrate(gt_g, l) - 1.0) < 1e-10
 
-    v_jjlg = {}
-    vt_jjlg = {}
+    vr_jjlg = {}
+    vtr_jjlg = {}
     nt_jjlg = {}
     for j1, dn_jg in enumerate(n_jjg - nt_jjg):
         for j2, dn_g in enumerate(dn_jg):
             l12 = l_j[j1] + l_j[j2]
             for l in range(l12 % 2, l12 + 1, 2):
                 dN = rgd.integrate(dn_g, l)
-                v_g = rgd.poisson(n_jjg[j1, j2], l)
-                v_jjlg[j1, j2, l] = v_g
+                vr_g = rgd.poisson(n_jjg[j1, j2], l)
+                vr_jjlg[j1, j2, l] = vr_g
                 nt_g = nt_jjg[j1, j2] + dN * gt_lg[l]
                 nt_jjlg[j1, j2, l] = nt_g
-                vt_g = rgd.poisson(nt_g, l)
-                vt_jjlg[j1, j2, l] = vt_g
+                vtr_g = rgd.poisson(nt_g, l)
+                vtr_jjlg[j1, j2, l] = vtr_g
                 dN = rgd.integrate(nt_g - n_jjg[j1, j2], l)
                 assert abs(dN) < 1e-14
 
-    return n_jjg, nt_jjlg, v_jjlg, vt_jjlg
+    return n_jjg, nt_jjlg, vr_jjlg, vtr_jjlg
 
 
-def coulomb_integrals(rgd, l_j, n_jjg, nt_jjlg, v_jjlg, vt_jjlg):
+def coulomb_integrals(rgd, l_j, n_jjg, nt_jjlg, vr_jjlg, vtr_jjlg):
     lmax = max(l_j)
     G_LLL = gaunt(lmax)
     I = sum(2 * l + 1 for l in l_j)
@@ -61,31 +61,11 @@ def coulomb_integrals(rgd, l_j, n_jjg, nt_jjlg, v_jjlg, vt_jjlg):
                 coef = G_LLL[L1, L2, LL] @ G_LLL[L3, L4, LL]
                 if abs(coef) > 1e-14:
                     C += 2 * np.pi * coef * rgd.integrate(
-                        (n_jjg[j1, j2] * v_jjlg[j3, j4, l] -
-                         nt_jjlg[j1, j2, l] * vt_jjlg[j3, j4, l]), l - 1)
+                        (n_jjg[j1, j2] * vr_jjlg[j3, j4, l] -
+                         nt_jjlg[j1, j2, l] * vtr_jjlg[j3, j4, l]), l - 1)
             C_iiii[i1, i2, i3, i4] = C
 
     return C_iiii
-
-
-def coulomb_integrals_zfs(rgd, l_j, n_jjg, nt_jjlg, v_jjlg, vt_jjlg):
-    lmax = max(l_j)
-    G_LLL = gaunt(lmax)
-    I = sum(2 * l + 1 for l in l_j)
-    C_iiiivv = np.empty((I, I, I, I, 3, 3))
-    for j1, i1, L1, j2, i2, L2 in indices2(l_j):
-        for j3, i3, L3, j4, i4, L4 in indices2(l_j):
-            C = 0.0
-            for l in range(lmax * 2 + 1):
-                LL = slice(l**2, (l + 1)**2)
-                coef = G_LLL[L1, L2, LL] @ G_LLL[L3, L4, LL]
-                if abs(coef) > 1e-14:
-                    C += 2 * np.pi * coef * rgd.integrate(
-                        (n_jjg[j1, j2] * v_jjlg[j3, j4, l] -
-                         nt_jjlg[j1, j2, l] * vt_jjlg[j3, j4, l]), l - 1)
-            C_iiiivv[i1, i2, i3, i4] = C
-
-    return C_iiiivv
 
 
 def main():
