@@ -225,6 +225,8 @@ def initial_localization(wfs, dens, ham, log):
     from gpaw.pipekmezey.wannier_basic import \
         WannierLocalization as wl
     for kpt in wfs.kpt_u:
+        if sum(kpt.f_n > 1.0e-10) < 2:
+            continue
         lf_obj = wl(wfs=wfs, spin=kpt.s)
         lf_obj.localize(tolerance=1.0e-5)
         U = np.ascontiguousarray(
