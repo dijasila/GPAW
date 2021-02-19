@@ -16,12 +16,12 @@ def print_cell(gd, pbc_c, log):
         lengths=par[:3],
         angles=par[3:])
     h_eff = gd.dv**(1.0 / 3.0) * Bohr
-    log.comment(f'Effective grid spacing dv^(1/3) = {h_eff:.4f}')
+    log(f'Effective grid spacing dv^(1/3) = {h_eff:.4f}')
     log()
 
 
 def print_positions(atoms, log, magmom_av):
-    log.comment(plot(atoms))
+    log(plot(atoms))
     symbols = atoms.get_chemical_symbols()
     log(positions=[[a, symbols[a], pos_v, magmom_av[a]]
                    for a, pos_v

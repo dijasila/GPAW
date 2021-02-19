@@ -1,8 +1,8 @@
-import time
-from math import log as ln
+import datetime
+from math import log10, nan, inf
 
 import numpy as np
-from ase.units import Ha, Bohr
+from ase.units import Bohr, Ha
 
 from gpaw import KohnShamConvergenceError
 from gpaw.forces import calculate_forces
@@ -59,34 +59,40 @@ class SCFLoop:
 
     def irun(self, wfs, ham, dens, log, callback):
         self.niter = 1
-        while self.niter <= self.maxiter:
-            wfs.eigensolver.iterate(ham, wfs)
-            e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
-            energy = ham.get_energy(e_entropy, wfs)
-            self.old_energies.append(energy)
-            errors = self.collect_errors(dens, ham, wfs)
 
-            # Converged?
-            for kind, error in errors.items():
-                if error > self.max_errors[kind]:
-                    self.converged = False
+        log("""\
+            ---- log10-errors -----      total
+            time      wfs    density    force      energy    magmom""")
+
+        with log.table('iterations'):
+            while self.niter <= self.maxiter:
+                wfs.eigensolver.iterate(ham, wfs)
+                e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
+                energy = ham.get_energy(e_entropy, wfs)
+                self.old_energies.append(energy)
+                errors = self.collect_errors(dens, ham, wfs)
+
+                # Converged?
+                for kind, error in errors.items():
+                    if error > self.max_errors[kind]:
+                        self.converged = False
+                        break
+                else:
+                    self.converged = True
+
+                callback(self.niter)
+                self.log(log, self.niter, wfs, ham, dens, errors)
+                yield
+
+                if self.converged and self.niter >= self.niter_fixdensity:
                     break
-            else:
-                self.converged = True
 
-            callback(self.niter)
-            self.log(log, self.niter, wfs, ham, dens, errors)
-            yield
-
-            if self.converged and self.niter >= self.niter_fixdensity:
-                break
-
-            if self.niter > self.niter_fixdensity and not dens.fixed:
-                dens.update(wfs)
-                ham.update(dens)
-            else:
-                ham.npoisson = 0
-            self.niter += 1
+                if self.niter > self.niter_fixdensity and not dens.fixed:
+                    dens.update(wfs)
+                    ham.update(dens)
+                else:
+                    ham.npoisson = 0
+                self.niter += 1
 
         # Don't fix the density in the next step:
         self.niter_fixdensity = 0
@@ -123,7 +129,7 @@ class SCFLoop:
                         all(error <= self.max_errors[kind]
                             for kind, error in errors.items()))
 
-        errors['force'] = np.inf
+        errors['force'] = inf
         if check_forces:
             with wfs.timer('Forces'):
                 F_av = calculate_forces(wfs, dens, ham)
@@ -135,76 +141,30 @@ class SCFLoop:
 
     def log(self, log, niter, wfs, ham, dens, errors):
         """Output from each iteration."""
-
         nvalence = wfs.nvalence
-        if nvalence > 0:
-            eigerr = errors['eigenstates'] * Ha**2 / nvalence
-        else:
-            eigerr = 0.0
 
-        T = time.localtime()
-
-        if niter == 1:
-            header = """\
-                     log10-error:    total        iterations:
-           time      wfs    density  energy       poisson"""
-            if wfs.nspins == 2:
-                header += '  magmom'
-            if self.max_errors['force'] < np.inf:
-                l1 = header.find('total')
-                header = header[:l1] + '       ' + header[l1:]
-                l2 = header.find('energy')
-                header = header[:l2] + 'force  ' + header[l2:]
-            log(header)
-
-        if eigerr == 0.0 or np.isinf(eigerr):
-            eigerr = ''
-        else:
-            eigerr = '%+.2f' % (ln(eigerr) / ln(10))
-
-        denserr = errors['density']
-        assert denserr is not None
-        if (denserr is None or np.isinf(denserr) or denserr == 0 or
-            nvalence == 0):
-            denserr = ''
-        else:
-            denserr = '%+.2f' % (ln(denserr / nvalence) / ln(10))
-
-        if ham.npoisson == 0:
-            niterpoisson = ''
-        else:
-            niterpoisson = str(ham.npoisson)
-
-        log('iter: %3d  %02d:%02d:%02d %6s %6s  ' %
-            (niter,
-             T[3], T[4], T[5],
-             eigerr,
-             denserr), end='')
-
-        if self.max_errors['force'] < np.inf:
-            if errors['force'] == 0:
-                log('    -oo', end='')
-            elif errors['force'] < np.inf:
-                log('  %+.2f' %
-                    (ln(errors['force'] * Ha / Bohr) / ln(10)), end='')
-            else:
-                log('       ', end='')
-
-        if np.isfinite(ham.e_total_extrapolated):
-            energy = '{:11.6f}'.format(Ha * ham.e_total_extrapolated)
-        else:
-            energy = ' ' * 11
-
-        log('%s    %-7s' %
-            (energy, niterpoisson), end='')
+        log10errors = [
+            log10(x) if x != 0 else nan
+            for x in [
+                errors['eigenstates'] * Ha**2 / nvalence if nvalence else nan,
+                errors['density'] / nvalence if nvalence else nan,
+                errors['force'] * Ha / Bohr if errors['force'] < inf else nan]]
 
         if wfs.nspins == 2 or not wfs.collinear:
             totmom_v, _ = dens.estimate_magnetic_moments()
             if wfs.collinear:
-                log(f'  {totmom_v[2]:+.4f}', end='')
+                mom = (totmom_v[2], '+.4f')
             else:
-                log(' {:+.1f},{:+.1f},{:+.1f}'.format(*totmom_v), end='')
+                mom = (totmom_v, '+.1f')
+        else:
+            mom = 0
 
+        log.row([niter,
+                 datetime.datetime.now().time(),
+                 *log10errors,
+                 Ha * ham.e_total_extrapolated,
+                 mom],
+                widths=[3, 8, 5, 5, 5, 11, 18])
         log.flush()
 
 

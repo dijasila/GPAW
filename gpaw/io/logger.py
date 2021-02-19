@@ -3,6 +3,8 @@ import sys
 import time
 import textwrap
 import numbers
+import datetime
+import contextlib
 
 import numpy as np
 import ase
@@ -26,6 +28,7 @@ class GPAWLogger(object):
         self.oldfd = 42
 
         self.indent = ''
+        self.comma = False
 
     @property
     def fd(self):
@@ -48,15 +51,36 @@ class GPAWLogger(object):
         self.header()
 
     def __call__(self, *args, **kwargs):
+        assert 'end' not in kwargs
+        assert 'sep' not in kwargs
+        assert 'flush' not in kwargs
         if args:
-            print(*args, file=self._fd, **kwargs)
+            text = ' '.join(str(arg) for arg in args)
+            for line in text.splitlines():
+                self._fd.write(f'{self.indent}# {line}\n')
             return
+
         if not kwargs:
             self._fd.write('\n')
             return
         n = max(len(key) for key in kwargs)
         for key, value in kwargs.items():
             self._fd.write(f'{self.indent}{key:{n}} = {toml(value)}\n')
+
+    @contextlib.contextmanager
+    def table(self, name: str):
+        self._fd.write(f'{name} [')
+        yield
+        self._fd.write(']\n')
+        self.comma = False
+
+    def row(self, things, widths):
+        if self.comma:
+            self._fd.write(',')
+        text = ', '.join(toml(thing).rjust(width)
+                         for thing, width in zip(things, widths))
+        self._fd.write(f'\n[{text}]')
+        self.comma = True
 
     def __enter__(self):
         self.indent += '    '
@@ -67,20 +91,14 @@ class GPAWLogger(object):
     def flush(self):
         self._fd.flush()
 
-    def comment(self, text, dedent=False):
-        if dedent:
-            text = textwrap.dedent(text)
-        for line in text.splitlines():
-            self._fd.write(f'{self.indent}# {line}\n')
-
     def header(self):
-        self.comment(f"""\
-          ___ ___ ___ _ _ _
-         |   |   |_  | | | |
-         | | | | | . | | | |
-         |__ |  _|___|_____|-{gpaw.__version__}
-         |___|_|
-         """, dedent=True)
+        self(textwrap.dedent(f"""\
+                              ___ ___ ___ _ _ _
+                             |   |   |_  | | | |
+                             | | | | | . | | | |
+                             |__ |  _|___|_____|-{gpaw.__version__}
+                             |___|_|
+                             """))
 
         # We use os.uname() here bacause platform.uname() starts a subprocess,
         # which MPI may not like!
@@ -180,9 +198,9 @@ class GPAWLogger(object):
         self('Date: ' + time.asctime())
 
 
-def toml(obj):
+def toml(obj, fmt='.6f'):
     if isinstance(obj, float):
-        return f'{obj:.6f}'
+        return format(obj, fmt)
     if isinstance(obj, numbers.Integral):
         return str(obj)
     if isinstance(obj, str):
@@ -190,13 +208,17 @@ def toml(obj):
     if isinstance(obj, (bool, np.bool_)):
         return str(obj).lower()
     if isinstance(obj, dict):
-        return '{' + ', '.join(f'{key}={toml(value)}'
+        return '{' + ', '.join(f'{key}={toml(value, fmt)}'
                                for key, value in obj.items()) + '}'
+    if isinstance(obj, datetime.time):
+        return obj.strftime('%H-%M-%S')
+    if isinstance(obj, tuple):
+        return toml(*obj)
     if len(obj) == 0:
         return '[]'
     if not isinstance(obj[0], (list, tuple, np.ndarray)):
-        return '[' + ', '.join(toml(element) for element in obj) + ']'
-    return '[\n [' + '],\n ['.join(', '.join(toml(element)
+        return '[' + ', '.join(toml(element, fmt) for element in obj) + ']'
+    return '[\n [' + '],\n ['.join(', '.join(toml(element, fmt)
                                              for element in x)
                                    for x in obj) + ']]'
 
