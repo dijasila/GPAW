@@ -372,9 +372,8 @@ class SJM(SolvationGPAW):
         iteration = 0
         previous_electrons = []
         previous_potentials = []
-        equilibrated = False
 
-        while not equilibrated:
+        while True:
             self.sog('Attempt {:d} to equilibrate potential to {:.3f} +/-'
                      ' {:.3f} V'
                      .format(iteration, p.target_potential, p.tol))
@@ -389,7 +388,9 @@ class SJM(SolvationGPAW):
             if iteration > 0 or 'positions' in system_changes:
                 self.set(background_charge=self._create_jellium())
 
+            # Do the calculation.
             SolvationGPAW.calculate(self, atoms, ['energy'], system_changes)
+            iteration += 1
             true_potential = self.get_electrode_potential()
             self.sog()
             self.sog('Potential found to be {:.5f} V (with {:+.5f} '
@@ -410,7 +411,7 @@ class SJM(SolvationGPAW):
                     p.excess_electrons = (previous_electrons[-1] +
                                           (p.excess_electrons -
                                            previous_electrons[-1]) * 0.5)
-                    continue  # back to while not equilibrated
+                    continue  # back to while True
 
             # Store attempt and calculate slope.
             previous_electrons += [p.excess_electrons]
@@ -425,15 +426,12 @@ class SJM(SolvationGPAW):
                 self.sog('and apparent capacitance of {:.4f} muF/cm^2'
                          .format(capacitance))
 
+            # Check if we're equilibrated.
             if abs(true_potential - p.target_potential) < p.tol:
-                # FIXME/ap: the equilibrated variable doesn't actually do
-                # anything since there's a break here anyway. We could do
-                # 'while True' or 'while iterations < p.max_iters'.
-                equilibrated = True
                 self.sog('Potential is within tolerance. Equilibrated.')
                 if iteration >= 1:
                     self.timer.stop('Potential equilibration loop')
-                if p.always_adjust is False:
+                if not p.always_adjust:
                     break  # out of the while loop
 
             # Guess slope if we don't have enough information yet.
@@ -444,7 +442,7 @@ class SJM(SolvationGPAW):
                          ' corresponding\nto an apparent capacitance of '
                          '10 muF/cm^2.'.format(p.slope))
 
-            iteration += 1
+            # End if too many iterations.
             if iteration == p.max_iters:
                 msg = ('Potential could not be reached after {:d} iterations. '
                        'This may indicate your workfunction is noisier than '
