@@ -24,7 +24,7 @@ from gpaw.solvation.poisson import WeightedFDPoissonSolver
 
 
 def get_traceback_string():
-    # FIXME. Temporary function for debugging.
+    # TODO. Temporary function for debugging.
     # (Will delete right before merge request.)
     # I guess traceback.format_stack would work easier!
     filelike = StringIO()
@@ -202,7 +202,7 @@ class SJM(SolvationGPAW):
         SolvationGPAW.__init__(self, restart, **kwargs)
 
     def sog(self, message=''):
-        # FIXME: Delete after all is set up.
+        # TODO: Delete after all is set up.
         message = 'SJ: ' + str(message)
         self.log(message)
         self.log.flush()
