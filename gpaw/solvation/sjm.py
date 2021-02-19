@@ -31,28 +31,18 @@ def get_traceback_string():
     traceback.print_stack(file=filelike)
     return filelike.getvalue()
 
-# FIXME/ap: The 'verbose' keyword leads to some strange things; i.e., you
-# only get one trace (they overwrite eachother) in a trajectory, the user
-# can't really change the name, etc.
-# Perhaps we should just make this a command the user can run at the end of
-# a script? I.e.,
-#  calc.get_potential_energy()
-#  calc.write_sjm_traces()
-# Then, the method itself can take whatever options we want to give to the
-# user, like which traces to save, directory, whatever.
-# I guess this is *almost* implemented anyway with the write_cavity...
-# method, so wouldn't take much to change.
-# ?
-
 # TODO/ap: Update website documentation when we're all through here.
 
 # FIXME/ap: Do we need to check somewhere that the user has a dipole
 # correction turned on? I guess they'll get an error about no work function
 # if they don't? We can probably ignore.
+# UPdate in default parameters as below.
 
 # FIXME/ap: There was some local hack we had to ASE to allow it to put the
 # excess electrons and potential into the trajectory file. Do we want to
 # put this hack in as a MR to ASE first?
+# Could we delete assert line in ase/calculator/singlepoint
+# We should probably do this.
 
 
 class SJM(SolvationGPAW):
@@ -145,14 +135,6 @@ class SJM(SolvationGPAW):
             to a change in the atomic geometry during a relaxation.
             Omitted in a 'cavity_like' jelliumregion.
             Default: False
-
-    verbose: bool or 'cube'
-        True:
-            Write final electrostatic potential, background charge and
-            and cavity into ASCII files.
-        'cube':
-            In addition to 'True', also write the cavity on the
-            3D-grid into a cube file.
     write_grandpotential_energy: bool
         Write the grand-potential energy into output files such as
         trajectory files. Default: True
@@ -186,6 +168,7 @@ class SJM(SolvationGPAW):
                               'excess_electrons', 'electrode_potential']
 
     default_parameters = copy.deepcopy(SolvationGPAW.default_parameters)
+    # XXX default_parameters.update({'poisson...':)
     default_parameters.update(
         {'sj': {'excess_electrons': 0.,
                 'jelliumregion': {'top': -1.,
@@ -196,7 +179,6 @@ class SJM(SolvationGPAW):
                 'write_grandpotential_energy': True,
                 'tol': 0.01,
                 'always_adjust': False,
-                'verbose': False,
                 'max_iters': 10.,
                 'slope': None}})
 
@@ -280,6 +262,7 @@ class SJM(SolvationGPAW):
                 #     define_jellium ;).
                 # AP: Can you give a use case where it fails with the line
                 # below removed so we can figure out the error?
+                # GK will send or I'll try on my own.
                 self.set(background_charge=self.define_jellium(self.atoms))
 
         if 'excess_electrons' in sj_changes:
@@ -332,15 +315,6 @@ class SJM(SolvationGPAW):
                         self.density.background_charge.set_grid_descriptor(
                             self.density.finegd)
 
-                    # self.spos_ac = self.atoms.get_scaled_positions() % 1.0
-                    # FIXME/ap: I changed the previous to call _set_atoms
-                    # due to the stern warning in GPAW._set_atoms, which
-                    # says:
-                    #    GPAW works in terms of the scaled positions. We
-                    #    want to extract the scaled positions in only one
-                    #    place, and that is here. No other place may
-                    #    recalculate them, or we might end up with rounding
-                    #    errors and inconsistencies.
                     self._set_atoms(self.atoms)
                     self.density.mixer.reset()
                     self.wfs.initialize(self.density, self.hamiltonian,
@@ -379,15 +353,6 @@ class SJM(SolvationGPAW):
             self.sog(' Constant-potential mode.')
             self.sog(' Target potential: {:.5f} +/- {:.5f}'
                      .format(p.target_potential, p.tol))
-            if not 2. < p.target_potential < 7.:
-                # FIXME/ap: Do we want to hardcode in these limits? I.e.,
-                # Li+ + e- <-> Li(s) is at -3.04 V_SHE. So I think that
-                # would be around a target potential of around 1, and that
-                # would be a very reasonable thing to do if studying
-                # battery electrodes.
-                self.sog('Warning! Your target potential might be '
-                         'unphysical. Keep in mind 0 V_SHE is ~4.4 '
-                         'in the input')
             self.sog(' Initial guess of excess electrons: {:.5f}'
                      .format(p.excess_electrons))
             if self.parameters.convergence['workfunction'] >= p.tol:
@@ -413,12 +378,6 @@ class SJM(SolvationGPAW):
 
         self.results['excess_electrons'] = p.excess_electrons
         self.results['electrode_potential'] = self.get_electrode_potential()
-
-        if p.verbose:
-            # FIXME/ap: Why do we write cavity/background charge here, but
-            # write electrostatic potential in SJM.summary? Can we move the
-            # two lines together?
-            self.write_cavity_and_bckcharge()
 
     def _equilibrate_potential(self, atoms, system_changes):
         """Adjusts the number of electrons until the potential reaches the
@@ -484,6 +443,7 @@ class SJM(SolvationGPAW):
                          '10 muF/cm^2.'.format(p.slope))
 
             # Check to make sure we're doing something reasonable.
+            # XXX Use max step, let user specify. 2 V default.
             user_warned = False
             if true_potential < 2 and len(previous_potentials) > 1:
                 # FIXME/ap: Again, do we want to hardcode in a limit of 2?
@@ -555,28 +515,31 @@ class SJM(SolvationGPAW):
         del previous_potentials[-1]
         del previous_electrons[-1]
 
-        # FIXME/ap: Should the next line refer to [-1], not [-2], since we
-        # already deleted the last entry? Otherwise I think we're going
-        # back too far in history.
-        self.wfs.nvalence = self.setups.nvalence + previous_electrons[-2]
+        self.wfs.nvalence = self.setups.nvalence + previous_electrons[-1]
         # FIXME/ap: Although the math works here, it will report an
         # erroneous slope to the user.
         p.slope = 2. * calculate_slope(previous_electrons, previous_potentials)
         p.excess_electrons = previous_electrons[-1]
         return previous_potentials[-1]
 
-    def write_cavity_and_bckcharge(self):
-        p = self.parameters['sj']
-        write_trace_in_z(self.density.finegd, self.hamiltonian.cavity.g_g,
-                         name='cavity_')
-        if p.verbose == 'cube':
-            write_property_on_grid(self.density.finegd,
-                                   self.hamiltonian.cavity.g_g,
-                                   atoms=self.atoms, name='cavity')
-
-        write_trace_in_z(self.density.finegd,
-                         self.density.background_charge.mask_g,
-                         name='background_charge_')
+    def write_sjm_traces(self, path='sjm_traces', style='z',
+                         props=('potential', 'cavity', 'background_charge')):
+        """Write traces of quantities in `props` to file on disk; traces will be
+        stored within specified path. Default is to save as vertical traces
+        (style 'z'), but can also save as cube (specify `style='cube'`)."""
+        grid = self.density.finegd
+        data = {'cavity': self.hamiltonian.cavity.g_g,
+                'background_charge': self.density.background_charge.mask_g,
+                'potential': (self.hamiltonian.vHt_g * Ha -
+                              self.get_fermi_level())}
+        if not os.path.exists(path) and gpaw.mpi.world.rank == 0:
+            os.makedirs(path)
+        for prop in props:
+            if style == 'z':
+                write_trace_in_z(grid, data[prop], prop + '.txt', path)
+            elif style == 'cube':
+                write_property_on_grid(grid, data[prop], self.atoms,
+                                       prop + '.cube', path)
 
     def summary(self):
         p = self.parameters['sj']
@@ -609,15 +572,6 @@ class SJM(SolvationGPAW):
             except ValueError:
                 pass
         self.log.fd.flush()
-
-        if p.verbose:
-            # FIXME/ap: This overwrites every time, right? I.e., if you set
-            # verbose=True on a relaxation you only see the results for the
-            # final step. Is this what we want?
-            write_trace_in_z(self.density.finegd,
-                             self.hamiltonian.vHt_g * Ha -
-                             self.get_fermi_level(),
-                             'elstat_potential_')
 
     def define_jellium(self, atoms):
         # FIXME/ap: This should probably be an internal method, i.e.,
@@ -781,14 +735,11 @@ class SJM(SolvationGPAW):
         xc.set_grid_descriptor(self.hamiltonian.finegd)
 
 
-def write_trace_in_z(grid, property, name='g_z.out', dir='sjm_verbose'):
+def write_trace_in_z(grid, property, name='prop.txt', dir='sjm'):
     """Writes out a property (like electrostatic potential, cavity, or
     background charge) as a function of the z coordinate only. `grid` is the
     grid descriptor, typically self.density.finegd. `property` is the property
     to be output, on the same grid."""
-    if gpaw.mpi.world.rank == 0:
-        if not os.path.exists(dir):
-            os.makedirs(dir)
     property = grid.collect(property, broadcast=True)
     property_z = property.mean(0).mean(0)
     with paropen(os.path.join(dir, name), 'w') as f:
@@ -796,21 +747,14 @@ def write_trace_in_z(grid, property, name='g_z.out', dir='sjm_verbose'):
             f.write('%f %1.8f\n' % ((i + 1) * grid.h_cv[2][2] * Bohr, val))
 
 
-def write_property_on_grid(grid, property, atoms=None, name='func.cube',
-                           dir='sjm_verbose'):
+def write_property_on_grid(grid, property, atoms=None, name='prop',
+                           dir='sjm'):
     """Writes out a property (like electrostatic potential, cavity, or
     background charge) on the grid, as a cube file. `grid` is the
     grid descriptor, typically self.density.finegd. `property` is the property
     to be output, on the same grid."""
-    if gpaw.mpi.world.rank == 0:
-        if not os.path.exists(dir):
-            os.makedirs(dir)
     property = grid.collect(property, broadcast=True)
-    ase.io.write(name + '.cube', atoms, data=property)
-
-    # FIXME/ap: I took out the option to write as pickle, since it wasn't
-    # being used anywhere and Ask wants to get rid of all uses of pickle.
-    # If you need something like that, perhaps we can do json.
+    ase.io.write(os.path.join(dir, name), atoms, data=property)
 
 
 def calculate_slope(previous_electrons, previous_potentials):
