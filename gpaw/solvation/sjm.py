@@ -399,14 +399,6 @@ class SJM(SolvationGPAW):
         self.results['excess_electrons'] = p.excess_electrons
         self.results['electrode_potential'] = self.get_electrode_potential()
 
-        # FIXME: I believe that in the current version if you call
-        #  atoms.get_potential_energy()
-        #  atoms.get_forces()
-        # Then the second line triggers a new SCF cycle even though
-        # it should just pull the forces from the first.
-        # I'm pretty sure this is because the line is invoked again:
-        #        self.set(background_charge=self.define_jellium(atoms))
-        # GK: Will test
         if p.verbose:
             self.write_cavity_and_bckcharge()
 
@@ -599,6 +591,9 @@ class SJM(SolvationGPAW):
         self.log.fd.flush()
 
         if p.verbose:
+            # FIXME/ap: This overwrites every time, right? I.e., if you set
+            # verbose=True on a relaxation you only see the results for the
+            # final step. Is this what we want?
             self.write_parallel_func_in_z(self.hamiltonian.vHt_g * Ha -
                                           self.get_fermi_level(),
                                           'elstat_potential_')
@@ -723,7 +718,8 @@ class SJM(SolvationGPAW):
         return self.hamiltonian.get_workfunctions(self.wfs.fermi_level)[1] * Ha
 
     """Various tools for writing global functions"""
-    # FIXME/ap: These two methods can probably be made into functions.
+    # FIXME/ap: These two methods can probably be made into functions, as
+    # I believe Ask recommends we do when they don't need to be methods.
 
     def write_parallel_func_in_z(self, g, name='g_z.out'):
         # FIXME: This needs some documentation!
