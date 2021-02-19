@@ -319,7 +319,7 @@ class WLDA(XCFunctional):
         numerically inaccuracy to avoid complex energies.
         """
         alpha_indices = self.construct_alphas(wn_sg)
-        assert type(alpha_indices[0]) == int
+        assert len(alpha_indices) == 0 or type(alpha_indices[0]) == int
 
         nstar_sg = self.alt_weight(wn_sg, alpha_indices, self.gd)
 
@@ -507,6 +507,8 @@ class WLDA(XCFunctional):
 
     def distribute_alphas(self, nindicators, rank, size):
         """Distribute alphas across mpi ranks."""
+        if nindicators <= size:
+            return range(rank, min(rank + 1, nindicators))
         nalphas = nindicators // size
         nalphas0 = nalphas + (nindicators - nalphas * size)
         assert (nalphas * (size - 1) + nalphas0 == nindicators)
@@ -876,7 +878,7 @@ class WLDA(XCFunctional):
         """
         assert np.allclose(f_g, f_g.real)
         assert np.allclose(n_g, n_g.real)
-        assert type(my_alpha_indices[0]) == int
+        assert len(my_alpha_indices) == 0 or type(my_alpha_indices[0]) == int
 
         res_g = np.zeros_like(f_g)
 
