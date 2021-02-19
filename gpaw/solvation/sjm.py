@@ -330,13 +330,9 @@ class SJM(SolvationGPAW):
 
     def calculate(self, atoms=None, properties=['energy'],
                   system_changes=['cell']):
-        """
-        Perform a calculation with SJM.
-
-        This method includes the potential equilibration loop.
-        It is essentially a wrapper around GPAW.calculate()
-
-        """
+        """Perform an electronic structure calculation, with either a
+        constant number of electrons or a target potential, as requested by
+        the user."""
 
         self.sog('Solvated jellium method (SJM) calculation:')
 
@@ -344,11 +340,6 @@ class SJM(SolvationGPAW):
             # Need to be set before ASE's Calculator.calculate gets to it.
             self.atoms = atoms.copy()
 
-        # FIXME: Should results be zerod when set is called? That might be
-        # easiest. Then I can check here if the results are not zero
-        # and we can calculate things directly.
-        # GK: In general yes. However, some keywords might not need it
-        # e.g. dpot
         p = self.parameters['sj']
 
         if not p.target_potential:
@@ -516,8 +507,9 @@ class SJM(SolvationGPAW):
             if iteration == p.max_iters:
                 msg = ('Potential could not be reached after {:d} iterations. '
                        'This may indicate your workfunction is noisier than '
-                       'your potential tol. You may try setting the convergence'
-                       '["workfunction"] keyword. Aborting!'.format(iteration))
+                       'your potential tol. You may try setting the '
+                       'convergence["workfunction"] keyword. Aborting!'
+                       .format(iteration))
                 self.sog(msg)
                 raise Exception(msg)
 
