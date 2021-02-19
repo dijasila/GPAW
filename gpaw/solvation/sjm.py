@@ -150,17 +150,17 @@ class SJM(SolvationGPAW):
         internally at subsequent steps. If None, will be guessed based on
         apparent capacitance of 10 uF/cm^2.
 
-    Special methods (in addition to those of GPAW/SolvationGPAW):
+    Special SJM methods (in addition to those of GPAW/SolvationGPAW):
 
-    get_electrode_potential()
+    get_electrode_potential
         Returns the potential of the simulated electrode, in V, relative
         to the vacuum.
 
+    write_sjm_traces
+        Write traces of quantities like electrostatic potential or cavity
+        to disk.
+
     """
-    # FIXME/ap: List methods defined in the sjm that are useful to the
-    # user. I.e., methods defined here, in whatever standard documentation
-    # format is appropriate. This would be get_potential and
-    # write_sjm_traces, or whatever. (To-do)
     implemented_properties = ['energy', 'forces', 'stress', 'dipole',
                               'magmom', 'magmoms',
                               'excess_electrons', 'electrode_potential']
@@ -247,28 +247,10 @@ class SJM(SolvationGPAW):
 
         if 'target_potential' in sj_changes:
             self.results = {}
-
-        if 'jelliumregion' in sj_changes:
-            self.results = {}
-            if self.atoms:
-                # FIXME/AP: Is this needed here? Isn't called every time in
-                # self.calculate, and since the results are {}'d out above
-                # it will be called then?
-                # GK: That's what I did before, but now it seems having
-                #     an empty results dictionary is not triggering a
-                #     calculation anymore. So I am triggering it by using
-                #     define_jellium ;).
-                # AP: Can you give a use case where it fails with the line
-                # below removed so we can figure out the error?
-                # GK will send or I'll try on my own.
-                self.set(background_charge=self.define_jellium(self.atoms))
-
         if 'excess_electrons' in sj_changes:
             self.results = {}
-
-            if self.atoms:
-                # FIXME/ap: Same question as above.
-                self.set(background_charge=self.define_jellium(self.atoms))
+        if 'jelliumregion' in sj_changes:
+            self.results = {}
 
         if 'tol' in sj_changes:
             try:
@@ -318,7 +300,8 @@ class SJM(SolvationGPAW):
                     self.wfs.initialize(self.density, self.hamiltonian,
                                         self.spos_ac)
                     self.wfs.eigensolver.reset()
-                    self.scf.reset()
+                    if self.scf:
+                        self.scf.reset()
 
                 self.wfs.nvalence = self.setups.nvalence + p.excess_electrons
                 self.sog('Number of valence electrons is now {:.5f}'
@@ -594,9 +577,8 @@ class SJM(SolvationGPAW):
         # Catch incompatible specifications.
         if jellium['thickness'] is not None:
             if jellium['bottom'] == 'cavity_like':
-                raise RuntimeError("With a cavity-like counter charge only "
-                                   "the keyword 'top' (not "
-                                   "'thickness') can be used.")
+                raise ValueError("With a cavity-like counter charge only the "
+                                 "keyword 'top' (not 'thickness') allowed.")
 
         # We need 2 of the 3 "specifieds" below.
         specifieds = [(jellium['top'] is not None),
@@ -670,6 +652,10 @@ class SJM(SolvationGPAW):
                 self.initialized = False
             else:
                 self.set_positions(atoms)
+                # FIXME/ap: If you start with a fixed bottom, run a calc,
+                # then hot-switch to cavity_like it crashes here. Not sure
+                # that's common enough to worry about. Wish we understood
+                # how to reset all these things better.
                 g_g = self.hamiltonian.cavity.g_g
             self.sog('Jellium counter-charge defined with:\n'
                      ' Bottom: cavity-like\n'
