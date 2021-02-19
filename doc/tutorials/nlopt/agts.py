@@ -1,7 +1,6 @@
-from myqueue.task import task
+from myqueue.workflow import run
 
 
-def create_tasks():
-    t1 = task('shg_MoS2.py', cores=8)
-    t2 = task('shg_plot.py', deps=[t1])
-    return [t1, t2]
+def workflow():
+    with run(script='shg_MoS2.py', cores=8):
+        run(script='shg_plot.py')

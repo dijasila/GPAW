@@ -1,5 +1,5 @@
-from myqueue.task import task
+from myqueue.workflow import run
 
 
-def create_tasks():
-    return [task('adenine-thymine_complex_stack.py@4:2h')]
+def workflow():
+    run(script='adenine-thymine_complex_stack.py', cores=4, tmax='2h')

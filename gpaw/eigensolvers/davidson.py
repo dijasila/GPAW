@@ -6,6 +6,7 @@ import numpy as np
 from gpaw import debug
 from gpaw.eigensolvers.eigensolver import Eigensolver
 from gpaw.matrix import matrix_matrix_multiply as mmm
+from gpaw.hybrids import HybridXC
 
 
 class DummyArray:
@@ -71,6 +72,9 @@ class Davidson(Eigensolver):
     @timer('Davidson')
     def iterate_one_k_point(self, ham, wfs, kpt, weights):
         """Do Davidson iterations for the kpoint"""
+        if isinstance(ham.xc, HybridXC):
+            self.niter = 1
+
         bd = wfs.bd
         B = bd.nbands
 
