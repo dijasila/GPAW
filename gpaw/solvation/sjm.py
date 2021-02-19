@@ -33,11 +33,6 @@ def get_traceback_string():
 
 # TODO/ap: Update website documentation when we're all through here.
 
-# FIXME/ap: Do we need to check somewhere that the user has a dipole
-# correction turned on? I guess they'll get an error about no work function
-# if they don't? We can probably ignore.
-# UPdate in default parameters as below.
-
 # FIXME/ap: There was some local hack we had to ASE to allow it to put the
 # excess electrons and potential into the trajectory file. Do we want to
 # put this hack in as a MR to ASE first?
@@ -79,6 +74,9 @@ class SJM(SolvationGPAW):
     function of the slab. Therefore, a potential of 0 V_SHE corresponds to
     a work function of roughly 4.4 eV. (That is, the user should specify
     target_potential as 4.4 in this case.)
+
+    This method requires a poissonsolver, and this is turned on
+    automatically, but can be overwritten with the poissonsolver keyword.
 
     The SJM class takes a single argument, the sj dictionary. All other
     arguments are fed to the parent SolvationGPAW (and therefore GPAW)
@@ -168,7 +166,7 @@ class SJM(SolvationGPAW):
                               'excess_electrons', 'electrode_potential']
 
     default_parameters = copy.deepcopy(SolvationGPAW.default_parameters)
-    # XXX default_parameters.update({'poisson...':)
+    default_parameters.update({'poissonsolver': {'dipolelayer': 'xy'}})
     default_parameters.update(
         {'sj': {'excess_electrons': 0.,
                 'jelliumregion': {'top': -1.,
