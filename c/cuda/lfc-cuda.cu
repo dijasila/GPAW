@@ -170,7 +170,7 @@ extern "C" {
         const PyArrayObject* G_B_obj;
         const PyArrayObject* W_B_obj;
         double dv;
-        const PyArrayObject* phase_kW_obj;
+        PyArrayObject* phase_kW_obj;
         int cuda = 1;
 
         if (!PyArg_ParseTuple(args, "OOOOdO|iO",
@@ -189,7 +189,7 @@ extern "C" {
         volume_W_gpu = GPAW_MALLOC(LFVolume_gpu, self->nW);
 
         if (self->bloch_boundary_conditions) {
-            max_k = phase_kW_obj->dimensions[0];
+            max_k = PyArray_DIMS(phase_kW_obj)[0];
         }
         self->max_k = max_k;
         self->max_len_A_gm = 0;
@@ -198,15 +198,15 @@ extern "C" {
             LFVolume_gpu* v_gpu = &volume_W_gpu[W];
             LFVolume* v = &self->volume_W[W];
 
-            const PyArrayObject* A_gm_obj =
-                (const PyArrayObject*) PyList_GetItem(A_Wgm_obj, W);
+            PyArrayObject* A_gm_obj =
+                (PyArrayObject*) PyList_GetItem(A_Wgm_obj, W);
 
             double *work_A_gm = GPAW_MALLOC(double, self->ngm_W[W]);
             GPAW_CUDAMALLOC(&(v_gpu->A_gm), double, self->ngm_W[W]);
 
             memcpy(work_A_gm, v->A_gm, sizeof(double) * self->ngm_W[W]);
-            transp(work_A_gm, A_gm_obj->dimensions[0],
-                   A_gm_obj->dimensions[1], sizeof(double));
+            transp(work_A_gm, PyArray_DIMS(A_gm_obj)[0],
+                   PyArray_DIMS(A_gm_obj)[1], sizeof(double));
             GPAW_CUDAMEMCPY(v_gpu->A_gm, work_A_gm, double, self->ngm_W[W],
                             cudaMemcpyHostToDevice);
             free(work_A_gm);

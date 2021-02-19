@@ -85,20 +85,20 @@ extern "C" {
         hc_sizea.y = (int) PyLong_AsLong(PyTuple_GetItem(shape, nd-3+1));
         hc_sizea.z = (int) PyLong_AsLong(PyTuple_GetItem(shape, nd-3+2));
 
-        hc_n.x = ((long*) c_ni->data)[0];
-        hc_n.y = ((long*) c_ni->data)[1];
-        hc_n.z = ((long*) c_ni->data)[2];
+        hc_n.x = ((long*) PyArray_DATA(c_ni))[0];
+        hc_n.y = ((long*) PyArray_DATA(c_ni))[1];
+        hc_n.z = ((long*) PyArray_DATA(c_ni))[2];
 
-        hc_beg.x = ((long*) c_begi->data)[0];
-        hc_beg.y = ((long*) c_begi->data)[1];
-        hc_beg.z = ((long*) c_begi->data)[2];
+        hc_beg.x = ((long*) PyArray_DATA(c_begi))[0];
+        hc_beg.y = ((long*) PyArray_DATA(c_begi))[1];
+        hc_beg.z = ((long*) PyArray_DATA(c_begi))[2];
 
-        h_strength.x = ((double*) strengthi->data)[0]
-                     * ((double*) c_vi->data)[0+0*3];
-        h_strength.y = ((double*) strengthi->data)[1]
-                     * ((double*) c_vi->data)[1+1*3];
-        h_strength.z = ((double*) strengthi->data)[2]
-                     * ((double*) c_vi->data)[2+2*3];
+        h_strength.x = ((double*) PyArray_DATA(strengthi))[0]
+                     * ((double*) PyArray_DATA(c_vi))[0+0*3];
+        h_strength.y = ((double*) PyArray_DATA(strengthi))[1]
+                     * ((double*) PyArray_DATA(c_vi))[1+1*3];
+        h_strength.z = ((double*) PyArray_DATA(strengthi))[2]
+                     * ((double*) PyArray_DATA(c_vi))[2+2*3];
 
         int gridy = blocks * ((hc_n.y + BLOCK_SIZEY - 1) / BLOCK_SIZEY);
         int gridx = XDIV * ((hc_n.z + BLOCK_SIZEX - 1) / BLOCK_SIZEX);
