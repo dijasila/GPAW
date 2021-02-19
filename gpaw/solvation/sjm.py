@@ -1,3 +1,4 @@
+import os
 import traceback
 from io import StringIO
 import numpy as np
@@ -7,7 +8,9 @@ import ase.io
 from ase.units import Bohr, Ha
 from ase.calculators.calculator import Parameters, equal
 from ase.dft.bandgap import bandgap
+from ase.parallel import paropen
 
+import gpaw.mpi
 from gpaw.jellium import Jellium, JelliumSlab
 from gpaw.hamiltonian import RealSpaceHamiltonian
 from gpaw.fd_operators import Gradient
@@ -27,6 +30,19 @@ def get_traceback_string():
     filelike = StringIO()
     traceback.print_stack(file=filelike)
     return filelike.getvalue()
+
+# FIXME/ap: The 'verbose' keyword leads to some strange things; i.e., you
+# only get one trace (they overwrite eachother) in a trajectory, the user
+# can't really change the name, etc.
+# Perhaps we should just make this a command the user can run at the end of
+# a script? I.e.,
+#  calc.get_potential_energy()
+#  calc.write_sjm_traces()
+# Then, the method itself can take whatever options we want to give to the
+# user, like which traces to save, directory, whatever.
+# I guess this is *almost* implemented anyway with the write_cavity...
+# method, so wouldn't take much to change.
+# ?
 
 
 class SJM(SolvationGPAW):
@@ -391,6 +407,9 @@ class SJM(SolvationGPAW):
         self.results['electrode_potential'] = self.get_electrode_potential()
 
         if p.verbose:
+            # FIXME/ap: Why do we write cavity/background charge here, but
+            # write electrostatic potential in SJM.summary? Can we move the
+            # two lines together?
             self.write_cavity_and_bckcharge()
 
     def _equilibrate_potential(self, atoms, system_changes):
@@ -540,15 +559,16 @@ class SJM(SolvationGPAW):
 
     def write_cavity_and_bckcharge(self):
         p = self.parameters['sj']
-        self.write_parallel_func_in_z(self.hamiltonian.cavity.g_g,
-                                      name='cavity_')
+        write_trace_in_z(self.density.finegd, self.hamiltonian.cavity.g_g,
+                         name='cavity_')
         if p.verbose == 'cube':
-            self.write_parallel_func_on_grid(self.hamiltonian.cavity.g_g,
-                                             atoms=self.atoms,
-                                             name='cavity')
+            write_property_on_grid(self.density.finegd,
+                                   self.hamiltonian.cavity.g_g,
+                                   atoms=self.atoms, name='cavity')
 
-        self.write_parallel_func_in_z(self.density.background_charge.mask_g,
-                                      name='background_charge_')
+        write_trace_in_z(self.density.finegd,
+                         self.density.background_charge.mask_g,
+                         name='background_charge_')
 
     def summary(self):
         p = self.parameters['sj']
@@ -586,9 +606,10 @@ class SJM(SolvationGPAW):
             # FIXME/ap: This overwrites every time, right? I.e., if you set
             # verbose=True on a relaxation you only see the results for the
             # final step. Is this what we want?
-            self.write_parallel_func_in_z(self.hamiltonian.vHt_g * Ha -
-                                          self.get_fermi_level(),
-                                          'elstat_potential_')
+            write_trace_in_z(self.density.finegd,
+                             self.hamiltonian.vHt_g * Ha -
+                             self.get_fermi_level(),
+                             'elstat_potential_')
 
     def define_jellium(self, atoms):
         """Creates the counter charge."""
@@ -709,53 +730,49 @@ class SJM(SolvationGPAW):
         to the vacuum. This comes directly from the work function."""
         return self.hamiltonian.get_workfunctions(self.wfs.fermi_level)[1] * Ha
 
-    """Various tools for writing global functions"""
-    # FIXME/ap: These two methods can probably be made into functions, as
-    # I believe Ask recommends we do when they don't need to be methods.
-
-    def write_parallel_func_in_z(self, g, name='g_z.out'):
-        # FIXME: This needs some documentation!
-        gd = self.density.finegd
-        from gpaw.mpi import world
-        G = gd.collect(g, broadcast=False)
-        if world.rank == 0:
-            # FIXME/ap: I guess this could use ASE's paropen?
-            G_z = G.mean(0).mean(0)
-            name += '.'.join(self.log.fd.name.split('.')[:-1]) + '.out'
-            out = open(name, 'w')
-            # out = open(name + self.log.fd.name.split('.')[0] + '.out', 'w')
-            for i, val in enumerate(G_z):
-                out.writelines('%f  %1.8f\n' % ((i + 1) * gd.h_cv[2][2] * Bohr,
-                               val))
-            out.close()
-
-    def write_parallel_func_on_grid(self, g, atoms=None, name='func.cube',
-                                    outstyle='cube'):
-        gd = self.density.finegd
-        G = gd.collect(g, broadcast=False)
-        if outstyle == 'cube':
-            ase.io.write(name + '.cube', atoms, data=G)
-        elif outstyle == 'pckl':
-            # FIXME/ap to GK: Ask is trying to delete all uses of pickle from
-            # ASE for security issues. The keyword 'outstyle' is never
-            # employed elsewhere in the code, so I'll delete this pickle
-            # stuff if you don't object and we'll just keep the cube.
-            import pickle
-            out = open(name, 'wb')
-            pickle.dump(G, out)
-            out.close()
-
     def initialize(self, atoms=None, reading=False):
         """Inexpensive initialization."""
+        # This catches CavityShapedJellium, which GPAW's initialize does not
+        # know how to handle on restart. We can delete and it will it will be
+        # recreated by the define_jellium method when needed.
         background_charge = self.parameters['background_charge']
         if isinstance(background_charge, dict):
             if 'z1' in background_charge:
                 if background_charge['z1'] == 'cavity_like':
-                    # This is CavityShapedJellium, which GPAW's initialize
-                    # does not know how to handle. We can delete and it will
-                    # be recreated by the define_jellium method when needed.
                     self.parameters['background_charge'] = None
         SolvationGPAW.initialize(self=self, atoms=atoms, reading=reading)
+
+
+def write_trace_in_z(grid, property, name='g_z.out', dir='sjm_verbose'):
+    """Writes out a property (like electrostatic potential, cavity, or
+    background charge) as a function of the z coordinate only. `grid` is the
+    grid descriptor, typically self.density.finegd. `property` is the property
+    to be output, on the same grid."""
+    if gpaw.mpi.world.rank == 0:
+        if not os.path.exists(dir):
+            os.makedirs(dir)
+    property = grid.collect(property, broadcast=True)
+    property_z = property.mean(0).mean(0)
+    with paropen(os.path.join(dir, name), 'w') as f:
+        for i, val in enumerate(property_z):
+            f.write('%f %1.8f\n' % ((i + 1) * grid.h_cv[2][2] * Bohr, val))
+
+
+def write_property_on_grid(grid, property, atoms=None, name='func.cube',
+                           dir='sjm_verbose'):
+    """Writes out a property (like electrostatic potential, cavity, or
+    background charge) on the grid, as a cube file. `grid` is the
+    grid descriptor, typically self.density.finegd. `property` is the property
+    to be output, on the same grid."""
+    if gpaw.mpi.world.rank == 0:
+        if not os.path.exists(dir):
+            os.makedirs(dir)
+    property = grid.collect(property, broadcast=True)
+    ase.io.write(name + '.cube', atoms, data=property)
+
+    # FIXME/ap: I took out the option to write as pickle, since it wasn't
+    # being used anywhere and Ask wants to get rid of all uses of pickle.
+    # If you need something like that, perhaps we can do json.
 
 
 def calculate_slope(previous_electrons, previous_potentials):
