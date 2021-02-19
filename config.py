@@ -206,3 +206,97 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
     print(cmd)
     error = os.system(cmd)
     return error
+
+def build_cuda(gpu_compiler, gpu_compile_args, gpu_include_dirs,
+               compiler, extra_compile_args, include_dirs, define_macros,
+               parallel_python_interpreter):
+
+    cfgDict = get_config_vars()
+    plat = distutils.util.get_platform() + '-' + sys.version[0:3]
+
+    macros = []
+    macros.extend(define_macros)
+    if parallel_python_interpreter:
+        macros.append(('PARALLEL', '1'))
+    macros = ' '.join(['-D%s=%s' % x for x in macros if x[0].strip()])
+
+    includes = []
+    includes.append(cfgDict['INCLUDEPY'])
+    includes.extend(include_dirs)
+    includes.extend(gpu_include_dirs)
+    includes.append('c/cuda')
+    includes = ' '.join(['-I' + incdir for incdir in includes])
+
+    ccflags = ' '.join(extra_compile_args + ['-fPIC'])
+    nvccflags = ' '.join(gpu_compile_args)
+
+    objects = []
+
+    build_path = Path('build/temp.%s' % plat)
+    build_path_cuda = Path(build_path, 'c/cuda')
+    if not build_path_cuda.exists():
+        try:
+            build_path_cuda.mkdir(parents=True)
+        except FileExistsError:
+            pass
+
+    # compile C files
+    cfiles = Path('c/cuda').glob('*.c')
+    cfiles = [str(source) for source in cfiles]
+    cfiles.sort()
+    for src in cfiles:
+        obj = os.path.join(build_path, src + '.o')
+        objects.append(obj)
+        cmd = ('%s %s %s %s -o %s -c %s ') % \
+              (compiler,
+               macros,
+               ccflags,
+               includes,
+               obj,
+               src)
+        print(cmd)
+        error = os.system(cmd)
+        if error != 0:
+            return error
+
+    # compile CUDA files
+    cudafiles = ['c/cuda/fd-cuda.cu',
+                 'c/cuda/interpolate-cuda.cu',
+                 'c/cuda/paste-cuda.cu',
+                 'c/cuda/relax-cuda.cu',
+                 'c/cuda/restrict-cuda.cu',
+                 'c/cuda/cut-cuda.cu',
+                 'c/cuda/translate-cuda.cu',
+                 'c/cuda/lfc-cuda.cu',
+                 'c/cuda/ext-pot-cuda.cu',
+                 'c/cuda/mblas-cuda.cu',
+                 'c/cuda/blas-cuda.cu',
+                 'c/cuda/linalg-cuda.cu',
+                 'c/cuda/elementwise.cu']
+    for src in cudafiles:
+        obj = os.path.join(build_path, src[:-2] + 'o')
+        objects.append(obj)
+        cmd = ("%s %s %s --compiler-options='%s' %s -o %s -c %s ") % \
+              (gpu_compiler,
+               macros,
+               nvccflags,
+               ccflags,
+               includes,
+               obj,
+               src)
+        print(cmd)
+        error = os.system(cmd)
+        if error != 0:
+            return error
+
+    # link into a static lib
+    lib = 'build/temp.%s/libgpaw-cuda.a' % plat
+    cmd = ('ar cr %s %s') % (lib, ' '.join(objects))
+    print(cmd)
+    error = os.system(cmd)
+    if error != 0:
+        return error
+    cmd = 'ranlib %s' % lib
+    print(cmd)
+    error = os.system(cmd)
+    return error

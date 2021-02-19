@@ -14,7 +14,8 @@ from subprocess import run, PIPE
 import sys
 from pathlib import Path
 
-from config import check_dependencies, write_configuration, build_interpreter
+from config import (check_dependencies, write_configuration,
+                    build_interpreter, build_cuda)
 
 
 assert sys.version_info >= (3, 6)
@@ -56,6 +57,10 @@ mpi_include_dirs = []
 mpi_runtime_library_dirs = []
 mpi_define_macros = []
 
+gpu_compiler = None
+gpu_compile_args = []
+gpu_include_dirs = []
+
 parallel_python_interpreter = False
 compiler = None
 noblas = False
@@ -64,6 +69,7 @@ fftw = False
 scalapack = False
 libvdwxc = False
 elpa = False
+cuda = False
 
 if os.name != 'nt' and run(['which', 'mpicc'], stdout=PIPE).returncode == 0:
     mpicompiler = 'mpicc'
@@ -115,6 +121,13 @@ if platform_id:
 
     distutils.util.get_platform = my_get_platform
 
+if cuda:
+    if gpu_compiler is None:
+        gpu_compiler = 'nvcc'
+    library_dirs.append('build/temp.%s' % plat + '-' + sys.version[0:3])
+    if 'gpaw-cuda' not in libraries:
+        libraries.append('gpaw-cuda')
+
 if compiler is not None:
     # A hack to change the used compiler and linker:
     vars = get_config_vars()
@@ -140,7 +153,8 @@ for flag, name in [(noblas, 'GPAW_WITHOUT_BLAS'),
                    (fftw, 'GPAW_WITH_FFTW'),
                    (scalapack, 'GPAW_WITH_SL'),
                    (libvdwxc, 'GPAW_WITH_LIBVDWXC'),
-                   (elpa, 'GPAW_WITH_ELPA')]:
+                   (elpa, 'GPAW_WITH_ELPA'),
+                   (cuda, 'GPAW_CUDA')]:
     if flag:
         define_macros.append((name, '1'))
 
@@ -185,6 +199,14 @@ class build_ext(_build_ext):
     def run(self):
         import numpy as np
         self.include_dirs.append(np.get_include())
+
+        if cuda:
+            gpu_include_dirs.append(np.get_include())
+            error = build_cuda(gpu_compiler, gpu_compile_args,
+                               gpu_include_dirs,
+                               compiler, extra_compile_args, include_dirs,
+                               define_macros, parallel_python_interpreter)
+            assert error == 0
 
         _build_ext.run(self)
 
