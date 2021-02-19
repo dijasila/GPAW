@@ -56,16 +56,17 @@ class SJM(SolvationGPAW):
     a background charge in the solvent region above the slab
 
     Further details are given in http://dx.doi.org/10.1021/acs.jpcc.8b02465
+    If you use this method, we appreciate it if you cite that work.
 
     The method can be run in two modes:
 
         - Constant charge: The number of excess electrons in the simulation
-          can be directly specified with the `ne` keyword, leaving
-          target_potential=None.
+          can be directly specified with the `excess_electrons` keyword,
+          leaving `target_potential=None`.
         - Constant potential: The target potential (expressed as a work
           function) can be specified with the `target_potential` keyword.
-          Optionally, the `ne` keyword can also be used to specify the initial
-          guess of the number of electrons.
+          Optionally, the `excess_electrons` keyword can be supplied to specify
+          the initial guess of the number of electrons.
 
     By default, this method writes the grand-potential energy to the output;
     that is, the energy that has been adjusted with "- mu N" (in this case,
@@ -73,6 +74,11 @@ class SJM(SolvationGPAW):
     that is compatible with the forces in constant-potential mode and thus
     will behave well with optimizers, NEBs, etc. It is also frequently used in
     subsequent free-energy calculations.
+
+    Within this method, the potential is expressed as the top-side work
+    function of the slab. Therefore, a potential of 0 V_SHE corresponds to
+    a work function of roughly 4.4 eV. (That is, the user should specify
+    target_potential as 4.4 in this case.)
 
     The SJM class takes a single argument, the sj dictionary. All other
     arguments are fed to the parent SolvationGPAW (and therefore GPAW)
@@ -94,8 +100,9 @@ class SJM(SolvationGPAW):
     target_potential: float
         The potential that should be reached or kept in the course of the
         calculation. If set to "None" (default) a constant-charge
-        calculation based on the value of `ne` is performed.
-        Expressed as a workfunction, on the top side of the slab.
+        calculation based on the value of `excess_electrons` is performed.
+        Expressed as a workfunction, on the top side of the slab; see note
+        above.
     tol: float
         Tolerance for the deviation of the target potential.
         If the potential is outside the defined range `ne` will be
@@ -153,6 +160,10 @@ class SJM(SolvationGPAW):
         internally at subsequent steps. If None, will be guessed based on
         apparent capacitance of 10 uF/cm^2.
     """
+    # FIXME/ap: List methods defined in the sjm that are useful to the
+    # user. I.e., methods defined here, in whatever standard documentation
+    # format is appropriate. This would be get_potential and
+    # write_sjm_traces, or whatever.
     implemented_properties = ['energy', 'forces', 'stress', 'dipole',
                               'magmom', 'magmoms',
                               'excess_electrons', 'electrode_potential']
@@ -243,6 +254,8 @@ class SJM(SolvationGPAW):
                 #     an empty results dictionary is not triggering a
                 #     calculation anymore. So I am triggering it by using
                 #     define_jellium ;).
+                # AP: Can you give a use case where it fails with the line
+                # below removed so we can figure out the error?
                 self.set(background_charge=self.define_jellium(self.atoms))
 
         if 'excess_electrons' in sj_changes:
@@ -271,7 +284,11 @@ class SJM(SolvationGPAW):
                     self.sog('Potential already reached the criterion.\n')
 
         if 'background_charge' in kwargs:
-            # background_charge is a GPAW parameter.
+            # background_charge is a GPAW parameter that we handle
+            # internally, as it contains the jellium countercharge. Note if
+            # a user tries to specify an *additional* background charge
+            # this will probably conflict, but we know of no such use
+            # cases.
             if self.wfs is None:
                 SolvationGPAW.set(self, **kwargs)
             else:
@@ -296,8 +313,7 @@ class SJM(SolvationGPAW):
                     self.wfs.eigensolver.reset()
                     self.scf.reset()
 
-                self.wfs.nvalence = (self.setups.nvalence +
-                                     p.excess_electrons)
+                self.wfs.nvalence = self.setups.nvalence + p.excess_electrons
                 self.sog('Number of valence electrons is now {:.5f}'
                          .format(self.wfs.nvalence))
                 # FIXME: background_charge not always called when
@@ -612,6 +628,8 @@ class SJM(SolvationGPAW):
                              'elstat_potential_')
 
     def define_jellium(self, atoms):
+        # FIXME/ap: This should probably be an internal method, i.e.,
+        # self._define_jellium().
         """Creates the counter charge."""
 
         p = self.parameters['sj']
