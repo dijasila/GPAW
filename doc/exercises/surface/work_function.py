@@ -1,10 +1,10 @@
 import numpy as np
-import pylab as plt
+import matplotlib.pyplot as plt
 
 from gpaw import GPAW
 
 # Read in the 5-layer slab:
-calc = GPAW('slab-5.gpw', txt=None)
+calc = GPAW('slab-5.gpw')
 slab = calc.get_atoms()
 
 # Get the height of the unit cell:
