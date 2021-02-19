@@ -84,7 +84,7 @@ extern "C" {
         }
         int nvec = (int) PyLong_AsLong(PyTuple_GetItem(x_shape, 0));
 
-        if (type->type_num == PyArray_DOUBLE) {
+        if (type->type_num == NPY_DOUBLE) {
             int gridx = MIN(MAX((n + MBLAS_BLOCK_X - 1) / MBLAS_BLOCK_X, 1),
                             MAX_BLOCKS);
             int gridy = nvec;
@@ -93,7 +93,7 @@ extern "C" {
 
             multi_scal_cuda_kernel<<<dimGrid, dimBlock, 0>>>
                 (n, (double *) alpha_gpu, (double*) x_gpu);
-        } else if (a_type->type_num == PyArray_DOUBLE) {
+        } else if (a_type->type_num == NPY_DOUBLE) {
             double *alpha = (double*) (alpha_gpu);
             int gridx = MIN(MAX((2 * n + MBLAS_BLOCK_X - 1)
                                  / MBLAS_BLOCK_X, 1),
@@ -140,7 +140,7 @@ extern "C" {
             n *= (int) PyLong_AsLong(PyTuple_GetItem(x_shape, d));
         }
         int nvec = (int) PyLong_AsLong(PyTuple_GetItem(x_shape, 0));
-        if (type->type_num == PyArray_DOUBLE) {
+        if (type->type_num == NPY_DOUBLE) {
             double *alpha = (double*) alpha_gpu;
             int gridx = MIN(MAX((n + MBLAS_BLOCK_X - 1) / MBLAS_BLOCK_X, 1),
                             MAX_BLOCKS);
@@ -150,7 +150,7 @@ extern "C" {
 
             multi_axpy_cuda_kernel<<<dimGrid, dimBlock, 0>>>
                 (n, alpha, (double*) x_gpu, (double*) y_gpu);
-        } else  if (a_type->type_num == PyArray_DOUBLE) {
+        } else  if (a_type->type_num == NPY_DOUBLE) {
             double *alpha = (double*) alpha_gpu;
             int gridx = MIN(MAX((2 * n + MBLAS_BLOCK_X - 1)
                                 / MBLAS_BLOCK_X, 1),
@@ -204,7 +204,7 @@ extern "C" {
             n *= (int) PyLong_AsLong(PyTuple_GetItem(a_shape, i));
         }
         int nvec = (int) PyLong_AsLong(PyTuple_GetItem(a_shape, 0));
-        if (type->type_num == PyArray_DOUBLE) {
+        if (type->type_num == NPY_DOUBLE) {
             double *result = (double *) res_gpu;
             reducemap_dotu((double*) a_gpu, (double*) b_gpu, result, n,
                            nvec);
@@ -240,7 +240,7 @@ extern "C" {
             n *= (int) PyLong_AsLong(PyTuple_GetItem(a_shape, i));
         }
         int nvec = (int) PyLong_AsLong(PyTuple_GetItem(a_shape, 0));
-        if (type->type_num == PyArray_DOUBLE) {
+        if (type->type_num == NPY_DOUBLE) {
             double *result = (double *) res_gpu;
             reducemap_dotc((double*) a_gpu, (double*) b_gpu, result, n,
                            nvec);

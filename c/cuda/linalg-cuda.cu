@@ -147,8 +147,8 @@ extern "C" {
 
         dim3 dimBlock(BLOCK_X, 1);
         dim3 dimGrid(gridx, 1);
-        if (a_type->type_num == PyArray_DOUBLE) {
-            if (y_type->type_num == PyArray_DOUBLE) {
+        if (a_type->type_num == NPY_DOUBLE) {
+            if (y_type->type_num == NPY_DOUBLE) {
                 elmenwise_mul_add_kernelx<<<dimGrid, dimBlock, 0>>>
                     (n, (double*) x_gpu, (double*) y_gpu, (double*) c_gpu);
             } else {
@@ -157,7 +157,7 @@ extern "C" {
                      (cuDoubleComplex*) c_gpu);
             }
         } else {
-            if (y_type->type_num == PyArray_DOUBLE) {
+            if (y_type->type_num == NPY_DOUBLE) {
                 elmenwise_mul_add_kernelxz<<<dimGrid, dimBlock, 0>>>
                     (n, (double*) y_gpu, (cuDoubleComplex*) x_gpu,
                      (cuDoubleComplex*) c_gpu);
@@ -202,8 +202,8 @@ extern "C" {
         dim3 dimBlock(BLOCK_X, 1);
         dim3 dimGrid(gridx, nvec);
 
-        if (x_type->type_num == PyArray_DOUBLE) {
-            if (y_type->type_num == PyArray_DOUBLE) {
+        if (x_type->type_num == NPY_DOUBLE) {
+            if (y_type->type_num == NPY_DOUBLE) {
                 if (x_nd > y_nd) {
                     multi_elmenwise_mul_add_kernel1x
                         <<<dimGrid, dimBlock, 0>>>
@@ -229,7 +229,7 @@ extern "C" {
                 }
             }
         } else {
-            if (y_type->type_num == PyArray_DOUBLE) {
+            if (y_type->type_num == NPY_DOUBLE) {
                 if (y_nd > x_nd) {
                     multi_elmenwise_mul_add_kernel1xz
                         <<<dimGrid, dimBlock, 0>>>
@@ -282,7 +282,7 @@ extern "C" {
 
         dim3 dimBlock(BLOCK_X, 1);
         dim3 dimGrid(gridx, 1);
-        if (type->type_num == PyArray_DOUBLE) {
+        if (type->type_num == NPY_DOUBLE) {
             ax2py_kernel<<<dimGrid, dimBlock, 0>>>
                 (n, alpha, (double*) x_gpu, (double*) y_gpu);
 
@@ -315,7 +315,7 @@ extern "C" {
 
         dim3 dimBlock(BLOCK_X, 1);
         dim3 dimGrid(gridx, 1);
-        if (type->type_num == PyArray_DOUBLE) {
+        if (type->type_num == NPY_DOUBLE) {
             csign_kernel<<<dimGrid, dimBlock, 0>>>(n, (double*) x_gpu);
         } else {
             csign_kernelz<<<dimGrid, dimBlock, 0>>>(n, (Tcuda*) x_gpu);
@@ -346,7 +346,7 @@ extern "C" {
 
         int nvec = (int) PyLong_AsLong(PyTuple_GetItem(x_shape, 0));
 
-        if (type->type_num == PyArray_DOUBLE) {
+        if (type->type_num == NPY_DOUBLE) {
             double *alpha = (double*) alpha_gpu;
             int gridx = MIN(MAX((n + BLOCK_X - 1) / BLOCK_X, 1), MAX_BLOCKS);
             int gridy = 1;

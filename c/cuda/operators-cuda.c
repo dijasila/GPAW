@@ -294,7 +294,7 @@ PyObject * Operator_apply_cuda_gpu(OperatorObject* self, PyObject* args)
     double *out = (double*) output_gpu;
     const double_complex *ph;
 
-    bool real = (type->type_num == PyArray_DOUBLE);
+    bool real = (type->type_num == NPY_DOUBLE);
 
     MPI_Request recvreq[3][2];
     MPI_Request sendreq[3][2];

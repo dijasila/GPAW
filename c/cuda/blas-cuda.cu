@@ -655,7 +655,7 @@ PyObject* scal_cuda_gpu(PyObject *self, PyObject *args)
     for (int d=1; d < nd; d++)
         n *= (int) PyLong_AsLong(PyTuple_GetItem(x_shape, d));
     int incx = 1;
-    if (type->type_num == PyArray_DOUBLE) {
+    if (type->type_num == NPY_DOUBLE) {
         gpaw_cubSCall(
                 cublasDscal(_gpaw_cublas_handle, n, &alpha.real,
                             (double*) x_gpu, incx));
@@ -784,7 +784,7 @@ PyObject* gemm_cuda_gpu(PyObject *self, PyObject *args)
                 beta.imag < DBL_MIN && beta.imag > -DBL_MIN)
             beta_null = 1;
 
-        pg->ndouble = (type->type_num == PyArray_DOUBLE) ? 1 : 2;
+        pg->ndouble = (type->type_num == NPY_DOUBLE) ? 1 : 2;
 
         hybrid_pace_t *pace = hybrid_pace_get(
                 pg->pace, HYBRID_MAX_PACE, m, k, n, pg->ndouble);
@@ -851,7 +851,7 @@ PyObject* gemm_cuda_gpu(PyObject *self, PyObject *args)
     }
 
     if (!hybrid) {
-        if (type->type_num == PyArray_DOUBLE) {
+        if (type->type_num == NPY_DOUBLE) {
             gpaw_cubSCall(
                     cublasDgemm(_gpaw_cublas_handle, transa_c, CUBLAS_OP_N,
                                 m, n, k,
@@ -872,7 +872,7 @@ PyObject* gemm_cuda_gpu(PyObject *self, PyObject *args)
         gpaw_cubSCall(
                 cublasSetStream(_gpaw_cublas_handle, ph->stream[0]));
         cudaEventRecord(pg->event_gpu[0], ph->stream[0]);
-        if (type->type_num == PyArray_DOUBLE) {
+        if (type->type_num == NPY_DOUBLE) {
             gpaw_cubSCall(
                     cublasDgemm(_gpaw_cublas_handle, transa_c, CUBLAS_OP_N,
                                 pg->m1, pg->n1, k,
@@ -930,7 +930,7 @@ PyObject* gemm_cuda_gpu(PyObject *self, PyObject *args)
         cudaEventRecord(pg->event_dtoh[1], ph->stream[1]);
         Py_BEGIN_ALLOW_THREADS;
         gpaw_cudaSafeCall(cudaEventSynchronize(pg->event_dtoh[1]));
-        if (type->type_num == PyArray_DOUBLE) {
+        if (type->type_num == NPY_DOUBLE) {
             dgemm_(&transa, "n", &pg->m2, &pg->n2, &k,
                    &(alpha.real), ph->a, &lda2, ph->b, &ldb,
                    &(beta.real), ph->c, &ldc2);
@@ -1006,7 +1006,7 @@ PyObject* gemv_cuda_gpu(PyObject *self, PyObject *args)
 
     incx = 1;
     incy = 1;
-    if (type->type_num == PyArray_DOUBLE) {
+    if (type->type_num == NPY_DOUBLE) {
         gpaw_cubSCall(
                 cublasDgemv(_gpaw_cublas_handle, trans_c, m, n,
                             &alpha.real, (double*) a_gpu, lda,
@@ -1047,7 +1047,7 @@ PyObject* axpy_cuda_gpu(PyObject *self, PyObject *args)
         n *= (int) PyLong_AsLong(PyTuple_GetItem(x_shape, d));
     int incx = 1;
     int incy = 1;
-    if (type->type_num == PyArray_DOUBLE) {
+    if (type->type_num == NPY_DOUBLE) {
         gpaw_cubSCall(
                 cublasDaxpy(_gpaw_cublas_handle, n, &alpha.real,
                             (double*) x_gpu, incx,
@@ -1101,7 +1101,7 @@ PyObject* rk_cuda_gpu(PyObject *self, PyObject *args)
         if (ps->hybrid)
             hybrid_syrk_update_paces(ps);
 
-        ps->ndouble = (type->type_num == PyArray_DOUBLE) ? 1 : 2;
+        ps->ndouble = (type->type_num == NPY_DOUBLE) ? 1 : 2;
 
         hybrid_pace_t *pace = hybrid_pace_get(
                 ps->pace, HYBRID_MAX_PACE, n, k, n, ps->ndouble);
@@ -1129,7 +1129,7 @@ PyObject* rk_cuda_gpu(PyObject *self, PyObject *args)
         ps->hybrid = hybrid;
     }
     if (!hybrid) {
-        if (type->type_num == PyArray_DOUBLE) {
+        if (type->type_num == NPY_DOUBLE) {
             gpaw_cubSCall(
                     cublasDsyrk(_gpaw_cublas_handle,
                         CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_T,
@@ -1147,7 +1147,7 @@ PyObject* rk_cuda_gpu(PyObject *self, PyObject *args)
     } else {
         gpaw_cubSCall(cublasSetStream(_gpaw_cublas_handle, ph->stream[0]));
         cudaEventRecord(ps->event_gpu[0], ph->stream[0]);
-        if (type->type_num == PyArray_DOUBLE) {
+        if (type->type_num == NPY_DOUBLE) {
             gpaw_cubSCall(
                     cublasDsyrk(_gpaw_cublas_handle,
                         CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_T,
@@ -1179,7 +1179,7 @@ PyObject* rk_cuda_gpu(PyObject *self, PyObject *args)
 
         Py_BEGIN_ALLOW_THREADS;
         gpaw_cudaSafeCall(cudaEventSynchronize(ps->event_dtoh[1]));
-        if (type->type_num == PyArray_DOUBLE) {
+        if (type->type_num == NPY_DOUBLE) {
             dsyrk_("u", "t", &ps->n, &ps->k2,
                    &alpha, ph->a, &lda2,
                    &beta2, ph->c, &ldc);
@@ -1253,7 +1253,7 @@ PyObject* r2k_cuda_gpu(PyObject *self, PyObject *args)
         if (ps2->hybrid)
             hybrid_syr2k_update_paces(ps2);
 
-        ps2->ndouble = (type->type_num == PyArray_DOUBLE) ? 1 : 2;
+        ps2->ndouble = (type->type_num == NPY_DOUBLE) ? 1 : 2;
 
         hybrid_pace_t *pace = hybrid_pace_get(
                 ps2->pace, HYBRID_MAX_PACE, n, k, n, ps2->ndouble);
@@ -1284,7 +1284,7 @@ PyObject* r2k_cuda_gpu(PyObject *self, PyObject *args)
     }
 
     if (!hybrid) {
-        if (type->type_num == PyArray_DOUBLE) {
+        if (type->type_num == NPY_DOUBLE) {
             gpaw_cubSCall(
                     cublasDsyr2k(_gpaw_cublas_handle,
                         CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_T, n, k,
@@ -1305,7 +1305,7 @@ PyObject* r2k_cuda_gpu(PyObject *self, PyObject *args)
                 cublasSetStream(_gpaw_cublas_handle, ph->stream[0]));
         cudaEventRecord(ps2->event_gpu[0], ph->stream[0]);
 
-        if (type->type_num == PyArray_DOUBLE) {
+        if (type->type_num == NPY_DOUBLE) {
             gpaw_cubSCall(
                     cublasDsyr2k(_gpaw_cublas_handle,
                         CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_T, n, ps2->k1,
@@ -1345,7 +1345,7 @@ PyObject* r2k_cuda_gpu(PyObject *self, PyObject *args)
 
         Py_BEGIN_ALLOW_THREADS;
         gpaw_cudaSafeCall(cudaEventSynchronize(ps2->event_dtoh[1]));
-        if (type->type_num == PyArray_DOUBLE) {
+        if (type->type_num == NPY_DOUBLE) {
             dsyr2k_("u", "t", &ps2->n, &ps2->k2,
                     &alpha.real, ph->a, &lda2, ph->b, &lda2, &beta2,
                     ph->c, &ldc);
@@ -1400,7 +1400,7 @@ PyObject* dotc_cuda_gpu(PyObject *self, PyObject *args)
 
     int incx = 1;
     int incy = 1;
-    if (type->type_num == PyArray_DOUBLE) {
+    if (type->type_num == NPY_DOUBLE) {
         double result;
         gpaw_cubSCall(
                 cublasDdot(_gpaw_cublas_handle, n,
@@ -1441,7 +1441,7 @@ PyObject* dotu_cuda_gpu(PyObject *self, PyObject *args)
 
     int incx = 1;
     int incy = 1;
-    if (type->type_num == PyArray_DOUBLE) {
+    if (type->type_num == NPY_DOUBLE) {
         double result;
         gpaw_cubSCall(
                 cublasDdot(_gpaw_cublas_handle, n,

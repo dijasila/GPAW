@@ -97,7 +97,7 @@ PyObject* Transformer_apply_cuda_gpu(TransformerObject *self, PyObject *args)
     const double* in = (double*) input_gpu;
     double* out = (double*) output_gpu;
 
-    bool real = (type->type_num == PyArray_DOUBLE);
+    bool real = (type->type_num == NPY_DOUBLE);
     const double_complex* ph = (real ? 0 : COMPLEXP(phases));
 
     int out_ng = bc->ndouble * self->size_out[0] * self->size_out[1]

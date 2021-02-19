@@ -106,7 +106,7 @@ extern "C" {
         dim3 dimBlock(BLOCK_SIZEX, BLOCK_SIZEY);
         dim3 dimGrid(gridx, gridy);
 
-        if (type->type_num == PyArray_DOUBLE) {
+        if (type->type_num == NPY_DOUBLE) {
             add_linear_field_cuda_kernel<<<dimGrid, dimBlock, 0>>>(
                     (double*) a_gpu, hc_sizea,
                     (double*) b_gpu, hc_n, hc_beg,

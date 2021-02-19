@@ -103,7 +103,7 @@ extern "C" {
 
         dim3 dimBlock(BLOCK_X, 1);
         dim3 dimGrid(gridx, 1);
-        if (type->type_num == PyArray_DOUBLE) {
+        if (type->type_num == NPY_DOUBLE) {
             axpbyz_kernel<<<dimGrid, dimBlock, 0>>>
                 (a, (double*) x, b, (double*) y, (double *) z, n);
 
@@ -139,7 +139,7 @@ extern "C" {
 
         dim3 dimBlock(BLOCK_X, 1);
         dim3 dimGrid(gridx, 1);
-        if (type->type_num == PyArray_DOUBLE) {
+        if (type->type_num == NPY_DOUBLE) {
             axpbz_kernel<<<dimGrid, dimBlock, 0>>>
                 (a, (double*) x, b, (double *) z, n);
 
@@ -185,7 +185,7 @@ extern "C" {
 
         dim3 dimBlock(BLOCK_X, 1);
         dim3 dimGrid(gridx, 1);
-        if (type->type_num == PyArray_DOUBLE) {
+        if (type->type_num == NPY_DOUBLE) {
             fill_kernel<<<dimGrid, dimBlock, 0>>>
                 (real, (double*) x, n);
 
