@@ -149,6 +149,11 @@ class SJM(SolvationGPAW):
         This only applies to the first step, as the slope is calculated
         internally at subsequent steps. If None, will be guessed based on
         apparent capacitance of 10 uF/cm^2.
+    max_step : float
+        When equilibrating the potential, if a step results in the
+        potential changing by more than `max_step` V, then the step size is
+        cut in half and we try again. This is to avoid leaving the linear
+        region. You can set to np.inf to turn this off. Default: 2 V.
 
     Special SJM methods (in addition to those of GPAW/SolvationGPAW):
 
@@ -178,6 +183,7 @@ class SJM(SolvationGPAW):
                 'tol': 0.01,
                 'always_adjust': False,
                 'max_iters': 10.,
+                'max_step': 2.,
                 'slope': None}})
 
     def __init__(self, restart=None, **kwargs):
@@ -389,14 +395,27 @@ class SJM(SolvationGPAW):
             self.sog('Potential found to be {:.5f} V (with {:+.5f} '
                      'excess electrons, attempt {:d})'
                      .format(true_potential, p.excess_electrons, iteration))
+
+            # Check if we took too big of a step.
+            try:
+                stepsize = abs(true_potential - previous_potentials[-1])
+            except IndexError:
+                pass
+            else:
+                if stepsize > p.max_step:
+                    self.sog('Step resulted in a potential change of {:.2f} '
+                             'V, larger than max_step ({:.2f} V).\nThe step is'
+                             ' rejected and the change in excess_electrons '
+                             'will be halved.'.format(stepsize, p.max_step))
+                    p.excess_electrons = (previous_electrons[-1] +
+                                          (p.excess_electrons -
+                                           previous_electrons[-1]) * 0.5)
+                    continue  # back to while not equilibrated
+
+            # Store attempt and calculate slope.
             previous_electrons += [p.excess_electrons]
             previous_potentials += [true_potential]
-
             if len(previous_electrons) > 1:
-                self.sog('previous potentials: {}'
-                         .format(str(previous_potentials)))
-                self.sog('previous electrons: {}'
-                         .format(str(previous_electrons)))
                 p.slope = calculate_slope(previous_electrons,
                                           previous_potentials)
                 self.sog('Slope regressed from last two attempts is '
@@ -407,6 +426,9 @@ class SJM(SolvationGPAW):
                          .format(capacitance))
 
             if abs(true_potential - p.target_potential) < p.tol:
+                # FIXME/ap: the equilibrated variable doesn't actually do
+                # anything since there's a break here anyway. We could do
+                # 'while True' or 'while iterations < p.max_iters'.
                 equilibrated = True
                 self.sog('Potential is within tolerance. Equilibrated.')
                 if iteration >= 1:
@@ -422,54 +444,6 @@ class SJM(SolvationGPAW):
                          ' corresponding\nto an apparent capacitance of '
                          '10 muF/cm^2.'.format(p.slope))
 
-            # Check to make sure we're doing something reasonable.
-            # XXX Use max step, let user specify. 2 V default.
-            user_warned = False
-            if true_potential < 2 and len(previous_potentials) > 1:
-                # FIXME/ap: Again, do we want to hardcode in a limit of 2?
-                # This is a reasonable choice for a battery calculation.
-                # What was the motivation for adding in this linesearch
-                # algorithm -- was something failing? If we keep it, maybe
-                # we can make it so if the true_potential is more than X
-                # volts from the target potential we do a half step?
-                if np.diff(previous_potentials[-2:])[0] < -1:
-                    # FIXME/ap: I guess this means the last change in
-                    # potential was at least 1 V, and negative?
-                    true_potential = self._half_last_step(previous_potentials,
-                                                          previous_electrons)
-
-                elif (p.target_potential - true_potential) / p.slope > 0:
-                    # FIXME/ap: I'm also not sure I get the logic here.
-                    # Isn't the above just the calculation of
-                    # excess_electrons that we do below? What's the issue
-                    # with excess_electrons being greater than 0?
-                    self.sog(
-                        '-' * 13 + '\n'
-                        'Warning! Based on the slope the next step '
-                        'will lead to very unphysical behavior\n '
-                        '(workfunction ~ 0) and will likely '
-                        'not converge.\n Recheck the initial guess '
-                        'of the charges.\n' + '-' * 13)
-                user_warned = True
-
-            # Finally, update the number of electrons.
-            p.excess_electrons += ((p.target_potential - true_potential)
-                                   / p.slope)
-            self.sog('Number of electrons changed to {:.4f} based '
-                     'on slope of {:.4f} V/electron.'
-                     .format(p.excess_electrons, p.slope))
-
-            if not 2 < true_potential < 7 and not user_warned:
-                # FIXME/ap: Same issue with hard-coded limits.
-                self.sog('-' * 13)
-                self.sog("Warning! The resulting potential is in a "
-                         "region where a linear slope between\n potential "
-                         "and charge is not guaranteed. You might want "
-                         "to rethink\n the inital charge guess. If the "
-                         "potential is too high increase "
-                         "'excess_electrons' or vice versa.")
-                self.sog('-' * 13)
-
             iteration += 1
             if iteration == p.max_iters:
                 msg = ('Potential could not be reached after {:d} iterations. '
@@ -480,27 +454,12 @@ class SJM(SolvationGPAW):
                 self.sog(msg)
                 raise Exception(msg)
 
-    def _half_last_step(self, previous_potentials, previous_electrons):
-        p = self.parameters['sj']
-        self.sog('-' * 13 + '\n'
-                 'Warning! Your last step led to a '
-                 'dangerously low potential.\n '
-                 'This is most likely due to overshooting the target.\n '
-                 'The previous step size will be halved '
-                 'and retried in order to avoid\n '
-                 'unphysical behavior. In case the potential '
-                 'will not equilibrate, \n rethink your '
-                 'initial charge guess\n' + '-' * 13)
-
-        del previous_potentials[-1]
-        del previous_electrons[-1]
-
-        self.wfs.nvalence = self.setups.nvalence + previous_electrons[-1]
-        # FIXME/ap: Although the math works here, it will report an
-        # erroneous slope to the user.
-        p.slope = 2. * calculate_slope(previous_electrons, previous_potentials)
-        p.excess_electrons = previous_electrons[-1]
-        return previous_potentials[-1]
+            # Finally, update the number of electrons.
+            p.excess_electrons += ((p.target_potential - true_potential)
+                                   / p.slope)
+            self.sog('Number of electrons changed to {:.4f} based '
+                     'on slope of {:.4f} V/electron.'
+                     .format(p.excess_electrons, p.slope))
 
     def write_sjm_traces(self, path='sjm_traces', style='z',
                          props=('potential', 'cavity', 'background_charge')):
