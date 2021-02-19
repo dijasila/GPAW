@@ -683,16 +683,16 @@ class SJM(SolvationGPAW):
 
         # Catch unphysical limits.
         if top > atoms.cell[2][2]:
-            raise IOError('The upper limit of the jellium region lies '
-                          'outside of unit cell. If you did not set it '
-                          'manually, increase your unit cell size or '
-                          'translate the atomic system down along the '
-                          'z-axis.')
+            raise ValueError('The upper limit of the jellium region lies '
+                             'outside of unit cell. If you did not set it '
+                             'manually, increase your unit cell size or '
+                             'translate the atomic system down along the '
+                             'z-axis.')
         if bottom != 'cavity_like':
             if bottom > top:
-                raise RuntimeError('Your jellium region has a bottom at {:.3f}'
-                                   ' AA, which is above the top at {:.3f} AA.'
-                                   .format(bottom, top))
+                raise ValueError('Your jellium region has a bottom at {:.3f}'
+                                 ' AA, which is above the top at {:.3f} AA.'
+                                 .format(bottom, top))
 
         # Finally, make the jellium.
         if bottom == 'cavity_like':
@@ -863,7 +863,7 @@ class SJMPower12Potential(Power12Potential):
 
         if self.H2O_layer:
             # Add ghost coordinates and indices to pos_aav dictionary if
-            # a water layer is present
+            # a water layer is present.
 
             all_oxygen_ind = [atom.index for atom in atoms
                               if atom.symbol == 'O']
@@ -890,9 +890,9 @@ class SJMPower12Potential(Power12Potential):
                 if self.H2O_layer % 1 < self.tiny:
                     self.H2O_layer = int(self.H2O_layer)
                 else:
-                    raise AttributeError('Only an integer number of water'
-                                         'molecules is possible in the water'
-                                         'layer')
+                    raise ValueError('Only an integer number of water '
+                                     'molecules is possible in the water'
+                                     'layer')
 
                 allwaters = atoms[allwater_oxygen_ind]
                 indizes_water_ox_ind = np.argsort(allwaters.positions[:, 2],
