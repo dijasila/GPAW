@@ -118,27 +118,27 @@ static hybrid_func_params_t hybrid_syr2k_params = {
 #  define zgemm_  zgemm
 #endif
 
-void dgemm_(char *transa, char *transb, int *m, int *n, int *k,
+void dgemm_(const char *transa, const char *transb, int *m, int *n, int *k,
             double *alpha, double *a, int *lda, double *b, int *ldb,
             double *beta, double *c, int *ldc);
 
-void zgemm_(char *transa, char *transb, int *m, int *n, int *k,
+void zgemm_(const char *transa, const char *transb, int *m, int *n, int *k,
             void *alpha, void *a, int *lda, void *b, int *ldb,
             void *beta, void *c, int *ldc);
 
-void dsyrk_(char *uplo, char *trans, int *n, int *k,
+void dsyrk_(const char *uplo, const char *trans, int *n, int *k,
             double *alpha, double *a, int *lda,
             double *beta, double *c, int *ldc);
 
-void zherk_(char *uplo, char *trans, int *n, int *k,
+void zherk_(const char *uplo, const char *trans, int *n, int *k,
             double *alpha, void *a, int *lda,
             double *beta, void *c, int *ldc);
 
-void dsyr2k_(char *uplo, char *trans, int *n, int *k,
+void dsyr2k_(const char *uplo, const char *trans, int *n, int *k,
              double *alpha, double *a, int *lda, double *b, int *ldb,
              double *beta, double *c, int *ldc);
 
-void zher2k_(char *uplo, char *trans, int *n, int *k,
+void zher2k_(const char *uplo, const char *trans, int *n, int *k,
              void *alpha, void *a, int *lda, void *b, int *ldb,
              double *beta, void *c, int *ldc);
 
