@@ -44,6 +44,16 @@ def get_traceback_string():
 # method, so wouldn't take much to change.
 # ?
 
+# TODO/ap: Update website documentation when we're all through here.
+
+# FIXME/ap: Do we need to check somewhere that the user has a dipole
+# correction turned on? I guess they'll get an error about no work function
+# if they don't? We can probably ignore.
+
+# FIXME/ap: There was some local hack we had to ASE to allow it to put the
+# excess electrons and potential into the trajectory file. Do we want to
+# put this hack in as a MR to ASE first?
+
 
 class SJM(SolvationGPAW):
     """Solvated Jellium method.
@@ -159,11 +169,18 @@ class SJM(SolvationGPAW):
         This only applies to the first step, as the slope is calculated
         internally at subsequent steps. If None, will be guessed based on
         apparent capacitance of 10 uF/cm^2.
+
+    Special methods (in addition to those of GPAW/SolvationGPAW):
+
+    get_electrode_potential()
+        Returns the potential of the simulated electrode, in V, relative
+        to the vacuum.
+
     """
     # FIXME/ap: List methods defined in the sjm that are useful to the
     # user. I.e., methods defined here, in whatever standard documentation
     # format is appropriate. This would be get_potential and
-    # write_sjm_traces, or whatever.
+    # write_sjm_traces, or whatever. (To-do)
     implemented_properties = ['energy', 'forces', 'stress', 'dipole',
                               'magmom', 'magmoms',
                               'excess_electrons', 'electrode_potential']
@@ -198,32 +215,35 @@ class SJM(SolvationGPAW):
         # Note the below line calls self.set().
         SolvationGPAW.__init__(self, restart, **kwargs)
 
+    def sog(self, message=''):
+        # FIXME: Delete after all is set up.
+        message = 'SJ: ' + str(message)
+        self.log(message)
+        self.log.flush()
+
     def set(self, **kwargs):
         """Change parameters for calculator.
 
         It differs from the standard `set` function in two ways:
-        - SJM specific keywords can be set
-        - It does not reinitialize and delete `self.wfs` if the
+        - Keywords in the `sj` dictionary are handled.
+        - It does not reinitialize and delete `self.wfs` if only the
           background charge is changed.
 
         """
-        old_sj_parameters = copy.deepcopy(self.parameters['sj'])
+        old_sj_dict = copy.deepcopy(self.parameters['sj'])
         # Above will just be defaults on first call.
 
-        parent_changed = False  # if something changed outside the SJ wrapper
         sj_dict = kwargs['sj'] if 'sj' in kwargs else {}
         badkeys = [key for key in sj_dict if key not in
                    self.default_parameters['sj']]
         if badkeys:
             raise KeyError('Unexpected key(s) "{}" provided to sj dict. '
-                           'Only keys allowed are "{}".' .format(
+                           'Only keys allowed are "{}".'.format(
                                ', '.join(badkeys),
                                ', '.join(self.default_parameters['sj'])))
 
         sj_changes = [key for key, value in sj_dict.items() if not
                       equal(value, self.parameters['sj'].get(key))]
-        if any(key not in ['sj', 'background_charge'] for key in kwargs):
-            parent_changed = True
 
         # We handle background_charge internally; passing this to GPAW's
         # set function will trigger a deletion of the density, etc.
@@ -237,9 +257,13 @@ class SJM(SolvationGPAW):
         p = self.parameters['sj']
         # ASE's Calculator.set() loses the dict items not being set.
         # Add them back.
-        for key, value in old_sj_parameters.items():
+        for key, value in old_sj_dict.items():
             if key not in p:
                 p[key] = value
+
+        parent_changed = False  # if something changed outside the SJ wrapper
+        if any(key not in ['sj', 'background_charge'] for key in kwargs):
+            parent_changed = True
 
         if 'target_potential' in sj_changes:
             self.results = {}
@@ -261,7 +285,8 @@ class SJM(SolvationGPAW):
         if 'excess_electrons' in sj_changes:
             self.results = {}
 
-            if self.atoms is not None:
+            if self.atoms:
+                # FIXME/ap: Same question as above.
                 self.set(background_charge=self.define_jellium(self.atoms))
 
         if 'tol' in sj_changes:
@@ -270,18 +295,19 @@ class SJM(SolvationGPAW):
             except AttributeError:
                 pass
             else:
-                self.sog('Potential tolerance has been set to %1.4f V'
-                         % p.tol)
+                msg = ('Potential tolerance changed to {:1.4f} V: '
+                       .format(p.tol))
                 if abs(true_potential - p.target_potential) > p.tol:
+                    msg += 'new calculation required.'
                     self.results = {}
-                    self.sog('Recalculating...\n')
-                    if self.atoms is not None:
+                    if self.atoms:
                         p.excess_electrons = ((p.target_potential -
                                               true_potential) / p.slope)
                         self.set(background_charge=self.define_jellium(
                             self.atoms))
                 else:
-                    self.sog('Potential already reached the criterion.\n')
+                    msg += 'already within tolerance.'
+                self.sog(msg)
 
         if 'background_charge' in kwargs:
             # background_charge is a GPAW parameter that we handle
@@ -306,7 +332,16 @@ class SJM(SolvationGPAW):
                         self.density.background_charge.set_grid_descriptor(
                             self.density.finegd)
 
-                    self.spos_ac = self.atoms.get_scaled_positions() % 1.0
+                    # self.spos_ac = self.atoms.get_scaled_positions() % 1.0
+                    # FIXME/ap: I changed the previous to call _set_atoms
+                    # due to the stern warning in GPAW._set_atoms, which
+                    # says:
+                    #    GPAW works in terms of the scaled positions. We
+                    #    want to extract the scaled positions in only one
+                    #    place, and that is here. No other place may
+                    #    recalculate them, or we might end up with rounding
+                    #    errors and inconsistencies.
+                    self._set_atoms(self.atoms)
                     self.density.mixer.reset()
                     self.wfs.initialize(self.density, self.hamiltonian,
                                         self.spos_ac)
@@ -316,49 +351,6 @@ class SJM(SolvationGPAW):
                 self.wfs.nvalence = self.setups.nvalence + p.excess_electrons
                 self.sog('Number of valence electrons is now {:.5f}'
                          .format(self.wfs.nvalence))
-                # FIXME: background_charge not always called when
-                # excess_electrons changes? Doesn't this screw up nvalence
-                # in wfs?
-                # (I.e., see below where key == 'excess_electrons'.)
-                # GK: Have think about this one, but I'm fairly certain
-                # it was needed in order to avoid what you mentioned
-                # AP: Ok, I don't fully get what's going on in this part,
-                # so please check that it's doing what you want with the
-                # new layout.
-
-    def sog(self, message=''):
-        # FIXME: Delete after all is set up.
-        message = 'SJ: ' + str(message)
-        self.log(message)
-        self.log.flush()
-
-    def create_hamiltonian(self, realspace, mode, xc):
-        """
-        This differs from SolvationGPAW's create_hamiltonian
-        method by the ability to use dipole corrections.
-        """
-        if not realspace:
-            raise NotImplementedError(
-                'SJM does not support calculations in reciprocal space yet'
-                ' due to a lack of an implicit solvent module.')
-
-        dens = self.density
-
-        self.hamiltonian = SJM_RealSpaceHamiltonian(
-            *self.stuff_for_hamiltonian,
-            gd=dens.gd, finegd=dens.finegd,
-            nspins=dens.nspins,
-            collinear=dens.collinear,
-            setups=dens.setups,
-            timer=self.timer,
-            xc=xc,
-            world=self.world,
-            redistributor=dens.redistributor,
-            vext=self.parameters.external,
-            psolver=self.parameters.poissonsolver,
-            stencil=mode.interpolation)
-
-        xc.set_grid_descriptor(self.hamiltonian.finegd)
 
     def calculate(self, atoms=None, properties=['energy'],
                   system_changes=['cell']):
@@ -368,7 +360,7 @@ class SJM(SolvationGPAW):
 
         self.sog('Solvated jellium method (SJM) calculation:')
 
-        if atoms is not None:
+        if atoms:
             # Need to be set before ASE's Calculator.calculate gets to it.
             self.atoms = atoms.copy()
 
@@ -630,6 +622,8 @@ class SJM(SolvationGPAW):
     def define_jellium(self, atoms):
         # FIXME/ap: This should probably be an internal method, i.e.,
         # self._define_jellium().
+        # FIXME/ap: I think it can *always* access the atoms via
+        # self.atoms, so I think we can eliminate the atoms argument.
         """Creates the counter charge."""
 
         p = self.parameters['sj']
@@ -759,6 +753,32 @@ class SJM(SolvationGPAW):
                 if background_charge['z1'] == 'cavity_like':
                     self.parameters['background_charge'] = None
         SolvationGPAW.initialize(self=self, atoms=atoms, reading=reading)
+
+    def create_hamiltonian(self, realspace, mode, xc):
+        """This differs from SolvationGPAW's create_hamiltonian method by the
+        ability to use dipole corrections."""
+        if not realspace:
+            raise NotImplementedError(
+                'SJM does not support calculations in reciprocal space yet'
+                ' due to a lack of an implicit solvent module.')
+
+        dens = self.density
+
+        self.hamiltonian = SJM_RealSpaceHamiltonian(
+            *self.stuff_for_hamiltonian,
+            gd=dens.gd, finegd=dens.finegd,
+            nspins=dens.nspins,
+            collinear=dens.collinear,
+            setups=dens.setups,
+            timer=self.timer,
+            xc=xc,
+            world=self.world,
+            redistributor=dens.redistributor,
+            vext=self.parameters.external,
+            psolver=self.parameters.poissonsolver,
+            stencil=mode.interpolation)
+
+        xc.set_grid_descriptor(self.hamiltonian.finegd)
 
 
 def write_trace_in_z(grid, property, name='g_z.out', dir='sjm_verbose'):
