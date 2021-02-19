@@ -64,8 +64,8 @@ typedef struct
     long j[3];
 } bmgsstencil_gpu;
 
-static inline cudaError_t __gpaw_cudaSafeCall(cudaError_t err, char *file,
-                                              int line)
+static inline cudaError_t __gpaw_cudaSafeCall(cudaError_t err,
+                                              const char *file, int line)
 {
     if (cudaSuccess != err) {
         char str[100];
@@ -78,7 +78,7 @@ static inline cudaError_t __gpaw_cudaSafeCall(cudaError_t err, char *file,
 }
 
 static inline cublasStatus_t __gpaw_cublasSafeCall(cublasStatus_t err,
-                                                   char *file, int line)
+                                                   const char *file, int line)
 {
     if (CUBLAS_STATUS_SUCCESS != err) {
         char str[100];
