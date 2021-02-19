@@ -266,8 +266,7 @@ class SJM(SolvationGPAW):
                     if self.atoms:
                         p.excess_electrons = ((p.target_potential -
                                               true_potential) / p.slope)
-                        self.set(background_charge=self.define_jellium(
-                            self.atoms))
+                        self.set(background_charge=self._create_jellium())
                 else:
                     msg += 'already within tolerance.'
                 self.sog(msg)
@@ -325,7 +324,7 @@ class SJM(SolvationGPAW):
             self.sog('Constant-charge calculation with {:.5f} excess '
                      'electrons'.format(p.excess_electrons))
             # Background charge is set here, not earlier, because atoms needed.
-            self.set(background_charge=self.define_jellium(atoms))
+            self.set(background_charge=self._create_jellium())
             SolvationGPAW.calculate(self, atoms, ['energy'], system_changes)
             self.sog('Potential found to be {:.5f} V (with {:+.5f} '
                      'electrons)'.format(self.get_electrode_potential(),
@@ -382,7 +381,7 @@ class SJM(SolvationGPAW):
                 system_changes = []
 
             if iteration > 0 or 'positions' in system_changes:
-                self.set(background_charge=self.define_jellium(atoms))
+                self.set(background_charge=self._create_jellium())
 
             SolvationGPAW.calculate(self, atoms, ['energy'], system_changes)
             true_potential = self.get_electrode_potential()
@@ -554,12 +553,9 @@ class SJM(SolvationGPAW):
                 pass
         self.log.fd.flush()
 
-    def define_jellium(self, atoms):
-        # FIXME/ap: This should probably be an internal method, i.e.,
-        # self._define_jellium().
-        # FIXME/ap: I think it can *always* access the atoms via
-        # self.atoms, so I think we can eliminate the atoms argument.
+    def _create_jellium(self):
         """Creates the counter charge."""
+        atoms = self.atoms
 
         p = self.parameters['sj']
         jellium = self.parameters['sj']['jelliumregion']
@@ -684,7 +680,7 @@ class SJM(SolvationGPAW):
         """Inexpensive initialization."""
         # This catches CavityShapedJellium, which GPAW's initialize does not
         # know how to handle on restart. We can delete and it will it will be
-        # recreated by the define_jellium method when needed.
+        # recreated by the _create_jellium method when needed.
         background_charge = self.parameters['background_charge']
         if isinstance(background_charge, dict):
             if 'z1' in background_charge:
