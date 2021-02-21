@@ -218,7 +218,6 @@ class SJM(SolvationGPAW):
         """
         old_sj_dict = copy.deepcopy(self.parameters['sj'])
         # Above will just be defaults on first call.
-        print(self.parameters['sj'])
         sj_dict = kwargs['sj'] if 'sj' in kwargs else {}
         badkeys = [key for key in sj_dict if key not in
                    self.default_parameters['sj']]
@@ -236,6 +235,13 @@ class SJM(SolvationGPAW):
         gpaw_kwargs = kwargs.copy()
         if 'background_charge' in gpaw_kwargs:
             del gpaw_kwargs['background_charge']
+
+        # FIXED/gk: do not let SolvationGPAW's set function see the 'sj'
+        # dictionary. Otherwise it will reinitialize when only sj keywords
+        # are set slowing things down by a lot
+        if 'sj' in gpaw_kwargs:
+            self.parameters['sj'] = gpaw_kwargs.pop('sj')
+
         SolvationGPAW.set(self, **gpaw_kwargs)
 
         if not isinstance(self.parameters['sj'], Parameters):
@@ -252,16 +258,35 @@ class SJM(SolvationGPAW):
             parent_changed = True
 
         if 'target_potential' in sj_changes:
+            # FIXED/gk: If target potential is changed by the user
+            # and the slope is known, a step towards the new potential
+            # is taken right away.
+            if p.target_potential is not None:
+                try:
+                    true_potential = self.get_electrode_potential()
+                # TypeError is needed for the case of starting from a
+                # gpw  file and changing the target potential at the
+                # start
+                except (AttributeError, TypeError):
+                    pass
+                else:
+                    if self.atoms and p.slope:
+                        p.excess_electrons = ((p.target_potential -
+                                              true_potential) / p.slope)
+
+        if (any(key in ['target_potential', 'excess_electrons',
+            'jelliumregion'] for key in sj_changes) and not parent_changed):
             self.results = {}
-        if 'excess_electrons' in sj_changes:
-            self.results = {}
-        if 'jelliumregion' in sj_changes:
-            self.results = {}
+            # FIXED/gk: SolvationGPAW will not reinitialize anymore if only
+            # 'sj' keywords are set. The lines below will reinitialize and
+            # apply the changed charges.
+            if self.atoms:
+                self.set(background_charge=self._create_jellium())
 
         if 'tol' in sj_changes:
             try:
                 true_potential = self.get_electrode_potential()
-            except AttributeError:
+            except (AttributeError, TypeError):
                 pass
             else:
                 msg = ('Potential tolerance changed to {:1.4f} V: '
@@ -269,10 +294,12 @@ class SJM(SolvationGPAW):
                 if abs(true_potential - p.target_potential) > p.tol:
                     msg += 'new calculation required.'
                     self.results = {}
-                    if self.atoms:
+                    # FIXED/gk: Crashed if tolerance was changed but
+                    # no slope was determined yet
+                    if self.atoms and p.slope is not None:
                         p.excess_electrons = ((p.target_potential -
                                               true_potential) / p.slope)
-                        self.set(background_charge=self._create_jellium())
+                    self.set(background_charge=self._create_jellium())
                 else:
                     msg += 'already within tolerance.'
                 self.sog(msg)
@@ -289,28 +316,29 @@ class SJM(SolvationGPAW):
                 if parent_changed:
                     self.density = None
                 else:
-                    if self.density.nct_G is None:
-                        self.initialize_positions()
-
-                    self.density.reset()
-
+                    self.quick_reinitialization()
                     if self.density.background_charge:
                         self.density.background_charge = \
                             kwargs['background_charge']
                         self.density.background_charge.set_grid_descriptor(
                             self.density.finegd)
 
-                    self._set_atoms(self.atoms)
-                    self.density.mixer.reset()
-                    self.wfs.initialize(self.density, self.hamiltonian,
-                                        self.spos_ac)
-                    self.wfs.eigensolver.reset()
-                    if self.scf:
-                        self.scf.reset()
-
                 self.wfs.nvalence = self.setups.nvalence + p.excess_electrons
                 self.sog('Number of valence electrons is now {:.5f}'
                          .format(self.wfs.nvalence))
+
+    def quick_reinitialization(self):
+        if self.density.nct_G is None:
+            self.initialize_positions()
+
+        self.density.reset()
+        self._set_atoms(self.atoms)
+        self.density.mixer.reset()
+        self.wfs.initialize(self.density, self.hamiltonian,
+                            self.spos_ac)
+        self.wfs.eigensolver.reset()
+        if self.scf:
+            self.scf.reset()
 
     def calculate(self, atoms=None, properties=['energy'],
                   system_changes=['cell']):
@@ -320,7 +348,7 @@ class SJM(SolvationGPAW):
 
         self.sog('Solvated jellium method (SJM) calculation:')
 
-        if atoms:
+        if atoms and not self.atoms:
             # Need to be set before ASE's Calculator.calculate gets to it.
             self.atoms = atoms.copy()
 
@@ -341,7 +369,7 @@ class SJM(SolvationGPAW):
                      .format(p.target_potential, p.tol))
             self.sog(' Initial guess of excess electrons: {:.5f}'
                      .format(p.excess_electrons))
-            #FIXME/gk: If the convergence dictionary is given, but does not
+            # FIXME/gk: If the convergence dictionary is given, but does not
             #        contain workfunction this crashed. This should likely
             #        default to None if not given.I think that should be
             #        addressed somewhere else.
@@ -352,8 +380,9 @@ class SJM(SolvationGPAW):
                              'your desired potential tolerance ({:g}).\n '
                              'This will likely lead to issues with '
                              'convergence.'
-                             .format(self.parameters.convergence['workfunction'],
-                                     p.tol))
+                             .format(
+                                 self.parameters.convergence['workfunction'],
+                                 p.tol))
             self._equilibrate_potential(atoms, system_changes)
         if properties != ['energy']:
             SolvationGPAW.calculate(self, atoms, properties, [])
@@ -378,7 +407,6 @@ class SJM(SolvationGPAW):
         iteration = 0
         previous_electrons = []
         previous_potentials = []
-        self.sog("STARTING POTENTIAL EQUILIBRATION")
 
         while iteration < p.max_iters:
             self.sog('Attempt {:d} to equilibrate potential to {:.3f} +/-'
@@ -387,7 +415,6 @@ class SJM(SolvationGPAW):
             self.sog('Current guess of excess electrons: {:+.5f}'
                      .format(p.excess_electrons))
             if iteration == 1:
-                self.sog('STARTING TIMER')
                 self.timer.start('Potential equilibration loop')
                 # We don't want SolvationGPAW to see any more system
                 # changes, like positions, after attempt 0.
@@ -395,7 +422,6 @@ class SJM(SolvationGPAW):
 
             if iteration > 0 or 'positions' in system_changes:
                 self.set(background_charge=self._create_jellium())
-
 
             # Do the calculation.
             SolvationGPAW.calculate(self, atoms, ['energy'], system_changes)
@@ -421,7 +447,7 @@ class SJM(SolvationGPAW):
                                            previous_electrons[-1]) * 0.5)
                     continue  # back to while True
 
-            #Increase iteration count
+            # Increase iteration count
             iteration += 1
 
             # Store attempt and calculate slope.
@@ -437,12 +463,10 @@ class SJM(SolvationGPAW):
                 self.sog('and apparent capacitance of {:.4f} muF/cm^2'
                          .format(capacitance))
 
-
             # Check if we're equilibrated and exit if always adjust is False.
             if abs(true_potential - p.target_potential) < p.tol:
                 self.sog('Potential is within tolerance. Equilibrated.')
                 if iteration >= 2:
-                    self.sog('ENDING TIMER')
                     self.timer.stop('Potential equilibration loop')
                 if not p.always_adjust:
                     break  # out of the while loop
@@ -455,7 +479,6 @@ class SJM(SolvationGPAW):
                          ' corresponding\nto an apparent capacitance of '
                          '10 muF/cm^2.'.format(p.slope))
 
-
             # Finally, update the number of electrons.
             p.excess_electrons += ((p.target_potential - true_potential)
                                    / p.slope)
@@ -466,15 +489,15 @@ class SJM(SolvationGPAW):
             # Check if we're equilibrated and exit if always adjust is True.
             if (abs(true_potential - p.target_potential) < p.tol
                 and p.always_adjust):
-                    break  # out of the while loop
+                break  # out of the while loop
         else:
-                msg = ('Potential could not be reached after {:d} iterations. '
-                       'This may indicate your workfunction is noisier than '
-                       'your potential tol. You may try setting the '
-                       'convergence["workfunction"] keyword. Aborting!'
-                       .format(iteration))
-                self.sog(msg)
-                raise Exception(msg)
+            msg = ('Potential could not be reached after {:d} iterations. '
+                   'This may indicate your workfunction is noisier than '
+                   'your potential tol. You may try setting the '
+                   'convergence["workfunction"] keyword. Aborting!'
+                   .format(iteration))
+            self.sog(msg)
+            raise Exception(msg)
 
     def write_sjm_traces(self, path='sjm_traces', style='z',
                          props=('potential', 'cavity', 'background_charge'),
@@ -490,12 +513,11 @@ class SJM(SolvationGPAW):
         if not os.path.exists(path) and gpaw.mpi.world.rank == 0:
             os.makedirs(path)
 
-
         for prop in props:
             if name is None:
-                outname=prop + '.txt'
+                outname = prop + '.txt'
             else:
-                outname='_'.join([prop,name])+'.txt'
+                outname = '_'.join([prop, name]) + '.txt'
 
             if style == 'z':
                 write_trace_in_z(grid, data[prop], outname, path)
@@ -562,6 +584,12 @@ class SJM(SolvationGPAW):
         specifieds = [(jellium['top'] is not None),
                       (jellium['bottom'] is not None),
                       (jellium['thickness'] is not None)]
+
+        if jellium.get('top') and jellium['top'] > atoms.cell[2][2]:
+            raise RuntimeError('The upper limit of the jellium region '
+                               'lies outside of the cell! Please check your '
+                               'jelliumregion specifications.')
+
         if sum(specifieds) == 3:
             raise RuntimeError('The jellium region has been overspecified.')
         if sum(specifieds) == 0:
@@ -576,6 +604,10 @@ class SJM(SolvationGPAW):
             top = jellium['top']
             bottom = defaults['bottom']
             thickness = None
+            if top < bottom:
+                raise('The lower limit of the jelliumregion lies above the'
+                      'upper limit. Check your input if they have been given'
+                      'explicitly or increase the cell size if not.')
         elif specifieds == [False, True, False]:
             top = defaults['top']
             bottom = jellium['bottom']
