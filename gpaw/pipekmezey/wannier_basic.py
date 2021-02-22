@@ -343,9 +343,9 @@ class WannierLocalization:
 
         Nw = self.nwannier
         Z_dknn = np.zeros((self.Ndir, self.Nk, Nw, Nw),
-                          dtype=self.dtype)
+                          dtype=complex)
         self.Z_dkww = np.empty((self.Ndir, self.Nk, Nw, Nw),
-                               dtype=self.dtype)
+                               dtype=complex)
 
         if self.mode == 'lcao' and self.wfs.kpt_u[0].psit_nG is None:
             self.wfs.initialize_wave_functions_from_lcao()
@@ -382,9 +382,6 @@ class WannierLocalization:
                                     Gc / self.gd.N_c).T)
                 pw = (e_G * cmo.conj()).reshape((Nw, -1))
 
-                if self.dtype == float:
-                    pw = pw.real
-
                 Z_dknn[d, k] += \
                     np.inner(pw, cmo1.reshape((Nw, -1))) * self.gd.dv
                 # PAW corrections
@@ -396,8 +393,6 @@ class WannierLocalization:
                     P_n = P_ni[:Nw]
                     P_n1 = P_ani1[A][:Nw]
                     e = np.exp(-2.j * pi * np.dot(Gc, spos_ac[A]))
-                    if self.dtype == float:
-                        e = e.real
 
                     Z_dknn[d, k] += e * P_n.conj().dot(
                         dS_ii.dot(P_n1.T))
@@ -474,10 +469,9 @@ class WannierLocalization:
     def get_gradients(self):
 
         Nw = self.nwannier
-        dtype = self.dtype
         dU = []
         for k in range(self.Nk):
-            Utemp_ww = np.zeros((Nw, Nw), dtype)
+            Utemp_ww = np.zeros((Nw, Nw), complex)
 
             for d, weight in enumerate(self.weight_d):
                 if abs(weight) < 1.0e-6:
