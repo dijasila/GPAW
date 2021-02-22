@@ -39,6 +39,8 @@ def get_traceback_string():
 # Could we delete assert line in ase/calculator/singlepoint
 # We should probably do this.
 
+# TODO/ap: Add release notes describing major changes.
+
 
 class SJM(SolvationGPAW):
     """Solvated Jellium method.
@@ -316,7 +318,7 @@ class SJM(SolvationGPAW):
                 if parent_changed:
                     self.density = None
                 else:
-                    self.quick_reinitialization()
+                    self._quick_reinitialization()
                     if self.density.background_charge:
                         self.density.background_charge = \
                             kwargs['background_charge']
@@ -327,7 +329,8 @@ class SJM(SolvationGPAW):
                 self.sog('Number of valence electrons is now {:.5f}'
                          .format(self.wfs.nvalence))
 
-    def quick_reinitialization(self):
+    def _quick_reinitialization(self):
+        # FIXME/ap: Add docstring.
         if self.density.nct_G is None:
             self.initialize_positions()
 
@@ -407,6 +410,11 @@ class SJM(SolvationGPAW):
         iteration = 0
         previous_electrons = []
         previous_potentials = []
+        # FIXME/ap: This doesn't work in always_adjust_ne with loose
+        # potential tolerance, as the slope never gets re-estimated. Will
+        # need to go back to saving them globally, and also may need to
+        # have it behave differently depending on if always_adjust_ne is
+        # flagged.
 
         while iteration < p.max_iters:
             self.sog('Attempt {:d} to equilibrate potential to {:.3f} +/-'
