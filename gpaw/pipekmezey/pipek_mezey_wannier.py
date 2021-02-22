@@ -291,7 +291,8 @@ class PipekMezey:
                     WF = self.get_weight_function_atom(atom.index)
                     pw = (e_G * WF * cmo1)
                     Qadk_nm[atom.index, d, k] += \
-                        self.gd.integrate(cmo, pw,
+                        self.gd.integrate(np.asarray(cmo, dtype=complex),
+                                          pw,
                                           global_integral=False)
                 # PAW corrections
                 P_ani1 = self.wfs.kpt_u[u1].P_ani
