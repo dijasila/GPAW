@@ -43,6 +43,8 @@ def expm_ed_unit_inv(a_upp_r, oo_vo_blockonly=False):
 
     p_nn = np.dot(a_upp_r, a_upp_r.T.conj())
     eigval, evec = np.linalg.eigh(p_nn)
+    # Eigenvalues cannot be negative
+    eigval[eigval.real < 1e-16] = 1e-16
     sqrt_eval = np.sqrt(eigval)
 
     sin_sqrt_p = matrix_function(sqrt_eval, evec, np.sin)
