@@ -5,9 +5,9 @@ from ase.build import molecule
 atoms = molecule('Na2')
 atoms.center(vacuum=6.0)
 
-# Poisson solver with increased accuracy and multipole corrections up to l=2
+# Poisson solver with multipole corrections up to l=2
 from gpaw import PoissonSolver
-poissonsolver = PoissonSolver(eps=1e-20, remove_moment=1 + 3 + 5)
+poissonsolver = PoissonSolver(remove_moment=1 + 3 + 5)
 
 # Ground-state calculation
 from gpaw import GPAW
@@ -15,7 +15,7 @@ calc = GPAW(mode='lcao', h=0.3, basis='dzp',
             setups={'Na': '1'},
             poissonsolver=poissonsolver,
             convergence={'density': 1e-12})
-atoms.set_calculator(calc)
+atoms.calc = calc
 energy = atoms.get_potential_energy()
 calc.write('gs.gpw', mode='all')
 

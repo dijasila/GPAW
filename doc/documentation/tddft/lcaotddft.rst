@@ -78,8 +78,12 @@ Some important points are:
   since they are not needed.
 * The density convergence criterion should be a few orders of magnitude
   more accurate than in usual ground-state calculations.
-* The convergence tolerance of the Poisson solver should be at least ``1e-16``,
+* If using GPAW version older than 1.5.0 or
+  ``PoissonSolver(name='fd', eps=eps, ...)``,
+  the convergence tolerance ``eps`` should be at least ``1e-16``,
   but ``1e-20`` does not hurt (note that this is the **quadratic** error).
+  The default ``FastPoissonSolver`` in GPAW versions starting from 1.5.0
+  do not require ``eps`` parameter. See :ref:`releasenotes`.
 * One should use multipole-corrected Poisson solvers or
   other advanced Poisson solvers in any TDDFT run
   in order to guarantee the convergence of the potential with respect to
@@ -313,6 +317,7 @@ The ``update`` keyword in ``replay()`` has following options:
    even with splitted files.
 
 
+.. _ksdecomposition:
 
 Kohn--Sham decomposition of density matrix
 ------------------------------------------
@@ -488,29 +493,38 @@ see [#Kuisma2015]_ and [#Rossi2015]_ for further discussion on the basis sets.
    Here, we will calculate a small and a large organic molecule with lcao-tddft.
 
 
+Time-dependent potential
+------------------------
+
+Instead of using the dipolar delta kick as a time-domain perturbation,
+it is possible to define any time-dependent potential.
+
+Considering the sodium atom chain as an example,
+we can tune a dipolar Gaussian pulse to its resonance at 1.12 eV
+and propagate the system:
+
+.. literalinclude:: lcaotddft_Na8/td_pulse.py
+
+The resulting dipole-moment response shows the resonant excitation
+of the system:
+
+.. image:: lcaotddft_Na8/pulse.png
+
+
 References
 ==========
 
 .. [#Kuisma2015]
-   M. Kuisma, A. Sakko, T. P. Rossi, A. H. Larsen, J. Enkovaara,
-   L. Lehtovaara, and T. T. Rantala,
-   Localized surface plasmon resonance in silver nanoparticles:
-   Atomistic first-principles time-dependent density functional theory
-   calculations,
-   *Phys. Rev. B* **69**, 245419 (2004).
-   `doi:10.1103/PhysRevB.91.115431 <https://doi.org/10.1103/PhysRevB.91.115431>`_
+   | M. Kuisma, A. Sakko, T. P. Rossi, A. H. Larsen, J. Enkovaara, L. Lehtovaara, and T. T. Rantala,
+   | :doi:`Localized surface plasmon resonance in silver nanoparticles: Atomistic first-principles time-dependent density functional theory calculations <10.1103/PhysRevB.91.115431>`
+   | Phys. Rev. B **91**, 115431 (2015)
 
 .. [#Rossi2015]
-   T. P. Rossi, S. Lehtola, A. Sakko, M. J. Puska, and R. M. Nieminen,
-   Nanoplasmonics simulations at the basis set limit
-   through completeness-optimized, local numerical basis sets,
-   *J. Chem. Phys.* **142**, 094114 (2015).
-   `doi:10.1063/1.4913739 <https://doi.org/10.1063/1.4913739>`_
+   | T. P. Rossi, S. Lehtola, A. Sakko, M. J. Puska, and R. M. Nieminen,
+   | :doi:`Nanoplasmonics simulations at the basis set limit through completeness-optimized, local numerical basis sets <10.1063/1.4913739>`
+   | J. Chem. Phys. **142**, 094114 (2015)
 
 .. [#Rossi2017]
-   T. P. Rossi, M. Kuisma, M. J. Puska, R. M. Nieminen, and P. Erhart,
-   Kohn--Sham Decomposition in Real-Time Time-Dependent
-   Density-Functional Theory:
-   An Efficient Tool for Analyzing Plasmonic Excitations,
-   *J. Chem. Theory Comput.* **13**, 4779 (2017).
-   `doi:10.1021/acs.jctc.7b00589 <https://doi.org/10.1021/acs.jctc.7b00589>`_
+   | T. P. Rossi, M. Kuisma, M. J. Puska, R. M. Nieminen, and P. Erhart,
+   | :doi:`Kohn--Sham Decomposition in Real-Time Time-Dependent Density-Functional Theory: An Efficient Tool for Analyzing Plasmonic Excitations <10.1021/acs.jctc.7b00589>`
+   | J. Chem. Theory Comput. **13**, 4779 (2017)

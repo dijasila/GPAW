@@ -15,7 +15,7 @@ calc = GPAW(mode=PW(ecut),
             parallel={'domain': 1},
             txt='MoS2_gs_out.txt')
 
-structure.set_calculator(calc)
+structure.calc = calc
 structure.get_potential_energy()
 
 calc.diagonalize_full_hamiltonian(nbands=500, expert=True)

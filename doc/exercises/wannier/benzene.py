@@ -24,6 +24,6 @@ calc = GPAW(nbands=15,
             xc='PBE',
             txt='benzene.txt')
 
-benzene.set_calculator(calc)
+benzene.calc = calc
 benzene.get_potential_energy()
 calc.write('benzene.gpw', mode='all')

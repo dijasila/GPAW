@@ -57,5 +57,5 @@ Finally the berry phase spectrum can be plottet with :download:`plot_phase.py` a
 Note the degeneracy of all phases at the time-reversal invariant points `\Gamma` and `M`. Also note that any horizontal line is transversed by an odd number of phases in half the Brillouin zone (for example the `\Gamma-M` line). We also display the expectation value of `S_z` according to color. This is possible because the individual phases correspond to the first moments of hybrid Wannier functions localized along the `x`-direction and these functions have a spinorial structure with a well-defined value of `\langle S_z\rangle`. [#Olsen]_
 
 .. [#Olsen] T. Olsen, E. Andersen, T. Okugawa, D. Torelli, T. Deilmann, K. S. Thygesen
-            arXiv:1812.06666
+            :arxiv:`1812.06666`
 

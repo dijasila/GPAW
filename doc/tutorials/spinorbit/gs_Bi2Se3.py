@@ -22,7 +22,7 @@ pos = [[mu, mu, mu],
        [nu, nu, nu],
        [-nu, -nu, -nu]]
 a = Atoms('Bi2Se3', cell=cell, scaled_positions=pos, pbc=True)
-a.set_calculator(calc)
+a.calc = calc
 a.get_potential_energy()
 
 calc.write('gs_Bi2Se3.gpw')

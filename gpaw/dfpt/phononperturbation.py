@@ -50,7 +50,7 @@ class PhononPerturbation(Perturbation):
             sdisp_cd = calc.wfs.gd.sdisp_cd
 
             for q in range(self.kd.mynks):
-                phase_cd = np.exp(2j * np.pi * \
+                phase_cd = np.exp(2j * np.pi *
                                   sdisp_cd * self.kd.ibzk_qc[q, :, np.newaxis])
                 self.phase_qcd.append(phase_cd)
 
@@ -70,7 +70,7 @@ class PhononPerturbation(Perturbation):
                        integral=[setup.Nct for setup in setups],
                        dtype=self.dtype)
         # compensation charges
-        #XXX what is the consequence of numerical errors in the integral ??
+        # XXX what is the consequence of numerical errors in the integral ??
         self.ghat = LFC(self.finegd, [setup.ghat_l for setup in setups],
                         kd,
                         dtype=self.dtype)
@@ -120,7 +120,7 @@ class PhononPerturbation(Perturbation):
                 2j * pi * np.dot(self.kd.ibzk_qc, scoor_cg.swapaxes(0, -2)))
             self.phase_qg = phase_qg.swapaxes(1, -2)
 
-        #XXX To be removed from this class !!
+        # XXX To be removed from this class !!
         # Setup the Poisson solver -- to be used on the fine grid
         self.poisson.set_grid_descriptor(self.finegd)
         self.poisson.initialize()
@@ -191,20 +191,20 @@ class PhononPerturbation(Perturbation):
 
         """
 
-        #assert phi_g.shape == rho_g.shape == self.phase_qg.shape[-3:], \
+        # assert phi_g.shape == rho_g.shape == self.phase_qg.shape[-3:], \
         #       ("Arrays have incompatible shapes.")
         assert self.q is not None, ("q-vector not set")
 
         # Gamma point calculation wrt the q-vector -> rho_g periodic
         if self.kd.gamma:
-            #XXX NOTICE: solve_neutral
+            # XXX NOTICE: solve_neutral
             self.poisson.solve_neutral(phi_g, rho_g)
         else:
             # Divide out the phase factor to get the periodic part
             rhot_g = rho_g / self.phase_qg[self.q]
 
             # Solve Poisson's equation for the periodic part of the potential
-            #XXX NOTICE: solve_neutral
+            # XXX NOTICE: solve_neutral
             self.poisson.solve_neutral(phi_g, rhot_g)
 
             # Return to Bloch form

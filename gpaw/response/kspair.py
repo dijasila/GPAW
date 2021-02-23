@@ -178,8 +178,8 @@ class KohnShamPair:
             f_n = kpt.f_n / kpt.weight
             nocc1 = min((f_n > 1 - ftol).sum(), nocc1)
             nocc2 = max((f_n > ftol).sum(), nocc2)
-        nocc1 = np.int(nocc1)
-        nocc2 = np.int(nocc2)
+        nocc1 = int(nocc1)
+        nocc2 = int(nocc2)
 
         # Collect nocc for all k-points
         nocc1 = self.calc.wfs.kd.comm.min(nocc1)
@@ -381,7 +381,7 @@ class KohnShamPair:
         myn_eueh = []
 
         # Data distribution protocol
-        nrh_r2 = np.zeros(self.world.size, dtype=np.int)
+        nrh_r2 = np.zeros(self.world.size, dtype=int)
         ik_r2 = [None for _ in range(self.world.size)]
         eh_eur2reh = []
         rh_eur2reh = []
@@ -391,7 +391,7 @@ class KohnShamPair:
         myt_myt = np.arange(self.tb - self.ta)
         t_myt = range(self.ta, self.tb)
         n_myt, s_myt = n_t[t_myt], s_t[t_myt]
-        h_myt = np.empty(self.tb - self.ta, dtype=np.int)
+        h_myt = np.empty(self.tb - self.ta, dtype=int)
 
         nt = len(n_t)
         assert nt == len(s_t)
@@ -421,7 +421,7 @@ class KohnShamPair:
                 r2_ct = r2_t[t_ct]
 
                 # Find out where data is in wfs
-                u = wfs.kd.where_is(s, ik)
+                u = ik * wfs.nspins + s
                 myu, r1_ct, myn_ct = get_extraction_info(u, n_ct, r2_ct)
 
                 # If the process is extracting or receiving data,
@@ -509,7 +509,9 @@ class KohnShamPair:
         """Figure out where to extract the data from in the gs calc"""
         wfs = self.calc.wfs
         # Find out where data is in wfs
-        kptrank, myu = wfs.kd.who_has(u)
+        k, s = divmod(u, wfs.nspins)
+        kptrank, q = wfs.kd.who_has(k)
+        myu = q * wfs.nspins + s
         r1_ct, myn_ct = [], []
         for n in n_ct:
             bandrank, myn = wfs.bd.who_has(n)
@@ -782,7 +784,7 @@ class KohnShamPair:
         myn_eurn = []
         nh = 0
         h_eurn = []
-        h_myt = np.empty(self.tb - self.ta, dtype=np.int)
+        h_myt = np.empty(self.tb - self.ta, dtype=int)
         for s in set(s_myt):
             thiss_myt = s_myt == s
             n_ct = n_myt[thiss_myt]
@@ -800,7 +802,7 @@ class KohnShamPair:
                 h_myt[thish_myt] = h
 
             # Find out where data is in wfs
-            u = wfs.kd.where_is(s, ik)
+            u = ik * wfs.nspins + s
             # The process has access to all data
             myu = u
             myn_rn = n_rn
@@ -895,16 +897,22 @@ class KohnShamPair:
         shift_c = shift_c.round().astype(int)
 
         if (U_cc == np.eye(3)).all():
-            T = lambda f_R: f_R
+            def T(f_R):
+                return f_R
         else:
             N_c = self.calc.wfs.gd.N_c
             i_cr = np.dot(U_cc.T, np.indices(N_c).reshape((3, -1)))
             i = np.ravel_multi_index(i_cr, N_c, 'wrap')
-            T = lambda f_R: f_R.ravel()[i].reshape(N_c)
+
+            def T(f_R):
+                return f_R.ravel()[i].reshape(N_c)
 
         if time_reversal:
             T0 = T
-            T = lambda f_R: T0(f_R).conj()
+
+            def T(f_R):
+                return T0(f_R).conj()
+
             shift_c *= -1
 
         a_a = []

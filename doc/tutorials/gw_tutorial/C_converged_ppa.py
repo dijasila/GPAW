@@ -21,7 +21,7 @@ calc = GPAW(mode=PW(600, force_complex_dtype=True),
             occupations=FermiDirac(0.001),
             txt='C_converged_ppa.txt')
 
-atoms.set_calculator(calc)
+atoms.calc = calc
 atoms.get_potential_energy()
 
 calc.diagonalize_full_hamiltonian()
@@ -33,7 +33,7 @@ for ecut in [300, 400]:
               bands=(3, 5),
               ecut=ecut,
               ppa=True,
-              filename='C-g0w0_ppa_{}'.format(ecut))
+              filename=f'C-g0w0_ppa_{ecut}')
 
     gw.calculate()
 

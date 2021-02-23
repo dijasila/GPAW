@@ -12,5 +12,5 @@ c = {'energy': 0.1, 'eigenstates': 3, 'density': 3}  # Values for test
 calc = GPAW(txt='CO.txt', xc='LCY-PBE', convergence=c,
             eigensolver=RMMDIIS(), h=h,
             occupations=FermiDirac(width=0.0), spinpol=False)
-co.set_calculator(calc)
+co.calc = calc
 co.get_potential_energy()

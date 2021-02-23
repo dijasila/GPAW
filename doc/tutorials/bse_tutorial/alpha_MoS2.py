@@ -1,4 +1,3 @@
-from __future__ import print_function
 from gpaw.response.df import DielectricFunction
 
 df = DielectricFunction('gs_MoS2.gpw',

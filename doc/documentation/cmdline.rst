@@ -20,7 +20,6 @@ info            Show versions of GPAW and its dependencies
 dos             Calculate (projected) density of states from gpw-file
 gpw             Write summary of GPAW-restart file
 completion      Add tab-completion for Bash
-test            Run the GPAW test suite
 atom            Solve radial equation for an atom
 python          Run GPAW's parallel Python interpreter
 sbatch          Submit a GPAW Python script via sbatch
@@ -39,6 +38,21 @@ You can do::
     $ gpaw sub-command --help
 
 to get help (or ``-h`` for short).
+
+
+Other command-line tools
+========================
+
+There are also CLI tools for analysing :ref:`point groups`
+and for :ref:`hyperfine`.  Try::
+
+    $ python3 -m gpaw.point_groups --help
+    $ python3 -m gpaw.hyperfine --help
+
+See also::
+
+    $ python3 -m gpaw.utilities.dipole --help
+    $ python3 -m gpaw.utilities.ekin --help
 
 
 .. _bash completion:

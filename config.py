@@ -1,6 +1,5 @@
 # Copyright (C) 2006 CSC-Scientific Computing Ltd.
 # Please see the accompanying LICENSE file for further information.
-from __future__ import print_function
 import os
 import sys
 import re
@@ -108,7 +107,7 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
     # XXX some of this is duplicated in setup.py!  Why do the same thing twice?
     cfiles.sort()
 
-    sources = ['c/bc.c', 'c/localized_functions.c', 'c/mpi.c', 'c/_gpaw.c',
+    sources = ['c/bc.c', 'c/mpi.c', 'c/_gpaw.c',
                'c/operators.c', 'c/woperators.c', 'c/transformers.c',
                'c/elpa.c',
                'c/blacs.c', 'c/utilities.c', 'c/xc/libvdwxc.c']

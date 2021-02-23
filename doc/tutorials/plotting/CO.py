@@ -10,7 +10,7 @@ atoms = Atoms('CO',
               cell=(a, a, a))
 
 calc = GPAW(nbands=5, h=0.2, txt=None)
-atoms.set_calculator(calc)
+atoms.calc = calc
 
 # Start a calculation:
 energy = atoms.get_potential_energy()
