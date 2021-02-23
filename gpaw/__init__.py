@@ -9,6 +9,7 @@ from sysconfig import get_platform
 from os.path import join, isfile
 from typing import List, Dict
 
+
 plat = get_platform()
 platform_id = os.getenv('CPU_ARCH')
 if platform_id:
@@ -23,7 +24,18 @@ sys.path.insert(0, join(build_path, 'lib.' + arch))
 if 'OMP_NUM_THREADS' not in os.environ:
     os.environ['OMP_NUM_THREADS'] = '1'
 
+# Symbol look may fail if library linked agains _gpaw.so tries internally
+# dlopen another .so. (MKL is one particular example)
+# Thus, expose symbols from libraries used by _gpaw
+old_dlflags = sys.getdlopenflags()
+sys.setdlopenflags(old_dlflags | os.RTLD_GLOBAL)
+try:
+    import _gpaw
+finally:
+    sys.setdlopenflags(old_dlflags)
+
 from gpaw.broadcast_imports import broadcast_imports  # noqa
+
 
 with broadcast_imports:
     import os
@@ -33,7 +45,7 @@ with broadcast_imports:
 
     import numpy as np
     from ase.cli.run import str2dict
-    import _gpaw
+
 
 assert not np.version.version.startswith('1.6.0')
 
