@@ -1,7 +1,6 @@
-from myqueue.task import task
+from myqueue.workflow import run
 
 
-def create_tasks():
-    return [
-        task('atomize.py@1:30m'),
-        task('relax.py@1:30m', deps='atomize.py')]
+def workflow():
+    with run(script='atomize.py', tmax='30m'):
+        run(script='relax.py', tmax='30m')

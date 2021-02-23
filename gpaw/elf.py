@@ -30,12 +30,14 @@ def _elf(nt_sg, nt_grad2_sg, taut_sg, ncut, spinpol):
 
     if spinpol:
         # Kouhut eq. (9)
-        D0 = 2**(2.0/3.0) * cF * (nt_sg[0]**(5.0/3.0) + nt_sg[1]**(5.0/3.0))
+        D0 = 2**(2.0 / 3.0) * cF * (nt_sg[0]**(5.0 / 3.0) +
+                                    nt_sg[1]**(5.0 / 3.0))
+
         taut = taut_sg.sum(axis=0)
         D = taut - (nt_grad2_sg[0] / nt_sg[0] + nt_grad2_sg[1] / nt_sg[1]) / 8
     else:
         # Kouhut eq. (7)
-        D0 = cF * nt_sg[0]**(5.0/3.0)
+        D0 = cF * nt_sg[0]**(5.0 / 3.0)
         taut = taut_sg[0]
         D = taut - nt_grad2_sg[0] / nt_sg[0] / 8
 
@@ -103,8 +105,8 @@ class ELF:
         for s in range(self.nspins):
             self.density.interpolator.apply(self.taut_sG[s],
                                             self.taut_sg[s])
-            #self.density.interpolator.apply(self.nt_grad2_sG[s],
-            #                                self.nt_grad2_sg[s])
+            # self.density.interpolator.apply(self.nt_grad2_sG[s],
+            #                                 self.nt_grad2_sg[s])
             for v in range(3):
                 ddr_v[v](self.density.nt_sg[s], d_g)
                 self.nt_grad2_sg[s] += d_g**2.0

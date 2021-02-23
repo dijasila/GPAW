@@ -8,6 +8,7 @@ import numpy as np
 
 # make "random" input arrays
 
+
 def test_linalg_dot():
     A = np.arange(6 * 2 * 5).reshape(6, 2, 5) - 3.
     B = np.arange(3 * 5 * 4).reshape(3, 5, 4) + 5.

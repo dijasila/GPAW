@@ -1,11 +1,12 @@
 import os
 from pathlib import Path
+from contextlib import contextmanager
 
 import pytest
 from _pytest.tmpdir import _mk_tmp
 from ase import Atoms
 from ase.io import read
-from ase.utils import devnull
+from gpaw.utilities import devnull
 from ase.build import bulk
 import numpy as np
 
@@ -14,11 +15,14 @@ from gpaw.cli.info import info
 from gpaw.mpi import world, broadcast
 
 
-@pytest.fixture
-def in_tmp_dir(request, tmp_path_factory):
-    """Run test in a temporary directory."""
+@contextmanager
+def execute_in_tmp_path(request, tmp_path_factory):
     if world.rank == 0:
-        path = _mk_tmp(request, tmp_path_factory)
+        # Obtain basename as
+        # * request.function.__name__  for function fixture
+        # * request.module.__name__    for module fixture
+        basename = getattr(request, request.scope).__name__
+        path = tmp_path_factory.mktemp(basename)
     else:
         path = None
     path = broadcast(path)
@@ -28,6 +32,20 @@ def in_tmp_dir(request, tmp_path_factory):
         yield path
     finally:
         os.chdir(cwd)
+
+
+@pytest.fixture(scope='function')
+def in_tmp_dir(request, tmp_path_factory):
+    """Run test function in a temporary directory."""
+    with execute_in_tmp_path(request, tmp_path_factory) as path:
+        yield path
+
+
+@pytest.fixture(scope='module')
+def module_tmp_path(request, tmp_path_factory):
+    """Run test module in a temporary directory."""
+    with execute_in_tmp_path(request, tmp_path_factory) as path:
+        yield path
 
 
 @pytest.fixture(scope='session')

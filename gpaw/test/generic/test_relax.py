@@ -20,13 +20,11 @@ def test_generic_relax(in_tmp_dir):
                 poissonsolver={'name': 'fd'})
     molecule.calc = calc
     e1 = molecule.get_potential_energy()
-    niter1 = calc.get_number_of_iterations()
     calc.write('H2.gpw')
     calc.write('H2a.gpw', mode='all')
     molecule.get_forces()
     calc.write('H2f.gpw')
     calc.write('H2fa.gpw', mode='all')
-
 
     def timer(func, *args, **kwargs):
         t0 = time()
@@ -69,7 +67,6 @@ def test_generic_relax(in_tmp_dir):
     relax.run(fmax=0.05)
 
     e2 = molecule.get_potential_energy()
-    niter2 = calc.get_number_of_iterations()
 
     positions = molecule.get_positions()
     #                 x-coordinate      x-coordinate
@@ -82,12 +79,10 @@ def test_generic_relax(in_tmp_dir):
     print('hydrogen molecule energy: %7.3f eV' % e2)
     print('bondlength              : %7.3f Ang' % d0)
 
-
     molecule = GPAW('H2fa.gpw', txt='H2.txt').get_atoms()
     relax = BFGS(molecule)
     relax.run(fmax=0.05)
     e2q = molecule.get_potential_energy()
-    niter2q = calc.get_number_of_iterations()
     positions = molecule.get_positions()
     d0q = positions[1, 0] - positions[0, 0]
     assert abs(e2 - e2q) < 2e-6
@@ -101,7 +96,6 @@ def test_generic_relax(in_tmp_dir):
     assert abs(f - f0).max() < 5e-6  # 5 digits in txt file
 
     energy_tolerance = 0.002
-    niter_tolerance = 0
     equal(e1, -6.287873, energy_tolerance)
     equal(e2, -6.290744, energy_tolerance)
     equal(e2q, -6.290744, energy_tolerance)

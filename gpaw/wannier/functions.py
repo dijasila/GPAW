@@ -1,7 +1,7 @@
 from ase import Atoms
 
 from gpaw import GPAW
-from ..hints import Array3D
+from gpaw.typing import Array3D
 
 
 class WannierFunctions:

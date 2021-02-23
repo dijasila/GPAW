@@ -5,7 +5,7 @@ from gpaw.test import equal
 
 
 def test_symmetry_fractional_translations_med():
-    name = 'quartz'
+    'quartz'
     # no. 152 - trigonal
 
     a = 5.032090
@@ -15,7 +15,6 @@ def test_symmetry_fractional_translations_med():
 
     atoms = crystal(['Si', 'O'], basis=[p0, p1],
                     spacegroup=152, cellpar=[a, a, c, 90, 90, 120])
-
 
     # with fractional translations
     calc = GPAW(mode=PW(),

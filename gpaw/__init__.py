@@ -9,6 +9,7 @@ from sysconfig import get_platform
 from os.path import join, isfile
 from typing import List, Dict
 
+
 plat = get_platform()
 platform_id = os.getenv('CPU_ARCH')
 if platform_id:
@@ -23,7 +24,18 @@ sys.path.insert(0, join(build_path, 'lib.' + arch))
 if 'OMP_NUM_THREADS' not in os.environ:
     os.environ['OMP_NUM_THREADS'] = '1'
 
+# Symbol look may fail if library linked agains _gpaw.so tries internally
+# dlopen another .so. (MKL is one particular example)
+# Thus, expose symbols from libraries used by _gpaw
+old_dlflags = sys.getdlopenflags()
+sys.setdlopenflags(old_dlflags | os.RTLD_GLOBAL)
+try:
+    import _gpaw
+finally:
+    sys.setdlopenflags(old_dlflags)
+
 from gpaw.broadcast_imports import broadcast_imports  # noqa
+
 
 with broadcast_imports:
     import os
@@ -33,12 +45,12 @@ with broadcast_imports:
 
     import numpy as np
     from ase.cli.run import str2dict
-    import _gpaw
+
 
 assert not np.version.version.startswith('1.6.0')
 
-__version__ = '20.10.1b1'
-__ase_version_required__ = '3.21.0b1'
+__version__ = '21.1.1b1'
+__ase_version_required__ = '3.21.0'
 
 __all__ = ['GPAW',
            'Mixer', 'MixerSum', 'MixerDif', 'MixerSum2',
@@ -225,7 +237,8 @@ benchmark_imports = extra_parameters.pop('benchmark_imports', False)
 # Check for typos:
 for p in extra_parameters:
     # We should get rid of most of these!
-    if p not in {'sic', 'log2ng', 'PK', 'vdw0', 'df_dry_run', 'usenewlfc'}:
+    if p not in {'sic', 'log2ng', 'PK', 'vdw0', 'df_dry_run',
+                 'c_precond', 'usenewlfc'}:
         warnings.warn('Unknown parameter: ' + p)
 
 if debug:

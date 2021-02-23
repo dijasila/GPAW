@@ -34,7 +34,8 @@ def test_fd_ops_gradient():
     dAdx = gd.collect(dadx, broadcast=True)
     assert not (dAdx[:, 0, 0] - [-7, 1, 1, 1, 1, 1, 1, 1]).any()
 
-    gd = GridDescriptor((1, 8, 1), (1.0, 8.0, 1.0), (1, 0, 1), comm=domain_comm)
+    gd = GridDescriptor((1, 8, 1), (1.0, 8.0, 1.0),
+                        (1, 0, 1), comm=domain_comm)
     dady = gd.zeros()
     a = gd.zeros()
     grady = Gradient(gd, v=1)
@@ -64,7 +65,8 @@ def test_fd_ops_gradient():
     #   dy
 
     dady = gd.collect(dady, broadcast=True)
-    assert abs(dady[0, 0, 0] - -3.5) < 1e-12 and abs(np.sum(dady[0, :, 0])) < 1e-12
+    assert abs(dady[0, 0, 0] - -
+               3.5) < 1e-12 and abs(np.sum(dady[0, :, 0])) < 1e-12
 
     # Check continuity of weights:
     weights = []

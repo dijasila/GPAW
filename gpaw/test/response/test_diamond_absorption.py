@@ -36,8 +36,11 @@ def test_response_diamond_absorption(in_tmp_dir):
     equal(eM2, eM2_, 0.01)
 
     # Absorption spectrum calculation RPA
-    df = DielectricFunction('C.gpw', eta=0.25, ecut=50,
-                            frequencies=np.linspace(0, 24., 241), hilbert=False)
+    df = DielectricFunction('C.gpw',
+                            eta=0.25,
+                            ecut=50,
+                            frequencies=np.linspace(0, 24., 241),
+                            hilbert=False)
     a0, a = df.get_dielectric_function(filename=None)
     df.check_sum_rule(a.imag)
 
@@ -110,8 +113,11 @@ def test_response_diamond_absorption(in_tmp_dir):
     w_ = 10.7532
     I_ = 6.0750
 
-    df_ws = DielectricFunction('C.gpw', eta=0.25, ecut=50,
-                               frequencies=np.linspace(0, 24., 241), hilbert=False,
+    df_ws = DielectricFunction('C.gpw',
+                               eta=0.25,
+                               ecut=50,
+                               frequencies=np.linspace(0, 24., 241),
+                               hilbert=False,
                                truncation='wigner-seitz')
 
     a0_ws, a_ws = df_ws.get_polarizability(filename=None)
@@ -122,4 +128,5 @@ def test_response_diamond_absorption(in_tmp_dir):
     w, I = findpeak(np.linspace(0, 24., 241), a_ws.imag)
     equal(w, w_, 0.1)
     equal(I, I_, 0.2)
-    # The Wigner-Seitz truncation does not give exactly the same for kpts=(3,3,3)
+    # The Wigner-Seitz truncation does not give exactly the
+    # same for kpts=(3,3,3)

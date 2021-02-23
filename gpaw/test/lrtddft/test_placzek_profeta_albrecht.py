@@ -1,16 +1,9 @@
-"""
-Test Placzek Raman implementation
-"""
-from ase import Atoms, Atom
-from ase.vibrations.resonant_raman import ResonantRamanCalculator
-from ase.vibrations.placzek import Placzek, Profeta
-from ase.vibrations.albrecht import Albrecht
+from ase import Atom, Atoms
 
 from gpaw import GPAW
+from gpaw.analyse.overlap import Overlap
 from gpaw.lrtddft.kssingle import KSSingles
 from gpaw.test import equal
-from gpaw.analyse.overlap import Overlap
-
 
 txt = '-'
 txt = None
@@ -25,15 +18,11 @@ a = 4.0
 c = 5.0
 
 
-class GPAW_with_classmethod_read(GPAW):
-    @classmethod
-    def read(cls, filename):
-        gpw = cls()
-        GPAW.read(gpw, filename)
-        return gpw
-
-
 def test_lrtddft_placzek_profeta_albrecht(in_tmp_dir):
+    from ase.vibrations.albrecht import Albrecht
+    from ase.vibrations.placzek import Placzek, Profeta
+    from ase.vibrations.resonant_raman import ResonantRamanCalculator
+
     H2 = Atoms([Atom('H', (a / 2, a / 2, (c - R) / 2)),
                 Atom('H', (a / 2, a / 2, (c + R) / 2))],
                cell=(a, a, c))
@@ -41,26 +30,25 @@ def test_lrtddft_placzek_profeta_albrecht(in_tmp_dir):
     name = exname = 'rraman'
     exkwargs = {'restrict': {'eps': 0.0, 'jend': 3}}
 
-    if 1:
-        calc = GPAW_with_classmethod_read(
-            xc=xc, nbands=7,
-            convergence={'bands': 3},
-            spinpol=False,
-            # eigensolver='rmm-diis',
-            symmetry={'point_group': False},
-            txt=txt)
-        H2.calc = calc
-        # H2.get_potential_energy()
-
-        rr = ResonantRamanCalculator(
-            H2, KSSingles, name=name, exname=exname,
-            exkwargs=exkwargs,
-            # XXX full does not work in parallel due to boxes
-            # on different nodes
-            # overlap=lambda x, y: Overlap(x).full(y)[0],
-            overlap=lambda x, y: Overlap(x).pseudo(y)[0],
-            txt=txt)
-        rr.run()
+    calc = GPAW(
+        xc=xc, nbands=7,
+        convergence={'bands': 3},
+        spinpol=False,
+        # eigensolver='rmm-diis',
+        symmetry={'point_group': False},
+        txt=txt)
+    H2.calc = calc
+    # H2.get_potential_energy()
+    
+    rr = ResonantRamanCalculator(
+        H2, KSSingles, name=name, exname=exname,
+        exkwargs=exkwargs,
+        # XXX full does not work in parallel due to boxes
+        # on different nodes
+        # overlap=lambda x, y: Overlap(x).full(y)[0],
+        overlap=lambda x, y: Overlap(x).pseudo(y)[0],
+        txt=txt)
+    rr.run()
 
     # check
 

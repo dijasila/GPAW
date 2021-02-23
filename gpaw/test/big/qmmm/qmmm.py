@@ -48,7 +48,7 @@ for selection in [[0, 1, 2], [3, 4, 5]]:
     d = dimer.get_distance(0, 3)
     print(name, be, d)
     if name == '012':
-        assert abs(be - -0.288) < 0.002
+        assert abs(be - -0.287) < 0.002
         assert abs(d - 2.76) < 0.02
     else:
         assert abs(be - -0.316) < 0.002

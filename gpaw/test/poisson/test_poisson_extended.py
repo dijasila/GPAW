@@ -19,8 +19,6 @@ def test_poisson_poisson_extended():
 
     # Construct model density
     coord_vg = gd.get_grid_point_coordinates()
-    x_g = coord_vg[0, :]
-    y_g = coord_vg[1, :]
     z_g = coord_vg[2, :]
     rho_g = gd.zeros()
     for z0 in [1, 2]:
@@ -47,7 +45,6 @@ def test_poisson_poisson_extended():
             ploti += 1
             plt.plot(big_rho_g[Ng_c[0] / 2, Ng_c[1] / 2])
 
-
     def plot_phi(phi_g):
         if do_plot:
             big_phi_g = gd.collect(phi_g)
@@ -61,12 +58,10 @@ def test_poisson_poisson_extended():
                 plt.plot(big_phi_g[Ng_c[0] / 2, Ng_c[1] / 2])
                 plt.ylim(np.array([-1, 1]) * 0.15)
 
-
     def poisson_solve(gd, rho_g, poisson):
         phi_g = gd.zeros()
         npoisson = poisson.solve(phi_g, rho_g)
         return phi_g, npoisson
-
 
     def compare(phi1_g, phi2_g, val):
         big_phi1_g = gd.collect(phi1_g)
@@ -74,7 +69,6 @@ def test_poisson_poisson_extended():
         if gd.comm.rank == 0:
             equal(np.max(np.absolute(big_phi1_g - big_phi2_g)),
                   val, np.sqrt(poissoneps))
-
 
     # Get reference from default poissonsolver
     poisson = PoissonSolver(eps=poissoneps)
@@ -96,7 +90,8 @@ def test_poisson_poisson_extended():
     compare(phi_g, phiref_g, 4.1182101206e-02)
 
     # Test moment_corrections=list
-    poisson = ExtendedPoissonSolver(eps=poissoneps,
+    poisson = ExtendedPoissonSolver(
+        eps=poissoneps,
         moment_corrections=[{'moms': range(4), 'center': [.5, .5, 1]},
                             {'moms': range(4), 'center': [.5, .5, 2]}])
     poisson.set_grid_descriptor(gd)
@@ -114,7 +109,8 @@ def test_poisson_poisson_extended():
     compare(phi_g, phiref_g, 2.5351851105e-02)
 
     # Test extendedgpts + moment_corrections, extendedhistory=False
-    poisson = ExtendedPoissonSolver(eps=poissoneps,
+    poisson = ExtendedPoissonSolver(
+        eps=poissoneps,
         extended={'gpts': (24, 24, 3 * 24),
                   'useprev': False},
         moment_corrections=[{'moms': range(4), 'center': [.5, .5, 1]},
@@ -129,7 +125,8 @@ def test_poisson_poisson_extended():
 
     # Test extendedgpts + moment_corrections,
     # extendedhistory=True
-    poisson = ExtendedPoissonSolver(eps=poissoneps,
+    poisson = ExtendedPoissonSolver(
+        eps=poissoneps,
         extended={'gpts': (24, 24, 3 * 24),
                   'useprev': True},
         moment_corrections=[{'moms': range(4), 'center': [.5, .5, 1]},
@@ -142,7 +139,6 @@ def test_poisson_poisson_extended():
     # There is a slight difference in values
     # because one more iteration in phi2_g
     compare(phi_g, phi2_g, 0.0)
-
 
     if do_plot:
         if gd.comm.rank == 0:

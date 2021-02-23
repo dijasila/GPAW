@@ -3,7 +3,7 @@ from time import ctime
 
 import numpy as np
 from ase.units import Ha
-from ase.utils import devnull
+from gpaw.utilities import devnull
 from ase.utils.timing import timer, Timer
 
 import gpaw.mpi as mpi

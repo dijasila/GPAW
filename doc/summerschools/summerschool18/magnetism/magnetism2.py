@@ -76,8 +76,8 @@ e_x, e_y, e_z = (
     for theta, phi in [(90, 0), (90, 90), (0, 0)])
 de_zx = e_z - e_x
 de_zy = e_z - e_y
-print('dE_zx = %1.3f meV' % (de_zx * 1000))
-print('dE_zy = %1.3f meV' % (de_zy * 1000))
+print(f'dE_zx = {de_zx * 1000:1.3f} meV')
+print(f'dE_zy = {de_zy * 1000:1.3f} meV')
 A = de_zx
 
 # %%
@@ -153,7 +153,7 @@ E_fm = layer_fm.get_potential_energy() / 2  # student: E_fm = ???
 E_afm = layer_afm.get_potential_energy() / 2  # student: E_afm = ???
 dE = E_afm - E_fm  # student:
 J = dE / 4 / S**2  # student: J = ???
-print('J = %1.2f meV' % (J * 1000))
+print(f'J = {J * 1000:1.2f} meV')
 
 # %%
 """
@@ -253,8 +253,8 @@ e_x, e_y, e_z = (
     for theta, phi in [(90, 0), (90, 90), (0, 0)])
 de_zx = e_z - e_x
 de_zy = e_z - e_y
-print('NC: A_zx = %1.3f meV' %  (de_zx * 1000))
-print('NC: A_zy = %1.3f meV' %  (de_zy * 1000))
+print(f'NC: A_zx = {de_zx * 1000:1.3f} meV')
+print(f'NC: A_zy = {de_zy * 1000:1.3f} meV')
 print()
 
 calc = GPAW('fm_nosoc.gpw', txt=None)
@@ -264,19 +264,19 @@ e_x, e_y, e_z = (
     for theta, phi in [(90, 0), (90, 90), (0, 0)])
 de_zx = e_z - e_x
 de_zy = e_z - e_y
-print('FM: A_zx = %1.3f meV' %  (de_zx * 1000))
-print('FM: A_zy = %1.3f meV' %  (de_zy * 1000))
+print(f'FM: A_zx = {de_zx * 1000:1.3f} meV')
+print(f'FM: A_zy = {de_zy * 1000:1.3f} meV')
 print()
 
 dE = E_nc - E_fm
 J = 2 * dE / 9 / S**2
-print('J = %1.2f meV' % (J * 1000))
+print(f'J = {J * 1000:1.2f} meV')
 print()
 calc = GPAW('VI2_relaxed.gpw', txt=None)
 E_fm = calc.get_potential_energy()
 dE = E_nc - E_fm
 J = 2 * dE / 9 / S**2
-print('J = %1.2f meV' % (J * 1000))
+print(f'J = {J * 1000:1.2f} meV')
 
 
 # %%

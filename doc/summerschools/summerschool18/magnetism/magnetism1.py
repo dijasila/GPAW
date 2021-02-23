@@ -155,11 +155,11 @@ E_afm = calc_afm.get_potential_energy() / 2  # Energy per site
 dE = E_afm - E_fm
 
 J = dE / S**2 / 3  # student: J = ???
-print('J = %1.3f meV' %  (J * 1000))
+print(f'J = {J * 1000:1.3f} meV')
 
 from ase.units import kB                     # Boltzmann's constant in eV/K
 T_c = N * J * S * (S + 1) / 3 / kB  # student: T_c = ???
-print('T_c(MF) = %1.1f K' %  T_c)
+print(f'T_c(MF) = {T_c:1.1f} K')
 
 # %%
 """
@@ -217,8 +217,8 @@ e_y = soc_eigenstates(calc_fm, theta=90, phi=90).calculate_band_energy() / 2
 e_z = soc_eigenstates(calc_fm, theta=0, phi=0).calculate_band_energy() / 2
 de_zx = e_z - e_x
 de_zy = e_z - e_y
-print('dE_zx = %1.3f meV' %  (de_zx * 1000))
-print('dE_zy = %1.3f meV' %  (de_zy * 1000))
+print(f'dE_zx = {de_zx * 1000:1.3f} meV')
+print(f'dE_zy = {de_zy * 1000:1.3f} meV')
 A = de_zx  # student: A = ???
 
 
@@ -268,7 +268,7 @@ from numpy import tanh, log
 
 T0 = 1.52
 T_c = T0 * S**2 * J / kB * (tanh(2 * log(1 - 0.033 * A / J)))**(0.25)  # student: T_c = ???
-print('T_c = %1.f K' % T_c)
+print(f'T_c = {T_c:.1f} K')
 
 
 # %%

@@ -178,8 +178,8 @@ class KohnShamPair:
             f_n = kpt.f_n / kpt.weight
             nocc1 = min((f_n > 1 - ftol).sum(), nocc1)
             nocc2 = max((f_n > ftol).sum(), nocc2)
-        nocc1 = np.int(nocc1)
-        nocc2 = np.int(nocc2)
+        nocc1 = int(nocc1)
+        nocc2 = int(nocc2)
 
         # Collect nocc for all k-points
         nocc1 = self.calc.wfs.kd.comm.min(nocc1)
@@ -381,7 +381,7 @@ class KohnShamPair:
         myn_eueh = []
 
         # Data distribution protocol
-        nrh_r2 = np.zeros(self.world.size, dtype=np.int)
+        nrh_r2 = np.zeros(self.world.size, dtype=int)
         ik_r2 = [None for _ in range(self.world.size)]
         eh_eur2reh = []
         rh_eur2reh = []
@@ -391,7 +391,7 @@ class KohnShamPair:
         myt_myt = np.arange(self.tb - self.ta)
         t_myt = range(self.ta, self.tb)
         n_myt, s_myt = n_t[t_myt], s_t[t_myt]
-        h_myt = np.empty(self.tb - self.ta, dtype=np.int)
+        h_myt = np.empty(self.tb - self.ta, dtype=int)
 
         nt = len(n_t)
         assert nt == len(s_t)
@@ -784,7 +784,7 @@ class KohnShamPair:
         myn_eurn = []
         nh = 0
         h_eurn = []
-        h_myt = np.empty(self.tb - self.ta, dtype=np.int)
+        h_myt = np.empty(self.tb - self.ta, dtype=int)
         for s in set(s_myt):
             thiss_myt = s_myt == s
             n_ct = n_myt[thiss_myt]

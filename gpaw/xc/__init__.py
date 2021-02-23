@@ -56,6 +56,9 @@ def XC(kernel, parameters=None, atoms=None, collinear=True):
             # vdW module, so that always refers to libvdwxc.
             from gpaw.xc.libvdwxc import get_libvdwxc_functional
             return get_libvdwxc_functional(name=name, **kwargs)
+        elif backend == 'pw' or name in ['HSE03', 'HSE06']:
+            from gpaw.hybrids import HybridXC
+            return HybridXC(name, **kwargs)
         elif backend:
             raise ValueError(
                 'A special backend for the XC functional was given, '
@@ -73,9 +76,6 @@ def XC(kernel, parameters=None, atoms=None, collinear=True):
             parts = name.split('(')
             from gpaw.xc.hybrid import HybridXC
             return HybridXC(parts[0], omega=float(parts[1][:-1]))
-        elif name in ['HSE03', 'HSE06']:
-            from gpaw.hybrids import HybridXC
-            return HybridXC(name, **kwargs)
         elif name == 'BEE1':
             from gpaw.xc.bee import BEE1
             kernel = BEE1(parameters)

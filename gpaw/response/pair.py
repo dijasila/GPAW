@@ -697,8 +697,6 @@ class PairDensity:
 
         if gate_voltage is not None:
             self.add_gate_voltage(gate_voltage)
-        else:
-            self.add_gate_voltage(gate_voltage=0)
 
         self.spos_ac = calc.spos_ac
 
