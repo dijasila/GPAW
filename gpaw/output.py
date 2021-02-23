@@ -23,9 +23,9 @@ def print_cell(gd, pbc_c, log):
 def print_positions(atoms, log, magmom_av):
     log(plot(atoms))
     symbols = atoms.get_chemical_symbols()
-    log(positions=[[a, symbols[a], pos_v, magmom_av[a]]
-                   for a, pos_v
-                   in enumerate(atoms.get_positions())])
+    log(atoms=[[a, symbols[a], pos_v, magmom_av[a]]
+               for a, pos_v
+               in enumerate(atoms.get_positions())])
     log()
 
 

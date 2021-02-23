@@ -161,7 +161,7 @@ class SCFLoop:
 
         log.row([niter,
                  datetime.datetime.now().time(),
-                 *log10errors,
+                 *[(err, '+.2f') for err in log10errors],
                  Ha * ham.e_total_extrapolated,
                  mom],
                 widths=[3, 8, 5, 5, 5, 11, 18])
