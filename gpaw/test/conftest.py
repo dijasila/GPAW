@@ -61,6 +61,8 @@ def gpw_files(request, tmp_path_factory):
     * Polyethylene chain.  One unit, 3 k-points, no symmetry:
       ``c2h4_pw_nosym``.  Three units: ``c6h12_pw``.
 
+    * Bulk TiO2 with 4x4x4 k-points: ``ti2o4_pw`` and ``ti2o4_pw_nosym``.
+
     Files with wave functions are also availabel (add ``_wfs`` to the names).
     """
     path = os.environ.get('GPW_TEST_FILES')
