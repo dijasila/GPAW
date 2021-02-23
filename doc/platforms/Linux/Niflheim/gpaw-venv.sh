@@ -111,7 +111,7 @@ if [[ $SLURM_SUBMIT_DIR ]]; then
     export MPLBACKEND=Agg
 else
     export MPLBACKEND=TkAgg
-' >> bin/activate
+fi' >> bin/activate
 
 # Run tests:
 mq --version
