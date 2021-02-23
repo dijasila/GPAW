@@ -18,7 +18,7 @@ def test(kpts, setup, spinpol, symmetry):
               # positions=[[0, 0, 1.25], [0, 0, 2]]
               # positions=[[0, 0, 0], [0, 0, 0.75]]
               )
-    a.calc = GPAW(mode=PW(100),
+    a.calc = GPAW(mode=PW(100, force_complex_dtype=True),
                   setups=setup,
                   kpts=kpts,
                   spinpol=spinpol,
