@@ -1,18 +1,18 @@
 import os
-from pathlib import Path
 from contextlib import contextmanager
+from pathlib import Path
 
+import numpy as np
 import pytest
 from _pytest.tmpdir import _mk_tmp
 from ase import Atoms
-from ase.io import read
-from gpaw.utilities import devnull
 from ase.build import bulk
-import numpy as np
+from ase.io import read
 
-from gpaw import GPAW, FermiDirac, Davidson, PW
+from gpaw import GPAW, PW, Davidson, FermiDirac
 from gpaw.cli.info import info
-from gpaw.mpi import world, broadcast
+from gpaw.mpi import broadcast, world
+from gpaw.utilities import devnull
 
 
 @contextmanager
@@ -228,7 +228,7 @@ class GPWFiles:
                                [0.5 + u, 0.5 - u, 0.5],
                                [0.5 - u, 0.5 + u, 0.5]])
 
-        bulk_crystal = Atoms(symbols=['Ti', 'Ti', 'O', 'O', 'O', 'O'],
+        bulk_crystal = Atoms(symbols='Ti2O4',
                              scaled_positions=TiO2_basis,
                              cell=rutile_cell,
                              pbc=(1, 1, 1))
