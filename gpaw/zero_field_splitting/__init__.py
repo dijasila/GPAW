@@ -10,5 +10,5 @@ See::
     Phys. Rev. Research 2, 022024(R) – Published 30 April 2020
 
 """
-from zfs import zfs
+from .zfs import zfs
 __all__ = ['zfs']

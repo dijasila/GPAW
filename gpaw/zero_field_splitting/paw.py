@@ -66,25 +66,3 @@ def coulomb_integrals(rgd, l_j, n_jjg, nt_jjlg, vr_jjlg, vtr_jjlg):
             C_iiii[i1, i2, i3, i4] = C
 
     return C_iiii
-
-
-def main():
-    from gpaw.setup import create_setup
-    from gpaw.utilities import packed_index
-    s = create_setup('H', lmax=2)
-    C = coulomb(s.rgd,
-                np.array(s.data.phi_jg),
-                np.array(s.data.phit_jg),
-                s.l_j,
-                s.g_lg)
-    print(C[0, 0, 0])
-    print(s.M_pp[0])
-    ni = len(C)
-    for i1 in range(ni):
-        for i2 in range(ni):
-            p12 = packed_index(i1, i2, ni)
-            for i3 in range(ni):
-                for i4 in range(ni):
-                    p34 = packed_index(i3, i4, ni)
-                    print(i1, i2, i3, i4, p12, p34,
-                          s.M_pp[p12, p34] - C[i1, i2, i3, i4])

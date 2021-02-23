@@ -14,7 +14,7 @@ from gpaw.projections import Projections
 from gpaw.setup import Setup
 from gpaw.utilities.ps2ae import PS2AE
 from gpaw.wavefunctions.pw import PWLFC, PWDescriptor
-from gpaw.paw import coulomb, coulomb_integrals_zfs
+from .paw import coulomb, coulomb_integrals
 
 
 def zfs(calc: GPAW,
@@ -208,7 +208,7 @@ def zfs_tensor(setup):
                      np.array(setup.data.phit_jg),
                      setup.l_j,
                      setup.g_lg)
-    return coulomb_integrals_zfs(setup.rgd, setup.l_j, *things)
+    return coulomb_integrals(setup.rgd, setup.l_j, *things)
 
 
 def zfs2paw(D1_ii, D2_ii, setup):

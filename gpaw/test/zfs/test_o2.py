@@ -6,8 +6,8 @@ from ase.units import Bohr as bohr
 
 from gpaw import GPAW
 from gpaw.utilities.ps2ae import PS2AE
-from gpaw.zero_field_splitting import (WaveFunctions,
-                                       create_compensation_charge, zfs1)
+from gpaw.zero_field_splitting.zfs import (WaveFunctions,
+                                           create_compensation_charge, zfs1)
 
 
 @pytest.mark.serial
