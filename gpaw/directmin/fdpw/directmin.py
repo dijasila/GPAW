@@ -657,7 +657,6 @@ class DirectMin(Eigensolver):
                 # diagonalize(lamb, evals)
                 wfs.gd.comm.broadcast(evals, 0)
                 wfs.gd.comm.broadcast(lamb, 0)
-                lamb = lamb.T
 
                 kpt.eps_n[:n_occ] = evals[:n_occ] / kpt.f_n[:n_occ]
 
@@ -666,7 +665,6 @@ class DirectMin(Eigensolver):
             evals_lumo, lumo = np.linalg.eigh(lumo)
             wfs.gd.comm.broadcast(evals_lumo, 0)
             wfs.gd.comm.broadcast(lumo, 0)
-            lumo = lumo.T
 
             kpt.eps_n[n_occ:n_occ + dim] = evals_lumo.real
             # kpt.eps_n[n_occ + 1:] = +np.inf
@@ -679,12 +677,13 @@ class DirectMin(Eigensolver):
                 # Do we need sort wfs according to eps_n
                 # or they will be automatically sorted?
                 kpt.psit_nG[:n_occ] = \
-                    np.tensordot(lamb.conj(), kpt.psit_nG[:n_occ],
+                    np.tensordot(lamb.T.conj(), kpt.psit_nG[:n_occ],
                                  axes=1)
-                for a in kpt.P_ani.keys():
-                    kpt.P_ani[a][:n_occ] = \
-                        np.dot(lamb.conj(),
-                               kpt.P_ani[a][:n_occ ])
+                kpt.psit_nG[n_occ:n_occ + dim] = \
+                    np.tensordot(lumo.T.conj(),
+                                 kpt.psit_nG[n_occ:n_occ + dim],
+                                 axes=1)
+                wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
 
         # update fermi level?
         occ.calculate(wfs)
