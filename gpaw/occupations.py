@@ -579,9 +579,14 @@ class FixedOccupationNumbers(OccupationNumberCalculator):
                    weight_q,
                    f_qn,
                    fermi_level_guess=nan):
-        for q, f_n in enumerate(f_qn):
-            s = q % len(self.f_sn)
-            self.bd.distribute(self.f_sn[s], f_n)
+        if len(weight_q) == 2:
+            for q, f_n in enumerate(f_qn):
+                s = q % len(self.f_sn)
+                self.bd.distribute(self.f_sn[s], f_n)
+        if len(weight_q) == 1:
+            self.bd.distribute(self.f_sn.T.flatten().copy(), f_qn[0])
+        else:
+            1 / 0
 
         return inf, 0.0
 
