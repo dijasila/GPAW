@@ -11,6 +11,7 @@ from ase.dft.bandgap import bandgap
 from ase.parallel import paropen
 
 import gpaw.mpi
+from gpaw import ConvergenceError
 from gpaw.jellium import Jellium, JelliumSlab
 from gpaw.hamiltonian import RealSpaceHamiltonian
 from gpaw.fd_operators import Gradient
@@ -241,6 +242,9 @@ class SJM(SolvationGPAW):
         # FIXED/gk: do not let SolvationGPAW's set function see the 'sj'
         # dictionary. Otherwise it will reinitialize when only sj keywords
         # are set slowing things down by a lot
+        # ap: A (minor) problem with that is that is the "Input
+        # parameters:" message in the log file no longer includes sj
+        # parameters.
         if 'sj' in gpaw_kwargs:
             self.parameters['sj'] = gpaw_kwargs.pop('sj')
 
@@ -254,6 +258,8 @@ class SJM(SolvationGPAW):
         for key, value in old_sj_dict.items():
             if key not in p:
                 p[key] = value
+        self.sog('Solvated Jellium parameters:')
+        self.log.print_dict(p)
 
         parent_changed = False  # if something changed outside the SJ wrapper
         if any(key not in ['sj', 'background_charge'] for key in kwargs):
@@ -408,8 +414,9 @@ class SJM(SolvationGPAW):
         desired value."""
         p = self.parameters['sj']
         iteration = 0
-        previous_electrons = []
-        previous_potentials = []
+        if not p.always_adjust or not hasattr(self, '_previous_electrons'):
+            self._previous_electrons = []
+            self._previous_potentials = []
         # FIXME/ap: This doesn't work in always_adjust_ne with loose
         # potential tolerance, as the slope never gets re-estimated. Will
         # need to go back to saving them globally, and also may need to
@@ -441,7 +448,7 @@ class SJM(SolvationGPAW):
 
             # Check if we took too big of a step.
             try:
-                stepsize = abs(true_potential - previous_potentials[-1])
+                stepsize = abs(true_potential - self._previous_potentials[-1])
             except IndexError:
                 pass
             else:
@@ -450,20 +457,20 @@ class SJM(SolvationGPAW):
                              'V, larger than max_step ({:.2f} V).\nThe step is'
                              ' rejected and the change in excess_electrons '
                              'will be halved.'.format(stepsize, p.max_step))
-                    p.excess_electrons = (previous_electrons[-1] +
+                    p.excess_electrons = (self._previous_electrons[-1] +
                                           (p.excess_electrons -
-                                           previous_electrons[-1]) * 0.5)
-                    continue  # back to while True
+                                           self._previous_electrons[-1]) * 0.5)
+                    continue  # back to while True FIXME
 
             # Increase iteration count
             iteration += 1
 
             # Store attempt and calculate slope.
-            previous_electrons += [p.excess_electrons]
-            previous_potentials += [true_potential]
-            if len(previous_electrons) > 1:
-                p.slope = calculate_slope(previous_electrons,
-                                          previous_potentials)
+            self._previous_electrons += [p.excess_electrons]
+            self._previous_potentials += [true_potential]
+            if len(self._previous_electrons) > 1:
+                p.slope = calculate_slope(self._previous_electrons,
+                                          self._previous_potentials)
                 self.sog('Slope regressed from last two attempts is '
                          '{:.4f} V/electron.'.format(p.slope))
                 area = np.product(np.diag(atoms.cell[:2, :2]))
@@ -477,7 +484,8 @@ class SJM(SolvationGPAW):
                 if iteration >= 2:
                     self.timer.stop('Potential equilibration loop')
                 if not p.always_adjust:
-                    break  # out of the while loop
+                    # break  # out of the while loop FIXME
+                    return
 
             # Guess slope if we don't have enough information yet.
             if p.slope is None:
@@ -497,15 +505,21 @@ class SJM(SolvationGPAW):
             # Check if we're equilibrated and exit if always adjust is True.
             if (abs(true_potential - p.target_potential) < p.tol
                 and p.always_adjust):
-                break  # out of the while loop
-        else:
-            msg = ('Potential could not be reached after {:d} iterations. '
-                   'This may indicate your workfunction is noisier than '
-                   'your potential tol. You may try setting the '
-                   'convergence["workfunction"] keyword. Aborting!'
-                   .format(iteration))
-            self.sog(msg)
-            raise Exception(msg)
+                # break  # out of the while loop FIXME
+                return
+
+        msg = ('Potential could not be reached after {:d} iterations. '
+               'This may indicate your workfunction is noisier than '
+               'your potential tol. You may try setting the '
+               'convergence["workfunction"] keyword. The last values of '
+               'excess_electrons and the potential are listed below; you '
+               'may try plotting them to get insight into the problem.\n'
+               .format(iteration))
+        for n, p in zip(self._previous_electrons,
+                        self._previous_potentials):
+            msg += '{:+.6f} {:.6f}\n'.format(n, p)
+        self.sog(msg)
+        raise PotentialConvergenceError(msg)
 
     def write_sjm_traces(self, path='sjm_traces', style='z',
                          props=('potential', 'cavity', 'background_charge'),
@@ -1196,3 +1210,7 @@ class SJMDipoleCorrection(DipoleCorrection):
         saw /= saw[-1] + step / eps_z[-1] - saw[0]
         saw -= (saw[0] + saw[-1] + step / eps_z[-1]) / 2.
         return saw
+
+
+class PotentialConvergenceError(ConvergenceError):
+    pass
