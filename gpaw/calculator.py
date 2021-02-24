@@ -900,9 +900,9 @@ class GPAW(Calculator):
             monkhorst_pack_size=self.wfs.kd.N_c,
             bz2ibzmap=self.wfs.kd.bz2ibz_k)
 
-        # FIXME: added this line to restart calc
-        #  with different eigensolver
-        occ.magmom = magmom
+        # # FIXME: added this line to restart calc
+        # #  with different eigensolver
+        # occ.magmom = magmom
 
         self.log(occ)
         return occ

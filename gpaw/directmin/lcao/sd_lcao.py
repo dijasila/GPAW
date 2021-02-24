@@ -12,7 +12,7 @@ class SteepestDescent(object):
     def __init__(self, wfs):
         """
         """
-        self.n_kps = wfs.kd.nks // wfs.kd.nspins
+        self.n_kps = wfs.kd.nibzkpts
         self.iters = 0
 
     def __str__(self):
@@ -383,7 +383,7 @@ class LBFGS_P(SteepestDescent):
         :param m: memory (amount of previous steps to use)
         """
         super(LBFGS_P, self).__init__(wfs)
-        # self.n_kps = wfs.kd.nks // wfs.kd.nspins
+        # self.n_kps = wfs.kd.nibzkpts
         self.s_k = {i: None for i in range(memory)}
         self.y_k = {i: None for i in range(memory)}
         self.rho_k = np.zeros(shape=memory)
@@ -530,7 +530,7 @@ class LBFGS_P2(SteepestDescent):
         :param m: memory (amount of previous steps to use)
         """
         super(LBFGS_P2, self).__init__(wfs)
-        self.n_kps = wfs.kd.nks // wfs.kd.nspins
+        self.n_kps = wfs.kd.nibzkpts
         self.s_k = {i: None for i in range(memory)}
         self.y_k = {i: None for i in range(memory)}
         self.rho_k = np.zeros(shape=memory)

@@ -102,7 +102,7 @@ class PzCorrections:
         self.beta_c = scaling_factor[0]
         self.beta_x = scaling_factor[1]
 
-        self.n_kps = wfs.kd.nks // wfs.kd.nspins
+        self.n_kps = wfs.kd.nibzkpts
         self.store_potentials = store_potentials
         self.grad = {}
         self.total_sic = 0.0

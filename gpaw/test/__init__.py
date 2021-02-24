@@ -15,6 +15,7 @@ from gpaw import setup_paths
 from gpaw.atom.configurations import parameters, tf_parameters
 from gpaw.atom.generator import Generator
 from gpaw.typing import Array1D
+from typing import Tuple
 
 
 def equal(x, y, tolerance=0):

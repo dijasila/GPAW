@@ -13,7 +13,7 @@ class InnerLoop:
                  g_tol=5.0e-4):
 
         self.odd_pot = odd_pot
-        self.n_kps = wfs.kd.nks // wfs.kd.nspins
+        self.n_kps = wfs.kd.nibzkpts
         self.g_tol = g_tol / Hartree
         self.tol = tol
         self.dtype = wfs.dtype
@@ -622,7 +622,7 @@ def log_f(log, niter, kappa, e_ks, e_sic, outer_counter=None, g_max=np.inf):
 
 def g_max_norm(g_k, wfs):
     # get maximum of gradients
-    n_kps = wfs.kd.nks // wfs.kd.nspins
+    n_kps = wfs.kd.nibzkpts
 
     max_norm = []
     for kpt in wfs.kpt_u:
