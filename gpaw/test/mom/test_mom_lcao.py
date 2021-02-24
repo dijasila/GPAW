@@ -29,9 +29,9 @@ def test_mom_lcao():
         E_gs = H2O.get_potential_energy()
 
         f_n = []
-        for kpt in calc.wfs.kpt_u:
-            f_nks = calc.get_occupation_numbers(kpt.k, kpt.s)
-            f_n.append(f_nks)
+        for spin in range(calc.get_number_of_spins()):
+            f_ns = calc.get_occupation_numbers(spin=spin)
+            f_n.append(f_ns)
 
         # Excited-state MOM calculation
         f_n[0][3] -= 1.
@@ -43,4 +43,4 @@ def test_mom_lcao():
 
         dE = E_es - E_gs
         print(dE)
-        equal(dE, dE_ref[s], 0.011)
+        equal(dE, dE_ref[s], 0.01)
