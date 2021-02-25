@@ -1,11 +1,11 @@
 import pytest
 from ase import Atoms
 from ase.calculators.test import numeric_force
-from gpaw import GPAW, PW, Davidson
+from gpaw import GPAW, PW
 
 
 @pytest.mark.libxc
-def test_exx_double_cell():  # in_tmp_dir):
+def test_exx_double_cell(in_tmp_dir):
     L = 4.0
     a = Atoms('H2',
               [[0, 0, 0], [0.5, 0.5, 0]],
@@ -14,13 +14,11 @@ def test_exx_double_cell():  # in_tmp_dir):
     a.center()
 
     a.calc = GPAW(
-        mode=PW(400),  # , force_complex_dtype=True),
-        # parallel={'kpt': 1, 'band': 1},
-        # eigensolver=Davidson(1),
+        mode=PW(400),
         symmetry='off',
         kpts={'size': (1, 1, 4), 'gamma': True},
-        # spinpol=True,  # convergence={'forces': 1e-4},
-        txt='H.txt',
+        spinpol=True,
+        txt='H2.txt',
         xc='HSE06')
     e1 = a.get_potential_energy()
     eps1 = a.calc.get_eigenvalues(1)[0]
@@ -30,12 +28,10 @@ def test_exx_double_cell():  # in_tmp_dir):
 
     a *= (1, 1, 2)
     a.calc = GPAW(
-        mode=PW(400, force_complex_dtype=True),
+        mode=PW(400),
         kpts={'size': (1, 1, 2), 'gamma': True},
-        parallel={'kpt': 1, 'band': 1},
-        eigensolver=Davidson(1),
         symmetry='off',
-        txt='H2.txt',
+        txt='H4.txt',
         xc='HSE06')
     e2 = a.get_potential_energy()
     eps2 = a.calc.get_eigenvalues(0)[0]

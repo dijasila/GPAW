@@ -55,7 +55,7 @@ def forces(kpts, paw, wfs, sym, coulomb, F_av):
         f_av = calculate_exx_for_pair(k1, k2,
                                       ghat, v_G, comm,
                                       paw, count)
-        F_av += f_av / wfs.kd.nbzkpts**2
+        F_av += f_av * (1 / wfs.kd.nbzkpts**2)
 
     for a, v_ii in paw.VV_aii.items():
         vv_ii = 8 * v_ii + 4 * paw.VC_aii[a]
@@ -73,7 +73,7 @@ def calculate_exx_for_pair(k1,
                            v_G,
                            comm,
                            paw,
-                           count):
+                           count) -> np.ndarray:
 
     N1 = len(k1.u_nR)
     N2 = len(k2.u_nR)
@@ -128,4 +128,4 @@ def calculate_exx_for_pair(k1,
                                  k2.proj[a][n2a:n2b],
                                  ff_n).real * 2
 
-        return F_av
+    return F_av
