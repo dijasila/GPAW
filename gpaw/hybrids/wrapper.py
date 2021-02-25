@@ -99,7 +99,7 @@ class HybridXC:
             self.vlda_sR = None
             if kpt.psit.array.base is psit_xG.base:
                 if (kpt.s, kpt.k) not in self.v_sknG:
-                    assert len(self.v_sknG) == 0
+                    assert not any(s == kpt.s for s, k in self.v_sknG)
                     evc, evv, ekin, v_knG = apply1(
                         kpt, Htpsit_xG,
                         wfs,
