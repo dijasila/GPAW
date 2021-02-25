@@ -5,7 +5,7 @@ from gpaw import GPAW, PW, Davidson
 
 
 @pytest.mark.libxc
-def test_exx_double_cell(in_tmp_dir):
+def test_exx_double_cell():  # in_tmp_dir):
     L = 4.0
     a = Atoms('H2',
               [[0, 0, 0], [0.5, 0.5, 0]],
@@ -14,12 +14,12 @@ def test_exx_double_cell(in_tmp_dir):
     a.center()
 
     a.calc = GPAW(
-        mode=PW(400, force_complex_dtype=True),
-        parallel={'kpt': 1, 'band': 1},
-        eigensolver=Davidson(1),
+        mode=PW(400),  # , force_complex_dtype=True),
+        # parallel={'kpt': 1, 'band': 1},
+        # eigensolver=Davidson(1),
         symmetry='off',
         kpts={'size': (1, 1, 4), 'gamma': True},
-        # spinpol=True,
+        # spinpol=True,  # convergence={'forces': 1e-4},
         txt='H.txt',
         xc='HSE06')
     e1 = a.get_potential_energy()
