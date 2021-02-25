@@ -20,8 +20,7 @@ def test_tddft_td_na2(in_tmp_dir):
     # Larger grid spacing, LDA is ok
     gs_calc = GPAW(nbands=1, h=0.35, xc='LDA', setups={'Na': '1'})
     atoms.calc = gs_calc
-    e = atoms.get_potential_energy()
-    niter = gs_calc.get_number_of_iterations()
+    atoms.get_potential_energy()
     gs_calc.write('na2_gs.gpw', 'all')
 
     # 16 fs run with 8.0 attosec time step
@@ -68,18 +67,3 @@ def test_tddft_td_na2(in_tmp_dir):
     pml_abc = PML(100.0, 0.1)
     td_pmlabs.set_absorbing_boundary(pml_abc)
     td_pmlabs.propagate(time_step, iters, 'na2_dmz6.dat', 'na2_td6.gpw')
-
-    # photoabsorption_spectrum('na2_dmz2.dat', 'na2_spectrum_z2.dat', width=0.3)
-
-    # os.remove('na2_gs.gpw')
-    # os.remove('na2_td.gpw')
-    # os.remove('na2_dmz.dat')
-    # os.remove('na2_spectrum_z.dat')
-    # os.remove('na2_td2.gpw')
-    # os.remove('na2_dmz2.dat')
-    # os.remove('na2_spectrum_z2.dat')
-
-    #energy_tolerance = 0.0001
-    #niter_tolerance = 0
-    # equal(e, -1.24941356939, energy_tolerance) # svnversion 5252
-    # equal(niter, 21, niter_tolerance) # svnversion 5252

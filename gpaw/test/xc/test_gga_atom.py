@@ -40,7 +40,6 @@ def test_xc_gga_atom():
 
         nii = ni * (ni + 1) // 2
         D_p = np.zeros(nii)
-        H_p = np.zeros(nii)
 
         e_g = np.zeros((n, n, n))
         n_g = np.zeros((1, n, n, n))

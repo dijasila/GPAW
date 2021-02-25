@@ -67,9 +67,10 @@ class LrTDDFT(ExcitationList):
         self.energy_to_eV_scale = Hartree
         self.timer = Timer()
         self.diagonalized = False
-        self.calculator = calculator
 
         self.set(**kwargs)
+        self.calculator = calculator
+
         ExcitationList.__init__(self, log=log, txt=txt)
 
         if self.eh_comm is None:
@@ -82,12 +83,6 @@ class LrTDDFT(ExcitationList):
             # world should be a list of ranks:
             self.eh_comm = mpi.world.new_communicator(
                 np.asarray(self.eh_comm))
-
-        if calculator is not None and self.xc is None:
-            if calculator.initialized:
-                self.xc = calculator.hamiltonian.xc
-            else:
-                self.xc = calculator.parameters['xc']
 
         if calculator is not None and calculator.initialized:
             # XXXX not ready for k-points
@@ -108,6 +103,20 @@ class LrTDDFT(ExcitationList):
                                           calculator.hamiltonian, spos_ac)
 
             self.forced_update()
+
+    @property
+    def calculator(self):
+        return self._calc
+
+    @calculator.setter
+    def calculator(self, calc):
+        self._calc = calc
+
+        if self.xc is None and calc is not None:
+            if calc.initialized:
+                self.xc = calc.hamiltonian.xc
+            else:
+                self.xc = calc.parameters['xc']
 
     def set(self, **kwargs):
         """Change parameters."""
@@ -148,6 +157,7 @@ class LrTDDFT(ExcitationList):
         if not hasattr(self, 'Om') or self.calculator.check_state(atoms):
             self.calculator.get_potential_energy(atoms)
             self.forced_update()
+        return self
 
     def forced_update(self):
         """Recalc yourself."""
@@ -542,6 +552,7 @@ class LrTDDFTExcitation(Excitation):
 
 def photoabsorption_spectrum(excitation_list, spectrum_file=None,
                              e_min=None, e_max=None, delta_e=None,
+                             energyunit='eV',
                              folding='Gauss', width=0.1, comment=None):
     """Uniform absorption spectrum interface
 
@@ -561,6 +572,6 @@ def photoabsorption_spectrum(excitation_list, spectrum_file=None,
 
     spectrum(exlist=excitation_list, filename=spectrum_file,
              emin=e_min, emax=e_max,
-             de=delta_e, energyunit='eV',
+             de=delta_e, energyunit=energyunit,
              folding=folding, width=width,
              comment=comment)

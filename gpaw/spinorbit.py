@@ -17,7 +17,7 @@ from gpaw.projections import Projections
 from gpaw.setup import Setup
 from gpaw.utilities.partition import AtomPartition
 from gpaw.utilities.ibz2bz import construct_symmetry_operators
-from gpaw.hints import Array1D, Array2D, Array3D, Array4D, ArrayND
+from gpaw.typing import Array1D, Array2D, Array3D, Array4D, ArrayND
 if TYPE_CHECKING:
     from gpaw import GPAW  # noqa
 
@@ -86,8 +86,8 @@ class WaveFunction:
             H_ssii[1, 1] = -dVL_vii[2]
 
             # Tranform to theta, phi basis
-            H_ssii = np.tensordot(C_ss, H_ssii, ([0, 1]))
-            H_ssii = np.tensordot(C_ss.T.conj(), H_ssii, ([1, 1]))
+            H_ssii = np.tensordot(C_ss, H_ssii, (0, 1))
+            H_ssii = np.tensordot(C_ss.T.conj(), H_ssii, (1, 1))
             H_ssii *= Ha
 
             P_msi = self.projections[a]
@@ -355,9 +355,9 @@ def soc_eigenstates_raw(ibzwfs: Iterable[Tuple[int, WaveFunction]],
     sx_ss = np.array([[0, 1], [1, 0]], complex)
     sy_ss = np.array([[0, -1.0j], [1.0j, 0]], complex)
     sz_ss = np.array([[1, 0], [0, -1]], complex)
-    s_vss = [C_ss.T.conj().dot(sx_ss).dot(C_ss),
-             C_ss.T.conj().dot(sy_ss).dot(C_ss),
-             C_ss.T.conj().dot(sz_ss).dot(C_ss)]
+    s_vss = [C_ss.T.conj() @ sx_ss @ C_ss,
+             C_ss.T.conj() @ sy_ss @ C_ss,
+             C_ss.T.conj() @ sz_ss @ C_ss]
 
     bzwfs = {}
     for ibz_index, ibzwf in ibzwfs:

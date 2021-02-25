@@ -33,8 +33,6 @@ def test_poisson_poisson_extravacuum():
 
     # Construct model density
     coord_vg = gd.get_grid_point_coordinates()
-    x_g = coord_vg[0, :]
-    y_g = coord_vg[1, :]
     z_g = coord_vg[2, :]
     rho_g = gd.zeros()
     for z0 in [1, 2]:
@@ -129,14 +127,20 @@ def test_poisson_poisson_extravacuum():
     compare(phi_g, phiref_g, 0.0, 1e-24)
 
     # Test with single coarsening
-    poisson = ExtraVacuumPoissonSolver(gpts, PoissonSolver('fd', eps=poissoneps),
-                                       PoissonSolver('fd', eps=poissoneps), 1)
+    poisson = ExtraVacuumPoissonSolver(
+        gpts,
+        PoissonSolver('fd', eps=poissoneps),
+        PoissonSolver('fd', eps=poissoneps),
+        1)
     phi_g, npoisson = poisson_init_solve(gd, rho_g, poisson)
     compare(phi_g, phiref_g, 1.5043946611e-04)
 
     # Test with two coarsenings
-    poisson = ExtraVacuumPoissonSolver(gpts, PoissonSolver('fd', eps=poissoneps),
-                                       PoissonSolver('fd', eps=poissoneps), 2)
+    poisson = ExtraVacuumPoissonSolver(
+        gpts,
+        PoissonSolver('fd', eps=poissoneps),
+        PoissonSolver('fd', eps=poissoneps),
+        2)
     phi_g, npoisson = poisson_init_solve(gd, rho_g, poisson)
     compare(phi_g, phiref_g, 1.2980906205e-03)
 

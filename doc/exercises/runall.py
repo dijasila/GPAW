@@ -2,10 +2,14 @@ import os
 import sys
 import pylab
 n = 1
+
+
 def show():
     global n
     pylab.savefig('x%d.png' % n)
     n += 1
+
+
 pylab.show = show
 
 if 0:

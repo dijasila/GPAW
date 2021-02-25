@@ -11,7 +11,7 @@ def test_pbc():
                      cell=(a, a, a),
                      calculator=GPAW(maxiter=7))
     try:
-        e1 = hydrogen.get_potential_energy()
+        hydrogen.get_potential_energy()
     except GridBoundsError:
         pass
     else:

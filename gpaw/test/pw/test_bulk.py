@@ -14,7 +14,6 @@ def test_pw_bulk():
 
     bulk.calc = calc
     e = []
-    niter = []
     A = [2.6, 2.65, 2.7, 2.75, 2.8]
     for a in A:
         bulk.set_cell((a, a, a))

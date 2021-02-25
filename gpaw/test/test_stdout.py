@@ -23,7 +23,7 @@ def test_stdout():
         hydrogen = Atoms([Atom('H', (a / 2, a / 2, a / 2), magmom=0)],
                          cell=(a, a, a),
                          calculator=calc)
-        f = hydrogen.get_forces()
+        hydrogen.get_forces()
     except Exception:
         sys.stdout = out
         sys.stderr = err

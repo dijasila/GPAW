@@ -7,6 +7,7 @@ import numpy as np
 from gpaw import debug
 from gpaw.eigensolvers.eigensolver import Eigensolver
 from gpaw.matrix import matrix_matrix_multiply as mmm
+from gpaw.hybrids import HybridXC
 from gpaw.blacs import BlacsGrid
 
 
@@ -76,6 +77,9 @@ class Davidson(Eigensolver):
     @timer('Davidson')
     def iterate_one_k_point(self, ham, wfs, kpt, weights):
         """Do Davidson iterations for the kpoint"""
+        if isinstance(ham.xc, HybridXC):
+            self.niter = 1
+
         bd = wfs.bd
         B = bd.nbands
 
@@ -201,10 +205,8 @@ class Davidson(Eigensolver):
                 redistributor.redistribute(Hsc_MM, Hsc_mm)
                 redistributor.redistribute(Ssc_MM, Ssc_mm)
                 redistributor.redistribute(Csc_MM, Csc_mm)
-
-            
-            if self.use_scalapack:
-                block_desc.general_diagonalize_dc(Hsc_mm.copy(), Ssc_mm.copy(), Csc_mm, eps_M)
+                with self.timer("scalapacked davidson"):
+                    block_desc.general_diagonalize_dc(Hsc_mm.copy(), Ssc_mm.copy(), Csc_mm, eps_M)
 
                 redistributor2 = Redistributor(slcomm, block_desc, local_desc)
                 redistributor2.redistribute(Csc_mm, Csc_MM, uplo='G')

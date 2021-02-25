@@ -1,11 +1,11 @@
 # Creates: N2Ru_hollow.png, 2NadsRu.png, TS.xyz
-from myqueue.task import task
+from myqueue.workflow import run
 
 
-def create_tasks():
-    return [
-        task('check_convergence.py', tmax='5h', cores=8),
-        task('convergence.py', deps='check_convergence.py'),
-        task('n2_on_metal.py', tmax='6h'),
-        task('neb.py', tmax='3h', cores=8, deps='n2_on_metal.py'),
-        task('vibrations.py', tmax='9h', cores=8, deps='neb.py')]
+def workflow():
+    with run(script='check_convergence.py', tmax='5h', cores=8):
+        run(script='convergence.py')
+
+    with run(script='n2_on_metal.py', tmax='6h'):
+        with run(script='neb.py', tmax='3h', cores=8):
+            run(script='vibrations.py', tmax='9h', cores=8)

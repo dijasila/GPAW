@@ -32,6 +32,7 @@ includes the wave functions, and knowledge of
 * The atom indices around which you want to perform the analysis
   (optional)
 
+
 Example: The water molecule
 ---------------------------
 

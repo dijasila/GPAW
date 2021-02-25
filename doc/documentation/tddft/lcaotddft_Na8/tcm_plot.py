@@ -17,6 +17,7 @@ fdm = FrequencyDensityMatrix(calc, dmat, 'fdm.ulm')
 
 plt.figure(figsize=(8, 8))
 
+
 def do(w):
     # Select the frequency and the density matrix
     rho_uMM = fdm.FReDrho_wuMM[w]

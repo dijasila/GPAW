@@ -15,8 +15,6 @@ class MatrixDescriptor:
     def __bool__(self):
         return self.shape[0] != 0 and self.shape[1] != 0
 
-    __nonzero__ = __bool__  # for Python 2
-
     def zeros(self, n=(), dtype=float):
         """Return array of zeroes with the correct size on all CPUs.
 

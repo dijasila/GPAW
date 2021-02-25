@@ -40,6 +40,7 @@ def analyse(c, collection):
         A.append((e, v, B0, B1, R))
     return np.array(A).T
 
+
 E, V, B0, B1, R = analyse(c, collection)
 
 fd = open(db + '_raw.txt', 'w')

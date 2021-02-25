@@ -57,6 +57,8 @@ There are two special GPAW-fixtures:
 Check the :git:`~gpaw/test/conftest.py` to see which gpw-files are available.
 Use a ``_wfs`` postfix to get a gpw-file that contains the wave functions.
 
+.. autofunction:: gpaw.test.findpeak
+
 
 Adding new tests
 ----------------
@@ -111,17 +113,16 @@ calculates something and saves a ``.gpw`` file and another script,
 something like::
 
     def create_tasks():
-        from myqueue.task import task
-        return [task('calculate.py', cores=8, tmax='25m'),
-                task('analyse.py', cores=1, tmax='5m',
-                     deps=['calculate.py'])]
+        from myqueue.task import run
+        with run(script='calculate.py', cores=8, tmax='25m'):
+            run(script='analyse.py')  # 1 core and 10 minutes
 
 As shown, this script has to contain the definition of the function
-create_tasks_.  Start the workflow with ``mq workflow -p agts.py .``
+workflow_.  Start the workflow with ``mq workflow -p agts.py .``
 (see https://myqueue.readthedocs.io/ for more details).
 
-.. _create_tasks: https://myqueue.readthedocs.io/en/latest/
-    workflows.html#create_tasks
+.. _workflow: https://myqueue.readthedocs.io/en/latest/
+    workflows.html
 
 
 .. _code coverage:

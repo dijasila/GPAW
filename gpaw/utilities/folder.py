@@ -2,6 +2,7 @@ import numpy as np
 
 from gpaw.gauss import Gauss
 
+
 class Lorentz:
     """Normalized Lorentzian distribution"""
     def __init__(self, width=0.08):
