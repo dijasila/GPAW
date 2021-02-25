@@ -1,7 +1,6 @@
 from functools import partial
 
 from ase.utils.timing import timer
-from ase.parallel import world, parprint
 import numpy as np
 
 from gpaw import debug
@@ -30,14 +29,14 @@ class Davidson(Eigensolver):
     * Add preconditioned residuals to the subspace and diagonalize
     """
 
-    def __init__(self, niter=2, smin=None, normalize=True, use_scalapack=False):
+    def __init__(self, niter=2, smin=None, normalize=True,
+                 use_scalapack=False):
         Eigensolver.__init__(self)
         self.niter = niter
         self.smin = smin
         self.normalize = normalize
         self.i = 0
         self.use_scalapack = use_scalapack
-
 
         if smin is not None:
             raise NotImplementedError(
@@ -180,11 +179,10 @@ class Davidson(Eigensolver):
                 mmm(1.0, P2, 'N', P3, 'C', 1.0, M)
                 copy(M, S_NN[B:, B:])
 
-                # <psi2 | S | psi> 
+                # <psi2 | S | psi>
                 psit2.matrix_elements(psit, out=M, cc=True)
                 mmm(1.0, P3, 'N', P, 'C', 1.0, M)
                 copy(M, S_NN[B:, :B])
-
 
             if slcomm.rank == 0:
                 H_NN[:B, :B] = np.diag(eps_N[:B])
@@ -198,7 +196,6 @@ class Davidson(Eigensolver):
                     Ssc_MM[:, :] = S_NN.copy()
                 # eps_M[:] = eps_N.copy()
 
-
             if self.use_scalapack:
                 from gpaw.blacs import Redistributor
                 redistributor = Redistributor(slcomm, local_desc, block_desc)
@@ -206,28 +203,30 @@ class Davidson(Eigensolver):
                 redistributor.redistribute(Ssc_MM, Ssc_mm)
                 redistributor.redistribute(Csc_MM, Csc_mm)
                 with self.timer("scalapacked davidson"):
-                    block_desc.general_diagonalize_dc(Hsc_mm.copy(), Ssc_mm.copy(), Csc_mm, eps_M)
+                    block_desc.general_diagonalize_dc(
+                        Hsc_mm.copy(), Ssc_mm.copy(), Csc_mm, eps_M)
 
                 redistributor2 = Redistributor(slcomm, block_desc, local_desc)
                 redistributor2.redistribute(Csc_mm, Csc_MM, uplo='G')
 
             with self.timer('diagonalize'):
+                from scipy.linalg import eigh
                 if slcomm.rank == 0 and comm.rank == 0 and bd.comm.rank == 0:
                     if debug:
                         H_NN[np.triu_indices(2 * B, 1)] = 42.0
                         S_NN[np.triu_indices(2 * B, 1)] = 42.0
-                    from scipy.linalg import eigh, orth
 
-                    np.set_printoptions(linewidth=200, precision=4, threshold=np.inf, suppress=True, floatmode='fixed')
+                    # np.set_printoptions(linewidth=200, precision=4,
+                    # threshold=np.inf, suppress=True, floatmode='fixed')
                     if self.use_scalapack:
                         H_NN[:, :] = Csc_MM.T.copy()
                         eps_N[:] = eps_M.copy()
                     else:
-                        eps_N, scipy_eigvecs = eigh(H_NN, S_NN,
-                                          lower=True,
-                                          check_finite=debug)
+                        eps_N, scipy_eigvecs = eigh(
+                            H_NN, S_NN,
+                            lower=True,
+                            check_finite=debug)
                         H_NN[:, :] = scipy_eigvecs.copy()
-                    
 
             if comm.rank == 0:
                 bd.distribute(eps_N[:B], kpt.eps_n)
