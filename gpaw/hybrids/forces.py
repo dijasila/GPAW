@@ -57,8 +57,6 @@ def forces(kpts, paw, wfs, sym, coulomb, F_av):
                                       paw, count)
         F_av += f_av / wfs.kd.nbzkpts**2
 
-    f = F_av.copy()
-
     for a, v_ii in paw.VV_aii.items():
         vv_ii = 8 * v_ii + 4 * paw.VC_aii[a]
         for kpt in kpts:
