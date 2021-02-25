@@ -19,6 +19,7 @@ def test_exx_double_cell(in_tmp_dir):
         eigensolver=Davidson(1),
         symmetry='off',
         kpts={'size': (1, 1, 4), 'gamma': True},
+        # spinpol=True,
         txt='H.txt',
         xc='HSE06')
     e1 = a.get_potential_energy()
