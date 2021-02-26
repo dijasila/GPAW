@@ -8,12 +8,11 @@ arXiv:2102.06542 [physics.comp-ph]
 """
 
 from gpaw.directmin.fdpw.tools import get_n_occ, get_indices, expm_ed
-from gpaw.directmin.lcao.sd_lcao import LSR1P, LBFGS_P
+from gpaw.directmin.lcao.sd_lcao import LSR1P
 from gpaw.directmin.lcao.ls_lcao import UnitStepLength
 from ase.units import Hartree
 import numpy as np
 import time
-from ase.parallel import parprint
 
 
 class InnerLoop:
@@ -27,7 +26,7 @@ class InnerLoop:
         self.tol = tol
         self.dtype = wfs.dtype
         self.get_en_and_grad_iters = 0
-        self.precond={}
+        self.precond = {}
         # self.method = 'LBFGS'
         # self.line_search_method = 'AwcSwc'
         self.max_iter_line_search = 6
@@ -103,8 +102,8 @@ class InnerLoop:
                                  phi=None, g_k=None):
         """
         phi = f(x_k + alpha_k*p_k)
-        der_phi = \grad f(x_k + alpha_k*p_k) \cdot p_k
-        :return:  phi, der_phi, \grad f(x_k + alpha_k*p_k)
+        der_phi = grad f(x_k + alpha_k*p_k) cdot p_k
+        :return:  phi, der_phi, grad f(x_k + alpha_k*p_k)
         """
         if phi is None or g_k is None:
             x_k = {k: a_k[k] + alpha * p_k[k] for k in a_k.keys()}
@@ -292,52 +291,9 @@ class InnerLoop:
                         log, self.counter, self.kappa, e_ks, esic,
                         outer_counter, g_max)
 
-                not_converged = g_max > self.g_tol and \
-                                self.counter < self.n_counter
-
-                # threelasten.append(phi_0)
-                # if len(threelasten) > 2:
-                #     threelasten = threelasten[-3:]
-                #     if threelasten[0] < threelasten[1] and threelasten[1] < threelasten[2]:
-                #         if log is not None:
-                #            log(
-                #                 'Could not converge, leave the loop',
-                #                 flush=True)
-                #         break
-                        # reset things:
-                        # threelasten = []
-                        # self.sd = LBFGS_P(wfs, memory=20)
-                        # self.ls = SWC(
-                        #     self.evaluate_phi_and_der_phi,
-                        #     method=self.method, awc=True,
-                        #     max_iter=self.max_iter_line_search)
-                        # for kpt in wfs.kpt_u:
-                        #     k = self.n_kps * kpt.s + kpt.q
-                        #     n_occ = self.n_occ[k]
-                        #     self.psit_knG[k] = np.tensordot(
-                        #         self.Unew_k[k].T,
-                        #         self.psit_knG[k],
-                        #         axes=1)
-                        #     self.U_k[k] = self.U_k[k] @ self.Unew_k[k]
-                        #     d = self.n_occ[k]
-                        #     if a_k[k].dtype == complex:
-                        #         a_k[k] = 1.0e-5 * np.random.rand(d, d) * 1.0j + \
-                        #                  1.0e-5 * np.random.rand(d, d)
-                        #     else:
-                        #         a_k[k] = 1.0e-5 * np.random.rand(d, d)
-                        #
-                        # self.e_total, g_k = self.get_energy_and_gradients(
-                        #     a_k, wfs, dens)
-                        #
-                        # phi_0 = self.e_total
-                        # phi_old = None
-                        # der_phi_old = None
-                        # phi_old_2 = None
-                        # der_phi_old_2 = None
-
-                # if not not_converged and self.counter < 2:
-                #     not_converged = True
-
+                not_converged = \
+                    g_max > self.g_tol and \
+                    self.counter < self.n_counter
             else:
                 break
 
@@ -377,9 +333,9 @@ class InnerLoop:
         else:
             return self.e_total, outer_counter
 
-    def get_numerical_gradients(self, A_s, wfs, dens, log, eps=1.0e-5,
-                                dtype=None):
-        dtype=self.dtype
+    def get_numerical_gradients(self, A_s, wfs, dens, log,
+                                eps=1.0e-5):
+        dtype = self.dtype
         h = [eps, -eps]
         coef = [1.0, -1.0]
         Gr_n_x = {}
@@ -425,7 +381,7 @@ class InnerLoop:
                                 self.get_energy_and_gradients(
                                     A_s, wfs, dens)[0]
                             grad_num[igr] += E * coef[l]
-                        grad_num[igr]*= 1.0 / (2.0 * eps)
+                        grad_num[igr] *= 1.0 / (2.0 * eps)
                         if i == j:
                             A_s[k][i][j] = A
                         else:
@@ -451,7 +407,7 @@ class InnerLoop:
                 igr = 0
                 for i, j in zip(*iut):
                     # log(k, i, j)
-                    log(igr+1, 'out of ', dim_gr, 'for a', k, 'kpt')
+                    log(igr + 1, 'out of ', dim_gr, 'for a', k, 'kpt')
                     log(flush=True)
                     A = A_s[k][i][j]
                     for l in range(2):
@@ -471,10 +427,8 @@ class InnerLoop:
 
         return G, Gr_n
 
-    def get_numerical_hessian(self, A_s, wfs, dens, log, eps=1.0e-5,
-                                dtype=None):
+    def get_numerical_hessian(self, A_s, wfs, dens, log, eps=1.0e-5):
 
-        dtype=self.dtype
         h = [eps, -eps]
         coef = [1.0, -1.0]
         log("Estimating Hessian using finite differences..")
@@ -486,7 +440,7 @@ class InnerLoop:
             dim = A_s[k].shape[0]
             iut = np.tril_indices(dim, -1)
             dim_gr = iut[0].shape[0]
-            hessian = np.zeros(shape=(dim_gr,dim_gr),
+            hessian = np.zeros(shape=(dim_gr, dim_gr),
                                dtype=self.dtype)
             ih = 0
             for i, j in zip(*iut):

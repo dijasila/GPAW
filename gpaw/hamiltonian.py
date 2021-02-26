@@ -347,7 +347,6 @@ class Hamiltonian:
             self.e_kinetic = self.e_kinetic0
         self.e_entropy = e_entropy
 
-
         self.e_total_free = (self.e_kinetic + self.e_coulomb +
                              self.e_external + self.e_zero + self.e_xc +
                              self.e_entropy)
@@ -569,10 +568,11 @@ class Hamiltonian:
                 for f, psit_G in zip(kpt.f_n, kpt.psit_nG):
                     if f > 1.0e-10:
                         G2_G = wfs.pd.G2_qG[kpt.q]
-                        e_kin += f * wfs.pd.integrate(0.5 * G2_G * psit_G,
-                                         psit_G).real
+                        e_kin += f * wfs.pd.integrate(
+                            0.5 * G2_G * psit_G, psit_G).real
         else:
             e_kin = 0.0
+
             def Lapl(psit_G, kpt):
                 Lpsit_G = np.zeros_like(psit_G)
                 wfs.kin.apply(psit_G, Lpsit_G, kpt.phase_cd)
@@ -581,8 +581,8 @@ class Hamiltonian:
             for kpt in wfs.kpt_u:
                 for f, psit_G in zip(kpt.f_n, kpt.psit_nG):
                     if f > 1.0e-10:
-                        e_kin += f * wfs.integrate(Lapl(psit_G, kpt),
-                                                      psit_G, False)
+                        e_kin += f * wfs.integrate(
+                            Lapl(psit_G, kpt), psit_G, False)
             e_kin = e_kin.real
             e_kin = wfs.gd.comm.sum(e_kin)
 

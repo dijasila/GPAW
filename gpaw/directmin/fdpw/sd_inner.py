@@ -137,7 +137,7 @@ class SteepestDescent(object):
             if prec[k].ndim == 1:
                 if prec[k].dtype == complex:
                     y[k] = const * (prec[k].real * x[k].real +
-                                    1.0j*prec[k].imag * x[k].imag)
+                                    1.0j * prec[k].imag * x[k].imag)
                 else:
                     y[k] = const * prec[k] * x[k]
             else:
@@ -153,7 +153,7 @@ class FRcg(SteepestDescent):
     Optimization' Second Edition, 2006 (p. 121)
     """
 
-    def __init__(self,  wfs):
+    def __init__(self, wfs):
         super(FRcg, self).__init__(wfs)
 
     def __str__(self):
@@ -175,7 +175,7 @@ class FRcg(SteepestDescent):
 
         if self.iters == 0:
             self.p_k = self.minus(g_k1)
-            #save the step
+            # save the step
             self.g_k = copy.deepcopy(g_k1)
             self.iters += 1
 
@@ -228,7 +228,7 @@ class HZcg(SteepestDescent):
 
         if self.iters == 0:
             self.p_k = self.minus(g_k1)
-            #save the step
+            # save the step
             self.g_k = g_k1
             self.iters += 1
 
@@ -244,10 +244,9 @@ class HZcg(SteepestDescent):
             norm2 = self.dot_all_k_and_b(y_k, y_k, wfs)
 
             y1 = self.calc_diff(y_k, self.p_k, wfs,
-                                const=2.0*rho*norm2)
+                                const=2.0 * rho * norm2)
 
-            beta_k = rho * \
-                     self.dot_all_k_and_b(y1, g_k1, wfs)
+            beta_k = rho * self.dot_all_k_and_b(y1, g_k1, wfs)
 
             try:
                 norm_p = np.sqrt(self.dot_all_k_and_b(self.p_k,

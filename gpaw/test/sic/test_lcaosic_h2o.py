@@ -28,8 +28,7 @@ def test_lcaosic_h2o(in_tmp_dir):
                 eigensolver=DirectMinLCAO(
                     odd_parameters={'name': 'PZ_SIC',
                                     'scaling_factor': (0.5, 0.5)  # SIC/2
-                                    }
-                ),
+                                    }),
                 mixer={'name': 'dummy'},
                 nbands='nao',
                 symmetry='off'

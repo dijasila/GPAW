@@ -3,6 +3,7 @@ from ase import Atoms
 import numpy as np
 from gpaw.test import equal
 
+
 def test_directmin_lcao(in_tmp_dir):
     """
     test exponential transformation
@@ -33,7 +34,6 @@ def test_directmin_lcao(in_tmp_dir):
     f = H2O.get_forces()
 
     equal(e, -13.643156256566218, 1.0e-5)
-
 
     f2 = np.array([[-1.11463, -1.23723, 0.0],
                    [1.35791, 0.00827, 0.0],

@@ -101,8 +101,8 @@ def calculate_forces_using_non_diag_lagr_matrix(wfs, dens, ham, log=None):
         k = esolv.n_kps * kpt.s + kpt.q
         n_occ = get_n_occ(kpt)
 
-        lamb = wfs.integrate(kpt.psit_nG[:n_occ],
-            grad_knG[k][:n_occ], True)
+        lamb = wfs.integrate(
+            kpt.psit_nG[:n_occ], grad_knG[k][:n_occ], True)
         # lamb = np.ascontiguousarray(lamb)
         # wfs.gd.comm.sum(lamb)
 

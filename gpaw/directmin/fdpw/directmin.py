@@ -49,7 +49,7 @@ class DirectMin(Eigensolver):
                  exstopt=False):
 
         super(DirectMin, self).__init__(keep_htpsit=False,
-                                          blocksize=blocksize)
+                                        blocksize=blocksize)
 
         self.sda = searchdir_algo
         self.lsa = linesearch_algo
@@ -58,9 +58,9 @@ class DirectMin(Eigensolver):
         self.odd_parameters = odd_parameters
         self.inner_loop = inner_loop
         self.initial_orbitals = initial_orbitals
-        self.maxiter=maxiter
-        self.kappa_tol=kappa_tol
-        self.g_tol=g_tol
+        self.maxiter = maxiter
+        self.kappa_tol = kappa_tol
+        self.g_tol = g_tol
         self.printinnerloop = printinnerloop
         self.convergelumo = convergelumo
 
@@ -70,7 +70,7 @@ class DirectMin(Eigensolver):
 
         if 'SIC' in self.odd_parameters['name']:
             if self.initial_orbitals is None:
-                self.initial_orbitals ='FBER'
+                self.initial_orbitals = 'FBER'
         if self.sda is None:
             self.sda = 'LBFGS'
         if isinstance(self.sda, basestring):
@@ -86,7 +86,7 @@ class DirectMin(Eigensolver):
         self.eg_count = 0
         self.force_init_localization = force_init_localization
         self.exstopt = exstopt
-        self.etotal=0.0
+        self.etotal = 0.0
 
     def __repr__(self):
 
@@ -133,8 +133,7 @@ class DirectMin(Eigensolver):
 
         repr_string += '       '\
                        'Orbital-density self-interaction ' \
-                       'corrections: {}\n'.format(
-            self.odd_parameters['name'])
+                       'corrections: {}\n'.format(self.odd_parameters['name'])
 
         repr_string += '       ' \
                        'WARNING: do not use it for metals as ' \
@@ -278,7 +277,7 @@ class DirectMin(Eigensolver):
                     odd2 = self.odd
 
                 self.iloop_outer = ILEXST(
-                    odd2, wfs,'all', self.kappa_tol, self.maxiter,
+                    odd2, wfs, 'all', self.kappa_tol, self.maxiter,
                     g_tol=self.g_tol, useprec=True)
                 # if you have inner-outer loop then need to have
                 # U matrix of the same dimensionality in both loops
@@ -360,7 +359,9 @@ class DirectMin(Eigensolver):
             for i, g in enumerate(grad_knG[k]):
                 if kpt.f_n[i] > 1.0e-10:
                     der_phi_2i[0] += \
-                        self.dot(wfs, g, p_knG[k][i], kpt, addpaw=False).item().real
+                        self.dot(
+                            wfs, g, p_knG[k][i], kpt,
+                            addpaw=False).item().real
         der_phi_2i[0] = wfs.kd.comm.sum(der_phi_2i[0])
 
         alpha, phi_alpha, der_phi_alpha, grad_knG = \
@@ -500,8 +501,6 @@ class DirectMin(Eigensolver):
                     #     grad[k][:n_occ] += \
                     #         np.tensordot(self.iloop.U_k[k].conj(),
                     #                      self.iloop.odd_pot.grad[k], axes=1)
-
-
                 energy += self.e_sic
         else:
             grad = {}
@@ -576,8 +575,7 @@ class DirectMin(Eigensolver):
             self.project_gradient_for_one_k_point(
                 wfs, p_knG[kpoint], kpt)
 
-    def project_gradient_for_one_k_point(self, wfs, p_nG,
-                                                   kpt):
+    def project_gradient_for_one_k_point(self, wfs, p_nG, kpt):
         """
         project gradient dE/dpsi on tangent space at psi
         for one k-point.
@@ -731,7 +729,8 @@ class DirectMin(Eigensolver):
                 if f > 1.0e-10:
                     a = self.dot(wfs,
                                  grad_knG[k][i] / f,
-                                 grad_knG[k][i] / f, kpt, addpaw=False).item() * f
+                                 grad_knG[k][i] / f, kpt,
+                                 addpaw=False).item() * f
                     a = a.real
                     norm.append(a)
         # error = sum(norm) * Hartree**2 / wfs.nvalence
@@ -817,7 +816,7 @@ class DirectMin(Eigensolver):
             # inf is not a good for example for ase to get gap
             kpt.eps_n[n_occ + dim:] *= 0.0
             kpt.eps_n[n_occ + dim:] +=\
-                np.absolute(5.0 * kpt.eps_n[n_occ+dim - 1])
+                np.absolute(5.0 * kpt.eps_n[n_occ + dim - 1])
             if rewrite_psi:
                 # TODO:
                 # Do we need sort wfs according to eps_n
@@ -971,8 +970,8 @@ class DirectMin(Eigensolver):
             else:
                 psi = kpt.psit_nG[:n_occ + dim].copy()
                 wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
-                lamb = wfs.integrate(
-                        psi, Hpsi_nG, global_integral=True)
+                lamb = \
+                    wfs.integrate(psi, Hpsi_nG, global_integral=True)
                 s_axi = {}
                 for a, P_xi in kpt.P_ani.items():
                     dO_ii = wfs.setups[a].dO_ii
@@ -1120,7 +1119,6 @@ class DirectMin(Eigensolver):
         :return:
         """
 
-
         if self.iloop is None and self.iloop_outer is None:
             return niter, False
 
@@ -1215,9 +1213,10 @@ class DirectMin(Eigensolver):
         :return:
         """
 
-
-        if (not self.need_init_orbs or wfs.read_from_file_init_wfs_dm) \
-                and not self.force_init_localization:
+        statementA = \
+            not self.need_init_orbs or wfs.read_from_file_init_wfs_dm
+        statementB = not self.force_init_localization
+        if statementA and statementB:
             wfs.calculate_occupation_numbers(dens.fixed)
             return
 

@@ -11,7 +11,8 @@ from gpaw.mpi import broadcast_float
 
 class SCFLoop:
     """Self-consistent field loop."""
-    def __init__(self, eigenstates=0.1, energy=0.1, density=0.1, force=np.inf,
+    def __init__(self, eigenstates=0.1, energy=0.1, density=0.1,
+                 force=np.inf,
                  maxiter=100, niter_fixdensity=None, nvalence=None):
         self.max_errors = {'eigenstates': eigenstates,
                            'energy': energy,
@@ -99,7 +100,8 @@ class SCFLoop:
 
         if not self.converged:
             if not np.isfinite(errors['eigenstates']):
-                msg = 'Not enough bands for ' + wfs.eigensolver.nbands_converge
+                msg = 'Not enough bands for ' + \
+                      wfs.eigensolver.nbands_converge
                 log(msg)
                 raise KohnShamConvergenceError(msg)
             log(oops)
@@ -220,11 +222,10 @@ class SCFLoop:
                 hasattr(wfs.eigensolver, 'iloop_outer'):
             iloop_counter = 0
             if wfs.eigensolver.iloop is not None:
-                iloop_counter +=  wfs.eigensolver.iloop.eg_count
+                iloop_counter += wfs.eigensolver.iloop.eg_count
             if wfs.eigensolver.iloop_outer is not None:
                 iloop_counter += wfs.eigensolver.iloop_outer.eg_count
             log('  %d' % iloop_counter, end='')
-
 
         log(flush=True)
 
@@ -303,7 +304,7 @@ class SCFLoop:
                         wfs.eigensolver.run_lumo(ham, wfs, dens,
                                                  max_er, log)
                     else:
-                        wfs.eigensolver.initialized=False
+                        wfs.eigensolver.initialized = False
                         log('Unoccupied states are not converged.')
                     rewrite_psi = True
                     if 'SIC' in wfs.eigensolver.odd_parameters['name']:

@@ -18,7 +18,7 @@ def test_fdsic_h2o(in_tmp_dir):
     # Water molecule:
     d = 0.9575
     t = np.pi / 180 * (104.51 + 2.0)
-    eps=0.02
+    eps = 0.02
     H2O = Atoms('OH2',
                 positions=[(0, 0, 0),
                            (d + eps, 0, 0),
@@ -33,8 +33,7 @@ def test_fdsic_h2o(in_tmp_dir):
                                     'scaling_factor': (0.5, 0.5)  # SIC/2
                                     },
                     g_tol=1.0e-4,
-                    maxiter=200
-                ),
+                    maxiter=200),
                 mixer={'method': 'dummy'},
                 symmetry='off',
                 spinpol=True

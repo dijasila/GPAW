@@ -19,7 +19,7 @@ def appr_wc(der_phi_0, phi_0, der_phi_j, phi_j):
     sigma = 0.9
 
     if (phi_j <= phi_0 + eps * abs(phi_0)) and \
-            ((2.0*delta - 1.0) * der_phi_0 >= der_phi_j >= sigma *
+            ((2.0 * delta - 1.0) * der_phi_0 >= der_phi_j >= sigma *
              der_phi_0):
         return True
     elif phi_j <= phi_0 + eps * abs(phi_0):
@@ -43,13 +43,13 @@ class StrongWolfeConditions:
     This call should return a_star, phi_star, der_phi_star, g_star,
     where a_star is step length satisfied the strong Wolfe condts:
 
-    f(x_k + a_k p_k) <= f(x_k) + c_1 a_k \grad f_k \cdot p_k,
+    f(x_k + a_k p_k) <= f(x_k) + c_1 a_k grad f_k cdot p_k,
 
-    |\grad f(x_k + a_k p_k) \cdot p_k | <= c_2 |\grad f_k \cdot p_k|,
+    |grad f(x_k + a_k p_k) cdot p_k | <= c_2 |grad f_k cdot p_k|,
 
     phi = f (x_k + a_k*p_k)
-    der_phi = \grad f(x_k + a_k p_k) \cdot p_k
-    g = \grad f(x_k + a_k p_k)
+    der_phi = grad f(x_k + a_k p_k) cdot p_k
+    g = grad f(x_k + a_k p_k)
     """
 
     def __init__(self, evaluate_phi_and_der_phi,
@@ -369,12 +369,13 @@ class UnitStepLength:
         dot = np.sqrt(dot)
 
         if dot > self.maxstep:
-            a_star = self.maxstep/dot
+            a_star = self.maxstep / dot
         else:
             a_star = 1.0
 
-        phi_star, der_phi_star, g_star = \
-                self.evaluate_phi_and_der_phi(x_k, p_k, a_star, *args)
+        phi_star, der_phi_star, g_star =\
+            self.evaluate_phi_and_der_phi(
+                x_k, p_k, a_star, *args)
 
         return a_star, phi_star, der_phi_star, g_star
 
@@ -383,8 +384,8 @@ class Parabola:
 
     """
     phi = f (x_k + a_k*p_k)
-    der_phi = \grad f(x_k + a_k p_k) \cdot p_k
-    g = \grad f(x_k + a_k p_k)
+    der_phi = grad f(x_k + a_k p_k) cdot p_k
+    g = grad f(x_k + a_k p_k)
     """
 
     def __init__(self, evaluate_phi_and_der_phi):
@@ -423,8 +424,8 @@ class TwoStepParabola:
 
     """
     phi = f (x_k + a_k*p_k)
-    der_phi = \grad f(x_k + a_k p_k) \cdot p_k
-    g = \grad f(x_k + a_k p_k)
+    der_phi = grad f(x_k + a_k p_k) cdot p_k
+    g = grad f(x_k + a_k p_k)
     """
 
     def __init__(self, evaluate_phi_and_der_phi):
@@ -475,8 +476,8 @@ class TwoStepParabolaAwc:
 
     """
     phi = f (x_k + a_k*p_k)
-    der_phi = \grad f(x_k + a_k p_k) \cdot p_k
-    g = \grad f(x_k + a_k p_k)
+    der_phi = grad f(x_k + a_k p_k) cdot p_k
+    g = grad f(x_k + a_k p_k)
     """
 
     def __init__(self, evaluate_phi_and_der_phi):
@@ -530,8 +531,8 @@ class TwoStepParabolaCubicAwc:
 
     """
     phi = f (x_k + a_k*p_k)
-    der_phi = \grad f(x_k + a_k p_k) \cdot p_k
-    g = \grad f(x_k + a_k p_k)
+    der_phi = grad f(x_k + a_k p_k) cdot p_k
+    g = grad f(x_k + a_k p_k)
     """
 
     def __init__(self, evaluate_phi_and_der_phi):
@@ -586,8 +587,8 @@ class TwoStepParabolaCubicDescent:
 
     """
     phi = f (x_k + a_k*p_k)
-    der_phi = \grad f(x_k + a_k p_k) \cdot p_k
-    g = \grad f(x_k + a_k p_k)
+    der_phi = grad f(x_k + a_k p_k) * p_k
+    g = grad f(x_k + a_k p_k)
     """
 
     def __init__(self, evaluate_phi_and_der_phi):
@@ -635,4 +636,3 @@ class TwoStepParabolaCubicDescent:
                                                   a_star, *args)
 
                 return a_star, phi_star, der_phi_star, g_star
-

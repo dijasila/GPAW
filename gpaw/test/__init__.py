@@ -1,11 +1,4 @@
-import os
-import gc
-import sys
-import time
-import signal
-import traceback
-from distutils.version import LooseVersion
-from unittest import SkipTest
+from typing import Tuple
 
 import numpy as np
 import pytest
@@ -15,7 +8,6 @@ from gpaw import setup_paths
 from gpaw.atom.configurations import parameters, tf_parameters
 from gpaw.atom.generator import Generator
 from gpaw.typing import Array1D
-from typing import Tuple
 
 
 def equal(x, y, tolerance=0):
