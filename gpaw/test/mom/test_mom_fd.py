@@ -64,7 +64,7 @@ def test_mom_fd():
     E_gs = atoms.get_potential_energy()
 
     # Test spin paired excited-state calculation
-    f_n = [calc.get_occupation_numbers(spin=0)/2.]
+    f_n = [calc.get_occupation_numbers(spin=0) / 2.]
     f_n[0][3] -= 0.5
     f_n[0][4] += 0.5
 

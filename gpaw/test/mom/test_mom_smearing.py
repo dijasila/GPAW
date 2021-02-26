@@ -1,7 +1,6 @@
 import pytest
-import numpy as np
 from ase.build import molecule
-from gpaw import GPAW, restart
+from gpaw import GPAW
 import gpaw.mom as mom
 from gpaw.test import equal
 
