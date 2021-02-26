@@ -218,7 +218,7 @@ def gramschmidt(C_nM, S_MM):
                          overwrite_a=True,
                          check_finite=False)
 
-    return np.dot(S_nn, C_nM)
+    return np.dot(S_nn.conj(), C_nM)
 
 
 def initial_localization(wfs, dens, ham, log):
