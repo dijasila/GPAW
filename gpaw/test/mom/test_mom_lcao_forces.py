@@ -8,10 +8,8 @@ from gpaw.test import equal
 
 @pytest.mark.mom
 def test_mom_lcao_forces():
-    dE_ref = [8.1458184518, 7.8544875500]
     f_n = [[1., 1., 1., 1., 0., 1., 0., 0.],
            [1., 1., 1., 1., 1., 0., 0., 0.]]
-
     L = 10.0
     d = 1.13
     delta = 0.01
@@ -32,8 +30,6 @@ def test_mom_lcao_forces():
                              'bands': -1})
 
     atoms.calc = calc
-
-    # Excited-state calculation spin polarized
     mom.mom_calculation(calc, atoms, f_n)
     F = atoms.get_forces()
 

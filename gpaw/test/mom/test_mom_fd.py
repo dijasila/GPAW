@@ -12,7 +12,6 @@ def test_mom_fd():
     atoms = molecule('H2O')
     atoms.center(vacuum=3)
 
-    # Ground-state calculation spin polarized
     calc = GPAW(mode='fd',
                 basis='dzp',
                 nbands=6,
@@ -26,10 +25,12 @@ def test_mom_fd():
                              'bands': 'all'})
 
     atoms.calc = calc
+    # Ground-state calculation
     E_gs = atoms.get_potential_energy()
+
     calc.write('h2o_fd_gs.gpw', 'all')
 
-    # Test spin-mixed and triplet calculations
+    # Test spin polarized excited-state calculations
     for s in [0, 1]:
         atoms, calc = restart('h2o_fd_gs.gpw')
 
@@ -37,20 +38,16 @@ def test_mom_fd():
         for spin in range(calc.get_number_of_spins()):
             f_ns = calc.get_occupation_numbers(spin=spin)
             f_n.append(f_ns)
-
-        # Excited-state MOM calculation
         f_n[0][3] -= 1.
         f_n[s][4] += 1.
 
         mom.mom_calculation(calc, atoms, f_n)
-
         E_es = atoms.get_potential_energy()
 
         dE = E_es - E_gs
         print(dE)
         equal(dE, dE_ref[s], 0.01)
 
-    # Ground-state calculation spin paired
     calc = GPAW(mode='fd',
                 basis='dzp',
                 nbands=6,
@@ -63,17 +60,15 @@ def test_mom_fd():
                              'bands': 'all'})
 
     atoms.calc = calc
+    # Ground-state calculation
     E_gs = atoms.get_potential_energy()
 
-    # Test singlet spin paired
+    # Test spin paired excited-state calculation
     f_n = [calc.get_occupation_numbers(spin=0)/2.]
-
-    # Excited-state MOM calculation
     f_n[0][3] -= 0.5
     f_n[0][4] += 0.5
 
     mom.mom_calculation(calc, atoms, f_n)
-
     E_es = atoms.get_potential_energy()
 
     dE = E_es - E_gs
