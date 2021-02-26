@@ -1,3 +1,12 @@
+"""
+Optimization of orbitals
+among occupied and a few virtual states
+represented on a grid or with plane waves
+in order to calculate and excited state
+
+arXiv:2102.06542 [physics.comp-ph]
+"""
+
 from gpaw.directmin.fdpw.tools import get_n_occ, get_indices, expm_ed
 from gpaw.directmin.lcao.sd_lcao import LSR1P, LBFGS_P
 from gpaw.directmin.lcao.ls_lcao import UnitStepLength

@@ -1,3 +1,11 @@
+"""
+Class for finding an optimal
+step alpha length in the optimization problem:
+x = x + alpha * p.
+It is for inner loop
+that is for unitary matrices
+"""
+
 import numpy as np
 from gpaw.directmin.fdpw.tools import cubic_interpolation, \
     parabola_interpolation

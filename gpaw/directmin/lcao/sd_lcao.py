@@ -1,3 +1,10 @@
+"""
+Search direction in space of skew-hermitian matrices
+
+LSR1 algorithm and application to excited states:
+arXiv:2006.15922 [physics.chem-ph]
+"""
+
 import numpy as np
 import copy
 from ase.parallel import parprint

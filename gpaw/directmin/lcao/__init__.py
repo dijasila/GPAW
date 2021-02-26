@@ -1,3 +1,7 @@
+"""
+Exponential Transformation Direct Minimization
+"""
+
 from gpaw.xc import xc_string_to_dict
 from ase.utils import basestring
 from gpaw.directmin.lcao.sd_lcao import SteepestDescent, FRcg, HZcg, \

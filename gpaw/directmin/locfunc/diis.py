@@ -1,3 +1,11 @@
+"""
+DIIS-like algorithm for
+wave-function localization
+
+J. Chem. Phys. 121, 9220 (2004)
+"""
+
+
 from ase.parallel import parprint
 from gpaw.directmin.lcao.tools import matrix_function
 from gpaw.directmin.fdpw.tools import get_n_occ

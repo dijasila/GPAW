@@ -1,3 +1,9 @@
+"""
+Optimization of orbitals
+among occupied states only
+
+"""
+
 from gpaw.directmin.fdpw.tools import get_n_occ, get_indices, expm_ed
 from gpaw.directmin.fdpw.sd_inner import LBFGS_P
 from gpaw.directmin.fdpw.ls_inner import StrongWolfeConditions as SWC

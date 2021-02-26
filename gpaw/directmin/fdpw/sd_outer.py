@@ -1,7 +1,17 @@
+"""
+Optimization methods for calculating
+search directions in space of wafe-functions
+Examples are Steepest Descent, Conjugate gradients, L-BFGS
+"""
+
+
 import numpy as np
 import copy
 
 class SteepestDescent:
+    """
+    Steepest descent algorithm
+    """
 
     def __init__(self, wfs, dimensions):
         """
@@ -15,17 +25,42 @@ class SteepestDescent:
         return 'Steepest Descent'
 
     def update_data(self, psi, g, wfs, prec):
+        """
+        update search direction
+
+        :param psi:
+        :param g:
+        :param wfs:
+        :param prec:
+        :return:
+        """
 
         self.apply_prec(wfs, g, prec, 1.0)
 
         return self.minus(wfs, g)
 
     def dot(self, psi_1, psi_2, kpt, wfs):
+        """
+        dot product between two objects pse_1 and psi_2
 
-        def S(psit_G):
-            return psit_G
+        :param psi_1:
+        :param psi_2:
+        :param kpt:
+        :param wfs:
+        :return:
+        """
+
+        # def S(psit_G):
+        #     return psit_G
 
         def dS(a, P_ni):
+            """
+            apply PAW
+            :param a:
+            :param P_ni:
+            :return:
+            """
+
             return np.dot(P_ni, wfs.setups[a].dO_ii)
 
         P1_ai = wfs.pt.dict(shape=1)
@@ -34,7 +69,7 @@ class SteepestDescent:
         wfs.pt.integrate(psi_1, P1_ai, kpt.q)
         wfs.pt.integrate(psi_2, P2_ai, kpt.q)
 
-        dot_prod = wfs.integrate(psi_1, S(psi_2), False)
+        dot_prod = wfs.integrate(psi_1, psi_2, False)
 
         paw_dot_prod = 0.0
 
@@ -48,6 +83,15 @@ class SteepestDescent:
         return sum_dot
 
     def dot_2(self, psi_1, psi_2, kpt, wfs):
+        """
+        dot product between pseudo-parts
+
+        :param psi_1:
+        :param psi_2:
+        :param kpt:
+        :param wfs:
+        :return:
+        """
 
         dot_prod = wfs.integrate(psi_1, psi_2, False)
         dot_prod = wfs.gd.comm.sum(dot_prod)
@@ -55,6 +99,14 @@ class SteepestDescent:
         return dot_prod
 
     def dot_all_k_and_b(self, x1, x2, wfs):
+        """
+        dot product between x1 and x2 over all k-points and bands
+
+        :param x1:
+        :param x2:
+        :param wfs:
+        :return:
+        """
 
         if wfs.dtype is complex:
             dot_pr_x1x2 = 0.0j
@@ -73,6 +125,16 @@ class SteepestDescent:
         return 2.0 * dot_pr_x1x2.real
 
     def calc_diff(self, x1, x2, wfs, const_0=1.0, const=1.0):
+        """
+        calculate difference beetwen x1 and x2
+
+        :param x1:
+        :param x2:
+        :param wfs:
+        :param const_0:
+        :param const:
+        :return:
+        """
         y_k = {}
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
@@ -108,6 +170,15 @@ class SteepestDescent:
         return y
 
     def apply_prec(self, wfs, x, prec, const=1.0):
+        """
+        apply preconditioning to the gradient
+
+        :param wfs:
+        :param x:
+        :param prec:
+        :param const:
+        :return:
+        """
         if wfs.mode == 'pw':
             deg = (3.0 - wfs.kd.nspins)
             deg *= 2.0
@@ -146,6 +217,14 @@ class HZcg(SteepestDescent):
         return 'Hager-Zhang conjugate gradient method'
 
     def update_data(self, psi, g_k1, wfs, prec):
+        """
+        update search direction
+        :param psi:
+        :param g_k1:
+        :param wfs:
+        :param prec:
+        :return:
+        """
 
         if prec is not None:
             self.apply_prec(wfs, g_k1, prec, 1.0)
@@ -395,11 +474,22 @@ class PRpcg(SteepestDescent):
 
 
 class QuickMin(SteepestDescent):
+    """
+    H. J\'onsson, G. Mills, and K. Jacobsen.
+    B.J. Berne, G. Ciccotti, D.F. Coker (Eds.).
+    Classical and Quantum Dynamics in
+    Condensed Phase Simulations, World Scientific (1998), 385 (1998)
+    """
 
     def __init__(self, wfs, dimensions):
 
         """
+        molecular dynamics like algorithm
+
+        :param wfs:
+        :param dimensions:
         """
+
         super().__init__(wfs, dimensions)
 
         self.dt = 0.01
@@ -410,6 +500,15 @@ class QuickMin(SteepestDescent):
         return 'QuickMin'
 
     def update_data(self, psi, g_k1, wfs, prec):
+        """
+        update search direction
+
+        :param psi:
+        :param g_k1:
+        :param wfs:
+        :param prec:
+        :return:
+        """
 
         if prec is not None:
             self.apply_prec(wfs, g_k1, prec, 1.0)
@@ -434,6 +533,11 @@ class QuickMin(SteepestDescent):
 
 
 class LBFGS(SteepestDescent):
+    """
+    The limited-memory BFGS.
+    See Jorge Nocedal and Stephen J. Wright 'Numerical
+    Optimization' Second Edition, 2006 (p. 177)
+    """
 
     def __init__(self, wfs, dimensions, memory=1):
 
@@ -457,6 +561,15 @@ class LBFGS(SteepestDescent):
         return 'LBFGS'
 
     def update_data(self, x_k1, g_k1, wfs, prec):
+        """
+        update search direction
+
+        :param x_k1:
+        :param g_k1:
+        :param wfs:
+        :param prec:
+        :return:
+        """
 
         if prec is not None:
             self.apply_prec(wfs, g_k1, prec, 1.0)
@@ -568,6 +681,13 @@ class LBFGS(SteepestDescent):
 
 
 class LBFGS_P(SteepestDescent):
+    """
+    The limited-memory BFGS.
+    See Jorge Nocedal and Stephen J. Wright 'Numerical
+    Optimization' Second Edition, 2006 (p. 177)
+
+    used with preconditioning
+    """
 
     def __init__(self, wfs, dimensions, memory=1):
 
@@ -591,7 +711,15 @@ class LBFGS_P(SteepestDescent):
         return 'LBFGS'
 
     def update_data(self, psi, g_k1, wfs, prec):
+        """
+        update search direction
 
+        :param psi:
+        :param g_k1:
+        :param wfs:
+        :param prec:
+        :return:
+        """
         if self.k == 0:
 
             self.kp[self.k] = self.p
@@ -713,6 +841,10 @@ class LBFGS_P(SteepestDescent):
 
 
 class LSR1P(SteepestDescent):
+    """
+    Limited memory symmetric rank one quasi-newton algorithm.
+    arXiv:2006.15922 [physics.chem-ph]
+    """
 
     def __init__(self, wfs, dimensions, memory=10, method='LSR1', phi=None):
         """

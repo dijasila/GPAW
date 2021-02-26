@@ -4,6 +4,13 @@ import numpy as np
 from gpaw.test import equal
 
 def test_directmin_lcao(in_tmp_dir):
+    """
+    test exponential transformation
+    direct minimization method for KS-DFT in LCAO
+    :param in_tmp_dir:
+    :return:
+    """
+
     # Water molecule:
     d = 0.9575
     t = np.pi / 180 * 104.51

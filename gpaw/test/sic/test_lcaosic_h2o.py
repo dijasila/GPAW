@@ -6,6 +6,13 @@ from gpaw.test import equal
 
 
 def test_lcaosic_h2o(in_tmp_dir):
+    """
+    test Perdew-Zunger Self-Interaction
+    Correction  in LCAO mode using DirectMin
+    :param in_tmp_dir:
+    :return:
+    """
+
     # Water molecule:
     d = 0.9575
     t = np.pi / 180 * 104.51

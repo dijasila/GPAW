@@ -1,3 +1,10 @@
+"""
+Class for finding an optimal
+step alpha length in the optimization problem:
+x = x + alpha * p.
+It is for lcao
+"""
+
 import numpy as np
 from gpaw.directmin.lcao.tools import cubic_interpolation, \
     parabola_interpolation

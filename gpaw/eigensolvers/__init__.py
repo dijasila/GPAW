@@ -27,7 +27,7 @@ def get_eigensolver(eigensolver, mode, convergence=None):
                        'dav': Davidson,
                        'lcao': DirectLCAO,
                        'direct': DirectPW,
-                       'direct_min_fd': DirectMin,
+                       'direct_min': DirectMin,
                        'direct_min_lcao': DirectMinLCAO
                        }[name](**eigensolver)
 

@@ -1,3 +1,10 @@
+"""
+Optimization methods for calculating
+search directions in space of skew-hermitian matrices
+Examples are Steepest Descent, Conjugate gradients, L-BFGS
+"""
+
+
 import numpy as np
 import copy
 # from gpaw.utilities.blas import dotc
@@ -18,6 +25,15 @@ class SteepestDescent(object):
         return 'Steepest Descent algorithm'
 
     def update_data(self, wfs, x_k1, g_k1, precond=None):
+        """
+        update search direction
+
+        :param wfs:
+        :param x_k1:
+        :param g_k1:
+        :param precond:
+        :return:
+        """
 
         if precond is None:
             p_k = self.minus(g_k1)
@@ -27,6 +43,11 @@ class SteepestDescent(object):
         return p_k
 
     def zeros(self, x):
+        """
+        return zero vector
+        :param x:
+        :return: 0
+        """
 
         y = {}
         for k in x.keys():
@@ -35,6 +56,10 @@ class SteepestDescent(object):
         return y
 
     def minus(self, x):
+        """
+        :param x:
+        :return: -x
+        """
 
         p = {}
 
@@ -44,6 +69,16 @@ class SteepestDescent(object):
         return p
 
     def calc_diff(self, x1, x2, wfs, const_0=1.0, const=1.0):
+        """
+        calculate difference between x1 and x2
+
+        :param x1:
+        :param x2:
+        :param wfs:
+        :param const_0:
+        :param const:
+        :return:
+        """
         y_k = {}
         for kpt in wfs.kpt_u:
             y_k[self.n_kps * kpt.s + kpt.q] = \
@@ -53,6 +88,14 @@ class SteepestDescent(object):
         return y_k
 
     def dot_all_k_and_b(self, x1, x2, wfs):
+        """
+       dot product between x1 and x2 over all k-points and bands
+
+        :param x1:
+        :param x2:
+        :param wfs:
+        :return:
+        """
 
         dot_pr_x1x2 = 0.0
 
@@ -66,6 +109,12 @@ class SteepestDescent(object):
         return dot_pr_x1x2
 
     def multiply(self, x, const=1.0):
+        """
+
+        :param x:
+        :param const:
+        :return: const * x
+        """
 
         y = {}
         for k in x.keys():
@@ -74,6 +123,14 @@ class SteepestDescent(object):
         return y
 
     def apply_prec(self, prec, x, const=1.0):
+        """
+        apply preconditioning to the gradient
+
+        :param prec:
+        :param x:
+        :param const:
+        :return:
+        """
 
         y = {}
         for k in x.keys():
@@ -103,6 +160,15 @@ class FRcg(SteepestDescent):
         return 'Fletcher-Reeves conjugate gradient method'
 
     def update_data(self, wfs, x_k1, g_k1, precond=None):
+        """
+        update search direction
+
+        :param wfs:
+        :param x_k1:
+        :param g_k1:
+        :param precond:
+        :return:
+        """
 
         if precond is not None:
             g_k1 = self.apply_prec(precond, g_k1, 1.0)
@@ -147,6 +213,15 @@ class HZcg(SteepestDescent):
         return 'Hager-Zhang conjugate gradient method'
 
     def update_data(self, wfs, x_k1, g_k1, precond=None):
+        """
+        update search direction
+
+        :param wfs:
+        :param x_k1:
+        :param g_k1:
+        :param precond:
+        :return:
+        """
 
         if precond is not None:
             g_k1 = self.apply_prec(precond, g_k1, 1.0)
@@ -193,7 +268,20 @@ class HZcg(SteepestDescent):
 
 class QuickMin(SteepestDescent):
 
+    """
+    H. J\'onsson, G. Mills, and K. Jacobsen.
+    B.J. Berne, G. Ciccotti, D.F. Coker (Eds.).
+    Classical and Quantum Dynamics in
+    Condensed Phase Simulations, World Scientific (1998), 385 (1998)
+    """
+
     def __init__(self, wfs):
+        """
+        molecular dynamics like algorithm
+
+        :param wfs:
+        """
+
         super(QuickMin, self).__init__(wfs)
         self.dt = 0.01
         self.m = 0.01
@@ -203,6 +291,15 @@ class QuickMin(SteepestDescent):
         return 'QuickMin'
 
     def update_data(self, wfs, x_k1, g_k1, precond=None):
+        """
+        update search direction
+
+        :param wfs:
+        :param x_k1:
+        :param g_k1:
+        :param precond:
+        :return:
+        """
 
         if precond is not None:
             g_k1 = self.apply_prec(precond, g_k1, 1.0)
@@ -228,6 +325,11 @@ class QuickMin(SteepestDescent):
 
 
 class LBFGS(SteepestDescent):
+    """
+    The limited-memory BFGS.
+    See Jorge Nocedal and Stephen J. Wright 'Numerical
+    Optimization' Second Edition, 2006 (p. 177)
+    """
 
     def __init__(self, wfs, memory=3):
         """
@@ -253,6 +355,15 @@ class LBFGS(SteepestDescent):
         return 'LBFGS'
 
     def update_data(self, wfs, x_k1, g_k1, precond=None):
+        """
+        update search direction
+
+        :param wfs:
+        :param x_k1:
+        :param g_k1:
+        :param precond:
+        :return:
+        """
 
         if precond is not None:
             g_k1 = self.apply_prec(precond, g_k1, 1.0)
@@ -367,6 +478,13 @@ class LBFGS(SteepestDescent):
 
 
 class LBFGS_P(SteepestDescent):
+    """
+       The limited-memory BFGS.
+       See Jorge Nocedal and Stephen J. Wright 'Numerical
+       Optimization' Second Edition, 2006 (p. 177)
+
+       used with preconditioning
+       """
 
     def __init__(self, wfs, memory=3):
         """
@@ -388,6 +506,16 @@ class LBFGS_P(SteepestDescent):
         return 'LBFGS'
 
     def update_data(self, wfs, x_k1, g_k1, precond=None):
+
+        """
+        update search direction
+
+        :param wfs:
+        :param x_k1:
+        :param g_k1:
+        :param precond:
+        :return:
+        """
 
         if self.k == 0:
 

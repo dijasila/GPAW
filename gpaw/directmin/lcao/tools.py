@@ -1,3 +1,7 @@
+"""
+Tools for direcmin using grid and pw
+"""
+
 import numpy as np
 import scipy as sp
 

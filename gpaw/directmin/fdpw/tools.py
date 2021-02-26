@@ -1,3 +1,7 @@
+"""
+Tools for direcmin using grid and pw
+"""
+
 import numpy as np
 
 def get_n_occ(kpt):

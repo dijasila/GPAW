@@ -1,3 +1,12 @@
+"""
+Class for finding an optimal
+step alpha length in the optimization problem:
+x = x + alpha * p.
+These classes are for wave-functions
+represented on real space grid or by plane waves
+"""
+
+
 import numpy as np
 from gpaw.directmin.fdpw.tools import cubic_interpolation, \
     parabola_interpolation, cubic_interpolation_2

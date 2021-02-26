@@ -8,6 +8,13 @@ from ase.units import Ha
 
 
 def test_pwsic_h2o(in_tmp_dir):
+    """
+    test Perdew-Zunger Self-Interaction
+    Correction  in PW mode using DirectMin
+    :param in_tmp_dir:
+    :return:
+    """
+
     # Water molecule:
     d = 0.9575
     t = np.pi / 180 * (104.51 + 2.0)
