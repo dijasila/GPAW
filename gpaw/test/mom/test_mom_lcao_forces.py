@@ -56,6 +56,5 @@ def test_mom_lcao_forces():
     fnum = (E[0] - E[1]) / (2. * delta)     # central difference
 
     print(fnum)
-    #equal(fnum, 12.1329758577, 0.01)
     equal(fnum, 12.0325744975, 0.01)
     equal(f, fnum, 0.1)
