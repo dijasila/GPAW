@@ -1,5 +1,6 @@
 from ase.parallel import parprint
-from gpaw.directmin.fdpw.tools import matrix_function, get_n_occ
+from gpaw.directmin.lcao.tools import matrix_function
+from gpaw.directmin.fdpw.tools import get_n_occ
 import numpy as np
 from ase.units import Hartree
 from gpaw.directmin.fdpw.tools import get_random_um

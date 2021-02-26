@@ -1,5 +1,4 @@
 from gpaw.directmin.fdpw.inner_loop import InnerLoop
-from ase.parallel import parprint
 import numpy as np
 
 class DirectMinLocalize:
