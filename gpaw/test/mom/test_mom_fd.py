@@ -1,4 +1,5 @@
 import pytest
+import numpy as np
 from ase.build import molecule
 from gpaw import GPAW, restart
 import gpaw.mom as mom
@@ -42,7 +43,15 @@ def test_mom_fd():
         f_n[s][4] += 1.
 
         mom.mom_calculation(calc, atoms, f_n)
+
         E_es = atoms.get_potential_energy()
+
+        # Test overlaps
+        calc.wfs.occupations.initialize_reference_orbitals()
+        for kpt in calc.wfs.kpt_u:
+            unoccupied = [True for i in range(len(f_n[kpt.s]))]
+            P = calc.wfs.occupations.calculate_weights(kpt, 1.0, unoccupied)
+            assert (np.allclose(P, f_n[kpt.s]))
 
         dE = E_es - E_gs
         print(dE)
