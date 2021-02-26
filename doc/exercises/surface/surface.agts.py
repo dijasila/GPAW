@@ -5,8 +5,11 @@ def workflow():
 
 
 def init():
+    import runpy
     from pathlib import Path
     source = Path('Al100.py').read_text()
     source = source.replace('k = ...', 'k = 6')
     source = source.replace('N = ...', 'N = 5')
-    exec(source)
+    path = Path('al10065.py')
+    path.write_text(source)
+    runpy.run_path(path)

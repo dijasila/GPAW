@@ -36,6 +36,7 @@ master:
     - echo "libraries += ['blas', 'lapack']" >> ~/.gpaw/siteconfig.py
     - python setup.py install > gpaw-python-install.output
     - su user -c 'gpaw-python -m gpaw  info'
+    - mq config --in-place
     - mq init
     - mq workflow -p agts.py -zT | tail -1 | tee count
     - python -c "assert int(open('count').read().split()[0]) >= 337"

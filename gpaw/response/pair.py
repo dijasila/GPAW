@@ -658,10 +658,10 @@ class PairDensity:
         self.timer = timer or Timer()
 
         with self.timer('Read ground state'):
-            if isinstance(gs, str):
+            if not isinstance(gs, GPAW):
                 print('Reading ground state calculation:\n  %s' % gs,
                       file=self.fd)
-                calc = GPAW(gs, txt=None, communicator=mpi.serial_comm)
+                calc = GPAW(gs, communicator=mpi.serial_comm)
             else:
                 calc = gs
                 assert calc.wfs.world.size == 1
@@ -697,8 +697,6 @@ class PairDensity:
 
         if gate_voltage is not None:
             self.add_gate_voltage(gate_voltage)
-        else:
-            self.add_gate_voltage(gate_voltage=0)
 
         self.spos_ac = calc.spos_ac
 

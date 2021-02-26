@@ -1,7 +1,7 @@
 from sys import argv
 import matplotlib.pyplot as plt
 
-from ase.dft import STM
+from ase.dft.stm import STM
 from gpaw import restart
 
 filename = argv[1]

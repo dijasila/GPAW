@@ -1,17 +1,18 @@
 import os
-from pathlib import Path
 from contextlib import contextmanager
+from pathlib import Path
 
+import numpy as np
 import pytest
 from _pytest.tmpdir import _mk_tmp
 from ase import Atoms
-from ase.io import read
-from gpaw.utilities import devnull
 from ase.build import bulk
+from ase.io import read
 
-from gpaw import GPAW
+from gpaw import GPAW, PW, Davidson, FermiDirac
 from gpaw.cli.info import info
-from gpaw.mpi import world, broadcast
+from gpaw.mpi import broadcast, world
+from gpaw.utilities import devnull
 
 
 @contextmanager
@@ -77,6 +78,8 @@ def gpw_files(request, tmp_path_factory):
 
     * Polyethylene chain.  One unit, 3 k-points, no symmetry:
       ``c2h4_pw_nosym``.  Three units: ``c6h12_pw``.
+
+    * Bulk TiO2 with 4x4x4 k-points: ``ti2o4_pw`` and ``ti2o4_pw_nosym``.
 
     Files with wave functions are also availabel (add ``_wfs`` to the names).
     """
@@ -203,9 +206,53 @@ class GPWFiles:
         from ase.build import molecule
         atoms = molecule('H2O', cell=[8, 8, 8], pbc=1)
         atoms.center()
-        atoms.calc = GPAW(mode='lcao', txt='h2o.txt')
+        atoms.calc = GPAW(mode='lcao', txt=self.path / 'h2o.txt')
         atoms.get_potential_energy()
         return atoms.calc
+
+    def ti2o4(self, symmetry):
+        pwcutoff = 400.0
+        k = 4
+        a = 4.59
+        c = 2.96
+        u = 0.305
+
+        rutile_cell = [[a, 0, 0],
+                       [0, a, 0],
+                       [0, 0, c]]
+
+        TiO2_basis = np.array([[0.0, 0.0, 0.0],
+                               [0.5, 0.5, 0.5],
+                               [u, u, 0.0],
+                               [-u, -u, 0.0],
+                               [0.5 + u, 0.5 - u, 0.5],
+                               [0.5 - u, 0.5 + u, 0.5]])
+
+        bulk_crystal = Atoms(symbols='Ti2O4',
+                             scaled_positions=TiO2_basis,
+                             cell=rutile_cell,
+                             pbc=(1, 1, 1))
+
+        tag = '_nosym' if symmetry == 'off' else ''
+        bulk_calc = GPAW(mode=PW(pwcutoff),
+                         nbands=42,
+                         eigensolver=Davidson(1),
+                         kpts={'size': (k, k, k), 'gamma': True},
+                         xc='PBE',
+                         occupations=FermiDirac(0.00001),
+                         parallel={'band': 1},
+                         symmetry=symmetry,
+                         txt=self.path / f'ti2o4_pw{tag}.txt')
+
+        bulk_crystal.calc = bulk_calc
+        bulk_crystal.get_potential_energy()
+        return bulk_calc
+
+    def ti2o4_pw(self):
+        return self.ti2o4({})
+
+    def ti2o4_pw_nosym(self):
+        return self.ti2o4('off')
 
 
 class GPAWPlugin:
