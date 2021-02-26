@@ -231,3 +231,28 @@ class CDFTPotential(ExternalPotential):
     # potential class ClassName(object):
     def __init__(self):
         self.name = 'CDFTPotential'
+
+
+class StepPotentialz(ExternalPotential):
+    """Step-like potential in z-direction"""
+    def __init__(self, zstep, value_left=0, value_right=0):
+        self.value_left = value_left
+        self.value_right = value_right
+        self.name = 'StepPotentialz'
+        self.zstep = zstep
+
+    def __str__(self):
+        return 'Step potentialz: {0:.3f} V to {1:.3f} V at z={2}'.format(
+            self.value_left, self.value_right, self.zstep)
+
+    def calculate_potential(self, gd):
+        r_vg = gd.get_grid_point_coordinates()
+        self.vext_g = np.where(r_vg[2] < self.zstep / Bohr,
+                               gd.zeros() + self.value_left / Hartree,
+                               gd.zeros() + self.value_right / Hartree)
+ 
+    def todict(self):
+        return {'name': self.name,
+                'value_left': self.value_left,
+                'value_right': self.value_right,
+                'zstep': self.zstep}
