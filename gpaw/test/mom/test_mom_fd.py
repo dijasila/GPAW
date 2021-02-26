@@ -6,11 +6,11 @@ from gpaw.test import equal
 
 
 @pytest.mark.mom
-def test_mom_lcao(gpw_files):
+def test_mom_lcao():
     dE_ref = [7.6319602946, 7.4176240132]
 
-    H2O = molecule('H2O')
-    H2O.center(vacuum=3)
+    atoms = molecule('H2O')
+    atoms.center(vacuum=3)
 
     # Ground-state calculation spin polarized
     calc = GPAW(mode='fd',
@@ -25,13 +25,13 @@ def test_mom_lcao(gpw_files):
                              'eigenstates': 100,
                              'bands': 'all'})
 
-    H2O.calc = calc
-    E_gs = H2O.get_potential_energy()
+    atoms.calc = calc
+    E_gs = atoms.get_potential_energy()
     calc.write('h2o_fd_gs.gpw', 'all')
 
     # Test spin-mixed and triplet calculations
     for s in [0, 1]:
-        H2O, calc = restart('h2o_fd_gs.gpw')
+        atoms, calc = restart('h2o_fd_gs.gpw')
 
         f_n = []
         for spin in range(calc.get_number_of_spins()):
@@ -42,9 +42,9 @@ def test_mom_lcao(gpw_files):
         f_n[0][3] -= 1.
         f_n[s][4] += 1.
 
-        mom.mom_calculation(calc, H2O, f_n)
+        mom.mom_calculation(calc, atoms, f_n)
 
-        E_es = H2O.get_potential_energy()
+        E_es = atoms.get_potential_energy()
 
         dE = E_es - E_gs
         print(dE)
@@ -62,8 +62,8 @@ def test_mom_lcao(gpw_files):
                              'eigenstates': 100,
                              'bands': 'all'})
 
-    H2O.calc = calc
-    E_gs = H2O.get_potential_energy()
+    atoms.calc = calc
+    E_gs = atoms.get_potential_energy()
 
     # Test singlet spin paired
     f_n = [calc.get_occupation_numbers(spin=0)/2.]
@@ -72,9 +72,9 @@ def test_mom_lcao(gpw_files):
     f_n[0][3] -= 0.5
     f_n[0][4] += 0.5
 
-    mom.mom_calculation(calc, H2O, f_n)
+    mom.mom_calculation(calc, atoms, f_n)
 
-    E_es = H2O.get_potential_energy()
+    E_es = atoms.get_potential_energy()
 
     dE = E_es - E_gs
     print(dE)
