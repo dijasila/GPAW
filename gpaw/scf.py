@@ -281,22 +281,23 @@ class SCFLoop:
 
                     if iloop1 and iloop2:
                         log(
-                            '\nOccupied states converged after {:d} KS and {:d} SIC e/g evaluations'.format(
-                                niter3,
-                                niter2 + niter3))
+                            '\nOccupied states converged after'
+                            ' {:d} KS and {:d} SIC e/g '
+                            'evaluations'.format(niter3,
+                                                 niter2 + niter3))
                     elif not iloop1 and iloop2:
                         log(
-                            '\nOccupied states converged after {:d} e/g evaluations'.format(
-                                niter3))
+                            '\nOccupied states converged after'
+                            ' {:d} e/g evaluations'.format(niter3))
                     elif iloop1 and not iloop2:
                         log(
-                            '\nOccupied states converged after {:d} KS and {:d} SIC e/g evaluations'.format(
-                                niter1,
-                                niter2))
+                            '\nOccupied states converged after'
+                            ' {:d} KS and {:d} SIC e/g '
+                            'evaluations'.format(niter1, niter2))
                     else:
                         log(
-                            '\nOccupied states converged after {:d} e/g evaluations'.format(
-                                niter1))
+                            '\nOccupied states converged after'
+                            ' {:d} e/g evaluations'.format(niter1))
                     if wfs.eigensolver.convergelumo:
                         log('Converge unoccupied states:')
                         max_er = self.max_errors['eigenstates']
@@ -318,8 +319,8 @@ class SCFLoop:
                                                                  wfs)
                     niter = wfs.eigensolver.eg_count
                     log(
-                        '\nOccupied states converged after {:d} e/g evaluations'.format(
-                            niter))
+                        '\nOccupied states converged after'
+                        ' {:d} e/g evaluations'.format(niter))
                     break
                 # else:
                 #     raise NotImplementedError
