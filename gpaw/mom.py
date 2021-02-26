@@ -7,6 +7,7 @@ from gpaw.occupations import FixedOccupationNumbers
 
 def mom_calculation(calc, atoms,
                     numbers,
+                    project_overlaps=True,
                     width=0.0,
                     width_increment=0.0,
                     niter_width_update=10):
@@ -20,6 +21,7 @@ def mom_calculation(calc, atoms,
 
     occ_mom = OccupationsMOM(calc.wfs, occ,
                              numbers,
+                             project_overlaps,
                              width,
                              width_increment,
                              niter_width_update)
@@ -31,6 +33,7 @@ def mom_calculation(calc, atoms,
 class OccupationsMOM:
     def __init__(self, wfs, occ,
                  numbers,
+                 project_overlaps=True,
                  width=0.0,
                  width_increment=0.0,
                  niter_width_update=10):
@@ -38,6 +41,7 @@ class OccupationsMOM:
         self.occ = occ
         self.extrapolate_factor = occ.extrapolate_factor
         self.numbers = np.array(numbers)
+        self.project_overlaps = project_overlaps
         self.width = width / Ha
         self.width_increment = width_increment / Ha
         self.niter_width_update = niter_width_update
@@ -48,7 +52,8 @@ class OccupationsMOM:
 
     def todict(self):
         dct = {'name': self.name,
-               'numbers': self.numbers}
+               'numbers': self.numbers,
+               'project_overlaps': self.project_overlaps}
         if self.width != 0.0:
             dct['width'] = self.width * Ha
             dct['width_increment'] = self.width_increment * Ha
@@ -187,8 +192,11 @@ class OccupationsMOM:
             # Sum pseudo wave and PAW contributions
             O += O_corr
 
-        P = np.sum(O ** 2, axis=0)
-        P = P ** 0.5
+        if self.project_overlaps:
+            P = np.sum(O ** 2, axis=0)
+            P = P ** 0.5
+        else:
+            P = np.amax(abs(O), axis=0)
 
         return P
 
