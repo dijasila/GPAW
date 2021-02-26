@@ -7,7 +7,7 @@ from gpaw.test import equal
 
 
 @pytest.mark.mom
-def test_mom_lcao():
+def test_mom_lcao_forces():
     dE_ref = [8.1458184518, 7.8544875500]
     f_n = [[1., 1., 1., 1., 0., 1., 0., 0.],
            [1., 1., 1., 1., 1., 0., 0., 0.]]
@@ -35,7 +35,6 @@ def test_mom_lcao():
 
     # Excited-state calculation spin polarized
     mom.mom_calculation(calc, atoms, f_n)
-    atoms.get_potential_energy()
     F = atoms.get_forces()
 
     E = []
@@ -51,6 +50,6 @@ def test_mom_lcao():
     f = np.sqrt(((F[1, :] - F[0, :])**2).sum()) * 0.5
     fnum = (E[0] - E[1]) / (2. * delta)     # central difference
 
-    print(f)
+    print(fnum)
     equal(fnum, 12.1329758577, 0.01)
     equal(f, fnum, 0.05)
