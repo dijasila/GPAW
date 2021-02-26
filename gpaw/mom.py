@@ -170,24 +170,24 @@ class OccupationsMOM:
 
     def calculate_mom_projections(self, kpt, f_n_unique, unoccupied):
         if self.wfs.mode == 'lcao':
-            P = np.dot(self.c_ref[kpt.s][f_n_unique].conj(),
+            S = np.dot(self.c_ref[kpt.s][f_n_unique].conj(),
                        np.dot(kpt.S_MM, kpt.C_nM[unoccupied].T))
         else:
             # Pseudo wave function overlaps
-            P = self.wfs.integrate(self.wf[kpt.s][f_n_unique][:],
+            S = self.wfs.integrate(self.wf[kpt.s][f_n_unique][:],
                                    kpt.psit_nG[unoccupied][:], True)
 
             # PAW corrections
-            P_corr = np.zeros_like(P)
+            S_corr = np.zeros_like(S)
             for a, p_a in self.p_an[kpt.s][f_n_unique].items():
-                P_corr += np.dot(kpt.P_ani[a][unoccupied].conj(), p_a).T
-            P_corr = np.ascontiguousarray(P_corr)
-            self.wfs.gd.comm.sum(P_corr)
+                S_corr += np.dot(kpt.P_ani[a][unoccupied].conj(), p_a).T
+            S_corr = np.ascontiguousarray(S_corr)
+            self.wfs.gd.comm.sum(S_corr)
 
             # Sum pseudo wave and PAW contributions
-            P += P_corr
+            S += S_corr
 
-        P = np.sum(P ** 2, axis=0)
+        P = np.sum(S ** 2, axis=0)
         P = P ** 0.5
 
         return P
