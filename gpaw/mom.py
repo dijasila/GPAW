@@ -152,9 +152,9 @@ class OccupationsMOM:
                 P = np.zeros(len(f_sn[kpt.s]))
                 # The projections are calculated only for orbitals
                 # that have not already been occupied
-                P[unoccupied] = self.calculate_mom_projections(kpt,
-                                                               f_n_unique,
-                                                               unoccupied)
+                P[unoccupied] = self.calculate_weights(kpt,
+                                                       f_n_unique,
+                                                       unoccupied)
                 P_max = np.argpartition(P, -n_occ)[-n_occ:]
                 f_sn[kpt.s][P_max] = f_n_unique
 
@@ -173,7 +173,7 @@ class OccupationsMOM:
 
         return f_sn
 
-    def calculate_mom_projections(self, kpt, f_n_unique, unoccupied):
+    def calculate_weights(self, kpt, f_n_unique, unoccupied):
         if self.wfs.mode == 'lcao':
             O = np.dot(self.c_ref[kpt.s][f_n_unique].conj(),
                        np.dot(kpt.S_MM, kpt.C_nM[unoccupied].T))
