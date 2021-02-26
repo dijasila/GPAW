@@ -584,6 +584,7 @@ class FixedOccupationNumbers(OccupationNumberCalculator):
                 s = q % len(self.f_sn)
                 self.bd.distribute(self.f_sn[s], f_n)
         else:
+            # Non-collinear calculation:
             self.bd.distribute(self.f_sn.T.flatten().copy(), f_qn[0])
 
         return inf, 0.0
