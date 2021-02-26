@@ -9,7 +9,7 @@ from gpaw.directmin.lcao import search_direction, line_search_algorithm
 from gpaw.xc import xc_string_to_dict
 from ase.utils import basestring
 from gpaw.directmin.odd.lcao import odd_corrections
-from gpaw.directmin.lcao.tools import loewdin
+from gpaw.directmin.lcao.tools import gramschmidt
 from gpaw.pipekmezey.pipek_mezey_wannier import PipekMezey as pm
 from gpaw.pipekmezey.wannier_basic import WannierLocalization as wl
 
@@ -1015,7 +1015,7 @@ class DirectMinLCAO(DirectLCAO):
                     C = self.c_nm_ref[u]
                 else:
                     C = kpt.C_nM
-                kpt.C_nM[:] = loewdin(C, kpt.S_MM.conj())
+                kpt.C_nM[:] = gramschmidt(C, kpt.S_MM.conj())
             wfs.coefficients_read_from_file = False
             occ.calculate(wfs)
 
