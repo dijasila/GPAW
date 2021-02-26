@@ -27,8 +27,8 @@ def test_mom_smearing():
 
     f_n = []
     for spin in range(calc.get_number_of_spins()):
-        f_ns = calc.get_occupation_numbers(spin=spin)
-        f_n.append(f_ns)
+        f_sn = calc.get_occupation_numbers(spin=spin)
+        f_n.append(f_sn)
 
     ne0_gs = f_n[0].sum()
     f_n[0][3] -= 1.

@@ -37,8 +37,8 @@ def test_mom_fd():
 
         f_n = []
         for spin in range(calc.get_number_of_spins()):
-            f_ns = calc.get_occupation_numbers(spin=spin)
-            f_n.append(f_ns)
+            f_sn = calc.get_occupation_numbers(spin=spin)
+            f_n.append(f_sn)
         f_n[0][3] -= 1.
         f_n[s][4] += 1.
 
@@ -49,9 +49,10 @@ def test_mom_fd():
         # Test overlaps
         calc.wfs.occupations.initialize_reference_orbitals()
         for kpt in calc.wfs.kpt_u:
-            unoccupied = [True for i in range(len(f_n[kpt.s]))]
+            f_sn = calc.get_occupation_numbers(spin=kpt.s)
+            unoccupied = [True for i in range(len(f_sn))]
             P = calc.wfs.occupations.calculate_weights(kpt, 1.0, unoccupied)
-            assert (np.allclose(P, f_n[kpt.s]))
+            assert (np.allclose(P, f_sn))
 
         dE = E_es - E_gs
         print(dE)
