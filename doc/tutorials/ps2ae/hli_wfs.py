@@ -10,7 +10,7 @@ hli.calc = GPAW(txt='hli.txt', mode='fd')
 hli.get_potential_energy()
 
 # Transformer:
-t = PS2AE(hli.calc, h=0.05)
+t = PS2AE(hli.calc, grid_spacing=0.05)
 
 for n, color in enumerate(['green', 'red']):
     ps = t.get_wave_function(n, ae=False)

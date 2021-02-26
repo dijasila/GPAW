@@ -1,4 +1,3 @@
-from __future__ import print_function
 import numpy as np
 from gpaw import GPAW
 from gpaw.spinorbit import get_parity_eigenvalues
@@ -18,7 +17,7 @@ for ik, X in zip(range(4), ['G', 'L', 'F', 'Z']):
                                 inversion_center=r_v)
     P = np.prod(ps[:Nv])
     P_i.append(P)
-    print('    Parity at %s:' % X, P)
+    print(f'    Parity at {X}:', P)
 print()
 print('Calculating parities with spin-orbit coupling')
 Pso_i = []
@@ -28,7 +27,7 @@ for ik, X in zip(range(4), ['G', 'L', 'F', 'Z']):
                                 inversion_center=r_v, deg_tol=1.0e-8)
     P = np.prod(ps[:Nv])
     Pso_i.append(P)
-    print('    Parity at %s:' % X, P)
+    print(f'    Parity at {X}:', P)
 print()
 print('Z2 index no spinorbit:',
       (1 - np.prod(np.array(P_i)**multiplicities)) / 2)

@@ -16,14 +16,15 @@ calc = GPAW(nbands=1,
             setups={'Na': '1'},
             txt='Na2_gs.txt')
 
-atoms.set_calculator(calc)
+atoms.calc = calc
 e = atoms.get_potential_energy()
 
 # Calculate also unoccupied states with the fixed density
 # unoccupied states converge often better with cg
-calc.set(nbands=20, convergence={'bands': 20},
-         eigensolver='cg',
-         fixdensity=True)
-e = atoms.get_potential_energy()
+calc = calc.fixed_density(
+    nbands=20,
+    convergence={'bands': 20},
+    eigensolver='cg')
+
 # write the wave functions to a file
 calc.write('na2_gs_unocc.gpw', 'all')

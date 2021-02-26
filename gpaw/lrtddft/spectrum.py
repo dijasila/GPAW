@@ -1,4 +1,3 @@
-from __future__ import print_function
 import sys
 import numpy as np
 
@@ -168,7 +167,7 @@ class Writer(Folder):
           Name of the folding function, see gpaw/folder.py for options.
           None means do not fold at all.
         width : float
-          The width to be transferred to the folding function. 
+          The width to be transferred to the folding function.
         """
         self.folding = folding
         if folding is not None:

@@ -165,7 +165,7 @@ class DirectMin(Eigensolver):
         if obj_func is None:
             obj_func = self.evaluate_phi_and_der_phi
         self.dtype = wfs.dtype
-        self.n_kps = wfs.kd.nks // wfs.kd.nspins
+        self.n_kps = wfs.kd.nibzkpts
         # dimensionality, number of state to be converged:
         self.dimensions = {}
         for kpt in wfs.kpt_u:
@@ -256,20 +256,27 @@ class DirectMin(Eigensolver):
 
         self.initialized = True
 
-    def iterate(self, ham, wfs, dens, occ, log):
+    def iterate(self, ham, wfs, dens, log):
 
         assert dens.mixer.driver.name == 'dummy', \
-            'Please, use: mixer={\'method\': \'dummy\'}'
+            'Please, use: mixer={\'name\': \'dummy\'}'
         assert wfs.bd.comm.size == 1, \
             'Band parallelization is not supported'
-        assert occ.width < 1.0e-5, \
-            'Zero Kelvin only.'
+        # this assert sometimes doesn't work:
+        # assert wfs.occupations.name == 'zero-width', \
+        #     'Zero Kelvin only.'
+        # so let's use this instead
+        occ_dct = wfs.occupations.todict()
+        width = occ_dct.get('width')
+        if width is not None:
+            assert width < 1.0e-5, \
+                'Zero Kelvin only.'
 
         if not self.initialized:
             if isinstance(ham.xc, HybridXC):
                 self.blocksize = wfs.bd.mynbands
             self.initialize_super(wfs)
-            self.init_wfs(wfs, dens, ham, occ, log)
+            self.init_wfs(wfs, dens, ham, log)
             self.initialize_dm(wfs, dens, ham, log)
 
         n_kps = self.n_kps
@@ -283,8 +290,7 @@ class DirectMin(Eigensolver):
         if self.iters == 0:
             # calculate gradients
             phi_2i[0], grad_knG = \
-                self.get_energy_and_tangent_gradients(ham, wfs, dens,
-                                                      occ)
+                self.get_energy_and_tangent_gradients(ham, wfs, dens)
             # self.error = self.error_eigv(wfs, grad_knG)
         else:
             grad_knG = self.grad_knG
@@ -314,7 +320,7 @@ class DirectMin(Eigensolver):
 
         alpha, phi_alpha, der_phi_alpha, grad_knG = \
             self.line_search.step_length_update(
-                psi_copy, p_knG, ham, wfs, dens, occ,
+                psi_copy, p_knG, ham, wfs, dens,
                 phi_0=phi_2i[0], der_phi_0=der_phi_2i[0],
                 phi_old=phi_2i[1], der_phi_old=der_phi_2i[1],
                 alpha_max=3.0, alpha_old=alpha, wfs=wfs)
@@ -336,7 +342,7 @@ class DirectMin(Eigensolver):
         wfs.timer.stop('Direct Minimisation step')
         self.iters += 1
 
-    def update_ks_energy(self, ham, wfs, dens, occ):
+    def update_ks_energy(self, ham, wfs, dens):
 
         wfs.timer.start('Update Kohn-Sham energy')
 
@@ -349,10 +355,10 @@ class DirectMin(Eigensolver):
         ham.update(dens, wfs, False)
         wfs.timer.stop('Update Kohn-Sham energy')
 
-        return ham.get_energy(occ, False)
+        return ham.get_energy(0.0, wfs, False)
 
     def evaluate_phi_and_der_phi(self, psit_k, search_dir, alpha,
-                                 ham, wfs, dens, occ,
+                                 ham, wfs, dens,
                                  phi=None, grad_k=None):
         """
         phi = E(x_k + alpha_k*p_k)
@@ -373,8 +379,7 @@ class DirectMin(Eigensolver):
                 wfs.orthonormalize(kpt)
 
             phi, grad_k = \
-                self.get_energy_and_tangent_gradients(ham, wfs, dens,
-                                                      occ)
+                self.get_energy_and_tangent_gradients(ham, wfs, dens)
 
         der_phi = 0.0
         for kpt in wfs.kpt_u:
@@ -388,8 +393,7 @@ class DirectMin(Eigensolver):
 
         return phi, der_phi, grad_k
 
-    def get_energy_and_tangent_gradients(self, ham, wfs, dens, occ,
-                                         psit_knG=None):
+    def get_energy_and_tangent_gradients(self, ham, wfs, dens, psit_knG=None):
 
         n_kps = self.n_kps
         if psit_knG is not None:
@@ -401,14 +405,14 @@ class DirectMin(Eigensolver):
             wfs.orthonormalize()
 
         if not self.exstopt:
-            energy = self.update_ks_energy(ham, wfs, dens, occ)
+            energy = self.update_ks_energy(ham, wfs, dens)
             grad = self.get_gradients_2(ham, wfs)
 
             if 'SIC' in self.odd_parameters['name']:
                 self.e_sic = 0.0
                 # error = self.error * Hartree ** 2 / wfs.nvalence
                 if self.iters > 0:
-                    self.run_inner_loop(ham, wfs, occ, dens, grad_knG=grad, log=None)
+                    self.run_inner_loop(ham, wfs, dens, grad_knG=grad)
                 else:
                     # temp = {}
                     # for kpt in wfs.kpt_u:
@@ -421,7 +425,7 @@ class DirectMin(Eigensolver):
                     #             axes=1)
                     self.e_sic = self.odd.get_energy_and_gradients(
                         wfs, grad, dens, self.iloop.U_k, add_grad=True)
-                    ham.get_energy(occ, kin_en_using_band=False,
+                    ham.get_energy(0.0, wfs, kin_en_using_band=False,
                                    e_sic=self.e_sic)
                     # for kpt in wfs.kpt_u:
                     #     k = self.n_kps * kpt.s + kpt.q
@@ -438,8 +442,8 @@ class DirectMin(Eigensolver):
             n_kps = self.n_kps
             for kpt in wfs.kpt_u:
                 grad[n_kps * kpt.s + kpt.q] = np.zeros_like(kpt.psit_nG[:])
-            self.run_inner_loop(ham, wfs, occ, dens,
-                                grad_knG=grad, log=None)
+            self.run_inner_loop(ham, wfs, dens,
+                                grad_knG=grad)
             energy = self.etotal
 
         self.project_gradient(wfs, grad)
@@ -592,7 +596,7 @@ class DirectMin(Eigensolver):
 
     def error_eigv(self, wfs, grad_knG):
 
-        n_kps = wfs.kd.nks // wfs.kd.nspins
+        n_kps = wfs.kd.nibzkpts
         norm = [0.0]
         for kpt in wfs.kpt_u:
             k = n_kps * kpt.s + kpt.q
@@ -609,7 +613,7 @@ class DirectMin(Eigensolver):
 
         return error.real
 
-    def get_canonical_representation(self, ham, wfs, occ, dens,
+    def get_canonical_representation(self, ham, wfs, dens,
                                      rewrite_psi=True):
 
         grad_knG = self.get_gradients_2(ham, wfs)
@@ -686,7 +690,7 @@ class DirectMin(Eigensolver):
                 wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
 
         # update fermi level?
-        occ.calculate(wfs)
+        wfs.calculate_occupation_numbers(dens.fixed)
 
     def get_gradients_lumo(self, ham, wfs, kpt):
 
@@ -900,7 +904,7 @@ class DirectMin(Eigensolver):
         wfs.timer.stop('Direct Minimisation step')
         return phi_alpha, self.error
 
-    def run_lumo(self, ham, wfs, dens, occ, max_err, log):
+    def run_lumo(self, ham, wfs, dens, max_err, log):
 
         self.need_init_odd = False
         self.initialize_dm(
@@ -923,7 +927,7 @@ class DirectMin(Eigensolver):
 
         self.initialized = False
 
-    def run_inner_loop(self, ham, wfs, occ, dens, log, grad_knG, niter=0):
+    def run_inner_loop(self, ham, wfs, dens, grad_knG, niter=0):
 
         if self.iloop is None and self.iloop_outer is None:
             return niter, False
@@ -937,9 +941,9 @@ class DirectMin(Eigensolver):
 
         if self.iloop is not None:
             if self.exstopt and self.iters == 0:
-                eks = self.update_ks_energy(ham, wfs, dens, occ)
+                eks = self.update_ks_energy(ham, wfs, dens)
             else:
-                etotal = ham.get_energy(occ,
+                etotal = ham.get_energy(0.0, wfs,
                                         kin_en_using_band=False,
                                         e_sic=self.e_sic)
                 eks = etotal - self.e_sic
@@ -962,7 +966,7 @@ class DirectMin(Eigensolver):
                                          axes=1)
                 wfs.timer.stop('Inner loop')
 
-                ham.get_energy(occ, kin_en_using_band=False,
+                ham.get_energy(0.0, wfs, kin_en_using_band=False,
                                e_sic=self.e_sic)
                 return counter, True
 
@@ -978,7 +982,7 @@ class DirectMin(Eigensolver):
         self.etotal, counter = self.iloop_outer.run(
             0.0, wfs, dens, log, niter,
             small_random=False,
-            ham=ham, occ=occ)
+            ham=ham)
         self.e_sic = self.iloop_outer.odd_pot.total_sic
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
@@ -1002,18 +1006,18 @@ class DirectMin(Eigensolver):
 
         wfs.timer.stop('Inner loop')
 
-        ham.get_energy(occ, kin_en_using_band=False,
+        ham.get_energy(0.0, wfs, kin_en_using_band=False,
                        e_sic=self.e_sic)
 
         return counter, True
 
-    def init_wfs(self, wfs, dens, ham, occ, log):
+    def init_wfs(self, wfs, dens, ham, log):
         # initial orbitals can be localised using Pipek-Mezey
         # or Wannier functions.
 
         if (not self.need_init_orbs or wfs.read_from_file_init_wfs_dm) \
                 and not self.force_init_localization:
-            occ.calculate(wfs)
+            wfs.calculate_occupation_numbers(dens.fixed)
             return
 
         log("Initial Localization: ...", flush=True)
@@ -1026,7 +1030,7 @@ class DirectMin(Eigensolver):
                 super(DirectMin, self).subspace_diagonalize(
                     ham, wfs, kpt, True)
                 wfs.gd.comm.broadcast(kpt.eps_n, 0)
-            occ.calculate(wfs)  # fill occ numbers
+            wfs.calculate_occupation_numbers(dens.fixed)  # fill occ numbers
 
         # if wfs.mode == 'pw' and \
         #         self.initial_orbitals != 'KS' and \
@@ -1104,7 +1108,7 @@ class DirectMin(Eigensolver):
         wfs.timer.stop('Initial Localization')
         log("Done", flush=True)
 
-    def choose_optimal_orbitals(self, wfs, ham, occ, dens):
+    def choose_optimal_orbitals(self, wfs, ham, dens):
         # choose optimal orbitals and store them in wfs.kpt_u
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q

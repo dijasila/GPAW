@@ -82,7 +82,7 @@ the partitioning of a plane.
    A. Castro, A. Rubio, and M. J. Stott,
    Solution of Poisson's equation for finite systems using plane-wave methods,
    *Can. J. Phys.* **81**, 1151 (2003).
-   `doi:10.1139/p03-078 <http://dx.doi.org/10.1139/p03-078>`_
+   :doi:`10.1139/p03-078`
 
 
 Adding extra vacuum to the Poisson grid

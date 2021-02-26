@@ -40,8 +40,11 @@ Specialized tutorials
    spinorbit/spinorbit
    dipole_correction/dipole
    hubbardu/hubbardu
+   point_groups/point_groups
    jellium/jellium
    hydrogen/h
+   scissors/scissors
+   zfs/zfs
    muonsites/mnsi
    defects/defects
    stm/stm
@@ -53,6 +56,7 @@ Specialized tutorials
    pbe0/pbe0
    xas/xas
    dielectric_response/dielectric_response
+   nlopt/nlopt
    qeh/qeh
    gw_tutorial/gw_tutorial
    bse_tutorial/bse_tutorial

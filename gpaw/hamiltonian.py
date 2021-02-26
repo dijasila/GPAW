@@ -21,8 +21,10 @@ from gpaw.utilities import (unpack, pack2, unpack_atomic_matrices,
 from gpaw.utilities.partition import AtomPartition
 # from gpaw.utilities.debug import frozen
 
+
 ENERGY_NAMES = ['e_kinetic', 'e_coulomb', 'e_zero', 'e_external', 'e_xc',
                 'e_entropy', 'e_total_free', 'e_total_extrapolated']
+
 
 def apply_non_local_hamilton(dH_asp, collinear, P, out=None):
     if out is None:
@@ -128,7 +130,7 @@ class Hamiltonian:
             s += '  External potential:\n    {0}\n'.format(self.vext)
         return s
 
-    def summary(self, fermilevel, log):
+    def summary(self, wfs, log):
         log('Energy contributions relative to reference atoms:',
             '(reference = {0:.6f})\n'.format(self.setups.Eref * Ha))
 
@@ -170,8 +172,8 @@ class Hamiltonian:
                 else:
                     vacuum = np.nan
 
-            wf1 = (vacuum - fermilevel + correction) * Ha
-            wf2 = (vacuum - fermilevel - correction) * Ha
+            wf1 = (vacuum - wfs.fermi_level + correction) * Ha
+            wf2 = (vacuum - wfs.fermi_level - correction) * Ha
             log('Dipole-layer corrected work functions: {:.6f}, {:.6f} eV'
                 .format(wf1, wf2))
             log()
@@ -335,36 +337,28 @@ class Hamiltonian:
 
         return np.array([e_kinetic, e_coulomb, e_zero, e_external, e_xc])
 
-    def get_energy(self, occ, kin_en_using_band=True, e_sic=None):
+    def get_energy(self, e_entropy, wfs, kin_en_using_band=True,
+                   e_sic=None):
+        """Sum up all eigenvalues weighted with occupation numbers"""
+        self.e_band = wfs.calculate_band_energy()
         if kin_en_using_band:
-            self.e_kinetic = self.e_kinetic0 + occ.e_band
+            self.e_kinetic = self.e_kinetic0 + self.e_band
         else:
             self.e_kinetic = self.e_kinetic0
-
-        self.e_entropy = occ.e_entropy
+        self.e_entropy = e_entropy
 
 
         self.e_total_free = (self.e_kinetic + self.e_coulomb +
                              self.e_external + self.e_zero + self.e_xc +
                              self.e_entropy)
+
         if e_sic is not None:
             self.e_sic = e_sic
             self.e_total_free += e_sic
 
-        self.e_total_extrapolated = occ.extrapolate_energy_to_zero_width(
-            self.e_total_free)
-
-        if 0:
-            print(self.e_total_free,
-                  self.e_total_extrapolated,
-                  self.e_kinetic,
-                  self.e_kinetic0,
-                  self.e_coulomb,
-                  self.e_external,
-                  self.e_zero,
-                  self.e_xc,
-                  self.e_entropy)
-            1 / 0
+        self.e_total_extrapolated = (
+            self.e_total_free +
+            wfs.occupations.extrapolate_factor * e_entropy)
 
         return self.e_total_free
 

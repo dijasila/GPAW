@@ -85,7 +85,7 @@ class DftPzSicXT:
         self.beta_c = scaling_factor[0]
         self.beta_x = scaling_factor[1]
 
-        self.n_kps = wfs.kd.nks // wfs.kd.nspins
+        self.n_kps = wfs.kd.nibzkpts
         self.store_potentials = store_potentials
         self.grad = {}
         self.total_sic = 0.0
@@ -101,7 +101,7 @@ class DftPzSicXT:
     def get_energy_and_gradients(self, wfs, grad_knG=None,
                                  dens=None, U_k=None,
                                  add_grad=False,
-                                 ham=None, occ=None):
+                                 ham=None):
 
         wfs.timer.start('Update Kohn-Sham energy')
         # calc projectors
@@ -110,11 +110,11 @@ class DftPzSicXT:
         dens.update(wfs)
         ham.update(dens, wfs, False)
         wfs.timer.stop('Update Kohn-Sham energy')
-        energy = ham.get_energy(occ, False)
+        energy = ham.get_energy(0.0, wfs, False)
         esic = 0.0
         for kpt in wfs.kpt_u:
             esic += self.get_energy_and_gradients_kpt(
-                wfs, kpt, dens, ham=ham, occ=occ)
+                wfs, kpt, dens, ham=ham)
 
             k = self.n_kps * kpt.s + kpt.q
             if U_k is not None:
@@ -129,7 +129,7 @@ class DftPzSicXT:
         return energy + esic
 
     def get_energy_and_gradients_kpt(self, wfs, kpt,
-                                     dens=None, ham=None, occ=None):
+                                     dens=None, ham=None):
 
         self.get_gradient_ks_kpt(wfs, kpt, ham=ham)
         esic = self.get_esic_add_sic_gradient_kpt(wfs, kpt)
@@ -218,13 +218,13 @@ class DftPzSicXT:
 
     def get_energy_and_gradients_inner_loop(self, wfs, a_mat,
                                             evals, evec, dens,
-                                            ham, occ):
+                                            ham):
         nbands = wfs.bd.nbands
         e_sic = self.get_energy_and_gradients(wfs,
                                               grad_knG=None,
                                               dens=dens, U_k=None,
                                               add_grad=False,
-                                              ham=ham, occ=occ)
+                                              ham=ham)
         wfs.timer.start('Unitary gradients')
         g_k = {}
         kappa_tmp = 0.0

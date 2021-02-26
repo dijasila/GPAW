@@ -1,7 +1,7 @@
 from ase.build import bulk
 from gpaw import GPAW, FermiDirac
 from gpaw.wavefunctions.pw import PW
-from gpaw.xc.exx import EXX
+from gpaw.hybrids.energy import non_self_consistent_energy as nsc_energy
 
 from ase.parallel import paropen
 
@@ -27,16 +27,14 @@ bulk_calc = GPAW(mode=PW(pwcutoff),
                  parallel={'band': 1}
                  )
 
-bulk_crystal.set_calculator(bulk_calc)
+bulk_crystal.calc = bulk_calc
 e0_bulk_pbe = bulk_crystal.get_potential_energy()
 
 #  Write to file
 bulk_calc.write('bulk.gpw', mode='all')
 
 # Now the exact exchange
-exx_bulk = EXX('bulk.gpw', txt='si.pbe+exx.exx_output.txt')
-exx_bulk.calculate()
-e0_bulk_exx = exx_bulk.get_total_energy()
+e0_bulk_exx = nsc_energy('bulk.gpw', 'EXX')
 
 s = str(alat)
 s += ' '

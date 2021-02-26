@@ -53,19 +53,19 @@ class Eigensolver:
     def reset(self):
         self.initialized = False
 
-    def weights(self, wfs, occ):
+    def weights(self, wfs):
         """Calculate convergence weights for all eigenstates."""
-        weight_un = np.zeros((len(wfs.mykpts), self.bd.mynbands))
+        weight_un = np.zeros((len(wfs.kpt_u), self.bd.mynbands))
 
         if isinstance(self.nbands_converge, int):
             # Converge fixed number of bands:
             n = self.nbands_converge - self.bd.beg
             if n > 0:
-                for weight_n, kpt in zip(weight_un, wfs.mykpts):
+                for weight_n, kpt in zip(weight_un, wfs.kpt_u):
                     weight_n[:n] = kpt.weight
         elif self.nbands_converge == 'occupied':
             # Conveged occupied bands:
-            for weight_n, kpt in zip(weight_un, wfs.mykpts):
+            for weight_n, kpt in zip(weight_un, wfs.kpt_u):
                 if kpt.f_n is None:  # no eigenvalues yet
                     weight_n[:] = np.inf
                 else:
@@ -77,11 +77,11 @@ class Eigensolver:
             assert self.nbands_converge.startswith('CBM+')
             delta = float(self.nbands_converge[4:]) / Ha
 
-            if wfs.mykpts[0].f_n is None:
+            if wfs.kpt_u[0].f_n is None:
                 weight_un[:] = np.inf  # no eigenvalues yet
             else:
                 # Collect all eigenvalues and calculate band gap:
-                efermi = occ.fermilevel
+                efermi = np.mean(wfs.fermi_levels)
                 eps_skn = np.array(
                     [[wfs.collect_eigenvalues(k, spin) - efermi
                       for k in range(wfs.kd.nibzkpts)]
@@ -105,7 +105,7 @@ class Eigensolver:
 
                 ecut = cbm + delta
 
-                for weight_n, kpt in zip(weight_un, wfs.mykpts):
+                for weight_n, kpt in zip(weight_un, wfs.kpt_u):
                     weight_n[kpt.eps_n < ecut] = kpt.weight
 
                 if (eps_skn[:, :, -1] < ecut - efermi).any():
@@ -114,7 +114,7 @@ class Eigensolver:
 
         return weight_un
 
-    def iterate(self, ham, wfs, occ):
+    def iterate(self, ham, wfs):
         """Solves eigenvalue problem iteratively
 
         This method is inherited by the actual eigensolver which should
@@ -127,10 +127,10 @@ class Eigensolver:
                 self.blocksize = wfs.bd.mynbands
             self.initialize(wfs)
 
-        weight_un = self.weights(wfs, occ)
+        weight_un = self.weights(wfs)
 
         error = 0.0
-        for kpt, weights in zip(wfs.mykpts, weight_un):
+        for kpt, weights in zip(wfs.kpt_u, weight_un):
             if not wfs.orthonormalized:
                 wfs.orthonormalize(kpt)
             e = self.iterate_one_k_point(ham, wfs, kpt, weights)
@@ -212,11 +212,6 @@ class Eigensolver:
             slcomm, r, c, b = wfs.scalapack_parameters
             if r == c == 1:
                 slcomm = None
-            else:
-                ranks = [rbd * wfs.gd.comm.size + rgd
-                         for rgd in range(wfs.gd.comm.size)
-                         for rbd in range(wfs.bd.comm.size)]
-                slcomm = slcomm.new_communicator(ranks)
             # Complex conjugate before diagonalizing:
             eps_n = H.eigh(cc=True, scalapack=(slcomm, r, c, b))
             # H.array[n, :] now contains the n'th eigenvector and eps_n[n]

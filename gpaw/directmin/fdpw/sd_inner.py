@@ -11,7 +11,7 @@ class SteepestDescent(object):
     def __init__(self, wfs):
         """
         """
-        self.n_kps = wfs.kd.nks // wfs.kd.nspins
+        self.n_kps = wfs.kd.nibzkpts
         self.iters = 0
 
     def __str__(self):

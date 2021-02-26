@@ -8,7 +8,7 @@ from math import pi
 import numpy as np
 from ase.dft.kpoints import monkhorst_pack
 from ase.units import Ha
-from ase.utils import opencew, devnull, pickleload
+from ase.utils import opencew, pickleload
 from ase.utils.timing import timer
 from ase.parallel import paropen
 
@@ -22,6 +22,7 @@ from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 from gpaw.response.kernels import get_coulomb_kernel
 from gpaw.response.kernels import get_integrated_kernel
 from gpaw.response.fxckernel_calc import calculate_kernel
+from gpaw.utilities import devnull
 from gpaw.xc.fxc import set_flags
 from gpaw.wavefunctions.pw import (PWDescriptor, count_reciprocal_vectors,
                                    PWMapping)
@@ -451,7 +452,8 @@ class G0W0(PairDensity):
                     print('Summing all q:', file=self.fd)
                     pb = ProgressBar(self.fd)
                 for u, kpt1 in enumerate(mykpts):
-                    pb.update((nQ + 1) * u / nkpt / len(self.qd))
+                    pb.update((nQ + 1) * u /
+                              (nkpt * self.qd.mynk * self.qd.nspins))
                     K2 = kd.find_k_plus_q(q_c, [kpt1.K])[0]
                     kpt2 = self.get_k_point(kpt1.s, K2, 0, m2,
                                             block=True)

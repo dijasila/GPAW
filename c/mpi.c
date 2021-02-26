@@ -3,6 +3,7 @@
  *  Copyright (C) 2005-2009  CSC - IT Center for Science Ltd.
  *  Please see the accompanying LICENSE file for further information. */
 
+#define PY_SSIZE_T_CLEAN
 #include <Python.h>
 
 #ifdef PARALLEL
@@ -228,6 +229,7 @@ static void mpi_ensure_initialized(void)
     if (!already_initialized)
     {
         // if not, let's initialize it
+#ifndef _OPENMP
         ierr = MPI_Init(NULL, NULL);
         if (ierr == MPI_SUCCESS)
         {
@@ -242,6 +244,29 @@ static void mpi_ensure_initialized(void)
             MPI_Error_string(ierr, err, &resultlen);
             PyErr_SetString(PyExc_RuntimeError, err);
         }
+#else
+        int granted;
+        ierr = MPI_Init_thread(NULL, NULL, MPI_THREAD_MULTIPLE, &granted);
+        if (ierr == MPI_SUCCESS && granted == MPI_THREAD_MULTIPLE)
+        {
+            // No problem: register finalization when at Python exit
+            Py_AtExit(*mpi_ensure_finalized);
+        }
+        else if (granted != MPI_THREAD_MULTIPLE)
+        {
+            // We have a problem: raise an exception
+            char err[MPI_MAX_ERROR_STRING] = "MPI_THREAD_MULTIPLE is not supported";
+            PyErr_SetString(PyExc_RuntimeError, err);
+        }
+        else
+        {
+            // We have a problem: raise an exception
+            char err[MPI_MAX_ERROR_STRING];
+            int resultlen;
+            MPI_Error_string(ierr, err, &resultlen);
+            PyErr_SetString(PyExc_RuntimeError, err);
+        }
+#endif
     }
 }
 
@@ -399,6 +424,7 @@ static PyObject * mpi_send(MPIObject *self, PyObject *args, PyObject *kwargs)
     }
 }
 
+
 static PyObject * mpi_ssend(MPIObject *self, PyObject *args, PyObject *kwargs)
 {
   PyArrayObject* a;
@@ -423,8 +449,9 @@ static PyObject * mpi_name(MPIObject *self, PyObject *noargs)
   char name[MPI_MAX_PROCESSOR_NAME];
   int resultlen;
   MPI_Get_processor_name(name, &resultlen);
-  return Py_BuildValue("s#", name, resultlen);
+  return Py_BuildValue("s#", name, (Py_ssize_t)resultlen);
 }
+
 
 static PyObject * mpi_abort(MPIObject *self, PyObject *args)
 {
@@ -636,12 +663,6 @@ static MPI_Datatype get_mpi_datatype(PyArrayObject *a)
   return 0;
 }
 
-#if PY_MAJOR_VERSION >= 3
-    #define PyInt_FromLong PyLong_FromLong
-    #define PyInt_Check PyLong_Check
-    #define PyInt_AS_LONG PyLong_AS_LONG
-#endif
-
 static PyObject * mpi_reduce(MPIObject *self, PyObject *args, PyObject *kwargs,
                              MPI_Op operation, int allowcomplex)
 {
@@ -666,15 +687,15 @@ static PyObject * mpi_reduce(MPIObject *self, PyObject *args, PyObject *kwargs,
         MPI_Reduce(&din, &dout, 1, MPI_DOUBLE, operation, root, self->comm);
       return PyFloat_FromDouble(dout);
     }
-  if (PyInt_Check(obj))
+  if (PyLong_Check(obj))
     {
-      long din = PyInt_AS_LONG(obj);
+      long din = PyLong_AS_LONG(obj);
       long dout;
       if (root == -1)
         MPI_Allreduce(&din, &dout, 1, MPI_LONG, operation, self->comm);
       else
         MPI_Reduce(&din, &dout, 1, MPI_LONG, operation, root, self->comm);
-      return PyInt_FromLong(dout);
+      return PyLong_FromLong(dout);
     }
   else if (PyComplex_Check(obj) && allowcomplex)
     {

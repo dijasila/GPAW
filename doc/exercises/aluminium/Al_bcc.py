@@ -1,4 +1,3 @@
-from __future__ import division, print_function
 from numpy.polynomial import Polynomial
 import ase.units as u
 from ase.build import bulk
@@ -32,7 +31,7 @@ for a in A:
     bcc = bulk('Al', 'bcc', a=a)
     bcc.calc = GPAW(mode=PW(300),
                     kpts=(8, 8, 8),
-                    txt='bulk-bcc-a%.1f.txt' % a)
+                    txt=f'bulk-bcc-a{a:.1f}.txt')
     E.append(bcc.get_potential_energy())
 
 p = Polynomial.fit(A, E, 3)

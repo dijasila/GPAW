@@ -11,7 +11,7 @@ encountering convergence problems:
 
 1) Make sure the geometry and spin-state is physically sound.
 
-   Remember that ASE uses Angstrom and not Bohr or nm!
+   Remember that ASE uses Ångström and not Bohr or nm.
    For spin polarized systems, make sure you have sensible initial magnetic
    moments. Don't do spin-paired calculations for molecules with an odd
    number of electrons. Before performing calculations of isolated atoms

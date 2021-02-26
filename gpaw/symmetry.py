@@ -2,6 +2,8 @@
 # Copyright (C) 2014 R. Warmbier Materials for Energy Research Group,
 # Wits University
 # Please see the accompanying LICENSE file for further information.
+from typing import Tuple
+
 from ase.io import read
 from ase.utils import gcd
 import numpy as np
@@ -10,9 +12,14 @@ import _gpaw
 import gpaw.mpi as mpi
 
 
-def frac(f, n=2 * 3 * 4 * 5, tol=1e-6):
-    if not isinstance(f, (int, float)):
-        return np.array([frac(a, n, tol) for a in f]).T
+def frac(f: float,
+         n: int = 2 * 3 * 4 * 5,
+         tol: float = 1e-6) -> Tuple[int, int]:
+    """Convert to fraction.
+
+    >>> frac(0.5)
+    (1, 2)
+    """
     if f == 0:
         return 0, 1
     x = n * f
@@ -23,7 +30,16 @@ def frac(f, n=2 * 3 * 4 * 5, tol=1e-6):
     return x // d, n // d
 
 
-def sfrac(f):
+def sfrac(f: float) -> str:
+    """Format as fraction.
+
+    >>> sfrac(0.5)
+    '1/2'
+    >>> sfrac(2 / 3)
+    '2/3'
+    >>> sfrac(0)
+    '0'
+    """
     if f == 0:
         return '0'
     return '%d/%d' % frac(f)
@@ -107,46 +123,32 @@ class Symmetry:
 
     def find_lattice_symmetry(self):
         """Determine list of symmetry operations."""
-
-        # Symmetry operations as matrices in 123 basis
-        self.op_scc = []
-
-        # Metric tensor
-        metric_cc = np.dot(self.cell_cv, self.cell_cv.T)
-
-        # Generate all possible 3x3 symmetry matrices using base-3 integers
-        power = (6561, 2187, 729, 243, 81, 27, 9, 3, 1)
-
+        # Symmetry operations as matrices in 123 basis.
         # Operation is a 3x3 matrix, with possible elements -1, 0, 1, thus
-        # there are 3**9 = 19683 possible matrices
-        for base3id in range(19683):
-            op_cc = np.empty((3, 3), dtype=int)
-            m = base3id
-            for ip, p in enumerate(power):
-                d, m = divmod(m, p)
-                op_cc[ip // 3, ip % 3] = 1 - d
+        # there are 3**9 = 19683 possible matrices:
+        combinations = 1 - np.indices([3] * 9)
+        U_scc = combinations.reshape((3, 3, 3**9)).transpose((2, 0, 1))
 
-            # The metric of the cell should be conserved after applying
-            # the operation
-            opmetric_cc = np.dot(np.dot(op_cc, metric_cc), op_cc.T)
+        # The metric of the cell should be conserved after applying
+        # the operation:
+        metric_cc = self.cell_cv.dot(self.cell_cv.T)
+        metric_scc = np.einsum('sij, jk, slk -> sil',
+                               U_scc, metric_cc, U_scc,
+                               optimize=True)
+        mask_s = abs(metric_scc - metric_cc).sum(2).sum(1) <= self.tol
+        U_scc = U_scc[mask_s]
 
-            if np.abs(metric_cc - opmetric_cc).sum() > self.tol:
-                continue
+        # Operation must not swap axes that don't have same PBC:
+        pbc_cc = np.logical_xor.outer(self.pbc_c, self.pbc_c)
+        mask_s = ~U_scc[:, pbc_cc].any(axis=1)
+        U_scc = U_scc[mask_s]
 
-            pbc_cc = np.logical_xor.outer(self.pbc_c, self.pbc_c)
-            if op_cc[pbc_cc].any():
-                # Operation must not swap axes that don't have same PBC
-                continue
+        if not self.allow_invert_aperiodic_axes:
+            # Operation must not invert axes that are not periodic:
+            mask_s = (U_scc[:, np.diag(~self.pbc_c)] == 1).all(axis=1)
+            U_scc = U_scc[mask_s]
 
-            if not self.allow_invert_aperiodic_axes:
-                if not (op_cc[np.diag(~self.pbc_c)] == 1).all():
-                    # Operation must not invert axes that are not periodic
-                    continue
-
-            # Operation is a valid symmetry of the unit cell
-            self.op_scc.append(op_cc)
-
-        self.op_scc = np.array(self.op_scc)
+        self.op_scc = U_scc
         self.ft_sc = np.zeros((len(self.op_scc), 3))
 
     def prune_symmetries_atoms(self, spos_ac):
@@ -195,7 +197,8 @@ class Symmetry:
                 ftrans_jc -= np.rint(ftrans_jc)
                 for ft_c in ftrans_jc:
                     try:
-                        nom_c, denom_c = frac(ft_c, tol=self.tol)
+                        nom_c, denom_c = np.array([frac(ft, tol=self.tol)
+                                                   for ft in ft_c]).T
                     except ValueError:
                         continue
                     ft_c = nom_c / denom_c
@@ -535,13 +538,14 @@ def aglomerate_points(k_kc, tol):
                  c] = k_kc[inds_kc[pt_K[i], c], c]
 
 
-def atoms2symmetry(atoms, id_a=None):
+def atoms2symmetry(atoms, id_a=None, tolerance=1e-7):
     """Create symmetry object from atoms object."""
     if id_a is None:
         id_a = atoms.get_atomic_numbers()
     symmetry = Symmetry(id_a, atoms.cell, atoms.pbc,
                         symmorphic=False,
-                        time_reversal=False)
+                        time_reversal=False,
+                        tolerance=tolerance)
     symmetry.analyze(atoms.get_scaled_positions())
     return symmetry
 

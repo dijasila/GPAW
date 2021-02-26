@@ -50,7 +50,7 @@ if charge == 0:
                 txt=name + '_gs.txt',
                 convergence=conv_par)
 
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     atoms.get_potential_energy()
     calc.write(name + '.gpw', mode='all')
 
@@ -65,7 +65,7 @@ if charge == 1:
                 convergence=conv_fast,
                 external=const_pot)
 
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     atoms.get_potential_energy()
 
     # External potential used to prevent charge tranfer from graphene to ion.

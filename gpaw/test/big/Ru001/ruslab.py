@@ -26,7 +26,7 @@ calc = GPAW(xc='PBE',
             kpts=[4, 4, 1],
             eigensolver='cg',
             txt=tag + '.txt')
-slab.set_calculator(calc)
+slab.calc = calc
   
 opt = LBFGS(slab, logfile=tag + '.log', trajectory=tag + '.traj')
 opt.run(fmax=0.05)

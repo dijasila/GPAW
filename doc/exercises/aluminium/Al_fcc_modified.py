@@ -1,4 +1,3 @@
-from __future__ import print_function
 from numpy.polynomial import Polynomial
 import ase.units as u
 from ase import Atoms
@@ -7,7 +6,7 @@ from gpaw import GPAW, PW
 A = [3.9, 4.0, 4.1, 4.2]
 E = []
 for a in A:
-    name = 'bulk-fcc-%.1f' % a
+    name = f'bulk-fcc-{a:.1f}'
     b = a / 2
 
     bulk = Atoms('Al',
@@ -21,7 +20,7 @@ for a in A:
                 kpts=(k, k, k),     # k-points
                 txt=name + '.txt')  # output file
 
-    bulk.set_calculator(calc)
+    bulk.calc = calc
 
     energy = bulk.get_potential_energy()
     calc.write(name + '.gpw')

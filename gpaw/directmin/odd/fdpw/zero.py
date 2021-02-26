@@ -21,7 +21,7 @@ class ZeroCorrections:
                  poisson_solver='FPS'):
 
         self.name = 'Zero'
-        self.n_kps = wfs.kd.nks // wfs.kd.nspins
+        self.n_kps = wfs.kd.nibzkpts
         self.grad = {}
         self.total_sic = 0.0
         self.eks = 0.0
@@ -29,7 +29,7 @@ class ZeroCorrections:
     def get_energy_and_gradients(self, wfs, grad_knG=None,
                                  dens=None, U_k=None,
                                  add_grad=False,
-                                 ham=None, occ=None):
+                                 ham=None):
 
         wfs.timer.start('Update Kohn-Sham energy')
         # calc projectors
@@ -38,12 +38,12 @@ class ZeroCorrections:
         dens.update(wfs)
         ham.update(dens, wfs, False)
         wfs.timer.stop('Update Kohn-Sham energy')
-        energy = ham.get_energy(occ, False)
+        energy = ham.get_energy(0.0, wfs, False)
 
         for kpt in wfs.kpt_u:
             self.get_energy_and_gradients_kpt(
                 wfs, kpt, grad_knG, dens, U_k,
-                add_grad=add_grad, ham=ham, occ=occ)
+                add_grad=add_grad, ham=ham)
         # energy = wfs.kd.comm.sum(energy)
         self.eks = energy
         return energy
@@ -51,7 +51,7 @@ class ZeroCorrections:
     def get_energy_and_gradients_kpt(self, wfs, kpt, grad_knG,
                                      dens=None, U_k=None,
                                      add_grad=False,
-                                     ham=None, occ=None):
+                                     ham=None):
 
         k = self.n_kps * kpt.s + kpt.q
         nbands = wfs.bd.nbands
@@ -95,13 +95,13 @@ class ZeroCorrections:
 
     def get_energy_and_gradients_inner_loop(self, wfs, a_mat,
                                             evals, evec, dens,
-                                            ham, occ):
+                                            ham):
         nbands = wfs.bd.nbands
         e_sic = self.get_energy_and_gradients(wfs,
                                               grad_knG=None,
                                               dens=dens, U_k=None,
                                               add_grad=False,
-                                              ham=ham, occ=occ)
+                                              ham=ham)
         wfs.timer.start('Unitary gradients')
         g_k = {}
         kappa_tmp=0.0

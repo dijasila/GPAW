@@ -1,5 +1,4 @@
 # creates: h2.txt
-from __future__ import print_function
 from ase import Atoms
 from gpaw import GPAW
 
@@ -13,5 +12,5 @@ atoms = Atoms('H2',
 atoms.center()
 
 calc = GPAW(nbands=2, txt='h2.txt')
-atoms.set_calculator(calc)
+atoms.calc = calc
 print(atoms.get_forces())

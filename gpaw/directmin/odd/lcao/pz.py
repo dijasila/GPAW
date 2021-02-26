@@ -75,7 +75,7 @@ class PzCorrectionsLcao:
         self.beta_c = scaling_factor[0]
         self.beta_x = scaling_factor[1]
 
-        self.n_kps = wfs.kd.nks // wfs.kd.nspins
+        self.n_kps = wfs.kd.nibzkpts
         self.store_potentials = store_potentials
         if store_potentials:
             self.old_pot = {}
@@ -492,7 +492,7 @@ class PzCorrectionsLcao:
         return np.array([-ec*self.beta_c, -exc * self.beta_x]), dH_ap
 
     def update_eigenval(self, f_n, C_nM, kpt, wfs, setup, H_MM):
-        n_kps = wfs.kd.nks // wfs.kd.nspins
+        n_kps = wfs.kd.nibzkpts
         u = kpt.s * n_kps + kpt.q
         n_occ = 0
         for f in f_n:
@@ -507,7 +507,7 @@ class PzCorrectionsLcao:
                                                      )[0]
             # gemv(1.0, F_MM, C_nM[n], 0.0, b_nM[n])
             b_nM[n] = F_MM @ C_nM[n]
-        L_occ = np.zeros((n_occ, n_occ), dtype=self.dtype)
+        # L_occ = np.zeros((n_occ, n_occ), dtype=self.dtype)
         C_conj_nM = C_nM.conj()[:n_occ]
         # mmm(1.0, C_conj_nM, 'n', b_nM, 't', 0.0, L_occ)
         # L_occ = b_nM.T @ C_conj_nM
@@ -572,7 +572,7 @@ class PzCorrectionsLcao:
 
         Mstart = ksl.Mstart
         Mstop = ksl.Mstop
-        n_kps = wfs.kd.nks // wfs.kd.nspins
+        n_kps = wfs.kd.nibzkpts
 
         # self.timer.start('TCI derivative')
         # dThetadR_qvMM = np.empty((nq, 3, mynao, nao), dtype)

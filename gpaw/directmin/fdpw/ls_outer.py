@@ -352,7 +352,7 @@ class UnitStepLength:
         wfs = kwargs['wfs']
         dot = 0.0
         for kpt in wfs.kpt_u:
-            k = wfs.kd.nks // wfs.kd.nspins * kpt.s + kpt.q
+            k = wfs.kd.nibzkpts * kpt.s + kpt.q
             for p in p_k[k]:
                 dot += wfs.integrate(p, p, False)
         dot = dot.real
