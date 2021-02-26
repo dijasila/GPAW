@@ -778,7 +778,7 @@ class WaveFunctions:
                         (-Ha * u / (f[0] * f_sn[s][i]),
                          -Ha * xc / (f[1] * f_sn[s][i]),
                          -Ha * (u / (f[0] * f_sn[s][i]) +
-                                     xc/(f[1] * f_sn[s][i])),
+                                xc / (f[1] * f_sn[s][i])),
                          f[0], f[1]), end='')
                     log(flush=True)
                     u_s += u / (f[0] * f_sn[s][i])
