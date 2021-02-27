@@ -1,3 +1,8 @@
+"""Module for calculations using the Maximum Overlap Method (MOM).
+   https://arxiv.org/abs/2102.06542
+   https://doi.org/10.1021/acs.jctc.0c00597.
+"""
+
 import numpy as np
 
 from ase.units import Ha
@@ -5,13 +10,48 @@ from ase.units import Ha
 from gpaw.occupations import FixedOccupationNumbers
 
 
-def mom_calculation(calc, atoms,
+def mom_calculation(calc,
+                    atoms,
                     numbers,
                     update_fixed_occupations=True,
                     project_overlaps=True,
                     width=0.0,
                     width_increment=0.0,
                     niter_width_update=10):
+    """Helper function to prepare a calculator for a MOM calculation.
+
+       calc: GPAW instance
+           GPAW calculator object.
+       atoms: ASE instance
+           ASE atoms object.
+       numbers: list (len=nspins) of lists (len=nbands)
+           Occupation numbers (in the range from 0 to 1) used to
+           initialize the MOM reference orbitals.
+       update_fixed_occupations: bool
+           If True, the attribute 'numbers' gets updated with the
+           calculated occupation numbers, such that when changing
+           atomic positions the MOM reference orbitals will be
+           initialized as the occupied orbitals found at convergence
+           for the previous geometry. If False, when changing
+           positions the MOM reference orbitals will be initialized
+           from the orbitals of the previous geometry according to
+           the user-supplied 'numbers'.
+       project_overlaps: bool
+           If True, the occupied orbitals at step k are chosen as
+           the orbitals {|psi^(k)_m>} with the biggest weights
+           P_m evaluated as the projections onto the manifold of
+           reference orbitals {|psi_n>}:
+           P_m = (Sum_n(|O_nm|^2))^0.5 (O_nm = <psi_n|psi^(k)_m>)
+           See https://doi.org/10.1021/acs.jctc.7b00994.
+           If False, the weights are evaluated as:
+           P_m = max_n(|O_nm|)
+           See https://doi.org/10.1021/acs.jctc.0c00488.
+       width: float
+           Width of Gaussian function in eV.
+           See https://doi.org/10.1021/acs.jctc.0c00597.
+       width_increment: float
+       niter_width_update: int
+    """
 
     if calc.wfs is None:
         # We need the wfs object to initialize OccupationsMOM
@@ -20,7 +60,8 @@ def mom_calculation(calc, atoms,
     parallel_layout = calc.wfs.occupations.parallel_layout
     occ = FixedOccupationNumbers(numbers, parallel_layout)
 
-    occ_mom = OccupationsMOM(calc.wfs, occ,
+    occ_mom = OccupationsMOM(calc.wfs,
+                             occ,
                              numbers,
                              update_fixed_occupations,
                              project_overlaps,
@@ -33,7 +74,9 @@ def mom_calculation(calc, atoms,
 
 
 class OccupationsMOM:
-    def __init__(self, wfs, occ,
+    def __init__(self,
+                 wfs,
+                 occ,
                  numbers,
                  update_fixed_occupations=True,
                  project_overlaps=True,
@@ -199,6 +242,7 @@ class OccupationsMOM:
             O += O_corr
 
         if self.project_overlaps:
+            #TODO: Replace 'O' with 'abs(O)'
             P = np.sum(O ** 2, axis=0)
             P = P ** 0.5
         else:
