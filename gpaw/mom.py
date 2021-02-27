@@ -57,6 +57,7 @@ class OccupationsMOM:
     def todict(self):
         dct = {'name': self.name,
                'numbers': self.numbers,
+               'update_fixed_occupations': self.update_fixed_occupations,
                'project_overlaps': self.project_overlaps}
         if self.width != 0.0:
             dct['width'] = self.width * Ha
