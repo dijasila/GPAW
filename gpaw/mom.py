@@ -7,7 +7,7 @@ from gpaw.occupations import FixedOccupationNumbers
 
 def mom_calculation(calc, atoms,
                     numbers,
-                    update_fixed_occupations=False,
+                    update_fixed_occupations=True,
                     project_overlaps=True,
                     width=0.0,
                     width_increment=0.0,
