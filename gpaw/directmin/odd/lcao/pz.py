@@ -94,7 +94,7 @@ class PzCorrectionsLcao:
         :param C_nM: coefficients of orbitals
         :return: matrix G - gradients, and orbital SI energies
 
-        which is G_{ij} = (1 - delta_{ij}/2)*( int_0^1 e^{tA} L e^{-tA} dt )_{ji}
+        which is G_{ij} = (1-delta_{ij}/2)*(int_0^1 e^{tA} L e^{-tA} dt )_{ji}
 
         Lambda_ij = (C_i, F_j C_j )
 
@@ -388,7 +388,7 @@ class PzCorrectionsLcao:
         if self.sic_coarse_grid is False:
             self.interpolator.apply(nt, nt_sg[0])
             nt_sg[0] *= self.cgd.integrate(nt) / \
-                        self.finegd.integrate(nt_sg[0])
+                self.finegd.integrate(nt_sg[0])
         else:
             nt_sg[0] = nt
 
@@ -438,9 +438,8 @@ class PzCorrectionsLcao:
         else:
             vt_G = vt_sg[0]
 
-        return np.array([-ec*self.beta_c,
-                         -e_xc*self.beta_x]),\
-               vt_G, vHt_g
+        return np.array([-ec * self.beta_c,
+                         -e_xc * self.beta_x]), vt_G, vHt_g
 
     def get_paw_corrections(self, D_ap, vHt_g, timer):
 
@@ -488,8 +487,7 @@ class PzCorrectionsLcao:
             exc = self.cgd.comm.sum(exc)
         timer.stop('Wait for sum')
 
-
-        return np.array([-ec*self.beta_c, -exc * self.beta_x]), dH_ap
+        return np.array([-ec * self.beta_c, -exc * self.beta_x]), dH_ap
 
     def update_eigenval(self, f_n, C_nM, kpt, wfs, setup, H_MM):
         n_kps = wfs.kd.nibzkpts
@@ -658,7 +656,7 @@ class PzCorrectionsLcao:
                 #                                    rho_xMM)).T.copy()
 
                 sfrhoT_MM = np.linalg.solve(wfs.S_qMM[kpt.q],
-                                            F_MM@rho_xMM).T.copy()
+                                            F_MM @ rho_xMM).T.copy()
 
                 del F_MM
 
@@ -710,7 +708,8 @@ class PzCorrectionsLcao:
                         # gemm(1.0, dOP_iM,
                         #      dPdR_aqvMi[b][kpt.q][v][Mstart:Mstop],
                         #      0.0, work_MM, 'n')
-                        work_MM = dPdR_aqvMi[b][kpt.q][v][Mstart:Mstop] @ dOP_iM
+                        work_MM = \
+                            dPdR_aqvMi[b][kpt.q][v][Mstart:Mstop] @ dOP_iM
                         ZE_MM = (work_MM * sfrhoT_MM).real
                         for a, M1, M2 in slices():
                             dE = 2 * ZE_MM[M1:M2].sum()
@@ -723,7 +722,7 @@ class PzCorrectionsLcao:
                 #           -----      /  d Phi  (r)
                 #  a         \        |        mu    ~
                 # F += -2 Re  )       |   ---------- v (r)  Phi  (r) dr rho
-                #            /        |     d R                nu          nu mu
+                #            /        |     d R                nu         nu mu
                 #           -----    /         a
                 #        mu in a; nu
                 #
@@ -739,15 +738,14 @@ class PzCorrectionsLcao:
                     self.get_paw_corrections(D_ap, vHt_g, timer)
 
                 Fpot_av += \
-                    self.bfs.calculate_force_contribution(vt_mG,
-                                                     rho_xMM.T,
-                                                     kpt.q)
+                    self.bfs.calculate_force_contribution(
+                        vt_mG, rho_xMM.T, kpt.q)
 
                 # Atomic density contribution
                 #            -----                         -----
-                #  a          \     a                       \     b
-                # F  += -2 Re  )   A      rho       + 2 Re   )   A      rho
-                #             /     mu nu    nu mu          /     mu nu    nu mu
+                #  a          \     a                       \   b
+                # F  += -2 Re  )   A      rho       + 2 Re   ) A rho
+                #             /     mu nu    nu mu          / mununumu
                 #            -----                         -----
                 #            mu nu                     b; mu in a; nu
                 #
@@ -797,8 +795,7 @@ class PzCorrectionsLcao:
 
         # dens.finegd.comm.sum(Fhart_av, 0)
 
-        F_av += Fpot_av + Ftheta_av + \
-                Frho_av + Fatom_av + Fhart_av
+        F_av += Fpot_av + Ftheta_av + Frho_av + Fatom_av + Fhart_av
 
         wfs.gd.comm.sum(F_av, 0)
 
@@ -869,7 +866,7 @@ class PzCorrectionsLcao:
             # else:
             #     mmm(1.0, C_nM, 'n', HC_Mn, 'n', 0.0, L)
 
-            L =  C_nM.conj() @ H_MM.conj() @ C_nM.T
+            L = C_nM.conj() @ H_MM.conj() @ C_nM.T
 
             nrm_n, L = np.linalg.eigh(L)
             # L = L.T.conj()
@@ -970,8 +967,8 @@ class PzCorrectionsLcao:
         k = self.n_kps * kpt.s + kpt.q
 
         fullham = h_mm + 0.5 * (l_odd + l_odd.T.conj())
-        fullham[:n_occ,n_occ:] = 0.0
-        fullham[n_occ:,:n_occ] = 0.0
+        fullham[:n_occ, n_occ:] = 0.0
+        fullham[n_occ:, :n_occ] = 0.0
 
         self.lagr_diag_s[k] = np.diagonal(fullham).real
         eigval, eigvec = np.linalg.eigh(fullham)
@@ -991,7 +988,8 @@ class PzCorrectionsLcao:
           :param C_nM: coefficients of orbitals
           :return: matrix G - gradients, and orbital SI energies
 
-          which is G_{ij} = (1 - delta_{ij}/2)*( int_0^1 e^{tA} L e^{-tA} dt )_{ji}
+          which is G_{ij} = (1 - delta_{ij}/2)*
+          (int_0^1 e^{tA} L e^{-tA} dt )_{ji}
 
           Lambda_ij = (C_i, F_j C_j )
 
@@ -1021,8 +1019,7 @@ class PzCorrectionsLcao:
         l_odd = np.dot(kpt.C_nM[:nbs].conj(), b_mn)
 
         f = kpt.f_n[:nbs]
-        l_odd = -f * l_odd + \
-               f[:, np.newaxis] * (l_odd.T.conj())
+        l_odd = -f * l_odd + f[:, np.newaxis] * l_odd.T.conj()
 
         kappa = 0.0
         # indz = np.absolute(l_odd) > 1.0e-4

@@ -24,7 +24,7 @@ def appr_wc(der_phi_0, phi_0, der_phi_j, phi_j):
     sigma = 0.9
 
     if (phi_j <= phi_0 + eps * abs(phi_0)) and \
-            ((2.0*delta - 1.0) * der_phi_0 >= der_phi_j >= sigma *
+            ((2.0 * delta - 1.0) * der_phi_0 >= der_phi_j >= sigma *
              der_phi_0):
         return True
     else:
@@ -61,8 +61,7 @@ class UnitStepLength(object):
             a_star = 1.0
 
         phi_star, der_phi_star, g_star = \
-                self.evaluate_phi_and_der_phi(x, p, n_dim, a_star,
-                                              *args)
+            self.evaluate_phi_and_der_phi(x, p, n_dim, a_star, *args)
 
         return a_star, phi_star, der_phi_star, g_star
 
@@ -398,7 +397,7 @@ class StrongWolfeConditions(UnitStepLength):
         return a_star, phi_star, der_phi_star, g_star
 
     def init_guess(self, phi_0, der_phi_0, phi_old, der_phi_old,
-                   alpha_old = 1.0):
+                   alpha_old=1.0):
 
         # chose initial alpha
         if self.method in ['HZcg', 'SD', 'FRcg', 'PRcg', 'PRpcg']:

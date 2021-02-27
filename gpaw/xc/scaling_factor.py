@@ -28,8 +28,8 @@ class SFRadialExpansion:
         for n, Y_L in enumerate(Y_nL[:, :Lmax]):
             w = weight_n[n]
 
-            e_g, dedn_sg, v_scom = self.rcalc(rgd, n_sLg, Y_L,
-                                                 n_sLg_total, spin)
+            e_g, dedn_sg, v_scom = self.rcalc(
+                rgd, n_sLg, Y_L, n_sLg_total, spin)
 
             dEdD_sqL += np.dot(rgd.dv_g * dedn_sg,
                                n_qg.T)[:, :, np.newaxis] * (w * Y_L)
@@ -83,10 +83,12 @@ def calculate_paw_correction(expansion,
                             xcc.B_pqL.reshape((len(xcc.B_pqL), -1)))
 
     if dEdD_sp_tot is not None:
-        dEdD_sp_tot += np.inner((dEdD_scomL - dEtdD_scomL).reshape((nspins, -1)),
-                               xcc.B_pqL.reshape((len(xcc.B_pqL), -1)))
-        dEdD_sp_tot += np.inner((dEdD_scomL - dEtdD_scomL).reshape((nspins, -1)),
-                               xcc.B_pqL.reshape((len(xcc.B_pqL), -1)))
+        dEdD_sp_tot += np.inner(
+            (dEdD_scomL - dEtdD_scomL).reshape((nspins, -1)),
+            xcc.B_pqL.reshape((len(xcc.B_pqL), -1)))
+        dEdD_sp_tot += np.inner(
+            (dEdD_scomL - dEtdD_scomL).reshape((nspins, -1)),
+            xcc.B_pqL.reshape((len(xcc.B_pqL), -1)))
 
     return e - et
 

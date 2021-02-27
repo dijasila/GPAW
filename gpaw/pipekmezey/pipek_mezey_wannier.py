@@ -1,4 +1,4 @@
-"""
+r"""
     Objective function class for
     Generalized Pipek-Mezey orbital localization.
 
@@ -56,7 +56,7 @@ from gpaw.pipekmezey.weightfunction import WeightFunc, WignerSeitz
 from ase.dft.wannier import neighbor_k_search, calculate_weights
 from ase.dft.kpoints import get_monkhorst_pack_size_and_offset
 from ase.parallel import world
-# from ase.parallel import parprint
+
 
 def md_min(func, step=.25, tolerance=1e-6, verbose=False, gd=None):
     if verbose:
@@ -273,10 +273,10 @@ class PipekMezey:
                                  len(self.wfs.kpt_u))
                 #
                 if self.wfs.mode == 'pw':
-                    cmo  = self.gd.zeros(self.nocc, dtype=self.wfs.dtype)
+                    cmo = self.gd.zeros(self.nocc, dtype=self.wfs.dtype)
                     cmo1 = self.gd.zeros(self.nocc, dtype=self.wfs.dtype)
                     for i in range(self.nocc):
-                        cmo[i]  = self.wfs._get_wave_function_array(u,  i)
+                        cmo[i] = self.wfs._get_wave_function_array(u, i)
                         cmo1[i] = self.wfs._get_wave_function_array(u1, i)
                 else:
                     cmo = self.wfs.kpt_u[u].psit_nG[:self.nocc]
@@ -372,7 +372,6 @@ class PipekMezey:
                         np.dot(self.W_k[k].T.conj(),
                                np.dot(self.Qadk_nm[a, d, k],
                                       self.W_k[k1]))
-
         # Update PCM
         self.Qad_nn = self.Qadk_nn.sum(axis=2) / self.Nk
 

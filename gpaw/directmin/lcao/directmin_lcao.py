@@ -413,15 +413,11 @@ class DirectMinLCAO(DirectLCAO):
             h_mm = self.calculate_hamiltonian_matrix(ham, wfs, kpt)
             # make matrix hermitian
             tri2full(h_mm)
-            g_mat_u[k], error = self.odd.get_gradients(h_mm, kpt.C_nM,
-                                                       kpt.f_n,
-                                                       self.evecs[k],
-                                                       self.evals[k],
-                                                       kpt, wfs,
-                                                       wfs.timer,
-                                                       self.matrix_exp,
-                                                       self.representation['name'],
-                                                       self.ind_up[k])
+            g_mat_u[k], error = self.odd.get_gradients(
+                h_mm, kpt.C_nM, kpt.f_n, self.evecs[k], self.evals[k],
+                kpt, wfs, wfs.timer, self.matrix_exp,
+                self.representation['name'], self.ind_up[k])
+
             if hasattr(self.odd, 'e_sic_by_orbitals'):
                 self.e_sic += self.odd.e_sic_by_orbitals[k].sum()
 
@@ -498,8 +494,8 @@ class DirectMinLCAO(DirectLCAO):
         hc_mn = hc_mn[:, :n_occ] - rhs2[:, :n_occ]
         norm = []
         for i in range(n_occ):
-            norm.append(np.dot(hc_mn[:,i].conj(),
-                               hc_mn[:,i]).real * kpt.f_n[i])
+            norm.append(np.dot(hc_mn[:, i].conj(),
+                               hc_mn[:, i]).real * kpt.f_n[i])
             # needs to be contig. to use this:
             # x = np.ascontiguousarray(hc_mn[:,i])
             # norm.append(dotc(x, x).real * kpt.f_n[i])
@@ -709,16 +705,17 @@ class DirectMinLCAO(DirectLCAO):
                     if self.iters % counter == 0 or self.iters == 1:
                         self.hess[k] = self.get_hessian(kpt)
                     hess = self.hess[k]
+                    beta0 = self.search_direction.beta_0
                     if self.dtype is float:
                         precond[k] = \
-                            1.0 / (0.75 * hess +
-                                   w * 0.25 * self.search_direction.beta_0 ** (-1))
+                            1. / (0.75 * hess +
+                                  w * 0.25 * beta0 ** (-1))
                     else:
                         precond[k] = \
-                            1.0 / (0.75 * hess.real +
-                                   w * 0.25 * self.search_direction.beta_0 ** (-1)) + \
-                            1.0j / (0.75 * hess.imag +
-                                   w * 0.25 * self.search_direction.beta_0 ** (-1))
+                            1. / (0.75 * hess.real +
+                                  w * 0.25 * beta0 ** (-1)) + \
+                            1.j / (0.75 * hess.imag +
+                                   w * 0.25 * beta0 ** (-1))
                 return precond
         else:
             return None
@@ -789,8 +786,10 @@ class DirectMinLCAO(DirectLCAO):
                 n_init = 0
                 while True:
                     n_fin = find_equally_occupied_subspace(kpt.f_n, n_init)
-                    kpt.C_nM[n_init:n_init + n_fin, :], kpt.eps_n[n_init:n_init + n_fin] = \
-                        rotate_subspace(h_mm, kpt.C_nM[n_init:n_init + n_fin, :])
+                    kpt.C_nM[n_init:n_init + n_fin, :], \
+                        kpt.eps_n[n_init:n_init + n_fin] = \
+                        rotate_subspace(
+                            h_mm, kpt.C_nM[n_init:n_init + n_fin, :])
                     n_init += n_fin
                     if n_init == len(kpt.f_n):
                         break
@@ -808,10 +807,10 @@ class DirectMinLCAO(DirectLCAO):
                     #     kpt.C_nM[x:x + y, :], kpt.eps_n[x:x + y] = \
                     #         rotate_subspace(h_mm, kpt.C_nM[x:x + y, :])
             elif self.odd.name == 'PZ_SIC':
-                self.odd.get_lagrange_matrices(h_mm, kpt.C_nM,
-                                               kpt.f_n, kpt, wfs,
-                                               update_eigenvalues=update_eigenvalues,
-                                               update_wfs=update_wfs)
+                self.odd.get_lagrange_matrices(
+                    h_mm, kpt.C_nM, kpt.f_n, kpt, wfs,
+                    update_eigenvalues=update_eigenvalues,
+                    update_wfs=update_wfs)
             wfs.atomic_correction.calculate_projections(wfs, kpt)
 
         for kpt in wfs.kpt_u:
@@ -858,7 +857,7 @@ class DirectMinLCAO(DirectLCAO):
         x = np.max(abs(np.array(ind) - np.arange(len(ind))))
         if x > 0:
             # now sort wfs according to orbital energies
-            kpt.C_nM[np.arange(len(ind)),:] = kpt.C_nM[ind,:]
+            kpt.C_nM[np.arange(len(ind)), :] = kpt.C_nM[ind, :]
             kpt.eps_n[:] = np.sort(h_mm.diagonal().real.copy())
         wfs.timer.stop('Sort WFS')
 
@@ -942,9 +941,12 @@ class DirectMinLCAO(DirectLCAO):
                             else:
                                 a_m[u][i][j] = a + 1.0j * h[l]
                                 if i != j:
-                                    a_m[u][j][i] = -np.conjugate(a + 1.0j * h[l])
+                                    a_m[u][j][i] = \
+                                        -np.conjugate(a + 1.0j * h[l])
 
-                            E = self.get_energy_and_gradients(a_m, n_dim, ham, wfs, dens, c_nm_ref)[0]
+                            E = self.get_energy_and_gradients(
+                                a_m, n_dim, ham, wfs, dens,
+                                c_nm_ref)[0]
 
                             g += E * coeif[l]
 
@@ -1017,9 +1019,8 @@ class DirectMinLCAO(DirectLCAO):
                         else:
                             a_m[u][i] = a + 1.0j * h[l]
 
-                        g = self.get_energy_and_gradients(a_m, n_dim, ham,
-                                                              wfs, dens,
-                                                              c_nm_ref)[1]
+                        g = self.get_energy_and_gradients(
+                            a_m, n_dim, ham, wfs, dens, c_nm_ref)[1]
 
                         hess += g[u] * coeif[l]
 
@@ -1093,8 +1094,8 @@ class DirectMinLCAO(DirectLCAO):
 
                 dimens1 = u_nn.shape[0]
                 dimens2 = u_nn.shape[1]
-                kpt.C_nM[:dimens2] = np.dot(u_nn.T,
-                                             c_nm_ref[k][:dimens1])
+                kpt.C_nM[:dimens2] = np.dot(
+                    u_nn.T, c_nm_ref[k][:dimens1])
 
                 del u_nn
                 del a
@@ -1137,7 +1138,8 @@ class DirectMinLCAO(DirectLCAO):
             self.donothingwithintiwfs = False
             return 0
 
-        need_canon_coef = (not wfs.coefficients_read_from_file and
+        need_canon_coef = \
+            (not wfs.coefficients_read_from_file and
                 self.c_nm_ref is None) or self.init_from_ks_eigsolver
 
         if need_canon_coef:

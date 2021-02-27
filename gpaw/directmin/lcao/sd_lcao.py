@@ -87,7 +87,7 @@ class SteepestDescent(object):
         for k in x.keys():
             if prec[k].dtype == complex:
                 y[k] = const * (prec[k].real * x[k].real +
-                                1.0j*prec[k].imag * x[k].imag)
+                                1.0j * prec[k].imag * x[k].imag)
             else:
                 y[k] = const * prec[k] * x[k]
 
@@ -101,7 +101,7 @@ class FRcg(SteepestDescent):
     Optimization' Second Edition, 2006 (p. 121)
     """
 
-    def __init__(self,  wfs):
+    def __init__(self, wfs):
         super(FRcg, self).__init__(wfs)
 
     def __str__(self):
@@ -114,7 +114,7 @@ class FRcg(SteepestDescent):
 
         if self.iters == 0:
             self.p_k = self.minus(g_k1)
-            #save the step
+            # save the step
             self.g_k = copy.deepcopy(g_k1)
             self.iters += 1
 
@@ -158,7 +158,7 @@ class HZcg(SteepestDescent):
 
         if self.iters == 0:
             self.p_k = self.minus(g_k1)
-            #save the step
+            # save the step
             self.g_k = g_k1
             self.iters += 1
 
@@ -174,10 +174,9 @@ class HZcg(SteepestDescent):
             norm2 = self.dot_all_k_and_b(y_k, y_k, wfs)
 
             y1 = self.calc_diff(y_k, self.p_k, wfs,
-                                const=2.0*rho*norm2)
+                                const=2.0 * rho * norm2)
 
-            beta_k = rho * \
-                     self.dot_all_k_and_b(y1, g_k1, wfs)
+            beta_k = rho * self.dot_all_k_and_b(y1, g_k1, wfs)
 
             try:
                 norm_p = np.sqrt(self.dot_all_k_and_b(self.p_k,
@@ -401,7 +400,6 @@ class LBFGS_P(SteepestDescent):
         self.stable = True
         self.beta_0 = 1.0
 
-
     def __str__(self):
 
         return 'LBFGS_P'
@@ -547,7 +545,6 @@ class LBFGS_P2(SteepestDescent):
         self.m = memory
         self.stable = True
         self.beta_0 = 1.0
-
 
     def __str__(self):
 
@@ -779,7 +776,7 @@ class LSR1P(SteepestDescent):
             beta_ms = self.multiply(j_k[kp[i]], dot_jv / yj_k[kp[i]])
 
             beta = self.calc_diff(beta_ms, beta_p, wfs,
-                                  const_0=1-phi_k[kp[i]],
+                                  const_0=1 - phi_k[kp[i]],
                                   const=-phi_k[kp[i]])
 
             bv = self.calc_diff(bv, beta, wfs, const=-1.0)

@@ -3,11 +3,8 @@ Potentials for orbital density dependent energy functionals
 """
 
 import numpy as np
-from gpaw.utilities import pack, unpack
-from gpaw.lfc import LFC
-from gpaw.transformers import Transformer
-from gpaw.directmin.fdpw.tools import get_n_occ, d_matrix
-from gpaw.poisson import PoissonSolver
+from gpaw.utilities import unpack
+from gpaw.directmin.fdpw.tools import d_matrix
 
 
 class ZeroCorrections:
@@ -104,7 +101,7 @@ class ZeroCorrections:
                                               ham=ham)
         wfs.timer.start('Unitary gradients')
         g_k = {}
-        kappa_tmp=0.0
+        kappa_tmp = 0.0
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
             l_odd = wfs.integrate(kpt.psit_nG, self.grad[k], True)
@@ -114,9 +111,9 @@ class ZeroCorrections:
             indz = np.absolute(l_odd) > 1.0e-4
             l_c = 2.0 * l_odd[indz]
             l_odd = f[:, np.newaxis] * l_odd.T.conj() - f * l_odd
-            kappa = np.max(np.absolute(l_odd[indz])/np.absolute(l_c))
+            kappa = np.max(np.absolute(l_odd[indz]) / np.absolute(l_c))
             if kappa > kappa_tmp:
-                kappa_tmp=kappa
+                kappa_tmp = kappa
             if a_mat[k] is None:
                 g_k[k] = l_odd.T
             else:
