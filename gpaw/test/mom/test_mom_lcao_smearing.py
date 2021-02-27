@@ -6,7 +6,7 @@ from gpaw.test import equal
 
 
 @pytest.mark.mom
-def test_mom_smearing():
+def test_mom_lcao_smearing():
     atoms = molecule('CO')
     atoms.center(vacuum=3)
 
