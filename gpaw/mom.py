@@ -7,6 +7,7 @@ from gpaw.occupations import FixedOccupationNumbers
 
 def mom_calculation(calc, atoms,
                     numbers,
+                    update_fixed_occupations=False,
                     project_overlaps=True,
                     width=0.0,
                     width_increment=0.0,
@@ -21,6 +22,7 @@ def mom_calculation(calc, atoms,
 
     occ_mom = OccupationsMOM(calc.wfs, occ,
                              numbers,
+                             update_fixed_occupations,
                              project_overlaps,
                              width,
                              width_increment,
@@ -33,6 +35,7 @@ def mom_calculation(calc, atoms,
 class OccupationsMOM:
     def __init__(self, wfs, occ,
                  numbers,
+                 update_fixed_occupations=True,
                  project_overlaps=True,
                  width=0.0,
                  width_increment=0.0,
@@ -41,6 +44,7 @@ class OccupationsMOM:
         self.occ = occ
         self.extrapolate_factor = occ.extrapolate_factor
         self.numbers = np.array(numbers)
+        self.update_fixed_occupations = update_fixed_occupations
         self.project_overlaps = project_overlaps
         self.width = width / Ha
         self.width_increment = width_increment / Ha
@@ -158,7 +162,8 @@ class OccupationsMOM:
                 P_max = np.argpartition(P, -n_occ)[-n_occ:]
                 f_sn[kpt.s][P_max] = f_n_unique
 
-            self.numbers[kpt.s] = f_sn[kpt.s].copy()
+            if self.update_fixed_occupations:
+                self.numbers[kpt.s] = f_sn[kpt.s].copy()
 
             if self.width != 0.0:
                 orbs, f_sn_gs = self.find_hole_and_excited_orbitals(f_sn, kpt)
