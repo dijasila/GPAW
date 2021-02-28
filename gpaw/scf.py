@@ -216,6 +216,10 @@ class SCFLoop:
 
         if wfs.nspins == 2:
             log('  %+.4f' % occ.magmom, end='')
+        elif not wfs.collinear:
+            totmom_v, magmom_av = dens.estimate_magnetic_moments()
+            log(' {:+.1f},{:+.1f},{:+.1f}'.format(*totmom_v), end='')
+
         if hasattr(wfs.eigensolver, 'iloop') or \
                 hasattr(wfs.eigensolver, 'iloop_outer'):
             iloop_counter = 0
@@ -225,9 +229,6 @@ class SCFLoop:
                 iloop_counter += wfs.eigensolver.iloop_outer.eg_count
             log('  %d' % iloop_counter, end='')
 
-        elif not wfs.collinear:
-            totmom_v, magmom_av = dens.estimate_magnetic_moments()
-            log(' {:+.1f},{:+.1f},{:+.1f}'.format(*totmom_v), end='')
 
         log(flush=True)
 
