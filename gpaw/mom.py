@@ -13,7 +13,7 @@ from gpaw.occupations import FixedOccupationNumbers
 def mom_calculation(calc,
                     atoms,
                     numbers,
-                    update_fixed_occupations=True,
+                    update_numbers=True,
                     project_overlaps=True,
                     width=0.0,
                     width_increment=0.0,
@@ -27,7 +27,7 @@ def mom_calculation(calc,
        numbers: list (len=nspins) of lists (len=nbands)
            Occupation numbers (in the range from 0 to 1). Used to
            initialize the MOM reference orbitals.
-       update_fixed_occupations: bool
+       update_numbers: bool
            If True, 'numbers' gets updated with the calculated
            occupation numbers, and when changing atomic positions
            the MOM reference orbitals will be initialized as the
@@ -70,7 +70,7 @@ def mom_calculation(calc,
     occ_mom = OccupationsMOM(calc.wfs,
                              occ,
                              numbers,
-                             update_fixed_occupations,
+                             update_numbers,
                              project_overlaps,
                              width,
                              width_increment,
@@ -85,7 +85,7 @@ class OccupationsMOM:
                  wfs,
                  occ,
                  numbers,
-                 update_fixed_occupations=True,
+                 update_numbers=True,
                  project_overlaps=True,
                  width=0.0,
                  width_increment=0.0,
@@ -94,7 +94,7 @@ class OccupationsMOM:
         self.occ = occ
         self.extrapolate_factor = occ.extrapolate_factor
         self.numbers = np.array(numbers)
-        self.update_fixed_occupations = update_fixed_occupations
+        self.update_numbers = update_numbers
         self.project_overlaps = project_overlaps
         self.width = width / Ha
         self.width_increment = width_increment / Ha
@@ -107,7 +107,7 @@ class OccupationsMOM:
     def todict(self):
         dct = {'name': self.name,
                'numbers': self.numbers,
-               'update_fixed_occupations': self.update_fixed_occupations,
+               'update_numbers': self.update_numbers,
                'project_overlaps': self.project_overlaps}
         if self.width != 0.0:
             dct['width'] = self.width * Ha
@@ -213,7 +213,7 @@ class OccupationsMOM:
                 P_max = np.argpartition(P, -n_occ)[-n_occ:]
                 f_sn[kpt.s][P_max] = f_n_unique
 
-            if self.update_fixed_occupations:
+            if self.update_numbers:
                 self.numbers[kpt.s] = f_sn[kpt.s].copy()
 
             if self.width != 0.0:
