@@ -242,7 +242,7 @@ class OccupationsMOM:
             O += O_corr
 
         if self.project_overlaps:
-            #TODO: Replace 'O' with 'abs(O)'
+            # TODO: Replace 'O' with 'abs(O)'
             P = np.sum(O ** 2, axis=0)
             P = P ** 0.5
         else:
