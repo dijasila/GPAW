@@ -44,10 +44,12 @@ array([[  9.37566400e-14,   4.40256983e-14,  -6.44750360e-01],
 News
 ====
 
-* Join the
-  `GPAW Users and developers meeting 2021
+* Upcoming workshop:  The
+  `GPAW 2021 Users and developers meeting
   <https://www.cecam.org/workshop-details/1039>`__
-  to be held online on June 1--4, 2021 (1 Mar 2021).
+  will be held online on June 1--4, 2021 (1 Mar 2021).
+  See also announcement on `Psi-k
+  <http://psi-k.net/events/gpaw-2021-users-and-developers-meeting-june-1-4/>`__.
 
 * :ref:`GPAW version 21.1.0 <releasenotes>` released (18 Jan 2021).
 
