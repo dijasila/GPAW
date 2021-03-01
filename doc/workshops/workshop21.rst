@@ -4,7 +4,7 @@
 GPAW 2021: Users and developers meeting
 =======================================
 
-The `GPAW Users and developers meeting 2021
+The `GPAW 2021 Users and developers meeting
 <https://www.cecam.org/workshop-details/1039>`__
 will be held online
 on June 1--4, 2021.
