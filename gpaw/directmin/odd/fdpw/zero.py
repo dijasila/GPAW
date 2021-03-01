@@ -40,21 +40,21 @@ class ZeroCorrections:
         if self.momcounter % self.momevery == 0:
             f_sn = {}
             for kpt in wfs.kpt_u:
-                n_kps = wfs.kd.nks // wfs.kd.nspins
+                n_kps = wfs.kd.nibzkpts
                 u = n_kps * kpt.s + kpt.q
                 f_sn[u] = kpt.f_n.copy()
-            occ.calculate(wfs)
+            self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
             self.changedocc = 0
             for kpt in wfs.kpt_u:
-                n_kps = wfs.kd.nks // wfs.kd.nspins
+                n_kps = wfs.kd.nibzkpts
                 u = n_kps * kpt.s + kpt.q
                 self.changedocc = int(
                     not np.allclose(f_sn[u], kpt.f_n.copy()))
             self.changedocc = wfs.kd.comm.max(self.changedocc)
-            occ_name = getattr(occ, 'name', None)
+            occ_name = getattr(wfs.occupations, 'name', None)
             if occ_name == 'mom':
                 for kpt in wfs.kpt_u:
-                    occ.sort_wavefunctions(wfs, kpt)
+                    wfs.occupations.sort_wavefunctions(kpt)
             if self.changedocc:
                 self.restart = 1
         self.momcounter += 1

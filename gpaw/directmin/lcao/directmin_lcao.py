@@ -308,12 +308,12 @@ class DirectMinLCAO(DirectLCAO):
             #     self.sort_wavefunctions(ham, wfs, kpt)
             self.initialize_2(wfs, dens, ham)
 
-        occ.calculate(wfs)
-        occ_name = getattr(occ, "name", None)
+        self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
+        occ_name = getattr(wfs.occupations, "name", None)
         if occ_name == 'mom':
-            self.restart = self.sort_wavefunctions_mom(occ, wfs)
+            self.restart = self.sort_wavefunctions_mom(wfs)
 
-        self.update_ref_orbitals(wfs, ham, occ)
+        self.update_ref_orbitals(wfs, ham, dens)
         wfs.timer.start('Preconditioning:')
         precond = self.update_preconditioning(wfs, self.use_prec)
         wfs.timer.stop('Preconditioning:')
@@ -658,7 +658,7 @@ class DirectMinLCAO(DirectLCAO):
                 self.restart:
             self.iters = 1
             if self.update_ref_orbs_canonical or self.restart:
-                self.get_canonical_representation(ham, wfs, occ)
+                self.get_canonical_representation(ham, wfs, dens)
             else:
                 for kpt in wfs.kpt_u:
                     u = kpt.s * self.n_kps + kpt.q
@@ -779,7 +779,7 @@ class DirectMinLCAO(DirectLCAO):
     def calculate_residual(self, kpt, H_MM, S_MM, wfs):
         return np.inf
 
-    def get_canonical_representation(self, ham, wfs,
+    def get_canonical_representation(self, ham, wfs, dens,
                                      update_eigenvalues=True,
                                      update_wfs=False):
         """
@@ -825,10 +825,10 @@ class DirectMinLCAO(DirectLCAO):
                     update_eigenvalues=update_eigenvalues,
                     update_wfs=update_wfs)
             wfs.atomic_correction.calculate_projections(wfs, kpt)
-        occ.calculate(wfs)
-        occ_name = getattr(occ, "name", None)
+        self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
+        occ_name = getattr(wfs.occupations, "name", None)
         if occ_name == 'mom':
-            self.sort_wavefunctions_mom(occ, wfs)
+            self.sort_wavefunctions_mom(wfs)
 
         for kpt in wfs.kpt_u:
             u = kpt.s * self.n_kps + kpt.q
@@ -880,12 +880,12 @@ class DirectMinLCAO(DirectLCAO):
 
         return
 
-    def sort_wavefunctions_mom(self, occ, wfs):
+    def sort_wavefunctions_mom(self, wfs):
         changedocc = False
         for kpt in wfs.kpt_u:
             f_sn = kpt.f_n.copy()
             if wfs.gd.comm.rank == 0:
-                occ.sort_wavefunctions(wfs, kpt)
+                wfs.occupations.sort_wavefunctions(kpt)
             # Broadcast coefficients, occupation numbers, eigenvalues
             wfs.gd.comm.broadcast(kpt.eps_n, 0)
             wfs.gd.comm.broadcast(kpt.f_n, 0)
@@ -1017,9 +1017,9 @@ class DirectMinLCAO(DirectLCAO):
         #         u = self.n_kps * kpt.s + kpt.q
         #         c_nm_ref[u] = kpt.C_nM.copy()
 
-        occ_name = getattr(occ, "name", None)
+        occ_name = getattr(wfs.occupations, "name", None)
         if occ_name == 'mom':
-            self.sort_wavefunctions_mom(occ, wfs)
+            self.sort_wavefunctions_mom(wfs)
             for kpt in wfs.kpt_u:
                 u = self.n_kps * kpt.s + kpt.q
                 c_nm_ref[u] = kpt.C_nM.copy()
@@ -1176,34 +1176,33 @@ class DirectMinLCAO(DirectLCAO):
         :return:
         """
 
-        occ_name = getattr(occ, "name", None)
         if self.donothingwithintiwfs:
             self.donothingwithintiwfs = False
             return 0
+        occ_name = getattr(wfs.occupations, "name", None)
 
+        # if it is the first use of the scf then initialize
+        # coefficient matrix using eigensolver
+        # and then localise orbitals
         need_canon_coef = \
             (not wfs.coefficients_read_from_file and
                 self.c_nm_ref is None) or self.init_from_ks_eigsolver
-
         if need_canon_coef:
             super(DirectMinLCAO, self).iterate(ham, wfs)
-            occ.calculate(wfs)
+            self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
             if occ_name == 'mom':
-               self.sort_wavefunctions_mom(occ, wfs)
+               self.sort_wavefunctions_mom(wfs)
             self.localize_wfs(wfs, log)
 
         # if one want to use coefficients saved in gpw file
         # or to use coefficients from the previous scf cicle
         else:
-            if occ_name == 'mom':
-                # If positions have changed we need to initialize
-                # the MOM reference orbitals before orthogonalization
-                occ.calculate(wfs)
+            # Orthogonalize orbitals
             if self.orthonormalization['name'] == 'diag':
                 super(DirectMinLCAO, self).iterate(ham, wfs)
             else:
                 for kpt in wfs.kpt_u:
-                    u = kpt.s * wfs.kd.nibzkpts + kpt.q
+                    u = kpt.s * wfs.kd.nbzkpts + kpt.q
                     if self.c_nm_ref is not None:
                         C = self.c_nm_ref[u]
                     else:
@@ -1213,12 +1212,12 @@ class DirectMinLCAO(DirectLCAO):
                     elif self.orthonormalization['name'] == 'gramschmidt':
                         kpt.C_nM[:] = gramschmidt(C, kpt.S_MM.conj())
             wfs.coefficients_read_from_file = False
-            occ.calculate(wfs)
+            self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
             if occ_name == 'mom':
-                self.sort_wavefunctions_mom(occ, wfs)
-                # Reset MOM so that MOM reference orbitals will
-                # be initialized again after orthogonalization
-                occ.reset(wfs)
+                self.sort_wavefunctions_mom(wfs)
+                # Reinitialize MOM reference orbitals
+                # after orthogonalization
+                wfs.occupations.initialize_reference_orbitals()
 
     def localize_wfs(self, wfs, log):
         """

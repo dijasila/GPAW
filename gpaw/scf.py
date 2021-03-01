@@ -146,7 +146,7 @@ class SCFLoop:
 
         nvalence = wfs.nvalence
         if nvalence > 0:
-            eigerr = errors['eigenstates'] * Ha ** 2 / nvalence
+            eigerr = errors['eigenstates'] * Ha**2 / nvalence
         else:
             eigerr = 0.0
 
@@ -317,9 +317,11 @@ class SCFLoop:
                         ham, wfs, dens)
                     break
                 elif wfs.mode == 'lcao':
+                    # Do we need to calculate the occupation numbers here?
                     wfs.calculate_occupation_numbers(dens.fixed)
                     wfs.eigensolver.get_canonical_representation(ham,
-                                                                 wfs)
+                                                                 wfs,
+                                                                 dens)
                     niter = wfs.eigensolver.eg_count
                     log(
                         '\nOccupied states converged after'

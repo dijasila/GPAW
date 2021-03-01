@@ -343,9 +343,6 @@ class GPAW(Calculator):
             if system_changes == ['positions']:
                 # Only positions have changed:
                 self.density.reset()
-                occ_name = getattr(self.occupations, "name", None)
-                if occ_name == 'mom':
-                    self.occupations.reset(self.wfs)
             else:
                 # Drastic changes:
                 self.wfs = None
@@ -566,6 +563,10 @@ class GPAW(Calculator):
 
         self.wfs.eigensolver.reset()
         self.scf.reset()
+        occ_name = getattr(self.wfs.occupations, "name", None)
+        if occ_name == 'mom':
+            # Initialize MOM reference orbitals
+            self.wfs.occupations.initialize_reference_orbitals()
         print_positions(self.atoms, self.log, self.density.magmom_av)
 
     def initialize(self, atoms=None, reading=False):
@@ -903,9 +904,17 @@ class GPAW(Calculator):
             monkhorst_pack_size=self.wfs.kd.N_c,
             bz2ibzmap=self.wfs.kd.bz2ibz_k)
 
-        # # FIXME: added this line to restart calc
-        # #  with different eigensolver
-        # occ.magmom = magmom
+        kwargs = dct.copy()
+        name = kwargs.pop('name', '')
+        if name == 'mom':
+            if self.wfs.kpt_u[0].f_n is not None:
+                # We need to set the occupation numbers according
+                # to the supplied occupation numbers to initialize
+                # the MOM reference orbitals correctly
+                self.wfs.occupations = occ
+                self.wfs.calculate_occupation_numbers()
+            from gpaw.mom import OccupationsMOM
+            occ = OccupationsMOM(self.wfs, occ, **kwargs)
 
         self.log(occ)
         return occ

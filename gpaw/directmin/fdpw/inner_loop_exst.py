@@ -305,6 +305,48 @@ class InnerLoop:
                     self.counter < self.n_counter
                 if not g_max > self.g_tol:
                     self.converged = True
+                # threelasten.append(phi_0)
+                # if len(threelasten) > 2:
+                #     threelasten = threelasten[-3:]
+                #     if threelasten[0] < threelasten[1] and threelasten[1] < threelasten[2]:
+                #         if log is not None:
+                #            log(
+                #                 'Could not converge, leave the loop',
+                #                 flush=True)
+                #         break
+                        # reset things:
+                        # threelasten = []
+                        # self.sd = LBFGS_P(wfs, memory=20)
+                        # self.ls = SWC(
+                        #     self.evaluate_phi_and_der_phi,
+                        #     method=self.method, awc=True,
+                        #     max_iter=self.max_iter_line_search)
+                        # for kpt in wfs.kpt_u:
+                        #     k = self.n_kps * kpt.s + kpt.q
+                        #     n_occ = self.n_occ[k]
+                        #     self.psit_knG[k] = np.tensordot(
+                        #         self.Unew_k[k].T,
+                        #         self.psit_knG[k],
+                        #         axes=1)
+                        #     self.U_k[k] = self.U_k[k] @ self.Unew_k[k]
+                        #     d = self.n_occ[k]
+                        #     if a_k[k].dtype == complex:
+                        #         a_k[k] = 1.0e-5 * np.random.rand(d, d) * 1.0j + \
+                        #                  1.0e-5 * np.random.rand(d, d)
+                        #     else:
+                        #         a_k[k] = 1.0e-5 * np.random.rand(d, d)
+                        #
+                        # self.e_total, g_k = self.get_energy_and_gradients(
+                        #     a_k, wfs, dens)
+                        #
+                        # phi_0 = self.e_total
+                        # phi_old = None
+                        # der_phi_old = None
+                        # phi_old_2 = None
+                        # der_phi_old_2 = None
+
+                # if not not_converged and self.counter < 2:
+                #     not_converged = True
             else:
                 break
 
