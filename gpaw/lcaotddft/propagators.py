@@ -179,10 +179,13 @@ class ECNPropagator(LCAOPropagator):
             self.hamiltonian = hamiltonian
 
         ksl = self.wfs.ksl
-        self.using_blacs = ksl.using_blacs
-        if self.using_blacs:
+        using_blacs = ksl.using_blacs
+        if using_blacs:
             from gpaw.blacs import Redistributor
             self.log('BLACS Parallelization')
+
+            # Propagator function
+            self.propagate_wfs = self.propagate_wfs_blacs
 
             # Parallel grid descriptors
             grid = ksl.blockgrid
@@ -214,15 +217,19 @@ class ECNPropagator(LCAOPropagator):
                 self.dummy_C_nM = \
                     self.CnM_unique_descriptor.zeros(dtype=complex)
 
-            if debug:
-                nao = ksl.nao
-                self.MM_descriptor = grid.new_descriptor(nao, nao, nao, nao)
-                self.mm2MM = Redistributor(ksl.block_comm,
-                                           self.mm_block_descriptor,
-                                           self.MM_descriptor)
-                self.MM2mm = Redistributor(ksl.block_comm,
-                                           self.MM_descriptor,
-                                           self.mm_block_descriptor)
+        else:
+            # Propagator function
+            self.propagate_wfs = self.propagate_wfs_numpy
+
+        if debug and using_blacs:
+            nao = ksl.nao
+            self.MM_descriptor = grid.new_descriptor(nao, nao, nao, nao)
+            self.mm2MM = Redistributor(ksl.block_comm,
+                                       self.mm_block_descriptor,
+                                       self.MM_descriptor)
+            self.MM2mm = Redistributor(ksl.block_comm,
+                                       self.MM_descriptor,
+                                       self.mm_block_descriptor)
 
     def kick(self, ext, time):
         # Propagate
@@ -247,57 +254,58 @@ class ECNPropagator(LCAOPropagator):
         return time + time_step
 
     @timer('Linear solve')
-    def propagate_wfs(self, source_C_nM, target_C_nM, S_MM, H_MM, dt):
-        if self.using_blacs:
-            # XXX, Preallocate
-            target_C_nm = self.Cnm_block_descriptor.empty(dtype=complex)
-            source_C_nm = self.Cnm_block_descriptor.empty(dtype=complex)
+    def propagate_wfs_blacs(self, source_C_nM, target_C_nM, S_mm, H_mm, dt):
+        # XXX, Preallocate?
+        target_C_nm = self.Cnm_block_descriptor.empty(dtype=complex)
+        source_C_nm = self.Cnm_block_descriptor.empty(dtype=complex)
 
-            # C_nM is duplicated over all ranks in gd.comm.
-            # Master rank will provide the actual data and other
-            # ranks use a dummy array in redistribute().
-            if self.density.gd.comm.rank != 0:
-                source = self.dummy_C_nM
-            else:
-                source = source_C_nM
-            self.CnM2nm.redistribute(source, source_C_nm)
-
-            # Note: tri2full for S_MM and T_MM is done already in initialize().
-            # H_MM seems to be a full matrix as we are working with complex
-            # dtype, so no need to do tri2full here again XXX
-            # scalapack_tri2full(self.mm_block_descriptor, H_MM)
-            SjH_mm = S_MM + (0.5j * dt) * H_MM
-
-            # 1. target = (S - 0.5j*H*dt) * source
-            pblas_simple_gemm(self.Cnm_block_descriptor,
-                              self.mm_block_descriptor,
-                              self.Cnm_block_descriptor,
-                              source_C_nm,
-                              SjH_mm,
-                              target_C_nm,
-                              transb='C')
-
-            # 2. target = (S + 0.5j*H*dt)^-1 * target
-            scalapack_solve(self.mm_block_descriptor,
-                            self.Cnm_block_descriptor,
-                            SjH_mm,
-                            target_C_nm)
-
-            # C_nM is duplicated over all ranks in gd.comm.
-            # Master rank will receive the data and other
-            # ranks use a dummy array in redistribute()
-            if self.density.gd.comm.rank != 0:
-                target = self.dummy_C_nM
-            else:
-                target = target_C_nM
-            self.Cnm2nM.redistribute(target_C_nm, target)
-
-            # Broadcast the new C_nM to all ranks in gd.comm
-            self.density.gd.comm.broadcast(target_C_nM, 0)
+        # C_nM is duplicated over all ranks in gd.comm.
+        # Master rank will provide the actual data and other
+        # ranks use a dummy array in redistribute().
+        if self.density.gd.comm.rank != 0:
+            source = self.dummy_C_nM
         else:
-            SjH_MM = S_MM + (0.5j * dt) * H_MM
-            target_C_nM[:] = np.dot(source_C_nM, SjH_MM.conj().T)
-            target_C_nM[:] = solve(SjH_MM.T, target_C_nM.T).T
+            source = source_C_nM
+        self.CnM2nm.redistribute(source, source_C_nm)
+
+        # Note: tri2full for S_mm and T_mm is done already in initialize().
+        # H_mm seems to be a full matrix as we are working with complex
+        # dtype, so no need to do tri2full here again XXX
+        # scalapack_tri2full(self.mm_block_descriptor, H_mm)
+        SjH_mm = S_mm + (0.5j * dt) * H_mm
+
+        # 1. target = (S - 0.5j*H*dt) * source
+        pblas_simple_gemm(self.Cnm_block_descriptor,
+                          self.mm_block_descriptor,
+                          self.Cnm_block_descriptor,
+                          source_C_nm,
+                          SjH_mm,
+                          target_C_nm,
+                          transb='C')
+
+        # 2. target = (S + 0.5j*H*dt)^-1 * target
+        scalapack_solve(self.mm_block_descriptor,
+                        self.Cnm_block_descriptor,
+                        SjH_mm,
+                        target_C_nm)
+
+        # C_nM is duplicated over all ranks in gd.comm.
+        # Master rank will receive the data and other
+        # ranks use a dummy array in redistribute()
+        if self.density.gd.comm.rank != 0:
+            target = self.dummy_C_nM
+        else:
+            target = target_C_nM
+        self.Cnm2nM.redistribute(target_C_nm, target)
+
+        # Broadcast the new C_nM to all ranks in gd.comm
+        self.density.gd.comm.broadcast(target_C_nM, 0)
+
+    @timer('Linear solve')
+    def propagate_wfs_numpy(self, source_C_nM, target_C_nM, S_MM, H_MM, dt):
+        SjH_MM = S_MM + (0.5j * dt) * H_MM
+        target_C_nM[:] = np.dot(source_C_nM, SjH_MM.conj().T)
+        target_C_nM[:] = solve(SjH_MM.T, target_C_nM.T).T
 
     def blacs_mm_to_global(self, H_mm):
         if not debug:
