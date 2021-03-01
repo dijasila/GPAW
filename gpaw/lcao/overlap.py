@@ -395,9 +395,10 @@ class SimpleAtomIter:
 class NeighborPairs:
     """Class for looping over pairs of atoms using a neighbor list."""
     def __init__(self, cutoff_a, cell_cv, pbc_c, self_interaction):
-        self.neighbors = PrimitiveNeighborList(cutoff_a, skin=0, sorted=True,
-                                          self_interaction=self_interaction,
-                                          use_scaled_positions=True)
+        self.neighbors = PrimitiveNeighborList(
+            cutoff_a, skin=0, sorted=True,
+            self_interaction=self_interaction,
+            use_scaled_positions=True)
         self.cell_cv = cell_cv
         self.pbc_c = pbc_c
 

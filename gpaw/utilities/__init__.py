@@ -4,6 +4,7 @@
 
 """Utility functions and classes."""
 
+import os
 import re
 import sys
 import time
@@ -12,7 +13,6 @@ from contextlib import contextmanager
 from typing import Union
 from pathlib import Path
 
-from ase.utils import devnull
 import numpy as np
 
 import _gpaw
@@ -358,3 +358,6 @@ def file_barrier(path: Union[str, Path], world=None):
     while not path.is_file():
         time.sleep(1.0)
     world.barrier()
+
+
+devnull = open(os.devnull, 'w')

@@ -4,7 +4,6 @@ from ase.build import molecule
 from ase.units import Pascal, m
 from ase.data.vdw import vdw_radii
 from gpaw.solvation import (
-
     SolvationGPAW,
     EffectivePotentialCavity,
     Power12Potential,
@@ -13,8 +12,7 @@ from gpaw.solvation import (
     VolumeInteraction,
     LeakedDensityInteraction,
     GradientSurface,
-    KB51Volume,
-)
+    KB51Volume)
 import numpy as np
 
 vdw_radii = vdw_radii.copy()
@@ -27,7 +25,9 @@ def test_solvation_spinpol():
     epsinf = 80.
     T = 298.15
     vdw_radii[1] = 1.09
-    atomic_radii = lambda atoms: [vdw_radii[n] for n in atoms.numbers]
+
+    def atomic_radii(atoms):
+        return [vdw_radii[n] for n in atoms.numbers]
 
     atoms = Cluster(molecule('CN'))
     atoms.minimal_box(vac, h)

@@ -6,7 +6,7 @@ import numpy as np
 
 from gpaw import GPAW
 from gpaw.point_groups import SymmetryChecker, point_group_names
-from gpaw.hints import Array1D, Array3D
+from gpaw.typing import Array1D, Array3D
 
 
 class CubeCalc:

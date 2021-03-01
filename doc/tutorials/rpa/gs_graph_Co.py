@@ -34,13 +34,13 @@ for d in ds:
                 maxiter=300,
                 parallel={'domain': 1,
                           'band': 1},
-                txt='gs_%s.txt' % d)
+                txt=f'gs_{d}.txt')
     slab.calc = calc
     E = slab.get_potential_energy()
     E_hf = nsc_energy(calc, 'EXX')
 
     calc.diagonalize_full_hamiltonian()
-    calc.write('gs_%s.gpw' % d, mode='all')
+    calc.write(f'gs_{d}.gpw', mode='all')
 
     f = paropen('hf_acdf.dat', 'a')
     print(d, E, E_hf, file=f)

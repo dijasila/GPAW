@@ -16,8 +16,6 @@ def test_solvation_overlap():
     h = 0.4
     box = 2
     nbands = 2
-    txt = '-'
-    txt = None
 
     H2 = Cluster(molecule('H2'))
     H2.minimal_box(box, h)

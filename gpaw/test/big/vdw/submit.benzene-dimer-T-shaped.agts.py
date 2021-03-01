@@ -1,5 +1,5 @@
-from myqueue.task import task
+from myqueue.workflow import run
 
 
-def create_tasks():
-    return [task('benzene-dimer-T-shaped.py@48:20h')]
+def workflow():
+    run(script='benzene-dimer-T-shaped.py', cores=48, tmax='20h')

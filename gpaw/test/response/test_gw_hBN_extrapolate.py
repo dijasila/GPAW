@@ -12,8 +12,9 @@ from gpaw import GPAW, FermiDirac
 from gpaw.test import equal
 from gpaw.response.g0w0 import G0W0
 
-pytestmark = pytest.mark.skipif(world.size != 1 and not compiled_with_sl(),
-                                reason='world.size != 1 and not compiled_with_sl()')
+pytestmark = pytest.mark.skipif(
+    world.size != 1 and not compiled_with_sl(),
+    reason='world.size != 1 and not compiled_with_sl()')
 
 
 def test_response_gw_hBN_extrapolate(in_tmp_dir):

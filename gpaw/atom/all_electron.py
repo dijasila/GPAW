@@ -13,7 +13,7 @@ import os
 
 import numpy as np
 from ase.data import atomic_names
-from ase.utils import devnull
+from gpaw.utilities import devnull
 
 from gpaw.atom.configurations import configurations
 from gpaw.atom.radialgd import AERadialGridDescriptor

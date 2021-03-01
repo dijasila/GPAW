@@ -4,11 +4,9 @@ from ase.units import Bohr
 import numpy as np
 
 
-
 def test_solvation_pbc_pos_repeat():
     def get_nrepeats(nrepeats_c):
         return np.prod(np.array(nrepeats_c) * 2 + 1)
-
 
     def check_valid_repeat(pos_v, rpos_v, nrepeats_c, cell_cv):
         nrepeats_c = np.array(nrepeats_c)
@@ -21,7 +19,6 @@ def test_solvation_pbc_pos_repeat():
         # check for too large repeats
         assert (actual_nrepeats_c <= nrepeats_c).all()
 
-
     def check(pos_av, rpos_aav, nrepeats_c, cell_cv):
         assert len(pos_av) == len(rpos_aav)
         total_repeats = get_nrepeats(nrepeats_c)
@@ -30,7 +27,6 @@ def test_solvation_pbc_pos_repeat():
             assert len(rpos_av) == total_repeats
             for rpos_v in rpos_av:
                 check_valid_repeat(pos_v, rpos_v, nrepeats_c, cell_cv)
-
 
     cells = (
         ((10., .0, .0), (.0, 12., .0), (.0, .0, 12.)),  # orthogonal

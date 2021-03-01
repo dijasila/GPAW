@@ -96,7 +96,7 @@ class TightBinding:
         if R_c is None:
             R_Nc = self.R_cN.transpose()
         else:
-            R_Nc = [R_c,]
+            R_Nc = [R_c]
 
         # Real-space quantities
         A_NxMM = []
@@ -155,7 +155,7 @@ class TightBinding:
         for kpt in kpt_u:
             H_MM = wfs.eigensolver.calculate_hamiltonian_matrix(h, wfs, kpt)
             S_MM = wfs.S_qMM[kpt.q]
-            #XXX Converting to full matrices here
+            # XXX Converting to full matrices here
             tri2full(H_MM)
             tri2full(S_MM)
             H_kMM.append(H_MM)

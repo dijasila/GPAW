@@ -6,7 +6,7 @@ from ase.dft.dos import linear_tetrahedron_integration as lti
 
 from gpaw.setup import Setup
 from gpaw.spinorbit import soc_eigenstates, BZWaveFunctions
-from gpaw.hints import Array1D, Array2D, Array3D
+from gpaw.typing import Array1D, Array2D, Array3D, ArrayLike1D
 
 if TYPE_CHECKING:
     from gpaw import GPAW
@@ -38,9 +38,9 @@ class IBZWaveFunctions:
                      ) -> Array3D:
         """Projections for PDOS.
 
-        Returns (nibzkpts, nbands, nspins, nindices)-shaped ndarray
+        Returns (nibzkpts, nbands, nspins)-shaped ndarray
         of the square of absolute value of the projections.  The *indices*
-        list contains (atom-number, projector-numbers) tuples.
+        list contains projector-indices.
         """
         kd = self.calc.wfs.kd
         dos_kns = np.zeros((kd.nibzkpts,
@@ -179,7 +179,7 @@ class DOSCalculator:
                              shift_fermi_level)
 
     def calculate(self,
-                  energies: Sequence[float],
+                  energies: ArrayLike1D,
                   eig_kn: Array2D,
                   weight_kn: Array2D = None,
                   width: float = 0.1):

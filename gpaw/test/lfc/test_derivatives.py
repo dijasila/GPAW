@@ -3,12 +3,12 @@ from gpaw.lfc import LocalizedFunctionsCollection as LFC
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.spline import Spline
 
+
 def test_lfc_derivatives():
     a = 4.0
     gd = GridDescriptor(N_c=[16, 20, 20], cell_cv=[a, a + 1, a + 2],
                         pbc_c=(0, 1, 1))
     spos_ac = np.array([[0.25, 0.15, 0.35], [0.5, 0.5, 0.5]])
-    kpts_kc = None
     s = Spline(l=0, rmax=2.0, f_g=np.array([1, 0.9, 0.1, 0.0]))
     p = Spline(l=1, rmax=2.0, f_g=np.array([1, 0.9, 0.1, 0.0]))
     spline_aj = [[s], [s, p]]

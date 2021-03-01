@@ -2,7 +2,7 @@
 import numpy as np
 import pytest
 from ase.build import molecule
-from ase.dft import Wannier
+from ase.dft.wannier import Wannier
 
 from gpaw.mpi import world
 from gpaw import GPAW

@@ -1,8 +1,7 @@
-
 import numpy as np
 from ase.utils.bee import get_ensemble_energies
 from ase.parallel import paropen as open
-from gpaw import GPAW 
+from gpaw import GPAW
 
 atom = GPAW('H.gpw', txt=None).get_atoms()
 molecule = GPAW('H2.gpw', txt=None).get_atoms()

@@ -20,7 +20,6 @@ GPAW calculator:
    xc/exx
    xc/rpa
    poisson
-   transport/keldyshgf
    tddft/tddft
    ehrenfest/ehrenfest_theory
    ehrenfest/ehrenfest

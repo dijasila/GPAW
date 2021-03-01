@@ -1,24 +1,23 @@
 import numbers
+import sys
+from functools import partial
 from time import ctime
 
 import numpy as np
 from ase.units import Ha
-from ase.utils import devnull
-from ase.utils.timing import timer, Timer
+from ase.utils.timing import Timer, timer
 
 import gpaw.mpi as mpi
 from gpaw import extra_parameters
-from gpaw.blacs import BlacsGrid, BlacsDescriptor, Redistributor
-from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.response.pair import PairDensity
-from gpaw.utilities.memory import maxrss
-from gpaw.utilities.blas import gemm
-from gpaw.wavefunctions.pw import PWDescriptor
-from gpaw.response.pair import PWSymmetryAnalyzer
-from gpaw.response.integrators import PointIntegrator, TetrahedronIntegrator
+from gpaw.blacs import BlacsDescriptor, BlacsGrid, Redistributor
 from gpaw.bztools import convex_hull_volume
-
-from functools import partial
+from gpaw.kpt_descriptor import KPointDescriptor
+from gpaw.response.integrators import PointIntegrator, TetrahedronIntegrator
+from gpaw.response.pair import PairDensity, PWSymmetryAnalyzer
+from gpaw.utilities import devnull
+from gpaw.utilities.blas import gemm
+from gpaw.utilities.memory import maxrss
+from gpaw.wavefunctions.pw import PWDescriptor
 
 
 class ArrayDescriptor:
@@ -231,6 +230,8 @@ class Chi0:
 
         if world.rank != 0:
             txt = devnull
+        elif txt == '-':
+            txt = sys.stdout
         elif isinstance(txt, str):
             txt = open(txt, 'w')
         self.fd = txt

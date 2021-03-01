@@ -174,7 +174,7 @@ class TDDFT(GPAW):
         self.preconditioner = None  # TODO! check out SSOR preconditioning
         # self.preconditioner = InverseOverlapPreconditioner(self.overlap)
         # self.preconditioner = KineticEnergyPreconditioner(
-        #    wfs.gd, self.td_hamiltonian.hamiltonian.kin, np.complex)
+        #    wfs.gd, self.td_hamiltonian.hamiltonian.kin, complex)
 
         # Time propagator
         self.text('Propagator: ', propagator)

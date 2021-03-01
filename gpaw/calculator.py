@@ -4,15 +4,15 @@ The central object that glues everything together.
 """
 
 import warnings
-from typing import Dict, Any, List
+from typing import Any, Dict
 
 import numpy as np
 from ase import Atoms
-from ase.units import Bohr, Ha
 from ase.calculators.calculator import Calculator, kpts2ndarray
+from ase.dft.bandgap import bandgap
+from ase.units import Bohr, Ha
 from ase.utils import plural
 from ase.utils.timing import Timer
-from ase.dft.bandgap import bandgap
 
 import gpaw
 import gpaw.mpi as mpi
@@ -26,20 +26,21 @@ from gpaw.external import PointChargePotential
 from gpaw.forces import calculate_forces
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.hamiltonian import RealSpaceHamiltonian
-from gpaw.io.logger import GPAWLogger
+from gpaw.hybrids import HybridXC
 from gpaw.io import Reader, Writer
+from gpaw.io.logger import GPAWLogger
 from gpaw.jellium import create_background_charge
+from gpaw.kohnsham_layouts import get_KohnSham_layouts
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.kpt_refine import create_kpoint_descriptor_with_refinement
-from gpaw.kohnsham_layouts import get_KohnSham_layouts
 from gpaw.matrix import suggest_blocking
-from gpaw.occupations import create_occ_calc, ParallelLayout
-from gpaw.output import (print_cell, print_positions,
-                         print_parallelization_details)
+from gpaw.occupations import ParallelLayout, create_occ_calc
+from gpaw.output import (print_cell, print_parallelization_details,
+                         print_positions)
 from gpaw.scf import SCFLoop
 from gpaw.setup import Setups
-from gpaw.symmetry import Symmetry
 from gpaw.stress import calculate_stress
+from gpaw.symmetry import Symmetry
 from gpaw.utilities import check_atoms_too_close
 from gpaw.utilities.gpts import get_number_of_grid_points
 from gpaw.utilities.grid import GridRedistributor
@@ -48,6 +49,7 @@ from gpaw.utilities.partition import AtomPartition
 from gpaw.wavefunctions.mode import create_wave_function_mode
 from gpaw.xc import XC
 from gpaw.xc.sic import SIC
+from gpaw.typing import Array1D
 
 
 class GPAW(Calculator):
@@ -191,6 +193,11 @@ class GPAW(Calculator):
 
         params = self.parameters.copy()
         params.update(kwargs)
+
+        if params['h'] is None:
+            # Backwards compatibility
+            params['gpts'] = self.density.gd.N_c
+
         calc = GPAW(communicator=communicator,
                     txt=txt,
                     parallel=parallel,
@@ -270,6 +277,8 @@ class GPAW(Calculator):
         self.parameters = self.get_default_parameters()
         dct = {}
         for key, value in reader.parameters.asdict().items():
+            if key in {'txt', 'fixdensity'}:
+                continue  # old gpw-files may have these
             if (isinstance(value, dict) and
                 isinstance(self.parameters[key], dict)):
                 self.parameters[key].update(value)
@@ -750,7 +759,8 @@ class GPAW(Calculator):
             self.create_wave_functions(mode, realspace,
                                        nspins, collinear, nbands, nao,
                                        nvalence, self.setups,
-                                       cell_cv, pbc_c, N_c)
+                                       cell_cv, pbc_c, N_c,
+                                       xc)
         else:
             self.wfs.set_setups(self.setups)
 
@@ -1103,7 +1113,7 @@ class GPAW(Calculator):
 
     def create_wave_functions(self, mode, realspace,
                               nspins, collinear, nbands, nao, nvalence,
-                              setups, cell_cv, pbc_c, N_c):
+                              setups, cell_cv, pbc_c, N_c, xc):
         par = self.parameters
 
         kd = self.create_kpoint_descriptor(nspins)
@@ -1114,6 +1124,11 @@ class GPAW(Calculator):
         parsize_kpt = self.parallel['kpt']
         parsize_domain = self.parallel['domain']
         parsize_bands = self.parallel['band']
+
+        if isinstance(xc, HybridXC):
+            parsize_kpt = 1
+            parsize_domain = self.world.size
+            parsize_bands = 1
 
         ndomains = None
         if parsize_domain is not None:
@@ -1230,7 +1245,7 @@ class GPAW(Calculator):
 
         raise SystemExit
 
-    def get_atomic_electrostatic_potentials(self) -> List[float]:
+    def get_atomic_electrostatic_potentials(self) -> Array1D:
         r"""Return the electrostatic potential at the atomic sites.
 
         Return list of energies in eV, one for each atom:
@@ -1621,7 +1636,7 @@ class GPAW(Calculator):
         if width is None:
             width = 0.1
 
-        from gpaw.utilities.dos import raw_wignerseitz_LDOS, fold
+        from gpaw.utilities.dos import fold, raw_wignerseitz_LDOS
         energies, weights = raw_wignerseitz_LDOS(self, a, spin)
         return fold(energies * Ha, weights, npts, width)
 
@@ -1643,7 +1658,7 @@ class GPAW(Calculator):
         calculation if one has many bands in the calculator but is only
         interested in the DOS at low energies.
         """
-        from gpaw.utilities.dos import raw_orbital_LDOS, fold
+        from gpaw.utilities.dos import fold, raw_orbital_LDOS
         if width is None:
             width = 0.1
 
@@ -1909,9 +1924,10 @@ class GPAW(Calculator):
             f_kni = np.array(f_kin).transpose(0, 2, 1)
             return f_kni.conj()
 
+        from math import factorial as fac
+
         from gpaw.lfc import LocalizedFunctionsCollection as LFC
         from gpaw.spline import Spline
-        from math import factorial as fac
 
         nkpts = len(wfs.kd.ibzk_kc)
         nbf = np.sum([2 * l + 1 for pos, l, a in locfun])

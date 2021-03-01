@@ -1,7 +1,7 @@
 import sys
 
 import pytest
-from ase.utils import devnull
+from gpaw.utilities import devnull
 
 from gpaw import GPAW, FermiDirac, KohnShamConvergenceError
 from gpaw.utilities import compiled_with_sl

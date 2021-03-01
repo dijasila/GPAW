@@ -12,11 +12,11 @@ direct_gap = np.zeros(4)
 
 for j, k in enumerate([6, 8, 10, 12]):
     for i, ecut in enumerate([100, 200, 300, 400]):
-        fil = pickle.load(paropen('C-g0w0_k%s_ecut%s_results.pckl' %
-                                  (k, ecut), 'rb'))
+        fil = pickle.load(
+            paropen(f'C-g0w0_k{k}_ecut{ecut}_results.pckl', 'rb'))
         direct_gap[i] = fil['qp'][0, 0, 1] - fil['qp'][0, 0, 0]
     plt.plot(ecuts, direct_gap, color[j],
-             label='(%sx%sx%s) k-points' % (k, k, k))
+             label=f'({k}x{k}x{k}) k-points')
 
 plt.xlabel('Cutoff energy (eV)')
 plt.ylabel('Direct band gap (eV)')
