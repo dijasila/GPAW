@@ -1,6 +1,8 @@
 import numpy as np
 from numpy.linalg import inv, solve
 
+from ase.utils.timing import timer
+
 from gpaw.lcaotddft.hamiltonian import KickHamiltonian
 from gpaw import debug
 from gpaw.tddft.units import au_to_as
@@ -244,9 +246,8 @@ class ECNPropagator(LCAOPropagator):
         self.hamiltonian.update()
         return time + time_step
 
+    @timer('Linear solve')
     def propagate_wfs(self, source_C_nM, target_C_nM, S_MM, H_MM, dt):
-        self.timer.start('Linear solve')
-
         if self.using_blacs:
             # XXX, Preallocate
             target_C_nm = self.Cnm_block_descriptor.empty(dtype=complex)
@@ -297,8 +298,6 @@ class ECNPropagator(LCAOPropagator):
             SjH_MM = S_MM + (0.5j * dt) * H_MM
             target_C_nM[:] = np.dot(source_C_nM, SjH_MM.conj().T)
             target_C_nM[:] = solve(SjH_MM.T, target_C_nM.T).T
-
-        self.timer.stop('Linear solve')
 
     def blacs_mm_to_global(self, H_mm):
         if not debug:
