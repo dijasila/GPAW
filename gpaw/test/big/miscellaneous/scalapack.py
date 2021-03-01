@@ -29,4 +29,5 @@ eps_n[:] = 0.0  # np.nan
 # md2.general_diagonalize_dc(H_GG, S_GG, psit_nG, eps_n)
 md2.diagonalize_dc(H_GG, psit_nG, eps_n)
 print(world.rank, comm.rank, eps_n.min(), eps_n.max())
-assert np.isfinite(eps_n)
+assert eps_n.min() == r0 + 1
+assert eps_n.max() == r0 + 8

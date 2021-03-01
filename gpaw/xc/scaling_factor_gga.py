@@ -42,8 +42,9 @@ class SFGRadialExpansion:
             dEdD_sqL += np.dot(rgd.dv_g * dedn_sg,
                                n_qg.T)[:, :, np.newaxis] * (w * Y_L)
 
-            dEdD_sqL_com += np.dot(rgd.dv_g * v_scom,
-                                   n_qg.T)[:, :, np.newaxis] * (w * Y_L)
+            dEdD_sqL_com += np.dot(
+                rgd.dv_g * v_scom,
+                n_qg.T)[:, :, np.newaxis] * (w * Y_L)
 
             dedsigma_xg *= rgd.dr_g
             B_vsg = dedsigma_xg[::2] * b_vsg
@@ -63,7 +64,6 @@ def radial_gga_vars(rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv, n_sLg_tot):
 
     n_sg = np.dot(Y_L, n_sLg)
     n_sg_tot = np.dot(Y_L, n_sLg_tot)
-
 
     a_sg = np.dot(Y_L, dndr_sLg)
     b_vsg = np.dot(rnablaY_Lv.T, n_sLg)
@@ -85,7 +85,7 @@ def radial_gga_vars(rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv, n_sLg_tot):
     v_comm = rgd.zeros(nspins)
 
     return e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg, a_sg, b_vsg, \
-           n_sg_tot, v_comm
+        n_sg_tot, v_comm
 
 
 def add_radial_gradient_correction(rgd, sigma_xg, dedsigma_xg, a_sg):
@@ -129,7 +129,7 @@ class SFGRadialCalculator:
 
 
 def calculate_sigma(gd, grad_v, n_sg):
-    """Calculate sigma(r) and grad n(r).
+    r"""Calculate sigma(r) and grad n(r).
                   _     __   _  2     __    _
     Returns sigma(r) = |\/ n(r)|  and \/ n (r).
 
@@ -159,8 +159,9 @@ def calculate_sigma(gd, grad_v, n_sg):
     return sigma_xg, gradn_svg
 
 
-def add_gradient_correction(grad_v, gradn_svg, sigma_xg, dedsigma_xg, v_sg):
-    """Add gradient correction to potential.
+def add_gradient_correction(grad_v, gradn_svg, sigma_xg,
+                            dedsigma_xg, v_sg):
+    r"""Add gradient correction to potential.
 
     ::
 
@@ -216,7 +217,6 @@ class SFG(XCFunctional):
 
         return gd.integrate(e_g)
 
-
     def set_grid_descriptor(self, gd):
         XCFunctional.set_grid_descriptor(self, gd)
         self.grad_v = get_gradient_ops(gd, self.stencil_range)
@@ -270,7 +270,8 @@ class SFG(XCFunctional):
         self.kernel.calculate(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
 
         def integrate(a1_g, a2_g=None):
-            return self.gd.integrate(a1_g, a2_g, global_integral=False)
+            return self.gd.integrate(
+                a1_g, a2_g, global_integral=False)
 
         P = integrate(e_g)
         for v_g, n_g in zip(v_sg, n_sg):
@@ -307,7 +308,6 @@ class SFG(XCFunctional):
         for n_g, dndr_g in zip(n_sg_total, dndr_sg_tot):
             rgd.derivative(n_g, dndr_g)
 
-
         if e_g is None:
             e_g = rgd.empty()
 
@@ -317,7 +317,7 @@ class SFG(XCFunctional):
             rgd, n_sg[:, np.newaxis], [1.0], dndr_sg[:, np.newaxis],
             np.zeros((1, 3)), n=None,
             n_sg_total=n_sg_total[:, np.newaxis],
-            dndr_sg_tot = dndr_sg_tot[:, np.newaxis], spin=spin)[:2]
+            dndr_sg_tot=dndr_sg_tot[:, np.newaxis], spin=spin)[:2]
         v_sg[:] = dedn_sg
         return rgd.integrate(e_g)
 
@@ -363,11 +363,11 @@ def scaling_factor(n, a2, n_tot, nspins, c0):
     n[n < eps] = 1.0e-40
     n_tot[n_tot < eps] = 1.0e-40 * spin_sc
 
-    const1 = 4.0 * (3. * np.pi**2.)**(2./3.)
-    const2 = c0 * 8.0/3.0
+    const1 = 4.0 * (3. * np.pi ** 2.) ** (2. / 3.)
+    const2 = c0 * 8.0 / 3.0
 
     # (2 * k_F * n) ** 2.0
-    tkfn2 = const1 * n**(8.0/3.0)
+    tkfn2 = const1 * n ** (8.0 / 3.0)
     u = n / (n_tot / spin_sc)
     s2 = a2 / tkfn2
 
@@ -384,7 +384,7 @@ def scaling_factor(n, a2, n_tot, nspins, c0):
     dedn_t = -dg * u**2.0 * h
     deda2 = c0 * (1. - g) * h**2 * n / tkfn2
 
-    return eps, dedn,  dedn_t, deda2
+    return eps, dedn, dedn_t, deda2
 
 
 def g_sf(u):

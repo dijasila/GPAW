@@ -4,8 +4,8 @@
 Plane wave mode and Stress tensor
 =================================
 
-The major advantage of running DFT calculations on a real space grid, is a
-very efficient parallelization scheme when dealing with large systems.
+The major advantage of running DFT calculations on a real space grid, is an
+efficient parallelization scheme when dealing with large systems.
 However, for small systems it is often faster to use a plane wave basis set
 instead. In this case all quantities are represented by their Fourier
 transforms on the periodic super cell and periodic boundary conditions are

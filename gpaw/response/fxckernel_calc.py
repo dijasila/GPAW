@@ -5,6 +5,7 @@ import numpy as np
 from gpaw.xc.fxc import KernelWave
 from ase.io.aff import affopen
 
+
 def calculate_kernel(self, nG, ns, iq, cut_G=None):
     self.unit_cells = self.calc.wfs.kd.N_c
     self.tag = self.calc.atoms.get_chemical_formula(mode='hill')
@@ -29,7 +30,7 @@ def calculate_kernel(self, nG, ns, iq, cut_G=None):
                           % (self.tag, self.xc,
                              self.ecut_max, iq)):
         q_empty = iq
-        
+
     if self.xc not in ('RPA'):
         if q_empty is not None:
             self.l_l = np.array([1.0])
@@ -82,7 +83,7 @@ def calculate_kernel(self, nG, ns, iq, cut_G=None):
             r = affopen('fhxc_%s_%s_%s_%s.ulm' %
                         (self.tag, self.xc, self.ecut_max, iq))
             fv = r.fhxc_sGsG
-        
+
             if cut_G is not None:
                 cut_sG = np.tile(cut_G, ns)
                 cut_sG[len(cut_G):] += len(fv) // ns
@@ -99,17 +100,17 @@ def calculate_kernel(self, nG, ns, iq, cut_G=None):
                 r = affopen('fhxc_%s_%s_%s_%s.ulm' %
                             (self.tag, self.xc, self.ecut_max, iq))
                 fv = r.fhxc_sGsG
-                
+
                 if cut_G is not None:
                     fv = fv.take(cut_G, 0).take(cut_G, 1)
-                        
+
             elif not self.dyn_kernel:
                 # static kernel which does not scale with lambda
-                
+
                 r = affopen('fhxc_%s_%s_%s_%s.ulm' %
                             (self.tag, self.xc, self.ecut_max, iq))
                 fv = r.fhxc_lGG
-            
+
                 if cut_G is not None:
                     fv = fv.take(cut_G, 1).take(cut_G, 2)
 
@@ -117,7 +118,7 @@ def calculate_kernel(self, nG, ns, iq, cut_G=None):
                 r = affopen('fhxc_%s_%s_%s_%s.ulm' %
                             (self.tag, self.xc, self.ecut_max, iq))
                 fv = r.fhxc_lwGG
-                        
+
                 if cut_G is not None:
                     fv = fv.take(cut_G, 2).take(cut_G, 3)
     else:

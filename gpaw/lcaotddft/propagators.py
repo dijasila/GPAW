@@ -1,6 +1,7 @@
 import numpy as np
 from numpy.linalg import inv, solve
 
+from gpaw.lcaotddft.hamiltonian import KickHamiltonian
 from gpaw import debug
 from gpaw.tddft.units import au_to_as
 from gpaw.utilities.scalapack import (pblas_simple_hemm, pblas_simple_gemm,
@@ -40,7 +41,7 @@ class Propagator(object):
         self.timer = paw.timer
         self.log = paw.log
 
-    def kick(self, hamiltonian, time):
+    def kick(self, ext, time):
         raise NotImplementedError()
 
     def propagate(self, time, time_step):
@@ -95,7 +96,7 @@ class ReplayPropagator(LCAOPropagator):
         self.wfs.read_occupations(r)
         self.read_index += 1
 
-    def kick(self, hamiltonian, time):
+    def kick(self, ext, time):
         self._align_read_index(time)
         # Check that this is the step after kick
         assert not equal(self.reader[self.read_index].time,
@@ -214,11 +215,13 @@ class ECNPropagator(LCAOPropagator):
                 scalapack_zero(self.mm_block_descriptor, kpt.S_MM, 'U')
                 scalapack_zero(self.mm_block_descriptor, kpt.T_MM, 'U')
 
-    def kick(self, hamiltonian, time):
+    def kick(self, ext, time):
         # Propagate
         get_matrix = self.wfs.eigensolver.calculate_hamiltonian_matrix
+        kick_hamiltonian = KickHamiltonian(self.hamiltonian.hamiltonian,
+                                           self.density, ext)
         for kpt in self.wfs.kpt_u:
-            Vkick_MM = get_matrix(hamiltonian, self.wfs, kpt,
+            Vkick_MM = get_matrix(kick_hamiltonian, self.wfs, kpt,
                                   add_kinetic=False, root=-1)
             for i in range(10):
                 self.propagate_wfs(kpt.C_nM, kpt.C_nM, kpt.S_MM, Vkick_MM, 0.1)
@@ -227,8 +230,9 @@ class ECNPropagator(LCAOPropagator):
         self.hamiltonian.update()
 
     def propagate(self, time, time_step):
+        get_H_MM = self.hamiltonian.get_hamiltonian_matrix
         for kpt in self.wfs.kpt_u:
-            H_MM = self.hamiltonian.get_hamiltonian_matrix(kpt)
+            H_MM = get_H_MM(kpt, time)
             self.propagate_wfs(kpt.C_nM, kpt.C_nM, kpt.S_MM, H_MM, time_step)
         self.hamiltonian.update()
         return time + time_step
@@ -342,6 +346,7 @@ class SICNPropagator(ECNPropagator):
             kpt.C2_nM = np.empty_like(kpt.C_nM)
 
     def propagate(self, time, time_step):
+        get_H_MM = self.hamiltonian.get_hamiltonian_matrix
         # --------------
         # Predictor step
         # --------------
@@ -349,7 +354,7 @@ class SICNPropagator(ECNPropagator):
         self.save_wfs()  # kpt.C2_nM = kpt.C_nM
         for kpt in self.wfs.kpt_u:
             # H_MM(t) = <M|H(t)|M>
-            kpt.H0_MM = self.hamiltonian.get_hamiltonian_matrix(kpt)
+            kpt.H0_MM = get_H_MM(kpt, time)
             # 2. Solve Psi(t+dt) from
             #    (S_MM - 0.5j*H_MM(t)*dt) Psi(t+dt)
             #       = (S_MM + 0.5j*H_MM(t)*dt) Psi(t)
@@ -363,7 +368,7 @@ class SICNPropagator(ECNPropagator):
         for kpt in self.wfs.kpt_u:
             # 2. Estimate H(t+0.5*dt) ~ 0.5 * [ H(t) + H(t+dt) ]
             kpt.H0_MM *= 0.5
-            kpt.H0_MM += 0.5 * self.hamiltonian.get_hamiltonian_matrix(kpt)
+            kpt.H0_MM += 0.5 * get_H_MM(kpt, time + time_step)
             # 3. Solve Psi(t+dt) from
             #    (S_MM - 0.5j*H_MM(t+0.5*dt)*dt) Psi(t+dt)
             #       = (S_MM + 0.5j*H_MM(t+0.5*dt)*dt) Psi(t)

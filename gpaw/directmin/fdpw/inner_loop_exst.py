@@ -1,10 +1,18 @@
+"""
+Optimization of orbitals
+among occupied and a few virtual states
+represented on a grid or with plane waves
+in order to calculate and excited state
+
+arXiv:2102.06542 [physics.comp-ph]
+"""
+
 from gpaw.directmin.fdpw.tools import get_n_occ, get_indices, expm_ed
-from gpaw.directmin.lcao.sd_lcao import LSR1P, LBFGS_P
+from gpaw.directmin.lcao.sd_lcao import LSR1P
 from gpaw.directmin.lcao.ls_lcao import UnitStepLength
 from ase.units import Hartree
 import numpy as np
 import time
-from ase.parallel import parprint
 
 
 class InnerLoop:
@@ -13,12 +21,12 @@ class InnerLoop:
                  tol=1.0e-3, maxiter=50, g_tol=5.0e-4, useprec=False):
 
         self.odd_pot = odd_pot
-        self.n_kps = wfs.kd.nks // wfs.kd.nspins
+        self.n_kps = wfs.kd.nibzkpts
         self.g_tol = g_tol / Hartree
         self.tol = tol
         self.dtype = wfs.dtype
         self.get_en_and_grad_iters = 0
-        self.precond={}
+        self.precond = {}
         # self.method = 'LBFGS'
         # self.line_search_method = 'AwcSwc'
         self.max_iter_line_search = 6
@@ -42,7 +50,7 @@ class InnerLoop:
             self.U_k[k] = np.eye(self.n_occ[k], dtype=self.dtype)
             self.Unew_k[k] = np.eye(self.n_occ[k], dtype=self.dtype)
 
-    def get_energy_and_gradients(self, a_k, wfs, dens, ham, occ):
+    def get_energy_and_gradients(self, a_k, wfs, dens, ham):
         """
         Energy E = E[A]. Gradients G_ij[A] = dE/dA_ij
         Returns E[A] and G[A] at psi = exp(A).T kpt.psi
@@ -76,7 +84,7 @@ class InnerLoop:
         wfs.timer.start('Energy and gradients')
         g_k, e_inner, kappa1 = \
             self.odd_pot.get_energy_and_gradients_inner_loop(
-                wfs, a_k, evals, evecs, dens, ham=ham, occ=occ)
+                wfs, a_k, evals, evecs, dens, ham=ham)
         wfs.timer.stop('Energy and gradients')
         if kappa1 > self.kappa:
             self.kappa = kappa1
@@ -90,17 +98,17 @@ class InnerLoop:
         return self.e_total, g_k
 
     def evaluate_phi_and_der_phi(self, a_k, p_k, n_dim, alpha,
-                                 wfs, dens, ham, occ,
+                                 wfs, dens, ham,
                                  phi=None, g_k=None):
         """
         phi = f(x_k + alpha_k*p_k)
-        der_phi = \grad f(x_k + alpha_k*p_k) \cdot p_k
-        :return:  phi, der_phi, \grad f(x_k + alpha_k*p_k)
+        der_phi = grad f(x_k + alpha_k*p_k) cdot p_k
+        :return:  phi, der_phi, grad f(x_k + alpha_k*p_k)
         """
         if phi is None or g_k is None:
             x_k = {k: a_k[k] + alpha * p_k[k] for k in a_k.keys()}
             phi, g_k = \
-                self.get_energy_and_gradients(x_k, wfs, dens, ham, occ)
+                self.get_energy_and_gradients(x_k, wfs, dens, ham)
             del x_k
         else:
             pass
@@ -144,7 +152,7 @@ class InnerLoop:
         return p_k
 
     def run(self, e_ks, wfs, dens, log, outer_counter=0,
-            small_random=True, ham=None, occ=None):
+            small_random=True, ham=None):
 
         log = log
         self.run_count += 1
@@ -173,7 +181,7 @@ class InnerLoop:
 
         threelasten = []
         # get initial energy and gradients
-        self.e_total, g_k = self.get_energy_and_gradients(a_k, wfs, dens, ham, occ)
+        self.e_total, g_k = self.get_energy_and_gradients(a_k, wfs, dens, ham)
         threelasten.append(self.e_total)
         g_max = g_max_norm(g_k, wfs)
         if g_max < self.g_tol:
@@ -241,7 +249,7 @@ class InnerLoop:
             phi_0, der_phi_0, g_k = \
                 self.evaluate_phi_and_der_phi(a_k, p_k, None,
                                               0.0, wfs, dens,
-                                              ham=ham, occ=occ,
+                                              ham=ham,
                                               phi=phi_0, g_k=g_k)
             if self.counter > 1:
                 phi_old = phi_0
@@ -251,7 +259,7 @@ class InnerLoop:
             # also get energy and gradients for optimal step
             alpha, phi_0, der_phi_0, g_k = \
                 self.ls.step_length_update(
-                    a_k, p_k, None, wfs, dens, ham, occ,
+                    a_k, p_k, None, wfs, dens, ham,
                     phi_0=phi_0, der_phi_0=der_phi_0,
                     phi_old=phi_old_2, der_phi_old=der_phi_old_2,
                     alpha_max=3.0, alpha_old=alpha, kpdescr=wfs.kd)
@@ -292,52 +300,11 @@ class InnerLoop:
                         log, self.counter, self.kappa, e_ks, esic,
                         outer_counter, g_max)
 
-                not_converged = g_max > self.g_tol and \
-                                self.counter < self.n_counter
+                not_converged = \
+                    g_max > self.g_tol and \
+                    self.counter < self.n_counter
                 if not g_max > self.g_tol:
                     self.converged = True
-                # threelasten.append(phi_0)
-                # if len(threelasten) > 2:
-                #     threelasten = threelasten[-3:]
-                #     if threelasten[0] < threelasten[1] and threelasten[1] < threelasten[2]:
-                #         if log is not None:
-                #            log(
-                #                 'Could not converge, leave the loop',
-                #                 flush=True)
-                #         break
-                        # reset things:
-                        # threelasten = []
-                        # self.sd = LBFGS_P(wfs, memory=20)
-                        # self.ls = SWC(
-                        #     self.evaluate_phi_and_der_phi,
-                        #     method=self.method, awc=True,
-                        #     max_iter=self.max_iter_line_search)
-                        # for kpt in wfs.kpt_u:
-                        #     k = self.n_kps * kpt.s + kpt.q
-                        #     n_occ = self.n_occ[k]
-                        #     self.psit_knG[k] = np.tensordot(
-                        #         self.Unew_k[k].T,
-                        #         self.psit_knG[k],
-                        #         axes=1)
-                        #     self.U_k[k] = self.U_k[k] @ self.Unew_k[k]
-                        #     d = self.n_occ[k]
-                        #     if a_k[k].dtype == complex:
-                        #         a_k[k] = 1.0e-5 * np.random.rand(d, d) * 1.0j + \
-                        #                  1.0e-5 * np.random.rand(d, d)
-                        #     else:
-                        #         a_k[k] = 1.0e-5 * np.random.rand(d, d)
-                        #
-                        # self.e_total, g_k = self.get_energy_and_gradients(
-                        #     a_k, wfs, dens)
-                        #
-                        # phi_0 = self.e_total
-                        # phi_old = None
-                        # der_phi_old = None
-                        # phi_old_2 = None
-                        # der_phi_old_2 = None
-
-                # if not not_converged and self.counter < 2:
-                #     not_converged = True
             else:
                 break
 
@@ -377,8 +344,8 @@ class InnerLoop:
         else:
             return self.e_total, outer_counter
 
-    def get_numerical_gradients(self, A_s, wfs, dens,  ham, occ, log, eps=1.0e-5):
-
+    def get_numerical_gradients(self, A_s, wfs, dens, ham, log,
+                                eps=1.0e-5):
         # initial things
         self.psit_knG = {}
         for kpt in wfs.kpt_u:
@@ -389,12 +356,11 @@ class InnerLoop:
                                             axes=1)
 
         dtype=self.dtype
-        assert dtype is float
         h = [eps, -eps]
         coef = [1.0, -1.0]
         Gr_n_x = {}
         Gr_n_y = {}
-        E_0, G = self.get_energy_and_gradients(A_s, wfs, dens, ham, occ)
+        E_0, G = self.get_energy_and_gradients(A_s, wfs, dens, ham)
         log("Estimating gradients using finite differences..")
         log(flush=True)
 
@@ -432,9 +398,10 @@ class InnerLoop:
                                     A_s[k][j][i] = -np.conjugate(
                                         A + h[l])
                             E =\
-                                self.get_energy_and_gradients(A_s, wfs, dens, ham, occ)[0]
+                                self.get_energy_and_gradients(
+                                    A_s, wfs, dens)[0]
                             grad_num[igr] += E * coef[l]
-                        grad_num[igr]*= 1.0 / (2.0 * eps)
+                        grad_num[igr] *= 1.0 / (2.0 * eps)
                         if i == j:
                             A_s[k][i][j] = A
                         else:
@@ -460,13 +427,13 @@ class InnerLoop:
                 igr = 0
                 for i, j in zip(*iut):
                     # log(k, i, j)
-                    log(igr+1, 'out of ', dim_gr, 'for a', k, 'kpt')
+                    log(igr + 1, 'out of ', dim_gr, 'for a', k, 'kpt')
                     log(flush=True)
                     A = A_s[k][i][j]
                     for l in range(2):
                         A_s[k][i][j] = A + h[l]
                         A_s[k][j][i] = -(A + h[l])
-                        E = self.get_energy_and_gradients(A_s, wfs, dens, ham, occ)[0]
+                        E = self.get_energy_and_gradients(A_s, wfs, dens, ham)[0]
                         grad_num[igr] += E * coef[l]
                     grad_num[igr] *= 1.0 / (2.0 * eps)
                     A_s[k][i][j] = A
@@ -480,7 +447,7 @@ class InnerLoop:
 
         return G, Gr_n
 
-    def get_numerical_hessian(self, A_s, wfs, dens, ham, occ, log, eps=1.0e-5):
+    def get_numerical_hessian(self, A_s, wfs, dens, ham, log, eps=1.0e-5):
 
         # initial things
         self.psit_knG = {}
@@ -504,7 +471,7 @@ class InnerLoop:
             dim = A_s[k].shape[0]
             iut = np.tril_indices(dim, -1)
             dim_gr = iut[0].shape[0]
-            hessian = np.zeros(shape=(dim_gr,dim_gr),
+            hessian = np.zeros(shape=(dim_gr, dim_gr),
                                dtype=self.dtype)
             ih = 0
             for i, j in zip(*iut):
@@ -515,7 +482,7 @@ class InnerLoop:
                 for l in range(2):
                     A_s[k][i][j] = A + h[l]
                     A_s[k][j][i] = -(A + h[l])
-                    g = self.get_energy_and_gradients(A_s, wfs, dens, ham, occ)[1]
+                    g = self.get_energy_and_gradients(A_s, wfs, dens, ham)[1]
                     g = g[k][iut]
                     hessian[ih, :] += g * coef[l]
 
@@ -655,7 +622,7 @@ def log_f(log, niter, kappa, e_ks, e_sic, outer_counter=None, g_max=np.inf):
 
 def g_max_norm(g_k, wfs):
     # get maximum of gradients
-    n_kps = wfs.kd.nks // wfs.kd.nspins
+    n_kps = wfs.kd.nibzkpts
 
     max_norm = []
     for kpt in wfs.kpt_u:

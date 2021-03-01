@@ -23,7 +23,7 @@ calc_a = GPAW(
     spinpol=True,  # only spin-polarized calculations are supported
     nbands=4,
     mixer=Mixer(beta=0.25, nmaxold=3, weight=100.0),
-    txt='He2+_initial_%3.2f.txt' % distance,
+    txt=f'He2+_initial_{distance:3.2f}.txt',
     convergence={
         'eigenstates': 1.0e-4,
         'density': 1.0e-1,
@@ -38,11 +38,11 @@ cdft_a = CDFT(
     charges=[1],  # constrain +1 charge
     charge_coefs=[2.7],  # initial guess for Vc
     method='L-BFGS-B',  # Vc optimization method
-    txt='He2+_initial_%3.2f.cdft' % distance,  # cDFT output file
+    txt=f'He2+_initial_{distance:3.2f}.cdft',  # cDFT output file
     minimizer_options={'gtol': 0.01})  # tolerance for cdft
 
 # Get cdft energy
-sys.set_calculator(cdft_a)
+sys.calc = cdft_a
 sys.get_potential_energy()
 
 # the same for the final state
@@ -57,7 +57,7 @@ calc_b = GPAW(h=0.2,
               spinpol=True,
               nbands=4,
               mixer=Mixer(beta=0.25, nmaxold=3, weight=100.0),
-              txt='He2+_final_%3.2f.txt' % distance,
+              txt=f'He2+_final_{distance:3.2f}.txt',
               convergence={
                   'eigenstates': 1.0e-4,
                   'density': 1.0e-1,
@@ -71,10 +71,10 @@ cdft_b = CDFT(
     charges=[1],  # constrained charge +1
     charge_coefs=[2.7],
     method='L-BFGS-B',
-    txt='He2+_final_%3.2f.cdft' % distance,
+    txt=f'He2+_final_{distance:3.2f}.cdft',
     minimizer_options={'gtol': 0.01})
 
-sys.set_calculator(cdft_b)
+sys.calc = cdft_b
 sys.get_potential_energy()
 
 # Now for the coupling parameter

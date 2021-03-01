@@ -1,13 +1,24 @@
+"""
+Optimization methods for calculating
+search directions in space of wafe-functions
+Examples are Steepest Descent, Conjugate gradients, L-BFGS
+"""
+
+
 import numpy as np
 import copy
 
+
 class SteepestDescent:
+    """
+    Steepest descent algorithm
+    """
 
     def __init__(self, wfs, dimensions):
         """
         """
         self.iters = 0
-        self.n_kps = wfs.kd.nks // wfs.kd.nspins
+        self.n_kps = wfs.kd.nibzkpts
         self.dimensions = dimensions
 
     def __str__(self):
@@ -15,17 +26,42 @@ class SteepestDescent:
         return 'Steepest Descent'
 
     def update_data(self, psi, g, wfs, prec):
+        """
+        update search direction
+
+        :param psi:
+        :param g:
+        :param wfs:
+        :param prec:
+        :return:
+        """
 
         self.apply_prec(wfs, g, prec, 1.0)
 
         return self.minus(wfs, g)
 
     def dot(self, psi_1, psi_2, kpt, wfs):
+        """
+        dot product between two objects pse_1 and psi_2
 
-        def S(psit_G):
-            return psit_G
+        :param psi_1:
+        :param psi_2:
+        :param kpt:
+        :param wfs:
+        :return:
+        """
+
+        # def S(psit_G):
+        #     return psit_G
 
         def dS(a, P_ni):
+            """
+            apply PAW
+            :param a:
+            :param P_ni:
+            :return:
+            """
+
             return np.dot(P_ni, wfs.setups[a].dO_ii)
 
         P1_ai = wfs.pt.dict(shape=1)
@@ -34,7 +70,7 @@ class SteepestDescent:
         wfs.pt.integrate(psi_1, P1_ai, kpt.q)
         wfs.pt.integrate(psi_2, P2_ai, kpt.q)
 
-        dot_prod = wfs.integrate(psi_1, S(psi_2), False)
+        dot_prod = wfs.integrate(psi_1, psi_2, False)
 
         paw_dot_prod = 0.0
 
@@ -48,6 +84,15 @@ class SteepestDescent:
         return sum_dot
 
     def dot_2(self, psi_1, psi_2, kpt, wfs):
+        """
+        dot product between pseudo-parts
+
+        :param psi_1:
+        :param psi_2:
+        :param kpt:
+        :param wfs:
+        :return:
+        """
 
         dot_prod = wfs.integrate(psi_1, psi_2, False)
         dot_prod = wfs.gd.comm.sum(dot_prod)
@@ -55,6 +100,14 @@ class SteepestDescent:
         return dot_prod
 
     def dot_all_k_and_b(self, x1, x2, wfs):
+        """
+        dot product between x1 and x2 over all k-points and bands
+
+        :param x1:
+        :param x2:
+        :param wfs:
+        :return:
+        """
 
         if wfs.dtype is complex:
             dot_pr_x1x2 = 0.0j
@@ -64,15 +117,24 @@ class SteepestDescent:
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
             for i in range(self.dimensions[k]):
-                dot_pr_x1x2 += self.dot_2(x1[k][i],
-                                        x2[k][i],
-                                        kpt, wfs)
+                dot_pr_x1x2 += self.dot_2(
+                    x1[k][i], x2[k][i], kpt, wfs)
 
         dot_pr_x1x2 = wfs.kd.comm.sum(dot_pr_x1x2)
 
         return 2.0 * dot_pr_x1x2.real
 
     def calc_diff(self, x1, x2, wfs, const_0=1.0, const=1.0):
+        """
+        calculate difference beetwen x1 and x2
+
+        :param x1:
+        :param x2:
+        :param wfs:
+        :param const_0:
+        :param const:
+        :return:
+        """
         y_k = {}
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
@@ -108,6 +170,15 @@ class SteepestDescent:
         return y
 
     def apply_prec(self, wfs, x, prec, const=1.0):
+        """
+        apply preconditioning to the gradient
+
+        :param wfs:
+        :param x:
+        :param prec:
+        :param const:
+        :return:
+        """
         if wfs.mode == 'pw':
             deg = (3.0 - wfs.kd.nspins)
             deg *= 2.0
@@ -116,8 +187,7 @@ class SteepestDescent:
                 for i, y in enumerate(x[k]):
                     psit_G = kpt.psit.array[i]
                     ekin = prec.calculate_kinetic_energy(psit_G, kpt)
-                    x[k][i] = - const * prec(y, kpt, ekin)/ deg
-
+                    x[k][i] = - const * prec(y, kpt, ekin) / deg
 
         else:
             deg = (3.0 - wfs.kd.nspins)
@@ -146,6 +216,14 @@ class HZcg(SteepestDescent):
         return 'Hager-Zhang conjugate gradient method'
 
     def update_data(self, psi, g_k1, wfs, prec):
+        """
+        update search direction
+        :param psi:
+        :param g_k1:
+        :param wfs:
+        :param prec:
+        :return:
+        """
 
         if prec is not None:
             self.apply_prec(wfs, g_k1, prec, 1.0)
@@ -153,6 +231,7 @@ class HZcg(SteepestDescent):
         if self.iters == 0:
 
             # first step is just minus gradients:
+
             p = {}
             for kpt in wfs.kpt_u:
                 p[self.n_kps * kpt.s + kpt.q] = \
@@ -180,8 +259,8 @@ class HZcg(SteepestDescent):
 
             # calculate ||y_k||^2
             norm2 = self.dot_all_k_and_b(y_k, y_k, wfs)
-            z = self.calc_diff(y_k, self.p_k,
-                               wfs, const=2.0*rho*norm2)
+            z = self.calc_diff(
+                y_k, self.p_k, wfs, const=2.0 * rho * norm2)
             beta_k = rho * self.dot_all_k_and_b(z, g_k1, wfs)
 
             try:
@@ -267,7 +346,7 @@ class PFRcg(SteepestDescent):
         super().__init__(wfs, dimensions)
 
     def __str__(self):
-        return 'Preconditioned Fletcher-Reeves conjugate gradient method'
+        return 'Precond. Fletcher-Reeves conjugate gradient method'
 
     def update_data(self, psi, g_k1, wfs, prec):
 
@@ -283,7 +362,7 @@ class PFRcg(SteepestDescent):
             self.apply_prec(wfs, pg, prec, 1.0)
             dot_gg_k = self.dot_all_k_and_b(self.g_k, pg, wfs)
 
-            pg =  copy.deepcopy(g_k1)
+            pg = copy.deepcopy(g_k1)
             self.apply_prec(wfs, pg, prec, 1.0)
             dot_gg_k1 = self.dot_all_k_and_b(g_k1, pg, wfs)
             beta_k = dot_gg_k1 / dot_gg_k
@@ -395,11 +474,22 @@ class PRpcg(SteepestDescent):
 
 
 class QuickMin(SteepestDescent):
+    """
+    H. J\'onsson, G. Mills, and K. Jacobsen.
+    B.J. Berne, G. Ciccotti, D.F. Coker (Eds.).
+    Classical and Quantum Dynamics in
+    Condensed Phase Simulations, World Scientific (1998), 385 (1998)
+    """
 
     def __init__(self, wfs, dimensions):
 
         """
+        molecular dynamics like algorithm
+
+        :param wfs:
+        :param dimensions:
         """
+
         super().__init__(wfs, dimensions)
 
         self.dt = 0.01
@@ -410,6 +500,15 @@ class QuickMin(SteepestDescent):
         return 'QuickMin'
 
     def update_data(self, psi, g_k1, wfs, prec):
+        """
+        update search direction
+
+        :param psi:
+        :param g_k1:
+        :param wfs:
+        :param prec:
+        :return:
+        """
 
         if prec is not None:
             self.apply_prec(wfs, g_k1, prec, 1.0)
@@ -417,7 +516,7 @@ class QuickMin(SteepestDescent):
         dt = self.dt
         m = self.m
         if self.iters == 0:
-            self.v = self.multiply(g_k1, -dt/m)
+            self.v = self.multiply(g_k1, -dt / m)
             p = self.multiply(self.v, dt)
             self.iters += 1
             return p
@@ -434,6 +533,11 @@ class QuickMin(SteepestDescent):
 
 
 class LBFGS(SteepestDescent):
+    """
+    The limited-memory BFGS.
+    See Jorge Nocedal and Stephen J. Wright 'Numerical
+    Optimization' Second Edition, 2006 (p. 177)
+    """
 
     def __init__(self, wfs, dimensions, memory=1):
 
@@ -457,6 +561,15 @@ class LBFGS(SteepestDescent):
         return 'LBFGS'
 
     def update_data(self, x_k1, g_k1, wfs, prec):
+        """
+        update search direction
+
+        :param x_k1:
+        :param g_k1:
+        :param wfs:
+        :param prec:
+        :return:
+        """
 
         if prec is not None:
             self.apply_prec(wfs, g_k1, prec, 1.0)
@@ -551,7 +664,7 @@ class LBFGS(SteepestDescent):
                 beta = rho_k[kp[i]] * dot_yr
 
                 r = self.calc_diff(r, self.s_k[kp[i]], wfs,
-                                   const=(beta-alpha[kp[i]]))
+                                   const=(beta - alpha[kp[i]]))
 
                 # r += s_k[kp[i]] * (alpha[kp[i]] - beta)
 
@@ -568,6 +681,13 @@ class LBFGS(SteepestDescent):
 
 
 class LBFGS_P(SteepestDescent):
+    """
+    The limited-memory BFGS.
+    See Jorge Nocedal and Stephen J. Wright 'Numerical
+    Optimization' Second Edition, 2006 (p. 177)
+
+    used with preconditioning
+    """
 
     def __init__(self, wfs, dimensions, memory=1):
 
@@ -591,7 +711,15 @@ class LBFGS_P(SteepestDescent):
         return 'LBFGS'
 
     def update_data(self, psi, g_k1, wfs, prec):
+        """
+        update search direction
 
+        :param psi:
+        :param g_k1:
+        :param wfs:
+        :param prec:
+        :return:
+        """
         if self.k == 0:
 
             self.kp[self.k] = self.p
@@ -681,10 +809,11 @@ class LBFGS_P(SteepestDescent):
                     dot_yy = self.dot_all_k_and_b(y_k[kp[t]],
                                                   y_k[kp[t]], wfs)
 
-                    r = self.multiply(q, 1.0 / (rho_k[kp[t]] * dot_yy))
+                    r = self.multiply(
+                        q, 1.0 / (rho_k[kp[t]] * dot_yy))
 
                     # r = q / (
-                    #       rho_k[kp[t]] * np.dot(y_k[kp[t]], y_k[kp[t]]))
+                    #  rho_k[kp[t]] * np.dot(y_k[kp[t]], y_k[kp[t]]))
                 except ZeroDivisionError:
                     # r = 1.0e12 * q
                     r = self.multiply(q, 1.0e16)
@@ -696,7 +825,7 @@ class LBFGS_P(SteepestDescent):
                 beta = rho_k[kp[i]] * dot_yr
 
                 r = self.calc_diff(r, s_k[kp[i]], wfs,
-                                   const=(beta-alpha[kp[i]]))
+                                   const=(beta - alpha[kp[i]]))
 
                 # r += s_k[kp[i]] * (alpha[kp[i]] - beta)
 
@@ -713,10 +842,20 @@ class LBFGS_P(SteepestDescent):
 
 
 class LSR1P(SteepestDescent):
+    """
+    Limited memory symmetric rank one quasi-newton algorithm.
+    arXiv:2006.15922 [physics.chem-ph]
+    """
 
-    def __init__(self, wfs, dimensions, memory=10, method='LSR1', phi=None):
+    def __init__(self, wfs, dimensions, memory=10,
+                 method='LSR1', phi=None):
         """
-        :param m: memory (amount of previous steps to use)
+
+        :param wfs:
+        :param dimensions:
+        :param memory: number of previous steps to store
+        :param method:
+        :param phi:
         """
         super().__init__(wfs, dimensions)
 
@@ -791,8 +930,9 @@ class LSR1P(SteepestDescent):
             if precond is not None:
                 self.apply_prec(wfs, by_k, precond, 1.0)
 
-            by_k = self.update_bv(wfs, by_k, y_k, u_k, j_k, yj_k, phi_k,
-                                  np.maximum(1, k - m), k)
+            by_k = self.update_bv(
+                wfs, by_k, y_k, u_k, j_k, yj_k,
+                phi_k, np.maximum(1, k - m), k)
 
             j_k[kp[k]] = self.calc_diff(s_k, by_k, wfs)
             yj_k[kp[k]] = self.dot_all_k_and_b(y_k, j_k[kp[k]], wfs)
@@ -804,14 +944,18 @@ class LSR1P(SteepestDescent):
                 u_k[kp[k]] = self.multiply(y_k, 1.0e15)
 
             if self.method == 'LBofill' and self.phi is None:
-                jj_k = self.dot_all_k_and_b(j_k[kp[k]], j_k[kp[k]], wfs)
+                jj_k = self.dot_all_k_and_b(
+                    j_k[kp[k]], j_k[kp[k]], wfs)
                 phi_k[kp[k]] = 1 - yj_k[kp[k]]**2 / (dot_yy * jj_k)
-            elif self.method == 'Linverse_Bofill' and self.phi is None:
-                jj_k = self.dot_all_k_and_b(j_k[kp[k]], j_k[kp[k]], wfs)
+            elif self.method == 'Linverse_Bofill' and \
+                    self.phi is None:
+                jj_k = self.dot_all_k_and_b(
+                    j_k[kp[k]], j_k[kp[k]], wfs)
                 phi_k[kp[k]] = yj_k[kp[k]] ** 2 / (dot_yy * jj_k)
 
-            bg_k1 = self.update_bv(wfs, bg_k1, g_k1, u_k, j_k, yj_k, phi_k,
-                                   np.maximum(1, k - m + 1), k + 1)
+            bg_k1 = self.update_bv(
+                wfs, bg_k1, g_k1, u_k, j_k, yj_k, phi_k,
+                np.maximum(1, k - m + 1), k + 1)
 
             # save this step:
             self.x_k = copy.deepcopy(x_k1)
@@ -840,7 +984,7 @@ class LSR1P(SteepestDescent):
             beta_ms = self.multiply(j_k[kp[i]], dot_jv / yj_k[kp[i]])
 
             beta = self.calc_diff(beta_ms, beta_p, wfs,
-                                  const_0=1-phi_k[kp[i]],
+                                  const_0=1.0 - phi_k[kp[i]],
                                   const=-phi_k[kp[i]])
 
             bv = self.calc_diff(bv, beta, wfs, const=-1.0)
@@ -856,7 +1000,7 @@ class LSR1P(SteepestDescent):
 #         :param m: memory (number of previous steps to use)
 #         """
 #
-#         self.n_kps = wfs.kd.nks // wfs.kd.nspins
+#         self.n_kps = wfs.kd.nibzkpts
 #         self.n_bands = wfs.bd.nbands
 #
 #         self.s_k = {i: None for i in range(m)}
@@ -958,8 +1102,8 @@ class LSR1P(SteepestDescent):
 #                 self.beta_0 = 1.0 / (rho_k[kp[t]] * dot_yy)
 #                 r = self.apply_prec(wfs, q)
 #                 # r = q / (
-#                 #       rho_k[kp[t]] * np.dot(y_k[kp[t]], y_k[kp[t]]))
-#                 # r = self.multiply(q, 1.0 / (rho_k[kp[t]] * dot_yy))
+#                 #     rho_k[kp[t]] * np.dot(y_k[kp[t]], y_k[kp[t]]))
+#                 # r =self.multiply(q, 1.0 / (rho_k[kp[t]] * dot_yy))
 #
 #             except ZeroDivisionError:
 #                 # r = 1.0e12 * q
@@ -1006,7 +1150,8 @@ class LSR1P(SteepestDescent):
 #         paw_dot_prod = 0.0
 #
 #         for a in P1_ai.keys():
-#             paw_dot_prod += np.dot(dS(a, P2_ai[a]), P1_ai[a].T.conj())[0][0]
+#             paw_dot_prod +=
+#             np.dot(dS(a, P2_ai[a]), P1_ai[a].T.conj())[0][0]
 #
 #         sum_dot = dot_prod + paw_dot_prod
 #         sum_dot = wfs.gd.comm.sum(sum_dot)
@@ -1096,7 +1241,7 @@ class LSR1P(SteepestDescent):
 #             k = self.n_kps * kpt.s + kpt.q
 #             z[k] = np.zeros_like(x[k])
 #             for i, y in enumerate(x[k]):
-#                 z[k][i] = (-1.0 + a) * self.precond(y, kpt, None) + \
+#                 z[k][i] = (-1.0 + a) * self.precond(y, kpt, None)+\
 #                           a * self.beta_0 * x[k][i]
 #                 z[k][i] *= const
 #

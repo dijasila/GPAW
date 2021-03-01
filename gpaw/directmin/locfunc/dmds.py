@@ -17,7 +17,7 @@ def inverse(x):
 
 class DMDIIS:
 
-    def __init__(self,  obj_f, wfs,
+    def __init__(self, obj_f, wfs,
                  max_iter=333, g_tol=1.0e-4, min_iter=1):
 
         self.obj_f = obj_f
@@ -26,7 +26,7 @@ class DMDIIS:
         self.g_tol = g_tol
         self.n_kps = wfs.kd.nks // wfs.kd.nspins
         self.countme = 0
-        self.R_ki= {}
+        self.R_ki = {}
         self.E_ki = {}
         self.D_ki = {}
         self.memory = 4
@@ -112,7 +112,6 @@ class DMDIIS:
         del self.psi_copy
         wfs.timer.stop('Inner loop')
 
-
     def iterate(self, wfs, dens, log):
 
         e_total = 0.0
@@ -145,7 +144,7 @@ class DMDIIS:
                     np.hstack([mI[:, np.newaxis].T,
                                np.array([0.0])[:, np.newaxis]])])
                 rhs = np.zeros(shape=B.shape[0])
-                rhs[B.shape[0]-1] = -1.0
+                rhs[B.shape[0] - 1] = -1.0
                 coef = np.linalg.solve(B, rhs)
                 C = np.einsum('i,irs->rs', coef[:-1], self.D_ki[k])
 
@@ -189,7 +188,6 @@ class DMDIIS:
         error = []
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
-            n_occ = get_n_occ(kpt)
             wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
             e_sic, R = \
                 self.obj_f.get_energy_and_hamiltonain_kpt(wfs,

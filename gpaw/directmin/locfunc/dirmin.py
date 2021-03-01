@@ -1,13 +1,13 @@
 from gpaw.directmin.fdpw.inner_loop import InnerLoop
-from ase.parallel import parprint
 import numpy as np
+
 
 class DirectMinLocalize:
 
     def __init__(self, obj_f, wfs, maxiter=300, g_tol=1.0e-3, randval=0.01):
 
         self.obj_f = obj_f
-        self.randval=randval
+        self.randval = randval
         self.iloop = InnerLoop(
             obj_f, wfs, maxiter=maxiter,
             g_tol=g_tol)
@@ -32,8 +32,8 @@ class DirectMinLocalize:
                 # n_occ = self.n_occ[k]
                 dim1 = self.iloop.U_k[k].shape[0]
                 if wfs.mode == 'lcao':
-                    kpt.C_nM[:dim1] = self.iloop.U_k[k].T @ \
-                                      kpt.C_nM[:dim1]
+                    kpt.C_nM[:dim1] = \
+                        self.iloop.U_k[k].T @ kpt.C_nM[:dim1]
                     wfs.atomic_correction.calculate_projections(
                         wfs, kpt)
                 else:

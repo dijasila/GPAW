@@ -192,10 +192,10 @@ def general_redistribute(comm, src_rank_a, dst_rank_a, redistributable):
     # But how is this done best?
     requests = []
     flags = (src_rank_a != dst_rank_a)
-    my_incoming_atom_indices = np.argwhere(np.bitwise_and(flags, \
-        dst_rank_a == comm.rank)).ravel()
-    my_outgoing_atom_indices = np.argwhere(np.bitwise_and(flags, \
-        src_rank_a == comm.rank)).ravel()
+    my_incoming_atom_indices = np.argwhere(
+        np.bitwise_and(flags, dst_rank_a == comm.rank)).ravel()
+    my_outgoing_atom_indices = np.argwhere(
+        np.bitwise_and(flags, src_rank_a == comm.rank)).ravel()
 
     for a in my_incoming_atom_indices:
         # Get matrix from old domain:
@@ -292,7 +292,7 @@ class AtomPartition:
             raise ValueError('redistribute %s --> %s: %s'
                              % (self, new_partition, err))
         if isinstance(atomdict_ax, ArrayDict):
-            atomdict_ax.partition = new_partition # XXX
+            atomdict_ax.partition = new_partition  # XXX
             atomdict_ax.check_consistency()
 
     def __repr__(self):

@@ -1,4 +1,3 @@
-from __future__ import print_function
 import os
 import time
 
@@ -41,6 +40,7 @@ class Timing:
         self.t0 = time.time()
         self.i += ndiv
 
+
 if __name__ == '__main__':
     if not os.path.isfile(name + '_gs.gpw'):
         atoms = Atoms('Na2', positions=[(0, 0, 0), (0, 0, d_bond + d_disp)])
@@ -51,7 +51,7 @@ if __name__ == '__main__':
         N_c = 16 * np.round(cell_c / (0.25 * 16))
         calc = GPAW(gpts=N_c, nbands=1, basis='dzp', setups={'Na': '1'},
                     txt=name + '_gs.txt')
-        atoms.set_calculator(calc)
+        atoms.calc = calc
         atoms.get_potential_energy()
         calc.write(name + '_gs.gpw', mode='all')
         del atoms, calc

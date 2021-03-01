@@ -106,6 +106,7 @@ class GPAWLogger(object):
         self('libxc: ', getattr(_gpaw, 'libxc_version', '2.x.y'))
         self('units:  Angstrom and eV')
         self('cores:', self.world.size)
+        self('OpenMP:', _gpaw.have_openmp)
         self('OMP_NUM_THREADS:', os.environ['OMP_NUM_THREADS'])
 
         if gpaw.debug:
@@ -140,7 +141,7 @@ class GPAWLogger(object):
 
     def __del__(self):
         """Destructor:  Write timing output before closing."""
-        if gpaw.dry_run:
+        if gpaw.dry_run or self._fd.closed:
             return
 
         try:

@@ -1,4 +1,9 @@
+"""
+Tools for direcmin using grid and pw
+"""
+
 import numpy as np
+
 
 def get_n_occ(kpt):
 
@@ -143,7 +148,7 @@ def cubic_interpolation_2(x_0, x_1, x_2, f_0, df_0, f_1, f_2):
         else:
             x_min = x_2
 
-    f_min = cubic_function(a, b, c, d, x_min)
+    # f_min = cubic_function(a, b, c, d, x_min)
 
     # assert f_min < f_1
     # assert f_min < f_2
@@ -196,3 +201,12 @@ def d_matrix(omega):
     u_m[np.isinf(u_m)] = 1.0
 
     return u_m
+
+
+def get_random_um(dim, dtype):
+
+    a = 0.01 * np.random.rand(dim, dim)
+    if dtype is complex:
+        a = a + 1.0j * 0.01 * np.random.rand(dim, dim)
+    a = a - a.T.conj()
+    return expm_ed(a)

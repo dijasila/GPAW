@@ -1,6 +1,5 @@
-from myqueue.task import task
+from myqueue.workflow import run
 
 
-def create_tasks():
-    return [
-        task('lcaotddft.py@4:40m')]
+def workflow():
+    run(script='lcaotddft.py', cores=4, tmax='40m')

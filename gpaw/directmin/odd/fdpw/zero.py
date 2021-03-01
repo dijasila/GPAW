@@ -3,11 +3,8 @@ Potentials for orbital density dependent energy functionals
 """
 
 import numpy as np
-from gpaw.utilities import pack, unpack
-from gpaw.lfc import LFC
-from gpaw.transformers import Transformer
-from gpaw.directmin.fdpw.tools import get_n_occ, d_matrix
-from gpaw.poisson import PoissonSolver
+from gpaw.utilities import unpack
+from gpaw.directmin.fdpw.tools import d_matrix
 
 
 class ZeroCorrections:
@@ -21,7 +18,7 @@ class ZeroCorrections:
                  poisson_solver='FPS'):
 
         self.name = 'Zero'
-        self.n_kps = wfs.kd.nks // wfs.kd.nspins
+        self.n_kps = wfs.kd.nibzkpts
         self.grad = {}
         self.total_sic = 0.0
         self.eks = 0.0
@@ -33,7 +30,7 @@ class ZeroCorrections:
     def get_energy_and_gradients(self, wfs, grad_knG=None,
                                  dens=None, U_k=None,
                                  add_grad=False,
-                                 ham=None, occ=None):
+                                 ham=None):
 
         wfs.timer.start('Update Kohn-Sham energy')
         # calc projectors
@@ -65,12 +62,12 @@ class ZeroCorrections:
         dens.update(wfs)
         ham.update(dens, wfs, False)
         wfs.timer.stop('Update Kohn-Sham energy')
-        energy = ham.get_energy(occ, False)
+        energy = ham.get_energy(0.0, wfs, False)
 
         for kpt in wfs.kpt_u:
             self.get_energy_and_gradients_kpt(
                 wfs, kpt, grad_knG, dens, U_k,
-                add_grad=add_grad, ham=ham, occ=occ)
+                add_grad=add_grad, ham=ham)
         # energy = wfs.kd.comm.sum(energy)
         self.eks = energy
         return energy
@@ -78,7 +75,7 @@ class ZeroCorrections:
     def get_energy_and_gradients_kpt(self, wfs, kpt, grad_knG,
                                      dens=None, U_k=None,
                                      add_grad=False,
-                                     ham=None, occ=None):
+                                     ham=None):
 
         k = self.n_kps * kpt.s + kpt.q
         nbands = wfs.bd.nbands
@@ -122,16 +119,16 @@ class ZeroCorrections:
 
     def get_energy_and_gradients_inner_loop(self, wfs, a_mat,
                                             evals, evec, dens,
-                                            ham, occ):
+                                            ham):
         nbands = wfs.bd.nbands
         e_sic = self.get_energy_and_gradients(wfs,
                                               grad_knG=None,
                                               dens=dens, U_k=None,
                                               add_grad=False,
-                                              ham=ham, occ=occ)
+                                              ham=ham)
         wfs.timer.start('Unitary gradients')
         g_k = {}
-        kappa_tmp=0.0
+        kappa_tmp = 0.0
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
             l_odd = wfs.integrate(kpt.psit_nG, self.grad[k], True)
@@ -141,9 +138,9 @@ class ZeroCorrections:
             indz = np.absolute(l_odd) > 1.0e-4
             l_c = 2.0 * l_odd[indz]
             l_odd = f[:, np.newaxis] * l_odd.T.conj() - f * l_odd
-            kappa = np.max(np.absolute(l_odd[indz])/np.absolute(l_c))
+            kappa = np.max(np.absolute(l_odd[indz]) / np.absolute(l_c))
             if kappa > kappa_tmp:
-                kappa_tmp=kappa
+                kappa_tmp = kappa
             if a_mat[k] is None:
                 g_k[k] = l_odd.T
             else:

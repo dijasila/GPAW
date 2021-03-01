@@ -15,6 +15,6 @@ calc = GPAW(mode=PW(350),
             kpts=(6, 6, 6),
             txt='anti.txt')
 
-fe.set_calculator(calc)
+fe.calc = calc
 e = fe.get_potential_energy()
 calc.write('anti.gpw')

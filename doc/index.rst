@@ -24,7 +24,7 @@ array([[ 5.  ,  0.  ,  0.  ],
 >>> h2.positions
 array([[ 2.5 ,  2.5 ,  2.5 ],
        [ 2.5 ,  2.5 ,  3.24]])
->>> h2.set_calculator(GPAW(xc='PBE', mode=PW(300), txt='h2.txt'))
+>>> h2.calc = GPAW(xc='PBE', mode=PW(300), txt='h2.txt')
 >>> h2.get_potential_energy()
 -6.6237575005960494
 >>> h2.get_forces()
@@ -43,6 +43,10 @@ array([[  9.37566400e-14,   4.40256983e-14,  -6.44750360e-01],
 
 News
 ====
+
+* :ref:`GPAW version 21.1.0 <releasenotes>` released (18 Jan 2021).
+
+* :ref:`GPAW version 20.10.0 <releasenotes>` released (19 Oct 2020).
 
 * :ref:`GPAW version 20.1.0 <releasenotes>` released (30 Jan 2020).
 

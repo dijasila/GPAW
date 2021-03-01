@@ -6,6 +6,7 @@ from gpaw.directmin.odd.fdpw.spz_2 import SPzCorrections2
 from gpaw.directmin.odd.fdpw.zero import ZeroCorrections
 from gpaw.directmin.odd.fdpw.dftpzxt import DftPzSicXT
 
+
 def odd_corrections(odd, wfs, dens, ham):
 
     if isinstance(odd, basestring):

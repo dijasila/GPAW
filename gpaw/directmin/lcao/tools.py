@@ -1,5 +1,10 @@
+"""
+Tools for direcmin using grid and pw
+"""
+
 import numpy as np
 import scipy as sp
+
 
 def expm_ed(a_mat, evalevec=False):
 
@@ -43,6 +48,7 @@ def expm_ed_unit_inv(a_upp_r, oo_vo_blockonly=False):
 
     p_nn = np.dot(a_upp_r, a_upp_r.T.conj())
     eigval, evec = np.linalg.eigh(p_nn)
+    # Eigenvalues cannot be negative
     eigval[eigval.real < 1.0e-16] = 1.0e-16
     sqrt_eval = np.sqrt(eigval)
 
@@ -60,10 +66,9 @@ def expm_ed_unit_inv(a_upp_r, oo_vo_blockonly=False):
         dim_v = a_upp_r.shape[1]
         dim_o = a_upp_r.shape[0]
         u_vv = np.eye(dim_v) + \
-               np.dot(a_upp_r.T.conj(),
-                      np.dot(np.dot((cos_sqrt_p - np.eye(dim_o)),
-                                     inv_p),
-                             a_upp_r))
+            np.dot(a_upp_r.T.conj(),
+                   np.dot(np.dot((cos_sqrt_p - np.eye(dim_o)), inv_p),
+                          a_upp_r))
         u = np.vstack([
             np.hstack([u_oo, u_ov]),
             np.hstack([u_vo, u_vv])])
@@ -168,8 +173,8 @@ def parabola_interpolation(x_0, x_1, f_0, f_1, df_0):
     b = df_0
     c = f_0
 
-    a_min = - b / (2.0*a)
-    f_min = a * a_min**2 + b * a_min + c
+    a_min = - b / (2.0 * a)
+    f_min = a * a_min ** 2 + b * a_min + c
     if f_min > f_1:
         a_min = x_1 - x_0
         if f_0 < f_1:

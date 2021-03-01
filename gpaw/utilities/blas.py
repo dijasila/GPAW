@@ -10,6 +10,7 @@ http://en.wikipedia.org/wiki/Basic_Linear_Algebra_Subprograms
 and
 http://www.netlib.org/lapack/lug/node145.html
 """
+from typing import TypeVar
 
 import numpy as np
 import scipy.linalg.blas as blas
@@ -17,8 +18,18 @@ import scipy.linalg.blas as blas
 from gpaw import debug
 import _gpaw
 
+__all__ = ['mmm']
 
-def mmm(alpha, a, opa, b, opb, beta, c):
+T = TypeVar('T', float, complex)
+
+
+def mmm(alpha: T,
+        a: np.ndarray,
+        opa: str,
+        b: np.ndarray,
+        opb: str,
+        beta: T,
+        c: np.ndarray) -> None:
     """Matrix-matrix multiplication using dgemm or zgemm.
 
     For opa='n' and opb='n', we have::
@@ -292,7 +303,9 @@ if not hasattr(_gpaw, 'mmm'):
             return m.T
         return m.conj().T
 
-    def mmm(alpha, a, opa, b, opb, beta, c):  # noqa
+    def mmm(alpha: T, a: np.ndarray, opa: str,  # noqa
+            b: np.ndarray, opb: str,
+            beta: T, c: np.ndarray) -> None:
         if beta == 0.0:
             c[:] = 0.0
         else:

@@ -138,6 +138,9 @@ class DirectLCAO(object):
         diagonalization_string = repr(self.diagonalizer)
         wfs.timer.start(diagonalization_string)
         # May overwrite S_MM (so the results will be stored as decomposed)
+        if kpt.C_nM is None:
+            kpt.C_nM = wfs.bd.empty(wfs.setups.nao, dtype=wfs.dtype)
+
         self.diagonalizer.diagonalize(H_MM, kpt.C_nM, kpt.eps_n, S_MM,
                                       is_already_decomposed)
         wfs.timer.stop(diagonalization_string)
@@ -191,8 +194,8 @@ class DirectLCAO(object):
         HC_Mn = HC_Mn[:, :nbs] - rhs2[:, :nbs]
         norm = []
         for i in range(nbs):
-            norm.append(np.dot(HC_Mn[:,i].conj(),
-                               HC_Mn[:,i]).real * kpt.f_n[i])
+            norm.append(
+                np.dot(HC_Mn[:, i].conj(), HC_Mn[:, i]).real * kpt.f_n[i])
 
         wfs.timer.stop('Residual')
 

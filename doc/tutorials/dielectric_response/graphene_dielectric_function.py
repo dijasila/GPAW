@@ -31,19 +31,18 @@ calc = GPAW(h=0.18,
             kpts={'density': 10.0, 'gamma': True},
             occupations=FermiDirac(0.1))
 
-atoms.set_calculator(calc)
+atoms.calc = calc
 atoms.get_potential_energy()
 calc.write('gs.gpw')
 
 kpts = find_high_symmetry_monkhorst_pack('gs.gpw', density=30,
                                          pbc=pbc)
-responseGS = GPAW('gs.gpw',
-                  fixdensity=True,
-                  kpts=kpts,
-                  parallel={'band': 1},
-                  nbands=30,
-                  occupations=FermiDirac(0.001),
-                  convergence={'bands': 20})
+responseGS = GPAW('gs.gpw').fixed_density(
+    kpts=kpts,
+    parallel={'band': 1},
+    nbands=30,
+    occupations=FermiDirac(0.001),
+    convergence={'bands': 20})
 
 responseGS.get_potential_energy()
 responseGS.write('gsresponse.gpw', 'all')

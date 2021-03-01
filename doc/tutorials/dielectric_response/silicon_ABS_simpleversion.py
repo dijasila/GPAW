@@ -6,7 +6,7 @@ from gpaw.response.df import DielectricFunction
 atoms = bulk('Si', 'diamond', a=5.431)
 calc = GPAW(mode='pw', kpts=(4, 4, 4))
 
-atoms.set_calculator(calc)
+atoms.calc = calc
 atoms.get_potential_energy()  # Ground state calculation is performed
 calc.write('si.gpw', 'all')  # Use 'all' option to write wavefunction
 

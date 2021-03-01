@@ -3,6 +3,7 @@ from gpaw.utilities.blas import mmm
 from ase.units import Hartree
 from gpaw.directmin.lcao.tools import D_matrix
 
+
 class ZeroCorrectionsLcao:
     """
     Don't apply any corrections
@@ -10,7 +11,7 @@ class ZeroCorrectionsLcao:
     """
     def __init__(self, wfs, dens, ham, **kwargs):
         self.name = 'Zero'
-        self.n_kps = wfs.kd.nks // wfs.kd.nspins
+        self.n_kps = wfs.kd.nibzkpts
         self.dtype = wfs.dtype
         self.nvalence = wfs.nvalence
 
@@ -51,8 +52,8 @@ class ZeroCorrectionsLcao:
         hc_mn = hc_mn[:, :n_occ] - rhs2[:, :n_occ]
         norm = []
         for i in range(n_occ):
-            norm.append(np.dot(hc_mn[:,i].conj(),
-                               hc_mn[:,i]).real * kpt.f_n[i])
+            norm.append(np.dot(hc_mn[:, i].conj(),
+                               hc_mn[:, i]).real * kpt.f_n[i])
             # needs to be contig. to use this:
             # x = np.ascontiguousarray(hc_mn[:,i])
             # norm.append(dotc(x, x).real * kpt.f_n[i])

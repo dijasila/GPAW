@@ -14,7 +14,7 @@ calc = GPAW(mode=PW(300),
             occupations=FermiDirac(0.001),
             txt='C_groundstate_freq.txt')
 
-atoms.set_calculator(calc)
+atoms.calc = calc
 atoms.get_potential_energy()
 
 calc.diagonalize_full_hamiltonian()
@@ -29,6 +29,6 @@ for i, domega0 in enumerate([0.01, 0.02, 0.03, 0.04, 0.05]):
                   ecut=20,
                   domega0=domega0,
                   omega2=omega2,
-                  filename='C_g0w0_domega0_%s_omega2_%s' % (domega0, omega2))
+                  filename=f'C_g0w0_domega0_{domega0}_omega2_{omega2}')
 
         results = gw.calculate()

@@ -1,4 +1,3 @@
-from __future__ import print_function, division
 import multiprocessing as mp
 import os
 import re
@@ -323,7 +322,7 @@ class DatasetOptimizer:
                 if i == 's':
                     pass
                 if i == '1':
-                    data = np.loadtxt(f'data.csv', delimiter=',')
+                    data = np.loadtxt('data.csv', delimiter=',')
                     break
             data += d.tolist()
         data = np.array(data)

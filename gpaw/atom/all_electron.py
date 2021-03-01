@@ -5,7 +5,6 @@
 Atomic Density Functional Theory
 """
 
-from __future__ import print_function
 from math import pi, sqrt, log
 import tempfile
 import pickle
@@ -14,7 +13,7 @@ import os
 
 import numpy as np
 from ase.data import atomic_names
-from ase.utils import devnull
+from gpaw.utilities import devnull
 
 from gpaw.atom.configurations import configurations
 from gpaw.atom.radialgd import AERadialGridDescriptor
@@ -185,8 +184,7 @@ class AllElectron:
 
         # Initialize for non-local functionals
         if self.xc.type == 'GLLB':
-            self.xc.pass_stuff_1d(self)
-            self.xc.initialize_1d()
+            self.xc.initialize_1d(self)
 
         n_j = self.n_j
         l_j = self.l_j
@@ -770,6 +768,8 @@ def shoot(u, l, vr, e, r2dvdr, r, dr, c10, c2, scalarrel, gmax=None):
         # at the turning point
         gtp = g + 1
         utp = u[gtp]
+        if gtp == len(u) - 1:
+            return 100, 0.0
         dudrplus = 0.5 * (u[gtp + 1] - u[gtp - 1]) / dr[gtp]
     else:
         gtp = gmax

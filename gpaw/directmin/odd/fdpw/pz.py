@@ -48,7 +48,7 @@ class PzCorrections:
             rank_a = wfs.gd.get_ranks_from_positions(spos_ac)
             atom_partition = AtomPartition(wfs.gd.comm, rank_a,
                                            name='gd')
-            self.ghat.set_positions(spos_ac,atom_partition)
+            self.ghat.set_positions(spos_ac, atom_partition)
             self.corr = madelung(wfs.gd.cell_cv)
             self.corr_q = 1.0
             for nc in self.pd2.gd.N_c:
@@ -102,7 +102,7 @@ class PzCorrections:
         self.beta_c = scaling_factor[0]
         self.beta_x = scaling_factor[1]
 
-        self.n_kps = wfs.kd.nks // wfs.kd.nspins
+        self.n_kps = wfs.kd.nibzkpts
         self.store_potentials = store_potentials
         self.grad = {}
         self.total_sic = 0.0
@@ -125,7 +125,7 @@ class PzCorrections:
 
         if wfs.mode == 'pw':
             nt_G = wfs.pd.gd.zeros(global_array=True)
-            psit_G = wfs.pd.alltoall1(kpt.psit.array[n:n+1], kpt.q)
+            psit_G = wfs.pd.alltoall1(kpt.psit.array[n: n + 1], kpt.q)
             if psit_G is not None:
                 psit_R = wfs.pd.ifft(psit_G, kpt.q,
                                      local=True, safe=False)
@@ -203,16 +203,16 @@ class PzCorrections:
             if wfs.mode == 'pw':
                 vt_G = wfs.pd.gd.collect(vt_G, broadcast=True)
                 Q_G = wfs.pd.Q_qG[kpt.q]
-                psit_G = wfs.pd.alltoall1(kpt.psit_nG[i:i+1], kpt.q)
+                psit_G = wfs.pd.alltoall1(kpt.psit_nG[i: i + 1], kpt.q)
                 if psit_G is not None:
-                    psit_R = wfs.pd.ifft(psit_G, kpt.q, local=True,
-                                          safe=False)
+                    psit_R = wfs.pd.ifft(
+                        psit_G, kpt.q, local=True, safe=False)
                     psit_R *= vt_G
                     wfs.pd.fftplan.execute()
                     vtpsit_G = wfs.pd.tmp_Q.ravel()[Q_G]
                 else:
                     vtpsit_G = wfs.pd.tmp_G
-                wfs.pd.alltoall2(vtpsit_G, kpt.q, self.grad[k][i:i+1])
+                wfs.pd.alltoall2(vtpsit_G, kpt.q, self.grad[k][i: i + 1])
                 if scalewithocc:
                     self.grad[k][i] *= kpt.f_n[i]
             else:
@@ -244,13 +244,14 @@ class PzCorrections:
 
         if add_grad:
             if U_k is not None:
-                grad_knG[k][:n_occ] += \
-                    np.tensordot(U_k[k][:n_occ,:n_occ].conj(), self.grad[k], axes=1)
+                grad_knG[k][:n_occ] += np.tensordot(
+                    U_k[k][:n_occ, :n_occ].conj(), self.grad[k], axes=1)
             else:
                 grad_knG[k][:n_occ] += self.grad[k]
         else:
             if U_k is not None:
-                self.grad[k][:] = np.tensordot(U_k[k][:n_occ,:n_occ].conj(), self.grad[k], axes=1)
+                self.grad[k][:] = np.tensordot(
+                    U_k[k][:n_occ, :n_occ].conj(), self.grad[k], axes=1)
 
         self.e_sic_by_orbitals[k] = \
             e_total_sic.reshape(e_total_sic.shape[0] // 2, 2)
@@ -275,7 +276,7 @@ class PzCorrections:
         if self.sic_coarse_grid is False:
             self.interpolator.apply(nt, nt_sg[0])
             nt_sg[0] *= self.cgd.integrate(nt) / \
-                        self.finegd.integrate(nt_sg[0])
+                self.finegd.integrate(nt_sg[0])
             e_xc = self.xc.calculate(self.finegd, nt_sg, vt_sg)
         else:
             nt_sg[0] = nt
@@ -314,8 +315,8 @@ class PzCorrections:
         else:
             vt_G = vt_sg[0]
 
-        return np.array([-ec*self.beta_c, -e_xc*self.beta_x]), \
-               vt_G, v_ht_g
+        return np.array([-ec * self.beta_c, -e_xc * self.beta_x]), \
+            vt_G, v_ht_g
 
     def get_paw_corrections(self, D_ap, vHt_g):
 
@@ -362,7 +363,7 @@ class PzCorrections:
             exc = self.cgd.comm.sum(exc)
         # self.t_waiting_time += time.time() - t1
 
-        return np.array([-ec*self.beta_c, -exc * self.beta_x]), dH_ap
+        return np.array([-ec * self.beta_c, -exc * self.beta_x]), dH_ap
 
     def get_energy_and_gradients_inner_loop(self, wfs, kpt, a_mat,
                                             evals, evec, dens):
@@ -388,7 +389,7 @@ class PzCorrections:
         indz = np.absolute(l_odd) > 1.0e-4
         l_c = 2.0 * l_odd[indz]
         l_odd = f[:, np.newaxis] * l_odd.T.conj() - f * l_odd
-        kappa = np.max(np.absolute(l_odd[indz])/np.absolute(l_c))
+        kappa = np.max(np.absolute(l_odd[indz]) / np.absolute(l_c))
 
         if a_mat is None:
             wfs.timer.stop('Unitary gradients')
@@ -415,7 +416,8 @@ class PzCorrections:
         for m in range(n_occ):
             # calculate Hartree pot, compans. charge and PAW corrects
             if wfs.mode == 'fd':
-                nt_G, Q_aL, D_ap = self.get_orbdens_compcharge_dm_kpt(wfs, kpt, m)
+                nt_G, Q_aL, D_ap = \
+                    self.get_orbdens_compcharge_dm_kpt(wfs, kpt, m)
                 e_sic, vt_G, v_ht_g = \
                     self.get_pseudo_pot(nt_G, Q_aL, m, kpoint=k)
                 e_sic_paw_m, dH_ap = \
@@ -515,9 +517,8 @@ class PzCorrections:
             setup = self.setups[a]
             dH_sp = np.zeros((2, len(D_p)))
             D_sp = np.array([D_p, np.zeros_like(D_p)])
-            excpaw += self.xc.calculate_paw_correction(setup, D_sp,
-                                                    dH_sp,
-                                                    addcoredensity=False)
+            excpaw += self.xc.calculate_paw_correction(
+                setup, D_sp, dH_sp, addcoredensity=False)
             dH_ap[a] = -dH_sp[0] * self.beta_x
         excpaw = wfs.gd.comm.sum(excpaw)
         exc += excpaw
@@ -543,7 +544,7 @@ class PzCorrections:
             vHt = self.pd2.ifft(vHt_q)
             # vHt = self.pd2.ifft(vHt_q) + self.corr
             # vHt_q = self.pd2.fft(vHt)
-            ehart += self.corr/2.0
+            ehart += self.corr / 2.0
 
         # PAW to Hartree
         ehartpaw = 0.0
@@ -562,7 +563,8 @@ class PzCorrections:
         vt_G -= vHt * self.beta_c
 
         if returnQalandVhq:
-            return np.array([-ehart * self.beta_c,
-                             -exc * self.beta_x]), vt_G, dH_ap, Q_aL, vHt_q
+            return np.array([-ehart * self.beta_c, -exc * self.beta_x]), \
+                vt_G, dH_ap, Q_aL, vHt_q
         else:
-            return np.array([-ehart*self.beta_c, -exc * self.beta_x]), vt_G, dH_ap
+            return np.array([-ehart * self.beta_c, -exc * self.beta_x]),\
+                vt_G, dH_ap

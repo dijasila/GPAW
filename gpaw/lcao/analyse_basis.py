@@ -1,7 +1,7 @@
-# Emacs: treat this as -*- python -*-
-
 import os
+import sys
 from optparse import OptionParser
+
 
 def build_parser():
     usage = '%prog [OPTION] [BASIS]...'
@@ -20,11 +20,12 @@ def build_parser():
                       help='Image format [default: %default]')
     return parser
 
-def main():
-    parser = build_parser()
-    opts, files = parser.parse_args()
 
-    import pylab
+def main(argv=sys.argv[1:]):
+    parser = build_parser()
+    opts, files = parser.parse_args(argv)
+
+    import matplotlib.pyplot as plt
     from gpaw.basis_data import Basis, BasisPlotter
 
     plotter = BasisPlotter(premultiply=not opts.literal,
@@ -41,9 +42,9 @@ def main():
         if opts.actual_filenames:
             basis = Basis(symbol, name, False)
             basis.read_xml(path)
-        else: # Search GPAW setup dirs
-            basis = Basis(symbol, name)        
+        else:  # search GPAW setup dirs
+            basis = Basis(symbol, name)
         plotter.plot(basis)
 
     if not opts.save:
-        pylab.show()
+        plt.show()

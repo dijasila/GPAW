@@ -37,7 +37,8 @@ for i in x.keys():
     if i == 'dmuinv':
         continue
     plt.xticks(range(len(x[i])), x[i], rotation=45)
-    plt.plot(range(len(x[i])), y[i], types[i], label=legends[i], fillstyle=fillstyle[i])
+    plt.plot(range(len(x[i])), y[i], types[i],
+             label=legends[i], fillstyle=fillstyle[i])
 plt.grid(color='k', linestyle=':', linewidth=0.3)
 plt.ylabel('Number of iterations (energy and gradients calls)')
 plt.legend()

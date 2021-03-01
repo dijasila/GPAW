@@ -1,7 +1,5 @@
-from __future__ import print_function
 from ase import Atoms
 from gpaw import GPAW
-from gpaw.test import equal
 
 a = 4.00
 d = a / 2**0.5
@@ -25,7 +23,7 @@ slab = Atoms('Al10H2',
              pbc=(1, 1, 1))
 calc = GPAW(h=0.25, nbands=28, kpts=(2, 6, 1),
             convergence={'eigenstates': 1e-5})
-slab.set_calculator(calc)
+slab.calc = calc
 e = slab.get_potential_energy()
 niter = calc.get_number_of_iterations()
 assert len(calc.get_k_point_weights()) == 3
@@ -36,5 +34,4 @@ for i in range(1):
     e = slab.get_potential_energy()
 
 print(e, niter)
-energy_tolerance = 0.0015
-equal(e, -44.694, energy_tolerance)
+assert abs(e - -44.694) < 0.0015

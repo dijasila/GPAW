@@ -1,3 +1,13 @@
+"""
+A class for finding optimal
+orbitals of the KS-DFT or PZ-SIC
+functionals using exponential transformation
+direct minimization
+
+arXiv:2101.12597 [physics.comp-ph]
+"""
+
+
 from ase.units import Hartree
 import numpy as np
 from gpaw.utilities.blas import mmm  # , dotc, dotu
@@ -28,7 +38,7 @@ class DirectMinLCAO(DirectLCAO):
                  representation='sparse',
                  odd_parameters='Zero',
                  init_from_ks_eigsolver=False,
-                 orthonormalization='loewdin',
+                 orthonormalization='gramschmidt',
                  donothingwithintiwfs=False):
 
         super(DirectMinLCAO, self).__init__(diagonalizer, error)
@@ -80,8 +90,6 @@ class DirectMinLCAO(DirectLCAO):
         if self.odd_parameters['name'] == 'PZ_SIC':
             if self.initial_orbitals is None:
                 self.initial_orbitals = 'FB'
-            assert self.orthonormalization['name'] == 'loewdin', \
-                'Use loewdin orthonormalization with PZ_SIC'
 
         if self.sda['name'] == 'LBFGS_P' and not self.use_prec:
             raise ValueError('Use LBFGS_P with use_prec=True')
@@ -129,7 +137,7 @@ class DirectMinLCAO(DirectLCAO):
     def initialize_2(self, wfs, dens, ham):
 
         self.dtype = wfs.dtype
-        self.n_kps = wfs.kd.nks // wfs.kd.nspins
+        self.n_kps = wfs.kd.nibzkpts
 
         # dimensionality of the problem.
         # this implementation rotates among all bands
@@ -259,23 +267,40 @@ class DirectMinLCAO(DirectLCAO):
             raise Exception('Check ODD Parameters')
         self.e_sic = 0.0
 
-    def iterate(self, ham, wfs, dens, occ, log):
+    def iterate(self, ham, wfs, dens, log):
+        """
+        One iteration of direct optimization
+        for occupied states
+
+        :param ham:
+        :param wfs:
+        :param dens:
+        :param log:
+        :return:
+        """
 
         assert dens.mixer.driver.name == 'dummy', \
-            'Please, use: mixer=DummyMixer()'
+            'Please, use: mixer={\'name\': \'dummy\'}'
         assert wfs.bd.nbands == wfs.basis_functions.Mmax, \
             'Please, use: nbands=\'nao\''
         assert wfs.bd.comm.size == 1, \
             'Band parallelization is not supported'
-        assert occ.width < 1.0e-5, \
-            'Zero Kelvin only.'
+        # this assert sometimes doesn't work:
+        # assert wfs.occupations.name == 'zero-width', \
+        #     'Zero Kelvin only.'
+        # so let's use this instead
+        occ_dct = wfs.occupations.todict()
+        width = occ_dct.get('width')
+        if width is not None:
+            assert width < 1.0e-5, \
+                'Zero Kelvin only.'
 
         wfs.timer.start('Direct Minimisation step')
 
         if self.iters == 0:
             # need to initialize c_nm, eps, f_n and so on.
-            self.init_wave_functions(wfs, ham, occ, log)
-            self.update_ks_energy(ham, wfs, dens, occ)
+            self.init_wave_functions(wfs, ham, dens, log)
+            self.update_ks_energy(ham, wfs, dens)
             # not sure sort wfs is good here,
             # you need to probably run loop over sort_wfs
             # with update of energy. So, don't use it for now.
@@ -292,6 +317,7 @@ class DirectMinLCAO(DirectLCAO):
         wfs.timer.start('Preconditioning:')
         precond = self.update_preconditioning(wfs, self.use_prec)
         wfs.timer.stop('Preconditioning:')
+        self.update_ref_orbitals(wfs, ham)
 
         if str(self.search_direction) == 'LBFGS_P2':
             for kpt in wfs.kpt_u:
@@ -308,7 +334,7 @@ class DirectMinLCAO(DirectLCAO):
         if self.iters == 1:
             phi_2i[0], g_mat_u = \
                 self.get_energy_and_gradients(a_mat_u, n_dim, ham, wfs,
-                                              dens, occ, c_ref)
+                                              dens, c_ref)
         else:
             g_mat_u = self.g_mat_u
 
@@ -338,7 +364,7 @@ class DirectMinLCAO(DirectLCAO):
         alpha, phi_alpha, der_phi_alpha, g_mat_u = \
             self.line_search.step_length_update(a_mat_u, p_mat_u,
                                                 n_dim, ham, wfs, dens,
-                                                occ, c_ref,
+                                                c_ref,
                                                 phi_0=phi_2i[0],
                                                 der_phi_0=der_phi_2i[0],
                                                 phi_old=phi_2i[1],
@@ -377,7 +403,7 @@ class DirectMinLCAO(DirectLCAO):
         wfs.timer.stop('Direct Minimisation step')
 
     def get_energy_and_gradients(self, a_mat_u, n_dim, ham, wfs, dens,
-                                 occ, c_nm_ref):
+                                 c_nm_ref):
 
         """
         Energy E = E[C exp(A)]. Gradients G_ij[C, A] = dE/dA_ij
@@ -390,7 +416,7 @@ class DirectMinLCAO(DirectLCAO):
 
         self.rotate_wavefunctions(wfs, a_mat_u, n_dim, c_nm_ref)
 
-        e_total = self.update_ks_energy(ham, wfs, dens, occ)
+        e_total = self.update_ks_energy(ham, wfs, dens)
 
         wfs.timer.start('Calculate gradients')
         g_mat_u = {}
@@ -404,15 +430,11 @@ class DirectMinLCAO(DirectLCAO):
             h_mm = self.calculate_hamiltonian_matrix(ham, wfs, kpt)
             # make matrix hermitian
             tri2full(h_mm)
-            g_mat_u[k], error = self.odd.get_gradients(h_mm, kpt.C_nM,
-                                                       kpt.f_n,
-                                                       self.evecs[k],
-                                                       self.evals[k],
-                                                       kpt, wfs,
-                                                       wfs.timer,
-                                                       self.matrix_exp,
-                                                       self.representation['name'],
-                                                       self.ind_up[k])
+            g_mat_u[k], error = self.odd.get_gradients(
+                h_mm, kpt.C_nM, kpt.f_n, self.evecs[k], self.evals[k],
+                kpt, wfs, wfs.timer, self.matrix_exp,
+                self.representation['name'], self.ind_up[k])
+
             if hasattr(self.odd, 'e_sic_by_orbitals'):
                 self.e_sic += self.odd.e_sic_by_orbitals[k].sum()
 
@@ -425,16 +447,41 @@ class DirectMinLCAO(DirectLCAO):
 
         return e_total + self.e_sic, g_mat_u
 
-    def update_ks_energy(self, ham, wfs, dens, occ):
+    def update_ks_energy(self, ham, wfs, dens):
+        """
+        Update Kohn-Shame energy
+        It assumes the temperature is zero K.
+
+
+        :param ham:
+        :param wfs:
+        :param dens:
+        :return:
+        """
 
         wfs.timer.start('Update Kohn-Sham energy')
         dens.update(wfs)
         ham.update(dens, wfs, False)
         wfs.timer.stop('Update Kohn-Sham energy')
 
-        return ham.get_energy(occ, False)
+        return ham.get_energy(0.0, wfs, False)
 
     def get_gradients(self, h_mm, c_nm, f_n, evec, evals, kpt, timer):
+
+        """
+        calculate derivatives of the energy
+        with respect to skew-hermitian
+        matrix elements
+
+        :param h_mm:
+        :param c_nm:
+        :param f_n:
+        :param evec:
+        :param evals:
+        :param kpt:
+        :param timer:
+        :return:
+        """
 
         timer.start('Construct Gradient Matrix')
         hc_mn = np.zeros(shape=(c_nm.shape[1], c_nm.shape[0]),
@@ -464,8 +511,8 @@ class DirectMinLCAO(DirectLCAO):
         hc_mn = hc_mn[:, :n_occ] - rhs2[:, :n_occ]
         norm = []
         for i in range(n_occ):
-            norm.append(np.dot(hc_mn[:,i].conj(),
-                               hc_mn[:,i]).real * kpt.f_n[i])
+            norm.append(np.dot(hc_mn[:, i].conj(),
+                               hc_mn[:, i]).real * kpt.f_n[i])
             # needs to be contig. to use this:
             # x = np.ascontiguousarray(hc_mn[:,i])
             # norm.append(dotc(x, x).real * kpt.f_n[i])
@@ -513,6 +560,16 @@ class DirectMinLCAO(DirectLCAO):
         return 2.0 * grad, error
 
     def get_search_direction(self, a_mat_u, g_mat_u, precond, wfs):
+        """
+        calculate search direction according to chosen
+        optimization algorithm (LBFGS for example)
+
+        :param a_mat_u:
+        :param g_mat_u:
+        :param precond:
+        :param wfs:
+        :return:
+        """
 
         if self.representation['name'] in ['sparse', 'u_invar']:
             p_mat_u = self.search_direction.update_data(wfs, a_mat_u,
@@ -545,7 +602,7 @@ class DirectMinLCAO(DirectLCAO):
         return p_mat_u
 
     def evaluate_phi_and_der_phi(self, a_mat_u, p_mat_u, n_dim, alpha,
-                                 ham, wfs, dens, occ, c_ref,
+                                 ham, wfs, dens, c_ref,
                                  phi=None, g_mat_u=None):
         """
         phi = f(x_k + alpha_k*p_k)
@@ -557,7 +614,7 @@ class DirectMinLCAO(DirectLCAO):
                        for k in a_mat_u.keys()}
             phi, g_mat_u = \
                 self.get_energy_and_gradients(x_mat_u, n_dim,
-                                              ham, wfs, dens, occ,
+                                              ham, wfs, dens,
                                               c_ref
                                               )
             del x_mat_u
@@ -583,7 +640,16 @@ class DirectMinLCAO(DirectLCAO):
 
         return phi, der_phi, g_mat_u
 
-    def update_ref_orbitals(self, wfs, ham, occ):
+    def update_ref_orbitals(self, wfs, ham):
+        """
+        update orbitals which are chosen as reference
+        orbitals to whihc rotation is applied
+
+        :param wfs:
+        :param ham:
+        :return:
+        """
+
         if str(self.search_direction) == 'LBFGS_P2':
             return 0
 
@@ -615,6 +681,14 @@ class DirectMinLCAO(DirectLCAO):
                 raise Exception('Check Search Direction Parameters')
 
     def update_preconditioning(self, wfs, use_prec):
+        """
+        update preconditioning
+
+        :param wfs:
+        :param use_prec:
+        :return:
+        """
+
         counter = self.update_precond_counter
         if use_prec:
             if self.sda['name'] != 'LBFGS_P':
@@ -652,21 +726,30 @@ class DirectMinLCAO(DirectLCAO):
                     if self.iters % counter == 0 or self.iters == 1:
                         self.hess[k] = self.get_hessian(kpt)
                     hess = self.hess[k]
+                    beta0 = self.search_direction.beta_0
                     if self.dtype is float:
                         precond[k] = \
-                            1.0 / (0.75 * hess +
-                                   w * 0.25 * self.search_direction.beta_0 ** (-1))
+                            1. / (0.75 * hess +
+                                  w * 0.25 * beta0 ** (-1))
                     else:
                         precond[k] = \
-                            1.0 / (0.75 * hess.real +
-                                   w * 0.25 * self.search_direction.beta_0 ** (-1)) + \
-                            1.0j / (0.75 * hess.imag +
-                                   w * 0.25 * self.search_direction.beta_0 ** (-1))
+                            1. / (0.75 * hess.real +
+                                  w * 0.25 * beta0 ** (-1)) + \
+                            1.j / (0.75 * hess.imag +
+                                   w * 0.25 * beta0 ** (-1))
                 return precond
         else:
             return None
 
     def get_hessian(self, kpt):
+        """
+        calculate approximate hessian:
+
+        h_{lm, lm} = -2.0 * (eps_n[l] - eps_n[m]) * (f[l] - f[m])
+
+        :param kpt:
+        :return:
+        """
 
         f_n = kpt.f_n
         eps_n = kpt.eps_n
@@ -696,16 +779,24 @@ class DirectMinLCAO(DirectLCAO):
     def calculate_residual(self, kpt, H_MM, S_MM, wfs):
         return np.inf
 
-    def get_canonical_representation(self, ham, wfs, occ,
+    def get_canonical_representation(self, ham, wfs,
                                      update_eigenvalues=True,
                                      update_wfs=False):
+        """
+        choose canonical orbitals which diagonalise
+        lagrange matrix. it's probably necessary
+        to do subspace rotation with equally
+        occupied states.
+        In this case, the total energy remains the same,
+        as it's unitary invariant within equally occupied subspaces.
 
-        # choose canonical orbitals which diagonalise
-        # lagrange matrix. it's probably necessary
-        # to do subspace rotation with equally
-        # occupied states.
-        # In this case, the total energy remains the same,
-        # as it's unitary invariant within equally occupied subspaces.
+        :param ham:
+        :param wfs:
+        :param update_eigenvalues:
+        :param update_wfs:
+        :return:
+        """
+
         wfs.timer.start('Get canonical representation')
 
         for kpt in wfs.kpt_u:
@@ -729,10 +820,10 @@ class DirectMinLCAO(DirectLCAO):
                         elif n_init > len(kpt.f_n):
                             raise SystemExit('Bug is here!')
             elif self.odd.name == 'PZ_SIC':
-                self.odd.get_lagrange_matrices(h_mm, kpt.C_nM,
-                                               kpt.f_n, kpt, wfs,
-                                               update_eigenvalues=update_eigenvalues,
-                                               update_wfs=update_wfs)
+                self.odd.get_lagrange_matrices(
+                    h_mm, kpt.C_nM, kpt.f_n, kpt, wfs,
+                    update_eigenvalues=update_eigenvalues,
+                    update_wfs=update_wfs)
             wfs.atomic_correction.calculate_projections(wfs, kpt)
         occ.calculate(wfs)
         occ_name = getattr(occ, "name", None)
@@ -783,7 +874,7 @@ class DirectMinLCAO(DirectLCAO):
         x = np.max(abs(np.array(ind) - np.arange(len(ind))))
         if x > 0:
             # now sort wfs according to orbital energies
-            kpt.C_nM[np.arange(len(ind)),:] = kpt.C_nM[ind,:]
+            kpt.C_nM[np.arange(len(ind)), :] = kpt.C_nM[ind, :]
             kpt.eps_n[:] = np.sort(h_mm.diagonal().real.copy())
         wfs.timer.stop('Sort WFS')
 
@@ -821,8 +912,21 @@ class DirectMinLCAO(DirectLCAO):
                 'orthonormalization': self.orthonormalization
                 }
 
-    def get_numerical_gradients(self, n_dim, ham, wfs, dens, occ,
+    def get_numerical_gradients(self, n_dim, ham, wfs, dens,
                                 c_nm_ref, eps=1.0e-7):
+
+        """
+           calculate gradient with respect to skew-hermitian
+           matrix using finite differences
+
+        :param n_dim:
+        :param ham:
+        :param wfs:
+        :param dens:
+        :param c_nm_ref:
+        :param eps:
+        :return:
+        """
 
         assert not self.representation['name'] in ['sparse', 'u_invar']
         a_m = {}
@@ -844,7 +948,7 @@ class DirectMinLCAO(DirectLCAO):
                 a_m[u] = a
 
         g_a = self.get_energy_and_gradients(a_m, n_dim, ham, wfs,
-                                            dens, occ, c_nm_ref)[1]
+                                            dens, c_nm_ref)[1]
 
         h = [eps, -eps]
         coeif = [1.0, -1.0]
@@ -873,9 +977,12 @@ class DirectMinLCAO(DirectLCAO):
                             else:
                                 a_m[u][i][j] = a + 1.0j * h[l]
                                 if i != j:
-                                    a_m[u][j][i] = -np.conjugate(a + 1.0j * h[l])
+                                    a_m[u][j][i] = \
+                                        -np.conjugate(a + 1.0j * h[l])
 
-                            E = self.get_energy_and_gradients(a_m, n_dim, ham, wfs, dens, occ, c_nm_ref)[0]
+                            E = self.get_energy_and_gradients(
+                                a_m, n_dim, ham, wfs, dens,
+                                c_nm_ref)[0]
 
                             g += E * coeif[l]
 
@@ -888,8 +995,27 @@ class DirectMinLCAO(DirectLCAO):
 
         return g_a, g_n
 
-    def get_numerical_hessian(self, n_dim, ham, wfs, dens, occ,
+    def get_numerical_hessian(self, n_dim, ham, wfs, dens,
                               c_nm_ref, eps=1.0e-5):
+        """
+        calculate hessian with respect to skew-hermitian elements
+        using finite differences
+
+        :param n_dim:
+        :param ham:
+        :param wfs:
+        :param dens:
+        :param c_nm_ref:
+        :param eps:
+        :return:
+        """
+
+        # occ_name = getattr(occ, "name", None)
+        # if occ_name == 'mom':
+        #     self.sort_wavefunctions_mom(occ, wfs)
+        #     for kpt in wfs.kpt_u:
+        #         u = self.n_kps * kpt.s + kpt.q
+        #         c_nm_ref[u] = kpt.C_nM.copy()
 
         occ_name = getattr(occ, "name", None)
         if occ_name == 'mom':
@@ -897,7 +1023,6 @@ class DirectMinLCAO(DirectLCAO):
             for kpt in wfs.kpt_u:
                 u = self.n_kps * kpt.s + kpt.q
                 c_nm_ref[u] = kpt.C_nM.copy()
-
         self.matrix_exp = 'egdecomp'
 
         h = [eps, -eps]
@@ -936,9 +1061,8 @@ class DirectMinLCAO(DirectLCAO):
                         else:
                             a_m[u][i] = a + 1.0j * h[l]
 
-                        g = self.get_energy_and_gradients(a_m, n_dim, ham,
-                                                              wfs, dens, occ,
-                                                              c_nm_ref)[1]
+                        g = self.get_energy_and_gradients(
+                            a_m, n_dim, ham, wfs, dens, c_nm_ref)[1]
 
                         hess += g[u] * coeif[l]
 
@@ -952,6 +1076,17 @@ class DirectMinLCAO(DirectLCAO):
         return hess_a, hess_n
 
     def rotate_wavefunctions(self, wfs, a_mat_u, n_dim, c_nm_ref):
+
+        """
+        Appply unitary transformation U = exp(a_mat_u) to
+        coefficients c_nm_ref
+
+        :param wfs:
+        :param a_mat_u:
+        :param n_dim:
+        :param c_nm_ref:
+        :return:
+        """
 
         wfs.timer.start('Unitary rotation')
         for kpt in wfs.kpt_u:
@@ -1001,8 +1136,8 @@ class DirectMinLCAO(DirectLCAO):
 
                 dimens1 = u_nn.shape[0]
                 dimens2 = u_nn.shape[1]
-                kpt.C_nM[:dimens2] = np.dot(u_nn.T,
-                                             c_nm_ref[k][:dimens1])
+                kpt.C_nM[:dimens2] = np.dot(
+                    u_nn.T, c_nm_ref[k][:dimens1])
 
                 del u_nn
                 del a
@@ -1028,17 +1163,26 @@ class DirectMinLCAO(DirectLCAO):
 
         wfs.timer.stop('Unitary rotation')
 
-    def init_wave_functions(self, wfs, ham, occ, log):
-        occ_name = getattr(occ, "name", None)
+    def init_wave_functions(self, wfs, ham, dens, log):
+        """
+        if it is the first use of the scf then initialize
+        coefficient matrix using eigensolver
+        and then localise orbitals
 
-        # if it is the first use of the scf then initialize
-        # coefficient matrix using eigensolver
-        # and then localise orbitals
+        :param wfs:
+        :param ham:
+        :param dens:
+        :param log:
+        :return:
+        """
+
+        occ_name = getattr(occ, "name", None)
         if self.donothingwithintiwfs:
             self.donothingwithintiwfs = False
             return 0
 
-        need_canon_coef = (not wfs.coefficients_read_from_file and
+        need_canon_coef = \
+            (not wfs.coefficients_read_from_file and
                 self.c_nm_ref is None) or self.init_from_ks_eigsolver
 
         if need_canon_coef:
@@ -1059,7 +1203,7 @@ class DirectMinLCAO(DirectLCAO):
                 super(DirectMinLCAO, self).iterate(ham, wfs)
             else:
                 for kpt in wfs.kpt_u:
-                    u = kpt.s * wfs.kd.nks // wfs.kd.nspins + kpt.q
+                    u = kpt.s * wfs.kd.nibzkpts + kpt.q
                     if self.c_nm_ref is not None:
                         C = self.c_nm_ref[u]
                     else:
@@ -1077,6 +1221,16 @@ class DirectMinLCAO(DirectLCAO):
                 occ.reset(wfs)
 
     def localize_wfs(self, wfs, log):
+        """
+        initial orbitals can be localised using Pipek-Mezey,
+        Foster-Boys or Edmiston-Ruedenberg functions.
+
+        :param wfs:
+        :param dens:
+        :param ham:
+        :param log:
+        :return:
+        """
 
         log("Initial Localization: ...", flush=True)
         wfs.timer.start('Initial Localization')
@@ -1121,6 +1275,12 @@ def get_indices(dimens, dtype):
 
 
 def get_n_occ(kpt):
+    """
+    get number of occupied orbitals
+
+    :param kpt:
+    :return:
+    """
     nbands = len(kpt.f_n)
     n_occ = 0
     while n_occ < nbands and kpt.f_n[n_occ] > 1e-10:
@@ -1140,6 +1300,13 @@ def find_equally_occupied_subspace(f_n, index=0):
 
 
 def rotate_subspace(h_mm, c_nm):
+    """
+    choose canonical orbitals
+
+    :param h_mm:
+    :param c_nm:
+    :return:
+    """
     l_nn = np.dot(np.dot(c_nm, h_mm), c_nm.conj().T).conj()
     # check if diagonal then don't rotate? it could save a bit of time
     eps, w = np.linalg.eigh(l_nn)

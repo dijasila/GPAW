@@ -176,9 +176,9 @@ class HybridXC(HybridXCBase):
         return self.xc.calculate_paw_correction(setup, D_sp, dEdD_sp,
                                                 addcoredensity, a)
 
-    def initialize(self, density, hamiltonian, wfs, occupations):
+    def initialize(self, density, hamiltonian, wfs):
         assert wfs.kd.gamma
-        self.xc.initialize(density, hamiltonian, wfs, occupations)
+        self.xc.initialize(density, hamiltonian, wfs)
         self.kpt_comm = wfs.kd.comm
         self.nspins = wfs.nspins
         self.setups = wfs.setups

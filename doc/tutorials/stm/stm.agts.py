@@ -1,7 +1,6 @@
-from myqueue.task import task
+from myqueue.workflow import run
 
 
-def create_tasks():
-    return [
-        task('al111.py'),
-        task('stm.py', deps='al111.py')]
+def workflow():
+    with run(script='al111.py'):
+        run(script='stm.py')

@@ -12,6 +12,7 @@ import _gpaw
 from gpaw.utilities.partition import AtomPartition
 from gpaw.wavefunctions.pw import PWLFC
 
+
 class DftPzSicXT:
 
     """
@@ -43,7 +44,7 @@ class DftPzSicXT:
             rank_a = wfs.gd.get_ranks_from_positions(spos_ac)
             atom_partition = AtomPartition(wfs.gd.comm, rank_a,
                                            name='gd')
-            self.ghat.set_positions(spos_ac,atom_partition)
+            self.ghat.set_positions(spos_ac, atom_partition)
         else:
             if self.sic_coarse_grid:
                 self.ghat = LFC(self.cgd,
@@ -85,7 +86,7 @@ class DftPzSicXT:
         self.beta_c = scaling_factor[0]
         self.beta_x = scaling_factor[1]
 
-        self.n_kps = wfs.kd.nks // wfs.kd.nspins
+        self.n_kps = wfs.kd.nibzkpts
         self.store_potentials = store_potentials
         self.grad = {}
         self.total_sic = 0.0
@@ -103,7 +104,7 @@ class DftPzSicXT:
     def get_energy_and_gradients(self, wfs, grad_knG=None,
                                  dens=None, U_k=None,
                                  add_grad=False,
-                                 ham=None, occ=None):
+                                 ham=None):
 
         wfs.timer.start('Update Kohn-Sham energy')
         # calc projectors
@@ -112,11 +113,11 @@ class DftPzSicXT:
         dens.update(wfs)
         ham.update(dens, wfs, False)
         wfs.timer.stop('Update Kohn-Sham energy')
-        energy = ham.get_energy(occ, False)
+        energy = ham.get_energy(0.0, wfs, False)
         esic = 0.0
         for kpt in wfs.kpt_u:
             esic += self.get_energy_and_gradients_kpt(
-                wfs, kpt, dens, ham=ham, occ=occ)
+                wfs, kpt, dens, ham=ham)
 
             k = self.n_kps * kpt.s + kpt.q
             if U_k is not None:
@@ -131,7 +132,7 @@ class DftPzSicXT:
         return energy + esic
 
     def get_energy_and_gradients_kpt(self, wfs, kpt,
-                                     dens=None, ham=None, occ=None):
+                                     dens=None, ham=None):
 
         self.get_gradient_ks_kpt(wfs, kpt, ham=ham)
         esic = self.get_esic_add_sic_gradient_kpt(wfs, kpt)
@@ -189,18 +190,18 @@ class DftPzSicXT:
             if wfs.mode == 'pw':
                 vt_G = wfs.pd.gd.collect(vt_G, broadcast=True)
                 Q_G = wfs.pd.Q_qG[kpt.q]
-                psit_G = wfs.pd.alltoall1(kpt.psit_nG[i:i+1], kpt.q)
+                psit_G = wfs.pd.alltoall1(kpt.psit_nG[i:i + 1], kpt.q)
                 if psit_G is not None:
-                    psit_R = wfs.pd.ifft(psit_G, kpt.q, local=True,
-                                          safe=False)
+                    psit_R = wfs.pd.ifft(
+                        psit_G, kpt.q, local=True, safe=False)
                     psit_R *= vt_G
                     wfs.pd.fftplan.execute()
                     vtpsit_G = wfs.pd.tmp_Q.ravel()[Q_G]
                 else:
                     vtpsit_G = wfs.pd.tmp_G
-                tmp = np.zeros_like(self.grad[k][i:i+1])
+                tmp = np.zeros_like(self.grad[k][i:i + 1])
                 wfs.pd.alltoall2(vtpsit_G, kpt.q, tmp)
-                self.grad[k][i] += tmp[0] *kpt.f_n[i]
+                self.grad[k][i] += tmp[0] * kpt.f_n[i]
             else:
                 self.grad[k][i] += kpt.psit_nG[i] * vt_G * kpt.f_n[i]
             c_axi = {}
@@ -220,13 +221,13 @@ class DftPzSicXT:
 
     def get_energy_and_gradients_inner_loop(self, wfs, a_mat,
                                             evals, evec, dens,
-                                            ham, occ):
+                                            ham):
         nbands = wfs.bd.nbands
         e_sic = self.get_energy_and_gradients(wfs,
                                               grad_knG=None,
                                               dens=dens, U_k=None,
                                               add_grad=False,
-                                              ham=ham, occ=occ)
+                                              ham=ham)
         wfs.timer.start('Unitary gradients')
         g_k = {}
         kappa_tmp = 0.0
@@ -239,7 +240,7 @@ class DftPzSicXT:
             indz = np.absolute(l_odd) > 1.0e-4
             l_c = 2.0 * l_odd[indz]
             l_odd = f[:, np.newaxis] * l_odd.T.conj() - f * l_odd
-            kappa = np.max(np.absolute(l_odd[indz])/np.absolute(l_c))
+            kappa = np.max(np.absolute(l_odd[indz]) / np.absolute(l_c))
             if kappa > kappa_tmp:
                 kappa_tmp = kappa
             if a_mat[k] is None:
@@ -338,7 +339,7 @@ class DftPzSicXT:
         if self.sic_coarse_grid is False:
             self.interpolator.apply(nt, nt_sg[0])
             nt_sg[0] *= self.cgd.integrate(nt) / \
-                        self.finegd.integrate(nt_sg[0])
+                self.finegd.integrate(nt_sg[0])
             e_xc = self.xc.calculate(self.finegd, nt_sg, vt_sg)
         else:
             nt_sg[0] = nt
@@ -377,8 +378,8 @@ class DftPzSicXT:
         else:
             vt_G = vt_sg[0]
 
-        return np.array([-ec*self.beta_c, -e_xc*self.beta_x]), \
-               vt_G, v_ht_g
+        return np.array([-ec * self.beta_c, -e_xc * self.beta_x]), \
+            vt_G, v_ht_g
 
     def get_paw_corrections(self, D_ap, vHt_g):
 
@@ -425,7 +426,7 @@ class DftPzSicXT:
             exc = self.cgd.comm.sum(exc)
         # self.t_waiting_time += time.time() - t1
 
-        return np.array([-ec*self.beta_c, -exc * self.beta_x]), dH_ap
+        return np.array([-ec * self.beta_c, -exc * self.beta_x]), dH_ap
 
     def get_odd_corrections_to_forces(self, F_av, wfs, kpt):
 
@@ -438,7 +439,8 @@ class DftPzSicXT:
         for m in range(n_occ):
             # calculate Hartree pot, compans. charge and PAW corrects
             if wfs.mode == 'fd':
-                nt_G, Q_aL, D_ap = self.get_orbdens_compcharge_dm_kpt(wfs, kpt, m)
+                nt_G, Q_aL, D_ap = \
+                    self.get_orbdens_compcharge_dm_kpt(wfs, kpt, m)
                 e_sic, vt_G, v_ht_g = \
                     self.get_pseudo_pot(nt_G, Q_aL, m, kpoint=k)
                 e_sic_paw_m, dH_ap = \
@@ -499,9 +501,8 @@ class DftPzSicXT:
             setup = self.setups[a]
             dH_sp = np.zeros((2, len(D_p)))
             D_sp = np.array([D_p, np.zeros_like(D_p)])
-            excpaw += self.xc.calculate_paw_correction(setup, D_sp,
-                                                    dH_sp,
-                                                    addcoredensity=False)
+            excpaw += self.xc.calculate_paw_correction(
+                setup, D_sp, dH_sp, addcoredensity=False)
             dH_ap[a] = -dH_sp[0] * self.beta_x
         excpaw = wfs.gd.comm.sum(excpaw)
         exc += excpaw
@@ -532,6 +533,8 @@ class DftPzSicXT:
 
         if returnQalandVhq:
             return np.array([-ehart * self.beta_c,
-                             -exc * self.beta_x]), vt_G, dH_ap, Q_aL, vHt_q
+                             -exc * self.beta_x]), \
+                vt_G, dH_ap, Q_aL, vHt_q
         else:
-            return np.array([-ehart*self.beta_c, -exc * self.beta_x]), vt_G, dH_ap
+            return np.array([-ehart * self.beta_c,
+                             -exc * self.beta_x]), vt_G, dH_ap

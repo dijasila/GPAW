@@ -1,8 +1,6 @@
 Miscellaneous objects and functions
 ===================================
 
-.. autofunction:: gpaw.occupations.occupation_numbers
-
 .. autoclass:: gpaw.lfc.LocalizedFunctionsCollection
     :members:
 
@@ -25,3 +23,25 @@ Miscellaneous objects and functions
 
 .. autoclass:: gpaw.scf.SCFLoop
     :members:
+
+.. autoclass:: gpaw.band_descriptor.BandDescriptor
+    :members:
+
+.. autoclass:: gpaw.spinorbit.BZWaveFunctions
+    :members:
+
+.. autoclass:: gpaw.spinorbit.WaveFunction
+    :members:
+
+.. autoclass:: gpaw.kpt_descriptor.KPointDescriptor
+    :members:
+
+.. autoclass:: gpaw.projections.Projections
+    :members:
+
+.. autoclass:: gpaw.utilities.partition.AtomPartition
+    :members:
+
+.. autofunction:: gpaw.utilities.dipole.dipole_matrix_elements
+
+.. autofunction:: gpaw.utilities.dipole.dipole_matrix_elements_from_calc
