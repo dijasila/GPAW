@@ -81,6 +81,8 @@ def mom_calculation(calc,
 
 
 class OccupationsMOM:
+    """Occupation class."""
+
     def __init__(self,
                  wfs,
                  occ,
@@ -133,7 +135,7 @@ class OccupationsMOM:
         if not self.initialized:
             # If MOM reference orbitals are not initialized yet (e.g. when
             # the calculation is initialized from atomic densities), update
-            # the occupation numbers according to the user-supplied numbers
+            # the occupation numbers according to the user-supplied 'numbers'
             self.occ.f_sn = self.numbers.copy()
             self.initialize_reference_orbitals()
         else:
@@ -149,11 +151,12 @@ class OccupationsMOM:
 
     def initialize_reference_orbitals(self):
         if self.wfs.kpt_u[0].f_n is None:
-            # If the occupation numbers are not available (e.g. when
-            # the calculation is initialized from atomic densities)
-            # we first need to take a step of eigensolver and update
-            # the occupation numbers according to the user-supplied
-            # numbers before initializing the MOM reference orbitals
+            # If the occupation numbers are not already available
+            # (e.g. when the calculation is initialized from atomic
+            # densities) we first need to take a step of eigensolver
+            # and update the occupation numbers according to the
+            # 'user-supplied' numbers before initializing the MOM
+            # reference orbitals
             return
 
         self.iters = 0
@@ -177,7 +180,7 @@ class OccupationsMOM:
                     occupied = self.f_sn_unique[kpt.s][f_n_unique]
                     # Pseudo wave functions
                     self.wf[kpt.s][f_n_unique] = kpt.psit_nG[occupied].copy()
-                    # PAW projection
+                    # Atomic contributions times projector overlaps
                     self.p_an[kpt.s][f_n_unique] = \
                         dict([(a, np.dot(self.wfs.setups[a].dO_ii,
                                          P_ni[occupied].T))
@@ -197,16 +200,15 @@ class OccupationsMOM:
                 self.width_update_counter += 1
 
         for kpt in self.wfs.kpt_u:
-            # Compute projections within equally occupied subspaces
-            # and occupy orbitals with biggest projections
+            # Compute weights with respect to each equally occupied
+            # subspace of the reference orbitals and occupy orbitals
+            # with biggest weights
             for f_n_unique in self.f_sn_unique[kpt.s]:
                 occupied = self.f_sn_unique[kpt.s][f_n_unique]
                 n_occ = len(f_sn[kpt.s][occupied])
                 unoccupied = f_sn[kpt.s] == 0
 
                 P = np.zeros(len(f_sn[kpt.s]))
-                # The projections are calculated only for orbitals
-                # that have not already been occupied
                 P[unoccupied] = self.calculate_weights(kpt,
                                                        f_n_unique,
                                                        unoccupied)
@@ -238,14 +240,14 @@ class OccupationsMOM:
             O = self.wfs.integrate(self.wf[kpt.s][f_n_unique][:],
                                    kpt.psit_nG[unoccupied][:], True)
 
-            # PAW corrections
+            # Atomic contributions
             O_corr = np.zeros_like(O)
             for a, p_a in self.p_an[kpt.s][f_n_unique].items():
                 O_corr += np.dot(kpt.P_ani[a][unoccupied].conj(), p_a).T
             O_corr = np.ascontiguousarray(O_corr)
             self.wfs.gd.comm.sum(O_corr)
 
-            # Sum pseudo wave and PAW contributions
+            # Sum pseudo wave and atomic contributions
             O += O_corr
 
         if self.project_overlaps:
@@ -258,7 +260,7 @@ class OccupationsMOM:
         return P
 
     def find_hole_and_excited_orbitals(self, f_sn, kpt):
-        # Assume zero-width occupations for ground state
+        # Zero-width occupations for ground state
         ne = int(f_sn[kpt.s].sum())
         f_sn_gs = np.zeros_like(f_sn[kpt.s])
         f_sn_gs[:ne] = 1.0
