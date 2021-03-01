@@ -7,7 +7,7 @@ import numpy as np
 
 from ase.units import Ha
 
-from gpaw.occupations import FixedOccupationNumbers
+from gpaw.occupations import FixedOccupationNumbers, ParallelLayout
 
 
 def mom_calculation(calc,
@@ -64,7 +64,9 @@ def mom_calculation(calc,
         # We need the wfs object to initialize OccupationsMOM
         calc.initialize(atoms)
 
-    parallel_layout = calc.wfs.occupations.parallel_layout
+    parallel_layout = ParallelLayout(calc.wfs.bd,
+                                     calc.wfs.kd.comm,
+                                     calc.wfs.gd.comm)
     occ = FixedOccupationNumbers(numbers, parallel_layout)
 
     occ_mom = OccupationsMOM(calc.wfs,
