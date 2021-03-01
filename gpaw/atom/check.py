@@ -19,7 +19,7 @@ def check(con, name: str, lcao=True):
                   symmetry='off')
 
     if '.' in name:
-        symbol, setup = name.split('.')
+        symbol, _, setup = name.partition('.')
         params['setups'] = setup
     else:
         symbol = name
@@ -202,11 +202,11 @@ def main():
     parser.add_option('-p', '--plot', action='store_true')
     parser.add_option('-l', '--lcao', action='store_true')
     parser.add_option('-d', '--database', default='check.db')
-    parser.add_option('--datasets', default='.')
+    parser.add_option('--datasets')
     parser.add_option('-e', '--energy-difference', type=float, default=0.01)
     opts, names = parser.parse_args()
     if not names:
-        names = [Path.cwd().name.split('.')[0]]
+        names = [Path.cwd().name]
     con = ase.db.connect(opts.database)
     if opts.datasets:
         from gpaw import setup_paths
