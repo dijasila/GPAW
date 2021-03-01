@@ -5,12 +5,11 @@ from ase.build import fcc111
 
 from gpaw import GPAW
 from gpaw.mpi import world, serial_comm
-from gpaw.lcaotddft import LCAOTDDFT
-from gpaw.lcaotddft.dipolemomentwriter import DipoleMomentWriter
-from gpaw.lcaotddft.wfwriter import WaveFunctionWriter, WaveFunctionReader
+from gpaw.lcaotddft.wfwriter import WaveFunctionReader
 from gpaw.utilities import compiled_with_sl
 
-from .test_molecule import only_on_master, calculate_error
+from .test_molecule import \
+    only_on_master, calculate_error, calculate_time_propagation
 
 pytestmark = pytest.mark.usefixtures('module_tmp_path')
 
@@ -45,13 +44,9 @@ def initialize_system():
     calc.write('gs.gpw', mode='all')
 
     # Time-propagation calculation
-    td_calc = LCAOTDDFT('gs.gpw',
-                        communicator=comm,
-                        txt='td.out')
-    DipoleMomentWriter(td_calc, 'dm.dat')
-    WaveFunctionWriter(td_calc, 'wf.ulm')
-    td_calc.absorption_kick([0, 0, 1e-5])
-    td_calc.propagate(20, 3)
+    calculate_time_propagation('gs.gpw',
+                               kick=[0, 0, 1e-5],
+                               communicator=comm)
 
 
 def test_propagated_wave_function(initialize_system, module_tmp_path):
@@ -76,13 +71,9 @@ def test_propagated_wave_function(initialize_system, module_tmp_path):
 
 @pytest.mark.parametrize('parallel', parallel_i)
 def test_propagation(initialize_system, module_tmp_path, parallel, in_tmp_dir):
-    td_calc = LCAOTDDFT(module_tmp_path / 'gs.gpw',
-                        parallel=parallel,
-                        txt='td.out')
-    WaveFunctionWriter(td_calc, 'wf.ulm')
-    td_calc.absorption_kick([0, 0, 1e-5])
-    td_calc.propagate(20, 3)
-    world.barrier()
+    calculate_time_propagation(module_tmp_path / 'gs.gpw',
+                               kick=[0, 0, 1e-5],
+                               parallel=parallel)
 
     wfr_ref = WaveFunctionReader(module_tmp_path / 'wf.ulm')
     wfr = WaveFunctionReader('wf.ulm')

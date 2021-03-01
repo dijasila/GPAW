@@ -56,6 +56,30 @@ def calculate_error(a, ref_a):
     return err
 
 
+def calculate_time_propagation(gs_fpath, kick,
+                               communicator=world, parallel={},
+                               do_fdm=False):
+    td_calc = LCAOTDDFT(gs_fpath,
+                        communicator=communicator,
+                        parallel=parallel,
+                        txt='td.out')
+    if do_fdm:
+        dmat = DensityMatrix(td_calc)
+        ffreqs = frequencies(range(0, 31, 5), 'Gauss', 0.1)
+        fdm = FrequencyDensityMatrix(td_calc, dmat, frequencies=ffreqs)
+    DipoleMomentWriter(td_calc, 'dm.dat')
+    WaveFunctionWriter(td_calc, 'wf.ulm')
+    td_calc.absorption_kick(kick)
+    td_calc.propagate(20, 3)
+    if do_fdm:
+        fdm.write('fdm.ulm')
+
+    communicator.barrier()
+
+    if do_fdm:
+        return fdm
+
+
 # Generate different parallelization options
 parallel_i = [{}]
 if compiled_with_sl():
@@ -90,17 +114,10 @@ def initialize_system():
     calc.write('gs.gpw', mode='all')
 
     # Time-propagation calculation
-    td_calc = LCAOTDDFT('gs.gpw',
-                        communicator=comm,
-                        txt='td.out')
-    dmat = DensityMatrix(td_calc)
-    ffreqs = frequencies(range(0, 31, 5), 'Gauss', 0.1)
-    fdm = FrequencyDensityMatrix(td_calc, dmat, frequencies=ffreqs)
-    DipoleMomentWriter(td_calc, 'dm.dat')
-    WaveFunctionWriter(td_calc, 'wf.ulm')
-    td_calc.absorption_kick(np.ones(3) * 1e-5)
-    td_calc.propagate(20, 3)
-    fdm.write('fdm.ulm')
+    fdm = calculate_time_propagation('gs.gpw',
+                                     kick=np.ones(3) * 1e-5,
+                                     communicator=comm,
+                                     do_fdm=True)
 
     # Calculate ground state with full unoccupied space
     unocc_calc = calc.fixed_density(nbands='nao',
@@ -131,13 +148,9 @@ def test_propagated_wave_function(initialize_system, module_tmp_path):
 
 @pytest.mark.parametrize('parallel', parallel_i)
 def test_propagation(initialize_system, module_tmp_path, parallel, in_tmp_dir):
-    td_calc = LCAOTDDFT(module_tmp_path / 'gs.gpw',
-                        parallel=parallel,
-                        txt='td.out')
-    WaveFunctionWriter(td_calc, 'wf.ulm')
-    td_calc.absorption_kick(np.ones(3) * 1e-5)
-    td_calc.propagate(20, 3)
-    world.barrier()
+    calculate_time_propagation(module_tmp_path / 'gs.gpw',
+                               kick=np.ones(3) * 1e-5,
+                               parallel=parallel)
 
     wfr_ref = WaveFunctionReader(module_tmp_path / 'wf.ulm')
     wfr = WaveFunctionReader('wf.ulm')
