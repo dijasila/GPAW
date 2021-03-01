@@ -254,7 +254,7 @@ class OccupationsMOM:
 
         if self.project_overlaps:
             # TODO: Replace 'O' with 'abs(O)'
-            P = np.sum(O ** 2, axis=0)
+            P = np.sum(abs(O) ** 2, axis=0)
             P = P ** 0.5
         else:
             P = np.amax(abs(O), axis=0)
