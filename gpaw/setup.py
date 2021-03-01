@@ -2,19 +2,19 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 import functools
-from math import pi, sqrt
 from io import StringIO
+from math import pi, sqrt
 
-import numpy as np
 import ase.units as units
+import numpy as np
 from ase.data import chemical_symbols
 
-from gpaw.setup_data import SetupData, search_for_file
 from gpaw.basis_data import Basis
-from gpaw.overlap import OverlapCorrections
 from gpaw.gaunt import gaunt, nabla
-from gpaw.utilities import unpack, pack
+from gpaw.overlap import OverlapCorrections
 from gpaw.rotation import rotation
+from gpaw.setup_data import SetupData, search_for_file
+from gpaw.utilities import pack, unpack
 from gpaw.xc import XC
 
 
@@ -45,7 +45,7 @@ def create_setup(symbol, xc='LDA', lmax=0,
     if setupdata is None:
         if type == 'hgh' or type == 'hgh.sc':
             lmax = 0
-            from gpaw.hgh import HGHSetupData, setups, sc_setups
+            from gpaw.hgh import HGHSetupData, sc_setups, setups
             if type == 'hgh.sc':
                 table = sc_setups
             else:
@@ -69,8 +69,9 @@ def create_setup(symbol, xc='LDA', lmax=0,
         elif type == 'sg15':
             from gpaw.upf import read_sg15
             upfname = f'{symbol}_ONCV_PBE-*.upf'
-            upfpath, source = search_for_file(upfname, world=world)
-            if source is None:
+            try:
+                upfpath, source = search_for_file(upfname, world=world)
+            except RuntimeError:
                 raise IOError('Could not find pseudopotential file %s '
                               'in any GPAW search path.  '
                               'Please install the SG15 setups using, '
@@ -1416,7 +1417,7 @@ class Setups(list):
         return atom_partition.arraydict(Dshapes_a, dtype)
 
     def estimate_dedecut(self, ecut):
-        from gpaw.utilities.ekin import ekin, dekindecut
+        from gpaw.utilities.ekin import dekindecut, ekin
         dedecut = 0.0
         e = {}
         for id in self.id_a:
