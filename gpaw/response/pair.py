@@ -1474,6 +1474,7 @@ class PairDensity:
         # Collect integrals for all species:
         Q_xGii = {}
         for id, atomdata in wfs.setups.setups.items():
+            soft = True
             if soft:
                 ghat = PWLFC([atomdata.ghat_l], pd)
                 ghat.set_positions(np.zeros((1, 3)))
