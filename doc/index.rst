@@ -49,7 +49,7 @@ News
   <https://www.cecam.org/workshop-details/1039>`__
   will be held online on June 1--4, 2021 (1 Mar 2021).
   See also announcement on `Psi-k
-  <http://psi-k.net/events/gpaw-2021-users-and-developers-meeting-june-1-4/>`__.
+  <https://psi-k.net/events/gpaw-2021-users-and-developers-meeting-june-1-4/>`__.
 
 * :ref:`GPAW version 21.1.0 <releasenotes>` released (18 Jan 2021).
 
