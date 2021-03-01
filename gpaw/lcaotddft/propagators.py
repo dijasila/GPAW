@@ -295,8 +295,8 @@ class ECNPropagator(LCAOPropagator):
             self.density.gd.comm.broadcast(target_C_nM, 0)
         else:
             SjH_MM = S_MM + (0.5j * dt) * H_MM
-            target_C_nM[:] = \
-                solve(SjH_MM.T, np.dot(SjH_MM.conj(), source_C_nM.T)).T
+            target_C_nM[:] = np.dot(source_C_nM, SjH_MM.conj().T)
+            target_C_nM[:] = solve(SjH_MM.T, target_C_nM.T).T
 
         self.timer.stop('Linear solve')
 
