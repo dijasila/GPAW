@@ -80,6 +80,17 @@ def calculate_time_propagation(gs_fpath, kick,
         return fdm
 
 
+def check_wfs(wf_ref_fpath, wf_fpath, atol=1e-12):
+    wfr_ref = WaveFunctionReader(wf_ref_fpath)
+    wfr = WaveFunctionReader(wf_fpath)
+    assert len(wfr) == len(wfr_ref)
+    for i in range(1, len(wfr)):
+        ref = wfr_ref[i].wave_functions.coefficients
+        coeff = wfr[i].wave_functions.coefficients
+        err = calculate_error(coeff, ref)
+        assert err < atol, f'error at i={i}'
+
+
 # Generate different parallelization options
 parallel_i = [{}]
 if compiled_with_sl():
@@ -151,16 +162,7 @@ def test_propagation(initialize_system, module_tmp_path, parallel, in_tmp_dir):
     calculate_time_propagation(module_tmp_path / 'gs.gpw',
                                kick=np.ones(3) * 1e-5,
                                parallel=parallel)
-
-    wfr_ref = WaveFunctionReader(module_tmp_path / 'wf.ulm')
-    wfr = WaveFunctionReader('wf.ulm')
-    assert len(wfr) == len(wfr_ref)
-    for i in range(1, len(wfr)):
-        ref = wfr_ref[i].wave_functions.coefficients
-        coeff = wfr[i].wave_functions.coefficients
-        err = calculate_error(coeff, ref)
-        atol = 1e-12
-        assert err < atol, f'error at i={i}'
+    check_wfs(module_tmp_path / 'wf.ulm', 'wf.ulm', atol=1e-12)
 
 
 @pytest.fixture(scope='module')
