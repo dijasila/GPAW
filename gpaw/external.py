@@ -256,3 +256,26 @@ class StepPotentialz(ExternalPotential):
                 'value_left': self.value_left,
                 'value_right': self.value_right,
                 'zstep': self.zstep}
+
+
+class PotentialCollection(ExternalPotential):
+    """Coillection of external potentials to be applied one after the other"""
+    def __init__(self, potentials):
+        self.potentials = potentials
+
+    def __str__(self):
+        text = 'PotentialCollection:\n'
+        for pot in self.potentials:
+            text += '  ' + pot.__str__() + '\n'
+        return text
+
+    def calculate_potential(self, gd):
+        self.potentials[0].calculate_potential(gd)
+        self.vext_g = self.potentials[0].vext_g.copy()
+        for pot in self.potentials[1:]:
+            pot.calculate_potential(gd)
+            self.vext_g += pot.vext_g
+
+    def todict(self):
+        return {'name': 'PotentialCollection',
+                'potentials': [pot.todict() for pot in self.potentials]}
