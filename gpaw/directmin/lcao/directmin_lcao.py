@@ -317,7 +317,6 @@ class DirectMinLCAO(DirectLCAO):
         wfs.timer.start('Preconditioning:')
         precond = self.update_preconditioning(wfs, self.use_prec)
         wfs.timer.stop('Preconditioning:')
-        self.update_ref_orbitals(wfs, ham)
 
         if str(self.search_direction) == 'LBFGS_P2':
             for kpt in wfs.kpt_u:
@@ -640,7 +639,7 @@ class DirectMinLCAO(DirectLCAO):
 
         return phi, der_phi, g_mat_u
 
-    def update_ref_orbitals(self, wfs, ham):
+    def update_ref_orbitals(self, wfs, ham, dens):
         """
         update orbitals which are chosen as reference
         orbitals to whihc rotation is applied
