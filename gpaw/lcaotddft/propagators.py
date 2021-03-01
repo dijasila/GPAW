@@ -355,8 +355,8 @@ class SICNPropagator(ECNPropagator):
         self.hamiltonian.update()
         for kpt in self.wfs.kpt_u:
             # 2. Estimate H(t+0.5*dt) ~ 0.5 * [ H(t) + H(t+dt) ]
+            kpt.H0_MM += get_H_MM(kpt, time + time_step)
             kpt.H0_MM *= 0.5
-            kpt.H0_MM += 0.5 * get_H_MM(kpt, time + time_step)
             # 3. Solve Psi(t+dt) from
             #    (S_MM - 0.5j*H_MM(t+0.5*dt)*dt) Psi(t+dt)
             #       = (S_MM + 0.5j*H_MM(t+0.5*dt)*dt) Psi(t)
