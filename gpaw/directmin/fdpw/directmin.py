@@ -68,10 +68,10 @@ class DirectMin(Eigensolver):
         self.g_tolxst = g_tolxst
         self.printinnerloop = printinnerloop
         self.convergelumo = convergelumo
-        self.momevery=momevery
+        self.momevery = momevery
 
-        self.total_eg_count_iloop=0
-        self.total_eg_count_iloop_outer=0
+        self.total_eg_count_iloop = 0
+        self.total_eg_count_iloop_outer = 0
 
         if isinstance(self.odd_parameters, basestring):
             self.odd_parameters = \
@@ -402,8 +402,8 @@ class DirectMin(Eigensolver):
         phi_2i[0], der_phi_2i[0] = phi_alpha, der_phi_alpha,
 
         occ_name = getattr(wfs.occupations, 'name', None)
-        if self.iloop_outer is not None and occ_name == 'mom' and 'SIC' not in \
-                                self.odd_parameters['name']:
+        if self.iloop_outer is not None and occ_name == 'mom' and \
+                'SIC' not in self.odd_parameters['name']:
             if self.iloop_outer.odd_pot.restart:
                 self.choose_optimal_orbitals(wfs, ham, dens)
                 for kpt in wfs.kpt_u:
@@ -411,7 +411,8 @@ class DirectMin(Eigensolver):
                     super(DirectMin, self).subspace_diagonalize(
                         ham, wfs, kpt, True)
                     wfs.gd.comm.broadcast(kpt.eps_n, 0)
-                self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)  # fill occ numbers
+                self._e_entropy = \
+                    wfs.calculate_occupation_numbers(dens.fixed)
                 if occ_name == 'mom':
                     for kpt in wfs.kpt_u:
                         wfs.occupations.sort_wavefunctions(kpt)
@@ -427,7 +428,7 @@ class DirectMin(Eigensolver):
                         super(DirectMin, self).subspace_diagonalize(
                             ham, wfs, kpt, True)
                         wfs.gd.comm.broadcast(kpt.eps_n, 0)
-                    wfs.calculate_occupation_numbers(dens.fixed)  # fill occ numbers
+                    wfs.calculate_occupation_numbers(dens.fixed)
                     if occ_name == 'mom':
                         for kpt in wfs.kpt_u:
                             wfs.occupations.sort_wavefunctions(kpt)
@@ -483,7 +484,7 @@ class DirectMin(Eigensolver):
         dot = wfs.world.sum(dot)
         dot = np.sqrt(dot)
         if dot > self.line_search.maxstep:
-            a_star = self.line_search.maxstep/dot
+            a_star = self.line_search.maxstep / dot
         else:
             a_star = 1.0
         for kpt in wfs.kpt_u:
@@ -497,8 +498,8 @@ class DirectMin(Eigensolver):
         del grad_knG
         self.alpha = a_star
         occ_name = getattr(wfs.occupations, 'name', None)
-        if self.iloop_outer is not None and occ_name == 'mom' and 'SIC' not in \
-                                self.odd_parameters['name']:
+        if self.iloop_outer is not None and occ_name == 'mom' and \
+                'SIC' not in self.odd_parameters['name']:
             if self.iloop_outer.odd_pot.restart:
                 self.choose_optimal_orbitals(wfs, ham, dens)
                 for kpt in wfs.kpt_u:
@@ -506,7 +507,7 @@ class DirectMin(Eigensolver):
                     super(DirectMin, self).subspace_diagonalize(
                         ham, wfs, kpt, True)
                     wfs.gd.comm.broadcast(kpt.eps_n, 0)
-                wfs.calculate_occupation_numbers(dens.fixed)  # fill occ numbers
+                wfs.calculate_occupation_numbers(dens.fixed)
                 if occ_name == 'mom':
                     for kpt in wfs.kpt_u:
                         wfs.occupations.sort_wavefunctions(kpt)
@@ -522,7 +523,7 @@ class DirectMin(Eigensolver):
                         super(DirectMin, self).subspace_diagonalize(
                             ham, wfs, kpt, True)
                         wfs.gd.comm.broadcast(kpt.eps_n, 0)
-                    wfs.calculate_occupation_numbers(dens.fixed)  # fill occ numbers
+                    wfs.calculate_occupation_numbers(dens.fixed)
                     if occ_name == 'mom':
                         for kpt in wfs.kpt_u:
                             wfs.occupations.sort_wavefunctions(kpt)
@@ -957,7 +958,7 @@ class DirectMin(Eigensolver):
                     n_occ = get_n_occ(kpt)
                     dim = self.bd.nbands - n_occ
                     lamb1 = (lamb[:n_occ, :n_occ] +
-                            lamb[:n_occ, :n_occ].T.conj()) / 2.0
+                             lamb[:n_occ, :n_occ].T.conj()) / 2.0
                     lumo = (lamb[n_occ:, n_occ:] +
                             lamb[n_occ:, n_occ:].T.conj()) / 2.0
                     if 'SIC' in self.odd_parameters['name']:
@@ -984,10 +985,9 @@ class DirectMin(Eigensolver):
                                          kpt.psit_nG[:n_occ],
                                          axes=1)
 
-                        kpt.psit_nG[n_occ:n_occ + dim] = \
-                            np.tensordot(lumo.conj(), kpt.psit_nG[
-                                                      n_occ:n_occ + dim],
-                                         axes=1)
+                        kpt.psit_nG[n_occ:n_occ + dim] = np.tensordot(
+                            lumo.conj(), kpt.psit_nG[n_occ:n_occ + dim],
+                            axes=1)
                         for a in kpt.P_ani.keys():
                             kpt.P_ani[a][:n_occ] = \
                                 np.dot(lamb1.conj(),
@@ -1065,7 +1065,7 @@ class DirectMin(Eigensolver):
                 # inf is not a good for example for ase to get gap
                 kpt.eps_n[n_occ + dim:] *= 0.0
                 kpt.eps_n[n_occ + dim:] +=\
-                    np.absolute(5.0 * kpt.eps_n[n_occ+dim - 1])
+                    np.absolute(5.0 * kpt.eps_n[n_occ + dim - 1])
                 if rewrite_psi:
                     # TODO:
                     # Do we need sort wfs according to eps_n
@@ -1073,9 +1073,8 @@ class DirectMin(Eigensolver):
                     kpt.psit_nG[:n_occ] = \
                         np.tensordot(lamb.conj(), kpt.psit_nG[:n_occ],
                                      axes=1)
-                    kpt.psit_nG[n_occ:n_occ + dim] = \
-                        np.tensordot(lumo.conj(), kpt.psit_nG[n_occ:n_occ + dim],
-                                     axes=1)
+                    kpt.psit_nG[n_occ:n_occ + dim] = np.tensordot(
+                        lumo.conj(), kpt.psit_nG[n_occ:n_occ + dim], axes=1)
                     wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
 
         # update fermi level?
@@ -1499,7 +1498,9 @@ class DirectMin(Eigensolver):
                 #         ham, wfs, kpt, True)
                 #     wfs.gd.comm.broadcast(kpt.eps_n, 0)
 
-                self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)  # fill occ numbers
+                # fill occ numbers
+                self._e_entropy = \
+                    wfs.calculate_occupation_numbers(dens.fixed)
                 if occ_name == 'mom':
                     for kpt in wfs.kpt_u:
                         wfs.occupations.sort_wavefunctions(kpt)
@@ -1519,7 +1520,9 @@ class DirectMin(Eigensolver):
                 super(DirectMin, self).subspace_diagonalize(
                     ham, wfs, kpt, True)
                 wfs.gd.comm.broadcast(kpt.eps_n, 0)
-            self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)  # fill occ numbers
+            # fill occ numbers
+            self._e_entropy = \
+                wfs.calculate_occupation_numbers(dens.fixed)
             occ_name = getattr(wfs.occupations, 'name', None)
             if occ_name == 'mom':
                 for kpt in wfs.kpt_u:

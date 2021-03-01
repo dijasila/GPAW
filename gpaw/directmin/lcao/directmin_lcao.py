@@ -82,7 +82,8 @@ class DirectMinLCAO(DirectLCAO):
                 xc_string_to_dict(self.representation)
 
         if isinstance(self.orthonormalization, basestring):
-            assert self.orthonormalization in ['gramschmidt', 'loewdin', 'diag'], \
+            assert self.orthonormalization in [
+                'gramschmidt', 'loewdin', 'diag'], \
                 'Value Error'
             self.orthonormalization = \
                 xc_string_to_dict(self.orthonormalization)
@@ -810,9 +811,12 @@ class DirectMinLCAO(DirectLCAO):
                     # Diagonalize equally occupied subspaces separately
                     n_init = 0
                     while True:
-                        n_fin = find_equally_occupied_subspace(kpt.f_n, n_init)
-                        kpt.C_nM[n_init:n_init + n_fin, :], kpt.eps_n[n_init:n_init + n_fin] = \
-                            rotate_subspace(h_mm, kpt.C_nM[n_init:n_init + n_fin, :])
+                        n_fin = \
+                            find_equally_occupied_subspace(kpt.f_n, n_init)
+                        kpt.C_nM[n_init:n_init + n_fin, :], \
+                            kpt.eps_n[n_init:n_init + n_fin] = \
+                            rotate_subspace(
+                                h_mm, kpt.C_nM[n_init:n_init + n_fin, :])
                         n_init += n_fin
                         if n_init == len(kpt.f_n):
                             break
@@ -1190,7 +1194,7 @@ class DirectMinLCAO(DirectLCAO):
             super(DirectMinLCAO, self).iterate(ham, wfs)
             self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
             if occ_name == 'mom':
-               self.sort_wavefunctions_mom(wfs)
+                self.sort_wavefunctions_mom(wfs)
             self.localize_wfs(wfs, log)
 
         # if one want to use coefficients saved in gpw file

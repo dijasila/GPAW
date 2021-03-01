@@ -142,8 +142,7 @@ class OccupationsMOM:
         else:
             # TODO: Works only for spin polarized calculations
             for kpt in self.wfs.kpt_u:
-                 f_sn[kpt.s] = self.check_number_of_electrons(kpt,
-                                                              f_sn[kpt.s])
+                f_sn[kpt.s] = self.check_number_of_electrons(kpt, f_sn[kpt.s])
 
         self.occ.f_sn = f_sn
         f_qn, fermi_levels, e_entropy = self.occ.calculate(nelectrons,
@@ -315,7 +314,7 @@ class MOMConstraint:
         else:
             self.wf_n = kpt.psit_nG[self.n].copy()
             self.p_an = dict([(a, np.dot(wfs.setups[a].dO_ii, P_ni[self.n]))
-                               for a, P_ni in kpt.P_ani.items()])
+                              for a, P_ni in kpt.P_ani.items()])
 
     def get_maximum_overlap(self, wfs, kpt, c, iters):
         self.nbands = wfs.bd.nbands
@@ -331,11 +330,12 @@ class MOMConstraint:
             if kpt.S_MM is None:
                 return self.n
             else:
-                P_n[ini:fin] = np.dot(self.c_n.conj(),
-                                  np.dot(kpt.S_MM, kpt.C_nM[ini:fin].T))
+                P_n[ini:fin] = np.dot(
+                    self.c_n.conj(), np.dot(kpt.S_MM, kpt.C_nM[ini:fin].T))
         else:
             # Pseudo wave functions overlaps
-            P_n[ini:fin] = wfs.integrate(self.wf_n, kpt.psit_nG[ini:fin], False)
+            P_n[ini:fin] = wfs.integrate(
+                self.wf_n, kpt.psit_nG[ini:fin], False)
 
             if iters > 1:
                 # Add PAW corrections
@@ -354,4 +354,3 @@ class MOMConstraint:
             self.update_target_orbital(wfs, kpt)
 
         return self.n
-
