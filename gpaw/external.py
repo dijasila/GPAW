@@ -234,8 +234,16 @@ class CDFTPotential(ExternalPotential):
 
 
 class StepPotentialz(ExternalPotential):
-    """Step-like potential in z-direction"""
     def __init__(self, zstep, value_left=0, value_right=0):
+        """Step potential in z-direction
+
+        zstep: float
+            z-value that splits space into left and right [Angstrom]
+        value_left: float
+            Left side (z < zstep) potentential value [eV]. Default: 0
+        value_right: float
+            Right side (z >= zstep) potentential value [eV]. Default: 0
+       """
         self.value_left = value_left
         self.value_right = value_right
         self.name = 'StepPotentialz'
@@ -259,8 +267,12 @@ class StepPotentialz(ExternalPotential):
 
 
 class PotentialCollection(ExternalPotential):
-    """Coillection of external potentials to be applied one after the other"""
     def __init__(self, potentials):
+        """Collection of external potentials to be applied
+
+        potentials: list
+            List of potentials
+        """
         self.potentials = potentials
 
     def __str__(self):

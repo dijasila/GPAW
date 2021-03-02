@@ -19,4 +19,6 @@ def test_collection():
     assert (collection.vext_g == ext1.vext_g + ext2.vext_g).all()
 
     assert len(collection.todict()['potentials']) == 2
-    print(collection)
+    for text in ['Constant electric', 'Point-charge',
+                 collection.__class__.__name__]:
+        assert text in collection.__str__()
