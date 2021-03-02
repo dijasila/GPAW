@@ -18,6 +18,12 @@ def create_external_potential(name, **kwargs):
         raise ValueError
     if name == 'CDFTPotential':
         return None
+    if name == 'PotentialCollection':
+        potentials = []
+        for potential in kwargs['potentials']:
+            name = potential.pop('name')
+            potentials.append(globals()[name](**potential))
+        return PotentialCollection(potentials)
     return globals()[name](**kwargs)
 
 

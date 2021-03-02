@@ -1,6 +1,6 @@
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.external import (ConstantElectricField, PointChargePotential,
-                           PotentialCollection)
+                           PotentialCollection, create_external_potential)
 
 
 def test_collection():
@@ -22,3 +22,8 @@ def test_collection():
     for text in ['Constant electric', 'Point-charge',
                  collection.__class__.__name__]:
         assert text in collection.__str__()
+
+    # reconstruct
+    collection2 = create_external_potential(**collection.todict())
+    collection2.calculate_potential(gd)
+    assert (collection2.vext_g == collection.vext_g).all()
