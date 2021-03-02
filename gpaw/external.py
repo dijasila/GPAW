@@ -9,21 +9,21 @@ from ase.units import Bohr, Hartree
 import _gpaw
 
 __all__ = ['ConstantPotential', 'ConstantElectricField', 'CDFTPotential',
-           'PointChargePotential', 'StepPotentialz', 'PotentialCollection']
+           'PointChargePotential', 'StepPotentialz']
 
 
 def create_external_potential(name, **kwargs):
     """Construct potential from dict."""
-    if name not in __all__:
-        raise ValueError
-    if name == 'CDFTPotential':
-        return None
     if name == 'PotentialCollection':
         potentials = []
         for potential in kwargs['potentials']:
             name = potential.pop('name')
             potentials.append(globals()[name](**potential))
         return PotentialCollection(potentials)
+    if name not in __all__:
+        raise ValueError
+    if name == 'CDFTPotential':
+        return None
     return globals()[name](**kwargs)
 
 
