@@ -44,11 +44,12 @@ f_n_m = copy.deepcopy(f_n_gs)
 f_n_m[0][2] -= 1.  # Remove one electron from homo-1 spin up
 f_n_m[0][4] += 1.  # Add one electron to lumo (3s) spin up
 
-# MOM calculation for spin-mixed homo-1->3s state
+# MOM calculation for mixed-spin homo-1->3s state
 mom.mom_calculation(calc, atoms, f_n_m)
 E_m = atoms.get_potential_energy()
+E_s = 2 * E_m - E_t  # Spin purified energy
 
-print('Excitation energy triplet homo-1->3s state: %.2f eV' %(E_t - E_gs))
-print('Excitation energy singlet homo-1->3s state: %.2f eV' %(2 * E_m - E_gs))
+print('Excitation energy triplet homo-1->3s state: %.2f eV' % (E_t - E_gs))
+print('Excitation energy singlet homo-1->3s state: %.2f eV' % (E_s - E_gs))
 print('Experimental excitation energy triplet homo-1->3s state: 9.46 eV')
 print('Experimental excitation energy singlet homo-1->3s state: 9.67 eV')
