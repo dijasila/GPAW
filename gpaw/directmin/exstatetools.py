@@ -4,7 +4,7 @@ import numpy as np
 def get_occupations(wfs):
     f_sn = {}
     for kpt in wfs.kpt_u:
-        n_kps = wfs.kd.nks // wfs.kd.nspins
+        n_kps = wfs.kd.nibzkpts
         u = n_kps * kpt.s + kpt.q
         f_sn[u] = kpt.f_n.copy()
     if wfs.nspins == 2 and wfs.kd.comm.size > 1:
@@ -36,7 +36,7 @@ def excite_and_sort(wfs, i, a, exctype='singlet', mode='fdpw'):
 
     if exctype == 'singlet':
         for kpt in wfs.kpt_u:
-            n_kps = wfs.kd.nks // wfs.kd.nspins
+            n_kps = wfs.kd.nibzkpts
             u = n_kps * kpt.s + kpt.q
             if kpt.s == 0:
                 occ_ex_up = kpt.f_n.copy()
@@ -49,6 +49,7 @@ def excite_and_sort(wfs, i, a, exctype='singlet', mode='fdpw'):
                 elif mode == 'lcao':
                     wfs.eigensolver.c_nm_ref[u][indx] = \
                         wfs.eigensolver.c_nm_ref[u][swindx]
+                    kpt.C_nM[:] = wfs.eigensolver.c_nm_ref[u].copy()
                 else:
                     raise KeyError
                 kpt.eps_n[indx] = kpt.eps_n[swindx]
@@ -60,7 +61,7 @@ def excite_and_sort(wfs, i, a, exctype='singlet', mode='fdpw'):
         f_sn[1][lumo + a] += 1
         # sort wfs
         for kpt in wfs.kpt_u:
-            n_kps = wfs.kd.nks // wfs.kd.nspins
+            n_kps = wfs.kd.nibzkpts
             u = n_kps * kpt.s + kpt.q
             kpt.f_n = f_sn[u].copy()
             occupied = kpt.f_n > 1.0e-10
