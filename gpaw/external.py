@@ -9,7 +9,7 @@ from ase.units import Bohr, Hartree
 import _gpaw
 
 __all__ = ['ConstantPotential', 'ConstantElectricField', 'CDFTPotential',
-           'PointChargePotential']
+           'PointChargePotential', 'StepPotentialz', 'PotentialCollection']
 
 
 def create_external_potential(name, **kwargs):
