@@ -29,11 +29,11 @@ def mom_calculation(calc, atoms,
     parallel_layout = calc.wfs.occupations.parallel_layout
     occ = FixedOccupationNumbers(numbers, parallel_layout)
 
-    if calc.scf.converged:
-        # We need to set the occupation numbers according to the supplied
-        # occupation numbers to initialize the MOM reference orbitals correctly
-        calc.wfs.occupations = occ
-        calc.wfs.calculate_occupation_numbers()
+    # if calc.scf.converged:
+    #     # We need to set the occupation numbers according to the supplied
+    #     # occupation numbers to initialize the MOM reference orbitals correctly
+    #     calc.wfs.occupations = occ
+    #     calc.wfs.calculate_occupation_numbers()
 
     occ_mom = OccupationsMOM(calc.wfs, occ,
                              numbers,
@@ -196,13 +196,10 @@ class OccupationsMOM:
         if self.wfs.mode == 'lcao':
             P = np.dot(self.c_ref[kpt.s][f_n_unique].conj(),
                        np.dot(kpt.S_MM, kpt.C_nM.T))
-            P = np.sum(P**2, axis=0)
-            P = P ** 0.5
         else:
             # Pseudo wave function overlaps
             P = self.wfs.integrate(self.wf[kpt.s][f_n_unique][:],
                                    kpt.psit_nG[:], True)
-
             # PAW corrections
             P_corr = np.zeros_like(P)
             for a, p_a in self.p_an[kpt.s][f_n_unique].items():
@@ -212,8 +209,9 @@ class OccupationsMOM:
 
             # Sum pseudo wave and PAW contributions
             P += P_corr
-            P = np.sum(P ** 2, axis=0)
-            P = P ** 0.5
+
+        P = np.sum(abs(P) ** 2, axis=0)
+        P = P ** 0.5
 
         return P
 
