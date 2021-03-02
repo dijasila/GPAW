@@ -32,7 +32,7 @@ Examples
 Several potentials
 ------------------
 
-A collection of potentials can be applied using ``PotentialCollection``
+A collection of potentials can be applied using :class:`PotentialCollection`
 
 >>> from gpaw.external import ConstantElectric, PointChargePotential
 >>> from gpaw.external import PotentialCollection
