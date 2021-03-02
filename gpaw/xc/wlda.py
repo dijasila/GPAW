@@ -915,7 +915,9 @@ class WLDA(XCFunctional):
 
         If self.rcut_factor is None, the pseudo density is returned.
         """
-        if self.rcut_factor:
+        if self.rcut_factor == -1:
+            return self.density.get_all_electron_density(gridrefinement=1)
+        elif self.rcut_factor is not None:
             from gpaw.xc.WDAUtils import correct_density
             return correct_density(n_sg, gd, self.wfs.setups,
                                    self.wfs.spos_ac, self.rcut_factor)
