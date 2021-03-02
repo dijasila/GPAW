@@ -95,9 +95,12 @@ comparing floating point numbers::
 Big tests
 =========
 
-The directory in :git:`gpaw/test/big/` contains a set of longer and more
+The directories in :git:`gpaw/test/big/`, :git:`doc/tutorials/` and
+:git:`doc/exercises/` contain longer and more
 realistic tests that we run every weekend.  These are submitted to a
-queueing system of a large computer.
+queueing system of a large computer.  The scripts in the :git:`doc` folder
+are used both for testing GPAW and for generating up to date figures and
+csv-file for inclsion in the documentation web-pages.
 
 
 Adding new tests
@@ -112,8 +115,8 @@ calculates something and saves a ``.gpw`` file and another script,
 ``analyse.py``, analyses this output. Then the submit script should look
 something like::
 
-    def create_tasks():
-        from myqueue.task import run
+    def workflow():
+        from myqueue.workflow import run
         with run(script='calculate.py', cores=8, tmax='25m'):
             run(script='analyse.py')  # 1 core and 10 minutes
 
