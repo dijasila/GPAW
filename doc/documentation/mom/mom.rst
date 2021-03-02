@@ -4,6 +4,23 @@
 Maximum Overlap Method
 ======================
 
+The maximum overlap method (MOM) can be used to convergence to
+excited-state solutions of the SCF equations, corresponding to
+non-Aufbau orbital occupations. Thus, it is an alternative to
+the linear expansion :ref:`dscf` approach for variational calculations
+of excited states.
+
+Excited-state solutions often correspond to saddle points of
+the energy as a function of the electronic degrees of freedom
+(i.e. the orbital variations), and excited-state calculations
+are susceptible to variational collapse to lower-energy
+solutions of the same symmetry. MOM
+
+--------------
+Implementation
+--------------
+The GPAW implementation of MOM is presented in
+
 .. math::
     P_{m}^{(k)} = \left(\sum_{n=1}^{N}  |O_{nm}^{(k)}|^{2} \right)^{1/2}
 
@@ -20,5 +37,9 @@ Maximum Overlap Method
     S_{\mu\nu} = \langle\Phi_{\mu} | \Phi_{\nu}\rangle +
     \sum_{a, i_1, i_2} \langle\Phi_{\mu} | \tilde{p}_{i_1}^{a}\rangle \left( \langle\phi_{i_1}^{a} | \phi_{i_2}^{a}\rangle -
     \langle\tilde{\phi}_{i_1}^{a} | \tilde{\phi}_{i_2}^{a}\rangle \right) \langle\tilde{p}_{i_2}^{a} | \Phi_{\nu}\rangle
+
+------------------------------------------------------
+Example of application to Rydberg excitations in water
+------------------------------------------------------
 
 .. literalinclude:: mom_h2o.py
