@@ -379,7 +379,8 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
                                      (['x', 'y', 'z'][v], a))
 
                 # Array for different k-point components
-                g_sqMM = np.zeros((nspins, len(kpt_u)//nspins, nao, nao), dtype)
+                g_sqMM = np.zeros((nspins, len(kpt_u) // nspins, nao, nao),
+                                  dtype)
 
                 # 1) Gradient of effective potential
                 self.timer.write_now("Starting gradient of"
@@ -387,7 +388,8 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
                 for kpt in kpt_u:
                     # Matrix elements
                     geff_MM = np.zeros((nao, nao), dtype)
-                    bfs.calculate_potential_matrix(V1t_sG[kpt.s], geff_MM, q=kpt.q)
+                    bfs.calculate_potential_matrix(V1t_sG[kpt.s], geff_MM,
+                                                   q=kpt.q)
                     tri2full(geff_MM, 'L')
                     # Insert in array
                     g_sqMM[kpt.s, kpt.q] += geff_MM
@@ -436,7 +438,7 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
                     for s in range(nspins):
                         g_MM = tb.bloch_to_real_space(g_sqMM[s], R_c=(0, 0, 0))[0]
                         g_sMM.append(g_MM)
-                        g_sMM = np.array(g_sMM)  # i'm sure there is a smarter way
+                    g_sMM = np.array(g_sMM)
 
                 # Reshape to global unit cell indices
                 N = np.prod(self.supercell)
@@ -656,7 +658,7 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
         amu = units._amu  # atomic mass unit
         me = units._me   # electron mass
         g_lsMM /= np.sqrt(2 * amu / me / units.Hartree *
-                omega_l[:, :, np.newaxis, np.newaxis])
+                          omega_l[:, :, np.newaxis, np.newaxis])
         # Convert to eV
         g_lsMM *= units.Hartree
 
