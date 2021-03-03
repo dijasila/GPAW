@@ -867,15 +867,14 @@ in combination with parallel array transposes.  Meanwhile in PW mode,
 the Poisson equation is solved by dividing each planewave coefficient
 by the squared length of its corresponding wavevector.
 
-The old default Poisson solver uses a multigrid Jacobian method.  Use this
-keyword to specify a different method.  This example corresponds to
-the old default Poisson solver::
+The old default Poisson solver uses a multigrid Jacobian method.
+This example corresponds to the old default Poisson solver::
 
   from gpaw import GPAW, PoissonSolver
   calc = GPAW(poissonsolver=PoissonSolver(name='fd', nn=3, relax='J', eps=2e-10))
 
-The first argument is the stencil, see :ref:`manual_stencils`.  Second
-argument is the method, either ``'J'`` (Jacobian) or ``'GS'``
+The ``nn`` argument is the stencil, see :ref:`manual_stencils`.
+The ``relax`` argument is the method, either ``'J'`` (Jacobian) or ``'GS'``
 (Gauss-Seidel).  The Gauss-Seidel method requires half as many
 iterations to solve the Poisson equation, but involves more
 communication.  The Gauss-Seidel implementation also depends slightly
