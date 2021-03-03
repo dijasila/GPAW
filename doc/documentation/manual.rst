@@ -857,11 +857,11 @@ Hamiltonian matrix instead of using an iterative method.
 Poisson solver
 --------------
 
-The *poissonsolver* keyword is used to specify a Poisson solver class
+The ``poissonsolver`` keyword is used to specify a Poisson solver class
 or enable dipole correction.
 
 The default Poisson solver in FD and LCAO mode
-is called FastPoissonSolver and uses
+is called ``FastPoissonSolver`` and uses
 a combination of Fourier and Fourier-sine transforms
 in combination with parallel array transposes.  Meanwhile in PW mode,
 the Poisson equation is solved by dividing each planewave coefficient
@@ -893,7 +893,7 @@ The last argument, ``eps``, is the convergence criterion.
 
 .. _manual_dipole_correction:
 
-The *poissonsolver* keyword can also be used to specify that a dipole
+The ``poissonsolver`` keyword can also be used to specify that a dipole
 correction should be applied along a given axis.  The system should be
 non-periodic in that direction but periodic in the two other
 directions.
