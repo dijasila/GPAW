@@ -105,6 +105,11 @@ class WLDA(XCFunctional):
         XCFunctional.__init__(self, 'WLDA', 'LDA')
         self.nindicators = settings.get('nindicators', None) or int(2 * 1e2)
         self.rcut_factor = settings.get("rc", None)
+        self.lambd = settings.get('lambda', 1.0)
+        if self.lambd is not None:
+            from gpaw.xc.lda import LDA, PurePythonLDAKernel
+            self.lda_xc = LDA(PurePythonLDAKernel())
+
         self.settings = settings
         # self.wlda_type = 'c'
         # self.energies = []
@@ -154,6 +159,14 @@ class WLDA(XCFunctional):
 
         gd.distribute(exc_g, e_g)
         gd.distribute(vxc_sg, v_sg)
+
+        # Calculate E_LDA on n_sg
+        if self.lambd is not None:
+            elda_g = np.zeros_like(n_sg[0])
+            vlda_sg = np.zeros_like(n_sg)
+            self.lda_xc.calculate_impl(gd, n_sg, vlda_sg, elda_g)
+            e_g[:] = elda_g + self.lambd * (e_g - elda_g)
+            v_sg[:] = vlda_sg + self.lambd * (v_sg - vlda_sg)
 
     def get_working_density(self, n_sg, gd):
         """Construct the "working" density.
@@ -902,8 +915,12 @@ class WLDA(XCFunctional):
         return res_g
 
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None, a=None):
-        """Return trivial paw correction."""
-        return 0
+        if self.lambd is not None:
+            # If lambda is enabled we want to use E_LDA[n_AE]
+            # which means we need the PAW corrections for LDA
+            return self.lda_xc.calculate_paw_correction(setup, D_sp, dEdD_sp, a)
+        else:
+            return 0.0
 
     def density_correction(self, gd, n_sg):
         """Apply density correction.
