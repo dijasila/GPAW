@@ -59,26 +59,26 @@ DFT Hamiltonian.
 
 """
 
-import pickle
 from math import pi
 import os.path as op
+import pickle
 import sys
 
 import numpy as np
 import numpy.fft as fft
 import numpy.linalg as la
 
-import ase.units as units
 from ase.phonons import Displacement
-
-from gpaw.utilities import unpack2
-from gpaw.utilities.tools import tri2full
-from gpaw.utilities.timing import StepTimer, nulltimer
-from gpaw.lcao.tightbinding import TightBinding
-from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.mpi import rank
+import ase.units as units
 from ase.utils import opencew
+
 from gpaw import GPAW
+from gpaw.kpt_descriptor import KPointDescriptor
+from gpaw.lcao.tightbinding import TightBinding
+from gpaw.mpi import rank
+from gpaw.utilities import unpack2
+from gpaw.utilities.timing import StepTimer, nulltimer
+from gpaw.utilities.tools import tri2full
 
 
 class BackwardsCompatibleDisplacement(Displacement):
@@ -142,9 +142,11 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
         # LCAO calculator
         self.calc_lcao = None
         # Supercell matrix
-        self.g_xNNMM = None
+        self.g_xsNNMM = None
+        # basis
+        self.basis_info = None
 
-    def calculate(self, atoms_N, filename, fd):
+    def calculate(self, atoms_N, fd):
         output = self(atoms_N)
         if rank == 0:
             pickle.dump(output, fd, protocol=2)
@@ -434,7 +436,7 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
                     for s in range(nspins):
                         g_MM = tb.bloch_to_real_space(g_sqMM[s], R_c=(0, 0, 0))[0]
                         g_sMM.append(g_MM)
-                        g_sMM = np.array(g_sMM)  # i'm sure there is a smarter way 
+                        g_sMM = np.array(g_sMM)  # i'm sure there is a smarter way
 
                 # Reshape to global unit cell indices
                 N = np.prod(self.supercell)
@@ -442,7 +444,7 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
                 assert (nao % N) == 0, "Alarm ...!"
                 nao_cell = nao // N
                 g_sNMNM = g_sMM.reshape((nspins, N, nao_cell, N, nao_cell))
-                g_sNNMM = g_NMNM.swapaxes(2, 3).copy()
+                g_sNNMM = g_sNMNM.swapaxes(2, 3).copy()
                 self.timer.write_now("Finished supercell matrix")
 
                 if dump != 2:
@@ -661,7 +663,7 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
         return g_lsMM
 
     def bloch_matrix(self, kpts, qpts, c_kn, u_ql,
-                     omega_ql=None, kpts_from=Nonei, spin=0):
+                     omega_ql=None, kpts_from=None, spin=0):
         r"""Calculate el-ph coupling in the Bloch basis for the electrons.
 
         This function calculates the electron-phonon coupling between the
@@ -737,7 +739,7 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
                 kpts_k = list(kpts_from)
 
         # Supercell matrix (real matrix in Hartree / Bohr)
-        g_xNNMM = self.g_xsNNMM[:, s]
+        g_xNNMM = self.g_xsNNMM[:, spin]
 
         # Number of phonon modes and electronic bands
         nmodes = u_ql.shape[1]
