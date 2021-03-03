@@ -869,10 +869,10 @@ by the squared length of its corresponding wavevector.
 
 The old default Poisson solver uses a multigrid Jacobian method.  Use this
 keyword to specify a different method.  This example corresponds to
-the default Poisson solver::
+the old default Poisson solver::
 
   from gpaw import GPAW, PoissonSolver
-  calc = GPAW(poissonsolver=PoissonSolver(nn=3, relax='J', eps=2e-10))
+  calc = GPAW(poissonsolver=PoissonSolver(name='fd', nn=3, relax='J', eps=2e-10))
 
 The first argument is the stencil, see :ref:`manual_stencils`.  Second
 argument is the method, either ``'J'`` (Jacobian) or ``'GS'``
@@ -880,7 +880,6 @@ argument is the method, either ``'J'`` (Jacobian) or ``'GS'``
 iterations to solve the Poisson equation, but involves more
 communication.  The Gauss-Seidel implementation also depends slightly
 on the domain decomposition used.
-
 The last argument, ``eps``, is the convergence criterion.
 
 .. note::
