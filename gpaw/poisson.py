@@ -1179,9 +1179,10 @@ class FastPoissonSolver(BasePoissonSolver):
         pass
 
     def get_description(self):
-        return """\
-FastPoissonSolver using
-    %s stencil;
-    FFT axes: %s;
-    FST axes: %s.
-""" % (self.stencil_description, self.fft_axes, self.fst_axes)
+        lines = [f'{self.__class__.__name__} using',
+                 f'    Stencil: {self.stencil_description}',
+                 f'    FFT axes: {self.fft_axes}',
+                 f'    FST axes: {self.fst_axes}',
+                 ]
+        lines.append(BasePoissonSolver.get_description(self))
+        return '\n'.join(lines)
