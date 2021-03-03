@@ -61,6 +61,7 @@ DFT Hamiltonian.
 
 import pickle
 from math import pi
+import os.path as op
 import sys
 
 import numpy as np
@@ -172,8 +173,8 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
             calc = calc.dft  # unwrap DFTD3 wrapper
 
         # Effective potential (in Hartree) and projector coefficients
-        Vt_G = calc.hamiltonian.vt_sG[0]
-        Vt_G = calc.wfs.gd.collect(Vt_G, broadcast=True)
+        Vt_sG = calc.hamiltonian.vt_sG
+        Vt_sG = calc.wfs.gd.collect(Vt_sG, broadcast=True)
         dH_asp = calc.hamiltonian.dH_asp
 
         setups = calc.wfs.setups
@@ -190,7 +191,7 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
             gd_comm.sum(dH_tmp_sp)
             dH_all_asp[a] = dH_tmp_sp
 
-        return Vt_G, dH_all_asp
+        return Vt_sG, dH_all_asp
 
     def set_lcao_calculator(self, calc):
         """Set LCAO calculator for the calculation of the supercell matrix."""
@@ -309,7 +310,7 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
         nao = setups.nao
         bfs = wfs.basis_functions
         dtype = wfs.dtype
-        spin = 0  # XXX
+        nspins = wfs.nspins
 
         # If gamma calculation, overlap with neighboring cell cannot be removed
         if kd.gamma:
@@ -322,14 +323,15 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
 
         self.timer.write_now("Calculating real-space gradients")
         # Calculate finite-difference gradients (in Hartree / Bohr)
-        V1t_xG, dH1_xasp = self.calculate_gradient()
+        V1t_xsG, dH1_xasp = self.calculate_gradient()
         self.timer.write_now("Finished real-space gradients")
 
         # Fourier filter the atomic gradients of the effective potential
         if filter is not None:
             self.timer.write_now("Fourier filtering gradients")
-            # V1_xG = V1t_xG.copy()
-            self.fourier_filter(V1t_xG, components=filter)
+            # V1_xsG = V1t_xsG.copy()
+            for s in range(nspins):
+                self.fourier_filter(V1t_xsG[:, s], components=filter)
             self.timer.write_now("Finished Fourier filtering")
 
         # For the contribution from the derivative of the projectors
@@ -338,12 +340,12 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
         dH_asp = pickle.load(open(self.name + '.eq.pckl', 'rb'))[1]
 
         # Check that the grid is the same as in the calculator
-        assert np.all(V1t_xG.shape[-3:] == (gd.N_c + gd.pbc_c - 1)), \
+        assert np.all(V1t_xsG.shape[-3:] == (gd.N_c + gd.pbc_c - 1)), \
             "Mismatch in grids."
 
         # Calculate < i k | grad H | j k >, i.e. matrix elements in Bloch basis
         # List for supercell matrices;
-        g_xNNMM = []
+        g_xsNNMM = []
         self.timer.write_now("Calculating gradient of PAW Hamiltonian")
 
         # Do each cartesian component separately
@@ -352,12 +354,30 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
 
                 # Corresponding array index
                 x = 3 * i + v
-                V1t_G = V1t_xG[x]
+
+                # If exist already, don't recompute
+                # NOTE: file names should only be generated once. Fix.
+                if dump == 2:
+                    if name is not None:
+                        fname = ('%s.supercell_matrix_x_%2.2u.%s.pckl'
+                                 % (name, x, basis))
+                    else:
+                        fname = (self.name +
+                                 '.supercell_matrix_x_%2.'
+                                 '2u.%s.pckl' % (x, basis))
+                    # check whether file exists
+                    if op.isfile(fname):
+                        continue
+
+                print("Atom ", i, "/", len(self.indices), " , direction ", v)
+
+                V1t_sG = V1t_xsG[x]
+
                 self.timer.write_now("%s-gradient of atom %u" %
                                      (['x', 'y', 'z'][v], a))
 
                 # Array for different k-point components
-                g_qMM = np.zeros((len(kpt_u), nao, nao), dtype)
+                g_sqMM = np.zeros((nspins, len(kpt_u)//nspins, nao, nao), dtype)
 
                 # 1) Gradient of effective potential
                 self.timer.write_now("Starting gradient of"
@@ -365,10 +385,10 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
                 for kpt in kpt_u:
                     # Matrix elements
                     geff_MM = np.zeros((nao, nao), dtype)
-                    bfs.calculate_potential_matrix(V1t_G, geff_MM, q=kpt.q)
+                    bfs.calculate_potential_matrix(V1t_sG[kpt.s], geff_MM, q=kpt.q)
                     tri2full(geff_MM, 'L')
                     # Insert in array
-                    g_qMM[kpt.q] += geff_MM
+                    g_sqMM[kpt.s, kpt.q] += geff_MM
 
                 self.timer.write_now("Finished gradient of "
                                      "effective potential")
@@ -385,44 +405,48 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
                         gp_MM = np.zeros((nao, nao), dtype)
                         dH1_asp = dH1_xasp[x]
                         for a_, dH1_sp in dH1_asp.items():
-                            dH1_ii = unpack2(dH1_sp[spin])
+                            dH1_ii = unpack2(dH1_sp[kpt.s])
                             gp_MM += np.dot(P_aqMi[a_][kpt.q], np.dot(dH1_ii,
                                             P_aqMi[a_][kpt.q].T.conjugate()))
-                        g_qMM[kpt.q] += gp_MM
+                        g_sqMM[kpt.s, kpt.q] += gp_MM
                     self.timer.write_now("Finished gradient of dH^a")
 
                     self.timer.write_now("Starting gradient of projectors")
                     # 2b) dP^a part has only contributions from the same atoms
                     dP_qvMi = dP_aqvMi[a]
-                    dH_ii = unpack2(dH_asp[a][spin])
+                    dH_ii = unpack2(dH_asp[a][kpt.s])
                     for kpt in kpt_u:
                         # XXX Sort out the sign here; conclusion -> sign = +1 !
                         P1HP_MM = +1 * np.dot(dP_qvMi[kpt.q][v], np.dot(dH_ii,
                                               P_aqMi[a][kpt.q].T.conjugate()))
                         # Matrix elements
                         gp_MM = P1HP_MM + P1HP_MM.T.conjugate()
-                        g_qMM[kpt.q] += gp_MM
+                        g_sqMM[kpt.s, kpt.q] += gp_MM
                     self.timer.write_now("Finished gradient of projectors")
                     self.timer.write_now("Finished gradient of pseudo part")
 
                 # Extract R_c=(0, 0, 0) block by Fourier transforming
                 if kd.gamma or kd.N_c is None:
-                    g_MM = g_qMM[0]
+                    g_sMM = g_sqMM[:, 0]
                 else:
                     # Convert to array
-                    g_MM = tb.bloch_to_real_space(g_qMM, R_c=(0, 0, 0))[0]
+                    g_sMM = []
+                    for s in range(nspins):
+                        g_MM = tb.bloch_to_real_space(g_sqMM[s], R_c=(0, 0, 0))[0]
+                        g_sMM.append(g_MM)
+                        g_sMM = np.array(g_sMM)  # i'm sure there is a smarter way 
 
                 # Reshape to global unit cell indices
                 N = np.prod(self.supercell)
                 # Number of basis function in the primitive cell
                 assert (nao % N) == 0, "Alarm ...!"
                 nao_cell = nao // N
-                g_NMNM = g_MM.reshape((N, nao_cell, N, nao_cell))
-                g_NNMM = g_NMNM.swapaxes(1, 2).copy()
+                g_sNMNM = g_sMM.reshape((nspins, N, nao_cell, N, nao_cell))
+                g_sNNMM = g_NMNM.swapaxes(2, 3).copy()
                 self.timer.write_now("Finished supercell matrix")
 
                 if dump != 2:
-                    g_xNNMM.append(g_NNMM)
+                    g_xsNNMM.append(g_sNNMM)
                 else:
                     if name is not None:
                         fname = ('%s.supercell_matrix_x_%2.2u.%s.pckl'
@@ -435,14 +459,18 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
                         fd = open(fname, 'wb')
                         M_a = self.basis_info['M_a']
                         nao_a = self.basis_info['nao_a']
-                        pickle.dump((g_NNMM, M_a, nao_a), fd, 2)
+                        # backward compatibility
+                        # if nspins == 1:
+                        #    pickle.dump((g_sNNMM[0], M_a, nao_a), fd, 2)
+                        # else:
+                        pickle.dump((g_sNNMM, M_a, nao_a), fd, 2)
                         fd.close()
 
         self.timer.write_now("Finished gradient of PAW Hamiltonian")
 
         if dump != 2:
             # Collect gradients in one array
-            self.g_xNNMM = np.array(g_xNNMM)
+            self.g_xsNNMM = np.array(g_xsNNMM)
 
             # Dump to pickle file using binary mode together with basis info
             if dump and kd.comm.rank == 0:
@@ -453,7 +481,11 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
                 fd = open(fname, 'wb')
                 M_a = self.basis_info['M_a']
                 nao_a = self.basis_info['nao_a']
-                pickle.dump((self.g_xNNMM, M_a, nao_a), fd, 2)
+                # backward compatibility
+                # if nspins == 1:
+                #     pickle.dump((self.g_xsNNMM[0], M_a, nao_a), fd, 2)
+                # else:
+                pickle.dump((self.g_xsNNMM, M_a, nao_a), fd, 2)
                 fd.close()
 
     def load_supercell_matrix(self, basis=None, name=None, multiple=False):
@@ -474,8 +506,8 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
         assert (basis is not None) or (name is not None), \
             "Provide basis or name."
 
-        if self.g_xNNMM is not None:
-            self.g_xNNMM = None
+        if self.g_xsNNMM is not None:
+            self.g_xsNNMM = None
 
         if not multiple:
             # File name
@@ -484,10 +516,10 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
             else:
                 fname = self.name + '.supercell_matrix.%s.pckl' % basis
             fd = open(fname, 'rb')
-            self.g_xNNMM, M_a, nao_a = pickle.load(fd)
+            self.g_xsNNMM, M_a, nao_a = pickle.load(fd)
             fd.close()
         else:
-            g_xNNMM = []
+            g_xsNNMM = []
             for x in range(len(self.indices) * 3):
                 if name is not None:
                     fname = name
@@ -495,10 +527,10 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
                     fname = (self.name +
                              '.supercell_matrix_x_%2.2u.%s.pckl' % (x, basis))
                 fd = open(fname, 'rb')
-                g_NNMM, M_a, nao_a = pickle.load(fd)
+                g_sNNMM, M_a, nao_a = pickle.load(fd)
                 fd.close()
-                g_xNNMM.append(g_NNMM)
-            self.g_xNNMM = np.array(g_xNNMM)
+                g_xsNNMM.append(g_sNNMM)
+            self.g_xsNNMM = np.array(g_xsNNMM)
 
         self.set_basis_info(M_a, nao_a)
 
@@ -522,15 +554,16 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
             cutmin = float(cutmin)
 
         # Reference to supercell matrix attribute
-        g_xNNMM = self.g_xNNMM
+        g_xsNNMM = self.g_xsNNMM
 
         # Number of atoms and primitive cells
         N_atoms = len(self.indices)
         N = np.prod(self.supercell)
-        nao = g_xNNMM.shape[-1]
+        nao = g_xsNNMM.shape[-1]
+        nspins = g_xsNNMM.shape[1]
 
         # Reshape array
-        g_avNNMM = g_xNNMM.reshape(N_atoms, 3, N, N, nao, nao)
+        g_avsNNMM = g_xsNNMM.reshape(N_atoms, 3, nspins, N, N, nao, nao)
 
         # Make slices for orbitals on atoms
         M_a = self.basis_info['M_a']
@@ -552,7 +585,7 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
 
         # Create a mask array to zero the relevant matrix elements
         if cutmin is not None:
-            mask_avNNMM = np.zeros(g_avNNMM.shape, dtype=bool)
+            mask_avsNNMM = np.zeros(g_avsNNMM.shape, dtype=bool)
 
         # Zero elements where one of the basis orbitals has a distance to atoms
         # (atomic gradients) in the reference cell larger than the cutoff
@@ -571,8 +604,8 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
                     j_a = np.where(dist_a > cutmax)[0]
                     # Zero elements
                     for j in j_a:
-                        g_avNNMM[a, :, n, :, slice_a[j], :] = 0.0
-                        g_avNNMM[a, :, :, n, :, slice_a[j]] = 0.0
+                        g_avsNNMM[a, :, :, n, :, slice_a[j], :] = 0.0
+                        g_avsNNMM[a, :, :, :, n, :, slice_a[j]] = 0.0
 
                 if cutmin is not None:
                     # Atoms indices where the distance is larger than the min
@@ -581,12 +614,12 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
                     # Update mask to keep elements where one LCAO is outside
                     # the min cutoff
                     for j in j_a:
-                        mask_avNNMM[a, :, n, :, slice_a[j], :] = True
-                        mask_avNNMM[a, :, :, n, :, slice_a[j]] = True
+                        mask_avsNNMM[a, :, :, n, :, slice_a[j], :] = True
+                        mask_avsNNMM[a, :, :, :, n, :, slice_a[j]] = True
 
         # Zero elements where both LCAOs are located within the min cutoff
         if cutmin is not None:
-            g_avNNMM[~mask_avNNMM] = 0.0
+            g_avsNNMM[~mask_avsNNMM] = 0.0
 
     def lcao_matrix(self, u_l, omega_l):
         """Calculate the el-ph coupling in the electronic LCAO basis.
@@ -604,9 +637,9 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
         """
 
         # Supercell matrix (Hartree / Bohr)
-        assert self.g_xNNMM is not None, "Load supercell matrix."
-        assert self.g_xNNMM.shape[1:3] == (1, 1)
-        g_xMM = self.g_xNNMM[:, 0, 0, :, :]
+        assert self.g_xsNNMM is not None, "Load supercell matrix."
+        assert self.g_xsNNMM.shape[2:4] == (1, 1)
+        g_xsMM = self.g_xsNNMM[:, :, 0, 0, :, :]
         # Number of atomic orbitals
         # nao = g_xMM.shape[-1]
         # Number of phonon modes
@@ -614,20 +647,21 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
 
         #
         u_lx = u_l.reshape(nmodes, 3 * len(self.atoms))
-        g_lMM = np.dot(u_lx, g_xMM.transpose(1, 0, 2))
+        # np.dot uses second to last index of second array
+        g_lsMM = np.dot(u_lx, g_xsMM.transpose(2, 0, 1, 3))
 
         # Multiply prefactor sqrt(hbar / 2 * M * omega) in units of Bohr
         amu = units._amu  # atomic mass unit
         me = units._me   # electron mass
-        g_lMM /= np.sqrt(2 * amu / me / units.Hartree *
-                         omega_l[:, np.newaxis, np.newaxis])
+        g_lsMM /= np.sqrt(2 * amu / me / units.Hartree *
+                omega_l[:, :, np.newaxis, np.newaxis])
         # Convert to eV
-        g_lMM *= units.Hartree
+        g_lsMM *= units.Hartree
 
-        return g_lMM
+        return g_lsMM
 
     def bloch_matrix(self, kpts, qpts, c_kn, u_ql,
-                     omega_ql=None, kpts_from=None):
+                     omega_ql=None, kpts_from=Nonei, spin=0):
         r"""Calculate el-ph coupling in the Bloch basis for the electrons.
 
         This function calculates the electron-phonon coupling between the
@@ -662,13 +696,15 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
         kpts_from: list of ints or int
             Calculate only the matrix element for the k-vectors specified by
             their index in the ``kpts`` argument (default: all).
+        spin: integer (0,1)
+            In case of spin-polarised system, define which spin to use.
 
         In short, phonon frequencies and mode vectors must be given in
         ase units.
 
         """
 
-        assert self.g_xNNMM is not None, "Load supercell matrix."
+        assert self.g_xsNNMM is not None, "Load supercell matrix."
         assert len(c_kn.shape) == 3
         assert len(u_ql.shape) == 4
         if omega_ql is not None:
@@ -701,7 +737,7 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
                 kpts_k = list(kpts_from)
 
         # Supercell matrix (real matrix in Hartree / Bohr)
-        g_xNNMM = self.g_xNNMM
+        g_xNNMM = self.g_xsNNMM[:, s]
 
         # Number of phonon modes and electronic bands
         nmodes = u_ql.shape[1]
@@ -873,7 +909,7 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
         """
 
         # Array and dict for finite difference derivatives
-        V1t_xG = []
+        V1t_xsG = []
         dH1_xasp = []
 
         x = 0
@@ -882,14 +918,14 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
                 name = '%s.%d%s' % (self.name, a, 'xyz'[v])
                 # Potential and atomic density matrix for atomic displacement
                 try:
-                    Vtm_G, dHm_asp = pickle.load(open(name + '-.pckl', 'rb'))
-                    Vtp_G, dHp_asp = pickle.load(open(name + '+.pckl', 'rb'))
+                    Vtm_sG, dHm_asp = pickle.load(open(name + '-.pckl', 'rb'))
+                    Vtp_sG, dHp_asp = pickle.load(open(name + '+.pckl', 'rb'))
                 except (IOError, EOFError):
                     raise IOError('%s(-/+).pckl' % name)
 
                 # FD derivatives in Hartree / Bohr
-                V1t_G = (Vtp_G - Vtm_G) / (2 * self.delta / units.Bohr)
-                V1t_xG.append(V1t_G)
+                V1t_sG = (Vtp_sG - Vtm_sG) / (2 * self.delta / units.Bohr)
+                V1t_xsG.append(V1t_sG)
 
                 dH1_asp = {}
                 for atom in dHm_asp.keys():
@@ -898,4 +934,4 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
                 dH1_xasp.append(dH1_asp)
                 x += 1
 
-        return np.array(V1t_xG), dH1_xasp
+        return np.array(V1t_xsG), dH1_xasp
