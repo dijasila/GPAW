@@ -108,7 +108,7 @@ class _PoissonSolver(object):
 
 
 class BasePoissonSolver(_PoissonSolver):
-    def __init__(self, remove_moment=None, use_charge_center=False,
+    def __init__(self, *, remove_moment=None, use_charge_center=False,
                  metallic_electrodes=False, eps=None):
 
         if eps is not None:
