@@ -4,17 +4,22 @@
 Maximum Overlap Method
 ======================
 
-The maximum overlap method (MOM) can be used to convergence to
-excited-state solutions of the SCF equations, corresponding to
-non-Aufbau orbital occupations. Thus, it is an alternative to
-the linear expansion :ref:`dscf` approach for variational calculations
-of excited states.
+The maximum overlap method (MOM) can be used to perform
+variational excited-state calculations.
 
-Excited-state solutions often correspond to saddle points of
-the energy as a function of the electronic degrees of freedom
-(i.e. the orbital variations), and excited-state calculations
-are susceptible to variational collapse to lower-energy
-solutions of the same symmetry. MOM
+is an alternative to the linear expansion :ref:`dscf`
+approach for variational calculations of excited states.
+
+Excited-state solutions of the SCF equations are obtained
+for non-Aufbau orbital occupations and can correspond
+to saddle points of the energy as a function of the electronic
+degrees of freedom (the orbital variations) [#momgpaw1]_ [#momgpaw2]_.
+Hence, excited-state calculations can be affected by variational
+collapse to lower-energy solutions of the same symmetry.
+MOM is a strategy to retain a non-Aufbau distribution of
+the occupation numbers consistent with the choice of initial
+guess for an excited state, thereby avoiding variational collapse
+during optimization of the wave function.
 
 --------------
 Implementation
