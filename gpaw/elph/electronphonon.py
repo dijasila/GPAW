@@ -146,7 +146,7 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
         # basis
         self.basis_info = None
 
-    def calculate(self, atoms_N, fd):
+    def calculate(self, atoms_N, filename, fd):
         output = self(atoms_N)
         if rank == 0:
             pickle.dump(output, fd, protocol=2)
@@ -436,8 +436,8 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
                     # Convert to array
                     g_sMM = []
                     for s in range(nspins):
-                        g_MM = tb.bloch_to_real_space(g_sqMM[s], R_c=(0, 0, 0))[0]
-                        g_sMM.append(g_MM)
+                        g_MM = tb.bloch_to_real_space(g_sqMM[s], R_c=(0, 0, 0))
+                        g_sMM.append(g_MM[0])  # [0] because of above
                     g_sMM = np.array(g_sMM)
 
                 # Reshape to global unit cell indices
