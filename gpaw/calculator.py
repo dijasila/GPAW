@@ -48,6 +48,7 @@ from gpaw.utilities.memory import MemNode, maxrss
 from gpaw.utilities.partition import AtomPartition
 from gpaw.wavefunctions.mode import create_wave_function_mode
 from gpaw.xc import XC
+from gpaw.xc.kernel import XCKernel
 from gpaw.xc.sic import SIC
 from gpaw.typing import Array1D
 
@@ -604,7 +605,7 @@ class GPAW(Calculator):
         # Generate new xc functional only when it is reset by set
         # XXX sounds like this should use the _changed_keywords dictionary.
         if self.hamiltonian is None or self.hamiltonian.xc is None:
-            if isinstance(par.xc, (str, dict)):
+            if isinstance(par.xc, (str, dict, XCKernel)):
                 xc = XC(par.xc, collinear=collinear, atoms=atoms)
             else:
                 xc = par.xc

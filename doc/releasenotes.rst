@@ -23,6 +23,15 @@ Version 21.1.0
 
 * Corresponding ASE release: ASE-3.21.0.
 
+* We now use GPAW's own (faster) implementation for LDA, PBE, revPBE, RPBE
+  and PW91.  For most calculation the speedup is unimportant, but for our
+  test-suites it gives a nice boost.  There can be small meV changes compared
+  to the LibXC implementation.  If you want to use LibXC then use::
+
+      from gpaw.xc.gga import GGA
+      from gpaw.xc.libxc import LibXC
+      calc = GPAW(xc=GGA(LibXC('PBE')), ...)
+
 * New :ref:`zfs` module.
 
 * New :ref:`scissors operator`.

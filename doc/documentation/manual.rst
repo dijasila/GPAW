@@ -329,7 +329,9 @@ generalized gradient approximation (GGA) type, and the last two are
 
 For the list of all functionals available in GPAW see :ref:`overview_xc`.
 
-GPAW uses the functionals from libxc_ by default.
+GPAW uses the functionals from libxc_ by default
+(except for LDA, PBE, revPBE, RPBE and PW91 where GPAW's own implementation
+is used).
 Keywords are based on the names in the libxc :file:`'xc_funcs.h'` header
 file (the leading ``'XC_'`` should be removed from those names).
 You should be able to find the file installed alongside LibXC.
