@@ -636,7 +636,8 @@ class PairDensity:
                  ftol=1e-6, threshold=1,
                  real_space_derivatives=False,
                  world=mpi.world, txt='-', timer=None,
-                 nblocks=1, gate_voltage=None, **unused):
+                 nblocks=1, gate_voltage=None,
+                 paw_correction='brute-force', **unused):
         """Density matrix elements
 
         Parameters
@@ -711,6 +712,8 @@ class PairDensity:
         kd = self.calc.wfs.kd
         self.KDTree = cKDTree(np.mod(np.mod(kd.bzk_kc, 1).round(6), 1))
         print('Number of blocks:', nblocks, file=self.fd)
+
+        self.paw_correction = paw_correction
 
     def find_kpoint(self, k_c):
         return self.KDTree.query(np.mod(np.mod(k_c, 1).round(6), 1))[1]
@@ -1232,8 +1235,14 @@ class PairDensity:
 
         ut_vR = self.ut_sKnvR[kpt1.s][kpt1.K][n - kpt1.n1]
         atomdata_a = self.calc.wfs.setups
-        C_avi = [np.dot(atomdata.nabla_iiv.T, P_ni[n - kpt1.na])
-                 for atomdata, P_ni in zip(atomdata_a, kpt1.P_ani)]
+        if self.paw_correction == 'brute-force':
+            C_avi = [np.dot(atomdata.nabla_iiv.T, P_ni[n - kpt1.na])
+                     for atomdata, P_ni in zip(atomdata_a, kpt1.P_ani)]
+        elif self.paw_correction == 'skip':
+            C_avi = [np.zeros((3, P_ni.shape[1]), complex)
+                     for atomdata, P_ni in zip(atomdata_a, kpt1.P_ani)]
+        else:
+            1 / 0
 
         blockbands = kpt2.nb - kpt2.na
         n0_mv = np.empty((kpt2.blocksize, 3), dtype=complex)
@@ -1474,7 +1483,6 @@ class PairDensity:
         # Collect integrals for all species:
         Q_xGii = {}
         for id, atomdata in wfs.setups.setups.items():
-            soft = True
             if soft:
                 ghat = PWLFC([atomdata.ghat_l], pd)
                 ghat.set_positions(np.zeros((1, 3)))
@@ -1485,9 +1493,14 @@ class PairDensity:
                 else:
                     Q_Gii = np.dot(atomdata.Delta_iiL, Q_LG).T
             else:
-                Q_Gii = two_phi_planewave_integrals(G_Gv, atomdata)
                 ni = atomdata.ni
-                Q_Gii.shape = (-1, ni, ni)
+                if self.paw_correction == 'brute-force':
+                    Q_Gii = two_phi_planewave_integrals(G_Gv, atomdata)
+                    Q_Gii.shape = (-1, ni, ni)
+                elif self.paw_correction == 'skip':
+                    Q_Gii = np.zeros((len(G_Gv), ni, ni), complex)
+                else:
+                    1 / 0
 
             Q_xGii[id] = Q_Gii
 
@@ -1515,6 +1528,7 @@ class PairDensity:
             if soft:
                 raise NotImplementedError
             else:
+                1 / 0
                 Q_vGii = two_phi_nabla_planewave_integrals(G_Gv, atomdata)
                 ni = atomdata.ni
                 Q_vGii.shape = (3, -1, ni, ni)
