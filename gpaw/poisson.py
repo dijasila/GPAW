@@ -113,10 +113,11 @@ class BasePoissonSolver(_PoissonSolver):
 
         if eps is not None:
             warnings.warn(
-                "The eps parameter doesn't do anything "
-                f"for the used {self.__class__.__name__}. "
-                "Defining it will throw an error in the future.",
-                DeprecationWarning)
+                "Please do not specify the eps parameter "
+                f"for {self.__class__.__name__}. "
+                "The parameter doesn't do anything for this solver "
+                "and defining it will throw an error in the future.",
+                FutureWarning)
 
         # metallic electrodes: mirror image method to allow calculation of
         # charged, partly periodic systems
