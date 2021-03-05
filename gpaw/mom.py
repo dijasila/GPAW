@@ -20,44 +20,44 @@ def mom_calculation(calc,
                     niter_width_update=40):
     """Helper function to prepare a calculator for a MOM calculation.
 
-       calc: GPAW instance
-           GPAW calculator object.
-       atoms: ASE instance
-           ASE atoms object.
-       numbers: list (len=nspins) of lists (len=nbands)
-           Occupation numbers (in the range from 0 to 1). Used to
-           initialize the MOM reference orbitals.
-       update_numbers: bool
-           If True, 'numbers' gets updated with the calculated
-           occupation numbers, and when changing atomic positions
-           the MOM reference orbitals will be initialized as the
-           occupied orbitals found at convergence for the previous
-           geometry. If False, when changing positions the MOM
-           reference orbitals will be initialized as the orbitals
-           of the previous geometry corresponding to the user-supplied
-           'numbers'.
-       project_overlaps: bool
-           If True, the occupied orbitals at iteration k are chosen
-           as the orbitals {|psi^(k)_m>} with the biggest weights
-           P_m evaluated as the projections onto the manifold of
-           reference orbitals {|psi_n>}:
-           P_m = (Sum_n(|O_nm|^2))^0.5 (O_nm = <psi_n|psi^(k)_m>)
-           See https://doi.org/10.1021/acs.jctc.7b00994.
-           If False, the weights are evaluated as:
-           P_m = max_n(|O_nm|)
-           See https://doi.org/10.1021/acs.jctc.0c00488.
-       width: float
-           Width of Gaussian function in eV for smearing of holes
-           and excited electrons. The holes and excited electrons
-           are found with respect to the zero-width ground-state
-           occupations.
-           See https://doi.org/10.1021/acs.jctc.0c00597.
-       width_increment: float
-           How much to increase the width of the Gaussian smearing
-           function.
-       niter_width_update: int
-           Number of iterations after which the width of the
-           Gaussian smearing function is increased.
+    calc: GPAW instance
+        GPAW calculator object.
+    atoms: ASE instance
+        ASE atoms object.
+    numbers: list (len=nspins) of lists (len=nbands)
+        Occupation numbers (in the range from 0 to 1). Used
+        for the initialization of the MOM reference orbitals.
+    update_numbers: bool
+        If True, 'numbers' gets updated with the calculated
+        occupation numbers, and when changing atomic positions
+        the MOM reference orbitals will be initialized as the
+        occupied orbitals found at convergence for the previous
+        geometry. If False, when changing positions the MOM
+        reference orbitals will be initialized as the orbitals
+        of the previous geometry corresponding to the user-supplied
+        'numbers'.
+    project_overlaps: bool
+        If True, the occupied orbitals at iteration k are chosen
+        as the orbitals |psi^(k)_m> with the biggest weights
+        P_m evaluated as the projections onto the manifold of
+        reference orbitals |psi_n>:
+            P_m = (Sum_n(|O_nm|^2))^0.5 (O_nm = <psi_n|psi^(k)_m>)
+        See https://doi.org/10.1021/acs.jctc.7b00994.
+        If False, the weights are evaluated as:
+            P_m = max_n(|O_nm|)
+        See https://doi.org/10.1021/acs.jctc.0c00488.
+    width: float
+        Width of Gaussian function in eV for smearing of holes
+        and excited electrons. The holes and excited electrons
+        are found with respect to the zero-width ground-state
+        occupations.
+        See https://doi.org/10.1021/acs.jctc.0c00597.
+    width_increment: float
+        How much to increase the width of the Gaussian smearing
+        function.
+    niter_width_update: int
+        Number of iterations after which the width of the
+        Gaussian smearing function is increased.
     """
 
     if calc.wfs is None:

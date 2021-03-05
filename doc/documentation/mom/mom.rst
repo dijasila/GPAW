@@ -44,6 +44,8 @@ projections onto the manifold `\{|\psi_{n}\rangle\}_{s}`
 [#imom]_:
 
 .. math::
+   :label: eq:momprojections
+
     P_{m}^{(k)} = \left(\sum_{n=1}^{N}  |O_{nm}^{(k)}|^{2} \right)^{1/2}
 
 where `O_{nm}^{(k)} = \langle\psi_n | \psi_{m}^{(k)}\rangle`.
@@ -51,6 +53,8 @@ Alternatively, the numerical weights can be evaluated as
 [#Dongmom]_:
 
 .. math::
+   :label: eq:mommaxoverlap
+
     P_{m}^{(k)} = \max_{n}\left( |O_{nm}^{(k)}| \right)
 
 In :ref:`plane-waves<manual_mode>` or :ref:`finite-difference <manual_stencils>`
@@ -65,7 +69,7 @@ where `|\tilde{\psi}_{n}\rangle` and `|\tilde{\psi}_{m}^{(k)}\rangle`
 are the pseudo orbitals, `|\tilde{p}_{i_1}^{a}\rangle`, `|\phi_{i_1}^{a}\rangle`
 and `|\tilde{\phi}_{i_1}^{a}\rangle` are projector functions, partial
 waves and pseudo partial waves localized on atom `a`, respectively.
-In :ref:`LCAO <lcao>`, the elements `O_{nm}^{(k)}` are calculated as:
+In :ref:`LCAO <lcao>`, the overlaps `O_{nm}^{(k)}` are calculated as:
 
 .. math::
     O_{nm}^{(k)} = \sum_{\mu\nu} c^*_{\mu n}S_{\mu\nu}c^{(k)}_{\nu m}, \qquad
@@ -80,7 +84,16 @@ iteration `k`, while `|\Phi_{\nu}\rangle` are the basis functions.
 --------------
 Notes on usage
 --------------
-Tipically,
+Tipically, first a ground-state calculation is performed.
+Then, the calculator is prepared for an excited-state
+calculation using the function ``mom_calculation``::
+
+  from gpaw import mom
+  mom.mom_calculation(calc, atoms, f)
+
+where ``f`` contains the occupation numbers of the excited state
+used initialize the MOM reference orbitals from the ground-state
+orbitals.
 
 -------------------------------------------------------
 Example of application to molecular Rydberg excitations
