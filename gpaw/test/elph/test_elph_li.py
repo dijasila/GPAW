@@ -3,6 +3,7 @@ Calculate the electron-phonon matrix in lithium using ALDA.
 
 Tests whether the spin-paired and spin-polarised results are identical.
 """
+import pytest
 import numpy as np
 import os
 
