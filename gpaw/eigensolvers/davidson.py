@@ -219,7 +219,8 @@ class Davidson(Eigensolver):
                     # np.set_printoptions(linewidth=200, precision=4,
                     # threshold=np.inf, suppress=True, floatmode='fixed')
                     if self.use_scalapack:
-                        H_NN[:, :] = Csc_MM.T.copy()
+                        # np.negative(Csc_MM.imag, out=Csc_MM.imag)
+                        H_NN[:, :] = Csc_MM.conj().T.copy()
                         eps_N[:] = eps_M.copy()
                     else:
                         eps_N, scipy_eigvecs = eigh(
