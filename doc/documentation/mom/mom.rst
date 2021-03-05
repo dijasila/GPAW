@@ -53,16 +53,29 @@ Alternatively, the numerical weights can be evaluated as
 .. math::
     P_{m}^{(k)} = \max_{n}\left( |O_{nm}^{(k)}| \right)
 
+In :ref:`plane-waves<manual_mode>` or :ref:`finite-difference <manual_stencils>`
+modes, the elements of the overlap matrix are calculated from:
+
 .. math::
     O_{nm}^{(k)} = \langle\tilde{\psi}_n | \tilde{\psi}_{m}^{(k)}\rangle +
     \sum_{a, i_1, i_2} \langle\tilde{\psi}_n | \tilde{p}_{i_1}^{a}\rangle \left( \langle\phi_{i_1}^{a} | \phi_{i_2}^{a}\rangle -
     \langle\tilde{\phi}_{i_1}^{a} | \tilde{\phi}_{i_2}^{a}\rangle \right) \langle\tilde{p}_{i_2}^{a} | \tilde{\psi}_{m}^{(k)}\rangle
+
+where `|\tilde{\psi}_{n}\rangle` and `|\tilde{\psi}_{m}^{(k)}\rangle`
+are the pseudo orbitals, `|\tilde{p}_{i_1}^{a}\rangle`, `|\phi_{i_1}^{a}\rangle`
+and `|\tilde{\phi}_{i_1}^{a}\rangle` are projector functions, partial
+waves and pseudo partial waves localized on atom `a`, respectively.
+In :ref:`LCAO <lcao>`, the elements `O_{nm}^{(k)}` are calculated as:
 
 .. math::
     O_{nm}^{(k)} = \sum_{\mu\nu} c^*_{\mu n}S_{\mu\nu}c^{(k)}_{\nu m}, \qquad
     S_{\mu\nu} = \langle\Phi_{\mu} | \Phi_{\nu}\rangle +
     \sum_{a, i_1, i_2} \langle\Phi_{\mu} | \tilde{p}_{i_1}^{a}\rangle \left( \langle\phi_{i_1}^{a} | \phi_{i_2}^{a}\rangle -
     \langle\tilde{\phi}_{i_1}^{a} | \tilde{\phi}_{i_2}^{a}\rangle \right) \langle\tilde{p}_{i_2}^{a} | \Phi_{\nu}\rangle
+
+where `c^*_{\mu n}` and `c^{(k)}_{\nu m}` are the expansion
+coefficients for the initial guess orbitals and orbitals at
+iteration `k`, while `|\Phi_{\nu}\rangle` are the basis functions.
 
 --------------
 Notes on usage
