@@ -443,7 +443,7 @@ class DirectMin(Eigensolver):
     def iteratenols(self, ham, wfs, dens, log):
 
         assert dens.mixer.driver.name == 'dummy', \
-            'Please, use: mixer={\'method\': \'dummy\'}'
+            'Please, use: mixer={\'name\': \'dummy\'}'
         assert wfs.bd.comm.size == 1, \
             'Band parallelization is not supported'
         occ_dct = wfs.occupations.todict()
@@ -1528,13 +1528,13 @@ class DirectMin(Eigensolver):
                 for kpt in wfs.kpt_u:
                     wfs.occupations.sort_wavefunctions(kpt)
 
-        if wfs.mode == 'pw' and \
-                self.initial_orbitals != 'KS' and \
-                self.initial_orbitals is not None:
-            parprint('WARNING: plane-waves mode '
-                     'can use ER localization only.\n'
-                     'Will change localization to ER now')
-            self.initial_orbitals = 'ER'
+        # if wfs.mode == 'pw' and \
+        #         self.initial_orbitals != 'KS' and \
+        #         self.initial_orbitals is not None:
+        #     parprint('WARNING: plane-waves mode '
+        #              'can use ER localization only.\n'
+        #              'Will change localization to ER now')
+        #     self.initial_orbitals = 'ER'
 
         io = self.initial_orbitals
 
