@@ -9,6 +9,7 @@ import ase.units as units
 
 from gpaw.utilities.tools import tri2full
 
+
 class TightBinding:
     """Simple class for tight-binding calculations."""
 
@@ -95,7 +96,7 @@ class TightBinding:
         if R_c is None:
             R_Nc = self.R_cN.transpose()
         else:
-            R_Nc = [R_c,]
+            R_Nc = [R_c]
 
         # Real-space quantities
         A_NxMM = []
@@ -118,7 +119,7 @@ class TightBinding:
                                         axis=1) == 0.0)[0]
                 rank, myu = self.kd.get_rank_and_index(0, gamma)
                 #
-                if self.kd.comm.rank == rank[0]:
+                if self.kd.comm.rank == rank[0]:  # rank is an int ????
                     A0_xMM = A_qxMM[myu[0]]
                 else:
                     A0_xMM = np.zeros_like(A_xMM)
@@ -154,7 +155,7 @@ class TightBinding:
         for kpt in kpt_u:
             H_MM = wfs.eigensolver.calculate_hamiltonian_matrix(h, wfs, kpt)
             S_MM = wfs.S_qMM[kpt.q]
-            #XXX Converting to full matrices here
+            # XXX Converting to full matrices here
             tri2full(H_MM)
             tri2full(S_MM)
             H_kMM.append(H_MM)

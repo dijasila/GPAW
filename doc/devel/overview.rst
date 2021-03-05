@@ -31,7 +31,7 @@ This object is the central object for a GPAW calculation::
                           +-------+        +-------+
 
 The implementation is in :git:`gpaw/calculator.py`.  The
-:class:`gpaw.calculator.GPAW` class doesn't do any part of the actual
+:class:`gpaw.GPAW` class doesn't do any part of the actual
 calculation - it only handles the logic of parsing the input
 parameters and setting up the necessary objects for doing the actual
 work (see figure above).
@@ -42,21 +42,16 @@ A GPAW instance has the following attributes: ``atoms``,
 ``hamiltonian``, ``scf``, ``log``, ``timer``,
 ``occupations``, ``initialized``, ``world`` and ``observers``.
 
-The :class:`gpaw.calculator.GPAW` inherits from:
+The :class:`gpaw.GPAW` inherits from:
 
 * :class:`ase.calculators.calculator.Calculator`
 
   This implements the ASE :ref:`ase:calculator interface`
 
-* :class:`gpaw.paw.PAW`
-
-  Mixin that adds a number of extra methods without bloating the
-  :git:`gpaw/calculator.py` file too much.
-
 .. note::
 
     GPAW uses atomic units internally (`\hbar=e=m=1`) and ASE uses
-    Angstrom and eV (:mod:`~ase.units`).
+    Ångström and eV (:mod:`~ase.units`).
 
 
 Generating a GPAW instance from scratch
@@ -74,17 +69,17 @@ will have to do something like::
     atoms.calc = calc
     atoms.get_potential_energy()
 
-ASE will then arrange to call the :meth:`~gpaw.calculator.GPAW.calculate`
+ASE will then arrange to call the :meth:`~gpaw.GPAW.calculate`
 method with the correct arguments.  This will trigger:
 
-1) A call to the :meth:`~gpaw.calculator.GPAW.initialize` method, which will
+1) A call to the :meth:`~gpaw.GPAW.initialize` method, which will
    set up the objects needed for a calculation:
    :class:`~gpaw.density.Density`,
    :class:`~gpaw.hamiltonian.Hamiltonian`,
    :class:`~gpaw.wavefunctions.base.WaveFunctions`,
    :class:`~gpaw.setup.Setups` and a few more (see figure above).
 
-2) A call to the :meth:`~gpaw.calculator.GPAW.set_positions` method, which will
+2) A call to the :meth:`~gpaw.GPAW.set_positions` method, which will
    initialize everything that depends on the atomic positions:
 
    a) Pass on the atomic positions to the wave functions, hamiltonian
@@ -102,7 +97,7 @@ When a GPAW instance is created like this::
 
   calc = GPAW('restart.gpw')
 
-the :meth:`~gpaw.calculator.GPAW.initialize` method is called first, so that
+the :meth:`~gpaw.GPAW.initialize` method is called first, so that
 the parts read from the file can be placed inside the objects where they
 belong: the effective pseudo potential and the total energy are put in the
 hamiltonian, the pseudo density is put in the density object and so on.
@@ -210,7 +205,7 @@ using the :func:`gpaw.xc.XC` function:
 
 Example::
 
-    # the default implementation of PBE from LibXC:
+    # Implementation of PBE from LibXC:
     from gpaw.xc import XC
     xc = XC('PBE')
     # alternative call:

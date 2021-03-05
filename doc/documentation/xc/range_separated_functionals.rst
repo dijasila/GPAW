@@ -156,6 +156,6 @@ the following code:
 
 .. [SZ12] M. Seth and T. Ziegler. *Range-Separated Exchange Functionals with Slater-Type Functions*. J. Chem. Theory Comput. 8.3 (2012), S. 901–907.
 
-.. [Wu16] R. Würdemann. *Berechnung optischer Spektren und Grundzustandseigenschaften neutraler und geladener Moleküle mittels Dichtefunktionaltheorie*, PhD-Thesis. DOI: 10.6094/UNIFR/11315
+.. [Wu16] R. Würdemann. *Berechnung optischer Spektren und Grundzustandseigenschaften neutraler und geladener Moleküle mittels Dichtefunktionaltheorie*, PhD-Thesis. :doi:`10.6094/UNIFR/11315`
 
 .. [WW18] R. Würdemann and M. Walter. *Charge Transfer Excitations with Range Separated Functionals Using Improved Virtual Orbitals*. J. Chem. Theory Comput. 14.7 (2018), S. 3667-3676

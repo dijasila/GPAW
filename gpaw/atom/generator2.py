@@ -5,13 +5,14 @@ from math import pi, exp, sqrt, log
 import numpy as np
 from scipy.optimize import fsolve
 from scipy.linalg import eigh
+from scipy.special import erf
 from ase.units import Hartree
-from ase.data import atomic_numbers
+from ase.data import atomic_numbers, chemical_symbols
 
 from gpaw import __version__ as version
 from gpaw.basis_data import Basis, BasisFunction, BasisPlotter
 from gpaw.gaunt import gaunt
-from gpaw.utilities import erf, pack2
+from gpaw.utilities import pack2
 from gpaw.atom.aeatom import (AllElectronAtom, Channel, parse_ld_str, colors,
                               GaussianBasis)
 
@@ -727,7 +728,7 @@ class PAWSetupGenerator:
         ekin = self.aea.ekin - self.ekincore - self.waves_l[0].dekin_nn[0, 0]
         evt = rgd.integrate(self.nt_g * self.vtr_g, -1)
 
-        import pylab as p
+        import matplotlib.pyplot as plt
 
         errors = 10.0**np.arange(-4, 0) / Hartree
         self.log('\nConvergence of energy:')
@@ -750,13 +751,13 @@ class PAWSetupGenerator:
                 ecut = 0.5 * G**2
                 h = pi / G
                 self.log(' %6.1f (%4.2f)' % (ecut * Hartree, h), end='')
-            p.semilogy(G_k, abs(e_k - e_k[-1]) * Hartree, label=label)
+            plt.semilogy(G_k, abs(e_k - e_k[-1]) * Hartree, label=label)
         self.log()
-        p.axis(xmax=20)
-        p.xlabel('G')
-        p.ylabel('[eV]')
-        p.legend()
-        p.show()
+        plt.axis(xmax=20)
+        plt.xlabel('G')
+        plt.ylabel('[eV]')
+        plt.legend()
+        plt.show()
 
     def plot(self):
         import matplotlib.pyplot as plt
@@ -1222,11 +1223,15 @@ class PAWSetupGenerator:
 
 
 def get_parameters(symbol, args):
+    Z = atomic_numbers.get(symbol)
+    if Z is None:
+        Z = float(symbol)
+        symbol = chemical_symbols[int(round(Z))]
+
     if args.electrons:
         par = parameters[symbol + str(args.electrons)]
     else:
-        Z = atomic_numbers[symbol]
-        par = parameters[symbol + str(default[Z])]
+        par = parameters[symbol + str(default[int(round(Z))])]
 
     projectors, radii = par[:2]
     if len(par) == 3:
@@ -1275,6 +1280,7 @@ def get_parameters(symbol, args):
         rcore *= -1
 
     return dict(symbol=symbol,
+                Z=Z,
                 xc=args.xc_functional,
                 configuration=configuration,
                 projectors=projectors,
@@ -1288,6 +1294,7 @@ def get_parameters(symbol, args):
 
 
 def generate(symbol,
+             Z,
              projectors,
              radii,
              r0, v0,
@@ -1303,7 +1310,8 @@ def generate(symbol,
              yukawa_gamma=0.0):
     if isinstance(output, str):
         output = open(output, 'w')
-    aea = AllElectronAtom(symbol, xc, configuration=configuration, log=output)
+    aea = AllElectronAtom(symbol, xc, Z=Z,
+                          configuration=configuration, log=output)
     gen = PAWSetupGenerator(aea, projectors, scalar_relativistic, core_hole,
                             fd=output, yukawa_gamma=yukawa_gamma)
 

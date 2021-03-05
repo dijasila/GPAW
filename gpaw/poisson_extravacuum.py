@@ -1,15 +1,12 @@
 import numpy as np
-
-from ase.units import Bohr
 from ase.geometry import cell_to_cellpar
+from ase.units import Bohr
 
-from gpaw.transformers import Transformer
 from gpaw.fd_operators import Laplace
-from gpaw.poisson import _PoissonSolver
-from gpaw.poisson import create_poisson_solver
-
-from gpaw.utilities.extend_grid import extended_grid_descriptor, \
-    extend_array, deextend_array
+from gpaw.poisson import _PoissonSolver, create_poisson_solver
+from gpaw.transformers import Transformer
+from gpaw.utilities.extend_grid import (deextend_array, extend_array,
+                                        extended_grid_descriptor)
 
 
 def ext_gd(gd, **kwargs):
@@ -139,7 +136,8 @@ class ExtraVacuumPoissonSolver(_PoissonSolver):
             # Check the consistency of the grids
             gd1 = self.gd_large_coar
             gd2 = self.gd_large_coar_from_aux
-            assert np.all(gd1.N_c == gd2.N_c) and np.all(gd1.h_cv == gd2.h_cv)
+            assert np.all(gd1.N_c == gd2.N_c)
+            assert np.allclose(gd1.h_cv, gd2.h_cv, rtol=0, atol=1e-12)
 
         self._initialized = False
 
@@ -151,10 +149,10 @@ class ExtraVacuumPoissonSolver(_PoissonSolver):
         self._initialized = True
 
         # Initialize poissonsolvers
-        #self.ps_large_coar._init()
-        #if not self.use_coarse:
-        #    return
-        #self.ps_small_fine._init()
+        # self.ps_large_coar._init()
+        # if not self.use_coarse:
+        #     return
+        # self.ps_small_fine._init()
 
     def solve(self, phi, rho, **kwargs):
         self._init()

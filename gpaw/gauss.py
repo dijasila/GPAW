@@ -2,8 +2,7 @@
 # Please see the accompanying LICENSE file for further information.
 
 import numpy as np
-
-from gpaw.utilities import erf
+from scipy.special import erf
 
 
 def I(R, a, b, alpha, beta):  # noqa

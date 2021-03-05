@@ -24,5 +24,5 @@ bulk_calc = GPAW(mode=PW(pwcutoff),
                  occupations=FermiDirac(0.01)
                  )
 
-bulk_crystal.set_calculator(bulk_calc)
+bulk_crystal.calc = bulk_calc
 e0_bulk_pbe = bulk_crystal.get_potential_energy()

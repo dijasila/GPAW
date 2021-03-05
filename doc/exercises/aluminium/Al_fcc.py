@@ -1,5 +1,4 @@
 """Bulk Al(fcc) test"""
-from __future__ import print_function
 from ase import Atoms
 from ase.visualize import view
 from gpaw import GPAW, PW
@@ -21,7 +20,7 @@ calc = GPAW(mode=PW(300),       # cutoff
             kpts=(k, k, k),     # k-points
             txt=name + '.txt')  # output file
 
-bulk.set_calculator(calc)
+bulk.calc = calc
 
 energy = bulk.get_potential_energy()
 calc.write(name + '.gpw')

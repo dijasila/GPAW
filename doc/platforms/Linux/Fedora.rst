@@ -4,7 +4,7 @@
 Fedora
 ======
 
-Here you find information about the the system
+Here you find information about the system
 `<http://fedoraproject.org/>`_.
 
 System wide installation with yum
@@ -30,4 +30,4 @@ The steps described below require root access and assume bash shell:
 
    There are no new releases of fys packages for "Old Unsupported Releases"
    of Fedora: see http://fedoraproject.org/wiki/Releases
- 
+

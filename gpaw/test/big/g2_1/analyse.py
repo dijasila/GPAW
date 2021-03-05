@@ -1,4 +1,3 @@
-from __future__ import print_function
 import numpy as np
 import ase.db
 from ase.data.g2_1 import molecule_names

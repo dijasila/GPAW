@@ -1,4 +1,3 @@
-from __future__ import print_function
 from ase.transport.calculators import TransportCalculator
 import numpy as np
 import pickle
@@ -22,7 +21,7 @@ tcalc = TransportCalculator(h=h, h1=h1, h2=h2,  # hamiltonian matrices
 # Calculate the conductance (the energy zero corresponds to the Fermi level)
 tcalc.set(energies=[0.0])
 G = tcalc.get_transmission()[0]
-print('Conductance: %.2f 2e^2/h' % G)
+print(f'Conductance: {G:.2f} 2e^2/h')
 
 # Determine the basis functions of the two Hydrogen atoms and subdiagonalize
 Pt_N = 5    # Number of Pt atoms on each side in the scattering region

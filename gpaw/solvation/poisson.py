@@ -1,10 +1,12 @@
+import warnings
+
+import numpy as np
+from scipy.special import erf
+
 from gpaw.poisson import FDPoissonSolver
 from gpaw.fd_operators import Laplace, Gradient
 from gpaw.wfd_operators import WeightedFDOperator
 from gpaw.utilities.gauss import Gaussian
-from gpaw.utilities import erf
-import warnings
-import numpy as np
 
 
 class SolvationPoissonSolver(FDPoissonSolver):

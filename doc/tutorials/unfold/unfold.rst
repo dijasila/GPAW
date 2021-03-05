@@ -44,7 +44,7 @@ vectors `\left\{\vec{k}_i\right\}`.
 
 We are in general interested in finding the spectral function of the PC
 calculation starting from eigenvalues and eigenfunctions of the SC one.
-Such a spectral function can be calculated as follow:
+Such a spectral function can be calculated as follows:
 
   .. math::
     A(\vec{k},\epsilon) =
@@ -116,7 +116,7 @@ Once we have the relevant `\vec{K}` we have to calculate eigenvalues and
 eigenvectors; we can do that non self-consistently.
 
 .. literalinclude:: unfold_3x3_defect.py
-    :lines: 18-26
+    :lines: 18-24
 
 
 Unfolding the bands and calculating Spectral Function
@@ -126,12 +126,12 @@ We are now ready to proceed with the unfolding. First we set up the
 :class:`Unfold` object.
 
 .. literalinclude:: unfold_3x3_defect.py
-    :lines: 28-31
+    :lines: 26-29
 
 and then we call the function for calculating the spectral function.
 
 .. literalinclude:: unfold_3x3_defect.py
-    :lines: 33-34
+    :lines: 31-32
 
 This can be run in parallel over kpoints, and you may want to do that since the
 supercell is relatively big.

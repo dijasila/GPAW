@@ -7,71 +7,72 @@ Frequently Asked Questions
 General
 =======
 
-Citation: how should I cite GPAW?
+.. _citation:
+
+Citation: How should I cite GPAW?
 ---------------------------------
 
 If you find GPAW useful in your research please cite the original reference:
 
-   | J. J. Mortensen, L. B. Hansen , and K. W. Jacobsen
-   | `Real-space grid implementation of the projector augmented wave method`__
-   | Physical Review B, Vol. **71**, 035109, 2005
-  
-   __ http://dx.doi.org/10.1103/PhysRevB.71.035109
+   | J. J. Mortensen, L. B. Hansen, and K. W. Jacobsen
+   | :doi:`Real-space grid implementation of the projector augmented wave method <10.1103/PhysRevB.71.035109>`
+   | Phys. Rev. B **71**, 035109 (2005)
 
 and the major GPAW review:
 
    | J. Enkovaara, C. Rostgaard, J. J. Mortensen et al.
-   | `Electronic structure calculations with GPAW: a real-space implementation of the projector augmented-wave method`__
+   | :doi:`Electronic structure calculations with GPAW: a real-space implementation of the projector augmented-wave method <10.1088/0953-8984/22/25/253202>`
    | J. Phys.: Condens. Matter **22**, 253202 (2010)
-
-   __ http://stacks.iop.org/0953-8984/22/253202
-
 
 together with ASE citation (see :ref:`ase:cite`).
 
-If you are using the time-dependent DFT part of the code, please cite also:
+If you use the :ref:`timepropagation` or :ref:`lrtddft`, please cite also:
 
    | M. Walter, H. Häkkinen, L. Lehtovaara, M. Puska, J. Enkovaara, C. Rostgaard and J. J. Mortensen
-   | `Time-dependent density-functional theory in the projector augmented-wave method`__
-   | Journal of Chemical Physics, Vol. **128**, 244101, 2008
-
-   __ http://link.aip.org/link/?JCP/128/244101
+   | :doi:`Time-dependent density-functional theory in the projector augmented-wave method <10.1063/1.2943138>`
+   | J. Chem. Phys. **128**, 244101 (2008)
 
 If you use the :ref:`localized basis set <lcao>`, please cite also:
 
    | A. H. Larsen, M. Vanin, J. J. Mortensen, K. S. Thygesen, and K. W. Jacobsen
-   | `Localized atomic basis set in the projector augmented wave method`__
-   | Physical Review B, Vol. **80**, 195112, 2009
+   | :doi:`Localized atomic basis set in the projector augmented wave method <10.1103/PhysRevB.80.195112>`
+   | Phys. Rev. B **80**, 195112 (2009)
 
-   __ http://dx.doi.org/10.1103/PhysRevB.80.195112
-   
 If you use the :ref:`df_tutorial`, please cite also:
 
-   | Jun Yan, Jens. J. Mortensen, Karsten W. Jacobsen, and Kristian S. Thygesen
-   | `Linear density response function in the projector augmented wave method: Applications to solids, surfaces, and interfaces`__
-   | Physical Review B Vol. **83**, 245122, 2011
-
-   __ http://link.aps.org/doi/10.1103/PhysRevB.83.245122
+   | J. Yan, J. J. Mortensen, K. W. Jacobsen, and K. S. Thygesen
+   | :doi:`Linear density response function in the projector augmented wave method: Applications to solids, surfaces, and interfaces <10.1103/PhysRevB.83.245122>`
+   | Phys. Rev. B **83**, 245122 (2011)
 
 If you use the :ref:`gw tutorial`, please cite also:
 
    | F. Hüser, T. Olsen, and K. S. Thygesen
-   | `Quasiparticle GW calculations for solids, molecules, and two-dimensional materials`__
-   | Physical Review B Vol. **87**, 235132, 2013
-
-   __ http://link.aps.org/doi/10.1103/PhysRevB.87.235132
+   | :doi:`Quasiparticle GW calculations for solids, molecules, and two-dimensional materials <10.1103/PhysRevB.87.235132>`
+   | Phys. Rev. B **87**, 235132 (2013)
 
 If you use the :ref:`continuum_solvent_model`, please cite also:
 
    | A. Held and M. Walter
-   | `Simplified continuum solvent model with a smooth cavity based on volumetric data`__
-   | The Journal of Chemical Physics Vol. **141**, 174108, 2014
+   | :doi:`Simplified continuum solvent model with a smooth cavity based on volumetric data <10.1063/1.4900838>`
+   | J. Chem. Phys. **141**, 174108 (2014)
 
-   __ http://dx.doi.org/10.1063/1.4900838
+If you use the :ref:`lcaotddft`, please cite also:
+
+   | M. Kuisma, A. Sakko, T. P. Rossi, A. H. Larsen, J. Enkovaara, L. Lehtovaara, and T. T. Rantala,
+   | :doi:`Localized surface plasmon resonance in silver nanoparticles: Atomistic first-principles time-dependent density functional theory calculations <10.1103/PhysRevB.91.115431>`
+   | Phys. Rev. B **91**, 115431 (2015)
+
+If you use the :ref:`ksdecomposition` in the :ref:`lcaotddft`, please cite also:
+
+   | T. P. Rossi, M. Kuisma, M. J. Puska, R. M. Nieminen, and P. Erhart,
+   | :doi:`Kohn--Sham Decomposition in Real-Time Time-Dependent Density-Functional Theory: An Efficient Tool for Analyzing Plasmonic Excitations <10.1021/acs.jctc.7b00589>`
+   | J. Chem. Theory Comput. **13**, 4779 (2017)
+
 
 BibTex (:git:`doc/GPAW.bib`):
 
 .. literalinclude:: GPAW.bib
+   :language: bibtex
 
 
 How do you pronounce GPAW?
@@ -111,10 +112,12 @@ LDFLAGS with::
 
 and try again.
 
+
 Calculation does not converge
 =============================
 
 Consult the :ref:`convergence` page.
+
 
 Poisson solver did not converge!
 ================================
@@ -124,9 +127,3 @@ then you should set the Fermi temperature to a low value.
 
 You can also try to set the number of grid points to be divisible by 8.
 Consult the :ref:`poisson_performance` page.
-
-
-Tests fail!
-===========
-
-Please report the failing test as described on :ref:`run the tests`.

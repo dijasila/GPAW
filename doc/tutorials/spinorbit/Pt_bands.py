@@ -2,10 +2,8 @@ from gpaw import GPAW
 
 calc = GPAW('Pt_gs.gpw', txt=None)
 
-calc = GPAW('Pt_gs.gpw',
-            kpts={'path': 'GXWLGKX', 'npoints': 200},
-            symmetry='off',
-            fixdensity=True,
-            txt='Pt_bands.txt')
-calc.get_potential_energy()
+calc = calc.fixed_density(
+    kpts={'path': 'GXWLGKX', 'npoints': 200},
+    symmetry='off',
+    txt='Pt_bands.txt')
 calc.write('Pt_bands.gpw')

@@ -1,5 +1,6 @@
 """This module defines different external potentials."""
 import warnings
+import copy
 
 import numpy as np
 
@@ -7,11 +8,18 @@ from ase.units import Bohr, Hartree
 
 import _gpaw
 
-__all__ = ['ConstantPotential', 'ConstantElectricField', 'CDFTPotential']
+__all__ = ['ConstantPotential', 'ConstantElectricField', 'CDFTPotential',
+           'PointChargePotential', 'StepPotentialz']
 
 
 def create_external_potential(name, **kwargs):
     """Construct potential from dict."""
+    if name == 'PotentialCollection':
+        potentials = []
+        for potential in kwargs['potentials']:
+            name = potential.pop('name')
+            potentials.append(globals()[name](**potential))
+        return PotentialCollection(potentials)
     if name not in __all__:
         raise ValueError
     if name == 'CDFTPotential':
@@ -108,6 +116,24 @@ class ConstantElectricField(ExternalPotential):
                 'direction': self.field_v / strength}
 
 
+class ProductPotential(ExternalPotential):
+    def __init__(self, ext_i):
+        self.ext_i = ext_i
+
+    def calculate_potential(self, gd):
+        self.vext_g = self.ext_i[0].get_potential(gd).copy()
+        for ext in self.ext_i[1:]:
+            self.vext_g *= ext.get_potential(gd)
+
+    def __str__(self):
+        return '\n'.join(['Product of potentials:'] +
+                         [ext.__str__() for ext in self.ext_i])
+
+    def todict(self):
+        return {'name': self.__class__.__name__,
+                'ext_i': [ext.todict() for ext in self.ext_i]}
+
+
 class PointChargePotential(ExternalPotential):
     def __init__(self, charges, positions=None,
                  rc=0.2, rc2=np.inf, width=1.0):
@@ -137,6 +163,9 @@ class PointChargePotential(ExternalPotential):
 
         for all values of r - no cutoff at rc2!
         """
+        self._dict = dict(name=self.__class__.__name__,
+                          charges=charges, positions=positions,
+                          rc=rc, rc2=rc2, width=width)
         self.q_p = np.ascontiguousarray(charges, float)
         self.rc = rc / Bohr
         self.rc2 = rc2 / Bohr
@@ -151,6 +180,9 @@ class PointChargePotential(ExternalPotential):
         if self.rc < 0. and self.rc2 < np.inf:
             warnings.warn('Long range cutoff chosen but will not be applied\
                            for negative inner cutoff values!')
+
+    def todict(self):
+        return copy.deepcopy(self._dict)
 
     def __str__(self):
         return ('Point-charge potential '
@@ -199,8 +231,69 @@ class PointChargePotential(ExternalPotential):
         gd.comm.sum(F_pv)
         return F_pv * Hartree / Bohr
 
+
 class CDFTPotential(ExternalPotential):
     # Dummy class to make cDFT compatible with new external
     # potential class ClassName(object):
     def __init__(self):
         self.name = 'CDFTPotential'
+
+
+class StepPotentialz(ExternalPotential):
+    def __init__(self, zstep, value_left=0, value_right=0):
+        """Step potential in z-direction
+
+        zstep: float
+            z-value that splits space into left and right [Angstrom]
+        value_left: float
+            Left side (z < zstep) potentential value [eV]. Default: 0
+        value_right: float
+            Right side (z >= zstep) potentential value [eV]. Default: 0
+       """
+        self.value_left = value_left
+        self.value_right = value_right
+        self.name = 'StepPotentialz'
+        self.zstep = zstep
+
+    def __str__(self):
+        return 'Step potentialz: {0:.3f} V to {1:.3f} V at z={2}'.format(
+            self.value_left, self.value_right, self.zstep)
+
+    def calculate_potential(self, gd):
+        r_vg = gd.get_grid_point_coordinates()
+        self.vext_g = np.where(r_vg[2] < self.zstep / Bohr,
+                               gd.zeros() + self.value_left / Hartree,
+                               gd.zeros() + self.value_right / Hartree)
+ 
+    def todict(self):
+        return {'name': self.name,
+                'value_left': self.value_left,
+                'value_right': self.value_right,
+                'zstep': self.zstep}
+
+
+class PotentialCollection(ExternalPotential):
+    def __init__(self, potentials):
+        """Collection of external potentials to be applied
+
+        potentials: list
+            List of potentials
+        """
+        self.potentials = potentials
+
+    def __str__(self):
+        text = 'PotentialCollection:\n'
+        for pot in self.potentials:
+            text += '  ' + pot.__str__() + '\n'
+        return text
+
+    def calculate_potential(self, gd):
+        self.potentials[0].calculate_potential(gd)
+        self.vext_g = self.potentials[0].vext_g.copy()
+        for pot in self.potentials[1:]:
+            pot.calculate_potential(gd)
+            self.vext_g += pot.vext_g
+
+    def todict(self):
+        return {'name': 'PotentialCollection',
+                'potentials': [pot.todict() for pot in self.potentials]}

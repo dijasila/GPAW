@@ -6,7 +6,7 @@ Calculation of atomization energies
 
 **Warning**: mainstream DFT is unable to describe correctly the
 electronic states of isolated atoms (especially of transition metals).
-See http://dx.doi.org/10.1063/1.2723118 .
+See :doi:`10.1063/1.2723118`.
 This usually manifests itself as SCF convergence problems. Please consult
 literature before reporting such problems on the mailing lists.
 

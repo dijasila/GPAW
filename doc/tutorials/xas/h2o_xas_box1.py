@@ -15,6 +15,6 @@ for L in np.arange(4, 14, 2) * 8 * h:
                 nbands=-40,
                 eigensolver='cg',
                 setups={'O': 'hch1s'})
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     e1 = atoms.get_potential_energy()
-    calc.write('h2o_hch_%.1f.gpw' % L)
+    calc.write(f'h2o_hch_{L:.1f}.gpw')

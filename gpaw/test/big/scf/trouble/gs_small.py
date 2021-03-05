@@ -1,3 +1,4 @@
+from ase.dft import monkhorst_pack
 import numpy as np
 from ase import Atoms
 from gpaw import GPAW, FermiDirac
@@ -69,7 +70,6 @@ GRBN.set_cell(old_cell)
 
 atoms = GRBN
 
-from ase.dft import monkhorst_pack
 calc = GPAW(
     h=0.18,
     mode=PW(600),
@@ -79,6 +79,6 @@ calc = GPAW(
     parallel={'band': 1},
 )
 
-atoms.set_calculator(calc)
+atoms.calc = calc
 
 ncpus = 16
