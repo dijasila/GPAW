@@ -490,7 +490,7 @@ class DirectMin(Eigensolver):
         for kpt in wfs.kpt_u:
             k = n_kps * kpt.s + kpt.q
             kpt.psit_nG[:] = psi_copy[k] + a_star * p_knG[k]
-            wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+            # wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
             wfs.orthonormalize(kpt)
 
         del psi_copy
