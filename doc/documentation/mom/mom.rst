@@ -29,23 +29,32 @@ Implementation
 The GPAW implementation of MOM is presented in [#momgpaw1]_
 [#momgpaw2]_ [#momgpaw3]_.
 
-In the following, the spin index is omitted for simplicity.
-The orbitals `\{|\psi_{n}\rangle\}` used as initial guess for an
+In the following, spin indices are omitted for simplicity.
+The orbitals `\{|\psi_{i}\rangle\}` used as initial guess for an
 excited-state calculation are taken as the reference orbitals
-(this approach is also known as initial maximum overlap method,
-see [#imom]_).
-
+for MOM (this approach is also known as initial maximum overlap
+method, see [#imom]_). The implementation in GPAW supports the
+use of fractional occupation numbers. Let `\{|\psi_{n}\rangle\}_{s}`
+be a subspace of `N` initial guess orbitals with occupation
+number `f_{s}` and `\{|\psi_{m}^{(k)}\rangle\}` the orbitals
+determined at iteration `k` of the wave-function optimization.
+An occupation number of `f_{s}` is given to the first `N`
+orbitals with the biggest numerical weights, evaluated as
+projections onto the manifold `\{|\psi_{n}\rangle\}_{s}`
+[#imom]_:
 
 .. math::
     P_{m}^{(k)} = \left(\sum_{n=1}^{N}  |O_{nm}^{(k)}|^{2} \right)^{1/2}
 
+where `O_{nm}^{(k)} = \langle\psi_n | \psi_{m}^{(k)}\rangle`.
+Alternatively, the numerical weights can be evaluated as
+[#Dongmom]_:
+
 .. math::
     P_{m}^{(k)} = \max_{n}\left( |O_{nm}^{(k)}| \right)
 
-\ [#Dongmom]_
-
 .. math::
-    O_{nm}^{(k)} = \langle\psi_n | \psi_{m}^{(k)}\rangle = \langle\tilde{\psi}_n | \tilde{\psi}_{m}^{(k)}\rangle +
+    O_{nm}^{(k)} = \langle\tilde{\psi}_n | \tilde{\psi}_{m}^{(k)}\rangle +
     \sum_{a, i_1, i_2} \langle\tilde{\psi}_n | \tilde{p}_{i_1}^{a}\rangle \left( \langle\phi_{i_1}^{a} | \phi_{i_2}^{a}\rangle -
     \langle\tilde{\phi}_{i_1}^{a} | \tilde{\phi}_{i_2}^{a}\rangle \right) \langle\tilde{p}_{i_2}^{a} | \tilde{\psi}_{m}^{(k)}\rangle
 
@@ -55,13 +64,18 @@ see [#imom]_).
     \sum_{a, i_1, i_2} \langle\Phi_{\mu} | \tilde{p}_{i_1}^{a}\rangle \left( \langle\phi_{i_1}^{a} | \phi_{i_2}^{a}\rangle -
     \langle\tilde{\phi}_{i_1}^{a} | \tilde{\phi}_{i_2}^{a}\rangle \right) \langle\tilde{p}_{i_2}^{a} | \Phi_{\nu}\rangle
 
+--------------
+Notes on usage
+--------------
+Tipically,
+
 -------------------------------------------------------
 Example of application to molecular Rydberg excitations
 -------------------------------------------------------
 
 .. literalinclude:: mom_h2o.py
 
-__________
+----------
 References
 ----------
 
