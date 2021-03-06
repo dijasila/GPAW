@@ -50,5 +50,6 @@ E_s = 2 * E_m - E_t  # Spin purified energy
 
 print('Excitation energy triplet homo-1->3s state: %.2f eV' % (E_t - E_gs))
 print('Excitation energy singlet homo-1->3s state: %.2f eV' % (E_s - E_gs))
-print('Experimental excitation energy triplet homo-1->3s state: 9.46 eV')  # https://doi.org/10.1021/acs.jctc.8b00406
-print('Experimental excitation energy singlet homo-1->3s state: 9.67 eV')  # https://doi.org/10.1021/acs.jctc.8b00406
+# https://doi.org/10.1021/acs.jctc.8b00406
+print('Experimental excitation energy triplet homo-1->3s state: 9.46 eV')
+print('Experimental excitation energy singlet homo-1->3s state: 9.67 eV')

@@ -34,4 +34,5 @@ opt.run(fmax=0.05)
 d = atoms.get_distance(0, 1)
 
 print('Optimized C-O bond length of homo->pi* state: %.2f Å' % (d))
-print('Experimental C-O bond length: 1.24 Å')  # https://doi.org/10.1007/978-1-4757-0961-2
+# https://doi.org/10.1007/978-1-4757-0961-2
+print('Experimental C-O bond length: 1.24 Å')
