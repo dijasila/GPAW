@@ -34,4 +34,3 @@ d = atoms.get_distance(0, 1)
 print('Optimized C-O bondlength: %.2f Å' % (d))
 # Experimental value from
 print('Experimental C-O bondlength: 1.24 Å')
-
