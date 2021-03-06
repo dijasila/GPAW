@@ -2,12 +2,14 @@ from functools import partial
 
 from ase.utils.timing import timer
 import numpy as np
+from scipy.linalg import eigh
 
 from gpaw import debug
 from gpaw.eigensolvers.eigensolver import Eigensolver
 from gpaw.matrix import matrix_matrix_multiply as mmm
 from gpaw.hybrids import HybridXC
 from gpaw.blacs import BlacsGrid
+from gpaw.eigensolvers.diagonalizerbackend import ScipyDiagonalizer, ScalapackDiagonalizer
 
 
 class DummyArray:
@@ -37,6 +39,8 @@ class Davidson(Eigensolver):
         self.normalize = normalize
         self.i = 0
         self.use_scalapack = use_scalapack
+        self.diagonalizer_backend = None
+        self.slcomm = None
 
         if smin is not None:
             raise NotImplementedError(
@@ -56,6 +60,7 @@ class Davidson(Eigensolver):
 
     def initialize(self, wfs):
         Eigensolver.initialize(self, wfs)
+        self.slcomm, nrows, ncols, slsize = wfs.scalapack_parameters
 
         if wfs.gd.comm.rank == 0 and wfs.bd.comm.rank == 0:
             # Allocate arrays
@@ -63,6 +68,15 @@ class Davidson(Eigensolver):
             self.H_NN = np.zeros((2 * B, 2 * B), self.dtype)
             self.S_NN = np.zeros((2 * B, 2 * B), self.dtype)
             self.eps_N = np.zeros(2 * B)
+
+        communicator_list = [self.slcomm, wfs.gd.comm, wfs.bd.comm]
+        if nrows > 1 or ncols > 1:
+            self.diagonalizer_backend = ScalapackDiagonalizer(arraysize = self.nbands * 2, grid_nrows = nrows, grid_ncols = ncols, communicator_list = communicator_list, dtype = self.dtype)
+            self.use_scalapack = True
+        else:
+            self.diagonalizer_backend = ScipyDiagonalizer(communicator_list=communicator_list)
+            self.use_scalapack = False
+        
 
     def estimate_memory(self, mem, wfs):
         Eigensolver.estimate_memory(self, mem, wfs)
@@ -86,20 +100,20 @@ class Davidson(Eigensolver):
         S_NN = self.S_NN
         eps_N = self.eps_N
 
-        slcomm, nrows, ncols, slsize = wfs.scalapack_parameters
+        # slcomm, nrows, ncols, slsize = wfs.scalapack_parameters
 
-        if self.use_scalapack:
-            grid = BlacsGrid(slcomm, nrows, ncols)
-            block_desc = grid.new_descriptor(2 * B, 2 * B, 16, 16)
-            local_desc = grid.new_descriptor(2 * B, 2 * B, 2 * B, 2 * B)
+        # if self.use_scalapack:
+        #     grid = BlacsGrid(slcomm, nrows, ncols)
+        #     block_desc = grid.new_descriptor(2 * B, 2 * B, 64, 64)
+        #     local_desc = grid.new_descriptor(2 * B, 2 * B, 2 * B, 2 * B)
 
-            Hsc_MM = local_desc.zeros(dtype=self.dtype)
-            Ssc_MM = local_desc.zeros(dtype=self.dtype)
-            Csc_MM = local_desc.zeros(dtype=self.dtype)
+        #     Hsc_MM = local_desc.zeros(dtype=self.dtype)
+        #     Ssc_MM = local_desc.zeros(dtype=self.dtype)
+        #     Csc_MM = local_desc.zeros(dtype=self.dtype)
 
-            Hsc_mm = block_desc.zeros(dtype=self.dtype)
-            Ssc_mm = block_desc.zeros(dtype=self.dtype)
-            Csc_mm = block_desc.zeros(dtype=self.dtype)
+        #     Hsc_mm = block_desc.zeros(dtype=self.dtype)
+        #     Ssc_mm = block_desc.zeros(dtype=self.dtype)
+        #     Csc_mm = block_desc.zeros(dtype=self.dtype)
 
         eps_M = np.zeros([2 * B])
         
@@ -184,50 +198,48 @@ class Davidson(Eigensolver):
                 mmm(1.0, P3, 'N', P, 'C', 1.0, M)
                 copy(M, S_NN[B:, :B])
 
-            if slcomm.rank == 0:
+            if self.slcomm.rank == 0:
                 H_NN[:B, :B] = np.diag(eps_N[:B])
                 S_NN[:B, :B] = np.eye(B)
 
-                if self.use_scalapack:
-                    assert Hsc_MM.shape == H_NN.shape
-                    assert Ssc_MM.shape == H_NN.shape
-                    assert Csc_MM.shape == H_NN.shape
-                    Hsc_MM[:, :] = H_NN.copy()
-                    Ssc_MM[:, :] = S_NN.copy()
+            #     if self.use_scalapack:
+            #         assert Hsc_MM.shape == H_NN.shape
+            #         assert Ssc_MM.shape == H_NN.shape
+            #         assert Csc_MM.shape == H_NN.shape
+            #         Hsc_MM[:, :] = H_NN.copy()
+            #         Ssc_MM[:, :] = S_NN.copy()
                 # eps_M[:] = eps_N.copy()
 
-            if self.use_scalapack:
-                from gpaw.blacs import Redistributor
-                redistributor = Redistributor(slcomm, local_desc, block_desc)
-                redistributor.redistribute(Hsc_MM, Hsc_mm)
-                redistributor.redistribute(Ssc_MM, Ssc_mm)
-                redistributor.redistribute(Csc_MM, Csc_mm)
-                with self.timer("scalapacked davidson"):
-                    block_desc.general_diagonalize_dc(
-                        Hsc_mm.copy(), Ssc_mm.copy(), Csc_mm, eps_M)
+            # if self.use_scalapack:
+            #     from gpaw.blacs import Redistributor
+            #     redistributor = Redistributor(slcomm, local_desc, block_desc)
+            #     redistributor.redistribute(Hsc_MM, Hsc_mm)
+            #     redistributor.redistribute(Ssc_MM, Ssc_mm)
+            #     redistributor.redistribute(Csc_MM, Csc_mm)
+            #     with self.timer("scalapacked davidson"):
+            #         block_desc.general_diagonalize_dc(
+            #             Hsc_mm.copy(), Ssc_mm.copy(), Csc_mm, eps_M)
 
-                redistributor2 = Redistributor(slcomm, block_desc, local_desc)
-                redistributor2.redistribute(Csc_mm, Csc_MM, uplo='G')
+            #     redistributor2 = Redistributor(slcomm, block_desc, local_desc)
+            #     redistributor2.redistribute(Csc_mm, Csc_MM, uplo='G')
 
             with self.timer('diagonalize'):
-                from scipy.linalg import eigh
-                if slcomm.rank == 0 and comm.rank == 0 and bd.comm.rank == 0:
+                if self.slcomm.rank == 0 and comm.rank == 0 and bd.comm.rank == 0:
                     if debug:
                         H_NN[np.triu_indices(2 * B, 1)] = 42.0
                         S_NN[np.triu_indices(2 * B, 1)] = 42.0
 
-                    # np.set_printoptions(linewidth=200, precision=4,
-                    # threshold=np.inf, suppress=True, floatmode='fixed')
-                    if self.use_scalapack:
-                        # np.negative(Csc_MM.imag, out=Csc_MM.imag)
-                        H_NN[:, :] = Csc_MM.conj().T.copy()
-                        eps_N[:] = eps_M.copy()
-                    else:
-                        eps_N, scipy_eigvecs = eigh(
-                            H_NN, S_NN,
-                            lower=True,
-                            check_finite=debug)
-                        H_NN[:, :] = scipy_eigvecs.copy()
+                    # if self.use_scalapack:
+                    #     H_NN[:, :] = Csc_MM.conj().T.copy()
+                    #     eps_N[:] = eps_M.copy()
+                    # else:
+                    #     eps_N, scipy_eigvecs = eigh(
+                    #         H_NN, S_NN,
+                    #         lower=True,
+                    #         check_finite=debug)
+                    #     H_NN[:, :] = scipy_eigvecs.copy()
+
+                self.diagonalizer_backend.diagonalize(H_NN, S_NN, eps_N)
 
             if comm.rank == 0:
                 bd.distribute(eps_N[:B], kpt.eps_n)
