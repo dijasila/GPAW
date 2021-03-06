@@ -15,7 +15,8 @@ be used to perform geometry optimization and molecular dynamics.
 Excited-state solutions of the SCF equations are obtained
 for non-Aufbau orbital occupations and can correspond
 to saddle points of the energy as a function of the electronic
-degrees of freedom (the orbital variations) [#momgpaw1]_ [#momgpaw2]_.
+degrees of freedom (the orbital variations) [#momgpaw1]_ [#momgpaw2]_
+[#momgpaw3]_.
 Hence, excited-state calculations can be affected by variational
 collapse to lower-energy solutions. MOM is used to choose
 a non-Aufbau distribution of the occupation numbers consistent
@@ -27,7 +28,8 @@ collapse.
 Implementation
 --------------
 The GPAW implementation of MOM is presented in [#momgpaw1]_
-[#momgpaw2]_ [#momgpaw3]_.
+(real space grid and plane waves approaches) and [#momgpaw2]_
+(LCAO approach).
 
 The orbitals `\{|\psi_{i}\rangle\}` used as initial guess for an
 excited-state calculation are taken as the reference orbitals
@@ -84,25 +86,29 @@ iteration `k`, while `|\Phi_{\nu}\rangle` are the basis functions.
 Notes on usage
 --------------
 Tipically, one first performs a ground-state calculation.
-Then, the calculator is prepared for an excited-state
-calculation using the function ``mom.mom_calculation``::
+To prepare the calculator for an excited-state calculation,
+the function ``mom.mom_calculation`` can be used::
 
   from gpaw import mom
 
   mom.mom_calculation(calc, atoms, f)
 
 where ``f`` contains the occupation numbers of the excited state
-(see also examples below).
+(see examples below).
 
 The default is to use eq. :any:`eq:mommaxoverlap` to compute
 the numerical weights used to assign the occupation numbers.
-This was found to be more stable in the presence of many diffuce
+This was found to be more stable in the presence of many diffuse
 virtual orbitals [#Dongmom]_. In order to use eq. :any:`eq:momprojections`,
-instead, one has to specify::
+instead, corresponding to the original MOM approach [#imom]_,
+one has to specify::
 
   mom.mom_calculation(..., use_projections=True, ...)
 
 
+For such cases, it is possible to use a Gaussian smearing
+of the holes and excited electrons in the MOM calculation
+to improve convergence. This is done by specifying
 
 .. autofunction:: gpaw.mom.mom_calculation
 
