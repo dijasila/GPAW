@@ -1468,48 +1468,54 @@ class DirectMin(Eigensolver):
         :param log:
         :return:
         """
-        if 'SIC' in self.odd_parameters['name']:
-            if (not self.need_init_orbs or wfs.read_from_file_init_wfs_dm) \
-                    and not self.force_init_localization:
-                for kpt in wfs.kpt_u:
-                    wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
-                wfs.orthonormalize()
-                self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
-                occ_name = getattr(wfs.occupations, 'name', None)
-                if occ_name == 'mom':
-                    for kpt in wfs.kpt_u:
-                        wfs.occupations.sort_wavefunctions(kpt)
-                return
-        else:
-            # we need to do it in order to initialize mom..
-            # it will take occupied orbitals from previous step
-            if self.globaliters == 0:
-                occ_name = getattr(wfs.occupations, 'name', None)
-                if occ_name == 'mom':
-                    log(" MOM reference orbitals initialized.\n", flush=True)
+        occ_name = getattr(wfs.occupations, 'name', None)
+        if occ_name == 'mom':
+            if 'SIC' in self.odd_parameters['name']:
+                if (not self.need_init_orbs or wfs.read_from_file_init_wfs_dm) \
+                        and not self.force_init_localization:
                     for kpt in wfs.kpt_u:
                         wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
-                    # TODO: Does this work?
-                    wfs.occupations.initialize_reference_orbitals()
-                wfs.orthonormalize()
-                # for kpt in wfs.kpt_u:
-                #     wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
-                #     super(DirectMin, self).subspace_diagonalize(
-                #         ham, wfs, kpt, True)
-                #     wfs.gd.comm.broadcast(kpt.eps_n, 0)
+                    wfs.orthonormalize()
+                    self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
+                    occ_name = getattr(wfs.occupations, 'name', None)
+                    if occ_name == 'mom':
+                        for kpt in wfs.kpt_u:
+                            wfs.occupations.sort_wavefunctions(kpt)
+                    return
+            else:
+                # we need to do it in order to initialize mom..
+                # it will take occupied orbitals from previous step
+                if self.globaliters == 0:
+                    occ_name = getattr(wfs.occupations, 'name', None)
+                    if occ_name == 'mom':
+                        log(" MOM reference orbitals initialized.\n", flush=True)
+                        for kpt in wfs.kpt_u:
+                            wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+                        # TODO: Does this work?
+                        wfs.occupations.initialize_reference_orbitals()
+                    wfs.orthonormalize()
+                    # for kpt in wfs.kpt_u:
+                    #     wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+                    #     super(DirectMin, self).subspace_diagonalize(
+                    #         ham, wfs, kpt, True)
+                    #     wfs.gd.comm.broadcast(kpt.eps_n, 0)
 
-                # fill occ numbers
-                self._e_entropy = \
-                    wfs.calculate_occupation_numbers(dens.fixed)
-                if occ_name == 'mom':
-                    for kpt in wfs.kpt_u:
-                        wfs.occupations.sort_wavefunctions(kpt)
-                        wfs.pt.integrate(kpt.psit_nG, kpt.P_ani,
-                                         kpt.q)
-                    # wfs.occupations.initialize_reference_orbitals()
+                    # fill occ numbers
+                    self._e_entropy = \
+                        wfs.calculate_occupation_numbers(dens.fixed)
+                    if occ_name == 'mom':
+                        for kpt in wfs.kpt_u:
+                            wfs.occupations.sort_wavefunctions(kpt)
+                            wfs.pt.integrate(kpt.psit_nG, kpt.P_ani,
+                                             kpt.q)
+                        # wfs.occupations.initialize_reference_orbitals()
 
-            return
-
+                return
+        else:
+            if (not self.need_init_orbs or wfs.read_from_file_init_wfs_dm) \
+                    and not self.force_init_localization:
+                wfs.calculate_occupation_numbers(dens.fixed)
+                return
         log("Initial Localization: ...", flush=True)
         wfs.timer.start('Initial Localization')
 
