@@ -122,6 +122,8 @@ should only be used at geometries far from state crossings.
 
 .. autofunction:: gpaw.mom.mom_calculation
 
+.. _example_1:
+
 ----------------------------------------
 Example I: Molecular Rydberg excitations
 ----------------------------------------
@@ -130,7 +132,7 @@ triplet states of water corresponding to excitation
 from the HOMO-1 non-bonding (`n`) to the LUMO `3s` Rydberg
 orbitals are calculated. The `n` and `3s` orbitals have the
 same symmetry (a1), therefore, variational collapse can
-potentially occur if MOM is not applied. In order to calculate
+potentially affect a calculation without MOM. In order to calculate
 the energy of the open-shell singlet state, first a calculation
 of the mixed-spin state obtained for excitation within the same
 spin channel is performed, and, then, the spin-purification
@@ -142,6 +144,17 @@ the energies of the mixed-spin and triplet states, respectively.
 ---------------------------------------------
 Example II: Excited-state geometry relaxation
 ---------------------------------------------
+Here, the bond length of the carbon monoxide molecule
+is optimized in the singlet excited state obtained by
+promotion of an electron from the HOMO `\sigma` orbital
+to the LUMO `\pi^*_x` or `\pi^*_y` orbital. A practical
+choice for geometry optimization and dynamics in an
+open-shell singlet excited state is to employ a spin-paired
+approach where the occupation numbers of the open-shell
+orbitals are set to 1 [#levi2018]_. This approach delivers
+pure singlet states while avoiding the calculation of the
+corresponding triplet state needed to employ the spin-purification
+formula (see :ref:`example_1`).
 
 .. literalinclude:: mom_co.py
 
@@ -168,3 +181,7 @@ References
 .. [#Dongmom]  X. Dong, A. D. Mahler, E. M. Kempfer-Robertson, L. M. Thompson
                :doi:`Global Elucidation of Self-Consistent Field Solution Space Using Basin Hopping <10.1021/acs.jctc.0c00488>`,
                *J. Chem. Theory Comput.*, **16** 5635−5644 (2020).
+
+.. [#levi2018] G. Levi, M. Pápai, N. E. Henriksen, A. O. Dohn, K. B. Møller
+               :doi:`Solution structure and ultrafast vibrational relaxation of the PtPOP complex revealed by ∆SCF-QM/MM Direct Dynamics simulations <10.1021/acs.jpcc.8b00301>`,
+               *J. Phys. Chem. C*, **122** 7100-7119 (2018).
