@@ -34,14 +34,14 @@ def test_mom_fd_energy():
     for s in [0, 1]:
         atoms, calc = restart('h2o_fd_gs.gpw')
 
-        f_n = []
+        f_sn = []
         for spin in range(calc.get_number_of_spins()):
-            f_sn = calc.get_occupation_numbers(spin=spin)
-            f_n.append(f_sn)
-        f_n[0][3] -= 1.
-        f_n[s][4] += 1.
+            f_n = calc.get_occupation_numbers(spin=spin)
+            f_sn.append(f_n)
+        f_sn[0][3] -= 1.
+        f_sn[s][4] += 1.
 
-        mom.mom_calculation(calc, atoms, f_n)
+        mom.mom_calculation(calc, atoms, f_sn)
 
         E_es = atoms.get_potential_energy()
 

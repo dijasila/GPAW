@@ -23,18 +23,18 @@ def test_mom_lcao_smearing():
     # Ground-state calculation
     E_gs = atoms.get_potential_energy()
 
-    f_n = []
+    f_sn = []
     for spin in range(calc.get_number_of_spins()):
-        f_sn = calc.get_occupation_numbers(spin=spin)
-        f_n.append(f_sn)
+        f_n = calc.get_occupation_numbers(spin=spin)
+        f_sn.append(f_n)
 
-    ne0_gs = f_n[0].sum()
-    f_n[0][3] -= 1.
-    f_n[0][5] += 1.
+    ne0_gs = f_sn[0].sum()
+    f_sn[0][3] -= 1.
+    f_sn[0][5] += 1.
 
     # Excited-state MOM calculation with Gaussian
     # smearing of the occupation numbers
-    mom.mom_calculation(calc, atoms, f_n, width=0.1)
+    mom.mom_calculation(calc, atoms, f_sn, width=0.1)
     E_es = atoms.get_potential_energy()
 
     f_n0 = calc.get_occupation_numbers(spin=0)

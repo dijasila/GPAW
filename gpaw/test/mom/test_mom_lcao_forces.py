@@ -7,8 +7,8 @@ from gpaw.test import equal
 
 @pytest.mark.mom
 def test_mom_lcao_forces():
-    f_n = [[1., 1., 1., 1., 0., 1., 0., 0.],
-           [1., 1., 1., 1., 1., 0., 0., 0.]]
+    f_sn = [[1., 1., 1., 1., 0., 1., 0., 0.],
+            [1., 1., 1., 1., 1., 0., 0., 0.]]
     L = 10.0
     d = 1.13
     delta = 0.01
@@ -29,16 +29,16 @@ def test_mom_lcao_forces():
                              'density': 1e-3})
 
     atoms.calc = calc
-    mom.mom_calculation(calc, atoms, f_n)
+    mom.mom_calculation(calc, atoms, f_sn)
     F = atoms.get_forces()
 
     # Test overlaps
     calc.wfs.occupations.initialize_reference_orbitals()
     for kpt in calc.wfs.kpt_u:
-        f_sn = calc.get_occupation_numbers(spin=kpt.s)
-        unoccupied = [True for i in range(len(f_sn))]
+        f_n = calc.get_occupation_numbers(spin=kpt.s)
+        unoccupied = [True for i in range(len(f_n))]
         P = calc.wfs.occupations.calculate_weights(kpt, 1.0, unoccupied)
-        assert (np.allclose(P, f_sn))
+        assert (np.allclose(P, f_n))
 
     E = []
     p = atoms.positions.copy()
