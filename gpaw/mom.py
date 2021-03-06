@@ -13,8 +13,8 @@ from gpaw.occupations import FixedOccupationNumbers, ParallelLayout
 def mom_calculation(calc,
                     atoms,
                     numbers,
+                    use_projections=False,
                     update_numbers=True,
-                    project_overlaps=True,
                     width=0.0,
                     width_increment=0.0,
                     niter_width_update=40):
@@ -27,16 +27,7 @@ def mom_calculation(calc,
     numbers: list (len=nspins) of lists (len=nbands)
         Occupation numbers (in the range from 0 to 1). Used
         for the initialization of the MOM reference orbitals.
-    update_numbers: bool
-        If True, 'numbers' gets updated with the calculated
-        occupation numbers, and when changing atomic positions
-        the MOM reference orbitals will be initialized as the
-        occupied orbitals found at convergence for the previous
-        geometry. If False, when changing positions the MOM
-        reference orbitals will be initialized as the orbitals
-        of the previous geometry corresponding to the user-supplied
-        'numbers'.
-    project_overlaps: bool
+    use_projections: bool
         If True, the occupied orbitals at iteration k are chosen
         as the orbitals |psi^(k)_m> with the biggest weights
         P_m evaluated as the projections onto the manifold of
@@ -46,6 +37,15 @@ def mom_calculation(calc,
         If False, the weights are evaluated as:
             P_m = max_n(|O_nm|)
         See https://doi.org/10.1021/acs.jctc.0c00488.
+    update_numbers: bool
+        If True, 'numbers' gets updated with the calculated
+        occupation numbers, and when changing atomic positions
+        the MOM reference orbitals will be initialized as the
+        occupied orbitals found at convergence for the previous
+        geometry. If False, when changing positions the MOM
+        reference orbitals will be initialized as the orbitals
+        of the previous geometry corresponding to the user-supplied
+        'numbers'.
     width: float
         Width of Gaussian function in eV for smearing of holes
         and excited electrons. The holes and excited electrons
@@ -72,8 +72,8 @@ def mom_calculation(calc,
     occ_mom = OccupationsMOM(calc.wfs,
                              occ,
                              numbers,
+                             use_projections,
                              update_numbers,
-                             project_overlaps,
                              width,
                              width_increment,
                              niter_width_update)
@@ -89,8 +89,8 @@ class OccupationsMOM:
                  wfs,
                  occ,
                  numbers,
+                 use_projections=True,
                  update_numbers=True,
-                 project_overlaps=True,
                  width=0.0,
                  width_increment=0.0,
                  niter_width_update=10):
@@ -98,8 +98,8 @@ class OccupationsMOM:
         self.occ = occ
         self.extrapolate_factor = occ.extrapolate_factor
         self.numbers = np.array(numbers)
+        self.use_projections = use_projections
         self.update_numbers = update_numbers
-        self.project_overlaps = project_overlaps
         self.width = width / Ha
         self.width_increment = width_increment / Ha
         self.niter_width_update = niter_width_update
@@ -111,8 +111,8 @@ class OccupationsMOM:
     def todict(self):
         dct = {'name': self.name,
                'numbers': self.numbers,
-               'update_numbers': self.update_numbers,
-               'project_overlaps': self.project_overlaps}
+               'use_projections': self.use_projections,
+               'update_numbers': self.update_numbers}
         if self.width != 0.0:
             dct['width'] = self.width * Ha
             dct['width_increment'] = self.width_increment * Ha
@@ -252,7 +252,7 @@ class OccupationsMOM:
             # Sum pseudo wave and atomic contributions
             O += O_corr
 
-        if self.project_overlaps:
+        if self.use_projections:
             P = np.sum(abs(O) ** 2, axis=0)
             P = P ** 0.5
         else:

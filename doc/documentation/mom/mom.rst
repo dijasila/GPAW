@@ -29,7 +29,6 @@ Implementation
 The GPAW implementation of MOM is presented in [#momgpaw1]_
 [#momgpaw2]_ [#momgpaw3]_.
 
-In the following, spin indices are omitted for simplicity.
 The orbitals `\{|\psi_{i}\rangle\}` used as initial guess for an
 excited-state calculation are taken as the reference orbitals
 for MOM (this approach is also known as initial maximum overlap
@@ -40,22 +39,22 @@ number `f_{s}` and `\{|\psi_{m}^{(k)}\rangle\}` the orbitals
 determined at iteration `k` of the wave-function optimization.
 An occupation number of `f_{s}` is given to the first `N`
 orbitals with the biggest numerical weights, evaluated as
-projections onto the manifold `\{|\psi_{n}\rangle\}_{s}`
-[#imom]_:
-
-.. math::
-   :label: eq:momprojections
-
-    P_{m}^{(k)} = \left(\sum_{n=1}^{N}  |O_{nm}^{(k)}|^{2} \right)^{1/2}
-
-where `O_{nm}^{(k)} = \langle\psi_n | \psi_{m}^{(k)}\rangle`.
-Alternatively, the numerical weights can be evaluated as
 [#Dongmom]_:
 
 .. math::
    :label: eq:mommaxoverlap
 
     P_{m}^{(k)} = \max_{n}\left( |O_{nm}^{(k)}| \right)
+
+where `O_{nm}^{(k)} = \langle\psi_n | \psi_{m}^{(k)}\rangle`.
+Alternatively, the numerical weights can be evaluated as
+the following projections onto the manifold `\{|\psi_{n}\rangle\}_{s}`
+[#imom]_:
+
+.. math::
+   :label: eq:momprojections
+
+    P_{m}^{(k)} = \left(\sum_{n=1}^{N}  |O_{nm}^{(k)}|^{2} \right)^{1/2}
 
 In :ref:`plane-waves<manual_mode>` or :ref:`finite-difference <manual_stencils>`
 modes, the elements of the overlap matrix are calculated from:
@@ -94,6 +93,8 @@ calculation using the function ``mom_calculation``::
 where ``f`` contains the occupation numbers of the excited state
 used initialize the MOM reference orbitals from the ground-state
 orbitals.
+
+eq. :any:`eq:mommaxoverlap`
 
 -------------------------------------------------------
 Example of application to molecular Rydberg excitations
