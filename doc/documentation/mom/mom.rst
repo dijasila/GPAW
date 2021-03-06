@@ -18,8 +18,8 @@ to saddle points of the energy as a function of the electronic
 degrees of freedom (the orbital variations) [#momgpaw1]_ [#momgpaw2]_
 [#momgpaw3]_.
 Hence, excited-state calculations can be affected by variational
-collapse to lower-energy solutions. MOM is used to choose
-a non-Aufbau distribution of the occupation numbers consistent
+collapse to lower-energy solutions. MOM is a simple strategy to
+choose a non-Aufbau distribution of the occupation numbers consistent
 with the choice of initial guess for an excited state during
 optimization of the wave function, thereby avoiding variational
 collapse.
@@ -98,23 +98,34 @@ where ``f`` contains the occupation numbers of the excited state
 
 The default is to use eq. :any:`eq:mommaxoverlap` to compute
 the numerical weights used to assign the occupation numbers.
-This was found to be more stable in the presence of many diffuse
+This was found to be more stable in the presence of diffuse
 virtual orbitals [#Dongmom]_. In order to use eq. :any:`eq:momprojections`,
 instead, corresponding to the original MOM approach [#imom]_,
 one has to specify::
 
   mom.mom_calculation(..., use_projections=True, ...)
 
-
+SCF algorithms based on diagonalization of the Hamiltonian
+matrix tend to fail when degenerate or nearly degenerate
+orbitals are unequally occupied, a situation that is frequently
+encountered in excited-state calculations.
 For such cases, it is possible to use a Gaussian smearing
 of the holes and excited electrons in the MOM calculation
-to improve convergence. This is done by specifying
+to improve convergence. This is done by specifying a ``width``
+in eV (e.g. ``width=0.01``) for the Gaussian smearing function.
+For difficult cases, the ``width`` can be increased at regular
+intervals to force convergence by specifying a ``width_increment``.
+*Note*, however, that too extended smearing can lead to
+discontinuities in the potentials and forces close to
+crossings between electronic states [#momgpaw2]_, so this feature
+should only be used at geometries far from such regions.
 
 .. autofunction:: gpaw.mom.mom_calculation
 
 ----------------------------------------
 Example I: Molecular Rydberg excitations
 ----------------------------------------
+`HOMO-1\rightarrow3s`
 
 .. literalinclude:: mom_h2o.py
 
