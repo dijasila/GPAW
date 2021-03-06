@@ -83,18 +83,27 @@ iteration `k`, while `|\Phi_{\nu}\rangle` are the basis functions.
 --------------
 Notes on usage
 --------------
-Tipically, first a ground-state calculation is performed.
+Tipically, one first performs a ground-state calculation.
 Then, the calculator is prepared for an excited-state
-calculation using the function ``mom_calculation``::
+calculation using the function ``mom.mom_calculation``::
 
   from gpaw import mom
+
   mom.mom_calculation(calc, atoms, f)
 
 where ``f`` contains the occupation numbers of the excited state
-used initialize the MOM reference orbitals from the ground-state
-orbitals.
+(see also examples below).
 
-eq. :any:`eq:mommaxoverlap`
+The default is to use eq. :any:`eq:mommaxoverlap` to compute
+the numerical weights used to assign the occupation numbers.
+This was found to be more stable in the presence of many diffuce
+virtual orbitals [#Dongmom]_. In order to use eq. :any:`eq:momprojections`,
+instead, one has to specify::
+
+  mom.mom_calculation(..., use_projections=True, ...)
+
+
+.. autofunction:: gpaw.mom.mom_calculation
 
 -------------------------------------------------------
 Example of application to molecular Rydberg excitations
