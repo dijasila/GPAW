@@ -103,6 +103,7 @@ instead, one has to specify::
   mom.mom_calculation(..., use_projections=True, ...)
 
 
+
 .. autofunction:: gpaw.mom.mom_calculation
 
 ----------------------------------------
@@ -111,9 +112,9 @@ Example I: Molecular Rydberg excitations
 
 .. literalinclude:: mom_h2o.py
 
--------------------------------
-Example II: Geometry relaxation
--------------------------------
+---------------------------------------------
+Example II: Excited-state geometry relaxation
+---------------------------------------------
 
 .. literalinclude:: mom_co.py
 

@@ -16,8 +16,8 @@ def mom_calculation(calc,
                     use_projections=False,
                     update_numbers=True,
                     width=0.0,
-                    width_increment=0.0,
-                    niter_width_update=40):
+                    niter_width_update=40,
+                    width_increment=0.0):
     """Helper function to prepare a calculator for a MOM calculation.
 
     calc: GPAW instance
@@ -51,12 +51,12 @@ def mom_calculation(calc,
         are found with respect to the zero-width ground-state
         occupations.
         See https://doi.org/10.1021/acs.jctc.0c00597.
-    width_increment: float
-        How much to increase the width of the Gaussian smearing
-        function.
     niter_width_update: int
         Number of iterations after which the width of the
         Gaussian smearing function is increased.
+    width_increment: float
+        How much to increase the width of the Gaussian smearing
+        function.
     """
 
     if calc.wfs is None:
@@ -74,8 +74,8 @@ def mom_calculation(calc,
                              use_projections,
                              update_numbers,
                              width,
-                             width_increment,
-                             niter_width_update)
+                             niter_width_update,
+                             width_increment)
     calc.set(occupations=occ_mom)
 
     calc.log(occ_mom)
@@ -91,8 +91,8 @@ class OccupationsMOM:
                  use_projections=True,
                  update_numbers=True,
                  width=0.0,
-                 width_increment=0.0,
-                 niter_width_update=10):
+                 niter_width_update=10,
+                 width_increment=0.0):
         self.wfs = wfs
         self.occ = occ
         self.extrapolate_factor = occ.extrapolate_factor
@@ -100,8 +100,8 @@ class OccupationsMOM:
         self.use_projections = use_projections
         self.update_numbers = update_numbers
         self.width = width / Ha
-        self.width_increment = width_increment / Ha
         self.niter_width_update = niter_width_update
+        self.width_increment = width_increment / Ha
 
         self.name = 'mom'
         self.iters = 0
@@ -114,8 +114,8 @@ class OccupationsMOM:
                'update_numbers': self.update_numbers}
         if self.width != 0.0:
             dct['width'] = self.width * Ha
-            dct['width_increment'] = self.width_increment * Ha
             dct['niter_width_update'] = self.niter_width_update
+            dct['width_increment'] = self.width_increment * Ha
         return dct
 
     def __str__(self):
