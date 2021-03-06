@@ -125,7 +125,7 @@ should only be used at geometries far from such regions.
 ----------------------------------------
 Example I: Molecular Rydberg excitations
 ----------------------------------------
-`HOMO-1\rightarrow3s`
+`n\rightarrow3s`
 
 .. literalinclude:: mom_h2o.py
 

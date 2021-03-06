@@ -11,14 +11,16 @@ calc = GPAW(mode='lcao',
             h=0.2,
             xc='PBE',
             symmetry='off',
-            convergence={'energy': 100,
-                         'density': 1e-7})
-
+            convergence={'density': 1e-7})
 atoms.calc = calc
+
 # Ground-state calculation
 E_gs = atoms.get_potential_energy()
 
+# Ground-state occupation numbers
 f = [calc.get_occupation_numbers(spin=0) / 2.]
+
+# Singlet homo->pi* occupation numbers
 f[0][4] -= 0.5
 f[0][5] += 0.5
 
@@ -31,6 +33,5 @@ opt.run(fmax=0.05)
 
 d = atoms.get_distance(0, 1)
 
-print('Optimized C-O bondlength: %.2f Å' % (d))
-# Experimental value from
-print('Experimental C-O bondlength: 1.24 Å')
+print('Optimized C-O bond length of homo->pi* state: %.2f Å' % (d))
+print('Experimental C-O bond length: 1.24 Å')  # https://doi.org/10.1007/978-1-4757-0961-2
