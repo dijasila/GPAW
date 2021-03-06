@@ -2,14 +2,15 @@ from functools import partial
 
 from ase.utils.timing import timer
 import numpy as np
-from scipy.linalg import eigh
 
 from gpaw import debug
 from gpaw.eigensolvers.eigensolver import Eigensolver
 from gpaw.matrix import matrix_matrix_multiply as mmm
 from gpaw.hybrids import HybridXC
-from gpaw.blacs import BlacsGrid
-from gpaw.eigensolvers.diagonalizerbackend import ScipyDiagonalizer, ScalapackDiagonalizer
+from gpaw.eigensolvers.diagonalizerbackend import (
+    ScipyDiagonalizer,
+    ScalapackDiagonalizer,
+)
 
 
 class DummyArray:
@@ -31,8 +32,9 @@ class Davidson(Eigensolver):
     * Add preconditioned residuals to the subspace and diagonalize
     """
 
-    def __init__(self, niter=2, smin=None, normalize=True,
-                 use_scalapack=False):
+    def __init__(
+        self, niter=2, smin=None, normalize=True, use_scalapack=False
+    ):
         Eigensolver.__init__(self)
         self.niter = niter
         self.smin = smin
@@ -44,7 +46,8 @@ class Davidson(Eigensolver):
 
         if smin is not None:
             raise NotImplementedError(
-                'See https://trac.fysik.dtu.dk/projects/gpaw/ticket/248')
+                "See https://trac.fysik.dtu.dk/projects/gpaw/ticket/248"
+            )
 
         self.orthonormalization_required = False
         self.H_NN = DummyArray()
@@ -52,11 +55,14 @@ class Davidson(Eigensolver):
         self.eps_N = DummyArray()
 
     def __repr__(self):
-        return 'Davidson(niter=%d, smin=%r, normalize=%r)' % (
-            self.niter, self.smin, self.normalize)
+        return "Davidson(niter=%d, smin=%r, normalize=%r)" % (
+            self.niter,
+            self.smin,
+            self.normalize,
+        )
 
     def todict(self):
-        return {'name': 'dav', 'niter': self.niter}
+        return {"name": "dav", "niter": self.niter}
 
     def initialize(self, wfs):
         Eigensolver.initialize(self, wfs)
@@ -71,23 +77,30 @@ class Davidson(Eigensolver):
 
         communicator_list = [self.slcomm, wfs.gd.comm, wfs.bd.comm]
         if nrows > 1 or ncols > 1:
-            self.diagonalizer_backend = ScalapackDiagonalizer(arraysize = self.nbands * 2, grid_nrows = nrows, grid_ncols = ncols, communicator_list = communicator_list, dtype = self.dtype)
+            self.diagonalizer_backend = ScalapackDiagonalizer(
+                arraysize=self.nbands * 2,
+                grid_nrows=nrows,
+                grid_ncols=ncols,
+                communicator_list=communicator_list,
+                dtype=self.dtype,
+            )
             self.use_scalapack = True
         else:
-            self.diagonalizer_backend = ScipyDiagonalizer(communicator_list=communicator_list)
+            self.diagonalizer_backend = ScipyDiagonalizer(
+                communicator_list=communicator_list
+            )
             self.use_scalapack = False
-        
 
     def estimate_memory(self, mem, wfs):
         Eigensolver.estimate_memory(self, mem, wfs)
         nbands = wfs.bd.nbands
-        mem.subnode('H_nn', nbands * nbands * mem.itemsize[wfs.dtype])
-        mem.subnode('S_nn', nbands * nbands * mem.itemsize[wfs.dtype])
-        mem.subnode('H_2n2n', 4 * nbands * nbands * mem.itemsize[wfs.dtype])
-        mem.subnode('S_2n2n', 4 * nbands * nbands * mem.itemsize[wfs.dtype])
-        mem.subnode('eps_2n', 2 * nbands * mem.floatsize)
+        mem.subnode("H_nn", nbands * nbands * mem.itemsize[wfs.dtype])
+        mem.subnode("S_nn", nbands * nbands * mem.itemsize[wfs.dtype])
+        mem.subnode("H_2n2n", 4 * nbands * nbands * mem.itemsize[wfs.dtype])
+        mem.subnode("S_2n2n", 4 * nbands * nbands * mem.itemsize[wfs.dtype])
+        mem.subnode("eps_2n", 2 * nbands * mem.floatsize)
 
-    @timer('Davidson')
+    @timer("Davidson")
     def iterate_one_k_point(self, ham, wfs, kpt, weights):
         """Do Davidson iterations for the kpoint"""
         if isinstance(ham.xc, HybridXC):
@@ -115,13 +128,13 @@ class Davidson(Eigensolver):
         #     Ssc_mm = block_desc.zeros(dtype=self.dtype)
         #     Csc_mm = block_desc.zeros(dtype=self.dtype)
 
-        eps_M = np.zeros([2 * B])
-        
         def integrate(a_G):
             if wfs.collinear:
                 return np.real(wfs.integrate(a_G, a_G, global_integral=False))
-            return sum(np.real(wfs.integrate(b_G, b_G, global_integral=False))
-                       for b_G in a_G)
+            return sum(
+                np.real(wfs.integrate(b_G, b_G, global_integral=False))
+                for b_G in a_G
+            )
 
         self.subspace_diagonalize(ham, wfs, kpt)
 
@@ -174,70 +187,44 @@ class Davidson(Eigensolver):
                     if bd.comm.rank == 0:
                         C_nn[:] = M0.array
 
-            with self.timer('calc. matrices'):
+            with self.timer("calc. matrices"):
                 # <psi2 | H | psi2>
-                psit2.matrix_elements(operator=Ht, result=R, out=M,
-                                      symmetric=True, cc=True)
+                psit2.matrix_elements(
+                    operator=Ht, result=R, out=M, symmetric=True, cc=True
+                )
                 ham.dH(P2, out=P3)
-                mmm(1.0, P2, 'N', P3, 'C', 1.0, M)  # , symmetric=True)
+                mmm(1.0, P2, "N", P3, "C", 1.0, M)  # , symmetric=True)
                 copy(M, H_NN[B:, B:])
 
                 # <psi2 | H | psi>
                 R.matrix_elements(psit, out=M, cc=True)
-                mmm(1.0, P3, 'N', P, 'C', 1.0, M)
+                mmm(1.0, P3, "N", P, "C", 1.0, M)
                 copy(M, H_NN[B:, :B])
 
                 # <psi2 | S | psi2>
                 psit2.matrix_elements(out=M, symmetric=True, cc=True)
                 dS.apply(P2, out=P3)
-                mmm(1.0, P2, 'N', P3, 'C', 1.0, M)
+                mmm(1.0, P2, "N", P3, "C", 1.0, M)
                 copy(M, S_NN[B:, B:])
 
                 # <psi2 | S | psi>
                 psit2.matrix_elements(psit, out=M, cc=True)
-                mmm(1.0, P3, 'N', P, 'C', 1.0, M)
+                mmm(1.0, P3, "N", P, "C", 1.0, M)
                 copy(M, S_NN[B:, :B])
 
             if self.slcomm.rank == 0:
                 H_NN[:B, :B] = np.diag(eps_N[:B])
                 S_NN[:B, :B] = np.eye(B)
 
-            #     if self.use_scalapack:
-            #         assert Hsc_MM.shape == H_NN.shape
-            #         assert Ssc_MM.shape == H_NN.shape
-            #         assert Csc_MM.shape == H_NN.shape
-            #         Hsc_MM[:, :] = H_NN.copy()
-            #         Ssc_MM[:, :] = S_NN.copy()
-                # eps_M[:] = eps_N.copy()
-
-            # if self.use_scalapack:
-            #     from gpaw.blacs import Redistributor
-            #     redistributor = Redistributor(slcomm, local_desc, block_desc)
-            #     redistributor.redistribute(Hsc_MM, Hsc_mm)
-            #     redistributor.redistribute(Ssc_MM, Ssc_mm)
-            #     redistributor.redistribute(Csc_MM, Csc_mm)
-            #     with self.timer("scalapacked davidson"):
-            #         block_desc.general_diagonalize_dc(
-            #             Hsc_mm.copy(), Ssc_mm.copy(), Csc_mm, eps_M)
-
-            #     redistributor2 = Redistributor(slcomm, block_desc, local_desc)
-            #     redistributor2.redistribute(Csc_mm, Csc_MM, uplo='G')
-
-            with self.timer('diagonalize'):
-                if self.slcomm.rank == 0 and comm.rank == 0 and bd.comm.rank == 0:
+            with self.timer("diagonalize"):
+                if (
+                    self.slcomm.rank == 0
+                    and comm.rank == 0
+                    and bd.comm.rank == 0
+                ):
                     if debug:
                         H_NN[np.triu_indices(2 * B, 1)] = 42.0
                         S_NN[np.triu_indices(2 * B, 1)] = 42.0
-
-                    # if self.use_scalapack:
-                    #     H_NN[:, :] = Csc_MM.conj().T.copy()
-                    #     eps_N[:] = eps_M.copy()
-                    # else:
-                    #     eps_N, scipy_eigvecs = eigh(
-                    #         H_NN, S_NN,
-                    #         lower=True,
-                    #         check_finite=debug)
-                    #     H_NN[:, :] = scipy_eigvecs.copy()
 
                 self.diagonalizer_backend.diagonalize(H_NN, S_NN, eps_N)
 
@@ -245,29 +232,30 @@ class Davidson(Eigensolver):
                 bd.distribute(eps_N[:B], kpt.eps_n)
             comm.broadcast(kpt.eps_n, 0)
 
-            with self.timer('rotate_psi'):
+            with self.timer("rotate_psi"):
                 if comm.rank == 0:
                     if bd.comm.rank == 0:
                         M0.array[:] = H_NN[:B, :B].T
                     M0.redist(M)
                 comm.broadcast(M.array, 0)
-                mmm(1.0, M, 'N', psit, 'N', 0.0, R)
-                mmm(1.0, M, 'N', P, 'N', 0.0, P3)
+                mmm(1.0, M, "N", psit, "N", 0.0, R)
+                mmm(1.0, M, "N", P, "N", 0.0, P3)
                 if comm.rank == 0:
                     if bd.comm.rank == 0:
                         M0.array[:] = H_NN[B:, :B].T
                     M0.redist(M)
                 comm.broadcast(M.array, 0)
-                mmm(1.0, M, 'N', psit2, 'N', 1.0, R)
-                mmm(1.0, M, 'N', P2, 'N', 1.0, P3)
+                mmm(1.0, M, "N", psit2, "N", 1.0, R)
+                mmm(1.0, M, "N", P2, "N", 1.0, P3)
                 psit[:] = R
                 P, P3 = P3, P
                 kpt.projections = P
 
             if nit < self.niter - 1:
                 psit.apply(Ht, out=R)
-                self.calculate_residuals(kpt, wfs, ham, psit,
-                                         P, kpt.eps_n, R, P2)
+                self.calculate_residuals(
+                    kpt, wfs, ham, psit, P, kpt.eps_n, R, P2
+                )
 
         error = wfs.gd.comm.sum(error)
         self.i += 1
