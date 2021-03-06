@@ -13,22 +13,18 @@ def calculate_forces(wfs, dens, ham, log=None):
     assert not isinstance(ham.xc, HybridXCBase)
     assert not ham.xc.name.startswith('GLLB')
 
-    egs_name = getattr(wfs.eigensolver, "name", None)
-    odd_name = None
-    if egs_name == 'direct_min':
+    if hasattr(wfs.eigensolver, 'odd'):
+        odd_name = getattr(wfs.eigensolver.odd, "name", None)
+    else:
+        odd_name = None
+    if odd_name == 'PZ_SIC':
         if wfs.mode == 'fd' or wfs.mode == 'pw':
             return calculate_forces_using_non_diag_lagr_matrix(
                 wfs, dens, ham, log)
         elif wfs.mode == 'lcao':
-            if hasattr(wfs.eigensolver, 'odd'):
-                odd_name = getattr(wfs.eigensolver.odd, "name", None)
-            else:
-                odd_name = None
-            if odd_name == 'PZ_SIC':
-                for kpt in wfs.kpt_u:
-                    kpt.rho_MM = \
-                        wfs.calculate_density_matrix(kpt.f_n,
-                                                     kpt.C_nM)
+            for kpt in wfs.kpt_u:
+                kpt.rho_MM = \
+                    wfs.calculate_density_matrix(kpt.f_n, kpt.C_nM)
 
     natoms = len(wfs.setups)
 
@@ -53,8 +49,8 @@ def calculate_forces(wfs, dens, ham, log=None):
     wfs.world.broadcast(F_av, 0)
 
     if odd_name == 'PZ_SIC' and wfs.mode == 'lcao':
-        F_av += wfs.eigensolver.odd.get_odd_corrections_to_forces(wfs,
-                                                                  dens)
+        F_av += wfs.eigensolver.odd.get_odd_corrections_to_forces(
+            wfs, dens)
         for kpt in wfs.kpt_u:
             # need to re-set rho_MM otherwise it will be used
             # it's probably better to in wfs.reset, but
@@ -80,31 +76,17 @@ def calculate_forces_using_non_diag_lagr_matrix(wfs, dens, ham, log=None):
     F_wfs_av = np.zeros((natoms, 3))
     esolv = wfs.eigensolver
 
-    for kpt in wfs.kpt_u:
-        wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
-
     grad_knG = esolv.get_gradients_2(ham, wfs)
-
     if 'SIC' in esolv.odd_parameters['name']:
         esolv.odd.get_energy_and_gradients(wfs, grad_knG, dens,
                                            esolv.iloop.U_k,
                                            add_grad=True)
-        # for kpt in wfs.kpt_u:
-        #     k = self.n_kps * kpt.s + kpt.q
-        #     kpt.psit_nG[:] = temp[k]
-        #     n_occ = get_n_occ(kpt)
-        #     grad_knG[k][:n_occ] += \
-        #         np.tensordot(self.iloop.U_k[k].conj(),
-        #                      self.iloop.odd_pot.grad[k], axes=1)
-
     for kpt in wfs.kpt_u:
         k = esolv.n_kps * kpt.s + kpt.q
         n_occ = get_n_occ(kpt)
 
         lamb = wfs.integrate(
             kpt.psit_nG[:n_occ], grad_knG[k][:n_occ], True)
-        # lamb = np.ascontiguousarray(lamb)
-        # wfs.gd.comm.sum(lamb)
 
         P_ani = kpt.P_ani
         dP_aniv = wfs.pt.dict(n_occ, derivative=True)
