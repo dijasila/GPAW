@@ -31,11 +31,10 @@ def mom_calculation(calc,
         If True, the occupied orbitals at iteration k are chosen
         as the orbitals ``|psi^(k)_m>`` with the biggest weights
         ``P_m`` evaluated as the projections onto the manifold of
-        reference orbitals ``|psi_n>``:
-        ``P_m = (Sum_n(|O_nm|^2))^0.5 (O_nm = <psi_n|psi^(k)_m>)``
-        see https://doi.org/10.1021/acs.jctc.7b00994.
-        If False (default), the weights are evaluated as:
-        ``P_m = max_n(|O_nm|)``
+        reference orbitals ``|psi_n>``: ``P_m = (Sum_n(|O_nm|^2))^0.5
+        (O_nm = <psi_n|psi^(k)_m>)`` see
+        https://doi.org/10.1021/acs.jctc.7b00994. If False (default),
+        the weights are evaluated as: ``P_m = max_n(|O_nm|)``
         see https://doi.org/10.1021/acs.jctc.0c00488.
     update_numbers: bool
         If True, 'numbers' gets updated with the calculated

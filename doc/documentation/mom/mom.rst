@@ -105,11 +105,17 @@ instead, one has to specify::
 
 .. autofunction:: gpaw.mom.mom_calculation
 
--------------------------------------------------------
-Example of application to molecular Rydberg excitations
--------------------------------------------------------
+----------------------------------------
+Example I: Molecular Rydberg excitations
+----------------------------------------
 
 .. literalinclude:: mom_h2o.py
+
+-------------------------------
+Example II: Geometry relaxation
+-------------------------------
+
+.. literalinclude:: mom_co.py
 
 ----------
 References

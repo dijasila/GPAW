@@ -1,7 +1,6 @@
 import copy
 from ase.build import molecule
-from gpaw import GPAW, restart
-from gpaw import mom
+from gpaw import GPAW, restart, mom
 
 atoms = molecule('H2O')
 atoms.center(vacuum=7)

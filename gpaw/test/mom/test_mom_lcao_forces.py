@@ -1,8 +1,7 @@
 import pytest
 import numpy as np
 from ase import Atoms
-from gpaw import GPAW
-import gpaw.mom as mom
+from gpaw import GPAW, mom
 from gpaw.test import equal
 
 
@@ -27,8 +26,7 @@ def test_mom_lcao_forces():
                 spinpol=True,
                 symmetry='off',
                 convergence={'energy': 100,
-                             'density': 1e-3,
-                             'bands': -1})
+                             'density': 1e-3})
 
     atoms.calc = calc
     mom.mom_calculation(calc, atoms, f_n)

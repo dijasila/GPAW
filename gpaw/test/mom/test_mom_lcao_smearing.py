@@ -1,7 +1,6 @@
 import pytest
 from ase.build import molecule
-from gpaw import GPAW
-import gpaw.mom as mom
+from gpaw import GPAW, mom
 from gpaw.test import equal
 
 
@@ -18,8 +17,7 @@ def test_mom_lcao_smearing():
                 spinpol=True,
                 symmetry='off',
                 convergence={'energy': 100,
-                             'density': 1e-3,
-                             'bands': -1})
+                             'density': 1e-3})
 
     atoms.calc = calc
     # Ground-state calculation
