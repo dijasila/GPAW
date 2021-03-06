@@ -126,9 +126,16 @@ should only be used at geometries far from state crossings.
 Example I: Molecular Rydberg excitations
 ----------------------------------------
 In this example, the excitation energies of the singlet and
-triplet excited states of water corresponding to excitation
+triplet states of water corresponding to excitation
 from the HOMO-1 non-bonding (`n`) to the LUMO `3s` Rydberg
-orbitals are calculated.
+orbitals are calculated. The `n` and `3s` orbitals have the
+same symmetry (a1), therefore, variational collapse can
+potentially occur if MOM is not applied. In order to calculate
+the energy of the open-shell singlet state, first a calculation
+of the mixed-spin state obtained for excitation within the same
+spin channel is performed, and, then, the spin-purification
+formula is used: `E_s=2E_m-E_t`, where `E_m` and `E_t` are
+the energies of the mixed-spin and triplet states, respectively.
 
 .. literalinclude:: mom_h2o.py
 

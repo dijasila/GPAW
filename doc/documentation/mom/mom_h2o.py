@@ -19,7 +19,7 @@ atoms.calc = calc
 E_gs = atoms.get_potential_energy()
 
 # Save the ground-state wave functions for initialization
-# of the spin-mixed excited-state calculation later
+# of the mixed-spin excited-state calculation later
 calc.write('h2o_fd_gs.gpw', 'all')
 
 # Ground-state occupation numbers
