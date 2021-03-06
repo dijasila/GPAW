@@ -27,9 +27,9 @@ f_gs = []
 for s in range(2):
     f_gs.append(calc.get_occupation_numbers(spin=s))
 
-# Triplet homo-1->3s occupation numbers
+# Triplet n->3s occupation numbers
 f_t = copy.deepcopy(f_gs)
-f_t[0][2] -= 1.  # Remove one electron from homo-1 spin up
+f_t[0][2] -= 1.  # Remove one electron from homo-1 (n) spin up
 f_t[1][4] += 1.  # Add one electron to lumo (3s) spin down
 
 # MOM calculation for triplet n->3s state
@@ -38,18 +38,18 @@ E_t = atoms.get_potential_energy()
 
 atoms, calc = restart('h2o_fd_gs.gpw', txt='-')
 
-# Mixed-spin homo-1->3s occupation numbers
+# Mixed-spin n->3s occupation numbers
 f_m = copy.deepcopy(f_gs)
-f_m[0][2] -= 1.  # Remove one electron from homo-1 spin up
+f_m[0][2] -= 1.  # Remove one electron from homo-1 (n) spin up
 f_m[0][4] += 1.  # Add one electron to lumo (3s) spin up
 
-# MOM calculation for mixed-spin homo-1->3s state
+# MOM calculation for mixed-spin n->3s state
 mom.mom_calculation(calc, atoms, f_m)
 E_m = atoms.get_potential_energy()
 E_s = 2 * E_m - E_t  # Spin purified energy
 
-print('Excitation energy triplet homo-1->3s state: %.2f eV' % (E_t - E_gs))
-print('Excitation energy singlet homo-1->3s state: %.2f eV' % (E_s - E_gs))
+print('Excitation energy triplet n->3s state: %.2f eV' % (E_t - E_gs))
+print('Excitation energy singlet n->3s state: %.2f eV' % (E_s - E_gs))
 # https://doi.org/10.1021/acs.jctc.8b00406
-print('Experimental excitation energy triplet homo-1->3s state: 9.46 eV')
-print('Experimental excitation energy singlet homo-1->3s state: 9.67 eV')
+print('Experimental excitation energy triplet n->3s state: 9.46 eV')
+print('Experimental excitation energy singlet n->3s state: 9.67 eV')

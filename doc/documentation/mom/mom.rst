@@ -118,14 +118,17 @@ intervals to force convergence by specifying a ``width_increment``.
 *Note*, however, that too extended smearing can lead to
 discontinuities in the potentials and forces close to
 crossings between electronic states [#momgpaw2]_, so this feature
-should only be used at geometries far from such regions.
+should only be used at geometries far from state crossings.
 
 .. autofunction:: gpaw.mom.mom_calculation
 
 ----------------------------------------
 Example I: Molecular Rydberg excitations
 ----------------------------------------
-`n\rightarrow3s`
+In this example, the excitation energies of the singlet and
+triplet excited states of water corresponding to excitation
+from the HOMO-1 non-bonding (`n`) to the LUMO `3s` Rydberg
+orbitals are calculated.
 
 .. literalinclude:: mom_h2o.py
 
