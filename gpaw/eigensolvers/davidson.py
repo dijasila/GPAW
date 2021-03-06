@@ -33,14 +33,12 @@ class Davidson(Eigensolver):
     """
 
     def __init__(
-        self, niter=2, smin=None, normalize=True, use_scalapack=False
-    ):
+        self, niter=2, smin=None, normalize=True):
         Eigensolver.__init__(self)
         self.niter = niter
         self.smin = smin
         self.normalize = normalize
         self.i = 0
-        self.use_scalapack = use_scalapack
         self.diagonalizer_backend = None
         self.slcomm = None
 
@@ -84,12 +82,10 @@ class Davidson(Eigensolver):
                 communicator_list=communicator_list,
                 dtype=self.dtype,
             )
-            self.use_scalapack = True
         else:
             self.diagonalizer_backend = ScipyDiagonalizer(
                 communicator_list=communicator_list
             )
-            self.use_scalapack = False
 
     def estimate_memory(self, mem, wfs):
         Eigensolver.estimate_memory(self, mem, wfs)
@@ -112,21 +108,6 @@ class Davidson(Eigensolver):
         H_NN = self.H_NN
         S_NN = self.S_NN
         eps_N = self.eps_N
-
-        # slcomm, nrows, ncols, slsize = wfs.scalapack_parameters
-
-        # if self.use_scalapack:
-        #     grid = BlacsGrid(slcomm, nrows, ncols)
-        #     block_desc = grid.new_descriptor(2 * B, 2 * B, 64, 64)
-        #     local_desc = grid.new_descriptor(2 * B, 2 * B, 2 * B, 2 * B)
-
-        #     Hsc_MM = local_desc.zeros(dtype=self.dtype)
-        #     Ssc_MM = local_desc.zeros(dtype=self.dtype)
-        #     Csc_MM = local_desc.zeros(dtype=self.dtype)
-
-        #     Hsc_mm = block_desc.zeros(dtype=self.dtype)
-        #     Ssc_mm = block_desc.zeros(dtype=self.dtype)
-        #     Csc_mm = block_desc.zeros(dtype=self.dtype)
 
         def integrate(a_G):
             if wfs.collinear:
