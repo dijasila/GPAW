@@ -19,7 +19,7 @@ class DummyArray:
 
 
 class Davidson(Eigensolver):
-    """Simple Davidson eigensolver
+    '''Simple Davidson eigensolver
 
     It is expected that the trial wave functions are orthonormal
     and the integrals of projector functions and wave functions
@@ -30,10 +30,10 @@ class Davidson(Eigensolver):
     * Subspace diagonalization
     * Calculate all residuals
     * Add preconditioned residuals to the subspace and diagonalize
-    """
+    '''
 
     def __init__(
-        self, niter=2, smin=None, normalize=True):
+            self, niter=2, smin=None, normalize=True):
         Eigensolver.__init__(self)
         self.niter = niter
         self.smin = smin
@@ -43,9 +43,7 @@ class Davidson(Eigensolver):
         self.slcomm = None
 
         if smin is not None:
-            raise NotImplementedError(
-                "See https://trac.fysik.dtu.dk/projects/gpaw/ticket/248"
-            )
+            raise NotImplementedError
 
         self.orthonormalization_required = False
         self.H_NN = DummyArray()
@@ -53,14 +51,14 @@ class Davidson(Eigensolver):
         self.eps_N = DummyArray()
 
     def __repr__(self):
-        return "Davidson(niter=%d, smin=%r, normalize=%r)" % (
+        return 'Davidson(niter=%d, smin=%r, normalize=%r)' % (
             self.niter,
             self.smin,
             self.normalize,
         )
 
     def todict(self):
-        return {"name": "dav", "niter": self.niter}
+        return {'name': 'dav', 'niter': self.niter}
 
     def initialize(self, wfs):
         Eigensolver.initialize(self, wfs)
@@ -73,32 +71,30 @@ class Davidson(Eigensolver):
             self.S_NN = np.zeros((2 * B, 2 * B), self.dtype)
             self.eps_N = np.zeros(2 * B)
 
-        communicator_list = [self.slcomm, wfs.gd.comm, wfs.bd.comm]
-        if nrows > 1 or ncols > 1:
+        if slsize is not None:
             self.diagonalizer_backend = ScalapackDiagonalizer(
                 arraysize=self.nbands * 2,
                 grid_nrows=nrows,
                 grid_ncols=ncols,
-                communicator_list=communicator_list,
+                scalapack_communicator=self.slcomm,
                 dtype=self.dtype,
+                blocksize=slsize
             )
         else:
-            self.diagonalizer_backend = ScipyDiagonalizer(
-                communicator_list=communicator_list
-            )
+            self.diagonalizer_backend = ScipyDiagonalizer()
 
     def estimate_memory(self, mem, wfs):
         Eigensolver.estimate_memory(self, mem, wfs)
         nbands = wfs.bd.nbands
-        mem.subnode("H_nn", nbands * nbands * mem.itemsize[wfs.dtype])
-        mem.subnode("S_nn", nbands * nbands * mem.itemsize[wfs.dtype])
-        mem.subnode("H_2n2n", 4 * nbands * nbands * mem.itemsize[wfs.dtype])
-        mem.subnode("S_2n2n", 4 * nbands * nbands * mem.itemsize[wfs.dtype])
-        mem.subnode("eps_2n", 2 * nbands * mem.floatsize)
+        mem.subnode('H_nn', nbands * nbands * mem.itemsize[wfs.dtype])
+        mem.subnode('S_nn', nbands * nbands * mem.itemsize[wfs.dtype])
+        mem.subnode('H_2n2n', 4 * nbands * nbands * mem.itemsize[wfs.dtype])
+        mem.subnode('S_2n2n', 4 * nbands * nbands * mem.itemsize[wfs.dtype])
+        mem.subnode('eps_2n', 2 * nbands * mem.floatsize)
 
-    @timer("Davidson")
+    @timer('Davidson')
     def iterate_one_k_point(self, ham, wfs, kpt, weights):
-        """Do Davidson iterations for the kpoint"""
+        '''Do Davidson iterations for the kpoint'''
         if isinstance(ham.xc, HybridXC):
             self.niter = 1
 
@@ -127,6 +123,9 @@ class Davidson(Eigensolver):
         M = wfs.work_matrix_nn
         dS = wfs.setups.dS
         comm = wfs.gd.comm
+
+        is_gridband_master: bool = (
+            comm.rank == 0) and (bd.comm.rank == 0)
 
         if bd.comm.size > 1:
             M0 = M.new(dist=(bd.comm, 1, 1))
@@ -168,66 +167,64 @@ class Davidson(Eigensolver):
                     if bd.comm.rank == 0:
                         C_nn[:] = M0.array
 
-            with self.timer("calc. matrices"):
+            with self.timer('calc. matrices'):
                 # <psi2 | H | psi2>
                 psit2.matrix_elements(
                     operator=Ht, result=R, out=M, symmetric=True, cc=True
                 )
                 ham.dH(P2, out=P3)
-                mmm(1.0, P2, "N", P3, "C", 1.0, M)  # , symmetric=True)
+                mmm(1.0, P2, 'N', P3, 'C', 1.0, M)  # , symmetric=True)
                 copy(M, H_NN[B:, B:])
 
                 # <psi2 | H | psi>
                 R.matrix_elements(psit, out=M, cc=True)
-                mmm(1.0, P3, "N", P, "C", 1.0, M)
+                mmm(1.0, P3, 'N', P, 'C', 1.0, M)
                 copy(M, H_NN[B:, :B])
 
                 # <psi2 | S | psi2>
                 psit2.matrix_elements(out=M, symmetric=True, cc=True)
                 dS.apply(P2, out=P3)
-                mmm(1.0, P2, "N", P3, "C", 1.0, M)
+                mmm(1.0, P2, 'N', P3, 'C', 1.0, M)
                 copy(M, S_NN[B:, B:])
 
                 # <psi2 | S | psi>
                 psit2.matrix_elements(psit, out=M, cc=True)
-                mmm(1.0, P3, "N", P, "C", 1.0, M)
+                mmm(1.0, P3, 'N', P, 'C', 1.0, M)
                 copy(M, S_NN[B:, :B])
 
-            if self.slcomm.rank == 0:
+            if is_gridband_master:
                 H_NN[:B, :B] = np.diag(eps_N[:B])
                 S_NN[:B, :B] = np.eye(B)
 
-            with self.timer("diagonalize"):
-                if (
-                    self.slcomm.rank == 0
-                    and comm.rank == 0
-                    and bd.comm.rank == 0
-                ):
+            with self.timer('diagonalize'):
+                if is_gridband_master:
                     if debug:
                         H_NN[np.triu_indices(2 * B, 1)] = 42.0
                         S_NN[np.triu_indices(2 * B, 1)] = 42.0
 
-                self.diagonalizer_backend.diagonalize(H_NN, S_NN, eps_N)
+                self.diagonalizer_backend.diagonalize(
+                    H_NN, S_NN, eps_N, is_gridband_master=is_gridband_master,
+                    debug=debug)
 
             if comm.rank == 0:
                 bd.distribute(eps_N[:B], kpt.eps_n)
             comm.broadcast(kpt.eps_n, 0)
 
-            with self.timer("rotate_psi"):
+            with self.timer('rotate_psi'):
                 if comm.rank == 0:
                     if bd.comm.rank == 0:
                         M0.array[:] = H_NN[:B, :B].T
                     M0.redist(M)
                 comm.broadcast(M.array, 0)
-                mmm(1.0, M, "N", psit, "N", 0.0, R)
-                mmm(1.0, M, "N", P, "N", 0.0, P3)
+                mmm(1.0, M, 'N', psit, 'N', 0.0, R)
+                mmm(1.0, M, 'N', P, 'N', 0.0, P3)
                 if comm.rank == 0:
                     if bd.comm.rank == 0:
                         M0.array[:] = H_NN[B:, :B].T
                     M0.redist(M)
                 comm.broadcast(M.array, 0)
-                mmm(1.0, M, "N", psit2, "N", 1.0, R)
-                mmm(1.0, M, "N", P2, "N", 1.0, P3)
+                mmm(1.0, M, 'N', psit2, 'N', 1.0, R)
+                mmm(1.0, M, 'N', P2, 'N', 1.0, P3)
                 psit[:] = R
                 P, P3 = P3, P
                 kpt.projections = P

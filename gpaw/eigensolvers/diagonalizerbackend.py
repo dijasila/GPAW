@@ -4,14 +4,10 @@ from gpaw.blacs import BlacsGrid, Redistributor
 
 
 class ScipyDiagonalizer:
-    def __init__(self, communicator_list):
-        (
-            self.scalapack_communicator,
-            self.grid_communicator,
-            self.band_communicator,
-        ) = communicator_list
+    def __init__(self):
+        pass
 
-    def diagonalize(self, A, B, v, debug=False):
+    def diagonalize(self, A, B, eps, is_gridband_master, debug):
         """[summary]
 
         Parameters
@@ -20,20 +16,16 @@ class ScipyDiagonalizer:
             [description]
         B : [type]
             [description]
-        v : [type]
+        eps : [type]
+            [description]
+        is_gridband_master : bool
+            [description]
+        debug : [type]
             [description]
         """
 
-        if (
-            self.scalapack_communicator.rank == 0
-            and self.grid_communicator.rank == 0
-            and self.band_communicator.rank == 0
-        ):
-            if debug:
-                A[np.triu_indices(2 * B, 1)] = 42.0
-                B[np.triu_indices(2 * B, 1)] = 42.0
-
-            v[:], A[:] = eigh(A, B, lower=True, check_finite=debug)
+        if is_gridband_master:
+            eps[:], A[:] = eigh(A, B, lower=True, check_finite=debug)
 
 
 class ScalapackDiagonalizer:
@@ -43,24 +35,16 @@ class ScalapackDiagonalizer:
         grid_nrows,
         grid_ncols,
         *,
-        communicator_list,
         dtype,
+        scalapack_communicator,
         blocksize=64,
-        eigvecs_as_columns=True
     ):
 
         assert (arraysize) % 2 == 0
         self.arraysize = arraysize
-        self.dtype = dtype
-        self.grid_nrows = grid_nrows
-        self.grid_ncols = grid_ncols
         self.blocksize = blocksize
-        self.eigvecs_as_columns = eigvecs_as_columns
-        (
-            self.scalapack_communicator,
-            self.grid_communicator,
-            self.band_communicator,
-        ) = communicator_list
+        self.dtype = dtype
+        self.scalapack_communicator = scalapack_communicator
 
         self.blacsgrid = BlacsGrid(
             self.scalapack_communicator, grid_nrows, grid_ncols
@@ -84,7 +68,7 @@ class ScalapackDiagonalizer:
             self.head_rank_descriptor,
         )
 
-    def diagonalize(self, A, B, eps):
+    def diagonalize(self, A, B, eps, is_gridband_master, debug):
         """[summary]
 
         Parameters
@@ -96,7 +80,6 @@ class ScalapackDiagonalizer:
         eps : [type]
             [description]
         """
-
         Asc_MM = self.head_rank_descriptor.zeros(dtype=self.dtype)
         Bsc_MM = self.head_rank_descriptor.zeros(dtype=self.dtype)
         vec_MM = self.head_rank_descriptor.zeros(dtype=self.dtype)
@@ -107,23 +90,21 @@ class ScalapackDiagonalizer:
 
         temporary_eps = np.zeros([self.arraysize])
         if self.scalapack_communicator.rank == 0:
-            Asc_MM[:, :] = A.copy()
-            Bsc_MM[:, :] = B.copy()
+            Asc_MM[:, :] = A
+            Bsc_MM[:, :] = B
 
         self.head_to_all_redistributor.redistribute(Asc_MM, Asc_mm)
         self.head_to_all_redistributor.redistribute(Bsc_MM, Bsc_mm)
 
         self.distributed_descriptor.general_diagonalize_dc(
-            Asc_mm, Bsc_mm.copy(), vec_mm, temporary_eps
+            Asc_mm, Bsc_mm, vec_mm, temporary_eps
         )
 
+        # vec_MM contains the eigenvectors in 'Fortran form'. They need to be
+        # transpose-conjugated before they are consistent with Scipy behaviour
         self.all_to_head_redistributor.redistribute(vec_mm, vec_MM, uplo="G")
 
-        if (
-            self.scalapack_communicator.rank == 0
-            and self.grid_communicator.rank == 0
-            and self.band_communicator.rank == 0
-        ):
-            A[:, :] = vec_MM.conj().T.copy()
-            eps[:] = temporary_eps.copy()
-        # self.head_to_all_redistributor.redistribute(vec_MM, vec_mm)
+        if is_gridband_master:
+            assert self.scalapack_communicator.rank == 0
+            A[:, :] = vec_MM.conj().T
+            eps[:] = temporary_eps
