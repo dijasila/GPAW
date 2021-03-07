@@ -4,20 +4,21 @@ import hashlib
 import os
 import re
 import xml.sax
-from glob import glob
-from math import sqrt, pi
 from distutils.version import LooseVersion
+from glob import glob
+from math import pi, sqrt
+from typing import Tuple
 
 import numpy as np
 from ase.data import atomic_names, atomic_numbers
 from ase.units import Bohr, Hartree
 
-from gpaw import setup_paths, extra_parameters
-from gpaw.xc.pawcorrection import PAWXCCorrection
-from gpaw.mpi import broadcast
-from gpaw.atom.radialgd import (AERadialGridDescriptor,
-                                AbinitRadialGridDescriptor)
+from gpaw import extra_parameters, setup_paths
+from gpaw.atom.radialgd import (AbinitRadialGridDescriptor,
+                                AERadialGridDescriptor)
 from gpaw.atom.shapefunc import shape_functions
+from gpaw.mpi import broadcast
+from gpaw.xc.pawcorrection import PAWXCCorrection
 
 try:
     import gzip
@@ -376,14 +377,14 @@ class SetupData:
         return setup
 
 
-def search_for_file(name, world=None):
+def search_for_file(name: str, world=None) -> Tuple[str, bytes]:
     """Traverse gpaw setup paths to find file.
 
     Returns the file path and file contents.  If the file is not
     found, raises RuntimeError."""
 
     if world is None or world.rank == 0:
-        source = None
+        source = b''
         filename = None
         for path in setup_paths:
             pattern = os.path.join(path, name)
@@ -396,10 +397,9 @@ def search_for_file(name, world=None):
                 filename = max(filenames)
                 assert has_gzip  # Which systems do not have the gzip module?
                 if filename.endswith('.gz'):
-                    fd = gzip.open(filename)
+                    source = gzip.open(filename).read()
                 else:
-                    fd = open(filename, 'rb')
-                source = fd.read()
+                    source = open(filename, 'rb').read()
                 break
 
     if world is not None:
@@ -408,7 +408,7 @@ def search_for_file(name, world=None):
         else:
             filename, source = broadcast(None, 0, world)
 
-    if source is None:
+    if filename is None:
         if name.endswith('basis'):
             _type = 'basis set'
         else:
