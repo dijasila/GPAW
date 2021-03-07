@@ -20,7 +20,7 @@ E_gs = atoms.get_potential_energy()
 # Ground-state occupation numbers
 f = [calc.get_occupation_numbers(spin=0) / 2.]
 
-# Singlet homo->pi* occupation numbers
+# Singlet sigma->pi* occupation numbers
 f[0][4] -= 0.5
 f[0][5] += 0.5
 
@@ -33,6 +33,6 @@ opt.run(fmax=0.05)
 
 d = atoms.get_distance(0, 1)
 
-print('Optimized C-O bond length of homo->pi* state: %.2f Å' % (d))
+print('Optimized C-O bond length of sigma->pi* state: %.2f Å' % (d))
 # https://doi.org/10.1007/978-1-4757-0961-2
-print('Experimental C-O bond length: 1.24 Å')
+print('Experimental C-O bond length of sigma->pi* state: 1.24 Å')

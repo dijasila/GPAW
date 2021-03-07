@@ -154,7 +154,14 @@ approach where the occupation numbers of the open-shell
 orbitals are set to 1 [#levi2018]_. This approach delivers
 pure singlet states while avoiding the calculation of the
 corresponding triplet state needed to employ the spin-purification
-formula (see :ref:`example_1`).
+formula (see :ref:`example_1`). Since the `\pi^*_x` and
+`\pi^*_y` orbitals of carbon monoxide are degenerate,
+diagonalization-based SCF algorithms fail to converge
+to the `\sigma\rightarrow\pi^*` excited state unless
+symmetry constraints on the density are used. Here,
+Gaussian smearing of the excited electron is used to
+force equal fractional occupations of the two `\pi^*`
+orbitals to avoid convergence issues.
 
 .. literalinclude:: mom_co.py
 
