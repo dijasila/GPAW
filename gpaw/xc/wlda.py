@@ -111,10 +111,36 @@ class WLDA(XCFunctional):
             self.lda_xc = LDA(PurePythonLDAKernel())
 
         self.settings = settings
+        self.log_parameters()
         # self.wlda_type = 'c'
         # self.energies = []
 
         self._K_G = None
+
+    def log_parameters(self):
+        """Log all parameters.
+        
+        Because there are so many parameters we log them in
+        a file with a unique name for debugging and verification
+        purposes."""
+
+        # This is definitely the best way to do it
+        unique_id = str(np.random.rand()).split(".")[1]
+        fname = f'WLDA-{unique_id}.log'
+
+        # Start with dumping settings
+        # then write specific parameters for easy reading
+        msg = [f'settings: {self.settings.items()}',
+               f'nindicators: {self.nindicators}',
+               f'rcut_factor: {self.rcut_factor}',
+               f'lambda: {self.lambd}',
+               f'weightfunc: {self.settings.get("weightfunction")}',
+               f'c1: {self.settings.get("c1")}',
+               f'Use Hartree corr.: {not self.settings.get("nohartreecorr", False)}',
+               f'Treat Hartree corr. as X energy: {self.settings.get("hartreexc", False)}']
+        if mpi.rank == 0:
+            with open(fname, 'w+') as f:
+                f.write('\n'.join(msg))
 
     def initialize(self, density, hamiltonian, wfs, occupations=None):
         self.density = density
@@ -124,6 +150,14 @@ class WLDA(XCFunctional):
 
     def calculate_impl(self, gd, n_sg, v_sg, e_g):
         """Interface for GPAW."""
+        # Calculate E_LDA on n_sg
+        # Need to do calculation prior to rest of code
+        # because it modifies the density
+        if self.lambd is not None:
+            elda_g = np.zeros_like(n_sg[0])
+            vlda_sg = np.zeros_like(n_sg)
+            self.lda_xc.calculate_impl(gd, n_sg, vlda_sg, elda_g)
+
         n_sg = n_sg.copy()
         wn_sg = self.get_working_density(n_sg, gd)
 
@@ -160,11 +194,7 @@ class WLDA(XCFunctional):
         gd.distribute(exc_g, e_g)
         gd.distribute(vxc_sg, v_sg)
 
-        # Calculate E_LDA on n_sg
         if self.lambd is not None:
-            elda_g = np.zeros_like(n_sg[0])
-            vlda_sg = np.zeros_like(n_sg)
-            self.lda_xc.calculate_impl(gd, n_sg, vlda_sg, elda_g)
             e_g[:] = elda_g + self.lambd * (e_g - elda_g)
             v_sg[:] = vlda_sg + self.lambd * (v_sg - vlda_sg)
 
@@ -333,6 +363,8 @@ class WLDA(XCFunctional):
         """
         alpha_indices = self.construct_alphas(wn_sg)
         assert len(alpha_indices) == 0 or type(alpha_indices[0]) == int
+        if self.nindicators < mpi.size and mpi.rank > self.nindicators:
+            assert len(alpha_indices) == 0
 
         nstar_sg = self.alt_weight(wn_sg, alpha_indices, self.gd)
 
@@ -522,6 +554,7 @@ class WLDA(XCFunctional):
         """Distribute alphas across mpi ranks."""
         if nindicators <= size:
             return range(rank, min(rank + 1, nindicators))
+
         nalphas = nindicators // size
         nalphas0 = nalphas + (nindicators - nalphas * size)
         assert (nalphas * (size - 1) + nalphas0 == nindicators)
@@ -918,7 +951,7 @@ class WLDA(XCFunctional):
         if self.lambd is not None:
             # If lambda is enabled we want to use E_LDA[n_AE]
             # which means we need the PAW corrections for LDA
-            return self.lda_xc.calculate_paw_correction(setup, D_sp, dEdD_sp, a)
+            return self.lda_xc.calculate_paw_correction(setup, D_sp, dEdD_sp=dEdD_sp, a=a)
         else:
             return 0.0
 
