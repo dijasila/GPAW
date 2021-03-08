@@ -56,6 +56,9 @@ class ExternalPotential:
     def calculate_potential(self, gd):
         raise NotImplementedError
 
+    def calculate(self, density, hamiltonian):
+        ...
+
     def get_name(self):
         return self.__class__.__name__
 
@@ -264,7 +267,7 @@ class StepPotentialz(ExternalPotential):
         self.vext_g = np.where(r_vg[2] < self.zstep / Bohr,
                                gd.zeros() + self.value_left / Hartree,
                                gd.zeros() + self.value_right / Hartree)
- 
+
     def todict(self):
         return {'name': self.name,
                 'value_left': self.value_left,
