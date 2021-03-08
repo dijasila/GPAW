@@ -29,6 +29,7 @@ GPAW calculator:
    defects_theory
    dscf/dscf
    pdos/pdos
+   elph/elph
    xas/xas
    densitymix/densitymix
    cmdline
