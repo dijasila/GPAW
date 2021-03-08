@@ -83,13 +83,18 @@ def mom_calculation(calc,
 
 
 class OccupationsMOM:
-    """Occupation class."""
+    """MOM occupation class.
+
+    The occupation numbers are found using a maximum overlap
+    criterion and then broadcasted using the _calculate method
+    in occupations.FixedOccupationNumbers.
+    """
 
     def __init__(self,
                  wfs,
                  occ,
                  numbers,
-                 use_projections=True,
+                 use_projections=False,
                  update_numbers=True,
                  width=0.0,
                  niter_width_update=10,
