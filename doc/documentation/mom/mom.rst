@@ -4,7 +4,7 @@
 Maximum Overlap Method
 ======================
 
-The maximum overlap method (MOM) can be used to perform
+The maximum overlap method (MOM) is used to perform
 variational calculations of excited states. It is an
 alternative to the linear expansion :ref:`dscf` for obtaining
 excited states within a time-independent DFT framework. Since
@@ -19,8 +19,8 @@ degrees of freedom (the orbital variations) [#momgpaw1]_ [#momgpaw2]_
 [#momgpaw3]_.
 Hence, excited-state calculations can be affected by variational
 collapse to lower-energy solutions. MOM is a simple strategy to
-choose a non-Aufbau distribution of the occupation numbers consistent
-with the choice of initial guess for an excited state during
+choose non-Aufbau occupation numbers consistent
+with the initial guess for an excited state during
 optimization of the wave function, thereby avoiding variational
 collapse.
 
@@ -107,8 +107,8 @@ one has to specify::
 
 SCF algorithms based on diagonalization of the Hamiltonian
 matrix tend to fail when degenerate or nearly degenerate
-orbitals are unequally occupied, a situation that is frequently
-encountered in excited-state calculations.
+orbitals are unequally occupied, a situation that is common
+in excited-state calculations.
 For such cases, it is possible to use a Gaussian smearing
 of the holes and excited electrons in the MOM calculation
 to improve convergence. This is done by specifying a ``width``
@@ -124,9 +124,9 @@ should only be used at geometries far from state crossings.
 
 .. _example_1:
 
-----------------------------------------
-Example I: Molecular Rydberg excitations
-----------------------------------------
+-----------------------------------------------------
+Example I: Excitation energy molecular Rydberg states
+-----------------------------------------------------
 In this example, the excitation energies of the singlet and
 triplet states of water corresponding to excitation
 from the HOMO-1 non-bonding (`n`) to the LUMO `3s` Rydberg
@@ -152,7 +152,7 @@ choice for geometry optimization and dynamics in an
 open-shell singlet excited state is to employ a spin-paired
 approach where the occupation numbers of the open-shell
 orbitals are set to 1 [#levi2018]_. This approach delivers
-pure singlet states while avoiding the calculation of the
+pure singlet states while avoiding an additional calculation of the
 corresponding triplet state needed to employ the spin-purification
 formula (see :ref:`example_1`). Since the `\pi^*_x` and
 `\pi^*_y` orbitals of carbon monoxide are degenerate,

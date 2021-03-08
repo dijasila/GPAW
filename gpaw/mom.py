@@ -1,4 +1,5 @@
 """Module for calculations using the Maximum Overlap Method (MOM).
+   See:
    https://arxiv.org/abs/2102.06542,
    https://doi.org/10.1021/acs.jctc.0c00597.
 """
