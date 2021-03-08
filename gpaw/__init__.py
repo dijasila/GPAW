@@ -31,7 +31,7 @@ platform_id = os.getenv('CPU_ARCH')
 if platform_id:
     plat = get_platform()
     major, minor = sys.version_info[0:2]
-    lib = (Path(__path__[0]).parent /  # type: ignore
+    lib = (Path(__path__[0]).parent /  # type: ignore  # noqa
            'build' /
            f'lib.{plat}-{platform_id}-{major}.{minor}')
     sys.path.insert(0, str(lib))
@@ -84,11 +84,11 @@ else:
 
 
 def parse_arguments(argv):
+    version = sys.version.replace('\n', '')
     p = ArgumentParser(usage='%(prog)s [OPTION ...] [-c | -m] SCRIPT'
                        ' [ARG ...]',
                        description='Run a parallel GPAW calculation.\n\n'
-                       'Compiled with:\n  Python {}'
-                       .format(sys.version.replace('\n', '')),
+                       f'Compiled with:\n  Python {version}',
                        formatter_class=RawDescriptionHelpFormatter)
 
     p.add_argument('--command', '-c', action='store_true',
@@ -204,14 +204,6 @@ def initialize_data_paths():
 
 read_rc_file()
 initialize_data_paths()
-
-if False:
-    with broadcast_imports:
-        from ase.parallel import parprint
-
-    parprint('Benchmarking imports: {} modules broadcasted'
-             .format(len(broadcast_imports.cached_modules)))
-    parprint('  ' + '\n  '.join(sorted(broadcast_imports.cached_modules)))
 
 
 def RMM_DIIS(*args, **kwargs):

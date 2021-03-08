@@ -34,8 +34,8 @@ for i, arg in enumerate(sys.argv):
     if arg.startswith('--customize='):
         custom = arg.split('=')[1]
         raise DeprecationWarning(
-            'Please set GPAW_CONFIG={custom} or place {custom} in '
-            '~/.gpaw/siteconfig.py'.format(custom=custom))
+            f'Please set GPAW_CONFIG={custom} or place {custom} in ' +
+            '~/.gpaw/siteconfig.py')
 
 libraries = ['xc']
 library_dirs = []
@@ -201,9 +201,9 @@ class build_ext(_build_ext):
 
 
 def copy_gpaw_python(cmd, dir: str) -> None:
-    plat = get_platform() + '-{maj}.{min}'.format(maj=sys.version_info[0], 
-                                                  min=sys.version_info[1])
-    source = 'build/bin.{}/gpaw-python'.format(plat)
+    major, minor = sys.version_info[:2]
+    plat = get_platform() + f'-{major}.{minor}'
+    source = f'build/bin.{plat}/gpaw-python'
     target = os.path.join(dir, 'gpaw-python')
     cmd.copy_file(source, target)
 
