@@ -7,7 +7,7 @@ import os
 import sys
 from pathlib import Path
 from sysconfig import get_platform
-from typing import List, Dict
+from typing import List, Dict, Any
 
 __version__ = '21.1.1b1'
 __ase_version_required__ = '3.21.0'
@@ -20,21 +20,21 @@ __all__ = ['GPAW',
            'MarzariVanderbilt',
            'PW', 'LCAO', 'restart', 'FD']
 
-extra_parameters = {}
+extra_parameters: Dict[str, Any] = {}
 setup_paths: List[str] = []
 is_gpaw_python = '_gpaw' in sys.builtin_module_names
 dry_run = 0
-debug = sys.flags.debug
+debug: bool = bool(sys.flags.debug)
 
 
 platform_id = os.getenv('CPU_ARCH')
 if platform_id:
     plat = get_platform()
     major, minor = sys.version_info[0:2]
-    lib = (Path(__path__[0]).parent /  # noqa
+    lib = (Path(__path__[0]).parent /  # type: ignore
            'build' /
            f'lib.{plat}-{platform_id}-{major}.{minor}')
-    sys.path.insert(0, lib)
+    sys.path.insert(0, str(lib))
 
 if 'OMP_NUM_THREADS' not in os.environ:
     os.environ['OMP_NUM_THREADS'] = '1'
