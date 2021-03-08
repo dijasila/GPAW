@@ -895,6 +895,15 @@ class GPAW(Calculator):
         if self.wfs.nspins == 1:
             dct.pop('fixmagmom', None)
 
+        kwargs = dct.copy()
+        name = kwargs.pop('name', '')
+        if name == 'mom':
+            from gpaw.mom import OccupationsMOM
+            occ = OccupationsMOM(self.wfs, **kwargs)
+
+            self.log(occ)
+            return occ
+
         occ = create_occ_calc(
             dct,
             parallel_layout=ParallelLayout(self.wfs.bd,
@@ -904,12 +913,6 @@ class GPAW(Calculator):
             rcell=np.linalg.inv(cell_cv).T,
             monkhorst_pack_size=self.wfs.kd.N_c,
             bz2ibzmap=self.wfs.kd.bz2ibz_k)
-
-        kwargs = dct.copy()
-        name = kwargs.pop('name', '')
-        if name == 'mom':
-            from gpaw.mom import OccupationsMOM
-            occ = OccupationsMOM(self.wfs, **kwargs)
 
         self.log(occ)
         return occ

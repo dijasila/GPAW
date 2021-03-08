@@ -1,6 +1,6 @@
 import pytest
 from ase.build import molecule
-from gpaw import GPAW, mom
+from gpaw import GPAW
 from gpaw.test import equal
 
 
@@ -34,7 +34,8 @@ def test_mom_lcao_smearing():
 
     # Excited-state MOM calculation with Gaussian
     # smearing of the occupation numbers
-    mom.mom_calculation(calc, atoms, f_sn, width=0.1)
+    calc.set(occupations={'name': 'mom', 'numbers': f_sn,
+                          'width': 0.01})
     E_es = atoms.get_potential_energy()
 
     f_n0 = calc.get_occupation_numbers(spin=0)

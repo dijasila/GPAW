@@ -673,8 +673,6 @@ def create_occ_calc(dct: Dict[str, Any],
         return ThomasFermiOccupations(**kwargs)
     elif name == 'fixed':
         return FixedOccupationNumbers(**kwargs)
-    elif name == 'mom':
-        return None
     else:
         raise ValueError(f'Unknown occupation number object name: {name}')
 
