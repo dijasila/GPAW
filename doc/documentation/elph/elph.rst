@@ -53,12 +53,10 @@ simultaneously. (:git:`~doc/documentation/elph/elph.py`)
 The last line in the above script constructs the electron-phonon matrix in terms
 of LCAO orbitals (and cell repetitions) and saves it as ``elph.supercell_matrix.dzp.pckl``.
 
-After both calculations are finished the final electron-phonon matrix can be constructed.
-This step is usually very fast. (:git:`~doc/documentation/elph/construct_matrix.py`)
+After both calculations are finished the final electron-phonon matrix can be constructed
+with a 'simple' script. (:git:`~doc/documentation/elph/construct_matrix.py`)
 
 .. literalinclude:: construct_matrix.py
-
-
 
 
 Code

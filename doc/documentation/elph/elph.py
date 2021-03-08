@@ -16,6 +16,8 @@ calc = GPAW(mode='lcao',
             txt='elph.txt')
 
 atoms.calc = calc
+atoms.get_potential_energy()
+calc.write("scf.gpw", 'all')
 
 elph = ElectronPhononCoupling(atoms, atoms.calc, calculate_forces=False)
 elph.set_lcao_calculator(atoms.calc)

@@ -1,26 +1,39 @@
-from ase.build import bulk
+import numpy as np
 
-from gpaw import GPAW, FermiDirac
+from ase.build import bulk
+from ase.phonons import Phonons
+
+from gpaw import GPAW
 from gpaw.elph.electronphonon import ElectronPhononCoupling
 
-a = 3.567
-atoms = bulk('C', 'diamond', a=a)
+calc = GPAW("scf.gpw")
 
-calc = GPAW(mode='lcao',
-            basis='dzp',
-            kpts=(5, 5, 5),
-            xc='PBE',
-            occupations=FermiDirac(0.01),
-            symmetry={'point_group': False},
-            convergence={'bands':'nao'},
-            )
-atoms.calc = calc
+kpts = calc.get_ibz_k_points()
+qpts = [[0, 0, 0], ]
 
-elph = ElectronPhononCoupling(atoms, atoms.calc, calculate_forces=False)
-#elph.set_lcao_calculator(atoms.calc)
-elph.load_supercell_matrix(multiple=False)
+# Phonon calculation, We'll read the forces from the elph.run function
+# This only looks at gamma point phonons
+ph = Phonons(atoms=calc.atoms, supercell=(1, 1, 1))
+ph.read()
+frequencies, modes = ph.band_structure(qpts, modes=True)
 
-# NOT FINISHED YET
+#Find el-ph matrix in the LCAO basis
+elph = ElectronPhononCoupling(calc.atoms, calc, calculate_forces=False)
+elph.set_lcao_calculator(calc)
+elph.load_supercell_matrix(basis='dzp', multiple=False)
 
-elph.bloch_matrix(kpts=(5,5,5), qpts=[], c_kn, u_ql,
-                     omega_ql=None)
+#Find the bloch expansion coefficients
+g_sqklnn = []
+for s in range(calc.wfs.nspins):
+    c_kn = []
+    for k in range(calc.wfs.kd.nibzkpts):
+        C_nM = calc.wfs.collect_array('C_nM', k, s)
+        c_kn.append(C_nM)
+    c_kn = np.array(c_kn)
+
+    #And we finally find the electron-phonon coupling matrix elements!
+    elph.g_xNNMM = elph.g_xsNNMM[:, s]
+    g_qklnn = elph.bloch_matrix(c_kn = c_kn, kpts = kpts, qpts = qpts,
+                                u_ql = modes, spin=s)
+    g_sqklnn.append(g_qklnn)
+    # np.save("gsqklnn.npy", np.array(g_sqklnn))
