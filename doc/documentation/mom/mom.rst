@@ -94,7 +94,8 @@ the function ``mom.mom_calculation`` can be used::
   mom.mom_calculation(calc, atoms, f)
 
 where ``f`` contains the occupation numbers of the excited state
-(see examples below).
+(see examples below). Alternatively, the MOM calculation can be
+initialized by setting ``calc.set(occupations={'name': 'mom', 'numbers': f_sn}``.
 
 The default is to use eq. :any:`eq:mommaxoverlap` to compute
 the numerical weights used to assign the occupation numbers.
@@ -114,7 +115,7 @@ of the holes and excited electrons in the MOM calculation
 to improve convergence. This is done by specifying a ``width``
 in eV (e.g. ``width=0.01``) for the Gaussian smearing function.
 For difficult cases, the ``width`` can be increased at regular
-intervals to force convergence by specifying a ``width_increment``.
+intervals to force convergence by specifying a ``width_increment=...``.
 *Note*, however, that too extended smearing can lead to
 discontinuities in the potentials and forces close to
 crossings between electronic states [#momgpaw2]_, so this feature
