@@ -201,7 +201,8 @@ class build_ext(_build_ext):
 
 
 def copy_gpaw_python(cmd, dir: str) -> None:
-    plat = get_platform() + '-' + '.'.join(sys.version.split('.')[:2])
+    plat = get_platform() + '-{maj}.{min}'.format(maj=sys.version_info[0], 
+                                                  min=sys.version_info[1])
     source = 'build/bin.{}/gpaw-python'.format(plat)
     target = os.path.join(dir, 'gpaw-python')
     cmd.copy_file(source, target)
