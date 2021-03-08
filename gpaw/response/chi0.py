@@ -125,7 +125,8 @@ class Chi0:
                  disable_point_group=False, disable_time_reversal=False,
                  disable_non_symmorphic=True,
                  integrationmode=None,
-                 pbc=None, rate=0.0, eshift=0.0):
+                 pbc=None, rate=0.0, eshift=0.0,
+                 paw_correction='brute-force'):
         """Construct Chi0 object.
 
         Parameters
@@ -217,7 +218,9 @@ class Chi0:
                                 ftol, threshold,
                                 real_space_derivatives, world, txt,
                                 self.timer,
-                                nblocks=nblocks, gate_voltage=gate_voltage)
+                                nblocks=nblocks,
+                                gate_voltage=gate_voltage,
+                                paw_correction=paw_correction)
 
         self.disable_point_group = disable_point_group
         self.disable_time_reversal = disable_time_reversal

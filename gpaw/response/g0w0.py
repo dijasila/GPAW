@@ -753,6 +753,7 @@ class G0W0(PairDensity):
                     timer=self.timer,
                     nblocks=self.blockcomm.size,
                     gate_voltage=self.gate_voltage,
+                    paw_correction=self.paw_correction,
                     **parameters)
 
         if self.truncation == 'wigner-seitz':
