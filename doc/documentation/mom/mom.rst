@@ -85,7 +85,7 @@ iteration `k`, while `|\Phi_{\nu}\rangle` are the basis functions.
 --------------
 Notes on usage
 --------------
-Tipically, one first performs a ground-state calculation.
+Typically, one first performs a ground-state calculation.
 To prepare the calculator for an excited-state calculation,
 the function ``mom.mom_calculation`` can be used::
 
