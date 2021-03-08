@@ -1,6 +1,5 @@
 import numpy as np
 
-from ase.build import bulk
 from ase.phonons import Phonons
 
 from gpaw import GPAW
@@ -17,12 +16,12 @@ ph = Phonons(atoms=calc.atoms, supercell=(1, 1, 1))
 ph.read()
 frequencies, modes = ph.band_structure(qpts, modes=True)
 
-#Find el-ph matrix in the LCAO basis
+# Find el-ph matrix in the LCAO basis
 elph = ElectronPhononCoupling(calc.atoms, calc, calculate_forces=False)
 elph.set_lcao_calculator(calc)
 elph.load_supercell_matrix(basis='dzp', multiple=False)
 
-#Find the bloch expansion coefficients
+# Find the bloch expansion coefficients
 g_sqklnn = []
 for s in range(calc.wfs.nspins):
     c_kn = []
@@ -31,9 +30,8 @@ for s in range(calc.wfs.nspins):
         c_kn.append(C_nM)
     c_kn = np.array(c_kn)
 
-    #And we finally find the electron-phonon coupling matrix elements!
+    # And we finally find the electron-phonon coupling matrix elements!
     elph.g_xNNMM = elph.g_xsNNMM[:, s]
-    g_qklnn = elph.bloch_matrix(c_kn = c_kn, kpts = kpts, qpts = qpts,
-                                u_ql = modes, spin=s)
+    g_qklnn = elph.bloch_matrix(c_kn, kpts, qpts, u_ql=modes, spin=s)
     g_sqklnn.append(g_qklnn)
     # np.save("gsqklnn.npy", np.array(g_sqklnn))

@@ -12,7 +12,7 @@ calc = GPAW(mode='lcao',
             xc='PBE',
             occupations=FermiDirac(0.01),
             symmetry={'point_group': False},
-            convergence={'bands':'nao'},
+            convergence={'bands': 'nao'},
             txt='elph.txt')
 
 atoms.calc = calc
