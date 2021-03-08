@@ -21,12 +21,12 @@ def calculate_mm_on_grid(wfs, grad_v, r_cG, dX0_caii, timer,
 
     timer.start('Magnetic moment')
 
-    grad_psit_vG = gd.empty(3, dtype=complex)
-    pseudo_rxnabla_v = np.zeros(3, dtype=complex)
-    paw_rxnabla_v = np.zeros(3, dtype=complex)
+    rxnabla_v = np.zeros(3, dtype=complex)
+
+    timer.start('Pseudo')
     if mode == 'lcao':
         psit_G = gd.empty(dtype=complex)
-
+    grad_psit_vG = gd.empty(3, dtype=complex)
     for kpt in kpt_u:
         for n, f in enumerate(kpt.f_n):
             if mode == 'lcao':
@@ -38,8 +38,6 @@ def calculate_mm_on_grid(wfs, grad_v, r_cG, dX0_caii, timer,
             for v in range(3):
                 grad_v[v].apply(psit_G, grad_psit_vG[v], kpt.phase_cd)
 
-            timer.start('Pseudo')
-
             def rxnabla(v1, v2):
                 return f * gd.integrate(psit_G.conjugate() *
                                         (r_cG[v1] * grad_psit_vG[v2] -
@@ -49,27 +47,26 @@ def calculate_mm_on_grid(wfs, grad_v, r_cG, dX0_caii, timer,
             # rxnabla_x = <psi1| r_y nabla_z - r_z nabla_y |psi2>
             # rxnabla_y = <psi1| r_z nabla_x - r_x nabla_z |psi2>
             # rxnabla_z = <psi1| r_x nabla_y - r_y nabla_x |psi2>
-            pseudo_rxnabla_v[0] += rxnabla(1, 2)
-            pseudo_rxnabla_v[1] += rxnabla(2, 0)
-            pseudo_rxnabla_v[2] += rxnabla(0, 1)
-            timer.stop('Pseudo')
+            rxnabla_v[0] += rxnabla(1, 2)
+            rxnabla_v[1] += rxnabla(2, 0)
+            rxnabla_v[2] += rxnabla(0, 1)
+    timer.stop('Pseudo')
 
-            if not only_pseudo:
-                timer.start('PAW')
-                for a, P_ni in kpt.P_ani.items():
-                    P_i = P_ni[n]
-                    for v in range(3):
-                        PdXP = np.dot(P_i.conj(), np.dot(dX0_caii[v][a], P_i))
-                        paw_rxnabla_v[v] += f * PdXP
-                timer.stop('PAW')
+    if not only_pseudo:
+        timer.start('PAW')
+        paw_rxnabla_v = np.zeros(3, dtype=complex)
+        for kpt in kpt_u:
+            for v in range(3):
+              for a, P_ni in kpt.P_ani.items():
+                  paw_rxnabla_v[v] += np.einsum('n,ni,ij,nj',
+                                                kpt.f_n, P_ni.conj(),
+                                                dX0_caii[v][a], P_ni,
+                                                optimize=True)
+        gd.comm.sum(paw_rxnabla_v)
+        rxnabla_v += paw_rxnabla_v
+        timer.stop('PAW')
 
-    bd.comm.sum(paw_rxnabla_v)
-    gd.comm.sum(paw_rxnabla_v)
-
-    bd.comm.sum(pseudo_rxnabla_v)
-
-    rxnabla_v = pseudo_rxnabla_v + paw_rxnabla_v
-
+    bd.comm.sum(rxnabla_v)
     timer.stop('Magnetic moment')
 
     return rxnabla_v.imag
@@ -81,14 +78,13 @@ def get_dX0(Ra_a, setups, partition):
     #                         = <psi1| (r - Ra) x nabla |psi2>
     #                             + Ra x <psi1| nabla |psi2>
 
+    def shape(a):
+        ni = setups[a].ni
+        return ni, ni
+
     dX0_caii = []
     for _ in range(3):
-        def shape(a):
-            ni = setups[a].ni
-            return ni, ni
         dX0_aii = partition.arraydict(shapes=shape, dtype=complex)
-        for arr in dX0_aii.values():
-            arr[:] = 0
         dX0_caii.append(dX0_aii)
 
     for a in partition.my_indices:
@@ -110,13 +106,9 @@ def get_dX0(Ra_a, setups, partition):
         # Rxnabla_x = (Ra_y nabla_z - Ra_z nabla_y)
         # Rxnabla_y = (Ra_z nabla_x - Ra_x nabla_z)
         # Rxnabla_z = (Ra_x nabla_y - Ra_y nabla_x)
-        dX0_ii = Rxnabla(1, 2) + rxnabla_iiv[:, :, 0]
-        dX1_ii = Rxnabla(2, 0) + rxnabla_iiv[:, :, 1]
-        dX2_ii = Rxnabla(0, 1) + rxnabla_iiv[:, :, 2]
-
-        for c, dX_ii in enumerate([dX0_ii, dX1_ii, dX2_ii]):
-            assert not dX0_caii[c][a].any()
-            dX0_caii[c][a][:] = dX_ii
+        dX0_caii[0][a][:] = Rxnabla(1, 2) + rxnabla_iiv[:, :, 0]
+        dX0_caii[1][a][:] = Rxnabla(2, 0) + rxnabla_iiv[:, :, 1]
+        dX0_caii[2][a][:] = Rxnabla(0, 1) + rxnabla_iiv[:, :, 2]
 
     return dX0_caii
 
@@ -133,27 +125,26 @@ def calculate_E(dX0_caii, kpt_u, bfs, correction, r_cG, only_pseudo=False):
     E_cmM = np.zeros((3, mynao, nao), dtype=complex)
     A_cmM = np.zeros((3, mynao, nao), dtype=complex)
 
-    if not only_pseudo:
-        for c in range(3):
-            for kpt in kpt_u:
-                assert kpt.k == 0
-                correction.calculate(kpt.q, dX0_caii[c], E_cmM[c],
-                                     Mstart, Mstop)
-        E_cmM *= -1
-
     bfs.calculate_potential_matrix_derivative(r_cG[0], A_cmM, 0)
-    E_cmM[1] -= A_cmM[2]
-    E_cmM[2] += A_cmM[1]
+    E_cmM[1] += A_cmM[2]
+    E_cmM[2] -= A_cmM[1]
 
     A_cmM[:] = 0.0
     bfs.calculate_potential_matrix_derivative(r_cG[1], A_cmM, 0)
-    E_cmM[0] += A_cmM[2]
-    E_cmM[2] -= A_cmM[0]
+    E_cmM[0] -= A_cmM[2]
+    E_cmM[2] += A_cmM[0]
 
     A_cmM[:] = 0.0
     bfs.calculate_potential_matrix_derivative(r_cG[2], A_cmM, 0)
-    E_cmM[0] -= A_cmM[1]
-    E_cmM[1] += A_cmM[0]
+    E_cmM[0] += A_cmM[1]
+    E_cmM[1] -= A_cmM[0]
+
+    if not only_pseudo:
+        for kpt in kpt_u:
+            assert kpt.k == 0
+            for c in range(3):
+                correction.calculate(kpt.q, dX0_caii[c], E_cmM[c],
+                                     Mstart, Mstop)
 
     # The matrix should be real
     assert np.max(np.absolute(E_cmM.imag)) == 0.0
@@ -163,7 +154,7 @@ def calculate_E(dX0_caii, kpt_u, bfs, correction, r_cG, only_pseudo=False):
 
 def calculate_mm_from_rho_and_e(rho_xx, E_cxx):
     assert E_cxx.dtype == float
-    return -np.sum(rho_xx.imag * E_cxx, axis=(1, 2))
+    return np.sum(rho_xx.imag * E_cxx, axis=(1, 2))
 
 
 class BlacsEMatrix:
