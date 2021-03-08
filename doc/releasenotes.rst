@@ -16,6 +16,9 @@ Git master branch
   Kohn–Sham states.  Previously, the printed occupation numbers were
   scaled by **k**-point weight.
 
+* Removed several old command-line options: ...
+
+
 Version 21.1.0
 ===============
 
