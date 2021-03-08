@@ -212,3 +212,8 @@ if False:
     parprint('Benchmarking imports: {} modules broadcasted'
              .format(len(broadcast_imports.cached_modules)))
     parprint('  ' + '\n  '.join(sorted(broadcast_imports.cached_modules)))
+
+
+def RMM_DIIS(*args, **kwargs):
+    warnings.warn('Please use RMMDIIS instead of RMM_DIIS')
+    return RMMDIIS(*args, **kwargs)
