@@ -64,13 +64,7 @@ def mom_calculation(calc,
         # We need the wfs object to initialize OccupationsMOM
         calc.initialize(atoms)
 
-    parallel_layout = ParallelLayout(calc.wfs.bd,
-                                     calc.wfs.kd.comm,
-                                     calc.wfs.gd.comm)
-    occ = FixedOccupationNumbers(numbers, parallel_layout)
-
     occ_mom = OccupationsMOM(calc.wfs,
-                             occ,
                              numbers,
                              use_projections,
                              update_numbers,
@@ -86,13 +80,12 @@ class OccupationsMOM:
     """MOM occupation class.
 
     The occupation numbers are found using a maximum overlap
-    criterion and then broadcasted using the _calculate method
-    in occupations.FixedOccupationNumbers.
+    criterion and then broadcasted in occupations.py using the
+    _calculate method of FixedOccupationNumbers.
     """
 
     def __init__(self,
                  wfs,
-                 occ,
                  numbers,
                  use_projections=False,
                  update_numbers=True,
@@ -100,14 +93,18 @@ class OccupationsMOM:
                  niter_width_update=10,
                  width_increment=0.0):
         self.wfs = wfs
-        self.occ = occ
-        self.extrapolate_factor = occ.extrapolate_factor
         self.numbers = np.array(numbers)
         self.use_projections = use_projections
         self.update_numbers = update_numbers
         self.width = width / Ha
         self.niter_width_update = niter_width_update
         self.width_increment = width_increment / Ha
+
+        parallel_layout = ParallelLayout(self.wfs.bd,
+                                         self.wfs.kd.comm,
+                                         self.wfs.gd.comm)
+        self.occ = FixedOccupationNumbers(numbers, parallel_layout)
+        self.extrapolate_factor = self.occ.extrapolate_factor
 
         self.name = 'mom'
         self.iters = 0

@@ -909,7 +909,7 @@ class GPAW(Calculator):
         name = kwargs.pop('name', '')
         if name == 'mom':
             from gpaw.mom import OccupationsMOM
-            occ = OccupationsMOM(self.wfs, occ, **kwargs)
+            occ = OccupationsMOM(self.wfs, **kwargs)
 
         self.log(occ)
         return occ
