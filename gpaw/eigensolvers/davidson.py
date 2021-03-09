@@ -196,13 +196,12 @@ class Davidson(Eigensolver):
                 S_NN[:B, :B] = np.eye(B)
 
             with self.timer('diagonalize'):
-                if is_gridband_master:
-                    if debug:
-                        H_NN[np.triu_indices(2 * B, 1)] = 42.0
-                        S_NN[np.triu_indices(2 * B, 1)] = 42.0
+                if is_gridband_master and debug:
+                    H_NN[np.triu_indices(2 * B, 1)] = 42.0
+                    S_NN[np.triu_indices(2 * B, 1)] = 42.0
 
                 self.diagonalizer_backend.diagonalize(
-                    H_NN, S_NN, eps_N, is_gridband_master=is_gridband_master,
+                    H_NN, S_NN, eps_N, is_master=is_gridband_master,
                     debug=debug)
 
             if comm.rank == 0:

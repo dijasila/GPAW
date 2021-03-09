@@ -43,7 +43,7 @@ def test_scipy_diagonalizer_eigenproblem_correctness(dtype):
         a_scipy_copy,
         b_scipy_copy,
         eps,
-        is_gridband_master=is_master_rank,
+        is_master=is_master_rank,
         debug=False,
     )
 
@@ -84,7 +84,7 @@ def test_scalapack_diagonalizer_eigenproblem_correctness(dtype):
         a_scalapack_copy,
         b_scalapack_copy,
         eps,
-        is_gridband_master=is_master_rank,
+        is_master=is_master_rank,
         debug=False,
     )
 
