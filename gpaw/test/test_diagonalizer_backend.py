@@ -56,7 +56,7 @@ def test_scipy_diagonalizer_eigenproblem_correctness(dtype):
     not compiled_with_sl(),
     reason='Not compiled with Scalapack',
 )
-def test_diagonalizer_eigenproblem_correctness(dtype):
+def test_scalapack_diagonalizer_eigenproblem_correctness(dtype):
 
     is_master_rank = world.rank == 0
     eigenproblem_size = world.size * 64
