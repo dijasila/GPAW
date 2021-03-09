@@ -38,7 +38,6 @@ class Davidson(Eigensolver):
         self.niter = niter
         self.smin = smin
         self.normalize = normalize
-        self.i = 0
         self.diagonalizer_backend = None
         self.slcomm = None
 
@@ -236,5 +235,4 @@ class Davidson(Eigensolver):
                 )
 
         error = wfs.gd.comm.sum(error)
-        self.i += 1
         return error
