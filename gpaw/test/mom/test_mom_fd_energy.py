@@ -32,7 +32,7 @@ def test_mom_fd_energy():
 
     # Test spin polarized excited-state calculations
     for s in [0, 1]:
-        atoms, calc = restart('h2o_fd_gs.gpw')
+        atoms, calc = restart('h2o_fd_gs.gpw', txt='-')
 
         f_sn = []
         for spin in range(calc.get_number_of_spins()):

@@ -16,6 +16,7 @@ def mom_calculation(calc,
                     numbers,
                     use_projections=False,
                     update_numbers=True,
+                    use_fixed_occupations=False,
                     width=0.0,
                     niter_width_update=40,
                     width_increment=0.0):
@@ -38,7 +39,7 @@ def mom_calculation(calc,
         the weights are evaluated as: ``P_m = max_n(|O_nm|)``
         see https://doi.org/10.1021/acs.jctc.0c00488.
     update_numbers: bool
-        If True, 'numbers' gets updated with the calculated
+        If True (default), 'numbers' gets updated with the calculated
         occupation numbers, and when changing atomic positions
         the MOM reference orbitals will be initialized as the
         occupied orbitals found at convergence for the previous
@@ -46,6 +47,9 @@ def mom_calculation(calc,
         reference orbitals will be initialized as the orbitals
         of the previous geometry corresponding to the user-supplied
         'numbers'.
+    use_fixed_occupations: bool
+        If True (default), the MOM algorithm is used. If False,
+        fixed occupations will be used.
     width: float
         Width of Gaussian function in eV for smearing of holes
         and excited electrons. The holes and excited electrons
@@ -68,6 +72,7 @@ def mom_calculation(calc,
                              numbers,
                              use_projections,
                              update_numbers,
+                             use_fixed_occupations,
                              width,
                              niter_width_update,
                              width_increment)
@@ -89,6 +94,7 @@ class OccupationsMOM:
                  numbers,
                  use_projections=False,
                  update_numbers=True,
+                 use_fixed_occupations=False,
                  width=0.0,
                  niter_width_update=10,
                  width_increment=0.0):
@@ -96,6 +102,7 @@ class OccupationsMOM:
         self.numbers = np.array(numbers)
         self.use_projections = use_projections
         self.update_numbers = update_numbers
+        self.use_fixed_occupations = use_fixed_occupations
         self.width = width / Ha
         self.niter_width_update = niter_width_update
         self.width_increment = width_increment / Ha
@@ -114,7 +121,8 @@ class OccupationsMOM:
         dct = {'name': self.name,
                'numbers': self.numbers,
                'use_projections': self.use_projections,
-               'update_numbers': self.update_numbers}
+               'update_numbers': self.update_numbers,
+               'use_fixed_occupations': self.use_fixed_occupations}
         if self.width != 0.0:
             dct['width'] = self.width * Ha
             dct['niter_width_update'] = self.niter_width_update
@@ -164,6 +172,11 @@ class OccupationsMOM:
             return
 
         self.iters = 0
+
+        if self.use_fixed_occupations:
+            self.initialized = True
+            return
+
         # Initialize MOM reference orbitals for each equally
         # occupied subspace separately
         self.f_sn_unique = self.find_unique_occupation_numbers()
@@ -193,8 +206,6 @@ class OccupationsMOM:
         self.initialized = True
 
     def update_occupations(self):
-        f_sn = np.zeros_like(self.numbers)
-
         if self.width != 0.0:
             if self.iters == 0:
                 self.width_update_counter = 0
@@ -203,25 +214,30 @@ class OccupationsMOM:
                     * self.width_increment
                 self.width_update_counter += 1
 
+        if not self.use_fixed_occupations:
+            f_sn = np.zeros_like(self.numbers)
+            for kpt in self.wfs.kpt_u:
+                # Compute weights with respect to each equally occupied
+                # subspace of the reference orbitals and occupy orbitals
+                # with biggest weights
+                for f_n_unique in self.f_sn_unique[kpt.s]:
+                    occupied = self.f_sn_unique[kpt.s][f_n_unique]
+                    n_occ = len(f_sn[kpt.s][occupied])
+                    unoccupied = f_sn[kpt.s] == 0
+
+                    P = np.zeros(len(f_sn[kpt.s]))
+                    P[unoccupied] = self.calculate_weights(kpt,
+                                                           f_n_unique,
+                                                           unoccupied)
+                    P_max = np.argpartition(P, -n_occ)[-n_occ:]
+                    f_sn[kpt.s][P_max] = f_n_unique
+
+                if self.update_numbers:
+                    self.numbers[kpt.s] = f_sn[kpt.s].copy()
+        else:
+            f_sn = self.numbers.copy()
+
         for kpt in self.wfs.kpt_u:
-            # Compute weights with respect to each equally occupied
-            # subspace of the reference orbitals and occupy orbitals
-            # with biggest weights
-            for f_n_unique in self.f_sn_unique[kpt.s]:
-                occupied = self.f_sn_unique[kpt.s][f_n_unique]
-                n_occ = len(f_sn[kpt.s][occupied])
-                unoccupied = f_sn[kpt.s] == 0
-
-                P = np.zeros(len(f_sn[kpt.s]))
-                P[unoccupied] = self.calculate_weights(kpt,
-                                                       f_n_unique,
-                                                       unoccupied)
-                P_max = np.argpartition(P, -n_occ)[-n_occ:]
-                f_sn[kpt.s][P_max] = f_n_unique
-
-            if self.update_numbers:
-                self.numbers[kpt.s] = f_sn[kpt.s].copy()
-
             if self.width != 0.0:
                 orbs, f_sn_gs = self.find_hole_and_excited_orbitals(f_sn, kpt)
                 if orbs:
