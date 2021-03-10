@@ -22,8 +22,9 @@ def test_elph_li(in_tmp_dir):
 
         # sz:  1 orbital per atom
         # szp: 4 orbitals per atom
+        # dz:  2 orbitals per atom -> fastest non-trivial case
         calc = GPAW(mode='lcao',
-                    basis='szp(dzp)',
+                    basis='dz(dzp)',
                     kpts=(2, 2, 2),
                     symmetry={'point_group': False},
                     convergence={'bands': 'nao'},
@@ -59,14 +60,14 @@ def test_elph_li(in_tmp_dir):
 
         # Part 4:  analyse matrix
         for s in range(spinpol + 1):
-            for x in range(6):  # 2 atoms * 2 directions
+            for x in range(6):  # 2 atoms * 3 directions
                 # gMM is symmetric
                 assert (np.allclose(elph.g_xsNNMM[x, s, 0, 0],
                                     elph.g_xsNNMM[x, s, 0, 0].T))
                 # in this case both atoms and all displacements are equivalent
                 # all six gMM have same entries, but in different places
-                assert (abs(np.max(elph.g_xsNNMM[x, s, 0, 0]) -
-                            np.max(elph.g_xsNNMM[0, 0, 0, 0])) < 5e-5)
+                assert (abs(np.max(abs(elph.g_xsNNMM[x, s, 0, 0])) -
+                            np.max(abs(elph.g_xsNNMM[0, 0, 0, 0]))) < 5e-5)
 
     # Part 4: compare spin-paired and spin-polarised
     assert np.allclose(g_xsMM[:, 0], g_xsMM[:, 1])
