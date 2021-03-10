@@ -64,6 +64,26 @@ def initialize_system():
     td_calc.propagate(100, 5)
 
 
+def test_magnetic_moment_values(initialize_system, module_tmp_path,
+                                in_tmp_dir):
+    with open('mm_ref.dat', 'w') as f:
+        f.write('''
+# MagneticMomentWriter[version=3](origin='COM')
+# origin_v = [7.634300, 5.000000, 4.302858]
+#            time                    cmx                    cmy                    cmz
+          0.00000000     0.000000000000e+00     0.000000000000e+00     0.000000000000e+00
+# Kick = [    1.000000000000e-05,     0.000000000000e+00,     0.000000000000e+00]; Time = 0.00000000
+          0.00000000    -1.638427291410e-05    -2.076884600452e-05     5.460947635747e-05
+          4.13413733    -1.567757373608e-05    -2.001522727348e-05     5.146555989806e-05
+          8.26827467    -1.361808193526e-05    -1.775929336693e-05     4.257745029861e-05
+         12.40241200    -1.035063622351e-05    -1.401932634847e-05     2.925852664406e-05
+         16.53654934    -6.116556982285e-06    -8.887764620632e-06     1.339465701356e-05
+         20.67068667    -1.249485158387e-06    -2.597552384530e-06    -2.919981317405e-06
+'''.strip())  # noqa: E501
+
+    check_mm(module_tmp_path / 'mm.dat', 'mm_ref.dat', atol=1e-16)
+
+
 def test_magnetic_moment_grid_evaluation(initialize_system, module_tmp_path):
     dpath = module_tmp_path
     check_mm(dpath / 'mm.dat', dpath / 'mm_grid.dat', atol=2e-8)
