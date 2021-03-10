@@ -24,6 +24,7 @@ if compiled_with_sl():
 
 
 def check_mm(ref_fpath, data_fpath, atol):
+    world.barrier()
     ref = np.loadtxt(ref_fpath)
     data = np.loadtxt(data_fpath)
     err = calculate_error(data, ref)
