@@ -1,26 +1,32 @@
+"""Module for Numpy array diagonalization with Scipy/Scalapack."""
 import numpy as np
 from scipy.linalg import eigh
+
 from gpaw.blacs import BlacsGrid, Redistributor
 
 
 class ScipyDiagonalizer:
+    """Diagonalizer class that uses scipy.linalg.eigh.
+
+    The ScipyDiagonalizer wraps scipy.linalg.eigh to solve a
+    (generalized) eigenproblem on one core.
+    """
+
     def __init__(self):
         pass
 
     def diagonalize(self, A, B, eps, is_master, debug):
-        """Solves the (potentially generalized) eigenproblem 
-        A @ x = eps [B] @ x using scipy.linalg.eigh
+        """Solves the eigenproblem A @ x = eps [B] @ x.
 
-        The problem is solved inplace, so when done, A has the eigenvectors
-        as columns and eps has the eigenvalues. 
+        The problem is solved inplace, so when done, A has the eigenvectors as
+        columns and eps has the eigenvalues.
         B is overwritten for potential increase in performance.
 
         Parameters
         ----------
         A : Numpy array
-            Left-hand matrix of the eigenproblem. After running, 
-            the eigenvectors are the column vectors of this
-            array. 
+            Left-hand matrix of the eigenproblem. After running, the
+            eigenvectors are the column vectors of this array.
         B : Numpy array
             Right-hand overlap matrix of the eigenproblem.
         eps : Numpy array
@@ -33,12 +39,19 @@ class ScipyDiagonalizer:
         debug : bool
             Flag to check for finiteness when running in debug mode.
         """
-
         if is_master:
-            eps[:], A[:] = eigh(A, B, lower=True, check_finite=debug, overwrite_b=True)
+            eps[:], A[:] = eigh(
+                A, B, lower=True, check_finite=debug, overwrite_b=True
+            )
 
 
 class ScalapackDiagonalizer:
+    """Diagonalizer class that uses general_diagonalize_dc.
+
+    The ScalapackDiagonalizer wraps general_diagonalize_dc to solve a
+    (generalized) eigenproblem on one core.
+    """
+
     def __init__(
         self,
         arraysize,
@@ -49,7 +62,7 @@ class ScalapackDiagonalizer:
         scalapack_communicator,
         blocksize=64,
     ):
-        """[summary]
+        """Initialize grids, communicators, redistributors.
 
         Parameters
         ----------
@@ -67,7 +80,6 @@ class ScalapackDiagonalizer:
             The block size in the 2D block cyclic data distribution.
             The default value of 64 is universally good.
         """
-
         self.arraysize = arraysize
         self.blocksize = blocksize
         self.dtype = dtype
@@ -96,18 +108,16 @@ class ScalapackDiagonalizer:
         )
 
     def diagonalize(self, A, B, eps, is_master, debug):
-        """Solves the (potentially generalized) eigenproblem 
-        A @ x = eps [B] @ x using Scalapack's divide and conquer routine.
-
+        """Solves the eigenproblem A @ x = eps [B] @ x.
+        
         The problem is solved inplace, so when done, A has the eigenvectors
         as columns and eps has the eigenvalues.
 
         Parameters
         ----------
         A : Numpy array
-            Left-hand matrix of the eigenproblem. After running, 
-            the eigenvectors are the column vectors of this
-            array. 
+            Left-hand matrix of the eigenproblem. After running, the
+            eigenvectors are the column vectors of this array.
         B : Numpy array
             Right-hand overlap matrix of the eigenproblem.
         eps : Numpy array
