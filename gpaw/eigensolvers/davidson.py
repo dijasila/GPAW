@@ -37,7 +37,6 @@ class Davidson(Eigensolver):
         Eigensolver.__init__(self)
         self.niter = niter
         self.diagonalizer_backend = None
-        self.slcomm = None
 
         self.orthonormalization_required = False
         self.H_NN = DummyArray()
@@ -54,7 +53,7 @@ class Davidson(Eigensolver):
 
     def initialize(self, wfs):
         Eigensolver.initialize(self, wfs)
-        self.slcomm, nrows, ncols, slsize = wfs.scalapack_parameters
+        slcomm, nrows, ncols, slsize = wfs.scalapack_parameters
 
         if wfs.gd.comm.rank == 0 and wfs.bd.comm.rank == 0:
             # Allocate arrays
@@ -68,7 +67,7 @@ class Davidson(Eigensolver):
                 arraysize=self.nbands * 2,
                 grid_nrows=nrows,
                 grid_ncols=ncols,
-                scalapack_communicator=self.slcomm,
+                scalapack_communicator=slcomm,
                 dtype=self.dtype,
                 blocksize=slsize
             )
