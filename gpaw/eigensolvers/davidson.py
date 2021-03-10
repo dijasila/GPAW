@@ -33,16 +33,11 @@ class Davidson(Eigensolver):
     '''
 
     def __init__(
-            self, niter=2, smin=None, normalize=True):
+            self, niter=2):
         Eigensolver.__init__(self)
         self.niter = niter
-        self.smin = smin
-        self.normalize = normalize
         self.diagonalizer_backend = None
         self.slcomm = None
-
-        if smin is not None:
-            raise NotImplementedError
 
         self.orthonormalization_required = False
         self.H_NN = DummyArray()
@@ -50,10 +45,8 @@ class Davidson(Eigensolver):
         self.eps_N = DummyArray()
 
     def __repr__(self):
-        return 'Davidson(niter=%d, smin=%r, normalize=%r)' % (
+        return 'Davidson(niter=%d)' % (
             self.niter,
-            self.smin,
-            self.normalize,
         )
 
     def todict(self):
