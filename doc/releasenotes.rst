@@ -16,6 +16,10 @@ Git master branch
   Kohn–Sham states.  Previously, the printed occupation numbers were
   scaled by **k**-point weight.
 
+* The Davidson eigensolver now uses ScaLAPACK for the `(2 N_{\text{bands}})
+  \times (2 N_{\text{bands}})` diagonalization step when ``parallel=
+  {'sl_auto':True}`` is used.
+
 Version 21.1.0
 ===============
 
@@ -224,7 +228,7 @@ Version 20.1.0
   3) ``~/.gpaw/siteconfig.py``
 
   This will be used to configure things
-  (BLAS, FFTW, ScaLapack, libxc, libvdwxc, ...).  If no configuration file
+  (BLAS, FFTW, ScaLAPACK, libxc, libvdwxc, ...).  If no configuration file
   is found then you get ``libraries = ['xc', 'blas']``.
 
 * A Lapack library is no longer needed for compiling GPAW.  We are using

@@ -9,8 +9,7 @@ from gpaw.matrix import matrix_matrix_multiply as mmm
 from gpaw.hybrids import HybridXC
 from gpaw.eigensolvers.diagonalizerbackend import (
     ScipyDiagonalizer,
-    ScalapackDiagonalizer,
-)
+    ScalapackDiagonalizer)
 
 
 class DummyArray:
@@ -19,7 +18,7 @@ class DummyArray:
 
 
 class Davidson(Eigensolver):
-    '''Simple Davidson eigensolver
+    """Simple Davidson eigensolver
 
     It is expected that the trial wave functions are orthonormal
     and the integrals of projector functions and wave functions
@@ -30,7 +29,7 @@ class Davidson(Eigensolver):
     * Subspace diagonalization
     * Calculate all residuals
     * Add preconditioned residuals to the subspace and diagonalize
-    '''
+    """
 
     def __init__(
             self, niter=2):
@@ -45,8 +44,7 @@ class Davidson(Eigensolver):
 
     def __repr__(self):
         return 'Davidson(niter=%d)' % (
-            self.niter,
-        )
+            self.niter)
 
     def todict(self):
         return {'name': 'dav', 'niter': self.niter}
@@ -69,8 +67,7 @@ class Davidson(Eigensolver):
                 grid_ncols=ncols,
                 scalapack_communicator=slcomm,
                 dtype=self.dtype,
-                blocksize=slsize
-            )
+                blocksize=slsize)
         else:
             self.diagonalizer_backend = ScipyDiagonalizer()
 
@@ -85,7 +82,7 @@ class Davidson(Eigensolver):
 
     @timer('Davidson')
     def iterate_one_k_point(self, ham, wfs, kpt, weights):
-        '''Do Davidson iterations for the kpoint'''
+        """Do Davidson iterations for the kpoint"""
         if isinstance(ham.xc, HybridXC):
             self.niter = 1
 
@@ -101,8 +98,7 @@ class Davidson(Eigensolver):
                 return np.real(wfs.integrate(a_G, a_G, global_integral=False))
             return sum(
                 np.real(wfs.integrate(b_G, b_G, global_integral=False))
-                for b_G in a_G
-            )
+                for b_G in a_G)
 
         self.subspace_diagonalize(ham, wfs, kpt)
 
@@ -161,8 +157,7 @@ class Davidson(Eigensolver):
             with self.timer('calc. matrices'):
                 # <psi2 | H | psi2>
                 psit2.matrix_elements(
-                    operator=Ht, result=R, out=M, symmetric=True, cc=True
-                )
+                    operator=Ht, result=R, out=M, symmetric=True, cc=True)
                 ham.dH(P2, out=P3)
                 mmm(1.0, P2, 'N', P3, 'C', 1.0, M)  # , symmetric=True)
                 copy(M, H_NN[B:, B:])
@@ -222,8 +217,7 @@ class Davidson(Eigensolver):
             if nit < self.niter - 1:
                 psit.apply(Ht, out=R)
                 self.calculate_residuals(
-                    kpt, wfs, ham, psit, P, kpt.eps_n, R, P2
-                )
+                    kpt, wfs, ham, psit, P, kpt.eps_n, R, P2)
 
         error = wfs.gd.comm.sum(error)
         return error

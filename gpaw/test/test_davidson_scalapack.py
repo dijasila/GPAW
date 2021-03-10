@@ -7,8 +7,7 @@ from gpaw.utilities import compiled_with_sl
 from gpaw import GPAW, FermiDirac, PW
 
 pytestmark = pytest.mark.skipif(not compiled_with_sl(),
-                                reason="Not compiled with Scalapack",
-                                )
+                                reason="Not compiled with Scalapack")
 
 
 def get_calculator(sl_auto, kpoint_gamma):
@@ -17,8 +16,7 @@ def get_calculator(sl_auto, kpoint_gamma):
         occupations=FermiDirac(0.1),
         parallel={"sl_auto": sl_auto, "band": 2 if world.size == 8 else 1},
         kpts=[1, 1, 1] if kpoint_gamma else [1, 1, 2],
-        symmetry="off",
-    )
+        symmetry="off")
 
     def stopcalc():
         calculator.scf.converged = True

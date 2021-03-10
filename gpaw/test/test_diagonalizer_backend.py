@@ -4,8 +4,7 @@ from ase.parallel import world
 from gpaw.utilities import compiled_with_sl
 from gpaw.eigensolvers.diagonalizerbackend import (
     ScipyDiagonalizer,
-    ScalapackDiagonalizer,
-)
+    ScalapackDiagonalizer)
 
 
 def prepare_eigensolver_matrices(size_of_matrices, dtype):
@@ -26,13 +25,13 @@ def prepare_eigensolver_matrices(size_of_matrices, dtype):
     return A, B
 
 
-@pytest.fixture(params=["eigh", "blacs"])
+@pytest.fixture(params=['eigh', 'blacs'])
 def backend_problemsize_kwargs(request):
     name = request.param
     eigenproblem_size = world.size * 64
-    if name == "eigh":
+    if name == 'eigh':
         return ScipyDiagonalizer, eigenproblem_size, {}
-    elif name == "blacs":
+    elif name == 'blacs':
         if not compiled_with_sl():
             pytest.skip()
 
@@ -40,26 +39,23 @@ def backend_problemsize_kwargs(request):
         ncols = world.size // 2 if nrows > 1 else 1
 
         scalapack_kwargs = {
-            "arraysize": eigenproblem_size,
-            "grid_nrows": nrows,
-            "grid_ncols": ncols,
-            "scalapack_communicator": world,
-            "blocksize": 32 if world.size == 1 else 64,
-        }
+            'arraysize': eigenproblem_size,
+            'grid_nrows': nrows,
+            'grid_ncols': ncols,
+            'scalapack_communicator': world,
+            'blocksize': 32 if world.size == 1 else 64}
         return ScalapackDiagonalizer, eigenproblem_size, scalapack_kwargs
 
 
-@pytest.mark.parametrize("dtype,", [float, complex])
-def test_diagonalizer_eigenproblem_correctness(
-    backend_problemsize_kwargs, dtype
-):
+@pytest.mark.parametrize('dtype,', [float, complex])
+def test_diagonalizer_eigenproblem_correctness(backend_problemsize_kwargs,
+                                               dtype):
     is_master_rank = world.rank == 0
 
     (
         diagonalizer_class,
         eigenproblem_size,
-        diagonalizer_kwargs,
-    ) = backend_problemsize_kwargs
+        diagonalizer_kwargs) = backend_problemsize_kwargs
 
     if diagonalizer_class is ScipyDiagonalizer:
         diagonalizer = diagonalizer_class(**diagonalizer_kwargs)
@@ -77,8 +73,7 @@ def test_diagonalizer_eigenproblem_correctness(
         b_copy,
         eps,
         is_master=is_master_rank,
-        debug=False,
-    )
+        debug=False)
 
     if is_master_rank:
         assert np.allclose(a @ a_copy, b @ a_copy @ np.diag(eps))

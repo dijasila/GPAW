@@ -12,9 +12,6 @@ class ScipyDiagonalizer:
     (generalized) eigenproblem on one core.
     """
 
-    def __init__(self):
-        pass
-
     def diagonalize(self, A, B, eps, is_master, debug):
         """Solves the eigenproblem A @ x = eps [B] @ x.
 
@@ -41,8 +38,7 @@ class ScipyDiagonalizer:
         """
         if is_master:
             eps[:], A[:] = eigh(
-                A, B, lower=True, check_finite=debug, overwrite_b=True
-            )
+                A, B, lower=True, check_finite=debug, overwrite_b=True)
 
 
 class ScalapackDiagonalizer:
@@ -60,8 +56,7 @@ class ScalapackDiagonalizer:
         *,
         dtype,
         scalapack_communicator,
-        blocksize=64,
-    ):
+        blocksize=64):
         """Initialize grids, communicators, redistributors.
 
         Parameters
@@ -83,29 +78,23 @@ class ScalapackDiagonalizer:
         self.arraysize = arraysize
         self.blocksize = blocksize
         self.dtype = dtype
-        self.scalapack_communicator = scalapack_communicator
 
         self.blacsgrid = BlacsGrid(
-            self.scalapack_communicator, grid_nrows, grid_ncols
-        )
+            scalapack_communicator, grid_nrows, grid_ncols)
         self.distributed_descriptor = self.blacsgrid.new_descriptor(
-            arraysize, arraysize, blocksize, blocksize
-        )
+            arraysize, arraysize, blocksize, blocksize)
         self.head_rank_descriptor = self.blacsgrid.new_descriptor(
-            arraysize, arraysize, arraysize, arraysize
-        )
+            arraysize, arraysize, arraysize, arraysize)
 
         self.head_to_all_redistributor = Redistributor(
-            self.scalapack_communicator,
+            self.blacsgrid.comm,
             self.head_rank_descriptor,
-            self.distributed_descriptor,
-        )
+            self.distributed_descriptor)
 
         self.all_to_head_redistributor = Redistributor(
-            self.scalapack_communicator,
+            self.blacsgrid.comm,
             self.distributed_descriptor,
-            self.head_rank_descriptor,
-        )
+            self.head_rank_descriptor)
 
     def diagonalize(self, A, B, eps, is_master, debug):
         """Solves the eigenproblem A @ x = eps [B] @ x.
@@ -137,7 +126,8 @@ class ScalapackDiagonalizer:
         vec_mm = self.distributed_descriptor.zeros(dtype=self.dtype)
 
         temporary_eps = np.zeros([self.arraysize])
-        if self.scalapack_communicator.rank == 0:
+        if is_master:
+            assert self.blacsgrid.comm.rank == 0
             Asc_MM[:, :] = A
             Bsc_MM[:, :] = B
 
@@ -145,15 +135,13 @@ class ScalapackDiagonalizer:
         self.head_to_all_redistributor.redistribute(Bsc_MM, Bsc_mm)
 
         self.distributed_descriptor.general_diagonalize_dc(
-            Asc_mm, Bsc_mm, vec_mm, temporary_eps
-        )
+            Asc_mm, Bsc_mm, vec_mm, temporary_eps)
 
         # vec_MM contains the eigenvectors in 'Fortran form'. They need to be
         # transpose-conjugated before they are consistent with Scipy behaviour
         self.all_to_head_redistributor.redistribute(vec_mm, vec_MM, uplo="G")
 
         if is_master:
-            assert self.scalapack_communicator.rank == 0
             # Conjugate-transpose here since general_diagonalize_dc gives us
             # Fortran-convention eigenvectors.
             A[:, :] = vec_MM.conj().T
