@@ -82,7 +82,7 @@ def test_magnetic_moment_values(initialize_system, module_tmp_path,
          20.67068667    -1.249485158387e-06    -2.597552384530e-06    -2.919981317405e-06
 '''.strip())  # noqa: E501
 
-    check_mm(module_tmp_path / 'mm.dat', 'mm_ref.dat', atol=1e-16)
+    check_mm(module_tmp_path / 'mm.dat', 'mm_ref.dat', atol=2e-14)
 
 
 def test_magnetic_moment_grid_evaluation(initialize_system, module_tmp_path):
