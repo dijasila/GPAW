@@ -247,8 +247,24 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
         else:
             self.timer = StepTimer(name='elph', out=open(log, 'w'))
 
+    def _set_file_name(self, dump, basis, name=None, x=None):
+        """Set name of supercell file."""
+        assert dump in (1, 2)
+        basestr = ".supercell_matrix"
+        if name is not None:
+            assert isinstance(name, str)
+            nname = name
+        else:
+            nname = self.name
+
+        if dump == 1:
+            fname = nname + basestr + '.' + basis + '.pckl'
+        else:  # dump == 2
+            fname = nname + basestr + '_x_' + str(x) + '.' + basis + '.pckl'
+        return fname
+
     def calculate_supercell_matrix(self, dump=0, name=None, filter=None,
-                                   include_pseudo=True, atoms=None):
+                                   include_pseudo=True):
         """Calculate matrix elements of the el-ph coupling in the LCAO basis.
 
         This function calculates the matrix elements between LCAOs and local
@@ -268,7 +284,7 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
 
             2: Dump matrix for different gradients in separate files. Useful
                for large systems where the total array gets too large for a
-               single pickle file.
+               single pickle file. Allows restart.
 
         name: string
             User specified name of the generated pickle file(s). If not
@@ -281,19 +297,12 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
             Include the contribution from the psedupotential in the atomic
             gradients. If ``False``, only the gradient of the effective
             potential is included (default: True).
-        atoms: Atoms object
-            Calculate supercell for an ``Atoms`` object different from the one
-            provided in the ``__init__`` method (WARNING, NOT working!).
-
         """
 
         assert self.calc_lcao is not None, "Set LCAO calculator"
 
         # Supercell atoms
-        if atoms is None:
-            atoms_N = self.atoms * self.supercell
-        else:
-            atoms_N = atoms
+        atoms_N = self.atoms * self.supercell
 
         # Initialize calculator if required and extract useful quantities
         calc = self.calc_lcao
@@ -358,15 +367,8 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
                 x = 3 * i + v
 
                 # If exist already, don't recompute
-                # NOTE: file names should only be generated once. Fix.
                 if dump == 2:
-                    if name is not None:
-                        fname = ('%s.supercell_matrix_x_%2.2u.%s.pckl'
-                                 % (name, x, basis))
-                    else:
-                        fname = (self.name +
-                                 '.supercell_matrix_x_%2.'
-                                 '2u.%s.pckl' % (x, basis))
+                    fname = self._set_file_name(dump, basis, name, x=x)
                     # check whether file exists
                     if op.isfile(fname):
                         continue
@@ -452,13 +454,8 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
                 if dump != 2:
                     g_xsNNMM.append(g_sNNMM)
                 else:
-                    if name is not None:
-                        fname = ('%s.supercell_matrix_x_%2.2u.%s.pckl'
-                                 % (name, x, basis))
-                    else:
-                        fname = (self.name +
-                                 '.supercell_matrix_x_%2.'
-                                 '2u.%s.pckl' % (x, basis))
+                    # filename should already be known
+                    # fname = _set_file_name(dump, basis, name, x=x)
                     if kd.comm.rank == 0:
                         fd = open(fname, 'wb')
                         M_a = self.basis_info['M_a']
@@ -478,10 +475,7 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
 
             # Dump to pickle file using binary mode together with basis info
             if dump and kd.comm.rank == 0:
-                if name is not None:
-                    fname = '%s.supercell_matrix.%s.pckl' % (name, basis)
-                else:
-                    fname = self.name + '.supercell_matrix.%s.pckl' % basis
+                fname = self._set_file_name(dump, basis, name)
                 fd = open(fname, 'wb')
                 M_a = self.basis_info['M_a']
                 nao_a = self.basis_info['nao_a']
@@ -492,7 +486,7 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
                 pickle.dump((self.g_xsNNMM, M_a, nao_a), fd, 2)
                 fd.close()
 
-    def load_supercell_matrix(self, basis=None, name=None, multiple=False):
+    def load_supercell_matrix(self, basis=None, name=None, dump=0):
         """Load supercell matrix from pickle file.
 
         Parameters
@@ -502,34 +496,33 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
             matrix, e.g. 'dz(dzp)'.
         name: string
             User specified name of the pickle file.
-        multiple: bool
-            Load each derivative from individual files.
+        dump: int
+            Dump supercell matrix to pickle file (default: 0).
 
+            0: Supercell matrix not saved by calculate_supercell_matrix
+
+            1: Supercell matrix was saved in a single pickle file.
+
+            2: Dumped matrix for different gradients in separate files.
         """
 
         assert (basis is not None) or (name is not None), \
             "Provide basis or name."
+        assert dump in (0, 1, 2)
 
-        if self.g_xsNNMM is not None:
-            self.g_xsNNMM = None
-
-        if not multiple:
-            # File name
-            if name is not None:
-                fname = name
-            else:
-                fname = self.name + '.supercell_matrix.%s.pckl' % basis
+        if dump == 0:
+            # Nothing to load, just make sure everything is there
+            assert self.g_xsNNMM is not None
+            assert self.basis_info is not None
+        elif dump == 1:
+            fname = self._set_file_name(dump, basis, name)
             fd = open(fname, 'rb')
             self.g_xsNNMM, M_a, nao_a = pickle.load(fd)
             fd.close()
-        else:
+        else:  # dump == 2
             g_xsNNMM = []
             for x in range(len(self.indices) * 3):
-                if name is not None:
-                    fname = name
-                else:
-                    fname = (self.name +
-                             '.supercell_matrix_x_%2.2u.%s.pckl' % (x, basis))
+                fname = self._set_file_name(dump, basis, name)
                 fd = open(fname, 'rb')
                 g_sNNMM, M_a, nao_a = pickle.load(fd)
                 fd.close()
