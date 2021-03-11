@@ -105,7 +105,7 @@ class WLDA(XCFunctional):
         XCFunctional.__init__(self, 'WLDA', 'LDA')
         self.nindicators = settings.get('nindicators', None) or int(2 * 1e2)
         self.rcut_factor = settings.get("rc", None)
-        self.lambd = settings.get('lambda', 1.0)
+        self.lambd = settings.get('lambda', 2.0/3.0)
         if self.lambd is not None:
             from gpaw.xc.lda import LDA, PurePythonLDAKernel
             self.lda_xc = LDA(PurePythonLDAKernel())
