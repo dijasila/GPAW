@@ -4,7 +4,6 @@ from gpaw.transformers import Transformer
 from gpaw.fd_operators import Laplace
 
 from gpaw.utilities.blas import axpy
-from gpaw import extra_parameters
 import _gpaw
 
 
@@ -28,7 +27,7 @@ class Preconditioner:
         self.restrictor1 = self.restrictor_object1.apply
         self.interpolator2 = self.interpolator_object2.apply
         self.interpolator1 = self.interpolator_object1.apply
-        self.use_c_precond = extra_parameters.get('c_precond', True)
+        self.use_c_precond = True
 
     def calculate_kinetic_energy(self, psit_xG, kpt):
         return None
