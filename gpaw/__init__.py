@@ -1,30 +1,42 @@
-# encoding: utf-8
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 
 """Main gpaw module."""
 import os
 import sys
+import contextlib
 from pathlib import Path
 from sysconfig import get_platform
-from typing import List, Dict, Any
+from typing import List, Dict
 
 __version__ = '21.1.1b1'
 __ase_version_required__ = '3.21.0'
-
 __all__ = ['GPAW',
            'Mixer', 'MixerSum', 'MixerDif', 'MixerSum2',
            'CG', 'Davidson', 'RMMDIIS', 'DirectLCAO',
            'PoissonSolver',
-           'FermiDirac', 'MethfesselPaxton',
-           'MarzariVanderbilt',
-           'PW', 'LCAO', 'restart', 'FD']
+           'FermiDirac', 'MethfesselPaxton', 'MarzariVanderbilt',
+           'PW', 'LCAO', 'FD',
+           'restart']
 
-extra_parameters: Dict[str, Any] = {}
+
 setup_paths: List[str] = []
 is_gpaw_python = '_gpaw' in sys.builtin_module_names
 dry_run = 0
 debug: bool = bool(sys.flags.debug)
+
+
+@contextlib.contextmanager
+def disable_dry_run():
+    """Context manager for temporarily disabling dry-run mode.
+
+    Useful for skipping exit in the GPAW constructor.
+    """
+    global dry_run
+    size = dry_run
+    dry_run = 0
+    yield
+    dry_run = size
 
 
 platform_id = os.getenv('CPU_ARCH')

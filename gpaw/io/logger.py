@@ -11,7 +11,6 @@ from ase.utils import search_current_git_hash
 import gpaw
 import _gpaw
 from gpaw.utilities.memory import maxrss
-from gpaw import extra_parameters
 
 
 class GPAWLogger(object):
@@ -111,9 +110,6 @@ class GPAWLogger(object):
 
         if gpaw.debug:
             self('DEBUG MODE')
-
-        if extra_parameters:
-            self('Extra parameters:', extra_parameters)
 
         self()
 
