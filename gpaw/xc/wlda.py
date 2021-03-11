@@ -5,7 +5,7 @@ import gpaw.mpi as mpi
 from functools import wraps
 from time import time
 from ase.parallel import parprint
-
+from enum import Enum
 
 def timer(f):
 
@@ -92,6 +92,22 @@ def define_alphas(n_sg, nalphas):
 
     return alphas
 
+class Modes(Enum):
+    WLDA = 1 # 'WLDA'
+    rWLDA = 2 # 'rWLDA'
+    fWLDA = 3 # 'fWLDA'
+
+
+class WfTypes(Enum):
+    lorentz = 1
+    gauss = 2
+    exponential = 3
+
+class DensityTypes(Enum):
+    pseudo = 1
+    smoothAE = 2
+    AE = 3
+
 
 class WLDA(XCFunctional):
     def __init__(self, settings):
@@ -103,17 +119,50 @@ class WLDA(XCFunctional):
         hartreexc: bool
         """
         XCFunctional.__init__(self, 'WLDA', 'LDA')
-        self.nindicators = settings.get('nindicators', None) or int(2 * 1e2)
-        self.rcut_factor = settings.get("rc", None)
-        self.lambd = settings.get('lambda', 2.0/3.0)
-        if self.lambd is not None:
+        # MODE SETTINGS
+        mode = settings.get('mode', 'fWLDA')
+        assert mode in ['WLDA', 'rWLDA', 'fWLDA']
+        self.mode = getattr(Modes, mode)        
+        
+        wftype = settings.get('wftype', 'exponential')
+        assert wftype in ['lorentz', 'gauss', 'exponential']
+        self.wftype = getattr(WfTypes, wftype)
+
+        self.c1 = settings.get('c1', None)
+        if self.c1 is None:
+            assert self.wftype == WfTypes.exponential
+            if self.mode == Modes.WLDA:
+                self.c1 = 7.57576
+            elif self.mode == Modes.rWLDA:
+                self.c1 = 5.0
+            else:
+                self.c1 = 4.80769
+        assert self.c1 > 0
+
+        if self.mode in [Modes.rWLDA, Modes.fWLDA]:
             from gpaw.xc.lda import LDA, PurePythonLDAKernel
             self.lda_xc = LDA(PurePythonLDAKernel())
 
-        self.settings = settings
+        self.lambd = settings.get('lambda', 2.0/3.0)
+
+        self.hxc = settings.get('hxc', True)
+        assert type(self.hxc) == bool
+
+        self.use_hartree_correction = settings.get('use_hartree_correction', True)
+
+        # NUMERICAL PARAMETERS
+        self.nindicators = settings.get('nindicators', 50)
+
+        density_type = settings.get('density_type', 'pseudo')
+        assert density_type in ['pseudo', 'smoothAE', 'AE']
+        self.density_type = getattr(DensityTypes, density_type)
+        assert self.density_type in [DensityTypes.pseudo, DensityTypes.smoothAE, DensityTypes.AE]
+
+        self.rcut_factor = float(settings.get("rc", 0.8))
+
+        # Preparation and logging
+        self.settings = None # settings
         self.log_parameters()
-        # self.wlda_type = 'c'
-        # self.energies = []
 
         self._K_G = None
 
@@ -130,14 +179,15 @@ class WLDA(XCFunctional):
 
         # Start with dumping settings
         # then write specific parameters for easy reading
-        msg = [f'settings: {self.settings.items()}',
+        msg = [# f'settings: {self.settings.items()}',
+               f'Mode: {self.mode}',
+               f'wftype: {self.wftype}',
+               f'c1: {self.c1}',
+               f'lambda: {self.lambd}',
                f'nindicators: {self.nindicators}',
                f'rcut_factor: {self.rcut_factor}',
-               f'lambda: {self.lambd}',
-               f'weightfunc: {self.settings.get("weightfunction")}',
-               f'c1: {self.settings.get("c1")}',
-               f'Use Hartree corr.: {not self.settings.get("nohartreecorr", False)}',
-               f'Treat Hartree corr. as X energy: {self.settings.get("hartreexc", False)}']
+               f'Use Hartree corr.: {self.use_hartree_correction}',
+               f'Treat Hartree corr. as X energy: {self.hxc}']
         if mpi.rank == 0:
             with open(fname, 'w+') as f:
                 f.write('\n'.join(msg))
@@ -150,10 +200,12 @@ class WLDA(XCFunctional):
 
     def calculate_impl(self, gd, n_sg, v_sg, e_g):
         """Interface for GPAW."""
+        parprint("WLDA is the next PBE", flush=True)
+
         # Calculate E_LDA on n_sg
         # Need to do calculation prior to rest of code
         # because it modifies the density
-        if self.lambd is not None:
+        if self.mode in [Modes.rWLDA, Modes.fWLDA]:
             elda_g = np.zeros_like(n_sg[0])
             vlda_sg = np.zeros_like(n_sg)
             self.lda_xc.calculate_impl(gd, n_sg, vlda_sg, elda_g)
@@ -187,16 +239,30 @@ class WLDA(XCFunctional):
 
         # nstar_sg = self.wlda_c(wn_sg, exc_g, vxc_sg,
         #                        nstar_sg, alpha_indices)
-
-        self.hartree_correction(self.gd, exc_g, vxc_sg,
+        
+        eHa_g = np.zeros_like(exc_g)
+        vHa_sg = np.zeros_like(vxc_sg)
+        self.hartree_correction(self.gd, eHa_g, vHa_sg,
                                 wn_sg, nstar_sg, alpha_indices)
+
+        if self.mode == Modes.rWLDA:
+            # We want to only multiply X part with lambda
+            exc_g *= self.lambd
+            vxc_sg *= self.lambd
+
+        exc_g += eHa_g
+        vxc_sg += vHa_sg
+
 
         gd.distribute(exc_g, e_g)
         gd.distribute(vxc_sg, v_sg)
 
-        if self.lambd is not None:
+        if self.mode == Modes.fWLDA:
             e_g[:] = elda_g + self.lambd * (e_g - elda_g)
             v_sg[:] = vlda_sg + self.lambd * (v_sg - vlda_sg)
+        elif self.mode == Modes.rWLDA:
+            e_g[:] = elda_g + e_g - self.lambd * elda_g
+            v_sg[:] = vlda_sg + v_sg - self.lambd * vlda_sg
 
     def get_working_density(self, n_sg, gd):
         """Construct the "working" density.
@@ -628,40 +694,24 @@ class WLDA(XCFunctional):
         return np.fft.ifftn(arr, axes=axes)  # , norm="ortho") * sqrtN
 
     def get_weight_function(self, ia, gd, alphas):
-        """Evaluates and returns phi(q, alpha).
-
-        The weight function is
-            phi(q, n) = e^(-qt)
-
-        with
-            qt = q / (c1 n^(1/3))
-
-        c1 is a free parameter.
-
-        If we choose
-            c1 = 5.8805
-
-        then the kernel will give a good representation
-        of the exact kernel in the HEG.
-        """
+        """Evaluates and returns phi(q, alpha)."""
         alpha = alphas[ia]
-        c1 = self.settings.get("c1", None) or 5.8805
-        if c1 <= 0:
-            raise ValueError(f'c1 must be positive. Got c1 = {c1}')
+        # c1 = self.settings.get("c1", None) or 5.8805
+        # if c1 <= 0:
+        #     raise ValueError(f'c1 must be positive. Got c1 = {c1}')
 
         K_G = self._get_K_G(gd)
-        qt = K_G / (c1 * abs(alpha)**(1 / 3))
+        qt = K_G / (self.c1 * abs(alpha)**(1 / 3))
 
-        weightfunc = self.settings.get("weightfunction", None)
-        if weightfunc == "lorentz" or weightfunc is None:
+        if self.wftype == WfTypes.lorentz:
             return np.exp(-qt)
-        elif weightfunc == "gauss":
+        elif self.wftype == WfTypes.gauss:
             return np.exp(-qt**2 / 4)
-        elif weightfunc == "exponential":
+        elif self.wftype == WfTypes.exponential:
             return 1 / (1 + qt**2)**2
         else:
             raise ValueError(
-                f'Weightfunction type "{weightfunc}" not allowed.')
+                f'Weightfunction type "{self.wftype}" not allowed.')
 
     def _get_K_G(self, gd):
         """Get the norms of the reciprocal lattice vectors."""
@@ -948,7 +998,7 @@ class WLDA(XCFunctional):
         return res_g
 
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None, a=None):
-        if self.lambd is not None:
+        if self.mode in [Modes.rWLDA, Modes.fWLDA]:
             # If lambda is enabled we want to use E_LDA[n_AE]
             # which means we need the PAW corrections for LDA
             return self.lda_xc.calculate_paw_correction(setup, D_sp, dEdD_sp=dEdD_sp, a=a)
@@ -965,9 +1015,9 @@ class WLDA(XCFunctional):
 
         If self.rcut_factor is None, the pseudo density is returned.
         """
-        if self.rcut_factor == -1:
+        if self.density_type == DensityTypes.AE:
             return self.density.get_all_electron_density(gridrefinement=1)
-        elif self.rcut_factor is not None:
+        elif self.density_type == DensityTypes.smoothAE:
             from gpaw.xc.WDAUtils import correct_density
             return correct_density(n_sg, gd, self.wfs.setups,
                                    self.wfs.spos_ac, self.rcut_factor)
@@ -993,10 +1043,10 @@ class WLDA(XCFunctional):
             Delta v(r) = -2 * (V(r)
                     -    int dr' dn*(r')/dn(r) V(r')
         """
-        if self.settings.get("nohartreecorr", False):
+        if not self.use_hartree_correction:
             return
 
-        if len(wn_sg) == 2 and not self.settings.get("hartreexc", False):
+        if len(wn_sg) == 2 and not self.hxc:
             # Undo modification of density performed by wlda_x
             wn_sg *= 0.5
             nsum_sg = np.array([wn_sg.sum(axis=0)])
@@ -1007,7 +1057,7 @@ class WLDA(XCFunctional):
             v_sg[0] += v1_sg[0]
             v_sg[1] += v1_sg[0]
 
-        elif len(wn_sg) == 2 and self.settings.get("hartreexc", False):
+        elif len(wn_sg) == 2 and self.hxc:
             nstar_sg, my_alpha_indices = self.get_weighted_density(wn_sg)
 
             # Density already multipled by 2 so don't need to do it
@@ -1329,18 +1379,14 @@ class WLDA(XCFunctional):
         then the kernel will give a good representation
         of the exact kernel in the HEG.
         """
-        c1 = self.settings.get("c1", None) or 5.8805
-        if c1 <= 0:
-            raise ValueError(f'c1 must be positive. Got c1 = {c1}')
+        qt = (G_k / (self.c1 * abs(alpha)**(1 / 3)))
 
-        qt = (G_k / (c1 * abs(alpha)**(1 / 3)))
-
-        wf = self.settings.get("weightfunction", None)
-        if wf == "lorentz" or wf is None:
+        wf = self.wftype
+        if wf == WfTypes.lorentz:
             return np.exp(-qt)
-        elif wf == "gauss":
+        elif wf == WfTypes.gauss:
             return np.exp(-qt**2 / 4)
-        elif wf == "exponential":
+        elif wf == WfTypes.exponential:
             return 1 / (1 + qt**2)**2
         else:
             raise ValueError(f'Weightfunction type "{wf}" not allowed.')
@@ -1595,10 +1641,10 @@ class WLDA(XCFunctional):
 
         Also potential.
         """
-        if self.settings.get("nohartreecorr", False):
+        if not self.use_hartree_correction:
             return
 
-        if len(n_sg) == 2 and not self.settings.get("hartreexc", False):
+        if len(n_sg) == 2 and not self.hxc:
             # Undo modification by radial_x
             n_sg *= 0.5
             nsum_g = np.array([n_sg.sum(axis=0)])
@@ -1611,7 +1657,7 @@ class WLDA(XCFunctional):
             v_sg[0] += v1_sg[0]
             v_sg[1] += v1_sg[0]
 
-        elif len(n_sg) == 2 and self.settings.get("hartreexc", False):
+        elif len(n_sg) == 2 and self.hxc:
             self.setup_radial_indicators(n_sg, self.nindicators)
             nstar_sg = self.radial_weighted_density(n_sg)
             e1_g = np.zeros_like(e_g)
