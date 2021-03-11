@@ -1,5 +1,5 @@
 import numpy as np
-from ase.build import molecule
+from ase.build import molecule, bulk
 from ase.parallel import parprint
 from gpaw import GPAW
 from gpaw.elf import ELF
@@ -51,8 +51,8 @@ def test_utilities_elf():
         parprint("Min, max G", np.min(elf_G), np.max(elf_G))
         parprint("Min, max g", np.min(elf_g), np.max(elf_g))
     #   The tested values (< r7887) do not seem to be correct
-    #    equal(int1, 14.8078, 0.0001)
-    #    equal(int2, 13.0331, 0.0001)
+        equal(int1, 20.869077, 0.0001)
+        equal(int2, 18.000496, 0.0001)
 
     # check spin-polarized version
     calc = GPAW(h=0.24,
@@ -93,3 +93,13 @@ def test_utilities_elf():
 
     check_diff(elf_G, elf_spinpol_G, elf.gd, 'elf_G')
     check_diff(elf_g, elf_spinpol_g, elf.finegd, 'elf_g')
+
+    # Complex wave functions
+    atoms = bulk('Si')
+    calc = GPAW(h=0.24, txt=txt, kpts=(2,2,2))
+    atoms.calc = calc
+    energy = atoms.get_potential_energy()
+
+    elf = ELF(calc)
+    elf.update()
+    elf_G = elf.get_electronic_localization_function(gridrefinement=1)

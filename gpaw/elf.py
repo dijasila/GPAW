@@ -129,7 +129,8 @@ class ELF:
 
         for s in range(self.nspins):
             for v in range(3):
-                self.paw.wfs.taugrad_v[v](self.density.nt_sG[s], d_G)
+                Gradient(self.gd, v, n=3).apply(self.density.nt_sG[s], d_G)
+
                 self.nt_grad2_sG[s] += d_G**2.0
 
         # TODO are nct from setups usable for nt_grad2_sG ?
