@@ -96,7 +96,7 @@ def test_utilities_elf():
 
     # Complex wave functions
     atoms = bulk('Si')
-    calc = GPAW(h=0.24, txt=txt, kpts=(2,2,2))
+    calc = GPAW(h=0.24, txt=txt, kpts=(2, 2, 2))
     atoms.calc = calc
     energy = atoms.get_potential_energy()
 
