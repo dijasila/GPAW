@@ -34,7 +34,7 @@ class DirectMin(Eigensolver):
 
     def __init__(self,
                  searchdir_algo=None,
-                 linesearch_algo='TSPCAWC',
+                 linesearch_algo='UnitStep',
                  use_prec=True,
                  odd_parameters='Zero',
                  force_init_localization=False,
@@ -87,6 +87,8 @@ class DirectMin(Eigensolver):
         if isinstance(self.lsa, basestring):
             self.lsa = xc_string_to_dict(self.lsa)
             self.lsa['method'] = self.sda['name']
+            if self.lsa['name'] == 'UnitStep':
+                self.lsa['maxstep'] = 0.25
 
         self.need_init_odd = True
         self.initialized = False
@@ -111,7 +113,10 @@ class DirectMin(Eigensolver):
                'LBFGS_P': 'L-BFGS algorithm with preconditioning',
                'LSR1P': 'L-SR1 or L-Powell or its combination update'}
 
-        lss = {'UnitStep': 'step size equals one',
+        maxstep = 1
+        if self.lsa['name'] == 'UnitStep':
+            maxstep = self.lsa['maxstep']
+        lss = {'UnitStep': 'Max. step length equals {}'.format(maxstep),
                'Parabola': 'Parabolic line search',
                'TSP': 'Parabolic two-step line search ',
                'TSPAWC': 'Parabolic two-step line search with\n'
@@ -302,7 +307,7 @@ class DirectMin(Eigensolver):
 
         self.initialized = True
 
-    def iterate(self, ham, wfs, dens, log):
+    def iteratels(self, ham, wfs, dens, log):
         """
         One iteration of direct optimization
         for occupied states
@@ -314,23 +319,16 @@ class DirectMin(Eigensolver):
         :return:
         """
 
-        if self.lsa['name'] == 'UnitStep':
-            self.iteratenols(ham, wfs, dens, log)
-            return
-
         assert dens.mixer.driver.name == 'dummy', \
             'Please, use: mixer={\'name\': \'dummy\'}'
         assert wfs.bd.comm.size == 1, \
             'Band parallelization is not supported'
-        # this assert sometimes doesn't work:
-        # assert wfs.occupations.name == 'zero-width', \
-        #     'Zero Kelvin only.'
-        # so let's use this instead
-        occ_dct = wfs.occupations.todict()
-        width = occ_dct.get('width')
-        if width is not None:
-            assert width < 1.0e-5, \
-                'Zero Kelvin only.'
+        if  wfs.occupations.name == 'fixmagmom':
+            assert wfs.occupations.occ.name == 'fixed-occ-zero-width', \
+                'Please, use mixer={\'name\': \'fixed-occ-zero-width\'}'
+        else:
+            assert wfs.occupations.name == 'fixed-occ-zero-width', \
+                'Please, use mixer={\'name\': \'fixed-occ-zero-width\'}'
 
         if not self.initialized:
             if isinstance(ham.xc, HybridXC):
@@ -440,17 +438,22 @@ class DirectMin(Eigensolver):
         wfs.timer.stop('Direct Minimisation step')
         self.iters += 1
 
-    def iteratenols(self, ham, wfs, dens, log):
+    def iterate(self, ham, wfs, dens, log):
+
+        if self.lsa['name'] != 'UnitStep':
+            self.iteratels(ham, wfs, dens, log)
+            return
 
         assert dens.mixer.driver.name == 'dummy', \
             'Please, use: mixer={\'name\': \'dummy\'}'
         assert wfs.bd.comm.size == 1, \
             'Band parallelization is not supported'
-        occ_dct = wfs.occupations.todict()
-        width = occ_dct.get('width')
-        if width is not None:
-            assert width < 1.0e-5, \
-                'Zero Kelvin only.'
+        if  wfs.occupations.name == 'fixmagmom':
+            assert wfs.occupations.occ.name == 'fixed-occ-zero-width', \
+                'Please, use mixer={\'name\': \'fixed-occ-zero-width\'}'
+        else:
+            assert wfs.occupations.name == 'fixed-occ-zero-width', \
+                'Please, use mixer={\'name\': \'fixed-occ-zero-width\'}'
 
         if not self.initialized:
             if isinstance(ham.xc, HybridXC):
@@ -547,17 +550,18 @@ class DirectMin(Eigensolver):
         :return:
         """
 
-        wfs.timer.start('Update Kohn-Sham energy')
+        # wfs.timer.start('Update Kohn-Sham energy')
 
         if updateproj:
             # calc projectors
-            for kpt in wfs.kpt_u:
-                wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+            with wfs.timer('projections'):
+                for kpt in wfs.kpt_u:
+                    wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
 
         dens.update(wfs)
         ham.update(dens, wfs, False)
 
-        wfs.timer.stop('Update Kohn-Sham energy')
+        # wfs.timer.stop('Update Kohn-Sham energy')
 
         return ham.get_energy(0.0, wfs, False)
 
@@ -1166,6 +1170,7 @@ class DirectMin(Eigensolver):
         :param psit_knG:
         :return:
         """
+        wfs.timer.start('LUMO gradient')
         n_kps = self.n_kps
         if psit_knG is not None:
             for kpt in wfs.kpt_u:
@@ -1206,7 +1211,7 @@ class DirectMin(Eigensolver):
             grad[k] = Hpsi_nG.copy()
 
             # calculate energy
-            if self.odd_parameters['name'] == 'Zero':
+            if 0 : #self.odd_parameters['name'] == 'Zero':
                 for i in range(dim):
                     energy = wfs.integrate(
                         psi[i], Hpsi_nG[i], global_integral=True).real
@@ -1220,12 +1225,13 @@ class DirectMin(Eigensolver):
                 wfs.pt.add(psi, s_axi, kpt.q)
                 for i in range(dim):
                     grad[k][i] -= kpt.eps_n[n_occ + i] * psi[i]
-                energy = sum(kpt.eps_n[n_occ:n_occ + dim])
+                minstate = np.argmin(kpt.eps_n[n_occ:n_occ + dim])
+                energy = kpt.eps_n[n_occ + minstate]
             else:
                 psi = kpt.psit_nG[:n_occ + dim].copy()
                 wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
-                lamb = \
-                    wfs.integrate(psi, Hpsi_nG, global_integral=True)
+                lamb = wfs.integrate(
+                        psi, Hpsi_nG, global_integral=True)
                 s_axi = {}
                 for a, P_xi in kpt.P_ani.items():
                     dO_ii = wfs.setups[a].dO_ii
@@ -1234,10 +1240,12 @@ class DirectMin(Eigensolver):
                 wfs.pt.add(psi, s_axi, kpt.q)
 
                 grad[k] -= np.tensordot(lamb.T, psi, axes=1)
-                energy = np.sum(np.diagonal(lamb, offset=-n_occ)).real
+
+                minstate = np.argmin(np.diagonal(lamb, offset=-n_occ).real)
+                energy = np.diagonal(lamb, offset=-n_occ)[minstate].real
 
             norm = []
-            for i in range(dim):
+            for i in [minstate]:
                 norm.append(self.dot(wfs,
                                      grad[k][i],
                                      grad[k][i],
@@ -1250,12 +1258,14 @@ class DirectMin(Eigensolver):
         energy_t = wfs.kd.comm.sum(energy_t)
         self.error = error_t
 
+        wfs.timer.stop('LUMO gradient')
+
         return energy_t, grad
 
     def iterate_lumo(self, ham, wfs, dens):
 
         """
-        1 iteration for convergence of unoccupied states
+        1 iteration for convergence of LUMO
 
         :param ham:
         :param wfs:
@@ -1265,65 +1275,70 @@ class DirectMin(Eigensolver):
 
         n_kps = self.n_kps
         psi_copy = {}
-        alpha = self.alpha
         phi_2i = self.phi_2i
-        der_phi_2i = self.der_phi_2i
 
         wfs.timer.start('Direct Minimisation step')
+        phi_2i[0], grad_knG = \
+            self.get_energy_and_tangent_gradients_lumo(ham, wfs)
 
-        if self.iters == 0:
-            # calculate gradients
-            phi_2i[0], grad_knG = \
-                self.get_energy_and_tangent_gradients_lumo(ham, wfs)
-            # self.error = self.error_eigv(wfs, grad_knG)
+        with wfs.timer('Get Search Direction'):
+            for kpt in wfs.kpt_u:
+                k = n_kps * kpt.s + kpt.q
+                n_occ = get_n_occ(kpt)
+                dim = self.dimensions[k]
+                psi_copy[k] = kpt.psit_nG[n_occ:n_occ + dim].copy()
+            p_knG = self.search_direction.update_data(psi_copy, grad_knG,
+                                                      wfs, self.prec)
+            # self.project_search_direction(wfs, p_knG)
+        self.project_search_direction(wfs, p_knG)
+        dot = 0.0
+        for kpt in wfs.kpt_u:
+            k = wfs.kd.nibzkpts * kpt.s + kpt.q
+            for p in p_knG[k]:
+                dot += wfs.integrate(p, p, False)
+        dot = dot.real
+        dot = wfs.world.sum(dot)
+        dot = np.sqrt(dot)
+        maxstep = 0.2
+        if dot > maxstep:
+            a_star = maxstep/dot
         else:
-            grad_knG = self.grad_knG
-
-        wfs.timer.start('Get Search Direction')
-        for kpt in wfs.kpt_u:
-            k = n_kps * kpt.s + kpt.q
-            n_occ = get_n_occ(kpt)
-            dim = self.dimensions[k]
-            psi_copy[k] = kpt.psit_nG[n_occ:n_occ + dim].copy()
-        p_knG = self.search_direction.update_data(psi_copy, grad_knG,
-                                                  wfs, self.prec)
-        # self.project_search_direction(wfs, p_knG)
-        wfs.timer.stop('Get Search Direction')
-
-        # recalculate derivative with new search direction
-        der_phi_2i[0] = 0.0
-        for kpt in wfs.kpt_u:
-            k = n_kps * kpt.s + kpt.q
-            der_phi_2i[0] += \
-                self.dot(wfs, grad_knG[k][0], p_knG[k][0],
-                         kpt, addpaw=False).item().real
-        der_phi_2i[0] = wfs.kd.comm.sum(der_phi_2i[0])
-
-        alpha, phi_alpha, der_phi_alpha, grad_knG = \
-            self.line_search.step_length_update(
-                psi_copy, p_knG, ham, wfs, dens,
-                phi_0=phi_2i[0], der_phi_0=der_phi_2i[0],
-                phi_old=phi_2i[1], der_phi_old=der_phi_2i[1],
-                alpha_max=3.0, alpha_old=alpha, wfs=wfs)
+            a_star = 1.0
         # calculate new wfs:
         for kpt in wfs.kpt_u:
             k = n_kps * kpt.s + kpt.q
             n_occ = get_n_occ(kpt)
             dim = self.dimensions[k]
             kpt.psit_nG[n_occ:n_occ + dim] = \
-                psi_copy[k] + alpha * p_knG[k]
+                psi_copy[k] + a_star * p_knG[k]
             wfs.orthonormalize(kpt)
 
-        self.alpha = alpha
-        self.grad_knG = grad_knG
+        del psi_copy
+        del p_knG
+        del grad_knG
+        self.alpha = a_star
         self.iters += 1
 
-        # and 'shift' phi, der_phi for the next iteration
-        phi_2i[1], der_phi_2i[1] = phi_2i[0], der_phi_2i[0]
-        phi_2i[0], der_phi_2i[0] = phi_alpha, der_phi_alpha,
+        # if self.iters % 20 and self.odd_parameters['name'] == 'Zero':
+        #     for kpt in wfs.kpt_u:
+        #         g = self.get_gradients_lumo(ham, wfs, kpt)
+        #         n_occ = get_n_occ(kpt)
+        #         dim = self.dimensions[k]
+        #         lamb = wfs.integrate(
+        #             kpt.psit_nG[n_occ:n_occ + dim], g, True)
+        #         lamb = (lamb + lamb.T.conj()) / 2.0
+        #         evals_lumo, lamb = np.linalg.eigh(lamb)
+        #         wfs.gd.comm.broadcast(evals_lumo, 0)
+        #         wfs.gd.comm.broadcast(lamb, 0)
+        #         kpt.eps_n[n_occ:n_occ + dim] = evals_lumo.real
+        #         kpt.eps_n[n_occ + dim:] *= 0.0
+        #         kpt.psit_nG[n_occ:n_occ + dim] = \
+        #             np.tensordot(
+        #                 lamb.T.conj(), kpt.psit_nG[n_occ:n_occ + dim],
+        #                 axes=1)
 
         wfs.timer.stop('Direct Minimisation step')
-        return phi_alpha, self.error
+        return phi_2i[0], self.error
 
     def run_lumo(self, ham, wfs, dens, max_err, log):
 
@@ -1343,18 +1358,18 @@ class DirectMin(Eigensolver):
             wfs, dens, ham,
             obj_func=self.evaluate_phi_and_der_phi_lumo, lumo=True)
 
-        max_iter = 300
+        max_iter = 100
         while self.iters < max_iter:
             en, er = self.iterate_lumo(ham, wfs, dens)
             log_f(self.iters, en, er, log)
             # it is quite difficult to converge lumo with the same
             # accuaracy as occupaied states.
             if er < max(max_err, 5.0e-4):
-                log('\nUnoccupied states converged after'
+                log('\nLUMO converged after'
                     ' {:d} iterations'.format(self.iters))
                 break
             if self.iters >= max_iter:
-                log('\nUnoccupied states did not converged after'
+                log('\nLUMO did not converged after'
                     ' {:d} iterations'.format(self.iters))
 
         self.initialized = False

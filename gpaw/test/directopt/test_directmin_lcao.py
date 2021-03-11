@@ -1,4 +1,4 @@
-from gpaw import GPAW, LCAO, FermiDirac
+from gpaw import GPAW, LCAO
 from ase import Atoms
 import numpy as np
 from gpaw.test import equal
@@ -23,7 +23,7 @@ def test_directmin_lcao(in_tmp_dir):
 
     calc = GPAW(mode=LCAO(),
                 basis='dzp',
-                occupations=FermiDirac(width=0.0, fixmagmom=True),
+                occupations={'name': 'fixed-occ-zero-width'},
                 eigensolver='direct_min_lcao',
                 mixer={'name': 'dummy'},
                 nbands='nao',

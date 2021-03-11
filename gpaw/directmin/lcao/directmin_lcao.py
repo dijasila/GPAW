@@ -286,15 +286,12 @@ class DirectMinLCAO(DirectLCAO):
             'Please, use: nbands=\'nao\''
         assert wfs.bd.comm.size == 1, \
             'Band parallelization is not supported'
-        # this assert sometimes doesn't work:
-        # assert wfs.occupations.name == 'zero-width', \
-        #     'Zero Kelvin only.'
-        # so let's use this instead
-        occ_dct = wfs.occupations.todict()
-        width = occ_dct.get('width')
-        if width is not None:
-            assert width < 1.0e-5, \
-                'Zero Kelvin only.'
+        if  wfs.occupations.name == 'fixmagmom':
+            assert wfs.occupations.occ.name == 'fixed-occ-zero-width', \
+                'Please, use mixer={\'name\': \'fixed-occ-zero-width\'}'
+        else:
+            assert wfs.occupations.name == 'fixed-occ-zero-width', \
+                'Please, use mixer={\'name\': \'fixed-occ-zero-width\'}'
 
         wfs.timer.start('Direct Minimisation step')
 
@@ -459,10 +456,10 @@ class DirectMinLCAO(DirectLCAO):
         :return:
         """
 
-        wfs.timer.start('Update Kohn-Sham energy')
+        # wfs.timer.start('Update Kohn-Sham energy')
         dens.update(wfs)
         ham.update(dens, wfs, False)
-        wfs.timer.stop('Update Kohn-Sham energy')
+        # wfs.timer.stop('Update Kohn-Sham energy')
 
         return ham.get_energy(0.0, wfs, False)
 
@@ -800,23 +797,26 @@ class DirectMinLCAO(DirectLCAO):
         wfs.timer.start('Get canonical representation')
 
         for kpt in wfs.kpt_u:
-            wfs.atomic_correction.calculate_projections(wfs, kpt)
+            # wfs.atomic_correction.calculate_projections(wfs, kpt)
             h_mm = self.calculate_hamiltonian_matrix(ham, wfs, kpt)
             tri2full(h_mm)
             if self.odd.name == 'Zero':
                 if self.update_ref_orbs_canonical or self.restart:
                     # Diagonalize entire Hamiltonian matrix
-                    kpt.C_nM, kpt.eps_n = rotate_subspace(h_mm, kpt.C_nM)
+                    with wfs.timer('Diagonalize and rotate'):
+                        kpt.C_nM, kpt.eps_n = rotate_subspace(
+                            h_mm, kpt.C_nM)
                 else:
                     # Diagonalize equally occupied subspaces separately
                     n_init = 0
                     while True:
                         n_fin = \
                             find_equally_occupied_subspace(kpt.f_n, n_init)
-                        kpt.C_nM[n_init:n_init + n_fin, :], \
-                            kpt.eps_n[n_init:n_init + n_fin] = \
-                            rotate_subspace(
-                                h_mm, kpt.C_nM[n_init:n_init + n_fin, :])
+                        with wfs.timer('Diagonalize and rotate'):
+                            kpt.C_nM[n_init:n_init + n_fin, :], \
+                                kpt.eps_n[n_init:n_init + n_fin] = \
+                                rotate_subspace(
+                                    h_mm, kpt.C_nM[n_init:n_init + n_fin, :])
                         n_init += n_fin
                         if n_init == len(kpt.f_n):
                             break
@@ -1162,7 +1162,8 @@ class DirectMinLCAO(DirectLCAO):
                 self.evecs[k], self.evals[k] = evecs, evals
                 wfs.timer.stop('Broadcast evecs and evals')
 
-            wfs.atomic_correction.calculate_projections(wfs, kpt)
+            with wfs.timer('Calculate projections'):
+                wfs.atomic_correction.calculate_projections(wfs, kpt)
 
         wfs.timer.stop('Unitary rotation')
 

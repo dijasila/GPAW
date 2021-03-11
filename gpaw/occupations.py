@@ -488,6 +488,77 @@ def distribute_occupation_numbers(f_kn: np.ndarray,  # input
             k += 1
 
 
+class FixedOccupationsZeroWidth(OccupationNumberCalculator):
+    """
+    we would like to occupy just first N orbitals independently on
+    their eigenvalues. The class still should return the efermi too
+    """
+    name = 'fixed-occ-zero-width'
+    extrapolate_factor = 0.0
+
+    def todict(self):
+        return {'name': 'fixed-occ-zero-width'}
+
+    def distribution(self, eig_n, fermi_level):
+
+        raise NotImplementedError
+
+    def _calculate(self,
+                   nelectrons,
+                   eig_qn,
+                   weight_q,
+                   f_qn,
+                   fermi_level_guess=nan):
+        eig_kn, weight_k, nkpts_r = collect_eigelvalues(eig_qn, weight_q,
+                                                        self.bd, self.kpt_comm)
+
+        if eig_kn.size != 0:
+            # Try to use integer weights (avoid round-off errors):
+            N = int(round(1 / min(weight_k)))
+            w_k = (weight_k * N).round().astype(int)
+            if abs(w_k - N * weight_k).max() > 1e-10:
+                # Did not work.  Use original fractional weights:
+                w_k = weight_k
+                N = 1
+
+            f_kn = np.zeros_like(eig_kn)
+            f_m = f_kn.ravel()
+            w_kn = np.empty_like(eig_kn, dtype=w_k.dtype)
+            w_kn[:] = w_k[:, np.newaxis]
+            eig_m = eig_kn.ravel()
+            w_m = w_kn.ravel()
+            m_i = eig_m.argsort()
+            w_i = w_m[m_i]
+            sum_i = np.add.accumulate(w_i)
+            filled_i = (sum_i <= nelectrons * N)
+            i = sum(filled_i)
+            f_m[:i] = 1.0
+            if i == len(m_i):
+                fermi_level = inf
+            else:
+                extra = nelectrons * N - (sum_i[i - 1] if i > 0 else 0.0)
+                if extra > 0:
+                    assert extra <= w_i[i]
+                    f_m[i] = extra / w_i[i]
+                    fermi_level = eig_m[m_i[i]]
+                else:
+                    fermi_level = (eig_m[m_i[i]] + eig_m[m_i[i - 1]]) / 2
+        else:
+            f_kn = None
+            fermi_level = nan
+
+        distribute_occupation_numbers(f_kn, f_qn, nkpts_r,
+                                      self.bd, self.kpt_comm)
+
+        if self.kpt_comm.rank == 0:
+            fermi_level = broadcast_float(fermi_level, self.bd.comm)
+        fermi_level = broadcast_float(fermi_level, self.kpt_comm)
+
+        e_entropy = 0.0
+        return fermi_level, e_entropy
+
+
+
 class ZeroWidth(OccupationNumberCalculator):
     name = 'zero-width'
     extrapolate_factor = 0.0
@@ -619,6 +690,7 @@ def create_occ_calc(dct: Dict[str, Any],
                     rcell=None,
                     monkhorst_pack_size=None,
                     bz2ibzmap=None,
+                    nspins=None
                     ) -> OccupationNumberCalculator:
     """Surprise: Create occupation-number object.
 
@@ -674,6 +746,14 @@ def create_occ_calc(dct: Dict[str, Any],
             if key not in ['numbers', 'parallel_layout']:
                 del kwargs[key]
         return FixedOccupationNumbers(**kwargs)
+    elif name == 'fixed-occ-zero-width':
+        occ = FixedOccupationsZeroWidth(**kwargs)
+        if nspins == 2:
+            fix_the_magnetic_moment = True
+            # occ = FixMagneticMomentOccupationNumberCalculator(
+            #     occ,
+            #     fixed_magmom_value)
+            #
     else:
         raise ValueError(f'Unknown occupation number object name: {name}')
 

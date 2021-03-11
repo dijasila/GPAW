@@ -345,7 +345,7 @@ class StrongWolfeConditions:
 
 class UnitStepLength:
 
-    def __init__(self, evaluate_phi_and_der_phi, maxstep=1.0e3, **kwargs):
+    def __init__(self, evaluate_phi_and_der_phi, maxstep=0.25, **kwargs):
         """
         :param evaluate_phi_and_der_phi: function which calculate
         phi, der_phi and g for given x_k, p_s and alpha

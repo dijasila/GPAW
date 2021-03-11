@@ -1,4 +1,4 @@
-from gpaw import GPAW, FD, FermiDirac
+from gpaw import GPAW, FD
 from ase import Atoms
 import numpy as np
 from gpaw.directmin.fdpw.directmin import DirectMin
@@ -27,7 +27,7 @@ def test_fdsic_h2o(in_tmp_dir):
 
     calc = GPAW(mode=FD(force_complex_dtype=True),
                 h=0.25,
-                occupations=FermiDirac(width=0.0, fixmagmom=True),
+                occupations={'name': 'fixed-occ-zero-width'},
                 eigensolver=DirectMin(
                     odd_parameters={'name': 'PZ_SIC',
                                     'scaling_factor': (0.5, 0.5)  # SIC/2

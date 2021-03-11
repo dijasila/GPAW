@@ -902,7 +902,9 @@ class GPAW(Calculator):
             fixed_magmom_value=magmom,
             rcell=np.linalg.inv(cell_cv).T,
             monkhorst_pack_size=self.wfs.kd.N_c,
-            bz2ibzmap=self.wfs.kd.bz2ibz_k)
+            bz2ibzmap=self.wfs.kd.bz2ibz_k,
+            nspins=self.wfs.nspins
+        )
 
         kwargs = dct.copy()
         name = kwargs.pop('name', '')

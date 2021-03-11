@@ -485,6 +485,7 @@ class PzCorrections:
 
     def get_si_pot_dh_pw(self, wfs, kpt, n, returnQalandVhq=False):
 
+        wfs.timer.start("IFFT: Get density on real grid")
         nt_G = wfs.pd.gd.zeros(global_array=True)
         psit_G = wfs.pd.alltoall1(kpt.psit.array[n:n + 1], kpt.q)
         if psit_G is not None:
@@ -494,8 +495,10 @@ class PzCorrections:
             _gpaw.add_to_density(1.0, psit_R, nt_G)
         wfs.pd.gd.comm.sum(nt_G)
         nt_G = wfs.pd.gd.distribute(nt_G)  # this is real space grid
+        wfs.timer.stop("IFFT: Get density on real grid")
 
         # multipole moments and atomic dm
+        wfs.timer.start("Multipole Moments and Atomic Dens. Mat.")
         Q_aL = {}
         D_ap = {}
         for a, P_ni in kpt.P_ani.items():
@@ -503,17 +506,24 @@ class PzCorrections:
             D_ii = np.outer(P_i, P_i.conj()).real
             D_ap[a] = D_p = pack(D_ii)
             Q_aL[a] = np.dot(D_p, self.setups[a].Delta_pL)
+        wfs.timer.stop("Multipole Moments and Atomic Dens. Mat.")
 
         # xc
+        wfs.timer.start("Calc. XC on pseudo density")
         nt_sg = wfs.gd.zeros(2)
         nt_sg[0] = nt_G
         vt_sg = wfs.gd.zeros(2)
         exc = self.xc.calculate(wfs.gd, nt_sg, vt_sg)
         vt_G = - vt_sg[0] * self.beta_x
         dH_ap = {}
+        wfs.timer.stop("Calc. XC on pseudo density")
 
+        wfs.timer.start("Calc. PAW-XC")
         excpaw = 0.0
         for a, D_p in D_ap.items():
+            # if np.max(abs(D_p)) < 1.0e-2:
+            #     dH_ap[a] = np.zeros(len(D_p))
+            #     continue
             setup = self.setups[a]
             dH_sp = np.zeros((2, len(D_p)))
             D_sp = np.array([D_p, np.zeros_like(D_p)])
@@ -522,10 +532,14 @@ class PzCorrections:
             dH_ap[a] = -dH_sp[0] * self.beta_x
         excpaw = wfs.gd.comm.sum(excpaw)
         exc += excpaw
+        wfs.timer.stop("Calc. PAW-XC")
 
+        wfs.timer.start("FFT density")
         nt_Q = self.pd2.fft(nt_G)
         self.ghat.add(nt_Q, Q_aL)
+        wfs.timer.stop("FFT density")
 
+        wfs.timer.start("Calc. Hartree on pseudo density")
         realspace = False
         if realspace:
             nt_G = self.pd2.ifft(nt_Q)
@@ -545,12 +559,14 @@ class PzCorrections:
             # vHt = self.pd2.ifft(vHt_q) + self.corr
             # vHt_q = self.pd2.fft(vHt)
             ehart += self.corr / 2.0
+        wfs.timer.stop("Calc. Hartree on pseudo density")
 
         # PAW to Hartree
         ehartpaw = 0.0
         W_aL = self.ghat.dict()
         self.ghat.integrate(vHt_q, W_aL)
 
+        wfs.timer.start("Calc. PAW-Hartree")
         for a, D_p in D_ap.items():
             setup = self.setups[a]
             M_p = np.dot(setup.M_pp, D_p)
@@ -559,6 +575,7 @@ class PzCorrections:
                                              W_aL[a])) * self.beta_c
         ehartpaw = wfs.gd.comm.sum(ehartpaw)
         ehart += ehartpaw
+        wfs.timer.stop("Calc. PAW-Hartree")
 
         vt_G -= vHt * self.beta_c
 
