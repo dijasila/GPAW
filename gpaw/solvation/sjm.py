@@ -3,6 +3,8 @@ import traceback
 from io import StringIO
 import numpy as np
 import copy
+import textwrap
+from scipy.stats import linregress
 
 import ase.io
 from ase.units import Bohr, Ha
@@ -199,7 +201,7 @@ class SJM(SolvationGPAW):
                'dict.')
         for key in deprecated_keys:
             if key in kwargs:
-                raise TypeError(msg.format(key))
+                raise TypeError(textwrap.fill(msg.format(key)))
 
         # Note the below line calls self.set().
         SolvationGPAW.__init__(self, restart, **kwargs)
@@ -417,11 +419,6 @@ class SJM(SolvationGPAW):
         if not p.always_adjust or not hasattr(self, '_previous_electrons'):
             self._previous_electrons = []
             self._previous_potentials = []
-        # FIXME/ap: This doesn't work in always_adjust_ne with loose
-        # potential tolerance, as the slope never gets re-estimated. Will
-        # need to go back to saving them globally, and also may need to
-        # have it behave differently depending on if always_adjust_ne is
-        # flagged.
 
         while iteration < p.max_iters:
             self.sog('Attempt {:d} to equilibrate potential to {:.3f} +/-'
@@ -469,10 +466,11 @@ class SJM(SolvationGPAW):
             self._previous_electrons += [p.excess_electrons]
             self._previous_potentials += [true_potential]
             if len(self._previous_electrons) > 1:
-                p.slope = calculate_slope(self._previous_electrons,
-                                          self._previous_potentials)
-                self.sog('Slope regressed from last two attempts is '
-                         '{:.4f} V/electron.'.format(p.slope))
+                p.slope = _calculate_slope(self._previous_electrons,
+                                           self._previous_potentials)
+                self.sog('Slope regressed from last {:d} attempts is '
+                         '{:.4f} V/electron.'
+                         .format(len(self._previous_electrons[-4:]), p.slope))
                 area = np.product(np.diag(atoms.cell[:2, :2]))
                 capacitance = -1.6022 * 1e3 / (area * p.slope)
                 self.sog('and apparent capacitance of {:.4f} muF/cm^2'
@@ -512,9 +510,10 @@ class SJM(SolvationGPAW):
                'This may indicate your workfunction is noisier than '
                'your potential tol. You may try setting the '
                'convergence["workfunction"] keyword. The last values of '
-               'excess_electrons and the potential are listed below; you '
-               'may try plotting them to get insight into the problem.\n'
+               'excess_electrons and the potential are listed below; '
+               'plotting them could give you insight into the problem.'
                .format(iteration))
+        msg = textwrap.fill(msg) + '\n'
         for n, p in zip(self._previous_electrons,
                         self._previous_potentials):
             msg += '{:+.6f} {:.6f}\n'.format(n, p)
@@ -773,10 +772,13 @@ def write_property_on_grid(grid, property, atoms=None, name='prop',
     ase.io.write(os.path.join(dir, name), atoms, data=property)
 
 
-def calculate_slope(previous_electrons, previous_potentials):
-    """Calculates the slope of potential versus number of electrons."""
-    return (np.diff(previous_potentials[-2:]) /
-            np.diff(previous_electrons[-2:]))[0]
+def _calculate_slope(previous_electrons, previous_potentials):
+    """Calculates the slope of potential versus number of electrons;
+    regresses based on last four data points to smooth noise."""
+    npoints = 4
+    ans = linregress(previous_electrons[-npoints:],
+                     previous_potentials[-npoints:])
+    return ans[0]
 
 
 class SJMPower12Potential(Power12Potential):
