@@ -1002,6 +1002,7 @@ By default, only a limited number of information is printed out for each SCF
 step. It is possible to obtain more information (e.g. for investigating
 convergen problems in more detail) by ``verbose=1`` keyword.
 
+
 .. _manual_communicator:
 
 Communicator object
@@ -1082,6 +1083,7 @@ change the number of grid points:
 
 More details can be found on the :ref:`restart_files` page.
 
+
 ---------------------------------------
 Customizing behaviour through observers
 ---------------------------------------
@@ -1105,6 +1107,7 @@ example saves a differently named restart file every 5 iterations::
   calc.attach(OccasionalWriter().write, occasionally)
 
 See also :meth:`~gpaw.GPAW.attach`.
+
 
 .. _command line options:
 
