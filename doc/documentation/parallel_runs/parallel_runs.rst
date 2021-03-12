@@ -25,7 +25,7 @@ parallelization can improve the performance in some cases, see
 
 Before starting a parallel calculation, it might be useful to check how the
 parallelization corresponding to the given number of processes would be done
-with ``--gpaw dry-run=N`` command line option::
+with the ``--dry-run=N`` command line option::
 
     $ gpaw python --dry-run=8 script.py
 
@@ -292,9 +292,6 @@ where ``n`` is the total number of boxes.
    You might have to add ``from gpaw.mpi import world`` to the script to
    define ``world``.
 
-There is also a command line argument ``--domain-decomposition`` which allows
-you to control domain decomposition.
-
 
 .. _manual_parsize_bands:
 
@@ -317,9 +314,6 @@ where ``nbg`` is the number of band groups to parallelize over.
    done using serial LAPACK by default. It is therefor advisable to use both
    band parallelization and ScaLAPACK in conjunction to reduce this
    potential bottleneck.
-
-There is also a command line argument ``--state-parallelization`` which
-allows you to control band parallelization.
 
 More information about these topics can be found here:
 
@@ -388,6 +382,7 @@ have different values. The most general case is the combination
 of three ScaLAPACK keywords.
 Note that some combinations of keywords may not be supported.
 
+
 .. _manual_openmp:
 
 Hybrid OpenMP/MPI parallelization
@@ -405,5 +400,3 @@ This would run the calculation with a total of 2048 CPU cores. As the
 optimum MPI task / OpenMP thread ratio depends a lot on the particular
 input and underlying hardware, it is recommended to experiment with
 different settings before production calculations.
-
-

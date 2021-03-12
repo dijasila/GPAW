@@ -16,9 +16,18 @@ Git master branch
   Kohn–Sham states.  Previously, the printed occupation numbers were
   scaled by **k**-point weight.
 
-* The Davidson eigensolver now uses ScaLAPACK for the `(2 N_{\text{bands}})
-  \times (2 N_{\text{bands}})` diagonalization step when ``parallel=
-  {'sl_auto':True}`` is used.
+* The Davidson eigensolver now uses ScaLAPACK for the
+  `(2 N_{\text{bands}}) \times (2 N_{\text{bands}})` diagonalization step
+  when ``parallel={'sl_auto':True}`` is used.
+
+* Removed several old command-line options:
+  ``--memory-estimate-depth``, ``--domain-decomposition``,
+  ``--state-parallelization``, ``--augment-grids``,
+  ``--buffer-size``, ``--profile``, ``--gpaw``, ``--benchmark-imports``.
+  See :ref:`manual_parallel` and :ref:`profiling` for alternatives.
+  Instead of ``--gpaw=df_dry_run=N``, use the ``--dry-run=N`` option
+  (see :ref:`command line options`).
+
 
 Version 21.1.0
 ===============
