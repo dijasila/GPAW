@@ -19,7 +19,7 @@ frequencies, modes = ph.band_structure(qpts, modes=True)
 # Find el-ph matrix in the LCAO basis
 elph = ElectronPhononCoupling(calc.atoms, calc, calculate_forces=False)
 elph.set_lcao_calculator(calc)
-elph.load_supercell_matrix(basis='dzp', multiple=False)
+elph.load_supercell_matrix(basis='dzp', dump=1)
 
 # Find the bloch expansion coefficients
 g_sqklnn = []
@@ -32,6 +32,6 @@ for s in range(calc.wfs.nspins):
 
     # And we finally find the electron-phonon coupling matrix elements!
     elph.g_xNNMM = elph.g_xsNNMM[:, s]
-    g_qklnn = elph.bloch_matrix(c_kn, kpts, qpts, u_ql=modes, spin=s)
+    g_qklnn = elph.bloch_matrix(kpts, qpts, c_kn, u_ql=modes, spin=s)
     g_sqklnn.append(g_qklnn)
     # np.save("gsqklnn.npy", np.array(g_sqklnn))

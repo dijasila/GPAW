@@ -24,11 +24,14 @@ def test_elph_li(in_tmp_dir):
         # szp: 4 orbitals per atom
         # dz:  2 orbitals per atom -> fastest non-trivial case
         calc = GPAW(mode='lcao',
-                    basis='dz(dzp)',
-                    kpts=(2, 2, 2),
+                    basis='sz(dzp)',
+                    kpts={'size': (1, 1, 1), 'gamma': False},
+                    # kpts=(2, 2, 2),
                     symmetry={'point_group': False},
                     convergence={'bands': 'nao'},
-                    spinpol=spinpol
+                    spinpol=spinpol,
+                    parallel={'domain': 1},
+                    txt='elph_li.txt'
                     )
         atoms.calc = calc
 

@@ -116,7 +116,7 @@ class TightBinding:
             if not len(self.ibzk_kc) == len(self.bzk_kc):
                 # Broadcast Gamma component
                 gamma = np.where(abs(self.ibzk_kc).sum(axis=1) < 1e-13)[0]
-                if gamma != []:
+                if gamma.size > 0:
                     rank, myu = self.kd.get_rank_and_index(gamma[0])
 
                     if self.kd.comm.rank == rank:
