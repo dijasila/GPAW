@@ -17,9 +17,9 @@ if [[ "$2" == "intel" || "$2" == "Intel" ]]; then
     echo "Using Intel toolchain."
 else
     if [[ $# -eq 2 ]]; then
-	echo "Illegal second argument, only 'intel' is allowed.  Got $2"
-	echo $USAGE
-	exit 1
+        echo "Illegal second argument, only 'intel' is allowed.  Got $2"
+        echo $USAGE
+        exit 1
     fi
     TCHAIN=foss
 fi
@@ -68,7 +68,7 @@ rm old
 git clone https://gitlab.com/ase/ase.git
 $PIP install -e ase/
 
-$PIP install myqueue graphviz
+$PIP install myqueue graphviz qeh
 
 CMD="cd $VENV &&
      . bin/activate &&
@@ -103,9 +103,15 @@ echo "export GPAW_SETUP_PATH=$GPAW_SETUP_PATH" >> bin/activate
 ase completion >> bin/activate
 gpaw completion >> bin/activate
 mq completion >> bin/activate
+$PIP completion --bash >> bin/activate
 
 # Set matplotlib backend:
-echo "export MPLBACKEND=TkAgg" >> bin/activate
+echo '
+if [[ $SLURM_SUBMIT_DIR ]]; then
+    export MPLBACKEND=Agg
+else
+    export MPLBACKEND=TkAgg
+fi' >> bin/activate
 
 # Run tests:
 mq --version

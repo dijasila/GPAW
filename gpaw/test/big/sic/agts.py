@@ -1,3 +1,3 @@
-def create_tasks():
-    from myqueue.task import task
-    return [task('scfsic_n2.py@8:10m')]
+def workflow():
+    from myqueue.workflow import run
+    run(script='scfsic_n2.py', cores=8)

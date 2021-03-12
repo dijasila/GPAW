@@ -464,6 +464,7 @@ There are few points about the implementation that we emphasize:
   dielectric function converges slowly with the upper bound of the frequency
   grid. Refer to :ref:`df_theory` for the details on the Hilbert transform.
 
+
 Drude phenomenological scattering rate
 ======================================
 A phenomenological scattering rate can be introduced using the ``rate``
@@ -485,13 +486,14 @@ response formalism. In practice the Drude rate is implemented as
 
 where `\gamma` is the rate parameter.
 
+
 Useful tips
 ===========
 
-Use dry_run option to get an overview of a calculation (especially useful for
-heavy calculations!)::
+Use ``--dry-run`` option to get an overview of a calculation
+(especially useful for heavy calculations!)::
 
-    $ python3 filename.py --gpaw=df-dry-run=8
+    $ gpaw python --dry-run=8 filename.py
 
 .. Note ::
 

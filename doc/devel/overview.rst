@@ -205,7 +205,7 @@ using the :func:`gpaw.xc.XC` function:
 
 Example::
 
-    # the default implementation of PBE from LibXC:
+    # Implementation of PBE from LibXC:
     from gpaw.xc import XC
     xc = XC('PBE')
     # alternative call:

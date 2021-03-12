@@ -5,7 +5,7 @@ import numpy as np
 from ase.units import Ha
 
 from gpaw.hamiltonian import Hamiltonian
-from gpaw.hints import Array2D, Array3D
+from gpaw.typing import Array2D, Array3D
 from gpaw.kpoint import KPoint
 from gpaw.wavefunctions.base import WaveFunctions
 

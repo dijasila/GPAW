@@ -90,24 +90,6 @@ class Cluster(Atoms):
 
         return shift
 
-    def get(self, name):
-        """General get"""
-        attr = 'get_' + name
-        if hasattr(self, attr):
-            getattr(self, attr)()
-        elif name in self.data:
-            return self.data[name]
-        else:
-            return None
-
-    def set(self, name, data):
-        """General set"""
-        attr = 'set_' + name
-        if hasattr(self, attr):
-            getattr(self, attr)(data)
-        else:
-            self.data[name] = data
-
     def read(self, filename, format=None):
         """Read the structure from some file. The type can be given
         or it will be guessed from the filename."""

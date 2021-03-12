@@ -1,7 +1,6 @@
-from myqueue.task import task
+from myqueue.workflow import run
 
 
-def create_tasks():
-    return [
-        task('ethanol_in_water.py@4:10m'),
-        task('check.py', deps='ethanol_in_water.py')]
+def workflow():
+    with run(script='ethanol_in_water.py', cores=4):
+        run(script='check.py')

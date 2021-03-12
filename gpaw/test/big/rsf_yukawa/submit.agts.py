@@ -1,5 +1,5 @@
-from myqueue.task import task
+from myqueue.workflow import run
 
 
-def create_tasks():
-    return [task('lrtddft.py@4:1m')]
+def workflow():
+    run(script='lrtddft.py', cores=4)

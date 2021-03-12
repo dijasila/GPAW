@@ -1,8 +1,8 @@
-from myqueue.task import task
+from myqueue.workflow import run
 
 
-def create_tasks():
-    return [task('h2_gs.py'),
-            task('h2_diss.py@8:10m', deps='h2_gs.py'),
-            task('graphene_h_gs.py@8:10m'),
-            task('graphene_h_prop.py@32:2h', deps='graphene_h_gs.py')]
+def workflow():
+    with run(script='h2_gs.py'):
+        run(script='h2_diss.py', cores=8)
+    with run(script='graphene_h_gs.py', cores=8):
+        run(script='graphene_h_prop.py', cores=32, tmax='2h')
