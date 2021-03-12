@@ -4,7 +4,6 @@ import numpy as np
 from ase.build import molecule
 from gpaw import GPAW
 from gpaw.lcaotddft import LCAOTDDFT
-from gpaw.poisson import PoissonSolver
 from gpaw.lcaotddft.dipolemomentwriter import DipoleMomentWriter
 from gpaw.mpi import world
 from gpaw.utilities import compiled_with_sl
@@ -24,7 +23,6 @@ def test_lcaotddft_parallel_options(in_tmp_dir):
     # Ground-state calculation
     calc = GPAW(nbands=7, h=0.4, setups=dict(Na='1'),
                 basis='dzp', mode='lcao',
-                poissonsolver=PoissonSolver(eps=1e-16),
                 convergence={'density': 1e-8},
                 txt='gs.out')
     atoms.calc = calc

@@ -96,9 +96,9 @@ solving the Hartree potential. Such a large grid can be set up by using
   from gpaw.poisson import PoissonSolver
   from gpaw.poisson_extravacuum import ExtraVacuumPoissonSolver
   poissonsolver = ExtraVacuumPoissonSolver(gpts=(256, 256, 256),
-                                           poissonsolver_large=PoissonSolver(eps=eps))
+                                           poissonsolver_large=PoissonSolver())
 
-This uses the given `poissonsolver_large` to solve the Poisson equation on
+This uses the given ``poissonsolver_large`` to solve the Poisson equation on
 a large grid defined by the number of grid points `gpts`.
 The size of the grid is given **in the units of the Poisson grid**
 (this is usually the same as the fine grid).
@@ -111,18 +111,18 @@ one can apply additional coarsening::
   from gpaw.poisson import PoissonSolver
   from gpaw.poisson_extravacuum import ExtraVacuumPoissonSolver
   poissonsolver = ExtraVacuumPoissonSolver(gpts=(256, 256, 256),
-                                           poissonsolver_large=PoissonSolver(eps=eps),
+                                           poissonsolver_large=PoissonSolver(),
                                            coarses=1,
-                                           poissonsolver_small=PoissonSolver(eps=eps))
+                                           poissonsolver_small=PoissonSolver())
 
 The ``coarses`` parameter describes how many times the given large grid
-is coarsed before the `poissonsolver_large` is used solve the Poisson equation
+is coarsed before the ``poissonsolver_large`` is used solve the Poisson equation
 there. With the given value ``coarses=1``, the grid is coarsed once and
 the actual calculation grid is of size ``(128, 128, 128)`` with the grid
 spacing twice as large compared to the original one.
 The obtained coarse potential is used to correct the boundary conditions
 of the potential calculated on the original small and fine
-grid by `poissonsolver_small`.
+grid by ``poissonsolver_small``.
 
 As ``ExtraVacuumPoissonSolver`` is wrapper, it can be combined with any
 ``PoissonSolver`` instance. For example, one can define multiple subsequently
@@ -131,13 +131,13 @@ larger grids via::
   from gpaw.poisson import PoissonSolver
   from gpaw.poisson_extravacuum import ExtraVacuumPoissonSolver
   poissonsolver0 = ExtraVacuumPoissonSolver(gpts=(256, 256, 256),
-                                            poissonsolver_large=PoissonSolver(eps=eps),
+                                            poissonsolver_large=PoissonSolver(),
                                             coarses=1,
-                                            poissonsolver_small=PoissonSolver(eps=eps))
+                                            poissonsolver_small=PoissonSolver())
   poissonsolver = ExtraVacuumPoissonSolver(gpts=(256, 256, 256),
                                            poissonsolver_large=poissonsolver0,
                                            coarses=1,
-                                           poissonsolver_small=PoissonSolver(eps=eps))
+                                           poissonsolver_small=PoissonSolver())
 
 See ``poissonsolver.get_description()`` or the ``txt`` output for
 the corresponding grids.
