@@ -16,8 +16,9 @@ Git master branch
   Kohn–Sham states.  Previously, the printed occupation numbers were
   scaled by **k**-point weight.
 
-* Added documentation for electron-phonon coupling and added support for
+* Added documentation for :ref:`elph` and added support for
   spin-polarized systems.
+
 
 Version 21.1.0
 ===============

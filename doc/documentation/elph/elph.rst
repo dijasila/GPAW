@@ -1,8 +1,8 @@
 .. _elph:
 
-=======================================================
+========================
 Electron-phonon coupling
-=======================================================
+========================
 
 Electron-phonon coupling is implemented for the LCAO mode.
 
@@ -23,9 +23,9 @@ electron-phonon coupling matrix
 
     g_{ij}^l = \sqrt{  \frac{\hbar}{2 M \omega_l}} \langle i \vert \nabla_u V_{eff} \cdot \mathbf e_l \vert j \rangle .
 
-`\omega_l` and `\mathbf e_l` are the frequency and mass-scaled polarization 
-vector of the `l` th phonon. `M` is an effective mass and nabla_u denotes the 
-gradient wrt atomic displacements. 
+`\omega_l` and `\mathbf e_l` are the frequency and mass-scaled polarization
+vector of the `l` th phonon. `M` is an effective mass and nabla_u denotes the
+gradient wrt atomic displacements.
 
 The implementation supports calculations of the el-ph coupling in both finite and
 periodic systems, i.e. expressed in a basis of molecular orbitals or Bloch states.
@@ -36,6 +36,7 @@ couplings are obtained from LCAO representations of the atomic gradients of the
 effective potential and the electronic states.
 
 The current implementation supports spin-paired and spin-polarized computations.
+
 
 Example
 =======
