@@ -12,6 +12,7 @@ extensions = ['images',
               'sphinx.ext.doctest',
               'sphinx.ext.extlinks',
               'sphinx.ext.viewcode',
+              'sphinx.ext.napoleon',
               'sphinx.ext.mathjax',
               'sphinx.ext.intersphinx']
 extlinks = {'doi': ('https://doi.org/%s', 'doi:'),
@@ -36,6 +37,8 @@ intersphinx_mapping = {
 nitpick_ignore = [('py:class', 'gpaw.calculator.GPAW'),
                   ('py:class', 'gpaw.spinorbit.BZWaveFunctions'),
                   ('py:class', 'GPAW'),
+                  ('py:class', 'Atoms'),
+                  ('py:class', 'ndarray'),
                   ('py:class', 'ase.spectrum.dosdata.GridDOSData'),
                   ('py:class', 'ase.atoms.Atoms'),
                   ('py:class', 'gpaw.point_groups.group.PointGroup')]

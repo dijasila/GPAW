@@ -115,9 +115,9 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
 
         Parameters
         ----------
-        atoms: Atoms object
+        atoms: Atoms
             The atoms to work on.
-        calc: Calculator
+        calc: GPAW
             Calculator for the supercell calculation.
         supercell: tuple
             Size of supercell given by the number of repetitions (l, m, n) of
@@ -286,7 +286,7 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
                for large systems where the total array gets too large for a
                single pickle file. Allows restart.
 
-        name: string
+        name: str
             User specified name of the generated pickle file(s). If not
             provided, the string in the ``name`` attribute is used.
         filter: str
@@ -491,10 +491,10 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
 
         Parameters
         ----------
-        basis: string
+        basis: str
             String specifying the LCAO basis used to calculate the supercell
             matrix, e.g. 'dz(dzp)'.
-        name: string
+        name: str
             User specified name of the pickle file.
         dump: int
             Dump supercell matrix to pickle file (default: 0).
@@ -673,13 +673,16 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
         In case the ``omega_ql`` keyword argument is not given, the bare matrix
         element (in units of eV / Ang) without the sqrt prefactor is returned.
 
+        Phonon frequencies and mode vectors must be given in
+        ase units.
+
         Parameters
         ----------
-        kpts: ndarray or tuple.
+        kpts: ndarray or tuple
             k-vectors of the Bloch states. When a tuple of integers is given, a
             Monkhorst-Pack grid with the specified number of k-points along the
             directions of the reciprocal lattice vectors is generated.
-        qpts: ndarray or tuple.
+        qpts: ndarray or tuple
             q-vectors of the phonons.
         c_kn: ndarray
             Expansion coefficients for the Bloch states. The ordering must be
@@ -690,14 +693,13 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
             corresponding ``qpts`` argument.
         omega_ql: ndarray
             Vibrational frequencies in eV.
-        kpts_from: list of ints or int
+        kpts_from: List[int] or int
             Calculate only the matrix element for the k-vectors specified by
             their index in the ``kpts`` argument (default: all).
-        spin: integer (0,1)
-            In case of spin-polarised system, define which spin to use.
+        spin: int
+            In case of spin-polarised system, define which spin to use
+            (0 or 1).
 
-        In short, phonon frequencies and mode vectors must be given in
-        ase units.
 
         """
 
