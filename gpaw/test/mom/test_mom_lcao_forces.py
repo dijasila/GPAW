@@ -7,9 +7,9 @@ from gpaw.test import equal
 
 @pytest.mark.mom
 def test_mom_lcao_forces(in_tmp_dir):
-    f_sn = [[1., 1., 1., 1., 0., 1., 0., 0.],
-            [1., 1., 1., 1., 1., 0., 0., 0.]]
-    L = 10.0
+    f_sn = [[1., 1., 1., 1., 0., 1., 0.],
+            [1., 1., 1., 1., 1., 0., 0.]]
+    L = 4.0
     d = 1.13
     delta = 0.01
 
@@ -20,8 +20,8 @@ def test_mom_lcao_forces(in_tmp_dir):
 
     calc = GPAW(mode='lcao',
                 basis='dzp',
-                nbands=8,
-                h=0.2,
+                nbands=7,
+                h=0.24,
                 xc='PBE',
                 spinpol=True,
                 symmetry='off',
@@ -54,5 +54,5 @@ def test_mom_lcao_forces(in_tmp_dir):
     fnum = (E[0] - E[1]) / (2. * delta)     # central difference
 
     print(fnum)
-    equal(fnum, 12.0325744975, 0.01)
+    equal(fnum, 11.5048143494, 0.01)
     equal(f, fnum, 0.1)

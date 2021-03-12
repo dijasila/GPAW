@@ -7,12 +7,12 @@ from gpaw.test import equal
 @pytest.mark.mom
 def test_mom_lcao_smearing(in_tmp_dir):
     atoms = molecule('CO')
-    atoms.center(vacuum=3)
+    atoms.center(vacuum=2)
 
     calc = GPAW(mode='lcao',
                 basis='dzp',
-                nbands=8,
-                h=0.2,
+                nbands=7,
+                h=0.24,
                 xc='PBE',
                 spinpol=True,
                 symmetry='off',
@@ -50,5 +50,5 @@ def test_mom_lcao_smearing(in_tmp_dir):
         dE = E_es - E_gs
         dne0 = ne0_es - ne0_gs
         print(dE)
-        equal(dE, 9.8313927688, 0.01)
+        equal(dE, 9.8445603513, 0.01)
         equal(dne0, 0.0, 1e-16)

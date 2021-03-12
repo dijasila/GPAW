@@ -7,32 +7,31 @@ from gpaw.test import equal
 
 @pytest.mark.mom
 def test_mom_fd_energy(in_tmp_dir):
-    dE_ref = [7.6319602946, 7.4176240132]
+    dE_ref = [7.8009908153, 7.5234341583]
 
-    atoms = molecule('H2O')
-    atoms.center(vacuum=3)
+    atoms = molecule('HCl')
+    atoms.center(vacuum=2)
 
     calc = GPAW(mode='fd',
-                basis='dzp',
                 nbands=6,
-                h=0.2,
+                h=0.24,
                 xc='PBE',
                 spinpol=True,
-                symmetry='off',
                 convergence={'energy': 100,
                              'density': 1e-3,
                              'eigenstates': 100,
-                             'bands': 'all'})
+                             'bands': -1})
 
     atoms.calc = calc
     # Ground-state calculation
     E_gs = atoms.get_potential_energy()
 
-    calc.write('h2o_fd_gs.gpw', 'all')
+    calc.write('hcl_fd_gs.gpw', 'all')
 
     # Test spin polarized excited-state calculations
     for s in [0, 1]:
-        atoms, calc = restart('h2o_fd_gs.gpw', txt='-')
+        if s == 1:
+            atoms, calc = restart('hcl_fd_gs.gpw', txt='-')
 
         f_sn = []
         for spin in range(calc.get_number_of_spins()):
@@ -58,15 +57,13 @@ def test_mom_fd_energy(in_tmp_dir):
         equal(dE, dE_ref[s], 0.01)
 
     calc = GPAW(mode='fd',
-                basis='dzp',
                 nbands=6,
-                h=0.2,
+                h=0.24,
                 xc='PBE',
-                symmetry='off',
                 convergence={'energy': 100,
                              'density': 1e-3,
                              'eigenstates': 100,
-                             'bands': 'all'})
+                             'bands': -1})
 
     atoms.calc = calc
     # Ground-state calculation
@@ -82,4 +79,4 @@ def test_mom_fd_energy(in_tmp_dir):
 
     dE = E_es - E_gs
     print(dE)
-    equal(dE, 8.7357394806, 0.01)
+    equal(dE, 8.4695551944, 0.01)
