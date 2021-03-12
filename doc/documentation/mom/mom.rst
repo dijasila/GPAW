@@ -24,9 +24,11 @@ with the initial guess for an excited state during
 optimization of the wave function, thereby avoiding variational
 collapse.
 
+
 --------------
 Implementation
 --------------
+
 The GPAW implementation of MOM is presented in [#momgpaw1]_
 (real space grid and plane waves approaches) and [#momgpaw2]_
 (LCAO approach).
@@ -82,9 +84,11 @@ where `c^*_{\mu n}` and `c^{(k)}_{\nu m}` are the expansion
 coefficients for the initial guess orbitals and orbitals at
 iteration `k`, while `|\Phi_{\nu}\rangle` are the basis functions.
 
+
 --------------
 Notes on usage
 --------------
+
 Typically, one first performs a ground-state calculation.
 To prepare the calculator for an excited-state calculation,
 the function ``mom.mom_calculation`` can be used::
@@ -123,6 +127,7 @@ should only be used at geometries far from state crossings.
 
 .. autofunction:: gpaw.mom.mom_calculation
 
+
 .. _example_1:
 
 -----------------------------------------------------
@@ -141,6 +146,7 @@ formula is used: `E_s=2E_m-E_t`, where `E_m` and `E_t` are
 the energies of the mixed-spin and triplet states, respectively.
 
 .. literalinclude:: mom_h2o.py
+
 
 ---------------------------------------------
 Example II: Excited-state geometry relaxation
@@ -165,6 +171,7 @@ force equal fractional occupations of the two `\pi^*`
 orbitals to avoid convergence issues.
 
 .. literalinclude:: mom_co.py
+
 
 ----------
 References

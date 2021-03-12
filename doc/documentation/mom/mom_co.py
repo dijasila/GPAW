@@ -1,6 +1,8 @@
 from ase.build import molecule
 from ase.optimize import LBFGS
-from gpaw import GPAW, mom
+from gpaw import GPAW
+from gpaw.mom import mom_calculation
+
 
 atoms = molecule('CO')
 atoms.center(vacuum=5)
@@ -11,7 +13,8 @@ calc = GPAW(mode='lcao',
             h=0.2,
             xc='PBE',
             symmetry='off',
-            convergence={'density': 1e-7})
+            convergence={'density': 1e-7},
+            txt='co.txt')
 atoms.calc = calc
 
 # Ground-state calculation
@@ -26,7 +29,7 @@ f[0][5] += 0.5
 
 # Excited-state MOM calculation with Gaussian
 # smearing of the occupation numbers
-mom.mom_calculation(calc, atoms, f, width=0.01)
+mom_calculation(calc, atoms, f, width=0.01)
 
 opt = LBFGS(atoms)
 opt.run(fmax=0.05)
