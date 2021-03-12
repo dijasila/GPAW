@@ -1,6 +1,7 @@
 import copy
 from ase.build import molecule
-from gpaw import GPAW, restart, mom
+from gpaw import GPAW, restart
+from gpaw.mom import mom_calculation
 
 atoms = molecule('H2O')
 atoms.center(vacuum=7)
@@ -12,7 +13,8 @@ calc = GPAW(mode='fd',
             xc='PBE',
             spinpol=True,
             symmetry='off',
-            convergence={'bands': -1})
+            convergence={'bands': -1},
+            txt='h2o.txt')
 atoms.calc = calc
 
 # Ground-state calculation
@@ -33,7 +35,7 @@ f_t[0][2] -= 1.  # Remove one electron from homo-1 (n) spin up
 f_t[1][4] += 1.  # Add one electron to lumo (3s) spin down
 
 # MOM calculation for triplet n->3s state
-mom.mom_calculation(calc, atoms, f_t)
+mom_calculation(calc, atoms, f_t)
 E_t = atoms.get_potential_energy()
 
 atoms, calc = restart('h2o_fd_gs.gpw', txt='-')
@@ -44,7 +46,7 @@ f_m[0][2] -= 1.  # Remove one electron from homo-1 (n) spin up
 f_m[0][4] += 1.  # Add one electron to lumo (3s) spin up
 
 # MOM calculation for mixed-spin n->3s state
-mom.mom_calculation(calc, atoms, f_m)
+mom_calculation(calc, atoms, f_m)
 E_m = atoms.get_potential_energy()
 E_s = 2 * E_m - E_t  # Spin purified energy
 
