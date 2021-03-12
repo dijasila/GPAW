@@ -17,7 +17,7 @@ def check_co():
 
 
 def check_h2o():
-    text = Path('h2o.txt').read_text()
+    text = Path('h2o_energies.txt').read_text()
     for line in text.splitlines():
         if line.startswith('Excitation energy triplet'):
             et = float(line.split()[-2])
