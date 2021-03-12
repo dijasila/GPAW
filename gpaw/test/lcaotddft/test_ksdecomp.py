@@ -6,7 +6,6 @@ from ase.build import molecule
 
 from gpaw import GPAW
 from gpaw.mpi import world, serial_comm, broadcast_float, broadcast
-from gpaw.poisson import PoissonSolver
 from gpaw.lcaotddft import LCAOTDDFT
 from gpaw.lcaotddft.dipolemomentwriter import DipoleMomentWriter
 from gpaw.lcaotddft.densitymatrix import DensityMatrix
@@ -80,7 +79,6 @@ def initialize_system():
                 setups=dict(Na='1'),
                 basis='dzp',
                 mode='lcao',
-                poissonsolver=PoissonSolver(eps=1e-16),
                 convergence={'density': 1e-8},
                 communicator=comm,
                 txt='gs.out')

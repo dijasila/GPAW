@@ -873,7 +873,6 @@ class FDTDPoissonSolver:
               phi,
               rho,
               charge=None,
-              eps=None,
               maxcharge=1e-6,
               zero_initial_phi=False,
               calculation_mode=None,
@@ -891,21 +890,18 @@ class FDTDPoissonSolver:
         if (self.calculation_mode == 'solve'):
             # do not modify the polarizable material
             niter = self.solve_solve(charge=None,
-                                     eps=eps,
                                      maxcharge=maxcharge,
                                      zero_initial_phi=False)
 
         elif (self.calculation_mode == 'iterate'):
             # find self-consistent density
             niter = self.solve_iterate(charge=None,
-                                       eps=eps,
                                        maxcharge=maxcharge,
                                        zero_initial_phi=False)
 
         elif (self.calculation_mode == 'propagate'):
             # propagate one time step
             niter = self.solve_propagate(charge=None,
-                                         eps=eps,
                                          maxcharge=maxcharge,
                                          zero_initial_phi=False)
 

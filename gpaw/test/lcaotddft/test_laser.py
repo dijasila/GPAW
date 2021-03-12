@@ -6,7 +6,6 @@ from gpaw import GPAW
 from gpaw.lcaotddft import LCAOTDDFT
 from gpaw.lcaotddft.laser import GaussianPulse
 from gpaw.external import ConstantElectricField
-from gpaw.poisson import PoissonSolver
 from gpaw.lcaotddft.dipolemomentwriter import DipoleMomentWriter
 from gpaw.tddft.units import as_to_au
 from gpaw.mpi import world
@@ -28,7 +27,6 @@ def test_laser(in_tmp_dir):
     # Ground-state calculation
     calc = GPAW(nbands=2, h=0.4, setups=dict(Na='1'),
                 basis='dzp', mode='lcao',
-                poissonsolver=PoissonSolver(eps=1e-16),
                 convergence={'density': 1e-8},
                 txt='gs.out')
     atoms.calc = calc

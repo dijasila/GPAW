@@ -18,8 +18,7 @@ lr_comms = LrCommunicators(world, dd_size, eh_size)
 gs_calc = GPAW('r-methyl-oxirane.gpw',
                communicator=lr_comms.dd_comm,
                txt='lr_gs.txt',
-               poissonsolver=PoissonSolver(eps=1e-20,
-                                           remove_moment=(1 + 3 + 5)))
+               poissonsolver=PoissonSolver(remove_moment=(1 + 3 + 5)))
 
 lr = LrTDDFT2('lrtddft2',
               gs_calc,
