@@ -6,7 +6,7 @@ from gpaw.test import equal
 
 
 @pytest.mark.mom
-def test_mom_lcao_forces():
+def test_mom_lcao_forces(in_tmp_dir):
     f_sn = [[1., 1., 1., 1., 0., 1., 0., 0.],
             [1., 1., 1., 1., 1., 0., 0., 0.]]
     L = 10.0

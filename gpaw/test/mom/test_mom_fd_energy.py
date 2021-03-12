@@ -6,7 +6,7 @@ from gpaw.test import equal
 
 
 @pytest.mark.mom
-def test_mom_fd_energy():
+def test_mom_fd_energy(in_tmp_dir):
     dE_ref = [7.6319602946, 7.4176240132]
 
     atoms = molecule('H2O')
