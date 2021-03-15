@@ -731,6 +731,8 @@ class DirectMinLCAO(DirectLCAO):
                 self.odd.get_lagrange_matrices(h_mm, kpt.C_nM,
                                                kpt.f_n, kpt, wfs,
                                                update_eigenvalues=True)
+            with wfs.timer('Calculate projections'):
+                wfs.atomic_correction.calculate_projections(wfs, kpt)
 
         self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
         occ_name = getattr(wfs.occupations, "name", None)
