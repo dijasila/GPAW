@@ -29,7 +29,7 @@ def test_mom_lcao_forces(in_tmp_dir):
                              'density': 1e-3})
 
     atoms.calc = calc
-    mom.mom_calculation(calc, atoms, f_sn)
+    mom.prepare_mom_calculation(calc, atoms, f_sn)
     F = atoms.get_forces()
 
     # Test overlaps

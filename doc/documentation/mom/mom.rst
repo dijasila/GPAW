@@ -91,11 +91,11 @@ Notes on usage
 
 Typically, one first performs a ground-state calculation.
 To prepare the calculator for an excited-state calculation,
-the function ``mom.mom_calculation`` can be used::
+the function ``mom.prepare_mom_calculation`` can be used::
 
   from gpaw import mom
 
-  mom.mom_calculation(calc, atoms, f)
+  mom.prepare_mom_calculation(calc, atoms, f)
 
 where ``f`` contains the occupation numbers of the excited state
 (see examples below). Alternatively, the MOM calculation can be
@@ -108,7 +108,7 @@ virtual orbitals [#Dongmom]_. In order to use eq. :any:`eq:momprojections`,
 instead, corresponding to the original MOM approach [#imom]_,
 one has to specify::
 
-  mom.mom_calculation(..., use_projections=True, ...)
+  mom.prepare_mom_calculation(..., use_projections=True, ...)
 
 SCF algorithms based on diagonalization of the Hamiltonian
 matrix tend to fail when degenerate or nearly degenerate
@@ -125,7 +125,7 @@ discontinuities in the potentials and forces close to
 crossings between electronic states [#momgpaw2]_, so this feature
 should only be used at geometries far from state crossings.
 
-.. autofunction:: gpaw.mom.mom_calculation
+.. autofunction:: gpaw.mom.prepare_mom_calculation
 
 
 .. _example_1:

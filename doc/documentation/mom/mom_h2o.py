@@ -2,7 +2,7 @@ import copy
 from ase.build import molecule
 from ase.parallel import paropen
 from gpaw import GPAW
-from gpaw.mom import mom_calculation
+from gpaw.mom import prepare_mom_calculation
 
 atoms = molecule('H2O')
 atoms.center(vacuum=7)
@@ -32,7 +32,7 @@ f_t[0][2] -= 1.  # Remove one electron from homo-1 (n) spin up
 f_t[1][4] += 1.  # Add one electron to lumo (3s) spin down
 
 # MOM calculation for triplet n->3s state
-mom_calculation(calc, atoms, f_t)
+prepare_mom_calculation(calc, atoms, f_t)
 E_t = atoms.get_potential_energy()
 
 # Mixed-spin n->3s occupation numbers
@@ -41,7 +41,7 @@ f_m[0][2] -= 1.  # Remove one electron from homo-1 (n) spin up
 f_m[0][4] += 1.  # Add one electron to lumo (3s) spin up
 
 # MOM calculation for mixed-spin n->3s state
-mom_calculation(calc, atoms, f_m)
+prepare_mom_calculation(calc, atoms, f_m)
 E_m = atoms.get_potential_energy()
 E_s = 2 * E_m - E_t  # Spin purified energy
 

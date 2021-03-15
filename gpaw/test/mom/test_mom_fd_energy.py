@@ -40,7 +40,7 @@ def test_mom_fd_energy(in_tmp_dir):
         f_sn[0][3] -= 1.
         f_sn[s][4] += 1.
 
-        mom.mom_calculation(calc, atoms, f_sn)
+        mom.prepare_mom_calculation(calc, atoms, f_sn)
 
         E_es = atoms.get_potential_energy()
 
@@ -74,7 +74,7 @@ def test_mom_fd_energy(in_tmp_dir):
     f_n[0][3] -= 0.5
     f_n[0][4] += 0.5
 
-    mom.mom_calculation(calc, atoms, f_n)
+    mom.prepare_mom_calculation(calc, atoms, f_n)
     E_es = atoms.get_potential_energy()
 
     dE = E_es - E_gs

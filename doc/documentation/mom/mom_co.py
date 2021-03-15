@@ -2,7 +2,7 @@ from ase.build import molecule
 from ase.optimize import LBFGS
 from ase.parallel import paropen
 from gpaw import GPAW
-from gpaw.mom import mom_calculation
+from gpaw.mom import prepare_mom_calculation
 
 
 atoms = molecule('CO')
@@ -30,7 +30,7 @@ f[0][5] += 0.5  # Add one electron to lumo (pi*)
 
 # Excited-state MOM calculation with Gaussian
 # smearing of the occupation numbers
-mom_calculation(calc, atoms, f, width=0.01)
+prepare_mom_calculation(calc, atoms, f, width=0.01)
 
 opt = LBFGS(atoms, logfile='co.log')
 opt.run(fmax=0.05)

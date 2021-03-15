@@ -11,15 +11,15 @@ from ase.units import Ha
 from gpaw.occupations import FixedOccupationNumbers, ParallelLayout
 
 
-def mom_calculation(calc,
-                    atoms,
-                    numbers,
-                    use_projections=False,
-                    update_numbers=True,
-                    use_fixed_occupations=False,
-                    width=0.0,
-                    niter_width_update=40,
-                    width_increment=0.0):
+def prepare_mom_calculation(calc,
+                            atoms,
+                            numbers,
+                            use_projections=False,
+                            update_numbers=True,
+                            use_fixed_occupations=False,
+                            width=0.0,
+                            niter_width_update=40,
+                            width_increment=0.0):
     """Helper function to prepare a calculator for a MOM calculation.
 
     calc: GPAW instance
