@@ -12,7 +12,7 @@ from ase.utils import convert_string_to_fd
 from ase.utils.timing import timer, Timer
 
 import gpaw.mpi as mpi
-from gpaw import GPAW
+from gpaw import GPAW, disable_dry_run
 from gpaw.fd_operators import Gradient
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.response.math_func import (two_phi_planewave_integrals,
@@ -661,7 +661,8 @@ class PairDensity:
             if not isinstance(gs, GPAW):
                 print('Reading ground state calculation:\n  %s' % gs,
                       file=self.fd)
-                calc = GPAW(gs, communicator=mpi.serial_comm)
+                with disable_dry_run():
+                    calc = GPAW(gs, communicator=mpi.serial_comm)
             else:
                 calc = gs
                 assert calc.wfs.world.size == 1
