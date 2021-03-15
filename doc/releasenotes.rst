@@ -16,9 +16,10 @@ Git master branch
   Kohn–Sham states.  Previously, the printed occupation numbers were
   scaled by **k**-point weight.
 
-* Variational calculations of excited states can now be performed
-  with the :ref:`mom` (MOM). It can be used for excited-state geometry
-  optimization and molecular dynamics.
+* Calculations of excited states can now be performed with the :ref:`mom`
+  (MOM). Since calculations using MOM are variational, they provide atomic
+  forces and can be used for excited-state geometry optimization and molecular
+  dynamics.
 
 
 Version 21.1.0
