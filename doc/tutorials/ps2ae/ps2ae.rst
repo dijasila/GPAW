@@ -15,6 +15,12 @@ function to a fine grid where the PAW corrections can be represented:
 
 .. autoclass:: gpaw.utilities.ps2ae.PS2AE
 
+.. note:: Versions 20.10.0 and earlier
+
+    The ``grid_spacing`` parameter was called ``h`` in older versions of GPAW.
+    Using ``grid_spacing`` in the older versions will give a
+    ``got an unexpected keyword`` error.
+
 Here is the code for plotting some AE wave functions for a HLi dimer using a
 PAW dataset for Li with a frozen 1s orbital
 (:meth:`~gpaw.utilities.ps2ae.PS2AE.get_wave_function`):
