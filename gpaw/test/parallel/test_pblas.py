@@ -63,6 +63,7 @@ def initialize_matrix(grid, M, N, mb, nb, random):
     block_desc = grid.new_descriptor(M, N, mb, nb)
     local_desc = block_desc.as_serial()
     A0 = random(local_desc.shape)
+    A0 = np.ascontiguousarray(A0)
     local_desc.checkassert(A0)
     A = local_desc.redistribute(block_desc, A0)
     block_desc.checkassert(A)
