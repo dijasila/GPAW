@@ -1,7 +1,8 @@
-import pytest
 import numpy as np
+import pytest
 from ase import Atoms
-from gpaw import GPAW, mom
+from gpaw import GPAW
+from gpaw.mom import prepare_mom_calculation
 from gpaw.test import equal
 
 
@@ -29,7 +30,7 @@ def test_mom_lcao_forces(in_tmp_dir):
                              'density': 1e-3})
 
     atoms.calc = calc
-    mom.prepare_mom_calculation(calc, atoms, f_sn)
+    prepare_mom_calculation(calc, atoms, f_sn)
     F = atoms.get_forces()
 
     # Test overlaps

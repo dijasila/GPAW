@@ -37,7 +37,7 @@ opt.run(fmax=0.05)
 
 d = atoms.get_distance(0, 1)
 
-f = paropen('co.log', 'a')
-print('Optimized C-O bond length of sigma->pi* state: %.2f Å' % d, file=f)
-# https://doi.org/10.1007/978-1-4757-0961-2
-print('Experimental C-O bond length of sigma->pi* state: 1.24 Å', file=f)
+with paropen('co.log', 'a') as fd:
+    print(f'Optimized C-O bond length of sigma->pi* state: {d:.2f} Å', file=fd)
+    # https://doi.org/10.1007/978-1-4757-0961-2
+    print('Experimental C-O bond length of sigma->pi* state: 1.24 Å', file=fd)

@@ -1,7 +1,8 @@
-import pytest
 import numpy as np
+import pytest
 from ase.build import molecule
-from gpaw import GPAW, restart, mom
+from gpaw import GPAW, restart
+from gpaw.mom import prepare_mom_calculation
 from gpaw.test import equal
 
 
@@ -40,7 +41,7 @@ def test_mom_fd_energy(in_tmp_dir):
         f_sn[0][3] -= 1.
         f_sn[s][4] += 1.
 
-        mom.prepare_mom_calculation(calc, atoms, f_sn)
+        prepare_mom_calculation(calc, atoms, f_sn)
 
         E_es = atoms.get_potential_energy()
 
@@ -74,7 +75,7 @@ def test_mom_fd_energy(in_tmp_dir):
     f_n[0][3] -= 0.5
     f_n[0][4] += 0.5
 
-    mom.prepare_mom_calculation(calc, atoms, f_n)
+    prepare_mom_calculation(calc, atoms, f_n)
     E_es = atoms.get_potential_energy()
 
     dE = E_es - E_gs

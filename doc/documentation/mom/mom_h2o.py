@@ -45,14 +45,13 @@ prepare_mom_calculation(calc, atoms, f_m)
 E_m = atoms.get_potential_energy()
 E_s = 2 * E_m - E_t  # Spin purified energy
 
-f = paropen('h2o_energies.txt', 'w')
-print('Excitation energy triplet n->3s state: '
-      '%.2f eV' % (E_t - E_gs), file=f)
-print('Excitation energy singlet n->3s state: '
-      '%.2f eV' % (E_s - E_gs), file=f)
-# https://doi.org/10.1021/acs.jctc.8b00406
-print('Experimental excitation energy triplet n->3s state: '
-      '9.46 eV', file=f)
-print('Experimental excitation energy singlet n->3s state: '
-      '9.67 eV', file=f)
-f.close()
+with paropen('h2o_energies.txt', 'w') as fd:
+    print(f'Excitation energy triplet n->3s state: {E_t - E_gs:.2f} eV',
+          file=fd)
+    print(f'Excitation energy singlet n->3s state: {E_s - E_gs:.2f} eV',
+          file=fd)
+    # https://doi.org/10.1021/acs.jctc.8b00406
+    print('Experimental excitation energy triplet n->3s state: 9.46 eV',
+          file=fd)
+    print('Experimental excitation energy singlet n->3s state: 9.67 eV',
+          file=fd)
