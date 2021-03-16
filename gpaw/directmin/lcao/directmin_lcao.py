@@ -286,12 +286,13 @@ class DirectMinLCAO(DirectLCAO):
             'Please, use: nbands=\'nao\''
         assert wfs.bd.comm.size == 1, \
             'Band parallelization is not supported'
-        if  wfs.occupations.name == 'fixmagmom':
-            assert wfs.occupations.occ.name == 'fixed-occ-zero-width', \
-                'Please, use mixer={\'name\': \'fixed-occ-zero-width\'}'
-        else:
-            assert wfs.occupations.name == 'fixed-occ-zero-width', \
-                'Please, use mixer={\'name\': \'fixed-occ-zero-width\'}'
+        if wfs.occupations.name != 'mom':
+            if wfs.occupations.name == 'fixmagmom':
+                assert wfs.occupations.occ.name == 'fixed-occ-zero-width', \
+                    'Please, use occupations={\'name\': \'fixed-occ-zero-width\'}'
+            else:
+                assert wfs.occupations.name == 'fixed-occ-zero-width', \
+                    'Please, use occupations={\'name\': \'fixed-occ-zero-width\'}'
 
         wfs.timer.start('Direct Minimisation step')
 
@@ -888,12 +889,21 @@ class DirectMinLCAO(DirectLCAO):
         for kpt in wfs.kpt_u:
             f_sn = kpt.f_n.copy()
             if wfs.gd.comm.rank == 0:
-                wfs.occupations.sort_wavefunctions(kpt)
+                occupied = kpt.f_n > 1.0e-10
+                n_occ = len(kpt.f_n[occupied])
+                if n_occ == 0.0:
+                    return
+                if np.min(kpt.f_n[:n_occ]) == 0:
+                    ind_occ = np.argwhere(occupied)
+                    ind_unocc = np.argwhere(~occupied)
+                    ind = np.vstack((ind_occ, ind_unocc))
+                    kpt.C_nM = np.squeeze(kpt.C_nM[ind])
+                    kpt.f_n = np.squeeze(kpt.f_n[ind])
+                    kpt.eps_n = np.squeeze(kpt.eps_n[ind])
             # Broadcast coefficients, occupation numbers, eigenvalues
             wfs.gd.comm.broadcast(kpt.eps_n, 0)
             wfs.gd.comm.broadcast(kpt.f_n, 0)
             wfs.gd.comm.broadcast(kpt.C_nM, 0)
-
             if not np.allclose(kpt.f_n, f_sn) and self.iters > 1:
                 changedocc = True
                 wfs.atomic_correction.calculate_projections(wfs, kpt)

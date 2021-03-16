@@ -323,12 +323,13 @@ class DirectMin(Eigensolver):
             'Please, use: mixer={\'name\': \'dummy\'}'
         assert wfs.bd.comm.size == 1, \
             'Band parallelization is not supported'
-        if  wfs.occupations.name == 'fixmagmom':
-            assert wfs.occupations.occ.name == 'fixed-occ-zero-width', \
-                'Please, use mixer={\'name\': \'fixed-occ-zero-width\'}'
-        else:
-            assert wfs.occupations.name == 'fixed-occ-zero-width', \
-                'Please, use mixer={\'name\': \'fixed-occ-zero-width\'}'
+        if wfs.occupations.name != 'mom':
+            if wfs.occupations.name == 'fixmagmom':
+                assert wfs.occupations.occ.name == 'fixed-occ-zero-width', \
+                    'Please, use occupations={\'name\': \'fixed-occ-zero-width\'}'
+            else:
+                assert wfs.occupations.name == 'fixed-occ-zero-width', \
+                    'Please, use occupations={\'name\': \'fixed-occ-zero-width\'}'
 
         if not self.initialized:
             if isinstance(ham.xc, HybridXC):
@@ -413,7 +414,7 @@ class DirectMin(Eigensolver):
                     wfs.calculate_occupation_numbers(dens.fixed)
                 if occ_name == 'mom':
                     for kpt in wfs.kpt_u:
-                        wfs.occupations.sort_wavefunctions(kpt)
+                        self.sort_wavefunctions(wfs, kpt)
                 self.iters = 0
                 self.initialized = False
                 self.need_init_odd = True
@@ -429,7 +430,7 @@ class DirectMin(Eigensolver):
                     wfs.calculate_occupation_numbers(dens.fixed)
                     if occ_name == 'mom':
                         for kpt in wfs.kpt_u:
-                            wfs.occupations.sort_wavefunctions(kpt)
+                            self.sort_wavefunctions(wfs, kpt)
                     self.iters = 0
                     self.initialized = False
                     self.need_init_odd = True
@@ -448,12 +449,13 @@ class DirectMin(Eigensolver):
             'Please, use: mixer={\'name\': \'dummy\'}'
         assert wfs.bd.comm.size == 1, \
             'Band parallelization is not supported'
-        if  wfs.occupations.name == 'fixmagmom':
-            assert wfs.occupations.occ.name == 'fixed-occ-zero-width', \
-                'Please, use mixer={\'name\': \'fixed-occ-zero-width\'}'
-        else:
-            assert wfs.occupations.name == 'fixed-occ-zero-width', \
-                'Please, use mixer={\'name\': \'fixed-occ-zero-width\'}'
+        if wfs.occupations.name != 'mom':
+            if wfs.occupations.name == 'fixmagmom':
+                assert wfs.occupations.occ.name == 'fixed-occ-zero-width', \
+                    'Please, use occupations={\'name\': \'fixed-occ-zero-width\'}'
+            else:
+                assert wfs.occupations.name == 'fixed-occ-zero-width', \
+                    'Please, use occupations={\'name\': \'fixed-occ-zero-width\'}'
 
         if not self.initialized:
             if isinstance(ham.xc, HybridXC):
@@ -513,7 +515,7 @@ class DirectMin(Eigensolver):
                 wfs.calculate_occupation_numbers(dens.fixed)
                 if occ_name == 'mom':
                     for kpt in wfs.kpt_u:
-                        wfs.occupations.sort_wavefunctions(kpt)
+                        self.sort_wavefunctions(wfs, kpt)
                 self.iters = 0
                 self.initialized = False
                 self.need_init_odd = True
@@ -529,7 +531,7 @@ class DirectMin(Eigensolver):
                     wfs.calculate_occupation_numbers(dens.fixed)
                     if occ_name == 'mom':
                         for kpt in wfs.kpt_u:
-                            wfs.occupations.sort_wavefunctions(kpt)
+                            self.sort_wavefunctions(wfs, kpt)
                     self.iters = 0
                     self.initialized = False
                     self.need_init_odd = True
@@ -1089,7 +1091,7 @@ class DirectMin(Eigensolver):
         elif occ_name == 'mom' and 'SIC' not in self.odd_parameters['name']:
             self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
             for kpt in wfs.kpt_u:
-                wfs.occupations.sort_wavefunctions(kpt)
+                self.sort_wavefunctions(wfs, kpt)
 
     def get_gradients_lumo(self, ham, wfs, kpt):
 
@@ -1495,7 +1497,7 @@ class DirectMin(Eigensolver):
                     occ_name = getattr(wfs.occupations, 'name', None)
                     if occ_name == 'mom':
                         for kpt in wfs.kpt_u:
-                            wfs.occupations.sort_wavefunctions(kpt)
+                            self.sort_wavefunctions(wfs, kpt)
                     return
             else:
                 # we need to do it in order to initialize mom..
@@ -1520,9 +1522,9 @@ class DirectMin(Eigensolver):
                         wfs.calculate_occupation_numbers(dens.fixed)
                     if occ_name == 'mom':
                         for kpt in wfs.kpt_u:
-                            wfs.occupations.sort_wavefunctions(kpt)
-                            wfs.pt.integrate(kpt.psit_nG, kpt.P_ani,
-                                             kpt.q)
+                            self.sort_wavefunctions(wfs, kpt)
+                            # wfs.pt.integrate(kpt.psit_nG, kpt.P_ani,
+                            #                  kpt.q)
                         # wfs.occupations.initialize_reference_orbitals()
 
                 return
@@ -1547,7 +1549,7 @@ class DirectMin(Eigensolver):
             occ_name = getattr(wfs.occupations, 'name', None)
             if occ_name == 'mom':
                 for kpt in wfs.kpt_u:
-                    wfs.occupations.sort_wavefunctions(kpt)
+                    self.sort_wavefunctions(wfs, kpt)
 
         # if wfs.mode == 'pw' and \
         #         self.initial_orbitals != 'KS' and \
@@ -1660,6 +1662,20 @@ class DirectMin(Eigensolver):
             if self.iloop is not None or \
                     self.iloop_outer is not None:
                 wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+
+    def sort_wavefunctions(self, wfs, kpt):
+        occupied = kpt.f_n > 1.0e-10
+        n_occ = len(kpt.f_n[occupied])
+        if n_occ == 0.0:
+            return
+        if np.min(kpt.f_n[:n_occ]) == 0:
+            ind_occ = np.argwhere(occupied)
+            ind_unocc = np.argwhere(~occupied)
+            ind = np.vstack((ind_occ, ind_unocc))
+            kpt.psit_nG[:] = np.squeeze(kpt.psit_nG[ind])
+            wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+            kpt.f_n = np.squeeze(kpt.f_n[ind])
+            kpt.eps_n = np.squeeze(kpt.eps_n[ind])
 
 
 def log_f(niter, e_total, eig_error, log):
