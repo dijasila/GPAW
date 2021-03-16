@@ -16,6 +16,11 @@ Git master branch
   Kohn–Sham states.  Previously, the printed occupation numbers were
   scaled by **k**-point weight.
 
+* Calculations of excited states can now be performed with the :ref:`mom`
+  (MOM). Since calculations using MOM are variational, they provide atomic
+  forces and can be used for excited-state geometry optimization and molecular
+  dynamics.
+
 * The Davidson eigensolver now uses ScaLAPACK for the
   `(2 N_{\text{bands}}) \times (2 N_{\text{bands}})` diagonalization step
   when ``parallel={'sl_auto':True}`` is used.
