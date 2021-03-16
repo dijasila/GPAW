@@ -60,8 +60,7 @@ class DftPzSicXT:
         self.xc = ham.xc
 
         if poisson_solver == 'FPS':
-            self.poiss = PoissonSolver(eps=1.0e-16,
-                                       use_charge_center=True,
+            self.poiss = PoissonSolver(use_charge_center=True,
                                        use_charged_periodic_corrections=True)
         elif poisson_solver == 'GS':
             self.poiss = PoissonSolver(name='fd',
