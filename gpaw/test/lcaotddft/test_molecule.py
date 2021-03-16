@@ -142,6 +142,8 @@ def test_propagated_wave_function(initialize_system, module_tmp_path):
     # Pick a few coefficients corresponding to non-degenerate states;
     # degenerate states should be normalized so that they can be compared
     coeff = coeff[np.ix_([0], [0], [0, 1, 4], [0, 1, 2])]
+    # Normalize the wave function sign
+    coeff = np.sign(coeff.real[..., 0, np.newaxis]) * coeff
     ref = [[[[1.6564776755628504e-02 + 1.2158943340143986e-01j,
               4.7464497657284752e-03 + 3.4917799444496286e-02j,
               8.2152048273399657e-07 - 1.6344333784831069e-06j],
