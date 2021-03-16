@@ -9,7 +9,6 @@ from ase.units import Hartree
 from gpaw.utilities.blas import axpy
 from gpaw.utilities import unpack
 from gpaw.eigensolvers.eigensolver import Eigensolver
-from gpaw import extra_parameters
 
 
 class CG(Eigensolver):
@@ -41,10 +40,7 @@ class CG(Eigensolver):
         Eigensolver.__init__(self)
         self.niter = niter
         self.rtol = rtol
-        if extra_parameters.get('PK', False):
-            self.orthonormalization_required = True
-        else:
-            self.orthonormalization_required = False
+        self.orthonormalization_required = False
         self.tw_coeff = tw_coeff
 
         self.tolerance = None
@@ -100,10 +96,7 @@ class CG(Eigensolver):
 
         total_error = 0.0
         for n in range(self.nbands):
-            if extra_parameters.get('PK', False):
-                N = n + 1
-            else:
-                N = self.nbands
+            N = self.nbands
             R_G = R.array[n]
             Htpsit_G = Htpsit.array[n]
             psit_G = psit.array[n]

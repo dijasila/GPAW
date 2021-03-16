@@ -1,6 +1,6 @@
 from ase import Atom
 
-from gpaw import GPAW, FermiDirac, PoissonSolver
+from gpaw import GPAW, FermiDirac
 from gpaw.cluster import Cluster
 from gpaw.test import equal
 
@@ -19,7 +19,6 @@ def test_Hubbard_U_Zn():
         c = GPAW(h=h, spinpol=spin,
                  xc='oldLDA',
                  mode='lcao', basis='sz(dzp)',
-                 poissonsolver=PoissonSolver(eps=1e-7),
                  parallel=dict(kpt=1),
                  charge=1, occupations=FermiDirac(width=0.1, fixmagmom=spin)
                  )

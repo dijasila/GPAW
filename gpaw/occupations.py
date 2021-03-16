@@ -650,9 +650,13 @@ class FixedOccupationNumbers(OccupationNumberCalculator):
                    weight_q,
                    f_qn,
                    fermi_level_guess=nan):
-        for q, f_n in enumerate(f_qn):
-            s = q % len(self.f_sn)
-            self.bd.distribute(self.f_sn[s], f_n)
+        if self.bd.nbands == self.f_sn.shape[1]:
+            for q, f_n in enumerate(f_qn):
+                s = q % len(self.f_sn)
+                self.bd.distribute(self.f_sn[s], f_n)
+        else:
+            # Non-collinear calculation:
+            self.bd.distribute(self.f_sn.T.flatten().copy(), f_qn[0])
 
         return inf, 0.0
 
@@ -740,11 +744,6 @@ def create_occ_calc(dct: Dict[str, Any],
     elif name == 'orbital-free':
         return ThomasFermiOccupations(**kwargs)
     elif name == 'fixed':
-        return FixedOccupationNumbers(**kwargs)
-    elif name == 'mom':
-        for key in kwargs.keys():
-            if key not in ['numbers', 'parallel_layout']:
-                del kwargs[key]
         return FixedOccupationNumbers(**kwargs)
     elif name == 'fixed-occ-zero-width':
         occ = FixedOccupationsZeroWidth(**kwargs)

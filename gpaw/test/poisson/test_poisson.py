@@ -27,11 +27,11 @@ def test_poisson_poisson():
         a -= I0 / L**3
 
         b = gd.zeros()
-        p.solve(b, a, charge=0, eps=1e-20)
+        p.solve(b, a, charge=0)
         return gd.collect(b, broadcast=1)
 
-    b1 = f(8, FDPoissonSolver(nn=1, relax='J'))
-    b2 = f(8, FDPoissonSolver(nn=1, relax='GS'))
+    b1 = f(8, FDPoissonSolver(nn=1, relax='J', eps=1e-20))
+    b2 = f(8, FDPoissonSolver(nn=1, relax='GS', eps=1e-20))
     b3 = f(8, PoissonSolver(nn=1))
     err1 = abs(b1[0, 0, 0] - b1[8, 8, 8])
     err2 = abs(b2[0, 0, 0] - b2[8, 8, 8])

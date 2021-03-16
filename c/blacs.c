@@ -72,6 +72,7 @@ int Csys2blacs_handle_(MPI_Comm SysCtxt);
 
 #define   pdtran_  pdtran
 #define   pztranc_ pztranc
+#define   pztranu_ pztranu
 #define   pdgemm_  pdgemm
 #define   pzgemm_  pzgemm
 #define   pdgemv_  pdgemv
@@ -257,6 +258,12 @@ void pztranc_(int* m, int* n,
               void* beta,
               void* c, int* ic, int* jc, int* descc);
 
+void pztranu_(int* m, int* n,
+              void* alpha,
+              void* a, int* ia, int* ja, int* desca,
+              void* beta,
+              void* c, int* ic, int* jc, int* descc);
+
 void pdgemm_(char* transa, char* transb, int* m, int* n, int* k,
              double* alpha,
              double* a, int* ia, int* ja, int* desca,
@@ -348,10 +355,12 @@ PyObject* pblas_tran(PyObject *self, PyObject *args)
     Py_complex beta;
     PyArrayObject *a, *c;
     PyArrayObject *desca, *descc;
+    int conj;
 
-    if (!PyArg_ParseTuple(args, "iiDODOOO", &m, &n, &alpha,
+    if (!PyArg_ParseTuple(args, "iiDODOOOi", &m, &n, &alpha,
                           &a, &beta, &c,
-                          &desca, &descc))
+                          &desca, &descc,
+                          &conj))
         return NULL;
 
     int one = 1;
@@ -361,8 +370,14 @@ PyObject* pblas_tran(PyObject *self, PyObject *args)
                 DOUBLEP(a), &one, &one, INTP(desca),
                 &(beta.real),
                 DOUBLEP(c), &one, &one, INTP(descc));
-    else
+    else if (conj)
         pztranc_(&m, &n,
+                 &alpha,
+                 (void*)PyArray_DATA(a), &one, &one, INTP(desca),
+                 &beta,
+                 (void*)PyArray_DATA(c), &one, &one, INTP(descc));
+    else
+        pztranu_(&m, &n,
                  &alpha,
                  (void*)PyArray_DATA(a), &one, &one, INTP(desca),
                  &beta,

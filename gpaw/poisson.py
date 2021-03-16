@@ -108,10 +108,20 @@ class _PoissonSolver(object):
 
 
 class BasePoissonSolver(_PoissonSolver):
-    def __init__(self, eps=None, remove_moment=None,
+    def __init__(self, *, remove_moment=None,
                  use_charge_center=False,
                  metallic_electrodes=False,
+                 eps=None,
                  use_charged_periodic_corrections=False):
+
+        if eps is not None:
+            warnings.warn(
+                "Please do not specify the eps parameter "
+                f"for {self.__class__.__name__}. "
+                "The parameter doesn't do anything for this solver "
+                "and defining it will throw an error in the future.",
+                FutureWarning)
+
         # metallic electrodes: mirror image method to allow calculation of
         # charged, partly periodic systems
         self.gd = None
@@ -126,8 +136,6 @@ class BasePoissonSolver(_PoissonSolver):
 
     def todict(self):
         d = {'name': 'basepoisson'}
-        if self.eps is not None:
-            d['eps'] = self.eps
         if self.remove_moment:
             d['remove_moment'] = self.remove_moment
         if self.use_charge_center:
@@ -144,8 +152,6 @@ class BasePoissonSolver(_PoissonSolver):
         # The idea is that the subclass writes a header and main parameters,
         # then adds the below string.
         lines = []
-        if self.eps is not None:
-            lines.append('    Tolerance: %e' % self.eps),
         if self.remove_moment is not None:
             lines.append('    Remove moments up to L=%d' % self.remove_moment)
         if self.use_charge_center:
@@ -156,14 +162,12 @@ class BasePoissonSolver(_PoissonSolver):
 
         return '\n'.join(lines)
 
-    def solve(self, phi, rho, charge=None, eps=None, maxcharge=1e-6,
+    def solve(self, phi, rho, charge=None, maxcharge=1e-6,
               zero_initial_phi=False, timer=NullTimer()):
         self._init()
         assert np.all(phi.shape == self.gd.n_c)
         assert np.all(rho.shape == self.gd.n_c)
 
-        if eps is None:
-            eps = self.eps
         actual_charge = self.gd.integrate(rho)
         background = (actual_charge / self.gd.dv /
                       self.gd.get_size_of_global_array().prod())
@@ -180,7 +184,7 @@ class BasePoissonSolver(_PoissonSolver):
             for phi_cor in phi_cor_L:
                 phi -= phi_cor
 
-            niter = self.solve_neutral(phi, rho_neutral, eps=eps, timer=timer)
+            niter = self.solve_neutral(phi, rho_neutral, timer=timer)
             # correct error introduced by removing multipoles
             for phi_cor in phi_cor_L:
                 phi += phi_cor
@@ -189,8 +193,7 @@ class BasePoissonSolver(_PoissonSolver):
         if charge is None:
             charge = actual_charge
         if abs(charge) <= maxcharge:
-            return self.solve_neutral(phi, rho - background, eps=eps,
-                                      timer=timer)
+            return self.solve_neutral(phi, rho - background, timer=timer)
 
         elif abs(charge) > maxcharge and self.gd.pbc_c.all():
             # System is charged and periodic. Subtract a homogeneous
@@ -200,8 +203,8 @@ class BasePoissonSolver(_PoissonSolver):
             if zero_initial_phi:
                 phi[:] = 0.0
 
-            iters = self.solve_neutral(phi, rho - background, eps=eps,
-                                       timer=timer)
+            iters = self.solve_neutral(phi, rho - background, timer=timer)
+
             if self.use_charged_periodic_corrections:
                 if self.charged_periodic_correction is None:
                     self.charged_periodic_correction = madelung(
@@ -255,7 +258,7 @@ class BasePoissonSolver(_PoissonSolver):
                 axpy(-q, self.phi_gauss, phi)  # phi -= q * self.phi_gauss
 
             # Determine potential from neutral density using standard solver
-            niter = self.solve_neutral(phi, rho_neutral, eps=eps, timer=timer)
+            niter = self.solve_neutral(phi, rho_neutral, timer=timer)
 
             # correct error introduced by removing monopole
             axpy(q, self.phi_gauss, phi)  # phi += q * self.phi_gauss
@@ -274,8 +277,7 @@ class BasePoissonSolver(_PoissonSolver):
                     origin_c=origin_c)
                 # self.correction *=-1.
                 phi -= dvHt_g
-                iters = self.solve_neutral(phi, rho + drhot_g, eps=eps,
-                                           timer=timer)
+                iters = self.solve_neutral(phi, rho + drhot_g, timer=timer)
                 phi += dvHt_g
                 phi -= self.correction
                 self.correction = 0.0
@@ -283,7 +285,7 @@ class BasePoissonSolver(_PoissonSolver):
                 return iters
 
             elif self.metallic_electrodes == 'both':
-                iters = self.solve_neutral(phi, rho, eps=eps, timer=timer)
+                iters = self.solve_neutral(phi, rho, timer=timer)
                 return iters
 
             else:
@@ -305,11 +307,11 @@ class FDPoissonSolver(BasePoissonSolver):
                  metallic_electrodes=False,
                  use_charged_periodic_corrections=False):
         super(FDPoissonSolver, self).__init__(
-            eps=eps,
             remove_moment=remove_moment,
             use_charge_center=use_charge_center,
             metallic_electrodes=metallic_electrodes,
             use_charged_periodic_corrections=use_charged_periodic_corrections)
+        self.eps = eps
         self.relax = relax
         self.nn = nn
         self.charged_periodic_correction = None
@@ -330,7 +332,8 @@ class FDPoissonSolver(BasePoissonSolver):
 
     def todict(self):
         d = super(FDPoissonSolver, self).todict()
-        d.update({'name': 'fd', 'nn': self.nn, 'relax': self.relax})
+        d.update({'name': 'fd', 'nn': self.nn, 'relax': self.relax,
+                  'eps': self.eps})
         return d
 
     def get_stencil(self):
@@ -424,6 +427,7 @@ class FDPoissonSolver(BasePoissonSolver):
                           '             More multi-grid levels recommended.'])
         lines.extend(['    Stencil: %s' % self.operators[0].description,
                       '    Max iterations: %d' % self.maxiter])
+        lines.extend(['    Tolerance: %e' % self.eps])
         lines.append(super(FDPoissonSolver, self).get_description())
         return '\n'.join(lines)
 
@@ -450,9 +454,10 @@ class FDPoissonSolver(BasePoissonSolver):
         self.postsmooths[level] = 8
         self._initialized = True
 
-    def solve_neutral(self, phi, rho, eps=2e-10, timer=None):
+    def solve_neutral(self, phi, rho, timer=None):
         self._init()
         self.phis[0] = phi
+        eps = self.eps
 
         if self.B is None:
             self.rhos[0][:] = rho
@@ -592,7 +597,7 @@ class FFTPoissonSolver(BasePoissonSolver):
         self.poisson_factor_Q = 4.0 * np.pi / k2_Q
         self._initialized = True
 
-    def solve_neutral(self, phi_g, rho_g, eps=None, timer=None):
+    def solve_neutral(self, phi_g, rho_g, timer=None):
         self._init()
         # Will be a bit more efficient if reduced dimension is always
         # contiguous.  Probably more things can be improved...
@@ -1145,7 +1150,7 @@ class FastPoissonSolver(BasePoissonSolver):
             self.inv_fft_lambdas = np.where(
                 np.abs(fft_lambdas) > 1e-10, 1.0 / fft_lambdas, 0)
 
-    def solve_neutral(self, phi_g, rho_g, eps=None, timer=None):
+    def solve_neutral(self, phi_g, rho_g, timer=None):
         if len(self.cholesky_axes) != 0:
             raise NotImplementedError
 
@@ -1197,9 +1202,10 @@ class FastPoissonSolver(BasePoissonSolver):
         pass
 
     def get_description(self):
-        return """\
-FastPoissonSolver using
-    %s stencil;
-    FFT axes: %s;
-    FST axes: %s.
-""" % (self.stencil_description, self.fft_axes, self.fst_axes)
+        lines = [f'{self.__class__.__name__} using',
+                 f'    Stencil: {self.stencil_description}',
+                 f'    FFT axes: {self.fft_axes}',
+                 f'    FST axes: {self.fst_axes}',
+                 ]
+        lines.append(BasePoissonSolver.get_description(self))
+        return '\n'.join(lines)
