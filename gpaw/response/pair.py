@@ -1528,7 +1528,6 @@ class PairDensity:
             if soft:
                 raise NotImplementedError
             else:
-                1 / 0
                 Q_vGii = two_phi_nabla_planewave_integrals(G_Gv, atomdata)
                 ni = atomdata.ni
                 Q_vGii.shape = (3, -1, ni, ni)

@@ -42,7 +42,7 @@ class G0W0(PairDensity):
                  maxiter=1, method='G0W0', mixing=0.2,
                  world=mpi.world, ecut_extrapolation=False,
                  nblocksmax=False, gate_voltage=None,
-                 paw_correction='nc'):
+                 paw_correction='brute-force'):
 
         """G0W0 calculator.
 
