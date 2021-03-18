@@ -29,10 +29,25 @@ rm old
 
 git clone https://gitlab.com/ase/ase.git
 $PIP install -e ~/ase
-git clone https://gitlab.com/gpaw/gpaw.git
-pip install -e ~/gpaw
+
 git clone https://gitlab.com/asr-dev/asr.git
 $PIP install -e ~/asr
+
+git clone https://gitlab.com/gpaw/gpaw.git
+echo "
+from os import environ
+from pathlib import Path
+scalapack = True
+fftw = True
+libraries = ['openblas', 'fftw3', 'readline', 'gfortran',
+             'scalapack', 'xc', 'vdwxc']
+libxc = Path(environ['EBROOTLIBXC'])
+include_dirs.append(str(libxc / 'include'))
+libvdwxc = Path(environ['EBROOTLIBVDWXC'])
+include_dirs.append(str(libvdwxc / 'include'))
+library_dirs = environ['LD_LIBRARY_PATH'].split(':')
+" > gpaw/siteconfig.py
+pip install -e ~/gpaw
 
 $PIP install myqueue graphviz qeh ase-ext
 
