@@ -45,4 +45,4 @@ def test_davidson_scalapack_eigenvalues():
 
             assert np.allclose(eigvals1, eigvals2, rtol=1e-11)
 
-        assert e1 == pytest.approx(e2, rel=1e-12)
+        assert e1 == pytest.approx(e2, rel=1e-11)
