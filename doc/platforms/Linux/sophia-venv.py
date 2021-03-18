@@ -27,10 +27,12 @@ mv ../modules.sh bin/activate
 cat old >> bin/activate
 rm old
 
-# git clone https://gitlab.com/ase/ase.git
+git clone https://gitlab.com/ase/ase.git
 $PIP install -e ~/ase
-# git clone https://gitlab.com/gpaw/gpaw.git
+git clone https://gitlab.com/gpaw/gpaw.git
 pip install -e ~/gpaw
+git clone https://gitlab.com/asr-dev/asr.git
+$PIP install -e ~/asr
 
 $PIP install myqueue graphviz qeh ase-ext
 
