@@ -4,11 +4,14 @@ NAME=$1
 FOLDER=$PWD
 
 echo "
+export EASYBUILD_PREFIX=/groups/physics/modules
+module use $EASYBUILD_PREFIX/modules/all
 module purge
 unset PYTHONPATH
-module load Python/3.8.2-GCCcore-9.3.0
+module matplotlib
+module spglib-python
 module load ScaLAPACK
-module load FFTW
+module load GPAW-setups
 " > modules.sh
 . modules.sh
 
@@ -26,13 +29,11 @@ rm old
 
 # git clone https://gitlab.com/ase/ase.git
 $PIP install -e ~/ase
-
-$PIP install myqueue graphviz qeh ase-ext
-
 # git clone https://gitlab.com/gpaw/gpaw.git
 pip install -e ~/gpaw
 
-cd $VENV
+$PIP install myqueue graphviz qeh ase-ext
+
 gpaw install-data --basis --version=20000 . --no-register
 export GPAW_SETUP_PATH=$GPAW_SETUP_PATH:$VENV/gpaw-basis-pvalence-0.9.20000
 echo "export GPAW_SETUP_PATH=$GPAW_SETUP_PATH" >> bin/activate
