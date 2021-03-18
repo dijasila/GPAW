@@ -14,6 +14,7 @@ Linux:
    Linux/Fedora
    Linux/openSUSE
    Linux/ubuntu
+   Linux/sophia
    Linux/Niflheim/Niflheim
    Linux/Niflheim/load
    Linux/Niflheim/build
