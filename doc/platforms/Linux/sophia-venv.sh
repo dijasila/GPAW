@@ -3,16 +3,18 @@ set -e  # stop if there are errors
 NAME=$1
 FOLDER=$PWD
 
-echo "
+echo '
 export EASYBUILD_PREFIX=/groups/physics/modules
 module use $EASYBUILD_PREFIX/modules/all
 module purge
 unset PYTHONPATH
-module matplotlib
-module spglib-python
+module load matplotlib
+module load spglib-python
+module load libxc
+module load libvdwxc
 module load ScaLAPACK
 module load GPAW-setups
-" > modules.sh
+' > modules.sh
 . modules.sh
 
 python3 -m venv $NAME
@@ -28,10 +30,10 @@ cat old >> bin/activate
 rm old
 
 git clone https://gitlab.com/ase/ase.git
-$PIP install -e ~/ase
+$PIP install -e ase
 
 git clone https://gitlab.com/asr-dev/asr.git
-$PIP install -e ~/asr
+$PIP install -e asr
 
 git clone https://gitlab.com/gpaw/gpaw.git
 echo "
@@ -42,12 +44,12 @@ fftw = True
 libraries = ['openblas', 'fftw3', 'readline', 'gfortran',
              'scalapack', 'xc', 'vdwxc']
 libxc = Path(environ['EBROOTLIBXC'])
-include_dirs.append(str(libxc / 'include'))
+include_dirs.append(libxc / 'include')
 libvdwxc = Path(environ['EBROOTLIBVDWXC'])
-include_dirs.append(str(libvdwxc / 'include'))
+include_dirs.append(libvdwxc / 'include')
 library_dirs = environ['LD_LIBRARY_PATH'].split(':')
 " > gpaw/siteconfig.py
-pip install -e ~/gpaw
+pip install -e gpaw
 
 $PIP install myqueue graphviz qeh ase-ext
 
