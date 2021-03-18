@@ -11,6 +11,7 @@ from gpaw.poisson import PoissonSolver
 from gpaw.directmin.fdpw.tools import get_n_occ
 import _gpaw
 
+
 class ERlocalization:
 
     """
@@ -45,8 +46,7 @@ class ERlocalization:
             self.ghat = dens.ghat  # we usually solve poiss. on finegd
 
         if poisson_solver == 'FPS':
-            self.poiss = PoissonSolver(eps=1.0e-16,
-                                       use_charge_center=True,
+            self.poiss = PoissonSolver(use_charge_center=True,
                                        use_charged_periodic_corrections=True)
         elif poisson_solver == 'GS':
             self.poiss = PoissonSolver(name='fd',
@@ -126,16 +126,16 @@ class ERlocalization:
             if wfs.mode == 'pw':
                 v_ht_g = wfs.pd.gd.collect(v_ht_g, broadcast=True)
                 Q_G = wfs.pd.Q_qG[kpt.q]
-                psit_G = wfs.pd.alltoall1(kpt.psit_nG[i:i+1], kpt.q)
+                psit_G = wfs.pd.alltoall1(kpt.psit_nG[i: i + 1], kpt.q)
                 if psit_G is not None:
-                    psit_R = wfs.pd.ifft(psit_G, kpt.q, local=True,
-                                          safe=False)
+                    psit_R = wfs.pd.ifft(
+                        psit_G, kpt.q, local=True, safe=False)
                     psit_R *= v_ht_g
                     wfs.pd.fftplan.execute()
                     vtpsit_G = wfs.pd.tmp_Q.ravel()[Q_G]
                 else:
                     vtpsit_G = wfs.pd.tmp_G
-                wfs.pd.alltoall2(vtpsit_G, kpt.q, grad_knG[k][i:i+1])
+                wfs.pd.alltoall2(vtpsit_G, kpt.q, grad_knG[k][i: i + 1])
                 grad_knG[k][i] *= kpt.f_n[i]
             else:
                 grad_knG[k][i] += kpt.psit_nG[i] * v_ht_g * kpt.f_n[i]
@@ -170,7 +170,7 @@ class ERlocalization:
         if self.sic_coarse_grid is False:
             self.interpolator.apply(nt, nt_sg)
             nt_sg *= self.cgd.integrate(nt) / \
-                        self.finegd.integrate(nt_sg)
+                self.finegd.integrate(nt_sg)
         else:
             nt_sg = nt
 
@@ -212,8 +212,7 @@ class ERlocalization:
             setup = self.setups[a]
             M_p = np.dot(setup.M_pp, D_p)
             ec += np.dot(D_p, M_p)
-            dH_ap[a] += (2.0 * M_p + np.dot(setup.Delta_pL,
-                                             W_aL[a]))
+            dH_ap[a] += (2.0 * M_p + np.dot(setup.Delta_pL, W_aL[a]))
         if self.sic_coarse_grid is False:
             ec = self.finegd.comm.sum(ec)
         else:
@@ -233,7 +232,7 @@ class ERlocalization:
         indz = np.absolute(l_odd) > 1.0e-4
         l_c = 2.0 * l_odd[indz]
         l_odd = f[:, np.newaxis] * l_odd.T.conj() - f * l_odd
-        kappa = np.max(np.absolute(l_odd[indz])/np.absolute(l_c))
+        kappa = np.max(np.absolute(l_odd[indz]) / np.absolute(l_c))
 
         if a_mat is None:
             wfs.timer.stop('Unitary gradients')

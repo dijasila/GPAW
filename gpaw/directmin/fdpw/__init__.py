@@ -1,7 +1,11 @@
+"""
+Direct optimization for FD and PW modes
+"""
+
 from gpaw.xc import xc_string_to_dict
 from ase.utils import basestring
 from gpaw.directmin.fdpw.sd_outer import SteepestDescent, FRcg, HZcg, \
-    PRcg, PRpcg, QuickMin, LBFGS, LBFGS_P, LSR1P
+    PRcg, PRpcg, QuickMin, LBFGS, LBFGS_P, LSR1P, PFRcg
 from gpaw.directmin.fdpw.ls_outer import UnitStepLength, \
     StrongWolfeConditions, Parabola, TwoStepParabola, \
     TwoStepParabolaAwc, TwoStepParabolaCubicAwc, \
@@ -9,6 +13,11 @@ from gpaw.directmin.fdpw.ls_outer import UnitStepLength, \
 
 
 def sd_outer(method, wfs, dim):
+    """
+    Initialize search direction "p" that is
+    class like conjugate gradient or Quasi-Newton methods
+    """
+
     if isinstance(method, basestring):
         method = xc_string_to_dict(method)
 
@@ -19,6 +28,8 @@ def sd_outer(method, wfs, dim):
             return SteepestDescent(wfs, dim)
         elif name == 'FRcg':
             return FRcg(wfs, dim)
+        elif name == 'PFRcg':
+            return PFRcg(wfs, dim)
         elif name == 'PRcg':
             return PRcg(wfs, dim)
         elif name == 'PRpcg':
@@ -40,6 +51,11 @@ def sd_outer(method, wfs, dim):
 
 
 def ls_outer(method, objective_function):
+    """
+    Initialize line search  to find optimal step "alpha"
+    along search directions "p'
+    x <- x + alpha * p.
+    """
     if isinstance(method, basestring):
         method = xc_string_to_dict(method)
 

@@ -43,11 +43,11 @@ def scaling_factor(n, a2, n_tot, nspins, c0):
     n[n < eps] = 1.0e-40
     n_tot[n_tot < eps] = 1.0e-40 * spin_sc
 
-    const1 = 4.0 * (3. * np.pi**2.)**(2./3.)
-    const2 = c0 * 8.0/3.0
+    const1 = 4.0 * (3. * np.pi ** 2.) ** (2. / 3.)
+    const2 = c0 * 8.0 / 3.0
 
     # (2 * k_F * n) ** 2.0
-    tkfn2 = const1 * n**(8.0/3.0)
+    tkfn2 = const1 * n ** (8.0 / 3.0)
     u = n / (n_tot / spin_sc)
     s2 = a2 / tkfn2
 
@@ -65,10 +65,10 @@ def scaling_factor(n, a2, n_tot, nspins, c0):
     eps = n * g1 * f
     dedn = g1 * f + u * (dg2 * h * g1 + dg1 * f) - \
         g1 * (1. - g2) * h**2. * s2 * const2
-    dedn_t = - u**2.0 * (dg1 * f + g1 * dg2 * h )
+    dedn_t = - u ** 2.0 * (dg1 * f + g1 * dg2 * h)
     deda2 = c0 * g1 * (1. - g2) * h**2 * n / tkfn2
 
-    return eps, dedn,  dedn_t, deda2
+    return eps, dedn, dedn_t, deda2
 
 
 def g1_sf(u, eps):

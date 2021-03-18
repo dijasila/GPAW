@@ -3,7 +3,6 @@ import numpy as np
 from ase.build import molecule
 from gpaw import GPAW
 from gpaw.lcaotddft import LCAOTDDFT
-from gpaw.poisson import PoissonSolver
 from gpaw.lcaotddft.dipolemomentwriter import DipoleMomentWriter
 from gpaw.tddft.spectrum import photoabsorption_spectrum
 from gpaw.lrtddft2 import LrTDDFT2
@@ -21,7 +20,6 @@ def test_lcaotddft_lcaotddft_vs_lrtddft2(in_tmp_dir):
     # Ground-state calculation
     calc = GPAW(nbands=2, h=0.4, setups=dict(Na='1'),
                 basis='sz(dzp)', mode='lcao', xc='oldLDA',
-                poissonsolver=PoissonSolver(eps=1e-16),
                 convergence={'density': 1e-8},
                 txt='gs.out')
     atoms.calc = calc

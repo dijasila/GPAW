@@ -1,3 +1,11 @@
+"""
+Class for finding an optimal
+step alpha length in the optimization problem:
+x = x + alpha * p.
+It is for inner loop
+that is for unitary matrices
+"""
+
 import numpy as np
 from gpaw.directmin.fdpw.tools import cubic_interpolation, \
     parabola_interpolation
@@ -17,7 +25,7 @@ def appr_wc(der_phi_0, phi_0, der_phi_j, phi_j):
     sigma = 0.9
 
     if (phi_j <= phi_0 + eps * abs(phi_0)) and \
-            ((2.0*delta - 1.0) * der_phi_0 >= der_phi_j >= sigma *
+            ((2.0 * delta - 1.0) * der_phi_0 >= der_phi_j >= sigma *
              der_phi_0):
         return True
     else:
@@ -38,7 +46,7 @@ class UnitStepLength(object):
 
         a_star = 1.0
         phi_star, der_phi_star, g_star = \
-                self.evaluate_phi_and_der_phi(x, p, a_star, *args)
+            self.evaluate_phi_and_der_phi(x, p, a_star, *args)
 
         return a_star, phi_star, der_phi_star, g_star
 
@@ -47,8 +55,8 @@ class Parabola(UnitStepLength):
 
     """
     phi = f (x_k + a_k*p_k)
-    der_phi = \grad f(x_k + a_k p_k) \cdot p_k
-    g = \grad f(x_k + a_k p_k)
+    der_phi = grad f(x_k + a_k p_k) cdot p_k
+    g = grad f(x_k + a_k p_k)
     """
 
     def __init__(self, evaluate_phi_and_der_phi):
@@ -89,13 +97,13 @@ class StrongWolfeConditions(UnitStepLength):
     This call should return a_star, phi_star, der_phi_star, g_star,
     where a_star is step length satisfied the strong Wolfe condts:
 
-    f(x_k + a_k p_k) <= f(x_k) + c_1 a_k \grad f_k \cdot p_k,
+    f(x_k + a_k p_k) <= f(x_k) + c_1 a_k grad f_k cdot p_k,
 
-    |\grad f(x_k + a_k p_k) \cdot p_k | <= c_2 |\grad f_k \cdot p_k|,
+    |grad f(x_k + a_k p_k) cdot p_k | <= c_2 |grad f_k cdot p_k|,
 
     phi = f (x_k + a_k*p_k)
-    der_phi = \grad f(x_k + a_k p_k) \cdot p_k
-    g = \grad f(x_k + a_k p_k)
+    der_phi = grad f(x_k + a_k p_k) cdot p_k
+    g = grad f(x_k + a_k p_k)
     """
 
     def __init__(self, evaluate_phi_and_der_phi,
@@ -350,7 +358,7 @@ class StrongWolfeConditions(UnitStepLength):
         return a_star, phi_star, der_phi_star, g_star
 
     def init_guess(self, phi_0, der_phi_0, phi_old, der_phi_old,
-                   alpha_old = 1.0):
+                   alpha_old=1.0):
 
         # chose initial alpha
         if self.method in ['HZcg', 'SD', 'FRcg', 'PRcg', 'PRpcg']:
@@ -374,4 +382,3 @@ class StrongWolfeConditions(UnitStepLength):
             alpha_1 = 1.0
 
         return alpha_1
-

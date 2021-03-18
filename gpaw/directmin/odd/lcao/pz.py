@@ -9,6 +9,7 @@ from gpaw.lfc import LFC
 from gpaw.transformers import Transformer
 from gpaw.poisson import PoissonSolver
 from gpaw.directmin.lcao.tools import D_matrix
+from gpaw.directmin.fdpw.tools import d_matrix
 
 
 class PzCorrectionsLcao:
@@ -47,8 +48,7 @@ class PzCorrectionsLcao:
         self.xc = ham.xc
 
         if poisson_solver == 'FPS':
-            self.poiss = PoissonSolver(eps=1.0e-16,
-                                       use_charge_center=True,
+            self.poiss = PoissonSolver(use_charge_center=True,
                                        use_charged_periodic_corrections=True)
         elif poisson_solver == 'GS':
             self.poiss = PoissonSolver(name='fd',
@@ -93,7 +93,7 @@ class PzCorrectionsLcao:
         :param C_nM: coefficients of orbitals
         :return: matrix G - gradients, and orbital SI energies
 
-        which is G_{ij} = (1 - delta_{ij}/2)*( int_0^1 e^{tA} L e^{-tA} dt )_{ji}
+        which is G_{ij} = (1-delta_{ij}/2)*(int_0^1 e^{tA} L e^{-tA} dt )_{ji}
 
         Lambda_ij = (C_i, F_j C_j )
 
@@ -387,7 +387,7 @@ class PzCorrectionsLcao:
         if self.sic_coarse_grid is False:
             self.interpolator.apply(nt, nt_sg[0])
             nt_sg[0] *= self.cgd.integrate(nt) / \
-                        self.finegd.integrate(nt_sg[0])
+                self.finegd.integrate(nt_sg[0])
         else:
             nt_sg[0] = nt
 
@@ -437,9 +437,8 @@ class PzCorrectionsLcao:
         else:
             vt_G = vt_sg[0]
 
-        return np.array([-ec*self.beta_c,
-                         -e_xc*self.beta_x]),\
-               vt_G, vHt_g
+        return np.array([-ec * self.beta_c,
+                         -e_xc * self.beta_x]), vt_G, vHt_g
 
     def get_paw_corrections(self, D_ap, vHt_g, timer):
 
@@ -487,8 +486,7 @@ class PzCorrectionsLcao:
             exc = self.cgd.comm.sum(exc)
         timer.stop('Wait for sum')
 
-
-        return np.array([-ec*self.beta_c, -exc * self.beta_x]), dH_ap
+        return np.array([-ec * self.beta_c, -exc * self.beta_x]), dH_ap
 
     def update_eigenval(self, f_n, C_nM, kpt, wfs, setup, H_MM):
         n_kps = wfs.kd.nibzkpts
@@ -506,7 +504,7 @@ class PzCorrectionsLcao:
                                                      )[0]
             # gemv(1.0, F_MM, C_nM[n], 0.0, b_nM[n])
             b_nM[n] = F_MM @ C_nM[n]
-        L_occ = np.zeros((n_occ, n_occ), dtype=self.dtype)
+        # L_occ = np.zeros((n_occ, n_occ), dtype=self.dtype)
         C_conj_nM = C_nM.conj()[:n_occ]
         # mmm(1.0, C_conj_nM, 'n', b_nM, 't', 0.0, L_occ)
         # L_occ = b_nM.T @ C_conj_nM
@@ -657,7 +655,7 @@ class PzCorrectionsLcao:
                 #                                    rho_xMM)).T.copy()
 
                 sfrhoT_MM = np.linalg.solve(wfs.S_qMM[kpt.q],
-                                            F_MM@rho_xMM).T.copy()
+                                            F_MM @ rho_xMM).T.copy()
 
                 del F_MM
 
@@ -709,7 +707,8 @@ class PzCorrectionsLcao:
                         # gemm(1.0, dOP_iM,
                         #      dPdR_aqvMi[b][kpt.q][v][Mstart:Mstop],
                         #      0.0, work_MM, 'n')
-                        work_MM = dPdR_aqvMi[b][kpt.q][v][Mstart:Mstop] @ dOP_iM
+                        work_MM = \
+                            dPdR_aqvMi[b][kpt.q][v][Mstart:Mstop] @ dOP_iM
                         ZE_MM = (work_MM * sfrhoT_MM).real
                         for a, M1, M2 in slices():
                             dE = 2 * ZE_MM[M1:M2].sum()
@@ -722,7 +721,7 @@ class PzCorrectionsLcao:
                 #           -----      /  d Phi  (r)
                 #  a         \        |        mu    ~
                 # F += -2 Re  )       |   ---------- v (r)  Phi  (r) dr rho
-                #            /        |     d R                nu          nu mu
+                #            /        |     d R                nu         nu mu
                 #           -----    /         a
                 #        mu in a; nu
                 #
@@ -738,15 +737,14 @@ class PzCorrectionsLcao:
                     self.get_paw_corrections(D_ap, vHt_g, timer)
 
                 Fpot_av += \
-                    self.bfs.calculate_force_contribution(vt_mG,
-                                                     rho_xMM.T,
-                                                     kpt.q)
+                    self.bfs.calculate_force_contribution(
+                        vt_mG, rho_xMM.T, kpt.q)
 
                 # Atomic density contribution
                 #            -----                         -----
-                #  a          \     a                       \     b
-                # F  += -2 Re  )   A      rho       + 2 Re   )   A      rho
-                #             /     mu nu    nu mu          /     mu nu    nu mu
+                #  a          \     a                       \   b
+                # F  += -2 Re  )   A      rho       + 2 Re   ) A rho
+                #             /     mu nu    nu mu          / mununumu
                 #            -----                         -----
                 #            mu nu                     b; mu in a; nu
                 #
@@ -796,8 +794,7 @@ class PzCorrectionsLcao:
 
         # dens.finegd.comm.sum(Fhart_av, 0)
 
-        F_av += Fpot_av + Ftheta_av + \
-                Frho_av + Fatom_av + Fhart_av
+        F_av += Fpot_av + Ftheta_av + Frho_av + Fatom_av + Fhart_av
 
         wfs.gd.comm.sum(F_av, 0)
 
@@ -868,7 +865,7 @@ class PzCorrectionsLcao:
             # else:
             #     mmm(1.0, C_nM, 'n', HC_Mn, 'n', 0.0, L)
 
-            L =  C_nM.conj() @ H_MM.conj() @ C_nM.T
+            L = C_nM.conj() @ H_MM.conj() @ C_nM.T
 
             nrm_n, L = np.linalg.eigh(L)
             # L = L.T.conj()
@@ -938,7 +935,8 @@ class PzCorrectionsLcao:
 
     def get_lagrange_matrices(self, h_mm, c_nm, f_n, kpt,
                               wfs, occupied_only=False,
-                              update_eigenvalues=False):
+                              update_eigenvalues=False,
+                              update_wfs=False):
         n_occ = 0
         nbands = len(f_n)
         while n_occ < nbands and f_n[n_occ] > 1e-10:
@@ -967,9 +965,75 @@ class PzCorrectionsLcao:
 
         k = self.n_kps * kpt.s + kpt.q
 
-        if update_eigenvalues:
-            self.lagr_diag_s[k] = np.diagonal(h_mm + l_odd).real
-            kpt.eps_n[:nbs] = \
-                np.linalg.eigh(h_mm + 0.5 * (l_odd + l_odd.T.conj()))[0]
+        fullham = h_mm + 0.5 * (l_odd + l_odd.T.conj())
+        fullham[:n_occ, n_occ:] = 0.0
+        fullham[n_occ:, :n_occ] = 0.0
+
+        self.lagr_diag_s[k] = np.diagonal(fullham).real
+        eigval, eigvec = np.linalg.eigh(fullham)
+        if update_eigenvalues and update_wfs:
+            kpt.eps_n[:nbs] = eigval
+            kpt.C_nM[:nbs] = eigvec.T @ c_nm
+        elif update_eigenvalues:
+            kpt.eps_n[:nbs] = eigval
+        elif update_wfs:
+            kpt.C_nM[:nbs] = eigvec.T @ c_nm
 
         return h_mm, l_odd
+
+    def get_energy_and_gradients_inner_loop(self, wfs, kpt, a_mat,
+                                            evals, evec, dens):
+        """
+          :param C_nM: coefficients of orbitals
+          :return: matrix G - gradients, and orbital SI energies
+
+          which is G_{ij} = (1 - delta_{ij}/2)*
+          (int_0^1 e^{tA} L e^{-tA} dt )_{ji}
+
+          Lambda_ij = (C_i, F_j C_j )
+
+          L_{ij} = Lambda_ji^{cc} - Lambda_ij
+
+          """
+        # 0.
+        n_occ = 0
+        nbands = len(kpt.f_n)
+        while n_occ < nbands and kpt.f_n[n_occ] > 1e-10:
+            n_occ += 1
+        nbs = n_occ
+        n_set = kpt.C_nM.shape[1]
+
+        # odd part
+        b_mn = np.zeros(shape=(n_set, nbs), dtype=self.dtype)
+        e_total_sic = np.array([])
+        for n in range(n_occ):
+            F_MM, sic_energy_n = \
+                self.get_orbital_potential_matrix(kpt.f_n, kpt.C_nM,
+                                                  kpt,
+                                                  wfs, wfs.setups,
+                                                  n, wfs.timer)
+
+            b_mn[:, n] = np.dot(kpt.C_nM[n], F_MM.conj()).T
+            e_total_sic = np.append(e_total_sic, sic_energy_n, axis=0)
+        l_odd = np.dot(kpt.C_nM[:nbs].conj(), b_mn)
+
+        f = kpt.f_n[:nbs]
+        l_odd = -f * l_odd + f[:, np.newaxis] * l_odd.T.conj()
+
+        kappa = 0.0
+        # indz = np.absolute(l_odd) > 1.0e-4
+        # l_c = 2.0 * l_odd[indz]
+        # l_odd = f[:, np.newaxis] * l_odd.T.conj() - f * l_odd
+        # kappa = np.max(np.absolute(l_odd[indz])/np.absolute(l_c))
+
+        if a_mat is None:
+            return l_odd.T, np.sum(e_total_sic), kappa
+        else:
+            g_mat = evec.T.conj() @ l_odd.T.conj() @ evec
+            g_mat = g_mat * d_matrix(evals)
+            g_mat = evec @ g_mat @ evec.T.conj()
+            for i in range(g_mat.shape[0]):
+                g_mat[i][i] *= 0.5
+            if a_mat.dtype == float:
+                g_mat = g_mat.real
+            return 2.0 * g_mat, np.sum(e_total_sic), kappa

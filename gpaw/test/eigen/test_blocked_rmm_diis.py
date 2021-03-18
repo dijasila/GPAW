@@ -1,6 +1,6 @@
 from ase import Atom, Atoms
 
-from gpaw import GPAW, Mixer, RMM_DIIS
+from gpaw import GPAW, Mixer, RMMDIIS
 from gpaw.test import equal
 
 
@@ -21,7 +21,7 @@ def test_eigen_blocked_rmm_diis(in_tmp_dir):
     e0 = atoms.get_potential_energy()
     niter0 = calc.get_number_of_iterations()
 
-    es = RMM_DIIS(blocksize=3)
+    es = RMMDIIS(blocksize=3)
     calc = GPAW(gpts=(n, n, n), nbands=4, txt='b.txt',
                 mixer=Mixer(0.25, 3, 1), eigensolver=es)
     atoms.calc = calc

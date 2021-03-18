@@ -59,7 +59,7 @@ class SPzCorrections2(PzCorrections):
 
         # here we don't scale with occupation numbers
         e_pz, vt_pz_G, dH_pz_ap = \
-             self.get_pz_sic_ith_kpt(nt_G, Q_aL, D_ap, m, u, wfs.timer)
+            self.get_pz_sic_ith_kpt(nt_G, Q_aL, D_ap, m, u, wfs.timer)
 
         # here we don't scale with occupation numbers
         e_sf, vt_sf_G, vt_G_com, dH_sf_ap, dH_ap_com = \
@@ -77,7 +77,7 @@ class SPzCorrections2(PzCorrections):
                 kpt.f_n[m] * e_pz.sum() * dH_ap_com[a]
         self.v_scom[kpt.s][:] += kpt.f_n[m] * e_pz.sum() * vt_G_com
 
-        return vt_mG, dH_ap, e_sic_m , e_sf
+        return vt_mG, dH_ap, e_sic_m, e_sf
 
     def get_scaling_contribution(self, nt_G, dens, D_ap, spin, timer):
 
@@ -111,7 +111,7 @@ class SPzCorrections2(PzCorrections):
         if self.sic_coarse_grid is False:
             self.interpolator.apply(nt, nt_sg[spin])
             nt_sg[spin] *= self.cgd.integrate(nt) / \
-                        self.finegd.integrate(nt_sg[spin])
+                self.finegd.integrate(nt_sg[spin])
         else:
             nt_sg[spin] = nt
 

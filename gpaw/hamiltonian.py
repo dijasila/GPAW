@@ -337,7 +337,8 @@ class Hamiltonian:
 
         return np.array([e_kinetic, e_coulomb, e_zero, e_external, e_xc])
 
-    def get_energy(self, e_entropy, wfs, kin_en_using_band=True, e_sic=None):
+    def get_energy(self, e_entropy, wfs, kin_en_using_band=True,
+                   e_sic=None):
         """Sum up all eigenvalues weighted with occupation numbers"""
         self.e_band = wfs.calculate_band_energy()
         if kin_en_using_band:
@@ -349,6 +350,7 @@ class Hamiltonian:
         self.e_total_free = (self.e_kinetic + self.e_coulomb +
                              self.e_external + self.e_zero + self.e_xc +
                              self.e_entropy)
+
         if e_sic is not None:
             self.e_sic = e_sic
             self.e_total_free += e_sic
@@ -566,10 +568,11 @@ class Hamiltonian:
                 for f, psit_G in zip(kpt.f_n, kpt.psit_nG):
                     if f > 1.0e-10:
                         G2_G = wfs.pd.G2_qG[kpt.q]
-                        e_kin += f * wfs.pd.integrate(0.5 * G2_G * psit_G,
-                                         psit_G).real
+                        e_kin += f * wfs.pd.integrate(
+                            0.5 * G2_G * psit_G, psit_G).real
         else:
             e_kin = 0.0
+
             def Lapl(psit_G, kpt):
                 Lpsit_G = np.zeros_like(psit_G)
                 wfs.kin.apply(psit_G, Lpsit_G, kpt.phase_cd)
@@ -578,8 +581,8 @@ class Hamiltonian:
             for kpt in wfs.kpt_u:
                 for f, psit_G in zip(kpt.f_n, kpt.psit_nG):
                     if f > 1.0e-10:
-                        e_kin += f * wfs.integrate(Lapl(psit_G, kpt),
-                                                      psit_G, False)
+                        e_kin += f * wfs.integrate(
+                            Lapl(psit_G, kpt), psit_G, False)
             e_kin = e_kin.real
             e_kin = wfs.gd.comm.sum(e_kin)
 

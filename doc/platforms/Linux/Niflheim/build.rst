@@ -94,7 +94,7 @@ and then you can ``pip install`` packages.  Here are three ways
 to install ASR_::
 
     $ pip install asr  # from PyPI
-    $ git clone https://gitlab.com/mortengjerding/asr.git
+    $ git clone https://gitlab.com/asr-dev/asr.git
     $ pip install ./asr  # from a git clone
     $ pip install -e asr  # use source code from a git clone directly
 

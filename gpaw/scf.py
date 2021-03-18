@@ -11,7 +11,8 @@ from gpaw.mpi import broadcast_float
 
 class SCFLoop:
     """Self-consistent field loop."""
-    def __init__(self, eigenstates=0.1, energy=0.1, density=0.1, force=np.inf,
+    def __init__(self, eigenstates=0.1, energy=0.1, density=0.1,
+                 force=np.inf,
                  maxiter=100, niter_fixdensity=None, nvalence=None):
         self.max_errors = {'eigenstates': eigenstates,
                            'energy': energy,
@@ -38,7 +39,7 @@ class SCFLoop:
             ('integral of absolute density change: {0:g} electrons',
              cc['density'] / self.nvalence),
             ('integral of absolute eigenstate change: {0:g} eV^2',
-             cc['eigenstates'] * Ha**2 / self.nvalence),
+             cc['eigenstates'] * Ha ** 2 / self.nvalence),
             ('change in atomic force: {0:g} eV / Ang',
              cc['force'] * Ha / Bohr),
             ('number of iterations: {0}', self.maxiter)]:
@@ -99,7 +100,8 @@ class SCFLoop:
 
         if not self.converged:
             if not np.isfinite(errors['eigenstates']):
-                msg = 'Not enough bands for ' + wfs.eigensolver.nbands_converge
+                msg = 'Not enough bands for ' + \
+                      wfs.eigensolver.nbands_converge
                 log(msg)
                 raise KohnShamConvergenceError(msg)
             log(oops)
@@ -215,11 +217,12 @@ class SCFLoop:
                 log(f'  {totmom_v[2]:+.4f}', end='')
             else:
                 log(' {:+.1f},{:+.1f},{:+.1f}'.format(*totmom_v), end='')
+
         if hasattr(wfs.eigensolver, 'iloop') or \
                 hasattr(wfs.eigensolver, 'iloop_outer'):
             iloop_counter = 0
             if wfs.eigensolver.iloop is not None:
-                iloop_counter +=  wfs.eigensolver.iloop.eg_count
+                iloop_counter += wfs.eigensolver.iloop.eg_count
             if wfs.eigensolver.iloop_outer is not None:
                 iloop_counter += wfs.eigensolver.iloop_outer.eg_count
             log('  %d' % iloop_counter, end='')
@@ -245,8 +248,7 @@ class SCFLoop:
                 e_sic = wfs.eigensolver.e_sic
             else:
                 e_sic = 0.0
-            energy = ham.get_energy(wfs.eigensolver._e_entropy, wfs,
-                                    kin_en_using_band=False,
+            energy = ham.get_energy(0.0, wfs, kin_en_using_band=False,
                                     e_sic=e_sic)
 
             self.old_energies.append(energy)
@@ -280,22 +282,23 @@ class SCFLoop:
 
                     if iloop1 and iloop2:
                         log(
-                            '\nOccupied states converged after {:d} KS and {:d} SIC e/g evaluations'.format(
-                                niter3,
-                                niter2 + niter3))
+                            '\nOccupied states converged after'
+                            ' {:d} KS and {:d} SIC e/g '
+                            'evaluations'.format(niter3,
+                                                 niter2 + niter3))
                     elif not iloop1 and iloop2:
                         log(
-                            '\nOccupied states converged after {:d} e/g evaluations'.format(
-                                niter3))
+                            '\nOccupied states converged after'
+                            ' {:d} e/g evaluations'.format(niter3))
                     elif iloop1 and not iloop2:
                         log(
-                            '\nOccupied states converged after {:d} KS and {:d} SIC e/g evaluations'.format(
-                                niter1,
-                                niter2))
+                            '\nOccupied states converged after'
+                            ' {:d} KS and {:d} SIC e/g '
+                            'evaluations'.format(niter1, niter2))
                     else:
                         log(
-                            '\nOccupied states converged after {:d} e/g evaluations'.format(
-                                niter1))
+                            '\nOccupied states converged after'
+                            ' {:d} e/g evaluations'.format(niter1))
                     if wfs.eigensolver.convergelumo:
                         log('Converge unoccupied states:')
                         max_er = self.max_errors['eigenstates']
@@ -303,7 +306,7 @@ class SCFLoop:
                         wfs.eigensolver.run_lumo(ham, wfs, dens,
                                                  max_er, log)
                     else:
-                        wfs.eigensolver.initialized=False
+                        wfs.eigensolver.initialized = False
                         log('Unoccupied states are not converged.')
                     rewrite_psi = True
                     if 'SIC' in wfs.eigensolver.odd_parameters['name']:
@@ -321,8 +324,8 @@ class SCFLoop:
                                                                  dens)
                     niter = wfs.eigensolver.eg_count
                     log(
-                        '\nOccupied states converged after {:d} e/g evaluations'.format(
-                            niter))
+                        '\nOccupied states converged after'
+                        ' {:d} e/g evaluations'.format(niter))
                     break
                 # else:
                 #     raise NotImplementedError

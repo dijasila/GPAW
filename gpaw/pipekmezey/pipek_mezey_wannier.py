@@ -1,4 +1,4 @@
-"""
+r"""
     Objective function class for
     Generalized Pipek-Mezey orbital localization.
 
@@ -56,7 +56,7 @@ from gpaw.pipekmezey.weightfunction import WeightFunc, WignerSeitz
 from ase.dft.wannier import neighbor_k_search, calculate_weights
 from ase.dft.kpoints import get_monkhorst_pack_size_and_offset
 from ase.parallel import world
-# from ase.parallel import parprint
+
 
 def md_min(func, step=.25, tolerance=1e-6, verbose=False, gd=None):
     if verbose:
@@ -272,8 +272,15 @@ class PipekMezey:
                 kr1, u1 = divmod(k1 + len(self.wfs.kd.ibzk_kc) * spin,
                                  len(self.wfs.kpt_u))
                 #
-                cmo = self.wfs.kpt_u[u].psit_nG[:self.nocc]
-                cmo1 = self.wfs.kpt_u[u1].psit_nG[:self.nocc]
+                if self.wfs.mode == 'pw':
+                    cmo = self.gd.zeros(self.nocc, dtype=self.wfs.dtype)
+                    cmo1 = self.gd.zeros(self.nocc, dtype=self.wfs.dtype)
+                    for i in range(self.nocc):
+                        cmo[i] = self.wfs._get_wave_function_array(u, i)
+                        cmo1[i] = self.wfs._get_wave_function_array(u1, i)
+                else:
+                    cmo = self.wfs.kpt_u[u].psit_nG[:self.nocc]
+                    cmo1 = self.wfs.kpt_u[u1].psit_nG[:self.nocc]
                 # Inner product
                 e_G = np.exp(-2j * pi *
                              np.dot(np.indices(self.gd.n_c).T +
@@ -284,7 +291,8 @@ class PipekMezey:
                     WF = self.get_weight_function_atom(atom.index)
                     pw = (e_G * WF * cmo1)
                     Qadk_nm[atom.index, d, k] += \
-                        self.gd.integrate(cmo, pw,
+                        self.gd.integrate(np.asarray(cmo, dtype=complex),
+                                          pw,
                                           global_integral=False)
                 # PAW corrections
                 P_ani1 = self.wfs.kpt_u[u1].P_ani
@@ -364,7 +372,6 @@ class PipekMezey:
                         np.dot(self.W_k[k].T.conj(),
                                np.dot(self.Qadk_nm[a, d, k],
                                       self.W_k[k1]))
-
         # Update PCM
         self.Qad_nn = self.Qadk_nn.sum(axis=2) / self.Nk
 

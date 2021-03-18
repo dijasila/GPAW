@@ -1,21 +1,15 @@
-from __future__ import print_function
-
 """ Maximally localized Wannier Functions
 
     Find the set of maximally localized Wannier functions
     using the spread functional of Marzari and Vanderbilt
     (PRB 56, 1997 page 12847).
     
-    this code is as in ASE but modified to use it with gpaw's wfs. 
+    this code is as in ASE but modified to use it with gpaw's wfs.
 """
 
 from time import time
-from math import pi  # , sqrt
-# from pickle import dump, load
-
+from math import pi
 import numpy as np
-
-# from ase.parallel import paropen
 from ase.dft.kpoints import get_monkhorst_pack_size_and_offset
 from ase.transport.tools import dagger, normalize
 
@@ -343,9 +337,9 @@ class WannierLocalization:
 
         Nw = self.nwannier
         Z_dknn = np.zeros((self.Ndir, self.Nk, Nw, Nw),
-                          dtype=self.dtype)
+                          dtype=complex)
         self.Z_dkww = np.empty((self.Ndir, self.Nk, Nw, Nw),
-                               dtype=self.dtype)
+                               dtype=complex)
 
         if self.mode == 'lcao' and self.wfs.kpt_u[0].psit_nG is None:
             self.wfs.initialize_wave_functions_from_lcao()
@@ -362,18 +356,25 @@ class WannierLocalization:
                 kr1, u1 = divmod(k1 + len(self.wfs.kd.ibzk_kc) * spin,
                                  len(self.wfs.kpt_u))
 
-                cmo = self.wfs.kpt_u[u].psit_nG[:Nw]
-                cmo1 = self.wfs.kpt_u[u1].psit_nG[:Nw]
+                #
+                if self.wfs.mode == 'pw':
+                    cmo = self.gd.zeros(Nw, dtype=self.wfs.dtype)
+                    cmo1 = self.gd.zeros(Nw, dtype=self.wfs.dtype)
+                    for i in range(Nw):
+                        cmo[i] = self.wfs._get_wave_function_array(u, i)
+                        cmo1[i] = self.wfs._get_wave_function_array(u1, i)
+                else:
+                    cmo = self.wfs.kpt_u[u].psit_nG[:Nw]
+                    cmo1 = self.wfs.kpt_u[u1].psit_nG[:Nw]
 
+                # cmo = self.wfs.kpt_u[u].psit_nG[:Nw]
+                # cmo1 = self.wfs.kpt_u[u1].psit_nG[:Nw]
                 #
                 e_G = np.exp(-2.j * pi *
                              np.dot(np.indices(self.gd.n_c).T +
                                     self.gd.beg_c,
                                     Gc / self.gd.N_c).T)
                 pw = (e_G * cmo.conj()).reshape((Nw, -1))
-
-                if self.dtype == float:
-                    pw = pw.real
 
                 Z_dknn[d, k] += \
                     np.inner(pw, cmo1.reshape((Nw, -1))) * self.gd.dv
@@ -386,8 +387,6 @@ class WannierLocalization:
                     P_n = P_ni[:Nw]
                     P_n1 = P_ani1[A][:Nw]
                     e = np.exp(-2.j * pi * np.dot(Gc, spos_ac[A]))
-                    if self.dtype == float:
-                        e = e.real
 
                     Z_dknn[d, k] += e * P_n.conj().dot(
                         dS_ii.dot(P_n1.T))
@@ -464,10 +463,9 @@ class WannierLocalization:
     def get_gradients(self):
 
         Nw = self.nwannier
-        dtype = self.dtype
         dU = []
         for k in range(self.Nk):
-            Utemp_ww = np.zeros((Nw, Nw), dtype)
+            Utemp_ww = np.zeros((Nw, Nw), complex)
 
             for d, weight in enumerate(self.weight_d):
                 if abs(weight) < 1.0e-6:

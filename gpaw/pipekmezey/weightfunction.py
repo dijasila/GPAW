@@ -1,4 +1,4 @@
-""" Class which builds a weight function for each atom
+r""" Class which builds a weight function for each atom
     in a molecule using simple atom centred gaussians.
 
     This is the Hirshfeld scheme:
@@ -71,7 +71,7 @@ class WeightFunc:
         check = abs(dis) <= Rc / Bohr
         # Make gaussian
         gauss = 1.0 / (mu * np.sqrt(2.0 * pi)) * \
-                np.exp(- dis ** 2 / (2.0 * mu))
+            np.exp(- dis ** 2 / (2.0 * mu))
         # Apply cut-off and send
         return (gauss * check)
 
@@ -106,10 +106,8 @@ class WeightFunc:
 
             dis = self.get_distance_vectors(pos)
 
-            empty += charge * \
-                     self.truncated_gaussian(dis,
-                                             self.mu[symbol],
-                                             self.Rc[symbol])
+            empty += charge * self.truncated_gaussian(
+                dis, self.mu[symbol], self.Rc[symbol])
         #
         return empty
 

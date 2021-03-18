@@ -1,5 +1,10 @@
+"""
+Tools for direcmin using grid and pw
+"""
+
 import numpy as np
 import scipy as sp
+
 
 def expm_ed(a_mat, evalevec=False):
 
@@ -44,7 +49,7 @@ def expm_ed_unit_inv(a_upp_r, oo_vo_blockonly=False):
     p_nn = np.dot(a_upp_r, a_upp_r.T.conj())
     eigval, evec = np.linalg.eigh(p_nn)
     # Eigenvalues cannot be negative
-    eigval[eigval.real < 1e-16] = 1e-16
+    eigval[eigval.real < 1.0e-16] = 1.0e-16
     sqrt_eval = np.sqrt(eigval)
 
     sin_sqrt_p = matrix_function(sqrt_eval, evec, np.sin)
@@ -61,10 +66,9 @@ def expm_ed_unit_inv(a_upp_r, oo_vo_blockonly=False):
         dim_v = a_upp_r.shape[1]
         dim_o = a_upp_r.shape[0]
         u_vv = np.eye(dim_v) + \
-               np.dot(a_upp_r.T.conj(),
-                      np.dot(np.dot((cos_sqrt_p - np.eye(dim_o)),
-                                     inv_p),
-                             a_upp_r))
+            np.dot(a_upp_r.T.conj(),
+                   np.dot(np.dot((cos_sqrt_p - np.eye(dim_o)), inv_p),
+                          a_upp_r))
         u = np.vstack([
             np.hstack([u_oo, u_ov]),
             np.hstack([u_vo, u_vv])])
@@ -169,8 +173,8 @@ def parabola_interpolation(x_0, x_1, f_0, f_1, df_0):
     b = df_0
     c = f_0
 
-    a_min = - b / (2.0*a)
-    f_min = a * a_min**2 + b * a_min + c
+    a_min = - b / (2.0 * a)
+    f_min = a * a_min ** 2 + b * a_min + c
     if f_min > f_1:
         a_min = x_1 - x_0
         if f_0 < f_1:
@@ -218,4 +222,28 @@ def gramschmidt(C_nM, S_MM):
                          overwrite_a=True,
                          check_finite=False)
 
-    return np.dot(S_nn, C_nM)
+    return np.dot(S_nn.conj(), C_nM)
+
+
+def initial_localization(wfs, dens, ham, log):
+    from gpaw.directmin.locfunc.dirmin import DirectMinLocalize
+    from gpaw.directmin.odd.lcao import PzCorrectionsLcao as PZC
+    from gpaw.pipekmezey.wannier_basic import \
+        WannierLocalization as wl
+    for kpt in wfs.kpt_u:
+        if sum(kpt.f_n > 1.0e-10) < 2:
+            continue
+        lf_obj = wl(wfs=wfs, spin=kpt.s)
+        lf_obj.localize(tolerance=1.0e-5)
+        U = np.ascontiguousarray(
+            lf_obj.U_kww[kpt.q].T)
+        if kpt.C_nM.dtype == float:
+            U = U.real
+        wfs.gd.comm.broadcast(U, 0)
+        dim = U.shape[0]
+        kpt.C_nM[:dim] = np.dot(U, kpt.C_nM[:dim])
+    dm = DirectMinLocalize(
+        PZC(wfs, dens, ham), wfs,
+        maxiter=200, g_tol=5.0e-4, randval=0.1)
+    dm.run(wfs, dens, log)
+    return 0

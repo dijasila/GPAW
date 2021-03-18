@@ -3,11 +3,8 @@ Potentials for orbital density dependent energy functionals
 """
 
 import numpy as np
-from gpaw.utilities import pack, unpack
-from gpaw.lfc import LFC
-from gpaw.transformers import Transformer
-from gpaw.directmin.fdpw.tools import get_n_occ, d_matrix
-from gpaw.poisson import PoissonSolver
+from gpaw.utilities import unpack
+from gpaw.directmin.fdpw.tools import d_matrix
 
 
 class ZeroCorrections:
@@ -27,7 +24,7 @@ class ZeroCorrections:
         self.eks = 0.0
         self.changedocc = 0
         self.restart = 0
-        self.momevery = 7
+        self.momevery = 20
         self.momcounter = 0
 
     def get_energy_and_gradients(self, wfs, grad_knG=None,
@@ -64,14 +61,8 @@ class ZeroCorrections:
 
         dens.update(wfs)
         ham.update(dens, wfs, False)
-        # TODO: We need to pass e_entropy to ham.get_energy
-        #  but e_entropy requires the calculation of the
-        #  occupation numbers. Setting e_entropy = 0.0
-        #  should work only for zero temperature calculations
-        if not hasattr(self, '_e_entropy'):
-            self._e_entropy = 0.0
         wfs.timer.stop('Update Kohn-Sham energy')
-        energy = ham.get_energy(self._e_entropy, wfs, False)
+        energy = ham.get_energy(0.0, wfs, False)
 
         for kpt in wfs.kpt_u:
             self.get_energy_and_gradients_kpt(
@@ -137,7 +128,7 @@ class ZeroCorrections:
                                               ham=ham)
         wfs.timer.start('Unitary gradients')
         g_k = {}
-        kappa_tmp=0.0
+        kappa_tmp = 0.0
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
             l_odd = wfs.integrate(kpt.psit_nG, self.grad[k], True)
@@ -147,9 +138,9 @@ class ZeroCorrections:
             indz = np.absolute(l_odd) > 1.0e-4
             l_c = 2.0 * l_odd[indz]
             l_odd = f[:, np.newaxis] * l_odd.T.conj() - f * l_odd
-            kappa = np.max(np.absolute(l_odd[indz])/np.absolute(l_c))
+            kappa = np.max(np.absolute(l_odd[indz]) / np.absolute(l_c))
             if kappa > kappa_tmp:
-                kappa_tmp=kappa
+                kappa_tmp = kappa
             if a_mat[k] is None:
                 g_k[k] = l_odd.T
             else:

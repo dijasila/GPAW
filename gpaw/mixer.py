@@ -389,7 +389,7 @@ class DummyMixer:
         return []
 
     def todict(self):
-        return {'method': 'dummy'}
+        return {'name': 'dummy'}
 
 
 class SeparateSpinMixerDriver:

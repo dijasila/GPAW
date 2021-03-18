@@ -194,8 +194,8 @@ class DirectLCAO(object):
         HC_Mn = HC_Mn[:, :nbs] - rhs2[:, :nbs]
         norm = []
         for i in range(nbs):
-            norm.append(np.dot(HC_Mn[:,i].conj(),
-                               HC_Mn[:,i]).real * kpt.f_n[i])
+            norm.append(
+                np.dot(HC_Mn[:, i].conj(), HC_Mn[:, i]).real * kpt.f_n[i])
 
         wfs.timer.stop('Residual')
 

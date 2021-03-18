@@ -410,7 +410,7 @@ class SJM(SolvationGPAW):
 
         self.results['ne'] = self.ne
         self.results['electrode_potential'] = self.get_electrode_potential()
-        self.hamiltonian.summary(self.occupations.fermilevel, self.log)
+        self.hamiltonian.summary(self.wfs, self.log)
 
         self.log('----------------------------------------------------------')
         self.log("Grand Potential Energy (E_tot + E_solv - mu*ne):")
@@ -422,8 +422,8 @@ class SJM(SolvationGPAW):
         else:
             self.log("Canonical energy will be written to results\n")
 
-        self.density.summary(self.atoms, self.occupations.magmom, self.log)
-        self.occupations.summary(self.log)
+        self.density.summary(self.atoms, self.results.get('magmom', 0.),
+                             self.log)
         self.wfs.summary(self.log)
         self.log.fd.flush()
         if self.verbose:
@@ -496,7 +496,7 @@ class SJM(SolvationGPAW):
 
     def get_electrode_potential(self):
         ham = self.hamiltonian
-        fermilevel = self.occupations.fermilevel
+        fermilevel = self.wfs.fermi_level
         try:
             correction = ham.poisson.correction
         except AttributeError:

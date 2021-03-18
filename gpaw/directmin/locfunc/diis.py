@@ -1,5 +1,14 @@
+"""
+DIIS-like algorithm for
+wave-function localization
+
+J. Chem. Phys. 121, 9220 (2004)
+"""
+
+
 from ase.parallel import parprint
-from gpaw.directmin.fdpw.tools import matrix_function, get_n_occ
+from gpaw.directmin.lcao.tools import matrix_function
+from gpaw.directmin.fdpw.tools import get_n_occ
 import numpy as np
 from ase.units import Hartree
 from gpaw.directmin.fdpw.tools import get_random_um
@@ -57,12 +66,12 @@ class SSLH:
 
 class DIIS_SSLH(SSLH):
 
-    def __init__(self,  obj_f, wfs,
+    def __init__(self, obj_f, wfs,
                  max_iter=333, g_tol=1.0e-4, min_iter=1):
 
         super(DIIS_SSLH, self).__init__(
             obj_f, max_iter=max_iter, g_tol=g_tol, min_iter=min_iter)
-        self.R_ki= {}
+        self.R_ki = {}
         self.E_ki = {}
         self.D_ki = {}
         self.n_kps = wfs.kd.nks // wfs.kd.nspins
@@ -97,8 +106,8 @@ class DIIS_SSLH(SSLH):
             k = self.n_kps * kpt.s + kpt.q
             if self.countme == 0 and wfs.dtype is complex:
                 U = get_random_um(n_occ, wfs.dtype)
-                kpt.psit_nG[:n_occ] = np.tensordot(U,
-                    kpt.psit_nG[:n_occ].copy(), axes=1)
+                kpt.psit_nG[:n_occ] = np.tensordot(
+                    U, kpt.psit_nG[:n_occ].copy(), axes=1)
             self.psi_copy[k] = kpt.psit_nG[:n_occ].copy()
 
             self.E_ki[k] = []
@@ -150,7 +159,7 @@ class DIIS_SSLH(SSLH):
                     np.hstack([mI[:, np.newaxis].T,
                                np.array([0.0])[:, np.newaxis]])])
                 rhs = np.zeros(shape=B.shape[0])
-                rhs[B.shape[0]-1] = -1.0
+                rhs[B.shape[0] - 1] = -1.0
                 coef = np.linalg.solve(B, rhs)
                 C = np.einsum('i,irs->rs', coef[:-1], self.D_ki[k])
 
@@ -186,7 +195,7 @@ class DIIS_SSLH(SSLH):
             error.append(np.max(np.absolute(self.E_ki[k][-1])))
 
         self.error = Hartree * np.max(error)
-        self.e_tot =  Hartree * e_total
+        self.e_tot = Hartree * e_total
         self.iter += 1
 
 
@@ -232,5 +241,3 @@ def dot(wfs, psi_1, psi_2, kpt):
     sum_dot = np.ascontiguousarray(sum_dot)
 
     return sum_dot
-
-

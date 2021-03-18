@@ -528,4 +528,3 @@ class OrbitalLayouts(KohnShamLayouts):
 
     def get_transposed_density_matrix_delta(self, d_nn, C_nM, rho_MM=None):
         return self.calculate_density_matrix_delta(d_nn, C_nM, rho_MM).T.copy()
-

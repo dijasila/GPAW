@@ -118,11 +118,6 @@ There are few points about the implementation that we emphasize:
 Useful tips
 ===========
 
-Use dry_run option to get an overview of a calculation (especially useful for
-heavy calculations!)::
-
-    $ python3 filename.py --gpaw=df-dry-run=8
-
 It's important to converge the results with respect to:
 
     * ``nbands``
