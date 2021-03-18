@@ -33,6 +33,9 @@ Git master branch
   Instead of ``--gpaw=df_dry_run=N``, use the ``--dry-run=N`` option
   (see :ref:`command line options`).
 
+* Added documentation for :ref:`elph` and added support for
+  spin-polarized systems.
+
 
 Version 21.1.0
 ===============
