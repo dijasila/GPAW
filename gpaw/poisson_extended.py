@@ -168,7 +168,7 @@ class ExtendedPoissonSolver(FDPoissonSolver):
                 # if self.gd.comm.rank == 0:
                 #     big_g.dump('mask_%dg' % (i))
 
-    def solve(self, phi, rho, charge=None, eps=None, maxcharge=1e-6,
+    def solve(self, phi, rho, charge=None, maxcharge=1e-6,
               zero_initial_phi=False):
         self._init()
         if self.is_extended:
@@ -181,7 +181,7 @@ class ExtendedPoissonSolver(FDPoissonSolver):
             self.timer.stop('Extend array')
 
             retval = self._solve(self.phi_g, self.rho_g, charge,
-                                 eps, maxcharge, zero_initial_phi)
+                                 maxcharge, zero_initial_phi)
 
             self.timer.start('Deextend array')
             deextend_array(self.gd_original, self.gd, phi, self.phi_g)
@@ -189,15 +189,13 @@ class ExtendedPoissonSolver(FDPoissonSolver):
 
             return retval
         else:
-            return self._solve(phi, rho, charge, eps, maxcharge,
+            return self._solve(phi, rho, charge, maxcharge,
                                zero_initial_phi)
 
     @timer('Solve')
-    def _solve(self, phi, rho, charge=None, eps=None, maxcharge=1e-6,
+    def _solve(self, phi, rho, charge=None, maxcharge=1e-6,
                zero_initial_phi=False):
         self._init()
-        if eps is None:
-            eps = self.eps
 
         if self.moment_corrections:
             assert not self.gd.pbc_c.any()
@@ -220,7 +218,7 @@ class ExtendedPoissonSolver(FDPoissonSolver):
             self.timer.stop('Multipole moment corrections')
 
             self.timer.start('Solve neutral')
-            niter = self.solve_neutral(phi, rho_neutral, eps=eps)
+            niter = self.solve_neutral(phi, rho_neutral)
             self.timer.stop('Solve neutral')
 
             self.timer.start('Multipole moment corrections')
@@ -232,7 +230,7 @@ class ExtendedPoissonSolver(FDPoissonSolver):
             return niter
         else:
             return FDPoissonSolver.solve(self, phi, rho, charge,
-                                         eps, maxcharge,
+                                         maxcharge,
                                          zero_initial_phi)
 
     def estimate_memory(self, mem):

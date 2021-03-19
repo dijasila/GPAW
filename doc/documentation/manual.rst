@@ -329,7 +329,9 @@ generalized gradient approximation (GGA) type, and the last two are
 
 For the list of all functionals available in GPAW see :ref:`overview_xc`.
 
-GPAW uses the functionals from libxc_ by default.
+GPAW uses the functionals from libxc_ by default
+(except for LDA, PBE, revPBE, RPBE and PW91 where GPAW's own implementation
+is used).
 Keywords are based on the names in the libxc :file:`'xc_funcs.h'` header
 file (the leading ``'XC_'`` should be removed from those names).
 You should be able to find the file installed alongside LibXC.
@@ -865,30 +867,28 @@ Hamiltonian matrix instead of using an iterative method.
 Poisson solver
 --------------
 
-The *poissonsolver* keyword is used to specify a Poisson solver class
+The ``poissonsolver`` keyword is used to specify a Poisson solver class
 or enable dipole correction.
 
 The default Poisson solver in FD and LCAO mode
-is called FastPoissonSolver and uses
+is called ``FastPoissonSolver`` and uses
 a combination of Fourier and Fourier-sine transforms
 in combination with parallel array transposes.  Meanwhile in PW mode,
 the Poisson equation is solved by dividing each planewave coefficient
 by the squared length of its corresponding wavevector.
 
-The old default Poisson solver uses a multigrid Jacobian method.  Use this
-keyword to specify a different method.  This example corresponds to
-the default Poisson solver::
+The old default Poisson solver uses a multigrid Jacobian method.
+This example corresponds to the old default Poisson solver::
 
   from gpaw import GPAW, PoissonSolver
-  calc = GPAW(poissonsolver=PoissonSolver(nn=3, relax='J', eps=2e-10))
+  calc = GPAW(poissonsolver=PoissonSolver(name='fd', nn=3, relax='J', eps=2e-10))
 
-The first argument is the stencil, see :ref:`manual_stencils`.  Second
-argument is the method, either ``'J'`` (Jacobian) or ``'GS'``
+The ``nn`` argument is the stencil, see :ref:`manual_stencils`.
+The ``relax`` argument is the method, either ``'J'`` (Jacobian) or ``'GS'``
 (Gauss-Seidel).  The Gauss-Seidel method requires half as many
 iterations to solve the Poisson equation, but involves more
 communication.  The Gauss-Seidel implementation also depends slightly
 on the domain decomposition used.
-
 The last argument, ``eps``, is the convergence criterion.
 
 .. note::
@@ -901,7 +901,7 @@ The last argument, ``eps``, is the convergence criterion.
 
 .. _manual_dipole_correction:
 
-The *poissonsolver* keyword can also be used to specify that a dipole
+The ``poissonsolver`` keyword can also be used to specify that a dipole
 correction should be applied along a given axis.  The system should be
 non-periodic in that direction but periodic in the two other
 directions.
@@ -1008,6 +1008,7 @@ By default, only a limited number of information is printed out for each SCF
 step. It is possible to obtain more information (e.g. for investigating
 convergen problems in more detail) by ``verbose=1`` keyword.
 
+
 .. _manual_communicator:
 
 Communicator object
@@ -1088,6 +1089,7 @@ change the number of grid points:
 
 More details can be found on the :ref:`restart_files` page.
 
+
 ---------------------------------------
 Customizing behaviour through observers
 ---------------------------------------
@@ -1111,6 +1113,7 @@ example saves a differently named restart file every 5 iterations::
   calc.attach(OccasionalWriter().write, occasionally)
 
 See also :meth:`~gpaw.GPAW.attach`.
+
 
 .. _command line options:
 

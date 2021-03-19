@@ -16,12 +16,42 @@ Git master branch
   Kohn–Sham states.  Previously, the printed occupation numbers were
   scaled by **k**-point weight.
 
+* Calculations of excited states can now be performed with the :ref:`mom`
+  (MOM). Since calculations using MOM are variational, they provide atomic
+  forces and can be used for excited-state geometry optimization and molecular
+  dynamics.
+
+* The Davidson eigensolver now uses ScaLAPACK for the
+  `(2 N_{\text{bands}}) \times (2 N_{\text{bands}})` diagonalization step
+  when ``parallel={'sl_auto':True}`` is used.
+
+* Removed several old command-line options:
+  ``--memory-estimate-depth``, ``--domain-decomposition``,
+  ``--state-parallelization``, ``--augment-grids``,
+  ``--buffer-size``, ``--profile``, ``--gpaw``, ``--benchmark-imports``.
+  See :ref:`manual_parallel` and :ref:`profiling` for alternatives.
+  Instead of ``--gpaw=df_dry_run=N``, use the ``--dry-run=N`` option
+  (see :ref:`command line options`).
+
+* Added documentation for :ref:`elph` and added support for
+  spin-polarized systems.
+
+
 Version 21.1.0
 ===============
 
 18 Jan 2021: :git:`21.1.0 <../21.1.0>`
 
 * Corresponding ASE release: ASE-3.21.0.
+
+* We now use GPAW's own (faster) implementation for LDA, PBE, revPBE, RPBE
+  and PW91.  For most calculation the speedup is unimportant, but for our
+  test-suites it gives a nice boost.  There can be small meV changes compared
+  to the LibXC implementation.  If you want to use LibXC then use::
+
+      from gpaw.xc.gga import GGA
+      from gpaw.xc.libxc import LibXC
+      calc = GPAW(xc=GGA(LibXC('PBE')), ...)
 
 * New :ref:`zfs` module.
 
@@ -215,7 +245,7 @@ Version 20.1.0
   3) ``~/.gpaw/siteconfig.py``
 
   This will be used to configure things
-  (BLAS, FFTW, ScaLapack, libxc, libvdwxc, ...).  If no configuration file
+  (BLAS, FFTW, ScaLAPACK, libxc, libvdwxc, ...).  If no configuration file
   is found then you get ``libraries = ['xc', 'blas']``.
 
 * A Lapack library is no longer needed for compiling GPAW.  We are using

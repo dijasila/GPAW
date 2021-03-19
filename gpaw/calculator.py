@@ -17,7 +17,6 @@ from ase.utils.timing import Timer
 import gpaw
 import gpaw.mpi as mpi
 import gpaw.wavefunctions.pw as pw
-from gpaw import memory_estimate_depth
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.density import RealSpaceDensity
 from gpaw.dos import DOSCalculator
@@ -48,6 +47,7 @@ from gpaw.utilities.memory import MemNode, maxrss
 from gpaw.utilities.partition import AtomPartition
 from gpaw.wavefunctions.mode import create_wave_function_mode
 from gpaw.xc import XC
+from gpaw.xc.kernel import XCKernel
 from gpaw.xc.sic import SIC
 from gpaw.typing import Array1D
 
@@ -102,11 +102,11 @@ class GPAW(Calculator):
 
     default_parallel: Dict[str, Any] = {
         'kpt': None,
-        'domain': gpaw.parsize_domain,
-        'band': gpaw.parsize_bands,
+        'domain': None,
+        'band': None,
         'order': 'kdb',
         'stridebands': False,
-        'augment_grids': gpaw.augment_grids,
+        'augment_grids': False,
         'sl_auto': False,
         'sl_default': None,
         'sl_diagonalize': None,
@@ -115,7 +115,7 @@ class GPAW(Calculator):
         'sl_lrtddft': None,
         'use_elpa': False,
         'elpasolver': '2stage',
-        'buffer_size': gpaw.buffer_size}
+        'buffer_size': None}
 
     def __init__(self,
                  restart=None,
@@ -570,6 +570,10 @@ class GPAW(Calculator):
 
         self.wfs.eigensolver.reset()
         self.scf.reset()
+        occ_name = getattr(self.wfs.occupations, "name", None)
+        if occ_name == 'mom':
+            # Initialize MOM reference orbitals
+            self.wfs.occupations.initialize_reference_orbitals()
         print_positions(self.atoms, self.log, self.density.magmom_av)
 
     def initialize(self, atoms=None, reading=False):
@@ -611,7 +615,7 @@ class GPAW(Calculator):
         # Generate new xc functional only when it is reset by set
         # XXX sounds like this should use the _changed_keywords dictionary.
         if self.hamiltonian is None or self.hamiltonian.xc is None:
-            if isinstance(par.xc, (str, dict)):
+            if isinstance(par.xc, (str, dict, XCKernel)):
                 xc = XC(par.xc, collinear=collinear, atoms=atoms)
             else:
                 xc = par.xc
@@ -821,7 +825,7 @@ class GPAW(Calculator):
         if xc.type == 'GLLB' and olddens is not None:
             xc.heeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeelp(olddens)
 
-        self.print_memory_estimate(maxdepth=memory_estimate_depth + 1)
+        self.print_memory_estimate(maxdepth=3)
 
         print_parallelization_details(self.wfs, self.hamiltonian, self.log)
 
@@ -896,6 +900,15 @@ class GPAW(Calculator):
 
         if self.wfs.nspins == 1:
             dct.pop('fixmagmom', None)
+
+        kwargs = dct.copy()
+        name = kwargs.pop('name', '')
+        if name == 'mom':
+            from gpaw.mom import OccupationsMOM
+            occ = OccupationsMOM(self.wfs, **kwargs)
+
+            self.log(occ)
+            return occ
 
         occ = create_occ_calc(
             dct,
@@ -1356,7 +1369,7 @@ class GPAW(Calculator):
 
         The PAW object must be initialize()'d, but needs not have large
         arrays allocated."""
-        # NOTE.  This should work with "--gpaw dry_run=N"
+        # NOTE.  This should work with "--dry-run=N"
         #
         # However, the initial overhead estimate is wrong if this method
         # is called within a real mpirun/gpaw-python context.

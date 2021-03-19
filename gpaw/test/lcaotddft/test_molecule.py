@@ -6,9 +6,9 @@ from ase.build import molecule
 
 from gpaw import GPAW
 from gpaw.mpi import world, serial_comm, broadcast_float, broadcast
-from gpaw.poisson import PoissonSolver
 from gpaw.lcaotddft import LCAOTDDFT
 from gpaw.lcaotddft.dipolemomentwriter import DipoleMomentWriter
+from gpaw.lcaotddft.wfwriter import WaveFunctionWriter, WaveFunctionReader
 from gpaw.lcaotddft.densitymatrix import DensityMatrix
 from gpaw.lcaotddft.frequencydensitymatrix import FrequencyDensityMatrix
 from gpaw.lcaotddft.ksdecomposition import KohnShamDecomposition
@@ -55,6 +55,41 @@ def calculate_error(a, ref_a):
     return err
 
 
+def calculate_time_propagation(gs_fpath, kick,
+                               communicator=world, parallel={},
+                               do_fdm=False):
+    td_calc = LCAOTDDFT(gs_fpath,
+                        communicator=communicator,
+                        parallel=parallel,
+                        txt='td.out')
+    if do_fdm:
+        dmat = DensityMatrix(td_calc)
+        ffreqs = frequencies(range(0, 31, 5), 'Gauss', 0.1)
+        fdm = FrequencyDensityMatrix(td_calc, dmat, frequencies=ffreqs)
+    DipoleMomentWriter(td_calc, 'dm.dat')
+    WaveFunctionWriter(td_calc, 'wf.ulm')
+    td_calc.absorption_kick(kick)
+    td_calc.propagate(20, 3)
+    if do_fdm:
+        fdm.write('fdm.ulm')
+
+    communicator.barrier()
+
+    if do_fdm:
+        return fdm
+
+
+def check_wfs(wf_ref_fpath, wf_fpath, atol=1e-12):
+    wfr_ref = WaveFunctionReader(wf_ref_fpath)
+    wfr = WaveFunctionReader(wf_fpath)
+    assert len(wfr) == len(wfr_ref)
+    for i in range(1, len(wfr)):
+        ref = wfr_ref[i].wave_functions.coefficients
+        coeff = wfr[i].wave_functions.coefficients
+        err = calculate_error(coeff, ref)
+        assert err < atol, f'error at i={i}'
+
+
 # Generate different parallelization options
 parallel_i = [{}]
 if compiled_with_sl():
@@ -80,7 +115,6 @@ def initialize_system():
                 setups=dict(Na='1'),
                 basis='dzp',
                 mode='lcao',
-                poissonsolver=PoissonSolver(eps=1e-16),
                 convergence={'density': 1e-8},
                 communicator=comm,
                 txt='gs.out')
@@ -89,16 +123,10 @@ def initialize_system():
     calc.write('gs.gpw', mode='all')
 
     # Time-propagation calculation
-    td_calc = LCAOTDDFT('gs.gpw',
-                        communicator=comm,
-                        txt='td.out')
-    dmat = DensityMatrix(td_calc)
-    ffreqs = frequencies(range(0, 31, 5), 'Gauss', 0.1)
-    fdm = FrequencyDensityMatrix(td_calc, dmat, frequencies=ffreqs)
-    DipoleMomentWriter(td_calc, 'dm.dat')
-    td_calc.absorption_kick(np.ones(3) * 1e-5)
-    td_calc.propagate(20, 3)
-    fdm.write('fdm.ulm')
+    fdm = calculate_time_propagation('gs.gpw',
+                                     kick=np.ones(3) * 1e-5,
+                                     communicator=comm,
+                                     do_fdm=True)
 
     # Calculate ground state with full unoccupied space
     unocc_calc = calc.fixed_density(nbands='nao',
@@ -106,6 +134,35 @@ def initialize_system():
                                     txt='unocc.out')
     unocc_calc.write('unocc.gpw', mode='all')
     return unocc_calc, fdm
+
+
+def test_propagated_wave_function(initialize_system, module_tmp_path):
+    wfr = WaveFunctionReader(module_tmp_path / 'wf.ulm')
+    coeff = wfr[-1].wave_functions.coefficients
+    # Pick a few coefficients corresponding to non-degenerate states;
+    # degenerate states should be normalized so that they can be compared
+    coeff = coeff[np.ix_([0], [0], [0, 1, 4], [0, 1, 2])]
+    # Normalize the wave function sign
+    coeff = np.sign(coeff.real[..., 0, np.newaxis]) * coeff
+    ref = [[[[1.6564776755628504e-02 + 1.2158943340143986e-01j,
+              4.7464497657284752e-03 + 3.4917799444496286e-02j,
+              8.2152048273399657e-07 - 1.6344333784831069e-06j],
+             [1.5177089239371724e-01 + 7.6502712023931621e-02j,
+              8.0497556154952932e-01 + 4.0573839188792121e-01j,
+              -5.1505952970811632e-06 - 1.1507918955641119e-05j],
+             [2.5116252101774323e+00 + 3.6776360873471503e-01j,
+              1.9024613198566329e-01 + 2.7843314959952882e-02j,
+              -1.3848736953929574e-05 - 2.6402210145403184e-05j]]]]
+    err = calculate_error(coeff, ref)
+    assert err < 2e-12
+
+
+@pytest.mark.parametrize('parallel', parallel_i)
+def test_propagation(initialize_system, module_tmp_path, parallel, in_tmp_dir):
+    calculate_time_propagation(module_tmp_path / 'gs.gpw',
+                               kick=np.ones(3) * 1e-5,
+                               parallel=parallel)
+    check_wfs(module_tmp_path / 'wf.ulm', 'wf.ulm', atol=1e-12)
 
 
 @pytest.fixture(scope='module')

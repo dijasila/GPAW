@@ -26,7 +26,7 @@ from gpaw.xc.gga import GGA, gga_vars, add_gradient_correction
 from gpaw.xc.mgga import MGGA
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.utilities.tools import construct_reciprocal
-from gpaw import setup_paths, extra_parameters
+from gpaw import setup_paths
 import gpaw.mpi as mpi
 import _gpaw
 
@@ -703,8 +703,6 @@ class FFTVDWFunctional(VDWFunctionalBase):
             del C_pg
             self.timer.start('FFT')
             theta_ak[a] = rfftn(n_g * pa_g, self.shape).copy()
-            if extra_parameters.get('vdw0'):
-                theta_ak[a][0, 0, 0] = 0.0
             self.timer.stop()
 
             if not self.energy_only:
