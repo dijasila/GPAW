@@ -32,6 +32,7 @@ a GPAW installation inside.
 Using the venv
 ==============
 
+In the following, we will assume that your venv folder is ``~/venv1/``.
 The venv needs to be activated like this::
 
     $ source ~/venv1/bin/activate
