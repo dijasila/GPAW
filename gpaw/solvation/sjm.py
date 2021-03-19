@@ -36,12 +36,6 @@ def get_traceback_string():
 
 # TODO/ap: Update website documentation when we're all through here.
 
-# FIXME/ap: There was some local hack we had to ASE to allow it to put the
-# excess electrons and potential into the trajectory file. Do we want to
-# put this hack in as a MR to ASE first?
-# Could we delete assert line in ase/calculator/singlepoint
-# We should probably do this.
-
 # TODO/ap: Add release notes describing major changes.
 
 
@@ -174,22 +168,22 @@ class SJM(SolvationGPAW):
     implemented_properties = ['energy', 'forces', 'stress', 'dipole',
                               'magmom', 'magmoms',
                               'excess_electrons', 'electrode_potential']
-
+    _sj_default_parameters = Parameters(
+        {'excess_electrons': 0.,
+         'jelliumregion': {'top': -1.,
+                           'bottom': -3.,
+                           'thickness': None,
+                           'fix_bottom': False},
+         'target_potential': None,
+         'write_grandpotential_energy': True,
+         'tol': 0.01,
+         'always_adjust': False,
+         'max_iters': 10,
+         'max_step': 2.,
+         'slope': None})
     default_parameters = copy.deepcopy(SolvationGPAW.default_parameters)
     default_parameters.update({'poissonsolver': {'dipolelayer': 'xy'}})
-    default_parameters.update(
-        {'sj': {'excess_electrons': 0.,
-                'jelliumregion': {'top': -1.,
-                                  'bottom': -3.,
-                                  'thickness': None,
-                                  'fix_bottom': False},
-                'target_potential': None,
-                'write_grandpotential_energy': True,
-                'tol': 0.01,
-                'always_adjust': False,
-                'max_iters': 10,
-                'max_step': 2.,
-                'slope': None}})
+    default_parameters.update({'sj': _sj_default_parameters})
 
     def __init__(self, restart=None, **kwargs):
 
@@ -221,68 +215,50 @@ class SJM(SolvationGPAW):
           background charge is changed.
 
         """
-        old_sj_dict = copy.deepcopy(self.parameters['sj'])
-        # Above will just be defaults on first call.
         sj_dict = kwargs['sj'] if 'sj' in kwargs else {}
         badkeys = [key for key in sj_dict if key not in
                    self.default_parameters['sj']]
         if badkeys:
-            raise KeyError('Unexpected key(s) "{}" provided to sj dict. '
-                           'Only keys allowed are "{}".'.format(
-                               ', '.join(badkeys),
-                               ', '.join(self.default_parameters['sj'])))
+            msg = ('Unexpected key(s) "{}" provided to sj dict. '
+                   'Only keys allowed are "{}".'
+                   .format(', '.join(badkeys),
+                           ', '.join(self.default_parameters['sj'])))
+            raise KeyError(textwrap.fill(msg))
 
         sj_changes = [key for key, value in sj_dict.items() if not
                       equal(value, self.parameters['sj'].get(key))]
 
-        # We handle background_charge internally; passing this to GPAW's
+        # We handle 'sj' and 'background_charge' internally; passing to GPAW's
         # set function will trigger a deletion of the density, etc.
-        gpaw_kwargs = kwargs.copy()
-        if 'background_charge' in gpaw_kwargs:
-            del gpaw_kwargs['background_charge']
-
-        # FIXED/gk: do not let SolvationGPAW's set function see the 'sj'
-        # dictionary. Otherwise it will reinitialize when only sj keywords
-        # are set slowing things down by a lot
-        # ap: A (minor) problem with that is that is the "Input
-        # parameters:" message in the log file no longer includes sj
-        # parameters.
-        if 'sj' in gpaw_kwargs:
-            self.parameters['sj'] = gpaw_kwargs.pop('sj')
-
-        SolvationGPAW.set(self, **gpaw_kwargs)
-
-        if not isinstance(self.parameters['sj'], Parameters):
-            self.parameters['sj'] = Parameters(self.parameters['sj'])
+        background_charge = None
+        if 'background_charge' in kwargs:
+            background_charge = kwargs.pop('background_charge')
+        if 'sj' in kwargs:
+            self.parameters['sj'].update(kwargs.pop('sj'))
         p = self.parameters['sj']
-        # ASE's Calculator.set() loses the dict items not being set.
-        # Add them back.
-        for key, value in old_sj_dict.items():
-            if key not in p:
-                p[key] = value
+
+        parent_changed = False  # if something changed outside the SJ wrapper
+        if len(kwargs) > 0:
+            parent_changed = True
+
+        SolvationGPAW.set(self, **kwargs)
+
         self.sog('Solvated Jellium parameters:')
         self.log.print_dict(p)
 
-        parent_changed = False  # if something changed outside the SJ wrapper
-        if any(key not in ['sj', 'background_charge'] for key in kwargs):
-            parent_changed = True
-
         if 'target_potential' in sj_changes:
-            # FIXED/gk: If target potential is changed by the user
-            # and the slope is known, a step towards the new potential
-            # is taken right away.
-            if p.target_potential is not None:
-                try:
-                    true_potential = self.get_electrode_potential()
-                # TypeError is needed for the case of starting from a
-                # gpw  file and changing the target potential at the
-                # start
-                except (AttributeError, TypeError):
-                    pass
-                else:
-                    if self.atoms and p.slope:
-                        p.excess_electrons = ((p.target_potential -
-                                              true_potential) / p.slope)
+            # If target potential is changed by the user and the slope is
+            # known, a step towards the new potential is taken right away.
+            try:
+                true_potential = self.get_electrode_potential()
+            # TypeError is needed for the case of starting from a gpw file and
+            # changing the target potential at the start.
+            except (AttributeError, TypeError):
+                pass
+            else:
+                if self.atoms and p.slope:
+                    p.excess_electrons = ((p.target_potential -
+                                          true_potential) / p.slope)
 
         if (any(key in ['target_potential', 'excess_electrons',
             'jelliumregion'] for key in sj_changes) and not parent_changed):
@@ -304,8 +280,6 @@ class SJM(SolvationGPAW):
                 if abs(true_potential - p.target_potential) > p.tol:
                     msg += 'new calculation required.'
                     self.results = {}
-                    # FIXED/gk: Crashed if tolerance was changed but
-                    # no slope was determined yet
                     if self.atoms and p.slope is not None:
                         p.excess_electrons = ((p.target_potential -
                                               true_potential) / p.slope)
@@ -314,13 +288,14 @@ class SJM(SolvationGPAW):
                     msg += 'already within tolerance.'
                 self.sog(msg)
 
-        if 'background_charge' in kwargs:
+        if background_charge:
             # background_charge is a GPAW parameter that we handle
             # internally, as it contains the jellium countercharge. Note if
             # a user tries to specify an *additional* background charge
             # this will probably conflict, but we know of no such use
             # cases.
             if self.wfs is None:
+                kwargs.update({'background_charge': background_charge})
                 SolvationGPAW.set(self, **kwargs)
             else:
                 if parent_changed:
@@ -328,8 +303,7 @@ class SJM(SolvationGPAW):
                 else:
                     self._quick_reinitialization()
                     if self.density.background_charge:
-                        self.density.background_charge = \
-                            kwargs['background_charge']
+                        self.density.background_charge = background_charge
                         self.density.background_charge.set_grid_descriptor(
                             self.density.finegd)
 
@@ -338,7 +312,8 @@ class SJM(SolvationGPAW):
                          .format(self.wfs.nvalence))
 
     def _quick_reinitialization(self):
-        # FIXME/ap: Add docstring.
+        """Minimal reinitialization of electronic-structure stuff when only
+        background charge changes."""
         if self.density.nct_G is None:
             self.initialize_positions()
 
@@ -355,7 +330,7 @@ class SJM(SolvationGPAW):
                   system_changes=['cell']):
         """Perform an electronic structure calculation, with either a
         constant number of electrons or a target potential, as requested by
-        the user."""
+        the user in the 'sj' dict."""
 
         self.sog('Solvated jellium method (SJM) calculation:')
 
@@ -384,16 +359,16 @@ class SJM(SolvationGPAW):
             #        contain workfunction this crashed. This should likely
             #        default to None if not given.I think that should be
             #        addressed somewhere else.
-            if self.parameters.convergence.get('workfunction'):
+            # FIXED/ap: I think that should do it; can you try?
+            if 'workfunction' in self.parameters.convergence:
                 if self.parameters.convergence['workfunction'] >= p.tol:
-                    self.sog(' Warning: it appears that your work function '
-                             'convergence criterion ({:g})\n is higher than '
-                             'your desired potential tolerance ({:g}).\n '
-                             'This will likely lead to issues with '
-                             'convergence.'
-                             .format(
-                                 self.parameters.convergence['workfunction'],
-                                 p.tol))
+                    msg = ('Warning: it appears that your work function '
+                           'convergence criterion ({:g}) is higher than your '
+                           'desired potential tolerance ({:g}). This will '
+                           'likely lead to issues with convergence.'
+                           .format(self.parameters.convergence['workfunction'],
+                                   p.tol))
+                    self.sog(textwrap.fill(msg))
             self._equilibrate_potential(atoms, system_changes)
         if properties != ['energy']:
             SolvationGPAW.calculate(self, atoms, properties, [])
@@ -457,9 +432,9 @@ class SJM(SolvationGPAW):
                     p.excess_electrons = (self._previous_electrons[-1] +
                                           (p.excess_electrons -
                                            self._previous_electrons[-1]) * 0.5)
-                    continue  # back to while True FIXME
+                    continue  # back to while
 
-            # Increase iteration count
+            # Increase iteration count.
             iteration += 1
 
             # Store attempt and calculate slope.
@@ -476,13 +451,12 @@ class SJM(SolvationGPAW):
                 self.sog('and apparent capacitance of {:.4f} muF/cm^2'
                          .format(capacitance))
 
-            # Check if we're equilibrated and exit if always adjust is False.
+            # Check if we're equilibrated and exit if always_adjust is False.
             if abs(true_potential - p.target_potential) < p.tol:
                 self.sog('Potential is within tolerance. Equilibrated.')
                 if iteration >= 2:
                     self.timer.stop('Potential equilibration loop')
                 if not p.always_adjust:
-                    # break  # out of the while loop FIXME
                     return
 
             # Guess slope if we don't have enough information yet.
@@ -500,10 +474,9 @@ class SJM(SolvationGPAW):
                      'on slope of {:.4f} V/electron.'
                      .format(p.excess_electrons, p.slope))
 
-            # Check if we're equilibrated and exit if always adjust is True.
+            # Check if we're equilibrated and exit if always_adjust is True.
             if (abs(true_potential - p.target_potential) < p.tol
                 and p.always_adjust):
-                # break  # out of the while loop FIXME
                 return
 
         msg = ('Potential could not be reached after {:d} iterations. '
