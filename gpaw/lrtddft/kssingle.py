@@ -633,11 +633,11 @@ class KSSingle(Excitation, PairDensity):
 
     def outstring(self):
         if self.mur.dtype == float:
-            string = '{0:d} {1:d}  {2:d} {3:d}  {4:g} {5:g}'.format(
+            string = '{0:d} {1:d}  {2:d} {3:d}  {4:.10g} {5:f}'.format(
                 self.i, self.j, self.pspin, self.spin, self.energy, self.fij)
         else:
             string = (
-                '{0:d} {1:d}  {2:d} {3:d} {4:d} {5:g}  {6:g} {7:g}'.format(
+                '{0:d} {1:d}  {2:d} {3:d} {4:d} {5:.10g}  {6:g} {7:g}'.format(
                     self.i, self.j, self.pspin, self.spin, self.k,
                     self.weight, self.energy, self.fij))
         string += '  '
