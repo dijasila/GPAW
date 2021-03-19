@@ -12,10 +12,12 @@ Sophia.
     * :mod:`Creation of Python virtual environments <venv>`.
     * Information about the Sophia cluster can be found at
       `<https://docs-devel.hpc.ait.dtu.dk/hardware/sophia/>`_.
+      Please note that the Sophia web-page is only accessible from the DTU
+      network.
     * `MyQueue <https://myqueue.readthedocs.io/>`__.
 
-.. highlight:: bash
 
+.. highlight:: bash
 
 Creating the venv
 =================
