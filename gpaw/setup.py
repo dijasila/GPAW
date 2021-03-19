@@ -2,20 +2,19 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 import functools
-from math import pi, sqrt
 from io import StringIO
+from math import pi, sqrt
 
-import numpy as np
 import ase.units as units
+import numpy as np
 from ase.data import chemical_symbols
 
-from gpaw.setup_data import SetupData, search_for_file
 from gpaw.basis_data import Basis
-from gpaw.overlap import OverlapCorrections
 from gpaw.gaunt import gaunt, nabla
-from gpaw.utilities import unpack, pack
-from gpaw.utilities.ekin import ekin, dekindecut
+from gpaw.overlap import OverlapCorrections
 from gpaw.rotation import rotation
+from gpaw.setup_data import SetupData, search_for_file
+from gpaw.utilities import pack, unpack
 from gpaw.xc import XC
 
 
@@ -46,7 +45,7 @@ def create_setup(symbol, xc='LDA', lmax=0,
     if setupdata is None:
         if type == 'hgh' or type == 'hgh.sc':
             lmax = 0
-            from gpaw.hgh import HGHSetupData, setups, sc_setups
+            from gpaw.hgh import HGHSetupData, sc_setups, setups
             if type == 'hgh.sc':
                 table = sc_setups
             else:
@@ -69,9 +68,10 @@ def create_setup(symbol, xc='LDA', lmax=0,
             setupdata = GhostSetupData(symbol)
         elif type == 'sg15':
             from gpaw.upf import read_sg15
-            upfname = '%s_ONCV_PBE-*.upf' % symbol
-            upfpath, source = search_for_file(upfname, world=world)
-            if source is None:
+            upfname = f'{symbol}_ONCV_PBE-*.upf'
+            try:
+                upfpath, source = search_for_file(upfname, world=world)
+            except RuntimeError:
                 raise IOError('Could not find pseudopotential file %s '
                               'in any GPAW search path.  '
                               'Please install the SG15 setups using, '
@@ -221,9 +221,9 @@ class BaseSetup:
         else:
             nval = f_j.sum() - charge
             if np.abs(magmom) > nval:
-                raise RuntimeError('Magnetic moment larger than number ' +
-                                   'of valence electrons (|%g| > %g)' %
-                                   (magmom, nval))
+                raise RuntimeError(
+                    'Magnetic moment larger than number ' +
+                    f'of valence electrons (|{magmom:g}| > {nval:g})')
             f_sj = 0.5 * np.array([f_j, f_j])
             nup = 0.5 * (nval + magmom)
             ndn = 0.5 * (nval - magmom)
@@ -270,8 +270,8 @@ class BaseSetup:
             j += 1
 
         if hund and magmom != 0:
-            raise ValueError('Bad magnetic moment %g for %s atom!'
-                             % (magmom, self.symbol))
+            raise ValueError(
+                f'Bad magnetic moment {magmom:g} for {self.symbol} atom!')
         assert i == nao
 
         # print('fsi=', f_si)
@@ -1018,8 +1018,9 @@ class Setup(BaseSetup):
         return -np.dot(dO_ii, np.linalg.inv(np.identity(ni) + xO_ii))
 
     def calculate_T_Lqp(self, lcut, _np, nj, jlL_i):
-        G_LLL = gaunt(max(self.l_j))
         Lcut = (2 * lcut + 1)**2
+        G_LLL = gaunt(max(self.l_j))[:, :, :Lcut]
+        LGcut = G_LLL.shape[2]
         T_Lqp = np.zeros((Lcut, self.local_corr.nq, _np))
         p = 0
         i1 = 0
@@ -1029,7 +1030,7 @@ class Setup(BaseSetup):
                     q = j2 + j1 * nj - j1 * (j1 + 1) // 2
                 else:
                     q = j1 + j2 * nj - j2 * (j2 + 1) // 2
-                T_Lqp[:, q, p] = G_LLL[L1, L2, :Lcut]
+                T_Lqp[:LGcut, q, p] = G_LLL[L1, L2]
                 p += 1
             i1 += 1
         return T_Lqp
@@ -1332,9 +1333,9 @@ class Setups(list):
                             reduced, name = basis.split('(')
                             assert name.endswith(')')
                             name = name[:-1]
-                            fullname = '%s(%s.%s)' % (reduced, setupname, name)
+                            fullname = f'{reduced}({setupname}.{name})'
                         else:
-                            fullname = '%s.%s' % (setupname, basis_a[a])
+                            fullname = f'{setupname}.{basis_a[a]}'
                         basis_a[a] = fullname
 
         # Construct necessary PAW-setup objects:
@@ -1396,7 +1397,7 @@ class Setups(list):
             basis_descr = basis_descr.replace('\n  ', '\n    ')
             s += txt + '  ' + basis_descr + '\n\n'
 
-        s += 'Reference energy: %.6f\n' % (self.Eref * units.Hartree)
+        s += f'Reference energy: {self.Eref * units.Hartree:.6f}\n'
         return s
 
     def set_symmetry(self, symmetry):
@@ -1416,6 +1417,7 @@ class Setups(list):
         return atom_partition.arraydict(Dshapes_a, dtype)
 
     def estimate_dedecut(self, ecut):
+        from gpaw.utilities.ekin import dekindecut, ekin
         dedecut = 0.0
         e = {}
         for id in self.id_a:
@@ -1486,7 +1488,7 @@ def types2atomtypes(symbols, types, default):
 
 if __name__ == '__main__':
     print("""\
-You are using the wrong setup.py script!  This setup.py defines a
+This is not the setup.py you are looking for!  This setup.py defines a
 Setup class used to hold the atomic data needed for a specific atom.
 For building the GPAW code you must use the setup.py distutils script
 at the root of the code tree.  Just do "cd .." and you will be at the

@@ -23,18 +23,18 @@ def hubbard(setup, D_sp):
         if nspins == 4:
             N_mm = N_mm / 2.0
             if s == 0:
-                Eorb = setup.HubU / 2. * (N_mm - 
-                                    0.5 * np.dot(N_mm, N_mm)).trace()
+                Eorb = setup.HubU / 2. * (N_mm -
+                                          0.5 * np.dot(N_mm, N_mm)).trace()
 
-                Vorb = setup.HubU / 2. * (np.eye(2 * l +1) -N_mm)
+                Vorb = setup.HubU / 2. * (np.eye(2 * l + 1) - N_mm)
 
             else:
-                Eorb = setup.HubU / 2. * (-0.5*np.dot(N_mm , N_mm)).trace()
+                Eorb = setup.HubU / 2. * (-0.5 * np.dot(N_mm, N_mm)).trace()
 
                 Vorb = -setup.HubU / 2. * N_mm
-        else:        
+        else:
             Eorb = setup.HubU / 2. * (N_mm -
-                                np.dot(N_mm, N_mm)).trace()
+                                      np.dot(N_mm, N_mm)).trace()
 
             Vorb = setup.HubU * (0.5 * np.eye(2 * l + 1) - N_mm)
 
@@ -55,7 +55,7 @@ def hubbard(setup, D_sp):
 
         dH_sp.append(pack2(V))
         s += 1
-        
+
     return e_xc, dH_sp
 
 

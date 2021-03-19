@@ -88,9 +88,9 @@ class Coulomb:
                 if self.poisson is not None:
                     self.solve = self.poisson.solve
                 else:
-                    solver = PoissonSolver('fd', nn=2)
+                    solver = PoissonSolver('fd', nn=2, eps=1e-12)
                     solver.set_grid_descriptor(self.gd)
-                    #solver.initialize()
+                    # solver.initialize()
                     self.solve = solver.solve
 
     def coulomb(self, n1, n2=None, Z1=None, Z2=None, method='recip_gauss'):
@@ -134,7 +134,7 @@ class Coulomb:
             if n2 is None:
                 n2 = n1
                 Z2 = Z1
-            self.solve(I, n2, charge=Z2, eps=1e-12, zero_initial_phi=True)
+            self.solve(I, n2, charge=Z2, zero_initial_phi=True)
             I += madelung(self.gd.cell_cv) * self.gd.integrate(n2)
             I *= n1.conj()
         elif method == 'recip_ewald':
@@ -183,7 +183,7 @@ class CoulombNEW:
         if fft:
             self.poisson = FFTPoissonSolver()
         else:
-            self.poisson = PoissonSolver(name='fd', nn=3)
+            self.poisson = PoissonSolver(name='fd', nn=3, eps=1e-12)
         self.poisson.set_grid_descriptor(gd)
         self.setups = setups
 
@@ -214,7 +214,7 @@ class CoulombNEW:
 
         # Add coulomb energy of compensated pseudo densities to integral
         self.poisson.solve(self.pot_G, self.rhot2_G, charge=None,
-                           eps=1e-12, zero_initial_phi=True)
+                           zero_initial_phi=True)
         I += np.vdot(self.rhot1_G, self.pot_G) * self.dv
 
         return I * Hartree
@@ -268,7 +268,7 @@ class HF:
                 pd.get_coarse(self.nt_G)
                 pd.add_compensation_charges(self.nt_G, self.rhot_g)
                 self.poisson_solve(self.vt_g, -self.rhot_g,
-                                   charge=-float(n1 == n2), eps=1e-12,
+                                   charge=-float(n1 == n2),
                                    zero_initial_phi=True)
                 self.restrict(self.vt_g, self.vt_G)
                 Htpsit_nG[n1] += f2 * self.vt_G * psit2_G

@@ -7,7 +7,7 @@ from gpaw.spinorbit import soc_eigenstates
 
 atoms = Atoms('Fe',
               magmoms=[2.5],
-              cell=[2.5, 5, 5],
+              cell=[2.3, 5, 5],
               pbc=True)
 
 
@@ -45,9 +45,9 @@ def soc(params: Dict) -> list:
     return s1, atoms.calc
 
 
-def run() -> None:
+def go() -> None:
     """Compare with and without symmetry."""
-    params = dict(mode=PW(400),
+    params = dict(mode=PW(500),
                   xc='PBE',
                   kpts=[7, 1, 1],
                   convergence={'eigenstates': 1e-10})
@@ -61,10 +61,6 @@ def run() -> None:
     assert abs(p1 - p2).max() < 0.15
 
 
-def create_tasks():
-    from myqueue.task import task
-    return [task('iron1d_agts.py', cores=4)]
-
-
-if __name__ == '__main__':
-    run()
+def workflow():
+    from myqueue.workflow import run
+    run(function=go, cores=4)

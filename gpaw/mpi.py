@@ -9,6 +9,7 @@ import pickle
 from contextlib import contextmanager
 from typing import Any
 
+from ase.parallel import world as aseworld
 import numpy as np
 
 import gpaw
@@ -288,7 +289,7 @@ class _Communicator:
         assert sbuffer.dtype == rbuffer.dtype
 
         for arr in [scounts, sdispls, rcounts, rdispls]:
-            assert arr.dtype == np.int, arr.dtype
+            assert arr.dtype == int, arr.dtype
             assert len(arr) == self.size
 
         assert np.all(0 <= sdispls)
@@ -710,6 +711,9 @@ rank = world.rank
 size = world.size
 parallel = (size > 1)
 
+if world.size != aseworld.size:
+    raise RuntimeError('Please use "gpaw python" to run in parallel')
+
 
 def broadcast(obj, root=0, comm=world):
     """Broadcast a Python object across an MPI communicator and return it."""
@@ -831,7 +835,7 @@ def receive(rank: int, comm) -> Any:
     """Receive object from rank on the MPI communicator comm."""
     n = np.array(0)
     comm.receive(n, rank)
-    buf = np.empty(n, np.int8)
+    buf = np.empty(int(n), np.int8)
     comm.receive(buf, rank)
     return pickle.loads(buf.tobytes())
 
@@ -851,8 +855,8 @@ def receive_string(rank, comm=world):
 
 
 def alltoallv_string(send_dict, comm=world):
-    scounts = np.zeros(comm.size, dtype=np.int)
-    sdispls = np.zeros(comm.size, dtype=np.int)
+    scounts = np.zeros(comm.size, dtype=int)
+    sdispls = np.zeros(comm.size, dtype=int)
     stotal = 0
     for proc in range(comm.size):
         if proc in send_dict:
@@ -861,12 +865,12 @@ def alltoallv_string(send_dict, comm=world):
             sdispls[proc] = stotal
             stotal += scounts[proc]
 
-    rcounts = np.zeros(comm.size, dtype=np.int)
-    comm.alltoallv(scounts, np.ones(comm.size, dtype=np.int),
-                   np.arange(comm.size, dtype=np.int),
-                   rcounts, np.ones(comm.size, dtype=np.int),
-                   np.arange(comm.size, dtype=np.int))
-    rdispls = np.zeros(comm.size, dtype=np.int)
+    rcounts = np.zeros(comm.size, dtype=int)
+    comm.alltoallv(scounts, np.ones(comm.size, dtype=int),
+                   np.arange(comm.size, dtype=int),
+                   rcounts, np.ones(comm.size, dtype=int),
+                   np.arange(comm.size, dtype=int))
+    rdispls = np.zeros(comm.size, dtype=int)
     rtotal = 0
     for proc in range(comm.size):
         rdispls[proc] = rtotal

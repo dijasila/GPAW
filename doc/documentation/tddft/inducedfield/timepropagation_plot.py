@@ -48,19 +48,19 @@ ng = d_g.shape                             # Size of grid
 atoms = ind.atoms                          # Atoms
 
 do_plot(d_g, ng, box, atoms)
-plt.title('Field enhancement @ %.2f eV' % freq)
+plt.title(f'Field enhancement @ {freq:.2f} eV')
 plt.savefig('na2_td_Ffe.png', bbox_inches='tight')
 
 # Imaginary part of density
 d_g = ind.Frho_wg[w].imag
 ng = d_g.shape
 do_plot(d_g, ng, box, atoms)
-plt.title('Imaginary part of induced charge density @ %.2f eV' % freq)
+plt.title(f'Imaginary part of induced charge density @ {freq:.2f} eV')
 plt.savefig('na2_td_Frho.png', bbox_inches='tight')
 
 # Imaginary part of potential
 d_g = ind.Fphi_wg[w].imag
 ng = d_g.shape
 do_plot(d_g, ng, box, atoms)
-plt.title('Imaginary part of induced potential @ %.2f eV' % freq)
+plt.title(f'Imaginary part of induced potential @ {freq:.2f} eV')
 plt.savefig('na2_td_Fphi.png', bbox_inches='tight')

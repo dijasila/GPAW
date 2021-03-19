@@ -40,12 +40,13 @@ e_ion = 12.5354477071  # from prior calculation
 
 # print(e_ion, 12.62)
 # equal(e_ion, 12.62, 0.1)
-lr = LrTDDFT(calc_plus, txt='LCY_TDDFT_H2O.log', istart=3, jend=4)
+lr = LrTDDFT(calc_plus, txt='LCY_TDDFT_H2O.log',
+             restrict={'istart': 3, 'jend': 4})
 assert lr.xc.omega == 0.83
 lr.write('LCY_TDDFT_H2O.ex.gz')
 # reading is problematic with EXX on more than one core
 if world.rank == 0:
-    lr2 = LrTDDFT('LCY_TDDFT_H2O.ex.gz')
+    lr2 = LrTDDFT.read('LCY_TDDFT_H2O.ex.gz')
     lr2.diagonalize()
     assert lr2.xc.omega == 0.83
 

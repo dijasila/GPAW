@@ -11,7 +11,6 @@ from ase.utils import search_current_git_hash
 import gpaw
 import _gpaw
 from gpaw.utilities.memory import maxrss
-from gpaw import extra_parameters
 
 
 class GPAWLogger(object):
@@ -106,13 +105,11 @@ class GPAWLogger(object):
         self('libxc: ', getattr(_gpaw, 'libxc_version', '2.x.y'))
         self('units:  Angstrom and eV')
         self('cores:', self.world.size)
+        self('OpenMP:', _gpaw.have_openmp)
         self('OMP_NUM_THREADS:', os.environ['OMP_NUM_THREADS'])
 
         if gpaw.debug:
             self('DEBUG MODE')
-
-        if extra_parameters:
-            self('Extra parameters:', extra_parameters)
 
         self()
 

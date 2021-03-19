@@ -15,7 +15,6 @@ def test_fileio_restart(in_tmp_dir):
                   cell=(3.5, 3.5, 4 + 2 / 3),
                   pbc=True)
 
-
     def test(atoms):
         e0 = atoms.get_potential_energy()
         f0 = atoms.get_forces()
@@ -55,7 +54,6 @@ def test_fileio_restart(in_tmp_dir):
         # Check that after restart everything is writable
         calc.write('tmp3.gpw')
         calc.write('tmp4.gpw', 'all')
-
 
     # Only a short, non-converged calcuation
     conv = {'eigenstates': 1.24, 'energy': 2e-1, 'density': 1e-1}

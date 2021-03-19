@@ -8,17 +8,15 @@ from numpy.linalg import inv, det, solve
 from scipy.ndimage import map_coordinates
 
 from . import PointGroup
+from gpaw.typing import Array2D, Array3D, ArrayLike
 
-Array1D = Any
-Array2D = Any
-Array3D = Any
 Axis = Union[str, Sequence[float], None]
 
 
 class SymmetryChecker:
     def __init__(self,
                  group: Union[str, PointGroup],
-                 center: Sequence[float],
+                 center: ArrayLike,
                  radius: float = 2.0,
                  x: Axis = None,
                  y: Axis = None,
@@ -45,10 +43,13 @@ class SymmetryChecker:
         """
         numbers = atoms.numbers
         positions = (atoms.positions - self.center).dot(self.rotation.T)
+        icell = np.linalg.inv(atoms.cell.dot(self.rotation.T))
         for opname, op in self.group.operations.items():
             P = positions.dot(op.T)
             for i, pos in enumerate(P):
-                dist2 = ((pos - positions)**2).sum(1)
+                sdiff = (pos - positions).dot(icell)
+                sdiff -= sdiff.round() * atoms.pbc
+                dist2 = (sdiff.dot(atoms.cell)**2).sum(1)
                 j = dist2.argmin()
                 if dist2[j] > tol**2 or numbers[j] != numbers[i]:
                     return False
@@ -65,8 +66,8 @@ class SymmetryChecker:
         M = inv(grid_vectors).T
         overlaps: List[float] = []
         for op in self.group.operations.values():
-            op = self.rotation.T.dot(op).dot(self.rotation)
-            pts = (self.points.dot(op.T) + self.center).dot(M.T)
+            op = self.rotation.T @ op @ self.rotation
+            pts = (self.points @ op.T + self.center) @ M.T
             pts %= function.shape
             values = map_coordinates(function, pts.T, mode='wrap')
             if not overlaps:
@@ -160,12 +161,12 @@ def rotation_matrix(axes: Sequence[Axis]) -> Array3D:
 
     axes = [normalize(axis) if axis is not None else None
             for axis in axes]
-    axes[j] = np.cross(axes[j - 2], axes[j - 1])
+    axes[j] = np.cross(axes[j - 2], axes[j - 1])  # type: ignore
 
     return np.array(axes)
 
 
-def normalize(vector: Union[str, Sequence[float]]) -> Array1D:
+def normalize(vector: Union[str, Sequence[float]]) -> Sequence[float]:
     """Normalize a vector.
 
     The *vector* must be a sequence of three numbers or one of the following

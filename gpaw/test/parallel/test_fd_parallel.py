@@ -2,7 +2,7 @@ import pytest
 import sys
 
 from ase.build import molecule
-from ase.utils import devnull
+from gpaw.utilities import devnull
 
 from gpaw import GPAW, FermiDirac
 from gpaw import KohnShamConvergenceError

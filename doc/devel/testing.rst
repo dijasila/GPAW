@@ -23,7 +23,7 @@ The test suite consists of a large number of small and quick tests
 found in the :git:`gpaw/test/` directory.  The tests run nightly in serial
 and in parallel.
 
-In order to run the tests in parallel, do this:
+In order to run the tests in parallel, do this::
 
     $ mpiexec -n <number-of-processes> pytest -v
 
@@ -56,6 +56,8 @@ There are two special GPAW-fixtures:
 
 Check the :git:`~gpaw/test/conftest.py` to see which gpw-files are available.
 Use a ``_wfs`` postfix to get a gpw-file that contains the wave functions.
+
+.. autofunction:: gpaw.test.findpeak
 
 
 Adding new tests
@@ -93,9 +95,12 @@ comparing floating point numbers::
 Big tests
 =========
 
-The directory in :git:`gpaw/test/big/` contains a set of longer and more
+The directories in :git:`gpaw/test/big/`, :git:`doc/tutorials/` and
+:git:`doc/exercises/` contain longer and more
 realistic tests that we run every weekend.  These are submitted to a
-queueing system of a large computer.
+queueing system of a large computer.  The scripts in the :git:`doc` folder
+are used both for testing GPAW and for generating up to date figures and
+csv-file for inclsion in the documentation web-pages.
 
 
 Adding new tests
@@ -110,15 +115,29 @@ calculates something and saves a ``.gpw`` file and another script,
 ``analyse.py``, analyses this output. Then the submit script should look
 something like::
 
-    def create_tasks():
-        from myqueue.task import task
-        return [task('calculate.py', cores=8, tmax='25m'),
-                task('analyse.py', cores=1, tmax='5m',
-                     deps=['calculate.py'])]
+    def workflow():
+        from myqueue.workflow import run
+        with run(script='calculate.py', cores=8, tmax='25m'):
+            run(script='analyse.py')  # 1 core and 10 minutes
 
 As shown, this script has to contain the definition of the function
-create_tasks_.  Start the workflow with ``mq workflow -p agts.py .``
+workflow_.  Start the workflow with ``mq workflow -p agts.py .``
 (see https://myqueue.readthedocs.io/ for more details).
 
-.. _create_tasks: https://myqueue.readthedocs.io/en/latest/
-    workflows.html#create_tasks
+.. _workflow: https://myqueue.readthedocs.io/en/latest/
+    workflows.html
+
+
+.. _code coverage:
+
+Code coverage
+=============
+
+We use the coverage_ tool to generate a `coverage report`_ every night. It
+is not 100% accurate because it does not include coverage from running our test
+suite in parallel.  Also not included are the :ref:`agts` and building this
+web-page which would add some extra coverage.
+
+
+.. _coverage:  https://coverage.readthedocs.io/
+.. _coverage report: https://wiki.fysik.dtu.dk/gpaw/htmlcov/index.html

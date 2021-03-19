@@ -399,7 +399,7 @@ class PWDescriptor:
         """Gather coefficients from a_rG[r] on rank r.
 
         On rank r, an array of all G-vector coefficients will be returned.
-        These will be gathers from a_rG[r] on all the cores.
+        These will be gathered from a_rG[r] on all the cores.
         """
         comm = self.gd.comm
         if comm.size == 1:

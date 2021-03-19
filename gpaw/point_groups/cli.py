@@ -1,14 +1,12 @@
 import argparse
-from typing import List, Any, Union
+from typing import List, Union
 
 from ase import Atoms
 import numpy as np
 
 from gpaw import GPAW
 from gpaw.point_groups import SymmetryChecker, point_group_names
-
-Array1D = Any
-Array3D = Any
+from gpaw.typing import Array1D, Array3D
 
 
 class CubeCalc:
@@ -26,6 +24,9 @@ class CubeCalc:
     def get_eigenvalues(self, spin: int) -> Array1D:
         return np.zeros(1)
 
+    def get_number_of_spins(self):
+        return 1
+
 
 def main(argv: List[str] = None) -> None:
     parser = argparse.ArgumentParser(
@@ -37,13 +38,16 @@ def main(argv: List[str] = None) -> None:
         'Ico, Ih, Oh, Td or Th.')
     add('file', metavar='input-file',
         help='Cube-file, gpw-file or something else with atoms in it.')
-    add('-c', '--center', help='Center specified as one or more atoms.')
+    add('-c', '--center', help='Center specified as one or more atoms.  '
+        'Use chemical symbols or sequence numbers.')
     add('-r', '--radius', default=2.5,
         help='Cutoff radius (in Å) used for wave function overlaps.')
     add('-b', '--bands', default=':', metavar='N1:N2',
         help='Band range.')
+    add('-a', '--axes', default='',
+        help='Example: "-a z=x,x=-y".')
     if hasattr(parser, 'parse_intermixed_args'):
-        args = parser.parse_intermixed_args(argv)
+        args = parser.parse_intermixed_args(argv)  # needs Python 3.7
     else:
         args = parser.parse_args(argv)
 
@@ -70,21 +74,31 @@ def main(argv: List[str] = None) -> None:
         symbols = set(args.center.split(','))
         center = np.zeros(3)
         n = 0
-        for symbol, position in zip(atoms.symbols, atoms.positions):
-            if symbol in symbols:
+        for a, (symbol, position) in enumerate(zip(atoms.symbols,
+                                                   atoms.positions)):
+            if symbol in symbols or str(a) in symbols:
                 center += position
                 n += 1
         center /= n
     else:
         center = atoms.cell.sum(0) / 2
-    print('Center:', center)
+    print('Center:', center, f'(atoms: {n})')
 
     radius = float(args.radius)
 
-    checker = SymmetryChecker(args.pg, center, radius)
+    kwargs = {}
+    for axis in args.axes.split(',') if args.axes else []:
+        axis1, axis2 = axis.split('=')
+        kwargs[axis1] = axis2
+
+    checker = SymmetryChecker(args.pg, center, radius, **kwargs)
 
     ok = checker.check_atoms(atoms)
     print(f'{args.pg}-symmetry:', 'Yes' if ok else 'No')
 
     if calc:
-        checker.check_calculation(calc, n1, n2)
+        nspins = calc.get_number_of_spins()
+        for spin in range(nspins):
+            if nspins == 2:
+                print('Spin', ['up', 'down'][spin])
+            checker.check_calculation(calc, n1, n2, spin=spin)

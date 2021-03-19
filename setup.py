@@ -1,21 +1,20 @@
 #!/usr/bin/env python
-# Copyright (C) 2003-2016  CAMP
+# Copyright (C) 2003-2020  CAMP
 # Please see the accompanying LICENSE file for further information.
 
-import distutils.util
-from distutils.sysconfig import get_config_vars
 import os
 import re
-from setuptools import setup, find_packages, Extension
-from setuptools.command.build_ext import build_ext as _build_ext
-from setuptools.command.install import install as _install
-from setuptools.command.develop import develop as _develop
-from subprocess import run, PIPE
 import sys
 from pathlib import Path
+from subprocess import PIPE, run
+from sysconfig import get_platform
 
-from config import check_dependencies, write_configuration, build_interpreter
+from setuptools import Extension, find_packages, setup
+from setuptools.command.build_ext import build_ext as _build_ext
+from setuptools.command.develop import develop as _develop
+from setuptools.command.install import install as _install
 
+from config import build_interpreter, check_dependencies, write_configuration
 
 assert sys.version_info >= (3, 6)
 
@@ -35,8 +34,8 @@ for i, arg in enumerate(sys.argv):
     if arg.startswith('--customize='):
         custom = arg.split('=')[1]
         raise DeprecationWarning(
-            'Please set GPAW_CONFIG={custom} or place {custom} in '
-            '~/.gpaw/siteconfig.py'.format(custom=custom))
+            f'Please set GPAW_CONFIG={custom} or place {custom} in ' +
+            '~/.gpaw/siteconfig.py')
 
 libraries = ['xc']
 library_dirs = []
@@ -105,18 +104,17 @@ if not parallel_python_interpreter and mpicompiler:
     compiler = mpicompiler
     define_macros += [('PARALLEL', '1')]
 
-plat = distutils.util.get_platform()
 platform_id = os.getenv('CPU_ARCH')
 if platform_id:
-    plat += '-' + platform_id
-
-    def my_get_platform():
-        return plat
-
-    distutils.util.get_platform = my_get_platform
+    os.environ['_PYTHON_HOST_PLATFORM'] = get_platform() + '-' + platform_id
 
 if compiler is not None:
     # A hack to change the used compiler and linker:
+    try:
+        # distutils is deprecated and will be removed in 3.12
+        from distutils.sysconfig import get_config_vars
+    except ImportError:
+        from sysconfig import get_config_vars
     vars = get_config_vars()
     if remove_default_flags:
         for key in ['BASECFLAGS', 'CFLAGS', 'OPT', 'PY_CFLAGS',
@@ -158,6 +156,10 @@ sources.sort()
 
 check_dependencies(sources)
 
+# Convert Path objects to str:
+library_dirs = [str(dir) for dir in library_dirs]
+include_dirs = [str(dir) for dir in include_dirs]
+
 extensions = [Extension('_gpaw',
                         sources,
                         libraries=libraries,
@@ -185,6 +187,7 @@ class build_ext(_build_ext):
         _build_ext.run(self)
 
         if parallel_python_interpreter:
+            include_dirs.append(np.get_include())
             # Also build gpaw-python:
             error = build_interpreter(
                 define_macros, include_dirs, libraries,
@@ -197,29 +200,30 @@ class build_ext(_build_ext):
             assert error == 0
 
 
+def copy_gpaw_python(cmd, dir: str) -> None:
+    major, minor = sys.version_info[:2]
+    plat = get_platform() + f'-{major}.{minor}'
+    source = f'build/bin.{plat}/gpaw-python'
+    target = os.path.join(dir, 'gpaw-python')
+    cmd.copy_file(source, target)
+
+
 class install(_install):
     def run(self):
         _install.run(self)
-
-        if parallel_python_interpreter:
-            # Also copy gpaw-python
-            plat = distutils.util.get_platform() + '-' + sys.version[0:3]
-            source = 'build/bin.{}/gpaw-python'.format(plat)
-            target = os.path.join(self.install_scripts, 'gpaw-python')
-            self.copy_file(source, target)
+        copy_gpaw_python(self, self.install_scripts)
 
 
 class develop(_develop):
     def run(self):
         _develop.run(self)
+        copy_gpaw_python(self, self.script_dir)
 
-        if parallel_python_interpreter:
-            # Also copy gpaw-python
-            plat = distutils.util.get_platform() + '-' + sys.version[0:3]
-            source = 'build/bin.{}/gpaw-python'.format(plat)
-            target = os.path.join(self.script_dir, 'gpaw-python')
-            self.copy_file(source, target)
 
+cmdclass = {'build_ext': build_ext}
+if parallel_python_interpreter:
+    cmdclass['install'] = install
+    cmdclass['develop'] = develop
 
 files = ['gpaw-analyse-basis', 'gpaw-basis',
          'gpaw-plot-parallel-timings', 'gpaw-runscript',
@@ -239,12 +243,10 @@ setup(name='gpaw',
       packages=find_packages(),
       entry_points={'console_scripts': ['gpaw = gpaw.cli.main:main']},
       setup_requires=['numpy'],
-      install_requires=['ase>=3.18.0'],
+      install_requires=['ase>=3.20.1'],
       ext_modules=extensions,
       scripts=scripts,
-      cmdclass={'build_ext': build_ext,
-                'install': install,
-                'develop': develop},
+      cmdclass=cmdclass,
       classifiers=[
           'Development Status :: 6 - Mature',
           'License :: OSI Approved :: '
@@ -254,4 +256,5 @@ setup(name='gpaw',
           'Programming Language :: Python :: 3.6',
           'Programming Language :: Python :: 3.7',
           'Programming Language :: Python :: 3.8',
+          'Programming Language :: Python :: 3.9',
           'Topic :: Scientific/Engineering :: Physics'])

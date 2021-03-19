@@ -12,17 +12,20 @@ Parallel runs
 Running jobs in parallel
 ========================
 
-Parallel calculations are done with MPI.
+Parallel calculations are done primarily with MPI.
 The parallelization can be done over the **k**-points, bands, spin in
 spin-polarized calculations, and using real-space domain
 decomposition.  The code will try to make a sensible domain
 decomposition that match both the number of processors and the size of
 the unit cell.  This choice can be overruled, see
-:ref:`manual_parallelization_types`.
+:ref:`manual_parallelization_types`. Complementary OpenMP
+parallelization can improve the performance in some cases, see
+:ref:`manual_openmp`.
+
 
 Before starting a parallel calculation, it might be useful to check how the
 parallelization corresponding to the given number of processes would be done
-with ``--gpaw dry-run=N`` command line option::
+with the ``--dry-run=N`` command line option::
 
     $ gpaw python --dry-run=8 script.py
 
@@ -289,9 +292,6 @@ where ``n`` is the total number of boxes.
    You might have to add ``from gpaw.mpi import world`` to the script to
    define ``world``.
 
-There is also a command line argument ``--domain-decomposition`` which allows
-you to control domain decomposition.
-
 
 .. _manual_parsize_bands:
 
@@ -314,9 +314,6 @@ where ``nbg`` is the number of band groups to parallelize over.
    done using serial LAPACK by default. It is therefor advisable to use both
    band parallelization and ScaLAPACK in conjunction to reduce this
    potential bottleneck.
-
-There is also a command line argument ``--state-parallelization`` which
-allows you to control band parallelization.
 
 More information about these topics can be found here:
 
@@ -384,3 +381,22 @@ where ``p``, ``q``, ``pb``, ``m``, ``n``, and ``mb`` all
 have different values. The most general case is the combination
 of three ScaLAPACK keywords.
 Note that some combinations of keywords may not be supported.
+
+
+.. _manual_openmp:
+
+Hybrid OpenMP/MPI parallelization
+---------------------------------
+
+In some hardware the performance of large FD and LCAO and calculations
+can be improved by using OpenMP parallelization in addition to
+MPI. When GPAW is built with OpenMP support, hybrid parallelization
+is enabled by setting the OMP_NUM_THREADS environment variable::
+
+  export OMP_NUM_THREADS=4
+  mpiexec -n 512 gpaw python script.py
+
+This would run the calculation with a total of 2048 CPU cores. As the
+optimum MPI task / OpenMP thread ratio depends a lot on the particular
+input and underlying hardware, it is recommended to experiment with
+different settings before production calculations.

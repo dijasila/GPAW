@@ -1,28 +1,25 @@
-from typing import Tuple, Dict, Any, Sequence, List, Union
 from pathlib import Path
+from typing import Dict, List, Tuple, Union
 
 import numpy as np
 from ase import Atoms
 
 from gpaw import GPAW
-from gpaw.projections import Projections
-from gpaw.utilities.partition import AtomPartition
-from gpaw.setup import Setup
 from gpaw.kpt_descriptor import KPointDescriptor
+from gpaw.projections import Projections
+from gpaw.setup import Setup
+from gpaw.typing import Array2D, Array3D, Array4D, ArrayLike1D
 from gpaw.utilities.ibz2bz import construct_symmetry_operators
-from .functions import WannierFunctions
+from gpaw.utilities.partition import AtomPartition
 
-Array1D = Any
-Array2D = Any
-Array3D = Any
-Array4D = Any
+from .functions import WannierFunctions
 
 
 class WannierOverlaps:
     def __init__(self,
                  atoms: Atoms,
                  nwannier: int,
-                 monkhorst_pack_size: Sequence[int],
+                 monkhorst_pack_size: ArrayLike1D,
                  kpoints: Array2D,
                  fermi_level: float,
                  directions: Dict[Tuple[int, ...], int],
@@ -32,7 +29,7 @@ class WannierOverlaps:
 
         self.atoms = atoms
         self.nwannier = nwannier
-        self.monkhorst_pack_size = tuple(monkhorst_pack_size)
+        self.monkhorst_pack_size = np.asarray(monkhorst_pack_size)
         self.kpoints = kpoints
         self.fermi_level = fermi_level
         self.directions = directions
@@ -136,6 +133,7 @@ def calculate_overlaps(calc: GPAW,
     kd = bzwfs.kd
     gd = bzwfs.gd
     size = kd.N_c
+    assert size is not None
 
     icell = calc.atoms.cell.reciprocal()
     directions = {direction: i
@@ -180,7 +178,7 @@ def calculate_overlaps(calc: GPAW,
 
     overlaps = WannierOverlaps(calc.atoms,
                                nwannier,
-                               kd.N_c,
+                               size,
                                kd.bzk_kc,
                                calc.get_fermi_level(),
                                directions,
@@ -191,7 +189,7 @@ def calculate_overlaps(calc: GPAW,
 
 
 def find_directions(icell: Array2D,
-                    mpsize: Sequence[int]) -> List[Tuple[int, ...]]:
+                    mpsize: ArrayLike1D) -> List[Tuple[int, ...]]:
     """Find nearest neighbors k-points.
 
     icell:

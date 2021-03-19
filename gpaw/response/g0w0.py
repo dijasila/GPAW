@@ -7,27 +7,26 @@ from math import pi
 
 import numpy as np
 from ase.dft.kpoints import monkhorst_pack
-from ase.units import Ha
-from ase.utils import opencew, devnull, pickleload
-from ase.utils.timing import timer
 from ase.parallel import paropen
+from ase.units import Ha
+from ase.utils import opencew, pickleload
+from ase.utils.timing import timer
 
-from gpaw import GPAW
 import gpaw.mpi as mpi
-from gpaw import debug
+from gpaw import GPAW, debug
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.response.chi0 import Chi0, HilbertTransform
+from gpaw.response.fxckernel_calc import calculate_kernel
+from gpaw.response.kernels import get_coulomb_kernel, get_integrated_kernel
 from gpaw.response.pair import PairDensity
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
-from gpaw.response.kernels import get_coulomb_kernel
-from gpaw.response.kernels import get_integrated_kernel
-from gpaw.response.fxckernel_calc import calculate_kernel
-from gpaw.xc.fxc import set_flags
-from gpaw.wavefunctions.pw import (PWDescriptor, count_reciprocal_vectors,
-                                   PWMapping)
-from gpaw.xc.exx import EXX, select_kpts
-from gpaw.xc.tools import vxc
+from gpaw.utilities import devnull
 from gpaw.utilities.progressbar import ProgressBar
+from gpaw.wavefunctions.pw import (PWDescriptor, PWMapping,
+                                   count_reciprocal_vectors)
+from gpaw.xc.exx import EXX, select_kpts
+from gpaw.xc.fxc import set_flags
+from gpaw.xc.tools import vxc
 
 
 class G0W0(PairDensity):
@@ -42,7 +41,8 @@ class G0W0(PairDensity):
                  nblocks=1, savew=False, savepckl=True,
                  maxiter=1, method='G0W0', mixing=0.2,
                  world=mpi.world, ecut_extrapolation=False,
-                 nblocksmax=False, gate_voltage=None):
+                 nblocksmax=False, gate_voltage=None,
+                 paw_correction='brute-force'):
 
         """G0W0 calculator.
 
@@ -212,7 +212,8 @@ class G0W0(PairDensity):
         self.ecut_e = ecut_e / Ha
 
         PairDensity.__init__(self, calc, ecut, world=world, nblocks=nblocks,
-                             gate_voltage=gate_voltage, txt=txt)
+                             gate_voltage=gate_voltage, txt=txt,
+                             paw_correction=paw_correction)
 
         self.gate_voltage = gate_voltage
         ecut /= Ha
@@ -752,6 +753,7 @@ class G0W0(PairDensity):
                     timer=self.timer,
                     nblocks=self.blockcomm.size,
                     gate_voltage=self.gate_voltage,
+                    paw_correction=self.paw_correction,
                     **parameters)
 
         if self.truncation == 'wigner-seitz':

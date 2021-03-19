@@ -15,11 +15,11 @@ def test_spectrum():
     equal(Gauss(width).get(x),
           exp(- x**2 / 2 / width**2) / sqrt(2 * pi) / width,
           1.e-15)
-    equal(Gauss(width).fwhm, width * np.sqrt(8 * np.log(2)), 1.e-15) 
+    equal(Gauss(width).fwhm, width * np.sqrt(8 * np.log(2)), 1.e-15)
     equal(Lorentz(width).get(x),
           width / (x**2 + width**2) / pi,
           1.e-15)
-    equal(Lorentz(width).fwhm, width * 2, 1.e-15) 
+    equal(Lorentz(width).fwhm, width * 2, 1.e-15)
 
     # folder function
 

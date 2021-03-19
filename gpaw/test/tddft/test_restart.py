@@ -4,7 +4,6 @@ from ase.build import molecule
 
 from gpaw import GPAW
 from gpaw.tddft import TDDFT
-from gpaw.poisson import PoissonSolver
 from gpaw.mpi import world
 from gpaw.test import equal
 
@@ -17,7 +16,6 @@ def test_tddft_restart(in_tmp_dir):
 
     # Ground-state calculation
     calc = GPAW(nbands=7, h=0.4,
-                poissonsolver=PoissonSolver(eps=1e-16),
                 convergence={'density': 1e-8},
                 xc='GLLBSC',
                 txt='gs.out')

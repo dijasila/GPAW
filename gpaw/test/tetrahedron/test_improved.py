@@ -15,8 +15,8 @@ def f(N: int, i: bool):
     t = TetrahedronMethod(rcell, (N, 1, 1), improved=i)
     ef, _ = t._calculate(0.5, e, w, f)
     wfs = WFS(e, ef)
-    dos = DOSCalculator(wfs, ef, ef, 1, cell=np.linalg.inv(rcell))
-    dosef = dos.dos(spin=0, width=0.0).get_weights()[0]
+    dos = DOSCalculator(wfs, cell=np.linalg.inv(rcell))
+    dosef = dos.raw_dos([ef], spin=0, width=0.0)[0]
     return f.sum() / N, (f * e).sum() / N, ef, dosef
 
 

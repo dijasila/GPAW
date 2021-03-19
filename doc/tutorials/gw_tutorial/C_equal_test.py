@@ -6,7 +6,7 @@ from ase.parallel import paropen
 ecut_equal = np.array([[19.157, 18.639, 18.502],
                        [11.814, 11.165, 10.974]])
 for i, ecut in enumerate([100, 200, 300]):
-    fil = pickle.load(paropen('C-g0w0_k8_ecut%s_results.pckl' % ecut, 'rb'))
+    fil = pickle.load(paropen(f'C-g0w0_k8_ecut{ecut}_results.pckl', 'rb'))
     assert abs(fil['qp'][0, 0, 1] - ecut_equal[0, i]) < 0.01
     assert abs(fil['qp'][0, 0, 0] - ecut_equal[1, i]) < 0.01
 

@@ -8,14 +8,12 @@ pytestmark = pytest.mark.skipif(world.size > 1,
                                 reason='world.size > 1')
 
 
-
 def test_pw_davidson_pw():
     a = 4.05
     d = a / 2**0.5
     bulk = Atoms([Atom('Al', (0, 0, 0)),
                   Atom('Al', (0.5, 0.5, 0.5))], pbc=True)
     bulk.set_cell((d, d, a), scale_atoms=True)
-    h = 0.25
     calc = GPAW(mode='pw',
                 nbands=2 * 8,
                 kpts=(2, 2, 2),
@@ -36,7 +34,6 @@ def test_pw_davidson_pw():
     equal(e0, e1, 5.0e-6)
 
     energy_tolerance = 0.0004
-    niter_tolerance = 0
     equal(e0, -6.97798, energy_tolerance)
     assert 8 <= niter0 <= 12, niter0
     equal(e1, -6.97798, energy_tolerance)

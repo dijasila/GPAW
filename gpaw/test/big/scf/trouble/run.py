@@ -41,7 +41,7 @@ for name in names:
     try:
         e1 = atoms.get_potential_energy()
         ok = True
-    except:
+    except Exception:
         ok = False
         if gpaw.mpi.rank == 0:
             traceback.print_exc(file=open(name + '.error', 'w'))

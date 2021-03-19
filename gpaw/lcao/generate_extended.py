@@ -19,13 +19,14 @@ class BasisSpecification:
         self.setup = setup
         self.jvalues = jvalues
         self.jextra = jextra
-        
+
     def __str__(self):
         l_j = self.setup.l_j
         jvtxt = ', '.join(['%s(l=%s)' % (j, l_j[j]) for j in self.jvalues])
         jetxt = ', '.join(['%s(l=%s)' % (j, l_j[j]) for j in self.jextra])
         return '%s: jvalues=[%s], jextra=[%s]' % (self.setup.symbol,
                                                   jvtxt, jetxt)
+
 
 description = """Generate basis sets that include unoccupied p states as
 valence states instead of Gaussian-based polarization functions.
@@ -68,7 +69,7 @@ def main():
             s = SetupData(sym, opts.xc)
         except RuntimeError as e:
             if str(e).startswith('Could not find'):
-                #print 'No %s' % sym
+                # print 'No %s' % sym
                 continue
             else:
                 raise
@@ -85,10 +86,10 @@ def main():
                     jextra.append(j)
         if len(jextra) > 0:
             specifications.append(BasisSpecification(s, jvalues, jextra))
-            #print sym, jvalues
+            # print sym, jvalues
         # XXX check whether automatic settings coincide with those of official
         # setups distribution
-        #bm = BasisMaker(sym, ''
+        # bm = BasisMaker(sym, ''
 
     if world.rank == 0:
         print('Generating basis sets for: %s'
@@ -123,6 +124,7 @@ def main():
         bm.generator.run(write_xml=False, use_restart_file=False, **p[sym])
         basis = bm.generate(2, 0, txt=None, jvalues=spec.jvalues)
         basis.write_xml()
+
 
 if __name__ == '__main__':
     main()

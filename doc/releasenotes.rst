@@ -10,10 +10,91 @@ Git master branch
 
 :git:`master <>`.
 
-* Corresponding ASE release: ASE-3.20.0b1
+* Corresponding ASE release: ASE-3.21.1b1
+
+* True occupation numbers are now printed in the text output for the
+  Kohn–Sham states.  Previously, the printed occupation numbers were
+  scaled by **k**-point weight.
+
+* Calculations of excited states can now be performed with the :ref:`mom`
+  (MOM). Since calculations using MOM are variational, they provide atomic
+  forces and can be used for excited-state geometry optimization and molecular
+  dynamics.
+
+* The Davidson eigensolver now uses ScaLAPACK for the
+  `(2 N_{\text{bands}}) \times (2 N_{\text{bands}})` diagonalization step
+  when ``parallel={'sl_auto':True}`` is used.
+
+* Removed several old command-line options:
+  ``--memory-estimate-depth``, ``--domain-decomposition``,
+  ``--state-parallelization``, ``--augment-grids``,
+  ``--buffer-size``, ``--profile``, ``--gpaw``, ``--benchmark-imports``.
+  See :ref:`manual_parallel` and :ref:`profiling` for alternatives.
+  Instead of ``--gpaw=df_dry_run=N``, use the ``--dry-run=N`` option
+  (see :ref:`command line options`).
+
+* Added documentation for :ref:`elph` and added support for
+  spin-polarized systems.
+
+
+Version 21.1.0
+===============
+
+18 Jan 2021: :git:`21.1.0 <../21.1.0>`
+
+* Corresponding ASE release: ASE-3.21.0.
+
+* We now use GPAW's own (faster) implementation for LDA, PBE, revPBE, RPBE
+  and PW91.  For most calculation the speedup is unimportant, but for our
+  test-suites it gives a nice boost.  There can be small meV changes compared
+  to the LibXC implementation.  If you want to use LibXC then use::
+
+      from gpaw.xc.gga import GGA
+      from gpaw.xc.libxc import LibXC
+      calc = GPAW(xc=GGA(LibXC('PBE')), ...)
+
+* New :ref:`zfs` module.
+
+* New :ref:`scissors operator`.
+
+* Nonlinear optical responses can now be calculated in the independent
+  particle approximations. See the :ref:`nlo_tutorial` tutorial for how
+  to use it to compute the second-harmonic generation and shift current
+  spectra.
+
+* New method for interpolating pseudo density to fine grids:
+  :meth:`gpaw.utilities.ps2ae.PS2AE.get_pseudo_density`
+  (useful for Bader analysis and other things).
+
+* Now with contribution from "frozen" core: :ref:`hyperfine`.
+
+* Change in parameters of :ref:`linear response TDDFT <lrtddft>`
+
+* Improved relaxation in the excited states in parallel,
+  see  :ref:`linear response TDDFT <lrtddft>`
+
+* We now have a :ref:`code coverage` report updated every night.
+
+* Plane-wave mode implementation of hybrid functionals can now be selected
+  via a *dict*: ``xc={'name': ..., 'backend': 'pw'}``, where then name must be
+  one of EXX, PBE0, HSE03, HSE06 or B3LYP.  The EXX fraction and damping
+  parameter can also be given in the dict.
+
+
+Version 20.10.0
+===============
+
+19 Oct 2020: :git:`20.10.0 <../20.10.0>`
+
+* Corresponding ASE release: ASE-3.20.1.
 
 * New :func:`gpaw.spinorbit.soc_eigenstates` function.  Handles parallelization
-  and uses symmetry.
+  and uses symmetry.  Angles are given in degrees (was radians before).
+
+* The ``gpaw.spinorbit.get_anisotropy()`` method has been removed.  Use the
+  :func:`~gpaw.spinorbit.soc_eigenstates` function combined with the
+  :meth:`~gpaw.spinorbit.BZWaveFunctions.calculate_band_energy` method.
+  See this tutorial: :ref:`magnetic anisotropy`.
 
 * Improvements on GLLBSC and other GLLB-type exchange-correlation potentials:
 
@@ -99,6 +180,20 @@ Git master branch
 * New :mod:`gpaw.point_groups` module.  See this tutorial:
   :ref:`point groups`.
 
+* Default mixer (see :ref:`densitymix`) for spin-polarized systems has been
+  changed from ``MixerSum`` to ``MixerDif``.  Now, both the total density
+  and the magnetization density are mixed compared to before where only
+  the total density was mixed.  To get the
+  old behavior, use ``mixer=MixerSum(beta=0.05, history=5, weight=50)``
+  for periodic systems
+  and ``mixer=MixerSum(beta=0.25, history=3, weight=1)`` for molecules.
+
+* New :func:`~gpaw.utilities.dipole.dipole_matrix_elements` and
+  :func:`~gpaw.utilities.dipole.dipole_matrix_elements_from_calc`
+  functions.  Command-line interface::
+
+      $ python3 -m gpaw.utilities.dipole <gpw-file>
+
 
 .. _pytest: http://doc.pytest.org/en/latest/contents.html
 .. _mypy: https://mypy.readthedocs.io/en/stable/
@@ -150,7 +245,7 @@ Version 20.1.0
   3) ``~/.gpaw/siteconfig.py``
 
   This will be used to configure things
-  (BLAS, FFTW, ScaLapack, libxc, libvdwxc, ...).  If no configuration file
+  (BLAS, FFTW, ScaLAPACK, libxc, libvdwxc, ...).  If no configuration file
   is found then you get ``libraries = ['xc', 'blas']``.
 
 * A Lapack library is no longer needed for compiling GPAW.  We are using
@@ -358,7 +453,7 @@ Version 1.4.0
 * Improved parallelization of operations with localized functions in
   PW mode.  This solves the current size bottleneck in PW mode.
 
-* Added QNA XC functional.
+* Added QNA XC functional: :ref:`qna`.
 
 * Major refactoring of the LCAOTDDFT code and added Kohn--Sham decomposition
   analysis within LCAOTDDFT, see :ref:`the documentation <lcaotddft>`.
@@ -691,7 +786,7 @@ Version 0.10.0
 * Default density mixer parameters have been changed for calculations
   with periodic boundary conditions.  Parameters for that case:
   ``Mixer(0.05, 5, 50)`` (or ``MixerSum(0.05, 5, 50)`` for spin-paired
-  calculations.  Old parameters: ``0.1, 3, 50``.
+  calculations).  Old parameters: ``0.1, 3, 50``.
 
 * Default is now ``occupations=FermiDirac(0.1)`` if a
   calculation is periodic in at least one direction,

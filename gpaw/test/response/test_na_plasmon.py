@@ -32,7 +32,7 @@ def test_response_na_plasmon(in_tmp_dir):
                    mode=PW(300),
                    kpts={'size': (8, 8, 8), 'gamma': True},
                    parallel={'band': 1},
-                   #txt='small.txt',
+                   # txt='small.txt',
                    )
 
     # Kpoint sampling should be halved in the expanded direction.
@@ -41,7 +41,7 @@ def test_response_na_plasmon(in_tmp_dir):
                    mode=PW(300),
                    kpts={'size': (4, 8, 8), 'gamma': True},
                    parallel={'band': 1},
-                   #txt='large.txt',
+                   # txt='large.txt',
                    )
 
     a1.get_potential_energy()
@@ -94,7 +94,7 @@ def test_response_na_plasmon(in_tmp_dir):
             os.remove('chi1+0+0+0.pckl')
         except OSError:
             pass
-        
+
         df2 = DielectricFunction('gs_Na_large.gpw',
                                  domega0=0.03,
                                  omegamax=10,

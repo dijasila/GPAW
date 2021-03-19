@@ -1,14 +1,11 @@
 """Edmiston-ruedenberg localization."""
 from math import pi
-from typing import Any
 
 import numpy as np
 
 import _gpaw
 from .overlaps import WannierOverlaps
 from .functions import WannierFunctions
-
-Array2D = Any
 
 
 class LocalizationNotConvergedError(Exception):
@@ -25,7 +22,7 @@ def localize(overlaps: WannierOverlaps,
     """
     if not overlaps.atoms.cell.orthorhombic:
         raise NotImplementedError('An orthogonal cell is required')
-    assert overlaps.monkhorst_pack_size == (1, 1, 1)
+    assert (overlaps.monkhorst_pack_size == (1, 1, 1)).all()
 
     Z_nnc = np.empty((overlaps.nbands, overlaps.nbands, 3), complex)
     for c, direction in enumerate([(1, 0, 0), (0, 1, 0), (0, 0, 1)]):

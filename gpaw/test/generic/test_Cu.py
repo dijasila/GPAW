@@ -6,6 +6,7 @@ import gpaw.mpi as mpi
 
 # Generate non-scalar-relativistic setup for Cu:
 
+
 def test_generic_Cu(in_tmp_dir):
     setup = gen('Cu', scalarrel=False)
 
@@ -35,5 +36,4 @@ def test_generic_Cu(in_tmp_dir):
 
         print(e, niter)
         energy_tolerance = 0.0005
-        niter_tolerance = 0
         equal(e, -0.271504, energy_tolerance)

@@ -183,10 +183,10 @@ class PlaneWaveAdiabaticFXC(FXC):
         print('', file=self.cfd)
 
         return Kxc_GG / pd.gd.volume
-            
+
     def get_density_on_grid(self, gd):
         """Get the spin density on coarse real-space grid.
-        
+
         Returns
         -------
         nt_sG or n_sG : nd.array
@@ -195,7 +195,7 @@ class PlaneWaveAdiabaticFXC(FXC):
         """
         if self.rshe:
             return self.calc.density.nt_sG  # smooth density
-        
+
         print('    Calculating all-electron density', file=self.cfd)
         with self.timer('Calculating all-electron density'):
             get_ae_density = self.calc.density.get_all_electron_density
@@ -656,12 +656,14 @@ class AdiabaticSusceptibilityFXC(PlaneWaveAdiabaticFXC):
             n_G = np.sum(n_sG, axis=0)
             fx_G = -1. / 3. * (3. / np.pi)**(1. / 3.) * n_G**(-2. / 3.)
             return fx_G
-        else:
-            fxc_sG = np.zeros_like(n_sG)
-            xc = XC(self.functional[1:])
-            xc.calculate_fxc(gd, n_sG, fxc_sG)
 
-            return fxc_sG[0]  # not tested for spin-polarized calculations XXX
+        assert len(n_sG) == 1
+        from gpaw.xc.libxc import LibXC
+        kernel = LibXC(self.functional[1:])
+        fxc_sG = np.zeros_like(n_sG)
+        kernel.xc.calculate_fxc_spinpaired(n_sG.ravel(), fxc_sG)
+
+        return fxc_sG[0]  # not tested for spin-polarized calculations XXX
 
     def calculate_trans_fxc(self, gd, n_sG):
         """Calculate polarized fxc of spincomponents '+-', '-+'."""

@@ -3,15 +3,17 @@
 
 """K-point descriptor."""
 
+from typing import Optional
+
 import numpy as np
-
-from ase.dft.kpoints import monkhorst_pack, get_monkhorst_pack_size_and_offset
 from ase.calculators.calculator import kptdensity2monkhorstpack
+from ase.dft.kpoints import get_monkhorst_pack_size_and_offset, monkhorst_pack
 
-from gpaw import KPointError
-from gpaw.kpoint import KPoint
-import gpaw.mpi as mpi
 import _gpaw
+import gpaw.mpi as mpi
+from gpaw import KPointError
+from gpaw.typing import Array1D
+from gpaw.kpoint import KPoint
 
 
 def to1bz(bzk_kc, cell_cv):
@@ -89,8 +91,8 @@ class KPointDescriptor:
     def __init__(self, kpts, nspins: int = 1):
         """Construct descriptor object for kpoint/spin combinations (ks-pair).
 
-        Parameters
-        ----------
+        Parameters:
+
         kpts: None, sequence of 3 ints, or (n,3)-shaped array
             Specification of the k-point grid. None=Gamma, list of
             ints=Monkhorst-Pack, ndarray=user specified.
@@ -118,6 +120,9 @@ class KPointDescriptor:
         ===================  =================================================
         """
 
+        self.N_c: Optional[Array1D] = None
+        self.offset_c: Optional[Array1D] = None
+
         if kpts is None:
             self.bzk_kc = np.zeros((1, 3))
             self.N_c = np.array((1, 1, 1), dtype=int)
@@ -134,9 +139,7 @@ class KPointDescriptor:
                     self.N_c, self.offset_c = \
                         get_monkhorst_pack_size_and_offset(self.bzk_kc)
                 except ValueError:
-                    self.N_c = None
-                    self.offset_c = None
-
+                    pass
         self.nspins = nspins
         self.nbzkpts = len(self.bzk_kc)
 
@@ -388,8 +391,8 @@ class KPointDescriptor:
         In case that k+q is outside the BZ, the k-point inside the BZ
         corresponding to k+q is given.
 
-        Parameters
-        ----------
+        Parameters:
+
         q_c: ndarray
             Coordinates for the q-vector in units of the reciprocal
             lattice vectors.
