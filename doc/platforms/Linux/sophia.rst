@@ -10,7 +10,7 @@ Sophia.
 .. seealso::
 
     * :mod:`Creation of Python virtual environments <venv>`.
-    * Information about the Niflheim cluster can be found at
+    * Information about the Sophia cluster can be found at
       `<https://docs-devel.hpc.ait.dtu.dk/hardware/sophia/>`_.
     * `MyQueue <https://myqueue.readthedocs.io/>`__.
 
@@ -42,7 +42,7 @@ and you can deactivate it when you no longer need to use it::
     $ deactivate
 
 You will want the activation to happen automatically for the jobs you
-submit to Niflheim.  Here are three ways to do it:
+submit to Sophia.  Here are three ways to do it:
 
 1) If you always want to use one venv then just put the activation
    command in your ``~/.bashrc``.
