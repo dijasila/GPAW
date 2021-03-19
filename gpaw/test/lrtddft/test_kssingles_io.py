@@ -78,11 +78,3 @@ def test_io(in_tmp_dir, ch4):
     assert len(kss3) == len(kss)
     assert kss3.restrict['istart'] == istart
     assert kss3.restrict['jend'] == jend
-
-
-def test_copy(ch4):
-    kss = KSSingles(restrict={'eps': 0.9})
-    kss.calculate(ch4)
-
-    for ks in kss:
-        assert ks.energy == pytest.approx(ks.copy().energy, 1e9)

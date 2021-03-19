@@ -4,6 +4,7 @@
 import sys
 import json
 import numpy as np
+from copy import copy
 
 from ase.units import Bohr, Hartree, alpha
 
@@ -567,7 +568,7 @@ class KSSingle(Excitation, PairDensity):
 
     def __add__(self, other):
         """Add two KSSingles"""
-        result = self.copy()
+        result = copy(self)
         result.me = self.me + other.me
         result.mur = self.mur + other.mur
         result.muv = self.muv + other.muv
@@ -576,7 +577,7 @@ class KSSingle(Excitation, PairDensity):
 
     def __sub__(self, other):
         """Subtract two KSSingles"""
-        result = self.copy()
+        result = copy(self)
         result.me = self.me - other.me
         result.mur = self.mur - other.mur
         result.muv = self.muv - other.muv
@@ -589,7 +590,7 @@ class KSSingle(Excitation, PairDensity):
     def __mul__(self, x):
         """Multiply a KSSingle with a number"""
         if isinstance(x, (float, int)):
-            result = self.copy()
+            result = copy(self)
             result.me = self.me * x
             result.mur = self.mur * x
             result.muv = self.muv * x
@@ -601,12 +602,6 @@ class KSSingle(Excitation, PairDensity):
         return self.__mul__(1. / x)
 
     __div__ = __truediv__
-
-    def copy(self):
-        if self.mur.dtype == complex:
-            return KSSingle(string=self.outstring(), dtype=complex)
-        else:
-            return KSSingle(string=self.outstring(), dtype=float)
 
     def fromstring(self, string, dtype=float):
         l = string.split()
