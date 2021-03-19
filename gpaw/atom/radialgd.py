@@ -2,6 +2,7 @@ import numbers
 from math import pi, factorial as fac
 
 import numpy as np
+from scipy.interpolate import make_interp_spline, splder
 
 from gpaw.spline import Spline
 from gpaw.utilities import hartree, divrl
@@ -151,6 +152,19 @@ class RadialGridDescriptor:
         return vr_g
 
     def derivative(self, n_g, dndr_g=None):
+        """Spline-based derivative of radial function."""
+        if dndr_g is None:
+            dndr_g = self.empty()
+
+        s = make_interp_spline(self.r_g, n_g, k=5,
+                               bc_type=([(2, 0.0), (4, 0.0)],
+                                        [(3, 0.0), (5, 0.0)]))
+        s = splder(s)
+
+        dndr_g[:] = s(self.r_g)
+        return dndr_g
+
+    def derivative_finite_difference(self, n_g, dndr_g=None):
         """Finite-difference derivative of radial function."""
         if dndr_g is None:
             dndr_g = self.empty()
