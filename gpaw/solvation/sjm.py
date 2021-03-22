@@ -253,18 +253,19 @@ class SJM(SolvationGPAW):
         self.log.print_dict(p)
 
         if 'target_potential' in sj_changes:
-            # If target potential is changed by the user and the slope is
-            # known, a step towards the new potential is taken right away.
-            try:
-                true_potential = self.get_electrode_potential()
-            # TypeError is needed for the case of starting from a gpw file and
-            # changing the target potential at the start.
-            except (AttributeError, TypeError):
-                pass
-            else:
-                if self.atoms and p.slope:
-                    p.excess_electrons = ((p.target_potential -
-                                          true_potential) / p.slope)
+            if p.target_potential is not None:
+                # If target potential is changed by the user and the slope is
+                # known, a step towards the new potential is taken right away.
+                try:
+                    true_potential = self.get_electrode_potential()
+                # TypeError is needed for the case of starting from a gpw
+                # file and changing the target potential at the start.
+                except (AttributeError, TypeError):
+                    pass
+                else:
+                    if self.atoms and p.slope:
+                        p.excess_electrons = ((p.target_potential -
+                                              true_potential) / p.slope)
 
         if (any(key in ['target_potential', 'excess_electrons',
             'jelliumregion'] for key in sj_changes) and not parent_changed):
@@ -361,11 +362,6 @@ class SJM(SolvationGPAW):
                      .format(p.target_potential, p.tol))
             self.sog(' Initial guess of excess electrons: {:.5f}'
                      .format(p.excess_electrons))
-            # FIXME/gk: If the convergence dictionary is given, but does not
-            #        contain workfunction this crashed. This should likely
-            #        default to None if not given.I think that should be
-            #        addressed somewhere else.
-            # FIXED/ap: I think that should do it; can you try?
             if 'workfunction' in self.parameters.convergence:
                 if self.parameters.convergence['workfunction'] >= p.tol:
                     msg = ('Warning: it appears that your work function '
@@ -385,8 +381,13 @@ class SJM(SolvationGPAW):
         if p.write_grandpotential_energy:
             self.results['energy'] = self.omega_extrapolated * Ha
             self.results['free_energy'] = self.omega_free * Ha
+            self.sog('Final energy at {} with {} electrons: {}'
+                     .format(self.get_electrode_potential(),
+                             p.excess_electrons,self.results['energy']))
             self.sog('Grand-potential energy was written into results.\n')
         else:
+            self.sog('Final energy at {} electrons: {}'
+                      .format(p.excess_electrons,self.results['energy']))
             self.sog('Canonical energy was written into results.\n')
 
         self.results['excess_electrons'] = p.excess_electrons
@@ -688,7 +689,16 @@ class SJM(SolvationGPAW):
     def get_electrode_potential(self):
         """Returns the potential of the simulated electrode, in V, relative
         to the vacuum. This comes directly from the work function."""
-        return self.hamiltonian.get_workfunctions(self.wfs.fermi_level)[1] * Ha
+        try:
+            return self.hamiltonian.get_workfunctions(self.wfs.fermi_level)[1] * Ha
+        except TypeError:
+            if 'electrode_potential' in self.results:
+                return self.results['electrode_potential']
+            else:
+                raise AttributeError('Electrode potential could not be read. '
+                                     'Make sure a DFT calculation has been '
+                                     'performed before reading the potential.')
+
 
     def initialize(self, atoms=None, reading=False):
         """Inexpensive initialization."""
