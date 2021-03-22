@@ -47,62 +47,57 @@ an absolute scale is approx. 4.4V.
 
 .. literalinclude:: Au111.py
 
-The output in 'Au_pot_3.4.txt' is extended by the grand canonical energy
+The output in 'Au.txt' is extended by the grand canonical energy
 and contains the new part::
 
- ----------------------------------------------------------
- Grand Potential Energy (E_tot + E_solv - mu*ne):
- Extrpol:    -9.004478833351179
- Free:    -9.025229571371211
- -----------------------------------------------------------
+Legendre-transformed energies (Omega = E - N mu)
+  (grand potential energies)
+  N (excess electrons):   +0.100000
+  mu (workfunction, eV):   +3.564009
+--------------------------
+Free energy:     -8.997787
+Extrapolated:    -8.976676
 
 These energies are written e.g. into trajectory files if
-:literal:`write_grandcanonical_energy = True`.
+:literal:`write_grandcanonical_energy = True` (default).
 
-
-Since we set :literal:`verbose = True`, the code produced three
-files:
+After converging the constant potential scf loop we can write
+some additional information in a xy format for plotting. By
+default three files will be written in the created `sjm_traces` directory:
 
 elstat_potential.out:
  Electrostatic potential averaged over xy and referenced to the systems
  Fermi Level. The outer parts should correspond to the respective work
- functions.
+ functions and the potential at the right boundary should correspond to
+ the potential set in the input.
 
 cavity.out:
- The shape of the implicit solvent cavity averaged over xy.
+ The shape of the implicit solvent cavity averaged over xy. Multiplying
+ the cavity function with epsinf corresponds to the xy-averaged dielectric
+ constant distribution in the unit cell.
 
-background_charge.out:
- The shape of the jellium background charge averaged over x and y.
+background_charge_XX.out:
+ The shape of the jellium background charge averaged over xy and
+ normalized.
 
-.. Note:: Alternatively, :literal:`verbose = 'cube'` corresponds to :literal:`True`
-          plus creation of a cube file including the dielectric function
-          (cavity) on the 3-D grid.
+.. Note:: Alternatively, :literal:`calc.write_sjm_traces(style='cube')`
+          can be used to write cube files of the three described
+          quantities on the 3-D grid.
 
 Structure optimization
 ======================
 
 Any kind of constant potential structure optimization can be performed by
-applying ase's built-in optimizers. Two options are given for the potential
-equilibration during structure optimization:
+applying ase's built-in optimizers. Here, it is wort noting that if
+:literal:`target_potential` is set to None (default), a constant charge optimization
+is performed. In such a case :literal:`excess_electrons` will define the charge.
 
-potential_equilibration_mode = 'seq':
- Sequential mode. This is the default optimization mode, which fully
- equilibrates the potential after each ionic step, if the current
- potential differs from the target by more
- than :literal:`dpot`. This mode is generally slower (up to 1.5 time CPU hours
- compared to constant charge GPAW), but very reliable.
-
-potential_equilibration_mode = 'sim':
- Simultaneous mode. In this mode :literal:`ne` is constantly optimized together
- with the geometry. It is generally reliable (with few exceptions) and does not
- lead to a significant performance penalty compared to constant charge
- relaxations. However, after convergence it is adviced to check the final
- potential, since there is no guarantee for it to be within :literal:`dpot`.
- During the optimization the
- potential can oscillate, which mostly calms down close to convergence. One
- can, however, control the oscillation via :literal:`max_pot_deviation`. This
- keyword automatically triggers a tight and complete potential equilibration
- to the target, if the current potential is outside the given threshold.
+The :literal:`always_adjust` keyword can be used to speed up an optimization.
+If it is set to False (default), the potential is only equilibrated if
+the resulting potential is outside of the the set :literal:`tol`. This is slower,
+but very robust. Setting :literal:`always_adjust=True` will make the code equilibrate
+the potential at every step. In this case :literal:`tol` can be loosened speeding
+up the optimization substantially.
 
 Usage Example: Running a constant potential NEB calculation
 ===========================================================
@@ -119,13 +114,13 @@ by a simpler, more manual script as can be found in
     high distance between the two subsystems would lead to partial solvation
     of the interface region, therefore screening the electric field in the
     most interesting area.
-.. Note:: For paralle NEB runs :literal:`potential_equilibration_mode = 'sim'`
+.. Note:: For paralle NEB runs :literal:`always_adjust = True`
           should be used for efficiency, since not every image triggers
           a potential equilibration step in sequential mode. Such a run would
           lead to unnecessary idle time on some cores.
 .. Note:: For CI-NEBs (with :literal:`climb = True`), we advice to either set
-         :literal:`max_pot_deviation` to a tighter value (e.g. 0.05) in
-         simultaneous mode or use the sequential mode.
+         :literal:`tol` to a tighter value (e.g. 0.05) if
+         :literal:`always_adjust=True` or set the keyword to False
 
 .. autoclass:: gpaw.solvation.sjm.SJM
 

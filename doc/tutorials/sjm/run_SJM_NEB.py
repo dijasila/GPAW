@@ -50,12 +50,11 @@ else:
 # The calculator
 def calculator():
     # Obviously this calculator should be adapted
-    return SJM(poissonsolver={'dipolelayer': 'xy'},
+    return SJM(sj={'target_potential':potential},
                gpts=(48, 32, 168),
                kpts=(4, 6, 1),
                xc='PBE',
                spinpol=False,
-               potential=potential,
                occupations=FermiDirac(0.1),
                maxiter=400,
                cavity=EffectivePotentialCavity(
@@ -139,6 +138,5 @@ if world.size == 1:
 else:
     qn = BFGS(neb, logfile='neb.log', trajectory='neb.traj')
     qn.run(fmax=0.05)
-
 
 write('neb_final.traj', images)

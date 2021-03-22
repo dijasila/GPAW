@@ -24,26 +24,26 @@ def atomic_radii(atoms):
 
 # Structure is created
 atoms = fcc111('Au', size=(1, 1, 3))
-atoms.center(axis=2, vacuum=10)
+atoms.center(axis=2, vacuum=8)
 atoms.translate([0, 0, -2])
 
 # SJM parameters
-potential = 3.4
-ne = 0.1
-dpot = 0.01
+sj={'target_potential':3.4, # Desired potential
+    'excess_electrons':0.1, # Initial guess for number of electrons
+    'tol': 0.01,            # Potential tolerance
+    'jelliumregion':{'bottom':None, #Lower limit of countercharge
+                     'top':None, #Upper limit of countercharge
+                     'thickness':None} #Countercharge  thickness
+    }
+#    'verbose':True}
 
 # The calculator
-calc = SJM(doublelayer={'upper_limit': 23},
-           potential=potential,
-           dpot=dpot,
-           ne=ne,
-           verbose=True,
-
+calc = SJM(sj=sj,
            gpts=(16, 16, 136),
            poissonsolver={'dipolelayer': 'xy'},
            kpts=(9, 9, 1),
            xc='PBE',
-           txt=f'Au_pot_{potential:1.2f}.txt',
+           txt=f'Au.txt',
            occupations=FermiDirac(0.1),
            cavity=EffectivePotentialCavity(
                effective_potential=SJMPower12Potential(atomic_radii, u0),
@@ -55,3 +55,5 @@ calc = SJM(doublelayer={'upper_limit': 23},
 # Run the calculation
 atoms.calc = calc
 atoms.get_potential_energy()
+
+calc.write_sjm_traces()
