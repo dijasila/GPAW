@@ -216,6 +216,12 @@ class SJM(SolvationGPAW):
 
         """
         sj_dict = kwargs['sj'] if 'sj' in kwargs else {}
+
+        if  not isinstance(sj_dict,dict):
+            msg=("The sj parameters have to be given in dict format, "
+                 "the given format is {}".format(type(sj_dict).__name__))
+            raise TypeError(msg)
+
         badkeys = [key for key in sj_dict if key not in
                    self.default_parameters['sj']]
         if badkeys:
