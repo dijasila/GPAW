@@ -1179,6 +1179,8 @@ class Setup(BaseSetup):
                 for v in range(3):
                     v1 = (v + 1) % 3
                     v2 = (v + 2) % 3
+                    Lv1 = 1 + (v1 + 2) % 3
+                    Lv2 = 1 + (v2 + 2) % 3
                     # term from radial wfs does not contribute
                     # term from spherical harmonics derivatives
                     G = np.zeros((nm1, nm2))
@@ -1186,14 +1188,10 @@ class Setup(BaseSetup):
                         for m3 in range(0, (2 * l3 + 1)):
                             L3 = l3**2 + m3
                             try:
-                                G += np.outer(G_LLL[L3, l1**2:l1**2 + nm1,
-                                                    1 + v1],
-                                              Y_LLv[L3, l2**2:l2**2 + nm2,
-                                                    v2])
-                                G -= np.outer(G_LLL[L3, l1**2:l1**2 + nm1,
-                                                    1 + v2],
-                                              Y_LLv[L3, l2**2:l2**2 + nm2,
-                                                    v1])
+                                G += np.outer(G_LLL[Lv1, l1**2:l1**2 + nm1, L3],
+                                              Y_LLv[L3, l2**2:l2**2 + nm2, v2])
+                                G -= np.outer(G_LLL[Lv2, l1**2:l1**2 + nm1, L3],
+                                              Y_LLv[L3, l2**2:l2**2 + nm2, v1])
                             except IndexError:
                                 pass  # L3 might be too large, ignore
                     rnabla_iiv[i1:i1 + nm1, i2:i2 + nm2, v] += f1f2or * G
