@@ -1165,7 +1165,7 @@ class Setup(BaseSetup):
 
         r_g = rgd.r_g
         dr_g = rgd.dr_g
-        rnabla_iiv = np.zeros((self.ni, self.ni, 3))
+        rnabla_iiv = np.empty((self.ni, self.ni, 3))
         i1 = 0
         for j1 in range(self.nj):
             l1 = self.l_j[j1]
@@ -1188,7 +1188,7 @@ class Setup(BaseSetup):
                                 Y_LLv[:, l2**2:l2**2 + nm2, v2])
                     G -= np.dot(G_LLL[Lv2, l1**2:l1**2 + nm1, :],
                                 Y_LLv[:, l2**2:l2**2 + nm2, v1])
-                    rnabla_iiv[i1:i1 + nm1, i2:i2 + nm2, v] += f1f2or * G
+                    rnabla_iiv[i1:i1 + nm1, i2:i2 + nm2, v] = f1f2or * G
                 i2 += nm2
             i1 += nm1
         return sqrt(4 * pi / 3) * rnabla_iiv
