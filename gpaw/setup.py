@@ -1184,13 +1184,10 @@ class Setup(BaseSetup):
                     # term from radial wfs does not contribute
                     # term from spherical harmonics derivatives
                     G = np.zeros((nm1, nm2))
-                    for l3 in range(abs(l1 - l2), l1 + l2 + 1):
-                        for m3 in range(0, (2 * l3 + 1)):
-                            L3 = l3**2 + m3
-                            G += np.outer(G_LLL[Lv1, l1**2:l1**2 + nm1, L3],
-                                          Y_LLv[L3, l2**2:l2**2 + nm2, v2])
-                            G -= np.outer(G_LLL[Lv2, l1**2:l1**2 + nm1, L3],
-                                          Y_LLv[L3, l2**2:l2**2 + nm2, v1])
+                    G += np.dot(G_LLL[Lv1, l1**2:l1**2 + nm1, :],
+                                Y_LLv[:, l2**2:l2**2 + nm2, v2])
+                    G -= np.dot(G_LLL[Lv2, l1**2:l1**2 + nm1, :],
+                                Y_LLv[:, l2**2:l2**2 + nm2, v1])
                     rnabla_iiv[i1:i1 + nm1, i2:i2 + nm2, v] += f1f2or * G
                 i2 += nm2
             i1 += nm1
