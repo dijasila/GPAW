@@ -1199,7 +1199,7 @@ class Setup(BaseSetup):
                     rnabla_iiv[i1:i1 + nm1, i2:i2 + nm2, v] += f1f2or * G
                 i2 += nm2
             i1 += nm1
-        return (4 * pi / 3) * rnabla_iiv
+        return sqrt(4 * pi / 3) * rnabla_iiv
 
     def construct_core_densities(self, setupdata):
         rcore = self.data.find_core_density_cutoff(setupdata.nc_g)
