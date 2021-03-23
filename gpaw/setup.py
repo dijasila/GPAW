@@ -9,6 +9,7 @@ import ase.units as units
 import numpy as np
 from ase.data import chemical_symbols
 
+from gpaw import debug
 from gpaw.basis_data import Basis
 from gpaw.gaunt import gaunt, nabla
 from gpaw.overlap import OverlapCorrections
@@ -1118,6 +1119,8 @@ class Setup(BaseSetup):
         r_g = rgd.r_g
         dr_g = rgd.dr_g
         nabla_iiv = np.empty((self.ni, self.ni, 3))
+        if debug:
+            nabla_iiv[:] = np.nan
         i1 = 0
         for j1 in range(self.nj):
             l1 = self.l_j[j1]
@@ -1143,6 +1146,8 @@ class Setup(BaseSetup):
                         Y_LLv[l1**2:l1**2 + nm1, l2**2:l2**2 + nm2, v])
                 i2 += nm2
             i1 += nm1
+        if debug:
+            assert not np.any(np.isnan(nabla_iiv))
         return nabla_iiv
 
     def get_magnetic_integrals(self, rgd, phi_jg, phit_jg):
@@ -1166,6 +1171,8 @@ class Setup(BaseSetup):
         r_g = rgd.r_g
         dr_g = rgd.dr_g
         rnabla_iiv = np.empty((self.ni, self.ni, 3))
+        if debug:
+            rnabla_iiv[:] = np.nan
         i1 = 0
         for j1 in range(self.nj):
             l1 = self.l_j[j1]
@@ -1191,6 +1198,8 @@ class Setup(BaseSetup):
                     rnabla_iiv[i1:i1 + nm1, i2:i2 + nm2, v] = f1f2or * G
                 i2 += nm2
             i1 += nm1
+        if debug:
+            assert not np.any(np.isnan(rnabla_iiv))
         return sqrt(4 * pi / 3) * rnabla_iiv
 
     def construct_core_densities(self, setupdata):
