@@ -542,11 +542,11 @@ class KSSingle(Excitation, PairDensity):
         for a, P_ni in kpt.P_ani.items():
             Pi_i = P_ni[self.i].conj()
             Pj_i = P_ni[self.j]
-            rnabla_iiv = paw.wfs.setups[a].rnabla_iiv
+            rxnabla_iiv = paw.wfs.setups[a].rxnabla_iiv
             for c in range(3):
                 for i1, Pi in enumerate(Pi_i):
                     for i2, Pj in enumerate(Pj_i):
-                        ma[c] += Pi * Pj * rnabla_iiv[i1, i2, c]
+                        ma[c] += Pi * Pj * rxnabla_iiv[i1, i2, c]
         gd.comm.sum(ma)
 
         self.magn = -alpha / 2. * (magn + ma)

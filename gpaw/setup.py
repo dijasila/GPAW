@@ -638,8 +638,7 @@ class LeanSetup(BaseSetup):
 
         self.N0_p = s.N0_p  # req. by estimate_magnetic_moments
         self.nabla_iiv = s.nabla_iiv  # req. by lrtddft
-        self.rnabla_iiv = s.rnabla_iiv  # req. by lrtddft
-        self.rxnabla_iiv = s.rxnabla_iiv  # req. by lrtddft2
+        self.rxnabla_iiv = s.rxnabla_iiv  # req. by lrtddft and lrtddft2
 
         # XAS stuff
         self.phicorehole_g = s.phicorehole_g  # should be optional
@@ -998,13 +997,7 @@ class Setup(BaseSetup):
 
         self.xc_correction = data.get_xc_correction(rgd2, xc, gcut2, lcut)
         self.nabla_iiv = self.get_derivative_integrals(rgd2, phi_jg, phit_jg)
-        self.rnabla_iiv = self.get_magnetic_integrals(rgd2, phi_jg, phit_jg)
-        try:
-            from gpaw.lrtddft2.rxnabla import get_magnetic_integrals_new
-            self.rxnabla_iiv = get_magnetic_integrals_new(self, rgd2,
-                                                          phi_jg, phit_jg)
-        except NotImplementedError:
-            self.rxnabla_iiv = None
+        self.rxnabla_iiv = self.get_magnetic_integrals(rgd2, phi_jg, phit_jg)
 
     def create_projectors(self, pt_jg, rcut):
         pt_j = []
@@ -1170,9 +1163,9 @@ class Setup(BaseSetup):
 
         r_g = rgd.r_g
         dr_g = rgd.dr_g
-        rnabla_iiv = np.empty((self.ni, self.ni, 3))
+        rxnabla_iiv = np.empty((self.ni, self.ni, 3))
         if debug:
-            rnabla_iiv[:] = np.nan
+            rxnabla_iiv[:] = np.nan
         i1 = 0
         for j1 in range(self.nj):
             l1 = self.l_j[j1]
@@ -1195,12 +1188,12 @@ class Setup(BaseSetup):
                                 Y_LLv[:, l2**2:l2**2 + nm2, v2])
                     G -= np.dot(G_LLL[Lv2, l1**2:l1**2 + nm1, :],
                                 Y_LLv[:, l2**2:l2**2 + nm2, v1])
-                    rnabla_iiv[i1:i1 + nm1, i2:i2 + nm2, v] = f1f2or * G
+                    rxnabla_iiv[i1:i1 + nm1, i2:i2 + nm2, v] = f1f2or * G
                 i2 += nm2
             i1 += nm1
         if debug:
-            assert not np.any(np.isnan(rnabla_iiv))
-        return sqrt(4 * pi / 3) * rnabla_iiv
+            assert not np.any(np.isnan(rxnabla_iiv))
+        return sqrt(4 * pi / 3) * rxnabla_iiv
 
     def construct_core_densities(self, setupdata):
         rcore = self.data.find_core_density_cutoff(setupdata.nc_g)
