@@ -1184,7 +1184,7 @@ class Setup(BaseSetup):
                     # term from radial wfs does not contribute
                     # term from spherical harmonics derivatives
                     G = np.zeros((nm1, nm2))
-                    for l3 in range(abs(l1 - 1), l1 + 2):
+                    for l3 in range(abs(l1 - l2), l1 + l2 + 1):
                         for m3 in range(0, (2 * l3 + 1)):
                             L3 = l3**2 + m3
                             G += np.outer(G_LLL[Lv1, l1**2:l1**2 + nm1, L3],
