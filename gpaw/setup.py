@@ -1161,7 +1161,7 @@ class Setup(BaseSetup):
         and similar for y and z."""
 
         G_LLL = gaunt(max(self.l_j))
-        Y_LLv = nabla(max(self.l_j))
+        Y_LLv = nabla(2 * max(self.l_j))
 
         r_g = rgd.r_g
         dr_g = rgd.dr_g
@@ -1187,13 +1187,10 @@ class Setup(BaseSetup):
                     for l3 in range(abs(l1 - 1), l1 + 2):
                         for m3 in range(0, (2 * l3 + 1)):
                             L3 = l3**2 + m3
-                            try:
-                                G += np.outer(G_LLL[Lv1, l1**2:l1**2 + nm1, L3],
-                                              Y_LLv[L3, l2**2:l2**2 + nm2, v2])
-                                G -= np.outer(G_LLL[Lv2, l1**2:l1**2 + nm1, L3],
-                                              Y_LLv[L3, l2**2:l2**2 + nm2, v1])
-                            except IndexError:
-                                pass  # L3 might be too large, ignore
+                            G += np.outer(G_LLL[Lv1, l1**2:l1**2 + nm1, L3],
+                                          Y_LLv[L3, l2**2:l2**2 + nm2, v2])
+                            G -= np.outer(G_LLL[Lv2, l1**2:l1**2 + nm1, L3],
+                                          Y_LLv[L3, l2**2:l2**2 + nm2, v1])
                     rnabla_iiv[i1:i1 + nm1, i2:i2 + nm2, v] += f1f2or * G
                 i2 += nm2
             i1 += nm1
