@@ -59,3 +59,42 @@ def nabla(lmax: int = 2) -> Array3D:
                             r += n2[v] * c1 * c2 * gam(n[0], n[1], n[2])
                 Y_LLv[L1, L2, v] = r
     return Y_LLv
+
+
+@lru_cache
+def YY2(lmax: int = 2) -> Array4D:
+    """Create the array of derivative intergrals.
+
+    ::
+
+                      2
+      /  ^     l+3   d       -l-1
+      | dr Y  r    ------(Y r    )
+      /     L'     dr dr   L
+                     a  b
+
+    """
+    Lmax = (lmax + 1)**2
+    from gpaw.spherical_harmonics import YL, gam
+    Y_LLvv = np.zeros((Lmax, Lmax, 3, 3))
+    # Insert new values
+    for L1 in range(Lmax):
+        for L2 in range(Lmax):
+            for v1 in range(3):
+                for v2 in range(3):
+                    r = 0.0
+                    for c1, n1 in YL[L1]:
+                        for c2, n2 in YL[L2]:
+                            n = [0, 0, 0]
+                            n[0] = n1[0] + n2[0]
+                            n[1] = n1[1] + n2[1]
+                            n[2] = n1[2] + n2[2]
+                            if v1 == v2:
+
+                            if n2[v] > 0:
+                                # apply derivative
+                                n[v] -= 1
+                                # add integral
+                                r += n2[v] * c1 * c2 * gam(n[0], n[1], n[2])
+                    Y_LLv[L1, L2, v] = r
+    return Y_LLv
