@@ -1132,11 +1132,11 @@ class Setup(BaseSetup):
                                  phit_jg[j1] * dphitdr_g, r_g**2 * dr_g)
                 for v in range(3):
                     Lv = 1 + (v + 2) % 3
+                    G_12 = G_LLL[Lv, l1**2:l1**2 + nm1, l2**2:l2**2 + nm2]
+                    Y_12 = Y_LLv[l1**2:l1**2 + nm1, l2**2:l2**2 + nm2, v]
                     nabla_iiv[i1:i1 + nm1, i2:i2 + nm2, v] = (
-                        (4 * pi / 3)**0.5 * (f1df2dr - l2 * f1f2or) *
-                        G_LLL[Lv, l2**2:l2**2 + nm2, l1**2:l1**2 + nm1].T +
-                        f1f2or *
-                        Y_LLv[l1**2:l1**2 + nm1, l2**2:l2**2 + nm2, v])
+                        sqrt(4 * pi / 3) * (f1df2dr - l2 * f1f2or) * G_12
+                        + f1f2or * Y_12)
                 i2 += nm2
             i1 += nm1
         if debug:
@@ -1158,8 +1158,9 @@ class Setup(BaseSetup):
 
         and similar for y and z."""
 
-        G_LLL = gaunt(max(self.l_j))
-        Y_LLv = nabla(2 * max(self.l_j))
+        lmax = max(self.l_j)
+        G_LLL = gaunt(lmax)
+        Y_LLv = nabla(2 * lmax)
 
         r_g = rgd.r_g
         dr_g = rgd.dr_g
@@ -1183,17 +1184,18 @@ class Setup(BaseSetup):
                     Lv2 = 1 + (v2 + 2) % 3
                     # term from radial wfs does not contribute
                     # term from spherical harmonics derivatives
-                    G = np.zeros((nm1, nm2))
-                    G += np.dot(G_LLL[Lv1, l1**2:l1**2 + nm1, :],
-                                Y_LLv[:, l2**2:l2**2 + nm2, v2])
-                    G -= np.dot(G_LLL[Lv2, l1**2:l1**2 + nm1, :],
-                                Y_LLv[:, l2**2:l2**2 + nm2, v1])
-                    rxnabla_iiv[i1:i1 + nm1, i2:i2 + nm2, v] = f1f2or * G
+                    G_12 = np.zeros((nm1, nm2))
+                    G_12 += np.dot(G_LLL[Lv1, l1**2:l1**2 + nm1, :],
+                                   Y_LLv[:, l2**2:l2**2 + nm2, v2])
+                    G_12 -= np.dot(G_LLL[Lv2, l1**2:l1**2 + nm1, :],
+                                   Y_LLv[:, l2**2:l2**2 + nm2, v1])
+                    rxnabla_iiv[i1:i1 + nm1, i2:i2 + nm2, v] = (
+                        sqrt(4 * pi / 3) * f1f2or * G_12)
                 i2 += nm2
             i1 += nm1
         if debug:
             assert not np.any(np.isnan(rxnabla_iiv))
-        return sqrt(4 * pi / 3) * rxnabla_iiv
+        return rxnabla_iiv
 
     def construct_core_densities(self, setupdata):
         rcore = self.data.find_core_density_cutoff(setupdata.nc_g)
