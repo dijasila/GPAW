@@ -7,22 +7,11 @@
 #include <sys/time.h>
 
 #include "gpaw-cuda-int.h"
+#include "gpaw-cuda-debug.h"
 
 #ifdef DEBUG_CUDA
 #define DEBUG_CUDA_PASTE
 #endif //DEBUG_CUDA
-
-#ifdef DEBUG_CUDA_PASTE
-extern "C" {
-#include <complex.h>
-    typedef double complex double_complex;
-#define GPAW_MALLOC(T, n) (T*)(malloc((n) * sizeof(T)))
-    void bmgs_paste(const double* a, const int n[3],
-                    double* b, const int m[3], const int c[3]);
-    void bmgs_pastez(const double_complex* a, const int n[3],
-                     double_complex* b, const int m[3], const int c[3]);
-}
-#endif //DEBUG_CUDA_PASTE
 
 #ifndef CUGPAWCOMPLEX
 #  define BLOCK_SIZEX 32
@@ -246,11 +235,11 @@ extern "C" {
 #ifdef DEBUG_CUDA_PASTE
         for (int m=0; m < blocks; m++) {
 #ifndef CUGPAWCOMPLEX
-            bmgs_paste(a_cpu + m * ng, sizea, b_cpu + m * ng2, sizeb,
-                       startb);
+            bmgs_paste_cpu(a_cpu + m * ng, sizea, b_cpu + m * ng2, sizeb,
+                           startb);
 #else
-            bmgs_pastez((const double_complex*) (a_cpu + m * ng), sizea,
-                        (double_complex*) (b_cpu + m * ng2), sizeb, startb);
+            bmgs_pastez_cpu(a_cpu + m * ng, sizea,
+                            b_cpu + m * ng2, sizeb, startb);
 #endif // !CUGPAWCOMPLEX
         }
         cudaDeviceSynchronize();
@@ -344,11 +333,11 @@ extern "C" {
         for (int m=0; m < blocks; m++) {
             memset(b_cpu + m * ng2, 0, ng2 * sizeof(double));
 #ifndef CUGPAWCOMPLEX
-            bmgs_paste(a_cpu + m * ng, sizea, b_cpu + m * ng2, sizeb,
-                       startb);
+            bmgs_paste_cpu(a_cpu + m * ng, sizea, b_cpu + m * ng2, sizeb,
+                           startb);
 #else
-            bmgs_pastez((const double_complex*) (a_cpu + m * ng), sizea,
-                        (double_complex*) (b_cpu + m * ng2), sizeb, startb);
+            bmgs_pastez_cpu(a_cpu + m * ng, sizea,
+                            b_cpu + m * ng2, sizeb, startb);
 #endif // CUGPAWCOMPLEX
         }
         cudaDeviceSynchronize();

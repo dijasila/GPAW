@@ -4,22 +4,11 @@
 #include <string.h>
 
 #include "gpaw-cuda-int.h"
+#include "gpaw-cuda-debug.h"
 
 #ifdef DEBUG_CUDA
 #define DEBUG_CUDA_CUT
 #endif //DEBUG_CUDA
-
-#ifdef DEBUG_CUDA_CUT
-extern "C" {
-#include <complex.h>
-  typedef double complex double_complex;
-#define GPAW_MALLOC(T, n) (T*)(malloc((n) * sizeof(T)))
-  void bmgs_cut(const double* a, const int n[3], const int c[3],
-                double* b, const int m[3]);
-  void bmgs_cutz(const double_complex* a, const int n[3], const int c[3],
-                 double_complex* b, const int m[3]);
-}
-#endif //DEBUG_CUDA_CUT
 
 #ifndef CUGPAWCOMPLEX
 #define BLOCK_MAX 32
@@ -154,10 +143,11 @@ extern "C" {
 #ifdef DEBUG_CUDA_CUT
         for (int m=0; m < blocks; m++) {
 #ifndef CUGPAWCOMPLEX
-            bmgs_cut(a_cpu + m * ng, sizea, starta, b_cpu + m * ng2, sizeb);
+            bmgs_cut_cpu(a_cpu + m * ng, sizea, starta,
+                         b_cpu + m * ng2, sizeb);
 #else
-            bmgs_cutz((const double_complex*) (a_cpu + m * ng), sizea, starta,
-                      (double_complex*) (b_cpu + m * ng2), sizeb);
+            bmgs_cutz_cpu(a_cpu + m * ng, sizea, starta,
+                          b_cpu + m * ng2, sizeb);
 #endif //CUGPAWCOMPLEX
         }
         cudaDeviceSynchronize();
