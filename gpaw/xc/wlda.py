@@ -205,7 +205,6 @@ class WLDA(XCFunctional):
     def calculate_impl(self, gd, n_sg, v_sg, e_g):
         """Interface for GPAW."""
         parprint("WLDA is the next PBE", flush=True)
-
         # Calculate E_LDA on n_sg
         # Need to do calculation prior to rest of code
         # because it modifies the density
@@ -287,13 +286,24 @@ class WLDA(XCFunctional):
         in the setup class (gpaw/setup.py).
         """
         n_sg[n_sg < 1e-20] = 1e-40
-        wn_sg = gd.collect(n_sg, broadcast=True)
-        gd1 = gd.new_descriptor(comm=mpi.serial_comm)
-        self.gd = gd1
-        wn_sg = self.density_correction(self.gd, wn_sg)
+        # wn_sg = gd.collect(n_sg, broadcast=True)
+        
+
+        wn_sg, gd1 = self.density_correction(gd, n_sg)
         wn_sg[wn_sg < 1e-20] = 1e-20
+        # gd1 = gd.new_descriptor(comm=mpi.serial_comm)
+        self.gd = gd1
 
         return wn_sg
+
+
+        # wn_sg = gd.collect(n_sg, broadcast=True)
+        # gd1 = gd.new_descriptor(comm=mpi.serial_comm)
+        # self.gd = gd1
+        # wn_sg = self.density_correction(self.gd, wn_sg)
+        # wn_sg[wn_sg < 1e-20] = 1e-20
+
+        # return wn_sg
 
     def wlda_x(self, wn_sg, exc_g, vxc_sg):
         """
@@ -1020,13 +1030,23 @@ class WLDA(XCFunctional):
         If self.rcut_factor is None, the pseudo density is returned.
         """
         if self.density_type == DensityTypes.AE:
-            return self.density.get_all_electron_density(atoms=self.atoms, gridrefinement=1)[0]
+            res_sg, resgd = self.density.get_all_electron_density(atoms=self.atoms, gridrefinement=1)
+            # wn_sg = self.density.redistributor.aux_gd.collect(res, broadcast=True)
+            wn_sg = resgd.collect(res_sg, broadcast=True)
+            gd1 = resgd.new_descriptor(comm=mpi.serial_comm)
+            return wn_sg, gd1
         elif self.density_type == DensityTypes.smoothAE:
+            # TODO Think about how to handle this.
+            # For other two modes we can collect after correcting
+            # but for this mode we have to collect before.
+            raise NotImplementedError
             from gpaw.xc.WDAUtils import correct_density
             return correct_density(n_sg, gd, self.wfs.setups,
                                    self.wfs.spos_ac, self.rcut_factor)
         else:
-            return n_sg
+            wn_sg = gd.collect(n_sg, broadcast=True)
+            gd1 = gd.new_descriptor(comm=mpi.serial_comm)
+            return wn_sg, gd1
 
     def hartree_correction(self, gd, e_g, v_sg,
                            wn_sg, nstar_sg, my_alpha_indices):

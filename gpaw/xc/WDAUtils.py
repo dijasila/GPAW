@@ -4,8 +4,8 @@ import numpy as np
 
 
 def correct_density(n_sg, gd, setups, spos_ac, rcut_factor=0.8):
-    if not hasattr(setups[0], "calculate_pseudized_atomic_density"):
-        return n_sg
+    if not hasattr(setups[0], 'calculate_pseudized_atomic_density'):
+        raise ValueError('Trying to correct the density, but the setup does not implement a correction function.')
         
     if len(n_sg) != 1:
         raise NotImplementedError
