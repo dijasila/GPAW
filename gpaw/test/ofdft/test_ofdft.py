@@ -1,6 +1,6 @@
 import pytest
 from ase import Atoms
-from gpaw import GPAW, PoissonSolver
+from gpaw import GPAW
 from gpaw.mixer import Mixer
 from gpaw.test import equal
 from gpaw.test import gen
@@ -37,7 +37,6 @@ def test_ofdft_ofdft(in_tmp_dir):
                     txt='-',
                     xc=xcname,
                     setups=setups,
-                    poissonsolver=PoissonSolver(eps=1e-6),
                     eigensolver='cg', mixer=mixer, charge=charge)
 
         atom.calc = calc

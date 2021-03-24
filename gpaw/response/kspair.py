@@ -6,7 +6,7 @@ from scipy.spatial import cKDTree
 from ase.utils import convert_string_to_fd
 from ase.utils.timing import Timer, timer
 
-from gpaw import GPAW
+from gpaw import GPAW, disable_dry_run
 import gpaw.mpi as mpi
 from gpaw.response.math_func import two_phi_planewave_integrals
 
@@ -949,7 +949,8 @@ def get_calc(gs, fd=None, timer=None):
             if fd is not None:
                 print('Reading ground state calculation:\n  %s' % gs,
                       file=fd)
-            return GPAW(gs, txt=None, communicator=mpi.serial_comm)
+            with disable_dry_run():
+                return GPAW(gs, txt=None, communicator=mpi.serial_comm)
 
 
 class PairMatrixElement:

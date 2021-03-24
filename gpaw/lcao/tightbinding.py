@@ -115,17 +115,17 @@ class TightBinding:
             # Time-reversal symmetry
             if not len(self.ibzk_kc) == len(self.bzk_kc):
                 # Broadcast Gamma component
-                gamma = np.where(np.sum(np.abs(self.ibzk_kc),
-                                        axis=1) == 0.0)[0]
-                rank, myu = self.kd.get_rank_and_index(0, gamma)
-                #
-                if self.kd.comm.rank == rank[0]:  # rank is an int ????
-                    A0_xMM = A_qxMM[myu[0]]
-                else:
-                    A0_xMM = np.zeros_like(A_xMM)
-                #
-                self.kd.comm.broadcast(A0_xMM, rank[0])
+                gamma = np.where(abs(self.ibzk_kc).sum(axis=1) < 1e-13)[0]
+                if gamma.size > 0:
+                    rank, myu = self.kd.get_rank_and_index(gamma[0])
 
+                    if self.kd.comm.rank == rank:
+                        A0_xMM = A_qxMM[myu[0]]
+                    else:
+                        A0_xMM = np.zeros_like(A_xMM)
+                    self.kd.comm.broadcast(A0_xMM, rank)
+                else:
+                    A0_xMM = 0.
                 # Add conjugate and subtract double counted Gamma component
                 A_xMM += A_xMM.conj() - A0_xMM
 
