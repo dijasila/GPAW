@@ -33,7 +33,7 @@ class BS(OccupationNumberCalculator):
                   eigenvalues: List[List[float]],
                   weights: List[float],
                   fermi_levels_guess: List[float] = None
-                  ) -> Tuple[List[np.ndarray],
+                  ) -> Tuple[np.ndarray,
                              List[float],
                              float]:
         wfs = self.atoms.calc.wfs

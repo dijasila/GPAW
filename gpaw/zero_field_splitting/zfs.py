@@ -161,7 +161,7 @@ def zfs1(wf1: WaveFunctions,
 
     if with_paw_correction:
         for a, D_sii in D_asii.items():
-            D_vv += zfs2paw(*D_sii, setups[a])
+            D_vv += zfs2paw(D_sii[0], D_sii[1], setups[a])
 
     n_nG = pd.empty(N2)
     # D_naii = ...
@@ -185,7 +185,7 @@ def zfs1(wf1: WaveFunctions,
 
         if with_paw_correction:
             for a, D_sii in D_asii.items():
-                D_vv += zfs2paw(*D_sii, setups[a])
+                D_vv += zfs2paw(D_sii[0], D_sii[1], setups[a])
 
     # Remove trace:
     D_vv -= np.trace(D_vv) / 3 * np.eye(3)
