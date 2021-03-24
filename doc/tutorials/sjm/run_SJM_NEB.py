@@ -50,7 +50,7 @@ else:
 # The calculator
 def calculator():
     # Obviously this calculator should be adapted
-    return SJM(sj={'target_potential':potential},
+    return SJM(sj={'target_potential': potential},
                gpts=(48, 32, 168),
                kpts=(4, 6, 1),
                xc='PBE',

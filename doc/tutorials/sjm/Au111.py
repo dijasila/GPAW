@@ -28,14 +28,12 @@ atoms.center(axis=2, vacuum=8)
 atoms.translate([0, 0, -2])
 
 # SJM parameters
-sj={'target_potential':3.4, # Desired potential
-    'excess_electrons':0.1, # Initial guess for number of electrons
-    'tol': 0.01,            # Potential tolerance
-    'jelliumregion':{'bottom':None, #Lower limit of countercharge
-                     'top':None, #Upper limit of countercharge
-                     'thickness':None} #Countercharge  thickness
-    }
-#    'verbose':True}
+sj = {'target_potential': 3.4,  # Desired potential
+      'excess_electrons': 0.1,  # Initial guess for number of electrons
+      'tol': 0.01,            # Potential tolerance
+      'jelliumregion': {'bottom': None,  # Lower limit of countercharge
+                        'top': None,  # Upper limit of countercharge
+                        'thickness': None}}  # Countercharge  thickness
 
 # The calculator
 calc = SJM(sj=sj,
