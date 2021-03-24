@@ -12,8 +12,8 @@ from gpaw.solvation import (
     SurfaceInteraction)
 
 
-#import pytest
-#@pytest.mark.skip(reason='TODO')
+# import pytest
+# @pytest.mark.skip(reason='TODO')
 
 def test_sjm():
     # Solvent parameters
@@ -28,11 +28,11 @@ def test_sjm():
     # Structure is created
     atoms = fcc111('Au', size=(1, 1, 3))
     atoms.cell[2][2] = 15
-    atoms.translate([0,0,6-min(atoms.positions[:,2])])
+    atoms.translate([0, 0, 6 - min(atoms.positions[:, 2])])
 
     # SJM parameters
-    potential=4.5
-    tol=0.02
+    potential = 4.5
+    tol = 0.02
     sj = {'target_potential': potential,
           'excess_electrons': -0.045,
           'jelliumregion': {'top': 14.5},
@@ -43,7 +43,7 @@ def test_sjm():
         'density': 1e-4,
         'eigenstates': 1e-4}
 
-    #Calculator
+    # Calculator
     calc = SJM(sj=sj,
                gpts=(8, 8, 48),
                kpts=(2, 2, 1),

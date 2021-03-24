@@ -217,9 +217,9 @@ class SJM(SolvationGPAW):
         """
         sj_dict = kwargs['sj'] if 'sj' in kwargs else {}
 
-        if  not isinstance(sj_dict,dict):
-            msg=("The sj parameters have to be given in dict format, "
-                 "the given format is {}".format(type(sj_dict).__name__))
+        if not isinstance(sj_dict, dict):
+            msg = ("The sj parameters have to be given in dict format, "
+                   "the given format is {}".format(type(sj_dict).__name__))
             raise TypeError(msg)
 
         badkeys = [key for key in sj_dict if key not in
@@ -383,11 +383,11 @@ class SJM(SolvationGPAW):
             self.results['free_energy'] = self.omega_free * Ha
             self.sog('Final energy at {} with {} electrons: {}'
                      .format(self.get_electrode_potential(),
-                             p.excess_electrons,self.results['energy']))
+                             p.excess_electrons, self.results['energy']))
             self.sog('Grand-potential energy was written into results.\n')
         else:
             self.sog('Final energy at {} electrons: {}'
-                      .format(p.excess_electrons,self.results['energy']))
+                     .format(p.excess_electrons, self.results['energy']))
             self.sog('Canonical energy was written into results.\n')
 
         self.results['excess_electrons'] = p.excess_electrons
@@ -690,7 +690,8 @@ class SJM(SolvationGPAW):
         """Returns the potential of the simulated electrode, in V, relative
         to the vacuum. This comes directly from the work function."""
         try:
-            return self.hamiltonian.get_workfunctions(self.wfs.fermi_level)[1] * Ha
+            return self.hamiltonian.get_workfunctions(
+                self.wfs.fermi_level)[1] * Ha
         except TypeError:
             if 'electrode_potential' in self.results:
                 return self.results['electrode_potential']
@@ -698,7 +699,6 @@ class SJM(SolvationGPAW):
                 raise AttributeError('Electrode potential could not be read. '
                                      'Make sure a DFT calculation has been '
                                      'performed before reading the potential.')
-
 
     def initialize(self, atoms=None, reading=False):
         """Inexpensive initialization."""
