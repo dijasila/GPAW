@@ -41,7 +41,7 @@ calc = SJM(sj=sj,
            poissonsolver={'dipolelayer': 'xy'},
            kpts=(9, 9, 1),
            xc='PBE',
-           txt=f'Au.txt',
+           txt='Au.txt',
            occupations=FermiDirac(0.1),
            cavity=EffectivePotentialCavity(
                effective_potential=SJMPower12Potential(atomic_radii, u0),
