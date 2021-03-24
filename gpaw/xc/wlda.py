@@ -158,6 +158,10 @@ class WLDA(XCFunctional):
         self.density_type = getattr(DensityTypes, density_type)
         assert self.density_type in [DensityTypes.pseudo, DensityTypes.smoothAE, DensityTypes.AE]
 
+        self.atoms = settings.get("atoms", None)
+        if self.density_type == DensityTypes.AE:
+            assert self.atoms is not None
+
         self.rcut_factor = float(settings.get("rc", 0.8))
 
         # Preparation and logging
@@ -1016,7 +1020,7 @@ class WLDA(XCFunctional):
         If self.rcut_factor is None, the pseudo density is returned.
         """
         if self.density_type == DensityTypes.AE:
-            return self.density.get_all_electron_density(gridrefinement=1)
+            return self.density.get_all_electron_density(atoms=self.atoms, gridrefinement=1)[0]
         elif self.density_type == DensityTypes.smoothAE:
             from gpaw.xc.WDAUtils import correct_density
             return correct_density(n_sg, gd, self.wfs.setups,
