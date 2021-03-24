@@ -216,3 +216,15 @@ def zfs2paw(D1_ii, D2_ii, setup):
     """PAW correction."""
     C_iiiivv = zfs_tensor(setup)
     return np.einsum('ij, ijklab, kl -> ab', D1_ii, C_iiiivv, D2_ii)
+
+
+def integral_lesser(phi1, phi2, phi3, phi4, l, r, dr):
+    a34 = r**l * phi3 * phi4 * dr
+    v34 = np.add.accumulate(a34) - a34
+    return (phi1 * phi2 * v34 * dr)[1:] @ r[1:]**(1 - l)
+
+
+def integral_greater(phi1, phi2, phi3, phi4, l, r, dr):
+    a12 = r**(l + 2) * phi1 * phi2 * dr
+    v12 = np.add.accumulate(a12) - a12
+    return (v12 * phi3 * phi4 * dr)[1:] @ r[1:]**(-1 - l)

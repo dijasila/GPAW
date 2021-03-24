@@ -238,16 +238,15 @@ def second_derivatives(l1: int,
                        eps: float = 1e-12) -> Array4D:
     """Create the array of second derivative intergrals.
 
-    ::
+    The result is::
 
-                              l1
-                    2        r
-      /  ^     3   d          <
-      | dr Y  r  ------(Y   -----)
-      /     L2   dr dr   L1  l1+1
-                   a  b     r
-                             >
+                     2
+      /  ^     2-n  d         n
+      | dr Y  r   ------(Y   r ),
+      /     L2    dr dr   L1
+                    a  b
 
+    where n=l1 or -(l1+1) for kind='lesser' and 'greater' respectively.
     """
     assert kind in ['lesser', 'greater']
 
