@@ -589,14 +589,13 @@ class KSSingle(Excitation, PairDensity):
 
     def __mul__(self, x):
         """Multiply a KSSingle with a number"""
-        if isinstance(x, (float, int)):
-            result = copy(self)
-            result.me = self.me * x
-            result.mur = self.mur * x
-            result.muv = self.muv * x
-            return result
-        else:
-            return RuntimeError('not a number')
+        assert isinstance(x, (float, int))
+        result = copy(self)
+        result.me = self.me * x
+        result.mur = self.mur * x
+        result.muv = self.muv * x
+        result.magn = self.magn * x
+        return result
 
     def __truediv__(self, x):
         return self.__mul__(1. / x)
