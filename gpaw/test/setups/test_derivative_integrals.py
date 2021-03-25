@@ -71,7 +71,8 @@ def calculate_integrals_on_regular_grid(radial_function, *,
 def calculate_integrals_on_radial_grid(radial_function, *,
                                        lmax=2,
                                        h=1e-3, N=12e3,
-                                       use_phit=False):
+                                       use_phit=False,
+                                       alt_rxnabla=False):
     setup = DummySetup(lmax)
     rgd = EquidistantRadialGridDescriptor(h, int(N))
     r_g = rgd.r_g
@@ -81,7 +82,11 @@ def calculate_integrals_on_radial_grid(radial_function, *,
     if use_phit:
         phit_jg, phi_jg = phi_jg, phit_jg
     nabla_LLv = setup.get_derivative_integrals(rgd, phi_jg, phit_jg)
-    rxnabla_LLv = setup.get_magnetic_integrals(rgd, phi_jg, phit_jg)
+    if alt_rxnabla:
+        from .rxnabla_alternative import get_magnetic_integrals_alt
+        rxnabla_LLv = get_magnetic_integrals_alt(setup, rgd, phi_jg, phit_jg)
+    else:
+        rxnabla_LLv = setup.get_magnetic_integrals(rgd, phi_jg, phit_jg)
     return {'nabla': nabla_LLv, 'rxnabla': rxnabla_LLv}
 
 
@@ -146,3 +151,15 @@ def test_skew_symmetry(kind, integrals_on_radial_grid):
     for v in range(3):
         arr_LL = arr_LLv[..., v]
         assert np.allclose(arr_LL, -arr_LL.T, rtol=rtol, atol=0)
+
+
+def test_rxnabla_vs_alt_implementation(lmax, radial_function,
+                                       integrals_on_radial_grid):
+    # Alternative implementation supports lmax upto 2
+    lmax = min(lmax, 2)
+    Lmax = (lmax + 1)**2
+    rxnabla_LLv = integrals_on_radial_grid['rxnabla'][:Lmax, :Lmax, :]
+    alt_LLv = calculate_integrals_on_radial_grid(radial_function,
+                                                 lmax=lmax,
+                                                 alt_rxnabla=True)['rxnabla']
+    assert np.allclose(rxnabla_LLv, alt_LLv, rtol=0, atol=1e-12)
