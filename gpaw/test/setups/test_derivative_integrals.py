@@ -137,3 +137,12 @@ def test_phit_integrals(lmax, radial_function, integrals_on_radial_grid):
     for kind, ref_LLv in integrals_on_radial_grid.items():
         arr_LLv = phit_integrals[kind]
         assert np.allclose(ref_LLv, -arr_LLv, rtol=0, atol=0)
+
+
+@pytest.mark.parametrize('kind', ['nabla', 'rxnabla'])
+def test_skew_symmetry(kind, integrals_on_radial_grid):
+    arr_LLv = integrals_on_radial_grid[kind]
+    rtol = {'nabla': 1e-7, 'rxnabla': 1e-14}[kind]
+    for v in range(3):
+        arr_LL = arr_LLv[..., v]
+        assert np.allclose(arr_LL, -arr_LL.T, rtol=rtol, atol=0)
