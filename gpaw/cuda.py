@@ -12,6 +12,7 @@ except ImportError:
 from gpaw import gpuarray
 import _gpaw
 
+enabled = False
 debug = False
 debug_sync = False
 cuda_ctx = None
@@ -22,6 +23,25 @@ class DebugCudaError(Exception):
 
 class DebugCudaWarning(UserWarning):
     pass
+
+def setup(**kwargs):
+    global enabled
+    global debug
+    global debug_sync
+    global use_hybrid_blas
+
+    enabled = bool(kwargs.pop('cuda', False))
+    if kwargs.get('debug') == 'sync':
+        debug = True
+        debug_sync = True
+    else:
+        debug = bool(kwargs.pop('debug', False))
+    _gpaw.set_gpaw_cuda_debug(debug)
+    use_hybrid_blas = bool(kwargs.pop('hybrid_blas', False))
+
+    for key in kwargs:
+        print(f'Unknown GPU parameter: {key}')
+
 
 def init(rank=0):
     """

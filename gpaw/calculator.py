@@ -99,7 +99,8 @@ class GPAW(Calculator):
                         'bands': 'occupied',
                         'forces': np.inf},  # eV / Ang
         'gpu': {'cuda': False,
-                'hybrid_blas': True},
+                'hybrid_blas': True,
+                'debug': False},
         'xc_thread': True,
         'verbose': 0,
         'fixdensity': False,  # deprecated
@@ -577,14 +578,15 @@ class GPAW(Calculator):
 
         self.log('Initialize ...\n')
 
-        self.cuda = self.parameters['gpu']['cuda']
+        gpaw.cuda.setup(**self.parameters['gpu'])
+        self.cuda = gpaw.cuda.enabled
+
         if self.cuda:
             print('Note: only RMM-DIIS and FD have been implemented in CUDA')
             self.timer.start('Cuda')
             gpaw.cuda.init(mpi.rank)
             self.timer.stop('Cuda')
 
-        gpaw.cuda.use_hybrid_blas = self.parameters['gpu']['hybrid_blas']
         gpaw.xc.use_xc_thread = self.parameters['xc_thread']
 
         if atoms is None:
