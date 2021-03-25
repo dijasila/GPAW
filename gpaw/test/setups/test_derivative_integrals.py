@@ -92,7 +92,7 @@ def calculate_integrals_on_radial_grid(radial_function, *,
 
 @pytest.fixture(scope='module')
 def lmax():
-    return 2
+    return 3
 
 
 @pytest.fixture(scope='module')
@@ -103,7 +103,8 @@ def radial_function():
 @pytest.fixture(scope='module')
 def integrals_on_regular_grid(lmax, radial_function):
     # Increase accuracy with the number of processes
-    N = {1: 32, 2: 48, 4: 64, 8: 92}.get(world.size, 32)
+    # Here, world.size = 40 triggers more accurate calculation
+    N = {2: 48, 4: 64, 8: 92, 40: 256}.get(world.size, 32)
     return calculate_integrals_on_regular_grid(radial_function,
                                                lmax=lmax,
                                                N_v=[N, N, N])
@@ -116,12 +117,19 @@ def integrals_on_radial_grid(lmax, radial_function):
 
 
 @pytest.mark.parametrize('kind', ['nabla', 'rxnabla'])
+@pytest.mark.parametrize('lmax_test', range(4))
 def test_integrals(kind,
+                   lmax,
+                   lmax_test,
                    integrals_on_regular_grid,
                    integrals_on_radial_grid):
+    # This test is parametrized over different lmax values,
+    # because the accuracy of the regular grid calculation
+    # depends strongly on that
+    assert lmax >= lmax_test, 'this test is broken, increase lmax'
     arr1_LLv = integrals_on_regular_grid[kind]
     arr2_LLv = integrals_on_radial_grid[kind]
-    if world.rank == 0:
+    if world.rank == 0 and lmax_test == lmax:
         np.set_printoptions(precision=4, suppress=True, linewidth=2000)
         print(kind)
         for v in range(3):
@@ -129,9 +137,17 @@ def test_integrals(kind,
             print(arr1_LLv[..., v])
             print(arr2_LLv[..., v])
     world.barrier()
-    # Accuracy is increased with the number of processes
-    rtol = {1: 5e-4, 2: 5e-5, 4: 9e-6, 8: 1e-6}.get(world.size, 1e-3)
-    assert np.allclose(arr1_LLv, arr2_LLv, rtol=rtol, atol=1e-12)
+    # Accuracy is increased with the finer grid
+    # (as triggered by the number of processes)
+    rtol = {2: 5e-5, 4: 9e-6, 8: 1e-6, 40: 6e-8}.get(world.size, 1e-3)
+    atol = 1e-12
+    if lmax_test == 3:
+        # Regular grid is not fine enough for high lmax, which
+        # results in large spurious values that should be zero
+        atol = {2: 3e-1, 4: 4e-2, 8: 5e-3, 40: 2e-5}.get(world.size, 3e-0)
+    Lmax = (lmax_test + 1)**2
+    assert np.allclose(arr1_LLv[:Lmax, :Lmax], arr2_LLv[:Lmax, :Lmax],
+                       rtol=rtol, atol=atol)
 
 
 def test_phit_integrals(lmax, radial_function, integrals_on_radial_grid):
@@ -147,10 +163,10 @@ def test_phit_integrals(lmax, radial_function, integrals_on_radial_grid):
 @pytest.mark.parametrize('kind', ['nabla', 'rxnabla'])
 def test_skew_symmetry(kind, integrals_on_radial_grid):
     arr_LLv = integrals_on_radial_grid[kind]
-    rtol = {'nabla': 1e-7, 'rxnabla': 1e-14}[kind]
+    rtol = {'nabla': 1e-7, 'rxnabla': 0}[kind]
     for v in range(3):
         arr_LL = arr_LLv[..., v]
-        assert np.allclose(arr_LL, -arr_LL.T, rtol=rtol, atol=0)
+        assert np.allclose(arr_LL, -arr_LL.T, rtol=rtol, atol=1e-11)
 
 
 def test_rxnabla_vs_alt_implementation(lmax, radial_function,
