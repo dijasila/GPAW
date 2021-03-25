@@ -183,11 +183,12 @@ class WLDA(XCFunctional):
 
         # Start with dumping settings
         # then write specific parameters for easy reading
-        msg = [# f'settings: {self.settings.items()}',
-               f'Mode: {self.mode}',
+        # f'settings: {self.settings.items()}',
+        msg = [f'Mode: {self.mode}',
                f'wftype: {self.wftype}',
                f'c1: {self.c1}',
                f'lambda: {self.lambd}',
+               f'Density type: {self.density_type.value}',
                f'nindicators: {self.nindicators}',
                f'rcut_factor: {self.rcut_factor}',
                f'Use Hartree corr.: {self.use_hartree_correction}',
@@ -204,7 +205,6 @@ class WLDA(XCFunctional):
 
     def calculate_impl(self, gd, n_sg, v_sg, e_g):
         """Interface for GPAW."""
-        parprint("WLDA is the next PBE", flush=True)
         # Calculate E_LDA on n_sg
         # Need to do calculation prior to rest of code
         # because it modifies the density
@@ -286,7 +286,7 @@ class WLDA(XCFunctional):
         in the setup class (gpaw/setup.py).
         """
         n_sg[n_sg < 1e-20] = 1e-40
-        # wn_sg = gd.collect(n_sg, broadcast=True)
+        # n2_sg = gd.collect(n_sg, broadcast=True)
         
 
         wn_sg, gd1 = self.density_correction(gd, n_sg)
@@ -1030,7 +1030,7 @@ class WLDA(XCFunctional):
         If self.rcut_factor is None, the pseudo density is returned.
         """
         if self.density_type == DensityTypes.AE:
-            res_sg, resgd = self.density.get_all_electron_density(atoms=self.atoms, gridrefinement=1)
+            res_sg, resgd = self.density.get_all_electron_density(atoms=self.atoms, gridrefinement=2)
             # wn_sg = self.density.redistributor.aux_gd.collect(res, broadcast=True)
             wn_sg = resgd.collect(res_sg, broadcast=True)
             gd1 = resgd.new_descriptor(comm=mpi.serial_comm)
@@ -1075,7 +1075,9 @@ class WLDA(XCFunctional):
             wn_sg *= 0.5
             nsum_sg = np.array([wn_sg.sum(axis=0)])
             v1_sg = np.zeros_like(nsum_sg)
+
             nstar_sg, my_alpha_indices = self.get_weighted_density(nsum_sg)
+
             self.do_hartree_corr(gd, nsum_sg.sum(axis=0), nstar_sg.sum(axis=0),
                                  e_g, v1_sg, [0], my_alpha_indices)
             v_sg[0] += v1_sg[0]
@@ -1133,6 +1135,11 @@ class WLDA(XCFunctional):
         Returns:
             The /total/ XC energy
         """
+        if self.mode in [Modes.rWLDA, Modes.fWLDA]:
+            elda_g = rgd.empty()
+            vlda_sg = np.zeros_like(v_sg)
+            E_LDA = self.lda_xc.calculate_spherical(rgd, n_sg, vlda_sg, e_g=elda_g)
+
         if e_g is None:
             e_g = rgd.empty()
         self.rgd = rgd
@@ -1145,31 +1152,27 @@ class WLDA(XCFunctional):
 
         # nstar_sg = self.radial_c(n_sg, e_g, v_sg,
         #                          nstar_sg)
-        self.radial_hartree_correction(rgd, n_sg, nstar_sg, v_sg, e_g)
-        # import matplotlib.pyplot as plt
-        # plt.plot(rgd.r_g, n_sg[0])
-        # plt.savefig("nsg.png")
-        # plt.close()
 
-        # plt.plot(rgd.r_g, nstar_sg[0])
-        # plt.savefig("nstarsg.png")
-        # plt.close()
+        eHa_g = np.zeros_like(e_g)
+        vHa_sg = np.zeros_like(v_sg)
+        self.radial_hartree_correction(rgd, n_sg, nstar_sg, vHa_sg, eHa_g)
+        
+        if self.mode == Modes.rWLDA:
+            e_g *= self.lambd
+            v_sg *= self.lambd
 
-        # inds = rgd.r_g < 20
-        # plt.plot(rgd.r_g[inds], v_sg[0, inds])
-        # plt.plot(rgd.r_g[inds], v1[0, inds], label="v1")
-        # plt.plot(rgd.r_g[inds], v2[0, inds], label="v2")
-        # plt.plot(rgd.r_g[inds], v3[0, inds], label="v3")
-        # plt.legend()
-        # plt.savefig("vsg.png")
-        # plt.close()
+        e_g += eHa_g
+        v_sg += vHa_sg
 
-        # plt.plot(rgd.r_g, e_g)
-        # plt.savefig("eg.png")
-        # plt.close()
-
+        if self.mode == Modes.fWLDA:
+            e_g[:] = elda_g + self.lambd * (e_g - elda_g)
+            v_sg[:] = vlda_sg + self.lambd * (v_sg - vlda_sg)
+        elif self.mode == Modes.rWLDA:
+            e_g[:] = elda_g + e_g - self.lambd * elda_g
+            v_sg[:] = vlda_sg + v_sg - self.lambd * vlda_sg
+        
         E = rgd.integrate(e_g)
-        # print(f"E = {E}", flush=True)
+
         return E
 
     def radial_x(self, n_sg, e_g, v_sg):
@@ -1672,9 +1675,11 @@ class WLDA(XCFunctional):
             # Undo modification by radial_x
             n_sg *= 0.5
             nsum_g = np.array([n_sg.sum(axis=0)])
+            v1_sg = np.zeros_like(nsum_sg)
+
             self.setup_radial_indicators(nsum_g, self.nindicators)
             nstar_sg = self.radial_weighted_density(nsum_g)
-            v1_sg = np.zeros_like(nstar_sg)
+
             self.do_radial_hartree_corr(rgd, nsum_g.sum(axis=0),
                                         nstar_sg.sum(axis=0),
                                         e_g, v1_sg, [0])
@@ -1684,8 +1689,10 @@ class WLDA(XCFunctional):
         elif len(n_sg) == 2 and self.hxc:
             self.setup_radial_indicators(n_sg, self.nindicators)
             nstar_sg = self.radial_weighted_density(n_sg)
+
             e1_g = np.zeros_like(e_g)
             v1_sg = np.zeros_like(v_sg)
+
             self.do_radial_hartree_corr(
                 rgd, n_sg[0], nstar_sg[0], e1_g, v1_sg, [0])
             self.do_radial_hartree_corr(
