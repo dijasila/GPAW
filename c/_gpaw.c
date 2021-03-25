@@ -174,6 +174,7 @@ PyObject* calculate_forces_H2O(PyObject *self, PyObject *args);
 PyObject* gpaw_cuda_setdevice(PyObject *self, PyObject *args);
 PyObject* gpaw_cuda_init(PyObject *self, PyObject *args);
 PyObject* gpaw_cuda_delete(PyObject *self, PyObject *args);
+PyObject* set_gpaw_cuda_debug(PyObject *self, PyObject *args);
 PyObject* csign_gpu(PyObject *self, PyObject *args);
 PyObject* scal_cuda_gpu(PyObject *self, PyObject *args);
 PyObject* multi_scal_cuda_gpu(PyObject *self, PyObject *args);
@@ -330,6 +331,7 @@ static PyMethodDef functions[] = {
     {"gpaw_cuda_setdevice", gpaw_cuda_setdevice, METH_VARARGS, 0},
     {"gpaw_cuda_init", gpaw_cuda_init, METH_VARARGS, 0},
     {"gpaw_cuda_delete", gpaw_cuda_delete, METH_VARARGS, 0},
+    {"set_gpaw_cuda_debug", set_gpaw_cuda_debug, METH_VARARGS, 0},
     {"csign_gpu", csign_gpu, METH_VARARGS, 0},
     {"scal_cuda_gpu", scal_cuda_gpu, METH_VARARGS, 0},
     {"multi_scal_cuda_gpu", multi_scal_cuda_gpu, METH_VARARGS, 0},
