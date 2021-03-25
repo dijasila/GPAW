@@ -70,13 +70,16 @@ def calculate_integrals_on_regular_grid(radial_function, *,
 
 def calculate_integrals_on_radial_grid(radial_function, *,
                                        lmax=2,
-                                       h=1e-3, N=12e3):
+                                       h=1e-3, N=12e3,
+                                       use_phit=False):
     setup = DummySetup(lmax)
     rgd = EquidistantRadialGridDescriptor(h, int(N))
     r_g = rgd.r_g
     radial_g = radial_function(r_g)
     phi_jg = [radial_g * r_g**l for l in setup.l_j]
     phit_jg = np.zeros_like(phi_jg)
+    if use_phit:
+        phit_jg, phi_jg = phi_jg, phit_jg
     nabla_LLv = setup.get_derivative_integrals(rgd, phi_jg, phit_jg)
     rxnabla_LLv = setup.get_magnetic_integrals(rgd, phi_jg, phit_jg)
     return {'nabla': nabla_LLv, 'rxnabla': rxnabla_LLv}
@@ -98,15 +101,13 @@ def integrals_on_regular_grid(lmax, radial_function):
     N = {1: 32, 2: 48, 4: 64, 8: 92}.get(world.size, 32)
     return calculate_integrals_on_regular_grid(radial_function,
                                                lmax=lmax,
-                                               cell_v=[24, 24, 24],
                                                N_v=[N, N, N])
 
 
 @pytest.fixture(scope='module')
 def integrals_on_radial_grid(lmax, radial_function):
     return calculate_integrals_on_radial_grid(radial_function,
-                                              lmax=lmax,
-                                              h=1e-3, N=12e3)
+                                              lmax=lmax)
 
 
 @pytest.mark.parametrize('kind', ['nabla', 'rxnabla'])
@@ -126,3 +127,13 @@ def test_integrals(kind,
     # Accuracy is increased with the number of processes
     rtol = {1: 5e-4, 2: 5e-5, 4: 9e-6, 8: 1e-6}.get(world.size, 1e-3)
     assert np.allclose(arr1_LLv, arr2_LLv, rtol=rtol, atol=1e-12)
+
+
+def test_phit_integrals(lmax, radial_function, integrals_on_radial_grid):
+    phit_integrals = \
+        calculate_integrals_on_radial_grid(radial_function,
+                                           lmax=lmax,
+                                           use_phit=True)
+    for kind, ref_LLv in integrals_on_radial_grid.items():
+        arr_LLv = phit_integrals[kind]
+        assert np.allclose(ref_LLv, -arr_LLv, rtol=0, atol=0)
