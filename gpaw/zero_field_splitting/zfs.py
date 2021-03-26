@@ -198,6 +198,7 @@ def zfs2(pd: PWDescriptor,
          nn_G: Array1D) -> Array2D:
     """Integral."""
     D_vv = np.einsum('gv, gw, g -> vw', G_Gv, G_Gv, nn_G)
+    # D_vv -= np.eye(3) * nn_G.sum() / 3
     D_vv *= 2 * pd.gd.dv / pd.gd.N_c.prod()
     return D_vv
 
@@ -218,13 +219,13 @@ def zfs2paw(D1_ii, D2_ii, setup):
     return np.einsum('ij, ijklab, kl -> ab', D1_ii, C_iiiivv, D2_ii)
 
 
-def integral_lesser(phi1, phi2, phi3, phi4, l, r, dr):
-    a34 = r**l * phi3 * phi4 * dr
+def integral_lesser(rho12, rho34, l, r, dr):
+    a34 = r**l * rho34 * dr
     v34 = np.add.accumulate(a34) - a34
-    return (phi1 * phi2 * v34 * dr)[1:] @ r[1:]**(1 - l)
+    return (rho12 * v34 * dr)[1:] @ r[1:]**(1 - l)
 
 
-def integral_greater(phi1, phi2, phi3, phi4, l, r, dr):
-    a12 = r**(l + 2) * phi1 * phi2 * dr
+def integral_greater(rho12, rho34, l, r, dr):
+    a12 = r**(l + 2) * rho12 * dr
     v12 = np.add.accumulate(a12) - a12
-    return (v12 * phi3 * phi4 * dr)[1:] @ r[1:]**(-1 - l)
+    return (v12 * rho34 * dr)[1:] @ r[1:]**(-1 - l)

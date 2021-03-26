@@ -279,11 +279,11 @@ def second_derivatives(l1: int,
     return Y_mmvv
 
 
-N = np.eye(3, dtype=int)
-
-
 def G(coef: int, n) -> float:
     return coef * gam(*n) if coef else 0.0
+
+
+N = np.eye(3, dtype=int)
 
 
 def d2_lesser(n1, n2, v1, v2):
