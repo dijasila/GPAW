@@ -1105,9 +1105,11 @@ class Setup(BaseSetup):
           /        1    dx    2         1    dx    2
 
         and similar for y and z."""
-
-        G_LLL = gaunt(max(1, max(self.l_j)))
-        Y_LLv = nabla(max(1, max(self.l_j)))
+        # lmax needs to be at least 1 for evaluating
+        # the Gaunt coefficients from derivatives
+        lmax = max(1, max(self.l_j))
+        G_LLL = gaunt(lmax)
+        Y_LLv = nabla(lmax)
 
         r_g = rgd.r_g
         dr_g = rgd.dr_g
@@ -1157,8 +1159,9 @@ class Setup(BaseSetup):
                  x     dz     dy
 
         and similar for y and z."""
-
-        lmax = max(self.l_j)
+        # lmax needs to be at least 1 for evaluating
+        # the Gaunt coefficients from derivatives
+        lmax = max(1, max(self.l_j))
         G_LLL = gaunt(lmax)
         Y_LLv = nabla(2 * lmax)
 

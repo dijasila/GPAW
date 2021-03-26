@@ -179,3 +179,11 @@ def test_rxnabla_vs_alt_implementation(lmax, radial_function,
                                                  lmax=lmax,
                                                  alt_rxnabla=True)['rxnabla']
     assert np.allclose(rxnabla_LLv, alt_LLv, rtol=0, atol=1e-12)
+
+
+def test_lmax_zero(radial_function):
+    integrals = \
+        calculate_integrals_on_radial_grid(radial_function,
+                                           lmax=0)
+    for kind, ref_LLv in integrals.items():
+        assert np.allclose(ref_LLv, 0, rtol=0, atol=0)
