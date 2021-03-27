@@ -90,8 +90,8 @@ def get_elph_elements(atoms, calc, basename=None, load_file=False,
         if not load_gx_as_needed:
             elph.g_xNNMM = elph.g_xsNNMM[:, s]
         g_qklnn = elph.bloch_matrix(kpts, qpts, c_kn, u_ql=modes,
-                                    load_gx_as_needed=load_gx_as_needed,
-                                    spin=s, basis=basis)
+                                    spin=s, basis=basis,
+                                    load_gx_as_needed=load_gx_as_needed)
         g_sqklnn.append(g_qklnn)
     if world.rank == 0:
         print("Saving the elctron-phonon coupling matrix")

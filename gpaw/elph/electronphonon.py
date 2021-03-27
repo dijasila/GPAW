@@ -522,14 +522,20 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
         else:  # dump == 2
             g_xsNNMM = []
             for x in range(len(self.indices) * 3):
-                fname = self._set_file_name(dump, basis, name)
-                fd = open(fname, 'rb')
-                g_sNNMM, M_a, nao_a = pickle.load(fd)
-                fd.close()
+                fname = self._set_file_name(dump, basis, name, x=x)
+                g_sNNMM, M_a, nao_a = self.load_supercell_matrix_x(fname)
                 g_xsNNMM.append(g_sNNMM)
             self.g_xsNNMM = np.array(g_xsNNMM)
 
         self.set_basis_info(M_a, nao_a)
+
+    def load_supercell_matrix_x(self, fname):
+        """Load one element of supercell matrix from pickle file.
+        """
+        fd = open(fname, 'rb')
+        g_sNNMM, M_a, nao_a = pickle.load(fd)
+        fd.close()
+        return g_sNNMM, M_a, nao_a
 
     def apply_cutoff(self, cutmax=None, cutmin=None):
         """Zero matrix element inside/beyond the specified cutoffs.
@@ -658,7 +664,8 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
         return g_lsMM
 
     def bloch_matrix(self, kpts, qpts, c_kn, u_ql,
-                     omega_ql=None, kpts_from=None, spin=0):
+                     omega_ql=None, kpts_from=None, spin=0,
+                     basis='dzp', name=None, load_gx_as_needed=False):
         r"""Calculate el-ph coupling in the Bloch basis for the electrons.
 
         This function calculates the electron-phonon coupling between the
@@ -699,11 +706,10 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
         spin: int
             In case of spin-polarised system, define which spin to use
             (0 or 1).
-
-
         """
 
-        assert self.g_xsNNMM is not None, "Load supercell matrix."
+        if not load_gx_as_needed:
+            assert self.g_xNNMM is not None, "Load supercell matrix."
         assert len(c_kn.shape) == 3
         assert len(u_ql.shape) == 4
         if omega_ql is not None:
@@ -736,7 +742,8 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
                 kpts_k = list(kpts_from)
 
         # Supercell matrix (real matrix in Hartree / Bohr)
-        g_xNNMM = self.g_xsNNMM[:, spin]
+        if not load_gx_as_needed:
+            g_xNNMM = self.g_xsNNMM[:, spin]
 
         # Number of phonon modes and electronic bands
         nmodes = u_ql.shape[1]
@@ -745,8 +752,9 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
         ndisp = np.prod(u_ql.shape[2:])
         assert ndisp == (3 * len(self.indices))
         nao = c_kn.shape[2]
-        assert ndisp == g_xNNMM.shape[0]
-        assert nao == g_xNNMM.shape[-1]
+        if not load_gx_as_needed:
+            assert ndisp == g_xNNMM.shape[0]
+            assert nao == g_xNNMM.shape[-1]
 
         # Lattice vectors
         R_cN = self.compute_lattice_vectors()
@@ -756,6 +764,13 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
         # Allocate array for couplings
         g_qklnn = np.zeros((kd_qpts.nbzkpts, len(kpts_kc), nmodes,
                             nbands, nbands), dtype=complex)
+
+        def _get_phase_factor(m, n, k_c, q_c):
+            Rm_c = R_cN[:, m]
+            Rn_c = R_cN[:, n]
+            phase = np.exp(2.j * np.pi * (np.dot(k_c, Rm_c - Rn_c)
+                                          + np.dot(q_c, Rm_c)))
+            return phase
 
         self.timer.write_now("Calculating coupling matrix elements")
         for q, q_c in enumerate(kd_qpts.bzk_kc):
@@ -774,27 +789,52 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
                 assert np.allclose(kplusq_c, kd_kpts.bzk_kc[kplusq_k[i]]), \
                     (i, k, k_c, q_c, kd_kpts.bzk_kc[kplusq_k[i]])
 
-                # Allocate array
-                g_xMM = np.zeros((ndisp, nao, nao), dtype=complex)
-
-                # Multiply phase factors
-                for m in range(N):
-                    for n in range(N):
-                        Rm_c = R_cN[:, m]
-                        Rn_c = R_cN[:, n]
-                        phase = np.exp(2.j * pi * (np.dot(k_c, Rm_c - Rn_c)
-                                                   + np.dot(q_c, Rm_c)))
-                        # Sum contributions from different cells
-                        g_xMM += g_xNNMM[:, m, n, :, :] * phase
-
                 # LCAO coefficient for Bloch states
                 ck_nM = c_kn[k]
                 ckplusq_nM = c_kn[kplusq_k[i]]
                 # Mass scaled polarization vectors
                 u_lx = u_ql[q].reshape(nmodes, 3 * len(self.atoms))
 
-                g_nxn = np.dot(ckplusq_nM.conj(), np.dot(g_xMM, ck_nM.T))
-                g_lnn = np.dot(u_lx, g_nxn)
+                # Multiply phase factors
+                # This fix for very large matrices is a bit... dodgy,
+                # but should work
+                if load_gx_as_needed:
+                    g_lnn = np.zeros((nmodes, nbands, nbands), dtype=complex)
+                    for x in range(len(self.indices) * 3):
+                        # Allocate array
+                        g_MM = np.zeros((nao, nao), dtype=complex)
+                        fname = self._set_file_name(2, basis, name, x=x)
+                        g_sNNMM, M_a, nao_a = self.load_supercell_matrix_x(
+                            fname)
+                        assert nao == g_sNNMM.shape[-1]
+                        if x == 0:
+                            self.set_basis_info(M_a, nao_a)
+                        for m in range(N):
+                            for n in range(N):
+                                phase = _get_phase_factor(m, n, k_c, q_c)
+                                # Sum contributions from different cells
+                                g_MM += g_sNNMM[spin, m, n, :, :] * phase
+
+                        g_nn = np.dot(ckplusq_nM.conj(), np.dot(g_MM, ck_nM.T))
+                        # not sure if einsum is faster or slower
+                        # g_nn = np.einsum('ij,jk,kl->il',ckplusq_nM.conj(),
+                        # g_MM, ck_nM.T)
+                        # g_lnn += np.outer(u_lx[:,x],g_nn).reshape(nmodes,
+                        # nbands, nbands)
+                        g_lnn += np.einsum('i,kl->ikl', u_lx[:, x], g_nn)
+                else:
+                    # Allocate array
+                    g_xMM = np.zeros((ndisp, nao, nao), dtype=complex)
+
+                    # Multiply phase factors
+                    for m in range(N):
+                        for n in range(N):
+                            phase = _get_phase_factor(m, n, k_c, q_c)
+                            # Sum contributions from different cells
+                            g_xMM += g_xNNMM[:, m, n, :, :] * phase
+
+                    g_nxn = np.dot(ckplusq_nM.conj(), np.dot(g_xMM, ck_nM.T))
+                    g_lnn = np.dot(u_lx, g_nxn)
 
                 # Insert value
                 g_qklnn[q, i] = g_lnn
