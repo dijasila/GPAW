@@ -120,7 +120,8 @@ class TightBinding:
                     rank, myu = self.kd.get_rank_and_index(gamma[0])
 
                     if self.kd.comm.rank == rank:
-                        A0_xMM = A_qxMM[myu[0]]
+                        assert not isinstance(myu, np.ndarray)
+                        A0_xMM = A_qxMM[myu]
                     else:
                         A0_xMM = np.zeros_like(A_xMM)
                     self.kd.comm.broadcast(A0_xMM, rank)

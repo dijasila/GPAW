@@ -5,7 +5,7 @@ from gpaw.elph.electronphonon import ElectronPhononCoupling
 from gpaw.mpi import world
 
 
-def calculate_elph(atoms, calc, delta=0.01, calculate_forces=False):
+def run_elph(atoms, calc, delta=0.01, calculate_forces=False):
     """
     Finds the forces and effective potential at different atomic positions used
     to calculate the change in the effective potential.
@@ -33,8 +33,25 @@ def calculate_elph(atoms, calc, delta=0.01, calculate_forces=False):
     elph.run()
 
 
-def get_elph_elements(atoms, calc, basename=None, load_file=False,
-                      dump=0, load_gx_as_needed=False):
+def calculate_supercell_matrix(atoms, calc, dump=0):
+    """
+    Calculate elph supercell matrix.
+
+    This is a necessary intermediary step before calculating the electron-
+    phonon matrix.
+    """
+    # not parellel
+    elph = ElectronPhononCoupling(atoms, calc=calc, supercell=(1, 1, 1))
+    elph.set_lcao_calculator(calc)
+    elph.calculate_supercell_matrix(dump=dump, include_pseudo=True)
+    if world.rank == 0:
+        print("Supercell matrix is calculated")
+    if dump == 0:
+        return elph
+
+
+def get_elph_matrix(atoms, calc, basename=None, dump=0,
+                    load_gx_as_needed=False, elph=None):
     """
     Evaluates the dipole transition matrix elements.
 
@@ -63,18 +80,14 @@ def get_elph_elements(atoms, calc, basename=None, load_file=False,
         print("Phonon frequencies are loaded.")
 
     # Find el-ph matrix in the LCAO basis
-    elph = ElectronPhononCoupling(atoms, calc=calc, supercell=(1, 1, 1))
-    elph.set_lcao_calculator(calc)
-    basis = calc.parameters['basis']
-    if load_file and not load_gx_as_needed:
+    if elph is None:
+        elph = ElectronPhononCoupling(atoms, calc=calc, supercell=(1, 1, 1))
+        elph.set_lcao_calculator(calc)
+        basis = calc.parameters['basis']
+    if not load_gx_as_needed:
         elph.load_supercell_matrix(basis=basis, dump=dump)
         if world.rank == 0:
             print("Supercell matrix is loaded")
-    elif not load_file:
-        # not parellel
-        elph.calculate_supercell_matrix(dump=dump, include_pseudo=True)
-        if world.rank == 0:
-            print("Supercell matrix is calculated")
 
     # Find the bloch expansion coefficients
     g_sqklnn = []
