@@ -9,7 +9,7 @@ Ground state
 
 The linear response TDDFT calculation needs a converged ground state
 calculation with a set of unoccupied states. It is safer to use 'dav' or 'cg'
-eigensolver instead of the default 'rmm-diis' eigensolver to converge
+eigensolver instead of the 'rmm-diis' eigensolver to converge
 unoccupied states. However, 'dav' and 'cg' are often too expensive for large
 systems. In this case, you should use 'rmm-diis' with tens or hundreds of
 extra states in addition to the unoccupied states you wish to converge.
