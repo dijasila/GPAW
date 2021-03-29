@@ -785,28 +785,28 @@ class WLDA(XCFunctional):
             e[:] += wntotal_g * ec
 
             v[0] += ec
-            ratio = wntotal_g.sum(axis=0) / nstar_sg.sum(axis=0)
+            ratio = wntotal_g / nstar_sg.sum(axis=0)
             ratio[np.isclose(nstar_sg.sum(axis=0), 0.0)] = 0.0
             v[0] -= self.fold_with_derivative_for_spinpol((rs * decdrs / 3.0
                                                            - (zeta - 1.0)
-                                                           * decdzeta * ratio),
+                                                           * decdzeta) * ratio,
                                                           wn_sg[0], self.alphadensity_g,
                                                           0, 0, my_alpha_indices)
             v[0] -= self.fold_with_derivative_for_spinpol((rs * decdrs / 3.0
                                                            - (zeta + 1.0)
-                                                           * decdzeta * ratio),
+                                                           * decdzeta) * ratio,
                                                           wn_sg[1], self.alphadensity_g,
                                                           1, 0, my_alpha_indices)
 
             v[1] += ec
             v[1] -= self.fold_with_derivative_for_spinpol((rs * decdrs / 3.0
                                                            - (zeta - 1.0)
-                                                           * decdzeta * ratio),
+                                                           * decdzeta) * ratio,
                                                           wn_sg[0], self.alphadensity_g,
                                                           0, 1, my_alpha_indices)
             v[1] -= self.fold_with_derivative_for_spinpol((rs * decdrs / 3.0
                                                            - (zeta + 1.0)
-                                                           * decdzeta * ratio),
+                                                           * decdzeta) * ratio,
                                                           wn_sg[1], self.alphadensity_g,
                                                           1, 1, my_alpha_indices)
 
@@ -856,17 +856,18 @@ class WLDA(XCFunctional):
             decdzeta = (4.0 * zeta3 * f * (e1 - ec - alpha * IF2) +
                         f1 * (zeta4 * e1 - zeta4 * ec + x * alpha * IF2))
             ec += alpha * IF2 * f * x + (e1 - ec) * f * zeta4
-            e[:] += wntotal_g * ec
+            e[:] += nstar_sg.sum(axis=0) * ec
             assert len(ec.shape) == 3
+
+            ratio = nstar_sg.sum(axis=0) / wntotal_g
+            ratio[np.isclose(wntotal_g, 0.0)] = 0.0
 
             v[0] += self.fold_with_derivative(ec, wntotal_g,
                                               my_alpha_indices, None,
                                               self.alphadensity_g)
-            ratio = nstar_sg.sum(axis=0) / wntotal_g
-            ratio[np.isclose(wntotal_g, 0.0)] = 0.0
             v[0] -= (rs * decdrs / 3.0
                      - (zeta - 1.0)
-                     * decdzeta * ratio)
+                     * decdzeta) * ratio
 
             v[1] += self.fold_with_derivative(ec, wntotal_g,
                                               my_alpha_indices, None,
@@ -1166,8 +1167,9 @@ class WLDA(XCFunctional):
 
         nstar_sg, v1, v2, v3 = self.radial_x(n_sg, e_g, v_sg)
 
-        # nstar_sg = self.radial_c(n_sg, e_g, v_sg,
-        #                          nstar_sg)
+        if not self.exchange_only:
+            nstar_sg = self.radial_c(n_sg, e_g, v_sg,
+                                     nstar_sg)
 
         eHa_g = np.zeros_like(e_g)
         vHa_sg = np.zeros_like(v_sg)
@@ -1262,29 +1264,34 @@ class WLDA(XCFunctional):
 
         if spin == 0:
             zeta = 0
-            self.radial_c1(spin, e1_g, n_sg[0], nstar_sg[0], v1_sg[0], zeta)
-            self.radial_c2(spin, e2_g, n_sg[0], nstar_sg[0], v2_sg[0], zeta)
-            self.radial_c3(spin, e3_g, n_sg[0], nstar_sg[0], v3_sg[0], zeta)
+            self.radial_c1(spin, e1_g, n_sg[0], n_sg, nstar_sg, v1_sg, zeta)
+            self.radial_c2(spin, e2_g, n_sg[0], n_sg, nstar_sg, v2_sg, zeta)
+            self.radial_c3(spin, e3_g, n_sg[0], n_sg, nstar_sg, v3_sg, zeta)
 
             e_g[:] += e1_g + e2_g - e3_g
             v_sg[:] += v1_sg + v2_sg - v3_sg
 
             return nstar_sg
         else:
-            n_g = np.array([n_sg.sum(axis=0)]) * 0.5
-            self.setup_radial_indicators(n_g, self.nindicators)
-            nstar_g = self.radial_weighted_density(n_g)
+            n_g = n_sg.sum(axis=0) * 0.5
+            self.setup_radial_indicators(n_sg * 0.5, self.nindicators)
+            # nstar_sg = self.radial_weighted_density(n_g)
+            nstar_sg = self.radial_weighted_density_spinpol(n_sg)
             zeta_g = (n_sg[0] - n_sg[1]) / (n_sg[0] + n_sg[1])
             zeta_g[np.isclose((n_sg[0] + n_sg[1]), 0.0)] = 0.0
 
-            self.radial_c1(spin, e1_g, n_g[0], nstar_g[0], v1_sg, zeta_g)
-            self.radial_c2(spin, e2_g, n_g[0], nstar_g[0], v2_sg, zeta_g)
-            self.radial_c3(spin, e3_g, n_g[0], nstar_g[0], v3_sg, zeta_g)
+            zetastar_g = (nstar_sg[0] - nstar_sg[1]) / (nstar_sg[0] + nstar_sg[1])
+            zetastar_g[np.isclose((nstar_sg[0] + nstar_sg[1]), 0.0)] = 0.0
+
+
+            self.radial_c1(spin, e1_g, n_g, n_sg, nstar_sg, v1_sg, zeta_g)
+            self.radial_c2(spin, e2_g, n_g, n_sg, nstar_sg, v2_sg, zetastar_g)
+            self.radial_c3(spin, e3_g, n_g, n_sg, nstar_sg, v3_sg, zetastar_g)
 
             e_g[:] += e1_g + e2_g - e3_g
             v_sg[:] += v1_sg + v2_sg - v3_sg
 
-            return nstar_g
+            return None
     
     def setup_radial_indicators(self, n_sg, nalphas):
         """Set up the indicator functions for an atomic system.
@@ -1314,6 +1321,12 @@ class WLDA(XCFunctional):
         di_asg = np.zeros((nalphas,) + n_sg.shape)
         i_asx = np.zeros((nalphas,) + n_sx.shape)
         di_asx = np.zeros((nalphas,) + n_sx.shape)
+        
+        ti_ag = np.zeros((nalphas,) + n_sg.shape[1:])
+        dti_ag = np.zeros((nalphas,) + n_sg.shape[1:])
+        ti_ax = np.zeros((nalphas,) + n_sx.shape[1:])
+        dti_ax = np.zeros((nalphas,) + n_sx.shape[1:])
+
 
         for ia, alpha in enumerate(alphas):
             _i, _di = define_indicator(ia, alphas)
@@ -1323,12 +1336,22 @@ class WLDA(XCFunctional):
                 di_asg[ia, s, :] = _di(n_sg[s])
                 i_asx[ia, s, :] = _i(n_sx[s])
                 di_asx[ia, s, :] = _di(n_sx[s])
+                
+            ti_ag[ia, :] = _i(n_sg.sum(axis=0))
+            dti_ag[ia, :] = _di(n_sg.sum(axis=0))
+
+            ti_ax[ia, :] = _i(n_sx.sum(axis=0))
+            dti_ax[ia, :] = _di(n_sx.sum(axis=0))
 
         self.alphas = alphas
         self.i_asg = i_asg
         self.di_asx = di_asx
         self.di_asg = di_asg
         self.i_asx = i_asx
+        self.ti_ag = ti_ag
+        self.dti_ag = dti_ag
+        self.ti_ax = ti_ax
+        self.dti_ax = dti_ax
 
     def radial_weighted_density(self, n_sg):
         """Calculate the weighted density for an atomic system.
@@ -1366,6 +1389,53 @@ class WLDA(XCFunctional):
                 n_x[n_x < 1e-20] = 1e-40
 
                 i_x = self.i_asx[ia, s, :]
+                in_k = self.radial_fft(r_x, n_x * i_x)
+
+                phi_k = self.radial_weight_function(self.alphas[ia], G_k)
+
+                res_x = self.radial_ifft(r_x, in_k * phi_k)
+                nstar_sg[s, :] += IUS(r_x, res_x)(rgd.r_g)
+
+        nstar_sg[nstar_sg < 1e-20] = 1e-40
+        return nstar_sg
+
+    def radial_weighted_density_spinpol(self, n_sg):
+        """Calculate the weighted density for an atomic system.
+
+        n*(k) = sum_a phi(k, a)(i_a[n]n)(k)
+
+        where f(k) is found using spherical Bessel transforms.
+        This is just the standard Fourier transform
+        specialized to a spherically symmetric function.
+
+        The spherical Bessel transform is implemented
+        in gpaw.atom.radialgd.fsbt, where we need the
+        l = 0 version only.
+
+        First we need to define a grid with regular spacing.
+        Then we need to transfer the density to the regular grid.
+        Then we can do the Fourier transform via fsbt.
+        We multiply the weight function and the FT'ed
+        indicator times density and do inverse FT via fsbt.
+        Finally, we transfer the resulting array back to the
+        radial grid (with uneven spacing probably).
+        """
+        from scipy.interpolate import InterpolatedUnivariateSpline as IUS
+        rgd = self.rgd
+        N = 2**14
+        r_x = np.linspace(0, rgd.r_g[-1], N)
+        G_k = np.linspace(0, np.pi / r_x[1], N // 2 + 1)
+
+        na, ns = self.i_asx.shape[:2]
+        assert ns == 2
+
+        nstar_sg = np.zeros_like(n_sg)
+        for ia in range(na):
+            for s in range(ns):
+                n_x = rgd.interpolate(n_sg[s], r_x)
+                n_x[n_x < 1e-20] = 1e-40
+
+                i_x = self.ti_ax[ia, :]
                 in_k = self.radial_fft(r_x, n_x * i_x)
 
                 phi_k = self.radial_weight_function(self.alphas[ia], G_k)
@@ -1434,7 +1504,7 @@ class WLDA(XCFunctional):
         else:
             raise ValueError(f'Weightfunction type "{wf}" not allowed.')
 
-    def radial_x1(self, spin, e_g, n_g, nstar_g, v_g):
+    def radial_x2(self, spin, e_g, n_g, nstar_g, v_g):
         """Calculate e_x[n*]n and potential."""
         from gpaw.xc.lda import lda_constants
         C0I, C1, CC1, CC2, IF2 = lda_constants()
@@ -1455,23 +1525,24 @@ class WLDA(XCFunctional):
         ratio[np.isclose(nstar_g, 0.0)] = 0.0
         v_g += self.radial_derivative_fold(-t1 * ratio, n_g, spin)
 
-    def radial_c1(self, spin, e_g, n_g, nstar_g, v_g, zeta):
+    def radial_c2(self, spin, e_g, ntotal_g, n_sg, nstar_sg, v_sg, zeta):
         """Calculate e_c[n*]n and potential."""
         from gpaw.xc.lda import lda_constants, G
         C0I, C1, CC1, CC2, IF2 = lda_constants()
 
-        rs = (C0I / nstar_g) ** (1 / 3.)
+        rs = (C0I / nstar_sg.sum(axis=0)) ** (1 / 3.)
         ec, decdrs_0 = G(rs ** 0.5,
                          0.031091, 0.21370, 7.5957, 3.5876, 1.6382, 0.49294)
 
         if spin == 0:
-            e_g[:] += ec * n_g
+            e_g[:] += ec * ntotal_g
 
-            v_g[:] += ec
+            v_sg[0, :] += ec
             t1 = rs * decdrs_0 / 3.0
-            ratio = n_g / nstar_g
-            ratio[np.isclose(nstar_g, 0.0)] = 0.0
-            v_g[:] += self.radial_derivative_fold(-t1 * ratio, n_g, spin)
+            ratio = ntotal_g / nstar_sg.sum(axis=0)
+            ratio[np.isclose(nstar_sg.sum(axis=0), 0.0)] = 0.0
+            v_sg[0, :] += self.radial_derivative_fold3(-t1 * ratio, ntotal_g, 
+                                                   0, 0, self.ti_ag, self.dti_ag)
         else:
             e1, decdrs_1 = G(rs**0.5,
                              0.015545, 0.20548, 14.1189,
@@ -1497,18 +1568,30 @@ class WLDA(XCFunctional):
             decdzeta = (4.0 * zeta3 * f * (e1 - ec - alpha * IF2) +
                         f1 * (zeta4 * e1 - zeta4 * ec + x * alpha * IF2))
             ec += alpha * IF2 * f * x + (e1 - ec) * f * zeta4
-            e_g[:] += n_g * ec
-            t1 = rs * decdrs / 3.0
-            ratio = n_g / nstar_g
-            ratio[np.isclose(nstar_g, 0.0)] = 0.0
-            v_g[0] += ec - \
-                self.radial_derivative_fold(
-                    t1 * ratio, n_g, 0) - (zeta - 1.0) * decdzeta
-            v_g[1] += ec - \
-                self.radial_derivative_fold(
-                    t1 * ratio, n_g, 0) - (zeta + 1.0) * decdzeta
 
-    def radial_x2(self, spin, e_g, n_g, nstar_g, v_g):
+            e_g[:] += ntotal_g * ec
+            t1 = rs * decdrs / 3.0 - (zeta - 1.0) * decdzeta
+            t2 = rs * decdrs / 3.0 - (zeta + 1.0) * decdzeta
+            ratio = ntotal_g / nstar_sg.sum(axis=0)
+            ratio[np.isclose(nstar_sg.sum(axis=0), 0.0)] = 0.0
+
+            
+            v_sg[0] += ec 
+            v_sg[0] -= self.radial_derivative_fold3(t1 * ratio, n_sg[0], 0, 0,
+                                                    self.ti_ag, self.dti_ag)
+            v_sg[0] -= self.radial_derivative_fold3(t2 * ratio, n_sg[1], 1, 0,
+                                                    self.ti_ag, self.dti_ag)
+
+            v_sg[1] += ec
+            v_sg[1] -= self.radial_derivative_fold3(t1 * ratio, n_sg[0], 0, 1,
+                                                    self.ti_ag, self.dti_ag)
+            v_sg[1] -= self.radial_derivative_fold3(t2 * ratio, n_sg[1], 1, 1,
+                                                    self.ti_ag, self.dti_ag)
+            # v_sg[1] += ec - \
+            #     self.radial_derivative_fold(
+            #         t1 * ratio, n_g, 0) - (zeta + 1.0) * decdzeta
+
+    def radial_x1(self, spin, e_g, n_g, nstar_g, v_g):
         """Calculate e_x[n]n* and potential.
 
         It is necessary to regularize the potential as
@@ -1534,24 +1617,24 @@ class WLDA(XCFunctional):
         v_g[:] += -rs * dexdrs / 3.0 * ratio * \
             np.logical_not(np.isclose(rs * dexdrs / 3.0, 0.0))
 
-    def radial_c2(self, spin, e_g, n_g, nstar_g, v_g, zeta):
+    def radial_c1(self, spin, e_g, ntotal_g, n_sg, nstar_sg, v_sg, zeta):
         """Calculate e_c[n]n* and potential."""
         from gpaw.xc.lda import lda_constants, G
 
         C0I, C1, CC1, CC2, IF2 = lda_constants()
 
-        rs = (C0I / n_g) ** (1 / 3.)
+        rs = (C0I / ntotal_g) ** (1 / 3.)
         ec, decdrs_0 = G(rs ** 0.5,
                          0.031091, 0.21370, 7.5957, 3.5876, 1.6382, 0.49294)
 
         if spin == 0:
-            e_g[:] += ec * nstar_g
-
-            v_g[:] += self.radial_derivative_fold(ec, n_g, spin)
-            ratio = nstar_g / n_g
-            ratio[np.isclose(n_g, 0.0)] = 0.0
-            v_g[:] += -rs * decdrs_0 / 3.0 * ratio * \
-                np.logical_not(np.isclose(rs * decdrs_0 / 3.0, 0.0))
+            e_g[:] += ec * nstar_sg.sum(axis=0)
+            v_sg[0, :] += self.radial_derivative_fold3(ec, ntotal_g, 0, 0, 
+                                                       self.ti_ag, self.dti_ag)
+            ratio = nstar_sg.sum(axis=0) / ntotal_g
+            ratio[np.isclose(ntotal_g, 0.0)] = 0.0
+            v_sg[0, :] += -rs * decdrs_0 / 3.0 * ratio * \
+                          np.logical_not(np.isclose(rs * decdrs_0 / 3.0, 0.0))
         else:
             e1, decdrs_1 = G(rs ** 0.5,
                              0.015545, 0.20548, 14.1189,
@@ -1576,18 +1659,17 @@ class WLDA(XCFunctional):
             decdzeta = (4.0 * zeta3 * f * (e1 - ec - alpha * IF2) +
                         f1 * (zeta4 * e1 - zeta4 * ec + x * alpha * IF2))
             ec += alpha * IF2 * f * x + (e1 - ec) * f * zeta4
-            e_g[:] += nstar_g * ec
+            e_g[:] += nstar_sg.sum(axis=0) * ec
 
-            ratio = nstar_g / n_g
-            ratio[np.isclose(n_g, 0.0)] = 0.0
+            ratio = nstar_sg.sum(axis=0) / ntotal_g
+            ratio[np.isclose(ntotal_g, 0.0)] = 0.0
             ratio *= np.logical_not(np.isclose(rs * decdrs / 3.0, 0.0))
 
-            v_g[0] += self.radial_derivative_fold(
-                ec, n_g, 0) - (rs * decdrs / 3.0
-                               * ratio - (zeta - 1.0) * decdzeta)
-            v_g[1] += self.radial_derivative_fold(
-                ec, n_g, 0) - (rs * decdrs / 3.0
-                               * ratio - (zeta + 1.0) * decdzeta)
+            v_sg[0] += self.radial_derivative_fold3(ec, ntotal_g, 0, 0, self.ti_ag, self.dti_ag) 
+            v_sg[0] -= (rs * decdrs / 3.0 - (zeta - 1.0) * decdzeta) * ratio
+
+            v_sg[1] += self.radial_derivative_fold3(ec, ntotal_g, 0, 0, self.ti_ag, self.dti_ag)
+            v_sg[1] -= (rs * decdrs / 3.0 - (zeta + 1.0) * decdzeta) * ratio
 
     def radial_x3(self, spin, e_g, n_g, nstar_g, v_g):
         """Calculate e_x[n*]n* and potential."""
@@ -1607,20 +1689,20 @@ class WLDA(XCFunctional):
         v_g[:] += (ex - rs * dexdrs / 3.0)
         v_g[:] = self.radial_derivative_fold(v_g, n_g, spin)
 
-    def radial_c3(self, spin, e_g, n_g, nstar_g, v_g, zeta):
+    def radial_c3(self, spin, e_g, ntotal_g, n_sg, nstar_sg, v_sg, zeta):
         """Calculate e_c[n*]n* and potential."""
         from gpaw.xc.lda import lda_constants, G
         C0I, C1, CC1, CC2, IF2 = lda_constants()
 
-        rs = (C0I / nstar_g) ** (1 / 3.)
+        rs = (C0I / nstar_sg.sum(axis=0)) ** (1 / 3.)
         ec, decdrs_0 = G(rs ** 0.5,
                          0.031091, 0.21370, 7.5957, 3.5876, 1.6382, 0.49294)
 
         if spin == 0:
-            e_g[:] += ec * nstar_g
+            e_g[:] += ec * nstar_sg.sum(axis=0)
 
-            v_g[:] += self.radial_derivative_fold(
-                ec - rs * decdrs_0 / 3.0, n_g, spin)
+            v_sg[0, :] += self.radial_derivative_fold3(ec - rs * decdrs_0 / 3.0, ntotal_g,
+                                                   0, 0, self.ti_ag, self.dti_ag)
         else:
             e1, decdrs_1 = G(rs ** 0.5,
                              0.015545, 0.20548, 14.1189,
@@ -1645,11 +1727,24 @@ class WLDA(XCFunctional):
             decdzeta = (4.0 * zeta3 * f * (e1 - ec - alpha * IF2) +
                         f1 * (zeta4 * e1 - zeta4 * ec + x * alpha * IF2))
             ec += alpha * IF2 * f * x + (e1 - ec) * f * zeta4
-            e_g[:] += nstar_g * ec
+            e_g[:] += nstar_sg.sum(axis=0) * ec
 
-            t = self.radial_derivative_fold(ec - rs * decdrs / 3.0, n_g, 0)
-            v_g[0] += t - (zeta - 1.0) * decdzeta
-            v_g[1] += t - (zeta + 1.0) * decdzeta
+            bare_v0 = ec - (rs * decdrs / 3.0 - (zeta - 1.0) * decdzeta)
+            bare_v1 = ec - (rs * decdrs / 3.0 - (zeta + 1.0) * decdzeta)
+
+            v_sg[0] += self.radial_derivative_fold3(bare_v0, n_sg[0],
+                                                    0, 0, self.ti_ag, self.dti_ag)
+            v_sg[0] += self.radial_derivative_fold3(bare_v1, n_sg[1],
+                                                    1, 0, self.ti_ag, self.dti_ag)
+
+            v_sg[1] += self.radial_derivative_fold3(bare_v0, n_sg[0],
+                                                    0, 1, self.ti_ag, self.dti_ag)
+            v_sg[1] += self.radial_derivative_fold3(bare_v1, n_sg[1],
+                                                    1, 1, self.ti_ag, self.dti_ag)
+
+            # t = self.radial_derivative_fold(ec - rs * decdrs / 3.0, n_g, 0)
+            # v_g[0] += t - (zeta - 1.0) * decdzeta
+            # v_g[1] += t - (zeta + 1.0) * decdzeta
 
     def radial_derivative_fold(self, f_g, n_g, spin):
         """Calculate folding expression that appears in
@@ -1678,6 +1773,48 @@ class WLDA(XCFunctional):
                          + self.di_asg[ia, spin, :] * n_g))
 
         return res_g
+
+    def radial_derivative_fold2(self, f_g, n_g, i_ag, di_ag):
+        from scipy.interpolate import InterpolatedUnivariateSpline as IUS
+        rgd = self.rgd
+        N = 2**14
+        r_x = np.linspace(0, rgd.r_g[-1], N)
+        G_k = np.linspace(0, np.pi / r_x[1], N // 2 + 1)
+
+        res_g = np.zeros_like(f_g)
+        for ia, a in enumerate(self.alphas):
+            f_x = rgd.interpolate(f_g, r_x)
+            f_k = self.radial_fft(r_x, f_x)
+            phi_k = self.radial_weight_function(self.alphas[ia], G_k)
+            res_g += (IUS(r_x,
+                          self.radial_ifft(r_x, f_k * phi_k))(rgd.r_g)
+                      * (i_ag[ia, :]
+                         + di_ag[ia, :] * n_g))
+
+        return res_g
+
+    def radial_derivative_fold3(self, f_g, n_g, spin1, spin2, i_ag, di_ag):
+        from scipy.interpolate import InterpolatedUnivariateSpline as IUS
+        rgd = self.rgd
+        N = 2**14
+        r_x = np.linspace(0, rgd.r_g[-1], N)
+        G_k = np.linspace(0, np.pi / r_x[1], N // 2 + 1)
+
+        res_g = np.zeros_like(f_g)
+        for ia, a in enumerate(self.alphas):
+            f_x = rgd.interpolate(f_g, r_x)
+            f_k = self.radial_fft(r_x, f_x)
+            phi_k = self.radial_weight_function(self.alphas[ia], G_k)
+
+            if spin1 == spin2:
+                fac_g = i_ag[ia, :] + di_ag[ia, :] * n_g
+            else:
+                fac_g = di_ag[ia, :] * n_g
+
+            res_g += IUS(r_x, self.radial_ifft(r_x, f_k * phi_k))(rgd.r_g) * fac_g
+
+        return res_g
+        
 
     def radial_hartree_correction(self, rgd, n_sg, nstar_sg, v_sg, e_g):
         """Calculate energy correction -(n-n*)int (n-n*)(r')/(r-r').
