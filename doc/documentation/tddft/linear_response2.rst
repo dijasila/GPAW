@@ -47,7 +47,8 @@ If more is needed, then more unoccupied states would need to be converged.
 Calculating response matrix and spectrum
 ========================================
 
-The next step is to calculate the response matrix with ``LrTDDFT2``.
+The next step is to calculate the response matrix with
+:class:`~gpaw.lrtddft2.LrTDDFT2`.
 
 A very important convergence parameter is the number of Kohn-Sham
 single-particle transitions used to calculate the response matrix.
@@ -71,8 +72,9 @@ included in the calculation is crucial.
 
 In this script, we set ``max_energy_diff`` to 7 eV.
 We also show how to parallelize calculation
-over Kohn-Sham electron-hole (eh) pairs with ``LrCommunicators``
-(8 tasks are used for each ``GPAW`` calculator):
+over Kohn-Sham electron-hole (eh) pairs with
+:class:`~gpaw.lrtddft2.lr_communicators.LrCommunicators`
+(8 tasks are used for each :class:`~gpaw.GPAW` calculator):
 
 .. literalinclude:: lrtddft2/lr2.py
     :start-after: Start
@@ -86,9 +88,6 @@ The TDDFT excitations are
 (:download:`transitions_with_07.00eV.dat <lrtddft2/transitions_with_07.00eV.dat>`):
 
 .. literalinclude:: lrtddft2/transitions_with_07.00eV.dat
-
-
-Note: Unfortunately, spin is not implemented yet. For now, use 'lrtddft'.
 
 
 Restarting and recalculating
@@ -162,45 +161,8 @@ than the highest excitation energies of interest.
 Quick reference
 ===============
 
-Parameters for LrCommunicators:
+.. autoclass:: gpaw.lrtddft2.LrTDDFT2
+   :members:
 
-================  =================  ===================  ========================================
-keyword           type               default value        description
-================  =================  ===================  ========================================
-``world``          ``Communicator``  None                 parent communicator 
-                                                          (usually gpaw.mpi.world)
-``dd_size``        `int``            None                 Number of domains for domain 
-                                                          decomposition
-``eh_size``        `int``            None                 Number of groups for parallelization
-                                                          over e-h -pairs
-================  =================  ===================  ========================================
-
-Note: world.size = dd_size x eh_size
-
-
-Parameters for LrTDDFT2:
-
-====================  ==================  ===================  ========================================
-keyword               type                default value        description
-====================  ==================  ===================  ========================================
-``basefilename``      ``string``                               Prefix for all files created by LRTDDFT2
-                                                               (e.g. ``dir/lr``)
-``gs_calc``           ``GPAW``                                 Ground-state calculator, which has been 
-                                                               loaded from a file with 
-                                                               communicator=lr_communicators
-                                                               calculation
-``fxc``               ``string``          None                 Exchange-correlation kernel
-``min_occ``           ``int``             None                 Index of the first occupied state 
-                                                               (inclusive)
-``max_occ``           ``int``             None                 Index of the last occupied state 
-                                                               (inclusive)
-``min_unocc``         ``int``             None                 Index of the first unoccupied state 
-                                                               (inclusive)
-``max_unocc``         ``int``             None                 Index of the last unoccupied state 
-                                                               (inclusive)
-``max_energy_diff``   ``float``           None                 Maximum Kohn-Sham eigenenergy difference
-``recalculate``       ``string``          None                 What should be recalculated. Usually 
-                                                               nothing.
-``lr_communicators``  ``LrCommuncators``  None                 
-``txt``               ``string``          None                 Output
-====================  ==================  ===================  ========================================
+.. autoclass:: gpaw.lrtddft2.lr_communicators.LrCommunicators
+   :members:
