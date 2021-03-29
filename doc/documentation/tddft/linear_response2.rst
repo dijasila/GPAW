@@ -8,11 +8,7 @@ Ground state
 ============
 
 The linear response TDDFT calculation needs a converged ground state
-calculation with a set of unoccupied states. It is safer to use 'dav' or 'cg'
-eigensolver instead of the 'rmm-diis' eigensolver to converge
-unoccupied states. However, 'dav' and 'cg' are often too expensive for large
-systems. In this case, you should use 'rmm-diis' with tens or hundreds of
-extra states in addition to the unoccupied states you wish to converge.
+calculation with a set of unoccupied states.
 
 We demonstrate the code usage for
 :download:`(R)-methyloxirane molecule <lrtddft2/r-methyloxirane.xyz>`.
@@ -42,6 +38,13 @@ the highest converged unoccupied state is about 8.2 eV.
 Thus, all Kohn-Sham single-particle transitions up to this energy
 difference can be calculated from these unoccupied states.
 If more is needed, then more unoccupied states would need to be converged.
+
+
+.. note::
+
+   Converging unoccupied states in some systems may
+   require tuning the eigensolver.
+   See the possible options in :ref:`the manual <manual_eigensolver>`.
 
 
 Calculating response matrix and spectrum
