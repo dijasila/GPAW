@@ -13,7 +13,7 @@ def workflow():
                 spec_my = run(script='spec.py', folder='mybasis')
 
     with run(script='gs.py', cores=48, tmax='2h', folder='dzp'):
-        with run(script='td.py', cores=48, tmax='4h', folder='dzp'):
+        with run(script='td.py', cores=40, tmax='5h', folder='dzp'):
             spec_dzp = run(script='spec.py', folder='dzp')
 
     run(script='plot_spec_basis.py', deps=[spec, spec_my, spec_dzp])

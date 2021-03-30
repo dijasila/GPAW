@@ -1,4 +1,4 @@
-# creates: citations.png citations.csv
+# creates: citations.png
 import os
 import datetime
 
@@ -40,7 +40,7 @@ def f(filename):
                     if '-' in w:
                         w = w.split('-')[-1]
                     m = months.index(w) + 1
-        elif tag == '\n':
+        elif tag == '\n' and y is not None:
             date = datetime.date(y, m, d)
             if doi not in dois:
                 dois.add(doi)
@@ -71,7 +71,8 @@ label_bib = {
 
 plt.figure(figsize=(8, 4))
 total = {}
-for bib in ['gpaw1', 'tddft', 'lcao', 'gpaw2', 'response']:
+# for bib in ['gpaw1', 'tddft', 'lcao', 'gpaw2', 'response']:
+for bib in ['gpaw1', 'gpaw2']:
     papers = {}
     for line in open(bib + '.txt'):
         date, doi, title = line.split(' ', 2)
@@ -86,7 +87,7 @@ for bib in ['gpaw1', 'tddft', 'lcao', 'gpaw2', 'response']:
     for date, doi, title in papers:
         fd.write('%d-%02d-%02d %s %s\n' % (date.year, date.month, date.day,
                                            doi, title))
-        assert '"' not in title, title
+        # assert '"' not in title, title
         total[doi] = (date, title)
     fd.close()
     x = dict([(p[1], 0) for p in papers])
@@ -97,12 +98,13 @@ allpapers = sorted((paper[0], doi, paper[1]) for doi, paper in total.items())
 plt.plot([paper[0] for paper in allpapers], range(1, len(allpapers) + 1),
          '-o', label='Total')
 
-fd = open('citations.csv', 'w')
-n = len(allpapers)
-for date, doi, title in allpapers[::-1]:
-    fd.write('%d,":doi:`%s <%s>`"\n' % (n, title, doi))
-    n -= 1
-fd.close()
+if 0:
+    fd = open('citations.csv', 'w')
+    n = len(allpapers)
+    for date, doi, title in allpapers[::-1]:
+        fd.write('%d,":doi:`%s <%s>`"\n' % (n, title, doi))
+        n -= 1
+    fd.close()
 
 plt.xlabel('date')
 plt.ylabel('number of citations')
