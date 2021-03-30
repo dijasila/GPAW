@@ -102,6 +102,7 @@ class WfTypes(Enum):
     lorentz = "lorentz"
     gauss = "gauss"
     exponential = "exponential"
+    diracdelta = "diracdelta"
 
 class DensityTypes(Enum):
     pseudo = "pseudo"
@@ -131,7 +132,7 @@ class WLDA(XCFunctional):
         self.mode = getattr(Modes, mode)        
         
         wftype = settings.get('wftype', 'exponential')
-        assert wftype in ['lorentz', 'gauss', 'exponential']
+        assert wftype in ['lorentz', 'gauss', 'exponential', 'diracdelta']
         self.wftype = getattr(WfTypes, wftype)
 
         self.c1 = settings.get('c1', None)
@@ -657,6 +658,8 @@ class WLDA(XCFunctional):
             return np.exp(-qt**2 / 4)
         elif self.wftype == WfTypes.exponential:
             return 1 / (1 + qt**2)**2
+        elif self.wftype == WfTypes.diracdelta:
+            return 1.0 + 0.0 * qt
         else:
             raise ValueError(
                 f'Weightfunction type "{self.wftype}" not allowed.')
