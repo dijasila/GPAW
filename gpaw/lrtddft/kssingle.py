@@ -500,7 +500,8 @@ class KSSingle(Excitation, PairDensity):
         dtype = self.wfj.dtype
         dwfj_cg = gd.empty((3), dtype=dtype)
         if not hasattr(gd, 'ddr'):
-            gd.ddr = [Gradient(gd, c, dtype=dtype).apply for c in range(3)]
+            gd.ddr = [Gradient(gd, c, dtype=dtype, n=2).apply
+                      for c in range(3)]
         for c in range(3):
             gd.ddr[c](self.wfj, dwfj_cg[c], kpt.phase_cd)
             me[c] = gd.integrate(self.wfi.conj() * dwfj_cg[c])
