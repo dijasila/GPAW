@@ -1811,13 +1811,13 @@ class WLDA(XCFunctional):
         if len(n_sg) == 2 and not self.hxc:
             # Undo modification by radial_x
             n_sg *= 0.5
-            nsum_g = np.array([n_sg.sum(axis=0)])
+            nsum_sg = np.array([n_sg.sum(axis=0)])
             v1_sg = np.zeros_like(nsum_sg)
 
-            self.setup_radial_indicators(nsum_g, self.nindicators)
-            nstar_sg = self.radial_weighted_density(nsum_g)
+            self.setup_radial_indicators(nsum_sg, self.nindicators)
+            nstar_sg = self.radial_weighted_density(nsum_sg)
 
-            self.do_radial_hartree_corr(rgd, nsum_g.sum(axis=0),
+            self.do_radial_hartree_corr(rgd, nsum_sg.sum(axis=0),
                                         nstar_sg.sum(axis=0),
                                         e_g, v1_sg, [0])
             v_sg[0] += v1_sg[0]
