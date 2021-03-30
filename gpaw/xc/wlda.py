@@ -926,8 +926,7 @@ class WLDA(XCFunctional):
                         f1 * (zeta4 * e1 - zeta4 * ec + x * alpha * IF2))
             ec += alpha * IF2 * f * x + (e1 - ec) * f * zeta4
 
-            assert len(nstar_g.shape) == 4
-            e[:] += nstar_g.sum(axis=0) * ec
+            e[:] += nstar_sg.sum(axis=0) * ec
 
             bare_v0 = ec - (rs * decdrs / 3.0 - (zeta - 1.0) * decdzeta)
             bare_v1 = ec - (rs * decdrs / 3.0 - (zeta + 1.0) * decdzeta)
