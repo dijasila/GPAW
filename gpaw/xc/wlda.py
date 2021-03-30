@@ -85,7 +85,7 @@ def define_alphas(n_sg, nalphas):
     if np.allclose(minn, maxn):
         maxn *= 1.05
     # The indicator anchors
-    minanchor = 1e-5  # 1e-4 * 200 / nalphas + 5*1e-4
+    minanchor = 1e-20  # 1e-4 * 200 / nalphas + 5*1e-4
     minn = max(minn, minanchor)
     # alphas = np.linspace(minn, maxn, nalphas)
     alphas = np.exp(np.linspace(np.log(minn), np.log(maxn), nalphas))
@@ -191,6 +191,7 @@ class WLDA(XCFunctional):
         # then write specific parameters for easy reading
         # f'settings: {self.settings.items()}',
         msg = [f'Mode: {self.mode}',
+               f'Exchange only: {self.exchange_only}',
                f'wftype: {self.wftype}',
                f'c1: {self.c1}',
                f'lambda: {self.lambd}',
@@ -321,7 +322,7 @@ class WLDA(XCFunctional):
         if len(wn_sg) == 2:
             # If spin-polarized calculate exchange energy according to
             # E[n_up, n_down] = (E[2n_up] + E[2n_down]) / 2
-            wn_sg *= 2
+            wn_sg *= 2.0
 
         nstar_sg, alpha_indices = self.get_weighted_density(wn_sg)
 
@@ -1191,6 +1192,10 @@ class WLDA(XCFunctional):
         
         E = rgd.integrate(e_g)
 
+        # print(f"E = {E}", flush=True)
+        # print(np.mean(n_sg[0]))
+        # if len(n_sg) == 2:
+        #     print(np.mean(n_sg[1]))
         return E
 
     def radial_x(self, n_sg, e_g, v_sg):
@@ -1239,19 +1244,7 @@ class WLDA(XCFunctional):
             return None, v1_sg, v2_sg, v3_sg
 
     def radial_c(self, n_sg, e_g, v_sg, nstar_sg):
-        """Calculate WLDA correlation energy.
-
-        If the calculation is spin-paired we can reuse
-        the weighted density.
-
-        For a spin-polarized calculation we want to calculate
-
-            n* = int phi (n_up + n_down)
-        and
-            m* = int phi (n_up - n_down)
-            or
-            m* = n* zeta = n* (n_up - n_down) / (n_up + n_down)
-        """
+        """Calculate WLDA correlation energy."""
         spin = len(n_sg) - 1
 
         e1_g = np.zeros_like(e_g)
@@ -1276,17 +1269,16 @@ class WLDA(XCFunctional):
             n_g = n_sg.sum(axis=0) * 0.5
             self.setup_radial_indicators(n_sg * 0.5, self.nindicators)
             # nstar_sg = self.radial_weighted_density(n_g)
-            nstar_sg = self.radial_weighted_density_spinpol(n_sg)
+            nstar_sg = self.radial_weighted_density_spinpol(n_sg * 0.5)
             zeta_g = (n_sg[0] - n_sg[1]) / (n_sg[0] + n_sg[1])
             zeta_g[np.isclose((n_sg[0] + n_sg[1]), 0.0)] = 0.0
 
             zetastar_g = (nstar_sg[0] - nstar_sg[1]) / (nstar_sg[0] + nstar_sg[1])
             zetastar_g[np.isclose((nstar_sg[0] + nstar_sg[1]), 0.0)] = 0.0
 
-
-            self.radial_c1(spin, e1_g, n_g, n_sg, nstar_sg, v1_sg, zeta_g)
-            self.radial_c2(spin, e2_g, n_g, n_sg, nstar_sg, v2_sg, zetastar_g)
-            self.radial_c3(spin, e3_g, n_g, n_sg, nstar_sg, v3_sg, zetastar_g)
+            self.radial_c1(spin, e1_g, n_g, n_sg * 0.5, nstar_sg, v1_sg, zeta_g)
+            self.radial_c2(spin, e2_g, n_g, n_sg * 0.5, nstar_sg, v2_sg, zetastar_g)
+            self.radial_c3(spin, e3_g, n_g, n_sg * 0.5, nstar_sg, v3_sg, zetastar_g)
 
             e_g[:] += e1_g + e2_g - e3_g
             v_sg[:] += v1_sg + v2_sg - v3_sg
@@ -1342,6 +1334,13 @@ class WLDA(XCFunctional):
 
             ti_ax[ia, :] = _i(n_sx.sum(axis=0))
             dti_ax[ia, :] = _di(n_sx.sum(axis=0))
+
+        # assert np.allclose(i_asg.sum(axis=0), 1.0)
+        # assert np.allclose(di_asg.sum(axis=0), 0.0)
+        # assert np.allclose(i_asx.sum(axis=0), 1.0)
+        # assert np.allclose(di_asx.sum(axis=0), 0.0)
+        # assert np.allclose(ti_ag.sum(axis=0), 1.0)
+        # assert np.allclose(dti_ag.sum(axis=0), 0.0)
 
         self.alphas = alphas
         self.i_asg = i_asg
@@ -1476,22 +1475,7 @@ class WLDA(XCFunctional):
         return res_x
 
     def radial_weight_function(self, alpha, G_k):
-        """Evaluates and returns phi(q, alpha).
-
-        The weight function is
-            phi(q, n) = e^(-qt)
-
-        with
-            qt = q / (c1 n^(1/3))
-
-        c1 is a free parameter.
-
-        If we choose
-            c1 = 5.8805
-
-        then the kernel will give a good representation
-        of the exact kernel in the HEG.
-        """
+        """Evaluates and returns phi(q, alpha)."""
         qt = (G_k / (self.c1 * abs(alpha)**(1 / 3)))
 
         wf = self.wftype
@@ -1663,7 +1647,6 @@ class WLDA(XCFunctional):
 
             ratio = nstar_sg.sum(axis=0) / ntotal_g
             ratio[np.isclose(ntotal_g, 0.0)] = 0.0
-            ratio *= np.logical_not(np.isclose(rs * decdrs / 3.0, 0.0))
 
             v_sg[0] += self.radial_derivative_fold3(ec, ntotal_g, 0, 0, self.ti_ag, self.dti_ag) 
             v_sg[0] -= (rs * decdrs / 3.0 - (zeta - 1.0) * decdzeta) * ratio
@@ -1814,7 +1797,6 @@ class WLDA(XCFunctional):
             res_g += IUS(r_x, self.radial_ifft(r_x, f_k * phi_k))(rgd.r_g) * fac_g
 
         return res_g
-        
 
     def radial_hartree_correction(self, rgd, n_sg, nstar_sg, v_sg, e_g):
         """Calculate energy correction -(n-n*)int (n-n*)(r')/(r-r').
