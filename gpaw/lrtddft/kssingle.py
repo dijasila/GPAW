@@ -513,44 +513,64 @@ class KSSingle(Excitation, PairDensity):
                 me2[c] = gd.integrate(self.wfj * dwfj_cg[c])
             print(me, -me2, me2 + me)
 
+        # XXX is this the best choice, maybe center of mass?
+        R0 = 0.5 * np.diag(paw.wfs.gd.cell_cv)
+
         # augmentation contributions
+
+        # <psi_i|grad|psi_j>
         ma = np.zeros(me.shape, dtype=me.dtype)
+        # Ra x <psi_i|grad|psi_j> for magnetic transition dipole
+        mRa = np.zeros(me.shape, dtype=me.dtype)
         for a, P_ni in kpt.P_ani.items():
             Pi_i = P_ni[self.i].conj()
             Pj_i = P_ni[self.j]
             nabla_iiv = paw.wfs.setups[a].nabla_iiv
+            ma_c = np.zeros(me.shape, dtype=me.dtype)
             for c in range(3):
                 for i1, Pi in enumerate(Pi_i):
                     for i2, Pj in enumerate(Pj_i):
-                        ma[c] += Pi * Pj * nabla_iiv[i1, i2, c]
+                        ma_c[c] += Pi * Pj * nabla_iiv[i1, i2, c]
+            mRa += np.cross(paw.atoms[a].position / Bohr - R0, ma_c)
+            ma += ma_c
         gd.comm.sum(ma)
+        gd.comm.sum(mRa)
 
         self.muv = - (me + ma) / self.energy
 
         # magnetic transition dipole ................
 
+        # m_ij = -(1/2c) <i|L|j> = i/2c <i|r x p|j>
+        # see Autschbach et al., J. Chem. Phys., 116, 6930 (2002)
+
         r_cg, r2_g = coordinates(gd)
         magn = np.zeros(me.shape, dtype=dtype)
 
+        # <psi_i|r x grad|psi_j>
         wfi_g = self.wfi.conj()
         for ci in range(3):
             cj = (ci + 1) % 3
             ck = (ci + 2) % 3
             magn[ci] = gd.integrate(wfi_g * r_cg[cj] * dwfj_cg[ck] -
                                     wfi_g * r_cg[ck] * dwfj_cg[cj])
+
         # augmentation contributions
+        # <psi_i| r x nabla |psi_j>
+        # = <psi_i| (r - Ra + Ra) x nabla |psi_j>
+        # = <psi_i| (r - Ra) x nabla |psi_j> + Ra x <psi_i| nabla |psi_j>
+
         ma = np.zeros(magn.shape, dtype=magn.dtype)
         for a, P_ni in kpt.P_ani.items():
             Pi_i = P_ni[self.i].conj()
             Pj_i = P_ni[self.j]
-            rnabla_iiv = paw.wfs.setups[a].rnabla_iiv
+            rxnabla_iiv = paw.wfs.setups[a].rxnabla_iiv
             for c in range(3):
                 for i1, Pi in enumerate(Pi_i):
                     for i2, Pj in enumerate(Pj_i):
-                        ma[c] += Pi * Pj * rnabla_iiv[i1, i2, c]
+                        ma[c] += Pi * Pj * rxnabla_iiv[i1, i2, c]
         gd.comm.sum(ma)
 
-        self.magn = -alpha / 2. * (magn + ma)
+        self.magn = alpha / 2. * (magn + ma + mRa)
 
     def distribute(self):
         """Distribute results to all cores."""

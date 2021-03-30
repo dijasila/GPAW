@@ -1,24 +1,58 @@
-from ase import Atoms
+import pytest
+from ase import io
+from ase.units import Ha
 
 from gpaw import GPAW, FermiDirac
 from gpaw.lrtddft import LrTDDFT
 from gpaw.lrtddft2 import LrTDDFT2
 
 
-def test_lrtddft2():
-    """Test equivalence"""
-    atoms = Atoms('He')
-    atoms.cell = [4, 4, 5]
-    atoms.center()
+@pytest.fixture
+def C3H6O():
+    structf = 'C3H6O.xyz'
+    with open(structf, 'w') as f:
+        f.write("""10
+http://cccbdb.nist.gov/ Geometry for C3H6O (Propylene oxide), CISD/6-31G*
+O   0.8171  -0.7825  -0.2447
+C  -1.5018   0.1019  -0.1473
+H  -1.3989   0.3323  -1.2066
+H  -2.0652  -0.8262  -0.0524
+H  -2.0715   0.8983   0.3329
+C  -0.1488  -0.0393   0.4879
+H  -0.1505  -0.2633   1.5506
+C   1.0387   0.6105  -0.0580
+H   0.9518   1.2157  -0.9531
+H   1.8684   0.8649   0.5908
+""")
 
-    atoms.calc = GPAW(occupations=FermiDirac(width=0.1),
-                      nbands=2)
+    atoms = io.read(structf)
+    atoms.center(vacuum=3)
+    
+    atoms.calc = GPAW(h=0.25,
+                      occupations=FermiDirac(width=0.1),
+                      nbands=13)
     atoms.get_potential_energy()
+    return atoms
 
-    lr = LrTDDFT(atoms.calc)
-    print(lr.kss[0])
-    lr2 = LrTDDFT2('O_lr', atoms.calc, fxc='LDA')
-    #print(dir(lr2.ks_singles.kss_list))
-    print(lr2.ks_singles.kss_list)
 
-    assert 0
+def test_lrtddft2(C3H6O):
+    """Test equivalence"""
+    atoms = C3H6O
+
+    evs = atoms.calc.get_eigenvalues()
+    energy_differences = evs[-1] - evs[:-1]
+
+    istart = 10
+    
+    lr = LrTDDFT(atoms.calc, restrict={'istart': istart})
+
+    lr2 = LrTDDFT2('H2O_lr', atoms.calc, fxc='LDA', min_occ=istart)
+    lr2.calculate()
+ 
+    for de, ks, ks2 in zip(energy_differences[istart:] / Ha,
+                           lr.kss, lr2.ks_singles.kss_list[::-1]):
+        assert de == pytest.approx(ks.energy, 1e-10)
+        assert de == pytest.approx(ks2.energy_diff, 1e-8)
+
+        assert ks.mur == pytest.approx(ks2.dip_mom_r, 1e-4)
+        assert ks.magn == pytest.approx(ks2.magn_mom, 1e-6)
