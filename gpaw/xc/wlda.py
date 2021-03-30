@@ -137,7 +137,7 @@ class WLDA(XCFunctional):
 
         self.c1 = settings.get('c1', None)
         if self.c1 is None:
-            assert self.wftype == WfTypes.exponential
+            assert self.wftype == WfTypes.exponential or self.wftype == WfTypes.diracdelta
             if self.mode == Modes.WLDA:
                 self.c1 = 7.57576
             elif self.mode == Modes.rWLDA:
