@@ -105,29 +105,6 @@ def fbt(l, f, r, k):
     return g
 
 
-def spherical_harmonics(R_c, lmax=LMAX):
-    R_c = np.asarray(R_c)
-    rlY_lm = []
-    for l in range(lmax):
-        rlY_m = np.empty(2 * l + 1)
-        Yl(l, R_c, rlY_m)
-        rlY_lm.append(rlY_m)
-    return rlY_lm
-
-
-def spherical_harmonics_and_derivatives(R_c, lmax=LMAX):
-    R_c = np.asarray(R_c)
-    drlYdR_lmc = []
-    rlY_lm = spherical_harmonics(R_c, lmax)
-    for l, rlY_m in enumerate(rlY_lm):
-        drlYdR_mc = np.empty((2 * l + 1, 3))
-        for m in range(2 * l + 1):
-            L = l**2 + m
-            drlYdR_mc[m, :] = nablarlYL(L, R_c)
-        drlYdR_lmc.append(drlYdR_mc)
-    return rlY_lm, drlYdR_lmc
-
-
 class BaseOverlapExpansionSet:
     def __init__(self, shape):
         self.shape = shape
