@@ -61,18 +61,24 @@ from gpaw.utilities.timing import nulltimer
 timer = nulltimer  # XXX global timer object, only for hacking
 
 UL = 'L'
-
-# Generate the coefficients for the Fourier-Bessel transform
-C = []
-a = 0.0 + 0.0j
 LMAX = 7
-for n in range(LMAX):
-    c = np.zeros(n + 1, complex)
-    for s in range(n + 1):
-        a = (1.0j)**s * fac(n + s) / (fac(s) * 2**s * fac(n - s))
-        a *= (-1.0j)**(n + 1)
-        c[s] = a
-    C.append(c)
+
+
+def calculate_fourier_bessel_coefficients(lmax):
+    """Generate the coefficients for the Fourier-Bessel transform."""
+    coef_l = []
+    a = 0.0 + 0.0j
+    for n in range(lmax):
+        c = np.zeros(n + 1, complex)
+        for s in range(n + 1):
+            a = (1.0j)**s * fac(n + s) / (fac(s) * 2**s * fac(n - s))
+            a *= (-1.0j)**(n + 1)
+            c[s] = a
+        coef_l.append(c)
+    return coef_l
+
+
+fourier_bessel_coefficients = calculate_fourier_bessel_coefficients(LMAX)
 
 
 def fbt(l, f, r, k):
@@ -92,9 +98,10 @@ def fbt(l, f, r, k):
     dr = r[1]
     m = len(k)
     g = np.zeros(m)
+    coefs = fourier_bessel_coefficients[l]
     for n in range(l + 1):
         g += (dr * 2 * m * k**(l - n) *
-              ifft(C[l][n] * f * r**(1 + l - n), 2 * m)[:m].real)
+              ifft(coefs[n] * f * r**(1 + l - n), 2 * m)[:m].real)
     return g
 
 
