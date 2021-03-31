@@ -701,7 +701,7 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
             corresponding ``qpts`` argument.
         omega_ql: ndarray
             Vibrational frequencies in eV.
-        kpts_from: List[int] or int
+        kpts_from: list[int] or int
             Calculate only the matrix element for the k-vectors specified by
             their index in the ``kpts`` argument (default: all).
         spin: int

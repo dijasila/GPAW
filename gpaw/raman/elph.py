@@ -10,19 +10,18 @@ def run_elph(atoms, calc, delta=0.01, calculate_forces=False):
     Finds the forces and effective potential at different atomic positions used
     to calculate the change in the effective potential.
 
-    Note: Raman is measuring zone-centre phonons only.
+    Use calculate_forces=False, if phonons are calculated separately.
 
-    Note: Use calculate_forces=False, if phonons are calculated separately
+    Parameters:
 
-    Input
-    ----------
-    atoms : Atoms object
-    calc  : Calculator object
-
-    Output
-    ----------
-    elph.*.pckl files with the effective potential
-    phonons.*.pckl files with the atomic forces.
+    atoms: Atoms object
+        Equilibrium geometry
+    calc: Calculator object
+        Covered ground-state calculation
+    delta: float
+        Displacement increment (default 0.01)
+    calculate_forces: bool
+        Whether to include phonon calculation (default False)
     """
 
     # Calculate the forces and effective potential at different nuclear
@@ -33,14 +32,23 @@ def run_elph(atoms, calc, delta=0.01, calculate_forces=False):
     elph.run()
 
 
-def calculate_supercell_matrix(atoms, calc, dump=0):
+def calculate_supercell_matrix(atoms, calc, dump=1):
     """
     Calculate elph supercell matrix.
 
     This is a necessary intermediary step before calculating the electron-
     phonon matrix.
+
+    Parameters:
+
+    atoms: Atoms object
+        Equilibrium geometry
+    calc: Calculator object
+        Covered ground-state calculation. Same as used before.
+    dump: (0, 1, 2)
+        Whether to write elph matrix in one file(1), several files (2) or not
+        at all (0).
     """
-    # not parellel
     elph = ElectronPhononCoupling(atoms, calc=calc, supercell=(1, 1, 1))
     elph.set_lcao_calculator(calc)
     elph.calculate_supercell_matrix(dump=dump, include_pseudo=True)
@@ -50,22 +58,30 @@ def calculate_supercell_matrix(atoms, calc, dump=0):
         return elph
 
 
-def get_elph_matrix(atoms, calc, basename=None, dump=0,
+def get_elph_matrix(atoms, calc, basename=None, dump=1,
                     load_gx_as_needed=False, elph=None):
     """
     Evaluates the dipole transition matrix elements.
 
     Note: This part is currently NOT parallelised properly. Use serial only!
 
-    Input
-    ----------
-    atoms : Atoms object
-    calc  : Calculator object (ground state)
-    basename  : If you want give a specific name (gqklnn_{}.pckl)
+    Parameters:
 
-    Output
-    ----------
-    gqklnn.pckl, the electron-phonon matrix elements
+    atoms: Atoms object
+        Equilibrium geometry
+    calc: Calculator object
+        Covered ground-state calculation. Same as used before.
+    basename: string
+        String to attach to filename. (optonal)
+    dump: (0, 1, 2)
+        Whether to elph matrix was written in one file(1), several files (2) or
+        not at all (0).
+    load_gx_as_needed: bool
+        If dump=2 allows to load elph elements as needed, instead of the whole
+        matrix. Recommended for large systems.
+    elph: ElectronPhononCoupling object
+        If dump=0 an ElectronPhononCoupling onject containing the supercell
+        matrix must be supplied. Only recommend for smallest of systems.
     """
 
     kpts = calc.get_ibz_k_points()
@@ -73,7 +89,7 @@ def get_elph_matrix(atoms, calc, basename=None, dump=0,
 
     # Read previous phonon calculation.
     # This only looks at gamma point phonons
-    ph = Phonons(atoms=atoms, name="phonons", supercell=(1, 1, 1))
+    ph = Phonons(atoms=atoms, supercell=(1, 1, 1))
     ph.read()
     frequencies, modes = ph.band_structure(qpts, modes=True)
     if world.rank == 0:

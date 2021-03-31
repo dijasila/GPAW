@@ -17,7 +17,7 @@ def gaussian(w, sigma):
     return g
 
 
-def calculate_raman(atoms, calc, w_in, d_i, d_o, resonant_only=True,
+def calculate_raman(atoms, calc, w_in, d_i, d_o, resonant_only=False,
                     ramanname=None, momname=None, basename=None, gamma_l=0.2):
     """
     Calculates the first order Raman spectrum
@@ -39,7 +39,7 @@ def calculate_raman(atoms, calc, w_in, d_i, d_o, resonant_only=True,
 
     cm = 1. / 8065.544  # cm^-1 to eV
 
-    ph = Phonons(atoms=atoms, name="phonons", supercell=(1, 1, 1))
+    ph = Phonons(atoms=atoms, supercell=(1, 1, 1))
     ph.read()
     w_ph = np.array(ph.band_structure([[0, 0, 0]])[0])
     w_max = int(np.max(w_ph) / cm + 200)
@@ -279,3 +279,78 @@ def calculate_raman_intensity(d_i, d_o, ramanname=None, T=300):
         np.save("RI_{}{}.npy".format(xyz[d_i], xyz[d_o]), raman)
     else:
         np.save("RI_{}{}_{}.npy".format(xyz[d_i], xyz[d_o], ramanname), raman)
+
+
+def plot_raman(figname="Raman.png", relative=True, w_min=None, w_max=None,
+               ramanname=None, yscale="linear"):
+    """
+        Plots a given Raman spectrum
+
+        Input:
+            yscale: Linear or logarithmic yscale
+            figname: Name of the generated figure
+            relative: Scale to the highest peak
+            w_min, w_max: The plotting range wrt the Raman shift
+            ramanname: Suffix used for the file containing the Raman spectrum
+
+        Output:
+            ramanname: image containing the Raman spectrum.
+
+    """
+    from scipy import signal
+    import matplotlib.pyplot as plt
+    import matplotlib.colors as colors
+    import matplotlib.cm as cmx
+
+    if ramanname is None:
+        legend = False
+        RI_name = ["RI.npy"]
+    elif type(ramanname) == list:
+        legend = True
+        RI_name = ["RI_{}.npy".format(name) for name in ramanname]
+    else:
+        legend = False
+        RI_name = ["RI_{}.npy".format(ramanname)]
+
+    ylabel = "Intensity (arb. units)"
+    cm = plt.get_cmap('inferno')
+    cNorm = colors.Normalize(vmin=0, vmax=len(RI_name))
+    scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=cm)
+    peaks = None
+    for i, name in enumerate(RI_name):
+        RI = np.real(np.load(name))
+        if w_min is None:
+            w_min = np.min(RI[0])
+        if w_max is None:
+            w_max = np.max(RI[0])
+        r = RI[1][np.logical_and(RI[0] >= w_min, RI[0] <= w_max)]
+        w = RI[0][np.logical_and(RI[0] >= w_min, RI[0] <= w_max)]
+        cval = scalarMap.to_rgba(i)
+        if relative:
+            ylabel = "I/I_max"
+            r /= np.max(r)
+        if peaks is None:
+            peaks = signal.find_peaks(r[np.logical_and(w >= w_min, w <= w_max)
+                                        ])[0]
+            locations = np.take(w[np.logical_and(w >= w_min, w <= w_max)],
+                                peaks)
+            intensities = np.take(r[np.logical_and(w >= w_min, w <= w_max)],
+                                  peaks)
+        if legend:
+            plt.plot(w, r, color=cval, label=ramanname[i])
+        else:
+            plt.plot(w, r, color=cval)
+    for i, loc in enumerate(locations):
+        if intensities[i] / np.max(intensities) > 0.05:
+            plt.axvline(x=loc, color="grey", linestyle="--")
+    plt.yscale(yscale)
+    plt.minorticks_on()
+    if legend:
+        plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
+    plt.title("Raman intensity")
+    plt.xlabel("Raman shift (cm$^{-1}$)")
+    plt.ylabel(ylabel)
+    if not relative:
+        plt.yticks([])
+    plt.savefig(figname, dpi=300)
+    plt.clf()

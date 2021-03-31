@@ -31,6 +31,7 @@ GPAW calculator:
    mom/mom
    pdos/pdos
    elph/elph
+   raman/raman
    xas/xas
    densitymix/densitymix
    cmdline
