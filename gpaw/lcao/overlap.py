@@ -61,7 +61,7 @@ from gpaw.utilities.timing import nulltimer
 timer = nulltimer  # XXX global timer object, only for hacking
 
 UL = 'L'
-LMAX = 7
+LMAX = 9
 
 
 def calculate_fourier_bessel_coefficients(lmax):
