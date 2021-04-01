@@ -12,6 +12,8 @@ from gpaw.tddft.units import attosec_to_autime
 from gpaw.lcaotddft.densitymatrix import DensityMatrix
 from gpaw.tddft.tdopers import  TimeDependentDensity
 
+from scipy.linalg import eigh
+from scipy.linalg import norm
 
 
 class LCAOTDDFT(GPAW):
@@ -42,6 +44,9 @@ class LCAOTDDFT(GPAW):
 
         self.td_density = TimeDependentDensity(self)
         self.calculate_energy = calculate_energy
+        # Save old overlap matrix S_MM_old which is necessary for propagating C_MM
+        for kpt in self.wfs.kpt_u:
+            self.S_MM_old=kpt.S_MM.copy()
 
 
     def _write(self, writer, mode):
@@ -87,7 +92,7 @@ class LCAOTDDFT(GPAW):
         # Initialize propagator
         self.propagator = create_propagator(self.propagator)
         self.propagator.initialize(self)
-
+        
         self.log('Propagator:')
         self.log(self.propagator.get_description())
         self.log()
@@ -172,9 +177,8 @@ class LCAOTDDFT(GPAW):
         self.propagator.control_paw(self)
 
     def get_td_energy(self):
-        ''' THIS NEEDS TO BE MODIFIED FOR LCAO '''
+ 
         """Calculate the time-dependent total energy"""
-
         if not self.calculate_energy:
            self.Etot = 0.0
 
@@ -184,11 +188,10 @@ class LCAOTDDFT(GPAW):
 #        self.td_hamiltonian.update(self.td_density.get_density(),self.time)
         self.td_hamiltonian.update()
         self.update_eigenvalues()
-
         return self.Etot
 
     def update_eigenvalues(self):
-#  Calculate eigenvalue by non scf consistent hamiltonian diagonalization 
+        # Calculate eigenvalue by non scf hamiltonian diagonalization 
         for kpt in self.wfs.kpt_u:
             eig  = self.wfs.eigensolver
             H_MM = eig.calculate_hamiltonian_matrix(self.hamiltonian, self.wfs, kpt)
@@ -196,8 +199,7 @@ class LCAOTDDFT(GPAW):
             eig.iterate_one_k_point(self.hamiltonian, self.wfs, kpt, C_nM)
             kpt.C_nM=C_nM.copy()
 
-#  Calculate eigenvalue by rho_uMM * H_MM
-        
+        # Calculate eigenvalue by rho_uMM * H_MM      
         dmat=DensityMatrix(self)
         
         e_band_rhoH = 0.0
@@ -236,4 +238,44 @@ class LCAOTDDFT(GPAW):
         self.Ebar = H.e_zero
         self.Exc = H.e_xc
         self.Etot = self.Ekin + self.e_coulomb + self.Ebar + self.Exc
-        print('e_band_rhoH  e_band',e_band_rhoH,e_band)
+
+    def save_old_S_MM(self):
+        for kpt in self.wfs.kpt_u:
+            self.S_MM_old=kpt.S_MM.copy()
+
+    def propagate_using_S12(self, time, time_step):
+#       PROPAGATE C USING S : S(R+dR)^(1/2) PSI(R+dr) = S(R)^(1/2) PSI(R) 
+        
+        for kpt in self.wfs.kpt_u:
+            S_MM=np.real(kpt.S_MM.copy())
+
+ #           if not np.allclose(S_MM, np.asmatrix(S_MM).H):
+ #               raise ValueError('expected symmetric or Hermitian matrix, try using numpy.linalg.eig instead')       
+            
+            Seig, Seig_v  = np.linalg.eig(S_MM)
+            Seig_dm12=np.diag(1/np.sqrt(Seig))
+            Seig_dp12=np.diag(Seig**0.5)
+
+            # S^1/2
+            Sm12=np.matmul(Seig_v,np.matmul((Seig_dm12),np.conj(Seig_v).T))
+            Sp12=np.matmul(Seig_v,np.matmul((Seig_dp12),np.conj(Seig_v).T))
+ 
+            # OLD OVERLAP S^-1/2 
+            Seig_o, Seig_v_o  = np.linalg.eig(self.S_MM_old)
+            Seig_dm12_o=np.diag(Seig_o**-0.5)
+            Seig_dp12_o=np.diag(Seig_o**0.5)
+            Sm12_o=np.matmul(Seig_v_o,np.matmul(Seig_dm12_o,np.conj(Seig_v_o).T))
+            Sp12_o=np.matmul(Seig_v_o,np.matmul(Seig_dp12_o,np.conj(Seig_v_o).T)) 
+            C_nM_temp=kpt.C_nM.copy()
+
+            # propagate PSI(R+dr) = S(R+dR)^(-1/2)S(R)^(1/2) PSI(R))            
+            Sp12xC_nM=np.matmul(Sp12_o,np.transpose(C_nM_temp))
+            Sm12xSp12xC_nM=np.matmul(Sm12,Sp12xC_nM)
+            t_Sm12xSp12xC_nM=np.transpose(Sm12xSp12xC_nM)
+            kpt.C_nM=t_Sm12xSp12xC_nM.copy()
+#            kpt.C_nM[:,:]=t_Sm12xSp12xC_nM[:,:]
+
+            self.td_hamiltonian.update()
+#            self.call_observers(self.niter)
+        
+        return time + time_step

@@ -1,6 +1,7 @@
 from ase.units import Bohr, AUT, _me, _amu
 from gpaw.tddft.units import attosec_to_autime
 from gpaw.forces import calculate_forces
+import numpy as np
 
 ###############################################################################
 # EHRENFEST DYNAMICS WITHIN THE PAW METHOD
@@ -76,6 +77,9 @@ class EhrenfestVelocityVerletLCAO:
         self.calc.get_td_energy()    # Need modification
         self.F = self.get_forces()
 
+        for kpt in self.calc.wfs.kpt_u:
+            self.S_MM_old=np.empty_like(kpt.S_MM)
+    
         for i in range(len(self.F)):
             self.a[i] = self.F[i] / self.M[i]
 
@@ -100,7 +104,7 @@ class EhrenfestVelocityVerletLCAO:
         self.v = self.calc.atoms.get_velocities() / (Bohr / AUT)
 
         dt = dt * attosec_to_autime
-
+        self.calc.save_old_S_MM()
         # m a(t+dt)   = F[psi(t),x(t)]
         self.calc.atoms.positions = self.x * Bohr
         self.calc.set_positions(self.calc.atoms)
@@ -150,7 +154,7 @@ class EhrenfestVelocityVerletLCAO:
         self.calc.atoms.positions = self.xn * Bohr
         self.calc.set_positions(self.calc.atoms)
         self.calc.get_td_energy()
-#        self.calc.update_eigenvalues()  # Need modification
+        self.calc.update_eigenvalues()
         self.F = self.get_forces()
 
         for i in range(len(self.F)):
@@ -167,7 +171,13 @@ class EhrenfestVelocityVerletLCAO:
         # update atoms
         self.calc.atoms.set_positions(self.x * Bohr)
         self.calc.atoms.set_velocities(self.v * Bohr / AUT)
-     
+
+        # propagate LCAO C using overlap matrix
+        self.calc.propagate_using_S12(self.time, dt)
+
+        self.calc.set_positions(self.calc.atoms)
+        self.calc.get_td_energy()
+
     def propagate_single(self, dt):
 
         if self.setups == 'paw' and self.calc.name == 'tddft':
