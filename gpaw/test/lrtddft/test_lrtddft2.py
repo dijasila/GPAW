@@ -35,7 +35,7 @@ H   1.8684   0.8649   0.5908
     return atoms
 
 
-def test_lrtddft2(C3H6O):
+def test_lrtddft2(C3H6O, in_tmp_dir):
     """Test equivalence"""
     atoms = C3H6O
 
