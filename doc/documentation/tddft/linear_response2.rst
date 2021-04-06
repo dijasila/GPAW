@@ -55,8 +55,10 @@ The next step is to calculate the response matrix with
 
 A very important convergence parameter is the number of Kohn-Sham
 single-particle transitions used to calculate the response matrix.
-This can be set through state indices (see bottom of the page),
-or as demonstrated here, through an energy cutoff parameter ``max_energy_diff``.
+This can be set through state indices
+(see the parameters of :class:`~gpaw.lrtddft2.LrTDDFT2`),
+or as demonstrated here,
+through an energy cutoff parameter ``max_energy_diff``.
 This parameter defines the maximum energy difference of
 the Kohn-Sham transitions included in the calculation.
 
@@ -69,7 +71,7 @@ Thus, check carefully the states in the unoccupied states calculation
 Note also! The ``max_energy_diff`` parameter does **not** mean that
 the TDDFT excitations would be converged up to this energy.
 Typically, the ``max_energy_diff`` needs to be much larger than the smallest
-excitation energy of interest to obtained well converged results.
+excitation energy of interest to obtain well converged results.
 Checking the convergence with respect to the number of states
 included in the calculation is crucial.
 
@@ -147,9 +149,7 @@ Here is an example script for analysis without parallelization settings:
 
 The script produces the same spectra and transitions as above.
 In addition, it demonstrates how to analyze transition contributions.
-An example for the first TDDFT excitation (``index=0``), corresponding
-to the first excitation in
-:download:`transitions_with_08.00eV.dat <lrtddft2/transitions_with_08.00eV.dat>`
+An example for the first TDDFT excitation
 (:download:`tc_000_with_08.00eV.txt <lrtddft2/tc_000_with_08.00eV.txt>`):
 
 .. literalinclude:: lrtddft2/tc_000_with_08.00eV.txt
