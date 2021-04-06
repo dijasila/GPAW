@@ -508,7 +508,7 @@ class KSSingle(Excitation, PairDensity):
             me[c] = gd.integrate(self.wfi.conj() * dwfj_cg[c])
 
         # XXX is this the best choice, maybe center of mass?
-        R0 = 0.5 * np.diag(paw.wfs.gd.cell_cv)
+        origin = 0.5 * np.diag(paw.wfs.gd.cell_cv)
 
         # augmentation contributions
 
@@ -525,7 +525,7 @@ class KSSingle(Excitation, PairDensity):
                 for i1, Pi in enumerate(Pi_i):
                     for i2, Pj in enumerate(Pj_i):
                         ma_c[c] += Pi * Pj * nabla_iiv[i1, i2, c]
-            mRa += np.cross(paw.atoms[a].position / Bohr - R0, ma_c)
+            mRa += np.cross(paw.atoms[a].position / Bohr - origin, ma_c)
             ma += ma_c
         gd.comm.sum(ma)
         gd.comm.sum(mRa)
@@ -537,7 +537,7 @@ class KSSingle(Excitation, PairDensity):
         # m_ij = -(1/2c) <i|L|j> = i/2c <i|r x p|j>
         # see Autschbach et al., J. Chem. Phys., 116, 6930 (2002)
 
-        r_cg, r2_g = coordinates(gd, origin=R0)
+        r_cg, r2_g = coordinates(gd, origin=origin)
         magn = np.zeros(me.shape, dtype=dtype)
 
         # <psi_i|r x grad|psi_j>
