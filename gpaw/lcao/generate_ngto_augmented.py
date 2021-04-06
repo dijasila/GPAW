@@ -15,13 +15,13 @@ from gpaw.mpi import world
 # GTOs are truncated and represented numerically.
 
 
-def read_gbs(fname):
-    """Read gbs file.
+def read_gaussian_basis_file(fname):
+    """Read Gaussian basis set file.
 
     This reads only the first element/atom from the file
     as separated with line beginning with '*'.
     """
-    gto_k = []
+    gtos = []
     description = ''
 
     f = open(fname, 'r')
@@ -61,9 +61,12 @@ def read_gbs(fname):
             alpha_j.append(alpha)
             coeff_j.append(coeff)
             i += 1
-        gto_k.append({'l': l, 'alpha_j': alpha_j, 'coeff_j': coeff_j})
+        gto = {'angular_momentum': [l],
+               'exponents': alpha_j,
+               'coefficients': [coeff_j]}
+        gtos.append(gto)
 
-    return atom, description, gto_k
+    return atom, description, gtos
 
 
 def get_ngto(rgd, l, alpha, rcut):
@@ -137,23 +140,19 @@ def add_ngto(basis, l, coeff_j, alpha_j, tol, label):
     basis.bf_j.append(bf)
 
 
-def do_nao_ngto_basis(atom, xc, naobasis, gbsfname, label, rmax=100.0,
-                      tol=0.001):
-    # Read Gaussians
-    atomgbs, descriptiongbs, gto_k = read_gbs(gbsfname)
-    assert atom == atomgbs
-
-    # Generate nao basis
-    zetacount, polarizationcount = parse_basis_name(naobasis)
-
+def generate_nao_ngto_basis(atom, *, xc, nao, name,
+                            gtos, gto_description=None,
+                            rmax=100.0, tol=0.001):
     # Choose basis sets without semi-core states XXXXXX
     if atom == 'Ag':
-        label = '11.%s' % label
+        name = '11.%s' % name
         p = parameters_extra
     else:
         p = parameters
 
-    bm = BasisMaker(atom, label, run=False, gtxt=None, xc=xc)
+    # Generate nao basis
+    zetacount, polarizationcount = parse_basis_name(nao)
+    bm = BasisMaker(atom, name=name, run=False, gtxt=None, xc=xc)
     bm.generator.run(write_xml=False, use_restart_file=False, **p[atom])
     basis = bm.generate(zetacount, polarizationcount, txt=None)
 
@@ -165,32 +164,31 @@ def do_nao_ngto_basis(atom, xc, naobasis, gbsfname, label, rmax=100.0,
     basis.rgd = EquidistantRadialGridDescriptor(h, N)
 
     # Add NGTOs
-
     description = []
     msg = 'Augmented with NGTOs'
     description.append(msg)
     description.append('=' * len(msg))
     description.append('')
-    msg = 'GTOs from file %s' % os.path.basename(gbsfname)
-    description.append(msg)
-    description.append('-' * len(msg))
-    description.append(descriptiongbs)
-    description.append('')
+    if gto_description is not None:
+        description.append(gto_description)
+        description.append('')
     description.append('NGTO truncation tolerance: %f' % tol)
     description.append('Functions: NGTO(l,coeff*alpha + ...)')
 
-    for gto in gto_k:
-        l = gto['l']
-        alpha_j = gto['alpha_j']
-        coeff_j = gto['coeff_j']
-        coeff_alpha_list = ['%+.3f*%.3f' % (c, a)
-                            for c, a in zip(coeff_j, alpha_j)]
-        coeff_alpha_label = ''.join(coeff_alpha_list[0:3])
-        if len(coeff_alpha_list) > 3:
-            coeff_alpha_label += '+...'
-        ngtolabel = 'NGTO(%s,%s)' % ('spdfghi'[l], coeff_alpha_label)
-        description.append('    ' + ngtolabel)
-        add_ngto(basis, l, coeff_j, alpha_j, tol, ngtolabel)
+    for gto in gtos:
+        assert len(gto['angular_momentum']) == 1
+        l = gto['angular_momentum'][0]
+        alpha_j = gto['exponents']
+        for coeff_j in gto['coefficients']:
+            assert len(alpha_j) == len(coeff_j)
+            coeff_alpha_list = ['%+.3f*%.3f' % (c, a)
+                                for c, a in zip(coeff_j, alpha_j)]
+            coeff_alpha_label = ''.join(coeff_alpha_list[0:3])
+            if len(coeff_alpha_list) > 3:
+                coeff_alpha_label += '+...'
+            ngtolabel = 'NGTO(%s,%s)' % ('spdfghi'[l], coeff_alpha_label)
+            description.append('    ' + ngtolabel)
+            add_ngto(basis, l, coeff_j, alpha_j, tol, ngtolabel)
 
     basis.generatordata += '\n\n' + '\n'.join(description)
 
