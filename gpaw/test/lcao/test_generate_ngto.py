@@ -4,7 +4,7 @@ import numpy as np
 from gpaw.basis_data import Basis
 from gpaw.mpi import world
 from gpaw.lcao.generate_ngto_augmented import \
-    generate_nao_ngto_basis, read_gaussian_basis_file
+    GTO, generate_nao_ngto_basis, read_gaussian_basis_file
 
 pytestmark = pytest.mark.skipif(world.size > 1,
                                 reason='world.size > 1')
@@ -13,21 +13,11 @@ pytestmark = pytest.mark.skipif(world.size > 1,
 def test_read_gaussian(in_tmp_dir):
     atom = 'Au'
     description = 'test description\nline2'
-    gtos = [{'angular_momentum': [0],
-             'exponents': [0.2],
-             'coefficients': [[1.0]]},
-            {'angular_momentum': [0],
-             'exponents': [0.1],
-             'coefficients': [[1.0]]},
-            {'angular_momentum': [1],
-             'exponents': [0.05],
-             'coefficients': [[1.0]]},
-            {'angular_momentum': [1],
-             'exponents': [9.2, 2.1, 0.54, 0.15],
-             'coefficients': [[0.02, 0.18, 0.3, 0.5]]},
-            {'angular_momentum': [2],
-             'exponents': [0.05],
-             'coefficients': [[1.0]]}]
+    gtos = [GTO(0, 0.2),
+            GTO('s', 0.1),
+            GTO(1, 0.05, 1.0),
+            GTO(1, [9.2, 2.1, 0.54, 0.15], [0.02, 0.18, 0.3, 0.5]),
+            GTO(2, [0.05], [1.0])]
 
     with open('gbs.txt', 'w') as f:
         def w(s):

@@ -13,6 +13,34 @@ from gpaw.basis_data import parse_basis_name
 # GTOs are truncated and represented numerically.
 
 
+def GTO(l, exponents, coefficients=1.0):
+    """Return a dictionary representing Gaussian type orbital (GTO).
+
+    Parameters
+    ----------
+    l : int or str
+        Angular momentum.
+    exponents : float or list of floats
+        Gaussian exponents
+    coefficients : float or list of floats
+        Gaussian coefficients
+    """
+    if isinstance(l, str):
+        l = 'spdfghi'.index(l.lower())
+    if isinstance(exponents, (int, float)):
+        exponents = [exponents]
+    # ensure floats
+    exponents = [float(e) for e in exponents]
+    if isinstance(coefficients, (int, float)):
+        coefficients = [coefficients]
+    # ensure floats
+    coefficients = [float(c) for c in coefficients]
+    gto = {'angular_momentum': [l],
+           'exponents': exponents,
+           'coefficients': [coefficients]}
+    return gto
+
+
 def read_gaussian_basis_file(fname):
     """Read Gaussian basis set file.
 
@@ -59,9 +87,7 @@ def read_gaussian_basis_file(fname):
             alpha_j.append(alpha)
             coeff_j.append(coeff)
             i += 1
-        gto = {'angular_momentum': [l],
-               'exponents': alpha_j,
-               'coefficients': [coeff_j]}
+        gto = GTO(l, alpha_j, coeff_j)
         gtos.append(gto)
 
     return atom, description, gtos
