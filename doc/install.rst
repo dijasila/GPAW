@@ -41,8 +41,8 @@ There are several ways to install GPAW:
 .. seealso::
 
     * :ref:`siteconfig`
-    * Using :ref:`homebrew` on MacOSX
-    * Using :ref:`anaconda`
+    * Using :ref:`homebrew` on macOS
+    * Using :ref:`miniconda` on macOS
     * This `docker image`_
     * Tips and tricks for installation on many :ref:`platforms and
       architectures`

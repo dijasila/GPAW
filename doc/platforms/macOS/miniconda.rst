@@ -1,7 +1,9 @@
 .. _anaconda:
 
+(Work in progress, to be updated soon!)
+
 =================
-Anaconda on MacOS
+Miniconda on macOS
 =================
 
 We recommend using Python from :ref:`homebrew` on macOS, but if you need to use the Anaconda python that is also possible.  Both ASE and GPAW work with Anaconda python.
