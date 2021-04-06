@@ -507,13 +507,6 @@ class KSSingle(Excitation, PairDensity):
             gd.ddr[c](self.wfj, dwfj_cg[c], kpt.phase_cd)
             me[c] = gd.integrate(self.wfi.conj() * dwfj_cg[c])
 
-        if 0:
-            me2 = np.zeros(self.mur.shape)
-            for c in range(3):
-                gd.ddr[c](self.wfi, dwfj_cg[c], kpt.phase_cd)
-                me2[c] = gd.integrate(self.wfj * dwfj_cg[c])
-            print(me, -me2, me2 + me)
-
         # XXX is this the best choice, maybe center of mass?
         R0 = 0.5 * np.diag(paw.wfs.gd.cell_cv)
 
