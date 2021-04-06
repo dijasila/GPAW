@@ -29,12 +29,8 @@ def GTO(l, exponents, coefficients=1.0):
         l = 'spdfghi'.index(l.lower())
     if isinstance(exponents, (int, float)):
         exponents = [exponents]
-    # ensure floats
-    exponents = [float(e) for e in exponents]
     if isinstance(coefficients, (int, float)):
         coefficients = [coefficients]
-    # ensure floats
-    coefficients = [float(c) for c in coefficients]
     gto = {'angular_momentum': [l],
            'exponents': exponents,
            'coefficients': [coefficients]}
@@ -203,8 +199,12 @@ def generate_nao_ngto_basis(atom, *, xc, nao, name,
         assert len(gto['angular_momentum']) == 1
         l = gto['angular_momentum'][0]
         alpha_j = gto['exponents']
+        # Float conversion
+        alpha_j = [float(a) for a in alpha_j]
         for coeff_j in gto['coefficients']:
             assert len(alpha_j) == len(coeff_j)
+            # Float conversion
+            coeff_j = [float(c) for c in coeff_j]
             coeff_alpha_list = ['%+.3f*%.3f' % (c, a)
                                 for c, a in zip(coeff_j, alpha_j)]
             coeff_alpha_label = ''.join(coeff_alpha_list[0:3])
