@@ -1,8 +1,8 @@
 .. _miniconda:
 
-==================
-Miniconda on macOS
-==================
+=========
+Miniconda
+=========
 
 Get the Xcode Command Line Tools with the command::
 
