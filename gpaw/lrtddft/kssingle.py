@@ -407,6 +407,7 @@ class KSSRestrictor:
 class KSSingle(Excitation, PairDensity):
     """Single Kohn-Sham transition containing all it's indicees
 
+  
       pspin=physical spin
       spin=virtual  spin, i.e. spin in the ground state calc.
       kpt=the Kpoint object
@@ -419,7 +420,16 @@ class KSSingle(Excitation, PairDensity):
 
     def __init__(self, iidx=None, jidx=None, pspin=None, kpt=None,
                  paw=None, string=None, fijscale=1, dtype=float):
-
+        """
+        iidx: index of occupied state
+        jidx: index of empty state
+        pspin: physical spin
+        kpt: kpoint object,
+        paw: calculator,
+        string: string to be initialized from
+        fijscale:
+        dtype: dtype of matrix elements
+        """
         if string is not None:
             self.fromstring(string, dtype)
             return None
