@@ -544,7 +544,7 @@ class KSSingle(Excitation, PairDensity):
         # m_ij = -(1/2c) <i|L|j> = i/2c <i|r x p|j>
         # see Autschbach et al., J. Chem. Phys., 116, 6930 (2002)
 
-        r_cg, r2_g = coordinates(gd)
+        r_cg, r2_g = coordinates(gd, origin=R0)
         magn = np.zeros(me.shape, dtype=dtype)
 
         # <psi_i|r x grad|psi_j>
