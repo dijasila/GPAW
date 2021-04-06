@@ -20,11 +20,6 @@ Install Homebrew::
     $ /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
     $ echo 'export PATH=/usr/local/bin:$PATH' >> ~/.zprofile
 
-(Alternatively for bash::
-
-    $ echo 'export PATH=/usr/local/bin:$PATH' >> ~/.bash_profile
-)
-
 Install Python and the interface to Tcl/Tk::
 
     $ brew install python
@@ -56,10 +51,9 @@ Install editable ASE with pip::
     $ cd ase
     $ pip3 install --editable .
 
-(For latest stable release::
+Alternatively for latest stable release::
 
     $ pip3 install --upgrade ase
-)
 
 Run ASE tests::
 
@@ -89,10 +83,9 @@ Install editable GPAW with pip::
 
     $ pip3 install --editable gpaw
 
-(For latest stable release::
+Alternatively for latest stable release::
 
     $ pip3 install --upgrade gpaw
-) 
 
 Install GPAW setups::
 

@@ -1,71 +1,106 @@
-.. _anaconda:
+.. _miniconda:
 
-(Work in progress, to be updated soon!)
-
-=================
+==================
 Miniconda on macOS
-=================
-
-We recommend using Python from :ref:`homebrew` on macOS, but if you need to use the Anaconda python that is also possible.  Both ASE and GPAW work with Anaconda python.
-
-
-Install Anaconda
-================
-
-* Install the Python 3 version.
-
-* We strongly recommend installing Anaconda for a single user.  The permission handling in Anaconda is broken on macOS, and a multi-user installation of Anaconda will break as soon as another user installs a package.
-
-
-Install Homebrew
-================
-
-You need it for some GPAW prerequisites!
+==================
 
 Get the Xcode Command Line Tools with the command::
 
     $ xcode-select --install
 
-(if it fails, you may have to download Xcode from the App Store)
+Install Miniconda::
 
-Install Homebrew::
+    $ curl -O https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-x86_64.sh
+    $ bash ~/Miniconda3-latest-MacOSX-x86_64.sh -b -p $HOME/miniconda
+    $ $HOME/miniconda/bin/conda init zsh
+    $ source ~/.zshrc
 
-    $ /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
-    $ echo 'export PATH=/usr/local/bin:$PATH' >> ~/.bash_profile
+Configure conda and create an environment::
 
-Install ASE and GPAW dependencies
+    $ conda config --set auto_activate_base false
+    $ conda create --name gpaw
+    $ conda activate gpaw
+
+Install ASE dependencies
 =================================
 
 ::
 
-    $ brew install libxc
-    $ brew install open-mpi
-    $ brew install fftw
+    $ conda install tk
+    $ conda install numpy scipy matplotlig
+    $ conda install pytest pytest-mock
 
-Check your installation
-=======================
+Install ASE development version from git
+========================================
 
-You should still get python and pip from the anaconda installation::
+::
 
-    $ python --version
-    $ pip --version
+    $ git clone https://gitlab.com/ase/ase.git
+    $ cd ase
+    $ pip3 install --editable .
 
-Python should list an anaconda version, and pip should be loaded from ``/Users/xxxx/anaconda3/....``
+NOTE: For latest stable ASE version instead, simply use::
 
-Install and test ASE and GPAW
-=============================
+    $ pip3 install --upgrade ase
 
-Install and test ASE::
+Run ASE tests::
 
-    $ pip install --upgrade --user ase
-    $ python -m ase test
+    $ ase test
 
-Install GPAW::
+Install GPAW dependencies
+=========================
 
-    $ pip install --upgrade --user gpaw
+::
 
-Install GPAW setups::
+    $ conda install -c conda-forge libxc openmpi-mpicc fftw scalapack
 
-    $ gpaw --verbose install-data
+Download GPAW development version from git
+==========================================
 
+::
 
+    $ git clone https://gitlab.com/gpaw/gpaw.git
+
+Configure GPAW for FFTW and Scalapack
+=====================================
+
+::
+
+    $ cd gpaw
+    $ cp siteconfig_example.py siteconfig.py
+
+Use these in the :ref:`siteconfig.py <siteconfig>` file:
+
+.. literalinclude:: siteconfig.py
+
+Install GPAW
+============
+
+:
+
+    $ pip3 install --editable gpaw
+
+Alternatively for latest stable release::
+
+    $ pip3 install --upgrade gpaw
+
+Install GPAW setups
+===================
+
+::
+
+    $ cd ~
+    $ curl -O https://wiki.fysik.dtu.dk/gpaw-files/gpaw-setups-0.9.20000.tar.gz
+    $ tar -xf gpaw-setups-0.9.20000.tar
+    $ echo 'export GPAW_SETUP_PATH=~/gpaw-setups-0.9.20000' >> ~/.zprofile
+    $ source ~/.zprofile
+
+Test GPAW
+=========
+
+::
+
+    $ pip3 install pytest-xdist
+    $ gpaw test
+    $ gpaw -P 4 test
+    $ pytest -n 4 --pyargs gpaw
