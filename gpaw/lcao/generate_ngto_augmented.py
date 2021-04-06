@@ -1,13 +1,11 @@
-import os
-import re
 import numpy as np
+
 from gpaw.atom.basis import BasisMaker
 from gpaw.atom.basis import QuasiGaussian
 from gpaw.atom.radialgd import EquidistantRadialGridDescriptor
 from gpaw.atom.configurations import parameters, parameters_extra
 from gpaw.basis_data import BasisFunction
 from gpaw.basis_data import parse_basis_name
-from gpaw.mpi import world
 
 # Module for generating basis sets that compose of usual basis sets
 # augmented with Gaussian type orbital (GTO).
@@ -193,27 +191,3 @@ def generate_nao_ngto_basis(atom, *, xc, nao, name,
     basis.generatordata += '\n\n' + '\n'.join(description)
 
     basis.write_xml()
-
-
-def main():
-    xc = 'PBE'
-
-    # Process all gbs files
-    fname_i = [fname for fname in sorted(os.listdir('.'))
-               if fname.endswith('.gbs')]
-    for i, fname in enumerate(fname_i):
-        if i % world.size != world.rank:
-            continue
-        m = re.match(r'(?P<atom>\w+)-(?P<label>NAO-(?P<nao>\w+)\+' +
-                     r'NGTO-N(?P<Nngto>\d+)).gbs', fname)
-        if m is not None:
-            if world.size > 1:
-                print(world.rank, fname)
-            else:
-                print(fname)
-            do_nao_ngto_basis(m.group('atom'), xc, m.group('nao'),
-                              fname, m.group('label'))
-
-
-if __name__ == '__main__':
-    main()
