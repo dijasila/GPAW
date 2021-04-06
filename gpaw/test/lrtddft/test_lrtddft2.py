@@ -42,13 +42,15 @@ def test_lrtddft2(C3H6O, in_tmp_dir):
     evs = atoms.calc.get_eigenvalues()
     energy_differences = evs[-1] - evs[:-1]
 
-    istart = 10
+    istart = 8
     
     lr = LrTDDFT(atoms.calc, restrict={'istart': istart})
 
     lr2 = LrTDDFT2('H2O_lr', atoms.calc, fxc='LDA', min_occ=istart)
     lr2.calculate()
- 
+
+    # check for Kohn-Sham properties
+
     for de, ks, ks2 in zip(energy_differences[istart:] / Ha,
                            lr.kss, lr2.ks_singles.kss_list[::-1]):
         assert de == pytest.approx(ks.energy, 1e-10)
@@ -56,3 +58,18 @@ def test_lrtddft2(C3H6O, in_tmp_dir):
 
         assert ks.mur == pytest.approx(ks2.dip_mom_r, 1e-4)
         assert ks.magn == pytest.approx(ks2.magn_mom, 1e-6)
+
+    # check for TDDFT properties
+
+    (w, S, R, Sx, Sy, Sz) = lr2.get_transitions()
+
+    assert len(lr) == len(w)
+    for i, ex in enumerate(lr):
+        assert ex.energy * Ha == pytest.approx(w[i], 1e-6)
+        f = ex.get_oscillator_strength()
+        assert f[0] == pytest.approx(S[i], 1e-4)
+        assert f[1] == pytest.approx(Sx[i], 1e-3)
+        assert f[2] == pytest.approx(Sy[i], 1e-3)
+        assert f[3] == pytest.approx(Sz[i], 1e-3)
+        # XXX why do we need to allow 10% error here?
+        assert ex.get_rotatory_strength() == pytest.approx(R[i], 1e-1)
