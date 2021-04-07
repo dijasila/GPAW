@@ -71,5 +71,4 @@ def test_lrtddft2(C3H6O, in_tmp_dir):
         assert f[1] == pytest.approx(Sx[i], 1e-3)
         assert f[2] == pytest.approx(Sy[i], 1e-3)
         assert f[3] == pytest.approx(Sz[i], 1e-3)
-        # XXX why do we need to allow 10% error here?
-        assert ex.get_rotatory_strength() == pytest.approx(R[i], 1e-1)
+        assert ex.get_rotatory_strength() == pytest.approx(R[i], 1e-4)
