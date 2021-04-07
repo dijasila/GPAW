@@ -161,7 +161,7 @@ class WLDA(XCFunctional):
         self.nindicators = settings.get('nindicators', 50)
 
         density_type = settings.get('density_type', 'pseudo')
-        assert density_type in ['pseudo', 'smoothAE', 'AE']
+        assert density_type in ['pseudo', 'smoothAE', 'AE'], density_type
         self.density_type = getattr(DensityTypes, density_type)
         assert self.density_type in [DensityTypes.pseudo, DensityTypes.smoothAE, DensityTypes.AE]
 
@@ -674,7 +674,7 @@ class WLDA(XCFunctional):
         self._K_G = k2_Q**(1 / 2)
         return self._K_G
 
-    def lda_x1(self, spin, e, wn_g, nstar_g, v, my_alpha_indices):
+    def lda_x2(self, spin, e, wn_g, nstar_g, v, my_alpha_indices):
         """Apply the WLDA-1 exchange functional.
 
         Calculate e[n*]n
@@ -699,7 +699,7 @@ class WLDA(XCFunctional):
         v += self.fold_with_derivative(-t1 * ratio,
                                        wn_g, my_alpha_indices, spin, self.wn_sg)
 
-    def lda_x2(self, spin, e, wn_g, nstar_g, v, my_alpha_indices):
+    def lda_x1(self, spin, e, wn_g, nstar_g, v, my_alpha_indices):
         """Apply the WLDA-2 exchange functional.
 
         Calculate e[n]n*
@@ -1134,12 +1134,14 @@ class WLDA(XCFunctional):
         e_g[:] -= (dn_g * V_g)
 
         for s in spins:
-            im = 2 * (V_g - self.fold_with_derivative(V_g,
-                                                      n_g,
-                                                      my_alpha_indices,
-                                                      s, self.wn_sg,
-                                                      mpisum=False))
+            im = 2 * (- self.fold_with_derivative(V_g,
+                                                  n_g,
+                                                  my_alpha_indices,
+                                                  s, self.wn_sg,
+                                                  mpisum=False))
             if mpi.rank == 0:
+                v_sg[s, :] -= (2 * V_g + im)
+            else:
                 v_sg[s, :] -= im
 
     def calculate_spherical(self, rgd, n_sg, v_sg, e_g=None):
