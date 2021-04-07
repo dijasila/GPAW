@@ -106,7 +106,7 @@ void operator_dealloc_cuda(int force)
     }
 }
 
-void debug_operator_allocate(boudary_conditions *bc, int ng, int ng2,
+void debug_operator_allocate(boundary_conditions *bc, int ng, int ng2,
                              int blocks)
 {
     debug_sendbuf = GPAW_MALLOC(double, bc->maxsend * blocks);
@@ -138,11 +138,21 @@ void debug_operator_memcpy(double *out, double *in, double *buf,
     GPAW_CUDAMEMCPY(debug_buf_gpu, buf, double, ng2, cudaMemcpyDeviceToHost);
 }
 
-void debug_operator_relax(boudary_conditions *bc, int ng, int ng2)
+void debug_operator_relax(OperatorObject* self, int relax_method, double w,
+                          int n)
 {
     MPI_Request recvreq[2];
     MPI_Request sendreq[2];
     int i;
+
+    boundary_conditions* bc = self->bc;
+    const int *size1 = bc->size1;
+    const int *size2 = bc->size2;
+    int ng = bc->ndouble * size1[0] * size1[1] * size1[2];
+    int ng2 = bc->ndouble * size2[0] * size2[1] * size2[2];
+
+    const double_complex *ph;
+    ph = 0;
 
     for (i=0; i < 3; i++) {
         bc_unpack1(bc, debug_out_cpu, debug_buf_cpu, i, recvreq, sendreq,
@@ -176,13 +186,19 @@ void debug_operator_relax(boudary_conditions *bc, int ng, int ng2)
     }
 }
 
-void debug_operator_apply(boudary_conditions *bc, int ng, int ng2,
-                          int n, int myblocks)
+void debug_operator_apply(OperatorObject* self, const double_complex *ph,
+                          bool real, int n, int myblocks)
 {
     MPI_Request recvreq[2];
     MPI_Request sendreq[2];
     int i;
     double err;
+
+    boundary_conditions* bc = self->bc;
+    const int *size1 = bc->size1;
+    const int *size2 = bc->size2;
+    int ng = bc->ndouble * size1[0] * size1[1] * size1[2];
+    int ng2 = bc->ndouble * size2[0] * size2[1] * size2[2];
 
     for (i=0; i < 3; i++) {
         bc_unpack1(bc, debug_in_cpu, debug_buf_cpu, i, recvreq, sendreq,
@@ -203,7 +219,7 @@ void debug_operator_apply(boudary_conditions *bc, int ng, int ng2,
     double buf_err = 0;
     int buf_err_n = 0;
     for (i = 0; i < ng2 * myblocks; i++) {
-        err = fabs(buf_cpu[i] - buf_cpu2[i]);
+        err = fabs(debug_buf_cpu[i] - debug_buf_gpu[i]);
         if (err > GPAW_CUDA_ABS_TOL)
             buf_err_n++;
         buf_err = MAX(buf_err, err);
@@ -211,7 +227,7 @@ void debug_operator_apply(boudary_conditions *bc, int ng, int ng2,
     double out_err = 0;
     int out_err_n = 0;
     for (i = 0; i < ng * myblocks; i++) {
-        err = fabs(out_cpu[i] - out_cpu2[i]);
+        err = fabs(debug_out_cpu[i] - debug_out_gpu[i]);
         if (err > GPAW_CUDA_ABS_TOL)
             out_err_n++;
         out_err = MAX(out_err, err);
@@ -332,7 +348,7 @@ PyObject* Operator_relax_cuda_gpu(OperatorObject* self, PyObject* args)
         if (gpaw_cuda_debug) {
             cudaDeviceSynchronize();
             debug_operator_memcpy(fun, src, operator_buf_gpu, ng, ng2);
-            debug_operator_relax(bc, ng, ng2);
+            debug_operator_relax(self, relax_method, w, n);
         }
     }
 
@@ -493,16 +509,18 @@ PyObject * Operator_apply_cuda_gpu(OperatorObject* self, PyObject* args)
 
         if (gpaw_cuda_debug) {
             cudaDeviceSynchronize();
+            double *in_next;
+            double *out_next;
             if (n + blocks < nin) {
-                double *in_next = in2 + n * ng;
-                double *out_next = out2 + n * ng;
+                in_next = in2 + n * ng;
+                out_next = out2 + n * ng;
             } else {
-                double *in_next = in2;
-                double *out_next = out2;
+                in_next = in2;
+                out_next = out2;
             }
             debug_operator_memcpy(out_next, in_next, operator_buf_gpu,
                                   ng * myblocks, ng2 * myblocks);
-            debug_operator_apply(bc, ng, ng2, n, myblocks);
+            debug_operator_apply(self, ph, real, n, myblocks);
         }
     }
 
