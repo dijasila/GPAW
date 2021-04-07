@@ -1,3 +1,5 @@
+from typing import Sequence, Union
+
 import numpy as np
 
 from gpaw.atom.basis import BasisMaker
@@ -13,24 +15,35 @@ from gpaw.basis_data import parse_basis_name
 # GTOs are truncated and represented numerically.
 
 
-def GTO(l, exponents, coefficients=1.0):
-    """Return a dictionary representing Gaussian type orbital (GTO).
+def GaussianTypeOrbital(l: Union[int, str], exponent: float):
+    """Dictionary representing Gaussian type orbital.
 
     Parameters
     ----------
-    l : int or str
-        Angular momentum.
-    exponents : float or list of floats
+    l
+        Angular momentum
+    exponent
+        Gaussian exponent
+    """
+    return ContractedGaussianTypeOrbital(l, [exponent], [1.0])
+
+
+def ContractedGaussianTypeOrbital(l: Union[int, str],
+                                  exponents: Sequence[float],
+                                  coefficients: Sequence[float]):
+    """Dictionary representing contracted Gaussian type orbital.
+
+    Parameters
+    ----------
+    l
+        Angular momentum
+    exponents
         Gaussian exponents
-    coefficients : float or list of floats
+    coefficients
         Gaussian coefficients
     """
     if isinstance(l, str):
         l = 'spdfghi'.index(l.lower())
-    if isinstance(exponents, (int, float)):
-        exponents = [exponents]
-    if isinstance(coefficients, (int, float)):
-        coefficients = [coefficients]
     gto = {'angular_momentum': [l],
            'exponents': exponents,
            'coefficients': [coefficients]}
@@ -83,7 +96,7 @@ def read_gaussian_basis_file(fname):
             alpha_j.append(alpha)
             coeff_j.append(coeff)
             i += 1
-        gto = GTO(l, alpha_j, coeff_j)
+        gto = ContractedGaussianTypeOrbital(l, alpha_j, coeff_j)
         gtos.append(gto)
 
     return atom, description, gtos

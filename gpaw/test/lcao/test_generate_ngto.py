@@ -4,7 +4,8 @@ import numpy as np
 from gpaw.basis_data import Basis
 from gpaw.mpi import world
 from gpaw.lcao.generate_ngto_augmented import \
-    GTO, generate_nao_ngto_basis, read_gaussian_basis_file
+    GaussianTypeOrbital as GTO, ContractedGaussianTypeOrbital as CGTO, \
+    generate_nao_ngto_basis, read_gaussian_basis_file
 
 pytestmark = pytest.mark.skipif(world.size > 1,
                                 reason='world.size > 1')
@@ -15,9 +16,9 @@ def test_read_gaussian(in_tmp_dir):
     description = 'test description\nline2'
     gtos = [GTO(0, 0.2),
             GTO('s', 0.1),
-            GTO(1, 0.05, 1.0),
-            GTO(1, [9.2, 2.1, 0.54, 0.15], [0.02, 0.18, 0.3, 0.5]),
-            GTO(2, [0.05], [1.0])]
+            GTO(1, 0.05),
+            CGTO(1, [9.2, 2.1, 0.54, 0.15], [0.02, 0.18, 0.3, 0.5]),
+            CGTO(2, [0.05], [1.0])]
 
     with open('gbs.txt', 'w') as f:
         def w(s):
