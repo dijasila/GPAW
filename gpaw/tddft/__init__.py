@@ -110,8 +110,9 @@ class TDDFT(GPAW):
         self.niter = 0
 
         # Parallelization dictionary should default to strided bands
-        self.default_parallel = GPAW.default_parallel.copy()
-        self.default_parallel['stridebands'] = True
+        # but it does not work XXX
+        # self.default_parallel = GPAW.default_parallel.copy()
+        # self.default_parallel['stridebands'] = True
 
         self.default_parameters = GPAW.default_parameters.copy()
         self.default_parameters['mixer'] = DummyMixer()
