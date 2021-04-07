@@ -28,6 +28,13 @@ static int operator_buf_size = 0;
 static int operator_buf_max = 0;
 static int operator_init_count = 0;
 
+static double *sendbuf_cpu;
+static double *recvbuf_cpu;
+static double *buf_cpu;
+static double *fun_cpu;
+static double *src_cpu;
+static double *buf_cpu2;
+static double *fun_cpu2;
 
 void operator_init_cuda(OperatorObject *self)
 {
@@ -101,6 +108,75 @@ void operator_dealloc_cuda(int force)
     }
 }
 
+void debug_relax_allocate(boudary_conditions *bc, int ng, int ng2)
+{
+    sendbuf_cpu = GPAW_MALLOC(double, bc->maxsend);
+    recvbuf_cpu = GPAW_MALLOC(double, bc->maxrecv);
+    buf_cpu = GPAW_MALLOC(double, ng2);
+    fun_cpu = GPAW_MALLOC(double, ng);
+    src_cpu = GPAW_MALLOC(double, ng);
+    buf_cpu2 = GPAW_MALLOC(double, ng2);
+    fun_cpu2 = GPAW_MALLOC(double, ng);
+}
+
+void debug_relax_deallocate()
+{
+    free(sendbuf_cpu);
+    free(recvbuf_cpu);
+    free(buf_cpu);
+    free(fun_cpu);
+    free(src_cpu);
+    free(buf_cpu2);
+    free(fun_cpu2);
+}
+
+void debug_relax_memcpy(double *fun, double *src, int ng)
+{
+    GPAW_CUDAMEMCPY(fun_cpu, fun, double, ng, cudaMemcpyDeviceToHost);
+    GPAW_CUDAMEMCPY(src_cpu, src, double, ng, cudaMemcpyDeviceToHost);
+}
+
+void debug_relax(boudary_conditions *bc, int ng, int ng2, int rank)
+{
+    MPI_Request recvreq_cpu[2];
+    MPI_Request sendreq_cpu[2];
+    int i;
+
+    for (i=0; i < 3; i++) {
+        bc_unpack1(bc, fun_cpu, buf_cpu, i, recvreq_cpu, sendreq_cpu,
+                   recvbuf_cpu, sendbuf_cpu, ph + 2 * i, 0, 1);
+        bc_unpack2(bc, buf_cpu, i, recvreq_cpu, sendreq_cpu,
+                   recvbuf_cpu, 1);
+    }
+    GPAW_CUDAMEMCPY(buf_cpu2, operator_buf_gpu, double, ng2,
+                    cudaMemcpyDeviceToHost);
+    bmgs_relax(relax_method, &self->stencil, buf_cpu2, fun_cpu, src_cpu, w);
+    cudaDeviceSynchronize();
+    GPAW_CUDAMEMCPY(fun_cpu2, fun, double, ng, cudaMemcpyDeviceToHost);
+
+    double fun_err = 0;
+    double buf_err = 0;
+    for (i=0; i < ng2; i++) {
+        buf_err = MAX(buf_err, fabs(buf_cpu[i] - buf_cpu2[i]));
+        if (i < ng) {
+            fun_err = MAX(fun_err, fabs(fun_cpu[i] - fun_cpu2[i]));
+        }
+    }
+    int rank = 0;
+    if (bc->comm != MPI_COMM_NULL)
+        MPI_Comm_rank(bc->comm, &rank);
+    if (buf_err > GPAW_CUDA_ABS_TOL) {
+        fprintf(stderr,
+                "Debug cuda operator relax bc (n:%d rank:%d) errors: buf %g\n",
+                n, rank, buf_err);
+    }
+    if (fun_err > GPAW_CUDA_ABS_TOL) {
+        fprintf(stderr,
+                "Debug cuda operator relax (n:%d rank:%d) errors: fun %g\n",
+                n, rank, fun_err);
+    }
+}
+
 PyObject* Operator_relax_cuda_gpu(OperatorObject* self, PyObject* args)
 {
     int relax_method;
@@ -108,6 +184,7 @@ PyObject* Operator_relax_cuda_gpu(OperatorObject* self, PyObject* args)
     CUdeviceptr source_gpu;
     double w = 1.0;
     int nrelax;
+    const int debug = gpaw_cuda_debug();
 
     if (!PyArg_ParseTuple(args, "inni|d", &relax_method, &func_gpu,
                           &source_gpu, &nrelax, &w))
@@ -127,19 +204,9 @@ PyObject* Operator_relax_cuda_gpu(OperatorObject* self, PyObject* args)
     MPI_Request recvreq[3][2];
     MPI_Request sendreq[3][2];
 
-#ifdef DEBUG_CUDA_OPERATOR
-    MPI_Request recvreq_cpu[2];
-    MPI_Request sendreq_cpu[2];
-
-    double *sendbuf_cpu = GPAW_MALLOC(double, bc->maxsend);
-    double *recvbuf_cpu = GPAW_MALLOC(double, bc->maxrecv);
-    double *buf_cpu = GPAW_MALLOC(double, ng2);
-    double *fun_cpu = GPAW_MALLOC(double, ng);
-    double *src_cpu = GPAW_MALLOC(double, ng);
-
-    double *buf_cpu2 = GPAW_MALLOC(double, ng2);
-    double *fun_cpu2 = GPAW_MALLOC(double, ng);
-#endif //DEBUG_CUDA_OPERATOR
+    if (debug) {
+        debug_relax_allocate(bc, ng, ng2);
+    }
 
     ph = 0;
     int blocks = 1;
@@ -173,10 +240,9 @@ PyObject* Operator_relax_cuda_gpu(OperatorObject* self, PyObject* args)
         cudaEventRecord(operator_event[1], 0);
 
     for (int n=0; n < nrelax; n++ ) {
-#ifdef DEBUG_CUDA_OPERATOR
-        GPAW_CUDAMEMCPY(fun_cpu, fun, double, ng, cudaMemcpyDeviceToHost);
-        GPAW_CUDAMEMCPY(src_cpu, src, double, ng, cudaMemcpyDeviceToHost);
-#endif //DEBUG_CUDA_OPERATOR
+        if (debug) {
+            debug_relax_memcpy(fun, src, ng);
+        }
         if (cuda_overlap) {
             cudaStreamWaitEvent(operator_stream[0], operator_event[1], 0);
             bc_unpack_paste_cuda_gpu(bc, fun, operator_buf_gpu, recvreq,
@@ -210,53 +276,14 @@ PyObject* Operator_relax_cuda_gpu(OperatorObject* self, PyObject* args)
                                 GPAW_BOUNDARY_NORMAL, 0);
         }
 
-#ifdef DEBUG_CUDA_OPERATOR
-        for (int i=0; i < 3; i++) {
-            bc_unpack1(bc, fun_cpu, buf_cpu, i, recvreq_cpu, sendreq_cpu,
-                    recvbuf_cpu, sendbuf_cpu, ph + 2 * i, 0, 1);
-            bc_unpack2(bc, buf_cpu, i, recvreq_cpu, sendreq_cpu,
-                    recvbuf_cpu, 1);
+        if (debug) {
+            debug_relax(bc, ng, ng2, rank);
         }
-        GPAW_CUDAMEMCPY(buf_cpu2, operator_buf_gpu, double, ng2,
-                        cudaMemcpyDeviceToHost);
-        bmgs_relax(relax_method, &self->stencil, buf_cpu2, fun_cpu, src_cpu,
-                   w);
-        cudaDeviceSynchronize();
-        GPAW_CUDAMEMCPY(fun_cpu2, fun, double, ng, cudaMemcpyDeviceToHost);
-
-        double fun_err = 0;
-        double buf_err = 0;
-        for (int i=0; i < ng2; i++) {
-            buf_err = MAX(buf_err, fabs(buf_cpu[i] - buf_cpu2[i]));
-            if (i < ng) {
-                fun_err = MAX(fun_err, fabs(fun_cpu[i] - fun_cpu2[i]));
-            }
-        }
-        int rank = 0;
-        if (bc->comm != MPI_COMM_NULL)
-            MPI_Comm_rank(bc->comm, &rank);
-        if (buf_err > GPAW_CUDA_ABS_TOL) {
-            fprintf(stderr,
-                    "Debug cuda operator relax bc (n:%d rank:%d) errors: buf %g\n",
-                    n, rank, buf_err);
-        }
-        if (fun_err > GPAW_CUDA_ABS_TOL) {
-            fprintf(stderr,
-                    "Debug cuda operator relax (n:%d rank:%d) errors: fun %g\n",
-                    n, rank, fun_err);
-        }
-#endif //DEBUG_CUDA_OPERATOR
     }
 
-#ifdef DEBUG_CUDA_OPERATOR
-    free(sendbuf_cpu);
-    free(recvbuf_cpu);
-    free(buf_cpu);
-    free(fun_cpu);
-    free(src_cpu);
-    free(buf_cpu2);
-    free(fun_cpu2);
-#endif //DEBUG_CUDA_OPERATOR
+    if (debug) {
+        debug_relax_deallocate();
+    }
 
     if (cuda_overlap) {
         cudaStreamWaitEvent(0, operator_event[1], 0);
