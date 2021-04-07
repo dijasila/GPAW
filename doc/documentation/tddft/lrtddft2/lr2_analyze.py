@@ -1,4 +1,4 @@
-# creates: tc_000_with_08.00eV.txt
+# Creates: tc_000_with_08.00eV.txt
 # Start
 from ase.parallel import paropen
 from gpaw import GPAW

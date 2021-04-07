@@ -1,4 +1,4 @@
-# creates: abs_spec.png, rot_spec.png
+# Creates: abs_spec.png, rot_spec.png
 import numpy as np
 import matplotlib.pyplot as plt
 

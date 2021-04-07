@@ -1,4 +1,4 @@
-# creates: unocc.out
+# Creates: unocc.out
 # Start
 from gpaw import GPAW
 

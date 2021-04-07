@@ -1,4 +1,4 @@
-# creates: gs.out
+# Creates: gs.out
 # Start
 from ase.io import read
 from gpaw import GPAW

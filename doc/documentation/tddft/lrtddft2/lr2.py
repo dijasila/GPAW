@@ -1,6 +1,6 @@
-# creates: lr2_with_07.00eV.out
-# creates: spectrum_with_07.00eV.dat
-# creates: transitions_with_07.00eV.dat
+# Creates: lr2_with_07.00eV.out
+# Creates: spectrum_with_07.00eV.dat
+# Creates: transitions_with_07.00eV.dat
 # Start
 from gpaw.mpi import world
 from gpaw import GPAW
