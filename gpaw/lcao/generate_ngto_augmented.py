@@ -15,7 +15,7 @@ from gpaw.basis_data import parse_basis_name
 # GTOs are truncated and represented numerically.
 
 
-def GaussianTypeOrbital(l: Union[int, str], exponent: float):
+def create_GTO_dictionary(l: Union[int, str], exponent: float):
     """Dictionary representing Gaussian type orbital.
 
     Parameters
@@ -25,12 +25,12 @@ def GaussianTypeOrbital(l: Union[int, str], exponent: float):
     exponent
         Gaussian exponent
     """
-    return ContractedGaussianTypeOrbital(l, [exponent], [1.0])
+    return create_CGTO_dictionary(l, [exponent], [1.0])
 
 
-def ContractedGaussianTypeOrbital(l: Union[int, str],
-                                  exponents: Sequence[float],
-                                  coefficients: Sequence[float]):
+def create_CGTO_dictionary(l: Union[int, str],
+                           exponents: Sequence[float],
+                           coefficients: Sequence[float]):
     """Dictionary representing contracted Gaussian type orbital.
 
     Parameters
@@ -96,7 +96,7 @@ def read_gaussian_basis_file(fname):
             alpha_j.append(alpha)
             coeff_j.append(coeff)
             i += 1
-        gto = ContractedGaussianTypeOrbital(l, alpha_j, coeff_j)
+        gto = create_CGTO_dictionary(l, alpha_j, coeff_j)
         gtos.append(gto)
 
     return atom, description, gtos

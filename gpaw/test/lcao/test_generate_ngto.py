@@ -4,7 +4,7 @@ import numpy as np
 from gpaw.basis_data import Basis
 from gpaw.mpi import world
 from gpaw.lcao.generate_ngto_augmented import \
-    GaussianTypeOrbital as GTO, ContractedGaussianTypeOrbital as CGTO, \
+    create_GTO_dictionary as GTO, create_CGTO_dictionary as CGTO, \
     generate_nao_ngto_basis, read_gaussian_basis_file
 
 pytestmark = pytest.mark.skipif(world.size > 1,
