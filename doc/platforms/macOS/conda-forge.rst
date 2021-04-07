@@ -1,11 +1,11 @@
-.. _miniconda:
+.. _conda-forge:
 
-==================
-Miniconda on macOS
-==================
+===============================
+Conda-forge + Homebrew on macOS
+===============================
 
-These instructions are for Intel-based Macs running macOS Big Sur (11.2). Big Sur uses uses zsh 
-as the default shell, but you can revert to use bash if desired.
+These instructions are for Apple Silicon-based Macs (tested on the M1) running macOS Big Sur (11.2). 
+Big Sur uses uses zsh as the default shell, but you can revert to use bash if desired.
 
 .. highlight:: zsh
 
@@ -15,21 +15,23 @@ Get the Xcode Command Line Tools with the command::
 
 Install Miniconda::
 
-    $ curl -O https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-x86_64.sh
-    $ bash ~/Miniconda3-latest-MacOSX-x86_64.sh -b -p $HOME/miniconda
+    $ curl -O https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-MacOSX-arm64.sh
+    $ chmod u+x Miniforge3-MacOSX-arm64.sh
+    $ ./Miniforge3-MacOSX-arm64.sh
     $ $HOME/miniconda/bin/conda init zsh
     $ source ~/.zshrc
 
 Configure conda and create an environment::
 
     $ conda config --set auto_activate_base false
-    $ conda create --name gpaw
+    $ conda create --name gpaw python=3.9
     $ conda activate gpaw
 
 Install ASE dependencies::
 
-    $ conda install tk
-    $ conda install numpy scipy matplotlig
+    $ conda install matplotlib
+    $ conda install scipy=1.5.3
+    $ conda install pillow
     $ conda install pytest pytest-mock
 
 Install ASE development version from git::
@@ -45,10 +47,22 @@ NOTE: For latest stable ASE version instead, simply use::
 Run ASE tests::
 
     $ ase test
+    $ pytest --pyargs ase
 
 Install GPAW dependencies::
 
-    $ conda install -c conda-forge libxc openmpi-mpicc fftw scalapack
+    $ brew install libxc
+    $ brew install fftw
+    $ brew install open-mpi
+    $ brew install scalapack
+
+Set paths – check that these match your system::
+
+    $ export C_INCLUDE_PATH=/opt/homebrew/Cellar/libxc/4.3.4_1/include
+    $ export LIBRARY_PATH=/opt/homebrew/Cellar/libxc/4.3.4_1/lib
+    $ export LD_LIBRARY_PATH=/opt/homebrew/Cellar/libxc/4.3.4_1/lib
+    $ export LDFLAGS="-L/opt/homebrew/opt/openblas/lib"
+    $ export CPPFLAGS="-I/opt/homebrew/opt/openblas/include"
 
 Download GPAW development version from git::
 
@@ -81,7 +95,7 @@ Install GPAW setups::
 
 Run GPAW tests::
 
-    $ pip3 install pytest-xdist
+    $ conda install pytest-xdist
     $ gpaw test
     $ gpaw -P 4 test
     $ pytest -n 4 --pyargs gpaw

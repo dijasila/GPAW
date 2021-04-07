@@ -1,12 +1,11 @@
 .. _homebrew:
 
-========
-Homebrew
-========
+=================
+Homebrew on macOS
+=================
 
-These instructions are for a developer installation with the latest dev version of GPAW from git. 
-They have been updated for macOS 13.2 Big Sur, which uses zsh as the default shell, but it is 
-straightforward to revert to use bash if desired.
+These instructions are for Intel-based Macs running macOS Big Sur (11.2). Big Sur uses uses zsh 
+as the default shell, but you can revert to use bash if desired.
 
 .. highlight:: zsh
 

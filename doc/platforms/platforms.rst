@@ -53,6 +53,7 @@ macOS:
 
    macOS/homebrew
    macOS/miniconda
+   macOS/conda-forge
 
 AIX:
 
