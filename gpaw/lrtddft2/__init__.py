@@ -131,7 +131,7 @@ class LrTDDFT2:
         self.lr_comms = lr_communicators
 
         if self.lr_comms is None:
-            self.lr_comms = LrCommunicators()
+            self.lr_comms = LrCommunicators(None, None)
         self.lr_comms.initialize(gs_calc)
 
         # Init text output
