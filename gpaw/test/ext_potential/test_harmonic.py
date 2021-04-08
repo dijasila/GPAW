@@ -17,7 +17,7 @@ class HarmonicPotential(ExternalPotential):
         return {'name': 'HarmonicPotential'}
 
 
-def test_ext_potential_harmonic():
+def test_ext_potential_harmonic(in_tmp_dir):
     """Test againts analytic result (no xc, no Coulomb)."""
     a = 4.0
     x = Atoms(cell=(a, a, a))  # no atoms
