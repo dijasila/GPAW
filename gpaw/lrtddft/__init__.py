@@ -471,7 +471,7 @@ class LrTDDFTExcitation(Excitation):
             else:
                 self.muv = None
             if self.kss.magn is not None:
-                self.magn = np.dot(1. / ew_k, self.kss.magn)
+                self.magn = np.dot(wght_k / erat_k, self.kss.magn)
             else:
                 self.magn = None
 

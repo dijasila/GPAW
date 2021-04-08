@@ -7,7 +7,7 @@ import sys
 import contextlib
 from pathlib import Path
 from sysconfig import get_platform
-from typing import List, Dict
+from typing import List, Dict, Union
 
 __version__ = '21.1.1b1'
 __ase_version_required__ = '3.21.0'
@@ -20,7 +20,7 @@ __all__ = ['GPAW',
            'restart']
 
 
-setup_paths: List[str] = []
+setup_paths: List[Union[str, Path]] = []
 is_gpaw_python = '_gpaw' in sys.builtin_module_names
 dry_run = 0
 debug: bool = bool(sys.flags.debug)
