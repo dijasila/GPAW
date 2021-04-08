@@ -47,9 +47,10 @@ we calculate the rotatory strength spectrum from the magnetic moments:
 
 .. literalinclude:: lcao/spec.py
 
-The resulting spectrum:
+Comparing the resulting spectrum to one calculated with plain dzp basis sets shows
+the importance of augmented basis sets:
 
-.. image:: lcao/spectrum.png
+.. image:: lcao/spectra.png
 
 
 .. [#Makkonen2021]
