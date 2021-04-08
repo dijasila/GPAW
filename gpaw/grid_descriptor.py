@@ -730,7 +730,7 @@ class GridDescriptor(Domain):
                                order=3,
                                mode='wrap')
 
-    def __eq__(self, other):
+    def hmm__eq__(self, other):
         # XXX Wait, should this not check the global distribution?  This
         # could return True on some nodes and False on others because the
         # check does not verify self.n_cp.
