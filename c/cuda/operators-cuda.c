@@ -129,14 +129,18 @@ void debug_operator_deallocate()
     free(debug_in_cpu);
 }
 
-void debug_operator_memcpy(double *out, double *in, double *buf,
-                           int ng, int ng2)
+void debug_operator_memcpy_pre(double *out, const double *in, int ng)
 {
     GPAW_CUDAMEMCPY(debug_in_cpu, in, double, ng, cudaMemcpyDeviceToHost);
     GPAW_CUDAMEMCPY(debug_out_cpu, out, double, ng, cudaMemcpyDeviceToHost);
+}
+
+void debug_operator_memcpy_post(double *out, double *buf, int ng, int ng2)
+{
     GPAW_CUDAMEMCPY(debug_out_gpu, out, double, ng, cudaMemcpyDeviceToHost);
     GPAW_CUDAMEMCPY(debug_buf_gpu, buf, double, ng2, cudaMemcpyDeviceToHost);
 }
+
 
 void debug_operator_relax(OperatorObject* self, int relax_method, double w,
                           int n)
@@ -308,10 +312,10 @@ PyObject* Operator_relax_cuda_gpu(OperatorObject* self, PyObject* args)
     if (cuda_overlap)
         cudaEventRecord(operator_event[1], 0);
 
-    if (gpaw_cuda_debug) {
-        debug_operator_memcpy(fun, src, operator_buf_gpu, ng, ng2);
-    }
     for (int n=0; n < nrelax; n++ ) {
+        if (gpaw_cuda_debug) {
+            debug_operator_memcpy_pre(fun, src, ng);
+        }
         if (cuda_overlap) {
             cudaStreamWaitEvent(operator_stream[0], operator_event[1], 0);
             bc_unpack_paste_cuda_gpu(bc, fun, operator_buf_gpu, recvreq,
@@ -347,7 +351,7 @@ PyObject* Operator_relax_cuda_gpu(OperatorObject* self, PyObject* args)
 
         if (gpaw_cuda_debug) {
             cudaDeviceSynchronize();
-            debug_operator_memcpy(fun, src, operator_buf_gpu, ng, ng2);
+            debug_operator_memcpy_post(fun, operator_buf_gpu, ng, ng2);
             debug_operator_relax(self, relax_method, w, n);
         }
     }
@@ -444,15 +448,13 @@ PyObject * Operator_apply_cuda_gpu(OperatorObject* self, PyObject* args)
     if  (cuda_overlap)
         cudaEventRecord(operator_event[1], 0);
 
-    if (gpaw_cuda_debug) {
-        int myblocks = MIN(blocks, nin);
-        debug_operator_memcpy(out, in, operator_buf_gpu, ng * myblocks,
-                              ng2 * myblocks);
-    }
     for (int n=0; n < nin; n += blocks) {
         const double *in2 = in + n * ng;
         double *out2 = out + n * ng;
         int myblocks = MIN(blocks, nin - n);
+        if (gpaw_cuda_debug) {
+            debug_operator_memcpy_pre(out2, in2, ng * myblocks);
+        }
         if (cuda_overlap) {
             cudaStreamWaitEvent(operator_stream[0], operator_event[1], 0);
             bc_unpack_paste_cuda_gpu(bc, in2, operator_buf_gpu, recvreq,
@@ -509,17 +511,8 @@ PyObject * Operator_apply_cuda_gpu(OperatorObject* self, PyObject* args)
 
         if (gpaw_cuda_debug) {
             cudaDeviceSynchronize();
-            double *in_next;
-            double *out_next;
-            if (n + blocks < nin) {
-                in_next = in2 + n * ng;
-                out_next = out2 + n * ng;
-            } else {
-                in_next = in2;
-                out_next = out2;
-            }
-            debug_operator_memcpy(out_next, in_next, operator_buf_gpu,
-                                  ng * myblocks, ng2 * myblocks);
+            debug_operator_memcpy_post(out2, operator_buf_gpu,
+                                       ng * myblocks, ng2 * myblocks);
             debug_operator_apply(self, ph, real, n, myblocks);
         }
     }
