@@ -26,7 +26,7 @@ H   1.8684   0.8649   0.5908
 """), format='xyz')
     atoms.center(vacuum=3)
     
-    atoms.calc = GPAW(h=0.25,
+    atoms.calc = GPAW(h=0.3,
                       occupations=FermiDirac(width=0.1),
                       nbands=13)
     atoms.get_potential_energy()
