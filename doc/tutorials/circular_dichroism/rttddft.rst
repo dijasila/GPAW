@@ -32,17 +32,24 @@ Let's do the ground-state calculation (note the ``basis`` keyword):
 
 .. literalinclude:: lcao/gs.py
 
-Then, we carry the time propagation:
+Then, we carry the time propagation as usual in
+:ref:`real-time TDDFT LCAO mode <lcaotddft>`,
+but we attach ``MagneticMomentWriter``
+to record the time-dependent magnetic moment.
+In this script, we wrap the time propagation code
+inside ``main()`` function to make the same script reusable
+with different kick directions:
 
 .. literalinclude:: lcao/td.py
 
-Finally, we calculate the spectrum (takes a few seconds):
+After repeating the calculation for kicks in x, y, and z directions,
+we calculate the rotatory strength spectrum from the magnetic moments:
 
 .. literalinclude:: lcao/spec.py
 
 The resulting spectrum:
 
-.. image:: lcao/spectra.png
+.. image:: lcao/spectrum.png
 
 
 .. [#Makkonen2021]
