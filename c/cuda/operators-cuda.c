@@ -164,7 +164,7 @@ void debug_operator_relax(OperatorObject* self, int relax_method, double w,
         bc_unpack2(bc, debug_buf_cpu, i, recvreq, sendreq,
                    debug_recvbuf, 1);
     }
-    bmgs_relax(relax_method, &self->stencil, debug_buf_gpu, debug_out_cpu,
+    bmgs_relax(relax_method, &self->stencil, debug_buf_cpu, debug_out_cpu,
                debug_in_cpu, w);
 
     double buf_err = 0;
@@ -212,11 +212,11 @@ void debug_operator_apply(OperatorObject* self, const double_complex *ph,
     }
     for (int m=0; m < myblocks; m++) {
         if (real)
-            bmgs_fd(&self->stencil, debug_buf_gpu + m * ng2,
+            bmgs_fd(&self->stencil, debug_buf_cpu + m * ng2,
                     debug_out_cpu + m * ng);
         else
             bmgs_fdz(&self->stencil,
-                    (const double_complex*) (debug_buf_gpu + m * ng2),
+                    (const double_complex*) (debug_buf_cpu + m * ng2),
                     (double_complex*) (debug_out_cpu + m * ng));
     }
 
