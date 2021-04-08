@@ -1,5 +1,7 @@
 import pytest
-from ase import io
+from io import StringIO
+
+from ase.io import read
 from ase.units import Ha
 
 from gpaw import GPAW, FermiDirac
@@ -9,9 +11,7 @@ from gpaw.lrtddft2 import LrTDDFT2
 
 @pytest.fixture
 def C3H6O():
-    structf = 'C3H6O.xyz'
-    with open(structf, 'w') as f:
-        f.write("""10
+    atoms = read(StringIO("""10
 http://cccbdb.nist.gov/ Geometry for C3H6O (Propylene oxide), CISD/6-31G*
 O   0.8171  -0.7825  -0.2447
 C  -1.5018   0.1019  -0.1473
@@ -23,9 +23,7 @@ H  -0.1505  -0.2633   1.5506
 C   1.0387   0.6105  -0.0580
 H   0.9518   1.2157  -0.9531
 H   1.8684   0.8649   0.5908
-""")
-
-    atoms = io.read(structf)
+"""), format='xyz')
     atoms.center(vacuum=3)
     
     atoms.calc = GPAW(h=0.25,
@@ -42,7 +40,7 @@ def test_lrtddft2(C3H6O, in_tmp_dir):
     evs = atoms.calc.get_eigenvalues()
     energy_differences = evs[-1] - evs[:-1]
 
-    istart = 8
+    istart = 10
     
     lr = LrTDDFT(atoms.calc, restrict={'istart': istart})
 
