@@ -49,6 +49,10 @@ Run ASE tests::
     $ ase test
     $ pytest --pyargs ase
 
+Install Homebrew::
+
+    $ /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
 Install GPAW dependencies::
 
     $ brew install libxc
