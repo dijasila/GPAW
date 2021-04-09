@@ -29,10 +29,9 @@ H   1.8684   0.8649   0.5908
 """), format='xyz')
     atoms.center(vacuum=3)
 
-    nbands = 15
     atoms.calc = GPAW(h=0.3,
                       occupations=FermiDirac(width=0.1),
-                      nbands=nbands, convergence={
+                      nbands=15, convergence={
                           'eigenstates': 1e-4,
                           'bands': jend},
                       txt=None)
