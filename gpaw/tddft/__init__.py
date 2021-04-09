@@ -97,14 +97,10 @@ class TDDFT(GPAW):
         # For communicating with observers
         self.action = None
 
-        # Set initial time
         self.time = 0.0
-
-        # Set initial kick strength
         self.kick_strength = np.array([0.0, 0.0, 0.0], dtype=float)
-
-        # Set initial value of iteration counter
         self.niter = 0
+        self.dm_file = None  # XXX remove and use observer instead
 
         # Parallelization dictionary should default to strided bands
         # but it does not work XXX
@@ -114,6 +110,7 @@ class TDDFT(GPAW):
         self.default_parameters = GPAW.default_parameters.copy()
         self.default_parameters['mixer'] = DummyMixer()
         self.default_parameters['symmetry'] = {'point_group': False}
+        self.default_parameters['experimental']['reuse_wfs_method'] = None
 
         # NB: TDDFT restart files contain additional information which
         #     will override the initial settings for time/kick/niter.
@@ -122,13 +119,6 @@ class TDDFT(GPAW):
         assert isinstance(self.wfs, TimeDependentWaveFunctions)
         assert isinstance(self.wfs.overlap, TimeDependentOverlap)
 
-        # Prepare for dipole moment file handle
-        self.dm_file = None
-
-        # Initialize wavefunctions and density
-        # (necessary after restarting from file)
-        if not self.initialized:
-            self.initialize()
         self.set_positions()
 
         # Don't be too strict
@@ -136,15 +126,10 @@ class TDDFT(GPAW):
 
         self.rank = self.wfs.world.rank
 
-        self.text = self.log
-        self.text('')
-        self.text('')
-        self.text('------------------------------------------')
-        self.text('  Time-propagation TDDFT                  ')
-        self.text('------------------------------------------')
-        self.text('')
-
-        self.text('Charge epsilon:', self.density.charge_eps)
+        self.calculate_energy = calculate_energy
+        if self.hamiltonian.xc.name.startswith('GLLB'):
+            self.text('GLLB model potential. Not updating energy.')
+            self.calculate_energy = False
 
         # Time-dependent variables and operators
         self.td_hamiltonian = TimeDependentHamiltonian(self.wfs, self.spos_ac,
@@ -164,12 +149,9 @@ class TDDFT(GPAW):
                 FutureWarning)
             solver.update(tolerance=tolerance)
         self.solver = create_solver(solver)
-        self.solver.initialize(self.wfs.gd, self.timer)
-        self.text('Solver:', self.solver.todict())
 
         # Preconditioner
         # No preconditioner as none good found
-        self.text('Preconditioner:', 'None')
         self.preconditioner = None  # TODO! check out SSOR preconditioning
         # self.preconditioner = InverseOverlapPreconditioner(self.overlap)
         # self.preconditioner = KineticEnergyPreconditioner(
@@ -179,12 +161,45 @@ class TDDFT(GPAW):
         if isinstance(propagator, str):
             propagator = dict(name=propagator)
         self.propagator = create_propagator(propagator)
+
+        self.hpsit = None
+        self.eps_tmp = None
+        self.mblas = MultiBlas(self.wfs.gd)
+
+        self.tddft_initialized = False
+
+    def tddft_init(self):
+        if self.tddft_initialized:
+            return
+
+        self.text = self.log
+        self.text('')
+        self.text('')
+        self.text('------------------------------------------')
+        self.text('  Time-propagation TDDFT                  ')
+        self.text('------------------------------------------')
+        self.text('')
+
+        self.text('Charge epsilon:', self.density.charge_eps)
+
+        # Density mixer
+        self.td_density.density.set_mixer(DummyMixer())
+
+        # Solver
+        self.solver.initialize(self.wfs.gd, self.timer)
+        self.text('Solver:', self.solver.todict())
+
+        # Preconditioner
+        self.text('Preconditioner:', self.preconditioner)
+
+        # Propagator
         self.propagator.initialize(self.td_density, self.td_hamiltonian,
                                    self.wfs.overlap, self.solver,
                                    self.preconditioner,
                                    self.wfs.gd, self.timer)
         self.text('Propagator:', self.propagator.todict())
 
+        # Parallelization
         wfs = self.wfs
         if self.rank == 0:
             if wfs.kd.comm.size > 1:
@@ -200,10 +215,6 @@ class TDDFT(GPAW):
                               wfs.bd.comm.size)
             self.text('States per processor =', wfs.bd.mynbands)
 
-        self.hpsit = None
-        self.eps_tmp = None
-        self.mblas = MultiBlas(self.wfs.gd)
-
         # Restarting an FDTD run generates hamiltonian.fdtd_poisson, which
         # now overwrites hamiltonian.poisson
         if hasattr(self.hamiltonian, 'fdtd_poisson'):
@@ -216,17 +227,18 @@ class TDDFT(GPAW):
             self.hamiltonian.poisson.print_messages(self.text)
             self.log.flush()
 
-        self.calculate_energy = calculate_energy
-        if self.hamiltonian.xc.name.startswith('GLLB'):
-            self.text('GLLB model potential. Not updating energy.')
-            self.calculate_energy = False
-
         # Update density and Hamiltonian
         self.propagator.update_time_dependent_operators(self.time)
 
         # XXX remove dipole moment handling and use observer instead
         self._dm_args0 = (self.density.finegd.integrate(self.density.rhot_g),
                           self.calculate_dipole_moment())
+
+        # Call observers
+        self.action = 'init'
+        self.call_observers(self.niter)
+
+        self.tddft_initialized = True
 
     def create_wave_functions(self, mode, *args, **kwargs):
         mode = FDTDDFTMode(mode.nn, mode.interpolation, True)
@@ -238,15 +250,6 @@ class TDDFT(GPAW):
             self.time = reader.tddft.time
             self.niter = reader.tddft.niter
             self.kick_strength = reader.tddft.kick_strength
-
-    def initialize(self, reading=False):
-        self.parameters.mixer = DummyMixer()
-        self.parameters.experimental['reuse_wfs_method'] = None
-        GPAW.initialize(self, reading=reading)
-
-        # Call observers
-        self.action = 'init'
-        self.call_observers(self.niter)
 
     def _write(self, writer, mode):
         GPAW._write(self, writer, mode)
@@ -273,6 +276,7 @@ class TDDFT(GPAW):
             After how many iterations restart data is dumped
 
         """
+        self.tddft_init()
 
         if self.rank == 0:
             self.text()
@@ -459,6 +463,7 @@ class TDDFT(GPAW):
 
     def get_td_energy(self):
         """Calculate the time-dependent total energy"""
+        self.tddft_init()
 
         if not self.calculate_energy:
             self.Etot = 0.0
@@ -485,6 +490,8 @@ class TDDFT(GPAW):
             Strength of the kick, e.g., [0.0, 0.0, 1e-3]
 
         """
+        self.tddft_init()
+
         if self.rank == 0:
             self.text('Delta kick =', kick_strength)
 
