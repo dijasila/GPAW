@@ -128,7 +128,7 @@ class TDDFT(GPAW):
 
         self.calculate_energy = calculate_energy
         if self.hamiltonian.xc.name.startswith('GLLB'):
-            self.text('GLLB model potential. Not updating energy.')
+            self.log('GLLB model potential. Not updating energy.')
             self.calculate_energy = False
 
         # Time-dependent variables and operators
@@ -172,48 +172,47 @@ class TDDFT(GPAW):
         if self.tddft_initialized:
             return
 
-        self.text = self.log
-        self.text('')
-        self.text('')
-        self.text('------------------------------------------')
-        self.text('  Time-propagation TDDFT                  ')
-        self.text('------------------------------------------')
-        self.text('')
+        self.log('')
+        self.log('')
+        self.log('------------------------------------------')
+        self.log('  Time-propagation TDDFT                  ')
+        self.log('------------------------------------------')
+        self.log('')
 
-        self.text('Charge epsilon:', self.density.charge_eps)
+        self.log('Charge epsilon:', self.density.charge_eps)
 
         # Density mixer
         self.td_density.density.set_mixer(DummyMixer())
 
         # Solver
         self.solver.initialize(self.wfs.gd, self.timer)
-        self.text('Solver:', self.solver.todict())
+        self.log('Solver:', self.solver.todict())
 
         # Preconditioner
-        self.text('Preconditioner:', self.preconditioner)
+        self.log('Preconditioner:', self.preconditioner)
 
         # Propagator
         self.propagator.initialize(self.td_density, self.td_hamiltonian,
                                    self.wfs.overlap, self.solver,
                                    self.preconditioner,
                                    self.wfs.gd, self.timer)
-        self.text('Propagator:', self.propagator.todict())
+        self.log('Propagator:', self.propagator.todict())
 
         # Parallelization
         wfs = self.wfs
         if self.rank == 0:
             if wfs.kd.comm.size > 1:
                 if wfs.nspins == 2:
-                    self.text('Parallelization Over Spin')
+                    self.log('Parallelization Over Spin')
 
                 if wfs.gd.comm.size > 1:
-                    self.text('Using Domain Decomposition: %d x %d x %d' %
-                              tuple(wfs.gd.parsize_c))
+                    self.log('Using Domain Decomposition: %d x %d x %d' %
+                             tuple(wfs.gd.parsize_c))
 
                 if wfs.bd.comm.size > 1:
-                    self.text('Parallelization Over bands on %d Processors' %
-                              wfs.bd.comm.size)
-            self.text('States per processor =', wfs.bd.mynbands)
+                    self.log('Parallelization Over bands on %d Processors' %
+                             wfs.bd.comm.size)
+            self.log('States per processor =', wfs.bd.mynbands)
 
         # Restarting an FDTD run generates hamiltonian.fdtd_poisson, which
         # now overwrites hamiltonian.poisson
@@ -224,7 +223,7 @@ class TDDFT(GPAW):
         # For electrodynamics mode
         if self.hamiltonian.poisson.get_description() == 'FDTD+TDDFT':
             self.hamiltonian.poisson.set_density(self.density)
-            self.hamiltonian.poisson.print_messages(self.text)
+            self.hamiltonian.poisson.print_messages(self.log)
             self.log.flush()
 
         # Update density and Hamiltonian
@@ -287,15 +286,15 @@ class TDDFT(GPAW):
                 FutureWarning)
 
         if self.rank == 0:
-            self.text()
-            self.text('Starting time: %7.2f as'
-                      % (self.time * autime_to_attosec))
-            self.text('Time step:     %7.2f as' % time_step)
+            self.log()
+            self.log('Starting time: %7.2f as'
+                     % (self.time * autime_to_attosec))
+            self.log('Time step:     %7.2f as' % time_step)
             header = """\
                         Simulation     Total         log10     Iterations:
              Time          time        Energy (eV)   Norm      Propagator"""
-            self.text()
-            self.text(header)
+            self.log()
+            self.log(header)
 
         # Convert to atomic units
         time_step = time_step * attosec_to_autime
@@ -349,12 +348,12 @@ class TDDFT(GPAW):
                 if self.rank == 0:
                     iter_text = 'iter: %3d  %02d:%02d:%02d %11.2f' \
                                 '   %13.6f %9.1f %10d'
-                    self.text(iter_text %
-                              (self.niter, T[3], T[4], T[5],
-                               self.time * autime_to_attosec,
-                               self.Etot * aufrequency_to_eV,
-                               log(abs(norm) + 1e-16) / log(10),
-                               niterpropagator))
+                    self.log(iter_text %
+                             (self.niter, T[3], T[4], T[5],
+                              self.time * autime_to_attosec,
+                              self.Etot * aufrequency_to_eV,
+                              log(abs(norm) + 1e-16) / log(10),
+                              niterpropagator))
 
                     self.log.flush()
 
@@ -501,7 +500,7 @@ class TDDFT(GPAW):
         self.tddft_init()
 
         if self.rank == 0:
-            self.text('Delta kick =', kick_strength)
+            self.log('Delta kick =', kick_strength)
 
         self.kick_strength = np.array(kick_strength)
 
