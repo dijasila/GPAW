@@ -194,12 +194,12 @@ void debug_operator_relax(OperatorObject* self, int relax_method, double w,
         MPI_Comm_rank(bc->comm, &rank);
     if (buf_err > GPAW_CUDA_ABS_TOL) {
         fprintf(stderr,
-                "Debug cuda operator relax bc (rank:%d) errors: buf %g\n",
+                "[%d] Debug CUDA operator relax (buf): error %g\n",
                 rank, buf_err);
     }
     if (fun_err > GPAW_CUDA_ABS_TOL) {
         fprintf(stderr,
-                "Debug cuda operator relax (rank:%d) errors: fun %g\n",
+                "[%d] Debug CUDA operator relax (fun): error %g\n",
                 rank, fun_err);
     }
 }
@@ -381,14 +381,14 @@ void debug_operator_apply(OperatorObject* self, const double_complex *ph,
     if (bc->comm != MPI_COMM_NULL)
         MPI_Comm_rank(bc->comm, &rank);
     if (buf_err > GPAW_CUDA_ABS_TOL) {
-        printf("Debug cuda operator fd bc (rank:%d) errors: buf %g count %d/%d\n",
-               rank, buf_err, buf_err_n, debug_size_buf);
-        fflush(stdout);
+        fprintf(stderr,
+                "[%d] Debug CUDA operator apply (buf): error %g (count %d/%d)\n",
+                rank, buf_err, buf_err_n, debug_size_buf);
     }
     if (out_err > GPAW_CUDA_ABS_TOL) {
-        printf("Debug cuda operator fd (rank:%d) errors: out %g count %d/%d\n",
-               rank, out_err, out_err_n, debug_size_arr);
-        fflush(stdout);
+        fprintf(stderr,
+                "[%d] Debug CUDA operator apply (out): error %g (count %d/%d)\n",
+                rank, out_err, out_err_n, debug_size_arr);
     }
 }
 
