@@ -99,6 +99,8 @@ class TDDFT(GPAW):
         `mixer` and `dtype`. The internal parameters `mixer` and `dtype` are
         strictly used to specify a dummy mixer and complex type respectively.
         """
+        # For communicating with observers
+        self.action = None
 
         # Set initial time
         self.time = 0.0
@@ -281,6 +283,10 @@ class TDDFT(GPAW):
         self.parameters.experimental['reuse_wfs_method'] = None
         GPAW.initialize(self, reading=reading)
 
+        # Call observers
+        self.action = 'init'
+        self.call_observers(self.niter)
+
     def _write(self, writer, mode):
         GPAW._write(self, writer, mode)
         writer.child('tddft').write(time=self.time,
@@ -384,6 +390,7 @@ class TDDFT(GPAW):
             self.time += time_step
 
             # Call registered callback functions
+            self.action = 'propagate'
             self.call_observers(self.niter)
             self.niter += 1
 
@@ -407,9 +414,6 @@ class TDDFT(GPAW):
         # Finalize FDTDPoissonSolver
         if self.hamiltonian.poisson.get_description() == 'FDTD+TDDFT':
             self.hamiltonian.poisson.finalize_propagation()
-
-        # Call registered callback functions
-        self.call_observers(self.niter, final=True)
 
         if restart_file is not None:
             self.write(restart_file, 'all')
@@ -539,3 +543,7 @@ class TDDFT(GPAW):
 
         # Update density and Hamiltonian
         self.propagator.update_time_dependent_operators(self.time)
+
+        # Call observers after kick
+        self.action = 'kick'
+        self.call_observers(self.niter)
