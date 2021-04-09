@@ -1,4 +1,4 @@
-# Creates: si-a.png
+# web-page: si-a.png
 import matplotlib.pyplot as plt
 import ase.db
 from ase.eos import EquationOfState

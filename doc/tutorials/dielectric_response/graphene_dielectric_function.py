@@ -1,4 +1,4 @@
-# Creates: graphene_eps.png
+# web-page: graphene_eps.png
 import matplotlib.pyplot as plt
 import numpy as np
 from ase import Atoms
