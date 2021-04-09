@@ -247,15 +247,17 @@ class TDDFT(GPAW):
     def read(self, filename):
         reader = GPAW.read(self, filename)
         if 'tddft' in reader:
-            self.time = reader.tddft.time
-            self.niter = reader.tddft.niter
-            self.kick_strength = reader.tddft.kick_strength
+            r = reader.tddft
+            self.time = r.time
+            self.niter = r.niter
+            self.kick_strength = r.kick_strength
 
     def _write(self, writer, mode):
         GPAW._write(self, writer, mode)
-        writer.child('tddft').write(time=self.time,
-                                    niter=self.niter,
-                                    kick_strength=self.kick_strength)
+        w = writer.child('tddft')
+        w.write(time=self.time,
+                niter=self.niter,
+                kick_strength=self.kick_strength)
 
     def propagate(self, time_step, iterations,
                   dipole_moment_file=None,  # deprecated
