@@ -7,7 +7,6 @@ from gpaw.cluster import Cluster
 def test_Hubbard_U_Zn_multi():
     h = .35
     box = 3.
-    energy_tolerance = 0.0004
 
     s = Cluster([Atom('Zn')])
     s.minimal_box(box, h=h)
@@ -22,13 +21,13 @@ def test_Hubbard_U_Zn_multi():
     s.calc = c
     single = s.get_potential_energy()
     
-    s.calc.set(setups=':d,3.0,1;p,0.0,1') # No difference
+    s.calc.set(setups=':d,3.0,1;p,0.0,1')  # No difference
     multi30 = s.get_potential_energy()
 
-    s.calc.set(setups=':d,3.0,1;p,2.0,1') # p correction
+    s.calc.set(setups=':d,3.0,1;p,2.0,1')  # p correction
     multi32 = s.get_potential_energy()
 
-    s.calc.set(setups=':p,2.0,1;d,3.0,1') # swap order for d/p
+    s.calc.set(setups=':p,2.0,1;d,3.0,1')  # swap order for d/p
     multi32_swap = s.get_potential_energy()
 
     assert single == multi30

@@ -161,8 +161,8 @@ class SetupData:
         if setup.HubU is not None:
             for index in range(len(setup.HubU)):
                 text('  Hubbard U: %f eV (l=%d, scale=%s)' %
-                     (setup.HubU[index] * Hartree, 
-                      setup.Hubl[index], 
+                     (setup.HubU[index] * Hartree,
+                      setup.Hubl[index],
                       bool(setup.Hubs[index])))
         text('  file:', self.filename)
         text('  compensation charges: {}, rc={:.2f}, lmax={}'

@@ -31,7 +31,7 @@ def create_setup(symbol, xc='LDA', lmax=0,
         if type == '':
             type = 'paw'
 
-        lus = lus.split(";") # Multiple U corrections
+        lus = lus.split(";")  # Multiple U corrections
 
         l = []
         U = []
