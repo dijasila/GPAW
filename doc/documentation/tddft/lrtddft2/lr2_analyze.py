@@ -1,4 +1,4 @@
-# Creates: tc_000_with_08.00eV.txt
+# web-page: tc_000_with_08.00eV.txt
 # Start
 from ase.parallel import paropen
 from gpaw import GPAW

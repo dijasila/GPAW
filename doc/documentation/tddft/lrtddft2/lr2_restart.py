@@ -1,6 +1,6 @@
-# Creates: lr2_with_08.00eV.out
-# Creates: spectrum_with_08.00eV.dat
-# Creates: transitions_with_08.00eV.dat
+# web-page: lr2_with_08.00eV.out
+# web-page: spectrum_with_08.00eV.dat
+# web-page: transitions_with_08.00eV.dat
 # Start
 from gpaw.mpi import world
 from gpaw import GPAW
