@@ -9,6 +9,9 @@ from gpaw.lrtddft import LrTDDFT
 from gpaw.lrtddft2 import LrTDDFT2
 
 
+jend = 12  # LUMO
+
+
 @pytest.fixture
 def C3H6O():
     atoms = read(StringIO("""10
@@ -25,10 +28,14 @@ H   0.9518   1.2157  -0.9531
 H   1.8684   0.8649   0.5908
 """), format='xyz')
     atoms.center(vacuum=3)
-    
+
+    nbands = 15
     atoms.calc = GPAW(h=0.3,
                       occupations=FermiDirac(width=0.1),
-                      nbands=13)
+                      nbands=nbands, convergence={
+                          'eigenstates': 1e-4,
+                          'bands': jend},
+                      txt=None)
     atoms.get_potential_energy()
     return atoms
 
@@ -37,24 +44,25 @@ def test_lrtddft2(C3H6O, in_tmp_dir):
     """Test equivalence"""
     atoms = C3H6O
 
-    evs = atoms.calc.get_eigenvalues()
-    energy_differences = evs[-1] - evs[:-1]
+    istart = 10  # HOMO-1
 
-    istart = 10
+    evs = atoms.calc.get_eigenvalues() / Ha
+    energy_differences = evs[jend] - evs[istart:jend]
+
+    lr = LrTDDFT(atoms.calc, restrict={'istart': istart, 'jend': jend})
     
-    lr = LrTDDFT(atoms.calc, restrict={'istart': istart})
-
-    lr2 = LrTDDFT2('H2O_lr', atoms.calc, fxc='LDA', min_occ=istart)
+    lr2 = LrTDDFT2('C3H6O_lr', atoms.calc, fxc='LDA',
+                   min_occ=istart, max_unocc=jend)
     lr2.calculate()
 
     # check for Kohn-Sham properties
 
-    for de, ks, ks2 in zip(energy_differences[istart:] / Ha,
+    for de, ks, ks2 in zip(energy_differences,
                            lr.kss, lr2.ks_singles.kss_list[::-1]):
         assert de == pytest.approx(ks.energy, 1e-10)
         assert de == pytest.approx(ks2.energy_diff, 1e-8)
 
-        assert ks.mur == pytest.approx(ks2.dip_mom_r, 1e-4)
+        assert ks.mur == pytest.approx(ks2.dip_mom_r, 1e-3)
         assert ks.magn == pytest.approx(ks2.magn_mom, 1e-6)
 
     # check for TDDFT properties
