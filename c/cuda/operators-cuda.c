@@ -251,24 +251,11 @@ void debug_operator_apply(OperatorObject* self, const double_complex *ph,
     }
 }
 
-PyObject* Operator_relax_cuda_gpu(OperatorObject* self, PyObject* args)
+static void _operator_relax_cuda_gpu(OperatorObject* self, int relax_method,
+                                     double *fun, const double *src,
+                                     int nrelax, double w)
 {
-    int relax_method;
-    CUdeviceptr func_gpu;
-    CUdeviceptr source_gpu;
-    double w = 1.0;
-    int nrelax;
-
-    if (!PyArg_ParseTuple(args, "inni|d", &relax_method, &func_gpu,
-                          &source_gpu, &nrelax, &w))
-        return NULL;
-
     boundary_conditions* bc = self->bc;
-
-    double *fun = (double*) func_gpu;
-    const double *src = (double*) source_gpu;
-    const double_complex *ph;
-
     const int *size2 = bc->size2;
     const int *size1 = bc->size1;
     int ng = bc->ndouble * size1[0] * size1[1] * size1[2];
@@ -277,11 +264,13 @@ PyObject* Operator_relax_cuda_gpu(OperatorObject* self, PyObject* args)
     MPI_Request recvreq[3][2];
     MPI_Request sendreq[3][2];
 
+    const double_complex *ph;
+    ph = 0;
+
     if (gpaw_cuda_debug) {
         debug_operator_allocate(bc, ng, ng2, 1);
     }
 
-    ph = 0;
     int blocks = 1;
     operator_alloc_buffers(self, blocks);
 
@@ -364,47 +353,44 @@ PyObject* Operator_relax_cuda_gpu(OperatorObject* self, PyObject* args)
         cudaStreamWaitEvent(0, operator_event[1], 0);
         cudaStreamSynchronize(operator_stream[0]);
     }
+}
+
+PyObject* Operator_relax_cuda_gpu(OperatorObject* self, PyObject* args)
+{
+    int relax_method;
+    CUdeviceptr func_gpu;
+    CUdeviceptr source_gpu;
+    double w = 1.0;
+    int nrelax;
+
+    if (!PyArg_ParseTuple(args, "inni|d", &relax_method, &func_gpu,
+                          &source_gpu, &nrelax, &w))
+        return NULL;
+
+    double *fun = (double*) func_gpu;
+    const double *src = (double*) source_gpu;
+
+    _operator_relax_cuda_gpu(self, relax_method, fun, src, nrelax, w);
+
     if (PyErr_Occurred())
         return NULL;
     else
         Py_RETURN_NONE;
 }
 
-PyObject * Operator_apply_cuda_gpu(OperatorObject* self, PyObject* args)
+static void _operator_apply_cuda_gpu(OperatorObject *self,
+                                     const double *in, double *out,
+                                     int nin, bool real,
+                                     const double_complex *ph)
 {
-    PyArrayObject* phases = 0;
-    CUdeviceptr input_gpu;
-    CUdeviceptr output_gpu;
-    PyObject *shape;
-    PyArray_Descr *type;
-
-    if (!PyArg_ParseTuple(args, "nnOO|O", &input_gpu, &output_gpu, &shape,
-                          &type, &phases))
-        return NULL;
-
-    int nin = 1;
-    if (PyTuple_Size(shape) == 4)
-        nin = (int) PyLong_AsLong(PyTuple_GetItem(shape, 0));
-
     boundary_conditions* bc = self->bc;
     const int *size1 = bc->size1;
     const int *size2 = bc->size2;
     int ng = bc->ndouble * size1[0] * size1[1] * size1[2];
     int ng2 = bc->ndouble * size2[0] * size2[1] * size2[2];
 
-    const double *in = (double*) input_gpu;
-    double *out = (double*) output_gpu;
-    const double_complex *ph;
-
-    bool real = (type->type_num == NPY_DOUBLE);
-
     MPI_Request recvreq[3][2];
     MPI_Request sendreq[3][2];
-
-    if (real)
-        ph = 0;
-    else
-        ph = COMPLEXP(phases);
 
     int mpi_size = 1;
     if ((bc->maxsend || bc->maxrecv) && bc->comm != MPI_COMM_NULL) {
@@ -525,6 +511,37 @@ PyObject * Operator_apply_cuda_gpu(OperatorObject* self, PyObject* args)
         cudaStreamWaitEvent(0, operator_event[1], 0);
         cudaStreamSynchronize(operator_stream[0]);
     }
+}
+
+PyObject * Operator_apply_cuda_gpu(OperatorObject* self, PyObject* args)
+{
+    PyArrayObject* phases = 0;
+    CUdeviceptr input_gpu;
+    CUdeviceptr output_gpu;
+    PyObject *shape;
+    PyArray_Descr *type;
+
+    if (!PyArg_ParseTuple(args, "nnOO|O", &input_gpu, &output_gpu, &shape,
+                          &type, &phases))
+        return NULL;
+
+    int nin = 1;
+    if (PyTuple_Size(shape) == 4)
+        nin = (int) PyLong_AsLong(PyTuple_GetItem(shape, 0));
+
+    const double *in = (double*) input_gpu;
+    double *out = (double*) output_gpu;
+
+    bool real = (type->type_num == NPY_DOUBLE);
+
+    const double_complex *ph;
+    if (real)
+        ph = 0;
+    else
+        ph = COMPLEXP(phases);
+
+    _operator_apply_cuda_gpu(self, in, out, nin, real, ph);
+
     if (PyErr_Occurred())
         return NULL;
     else
