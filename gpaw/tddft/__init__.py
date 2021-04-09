@@ -145,7 +145,7 @@ class TDDFT(GPAW):
         self.text('------------------------------------------')
         self.text('')
 
-        self.text('Charge epsilon: ', self.density.charge_eps)
+        self.text('Charge epsilon:', self.density.charge_eps)
 
         # Time-dependent variables and operators
         self.td_potential = td_potential
@@ -172,7 +172,7 @@ class TDDFT(GPAW):
 
         # Preconditioner
         # No preconditioner as none good found
-        self.text('Preconditioner: ', 'None')
+        self.text('Preconditioner:', 'None')
         self.preconditioner = None  # TODO! check out SSOR preconditioning
         # self.preconditioner = InverseOverlapPreconditioner(self.overlap)
         # self.preconditioner = KineticEnergyPreconditioner(
@@ -199,7 +199,7 @@ class TDDFT(GPAW):
                 if wfs.bd.comm.size > 1:
                     self.text('Parallelization Over bands on %d Processors' %
                               wfs.bd.comm.size)
-            self.text('States per processor = ', wfs.bd.mynbands)
+            self.text('States per processor =', wfs.bd.mynbands)
 
         self.hpsit = None
         self.eps_tmp = None
@@ -487,7 +487,7 @@ class TDDFT(GPAW):
 
         """
         if self.rank == 0:
-            self.text('Delta kick = ', kick_strength)
+            self.text('Delta kick =', kick_strength)
 
         self.kick_strength = np.array(kick_strength)
 
