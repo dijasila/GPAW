@@ -129,7 +129,7 @@ GPAW web-pages should start with a special ``# web-page:`` comment like this::
 
     # web-page: fig1.png, table1.csv
     ...
-    # code that cretes fig1.png and table1.csv
+    # code that creates fig1.png and table1.csv
     ...
 
 .. _workflow: https://myqueue.readthedocs.io/en/latest/
