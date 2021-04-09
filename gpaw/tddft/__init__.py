@@ -94,6 +94,8 @@ class TDDFT(GPAW):
         `mixer` and `dtype`. The internal parameters `mixer` and `dtype` are
         strictly used to specify a dummy mixer and complex type respectively.
         """
+        assert filename is not None
+
         # For communicating with observers
         self.action = None
 
