@@ -259,7 +259,8 @@ class TDDFT(GPAW):
 
     def propagate(self, time_step, iterations,
                   dipole_moment_file=None,  # deprecated
-                  restart_file=None, dump_interval=100):
+                  restart_file=None, dump_interval=100  # to be deprecated
+                  ):
         """Propagates wavefunctions.
 
         Parameters
