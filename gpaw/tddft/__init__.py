@@ -3,6 +3,7 @@ functional theory calculations.
 
 """
 import time
+import warnings
 from math import log
 
 import numpy as np
@@ -13,8 +14,7 @@ from gpaw.preconditioner import Preconditioner
 from gpaw.tddft.units import (attosec_to_autime, autime_to_attosec,
                               aufrequency_to_eV)
 from gpaw.tddft.utils import MultiBlas
-from gpaw.tddft.bicgstab import BiCGStab
-from gpaw.tddft.cscg import CSCG
+from gpaw.tddft.solvers import create_solver
 from gpaw.tddft.propagators import \
     create_propagator, \
     AbsorptionKick
@@ -70,7 +70,8 @@ class TDDFT(GPAW):
 
     def __init__(self, filename,
                  td_potential=None, propagator='SICN', calculate_energy=True,
-                 solver='CSCG', tolerance=1e-8,
+                 solver={'name': 'CSCG', 'tolerance': 1e-8},
+                 tolerance=None,  # deprecated
                  **kwargs):
         """Create TDDFT-object.
 
@@ -84,10 +85,8 @@ class TDDFT(GPAW):
             to each direction as a vector of three floats.
         propagator: string or dictionary
             Time propagator for the Kohn-Sham wavefunctions
-        solver: {'CSCG','BiCGStab'}
-            Name of the iterative linear equations solver for time propagation
-        tolerance: float
-            Tolerance for the linear solver
+        solver: dictionary
+            The iterative linear equations solver for time propagation
 
         The following parameters can be used: `txt`, `parallel`, `communicator`
         `mixer` and `dtype`. The internal parameters `mixer` and `dtype` are
@@ -155,15 +154,19 @@ class TDDFT(GPAW):
         self.td_density = TimeDependentDensity(self)
 
         # Solver for linear equations
-        self.text('Solver: ', solver)
-        if solver == 'BiCGStab':
-            self.solver = BiCGStab(gd=wfs.gd, timer=self.timer,
-                                   tolerance=tolerance)
-        elif solver == 'CSCG':
-            self.solver = CSCG(gd=wfs.gd, timer=self.timer,
-                               tolerance=tolerance)
-        else:
-            raise RuntimeError('Solver %s not supported.' % solver)
+        if isinstance(solver, str):
+            solver = dict(name=solver)
+        if tolerance is not None:
+            warnings.warn(
+                "Please specify the solver tolerance using dictionary "
+                "solver={'name': name, 'tolerance': tolerance}. "
+                "Confirm the used tolerance from the output file. "
+                "The old syntax will throw an error in the future.",
+                FutureWarning)
+            solver.update(tolerance=tolerance)
+        self.solver = create_solver(solver)
+        self.solver.initialize(wfs.gd, self.timer)
+        self.text('Solver:', self.solver.todict())
 
         # Preconditioner
         # No preconditioner as none good found
