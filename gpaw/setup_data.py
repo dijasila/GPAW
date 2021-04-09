@@ -159,8 +159,11 @@ class SetupData:
             text('  core: %.1f' % self.Nc)
         text('  charge:', self.Z - self.Nv - self.Nc)
         if setup.HubU is not None:
-            text('  Hubbard U: %f eV (l=%d, scale=%s)' %
-                 (setup.HubU * Hartree, setup.Hubl, bool(setup.Hubs)))
+            for index in range(len(setup.HubU)):
+                text('  Hubbard U: %f eV (l=%d, scale=%s)' %
+                     (setup.HubU[index] * Hartree, 
+                      setup.Hubl[index], 
+                      bool(setup.Hubs[index])))
         text('  file:', self.filename)
         text('  compensation charges: {}, rc={:.2f}, lmax={}'
              .format(self.shape_function['type'],

@@ -27,18 +27,21 @@ def create_setup(symbol, xc='LDA', lmax=0,
     if isinstance(type, str) and ':' in type:
         # Parse DFT+U parameters from type-string:
         # Examples: "type:l,U" or "type:l,U,scale"
-        type, lu = type.split(':')
+        type, lus = type.split(':')
         if type == '':
             type = 'paw'
-        l = 'spdf'.find(lu[0])
-        assert lu[1] == ','
-        U = lu[2:]
-        if ',' in U:
-            U, scale = U.split(',')
-        else:
-            scale = True
-        U = float(U) / units.Hartree
-        scale = int(scale)
+
+        lus = lus.split(";") # Multiple U corrections
+
+        l = []
+        U = []
+        scale = []
+
+        for lu in lus:
+            l_, u_, scale_ = (lu + ",,").split(",")[:3]
+            l.append('spdf'.find(l_))
+            U.append(float(u_) / units.Hartree)
+            scale.append(scale_)
     else:
         U = None
 
