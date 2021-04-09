@@ -134,8 +134,7 @@ class TDDFT(GPAW):
         # Don't be too strict
         self.density.charge_eps = 1e-5
 
-        wfs = self.wfs
-        self.rank = wfs.world.rank
+        self.rank = self.wfs.world.rank
 
         self.text = self.log
         self.text('')
@@ -148,11 +147,9 @@ class TDDFT(GPAW):
         self.text('Charge epsilon:', self.density.charge_eps)
 
         # Time-dependent variables and operators
-        self.td_potential = td_potential
         self.td_hamiltonian = TimeDependentHamiltonian(self.wfs, self.spos_ac,
                                                        self.hamiltonian,
                                                        td_potential)
-        self.td_overlap = self.wfs.overlap  # TODO remove this property
         self.td_density = TimeDependentDensity(self)
 
         # Solver for linear equations
@@ -167,7 +164,7 @@ class TDDFT(GPAW):
                 FutureWarning)
             solver.update(tolerance=tolerance)
         self.solver = create_solver(solver)
-        self.solver.initialize(wfs.gd, self.timer)
+        self.solver.initialize(self.wfs.gd, self.timer)
         self.text('Solver:', self.solver.todict())
 
         # Preconditioner
@@ -176,17 +173,19 @@ class TDDFT(GPAW):
         self.preconditioner = None  # TODO! check out SSOR preconditioning
         # self.preconditioner = InverseOverlapPreconditioner(self.overlap)
         # self.preconditioner = KineticEnergyPreconditioner(
-        #    wfs.gd, self.td_hamiltonian.hamiltonian.kin, complex)
+        #    self.wfs.gd, self.td_hamiltonian.hamiltonian.kin, complex)
 
         # Time propagator
         if isinstance(propagator, str):
             propagator = dict(name=propagator)
         self.propagator = create_propagator(propagator)
         self.propagator.initialize(self.td_density, self.td_hamiltonian,
-                                   self.td_overlap, self.solver,
-                                   self.preconditioner, wfs.gd, self.timer)
+                                   self.wfs.overlap, self.solver,
+                                   self.preconditioner,
+                                   self.wfs.gd, self.timer)
         self.text('Propagator:', self.propagator.todict())
 
+        wfs = self.wfs
         if self.rank == 0:
             if wfs.kd.comm.size > 1:
                 if wfs.nspins == 2:
@@ -203,7 +202,7 @@ class TDDFT(GPAW):
 
         self.hpsit = None
         self.eps_tmp = None
-        self.mblas = MultiBlas(wfs.gd)
+        self.mblas = MultiBlas(self.wfs.gd)
 
         # Restarting an FDTD run generates hamiltonian.fdtd_poisson, which
         # now overwrites hamiltonian.poisson
@@ -465,7 +464,7 @@ class TDDFT(GPAW):
             self.Etot = 0.0
             return 0.0
 
-        self.td_overlap.update(self.wfs)
+        self.wfs.overlap.update(self.wfs)
         self.td_density.update()
         self.td_hamiltonian.update(self.td_density.get_density(),
                                    self.time)
@@ -495,7 +494,7 @@ class TDDFT(GPAW):
             self.wfs, self.spos_ac,
             np.array(kick_strength, float))
         abs_kick = AbsorptionKick(self.wfs, abs_kick_hamiltonian,
-                                  self.td_overlap, self.solver,
+                                  self.wfs.overlap, self.solver,
                                   self.preconditioner, self.wfs.gd, self.timer)
         abs_kick.kick()
 
