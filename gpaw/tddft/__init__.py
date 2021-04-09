@@ -16,13 +16,7 @@ from gpaw.tddft.utils import MultiBlas
 from gpaw.tddft.bicgstab import BiCGStab
 from gpaw.tddft.cscg import CSCG
 from gpaw.tddft.propagators import \
-    ExplicitCrankNicolson, \
-    SemiImplicitCrankNicolson, \
-    EhrenfestPAWSICN,\
-    EhrenfestHGHSICN,\
-    EnforcedTimeReversalSymmetryCrankNicolson, \
-    SemiImplicitTaylorExponential, \
-    SemiImplicitKrylovExponential, \
+    create_propagator, \
     AbsorptionKick
 from gpaw.tddft.tdopers import \
     TimeDependentHamiltonian, \
@@ -76,20 +70,20 @@ class TDDFT(GPAW):
 
     def __init__(self, filename,
                  td_potential=None, propagator='SICN', calculate_energy=True,
-                 propagator_kwargs=None, solver='CSCG', tolerance=1e-8,
+                 solver='CSCG', tolerance=1e-8,
                  **kwargs):
         """Create TDDFT-object.
 
-        Parameters:
-
+        Parameters
+        ----------
         filename: string
             File containing ground state or time-dependent state to propagate
         td_potential: class, optional
             Function class for the time-dependent potential. Must have a method
             'strength(time)' which returns the strength of the linear potential
             to each direction as a vector of three floats.
-        propagator:  {'SICN','ETRSCN','ECN','SITE','SIKE4','SIKE5','SIKE6'}
-            Name of the time propagator for the Kohn-Sham wavefunctions
+        propagator: string or dictionary
+            Time propagator for the Kohn-Sham wavefunctions
         solver: {'CSCG','BiCGStab'}
             Name of the iterative linear equations solver for time propagation
         tolerance: float
@@ -181,49 +175,10 @@ class TDDFT(GPAW):
 
         # Time propagator
         self.text('Propagator: ', propagator)
-        if propagator_kwargs is None:
-            propagator_kwargs = {}
-        if propagator == 'ECN':
-            self.propagator = ExplicitCrankNicolson(
-                self.td_density,
-                self.td_hamiltonian, self.td_overlap, self.solver,
-                self.preconditioner, wfs.gd, self.timer, **propagator_kwargs)
-        elif propagator == 'SICN':
-            self.propagator = SemiImplicitCrankNicolson(
-                self.td_density,
-                self.td_hamiltonian, self.td_overlap, self.solver,
-                self.preconditioner, wfs.gd, self.timer, **propagator_kwargs)
-        elif propagator == 'EFSICN':
-            self.propagator = EhrenfestPAWSICN(
-                self.td_density,
-                self.td_hamiltonian, self.td_overlap, self.solver,
-                self.preconditioner, wfs.gd, self.timer, **propagator_kwargs)
-        elif propagator == 'EFSICN_HGH':
-            self.propagator = EhrenfestHGHSICN(
-                self.td_density,
-                self.td_hamiltonian, self.td_overlap, self.solver,
-                self.preconditioner, wfs.gd, self.timer, **propagator_kwargs)
-        elif propagator == 'ETRSCN':
-            self.propagator = EnforcedTimeReversalSymmetryCrankNicolson(
-                self.td_density,
-                self.td_hamiltonian, self.td_overlap, self.solver,
-                self.preconditioner, wfs.gd, self.timer, **propagator_kwargs)
-        elif propagator == 'SITE':
-            self.propagator = SemiImplicitTaylorExponential(
-                self.td_density,
-                self.td_hamiltonian, self.td_overlap, self.solver,
-                self.preconditioner, wfs.gd, self.timer, **propagator_kwargs)
-        elif propagator == 'SIKE':
-            self.propagator = SemiImplicitKrylovExponential(
-                self.td_density,
-                self.td_hamiltonian, self.td_overlap, self.solver,
-                self.preconditioner, wfs.gd, self.timer, **propagator_kwargs)
-        elif propagator.startswith('SITE') or propagator.startswith('SIKE'):
-            raise DeprecationWarning(
-                'Use propagator_kwargs to specify degree.')
-        else:
-            raise RuntimeError(
-                'Time propagator %s not supported.' % propagator)
+        self.propagator = create_propagator(propagator)
+        self.propagator.initialize(self.td_density, self.td_hamiltonian,
+                                   self.td_overlap, self.solver,
+                                   self.preconditioner, wfs.gd, self.timer)
 
         if self.rank == 0:
             if wfs.kd.comm.size > 1:

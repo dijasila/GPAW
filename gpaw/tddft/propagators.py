@@ -13,6 +13,35 @@ from gpaw.tddft.utils import MultiBlas
 from gpaw.tddft.tdopers import DummyDensity
 
 
+def create_propagator(name, **kwargs):
+    if name is None:
+        return create_propagator('SICN')
+    elif isinstance(name, DummyPropagator):
+        return name
+    elif isinstance(name, dict):
+        kwargs.update(name)
+        return create_propagator(**kwargs)
+    elif name == 'ECN':
+        return ExplicitCrankNicolson(**kwargs)
+    elif name == 'SICN':
+        return SemiImplicitCrankNicolson(**kwargs)
+    elif name == 'EFSICN':
+        return EhrenfestPAWSICN(**kwargs)
+    elif name == 'EFSICN_HGH':
+        return EhrenfestHGHSICN(**kwargs)
+    elif name == 'ETRSCN':
+        return EnforcedTimeReversalSymmetryCrankNicolson(**kwargs)
+    elif name == 'SITE':
+        return SemiImplicitTaylorExponential(**kwargs)
+    elif name == 'SIKE':
+        return SemiImplicitKrylovExponential(**kwargs)
+    elif name.startswith('SITE') or name.startswith('SIKE'):
+        raise DeprecationWarning(
+            'Use dictionary to specify degree.')
+    else:
+        raise ValueError('Unknown propagator: %s' % name)
+
+
 ###############################################################################
 # DummyKPoint
 ###############################################################################
@@ -29,9 +58,12 @@ class DummyPropagator:
     The DummyPropagator-class is the VIRTUAL base class for all propagators.
 
     """
-    def __init__(self, td_density, td_hamiltonian, td_overlap, solver,
-                 preconditioner, gd, timer):
-        """Create the DummyPropagator-object.
+    def __init__(self):
+        pass
+
+    def initialize(self, td_density, td_hamiltonian, td_overlap, solver,
+                   preconditioner, gd, timer):
+        """Initialize propagator using runtime objects.
 
         Parameters
         ----------
@@ -49,7 +81,6 @@ class DummyPropagator:
             coarse (/wavefunction) grid descriptor
         timer: Timer
             timer
-
         """
         self.td_density = td_density
         self.td_hamiltonian = td_hamiltonian
@@ -129,31 +160,9 @@ class ExplicitCrankNicolson(DummyPropagator):
     (S(t) + .5j dt H(t) / hbar) psi(t+dt) = (S(t) - .5j dt H(t) / hbar) psi(t)
 
     """
-    def __init__(self, td_density, td_hamiltonian, td_overlap, solver,
-                 preconditioner, gd, timer):
-        """Create ExplicitCrankNicolson-object.
-
-        Parameters
-        ----------
-        td_density: TimeDependentDensity
-            time-dependent density
-        td_hamiltonian: TimeDependentHamiltonian
-            time-dependent hamiltonian
-        td_overlap: TimeDependentOverlap
-            time-dependent overlap operator
-        solver: LinearSolver
-            solver for linear equations
-        preconditioner: Preconditioner
-            preconditioner for linear equations
-        gd: GridDescriptor
-            coarse (/wavefunction) grid descriptor
-        timer: Timer
-            timer
-
-        """
-        DummyPropagator.__init__(self, td_density, td_hamiltonian, td_overlap,
-                                 solver, preconditioner, gd, timer)
-
+    def __init__(self):
+        """Create ExplicitCrankNicolson-object."""
+        DummyPropagator.__init__(self)
         self.tmp_kpt_u = None
         self.hpsit = None
         self.spsit = None
@@ -303,32 +312,9 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
     = (S(t) - .5j dt H(t+dt/2) / hbar) psi(t)
 
     """
-    def __init__(self, td_density, td_hamiltonian, td_overlap, solver,
-                 preconditioner, gd, timer):
-        """Create SemiImplicitCrankNicolson-object.
-
-        Parameters
-        ----------
-        td_density: TimeDependentDensity
-            the time-dependent density
-        td_hamiltonian: TimeDependentHamiltonian
-            the time-dependent hamiltonian
-        td_overlap: TimeDependentOverlap
-            the time-dependent overlap operator
-        solver: LinearSolver
-            solver for linear equations
-        preconditioner: Preconditioner
-            preconditioner for linear equations
-        gd: GridDescriptor
-            coarse (wavefunction) grid descriptor
-        timer: Timer
-            timer
-
-        """
-        ExplicitCrankNicolson.__init__(self, td_density, td_hamiltonian,
-                                       td_overlap, solver, preconditioner, gd,
-                                       timer)
-
+    def __init__(self):
+        """Create SemiImplicitCrankNicolson-object."""
+        ExplicitCrankNicolson.__init__(self)
         self.old_kpt_u = None
 
     def propagate(self, time, time_step):
@@ -509,13 +495,6 @@ class EhrenfestPAWSICN(ExplicitCrankNicolson):
        TODO: merge this with the ordinary SICN
     """
     def __init__(self,
-                 td_density,
-                 td_hamiltonian,
-                 td_overlap,
-                 solver,
-                 preconditioner,
-                 gd,
-                 timer,
                  corrector_guess=True,
                  predictor_guess=(True, False),
                  use_cg=(False, False)):
@@ -523,20 +502,6 @@ class EhrenfestPAWSICN(ExplicitCrankNicolson):
 
         Parameters
         ----------
-        td_density: TimeDependentDensity
-            the time-dependent density
-        td_hamiltonian: TimeDependentHamiltonian
-            the time-dependent hamiltonian
-        td_overlap: TimeDependentOverlap
-            the time-dependent overlap operator
-        solver: LinearSolver
-            solver for linear equations
-        preconditioner: Preconditioner
-            preconditioner for linear equations
-        gd: GridDescriptor
-            coarse (wavefunction) grid descriptor
-        timer: Timer
-            timer
         corrector_guess: Bool
             use initial guess for the corrector step (default is True)
         predictor_guess: (Bool, Bool)
@@ -547,10 +512,7 @@ class EhrenfestPAWSICN(ExplicitCrankNicolson):
             default is (False, False)
 
         """
-        ExplicitCrankNicolson.__init__(self, td_density, td_hamiltonian,
-                                       td_overlap, solver, preconditioner, gd,
-                                       timer)
-
+        ExplicitCrankNicolson.__init__(self)
         self.old_kpt_u = None
         self.corrector_guess = corrector_guess
         self.predictor_guess = predictor_guess
@@ -816,32 +778,9 @@ class EhrenfestHGHSICN(ExplicitCrankNicolson):
        using HGH pseudopotentials
 
     """
-    def __init__(self, td_density, td_hamiltonian, td_overlap, solver,
-                 preconditioner, gd, timer):
-        """Create SemiImplicitCrankNicolson-object.
-
-        Parameters
-        ----------
-        td_density: TimeDependentDensity
-            the time-dependent density
-        td_hamiltonian: TimeDependentHamiltonian
-            the time-dependent hamiltonian
-        td_overlap: TimeDependentOverlap
-            the time-dependent overlap operator
-        solver: LinearSolver
-            solver for linear equations
-        preconditioner: Preconditioner
-            preconditioner for linear equations
-        gd: GridDescriptor
-            coarse (wavefunction) grid descriptor
-        timer: Timer
-            timer
-
-        """
-        ExplicitCrankNicolson.__init__(self, td_density, td_hamiltonian,
-                                       td_overlap, solver, preconditioner, gd,
-                                       timer)
-
+    def __init__(self):
+        """Create SemiImplicitCrankNicolson-object."""
+        ExplicitCrankNicolson.__init__(self)
         self.old_kpt_u = None
 
     def propagate(self, time, time_step):
@@ -1007,32 +946,9 @@ class EnforcedTimeReversalSymmetryCrankNicolson(ExplicitCrankNicolson):
     = (S(t) - .5j dt H(t) / hbar) psi(t)
 
     """
-    def __init__(self, td_density, td_hamiltonian, td_overlap, solver,
-                 preconditioner, gd, timer):
-        """Create SemiImplicitCrankNicolson-object.
-
-        Parameters
-        ----------
-        td_density: TimeDependentDensity
-            the time-dependent density
-        td_hamiltonian: TimeDependentHamiltonian
-            the time-dependent hamiltonian
-        td_overlap: TimeDependentOverlap
-            the time-dependent overlap operator
-        solver: LinearSolver
-            solver for linear equations
-        preconditioner: Preconditioner
-            preconditioner for linear equations
-        gd: GridDescriptor
-            coarse (wavefunction) grid descriptor
-        timer: Timer
-            timer
-
-        """
-        ExplicitCrankNicolson.__init__(self, td_density, td_hamiltonian,
-                                       td_overlap, solver, preconditioner, gd,
-                                       timer)
-
+    def __init__(self):
+        """Create SemiImplicitCrankNicolson-object."""
+        ExplicitCrankNicolson.__init__(self)
         self.old_kpt_u = None
 
     def propagate(self, time, time_step, update_callback=None):
@@ -1179,7 +1095,7 @@ class EnforcedTimeReversalSymmetryCrankNicolson(ExplicitCrankNicolson):
 ###############################################################################
 # AbsorptionKick
 ###############################################################################
-class AbsorptionKick(ExplicitCrankNicolson):
+class AbsorptionKick:
     """Absorption kick propagator
 
     Absorption kick propagator::
@@ -1212,9 +1128,10 @@ class AbsorptionKick(ExplicitCrankNicolson):
             timer
 
         """
-        ExplicitCrankNicolson.__init__(self, DummyDensity(wfs),
-                                       abs_kick_hamiltonian, td_overlap,
-                                       solver, preconditioner, gd, timer)
+        self.propagator = ExplicitCrankNicolson()
+        self.propagator.initialize(DummyDensity(wfs),
+                                   abs_kick_hamiltonian, td_overlap,
+                                   solver, preconditioner, gd, timer)
 
     def kick(self):
         """Excite all possible frequencies.
@@ -1224,8 +1141,8 @@ class AbsorptionKick(ExplicitCrankNicolson):
         # if rank == 0:
         #     self.text('Kick iterations = ', self.td_hamiltonian.iterations)
 
-        for l in range(self.td_hamiltonian.iterations):
-            self.propagate(0, 1.0)
+        for l in range(self.propagator.td_hamiltonian.iterations):
+            self.propagator.propagate(0, 1.0)
             # if rank == 0:
             #     self.text('.')
         # if rank == 0:
@@ -1240,42 +1157,17 @@ class SemiImplicitTaylorExponential(DummyPropagator):
     exp(-i S^-1 H t) = 1 - i S^-1 H t + (1/2) (-i S^-1 H t)^2 + ...
 
     """
-    def __init__(self,
-                 td_density,
-                 td_hamiltonian,
-                 td_overlap,
-                 solver,
-                 preconditioner,
-                 gd,
-                 timer,
-                 degree=4):
+    def __init__(self, degree=4):
         """Create SemiImplicitTaylorExponential-object.
 
         Parameters
         ----------
-        td_density: TimeDependentDensity
-            the time-dependent density
-        td_hamiltonian: TimeDependentHamiltonian
-            the time-dependent hamiltonian
-        td_overlap: TimeDependentOverlap
-            the time-dependent overlap operator
-        solver: LinearSolver
-            solver for linear equations
-        preconditioner: Preconditioner
-            preconditioner
-        gd: GridDescriptor
-            coarse (wavefunction) grid descriptor
-        timer: Timer
-            timer
         degree: integer
             Degree of the Taylor polynomial (default is 4)
 
         """
-        DummyPropagator.__init__(self, td_density, td_hamiltonian, td_overlap,
-                                 solver, preconditioner, gd, timer)
-
+        DummyPropagator.__init__(self)
         self.degree = degree
-
         self.tmp_kpt_u = None
         self.psin = None
         self.hpsit = None
@@ -1384,42 +1276,16 @@ class SemiImplicitKrylovExponential(DummyPropagator):
 
 
     """
-    def __init__(self,
-                 td_density,
-                 td_hamiltonian,
-                 td_overlap,
-                 solver,
-                 preconditioner,
-                 gd,
-                 timer,
-                 degree=4):
+    def __init__(self, degree=4):
         """Create SemiImplicitKrylovExponential-object.
 
         Parameters
         ----------
-        td_density: TimeDependentDensity
-            the time-dependent density
-        td_hamiltonian: TimeDependentHamiltonian
-            the time-dependent hamiltonian
-        td_overlap: TimeDependentOverlap
-            the time-dependent overlap operator
-        solver: LinearSolver
-            solver for linear equations
-        preconditioner: Preconditioner
-            preconditioner
-        gd: GridDescriptor
-            coarse (wavefunction) grid descriptor
-        timer: Timer
-            timer
         degree: integer
             Degree of the Krylov subspace (default is 4)
-
         """
-        DummyPropagator.__init__(self, td_density, td_hamiltonian, td_overlap,
-                                 solver, preconditioner, gd, timer)
-
+        DummyPropagator.__init__(self)
         self.kdim = degree + 1
-
         self.tmp_kpt_u = None
         self.lm = None
         self.em = None
