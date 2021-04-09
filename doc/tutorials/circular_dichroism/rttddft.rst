@@ -53,6 +53,36 @@ the importance of augmented basis sets:
 .. image:: lcao/spectra.png
 
 
+FD mode
+-------
+
+In this example, we use :ref:`real-time TDDFT FD mode <timepropagation>`.
+
+Let's do the ground-state calculation (note that FD mode typically requires
+larger vacuum and smaller grid spacing than LCAO mode; convergence
+with respect to these parameters need to be checked for both modes separately):
+
+.. literalinclude:: fd/gs.py
+
+Then, similarly to LCAO mode, we carry the time propagation as usual but attach
+``MagneticMomentWriter`` to record the time-dependent magnetic moment
+(note the ``tolerance`` parameter for the iterative solver;
+smaller values might be required when signal is weak):
+
+.. literalinclude:: fd/td.py
+
+After repeating the calculation for kicks in x, y, and z directions,
+we calculate the rotatory strength spectrum from the magnetic moments:
+
+.. literalinclude:: fd/spec.py
+
+The resulting spectrum:
+
+.. image:: fd/spectrum.png
+
+The spectrum compares well with the one obtained
+with LCAO mode and augmented basis sets.
+
 .. [#Makkonen2021]
    | E. Makkonen, T. P. Rossi, A. H. Larsen, O. Lopez-Acevedo, P. Rinke,  M. Kuisma, and X. Chen,
    | :doi:`Real-time time-dependent density functional theory implementation of electronic circular dichroism applied to nanoscale metal-organic clusters <10.1063/5.0038904>`
