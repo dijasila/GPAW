@@ -80,7 +80,7 @@ Use these in the :ref:`siteconfig.py <siteconfig>` file:
 
 Install editable GPAW with pip::
 
-    $ pip3 install --editable gpaw
+    $ pip3 install --editable .
 
 Alternatively for latest stable release::
 
@@ -90,7 +90,7 @@ Install GPAW setups::
 
     $ cd ~
     $ curl -O https://wiki.fysik.dtu.dk/gpaw-files/gpaw-setups-0.9.20000.tar.gz
-    $ tar -xf gpaw-setups-0.9.20000.tar
+    $ tar -zxf gpaw-setups-0.9.20000.tar.gz
     $ echo 'export GPAW_SETUP_PATH=~/gpaw-setups-0.9.20000' >> ~/.zprofile
     $ source ~/.zprofile
 
