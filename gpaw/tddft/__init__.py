@@ -260,6 +260,10 @@ class TDDFT(GPAW):
         # Update density and Hamiltonian
         self.propagator.update_time_dependent_operators(self.time)
 
+        # XXX remove dipole moment handling and use observer instead
+        self._dm_args0 = (self.density.finegd.integrate(self.density.rhot_g),
+                          self.calculate_dipole_moment())
+
 
     def create_wave_functions(self, mode, *args, **kwargs):
         mode = FDTDDFTMode(mode.nn, mode.interpolation, True)
@@ -359,7 +363,12 @@ class TDDFT(GPAW):
 
             # Write dipole moment at every iteration
             if dipole_moment_file is not None:
-                self.update_dipole_moment_file(norm)
+                if self._dm_args0 is not None:
+                    self.update_dipole_moment_file(*self._dm_args0)
+                    self._dm_args0 = None
+                else:
+                    dm = self.calculate_dipole_moment()
+                    self.update_dipole_moment_file(norm, dm)
 
             # print output (energy etc.) every 10th iteration
             if self.niter % 10 == 0:
@@ -436,12 +445,13 @@ class TDDFT(GPAW):
                 self.dm_file.write(header)
                 self.dm_file.flush()
 
-    def update_dipole_moment_file(self, norm):
+    def calculate_dipole_moment(self):
         dm = self.density.finegd.calculate_dipole_moment(self.density.rhot_g)
-
         if self.hamiltonian.poisson.get_description() == 'FDTD+TDDFT':
             dm += self.hamiltonian.poisson.get_classical_dipole_moment()
+        return dm
 
+    def update_dipole_moment_file(self, norm, dm):
         if self.rank == 0:
             line = '%20.8lf %20.8le %22.12le %22.12le %22.12le\n' \
                 % (self.time, norm, dm[0], dm[1], dm[2])
@@ -450,7 +460,8 @@ class TDDFT(GPAW):
 
     def finalize_dipole_moment_file(self, norm=None):
         if norm is not None:
-            self.update_dipole_moment_file(norm)
+            dm = self.calculate_dipole_moment()
+            self.update_dipole_moment_file(norm, dm)
 
         if self.rank == 0:
             self.dm_file.close()
