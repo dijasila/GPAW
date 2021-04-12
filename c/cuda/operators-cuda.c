@@ -157,7 +157,10 @@ void debug_operator_memcpy_post(double *out, double *buf)
                     cudaMemcpyDeviceToHost);
 }
 
-
+/*
+ * Run the relax algorithm (see Operator_relax() in ../operators.c)
+ * on the CPU and compare to results from the GPU.
+ */
 void debug_operator_relax(OperatorObject* self, int relax_method, double w,
                           int nrelax)
 {
@@ -204,6 +207,10 @@ void debug_operator_relax(OperatorObject* self, int relax_method, double w,
     }
 }
 
+/*
+ * Run the relax algorithm (see Operator_relax() in ../operators.c)
+ * on the GPU.
+ */
 static void _operator_relax_cuda_gpu(OperatorObject* self, int relax_method,
                                      double *fun, const double *src,
                                      int nrelax, double w)
@@ -326,6 +333,10 @@ PyObject* Operator_relax_cuda_gpu(OperatorObject* self, PyObject* args)
         Py_RETURN_NONE;
 }
 
+/*
+ * Run the FD algorithm (see apply_worker() in ../operators.c)
+ * on the CPU and compare to results from the GPU.
+ */
 void debug_operator_apply(OperatorObject* self, const double_complex *ph,
                           bool real, int nin, int blocks)
 {
@@ -392,6 +403,10 @@ void debug_operator_apply(OperatorObject* self, const double_complex *ph,
     }
 }
 
+/*
+ * Run the FD algorithm (see apply_worker() in ../operators.c)
+ * on the GPU.
+ */
 static void _operator_apply_cuda_gpu(OperatorObject *self,
                                      const double *in, double *out,
                                      int nin, int blocks, bool real,
@@ -539,7 +554,9 @@ PyObject * Operator_apply_cuda_gpu(OperatorObject* self, PyObject* args)
         debug_operator_allocate(self, nin, blocks);
         debug_operator_memcpy_pre(out, in);
     }
+
     _operator_apply_cuda_gpu(self, in, out, nin, blocks, real, ph);
+
     if (gpaw_cuda_debug) {
         cudaDeviceSynchronize();
         debug_operator_memcpy_post(out, operator_buf_gpu);
