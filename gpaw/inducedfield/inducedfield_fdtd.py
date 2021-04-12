@@ -125,6 +125,9 @@ class FDTDInducedField(BaseInducedField, Observer):
         self.Fn_wG = None
 
     def update(self):
+        if self.paw.action != 'propagate':
+            return
+
         # Update time
         self.time = self.paw.time
         time_step = self.paw.time_step

@@ -143,6 +143,9 @@ class TDDFTInducedField(BaseInducedField, Observer):
         self.FD_awsp = None
         
     def update(self):
+        if self.paw.action != 'propagate':
+            return
+
         # Update time
         self.time = self.paw.time
         time_step = self.paw.time_step
