@@ -54,7 +54,6 @@ Install pytest::
 Run ASE tests::
 
     $ ase test
-    $ pytest --pyargs ase
 
 Install GPAW dependencies::
 
@@ -96,8 +95,8 @@ Install parallel pytest::
 
     $ pip3 install pytest-xdist
 
-Test GPAW::
+Test GPAW (here for 4 cores)::
 
     $ gpaw test
     $ gpaw -P 4 test
-    $ pytest -n 4 --pyargs gpaw
+    $ pytest --pyargs gpaw -n 4

@@ -79,9 +79,9 @@ Install GPAW setups::
     $ echo 'export GPAW_SETUP_PATH=~/gpaw-setups-0.9.20000' >> ~/.zprofile
     $ source ~/.zprofile
 
-Run GPAW tests::
+Run GPAW tests (here for 4 cores)::
 
     $ pip3 install pytest-xdist
     $ gpaw test
     $ gpaw -P 4 test
-    $ pytest -n 4 --pyargs gpaw
+    $ pytest --pyargs gpaw -n 4
