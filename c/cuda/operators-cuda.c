@@ -161,8 +161,8 @@ void debug_operator_memcpy_post(double *out, double *buf)
  * Run the relax algorithm (see Operator_relax() in ../operators.c)
  * on the CPU and compare to results from the GPU.
  */
-void debug_operator_relax(OperatorObject* self, int relax_method, double w,
-                          int nrelax)
+void debug_operator_relax(OperatorObject* self, int relax_method, int nrelax,
+                          double w)
 {
     MPI_Request recvreq[2];
     MPI_Request sendreq[2];
@@ -323,7 +323,7 @@ PyObject* Operator_relax_cuda_gpu(OperatorObject* self, PyObject* args)
     if (gpaw_cuda_debug) {
         cudaDeviceSynchronize();
         debug_operator_memcpy_post(fun, operator_buf_gpu);
-        debug_operator_relax(self, relax_method, w, nrelax);
+        debug_operator_relax(self, relax_method, nrelax, w);
         debug_operator_deallocate();
     }
 
@@ -337,8 +337,8 @@ PyObject* Operator_relax_cuda_gpu(OperatorObject* self, PyObject* args)
  * Run the FD algorithm (see apply_worker() in ../operators.c)
  * on the CPU and compare to results from the GPU.
  */
-void debug_operator_apply(OperatorObject* self, const double_complex *ph,
-                          bool real, int nin, int blocks)
+void debug_operator_apply(OperatorObject* self, int nin, int blocks,
+                          bool real, const double_complex *ph)
 {
     MPI_Request recvreq[2];
     MPI_Request sendreq[2];
@@ -357,9 +357,9 @@ void debug_operator_apply(OperatorObject* self, const double_complex *ph,
         int myblocks = MIN(blocks, nin - n);
         for (i=0; i < 3; i++) {
             bc_unpack1(bc, in, debug_buf_cpu, i, recvreq, sendreq,
-                    debug_recvbuf, debug_sendbuf, ph + 2 * i, 0, myblocks);
+                       debug_recvbuf, debug_sendbuf, ph + 2 * i, 0, myblocks);
             bc_unpack2(bc, debug_buf_cpu, i, recvreq, sendreq,
-                    debug_recvbuf, myblocks);
+                       debug_recvbuf, myblocks);
         }
         for (int m=0; m < myblocks; m++) {
             if (real)
@@ -367,8 +367,8 @@ void debug_operator_apply(OperatorObject* self, const double_complex *ph,
                         out + m * ng);
             else
                 bmgs_fdz(&self->stencil,
-                        (const double_complex*) (debug_buf_cpu + m * ng2),
-                        (double_complex*) (out + m * ng));
+                         (const double_complex*) (debug_buf_cpu + m * ng2),
+                         (double_complex*) (out + m * ng));
         }
     }
 
@@ -560,7 +560,7 @@ PyObject * Operator_apply_cuda_gpu(OperatorObject* self, PyObject* args)
     if (gpaw_cuda_debug) {
         cudaDeviceSynchronize();
         debug_operator_memcpy_post(out, operator_buf_gpu);
-        debug_operator_apply(self, ph, real, nin, blocks);
+        debug_operator_apply(self, nin, blocks, real, ph);
         debug_operator_deallocate();
     }
 
