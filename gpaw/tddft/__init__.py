@@ -257,19 +257,17 @@ class TDDFT(GPAW):
                                     niter=self.niter,
                                     kick_strength=self.kick_strength)
 
-    def propagate(self, time_step, iterations, dipole_moment_file=None,
+    def propagate(self, time_step, iterations,
+                  dipole_moment_file=None,  # deprecated
                   restart_file=None, dump_interval=100):
         """Propagates wavefunctions.
 
-        Parameters:
-
+        Parameters
+        ----------
         time_step: float
             Time step in attoseconds (10^-18 s), e.g., 4.0 or 8.0
         iterations: integer
             Iterations, e.g., 20 000 as / 4.0 as = 5000
-        dipole_moment_file: string, optional
-            Name of the data file where to the time-dependent dipole
-            moment is saved
         restart_file: string, optional
             Name of the restart file
         dump_interval: integer
@@ -277,6 +275,13 @@ class TDDFT(GPAW):
 
         """
         self.tddft_init()
+
+        if dipole_moment_file is not None:
+            warnings.warn(
+                "The dipole_moment_file parameter is deprecated. "
+                "Please use DipoleMomentWriter observer instead. "
+                "The old syntax will throw an error in the future.",
+                FutureWarning)
 
         if self.rank == 0:
             self.text()
