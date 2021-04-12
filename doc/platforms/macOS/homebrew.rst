@@ -21,7 +21,7 @@ Install Homebrew::
 
 Install Python and the interface to Tcl/Tk::
 
-    $ brew install python
+    $ brew install python@3.8
     $ brew install python-tk
 
 Make an alias to use brewed Python pip::

@@ -23,7 +23,7 @@ Install Miniconda::
 Configure conda and create an environment::
 
     $ conda config --set auto_activate_base false
-    $ conda create --name gpaw
+    $ conda create --name gpaw python=3.8
     $ conda activate gpaw
 
 Install ASE dependencies including Python interface to Tcl/Tk::
