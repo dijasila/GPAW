@@ -257,6 +257,10 @@ class TDDFT(GPAW):
             self.text('GLLB model potential. Not updating energy.')
             self.calculate_energy = False
 
+        # Update density and Hamiltonian
+        self.propagator.update_time_dependent_operators(self.time)
+
+
     def create_wave_functions(self, mode, *args, **kwargs):
         mode = FDTDDFTMode(mode.nn, mode.interpolation, True)
         GPAW.create_wave_functions(self, mode, *args, **kwargs)
@@ -529,3 +533,6 @@ class TDDFT(GPAW):
         # Kick the classical part, if it is present
         if self.hamiltonian.poisson.get_description() == 'FDTD+TDDFT':
             self.hamiltonian.poisson.set_kick(kick=self.kick_strength)
+
+        # Update density and Hamiltonian
+        self.propagator.update_time_dependent_operators(self.time)
