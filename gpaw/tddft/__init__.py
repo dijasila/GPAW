@@ -248,7 +248,7 @@ class TDDFT(GPAW):
 
         # For electrodynamics mode
         if self.hamiltonian.poisson.get_description() == 'FDTD+TDDFT':
-            self.initialize_FDTD()
+            self.hamiltonian.poisson.set_density(self.density)
             self.hamiltonian.poisson.print_messages(self.text)
             self.log.flush()
 
@@ -263,7 +263,6 @@ class TDDFT(GPAW):
         # XXX remove dipole moment handling and use observer instead
         self._dm_args0 = (self.density.finegd.integrate(self.density.rhot_g),
                           self.calculate_dipole_moment())
-
 
     def create_wave_functions(self, mode, *args, **kwargs):
         mode = FDTDDFTMode(mode.nn, mode.interpolation, True)
@@ -286,27 +285,6 @@ class TDDFT(GPAW):
         writer.child('tddft').write(time=self.time,
                                     niter=self.niter,
                                     kick_strength=self.kick_strength)
-
-    # Electrodynamics requires extra care
-    def initialize_FDTD(self):
-
-        # Sanity check
-        assert(self.hamiltonian.poisson.get_description() == 'FDTD+TDDFT')
-
-        self.hamiltonian.poisson.set_density(self.density)
-
-        # The propagate calculation_mode causes classical part to evolve
-        # in time when self.hamiltonian.poisson.solve(...) is called
-        self.hamiltonian.poisson.set_calculation_mode('propagate')
-
-        # During each time step, self.hamiltonian.poisson.solve may be called
-        # several times (depending on the used propagator). Using the
-        # attached observer one ensures that actual propagation takes
-        # place only once. This is because
-        # the FDTDPoissonSolver changes the calculation_mode from propagate to
-        # something else when the propagation is finished.
-        self.attach(self.hamiltonian.poisson.set_calculation_mode, 1,
-                    'propagate')
 
     def propagate(self, time_step, iterations, dipole_moment_file=None,
                   restart_file=None, dump_interval=100):
@@ -352,10 +330,23 @@ class TDDFT(GPAW):
         niterpropagator = 0
         self.maxiter = self.niter + iterations
 
-        # Let FDTD part know the time step
+        # FDTD requires extra care
         if self.hamiltonian.poisson.get_description() == 'FDTD+TDDFT':
             self.hamiltonian.poisson.set_time(self.time)
             self.hamiltonian.poisson.set_time_step(self.time_step)
+
+            # The propagate calculation_mode causes classical part to evolve
+            # in time when self.hamiltonian.poisson.solve(...) is called
+            self.hamiltonian.poisson.set_calculation_mode('propagate')
+
+            # During each time step, self.hamiltonian.poisson.solve may be
+            # called several times (depending on the used propagator).
+            # Using the attached observer one ensures that actual propagation
+            # takes place only once. This is because the FDTDPoissonSolver
+            # changes the calculation_mode from propagate to
+            # something else when the propagation is finished.
+            self.attach(self.hamiltonian.poisson.set_calculation_mode, 1,
+                        'propagate')
 
         self.timer.start('Propagate')
         while self.niter < self.maxiter:
