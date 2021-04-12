@@ -41,22 +41,20 @@ Install pytest::
 
     $ pip3 install pytest, pytest-mock
 
-Clone latest git development branch for ASE::
+**Option 1:** Clone and install latest git development version of ASE::
 
     $ git clone https://gitlab.com/ase/ase.git
-
-Install editable ASE with pip::
-
     $ cd ase
     $ pip3 install --editable .
 
-Alternatively for latest stable release::
+**Option 2:** Alternatively for latest stable release::
 
     $ pip3 install --upgrade ase
 
 Run ASE tests::
 
     $ ase test
+    $ pytest --pyargs ase
 
 Install GPAW dependencies::
 
@@ -65,7 +63,7 @@ Install GPAW dependencies::
     $ brew install fftw
     $ brew install scalapack
 
-Clone latest git development branch for GPAW::
+**Option 1:** Clone git development version of GPAW::
 
     $ git clone https://gitlab.com/gpaw/gpaw.git
 
@@ -82,7 +80,7 @@ Install editable GPAW with pip::
 
     $ pip3 install --editable .
 
-Alternatively for latest stable release::
+**Option 2:** Alternatively for latest stable release of GPAW::
 
     $ pip3 install --upgrade gpaw
 

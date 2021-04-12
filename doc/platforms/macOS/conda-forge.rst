@@ -27,20 +27,21 @@ Configure conda and create an environment::
     $ conda create --name gpaw python=3.8
     $ conda activate gpaw
 
-Install ASE dependencies::
+Install ASE dependencies including Python interface to Tcl/Tk::
 
+    $ conda install tk
     $ conda install matplotlib
     $ conda install scipy=1.5.3
     $ conda install pillow
     $ conda install pytest pytest-mock
 
-Install ASE development version from git::
+**Option 1:** Install git development version of ASE::
 
     $ git clone https://gitlab.com/ase/ase.git
     $ cd ase
     $ pip3 install --editable .
 
-NOTE: For latest stable ASE version instead, simply use::
+**Option 2:** Alternatively for the latest stable release of ASE::
 
     $ pip3 install --upgrade ase
 
@@ -68,7 +69,7 @@ Set paths – check that these match your system::
     $ export LDFLAGS="-L/opt/homebrew/opt/openblas/lib"
     $ export CPPFLAGS="-I/opt/homebrew/opt/openblas/include"
 
-Download GPAW development version from git::
+**Option 1:** Clone git development version of GPAW::
 
     $ git clone https://gitlab.com/gpaw/gpaw.git
 
@@ -83,9 +84,9 @@ Use these in the :ref:`siteconfig.py <siteconfig>` file:
 
 Install GPAW::
 
-    $ pip3 install --editable gpaw
+    $ pip3 install --editable .
 
-Alternatively for latest stable release::
+Option 2:** Alternatively for the latest stable release of GPAW::
 
     $ pip3 install --upgrade gpaw
 

@@ -26,19 +26,19 @@ Configure conda and create an environment::
     $ conda create --name gpaw
     $ conda activate gpaw
 
-Install ASE dependencies::
+Install ASE dependencies including Python interface to Tcl/Tk::
 
     $ conda install tk
     $ conda install numpy scipy matplotlig
     $ conda install pytest pytest-mock
 
-Install ASE development version from git::
+**Option 1:** Clone and install git development version of ASE::
 
     $ git clone https://gitlab.com/ase/ase.git
     $ cd ase
     $ pip3 install --editable .
 
-NOTE: For latest stable ASE version instead, simply use::
+**Option 2:** Alternatively for latest stable ASE release::
 
     $ pip3 install --upgrade ase
 
@@ -50,7 +50,7 @@ Install GPAW dependencies::
 
     $ conda install -c conda-forge libxc openmpi-mpicc fftw scalapack
 
-Download GPAW development version from git::
+**Option 1:** Clone and install git development version of GPAW::
 
     $ git clone https://gitlab.com/gpaw/gpaw.git
 
@@ -67,7 +67,7 @@ Install GPAW::
 
     $ pip3 install --editable .
 
-Alternatively for latest stable release::
+**Option 2:** Alternatively for latest stable GPAW release::
 
     $ pip3 install --upgrade gpaw
 
