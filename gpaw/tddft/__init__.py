@@ -68,8 +68,10 @@ class TDDFT(GPAW):
     theory implementation and is the only class which a user has to use.
     """
 
-    def __init__(self, filename,
-                 td_potential=None, propagator='SICN', calculate_energy=True,
+    def __init__(self, filename, *,
+                 td_potential=None,
+                 calculate_energy=True,
+                 propagator='SICN',
                  solver={'name': 'CSCG', 'tolerance': 1e-8},
                  tolerance=None,  # deprecated
                  **kwargs):
@@ -177,11 +179,13 @@ class TDDFT(GPAW):
         #    wfs.gd, self.td_hamiltonian.hamiltonian.kin, complex)
 
         # Time propagator
-        self.text('Propagator: ', propagator)
+        if isinstance(propagator, str):
+            propagator = dict(name=propagator)
         self.propagator = create_propagator(propagator)
         self.propagator.initialize(self.td_density, self.td_hamiltonian,
                                    self.td_overlap, self.solver,
                                    self.preconditioner, wfs.gd, self.timer)
+        self.text('Propagator:', self.propagator.todict())
 
         if self.rank == 0:
             if wfs.kd.comm.size > 1:

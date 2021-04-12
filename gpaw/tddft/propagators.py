@@ -2,6 +2,7 @@
 # Initially written by Lauri Lehtovaara, 2007
 """This module implements time propagators for time-dependent density
 functional theory calculations."""
+from abc import ABC, abstractmethod
 
 import numpy as np
 
@@ -14,9 +15,7 @@ from gpaw.tddft.tdopers import DummyDensity
 
 
 def create_propagator(name, **kwargs):
-    if name is None:
-        return create_propagator('SICN')
-    elif isinstance(name, DummyPropagator):
+    if isinstance(name, BasePropagator):
         return name
     elif isinstance(name, dict):
         kwargs.update(name)
@@ -42,24 +41,17 @@ def create_propagator(name, **kwargs):
         raise ValueError('Unknown propagator: %s' % name)
 
 
-###############################################################################
-# DummyKPoint
-###############################################################################
 class DummyKPoint(object):
     __slots__ = ('psit_nG', )
 
 
-###############################################################################
-# DummyPropagator
-###############################################################################
-class DummyPropagator:
-    """Time propagator
-
-    The DummyPropagator-class is the VIRTUAL base class for all propagators.
-
-    """
+class BasePropagator(ABC):
+    """Abstract base class for time propagators."""
     def __init__(self):
         pass
+
+    def todict(self):
+        return {'name': self.__class__.__name__}
 
     def initialize(self, td_density, td_hamiltonian, td_overlap, solver,
                    preconditioner, gd, timer):
@@ -133,6 +125,7 @@ class DummyPropagator:
         # Update Hamiltonian H(t) to reflect density rho(t)
         self.td_hamiltonian.update(self.td_density.get_density(), time)
 
+    @abstractmethod
     def propagate(self, time, time_step):
         """Propagate wavefunctions once.
 
@@ -144,14 +137,13 @@ class DummyPropagator:
             the time step
 
         """
-        raise RuntimeError('Error in DummyPropagator: '
-                           'Member function propagate is virtual.')
+        raise NotImplementedError()
 
 
 ###############################################################################
 # ExplicitCrankNicolson
 ###############################################################################
-class ExplicitCrankNicolson(DummyPropagator):
+class ExplicitCrankNicolson(BasePropagator):
     """Explicit Crank-Nicolson propagator
 
     Crank-Nicolson propagator, which approximates the time-dependent
@@ -162,11 +154,14 @@ class ExplicitCrankNicolson(DummyPropagator):
     """
     def __init__(self):
         """Create ExplicitCrankNicolson-object."""
-        DummyPropagator.__init__(self)
+        BasePropagator.__init__(self)
         self.tmp_kpt_u = None
         self.hpsit = None
         self.spsit = None
         self.sinvhpsit = None
+
+    def todict(self):
+        return {'name': 'ECN'}
 
     # ( S + i H dt/2 ) psit(t+dt) = ( S - i H dt/2 ) psit(t)
     def propagate(self, time, time_step):
@@ -316,6 +311,9 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
         """Create SemiImplicitCrankNicolson-object."""
         ExplicitCrankNicolson.__init__(self)
         self.old_kpt_u = None
+
+    def todict(self):
+        return {'name': 'SICN'}
 
     def propagate(self, time, time_step):
         """Propagate wavefunctions once.
@@ -520,6 +518,9 @@ class EhrenfestPAWSICN(ExplicitCrankNicolson):
 
         #self.hsinvhpsit = None
         self.sinvh2psit = None
+
+    def todict(self):
+        return {'name': 'EFSICN'}
 
     def update_velocities(self, v_at_new, v_at_old=None):
         self.v_at = v_at_new.copy()
@@ -783,6 +784,9 @@ class EhrenfestHGHSICN(ExplicitCrankNicolson):
         ExplicitCrankNicolson.__init__(self)
         self.old_kpt_u = None
 
+    def todict(self):
+        return {'name': 'EFSICN_HGH'}
+
     def propagate(self, time, time_step):
         """Propagate wavefunctions once.
 
@@ -950,6 +954,9 @@ class EnforcedTimeReversalSymmetryCrankNicolson(ExplicitCrankNicolson):
         """Create SemiImplicitCrankNicolson-object."""
         ExplicitCrankNicolson.__init__(self)
         self.old_kpt_u = None
+
+    def todict(self):
+        return {'name': 'ETRSCN'}
 
     def propagate(self, time, time_step, update_callback=None):
         """Propagate wavefunctions once.
@@ -1152,7 +1159,7 @@ class AbsorptionKick:
 ###############################################################################
 # SemiImpicitTaylorExponential
 ###############################################################################
-class SemiImplicitTaylorExponential(DummyPropagator):
+class SemiImplicitTaylorExponential(BasePropagator):
     """Semi-implicit Taylor exponential propagator
     exp(-i S^-1 H t) = 1 - i S^-1 H t + (1/2) (-i S^-1 H t)^2 + ...
 
@@ -1166,11 +1173,15 @@ class SemiImplicitTaylorExponential(DummyPropagator):
             Degree of the Taylor polynomial (default is 4)
 
         """
-        DummyPropagator.__init__(self)
+        BasePropagator.__init__(self)
         self.degree = degree
         self.tmp_kpt_u = None
         self.psin = None
         self.hpsit = None
+
+    def todict(self):
+        return {'name': 'SITE',
+                'degree': self.degree}
 
     def propagate(self, time, time_step):
         """Propagate wavefunctions once.
@@ -1271,7 +1282,7 @@ class SemiImplicitTaylorExponential(DummyPropagator):
 ###############################################################################
 # SemiImplicitKrylovExponential
 ###############################################################################
-class SemiImplicitKrylovExponential(DummyPropagator):
+class SemiImplicitKrylovExponential(BasePropagator):
     """Semi-implicit Krylov exponential propagator
 
 
@@ -1284,7 +1295,8 @@ class SemiImplicitKrylovExponential(DummyPropagator):
         degree: integer
             Degree of the Krylov subspace (default is 4)
         """
-        DummyPropagator.__init__(self)
+        BasePropagator.__init__(self)
+        self.degree = degree
         self.kdim = degree + 1
         self.tmp_kpt_u = None
         self.lm = None
@@ -1296,6 +1308,10 @@ class SemiImplicitKrylovExponential(DummyPropagator):
         self.Hqm = None
         self.Sqm = None
         self.rqm = None
+
+    def todict(self):
+        return {'name': 'SIKE',
+                'degree': self.degree}
 
     def propagate(self, time, time_step):
         """Propagate wavefunctions once.
