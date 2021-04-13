@@ -28,7 +28,8 @@ from gpaw.wavefunctions.fd import FD
 
 from gpaw.tddft.spectrum import photoabsorption_spectrum
 
-photoabsorption_spectrum = photoabsorption_spectrum
+
+__all__ = ['TDDFT', 'photoabsorption_spectrum']
 
 
 # T^-1
