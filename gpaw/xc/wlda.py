@@ -171,6 +171,8 @@ class WLDA(XCFunctional):
 
         self.rcut_factor = float(settings.get("rc", 0.8))
 
+        self.save = settings.get("save", False)
+
         # Preparation and logging
         self.settings = None # settings
         self.log_parameters()
@@ -264,6 +266,15 @@ class WLDA(XCFunctional):
         elif self.mode == Modes.rWLDA:
             e_g[:] = elda_g + e_g - self.lambd * elda_g
             v_sg[:] = vlda_sg + v_sg - self.lambd * vlda_sg
+
+
+        if self.save and mpi.rank == 0:
+            tid = np.random.rand()
+            np.save(f"n_sg{tid}.npy", n_sg)
+            np.save(f"nstar_sg{tid}.npy", nstar_sg)
+            np.save(f"v_sg{tid}.npy", v_sg)
+            np.save(f"vxc_sg{tid}.npy", vxc_sg)
+
 
     def get_working_density(self, n_sg, gd):
         """Construct the "working" density.
