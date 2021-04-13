@@ -80,8 +80,8 @@ def time_propagation_reference(ground_state):
 
 def test_dipole_moment_values(time_propagation_reference,
                               module_tmp_path, in_tmp_dir):
-    with open('dm.dat', 'w') as f:
-        f.write('''
+    with open('dm.dat', 'w') as fd:
+        fd.write('''
 # Kick = [    1.000000000000e-05,     1.000000000000e-05,     1.000000000000e-05]
 #            time            norm                    dmx                    dmy                    dmz
           0.00000000       6.92701356e-16    -3.798602757097e-08    -3.850923113536e-10    -2.506988148420e-10
@@ -89,8 +89,8 @@ def test_dipole_moment_values(time_propagation_reference,
           1.65365493       1.71405522e-15     1.075009677567e-04     1.075385921602e-04     1.075337414463e-04
 '''.strip())  # noqa: E501
 
-    with open('dm2.dat', 'w') as f:
-        f.write('''
+    with open('dm2.dat', 'w') as fd:
+        fd.write('''
 # Kick = [    1.000000000000e-05,     1.000000000000e-05,     1.000000000000e-05]
 #            time            norm                    dmx                    dmy                    dmz
           2.48048240       1.55070479e-15     1.388363880650e-04     1.388662733804e-04     1.388701173331e-04
