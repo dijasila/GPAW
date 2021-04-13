@@ -140,9 +140,6 @@ class BasePropagator(ABC):
         raise NotImplementedError()
 
 
-###############################################################################
-# ExplicitCrankNicolson
-###############################################################################
 class ExplicitCrankNicolson(BasePropagator):
     """Explicit Crank-Nicolson propagator
 
@@ -163,6 +160,22 @@ class ExplicitCrankNicolson(BasePropagator):
     def todict(self):
         return {'name': 'ECN'}
 
+    def initialize(self, *args, **kwargs):
+        BasePropagator.initialize(self, *args, **kwargs)
+
+        # Allocate temporary wavefunctions
+        self.tmp_kpt_u = []
+        for kpt in self.wfs.kpt_u:
+            tmp_kpt = DummyKPoint()
+            tmp_kpt.psit_nG = self.gd.empty(n=len(kpt.psit_nG),
+                                            dtype=complex)
+            self.tmp_kpt_u.append(tmp_kpt)
+
+        # Allocate memory for Crank-Nicolson stuff
+        nvec = len(self.wfs.kpt_u[0].psit_nG)
+        self.hpsit = self.gd.zeros(nvec, dtype=complex)
+        self.spsit = self.gd.zeros(nvec, dtype=complex)
+
     # ( S + i H dt/2 ) psit(t+dt) = ( S - i H dt/2 ) psit(t)
     def propagate(self, time, time_step):
         """Propagate wavefunctions.
@@ -176,22 +189,6 @@ class ExplicitCrankNicolson(BasePropagator):
 
         """
         self.niter = 0
-
-        # Allocate temporary wavefunctions
-        if self.tmp_kpt_u is None:
-            self.tmp_kpt_u = []
-            for kpt in self.wfs.kpt_u:
-                tmp_kpt = DummyKPoint()
-                tmp_kpt.psit_nG = self.gd.empty(n=len(kpt.psit_nG),
-                                                dtype=complex)
-                self.tmp_kpt_u.append(tmp_kpt)
-
-        # Allocate memory for Crank-Nicolson stuff
-        nvec = len(self.wfs.kpt_u[0].psit_nG)
-        if self.hpsit is None:
-            self.hpsit = self.gd.zeros(nvec, dtype=complex)
-        if self.spsit is None:
-            self.spsit = self.gd.zeros(nvec, dtype=complex)
 
         # Copy current wavefunctions psit_nG to work wavefunction arrays
         for u, kpt in enumerate(self.wfs.kpt_u):
@@ -291,9 +288,6 @@ class ExplicitCrankNicolson(BasePropagator):
                                len(psi))
 
 
-###############################################################################
-# SemiImplicitCrankNicolson
-###############################################################################
 class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
     """Semi-implicit Crank-Nicolson propagator
 
@@ -315,6 +309,17 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
     def todict(self):
         return {'name': 'SICN'}
 
+    def initialize(self, *args, **kwargs):
+        ExplicitCrankNicolson.initialize(self, *args, **kwargs)
+
+        # Allocate old wavefunctions
+        self.old_kpt_u = []
+        for kpt in self.wfs.kpt_u:
+            old_kpt = DummyKPoint()
+            old_kpt.psit_nG = self.gd.empty(n=len(kpt.psit_nG),
+                                            dtype=complex)
+            self.old_kpt_u.append(old_kpt)
+
     def propagate(self, time, time_step):
         """Propagate wavefunctions once.
 
@@ -327,30 +332,7 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
         """
 
         self.niter = 0
-
-        # Allocate old/temporary wavefunctions
-        if self.old_kpt_u is None:
-            self.old_kpt_u = []
-            for kpt in self.wfs.kpt_u:
-                old_kpt = DummyKPoint()
-                old_kpt.psit_nG = self.gd.empty(n=len(kpt.psit_nG),
-                                                dtype=complex)
-                self.old_kpt_u.append(old_kpt)
-
-        if self.tmp_kpt_u is None:
-            self.tmp_kpt_u = []
-            for kpt in self.wfs.kpt_u:
-                tmp_kpt = DummyKPoint()
-                tmp_kpt.psit_nG = self.gd.empty(n=len(kpt.psit_nG),
-                                                dtype=complex)
-                self.tmp_kpt_u.append(tmp_kpt)
-
-        # Allocate memory for Crank-Nicolson stuff
         nvec = len(self.wfs.kpt_u[0].psit_nG)
-        if self.hpsit is None:
-            self.hpsit = self.gd.zeros(nvec, dtype=complex)
-        if self.spsit is None:
-            self.spsit = self.gd.zeros(nvec, dtype=complex)
 
         # Copy current wavefunctions psit_nG to work and old wavefunction arrays
         for u, kpt in enumerate(self.wfs.kpt_u):
@@ -408,84 +390,6 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
         self.update_time_dependent_operators(time + time_step)
 
         return self.niter
-
-    # ( S + i H dt/2 ) psit(t+dt) = ( S - i H dt/2 ) psit(t)
-    def solve_propagation_equation(self, kpt, rhs_kpt, time_step, guess=False):
-
-        # kpt is guess, rhs_kpt is used to calculate rhs and is overwritten
-        nvec = len(rhs_kpt.psit_nG)
-
-        assert kpt != rhs_kpt, 'Data race condition detected'
-        assert len(kpt.psit_nG) == nvec, 'Incompatible lhs/rhs vectors'
-
-        self.timer.start('Apply time-dependent operators')
-        # Store H psi(t) as hpsit and S psit(t) as spsit
-        self.td_overlap.update_k_point_projections(self.wfs, kpt,
-                                                   rhs_kpt.psit_nG)
-        self.td_hamiltonian.apply(kpt,
-                                  rhs_kpt.psit_nG,
-                                  self.hpsit,
-                                  calculate_P_ani=False)
-        self.td_overlap.apply(rhs_kpt.psit_nG,
-                              self.spsit,
-                              self.wfs,
-                              kpt,
-                              calculate_P_ani=False)
-        self.timer.stop('Apply time-dependent operators')
-
-        #self.mblas.multi_zdotc(self.shift, rhs_kpt.psit_nG, self.hpsit, nvec)
-        #self.shift *= self.gd.dv
-        #self.mblas.multi_zdotc(self.tmp_shift, rhs_kpt.psit_nG, self.spsit, nvec)
-        #self.tmp_shift *= self.gd.dv
-        #self.shift /= self.tmp_shift
-
-        # Update rhs_kpt.psit_nG to reflect ( S - i H dt/2 ) psit(t)
-        #rhs_kpt.psit_nG[:] = self.spsit - .5J * self.hpsit * time_step
-        rhs_kpt.psit_nG[:] = self.spsit
-        self.mblas.multi_zaxpy(-.5j * time_step, self.hpsit, rhs_kpt.psit_nG,
-                               nvec)
-        # Apply shift -i eps S t/2
-        #self.mblas.multi_zaxpy(-.5j*time_step * (-self.shift), self.spsit, rhs_kpt.psit_nG, nvec)
-
-        if guess:
-            if self.sinvhpsit is None:
-                self.sinvhpsit = self.gd.zeros(len(kpt.psit_nG), dtype=complex)
-
-            # Update estimate of psit(t+dt) to ( 1 - i S^(-1) H dt ) psit(t)
-            self.td_overlap.apply_inverse(self.hpsit,
-                                          self.sinvhpsit,
-                                          self.wfs,
-                                          kpt,
-                                          use_cg=False)
-            self.mblas.multi_zaxpy(-1.0j * time_step, self.sinvhpsit,
-                                   kpt.psit_nG, nvec)
-
-        # Information needed by solver.solve -> self.dot
-        self.kpt = kpt
-        self.time_step = time_step
-
-        # Solve A x = b where A is (S + i H dt/2) and b = rhs_kpt.psit_nG
-        self.niter += self.solver.solve(self, kpt.psit_nG, rhs_kpt.psit_nG)
-
-        # Apply shift exp(i eps t)
-        #self.phase_shift = np.exp(1.0J * self.shift * time_step)
-        #self.mblas.multi_scale(self.phase_shift, kpt.psit_nG, nvec)
-
-    # ( S + i H dt/2 ) psi
-    def dot(self, psi, psin):
-        """Applies the propagator matrix to the given wavefunctions.
-
-        Parameters
-        ----------
-        psi: List of coarse grids
-            the known wavefunctions
-        psin: List of coarse grids
-            the result ( S + i H dt/2 ) psi
-
-        """
-        ExplicitCrankNicolson.dot(self, psi, psin)
-        # Apply shift -i eps S t/2
-        #self.mblas.multi_zaxpy(.5j * self.time_step * (-self.shift), self.spsit, psin, len(psi))
 
 
 class EhrenfestPAWSICN(ExplicitCrankNicolson):
