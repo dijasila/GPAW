@@ -141,7 +141,7 @@ void debug_operator_deallocate()
     debug_size_buf = 0;
 }
 
-void debug_operator_memcpy_pre(double *out, const double *in)
+void debug_operator_memcpy_pre(const double *in, double *out)
 {
     GPAW_CUDAMEMCPY(debug_in_cpu, in, double, debug_size_arr,
                     cudaMemcpyDeviceToHost);
@@ -552,7 +552,7 @@ PyObject * Operator_apply_cuda_gpu(OperatorObject* self, PyObject* args)
 
     if (gpaw_cuda_debug) {
         debug_operator_allocate(self, nin, blocks);
-        debug_operator_memcpy_pre(out, in);
+        debug_operator_memcpy_pre(in, out);
     }
 
     _operator_apply_cuda_gpu(self, in, out, nin, blocks, real, ph);
