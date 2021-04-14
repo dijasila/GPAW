@@ -41,6 +41,17 @@ def create_propagator(name, **kwargs):
         raise ValueError('Unknown propagator: %s' % name)
 
 
+def allocate_wavefunction_arrays(wfs):
+    """Allocate wavefunction arrays."""
+    tmp_kpt_u = []
+    for kpt in wfs.kpt_u:
+        tmp_kpt = DummyKPoint()
+        tmp_kpt.psit_nG = wfs.gd.empty(n=len(kpt.psit_nG),
+                                        dtype=complex)
+        tmp_kpt_u.append(tmp_kpt)
+    return tmp_kpt_u
+
+
 class DummyKPoint(object):
     __slots__ = ('psit_nG', )
 
@@ -164,12 +175,7 @@ class ExplicitCrankNicolson(BasePropagator):
         BasePropagator.initialize(self, *args, **kwargs)
 
         # Allocate temporary wavefunctions
-        self.tmp_kpt_u = []
-        for kpt in self.wfs.kpt_u:
-            tmp_kpt = DummyKPoint()
-            tmp_kpt.psit_nG = self.gd.empty(n=len(kpt.psit_nG),
-                                            dtype=complex)
-            self.tmp_kpt_u.append(tmp_kpt)
+        self.tmp_kpt_u = allocate_wavefunction_arrays(self.wfs)
 
         # Allocate memory for Crank-Nicolson stuff
         nvec = len(self.wfs.kpt_u[0].psit_nG)
@@ -313,12 +319,7 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
         ExplicitCrankNicolson.initialize(self, *args, **kwargs)
 
         # Allocate old wavefunctions
-        self.old_kpt_u = []
-        for kpt in self.wfs.kpt_u:
-            old_kpt = DummyKPoint()
-            old_kpt.psit_nG = self.gd.empty(n=len(kpt.psit_nG),
-                                            dtype=complex)
-            self.old_kpt_u.append(old_kpt)
+        self.old_kpt_u = allocate_wavefunction_arrays(self.wfs)
 
     def propagate(self, time, time_step):
         """Propagate wavefunctions once.
@@ -450,20 +451,10 @@ class EhrenfestPAWSICN(ExplicitCrankNicolson):
 
         # Allocate old/temporary wavefunctions
         if self.old_kpt_u is None:
-            self.old_kpt_u = []
-            for kpt in self.wfs.kpt_u:
-                old_kpt = DummyKPoint()
-                old_kpt.psit_nG = self.gd.empty(n=len(kpt.psit_nG),
-                                                dtype=complex)
-                self.old_kpt_u.append(old_kpt)
+            self.old_kpt_u = allocate_wavefunction_arrays(self.wfs)
 
         if self.tmp_kpt_u is None:
-            self.tmp_kpt_u = []
-            for kpt in self.wfs.kpt_u:
-                tmp_kpt = DummyKPoint()
-                tmp_kpt.psit_nG = self.gd.empty(n=len(kpt.psit_nG),
-                                                dtype=complex)
-                self.tmp_kpt_u.append(tmp_kpt)
+            self.tmp_kpt_u = allocate_wavefunction_arrays(self.wfs)
 
         # Allocate memory for Crank-Nicolson stuff
         nvec = len(self.wfs.kpt_u[0].psit_nG)
@@ -706,20 +697,10 @@ class EhrenfestHGHSICN(ExplicitCrankNicolson):
 
         # Allocate old/temporary wavefunctions
         if self.old_kpt_u is None:
-            self.old_kpt_u = []
-            for kpt in self.wfs.kpt_u:
-                old_kpt = DummyKPoint()
-                old_kpt.psit_nG = self.gd.empty(n=len(kpt.psit_nG),
-                                                dtype=complex)
-                self.old_kpt_u.append(old_kpt)
+            self.old_kpt_u = allocate_wavefunction_arrays(self.wfs)
 
         if self.tmp_kpt_u is None:
-            self.tmp_kpt_u = []
-            for kpt in self.wfs.kpt_u:
-                tmp_kpt = DummyKPoint()
-                tmp_kpt.psit_nG = self.gd.empty(n=len(kpt.psit_nG),
-                                                dtype=complex)
-                self.tmp_kpt_u.append(tmp_kpt)
+            self.tmp_kpt_u = allocate_wavefunction_arrays(self.wfs)
 
         # Allocate memory for Crank-Nicolson stuff
         nvec = len(self.wfs.kpt_u[0].psit_nG)
@@ -1052,12 +1033,7 @@ class SemiImplicitTaylorExponential(BasePropagator):
 
         # Allocate temporary wavefunctions
         if self.tmp_kpt_u is None:
-            self.tmp_kpt_u = []
-            for kpt in self.wfs.kpt_u:
-                tmp_kpt = DummyKPoint()
-                tmp_kpt.psit_nG = self.gd.empty(n=len(kpt.psit_nG),
-                                                dtype=complex)
-                self.tmp_kpt_u.append(tmp_kpt)
+            self.tmp_kpt_u = allocate_wavefunction_arrays(self.wfs)
 
         # Allocate memory for Taylor exponential stuff
         nvec = len(self.wfs.kpt_u[0].psit_nG)
@@ -1182,12 +1158,7 @@ class SemiImplicitKrylovExponential(BasePropagator):
 
         # Allocate temporary wavefunctions
         if self.tmp_kpt_u is None:
-            self.tmp_kpt_u = []
-            for kpt in self.wfs.kpt_u:
-                tmp_kpt = DummyKPoint()
-                tmp_kpt.psit_nG = self.gd.empty(n=len(kpt.psit_nG),
-                                                dtype=complex)
-                self.tmp_kpt_u.append(tmp_kpt)
+            self.tmp_kpt_u = allocate_wavefunction_arrays(self.wfs)
 
         # Allocate memory for Krylov subspace stuff
         nvec = len(self.wfs.kpt_u[0].psit_nG)
