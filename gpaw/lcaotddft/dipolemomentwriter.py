@@ -3,6 +3,7 @@ from pathlib import Path
 
 import numpy as np
 
+from gpaw.mpi import broadcast_float
 from gpaw.lcaotddft.observer import TDDFTObserver
 
 
@@ -30,7 +31,13 @@ class DipoleMomentWriter(TDDFTObserver):
                  interval=1):
         TDDFTObserver.__init__(self, paw, interval)
         self.master = paw.world.rank == 0
-        if paw.niter == 0 or not Path(filename).exists():
+        if self.master:
+            do_initialize = paw.niter == 0 or not Path(filename).exists()
+        else:
+            do_initialize = True
+        do_initialize = broadcast_float(do_initialize, paw.world)
+
+        if do_initialize:
             # Initialize
             self.do_center = center
             self.density_type = density
