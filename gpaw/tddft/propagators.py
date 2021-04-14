@@ -132,6 +132,30 @@ class BasePropagator(ABC):
         # Update Hamiltonian H(t) to reflect density rho(t)
         self.td_hamiltonian.update(self.td_density.get_density(), time)
 
+    @timer('Update time-dependent operators')
+    def half_update_time_dependent_operators(self, time):
+        """Half-update overlap, density, and Hamiltonian.
+
+        Parameters
+        ----------
+        time: float
+            the time passed to hamiltonian.half_update()
+        """
+        # Update overlap S(t+dt) of kpt.psit_nG in kpt.P_ani.
+        self.td_overlap.update(self.wfs)
+
+        # Calculate density rho(t+dt) based on the wavefunctions psit_nG in
+        # kpt_u for t = time+time_step. Updates wfs.D_asp based on kpt.P_ani.
+        self.td_density.update()
+
+        # Estimate Hamiltonian H(t+dt/2) by averaging H(t) and H(t+dt)
+        # and retain the difference for a half-way Hamiltonian dH(t+dt/2).
+        self.td_hamiltonian.half_update(self.td_density.get_density(), time)
+
+        # Estimate overlap S(t+dt/2) by averaging S(t) and S(t+dt) #TODO!!!
+        # XXX this doesn't do anything, see TimeDependentOverlap.half_update()
+        self.td_overlap.half_update(self.wfs)
+
     @abstractmethod
     def propagate(self, time, time_step):
         """Propagate wavefunctions once.
@@ -345,24 +369,7 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
                                             time_step,
                                             guess=True)
 
-        self.timer.start('Update time-dependent operators')
-
-        # Update overlap S(t+dt) of kpt.psit_nG in kpt.P_ani.
-        self.td_overlap.update(self.wfs)
-
-        # Calculate density rho(t+dt) based on the wavefunctions psit_nG in
-        # kpt_u for t = time+time_step. Updates wfs.D_asp based on kpt.P_ani.
-        self.td_density.update()
-
-        # Estimate Hamiltonian H(t+dt/2) by averaging H(t) and H(t+dt)
-        # and retain the difference for a half-way Hamiltonian dH(t+dt/2).
-        self.td_hamiltonian.half_update(self.td_density.get_density(),
-                                        time + time_step)
-
-        # Estimate overlap S(t+dt/2) by averaging S(t) and S(t+dt) #TODO!!!
-        self.td_overlap.half_update(self.wfs)
-
-        self.timer.stop('Update time-dependent operators')
+        self.half_update_time_dependent_operators(time + time_step)
 
         # Corrector step
         # Use predicted psit_nG in kpt_u as an initial guess, whereas the old
@@ -478,24 +485,7 @@ class EhrenfestPAWSICN(ExplicitCrankNicolson):
                                             time_step,
                                             guess=self.predictor_guess[0])
 
-        self.timer.start('Update time-dependent operators')
-
-        # Update overlap S(t+dt) of kpt.psit_nG in kpt.P_ani.
-        self.td_overlap.update(self.wfs)
-
-        # Calculate density rho(t+dt) based on the wavefunctions psit_nG in
-        # kpt_u for t = time+time_step. Updates wfs.D_asp based on kpt.P_ani.
-        self.td_density.update()
-
-        # Estimate Hamiltonian H(t+dt/2) by averaging H(t) and H(t+dt)
-        # and retain the difference for a half-way Hamiltonian dH(t+dt/2).
-        self.td_hamiltonian.half_update(self.td_density.get_density(),
-                                        time + time_step)
-
-        # Estimate overlap S(t+dt/2) by averaging S(t) and S(t+dt) #TODO!!!
-        self.td_overlap.half_update(self.wfs)
-
-        self.timer.stop('Update time-dependent operators')
+        self.half_update_time_dependent_operators(time + time_step)
 
         # Corrector step
         # Use predicted psit_nG in kpt_u as an initial guess, whereas the old
@@ -722,24 +712,7 @@ class EhrenfestHGHSICN(ExplicitCrankNicolson):
                                             time_step,
                                             guess=False)
 
-        self.timer.start('Update time-dependent operators')
-
-        # Update overlap S(t+dt) of kpt.psit_nG in kpt.P_ani.
-        self.td_overlap.update(self.wfs)
-
-        # Calculate density rho(t+dt) based on the wavefunctions psit_nG in
-        # kpt_u for t = time+time_step. Updates wfs.D_asp based on kpt.P_ani.
-        self.td_density.update()
-
-        # Estimate Hamiltonian H(t+dt/2) by averaging H(t) and H(t+dt)
-        # and retain the difference for a half-way Hamiltonian dH(t+dt/2).
-        self.td_hamiltonian.half_update(self.td_density.get_density(),
-                                        time + time_step)
-
-        # Estimate overlap S(t+dt/2) by averaging S(t) and S(t+dt) #TODO!!!
-        self.td_overlap.half_update(self.wfs)
-
-        self.timer.stop('Update time-dependent operators')
+        self.half_update_time_dependent_operators(time + time_step)
 
         # Corrector step
         # Use predicted psit_nG in kpt_u as an initial guess, whereas the old
@@ -1043,23 +1016,7 @@ class SemiImplicitTaylorExponential(BasePropagator):
         for kpt in self.wfs.kpt_u:
             self.solve_propagation_equation(kpt, time_step)
 
-        self.timer.start('Update time-dependent operators')
-
-        # Update overlap S(t+dt) of kpt.psit_nG in kpt.P_ani.
-        self.td_overlap.update(self.wfs)
-
-        # Calculate density rho(t+dt) based on the wavefunctions psit_nG in
-        # kpt_u for t = time+time_step. Updates wfs.D_asp based on kpt.P_ani.
-        self.td_density.update()
-
-        # Estimate Hamiltonian H(t+dt/2) by averaging H(t) and H(t+dt)
-        self.td_hamiltonian.half_update(self.td_density.get_density(),
-                                        time + time_step)
-
-        # Estimate overlap S(t+dt/2) by averaging S(t) and S(t+dt) #TODO!!!
-        self.td_overlap.half_update(self.wfs)
-
-        self.timer.stop('Update time-dependent operators')
+        self.half_update_time_dependent_operators(time + time_step)
 
         # propagate psit(t), not psit(t+dt), in correct
         for u, kpt in enumerate(self.wfs.kpt_u):
@@ -1174,23 +1131,7 @@ class SemiImplicitKrylovExponential(BasePropagator):
         for kpt in self.wfs.kpt_u:
             self.solve_propagation_equation(kpt, time_step)
 
-        self.timer.start('Update time-dependent operators')
-
-        # Update overlap S(t+dt) of kpt.psit_nG in kpt.P_ani.
-        self.td_overlap.update(self.wfs)
-
-        # Calculate density rho(t+dt) based on the wavefunctions psit_nG in
-        # kpt_u for t = time+time_step. Updates wfs.D_asp based on kpt.P_ani.
-        self.td_density.update()
-
-        # Estimate Hamiltonian H(t+dt/2) by averaging H(t) and H(t+dt)
-        self.td_hamiltonian.half_update(self.td_density.get_density(),
-                                        time + time_step)
-
-        # Estimate overlap S(t+dt/2) by averaging S(t) and S(t+dt) #TODO!!!
-        self.td_overlap.half_update(self.wfs)
-
-        self.timer.stop('Update time-dependent operators')
+        self.half_update_time_dependent_operators(time + time_step)
 
         # propagate psit(t), not psit(t+dt), in correct
         for u, kpt in enumerate(self.wfs.kpt_u):
