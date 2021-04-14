@@ -34,7 +34,8 @@ def test_mom_lcao_forces_directopt(in_tmp_dir):
                 nbands='nao',
                 eigensolver=DirectMinLCAO(searchdir_algo={'name': 'LSR1P',
                                                           'method': 'LSR1'},
-                                          linesearch_algo={'name': 'UnitStep'}),
+                                          linesearch_algo={'name': 'UnitStep'}
+                                          ),
                 convergence={'energy': 100,
                              'density': 1e-3,
                              'eigenstates': 1e-3})
