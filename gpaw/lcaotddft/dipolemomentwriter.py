@@ -1,4 +1,6 @@
 import re
+from pathlib import Path
+
 import numpy as np
 
 from gpaw.lcaotddft.observer import TDDFTObserver
@@ -28,12 +30,13 @@ class DipoleMomentWriter(TDDFTObserver):
                  interval=1):
         TDDFTObserver.__init__(self, paw, interval)
         self.master = paw.world.rank == 0
-        if paw.niter == 0:
+        if paw.niter == 0 or not Path(filename).exists():
             # Initialize
             self.do_center = center
             self.density_type = density
             if self.master:
                 self.fd = open(filename, 'w')
+            self._write_header(paw)
         else:
             # Read and continue
             self.read_header(filename)
@@ -46,8 +49,6 @@ class DipoleMomentWriter(TDDFTObserver):
             self.fd.flush()
 
     def _write_header(self, paw):
-        if paw.niter != 0:
-            return
         line = '# %s[version=%s]' % (self.__class__.__name__, self.version)
         line += ('(center=%s, density=%s)\n' %
                  (repr(self.do_center), repr(self.density_type)))
@@ -115,9 +116,7 @@ class DipoleMomentWriter(TDDFTObserver):
         self._write(line)
 
     def _update(self, paw):
-        if paw.action == 'init':
-            self._write_header(paw)
-        elif paw.action == 'kick':
+        if paw.action == 'kick':
             self._write_kick(paw)
         self._write_dm(paw)
 
