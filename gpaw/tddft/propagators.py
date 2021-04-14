@@ -1102,9 +1102,6 @@ class SemiImplicitTaylorExponential(BasePropagator):
         self.td_overlap.apply(psit, spsit, self.wfs, self.kpt)
 
 
-###############################################################################
-# SemiImplicitKrylovExponential
-###############################################################################
 class SemiImplicitKrylovExponential(BasePropagator):
     """Semi-implicit Krylov exponential propagator
 
@@ -1136,6 +1133,24 @@ class SemiImplicitKrylovExponential(BasePropagator):
         return {'name': 'SIKE',
                 'degree': self.degree}
 
+    def initialize(self, *args, **kwargs):
+        BasePropagator.initialize(self, *args, **kwargs)
+
+        # Allocate temporary wavefunctions
+        self.tmp_kpt_u = allocate_wavefunction_arrays(self.wfs)
+
+        # Allocate memory for Krylov subspace stuff
+        nvec = len(self.wfs.kpt_u[0].psit_nG)
+        self.em = np.zeros((nvec, self.kdim), dtype=float)
+        self.lm = np.zeros((nvec, ), dtype=complex)
+        self.hm = np.zeros((nvec, self.kdim, self.kdim), dtype=complex)
+        self.sm = np.zeros((nvec, self.kdim, self.kdim), dtype=complex)
+        self.xm = np.zeros((nvec, self.kdim, self.kdim), dtype=complex)
+        self.qm = self.gd.zeros((self.kdim, nvec), dtype=complex)
+        self.Hqm = self.gd.zeros((self.kdim, nvec), dtype=complex)
+        self.Sqm = self.gd.zeros((self.kdim, nvec), dtype=complex)
+        self.rqm = self.gd.zeros((nvec, ), dtype=complex)
+
     def propagate(self, time, time_step):
         """Propagate wavefunctions once.
 
@@ -1148,44 +1163,6 @@ class SemiImplicitKrylovExponential(BasePropagator):
         """
 
         self.niter = 0
-
-        # Allocate temporary wavefunctions
-        if self.tmp_kpt_u is None:
-            self.tmp_kpt_u = allocate_wavefunction_arrays(self.wfs)
-
-        # Allocate memory for Krylov subspace stuff
-        nvec = len(self.wfs.kpt_u[0].psit_nG)
-
-        # em = (wfs, degree)
-        if self.em is None:
-            self.em = np.zeros((nvec, self.kdim), float)
-
-        # lm = (wfs)
-        if self.lm is None:
-            self.lm = np.zeros((nvec, ), complex)
-
-        # hm = (wfs, degree, degree)
-        if self.hm is None:
-            self.hm = np.zeros((nvec, self.kdim, self.kdim), complex)
-        # sm = (wfs, degree, degree)
-        if self.sm is None:
-            self.sm = np.zeros((nvec, self.kdim, self.kdim), complex)
-        # xm = (wfs, degree, degree)
-        if self.xm is None:
-            self.xm = np.zeros((nvec, self.kdim, self.kdim), complex)
-
-        # qm = (degree, wfs, nx, ny, nz)
-        if self.qm is None:
-            self.qm = self.gd.zeros((self.kdim, nvec), dtype=complex)
-        # H qm = (degree, wfs, nx, ny, nz)
-        if self.Hqm is None:
-            self.Hqm = self.gd.zeros((self.kdim, nvec), dtype=complex)
-        # S qm = (degree, wfs, nx, ny, nz)
-        if self.Sqm is None:
-            self.Sqm = self.gd.zeros((self.kdim, nvec), dtype=complex)
-        # rqm = (wfs, nx, ny, nz)
-        if self.rqm is None:
-            self.rqm = self.gd.zeros((nvec, ), dtype=complex)
 
         self.time_step = time_step
 
@@ -1257,15 +1234,6 @@ class SemiImplicitKrylovExponential(BasePropagator):
                 for k in range(nvec):
                     self.sm[k][i][j] = tmp[k]
 
-        #print 'Hm ='
-        #print np.round(self.hm*1e4) / 1e4
-        #print 'log Hm ='
-        #print np.round(np.log(self.hm)*1e2)/1e2
-        #print 'Sm ='
-        #print np.round(self.sm*1e4) / 1e4
-
-        #print np.round(np.log10(np.abs(np.linalg.eigh(self.hm[0])[1]))*1e6)/1e6
-
         # Diagonalize
         # Propagate
         # psi(t) = Qm Xm exp(-i Em t) Xm^H Sm e_1
@@ -1277,34 +1245,21 @@ class SemiImplicitKrylovExponential(BasePropagator):
         # and z = exp(-i Em t) y
         for k in range(nvec):
             (self.em[k], self.xm[k]) = np.linalg.eigh(self.hm[k])
-        #print 'Em = ', self.em
-        #for k in range(nvec):
-        #print 'Xm',k,' = '
-        #print self.xm[k]
 
-        #print self.em[0] * (-1.0J*self.time_step)
         self.em = np.exp(self.em * (-1.0j * time_step))
-        #print self.em[0]
-        #print np.linalg.eigh(self.hm[0])
         for k in range(nvec):
             z = self.em[k] * np.conj(self.xm[k, 0])
             xm_tmp[k][:] = np.dot(self.xm[k], z)
-        #print xm_tmp
         kpt.psit_nG[:] = 0.0
         for k in range(nvec):
             for i in range(self.kdim):
-                #print 'Xm_tmp[',k,'][',i,'] = ', xm_tmp[k][i]
                 axpy(xm_tmp[k][i] / scale[k], self.qm[i][k], kpt.psit_nG[k])
-
-        #print self.qm
-        #print kpt.psit_nG
 
     # Create Krylov subspace
     #    K_v = { psi, S^-1 H psi, (S^-1 H)^2 psi, ... }
 
     def create_krylov_subspace(self, kpt, h, s, qm, Hqm, Sqm):
         nvec = len(kpt.psit_nG)
-        # tmp = (wfs)
         tmp = np.zeros((nvec, ), complex)
         scale = np.zeros((nvec, ), complex)
         scale[:] = 0.0
@@ -1332,7 +1287,6 @@ class SemiImplicitKrylovExponential(BasePropagator):
             self.mblas.multi_scale(1. / np.sqrt(tmp), Sqm[i], nvec)
             if i == 0:
                 scale[:] = 1 / np.sqrt(tmp)
-                #print 'Scale', scale
 
             # H q_i
             h.apply(kpt, qm[i], Hqm[i])
@@ -1341,9 +1295,7 @@ class SemiImplicitKrylovExponential(BasePropagator):
             if i + 1 < self.kdim:
                 rqm[:] = Hqm[i]
                 self.solver.solve(self, rqm, Hqm[i])
-                #print 'Linear solver iterations = ', self.solver.iterations
 
-        #print '---'
         return scale
 
     def dot(self, psit, spsit):
