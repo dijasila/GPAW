@@ -653,7 +653,7 @@ class DirectMinLCAO(DirectLCAO):
 
         counter = self.update_ref_orbs_counter
         if (self.iters % counter == 0 and self.iters > 1) or \
-                self.restart:
+                (self.restart and self.iters > 1):
             self.iters = 1
             if self.update_ref_orbs_canonical or self.restart:
                 self.get_canonical_representation(ham, wfs, dens)
@@ -905,7 +905,7 @@ class DirectMinLCAO(DirectLCAO):
             wfs.gd.comm.broadcast(kpt.eps_n, 0)
             wfs.gd.comm.broadcast(kpt.f_n, 0)
             wfs.gd.comm.broadcast(kpt.C_nM, 0)
-            if not np.allclose(kpt.f_n, f_sn) and self.iters > 1:
+            if not np.allclose(kpt.f_n, f_sn):
                 changedocc = True
                 wfs.atomic_correction.calculate_projections(wfs, kpt)
 
@@ -1023,13 +1023,6 @@ class DirectMinLCAO(DirectLCAO):
         :param eps:
         :return:
         """
-
-        # occ_name = getattr(occ, "name", None)
-        # if occ_name == 'mom':
-        #     self.sort_wavefunctions_mom(occ, wfs)
-        #     for kpt in wfs.kpt_u:
-        #         u = self.n_kps * kpt.s + kpt.q
-        #         c_nm_ref[u] = kpt.C_nM.copy()
 
         occ_name = getattr(wfs.occupations, "name", None)
         if occ_name == 'mom':
@@ -1206,6 +1199,9 @@ class DirectMinLCAO(DirectLCAO):
             super(DirectMinLCAO, self).iterate(ham, wfs)
             self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
             if occ_name == 'mom':
+                # We need to initialize the MOM reference orbitals
+                # before sorting coefficients and occupation numbers
+                wfs.occupations.initialize_reference_orbitals()
                 self.sort_wavefunctions_mom(wfs)
             self.localize_wfs(wfs, log)
 
@@ -1229,10 +1225,10 @@ class DirectMinLCAO(DirectLCAO):
             wfs.coefficients_read_from_file = False
             self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
             if occ_name == 'mom':
-                self.sort_wavefunctions_mom(wfs)
-                # Reinitialize MOM reference orbitals
-                # after orthogonalization
+                # We need to initialize the MOM reference orbitals
+                # before sorting coefficients and occupation numbers
                 wfs.occupations.initialize_reference_orbitals()
+                self.sort_wavefunctions_mom(wfs)
 
     def localize_wfs(self, wfs, log):
         """
