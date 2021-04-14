@@ -987,9 +987,6 @@ class AbsorptionKick:
         #     print ''
 
 
-###############################################################################
-# SemiImpicitTaylorExponential
-###############################################################################
 class SemiImplicitTaylorExponential(BasePropagator):
     """Semi-implicit Taylor exponential propagator
     exp(-i S^-1 H t) = 1 - i S^-1 H t + (1/2) (-i S^-1 H t)^2 + ...
@@ -1014,6 +1011,17 @@ class SemiImplicitTaylorExponential(BasePropagator):
         return {'name': 'SITE',
                 'degree': self.degree}
 
+    def initialize(self, *args, **kwargs):
+        BasePropagator.initialize(self, *args, **kwargs)
+
+        # Allocate temporary wavefunctions
+        self.tmp_kpt_u = allocate_wavefunction_arrays(self.wfs)
+
+        # Allocate memory for Taylor exponential stuff
+        nvec = len(self.wfs.kpt_u[0].psit_nG)
+        self.psin = self.gd.zeros(nvec, dtype=complex)
+        self.hpsit = self.gd.zeros(nvec, dtype=complex)
+
     def propagate(self, time, time_step):
         """Propagate wavefunctions once.
 
@@ -1026,17 +1034,6 @@ class SemiImplicitTaylorExponential(BasePropagator):
         """
 
         self.niter = 0
-
-        # Allocate temporary wavefunctions
-        if self.tmp_kpt_u is None:
-            self.tmp_kpt_u = allocate_wavefunction_arrays(self.wfs)
-
-        # Allocate memory for Taylor exponential stuff
-        nvec = len(self.wfs.kpt_u[0].psit_nG)
-        if self.psin is None:
-            self.psin = self.gd.zeros(nvec, dtype=complex)
-        if self.hpsit is None:
-            self.hpsit = self.gd.zeros(nvec, dtype=complex)
 
         # copy current wavefunctions to temporary variable
         for u, kpt in enumerate(self.wfs.kpt_u):
