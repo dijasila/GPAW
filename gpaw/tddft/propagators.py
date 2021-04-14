@@ -396,7 +396,7 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
         return self.niter
 
 
-class EhrenfestPAWSICN(ExplicitCrankNicolson):
+class EhrenfestPAWSICN(SemiImplicitCrankNicolson):
     """Semi-implicit Crank-Nicolson propagator for Ehrenfest dynamics
        TODO: merge this with the ordinary SICN
     """
@@ -418,7 +418,7 @@ class EhrenfestPAWSICN(ExplicitCrankNicolson):
             default is (False, False)
 
         """
-        ExplicitCrankNicolson.__init__(self)
+        SemiImplicitCrankNicolson.__init__(self)
         self.old_kpt_u = None
         self.corrector_guess = corrector_guess
         self.predictor_guess = predictor_guess
@@ -447,24 +447,11 @@ class EhrenfestPAWSICN(ExplicitCrankNicolson):
         """
 
         self.niter = 0
+        nvec = len(self.wfs.kpt_u[0].psit_nG)
 
         # update the atomic velocities which are required
         # for calculating the P term
         self.update_velocities(v_a)
-
-        # Allocate old/temporary wavefunctions
-        if self.old_kpt_u is None:
-            self.old_kpt_u = allocate_wavefunction_arrays(self.wfs)
-
-        if self.tmp_kpt_u is None:
-            self.tmp_kpt_u = allocate_wavefunction_arrays(self.wfs)
-
-        # Allocate memory for Crank-Nicolson stuff
-        nvec = len(self.wfs.kpt_u[0].psit_nG)
-        if self.hpsit is None:
-            self.hpsit = self.gd.zeros(nvec, dtype=complex)
-        if self.spsit is None:
-            self.spsit = self.gd.zeros(nvec, dtype=complex)
 
         # Copy current wavefunctions to work and old wavefunction arrays
         for u, kpt in enumerate(self.wfs.kpt_u):
@@ -633,15 +620,14 @@ class EhrenfestPAWSICN(ExplicitCrankNicolson):
                                len(psi))
 
 
-class EhrenfestHGHSICN(ExplicitCrankNicolson):
+class EhrenfestHGHSICN(SemiImplicitCrankNicolson):
     """Semi-implicit Crank-Nicolson propagator for Ehrenfest dynamics
        using HGH pseudopotentials
 
     """
     def __init__(self):
         """Create SemiImplicitCrankNicolson-object."""
-        ExplicitCrankNicolson.__init__(self)
-        self.old_kpt_u = None
+        SemiImplicitCrankNicolson.__init__(self)
 
     def todict(self):
         return {'name': 'EFSICN_HGH'}
@@ -658,20 +644,6 @@ class EhrenfestHGHSICN(ExplicitCrankNicolson):
         """
 
         self.niter = 0
-
-        # Allocate old/temporary wavefunctions
-        if self.old_kpt_u is None:
-            self.old_kpt_u = allocate_wavefunction_arrays(self.wfs)
-
-        if self.tmp_kpt_u is None:
-            self.tmp_kpt_u = allocate_wavefunction_arrays(self.wfs)
-
-        # Allocate memory for Crank-Nicolson stuff
-        nvec = len(self.wfs.kpt_u[0].psit_nG)
-        if self.hpsit is None:
-            self.hpsit = self.gd.zeros(nvec, dtype=complex)
-        if self.spsit is None:
-            self.spsit = self.gd.zeros(nvec, dtype=complex)
 
         # Copy current wavefunctions to work and old wavefunction arrays
         for u, kpt in enumerate(self.wfs.kpt_u):
