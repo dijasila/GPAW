@@ -3,7 +3,7 @@ import numpy as np
 from ase import Atoms
 
 from gpaw import GPAW
-from gpaw.tddft import TDDFT
+from gpaw.tddft import TDDFT, DipoleMomentWriter
 from gpaw.inducedfield.inducedfield_base import BaseInducedField
 from gpaw.inducedfield.inducedfield_tddft import TDDFTInducedField
 from gpaw.poisson import PoissonSolver
@@ -50,6 +50,7 @@ def test_inducedfield_td(in_tmp_dir):
     iterations = 20
     kick_strength = [1.0e-3, 1.0e-3, 0.0]
     td_calc = TDDFT('na2_gs.gpw')
+    DipoleMomentWriter(td_calc, 'na2_td_dm.dat')
     td_calc.absorption_kick(kick_strength=kick_strength)
 
     # Create and attach InducedField object
@@ -63,10 +64,7 @@ def test_inducedfield_td(in_tmp_dir):
                             restart_file='na2_td.ind')
 
     # Propagate as usual
-    td_calc.propagate(time_step,
-                      iterations // 2,
-                      'na2_td_dm.dat',
-                      'na2_td.gpw')
+    td_calc.propagate(time_step, iterations // 2)
 
     # Save TDDFT and InducedField objects
     td_calc.write('na2_td.gpw', mode='all')
@@ -75,6 +73,7 @@ def test_inducedfield_td(in_tmp_dir):
 
     # Restart and continue
     td_calc = TDDFT('na2_td.gpw')
+    DipoleMomentWriter(td_calc, 'na2_td_dm.dat')
 
     # Load and attach InducedField object
     ind = TDDFTInducedField(filename='na2_td.ind',
@@ -82,10 +81,7 @@ def test_inducedfield_td(in_tmp_dir):
                             restart_file='na2_td.ind')
 
     # Continue propagation as usual
-    td_calc.propagate(time_step,
-                      iterations // 2,
-                      'na2_td_dm.dat',
-                      'na2_td.gpw')
+    td_calc.propagate(time_step, iterations // 2)
 
     # Calculate induced electric field
     ind.calculate_induced_field(gridrefinement=2,

@@ -4,7 +4,7 @@ from gpaw.fdtd.poisson_fdtd import FDTDPoissonSolver
 from gpaw.fdtd.polarizable_material import (PermittivityPlus,
                                             PolarizableMaterial,
                                             PolarizableSphere)
-from gpaw.tddft import TDDFT, photoabsorption_spectrum
+from gpaw.tddft import TDDFT, DipoleMomentWriter, photoabsorption_spectrum
 from gpaw.inducedfield.inducedfield_tddft import TDDFTInducedField
 from gpaw.inducedfield.inducedfield_fdtd import FDTDInducedField
 from gpaw.mpi import world
@@ -70,6 +70,7 @@ time_step = 10
 iterations = 1500
 
 td_calc = TDDFT('gs.gpw')
+DipoleMomentWriter(td_calc, 'dm.dat')
 td_calc.absorption_kick(kick_strength=kick)
 td_calc.hamiltonian.poisson.set_kick(kick)
 
@@ -84,7 +85,7 @@ qm_ind = TDDFTInducedField(paw=td_calc,
                            width=width)
 
 # Propagate TDDFT and FDTD
-td_calc.propagate(time_step, iterations, 'dm.dat', 'td.gpw')
+td_calc.propagate(time_step, iterations)
 
 # Save results
 td_calc.write('td.gpw', 'all')

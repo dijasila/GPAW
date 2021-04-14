@@ -5,7 +5,7 @@ from gpaw.fdtd.polarizable_material import (PermittivityPlus,
                                             PolarizableMaterial,
                                             PolarizableSphere)
 from gpaw.mpi import world
-from gpaw.tddft import TDDFT
+from gpaw.tddft import TDDFT, DipoleMomentWriter
 from gpaw.inducedfield.inducedfield_tddft import TDDFTInducedField
 from gpaw.inducedfield.inducedfield_fdtd import (
     FDTDInducedField, calculate_hybrid_induced_field)
@@ -91,6 +91,7 @@ def test_fdtd_ed_inducedfield(in_tmp_dir):
     iterations = 10
 
     td_calc = TDDFT('gs.gpw')
+    DipoleMomentWriter(td_calc, 'dm.dat')
     td_calc.absorption_kick(kick_strength=kick)
     td_calc.hamiltonian.poisson.set_kick(kick)
 
@@ -105,7 +106,7 @@ def test_fdtd_ed_inducedfield(in_tmp_dir):
                                width=width)
 
     # Propagate TDDFT and FDTD
-    td_calc.propagate(time_step, iterations // 2, 'dm.dat', 'td.gpw')
+    td_calc.propagate(time_step, iterations // 2)
     td_calc.write('td.gpw', 'all')
     cl_ind.write('cl.ind')
     qm_ind.write('qm.ind')
@@ -117,11 +118,12 @@ def test_fdtd_ed_inducedfield(in_tmp_dir):
 
     # Restart
     td_calc = TDDFT('td.gpw')
+    DipoleMomentWriter(td_calc, 'dm.dat')
     cl_ind = FDTDInducedField(filename='cl.ind',
                               paw=td_calc)
     qm_ind = TDDFTInducedField(filename='qm.ind',
                                paw=td_calc)
-    td_calc.propagate(time_step, iterations // 2, 'dm.dat', 'td.gpw')
+    td_calc.propagate(time_step, iterations // 2)
     td_calc.write('td.gpw', 'all')
     cl_ind.write('cl.ind')
     qm_ind.write('qm.ind')

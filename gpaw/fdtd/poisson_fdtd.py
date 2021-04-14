@@ -13,7 +13,7 @@ from gpaw.fdtd.potential_couplers import (RefinerPotentialCoupler,
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.mpi import world, serial_comm
 from gpaw.poisson import PoissonSolver, FDPoissonSolver
-from gpaw.tddft import TDDFT
+from gpaw.tddft import TDDFT, DipoleMomentWriter
 from gpaw.transformers import Transformer
 from gpaw.utilities.gpts import get_number_of_grid_points
 
@@ -129,11 +129,13 @@ class QSFDTD:
                          dump_interval=100,
                          **kwargs):
         self.td_calc = TDDFT(filename, **kwargs)
+        DipoleMomentWriter(self.td_calc, dipole_moment_file)
         if kick_strength is not None:
             self.td_calc.absorption_kick(kick_strength)
             self.td_calc.hamiltonian.poisson.set_kick(kick_strength)
-        self.td_calc.propagate(time_step, iterations, dipole_moment_file,
-                               restart_file, dump_interval)
+        self.td_calc.propagate(time_step, iterations,
+                               restart_file=restart_file,
+                               dump_interval=dump_interval)
 
 
 # This helps in telling the classical quantities from the quantum ones

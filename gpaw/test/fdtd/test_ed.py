@@ -5,7 +5,7 @@ from gpaw.fdtd.polarizable_material import (PermittivityPlus,
                                             PolarizableMaterial,
                                             PolarizableSphere)
 from gpaw.mpi import world
-from gpaw.tddft import TDDFT
+from gpaw.tddft import TDDFT, DipoleMomentWriter
 from gpaw.test import equal
 import numpy as np
 
@@ -82,14 +82,17 @@ def test_fdtd_ed(in_tmp_dir):
     max_time = 100  # 0.1 fs
 
     td_calc = TDDFT('gs.gpw')
+    DipoleMomentWriter(td_calc, 'dm.dat')
     td_calc.absorption_kick(kick_strength=kick)
     td_calc.hamiltonian.poisson.set_kick(kick)
 
     # Propagate TDDFT and FDTD
-    td_calc.propagate(time_step, max_time / time_step / 2, 'dm.dat', 'td.gpw')
+    td_calc.propagate(time_step, max_time / time_step / 2)
+    td_calc.write('td.gpw', 'all')
 
     td_calc2 = TDDFT('td.gpw')
-    td_calc2.propagate(time_step, max_time / time_step / 2, 'dm.dat', 'td.gpw')
+    DipoleMomentWriter(td_calc2, 'dm.dat')
+    td_calc2.propagate(time_step, max_time / time_step / 2)
 
     # Test
     ref_cl_dipole_moment = [5.25374117e-14, 5.75811267e-14, 3.08349334e-02]
