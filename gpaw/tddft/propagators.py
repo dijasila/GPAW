@@ -790,24 +790,9 @@ class EnforcedTimeReversalSymmetryCrankNicolson(SemiImplicitCrankNicolson):
         for [kpt, rhs_kpt] in zip(self.wfs.kpt_u, self.old_kpt_u):
             self.solve_propagation_equation(kpt, rhs_kpt, time_step)
 
-        self.timer.start('Update time-dependent operators')
-
-        # Update overlap S(t+dt) of kpt.psit_nG in kpt.P_ani.
-        self.td_overlap.update(self.wfs)
-
-        # Calculate density rho(t+dt) based on the wavefunctions psit_nG in
-        # kpt_u for t = time+time_step. Updates wfs.D_asp based on kpt.P_ani.
-        self.td_density.update()
-
-        # Estimate Hamiltonian H(t+dt/2) by averaging H(t) and H(t+dt)
-        # and retain the difference for a half-way Hamiltonian dH(t+dt/2).
-        self.td_hamiltonian.update(self.td_density.get_density(),
-                                   time + time_step)
-
-        # Estimate overlap S(t+dt/2) by averaging S(t) and S(t+dt) #TODO!!!
-        self.td_overlap.update(self.wfs)
-
-        self.timer.stop('Update time-dependent operators')
+        # XXX why here is full update and not half update?
+        # (compare to other propagators)
+        self.update_time_dependent_operators(time + time_step)
 
         # Corrector step
         # Use predicted psit_nG in kpt_u as an initial guess, whereas the old
