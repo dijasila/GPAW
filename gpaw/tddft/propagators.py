@@ -3,6 +3,7 @@
 """This module implements time propagators for time-dependent density
 functional theory calculations."""
 from abc import ABC, abstractmethod
+from collections import namedtuple
 
 import numpy as np
 
@@ -43,17 +44,12 @@ def create_propagator(name, **kwargs):
 
 def allocate_wavefunction_arrays(wfs):
     """Allocate wavefunction arrays."""
-    tmp_kpt_u = []
+    DummyKPoint = namedtuple('DummyKPoint', ['psit_nG'])
+    new_kpt_u = []
     for kpt in wfs.kpt_u:
-        tmp_kpt = DummyKPoint()
-        tmp_kpt.psit_nG = wfs.gd.empty(n=len(kpt.psit_nG),
-                                        dtype=complex)
-        tmp_kpt_u.append(tmp_kpt)
-    return tmp_kpt_u
-
-
-class DummyKPoint(object):
-    __slots__ = ('psit_nG', )
+        psit_nG = wfs.gd.empty(n=kpt.psit_nG.shape[0], dtype=complex)
+        new_kpt_u.append(DummyKPoint(psit_nG))
+    return new_kpt_u
 
 
 class BasePropagator(ABC):
