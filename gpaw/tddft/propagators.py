@@ -1,4 +1,3 @@
-# flake8: noqa
 # Initially written by Lauri Lehtovaara, 2007
 """This module implements time propagators for time-dependent density
 functional theory calculations."""
@@ -258,7 +257,7 @@ class ExplicitCrankNicolson(BasePropagator):
         self.timer.stop('Apply time-dependent operators')
 
         # Update rhs_kpt.psit_nG to reflect ( S - i H dt/2 ) psit(t)
-        #rhs_kpt.psit_nG[:] = self.spsit - .5J * self.hpsit * time_step
+        # rhs_kpt.psit_nG[:] = self.spsit - .5J * self.hpsit * time_step
         rhs_kpt.psit_nG[:] = self.spsit
         self.mblas.multi_zaxpy(-.5j * time_step, self.hpsit, rhs_kpt.psit_nG,
                                nvec)
@@ -355,7 +354,7 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
         self.niter = 0
         nvec = len(self.wfs.kpt_u[0].psit_nG)
 
-        # Copy current wavefunctions psit_nG to work and old wavefunction arrays
+        # Copy current wavefunctions to work and old wavefunction arrays
         for u, kpt in enumerate(self.wfs.kpt_u):
             self.old_kpt_u[u].psit_nG[:] = kpt.psit_nG
             self.tmp_kpt_u[u].psit_nG[:] = kpt.psit_nG
@@ -384,7 +383,8 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
                                           kpt,
                                           use_cg=False)
 
-            # Update kpt.psit_nG to reflect psit(t+dt) - i S^(-1) dH(t+dt/2) dt/2 psit(t+dt/2)
+            # Update kpt.psit_nG to reflect
+            # psit(t+dt) - i S^(-1) dH(t+dt/2) dt/2 psit(t+dt/2)
             kpt.psit_nG[:] = kpt.psit_nG - .5J * self.sinvhpsit * time_step
             self.mblas.multi_zaxpy(-.5j * time_step, self.sinvhpsit,
                                    kpt.psit_nG, nvec)
@@ -424,7 +424,7 @@ class EhrenfestPAWSICN(ExplicitCrankNicolson):
         self.predictor_guess = predictor_guess
         self.use_cg = use_cg
 
-        #self.hsinvhpsit = None
+        # self.hsinvhpsit = None
         self.sinvh2psit = None
 
     def todict(self):
@@ -448,8 +448,8 @@ class EhrenfestPAWSICN(ExplicitCrankNicolson):
 
         self.niter = 0
 
-        #update the atomic velocities which are required
-        #for calculating the P term
+        # update the atomic velocities which are required
+        # for calculating the P term
         self.update_velocities(v_a)
 
         # Allocate old/temporary wavefunctions
@@ -466,20 +466,16 @@ class EhrenfestPAWSICN(ExplicitCrankNicolson):
         if self.spsit is None:
             self.spsit = self.gd.zeros(nvec, dtype=complex)
 
-        # Copy current wavefunctions psit_nG to work and old wavefunction arrays
+        # Copy current wavefunctions to work and old wavefunction arrays
         for u, kpt in enumerate(self.wfs.kpt_u):
             self.old_kpt_u[u].psit_nG[:] = kpt.psit_nG
             self.tmp_kpt_u[u].psit_nG[:] = kpt.psit_nG
 
-        #print 'P_ani[0] =', self.wfs.kpt_u[0].P_ani[0]
-        #print self.test
-
         # Predictor step
         # Overwrite psit_nG in tmp_kpt_u by (1 - i S^(-1)(t) H(t) dt) psit_nG
         # from corresponding kpt_u in a Euler step before predicting psit(t+dt)
-        #self.v_at = self.v_at_old.copy() #v(t) for predictor step
+        # self.v_at = self.v_at_old.copy() #v(t) for predictor step
         for [kpt, rhs_kpt] in zip(self.wfs.kpt_u, self.tmp_kpt_u):
-            #print 'self.predictor_guess[0]', self.predictor_guess[0]
             self.solve_propagation_equation(kpt,
                                             rhs_kpt,
                                             time_step,
@@ -501,7 +497,8 @@ class EhrenfestPAWSICN(ExplicitCrankNicolson):
                                               kpt,
                                               use_cg=self.use_cg[1])
 
-                # Update kpt.psit_nG to reflect psit(t+dt) - i S^(-1) dH(t+dt/2) dt/2 psit(t+dt/2)
+                # Update kpt.psit_nG to reflect
+                # psit(t+dt) - i S^(-1) dH(t+dt/2) dt/2 psit(t+dt/2)
                 kpt.psit_nG[:] = kpt.psit_nG - .5J * self.sinvhpsit * time_step
                 self.mblas.multi_zaxpy(-.5j * time_step, self.sinvhpsit,
                                        kpt.psit_nG, nvec)
@@ -548,19 +545,11 @@ class EhrenfestPAWSICN(ExplicitCrankNicolson):
                               calculate_P_ani=False)
         self.timer.stop('Apply time-dependent operators')
 
-        #self.mblas.multi_zdotc(self.shift, rhs_kpt.psit_nG, self.hpsit, nvec)
-        #self.shift *= self.gd.dv
-        #self.mblas.multi_zdotc(self.tmp_shift, rhs_kpt.psit_nG, self.spsit, nvec)
-        #self.tmp_shift *= self.gd.dv
-        #self.shift /= self.tmp_shift
-
         # Update rhs_kpt.psit_nG to reflect ( S - i H dt/2 ) psit(t)
-        #rhs_kpt.psit_nG[:] = self.spsit - .5J * self.hpsit * time_step
+        # rhs_kpt.psit_nG[:] = self.spsit - .5J * self.hpsit * time_step
         rhs_kpt.psit_nG[:] = self.spsit
         self.mblas.multi_zaxpy(-.5j * time_step, self.hpsit, rhs_kpt.psit_nG,
                                nvec)
-        # Apply shift -i eps S t/2
-        #self.mblas.multi_zaxpy(-.5j*time_step * (-self.shift), self.spsit, rhs_kpt.psit_nG, nvec)
 
         if guess:
             if self.sinvhpsit is None:
@@ -572,20 +561,15 @@ class EhrenfestPAWSICN(ExplicitCrankNicolson):
                                                     dtype=complex)
 
             # Update estimate of psit(t+dt) to ( 1 - i S^(-1) H dt ) psit(t)
-            #print 'self.use_cg[0]', self.use_cg[0]
             self.td_overlap.apply_inverse(self.hpsit,
                                           self.sinvhpsit,
                                           self.wfs,
                                           kpt,
                                           use_cg=self.use_cg[0])
-            #assert not self.use_cg[0]
-            #self.td_overlap.apply_inverse(self.hpsit, self.sinvhpsit, self.wfs, kpt, use_cg=False)
 
             self.mblas.multi_zaxpy(-1.0j * time_step, self.sinvhpsit,
                                    kpt.psit_nG, nvec)
-            #print 'using guess for P step'
             if (self.predictor_guess[1]):
-                #print 'using 2nd order guess for P step'
                 self.td_hamiltonian.apply(kpt,
                                           self.sinvhpsit,
                                           self.sinvh2psit,
@@ -611,10 +595,6 @@ class EhrenfestPAWSICN(ExplicitCrankNicolson):
 
         # Solve A x = b where A is (S + i H dt/2) and b = rhs_kpt.psit_nG
         self.niter += self.solver.solve(self, kpt.psit_nG, rhs_kpt.psit_nG)
-
-        # Apply shift exp(i eps t)
-        #self.phase_shift = np.exp(1.0J * self.shift * time_step)
-        #self.mblas.multi_scale(self.phase_shift, kpt.psit_nG, nvec)
 
     # ( S + i H dt/2 ) psi
     def dot(self, psi, psin):
@@ -651,8 +631,6 @@ class EhrenfestPAWSICN(ExplicitCrankNicolson):
         psin[:] = self.spsit
         self.mblas.multi_zaxpy(.5j * self.time_step, self.hpsit, psin,
                                len(psi))
-        # Apply shift -i eps S t/2
-        #self.mblas.multi_zaxpy(.5j * self.time_step * (-self.shift), self.spsit, psin, len(psi))
 
 
 class EhrenfestHGHSICN(ExplicitCrankNicolson):
@@ -695,13 +673,10 @@ class EhrenfestHGHSICN(ExplicitCrankNicolson):
         if self.spsit is None:
             self.spsit = self.gd.zeros(nvec, dtype=complex)
 
-        # Copy current wavefunctions psit_nG to work and old wavefunction arrays
+        # Copy current wavefunctions to work and old wavefunction arrays
         for u, kpt in enumerate(self.wfs.kpt_u):
             self.old_kpt_u[u].psit_nG[:] = kpt.psit_nG
             self.tmp_kpt_u[u].psit_nG[:] = kpt.psit_nG
-
-        #print 'P_ani[0] =', self.wfs.kpt_u[0].P_ani[0]
-        #print self.test
 
         # Predictor step
         # Overwrite psit_nG in tmp_kpt_u by (1 - i S^(-1)(t) H(t) dt) psit_nG
@@ -755,12 +730,10 @@ class EhrenfestHGHSICN(ExplicitCrankNicolson):
         self.timer.stop('Apply time-dependent operators')
 
         # Update rhs_kpt.psit_nG to reflect ( S - i H dt/2 ) psit(t)
-        #rhs_kpt.psit_nG[:] = self.spsit - .5J * self.hpsit * time_step
+        # rhs_kpt.psit_nG[:] = self.spsit - .5J * self.hpsit * time_step
         rhs_kpt.psit_nG[:] = self.spsit
         self.mblas.multi_zaxpy(-.5j * time_step, self.hpsit, rhs_kpt.psit_nG,
                                nvec)
-        # Apply shift -i eps S t/2
-        #self.mblas.multi_zaxpy(-.5j*time_step * (-self.shift), self.spsit, rhs_kpt.psit_nG, nvec)
 
         # Information needed by solver.solve -> self.dot
         self.kpt = kpt
@@ -768,24 +741,6 @@ class EhrenfestHGHSICN(ExplicitCrankNicolson):
 
         # Solve A x = b where A is (S + i H dt/2) and b = rhs_kpt.psit_nG
         self.niter += self.solver.solve(self, kpt.psit_nG, rhs_kpt.psit_nG)
-
-        # Apply shift exp(i eps t)
-        #self.phase_shift = np.exp(1.0J * self.shift * time_step)
-        #self.mblas.multi_scale(self.phase_shift, kpt.psit_nG, nvec)
-
-    # ( S + i H dt/2 ) psi
-    def dot(self, psi, psin):
-        """Applies the propagator matrix to the given wavefunctions.
-
-        Parameters
-        ----------
-        psi: List of coarse grids
-            the known wavefunctions
-        psin: List of coarse grids
-            the result ( S + i H dt/2 ) psi
-
-        """
-        ExplicitCrankNicolson.dot(self, psi, psin)
 
 
 class EnforcedTimeReversalSymmetryCrankNicolson(SemiImplicitCrankNicolson):
@@ -820,7 +775,7 @@ class EnforcedTimeReversalSymmetryCrankNicolson(SemiImplicitCrankNicolson):
 
         self.niter = 0
 
-        # Copy current wavefunctions psit_nG to work and old wavefunction arrays
+        # Copy current wavefunctions to work and old wavefunction arrays
         for u, kpt in enumerate(self.wfs.kpt_u):
             self.old_kpt_u[u].psit_nG[:] = kpt.psit_nG
             self.tmp_kpt_u[u].psit_nG[:] = kpt.psit_nG
@@ -887,7 +842,7 @@ class EnforcedTimeReversalSymmetryCrankNicolson(SemiImplicitCrankNicolson):
         self.timer.stop('Apply time-dependent operators')
 
         # Update rhs_kpt.psit_nG to reflect ( S - i H dt/2 ) psit(t)
-        #rhs_kpt.psit_nG[:] = self.spsit - .5J * self.hpsit * time_step
+        # rhs_kpt.psit_nG[:] = self.spsit - .5J * self.hpsit * time_step
         rhs_kpt.psit_nG[:] = self.spsit
         self.mblas.multi_zaxpy(-.5j * time_step, self.hpsit, rhs_kpt.psit_nG,
                                nvec)
@@ -903,9 +858,6 @@ class EnforcedTimeReversalSymmetryCrankNicolson(SemiImplicitCrankNicolson):
         self.niter += self.solver.solve(self, kpt.psit_nG, rhs_kpt.psit_nG)
 
 
-###############################################################################
-# AbsorptionKick
-###############################################################################
 class AbsorptionKick:
     """Absorption kick propagator
 
@@ -946,18 +898,9 @@ class AbsorptionKick:
 
     def kick(self):
         """Excite all possible frequencies.
-
         """
-
-        # if rank == 0:
-        #     self.text('Kick iterations = ', self.td_hamiltonian.iterations)
-
         for l in range(self.propagator.td_hamiltonian.iterations):
             self.propagator.propagate(0, 1.0)
-            # if rank == 0:
-            #     self.text('.')
-        # if rank == 0:
-        #     print ''
 
 
 class SemiImplicitTaylorExponential(BasePropagator):
@@ -1048,7 +991,6 @@ class SemiImplicitTaylorExponential(BasePropagator):
             # S psin = H psin
             self.psin[:] = self.hpsit
             self.niter += self.solver.solve(self, self.psin, self.hpsit)
-            #print 'Linear solver iterations = ', self.solver.iterations
             # psin = psi(0) + (-it/k) S^-1 H psin
             self.mblas.multi_scale(-1.0j * time_step / k, self.psin, nvec)
             self.mblas.multi_zaxpy(1.0, kpt.psit_nG, self.psin, nvec)
