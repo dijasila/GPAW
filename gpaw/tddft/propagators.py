@@ -838,10 +838,7 @@ class EhrenfestHGHSICN(ExplicitCrankNicolson):
         ExplicitCrankNicolson.dot(self, psi, psin)
 
 
-###############################################################################
-# EnforcedTimeReversalSymmetryCrankNicolson
-###############################################################################
-class EnforcedTimeReversalSymmetryCrankNicolson(ExplicitCrankNicolson):
+class EnforcedTimeReversalSymmetryCrankNicolson(SemiImplicitCrankNicolson):
     """Enforced time-reversal symmetry Crank-Nicolson propagator
 
     Crank-Nicolson propagator, which first approximates the time-dependent
@@ -855,9 +852,7 @@ class EnforcedTimeReversalSymmetryCrankNicolson(ExplicitCrankNicolson):
 
     """
     def __init__(self):
-        """Create SemiImplicitCrankNicolson-object."""
-        ExplicitCrankNicolson.__init__(self)
-        self.old_kpt_u = None
+        SemiImplicitCrankNicolson.__init__(self)
 
     def todict(self):
         return {'name': 'ETRSCN'}
@@ -874,30 +869,6 @@ class EnforcedTimeReversalSymmetryCrankNicolson(ExplicitCrankNicolson):
         """
 
         self.niter = 0
-
-        # Allocate old/temporary wavefunctions
-        if self.old_kpt_u is None:
-            self.old_kpt_u = []
-            for kpt in self.wfs.kpt_u:
-                old_kpt = DummyKPoint()
-                old_kpt.psit_nG = self.gd.empty(n=len(kpt.psit_nG),
-                                                dtype=complex)
-                self.old_kpt_u.append(old_kpt)
-
-        if self.tmp_kpt_u is None:
-            self.tmp_kpt_u = []
-            for kpt in self.wfs.kpt_u:
-                tmp_kpt = DummyKPoint()
-                tmp_kpt.psit_nG = self.gd.empty(n=len(kpt.psit_nG),
-                                                dtype=complex)
-                self.tmp_kpt_u.append(tmp_kpt)
-
-        # Allocate memory for Crank-Nicolson stuff
-        nvec = len(self.wfs.kpt_u[0].psit_nG)
-        if self.hpsit is None:
-            self.hpsit = self.gd.zeros(nvec, dtype=complex)
-        if self.spsit is None:
-            self.spsit = self.gd.zeros(nvec, dtype=complex)
 
         # Copy current wavefunctions psit_nG to work and old wavefunction arrays
         for u, kpt in enumerate(self.wfs.kpt_u):
@@ -943,7 +914,6 @@ class EnforcedTimeReversalSymmetryCrankNicolson(ExplicitCrankNicolson):
 
         return self.niter
 
-    # Create RHS
     def create_rhs(self, rhs_kpt, kpt, time_step):
         # kpt is guess, rhs_kpt is used to calculate rhs and is overwritten
         nvec = len(rhs_kpt.psit_nG)
@@ -981,26 +951,6 @@ class EnforcedTimeReversalSymmetryCrankNicolson(ExplicitCrankNicolson):
 
         # Solve A x = b where A is (S + i H dt/2) and b = rhs_kpt.psit_nG
         self.niter += self.solver.solve(self, kpt.psit_nG, rhs_kpt.psit_nG)
-
-        # Apply shift exp(i eps t)
-        #self.phase_shift = np.exp(1.0J * self.shift * time_step)
-        #self.mblas.multi_scale(self.phase_shift, kpt.psit_nG, nvec)
-
-    # ( S + i H dt/2 ) psi
-    def dot(self, psi, psin):
-        """Applies the propagator matrix to the given wavefunctions.
-
-        Parameters
-        ----------
-        psi: List of coarse grids
-            the known wavefunctions
-        psin: List of coarse grids
-            the result ( S + i H dt/2 ) psi
-
-        """
-        ExplicitCrankNicolson.dot(self, psi, psin)
-        # Apply shift -i eps S t/2
-        #self.mblas.multi_zaxpy(.5j * self.time_step * (-self.shift), self.spsit, psin, len(psi))
 
 
 ###############################################################################
