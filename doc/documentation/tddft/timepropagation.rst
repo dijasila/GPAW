@@ -164,55 +164,9 @@ large enough to minimize the number of time-steps required to arrive at the
 desired total simulation time.
 
 
---------------------------------
+----------------------
 TDDFT reference manual
---------------------------------
-
-The :class:`~gpaw.tddft.TDDFT` class and keywords:
-
-===================== =============== ============== =====================================
-Keyword               Type            Default        Description
-===================== =============== ============== =====================================
-``ground_state_file`` ``string``                     Name of the ground state file
-``td_potential``      ``TDPotential`` ``None``       Time-dependent external potential
-``propagator``        ``string``      ``'SICN'``     Time-propagator (``'ECN'``/``'SICN'``/``'SITE'``/``'SIKE'``)
-``solver``            ``string``      ``'CSCG'``     Linear equation solver (``'CSCG'``/``'BiCGStab'``)
-``tolerance``         ``float``       ``1e-8``       Tolerance for linear solver
-===================== =============== ============== =====================================
-
-Keywords for :func:`~gpaw.tddft.TDDFT.absorption_kick`:
-
-================== =============== ================== =====================================
-Keyword            Type            Default            Description
-================== =============== ================== =====================================
-``kick_strength``  ``float[3]``    ``[0,0,1e-3]``     Kick strength
-================== =============== ================== =====================================
-
-Keywords for :func:`~gpaw.tddft.TDDFT.propagate`:
-
-====================== =========== =========== ================================================
-Keyword                Type        Default     Description
-====================== =========== =========== ================================================
-``time_step``          ``float``               Time step in attoseconds (``1 autime = 24.188 as``)
-``iterations``         ``integer``             Iterations
-``dipole_moment_file`` ``string``  ``None``    Name of the dipole moment file
-``restart_file``       ``string``  ``None``    Name of the restart file
-``dump_interal``       ``integer`` ``500``     How often restart file is written
-====================== =========== =========== ================================================
-
-Keywords for :func:`gpaw.tddft.photoabsorption_spectrum`:
-
-====================== ============ ============== ===============================================
-Keyword                Type         Default        Description
-====================== ============ ============== ===============================================
-``dipole_moment_file`` ``string``                  Name of the dipole moment file
-``spectrum_file``      ``string``                  Name of the spectrum file
-``folding``            ``string``   ``Gauss``      Gaussian folding (or Lorentzian in future)
-``width``              ``float``    ``0.2123``     Width of the Gaussian/Lorentzian (in eV)
-``e_min``              ``float``    ``0.0``        Lowest energy shown in spectrum (in eV)
-``e_max``              ``float``    ``30.0``       Highest energy shown in spectrum (in eV)
-``delta_e``            ``float``    ``0.05``       Resolution of energy in spectrum (in eV)
-====================== ============ ============== ===============================================
+----------------------
 
 .. autoclass:: gpaw.tddft.TDDFT
    :members:
