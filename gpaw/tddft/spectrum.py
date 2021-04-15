@@ -170,7 +170,7 @@ def write_spectrum(dipole_moment_file, spectrum_file,
 def photoabsorption_spectrum(dipole_moment_file: str,
                              spectrum_file: str,
                              folding: str = 'Gauss',
-                             width: int = 0.2123,
+                             width: float = 0.2123,
                              e_min: float = 0.0,
                              e_max: float = 30.0,
                              delta_e: float = 0.05):

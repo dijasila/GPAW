@@ -108,7 +108,7 @@ class TDDFT(GPAW):
         assert filename is not None
 
         # For communicating with observers
-        self.action = None
+        self.action = ''
 
         self.time = 0.0
         self.kick_strength = np.array([0.0, 0.0, 0.0], dtype=float)
