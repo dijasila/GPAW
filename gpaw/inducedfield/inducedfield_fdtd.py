@@ -5,14 +5,14 @@ from ase.units import Bohr
 
 from gpaw import debug
 from gpaw.tddft import aufrequency_to_eV
-from gpaw.analyse.observers import Observer
 from gpaw.transformers import Transformer
+from gpaw.lcaotddft.observer import TDDFTObserver
 from gpaw.utilities import is_contiguous
 
 from gpaw.inducedfield.inducedfield_base import BaseInducedField
 
 
-class FDTDInducedField(BaseInducedField, Observer):
+class FDTDInducedField(BaseInducedField, TDDFTObserver):
     """Induced field class for FDTD.
 
     Attributes (see also ``BaseInducedField``):
@@ -43,10 +43,12 @@ class FDTDInducedField(BaseInducedField, Observer):
             Name of the restart file
         """
 
-        Observer.__init__(self, interval)
+        TDDFTObserver.__init__(self, paw, interval)
         # From observer:
         # self.niter
         # self.interval
+        # self.timer
+        # Observer does also paw.attach(self, ...)
 
         # Restart file
         self.restart_file = restart_file
@@ -77,18 +79,6 @@ class FDTDInducedField(BaseInducedField, Observer):
             self.time = paw.time
             self.niter = paw.niter
 
-            # TODO: remove this requirement
-            assert np.count_nonzero(paw.kick_strength) > 0, \
-                'Apply absorption kick before %s' % self.__class__.__name__
-
-            # Background electric field
-            self.Fbgef_v = paw.kick_strength
-
-            # Attach to PAW-type object
-            paw.attach(self, self.interval)
-            # TODO: write more details (folding, freqs, etc)
-            parprint('%s: Attached ' % self.__class__.__name__)
-
     def set_folding(self, folding, width):
         BaseInducedField.set_folding(self, folding, width)
 
@@ -105,15 +95,12 @@ class FDTDInducedField(BaseInducedField, Observer):
     def allocate(self):
         if not self.allocated:
 
-            poisson = self.paw.hamiltonian.poisson
+            gd = self.paw.hamiltonian.poisson.cl.gd
             # Ground state charge density
-            self.n0_G = (
-                -1.0 * poisson.classical_material.sign *
-                poisson.classical_material.charge_density.copy())
+            self.n0_G = gd.empty() + np.nan
 
             # Fourier transformed charge density
-            self.Fn_wG = poisson.cl.gd.zeros((self.nw,),
-                                             dtype=self.dtype)
+            self.Fn_wG = gd.zeros((self.nw,), dtype=self.dtype)
             self.allocated = True
 
         if debug:
@@ -124,13 +111,26 @@ class FDTDInducedField(BaseInducedField, Observer):
         self.n0_G = None
         self.Fn_wG = None
 
-    def update(self):
-        if self.paw.action != 'propagate':
+    def _update(self, paw):
+        if paw.action == 'init':
+            if paw.niter == 0:
+                c = self.paw.hamiltonian.poisson.classical_material
+                self.n0_G[:] = -1 * c.sign * c.charge_density
+            return
+        elif paw.action == 'kick':
+            # Background electric field
+            self.Fbgef_v = paw.kick_strength
+            return
+        elif paw.action != 'propagate':
             return
 
+        assert (self.Fbgef_v is not None
+                and not np.any(np.isnan(self.n0_G))), \
+            f'Attach {self.__class__.__name__} before absorption kick'
+
         # Update time
-        self.time = self.paw.time
-        time_step = self.paw.time_step
+        self.time = paw.time
+        time_step = paw.time_step
 
         # Complex exponential with envelope
         f_w = (np.exp(1.0j * self.omega_w * self.time) *
@@ -146,7 +146,7 @@ class FDTDInducedField(BaseInducedField, Observer):
 
         # Restart file
         if self.restart_file is not None and \
-           self.niter % self.paw.dump_interval == 0:
+           self.niter % paw.dump_interval == 0:
             self.write(self.restart_file)
             parprint('%s: Wrote restart file %s' %
                      (self.__class__.__name__, self.restart_file))

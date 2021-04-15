@@ -92,8 +92,6 @@ def test_fdtd_ed_inducedfield(in_tmp_dir):
 
     td_calc = TDDFT('gs.gpw')
     DipoleMomentWriter(td_calc, 'dm.dat')
-    td_calc.absorption_kick(kick_strength=kick)
-    td_calc.hamiltonian.poisson.set_kick(kick)
 
     # Attach InducedFields to the calculation
     frequencies = [2.05, 4.0]
@@ -106,6 +104,8 @@ def test_fdtd_ed_inducedfield(in_tmp_dir):
                                width=width)
 
     # Propagate TDDFT and FDTD
+    td_calc.absorption_kick(kick_strength=kick)
+    td_calc.hamiltonian.poisson.set_kick(kick)
     td_calc.propagate(time_step, iterations // 2)
     td_calc.write('td.gpw', 'all')
     cl_ind.write('cl.ind')
