@@ -28,9 +28,11 @@ from gpaw.wavefunctions.fd import FD
 
 from gpaw.tddft.spectrum import photoabsorption_spectrum
 from gpaw.lcaotddft.dipolemomentwriter import DipoleMomentWriter
+from gpaw.lcaotddft.restartfilewriter import RestartFileWriter
 
 
-__all__ = ['TDDFT', 'photoabsorption_spectrum', 'DipoleMomentWriter']
+__all__ = ['TDDFT', 'photoabsorption_spectrum',
+           'DipoleMomentWriter', 'RestartFileWriter']
 
 
 # T^-1
@@ -264,7 +266,7 @@ class TDDFT(GPAW):
 
     def propagate(self, time_step, iterations,
                   dipole_moment_file=None,  # deprecated
-                  restart_file=None, dump_interval=100  # to be deprecated
+                  restart_file=None, dump_interval=None  # deprecated
                   ):
         """Propagates wavefunctions.
 
@@ -275,8 +277,10 @@ class TDDFT(GPAW):
         iterations: integer
             Iterations, e.g., 20 000 as / 4.0 as = 5000
         restart_file: string, optional
+            Deprecated. Do not use this.
             Name of the restart file
         dump_interval: integer
+            Deprecated. Do not use this.
             After how many iterations restart data is dumped
 
         """
@@ -288,6 +292,22 @@ class TDDFT(GPAW):
                 "Please use DipoleMomentWriter observer instead. "
                 "The old syntax will throw an error in the future.",
                 FutureWarning)
+
+        if restart_file is not None:
+            warnings.warn(
+                "The restart_file parameter is deprecated. "
+                "Please use RestartFileWriter observer instead. "
+                "The old syntax will throw an error in the future.",
+                FutureWarning)
+
+        if dump_interval is not None:
+            warnings.warn(
+                "The dump_interval parameter is deprecated. "
+                "Please use RestartFileWriter observer instead. "
+                "The old syntax will throw an error in the future.",
+                FutureWarning)
+        else:
+            dump_interval = 100
 
         if self.rank == 0:
             self.log()
