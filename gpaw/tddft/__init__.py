@@ -78,6 +78,7 @@ class TDDFT(GPAW):
                  propagator: dict = {'name': 'SICN'},
                  solver: dict = {'name': 'CSCG', 'tolerance': 1e-8},
                  tolerance: float = None,  # deprecated
+                 txt: str = '-',
                  **kwargs):
         """
         Parameters
@@ -86,8 +87,8 @@ class TDDFT(GPAW):
             File containing ground state or time-dependent state to propagate.
         td_potential
             Function class for the time-dependent potential. Must have a method
-            ``strength(time)`` which returns the strength of the linear potential
-            to each direction as a vector of three floats.
+            ``strength(time)`` which returns the strength of
+            the linear potential to each direction as a vector of three floats.
         calculate_energy
             Whether to calculate energy during propagation.
         propagator
@@ -97,10 +98,12 @@ class TDDFT(GPAW):
         tolerance
             Deprecated. Do not use this.
             Tolerance for the linear solver.
+        txt
+            Text output
 
 
         The following parameters of :class:`~gpaw.GPAW` can be also used:
-        ``txt``, ``parallel``, and ``communicator``.
+        ``parallel`` and ``communicator``.
 
         The internal parameters ``mixer`` and ``dtype`` are
         strictly used to specify a dummy mixer and complex type respectively.
@@ -127,7 +130,7 @@ class TDDFT(GPAW):
 
         # NB: TDDFT restart files contain additional information which
         #     will override the initial settings for time/kick/niter.
-        GPAW.__init__(self, filename, **kwargs)
+        GPAW.__init__(self, filename, txt=txt, **kwargs)
 
         assert isinstance(self.wfs, TimeDependentWaveFunctions)
         assert isinstance(self.wfs.overlap, TimeDependentOverlap)
