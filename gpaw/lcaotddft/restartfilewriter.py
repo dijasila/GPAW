@@ -1,7 +1,7 @@
 from gpaw.lcaotddft.observer import TDDFTObserver
 
 
-class RestartDumper(TDDFTObserver):
+class RestartFileWriter(TDDFTObserver):
     def __init__(self, paw, restart_filename, interval=100):
         TDDFTObserver.__init__(self, paw, interval)
         self.restart_filename = restart_filename
