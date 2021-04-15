@@ -1,6 +1,6 @@
 from ase import Atoms
 from gpaw import GPAW
-from gpaw.tddft import TDDFT, DipoleMomentWriter
+from gpaw.tddft import TDDFT, DipoleMomentWriter, RestartFileWriter
 from gpaw.inducedfield.inducedfield_tddft import TDDFTInducedField
 
 # Na2 cluster
@@ -21,7 +21,7 @@ iterations = 3000
 kick_strength = [1.0e-3, 0.0, 0.0]
 td_calc = TDDFT('na2_gs.gpw')
 DipoleMomentWriter(td_calc, 'na2_td_dm.dat')
-td_calc.absorption_kick(kick_strength=kick_strength)
+RestartFileWriter(td_calc, 'na2_td.gpw')
 
 # Create and attach InducedField object
 frequencies = [1.0, 2.08]     # Frequencies of interest in eV
@@ -34,6 +34,7 @@ ind = TDDFTInducedField(paw=td_calc,
                         restart_file='na2_td.ind')
 
 # Propagate as usual
+td_calc.absorption_kick(kick_strength=kick_strength)
 td_calc.propagate(time_step, iterations)
 
 # Save TDDFT and InducedField objects

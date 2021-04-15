@@ -1,9 +1,10 @@
-from gpaw.tddft import TDDFT, DipoleMomentWriter
+from gpaw.tddft import TDDFT, DipoleMomentWriter, RestartFileWriter
 from gpaw.inducedfield.inducedfield_tddft import TDDFTInducedField
 
 # Load TDDFT object
 td_calc = TDDFT('na2_td.gpw')
 DipoleMomentWriter(td_calc, 'na2_td_dm.dat')
+RestartFileWriter(td_calc, 'na2_td.gpw')
 
 # Load and attach InducedField object
 ind = TDDFTInducedField(filename='na2_td.ind',
