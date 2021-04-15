@@ -168,7 +168,8 @@ class TDDFTInducedField(BaseInducedField, TDDFTObserver):
         # XXX remove this once deprecated dump_interval is removed,
         # but keep write_restart() as it'll be still used
         # (see TDDFTObserver class)
-        if self.niter % paw.dump_interval == 0:
+        if (paw.restart_file is not None
+                and self.niter % paw.dump_interval == 0):
             self.write_restart()
 
     def write_restart(self):

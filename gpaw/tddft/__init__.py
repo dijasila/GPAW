@@ -339,7 +339,8 @@ class TDDFT(GPAW):
 
         # Set these as class properties for use of observers
         self.time_step = time_step
-        self.dump_interval = dump_interval
+        self.dump_interval = dump_interval  # XXX remove, deprecated
+        self.restart_file = restart_file  # XXX remove, deprecated
 
         niterpropagator = 0
         self.maxiter = self.niter + iterations
