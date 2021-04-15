@@ -51,7 +51,6 @@ def test_inducedfield_td(in_tmp_dir):
     kick_strength = [1.0e-3, 1.0e-3, 0.0]
     td_calc = TDDFT('na2_gs.gpw')
     DipoleMomentWriter(td_calc, 'na2_td_dm.dat')
-    td_calc.absorption_kick(kick_strength=kick_strength)
 
     # Create and attach InducedField object
     frequencies = [1.0, 2.08]     # Frequencies of interest in eV
@@ -64,6 +63,7 @@ def test_inducedfield_td(in_tmp_dir):
                             restart_file='na2_td.ind')
 
     # Propagate as usual
+    td_calc.absorption_kick(kick_strength=kick_strength)
     td_calc.propagate(time_step, iterations // 2)
 
     # Save TDDFT and InducedField objects

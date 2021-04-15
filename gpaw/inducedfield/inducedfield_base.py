@@ -291,7 +291,7 @@ class BaseInducedField(object):
         ng = r.ng
 
         # Background electric field
-        Fbgef_v = r.Fbgef_v
+        self.Fbgef_v = r.Fbgef_v
 
         if self.has_paw:
             # Test dimensions
@@ -301,13 +301,12 @@ class BaseInducedField(object):
                 raise IOError('nspins is incompatible with calculator')
             if (ng != self.gd.get_size_of_global_array()).any():
                 raise IOError('grid is incompatible with calculator')
-            if (Fbgef_v != self.Fbgef_v).any():
+            if (self.Fbgef_v != self.paw.kick_strength).any():
                 raise IOError('kick is incompatible with calculator')
         else:
             # Construct objects / assign values without paw
             self.na = na
             self.nspins = nspins
-            self.Fbgef_v = Fbgef_v
 
             from ase.io.trajectory import read_atoms
             self.atoms = read_atoms(r.atoms)
