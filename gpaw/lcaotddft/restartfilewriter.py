@@ -11,7 +11,6 @@ class RestartFileWriter(TDDFTObserver):
             return
         paw.log('%s activated' % self.__class__.__name__)
         for obs, n, args, kwargs in paw.observers:
-            if (isinstance(obs, TDDFTObserver) and
-                hasattr(obs, 'write_restart')):
+            if isinstance(obs, TDDFTObserver):
                 obs.write_restart()
         paw.write(self.restart_filename, mode='all')
