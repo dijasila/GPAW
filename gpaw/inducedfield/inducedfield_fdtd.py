@@ -1,6 +1,5 @@
 import numpy as np
 
-from ase.parallel import parprint
 from ase.units import Bohr
 
 from gpaw import debug
@@ -145,12 +144,17 @@ class FDTDInducedField(BaseInducedField, TDDFTObserver):
             self.Fn_wG[w] += (n_G - self.n0_G) * f_w[w]
 
         # Restart file
-        if self.restart_file is not None and \
-           self.niter % paw.dump_interval == 0:
-            self.write(self.restart_file)
-            parprint('%s: Wrote restart file %s' %
-                     (self.__class__.__name__, self.restart_file))
+        # XXX remove this once deprecated dump_interval is removed,
+        # but keep write_restart() as it'll be still used
+        # (see TDDFTObserver class)
+        if self.niter % paw.dump_interval == 0:
+            self.write_restart()
 
+    def write_restart(self):
+        if self.restart_file is not None:
+            self.write(self.restart_file)
+            self.log(f'{self.__class__.__name__}: Wrote restart file')
+ 
     def get_induced_density(self, from_density, gridrefinement):
         if self.gd == self.fdtd.cl.gd:
             Frho_wg = self.Fn_wG.copy()

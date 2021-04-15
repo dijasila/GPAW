@@ -1,7 +1,5 @@
 import numpy as np
 
-from ase.parallel import parprint
-
 from gpaw import debug
 from gpaw.transformers import Transformer
 from gpaw.lfc import BasisFunctions
@@ -167,10 +165,16 @@ class TDDFTInducedField(BaseInducedField, TDDFTObserver):
                 self.FD_awsp[a][w] += (D_sp - self.D0_asp[a]) * f_w[w]
 
         # Restart file
-        if self.restart_file is not None and \
-           self.niter % paw.dump_interval == 0:
+        # XXX remove this once deprecated dump_interval is removed,
+        # but keep write_restart() as it'll be still used
+        # (see TDDFTObserver class)
+        if self.niter % paw.dump_interval == 0:
+            self.write_restart()
+
+    def write_restart(self):
+        if self.restart_file is not None:
             self.write(self.restart_file)
-            parprint('%s: Wrote restart file' % self.__class__.__name__)
+            self.log(f'{self.__class__.__name__}: Wrote restart file')
     
     def interpolate_pseudo_density(self, gridrefinement=2):
         
