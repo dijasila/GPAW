@@ -72,30 +72,37 @@ class TDDFT(GPAW):
     theory implementation and is the only class which a user has to use.
     """
 
-    def __init__(self, filename, *,
-                 td_potential=None,
-                 calculate_energy=True,
-                 propagator='SICN',
-                 solver={'name': 'CSCG', 'tolerance': 1e-8},
-                 tolerance=None,  # deprecated
+    def __init__(self, filename: str, *,
+                 td_potential: object = None,
+                 calculate_energy: bool = True,
+                 propagator: dict = {'name': 'SICN'},
+                 solver: dict = {'name': 'CSCG', 'tolerance': 1e-8},
+                 tolerance: float = None,  # deprecated
                  **kwargs):
-        """Create TDDFT-object.
-
+        """
         Parameters
         ----------
-        filename: string
-            File containing ground state or time-dependent state to propagate
-        td_potential: class, optional
+        filename
+            File containing ground state or time-dependent state to propagate.
+        td_potential
             Function class for the time-dependent potential. Must have a method
-            'strength(time)' which returns the strength of the linear potential
+            ``strength(time)`` which returns the strength of the linear potential
             to each direction as a vector of three floats.
-        propagator: string or dictionary
-            Time propagator for the Kohn-Sham wavefunctions
-        solver: dictionary
-            The iterative linear equations solver for time propagation
+        calculate_energy
+            Whether to calculate energy during propagation.
+        propagator
+            Time propagator for the Kohn-Sham wavefunctions.
+        solver
+            The iterative linear equations solver for propagator.
+        tolerance
+            Deprecated. Do not use this.
+            Tolerance for the linear solver.
 
-        The following parameters can be used: `txt`, `parallel`, `communicator`
-        `mixer` and `dtype`. The internal parameters `mixer` and `dtype` are
+
+        The following parameters of :class:`~gpaw.GPAW` can be also used:
+        ``txt``, ``parallel``, and ``communicator``.
+
+        The internal parameters ``mixer`` and ``dtype`` are
         strictly used to specify a dummy mixer and complex type respectively.
         """
         assert filename is not None
@@ -264,25 +271,29 @@ class TDDFT(GPAW):
                 niter=self.niter,
                 kick_strength=self.kick_strength)
 
-    def propagate(self, time_step, iterations,
-                  dipole_moment_file=None,  # deprecated
-                  restart_file=None, dump_interval=None  # deprecated
+    def propagate(self, time_step: float, iterations: int,
+                  dipole_moment_file: str = None,  # deprecated
+                  restart_file: str = None,  # deprecated
+                  dump_interval: int = None,  # deprecated
                   ):
         """Propagates wavefunctions.
 
         Parameters
         ----------
-        time_step: float
-            Time step in attoseconds (10^-18 s), e.g., 4.0 or 8.0
-        iterations: integer
-            Iterations, e.g., 20 000 as / 4.0 as = 5000
-        restart_file: string, optional
+        time_step
+            Time step in attoseconds (10^-18 s).
+        iterations
+            Number of iterations.
+        dipole_moment_file
             Deprecated. Do not use this.
-            Name of the restart file
-        dump_interval: integer
+            Name of the data file where to the time-dependent dipole
+            moment is saved.
+        restart_file
             Deprecated. Do not use this.
-            After how many iterations restart data is dumped
-
+            Name of the restart file.
+        dump_interval
+            Deprecated. Do not use this.
+            After how many iterations restart data is dumped.
         """
         self.tddft_init()
 
@@ -515,11 +526,10 @@ class TDDFT(GPAW):
     def absorption_kick(self, kick_strength):
         """Delta absorption kick for photoabsorption spectrum.
 
-        Parameters:
-
-        kick_strength: [float, float, float]
-            Strength of the kick, e.g., [0.0, 0.0, 1e-3]
-
+        Parameters
+        ----------
+        kick_strength
+            Strength of the kick.
         """
         self.tddft_init()
 
