@@ -68,8 +68,6 @@ iterations = 1000
 
 td_calc = TDDFT('gs.gpw')
 DipoleMomentWriter(td_calc, 'dm0.dat')
-td_calc.absorption_kick(kick_strength=kick)
-td_calc.hamiltonian.poisson.set_kick(kick)
 
 # Attach InducedField to the calculation
 frequencies = [2.45]
@@ -79,6 +77,8 @@ ind = FDTDInducedField(paw=td_calc,
                        width=width)
 
 # Propagate TDDFT and FDTD
+td_calc.absorption_kick(kick_strength=kick)
+td_calc.hamiltonian.poisson.set_kick(kick)
 td_calc.propagate(time_step, iterations)
 
 # Save results
