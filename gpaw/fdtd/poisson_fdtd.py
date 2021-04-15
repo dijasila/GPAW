@@ -129,7 +129,8 @@ class QSFDTD:
                          dump_interval=100,
                          **kwargs):
         self.td_calc = TDDFT(filename, **kwargs)
-        DipoleMomentWriter(self.td_calc, dipole_moment_file)
+        if dipole_moment_file is not None:
+            DipoleMomentWriter(self.td_calc, dipole_moment_file)
         if kick_strength is not None:
             self.td_calc.absorption_kick(kick_strength)
             self.td_calc.hamiltonian.poisson.set_kick(kick_strength)
