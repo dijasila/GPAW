@@ -315,7 +315,7 @@ PyObject* Operator_relax_cuda_gpu(OperatorObject* self, PyObject* args)
 
     if (gpaw_cuda_debug) {
         debug_operator_allocate(self, 1, 1);
-        debug_operator_memcpy_pre(fun, src);
+        debug_operator_memcpy_pre(src, fun);
     }
 
     _operator_relax_cuda_gpu(self, relax_method, fun, src, nrelax, w);
