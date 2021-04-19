@@ -1,9 +1,11 @@
 # flake8: noqa
-# Written by Lauri Lehtovaara, 2007
+# Initially written by Lauri Lehtovaara, 2007
 """This module implements time propagators for time-dependent density
 functional theory calculations."""
 
 import numpy as np
+
+from ase.utils.timing import timer
 
 from gpaw.utilities.blas import axpy
 
@@ -80,6 +82,25 @@ class DummyPropagator:
         else:
             psin[:] = psi
         self.timer.stop('Solve TDDFT preconditioner')
+
+    @timer('Update time-dependent operators')
+    def update_time_dependent_operators(self, time):
+        """Update overlap, density, and Hamiltonian.
+
+        Parameters
+        ----------
+        time: float
+            the current time
+        """
+        # Update overlap S(t) of kpt.psit_nG in kpt.P_ani.
+        self.td_overlap.update(self.wfs)
+
+        # Calculate density rho(t) based on the wavefunctions psit_nG
+        # in kpt_u for t = time. Updates wfs.D_asp based on kpt.P_ani.
+        self.td_density.update()
+
+        # Update Hamiltonian H(t) to reflect density rho(t)
+        self.td_hamiltonian.update(self.td_density.get_density(), time)
 
     def propagate(self, time, time_step):
         """Propagate wavefunctions once.
@@ -168,20 +189,6 @@ class ExplicitCrankNicolson(DummyPropagator):
         if self.spsit is None:
             self.spsit = self.gd.zeros(nvec, dtype=complex)
 
-        self.timer.start('Update time-dependent operators')
-
-        # Update overlap S(t) of kpt.psit_nG in kpt.P_ani.
-        self.td_overlap.update(self.wfs)
-
-        # Calculate density rho(t) based on the wavefunctions psit_nG
-        # in kpt_u for t = time. Updates wfs.D_asp based on kpt.P_ani.
-        self.td_density.update()
-
-        # Update Hamiltonian H(t) to reflect density rho(t)
-        self.td_hamiltonian.update(self.td_density.get_density(), time)
-
-        self.timer.stop('Update time-dependent operators')
-
         # Copy current wavefunctions psit_nG to work wavefunction arrays
         for u, kpt in enumerate(self.wfs.kpt_u):
             self.tmp_kpt_u[u].psit_nG[:] = kpt.psit_nG
@@ -195,8 +202,7 @@ class ExplicitCrankNicolson(DummyPropagator):
                                             time_step,
                                             guess=True)
 
-        # update projections before exiting
-        self.td_overlap.update(self.wfs)
+        self.update_time_dependent_operators(time + time_step)
 
         return self.niter
 
@@ -362,20 +368,6 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
         if self.spsit is None:
             self.spsit = self.gd.zeros(nvec, dtype=complex)
 
-        self.timer.start('Update time-dependent operators')
-
-        # Update overlap S(t) of kpt.psit_nG in kpt.P_ani.
-        self.td_overlap.update(self.wfs)
-
-        # Calculate density rho(t) based on the wavefunctions psit_nG
-        # in kpt_u for t = time. Updates wfs.D_asp based on kpt.P_ani.
-        self.td_density.update()
-
-        # Update Hamiltonian H(t) to reflect density rho(t)
-        self.td_hamiltonian.update(self.td_density.get_density(), time)
-
-        self.timer.stop('Update time-dependent operators')
-
         # Copy current wavefunctions psit_nG to work and old wavefunction arrays
         for u, kpt in enumerate(self.wfs.kpt_u):
             self.old_kpt_u[u].psit_nG[:] = kpt.psit_nG
@@ -429,8 +421,7 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
 
             self.solve_propagation_equation(kpt, rhs_kpt, time_step)
 
-        # update projections before exiting
-        self.td_overlap.update(self.wfs)
+        self.update_time_dependent_operators(time + time_step)
 
         return self.niter
 
@@ -614,20 +605,6 @@ class EhrenfestPAWSICN(ExplicitCrankNicolson):
         if self.spsit is None:
             self.spsit = self.gd.zeros(nvec, dtype=complex)
 
-        self.timer.start('Update time-dependent operators')
-
-        # Update overlap S(t) of kpt.psit_nG in kpt.P_ani.
-        self.td_overlap.update(self.wfs)
-
-        # Calculate density rho(t) based on the wavefunctions psit_nG
-        # in kpt_u for t = time. Updates wfs.D_asp based on kpt.P_ani.
-        self.td_density.update()
-
-        # Update Hamiltonian H(t) to reflect density rho(t)
-        self.td_hamiltonian.update(self.td_density.get_density(), time)
-
-        self.timer.stop('Update time-dependent operators')
-
         # Copy current wavefunctions psit_nG to work and old wavefunction arrays
         for u, kpt in enumerate(self.wfs.kpt_u):
             self.old_kpt_u[u].psit_nG[:] = kpt.psit_nG
@@ -687,8 +664,7 @@ class EhrenfestPAWSICN(ExplicitCrankNicolson):
 
             self.solve_propagation_equation(kpt, rhs_kpt, time_step)
 
-        # update projections before exiting
-        self.td_overlap.update(self.wfs)
+        self.update_time_dependent_operators(time + time_step)
 
         return self.niter
 
@@ -905,20 +881,6 @@ class EhrenfestHGHSICN(ExplicitCrankNicolson):
         if self.spsit is None:
             self.spsit = self.gd.zeros(nvec, dtype=complex)
 
-        self.timer.start('Update time-dependent operators')
-
-        # Update overlap S(t) of kpt.psit_nG in kpt.P_ani.
-        self.td_overlap.update(self.wfs)
-
-        # Calculate density rho(t) based on the wavefunctions psit_nG
-        # in kpt_u for t = time. Updates wfs.D_asp based on kpt.P_ani.
-        self.td_density.update()
-
-        # Update Hamiltonian H(t) to reflect density rho(t)
-        self.td_hamiltonian.update(self.td_density.get_density(), time)
-
-        self.timer.stop('Update time-dependent operators')
-
         # Copy current wavefunctions psit_nG to work and old wavefunction arrays
         for u, kpt in enumerate(self.wfs.kpt_u):
             self.old_kpt_u[u].psit_nG[:] = kpt.psit_nG
@@ -962,8 +924,7 @@ class EhrenfestHGHSICN(ExplicitCrankNicolson):
 
             self.solve_propagation_equation(kpt, rhs_kpt, time_step)
 
-        # update projections before exiting
-        self.td_overlap.update(self.wfs)
+        self.update_time_dependent_operators(time + time_step)
 
         return self.niter
 
@@ -1111,20 +1072,6 @@ class EnforcedTimeReversalSymmetryCrankNicolson(ExplicitCrankNicolson):
         if self.spsit is None:
             self.spsit = self.gd.zeros(nvec, dtype=complex)
 
-        self.timer.start('Update time-dependent operators')
-
-        # Update overlap S(t) of kpt.psit_nG in kpt.P_ani.
-        self.td_overlap.update(self.wfs)
-
-        # Calculate density rho(t) based on the wavefunctions psit_nG
-        # in kpt_u for t = time. Updates wfs.D_asp based on kpt.P_ani.
-        self.td_density.update()
-
-        # Update Hamiltonian H(t) to reflect density rho(t)
-        self.td_hamiltonian.update(self.td_density.get_density(), time)
-
-        self.timer.stop('Update time-dependent operators')
-
         # Copy current wavefunctions psit_nG to work and old wavefunction arrays
         for u, kpt in enumerate(self.wfs.kpt_u):
             self.old_kpt_u[u].psit_nG[:] = kpt.psit_nG
@@ -1165,8 +1112,7 @@ class EnforcedTimeReversalSymmetryCrankNicolson(ExplicitCrankNicolson):
         for [kpt, rhs_kpt] in zip(self.wfs.kpt_u, self.old_kpt_u):
             self.solve_propagation_equation(kpt, rhs_kpt, time_step)
 
-        # update projections before exiting
-        self.td_overlap.update(self.wfs)
+        self.update_time_dependent_operators(time + time_step)
 
         return self.niter
 
@@ -1363,20 +1309,6 @@ class SemiImplicitTaylorExponential(DummyPropagator):
         if self.hpsit is None:
             self.hpsit = self.gd.zeros(nvec, dtype=complex)
 
-        self.timer.start('Update time-dependent operators')
-
-        # Update overlap S(t) of kpt.psit_nG in kpt.P_ani.
-        self.td_overlap.update(self.wfs)
-
-        # Calculate density rho(t) based on the wavefunctions psit_nG
-        # in kpt_u for t = time. Updates wfs.D_asp based on kpt.P_ani.
-        self.td_density.update()
-
-        # Update Hamiltonian H(t) to reflect density rho(t)
-        self.td_hamiltonian.update(self.td_density.get_density(), time)
-
-        self.timer.stop('Update time-dependent operators')
-
         # copy current wavefunctions to temporary variable
         for u, kpt in enumerate(self.wfs.kpt_u):
             self.tmp_kpt_u[u].psit_nG[:] = kpt.psit_nG
@@ -1411,8 +1343,7 @@ class SemiImplicitTaylorExponential(DummyPropagator):
         for kpt in self.wfs.kpt_u:
             self.solve_propagation_equation(kpt, time_step)
 
-        # update projections before exiting
-        self.td_overlap.update(self.wfs)
+        self.update_time_dependent_operators(time + time_step)
 
         return self.niter
 
@@ -1558,20 +1489,6 @@ class SemiImplicitKrylovExponential(DummyPropagator):
 
         self.time_step = time_step
 
-        self.timer.start('Update time-dependent operators')
-
-        # Update overlap S(t) of kpt.psit_nG in kpt.P_ani.
-        self.td_overlap.update(self.wfs)
-
-        # Calculate density rho(t) based on the wavefunctions psit_nG
-        # in kpt_u for t = time. Updates wfs.D_asp based on kpt.P_ani.
-        self.td_density.update()
-
-        # Update Hamiltonian H(t) to reflect density rho(t)
-        self.td_hamiltonian.update(self.td_density.get_density(), time)
-
-        self.timer.stop('Update time-dependent operators')
-
         # copy current wavefunctions to temporary variable
         for u, kpt in enumerate(self.wfs.kpt_u):
             self.tmp_kpt_u[u].psit_nG[:] = kpt.psit_nG
@@ -1606,8 +1523,7 @@ class SemiImplicitKrylovExponential(DummyPropagator):
         for kpt in self.wfs.kpt_u:
             self.solve_propagation_equation(kpt, time_step)
 
-        # update projections before exiting
-        self.td_overlap.update(self.wfs)
+        self.update_time_dependent_operators(time + time_step)
 
         return self.niter
 
