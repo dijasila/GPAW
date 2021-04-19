@@ -105,7 +105,9 @@ can be obtained with the following script
 
 .. literalinclude:: H2O_rraman_spectrum.py
 
-
+The figure shows the sensitivity of relative peak heights on the
+scattered photons energy.
+		    
 References
 ==========
 
