@@ -1,4 +1,4 @@
-# Creates: Ag55_spec.png
+# web-page: Ag55_spec.png
 # -*- coding: utf-8 -*-
 import numpy as np
 import matplotlib.pyplot as plt

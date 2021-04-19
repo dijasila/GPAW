@@ -1,4 +1,4 @@
-# Creates: field.ind_Ffe.png
+# web-page: field.ind_Ffe.png
 # -*- coding: utf-8 -*-
 from gpaw.mpi import world
 

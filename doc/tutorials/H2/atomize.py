@@ -1,4 +1,4 @@
-# Creates: atomization.txt
+# web-page: atomization.txt
 
 from ase import Atoms
 from ase.parallel import paropen as open

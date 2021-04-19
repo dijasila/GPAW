@@ -1,4 +1,4 @@
-# Creates: tas2_eps.png
+# web-page: tas2_eps.png
 from ase import Atoms
 from ase.lattice.hexagonal import Hexagonal
 import matplotlib.pyplot as plt

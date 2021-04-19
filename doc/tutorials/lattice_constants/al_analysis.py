@@ -1,4 +1,4 @@
-# Creates: Al_conv_ecut.png, Al_conv_k.png
+# web-page: Al_conv_ecut.png, Al_conv_k.png
 import matplotlib.pyplot as plt
 
 from ase.eos import EquationOfState
