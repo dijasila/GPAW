@@ -1,4 +1,4 @@
-# Creates: Bi2Se3_bands.png
+# web-page: Bi2Se3_bands.png
 import numpy as np
 import matplotlib.pyplot as plt
 

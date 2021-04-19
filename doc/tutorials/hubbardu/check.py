@@ -1,4 +1,4 @@
-# Creates: gaps.csv
+# web-page: gaps.csv
 from ase.io import read
 
 
