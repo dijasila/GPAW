@@ -12,6 +12,7 @@ from gpaw import GPAW
 from gpaw.elph.electronphonon import ElectronPhononCoupling
 
 
+@pytest.mark.xfail(reason='See #357')
 @pytest.mark.elph
 def test_elph_li(in_tmp_dir):
     # 2 atoms with one 1 valence electron each
