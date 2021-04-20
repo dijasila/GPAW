@@ -118,7 +118,7 @@ def test_propagation(time_propagation_reference,
         # error comes only from parallelization
         rtol = 1e-8
         if 'band' in parallel:
-            rtol = 6e-4
+            rtol = 7e-4
     elif propagator == 'SITE':
         # This propagator seems to be unstable?
         rtol = 8e-1
