@@ -6,7 +6,6 @@ import os
 import sys
 import contextlib
 from pathlib import Path
-from sysconfig import get_platform
 from typing import List, Dict, Union
 
 __version__ = '21.1.1b1'
@@ -38,15 +37,6 @@ def disable_dry_run():
     yield
     dry_run = size
 
-
-platform_id = os.getenv('CPU_ARCH')
-if platform_id:
-    plat = get_platform()
-    major, minor = sys.version_info[0:2]
-    lib = (Path(__path__[0]).parent /  # type: ignore  # noqa
-           'build' /
-           f'lib.{plat}-{platform_id}-{major}.{minor}')
-    sys.path.insert(0, str(lib))
 
 if 'OMP_NUM_THREADS' not in os.environ:
     os.environ['OMP_NUM_THREADS'] = '1'
