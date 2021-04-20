@@ -18,13 +18,8 @@ from scipy.ndimage import map_coordinates
 import _gpaw
 import gpaw.mpi as mpi
 from gpaw.domain import Domain
-from gpaw.utilities.blas import rk, r2k, gemm
 from gpaw.typing import Array1D, Array3D
-
-
-# Remove this:  XXX
-assert (-1) % 3 == 2
-assert (np.array([-1]) % 3)[0] == 2
+from gpaw.utilities.blas import gemm, r2k, rk
 
 NONBLOCKING = False
 
@@ -729,14 +724,3 @@ class GridDescriptor(Domain):
                                (spos_nc * self.N_c).T,
                                order=3,
                                mode='wrap')
-
-    def hmm__eq__(self, other):
-        # XXX Wait, should this not check the global distribution?  This
-        # could return True on some nodes and False on others because the
-        # check does not verify self.n_cp.
-        return (self.dv == other.dv and
-                (self.h_cv == other.h_cv).all() and
-                (self.N_c == other.N_c).all() and
-                (self.n_c == other.n_c).all() and
-                (self.beg_c == other.beg_c).all() and
-                (self.end_c == other.end_c).all())
