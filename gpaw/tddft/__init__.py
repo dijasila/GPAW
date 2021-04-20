@@ -27,9 +27,10 @@ from gpaw.tddft.tdopers import \
 from gpaw.wavefunctions.fd import FD
 
 from gpaw.tddft.spectrum import photoabsorption_spectrum
+from gpaw.lcaotddft.dipolemomentwriter import DipoleMomentWriter
 
 
-__all__ = ['TDDFT', 'photoabsorption_spectrum']
+__all__ = ['TDDFT', 'photoabsorption_spectrum', 'DipoleMomentWriter']
 
 
 # T^-1
