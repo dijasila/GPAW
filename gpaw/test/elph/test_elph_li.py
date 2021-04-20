@@ -77,4 +77,3 @@ def test_elph_li(in_tmp_dir):
     # Part 5: compare spin-paired and spin-polarised
     assert np.allclose(g_xsMM[:, 0], g_xsMM[:, 1])
     assert np.allclose(g_xMM, g_xsMM[:, 0])
-
