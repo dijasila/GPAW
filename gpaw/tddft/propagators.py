@@ -902,6 +902,7 @@ class SemiImplicitTaylorExponential(BasePropagator):
             Degree of the Taylor polynomial (default is 4)
 
         """
+        raise RuntimeError('SITE propagator is unstable')
         BasePropagator.__init__(self)
         self.degree = degree
         self.tmp_kpt_u = None

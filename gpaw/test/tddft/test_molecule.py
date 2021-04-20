@@ -106,7 +106,7 @@ def test_dipole_moment_values(time_propagation_reference,
 
 @pytest.mark.parametrize('parallel', parallel_i)
 @pytest.mark.parametrize('propagator', [
-    'SICN', 'ECN', 'ETRSCN', 'SITE', 'SIKE'])
+    'SICN', 'ECN', 'ETRSCN', 'SIKE'])
 def test_propagation(time_propagation_reference,
                      parallel, propagator,
                      module_tmp_path, in_tmp_dir):
@@ -119,9 +119,6 @@ def test_propagation(time_propagation_reference,
         rtol = 1e-8
         if 'band' in parallel:
             rtol = 7e-4
-    elif propagator == 'SITE':
-        # This propagator seems to be unstable?
-        rtol = 8e-1
     else:
         # Other propagators match qualitatively
         rtol = 5e-2
