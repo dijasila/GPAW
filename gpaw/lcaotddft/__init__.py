@@ -1,5 +1,6 @@
 import numpy as np
 from typing import Optional
+from gpaw.typing import ArrayLike
 
 from ase.units import Bohr, Hartree
 
@@ -63,7 +64,7 @@ class LCAOTDDFT(GPAW):
                       communicator=communicator, txt=txt)
         self.set_positions()
 
-    def write(self, filename: str, mode='all'):
+    def write(self, filename: str, mode: str = 'all'):
         """Write calculator object to a file.
 
         Parameters
@@ -133,7 +134,7 @@ class LCAOTDDFT(GPAW):
         self.tddft_initialized = True
         self.timer.stop('Initialize TDDFT')
 
-    def absorption_kick(self, kick_strength):
+    def absorption_kick(self, kick_strength: ArrayLike):
         """Kick with a weak electric field.
 
         Parameters
@@ -191,7 +192,7 @@ class LCAOTDDFT(GPAW):
         self.niter += 1
         self.timer.stop('Kick')
 
-    def propagate(self, time_step=10, iterations=2000):
+    def propagate(self, time_step: float = 10.0, iterations: int = 2000):
         """Propagate the electronic system.
 
         Parameters
