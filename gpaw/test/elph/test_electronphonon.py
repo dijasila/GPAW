@@ -13,7 +13,6 @@ pytestmark = pytest.mark.skipif(world.size > 2,
                                 reason='world.size > 2')
 
 
-@pytest.mark.xfail(reason='See #357')
 @pytest.mark.elph
 def test_electronphonon(in_tmp_dir):
     if LooseVersion(__version__) < '3.18':
@@ -45,7 +44,8 @@ def test_electronphonon(in_tmp_dir):
 
     parameters['parallel'] = {'domain': 1}
     elph_calc = GPAW(**parameters)
-    elph = ElectronPhononCoupling(atoms, calc=None, supercell=supercell)
+    elph = ElectronPhononCoupling(atoms, calc=None, supercell=supercell,
+                                  calculate_forces=True)
     elph.set_lcao_calculator(elph_calc)
     elph.calculate_supercell_matrix(dump=1)
 
