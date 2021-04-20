@@ -1,9 +1,10 @@
 import numpy as np
+from typing import Optional
 
 from ase.units import Bohr, Hartree
 
 from gpaw import GPAW
-from gpaw.external import ConstantElectricField
+from gpaw.external import ExternalPotential, ConstantElectricField
 from gpaw.lcaotddft.hamiltonian import TimeDependentHamiltonian
 from gpaw.lcaotddft.logger import TDDFTLogger
 from gpaw.lcaotddft.propagators import create_propagator
@@ -11,30 +12,74 @@ from gpaw.tddft.units import attosec_to_autime
 
 
 class LCAOTDDFT(GPAW):
-    def __init__(self, filename=None, propagator=None, scale=None,
-                 fxc=None, td_potential=None, **kwargs):
+    """Real-time time-propagation TDDFT calculator with LCAO basis.
+
+    Parameters
+    ----------
+    filename
+        File containing ground state or time-dependent state to propagate
+    propagator
+        Time propagator for the Kohn-Sham wavefunctions
+    td_potential
+        External time-dependent potential
+    fxc
+        Exchange-correlation functional used for
+        the dynamic part of Hamiltonian
+    scale
+        Scaling factor for the dynamic part of Hamiltonian
+    parallel
+        Parallelization options
+    communicator
+        MPI communicator
+    txt
+        Text output
+    """
+    def __init__(self, filename: str, *,
+                 propagator: dict = None,
+                 td_potential: dict = None,
+                 fxc: str = None,
+                 scale: float = None,
+                 parallel: dict = None,
+                 communicator: object = None,
+                 txt: str = '-'):
+        """"""
         self.time = 0.0
         self.niter = 0
         # TODO: deprecate kick keywords (and store them as td_potential)
         self.kick_strength = np.zeros(3)
-        self.kick_ext = None
+        self.kick_ext: Optional[ExternalPotential] = None
         self.tddft_initialized = False
-        self.action = None
+        self.action = ''
         tdh = TimeDependentHamiltonian(fxc=fxc, td_potential=td_potential,
                                        scale=scale)
         self.td_hamiltonian = tdh
 
-        self.propagator = propagator
+        self.propagator_set = propagator is not None
+        self.propagator = create_propagator(propagator)
         if filename is None:
             kwargs['mode'] = kwargs.get('mode', 'lcao')
         self.default_parameters = GPAW.default_parameters.copy()
         self.default_parameters['symmetry'] = {'point_group': False}
-        GPAW.__init__(self, filename, **kwargs)
+        GPAW.__init__(self, filename, parallel=parallel,
+                      communicator=communicator, txt=txt)
 
         # Restarting from a file
         if filename is not None:
             # self.initialize()
             self.set_positions()
+
+    def write(self, filename: str, mode='all'):
+        """Write calculator object to a file.
+
+        Parameters
+        ----------
+        filename
+            File to be written
+        mode
+            Write mode. Use ``mode='all'``
+            to include wave functions in the file.
+        """
+        GPAW.write(self, filename, mode=mode)
 
     def _write(self, writer, mode):
         GPAW._write(self, writer, mode)
@@ -53,10 +98,10 @@ class LCAOTDDFT(GPAW):
             self.time = r.time
             self.niter = r.niter
             self.kick_strength = r.kick_strength
-            if self.propagator is None:
-                self.propagator = r.propagator
+            if not self.propagator_set:
+                self.propagator = create_propagator(r.propagator)
             else:
-                self.log('Note! Propagator changed!')
+                self.log('Note! Propagator possibly changed!')
             self.td_hamiltonian.wfs = self.wfs
             self.td_hamiltonian.read(r.td_hamiltonian)
 
@@ -77,7 +122,6 @@ class LCAOTDDFT(GPAW):
         self.td_hamiltonian.initialize(self)
 
         # Initialize propagator
-        self.propagator = create_propagator(self.propagator)
         self.propagator.initialize(self)
 
         self.log('Propagator:')
@@ -95,6 +139,13 @@ class LCAOTDDFT(GPAW):
         self.timer.stop('Initialize TDDFT')
 
     def absorption_kick(self, kick_strength):
+        """Kick with a weak electric field.
+
+        Parameters
+        ----------
+        kick_strength
+            Strength of the kick in atomic units
+        """
         self.tddft_init()
 
         self.timer.start('Kick')
@@ -119,7 +170,14 @@ class LCAOTDDFT(GPAW):
         self.niter += 1
         self.timer.stop('Kick')
 
-    def kick(self, ext):
+    def kick(self, ext: ExternalPotential):
+        """Kick with any external potential.
+
+        Parameters
+        ----------
+        ext
+            External potential
+        """
         self.tddft_init()
 
         self.timer.start('Kick')
@@ -139,6 +197,15 @@ class LCAOTDDFT(GPAW):
         self.timer.stop('Kick')
 
     def propagate(self, time_step=10, iterations=2000):
+        """Propagate the electronic system.
+
+        Parameters
+        ----------
+        time_step
+            Time step in attoseconds
+        iterations
+            Number of propagation steps
+        """
         self.tddft_init()
 
         time_step *= attosec_to_autime
@@ -159,6 +226,7 @@ class LCAOTDDFT(GPAW):
         self.timer.stop('Propagate')
 
     def replay(self, **kwargs):
+        # TODO: Consider deprecating this function?
         self.propagator = create_propagator(**kwargs)
         self.tddft_init()
         self.propagator.control_paw(self)
