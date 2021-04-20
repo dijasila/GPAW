@@ -64,6 +64,7 @@ import pickle
 import numpy as np
 
 import ase.units as units
+from ase.parallel import world
 from ase.phonons import Displacement
 from ase.utils.filecache import MultiFileJSONCache
 
@@ -388,6 +389,7 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
                 for kpt in kpt_u:
                     # Matrix elements
                     geff_MM = np.zeros((nao, nao), dtype)
+                    print(V1t_sG.shape, kpt.s)
                     bfs.calculate_potential_matrix(V1t_sG[kpt.s], geff_MM,
                                                    q=kpt.q)
                     tri2full(geff_MM, 'L')
@@ -937,3 +939,15 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
                 x += 1
 
         return np.array(V1t_xsG), dH1_xasp
+
+    def clean(self):
+        """Delete generated json files.
+
+        Overwrite faulty ASE routine until it is fixed"""
+        if world.rank == 0:
+            self.cache.__delitem__('eq')
+            for a in self.indices:
+                for i in 'xyz':
+                    for sign in '-+':
+                        name = '%d%s%s' % (a, i, sign)
+                        self.cache.__delitem__(name)
