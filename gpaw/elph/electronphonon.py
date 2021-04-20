@@ -143,9 +143,10 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
         # basis
         self.basis_info = None
 
-        # if not calculate_forces:
-        #     self.phcache = MultiFileJSONCache('phonons-cache')
-        self.cache = MultiFileJSONCache('elph-cache')
+        if calculate_forces:
+            self.cache = MultiFileJSONCache('phonons-cache')
+        else:
+            self.cache = MultiFileJSONCache('elph-cache')
 
     def calculate(self, atoms_N, disp):
         Vt_sG, dH_all_asp, forces = self(atoms_N)
