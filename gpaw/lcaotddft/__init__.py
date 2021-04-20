@@ -43,6 +43,7 @@ class LCAOTDDFT(GPAW):
                  communicator: object = None,
                  txt: str = '-'):
         """"""
+        assert filename is not None
         self.time = 0.0
         self.niter = 0
         # TODO: deprecate kick keywords (and store them as td_potential)
@@ -56,17 +57,11 @@ class LCAOTDDFT(GPAW):
 
         self.propagator_set = propagator is not None
         self.propagator = create_propagator(propagator)
-        if filename is None:
-            kwargs['mode'] = kwargs.get('mode', 'lcao')
         self.default_parameters = GPAW.default_parameters.copy()
         self.default_parameters['symmetry'] = {'point_group': False}
         GPAW.__init__(self, filename, parallel=parallel,
                       communicator=communicator, txt=txt)
-
-        # Restarting from a file
-        if filename is not None:
-            # self.initialize()
-            self.set_positions()
+        self.set_positions()
 
     def write(self, filename: str, mode='all'):
         """Write calculator object to a file.
