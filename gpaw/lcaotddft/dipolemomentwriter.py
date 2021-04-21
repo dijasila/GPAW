@@ -80,6 +80,11 @@ class DipoleMomentWriter(TDDFTObserver):
             k = {'center': 'do_center', 'density': 'density_type'}[k]
             setattr(self, k, v)
 
+    def _write_init(self, paw):
+        time = paw.time
+        line = '# Start; Time = %.8lf\n' % time
+        self._write(line)
+
     def _write_kick(self, paw):
         time = paw.time
         kick = paw.kick_strength
@@ -123,7 +128,9 @@ class DipoleMomentWriter(TDDFTObserver):
         self._write(line)
 
     def _update(self, paw):
-        if paw.action == 'kick':
+        if paw.action == 'init':
+            self._write_init(paw)
+        elif paw.action == 'kick':
             self._write_kick(paw)
         self._write_dm(paw)
 
