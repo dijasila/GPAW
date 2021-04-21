@@ -181,4 +181,10 @@ TDDFT reference manual
 .. autoclass:: gpaw.tddft.TDDFT
    :members:
 
+.. autoclass:: gpaw.tddft.DipoleMomentWriter
+   :members:
+
+.. autoclass:: gpaw.tddft.RestartFileWriter
+   :members:
+
 .. autofunction:: gpaw.tddft.photoabsorption_spectrum
