@@ -378,6 +378,11 @@ class TDDFT(GPAW):
                     dm = self.calculate_dipole_moment()
                     self.update_dipole_moment_file(norm, dm)
 
+            # Propagate the Kohn-Shame wavefunctions a single timestep
+            niterpropagator = self.propagator.propagate(self.time, time_step)
+            self.time += time_step
+            self.niter += 1
+
             # print output (energy etc.) every 10th iteration
             if self.niter % 10 == 0:
                 self.get_td_energy()
@@ -394,11 +399,6 @@ class TDDFT(GPAW):
                               niterpropagator))
 
                     self.log.flush()
-
-            # Propagate the Kohn-Shame wavefunctions a single timestep
-            niterpropagator = self.propagator.propagate(self.time, time_step)
-            self.time += time_step
-            self.niter += 1
 
             # Call registered callback functions
             self.action = 'propagate'
