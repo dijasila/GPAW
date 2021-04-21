@@ -535,6 +535,8 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
     def apply_cutoff(self, cutmax=None, cutmin=None):
         """Zero matrix element inside/beyond the specified cutoffs.
 
+        This method is not tested.
+
         Parameters
         ----------
         cutmax: float
@@ -543,8 +545,6 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
         cutmin: float
             Zero matrix elements where both basis functions have distances to
             the atomic gradient that is smaller than the cutoff.
-
-        This method is not tested.
         """
 
         if cutmax is not None:
@@ -625,6 +625,8 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
 
         For now, only works for Gamma-point phonons.
 
+        This method is not tested.
+
         Parameters
         ----------
         u_l: ndarray
@@ -632,8 +634,6 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
             phonons.
         omega_l: ndarray
             Vibrational frequencies in eV.
-
-        This method is not tested.
         """
 
         # Supercell matrix (Hartree / Bohr)
@@ -830,6 +830,8 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
     def fourier_filter(self, V1t_xG, components='normal', criteria=1):
         """Fourier filter atomic gradients of the effective potential.
 
+        This method is not tested.
+
         Parameters
         ----------
         V1t_xG: ndarray
@@ -837,8 +839,6 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
             in the supercell grid.
         components: str
             Fourier components to filter out (``normal`` or ``umklapp``).
-
-        This method is not tested.
         """
         import numpy.fft as fft
         import numpy.linalg as la
