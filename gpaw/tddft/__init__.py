@@ -398,11 +398,11 @@ class TDDFT(GPAW):
             # Propagate the Kohn-Shame wavefunctions a single timestep
             niterpropagator = self.propagator.propagate(self.time, time_step)
             self.time += time_step
+            self.niter += 1
 
             # Call registered callback functions
             self.action = 'propagate'
             self.call_observers(self.niter)
-            self.niter += 1
 
             # Write restart data
             if restart_file is not None and self.niter % dump_interval == 0:
