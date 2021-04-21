@@ -86,22 +86,24 @@ Example::
   
   # Read ground state
   td_calc = TDDFT('be_gs.gpw')
-  
+
+  # Save the time-dependent dipole moment to 'be_dm.dat'
+  DipoleMomentWriter(td_calc, 'be_dm.dat')
+
+  # Use 'be_td.gpw' as restart file
+  RestartFileWriter(td_calc, 'be_td.gpw')
+
   # Kick with a delta pulse to z-direction
   td_calc.absorption_kick(kick_strength=kick_strength)
-  
-  # Propagate, save the time-dependent dipole moment to 'be_dm.dat',
-  # and use 'be_td.gpw' as restart file
-  td_calc.propagate(time_step, iterations, 'be_dm.dat', 'be_td.gpw')
+
+  # Propagate
+  td_calc.propagate(time_step, iterations)
+
+  # Save end result to 'be_td.gpw'
+  td_calc.write('be_td.gpw', mode='all')
 
   # Calculate photoabsorption spectrum and write it to 'be_spectrum_z.dat'
   photoabsorption_spectrum('be_dm.dat', 'be_spectrum_z.dat')
-
-.. note::
-
-  Make sure to number of iterations is divisible by the dump interval
-  such that the last iteration will be stored in the restart file.
-  Otherwise append td_calc.write('be_td.gpw', mode='all') to the script.
 
 When propagating after an absorption kick has been applied, it is a good
 idea to periodically write the time-evolution state to a restart file.
@@ -119,9 +121,17 @@ Example::
   # Read restart file with result of previous propagation
   td_calc = TDDFT('be_td.gpw')
 
-  # Propagate more, appending the time-dependent dipole moment to the
-  # already existing 'be_dm.dat' and use 'be_td2.gpw' as restart file
-  td_calc.propagate(time_step, iterations, 'be_dm.dat', 'be_td2.gpw')
+  # Append the time-dependent dipole moment to the already existing 'be_dm.dat'
+  DipoleMomentWriter(td_calc, 'be_dm.dat')
+
+  # Use 'be_td2.gpw' as restart file
+  RestartFileWriter(td_calc, 'be_td2.gpw')
+
+  # Propagate more
+  td_calc.propagate(time_step, iterations)
+
+  # Save end result to 'be_td2.gpw'
+  td_calc.write('be_td2.gpw', mode='all')
 
   # Recalculate photoabsorption spectrum and write it to 'be_spectrum_z2.dat'
   photoabsorption_spectrum('be_dm.dat', 'be_spectrum_z2.dat')
