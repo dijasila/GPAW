@@ -97,7 +97,7 @@ pth='import sys, os; '
 pth+='arch = os.environ["CPU_ARCH"]; '
 pth+="path = f'$VENV/gpaw/build/lib.linux-x86_64-{arch}-3.8'; "
 pth+='sys.path.append(path)'
-echo pth > $VENV/lib/python3.8/site-packages/niflheim.pth
+echo $pth > $VENV/lib/python3.8/site-packages/niflheim.pth
 
 # Install extra basis-functions:
 cd $VENV

@@ -58,30 +58,27 @@ last three terms originate from the PAW (pseudopotential) part of the effective
 DFT Hamiltonian.
 
 """
-
 from math import pi
 import os.path as op
 import pickle
-import sys
-
 import numpy as np
-import numpy.fft as fft
-import numpy.linalg as la
 
-from ase.phonons import Displacement
 import ase.units as units
-from ase.utils import opencew
+from ase.parallel import world
+from ase.phonons import Displacement
+from ase.utils.filecache import MultiFileJSONCache
 
 from gpaw import GPAW
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.lcao.tightbinding import TightBinding
-from gpaw.mpi import rank
 from gpaw.utilities import unpack2
 from gpaw.utilities.timing import StepTimer, nulltimer
 from gpaw.utilities.tools import tri2full
 
 
 class BackwardsCompatibleDisplacement(Displacement):
+    # NOTE: It's probably save to remove this, as we are not compatible with
+    # old ASE anyway, thanks to breaking pckl to json change.
     def __init__(self, atoms, calc, supercell,
                  name, delta):
         if hasattr(Displacement, 'compute_lattice_vectors'):
@@ -146,10 +143,17 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
         # basis
         self.basis_info = None
 
-    def calculate(self, atoms_N, filename, fd):
-        output = self(atoms_N)
-        if rank == 0:
-            pickle.dump(output, fd, protocol=2)
+        if calculate_forces:
+            self.cache = MultiFileJSONCache('phonons-cache')
+        else:
+            self.cache = MultiFileJSONCache('elph-cache')
+
+    def calculate(self, atoms_N, disp):
+        Vt_sG, dH_all_asp, forces = self(atoms_N)
+        output = {'Vt_sG': Vt_sG, 'dH_all_asp': dH_all_asp}
+        if forces is not None:
+            output['forces'] = forces
+        return output
 
     def __call__(self, atoms_N):
         """Extract effective potential and projector coefficients."""
@@ -159,15 +163,9 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
 
         # Calculate forces if desired
         if self.calculate_forces:
-            force_filename = 'phonons.' + self.state
-            fd = opencew(force_filename)
-            if fd is not None:
-                forces = atoms_N.get_forces()
-                if rank == 0:
-                    pickle.dump(forces, fd, protocol=2)
-                    sys.stdout.write('Writing %s\n' % force_filename)
-                    fd.close()
-                sys.stdout.flush()
+            forces = atoms_N.get_forces()
+        else:
+            forces = None
 
         # Get calculator
         calc = atoms_N.calc
@@ -193,7 +191,7 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
             gd_comm.sum(dH_tmp_sp)
             dH_all_asp[a] = dH_tmp_sp
 
-        return Vt_sG, dH_all_asp
+        return Vt_sG, dH_all_asp, forces
 
     def set_lcao_calculator(self, calc):
         """Set LCAO calculator for the calculation of the supercell matrix."""
@@ -348,7 +346,9 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
         # For the contribution from the derivative of the projectors
         dP_aqvMi = wfs.manytci.P_aqMi(self.indices, derivative=True)
         # Equilibrium atomic Hamiltonian matrix (projector coefficients)
-        dH_asp = pickle.load(open(self.name + '.eq.pckl', 'rb'))[1]
+        Vt_sG, dH_asp, _ = self.cache['eq']  # caution, eq file is different...
+
+        # dH_asp = pickle.load(open(self.name + '.eq.pckl', 'rb'))[1]
 
         # Check that the grid is the same as in the calculator
         assert np.all(V1t_xsG.shape[-3:] == (gd.N_c + gd.pbc_c - 1)), \
@@ -390,6 +390,7 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
                 for kpt in kpt_u:
                     # Matrix elements
                     geff_MM = np.zeros((nao, nao), dtype)
+                    print(V1t_sG.shape, kpt.s)
                     bfs.calculate_potential_matrix(V1t_sG[kpt.s], geff_MM,
                                                    q=kpt.q)
                     tri2full(geff_MM, 'L')
@@ -420,7 +421,7 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
                     self.timer.write_now("Starting gradient of projectors")
                     # 2b) dP^a part has only contributions from the same atoms
                     dP_qvMi = dP_aqvMi[a]
-                    dH_ii = unpack2(dH_asp[a][kpt.s])
+                    dH_ii = unpack2(dH_asp[str(a)][kpt.s])
                     for kpt in kpt_u:
                         # XXX Sort out the sign here; conclusion -> sign = +1 !
                         P1HP_MM = +1 * np.dot(dP_qvMi[kpt.q][v], np.dot(dH_ii,
@@ -534,6 +535,8 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
     def apply_cutoff(self, cutmax=None, cutmin=None):
         """Zero matrix element inside/beyond the specified cutoffs.
 
+        This method is not tested.
+
         Parameters
         ----------
         cutmax: float
@@ -542,7 +545,6 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
         cutmin: float
             Zero matrix elements where both basis functions have distances to
             the atomic gradient that is smaller than the cutoff.
-
         """
 
         if cutmax is not None:
@@ -623,6 +625,8 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
 
         For now, only works for Gamma-point phonons.
 
+        This method is not tested.
+
         Parameters
         ----------
         u_l: ndarray
@@ -630,7 +634,6 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
             phonons.
         omega_l: ndarray
             Vibrational frequencies in eV.
-
         """
 
         # Supercell matrix (Hartree / Bohr)
@@ -827,6 +830,8 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
     def fourier_filter(self, V1t_xG, components='normal', criteria=1):
         """Fourier filter atomic gradients of the effective potential.
 
+        This method is not tested.
+
         Parameters
         ----------
         V1t_xG: ndarray
@@ -834,9 +839,9 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
             in the supercell grid.
         components: str
             Fourier components to filter out (``normal`` or ``umklapp``).
-
         """
-
+        import numpy.fft as fft
+        import numpy.linalg as la
         assert components in ['normal', 'umklapp']
         # Grid shape
         shape = V1t_xG.shape[-3:]
@@ -913,14 +918,15 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
 
         x = 0
         for a in self.indices:
-            for v in range(3):
-                name = '%s.%d%s' % (self.name, a, 'xyz'[v])
+            for v in 'xyz':
+                # Note: self.name currently ignored in ase.phonon
+                # name = '%s.%d%s' % (self.name, a, v)
+                name = '%d%s' % (a, v)
                 # Potential and atomic density matrix for atomic displacement
-                try:
-                    Vtm_sG, dHm_asp = pickle.load(open(name + '-.pckl', 'rb'))
-                    Vtp_sG, dHp_asp = pickle.load(open(name + '+.pckl', 'rb'))
-                except (IOError, EOFError):
-                    raise IOError('%s(-/+).pckl' % name)
+                Vtm_sG = self.cache[name + '-']['Vt_sG']
+                dHm_asp = self.cache[name + '-']['dH_all_asp']
+                Vtp_sG = self.cache[name + '+']['Vt_sG']
+                dHp_asp = self.cache[name + '+']['dH_all_asp']
 
                 # FD derivatives in Hartree / Bohr
                 V1t_sG = (Vtp_sG - Vtm_sG) / (2 * self.delta / units.Bohr)
@@ -934,3 +940,15 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
                 x += 1
 
         return np.array(V1t_xsG), dH1_xasp
+
+    def clean(self):
+        """Delete generated json files.
+
+        Overwrite faulty ASE routine until it is fixed"""
+        if world.rank == 0:
+            self.cache.__delitem__('eq')
+            for a in self.indices:
+                for i in 'xyz':
+                    for sign in '-+':
+                        name = '%d%s%s' % (a, i, sign)
+                        self.cache.__delitem__(name)
