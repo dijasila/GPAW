@@ -537,5 +537,9 @@ Code documentation
    :members:
    :exclude-members: read
 
+
+Observers
+---------
+
 .. autoclass:: gpaw.lcaotddft.dipolemomentwriter.DipoleMomentWriter
    :members:
