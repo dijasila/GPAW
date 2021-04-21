@@ -180,6 +180,7 @@ TDDFT reference manual
 
 .. autoclass:: gpaw.tddft.TDDFT
    :members:
+   :exclude-members: read
 
 .. autoclass:: gpaw.tddft.DipoleMomentWriter
    :members:
