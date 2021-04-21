@@ -532,7 +532,7 @@ class TDDFT(GPAW):
         Parameters
         ----------
         kick_strength
-            Strength of the kick.
+            Strength of the kick in atomic units
         """
         self.tddft_init()
 
