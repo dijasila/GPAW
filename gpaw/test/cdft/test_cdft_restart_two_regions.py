@@ -7,7 +7,7 @@ from gpaw.cdft.cdft_coupling import CouplingParameters
 from gpaw.mpi import size, world
 
 @pytest.mark.skipif(world.size > 1, reason='cdft coupling not parallel')
-def test_shift(in_tmp_dir):
+def test_cdft_restart(in_tmp_dir):
     distance = 2.5
     sys = Atoms('He2', positions=([0., 0., 0.], [0., 0., distance]))
     sys.center(3)
