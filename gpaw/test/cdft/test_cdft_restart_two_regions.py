@@ -4,7 +4,7 @@ import numpy as np
 from gpaw import GPAW, FermiDirac, Davidson, Mixer, restart
 from gpaw.cdft.cdft import CDFT
 from gpaw.cdft.cdft_coupling import CouplingParameters
-from gpaw.mpi import size
+from gpaw.mpi import size, world
 
 @pytest.mark.skipif(world.size > 1, reason='cdft coupling not parallel')
 def test_shift(in_tmp_dir):
