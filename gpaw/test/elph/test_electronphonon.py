@@ -39,17 +39,17 @@ def test_electronphonon(in_tmp_dir):
     gamma_bands = elph_calc.wfs.kpt_u[0].C_nM
 
     elph = ElectronPhononCoupling(atoms, elph_calc, supercell=supercell,
-                                  calculate_forces=True)
+                                  name='elph+ph', calculate_forces=True)
     elph.run()
 
     parameters['parallel'] = {'domain': 1}
     elph_calc = GPAW(**parameters)
     elph = ElectronPhononCoupling(atoms, calc=None, supercell=supercell,
-                                  calculate_forces=True)
+                                  name='elph+ph', calculate_forces=True)
     elph.set_lcao_calculator(elph_calc)
     elph.calculate_supercell_matrix(dump=1)
 
-    ph = Phonons(atoms=atoms, name='phonons', supercell=supercell, calc=None)
+    ph = Phonons(atoms=atoms, name='elph+ph', supercell=supercell, calc=None)
     ph.read()
     kpts = [[0, 0, 0]]
     frequencies, modes = ph.band_structure(kpts, modes=True)

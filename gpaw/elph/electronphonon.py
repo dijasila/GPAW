@@ -64,9 +64,7 @@ import pickle
 import numpy as np
 
 import ase.units as units
-from ase.parallel import world
 from ase.phonons import Displacement
-from ase.utils.filecache import MultiFileJSONCache
 
 from gpaw import GPAW
 from gpaw.kpt_descriptor import KPointDescriptor
@@ -142,11 +140,6 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
         self.g_xsNNMM = None
         # basis
         self.basis_info = None
-
-        if calculate_forces:
-            self.cache = MultiFileJSONCache('phonons-cache')
-        else:
-            self.cache = MultiFileJSONCache('elph-cache')
 
     def calculate(self, atoms_N, disp):
         Vt_sG, dH_all_asp, forces = self(atoms_N)
@@ -940,15 +933,3 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
                 x += 1
 
         return np.array(V1t_xsG), dH1_xasp
-
-    def clean(self):
-        """Delete generated json files.
-
-        Overwrite faulty ASE routine until it is fixed"""
-        if world.rank == 0:
-            self.cache.__delitem__('eq')
-            for a in self.indices:
-                for i in 'xyz':
-                    for sign in '-+':
-                        name = '%d%s%s' % (a, i, sign)
-                        self.cache.__delitem__(name)
