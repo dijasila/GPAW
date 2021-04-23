@@ -1,7 +1,10 @@
+import pytest
 from ase import Atoms
-from gpaw import GPAW, FermiDirac, Davidson, Mixer
+import numpy as np
+from gpaw import GPAW, FermiDirac, Davidson, Mixer, restart
 from gpaw.cdft.cdft import CDFT
 from gpaw.cdft.cdft_coupling import CouplingParameters
+from gpaw.mpi import size, world
 
 # Set up the system
 @pytest.mark.skipif(world.size > 1, reason='cdft coupling not parallel')
