@@ -480,6 +480,7 @@ class WLDA(XCFunctional):
             assert len(alpha_indices) == 0
 
         nstar_sg = self.alt_weight_for_spinpol(ntotal_g, alpha_indices, wn_sg, self.gd)
+        mpi.world.sum(nstar_sg)
 
         nstar_sg[nstar_sg < 1e-20] = 1e-40
 
@@ -799,9 +800,9 @@ class WLDA(XCFunctional):
             ec += alpha * IF2 * f * x + (e1 - ec) * f * zeta4
             e[:] += wntotal_g * ec
 
-            v[0] += ec
             ratio = wntotal_g / nstar_sg.sum(axis=0)
             ratio[np.isclose(nstar_sg.sum(axis=0), 0.0)] = 0.0
+            v[0] += ec
             v[0] -= self.fold_with_derivative_for_spinpol((rs * decdrs / 3.0
                                                            - (zeta - 1.0)
                                                            * decdzeta) * ratio,
