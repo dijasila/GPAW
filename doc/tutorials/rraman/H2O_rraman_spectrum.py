@@ -9,10 +9,9 @@ pz = Placzek(atoms, LrTDDFT,
              name='ir',  # use ir-calculation for frequencies
              exname='rraman_erange17')  # use LrTDDFT for intensities
 
-omega = 2.41  # excitation frequency, 514.5 nm
 gamma = 0.2  # width
 
-for i, omega in enumerate([2.41, 8]):
+for i, omega in enumerate([2.41, 8]):  # photon energies
     plt.subplot(211 + i)
     x, y = pz.get_spectrum(omega, gamma,
                            start=1000, end=4000, type='Lorentzian')
