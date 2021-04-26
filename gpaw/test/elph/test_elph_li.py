@@ -12,6 +12,7 @@ from gpaw import GPAW
 from gpaw.elph.electronphonon import ElectronPhononCoupling
 
 
+@pytest.mark.xfail
 @pytest.mark.elph
 def test_elph_li(in_tmp_dir):
     # 2 atoms with one 1 valence electron each
@@ -71,7 +72,9 @@ def test_elph_li(in_tmp_dir):
                 # all six gMM have same entries, but in different places
                 assert (abs(np.max(abs(elph.g_xsNNMM[x, s, 0, 0])) -
                             np.max(abs(elph.g_xsNNMM[0, 0, 0, 0]))) < 5e-5)
+        # remove json cache
+        elph.clean()
 
-    # Part 4: compare spin-paired and spin-polarised
+    # Part 5: compare spin-paired and spin-polarised
     assert np.allclose(g_xsMM[:, 0], g_xsMM[:, 1])
     assert np.allclose(g_xMM, g_xsMM[:, 0])

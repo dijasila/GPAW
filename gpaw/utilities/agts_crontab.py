@@ -34,15 +34,16 @@ def find_created_files():
     for path in Path().glob('**/*.py'):
         if path.parts[0] == 'build':
             continue
-        line1 = path.read_text().split('\n', 1)[0]
-        if not line1.startswith('# Creates:'):
-            continue
-        for name in line1.split(':')[1].split(','):
+        filenames = []
+        for line in path.read_text().splitlines():
+            if not line.startswith('# web-page:'):
+                break
+            filenames += line.split(':')[1].split(',')
+        for name in filenames:
             name = name.strip()
             if name in names:
                 raise RuntimeError(
-                    'The name {!r} is used in more than one place!'
-                    .format(name))
+                    f'The name {name!r} is used in more than one place!')
             names.add(name)
             yield path.with_name(name)
 

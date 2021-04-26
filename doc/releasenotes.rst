@@ -14,6 +14,8 @@ Git master branch
 
 * Corresponding ASE release: ASE-3.21.1b1
 
+* The documentation and tutorial for :ref:`lrtddft2` updated.
+
 * True occupation numbers are now printed in the text output for the
   Kohn–Sham states.  Previously, the printed occupation numbers were
   scaled by **k**-point weight.

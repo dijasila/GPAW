@@ -1,4 +1,4 @@
-# Creates: phases.png
+# web-page: phases.png
 import numpy as np
 import pylab as plt
 

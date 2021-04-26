@@ -1,4 +1,4 @@
-# Creates: extrapolate.png
+# web-page: extrapolate.png
 import numpy as np
 import matplotlib.pyplot as plt
 from gpaw.utilities.extrapolate import extrapolate

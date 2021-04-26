@@ -1,4 +1,4 @@
-# Creates: C_freq.png
+# web-page: C_freq.png
 import pickle
 
 import matplotlib.pyplot as plt

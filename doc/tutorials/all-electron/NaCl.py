@@ -1,4 +1,4 @@
-# Creates: all_electron.csv
+# web-page: all_electron.csv
 import numpy as np
 
 from ase.build import molecule

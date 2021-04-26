@@ -1,4 +1,4 @@
-# Creates: Ec_rpa.png
+# web-page: Ec_rpa.png
 from myqueue.workflow import run
 
 
