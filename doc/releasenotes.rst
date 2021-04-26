@@ -10,6 +10,8 @@ Git master branch
 
 :git:`master <>`.
 
+* :ref:`resonant_raman_water` tutorial added.
+
 * Corresponding ASE release: ASE-3.21.1b1
 
 * True occupation numbers are now printed in the text output for the
