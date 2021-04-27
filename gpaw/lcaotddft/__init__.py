@@ -27,6 +27,7 @@ class LCAOTDDFT(GPAW):
         Exchange-correlation functional used for
         the dynamic part of Hamiltonian
     scale
+        Experimental option (use carefully).
         Scaling factor for the dynamic part of Hamiltonian
     parallel
         Parallelization options
