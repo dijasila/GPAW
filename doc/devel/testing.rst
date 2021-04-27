@@ -17,7 +17,15 @@ small and quick tests and by a weekly set of larger test.
 
 Use pytest_ and pytest-xdist_ to run the tests::
 
-    $ pytest -v -n <number-of-processes>
+    $ cd /root/of/gpaw/git/clone/
+    $ pytest -n <number-of-processes>
+
+.. hint::
+
+    If you don't have a git-clone from where you can run ``pytest``, but
+    instead want to test an installed version of GPAW, then use::
+
+        $ pytest --pyargs=gpaw -n ...
 
 The test suite consists of a large number of small and quick tests
 found in the :git:`gpaw/test/` directory.  The tests run nightly in serial
