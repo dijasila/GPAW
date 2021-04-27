@@ -101,7 +101,7 @@ class GPWFiles:
         for file in path.glob('*.gpw'):
             self.gpw_files[file.name[:-4]] = file
 
-    def __getitem__(self, name):
+    def __getitem__(self, name: str) -> Path:
         if name not in self.gpw_files:
             rawname, _, _ = name.partition('_wfs')
             calc = getattr(self, rawname)()
