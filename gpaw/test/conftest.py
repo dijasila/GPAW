@@ -276,6 +276,19 @@ def pytest_configure(config):
         else:
             tw._file = devnull
     config.pluginmanager.register(GPAWPlugin(), 'pytest_gpaw')
+    for line in ['soc: Spin-orbit coupling',
+                 'slow: slow test',
+                 'fast: fast test',
+                 'ci: test for CI',
+                 'libxc: LibXC requirered',
+                 'mgga: MGGA test',
+                 'dscf: Delta-SCF',
+                 'mom: MOM',
+                 'gllb: GLLBSC tests',
+                 'elph: Electron-phonon',
+                 'intel: fails on INTEL toolchain',
+                 'serial: run in serial only']:
+        config.addinivalue_line('markers', line)
 
 
 def pytest_runtest_setup(item):
