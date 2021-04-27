@@ -239,6 +239,7 @@ class SJM(SolvationGPAW):
 
         self.sog('Solvated Jellium parameters:')
         self.log.print_dict(p)
+        self.sog()
 
         if 'target_potential' in sj_changes and p.target_potential is not None:
             # If target potential is changed by the user and the slope is
@@ -396,7 +397,7 @@ class SJM(SolvationGPAW):
             self.sog('Attempt {:d} to equilibrate potential to {:.3f} +/-'
                      ' {:.3f} V'
                      .format(iteration, p.target_potential, p.tol))
-            self.sog('Current guess of excess electrons: {:+.5f}'
+            self.sog('Current guess of excess electrons: {:+.5f}\n'
                      .format(p.excess_electrons))
             if iteration == 1:
                 self.timer.start('Potential equilibration loop')
