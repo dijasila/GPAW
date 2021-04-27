@@ -1,30 +1,31 @@
 """This module defines different external potentials."""
-import warnings
 import copy
-
-import numpy as np
-
-from ase.units import Bohr, Hartree
+import warnings
+from typing import Callable, Dict
 
 import _gpaw
+import numpy as np
+from ase.units import Bohr, Hartree
 
 __all__ = ['ConstantPotential', 'ConstantElectricField', 'CDFTPotential',
-           'PointChargePotential', 'StepPotentialz']
+           'PointChargePotential', 'StepPotentialz',
+           'PotentialCollection']
+
+
+known_potentials: Dict[str, Callable] = {}
+
+
+def _register_known_potentials():
+    known_potentials['CDFTPotential'] = lambda: None  # ???
+    for name in __all__:
+        known_potentials[name] = globals()[name]
 
 
 def create_external_potential(name, **kwargs):
     """Construct potential from dict."""
-    if name == 'PotentialCollection':
-        potentials = []
-        for potential in kwargs['potentials']:
-            name = potential.pop('name')
-            potentials.append(globals()[name](**potential))
-        return PotentialCollection(potentials)
-    if name not in __all__:
-        raise ValueError
-    if name == 'CDFTPotential':
-        return None
-    return globals()[name](**kwargs)
+    if not known_potentials:
+        _register_known_potentials()
+    return known_potentials[name](**kwargs)
 
 
 class ExternalPotential:
@@ -264,7 +265,7 @@ class StepPotentialz(ExternalPotential):
         self.vext_g = np.where(r_vg[2] < self.zstep / Bohr,
                                gd.zeros() + self.value_left / Hartree,
                                gd.zeros() + self.value_right / Hartree)
- 
+
     def todict(self):
         return {'name': self.name,
                 'value_left': self.value_left,
@@ -279,7 +280,12 @@ class PotentialCollection(ExternalPotential):
         potentials: list
             List of potentials
         """
-        self.potentials = potentials
+        self.potentials = []
+        for potential in potentials:
+            if isinstance(potential, dict):
+                potential = create_external_potential(
+                    potential.pop('name'), **potential)
+            self.potentials.append(potential)
 
     def __str__(self):
         text = 'PotentialCollection:\n'

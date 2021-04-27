@@ -122,6 +122,12 @@ class PS2AE:
             wfs = self.calc.wfs
             P_nI = wfs.collect_projections(k, s)
             if wfs.world.rank == 0:
+                k_c = self.calc.wfs.kd.ibzk_kc[k]
+                gamma = np.isclose(k_c, 0.0).all()
+                if not gamma:
+                    eikr_R = self.gd.plane_wave(k_c)
+                    psi_R *= eikr_R
+
                 P_ai = {}
                 I1 = 0
                 for a, setup in enumerate(wfs.setups):
@@ -129,6 +135,8 @@ class PS2AE:
                     P_ai[a] = P_nI[n, I1:I2]
                     I1 = I2
                 dphi.add(psi_R, P_ai, k)
+                if not gamma:
+                    psi_R /= eikr_R
             wfs.world.broadcast(psi_R, 0)
         return psi_R * Bohr**-1.5
 

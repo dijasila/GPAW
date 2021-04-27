@@ -1,4 +1,4 @@
-# Creates: Ag.png
+# web-page: Ag.png
 from ase.build import bulk
 from gpaw import GPAW
 

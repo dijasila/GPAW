@@ -1,4 +1,4 @@
-# Creates: si-gaps.csv
+# web-page: si-gaps.csv
 from ase.build import bulk
 from ase.parallel import paropen
 from gpaw.hybrids.eigenvalues import non_self_consistent_eigenvalues

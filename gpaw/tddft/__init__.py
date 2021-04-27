@@ -110,8 +110,9 @@ class TDDFT(GPAW):
         self.niter = 0
 
         # Parallelization dictionary should default to strided bands
-        self.default_parallel = GPAW.default_parallel.copy()
-        self.default_parallel['stridebands'] = True
+        # but it does not work XXX
+        # self.default_parallel = GPAW.default_parallel.copy()
+        # self.default_parallel['stridebands'] = True
 
         self.default_parameters = GPAW.default_parameters.copy()
         self.default_parameters['mixer'] = DummyMixer()
@@ -248,7 +249,7 @@ class TDDFT(GPAW):
 
         # For electrodynamics mode
         if self.hamiltonian.poisson.get_description() == 'FDTD+TDDFT':
-            self.initialize_FDTD()
+            self.hamiltonian.poisson.set_density(self.density)
             self.hamiltonian.poisson.print_messages(self.text)
             self.log.flush()
 
@@ -256,6 +257,13 @@ class TDDFT(GPAW):
         if self.hamiltonian.xc.name.startswith('GLLB'):
             self.text('GLLB model potential. Not updating energy.')
             self.calculate_energy = False
+
+        # Update density and Hamiltonian
+        self.propagator.update_time_dependent_operators(self.time)
+
+        # XXX remove dipole moment handling and use observer instead
+        self._dm_args0 = (self.density.finegd.integrate(self.density.rhot_g),
+                          self.calculate_dipole_moment())
 
     def create_wave_functions(self, mode, *args, **kwargs):
         mode = FDTDDFTMode(mode.nn, mode.interpolation, True)
@@ -278,27 +286,6 @@ class TDDFT(GPAW):
         writer.child('tddft').write(time=self.time,
                                     niter=self.niter,
                                     kick_strength=self.kick_strength)
-
-    # Electrodynamics requires extra care
-    def initialize_FDTD(self):
-
-        # Sanity check
-        assert(self.hamiltonian.poisson.get_description() == 'FDTD+TDDFT')
-
-        self.hamiltonian.poisson.set_density(self.density)
-
-        # The propagate calculation_mode causes classical part to evolve
-        # in time when self.hamiltonian.poisson.solve(...) is called
-        self.hamiltonian.poisson.set_calculation_mode('propagate')
-
-        # During each time step, self.hamiltonian.poisson.solve may be called
-        # several times (depending on the used propagator). Using the
-        # attached observer one ensures that actual propagation takes
-        # place only once. This is because
-        # the FDTDPoissonSolver changes the calculation_mode from propagate to
-        # something else when the propagation is finished.
-        self.attach(self.hamiltonian.poisson.set_calculation_mode, 1,
-                    'propagate')
 
     def propagate(self, time_step, iterations, dipole_moment_file=None,
                   restart_file=None, dump_interval=100):
@@ -344,10 +331,23 @@ class TDDFT(GPAW):
         niterpropagator = 0
         self.maxiter = self.niter + iterations
 
-        # Let FDTD part know the time step
+        # FDTD requires extra care
         if self.hamiltonian.poisson.get_description() == 'FDTD+TDDFT':
             self.hamiltonian.poisson.set_time(self.time)
             self.hamiltonian.poisson.set_time_step(self.time_step)
+
+            # The propagate calculation_mode causes classical part to evolve
+            # in time when self.hamiltonian.poisson.solve(...) is called
+            self.hamiltonian.poisson.set_calculation_mode('propagate')
+
+            # During each time step, self.hamiltonian.poisson.solve may be
+            # called several times (depending on the used propagator).
+            # Using the attached observer one ensures that actual propagation
+            # takes place only once. This is because the FDTDPoissonSolver
+            # changes the calculation_mode from propagate to
+            # something else when the propagation is finished.
+            self.attach(self.hamiltonian.poisson.set_calculation_mode, 1,
+                        'propagate')
 
         self.timer.start('Propagate')
         while self.niter < self.maxiter:
@@ -355,7 +355,12 @@ class TDDFT(GPAW):
 
             # Write dipole moment at every iteration
             if dipole_moment_file is not None:
-                self.update_dipole_moment_file(norm)
+                if self._dm_args0 is not None:
+                    self.update_dipole_moment_file(*self._dm_args0)
+                    self._dm_args0 = None
+                else:
+                    dm = self.calculate_dipole_moment()
+                    self.update_dipole_moment_file(norm, dm)
 
             # print output (energy etc.) every 10th iteration
             if self.niter % 10 == 0:
@@ -432,12 +437,13 @@ class TDDFT(GPAW):
                 self.dm_file.write(header)
                 self.dm_file.flush()
 
-    def update_dipole_moment_file(self, norm):
+    def calculate_dipole_moment(self):
         dm = self.density.finegd.calculate_dipole_moment(self.density.rhot_g)
-
         if self.hamiltonian.poisson.get_description() == 'FDTD+TDDFT':
             dm += self.hamiltonian.poisson.get_classical_dipole_moment()
+        return dm
 
+    def update_dipole_moment_file(self, norm, dm):
         if self.rank == 0:
             line = '%20.8lf %20.8le %22.12le %22.12le %22.12le\n' \
                 % (self.time, norm, dm[0], dm[1], dm[2])
@@ -446,7 +452,8 @@ class TDDFT(GPAW):
 
     def finalize_dipole_moment_file(self, norm=None):
         if norm is not None:
-            self.update_dipole_moment_file(norm)
+            dm = self.calculate_dipole_moment()
+            self.update_dipole_moment_file(norm, dm)
 
         if self.rank == 0:
             self.dm_file.close()
@@ -529,3 +536,6 @@ class TDDFT(GPAW):
         # Kick the classical part, if it is present
         if self.hamiltonian.poisson.get_description() == 'FDTD+TDDFT':
             self.hamiltonian.poisson.set_kick(kick=self.kick_strength)
+
+        # Update density and Hamiltonian
+        self.propagator.update_time_dependent_operators(self.time)

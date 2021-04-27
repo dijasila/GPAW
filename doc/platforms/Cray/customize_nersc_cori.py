@@ -1,3 +1,4 @@
+parallel_python_interpreter = True
 compiler = 'cc'
 mpicompiler = 'cc'
 mpilinker = 'cc'

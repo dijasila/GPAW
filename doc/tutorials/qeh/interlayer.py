@@ -1,4 +1,4 @@
-# Creates: W_r.svg
+# web-page: W_r.svg
 import numpy as np
 import matplotlib.pyplot as plt
 from qeh import Heterostructure

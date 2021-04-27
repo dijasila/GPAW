@@ -1,4 +1,4 @@
-# Creates: bs_si.png
+# web-page: bs_si.png
 """GLLBSC band gap tutorial
 
 Calculate the band structure and band gap of Si using GLLBSC.
