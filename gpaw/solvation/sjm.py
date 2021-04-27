@@ -8,7 +8,8 @@ from scipy.stats import linregress
 
 import ase.io
 from ase.units import Bohr, Ha
-from ase.calculators.calculator import Parameters, equal
+from ase.calculators.calculator import (Parameters, equal, InputError,
+                                        PropertyNotPresent)
 from ase.dft.bandgap import bandgap
 from ase.parallel import paropen
 
@@ -125,7 +126,7 @@ class SJM(SolvationGPAW):
             charge will take the form of the cavity up to the 'top'.
             Default: -3.
         'thickness': float or None
-            Thickness of the counter charge region in Angstrom.
+            Thickness of the counter charge region in Angstroms.
             Can only be used if start is not 'cavity_like'. Default: None
         'fix_bottom': bool
             Do not allow the lower limit of the jellium region to adapt
@@ -195,7 +196,7 @@ class SJM(SolvationGPAW):
                'dict.')
         for key in deprecated_keys:
             if key in kwargs:
-                raise TypeError(textwrap.fill(msg.format(key)))
+                raise InputError(textwrap.fill(msg.format(key)))
 
         # Note the below line calls self.set().
         SolvationGPAW.__init__(self, restart, **kwargs)
@@ -215,62 +216,48 @@ class SJM(SolvationGPAW):
           background charge is changed.
 
         """
-        sj_dict = kwargs['sj'] if 'sj' in kwargs else {}
+        p = self.parameters['sj']
 
-        if not isinstance(sj_dict, dict):
-            msg = ("The sj parameters have to be given in dict format, "
-                   "the given format is {}".format(type(sj_dict).__name__))
-            raise TypeError(msg)
-
-        badkeys = [key for key in sj_dict if key not in
+        # We handle 'sj' and 'background_charge' internally; passing to GPAW's
+        # set function will trigger a deletion of the density, etc.
+        sj_kwargs = kwargs.pop('sj', {})
+        p.update(sj_kwargs)
+        background_charge = kwargs.pop('background_charge', None)
+        parent_changed = True if len(kwargs) > 0 else False
+        badkeys = [key for key in sj_kwargs if key not in
                    self.default_parameters['sj']]
         if badkeys:
             msg = ('Unexpected key(s) "{}" provided to sj dict. '
                    'Only keys allowed are "{}".'
                    .format(', '.join(badkeys),
                            ', '.join(self.default_parameters['sj'])))
-            raise KeyError(textwrap.fill(msg))
-
-        sj_changes = [key for key, value in sj_dict.items() if not
-                      equal(value, self.parameters['sj'].get(key))]
-
-        # We handle 'sj' and 'background_charge' internally; passing to GPAW's
-        # set function will trigger a deletion of the density, etc.
-        background_charge = None
-        if 'background_charge' in kwargs:
-            background_charge = kwargs.pop('background_charge')
-        if 'sj' in kwargs:
-            self.parameters['sj'].update(kwargs.pop('sj'))
-        p = self.parameters['sj']
-
-        parent_changed = False  # if something changed outside the SJ wrapper
-        if len(kwargs) > 0:
-            parent_changed = True
+            raise InputError(textwrap.fill(msg))
+        sj_changes = [key for key, value in sj_kwargs.items() if not
+                      equal(value, p.get(key))]
 
         SolvationGPAW.set(self, **kwargs)
 
         self.sog('Solvated Jellium parameters:')
         self.log.print_dict(p)
 
-        if 'target_potential' in sj_changes:
-            if p.target_potential is not None:
-                # If target potential is changed by the user and the slope is
-                # known, a step towards the new potential is taken right away.
-                try:
-                    true_potential = self.get_electrode_potential()
-                # TypeError is needed for the case of starting from a gpw
-                # file and changing the target potential at the start.
-                except (AttributeError, TypeError):
-                    pass
-                else:
-                    if self.atoms and p.slope:
-                        p.excess_electrons = ((p.target_potential -
-                                              true_potential) / p.slope)
+        if 'target_potential' in sj_changes and p.target_potential is not None:
+            # If target potential is changed by the user and the slope is
+            # known, a step towards the new potential is taken right away.
+            try:
+                true_potential = self.get_electrode_potential()
+            # TypeError is needed for the case of starting from a gpw
+            # file and changing the target potential at the start.
+            except (AttributeError, TypeError):
+                pass
+            else:
+                if self.atoms and p.slope:
+                    p.excess_electrons = ((p.target_potential -
+                                          true_potential) / p.slope)
 
         if (any(key in ['target_potential', 'excess_electrons',
             'jelliumregion'] for key in sj_changes) and not parent_changed):
             self.results = {}
-            # FIXED/gk: SolvationGPAW will not reinitialize anymore if only
+            # SolvationGPAW will not reinitialize anymore if only
             # 'sj' keywords are set. The lines below will reinitialize and
             # apply the changed charges.
             if self.atoms:
@@ -366,13 +353,15 @@ class SJM(SolvationGPAW):
                 if self.parameters.convergence['workfunction'] >= p.tol:
                     msg = ('Warning: it appears that your work function '
                            'convergence criterion ({:g}) is higher than your '
-                           'desired potential tolerance ({:g}). This will '
-                           'likely lead to issues with convergence.'
+                           'desired potential tolerance ({:g}). This may lead '
+                           'to issues with potential convergence.'
                            .format(self.parameters.convergence['workfunction'],
                                    p.tol))
                     self.sog(textwrap.fill(msg))
             self._equilibrate_potential(atoms, system_changes)
         if properties != ['energy']:
+            # The equilibration loop only calculated energy, to save
+            # unnecessary computations (mostly of forces) in the loop.
             SolvationGPAW.calculate(self, atoms, properties, [])
 
         # Note that grand-potential energies were assembled in summary,
@@ -393,6 +382,7 @@ class SJM(SolvationGPAW):
         self.results['excess_electrons'] = p.excess_electrons
         self.results['electrode_potential'] = self.get_electrode_potential()
 
+    # FIXME/ap: PICK UP PROOF READING HERE!
     def _equilibrate_potential(self, atoms, system_changes):
         """Adjusts the number of electrons until the potential reaches the
         desired value."""
@@ -422,8 +412,9 @@ class SJM(SolvationGPAW):
             true_potential = self.get_electrode_potential()
             self.sog()
             self.sog('Potential found to be {:.5f} V (with {:+.5f} '
-                     'excess electrons, attempt {:d})'
-                     .format(true_potential, p.excess_electrons, iteration))
+                     'excess electrons, attempt {:d}/{:d})'
+                     .format(true_potential, p.excess_electrons, iteration,
+                             p.max_iters))
 
             # Check if we took too big of a step.
             try:
@@ -451,11 +442,11 @@ class SJM(SolvationGPAW):
                 p.slope = _calculate_slope(self._previous_electrons,
                                            self._previous_potentials)
                 self.sog('Slope regressed from last {:d} attempts is '
-                         '{:.4f} V/electron.'
+                         '{:.4f} V/electron,'
                          .format(len(self._previous_electrons[-4:]), p.slope))
                 area = np.product(np.diag(atoms.cell[:2, :2]))
                 capacitance = -1.6022 * 1e3 / (area * p.slope)
-                self.sog('and apparent capacitance of {:.4f} muF/cm^2'
+                self.sog('or apparent capacitance of {:.4f} muF/cm^2'
                          .format(capacitance))
 
             # Check if we're equilibrated and exit if always_adjust is False.
@@ -501,8 +492,7 @@ class SJM(SolvationGPAW):
         raise PotentialConvergenceError(msg)
 
     def write_sjm_traces(self, path='sjm_traces', style='z',
-                         props=('potential', 'cavity', 'background_charge'),
-                         name=None):
+                         props=('potential', 'cavity', 'background_charge')):
         """Write traces of quantities in `props` to file on disk; traces will be
         stored within specified path. Default is to save as vertical traces
         (style 'z'), but can also save as cube (specify `style='cube'`)."""
@@ -513,24 +503,18 @@ class SJM(SolvationGPAW):
                               self.get_fermi_level())}
         if not os.path.exists(path) and gpaw.mpi.world.rank == 0:
             os.makedirs(path)
-
         for prop in props:
-            if name is None:
-                outname = prop + '.txt'
-            else:
-                outname = '_'.join([prop, name]) + '.txt'
-
             if style == 'z':
-                write_trace_in_z(grid, data[prop], outname, path)
+                write_trace_in_z(grid, data[prop], prop + '.txt', path)
             elif style == 'cube':
                 write_property_on_grid(grid, data[prop], self.atoms,
                                        prop + '.cube', path)
 
     def summary(self):
-        p = self.parameters['sj']
-        efermi = self.wfs.fermi_level
+        # Standard GPAW summary.
         self.hamiltonian.summary(self.wfs, self.log)
         # Add grand-canonical terms.
+        p = self.parameters['sj']
         self.sog()
         mu_N = self.get_electrode_potential() * p.excess_electrons / Ha
         self.omega_free = self.hamiltonian.e_total_free + mu_N
@@ -546,24 +530,25 @@ class SJM(SolvationGPAW):
         self.sog('Extrapolated:  {:+11.6f}'
                  .format(Ha * self.omega_extrapolated))
         self.sog()
-
-        # Back to standard output.
-        self.density.summary(self.atoms, self.results.get('magmom', 0.),
+        # Back to standard GPAW summary.
+        self.density.summary(self.atoms, self.results.get('magmom', 0.0),
                              self.log)
         self.wfs.summary(self.log)
         if len(self.wfs.fermi_levels) == 1:
             try:
-                bandgap(self, output=self.log.fd, efermi=efermi * Ha)
+                bandgap(self,
+                        output=self.log.fd,
+                        efermi=self.wfs.fermi_level * Ha)
             except ValueError:
                 pass
         self.log.fd.flush()
 
     def _create_jellium(self):
-        """Creates the counter charge."""
+        """Creates the counter charge according to the user's specs."""
         atoms = self.atoms
 
         p = self.parameters['sj']
-        jellium = self.parameters['sj']['jelliumregion']
+        jellium = p['jelliumregion']
         defaults = self.default_parameters['sj']['jelliumregion']
 
         # Populate missing keywords.
@@ -576,23 +561,17 @@ class SJM(SolvationGPAW):
                 jellium[key] = missing[key]
 
         # Catch incompatible specifications.
-        if jellium['thickness'] is not None:
-            if jellium['bottom'] == 'cavity_like':
-                raise ValueError("With a cavity-like counter charge only the "
-                                 "keyword 'top' (not 'thickness') allowed.")
+        if jellium.get('thickness') and jellium['bottom'] == 'cavity_like':
+            raise InputError("With a cavity-like counter charge only the "
+                             "keyword 'top' (not 'thickness') allowed.")
 
         # We need 2 of the 3 "specifieds" below.
-        specifieds = [(jellium['top'] is not None),
-                      (jellium['bottom'] is not None),
-                      (jellium['thickness'] is not None)]
-
-        if jellium.get('top') and jellium['top'] > atoms.cell[2][2]:
-            raise RuntimeError('The upper limit of the jellium region '
-                               'lies outside of the cell! Please check your '
-                               'jelliumregion specifications.')
+        specifieds = [jellium['top'] is not None,
+                      jellium['bottom'] is not None,
+                      jellium['thickness'] is not None]
 
         if sum(specifieds) == 3:
-            raise RuntimeError('The jellium region has been overspecified.')
+            raise InputError('The jellium region has been overspecified.')
         if sum(specifieds) == 0:
             top = defaults['top']
             bottom = defaults['bottom']
@@ -605,10 +584,6 @@ class SJM(SolvationGPAW):
             top = jellium['top']
             bottom = defaults['bottom']
             thickness = None
-            if top < bottom:
-                raise('The lower limit of the jelliumregion lies above the'
-                      'upper limit. Check your input if they have been given'
-                      'explicitly or increase the cell size if not.')
         elif specifieds == [False, True, False]:
             top = defaults['top']
             bottom = jellium['bottom']
@@ -620,17 +595,15 @@ class SJM(SolvationGPAW):
 
         # Deal with negative specifications of upper and lower limits;
         # as well as fixed/free lower limit.
-        if top is not None:
-            if top < 0.:
-                top = atoms.cell[2][2] + top
-        if bottom not in [None, 'cavity_like']:
-            if bottom < 0.:
-                bottom = (max(atoms.positions[:, 2]) - bottom)
-                if jellium['fix_bottom'] is True:
-                    try:
-                        bottom = self._fixed_lower_limit
-                    except AttributeError:
-                        self._fixed_lower_limit = bottom
+        if top is not None and top < 0.:
+            top = atoms.cell[2][2] + top
+        if bottom not in [None, 'cavity_like'] and bottom < 0.:
+            bottom = (max(atoms.positions[:, 2]) - bottom)
+            if jellium['fix_bottom'] is True:
+                try:
+                    bottom = self._fixed_lower_limit
+                except AttributeError:
+                    self._fixed_lower_limit = bottom
 
         # Use thickness if needed.
         if top is None:
@@ -640,14 +613,14 @@ class SJM(SolvationGPAW):
 
         # Catch unphysical limits.
         if top > atoms.cell[2][2]:
-            raise ValueError('The upper limit of the jellium region lies '
+            raise InputError('The upper limit of the jellium region lies '
                              'outside of unit cell. If you did not set it '
                              'manually, increase your unit cell size or '
                              'translate the atomic system down along the '
                              'z-axis.')
         if bottom != 'cavity_like':
             if bottom > top:
-                raise ValueError('Your jellium region has a bottom at {:.3f}'
+                raise InputError('Your jellium region has a bottom at {:.3f}'
                                  ' AA, which is above the top at {:.3f} AA.'
                                  .format(bottom, top))
 
@@ -690,15 +663,17 @@ class SJM(SolvationGPAW):
         """Returns the potential of the simulated electrode, in V, relative
         to the vacuum. This comes directly from the work function."""
         try:
-            return self.hamiltonian.get_workfunctions(
-                self.wfs.fermi_level)[1] * Ha
+            return Ha * self.hamiltonian.get_workfunctions(
+                self.wfs.fermi_level)[1]
         except TypeError:
+            # Error happens on freshly-opened *.gpw file.
             if 'electrode_potential' in self.results:
                 return self.results['electrode_potential']
             else:
-                raise AttributeError('Electrode potential could not be read. '
-                                     'Make sure a DFT calculation has been '
-                                     'performed before reading the potential.')
+                msg = ('Electrode potential could not be read. Make sure a DFT'
+                       ' calculation has been performed before reading the '
+                       'potential.')
+                raise PropertyNotPresent(textwrap.fill(msg))
 
     def initialize(self, atoms=None, reading=False):
         """Inexpensive initialization."""
@@ -739,7 +714,7 @@ class SJM(SolvationGPAW):
         xc.set_grid_descriptor(self.hamiltonian.finegd)
 
 
-def write_trace_in_z(grid, property, name='prop.txt', dir='sjm'):
+def write_trace_in_z(grid, property, name, dir):
     """Writes out a property (like electrostatic potential, cavity, or
     background charge) as a function of the z coordinate only. `grid` is the
     grid descriptor, typically self.density.finegd. `property` is the property
@@ -751,8 +726,7 @@ def write_trace_in_z(grid, property, name='prop.txt', dir='sjm'):
             f.write('%f %1.8f\n' % ((i + 1) * grid.h_cv[2][2] * Bohr, val))
 
 
-def write_property_on_grid(grid, property, atoms=None, name='prop',
-                           dir='sjm'):
+def write_property_on_grid(grid, property, atoms, name, dir):
     """Writes out a property (like electrostatic potential, cavity, or
     background charge) on the grid, as a cube file. `grid` is the
     grid descriptor, typically self.density.finegd. `property` is the property
@@ -763,7 +737,7 @@ def write_property_on_grid(grid, property, atoms=None, name='prop',
 
 def _calculate_slope(previous_electrons, previous_potentials):
     """Calculates the slope of potential versus number of electrons;
-    regresses based on last four data points to smooth noise."""
+    regresses based on (up to) last four data points to smooth noise."""
     npoints = 4
     ans = linregress(previous_electrons[-npoints:],
                      previous_potentials[-npoints:])
@@ -879,7 +853,7 @@ class SJMPower12Potential(Power12Potential):
                 if self.H2O_layer % 1 < self.tiny:
                     self.H2O_layer = int(self.H2O_layer)
                 else:
-                    raise ValueError('Only an integer number of water '
+                    raise InputError('Only an integer number of water '
                                      'molecules is possible in the water'
                                      'layer')
 
@@ -1204,4 +1178,4 @@ class SJMDipoleCorrection(DipoleCorrection):
 
 
 class PotentialConvergenceError(ConvergenceError):
-    pass
+    """Raised if potential did not equilibrate."""
