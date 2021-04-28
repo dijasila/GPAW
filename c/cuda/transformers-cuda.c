@@ -27,12 +27,10 @@ static int debug_size_buf_out = 0;
 static double *debug_sendbuf;
 static double *debug_recvbuf;
 static double *debug_buf_cpu;
-static double *debug_buf_gpu;
 static double *debug_buf_out;
 static double *debug_out_cpu;
 static double *debug_out_gpu;
 static double *debug_in_cpu;
-static double *debug_buf_store;
 
 void transformer_init_cuda(TransformerObject *self)
 {
@@ -100,13 +98,10 @@ void debug_transformer_allocate(TransformerObject* self, int nin, int blocks)
     debug_sendbuf = GPAW_MALLOC(double, bc->maxsend * blocks * bc->ndouble);
     debug_recvbuf = GPAW_MALLOC(double, bc->maxrecv * blocks * bc->ndouble);
     debug_buf_cpu = GPAW_MALLOC(double, debug_size_buf);
-    debug_buf_gpu = GPAW_MALLOC(double, debug_size_buf);
     debug_buf_out = GPAW_MALLOC(double, debug_size_buf_out);
     debug_out_cpu = GPAW_MALLOC(double, debug_size_out);
     debug_out_gpu = GPAW_MALLOC(double, debug_size_out);
     debug_in_cpu = GPAW_MALLOC(double, debug_size_in);
-    debug_buf_store = GPAW_MALLOC(double,
-                                  debug_size_buf * ((nin / blocks) + 1));
 }
 
 void debug_transformer_deallocate()
@@ -114,12 +109,10 @@ void debug_transformer_deallocate()
     free(debug_sendbuf);
     free(debug_recvbuf);
     free(debug_buf_cpu);
-    free(debug_buf_gpu);
     free(debug_buf_out);
     free(debug_out_cpu);
     free(debug_out_gpu);
     free(debug_in_cpu);
-    free(debug_buf_store);
     debug_size_in = 0;
     debug_size_out = 0;
     debug_size_buf = 0;
@@ -134,11 +127,9 @@ void debug_transformer_memcpy_pre(const double *in, double *out)
                     cudaMemcpyDeviceToHost);
 }
 
-void debug_transformer_memcpy_post(double *out, double *buf)
+void debug_transformer_memcpy_post(double *out)
 {
     GPAW_CUDAMEMCPY(debug_out_gpu, out, double, debug_size_out,
-                    cudaMemcpyDeviceToHost);
-    GPAW_CUDAMEMCPY(debug_buf_gpu, buf, double, debug_size_buf,
                     cudaMemcpyDeviceToHost);
 }
 
@@ -178,16 +169,6 @@ void debug_transformer_apply(TransformerObject* self,
             bc_unpack2(bc, debug_buf_cpu, i, recvreq, sendreq,
                        debug_recvbuf, myblocks);
         }
-        double buf_err_un = 0;
-        double *store = debug_buf_store + n * ng2 * blocks;
-        for (int i=0; i < ng2 * myblocks; i++) {
-            buf_err_un = MAX(buf_err_un, fabs(debug_buf_cpu[i] - store[i]));
-        }
-        if (buf_err_un > GPAW_CUDA_ABS_TOL) {
-            fprintf(stderr,
-                    "[%d] Debug CUDA transformer apply (buf/unpack): error %g\n",
-                    rank, buf_err_un);
-        }
         for (int m=0; m < myblocks; m++) {
             if (real) {
                 if (self->interpolate)
@@ -220,23 +201,9 @@ void debug_transformer_apply(TransformerObject* self,
         }
     }
 
-    int buf_err_n = 0;
-    double buf_err = 0;
-    for (i=0; i < debug_size_buf; i++) {
-        err = fabs(debug_buf_cpu[i] - debug_buf_gpu[i]);
-        if (err > GPAW_CUDA_ABS_TOL) {
-            buf_err = MAX(buf_err, err);
-            buf_err_n += 1;
-        }
-    }
     double out_err = 0;
     for (i=0; i < debug_size_out; i++) {
         out_err = MAX(out_err, fabs(debug_out_cpu[i] - debug_out_gpu[i]));
-    }
-    if (buf_err > GPAW_CUDA_ABS_TOL) {
-        fprintf(stderr,
-                "[%d] Debug CUDA transformer apply (buf): error %g (%d/%d)\n",
-                rank, buf_err, buf_err_n, debug_size_buf);
     }
     if (out_err > GPAW_CUDA_ABS_TOL) {
         fprintf(stderr,
@@ -283,8 +250,6 @@ static void _transformer_apply_cuda_gpu(TransformerObject* self,
             bc_unpack_cuda_gpu(bc, in2, buf, i, recvreq, sendreq[i],
                                ph + 2 * i, 0, myblocks);
         }
-        GPAW_CUDAMEMCPY(debug_buf_store + n * ng2 * blocks, buf, double,
-                        debug_size_buf, cudaMemcpyDeviceToHost);
         if (self->interpolate) {
             if (real) {
                 bmgs_interpolate_cuda_gpu(self->k, self->skip, buf,
@@ -351,7 +316,7 @@ PyObject* Transformer_apply_cuda_gpu(TransformerObject *self, PyObject *args)
 
     if (gpaw_cuda_debug) {
         cudaDeviceSynchronize();
-        debug_transformer_memcpy_post(out, transformer_buf_gpu);
+        debug_transformer_memcpy_post(out);
         debug_transformer_apply(self, nin, blocks, real, ph);
         debug_transformer_deallocate();
     }
