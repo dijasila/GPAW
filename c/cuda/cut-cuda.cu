@@ -146,8 +146,8 @@ extern "C" {
             bmgs_cut_cpu(a_cpu + m * ng, sizea, starta,
                          b_cpu + m * ng2, sizeb);
 #else
-            bmgs_cutz_cpu(a_cpu + m * ng, sizea, starta,
-                          b_cpu + m * ng2, sizeb);
+            bmgs_cutmz_cpu(a_cpu + m * ng, sizea, starta,
+                          b_cpu + m * ng2, sizeb, (void *) &phase);
 #endif //CUGPAWCOMPLEX
         }
         cudaDeviceSynchronize();
