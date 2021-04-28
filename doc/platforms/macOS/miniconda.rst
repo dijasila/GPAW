@@ -59,7 +59,7 @@ Configure GPAW for FFTW and Scalapack::
     $ cd gpaw
     $ cp siteconfig_example.py siteconfig.py
 
-Use these in the :ref:`siteconfig.py <siteconfig>` file:
+Use this :ref:`siteconfig.py <siteconfig>` file (save in the gpaw root directory):
 
 .. literalinclude:: siteconfig.py
 
@@ -85,3 +85,6 @@ Run GPAW tests (here for 4 cores)::
     $ gpaw test
     $ gpaw -P 4 test
     $ pytest --pyargs gpaw -n 4
+
+As of gpaw-21.1.1b1-6d0953a81b, a few tests can be expected to
+segfault due to crashes with scipy/linalg/decomp.py.

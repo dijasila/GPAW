@@ -9,8 +9,7 @@ as the default shell, but you can revert to use bash if desired.
 
 .. highlight:: zsh
 
-Get Xcode from the App Store and install it. You also need to install the
-command line tools, do this with the command::
+Install the Xcode command line tools::
 
     $ xcode-select --install
 
@@ -19,23 +18,23 @@ Install Homebrew::
     $ /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
     $ echo 'export PATH=/usr/local/bin:$PATH' >> ~/.zprofile
 
-Install Python and the interface to Tcl/Tk::
+Install Python with interface to Tcl/Tk (only possible with Python 3.9 with latest Homebrew(::
 
-    $ brew install python@3.8
     $ brew install python-tk
 
-Make an alias to use brewed Python pip::
+Insert brewed Python 3 executables into path so they are used::
 
-    $ alias pip3='/usr/local/bin/pip3'
+    $ export PATH=/usr/local/bin:$PATH
 
 Install dependencies required by numpy >=1.20::
 
     $ brew install openblas
     $ brew install lapack
 
-Install ASE dependencies::
+(Optional: manually install ASE dependencies::
 
-    $ pip3 install numpy, scipy, matplotlib
+    $ pip3 install numpy scipy matplotlib
+)
 
 Install pytest::
 
@@ -69,9 +68,8 @@ Install GPAW dependencies::
 Configure GPAW for FFTW and Scalapack::
 
     $ cd gpaw
-    $ cp siteconfig_example.py siteconfig.py
 
-Use these in the :ref:`siteconfig.py <siteconfig>` file:
+Use this :ref:`siteconfig.py <siteconfig>` file (save in the gpaw root directory):
 
 .. literalinclude:: siteconfig.py
 
@@ -100,3 +98,6 @@ Test GPAW (here for 4 cores)::
     $ gpaw test
     $ gpaw -P 4 test
     $ pytest --pyargs gpaw -n 4
+
+As of gpaw-21.1.1b1-6d0953a81b, a few tests can be expected to
+segfault due to crashes with scipy/linalg/decomp.py.
