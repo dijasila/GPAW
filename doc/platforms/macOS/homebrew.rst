@@ -17,14 +17,17 @@ Install Homebrew::
 
     $ /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
     $ echo 'export PATH=/usr/local/bin:$PATH' >> ~/.zprofile
+    $ source ~/.zprofile
 
 Install Python with interface to Tcl/Tk (only possible with Python 3.9 with latest Homebrew(::
 
     $ brew install python-tk
 
-Insert brewed Python 3 executables into path so they are used::
+(Optional: default to using Python 3, so 'pip' can be usead instead of 'pip3'::
 
-    $ export PATH=/usr/local/bin:$PATH
+    $ echo 'export PATH=/usr/local/opt/python/libexec/bin:$PATH' >> ~/.zprofile 
+    $ source ~/.zprofile
+)
 
 Install dependencies required by numpy >=1.20::
 
