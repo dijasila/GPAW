@@ -1,4 +1,4 @@
-# Creates: pulse.png
+# web-page: pulse.png
 import numpy as np
 import matplotlib.pyplot as plt
 from gpaw.tddft.units import au_to_fs

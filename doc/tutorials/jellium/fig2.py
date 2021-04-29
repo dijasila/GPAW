@@ -1,4 +1,4 @@
-# Creates: fig2.png
+# web-page: fig2.png
 import numpy as np
 import matplotlib.pyplot as plt
 from ase.units import Bohr

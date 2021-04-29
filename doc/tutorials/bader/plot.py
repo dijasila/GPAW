@@ -1,4 +1,4 @@
-# Creates: h2o-bader.png
+# web-page: h2o-bader.png
 import os
 import pickle
 import numpy as np

@@ -1,4 +1,4 @@
-# Creates: graphite_EELS.png
+# web-page: graphite_EELS.png
 import numpy as np
 import matplotlib.pyplot as plt
 

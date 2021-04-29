@@ -1,4 +1,4 @@
-# Creates: convergence.db
+# web-page: convergence.db
 import numpy as np
 from ase import Atoms
 from ase.build import hcp0001
