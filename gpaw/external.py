@@ -240,6 +240,12 @@ class CDFTPotential(ExternalPotential):
         self.name = 'CDFTPotential'
 
 
+class BField(ExternalPotential):
+    def __init__(self, b: float):
+        self.name = 'CDFTPotential'
+        self.field_strength = b
+
+
 class StepPotentialz(ExternalPotential):
     def __init__(self, zstep, value_left=0, value_right=0):
         """Step potential in z-direction
