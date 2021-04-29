@@ -9,10 +9,6 @@
 #include "gpaw-cuda-int.h"
 #include "gpaw-cuda-debug.h"
 
-#ifdef DEBUG_CUDA
-#define DEBUG_CUDA_PASTE
-#endif //DEBUG_CUDA
-
 #ifndef CUGPAWCOMPLEX
 #  define BLOCK_SIZEX 32
 #  define BLOCK_SIZEY 16
@@ -30,8 +26,53 @@ static unsigned int nextPow2(unsigned int x) {
     x |= x >> 16;
     return ++x;
 }
-#endif // !CUGPAWCOMPLEX
 
+extern int gpaw_cuda_debug;
+
+static int debug_size_in = 0;
+static int debug_size_out = 0;
+static double *debug_in_cpu;
+static double *debug_in_gpu;
+static double *debug_out_cpu;
+static double *debug_out_gpu;
+
+static void debug_allocate(int ng, int ng2, int blocks)
+{
+    debug_size_in = ng * blocks;
+    debug_size_out = ng2 * blocks;
+
+    debug_in_cpu = GPAW_MALLOC(double, debug_size_in);
+    debug_in_gpu = GPAW_MALLOC(double, debug_size_in);
+    debug_out_cpu = GPAW_MALLOC(double, debug_size_out);
+    debug_out_gpu = GPAW_MALLOC(double, debug_size_out);
+}
+
+static void debug_deallocate()
+{
+    free(debug_in_cpu);
+    free(debug_in_gpu);
+    free(debug_out_cpu);
+    free(debug_out_gpu);
+    debug_size_in = 0;
+    debug_size_out = 0;
+}
+
+static void debug_memcpy_pre(const double *in, double *out)
+{
+    GPAW_CUDAMEMCPY(debug_in_cpu, in, double, debug_size_in,
+                    cudaMemcpyDeviceToHost);
+    GPAW_CUDAMEMCPY(debug_out_cpu, out, double, debug_size_out,
+                    cudaMemcpyDeviceToHost);
+}
+
+static void debug_memcpy_post(const double *in, double *out)
+{
+    GPAW_CUDAMEMCPY(debug_in_gpu, in, double, debug_size_in,
+                    cudaMemcpyDeviceToHost);
+    GPAW_CUDAMEMCPY(debug_out_gpu, out, double, debug_size_out,
+                    cudaMemcpyDeviceToHost);
+}
+#endif
 
 extern "C" {
     void Zcuda(bmgs_paste_cuda)(const Tcuda *a, const int sizea[3],
@@ -181,14 +222,53 @@ __global__ void Zcuda(bmgs_paste_zero_cuda_kernel)(
 }
 
 extern "C" {
-    void Zcuda(bmgs_paste_cuda_gpu)(const Tcuda* a, const int sizea[3],
-                                    Tcuda* b, const int sizeb[3],
-                                    const int startb[3], int blocks,
-                                    cudaStream_t stream)
+    void Zcuda(debug_bmgs_paste)(const int sizea[3], const int sizeb[3],
+                                 const int startb[3], int blocks,
+                                 int ng, int ng2, int zero)
     {
-        if (!(sizea[0] && sizea[1] && sizea[2]))
-            return;
+        for (int m=0; m < blocks; m++) {
+            if (zero)
+                memset(debug_out_cpu + m * ng2, 0, ng2 * sizeof(double));
+#ifndef CUGPAWCOMPLEX
+            bmgs_paste_cpu(debug_in_cpu + m * ng, sizea,
+                           debug_out_cpu + m * ng2, sizeb,
+                           startb);
+#else
+            bmgs_pastez_cpu(debug_in_cpu + m * ng, sizea,
+                            debug_out_cpu + m * ng2, sizeb,
+                            startb);
+#endif
+        }
+        double in_err = 0;
+        for (int i=0; i < debug_size_in; i++) {
+            in_err = MAX(in_err, fabs(debug_in_cpu[i] - debug_in_gpu[i]));
+        }
+        double out_err = 0;
+        for (int i=0; i < debug_size_out; i++) {
+            out_err = MAX(out_err, fabs(debug_out_cpu[i] - debug_out_gpu[i]));
+        }
+        if (in_err > GPAW_CUDA_ABS_TOL_EXCT) {
+            if (zero)
+                fprintf(stderr, "Debug CUDA paste zero (in): error %g\n",
+                        in_err);
+            else
+                fprintf(stderr, "Debug CUDA paste (in): error %g\n", in_err);
+        }
+        if (out_err > GPAW_CUDA_ABS_TOL_EXCT) {
+            if (zero)
+                fprintf(stderr, "Debug CUDA paste zero (out): error %g\n",
+                        out_err);
+            else
+                fprintf(stderr, "Debug CUDA paste (out): error %g\n", out_err);
+        }
+    }
 
+    static void Zcuda(_bmgs_paste_cuda_gpu)(
+            const Tcuda* a, const int sizea[3],
+            Tcuda* b, const int sizeb[3],
+            const int startb[3], int blocks,
+            cudaStream_t stream)
+    {
         int3 hc_sizea, hc_sizeb;
         hc_sizea.x = sizea[0];
         hc_sizea.y = sizea[1];
@@ -196,26 +276,6 @@ extern "C" {
         hc_sizeb.x = sizeb[0];
         hc_sizeb.y = sizeb[1];
         hc_sizeb.z = sizeb[2] * sizeof(Tcuda) / sizeof(double);
-
-#ifdef DEBUG_CUDA_PASTE
-#ifndef CUGPAWCOMPLEX
-        int ng2 = sizeb[0] * sizeb[1] * sizeb[2];
-        int ng = sizea[0] * sizea[1] * sizea[2];
-#else
-        int ng2 = sizeb[0] * sizeb[1] * sizeb[2] * 2;
-        int ng = sizea[0] * sizea[1] * sizea[2] * 2;
-#endif // !CUGPAWCOMPLEX
-        double *b_cpu = GPAW_MALLOC(double, ng2 * blocks);
-        double *a_cpu = GPAW_MALLOC(double, ng * blocks);
-        double *b_cpu2 = GPAW_MALLOC(double, ng2 * blocks);
-        double *a_cpu2 = GPAW_MALLOC(double, ng * blocks);
-        Tcuda *b2 = b;
-
-        GPAW_CUDAMEMCPY(a_cpu, a, double, ng * blocks,
-                        cudaMemcpyDeviceToHost);
-        GPAW_CUDAMEMCPY(b_cpu, b, double, ng2 * blocks,
-                        cudaMemcpyDeviceToHost);
-#endif // DEBUG_CUDA_PASTE
 
         int blockx = MIN(nextPow2(hc_sizea.z), BLOCK_MAX);
         int blocky = MIN(MIN(nextPow2(hc_sizea.y), BLOCK_TOTALMAX / blockx),
@@ -231,51 +291,14 @@ extern "C" {
         Zcuda(bmgs_paste_cuda_kernel)<<<dimGrid, dimBlock, 0, stream>>>
             ((double*) a, hc_sizea, (double*) b, hc_sizeb, blocks, xdiv);
         gpaw_cudaSafeCall(cudaGetLastError());
-
-#ifdef DEBUG_CUDA_PASTE
-        for (int m=0; m < blocks; m++) {
-#ifndef CUGPAWCOMPLEX
-            bmgs_paste_cpu(a_cpu + m * ng, sizea, b_cpu + m * ng2, sizeb,
-                           startb);
-#else
-            bmgs_pastez_cpu(a_cpu + m * ng, sizea,
-                            b_cpu + m * ng2, sizeb, startb);
-#endif // !CUGPAWCOMPLEX
-        }
-        cudaDeviceSynchronize();
-        GPAW_CUDAMEMCPY(a_cpu2, a, double, ng * blocks,
-                        cudaMemcpyDeviceToHost);
-        GPAW_CUDAMEMCPY(b_cpu2, b2, double, ng2 * blocks,
-                        cudaMemcpyDeviceToHost);
-        double a_err = 0;
-        double b_err = 0;
-        for (int i=0; i < ng2 * blocks; i++) {
-            b_err = MAX(b_err, fabs(b_cpu[i] - b_cpu2[i]));
-            if (i < ng * blocks) {
-                a_err = MAX(a_err, fabs(a_cpu[i] - a_cpu2[i]));
-            }
-        }
-        if ((b_err > GPAW_CUDA_ABS_TOL_EXCT)
-                || (a_err > GPAW_CUDA_ABS_TOL_EXCT)) {
-            fprintf(stderr,"Debug cuda paste errors: a %g b %g\n", a_err,
-                    b_err);
-            fflush(stderr);
-        }
-        free(a_cpu);
-        free(b_cpu);
-        free(a_cpu2);
-        free(b_cpu2);
-#endif //DEBUG_CUDA_PASTE
     }
 
-    void Zcuda(bmgs_paste_zero_cuda_gpu)(const Tcuda* a, const int sizea[3],
-                                         Tcuda* b, const int sizeb[3],
-                                         const int startb[3], int blocks,
-                                         cudaStream_t stream)
+    static void Zcuda(_bmgs_paste_zero_cuda_gpu)(
+            const Tcuda* a, const int sizea[3],
+            Tcuda* b, const int sizeb[3],
+            const int startb[3], int blocks,
+            cudaStream_t stream)
     {
-        if (!(sizea[0] && sizea[1] && sizea[2]))
-            return;
-
         int3 bc_blocks;
         int3 hc_sizea, hc_sizeb, hc_startb;
         hc_sizea.x = sizea[0];
@@ -287,25 +310,6 @@ extern "C" {
         hc_startb.x = startb[0];
         hc_startb.y = startb[1];
         hc_startb.z = startb[2];
-
-#ifdef DEBUG_CUDA_PASTE
-#ifndef CUGPAWCOMPLEX
-        int ng2 = sizeb[0] * sizeb[1] * sizeb[2];
-        int ng = sizea[0] * sizea[1] * sizea[2];
-#else
-        int ng2 = sizeb[0] * sizeb[1] * sizeb[2] * 2;
-        int ng = sizea[0] * sizea[1] * sizea[2] * 2;
-#endif // !CUGPAWCOMPLEX
-        double* b_cpu = GPAW_MALLOC(double, ng2 * blocks);
-        double* a_cpu = GPAW_MALLOC(double, ng * blocks);
-        double* b_cpu2 = GPAW_MALLOC(double, ng2 * blocks);
-        double* a_cpu2 = GPAW_MALLOC(double, ng * blocks);
-
-        GPAW_CUDAMEMCPY(a_cpu, a, double, ng * blocks,
-                        cudaMemcpyDeviceToHost);
-        GPAW_CUDAMEMCPY(b_cpu, b, double, ng2 * blocks,
-                        cudaMemcpyDeviceToHost);
-#endif //DEBUG_CUDA_PASTE
 
         bc_blocks.y = hc_sizeb.y - hc_sizea.y > 0
                     ? MAX((hc_sizeb.y - hc_sizea.y + BLOCK_SIZEY - 1)
@@ -328,41 +332,66 @@ extern "C" {
             ((Tcuda*) a, hc_sizea, (Tcuda*) b, hc_sizeb, hc_startb,
              bc_blocks, blocks);
         gpaw_cudaSafeCall(cudaGetLastError());
+    }
 
-#ifdef DEBUG_CUDA_PASTE
-        for (int m=0; m < blocks; m++) {
-            memset(b_cpu + m * ng2, 0, ng2 * sizeof(double));
+    void Zcuda(bmgs_paste_cuda_gpu)(const Tcuda* a, const int sizea[3],
+                                    Tcuda* b, const int sizeb[3],
+                                    const int startb[3], int blocks,
+                                    cudaStream_t stream)
+    {
+        if (!(sizea[0] && sizea[1] && sizea[2]))
+            return;
+        const double *in = (double *) a;
+        double *out = (double *) b;
+
 #ifndef CUGPAWCOMPLEX
-            bmgs_paste_cpu(a_cpu + m * ng, sizea, b_cpu + m * ng2, sizeb,
-                           startb);
+        int ng = sizea[0] * sizea[1] * sizea[2];
+        int ng2 = sizeb[0] * sizeb[1] * sizeb[2];
 #else
-            bmgs_pastez_cpu(a_cpu + m * ng, sizea,
-                            b_cpu + m * ng2, sizeb, startb);
-#endif // CUGPAWCOMPLEX
+        int ng = sizea[0] * sizea[1] * sizea[2] * 2;
+        int ng2 = sizeb[0] * sizeb[1] * sizeb[2] * 2;
+#endif
+        if (gpaw_cuda_debug) {
+            debug_allocate(ng, ng2, blocks);
+            debug_memcpy_pre(in, out);
         }
-        cudaDeviceSynchronize();
-        GPAW_CUDAMEMCPY(a_cpu2, a, double, ng * blocks,
-                        cudaMemcpyDeviceToHost);
-        GPAW_CUDAMEMCPY(b_cpu2, b, double, ng2 * blocks,
-                        cudaMemcpyDeviceToHost);
-        double a_err = 0;
-        double b_err = 0;
-        for (int i=0; i < ng2 * blocks; i++) {
-            b_err = MAX(b_err, fabs(b_cpu[i] - b_cpu2[i]));
-            if (i < ng * blocks) {
-                a_err = MAX(a_err, fabs(a_cpu[i] - a_cpu2[i]));
-            }
+        Zcuda(_bmgs_paste_cuda_gpu)(a, sizea, b, sizeb, startb, blocks,
+                                    stream);
+        if (gpaw_cuda_debug) {
+            debug_memcpy_post(in, out);
+            Zcuda(debug_bmgs_paste)(sizea, sizeb, startb, blocks, ng, ng2, 0);
+            debug_deallocate();
         }
-        if ((b_err > GPAW_CUDA_ABS_TOL_EXCT)
-                || (a_err > GPAW_CUDA_ABS_TOL_EXCT)) {
-            fprintf(stderr, "Debug cuda paste_zero errors: a %g b %g\n",
-                    a_err, b_err);
+    }
+
+    void Zcuda(bmgs_paste_zero_cuda_gpu)(const Tcuda* a, const int sizea[3],
+                                         Tcuda* b, const int sizeb[3],
+                                         const int startb[3], int blocks,
+                                         cudaStream_t stream)
+    {
+        if (!(sizea[0] && sizea[1] && sizea[2]))
+            return;
+        const double *in = (double *) a;
+        double *out = (double *) b;
+
+#ifndef CUGPAWCOMPLEX
+        int ng = sizea[0] * sizea[1] * sizea[2];
+        int ng2 = sizeb[0] * sizeb[1] * sizeb[2];
+#else
+        int ng = sizea[0] * sizea[1] * sizea[2] * 2;
+        int ng2 = sizeb[0] * sizeb[1] * sizeb[2] * 2;
+#endif
+        if (gpaw_cuda_debug) {
+            debug_allocate(ng, ng2, blocks);
+            debug_memcpy_pre(in, out);
         }
-        free(a_cpu);
-        free(b_cpu);
-        free(a_cpu2);
-        free(b_cpu2);
-#endif // DEBUG_CUDA_PASTE
+        Zcuda(_bmgs_paste_zero_cuda_gpu)(a, sizea, b, sizeb, startb, blocks,
+                                         stream);
+        if (gpaw_cuda_debug) {
+            debug_memcpy_post(in, out);
+            Zcuda(debug_bmgs_paste)(sizea, sizeb, startb, blocks, ng, ng2, 1);
+            debug_deallocate();
+        }
     }
 }
 
