@@ -16,6 +16,14 @@
 #  define GRID_MAX 65535
 #  define BLOCK_TOTALMAX 512
 #  define XDIV 4
+#  define Tfunc launch_func
+
+typedef void (*launch_func)(const double *, const int *,
+                            double *, const int *, const int *, int,
+                            cudaStream_t);
+typedef void (*launch_funcz)(const cuDoubleComplex *, const int *,
+                             cuDoubleComplex *, const int *, const int *, int,
+                             cudaStream_t);
 
 static unsigned int nextPow2(unsigned int x) {
     --x;
@@ -72,6 +80,9 @@ static void debug_memcpy_post(const double *in, double *out)
     GPAW_CUDAMEMCPY(debug_out_gpu, out, double, debug_size_out,
                     cudaMemcpyDeviceToHost);
 }
+#else
+#  undef Tfunc
+#  define Tfunc launch_funcz
 #endif
 
 extern "C" {
@@ -334,13 +345,12 @@ extern "C" {
         gpaw_cudaSafeCall(cudaGetLastError());
     }
 
-    void Zcuda(bmgs_paste_cuda_gpu)(const Tcuda* a, const int sizea[3],
-                                    Tcuda* b, const int sizeb[3],
-                                    const int startb[3], int blocks,
-                                    cudaStream_t stream)
+    void Zcuda(_bmgs_paste_launcher)(Tfunc function, int zero,
+                                     const Tcuda* a, const int sizea[3],
+                                     Tcuda* b, const int sizeb[3],
+                                     const int startb[3], int blocks,
+                                     cudaStream_t stream)
     {
-        if (!(sizea[0] && sizea[1] && sizea[2]))
-            return;
         const double *in = (double *) a;
         double *out = (double *) b;
 
@@ -355,13 +365,25 @@ extern "C" {
             debug_allocate(ng, ng2, blocks);
             debug_memcpy_pre(in, out);
         }
-        Zcuda(_bmgs_paste_cuda_gpu)(a, sizea, b, sizeb, startb, blocks,
-                                    stream);
+        (*function)(a, sizea, b, sizeb, startb, blocks, stream);
         if (gpaw_cuda_debug) {
             debug_memcpy_post(in, out);
-            Zcuda(debug_bmgs_paste)(sizea, sizeb, startb, blocks, ng, ng2, 0);
+            Zcuda(debug_bmgs_paste)(sizea, sizeb, startb, blocks, ng, ng2,
+                                    zero);
             debug_deallocate();
         }
+    }
+
+    void Zcuda(bmgs_paste_cuda_gpu)(const Tcuda* a, const int sizea[3],
+                                    Tcuda* b, const int sizeb[3],
+                                    const int startb[3], int blocks,
+                                    cudaStream_t stream)
+    {
+        if (!(sizea[0] && sizea[1] && sizea[2]))
+            return;
+        Zcuda(_bmgs_paste_launcher)(
+                &(Zcuda(_bmgs_paste_cuda_gpu)), 0,
+                a, sizea, b, sizeb, startb, blocks, stream);
     }
 
     void Zcuda(bmgs_paste_zero_cuda_gpu)(const Tcuda* a, const int sizea[3],
@@ -371,27 +393,9 @@ extern "C" {
     {
         if (!(sizea[0] && sizea[1] && sizea[2]))
             return;
-        const double *in = (double *) a;
-        double *out = (double *) b;
-
-#ifndef CUGPAWCOMPLEX
-        int ng = sizea[0] * sizea[1] * sizea[2];
-        int ng2 = sizeb[0] * sizeb[1] * sizeb[2];
-#else
-        int ng = sizea[0] * sizea[1] * sizea[2] * 2;
-        int ng2 = sizeb[0] * sizeb[1] * sizeb[2] * 2;
-#endif
-        if (gpaw_cuda_debug) {
-            debug_allocate(ng, ng2, blocks);
-            debug_memcpy_pre(in, out);
-        }
-        Zcuda(_bmgs_paste_zero_cuda_gpu)(a, sizea, b, sizeb, startb, blocks,
-                                         stream);
-        if (gpaw_cuda_debug) {
-            debug_memcpy_post(in, out);
-            Zcuda(debug_bmgs_paste)(sizea, sizeb, startb, blocks, ng, ng2, 1);
-            debug_deallocate();
-        }
+        Zcuda(_bmgs_paste_launcher)(
+                &(Zcuda(_bmgs_paste_zero_cuda_gpu)), 1,
+                a, sizea, b, sizeb, startb, blocks, stream);
     }
 }
 
