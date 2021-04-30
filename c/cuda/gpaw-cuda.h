@@ -40,15 +40,8 @@ void bmgs_relax_cuda_gpu_bc(const int relax_method, const bmgsstencil_gpu* s,
                             double* adev, double* bdev, const double* src,
                             const double w);
 
-void bmgs_cut_cuda(const double* a, const int n[3], const int c[3],
-                   double* b, const int m[3], enum cudaMemcpyKind kind);
-
 void bmgs_cut_cuda_gpu(const double* a, const int n[3], const int c[3],
                double* b, const int m[3],int blocks,cudaStream_t stream);
-
-void bmgs_paste_cuda(const double* a, const int n[3],
-                     double* b, const int m[3], const int c[3],
-                     enum cudaMemcpyKind kind);
 
 void bmgs_paste_cuda_gpu(const double* a, const int n[3],
                          double* b, const int m[3], const int c[3],
@@ -99,17 +92,9 @@ void bmgs_fd_cuda_gpu_bcz(const bmgsstencil_gpu* s,
                           const cuDoubleComplex* adev,
                           cuDoubleComplex* bdev, int blocks);
 
-void bmgs_cut_cudaz(const cuDoubleComplex* a, const int n[3], const int c[3],
-                    cuDoubleComplex* b, const int m[3],
-                    enum cudaMemcpyKind kind);
-
 void bmgs_cut_cuda_gpuz(const cuDoubleComplex* a, const int n[3],
                         const int c[3], cuDoubleComplex* b, const int m[3],
                         cuDoubleComplex, int blocks, cudaStream_t stream);
-
-void bmgs_paste_cudaz(const cuDoubleComplex* a, const int n[3],
-                      cuDoubleComplex* b, const int m[3], const int c[3],
-                      enum cudaMemcpyKind kind);
 
 void bmgs_paste_cuda_gpuz(const cuDoubleComplex* a, const int n[3],
                           cuDoubleComplex* b, const int m[3], const int c[3],

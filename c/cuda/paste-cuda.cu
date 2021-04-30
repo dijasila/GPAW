@@ -85,40 +85,6 @@ static void debug_memcpy_post(const double *in, double *out)
 #  define Tfunc launch_funcz
 #endif
 
-extern "C" {
-    void Zcuda(bmgs_paste_cuda)(const Tcuda *a, const int sizea[3],
-                                Tcuda *b, const int sizeb[3],
-                                const int startb[3], int blocks,
-                                enum cudaMemcpyKind kind,
-                                cudaStream_t stream)
-    {
-        if (!(sizea[0] && sizea[2] && sizea[3]))
-            return;
-
-        int ng2 = sizeb[0] * sizeb[1] * sizeb[2];
-        int ng = sizea[0] * sizea[1] * sizea[2];
-
-        for (int m=0; m < blocks; m++) {
-            cudaMemcpy3DParms myParms = {0};
-
-            myParms.srcPtr = make_cudaPitchedPtr(
-                    (void*) (a + ng * m), sizea[2] * sizeof(Tcuda),
-                    sizea[2], sizea[1]);
-            myParms.srcPos = make_cudaPos(0 * sizeof(Tcuda), 0, 0);
-            myParms.dstPtr = make_cudaPitchedPtr(
-                    (void*) (b + ng2 * m), sizeb[2] * sizeof(Tcuda),
-                    sizeb[2], sizeb[1]);
-            myParms.extent = make_cudaExtent(sizea[2] * sizeof(Tcuda),
-                    sizea[1], sizea[0]);
-            myParms.dstPos = make_cudaPos(startb[2] * sizeof(Tcuda),
-                    startb[1], startb[0]);
-            myParms.kind = kind;
-
-            gpaw_cudaSafeCall(cudaMemcpy3DAsync(&myParms, stream));
-        }
-    }
-}
-
 __global__ void Zcuda(bmgs_paste_cuda_kernel)(
         const double* a, const int3 c_sizea, double* b, const int3 c_sizeb,
         int blocks, int xdiv)

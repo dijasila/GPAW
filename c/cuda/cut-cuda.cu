@@ -68,25 +68,6 @@ static void debug_memcpy_post(const double *in, double *out)
 }
 #endif
 
-extern "C" {
-    void Zcuda(bmgs_cut_cuda)(
-            const Tcuda* a, const int n[3], const int c[3],
-            Tcuda* b, const int m[3], enum cudaMemcpyKind kind)
-    {
-        if (!(m[0] && m[1] && m[2]))
-            return;
-        cudaMemcpy3DParms myParms = {0};
-        myParms.srcPtr = make_cudaPitchedPtr(
-                (void*) a, n[2] * sizeof(Tcuda), n[2], n[1]);
-        myParms.dstPtr = make_cudaPitchedPtr(
-                (void*) b, m[2] * sizeof(Tcuda), m[2], m[1]);
-        myParms.extent = make_cudaExtent(m[2] * sizeof(Tcuda), m[1], m[0]);
-        myParms.srcPos = make_cudaPos(c[2] * sizeof(Tcuda), c[1], c[0]);
-        myParms.kind = kind;
-        gpaw_cudaSafeCall(cudaMemcpy3D(&myParms));
-    }
-}
-
 __global__ void Zcuda(bmgs_cut_cuda_kernel)(
         const Tcuda* a, const int3 c_sizea, Tcuda* b, const int3 c_sizeb,
 #ifdef CUGPAWCOMPLEX
