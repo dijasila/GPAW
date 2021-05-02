@@ -319,18 +319,6 @@ class DirectMin(Eigensolver):
         :return:
         """
 
-        assert dens.mixer.driver.name == 'dummy', \
-            'Please, use: mixer={\'name\': \'dummy\'}'
-        assert wfs.bd.comm.size == 1, \
-            'Band parallelization is not supported'
-        if wfs.occupations.name != 'mom':
-            if wfs.occupations.name == 'fixmagmom':
-                assert wfs.occupations.occ.name == 'fixed-occ-zero-width', \
-                    'Please, use occupations={\'name\': \'fixed-occ-zero-width\'}'
-            else:
-                assert wfs.occupations.name == 'fixed-occ-zero-width', \
-                    'Please, use occupations={\'name\': \'fixed-occ-zero-width\'}'
-
         if not self.initialized:
             if isinstance(ham.xc, HybridXC):
                 self.blocksize = wfs.bd.mynbands
@@ -444,18 +432,6 @@ class DirectMin(Eigensolver):
         if self.lsa['name'] != 'UnitStep':
             self.iteratels(ham, wfs, dens, log)
             return
-
-        assert dens.mixer.driver.name == 'dummy', \
-            'Please, use: mixer={\'name\': \'dummy\'}'
-        assert wfs.bd.comm.size == 1, \
-            'Band parallelization is not supported'
-        if wfs.occupations.name != 'mom':
-            if wfs.occupations.name == 'fixmagmom':
-                assert wfs.occupations.occ.name == 'fixed-occ-zero-width', \
-                    'Please, use occupations={\'name\': \'fixed-occ-zero-width\'}'
-            else:
-                assert wfs.occupations.name == 'fixed-occ-zero-width', \
-                    'Please, use occupations={\'name\': \'fixed-occ-zero-width\'}'
 
         if not self.initialized:
             if isinstance(ham.xc, HybridXC):
@@ -1677,6 +1653,19 @@ class DirectMin(Eigensolver):
             kpt.f_n = np.squeeze(kpt.f_n[ind])
             kpt.eps_n = np.squeeze(kpt.eps_n[ind])
 
+    def check_assertions(self, wfs, dens):
+
+        assert dens.mixer.driver.name == 'dummy', \
+            'Please, use: mixer={\'name\': \'dummy\'}'
+        assert wfs.bd.comm.size == 1, \
+            'Band parallelization is not supported'
+        if wfs.occupations.name != 'mom':
+            if wfs.occupations.name == 'fixmagmom':
+                assert wfs.occupations.occ.name == 'fixed-occ-zero-width', \
+                    'Please, use occupations={\'name\': \'fixed-occ-zero-width\'}'
+            else:
+                assert wfs.occupations.name == 'fixed-occ-zero-width', \
+                    'Please, use occupations={\'name\': \'fixed-occ-zero-width\'}'
 
 def log_f(niter, e_total, eig_error, log):
     """

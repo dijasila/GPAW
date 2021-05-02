@@ -242,6 +242,8 @@ class SCFLoop:
             if wfs.eigensolver.iloop_outer is not None:
                 wfs.eigensolver.iloop_outer.total_eg_count = 0
 
+        wfs.eigensolver.check_assertions(wfs, dens)
+
         while self.niter <= self.maxiter:
             wfs.eigensolver.iterate(ham, wfs, dens, log)
             if hasattr(wfs.eigensolver, 'e_sic'):

@@ -279,20 +279,7 @@ class DirectMinLCAO(DirectLCAO):
         :param log:
         :return:
         """
-
-        assert dens.mixer.driver.name == 'dummy', \
-            'Please, use: mixer={\'name\': \'dummy\'}'
-        assert wfs.bd.nbands == wfs.basis_functions.Mmax, \
-            'Please, use: nbands=\'nao\''
-        assert wfs.bd.comm.size == 1, \
-            'Band parallelization is not supported'
-        if wfs.occupations.name != 'mom':
-            if wfs.occupations.name == 'fixmagmom':
-                assert wfs.occupations.occ.name == 'fixed-occ-zero-width', \
-                    'Please, use occupations={\'name\': \'fixed-occ-zero-width\'}'
-            else:
-                assert wfs.occupations.name == 'fixed-occ-zero-width', \
-                    'Please, use occupations={\'name\': \'fixed-occ-zero-width\'}'
+        self.check_assertions(wfs, dens)
 
         wfs.timer.start('Direct Minimisation step')
 
@@ -1272,6 +1259,22 @@ class DirectMinLCAO(DirectLCAO):
             del lf_obj
         wfs.timer.stop('Initial Localization')
         log("Done", flush=True)
+
+    def check_assertions(self, wfs, dens):
+
+        assert dens.mixer.driver.name == 'dummy', \
+            'Please, use: mixer={\'name\': \'dummy\'}'
+        assert wfs.bd.nbands == wfs.basis_functions.Mmax, \
+            'Please, use: nbands=\'nao\''
+        assert wfs.bd.comm.size == 1, \
+            'Band parallelization is not supported'
+        if wfs.occupations.name != 'mom':
+            if wfs.occupations.name == 'fixmagmom':
+                assert wfs.occupations.occ.name == 'fixed-occ-zero-width', \
+                    'Please, use occupations={\'name\': \'fixed-occ-zero-width\'}'
+            else:
+                assert wfs.occupations.name == 'fixed-occ-zero-width', \
+                    'Please, use occupations={\'name\': \'fixed-occ-zero-width\'}'
 
 
 def get_indices(dimens, dtype):
