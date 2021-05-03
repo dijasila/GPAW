@@ -292,6 +292,7 @@ class DirectMinLCAO(DirectLCAO):
             # with update of energy. So, don't use it for now.
             # for kpt in wfs.kpt_u:
             #     self.sort_wavefunctions(ham, wfs, kpt)
+            # in the method below we set self.iters=1
             self.initialize_2(wfs, dens, ham)
 
         self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
