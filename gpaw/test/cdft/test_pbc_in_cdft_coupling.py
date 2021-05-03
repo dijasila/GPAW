@@ -1,10 +1,11 @@
 import pytest
 from ase import Atoms
 import numpy as np
-from gpaw import GPAW, FermiDirac, Davidson, Mixer, restart
+from gpaw import GPAW, FermiDirac, Davidson, Mixer
 from gpaw.cdft.cdft import CDFT
 from gpaw.cdft.cdft_coupling import CouplingParameters
-from gpaw.mpi import size, world
+from gpaw.mpi import world
+
 
 # Set up the system
 @pytest.mark.skipif(world.size > 1, reason='cdft coupling not parallel')
@@ -35,7 +36,7 @@ def test_pbc_cdft(in_tmp_dir):
             'energy': 1.0,
             'bands': 4})
 
-    sys.set_calculator(calc_a)
+    sys.calc = calc_a
     sys.get_potential_energy()
     # Set initial state cdft
     cdft_a = CDFT(
@@ -89,4 +90,3 @@ def test_pbc_cdft(in_tmp_dir):
     coupling = CouplingParameters(cdft_a, cdft_b, AE=False)
     H12 = coupling.get_coupling_term()  # use original cDFT method
     assert np.imag(H12) == 0
-
