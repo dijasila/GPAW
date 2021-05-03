@@ -4,7 +4,6 @@ from ase.build import molecule
 
 from gpaw import GPAW
 from gpaw.tddft import TDDFT
-from gpaw.poisson import PoissonSolver
 from gpaw.mpi import world
 from gpaw.test import equal
 
@@ -17,12 +16,11 @@ def test_tddft_fxc_linearize(in_tmp_dir):
 
     # Ground-state calculation
     calc = GPAW(nbands=7, h=0.4,
-                poissonsolver=PoissonSolver(eps=1e-16),
                 convergence={'density': 1e-8},
                 xc='GLLBSC',
                 txt='gs.out')
     atoms.calc = calc
-    energy = atoms.get_potential_energy()
+    atoms.get_potential_energy()
     calc.write('gs.gpw', mode='all')
 
     fxc = 'LDA'
@@ -39,14 +37,26 @@ def test_tddft_fxc_linearize(in_tmp_dir):
         from gpaw.test import print_reference
         print_reference(data, 'ref', '%.12le')
 
-    ref = [0.0, 1.46915686e-15, -3.289312570937e-14, -2.273046460905e-14,
-           -3.201827522804e-15, 0.82682747, 1.41057108e-15, 6.113786981692e-05,
-           6.113754003915e-05, 6.113827654045e-05, 1.65365493, 1.69317502e-16,
-           0.0001066406796495, 0.0001066481954317, 0.0001066442404437, 2.4804824,
-           -1.16927902e-15, 0.0001341112381952, 0.0001341042452292,
-           0.0001341080813738]
-
-    print(data.tolist())
+    ref = [0.000000000000e+00,
+           5.675065320000e-16,
+           1.468753200587e-10,
+           1.579510728549e-10,
+           1.480745858862e-10,
+           8.268274700000e-01,
+           9.001411310000e-16,
+           5.997264413918e-05,
+           5.996562448975e-05,
+           5.996489353702e-05,
+           1.653654930000e+00,
+           -3.560336050000e-15,
+           1.059270665342e-04,
+           1.059358921818e-04,
+           1.059367170602e-04,
+           2.480482400000e+00,
+           3.100362540000e-15,
+           1.338025167034e-04,
+           1.338146631769e-04,
+           1.338165200102e-04]
 
     tol = 1e-7
     equal(data, ref, tol)

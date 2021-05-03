@@ -6,24 +6,18 @@ from ase.build import molecule
 from gpaw import GPAW
 from gpaw.tddft import TDDFT as GRIDTDDFT
 from gpaw.lcaotddft import LCAOTDDFT
-from gpaw.poisson import PoissonSolver
+from gpaw.poisson import PoissonSolver as PS
 from gpaw.poisson_extravacuum import ExtraVacuumPoissonSolver
 
 pytestmark = pytest.mark.skipif(world.size > 2,
                                 reason='world.size > 2')
 
 
-
 def test_poisson_poisson_restart(in_tmp_dir):
     name = 'Na2'
-    poissoneps = 1e-16
     gpts = np.array([16, 16, 24])
     # Uncomment the following line if you want to run the test with 4 cpus
     # gpts *= 2
-
-
-    def PS(**kwargs):
-        return PoissonSolver(eps=poissoneps, **kwargs)
 
     poissonsolver_i = []
 
@@ -57,7 +51,7 @@ def test_poisson_poisson_restart(in_tmp_dir):
                                      'density': 1.0,
                                      'eigenstates': 1.0})
             atoms.calc = calc
-            energy = atoms.get_potential_energy()
+            atoms.get_potential_energy()
             descr = calc.hamiltonian.poisson.get_description()
             calc.write('%s_gs.gpw' % name, mode='all')
 

@@ -7,7 +7,6 @@ from gpaw.test import equal
 def test_spin_spinFe3plus():
     h = 0.4
     q = 3
-    spin = True
 
     s = Atoms('Fe')
     s.center(vacuum=2.5)

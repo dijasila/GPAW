@@ -40,7 +40,7 @@ traj = Trajectory(traj_file, 'w', tdcalc.get_atoms())
 
 trajdiv = 1  # number of timesteps between trajectory images
 densdiv = 10  # number of timesteps between saved electron densities
-niters = 100 # total number of timesteps to propagate
+niters = 100  # total number of timesteps to propagate
 
 for i in range(niters):
     # Stopping condition when projectile z coordinate passes threshold

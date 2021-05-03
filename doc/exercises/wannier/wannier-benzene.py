@@ -10,7 +10,7 @@ homo = calc.get_pseudo_wave_function(band=14)
 write('homo.cube', atoms, data=homo)
 
 # Initialize the Wannier class
-w = calculate_overlaps(calc).localize()
+w = calculate_overlaps(calc, nwannier=15).localize_er()
 view(atoms + Atoms(symbols='X15', positions=w.centers))
 
 # Find the index of the center with the lowest y-coordinate:

@@ -4,6 +4,7 @@ from gpaw import GPAW, FermiDirac, PoissonSolver
 from gpaw.test import equal
 from gpaw.xc.tools import vxc
 
+
 def test_generic_8Si():
     a = 5.404
     bulk = Atoms(symbols='Si8',
@@ -45,6 +46,5 @@ def test_generic_8Si():
     print((e1, f1, niter1))
     energy_tolerance = 0.0025
     force_tolerance = 0.01
-    niter_tolerance = 0
     equal(e1, -46.6628, energy_tolerance)  # svnversion 5252
     equal(f1, -1.38242356123, force_tolerance)  # svnversion 5252

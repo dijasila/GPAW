@@ -205,7 +205,8 @@ class SIC(XCFunctional):
                         integral=np.sqrt(4 * np.pi),
                         forces=True)
 
-        poissonsolver = PoissonSolver(eps=1e-14)
+        # XXX Use hamiltonian.poisson instead?
+        poissonsolver = PoissonSolver()
         poissonsolver.set_grid_descriptor(self.finegd)
 
         self.spin_s = {}

@@ -1,4 +1,4 @@
-# Creates: C_GW_k8_extrap.png
+# web-page: C_GW_k8_extrap.png
 import pickle
 import numpy as np
 from ase.parallel import paropen
@@ -12,11 +12,10 @@ direct_gap = np.zeros(4)
 
 k = 8
 for i, ecut in enumerate([100, 200, 300, 400]):
-    data = pickle.load(paropen('C-g0w0_k%s_ecut%s_results.pckl' %
-                               (k, ecut), 'rb'))
+    data = pickle.load(paropen(f'C-g0w0_k{k}_ecut{ecut}_results.pckl', 'rb'))
     direct_gap[i] = data['qp'][0, 0, 1] - data['qp'][0, 0, 0]
 plt.plot(1 / (ecuts**(3. / 2.)), direct_gap, 'ko-',
-         label='(%sx%sx%s) k-points' % (k, k, k))
+         label=f'({k}x{k}x{k}) k-points')
 
 extrap_gap, slope = np.linalg.solve([[1, 1. / 300.**(3. / 2)],
                                      [1, 1. / 400.**(3. / 2)]],

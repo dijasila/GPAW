@@ -1,4 +1,4 @@
-# Creates: tcm_1.12.png, tcm_2.48.png, table_1.12.txt, table_2.48.txt
+# web-page: tcm_1.12.png, tcm_2.48.png, table_1.12.txt, table_2.48.txt
 import numpy as np
 from matplotlib import pyplot as plt
 
@@ -17,13 +17,14 @@ fdm = FrequencyDensityMatrix(calc, dmat, 'fdm.ulm')
 
 plt.figure(figsize=(8, 8))
 
+
 def do(w):
     # Select the frequency and the density matrix
     rho_uMM = fdm.FReDrho_wuMM[w]
     freq = fdm.freq_w[w]
     frequency = freq.freq * au_to_eV
-    print('Frequency: %.2f eV' % frequency)
-    print('Folding: %s' % freq.folding)
+    print(f'Frequency: {frequency:.2f} eV')
+    print(f'Folding: {freq.folding}')
 
     # Transform the LCAO density matrix to KS basis
     rho_up = ksd.transform(rho_uMM)
@@ -31,15 +32,15 @@ def do(w):
     # Photoabsorption decomposition
     dmrho_vp = ksd.get_dipole_moment_contributions(rho_up)
     weight_p = 2 * freq.freq / np.pi * dmrho_vp[0].imag / au_to_eV * 1e5
-    print('Total absorption: %.2f eV^-1' % np.sum(weight_p))
+    print(f'Total absorption: {np.sum(weight_p):.2f} eV^-1')
 
     # Print contributions as a table
     table = ksd.get_contributions_table(weight_p, minweight=0.1)
     print(table)
-    with open('table_%.2f.txt' % frequency, 'w') as f:
-        f.write('Frequency: %.2f eV\n' % frequency)
-        f.write('Folding: %s\n' % freq.folding)
-        f.write('Total absorption: %.2f eV^-1\n' % np.sum(weight_p))
+    with open(f'table_{frequency:.2f}.txt', 'w') as f:
+        f.write(f'Frequency: {frequency:.2f} eV\n')
+        f.write(f'Folding: {freq.folding}\n')
+        f.write(f'Total absorption: {np.sum(weight_p):.2f} eV^-1\n')
         f.write(table)
 
     # Plot the decomposition as a TCM
@@ -51,15 +52,15 @@ def do(w):
     plotter.plot_TCM(weight_p)
     plotter.plot_DOS(fill={'color': '0.8'}, line={'color': 'k'})
     plotter.plot_TCM_diagonal(freq.freq * au_to_eV, color='k')
-    plotter.set_title('Photoabsorption TCM of Na8 at %.2f eV' % frequency)
+    plotter.set_title(f'Photoabsorption TCM of Na8 at {frequency:.2f} eV')
 
     # Check that TCM integrates to correct absorption
     tcm_ou = ksd.get_TCM(weight_p, ksd.get_eig_n()[0],
                          energy_o, energy_u, sigma=0.1)
-    print('TCM absorption: %.2f eV^-1' % (np.sum(tcm_ou) * de**2))
+    print(f'TCM absorption: {np.sum(tcm_ou) * de ** 2:.2f} eV^-1')
 
     # Save the plot
-    plt.savefig('tcm_%.2f.png' % frequency)
+    plt.savefig(f'tcm_{frequency:.2f}.png')
 
 
 do(0)

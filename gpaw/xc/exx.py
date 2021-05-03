@@ -15,7 +15,7 @@ from gpaw.xc.kernel import XCNull
 from gpaw.response.pair import PairDensity
 from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.utilities import unpack, unpack2, packed_index
+from gpaw.utilities import unpack, unpack2
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 
 

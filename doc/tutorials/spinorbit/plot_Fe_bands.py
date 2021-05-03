@@ -1,4 +1,4 @@
-# Creates: Fe_bands.png
+# web-page: Fe_bands.png
 import numpy as np
 import pylab as pl
 from gpaw import GPAW

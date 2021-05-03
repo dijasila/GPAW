@@ -1,10 +1,9 @@
 from ase.build import molecule
-from gpaw import GPAW, Mixer, Davidson
+from gpaw import GPAW, MixerSum, Davidson
 
 # Move atom infinitesimally across cell border and test that SCF loop is still
 # well converged afterwards.  If it is /not/ well converged, then the code
 # which compensates for discontinuity of phases is probably broken.
-
 
 
 def test_generic_move_across_cell():
@@ -19,7 +18,6 @@ def test_generic_move_across_cell():
 
         atoms.calc = calc
 
-
         eps = 1e-12
         atoms.positions[0, :] = eps
         atoms.get_potential_energy()
@@ -32,8 +30,9 @@ def test_generic_move_across_cell():
         # It runs a minimum of three iterations:
         assert calc.scf.niter == 3
 
-
-    kwargs = lambda: dict(xc='oldLDA', mixer=Mixer(0.7), kpts=[1, 1, 2])
+    def kwargs():
+        # Make sure MixerSum works for spin-paired system also:
+        return dict(xc='oldLDA', mixer=MixerSum(0.7), kpts=[1, 1, 2])
 
     test(GPAW(mode='lcao', basis='sz(dzp)', h=0.3))
     test(GPAW(mode='pw', eigensolver=Davidson(3),
@@ -42,4 +41,6 @@ def test_generic_move_across_cell():
               experimental={'reuse_wfs_method': 'lcao'}, **kwargs()))
 
     # pw + lcao extrapolation is currently broken (PWLFC lacks integrate2):
-    #test(GPAW(mode='pw', experimental={'reuse_wfs_method': 'lcao'}, **kwargs()))
+    # test(GPAW(mode='pw',
+    #           experimental={'reuse_wfs_method': 'lcao'},
+    #           **kwargs()))

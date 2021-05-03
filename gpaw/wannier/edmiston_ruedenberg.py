@@ -1,14 +1,11 @@
 """Edmiston-ruedenberg localization."""
 from math import pi
-from typing import Any
 
 import numpy as np
 
 import _gpaw
 from .overlaps import WannierOverlaps
 from .functions import WannierFunctions
-
-Array2D = Any
 
 
 class LocalizationNotConvergedError(Exception):
@@ -25,7 +22,7 @@ def localize(overlaps: WannierOverlaps,
     """
     if not overlaps.atoms.cell.orthorhombic:
         raise NotImplementedError('An orthogonal cell is required')
-    assert overlaps.monkhorst_pack_size == (1, 1, 1)
+    assert (overlaps.monkhorst_pack_size == (1, 1, 1)).all()
 
     Z_nnc = np.empty((overlaps.nbands, overlaps.nbands, 3), complex)
     for c, direction in enumerate([(1, 0, 0), (0, 1, 0), (0, 0, 1)]):
@@ -53,7 +50,7 @@ def localize(overlaps: WannierOverlaps,
     scaled_nc = -np.angle(Z_nnc.diagonal()).T / (2 * pi)
     centers_nv = (scaled_nc % 1.0).dot(overlaps.atoms.cell)
 
-    return WannierFunctions(overlaps.atoms, U_nn, centers_nv, value)
+    return WannierFunctions(overlaps.atoms, centers_nv, value, [U_nn])
 
 
 if __name__ == '__main__':
@@ -62,7 +59,8 @@ if __name__ == '__main__':
     from .overlaps import calculate_overlaps
 
     calc = GPAW(sys.argv[1])
-    overlaps = calculate_overlaps(calc)
-    wan = overlaps.localize(verbose=True)
+    nwannier = int(sys.argv[2])
+    overlaps = calculate_overlaps(calc, nwannier)
+    wan = overlaps.localize_er(verbose=True)
     print(wan.centers)
     wan.centers_as_atoms().edit()

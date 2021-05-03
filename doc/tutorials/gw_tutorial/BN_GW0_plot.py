@@ -1,4 +1,4 @@
-# Creates: BN_GW0.png
+# web-page: BN_GW0.png
 import numpy as np
 import pickle
 import matplotlib.pyplot as plt

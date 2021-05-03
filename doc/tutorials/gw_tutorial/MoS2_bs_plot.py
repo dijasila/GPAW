@@ -1,4 +1,4 @@
-# Creates: MoS2_bs.png
+# web-page: MoS2_bs.png
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
@@ -43,15 +43,15 @@ plt.plot(x_x, eGWG_kn, '-g', linewidth=2)
 plt.axhline(ef, color='k', linestyle='--')
 
 for p in X:
-    plt.axvline(p, color='k',linewidth=1.7)
+    plt.axvline(p, color='k', linewidth=1.7)
 
 leg_handles = [mpl.lines.Line2D([], [], linestyle='-', marker='', color='r'),
                mpl.lines.Line2D([], [], linestyle='-', marker='', color='g')]
-leg_labels = [r'G$_0$W$_0$',r'G$_0$W$_0\Gamma$']
-f.legend(leg_handles, leg_labels, bbox_to_anchor=(0.96,0.95),fontsize=20)
+leg_labels = [r'G$_0$W$_0$', r'G$_0$W$_0\Gamma$']
+f.legend(leg_handles, leg_labels, bbox_to_anchor=(0.96, 0.95), fontsize=20)
 
 plt.xlim(0, x_x[-1])
-plt.ylim([-8,0])
+plt.ylim([-8, 0])
 plt.xticks(X, labels_K, fontsize=18)
 plt.yticks(fontsize=17)
 plt.ylabel('Energy vs. vacuum (eV)', fontsize=24)

@@ -1,4 +1,4 @@
-# Creates: C_freq.png
+# web-page: C_freq.png
 import pickle
 
 import matplotlib.pyplot as plt
@@ -11,13 +11,13 @@ data = np.zeros((5, 6))
 
 for i, domega0 in enumerate([0.01, 0.02, 0.03, 0.04, 0.05]):
     for j, omega2 in enumerate([1, 5, 10, 15, 20, 25]):
-        path = 'C_g0w0_domega0_%s_omega2_%s_results.pckl' % (domega0, omega2)
+        path = f'C_g0w0_domega0_{domega0}_omega2_{omega2}_results.pckl'
         results = pickle.load(open(path, 'rb'))
 
         data[i, j] = results['qp'][0, 0, 1] - results['qp'][0, 0, 0]
 
 for j, k in enumerate([0.01, 0.02, 0.03, 0.04, 0.05]):
-    plt.plot(xomega2, data[j, :], color[j], label='domega0 = %s' % (k))
+    plt.plot(xomega2, data[j, :], color[j], label=f'domega0 = {k}')
 
 plt.ylim([6.9, 7.9])
 plt.xlabel('omega2 (eV)')

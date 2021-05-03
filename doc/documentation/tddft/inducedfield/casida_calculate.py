@@ -14,13 +14,13 @@ atoms.calc = calc
 energy = atoms.get_potential_energy()
 
 calc = calc.fixed_density(
-    convergence={'bands' : 90})
+    convergence={'bands': 90})
 calc.write('na2_gs_casida.gpw', mode='all')
 
 # Standard Casida calculation
 calc = GPAW('na2_gs_casida.gpw')
 istart = 0
 jend = 90
-lr = LrTDDFT(calc, xc='LDA', istart=istart, jend=jend)
+lr = LrTDDFT(calc, xc='LDA', restrict={'istart': istart, 'jend': jend})
 lr.diagonalize()
 lr.write('na2_lr.dat.gz')

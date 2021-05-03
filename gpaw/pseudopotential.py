@@ -295,7 +295,6 @@ class PseudoPotential(BaseSetup):
 
         self.N0_p = np.zeros(_np)  # not really implemented
         self.nabla_iiv = None
-        self.rnabla_iiv = None
         self.rxnabla_iiv = None
         self.phicorehole_g = None
         self.rgd = data.rgd

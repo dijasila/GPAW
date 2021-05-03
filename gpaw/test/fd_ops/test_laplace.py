@@ -10,7 +10,6 @@ pytestmark = pytest.mark.skipif(world.size > 1,
                                 reason='world.size > 1')
 
 
-
 def test_fd_ops_laplace():
     cells = [
         ('distorted hexagonal', 4,
@@ -58,7 +57,6 @@ def test_fd_ops_laplace():
           [3.4774564712755938, 5.843379292501022, 0.01599293966594096],
           [-0.10777038306906983 * 0.43, 0.10850460815311265 * 0.43,
            15.26098014321118 * 0.43]])]
-
 
     for name, D, cell in cells:
         if name == 'Jelver':

@@ -46,7 +46,7 @@ PyObject* second_derivative(LFCObject *lfc, PyObject *args)
     // Loop over number of x-dimension in a_xG (not relevant yet)
     for (int x = 0; x < nx; x++) {
       // JJs old stuff
-      GRID_LOOP_START(lfc, -1) {
+      GRID_LOOP_START(lfc, -1, 0) {
         // In one grid loop iteration, only i2 changes.
         int i2 = Ga % n_c[2] + beg_c[2];
         int i1 = (Ga / n_c[2]) % n_c[1] + beg_c[1];
@@ -56,7 +56,7 @@ PyObject* second_derivative(LFCObject *lfc, PyObject *args)
         double zG = h_cv[2] * i0 + h_cv[5] * i1 + h_cv[8] * i2;
         for (int G = Ga; G < Gb; G++) {
           for (int i = 0; i < ni; i++) {
-            LFVolume* vol = volume_i + i;
+            LFVolume* vol = volume_i[i];
             int M = vol->M;
             double* c_mvv = c_Mvv + 9 * M;
             const bmgsspline* spline = (const bmgsspline*) \
@@ -99,7 +99,7 @@ PyObject* second_derivative(LFCObject *lfc, PyObject *args)
           zG += h_cv[8];
         }
       }
-      GRID_LOOP_STOP(lfc, -1);
+      GRID_LOOP_STOP(lfc, -1, 0);
       c_Mvv += 9 * nM;
       a_G += nG;
     }
@@ -109,7 +109,7 @@ PyObject* second_derivative(LFCObject *lfc, PyObject *args)
     complex double* c_Mvv = (complex double*)PyArray_DATA(c_Mvv_obj);
 
     for (int x = 0; x < nx; x++) {
-      GRID_LOOP_START(lfc, q) {
+      GRID_LOOP_START(lfc, q, 0) {
         // In one grid loop iteration, only i2 changes.
         int i2 = Ga % n_c[2] + beg_c[2];
         int i1 = (Ga / n_c[2]) % n_c[1] + beg_c[1];
@@ -119,7 +119,7 @@ PyObject* second_derivative(LFCObject *lfc, PyObject *args)
         double zG = h_cv[2] * i0 + h_cv[5] * i1 + h_cv[8] * i2;
         for (int G = Ga; G < Gb; G++) {
           for (int i = 0; i < ni; i++) {
-            LFVolume* vol = volume_i + i;
+            LFVolume* vol = volume_i[i];
             int M = vol->M;
             complex double* c_mvv = c_Mvv + 9 * M;
             const bmgsspline* spline = (const bmgsspline*) \
@@ -166,7 +166,7 @@ PyObject* second_derivative(LFCObject *lfc, PyObject *args)
           zG += h_cv[8];
         }
       }
-      GRID_LOOP_STOP(lfc, q);
+      GRID_LOOP_STOP(lfc, q, 0);
       c_Mvv += 9 * nM;
       a_G += nG;
     }
@@ -219,7 +219,7 @@ PyObject* add_derivative(LFCObject *lfc, PyObject *args)
     const double* c_M = (const double*)PyArray_DATA(c_xM_obj);
     double* a_G = (double*)PyArray_DATA(a_xG_obj);
     for (int x = 0; x < nx; x++) {
-      GRID_LOOP_START(lfc, -1) {
+      GRID_LOOP_START(lfc, -1, 0) {
 
         // In one grid loop iteration, only i2 changes.
         int i2 = Ga % n_c[2] + beg_c[2];
@@ -234,7 +234,7 @@ PyObject* add_derivative(LFCObject *lfc, PyObject *args)
           // Loop over volumes at current grid point
           for (int i = 0; i < ni; i++) {
 
-            LFVolume* vol = volume_i + i;
+            LFVolume* vol = volume_i[i];
             int M = vol->M;
             // Check that the volume belongs to the atom in consideration later
             int W = vol->W;
@@ -282,7 +282,7 @@ PyObject* add_derivative(LFCObject *lfc, PyObject *args)
           zG += h_cv[8];
         }
       }
-      GRID_LOOP_STOP(lfc, -1);
+      GRID_LOOP_STOP(lfc, -1, 0);
       c_M += nM;
       a_G += nG;
     }
@@ -291,7 +291,7 @@ PyObject* add_derivative(LFCObject *lfc, PyObject *args)
     const double complex* c_M = (const double complex*)PyArray_DATA(c_xM_obj);
     double complex* a_G = (double complex*)PyArray_DATA(a_xG_obj);
     for (int x = 0; x < nx; x++) {
-      GRID_LOOP_START(lfc, q) {
+      GRID_LOOP_START(lfc, q, 0) {
 
         // In one grid loop iteration, only i2 changes.
         int i2 = Ga % n_c[2] + beg_c[2];
@@ -307,7 +307,7 @@ PyObject* add_derivative(LFCObject *lfc, PyObject *args)
           for (int i = 0; i < ni; i++) {
             // Phase of volume
             double complex conjphase = conj(phase_i[i]);
-            LFVolume* vol = volume_i + i;
+            LFVolume* vol = volume_i[i];
             int M = vol->M;
             // Check that the volume belongs to the atom in consideration later
             int W = vol->W;
@@ -355,7 +355,7 @@ PyObject* add_derivative(LFCObject *lfc, PyObject *args)
           zG += h_cv[8];
         }
       }
-      GRID_LOOP_STOP(lfc, q);
+      GRID_LOOP_STOP(lfc, q, 0);
       c_M += nM;
       a_G += nG;
     }

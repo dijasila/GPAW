@@ -7,6 +7,7 @@ from gpaw.test import equal
 # Setup up bulk NiO in an antiferromagnetic configuration.
 # Lattice constants:
 
+
 def test_Hubbard_U(in_tmp_dir):
     a = 4.19
     b = a / sqrt(2)
@@ -36,7 +37,7 @@ def test_Hubbard_U(in_tmp_dir):
             kpts=(k, k, k),
             xc='oldPBE')
         atoms.calc = calc
-        e = atoms.get_potential_energy()
+        atoms.get_potential_energy()
         gap, _, _ = bandgap(calc)
         print(name, gap)
         if name == 'ni2o2':

@@ -40,6 +40,7 @@ class Timing:
         self.t0 = time.time()
         self.i += ndiv
 
+
 if __name__ == '__main__':
     if not os.path.isfile(name + '_gs.gpw'):
         atoms = Atoms('Na2', positions=[(0, 0, 0), (0, 0, d_bond + d_disp)])

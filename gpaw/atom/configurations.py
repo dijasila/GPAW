@@ -3,7 +3,7 @@
 
 # flake8: noqa
 # Computer generated code:
-# format:
+# format: (energy in Hartrees)
 #    'element': (atomic number, [(n, l, occ, energy), ...])
 from typing import Dict, Any
 import copy

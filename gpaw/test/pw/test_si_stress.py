@@ -22,7 +22,7 @@ def test_pw_si_stress(in_tmp_dir):
                         [0.2, -0.01, 1.03]]),
                 scale_atoms=True)
 
-    e = si.get_potential_energy()
+    si.get_potential_energy()
 
     # Trigger nasty bug (fixed in !486):
     si.calc.wfs.pt.blocksize = si.calc.wfs.pd.maxmyng - 1

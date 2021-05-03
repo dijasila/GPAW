@@ -237,7 +237,7 @@ class CDFTPotential(ExternalPotential):
     # Dummy class to make cDFT compatible with new external
     # potential class ClassName(object):
     def __init__(self, regions, constraints, n_charge_regions,
-        difference):
+                 difference):
 
         self.name = 'CDFTPotential'
         self.regions = regions
@@ -245,10 +245,9 @@ class CDFTPotential(ExternalPotential):
         self.difference = difference
         self.n_charge_regions = n_charge_regions
 
-
     def todict(self):
         return {'name': 'CDFTPotential',
-                'regions': self.indices_i,
+                # 'regions': self.indices_i,
                 'constraints': self.v_i * Hartree,
                 'n_charge_regions': self.n_charge_regions,
                 'difference': self.difference,

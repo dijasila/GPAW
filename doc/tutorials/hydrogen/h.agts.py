@@ -1,14 +1,11 @@
-# Creates: h.png
+# web-page: h.png
+def workflow():
+    from myqueue.workflow import run
+    with run(script='h.py'):
+        run(function=plot)
 
 
-def create_tasks():
-    from myqueue.task import task
-    return [
-        task('h.py'),
-        task('h.agts.py', deps='h.py')]
-
-
-if __name__ == '__main__':
+def plot():
     import numpy as np
     import pylab as plt
     from ase.io import read

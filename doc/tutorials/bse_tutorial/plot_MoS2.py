@@ -1,4 +1,4 @@
-# Creates: bse_MoS2.png
+# web-page: bse_MoS2.png
 import matplotlib.pyplot as plt
 import numpy as np
 

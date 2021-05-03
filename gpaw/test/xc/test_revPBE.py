@@ -12,11 +12,9 @@ def test_xc_revPBE():
                 poissonsolver=PoissonSolver('fd'))
     atoms.calc = calc
     e1 = atoms.get_potential_energy()
-    niter1 = calc.get_number_of_iterations()
     e1a = calc.get_reference_energy()
     calc.set(xc={'name': 'revPBE', 'stencil': 1})
     e2 = atoms.get_potential_energy()
-    niter2 = calc.get_number_of_iterations()
     e2a = calc.get_reference_energy()
 
     equal(e1a, -2.893 * Hartree, 8e-3)
@@ -24,6 +22,5 @@ def test_xc_revPBE():
     equal(e1, e2, 4e-3)
 
     energy_tolerance = 0.0005
-    niter_tolerance = 0
     equal(e1, -0.0790449962, energy_tolerance)
     equal(e2, -0.08147563, energy_tolerance)

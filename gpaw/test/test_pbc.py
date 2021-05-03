@@ -3,6 +3,7 @@ from ase import Atoms
 from gpaw import GPAW
 from gpaw.grid_descriptor import GridBoundsError
 
+
 def test_pbc():
     a = 4.0
     x = 0.1
@@ -10,7 +11,7 @@ def test_pbc():
                      cell=(a, a, a),
                      calculator=GPAW(maxiter=7))
     try:
-        e1 = hydrogen.get_potential_energy()
+        hydrogen.get_potential_energy()
     except GridBoundsError:
         pass
     else:

@@ -1,6 +1,8 @@
 .. image:: https://badge.fury.io/py/gpaw.svg
     :target: https://pypi.org/project/gpaw/
 
+Coverage_
+
 GPAW
 ====
 
@@ -54,7 +56,7 @@ Contact
 -------
 
 * Mailing list: gpaw-users_
-* IRC_: #gpaw on freenode.net
+* Chat: #gpaw on Matrix_.
 * Bug reports and development: gitlab-issues_
 
 Please send us bug-reports, patches, code, ideas and questions.
@@ -99,7 +101,8 @@ look at the GPAW exercises_ and tutorials_.
 .. _NumPy: http://docs.scipy.org/doc/numpy/reference/
 .. _SciPy: http://docs.scipy.org/doc/scipy/reference/
 .. _gpaw-users: https://listserv.fysik.dtu.dk/mailman/listinfo/gpaw-users
-.. _IRC: http://webchat.freenode.net/?randomnick=0&channels=gpaw
+.. _Matrix: https://matrix.to/#/#gpaw:matrix.org
 .. _gitlab-issues: https://gitlab.com/gpaw/gpaw/issues
 .. _exercises: https://wiki.fysik.dtu.dk/gpaw/exercises/exercises.html
 .. _tutorials: https://wiki.fysik.dtu.dk/gpaw/tutorials/tutorials.html
+.. _Coverage: https://wiki.fysik.dtu.dk/gpaw/htmlcov/index.html

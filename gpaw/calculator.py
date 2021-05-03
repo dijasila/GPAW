@@ -4,41 +4,42 @@ The central object that glues everything together.
 """
 
 import warnings
-from typing import Dict, Any, List
+from typing import Any, Dict
 
 import numpy as np
 from ase import Atoms
-from ase.units import Bohr, Ha
 from ase.calculators.calculator import Calculator, kpts2ndarray
+from ase.dft.bandgap import bandgap
+from ase.units import Bohr, Ha
 from ase.utils import plural
 from ase.utils.timing import Timer
-from ase.dft.bandgap import bandgap
 
 import gpaw
 import gpaw.mpi as mpi
 import gpaw.wavefunctions.pw as pw
-from gpaw import memory_estimate_depth
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.density import RealSpaceDensity
+from gpaw.dos import DOSCalculator
 from gpaw.eigensolvers import get_eigensolver
 from gpaw.external import PointChargePotential
 from gpaw.forces import calculate_forces
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.hamiltonian import RealSpaceHamiltonian
-from gpaw.io.logger import GPAWLogger
+from gpaw.hybrids import HybridXC
 from gpaw.io import Reader, Writer
+from gpaw.io.logger import GPAWLogger
 from gpaw.jellium import create_background_charge
+from gpaw.kohnsham_layouts import get_KohnSham_layouts
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.kpt_refine import create_kpoint_descriptor_with_refinement
-from gpaw.kohnsham_layouts import get_KohnSham_layouts
 from gpaw.matrix import suggest_blocking
-from gpaw.occupations import create_occ_calc, ParallelLayout
-from gpaw.output import (print_cell, print_positions,
-                         print_parallelization_details)
+from gpaw.occupations import ParallelLayout, create_occ_calc
+from gpaw.output import (print_cell, print_parallelization_details,
+                         print_positions)
 from gpaw.scf import SCFLoop
 from gpaw.setup import Setups
-from gpaw.symmetry import Symmetry
 from gpaw.stress import calculate_stress
+from gpaw.symmetry import Symmetry
 from gpaw.utilities import check_atoms_too_close
 from gpaw.utilities.gpts import get_number_of_grid_points
 from gpaw.utilities.grid import GridRedistributor
@@ -46,7 +47,9 @@ from gpaw.utilities.memory import MemNode, maxrss
 from gpaw.utilities.partition import AtomPartition
 from gpaw.wavefunctions.mode import create_wave_function_mode
 from gpaw.xc import XC
+from gpaw.xc.kernel import XCKernel
 from gpaw.xc.sic import SIC
+from gpaw.typing import Array1D
 
 
 class GPAW(Calculator):
@@ -98,11 +101,11 @@ class GPAW(Calculator):
 
     default_parallel: Dict[str, Any] = {
         'kpt': None,
-        'domain': gpaw.parsize_domain,
-        'band': gpaw.parsize_bands,
+        'domain': None,
+        'band': None,
         'order': 'kdb',
         'stridebands': False,
-        'augment_grids': gpaw.augment_grids,
+        'augment_grids': False,
         'sl_auto': False,
         'sl_default': None,
         'sl_diagonalize': None,
@@ -111,14 +114,12 @@ class GPAW(Calculator):
         'sl_lrtddft': None,
         'use_elpa': False,
         'elpasolver': '2stage',
-        'buffer_size': gpaw.buffer_size}
+        'buffer_size': None}
 
     def __init__(self,
                  restart=None,
                  *,
-                 ignore_bad_restart_file=False,
                  label=None,
-                 atoms=None,
                  timer=None,
                  communicator=None,
                  txt='?',
@@ -163,8 +164,7 @@ class GPAW(Calculator):
 
         self.reader = None
 
-        Calculator.__init__(self, restart, ignore_bad_restart_file, label,
-                            atoms, **kwargs)
+        Calculator.__init__(self, restart, label=label, **kwargs)
 
     def fixed_density(self, *,
                       update_fermi_level: bool = False,
@@ -193,6 +193,11 @@ class GPAW(Calculator):
 
         params = self.parameters.copy()
         params.update(kwargs)
+
+        if params['h'] is None:
+            # Backwards compatibility
+            params['gpts'] = self.density.gd.N_c
+
         calc = GPAW(communicator=communicator,
                     txt=txt,
                     parallel=parallel,
@@ -272,6 +277,8 @@ class GPAW(Calculator):
         self.parameters = self.get_default_parameters()
         dct = {}
         for key, value in reader.parameters.asdict().items():
+            if key in {'txt', 'fixdensity'}:
+                continue  # old gpw-files may have these
             if (isinstance(value, dict) and
                 isinstance(self.parameters[key], dict)):
                 self.parameters[key].update(value)
@@ -556,6 +563,10 @@ class GPAW(Calculator):
 
         self.wfs.eigensolver.reset()
         self.scf.reset()
+        occ_name = getattr(self.wfs.occupations, "name", None)
+        if occ_name == 'mom':
+            # Initialize MOM reference orbitals
+            self.wfs.occupations.initialize_reference_orbitals()
         print_positions(self.atoms, self.log, self.density.magmom_av)
 
     def initialize(self, atoms=None, reading=False):
@@ -597,7 +608,7 @@ class GPAW(Calculator):
         # Generate new xc functional only when it is reset by set
         # XXX sounds like this should use the _changed_keywords dictionary.
         if self.hamiltonian is None or self.hamiltonian.xc is None:
-            if isinstance(par.xc, (str, dict)):
+            if isinstance(par.xc, (str, dict, XCKernel)):
                 xc = XC(par.xc, collinear=collinear, atoms=atoms)
             else:
                 xc = par.xc
@@ -748,7 +759,8 @@ class GPAW(Calculator):
             self.create_wave_functions(mode, realspace,
                                        nspins, collinear, nbands, nao,
                                        nvalence, self.setups,
-                                       cell_cv, pbc_c, N_c)
+                                       cell_cv, pbc_c, N_c,
+                                       xc)
         else:
             self.wfs.set_setups(self.setups)
 
@@ -806,7 +818,7 @@ class GPAW(Calculator):
         if xc.type == 'GLLB' and olddens is not None:
             xc.heeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeelp(olddens)
 
-        self.print_memory_estimate(maxdepth=memory_estimate_depth + 1)
+        self.print_memory_estimate(maxdepth=3)
 
         print_parallelization_details(self.wfs, self.hamiltonian, self.log)
 
@@ -881,6 +893,15 @@ class GPAW(Calculator):
 
         if self.wfs.nspins == 1:
             dct.pop('fixmagmom', None)
+
+        kwargs = dct.copy()
+        name = kwargs.pop('name', '')
+        if name == 'mom':
+            from gpaw.mom import OccupationsMOM
+            occ = OccupationsMOM(self.wfs, **kwargs)
+
+            self.log(occ)
+            return occ
 
         occ = create_occ_calc(
             dct,
@@ -1089,7 +1110,7 @@ class GPAW(Calculator):
 
     def create_wave_functions(self, mode, realspace,
                               nspins, collinear, nbands, nao, nvalence,
-                              setups, cell_cv, pbc_c, N_c):
+                              setups, cell_cv, pbc_c, N_c, xc):
         par = self.parameters
 
         kd = self.create_kpoint_descriptor(nspins)
@@ -1100,6 +1121,11 @@ class GPAW(Calculator):
         parsize_kpt = self.parallel['kpt']
         parsize_domain = self.parallel['domain']
         parsize_bands = self.parallel['band']
+
+        if isinstance(xc, HybridXC):
+            parsize_kpt = 1
+            parsize_domain = self.world.size
+            parsize_bands = 1
 
         ndomains = None
         if parsize_domain is not None:
@@ -1119,6 +1145,8 @@ class GPAW(Calculator):
         kd.set_communicator(kpt_comm)
 
         parstride_bands = self.parallel['stridebands']
+        if parstride_bands:
+            raise RuntimeError('stridebands is unreliable')
 
         bd = BandDescriptor(nbands, band_comm, parstride_bands)
 
@@ -1216,7 +1244,7 @@ class GPAW(Calculator):
 
         raise SystemExit
 
-    def get_atomic_electrostatic_potentials(self) -> List[float]:
+    def get_atomic_electrostatic_potentials(self) -> Array1D:
         r"""Return the electrostatic potential at the atomic sites.
 
         Return list of energies in eV, one for each atom:
@@ -1334,7 +1362,7 @@ class GPAW(Calculator):
 
         The PAW object must be initialize()'d, but needs not have large
         arrays allocated."""
-        # NOTE.  This should work with "--gpaw dry_run=N"
+        # NOTE.  This should work with "--dry-run=N"
         #
         # However, the initial overhead estimate is wrong if this method
         # is called within a real mpirun/gpaw-python context.
@@ -1607,7 +1635,7 @@ class GPAW(Calculator):
         if width is None:
             width = 0.1
 
-        from gpaw.utilities.dos import raw_wignerseitz_LDOS, fold
+        from gpaw.utilities.dos import fold, raw_wignerseitz_LDOS
         energies, weights = raw_wignerseitz_LDOS(self, a, spin)
         return fold(energies * Ha, weights, npts, width)
 
@@ -1629,7 +1657,7 @@ class GPAW(Calculator):
         calculation if one has many bands in the calculator but is only
         interested in the DOS at low energies.
         """
-        from gpaw.utilities.dos import raw_orbital_LDOS, fold
+        from gpaw.utilities.dos import fold, raw_orbital_LDOS
         if width is None:
             width = 0.1
 
@@ -1638,7 +1666,7 @@ class GPAW(Calculator):
                                                  nbands)
         else:
             raise DeprecationWarning(
-                'Please use GPAW.dos(soc=True, ...).pdos(...)')
+                'Please use GPAW.dos(soc=True, ...).raw_pdos(...)')
 
         return fold(energies * Ha, weights, npts, width)
 
@@ -1895,9 +1923,10 @@ class GPAW(Calculator):
             f_kni = np.array(f_kin).transpose(0, 2, 1)
             return f_kni.conj()
 
+        from math import factorial as fac
+
         from gpaw.lfc import LocalizedFunctionsCollection as LFC
         from gpaw.spline import Spline
-        from math import factorial as fac
 
         nkpts = len(wfs.kd.ibzk_kc)
         nbf = np.sum([2 * l + 1 for pos, l, a in locfun])
@@ -1974,8 +2003,16 @@ class GPAW(Calculator):
         self.set(external=pc)
         return pc
 
-    def dos(self, soc=False, theta=0.0, phi=0.0, shift_fermi_level=True):
-        from gpaw.dos import DOSCalculator
+    def dos(self,
+            soc: bool = False,
+            theta: float = 0.0,
+            phi: float = 0.0,
+            shift_fermi_level: bool = True) -> DOSCalculator:
+        """Create DOS-calculator.
+
+        Default is to shift_fermi_level to 0.0 eV.  For soc=True, angles
+        can be given in degrees.
+        """
         return DOSCalculator.from_calculator(
             self, soc=soc,
             theta=theta, phi=phi,

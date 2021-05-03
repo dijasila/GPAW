@@ -1,4 +1,4 @@
-# Creates: na2_casida_Ffe.png, na2_casida_Frho.png, na2_casida_Fphi.png
+# web-page: na2_casida_Ffe.png, na2_casida_Frho.png, na2_casida_Fphi.png
 # -*- coding: utf-8 -*-
 from gpaw.mpi import world
 
@@ -48,19 +48,19 @@ ng = d_g.shape                             # Size of grid
 atoms = ind.atoms                          # Atoms
 
 do_plot(d_g, ng, box, atoms)
-plt.title('Field enhancement @ %.2f eV' % freq)
+plt.title(f'Field enhancement @ {freq:.2f} eV')
 plt.savefig('na2_casida_Ffe.png', bbox_inches='tight')
 
 # Imaginary part of density
 d_g = ind.Frho_wg[w].imag * 1e-3  # Multiply by kick strength
 ng = d_g.shape
 do_plot(d_g, ng, box, atoms)
-plt.title('Imaginary part of induced charge density @ %.2f eV' % freq)
+plt.title(f'Imaginary part of induced charge density @ {freq:.2f} eV')
 plt.savefig('na2_casida_Frho.png', bbox_inches='tight')
 
 # Imaginary part of potential
 d_g = ind.Fphi_wg[w].imag * 1e-3  # Multiply by kick strength
 ng = d_g.shape
 do_plot(d_g, ng, box, atoms)
-plt.title('Imaginary part of induced potential @ %.2f eV' % freq)
+plt.title(f'Imaginary part of induced potential @ {freq:.2f} eV')
 plt.savefig('na2_casida_Fphi.png', bbox_inches='tight')

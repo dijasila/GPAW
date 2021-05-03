@@ -1,13 +1,12 @@
 import pytest
-from gpaw.mpi import world
 from gpaw.utilities import compiled_with_sl
 from ase import Atoms
 from gpaw import GPAW
 from gpaw.mpi import world, serial_comm
 
-pytestmark = pytest.mark.skipif(world.size != 1 and not compiled_with_sl(),
-                                reason='world.size != 1 and not compiled_with_sl()')
-
+pytestmark = pytest.mark.skipif(
+    world.size != 1 and not compiled_with_sl(),
+    reason='world.size != 1 and not compiled_with_sl()')
 
 
 def test_pw_fulldiagk(in_tmp_dir):

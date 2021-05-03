@@ -1,4 +1,4 @@
-# Creates: mac_eps.csv
+# web-page: mac_eps.csv
 # Refer to G. Kresse, Phys. Rev. B 73, 045112 (2006)
 # for comparison of macroscopic and microscopic dielectric constant
 # and absorption peaks.
@@ -53,9 +53,9 @@ epsrefLF = 12.66  # from [1] in top
 
 with paropen('mac_eps.csv', 'w') as f:
     print(' , Without LFE, With LFE', file=f)
-    print('%s, %.6f, %.6f' % ('GPAW-linear response', epsNLF, epsLF), file=f)
-    print('%s, %.6f, %.6f' % ('[1]', epsrefNLF, epsrefLF), file=f)
-    print('%s, %.6f, %.6f' % ('Exp.', 11.90, 11.90), file=f)
+    print(f"{'GPAW-linear response'}, {epsNLF:.6f}, {epsLF:.6f}", file=f)
+    print(f"{'[1]'}, {epsrefNLF:.6f}, {epsrefLF:.6f}", file=f)
+    print(f"{'Exp.'}, {11.9:.6f}, {11.9:.6f}", file=f)
 
 if world.rank == 0:
     Path('si_large.gpw').unlink()

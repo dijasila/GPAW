@@ -18,9 +18,7 @@ def test_poisson_poisson_asym():
     gauss = Gaussian(gd, a=inv_width, center=center_of_charge)
     test_poisson = Gaussian(gd, a=inv_width, center=center_of_charge)
 
-    # /-------------------------------------------------\
-    # | Check if Gaussian potentials are made correctly |
-    # \-------------------------------------------------/
+    # Check if Gaussian potentials are made correctly
 
     # Array for storing the potential
     pot = gd.zeros(dtype=float, global_array=False)
@@ -30,7 +28,7 @@ def test_poisson_poisson_asym():
     ng = gauss.get_gauss(0)
     #    vg = solver.phi_gauss
     # Solve potential numerically
-    niter = solver.solve(pot, ng, charge=1.0, zero_initial_phi=False)
+    solver.solve(pot, ng, charge=1.0, zero_initial_phi=False)
     # Determine residual
     # residual = norm(pot - vg)
     residual = gd.integrate((pot - vg)**2)**0.5

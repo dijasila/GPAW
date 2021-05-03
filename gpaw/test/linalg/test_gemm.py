@@ -19,7 +19,7 @@ def test_linalg_gemm():
     print('gpaw.gemm  ', tgpaw)
 
     t0 = time()
-    c = np.dot(a1, a2)
+    np.dot(a1, a2)
     tnumpy = time() - t0
     print('numpy.dot  ', tnumpy)
 

@@ -12,6 +12,7 @@ extensions = ['images',
               'sphinx.ext.doctest',
               'sphinx.ext.extlinks',
               'sphinx.ext.viewcode',
+              'sphinx.ext.napoleon',
               'sphinx.ext.mathjax',
               'sphinx.ext.intersphinx']
 extlinks = {'doi': ('https://doi.org/%s', 'doi:'),
@@ -36,6 +37,8 @@ intersphinx_mapping = {
 nitpick_ignore = [('py:class', 'gpaw.calculator.GPAW'),
                   ('py:class', 'gpaw.spinorbit.BZWaveFunctions'),
                   ('py:class', 'GPAW'),
+                  ('py:class', 'Atoms'),
+                  ('py:class', 'ndarray'),
                   ('py:class', 'ase.spectrum.dosdata.GridDOSData'),
                   ('py:class', 'ase.atoms.Atoms'),
                   ('py:class', 'gpaw.point_groups.group.PointGroup')]
@@ -47,14 +50,14 @@ html_title = 'GPAW'
 html_favicon = 'static/gpaw_favicon.ico'
 html_static_path = ['static']
 html_last_updated_fmt = '%a, %d %b %Y %H:%M:%S'
-dev_version = '20.1.1b1'  # This line auto-edited by newrelease script
-stable_version = '20.1.0'  # This line auto-edited by newrelease script
+dev_version = '21.1.1b1'  # This line auto-edited by newrelease script
+stable_version = '21.1.0'  # This line auto-edited by newrelease script
 html_context = {
     'current_version': __version__,
     'versions':
-        [('{} (development)'.format(dev_version),
+        [(f'{dev_version} (development)',
           'https://wiki.fysik.dtu.dk/gpaw/dev'),
-         ('{} (latest stable)'.format(stable_version),
+         (f'{stable_version} (latest stable)',
           'https://wiki.fysik.dtu.dk/gpaw')]}
 mathjax_config = {
     'TeX': {

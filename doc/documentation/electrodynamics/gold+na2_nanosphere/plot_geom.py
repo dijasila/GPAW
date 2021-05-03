@@ -1,8 +1,9 @@
-# Creates: geom.png
+# web-page: geom.png
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib import patches
+from matplotlib.colors import ListedColormap
 from ase.units import Bohr
+from ase.visualize.plot import plot_atoms
 
 from gpaw.tddft import TDDFT
 
@@ -50,8 +51,6 @@ poisson_solver = td_calc.hamiltonian.poisson
 atoms = td_calc.atoms
 
 box = np.diagonal(poisson_solver.cl.gd.cell_cv) * Bohr  # in Ang
-atom_positions = atoms.positions + poisson_solver.qm.corner1 * Bohr  # in Ang
-atom_elements = atoms.get_chemical_symbols()
 
 # create figure
 plt.figure(1, figsize=(4, 4))
@@ -67,38 +66,47 @@ g = [None, None, ng[2] // 2]
 
 dmy1, d_proj, (x, y, dx, dy), dmy2 = generate_xygrid(plotData, g, box)
 
+# choose the colourmap for the polarizable material here
 plt.imshow(d_proj, interpolation='bicubic', origin='lower',
-           cmap=plt.cm.Blues,
+           cmap=ListedColormap(["goldenrod", "white"]),
            extent=[x[0] - dx / 2, x[-1] + dx / 2,
                    y[0] - dy / 2, y[-1] + dy / 2])
 
 # Plot atoms
-flt = np.array([True, True, False])
-for position in atom_positions:
-    plt.scatter(position[1], position[0], s=50, c='r', marker='o')
+# switch x and y orientation for yx plot
+pos = atoms.get_positions()
+pos[:, [0, 1]] = pos[:, [1, 0]]
+atoms.set_positions(pos)
 
-plt.xlim(x[0], x[-1])
-plt.ylim(y[0], y[-1])
+cell = atoms.get_cell()
+cell[:, [0, 1]] = cell[:, [1, 0]]
+atoms.set_cell(cell)
 
-# Mark the quantum region
+# ASE plot atoms function
 i, j = 1, 0
-qmrect = patches.Rectangle(
-    (poisson_solver.qm.corner1[i] * Bohr, poisson_solver.qm.corner1[j] * Bohr),
-    (poisson_solver.qm.corner2[i] - poisson_solver.qm.corner1[i]) * Bohr,
-    (poisson_solver.qm.corner2[j] - poisson_solver.qm.corner1[j]) * Bohr,
-    color='black',  # #0099FF',
-    fill=0,
-    linewidth=1.0)
-ax.add_patch(qmrect)
 
-# Classical
+offset = np.array(
+    [poisson_solver.qm.corner1[i],
+     poisson_solver.qm.corner1[j]]) * 2 * Bohr
+
+bbox = np.array(
+    [poisson_solver.qm.corner1[i],
+     poisson_solver.qm.corner1[j],
+     poisson_solver.qm.corner2[i],
+     poisson_solver.qm.corner2[j]]) * Bohr
+
+plot_atoms(atoms, ax=None, show_unit_cell=2, offset=offset, bbox=bbox)
+
+ax.autoscale()
+
+# Classical grid
 dmy1, dmy_proj, (x, y, dx, dy), dmy3 = generate_xygrid(plotData, g, box)
 xx, yy = np.meshgrid(x, y)
 plt.scatter(xx,
             yy,
             s=0.75, c='k', marker='o')
 
-# Quantum
+# Quantum grid
 dmy1, dmy_proj, (x, y, dx, dy), dmy3 = generate_xygrid(
     plotData, g, box=np.diagonal(poisson_solver.qm.gd.cell_cv) * Bohr)
 xx, yy = np.meshgrid(x, y)

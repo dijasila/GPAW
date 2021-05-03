@@ -1,4 +1,4 @@
-# Creates: si-gaps.csv
+# web-page: si-gaps.csv
 from ase.build import bulk
 from ase.parallel import paropen
 from gpaw.hybrids.eigenvalues import non_self_consistent_eigenvalues
@@ -10,7 +10,7 @@ si = bulk('Si', 'diamond', a)
 fd = paropen('si-gaps.csv', 'w')
 
 for k in range(2, 9, 2):
-    name = 'Si-{0}'.format(k)
+    name = f'Si-{k}'
     si.calc = GPAW(kpts={'size': (k, k, k), 'gamma': True},
                    mode=PW(200),
                    xc='PBE',

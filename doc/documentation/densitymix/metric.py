@@ -29,9 +29,9 @@ for next in path[1:]:
     previous = next
 
 vasp = [1 / max(np.linalg.norm(q), 1e-6)**2 for q in qvec]
-gpaw = [( 1 + cos(qx) + cos(qy) + cos(qz) +
-        cos(qx) * cos(qy) + cos(qx) * cos(qz) + cos(qy) * cos(qz) +
-        cos(qx) * cos(qy) * cos(qz)) / 8. for qx, qy, qz in qvec]
+gpaw = [(1 + cos(qx) + cos(qy) + cos(qz) +
+         cos(qx) * cos(qy) + cos(qx) * cos(qz) + cos(qy) * cos(qz) +
+         cos(qx) * cos(qy) * cos(qz)) / 8. for qx, qy, qz in qvec]
 
 # Plot band data
 fig = plt.figure(1, figsize=(5, 3), dpi=90)
@@ -54,4 +54,4 @@ else:
 plt.legend(loc='upper right', **kwpad)
 plt.title('Special metric for density changes')
 plt.savefig('metric.png', dpi=90)
-#plt.show()
+# plt.show()
