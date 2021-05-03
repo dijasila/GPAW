@@ -188,7 +188,8 @@ class PWDescriptor:
             self.K_qv = np.zeros((1, 3))
             self.only_one_k_point = True
         else:
-            self.K_qv = np.dot(kd.ibzk_qc, B_cv)
+            self.K_qv = np.dot(kd.ibzk_qc + np.array([0.1, 0, 0.1]), B_cv)
+            # self.K_qv = np.dot(kd.ibzk_qc, B_cv)
             self.only_one_k_point = (kd.nbzkpts == 1)
 
         # Map from vectors inside sphere to fft grid:
