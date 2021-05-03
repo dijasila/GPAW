@@ -1954,18 +1954,24 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
             self.poisson.solve(self.vHt_q, dens)
             epot = 0.5 * integrate(self.pd3, self.vHt_q, dens.rhot_q)
 
+        self.vt_Q = self.vbar_Q.copy()
+
+        eext = 0.0
+        dens.map23.add_to1(self.vt_Q, self.vHt_q)
+
         if self.vext is None:
-            v_q = self.vHt_q
-            eext = 0.0
+            self.vt_sG[:] = self.pd2.ifft(self.vt_Q)
+        elif self.vext.name == 'B-field':
+            magmom_v, _ = dens.estimate_magnetic_moments()
+            eext = self.vext.field_strength * magmom_v[2]
+            self.vt_sG[:] = self.pd2.ifft(self.vt_Q)
+            self.vt_sG[0] += self.vext.field_strength
+            self.vt_sG[0] -= self.vext.field_strength
         else:
             v_q = self.vext.get_potentialq(self.finegd, self.pd3).copy()
             eext = integrate(self.pd3, v_q, dens.rhot_q)
-            v_q += self.vHt_q
-
-        self.vt_Q = self.vbar_Q.copy()
-        dens.map23.add_to1(self.vt_Q, v_q)
-
-        self.vt_sG[:] = self.pd2.ifft(self.vt_Q)
+            dens.map23.add_to1(self.vt_Q, v_q)
+            self.vt_sG[:] = self.pd2.ifft(self.vt_Q)
 
         self.timer.start('XC 3D grid')
 
