@@ -1,11 +1,13 @@
 """This module defines different external potentials."""
 import copy
 import warnings
-from typing import Callable, Dict
+from typing import Callable, Dict, Optional
 
-import _gpaw
 import numpy as np
 from ase.units import Bohr, Ha
+
+import _gpaw
+from gpaw.typing import Array3D
 
 __all__ = ['ConstantPotential', 'ConstantElectricField', 'CDFTPotential',
            'PointChargePotential', 'StepPotentialz',
@@ -29,8 +31,8 @@ def create_external_potential(name, **kwargs):
 
 
 class ExternalPotential:
-    vext_g = None
-    vext_q = None
+    vext_g: Optional[Array3D] = None
+    vext_q: Optional[Array3D] = None
 
     def get_potential(self, gd):
         """Get the potential on a regular 3-d grid.
@@ -54,10 +56,10 @@ class ExternalPotential:
 
         return self.vext_q
 
-    def calculate_potential(self, gd):
+    def calculate_potential(self, gd) -> None:
         raise NotImplementedError
 
-    def get_name(self):
+    def get_name(self) -> str:
         return self.__class__.__name__
 
     def update_potential_pw(self, finegd, pd2, pd3,
@@ -69,15 +71,15 @@ class ExternalPotential:
         return eext
 
     def update_atomic_hamiltonians_pw(self, finegd, pd3,
-                                      vHt_q, W_aL, dens):
+                                      vHt_q, W_aL, dens) -> None:
         vext_q = self.get_potentialq(finegd, pd3)
         dens.ghat.integrate(vHt_q + vext_q, W_aL)
 
-    def paw_correction(self, Delta_p, dH_sp):
+    def paw_correction(self, Delta_p, dH_sp) -> None:
         pass
 
-    def derivative_pw(self, finegd, pd3, vHt_q, ghat_aLv, dens):
-        vext_q = self.vext.get_potentialq(finegd, pd3)
+    def derivative_pw(self, finegd, pd3, vHt_q, ghat_aLv, dens) -> None:
+        vext_q = self.get_potentialq(finegd, pd3)
         dens.ghat.derivative(vHt_q + vext_q, ghat_aLv)
 
 
