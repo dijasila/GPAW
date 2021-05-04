@@ -213,6 +213,29 @@ class WLDA(XCFunctional):
         self.wfs = wfs
         self.occupations = occupations
 
+    def do_lda(self, n_sg, eldax_g, eldac_g, vldax_sg, vldac_sg):
+        from gpaw.xc.lda import lda_x, lda_c
+        
+        if len(n_sg) == 1:
+            n = n_sg[0]
+            n[n < 1e-20] = 1e-40
+
+            lda_x(0, eldax_g, n, vldax_sg)
+
+            lda_c(0, eldac_g, n, vldac_sg, 0)
+        else:
+            na = 2. * n_sg[0]
+            na[na < 1e-20] = 1e-40
+            nb = 2. * n_sg[1]
+            nb[nb < 1e-20] = 1e-40
+            n = 0.5 * (na + nb)
+            zeta = 0.5 * (na - nb) / n
+
+            lda_x(1, eldax_g, na, vldax_sg[0])
+            lda_x(1, eldax_g, nb, vldax_sg[1])
+
+            lda_c(1, eldac_g, n, vldac_sg, zeta)
+
     def calculate_impl(self, gd, n_sg, v_sg, e_g):
         """Interface for GPAW."""
         # Calculate E_LDA on n_sg
@@ -220,9 +243,12 @@ class WLDA(XCFunctional):
         # because it modifies the density
         parprint("WLDA is the next PBE")
         if self.mode in [Modes.rWLDA, Modes.fWLDA]:
-            elda_g = np.zeros_like(n_sg[0])
-            vlda_sg = np.zeros_like(n_sg)
-            self.lda_xc.calculate_impl(gd, n_sg, vlda_sg, elda_g)
+            eldax_g = np.zeros_like(n_sg[0])
+            eldac_g = np.zeros_like(n_sg[0])
+            vldax_sg = np.zeros_like(n_sg)
+            vldac_sg = np.zeros_like(n_sg)
+            
+            self.do_lda(n_sg, eldax_g, eldac_g, vldax_sg, vldac_sg)
 
         n_sg = n_sg.copy()
         wn_sg = self.get_working_density(n_sg, gd)
@@ -260,13 +286,20 @@ class WLDA(XCFunctional):
         gd.distribute(exc_g, e_g)
         gd.distribute(vxc_sg, v_sg)
 
-        if self.mode == Modes.fWLDA:
-            e_g[:] = elda_g + self.lambd * (e_g - elda_g)
-            v_sg[:] = vlda_sg + self.lambd * (v_sg - vlda_sg)
-        elif self.mode == Modes.rWLDA:
-            e_g[:] = elda_g + e_g - self.lambd * elda_g
-            v_sg[:] = vlda_sg + v_sg - self.lambd * vlda_sg
-
+        if self.exchange_only:
+            if self.mode == Modes.fWLDA:
+                e_g[:] = eldax_g + eldac_g + self.lambd * (e_g - eldax_g)
+                v_sg[:] = vldax_sg + vldac_g + self.lambd * (v_sg - vldax_sg)
+            elif self.mode == Modes.rWLDA:
+                e_g[:] = eldax_g + eldac_g + e_g - self.lambd * eldax_g
+                v_sg[:] = vldax_sg + vldac_sg + v_sg - self.lambd * vldax_sg
+        else:
+            if self.mode == Modes.fWLDA:
+                e_g[:] = eldax_g + eldac_g + self.lambd * (e_g - eldax_g - eldac_g)
+                v_sg[:] = vldax_sg + vldac_g + self.lambd * (v_sg - vldax_sg - vldac_sg)
+            elif self.mode == Modes.rWLDA:
+                e_g[:] = eldax_g + eldac_g + e_g - self.lambd * (eldax_g + eldac_g)
+                v_sg[:] = vldax_sg + vldac_sg + v_sg - self.lambd * (vldax_sg + vldac_sg)
 
         if self.save and mpi.rank == 0:
             tid = np.random.rand()
