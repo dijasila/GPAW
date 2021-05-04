@@ -158,7 +158,7 @@ class LCAOWaveFunctions(WaveFunctions):
             self.basis_functions.set_matrix_distribution(self.ksl.Mstart,
                                                          self.ksl.Mstop)
 
-        nq = len(self.kd.ibzk_qc)
+        nq = len(self.kd.xibzk_qc)
         nao = self.setups.nao
         Mstop = self.ksl.Mstop
         Mstart = self.ksl.Mstart
@@ -202,7 +202,7 @@ class LCAOWaveFunctions(WaveFunctions):
 
         self.timer.start('mktci')
         manytci = self.tciexpansions.get_manytci_calculator(
-            self.setups, self.gd, spos_ac, self.kd.ibzk_qc, self.dtype,
+            self.setups, self.gd, spos_ac, self.kd.xibzk_qc, self.dtype,
             self.timer)
         self.timer.stop('mktci')
         self.manytci = manytci

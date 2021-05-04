@@ -185,10 +185,12 @@ class PWDescriptor:
 
         self.kd = kd
         if kd is None:
-            self.K_qv = np.zeros((1, 3))
+            self.xK_qv = np.zeros((1, 3))
             self.only_one_k_point = True
         else:
-            self.K_qv = np.dot(kd.ibzk_qc + np.array([0.1, 0, 0.1]), B_cv)
+            self.xK_qv = np.dot(kd.ibzk_qc + np.array([0.1, 0, 0.1]), B_cv)
+            kd.xibzk_qc = kd.ibzk_qc
+            del kd.ibzk_qc
             # self.K_qv = np.dot(kd.ibzk_qc, B_cv)
             self.only_one_k_point = (kd.nbzkpts == 1)
 
@@ -198,7 +200,7 @@ class PWDescriptor:
         Q_Q = np.arange(len(i_Qc), dtype=np.int32)
 
         self.ng_q = []
-        for q, K_v in enumerate(self.K_qv):
+        for q, K_v in enumerate(self.xK_qv):
             G2_Q = ((self.G_Qv + K_v)**2).sum(axis=1)
             if gammacentered:
                 mask_Q = ((self.G_Qv**2).sum(axis=1) <= 2 * ecut)
@@ -228,11 +230,11 @@ class PWDescriptor:
         ng1 = gd.comm.rank * self.maxmyng
         ng2 = ng1 + self.maxmyng
 
-        self.G2_qG = []
+        self.xG2_qG = []
         self.myQ_qG = []
         self.myng_q = []
         for q, G2_G in enumerate(G2_qG):
-            self.G2_qG.append(G2_G[ng1:ng2].copy())
+            self.xG2_qG.append(G2_G[ng1:ng2].copy())
             myQ_G = self.Q_qG[q][ng1:ng2]
             self.myQ_qG.append(myQ_G)
             self.myng_q.append(len(myQ_G))
@@ -242,12 +244,12 @@ class PWDescriptor:
         else:
             self.tmp_G = None
 
-    def get_reciprocal_vectors(self, q=0, add_q=True):
+    def xget_reciprocal_vectors(self, q=0, add_q=True):
         """Returns reciprocal lattice vectors plus q, G + q,
         in xyz coordinates."""
 
         if add_q:
-            q_v = self.K_qv[q]
+            q_v = self.xK_qv[q]
             return self.G_Qv[self.myQ_qG[q]] + q_v
         return self.G_Qv[self.myQ_qG[q]]
 
@@ -820,7 +822,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
     def make_preconditioner(self, block=1):
         if self.collinear:
             return Preconditioner(self.pd.G2_qG, self.pd)
-        return NonCollinearPreconditioner(self.pd.G2_qG, self.pd)
+        return NonCollinearPreconditioner(self.pd.xG2_qG, self.pd)
 
     @timer('Apply H')
     def apply_pseudo_hamiltonian(self, kpt, ham, psit_xG, Htpsit_xG):
@@ -854,7 +856,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
             kpt, psit_xG, Htpsit_xG, ham.dH_asp)
 
     def apply_pseudo_hamiltonian_nc(self, kpt, ham, psit_xG, Htpsit_xG):
-        Htpsit_xG[:] = 0.5 * self.pd.G2_qG[kpt.q] * psit_xG
+        Htpsit_xG[:] = 0.5 * self.pd.xG2_qG[kpt.q] * psit_xG
         v, x, y, z = ham.vt_xG
         iy = y * 1j
         for psit_sG, Htpsit_sG in zip(psit_xG, Htpsit_xG):
@@ -1408,7 +1410,7 @@ class PWLFC(BaseLFC):
                 s = splines[spline]  # get spline index
                 if spline not in done:
                     f = ft(spline)
-                    for f_Gs, G2_G in zip(self.f_qGs, self.pd.G2_qG):
+                    for f_Gs, G2_G in zip(self.f_qGs, self.pd.xG2_qG):
                         G_G = G2_G**0.5
                         f_Gs[:, s] = f.map(G_G)
                     self.l_s[s] = spline.get_angular_momentum_number()
@@ -1420,8 +1422,8 @@ class PWLFC(BaseLFC):
         self.lmax = max(self.l_s, default=-1)
 
         # Spherical harmonics:
-        for q, K_v in enumerate(self.pd.K_qv):
-            G_Gv = self.pd.get_reciprocal_vectors(q=q)
+        for q, K_v in enumerate(self.pd.xK_qv):
+            G_Gv = self.pd.xget_reciprocal_vectors(q=q)
             Y_GL = np.empty((len(G_Gv), (self.lmax + 1)**2))
             for L in range((self.lmax + 1)**2):
                 Y_GL[:, L] = Y(L, *G_Gv.T)
@@ -1451,7 +1453,7 @@ class PWLFC(BaseLFC):
         if kd is None or kd.gamma:
             self.eikR_qa = np.ones((1, len(spos_ac)))
         else:
-            self.eikR_qa = np.exp(2j * pi * np.dot(kd.ibzk_qc, spos_ac.T))
+            self.eikR_qa = np.exp(2j * pi * np.dot(kd.xibzk_qc, spos_ac.T))
 
         self.pos_av = np.dot(spos_ac, self.pd.gd.cell_cv)
 
@@ -1878,7 +1880,7 @@ class ReciprocalSpacePoissonSolver:
     def __init__(self, pd, realpbc_c):
         self.pd = pd
         self.realpbc_c = realpbc_c
-        self.G2_q = pd.G2_qG[0]
+        self.G2_q = pd.xG2_qG[0]
         if pd.gd.comm.rank == 0:
             # Avoid division by zero:
             self.G2_q[0] = 1.0

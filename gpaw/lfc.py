@@ -234,7 +234,7 @@ class LocalizedFunctionsCollection(BaseLFC):
             self.ibzk_qc = np.zeros((1, 3))
             self.gamma = True
         else:
-            self.ibzk_qc = kd.ibzk_qc
+            self.ibzk_qc = kd.xibzk_qc
             self.gamma = kd.gamma
 
         # Global or local M-indices?
