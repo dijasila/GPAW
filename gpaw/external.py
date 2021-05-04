@@ -241,9 +241,12 @@ class CDFTPotential(ExternalPotential):
 
 
 class BField(ExternalPotential):
-    def __init__(self, b: float):
-        self.name = 'CDFTPotential'
-        self.field_strength = b
+    def __init__(self, field_strength: float):
+        self.name = 'BField'
+        self.field_strength = field_strength
+
+    def atomic_hamiltonian(self):
+        ...
 
 
 class StepPotentialz(ExternalPotential):
