@@ -24,6 +24,7 @@ from gpaw.utilities.progressbar import ProgressBar
 from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
 from gpaw.wavefunctions.mode import Mode
 from gpaw.wavefunctions.arrays import PlaneWaveExpansionWaveFunctions
+from gpaw.external import NoExternalPotential
 import _gpaw
 
 
@@ -1911,6 +1912,10 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
                  psolver=None, redistributor=None, realpbc_c=None):
 
         assert redistributor is not None  # XXX should not be like this
+
+        if vext is None:
+            vext = NoExternalPotential()
+
         Hamiltonian.__init__(self, gd, finegd, nspins, collinear, setups,
                              timer, xc, world, vext=vext,
                              redistributor=redistributor)
@@ -1956,22 +1961,11 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
 
         self.vt_Q = self.vbar_Q.copy()
 
-        eext = 0.0
         dens.map23.add_to1(self.vt_Q, self.vHt_q)
 
-        if self.vext is None:
-            self.vt_sG[:] = self.pd2.ifft(self.vt_Q)
-        elif self.vext.name == 'B-field':
-            magmom_v, _ = dens.estimate_magnetic_moments()
-            eext = self.vext.field_strength * magmom_v[2]
-            self.vt_sG[:] = self.pd2.ifft(self.vt_Q)
-            self.vt_sG[0] += self.vext.field_strength
-            self.vt_sG[0] -= self.vext.field_strength
-        else:
-            v_q = self.vext.get_potentialq(self.finegd, self.pd3).copy()
-            eext = integrate(self.pd3, v_q, dens.rhot_q)
-            dens.map23.add_to1(self.vt_Q, v_q)
-            self.vt_sG[:] = self.pd2.ifft(self.vt_Q)
+        eext = self.vext.update_potential_pw(
+            self.finegd, self.pd2, self.pd3,
+            self.vt_Q, self.vt_sG, dens)
 
         self.timer.start('XC 3D grid')
 
@@ -2011,12 +2005,8 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
                        for l, _ in enumerate(self.setups[a].ghat_l)),
         W_aL = ArrayDict(self.atomdist.aux_partition, getshape, float)
 
-        if self.vext:
-            vext_q = self.vext.get_potentialq(self.finegd, self.pd3)
-            density.ghat.integrate(self.vHt_q + vext_q, W_aL)
-        else:
-            density.ghat.integrate(self.vHt_q, W_aL)
-
+        self.vext.update_atomic_hamiltonians_pw(self.finegd, self.pd3,
+                                                self.vHt_q, W_aL, density)
         return self.atomdist.to_work(self.atomdist.from_aux(W_aL))
 
     def calculate_kinetic_energy(self, density):

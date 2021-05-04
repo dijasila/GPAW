@@ -60,6 +60,22 @@ class ExternalPotential:
     def get_name(self):
         return self.__class__.__name__
 
+    def update_potential_pw(self, finegd, pd2, pd3,
+                            vt_Q, vt_sG, dens) -> float:
+        v_q = self.get_potentialq(finegd, pd3).copy()
+        eext = pd3.integrate(v_q, dens.rhot_q, global_integral=False)
+        dens.map23.add_to1(vt_Q, v_q)
+        vt_sG[:] = pd2.ifft(vt_Q)
+        return eext
+
+    def update_atomic_hamiltonians_pw(self, finegd, pd3,
+                                      vHt_q, W_aL, dens):
+        vext_q = self.get_potentialq(finegd, pd3)
+        dens.ghat.integrate(vHt_q + vext_q, W_aL)
+
+    def paw_correction(self, Delta_p, dH_sp):
+        pass
+
 
 class ConstantPotential(ExternalPotential):
     """Constant potential for tests."""
@@ -240,13 +256,38 @@ class CDFTPotential(ExternalPotential):
         self.name = 'CDFTPotential'
 
 
+class NoExternalPotential(ExternalPotential):
+    def update_potential_pw(self, finegd, pd2, pd3,
+                            vt_Q, vt_sG, dens) -> float:
+        vt_sG[:] = pd2.ifft(vt_Q)
+        return 0.0
+
+    def update_atomic_hamiltonians_pw(self, finegd, pd3,
+                                      vHt_q, W_aL, dens):
+        dens.ghat.integrate(vHt_q, W_aL)
+
+
 class BField(ExternalPotential):
     def __init__(self, field_strength: float):
         self.name = 'BField'
         self.field_strength = field_strength
 
-    def atomic_hamiltonian(self):
-        ...
+    def update_potential_pw(self, finegd, pd2, pd3,
+                            vt_Q, vt_sG, dens) -> float:
+        magmom_v, _ = dens.estimate_magnetic_moments()
+        eext = self.field_strength * magmom_v[2]
+        vt_sG[:] = pd2.ifft(vt_Q)
+        vt_sG[0] += self.field_strength
+        vt_sG[1] -= self.field_strength
+        return eext
+
+    def update_atomic_hamiltonians_pw(self, finegd, pd3,
+                                      vHt_q, W_aL, dens):
+        dens.ghat.integrate(vHt_q, W_aL)
+
+    def paw_correction(self, Delta_p, dH_sp):
+        dH_sp[0] += self.field_strength * Delta_p
+        dH_sp[1] -= self.field_strength * Delta_p
 
 
 class StepPotentialz(ExternalPotential):
