@@ -5,11 +5,11 @@ from typing import Callable, Dict
 
 import _gpaw
 import numpy as np
-from ase.units import Bohr, Hartree
+from ase.units import Bohr, Ha
 
 __all__ = ['ConstantPotential', 'ConstantElectricField', 'CDFTPotential',
            'PointChargePotential', 'StepPotentialz',
-           'PotentialCollection']
+           'PotentialCollection', 'BField']
 
 
 known_potentials: Dict[str, Callable] = {}
@@ -76,22 +76,26 @@ class ExternalPotential:
     def paw_correction(self, Delta_p, dH_sp):
         pass
 
+    def derivative_pw(self, finegd, pd3, vHt_q, ghat_aLv, dens):
+        vext_q = self.vext.get_potentialq(finegd, pd3)
+        dens.ghat.derivative(vHt_q + vext_q, ghat_aLv)
+
 
 class ConstantPotential(ExternalPotential):
     """Constant potential for tests."""
     def __init__(self, constant=1.0):
-        self.constant = constant / Hartree
+        self.constant = constant / Ha
         self.name = 'ConstantPotential'
 
     def __str__(self):
-        return 'Constant potential: {:.3f} V'.format(self.constant * Hartree)
+        return 'Constant potential: {:.3f} V'.format(self.constant * Ha)
 
     def calculate_potential(self, gd):
         self.vext_g = gd.zeros() + self.constant
 
     def todict(self):
         return {'name': self.name,
-                'constant': self.constant * Hartree}
+                'constant': self.constant * Ha}
 
 
 class ConstantElectricField(ExternalPotential):
@@ -104,14 +108,14 @@ class ConstantElectricField(ExternalPotential):
             Polarisation direction.
         """
         d_v = np.asarray(direction)
-        self.field_v = strength * d_v / (d_v**2).sum()**0.5 * Bohr / Hartree
+        self.field_v = strength * d_v / (d_v**2).sum()**0.5 * Bohr / Ha
         self.tolerance = tolerance
         self.name = 'ConstantElectricField'
 
     def __str__(self):
         return ('Constant electric field: '
                 '({:.3f}, {:.3f}, {:.3f}) V/Ang'
-                .format(*(self.field_v * Hartree / Bohr)))
+                .format(*(self.field_v * Ha / Bohr)))
 
     def calculate_potential(self, gd):
         # Currently skipped, PW mode is periodic in all directions
@@ -129,7 +133,7 @@ class ConstantElectricField(ExternalPotential):
     def todict(self):
         strength = (self.field_v**2).sum()**0.5
         return {'name': self.name,
-                'strength': strength * Hartree / Bohr,
+                'strength': strength * Ha / Bohr,
                 'direction': self.field_v / strength}
 
 
@@ -246,7 +250,7 @@ class PointChargePotential(ExternalPotential):
                            self.rc, self.rc2, self.width,
                            self.vext_g, dcom_pv, dens.rhot_g, F_pv)
         gd.comm.sum(F_pv)
-        return F_pv * Hartree / Bohr
+        return F_pv * Ha / Bohr
 
 
 class CDFTPotential(ExternalPotential):
@@ -266,28 +270,32 @@ class NoExternalPotential(ExternalPotential):
                                       vHt_q, W_aL, dens):
         dens.ghat.integrate(vHt_q, W_aL)
 
+    def derivative_pw(self, finegd, pd3, vHt_q, ghat_aLv, dens):
+        dens.ghat.derivative(vHt_q, ghat_aLv)
 
-class BField(ExternalPotential):
-    def __init__(self, field_strength: float):
+
+class BField(NoExternalPotential):
+    def __init__(self, strength: float):
         self.name = 'BField'
-        self.field_strength = field_strength
+        self.strength = strength / Ha
 
     def update_potential_pw(self, finegd, pd2, pd3,
                             vt_Q, vt_sG, dens) -> float:
         magmom_v, _ = dens.estimate_magnetic_moments()
-        eext = self.field_strength * magmom_v[2]
+        eext = -self.strength * magmom_v[2]
         vt_sG[:] = pd2.ifft(vt_Q)
-        vt_sG[0] += self.field_strength
-        vt_sG[1] -= self.field_strength
+        vt_sG[0] -= self.strength
+        vt_sG[1] += self.strength
         return eext
 
-    def update_atomic_hamiltonians_pw(self, finegd, pd3,
-                                      vHt_q, W_aL, dens):
-        dens.ghat.integrate(vHt_q, W_aL)
-
     def paw_correction(self, Delta_p, dH_sp):
-        dH_sp[0] += self.field_strength * Delta_p
-        dH_sp[1] -= self.field_strength * Delta_p
+        c = (4 * np.pi)**0.5 * self.strength
+        dH_sp[0] -= c * Delta_p
+        dH_sp[1] += c * Delta_p
+
+    def todict(self):
+        return {'name': self.name,
+                'strength': self.strength * Ha}
 
 
 class StepPotentialz(ExternalPotential):
@@ -313,8 +321,8 @@ class StepPotentialz(ExternalPotential):
     def calculate_potential(self, gd):
         r_vg = gd.get_grid_point_coordinates()
         self.vext_g = np.where(r_vg[2] < self.zstep / Bohr,
-                               gd.zeros() + self.value_left / Hartree,
-                               gd.zeros() + self.value_right / Hartree)
+                               gd.zeros() + self.value_left / Ha,
+                               gd.zeros() + self.value_right / Ha)
 
     def todict(self):
         return {'name': self.name,
