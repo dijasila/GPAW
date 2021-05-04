@@ -289,14 +289,14 @@ class WLDA(XCFunctional):
         if self.exchange_only:
             if self.mode == Modes.fWLDA:
                 e_g[:] = eldax_g + eldac_g + self.lambd * (e_g - eldax_g)
-                v_sg[:] = vldax_sg + vldac_g + self.lambd * (v_sg - vldax_sg)
+                v_sg[:] = vldax_sg + vldac_sg + self.lambd * (v_sg - vldax_sg)
             elif self.mode == Modes.rWLDA:
                 e_g[:] = eldax_g + eldac_g + e_g - self.lambd * eldax_g
                 v_sg[:] = vldax_sg + vldac_sg + v_sg - self.lambd * vldax_sg
         else:
             if self.mode == Modes.fWLDA:
                 e_g[:] = eldax_g + eldac_g + self.lambd * (e_g - eldax_g - eldac_g)
-                v_sg[:] = vldax_sg + vldac_g + self.lambd * (v_sg - vldax_sg - vldac_sg)
+                v_sg[:] = vldax_sg + vldac_sg + self.lambd * (v_sg - vldax_sg - vldac_sg)
             elif self.mode == Modes.rWLDA:
                 e_g[:] = eldax_g + eldac_g + e_g - self.lambd * (eldax_g + eldac_g)
                 v_sg[:] = vldax_sg + vldac_sg + v_sg - self.lambd * (vldax_sg + vldac_sg)
