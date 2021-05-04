@@ -261,6 +261,8 @@ class CDFTPotential(ExternalPotential):
 
 
 class NoExternalPotential(ExternalPotential):
+    vext_g = np.zeros((0, 0, 0))
+
     def update_potential_pw(self, finegd, pd2, pd3,
                             vt_Q, vt_sG, dens) -> float:
         vt_sG[:] = pd2.ifft(vt_Q)
