@@ -63,8 +63,8 @@ class ELF:
     def __init__(self, paw=None, ncut=1e-6):
         """Create the ELF object."""
 
-        if (paw.wfs.mode != 'fd'):
-            raise NotImplementedError("Only FD mode supported for ELF")
+        if paw.wfs.mode != 'fd':
+            raise NotImplementedError('Only FD mode supported for ELF')
 
         self.gd = paw.wfs.gd
         self.paw = paw
