@@ -1,11 +1,11 @@
 import os
-import traceback
-from io import StringIO
-import numpy as np
 import copy
+import traceback
 import textwrap
-from scipy.stats import linregress
+from io import StringIO
 
+import numpy as np
+from scipy.stats import linregress
 import ase.io
 from ase.units import Bohr, Ha
 from ase.calculators.calculator import (Parameters, equal, InputError,
@@ -19,9 +19,7 @@ from gpaw.jellium import Jellium, JelliumSlab
 from gpaw.hamiltonian import RealSpaceHamiltonian
 from gpaw.fd_operators import Gradient
 from gpaw.dipole_correction import DipoleCorrection
-
-from gpaw.solvation.cavity import (Potential, Power12Potential,
-                                   get_pbc_positions)
+from gpaw.solvation.cavity import Power12Potential, get_pbc_positions
 from gpaw.solvation.calculator import SolvationGPAW
 from gpaw.solvation.hamiltonian import SolvationRealSpaceHamiltonian
 from gpaw.solvation.poisson import WeightedFDPoissonSolver
@@ -762,9 +760,11 @@ class SJMPower12Potential(Power12Potential):
     ----------
     atomic_radii : float
         Callable mapping an ase.Atoms object to an iterable of atomic radii
-        in Angstroms.
+        in Angstroms. If not provided, defaults to van der Waals radii.
     u0 : float
         Strength of the potential at the atomic radius in eV.
+        Defaults to 0.18 eV, the best-fit value for water from Held &
+        Walter.
     pbc_cutoff : float
         Cutoff in eV for including neighbor cells in a calculation with
         periodic boundary conditions.
@@ -784,18 +784,9 @@ class SJMPower12Potential(Power12Potential):
     depends_on_el_density = False
     depends_on_atomic_positions = True
 
-    def __init__(self, atomic_radii, u0, pbc_cutoff=1e-6, tiny=1e-10,
-                 H2O_layer=False, unsolv_backside=True):
-        Potential.__init__(self)
-        self.atomic_radii = atomic_radii
-        self.u0 = float(u0)
-        self.pbc_cutoff = float(pbc_cutoff)
-        self.tiny = float(tiny)
-        self.r12_a = None
-        self.r_vg = None
-        self.pos_aav = None
-        self.del_u_del_r_vg = None
-        self.atomic_radii_output = None
+    def __init__(self, atomic_radii=None, u0=0.180, pbc_cutoff=1e-6,
+                 tiny=1e-10, H2O_layer=False, unsolv_backside=True):
+        super().__init__(atomic_radii, u0, pbc_cutoff, tiny)
         self.H2O_layer = H2O_layer
         self.unsolv_backside = unsolv_backside
 

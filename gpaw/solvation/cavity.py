@@ -1,8 +1,10 @@
+import numpy as np
 from ase.units import kB, Hartree, Bohr
+from ase.data.vdw import vdw_radii
+
 from gpaw.solvation.gridmem import NeedsGD
 from gpaw.fd_operators import Gradient
 from gpaw.io.logger import indent
-import numpy as np
 
 
 BAD_RADIUS_MESSAGE = "All atomic radii have to be finite and >= zero."
@@ -354,6 +356,11 @@ class Potential(NeedsGD):
         pass
 
 
+def get_vdw_radii(atoms):
+    """Returns a list of van der Waals radii for a given atoms object."""
+    return [vdw_radii[n] for n in atoms.numbers]
+
+
 class Power12Potential(Potential):
     """Inverse power law potential.
 
@@ -366,17 +373,23 @@ class Power12Potential(Potential):
     depends_on_el_density = False
     depends_on_atomic_positions = True
 
-    def __init__(self, atomic_radii, u0, pbc_cutoff=1e-6, tiny=1e-10):
+    def __init__(self, atomic_radii=None, u0=0.180, pbc_cutoff=1e-6,
+                 tiny=1e-10):
         """Constructor for the Power12Potential class.
 
         Arguments:
         atomic_radii -- Callable mapping an ase.Atoms object
                         to an iterable of atomic radii in Angstroms.
+                        If not provided, defaults to van der Waals radii.
         u0           -- Strength of the potential at the atomic radius in eV.
+                        Defaults to 0.180 eV, the best-fit value for water from
+                        Held & Walter.
         pbc_cutoff   -- Cutoff in eV for including neighbor cells in
                         a calculation with periodic boundary conditions.
         """
         Potential.__init__(self)
+        if atomic_radii is None:
+            atomic_radii = get_vdw_radii
         self.atomic_radii = atomic_radii
         self.u0 = float(u0)
         self.pbc_cutoff = float(pbc_cutoff)
