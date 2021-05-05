@@ -34,7 +34,7 @@ class BaseSolver(ABC):
         if (eps <= tolerance):
             self.eps = eps
         else:
-            raise RuntimeError(
+            raise ValueError(
                 "Invalid tolerance (tol = %le < eps = %le)."
                 % (tolerance, eps))
 
