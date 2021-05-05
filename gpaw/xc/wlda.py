@@ -1281,22 +1281,22 @@ class WLDA(XCFunctional):
         v3_sg = np.zeros_like(v_sg)
 
         if spin == 0:
-            self.radial_x1(spin, e1_g, n_sg[0], nstar_sg[0], v1_sg[0])
-            self.radial_x2(spin, e2_g, n_sg[0], nstar_sg[0], v2_sg[0])
-            self.radial_x3(spin, e3_g, n_sg[0], nstar_sg[0], v3_sg[0])
+            self.radial_x1(spin, 0, e1_g, n_sg[0], nstar_sg[0], v1_sg[0])
+            self.radial_x2(spin, 0, e2_g, n_sg[0], nstar_sg[0], v2_sg[0])
+            self.radial_x3(spin, 0, e3_g, n_sg[0], nstar_sg[0], v3_sg[0])
 
             e_g[:] = e1_g + e2_g - e3_g
             v_sg[:] = v1_sg + v2_sg - v3_sg
 
             return nstar_sg, v1_sg, v2_sg, v3_sg
         else:
-            self.radial_x1(spin, e1_g, n_sg[0], nstar_sg[0], v1_sg[0])
-            self.radial_x2(spin, e2_g, n_sg[0], nstar_sg[0], v2_sg[0])
-            self.radial_x3(spin, e3_g, n_sg[0], nstar_sg[0], v3_sg[0])
+            self.radial_x1(spin, 0, e1_g, n_sg[0], nstar_sg[0], v1_sg[0])
+            self.radial_x2(spin, 0, e2_g, n_sg[0], nstar_sg[0], v2_sg[0])
+            self.radial_x3(spin, 0, e3_g, n_sg[0], nstar_sg[0], v3_sg[0])
 
-            self.radial_x1(spin, e1_g, n_sg[1], nstar_sg[1], v1_sg[1])
-            self.radial_x2(spin, e2_g, n_sg[1], nstar_sg[1], v2_sg[1])
-            self.radial_x3(spin, e3_g, n_sg[1], nstar_sg[1], v3_sg[1])
+            self.radial_x1(spin, 1, e1_g, n_sg[1], nstar_sg[1], v1_sg[1])
+            self.radial_x2(spin, 1, e2_g, n_sg[1], nstar_sg[1], v2_sg[1])
+            self.radial_x3(spin, 1, e3_g, n_sg[1], nstar_sg[1], v3_sg[1])
 
             e_g[:] = e1_g + e2_g - e3_g
             v_sg[:] = v1_sg + v2_sg - v3_sg
@@ -1548,7 +1548,7 @@ class WLDA(XCFunctional):
         else:
             raise ValueError(f'Weightfunction type "{wf}" not allowed.')
 
-    def radial_x2(self, spin, e_g, n_g, nstar_g, v_g):
+    def radial_x2(self, spin, spinindex, e_g, n_g, nstar_g, v_g):
         """Calculate e_x[n*]n and potential."""
         from gpaw.xc.lda import lda_constants
         C0I, C1, CC1, CC2, IF2 = lda_constants()
@@ -1567,7 +1567,7 @@ class WLDA(XCFunctional):
         t1 = rs * dexdrs / 3.0
         ratio = n_g / nstar_g
         ratio[np.isclose(nstar_g, 0.0)] = 0.0
-        v_g += self.radial_derivative_fold(-t1 * ratio, n_g, spin)
+        v_g += self.radial_derivative_fold(-t1 * ratio, n_g, spinindex)
 
     def radial_c2(self, spin, e_g, ntotal_g, n_sg, nstar_sg, v_sg, zeta):
         """Calculate e_c[n*]n and potential."""
@@ -1635,7 +1635,7 @@ class WLDA(XCFunctional):
             #     self.radial_derivative_fold(
             #         t1 * ratio, n_g, 0) - (zeta + 1.0) * decdzeta
 
-    def radial_x1(self, spin, e_g, n_g, nstar_g, v_g):
+    def radial_x1(self, spin, spinindex, e_g, n_g, nstar_g, v_g):
         """Calculate e_x[n]n* and potential.
 
         It is necessary to regularize the potential as
@@ -1655,7 +1655,7 @@ class WLDA(XCFunctional):
         else:
             e_g[:] += 0.5 * nstar_g * ex
 
-        v_g[:] += self.radial_derivative_fold(ex, n_g, spin)
+        v_g[:] += self.radial_derivative_fold(ex, n_g, spinindex)
         ratio = nstar_g / n_g
         ratio[np.isclose(n_g, 0.0)] = 0.0
         v_g[:] += -rs * dexdrs / 3.0 * ratio * \
@@ -1714,7 +1714,7 @@ class WLDA(XCFunctional):
             v_sg[1] += self.radial_derivative_fold3(ec, ntotal_g, 0, 0, self.ti_ag, self.dti_ag)
             v_sg[1] -= (rs * decdrs / 3.0 - (zeta + 1.0) * decdzeta) * ratio
 
-    def radial_x3(self, spin, e_g, n_g, nstar_g, v_g):
+    def radial_x3(self, spin, spinindex, e_g, n_g, nstar_g, v_g):
         """Calculate e_x[n*]n* and potential."""
         from gpaw.xc.lda import lda_constants
         C0I, C1, CC1, CC2, IF2 = lda_constants()
@@ -1730,7 +1730,7 @@ class WLDA(XCFunctional):
             e_g[:] += 0.5 * nstar_g * ex
 
         v_g[:] += (ex - rs * dexdrs / 3.0)
-        v_g[:] = self.radial_derivative_fold(v_g, n_g, spin)
+        v_g[:] = self.radial_derivative_fold(v_g, n_g, spinindex)
 
     def radial_c3(self, spin, e_g, ntotal_g, n_sg, nstar_sg, v_sg, zeta):
         """Calculate e_c[n*]n* and potential."""
