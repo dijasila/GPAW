@@ -1,9 +1,7 @@
 import re
-from pathlib import Path
 
 import numpy as np
 
-from gpaw.mpi import broadcast_float
 from gpaw.lcaotddft.observer import TDDFTObserver
 
 
@@ -28,16 +26,10 @@ class DipoleMomentWriter(TDDFTObserver):
     version = 1
 
     def __init__(self, paw, filename, center=False, density='comp',
-                 interval=1):
+                 force_new_file=False, interval=1):
         TDDFTObserver.__init__(self, paw, interval)
         self.master = paw.world.rank == 0
-        if self.master:
-            do_initialize = paw.niter == 0 or not Path(filename).exists()
-        else:
-            do_initialize = True
-        do_initialize = broadcast_float(do_initialize, paw.world)
-
-        if do_initialize:
+        if paw.niter == 0 or force_new_file:
             # Initialize
             self.do_center = center
             self.density_type = density
