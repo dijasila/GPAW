@@ -53,8 +53,6 @@ def allocate_wavefunction_arrays(wfs):
 
 class BasePropagator(ABC):
     """Abstract base class for time propagators."""
-    def __init__(self):
-        pass
 
     def todict(self):
         return {'name': self.__class__.__name__}
