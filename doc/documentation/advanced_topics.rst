@@ -32,6 +32,7 @@ GPAW calculator:
    pdos/pdos
    elph/elph
    xas/xas
+   sjm/sjm
    densitymix/densitymix
    cmdline
    ../devel/electrostatic_potential

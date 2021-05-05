@@ -1,6 +1,20 @@
 .. module:: gpaw.solvation.sjm
 .. _solvated_jellium_method:
 
+FIXME/ap: Move the module documentation to the theory.
+
+FIXME/ap: Most of the background should be remove from here and just linked to the theory page.
+
+FIXME/ap: Update the script so that the radii part is gone, but make a note that this can be adjusted if the solvent penetrates the slab.
+
+FIXME/ap: Be sure to note that ghost atoms can be added.
+
+FIXME/ap: Show a plot of the dielectric versus position as a check that should be done at the start of calculations.
+
+FIXME/ap: Discuss the old sequential versus simultaneous modes.
+
+FIXME/ap: Show a simple NEB script, and have a link to the more elaborate one.
+
 =============================
 Solvated Jellium Method (SJM)
 =============================
@@ -10,53 +24,78 @@ Theoretical Background
 
 The Solvated Jellium method (SJM) is a simple method for the simulation
 of electrochemical interfaces in DFT. A full description of the model
-can be found in [#SJM18]_. It can be used like the standard GPAW calculator,
-meaning stable intermediates and reaction barriers can be calculated at
-defined electrode potential via e.g. the Nudged Elastic Band method (NEB)
-[#NEB00]_.
+can be found in [#SJM18]_. The method allows you to change the simulated
+electrode potential (manifested as the work function) by varying the
+number of electrons in the simulation; calculations can be run in either
+constant-charge or constant-potential mode.
+It can be used like the standard GPAW calculator,
+meaning stable intermediates and reaction barriers can be found, at
+defined electrode potentials, by using standard methods such as
+QuasiNewton or the Nudged Elastic Band (NEB) [#NEB00]_ method.
 
 The basis of the model is keeping control of the electrode potential
-by charging the electrodes interface, while keeping the periodic
-unit cell charge neutral. This is done by adding a JelliumSlab in
-the region above the electrode surface. Doing so both electrons/holes
-in the SCF cycle and spatially constant counter charge are introduced,
-therefore keeping the unit cell charge neutral.
+by adding or subtracting fractions of an electron to the system (that is,
+charging the electrode's interface), while keeping the periodic
+unit cell charge neutral. This is done by adding a region of jellium in
+the vacuum above the electrode surface. In so doing, both electrons/holes
+are added to the SCF cycle and a spatially constant counter charge are
+introduced, therefore keeping the unit cell charge-neutral.
 
-Additionally, an implicit solvent [#HW14]_ is introduced above the slab,
-which screens the electric field created by dipole consisting of electrode
+Additionally, the jellium region is immersed in an implicit solvent [#HW14]_,
+which screens the electric field created by the dipole consisting of electrode
 and counter charge.
 
 The electrode potential is then defined as the Fermi Level (`\mu`) referenced
 to the electrostatic potential deep in the solvent, where the whole
 charge on the electrode has been screened and no electric field is present.
 
-.. math:: \Phi_e = \Phi_w - \mu.
+.. math:: \Phi_\mathrm{e} = \Phi_\mathrm{w} - \mu.
 
-The energy used in the analysis of electrode reactions is the Grand Potential
-Energy
+The energy used in the analysis of electrode reactions is the grand-potential
+energy
 
-.. math:: \Omega = E_{tot} + \Phi_e N_e
+.. math:: \Omega \equiv E_\mathrm{tot} + \Phi_\mathrm{e} N_\mathrm{e}
+
+Whereas :math:`E_\mathrm{tot}` is consistent with the forces in traditional
+electronic structure calculations, the grand-potential energy :math:`\Omega`
+is consistent with the forces in electronically grand-canonical (that is,
+constant-potential) simulations. This means that relaxations that follow forces
+will find local minima in :math:`\Omega`, and generally methods that rely
+on consistent force and energy information (such as BFGSLineSearch or NEB)
+will work fine as long as :math:`\Omega` is employed. Thus, this calculator
+returns :math:`\Omega` by default, rather than :math:`E_\mathrm{tot}`.
 
 Usage Example: A simple Au(111) slab
 ====================================
 
-As a usage example, given here is the calculation of a simple Au slab
+FIXME/ap: Simplify this script a bit. I.e., we can remove jelliumregion.
+Do we need so many imports from solvation?
+
+As a simple example, we'll examine the calculation of a simple Au slab
 at a potential of -1 V versus SHE. Keep in mind that the absolute
 potential has to be provided, where the value of the SHE potential on
-an absolute scale is approx. 4.4V.
+an absolute scale is approximately 4.4 V.
 
 .. literalinclude:: Au111.py
+
+If you examine the output in 'Au.txt', you'll see that the code
+varies the number of excess electrons until the target potential
+is approximately 3.4 V. This process usually takes a few steps
+on the first image, but often takeso
+
+FIXME/ap: pick up here! And change the output below to have right
+mu!
 
 The output in 'Au.txt' is extended by the grand canonical energy
 and contains the new part::
 
-Legendre-transformed energies (Omega = E - N mu)
-  (grand potential energies)
-  N (excess electrons):   +0.100000
-  mu (workfunction, eV):   +3.564009
---------------------------
-Free energy:     -8.997787
-Extrapolated:    -8.976676
+    Legendre-transformed energies (Omega = E - N mu)
+      (grand potential energies)
+      N (excess electrons):   +0.100000
+      mu (workfunction, eV):   +3.564009
+    --------------------------
+    Free energy:     -8.997787
+    Extrapolated:    -8.976676
 
 These energies are written e.g. into trajectory files if
 :literal:`write_grandcanonical_energy = True` (default).

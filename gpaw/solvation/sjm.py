@@ -54,11 +54,11 @@ class SJM(SolvationGPAW):
     The method can be run in two modes:
 
         - Constant charge: The number of excess electrons in the simulation
-          can be directly specified with the `excess_electrons` keyword,
-          leaving `target_potential=None`.
+          can be directly specified with the 'excess_electrons' keyword,
+          leaving 'target_potential' set to None.
         - Constant potential: The target potential (expressed as a work
-          function) can be specified with the `target_potential` keyword.
-          Optionally, the `excess_electrons` keyword can be supplied to specify
+          function) can be specified with the 'target_potential' keyword.
+          Optionally, the 'excess_electrons' keyword can be supplied to specify
           the initial guess of the number of electrons.
 
     By default, this method writes the grand-potential energy to the output;
@@ -180,6 +180,11 @@ class SJM(SolvationGPAW):
          'max_iters': 10,
          'max_step': 2.,
          'slope': None})
+    # FIXME/ap: It seems we should only be writing out grand-potential
+    # energy when in constant-potential mode; regular helmholtz energy
+    # would make more sense in constant-charge mode, no? Shall we make
+    # this keyword be None and set it automatically, and the user can
+    # override if they want something else?
     default_parameters = copy.deepcopy(SolvationGPAW.default_parameters)
     default_parameters.update({'poissonsolver': {'dipolelayer': 'xy'}})
     default_parameters.update({'sj': _sj_default_parameters})
