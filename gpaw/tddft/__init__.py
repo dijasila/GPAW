@@ -75,8 +75,8 @@ class TDDFT(GPAW):
     def __init__(self, filename: str, *,
                  td_potential: object = None,
                  calculate_energy: bool = True,
-                 propagator: dict = {'name': 'SICN'},
-                 solver: dict = {'name': 'CSCG', 'tolerance': 1e-8},
+                 propagator: dict = None,
+                 solver: dict = None,
                  tolerance: float = None,  # deprecated
                  parallel: dict = None,
                  communicator: object = None,
@@ -97,7 +97,7 @@ class TDDFT(GPAW):
         solver
             The iterative linear equations solver for propagator.
         tolerance
-            Deprecated. Do not use this.
+            Deprecated. Do not use this, but use solver dictionary instead.
             Tolerance for the linear solver.
         parallel
             Parallelization options
@@ -106,6 +106,12 @@ class TDDFT(GPAW):
         txt
             Text output
         """
+        # Default values
+        if propagator is None:
+            propagator = dict(name='SICN')
+        if solver is None:
+            solver = dict(name='CSCG', tolerance=1e-8)
+
         assert filename is not None
 
         # For communicating with observers
