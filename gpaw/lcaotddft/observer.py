@@ -23,7 +23,6 @@ class TDDFTObserver(Observer):
         Optional method that will be called by RestartFileWriter
         when writing the calculator restart file.
         """
-        pass
 
     def __str__(self):
         return self.__class__.__name__
