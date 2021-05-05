@@ -18,22 +18,24 @@ def calculate_time_propagation(gpw_fpath, *,
                                kick=[1e-5, 1e-5, 1e-5],
                                propagator='SICN',
                                communicator=world,
-                               write=False,
+                               write_and_continue=False,
+                               force_new_dm_file=False,
                                parallel={}):
     td_calc = TDDFT(gpw_fpath,
                     propagator=propagator,
                     communicator=communicator,
                     parallel=parallel,
                     txt='td.out')
-    DipoleMomentWriter(td_calc, 'dm.dat')
+    DipoleMomentWriter(td_calc, 'dm.dat',
+                       force_new_file=force_new_dm_file)
     if kick is not None:
         td_calc.absorption_kick(kick)
     td_calc.propagate(20, iterations)
-    if write:
+    if write_and_continue:
         td_calc.write('td.gpw', mode='all')
         # Switch dipole moment writer and output
         td_calc.observers.pop()
-        dm = DipoleMomentWriter(td_calc, 'dm2.dat')
+        dm = DipoleMomentWriter(td_calc, 'dm2.dat', force_new_file=True)
         dm._update(td_calc)
         td_calc.propagate(20, iterations)
     communicator.barrier()
@@ -80,7 +82,7 @@ def ground_state():
 def time_propagation_reference(ground_state):
     calculate_time_propagation('gs.gpw',
                                communicator=serial_comm,
-                               write=True)
+                               write_and_continue=True)
 
 
 def test_dipole_moment_values(time_propagation_reference,
@@ -140,6 +142,7 @@ def test_restart(time_propagation_reference,
                  module_tmp_path, in_tmp_dir):
     calculate_time_propagation(module_tmp_path / 'td.gpw',
                                kick=None,
+                               force_new_dm_file=True,
                                parallel=parallel)
     rtol = 1e-8
     if 'band' in parallel:
