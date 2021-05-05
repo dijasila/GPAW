@@ -36,6 +36,9 @@ Git master branch
 * Added documentation for :ref:`elph` and added support for
   spin-polarized systems.
 
+* Implemented multiple orbital hubbard U corrections (EX: for correction
+  of both p and d orbitals on transition metals)
+
 
 Version 21.1.0
 ===============
