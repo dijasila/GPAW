@@ -105,7 +105,6 @@ def test_fdtd_ed_inducedfield(in_tmp_dir):
 
     # Propagate TDDFT and FDTD
     td_calc.absorption_kick(kick_strength=kick)
-    td_calc.hamiltonian.poisson.set_kick(kick)
     td_calc.propagate(time_step, iterations // 2)
     td_calc.write('td.gpw', 'all')
     cl_ind.write('cl.ind')

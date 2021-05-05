@@ -84,7 +84,6 @@ def test_fdtd_ed(in_tmp_dir):
     td_calc = TDDFT('gs.gpw')
     DipoleMomentWriter(td_calc, 'dm.dat')
     td_calc.absorption_kick(kick_strength=kick)
-    td_calc.hamiltonian.poisson.set_kick(kick)
 
     # Propagate TDDFT and FDTD
     td_calc.propagate(time_step, max_time / time_step / 2)

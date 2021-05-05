@@ -135,7 +135,6 @@ class QSFDTD:
             RestartFileWriter(self.td_calc, restart_file, dump_interval)
         if kick_strength is not None:
             self.td_calc.absorption_kick(kick_strength)
-            self.td_calc.hamiltonian.poisson.set_kick(kick_strength)
         self.td_calc.propagate(time_step, iterations)
         if restart_file is not None:
             self.td_calc.write(restart_file, 'all')

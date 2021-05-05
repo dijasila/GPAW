@@ -84,7 +84,6 @@ qm_ind = TDDFTInducedField(paw=td_calc,
 
 # Propagate TDDFT and FDTD
 td_calc.absorption_kick(kick_strength=kick)
-td_calc.hamiltonian.poisson.set_kick(kick)
 td_calc.propagate(time_step, iterations)
 
 # Save results

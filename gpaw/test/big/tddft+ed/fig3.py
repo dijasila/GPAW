@@ -100,7 +100,6 @@ gs_calc.write('gs.%s.gpw' % tag, 'all')
 # Initialize TDDFT and FDTD
 td_calc = TDDFT('gs.%s.gpw' % tag)
 td_calc.absorption_kick(kick_strength=kick)
-td_calc.hamiltonian.poisson.set_kick(kick)
 
 # Propagate TDDFT and FDTD
 td_calc.propagate(time_step, 50, 'dm.%s.dat' % tag, 'td.%s.gpw' % tag)
