@@ -1,23 +1,17 @@
 import numpy as np
-from ase.build import molecule, bulk
+from ase import Atoms
 from ase.parallel import parprint
-from gpaw import GPAW
+from gpaw import GPAW, restart
 from gpaw.elf import ELF
 from gpaw.test import equal
 from gpaw.mpi import rank, world
 
 
-def test_utilities_elf():
-    atoms = molecule('CO')
-    atoms.center(2.0)
-
-    txt = '-'
-    # txt = None
-
-    calc = GPAW(h=0.24, txt=txt)
-    atoms.calc = calc
+def test_utilities_elf(gpw_files):
+    # Real wave functions
+    atoms, calc = restart(gpw_files['h2_fd'])
+    
     energy = atoms.get_potential_energy()
-
     elf = ELF(calc)
     elf.update()
     elf_G = elf.get_electronic_localization_function(gridrefinement=1)
@@ -28,15 +22,15 @@ def test_utilities_elf():
     nt_grad2_G = elf.nt_grad2_sG[0]
     nt_grad2_g = elf.nt_grad2_sg[0]
 
-    # integrate the CO bond
+    # integrate the H2 bond
     if rank == 0:
         # bond area
-        x0 = (atoms.positions[0][0] - 1.0) / atoms.get_cell()[0, 0]
-        x1 = 1 - x0
+        x0 = atoms.positions[0][0] / atoms.get_cell()[0, 0]
+        x1 = atoms.positions[1][0] / atoms.get_cell()[0, 0]
         y0 = (atoms.positions[0][1] - 1.0) / atoms.get_cell()[1, 1]
         y1 = 1 - y0
-        z0 = atoms.positions[1][2] / atoms.get_cell()[2, 2]
-        z1 = atoms.positions[0][2] / atoms.get_cell()[2, 2]
+        z0 = (atoms.positions[0][2] - 1.0) / atoms.get_cell()[2, 2]
+        z1 = 1 - z0
         gd = calc.wfs.gd
         Gx0, Gx1 = int(gd.N_c[0] * x0), int(gd.N_c[0] * x1)
         Gy0, Gy1 = int(gd.N_c[1] * y0), int(gd.N_c[1] * y1)
@@ -51,55 +45,12 @@ def test_utilities_elf():
         parprint("Min, max G", np.min(elf_G), np.max(elf_G))
         parprint("Min, max g", np.min(elf_g), np.max(elf_g))
     #   The tested values (< r7887) do not seem to be correct
-        equal(int1, 20.869077, 0.0001)
-        equal(int2, 18.000496, 0.0001)
+        equal(int1, 14.579199, 0.0001)
+        equal(int2, 18.936101, 0.0001)
 
-    # check spin-polarized version
-    calc = GPAW(h=0.24,
-                txt=txt,
-                spinpol=True,
-                parallel={'domain': world.size})
-    atoms.calc = calc
-    energy_spinpol = atoms.get_potential_energy()
-
-    def check_diff(g1, g2, gd, txt):
-        # print rank, txt, "shapes", g1.shape, g2.shape
-        intd = gd.integrate(np.abs(g1 - g2))
-        parprint(txt, 'integrated diff=', intd, end='')
-        maxd = np.max(np.abs(g1 - g2))
-        parprint('max diff=', maxd)
-        equal(intd, 0, 1e-8)
-        equal(maxd, 0, 1.e-9)
-
-    nt_spinpol_G = calc.density.nt_sG.sum(axis=0)
-    check_diff(nt_G, nt_spinpol_G, elf.finegd, 'nt_G')
-
-    equal(energy, energy_spinpol, 0.0001)
-
-    elf_spinpol = ELF(calc)
-    elf_spinpol.update()
-    elf_spinpol_G = elf_spinpol.get_electronic_localization_function(
-        gridrefinement=1)
-    elf_spinpol_g = elf_spinpol.get_electronic_localization_function(
-        gridrefinement=2)
-    taut_spinpol_G = elf_spinpol.taut_sG.sum(axis=0)
-    check_diff(taut_G, taut_spinpol_G, elf.gd, 'taut_G')
-
-    nt_grad2_spinpol_G = 2 * elf_spinpol.nt_grad2_sG.sum(axis=0)
-    check_diff(nt_grad2_G, nt_grad2_spinpol_G, elf.gd, 'nt_grad2_G')
-
-    nt_grad2_spinpol_g = 2 * elf_spinpol.nt_grad2_sg.sum(axis=0)
-    check_diff(nt_grad2_g, nt_grad2_spinpol_g, elf.finegd, 'nt_grad2_g')
-
-    check_diff(elf_G, elf_spinpol_G, elf.gd, 'elf_G')
-    check_diff(elf_g, elf_spinpol_g, elf.finegd, 'elf_g')
 
     # Complex wave functions
-    atoms = bulk('Si')
-    calc = GPAW(h=0.24, txt=txt, kpts=(2, 2, 2))
-    atoms.calc = calc
-    energy = atoms.get_potential_energy()
-
+    calc = GPAW(gpw_files['bcc_li_fd'])
     elf = ELF(calc)
     elf.update()
     elf_G = elf.get_electronic_localization_function(gridrefinement=1)
