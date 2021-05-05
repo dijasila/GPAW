@@ -18,6 +18,27 @@ from gpaw.utilities import pack, unpack
 from gpaw.xc import XC
 
 
+def parse_hubbard_string(type):
+    # Parse DFT+U parameters from type-string:
+    # Examples: "type:l,U" or "type:l,U,scale"
+    type, lus = type.split(':')
+    if type == '':
+        type = 'paw'
+
+    lus = lus.split(";")  # Multiple U corrections
+
+    l = []
+    U = []
+    scale = []
+
+    for lu in lus:
+        l_, u_, scale_ = (lu + ",,").split(",")[:3]
+        l.append('spdf'.find(l_))
+        U.append(float(u_) / units.Hartree)
+        scale.append(int(scale_))
+    return type, l, U, scale
+
+
 def create_setup(symbol, xc='LDA', lmax=0,
                  type='paw', basis=None, setupdata=None,
                  filter=None, world=None):
@@ -25,23 +46,7 @@ def create_setup(symbol, xc='LDA', lmax=0,
         xc = XC(xc)
 
     if isinstance(type, str) and ':' in type:
-        # Parse DFT+U parameters from type-string:
-        # Examples: "type:l,U" or "type:l,U,scale"
-        type, lus = type.split(':')
-        if type == '':
-            type = 'paw'
-
-        lus = lus.split(";")  # Multiple U corrections
-
-        l = []
-        U = []
-        scale = []
-
-        for lu in lus:
-            l_, u_, scale_ = (lu + ",,").split(",")[:3]
-            l.append('spdf'.find(l_))
-            U.append(float(u_) / units.Hartree)
-            scale.append(scale_)
+        type, l, U, scale = parse_hubbard_string(type)
     else:
         U = None
 
