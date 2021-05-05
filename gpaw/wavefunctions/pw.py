@@ -1963,9 +1963,7 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
 
         dens.map23.add_to1(self.vt_Q, self.vHt_q)
 
-        eext = self.vext.update_potential_pw(
-            self.finegd, self.pd2, self.pd3,
-            self.vt_Q, self.vt_sG, dens)
+        eext = self.vext.update_potential_pw(self, dens)
 
         self.timer.start('XC 3D grid')
 
@@ -1983,15 +1981,13 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         if redist is not None:
             vxct_xg = redist.collect(vxct_xg)
 
-        x = 0
-        for vt_G, vxct_g in zip(self.vt_xG, vxct_xg):
+        for x, (vt_G, vxct_g) in enumerate(zip(self.vt_xG, vxct_xg)):
             vxc_G, vxc_Q = self.pd3.restrict(vxct_g, self.pd2)
             if x < self.nspins:
                 vt_G += vxc_G
                 self.vt_Q += vxc_Q / self.nspins
             else:
-                vt_G[:] = vxc_G
-            x += 1
+                vt_G += vxc_G
 
         self.timer.stop('XC 3D grid')
 
@@ -2005,8 +2001,7 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
                        for l, _ in enumerate(self.setups[a].ghat_l)),
         W_aL = ArrayDict(self.atomdist.aux_partition, getshape, float)
 
-        self.vext.update_atomic_hamiltonians_pw(self.finegd, self.pd3,
-                                                self.vHt_q, W_aL, density)
+        self.vext.update_atomic_hamiltonians_pw(self, W_aL, density)
         return self.atomdist.to_work(self.atomdist.from_aux(W_aL))
 
     def calculate_kinetic_energy(self, density):

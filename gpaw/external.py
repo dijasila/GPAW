@@ -11,14 +11,15 @@ from gpaw.typing import Array3D
 
 __all__ = ['ConstantPotential', 'ConstantElectricField', 'CDFTPotential',
            'PointChargePotential', 'StepPotentialz',
-           'PotentialCollection', 'BField']
-
+           'PotentialCollection']
 
 known_potentials: Dict[str, Callable] = {}
 
 
 def _register_known_potentials():
+    from gpaw.bfield import BField
     known_potentials['CDFTPotential'] = lambda: None  # ???
+    known_potentials['BField'] = BField
     for name in __all__:
         known_potentials[name] = globals()[name]
 
@@ -62,25 +63,41 @@ class ExternalPotential:
     def get_name(self) -> str:
         return self.__class__.__name__
 
-    def update_potential_pw(self, finegd, pd2, pd3,
-                            vt_Q, vt_sG, dens) -> float:
-        v_q = self.get_potentialq(finegd, pd3).copy()
-        eext = pd3.integrate(v_q, dens.rhot_q, global_integral=False)
-        dens.map23.add_to1(vt_Q, v_q)
-        vt_sG[:] = pd2.ifft(vt_Q)
+    def update_potential_pw(self, ham, dens) -> float:
+        v_q = self.get_potentialq(ham.finegd, ham.pd3).copy()
+        eext = ham.pd3.integrate(v_q, dens.rhot_q, global_integral=False)
+        dens.map23.add_to1(ham.vt_Q, v_q)
+        ham.vt_sG[:] = ham.pd2.ifft(ham.vt_Q)
+        if not ham.collinear:
+            ham.vt_xG[1:] = 0.0
         return eext
 
-    def update_atomic_hamiltonians_pw(self, finegd, pd3,
-                                      vHt_q, W_aL, dens) -> None:
-        vext_q = self.get_potentialq(finegd, pd3)
-        dens.ghat.integrate(vHt_q + vext_q, W_aL)
+    def update_atomic_hamiltonians_pw(self, ham, W_aL, dens) -> None:
+        vext_q = self.get_potentialq(ham.finegd, ham.pd3)
+        dens.ghat.integrate(ham.vHt_q + vext_q, W_aL)
 
     def paw_correction(self, Delta_p, dH_sp) -> None:
         pass
 
-    def derivative_pw(self, finegd, pd3, vHt_q, ghat_aLv, dens) -> None:
-        vext_q = self.get_potentialq(finegd, pd3)
-        dens.ghat.derivative(vHt_q + vext_q, ghat_aLv)
+    def derivative_pw(self, ham, ghat_aLv, dens) -> None:
+        vext_q = self.get_potentialq(ham.finegd, ham.pd3)
+        dens.ghat.derivative(ham.vHt_q + vext_q, ghat_aLv)
+
+
+class NoExternalPotential(ExternalPotential):
+    vext_g = np.zeros((0, 0, 0))
+
+    def update_potential_pw(self, ham, dens) -> float:
+        ham.vt_sG[:] = ham.pd2.ifft(ham.vt_Q)
+        if not ham.collinear:
+            ham.vt_xG[1:] = 0.0
+        return 0.0
+
+    def update_atomic_hamiltonians_pw(self, ham, W_aL, dens):
+        dens.ghat.integrate(ham.vHt_q, W_aL)
+
+    def derivative_pw(self, ham, ghat_aLv, dens):
+        dens.ghat.derivative(ham.vHt_q, ghat_aLv)
 
 
 class ConstantPotential(ExternalPotential):
@@ -260,46 +277,6 @@ class CDFTPotential(ExternalPotential):
     # potential class ClassName(object):
     def __init__(self):
         self.name = 'CDFTPotential'
-
-
-class NoExternalPotential(ExternalPotential):
-    vext_g = np.zeros((0, 0, 0))
-
-    def update_potential_pw(self, finegd, pd2, pd3,
-                            vt_Q, vt_sG, dens) -> float:
-        vt_sG[:] = pd2.ifft(vt_Q)
-        return 0.0
-
-    def update_atomic_hamiltonians_pw(self, finegd, pd3,
-                                      vHt_q, W_aL, dens):
-        dens.ghat.integrate(vHt_q, W_aL)
-
-    def derivative_pw(self, finegd, pd3, vHt_q, ghat_aLv, dens):
-        dens.ghat.derivative(vHt_q, ghat_aLv)
-
-
-class BField(NoExternalPotential):
-    def __init__(self, strength: float):
-        self.name = 'BField'
-        self.strength = strength / Ha
-
-    def update_potential_pw(self, finegd, pd2, pd3,
-                            vt_Q, vt_sG, dens) -> float:
-        magmom_v, _ = dens.estimate_magnetic_moments()
-        eext = -self.strength * magmom_v[2]
-        vt_sG[:] = pd2.ifft(vt_Q)
-        vt_sG[0] -= self.strength
-        vt_sG[1] += self.strength
-        return eext
-
-    def paw_correction(self, Delta_p, dH_sp):
-        c = (4 * np.pi)**0.5 * self.strength
-        dH_sp[0] -= c * Delta_p
-        dH_sp[1] += c * Delta_p
-
-    def todict(self):
-        return {'name': self.name,
-                'strength': self.strength * Ha}
 
 
 class StepPotentialz(ExternalPotential):
