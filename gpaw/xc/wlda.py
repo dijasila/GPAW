@@ -1203,9 +1203,12 @@ class WLDA(XCFunctional):
             The /total/ XC energy
         """
         if self.mode in [Modes.rWLDA, Modes.fWLDA]:
-            elda_g = rgd.empty()
-            vlda_sg = np.zeros_like(v_sg)
-            E_LDA = self.lda_xc.calculate_spherical(rgd, n_sg, vlda_sg, e_g=elda_g)
+            eldax_g = rgd.empty()
+            eldac_g = rgd.empty()
+            vldax_sg = np.zeros_like(v_sg)
+            vldac_sg = np.zeros_like(v_sg)
+            
+            self.do_lda(n_sg, eldax_g, eldac_g, vldax_sg, vldac_sg)
 
         if e_g is None:
             e_g = rgd.empty()
@@ -1232,13 +1235,21 @@ class WLDA(XCFunctional):
         e_g += eHa_g
         v_sg += vHa_sg
 
-        if self.mode == Modes.fWLDA:
-            e_g[:] = elda_g + self.lambd * (e_g - elda_g)
-            v_sg[:] = vlda_sg + self.lambd * (v_sg - vlda_sg)
-        elif self.mode == Modes.rWLDA:
-            e_g[:] = elda_g + e_g - self.lambd * elda_g
-            v_sg[:] = vlda_sg + v_sg - self.lambd * vlda_sg
-        
+        if self.exchange_only:
+            if self.mode == Modes.fWLDA:
+                e_g[:] = eldax_g + eldac_g + self.lambd * (e_g - eldax_g)
+                v_sg[:] = vldax_sg + vldac_sg + self.lambd * (v_sg - vldax_sg)
+            elif self.mode == Modes.rWLDA:
+                e_g[:] = eldax_g + eldac_g + e_g - self.lambd * eldax_g
+                v_sg[:] = vldax_sg + vldac_sg + v_sg - self.lambd * vldax_sg
+        else:
+            if self.mode == Modes.fWLDA:
+                e_g[:] = eldax_g + self.lambd * (e_g - eldax_g - eldac_g)
+                v_sg[:] = vldax_sg + self.lambd * (v_sg - vldax_sg - vldac_sg)
+            elif self.mode == Modes.rWLDA:
+                e_g[:] = eldax_g + e_g - self.lambd * (eldax_g + eldac_g)
+                v_sg[:] = vldax_sg + v_sg - self.lambd * (vldax_sg + vldac_sg)
+
         E = rgd.integrate(e_g)
 
         # print(f"E = {E}", flush=True)
