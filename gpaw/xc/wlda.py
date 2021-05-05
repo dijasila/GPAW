@@ -742,7 +742,7 @@ class WLDA(XCFunctional):
         ratio = wn_g / nstar_g
         ratio[np.isclose(nstar_g, 0.0)] = 0.0
         v += self.fold_with_derivative(-t1 * ratio,
-                                       wn_g, my_alpha_indices, spin, self.wn_sg)
+                                       wn_g, my_alpha_indices, 0, wn_g[np.newaxis])
 
     def lda_x1(self, spin, e, wn_g, nstar_g, v, my_alpha_indices):
         """Apply the WLDA-2 exchange functional.
@@ -760,7 +760,7 @@ class WLDA(XCFunctional):
             e[:] += nstar_g * ex
         else:
             e[:] += 0.5 * nstar_g * ex
-        v += self.fold_with_derivative(ex, wn_g, my_alpha_indices, spin, self.wn_sg)
+        v += self.fold_with_derivative(ex, wn_g, my_alpha_indices, 0, wn_g[np.newaxis])
         ratio = nstar_g / wn_g
         ratio[np.isclose(wn_g, 0.0)] = 0.0
         v -= rs * dexdrs / 3 * ratio
@@ -782,7 +782,7 @@ class WLDA(XCFunctional):
         else:
             e[:] += 0.5 * nstar_g * ex
         v[:] = ex - rs * dexdrs / 3.
-        v[:] = self.fold_with_derivative(v, wn_g, my_alpha_indices, spin, self.wn_sg)
+        v[:] = self.fold_with_derivative(v, wn_g, my_alpha_indices, 0, wn_g[np.newaxis])
 
     def lda_c2(self, spin, e, wntotal_g, wn_sg, nstar_sg, v, zeta, my_alpha_indices):
         """Apply the WLDA-2 correlation functional.
