@@ -2027,8 +2027,7 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
     restrict_and_collect = restrict
 
     def calculate_forces2(self, dens, ghat_aLv, nct_av, vbar_av):
-        self.vext.derivative_pw(self.finegd, self.pd3,
-                                self.vHt_q, ghat_aLv, dens)
+        self.vext.derivative_pw(self, ghat_aLv, dens)
         dens.nct.derivative(self.vt_Q, nct_av)
         self.vbar.derivative(dens.nt_Q, vbar_av)
 
