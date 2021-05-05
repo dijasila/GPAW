@@ -5,18 +5,24 @@ from ase.units import Ha
 
 from gpaw.density import Density
 from gpaw.external import NoExternalPotential
-from gpaw.hamiltonian import Hamiltonian
+from gpaw.wavefunctions.pw import ReciprocalSpaceHamiltonian
 from gpaw.typing import Array1D, Array2D, ArrayLike1D
 
 
 class BField(NoExternalPotential):
     def __init__(self, field: ArrayLike1D):
-        """"""
+        """Constant magnetic field.
+
+        field:
+            F-field vector in units of eV/bohr-nagnoton.
+        """
         self.name = 'BField'
         self.field_v = np.array(field) / Ha
         assert self.field_v.shape == (3,)
 
-    def update_potential_pw(self, ham: Hamiltonian, dens: Density) -> float:
+    def update_potential_pw(self,
+                            ham: ReciprocalSpaceHamiltonian,
+                            dens: Density) -> float:
         magmom_v, _ = dens.estimate_magnetic_moments()
         eext = -self.field_v.dot(magmom_v)
         if dens.collinear:

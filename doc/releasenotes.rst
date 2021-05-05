@@ -12,6 +12,9 @@ Git master branch
 
 * Corresponding ASE release: ASE-3.21.1b1
 
+* Constant magnetic field calculations can now be done:
+  See :class:`gpaw.bgield.BField`.
+
 * The documentation and tutorial for :ref:`lrtddft2` updated.
 
 * True occupation numbers are now printed in the text output for the
