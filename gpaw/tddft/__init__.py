@@ -305,26 +305,21 @@ class TDDFT(GPAW):
         """
         self.tddft_init()
 
-        if dipole_moment_file is not None:
+        def warn_deprecated(parameter, observer):
             warnings.warn(
-                "The dipole_moment_file parameter is deprecated. "
-                "Please use DipoleMomentWriter observer instead. "
+                f"The {parameter} parameter is deprecated. "
+                f"Please use {observer} observer instead. "
                 "The old syntax will throw an error in the future.",
                 FutureWarning)
+
+        if dipole_moment_file is not None:
+            warn_deprecated('dipole_moment_file', 'DipoleMomentWriter')
 
         if restart_file is not None:
-            warnings.warn(
-                "The restart_file parameter is deprecated. "
-                "Please use RestartFileWriter observer instead. "
-                "The old syntax will throw an error in the future.",
-                FutureWarning)
+            warn_deprecated('restart_file', 'RestartFileWriter')
 
         if dump_interval is not None:
-            warnings.warn(
-                "The dump_interval parameter is deprecated. "
-                "Please use RestartFileWriter observer instead. "
-                "The old syntax will throw an error in the future.",
-                FutureWarning)
+            warn_deprecated('dump_interval', 'RestartFileWriter')
         else:
             dump_interval = 100
 
