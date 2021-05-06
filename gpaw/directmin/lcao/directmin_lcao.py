@@ -40,7 +40,8 @@ class DirectMinLCAO(DirectLCAO):
                  init_from_ks_eigsolver=False,
                  orthonormalization='gramschmidt',
                  donothingwithintiwfs=False,
-                 randomizeorbitals=False
+                 randomizeorbitals=False,
+                 checkgraderror=False
                  ):
 
         super(DirectMinLCAO, self).__init__(diagonalizer, error)
@@ -101,6 +102,9 @@ class DirectMinLCAO(DirectLCAO):
         if matrix_exp == 'egdecomp2':
             assert self.representation['name'] == 'u_invar', \
                 'Use u_invar representation with egdecomp2'
+
+        self.checkgraderror = checkgraderror
+        self._normcomm, self._normg = 0., 0.
 
     def __repr__(self):
 
@@ -444,6 +448,25 @@ class DirectMinLCAO(DirectLCAO):
 
         self.eg_count += 1
 
+        if self.representation['name'] == 'full' and self.checkgraderror:
+            norm = 0.0
+            for kpt in wfs.kpt_u:
+                u = kpt.s * self.n_kps + kpt.q
+                normt = np.linalg.norm(
+                    g_mat_u[u]@self.a_mat_u[u] -
+                    self.a_mat_u[u]@g_mat_u[u])
+                if norm < normt:
+                    norm = normt
+            norm2 = 0.0
+            for kpt in wfs.kpt_u:
+                u = kpt.s * self.n_kps + kpt.q
+                normt = np.linalg.norm(g_mat_u[u])
+                if norm2 < normt:
+                    norm2 = normt
+
+            self._normcomm = norm
+            self._normg = norm2
+        # print("{:.2e}, {:.2e}, {:.2e}".format(norm, norm2))
         return e_total + self.e_sic, g_mat_u
 
     def update_ks_energy(self, ham, wfs, dens):
@@ -652,9 +675,13 @@ class DirectMinLCAO(DirectLCAO):
         if str(self.search_direction) == 'LBFGS_P2':
             return 0
 
+        if self.representation['name'] == 'full':
+            badgrad = self._normcomm > self._normg / 3. and self.checkgraderror
+        else:
+            badgrad = False
         counter = self.update_ref_orbs_counter
         if (self.iters % counter == 0 and self.iters > 1) or \
-                (self.restart and self.iters > 1):
+                (self.restart and self.iters > 1) or badgrad:
             self.iters = 1
             if self.update_ref_orbs_canonical or self.restart:
                 self.get_canonical_representation(ham, wfs, dens)
