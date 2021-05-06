@@ -935,7 +935,8 @@ class GPAW(Calculator):
             # e.g. {}.  We should change that so it works like the ordinary
             # parameters.
             self.parameters.experimental.get('niter_fixdensity', 0),
-            nv)
+            nv,
+            self.criteria)
         self.log(self.scf)
 
     def create_symmetry(self, magmom_av, cell_cv, reading):

@@ -1,5 +1,5 @@
 import time
-from math import log as ln
+from collections import deque
 
 import numpy as np
 from ase.units import Ha, Bohr
@@ -12,38 +12,43 @@ from gpaw.mpi import broadcast_float
 class SCFLoop:
     """Self-consistent field loop."""
     def __init__(self, eigenstates=0.1, energy=0.1, density=0.1, force=np.inf,
-                 maxiter=100, niter_fixdensity=None, nvalence=None):
+                 maxiter=100, niter_fixdensity=None, nvalence=None,
+                 criteria=None):
         self.max_errors = {'eigenstates': eigenstates,
                            'energy': energy,
-                           'force': force,
-                           'density': density}
+                           'density': density,
+                           'force': force}
         self.maxiter = maxiter
         self.niter_fixdensity = niter_fixdensity
         self.nvalence = nvalence
 
-        self.old_energies = []
-        self.old_F_av = None
-        self.converged = False
-
         self.niter = None
-
         self.reset()
+        self.criteria = criteria
+        if criteria is None:
+            self.criteria = []
 
     def __str__(self):
         cc = self.max_errors
         s = 'Convergence criteria:\n'
         for name, val in [
-            ('total energy change: {0:g} eV / electron',
+            ('Maximum [total energy] change: {0:g} eV / electron',
              cc['energy'] * Ha / self.nvalence),
-            ('integral of absolute density change: {0:g} electrons',
+            ('                         (or): {0:g} eV',
+             cc['energy'] * Ha),
+            ('Maximum integral of absolute [dens]ity change: {0:g} electrons',
              cc['density'] / self.nvalence),
-            ('integral of absolute eigenstate change: {0:g} eV^2',
+            ('Maximum integral of absolute eigenstate [wfs] change:'
+             ' {0:g} eV^2',
              cc['eigenstates'] * Ha**2 / self.nvalence),
-            ('change in atomic force: {0:g} eV / Ang',
+            ('Maximum change in atomic [forces]: {0:g} eV / Ang',
              cc['force'] * Ha / Bohr),
-            ('number of iterations: {0}', self.maxiter)]:
+            ('Maximum number of [iter]ations: {0}', self.maxiter)]:
             if val < np.inf:
-                s += '  Maximum {0}\n'.format(name.format(val))
+                s += ' {0}\n'.format(name.format(val))
+        s += ("\n (Square brackets indicate name in SCF output, whereas a 'c'"
+              " in\n the SCF output indicates the quantity has converged.)\n")
+        s += str(self.criteria)
         return s
 
     def write(self, writer):
@@ -53,8 +58,9 @@ class SCFLoop:
         self.converged = reader.scf.converged
 
     def reset(self):
-        self.old_energies = []
+        self.old_energies = deque(maxlen=3)
         self.old_F_av = None
+        self.converged_items = {key: False for key in self.max_errors}
         self.converged = False
 
     def irun(self, wfs, ham, dens, log, callback):
@@ -63,16 +69,32 @@ class SCFLoop:
             wfs.eigensolver.iterate(ham, wfs)
             e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
             energy = ham.get_energy(e_entropy, wfs)
-            self.old_energies.append(energy)
+            self.old_energies.append(energy)  # Pops off > 3!
             errors = self.collect_errors(dens, ham, wfs)
 
             # Converged?
             for kind, error in errors.items():
                 if error > self.max_errors[kind]:
-                    self.converged = False
-                    break
-            else:
+                    self.converged_items[kind] = False
+                else:
+                    self.converged_items[kind] = True
+            if all(self.converged_items.values()):
                 self.converged = True
+            else:
+                self.converged = False
+
+            # Check any user-custom convergence criteria.
+            event = SCFEvent(dens=dens, ham=ham, wfs=wfs, log=log)
+            for criterion in self.criteria:
+                tol = criterion[1]
+                error = criterion[0](event)
+                if error > tol:
+                    self.converged = False
+                    log('{:s}: {:.5f}/{:.5f} x'
+                        .format(criterion[0].__name__, error, tol))
+                else:
+                    log('{:s}: {:.5f}/{:.5f} c'
+                        .format(criterion[0].__name__, error, tol))
 
             callback(self.niter)
             self.log(log, self.niter, wfs, ham, dens, errors)
@@ -88,7 +110,7 @@ class SCFLoop:
                 ham.npoisson = 0
             self.niter += 1
 
-        # Don't fix the density in the next step:
+        # Don't fix the density in the next step.
         self.niter_fixdensity = 0
 
         if not self.converged:
@@ -108,22 +130,24 @@ class SCFLoop:
 
         errors = {'eigenstates': wfs.eigensolver.error,
                   'density': denserror,
-                  'energy': np.inf}
+                  'energy': np.inf,
+                  'force': np.inf}
 
         if dens.fixed:
             errors['density'] = 0.0
 
-        if len(self.old_energies) >= 3:
-            energies = self.old_energies[-3:]
-            if np.isfinite(energies).all():
-                errors['energy'] = np.ptp(energies)
+        if len(self.old_energies) == self.old_energies.maxlen:
+            if np.isfinite(self.old_energies).all():
+                errors['energy'] = np.ptp(self.old_energies)
 
         # We only want to calculate the (expensive) forces if we have to:
         check_forces = (self.max_errors['force'] < np.inf and
                         all(error <= self.max_errors[kind]
                             for kind, error in errors.items()))
 
-        errors['force'] = np.inf
+        # XXX Note this checks just the difference in the last 2
+        # iterations, whereas other quantities (energy, workfunction) do
+        # a peak-to-peak on 3. Ok?
         if check_forces:
             with wfs.timer('Forces'):
                 F_av = calculate_forces(wfs, dens, ham)
@@ -136,67 +160,63 @@ class SCFLoop:
     def log(self, log, niter, wfs, ham, dens, errors):
         """Output from each iteration."""
 
-        nvalence = wfs.nvalence
-        if nvalence > 0:
-            eigerr = errors['eigenstates'] * Ha**2 / nvalence
-        else:
-            eigerr = 0.0
-
-        T = time.localtime()
-
         if niter == 1:
             header = """\
-                     log10-error:    total        iterations:
-           time      wfs    density  energy       poisson"""
+                 log10-change:          total poisson
+             time   wfs   dens         energy   iters"""
             if wfs.nspins == 2:
                 header += '  magmom'
             if self.max_errors['force'] < np.inf:
-                l1 = header.find('total')
+                l1 = header.find('total') - 8
                 header = header[:l1] + '       ' + header[l1:]
-                l2 = header.find('energy')
-                header = header[:l2] + 'force  ' + header[l2:]
+                l2 = header.find('energy') - 8
+                header = header[:l2] + 'forces ' + header[l2:]
             log(header)
 
-        if eigerr == 0.0 or np.isinf(eigerr):
-            eigerr = ''
+        c = {k: 'c' if v else ' ' for k, v in self.converged_items.items()}
+
+        nvalence = wfs.nvalence
+        eigerr = errors['eigenstates'] * Ha**2
+        if (np.isinf(eigerr) or eigerr == 0 or nvalence == 0):
+            eigerr = '-'
         else:
-            eigerr = '%+.2f' % (ln(eigerr) / ln(10))
+            eigerr = '{:+.2f}'.format(np.log10(eigerr / nvalence))
 
         denserr = errors['density']
-        assert denserr is not None
         if (denserr is None or np.isinf(denserr) or denserr == 0 or
             nvalence == 0):
-            denserr = ''
+            denserr = '-'
         else:
-            denserr = '%+.2f' % (ln(denserr / nvalence) / ln(10))
+            denserr = '{:+.2f}'.format(np.log10(denserr / nvalence))
 
         if ham.npoisson == 0:
             niterpoisson = ''
         else:
-            niterpoisson = str(ham.npoisson)
+            niterpoisson = '{:d}'.format(ham.npoisson)
 
-        log('iter: %3d  %02d:%02d:%02d %6s %6s  ' %
-            (niter,
-             T[3], T[4], T[5],
-             eigerr,
-             denserr), end='')
+        T = time.localtime()
+        log('iter:{:3d} {:02d}:{:02d}:{:02d} {:>5s}{:s} {:>5s}{:s} '
+            .format(niter, T[3], T[4], T[5],
+                    eigerr, c['eigenstates'],
+                    denserr, c['density']), end='')
 
         if self.max_errors['force'] < np.inf:
             if errors['force'] == 0:
-                log('    -oo', end='')
+                forceerr = '-oo'
             elif errors['force'] < np.inf:
-                log('  %+.2f' %
-                    (ln(errors['force'] * Ha / Bohr) / ln(10)), end='')
+                forceerr = '{:+.2f}'.format(
+                    np.log10(errors['force'] * Ha / Bohr))
             else:
-                log('       ', end='')
+                forceerr = '-'
+            log('{:>5s}{:s} '.format(forceerr, c['force']), end='')
 
         if np.isfinite(ham.e_total_extrapolated):
-            energy = '{:11.6f}'.format(Ha * ham.e_total_extrapolated)
+            energy = '%.6f' % (Ha * ham.e_total_extrapolated)
         else:
-            energy = ' ' * 11
+            energy = ''
 
-        log('%s    %-7s' %
-            (energy, niterpoisson), end='')
+        log(' {:>12s}{:s}   {:>4s}'.format(
+            energy, c['energy'], niterpoisson), end='')
 
         if wfs.nspins == 2 or not wfs.collinear:
             totmom_v, _ = dens.estimate_magnetic_moments()
@@ -206,6 +226,23 @@ class SCFLoop:
                 log(' {:+.1f},{:+.1f},{:+.1f}'.format(*totmom_v), end='')
 
         log(flush=True)
+
+
+class SCFEvent:
+    """Object to pass the state of the SCF cycle to a convergence-checking
+    function."""
+    # XXX Note that the SCF cycle does not have a reference to the
+    # calculator object. For now I am instead giving this event access
+    # to the ham, wfs, etc., that SCF already has. But we could consider
+    # changing how SCF is initialized to instead just give it a calc ref
+    # rather than all these individual pieces. I'll leave that decision to
+    # JJ and Ask.
+
+    def __init__(self, dens, ham, wfs, log):
+        self.dens = dens
+        self.ham = ham
+        self.wfs = wfs
+        self.log = log
 
 
 oops = """
