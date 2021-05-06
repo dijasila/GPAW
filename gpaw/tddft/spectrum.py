@@ -167,30 +167,34 @@ def write_spectrum(dipole_moment_file, spectrum_file,
     return folding.envelope(time_t[-1])
 
 
-def photoabsorption_spectrum(dipole_moment_file, spectrum_file,
-                             folding='Gauss', width=0.2123,
-                             e_min=0.0, e_max=30.0, delta_e=0.05):
+def photoabsorption_spectrum(dipole_moment_file: str,
+                             spectrum_file: str,
+                             folding: str = 'Gauss',
+                             width: float = 0.2123,
+                             e_min: float = 0.0,
+                             e_max: float = 30.0,
+                             delta_e: float = 0.05):
     """Calculates photoabsorption spectrum from the time-dependent
     dipole moment.
 
-    Parameters:
-
-    dipole_moment_file: string
+    Parameters
+    ----------
+    dipole_moment_file
         Name of the time-dependent dipole moment file from which
         the spectrum is calculated
-    spectrum_file: string
+    spectrum_file
         Name of the spectrum file
-    folding: 'Gauss' or 'Lorentz'
-        Whether to use Gaussian or Lorentzian folding
-    width: float
+    folding
+        Gaussian (``'Gauss'``) or Lorentzian (``'Lorentz'``) folding
+    width
         Width of the Gaussian (sigma) or Lorentzian (Gamma)
         Gaussian =     1/(sigma sqrt(2pi)) exp(-(1/2)(omega/sigma)^2)
         Lorentzian =  (1/pi) (1/2) Gamma / [omega^2 + ((1/2) Gamma)^2]
-    e_min: float
+    e_min
         Minimum energy shown in the spectrum (eV)
-    e_max: float
+    e_max
         Maximum energy shown in the spectrum (eV)
-    delta_e: float
+    delta_e
         Energy resolution (eV)
     """
     if world.rank == 0:
