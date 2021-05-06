@@ -12,6 +12,18 @@ Git master branch
 
 * Corresponding ASE release: ASE-3.21.1b1
 
+* The :ref:`time-propagation TDDFT (fd-mode) <timepropagation>` calculator
+  refactored and observer support generalized.
+
+  * The dipole moment output and restart file parameters are
+    deprecated; use the corresponding observers instead.
+    See the updated :ref:`documentation <timepropagation>`.
+
+  * The observers for :ref:`inducedfield` need now to be defined before
+    the kick instead of after it.
+
+  * Corresponding updates for :ref:`qsfdtd` and :ref:`hybridscheme`.
+
 * The documentation and tutorial for :ref:`lrtddft2` updated.
 
 * True occupation numbers are now printed in the text output for the
