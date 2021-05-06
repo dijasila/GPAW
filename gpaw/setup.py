@@ -1,9 +1,7 @@
-# -*- coding: utf-8 -*-
-# Copyright (C) 2003  CAMP
-# Please see the accompanying LICENSE file for further information.
 import functools
 from io import StringIO
 from math import pi, sqrt
+from typing import List, Tuple
 
 import ase.units as units
 import numpy as np
@@ -18,27 +16,28 @@ from gpaw.utilities import pack, unpack
 from gpaw.xc import XC
 
 
-def parse_hubbard_string(type):
+def parse_hubbard_string(type: str) -> Tuple[str,
+                                             List[int],
+                                             List[float],
+                                             List[bool]]:
     # Parse DFT+U parameters from type-string:
     # Examples: "type:l,U" or "type:l,U,scale"
     type, lus = type.split(':')
     if type == '':
         type = 'paw'
 
-    lus = lus.split(";")  # Multiple U corrections
-
     l = []
     U = []
     scale = []
 
-    for lu in lus:
-        l_, u_, scale_ = (lu + ",,").split(",")[:3]
+    for lu in lus.split(';'):  # Multiple U corrections
+        l_, u_, scale_ = (lu + ',,').split(',')[:3]
         l.append('spdf'.find(l_))
         U.append(float(u_) / units.Hartree)
-        try:
-            scale.append(int(scale_))
-        except ValueError:
-            scale.append(1)
+        if scale_:
+            scale.append(bool(int(scale_)))
+        else:
+            scale.append(True)
     return type, l, U, scale
 
 

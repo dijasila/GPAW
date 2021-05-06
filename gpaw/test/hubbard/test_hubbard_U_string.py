@@ -7,14 +7,19 @@ def test_Hubbard_U_string():
     # U has an internal unit conversion to atomic units
 
     # Simple single correction
-    str1 = ":d,5,0"
-    expected1 = ("paw", [2], [5.0 / Hartree], [0])
-    assert (expected1 == parse_hubbard_string(str1))
+    str1 = ':d,5,0'
+    expected1 = ('paw', [2], [5.0 / Hartree], [False])
+    assert expected1 == parse_hubbard_string(str1)
+
+    # Simple single correction without scale
+    str1 = ':d,5'
+    expected1 = ('paw', [2], [5.0 / Hartree], [True])
+    assert expected1 == parse_hubbard_string(str1)
 
     # Multi correction
-    str2 = "ae:s,3,0;p,2.5,1;f,0.5,0"
-    expected2 = ("ae",
+    str2 = 'ae:s,3,0;p,2.5,1;f,0.5,0'
+    expected2 = ('ae',
                  [0, 1, 3],
                  [3.0 / Hartree, 2.5 / Hartree, 0.5 / Hartree],
-                 [0, 1, 0])
-    assert (expected2 == parse_hubbard_string(str2))
+                 [False, True, False])
+    assert expected2 == parse_hubbard_string(str2)

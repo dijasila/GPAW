@@ -1,9 +1,16 @@
+from typing import Tuple
+
 import numpy as np
 
+from gpaw.typing import Array2D
 from gpaw.utilities import pack2, unpack2
 
 
-def hubbard(setup, D_sp, l, U, scale):
+def hubbard(setup,
+            D_sp,
+            l: int,
+            U: float,
+            scale: bool) -> Tuple[float, Array2D]:
     nspins = len(D_sp)
 
     l_j = setup.l_j
@@ -57,7 +64,10 @@ def hubbard(setup, D_sp, l, U, scale):
     return e_xc, dH_sp
 
 
-def aoom(setup, DM, l, scale=1):
+def aoom(setup,
+         DM: Array2D,
+         l: int,
+         scale: bool = True) -> Tuple[Array2D, Array2D]:
     """Atomic Orbital Occupation Matrix.
 
     Determine the Atomic Orbital Occupation Matrix (aoom) for a
