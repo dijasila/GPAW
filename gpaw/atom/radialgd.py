@@ -151,7 +151,7 @@ class RadialGridDescriptor:
         vr_g[:] *= self.r_g[:]**0.5
         return vr_g
 
-    def derivative(self, n_g, dndr_g=None):
+    def derivative_spline(self, n_g, dndr_g=None):
         """Spline-based derivative of radial function."""
         if dndr_g is None:
             dndr_g = self.empty()
@@ -164,7 +164,7 @@ class RadialGridDescriptor:
         dndr_g[:] = s(self.r_g)
         return dndr_g
 
-    def derivative_finite_difference(self, n_g, dndr_g=None):
+    def derivative(self, n_g, dndr_g=None):
         """Finite-difference derivative of radial function."""
         if dndr_g is None:
             dndr_g = self.empty()
