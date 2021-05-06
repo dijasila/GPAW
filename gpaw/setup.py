@@ -35,7 +35,10 @@ def parse_hubbard_string(type):
         l_, u_, scale_ = (lu + ",,").split(",")[:3]
         l.append('spdf'.find(l_))
         U.append(float(u_) / units.Hartree)
-        scale.append(int(scale_))
+        try:
+            scale.append(int(scale_))
+        except ValueError:
+            scale.append(1)
     return type, l, U, scale
 
 
