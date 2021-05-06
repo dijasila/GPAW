@@ -3,7 +3,7 @@ import numpy as np
 from ase.build import molecule
 
 from gpaw import GPAW
-from gpaw.tddft import TDDFT
+from gpaw.tddft import TDDFT, DipoleMomentWriter
 from gpaw.mpi import world
 from gpaw.test import equal
 
@@ -27,8 +27,9 @@ def test_tddft_fxc_linearize(in_tmp_dir):
     # Time-propagation calculation with linearize_to_fxc()
     td_calc = TDDFT('gs.gpw', txt='td.out')
     td_calc.linearize_to_xc(fxc)
+    DipoleMomentWriter(td_calc, 'dm.dat')
     td_calc.absorption_kick(np.ones(3) * 1e-5)
-    td_calc.propagate(20, 4, 'dm.dat')
+    td_calc.propagate(20, 4)
     world.barrier()
 
     # Test the absolute values
@@ -38,6 +39,11 @@ def test_tddft_fxc_linearize(in_tmp_dir):
         print_reference(data, 'ref', '%.12le')
 
     ref = [0.000000000000e+00,
+           -1.578005120000e-15,
+           -7.044387182078e-15,
+           -1.863704251170e-14,
+           5.661102599682e-15,
+           0.000000000000e+00,
            5.675065320000e-16,
            1.468753200587e-10,
            1.579510728549e-10,
@@ -56,7 +62,12 @@ def test_tddft_fxc_linearize(in_tmp_dir):
            3.100362540000e-15,
            1.338025167034e-04,
            1.338146631769e-04,
-           1.338165200102e-04]
+           1.338165200102e-04,
+           3.307309870000e+00,
+           3.279248870000e-15,
+           1.423796525306e-04,
+           1.423871979410e-04,
+           1.423890659304e-04]
 
     tol = 1e-7
     equal(data, ref, tol)
