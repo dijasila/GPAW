@@ -2,7 +2,7 @@ from typing import Tuple
 
 import numpy as np
 
-from gpaw.typing import Array2D
+from gpaw.typing import Array2D, ArrayLike2D
 from gpaw.utilities import pack2, unpack2
 
 
@@ -10,7 +10,7 @@ def hubbard(setup,
             D_sp,
             l: int,
             U: float,
-            scale: bool) -> Tuple[float, Array2D]:
+            scale: bool) -> Tuple[float, ArrayLike2D]:
     nspins = len(D_sp)
 
     l_j = setup.l_j
