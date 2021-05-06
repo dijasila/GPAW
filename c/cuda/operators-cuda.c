@@ -23,7 +23,6 @@ static int operator_streams = 0;
 
 static double *operator_buf_gpu = NULL;
 static int operator_buf_size = 0;
-static int operator_buf_max = 0;
 static int operator_init_count = 0;
 
 static int debug_size_arr = 0;
@@ -38,12 +37,6 @@ static double *debug_in_cpu;
 
 void operator_init_cuda(OperatorObject *self)
 {
-    const boundary_conditions* bc = self->bc;
-    const int* size2 = bc->size2;
-    int ng2 = bc->ndouble * size2[0] * size2[1] * size2[2];
-
-    operator_buf_max = MAX(ng2, operator_buf_max);
-
     self->stencil_gpu = bmgs_stencil_to_gpu(&(self->stencil));
     operator_init_count++;
 }
@@ -54,13 +47,11 @@ void operator_alloc_buffers(OperatorObject *self, int blocks)
     const int* size2 = bc->size2;
     int ng2 = (bc->ndouble * size2[0] * size2[1] * size2[2]) * blocks;
 
-    operator_buf_max = MAX(ng2, operator_buf_max);
-
-    if (operator_buf_max > operator_buf_size) {
+    if (ng2 > operator_buf_size) {
         cudaFree(operator_buf_gpu);
         cudaGetLastError();
-        GPAW_CUDAMALLOC(&operator_buf_gpu, double, operator_buf_max);
-        operator_buf_size = operator_buf_max;
+        GPAW_CUDAMALLOC(&operator_buf_gpu, double, ng2);
+        operator_buf_size = ng2;
     }
     if (!operator_streams) {
         for (int i=0; i < OPERATOR_NSTREAMS; i++) {

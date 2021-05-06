@@ -17,7 +17,6 @@ extern int gpaw_cuda_debug;
 
 static double *transformer_buf_gpu = NULL;
 static int transformer_buf_size = 0;
-static int transformer_buf_max = 0;
 static int transformer_init_count = 0;
 
 static int debug_size_in = 0;
@@ -34,11 +33,6 @@ static double *debug_in_cpu;
 
 void transformer_init_cuda(TransformerObject *self)
 {
-    const boundary_conditions* bc = self->bc;
-    const int* size2 = bc->size2;
-    int ng2 = bc->ndouble * size2[0] * size2[1] * size2[2];
-
-    transformer_buf_max = MAX(ng2, transformer_buf_max);
     transformer_init_count++;
 }
 
@@ -48,13 +42,11 @@ void transformer_init_buffers(TransformerObject *self, int blocks)
     const int* size2 = bc->size2;
     int ng2 = (bc->ndouble * size2[0] * size2[1] * size2[2]) * blocks;
 
-    transformer_buf_max = MAX(ng2, transformer_buf_max);
-
-    if (transformer_buf_max > transformer_buf_size) {
+    if (ng2 > transformer_buf_size) {
         cudaFree(transformer_buf_gpu);
         cudaGetLastError();
-        GPAW_CUDAMALLOC(&transformer_buf_gpu, double, transformer_buf_max);
-        transformer_buf_size = transformer_buf_max;
+        GPAW_CUDAMALLOC(&transformer_buf_gpu, double, ng2);
+        transformer_buf_size = ng2;
     }
 }
 
