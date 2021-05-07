@@ -82,121 +82,122 @@ __global__ void fill_kernelz(double real, double imag, cuDoubleComplex *z,
     }
 }
 
-extern "C" {
-    PyObject* axpbyz_gpu(PyObject *self, PyObject *args)
-    {
-        double a, b;
-        CUdeviceptr x, y, z;
-        PyObject *shape;
-        PyArray_Descr *type;
+extern "C"
+PyObject* axpbyz_gpu(PyObject *self, PyObject *args)
+{
+    double a, b;
+    CUdeviceptr x, y, z;
+    PyObject *shape;
+    PyArray_Descr *type;
 
-        if (!PyArg_ParseTuple(args, "dndnnOO", &a, &x, &b, &y, &z, &shape,
-                              &type))
-            return NULL;
+    if (!PyArg_ParseTuple(args, "dndnnOO", &a, &x, &b, &y, &z, &shape,
+                          &type))
+        return NULL;
 
-        int n = 1;
-        Py_ssize_t nd = PyTuple_Size(shape);
-        for (int d=0; d < nd; d++)
-            n *= (int) PyLong_AsLong(PyTuple_GetItem(shape, d));
+    int n = 1;
+    Py_ssize_t nd = PyTuple_Size(shape);
+    for (int d=0; d < nd; d++)
+        n *= (int) PyLong_AsLong(PyTuple_GetItem(shape, d));
 
-        int gridx = MIN(MAX((n + BLOCK_X - 1) / BLOCK_X, 1), MAX_BLOCKS);
+    int gridx = MIN(MAX((n + BLOCK_X - 1) / BLOCK_X, 1), MAX_BLOCKS);
 
-        dim3 dimBlock(BLOCK_X, 1);
-        dim3 dimGrid(gridx, 1);
-        if (type->type_num == NPY_DOUBLE) {
-            axpbyz_kernel<<<dimGrid, dimBlock, 0>>>
-                (a, (double*) x, b, (double*) y, (double *) z, n);
+    dim3 dimBlock(BLOCK_X, 1);
+    dim3 dimGrid(gridx, 1);
+    if (type->type_num == NPY_DOUBLE) {
+        axpbyz_kernel<<<dimGrid, dimBlock, 0>>>
+            (a, (double*) x, b, (double*) y, (double *) z, n);
 
-        } else {
-            axpbyz_kernelz<<<dimGrid, dimBlock, 0>>>
-                (a, (cuDoubleComplex*) x, b, (cuDoubleComplex*) y,
-                 (cuDoubleComplex*) z, n);
-        }
-        gpaw_cudaSafeCall(cudaGetLastError());
-        if (PyErr_Occurred())
-            return NULL;
-        else
-            Py_RETURN_NONE;
+    } else {
+        axpbyz_kernelz<<<dimGrid, dimBlock, 0>>>
+            (a, (cuDoubleComplex*) x, b, (cuDoubleComplex*) y,
+             (cuDoubleComplex*) z, n);
+    }
+    gpaw_cudaSafeCall(cudaGetLastError());
+    if (PyErr_Occurred())
+        return NULL;
+    else
+        Py_RETURN_NONE;
+}
+
+extern "C"
+PyObject* axpbz_gpu(PyObject *self, PyObject *args)
+{
+    double a, b;
+    CUdeviceptr x, z;
+    PyObject *shape;
+    PyArray_Descr *type;
+
+    if (!PyArg_ParseTuple(args, "dndnOO", &a, &x, &b, &z, &shape,
+                          &type))
+        return NULL;
+
+    int n = 1;
+    Py_ssize_t nd = PyTuple_Size(shape);
+    for (int d=0; d < nd; d++)
+        n *= (int) PyLong_AsLong(PyTuple_GetItem(shape, d));
+
+    int gridx = MIN(MAX((n + BLOCK_X - 1) / BLOCK_X, 1), MAX_BLOCKS);
+
+    dim3 dimBlock(BLOCK_X, 1);
+    dim3 dimGrid(gridx, 1);
+    if (type->type_num == NPY_DOUBLE) {
+        axpbz_kernel<<<dimGrid, dimBlock, 0>>>
+            (a, (double*) x, b, (double *) z, n);
+
+    } else {
+        axpbz_kernelz<<<dimGrid, dimBlock, 0>>>
+            (a, (cuDoubleComplex*) x, b, (cuDoubleComplex*) z, n);
+    }
+    gpaw_cudaSafeCall(cudaGetLastError());
+    if (PyErr_Occurred())
+        return NULL;
+    else
+        Py_RETURN_NONE;
+}
+
+extern "C"
+PyObject* fill_gpu(PyObject *self, PyObject *args)
+{
+    PyObject *value;
+    CUdeviceptr x;
+    PyObject *shape;
+    PyArray_Descr *type;
+
+    if (!PyArg_ParseTuple(args, "OnOO", &value, &x, &shape, &type))
+        return NULL;
+
+    double real;
+    double imag;
+    if PyComplex_Check(value) {
+        Py_complex c;
+        c = PyComplex_AsCComplex(value);
+        real = c.real;
+        imag = c.imag;
+    } else {
+        real = PyFloat_AsDouble(value);
+        imag = 0.0;
     }
 
-    PyObject* axpbz_gpu(PyObject *self, PyObject *args)
-    {
-        double a, b;
-        CUdeviceptr x, z;
-        PyObject *shape;
-        PyArray_Descr *type;
+    int n = 1;
+    Py_ssize_t nd = PyTuple_Size(shape);
+    for (int d=0; d < nd; d++)
+        n *= (int) PyLong_AsLong(PyTuple_GetItem(shape, d));
 
-        if (!PyArg_ParseTuple(args, "dndnOO", &a, &x, &b, &z, &shape,
-                              &type))
-            return NULL;
+    int gridx = MIN(MAX((n + BLOCK_X - 1) / BLOCK_X, 1), MAX_BLOCKS);
 
-        int n = 1;
-        Py_ssize_t nd = PyTuple_Size(shape);
-        for (int d=0; d < nd; d++)
-            n *= (int) PyLong_AsLong(PyTuple_GetItem(shape, d));
+    dim3 dimBlock(BLOCK_X, 1);
+    dim3 dimGrid(gridx, 1);
+    if (type->type_num == NPY_DOUBLE) {
+        fill_kernel<<<dimGrid, dimBlock, 0>>>
+            (real, (double*) x, n);
 
-        int gridx = MIN(MAX((n + BLOCK_X - 1) / BLOCK_X, 1), MAX_BLOCKS);
-
-        dim3 dimBlock(BLOCK_X, 1);
-        dim3 dimGrid(gridx, 1);
-        if (type->type_num == NPY_DOUBLE) {
-            axpbz_kernel<<<dimGrid, dimBlock, 0>>>
-                (a, (double*) x, b, (double *) z, n);
-
-        } else {
-            axpbz_kernelz<<<dimGrid, dimBlock, 0>>>
-                (a, (cuDoubleComplex*) x, b, (cuDoubleComplex*) z, n);
-        }
-        gpaw_cudaSafeCall(cudaGetLastError());
-        if (PyErr_Occurred())
-            return NULL;
-        else
-            Py_RETURN_NONE;
+    } else {
+        fill_kernelz<<<dimGrid, dimBlock, 0>>>
+            (real, imag, (cuDoubleComplex*) x, n);
     }
-
-    PyObject* fill_gpu(PyObject *self, PyObject *args)
-    {
-        PyObject *value;
-        CUdeviceptr x;
-        PyObject *shape;
-        PyArray_Descr *type;
-
-        if (!PyArg_ParseTuple(args, "OnOO", &value, &x, &shape, &type))
-            return NULL;
-
-        double real;
-        double imag;
-        if PyComplex_Check(value) {
-            Py_complex c;
-            c = PyComplex_AsCComplex(value);
-            real = c.real;
-            imag = c.imag;
-        } else {
-            real = PyFloat_AsDouble(value);
-            imag = 0.0;
-        }
-
-        int n = 1;
-        Py_ssize_t nd = PyTuple_Size(shape);
-        for (int d=0; d < nd; d++)
-            n *= (int) PyLong_AsLong(PyTuple_GetItem(shape, d));
-
-        int gridx = MIN(MAX((n + BLOCK_X - 1) / BLOCK_X, 1), MAX_BLOCKS);
-
-        dim3 dimBlock(BLOCK_X, 1);
-        dim3 dimGrid(gridx, 1);
-        if (type->type_num == NPY_DOUBLE) {
-            fill_kernel<<<dimGrid, dimBlock, 0>>>
-                (real, (double*) x, n);
-
-        } else {
-            fill_kernelz<<<dimGrid, dimBlock, 0>>>
-                (real, imag, (cuDoubleComplex*) x, n);
-        }
-        gpaw_cudaSafeCall(cudaGetLastError());
-        if (PyErr_Occurred())
-            return NULL;
-        else
-            Py_RETURN_NONE;
-    }
+    gpaw_cudaSafeCall(cudaGetLastError());
+    if (PyErr_Occurred())
+        return NULL;
+    else
+        Py_RETURN_NONE;
 }

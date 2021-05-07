@@ -60,68 +60,67 @@ __global__ void Zcuda(add_linear_field_cuda_kernel)(
 #define CUGPAWCOMPLEX
 #include "ext-pot-cuda.cu"
 
-extern "C" {
-    PyObject* add_linear_field_cuda_gpu(PyObject *self, PyObject *args)
-    {
-        CUdeviceptr a_gpu;
-        CUdeviceptr b_gpu;
-        PyObject *shape;
-        PyArrayObject *c_ni, *c_begi, *c_vi, *strengthi;
-        PyArray_Descr *type;
-        int blocks=1;
+extern "C"
+PyObject* add_linear_field_cuda_gpu(PyObject *self, PyObject *args)
+{
+    CUdeviceptr a_gpu;
+    CUdeviceptr b_gpu;
+    PyObject *shape;
+    PyArrayObject *c_ni, *c_begi, *c_vi, *strengthi;
+    PyArray_Descr *type;
+    int blocks=1;
 
-        int3 hc_sizea, hc_n, hc_beg;
-        double3 h_strength;
+    int3 hc_sizea, hc_n, hc_beg;
+    double3 h_strength;
 
-        if (!PyArg_ParseTuple(args, "nOOnOOOO", &a_gpu, &shape, &type,
-                              &b_gpu, &c_ni, &c_begi, &c_vi, &strengthi))
-            return NULL;
+    if (!PyArg_ParseTuple(args, "nOOnOOOO", &a_gpu, &shape, &type,
+                          &b_gpu, &c_ni, &c_begi, &c_vi, &strengthi))
+        return NULL;
 
-        int nd = PyTuple_Size(shape);
-        if (nd == 4)
-            blocks = (int) PyLong_AsLong(PyTuple_GetItem(shape, 0));
+    int nd = PyTuple_Size(shape);
+    if (nd == 4)
+        blocks = (int) PyLong_AsLong(PyTuple_GetItem(shape, 0));
 
-        hc_sizea.x = (int) PyLong_AsLong(PyTuple_GetItem(shape, nd-3+0));
-        hc_sizea.y = (int) PyLong_AsLong(PyTuple_GetItem(shape, nd-3+1));
-        hc_sizea.z = (int) PyLong_AsLong(PyTuple_GetItem(shape, nd-3+2));
+    hc_sizea.x = (int) PyLong_AsLong(PyTuple_GetItem(shape, nd-3+0));
+    hc_sizea.y = (int) PyLong_AsLong(PyTuple_GetItem(shape, nd-3+1));
+    hc_sizea.z = (int) PyLong_AsLong(PyTuple_GetItem(shape, nd-3+2));
 
-        hc_n.x = ((long*) PyArray_DATA(c_ni))[0];
-        hc_n.y = ((long*) PyArray_DATA(c_ni))[1];
-        hc_n.z = ((long*) PyArray_DATA(c_ni))[2];
+    hc_n.x = ((long*) PyArray_DATA(c_ni))[0];
+    hc_n.y = ((long*) PyArray_DATA(c_ni))[1];
+    hc_n.z = ((long*) PyArray_DATA(c_ni))[2];
 
-        hc_beg.x = ((long*) PyArray_DATA(c_begi))[0];
-        hc_beg.y = ((long*) PyArray_DATA(c_begi))[1];
-        hc_beg.z = ((long*) PyArray_DATA(c_begi))[2];
+    hc_beg.x = ((long*) PyArray_DATA(c_begi))[0];
+    hc_beg.y = ((long*) PyArray_DATA(c_begi))[1];
+    hc_beg.z = ((long*) PyArray_DATA(c_begi))[2];
 
-        h_strength.x = ((double*) PyArray_DATA(strengthi))[0]
-                     * ((double*) PyArray_DATA(c_vi))[0+0*3];
-        h_strength.y = ((double*) PyArray_DATA(strengthi))[1]
-                     * ((double*) PyArray_DATA(c_vi))[1+1*3];
-        h_strength.z = ((double*) PyArray_DATA(strengthi))[2]
-                     * ((double*) PyArray_DATA(c_vi))[2+2*3];
+    h_strength.x = ((double*) PyArray_DATA(strengthi))[0]
+                 * ((double*) PyArray_DATA(c_vi))[0+0*3];
+    h_strength.y = ((double*) PyArray_DATA(strengthi))[1]
+                 * ((double*) PyArray_DATA(c_vi))[1+1*3];
+    h_strength.z = ((double*) PyArray_DATA(strengthi))[2]
+                 * ((double*) PyArray_DATA(c_vi))[2+2*3];
 
-        int gridy = blocks * ((hc_n.y + BLOCK_SIZEY - 1) / BLOCK_SIZEY);
-        int gridx = XDIV * ((hc_n.z + BLOCK_SIZEX - 1) / BLOCK_SIZEX);
+    int gridy = blocks * ((hc_n.y + BLOCK_SIZEY - 1) / BLOCK_SIZEY);
+    int gridx = XDIV * ((hc_n.z + BLOCK_SIZEX - 1) / BLOCK_SIZEX);
 
-        dim3 dimBlock(BLOCK_SIZEX, BLOCK_SIZEY);
-        dim3 dimGrid(gridx, gridy);
+    dim3 dimBlock(BLOCK_SIZEX, BLOCK_SIZEY);
+    dim3 dimGrid(gridx, gridy);
 
-        if (type->type_num == NPY_DOUBLE) {
-            add_linear_field_cuda_kernel<<<dimGrid, dimBlock, 0>>>(
-                    (double*) a_gpu, hc_sizea,
-                    (double*) b_gpu, hc_n, hc_beg,
-                    h_strength, blocks);
-        } else {
-            add_linear_field_cuda_kernelz<<<dimGrid, dimBlock, 0>>>(
-                    (cuDoubleComplex*) a_gpu, hc_sizea,
-                    (cuDoubleComplex*) b_gpu, hc_n, hc_beg,
-                    h_strength, blocks);
-        }
-        gpaw_cudaSafeCall(cudaGetLastError());
-        if (PyErr_Occurred())
-            return NULL;
-        else
-            Py_RETURN_NONE;
+    if (type->type_num == NPY_DOUBLE) {
+        add_linear_field_cuda_kernel<<<dimGrid, dimBlock, 0>>>(
+                (double*) a_gpu, hc_sizea,
+                (double*) b_gpu, hc_n, hc_beg,
+                h_strength, blocks);
+    } else {
+        add_linear_field_cuda_kernelz<<<dimGrid, dimBlock, 0>>>(
+                (cuDoubleComplex*) a_gpu, hc_sizea,
+                (cuDoubleComplex*) b_gpu, hc_n, hc_beg,
+                h_strength, blocks);
     }
+    gpaw_cudaSafeCall(cudaGetLastError());
+    if (PyErr_Occurred())
+        return NULL;
+    else
+        Py_RETURN_NONE;
 }
 #endif // !CUGPAWCOMPLEX

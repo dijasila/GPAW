@@ -8,19 +8,19 @@
 
 static void *reduce_buffer = NULL;
 
-extern "C" {
-    void reduce_init_buffers_cuda()
-    {
-        reduce_buffer = NULL;
-    }
+extern "C"
+void reduce_init_buffers_cuda()
+{
+    reduce_buffer = NULL;
+}
 
-    void reduce_dealloc_cuda()
-    {
-        if (reduce_buffer)
-            cudaFree(reduce_buffer);
-        cudaGetLastError();
-        reduce_init_buffers_cuda();
-    }
+extern "C"
+void reduce_dealloc_cuda()
+{
+    if (reduce_buffer)
+        cudaFree(reduce_buffer);
+    cudaGetLastError();
+    reduce_init_buffers_cuda();
 }
 
 static unsigned int nextPow2(unsigned int x) {

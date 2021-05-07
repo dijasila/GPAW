@@ -145,81 +145,78 @@ __global__ void Zcuda(interpolate_kernel)(
     }
 }
 
-extern "C" {
-    void Zcuda(bmgs_interpolate_cuda_gpu)(
-            int k, int skip[3][2],
-            const Tcuda* a, const int size[3],
-            Tcuda* b, const int sizeb[3],
-            int blocks)
-    {
-        if (k != 2)
-            assert(0);
-        int xdiv=1;
+extern "C"
+void Zcuda(bmgs_interpolate_cuda_gpu)(int k, int skip[3][2],
+                                      const Tcuda* a, const int size[3],
+                                      Tcuda* b, const int sizeb[3],
+                                      int blocks)
+{
+    if (k != 2)
+        assert(0);
+    int xdiv=1;
 
-        int gridy = blocks
-                  * ((sizeb[1] + skip[1][0] + BLOCK_Y - 1) / BLOCK_Y);
-        int gridx = xdiv
-                  * ((sizeb[2] + skip[2][0] + BLOCK_X - 1) / BLOCK_X);
+    int gridy = blocks
+              * ((sizeb[1] + skip[1][0] + BLOCK_Y - 1) / BLOCK_Y);
+    int gridx = xdiv
+              * ((sizeb[2] + skip[2][0] + BLOCK_X - 1) / BLOCK_X);
 
-        dim3 dimBlock(BLOCK_X, BLOCK_Y);
-        dim3 dimGrid(gridx, gridy);
-        int3 n = {size[0], size[1], size[2]};
-        int3 skip0 = {skip[0][0], skip[1][0], skip[2][0]};
-        int3 skip1 = {skip[0][1], skip[1][1], skip[2][1]};
-        int3 b_n = {2 * n.x - 2 - skip0.x + skip1.x,
-                    2 * n.y - 2 - skip0.y + skip1.y,
-                    2 * n.z - 2 - skip0.z + skip1.z};
+    dim3 dimBlock(BLOCK_X, BLOCK_Y);
+    dim3 dimGrid(gridx, gridy);
+    int3 n = {size[0], size[1], size[2]};
+    int3 skip0 = {skip[0][0], skip[1][0], skip[2][0]};
+    int3 skip1 = {skip[0][1], skip[1][1], skip[2][1]};
+    int3 b_n = {2 * n.x - 2 - skip0.x + skip1.x,
+                2 * n.y - 2 - skip0.y + skip1.y,
+                2 * n.z - 2 - skip0.z + skip1.z};
 
-        Zcuda(interpolate_kernel)<<<dimGrid, dimBlock, 0>>>(
-                a, n, b, b_n, skip0, skip1, xdiv, blocks);
-        gpaw_cudaSafeCall(cudaGetLastError());
-    }
+    Zcuda(interpolate_kernel)<<<dimGrid, dimBlock, 0>>>(
+            a, n, b, b_n, skip0, skip1, xdiv, blocks);
+    gpaw_cudaSafeCall(cudaGetLastError());
 }
 
 #ifndef CUGPAWCOMPLEX
 #define CUGPAWCOMPLEX
 #include "interpolate-cuda.cu"
 
-extern "C" {
-    double bmgs_interpolate_cuda_cpu(int k, int skip[3][2], const double* a,
-                                     const int n[3], double* b, int blocks)
-    {
-        double *adev, *bdev;
-        size_t bsize, asize;
-        struct timeval t0, t1;
-        double flops;
-        int b_n[3] = {2 * n[0] - 2 - skip[0][0] + skip[0][1],
-                      2 * n[1] - 2 - skip[1][0] + skip[1][1],
-                      2 * n[2] - 2 - skip[2][0] + skip[2][1]};
+extern "C"
+double bmgs_interpolate_cuda_cpu(int k, int skip[3][2], const double* a,
+                                 const int n[3], double* b, int blocks)
+{
+    double *adev, *bdev;
+    size_t bsize, asize;
+    struct timeval t0, t1;
+    double flops;
+    int b_n[3] = {2 * n[0] - 2 - skip[0][0] + skip[0][1],
+                  2 * n[1] - 2 - skip[1][0] + skip[1][1],
+                  2 * n[2] - 2 - skip[2][0] + skip[2][1]};
 
-        asize = blocks * n[0] * n[1] * n[2];
-        bsize = blocks * b_n[0] * b_n[1] * b_n[2];
+    asize = blocks * n[0] * n[1] * n[2];
+    bsize = blocks * b_n[0] * b_n[1] * b_n[2];
 
-        gpaw_cudaSafeCall(cudaMalloc(&adev, sizeof(double) * asize));
-        gpaw_cudaSafeCall(cudaMalloc(&bdev, sizeof(double) * bsize));
+    gpaw_cudaSafeCall(cudaMalloc(&adev, sizeof(double) * asize));
+    gpaw_cudaSafeCall(cudaMalloc(&bdev, sizeof(double) * bsize));
 
-        gpaw_cudaSafeCall(
-                cudaMemcpy(adev, a, sizeof(double) * asize,
-                           cudaMemcpyHostToDevice));
+    gpaw_cudaSafeCall(
+            cudaMemcpy(adev, a, sizeof(double) * asize,
+                       cudaMemcpyHostToDevice));
 
-        gettimeofday(&t0, NULL);
+    gettimeofday(&t0, NULL);
 
-        bmgs_interpolate_cuda_gpu(k, skip, adev, n, bdev, b_n, blocks);
-        cudaThreadSynchronize();
-        gpaw_cudaSafeCall(cudaGetLastError());
+    bmgs_interpolate_cuda_gpu(k, skip, adev, n, bdev, b_n, blocks);
+    cudaThreadSynchronize();
+    gpaw_cudaSafeCall(cudaGetLastError());
 
-        gettimeofday(&t1,NULL);
+    gettimeofday(&t1,NULL);
 
-        gpaw_cudaSafeCall(
-                cudaMemcpy(b, bdev, sizeof(double) * bsize,
-                           cudaMemcpyDeviceToHost));
+    gpaw_cudaSafeCall(
+            cudaMemcpy(b, bdev, sizeof(double) * bsize,
+                       cudaMemcpyDeviceToHost));
 
-        gpaw_cudaSafeCall(cudaFree(adev));
-        gpaw_cudaSafeCall(cudaFree(bdev));
+    gpaw_cudaSafeCall(cudaFree(adev));
+    gpaw_cudaSafeCall(cudaFree(bdev));
 
-        flops = t1.tv_sec * 1.0 + t1.tv_usec / 1000000.0 - t0.tv_sec * 1.0
-              - t0.tv_usec / 1000000.0;
-        return flops;
-    }
+    flops = t1.tv_sec * 1.0 + t1.tv_usec / 1000000.0 - t0.tv_sec * 1.0
+          - t0.tv_usec / 1000000.0;
+    return flops;
 }
 #endif

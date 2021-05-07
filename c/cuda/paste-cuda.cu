@@ -85,6 +85,48 @@ static void debug_memcpy_post(const double *in, double *out)
 #  define Tfunc launch_funcz
 #endif
 
+extern "C"
+void Zcuda(debug_bmgs_paste)(const int sizea[3], const int sizeb[3],
+                             const int startb[3], int blocks,
+                             int ng, int ng2, int zero)
+{
+    for (int m=0; m < blocks; m++) {
+        if (zero)
+            memset(debug_out_cpu + m * ng2, 0, ng2 * sizeof(double));
+#ifndef CUGPAWCOMPLEX
+        bmgs_paste_cpu(debug_in_cpu + m * ng, sizea,
+                       debug_out_cpu + m * ng2, sizeb,
+                       startb);
+#else
+        bmgs_pastez_cpu(debug_in_cpu + m * ng, sizea,
+                        debug_out_cpu + m * ng2, sizeb,
+                        startb);
+#endif
+    }
+    double in_err = 0;
+    for (int i=0; i < debug_size_in; i++) {
+        in_err = MAX(in_err, fabs(debug_in_cpu[i] - debug_in_gpu[i]));
+    }
+    double out_err = 0;
+    for (int i=0; i < debug_size_out; i++) {
+        out_err = MAX(out_err, fabs(debug_out_cpu[i] - debug_out_gpu[i]));
+    }
+    if (in_err > GPAW_CUDA_ABS_TOL_EXCT) {
+        if (zero)
+            fprintf(stderr, "Debug CUDA paste zero (in): error %g\n",
+                    in_err);
+        else
+            fprintf(stderr, "Debug CUDA paste (in): error %g\n", in_err);
+    }
+    if (out_err > GPAW_CUDA_ABS_TOL_EXCT) {
+        if (zero)
+            fprintf(stderr, "Debug CUDA paste zero (out): error %g\n",
+                    out_err);
+        else
+            fprintf(stderr, "Debug CUDA paste (out): error %g\n", out_err);
+    }
+}
+
 __global__ void Zcuda(bmgs_paste_cuda_kernel)(
         const double* a, const int3 c_sizea, double* b, const int3 c_sizeb,
         int blocks, int xdiv)
@@ -198,242 +240,202 @@ __global__ void Zcuda(bmgs_paste_zero_cuda_kernel)(
     }
 }
 
-extern "C" {
-    void Zcuda(debug_bmgs_paste)(const int sizea[3], const int sizeb[3],
+extern "C"
+static void Zcuda(_bmgs_paste_cuda_gpu)(
+        const Tcuda* a, const int sizea[3],
+        Tcuda* b, const int sizeb[3], const int startb[3],
+        int blocks, cudaStream_t stream)
+{
+    int3 hc_sizea, hc_sizeb;
+    hc_sizea.x = sizea[0];
+    hc_sizea.y = sizea[1];
+    hc_sizea.z = sizea[2] * sizeof(Tcuda) / sizeof(double);
+    hc_sizeb.x = sizeb[0];
+    hc_sizeb.y = sizeb[1];
+    hc_sizeb.z = sizeb[2] * sizeof(Tcuda) / sizeof(double);
+
+    int blockx = MIN(nextPow2(hc_sizea.z), BLOCK_MAX);
+    int blocky = MIN(MIN(nextPow2(hc_sizea.y), BLOCK_TOTALMAX / blockx),
+                     BLOCK_MAX);
+    dim3 dimBlock(blockx, blocky);
+    int gridx = ((hc_sizea.z + dimBlock.x - 1) / dimBlock.x);
+    int xdiv = MAX(1, MIN(hc_sizea.x, GRID_MAX / gridx));
+    int gridy = blocks * ((hc_sizea.y + dimBlock.y - 1) / dimBlock.y);
+
+    gridx = xdiv * gridx;
+    dim3 dimGrid(gridx, gridy);
+    b += startb[2] + (startb[1] + startb[0] * sizeb[1]) * sizeb[2];
+    Zcuda(bmgs_paste_cuda_kernel)<<<dimGrid, dimBlock, 0, stream>>>
+        ((double*) a, hc_sizea, (double*) b, hc_sizeb, blocks, xdiv);
+    gpaw_cudaSafeCall(cudaGetLastError());
+}
+
+extern "C"
+static void Zcuda(_bmgs_paste_zero_cuda_gpu)(
+        const Tcuda* a, const int sizea[3],
+        Tcuda* b, const int sizeb[3], const int startb[3],
+        int blocks, cudaStream_t stream)
+{
+    int3 bc_blocks;
+    int3 hc_sizea, hc_sizeb, hc_startb;
+    hc_sizea.x = sizea[0];
+    hc_sizea.y = sizea[1];
+    hc_sizea.z = sizea[2];
+    hc_sizeb.x = sizeb[0];
+    hc_sizeb.y = sizeb[1];
+    hc_sizeb.z = sizeb[2];
+    hc_startb.x = startb[0];
+    hc_startb.y = startb[1];
+    hc_startb.z = startb[2];
+
+    bc_blocks.y = hc_sizeb.y - hc_sizea.y > 0
+                ? MAX((hc_sizeb.y - hc_sizea.y + BLOCK_SIZEY - 1)
+                        / BLOCK_SIZEY, 1)
+                : 0;
+    bc_blocks.z = hc_sizeb.z - hc_sizea.z > 0
+                ? MAX((hc_sizeb.z - hc_sizea.z + BLOCK_SIZEX - 1)
+                        / BLOCK_SIZEX, 1)
+                : 0;
+
+    int gridy = blocks * ((sizeb[1] + BLOCK_SIZEY - 1) / BLOCK_SIZEY
+                          + bc_blocks.y);
+    int gridx = XDIV * ((sizeb[2] + BLOCK_SIZEX - 1) / BLOCK_SIZEX
+                        + bc_blocks.z);
+
+    dim3 dimBlock(BLOCK_SIZEX, BLOCK_SIZEY);
+    dim3 dimGrid(gridx, gridy);
+
+    Zcuda(bmgs_paste_zero_cuda_kernel)<<<dimGrid, dimBlock, 0, stream>>>
+        ((Tcuda*) a, hc_sizea, (Tcuda*) b, hc_sizeb, hc_startb,
+         bc_blocks, blocks);
+    gpaw_cudaSafeCall(cudaGetLastError());
+}
+
+extern "C"
+void Zcuda(_bmgs_paste_launcher)(Tfunc function, int zero,
+                                 const Tcuda* a, const int sizea[3],
+                                 Tcuda* b, const int sizeb[3],
                                  const int startb[3], int blocks,
-                                 int ng, int ng2, int zero)
-    {
-        for (int m=0; m < blocks; m++) {
-            if (zero)
-                memset(debug_out_cpu + m * ng2, 0, ng2 * sizeof(double));
+                                 cudaStream_t stream)
+{
+    const double *in = (double *) a;
+    double *out = (double *) b;
+
 #ifndef CUGPAWCOMPLEX
-            bmgs_paste_cpu(debug_in_cpu + m * ng, sizea,
-                           debug_out_cpu + m * ng2, sizeb,
-                           startb);
+    int ng = sizea[0] * sizea[1] * sizea[2];
+    int ng2 = sizeb[0] * sizeb[1] * sizeb[2];
 #else
-            bmgs_pastez_cpu(debug_in_cpu + m * ng, sizea,
-                            debug_out_cpu + m * ng2, sizeb,
-                            startb);
+    int ng = sizea[0] * sizea[1] * sizea[2] * 2;
+    int ng2 = sizeb[0] * sizeb[1] * sizeb[2] * 2;
 #endif
-        }
-        double in_err = 0;
-        for (int i=0; i < debug_size_in; i++) {
-            in_err = MAX(in_err, fabs(debug_in_cpu[i] - debug_in_gpu[i]));
-        }
-        double out_err = 0;
-        for (int i=0; i < debug_size_out; i++) {
-            out_err = MAX(out_err, fabs(debug_out_cpu[i] - debug_out_gpu[i]));
-        }
-        if (in_err > GPAW_CUDA_ABS_TOL_EXCT) {
-            if (zero)
-                fprintf(stderr, "Debug CUDA paste zero (in): error %g\n",
-                        in_err);
-            else
-                fprintf(stderr, "Debug CUDA paste (in): error %g\n", in_err);
-        }
-        if (out_err > GPAW_CUDA_ABS_TOL_EXCT) {
-            if (zero)
-                fprintf(stderr, "Debug CUDA paste zero (out): error %g\n",
-                        out_err);
-            else
-                fprintf(stderr, "Debug CUDA paste (out): error %g\n", out_err);
-        }
+    if (gpaw_cuda_debug) {
+        debug_allocate(ng, ng2, blocks);
+        debug_memcpy_pre(in, out);
     }
-
-    static void Zcuda(_bmgs_paste_cuda_gpu)(
-            const Tcuda* a, const int sizea[3],
-            Tcuda* b, const int sizeb[3],
-            const int startb[3], int blocks,
-            cudaStream_t stream)
-    {
-        int3 hc_sizea, hc_sizeb;
-        hc_sizea.x = sizea[0];
-        hc_sizea.y = sizea[1];
-        hc_sizea.z = sizea[2] * sizeof(Tcuda) / sizeof(double);
-        hc_sizeb.x = sizeb[0];
-        hc_sizeb.y = sizeb[1];
-        hc_sizeb.z = sizeb[2] * sizeof(Tcuda) / sizeof(double);
-
-        int blockx = MIN(nextPow2(hc_sizea.z), BLOCK_MAX);
-        int blocky = MIN(MIN(nextPow2(hc_sizea.y), BLOCK_TOTALMAX / blockx),
-                         BLOCK_MAX);
-        dim3 dimBlock(blockx, blocky);
-        int gridx = ((hc_sizea.z + dimBlock.x - 1) / dimBlock.x);
-        int xdiv = MAX(1, MIN(hc_sizea.x, GRID_MAX / gridx));
-        int gridy = blocks * ((hc_sizea.y + dimBlock.y - 1) / dimBlock.y);
-
-        gridx = xdiv * gridx;
-        dim3 dimGrid(gridx, gridy);
-        b += startb[2] + (startb[1] + startb[0] * sizeb[1]) * sizeb[2];
-        Zcuda(bmgs_paste_cuda_kernel)<<<dimGrid, dimBlock, 0, stream>>>
-            ((double*) a, hc_sizea, (double*) b, hc_sizeb, blocks, xdiv);
-        gpaw_cudaSafeCall(cudaGetLastError());
+    (*function)(a, sizea, b, sizeb, startb, blocks, stream);
+    if (gpaw_cuda_debug) {
+        debug_memcpy_post(in, out);
+        Zcuda(debug_bmgs_paste)(sizea, sizeb, startb, blocks, ng, ng2,
+                                zero);
+        debug_deallocate();
     }
+}
 
-    static void Zcuda(_bmgs_paste_zero_cuda_gpu)(
-            const Tcuda* a, const int sizea[3],
-            Tcuda* b, const int sizeb[3],
-            const int startb[3], int blocks,
-            cudaStream_t stream)
-    {
-        int3 bc_blocks;
-        int3 hc_sizea, hc_sizeb, hc_startb;
-        hc_sizea.x = sizea[0];
-        hc_sizea.y = sizea[1];
-        hc_sizea.z = sizea[2];
-        hc_sizeb.x = sizeb[0];
-        hc_sizeb.y = sizeb[1];
-        hc_sizeb.z = sizeb[2];
-        hc_startb.x = startb[0];
-        hc_startb.y = startb[1];
-        hc_startb.z = startb[2];
+extern "C"
+void Zcuda(bmgs_paste_cuda_gpu)(const Tcuda* a, const int sizea[3],
+                                Tcuda* b, const int sizeb[3],
+                                const int startb[3], int blocks,
+                                cudaStream_t stream)
+{
+    if (!(sizea[0] && sizea[1] && sizea[2]))
+        return;
+    Zcuda(_bmgs_paste_launcher)(
+            &(Zcuda(_bmgs_paste_cuda_gpu)), 0,
+            a, sizea, b, sizeb, startb, blocks, stream);
+}
 
-        bc_blocks.y = hc_sizeb.y - hc_sizea.y > 0
-                    ? MAX((hc_sizeb.y - hc_sizea.y + BLOCK_SIZEY - 1)
-                            / BLOCK_SIZEY, 1)
-                    : 0;
-        bc_blocks.z = hc_sizeb.z - hc_sizea.z > 0
-                    ? MAX((hc_sizeb.z - hc_sizea.z + BLOCK_SIZEX - 1)
-                            / BLOCK_SIZEX, 1)
-                    : 0;
-
-        int gridy = blocks * ((sizeb[1] + BLOCK_SIZEY - 1) / BLOCK_SIZEY
-                              + bc_blocks.y);
-        int gridx = XDIV * ((sizeb[2] + BLOCK_SIZEX - 1) / BLOCK_SIZEX
-                            + bc_blocks.z);
-
-        dim3 dimBlock(BLOCK_SIZEX, BLOCK_SIZEY);
-        dim3 dimGrid(gridx, gridy);
-
-        Zcuda(bmgs_paste_zero_cuda_kernel)<<<dimGrid, dimBlock, 0, stream>>>
-            ((Tcuda*) a, hc_sizea, (Tcuda*) b, hc_sizeb, hc_startb,
-             bc_blocks, blocks);
-        gpaw_cudaSafeCall(cudaGetLastError());
-    }
-
-    void Zcuda(_bmgs_paste_launcher)(Tfunc function, int zero,
-                                     const Tcuda* a, const int sizea[3],
+extern "C"
+void Zcuda(bmgs_paste_zero_cuda_gpu)(const Tcuda* a, const int sizea[3],
                                      Tcuda* b, const int sizeb[3],
                                      const int startb[3], int blocks,
                                      cudaStream_t stream)
-    {
-        const double *in = (double *) a;
-        double *out = (double *) b;
-
-#ifndef CUGPAWCOMPLEX
-        int ng = sizea[0] * sizea[1] * sizea[2];
-        int ng2 = sizeb[0] * sizeb[1] * sizeb[2];
-#else
-        int ng = sizea[0] * sizea[1] * sizea[2] * 2;
-        int ng2 = sizeb[0] * sizeb[1] * sizeb[2] * 2;
-#endif
-        if (gpaw_cuda_debug) {
-            debug_allocate(ng, ng2, blocks);
-            debug_memcpy_pre(in, out);
-        }
-        (*function)(a, sizea, b, sizeb, startb, blocks, stream);
-        if (gpaw_cuda_debug) {
-            debug_memcpy_post(in, out);
-            Zcuda(debug_bmgs_paste)(sizea, sizeb, startb, blocks, ng, ng2,
-                                    zero);
-            debug_deallocate();
-        }
-    }
-
-    void Zcuda(bmgs_paste_cuda_gpu)(const Tcuda* a, const int sizea[3],
-                                    Tcuda* b, const int sizeb[3],
-                                    const int startb[3], int blocks,
-                                    cudaStream_t stream)
-    {
-        if (!(sizea[0] && sizea[1] && sizea[2]))
-            return;
-        Zcuda(_bmgs_paste_launcher)(
-                &(Zcuda(_bmgs_paste_cuda_gpu)), 0,
-                a, sizea, b, sizeb, startb, blocks, stream);
-    }
-
-    void Zcuda(bmgs_paste_zero_cuda_gpu)(const Tcuda* a, const int sizea[3],
-                                         Tcuda* b, const int sizeb[3],
-                                         const int startb[3], int blocks,
-                                         cudaStream_t stream)
-    {
-        if (!(sizea[0] && sizea[1] && sizea[2]))
-            return;
-        Zcuda(_bmgs_paste_launcher)(
-                &(Zcuda(_bmgs_paste_zero_cuda_gpu)), 1,
-                a, sizea, b, sizeb, startb, blocks, stream);
-    }
+{
+    if (!(sizea[0] && sizea[1] && sizea[2]))
+        return;
+    Zcuda(_bmgs_paste_launcher)(
+            &(Zcuda(_bmgs_paste_zero_cuda_gpu)), 1,
+            a, sizea, b, sizeb, startb, blocks, stream);
 }
 
 #ifndef CUGPAWCOMPLEX
 #define CUGPAWCOMPLEX
 #include "paste-cuda.cu"
 
-extern "C" {
-    double bmgs_paste_cuda_cpu(const double* a, const int sizea[3],
-                               double* b, const int sizeb[3],
-                               const int startb[3])
-    {
-        double *adev, *bdev;
-        struct timeval t0, t1;
-        double flops;
-        int asize = sizea[0] * sizea[1] * sizea[2];
-        int bsize = sizeb[0] * sizeb[1] * sizeb[2];
+extern "C"
+double bmgs_paste_cuda_cpu(const double* a, const int sizea[3],
+                           double* b, const int sizeb[3],
+                           const int startb[3])
+{
+    double *adev, *bdev;
+    struct timeval t0, t1;
+    double flops;
+    int asize = sizea[0] * sizea[1] * sizea[2];
+    int bsize = sizeb[0] * sizeb[1] * sizeb[2];
 
-        gpaw_cudaSafeCall(cudaMalloc(&adev, sizeof(double) * asize));
-        gpaw_cudaSafeCall(cudaMalloc(&bdev, sizeof(double) * bsize));
-        gpaw_cudaSafeCall(
-                cudaMemcpy(adev, a, sizeof(double) * asize,
-                           cudaMemcpyHostToDevice));
+    gpaw_cudaSafeCall(cudaMalloc(&adev, sizeof(double) * asize));
+    gpaw_cudaSafeCall(cudaMalloc(&bdev, sizeof(double) * bsize));
+    gpaw_cudaSafeCall(
+            cudaMemcpy(adev, a, sizeof(double) * asize,
+                       cudaMemcpyHostToDevice));
 
-        gettimeofday(&t0, NULL);
-        bmgs_paste_cuda_gpu(adev, sizea, bdev, sizeb, startb, 1, 0);
-        cudaThreadSynchronize();
-        gpaw_cudaSafeCall(cudaGetLastError());
-        gettimeofday(&t1,NULL);
+    gettimeofday(&t0, NULL);
+    bmgs_paste_cuda_gpu(adev, sizea, bdev, sizeb, startb, 1, 0);
+    cudaThreadSynchronize();
+    gpaw_cudaSafeCall(cudaGetLastError());
+    gettimeofday(&t1,NULL);
 
-        gpaw_cudaSafeCall(
-                cudaMemcpy(b, bdev, sizeof(double) * bsize,
-                           cudaMemcpyDeviceToHost));
-        gpaw_cudaSafeCall(cudaFree(adev));
-        gpaw_cudaSafeCall(cudaFree(bdev));
+    gpaw_cudaSafeCall(
+            cudaMemcpy(b, bdev, sizeof(double) * bsize,
+                       cudaMemcpyDeviceToHost));
+    gpaw_cudaSafeCall(cudaFree(adev));
+    gpaw_cudaSafeCall(cudaFree(bdev));
 
-        flops = t1.tv_sec * 1.0 + t1.tv_usec / 1000000.0 - t0.tv_sec * 1.0
-              - t0.tv_usec / 1000000.0;
-        return flops;
-    }
+    flops = t1.tv_sec * 1.0 + t1.tv_usec / 1000000.0 - t0.tv_sec * 1.0
+          - t0.tv_usec / 1000000.0;
+    return flops;
+}
 
-    double bmgs_paste_zero_cuda_cpu(const double* a, const int sizea[3],
-                                    double* b, const int sizeb[3],
-                                    const int startb[3])
-    {
-        double *adev, *bdev;
-        struct timeval t0, t1;
-        double flops;
-        int asize = sizea[0] * sizea[1] * sizea[2];
-        int bsize = sizeb[0] * sizeb[1] * sizeb[2];
+extern "C"
+double bmgs_paste_zero_cuda_cpu(const double* a, const int sizea[3],
+                                double* b, const int sizeb[3],
+                                const int startb[3])
+{
+    double *adev, *bdev;
+    struct timeval t0, t1;
+    double flops;
+    int asize = sizea[0] * sizea[1] * sizea[2];
+    int bsize = sizeb[0] * sizeb[1] * sizeb[2];
 
-        gpaw_cudaSafeCall(cudaMalloc(&adev, sizeof(double) * asize));
-        gpaw_cudaSafeCall(cudaMalloc(&bdev, sizeof(double) * bsize));
-        gpaw_cudaSafeCall(
-                cudaMemcpy(adev, a, sizeof(double) * asize,
-                           cudaMemcpyHostToDevice));
+    gpaw_cudaSafeCall(cudaMalloc(&adev, sizeof(double) * asize));
+    gpaw_cudaSafeCall(cudaMalloc(&bdev, sizeof(double) * bsize));
+    gpaw_cudaSafeCall(
+            cudaMemcpy(adev, a, sizeof(double) * asize,
+                       cudaMemcpyHostToDevice));
 
-        gettimeofday(&t0, NULL);
-        bmgs_paste_zero_cuda_gpu(adev, sizea, bdev, sizeb, startb, 1, 0);
-        cudaThreadSynchronize();
-        gpaw_cudaSafeCall(cudaGetLastError());
-        gettimeofday(&t1,NULL);
+    gettimeofday(&t0, NULL);
+    bmgs_paste_zero_cuda_gpu(adev, sizea, bdev, sizeb, startb, 1, 0);
+    cudaThreadSynchronize();
+    gpaw_cudaSafeCall(cudaGetLastError());
+    gettimeofday(&t1,NULL);
 
-        gpaw_cudaSafeCall(
-                cudaMemcpy(b, bdev, sizeof(double) * bsize,
-                           cudaMemcpyDeviceToHost));
-        gpaw_cudaSafeCall(cudaFree(adev));
-        gpaw_cudaSafeCall(cudaFree(bdev));
+    gpaw_cudaSafeCall(
+            cudaMemcpy(b, bdev, sizeof(double) * bsize,
+                       cudaMemcpyDeviceToHost));
+    gpaw_cudaSafeCall(cudaFree(adev));
+    gpaw_cudaSafeCall(cudaFree(bdev));
 
-        flops = t1.tv_sec * 1.0 + t1.tv_usec / 1000000.0 - t0.tv_sec * 1.0
-              - t0.tv_usec / 1000000.0;
-        return flops;
-    }
+    flops = t1.tv_sec * 1.0 + t1.tv_usec / 1000000.0 - t0.tv_sec * 1.0
+          - t0.tv_usec / 1000000.0;
+    return flops;
 }
 #endif

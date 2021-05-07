@@ -12,19 +12,19 @@
 static void *lfc_reduce_buffer = NULL;
 static int lfc_reduce_buffer_size = 0;
 
-extern "C" {
-    void lfc_reduce_init_buffers_cuda()
-    {
-        lfc_reduce_buffer = NULL;
-        lfc_reduce_buffer_size = 0;
-    }
+extern "C"
+void lfc_reduce_init_buffers_cuda()
+{
+    lfc_reduce_buffer = NULL;
+    lfc_reduce_buffer_size = 0;
+}
 
-    void lfc_reduce_dealloc_cuda()
-    {
-        cudaFree(lfc_reduce_buffer);
-        cudaGetLastError();
-        lfc_reduce_init_buffers_cuda();
-    }
+extern "C"
+void lfc_reduce_dealloc_cuda()
+{
+    cudaFree(lfc_reduce_buffer);
+    cudaGetLastError();
+    lfc_reduce_init_buffers_cuda();
 }
 
 static unsigned int lfc_nextPow2( unsigned int x ) {

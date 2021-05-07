@@ -60,48 +60,47 @@ __global__ void Zcuda(bmgs_translate_cuda_kernel)(
     }
 }
 
-extern "C" {
-    void Zcuda(bmgs_translate_cuda_gpu)(
-            Tcuda* a, const int sizea[3], const int size[3],
-            const int start1[3], const int start2[3],
+extern "C"
+void Zcuda(bmgs_translate_cuda_gpu)(
+        Tcuda* a, const int sizea[3], const int size[3],
+        const int start1[3], const int start2[3],
 #ifdef CUGPAWCOMPLEX
-            cuDoubleComplex phase,
+        cuDoubleComplex phase,
 #endif
-            int blocks, cudaStream_t stream)
-    {
-        if (!(size[0] && size[1] && size[2]))
-            return;
+        int blocks, cudaStream_t stream)
+{
+    if (!(size[0] && size[1] && size[2]))
+        return;
 
-        int3 hc_sizea, hc_size;
-        hc_sizea.x = sizea[0];
-        hc_sizea.y = sizea[1];
-        hc_sizea.z = sizea[2];
-        hc_size.x = size[0];
-        hc_size.y = size[1];
-        hc_size.z = size[2];
+    int3 hc_sizea, hc_size;
+    hc_sizea.x = sizea[0];
+    hc_sizea.y = sizea[1];
+    hc_sizea.z = sizea[2];
+    hc_size.x = size[0];
+    hc_size.y = size[1];
+    hc_size.z = size[2];
 
-        int blockx = MIN(nextPow2(hc_size.z), BLOCK_MAX);
-        int blocky = MIN(MIN(nextPow2(hc_size.y), BLOCK_TOTALMAX / blockx),
-                         BLOCK_MAX);
-        dim3 dimBlock(blockx, blocky);
-        int gridx = ((hc_size.z + dimBlock.x - 1) / dimBlock.x);
-        int xdiv = MAX(1, MIN(hc_size.x, GRID_MAX / gridx));
-        int gridy = blocks * ((hc_size.y + dimBlock.y - 1) / dimBlock.y);
-        gridx = xdiv * gridx;
-        dim3 dimGrid(gridx, gridy);
+    int blockx = MIN(nextPow2(hc_size.z), BLOCK_MAX);
+    int blocky = MIN(MIN(nextPow2(hc_size.y), BLOCK_TOTALMAX / blockx),
+                     BLOCK_MAX);
+    dim3 dimBlock(blockx, blocky);
+    int gridx = ((hc_size.z + dimBlock.x - 1) / dimBlock.x);
+    int xdiv = MAX(1, MIN(hc_size.x, GRID_MAX / gridx));
+    int gridy = blocks * ((hc_size.y + dimBlock.y - 1) / dimBlock.y);
+    gridx = xdiv * gridx;
+    dim3 dimGrid(gridx, gridy);
 
-        Tcuda *b = a + start2[2]
-                 + (start2[1] + start2[0] * hc_sizea.y) * hc_sizea.z;
-        a += start1[2] + (start1[1] + start1[0] * hc_sizea.y) * hc_sizea.z;
+    Tcuda *b = a + start2[2]
+             + (start2[1] + start2[0] * hc_sizea.y) * hc_sizea.z;
+    a += start1[2] + (start1[1] + start1[0] * hc_sizea.y) * hc_sizea.z;
 
-        Zcuda(bmgs_translate_cuda_kernel)<<<dimGrid, dimBlock, 0, stream>>>
-            ((Tcuda*) a, hc_sizea, (Tcuda*) b, hc_size,
+    Zcuda(bmgs_translate_cuda_kernel)<<<dimGrid, dimBlock, 0, stream>>>
+        ((Tcuda*) a, hc_sizea, (Tcuda*) b, hc_size,
 #ifdef CUGPAWCOMPLEX
-             phase,
+         phase,
 #endif
-             blocks, xdiv);
-        gpaw_cudaSafeCall(cudaGetLastError());
-    }
+         blocks, xdiv);
+    gpaw_cudaSafeCall(cudaGetLastError());
 }
 
 #ifndef CUGPAWCOMPLEX
