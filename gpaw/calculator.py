@@ -94,7 +94,8 @@ class GPAW(Calculator):
                         'density': 1.0e-4,
                         'eigenstates': 4.0e-8,  # eV^2
                         'bands': 'occupied',
-                        'forces': np.inf},  # eV / Ang
+                        'forces': np.inf,  # eV / Ang
+                        'custom': None},
         'verbose': 0,
         'fixdensity': False,  # deprecated
         'dtype': None}  # deprecated
@@ -163,8 +164,6 @@ class GPAW(Calculator):
         self.log.fd = txt
 
         self.reader = None
-
-        self.criteria = []
 
         Calculator.__init__(self, restart, label=label, **kwargs)
 
@@ -938,7 +937,7 @@ class GPAW(Calculator):
             # parameters.
             self.parameters.experimental.get('niter_fixdensity', 0),
             nv,
-            self.criteria)
+            self.parameters.convergence['custom'])
         self.log(self.scf)
 
     def create_symmetry(self, magmom_av, cell_cv, reading):

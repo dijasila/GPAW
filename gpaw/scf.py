@@ -24,7 +24,10 @@ class SCFLoop:
 
         self.niter = None
         self.reset()
-        self.criteria = {c.name: c for c in criteria}
+        try:
+            self.criteria = {c.name: c for c in criteria}
+        except TypeError:
+            self.criteria = {criteria.name: criteria}
 
     def __str__(self):
         cc = self.max_errors
@@ -72,10 +75,7 @@ class SCFLoop:
             errors = self.collect_errors(dens, ham, wfs, log)
 
             # Converged?
-            if all(self.converged_items.values()):
-                self.converged = True
-            else:
-                self.converged = False
+            self.converged = all(self.converged_items.values())
 
             callback(self.niter)
             self.log(log, self.niter, wfs, ham, dens, errors)
@@ -273,7 +273,7 @@ class WorkFunction:
                             .format(n_old, tol))
         self._old = deque(maxlen=n_old)
 
-    def to_dict(self):
+    def todict(self):
         return {'name': self.name,
                 'tol': self.tol,
                 'n_old': self.n_old}
