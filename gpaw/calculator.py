@@ -164,6 +164,8 @@ class GPAW(Calculator):
 
         self.reader = None
 
+        self.criteria = []
+
         Calculator.__init__(self, restart, label=label, **kwargs)
 
     def fixed_density(self, *,
