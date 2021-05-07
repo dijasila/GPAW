@@ -35,12 +35,22 @@ static double *debug_out_cpu;
 static double *debug_out_gpu;
 static double *debug_in_cpu;
 
+/*
+ * Increment reference count to register a new operator object
+ * and copy the stencil to the GPU.
+ */
 void operator_init_cuda(OperatorObject *self)
 {
     self->stencil_gpu = bmgs_stencil_to_gpu(&(self->stencil));
     operator_init_count++;
 }
 
+/*
+ * Ensure buffer is allocated and is big enough. Reallocate only if
+ * size has increased.
+ *
+ * Create also CUDA streams and events if not already created.
+ */
 void operator_alloc_buffers(OperatorObject *self, int blocks)
 {
     const boundary_conditions* bc = self->bc;
@@ -66,6 +76,9 @@ void operator_alloc_buffers(OperatorObject *self, int blocks)
     }
 }
 
+/*
+ * Reset reference count and unset buffer.
+ */
 void operator_init_buffers_cuda()
 {
     operator_buf_gpu = NULL;
@@ -74,6 +87,13 @@ void operator_init_buffers_cuda()
     operator_streams = 0;
 }
 
+/*
+ * Deallocate buffer and destroy CUDA streams and events,
+ * or decrease reference count
+ *
+ * arguments:
+ *   (int) force -- if true, force deallocation etc.
+ */
 void operator_dealloc_cuda(int force)
 {
     if (force) {
@@ -99,6 +119,9 @@ void operator_dealloc_cuda(int force)
     }
 }
 
+/*
+ * Allocate debug buffers and precalculate sizes.
+ */
 void debug_operator_allocate(OperatorObject* self, int nin, int blocks)
 {
     boundary_conditions* bc = self->bc;
@@ -119,6 +142,9 @@ void debug_operator_allocate(OperatorObject* self, int nin, int blocks)
     debug_in_cpu = GPAW_MALLOC(double, debug_size_arr);
 }
 
+/*
+ * Deallocate debug buffers and set sizes to zero.
+ */
 void debug_operator_deallocate()
 {
     free(debug_sendbuf);
@@ -132,6 +158,9 @@ void debug_operator_deallocate()
     debug_size_buf = 0;
 }
 
+/*
+ * Copy initial GPU arrays to debug buffers on the CPU.
+ */
 void debug_operator_memcpy_pre(const double *in, double *out)
 {
     GPAW_CUDAMEMCPY(debug_in_cpu, in, double, debug_size_arr,
@@ -140,6 +169,9 @@ void debug_operator_memcpy_pre(const double *in, double *out)
                     cudaMemcpyDeviceToHost);
 }
 
+/*
+ * Copy final GPU arrays to debug buffers on the CPU.
+ */
 void debug_operator_memcpy_post(double *out, double *buf)
 {
     GPAW_CUDAMEMCPY(debug_out_gpu, out, double, debug_size_arr,
@@ -289,6 +321,17 @@ static void _operator_relax_cuda_gpu(OperatorObject* self, int relax_method,
     }
 }
 
+/*
+ * Python interface for the GPU version of the relax algorithm
+ * (similar to Operator_relax() for CPUs).
+ *
+ * arguments:
+ *   relax_method -- relaxation method (int)
+ *   func_gpu     -- pointer to device memory (GPUArray.gpudata)
+ *   source_gpu   -- pointer to device memory (GPUArray.gpudata)
+ *   nrelax       -- number of iterations (int)
+ *   w            -- weight (float)
+ */
 PyObject* Operator_relax_cuda_gpu(OperatorObject* self, PyObject* args)
 {
     int relax_method;
@@ -506,6 +549,17 @@ static void _operator_apply_cuda_gpu(OperatorObject *self,
     }
 }
 
+/*
+ * Python interface for the GPU version of the FD algorithm
+ * (similar to Operator_apply() for CPUs).
+ *
+ * arguments:
+ *   input_gpu  -- pointer to device memory (GPUArray.gpudata)
+ *   output_gpu -- pointer to device memory (GPUArray.gpudata)
+ *   shape      -- shape of the array (tuple)
+ *   type       -- datatype of array elements
+ *   phases     -- phase (complex) (ignored if type is NPY_DOUBLE)
+ */
 PyObject * Operator_apply_cuda_gpu(OperatorObject* self, PyObject* args)
 {
     PyArrayObject* phases = 0;

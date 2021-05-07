@@ -31,11 +31,18 @@ static double *debug_out_cpu;
 static double *debug_out_gpu;
 static double *debug_in_cpu;
 
+/*
+ * Increment reference count to register a new tranformer object.
+ */
 void transformer_init_cuda(TransformerObject *self)
 {
     transformer_init_count++;
 }
 
+/*
+ * Ensure buffer is allocated and is big enough. Reallocate only if
+ * size has increased.
+ */
 void transformer_init_buffers(TransformerObject *self, int blocks)
 {
     const boundary_conditions* bc = self->bc;
@@ -50,6 +57,9 @@ void transformer_init_buffers(TransformerObject *self, int blocks)
     }
 }
 
+/*
+ * Reset reference count and unset buffer.
+ */
 void transformer_init_buffers_cuda()
 {
     transformer_buf_gpu = NULL;
@@ -57,6 +67,12 @@ void transformer_init_buffers_cuda()
     transformer_init_count = 0;
 }
 
+/*
+ * Deallocate buffer or decrease reference count.
+ *
+ * arguments:
+ *   (int) force -- if true, force deallocation
+ */
 void transformer_dealloc_cuda(int force)
 {
     if (force)
@@ -72,6 +88,9 @@ void transformer_dealloc_cuda(int force)
         transformer_init_count--;
 }
 
+/*
+ * Allocate debug buffers and precalculate sizes.
+ */
 void debug_transformer_allocate(TransformerObject* self, int nin, int blocks)
 {
     boundary_conditions* bc = self->bc;
@@ -96,6 +115,9 @@ void debug_transformer_allocate(TransformerObject* self, int nin, int blocks)
     debug_in_cpu = GPAW_MALLOC(double, debug_size_in);
 }
 
+/*
+ * Deallocate debug buffers and set sizes to zero.
+ */
 void debug_transformer_deallocate()
 {
     free(debug_sendbuf);
@@ -111,6 +133,9 @@ void debug_transformer_deallocate()
     debug_size_buf_out = 0;
 }
 
+/*
+ * Copy initial GPU arrays to debug buffers on the CPU.
+ */
 void debug_transformer_memcpy_pre(const double *in, double *out)
 {
     GPAW_CUDAMEMCPY(debug_in_cpu, in, double, debug_size_in,
@@ -119,6 +144,9 @@ void debug_transformer_memcpy_pre(const double *in, double *out)
                     cudaMemcpyDeviceToHost);
 }
 
+/*
+ * Copy final GPU arrays to debug buffers on the CPU.
+ */
 void debug_transformer_memcpy_post(double *out)
 {
     GPAW_CUDAMEMCPY(debug_out_gpu, out, double, debug_size_out,
@@ -269,6 +297,17 @@ static void _transformer_apply_cuda_gpu(TransformerObject* self,
     }
 }
 
+/*
+ * Python interface for the GPU version of the interpolate and restrict
+ * algorithm (similar to Transformer_apply() for CPUs).
+ *
+ * arguments:
+ *   input_gpu  -- pointer to device memory (GPUArray.gpudata)
+ *   output_gpu -- pointer to device memory (GPUArray.gpudata)
+ *   shape      -- shape of the array (tuple)
+ *   type       -- datatype of array elements
+ *   phases     -- phase (complex) (ignored if type is NPY_DOUBLE)
+ */
 PyObject* Transformer_apply_cuda_gpu(TransformerObject *self, PyObject *args)
 {
     PyArrayObject* phases = 0;
