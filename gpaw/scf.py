@@ -155,11 +155,6 @@ class SCFLoop:
 
     def log(self, log, niter, wfs, ham, dens, errors):
         """Output from each iteration."""
-        # Do like
-        # iter time poisson/iters total/energy log10-change:
-        # [with cols propagating under log10 change as...]
-        # wfs, dens, forces, [user additions]
-        # then magmom
         if niter == 1:
             header1 = ('{:<12s} {:>8s} {:>12s}  '
                        .format('iterations', 'time', 'total'))
@@ -284,39 +279,22 @@ class WorkFunction:
                 'n_old': self.n_old}
 
     def __call__(self, context):
-        """Should return (bool, log), where bool is True if converged and
-        False if not, and log is a <=5 character string to be printed in
+        """Should return (bool, entry), where bool is True if converged and
+        False if not, and entry is a <=5 character string to be printed in
         the user log file."""
-        ham = context.ham
-        dipole_correction = ham.poisson.correction
-        fermilevel = context.wfs.fermi_level
-        c = ham.poisson.c
-        if not ham.gd.pbc_c[c]:
-            # zero boundary conditions
-            vacuum = 0.0
-        else:
-            v_q = ham.pd3.gather(ham.vHt_q)
-            if ham.pd3.comm.rank == 0:
-                axes = (c, (c + 1) % 3, (c + 2) % 3)
-                v_g = ham.pd3.ifft(v_q, local=True).transpose(axes)
-                vacuum = v_g[0].mean()
-            else:
-                vacuum = np.nan
-        wf1 = vacuum - fermilevel + dipole_correction
-        wf2 = vacuum - fermilevel - dipole_correction
-        workfunctions = Ha * np.array([wf1, wf2])
-        old = self._old
-        old.append(workfunctions)  # Pops off >3!
-        if len(old) == old.maxlen:
-            error = max(np.ptp(old, axis=0))
+        workfunctions = context.ham.get_workfunctions(context.wfs.fermi_level)
+        workfunctions = Ha * np.array(workfunctions)
+        self._old.append(workfunctions)  # Pops off >3!
+        if len(self._old) == self._old.maxlen:
+            error = max(np.ptp(self._old, axis=0))
         else:
             error = np.inf
         converged = (error < self.tol)
         if error < np.inf:
-            log = '{:+5.2f}'.format(np.log10(error))
+            entry = '{:+5.2f}'.format(np.log10(error))
         else:
-            log = '-'
-        return converged, log
+            entry = '-'
+        return converged, entry
 
 
 oops = """
