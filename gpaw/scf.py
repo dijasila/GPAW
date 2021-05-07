@@ -24,9 +24,7 @@ class SCFLoop:
 
         self.niter = None
         self.reset()
-        self.criteria = criteria
-        if criteria is None:
-            self.criteria = []
+        self.criteria = {c.name: c for c in criteria}
 
     def __str__(self):
         cc = self.max_errors
@@ -46,9 +44,10 @@ class SCFLoop:
             ('Maximum number of [iter]ations: {0}', self.maxiter)]:
             if val < np.inf:
                 s += ' {0}\n'.format(name.format(val))
+        for criterion in self.criteria.values():
+            s += ' ' + criterion.description
         s += ("\n (Square brackets indicate name in SCF output, whereas a 'c'"
               " in\n the SCF output indicates the quantity has converged.)\n")
-        s += str(self.criteria)
         return s
 
     def write(self, writer):
@@ -108,7 +107,7 @@ class SCFLoop:
         # FIXME/ap: Remove log argument above!
         """Check convergence of eigenstates, energy and density."""
 
-        # XXX Make sure all agree on the density error:
+        # XXX Make sure all agree on the density error.
         denserror = broadcast_float(dens.error, wfs.world)
 
         errors = {'eigenstates': wfs.eigensolver.error,
@@ -122,18 +121,16 @@ class SCFLoop:
             if np.isfinite(self.old_energies).all():
                 errors['energy'] = np.ptp(self.old_energies)
 
-        # Check any user-custom convergence criteria.
-        event = SCFEvent(dens=dens, ham=ham, wfs=wfs, log=log)
-        for criterion in self.criteria:
-            tol = criterion[1]
-            error = criterion[0](event)
-            name = criterion[0].__name__
-            errors[name] = error
-            self.max_errors[name] = tol
-
         # Converged?
         self.converged_items = {kind: (error < self.max_errors[kind]) for
                                 kind, error in errors.items()}
+
+        # Check any user-custom convergence criteria.
+        event = SCFEvent(dens=dens, ham=ham, wfs=wfs, log=log)
+        for name, criterion in self.criteria.items():
+            converged, entry = criterion(event)
+            errors[name] = entry
+            self.converged_items[name] = converged
 
         # We only want to calculate the (expensive) forces if we have to.
         check_forces = (self.max_errors['force'] < np.inf and
@@ -151,10 +148,6 @@ class SCFLoop:
             self.old_F_av = F_av
             self.converged_items['force'] = (errors['force'] <
                                              self.max_errors['force'])
-            log("errors['force']")
-            log(errors['force'])
-            log("self.max_errors['force']")
-            log(self.max_errors['force'])
         elif self.max_errors['force'] < np.inf:
             self.converged_items['force'] = False
 
@@ -178,10 +171,9 @@ class SCFLoop:
             if self.max_errors['force'] < np.inf:
                 header1 += ' ' * 7
                 header2 += '{:>5s}  '.format('force')
-            for criterion in self.criteria:
-                title = criterion[0].__name__[:5]
+            for criterion in self.criteria.values():
                 header1 += ' ' * 7
-                header2 += '{:>5s}  '.format(title)
+                header2 += '{:>5s}  '.format(criterion.tablename)
             if wfs.nspins == 2:
                 header1 += '{:>8s} '.format('magmom')
                 header2 += '{:>8s} '.format('')
@@ -231,13 +223,8 @@ class SCFLoop:
             line += '{:>5s}{:s} '.format(error, c['force'])
 
         # Custom criteria.
-        for criterion in self.criteria:
-            name = criterion[0].__name__
-            if errors[name] < np.inf:
-                error = '{:+5.2f}'.format(np.log10(errors[name]))
-            else:
-                error = '-'
-            line += '{:>5s}{:s}'.format(error, c[name])
+        for name in self.criteria:
+            line += '{:>5s}{:s}'.format(errors[name], c[name])
 
         # Magnetic moment.
         if wfs.nspins == 2 or not wfs.collinear:
@@ -265,6 +252,71 @@ class SCFEvent:
         self.ham = ham
         self.wfs = wfs
         self.log = log
+
+
+class WorkFunction:
+    """A convergence criterion for the work function.
+
+    Parameters:
+
+    tol : float
+        Tolerance for conversion; that is the maximum variation among the
+        last n_old values of either work function.
+    n_old : int
+        Number of work functions to compare. I.e., if n_old is 3, then this
+        compares the peak-to-peak difference among the current work
+        function and the two previous.
+    """
+
+    def __init__(self, tol, n_old=3):
+        self.tol = tol
+        self.n_old = n_old
+        self.name = 'work function'
+        self.tablename = 'wkfxn'
+        self.description = ('Maximum change in the last {:d} '
+                            'work functions [wkfxn]: {:g} eV'
+                            .format(n_old, tol))
+        self._old = deque(maxlen=n_old)
+
+    def to_dict(self):
+        return {'name': self.name,
+                'tol': self.tol,
+                'n_old': self.n_old}
+
+    def __call__(self, context):
+        """Should return (bool, log), where bool is True if converged and
+        False if not, and log is a <=5 character string to be printed in
+        the user log file."""
+        ham = context.ham
+        dipole_correction = ham.poisson.correction
+        fermilevel = context.wfs.fermi_level
+        c = ham.poisson.c
+        if not ham.gd.pbc_c[c]:
+            # zero boundary conditions
+            vacuum = 0.0
+        else:
+            v_q = ham.pd3.gather(ham.vHt_q)
+            if ham.pd3.comm.rank == 0:
+                axes = (c, (c + 1) % 3, (c + 2) % 3)
+                v_g = ham.pd3.ifft(v_q, local=True).transpose(axes)
+                vacuum = v_g[0].mean()
+            else:
+                vacuum = np.nan
+        wf1 = vacuum - fermilevel + dipole_correction
+        wf2 = vacuum - fermilevel - dipole_correction
+        workfunctions = Ha * np.array([wf1, wf2])
+        old = self._old
+        old.append(workfunctions)  # Pops off >3!
+        if len(old) == old.maxlen:
+            error = max(np.ptp(old, axis=0))
+        else:
+            error = np.inf
+        converged = (error < self.tol)
+        if error < np.inf:
+            log = '{:+5.2f}'.format(np.log10(error))
+        else:
+            log = '-'
+        return converged, log
 
 
 oops = """
