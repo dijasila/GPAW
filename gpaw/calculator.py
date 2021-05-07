@@ -750,7 +750,7 @@ class GPAW(Calculator):
             raise ValueError('Too few bands!  Electrons: %f, bands: %d'
                              % (nvalence, nbands))
 
-        criteria = par.convergence['custom']
+        criteria = par.convergence.get('custom', [])
         if criteria is None:
             criteria = []
         elif not isinstance(criteria, (list, tuple)):
