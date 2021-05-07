@@ -610,9 +610,10 @@ The default value is this Python dictionary::
 
   {'energy': 0.0005,  # eV / electron
    'density': 1.0e-4,
-   'eigenstates': 4.0e-8,  # eV^2 / electron
+   'eigenstates': 4.0e-8,  # eV^2
    'bands': 'occupied',
-   'forces': float('inf')} # eV / Ang Max
+   'forces': np.inf,  # eV / Ang (max)
+   'custom': None}
 
 In words:
 
@@ -623,13 +624,17 @@ In words:
   should be less than 0.0001 electrons per valence electron.
 
 * The integrated value of the square of the residuals of the Kohn-Sham
-  equations should be less than `4.0 \times 10^{-8}
-  \mathrm{eV}^2` per valence electron. This criterion does not affect LCAO
+  equations should be less than 4.0 `\times` 10\ :sup:`-8` eV\ :sup:`2`
+  per valence electron. This criterion does not affect LCAO
   calculations.
+
+* Only the bands that are occupied with electrons are converged.
 
 * The maximum change in the magnitude of the vector representing the
   difference in forces for each atom.  Setting this to infinity (default)
   disables this functionality, saving computational time and memory usage.
+
+* There are no custom convergence criteria specified.
 
 The individual criteria can be changed by giving only the specific
 entry of dictionary e.g. ``convergence={'energy': 0.0001}`` would set
@@ -647,6 +652,10 @@ Finally, one can also use ``{'bands': 'CBM+5.0'}`` to specify that bands
 up to the conduction band minimum plus 5.0 eV should be converged
 (for a metal, CBM is taken as the Fermi level).
 
+You can also set custom convergence criteria, that you create yourself
+or choose from built-in options; for example, if you would like to
+make sure that the work function is converged. See
+:ref:`custom-convergence` for details.
 
 .. _manual_maxiter:
 

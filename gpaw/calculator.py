@@ -94,7 +94,7 @@ class GPAW(Calculator):
                         'density': 1.0e-4,
                         'eigenstates': 4.0e-8,  # eV^2
                         'bands': 'occupied',
-                        'forces': np.inf,  # eV / Ang
+                        'forces': np.inf,  # eV / Ang (max)
                         'custom': None},
         'verbose': 0,
         'fixdensity': False,  # deprecated
@@ -1291,13 +1291,13 @@ class GPAW(Calculator):
         self.hamiltonian.linearize_to_xc(newxc, self.density)
 
     def attach(self, function, n=1, *args, **kwargs):
-        """Register observer function.
+        """Register observer function to run during the SCF cycle.
 
         Call *function* using *args* and
         *kwargs* as arguments.
 
         If *n* is positive, then
-        *function* will be called every *n* iterations + the
+        *function* will be called every *n* SCF iterations + the
         final iteration if it would not be otherwise
 
         If *n* is negative, then *function* will only be
