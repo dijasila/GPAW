@@ -36,7 +36,7 @@ from gpaw.matrix import suggest_blocking
 from gpaw.occupations import ParallelLayout, create_occ_calc
 from gpaw.output import (print_cell, print_parallelization_details,
                          print_positions)
-from gpaw.scf import SCFLoop
+from gpaw.scf import SCFLoop, dict2criterion
 from gpaw.setup import Setups
 from gpaw.stress import calculate_stress
 from gpaw.symmetry import Symmetry
@@ -749,6 +749,14 @@ class GPAW(Calculator):
         if nvalence > 2 * nbands and not orbital_free:
             raise ValueError('Too few bands!  Electrons: %f, bands: %d'
                              % (nvalence, nbands))
+
+        criteria = par.convergence['custom']
+        if not isinstance(criteria, (list, tuple)):
+            criteria = [criteria]
+        for index, criterion in enumerate(criteria):
+            if isinstance(criterion, dict):  # from .gpw file
+                criteria[index] = dict2criterion(criterion)
+        par.convergence['custom'] = criteria
 
         if self.scf is None:
             self.create_scf(nvalence, mode)

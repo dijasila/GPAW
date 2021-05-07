@@ -24,10 +24,8 @@ class SCFLoop:
 
         self.niter = None
         self.reset()
-        try:
-            self.criteria = {c.name: c for c in criteria}
-        except TypeError:
-            self.criteria = {criteria.name: criteria}
+
+        self.criteria = {c.name: c for c in criteria}
 
     def __str__(self):
         cc = self.max_errors
@@ -249,6 +247,15 @@ class SCFEvent:
         self.log = log
 
 
+def dict2criterion(dictionary):
+    # Add new criteria to this list.
+    criteria = {c.name: c for c in [WorkFunction, ]}
+    d = dictionary.copy()
+    name = d.pop('name')
+    Criterion = criteria[name]
+    return Criterion(**d)
+
+
 class WorkFunction:
     """A convergence criterion for the work function.
 
@@ -262,12 +269,12 @@ class WorkFunction:
         compares the peak-to-peak difference among the current work
         function and the two previous.
     """
+    name = 'work function'
+    tablename = 'wkfxn'
 
     def __init__(self, tol, n_old=3):
         self.tol = tol
         self.n_old = n_old
-        self.name = 'work function'
-        self.tablename = 'wkfxn'
         self.description = ('Maximum change in the last {:d} '
                             'work functions [wkfxn]: {:g} eV'
                             .format(n_old, tol))
