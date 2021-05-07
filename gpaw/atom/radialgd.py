@@ -151,16 +151,20 @@ class RadialGridDescriptor:
         vr_g[:] *= self.r_g[:]**0.5
         return vr_g
 
-    def derivative_spline(self, n_g, dndr_g=None):
+    def derivative_spline(self, n_g, dndr_g=None, *, degree=5):
         """Spline-based derivative of radial function."""
         if dndr_g is None:
             dndr_g = self.empty()
 
-        s = make_interp_spline(self.r_g, n_g, k=5,
-                               bc_type=([(2, 0.0), (4, 0.0)],
-                                        [(3, 0.0), (5, 0.0)]))
-        s = splder(s)
+        # Boundary conditions
+        assert degree in [3, 5]
+        if degree == 5:
+            bc_type = ([(2, 0.0), (4, 0.0)], [(3, 0.0), (5, 0.0)])
+        elif degree == 3:
+            bc_type = ([(2, 0.0)], [(3, 0.0)])
 
+        s = make_interp_spline(self.r_g, n_g, k=degree, bc_type=bc_type)
+        s = splder(s)
         dndr_g[:] = s(self.r_g)
         return dndr_g
 
