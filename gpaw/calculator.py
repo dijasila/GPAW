@@ -751,7 +751,9 @@ class GPAW(Calculator):
                              % (nvalence, nbands))
 
         criteria = par.convergence['custom']
-        if not isinstance(criteria, (list, tuple)):
+        if criteria is None:
+            criteria = []
+        elif not isinstance(criteria, (list, tuple)):
             criteria = [criteria]
         for index, criterion in enumerate(criteria):
             if isinstance(criterion, dict):  # from .gpw file
