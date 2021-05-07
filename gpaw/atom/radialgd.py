@@ -159,9 +159,9 @@ class RadialGridDescriptor:
         # Boundary conditions
         assert degree in [3, 5]
         if degree == 5:
-            bc_type = ([(2, 0.0), (4, 0.0)], [(3, 0.0), (5, 0.0)])
+            bc_type = ([(2, 0.0), (4, 0.0)], [(2, 0.0), (4, 0.0)])
         elif degree == 3:
-            bc_type = ([(2, 0.0)], [(3, 0.0)])
+            bc_type = ([(2, 0.0)], [(2, 0.0)])
 
         s = make_interp_spline(self.r_g, n_g, k=degree, bc_type=bc_type)
         s = splder(s)
