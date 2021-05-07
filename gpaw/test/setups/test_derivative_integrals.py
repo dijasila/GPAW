@@ -197,3 +197,5 @@ def test_skew_symmetry_real_setup(Z, xc):
     for v in range(3):
         arr_ii = setup.nabla_iiv[:, :, v]
         assert np.allclose(arr_ii, -arr_ii.T, rtol=5e-6, atol=1e-12)
+        arr_ii = setup.rxnabla_iiv[:, :, v]
+        assert np.allclose(arr_ii, -arr_ii.T, rtol=0, atol=1e-14)
