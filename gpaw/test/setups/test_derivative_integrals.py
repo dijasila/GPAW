@@ -5,7 +5,7 @@ from gpaw.mpi import world
 from gpaw.atom.radialgd import EquidistantRadialGridDescriptor
 from gpaw.fd_operators import Gradient
 from gpaw.grid_descriptor import GridDescriptor
-from gpaw.setup import Setup
+from gpaw.setup import Setup, Setups
 from gpaw.spherical_harmonics import YL
 from gpaw.utilities.tools import coordinates
 
@@ -187,3 +187,13 @@ def test_lmax_zero(radial_function):
                                            lmax=0)
     for kind, ref_LLv in integrals.items():
         assert np.allclose(ref_LLv, 0, rtol=0, atol=0)
+
+
+@pytest.mark.parametrize('xc', ['LDA', 'PBE'])
+@pytest.mark.parametrize('Z', (
+    list(range(1, 43)) + list(range(44, 57)) + list(range(72, 84)) + [86]))
+def test_skew_symmetry_real_setup(Z, xc):
+    setup = Setups([Z], {}, {}, xc)[0]
+    for v in range(3):
+        arr_ii = setup.nabla_iiv[:, :, v]
+        assert np.allclose(arr_ii, -arr_ii.T, rtol=5e-6, atol=1e-12)
