@@ -42,7 +42,7 @@ class SCFLoop:
              cc['eigenstates'] * Ha**2 / self.nvalence),
             ('Maximum change in atomic [forces]: {0:g} eV / Ang',
              cc['force'] * Ha / Bohr),
-            ('Maximum number of [iter]ations: {0}', self.maxiter)]:
+            ('Maximum number of [scf] iterations: {0}', self.maxiter)]:
             if val < np.inf:
                 s += ' {0}\n'.format(name.format(val))
         for criterion in self.criteria.values():
