@@ -102,7 +102,6 @@ class SCFLoop:
                 'Did not converge!  See text output for help.')
 
     def collect_errors(self, dens, ham, wfs, log):
-        # FIXME/ap: Remove log argument above!
         """Check convergence of eigenstates, energy and density."""
 
         # XXX Make sure all agree on the density error.
@@ -134,7 +133,7 @@ class SCFLoop:
         check_forces = (self.max_errors['force'] < np.inf and
                         all(self.converged_items.values()))
 
-        # XXX Note this checks just the difference in the last 2
+        # FIXME/ap Note this checks just the difference in the last 2
         # iterations, whereas other quantities (energy, workfunction) do
         # a peak-to-peak on 3. Ok?
         errors['force'] = np.inf
@@ -233,7 +232,8 @@ class SCFLoop:
 class SCFEvent:
     """Object to pass the state of the SCF cycle to a convergence-checking
     function."""
-    # XXX Note that the SCF cycle does not have a reference to the
+
+    # FIXME/ap: Note that the SCF cycle does not have a reference to the
     # calculator object. For now I am instead giving this event access
     # to the ham, wfs, etc., that SCF already has. But we could consider
     # changing how SCF is initialized to instead just give it a calc ref
