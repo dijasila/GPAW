@@ -450,7 +450,7 @@ class GPAW(Calculator):
             if key != 'txt' and key not in self.default_parameters:
                 raise TypeError('Unknown GPAW parameter: {}'.format(key))
 
-            if key in ['convergence', 'symmetry',
+            if key in ['symmetry',
                        'experimental'] and isinstance(kwargs[key], dict):
                 # For values that are dictionaries, verify subkeys, too.
                 default_dict = self.default_parameters[key]
@@ -750,18 +750,26 @@ class GPAW(Calculator):
             raise ValueError('Too few bands!  Electrons: %f, bands: %d'
                              % (nvalence, nbands))
 
-        criteria = par.convergence.get('custom', [])
-        if criteria is None:
-            criteria = []
-        elif not isinstance(criteria, (list, tuple)):
-            criteria = [criteria]
-        for index, criterion in enumerate(criteria):
+        # Gather convergence criteria for SCF loop.
+        criteria = {}
+        default = self.default_parameters['convergence']
+        keys = set(list(par.convergence) + list(default)) - {'custom', 'bands'}
+        for key in keys:
+            arg = par.convergence.get(key, default.get(key))
+            criteria[key] = dict2criterion({key: arg})
+
+        custom = par.convergence.get('custom', None)
+        if custom is None:
+            custom = []
+        elif not isinstance(custom, (list, tuple)):
+            custom = [custom]
+        for criterion in custom:
             if isinstance(criterion, dict):  # from .gpw file
-                criteria[index] = dict2criterion(criterion)
-        par.convergence['custom'] = criteria
+                criterion = dict2criterion(criterion)
+            criteria[criterion.name] = criterion
 
         if self.scf is None:
-            self.create_scf(nvalence, mode)
+            self.create_scf(criteria, mode)
 
         if not collinear:
             nbands *= 2
@@ -927,27 +935,20 @@ class GPAW(Calculator):
         self.log(occ)
         return occ
 
-    def create_scf(self, nvalence, mode):
+    def create_scf(self, criteria, mode):
         # if mode.name == 'lcao':
         #     niter_fixdensity = 0
         # else:
         #     niter_fixdensity = 2
 
-        nv = max(nvalence, 1)
-        cc = self.parameters.convergence
         self.scf = SCFLoop(
-            cc.get('eigenstates', 4.0e-8) / Ha**2 * nv,
-            cc.get('energy', 0.0005) / Ha * nv,
-            cc.get('density', 1.0e-4) * nv,
-            cc.get('forces', np.inf) / (Ha / Bohr),
+            criteria,
             self.parameters.maxiter,
             # XXX make sure niter_fixdensity value is *always* set from default
             # Subdictionary defaults seem to not be set when user provides
             # e.g. {}.  We should change that so it works like the ordinary
             # parameters.
-            self.parameters.experimental.get('niter_fixdensity', 0),
-            nv,
-            self.parameters.convergence['custom'])
+            self.parameters.experimental.get('niter_fixdensity', 0))
         self.log(self.scf)
 
     def create_symmetry(self, magmom_av, cell_cv, reading):
