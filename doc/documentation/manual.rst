@@ -605,8 +605,9 @@ electron more than the neutral).
 Accuracy of the self-consistency cycle
 --------------------------------------
 
-The ``convergence`` keyword is used to set the convergence criteria.
-The default value is this Python dictionary::
+The ``convergence`` keyword is used to set the convergence criteria
+for the SCF cycle.
+The default value is this dictionary::
 
   {'energy': 0.0005,  # eV / electron
    'density': 1.0e-4,
@@ -618,23 +619,26 @@ The default value is this Python dictionary::
 In words:
 
 * The energy change (last 3 iterations) should be less than 0.5 meV
-  per valence electron.
+  per valence electron. (See :class:`~gpaw.scf.Energy`.)
 
 * The change in density (integrated absolute value of density change)
-  should be less than 0.0001 electrons per valence electron.
+  should be less than 0.0001 electrons per valence electron. (See
+  :class:`~gpaw.scf.Density`.)
 
 * The integrated value of the square of the residuals of the Kohn-Sham
   equations should be less than 4.0 `\times` 10\ :sup:`-8` eV\ :sup:`2`
   per valence electron. This criterion does not affect LCAO
-  calculations.
+  calculations.  (See :class:`~gpaw.scf.Eigenstates`.)
 
 * Only the bands that are occupied with electrons are converged.
 
 * The maximum change in the magnitude of the vector representing the
   difference in forces for each atom.  Setting this to infinity (default)
   disables this functionality, saving computational time and memory usage.
+  (See :class:`~gpaw.scf.Forces`.)
 
 * There are no custom convergence criteria specified.
+  (See :ref:`custom-convergence`      )
 
 The individual criteria can be changed by giving only the specific
 entry of dictionary e.g. ``convergence={'energy': 0.0001}`` would set
@@ -652,10 +656,9 @@ Finally, one can also use ``{'bands': 'CBM+5.0'}`` to specify that bands
 up to the conduction band minimum plus 5.0 eV should be converged
 (for a metal, CBM is taken as the Fermi level).
 
-You can also set custom convergence criteria, that you create yourself
-or choose from built-in options; for example, if you would like to
-make sure that the work function is converged. See
-:ref:`custom-convergence` for details.
+You can also set custom convergence criteria, which you can create yourself
+or choose from built-in options. For example, you might like to make sure
+that the work function is converged. See :ref:`custom-convergence` for details.
 
 .. _manual_maxiter:
 

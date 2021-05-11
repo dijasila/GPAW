@@ -52,7 +52,8 @@ class SCFLoop:
 
             entries = {}  # for log file, per criteria
             converged_items = {}  # True/False, per criteria
-            context = SCFEvent(dens=dens, ham=ham, wfs=wfs, log=log)
+            context = SCFEvent(dens=dens, ham=ham, wfs=wfs, niter=self.niter,
+                               log=log)
             cheap = {k: c for k, c in self.criteria.items() if not c.calc_last}
             expensive = {k: c for k, c in self.criteria.items() if c.calc_last}
 
@@ -172,10 +173,11 @@ class SCFEvent:
     # rather than all these individual pieces. I'll leave that decision to
     # JJ and Ask.
 
-    def __init__(self, dens, ham, wfs, log):
+    def __init__(self, dens, ham, wfs, niter, log):
         self.dens = dens
         self.ham = ham
         self.wfs = wfs
+        self.niter = niter
         self.log = log
 
 
@@ -214,15 +216,20 @@ def dict2criterion(dictionary):
         return Criterion(*[d[name]])
 
 
-class CriteriaMixin:
-    """Automates the creation of the __repr__ and todict methods for generic
+class Criterion:
+    """Base class for convergence criteria.
+
+    Automates the creation of the __repr__ and todict methods for generic
     classes. This will work for classes that save all arguments directly,
     like __init__(self, a, b):  --> self.a = a, self.b = b. The todict
-    method requires the class have a self.name attribute.
+    method requires the class have a self.name attribute. All criteria
+    (subclasses of Criterion) must define self.name, self.tablename,
+    self.description, self.__init__, and self.__call___. See the online
+    documentation for details.
     """
-    calc_last = False
     # If calc_last is True, will only be checked after all other (non-last)
     # criteria have been met.
+    calc_last = False
 
     def __repr__(self):
         parameters = signature(self.__class__).parameters
@@ -240,15 +247,15 @@ class CriteriaMixin:
         pass
 
 
-class Energy(CriteriaMixin):
+class Energy(Criterion):
     """A convergence criterion for the total energy.
 
     Parameters:
 
     tol : float
         Tolerance for conversion; that is the maximum variation among the
-        last n_old values of the total energy, normalized per valence
-        electron. [eV/(valence electron)]
+        last n_old values of the (extrapolated) total energy, normalized per
+        valence electron. [eV/(valence electron)]
     n_old : int
         Number of energy values to compare. I.e., if n_old is 3, then this
         compares the peak-to-peak difference among the current total energy
@@ -289,15 +296,15 @@ class Energy(CriteriaMixin):
         return converged, entry
 
 
-class Density(CriteriaMixin):
+class Density(Criterion):
     """A convergence criterion for the electron density.
 
     Parameters:
 
     tol : float
-        Tolerance for conversion; that is the maximum variation among the
-        last n_old values of the electron density, normalized per valence
-        electron. [electrons/(valence electron)]
+        Tolerance for conversion; that is the maximum change in the electron
+        density, calculated as the integrated absolute value of the density
+        change, normalized per valence electron. [electrons/(valence electron)]
     """
     name = 'density'
     tablename = 'dens'
@@ -323,15 +330,16 @@ class Density(CriteriaMixin):
         return converged, entry
 
 
-class Eigenstates(CriteriaMixin):
+class Eigenstates(Criterion):
     """A convergence criterion for the eigenstates.
 
     Parameters:
 
     tol : float
-        Tolerance for conversion; that is the maximum variation among the
-        last n_old values of the residuals of the Kohn--Sham equations,
-        normalized per valence electron. [eV^2/(valence electron)]
+        Tolerance for conversion; that is the maximum change in the
+        eigenstates, calculated as the integration of the square of the
+        residuals of the Kohn--Sham equations, normalized per valence
+        electron. [eV^2/(valence electron)]
     """
     name = 'eigenstates'
     tablename = 'wfs'  # FIXME/ap: should we make this 'eig'?
@@ -359,14 +367,16 @@ class Eigenstates(CriteriaMixin):
         return context.wfs.eigensolver.error * Ha**2 / context.wfs.nvalence
 
 
-class Forces(CriteriaMixin):
+class Forces(Criterion):
     """A convergence criterion for the forces.
 
     Parameters:
 
     tol : float
-        Tolerance for conversion; that is the maximum variation among the
-        last n_old values of the maximum force on any atom. [eV/Angstrom]
+        Tolerance for conversion; that is, the force on each atom is compared
+        with its force from the previous iteration, and the change in each
+        atom's force is calculated as an l2-norm (Euclidean distance). The
+        atom with the largest norm must be less than tol. [eV/Angstrom]
     """
     name = 'forces'
     tablename = 'force'
@@ -403,14 +413,14 @@ class Forces(CriteriaMixin):
         self.old_F_av = None
 
 
-class WorkFunction(CriteriaMixin):
+class WorkFunction(Criterion):
     """A convergence criterion for the work function.
 
     Parameters:
 
     tol : float
         Tolerance for conversion; that is the maximum variation among the
-        last n_old values of either work function.
+        last n_old values of either work function. [eV]
     n_old : int
         Number of work functions to compare. I.e., if n_old is 3, then this
         compares the peak-to-peak difference among the current work
