@@ -24,7 +24,8 @@ class SCFLoop:
     def __str__(self):
         s = 'Convergence criteria:\n'
         for criterion in self.criteria.values():
-            s += ' ' + criterion.description + '\n'
+            if criterion.description is not None:
+                s += ' ' + criterion.description + '\n'
         s += ' Maximum number of [scf] iterations: {:d}'.format(self.maxiter)
         s += ("\n (Square brackets indicate name in SCF output, whereas a 'c'"
               " in\n the SCF output indicates the quantity has converged.)\n")
@@ -373,14 +374,18 @@ class Forces(CriteriaMixin):
 
     def __init__(self, tol):
         self.tol = tol
-        self.description = ('Maximum change in the atomic [forces] across last'
-                            ' 2 cycles: {:g} eV / Ang'.format(self.tol))
+        self.description = None
+        if np.isfinite(self.tol):
+            self.description = ('Maximum change in the atomic [forces] across '
+                                'last 2 cycles: {:g} eV/Ang'.format(self.tol))
         self.reset()
 
     def __call__(self, context):
         """Should return (bool, entry), where bool is True if converged and
         False if not, and entry is a <=5 character string to be printed in
         the user log file."""
+        if np.isinf(self.tol):  # criterion is off
+            return True, ''
         with context.wfs.timer('Forces'):
             F_av = calculate_forces(context.wfs, context.dens, context.ham)
             F_av *= Ha / Bohr
