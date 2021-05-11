@@ -751,17 +751,16 @@ class GPAW(Calculator):
                              % (nvalence, nbands))
 
         # Gather convergence criteria for SCF loop.
-        criteria = {}
-        default = self.default_parameters['convergence']
-        keys = set(list(par.convergence) + list(default)) - {'custom', 'bands'}
-        for key in keys:
-            arg = par.convergence.get(key, default.get(key))
-            criteria[key] = dict2criterion({key: arg})
+        criteria = self.default_parameters['convergence'].copy()  # keep order
+        criteria.update(par.convergence)
+        custom = criteria.pop('custom')
+        del criteria['bands']
+        for name, criterion in criteria.items():
+            if not hasattr(criterion, 'todict'):
+                criteria[name] = dict2criterion({name: criterion})
 
-        custom = par.convergence.get('custom', None)
-        if custom is None:
-            custom = []
-        elif not isinstance(custom, (list, tuple)):
+        custom = [] if custom is None else custom
+        if not isinstance(custom, (list, tuple)):
             custom = [custom]
         for criterion in custom:
             if isinstance(criterion, dict):  # from .gpw file

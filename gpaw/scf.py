@@ -44,31 +44,31 @@ class SCFLoop:
 
     def irun(self, wfs, ham, dens, log, callback):
         self.niter = 1
+        calculate_expensive = False  # expensive criteria
         while self.niter <= self.maxiter:
             wfs.eigensolver.iterate(ham, wfs)
             e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
             ham.get_energy(e_entropy, wfs)
 
-            entries = {}  # for log file, per criteria.
-            converged_items = {}  # True/False, per criteria.
+            entries = {}  # for log file, per criteria
+            converged_items = {}  # True/False, per criteria
             context = SCFEvent(dens=dens, ham=ham, wfs=wfs, log=log)
+            cheap = {k: c for k, c in self.criteria.items() if not c.calc_last}
+            expensive = {k: c for k, c in self.criteria.items() if c.calc_last}
 
-            # Cheap items (criterion.calc_last == False).
-            for name, criterion in self.criteria.items():
-                if not criterion.calc_last:
-                    converged, entry = criterion(context)
-                    converged_items[name] = converged
-                    entries[name] = entry
-            cheap_are_done = all(converged_items.values())
+            for name, criterion in cheap.items():
+                converged, entry = criterion(context)
+                converged_items[name] = converged
+                entries[name] = entry
 
-            # Expensive items (criterion.calc_last == True).
-            missing = set(self.criteria) - set(converged_items)
-            for name in missing:
-                criterion = self.criteria[name]
-                if cheap_are_done:
+            if all(converged_items.values()):
+                # Stays on rest of cycle even if a cheap one slips back out.
+                calculate_expensive = True
+
+            for name, criterion in expensive.items():
+                converged, entry = False, ''
+                if calculate_expensive:
                     converged, entry = criterion(context)
-                else:
-                    converged, entry = False, ''
                 converged_items[name] = converged
                 entries[name] = entry
 
