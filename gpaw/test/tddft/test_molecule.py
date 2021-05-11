@@ -109,7 +109,7 @@ def test_dipole_moment_values(time_propagation_reference,
           4.96096480       1.44537040e-15     1.324352983945e-04     1.324326482531e-04     1.324473352117e-04
 '''.strip())  # noqa: E501
 
-    rtol = 4e-4
+    rtol = 5e-4
     atol = 1e-8
     check_dm('dm.dat', module_tmp_path / 'dm.dat', rtol=rtol, atol=atol)
     check_dm('dm2.dat', module_tmp_path / 'dm2.dat', rtol=rtol, atol=atol)
