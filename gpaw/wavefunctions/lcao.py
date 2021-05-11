@@ -183,23 +183,6 @@ class LCAOWaveFunctions(WaveFunctions):
                           self.kd.ibzk_qc, spos_ac, oldspos_ac,
                           self.setups, Mstart)
 
-        if 0:  # self.debug_tci:
-            # if self.ksl.using_blacs:
-            #     self.tci.set_matrix_distribution(Mstart, mynao)
-            oldS_qMM = np.empty((nq, mynao, nao), self.dtype)
-            oldT_qMM = np.empty((nq, mynao, nao), self.dtype)
-
-            oldP_aqMi = {}
-            for a in self.basis_functions.my_atom_indices:
-                ni = self.setups[a].ni
-                oldP_aqMi[a] = np.empty((nq, nao, ni), self.dtype)
-
-            # Calculate lower triangle of S and T matrices:
-            self.timer.start('tci calculate')
-            # self.tci.calculate(spos_ac, oldS_qMM, oldT_qMM,
-            #                   oldP_aqMi)
-            self.timer.stop('tci calculate')
-
         self.timer.start('mktci')
         manytci = self.tciexpansions.get_manytci_calculator(
             self.setups, self.gd, spos_ac, self.kd.ibzk_qc, self.dtype,
@@ -230,17 +213,6 @@ class LCAOWaveFunctions(WaveFunctions):
         #   use symmetry/conj tricks to reduce calculations
         #   enable caching of spherical harmonics
 
-        # if self.atomic_correction.name != 'dense':
-        # from gpaw.lcao.newoverlap import newoverlap
-        # self.P_neighbors_a, self.P_aaqim = newoverlap(self, spos_ac)
-
-        # if self.atomic_correction.name == 'scipy':
-        #    Pold_qIM = self.atomic_correction.Psparse_qIM
-        #    for q in range(nq):
-        #        maxerr = abs(Pold_qIM[q] - P_qIM[q]).max()
-        #        print('sparse maxerr', maxerr)
-        #        assert maxerr == 0
-
         self.atomic_correction.add_overlap_correction(newS_qMM)
         if self.debug_tci:
             self.atomic_correction.add_overlap_correction(oldS_qMM)
@@ -255,18 +227,6 @@ class LCAOWaveFunctions(WaveFunctions):
         newS_qMM = self.ksl.distribute_overlap_matrix(newS_qMM, root=-1)
         newT_qMM = self.ksl.distribute_overlap_matrix(newT_qMM, root=-1)
 
-        # if (debug and self.bd.comm.size == 1 and self.gd.comm.rank == 0 and
-        #     nao > 0 and not self.ksl.using_blacs):
-        #     S and T are summed only on comm master, so check only there
-        #     from numpy.linalg import eigvalsh
-        #     self.timer.start('Check positive definiteness')
-        #     for S_MM in S_qMM:
-        #         tri2full(S_MM, UL='L')
-        #         smin = eigvalsh(S_MM).real.min()
-        #         if smin < 0:
-        #             raise RuntimeError('Overlap matrix has negative '
-        #                               'eigenvalue: %e' % smin)
-        #     self.timer.stop('Check positive definiteness')
         self.positions_set = True
 
         if self.debug_tci:
