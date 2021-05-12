@@ -302,9 +302,10 @@ class Hamiltonian:
 
             if setup.HubU is not None:
                 # assert self.collinear
-                eU, dHU_sp = hubbard(setup, D_sp)
-                e_xc += eU
-                dH_sp += dHU_sp
+                for l, U, scale in zip(setup.Hubl, setup.HubU, setup.Hubs):
+                    eU, dHU_sp = hubbard(setup, D_sp, l, U, scale)
+                    e_xc += eU
+                    dH_sp += dHU_sp
 
             dH_sp[:self.nspins] += dH_p
 

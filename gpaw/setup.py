@@ -1,9 +1,7 @@
-# -*- coding: utf-8 -*-
-# Copyright (C) 2003  CAMP
-# Please see the accompanying LICENSE file for further information.
 import functools
 from io import StringIO
 from math import pi, sqrt
+from typing import List, Tuple
 
 import ase.units as units
 import numpy as np
@@ -19,6 +17,31 @@ from gpaw.utilities import pack, unpack
 from gpaw.xc import XC
 
 
+def parse_hubbard_string(type: str) -> Tuple[str,
+                                             List[int],
+                                             List[float],
+                                             List[bool]]:
+    # Parse DFT+U parameters from type-string:
+    # Examples: "type:l,U" or "type:l,U,scale"
+    type, lus = type.split(':')
+    if type == '':
+        type = 'paw'
+
+    l = []
+    U = []
+    scale = []
+
+    for lu in lus.split(';'):  # Multiple U corrections
+        l_, u_, scale_ = (lu + ',,').split(',')[:3]
+        l.append('spdf'.find(l_))
+        U.append(float(u_) / units.Hartree)
+        if scale_:
+            scale.append(bool(int(scale_)))
+        else:
+            scale.append(True)
+    return type, l, U, scale
+
+
 def create_setup(symbol, xc='LDA', lmax=0,
                  type='paw', basis=None, setupdata=None,
                  filter=None, world=None):
@@ -26,20 +49,7 @@ def create_setup(symbol, xc='LDA', lmax=0,
         xc = XC(xc)
 
     if isinstance(type, str) and ':' in type:
-        # Parse DFT+U parameters from type-string:
-        # Examples: "type:l,U" or "type:l,U,scale"
-        type, lu = type.split(':')
-        if type == '':
-            type = 'paw'
-        l = 'spdf'.find(lu[0])
-        assert lu[1] == ','
-        U = lu[2:]
-        if ',' in U:
-            U, scale = U.split(',')
-        else:
-            scale = True
-        U = float(U) / units.Hartree
-        scale = int(scale)
+        type, l, U, scale = parse_hubbard_string(type)
     else:
         U = None
 
