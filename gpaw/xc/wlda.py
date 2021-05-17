@@ -242,7 +242,11 @@ class WLDA(XCFunctional):
         # Need to do calculation prior to rest of code
         # because it modifies the density
         parprint("WLDA is the next PBE")
-        if self.mode in [Modes.rWLDA, Modes.fWLDA]:
+        n_sg = n_sg.copy()
+        wn_sg = self.get_working_density(n_sg, gd)
+
+        if (self.mode in [Modes.rWLDA, Modes.fWLDA]
+            or (self.exchange_only and self.mode == Modes.WLDA)):
             eldax_g = np.zeros_like(n_sg[0])
             eldac_g = np.zeros_like(n_sg[0])
             vldax_sg = np.zeros_like(n_sg)
@@ -250,9 +254,31 @@ class WLDA(XCFunctional):
             
             self.do_lda(n_sg, eldax_g, eldac_g, vldax_sg, vldac_sg)
 
-        n_sg = n_sg.copy()
-        wn_sg = self.get_working_density(n_sg, gd)
 
+            if self.density_type == DensityTypes.AE:
+                we_corr_x_g = np.zeros_like(wn_sg[0])
+                we_corr_c_g = np.zeros_like(wn_sg[0])
+                wv_corr_x_sg = np.zeros_like(wn_sg)
+                wv_corr_c_sg = np.zeros_like(wn_sg)
+                self.do_lda(wn_sg,
+                            we_corr_x_g, we_corr_c_g,
+                            wv_corr_x_sg, wv_corr_c_sg)
+
+                # Need arrays to hold the distributed results
+                e_corr_x_g = np.zeros_like(n_sg[0])
+                e_corr_c_g = np.zeros_like(n_sg[0])
+                v_corr_x_sg = np.zeros_like(n_sg)
+                v_corr_c_sg = np.zeros_like(n_sg)
+
+            else:
+                e_corr_x_g = eldax_g
+                e_corr_c_g = eldac_g
+                v_corr_x_sg = vldax_sg
+                v_corr_c_sg = vldac_sg
+                
+                
+
+        
         # Construct arrays for un-distributed energy and potential
         exc_g = np.zeros_like(wn_sg[0])
         vxc_sg = np.zeros_like(wn_sg)
@@ -275,7 +301,7 @@ class WLDA(XCFunctional):
 
     
         if self.mode == Modes.rWLDA:
-            # We want to only multiply X part with lambda
+            # We want to only multiply XC part with lambda
             exc_g *= self.lambd
             vxc_sg *= self.lambd
 
@@ -285,21 +311,32 @@ class WLDA(XCFunctional):
 
         gd.distribute(exc_g, e_g)
         gd.distribute(vxc_sg, v_sg)
+        if (self.density_type == DensityTypes.AE and
+            ((self.mode in [Modes.rWLDA, Modes.fWLDA]
+              or (self.exchange_only and self.mode == Modes.WLDA)))):
+            gd.distribute(we_corr_x_g, e_corr_x_g)
+            gd.distribute(we_corr_c_g, e_corr_c_g)
+            gd.distribute(wv_corr_x_sg, v_corr_x_sg)
+            gd.distribute(wv_corr_c_sg, v_corr_c_sg)
 
         if self.exchange_only:
             if self.mode == Modes.fWLDA:
-                e_g[:] = eldax_g + eldac_g + self.lambd * (e_g - eldax_g)
-                v_sg[:] = vldax_sg + vldac_sg + self.lambd * (v_sg - vldax_sg)
+                e_g[:] = eldax_g + eldac_g + self.lambd * (e_g - e_corr_x_g)
+                v_sg[:] = vldax_sg + vldac_sg + self.lambd * (v_sg - v_corr_x_sg)
             elif self.mode == Modes.rWLDA:
-                e_g[:] = eldax_g + eldac_g + e_g - self.lambd * eldax_g
-                v_sg[:] = vldax_sg + vldac_sg + v_sg - self.lambd * vldax_sg
+                e_g[:] = eldax_g + eldac_g + e_g - self.lambd * e_corr_x_g
+                v_sg[:] = vldax_sg + vldac_sg + v_sg - self.lambd * v_corr_x_sg
+            else:
+                assert self.mode == Modes.WLDA
+                e_g[:] = e_g + e_corr_c_g
+                v_sg[:] = v_sg + v_corr_c_sg
         else:
             if self.mode == Modes.fWLDA:
-                e_g[:] = eldax_g + eldac_g + self.lambd * (e_g - eldax_g - eldac_g)
-                v_sg[:] = vldax_sg + vldac_sg + self.lambd * (v_sg - vldax_sg - vldac_sg)
+                e_g[:] = eldax_g + eldac_g + self.lambd * (e_g - e_corr_x_g - e_corr_c_g)
+                v_sg[:] = vldax_sg + vldac_sg + self.lambd * (v_sg - v_corr_x_sg - v_corr_c_sg)
             elif self.mode == Modes.rWLDA:
-                e_g[:] = eldax_g + eldac_g + e_g - self.lambd * (eldax_g + eldac_g)
-                v_sg[:] = vldax_sg + vldac_sg + v_sg - self.lambd * (vldax_sg + vldac_sg)
+                e_g[:] = eldax_g + eldac_g + e_g - self.lambd * (e_corr_x_g + e_corr_c_g)
+                v_sg[:] = vldax_sg + vldac_sg + v_sg - self.lambd * (v_corr_x_sg + v_corr_c_sg)
 
         if self.save and mpi.rank == 0:
             tid = np.random.rand()
@@ -1202,13 +1239,22 @@ class WLDA(XCFunctional):
         Returns:
             The /total/ XC energy
         """
-        if self.mode in [Modes.rWLDA, Modes.fWLDA]:
-            eldax_g = rgd.empty()
-            eldac_g = rgd.empty()
-            vldax_sg = np.zeros_like(v_sg)
-            vldac_sg = np.zeros_like(v_sg)
+        if (self.mode in [Modes.rWLDA, Modes.fWLDA]
+            or (self.exchange_only and self.mode == Modes.WLDA)):
+            eldax_g = np.zeros_like(n_sg[0])
+            eldac_g = np.zeros_like(n_sg[0])
+            vldax_sg = np.zeros_like(n_sg)
+            vldac_sg = np.zeros_like(n_sg)
             
             self.do_lda(n_sg, eldax_g, eldac_g, vldax_sg, vldac_sg)
+
+        # if self.mode in [Modes.rWLDA, Modes.fWLDA]:
+        #     eldax_g = rgd.empty()
+        #     eldac_g = rgd.empty()
+        #     vldax_sg = np.zeros_like(v_sg)
+        #     vldac_sg = np.zeros_like(v_sg)
+            
+        #     self.do_lda(n_sg, eldax_g, eldac_g, vldax_sg, vldac_sg)
 
         if e_g is None:
             e_g = rgd.empty()
@@ -1242,6 +1288,10 @@ class WLDA(XCFunctional):
             elif self.mode == Modes.rWLDA:
                 e_g[:] = eldax_g + eldac_g + e_g - self.lambd * eldax_g
                 v_sg[:] = vldax_sg + vldac_sg + v_sg - self.lambd * vldax_sg
+            else:
+                assert self.mode == Modes.WLDA
+                e_g[:] = e_g + eldac_g
+                v_sg[:] = v_sg + vldac_sg
         else:
             if self.mode == Modes.fWLDA:
                 e_g[:] = eldax_g + eldac_g + self.lambd * (e_g - eldax_g - eldac_g)
