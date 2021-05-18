@@ -635,8 +635,7 @@ static void hybrid_syr2k_update_paces(hybrid_func_params_t *ps)
 }
 
 
-extern "C"
-cublasOperation_t cublas_operation(int op)
+static cublasOperation_t cublas_operation(int op)
 {
     cublasOperation_t cu_op;
 
