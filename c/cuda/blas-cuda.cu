@@ -960,15 +960,7 @@ PyObject* gemm_cuda_gpu(PyObject *self, PyObject *args)
         real = 1;
     }
 
-    cublasOperation_t transa_c;
-    if (transa == 'n' || transa == 'N')
-        transa_c = CUBLAS_OP_N;
-    else if (transa == 't' || transa == 'T')
-        transa_c = CUBLAS_OP_T;
-    else if (transa == 'c' || transa == 'C')
-        transa_c = CUBLAS_OP_C;
-    else
-        assert(0);
+    cublasOperation_t transa_c = cublas_operation(transa);
 
     int m, k, lda, ldb, ldc;
     int n = (int) PyLong_AsLong(PyTuple_GetItem(b_shape, 0));
@@ -1025,15 +1017,7 @@ PyObject* gemv_cuda_gpu(PyObject *self, PyObject *args)
                           &x_gpu, &x_shape, &beta, &y_gpu, &type, &trans))
         return NULL;
 
-    cublasOperation_t transa_c;
-    if (transa == 'n' || transa == 'N')
-        transa_c = CUBLAS_OP_N;
-    else if (transa == 't' || transa == 'T')
-        transa_c = CUBLAS_OP_T;
-    else if (transa == 'c' || transa == 'C')
-        transa_c = CUBLAS_OP_C;
-    else
-        assert(0);
+    cublasOperation_t trans_c = cublas_operation(trans);
 
     int m, n, lda, incx, incy;
     if (trans == 'n') {
