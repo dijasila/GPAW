@@ -45,8 +45,8 @@ def build():
 def build_all():
     assert build() == 'ok'
     tar = next(
-        Path('/tmp/gpaw-docs-master-ok/gpaw/dist/').glob('gpaw-*.tar.gz'))
-    webpage = Path('/tmp/gpaw-docs-master-ok/gpaw/doc/gpaw-web-page')
+        Path('/tmp/gpaw-docs-ok/gpaw/dist/').glob('gpaw-*.tar.gz'))
+    webpage = Path('/tmp/gpaw-docs-ok/gpaw/doc/gpaw-web-page')
     coverage = Path('/tmp/gpaw-test-ok/gpaw/htmlcov')
     home = Path.home() / 'web-pages'
     cmds = ' && '.join(
