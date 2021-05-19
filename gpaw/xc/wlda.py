@@ -333,8 +333,8 @@ class WLDA(XCFunctional):
             v_sg[:] = self.vlda_sg + v_sg - self.lambd * self.v_corr_sg
         else:
             assert self.mode == Modes.WLDA
-            e_g[:] = self.elda_g + (e_g - e_corr_g)
-            v_sg[:] = self.vlda_sg + (v_sg - v_corr_sg)
+            e_g[:] = self.elda_g + (e_g - self.e_corr_g)
+            v_sg[:] = self.vlda_sg + (v_sg - self.v_corr_sg)
 
         # If saving is enabled we save some arrays for debugging
         if self.save and mpi.rank == 0:
