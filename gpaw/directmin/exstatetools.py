@@ -92,4 +92,3 @@ def excite_and_sort(wfs, i, a, spin=(0, 0), mode='fdpw'):
                 kpt.eps_n = np.squeeze(kpt.eps_n[ind])
     else:
         raise KeyError
-

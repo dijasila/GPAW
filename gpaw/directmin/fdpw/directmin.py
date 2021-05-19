@@ -1068,6 +1068,8 @@ class DirectMin(Eigensolver):
             self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
             for kpt in wfs.kpt_u:
                 self.sort_wavefunctions(wfs, kpt)
+            self._e_entropy = wfs.calculate_occupation_numbers(
+                dens.fixed)
 
     def get_gradients_lumo(self, ham, wfs, kpt):
 
