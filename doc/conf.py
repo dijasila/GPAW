@@ -52,9 +52,9 @@ html_favicon = 'static/gpaw_favicon.ico'
 html_static_path = ['static']
 html_last_updated_fmt = '%a, %d %b %Y %H:%M:%S'
 
-mathjax_config = {
-    'TeX': {
-        'Macros': {
+mathjax3_config = {
+    'tex': {
+        'macros': {
             'br': '{\\mathbf r}',
             'bk': '{\\mathbf k}',
             'bG': '{\\mathbf G}'}}}
