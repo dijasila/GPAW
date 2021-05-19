@@ -243,10 +243,10 @@ class WLDA(XCFunctional):
 
         # Now define arrays to hold corrections and
         # re-distribute corrections across nodes
-        e_corr_x_g = np.zeros_like(wn_sg[0])
-        e_corr_c_g = np.zeros_like(wn_sg[0])
-        v_corr_x_sg = np.zeros_like(wn_sg)
-        v_corr_c_sg = np.zeros_like(wn_sg)
+        e_corr_x_g = np.zeros_like(n_sg[0])
+        e_corr_c_g = np.zeros_like(n_sg[0])
+        v_corr_x_sg = np.zeros_like(n_sg)
+        v_corr_c_sg = np.zeros_like(n_sg)
 
         gd.distribute(we_corr_x_g, e_corr_x_g)
         gd.distribute(we_corr_c_g, e_corr_c_g)
