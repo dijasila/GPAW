@@ -32,13 +32,20 @@ def get_occupations(wfs):
     return f_sn
 
 
-def excite_and_sort(wfs, i, a, exctype='singlet', mode='fdpw'):
+def excite_and_sort(wfs, i, a, spin=(0, 0), mode='fdpw'):
+
+    assert wfs.nspins == 2
+    if spin == (0, 0) or spin == (1, 1):
+        exctype = 'singlet'
+    else:
+        exctype = 'triplet'
 
     if exctype == 'singlet':
         for kpt in wfs.kpt_u:
             n_kps = wfs.kd.nibzkpts
             u = n_kps * kpt.s + kpt.q
-            if kpt.s == 0:
+            s = spin[0]
+            if kpt.s == s:
                 occ_ex_up = kpt.f_n.copy()
                 lumo = len(occ_ex_up[occ_ex_up > 0])
                 homo = lumo - 1
@@ -55,10 +62,10 @@ def excite_and_sort(wfs, i, a, exctype='singlet', mode='fdpw'):
                 kpt.eps_n[indx] = kpt.eps_n[swindx]
     elif exctype == 'triplet':
         f_sn = get_occupations(wfs)
-        lumo = len(f_sn[0][f_sn[0] > 0])
-        homo = lumo - 1
-        f_sn[0][homo + i] -= 1
-        f_sn[1][lumo + a] += 1
+        lumo = len(f_sn[spin[1]][f_sn[spin[1]] > 0])
+        homo = len(f_sn[spin[0]][f_sn[spin[1]] > 0]) - 1
+        f_sn[spin[0]][homo + i] -= 1
+        f_sn[spin[1]][lumo + a] += 1
         # sort wfs
         for kpt in wfs.kpt_u:
             n_kps = wfs.kd.nibzkpts
@@ -78,9 +85,11 @@ def excite_and_sort(wfs, i, a, exctype='singlet', mode='fdpw'):
                 elif mode == 'lcao':
                     wfs.eigensolver.c_nm_ref[u] = np.squeeze(
                         wfs.eigensolver.c_nm_ref[u][ind])
+                    kpt.C_nM[:] = wfs.eigensolver.c_nm_ref[u].copy()
                 else:
                     raise KeyError
                 kpt.f_n = np.squeeze(kpt.f_n[ind])
                 kpt.eps_n = np.squeeze(kpt.eps_n[ind])
     else:
         raise KeyError
+
