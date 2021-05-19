@@ -112,7 +112,7 @@ class SCFLoop:
             header2 = ('{:>4s} {:>7s} {:>8s} {:>12s}  '
                        .format('scf', 'poisson', '', 'energy'))
             header1 += 'log10-change:'
-            for title in ('wfs', 'dens'):
+            for title in ('eigst', 'dens'):
                 header2 += '{:>5s}  '.format(title)
             if np.isfinite(self.criteria['forces'].tol):
                 header1 += ' ' * 7
@@ -342,11 +342,11 @@ class Eigenstates(Criterion):
         electron. [eV^2/(valence electron)]
     """
     name = 'eigenstates'
-    tablename = 'wfs'  # FIXME/ap: should we make this 'eig'?
+    tablename = 'eigst'
 
     def __init__(self, tol):
         self.tol = tol
-        self.description = ('Maximum integral of absolute eigenstate [wfs] '
+        self.description = ('Maximum integral of absolute [eigenst]ate '
                             'change: {:g} eV^2 / valence electron'
                             .format(self.tol))
 

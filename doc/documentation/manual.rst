@@ -658,7 +658,9 @@ up to the conduction band minimum plus 5.0 eV should be converged
 
 You can also set custom convergence criteria, which you can create yourself
 or choose from built-in options. For example, you might like to make sure
-that the work function is converged. See :ref:`custom-convergence` for details.
+that the work function is converged, or have the energy convergence criterion
+examine the last four iterations instead of three.
+See :ref:`custom-convergence` for details.
 
 .. _manual_maxiter:
 

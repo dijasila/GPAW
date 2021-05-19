@@ -4,7 +4,7 @@
 Custom convergence criteria
 ===========================
 
-If you'd like to adjust how the SCF cycle decides when it is complete, you can set a custom convergence criterion.
+If you'd like to adjust how the SCF cycle decides when it is complete, you can set a custom convergence criterion (in addition to the :ref:`default convergence criteria <manual_convergence>`).
 There are also pre-defined custom criteria (actually, currently only one), that you can use like this::
 
   from gpaw import GPAW

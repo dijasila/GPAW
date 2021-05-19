@@ -58,6 +58,12 @@ Git master branch
   dropped.  There is now only https://wiki.fysik.dtu.dk/gpaw/ and it documents
   the use of the in development version of GPAW.
 
+* You can now make custom convergence criteria for the SCF cycle, for example
+  if you'd like to make sure the work function is converged. Also, you can
+  tweak more attributes of the default criteria. See
+  :ref:`custom-convergence`.
+
+
 
 Version 21.1.0
 ===============
