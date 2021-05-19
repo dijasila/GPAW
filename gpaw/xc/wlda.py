@@ -146,9 +146,8 @@ class WLDA(XCFunctional):
                 self.c1 = 4.80769
         assert self.c1 > 0
 
-        if self.mode in [Modes.rWLDA, Modes.fWLDA]:
-            from gpaw.xc.lda import LDA, PurePythonLDAKernel
-            self.lda_xc = LDA(PurePythonLDAKernel())
+        from gpaw.xc.lda import LDA, PurePythonLDAKernel
+        self.lda_xc = LDA(PurePythonLDAKernel())
 
         self.lambd = settings.get('lambda', 2.0/3.0)
 
@@ -213,9 +212,62 @@ class WLDA(XCFunctional):
         self.wfs = wfs
         self.occupations = occupations
 
-    def do_lda(self, n_sg, eldax_g, eldac_g, vldax_sg, vldac_sg):
+    def do_lda(self, n_sg, wn_sg, gd):
+        """Calculate two version of LDA.
+
+        First calculate LDA on the pseudo density.
+        This forms the first part of the WLDA energy:
+        E^WLDA = E^LDA + ...
+
+        Then calculate LDA on the "working density".
+        This enters in the correction term:
+        E^WLDA = ... + Delta E^WLDA.
+        """
+        eldax_g = np.zeros_like(n_sg[0])
+        eldac_g = np.zeros_like(n_sg[0])
+        vldax_sg = np.zeros_like(n_sg)
+        vldac_sg = np.zeros_like(n_sg)
+
+        we_corr_x_g = np.zeros_like(wn_sg[0])
+        we_corr_c_g = np.zeros_like(wn_sg[0])
+        wv_corr_x_sg = np.zeros_like(wn_sg)
+        wv_corr_c_sg = np.zeros_like(wn_sg)
+
+        self.calculate_lda(n_sg,
+                           eldax_g, eldac_g,
+                           vldax_sg, vldac_sg)
+
+        self.calculate_lda(wn_sg,
+                           we_corr_x_g, we_corr_c_g,
+                           wv_corr_x_sg, wv_corr_c_sg)
+
+        # Now define arrays to hold corrections and
+        # re-distribute corrections across nodes
+        e_corr_x_g = np.zeros_like(wn_sg[0])
+        e_corr_c_g = np.zeros_like(wn_sg[0])
+        v_corr_x_sg = np.zeros_like(wn_sg)
+        v_corr_c_sg = np.zeros_like(wn_sg)
+
+        gd.distribute(we_corr_x_g, e_corr_x_g)
+        gd.distribute(we_corr_c_g, e_corr_c_g)
+        gd.distribute(wv_corr_x_sg, v_corr_x_sg)
+        gd.distribute(wv_corr_c_sg, v_corr_c_sg)
+
+        # Define convenience variables
+        # The first arrays are simply LDA
+        self.elda_g = eldax_g + eldac_g
+        self.vlda_sg = vldax_sg + vldac_sg
+
+        # The next arrays are used in Delta E^WLDA
+        if self.exchange_only:
+            self.e_corr_g = e_corr_x_g
+            self.v_corr_sg = v_corr_x_sg
+        else:
+            self.e_corr_g = e_corr_x_g + e_corr_c_g
+            self.v_corr_sg = v_corr_x_sg + v_corr_x_sg
+
+    def calculate_lda(self, n_sg, eldax_g, eldac_g, vldax_sg, vldac_sg):
         from gpaw.xc.lda import lda_x, lda_c
-        
         if len(n_sg) == 1:
             n = n_sg[0]
             n[n < 1e-20] = 1e-40
@@ -238,68 +290,29 @@ class WLDA(XCFunctional):
 
     def calculate_impl(self, gd, n_sg, v_sg, e_g):
         """Interface for GPAW."""
-        # Calculate E_LDA on n_sg
-        # Need to do calculation prior to rest of code
-        # because it modifies the density
         parprint("WLDA is the next PBE")
-        n_sg = n_sg.copy()
         wn_sg = self.get_working_density(n_sg, gd)
 
-        if (self.mode in [Modes.rWLDA, Modes.fWLDA]
-            or (self.exchange_only and self.mode == Modes.WLDA)):
-            eldax_g = np.zeros_like(n_sg[0])
-            eldac_g = np.zeros_like(n_sg[0])
-            vldax_sg = np.zeros_like(n_sg)
-            vldac_sg = np.zeros_like(n_sg)
-            
-            self.do_lda(n_sg, eldax_g, eldac_g, vldax_sg, vldac_sg)
+        # This function constructs arrays holding e.g.:
+        # self.e_lda_g : LDA energy
+        # self.e_corr_g : LDA energy on working density
+        self.do_lda(n_sg, wn_sg, gd)
 
-
-            if self.density_type == DensityTypes.AE:
-                we_corr_x_g = np.zeros_like(wn_sg[0])
-                we_corr_c_g = np.zeros_like(wn_sg[0])
-                wv_corr_x_sg = np.zeros_like(wn_sg)
-                wv_corr_c_sg = np.zeros_like(wn_sg)
-                self.do_lda(wn_sg,
-                            we_corr_x_g, we_corr_c_g,
-                            wv_corr_x_sg, wv_corr_c_sg)
-
-                # Need arrays to hold the distributed results
-                e_corr_x_g = np.zeros_like(n_sg[0])
-                e_corr_c_g = np.zeros_like(n_sg[0])
-                v_corr_x_sg = np.zeros_like(n_sg)
-                v_corr_c_sg = np.zeros_like(n_sg)
-
-            else:
-                e_corr_x_g = eldax_g
-                e_corr_c_g = eldac_g
-                v_corr_x_sg = vldax_sg
-                v_corr_c_sg = vldac_sg
-                
-                
-
-        
         # Construct arrays for un-distributed energy and potential
         exc_g = np.zeros_like(wn_sg[0])
         vxc_sg = np.zeros_like(wn_sg)
 
-        # WLDA X
         nstar_sg, alpha_indices = self.wlda_x(wn_sg, exc_g, vxc_sg)
-        # /WLDA X
-        # WLDA C
+
         if not self.exchange_only:
             nstar_sg = self.wlda_c(wn_sg, exc_g, vxc_sg, nstar_sg, alpha_indices)
-        # /WLDA C
-        # nstar_sg is now weighted density from \int phi(r-r', n_total(r'))n_sigma(r')
+            # nstar_sg is now weighted density from \int phi(r-r', n_total(r'))n_sigma(r')
 
-        # HARTREE CORRECTION
         eHa_g = np.zeros_like(exc_g)
         vHa_sg = np.zeros_like(vxc_sg)
         self.hartree_correction(self.gd, eHa_g, vHa_sg,
                                 wn_sg, nstar_sg, alpha_indices)
-        # /HARTREE CORRECTION
 
-    
         if self.mode == Modes.rWLDA:
             # We want to only multiply XC part with lambda
             exc_g *= self.lambd
@@ -308,43 +321,29 @@ class WLDA(XCFunctional):
         exc_g += eHa_g
         vxc_sg += vHa_sg
 
-
+        # e_g holds the WLDA *energy* + Hartree *correction*
         gd.distribute(exc_g, e_g)
         gd.distribute(vxc_sg, v_sg)
-        if (self.density_type == DensityTypes.AE and
-            ((self.mode in [Modes.rWLDA, Modes.fWLDA]
-              or (self.exchange_only and self.mode == Modes.WLDA)))):
-            gd.distribute(we_corr_x_g, e_corr_x_g)
-            gd.distribute(we_corr_c_g, e_corr_c_g)
-            gd.distribute(wv_corr_x_sg, v_corr_x_sg)
-            gd.distribute(wv_corr_c_sg, v_corr_c_sg)
 
-        if self.exchange_only:
-            if self.mode == Modes.fWLDA:
-                e_g[:] = eldax_g + eldac_g + self.lambd * (e_g - e_corr_x_g)
-                v_sg[:] = vldax_sg + vldac_sg + self.lambd * (v_sg - v_corr_x_sg)
-            elif self.mode == Modes.rWLDA:
-                e_g[:] = eldax_g + eldac_g + e_g - self.lambd * e_corr_x_g
-                v_sg[:] = vldax_sg + vldac_sg + v_sg - self.lambd * v_corr_x_sg
-            else:
-                assert self.mode == Modes.WLDA
-                e_g[:] = e_g + e_corr_c_g
-                v_sg[:] = v_sg + v_corr_c_sg
+        if self.mode == Modes.fWLDA:
+            e_g[:] = self.elda_g + self.lambd * (e_g - self.e_corr_g)
+            v_sg[:] = self.vlda_sg + self.lambd * (v_sg - self.v_corr_sg)
+        elif self.mode == Modes.rWLDA:
+            e_g[:] = self.elda_g + e_g - self.lambd * self.e_corr_g
+            v_sg[:] = self.vlda_sg + v_sg - self.lambd * self.v_corr_sg
         else:
-            if self.mode == Modes.fWLDA:
-                e_g[:] = eldax_g + eldac_g + self.lambd * (e_g - e_corr_x_g - e_corr_c_g)
-                v_sg[:] = vldax_sg + vldac_sg + self.lambd * (v_sg - v_corr_x_sg - v_corr_c_sg)
-            elif self.mode == Modes.rWLDA:
-                e_g[:] = eldax_g + eldac_g + e_g - self.lambd * (e_corr_x_g + e_corr_c_g)
-                v_sg[:] = vldax_sg + vldac_sg + v_sg - self.lambd * (v_corr_x_sg + v_corr_c_sg)
+            assert self.mode == Modes.WLDA
+            e_g[:] = self.elda_g + (e_g - e_corr_g)
+            v_sg[:] = self.vlda_sg + (v_sg - v_corr_sg)
 
+        # If saving is enabled we save some arrays for debugging
         if self.save and mpi.rank == 0:
             tid = np.random.rand()
             np.save(f"n_sg{tid}.npy", n_sg)
+            np.save(f"wn_sg{tid}.npy", wn_sg)
             np.save(f"nstar_sg{tid}.npy", nstar_sg)
             np.save(f"v_sg{tid}.npy", v_sg)
             np.save(f"vxc_sg{tid}.npy", vxc_sg)
-
 
     def get_working_density(self, n_sg, gd):
         """Construct the "working" density.
@@ -1104,12 +1103,7 @@ class WLDA(XCFunctional):
         return res_g
 
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None, a=None):
-        if self.mode in [Modes.rWLDA, Modes.fWLDA]:
-            # If lambda is enabled we want to use E_LDA[n_AE]
-            # which means we need the PAW corrections for LDA
-            return self.lda_xc.calculate_paw_correction(setup, D_sp, dEdD_sp=dEdD_sp, a=a)
-        else:
-            return 0.0
+        return self.lda_xc.calculate_paw_correction(setup, D_sp, dEdD_sp=dEdD_sp, a=a)
 
     def density_correction(self, gd, n_sg):
         """Apply density correction.
@@ -1226,6 +1220,24 @@ class WLDA(XCFunctional):
             else:
                 v_sg[s, :] -= im
 
+    def do_radial_lda(self, n_sg):
+        eldax_g = np.zeros_like(n_sg[0])
+        eldac_g = np.zeros_like(n_sg[0])
+        vldax_sg = np.zeros_like(n_sg)
+        vldac_sg = np.zeros_like(n_sg)
+            
+        self.calculate_lda(n_sg, eldax_g, eldac_g, vldax_sg, vldac_sg)
+
+        self.elda_g = eldax_g + eldac_g
+        self.vlda_sg = vldax_sg + vldac_sg
+
+        if self.exchange_only:
+            self.e_corr_g = eldax_g
+            self.v_corr_sg = vldax_sg
+        else:
+            self.e_corr_g = eldax_g + eldac_g
+            self.v_corr_sg = vldax_sg + vldac_sg
+        
     def calculate_spherical(self, rgd, n_sg, v_sg, e_g=None):
         """Calculate the XC energy and potential for an atomic system.
 
@@ -1239,27 +1251,11 @@ class WLDA(XCFunctional):
         Returns:
             The /total/ XC energy
         """
-        if (self.mode in [Modes.rWLDA, Modes.fWLDA]
-            or (self.exchange_only and self.mode == Modes.WLDA)):
-            eldax_g = np.zeros_like(n_sg[0])
-            eldac_g = np.zeros_like(n_sg[0])
-            vldax_sg = np.zeros_like(n_sg)
-            vldac_sg = np.zeros_like(n_sg)
-            
-            self.do_lda(n_sg, eldax_g, eldac_g, vldax_sg, vldac_sg)
-
-        # if self.mode in [Modes.rWLDA, Modes.fWLDA]:
-        #     eldax_g = rgd.empty()
-        #     eldac_g = rgd.empty()
-        #     vldax_sg = np.zeros_like(v_sg)
-        #     vldac_sg = np.zeros_like(v_sg)
-            
-        #     self.do_lda(n_sg, eldax_g, eldac_g, vldax_sg, vldac_sg)
+        self.do_radial_lda(n_sg)
 
         if e_g is None:
             e_g = rgd.empty()
         self.rgd = rgd
-        n_sg = n_sg.copy()
         n_sg[n_sg < 1e-20] = 1e-40
 
         self.setup_radial_indicators(n_sg, self.nindicators)
@@ -1267,8 +1263,7 @@ class WLDA(XCFunctional):
         nstar_sg, v1, v2, v3 = self.radial_x(n_sg, e_g, v_sg)
 
         if not self.exchange_only:
-            nstar_sg = self.radial_c(n_sg, e_g, v_sg,
-                                     nstar_sg)
+            nstar_sg = self.radial_c(n_sg, e_g, v_sg, nstar_sg)
 
         eHa_g = np.zeros_like(e_g)
         vHa_sg = np.zeros_like(v_sg)
@@ -1281,31 +1276,19 @@ class WLDA(XCFunctional):
         e_g += eHa_g
         v_sg += vHa_sg
 
-        if self.exchange_only:
-            if self.mode == Modes.fWLDA:
-                e_g[:] = eldax_g + eldac_g + self.lambd * (e_g - eldax_g)
-                v_sg[:] = vldax_sg + vldac_sg + self.lambd * (v_sg - vldax_sg)
-            elif self.mode == Modes.rWLDA:
-                e_g[:] = eldax_g + eldac_g + e_g - self.lambd * eldax_g
-                v_sg[:] = vldax_sg + vldac_sg + v_sg - self.lambd * vldax_sg
-            else:
-                assert self.mode == Modes.WLDA
-                e_g[:] = e_g + eldac_g
-                v_sg[:] = v_sg + vldac_sg
+        if self.mode == Modes.fWLDA:
+            e_g[:] = self.elda_g + self.lambd * (e_g - self.e_corr_g)
+            v_sg[:] = self.vlda_sg + self.lambd * (v_sg - self.v_corr_sg)
+        elif self.mode == Modes.rWLDA:
+            e_g[:] = self.elda_g + e_g - self.lambd * self.e_corr_g
+            v_sg[:] = self.vlda_sg + v_sg - self.lambd * self.v_corr_sg
         else:
-            if self.mode == Modes.fWLDA:
-                e_g[:] = eldax_g + eldac_g + self.lambd * (e_g - eldax_g - eldac_g)
-                v_sg[:] = vldax_sg + vldac_sg + self.lambd * (v_sg - vldax_sg - vldac_sg)
-            elif self.mode == Modes.rWLDA:
-                e_g[:] = eldax_g + eldac_g + e_g - self.lambd * (eldax_g + eldac_g)
-                v_sg[:] = vldax_sg + vldac_sg + v_sg - self.lambd * (vldax_sg + vldac_sg)
+            assert self.mode == Modes.WLDA
+            e_g[:] = self.elda_g + (e_g - self.e_corr_g)
+            v_sg[:] = self.vlda_sg + (v_sg - self.v_corr_sg)
 
         E = rgd.integrate(e_g)
 
-        # print(f"E = {E}", flush=True)
-        # print(np.mean(n_sg[0]))
-        # if len(n_sg) == 2:
-        #     print(np.mean(n_sg[1]))
         return E
 
     def radial_x(self, n_sg, e_g, v_sg):
