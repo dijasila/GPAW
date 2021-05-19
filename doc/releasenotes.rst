@@ -53,6 +53,11 @@ Git master branch
 * Implemented multiple orbital hubbard U corrections (EX: for correction
   of both p and d orbitals on transition metals)
 
+* There used to be two versions of the GPAW web-page which was quite
+  confusing.  The https://wiki.fysik.dtu.dk/gpaw/dev/ web-page has noe been
+  dropped.  There is now only https://wiki.fysik.dtu.dk/gpaw/ and it documents
+  the use of the in development version of GPAW.
+
 
 Version 21.1.0
 ===============
