@@ -1,56 +1,37 @@
 ####################################################################
-#  make include file.                                              #
+# Site configuration for make
 ####################################################################
-#
-SHELL = /bin/sh
 
 # ----------------------------------------------------------------------
-# - gpaw-cuda Directory Structure / gpaw-cuda library --------------------
+# Paths to header files to include (if needed)
 # ----------------------------------------------------------------------
-#
-TOPdir        = .
-INCdir        = $(TOPdir)
-PYTHONINCdir ?= $(PYTHONHOME)/include/python3.7m/
-PYTHONLIBdir ?= $(PYTHONHOME)/lib/
-NUMPYINCdir  ?= $(shell python3 -c "import numpy; print(numpy.get_include())")
-MPIINCdir    ?= $(MPICH_INSTALL_ROOT)/include
-LIBdir        = $(TOPdir)
-CUGPAWLIB     = $(LIBdir)/libgpaw-cuda.a
+INCLUDE_PYTHON = $(PYTHONHOME)/include/python3.8/
+INCLUDE_NUMPY  = $(shell python3 -c "import numpy; print(numpy.get_include())")
+INCLUDE_MPI    =
+INCLUDE_CUDA   =
 
-#
+PATHS    = . $(INCLUDE_PYTHON) $(INCLUDE_NUMPY) $(INCLUDE_MPI) $(INCLUDE_CUDA)
+INCLUDES = $(addprefix -I,$(PATHS))
+
 # ----------------------------------------------------------------------
-# - NVIDIA CUDA includes / libraries / specifics -----------------------
+# GPAW options to define
 # ----------------------------------------------------------------------
-CUDAINCdir    = $(CUDADIR)/include
-CUDALIBdir    = $(CUDADIR)/lib64
-CUDA_OPTS     =
+DEFINES  = -DPARALLEL=1 -DGPAW_CUDA=1
 
-#
 # ----------------------------------------------------------------------
-# - gpaw-cuda includes / libraries / specifics -------------------------------
+# Compilers and optimization flags
 # ----------------------------------------------------------------------
-#
+COMPILE_FLAGS = $(INCLUDES) $(DEFINES)
 
-CUGPAW_INCLUDES =  -I$(INCdir) -I$(CUDAINCdir) -I$(MPIINCdir) -I$(NUMPYINCdir)  -I$(PYTHONINCdir)
-CUGPAW_OPTS     = -DPARALLEL=1 -DGPAW_CUDA=1
+CC        = gcc
+CCFLAGS   = $(COMPILE_FLAGS) -g -fPIC -O3 -mavx512f
 
-#
+NVCC      = nvcc
+NVCCFLAGS = $(COMPILE_FLAGS) -g -O3 -gencode arch=compute_70,code=sm_70 --compiler-options '-g -fPIC -O3 -mavx512f'
+
 # ----------------------------------------------------------------------
-#
-
-CUGPAW_DEFS     = $(CUGPAW_OPTS) $(CUDA_OPTS)  $(CUGPAW_INCLUDES)
-
-#
+# Linkers
 # ----------------------------------------------------------------------
-# - Compilers / linkers - Optimization flags ---------------------------
-# ----------------------------------------------------------------------
-CC           = gcc
-CCNOOPT      = $(CUGPAW_DEFS)
-CCFLAGS      = $(CUGPAW_DEFS) -g -fPIC -std=c99 -m64 -O3 -mavx512f
-
-NVCC           = nvcc
-NVCCFLAGS      = $(CUGPAW_DEFS) -O3 -g -gencode arch=compute_70,code=sm_70 -m64 --compiler-options '-g -fPIC -std=c99 -O3 -mavx512f'
-
 ARCH     = ar
 ARCHFLAGS= cr
 RANLIB   = ranlib

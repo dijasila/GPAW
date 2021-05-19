@@ -7,6 +7,7 @@ CUSRC = fd-cuda.cu interpolate-cuda.cu paste-cuda.cu relax-cuda.cu \
 
 CSRC  = gpaw-cuda.c operators-cuda.c bc-cuda.c transformers-cuda.c
 
+CUGPAWLIB = libgpaw-cuda.a
 
 all: $(CUGPAWLIB)
 
