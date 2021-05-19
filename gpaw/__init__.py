@@ -78,7 +78,7 @@ class KPointError(Exception):
     pass
 
 
-class ParallelizationNotImplementedError(NotImplementedError):
+class BadParallelization(Exception):
     """Error indicating missing parallelization support."""
     pass
 
