@@ -35,7 +35,7 @@ def build():
     else:
         print('FAILED!', file=sys.stdout)
         status = 'error'
-    f = root.with_name(f'gpaw-docs--{status}')
+    f = root.with_name(f'gpaw-docs-{status}')
     if f.is_dir():
         shutil.rmtree(f)
     root.rename(f)
