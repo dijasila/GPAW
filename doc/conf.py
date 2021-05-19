@@ -1,4 +1,6 @@
+import datetime
 import sys
+
 import sphinx_rtd_theme
 from gpaw import __version__
 
@@ -21,7 +23,7 @@ templates_path = ['templates']
 source_suffix = '.rst'
 master_doc = 'index'
 project = 'GPAW'
-copyright = '2020, GPAW developers'
+copyright = f'{datetime.date.today().year}, GPAW developers'
 release = __version__
 exclude_patterns = ['build']
 default_role = 'math'
