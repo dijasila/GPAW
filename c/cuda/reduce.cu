@@ -23,16 +23,6 @@ void reduce_dealloc_cuda()
     reduce_init_buffers_cuda();
 }
 
-static unsigned int nextPow2(unsigned int x) {
-    --x;
-    x |= x >> 1;
-    x |= x >> 2;
-    x |= x >> 4;
-    x |= x >> 8;
-    x |= x >> 16;
-    return ++x;
-}
-
 static void reduceNumBlocksAndThreads(int n, int *blocks, int *threads)
 {
     *threads = (n < REDUCE_MAX_THREADS * 2) ? nextPow2((n + 1) / 2)

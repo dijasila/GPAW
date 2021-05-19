@@ -27,26 +27,16 @@ void lfc_reduce_dealloc_cuda()
     lfc_reduce_init_buffers_cuda();
 }
 
-static unsigned int lfc_nextPow2( unsigned int x ) {
-    --x;
-    x |= x >> 1;
-    x |= x >> 2;
-    x |= x >> 4;
-    x |= x >> 8;
-    x |= x >> 16;
-    return ++x;
-}
-
 static void lfc_reduceNumBlocksAndThreads(int n, int *blocks, int *threads)
 {
-    *threads = (n < REDUCE_LFC_MAX_THREADS) ? lfc_nextPow2(n)
+    *threads = (n < REDUCE_LFC_MAX_THREADS) ? nextPow2(n)
                                             : REDUCE_LFC_MAX_THREADS;
     *blocks = MIN((n + (*threads - 1)) / (*threads), REDUCE_LFC_MAX_BLOCKS);
 }
 
 static void lfc_reduceNumBlocksAndThreads2(int n,int *blocks, int *threads)
 {
-    *threads = (n < REDUCE_LFC_MAX_THREADS2 * 2) ? lfc_nextPow2((n + 1) / 2)
+    *threads = (n < REDUCE_LFC_MAX_THREADS2 * 2) ? nextPow2((n + 1) / 2)
                                                  : REDUCE_LFC_MAX_THREADS2;
     *blocks = MIN((n + (*threads * 2 - 1)) / (*threads * 2),
                   REDUCE_LFC_MAX_BLOCKS2);

@@ -25,16 +25,6 @@ typedef void (*launch_funcz)(const cuDoubleComplex *, const int *,
                              cuDoubleComplex *, const int *, const int *, int,
                              cudaStream_t);
 
-static unsigned int nextPow2(unsigned int x) {
-    --x;
-    x |= x >> 1;
-    x |= x >> 2;
-    x |= x >> 4;
-    x |= x >> 8;
-    x |= x >> 16;
-    return ++x;
-}
-
 extern int gpaw_cuda_debug;
 
 static int debug_size_in = 0;

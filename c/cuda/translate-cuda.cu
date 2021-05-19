@@ -13,17 +13,7 @@
 #define BLOCK_MAX 32
 #define GRID_MAX 65535
 #define BLOCK_TOTALMAX 256
-
-static unsigned int nextPow2(unsigned int x) {
-    --x;
-    x |= x >> 1;
-    x |= x >> 2;
-    x |= x >> 4;
-    x |= x >> 8;
-    x |= x >> 16;
-    return ++x;
-}
-#endif // !CUGPAWCOMPLEX
+#endif
 
 
 __global__ void Zcuda(bmgs_translate_cuda_kernel)(
