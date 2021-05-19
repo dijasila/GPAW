@@ -1189,7 +1189,7 @@ class DirectMin(Eigensolver):
             grad[k] = Hpsi_nG.copy()
 
             # calculate energy
-            if 0 : #self.odd_parameters['name'] == 'Zero':
+            if 0:  # self.odd_parameters['name'] == 'Zero':
                 for i in range(dim):
                     energy = wfs.integrate(
                         psi[i], Hpsi_nG[i], global_integral=True).real
@@ -1208,8 +1208,7 @@ class DirectMin(Eigensolver):
             else:
                 psi = kpt.psit_nG[:n_occ + dim].copy()
                 wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
-                lamb = wfs.integrate(
-                        psi, Hpsi_nG, global_integral=True)
+                lamb = wfs.integrate(psi, Hpsi_nG, global_integral=True)
                 s_axi = {}
                 for a, P_xi in kpt.P_ani.items():
                     dO_ii = wfs.setups[a].dO_ii
@@ -1279,7 +1278,7 @@ class DirectMin(Eigensolver):
         dot = np.sqrt(dot)
         maxstep = 0.2
         if dot > maxstep:
-            a_star = maxstep/dot
+            a_star = maxstep / dot
         else:
             a_star = 1.0
         # calculate new wfs:
@@ -1464,12 +1463,15 @@ class DirectMin(Eigensolver):
         occ_name = getattr(wfs.occupations, 'name', None)
         if occ_name == 'mom':
             if 'SIC' in self.odd_parameters['name']:
-                if (not self.need_init_orbs or wfs.read_from_file_init_wfs_dm) \
-                        and not self.force_init_localization:
+
+                astmnt = (not self.need_init_orbs or
+                          wfs.read_from_file_init_wfs_dm)
+                if astmnt and not self.force_init_localization:
                     for kpt in wfs.kpt_u:
                         wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
                     wfs.orthonormalize()
-                    self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
+                    self._e_entropy = \
+                        wfs.calculate_occupation_numbers(dens.fixed)
                     occ_name = getattr(wfs.occupations, 'name', None)
                     if occ_name == 'mom':
                         for kpt in wfs.kpt_u:
@@ -1481,7 +1483,8 @@ class DirectMin(Eigensolver):
                 if self.globaliters == 0:
                     occ_name = getattr(wfs.occupations, 'name', None)
                     if occ_name == 'mom':
-                        log(" MOM reference orbitals initialized.\n", flush=True)
+                        log(" MOM reference orbitals initialized.\n",
+                            flush=True)
                         for kpt in wfs.kpt_u:
                             wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
                         # TODO: Does this work?
@@ -1660,12 +1663,16 @@ class DirectMin(Eigensolver):
         assert wfs.bd.comm.size == 1, \
             'Band parallelization is not supported'
         if wfs.occupations.name != 'mom':
+            errormsg = \
+                'Please, use occupations={\'name\': \'fixed-occ-zero-width\'}'
+
             if wfs.occupations.name == 'fixmagmom':
                 assert wfs.occupations.occ.name == 'fixed-occ-zero-width', \
-                    'Please, use occupations={\'name\': \'fixed-occ-zero-width\'}'
+                    errormsg
             else:
                 assert wfs.occupations.name == 'fixed-occ-zero-width', \
-                    'Please, use occupations={\'name\': \'fixed-occ-zero-width\'}'
+                    errormsg
+
 
 def log_f(niter, e_total, eig_error, log):
     """

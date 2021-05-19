@@ -233,10 +233,10 @@ class DirectMinLCAO(DirectLCAO):
 
             if self.randomizeorbitals:
                 nst = kpt.C_nM.shape[0]
-                wt = kpt.weight*0.01
-                arand = wt*(np.random.rand(nst, nst)).astype(wfs.dtype)
+                wt = kpt.weight * 0.01
+                arand = wt * (np.random.rand(nst, nst)).astype(wfs.dtype)
                 if wfs.dtype is complex:
-                    arand += 1.j * np.random.rand(nst, nst)*wt
+                    arand += 1.j * np.random.rand(nst, nst) * wt
                 arand = arand - arand.T.conj()
                 kpt.C_nM[:] = expm(arand) @ kpt.C_nM[:]
                 wfs.atomic_correction.calculate_projections(wfs, kpt)
@@ -453,8 +453,8 @@ class DirectMinLCAO(DirectLCAO):
             for kpt in wfs.kpt_u:
                 u = kpt.s * self.n_kps + kpt.q
                 normt = np.linalg.norm(
-                    g_mat_u[u]@self.a_mat_u[u] -
-                    self.a_mat_u[u]@g_mat_u[u])
+                    g_mat_u[u] @ self.a_mat_u[u] -
+                    self.a_mat_u[u] @ g_mat_u[u])
                 if norm < normt:
                     norm = normt
             norm2 = 0.0
@@ -1310,12 +1310,15 @@ class DirectMinLCAO(DirectLCAO):
         assert wfs.bd.comm.size == 1, \
             'Band parallelization is not supported'
         if wfs.occupations.name != 'mom':
+            errormsg = \
+                'Please, use occupations={\'name\': \'fixed-occ-zero-width\'}'
+
             if wfs.occupations.name == 'fixmagmom':
                 assert wfs.occupations.occ.name == 'fixed-occ-zero-width', \
-                    'Please, use occupations={\'name\': \'fixed-occ-zero-width\'}'
+                    errormsg
             else:
                 assert wfs.occupations.name == 'fixed-occ-zero-width', \
-                    'Please, use occupations={\'name\': \'fixed-occ-zero-width\'}'
+                    errormsg
 
 
 def get_indices(dimens, dtype):

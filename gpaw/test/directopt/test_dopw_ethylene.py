@@ -10,11 +10,11 @@ def test_dopw_ethylene(in_tmp_dir):
     atoms = Atoms('CCHHHH',
                   positions=[
                       [-0.66874198, -0.00001714, -0.00001504],
-                      [ 0.66874210, 0.00001699, 0.00001504],
+                      [0.66874210, 0.00001699, 0.00001504],
                       [-1.24409879, 0.00000108, -0.93244784],
                       [-1.24406253, 0.00000112, 0.93242153],
-                      [ 1.24406282, -0.93242148, 0.00000108],
-                      [ 1.24409838, 0.93244792, 0.00000112]
+                      [1.24406282, -0.93242148, 0.00000108],
+                      [1.24409838, 0.93244792, 0.00000112]
                   ]
                   )
     atoms.center(vacuum=4.0)
@@ -23,9 +23,7 @@ def test_dopw_ethylene(in_tmp_dir):
     calc = GPAW(mode=PW(300),
                 xc='PBE',
                 occupations={'name': 'fixed-occ-zero-width'},
-                eigensolver=DirectMin(
-                    convergelumo=True
-                ),
+                eigensolver=DirectMin(convergelumo=True),
                 mixer={'name': 'dummy'},
                 spinpol=True,
                 symmetry='off',
@@ -35,12 +33,12 @@ def test_dopw_ethylene(in_tmp_dir):
     atoms.calc = calc
     energy = atoms.get_potential_energy()
     forces = atoms.get_forces()
-    fsaved = [[-3.73061,   0.00020,   -0.00011],
-           [3.72978,   0.00002,   -0.00020],
-           [-0.61951,   -2.63437,   -0.47774],
-           [-0.62006,    2.63439,    0.47806],
-           [0.62080,   -0.47803,   -2.63261],
-           [0.62030,    0.47779,    2.63259]]
+    fsaved = [[-3.73061, 0.00020, -0.00011],
+              [3.72978, 0.00002, -0.00020],
+              [-0.61951, -2.63437, -0.47774],
+              [-0.62006, 2.63439, 0.47806],
+              [0.62080, -0.47803, -2.63261],
+              [0.62030, 0.47779, 2.63259]]
 
     assert (np.abs(forces - fsaved) < 1.0e-3).all()
     equal(energy, -26.205455, 1.0e-6)

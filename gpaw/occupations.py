@@ -561,7 +561,6 @@ class FixedOccupationsZeroWidth(OccupationNumberCalculator):
         return fermi_level, e_entropy
 
 
-
 class ZeroWidth(OccupationNumberCalculator):
     name = 'zero-width'
     extrapolate_factor = 0.0
