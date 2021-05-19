@@ -233,21 +233,32 @@ class SCFLoop:
 
         self.niter = 1
 
-        wfs.eigensolver.eg_count = 0
-        wfs.eigensolver.globaliters = 0
-        if hasattr(wfs.eigensolver, 'iloop'):
-            if wfs.eigensolver.iloop is not None:
-                wfs.eigensolver.iloop.total_eg_count = 0
-        if hasattr(wfs.eigensolver, 'iloop_outer'):
-            if wfs.eigensolver.iloop_outer is not None:
-                wfs.eigensolver.iloop_outer.total_eg_count = 0
+        solver = wfs.eigensolver
+        occ_name = getattr(wfs.occupations, 'name', None)
 
-        wfs.eigensolver.check_assertions(wfs, dens)
+        solver.eg_count = 0
+        solver.globaliters = 0
+        if hasattr(solver, 'iloop'):
+            if solver.iloop is not None:
+                solver.iloop.total_eg_count = 0
+        if hasattr(solver, 'iloop_outer'):
+            if solver.iloop_outer is not None:
+                solver.iloop_outer.total_eg_count = 0
+
+        solver.check_assertions(wfs, dens)
 
         while self.niter <= self.maxiter:
-            wfs.eigensolver.iterate(ham, wfs, dens, log)
-            if hasattr(wfs.eigensolver, 'e_sic'):
-                e_sic = wfs.eigensolver.e_sic
+            # we need to check each time if initialization is needed
+            # as sometimes one need to erase the memory in L-BFGS
+            # or mom can require restart if it detects the collapse
+            if not solver.initialized:
+                solver.init_me(wfs, ham, dens, log)
+
+            solver.iterate(ham, wfs, dens, log)
+            solver.check_mom(wfs, ham, dens)
+
+            if hasattr(solver, 'e_sic'):
+                e_sic = solver.e_sic
             else:
                 e_sic = 0.0
             energy = ham.get_energy(0.0, wfs, kin_en_using_band=False,
@@ -269,18 +280,18 @@ class SCFLoop:
 
             if self.converged:
                 if wfs.mode == 'fd' or wfs.mode == 'pw':
-                    wfs.eigensolver.choose_optimal_orbitals(
+                    solver.choose_optimal_orbitals(
                         wfs, ham, dens)
-                    niter1 = wfs.eigensolver.eg_count
+                    niter1 = solver.eg_count
                     niter2 = 0
                     niter3 = 0
 
-                    iloop1 = wfs.eigensolver.iloop is not None
-                    iloop2 = wfs.eigensolver.iloop_outer is not None
+                    iloop1 = solver.iloop is not None
+                    iloop2 = solver.iloop_outer is not None
                     if iloop1:
-                        niter2 = wfs.eigensolver.total_eg_count_iloop
+                        niter2 = solver.total_eg_count_iloop
                     if iloop2:
-                        niter3 = wfs.eigensolver.total_eg_count_iloop_outer
+                        niter3 = solver.total_eg_count_iloop_outer
 
                     if iloop1 and iloop2:
                         log(
@@ -301,37 +312,42 @@ class SCFLoop:
                         log(
                             '\nOccupied states converged after'
                             ' {:d} e/g evaluations'.format(niter1))
-                    if wfs.eigensolver.convergelumo:
+                    if solver.convergelumo:
                         log('Converge unoccupied states:')
                         max_er = self.max_errors['eigenstates']
                         max_er *= Ha ** 2 / wfs.nvalence
-                        wfs.eigensolver.run_lumo(ham, wfs, dens,
+                        solver.run_lumo(ham, wfs, dens,
                                                  max_er, log)
                     else:
-                        wfs.eigensolver.initialized = False
+                        solver.initialized = False
                         log('Unoccupied states are not converged.')
                     rewrite_psi = True
-                    if 'SIC' in wfs.eigensolver.odd_parameters['name']:
+                    sic_calc = 'SIC' in solver.odd_parameters['name']
+                    if sic_calc:
                         rewrite_psi = False
-                    wfs.eigensolver.get_canonical_representation(
+                    solver.get_canonical_representation(
                         ham, wfs, dens, rewrite_psi)
-                    wfs.eigensolver.get_energy_and_tangent_gradients(
+                    solver._e_entropy = \
+                        wfs.calculate_occupation_numbers(dens.fixed)
+                    if not sic_calc and occ_name:
+                        for kpt in wfs.kpt_u:
+                            solver.sort_wavefunctions(wfs, kpt)
+                        solver._e_entropy =\
+                            wfs.calculate_occupation_numbers(dens.fixed)
+                    solver.get_energy_and_tangent_gradients(
                         ham, wfs, dens)
                     break
                 elif wfs.mode == 'lcao':
                     # Do we need to calculate the occupation numbers here?
                     wfs.calculate_occupation_numbers(dens.fixed)
-                    wfs.eigensolver.get_canonical_representation(ham,
-                                                                 wfs,
-                                                                 dens)
-                    niter = wfs.eigensolver.eg_count
+                    solver.get_canonical_representation(ham, wfs, dens)
+                    niter = solver.eg_count
                     log(
                         '\nOccupied states converged after'
                         ' {:d} e/g evaluations'.format(niter))
                     break
                 # else:
                 #     raise NotImplementedError
-
             ham.npoisson = 0
             self.niter += 1
 

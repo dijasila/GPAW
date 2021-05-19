@@ -71,6 +71,8 @@ class DirectMinLCAO(DirectLCAO):
         self.init_from_ks_eigsolver = init_from_ks_eigsolver
         self.randomizeorbitals = randomizeorbitals
 
+        self.initialized = False
+
         if isinstance(self.odd_parameters, basestring):
             self.odd_parameters = xc_string_to_dict(self.odd_parameters)
         if isinstance(self.sda, basestring):
@@ -141,6 +143,12 @@ class DirectMinLCAO(DirectLCAO):
                        'not found variationally\n'
 
         return repr_string
+
+    def init_me(self, wfs, ham, dens, log):
+        # need to initialize c_nm, eps, f_n and so on.
+        self.init_wave_functions(wfs, ham, dens, log)
+        self.update_ks_energy(ham, wfs, dens)
+        self.initialize_2(wfs, dens, ham)
 
     def initialize_2(self, wfs, dens, ham):
 
@@ -284,6 +292,7 @@ class DirectMinLCAO(DirectLCAO):
         else:
             raise Exception('Check ODD Parameters')
         self.e_sic = 0.0
+        self.initialized = True
 
     def iterate(self, ham, wfs, dens, log):
         """
@@ -299,24 +308,6 @@ class DirectMinLCAO(DirectLCAO):
         self.check_assertions(wfs, dens)
 
         wfs.timer.start('Direct Minimisation step')
-
-        if self.iters == 0:
-            # need to initialize c_nm, eps, f_n and so on.
-            self.init_wave_functions(wfs, ham, dens, log)
-            self.update_ks_energy(ham, wfs, dens)
-            # not sure sort wfs is good here,
-            # you need to probably run loop over sort_wfs
-            # with update of energy. So, don't use it for now.
-            # for kpt in wfs.kpt_u:
-            #     self.sort_wavefunctions(ham, wfs, kpt)
-            # in the method below we set self.iters=1
-            self.initialize_2(wfs, dens, ham)
-
-        self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
-        occ_name = getattr(wfs.occupations, "name", None)
-        if occ_name == 'mom':
-            self.restart = self.sort_wavefunctions_mom(wfs)
-
         self.update_ref_orbitals(wfs, ham, dens)
         wfs.timer.start('Preconditioning:')
         precond = self.update_preconditioning(wfs, self.use_prec)
@@ -862,6 +853,8 @@ class DirectMinLCAO(DirectLCAO):
         occ_name = getattr(wfs.occupations, "name", None)
         if occ_name == 'mom':
             self.sort_wavefunctions_mom(wfs)
+            self._e_entropy = wfs.calculate_occupation_numbers(
+                dens.fixed)
 
         for kpt in wfs.kpt_u:
             u = kpt.s * self.n_kps + kpt.q
@@ -873,7 +866,7 @@ class DirectMinLCAO(DirectLCAO):
     def reset(self):
         super(DirectMinLCAO, self).reset()
         self._error = np.inf
-        self.iters = 0
+        self.initialized = False
 
     def sort_wavefunctions(self, ham, wfs, kpt):
         """
@@ -1312,7 +1305,6 @@ class DirectMinLCAO(DirectLCAO):
         if wfs.occupations.name != 'mom':
             errormsg = \
                 'Please, use occupations={\'name\': \'fixed-occ-zero-width\'}'
-
             if wfs.occupations.name == 'fixmagmom':
                 assert wfs.occupations.occ.name == 'fixed-occ-zero-width', \
                     errormsg
@@ -1320,6 +1312,11 @@ class DirectMinLCAO(DirectLCAO):
                 assert wfs.occupations.name == 'fixed-occ-zero-width', \
                     errormsg
 
+    def check_mom(self, wfs, ham, dens):
+        occ_name = getattr(wfs.occupations, "name", None)
+        if occ_name == 'mom':
+            self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
+            self.restart = self.sort_wavefunctions_mom(wfs)
 
 def get_indices(dimens, dtype):
 

@@ -177,13 +177,20 @@ class DirectMin(Eigensolver):
                 'g_tol': self.g_tol
                 }
 
-    def initialize_super(self, wfs):
+    def init_me(self, wfs, ham, dens, log):
+        self.initialize_super(wfs, ham)
+        self.init_wfs(wfs, dens, ham, log)
+        self.initialize_dm(wfs, dens, ham, log)
+
+    def initialize_super(self, wfs, ham):
         """
         Initialize super class
 
         :param wfs:
         :return:
         """
+        if isinstance(ham.xc, HybridXC):
+            self.blocksize = wfs.bd.mynbands
 
         if self.blocksize is None:
             if wfs.mode == 'pw':
@@ -319,13 +326,6 @@ class DirectMin(Eigensolver):
         :return:
         """
 
-        if not self.initialized:
-            if isinstance(ham.xc, HybridXC):
-                self.blocksize = wfs.bd.mynbands
-            self.initialize_super(wfs)
-            self.init_wfs(wfs, dens, ham, log)
-            self.initialize_dm(wfs, dens, ham, log)
-
         n_kps = self.n_kps
         psi_copy = {}
         alpha = self.alpha
@@ -373,14 +373,6 @@ class DirectMin(Eigensolver):
                 phi_0=phi_2i[0], der_phi_0=der_phi_2i[0],
                 phi_old=phi_2i[1], der_phi_old=der_phi_2i[1],
                 alpha_max=3.0, alpha_old=alpha, wfs=wfs)
-
-        # calculate new wfs:
-        # do we actually need to do this?
-        # for kpt in wfs.kpt_u:
-        #     k = n_kps * kpt.s + kpt.q
-        #     kpt.psit_nG[:] = psi_copy[k] + alpha * p_knG[k]
-        # wfs.orthonormalize()
-
         self.alpha = alpha
         self.grad_knG = grad_knG
 
@@ -388,57 +380,15 @@ class DirectMin(Eigensolver):
         phi_2i[1], der_phi_2i[1] = phi_2i[0], der_phi_2i[0]
         phi_2i[0], der_phi_2i[0] = phi_alpha, der_phi_alpha,
 
-        occ_name = getattr(wfs.occupations, 'name', None)
-        if self.iloop_outer is not None and occ_name == 'mom' and \
-                'SIC' not in self.odd_parameters['name']:
-            if self.iloop_outer.odd_pot.restart:
-                self.choose_optimal_orbitals(wfs, ham, dens)
-                for kpt in wfs.kpt_u:
-                    wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
-                    super(DirectMin, self).subspace_diagonalize(
-                        ham, wfs, kpt, True)
-                    wfs.gd.comm.broadcast(kpt.eps_n, 0)
-                self._e_entropy = \
-                    wfs.calculate_occupation_numbers(dens.fixed)
-                if occ_name == 'mom':
-                    for kpt in wfs.kpt_u:
-                        self.sort_wavefunctions(wfs, kpt)
-                self.iters = 0
-                self.initialized = False
-                self.need_init_odd = True
-            elif (self.iters + 1) % self.momevery == 0:
-                if not self.iloop_outer.converged:
-                    self.choose_optimal_orbitals(wfs, ham, dens)
-                    for kpt in wfs.kpt_u:
-                        wfs.pt.integrate(kpt.psit_nG, kpt.P_ani,
-                                         kpt.q)
-                        super(DirectMin, self).subspace_diagonalize(
-                            ham, wfs, kpt, True)
-                        wfs.gd.comm.broadcast(kpt.eps_n, 0)
-                    wfs.calculate_occupation_numbers(dens.fixed)
-                    if occ_name == 'mom':
-                        for kpt in wfs.kpt_u:
-                            self.sort_wavefunctions(wfs, kpt)
-                    self.iters = 0
-                    self.initialized = False
-                    self.need_init_odd = True
-
-        self.globaliters += 1
         wfs.timer.stop('Direct Minimisation step')
         self.iters += 1
+        self.globaliters += 1
 
     def iterate(self, ham, wfs, dens, log):
 
         if self.lsa['name'] != 'UnitStep':
             self.iteratels(ham, wfs, dens, log)
             return
-
-        if not self.initialized:
-            if isinstance(ham.xc, HybridXC):
-                self.blocksize = wfs.bd.mynbands
-            self.initialize_super(wfs)
-            self.init_wfs(wfs, dens, ham, log)
-            self.initialize_dm(wfs, dens, ham, log)
 
         n_kps = self.n_kps
         psi_copy = {}
@@ -478,39 +428,6 @@ class DirectMin(Eigensolver):
         del p_knG
         del grad_knG
         self.alpha = a_star
-        occ_name = getattr(wfs.occupations, 'name', None)
-        if self.iloop_outer is not None and occ_name == 'mom' and \
-                'SIC' not in self.odd_parameters['name']:
-            if self.iloop_outer.odd_pot.restart:
-                self.choose_optimal_orbitals(wfs, ham, dens)
-                for kpt in wfs.kpt_u:
-                    wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
-                    super(DirectMin, self).subspace_diagonalize(
-                        ham, wfs, kpt, True)
-                    wfs.gd.comm.broadcast(kpt.eps_n, 0)
-                wfs.calculate_occupation_numbers(dens.fixed)
-                if occ_name == 'mom':
-                    for kpt in wfs.kpt_u:
-                        self.sort_wavefunctions(wfs, kpt)
-                self.iters = 0
-                self.initialized = False
-                self.need_init_odd = True
-            elif (self.iters + 1) % self.momevery == 0:
-                if not self.iloop_outer.converged:
-                    self.choose_optimal_orbitals(wfs, ham, dens)
-                    for kpt in wfs.kpt_u:
-                        wfs.pt.integrate(kpt.psit_nG, kpt.P_ani,
-                                         kpt.q)
-                        super(DirectMin, self).subspace_diagonalize(
-                            ham, wfs, kpt, True)
-                        wfs.gd.comm.broadcast(kpt.eps_n, 0)
-                    wfs.calculate_occupation_numbers(dens.fixed)
-                    if occ_name == 'mom':
-                        for kpt in wfs.kpt_u:
-                            self.sort_wavefunctions(wfs, kpt)
-                    self.iters = 0
-                    self.initialized = False
-                    self.need_init_odd = True
 
         wfs.timer.stop('Direct Minimisation step')
         self.iters += 1
@@ -609,38 +526,20 @@ class DirectMin(Eigensolver):
 
             if 'SIC' in self.odd_parameters['name']:
                 self.e_sic = 0.0
-                # error = self.error * Hartree ** 2 / wfs.nvalence
                 if self.iters > 0:
                     self.run_inner_loop(ham, wfs, dens, grad_knG=grad)
                 else:
-                    # temp = {}
-                    # for kpt in wfs.kpt_u:
-                    #     k = self.n_kps * kpt.s + kpt.q
-                    #     temp[k] = kpt.psit_nG[:].copy()
-                    #     n_occ = get_n_occ(kpt)
-                    #     kpt.psit_nG[:n_occ] = \
-                    #         np.tensordot(
-                    #             self.U_k[k].T, kpt.psit_nG[:n_occ],
-                    #             axes=1)
                     self.e_sic = self.odd.get_energy_and_gradients(
                         wfs, grad, dens, self.iloop.U_k, add_grad=True)
                     ham.get_energy(0.0, wfs, kin_en_using_band=False,
                                    e_sic=self.e_sic)
-                    # for kpt in wfs.kpt_u:
-                    #     k = self.n_kps * kpt.s + kpt.q
-                    #     kpt.psit_nG[:] = temp[k]
-                    #     n_occ = get_n_occ(kpt)
-                    #     grad[k][:n_occ] += \
-                    #         np.tensordot(self.iloop.U_k[k].conj(),
-                    #                      self.iloop.odd_pot.grad[k], axes=1)
                 energy += self.e_sic
         else:
             grad = {}
             n_kps = self.n_kps
             for kpt in wfs.kpt_u:
                 grad[n_kps * kpt.s + kpt.q] = np.zeros_like(kpt.psit_nG[:])
-            self.run_inner_loop(ham, wfs, dens,
-                                grad_knG=grad)
+            self.run_inner_loop(ham, wfs, dens, grad_knG=grad)
             energy = self.etotal
 
         self.project_gradient(wfs, grad)
@@ -890,7 +789,6 @@ class DirectMin(Eigensolver):
         :param rewrite_psi:
         :return:
         """
-
         self.choose_optimal_orbitals(wfs, ham, dens)
 
         if self.exstopt:
@@ -1061,15 +959,6 @@ class DirectMin(Eigensolver):
 
         # update fermi level?
         del grad_knG
-        occ_name = getattr(wfs.occupations, 'name', None)
-        if occ_name != 'mom':
-            self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
-        elif occ_name == 'mom' and 'SIC' not in self.odd_parameters['name']:
-            self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
-            for kpt in wfs.kpt_u:
-                self.sort_wavefunctions(wfs, kpt)
-            self._e_entropy = wfs.calculate_occupation_numbers(
-                dens.fixed)
 
     def get_gradients_lumo(self, ham, wfs, kpt):
 
@@ -1674,6 +1563,37 @@ class DirectMin(Eigensolver):
             else:
                 assert wfs.occupations.name == 'fixed-occ-zero-width', \
                     errormsg
+
+    def check_mom(self, wfs, ham, dens):
+
+        occ_name = getattr(wfs.occupations, 'name', None)
+        if occ_name != 'mom':
+            return
+
+        sic_calc = 'SIC' in self.odd_parameters['name']
+        iloop = self.iloop_outer is not None
+        choose_canonical = False
+
+        if iloop and not sic_calc:
+            astmnt = self.iloop_outer.odd_pot.restart
+            bstmnt = (self.iters + 1) % self.momevery == 0 and \
+                     not self.iloop_outer.converged
+            if astmnt or bstmnt:
+                choose_canonical = True
+        if choose_canonical:
+            self.choose_optimal_orbitals(wfs, ham, dens)
+            for kpt in wfs.kpt_u:
+                wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+                super(DirectMin, self).subspace_diagonalize(
+                    ham, wfs, kpt, True)
+                wfs.gd.comm.broadcast(kpt.eps_n, 0)
+            wfs.calculate_occupation_numbers(dens.fixed)
+            for kpt in wfs.kpt_u:
+                self.sort_wavefunctions(wfs, kpt)
+            wfs.calculate_occupation_numbers(dens.fixed)
+            self.iters = 0
+            self.initialized = False
+            self.need_init_odd = True
 
 
 def log_f(niter, e_total, eig_error, log):
