@@ -78,6 +78,11 @@ class KPointError(Exception):
     pass
 
 
+class BadParallelization(Exception):
+    """Error indicating missing parallelization support."""
+    pass
+
+
 libraries: Dict[str, str] = {}
 if hasattr(_gpaw, 'lxcXCFunctional'):
     libraries['libxc'] = getattr(_gpaw, 'libxc_version', '2.x.y')
