@@ -16,18 +16,13 @@ from gpaw.xc import xc_string_to_dict
 from gpaw.xc.hybrid import HybridXC
 from gpaw.utilities import unpack
 from gpaw.directmin.fdpw import sd_outer, ls_outer
-# from gpaw.utilities.lapack import diagonalize
 from gpaw.directmin.odd.fdpw import odd_corrections
 from gpaw.directmin.fdpw.tools import get_n_occ
 from gpaw.directmin.fdpw.inner_loop import InnerLoop
 from gpaw.directmin.fdpw.inner_loop_exst import InnerLoop as ILEXST
-from gpaw.pipekmezey.pipek_mezey_wannier import PipekMezey
-from gpaw.pipekmezey.wannier_basic import WannierLocalization
-from gpaw.directmin.locfunc.dirmin import DirectMinLocalize
-from gpaw.directmin.locfunc.er import ERlocalization as ERL
 import time
 from ase.parallel import parprint
-# from gpaw.utilities.memory import maxrss
+from gpaw.directmin.locfunc.localize_orbitals import localize_orbitals
 
 
 class DirectMin(Eigensolver):
@@ -1370,67 +1365,10 @@ class DirectMin(Eigensolver):
         self.need_init_orbs = False
 
     def localize_wfs(self, wfs, dens, ham, log):
-
         if not self.need_localization:
             return
-
-        io = self.localizationtype
-        if io == 'KS' or io is None:
-            return
-        elif io == 'PM':
-            tol = 1.0e-6
-        else:
-            tol = 1.0e-10
-        locnames = io.split('-')
-
-        log("Initial Localization: ...", flush=True)
-        wfs.timer.start('Initial Localization')
-
-        for name in locnames:
-            if name == 'ER':
-                log('Edmiston-Ruedenberg localization started', flush=True)
-                dm = DirectMinLocalize(
-                    ERL(wfs, dens, ham), wfs,
-                    maxiter=200, g_tol=5.0e-5, randval=0.1)
-                dm.run(wfs, dens)
-                log('Edmiston-Ruedenberg localization finished', flush=True)
-                del dm
-            else:
-                for kpt in wfs.kpt_u:
-                    if sum(kpt.f_n) < 1.0e-3:
-                        continue
-                    if name == 'PM':
-                        log('Pipek-Mezey localization started', flush=True)
-                        lf_obj = PipekMezey(
-                            wfs=wfs, spin=kpt.s, dtype=wfs.dtype)
-                        lf_obj.localize(tolerance=tol)
-                        log('Pipek-Mezey localization finished', flush=True)
-                        U = np.ascontiguousarray(
-                            lf_obj.W_k[kpt.q].T)
-                    elif name == 'FB':
-                        log('Foster-Boys localization started', flush=True)
-                        lf_obj = WannierLocalization(
-                            wfs=wfs, spin=kpt.s)
-                        lf_obj.localize(tolerance=tol)
-                        log('Foster-Boys localization finsihed', flush=True)
-                        U = np.ascontiguousarray(
-                            lf_obj.U_kww[kpt.q].T)
-                        if kpt.psit_nG.dtype == float:
-                            U = U.real
-                    else:
-                        raise ValueError('Check localization type.')
-                    wfs.gd.comm.broadcast(U, 0)
-                    dim = U.shape[0]
-                    if wfs.mode == 'fd':
-                        kpt.psit_nG[:dim] = np.einsum(
-                            'ij,jkml->ikml', U, kpt.psit_nG[:dim])
-                    else:
-                        kpt.psit_nG[:dim] = U @ kpt.psit_nG[:dim]
-                    del lf_obj
+        localize_orbitals(wfs, dens, ham, log, self.localizationtype)
         self.need_localization = False
-
-        wfs.timer.stop('Initial Localization')
-        log("Done", flush=True)
 
     def choose_optimal_orbitals(self, wfs, ham, dens):
         """
