@@ -61,7 +61,7 @@ Git master branch
 * You can now make custom convergence criteria for the SCF cycle, for example
   if you'd like to make sure the work function is converged. Also, you can
   tweak more attributes of the default criteria. See
-  :ref:`custom-convergence`.
+  :ref:`custom_convergence`.
 
 
 

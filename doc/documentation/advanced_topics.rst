@@ -12,7 +12,7 @@ GPAW calculator:
    lcao/lcao
    parallel_runs/parallel_runs
    convergence
-   custom-convergence
+   custom_convergence
    restart_files
    rmm-diis
    orthogonalization

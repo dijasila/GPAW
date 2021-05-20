@@ -184,16 +184,17 @@ class SCFEvent:
 def get_criterion(name):
     """Returns one of the pre-specified criteria by it's .name attribute,
     and raises sensible error if missing."""
-    # Add new criteria to this list.
-    criteria = [Energy, Density, Eigenstates, Forces, WorkFunction]
+    # All built-in criteria should be in this list.
+    criteria = [Energy, Density, Eigenstates, Forces, WorkFunction, MinIter]
     criteria = {c.name: c for c in criteria}
     try:
         return criteria[name]
     except KeyError:
-        msg = ('The convergence keyword "{:s}" was supplied, which we do '
-               'not know how to handle. If this is a typo, please '
-               'correct. If this is a custom convergence criterion, you '
-               'may need to re-import it manually.'.format(name))
+        msg = ('The convergence keyword "{:s}" was supplied, which we do not '
+               'know how to handle. If this is a typo, please correct. If this'
+               ' is a user-written convergence criterion, it cannot be '
+               'imported with this function; please see the GPAW manual for '
+               'details.'.format(name))
         raise InputError(msg)
 
 
@@ -202,18 +203,20 @@ def dict2criterion(dictionary):
 
     The dictionary can either be that generated from 'todict'; that is like
     {'name': 'energy', 'tol': 0.005, 'n_old': 3}. Or from user-specified
-    shortcut like {'energy': 0.005} or {'energy': (0.005, 3)}.
+    shortcut like {'energy': 0.005} or {'energy': (0.005, 3)}, or a
+    combination like {'energy': {'name': 'energy', 'tol': 0.005, 'n_old': 3}.
     """
     d = dictionary.copy()
     if 'name' in d:  # from 'todict'
         name = d.pop('name')
-        Criterion = get_criterion(name)
-        return Criterion(**d)
-    else:
-        assert len(d) == 1
-        name = list(d.keys())[0]
-        Criterion = get_criterion(name)
-        return Criterion(*[d[name]])
+        ThisCriterion = get_criterion(name)
+        return ThisCriterion(**d)
+    assert len(d) == 1
+    name = list(d.keys())[0]
+    if isinstance(d[name], dict) and 'name' in d[name]:
+        return dict2criterion(d[name])
+    ThisCriterion = get_criterion(name)
+    return ThisCriterion(*[d[name]])
 
 
 class Criterion:
@@ -245,6 +248,11 @@ class Criterion:
 
     def reset(self):
         pass
+
+
+# Built-in criteria follow. Make sure that any new criteria added below
+# are also added to to the list in get_criterion() so that it can import
+# them correctly by name.
 
 
 class Energy(Criterion):
@@ -455,6 +463,29 @@ class WorkFunction(Criterion):
             entry = '{:+5.2f}'.format(np.log10(error))
         else:
             entry = ''
+        return converged, entry
+
+
+class MinIter(Criterion):
+    """A convergence criterion that enforces a minimum number of iterations.
+
+    Parameters:
+
+    n : int
+        Minimum number of iterations that must be complete before
+        the SCF cycle exits.
+    """
+    calc_last = False
+    name = 'minimum iterations'
+    tablename = 'minit'
+
+    def __init__(self, n):
+        self.n = n
+        self.description = f'Minimum number of iterations [minit]: {n:d}'
+
+    def __call__(self, context):
+        converged = context.niter >= self.n
+        entry = '{:d}'.format(context.niter)
         return converged, entry
 
 

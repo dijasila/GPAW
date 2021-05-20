@@ -638,7 +638,7 @@ In words:
   (See :class:`~gpaw.scf.Forces`.)
 
 * There are no custom convergence criteria specified.
-  (See :ref:`custom-convergence`      )
+  (See :ref:`custom_convergence`.)
 
 The individual criteria can be changed by giving only the specific
 entry of dictionary e.g. ``convergence={'energy': 0.0001}`` would set
@@ -660,16 +660,17 @@ You can also set custom convergence criteria, which you can create yourself
 or choose from built-in options. For example, you might like to make sure
 that the work function is converged, or have the energy convergence criterion
 examine the last four iterations instead of three.
-See :ref:`custom-convergence` for details.
+See :ref:`custom_convergence` for details.
 
 .. _manual_maxiter:
 
 Maximum number of SCF-iterations
 --------------------------------
 
-The calculation will stop with an error if convergence is not reached
-in ``maxiter`` self-consistent iterations.
-
+The calculation will stop with an error if convergence is not reached in
+``maxiter`` self-consistent iterations. You can also set a minimum number of
+iterations by employing a
+:ref:`custom convergence criterion <custom_convergence>`.
 
 .. _manual_txt:
 
