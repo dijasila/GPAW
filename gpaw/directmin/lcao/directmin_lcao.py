@@ -1318,6 +1318,7 @@ class DirectMinLCAO(DirectLCAO):
             self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
             self.restart = self.sort_wavefunctions_mom(wfs)
 
+
 def get_indices(dimens, dtype):
 
     if dtype == complex:

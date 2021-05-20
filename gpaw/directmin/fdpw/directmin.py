@@ -207,8 +207,8 @@ class DirectMin(Eigensolver):
 
         super(DirectMin, self).initialize(wfs)
 
-    def  initialize_dm(self, wfs, dens, ham, log=None,
-                      obj_func=None, lumo=False):
+    def initialize_dm(self, wfs, dens, ham,
+                      log=None, obj_func=None, lumo=False):
 
         """
         initialize search direction algorithm,
@@ -1357,6 +1357,9 @@ class DirectMin(Eigensolver):
         :return:
         """
         if not self.need_init_orbs or wfs.read_from_file_init_wfs_dm:
+            if wfs.read_from_file_init_wfs_dm:
+                if 'SIC' in self.odd_parameters['name']:
+                    self.need_localization = False
             return
 
         for kpt in wfs.kpt_u:
@@ -1509,7 +1512,7 @@ class DirectMin(Eigensolver):
         if iloop:
             astmnt = self.iloop_outer.odd_pot.restart
             bstmnt = (self.iters + 1) % self.momevery == 0 and \
-                     not self.iloop_outer.converged
+                not self.iloop_outer.converged
             if astmnt or bstmnt:
                 update = True
         if update:
