@@ -316,8 +316,7 @@ class SCFLoop:
                         log('Converge unoccupied states:')
                         max_er = self.max_errors['eigenstates']
                         max_er *= Ha ** 2 / wfs.nvalence
-                        solver.run_lumo(ham, wfs, dens,
-                                                 max_er, log)
+                        solver.run_lumo(ham, wfs, dens, max_er, log)
                     else:
                         solver.initialized = False
                         log('Unoccupied states are not converged.')
