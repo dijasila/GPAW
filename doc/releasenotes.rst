@@ -54,7 +54,7 @@ Git master branch
   of both p and d orbitals on transition metals)
 
 * There used to be two versions of the GPAW web-page which was quite
-  confusing.  The https://wiki.fysik.dtu.dk/gpaw/dev/ web-page has noe been
+  confusing.  The https://wiki.fysik.dtu.dk/gpaw/dev/ web-page has now been
   dropped.  There is now only https://wiki.fysik.dtu.dk/gpaw/ and it documents
   the use of the in development version of GPAW.
 
