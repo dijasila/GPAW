@@ -378,24 +378,27 @@ class Forces(Criterion):
         with its force from the previous iteration, and the change in each
         atom's force is calculated as an l2-norm (Euclidean distance). The
         atom with the largest norm must be less than tol. [eV/Angstrom]
+    last : bool
+        If True, calculates forces last; that is, it waits until all other
+        convergence criteria are satisfied before checking to see if the
+        forces have converged. (This is more computationally efficient.)
+        If False, checks forces at each SCF step.
     """
     name = 'forces'
     tablename = 'force'
-    calc_last = True
 
-    def __init__(self, tol):
+    def __init__(self, tol, calc_last=True):
         self.tol = tol
-        self.description = None
-        if np.isfinite(self.tol):
-            self.description = ('Maximum change in the atomic [forces] across '
-                                'last 2 cycles: {:g} eV/Ang'.format(self.tol))
+        self.description = ('Maximum change in the atomic [forces] across '
+                            'last 2 cycles: {:g} eV/Ang'.format(self.tol))
+        self.calc_last = calc_last
         self.reset()
 
     def __call__(self, context):
         """Should return (bool, entry), where bool is True if converged and
         False if not, and entry is a <=5 character string to be printed in
         the user log file."""
-        if np.isinf(self.tol):  # criterion is off
+        if np.isinf(self.tol):  # criterion is off; backwards compatibility
             return True, ''
         with context.wfs.timer('Forces'):
             F_av = calculate_forces(context.wfs, context.dens, context.ham)

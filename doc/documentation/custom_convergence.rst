@@ -8,7 +8,7 @@ Additional convergence keywords
 -------------------------------
 
 There are additional keywords that you can provide to the ``convergence`` dictionary beyond those in the :ref:`default dictionary <manual_convergence>`.
-For now, these include ``work function`` and ``minimum iterations``.
+These include ``forces``, ``work function``, and ``minimum iterations``.
 For example, to make sure that the work function changes by no more than 0.001 eV across the last three SCF iterations, you can do::
 
   from gpaw import GPAW
@@ -27,15 +27,30 @@ Changing criteria behavior
 
 You can also change things about how convergence criteria work through an alternative syntax.
 For example, the default syntax of :code:`convergence={'energy': 0.0005}` ensures that the last three values of the energy change by no more than 5 meV.
-If you'd rather have it examine changes in the last *four* values of the energy, you can do so by setting your convergence dictionary like::
+If you'd rather have it examine changes in the last *four* values of the energy, you can set your convergence dictionary to::
 
   from gpaw.scf import Energy
 
-  convergence = {'energy': Energy(tol=0.0005, n_old=2)}
+  convergence = {'energy': Energy(tol=0.0005, n_old=4)}
 
-(In fact, :code:`convergence={'energy': 0.0005}` is just a shortcut to :code:`convergence={'energy': Energy(0.0005)`; the dictionary value :code:`0.0005` is just taken as the first positional argument to :code:`Energy`.)
+(In fact, :code:`convergence={'energy': 0.0005}` is just a shortcut to :code:`convergence={'energy': Energy(0.0005)}`; the dictionary value :code:`0.0005` becomes the first positional argument to :code:`Energy`.)
 
-You can find a list of all the built-in convergence criteria and their :code:`name` attributes :ref:`below <builtin_criteria>`.
+You can find a list of the built-in convergence criteria and their associated classes :ref:`below <builtin_criteria>`.
+
+Converging forces
+-----------------
+
+You can ensure that the forces are converged like::
+
+  convergence = {'forces': 0.01}
+
+This requires that the maximum change in the magnitude of the vector representing the difference in forces for each atom is less than 0.01 eV/ Angstrom.
+Since calculating the atomic forces takes computational time and memory, by default this waits until all other convergence criteria are met before beginning to check the forces.
+If you'd rather have it check the forces at every SCF iteration you can instead do::
+
+  from gpaw.scf import Forces
+
+  convergence = {'forces': Forces(0.01, calc_last=False)}
 
 Example: fixed iterations
 -------------------------
@@ -67,7 +82,7 @@ You can write your own custom convergence criteria if you structure them like th
                          # before checking (for expensive criteria)
 
       def __init__(self, ...):
-          ...  # your code here; note if you save all variables directly
+          ...  # your code here; note if you save all arguments directly
                # (as self.a, self.b, ...) then todict() and __repr__ methods
                # will work automatically.
           # The next line prints at the top of the log file.
@@ -93,7 +108,7 @@ You can write your own custom convergence criteria if you structure them like th
 All user-written criteria must enter the dictionary through the special ``custom`` keyword, and you can include as many criteria as you like in the list given to :code:`convergence['custom']`.
 
 Note that if you have written your own criterion and you save your calculator instance (that is, :code:`calc.write('out.gpw')`), GPAW won't know how to re-open "out.gpw" because it won't know how to load your custom criterion.
-(GPAW *can* re-open it's own custom criteria, like :class:`~gpaw.scf.WorkFunction` or :class:`~gpaw.scf.MinIter` just fine.)
+(GPAW *can* re-open all built-in criteria, like :class:`~gpaw.scf.WorkFunction` or :class:`~gpaw.scf.MinIter` just fine.)
 A workaround is to delete your criterion before saving, then manually re-add it.
 E.g.,::
 
@@ -112,26 +127,34 @@ Then add back all custom criteria when you re-open::
 Built-in criteria
 -----------------
 
-The built-in criteria, along with their shortcut names that you can use to access them in the :code:`convergence` dictionary are:
+The built-in criteria, along with their shortcut names that you can use to access them in the :code:`convergence` dictionary are below.
+The criteria marked as defaults are present in the default convergence dictionary and will always be present; the others are optional.
 
 .. list-table::
     :header-rows: 1
-    :widths: 1 1
+    :widths: 1 1 1
 
     * - class
       - name attribute
+      - default?
     * - :class:`~gpaw.scf.Energy`
       - ``energy``
+      - Yes
     * - :class:`~gpaw.scf.Density`
       - ``density``
+      - Yes
     * - :class:`~gpaw.scf.Eigenstates`
       - ``eigenstates``
+      - Yes
     * - :class:`~gpaw.scf.Forces`
       - ``forces``
+      - No
     * - :class:`~gpaw.scf.WorkFunction`
       - ``work function``
+      - No
     * - :class:`~gpaw.scf.MinIter`
       - ``minimum iterations``
+      - No
 
 
 Full descriptions for the built-in criteria follow.
