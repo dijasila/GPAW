@@ -37,9 +37,10 @@ class DirectMin(Eigensolver):
                  linesearch_algo='UnitStep',
                  use_prec=True,
                  odd_parameters='Zero',
-                 force_init_localization=False,
+                 need_init_orbs=True,
                  inner_loop=None,
-                 initial_orbitals=None,
+                 localizationtype=None,
+                 need_localization=True,
                  maxiter=50,
                  maxiterxst=10,
                  kappa_tol=5.0e-4,
@@ -60,7 +61,7 @@ class DirectMin(Eigensolver):
         self.use_prec = use_prec
         self.odd_parameters = odd_parameters
         self.inner_loop = inner_loop
-        self.initial_orbitals = initial_orbitals
+        self.localizationtype = localizationtype
         self.maxiter = maxiter
         self.maxiterxst = maxiterxst
         self.kappa_tol = kappa_tol
@@ -78,8 +79,8 @@ class DirectMin(Eigensolver):
                 xc_string_to_dict(self.odd_parameters)
 
         if 'SIC' in self.odd_parameters['name']:
-            if self.initial_orbitals is None:
-                self.initial_orbitals = 'FBER'
+            if self.localizationtype is None:
+                self.localizationtype = 'FB-ER'
         if self.sda is None:
             self.sda = 'LBFGS'
         if isinstance(self.sda, basestring):
@@ -92,10 +93,10 @@ class DirectMin(Eigensolver):
 
         self.need_init_odd = True
         self.initialized = False
-        self.need_init_orbs = True
+        self.need_init_orbs = need_init_orbs
+        self.need_localization = need_localization
         # self.U_k = {}
         self.eg_count = 0
-        self.force_init_localization = force_init_localization
         self.exstopt = exstopt
         self.etotal = 0.0
         self.globaliters = 0
@@ -180,7 +181,11 @@ class DirectMin(Eigensolver):
     def init_me(self, wfs, ham, dens, log):
         self.initialize_super(wfs, ham)
         self.init_wfs(wfs, dens, ham, log)
+        self._e_entropy = \
+            wfs.calculate_occupation_numbers(dens.fixed)
+        self.localize_wfs(wfs, dens, ham, log)
         self.initialize_dm(wfs, dens, ham, log)
+        self.init_mom(wfs, dens, log)
 
     def initialize_super(self, wfs, ham):
         """
@@ -202,7 +207,7 @@ class DirectMin(Eigensolver):
 
         super(DirectMin, self).initialize(wfs)
 
-    def initialize_dm(self, wfs, dens, ham, log=None,
+    def  initialize_dm(self, wfs, dens, ham, log=None,
                       obj_func=None, lumo=False):
 
         """
@@ -1351,149 +1356,76 @@ class DirectMin(Eigensolver):
         :param log:
         :return:
         """
-        occ_name = getattr(wfs.occupations, 'name', None)
-        if occ_name == 'mom':
-            if 'SIC' in self.odd_parameters['name']:
+        if not self.need_init_orbs or wfs.read_from_file_init_wfs_dm:
+            return
 
-                astmnt = (not self.need_init_orbs or
-                          wfs.read_from_file_init_wfs_dm)
-                if astmnt and not self.force_init_localization:
-                    for kpt in wfs.kpt_u:
-                        wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
-                    wfs.orthonormalize()
-                    self._e_entropy = \
-                        wfs.calculate_occupation_numbers(dens.fixed)
-                    occ_name = getattr(wfs.occupations, 'name', None)
-                    if occ_name == 'mom':
-                        for kpt in wfs.kpt_u:
-                            self.sort_wavefunctions(wfs, kpt)
-                    return
-            else:
-                # we need to do it in order to initialize mom..
-                # it will take occupied orbitals from previous step
-                if self.globaliters == 0:
-                    occ_name = getattr(wfs.occupations, 'name', None)
-                    if occ_name == 'mom':
-                        log(" MOM reference orbitals initialized.\n",
-                            flush=True)
-                        for kpt in wfs.kpt_u:
-                            wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
-                        # TODO: Does this work?
-                        wfs.occupations.initialize_reference_orbitals()
-                    wfs.orthonormalize()
-                    # for kpt in wfs.kpt_u:
-                    #     wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
-                    #     super(DirectMin, self).subspace_diagonalize(
-                    #         ham, wfs, kpt, True)
-                    #     wfs.gd.comm.broadcast(kpt.eps_n, 0)
+        for kpt in wfs.kpt_u:
+            wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+            super(DirectMin, self).subspace_diagonalize(
+                ham, wfs, kpt, True)
+            wfs.gd.comm.broadcast(kpt.eps_n, 0)
+        self.need_init_orbs = False
 
-                    # fill occ numbers
-                    self._e_entropy = \
-                        wfs.calculate_occupation_numbers(dens.fixed)
-                    if occ_name == 'mom':
-                        for kpt in wfs.kpt_u:
-                            self.sort_wavefunctions(wfs, kpt)
-                            # wfs.pt.integrate(kpt.psit_nG, kpt.P_ani,
-                            #                  kpt.q)
-                        # wfs.occupations.initialize_reference_orbitals()
+    def localize_wfs(self, wfs, dens, ham, log):
 
-                return
-        else:
-            if (not self.need_init_orbs or wfs.read_from_file_init_wfs_dm) \
-                    and not self.force_init_localization:
-                wfs.calculate_occupation_numbers(dens.fixed)
-                return
-        log("Initial Localization: ...", flush=True)
-        wfs.timer.start('Initial Localization')
+        if not self.need_localization:
+            return
 
-        # we need to fill also eps_n
-        if not self.force_init_localization:
-            for kpt in wfs.kpt_u:
-                wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
-                super(DirectMin, self).subspace_diagonalize(
-                    ham, wfs, kpt, True)
-                wfs.gd.comm.broadcast(kpt.eps_n, 0)
-            # fill occ numbers
-            self._e_entropy = \
-                wfs.calculate_occupation_numbers(dens.fixed)
-            occ_name = getattr(wfs.occupations, 'name', None)
-            if occ_name == 'mom':
-                for kpt in wfs.kpt_u:
-                    self.sort_wavefunctions(wfs, kpt)
-
-        # if wfs.mode == 'pw' and \
-        #         self.initial_orbitals != 'KS' and \
-        #         self.initial_orbitals is not None:
-        #     parprint('WARNING: plane-waves mode '
-        #              'can use ER localization only.\n'
-        #              'Will change localization to ER now')
-        #     self.initial_orbitals = 'ER'
-
-        io = self.initial_orbitals
-
-        if io == 'PM':
+        io = self.localizationtype
+        if io == 'KS' or io is None:
+            return
+        elif io == 'PM':
             tol = 1.0e-6
         else:
             tol = 1.0e-10
+        locnames = io.split('-')
 
-        for kpt in wfs.kpt_u:
-            if sum(kpt.f_n) < 1.0e-3:
-                continue
-            wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+        log("Initial Localization: ...", flush=True)
+        wfs.timer.start('Initial Localization')
 
-            if io == 'KS' or io is None:
-                self.need_init_orbs = False
-                break
-            elif io == 'PM' or io == 'PMER':
-                log('Pipek-Mezey localization started', flush=True)
-                lf_obj = PipekMezey(
-                    wfs=wfs, spin=kpt.s, dtype=wfs.dtype)
-                lf_obj.localize(tolerance=tol)
-                log('Pipek-Mezey localization finished', flush=True)
-                U = np.ascontiguousarray(
-                    lf_obj.W_k[kpt.q].T)
-                wfs.gd.comm.broadcast(U, 0)
-                dim = U.shape[0]
-                if wfs.mode == 'fd':
-                    kpt.psit_nG[:dim] = np.einsum('ij,jkml->ikml',
-                                                  U, kpt.psit_nG[:dim])
-                else:
-                    kpt.psit_nG[:dim] = U @ kpt.psit_nG[:dim]
-                del lf_obj
-            elif io == 'FB' or io == 'FBER':
-                log('Foster-Boys localization started', flush=True)
-                lf_obj = WannierLocalization(
-                    wfs=wfs, spin=kpt.s)
-                lf_obj.localize(tolerance=tol)
-                log('Foster-Boys localization finsihed', flush=True)
-                U = np.ascontiguousarray(
-                    lf_obj.U_kww[kpt.q].T)
-                if kpt.psit_nG.dtype == float:
-                    U = U.real
-                wfs.gd.comm.broadcast(U, 0)
-                dim = U.shape[0]
-                if wfs.mode == 'fd':
-                    kpt.psit_nG[:dim] = np.einsum('ij,jkml->ikml',
-                                                  U, kpt.psit_nG[:dim])
-                else:
-                    kpt.psit_nG[:dim] = U @ kpt.psit_nG[:dim]
-                del lf_obj
-            elif io == 'ER':
-                continue
+        for name in locnames:
+            if name == 'ER':
+                log('Edmiston-Ruedenberg localization started', flush=True)
+                dm = DirectMinLocalize(
+                    ERL(wfs, dens, ham), wfs,
+                    maxiter=200, g_tol=5.0e-5, randval=0.1)
+                dm.run(wfs, dens)
+                log('Edmiston-Ruedenberg localization finished', flush=True)
+                del dm
             else:
-                raise ValueError('Check initial orbitals.')
+                for kpt in wfs.kpt_u:
+                    if sum(kpt.f_n) < 1.0e-3:
+                        continue
+                    if name == 'PM':
+                        log('Pipek-Mezey localization started', flush=True)
+                        lf_obj = PipekMezey(
+                            wfs=wfs, spin=kpt.s, dtype=wfs.dtype)
+                        lf_obj.localize(tolerance=tol)
+                        log('Pipek-Mezey localization finished', flush=True)
+                        U = np.ascontiguousarray(
+                            lf_obj.W_k[kpt.q].T)
+                    elif name == 'FB':
+                        log('Foster-Boys localization started', flush=True)
+                        lf_obj = WannierLocalization(
+                            wfs=wfs, spin=kpt.s)
+                        lf_obj.localize(tolerance=tol)
+                        log('Foster-Boys localization finsihed', flush=True)
+                        U = np.ascontiguousarray(
+                            lf_obj.U_kww[kpt.q].T)
+                        if kpt.psit_nG.dtype == float:
+                            U = U.real
+                    else:
+                        raise ValueError('Check localization type.')
+                    wfs.gd.comm.broadcast(U, 0)
+                    dim = U.shape[0]
+                    if wfs.mode == 'fd':
+                        kpt.psit_nG[:dim] = np.einsum(
+                            'ij,jkml->ikml', U, kpt.psit_nG[:dim])
+                    else:
+                        kpt.psit_nG[:dim] = U @ kpt.psit_nG[:dim]
+                    del lf_obj
+        self.need_localization = False
 
-        if io == 'PMER' or io == 'FBER' or io == 'ER':
-            log('Edmiston-Ruedenberg localization started', flush=True)
-            dm = DirectMinLocalize(
-                ERL(wfs, dens, ham), wfs,
-                maxiter=200, g_tol=5.0e-5, randval=0.1)
-            dm.run(wfs, dens)
-            log('Edmiston-Ruedenberg localization finished', flush=True)
-            del dm
-
-        self.need_init_orbs = False
-        self.force_init_localization = False
         wfs.timer.stop('Initial Localization')
         log("Done", flush=True)
 
@@ -1572,21 +1504,22 @@ class DirectMin(Eigensolver):
 
         sic_calc = 'SIC' in self.odd_parameters['name']
         iloop = self.iloop_outer is not None
-        choose_canonical = False
+        update = False
 
-        if iloop and not sic_calc:
+        if iloop:
             astmnt = self.iloop_outer.odd_pot.restart
             bstmnt = (self.iters + 1) % self.momevery == 0 and \
                      not self.iloop_outer.converged
             if astmnt or bstmnt:
-                choose_canonical = True
-        if choose_canonical:
+                update = True
+        if update:
             self.choose_optimal_orbitals(wfs, ham, dens)
-            for kpt in wfs.kpt_u:
-                wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
-                super(DirectMin, self).subspace_diagonalize(
-                    ham, wfs, kpt, True)
-                wfs.gd.comm.broadcast(kpt.eps_n, 0)
+            if not sic_calc:
+                for kpt in wfs.kpt_u:
+                    wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+                    super(DirectMin, self).subspace_diagonalize(
+                        ham, wfs, kpt, True)
+                    wfs.gd.comm.broadcast(kpt.eps_n, 0)
             wfs.calculate_occupation_numbers(dens.fixed)
             for kpt in wfs.kpt_u:
                 self.sort_wavefunctions(wfs, kpt)
@@ -1594,6 +1527,27 @@ class DirectMin(Eigensolver):
             self.iters = 0
             self.initialized = False
             self.need_init_odd = True
+
+    def init_mom(self, wfs, dens, log):
+        occ_name = getattr(wfs.occupations, 'name', None)
+        if occ_name != 'mom':
+            return
+        # we need to do it in order to initialize mom..
+        # it will take occupied orbitals from previous step
+        if self.globaliters == 0:
+            for kpt in wfs.kpt_u:
+                wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+            wfs.orthonormalize()
+            wfs.occupations.initialize_reference_orbitals()
+            log(" MOM reference orbitals initialized.\n", flush=True)
+            # fill occ numbers
+            self._e_entropy = \
+                wfs.calculate_occupation_numbers(dens.fixed)
+            for kpt in wfs.kpt_u:
+                self.sort_wavefunctions(wfs, kpt)
+            self._e_entropy = \
+                wfs.calculate_occupation_numbers(dens.fixed)
+        return
 
 
 def log_f(niter, e_total, eig_error, log):
