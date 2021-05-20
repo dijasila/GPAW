@@ -610,10 +610,9 @@ for the SCF cycle.
 The default value is this dictionary::
 
   {'energy': 0.0005,  # eV / electron
-   'density': 1.0e-4,
-   'eigenstates': 4.0e-8,  # eV^2
-   'bands': 'occupied',
-   'forces': np.inf}  # eV / Ang (max)
+   'density': 1.0e-4,  # electrons / electron
+   'eigenstates': 4.0e-8,  # eV^2 / electron
+   'bands': 'occupied'}
 
 In words:
 
@@ -630,11 +629,6 @@ In words:
   calculations.  (See :class:`~gpaw.scf.Eigenstates`.)
 
 * Only the bands that are occupied with electrons are converged.
-
-* The maximum change in the magnitude of the vector representing the
-  difference in forces for each atom.  Setting this to infinity (default)
-  disables this functionality, saving computational time and memory usage.
-  (See :class:`~gpaw.scf.Forces`.)
 
 The individual criteria can be changed by giving only the specific
 entry of dictionary e.g. ``convergence={'energy': 0.0001}`` would set
