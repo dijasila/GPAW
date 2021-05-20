@@ -223,4 +223,3 @@ def gramschmidt(C_nM, S_MM):
                          check_finite=False)
 
     return np.dot(S_nn.conj(), C_nM)
-

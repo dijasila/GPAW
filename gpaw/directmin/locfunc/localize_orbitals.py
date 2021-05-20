@@ -41,7 +41,7 @@ def localize_orbitals(wfs, dens, ham, log, localizationtype):
             if wfs.mode == 'lcao':
                 PZC = PZlcao
             else:
-                PZC= PZpwfd
+                PZC = PZpwfd
             dm = DirectMinLocalize(
                 PZC(wfs, dens, ham), wfs,
                 maxiter=200, g_tol=5.0e-4, randval=0.1)
