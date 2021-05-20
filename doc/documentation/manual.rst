@@ -613,8 +613,7 @@ The default value is this dictionary::
    'density': 1.0e-4,
    'eigenstates': 4.0e-8,  # eV^2
    'bands': 'occupied',
-   'forces': np.inf,  # eV / Ang (max)
-   'custom': None}
+   'forces': np.inf}  # eV / Ang (max)
 
 In words:
 
@@ -637,13 +636,15 @@ In words:
   disables this functionality, saving computational time and memory usage.
   (See :class:`~gpaw.scf.Forces`.)
 
-* There are no custom convergence criteria specified.
-  (See :ref:`custom_convergence`.)
-
 The individual criteria can be changed by giving only the specific
 entry of dictionary e.g. ``convergence={'energy': 0.0001}`` would set
 the convergence criteria of energy to 0.1 meV while other criteria
 remain in their default values.
+
+There are additional keywords that you can set that do not appear
+in the default dictionary, such as ``forces`` and ``work function``.
+You can also write your own criteria, and change other things about
+how the default criteria operate. See :ref:`custom_convergence`.
 
 As the total energy and charge density depend only on the occupied
 states, unoccupied states do not contribute to the convergence
@@ -656,11 +657,6 @@ Finally, one can also use ``{'bands': 'CBM+5.0'}`` to specify that bands
 up to the conduction band minimum plus 5.0 eV should be converged
 (for a metal, CBM is taken as the Fermi level).
 
-You can also set custom convergence criteria, which you can create yourself
-or choose from built-in options. For example, you might like to make sure
-that the work function is converged, or have the energy convergence criterion
-examine the last four iterations instead of three.
-See :ref:`custom_convergence` for details.
 
 .. _manual_maxiter:
 

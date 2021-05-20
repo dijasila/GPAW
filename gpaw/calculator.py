@@ -94,8 +94,7 @@ class GPAW(Calculator):
                         'density': 1.0e-4,
                         'eigenstates': 4.0e-8,  # eV^2
                         'bands': 'occupied',
-                        'forces': np.inf,  # eV / Ang (max)
-                        'custom': None},
+                        'forces': np.inf},  # eV / Ang (max)
         'verbose': 0,
         'fixdensity': False,  # deprecated
         'dtype': None}  # deprecated
@@ -753,13 +752,12 @@ class GPAW(Calculator):
         # Gather convergence criteria for SCF loop.
         criteria = self.default_parameters['convergence'].copy()  # keep order
         criteria.update(par.convergence)
-        custom = criteria.pop('custom')
+        custom = criteria.pop('custom', [])
         del criteria['bands']
         for name, criterion in criteria.items():
             if not hasattr(criterion, 'todict'):
                 criteria[name] = dict2criterion({name: criterion})
 
-        custom = [] if custom is None else custom
         if not isinstance(custom, (list, tuple)):
             custom = [custom]
         for criterion in custom:
