@@ -26,7 +26,7 @@ class SCFLoop:
         for criterion in self.criteria.values():
             if criterion.description is not None:
                 s += ' ' + criterion.description + '\n'
-        s += ' Maximum number of [scf] iterations: {:d}'.format(self.maxiter)
+        s += ' Maximum number of scf [iter]ations: {:d}'.format(self.maxiter)
         s += ("\n (Square brackets indicate name in SCF output, whereas a 'c'"
               " in\n the SCF output indicates the quantity has converged.)\n")
         return s
@@ -107,10 +107,10 @@ class SCFLoop:
         custom = (set(self.criteria) -
                   {'energy', 'eigenstates', 'density', 'forces'})
         if self.niter == 1:
-            header1 = ('{:<12s} {:>8s} {:>12s}  '
-                       .format('iterations', 'time', 'total'))
-            header2 = ('{:>4s} {:>7s} {:>8s} {:>12s}  '
-                       .format('scf', 'poisson', '', 'energy'))
+            header1 = ('{:<4s} {:>8s} {:>12s}  '
+                       .format('iter', 'time', 'total'))
+            header2 = ('{:>4s} {:>8s} {:>12s}  '
+                       .format('', '', 'energy'))
             header1 += 'log10-change:'
             for title in ('eigst', 'dens'):
                 header2 += '{:>5s}  '.format(title)
@@ -131,8 +131,8 @@ class SCFLoop:
 
         # Iterations and time.
         now = time.localtime()
-        line = ('{:4d} {:7d} {:02d}:{:02d}:{:02d} '
-                .format(self.niter, context.ham.npoisson, *now[3:6]))
+        line = ('{:4d} {:02d}:{:02d}:{:02d} '
+                .format(self.niter, *now[3:6]))
 
         # Energy.
         line += '{:>12s}{:1s} '.format(entries['energy'], c['energy'])
