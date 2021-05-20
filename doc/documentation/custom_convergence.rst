@@ -4,43 +4,46 @@
 Custom convergence criteria
 ===========================
 
-If you'd like to adjust how the SCF cycle decides when it is complete, you can set a custom convergence criterion (in addition to the :ref:`default convergence criteria <manual_convergence>`).
-There are pre-defined custom criteria, that you can use like this::
+Additional convergence keywords
+-------------------------------
+
+There are additional keywords that you can provide to the ``convergence`` dictionary beyond those in the :ref:`default dictionary <manual_convergence>`.
+For now, these include ``work function`` and ``minimum iterations``.
+For example, to make sure that the work function changes by no more than 0.001 eV across the last three SCF iterations, you can do::
 
   from gpaw import GPAW
-  from gpaw.scf import WorkFunction
 
-  convergence={...,
-               'custom': [WorkFunction(tol=0.001, n_old=3)]},
+  convergence={'work function': 0.001}
 
   calc = GPAW(...,
               convergence=convergence)
 
-The above example will make sure that the work function changes by no more than 0.001 eV across the last three SCF iterations.
-The :code:`custom` list can contain as many custom criteria as you like, and you can still use standard convergence keywords like :code:`'density'` or :code:`'energy'`.
+In the example above, the default criteria (energy, eigenstates, and density) will still be present and enforced at their default values.
+(The default convergence criteria are always active, but you can effectively turn them off by setting any of them to :code:`np.inf`.)
 
-You can also use this syntax to change things about how the default criteria work.
-For example, if you'd like the energy convergence criterion to only examine the changes in the last two values of the energy, instead of the default three, you can define the convergence dictionary as::
+
+Changing criteria behavior
+--------------------------
+
+You can also change things about how convergence criteria work through an alternative syntax.
+For example, the default syntax of :code:`convergence={'energy': 0.0005}` ensures that the last three values of the energy change by no more than 5 meV.
+If you'd rather have it examine changes in the last *four* values of the energy, you can do so by setting your convergence dictionary like::
 
   from gpaw.scf import Energy
 
   convergence = {'energy': Energy(tol=0.0005, n_old=2)}
 
-instead of::
+(In fact, :code:`convergence={'energy': 0.0005}` is just a shortcut to :code:`convergence={'energy': Energy(0.0005)`; the dictionary value :code:`0.0005` is just taken as the first positional argument to :code:`Energy`.)
 
-  convergence = {'energy': 0.0005}
-
-(The last line is equivalent to :code:`convergence={'energy': Energy(0.0005)}`; :code:`0.0005` is taken as the first positional argument and the default value of :code:`n_old=3` is assumed.)
-You can call any pre-defined convergence criterion by its :code:`name` attribute even if it's not in the default convergence dictionary, for example :code:`convergence={'work function': 0.001}` is equivalent to the first example above.
 You can find a list of all the built-in convergence criteria and their :code:`name` attributes :ref:`below <builtin_criteria>`.
 
-Example: Fixed iterations
+Example: fixed iterations
 -------------------------
 
 You can use this approach to tell the SCF cycle to run for a fixed number of iterations then stop.
 To do this, set all the default criteria to :code:`np.inf` to turn them off, then use the :class:`~gpaw.scf.MinIter` class to set a minimum number of iterations.
 (Also be sure your :ref:`maxiter <manual_convergence>` keyword is set higher than this value!)
-For example, your convergence dictionary might look like::
+For example, to run for exactly 10 iterations::
 
   convergence = {'energy': np.inf,
                  'eigenstates': np.inf,
@@ -49,8 +52,8 @@ For example, your convergence dictionary might look like::
 
 The :class:`~gpaw.scf.MinIter` class can work in concert with other convergence criteria as well; that is, it can act simply to define a minimum number of iterations that must be run, even if all other criteria have been met.
 
-Writing your own criterion
---------------------------
+Writing your own criteria
+-------------------------
 
 You can write your own custom convergence criteria if you structure them like this::
 
@@ -85,6 +88,9 @@ You can write your own custom convergence criteria if you structure them like th
   calc = GPAW(...,
               convergence={'custom': [MyCriterion(0.01, 4)]}
              )
+
+
+All user-written criteria must enter the dictionary through the special ``custom`` keyword, and you can include as many criteria as you like in the list given to :code:`convergence['custom']`.
 
 Note that if you have written your own criterion and you save your calculator instance (that is, :code:`calc.write('out.gpw')`), GPAW won't know how to re-open "out.gpw" because it won't know how to load your custom criterion.
 (GPAW *can* re-open it's own custom criteria, like :class:`~gpaw.scf.WorkFunction` or :class:`~gpaw.scf.MinIter` just fine.)

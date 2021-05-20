@@ -58,11 +58,15 @@ Git master branch
   dropped.  There is now only https://wiki.fysik.dtu.dk/gpaw/ and it documents
   the use of the in development version of GPAW.
 
-* You can now make custom convergence criteria for the SCF cycle, for example
-  if you'd like to make sure the work function is converged. Also, you can
-  tweak more attributes of the default criteria. See
-  :ref:`custom_convergence`.
+* You can now change all sorts of things about how the SCF cycle decides it
+  is converged. You can specify new, non-default convergence keywords like
+  ``work function`` or ``minimum iterations``, you can change how default
+  convergence keywords behave (like changing how many past energies the
+  ``energy`` criterion examines), and you can even write your own custom
+  convergence criteria. See :ref:`custom_convergence`.
 
+* The SCF output table has been simplified, and a letter "c" now appears
+  next to converged items.
 
 
 Version 21.1.0
