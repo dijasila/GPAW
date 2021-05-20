@@ -630,19 +630,20 @@ In words:
 
 * Only the bands that are occupied with electrons are converged.
 
-The individual criteria can be changed by giving only the specific
-entry of dictionary e.g. ``convergence={'energy': 0.0001}`` would set
-the convergence criteria of energy to 0.1 meV while other criteria
-remain in their default values.
+If only a partial dictionary is provided, the remaining criteria will be set
+to their default values.
+E.g., ``convergence={'energy': 0.0001}`` will set the convergence criterion
+of energy to 0.1 meV and place all other criteria at their defaults.
 
-There are additional keywords that you can set that do not appear
-in the default dictionary, such as ``forces`` and ``work function``.
+Additional keywords, including ``'forces'``, ``'work function'``,
+and ``'minimum iterations'``, can be set.
 You can also write your own criteria, and change other things about
-how the default criteria operate. See :ref:`custom_convergence`.
+how the default criteria operate. See :ref:`custom_convergence` for
+details on additional keywords and customization.
 
 As the total energy and charge density depend only on the occupied
 states, unoccupied states do not contribute to the convergence
-criteria.  However, with the ``bands`` set to ``'all'``, it is
+criteria.  However, with the ``'bands'`` set to ``'all'``, it is
 possible to force convergence also for the unoccupied states.  One can
 also use ``{'bands': 200}`` to converge the lowest 200 bands. One can
 also write ``{'bands': -10}`` to converge all bands except the last

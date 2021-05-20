@@ -8,7 +8,7 @@ Additional convergence keywords
 -------------------------------
 
 There are additional keywords that you can provide to the ``convergence`` dictionary beyond those in the :ref:`default dictionary <manual_convergence>`.
-These include ``forces``, ``work function``, and ``minimum iterations``.
+These include ``'forces'``, ``'work function'``, and ``'minimum iterations'``.
 For example, to make sure that the work function changes by no more than 0.001 eV across the last three SCF iterations, you can do::
 
   from gpaw import GPAW
@@ -55,7 +55,7 @@ If you'd rather have it check the forces at every SCF iteration you can instead 
 Example: fixed iterations
 -------------------------
 
-You can use this approach to tell the SCF cycle to run for a fixed number of iterations then stop.
+You can use this approach to tell the SCF cycle to run for a fixed number of iterations.
 To do this, set all the default criteria to :code:`np.inf` to turn them off, then use the :class:`~gpaw.scf.MinIter` class to set a minimum number of iterations.
 (Also be sure your :ref:`maxiter <manual_convergence>` keyword is set higher than this value!)
 For example, to run for exactly 10 iterations::
@@ -108,7 +108,6 @@ You can write your own custom convergence criteria if you structure them like th
 All user-written criteria must enter the dictionary through the special ``custom`` keyword, and you can include as many criteria as you like in the list given to :code:`convergence['custom']`.
 
 Note that if you have written your own criterion and you save your calculator instance (that is, :code:`calc.write('out.gpw')`), GPAW won't know how to re-open "out.gpw" because it won't know how to load your custom criterion.
-(GPAW *can* re-open all built-in criteria, like :class:`~gpaw.scf.WorkFunction` or :class:`~gpaw.scf.MinIter` just fine.)
 A workaround is to delete your criterion before saving, then manually re-add it.
 E.g.,::
 
@@ -132,28 +131,35 @@ The criteria marked as defaults are present in the default convergence dictionar
 
 .. list-table::
     :header-rows: 1
-    :widths: 1 1 1
+    :widths: 1 1 1 1
 
     * - class
       - name attribute
       - default?
+      - calc_last?
     * - :class:`~gpaw.scf.Energy`
       - ``energy``
       - Yes
+      - No
     * - :class:`~gpaw.scf.Density`
       - ``density``
       - Yes
+      - No
     * - :class:`~gpaw.scf.Eigenstates`
       - ``eigenstates``
       - Yes
+      - No
     * - :class:`~gpaw.scf.Forces`
       - ``forces``
       - No
+      - Yes
     * - :class:`~gpaw.scf.WorkFunction`
       - ``work function``
       - No
+      - No
     * - :class:`~gpaw.scf.MinIter`
       - ``minimum iterations``
+      - No
       - No
 
 
