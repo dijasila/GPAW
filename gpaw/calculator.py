@@ -93,8 +93,7 @@ class GPAW(Calculator):
         'convergence': {'energy': 0.0005,  # eV / electron
                         'density': 1.0e-4,
                         'eigenstates': 4.0e-8,  # eV^2
-                        'bands': 'occupied',
-                        'forces': np.inf},  # eV / Ang (max)
+                        'bands': 'occupied'},
         'verbose': 0,
         'fixdensity': False,  # deprecated
         'dtype': None}  # deprecated

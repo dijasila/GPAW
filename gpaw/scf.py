@@ -105,7 +105,7 @@ class SCFLoop:
     def log(self, log, converged_items, entries, context):
         """Output from each iteration."""
         custom = (set(self.criteria) -
-                  {'energy', 'eigenstates', 'density', 'forces'})
+                  {'energy', 'eigenstates', 'density'})
         if self.niter == 1:
             header1 = ('{:<4s} {:>8s} {:>12s}  '
                        .format('iter', 'time', 'total'))
@@ -114,9 +114,6 @@ class SCFLoop:
             header1 += 'log10-change:'
             for title in ('eigst', 'dens'):
                 header2 += '{:>5s}  '.format(title)
-            if np.isfinite(self.criteria['forces'].tol):
-                header1 += ' ' * 7
-                header2 += '{:>5s}  '.format('force')
             for name in custom:
                 criterion = self.criteria[name]
                 header1 += ' ' * 7
@@ -143,13 +140,9 @@ class SCFLoop:
         # Density.
         line += '{:>5s}{:1s} '.format(entries['density'], c['density'])
 
-        # Force (optional).
-        if np.isfinite(self.criteria['forces'].tol):
-            line += '{:>5s}{:s} '.format(entries['forces'], c['forces'])
-
         # Custom criteria (optional).
         for name in custom:
-            line += '{:>5s}{:s}'.format(entries[name], c[name])
+            line += '{:>5s}{:s} '.format(entries[name], c[name])
 
         # Magnetic moment (optional).
         if context.wfs.nspins == 2 or not context.wfs.collinear:
