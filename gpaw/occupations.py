@@ -532,17 +532,20 @@ class FixedOccupationsZeroWidth(OccupationNumberCalculator):
             sum_i = np.add.accumulate(w_i)
             filled_i = (sum_i <= nelectrons * N)
             i = sum(filled_i)
-            f_m[:i] = 1.0
+            f_m[m_i[:i]] = 1.0
             if i == len(m_i):
                 fermi_level = inf
             else:
                 extra = nelectrons * N - (sum_i[i - 1] if i > 0 else 0.0)
                 if extra > 0:
                     assert extra <= w_i[i]
-                    f_m[i] = extra / w_i[i]
+                    f_m[m_i[i]] = extra / w_i[i]
                     fermi_level = eig_m[m_i[i]]
                 else:
                     fermi_level = (eig_m[m_i[i]] + eig_m[m_i[i - 1]]) / 2
+            # don't have holes:
+            for f in f_kn:
+                f[::-1].sort()
         else:
             f_kn = None
             fermi_level = nan
@@ -556,7 +559,6 @@ class FixedOccupationsZeroWidth(OccupationNumberCalculator):
 
         e_entropy = 0.0
         return fermi_level, e_entropy
-
 
 
 class ZeroWidth(OccupationNumberCalculator):

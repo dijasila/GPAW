@@ -16,18 +16,13 @@ from gpaw.xc import xc_string_to_dict
 from gpaw.xc.hybrid import HybridXC
 from gpaw.utilities import unpack
 from gpaw.directmin.fdpw import sd_outer, ls_outer
-# from gpaw.utilities.lapack import diagonalize
 from gpaw.directmin.odd.fdpw import odd_corrections
 from gpaw.directmin.fdpw.tools import get_n_occ
 from gpaw.directmin.fdpw.inner_loop import InnerLoop
 from gpaw.directmin.fdpw.inner_loop_exst import InnerLoop as ILEXST
-from gpaw.pipekmezey.pipek_mezey_wannier import PipekMezey
-from gpaw.pipekmezey.wannier_basic import WannierLocalization
-from gpaw.directmin.locfunc.dirmin import DirectMinLocalize
-from gpaw.directmin.locfunc.er import ERlocalization as ERL
 import time
 from ase.parallel import parprint
-# from gpaw.utilities.memory import maxrss
+from gpaw.directmin.locfunc.localize_orbitals import localize_orbitals
 
 
 class DirectMin(Eigensolver):
@@ -37,9 +32,10 @@ class DirectMin(Eigensolver):
                  linesearch_algo='UnitStep',
                  use_prec=True,
                  odd_parameters='Zero',
-                 force_init_localization=False,
+                 need_init_orbs=True,
                  inner_loop=None,
-                 initial_orbitals=None,
+                 localizationtype=None,
+                 need_localization=True,
                  maxiter=50,
                  maxiterxst=10,
                  kappa_tol=5.0e-4,
@@ -60,7 +56,7 @@ class DirectMin(Eigensolver):
         self.use_prec = use_prec
         self.odd_parameters = odd_parameters
         self.inner_loop = inner_loop
-        self.initial_orbitals = initial_orbitals
+        self.localizationtype = localizationtype
         self.maxiter = maxiter
         self.maxiterxst = maxiterxst
         self.kappa_tol = kappa_tol
@@ -78,8 +74,8 @@ class DirectMin(Eigensolver):
                 xc_string_to_dict(self.odd_parameters)
 
         if 'SIC' in self.odd_parameters['name']:
-            if self.initial_orbitals is None:
-                self.initial_orbitals = 'FBER'
+            if self.localizationtype is None:
+                self.localizationtype = 'FB-ER'
         if self.sda is None:
             self.sda = 'LBFGS'
         if isinstance(self.sda, basestring):
@@ -92,10 +88,10 @@ class DirectMin(Eigensolver):
 
         self.need_init_odd = True
         self.initialized = False
-        self.need_init_orbs = True
+        self.need_init_orbs = need_init_orbs
+        self.need_localization = need_localization
         # self.U_k = {}
         self.eg_count = 0
-        self.force_init_localization = force_init_localization
         self.exstopt = exstopt
         self.etotal = 0.0
         self.globaliters = 0
@@ -171,19 +167,31 @@ class DirectMin(Eigensolver):
                 'searchdir_algo': self.sda,
                 'linesearch_algo': self.lsa,
                 'convergelumo': self.convergelumo,
+                'localizationtype': self.localizationtype,
                 'use_prec': self.use_prec,
                 'odd_parameters': self.odd_parameters,
                 'maxiter': self.maxiter,
                 'g_tol': self.g_tol
                 }
 
-    def initialize_super(self, wfs):
+    def init_me(self, wfs, ham, dens, log):
+        self.initialize_super(wfs, ham)
+        self.initialize_orbitals(wfs, dens, ham, log)
+        self._e_entropy = \
+            wfs.calculate_occupation_numbers(dens.fixed)
+        self.localize_wfs(wfs, dens, ham, log)
+        self.initialize_dm(wfs, dens, ham, log)
+        self.init_mom(wfs, dens, log)
+
+    def initialize_super(self, wfs, ham):
         """
         Initialize super class
 
         :param wfs:
         :return:
         """
+        if isinstance(ham.xc, HybridXC):
+            self.blocksize = wfs.bd.mynbands
 
         if self.blocksize is None:
             if wfs.mode == 'pw':
@@ -195,8 +203,8 @@ class DirectMin(Eigensolver):
 
         super(DirectMin, self).initialize(wfs)
 
-    def initialize_dm(self, wfs, dens, ham, log=None,
-                      obj_func=None, lumo=False):
+    def initialize_dm(self, wfs, dens, ham,
+                      log=None, obj_func=None, lumo=False):
 
         """
         initialize search direction algorithm,
@@ -319,25 +327,6 @@ class DirectMin(Eigensolver):
         :return:
         """
 
-        assert dens.mixer.driver.name == 'dummy', \
-            'Please, use: mixer={\'name\': \'dummy\'}'
-        assert wfs.bd.comm.size == 1, \
-            'Band parallelization is not supported'
-        if wfs.occupations.name != 'mom':
-            if wfs.occupations.name == 'fixmagmom':
-                assert wfs.occupations.occ.name == 'fixed-occ-zero-width', \
-                    'Please, use occupations={\'name\': \'fixed-occ-zero-width\'}'
-            else:
-                assert wfs.occupations.name == 'fixed-occ-zero-width', \
-                    'Please, use occupations={\'name\': \'fixed-occ-zero-width\'}'
-
-        if not self.initialized:
-            if isinstance(ham.xc, HybridXC):
-                self.blocksize = wfs.bd.mynbands
-            self.initialize_super(wfs)
-            self.init_wfs(wfs, dens, ham, log)
-            self.initialize_dm(wfs, dens, ham, log)
-
         n_kps = self.n_kps
         psi_copy = {}
         alpha = self.alpha
@@ -385,14 +374,6 @@ class DirectMin(Eigensolver):
                 phi_0=phi_2i[0], der_phi_0=der_phi_2i[0],
                 phi_old=phi_2i[1], der_phi_old=der_phi_2i[1],
                 alpha_max=3.0, alpha_old=alpha, wfs=wfs)
-
-        # calculate new wfs:
-        # do we actually need to do this?
-        # for kpt in wfs.kpt_u:
-        #     k = n_kps * kpt.s + kpt.q
-        #     kpt.psit_nG[:] = psi_copy[k] + alpha * p_knG[k]
-        # wfs.orthonormalize()
-
         self.alpha = alpha
         self.grad_knG = grad_knG
 
@@ -400,69 +381,15 @@ class DirectMin(Eigensolver):
         phi_2i[1], der_phi_2i[1] = phi_2i[0], der_phi_2i[0]
         phi_2i[0], der_phi_2i[0] = phi_alpha, der_phi_alpha,
 
-        occ_name = getattr(wfs.occupations, 'name', None)
-        if self.iloop_outer is not None and occ_name == 'mom' and \
-                'SIC' not in self.odd_parameters['name']:
-            if self.iloop_outer.odd_pot.restart:
-                self.choose_optimal_orbitals(wfs, ham, dens)
-                for kpt in wfs.kpt_u:
-                    wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
-                    super(DirectMin, self).subspace_diagonalize(
-                        ham, wfs, kpt, True)
-                    wfs.gd.comm.broadcast(kpt.eps_n, 0)
-                self._e_entropy = \
-                    wfs.calculate_occupation_numbers(dens.fixed)
-                if occ_name == 'mom':
-                    for kpt in wfs.kpt_u:
-                        self.sort_wavefunctions(wfs, kpt)
-                self.iters = 0
-                self.initialized = False
-                self.need_init_odd = True
-            elif (self.iters + 1) % self.momevery == 0:
-                if not self.iloop_outer.converged:
-                    self.choose_optimal_orbitals(wfs, ham, dens)
-                    for kpt in wfs.kpt_u:
-                        wfs.pt.integrate(kpt.psit_nG, kpt.P_ani,
-                                         kpt.q)
-                        super(DirectMin, self).subspace_diagonalize(
-                            ham, wfs, kpt, True)
-                        wfs.gd.comm.broadcast(kpt.eps_n, 0)
-                    wfs.calculate_occupation_numbers(dens.fixed)
-                    if occ_name == 'mom':
-                        for kpt in wfs.kpt_u:
-                            self.sort_wavefunctions(wfs, kpt)
-                    self.iters = 0
-                    self.initialized = False
-                    self.need_init_odd = True
-
-        self.globaliters += 1
         wfs.timer.stop('Direct Minimisation step')
         self.iters += 1
+        self.globaliters += 1
 
     def iterate(self, ham, wfs, dens, log):
 
         if self.lsa['name'] != 'UnitStep':
             self.iteratels(ham, wfs, dens, log)
             return
-
-        assert dens.mixer.driver.name == 'dummy', \
-            'Please, use: mixer={\'name\': \'dummy\'}'
-        assert wfs.bd.comm.size == 1, \
-            'Band parallelization is not supported'
-        if wfs.occupations.name != 'mom':
-            if wfs.occupations.name == 'fixmagmom':
-                assert wfs.occupations.occ.name == 'fixed-occ-zero-width', \
-                    'Please, use occupations={\'name\': \'fixed-occ-zero-width\'}'
-            else:
-                assert wfs.occupations.name == 'fixed-occ-zero-width', \
-                    'Please, use occupations={\'name\': \'fixed-occ-zero-width\'}'
-
-        if not self.initialized:
-            if isinstance(ham.xc, HybridXC):
-                self.blocksize = wfs.bd.mynbands
-            self.initialize_super(wfs)
-            self.init_wfs(wfs, dens, ham, log)
-            self.initialize_dm(wfs, dens, ham, log)
 
         n_kps = self.n_kps
         psi_copy = {}
@@ -502,39 +429,6 @@ class DirectMin(Eigensolver):
         del p_knG
         del grad_knG
         self.alpha = a_star
-        occ_name = getattr(wfs.occupations, 'name', None)
-        if self.iloop_outer is not None and occ_name == 'mom' and \
-                'SIC' not in self.odd_parameters['name']:
-            if self.iloop_outer.odd_pot.restart:
-                self.choose_optimal_orbitals(wfs, ham, dens)
-                for kpt in wfs.kpt_u:
-                    wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
-                    super(DirectMin, self).subspace_diagonalize(
-                        ham, wfs, kpt, True)
-                    wfs.gd.comm.broadcast(kpt.eps_n, 0)
-                wfs.calculate_occupation_numbers(dens.fixed)
-                if occ_name == 'mom':
-                    for kpt in wfs.kpt_u:
-                        self.sort_wavefunctions(wfs, kpt)
-                self.iters = 0
-                self.initialized = False
-                self.need_init_odd = True
-            elif (self.iters + 1) % self.momevery == 0:
-                if not self.iloop_outer.converged:
-                    self.choose_optimal_orbitals(wfs, ham, dens)
-                    for kpt in wfs.kpt_u:
-                        wfs.pt.integrate(kpt.psit_nG, kpt.P_ani,
-                                         kpt.q)
-                        super(DirectMin, self).subspace_diagonalize(
-                            ham, wfs, kpt, True)
-                        wfs.gd.comm.broadcast(kpt.eps_n, 0)
-                    wfs.calculate_occupation_numbers(dens.fixed)
-                    if occ_name == 'mom':
-                        for kpt in wfs.kpt_u:
-                            self.sort_wavefunctions(wfs, kpt)
-                    self.iters = 0
-                    self.initialized = False
-                    self.need_init_odd = True
 
         wfs.timer.stop('Direct Minimisation step')
         self.iters += 1
@@ -633,38 +527,20 @@ class DirectMin(Eigensolver):
 
             if 'SIC' in self.odd_parameters['name']:
                 self.e_sic = 0.0
-                # error = self.error * Hartree ** 2 / wfs.nvalence
                 if self.iters > 0:
                     self.run_inner_loop(ham, wfs, dens, grad_knG=grad)
                 else:
-                    # temp = {}
-                    # for kpt in wfs.kpt_u:
-                    #     k = self.n_kps * kpt.s + kpt.q
-                    #     temp[k] = kpt.psit_nG[:].copy()
-                    #     n_occ = get_n_occ(kpt)
-                    #     kpt.psit_nG[:n_occ] = \
-                    #         np.tensordot(
-                    #             self.U_k[k].T, kpt.psit_nG[:n_occ],
-                    #             axes=1)
                     self.e_sic = self.odd.get_energy_and_gradients(
                         wfs, grad, dens, self.iloop.U_k, add_grad=True)
                     ham.get_energy(0.0, wfs, kin_en_using_band=False,
                                    e_sic=self.e_sic)
-                    # for kpt in wfs.kpt_u:
-                    #     k = self.n_kps * kpt.s + kpt.q
-                    #     kpt.psit_nG[:] = temp[k]
-                    #     n_occ = get_n_occ(kpt)
-                    #     grad[k][:n_occ] += \
-                    #         np.tensordot(self.iloop.U_k[k].conj(),
-                    #                      self.iloop.odd_pot.grad[k], axes=1)
                 energy += self.e_sic
         else:
             grad = {}
             n_kps = self.n_kps
             for kpt in wfs.kpt_u:
                 grad[n_kps * kpt.s + kpt.q] = np.zeros_like(kpt.psit_nG[:])
-            self.run_inner_loop(ham, wfs, dens,
-                                grad_knG=grad)
+            self.run_inner_loop(ham, wfs, dens, grad_knG=grad)
             energy = self.etotal
 
         self.project_gradient(wfs, grad)
@@ -914,7 +790,6 @@ class DirectMin(Eigensolver):
         :param rewrite_psi:
         :return:
         """
-
         self.choose_optimal_orbitals(wfs, ham, dens)
 
         if self.exstopt:
@@ -1085,13 +960,6 @@ class DirectMin(Eigensolver):
 
         # update fermi level?
         del grad_knG
-        occ_name = getattr(wfs.occupations, 'name', None)
-        if occ_name != 'mom':
-            self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
-        elif occ_name == 'mom' and 'SIC' not in self.odd_parameters['name']:
-            self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
-            for kpt in wfs.kpt_u:
-                self.sort_wavefunctions(wfs, kpt)
 
     def get_gradients_lumo(self, ham, wfs, kpt):
 
@@ -1213,7 +1081,7 @@ class DirectMin(Eigensolver):
             grad[k] = Hpsi_nG.copy()
 
             # calculate energy
-            if 0 : #self.odd_parameters['name'] == 'Zero':
+            if 0:  # self.odd_parameters['name'] == 'Zero':
                 for i in range(dim):
                     energy = wfs.integrate(
                         psi[i], Hpsi_nG[i], global_integral=True).real
@@ -1232,8 +1100,7 @@ class DirectMin(Eigensolver):
             else:
                 psi = kpt.psit_nG[:n_occ + dim].copy()
                 wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
-                lamb = wfs.integrate(
-                        psi, Hpsi_nG, global_integral=True)
+                lamb = wfs.integrate(psi, Hpsi_nG, global_integral=True)
                 s_axi = {}
                 for a, P_xi in kpt.P_ani.items():
                     dO_ii = wfs.setups[a].dO_ii
@@ -1303,7 +1170,7 @@ class DirectMin(Eigensolver):
         dot = np.sqrt(dot)
         maxstep = 0.2
         if dot > maxstep:
-            a_star = maxstep/dot
+            a_star = maxstep / dot
         else:
             a_star = 1.0
         # calculate new wfs:
@@ -1474,7 +1341,7 @@ class DirectMin(Eigensolver):
 
         return counter, True
 
-    def init_wfs(self, wfs, dens, ham, log):
+    def initialize_orbitals(self, wfs, dens, ham, log):
         """
         initial orbitals can be localised using Pipek-Mezey,
          Foster-Boys or Edmiston-Ruedenberg functions.
@@ -1485,147 +1352,24 @@ class DirectMin(Eigensolver):
         :param log:
         :return:
         """
-        occ_name = getattr(wfs.occupations, 'name', None)
-        if occ_name == 'mom':
-            if 'SIC' in self.odd_parameters['name']:
-                if (not self.need_init_orbs or wfs.read_from_file_init_wfs_dm) \
-                        and not self.force_init_localization:
-                    for kpt in wfs.kpt_u:
-                        wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
-                    wfs.orthonormalize()
-                    self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
-                    occ_name = getattr(wfs.occupations, 'name', None)
-                    if occ_name == 'mom':
-                        for kpt in wfs.kpt_u:
-                            self.sort_wavefunctions(wfs, kpt)
-                    return
-            else:
-                # we need to do it in order to initialize mom..
-                # it will take occupied orbitals from previous step
-                if self.globaliters == 0:
-                    occ_name = getattr(wfs.occupations, 'name', None)
-                    if occ_name == 'mom':
-                        log(" MOM reference orbitals initialized.\n", flush=True)
-                        for kpt in wfs.kpt_u:
-                            wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
-                        # TODO: Does this work?
-                        wfs.occupations.initialize_reference_orbitals()
-                    wfs.orthonormalize()
-                    # for kpt in wfs.kpt_u:
-                    #     wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
-                    #     super(DirectMin, self).subspace_diagonalize(
-                    #         ham, wfs, kpt, True)
-                    #     wfs.gd.comm.broadcast(kpt.eps_n, 0)
-
-                    # fill occ numbers
-                    self._e_entropy = \
-                        wfs.calculate_occupation_numbers(dens.fixed)
-                    if occ_name == 'mom':
-                        for kpt in wfs.kpt_u:
-                            self.sort_wavefunctions(wfs, kpt)
-                            # wfs.pt.integrate(kpt.psit_nG, kpt.P_ani,
-                            #                  kpt.q)
-                        # wfs.occupations.initialize_reference_orbitals()
-
-                return
-        else:
-            if (not self.need_init_orbs or wfs.read_from_file_init_wfs_dm) \
-                    and not self.force_init_localization:
-                wfs.calculate_occupation_numbers(dens.fixed)
-                return
-        log("Initial Localization: ...", flush=True)
-        wfs.timer.start('Initial Localization')
-
-        # we need to fill also eps_n
-        if not self.force_init_localization:
-            for kpt in wfs.kpt_u:
-                wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
-                super(DirectMin, self).subspace_diagonalize(
-                    ham, wfs, kpt, True)
-                wfs.gd.comm.broadcast(kpt.eps_n, 0)
-            # fill occ numbers
-            self._e_entropy = \
-                wfs.calculate_occupation_numbers(dens.fixed)
-            occ_name = getattr(wfs.occupations, 'name', None)
-            if occ_name == 'mom':
-                for kpt in wfs.kpt_u:
-                    self.sort_wavefunctions(wfs, kpt)
-
-        # if wfs.mode == 'pw' and \
-        #         self.initial_orbitals != 'KS' and \
-        #         self.initial_orbitals is not None:
-        #     parprint('WARNING: plane-waves mode '
-        #              'can use ER localization only.\n'
-        #              'Will change localization to ER now')
-        #     self.initial_orbitals = 'ER'
-
-        io = self.initial_orbitals
-
-        if io == 'PM':
-            tol = 1.0e-6
-        else:
-            tol = 1.0e-10
+        if not self.need_init_orbs or wfs.read_from_file_init_wfs_dm:
+            if wfs.read_from_file_init_wfs_dm:
+                if 'SIC' in self.odd_parameters['name']:
+                    self.need_localization = False
+            return
 
         for kpt in wfs.kpt_u:
-            if sum(kpt.f_n) < 1.0e-3:
-                continue
             wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
-
-            if io == 'KS' or io is None:
-                self.need_init_orbs = False
-                break
-            elif io == 'PM' or io == 'PMER':
-                log('Pipek-Mezey localization started', flush=True)
-                lf_obj = PipekMezey(
-                    wfs=wfs, spin=kpt.s, dtype=wfs.dtype)
-                lf_obj.localize(tolerance=tol)
-                log('Pipek-Mezey localization finished', flush=True)
-                U = np.ascontiguousarray(
-                    lf_obj.W_k[kpt.q].T)
-                wfs.gd.comm.broadcast(U, 0)
-                dim = U.shape[0]
-                if wfs.mode == 'fd':
-                    kpt.psit_nG[:dim] = np.einsum('ij,jkml->ikml',
-                                                  U, kpt.psit_nG[:dim])
-                else:
-                    kpt.psit_nG[:dim] = U @ kpt.psit_nG[:dim]
-                del lf_obj
-            elif io == 'FB' or io == 'FBER':
-                log('Foster-Boys localization started', flush=True)
-                lf_obj = WannierLocalization(
-                    wfs=wfs, spin=kpt.s)
-                lf_obj.localize(tolerance=tol)
-                log('Foster-Boys localization finsihed', flush=True)
-                U = np.ascontiguousarray(
-                    lf_obj.U_kww[kpt.q].T)
-                if kpt.psit_nG.dtype == float:
-                    U = U.real
-                wfs.gd.comm.broadcast(U, 0)
-                dim = U.shape[0]
-                if wfs.mode == 'fd':
-                    kpt.psit_nG[:dim] = np.einsum('ij,jkml->ikml',
-                                                  U, kpt.psit_nG[:dim])
-                else:
-                    kpt.psit_nG[:dim] = U @ kpt.psit_nG[:dim]
-                del lf_obj
-            elif io == 'ER':
-                continue
-            else:
-                raise ValueError('Check initial orbitals.')
-
-        if io == 'PMER' or io == 'FBER' or io == 'ER':
-            log('Edmiston-Ruedenberg localization started', flush=True)
-            dm = DirectMinLocalize(
-                ERL(wfs, dens, ham), wfs,
-                maxiter=200, g_tol=5.0e-5, randval=0.1)
-            dm.run(wfs, dens)
-            log('Edmiston-Ruedenberg localization finished', flush=True)
-            del dm
-
+            super(DirectMin, self).subspace_diagonalize(
+                ham, wfs, kpt, True)
+            wfs.gd.comm.broadcast(kpt.eps_n, 0)
         self.need_init_orbs = False
-        self.force_init_localization = False
-        wfs.timer.stop('Initial Localization')
-        log("Done", flush=True)
+
+    def localize_wfs(self, wfs, dens, ham, log):
+        if not self.need_localization:
+            return
+        localize_orbitals(wfs, dens, ham, log, self.localizationtype)
+        self.need_localization = False
 
     def choose_optimal_orbitals(self, wfs, ham, dens):
         """
@@ -1676,6 +1420,76 @@ class DirectMin(Eigensolver):
             wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
             kpt.f_n = np.squeeze(kpt.f_n[ind])
             kpt.eps_n = np.squeeze(kpt.eps_n[ind])
+
+    def check_assertions(self, wfs, dens):
+
+        assert dens.mixer.driver.name == 'dummy', \
+            'Please, use: mixer={\'name\': \'dummy\'}'
+        assert wfs.bd.comm.size == 1, \
+            'Band parallelization is not supported'
+        if wfs.occupations.name != 'mom':
+            errormsg = \
+                'Please, use occupations={\'name\': \'fixed-occ-zero-width\'}'
+
+            if wfs.occupations.name == 'fixmagmom':
+                assert wfs.occupations.occ.name == 'fixed-occ-zero-width', \
+                    errormsg
+            else:
+                assert wfs.occupations.name == 'fixed-occ-zero-width', \
+                    errormsg
+
+    def check_mom(self, wfs, ham, dens):
+
+        occ_name = getattr(wfs.occupations, 'name', None)
+        if occ_name != 'mom':
+            return
+
+        sic_calc = 'SIC' in self.odd_parameters['name']
+        iloop = self.iloop_outer is not None
+        update = False
+
+        if iloop:
+            astmnt = self.iloop_outer.odd_pot.restart
+            bstmnt = (self.iters + 1) % self.momevery == 0 and \
+                not self.iloop_outer.converged
+            if astmnt or bstmnt:
+                update = True
+        if update:
+            self.choose_optimal_orbitals(wfs, ham, dens)
+            if not sic_calc:
+                for kpt in wfs.kpt_u:
+                    wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+                    super(DirectMin, self).subspace_diagonalize(
+                        ham, wfs, kpt, True)
+                    wfs.gd.comm.broadcast(kpt.eps_n, 0)
+            wfs.calculate_occupation_numbers(dens.fixed)
+            for kpt in wfs.kpt_u:
+                self.sort_wavefunctions(wfs, kpt)
+            wfs.calculate_occupation_numbers(dens.fixed)
+            self.iters = 0
+            self.initialized = False
+            self.need_init_odd = True
+
+    def init_mom(self, wfs, dens, log):
+        occ_name = getattr(wfs.occupations, 'name', None)
+        if occ_name != 'mom':
+            return
+        # we need to do it in order to initialize mom..
+        # it will take occupied orbitals from previous step
+        if self.globaliters == 0:
+            for kpt in wfs.kpt_u:
+                wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+            wfs.orthonormalize()
+            wfs.occupations.initialize_reference_orbitals()
+            log(" MOM reference orbitals initialized.\n", flush=True)
+            # fill occ numbers
+            self._e_entropy = \
+                wfs.calculate_occupation_numbers(dens.fixed)
+            for kpt in wfs.kpt_u:
+                self.sort_wavefunctions(wfs, kpt)
+            self._e_entropy = \
+                wfs.calculate_occupation_numbers(dens.fixed)
+        return
 
 
 def log_f(niter, e_total, eig_error, log):

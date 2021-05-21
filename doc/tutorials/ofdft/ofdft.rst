@@ -180,10 +180,10 @@ is set by the use of the keyword tw_coeff. The definition of the remainder of th
 
   lambda = 0.2
   gamma = '0.8'
- 
+
   # Fraction of Weizsacker introduced through eigensolver definition
   eigensolver = CG(tw_coeff=lambda)
- 
+
   # Fraction of Thomas-Fermi included in the definition of the XC functional
   xcname = gamma + '_LDA_K_TF+1.0_LDA_X+1.0_LDA_C_PW'
 
@@ -207,7 +207,14 @@ Also note that the parametrized exchange-correlation functionality allows to use
 
 Running a simple OFDFT calculation
 ----------------------------------
-Once the needed setups have been generated, an OFDFT calculation can be run similarly to any standard Kohn-Sham GPAW calculation. Remember to make the path where you saved your OFDFT setups available to GPAW via the setup_paths function, as in the example below, where we run a PAW calculation for a N atom. Also remember the name of your XC functional needs to match the name of the corresponding setup you generated. GPAW will recognize the setup as an OFDFT setup and the orbital-free mode will be automatically enabled.
+
+Once the needed setups have been generated, an OFDFT calculation can be run
+similarly to any standard Kohn-Sham GPAW calculation. Remember to make the
+path where you saved your OFDFT setups available to GPAW via the setup_paths
+list, as in the example below, where we run a PAW calculation for a N
+atom. Also remember the name of your XC functional needs to match the name of
+the corresponding setup you generated. GPAW will recognize the setup as an
+OFDFT setup and the orbital-free mode will be automatically enabled.
 
 .. literalinclude:: N_ofdft.py
 
@@ -226,7 +233,7 @@ Follow the instructions given in the section on running OFDFT for PAW setup gene
 
 Run the grid calculations
 We will now run grid calculations for atomic N and molecular N2 using the setup generated in the preceding step. For the atomic calculation use the code given in the second part of the running OFDFT section. The energy calculated by GPAW on the grid is given with respect to the total energy of the atomic calculation done during setup generation, and should be close to zero. For the N2 molecule, we first need to optimize the bond length. In order to do so, plot the system's energy as a function of interatomic distance and look for the minimum, for instance by adding the following loop to your script (since the experimental bond length is about 1.098 Å we will start searching in that region)::
-    
+
   for d in [0.9, 1.0, 1.1, 1.2, 1.3, 1.4]:
       molecule = Atoms('N2',
       positions=([c - d/2, c,c], [c+d/2,c,c]),

@@ -20,7 +20,8 @@ assert sys.version_info >= (3, 6)
 
 # Get the current version number:
 txt = Path('gpaw/__init__.py').read_text()
-version = re.search("__version__ = '(.*)'", txt).group(1)
+version = re.search("__version__ = '(.*)'", txt)[1]
+ase_version_required = re.search("__ase_version_required__ = '(.*)'", txt)[1]
 
 description = 'GPAW: DFT and beyond within the projector-augmented wave method'
 long_description = Path('README.rst').read_text()
@@ -243,7 +244,8 @@ setup(name='gpaw',
       packages=find_packages(),
       entry_points={'console_scripts': ['gpaw = gpaw.cli.main:main']},
       setup_requires=['numpy'],
-      install_requires=['ase>=3.20.1'],
+      install_requires=[f'ase>={ase_version_required}',
+                        'scipy>=1.2.0'],
       ext_modules=extensions,
       scripts=scripts,
       cmdclass=cmdclass,

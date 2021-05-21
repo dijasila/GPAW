@@ -1,4 +1,4 @@
-# Creates: energies.png
+# web-page: energies.png
 import numpy as np
 import matplotlib.pyplot as plt
 

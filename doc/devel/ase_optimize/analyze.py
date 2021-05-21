@@ -1,4 +1,4 @@
-# Creates: emt-iterations.csv, lcao-time.csv, systems.csv
+# web-page: emt-iterations.csv, lcao-time.csv, systems.csv
 import ase.db
 from ase.optimize.test.analyze import analyze
 

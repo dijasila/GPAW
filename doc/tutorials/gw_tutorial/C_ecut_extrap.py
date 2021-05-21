@@ -1,4 +1,4 @@
-# Creates: C_GW_k8_extrap.png
+# web-page: C_GW_k8_extrap.png
 import pickle
 import numpy as np
 from ase.parallel import paropen

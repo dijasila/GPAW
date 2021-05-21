@@ -223,27 +223,3 @@ def gramschmidt(C_nM, S_MM):
                          check_finite=False)
 
     return np.dot(S_nn.conj(), C_nM)
-
-
-def initial_localization(wfs, dens, ham, log):
-    from gpaw.directmin.locfunc.dirmin import DirectMinLocalize
-    from gpaw.directmin.odd.lcao import PzCorrectionsLcao as PZC
-    from gpaw.pipekmezey.wannier_basic import \
-        WannierLocalization as wl
-    for kpt in wfs.kpt_u:
-        if sum(kpt.f_n > 1.0e-10) < 2:
-            continue
-        lf_obj = wl(wfs=wfs, spin=kpt.s)
-        lf_obj.localize(tolerance=1.0e-5)
-        U = np.ascontiguousarray(
-            lf_obj.U_kww[kpt.q].T)
-        if kpt.C_nM.dtype == float:
-            U = U.real
-        wfs.gd.comm.broadcast(U, 0)
-        dim = U.shape[0]
-        kpt.C_nM[:dim] = np.dot(U, kpt.C_nM[:dim])
-    dm = DirectMinLocalize(
-        PZC(wfs, dens, ham), wfs,
-        maxiter=200, g_tol=5.0e-4, randval=0.1)
-    dm.run(wfs, dens, log)
-    return 0

@@ -1,4 +1,4 @@
-# Creates: xas_h2o_spectrum.png, h2o_xas_box.png
+# web-page: xas_h2o_spectrum.png, h2o_xas_box.png
 
 def check():
     exec(open('plot.py').read())

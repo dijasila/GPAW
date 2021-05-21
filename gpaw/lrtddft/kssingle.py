@@ -4,6 +4,7 @@
 import sys
 import json
 import numpy as np
+from copy import copy
 
 from ase.units import Bohr, Hartree, alpha
 
@@ -406,6 +407,7 @@ class KSSRestrictor:
 class KSSingle(Excitation, PairDensity):
     """Single Kohn-Sham transition containing all it's indicees
 
+  
       pspin=physical spin
       spin=virtual  spin, i.e. spin in the ground state calc.
       kpt=the Kpoint object
@@ -418,7 +420,16 @@ class KSSingle(Excitation, PairDensity):
 
     def __init__(self, iidx=None, jidx=None, pspin=None, kpt=None,
                  paw=None, string=None, fijscale=1, dtype=float):
-
+        """
+        iidx: index of occupied state
+        jidx: index of empty state
+        pspin: physical spin
+        kpt: kpoint object,
+        paw: calculator,
+        string: string to be initialized from
+        fijscale:
+        dtype: dtype of matrix elements
+        """
         if string is not None:
             self.fromstring(string, dtype)
             return None
@@ -500,56 +511,70 @@ class KSSingle(Excitation, PairDensity):
         dtype = self.wfj.dtype
         dwfj_cg = gd.empty((3), dtype=dtype)
         if not hasattr(gd, 'ddr'):
-            gd.ddr = [Gradient(gd, c, dtype=dtype).apply for c in range(3)]
+            gd.ddr = [Gradient(gd, c, dtype=dtype, n=2).apply
+                      for c in range(3)]
         for c in range(3):
             gd.ddr[c](self.wfj, dwfj_cg[c], kpt.phase_cd)
             me[c] = gd.integrate(self.wfi.conj() * dwfj_cg[c])
 
-        if 0:
-            me2 = np.zeros(self.mur.shape)
-            for c in range(3):
-                gd.ddr[c](self.wfi, dwfj_cg[c], kpt.phase_cd)
-                me2[c] = gd.integrate(self.wfj * dwfj_cg[c])
-            print(me, -me2, me2 + me)
+        # XXX is this the best choice, maybe center of mass?
+        origin = 0.5 * np.diag(paw.wfs.gd.cell_cv)
 
         # augmentation contributions
+
+        # <psi_i|grad|psi_j>
         ma = np.zeros(me.shape, dtype=me.dtype)
+        # Ra x <psi_i|grad|psi_j> for magnetic transition dipole
+        mRa = np.zeros(me.shape, dtype=me.dtype)
         for a, P_ni in kpt.P_ani.items():
             Pi_i = P_ni[self.i].conj()
             Pj_i = P_ni[self.j]
             nabla_iiv = paw.wfs.setups[a].nabla_iiv
+            ma_c = np.zeros(me.shape, dtype=me.dtype)
             for c in range(3):
                 for i1, Pi in enumerate(Pi_i):
                     for i2, Pj in enumerate(Pj_i):
-                        ma[c] += Pi * Pj * nabla_iiv[i1, i2, c]
+                        ma_c[c] += Pi * Pj * nabla_iiv[i1, i2, c]
+            mRa += np.cross(paw.atoms[a].position / Bohr - origin, ma_c)
+            ma += ma_c
         gd.comm.sum(ma)
+        gd.comm.sum(mRa)
 
         self.muv = - (me + ma) / self.energy
 
         # magnetic transition dipole ................
 
-        r_cg, r2_g = coordinates(gd)
+        # m_ij = -(1/2c) <i|L|j> = i/2c <i|r x p|j>
+        # see Autschbach et al., J. Chem. Phys., 116, 6930 (2002)
+
+        r_cg, r2_g = coordinates(gd, origin=origin)
         magn = np.zeros(me.shape, dtype=dtype)
 
+        # <psi_i|r x grad|psi_j>
         wfi_g = self.wfi.conj()
         for ci in range(3):
             cj = (ci + 1) % 3
             ck = (ci + 2) % 3
             magn[ci] = gd.integrate(wfi_g * r_cg[cj] * dwfj_cg[ck] -
                                     wfi_g * r_cg[ck] * dwfj_cg[cj])
+
         # augmentation contributions
+        # <psi_i| r x nabla |psi_j>
+        # = <psi_i| (r - Ra + Ra) x nabla |psi_j>
+        # = <psi_i| (r - Ra) x nabla |psi_j> + Ra x <psi_i| nabla |psi_j>
+
         ma = np.zeros(magn.shape, dtype=magn.dtype)
         for a, P_ni in kpt.P_ani.items():
             Pi_i = P_ni[self.i].conj()
             Pj_i = P_ni[self.j]
-            rnabla_iiv = paw.wfs.setups[a].rnabla_iiv
+            rxnabla_iiv = paw.wfs.setups[a].rxnabla_iiv
             for c in range(3):
                 for i1, Pi in enumerate(Pi_i):
                     for i2, Pj in enumerate(Pj_i):
-                        ma[c] += Pi * Pj * rnabla_iiv[i1, i2, c]
+                        ma[c] += Pi * Pj * rxnabla_iiv[i1, i2, c]
         gd.comm.sum(ma)
 
-        self.magn = -alpha / 2. * (magn + ma)
+        self.magn = alpha / 2. * (magn + ma + mRa)
 
     def distribute(self):
         """Distribute results to all cores."""
@@ -567,7 +592,7 @@ class KSSingle(Excitation, PairDensity):
 
     def __add__(self, other):
         """Add two KSSingles"""
-        result = self.copy()
+        result = copy(self)
         result.me = self.me + other.me
         result.mur = self.mur + other.mur
         result.muv = self.muv + other.muv
@@ -576,7 +601,7 @@ class KSSingle(Excitation, PairDensity):
 
     def __sub__(self, other):
         """Subtract two KSSingles"""
-        result = self.copy()
+        result = copy(self)
         result.me = self.me - other.me
         result.mur = self.mur - other.mur
         result.muv = self.muv - other.muv
@@ -588,25 +613,18 @@ class KSSingle(Excitation, PairDensity):
 
     def __mul__(self, x):
         """Multiply a KSSingle with a number"""
-        if isinstance(x, (float, int)):
-            result = self.copy()
-            result.me = self.me * x
-            result.mur = self.mur * x
-            result.muv = self.muv * x
-            return result
-        else:
-            return RuntimeError('not a number')
+        assert isinstance(x, (float, int))
+        result = copy(self)
+        result.me = self.me * x
+        result.mur = self.mur * x
+        result.muv = self.muv * x
+        result.magn = self.magn * x
+        return result
 
     def __truediv__(self, x):
         return self.__mul__(1. / x)
 
     __div__ = __truediv__
-
-    def copy(self):
-        if self.mur.dtype == complex:
-            return KSSingle(string=self.outstring(), dtype=complex)
-        else:
-            return KSSingle(string=self.outstring(), dtype=float)
 
     def fromstring(self, string, dtype=float):
         l = string.split()
@@ -633,11 +651,11 @@ class KSSingle(Excitation, PairDensity):
 
     def outstring(self):
         if self.mur.dtype == float:
-            string = '{0:d} {1:d}  {2:d} {3:d}  {4:g} {5:g}'.format(
+            string = '{0:d} {1:d}  {2:d} {3:d}  {4:.10g} {5:f}'.format(
                 self.i, self.j, self.pspin, self.spin, self.energy, self.fij)
         else:
             string = (
-                '{0:d} {1:d}  {2:d} {3:d} {4:d} {5:g}  {6:g} {7:g}'.format(
+                '{0:d} {1:d}  {2:d} {3:d} {4:d} {5:.10g}  {6:g} {7:g}'.format(
                     self.i, self.j, self.pspin, self.spin, self.k,
                     self.weight, self.energy, self.fij))
         string += '  '

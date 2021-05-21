@@ -322,10 +322,14 @@ class FDPWWaveFunctions(WaveFunctions):
         return nlcao, nrand
 
     def initialize_wave_functions_from_restart_file(self):
+        read = 0
         for kpt in self.kpt_u:
             if not kpt.psit.in_memory:
                 kpt.psit.read_from_file()
-        self.read_from_file_init_wfs_dm = True
+                read = 1
+        read = self.kd.comm.max(read)
+        if read == 1:
+            self.read_from_file_init_wfs_dm = True
 
     def initialize_wave_functions_from_basis_functions(self,
                                                        basis_functions,

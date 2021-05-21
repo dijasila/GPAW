@@ -1,4 +1,4 @@
-# Creates: optimization.txt
+# web-page: optimization.txt
 
 from gpaw import restart
 from ase.parallel import paropen as open

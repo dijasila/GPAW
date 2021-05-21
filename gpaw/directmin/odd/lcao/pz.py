@@ -970,14 +970,19 @@ class PzCorrectionsLcao:
         fullham[n_occ:, :n_occ] = 0.0
 
         self.lagr_diag_s[k] = np.diagonal(fullham).real
-        eigval, eigvec = np.linalg.eigh(fullham)
-        if update_eigenvalues and update_wfs:
-            kpt.eps_n[:nbs] = eigval
-            kpt.C_nM[:nbs] = eigvec.T @ c_nm
-        elif update_eigenvalues:
-            kpt.eps_n[:nbs] = eigval
-        elif update_wfs:
-            kpt.C_nM[:nbs] = eigvec.T @ c_nm
+
+        def updatecan(a, b):
+            eigval, eigvec = np.linalg.eigh(fullham[a:b, a:b])
+            if update_eigenvalues and update_wfs:
+                kpt.eps_n[a:b] = eigval
+                kpt.C_nM[a:b] = eigvec.T @ c_nm
+            elif update_eigenvalues:
+                kpt.eps_n[a:b] = eigval
+            elif update_wfs:
+                kpt.C_nM[a:b] = eigvec.T @ c_nm
+
+        updatecan(0, n_occ)
+        updatecan(n_occ, nbs)
 
         return h_mm, l_odd
 
