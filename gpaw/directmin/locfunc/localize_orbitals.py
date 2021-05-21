@@ -45,7 +45,7 @@ def localize_orbitals(wfs, dens, ham, log, localizationtype):
             dm = DirectMinLocalize(
                 PZC(wfs, dens, ham), wfs,
                 maxiter=200, g_tol=5.0e-4, randval=0.1)
-            dm.run(wfs, dens)
+            dm.run(wfs, dens, log)
             log('Perdew-Zunger localization finished',
                 flush=True)
         else:
@@ -72,7 +72,7 @@ def localize_orbitals(wfs, dens, ham, log, localizationtype):
                         flush=True)
                     U = np.ascontiguousarray(
                         lf_obj.U_kww[kpt.q].T)
-                    if kpt.psit_nG.dtype == float:
+                    if wfs.dtype == float:
                         U = U.real
                 else:
                     raise ValueError('Check localization type.')
@@ -81,8 +81,11 @@ def localize_orbitals(wfs, dens, ham, log, localizationtype):
                 if wfs.mode == 'fd':
                     kpt.psit_nG[:dim] = np.einsum(
                         'ij,jkml->ikml', U, kpt.psit_nG[:dim])
-                else:
+                elif wfs.mode == 'pw':
                     kpt.psit_nG[:dim] = U @ kpt.psit_nG[:dim]
+                else:
+                    kpt.C_nM[:dim] = U @ kpt.C_nM[:dim]
+
                 del lf_obj
 
     wfs.timer.stop('Initial Localization')

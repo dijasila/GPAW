@@ -20,8 +20,7 @@ from gpaw.xc import xc_string_to_dict
 from ase.utils import basestring
 from gpaw.directmin.odd.lcao import odd_corrections
 from gpaw.directmin.lcao.tools import loewdin, gramschmidt
-from gpaw.pipekmezey.pipek_mezey_wannier import PipekMezey as pm
-from gpaw.pipekmezey.wannier_basic import WannierLocalization as wl
+from gpaw.directmin.locfunc.localize_orbitals import localize_orbitals
 
 
 class DirectMinLCAO(DirectLCAO):
@@ -29,27 +28,24 @@ class DirectMinLCAO(DirectLCAO):
     def __init__(self, diagonalizer=None, error=np.inf,
                  searchdir_algo='LBFGS_P',
                  linesearch_algo='SwcAwc',
-                 initial_orbitals=None,
-                 initial_rotation='zero',  # not used right now
                  update_ref_orbs_counter=20,
                  update_ref_orbs_canonical=False,
                  update_precond_counter=1000,
                  use_prec=True, matrix_exp='pade_approx',
                  representation='sparse',
                  odd_parameters='Zero',
-                 init_from_ks_eigsolver=False,
                  orthonormalization='gramschmidt',
-                 donothingwithintiwfs=False,
                  randomizeorbitals=False,
-                 checkgraderror=False
+                 checkgraderror=False,
+                 localizationtype=None,
+                 need_localization=True,
                  ):
 
         super(DirectMinLCAO, self).__init__(diagonalizer, error)
 
         self.sda = searchdir_algo
         self.lsa = linesearch_algo
-        self.initial_rotation = initial_rotation
-        self.initial_orbitals = initial_orbitals
+        self.localizationtype = localizationtype
         self.eg_count = 0
         self.update_ref_orbs_counter = update_ref_orbs_counter
         self.update_ref_orbs_canonical = update_ref_orbs_canonical
@@ -61,14 +57,14 @@ class DirectMinLCAO(DirectLCAO):
         self.iters = 0
         self.restart = False
         self.name = 'direct_min'
+        self.localizationtype = localizationtype
+        self.need_localization = need_localization
 
-        self.donothingwithintiwfs = donothingwithintiwfs
         self.a_mat_u = None  # skew-hermitian matrix to be exponented
         self.g_mat_u = None  # gradient matrix
         self.c_nm_ref = None  # reference orbitals to be rotated
 
         self.odd_parameters = odd_parameters
-        self.init_from_ks_eigsolver = init_from_ks_eigsolver
         self.randomizeorbitals = randomizeorbitals
 
         self.initialized = False
@@ -95,8 +91,8 @@ class DirectMinLCAO(DirectLCAO):
                 xc_string_to_dict(self.orthonormalization)
 
         if self.odd_parameters['name'] == 'PZ_SIC':
-            if self.initial_orbitals is None:
-                self.initial_orbitals = 'FB'
+            if self.localizationtype is None:
+                self.localizationtype = 'FB'
 
         if self.sda['name'] == 'LBFGS_P' and not self.use_prec:
             raise ValueError('Use LBFGS_P with use_prec=True')
@@ -146,7 +142,22 @@ class DirectMinLCAO(DirectLCAO):
 
     def init_me(self, wfs, ham, dens, log):
         # need to initialize c_nm, eps, f_n and so on.
-        self.init_wave_functions(wfs, ham, dens, log)
+        self.initialize_orbitals(wfs, ham, dens, log)
+        wfs.calculate_occupation_numbers(dens.fixed)
+        occ_name = getattr(wfs.occupations, "name", None)
+        if occ_name == 'mom':
+            # We need to initialize the MOM reference orbitals
+            # before sorting coefficients and occupation numbers
+            wfs.occupations.initialize_reference_orbitals()
+            self.sort_wavefunctions_mom(wfs)
+            wfs.calculate_occupation_numbers(dens.fixed)
+        self.localize_wfs(wfs, dens, ham, log)
+        if occ_name == 'mom':
+            # Need to reinitialize the MOM reference orbitals
+            # before sorting coefficients and occupation numbers
+            wfs.occupations.initialize_reference_orbitals()
+            self.sort_wavefunctions_mom(wfs)
+            wfs.calculate_occupation_numbers(dens.fixed)
         self.update_ks_energy(ham, wfs, dens)
         self.initialize_2(wfs, dens, ham)
 
@@ -936,8 +947,7 @@ class DirectMinLCAO(DirectLCAO):
         return {'name': 'direct_min_lcao',
                 'searchdir_algo': self.sda,
                 'linesearch_algo': self.lsa,
-                'initial_orbitals': self.initial_orbitals,
-                'initial_rotation': 'zero',
+                'localizationtype': self.localizationtype,
                 'update_ref_orbs_counter': self.update_ref_orbs_counter,
                 'update_precond_counter': self.update_precond_counter,
                 'use_prec': self.use_prec,
@@ -1192,7 +1202,7 @@ class DirectMinLCAO(DirectLCAO):
 
         wfs.timer.stop('Unitary rotation')
 
-    def init_wave_functions(self, wfs, ham, dens, log):
+    def initialize_orbitals(self, wfs, ham, dens, log):
         """
         if it is the first use of the scf then initialize
         coefficient matrix using eigensolver
@@ -1205,53 +1215,27 @@ class DirectMinLCAO(DirectLCAO):
         :return:
         """
 
-        if self.donothingwithintiwfs:
-            self.donothingwithintiwfs = False
-            return 0
-        occ_name = getattr(wfs.occupations, "name", None)
-
         # if it is the first use of the scf then initialize
         # coefficient matrix using eigensolver
-        # and then localise orbitals
         need_canon_coef = \
-            (not wfs.coefficients_read_from_file and
-                self.c_nm_ref is None) or self.init_from_ks_eigsolver
-        if need_canon_coef:
+            (not wfs.coefficients_read_from_file and self.c_nm_ref is None)
+        # Orthogonalize orbitals
+        if need_canon_coef or self.orthonormalization['name'] == 'diag':
             super(DirectMinLCAO, self).iterate(ham, wfs)
-            self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
-            if occ_name == 'mom':
-                # We need to initialize the MOM reference orbitals
-                # before sorting coefficients and occupation numbers
-                wfs.occupations.initialize_reference_orbitals()
-                self.sort_wavefunctions_mom(wfs)
-            self.localize_wfs(wfs, log)
-
-        # if one want to use coefficients saved in gpw file
-        # or to use coefficients from the previous scf cicle
         else:
-            # Orthogonalize orbitals
-            if self.orthonormalization['name'] == 'diag':
-                super(DirectMinLCAO, self).iterate(ham, wfs)
-            else:
-                for kpt in wfs.kpt_u:
-                    u = kpt.s * wfs.kd.nbzkpts + kpt.q
-                    if self.c_nm_ref is not None:
-                        C = self.c_nm_ref[u]
-                    else:
-                        C = kpt.C_nM
-                    if self.orthonormalization['name'] == 'loewdin':
-                        kpt.C_nM[:] = loewdin(C, kpt.S_MM.conj())
-                    elif self.orthonormalization['name'] == 'gramschmidt':
-                        kpt.C_nM[:] = gramschmidt(C, kpt.S_MM.conj())
-            wfs.coefficients_read_from_file = False
-            self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
-            if occ_name == 'mom':
-                # We need to initialize the MOM reference orbitals
-                # before sorting coefficients and occupation numbers
-                wfs.occupations.initialize_reference_orbitals()
-                self.sort_wavefunctions_mom(wfs)
+            for kpt in wfs.kpt_u:
+                u = kpt.s * wfs.kd.nbzkpts + kpt.q
+                if self.c_nm_ref is not None:
+                    C = self.c_nm_ref[u]
+                else:
+                    C = kpt.C_nM
+                if self.orthonormalization['name'] == 'loewdin':
+                    kpt.C_nM[:] = loewdin(C, kpt.S_MM.conj())
+                elif self.orthonormalization['name'] == 'gramschmidt':
+                    kpt.C_nM[:] = gramschmidt(C, kpt.S_MM.conj())
+        wfs.coefficients_read_from_file = False
 
-    def localize_wfs(self, wfs, log):
+    def localize_wfs(self, wfs, dens, ham, log):
         """
         initial orbitals can be localised using Pipek-Mezey,
         Foster-Boys or Edmiston-Ruedenberg functions.
@@ -1263,36 +1247,10 @@ class DirectMinLCAO(DirectLCAO):
         :return:
         """
 
-        log("Initial Localization: ...", flush=True)
-        wfs.timer.start('Initial Localization')
-        for kpt in wfs.kpt_u:
-            if sum(kpt.f_n) < 1.0e-3:
-                continue
-            if self.initial_orbitals == 'KS' or \
-                    self.initial_orbitals is None:
-                continue
-            elif self.initial_orbitals == 'PM':
-                lf_obj = pm(wfs=wfs, spin=kpt.s,
-                            dtype=wfs.dtype)
-            elif self.initial_orbitals == 'FB':
-                lf_obj = wl(wfs=wfs, spin=kpt.s)
-            else:
-                raise ValueError('Check initial orbitals.')
-            lf_obj.localize(tolerance=1.0e-5)
-            if self.initial_orbitals == 'PM':
-                U = np.ascontiguousarray(
-                    lf_obj.W_k[kpt.q].T)
-            else:
-                U = np.ascontiguousarray(
-                    lf_obj.U_kww[kpt.q].T)
-                if kpt.C_nM.dtype == float:
-                    U = U.real
-            wfs.gd.comm.broadcast(U, 0)
-            dim = U.shape[0]
-            kpt.C_nM[:dim] = np.dot(U, kpt.C_nM[:dim])
-            del lf_obj
-        wfs.timer.stop('Initial Localization')
-        log("Done", flush=True)
+        if not self.need_localization:
+            return
+        localize_orbitals(wfs, dens, ham, log, self.localizationtype)
+        self.need_localization = False
 
     def check_assertions(self, wfs, dens):
 
@@ -1317,6 +1275,7 @@ class DirectMinLCAO(DirectLCAO):
         if occ_name == 'mom':
             self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
             self.restart = self.sort_wavefunctions_mom(wfs)
+            self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
 
 
 def get_indices(dimens, dtype):

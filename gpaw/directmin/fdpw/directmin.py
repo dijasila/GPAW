@@ -167,6 +167,7 @@ class DirectMin(Eigensolver):
                 'searchdir_algo': self.sda,
                 'linesearch_algo': self.lsa,
                 'convergelumo': self.convergelumo,
+                'localizationtype': self.localizationtype,
                 'use_prec': self.use_prec,
                 'odd_parameters': self.odd_parameters,
                 'maxiter': self.maxiter,
@@ -175,7 +176,7 @@ class DirectMin(Eigensolver):
 
     def init_me(self, wfs, ham, dens, log):
         self.initialize_super(wfs, ham)
-        self.init_wfs(wfs, dens, ham, log)
+        self.initialize_orbitals(wfs, dens, ham, log)
         self._e_entropy = \
             wfs.calculate_occupation_numbers(dens.fixed)
         self.localize_wfs(wfs, dens, ham, log)
@@ -1340,7 +1341,7 @@ class DirectMin(Eigensolver):
 
         return counter, True
 
-    def init_wfs(self, wfs, dens, ham, log):
+    def initialize_orbitals(self, wfs, dens, ham, log):
         """
         initial orbitals can be localised using Pipek-Mezey,
          Foster-Boys or Edmiston-Ruedenberg functions.
