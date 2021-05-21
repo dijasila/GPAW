@@ -159,13 +159,6 @@ class SCFEvent:
     """Object to pass the state of the SCF cycle to a convergence-checking
     function."""
 
-    # FIXME/ap: Note that the SCF cycle does not have a reference to the
-    # calculator object. For now I am instead giving this event access
-    # to the ham, wfs, etc., that SCF already has. But we could consider
-    # changing how SCF is initialized to instead just give it a calc ref
-    # rather than all these individual pieces. I'll leave that decision to
-    # JJ and Ask.
-
     def __init__(self, dens, ham, wfs, niter, log):
         self.dens = dens
         self.ham = ham
@@ -279,7 +272,7 @@ class Energy(Criterion):
         """Should return (bool, entry), where bool is True if converged and
         False if not, and entry is a <=5 character string to be printed in
         the user log file."""
-        # FIXME/ap: I believe the current code was calculating the peak-to-
+        # Note the previous code was calculating the peak-to-
         # peak energy difference on e_total_free, while reporting
         # e_total_extrapolated in the SCF table (logfile). I changed it to
         # use e_total_extrapolated for both. (Should be a miniscule
