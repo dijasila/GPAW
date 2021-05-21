@@ -744,7 +744,7 @@ There exist three special names that, if used, do not specify a file name:
 
 * ``'ae'`` is used for specifying all-electron mode for an
   atom. I.e. no PAW or pseudo potential is used.
-* ``sg15`` specifies the `SG15 optimized norm-conserving Vanderbilt
+* ``'sg15'`` specifies the `SG15 optimized norm-conserving Vanderbilt
   pseudopotentials`_ for the PBE functional.  These have to be
   installed separately.  Use :command:`gpaw install-data --sg15
   {<dir>}` to download and unpack the pseudopotentials into

@@ -1,4 +1,4 @@
-# Creates: sf_3x3_defect.png
+# web-page: sf_3x3_defect.png
 from gpaw import GPAW
 from gpaw.unfold import plot_spectral_function
 

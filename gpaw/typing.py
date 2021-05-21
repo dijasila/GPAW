@@ -1,9 +1,9 @@
-from typing import Any
+from typing import Any, TYPE_CHECKING
 import numpy as np
 
-try:
+if TYPE_CHECKING:
     from numpy.typing import ArrayLike
-except ImportError:
+else:
     ArrayLike = Any  # type: ignore
 
 ArrayLike1D = ArrayLike

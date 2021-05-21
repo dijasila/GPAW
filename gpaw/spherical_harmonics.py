@@ -45,7 +45,7 @@ names = [['1'],
          ['y', 'z', 'x'],
          ['xy', 'yz', '3z2-r2', 'zx', 'x2-y2'],
          ['3x2y-y3', 'xyz', '4yz2-y3-x2y', '2z3-3x2z-3y2z', '4xz2-x3-xy2',
-          'x2z-y2z', 'x3.3xy2']]
+          'x2z-y2z', 'x3-3xy2']]
 
 # Computer generated tables - do not touch!
 YL = [

@@ -82,7 +82,7 @@ Citations of the GPAW method papers
 .. image:: citations.png
    :width: 750
 
-(updated on Sep 7, 2017)
+(updated on 18 Mar 2021)
 
 The total number of citations above is the number of publications
 citing at least one of the other papers, not the sum of all citation
@@ -91,8 +91,3 @@ counts.
 See :ref:`citation` for a list of the method papers.
 
 All citing articles:
-
-.. csv-table::
-   :file: citations.csv
-   :header: #, title
-   :widths: 1, 15

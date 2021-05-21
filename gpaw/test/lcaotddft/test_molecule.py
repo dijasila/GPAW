@@ -142,6 +142,8 @@ def test_propagated_wave_function(initialize_system, module_tmp_path):
     # Pick a few coefficients corresponding to non-degenerate states;
     # degenerate states should be normalized so that they can be compared
     coeff = coeff[np.ix_([0], [0], [0, 1, 4], [0, 1, 2])]
+    # Normalize the wave function sign
+    coeff = np.sign(coeff.real[..., 0, np.newaxis]) * coeff
     ref = [[[[1.6564776755628504e-02 + 1.2158943340143986e-01j,
               4.7464497657284752e-03 + 3.4917799444496286e-02j,
               8.2152048273399657e-07 - 1.6344333784831069e-06j],
@@ -152,7 +154,7 @@ def test_propagated_wave_function(initialize_system, module_tmp_path):
               1.9024613198566329e-01 + 2.7843314959952882e-02j,
               -1.3848736953929574e-05 - 2.6402210145403184e-05j]]]]
     err = calculate_error(coeff, ref)
-    assert err < 1e-12
+    assert err < 2e-12
 
 
 @pytest.mark.parametrize('parallel', parallel_i)
@@ -320,7 +322,7 @@ def test_density(kind, density, load_ksd, density_reference):
     ref_wg = density_reference[kind]
     rho_wg = fdm.dmat.density.finegd.collect(density[kind])
     err = calculate_error(rho_wg, ref_wg)
-    atol = 1e-19
+    atol = 2e-19
     assert err < atol
 
 

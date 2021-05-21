@@ -1147,6 +1147,8 @@ class GPAW(Calculator):
         kd.set_communicator(kpt_comm)
 
         parstride_bands = self.parallel['stridebands']
+        if parstride_bands:
+            raise RuntimeError('stridebands is unreliable')
 
         bd = BandDescriptor(nbands, band_comm, parstride_bands)
 
