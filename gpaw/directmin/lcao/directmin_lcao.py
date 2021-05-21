@@ -1233,6 +1233,9 @@ class DirectMinLCAO(DirectLCAO):
                     kpt.C_nM[:] = loewdin(C, kpt.S_MM.conj())
                 elif self.orthonormalization['name'] == 'gramschmidt':
                     kpt.C_nM[:] = gramschmidt(C, kpt.S_MM.conj())
+        if wfs.coefficients_read_from_file and \
+                'SIC' in self.odd_parameters['name']:
+            self.need_localization = False
         wfs.coefficients_read_from_file = False
 
     def localize_wfs(self, wfs, dens, ham, log):
