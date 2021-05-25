@@ -10,7 +10,7 @@ from ase.units import Hartree
 from ase.data import atomic_numbers, chemical_symbols
 
 from gpaw import __version__ as version
-from gpaw.basis_data import Basis, BasisFunction, BasisPlotter
+from gpaw.basis_data import BasisPlotter
 from gpaw.gaunt import gaunt
 from gpaw.utilities import pack2
 from gpaw.atom.aeatom import (AllElectronAtom, Channel, parse_ld_str, colors,
@@ -812,7 +812,8 @@ class PAWSetupGenerator:
 
     def create_basis_set(self, tailnorm=0.0005, scale=200.0, splitnorm=0.16):
         from gpaw.atom.rgridutil import create_basis_set
-        self.basis = create_basis_set(tailnorm=tailnorm, scale=scale, splitnorm=splitnorm,
+        self.basis = create_basis_set(tailnorm=tailnorm, scale=scale,
+                                      splitnorm=splitnorm,
                                       rgd=self.rgd,
                                       symbol=self.aea.symbol,
                                       waves_l=self.waves_l,
