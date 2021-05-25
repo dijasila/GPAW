@@ -811,8 +811,12 @@ class PAWSetupGenerator:
         plt.legend()
 
     def create_basis_set(self, tailnorm=0.0005, scale=200.0, splitnorm=0.16):
-        rgd = self.rgd
-        self.basis = Basis(self.aea.symbol, 'dzp', readxml=False, rgd=rgd)
+        self.basis = self._create_basis_set(tailnorm, scale, splitnorm, rgd=self.rgd)
+        return self.basis
+
+    def _create_basis_set(self, tailnorm=0.0005, scale=200.0, splitnorm=0.16, *,
+                          rgd):
+        basis = Basis(self.aea.symbol, 'dzp', readxml=False, rgd=rgd)
 
         # We print text to sdtout and put it in the basis-set file
         txt = 'Basis functions:\n'
@@ -827,7 +831,7 @@ class PAWSetupGenerator:
                     phit_g, ronset, rc, de = self.create_basis_function(
                         l, i, tn, scale)
                     bf = BasisFunction(n, l, rc, phit_g, 'bound state')
-                    self.basis.append(bf)
+                    basis.append(bf)
 
                     txt += '%d%s bound state:\n' % (n, 'spdf'[l])
                     txt += ('  cutoff: %.3f to %.3f Bohr (tail-norm=%f)\n' %
@@ -844,7 +848,7 @@ class PAWSetupGenerator:
             if n0 is None:
                 continue
 
-            for bf in self.basis.bf_j:
+            for bf in basis.bf_j:
                 if bf.l == l and bf.n == n0:
                     break
 
@@ -862,7 +866,7 @@ class PAWSetupGenerator:
 
             phit2_g = rgd.pseudize(phit_g, gc, l, 2)[0]  # "split valence"
             bf = BasisFunction(n, l, rc, phit_g - phit2_g, 'split valence')
-            self.basis.append(bf)
+            basis.append(bf)
 
             txt += '%d%s split valence:\n' % (n0, 'spdf'[l])
             txt += '  cutoff: %.3f Bohr (tail-norm=%f)\n' % (rc, splitnorm)
@@ -877,7 +881,7 @@ class PAWSetupGenerator:
         phit_g[gcpol:] = 0.0
 
         bf = BasisFunction(None, lpol, rcpol, phit_g, 'polarization')
-        self.basis.append(bf)
+        basis.append(bf)
         txt += 'l=%d polarization functions:\n' % lpol
         txt += '  cutoff: %.3f Bohr (r^%d exp(-%.3f*r^2))\n' % (rcpol, lpol,
                                                                 alpha)
@@ -885,13 +889,12 @@ class PAWSetupGenerator:
         self.log(txt)
 
         # Write basis-set file:
-        self.basis.generatordata = txt
-        self.basis.generatorattrs.update(dict(tailnorm=tailnorm,
+        basis.generatordata = txt
+        basis.generatorattrs.update(dict(tailnorm=tailnorm,
                                               scale=scale,
                                               splitnorm=splitnorm))
-        self.basis.name = '%de.dzp' % self.nvalence
-
-        return self.basis
+        basis.name = '%de.dzp' % self.nvalence
+        return basis
 
 
     def create_basis_function(self, l, n, tailnorm, scale):
