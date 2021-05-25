@@ -5,6 +5,29 @@ from gpaw.atom.aeatom import Channel
 from gpaw.basis_data import Basis, BasisFunction
 
 
+"""
+TODO: Make this function work:
+
+def create_upf_basis(setup):
+    variables = ...
+    return create_basis_function(...)
+
+
+From the UPF setup we have (easily) l, n, and any grid (rgd) we want.
+ * vtr_g is probably setup.vbar_g or vbar_g * r or something like that.
+ * tailnorm: We want to replace that with a confinement energy.  Later.
+ * waves.phit_ng: Not really needed
+ * n_g: Instead of using n_g, use another way to confine the states.
+ * waves.rcut: the cutoff
+ * waves.pt_ng: the projectors, we have those on the setup
+ * waves.dH_nn: exist on the setup.
+   It's setup.K_p aka setupdata.expand_hamiltonian_matrix().
+ * waves.dS_nn: probably zero
+ * waves.e_n: When we switch to using confinement energy instead of tailnorm,
+   we no longer need to depend on e_n.  So we should do that almost now.
+"""
+
+
 def create_basis_function(l, n, tailnorm, scale, rgd, waves, vtr_g):
     # Find cutoff radii:
     n_g = np.add.accumulate(waves.phit_ng[n]**2 * rgd.r_g**2 * rgd.dr_g)
