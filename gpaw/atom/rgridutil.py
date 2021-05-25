@@ -1,6 +1,8 @@
 import numpy as np
 from math import pi
+from ase.units import Hartree
 from gpaw.atom.aeatom import Channel
+from gpaw.basis_data import Basis, BasisFunction
 
 
 def create_basis_function(l, n, tailnorm, scale, rgd, waves, vtr_g):
@@ -65,3 +67,87 @@ def create_basis_function(l, n, tailnorm, scale, rgd, waves, vtr_g):
     u_g[1:] /= rgd.r_g[1:]
     u_g[0] = a * 0.0**l
     return u_g, r1, r2, e - e0
+
+
+def create_basis_set(*, tailnorm=0.0005, scale=200.0, splitnorm=0.16,
+                     rgd, symbol, waves_l, vtr_g, log, nvalence):
+    basis = Basis(symbol, 'dzp', readxml=False, rgd=rgd)
+
+    # We print text to sdtout and put it in the basis-set file
+    txt = 'Basis functions:\n'
+
+    # Bound states:
+    for l, waves in enumerate(waves_l):
+        for i, n in enumerate(waves.n_n):
+            if n > 0:
+                tn = tailnorm
+                if waves.f_n[i] == 0:
+                    tn = min(0.05, tn * 20)  # no need for long tail
+                phit_g, ronset, rc, de = create_basis_function(
+                    l, i, tn, scale, rgd=rgd, waves=waves_l[l],
+                    vtr_g=vtr_g)
+                bf = BasisFunction(n, l, rc, phit_g, 'bound state')
+                basis.append(bf)
+
+                txt += '%d%s bound state:\n' % (n, 'spdf'[l])
+                txt += ('  cutoff: %.3f to %.3f Bohr (tail-norm=%f)\n' %
+                        (ronset, rc, tn))
+                txt += '  eigenvalue shift: %.3f eV\n' % (de * Hartree)
+
+    # Split valence:
+    for l, waves in enumerate(waves_l):
+        # Find the largest n that is occupied:
+        n0 = None
+        for f, n in zip(waves.f_n, waves.n_n):
+            if n > 0 and f > 0:
+                n0 = n
+        if n0 is None:
+            continue
+
+        for bf in basis.bf_j:
+            if bf.l == l and bf.n == n0:
+                break
+
+        # Radius and l-value used for polarization function below:
+        rcpol = bf.rc
+        lpol = l + 1
+
+        phit_g = bf.phit_g
+
+        # Find cutoff radius:
+        n_g = np.add.accumulate(phit_g**2 * rgd.r_g**2 * rgd.dr_g)
+        norm = n_g[-1]
+        gc = (norm - n_g > splitnorm * norm).sum()
+        rc = rgd.r_g[gc]
+
+        phit2_g = rgd.pseudize(phit_g, gc, l, 2)[0]  # "split valence"
+        bf = BasisFunction(n, l, rc, phit_g - phit2_g, 'split valence')
+        basis.append(bf)
+
+        txt += '%d%s split valence:\n' % (n0, 'spdf'[l])
+        txt += '  cutoff: %.3f Bohr (tail-norm=%f)\n' % (rc, splitnorm)
+
+    # Polarization:
+    gcpol = rgd.round(rcpol)
+    alpha = 1 / (0.25 * rcpol)**2
+
+    # Gaussian that is continuous and has a continuous derivative at rcpol:
+    phit_g = np.exp(-alpha * rgd.r_g**2) * rgd.r_g**lpol
+    phit_g -= rgd.pseudize(phit_g, gcpol, lpol, 2)[0]
+    phit_g[gcpol:] = 0.0
+
+    bf = BasisFunction(None, lpol, rcpol, phit_g, 'polarization')
+    basis.append(bf)
+    txt += 'l=%d polarization functions:\n' % lpol
+    txt += '  cutoff: %.3f Bohr (r^%d exp(-%.3f*r^2))\n' % (rcpol, lpol,
+                                                            alpha)
+
+    log(txt)
+
+    # Write basis-set file:
+    basis.generatordata = txt
+    basis.generatorattrs.update(dict(tailnorm=tailnorm,
+                                     scale=scale,
+                                     splitnorm=splitnorm))
+    basis.name = '%de.dzp' % nvalence
+    return basis
