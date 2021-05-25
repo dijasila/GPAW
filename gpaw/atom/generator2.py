@@ -811,25 +811,31 @@ class PAWSetupGenerator:
         plt.legend()
 
     def create_basis_set(self, tailnorm=0.0005, scale=200.0, splitnorm=0.16):
-        self.basis = self._create_basis_set(tailnorm, scale, splitnorm, rgd=self.rgd)
+        self.basis = self._create_basis_set(tailnorm, scale, splitnorm, rgd=self.rgd,
+                                            symbol=self.aea.symbol,
+                                            waves_l=self.waves_l,
+                                            vtr_g=self.vtr_g,
+                                            log=self.log, nvalence=self.nvalence)
         return self.basis
 
     def _create_basis_set(self, tailnorm=0.0005, scale=200.0, splitnorm=0.16, *,
-                          rgd):
-        basis = Basis(self.aea.symbol, 'dzp', readxml=False, rgd=rgd)
+                          rgd, symbol, waves_l, vtr_g, log, nvalence):
+        from gpaw.atom.rgridutil import create_basis_function
+        basis = Basis(symbol, 'dzp', readxml=False, rgd=rgd)
 
         # We print text to sdtout and put it in the basis-set file
         txt = 'Basis functions:\n'
 
         # Bound states:
-        for l, waves in enumerate(self.waves_l):
+        for l, waves in enumerate(waves_l):
             for i, n in enumerate(waves.n_n):
                 if n > 0:
                     tn = tailnorm
                     if waves.f_n[i] == 0:
                         tn = min(0.05, tn * 20)  # no need for long tail
-                    phit_g, ronset, rc, de = self.create_basis_function(
-                        l, i, tn, scale)
+                    phit_g, ronset, rc, de = create_basis_function(
+                        l, i, tn, scale, rgd=rgd, waves=waves_l[l],
+                        vtr_g=vtr_g)
                     bf = BasisFunction(n, l, rc, phit_g, 'bound state')
                     basis.append(bf)
 
@@ -839,7 +845,7 @@ class PAWSetupGenerator:
                     txt += '  eigenvalue shift: %.3f eV\n' % (de * Hartree)
 
         # Split valence:
-        for l, waves in enumerate(self.waves_l):
+        for l, waves in enumerate(waves_l):
             # Find the largest n that is occupied:
             n0 = None
             for f, n in zip(waves.f_n, waves.n_n):
@@ -886,23 +892,15 @@ class PAWSetupGenerator:
         txt += '  cutoff: %.3f Bohr (r^%d exp(-%.3f*r^2))\n' % (rcpol, lpol,
                                                                 alpha)
 
-        self.log(txt)
+        log(txt)
 
         # Write basis-set file:
         basis.generatordata = txt
         basis.generatorattrs.update(dict(tailnorm=tailnorm,
                                               scale=scale,
                                               splitnorm=splitnorm))
-        basis.name = '%de.dzp' % self.nvalence
+        basis.name = '%de.dzp' % nvalence
         return basis
-
-
-    def create_basis_function(self, l, n, tailnorm, scale):
-        from gpaw.atom.rgridutil import create_basis_function
-        rgd = self.rgd
-        waves = self.waves_l[l]
-        return create_basis_function(l, n, tailnorm, scale, rgd, waves,
-                                     vtr_g=self.vtr_g)
 
     def logarithmic_derivative(self, l, energies, rcut):
         rgd = self.rgd
