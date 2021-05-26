@@ -1151,13 +1151,6 @@ class Setup(BaseSetup):
                         + f1f2or * Y_12)
                 i2 += nm2
             i1 += nm1
-
-        def skew(a):
-            return (a-a.T)/2
-
-        for c in range(3):
-            nabla_iiv[:,:,c]=skew(nabla_iiv[:,:,c])
-
         if debug:
             assert not np.any(np.isnan(nabla_iiv))
         return nabla_iiv

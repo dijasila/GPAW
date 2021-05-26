@@ -154,10 +154,4 @@ def get_magnetic_integrals_alt(self, rgd, phi_jg, phit_jg):
             # increase index 1
             i1 += 1
 
-    def skew(a):
-        return (a-a.T)/2
-
-    for c in range(3):
-        rxnabla_iiv[:,:,c]=skew(rxnabla_iiv[:,:,c])
-
     return rxnabla_iiv

@@ -8,10 +8,6 @@ from gpaw.lcaotddft.observer import TDDFTObserver
 from gpaw.lcaotddft.densitymatrix import DensityMatrix
 
 
-def skew(a):
-    return 0.5 * (a - a.T)
-
-
 def calculate_mm_on_grid(wfs, grad_v, r_cG, dX0_caii, timer,
                          only_pseudo=False):
     gd = wfs.gd
@@ -92,10 +88,6 @@ def get_dX0(Ra_a, setups, partition):
 
         rxnabla_iiv = setups[a].rxnabla_iiv.copy()
         nabla_iiv = setups[a].nabla_iiv.copy()
-
-        for c in range(3):
-            rxnabla_iiv[:, :, c] = skew(rxnabla_iiv[:, :, c])
-            nabla_iiv[:, :, c] = skew(nabla_iiv[:, :, c])
 
         def Rxnabla(v1, v2):
             return (Ra[v1] * nabla_iiv[:, :, v2] -
