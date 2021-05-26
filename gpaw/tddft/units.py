@@ -37,4 +37,3 @@ fs_to_au = as_to_au * 1e3
 # See https://doi.org/10.1016/0009-2614(95)01036-9
 rot_au_to_SI = _e**2 * _hbar / _me * _a0  # 1 au = 1.6e-52 J C m / T
 rot_au_to_cgs = rot_au_to_SI / (1e-6 / _c)  # 1 au = 4.7e-38 erg esu cm / gauss
-

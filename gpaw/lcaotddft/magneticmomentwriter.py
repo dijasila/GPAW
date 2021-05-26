@@ -53,11 +53,11 @@ def calculate_mm_on_grid(wfs, grad_v, r_cG, dX0_caii, timer,
         paw_rxnabla_v = np.zeros(3, dtype=complex)
         for kpt in kpt_u:
             for v in range(3):
-              for a, P_ni in kpt.P_ani.items():
-                  paw_rxnabla_v[v] += np.einsum('n,ni,ij,nj',
-                                                kpt.f_n, P_ni.conj(),
-                                                dX0_caii[v][a], P_ni,
-                                                optimize=True)
+                for a, P_ni in kpt.P_ani.items():
+                    paw_rxnabla_v[v] += np.einsum('n,ni,ij,nj',
+                                                  kpt.f_n, P_ni.conj(),
+                                                  dX0_caii[v][a], P_ni,
+                                                  optimize=True)
         gd.comm.sum(paw_rxnabla_v)
         rxnabla_v += paw_rxnabla_v
         timer.stop('PAW')
@@ -269,12 +269,14 @@ class MagneticMomentWriter(TDDFTObserver):
         if self.origin is not None:
             args.append('origin=%s' % repr(self.origin))
         if self.origin_shift is not None:
-            args.append('origin_shift=[%.6f, %.6f, %.6f]' % tuple(self.origin_shift))
+            args.append('origin_shift=[%.6f, %.6f, %.6f]'
+                        % tuple(self.origin_shift))
         line += ', '.join(args)
         line += ')\n'
-        line += '# origin_v = [%.6f, %.6f, %.6f]\n' % tuple(self.origin_v * Bohr)
-        line += ('# %15s %22s %22s %22s\n' %
-                 ('time', 'cmx', 'cmy', 'cmz'))
+        line += ('# origin_v = [%.6f, %.6f, %.6f]\n'
+                 % tuple(self.origin_v * Bohr))
+        line += ('# %15s %22s %22s %22s\n'
+                 % ('time', 'cmx', 'cmy', 'cmz'))
         self._write(line)
 
     def read_header(self, filename):

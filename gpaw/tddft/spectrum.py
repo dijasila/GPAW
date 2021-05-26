@@ -313,7 +313,8 @@ def rotatory_strength_spectrum(magnetic_moment_files, spectrum_file,
             if v0 == v:
                 continue
             assert kick_v[v0] == 0.0
-        rot_wv = calculate_rotatory_strength_components(kick_v, time_t, mm_tv, ff)
+        rot_wv = calculate_rotatory_strength_components(kick_v, time_t,
+                                                        mm_tv, ff)
         rot_w += rot_wv[:, v]
 
     rot_w *= -0.5 * rot_au_to_cgs * 1e40 / au_to_eV
