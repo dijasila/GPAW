@@ -56,7 +56,6 @@ from gpaw.gaunt import gaunt
 from gpaw.spherical_harmonics import Yl, nablarlYL
 from gpaw.spline import Spline
 from gpaw.utilities.tools import tri2full
-from gpaw import extra_parameters
 from gpaw.utilities.timing import nulltimer
 
 timer = nulltimer  # XXX global timer object, only for hacking
@@ -762,7 +761,7 @@ class NewTwoCenterIntegrals:
 
         rcmax = max(cutoff_I + [0.001])
 
-        ng = 2**extra_parameters.get('log2ng', 10)
+        ng = 2**10
         transformer = FourierTransformer(rcmax, ng)
         tsoc = TwoSiteOverlapCalculator(transformer)
         self.msoc = ManySiteOverlapCalculator(tsoc, I_a, I_a)

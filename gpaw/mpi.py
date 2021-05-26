@@ -1065,9 +1065,9 @@ class Parallelization:
             assignments = dict(kpt=self.kpt,
                                domain=self.domain,
                                band=self.band)
-            raise RuntimeError('All the CPUs must be used.  Have %s but '
-                               '%d times more are available'
-                               % (assignments, self.navail))
+            raise gpaw.BadParallelization(
+                f'All the CPUs must be used.  Have {assignments} but '
+                f'{self.navail} times more are available.')
 
     def get_optimal_kpt_parallelization(self, kptprioritypower=1.4):
         if self.domain and self.band:

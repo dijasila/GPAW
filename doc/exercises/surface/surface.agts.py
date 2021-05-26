@@ -12,4 +12,4 @@ def init():
     source = source.replace('N = ...', 'N = 5')
     path = Path('al10065.py')
     path.write_text(source)
-    runpy.run_path(path)
+    runpy.run_path(str(path))

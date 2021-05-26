@@ -1,4 +1,4 @@
-# Creates: h.png
+# web-page: h.png
 def workflow():
     from myqueue.workflow import run
     with run(script='h.py'):

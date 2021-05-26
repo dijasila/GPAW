@@ -1,4 +1,4 @@
-# Creates: planaraverages.png
+# web-page: planaraverages.png
 import numpy as np
 import matplotlib.pyplot as plt
 from ase.units import Bohr

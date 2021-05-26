@@ -20,8 +20,11 @@ switch_lu = {'U': 'L', 'L': 'U'}
 switch_lr = {'L': 'R', 'R': 'L'}
 
 
-def scalapack_tri2full(desc, array):
+def scalapack_tri2full(desc, array, conj=True):
     """Write lower triangular part into upper triangular part of matrix.
+
+    If conj == True, the lower triangular part is the complex conjugate
+    of the upper triangular part.
 
     This function is a frightful hack, but we can improve the
     implementation later."""
@@ -34,7 +37,8 @@ def scalapack_tri2full(desc, array):
     # Now transpose tmp_mm adding the result to the original matrix:
     pblas_tran(alpha=1.0, a_MN=buf,
                beta=1.0, c_NM=array,
-               desca=desc, descc=desc)
+               desca=desc, descc=desc,
+               conj=conj)
 
 
 def scalapack_zero(desca, a, uplo, ia=1, ja=1):
@@ -327,34 +331,49 @@ def scalapack_inverse(desca, a, uplo):
 
 
 def scalapack_solve(desca, descb, a, b):
-    """Perform general matrix solution to Ax=b. Result will be replaces with b.
-       Equivalent to numpy.linalg.solve(a, b.T.conjugate()).T.conjugate()
+    """General matrix solve.
 
+    Solve X from A*X = B. The array b will be replaced with the result.
+
+    This function works on the transposed form. The equivalent
+    non-distributed operation is numpy.linalg.solve(a.T, b.T).T.
+
+    This function executes the following scalapack routine:
+    * pzgesv if matrices are complex
+    * pdgesv if matrices are real
     """
     desca.checkassert(a)
     descb.checkassert(b)
-    # only symmetric matrices
-    assert desca.gshape[0] == desca.gshape[1]
-    # valid equation
-    assert desca.gshape[1] == descb.gshape[1]
+    assert desca.gshape[0] == desca.gshape[1], 'A not a square matrix'
+    assert desca.bshape[0] == desca.bshape[1], 'A not having square blocks'
+    assert desca.gshape[1] == descb.gshape[1], 'B shape not compatible with A'
+    assert desca.bshape[1] == descb.bshape[1], 'B blocks not compatible with A'
 
     if not desca.blacsgrid.is_active():
         return
-    info = _gpaw.scalapack_solve(a.T, desca.asarray(), b.T, descb.asarray())
+    info = _gpaw.scalapack_solve(a, desca.asarray(), b, descb.asarray())
     if info != 0:
         raise RuntimeError('scalapack_solve error: %d' % info)
 
 
-def pblas_tran(alpha, a_MN, beta, c_NM, desca, descc):
-    """C <- beta C + alpha A.T.
+def pblas_tran(alpha, a_MN, beta, c_NM, desca, descc, conj=True):
+    """Matrix transpose.
 
-    See also pdtran from PBLAS."""
+    C <- alpha*A.H + beta*C  if conj == True
+    C <- alpha*A.T + beta*C  if conj == False
+
+    This function executes the following PBLAS routine:
+    * pztranc if matrices are complex and conj == True
+    * pztranu if matrices are complex and conj == False
+    * pdtran  if matrices are real
+    """
     desca.checkassert(a_MN)
     descc.checkassert(c_NM)
     M, N = desca.gshape
     assert N, M == descc.gshape
     _gpaw.pblas_tran(N, M, alpha, a_MN, beta, c_NM,
-                     desca.asarray(), descc.asarray())
+                     desca.asarray(), descc.asarray(),
+                     conj)
 
 
 def _pblas_hemm_symm(alpha, a_MM, b_MN, beta, c_MN, desca, descb, descc,

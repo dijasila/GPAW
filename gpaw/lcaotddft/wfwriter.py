@@ -125,4 +125,3 @@ class WaveFunctionWriter(TDDFTObserver):
 
     def __del__(self):
         self.writer.close()
-        TDDFTObserver.__del__(self)

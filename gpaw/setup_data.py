@@ -13,7 +13,7 @@ import numpy as np
 from ase.data import atomic_names, atomic_numbers
 from ase.units import Bohr, Hartree
 
-from gpaw import extra_parameters, setup_paths
+from gpaw import setup_paths
 from gpaw.atom.radialgd import (AbinitRadialGridDescriptor,
                                 AERadialGridDescriptor)
 from gpaw.atom.shapefunc import shape_functions
@@ -159,8 +159,11 @@ class SetupData:
             text('  core: %.1f' % self.Nc)
         text('  charge:', self.Z - self.Nv - self.Nc)
         if setup.HubU is not None:
-            text('  Hubbard U: %f eV (l=%d, scale=%s)' %
-                 (setup.HubU * Hartree, setup.Hubl, bool(setup.Hubs)))
+            for index in range(len(setup.HubU)):
+                text('  Hubbard U: %f eV (l=%d, scale=%s)' %
+                     (setup.HubU[index] * Hartree,
+                      setup.Hubl[index],
+                      bool(setup.Hubs[index])))
         text('  file:', self.filename)
         text('  compensation charges: {}, rc={:.2f}, lmax={}'
              .format(self.shape_function['type'],
@@ -573,10 +576,6 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
         elif name == 'pseudo_valence_density':
             setup.nvt_g = x_g
         elif name == 'pseudo_core_kinetic_energy_density':
-            if extra_parameters.get('mggapscore') and (x_g == 0).all():
-                x = setup.rgd.r_g / 0.7
-                x_g = 0.051 * (1 - x**2 * (3 - 2 * x))
-                x_g[x > 1] = 0.0
             setup.tauct_g = x_g
         elif name in ['localized_potential', 'zero_potential']:  # XXX
             setup.vbar_g = x_g

@@ -1,4 +1,4 @@
-# Creates: systems.db
+# web-page: systems.db
 from ase.optimize.test.test import all_optimizers
 from ase.optimize.test.systems import create_database
 

@@ -1,4 +1,4 @@
-# Creates: N2Ru_hollow.png, 2NadsRu.png, TS.xyz
+# web-page: N2Ru_hollow.png, 2NadsRu.png, TS.xyz
 from myqueue.workflow import run
 
 

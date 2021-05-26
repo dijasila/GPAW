@@ -1,3 +1,5 @@
+import pytest
+
 from ase.build import molecule
 
 from gpaw.mpi import world
@@ -36,12 +38,16 @@ def test_old_io(in_tmp_dir):
     assert kss.restrict['eps'] == 0.024
 
 
-def test_io(in_tmp_dir):
+@pytest.fixture
+def ch4():
     ch4 = molecule('CH4')
     ch4.center(vacuum=2)
     ch4.calc = GPAW(h=0.25, nbands=8, txt=None)
     ch4.get_potential_energy()
+    return ch4
 
+
+def test_io(in_tmp_dir, ch4):
     # full KSSingles
     kssfull = KSSingles(restrict={'eps': 0.9})
     kssfull.calculate(ch4)
@@ -72,3 +78,15 @@ def test_io(in_tmp_dir):
     assert len(kss3) == len(kss)
     assert kss3.restrict['istart'] == istart
     assert kss3.restrict['jend'] == jend
+
+
+def test_mul(ch4):
+    """Test multiplication with a number"""
+    istart, jend = 1, 4
+    kss = KSSingles(restrict={'eps': 0.9, 'istart': istart, 'jend': jend})
+    kss.calculate(ch4)
+
+    ks0 = kss[0]
+    ks1 = 1. * ks0
+    assert (ks0.me == ks1.me).all()
+    assert (ks0.magn == ks1.magn).all()

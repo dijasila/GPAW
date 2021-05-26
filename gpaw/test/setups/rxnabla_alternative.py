@@ -3,7 +3,7 @@ from math import sqrt, pi
 import numpy as np
 
 
-def get_magnetic_integrals_new(self, rgd, phi_jg, phit_jg):
+def get_magnetic_integrals_alt(self, rgd, phi_jg, phit_jg):
     """Calculate PAW-correction matrix elements of r x nabla.
 
     ::

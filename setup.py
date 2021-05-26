@@ -20,7 +20,8 @@ assert sys.version_info >= (3, 6)
 
 # Get the current version number:
 txt = Path('gpaw/__init__.py').read_text()
-version = re.search("__version__ = '(.*)'", txt).group(1)
+version = re.search("__version__ = '(.*)'", txt)[1]
+ase_version_required = re.search("__ase_version_required__ = '(.*)'", txt)[1]
 
 description = 'GPAW: DFT and beyond within the projector-augmented wave method'
 long_description = Path('README.rst').read_text()
@@ -34,8 +35,8 @@ for i, arg in enumerate(sys.argv):
     if arg.startswith('--customize='):
         custom = arg.split('=')[1]
         raise DeprecationWarning(
-            'Please set GPAW_CONFIG={custom} or place {custom} in '
-            '~/.gpaw/siteconfig.py'.format(custom=custom))
+            f'Please set GPAW_CONFIG={custom} or place {custom} in ' +
+            '~/.gpaw/siteconfig.py')
 
 libraries = ['xc']
 library_dirs = []
@@ -95,7 +96,7 @@ for siteconfig in [gpaw_config,
             print('Reading configuration from', path)
             exec(path.read_text())
             break
-else:
+else:  # no break
     if not noblas:
         libraries.append('blas')
 
@@ -201,8 +202,9 @@ class build_ext(_build_ext):
 
 
 def copy_gpaw_python(cmd, dir: str) -> None:
-    plat = get_platform() + '-' + '.'.join(sys.version.split('.')[:2])
-    source = 'build/bin.{}/gpaw-python'.format(plat)
+    major, minor = sys.version_info[:2]
+    plat = get_platform() + f'-{major}.{minor}'
+    source = f'build/bin.{plat}/gpaw-python'
     target = os.path.join(dir, 'gpaw-python')
     cmd.copy_file(source, target)
 
@@ -242,7 +244,8 @@ setup(name='gpaw',
       packages=find_packages(),
       entry_points={'console_scripts': ['gpaw = gpaw.cli.main:main']},
       setup_requires=['numpy'],
-      install_requires=['ase>=3.20.1'],
+      install_requires=[f'ase>={ase_version_required}',
+                        'scipy>=1.2.0'],
       ext_modules=extensions,
       scripts=scripts,
       cmdclass=cmdclass,

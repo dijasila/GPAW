@@ -28,7 +28,9 @@ GPAW calculator:
    gw_theory/gw_theory
    defects_theory
    dscf/dscf
+   mom/mom
    pdos/pdos
+   elph/elph
    xas/xas
    densitymix/densitymix
    cmdline

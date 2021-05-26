@@ -3,12 +3,11 @@ import sys
 from functools import partial
 from time import ctime
 
+import gpaw
+import gpaw.mpi as mpi
 import numpy as np
 from ase.units import Ha
 from ase.utils.timing import Timer, timer
-
-import gpaw.mpi as mpi
-from gpaw import extra_parameters
 from gpaw.blacs import BlacsDescriptor, BlacsGrid, Redistributor
 from gpaw.bztools import convex_hull_volume
 from gpaw.kpt_descriptor import KPointDescriptor
@@ -125,7 +124,8 @@ class Chi0:
                  disable_point_group=False, disable_time_reversal=False,
                  disable_non_symmorphic=True,
                  integrationmode=None,
-                 pbc=None, rate=0.0, eshift=0.0):
+                 pbc=None, rate=0.0, eshift=0.0,
+                 paw_correction='brute-force'):
         """Construct Chi0 object.
 
         Parameters
@@ -217,7 +217,9 @@ class Chi0:
                                 ftol, threshold,
                                 real_space_derivatives, world, txt,
                                 self.timer,
-                                nblocks=nblocks, gate_voltage=gate_voltage)
+                                nblocks=nblocks,
+                                gate_voltage=gate_voltage,
+                                paw_correction=paw_correction)
 
         self.disable_point_group = disable_point_group
         self.disable_time_reversal = disable_time_reversal
@@ -378,7 +380,7 @@ class Chi0:
 
         self.print_chi(pd)
 
-        if extra_parameters.get('df_dry_run'):
+        if gpaw.dry_run:
             print('    Dry run exit', file=self.fd)
             raise SystemExit
 
@@ -1096,9 +1098,9 @@ class Chi0:
         calc = self.calc
         gd = calc.wfs.gd
 
-        if extra_parameters.get('df_dry_run'):
+        if gpaw.dry_run:
             from gpaw.mpi import SerialCommunicator
-            size = extra_parameters['df_dry_run']
+            size = gpaw.dry_run
             world = SerialCommunicator()
             world.size = size
         else:
