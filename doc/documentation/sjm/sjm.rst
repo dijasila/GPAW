@@ -16,7 +16,7 @@ The potential is controlled by a simple iterative technique; in practice if you 
 For a practical guide on the use of the method, please see the :ref:`solvated_jellium_method` tutorial.
 
 
-Theorytical background
+Theoretical background
 ======================
 
 The philosophy of the solvated jellium method is to construct the simplest model that captures the physics of interest, without introducing spurious effects.
@@ -44,8 +44,15 @@ The :class:`~gpaw.jellium.JelliumSlab` also increases the number of electrons in
 When you run a simulation, you should see that these excess electrons localize on the right side of the metal atoms that simulate the electrode surface, and not on the left, which simulates the bulk.
 This is accomplished by only putting the jellium region on one side of the simulation, and employing a dipole correction (included by default when you run SJM) to decouple the two sides of the cell.
 
+
+.. image:: electrons.png
+           :height: 250 px
+           :align: center
+
+FIXME/ap: Add in image of excess electrons and where they localize.
+
 The jellium region is conventionally thought of as a region of smeared-out positive charge, accompanied by a positive number of electrons.
-However, the signs can readily be reversed, making the jellium region a smeared-out negative region accompanied by a negative number of electrons.
+However, the signs can readily be reversed, making the jellium region a smeared-out negative region accompanied by a reduction in the total number of electrons.
 In this way, the same tool can be used to perturb the electrons in either a positive or negative direction, and thus vary the potential in either direction in order to find its target.
 Note also that the jellium region is not overlapping any atoms, separating this from approaches that employ a homogeneous background charge throughout the unit cell (in which spurious interactions can occur).
 This is important to not distort the electronic structure of the atoms and molecules being simulated.
