@@ -129,13 +129,13 @@ class Coefficients:
                 homo, lumo = self.wfs.get_homo_lumo(s)
                 # Check that homo and lumo are reasonable
                 if homo > lumo:
-                    m = ("GLLBSC error: HOMO is higher than LUMO. "
-                         "Are you using `xc='GLLBSC'` for a metallic system? "
-                         "If yes, try using `xc='GLLBSCM'` instead.")
-                    raise RuntimeError(m)
-
-                eref_s.append(homo)
-                eref_lumo_s.append(lumo)
+                    # HOMO higher than LUMO; set Fermi level as reference
+                    fermilevel = self.wfs.fermi_level
+                    eref_s.append(fermilevel)
+                    eref_lumo_s.append(fermilevel)
+                else:
+                    eref_s.append(homo)
+                    eref_lumo_s.append(lumo)
         else:
             eref_s, eref_lumo_s = homolumo
             if not isinstance(eref_s, (list, tuple, np.ndarray)):
