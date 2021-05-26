@@ -341,4 +341,3 @@ class MagneticMomentWriter(TDDFTObserver):
     def __del__(self):
         if self.master:
             self.fd.close()
-        TDDFTObserver.__del__(self)
