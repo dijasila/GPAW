@@ -162,6 +162,7 @@ class Hamiltonian:
         """
         Returns the work functions, in Hartree, for a dipole-corrected
         simulation. Returns None if no dipole correction is present.
+        (fermilevel can be obtained from calc.wfs.fermi_level.)
         """
         try:
             dipole_correction = self.poisson.correction
@@ -185,7 +186,7 @@ class Hamiltonian:
 
         wf1 = vacuum - fermilevel + dipole_correction
         wf2 = vacuum - fermilevel - dipole_correction
-        return wf1, wf2
+        return np.array([wf1, wf2])
 
     def set_positions_without_ruining_everything(self, spos_ac,
                                                  atom_partition):
@@ -301,9 +302,10 @@ class Hamiltonian:
 
             if setup.HubU is not None:
                 # assert self.collinear
-                eU, dHU_sp = hubbard(setup, D_sp)
-                e_xc += eU
-                dH_sp += dHU_sp
+                for l, U, scale in zip(setup.Hubl, setup.HubU, setup.Hubs):
+                    eU, dHU_sp = hubbard(setup, D_sp, l, U, scale)
+                    e_xc += eU
+                    dH_sp += dHU_sp
 
             dH_sp[:self.nspins] += dH_p
 

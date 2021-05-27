@@ -605,48 +605,45 @@ electron more than the neutral).
 Accuracy of the self-consistency cycle
 --------------------------------------
 
-The ``convergence`` keyword is used to set the convergence criteria.
-The default value is this Python dictionary::
+The ``convergence`` keyword is used to set the convergence criteria
+for the SCF cycle.
+The default value is this dictionary::
 
   {'energy': 0.0005,  # eV / electron
-   'density': 1.0e-4,
+   'density': 1.0e-4,  # electrons / electron
    'eigenstates': 4.0e-8,  # eV^2 / electron
-   'bands': 'occupied',
-   'workfunction': float('inf'),  # eV
-   'forces': float('inf')} # eV / Ang Max
+   'bands': 'occupied'}
 
 In words:
 
 * The energy change (last 3 iterations) should be less than 0.5 meV
-  per valence electron.
+  per valence electron. (See :class:`~gpaw.scf.Energy`.)
 
 * The change in density (integrated absolute value of density change)
-  should be less than 0.0001 electrons per valence electron.
+  should be less than 0.0001 electrons per valence electron. (See
+  :class:`~gpaw.scf.Density`.)
 
 * The integrated value of the square of the residuals of the Kohn-Sham
-  equations should be less than `4.0 \times 10^{-8}
-  \mathrm{eV}^2` per valence electron. This criterion does not affect LCAO
-  calculations.
+  equations should be less than 4.0 `\times` 10\ :sup:`-8` eV\ :sup:`2`
+  per valence electron. This criterion does not affect LCAO
+  calculations.  (See :class:`~gpaw.scf.Eigenstates`.)
 
-* The difference in the work function across the last three self-consistency
-  cycles should be no more than that specified by the workfunction keyword.
-  This only applies when a dipole correction is employed. The default is
-  to set it to infinity, which disables this setting.
+* Only the bands that are occupied with electrons are converged.
 
-* The maximum change in the magnitude of the vector representing the
-  difference in forces for each atom.  Setting this to infinity (default)
-  disables this functionality, saving computational time and memory usage.
-  To save computations, force convergence is not checked until after all
-  other convergence criteria are satisfied.
+If only a partial dictionary is provided, the remaining criteria will be set
+to their default values.
+E.g., ``convergence={'energy': 0.0001}`` will set the convergence criterion
+of energy to 0.1 meV and place all other criteria at their defaults.
 
-The individual criteria can be changed by giving only the specific
-entry of dictionary e.g. ``convergence={'energy': 0.0001}`` would set
-the convergence criteria of energy to 0.1 meV while other criteria
-remain in their default values.
+Additional keywords, including ``'forces'``, ``'work function'``,
+and ``'minimum iterations'``, can be set.
+You can also write your own criteria, and change other things about
+how the default criteria operate. See :ref:`custom_convergence` for
+details on additional keywords and customization.
 
 As the total energy and charge density depend only on the occupied
 states, unoccupied states do not contribute to the convergence
-criteria.  However, with the ``bands`` set to ``'all'``, it is
+criteria.  However, with the ``'bands'`` set to ``'all'``, it is
 possible to force convergence also for the unoccupied states.  One can
 also use ``{'bands': 200}`` to converge the lowest 200 bands. One can
 also write ``{'bands': -10}`` to converge all bands except the last
@@ -661,9 +658,10 @@ up to the conduction band minimum plus 5.0 eV should be converged
 Maximum number of SCF-iterations
 --------------------------------
 
-The calculation will stop with an error if convergence is not reached
-in ``maxiter`` self-consistent iterations.
-
+The calculation will stop with an error if convergence is not reached in
+``maxiter`` self-consistent iterations. You can also set a minimum number of
+iterations by employing a
+:ref:`custom convergence criterion <custom_convergence>`.
 
 .. _manual_txt:
 
@@ -771,7 +769,7 @@ There exist three special names that, if used, do not specify a file name:
   see :ref:`ghost-atoms`.
 
 .. _SG15 optimized norm-conserving Vanderbilt pseudopotentials:
-    http://fpmd.ucdavis.edu/qso/potentials/sg15_oncv/
+    http://www.quantum-simulation.org/potentials/sg15_oncv/
 
 If a dictionary contains both chemical element specifications *and*
 atomic number specifications, the latter is dominant.

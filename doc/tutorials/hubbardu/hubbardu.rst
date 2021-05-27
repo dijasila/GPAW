@@ -111,6 +111,24 @@ Here are the resulting 2p-splitting:
 (see also :download:`check.py`).
 
 
+Scaling the Hubbard correction
+==============================
+
+It is also possible to set multiple U corrections to a single element 
+as follows::
+
+    setups={'Ni':':d,4.0,0;p,2.0,0'}
+
+This allows for multiple orbitals to be corrected at the same time 
+which may be useful in some transition metals or lanthanides.
+
+.. warning::
+    While this feature should be working, it is mostly untested in
+    real applications.  Most codes do not support multiple U
+    corrections to the same element, so finding comparisons may be
+    difficult.
+
+
 References
 ==========
 

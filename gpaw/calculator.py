@@ -36,7 +36,7 @@ from gpaw.matrix import suggest_blocking
 from gpaw.occupations import ParallelLayout, create_occ_calc
 from gpaw.output import (print_cell, print_parallelization_details,
                          print_positions)
-from gpaw.scf import SCFLoop
+from gpaw.scf import SCFLoop, dict2criterion
 from gpaw.setup import Setups
 from gpaw.stress import calculate_stress
 from gpaw.symmetry import Symmetry
@@ -91,11 +91,9 @@ class GPAW(Calculator):
                      'tolerance': 1e-7,
                      'do_not_symmetrize_the_density': None},  # deprecated
         'convergence': {'energy': 0.0005,  # eV / electron
-                        'density': 1.0e-4,
-                        'eigenstates': 4.0e-8,  # eV^2
-                        'bands': 'occupied',
-                        'forces': np.inf,  # eV / Ang
-                        'workfunction': np.inf},  # eV
+                        'density': 1.0e-4,  # electrons / electron
+                        'eigenstates': 4.0e-8,  # eV^2 / electron
+                        'bands': 'occupied'},
         'verbose': 0,
         'fixdensity': False,  # deprecated
         'dtype': None}  # deprecated
@@ -450,7 +448,7 @@ class GPAW(Calculator):
             if key != 'txt' and key not in self.default_parameters:
                 raise TypeError('Unknown GPAW parameter: {}'.format(key))
 
-            if key in ['convergence', 'symmetry',
+            if key in ['symmetry',
                        'experimental'] and isinstance(kwargs[key], dict):
                 # For values that are dictionaries, verify subkeys, too.
                 default_dict = self.default_parameters[key]
@@ -529,13 +527,7 @@ class GPAW(Calculator):
             elif key in ['basis']:
                 self.wfs = None
             else:
-                # raise TypeError('Unknown keyword argument: "%s"' % key)
-                # TODO(AP) I don't think this error is really necessary for
-                # the code. I guess it's to ensure good coding when one
-                # adds new keywords? I.e., if the user does feed in a bad
-                # keyword, it's already caught at the very top of this
-                # routine when its looked at versus default_parameters.
-                pass
+                raise TypeError('Unknown keyword argument: "%s"' % key)
 
     def initialize_positions(self, atoms=None):
         """Update the positions of the atoms."""
@@ -756,8 +748,24 @@ class GPAW(Calculator):
             raise ValueError('Too few bands!  Electrons: %f, bands: %d'
                              % (nvalence, nbands))
 
+        # Gather convergence criteria for SCF loop.
+        criteria = self.default_parameters['convergence'].copy()  # keep order
+        criteria.update(par.convergence)
+        custom = criteria.pop('custom', [])
+        del criteria['bands']
+        for name, criterion in criteria.items():
+            if not hasattr(criterion, 'todict'):
+                criteria[name] = dict2criterion({name: criterion})
+
+        if not isinstance(custom, (list, tuple)):
+            custom = [custom]
+        for criterion in custom:
+            if isinstance(criterion, dict):  # from .gpw file
+                criterion = dict2criterion(criterion)
+            criteria[criterion.name] = criterion
+
         if self.scf is None:
-            self.create_scf(nvalence, mode)
+            self.create_scf(criteria, mode)
 
         if not collinear:
             nbands *= 2
@@ -923,28 +931,20 @@ class GPAW(Calculator):
         self.log(occ)
         return occ
 
-    def create_scf(self, nvalence, mode):
+    def create_scf(self, criteria, mode):
         # if mode.name == 'lcao':
         #     niter_fixdensity = 0
         # else:
         #     niter_fixdensity = 2
 
-        nv = max(nvalence, 1)
-        cc = self.parameters.convergence
         self.scf = SCFLoop(
-            eigenstates=cc.get('eigenstates', 4.0e-8) / Ha**2 * nv,
-            energy=cc.get('energy', 0.0005) / Ha * nv,
-            density=cc.get('density', 1.0e-4) * nv,
-            force=cc.get('forces', np.inf) / (Ha / Bohr),
-            workfunction=cc.get('workfunction', np.inf) / Ha,
-            maxiter=self.parameters.maxiter,
+            criteria,
+            self.parameters.maxiter,
             # XXX make sure niter_fixdensity value is *always* set from default
             # Subdictionary defaults seem to not be set when user provides
             # e.g. {}.  We should change that so it works like the ordinary
             # parameters.
-            niter_fixdensity=self.parameters.experimental.get(
-                'niter_fixdensity', 0),
-            nvalence=nv)
+            self.parameters.experimental.get('niter_fixdensity', 0))
         self.log(self.scf)
 
     def create_symmetry(self, magmom_av, cell_cv, reading):
@@ -1288,13 +1288,13 @@ class GPAW(Calculator):
         self.hamiltonian.linearize_to_xc(newxc, self.density)
 
     def attach(self, function, n=1, *args, **kwargs):
-        """Register observer function.
+        """Register observer function to run during the SCF cycle.
 
         Call *function* using *args* and
         *kwargs* as arguments.
 
         If *n* is positive, then
-        *function* will be called every *n* iterations + the
+        *function* will be called every *n* SCF iterations + the
         final iteration if it would not be otherwise
 
         If *n* is negative, then *function* will only be

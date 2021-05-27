@@ -236,8 +236,22 @@ class PointChargePotential(ExternalPotential):
 class CDFTPotential(ExternalPotential):
     # Dummy class to make cDFT compatible with new external
     # potential class ClassName(object):
-    def __init__(self):
+    def __init__(self, regions, constraints, n_charge_regions,
+                 difference):
+
         self.name = 'CDFTPotential'
+        self.regions = regions
+        self.constraints = constraints
+        self.difference = difference
+        self.n_charge_regions = n_charge_regions
+
+    def todict(self):
+        return {'name': 'CDFTPotential',
+                # 'regions': self.indices_i,
+                'constraints': self.v_i * Hartree,
+                'n_charge_regions': self.n_charge_regions,
+                'difference': self.difference,
+                'regions': self.regions}
 
 
 class StepPotentialz(ExternalPotential):
