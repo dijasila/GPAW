@@ -24,6 +24,23 @@ def calculate_fourier_transform(x_t, y_ti, foldedfrequencies):
 
 
 def read_td_file_data(fname, remove_duplicates=True):
+    """Read data from time-dependent data file.
+
+    Parameters
+    ----------
+    fname
+        File path
+    remove_duplicates
+        If true, remove data from overlapping time values.
+        The first encountered values are kept.
+
+    Returns
+    -------
+    time_t
+        Array of time values
+    data_ti
+        Array of data values
+    """
     # Read data
     data_tj = np.loadtxt(fname)
     time_t = data_tj[:, 0]
@@ -47,6 +64,20 @@ def read_td_file_data(fname, remove_duplicates=True):
 
 
 def read_td_file_kicks(fname):
+    """Read kicks from time-dependent data file.
+
+    Parameters
+    ----------
+    fname
+        File path
+
+    Returns
+    -------
+    kick_i
+        List of kicks.
+        Each kick is a dictionary with keys
+        ``strength_v`` and ``time``.
+    """
     def parse_kick_line(line):
         # Kick
         regexp = (r"Kick = \["
@@ -77,6 +108,33 @@ def read_td_file_kicks(fname):
 
 
 def clean_td_data(kick_i, time_t, data_ti):
+    """Prune time-dependent data.
+
+    This function checks that there is only one kick
+    in the kick list and moves time zero to the kick
+    time (discarding all preceding data).
+
+    Parameters
+    ----------
+    kick_i
+        List of kicks.
+    time_t
+        Array of time values
+    data_ti
+        Array of data values
+
+    Returns
+    -------
+    kick_i
+        List of kicks.
+        Each kick is a dictionary with keys
+        ``strength_v`` and ``time``.
+
+    Raises
+    ------
+    RuntimeError
+        If kick list contains multiple kicks.
+    """
     # Check kicks
     if len(kick_i) > 1:
         raise RuntimeError('Multiple kicks')
@@ -93,6 +151,29 @@ def clean_td_data(kick_i, time_t, data_ti):
 
 
 def read_dipole_moment_file(fname, remove_duplicates=True):
+    """Read time-dependent dipole moment data file.
+
+    Parameters
+    ----------
+    fname
+        File path
+    remove_duplicates
+        If true, remove data from overlapping time values.
+        The first encountered values are kept.
+
+    Returns
+    -------
+    kick_i
+        List of kicks.
+        Each kick is a dictionary with keys
+        ``strength_v`` and ``time``.
+    time_t
+        Array of time values
+    norm_t
+        Array of norm values
+    dm_tv
+        Array of dipole moment values
+    """
     time_t, data_ti = read_td_file_data(fname, remove_duplicates)
     kick_i = read_td_file_kicks(fname)
     norm_t = data_ti[:, 0]
@@ -119,6 +200,27 @@ def calculate_photoabsorption(kick_v, time_t, dm_tv, foldedfrequencies):
 
 
 def read_magnetic_moment_file(fname, remove_duplicates=True):
+    """Read time-dependent magnetic moment data file.
+
+    Parameters
+    ----------
+    fname
+        File path
+    remove_duplicates
+        If true, remove data from overlapping time values.
+        The first encountered values are kept.
+
+    Returns
+    -------
+    kick_i
+        List of kicks.
+        Each kick is a dictionary with keys
+        ``strength_v`` and ``time``.
+    time_t
+        Array of time values
+    mm_tv
+        Array of magnetic moment values
+    """
     time_t, mm_tv = read_td_file_data(fname, remove_duplicates)
     kick_i = read_td_file_kicks(fname)
     return kick_i, time_t, mm_tv
