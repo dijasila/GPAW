@@ -3,6 +3,7 @@ import numpy as np
 
 from ase.units import Bohr
 from gpaw.fd_operators import Gradient
+from gpaw.typing import ArrayLike
 from gpaw.utilities.tools import coordinates
 from gpaw.lcaotddft.observer import TDDFTObserver
 from gpaw.lcaotddft.densitymatrix import DensityMatrix
@@ -10,6 +11,27 @@ from gpaw.lcaotddft.densitymatrix import DensityMatrix
 
 def calculate_mm_on_grid(wfs, grad_v, r_cG, dX0_caii, timer,
                          only_pseudo=False):
+    """Calculate magnetic moment on grid.
+
+    Parameters
+    ----------
+    wfs
+        Wave functions object
+    grad_v
+        List of gradient operators
+    r_cG
+        Grid point coordinates
+    dX0_caii
+        PAW corrections
+    timer
+        Timer object
+    only_pseudo
+        If true, do not add PAW corrections
+
+    Returns
+    -------
+    Magnetic moment vector.
+    """
     gd = wfs.gd
     mode = wfs.mode
     bd = wfs.bd
@@ -69,6 +91,21 @@ def calculate_mm_on_grid(wfs, grad_v, r_cG, dX0_caii, timer,
 
 
 def get_dX0(Ra_a, setups, partition):
+    """Calculate PAW corrections for magnetic moment.
+
+    Parameters
+    ----------
+    Ra_a
+        Atom positions
+    setups
+        PAW setups object
+    partition
+        Partition object
+
+    Returns
+    -------
+    PAW corrections.
+    """
     # augmentation contributions to magnetic moment
     # <psi1| r x nabla |psi2> = <psi1| (r - Ra + Ra) x nabla |psi2>
     #                         = <psi1| (r - Ra) x nabla |psi2>
@@ -106,6 +143,27 @@ def get_dX0(Ra_a, setups, partition):
 
 
 def calculate_E(dX0_caii, kpt_u, bfs, correction, r_cG, only_pseudo=False):
+    """Calculate magnetic moment matrix in LCAO basis.
+
+    Parameters
+    ----------
+    dX0_caii
+        PAW corrections
+    kpt_u
+        K-points
+    bfs
+        Basis functions object
+    correction
+        Correction object
+    r_cG
+        Grid point coordinates
+    only_pseudo
+        If true, do not add PAW corrections
+
+    Returns
+    -------
+    Magnetic moment matrix.
+    """
     Mstart = correction.Mstart
     Mstop = correction.Mstop
     mynao = Mstop - Mstart
@@ -176,10 +234,47 @@ class SerialEMatrix:
 
 
 class MagneticMomentWriter(TDDFTObserver):
+    """Observer for writing time-dependent magnetic moment data.
+
+    The data is written in atomic units.
+
+    The observer attaches to the TDDFT calculator during creation.
+
+    Parameters
+    ----------
+    paw
+        TDDFT calculator
+    filename
+        File for writing magnetic moment data
+    origin
+        Origin of the coordinate system used in calculation.
+        Possible values:
+        ``'COM'``: center of mass (default)
+        ``'COC'``: center of cell
+        ``'zero'``: (0, 0, 0)
+    origin_shift
+        Vector in Å shifting the origin from the position defined
+        by :attr:`origin`
+    calculate_on_grid
+        Parameter for testing.
+        In LCAO mode, if true, calculation is performed on real-space grid.
+        In fd mode, calculation is always performed on real-space grid
+        and this parameter is neglected.
+    only_pseudo
+        Parameter for testing.
+        If true, PAW corrections are neglected.
+    interval
+        Update interval. Value of 1 corresponds to evaluating and
+        writing data after every propagation step.
+    """
     version = 3
 
-    def __init__(self, paw, filename, origin=None, origin_shift=None,
-                 calculate_on_grid=False, only_pseudo=False, interval=1):
+    def __init__(self, paw, filename: str, *,
+                 origin: str = None,
+                 origin_shift: ArrayLike = None,
+                 calculate_on_grid: bool = False,
+                 only_pseudo: bool = False,
+                 interval: int = 1):
         TDDFTObserver.__init__(self, paw, interval)
         self.master = paw.world.rank == 0
         if paw.niter == 0:
@@ -194,7 +289,7 @@ class MagneticMomentWriter(TDDFTObserver):
                 self.fd = open(filename, 'w')
         else:
             # Read and continue
-            self.read_header(filename)
+            self._read_header(filename)
             if self.master:
                 self.fd = open(filename, 'a')
 
@@ -279,7 +374,7 @@ class MagneticMomentWriter(TDDFTObserver):
                  % ('time', 'cmx', 'cmy', 'cmz'))
         self._write(line)
 
-    def read_header(self, filename):
+    def _read_header(self, filename):
         with open(filename, 'r') as f:
             line = f.readline()
         regexp = r"^(?P<name>\w+)\[version=(?P<version>\d+)\]\((?P<args>.*)\)$"
@@ -310,7 +405,7 @@ class MagneticMomentWriter(TDDFTObserver):
         line += 'Time = %.8lf\n' % time
         self._write(line)
 
-    def calculate_mm(self, paw):
+    def _calculate_mm(self, paw):
         if self.calculate_on_grid:
             mm_c = calculate_mm_on_grid(paw.wfs, self.grad_v, self.r_cG,
                                         self.dX0_caii, self.timer,
@@ -325,7 +420,7 @@ class MagneticMomentWriter(TDDFTObserver):
 
     def _write_mm(self, paw):
         time = paw.time
-        mm = self.calculate_mm(paw)
+        mm = self._calculate_mm(paw)
         line = ('%20.8lf %22.12le %22.12le %22.12le\n' %
                 (time, mm[0], mm[1], mm[2]))
         self._write(line)
