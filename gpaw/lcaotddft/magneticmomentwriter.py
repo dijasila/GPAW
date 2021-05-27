@@ -202,35 +202,27 @@ def calculate_E(dX0_caii, kpt_u, bfs, correction, r_cG, only_pseudo=False):
     return E_cmM
 
 
-def calculate_mm_from_rho_and_e(rho_xx, E_cxx):
-    assert E_cxx.dtype == float
-    return np.sum(rho_xx.imag * E_cxx, axis=(1, 2))
+def calculate_mm_lcao(ksl, rho_mm, E_cmm):
+    """Calculate magnetic moment in LCAO.
 
+    Parameters
+    ----------
+    ksl
+        Kohn-Sham Layouts object
+    rho_mm
+        Density matrix in LCAO basis
+    E_cmm
+        Magnetic moment matrix in LCAO basis
 
-class BlacsEMatrix:
-    def __init__(self, ksl, E_cmm):
-        self.ksl = ksl
-        self.E_cmm = E_cmm
-
-    @classmethod
-    def redist_from_raw(cls, ksl, E_cmM):
-        assert ksl.using_blacs
-        E_cmm = ksl.distribute_overlap_matrix(E_cmM)
-        return BlacsEMatrix(ksl, E_cmm)
-
-    def calculate_mm(self, rho_mm):
-        mm_c = calculate_mm_from_rho_and_e(rho_mm, self.E_cmm)
-        self.ksl.mmdescriptor.blacsgrid.comm.sum(mm_c)
-        return mm_c
-
-
-class SerialEMatrix:
-    def __init__(self, ksl, E_cMM):
-        self.ksl = ksl
-        self.E_cMM = E_cMM
-
-    def calculate_mm(self, rho_MM):
-        return calculate_mm_from_rho_and_e(rho_MM, self.E_cMM)
+    Returns
+    -------
+    Magnetic moment vector.
+    """
+    assert E_cmm.dtype == float
+    mm_c = np.sum(rho_mm.imag * E_cmm, axis=(1, 2))
+    if ksl.using_blacs:
+        ksl.mmdescriptor.blacsgrid.comm.sum(mm_c)
+    return mm_c
 
 
 class MagneticMomentWriter(TDDFTObserver):
@@ -345,10 +337,10 @@ class MagneticMomentWriter(TDDFTObserver):
             self.dmat = DensityMatrix(paw)  # XXX
             ksl = paw.wfs.ksl
             if ksl.using_blacs:
-                self.e_matrix = BlacsEMatrix.redist_from_raw(ksl, E_cmM)
+                self.E_cmm = ksl.distribute_overlap_matrix(E_cmM)
             else:
                 gd.comm.sum(E_cmM)
-                self.e_matrix = SerialEMatrix(ksl, E_cmM)
+                self.E_cmm = E_cmM
 
     def _write(self, line):
         if self.master:
@@ -412,8 +404,8 @@ class MagneticMomentWriter(TDDFTObserver):
                                         only_pseudo=self.only_pseudo)
         else:
             u = 0
-            rho_MM = self.dmat.get_density_matrix((paw.niter, paw.action))[u]
-            mm_c = self.e_matrix.calculate_mm(rho_MM)
+            rho_mm = self.dmat.get_density_matrix((paw.niter, paw.action))[u]
+            mm_c = calculate_mm_lcao(paw.wfs.ksl, rho_mm, self.E_cmm)
         assert mm_c.shape == (3,)
         assert mm_c.dtype == float
         return mm_c
