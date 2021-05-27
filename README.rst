@@ -101,7 +101,7 @@ look at the GPAW exercises_ and tutorials_.
 .. _NumPy: http://docs.scipy.org/doc/numpy/reference/
 .. _SciPy: http://docs.scipy.org/doc/scipy/reference/
 .. _gpaw-users: https://listserv.fysik.dtu.dk/mailman/listinfo/gpaw-users
-.. _Matrix: https://matrix.to/#/#gpaw:matrix.org
+.. _Matrix: https://matrix.io/#/#gpaw:matrix.org
 .. _gitlab-issues: https://gitlab.com/gpaw/gpaw/issues
 .. _exercises: https://wiki.fysik.dtu.dk/gpaw/exercises/exercises.html
 .. _tutorials: https://wiki.fysik.dtu.dk/gpaw/tutorials/tutorials.html
