@@ -883,8 +883,8 @@ class WLDA(XCFunctional):
             e[:] += 0.5 * wn_g * ex
         v += ex
         t1 = rs * dexdrs / 3.
-        ratio = wn_g / nstar_g
-        ratio[np.isclose(nstar_g, 0.0, atol=1e-8)] = 0.0
+        ratio = self.regularize(wn_g / nstar_g)
+        # ratio[np.isclose(nstar_g, 0.0, atol=1e-8)] = 0.0
         v += self.fold_with_derivative(-t1 * ratio,
                                        wn_g, my_alpha_indices, 0, wn_g[np.newaxis])
 
