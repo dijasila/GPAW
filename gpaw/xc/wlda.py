@@ -883,13 +883,13 @@ class WLDA(XCFunctional):
             e[:] += 0.5 * wn_g * ex
         v += ex
         t1 = rs * dexdrs / 3.
-        ratio = self.regularize(wn_g / nstar_g)
+        ratio = self.regularize(wn_g, nstar_g, divergent=False)
         # ratio[np.isclose(nstar_g, 0.0, atol=1e-8)] = 0.0
         v += self.fold_with_derivative(-t1 * ratio,
                                        wn_g, my_alpha_indices, 0, wn_g[np.newaxis])
 
 
-    def regularize(self, f_sg):
+    def regularize(self, n1_sg, n2_sg, divergent):
         # fd = lambda x : 1 / (np.exp((x - self.mu) / (self.T) ) + 1)
         # def fermi(n_sg):
         #     inds = (n_sg - self.mu) / self.T > 10**2
@@ -901,8 +901,14 @@ class WLDA(XCFunctional):
         #     return res_sg
 
         # return f_sg * fermi(f_sg)
-        f_sg[np.isclose(f_sg, 0.0, atol=1e-8)] = 0.0
-        return f_sg
+        mask = np.logical_and(np.isclose(n1_sg, 0.0, atol=1e-8),
+                              np.isclose(n2_sg, 0.0, atol=1e-8))
+        ratio = n1_sg / n2_sg
+        if divergent:
+            ratio[mask] = 1e8
+        else:
+            ratio[mask] = 1e-8
+        return ratio
 
     def lda_x1(self, spin, e, wn_g, nstar_g, v, my_alpha_indices):
         """Apply the WLDA-2 exchange functional.
@@ -921,7 +927,7 @@ class WLDA(XCFunctional):
         else:
             e[:] += 0.5 * nstar_g * ex
         v += self.fold_with_derivative(ex, wn_g, my_alpha_indices, 0, wn_g[np.newaxis])
-        ratio = self.regularize(nstar_g / wn_g)
+        ratio = self.regularize(nstar_g, wn_g, divergent=True)
         # ratio *= fermi(ratio)
         # ratio[np.isclose(wn_g, 0.0, atol=1e-4)] = 0.0
         v -= rs * dexdrs / 3 * ratio
@@ -964,7 +970,7 @@ class WLDA(XCFunctional):
         if spin == 0:
             e[:] += wntotal_g * ec
             v += ec
-            ratio = self.regularize(wn_sg / nstar_sg)
+            ratio = self.regularize(wn_sg, nstar_sg, divergent=False)
             # ratio[np.isclose(nstar_sg, 0.0)] = 0.0
             v -= self.fold_with_derivative(rs * decdrs_0 / 3. * ratio[0],
                                            wntotal_g, my_alpha_indices, None, self.alphadensity_g)
@@ -994,7 +1000,7 @@ class WLDA(XCFunctional):
             ec += alpha * IF2 * f * x + (e1 - ec) * f * zeta4
             e[:] += wntotal_g * ec
 
-            ratio = self.regularize(wntotal_g / nstar_sg.sum(axis=0))
+            ratio = self.regularize(wntotal_g, nstar_sg.sum(axis=0), divergent=False)
             # ratio[np.isclose(nstar_sg.sum(axis=0), 0.0)] = 0.0
             v[0] += ec
             v[0] -= self.fold_with_derivative_for_spinpol((rs * decdrs / 3.0
@@ -1039,7 +1045,7 @@ class WLDA(XCFunctional):
         if spin == 0:
             e[:] += nstar_sg.sum(axis=0) * ec
             v += self.fold_with_derivative(ec, wntotal_g, my_alpha_indices, None, self.alphadensity_g)
-            ratio = self.regularize(nstar_sg.sum(axis=0) / wntotal_g)
+            ratio = self.regularize(nstar_sg.sum(axis=0), wntotal_g, divergent=True)
             # ratio[np.isclose(wntotal_g, 0.0)] = 0.0
             v -= rs * decdrs_0 / 3. * ratio
         else:
@@ -1069,7 +1075,7 @@ class WLDA(XCFunctional):
             e[:] += nstar_sg.sum(axis=0) * ec
             assert len(ec.shape) == 3
 
-            ratio = self.regularize(nstar_sg.sum(axis=0) / wntotal_g)
+            ratio = self.regularize(nstar_sg.sum(axis=0), wntotal_g, divergent=True)
             # ratio[np.isclose(wntotal_g, 0.0)] = 0.0
 
             v[0] += self.fold_with_derivative_for_spinpol(ec, wntotal_g,
@@ -1725,7 +1731,7 @@ class WLDA(XCFunctional):
 
         v_g += ex
         t1 = rs * dexdrs / 3.0
-        ratio = self.regularize(n_g / nstar_g)
+        ratio = self.regularize(n_g, nstar_g, divergent=False)
         # ratio[np.isclose(nstar_g, 0.0)] = 0.0
         v_g += self.radial_derivative_fold(-t1 * ratio, n_g, spinindex)
 
@@ -1743,7 +1749,7 @@ class WLDA(XCFunctional):
 
             v_sg[0, :] += ec
             t1 = rs * decdrs_0 / 3.0
-            ratio = self.regularize(ntotal_g / nstar_sg.sum(axis=0))
+            ratio = self.regularize(ntotal_g, nstar_sg.sum(axis=0), divergent=False)
             # ratio[np.isclose(nstar_sg.sum(axis=0), 0.0)] = 0.0
             v_sg[0, :] += self.radial_derivative_fold3(-t1 * ratio, ntotal_g, 
                                                    0, 0, self.ti_ag, self.dti_ag)
@@ -1776,7 +1782,7 @@ class WLDA(XCFunctional):
             e_g[:] += ntotal_g * ec
             t1 = rs * decdrs / 3.0 - (zeta - 1.0) * decdzeta
             t2 = rs * decdrs / 3.0 - (zeta + 1.0) * decdzeta
-            ratio = self.regularize(ntotal_g / nstar_sg.sum(axis=0))
+            ratio = self.regularize(ntotal_g, nstar_sg.sum(axis=0), divergent=False)
             # ratio[np.isclose(nstar_sg.sum(axis=0), 0.0)] = 0.0
 
             
@@ -1816,7 +1822,7 @@ class WLDA(XCFunctional):
             e_g[:] += 0.5 * nstar_g * ex
 
         v_g[:] += self.radial_derivative_fold(ex, n_g, spinindex)
-        ratio = self.regularize(nstar_g / n_g)
+        ratio = self.regularize(nstar_g, n_g, divergent=True)
         # ratio[np.isclose(n_g, 0.0)] = 0.0
         v_g[:] += -rs * dexdrs / 3.0 * ratio * \
             np.logical_not(np.isclose(rs * dexdrs / 3.0, 0.0))
@@ -1835,7 +1841,7 @@ class WLDA(XCFunctional):
             e_g[:] += ec * nstar_sg.sum(axis=0)
             v_sg[0, :] += self.radial_derivative_fold3(ec, ntotal_g, 0, 0, 
                                                        self.ti_ag, self.dti_ag)
-            ratio = self.regularize(nstar_sg.sum(axis=0) / ntotal_g)
+            ratio = self.regularize(nstar_sg.sum(axis=0), ntotal_g, divergent=True)
             # ratio[np.isclose(ntotal_g, 0.0)] = 0.0
             v_sg[0, :] += -rs * decdrs_0 / 3.0 * ratio * \
                           np.logical_not(np.isclose(rs * decdrs_0 / 3.0, 0.0))
@@ -1865,7 +1871,7 @@ class WLDA(XCFunctional):
             ec += alpha * IF2 * f * x + (e1 - ec) * f * zeta4
             e_g[:] += nstar_sg.sum(axis=0) * ec
 
-            ratio = self.regularize(nstar_sg.sum(axis=0) / ntotal_g)
+            ratio = self.regularize(nstar_sg.sum(axis=0), ntotal_g, divergent=True)
             # ratio[np.isclose(ntotal_g, 0.0)] = 0.0
 
             v_sg[0] += self.radial_derivative_fold3(ec, ntotal_g, 0, 0, self.ti_ag, self.dti_ag) 
