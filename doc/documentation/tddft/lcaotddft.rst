@@ -536,3 +536,6 @@ Code documentation
 .. autoclass:: gpaw.lcaotddft.LCAOTDDFT
    :members:
    :exclude-members: read
+
+.. autoclass:: gpaw.lcaotddft.dipolemomentwriter.DipoleMomentWriter
+   :members:
