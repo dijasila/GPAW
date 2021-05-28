@@ -254,6 +254,7 @@ class WLDA(XCFunctional):
         self.rcut_factor = float(settings.get("rc", 0.8))
 
         self.save = settings.get("save", False)
+        self.saveindex = 0
         
         # self.tolerance = settings.get("tolerance", 1e-8)
         self.T = settings.get("T", 0.01)
@@ -375,6 +376,12 @@ class WLDA(XCFunctional):
 
             lda_c(1, eldac_g, n, vldac_sg, zeta)
 
+    def sign_regularization(self, dv_sg):
+        # Indices where Delta V_xc is less than 0.0
+        indices = dv_sg < 0.0
+        dv_sg[indices] = 0.0
+        return dv_sg
+
     def calculate_impl(self, gd, n_sg, v_sg, e_g):
         """Interface for GPAW."""
         parprint("WLDA is the next PBE")
@@ -395,33 +402,40 @@ class WLDA(XCFunctional):
             nstar_sg = self.wlda_c(wn_sg, exc_g, vxc_sg, nstar_sg, alpha_indices)
             # nstar_sg is now weighted density from \int phi(r-r', n_total(r'))n_sigma(r')
 
+        # vxc_sg = self.sign_regularization(vxc_sg, self.v_corr_sg)
+
+        # Arrays for undistributed Hartree
         eHa_g = np.zeros_like(exc_g)
         vHa_sg = np.zeros_like(vxc_sg)
+        # Arrays for distributed Hartree
+        deHa_g = np.zeros_like(e_g)
+        dvHa_sg = np.zeros_like(v_sg)
         self.hartree_correction(self.gd, eHa_g, vHa_sg,
                                 wn_sg, nstar_sg, alpha_indices)
 
-        if self.mode == Modes.rWLDA:
-            # We want to only multiply XC part with lambda
-            exc_g *= self.lambd
-            vxc_sg *= self.lambd
-
-        exc_g += eHa_g
-        vxc_sg += vHa_sg
-
-        # e_g holds the WLDA *energy* + Hartree *correction*
+        # e_g holds the WLDA *energy*
         gd.distribute(exc_g, e_g)
         gd.distribute(vxc_sg, v_sg)
+        # deHa holds the Hartree *correction*
+        gd.distribute(eHa_g, deHa_g)
+        gd.distribute(vHa_sg, dvHa_sg)
+
 
         if self.mode == Modes.fWLDA:
-            e_g[:] = self.elda_g + self.lambd * (e_g - self.e_corr_g)
-            v_sg[:] = self.vlda_sg + self.lambd * (v_sg - self.v_corr_sg)
+            e_g[:] = self.elda_g + self.lambd * (e_g - self.e_corr_g) + self.lambd * deHa_g
+            v_sg[:] = (self.vlda_sg
+                       + self.lambd * self.sign_regularization(v_sg - self.v_corr_sg)
+                       + self.lambd * dvHa_sg)
         elif self.mode == Modes.rWLDA:
-            e_g[:] = self.elda_g + e_g - self.lambd * self.e_corr_g
-            v_sg[:] = self.vlda_sg + v_sg - self.lambd * self.v_corr_sg
+            e_g[:] = self.elda_g + self.lambd * (e_g - self.e_corr_g) + deHa_g
+            v_sg[:] = (self.vlda_sg 
+                       + self.lambd * self.sign_regularization(v_sg - self.v_corr_sg)
+                       + dvHa_sg)
         else:
             assert self.mode == Modes.WLDA
-            e_g[:] = self.elda_g + (e_g - self.e_corr_g)
-            v_sg[:] = self.vlda_sg + (v_sg - self.v_corr_sg)
+            e_g[:] = self.elda_g + (e_g - self.e_corr_g) + deHa_g
+            v_sg[:] = (self.vlda_sg 
+                       + self.sign_regularization(v_sg - self.v_corr_sg) + dvHa_sg)
 
         # If saving is enabled we save some arrays for debugging
         if self.save and mpi.rank == 0:
@@ -470,7 +484,7 @@ class WLDA(XCFunctional):
 
         # return wn_sg
 
-    def wlda_x(self, wn_sg, exc_g, vxc_sg):
+    def wlda_x(self, wn_sg, exc_g, vxc_sg, return_potentials=False):
         """
         Calculate WLDA exchange energy.
 
@@ -533,9 +547,12 @@ class WLDA(XCFunctional):
 
             exc_g[:] = e1_g + e2_g - e3_g
             vxc_sg[:] = v1_sg + v2_sg - v3_sg
-            return nstar_sg, None
+            if return_potentials:
+                return nstar_sg, e1_g, e2_g, e3_g, v1_sg, v2_sg, v3_sg
+            else:
+                return nstar_sg, None
 
-    def wlda_c(self, wn_sg, exc_g, vxc_sg, nstar_sg, alpha_indices):
+    def wlda_c(self, wn_sg, exc_g, vxc_sg, nstar_sg, alpha_indices, return_potentials=False):
         """Calculate the WLDA correlation energy."""
         if nstar_sg is None or alpha_indices is None:
             assert len(wn_sg) == 2
@@ -576,7 +593,10 @@ class WLDA(XCFunctional):
 
         exc_g[:] += e1_g + e2_g - e3_g
         vxc_sg[:] += v1_sg + v2_sg - v3_sg
-        return nstar_sg
+        if return_potentials:
+            return nstar_sg, e1_g, e2_g, e3_g, v1_sg, v2_sg, v3_sg
+        else:
+            return nstar_sg
 
     def get_weighted_density(self, wn_sg):
         """Set up the weighted density.
@@ -868,6 +888,22 @@ class WLDA(XCFunctional):
         v += self.fold_with_derivative(-t1 * ratio,
                                        wn_g, my_alpha_indices, 0, wn_g[np.newaxis])
 
+
+    def regularize(self, f_sg):
+        # fd = lambda x : 1 / (np.exp((x - self.mu) / (self.T) ) + 1)
+        # def fermi(n_sg):
+        #     inds = (n_sg - self.mu) / self.T > 10**2
+        #     res_sg = n_sg * 0.0
+        #     res_sg[inds] = 0.0
+        #     res_sg[np.logical_not(inds)] = fd(n_sg[np.logical_not(inds)])
+        #     assert (res_sg <= 1.0).all()
+        #     assert (res_sg >= 0.0).all()
+        #     return res_sg
+
+        # return f_sg * fermi(f_sg)
+        f_sg[np.isclose(f_sg, 0.0, atol=1e-8)] = 0.0
+        return f_sg
+
     def lda_x1(self, spin, e, wn_g, nstar_g, v, my_alpha_indices):
         """Apply the WLDA-2 exchange functional.
 
@@ -885,17 +921,8 @@ class WLDA(XCFunctional):
         else:
             e[:] += 0.5 * nstar_g * ex
         v += self.fold_with_derivative(ex, wn_g, my_alpha_indices, 0, wn_g[np.newaxis])
-        ratio = nstar_g / wn_g
-        fd = lambda x : 1 / (np.exp((x - self.mu) / (self.T) ) + 1)
-        def fermi(n_sg):
-            inds = (n_sg - self.mu) / self.T > 10**2
-            res_sg = n_sg * 0.0
-            res_sg[inds] = 0.0
-            res_sg[np.logical_not(inds)] = fd(n_sg[np.logical_not(inds)])
-            assert (res_sg <= 1.0).all()
-            assert (res_sg >= 0.0).all()
-            return res_sg
-        ratio *= fermi(ratio)
+        ratio = self.regularize(nstar_g / wn_g)
+        # ratio *= fermi(ratio)
         # ratio[np.isclose(wn_g, 0.0, atol=1e-4)] = 0.0
         v -= rs * dexdrs / 3 * ratio
 
@@ -1042,19 +1069,18 @@ class WLDA(XCFunctional):
             e[:] += nstar_sg.sum(axis=0) * ec
             assert len(ec.shape) == 3
 
-            ratio = nstar_sg.sum(axis=0) / wntotal_g
-            ratio[np.isclose(wntotal_g, 0.0)] = 0.0
+            ratio = self.regularize(nstar_sg.sum(axis=0) / wntotal_g)
+            # ratio[np.isclose(wntotal_g, 0.0)] = 0.0
 
-            v[0] += self.fold_with_derivative(ec, wntotal_g,
-                                              my_alpha_indices, None,
-                                              self.alphadensity_g)
+            v[0] += self.fold_with_derivative_for_spinpol(ec, wntotal_g,
+                                                          self.alphadensity_g,
+                                                          0, 0, my_alpha_indices)
             v[0] -= (rs * decdrs / 3.0
                      - (zeta - 1.0)
                      * decdzeta) * ratio
 
-            v[1] += self.fold_with_derivative(ec, wntotal_g,
-                                              my_alpha_indices, None,
-                                              self.alphadensity_g)
+            v[1] += self.fold_with_derivative_for_spinpol(ec, wntotal_g, self.alphadensity_g,
+                                                          0, 0, my_alpha_indices)
             v[1] -= (rs * decdrs / 3.0
                      - (zeta + 1.0) * decdzeta) * ratio
 
@@ -1366,26 +1392,26 @@ class WLDA(XCFunctional):
         eHa_g = np.zeros_like(e_g)
         vHa_sg = np.zeros_like(v_sg)
         self.radial_hartree_correction(rgd, n_sg, nstar_sg, vHa_sg, eHa_g)
-        
-        if self.mode == Modes.rWLDA:
-            e_g *= self.lambd
-            v_sg *= self.lambd
-
-        e_g += eHa_g
-        v_sg += vHa_sg
 
         if self.mode == Modes.fWLDA:
-            e_g[:] = self.elda_g + self.lambd * (e_g - self.e_corr_g)
-            v_sg[:] = self.vlda_sg + self.lambd * (v_sg - self.v_corr_sg)
+            e_g[:] = self.elda_g + self.lambd * (e_g - self.e_corr_g) + self.lambd * eHa_g
+            v_sg[:] = self.vlda_sg + self.lambd * self.sign_regularization(v_sg - self.v_corr_sg) + self.lambd * vHa_sg
         elif self.mode == Modes.rWLDA:
-            e_g[:] = self.elda_g + e_g - self.lambd * self.e_corr_g
-            v_sg[:] = self.vlda_sg + v_sg - self.lambd * self.v_corr_sg
+            e_g[:] = self.elda_g + self.lambd * (e_g - self.e_corr_g) + eHa_g
+            v_sg[:] = self.vlda_sg + self.lambd * self.sign_regularization(v_sg - self.v_corr_sg) + vHa_sg
         else:
             assert self.mode == Modes.WLDA
-            e_g[:] = self.elda_g + (e_g - self.e_corr_g)
-            v_sg[:] = self.vlda_sg + (v_sg - self.v_corr_sg)
+            e_g[:] = self.elda_g + (e_g - self.e_corr_g) + eHa_g
+            v_sg[:] = self.vlda_sg + self.sign_regularization(v_sg - self.v_corr_sg) + vHa_sg
 
         E = rgd.integrate(e_g)
+
+        if self.save:
+            np.save(f"deltaexc_{self.saveindex}.npy", e_g - self.e_corr_g)
+            np.save(f"deltavxc_{self.saveindex}.npy", v_sg - self.v_corr_sg)
+            np.save(f"deltaeh_{self.saveindex}.npy", eHa_g)
+            np.save(f"deltavh_{self.saveindex}.npy", vHa_sg)
+            self.saveindex += 1
 
         return E
 
@@ -1512,7 +1538,7 @@ class WLDA(XCFunctional):
 
 
         for ia, alpha in enumerate(alphas):
-            _i, _di = define_indicator(ia, alphas)
+            _i, _di = define_indicator(ia, alphas, None)
 
             for s in range(spin):
                 i_asg[ia, s, :] = _i(n_sg[s])
@@ -1787,8 +1813,8 @@ class WLDA(XCFunctional):
             e_g[:] += 0.5 * nstar_g * ex
 
         v_g[:] += self.radial_derivative_fold(ex, n_g, spinindex)
-        ratio = nstar_g / n_g
-        ratio[np.isclose(n_g, 0.0)] = 0.0
+        ratio = self.regularize(nstar_g / n_g)
+        # ratio[np.isclose(n_g, 0.0)] = 0.0
         v_g[:] += -rs * dexdrs / 3.0 * ratio * \
             np.logical_not(np.isclose(rs * dexdrs / 3.0, 0.0))
 
@@ -1836,8 +1862,8 @@ class WLDA(XCFunctional):
             ec += alpha * IF2 * f * x + (e1 - ec) * f * zeta4
             e_g[:] += nstar_sg.sum(axis=0) * ec
 
-            ratio = nstar_sg.sum(axis=0) / ntotal_g
-            ratio[np.isclose(ntotal_g, 0.0)] = 0.0
+            ratio = self.regularize(nstar_sg.sum(axis=0) / ntotal_g)
+            # ratio[np.isclose(ntotal_g, 0.0)] = 0.0
 
             v_sg[0] += self.radial_derivative_fold3(ec, ntotal_g, 0, 0, self.ti_ag, self.dti_ag) 
             v_sg[0] -= (rs * decdrs / 3.0 - (zeta - 1.0) * decdzeta) * ratio
