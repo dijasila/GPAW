@@ -1413,6 +1413,7 @@ class WLDA(XCFunctional):
             np.save(f"deltavh_{self.saveindex}.npy", vHa_sg)
             np.save(f"elda_{self.saveindex}.npy", self.elda_g)
             np.save(f"vlda_{self.saveindex}.npy", self.vlda_sg)
+            np.save("r_g.npy", rgd.r_g)
             self.saveindex += 1
 
         return E
