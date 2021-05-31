@@ -55,7 +55,7 @@ def make_spline_coefficients(alphas):
 
 
 
-def define_indicator(ia, alphas, C_aip):
+def _define_indicator(ia, alphas, C_aip):
     nalphas = len(alphas)
     na = np.logical_and
     def _i(n_g):
@@ -475,15 +475,6 @@ class WLDA(XCFunctional):
 
         return wn_sg
 
-
-        # wn_sg = gd.collect(n_sg, broadcast=True)
-        # gd1 = gd.new_descriptor(comm=mpi.serial_comm)
-        # self.gd = gd1
-        # wn_sg = self.density_correction(self.gd, wn_sg)
-        # wn_sg[wn_sg < 1e-20] = 1e-20
-
-        # return wn_sg
-
     def wlda_x(self, wn_sg, exc_g, vxc_sg, return_potentials=False):
         """
         Calculate WLDA exchange energy.
@@ -559,6 +550,7 @@ class WLDA(XCFunctional):
             n_g = (wn_sg[0] + wn_sg[1]) * 0.5
             nstar_sg, alpha_indices = self.get_weighted_density_for_spinpol_correlation(n_g, wn_sg * 0.5)
         else:
+            assert len(wn_sg) == 1
             self.alphadensity_g = wn_sg[0]
 
         e1_g = np.zeros_like(wn_sg[0])
@@ -777,6 +769,7 @@ class WLDA(XCFunctional):
         Applies the kernel via the convolution theorem.
         """
         spins = list(range(wn_sg.shape[0]))
+        # f_a(n_sigma(r))
         f_sg = self.ind_asg(ia, spins, self.wn_sg) * wn_sg
         assert wn_sg.shape == f_sg.shape, spins
         f_sG = self.fftn(f_sg, axes=(1, 2, 3))
@@ -867,6 +860,8 @@ class WLDA(XCFunctional):
         """Apply the WLDA-1 exchange functional.
 
         Calculate e[n*]n
+        de/dn (n^*) * n^* * n/n^*
+        
         """
         from gpaw.xc.lda import lda_constants
         assert spin in [0, 1]
@@ -882,7 +877,7 @@ class WLDA(XCFunctional):
         else:
             e[:] += 0.5 * wn_g * ex
         v += ex
-        t1 = rs * dexdrs / 3.
+        t1 = rs * dexdrs / 3. # -dex/dn (n^*) * n^*
         ratio = self.regularize(wn_g, nstar_g, divergent=False)
         # ratio[np.isclose(nstar_g, 0.0, atol=1e-8)] = 0.0
         v += self.fold_with_derivative(-t1 * ratio,
@@ -915,6 +910,10 @@ class WLDA(XCFunctional):
         """Apply the WLDA-2 exchange functional.
 
         Calculate e[n]n*
+
+        \int ex(r) * dn*(r)/dn(r') dr
+        \int e[n] dn^*/dn + de/dn n^*
+        de/dn * n * n^*/n
         """
         from gpaw.xc.lda import lda_constants
         assert spin in [0, 1]
@@ -1044,7 +1043,7 @@ class WLDA(XCFunctional):
                          0.031091, 0.21370, 7.5957, 3.5876, 1.6382, 0.49294)
 
         if spin == 0:
-            e[:] += nstar_sg.sum(axis=0) * ec
+            e[:] += nstar_sg.sum(axis=0) * ec # nstar_sg.sum(axis=0) == nstar_sg[0]
             v += self.fold_with_derivative(ec, wntotal_g, my_alpha_indices, None, self.alphadensity_g)
             ratio = self.regularize(nstar_sg.sum(axis=0), wntotal_g, divergent=True)
             # ratio[np.isclose(wntotal_g, 0.0)] = 0.0
@@ -1197,6 +1196,7 @@ class WLDA(XCFunctional):
 
         if mpisum:
             mpi.world.sum(res_g)
+
         assert res_g.shape == f_g.shape
         assert res_g.shape == n_g.shape
 
@@ -1330,7 +1330,11 @@ class WLDA(XCFunctional):
 
     def do_hartree_corr(self, gd, n_g, nstar_g,
                         e_g, v_sg, spins, my_alpha_indices):
-        K_G = self._get_K_G(gd)
+        # \int dr(n^* - n) \int dr' (n^* - n)' / |r-r'|
+        # V(r) = \int dr' (n^* - n)' / |r-r'| <- solve poisson for n^* - n
+        # nabla^2 V(r) = -4pi (n^* - n)
+        # q^2 V(q) = -4pi (n^*  n)(q)
+        K_G = self._get_K_G(gd).copy()
         K_G[0, 0, 0] = 1.0
 
         dn_g = n_g - nstar_g
