@@ -23,6 +23,7 @@ def get_dipole_transitions(atoms, calc, savetofile=True, realdipole=False):
     Output:
         dip_svknm.npy    Array with dipole matrix elements
     """
+    assert calc.wfs.bd.comm.size == 1
     bzk_kc = calc.get_ibz_k_points()
     n = calc.wfs.bd.nbands
     nk = np.shape(bzk_kc)[0]
@@ -81,7 +82,7 @@ def get_dipole_transitions(atoms, calc, savetofile=True, realdipole=False):
         gd.comm.sum(dip3_vknm)
         dip_vknm = dip1_vknm + dip3_vknm
 
-        if realdipole:  # need this for testing
+        if realdipole:  # need this for testing against other dipole routines
             for k in range(nk):
                 kpt = calc.wfs.kpt_qs[k][s]
                 deltaE = abs(kpt.eps_n[:, None] - kpt.eps_n[None, :])
