@@ -2066,7 +2066,7 @@ class WLDA(XCFunctional):
                 rgd, n_sg[1], nstar_sg[1], e1_g, v1_sg, [1])
 
             e_g += 0.5 * e1_g
-            v_sg += 0.5 * v1_sg
+            v_sg += v1_sg
 
         else:
             self.do_radial_hartree_corr(rgd, n_sg.sum(axis=0),
