@@ -55,7 +55,7 @@ def make_spline_coefficients(alphas):
 
 
 
-def _define_indicator(ia, alphas, C_aip):
+def define_indicator(ia, alphas, C_aip):
     nalphas = len(alphas)
     na = np.logical_and
     def _i(n_g):
@@ -103,7 +103,7 @@ def _define_indicator(ia, alphas, C_aip):
 
 
 
-def define_indicator(ia, alphas, dummy):
+def _define_indicator(ia, alphas, dummy):
     nalphas = len(alphas)
     na = np.logical_and
     if ia == 0:
@@ -635,6 +635,7 @@ class WLDA(XCFunctional):
         Calculates
 
         n*_up = \int phi(r - r', n_total(r')) n_up(r') dr'
+        n*_up = \sum_alpha \int phi(r - r', alpha) f_alpha(n_total(r')) * n_up(r') dr'
 
         and similarly for n_down.
         """
@@ -1202,11 +1203,11 @@ class WLDA(XCFunctional):
 
         return res_g
 
-    def fold_with_derivative_for_spinpol(self, f_g, n_g, ntotal_g, spin1, spin2, my_alpha_indices):
+    def fold_with_derivative_for_spinpol(self, f_g, n1_g, ntotal_g, spin1, spin2, my_alpha_indices):
         """Calculate f_g convoluted with (delta n^star_spin1) / (delta n_spin2)."""
 
         assert np.allclose(f_g, f_g.real)
-        assert np.allclose(n_g, n_g.real)
+        assert np.allclose(n1_g, n1_g.real)
         assert len(my_alpha_indices) == 0 or type(my_alpha_indices[0]) == int
 
         res_g = np.zeros_like(f_g)
@@ -1216,9 +1217,9 @@ class WLDA(XCFunctional):
             dind_g = self.dind_asg(ia, None, ntotal_g)
 
             if spin1 == spin2:
-                fac_g = ind_g + dind_g * n_g
+                fac_g = ind_g + dind_g * n1_g
             else:
-                fac_g = dind_g * n_g
+                fac_g = dind_g * n1_g
 
             int_G = self.fftn(f_g)
             w_G = self.get_weight_function(ia, self.gd, self.alphas)
@@ -1229,7 +1230,7 @@ class WLDA(XCFunctional):
         res_g = np.ascontiguousarray(res_g)
         mpi.world.sum(res_g)
         assert res_g.shape == f_g.shape
-        assert res_g.shape == n_g.shape
+        assert res_g.shape == n1_g.shape
 
         return res_g
 
@@ -1319,8 +1320,7 @@ class WLDA(XCFunctional):
             mpi.world.sum(v1_sg)
 
             e_g += 0.5 * e1_g
-            v_sg += 0.5 * v1_sg
-
+            v_sg += v1_sg
         else:
             v1_sg = np.zeros_like(v_sg)
             self.do_hartree_corr(gd, wn_sg.sum(axis=0), nstar_sg.sum(axis=0),
@@ -1531,6 +1531,7 @@ class WLDA(XCFunctional):
             spin = n_sg.shape[0]
 
         alphas = define_alphas(n_sg, nalphas)
+        self.C_aip = make_spline_coefficients(alphas)
 
         N = 2**14
         r_x = np.linspace(0, self.rgd.r_g[-1], N)
@@ -1552,7 +1553,7 @@ class WLDA(XCFunctional):
 
 
         for ia, alpha in enumerate(alphas):
-            _i, _di = define_indicator(ia, alphas, None)
+            _i, _di = define_indicator(ia, alphas, self.C_aip)
 
             for s in range(spin):
                 i_asg[ia, s, :] = _i(n_sg[s])
