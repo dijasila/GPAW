@@ -1,6 +1,6 @@
 import numpy as np
 
-from ase.parallel import world, parprint
+from ase.parallel import world  # , parprint
 from gpaw.fd_operators import Gradient
 
 
@@ -12,10 +12,11 @@ def get_dipole_transitions(atoms, calc, savetofile=True, realdipole=False):
     <\psi_n|\nabla|\psi_m> = <u_n|nabla|u_m> + ik<u_n|u_m>
     where psi_n = u_n(r)*exp(ikr).
     ik<u_n|u_m> is supposed to be zero off diagonal and not calculated as
-    we are not intereste in diagonal terms.
+    we are not interested in diagonal terms.
 
     NOTE: Function name seems to be a misnomer. The routine is supposed to
     calculate <psi_n|p|psi_m>, which is not quite the normal dipole moment.
+    Use realdipole=True to return proper dipole.
 
     Input:
         atoms           Relevant ASE atoms object
@@ -35,17 +36,13 @@ def get_dipole_transitions(atoms, calc, savetofile=True, realdipole=False):
 
     nabla_v = [Gradient(gd, v, 1.0, 2, calc.wfs.dtype).apply for v in range(3)]
 
-    dip_svknm = []
+    dip_skvnm = []
     for s in range(calc.wfs.nspins):
-        dip_vknm = np.zeros((3, nk, n, n), dtype=complex)
-        dip1_vknm = np.zeros((3, nk, n, n), dtype=complex)
-        # dip2_vknm = np.zeros((3, nk, n, n), dtype=complex)
-        dip3_vknm = np.zeros((3, nk, n, n), dtype=complex)
-
-
+        dipe_kvnm = np.zeros((nk, 3, n, n), dtype=complex)
+        dipa_kvnm = np.zeros((nk, 3, n, n), dtype=complex)
 
         for k in range(nk):
-            parprint("Distributing wavefunctions.")
+            # parprint("Distributing wavefunctions.")
             # Collects the wavefunctions and the projections to rank 0.
             gwfa = calc.wfs.get_wave_function_array
             wf = []
@@ -61,7 +58,7 @@ def get_dipole_transitions(atoms, calc, savetofile=True, realdipole=False):
             wf = np.array(wf)
             kpt = calc.wfs.kpt_qs[k][s]
 
-            parprint("Evaluating dipole transition matrix elements.")
+            # parprint("Evaluating dipole transition matrix elements.")
             grad_nv = gd.zeros((n, 3), dtype=calc.wfs.dtype)
 
             # Calculate <phit|nabla|phit> for the pseudo wavefunction
@@ -69,27 +66,26 @@ def get_dipole_transitions(atoms, calc, savetofile=True, realdipole=False):
             for v in range(3):
                 for i in range(n):
                     nabla_v[v](wf[i], grad_nv[i, v], kpt.phase_cd)
-                dip1_vknm[v, k] = gd.integrate(wf, grad_nv[:, v])
-                # dip1_vknm[v, k] = gd.integrate(wf.conj() * grad_nv[:, v])
+                dipe_kvnm[k, v] = gd.integrate(wf, grad_nv[:, v])
 
             # augmentation part
             # Parallelisatin note: Need to sum
             for a, P_ni in kpt.P_ani.items():
                 nabla_iiv = calc.wfs.setups[a].nabla_iiv
-                dip3_vknm[:, k, :, :] += np.einsum('ni,ijv,mj->vnm',
-                                                   P_ni.conj(), nabla_iiv,
-                                                   P_ni)
-        gd.comm.sum(dip3_vknm)
-        dip_vknm = dip1_vknm + dip3_vknm
+                dipa_kvnm[k] += np.einsum('ni,ijv,mj->vnm',
+                                          P_ni.conj(), nabla_iiv, P_ni)
+        gd.comm.sum(dipa_kvnm)
+
+        dip_kvnm = dipe_kvnm + dipa_kvnm
 
         if realdipole:  # need this for testing against other dipole routines
             for k in range(nk):
                 kpt = calc.wfs.kpt_qs[k][s]
                 deltaE = abs(kpt.eps_n[:, None] - kpt.eps_n[None, :])
-                dip_vknm[:, k] /= (deltaE + 1j * 1e-8)
+                dip_kvnm[k, :] /= (deltaE + 1j * 1e-8)
 
-        dip_svknm.append(dip_vknm)
+        dip_skvnm.append(dip_kvnm)
 
     if world.rank == 0 and savetofile:
-        np.save('dip_svknm.npy', np.array(dip_svknm))
-    return np.array(dip_svknm)
+        np.save('dip_skvnm.npy', np.array(dip_skvnm))
+    return np.array(dip_skvnm)

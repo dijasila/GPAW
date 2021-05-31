@@ -12,21 +12,18 @@ from gpaw.lrtddft.kssingle import KSSingles
 def test_dipole_transition(gpw_files, tmp_path_factory):
     """Check dipole matrix-elements for H20."""
     calc = GPAW(gpw_files['h2o_lcao_wfs'])
-    dip_svknm = get_dipole_transitions(calc.atoms, calc, savetofile=False,
+    dip_skvnm = get_dipole_transitions(calc.atoms, calc, savetofile=False,
                                        realdipole=True).real
     parprint("Dipole moments calculated")
-    assert dip_svknm.shape == (1, 3, 1, 6, 6)
-    dip_vnm = dip_svknm[0, :, 0] * Bohr
+    assert dip_skvnm.shape == (1, 1, 3, 6, 6)
+    dip_vnm = dip_skvnm[0, 0] * Bohr
 
-    print(world.rank, dip_svknm[0, 0, 0, 0, 3])
+    print(world.rank, dip_vnm[0, 0, 3])
 
     # Check numerical value of a few elements - signs might change!
-    # assert 0.3237 == pytest.approx(abs(dip_svknm[0, 0, 0, 0, 3]), abs=1e-4)
-    # assert 0.1395 == pytest.approx(abs(dip_svknm[0, 0, 0, 2, 3]), abs=1e-4)
-    # assert 0.0963 == pytest.approx(abs(dip_svknm[0, 0, 0, 3, 4]), abs=1e-4)
-    # assert 0.3237 == pytest.approx(abs(dip_svknm[0, 0, 0, 3, 0]), abs=1e-4)
-    # assert 0.3871 == pytest.approx(abs(dip_svknm[0, 1, 0, 0, 1]), abs=1e-4)
-    # assert 0.3641 == pytest.approx(abs(dip_svknm[0, 2, 0, 0, 2]), abs=1e-4)
+    assert 0.0696 == pytest.approx(abs(dip_vnm[2, 0, 4]), abs=1e-4)
+    assert 0.1028 == pytest.approx(abs(dip_vnm[1, 0, 5]), abs=1e-4)
+    assert 0.1667 == pytest.approx(abs(dip_vnm[0, 3, 4]), abs=1e-4)
 
     # some printout for manual inspection, if wanted
     f = 6 * "{:+.4f} "
