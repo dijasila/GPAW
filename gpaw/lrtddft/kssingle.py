@@ -53,7 +53,7 @@ class KSSingles(ExcitationList):
         self.calculator = calculator
 
         # LCAO calculation requires special actions
-        self.lcao = calculator.parameters.mode == 'lcao'
+        self.lcao = calculator.wfs.mode == 'lcao'
 
         # deny hybrids as their empty states are wrong
 #        gsxc = calculator.hamiltonian.xc
