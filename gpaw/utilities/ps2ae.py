@@ -102,8 +102,11 @@ class PS2AE:
                           n: int,
                           k: int = 0,
                           s: int = 0,
-                          ae: bool = True) -> Array3D:
+                          ae: bool = True,
+                          periodic: bool = False) -> Array3D:
         """Interpolate wave function.
+
+        Returns 3-d array in units of Ang**-1.5.
 
         n: int
             Band index.
@@ -113,21 +116,29 @@ class PS2AE:
             Spin index.
         ae: bool
             Add PAW correction to get an all-electron wave function.
+        periodic:
+            Return periodic part of wave-function, u(r), instead of
+            psi(r)=exp(ikr)u(r).
         """
-        psi_r = self.calc.get_pseudo_wave_function(n, k, s,
-                                                   pad=True, periodic=True)
-        psi_R = self.interpolator.interpolate(psi_r * Bohr**1.5)
+        u_r = self.calc.get_pseudo_wave_function(n, k, s,
+                                                 pad=True, periodic=True)
+        u_R = self.interpolator.interpolate(u_r * Bohr**1.5)
+
+        k_c = self.calc.wfs.kd.ibzk_kc[k]
+        gamma = np.isclose(k_c, 0.0).all()
+
+        if gamma:
+            eikr_R = 1.0
+        else:
+            eikr_R = self.gd.plane_wave(k_c)
+
         if ae:
             dphi = self.dphi
             wfs = self.calc.wfs
             P_nI = wfs.collect_projections(k, s)
-            if wfs.world.rank == 0:
-                k_c = self.calc.wfs.kd.ibzk_kc[k]
-                gamma = np.isclose(k_c, 0.0).all()
-                if not gamma:
-                    eikr_R = self.gd.plane_wave(k_c)
-                    psi_R *= eikr_R
 
+            if wfs.world.rank == 0:
+                psi_R = u_R * eikr_R
                 P_ai = {}
                 I1 = 0
                 for a, setup in enumerate(wfs.setups):
@@ -135,10 +146,14 @@ class PS2AE:
                     P_ai[a] = P_nI[n, I1:I2]
                     I1 = I2
                 dphi.add(psi_R, P_ai, k)
-                if not gamma:
-                    psi_R /= eikr_R
-            wfs.world.broadcast(psi_R, 0)
-        return psi_R * Bohr**-1.5
+                u_R = psi_R / eikr_R
+
+            wfs.world.broadcast(u_R, 0)
+
+        if periodic:
+            return u_R * Bohr**-1.5
+        else:
+            return u_R * eikr_R * Bohr**-1.5
 
     def get_pseudo_density(self,
                            add_compensation_charges: bool = True) -> Array3D:

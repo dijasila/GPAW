@@ -223,18 +223,17 @@ class CouplingParameters:
             # Weights, i.e., lagrange multipliers
             self.Va = Va
             self.Vb = Vb
-
             regionsA = []
             if charge_regions_A is not None:
-                regionsA.append(charge_regions_A)
+                regionsA += charge_regions_A
             if spin_regions_A is not None:
-                regionsA.append(spin_regions_A)
+                regionsA += spin_regions_A
 
             regionsB = []
             if charge_regions_B is not None:
-                regionsB.append(charge_regions_B)
+                regionsB += charge_regions_B
             if spin_regions_B is not None:
-                regionsB.append(spin_regions_B)
+                regionsB += spin_regions_B
 
             self.regionsA = regionsA
             self.regionsB = regionsB
@@ -976,7 +975,7 @@ class CouplingParameters:
         # Cab = cofactor matrix
         # k and s --> kpt and spin
 
-        VW_ij = np.zeros((len(psit1_nG), len(psit2_nG)))
+        VW_ij = np.zeros((len(psit1_nG), len(psit2_nG)), complex)
         VW = V * W
 
         for n1 in range(len(psit1_nG)):
@@ -985,7 +984,7 @@ class CouplingParameters:
                 VW_ij[n1][n2] = self.gd.integrate(VW * nijt_G,
                                                   global_integral=True)
 
-        P_array = np.zeros(VW_ij.shape)
+        P_array = np.zeros(VW_ij.shape, complex)
         for a, P1_ni in P1_ani.items():
             P2_ni = P2_ani[a]
             if region is None or a in region:

@@ -8,8 +8,10 @@ import numpy as np
 from gpaw.utilities.blas import axpy
 from gpaw.mpi import rank
 
+from .base import BaseSolver
 
-class BiCGStab:
+
+class BiCGStab(BaseSolver):
     """Biconjugate gradient stabilized method
 
     This class solves a set of linear equations A.x = b using biconjugate
@@ -23,60 +25,8 @@ class BiCGStab:
 
     Now x and b are multivectors, i.e., list of vectors.
     """
-    def __init__(self,
-                 gd,
-                 timer=None,
-                 tolerance=1e-15,
-                 max_iterations=1000,
-                 eps=1e-15):
-        """Create the BiCGStab-object.
-
-        Tolerance should not be smaller than attainable accuracy, which is
-        order of kappa(A) * eps, where kappa(A) is the (spectral) condition
-        number of the matrix. The maximum number of iterations should be
-        significantly less than matrix size, approximately
-        .5 sqrt(kappa) ln(2/tolerance). A small number is treated as zero
-        if it's magnitude is smaller than argument eps.
-
-        Parameters
-        ----------
-        gd: GridDescriptor
-            grid descriptor for coarse (pseudowavefunction) grid
-        timer: Timer
-            timer
-        tolerance: float
-            tolerance for the norm of the residual ||b - A.x||^2
-        max_iterations: integer
-            maximum number of iterations
-        eps: float
-            if abs(rho) or (omega) < eps, it's regarded as zero
-            and the method breaks down
-
-        """
-
-        self.tol = tolerance
-        self.max_iter = max_iterations
-        if (eps <= tolerance):
-            self.eps = eps
-        else:
-            raise RuntimeError(
-                "BiCGStab method got invalid tolerance (tol = %le < eps = %le)."
-                % (tolerance, eps))
-
-        self.iterations = -1
-
-        self.gd = gd
-        self.timer = timer
 
     def solve(self, A, x, b):
-        """Solve a set of linear equations A.x = b.
-
-        Parameters:
-        A           matrix A
-        x           initial guess x_0 (on entry) and the result (on exit)
-        b           right-hand side (multi)vector
-
-        """
         if self.timer is not None:
             self.timer.start('BiCGStab')
 

@@ -205,9 +205,9 @@ def two_phi_nabla_planewave_integrals(k_Gv, setup=None, Gstart=0, Gend=None,
     for j1 in range(nj):
         for j2 in range(nj):
             dphidr_g = np.empty_like(phi_jg[j2])
-            rgd.derivative(phi_jg[j2], dphidr_g)
+            rgd.derivative_spline(phi_jg[j2], dphidr_g)
             dphitdr_g = np.empty_like(phit_jg[j2])
-            rgd.derivative(phit_jg[j2], dphitdr_g)
+            rgd.derivative_spline(phit_jg[j2], dphitdr_g)
 
             tmpder_jjg[j1, j2] = (phi_jg[j1] * dphidr_g -
                                   phit_jg[j1] * dphitdr_g)
