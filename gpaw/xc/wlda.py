@@ -900,7 +900,7 @@ class WLDA(XCFunctional):
         # return f_sg * fermi(f_sg)
         # mask = np.logical_and(np.isclose(n1_sg, 0.0, atol=1e-8),
         #                       np.isclose(n2_sg, 0.0, atol=1e-8))
-        mask = np.isclose(n2_sg, 0.0, atol=1e-5)
+        mask = np.isclose(n2_sg, 0.0, atol=1e-8)
         ratio = n1_sg / n2_sg
         if divergent:
             ratio[mask] = 1e8
