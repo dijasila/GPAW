@@ -378,7 +378,7 @@ class WLDA(XCFunctional):
 
     def sign_regularization(self, dv_sg):
         # Indices where Delta V_xc is less than 0.0
-        # return dv_sg
+        return dv_sg
         indices = dv_sg < 0.0
         dv_sg[indices] = 0.0
         return dv_sg
@@ -900,12 +900,12 @@ class WLDA(XCFunctional):
         # return f_sg * fermi(f_sg)
         # mask = np.logical_and(np.isclose(n1_sg, 0.0, atol=1e-8),
         #                       np.isclose(n2_sg, 0.0, atol=1e-8))
-        mask = np.isclose(n2_sg, 0.0, atol=1e-8)
+        mask = np.isclose(n2_sg, 0.0, atol=1e-5)
         ratio = n1_sg / n2_sg
         if divergent:
-            ratio[mask] = 1e8
+            ratio[mask] = 0.0
         else:
-            ratio[mask] = 1e-8
+            ratio[mask] = 0.0
         return ratio
 
     def lda_x1(self, spin, e, wn_g, nstar_g, v, my_alpha_indices):
