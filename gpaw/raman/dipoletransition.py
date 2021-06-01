@@ -25,9 +25,9 @@ def get_dipole_transitions(atoms, calc, savetofile=True, realdipole=False):
         dip_svknm.npy    Array with dipole matrix elements
     """
     assert calc.wfs.bd.comm.size == 1
-    bzk_kc = calc.get_ibz_k_points()
+    assert calc.wfs.kd.comm.size == 1
     n = calc.wfs.bd.nbands
-    nk = np.shape(bzk_kc)[0]
+    nk = calc.wfs.kd.nibzkpts
     gd = calc.wfs.gd
 
     # Why?
@@ -63,8 +63,10 @@ def get_dipole_transitions(atoms, calc, savetofile=True, realdipole=False):
 
             # Calculate <phit|nabla|phit> for the pseudo wavefunction
             # Parellisation note: Every rank has same result
+            # phases = np.ones((3, 2), dtype=complex)
             for v in range(3):
                 for i in range(n):
+                    # nabla_v[v](wf[i], grad_nv[i, v], phases)
                     nabla_v[v](wf[i], grad_nv[i, v], kpt.phase_cd)
                 dipe_kvnm[k, v] = gd.integrate(wf, grad_nv[:, v])
 
@@ -77,12 +79,15 @@ def get_dipole_transitions(atoms, calc, savetofile=True, realdipole=False):
         gd.comm.sum(dipa_kvnm)
 
         dip_kvnm = dipe_kvnm + dipa_kvnm
+        # dip_kvnm = dipe_kvnm
+        # dip_kvnm = dipa_kvnm
 
         if realdipole:  # need this for testing against other dipole routines
             for k in range(nk):
                 kpt = calc.wfs.kpt_qs[k][s]
                 deltaE = abs(kpt.eps_n[:, None] - kpt.eps_n[None, :])
-                dip_kvnm[k, :] /= (deltaE + 1j * 1e-8)
+                np.fill_diagonal(deltaE, np.inf)
+                dip_kvnm[k, :] /= deltaE
 
         dip_skvnm.append(dip_kvnm)
 
