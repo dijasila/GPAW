@@ -55,7 +55,7 @@ def make_spline_coefficients(alphas):
 
 
 
-def define_indicator(ia, alphas, C_aip):
+def _define_indicator(ia, alphas, C_aip):
     nalphas = len(alphas)
     na = np.logical_and
     def _i(n_g):
@@ -103,7 +103,7 @@ def define_indicator(ia, alphas, C_aip):
 
 
 
-def _define_indicator(ia, alphas, dummy):
+def define_indicator(ia, alphas, dummy):
     nalphas = len(alphas)
     na = np.logical_and
     if ia == 0:
@@ -378,6 +378,7 @@ class WLDA(XCFunctional):
 
     def sign_regularization(self, dv_sg):
         # Indices where Delta V_xc is less than 0.0
+        return dv_sg
         indices = dv_sg < 0.0
         dv_sg[indices] = 0.0
         return dv_sg
@@ -899,12 +900,12 @@ class WLDA(XCFunctional):
         # return f_sg * fermi(f_sg)
         # mask = np.logical_and(np.isclose(n1_sg, 0.0, atol=1e-8),
         #                       np.isclose(n2_sg, 0.0, atol=1e-8))
-        mask = np.isclose(n2_sg, 0.0, atol=1e-8)
+        mask = np.isclose(n2_sg, 0.0, atol=1e-5)
         ratio = n1_sg / n2_sg
         if divergent:
-            ratio[mask] = 1e8
+            ratio[mask] = 0.0
         else:
-            ratio[mask] = 1e-8
+            ratio[mask] = 0.0
         return ratio
 
     def lda_x1(self, spin, e, wn_g, nstar_g, v, my_alpha_indices):
@@ -1418,8 +1419,8 @@ class WLDA(XCFunctional):
         E = rgd.integrate(e_g)
 
         if self.save:
-            np.save(f"deltaexc_{self.saveindex}.npy", e_g - self.e_corr_g)
-            np.save(f"deltavxc_{self.saveindex}.npy", v_sg - self.v_corr_sg)
+            np.save(f"exc_{self.saveindex}.npy", e_g)
+            np.save(f"vxc_{self.saveindex}.npy", v_sg)
             np.save(f"deltaeh_{self.saveindex}.npy", eHa_g)
             np.save(f"deltavh_{self.saveindex}.npy", vHa_sg)
             np.save(f"elda_{self.saveindex}.npy", self.elda_g)
@@ -1830,8 +1831,7 @@ class WLDA(XCFunctional):
         v_g[:] += self.radial_derivative_fold(ex, n_g, spinindex)
         ratio = self.regularize(nstar_g, n_g, divergent=True)
         # ratio[np.isclose(n_g, 0.0)] = 0.0
-        v_g[:] += -rs * dexdrs / 3.0 * ratio * \
-            np.logical_not(np.isclose(rs * dexdrs / 3.0, 0.0))
+        v_g[:] += -rs * dexdrs / 3.0 * ratio
 
     def radial_c1(self, spin, e_g, ntotal_g, n_sg, nstar_sg, v_sg, zeta):
         """Calculate e_c[n]n* and potential."""
@@ -1849,8 +1849,7 @@ class WLDA(XCFunctional):
                                                        self.ti_ag, self.dti_ag)
             ratio = self.regularize(nstar_sg.sum(axis=0), ntotal_g, divergent=True)
             # ratio[np.isclose(ntotal_g, 0.0)] = 0.0
-            v_sg[0, :] += -rs * decdrs_0 / 3.0 * ratio * \
-                          np.logical_not(np.isclose(rs * decdrs_0 / 3.0, 0.0))
+            v_sg[0, :] += -rs * decdrs_0 / 3.0 * ratio
         else:
             e1, decdrs_1 = G(rs ** 0.5,
                              0.015545, 0.20548, 14.1189,
