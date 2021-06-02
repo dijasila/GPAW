@@ -1,11 +1,13 @@
 import pytest
 import numpy as np
-from ase.build import molecule, bulk
+from ase.build import bulk
 
 from gpaw import GPAW
 from gpaw.fd_operators import Gradient
 
+
 DIR = 2  # z direction
+
 
 @pytest.fixture
 def calc():
@@ -14,8 +16,10 @@ def calc():
     calc = GPAW(mode='lcao', basis='dzp', txt='gpaw.txt', h=.2,
                 kpts=[[0.1, 0.3, 0.4]])
     atoms.calc = calc
+
     def stopcalc():
         calc.scf.converged = True
+
     calc.attach(stopcalc, 1)
     atoms.get_potential_energy()
     return calc
@@ -55,8 +59,6 @@ def test_nabla_matrix(calc):
     bfs = wfs.basis_functions
     psit_nG = gd.zeros(mynbands, dtype=wfs.dtype)
     bfs.lcao_to_grid(C_nM, psit_nG, q=kpt.q)
-
-    k_c = wfs.kd.ibzk_kc[kpt.k]
 
     nabla_fd_nn = get_nabla_fd(gd, kpt, psit_nG)
 
