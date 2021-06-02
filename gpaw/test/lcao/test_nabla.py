@@ -1,9 +1,11 @@
 import pytest
+import numpy as np
 from ase.build import molecule, bulk
 
 from gpaw import GPAW
 from gpaw.fd_operators import Gradient
 
+DIR = 2  # z direction
 
 @pytest.fixture
 def calc():
@@ -19,6 +21,13 @@ def calc():
     return calc
 
 
+def get_nabla_fd(gd, kpt, psit_nG):
+    gradpsit_nG = gd.zeros(len(psit_nG), dtype=psit_nG.dtype)
+    grad = Gradient(gd, DIR, n=2, dtype=psit_nG.dtype)
+    grad.apply(psit_nG, gradpsit_nG, phase_cd=kpt.phase_cd)
+    return gd.integrate(psit_nG, gradpsit_nG)
+
+
 def test_nabla_matrix(calc):
     wfs = calc.wfs
     gd = wfs.gd
@@ -30,14 +39,13 @@ def test_nabla_matrix(calc):
         gd.comm, Mstart, Mstop, False, derivative=True)
 
     # We want C^dagger · dTheta/dR · C
-    dThetadRz_MM = dThetadR_qvMM[0, 2]
+    dThetadRz_MM = dThetadR_qvMM[0, DIR]
 
     kpt = wfs.kpt_u[0]
     C_nM = kpt.C_nM
     # import numpy as np
     # np.set_printoptions(precision=5, suppress=1, linewidth=120)
 
-    v = 2
     nabla_nn = -(C_nM.conj() @ dThetadRz_MM.conj() @ C_nM.T)
     print('NABLA_NN')
     print(nabla_nn)
@@ -46,15 +54,11 @@ def test_nabla_matrix(calc):
     mynbands = wfs.bd.mynbands
     bfs = wfs.basis_functions
     psit_nG = gd.zeros(mynbands, dtype=wfs.dtype)
-    gradpsit_nG = gd.zeros(mynbands, dtype=wfs.dtype)
     bfs.lcao_to_grid(C_nM, psit_nG, q=kpt.q)
 
     k_c = wfs.kd.ibzk_kc[kpt.k]
 
-    grad = Gradient(gd, v, n=2, dtype=wfs.dtype)
-    grad.apply(psit_nG, gradpsit_nG, phase_cd=kpt.phase_cd)
-
-    nabla_fd_nn = gd.integrate(psit_nG, gradpsit_nG)
+    nabla_fd_nn = get_nabla_fd(gd, kpt, psit_nG)
 
     print('NABLA_FD_NN')
     print(nabla_fd_nn)
