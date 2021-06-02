@@ -44,6 +44,11 @@ array([[  9.37566400e-14,   4.40256983e-14,  -6.44750360e-01],
 News
 ====
 
+* Slides from the "GPAW 2021 Users and developers meeting" are
+  now available `here
+  <https://www.cecam.org/workshop-details/1039#document_tab>`__
+  (2 Jun 2021).
+
 * Upcoming workshop:  The
   `GPAW 2021 Users and developers meeting
   <https://www.cecam.org/workshop-details/1039>`__
