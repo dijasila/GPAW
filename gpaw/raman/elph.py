@@ -108,13 +108,15 @@ def get_elph_matrix(atoms, calc, basename=None, dump=1,
     # Find the bloch expansion coefficients
     g_sqklnn = []
     for s in range(calc.wfs.nspins):
-        # c_kn = np.zeros((nk, nbands, nbands), dtype=complex)
-        c_kn = []
-        for k in range(calc.wfs.kd.nibzkpts):
-            C_nM = calc.wfs.collect_array('C_nM', k, s)
-            # if world.rank == 0:
-            c_kn.append(C_nM)
-        c_kn = np.array(c_kn)
+    # c_kn = np.zeros((nk, nbands, nbands), dtype = complex)
+    c_kn = np.empty((nk, nbands, nao), dtype = complex)
+
+    for k in range(len(kpts)):
+        c_k = calc_gs.wfs.collect_array("C_nM",k,0)
+        if rank == 0:
+            c_kn[k] = c_k
+        par.comm.Bcast(c_kn, root = 0)
+
         # And we finally find the electron-phonon coupling matrix elements!
         if not load_gx_as_needed:
             elph.g_xNNMM = elph.g_xsNNMM[:, s]
