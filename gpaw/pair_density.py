@@ -73,7 +73,7 @@ class PairDensity:
         self.set_paw(paw)
 
     def set_paw(self, paw):
-        """basic initialisation knowing"""
+        """basic initialisation knowing the calculator"""
         self.wfs = paw.wfs
         self.lcao = paw.parameters.mode == 'lcao'
         self.density = paw.density

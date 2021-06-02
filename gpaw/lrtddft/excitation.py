@@ -186,7 +186,7 @@ class Excitation:
         else:
             raise RuntimeError('Unknown form >' + form + '<')
 
-        return pre * np.dot(mu, self.magn)
+        return -pre * np.dot(mu, self.magn)
 
     def set_energy(self, E):
         """Set the excitations energy relative to the ground state energy"""

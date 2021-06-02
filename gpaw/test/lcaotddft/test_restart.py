@@ -5,7 +5,6 @@ from ase.build import molecule
 
 from gpaw import GPAW
 from gpaw.lcaotddft import LCAOTDDFT
-from gpaw.poisson import PoissonSolver
 from gpaw.lcaotddft.dipolemomentwriter import DipoleMomentWriter
 from gpaw.lcaotddft.densitymatrix import DensityMatrix
 from gpaw.lcaotddft.frequencydensitymatrix import FrequencyDensityMatrix
@@ -23,7 +22,6 @@ def test_lcaotddft_restart(in_tmp_dir):
     # Ground-state calculation
     calc = GPAW(nbands=7, h=0.4,
                 basis='dzp', mode='lcao',
-                poissonsolver=PoissonSolver(eps=1e-16),
                 convergence={'density': 1e-8},
                 xc='GLLBSC',
                 txt='gs.out')

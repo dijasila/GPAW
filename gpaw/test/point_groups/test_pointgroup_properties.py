@@ -66,7 +66,7 @@ def test_pg(name):
         for i, row1 in enumerate(pg.character_table.T):
 
             # Check normalization:
-            assert (row1**2).sum() == h / pg.nops[i]
+            assert (row1**2).sum() == approx(h / pg.nops[i], abs=1e-13)
 
             for j, row2 in enumerate(pg.character_table.T):
 
@@ -105,4 +105,4 @@ def test_pg(name):
 
                     # Check orthogonality:
                     norm = (row1 * row2).dot(pg.nops)
-                    assert norm == 0
+                    assert norm == approx(0, abs=1e-13)

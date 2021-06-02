@@ -106,7 +106,7 @@ PyObject* scalapack_inverse(PyObject *self, PyObject *args);
 PyObject* scalapack_solve(PyObject *self, PyObject *args);
 PyObject* pblas_tran(PyObject *self, PyObject *args);
 PyObject* pblas_gemm(PyObject *self, PyObject *args);
-PyObject* pblas_hemm(PyObject *self, PyObject *args);
+PyObject* pblas_hemm_symm(PyObject *self, PyObject *args);
 PyObject* pblas_gemv(PyObject *self, PyObject *args);
 PyObject* pblas_r2k(PyObject *self, PyObject *args);
 PyObject* pblas_rk(PyObject *self, PyObject *args);
@@ -276,7 +276,7 @@ static PyMethodDef functions[] = {
     {"scalapack_solve", scalapack_solve, METH_VARARGS, 0},
     {"pblas_tran", pblas_tran, METH_VARARGS, 0},
     {"pblas_gemm", pblas_gemm, METH_VARARGS, 0},
-    {"pblas_hemm", pblas_hemm, METH_VARARGS, 0},
+    {"pblas_hemm_symm", pblas_hemm_symm, METH_VARARGS, 0},
     {"pblas_gemv", pblas_gemv, METH_VARARGS, 0},
     {"pblas_r2k", pblas_r2k, METH_VARARGS, 0},
     {"pblas_rk", pblas_rk, METH_VARARGS, 0},

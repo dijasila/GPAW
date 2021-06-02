@@ -2,27 +2,31 @@
 # Copyright (C) 2003-2020  CAMP
 # Please see the accompanying LICENSE file for further information.
 
-import distutils.util
-from distutils.sysconfig import get_config_vars
 import os
 import re
-from setuptools import setup, find_packages, Extension
-from setuptools.command.build_ext import build_ext as _build_ext
-from setuptools.command.install import install as _install
-from setuptools.command.develop import develop as _develop
-from subprocess import run, PIPE
 import sys
 from pathlib import Path
+from subprocess import PIPE, run
+from sysconfig import get_platform
 
+<<<<<<< HEAD
 from config import (check_dependencies, write_configuration,
                     build_interpreter, build_cuda)
+=======
+from setuptools import Extension, find_packages, setup
+from setuptools.command.build_ext import build_ext as _build_ext
+from setuptools.command.develop import develop as _develop
+from setuptools.command.install import install as _install
+>>>>>>> master
 
+from config import build_interpreter, check_dependencies, write_configuration
 
 assert sys.version_info >= (3, 6)
 
 # Get the current version number:
 txt = Path('gpaw/__init__.py').read_text()
-version = re.search("__version__ = '(.*)'", txt).group(1)
+version = re.search("__version__ = '(.*)'", txt)[1]
+ase_version_required = re.search("__ase_version_required__ = '(.*)'", txt)[1]
 
 description = 'GPAW: DFT and beyond within the projector-augmented wave method'
 long_description = Path('README.rst').read_text()
@@ -36,8 +40,8 @@ for i, arg in enumerate(sys.argv):
     if arg.startswith('--customize='):
         custom = arg.split('=')[1]
         raise DeprecationWarning(
-            'Please set GPAW_CONFIG={custom} or place {custom} in '
-            '~/.gpaw/siteconfig.py'.format(custom=custom))
+            f'Please set GPAW_CONFIG={custom} or place {custom} in ' +
+            '~/.gpaw/siteconfig.py')
 
 libraries = ['xc']
 library_dirs = []
@@ -102,7 +106,7 @@ for siteconfig in [gpaw_config,
             print('Reading configuration from', path)
             exec(path.read_text())
             break
-else:
+else:  # no break
     if not noblas:
         libraries.append('blas')
 
@@ -111,15 +115,9 @@ if not parallel_python_interpreter and mpicompiler:
     compiler = mpicompiler
     define_macros += [('PARALLEL', '1')]
 
-plat = distutils.util.get_platform()
 platform_id = os.getenv('CPU_ARCH')
 if platform_id:
-    plat += '-' + platform_id
-
-    def my_get_platform():
-        return plat
-
-    distutils.util.get_platform = my_get_platform
+    os.environ['_PYTHON_HOST_PLATFORM'] = get_platform() + '-' + platform_id
 
 if cuda:
     if gpu_compiler is None:
@@ -130,6 +128,11 @@ if cuda:
 
 if compiler is not None:
     # A hack to change the used compiler and linker:
+    try:
+        # distutils is deprecated and will be removed in 3.12
+        from distutils.sysconfig import get_config_vars
+    except ImportError:
+        from sysconfig import get_config_vars
     vars = get_config_vars()
     if remove_default_flags:
         for key in ['BASECFLAGS', 'CFLAGS', 'OPT', 'PY_CFLAGS',
@@ -224,29 +227,30 @@ class build_ext(_build_ext):
             assert error == 0
 
 
+def copy_gpaw_python(cmd, dir: str) -> None:
+    major, minor = sys.version_info[:2]
+    plat = get_platform() + f'-{major}.{minor}'
+    source = f'build/bin.{plat}/gpaw-python'
+    target = os.path.join(dir, 'gpaw-python')
+    cmd.copy_file(source, target)
+
+
 class install(_install):
     def run(self):
         _install.run(self)
-
-        if parallel_python_interpreter:
-            # Also copy gpaw-python
-            plat = distutils.util.get_platform() + '-' + sys.version[0:3]
-            source = 'build/bin.{}/gpaw-python'.format(plat)
-            target = os.path.join(self.install_scripts, 'gpaw-python')
-            self.copy_file(source, target)
+        copy_gpaw_python(self, self.install_scripts)
 
 
 class develop(_develop):
     def run(self):
         _develop.run(self)
+        copy_gpaw_python(self, self.script_dir)
 
-        if parallel_python_interpreter:
-            # Also copy gpaw-python
-            plat = distutils.util.get_platform() + '-' + sys.version[0:3]
-            source = 'build/bin.{}/gpaw-python'.format(plat)
-            target = os.path.join(self.script_dir, 'gpaw-python')
-            self.copy_file(source, target)
 
+cmdclass = {'build_ext': build_ext}
+if parallel_python_interpreter:
+    cmdclass['install'] = install
+    cmdclass['develop'] = develop
 
 files = ['gpaw-analyse-basis', 'gpaw-basis',
          'gpaw-plot-parallel-timings', 'gpaw-runscript',
@@ -266,12 +270,11 @@ setup(name='gpaw',
       packages=find_packages(),
       entry_points={'console_scripts': ['gpaw = gpaw.cli.main:main']},
       setup_requires=['numpy'],
-      install_requires=['ase>=3.20.1'],
+      install_requires=[f'ase>={ase_version_required}',
+                        'scipy>=1.2.0'],
       ext_modules=extensions,
       scripts=scripts,
-      cmdclass={'build_ext': build_ext,
-                'install': install,
-                'develop': develop},
+      cmdclass=cmdclass,
       classifiers=[
           'Development Status :: 6 - Mature',
           'License :: OSI Approved :: '

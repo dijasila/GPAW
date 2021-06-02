@@ -4,20 +4,21 @@ import hashlib
 import os
 import re
 import xml.sax
-from glob import glob
-from math import sqrt, pi
 from distutils.version import LooseVersion
+from glob import glob
+from math import pi, sqrt
+from typing import Tuple
 
 import numpy as np
 from ase.data import atomic_names, atomic_numbers
 from ase.units import Bohr, Hartree
 
-from gpaw import setup_paths, extra_parameters
-from gpaw.xc.pawcorrection import PAWXCCorrection
-from gpaw.mpi import broadcast
-from gpaw.atom.radialgd import (AERadialGridDescriptor,
-                                AbinitRadialGridDescriptor)
+from gpaw import setup_paths
+from gpaw.atom.radialgd import (AbinitRadialGridDescriptor,
+                                AERadialGridDescriptor)
 from gpaw.atom.shapefunc import shape_functions
+from gpaw.mpi import broadcast
+from gpaw.xc.pawcorrection import PAWXCCorrection
 
 try:
     import gzip
@@ -158,8 +159,11 @@ class SetupData:
             text('  core: %.1f' % self.Nc)
         text('  charge:', self.Z - self.Nv - self.Nc)
         if setup.HubU is not None:
-            text('  Hubbard U: %f eV (l=%d, scale=%s)' %
-                 (setup.HubU * Hartree, setup.Hubl, bool(setup.Hubs)))
+            for index in range(len(setup.HubU)):
+                text('  Hubbard U: %f eV (l=%d, scale=%s)' %
+                     (setup.HubU[index] * Hartree,
+                      setup.Hubl[index],
+                      bool(setup.Hubs[index])))
         text('  file:', self.filename)
         text('  compensation charges: {}, rc={:.2f}, lmax={}'
              .format(self.shape_function['type'],
@@ -376,14 +380,14 @@ class SetupData:
         return setup
 
 
-def search_for_file(name, world=None):
+def search_for_file(name: str, world=None) -> Tuple[str, bytes]:
     """Traverse gpaw setup paths to find file.
 
     Returns the file path and file contents.  If the file is not
     found, raises RuntimeError."""
 
     if world is None or world.rank == 0:
-        source = None
+        source = b''
         filename = None
         for path in setup_paths:
             pattern = os.path.join(path, name)
@@ -396,10 +400,9 @@ def search_for_file(name, world=None):
                 filename = max(filenames)
                 assert has_gzip  # Which systems do not have the gzip module?
                 if filename.endswith('.gz'):
-                    fd = gzip.open(filename)
+                    source = gzip.open(filename).read()
                 else:
-                    fd = open(filename, 'rb')
-                source = fd.read()
+                    source = open(filename, 'rb').read()
                 break
 
     if world is not None:
@@ -408,7 +411,7 @@ def search_for_file(name, world=None):
         else:
             filename, source = broadcast(None, 0, world)
 
-    if source is None:
+    if filename is None:
         if name.endswith('basis'):
             _type = 'basis set'
         else:
@@ -573,10 +576,6 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
         elif name == 'pseudo_valence_density':
             setup.nvt_g = x_g
         elif name == 'pseudo_core_kinetic_energy_density':
-            if extra_parameters.get('mggapscore') and (x_g == 0).all():
-                x = setup.rgd.r_g / 0.7
-                x_g = 0.051 * (1 - x**2 * (3 - 2 * x))
-                x_g[x > 1] = 0.0
             setup.tauct_g = x_g
         elif name in ['localized_potential', 'zero_potential']:  # XXX
             setup.vbar_g = x_g

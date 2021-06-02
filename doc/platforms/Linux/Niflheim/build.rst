@@ -60,7 +60,7 @@ and you can deactivate it when you no longer need to use it::
     $ deactivate
 
 You will want the activation to happen automatically for the jobs you
-submit to Niflheim.  Here are three ways to do it:
+submit to Niflheim.  Here are three ways to do it (pick one, and only one):
 
 1) If you always want to use one venv then just put the activation
    command in your ``~/.bashrc``.
@@ -94,7 +94,7 @@ and then you can ``pip install`` packages.  Here are three ways
 to install ASR_::
 
     $ pip install asr  # from PyPI
-    $ git clone https://gitlab.com/mortengjerding/asr.git
+    $ git clone https://gitlab.com/asr-dev/asr.git
     $ pip install ./asr  # from a git clone
     $ pip install -e asr  # use source code from a git clone directly
 

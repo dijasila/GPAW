@@ -12,15 +12,72 @@ Git master branch
 
 * Corresponding ASE release: ASE-3.21.1b1
 
+* The :ref:`time-propagation TDDFT (fd-mode) <timepropagation>` calculator
+  refactored and observer support generalized.
+
+  * The dipole moment output and restart file parameters are
+    deprecated; use the corresponding observers instead.
+    See the updated :ref:`documentation <timepropagation>`.
+
+  * The observers for :ref:`inducedfield` need now to be defined before
+    the kick instead of after it.
+
+  * Corresponding updates for :ref:`qsfdtd` and :ref:`hybridscheme`.
+
+* The documentation and tutorial for :ref:`lrtddft2` updated.
+
+* True occupation numbers are now printed in the text output for the
+  Kohn–Sham states.  Previously, the printed occupation numbers were
+  scaled by **k**-point weight.
+
+* Calculations of excited states can now be performed with the :ref:`mom`
+  (MOM). Since calculations using MOM are variational, they provide atomic
+  forces and can be used for excited-state geometry optimization and molecular
+  dynamics.
+
+* The Davidson eigensolver now uses ScaLAPACK for the
+  `(2 N_{\text{bands}}) \times (2 N_{\text{bands}})` diagonalization step
+  when ``parallel={'sl_auto':True}`` is used.
+
+* Removed several old command-line options:
+  ``--memory-estimate-depth``, ``--domain-decomposition``,
+  ``--state-parallelization``, ``--augment-grids``,
+  ``--buffer-size``, ``--profile``, ``--gpaw``, ``--benchmark-imports``.
+  See :ref:`manual_parallel` and :ref:`profiling` for alternatives.
+  Instead of ``--gpaw=df_dry_run=N``, use the ``--dry-run=N`` option
+  (see :ref:`command line options`).
+
+* Added documentation for :ref:`elph` and added support for
+  spin-polarized systems.
+
+* Implemented multiple orbital hubbard U corrections (EX: for correction
+  of both p and d orbitals on transition metals)
+
+* There used to be two versions of the GPAW web-page which was quite
+  confusing.  The https://wiki.fysik.dtu.dk/gpaw/dev/ web-page has now been
+  dropped.  There is now only https://wiki.fysik.dtu.dk/gpaw/ and it documents
+  the use of the in development version of GPAW.
+
 
 Version 21.1.0
 ===============
 
-19 Oct 2020: :git:`21.1.0 <../21.1.0>`
+18 Jan 2021: :git:`21.1.0 <../21.1.0>`
 
 * Corresponding ASE release: ASE-3.21.0.
 
+* We now use GPAW's own (faster) implementation for LDA, PBE, revPBE, RPBE
+  and PW91.  For most calculation the speedup is unimportant, but for our
+  test-suites it gives a nice boost.  There can be small meV changes compared
+  to the LibXC implementation.  If you want to use LibXC then use::
+
+      from gpaw.xc.gga import GGA
+      from gpaw.xc.libxc import LibXC
+      calc = GPAW(xc=GGA(LibXC('PBE')), ...)
+
 * New :ref:`zfs` module.
+
+* New :ref:`scissors operator`.
 
 * Nonlinear optical responses can now be calculated in the independent
   particle approximations. See the :ref:`nlo_tutorial` tutorial for how
@@ -210,7 +267,7 @@ Version 20.1.0
   3) ``~/.gpaw/siteconfig.py``
 
   This will be used to configure things
-  (BLAS, FFTW, ScaLapack, libxc, libvdwxc, ...).  If no configuration file
+  (BLAS, FFTW, ScaLAPACK, libxc, libvdwxc, ...).  If no configuration file
   is found then you get ``libraries = ['xc', 'blas']``.
 
 * A Lapack library is no longer needed for compiling GPAW.  We are using

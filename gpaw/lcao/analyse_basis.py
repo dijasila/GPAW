@@ -21,7 +21,7 @@ def build_parser():
     return parser
 
 
-def main(argv=sys.argv):
+def main(argv=sys.argv[1:]):
     parser = build_parser()
     opts, files = parser.parse_args(argv)
 

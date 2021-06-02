@@ -160,7 +160,6 @@ class LCAOWaveFunctions(WaveFunctions):
 
         nq = len(self.kd.ibzk_qc)
         nao = self.setups.nao
-        mynbands = self.bd.mynbands
         Mstop = self.ksl.Mstop
         Mstart = self.ksl.Mstart
         mynao = Mstop - Mstart
@@ -183,10 +182,6 @@ class LCAOWaveFunctions(WaveFunctions):
                           [kpt.q for kpt in self.kpt_u],
                           self.kd.ibzk_qc, spos_ac, oldspos_ac,
                           self.setups, Mstart)
-
-        for kpt in self.kpt_u:
-            if kpt.C_nM is None:
-                kpt.C_nM = np.empty((mynbands, nao), self.dtype)
 
         if 0:  # self.debug_tci:
             # if self.ksl.using_blacs:

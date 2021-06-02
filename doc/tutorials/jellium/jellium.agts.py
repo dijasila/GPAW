@@ -1,9 +1,8 @@
-from myqueue.task import task
+from myqueue.workflow import run
 
 
-def create_tasks():
-    return [
-        task('bulk.py@4:6m'),
-        task('surface.py@4:6m'),
-        task('sigma.py', deps='bulk.py,surface.py'),
-        task('fig2.py', deps='sigma.py')]
+def workflow():
+    run(script='bulk.py', cores=4)
+    with run(script='surface.py', cores=4):
+        with run(script='sigma.py'):
+            run(script='fig2.py')

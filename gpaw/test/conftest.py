@@ -1,23 +1,28 @@
 import os
+from contextlib import contextmanager
 from pathlib import Path
 
+import numpy as np
 import pytest
 from _pytest.tmpdir import _mk_tmp
 from ase import Atoms
-from ase.io import read
-from gpaw.utilities import devnull
 from ase.build import bulk
+from ase.io import read
 
-from gpaw import GPAW
+from gpaw import GPAW, PW, Davidson, FermiDirac
 from gpaw.cli.info import info
-from gpaw.mpi import world, broadcast
+from gpaw.mpi import broadcast, world
+from gpaw.utilities import devnull
 
 
-@pytest.fixture
-def in_tmp_dir(request, tmp_path_factory):
-    """Run test in a temporary directory."""
+@contextmanager
+def execute_in_tmp_path(request, tmp_path_factory):
     if world.rank == 0:
-        path = _mk_tmp(request, tmp_path_factory)
+        # Obtain basename as
+        # * request.function.__name__  for function fixture
+        # * request.module.__name__    for module fixture
+        basename = getattr(request, request.scope).__name__
+        path = tmp_path_factory.mktemp(basename)
     else:
         path = None
     path = broadcast(path)
@@ -27,6 +32,20 @@ def in_tmp_dir(request, tmp_path_factory):
         yield path
     finally:
         os.chdir(cwd)
+
+
+@pytest.fixture(scope='function')
+def in_tmp_dir(request, tmp_path_factory):
+    """Run test function in a temporary directory."""
+    with execute_in_tmp_path(request, tmp_path_factory) as path:
+        yield path
+
+
+@pytest.fixture(scope='module')
+def module_tmp_path(request, tmp_path_factory):
+    """Run test module in a temporary directory."""
+    with execute_in_tmp_path(request, tmp_path_factory) as path:
+        yield path
 
 
 @pytest.fixture(scope='session')
@@ -60,6 +79,8 @@ def gpw_files(request, tmp_path_factory):
     * Polyethylene chain.  One unit, 3 k-points, no symmetry:
       ``c2h4_pw_nosym``.  Three units: ``c6h12_pw``.
 
+    * Bulk TiO2 with 4x4x4 k-points: ``ti2o4_pw`` and ``ti2o4_pw_nosym``.
+
     Files with wave functions are also availabel (add ``_wfs`` to the names).
     """
     path = os.environ.get('GPW_TEST_FILES')
@@ -80,7 +101,7 @@ class GPWFiles:
         for file in path.glob('*.gpw'):
             self.gpw_files[file.name[:-4]] = file
 
-    def __getitem__(self, name):
+    def __getitem__(self, name: str) -> Path:
         if name not in self.gpw_files:
             rawname, _, _ = name.partition('_wfs')
             calc = getattr(self, rawname)()
@@ -185,9 +206,53 @@ class GPWFiles:
         from ase.build import molecule
         atoms = molecule('H2O', cell=[8, 8, 8], pbc=1)
         atoms.center()
-        atoms.calc = GPAW(mode='lcao', txt='h2o.txt')
+        atoms.calc = GPAW(mode='lcao', txt=self.path / 'h2o.txt')
         atoms.get_potential_energy()
         return atoms.calc
+
+    def ti2o4(self, symmetry):
+        pwcutoff = 400.0
+        k = 4
+        a = 4.59
+        c = 2.96
+        u = 0.305
+
+        rutile_cell = [[a, 0, 0],
+                       [0, a, 0],
+                       [0, 0, c]]
+
+        TiO2_basis = np.array([[0.0, 0.0, 0.0],
+                               [0.5, 0.5, 0.5],
+                               [u, u, 0.0],
+                               [-u, -u, 0.0],
+                               [0.5 + u, 0.5 - u, 0.5],
+                               [0.5 - u, 0.5 + u, 0.5]])
+
+        bulk_crystal = Atoms(symbols='Ti2O4',
+                             scaled_positions=TiO2_basis,
+                             cell=rutile_cell,
+                             pbc=(1, 1, 1))
+
+        tag = '_nosym' if symmetry == 'off' else ''
+        bulk_calc = GPAW(mode=PW(pwcutoff),
+                         nbands=42,
+                         eigensolver=Davidson(1),
+                         kpts={'size': (k, k, k), 'gamma': True},
+                         xc='PBE',
+                         occupations=FermiDirac(0.00001),
+                         parallel={'band': 1},
+                         symmetry=symmetry,
+                         txt=self.path / f'ti2o4_pw{tag}.txt')
+
+        bulk_crystal.calc = bulk_calc
+        bulk_crystal.get_potential_energy()
+        return bulk_calc
+
+    def ti2o4_pw(self):
+        return self.ti2o4({})
+
+    def ti2o4_pw_nosym(self):
+        return self.ti2o4('off')
 
 
 class GPAWPlugin:
@@ -211,6 +276,19 @@ def pytest_configure(config):
         else:
             tw._file = devnull
     config.pluginmanager.register(GPAWPlugin(), 'pytest_gpaw')
+    for line in ['soc: Spin-orbit coupling',
+                 'slow: slow test',
+                 'fast: fast test',
+                 'ci: test for CI',
+                 'libxc: LibXC requirered',
+                 'mgga: MGGA test',
+                 'dscf: Delta-SCF',
+                 'mom: MOM',
+                 'gllb: GLLBSC tests',
+                 'elph: Electron-phonon',
+                 'intel: fails on INTEL toolchain',
+                 'serial: run in serial only']:
+        config.addinivalue_line('markers', line)
 
 
 def pytest_runtest_setup(item):

@@ -1,13 +1,15 @@
-def create_tasks():
-    from myqueue.task import task
-    return [
-        task('surface.agts.py'),
-        task('work_function.py', deps='surface.agts.py')]
+def workflow():
+    from myqueue.workflow import run
+    with run(function=init):
+        run(script='work_function.py')
 
 
-if __name__ == '__main__':
+def init():
+    import runpy
     from pathlib import Path
     source = Path('Al100.py').read_text()
     source = source.replace('k = ...', 'k = 6')
     source = source.replace('N = ...', 'N = 5')
-    exec(source)
+    path = Path('al10065.py')
+    path.write_text(source)
+    runpy.run_path(str(path))

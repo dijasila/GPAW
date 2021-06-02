@@ -1,18 +1,16 @@
 import numpy as np
 
-from ase.parallel import parprint
-
 from gpaw import debug
-from gpaw.analyse.observers import Observer
 from gpaw.transformers import Transformer
 from gpaw.lfc import BasisFunctions
+from gpaw.lcaotddft.observer import TDDFTObserver
 from gpaw.utilities import unpack2, is_contiguous
 
 from gpaw.inducedfield.inducedfield_base import BaseInducedField, \
     sendreceive_dict
 
 
-class TDDFTInducedField(BaseInducedField, Observer):
+class TDDFTInducedField(BaseInducedField, TDDFTObserver):
     """Induced field class for time propagation TDDFT.
     
     Attributes (see also ``BaseInducedField``):
@@ -48,10 +46,12 @@ class TDDFTInducedField(BaseInducedField, Observer):
             Name of the restart file
         """
 
-        Observer.__init__(self, interval)
+        TDDFTObserver.__init__(self, paw, interval)
         # From observer:
         # self.niter
         # self.interval
+        # self.timer
+        # Observer does also paw.attach(self, ...)
         
         # Restart file
         self.restart_file = restart_file
@@ -78,18 +78,6 @@ class TDDFTInducedField(BaseInducedField, Observer):
             assert hasattr(paw, 'time') and hasattr(paw, 'niter'), 'Use TDDFT!'
             self.time = paw.time                # !
             self.niter = paw.niter
-            
-            # TODO: remove this requirement
-            assert np.count_nonzero(paw.kick_strength) > 0, \
-                'Apply absorption kick before %s' % self.__class__.__name__
-        
-            # Background electric field
-            self.Fbgef_v = paw.kick_strength
-
-            # Attach to PAW-type object
-            paw.attach(self, self.interval)
-            # TODO: write more details (folding, freqs, etc)
-            parprint('%s: Attached ' % self.__class__.__name__)
 
     def set_folding(self, folding, width):
         BaseInducedField.set_folding(self, folding, width)
@@ -108,7 +96,7 @@ class TDDFTInducedField(BaseInducedField, Observer):
         if not self.allocated:
             
             # Ground state pseudo density
-            self.n0t_sG = self.density.nt_sG.copy()
+            self.n0t_sG = self.gd.empty((self.nspins, )) + np.nan
             
             # Fourier transformed pseudo density
             self.Fnt_wsG = self.gd.zeros((self.nw, self.nspins),
@@ -142,10 +130,25 @@ class TDDFTInducedField(BaseInducedField, Observer):
         self.D0_asp = None
         self.FD_awsp = None
         
-    def update(self):
+    def _update(self, paw):
+        if paw.action == 'init':
+            if paw.niter == 0:
+                self.n0t_sG[:] = paw.density.nt_sG
+            return
+        elif paw.action == 'kick':
+            # Background electric field
+            self.Fbgef_v = paw.kick_strength
+            return
+        elif paw.action != 'propagate':
+            return
+
+        assert (self.Fbgef_v is not None
+                and not np.any(np.isnan(self.n0t_sG))), \
+            f'Attach {self.__class__.__name__} before absorption kick'
+
         # Update time
-        self.time = self.paw.time
-        time_step = self.paw.time_step
+        self.time = paw.time
+        time_step = paw.time_step
 
         # Complex exponential with envelope
         f_w = np.exp(1.0j * self.omega_w * self.time) * \
@@ -162,10 +165,17 @@ class TDDFTInducedField(BaseInducedField, Observer):
                 self.FD_awsp[a][w] += (D_sp - self.D0_asp[a]) * f_w[w]
 
         # Restart file
-        if self.restart_file is not None and \
-           self.niter % self.paw.dump_interval == 0:
+        # XXX remove this once deprecated dump_interval is removed,
+        # but keep write_restart() as it'll be still used
+        # (see TDDFTObserver class)
+        if (paw.restart_file is not None
+                and self.niter % paw.dump_interval == 0):
+            self.write_restart()
+
+    def write_restart(self):
+        if self.restart_file is not None:
             self.write(self.restart_file)
-            parprint('%s: Wrote restart file' % self.__class__.__name__)
+            self.log(f'{self.__class__.__name__}: Wrote restart file')
     
     def interpolate_pseudo_density(self, gridrefinement=2):
         

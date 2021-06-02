@@ -2,7 +2,7 @@ import numpy as np
 from ase.build import fcc111
 
 from gpaw.mpi import world
-from gpaw import GPAW, PoissonSolver
+from gpaw import GPAW
 from gpaw.utilities import compiled_with_sl
 from gpaw import FermiDirac, LCAO
 
@@ -45,7 +45,6 @@ def test_lcao_complicated():
                     kpts=(4, 1, 1),
                     # txt=None,
                     communicator=comm,
-                    poissonsolver=PoissonSolver(eps=1e-8),
                     nbands=16,
                     parallel=parallel,
                     h=0.35)
