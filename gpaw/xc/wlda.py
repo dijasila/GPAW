@@ -2093,8 +2093,6 @@ class WLDA(XCFunctional):
         dn_k = self.radial_fft(r_x, dn_x)
         dn_k[0] = 0.0
         dn_g = IUS(r_x, self.radial_ifft(r_x, dn_k))(rgd.r_g)
-        # assert np.allclose(dn_k[0], 0.0), dn_k[0]
-        assert np.allclose(self.radial_ifft(r_x, dn_k), dn_x)
         pot_k = np.zeros_like(dn_k)
         pot_k[1:] = dn_k[1:] / G_k[1:]**2 * 4 * np.pi
         pot_x = self.radial_ifft(r_x, pot_k)
