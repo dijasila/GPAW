@@ -205,7 +205,7 @@ class WLDA(XCFunctional):
         XCFunctional.__init__(self, 'WLDA', 'LDA')
         # MODE SETTINGS
         mode = settings.get('mode', 'fWLDA')
-        if mode.endswith("x"):
+        if mode.lower().endswith("x"):
             self.exchange_only = True
             mode = mode[:-1]
         else:
@@ -379,6 +379,7 @@ class WLDA(XCFunctional):
     def sign_regularization(self, dv_sg):
         # Indices where Delta V_xc is less than 0.0
         return dv_sg
+        assert False
         indices = dv_sg < 0.0
         dv_sg[indices] = 0.0
         return dv_sg
@@ -386,6 +387,7 @@ class WLDA(XCFunctional):
     def calculate_impl(self, gd, n_sg, v_sg, e_g):
         """Interface for GPAW."""
         parprint("WLDA is the next PBE")
+        n_sg = n_sg.copy()  # No chance of modifying density
         wn_sg = self.get_working_density(n_sg, gd)
 
         # This function constructs arrays holding e.g.:
@@ -402,8 +404,6 @@ class WLDA(XCFunctional):
         if not self.exchange_only:
             nstar_sg = self.wlda_c(wn_sg, exc_g, vxc_sg, nstar_sg, alpha_indices)
             # nstar_sg is now weighted density from \int phi(r-r', n_total(r'))n_sigma(r')
-
-        # vxc_sg = self.sign_regularization(vxc_sg, self.v_corr_sg)
 
         # Arrays for undistributed Hartree
         eHa_g = np.zeros_like(exc_g)
@@ -1283,7 +1283,7 @@ class WLDA(XCFunctional):
         With
             V := int dr (n-n*)(r')/|r-r'|
         Delta v is equal to
-            Delta v(r) = -2 * (V(r)
+            Delta v(r) = -(V(r)
                     -    int dr' dn*(r')/dn(r) V(r')
         """
         if not self.use_hartree_correction:
@@ -1322,6 +1322,9 @@ class WLDA(XCFunctional):
 
             e_g += 0.5 * e1_g
             v_sg += v1_sg
+
+            # Undo modification of density performed by wlda_x
+            wn_sg *= 0.5
         else:
             v1_sg = np.zeros_like(v_sg)
             self.do_hartree_corr(gd, wn_sg.sum(axis=0), nstar_sg.sum(axis=0),
@@ -1340,19 +1343,19 @@ class WLDA(XCFunctional):
 
         dn_g = n_g - nstar_g
 
-        V_G = self.fftn(dn_g) / K_G**2 * 4 * np.pi * 0.5
+        V_G = self.fftn(dn_g) / K_G**2 * 4 * np.pi
         V_g = self.ifftn(V_G).real
 
-        e_g[:] -= (dn_g * V_g)
+        e_g[:] -= (dn_g * V_g) * 0.5
 
         for s in spins:
-            im = 2 * (- self.fold_with_derivative(V_g,
-                                                  n_g,
-                                                  my_alpha_indices,
-                                                  s, self.wn_sg,
-                                                  mpisum=False))
+            im = (- self.fold_with_derivative(V_g,
+                                              n_g,
+                                              my_alpha_indices,
+                                              s, self.wn_sg,
+                                              mpisum=False))
             if mpi.rank == 0:
-                v_sg[s, :] -= (2 * V_g + im)
+                v_sg[s, :] -= (V_g + im)
             else:
                 v_sg[s, :] -= im
 
@@ -1387,6 +1390,7 @@ class WLDA(XCFunctional):
         Returns:
             The /total/ XC energy
         """
+        n_sg = n_sg.copy()
         self.do_radial_lda(n_sg)
 
         if e_g is None:
@@ -1438,6 +1442,7 @@ class WLDA(XCFunctional):
         """
         if len(n_sg) == 2:
             n_sg *= 2
+
         spin = len(n_sg) - 1
 
         self.setup_radial_indicators(n_sg, self.nindicators)
@@ -2041,17 +2046,19 @@ class WLDA(XCFunctional):
             # Undo modification by radial_x
             n_sg *= 0.5
             nsum_sg = np.array([n_sg.sum(axis=0)])
+            e1_g = np.zeros_like(nsum_sg[0])
             v1_sg = np.zeros_like(nsum_sg)
 
             self.setup_radial_indicators(nsum_sg, self.nindicators)
             nstar_sg = self.radial_weighted_density(nsum_sg)
+            
 
             self.do_radial_hartree_corr(rgd, nsum_sg.sum(axis=0),
                                         nstar_sg.sum(axis=0),
-                                        e_g, v1_sg, [0])
+                                        e1_g, v1_sg, [0])
+            e_g += e1_g
             v_sg[0] += v1_sg[0]
             v_sg[1] += v1_sg[0]
-
         elif len(n_sg) == 2 and self.hxc:
             self.setup_radial_indicators(n_sg, self.nindicators)
             nstar_sg = self.radial_weighted_density(n_sg)
@@ -2067,6 +2074,8 @@ class WLDA(XCFunctional):
             e_g += 0.5 * e1_g
             v_sg += v1_sg
 
+            # Undo modification by radial_x
+            n_sg *= 0.5        
         else:
             self.do_radial_hartree_corr(rgd, n_sg.sum(axis=0),
                                         nstar_sg.sum(axis=0),
@@ -2082,13 +2091,18 @@ class WLDA(XCFunctional):
 
         dn_x = rgd.interpolate(dn_g, r_x)
         dn_k = self.radial_fft(r_x, dn_x)
+        dn_k[0] = 0.0
+        dn_g = IUS(r_x, self.radial_ifft(r_x, dn_k))(rgd.r_g)
+        # assert np.allclose(dn_k[0], 0.0), dn_k[0]
+        assert np.allclose(self.radial_ifft(r_x, dn_k), dn_x)
         pot_k = np.zeros_like(dn_k)
-        pot_k[1:] = dn_k[1:] / G_k[1:]**2 * 4 * np.pi * 0.5
+        pot_k[1:] = dn_k[1:] / G_k[1:]**2 * 4 * np.pi
         pot_x = self.radial_ifft(r_x, pot_k)
         pot_g = IUS(r_x, pot_x)(rgd.r_g)
-
-        e_g -= pot_g * dn_g
+        
+        assert pot_g.shape == dn_g.shape
+        e_g -= pot_g * dn_g * 0.5
 
         for s in spins:
-            v_sg[s, :] -= 2 * (pot_g
-                               - self.radial_derivative_fold(pot_g, n_g, s))
+            v_sg[s, :] -= (pot_g
+                           - self.radial_derivative_fold(pot_g, n_g, s))
