@@ -34,8 +34,8 @@ def test_nabla_matrix(calc):
 
     kpt = wfs.kpt_u[0]
     C_nM = kpt.C_nM
-    import numpy as np
-    np.set_printoptions(precision=5, suppress=1, linewidth=120)
+    # import numpy as np
+    # np.set_printoptions(precision=5, suppress=1, linewidth=120)
 
     v = 2
     nabla_nn = -(C_nM.conj() @ dThetadRz_MM.conj() @ C_nM.T)
