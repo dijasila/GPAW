@@ -433,6 +433,12 @@ class LCAOWaveFunctions(WaveFunctions):
         raise NotImplementedError('Kinetic density calculation for LCAO '
                                   'wavefunctions is not implemented.')
 
+    def _get_overlap_derivatives(self):
+        dThetadR_qvMM, dTdR_qvMM = self.manytci.O_qMM_T_qMM(
+            self.gd.comm, self.ksl.Mstart, self.ksl.Mstop,
+            False, derivative=True)
+        return dThetadR_qvMM, dTdR_qvMM
+
     def calculate_forces(self, hamiltonian, F_av):
         self.timer.start('LCAO forces')
 
@@ -454,8 +460,7 @@ class LCAOWaveFunctions(WaveFunctions):
         if not isblacs:
             self.timer.start('TCI derivative')
 
-            dThetadR_qvMM, dTdR_qvMM = self.manytci.O_qMM_T_qMM(
-                gd.comm, Mstart, Mstop, False, derivative=True)
+            dThetadR_qvMM, dTdR_qvMM = self._get_overlap_derivatives()
 
             dPdR_aqvMi = self.manytci.P_aqMi(
                 self.basis_functions.my_atom_indices, derivative=True)

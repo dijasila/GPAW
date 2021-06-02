@@ -36,11 +36,7 @@ def test_nabla_matrix(calc):
     wfs = calc.wfs
     gd = wfs.gd
 
-    Mstart = wfs.ksl.Mstart
-    Mstop = wfs.ksl.Mstop
-
-    dThetadR_qvMM, dTdR_qvMM = wfs.manytci.O_qMM_T_qMM(
-        gd.comm, Mstart, Mstop, False, derivative=True)
+    dThetadR_qvMM, dTdR_qvMM = wfs._get_overlap_derivatives()
 
     # We want C^dagger · dTheta/dR · C
     dThetadRz_MM = dThetadR_qvMM[0, DIR]
@@ -51,9 +47,14 @@ def test_nabla_matrix(calc):
     # np.set_printoptions(precision=5, suppress=1, linewidth=120)
 
     nabla_nn = -(C_nM.conj() @ dThetadRz_MM.conj() @ C_nM.T)
-    print('NABLA_NN')
-    print(nabla_nn)
-    print('biggest', np.abs(nabla_nn).max())
+
+    def print0(*args, **kwargs):
+        if wfs.world.rank == 0:
+            print(*args, **kwargs)
+
+    print0('NABLA_NN')
+    print0(nabla_nn)
+    print0('biggest', np.abs(nabla_nn).max())
 
     mynbands = wfs.bd.mynbands
     bfs = wfs.basis_functions
@@ -62,11 +63,11 @@ def test_nabla_matrix(calc):
 
     nabla_fd_nn = get_nabla_fd(gd, kpt, psit_nG)
 
-    print('NABLA_FD_NN')
-    print(nabla_fd_nn)
+    print0('NABLA_FD_NN')
+    print0(nabla_fd_nn)
     err = abs(nabla_fd_nn - nabla_nn)
-    print('ERR')
-    print(err)
+    print0('ERR')
+    print0(err)
     maxerr = np.abs(err).max()
-    print('MAXERR', maxerr)
+    print0('MAXERR', maxerr)
     assert maxerr < 2e-4
