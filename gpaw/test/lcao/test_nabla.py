@@ -7,7 +7,7 @@ from gpaw.fd_operators import Gradient
 
 @pytest.fixture
 def calc():
-    atoms = bulk('Li', orthorhombic=True) #molecule('H2O', vacuum=2.0)
+    atoms = bulk('Li', orthorhombic=True)
     atoms.rattle(stdev=0.15)
     calc = GPAW(mode='lcao', basis='dzp', txt='gpaw.txt', h=.2,
                 kpts=[[0.1, 0.3, 0.4]])
@@ -50,19 +50,9 @@ def test_nabla_matrix(calc):
     bfs.lcao_to_grid(C_nM, psit_nG, q=kpt.q)
 
     k_c = wfs.kd.ibzk_kc[kpt.k]
-    #the_planewave = gd.plane_wave(-k_c)
-    #for psit_G in psit_nG:
-    #    psit_G *= the_planewave
-
 
     grad = Gradient(gd, v, n=2, dtype=wfs.dtype)
     grad.apply(psit_nG, gradpsit_nG, phase_cd=kpt.phase_cd)
-
-    #nabla_fd_nn = np.zeros((mynbands, mynbands), dtype=wfs.dtype)
-    #for n1 in range(mynbands):
-    #    for n2 in range(mynbands):
-    #        nabla_fd_nn[n1, n2] = (psit_nG[n1]
-    #                               * gradpsit_nG[n2].conj()).sum() * gd.dv
 
     nabla_fd_nn = gd.integrate(psit_nG, gradpsit_nG)
 
