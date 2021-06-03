@@ -433,10 +433,10 @@ class LCAOWaveFunctions(WaveFunctions):
         raise NotImplementedError('Kinetic density calculation for LCAO '
                                   'wavefunctions is not implemented.')
 
-    def _get_overlap_derivatives(self):
+    def _get_overlap_derivatives(self, ignore_upper=False):
         dThetadR_qvMM, dTdR_qvMM = self.manytci.O_qMM_T_qMM(
             self.gd.comm, self.ksl.Mstart, self.ksl.Mstop,
-            False, derivative=True)
+            ignore_upper, derivative=True)
         return dThetadR_qvMM, dTdR_qvMM
 
     def calculate_forces(self, hamiltonian, F_av):

@@ -14,6 +14,7 @@ def calc():
     atoms = bulk('Li', orthorhombic=True)
     atoms.rattle(stdev=0.15)
     calc = GPAW(mode='lcao', basis='dzp', txt='gpaw.txt', h=.2,
+                parallel=dict(sl_auto=True),
                 kpts=[[0.1, 0.3, 0.4]])
     atoms.calc = calc
 
@@ -36,7 +37,12 @@ def test_nabla_matrix(calc):
     wfs = calc.wfs
     gd = wfs.gd
 
-    dThetadR_qvMM, dTdR_qvMM = wfs._get_overlap_derivatives()
+    dThetadR_qvMM, dTdR_qvMM = wfs._get_overlap_derivatives(wfs.ksl.using_blacs)
+    print(dThetadR_qvMM.shape)
+    # If using BLACS initialize lower triangle.
+    if wfs.ksl.using_blacs:
+        for i in range(dThetadR_qvMM.shape[-1]):
+            dThetadR_qvMM[:, :, i, i:] = -dThetadR_qvMM[:, :, i:, i]
 
     # We want C^dagger · dTheta/dR · C
     dThetadRz_MM = dThetadR_qvMM[0, DIR]
@@ -47,7 +53,7 @@ def test_nabla_matrix(calc):
     # np.set_printoptions(precision=5, suppress=1, linewidth=120)
 
     nabla_nn = -(C_nM.conj() @ dThetadRz_MM.conj() @ C_nM.T)
-    wfs.world.sum(nabla_nn)
+    gd.comm.sum(nabla_nn)
 
     def print0(*args, **kwargs):
         if wfs.world.rank == 0:
