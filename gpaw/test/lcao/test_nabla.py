@@ -33,46 +33,56 @@ def get_nabla_fd(gd, kpt, psit_nG):
     return gd.integrate(psit_nG, gradpsit_nG)
 
 
-def test_nabla_matrix(calc):
-    wfs = calc.wfs
+def get_nabla_lcao(wfs):
     gd = wfs.gd
+    kpt = wfs.kpt_u[0]
 
-    dThetadR_qvMM, dTdR_qvMM = wfs._get_overlap_derivatives(wfs.ksl.using_blacs)
+    dThetadR_qvMM, dTdR_qvMM = wfs._get_overlap_derivatives()
     print(dThetadR_qvMM.shape)
     # If using BLACS initialize lower triangle.
-    if wfs.ksl.using_blacs:
-        for i in range(dThetadR_qvMM.shape[-1]):
-            dThetadR_qvMM[:, :, i, i:] = -dThetadR_qvMM[:, :, i:, i]
+    #if wfs.ksl.using_blacs:
+    #    for i in range(dThetadR_qvMM.shape[-1]):
+    #        dThetadR_qvMM[:, :, i, i:] = -dThetadR_qvMM[:, :, i:, i]
 
     # We want C^dagger · dTheta/dR · C
     dThetadRz_MM = dThetadR_qvMM[0, DIR]
 
-    kpt = wfs.kpt_u[0]
     C_nM = kpt.C_nM
     # import numpy as np
     # np.set_printoptions(precision=5, suppress=1, linewidth=120)
 
-    nabla_nn = np.ascontiguousarray((C_nM @ dThetadRz_MM @ C_nM.T.conj()).T)
-    gd.comm.sum(nabla_nn)
+    nabla_nn_lcao = np.ascontiguousarray((C_nM @ dThetadRz_MM @ C_nM.T.conj()).T)
+    gd.comm.sum(nabla_nn_lcao)
+
+    return nabla_nn_lcao
+
+
+def test_nabla_matrix(calc):
+    wfs = calc.wfs
+    gd = wfs.gd
+    kpt = wfs.kpt_u[0]
+
+    mynbands = wfs.bd.mynbands
+    bfs = wfs.basis_functions
+    psit_nG = gd.zeros(mynbands, dtype=wfs.dtype)
+    bfs.lcao_to_grid(kpt.C_nM, psit_nG, q=kpt.q)
+
+    nabla_nn_lcao = get_nabla_lcao(wfs)
+    gd.comm.sum(nabla_nn_lcao)
 
     def print0(*args, **kwargs):
         if wfs.world.rank == 0:
             print(*args, **kwargs)
 
-    print0('NABLA_NN')
-    print0(nabla_nn)
-    print0('biggest', np.abs(nabla_nn).max())
-
-    mynbands = wfs.bd.mynbands
-    bfs = wfs.basis_functions
-    psit_nG = gd.zeros(mynbands, dtype=wfs.dtype)
-    bfs.lcao_to_grid(C_nM, psit_nG, q=kpt.q)
+    print0('NABLA_NN_LCAO')
+    print0(nabla_nn_lcao)
+    print0('biggest', np.abs(nabla_nn_lcao).max())
 
     nabla_fd_nn = get_nabla_fd(gd, kpt, psit_nG)
 
     print0('NABLA_FD_NN')
     print0(nabla_fd_nn)
-    err = abs(nabla_fd_nn - nabla_nn)
+    err = abs(nabla_fd_nn - nabla_nn_lcao)
     print0('ERR')
     print0(err)
     maxerr = np.abs(err).max()
