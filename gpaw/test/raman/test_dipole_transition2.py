@@ -10,10 +10,10 @@ from gpaw.lrtddft.kssingle import KSSingles
 
 def test_dipole_transition(gpw_files, tmp_path_factory):
     """Check dipole matrix-elements for Li."""
-    calc = GPAW(gpw_files['bcc_li_lcao_wfs'])
-    # print("kpoints", calc.wfs.kd.ibzk_kc, calc.wfs.kd.weight_k)
-    # for kpt in calc.wfs.kpt_u:
-    #    print(kpt.s, kpt.k, kpt.eps_n)
+    calc = GPAW(gpw_files['bcc_li_lcao_wfs'], parallel=dict(sl_auto=True))
+    from gpaw.kohnsham_layouts import BlacsOrbitalLayouts
+    isblacs = isinstance(calc.wfs.ksl, BlacsOrbitalLayouts)  # XXX
+    print(calc.wfs.ksl.using_blacs, isblacs)
     dip_skvnm = get_dipole_transitions(calc.atoms, calc, savetofile=False,
                                        realdipole=True)
     parprint("Dipole moments calculated")
@@ -28,14 +28,11 @@ def test_dipole_transition(gpw_files, tmp_path_factory):
             dip_kvnm[k, v].T == pytest.approx(dip_kvnm[k, v])
 
     # Check numerical value of a few elements - signs might change!
-    assert 0.0823 == pytest.approx(abs(dip_kvnm[0, 0, 0, 1]), abs=1e-4)
-    assert abs(-0.0766+0.0273j) == pytest.approx(abs(dip_kvnm[1, 2, 0, 3]),
-                                                 abs=1e-4)
-    calc = GPAW(gpw_files['bcc_li_fd_wfs'])
-    # print("kpoints", calc.wfs.kd.ibzk_kc, calc.wfs.kd.weight_k)
-    # for kpt in calc.wfs.kpt_u:
-    #    print(kpt.s, kpt.k, kpt.eps_n)
+    assert 0.0824 == pytest.approx(abs(dip_kvnm[0, 0, 0, 1]), abs=1e-4)
+    assert abs(-0.0781 + 0.0282j) == pytest.approx(abs(dip_kvnm[1, 2, 0, 3]),
+                                                   abs=1e-4)
 
+    calc = GPAW(gpw_files['bcc_li_fd_wfs'])
     # compare to lrtddft implementation
     kss = KSSingles()
     atoms = calc.atoms

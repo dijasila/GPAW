@@ -25,9 +25,9 @@ def test_dipole_transition(gpw_files, tmp_path_factory):
         dip_vnm[v].T == pytest.approx(dip_vnm[v])
 
     # Check numerical value of a few elements - signs might change!
-    assert 0.0696 == pytest.approx(abs(dip_vnm[2, 0, 4]), abs=1e-4)
-    assert 0.1028 == pytest.approx(abs(dip_vnm[1, 0, 5]), abs=1e-4)
-    assert 0.1667 == pytest.approx(abs(dip_vnm[0, 3, 4]), abs=1e-4)
+    assert 0.0693 == pytest.approx(abs(dip_vnm[2, 0, 4]), abs=1e-4)
+    assert 0.1014 == pytest.approx(abs(dip_vnm[1, 0, 5]), abs=1e-4)
+    assert 0.1709 == pytest.approx(abs(dip_vnm[0, 3, 4]), abs=1e-4)
 
     # some printout for manual inspection, if wanted
     f = 6 * "{:+.4f} "

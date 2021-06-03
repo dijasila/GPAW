@@ -1,7 +1,6 @@
 import numpy as np
 
-from ase.parallel import world  # , parprint
-from gpaw.fd_operators import Gradient
+from ase.parallel import world
 
 
 # NOTE: This routine is not specific to Raman per se. Maybe it should go
@@ -12,7 +11,7 @@ def get_dipole_transitions(atoms, calc, savetofile=True, realdipole=False):
     <\psi_n|\nabla|\psi_m> = <u_n|nabla|u_m> + ik<u_n|u_m>
     where psi_n = u_n(r)*exp(ikr).
     ik<u_n|u_m> is supposed to be zero off diagonal and not calculated as
-    we are not interested in diagonal terms.
+    we are not intereste in diagonal terms.
 
     NOTE: Function name seems to be a misnomer. The routine is supposed to
     calculate <psi_n|p|psi_m>, which is not quite the normal dipole moment.
@@ -25,74 +24,60 @@ def get_dipole_transitions(atoms, calc, savetofile=True, realdipole=False):
         dip_svknm.npy    Array with dipole matrix elements
     """
     assert calc.wfs.bd.comm.size == 1
-    assert calc.wfs.kd.comm.size == 1
     assert calc.wfs.mode == 'lcao'
-    n = calc.wfs.bd.nbands
+    nbands = calc.wfs.bd.nbands
+    nspins = calc.wfs.nspins
     nk = calc.wfs.kd.nibzkpts
     gd = calc.wfs.gd
+    dtype = calc.wfs.dtype
+
+    # print(calc.wfs.kd.comm.size, calc.wfs.gd.comm.size,
+    # calc.wfs.bd.comm.size)
 
     # Why?
     calc.wfs.set_positions
     calc.initialize_positions(atoms)
 
-    nabla_v = [Gradient(gd, v, 1.0, 2, calc.wfs.dtype).apply for v in range(3)]
+    dip_skvnm = np.zeros((nspins, nk, 3, nbands, nbands), dtype=dtype)
 
-    dip_skvnm = []
-    for s in range(calc.wfs.nspins):
-        dipe_kvnm = np.zeros((nk, 3, n, n), dtype=complex)
-        dipa_kvnm = np.zeros((nk, 3, n, n), dtype=complex)
+    ksl = calc.wfs.ksl
+    dThetadR_qvMM, dTdR_qvMM = calc.wfs.manytci.O_qMM_T_qMM(gd.comm,
+                                                            ksl.Mstart,
+                                                            ksl.Mstop,
+                                                            False,
+                                                            derivative=True)
 
-        for k in range(nk):
-            # parprint("Distributing wavefunctions.")
-            # Collects the wavefunctions and the projections to rank 0.
-            gwfa = calc.wfs.get_wave_function_array
-            wf = []
-            for i in range(n):
-                wfi = gwfa(n=i, k=k, s=s, realspace=True, periodic=True)
-                if calc.wfs.world.rank != 0:
-                    wfi = gd.empty(dtype=calc.wfs.dtype, global_array=True)
-                wfi = np.ascontiguousarray(wfi)
-                calc.wfs.world.broadcast(wfi, 0)
-                wfd = gd.empty(dtype=calc.wfs.dtype, global_array=False)
-                wfd = gd.distribute(wfi)
-                wf.append(wfd)
-            wf = np.array(wf)
-            kpt = calc.wfs.kpt_qs[k][s]
+    dipe_skvnm = np.zeros((nspins, nk, 3, nbands, nbands), dtype=dtype)
+    dipa_skvnm = np.zeros((nspins, nk, 3, nbands, nbands), dtype=dtype)
 
-            # parprint("Evaluating dipole transition matrix elements.")
-            grad_nv = gd.zeros((n, 3), dtype=calc.wfs.dtype)
-
-            # Calculate <phit|nabla|phit> for the pseudo wavefunction
-            # Parellisation note: Every rank has same result
-
-            for v in range(3):
-                for i in range(n):
-                    # NOTE: It's unclear to me, whether or nor to use phase_cd
-                    # nabla_v[v](wf[i], grad_nv[i, v], np.ones((3, 2)))
-                    nabla_v[v](wf[i], grad_nv[i, v], kpt.phase_cd)
-                dipe_kvnm[k, v] = gd.integrate(wf, grad_nv[:, v])
-
-            # augmentation part
-            # Parallelisatin note: Need to sum
-            for a, P_ni in kpt.P_ani.items():
-                nabla_iiv = calc.wfs.setups[a].nabla_iiv
-                dipa_kvnm[k] += np.einsum('ni,ijv,mj->vnm',
-                                          P_ni.conj(), nabla_iiv, P_ni)
-        gd.comm.sum(dipa_kvnm)
-
-        dip_kvnm = dipe_kvnm + dipa_kvnm
-        # dip_kvnm = dipe_kvnm
-        # dip_kvnm = dipa_kvnm
-
+    for kpt in calc.wfs.kpt_u:
         if realdipole:  # need this for testing against other dipole routines
-            for k in range(nk):
-                kpt = calc.wfs.kpt_qs[k][s]
-                deltaE = abs(kpt.eps_n[:, None] - kpt.eps_n[None, :])
-                np.fill_diagonal(deltaE, np.inf)
-                dip_kvnm[k, :] /= deltaE
+            deltaE = abs(kpt.eps_n[:, None] - kpt.eps_n[None, :])
+            np.fill_diagonal(deltaE, np.inf)
+        else:
+            deltaE = 1.
 
-        dip_skvnm.append(dip_kvnm)
+        C_nM = kpt.C_nM
+        for v in range(3):
+            dThetadRv_MM = dThetadR_qvMM[kpt.q, v]
+            nabla_nn = -(C_nM.conj() @ dThetadRv_MM.conj() @ C_nM.T)
+            gd.comm.sum(nabla_nn)
+            dipe_skvnm[kpt.s, kpt.k, v] = nabla_nn / deltaE
 
+        # augmentation part
+        # Parallelisatin note: Need to sum???
+        dipa_vnm = np.zeros((3, nbands, nbands), dtype=dtype)
+        for a, P_ni in kpt.P_ani.items():
+            nabla_iiv = calc.wfs.setups[a].nabla_iiv
+            dipa_vnm += np.einsum('ni,ijv,mj->vnm',
+                                  P_ni.conj(), nabla_iiv, P_ni)
+        gd.comm.sum(dipa_vnm)
+        dipa_skvnm[kpt.s, kpt.k] = dipa_vnm / deltaE
+
+    dip_skvnm = dipe_skvnm + dipa_skvnm
+    calc.wfs.kd.comm.sum(dip_skvnm)
+
+    # calc.wfs.world.sum(dip_skvnm)
     if world.rank == 0 and savetofile:
-        np.save('dip_skvnm.npy', np.array(dip_skvnm))
-    return np.array(dip_skvnm)
+        np.save('dip_skvnm.npy', dip_skvnm)
+    return dip_skvnm
