@@ -27,7 +27,7 @@ def calc():
 
 def get_nabla_fd(gd, kpt, psit_nG):
     gradpsit_nG = gd.zeros(len(psit_nG), dtype=psit_nG.dtype)
-    grad = Gradient(gd, DIR, n=2, dtype=psit_nG.dtype)
+    grad = Gradient(gd, DIR, n=4, dtype=psit_nG.dtype)
     grad.apply(psit_nG, gradpsit_nG, phase_cd=kpt.phase_cd)
     return gd.integrate(psit_nG, gradpsit_nG)
 
@@ -47,6 +47,7 @@ def test_nabla_matrix(calc):
     # np.set_printoptions(precision=5, suppress=1, linewidth=120)
 
     nabla_nn = -(C_nM.conj() @ dThetadRz_MM.conj() @ C_nM.T)
+    wfs.world.sum(nabla_nn)
 
     def print0(*args, **kwargs):
         if wfs.world.rank == 0:
@@ -70,4 +71,4 @@ def test_nabla_matrix(calc):
     print0(err)
     maxerr = np.abs(err).max()
     print0('MAXERR', maxerr)
-    assert maxerr < 2e-4
+    assert maxerr < 1e-4
