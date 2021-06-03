@@ -52,7 +52,7 @@ def test_nabla_matrix(calc):
     # import numpy as np
     # np.set_printoptions(precision=5, suppress=1, linewidth=120)
 
-    nabla_nn = -(C_nM.conj() @ dThetadRz_MM.conj() @ C_nM.T)
+    nabla_nn = (C_nM @ dThetadRz_MM @ C_nM.T.conj()).T
     gd.comm.sum(nabla_nn)
 
     def print0(*args, **kwargs):
