@@ -142,7 +142,7 @@ class GPAWLogger(object):
 
         try:
             mr = maxrss()
-        except (LookupError, TypeError, NameError):
+        except (LookupError, TypeError, NameError, AttributeError):
             # Thing can get weird during interpreter shutdown ...
             mr = 0
 
