@@ -68,7 +68,6 @@ def test_nabla_matrix(calc):
     bfs.lcao_to_grid(kpt.C_nM, psit_nG, q=kpt.q)
 
     nabla_nn_lcao = get_nabla_lcao(wfs)
-    gd.comm.sum(nabla_nn_lcao)
 
     def print0(*args, **kwargs):
         if wfs.world.rank == 0:
