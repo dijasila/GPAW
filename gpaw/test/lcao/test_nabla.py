@@ -14,7 +14,7 @@ def calc():
     atoms = bulk('Li', orthorhombic=True)
     atoms.rattle(stdev=0.15)
     calc = GPAW(mode='lcao', basis='dzp', txt='gpaw.txt', h=.2,
-                #parallel=dict(sl_auto=True),
+                # parallel=dict(sl_auto=True),
                 kpts=[[0.1, 0.3, 0.4]])
     atoms.calc = calc
 
@@ -44,17 +44,25 @@ def get_nabla_lcao(wfs):
     #    for i in range(dThetadR_qvMM.shape[-1]):
     #        dThetadR_qvMM[:, :, i, i:] = -dThetadR_qvMM[:, :, i:, i]
 
-    # We want C^dagger · dTheta/dR · C
-    dThetadRz_MM = dThetadR_qvMM[0, DIR]
+    nabla_skvnm = np.zeros((wfs.nspins, wfs.kd.nibzkpts, 3, wfs.bd.nbands,
+        wfs.bd.nbands), dtype=wfs.dtype)
 
-    C_nM = kpt.C_nM
-    # import numpy as np
-    # np.set_printoptions(precision=5, suppress=1, linewidth=120)
+    for kpt in wfs.kpt_u:
+        C_nM = kpt.C_nM
 
-    nabla_nn_lcao = np.ascontiguousarray((C_nM @ dThetadRz_MM @ C_nM.T.conj()).T)
-    gd.comm.sum(nabla_nn_lcao)
+        for v in range(3):
+            # We want C^dagger · dTheta/dR · C
+            dThetadRv_MM = dThetadR_qvMM[kpt.q, v]
 
-    return nabla_nn_lcao
+        # import numpy as np
+        # np.set_printoptions(precision=5, suppress=1, linewidth=120)
+
+        nabla_nn_lcao = np.ascontiguousarray((C_nM @ dThetadRz_MM @ C_nM.T.conj()).T)
+        gd.comm.sum(nabla_nn_lcao)
+    
+        nabla_skvnm[kpt.s, kpt.k, v] = nabla_nn_lcao
+
+    return wfs.kd.comm.sum(nabla_skvnm)
 
 
 def test_nabla_matrix(calc):
