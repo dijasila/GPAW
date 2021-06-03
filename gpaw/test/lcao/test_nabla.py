@@ -14,7 +14,7 @@ def calc():
     atoms = bulk('Li', orthorhombic=True)
     atoms.rattle(stdev=0.15)
     calc = GPAW(mode='lcao', basis='dzp', txt='gpaw.txt', h=.2,
-                parallel=dict(sl_auto=True),
+                #parallel=dict(sl_auto=True),
                 kpts=[[0.1, 0.3, 0.4]])
     atoms.calc = calc
 
@@ -52,7 +52,7 @@ def test_nabla_matrix(calc):
     # import numpy as np
     # np.set_printoptions(precision=5, suppress=1, linewidth=120)
 
-    nabla_nn = (C_nM @ dThetadRz_MM @ C_nM.T.conj()).T
+    nabla_nn = np.ascontiguousarray((C_nM @ dThetadRz_MM @ C_nM.T.conj()).T)
     gd.comm.sum(nabla_nn)
 
     def print0(*args, **kwargs):
