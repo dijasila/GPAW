@@ -48,10 +48,12 @@ def get_nabla_lcao(wfs):
         for v in range(3):
             # We want C^dagger · dTheta/dR · C
             dThetadRv_MM = dThetadR_qvMM[kpt.q, v]
-            nabla_nn = np.ascontiguousarray((C_nM @ dThetadRv_MM @
-                                             C_nM.T.conj()).T)
-            gd.comm.sum(nabla_nn)
-            nabla_skvnm[kpt.s, kpt.k, v] = nabla_nn
+            nabla_nn_lcao = np.ascontiguousarray(
+                (C_nM @ dThetadRv_MM @ C_nM.T.conj()).T)
+            nabla_skvnm[kpt.s, kpt.k, v] = nabla_nn_lcao
+
+    gd.comm.sum(nabla_skvnm)
+    # wfs.kd.comm.sum(nabla_skvnm)
     kd.comm.sum(nabla_skvnm)
     return nabla_skvnm
 
