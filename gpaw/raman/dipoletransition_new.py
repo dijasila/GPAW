@@ -28,6 +28,7 @@ def get_dipole_transitions(atoms, calc, savetofile=True, realdipole=False):
         dip_svknm.npy    Array with dipole matrix elements
     """
     assert calc.wfs.bd.comm.size == 1
+    assert calc.wfs.mode == 'lcao'
     nbands = calc.wfs.bd.nbands
     nspins = calc.wfs.nspins
     nk = calc.wfs.kd.nibzkpts
@@ -55,12 +56,14 @@ def get_dipole_transitions(atoms, calc, savetofile=True, realdipole=False):
             wf.append(psit_G)
         wf = np.array(wf)
 
-        grad_nv = gd.zeros((nbands, 3), dtype=calc.wfs.dtype)
+        grad_nv = gd.zeros((nbands, 3), dtype=dtype)
 
         # Calculate <phit|nabla|phit> for the pseudo wavefunction
         # Parellisation note: Every rank has same result???
         for v in range(3):
             for n in range(nbands):
+                # NOTE: It's unclear to me, whether or nor to use phase_cd
+                # nabla_v[v](wf[n], grad_nv[n, v],  np.ones((3, 2)))
                 nabla_v[v](wf[n], grad_nv[n, v], kpt.phase_cd)
                 dipe_vnm[v] = gd.integrate(wf, grad_nv[:, v],
                                            global_integral=False)

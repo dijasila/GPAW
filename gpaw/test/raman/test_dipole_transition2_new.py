@@ -19,64 +19,57 @@ def test_dipole_transition(gpw_files, tmp_path_factory):
 
     print(world.rank, dip_kvnm[:, 0, 0, 3])
 
+    # check symmetry: abs(d[i,j]) == abs(d[j,i])
+    for k in range(4):
+        for v in range(3):
+            dip_kvnm[k, v].T == pytest.approx(dip_kvnm[k, v])
+
     # Check numerical value of a few elements - signs might change!
     assert 0.0823 == pytest.approx(abs(dip_kvnm[0, 0, 0, 1]), abs=1e-4)
+    assert abs(-0.0766+0.0273j) == pytest.approx(abs(dip_kvnm[1, 2, 0, 3]),
+                                                 abs=1e-4)
 
     calc = GPAW(gpw_files['bcc_li_fd_wfs'])
     # compare to lrtddft implementation
     kss = KSSingles()
     atoms = calc.atoms
     atoms.calc = calc
-    kss.calculate(calc.atoms, 1)
-    lrref = []
+    kss.calculate(calc.atoms, 0)
     lrrefv = []
     for ex in kss:
-        lrref.append(-1. * ex.mur * Bohr)
+        print(ex)
         lrrefv.append(-1. * ex.muv * Bohr)
-    lrref = np.array(lrref)
     lrrefv = np.array(lrrefv)
 
     # some printout for manual inspection, if wanted
-    parprint("                   r-gauge          lrtddft(v)         raman(v)")
-    f = "{} {:+.4f}    {:+.4f}    {:+.4f}"
-    parprint(f.format('k=0, 0->1 (x)',
-                      lrref[0, 0], lrrefv[0, 0], dip_kvnm[0, 0, 0, 1]))
-    parprint(f.format('k=0, 0->1 (y)',
-                      lrref[0, 1], lrrefv[0, 1], dip_kvnm[0, 1, 0, 1]))
-    parprint(f.format('k=0, 0->1 (z)',
-                      lrref[0, 2], lrrefv[0, 2], dip_kvnm[0, 2, 0, 1]))
-
-    parprint(f.format('k=0, 0->2 (x)',
-                      lrref[1, 0], lrrefv[1, 0], dip_kvnm[0, 0, 0, 2]))
-    parprint(f.format('k=0, 0->2 (y)',
-                      lrref[1, 1], lrrefv[1, 1], dip_kvnm[0, 1, 0, 2]))
-    parprint(f.format('k=0, 0->2 (z)',
-                      lrref[1, 2], lrrefv[1, 2], dip_kvnm[0, 2, 0, 2]))
-
-    parprint(f.format('k=0, 0->3 (x)',
-                      lrref[2, 0], lrrefv[2, 0], dip_kvnm[0, 0, 0, 3]))
-    parprint(f.format('k=0, 0->3 (y)',
-                      lrref[2, 1], lrrefv[2, 1], dip_kvnm[0, 1, 0, 3]))
-    parprint(f.format('k=0, 0->3 (z)',
-                      lrref[2, 2], lrrefv[2, 2], dip_kvnm[0, 2, 0, 3]))
+    parprint("               lrtddft(fd)(v)        raman(v)")
+    f = "{} {:+.4f}    {:+.4f}"
+    # At gamma at three excited states are degenerate, so order is a problem
+    parprint(f.format('k=0, 0->1 (x)', lrrefv[0, 0], dip_kvnm[0, 0, 0, 1]))
+    parprint(f.format('k=0, 0->1 (y)', lrrefv[0, 1], dip_kvnm[0, 1, 0, 1]))
+    parprint(f.format('k=0, 0->1 (z)', lrrefv[0, 2], dip_kvnm[0, 2, 0, 1]))
+    parprint(f.format('k=0, 0->2 (x)', lrrefv[1, 0], dip_kvnm[0, 0, 0, 2]))
+    parprint(f.format('k=0, 0->2 (y)', lrrefv[1, 1], dip_kvnm[0, 1, 0, 2]))
+    parprint(f.format('k=0, 0->2 (z)', lrrefv[1, 2], dip_kvnm[0, 2, 0, 2]))
+    parprint(f.format('k=0, 0->3 (x)', lrrefv[2, 0], dip_kvnm[0, 0, 0, 3]))
+    parprint(f.format('k=0, 0->3 (y)', lrrefv[2, 1], dip_kvnm[0, 1, 0, 3]))
+    parprint(f.format('k=0, 0->3 (z)', lrrefv[2, 2], dip_kvnm[0, 2, 0, 3]))
     parprint("")
-    parprint(f.format('k=1, 0->1 (x)',
-                      lrref[3, 0], lrrefv[3, 0], dip_kvnm[1, 0, 0, 1]))
-    parprint(f.format('k=1, 0->1 (y)',
-                      lrref[3, 1], lrrefv[3, 1], dip_kvnm[1, 1, 0, 1]))
-    parprint(f.format('k=1, 0->1 (z)',
-                      lrref[3, 2], lrrefv[3, 2], dip_kvnm[1, 2, 0, 1]))
+    # At 2nd kpoint 2nd and 3rd excited state almost degenerate in LCAO,
+    # order might be different from FD mode
+    parprint(f.format('k=1, 0->1 (x)', lrrefv[3, 0], dip_kvnm[1, 0, 0, 1]))
+    parprint(f.format('k=1, 0->1 (y)', lrrefv[3, 1], dip_kvnm[1, 1, 0, 1]))
+    parprint(f.format('k=1, 0->1 (z)', lrrefv[3, 2], dip_kvnm[1, 2, 0, 1]))
 
-    parprint(f.format('k=1, 0->2 (x)',
-                      lrref[4, 0], lrrefv[4, 0], dip_kvnm[1, 0, 0, 2]))
-    parprint(f.format('k=1, 0->2 (y)',
-                      lrref[4, 1], lrrefv[4, 1], dip_kvnm[1, 1, 0, 2]))
-    parprint(f.format('k=1, 0->2 (z)',
-                      lrref[4, 2], lrrefv[4, 2], dip_kvnm[1, 2, 0, 2]))
-
-    parprint(f.format('k=1, 0->3 (x)',
-                      lrref[5, 0], lrrefv[5, 0], dip_kvnm[1, 0, 0, 3]))
-    parprint(f.format('k=1, 0->3 (y)',
-                      lrref[5, 1], lrrefv[5, 1], dip_kvnm[1, 1, 0, 3]))
-    parprint(f.format('k=1, 0->3 (z)',
-                      lrref[5, 2], lrrefv[5, 2], dip_kvnm[1, 2, 0, 3]))
+    parprint(f.format('k=1, 0->2 (x)', lrrefv[4, 0], dip_kvnm[1, 0, 0, 2]))
+    parprint(f.format('k=1, 0->2 (y)', lrrefv[4, 1], dip_kvnm[1, 1, 0, 2]))
+    parprint(f.format('k=1, 0->2 (z)', lrrefv[4, 2], dip_kvnm[1, 2, 0, 2]))
+    parprint(f.format('k=1, 0->3 (x)', lrrefv[5, 0], dip_kvnm[1, 0, 0, 3]))
+    parprint(f.format('k=1, 0->3 (y)', lrrefv[5, 1], dip_kvnm[1, 1, 0, 3]))
+    parprint(f.format('k=1, 0->3 (z)', lrrefv[5, 2], dip_kvnm[1, 2, 0, 3]))
+    parprint("")
+    # At the third k-point first and second excited state are degenerate
+    parprint(f.format('k=2, 0->3 (x)', lrrefv[8, 0], dip_kvnm[2, 0, 0, 3]))
+    parprint(f.format('k=2, 0->3 (y)', lrrefv[8, 1], dip_kvnm[2, 1, 0, 3]))
+    parprint(f.format('k=2, 0->3 (z)', lrrefv[8, 2], dip_kvnm[2, 2, 0, 3]))
+    # 4th k-point not included KSSingles, probably all bands above Fermi level

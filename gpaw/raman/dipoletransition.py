@@ -26,6 +26,7 @@ def get_dipole_transitions(atoms, calc, savetofile=True, realdipole=False):
     """
     assert calc.wfs.bd.comm.size == 1
     assert calc.wfs.kd.comm.size == 1
+    assert calc.wfs.mode == 'lcao'
     n = calc.wfs.bd.nbands
     nk = calc.wfs.kd.nibzkpts
     gd = calc.wfs.gd
@@ -63,10 +64,11 @@ def get_dipole_transitions(atoms, calc, savetofile=True, realdipole=False):
 
             # Calculate <phit|nabla|phit> for the pseudo wavefunction
             # Parellisation note: Every rank has same result
-            # phases = np.ones((3, 2), dtype=complex)
+
             for v in range(3):
                 for i in range(n):
-                    # nabla_v[v](wf[i], grad_nv[i, v], phases)
+                    # NOTE: It's unclear to me, whether or nor to use phase_cd
+                    # nabla_v[v](wf[i], grad_nv[i, v], np.ones((3, 2)))
                     nabla_v[v](wf[i], grad_nv[i, v], kpt.phase_cd)
                 dipe_kvnm[k, v] = gd.integrate(wf, grad_nv[:, v])
 

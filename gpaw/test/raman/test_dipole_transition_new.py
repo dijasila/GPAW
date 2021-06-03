@@ -20,6 +20,10 @@ def test_dipole_transition(gpw_files, tmp_path_factory):
 
     print(world.rank, dip_vnm[0, 0, 3])
 
+    # check symmetry: abs(d[i,j]) == abs(d[j,i])
+    for v in range(3):
+        dip_vnm[v].T == pytest.approx(dip_vnm[v])
+
     # Check numerical value of a few elements - signs might change!
     assert 0.0696 == pytest.approx(abs(dip_vnm[2, 0, 4]), abs=1e-4)
     assert 0.1028 == pytest.approx(abs(dip_vnm[1, 0, 5]), abs=1e-4)
