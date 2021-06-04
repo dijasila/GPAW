@@ -285,12 +285,12 @@ class MagneticMomentWriter(TDDFTObserver):
             if self.master:
                 self.fd = open(filename, 'a')
 
-            if (origin is not None
-                    and origin != self.origin):
+            if origin is not None and origin != self.origin:
                 raise ValueError('origin changed in restart')
-            if (origin_shift is not None
-                    and not np.allclose(origin_shift, self.origin_shift)):
-                raise ValueError('origin_shift changed in restart')
+            if origin_shift is not None:
+                if self.origin_shift is None \
+                   or not np.allclose(origin_shift, self.origin_shift):
+                    raise ValueError('origin_shift changed in restart')
 
         mode = paw.wfs.mode
         assert mode in ['fd', 'lcao'], 'unknown mode: {}'.format(mode)
