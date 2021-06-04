@@ -1,83 +1,95 @@
 import numpy as np
 
 from ase.parallel import world
+from gpaw.typing import ArrayND
 
 
 # NOTE: This routine is not specific to Raman per se. Maybe it should go
 #       somewhere else?
-def get_dipole_transitions(atoms, calc, savetofile=True, realdipole=False):
+def get_dipole_transitions(wfs) -> ArrayND:
     r"""
-    Finds the dipole matrix elements:
-    <\psi_n|\nabla|\psi_m> = <u_n|nabla|u_m> + ik<u_n|u_m>
-    where psi_n = u_n(r)*exp(ikr).
-    ik<u_n|u_m> is supposed to be zero off diagonal and not calculated as
-    we are not intereste in diagonal terms.
+    Finds dipole transition matrix elements based on the velocity form.
 
-    NOTE: Function name seems to be a misnomer. The routine is supposed to
-    calculate <psi_n|p|psi_m>, which is not quite the normal dipole moment.
-    Use realdipole=True to return proper dipole.
+    Dipole and momentum matrix elements are related by the expression:
+    <nk|r|mk> = -i hbar/m <nk|p|mk> / (E_nk-E_mk)
 
-    Input:
-        atoms           Relevant ASE atoms object
-        calc            GPAW calculator object.
-    Output:
-        dip_svknm.npy    Array with dipole matrix elements
+    For n=m this is ill defined, and element will be set to zero.
+
+    Parameters:
+
+    wfs: WaveFunctions object
+
     """
-    assert calc.wfs.bd.comm.size == 1
-    assert calc.wfs.mode == 'lcao'
-    nbands = calc.wfs.bd.nbands
-    nspins = calc.wfs.nspins
-    nk = calc.wfs.kd.nibzkpts
-    gd = calc.wfs.gd
-    dtype = calc.wfs.dtype
+    p_skvnm = get_momentum_transitions(wfs, False)
+    r_skvnm = np.zeros_like(p_skvnm)
+    for kpt in wfs.kpt_u:
+        # NOTE: Check whether it's this way or other way around.
+        deltaE = kpt.eps_n[:, None] - kpt.eps_n[None, :]
+        np.fill_diagonal(deltaE, np.inf)
+        r_skvnm[kpt.s, kpt.k, :] = -1j * p_skvnm[kpt.s, kpt.k, :] / deltaE
+    wfs.kd.comm.sum(r_skvnm)
+    return r_skvnm
 
-    # print(calc.wfs.kd.comm.size, calc.wfs.gd.comm.size,
-    # calc.wfs.bd.comm.size)
 
-    # Why?
-    calc.wfs.set_positions
-    calc.initialize_positions(atoms)
+def get_momentum_transitions(wfs, savetofile: bool = True) -> ArrayND:
+    r"""
+    Finds the momentum matrix elements:
+    <nk|p|nk> = k delta_nm - i <nk|nabla|nk>
 
-    dip_skvnm = np.zeros((nspins, nk, 3, nbands, nbands), dtype=dtype)
+    Parameters:
 
-    ksl = calc.wfs.ksl
-    dThetadR_qvMM, dTdR_qvMM = calc.wfs.manytci.O_qMM_T_qMM(gd.comm,
-                                                            ksl.Mstart,
-                                                            ksl.Mstop,
-                                                            False,
-                                                            derivative=True)
+    wfs: WaveFunctions object
 
-    dipe_skvnm = np.zeros((nspins, nk, 3, nbands, nbands), dtype=dtype)
-    dipa_skvnm = np.zeros((nspins, nk, 3, nbands, nbands), dtype=dtype)
+    savetofile: bool, default=True. Determines whether matrix is written to the
+                file mom_skvnm.npy
 
-    for kpt in calc.wfs.kpt_u:
-        if realdipole:  # need this for testing against other dipole routines
-            deltaE = abs(kpt.eps_n[:, None] - kpt.eps_n[None, :])
-            np.fill_diagonal(deltaE, np.inf)
-        else:
-            deltaE = 1.
+    """
+    assert wfs.bd.comm.size == 1
+    assert wfs.mode == 'lcao'
+    nbands = wfs.bd.nbands
+    nspins = wfs.nspins
+    nk = wfs.kd.nibzkpts
+    gd = wfs.gd
+    dtype = wfs.dtype
+    ksl = wfs.ksl
 
+    # print(wfs.kd.comm.size, wfs.gd.comm.size, wfs.bd.comm.size)
+
+    mom_skvnm = np.zeros((nspins, nk, 3, nbands, nbands), dtype=complex)
+
+    dThetadR_qvMM, dTdR_qvMM = wfs.manytci.O_qMM_T_qMM(gd.comm, ksl.Mstart,
+                                                       ksl.Mstop, False,
+                                                       derivative=True)
+
+    mome_skvnm = np.zeros((nspins, nk, 3, nbands, nbands), dtype=dtype)
+    momd_skvnm = np.zeros((nspins, nk, 3, nbands, nbands), dtype=dtype)
+    moma_skvnm = np.zeros((nspins, nk, 3, nbands, nbands), dtype=dtype)
+
+    for kpt in wfs.kpt_u:
         C_nM = kpt.C_nM
         for v in range(3):
             dThetadRv_MM = dThetadR_qvMM[kpt.q, v]
             nabla_nn = -(C_nM.conj() @ dThetadRv_MM.conj() @ C_nM.T)
             gd.comm.sum(nabla_nn)
-            dipe_skvnm[kpt.s, kpt.k, v] = nabla_nn / deltaE
+            mome_skvnm[kpt.s, kpt.k, v] = nabla_nn
 
         # augmentation part
-        # Parallelisatin note: Need to sum???
-        dipa_vnm = np.zeros((3, nbands, nbands), dtype=dtype)
+        moma_vnm = np.zeros((3, nbands, nbands), dtype=dtype)
         for a, P_ni in kpt.P_ani.items():
-            nabla_iiv = calc.wfs.setups[a].nabla_iiv
-            dipa_vnm += np.einsum('ni,ijv,mj->vnm',
+            nabla_iiv = wfs.setups[a].nabla_iiv
+            moma_vnm += np.einsum('ni,ijv,mj->vnm',
                                   P_ni.conj(), nabla_iiv, P_ni)
-        gd.comm.sum(dipa_vnm)
-        dipa_skvnm[kpt.s, kpt.k] = dipa_vnm / deltaE
+        gd.comm.sum(moma_vnm)
+        moma_skvnm[kpt.s, kpt.k] = moma_vnm
 
-    dip_skvnm = dipe_skvnm + dipa_skvnm
-    calc.wfs.kd.comm.sum(dip_skvnm)
+        # diagonal term
+        momd_skvnm[kpt.s, kpt.k] = np.einsum("k,nm->knm",
+                                             wfs.kd.ibzk_kc[kpt.k],
+                                             np.identity(nbands))
 
-    # calc.wfs.world.sum(dip_skvnm)
+    mom_skvnm = momd_skvnm - 1j * (mome_skvnm + moma_skvnm)
+    wfs.kd.comm.sum(mom_skvnm)
+
     if world.rank == 0 and savetofile:
-        np.save('dip_skvnm.npy', dip_skvnm)
-    return dip_skvnm
+        np.save('mom_skvnm.npy', mom_skvnm)
+    return mom_skvnm

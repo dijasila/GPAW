@@ -11,11 +11,14 @@ from gpaw.lrtddft.kssingle import KSSingles
 def test_dipole_transition(gpw_files, tmp_path_factory):
     """Check dipole matrix-elements for Li."""
     calc = GPAW(gpw_files['bcc_li_lcao_wfs'], parallel=dict(sl_auto=True))
+    # Initialize calculator if necessary
+    if not hasattr(calc.wfs, 'C_nM'):
+        calc.wfs.set_positions
+        calc.initialize_positions(calc.atoms)
     from gpaw.kohnsham_layouts import BlacsOrbitalLayouts
     isblacs = isinstance(calc.wfs.ksl, BlacsOrbitalLayouts)  # XXX
     print(calc.wfs.ksl.using_blacs, isblacs)
-    dip_skvnm = get_dipole_transitions(calc.atoms, calc, savetofile=False,
-                                       realdipole=True)
+    dip_skvnm = get_dipole_transitions(calc.wfs)
     parprint("Dipole moments calculated")
     assert dip_skvnm.shape == (1, 4, 3, 4, 4)
     dip_kvnm = dip_skvnm[0] * Bohr

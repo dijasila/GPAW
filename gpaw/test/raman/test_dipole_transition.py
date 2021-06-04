@@ -12,8 +12,11 @@ from gpaw.lrtddft.kssingle import KSSingles
 def test_dipole_transition(gpw_files, tmp_path_factory):
     """Check dipole matrix-elements for H20."""
     calc = GPAW(gpw_files['h2o_lcao_wfs'])
-    dip_skvnm = get_dipole_transitions(calc.atoms, calc, savetofile=False,
-                                       realdipole=True).real
+    # Initialize calculator if necessary
+    if not hasattr(calc.wfs, 'C_nM'):
+        calc.wfs.set_positions
+        calc.initialize_positions(calc.atoms)
+    dip_skvnm = get_dipole_transitions(calc.wfs).real
     parprint("Dipole moments calculated")
     assert dip_skvnm.shape == (1, 1, 3, 6, 6)
     dip_vnm = dip_skvnm[0, 0] * Bohr
