@@ -352,7 +352,7 @@ class WLDA(XCFunctional):
             self.v_corr_sg = v_corr_x_sg
         else:
             self.e_corr_g = e_corr_x_g + e_corr_c_g
-            self.v_corr_sg = v_corr_x_sg + v_corr_x_sg
+            self.v_corr_sg = v_corr_x_sg + v_corr_c_sg
 
     def calculate_lda(self, n_sg, eldax_g, eldac_g, vldax_sg, vldac_sg):
         from gpaw.xc.lda import lda_x, lda_c
