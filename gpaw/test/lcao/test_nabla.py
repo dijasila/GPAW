@@ -56,6 +56,26 @@ def get_nabla_lcao(wfs):
     return nabla_skvnm
 
 
+def get_nabla_paw(wfs):
+    kd = wfs.kd
+    bd = wfs.bd
+    gd = wfs.gd
+
+    nabla_skvnm = np.zeros((wfs.nspins, kd.nibzkpts, 3, bd.nbands, bd.nbands),
+                           dtype=wfs.dtype)
+
+    for kpt in wfs.kpt_u:
+        nabla_vnm = np.zeros((3, bd.nbands, bd.nbands), dtype=wfs.dtype)
+        for a, P_ni in kpt.P_ani.items():
+            nabla_iiv = wfs.setups[a].nabla_iiv
+            nabla_vnm += np.einsum('ni,ijv,mj->vnm',
+                                   P_ni.conj(), nabla_iiv, P_ni)
+        gd.comm.sum(nabla_vnm)
+        nabla_skvnm[kpt.s, kpt.k] = nabla_vnm
+    kd.comm.sum(nabla_skvnm)
+    return nabla_skvnm
+
+
 def test_nabla_matrix(calc):
     wfs = calc.wfs
 
@@ -75,13 +95,17 @@ def test_nabla_matrix(calc):
     bfs = wfs.basis_functions
     psit_nG = gd.zeros(mynbands, dtype=wfs.dtype)
     bfs.lcao_to_grid(kpt.C_nM, psit_nG, q=kpt.q)
-    nabla_fd_nn = get_nabla_fd(gd, kpt, psit_nG)
+    nabla_nn_fd = get_nabla_fd(gd, kpt, psit_nG)
 
     print0('NABLA_FD_NN')
-    print0(nabla_fd_nn)
-    err = abs(nabla_fd_nn - nabla_nn_lcao)
+    print0(nabla_nn_fd)
+    err = abs(nabla_nn_fd - nabla_nn_lcao)
     print0('ERR')
     print0(err)
     maxerr = np.abs(err).max()
     print0('MAXERR', maxerr)
     assert maxerr < 1e-4
+
+    nabla_nn_paw = get_nabla_paw(wfs)[0, 0, DIR]
+    print0('NABLA_PAW_NN')
+    print0(nabla_nn_paw)
