@@ -750,6 +750,15 @@ class PWWaveFunctions(FDPWWaveFunctions):
                                    bd=bd, dtype=dtype, world=world, kd=kd,
                                    kptband_comm=kptband_comm, timer=timer)
 
+    def cannibalise_kpoint(self, kpt1, kpt2):
+        print('kpt1', kpt1.psit.array.shape)
+        print('kpt2', kpt2.psit.array.shape)
+
+    def cannibalise(self, wfs):
+        assert len(wfs.kpt_u) == len(self.kpt_u)
+        for kpt1, kpt2 in zip(wfs.kpt_u, self.kpt_u):
+            self.cannibalise_kpoint(kpt1, kpt2)
+
     def empty(self, n=(), global_array=False, realspace=False, q=None):
         if isinstance(n, numbers.Integral):
             n = (n,)

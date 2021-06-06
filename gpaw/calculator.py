@@ -338,6 +338,9 @@ class GPAW(Calculator):
         Calculator.calculate(self, atoms)
         atoms = self.atoms
 
+        system_changes = set(system_changes)
+        old_wfs = None
+
         if system_changes:
             self.log('System changes:', ', '.join(system_changes), '\n')
             if system_changes == ['positions']:
@@ -345,6 +348,9 @@ class GPAW(Calculator):
                 self.density.reset()
             else:
                 # Drastic changes:
+                if system_changes <= {'positions', 'cell'}:
+                    old_wfs = self.wfs
+
                 self.wfs = None
                 self.density = None
                 self.hamiltonian = None
@@ -359,6 +365,9 @@ class GPAW(Calculator):
 
         if not (self.wfs.positions_set and self.hamiltonian.positions_set):
             self.set_positions(atoms)
+
+        if old_wfs is not None:
+            self.wfs.cannibalise(old_wfs)
 
         yield
 
