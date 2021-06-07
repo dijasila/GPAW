@@ -15,10 +15,10 @@ def get_dipole_transitions(wfs) -> ArrayND:
 
     For n=m this is ill defined, and element will be set to zero.
 
-    Parameters:
-
-    wfs: WaveFunctions object
-
+    Parameters
+    ----------
+    wfs
+        LCAO WaveFunctions object
     """
     p_skvnm = get_momentum_transitions(wfs, False)
     r_skvnm = np.zeros_like(p_skvnm)
@@ -34,15 +34,15 @@ def get_dipole_transitions(wfs) -> ArrayND:
 def get_momentum_transitions(wfs, savetofile: bool = True) -> ArrayND:
     r"""
     Finds the momentum matrix elements:
-    <nk|p|nk> = k delta_nm - i <nk|nabla|nk>
+    <nk|p|mk> = k \delta_nm - i <nk|\nabla|mk>
 
-    Parameters:
-
-    wfs: WaveFunctions object
-
-    savetofile: bool, default=True. Determines whether matrix is written to the
-                file mom_skvnm.npy
-
+    Parameters
+    ----------
+    wfs
+        LCAO WaveFunctions object
+    savetofile: bool
+        Determines whether matrix is written to the
+        file mom_skvnm.npy (default=True)
     """
     assert wfs.bd.comm.size == 1
     assert wfs.mode == 'lcao'

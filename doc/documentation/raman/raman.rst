@@ -9,9 +9,68 @@ using the electron-phonon coupling (see :ref:`elph`) within the LCAO mode.
 
 The implementation is based upon Ref. [#Taghizadeh2020]_ .
 
+The Stokes Raman intensity can be written as
+
+.. math::
+
+    I(\omega) = I_0 \sum_\nu \frac{n_\nu+1}{\omega_\nu} \vert 
+    \sum_{\alpha, \beta} u_{in}^\alpha R_{\alpha \beta}^\nu u_{out}^\beta
+    \vert^2 \delta(\omega-\omega_\nu)
+
+where `\nu` denotes phonon modes and `\alpha`, `\beta` denote polarisations
+of the incoming and outgoing laser.
+The Raman tensor `R_{\alpha \beta}^\nu` has six terms and is given by
+Ref. [#Taghizadeh2020]_ Eq. (10)
+
+.. math::
+
+    R_{\alpha \beta}^\nu \equiv \sum_{ijmn \mathbf{k}} \left[
+    \frac{p_{ij}^\alpha (g_{jm}^\nu \delta_{in} - g_{ni}^\nu \delta_{jm})p_{mn}^\beta}{(\hbar \omega_{in}-\varepsilon_{ji})(\hbar \omega_{out}-\varepsilon_{mn})} +
+    \frac{p_{ij}^\alpha (p_{jm}^\beta \delta_{in} - p_{ni}^\beta \delta_{jm})g_{mn}^\nu}{(\hbar \omega_{in}-\varepsilon_{ji})(\hbar \omega_{\nu}-\varepsilon_{mn})} + \\
+    \frac{p_{ij}^\beta (g_{jm}^\nu \delta_{in} - g_{ni}^\nu \delta_{jm})p_{mn}^\alpha}{(-\hbar \omega_{out}-\varepsilon_{ji})(-\hbar \omega_{in}-\varepsilon_{mn})} +
+    \frac{p_{ij}^\beta (p_{jm}^\alpha \delta_{in} - p_{ni}^\alpha \delta_{jm})g_{mn}^\nu}{(-\hbar \omega_{out}-\varepsilon_{ji})(\hbar \omega_{\nu}-\varepsilon_{mn})} + \\
+    \frac{g_{ij}^\nu (p_{jm}^\alpha \delta_{in} - p_{ni}^\alpha \delta_{jm})p_{mn}^\beta}{(-\hbar \omega_{\nu}-\varepsilon_{ji})(\hbar \omega_{out}-\varepsilon_{mn})} +
+    \frac{g_{ij}^\nu (p_{jm}^\beta \delta_{in} - p_{ni}^\beta \delta_{jm})p_{mn}^\alpha}{(-\hbar \omega_{\nu}-\varepsilon_{ji})(-\hbar \omega_{in}-\varepsilon_{mn})}
+    \right] f_i(1-f_j)f_n(1-f_m)
+
+For further details please consult the reference paper.
+
+To compute the Raman intensity we need these ingredients: The momentum matrix
+elements `p_{ij}^\alpha=\langle i \mathbf{k} | \hat p^\alpha| j \mathbf{k} \rangle`,
+the electron-phonon matrix `g_{ij}^\nu = \langle i \mathbf{k} \vert \partial_{\nu{q=0}} V^{KS} \vert j \mathbf{k} \rangle`
+in the optical limit `\mathbf{q}=0` and of course knowledge of the electronic
+states and phonon modes throughout the Brillouin zone.
+For these calculations we can employ in the :meth:`~gpaw.raman.dipoletransition.get_momentum_transitions`
+method, the GPAW electron-phonon module :ref:`elph` and the ASE phonon module, respectively.
+
+Some more details are elaborated in the following example.
 
 Example
 =======
+
+In this example we compute the Raman spectrum of diamond. For convenience
+we split the calculations into three independent parts between the calculation
+of the Raman tensor.
+
+The momentum matrix elements are easiest to compute, as they only require a
+converged DFT calculation (:git:`~doc/documentation/raman/momentum_matrix.py`):
+
+.. literalinclude:: momentum_matrix.py
+
+In the above script we converge all states to ensure valid matrix elements
+throughout. The k-point grid of `5 \times 5 \times 5` is not sufficient to get
+a converged Raman spectrum though. 
+The :meth:`~gpaw.raman.dipoletransition.get_momentum_transitions` method is
+currently not aware of symmetry. It is therefore required to switch off
+symmetry in GPAW completely, so that matrix elements for all k-points and not
+just the irreducible ones are calculated.
+By default the routine saves a file called ``mom_skvnm.npy`` containing the
+momentum matrix. This can be deactivated using the ``savetofile`` switch. The
+matrix is always the return value of :meth:`~gpaw.raman.dipoletransition.get_momentum_transitions`.
+
+
+
+
 
 In a typical application one would compute the phonon modes electron-phonon
 components separately as those need very different convergence settings. An
@@ -90,6 +149,8 @@ References
 ----
 Code
 ----
+
+.. autofunction:: gpaw.raman.dipoletransition.get_momentum_transitions
 
 .. autofunction:: gpaw.raman.elph.run_elph
 .. autofunction:: gpaw.raman.elph.calculate_supercell_matrix
