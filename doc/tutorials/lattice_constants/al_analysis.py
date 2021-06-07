@@ -15,7 +15,7 @@ def fit(filename):
 
 
 cutoffs = range(200, 501, 50)
-a = [fit('Al-%d.txt' % ecut) for ecut in cutoffs]
+a = [fit(f'Al-{ecut}.txt') for ecut in cutoffs]
 plt.figure(figsize=(6, 4))
 plt.plot(cutoffs, a, 'o-')
 plt.axis(ymin=4.03, ymax=4.05)
@@ -25,7 +25,7 @@ plt.savefig('Al_conv_ecut.png')
 
 kpoints = range(4, 17)
 plt.figure(figsize=(6, 4))
-a = [fit('Al-%02d.txt' % k) for k in kpoints]
+a = [fit('Al-{k:02}.txt') for k in kpoints]
 plt.plot(kpoints, a, '-')
 plt.xlabel('number of k-points')
 plt.ylabel('lattice constant [Ang]')
