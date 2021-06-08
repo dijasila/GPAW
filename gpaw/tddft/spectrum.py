@@ -419,7 +419,7 @@ def rotatory_strength_spectrum(magnetic_moment_files, spectrum_file,
                                                         mm_tv, ff)
         rot_w += rot_wv[:, v]
 
-    rot_w *= -0.5 * rot_au_to_cgs * 1e40 / au_to_eV
+    rot_w *= rot_au_to_cgs * 1e40 / au_to_eV
     data_wi = np.vstack((omega_w, rot_w)).T
     np.savetxt(spectrum_file, data_wi,
                fmt='%12.6lf' + (' %20.10le' * (data_wi.shape[1] - 1)))

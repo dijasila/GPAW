@@ -87,7 +87,7 @@ def calculate_mm_on_grid(wfs, grad_v, r_cG, dX0_caii, timer,
     bd.comm.sum(rxnabla_v)
     timer.stop('Magnetic moment')
 
-    return rxnabla_v.imag
+    return -0.5 * rxnabla_v.imag
 
 
 def get_dX0(Ra_a, setups, partition):
@@ -199,7 +199,7 @@ def calculate_E(dX0_caii, kpt_u, bfs, correction, r_cG, only_pseudo=False):
     # The matrix should be real
     assert np.max(np.absolute(E_cmM.imag)) == 0.0
     E_cmM = E_cmM.real.copy()
-    return E_cmM
+    return -0.5 * E_cmM
 
 
 def calculate_mm_lcao(ksl, rho_mm, E_cmm):
@@ -259,7 +259,7 @@ class MagneticMomentWriter(TDDFTObserver):
         Update interval. Value of 1 corresponds to evaluating and
         writing data after every propagation step.
     """
-    version = 3
+    version = 4
 
     def __init__(self, paw, filename: str, *,
                  origin: str = None,
