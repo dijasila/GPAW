@@ -234,9 +234,6 @@ class Matrix:
         """Redistribute to other BLACS layout."""
         if self is other:
             return
-        restore = [x for x in [self, other] if x.on_gpu]
-        self.use_cpu()
-        other.use_cpu()
 
         d1 = self.dist
         d2 = other.dist
@@ -291,8 +288,6 @@ class Matrix:
             else:
                 ctx = d2.desc[1]
             redist(d1, self.array, d2, other.array, ctx)
-        for x in restore:
-            x.use_gpu()
 
     def invcholesky(self):
         """Inverse of Cholesky decomposition.
