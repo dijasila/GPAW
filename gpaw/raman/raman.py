@@ -3,6 +3,10 @@ Calculates Raman matrices and intensities.
 
 Momentum matrices are not symmetric. The first index is the bra, the other the
 ket.
+
+i -> j -> m -> n
+i, n are valence; j, m are conduction, also i=n in the end
+see https://doi.org/10.1038/s41467-020-16529-6
 """
 
 import numpy as np
@@ -19,21 +23,6 @@ def gaussian(w, sigma):
     g = 1. / (np.sqrt(2. * np.pi) * sigma) * np.exp(-w**2 / (2 * sigma**2))
     return g
 
-def _term1(f_vc, E_vc, mom_dnn, elph_lnn, vs, cs):
-    term1_l = np.zeros((elph_lnn.shape[0]), dtype=complex)
-    print(mom_dnn[0, cs][:,vs])
-    print(mom_dnn[0, vs][:,cs])
-
-    t1_ij = (f_vc * mom_vnn[d_i, vs, cs] / (w_in - E_vc))
-    for l in range(nmodes):
-        t1_xx = elph_lnn[l]
-        t1_mn = fvc.T * mom_vnn[d_o][ cs, vs] / (w_in - w_ph[l] - Enm.T)
-        print(t_1_mn)
-        term1_l[l] += np.einsum('sj,jm,ms', t1_ij, t1_xx[nc:, nc:], t1_mn,
-                                optimize=opt)
-        term1_l[l] -= np.einsum('is,ni,sn', t1_ij, t1_xx[:nv, :nv], t1_mn,
-                                optimize=opt)
-    return term1_l
 
 def calculate_raman(atoms, calc, w_in, d_i, d_o, resonant_only=False,
                     ramanname=None, momname=None, basename=None, gamma_l=0.1):
@@ -96,92 +85,82 @@ def calculate_raman(atoms, calc, w_in, d_i, d_o, resonant_only=False,
     opt = 'optimal'  # mode for np.einsum. not sure what is fastest
 
 
-
-    def _term2(f_n, E_n, mom_vnn, elph_lnn, nc, nv):
-        term2_lw = np.zeros((nmodes, ngrid), dtype=complex)
-        t2_ij = (f_n[:nv, None] * (1. - f_n[None, nc:]) *
-                 mom_vnn[d_i, :nv, nc:] /
-                 (w_in - (E_n[None, nc:] - E_n[:nv, None]) + ieta))
-        t2_xx = mom_vnn[d_o]
+    def _term1(f_vc, E_vc, mom_dnn, elph_lnn, nc, nv):
+        term1_l = np.zeros((elph_lnn.shape[0]), dtype=complex)
+        t1_ij = f_vc * mom_dnn[0, nc:, :nv].T / (w_in - E_vc)  # v is ket
         for l in range(nmodes):
-            t2_wmn = (f_n[None, None, :nv] * (1. - f_n[None, nc:, None]) *
-                      elph_lnn[l][None, nc:, :nv] /
-                      (w[:, None, None] - (E_n[None, None, :nv] -
-                                           E_n[None, nc:, None]) + ieta))
-            term2_lw[l] += np.einsum('sj,jm,wms->w', t2_ij, t2_xx[nc:, nc:],
-                                     t2_wmn, optimize=opt)
-            term2_lw[l] -= np.einsum('is,ni,wsn->w', t2_ij, t2_xx[:nv, :nv],
-                                     t2_wmn, optimize=opt)
+            t1_xx = elph_lnn[l]
+            t1_mn = (f_vc * mom_dnn[1, :nv, nc:] / (w_in - w_ph[l] - E_vc)).T  # v is bra
+            term1_l[l] += np.einsum('sj,jm,ms', t1_ij, t1_xx[nc:, nc:], t1_mn,
+                                    optimize=opt)
+            term1_l[l] -= np.einsum('is,ni,sn', t1_ij, t1_xx[:nv, :nv], t1_mn,
+                                    optimize=opt)
+        return term1_l
+
+    def _term2(f_vc, E_vc, mom_dnn, elph_lnn, nc, nv):
+        term2_lw = np.zeros((nmodes, ngrid), dtype=complex)
+        t2_ij = f_vc * mom_dnn[0, nc:, :nv].T / (w_in - E_vc)  # v is ket
+        t2_xx = mom_dnn[1]  # XXX might need to T or conj
+        for l in range(nmodes):
+            for wi in range(len(w)):
+                t2_mn = f_vc.T * elph_lnn[l][nc:, :nv] / (w[wi] - E_vc.T)
+                term2_lw[l, wi] += np.einsum('sj,jm,ms', t2_ij, t2_xx[nc:, nc:],
+                                             t2_mn, optimize=opt)
+                term2_lw[l, wi] -= np.einsum('is,ni,sn', t2_ij, t2_xx[:nv, :nv],
+                                             t2_mn, optimize=opt)
         return term2_lw
 
-    def _term3(f_n, E_n, mom_vnn, elph_lnn, nc, nv):
+    def _term3(f_vc, E_vc, mom_dnn, elph_lnn, nc, nv):
         term3_lw = np.zeros((nmodes, ngrid), dtype=complex)
-        t3_wij = (f_n[None, :nv, None] * (1. - f_n[None, None, nc:]) *
-                  mom_vnn[d_o][None, :nv, nc:] /
-                  (-w_in + w[:, None, None] - (E_n[None, None, nc:] -
-                                               E_n[None, :nv, None]) + ieta))
         for l in range(nmodes):
             t3_xx = elph_lnn[l]
-            t3_wmn = (f_n[None, None, :nv] * (1. - f_n[None, nc:, None]) *
-                      mom_vnn[d_i][None, nc:, :nv] /
-                      (-w_in - w_ph[l] + w[:, None, None] -
-                       (E_n[None, None, :nv] - E_n[None, nc:, None]) + ieta))
-            term3_lw[l] += np.einsum('wsj,jm,wms->w', t3_wij, t3_xx[nc:, nc:],
-                                     t3_wmn, optimize=opt)
-            term3_lw[l] -= np.einsum('wis,ni,wsn->w', t3_wij, t3_xx[:nv, :nv],
-                                     t3_wmn, optimize=opt)
+            for wi in range(len(w)):
+                t3_ij = f_vc * mom_dnn[1, nc:, :nv].T / (-w_in + w[wi] - E_vc)
+                t3_mn = (f_vc * mom_dnn[0, :nv, nc:] / (-w_in - w_ph[l] + w[wi]
+                                                        - E_vc)).T
+                term3_lw[l, wi] += np.einsum('sj,jm,ms', t3_ij, t3_xx[nc:, nc:],
+                                             t3_mn, optimize=opt)
+                term3_lw[l, wi] -= np.einsum('is,ni,sn', t3_ij, t3_xx[:nv, :nv],
+                                             t3_mn, optimize=opt)
         return term3_lw
 
-    def _term4(f_n, E_n, mom_vnn, elph_lnn, nc, nv):
+    def _term4(f_vc, E_vc, mom_dnn, elph_lnn, nc, nv):
         term4_lw = np.zeros((nmodes, ngrid), dtype=complex)
-        t4_wij = (f_n[None, :nv, None] * (1. - f_n[None, None, nc:]) *
-                  mom_vnn[d_o][None, :nv, nc:] /
-                  (-w_in + w[:, None, None] - (E_n[None, None, nc:] -
-                                               E_n[None, :nv, None]) + ieta))
-        t4_xx = mom_vnn[d_i]
+        t4_xx = mom_dnn[0]  # XXX might need to T or conj
         for l in range(nmodes):
-            t4_wmn = (f_n[None, None, :nv] * (1. - f_n[None, nc:, None]) *
-                      elph_lnn[l][None, nc:, :nv] /
-                      (w[:, None, None] - (E_n[None, None, :nv] -
-                                           E_n[None, nc:, None]) + ieta))
-            term4_lw[l] += np.einsum('wsj,jm,wms->w', t4_wij, t4_xx[nc:, nc:],
-                                     t4_wmn, optimize=opt)
-            term4_lw[l] -= np.einsum('wis,ni,wsn->w', t4_wij, t4_xx[:nv, :nv],
-                                     t4_wmn, optimize=opt)
+            for wi in range(len(w)):
+                t4_ij = f_vc * mom_dnn[1, nc:, :nv].T / (-w_in + w[wi] - E_vc)
+                t4_mn = (f_vc * elph_lnn[l, nc:, :nv].T / (w[wi] - E_vc)).T
+                term4_lw[l, wi] += np.einsum('sj,jm,ms', t4_ij, t4_xx[nc:, nc:],
+                                             t4_mn, optimize=opt)
+                term4_lw[l, wi] -= np.einsum('is,ni,sn', t4_ij, t4_xx[:nv, :nv],
+                                             t4_mn, optimize=opt)
         return term4_lw
 
-    def _term5(f_n, E_n, mom_vnn, elph_lnn, nc, nv):
+    def _term5(f_vc, E_vc, mom_dnn, elph_lnn, nc, nv):
         term5_l = np.zeros((nmodes), dtype=complex)
-        t5_xx = mom_vnn[d_i]
+        t5_xx = mom_dnn[0]  # XXX might need to T or conj
         for l in range(nmodes):
-            t5_ij = (f_n[:nv, None] * (1. - f_n[None, nc:]) *
-                     elph_lnn[l, :nv, nc:] /
-                     (-w_ph[l] - (E_n[None, nc:] - E_n[:nv, None]) + ieta))
-            t5_mn = (f_n[None, :nv] * (1. - f_n[nc:, None]) *
-                     mom_vnn[d_o, nc:, :nv] /
-                     (w_in - w_ph[l] - (E_n[None, :nv] - E_n[nc:, None]) +
-                      ieta))
+            t5_ij = f_vc * elph_lnn[l, :nv, nc:] / (-w_ph[l] - E_vc)
+            t5_mn = (f_vc * mom_dnn[1, :nv, nc:] / (w_in - w_ph[l] - E_vc)).T
             term5_l[l] += np.einsum('sj,jm,ms', t5_ij, t5_xx[nc:, nc:], t5_mn,
                                     optimize=opt)
             term5_l[l] -= np.einsum('is,ni,sn', t5_ij, t5_xx[:nv, :nv], t5_mn,
                                     optimize=opt)
         return term5_l
 
-    def _term6(f_n, E_n, mom_vnn, elph_lnn, nc, nv):
+    def _term6(f_vc, E_vc, mom_dnn, elph_lnn, nc, nv):
         term6_lw = np.zeros((nmodes, ngrid), dtype=complex)
-        t6_xx = mom_vnn[d_o]
+        t6_xx = mom_dnn[1]  # XXX might need to T or conj
         for l in range(nmodes):
-            t6_ij = (f_n[:nv, None] * (1. - f_n[None, nc:]) *
-                     elph_lnn[l, :nv, nc:] /
-                     (-w_ph[l] - (E_n[None, nc:] - E_n[:nv, None]) + ieta))
-            t6_wmn = (f_n[None, None, :nv] * (1. - f_n[None, nc:, None]) *
-                      mom_vnn[d_i][None, nc:, :nv] /
-                      (-w_in - w_ph[l] + w[:, None, None] -
-                       (E_n[None, None, :nv] - E_n[None, nc:, None]) + ieta))
-            term6_lw[l] += np.einsum('sj,jm,wms->w', t6_ij, t6_xx[nc:, nc:],
-                                     t6_wmn, optimize=opt)
-            term6_lw[l] -= np.einsum('is,ni,wsn->w', t6_ij, t6_xx[:nv, :nv],
-                                     t6_wmn, optimize=opt)
+            t6_ij = f_vc * elph_lnn[l, :nv, nc:] / (-w_ph[l] - E_vc)
+            for wi in range(len(w)):
+                t6_mn = (f_vc * mom_dnn[0, :nv, nc:] / (-w_in - w_ph[l] + w[wi]
+                                                        - E_vc)).T
+                term6_lw[l, wi] += np.einsum('sj,jm,ms', t6_ij, t6_xx[nc:, nc:],
+                                             t6_mn, optimize=opt)
+                term6_lw[l, wi] -= np.einsum('is,ni,sn', t6_ij, t6_xx[:nv, :nv],
+                                             t6_mn, optimize=opt)
         return term6_lw
 
     for s in range(nspins):
@@ -195,9 +174,6 @@ def calculate_raman(atoms, calc, w_in, d_i, d_o, resonant_only=False,
             f_n = calc.wfs.collect_occupations(k, s)
             f_n = f_n / weight
             elph_lnn = weight * elph_sk[s, k]
-            # give momentum matrix for d_i and d_o directions
-            mom_dnn = mom_sk[s, k+1, [d_i, d_o]]
-            assert mom_dnn.shape[0] == 2
             E_n = E_kn[k]
 
             # limit sums to relevant bands, partially occupied bands are a pain
@@ -206,12 +182,12 @@ def calculate_raman(atoms, calc, w_in, d_i, d_o, resonant_only=False,
             # this.
             vs = np.where(f_n >= 0.1)[0]
             cs = np.where(f_n < 0.9)[0]
+            nv = max(vs) + 1  # VBM+1 index
+            nc = min(cs)  # CBM index
 
-            # for TESTING need different shapes for v and c
-            print(cs, vs)
-            cs = cs[:-1]
-            print(cs)
-
+            # give momentum matrix for d_i and d_o directions
+            mom_dnn = np.ascontiguousarray(mom_sk[s, k, [d_i, d_o]])
+            assert mom_dnn.shape[0] == 2
 
             # f * (1-f) term
             f_vc = np.outer(f_n[vs], 1. - f_n[cs])
@@ -222,35 +198,32 @@ def calculate_raman(atoms, calc, w_in, d_i, d_o, resonant_only=False,
                 # set weights for negative energy transitions zero
                 neg = np.where(E_vc[n] <= 0.)[0]
                 f_vc[n, neg] = 0.
-            # i -> j -> m -> n
-            # i, n are valence; j, m are conduction, also i=n in the end
-            # see https://doi.org/10.1038/s41467-020-16529-6
 
             # Term 1
-            term1_l = _term1(f_vc, E_vc, mom_dnn, elph_lnn, vs, cs)
+            term1_l = _term1(f_vc, E_vc, mom_dnn, elph_lnn, nc, nv)
             print("Term1: ", np.max(np.abs(term1_l)))
             raman_lw += term1_l[:, None] * weight
 
             if not resonant_only:
-                term2_lw = _term2(f_n, E_n, mom_vnn, elph_lnn, nc, nv)
+                term2_lw = _term2(f_vc, E_vc, mom_dnn, elph_lnn, nc, nv)
                 print("Term2: ", np.max(np.abs(term2_lw)))
-                raman_lw += term2_lw
+                raman_lw += term2_lw * weight
 
-                term3_lw = _term3(f_n, E_n, mom_vnn, elph_lnn, nc, nv)
+                term3_lw = _term3(f_vc, E_vc, mom_dnn, elph_lnn, nc, nv)
                 print("Term3: ", np.max(np.abs(term3_lw)))
-                raman_lw += term3_lw
+                raman_lw += term3_lw * weight
 
-                term4_lw = _term4(f_n, E_n, mom_vnn, elph_lnn, nc, nv)
+                term4_lw = _term4(f_vc, E_vc, mom_dnn, elph_lnn, nc, nv)
                 print("Term4: ", np.max(np.abs(term4_lw)))
-                raman_lw += term4_lw
+                raman_lw += term4_lw * weight
 
-                term5_l = _term5(f_n, E_n, mom_vnn, elph_lnn, nc, nv)
+                term5_l = _term5(f_vc, E_vc, mom_dnn, elph_lnn, nc, nv)
                 print("Term5: ", np.max(np.abs(term5_l)))
-                raman_lw += term5_l[:, None]
+                raman_lw += term5_l[:, None] * weight
 
-                term6_lw = _term6(f_n, E_n, mom_vnn, elph_lnn, nc, nv)
+                term6_lw = _term6(f_vc, E_vc, mom_dnn, elph_lnn, nc, nv)
                 print("Term6: ", np.max(np.abs(term6_lw)))
-                raman_lw += term6_lw
+                raman_lw += term6_lw * weight
 
     for l in range(nmodes):
         print("Phonon {} with energy = {}: {}".format(l, w_ph[l] / cm,
