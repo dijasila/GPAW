@@ -1,4 +1,4 @@
-# Creates: spectrum.png
+# web-page: spectrum.png
 import numpy as np
 import matplotlib.pyplot as plt
 

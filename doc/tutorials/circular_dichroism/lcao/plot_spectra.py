@@ -1,4 +1,4 @@
-# Creates: spectra.png
+# web-page: spectra.png
 import numpy as np
 import matplotlib.pyplot as plt
 
