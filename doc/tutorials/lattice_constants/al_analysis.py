@@ -25,7 +25,7 @@ plt.savefig('Al_conv_ecut.png')
 
 kpoints = range(4, 17)
 plt.figure(figsize=(6, 4))
-a = [fit('Al-{k:02}.txt') for k in kpoints]
+a = [fit(f'Al-{k:02}.txt') for k in kpoints]
 plt.plot(kpoints, a, '-')
 plt.xlabel('number of k-points')
 plt.ylabel('lattice constant [Ang]')
