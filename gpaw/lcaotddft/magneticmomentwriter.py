@@ -9,8 +9,7 @@ from gpaw.lcaotddft.observer import TDDFTObserver
 from gpaw.lcaotddft.densitymatrix import DensityMatrix
 
 
-def calculate_magnetic_moment_on_grid(wfs, grad_v, r_vG, dM_vaii,
-                                      timer, *,
+def calculate_magnetic_moment_on_grid(wfs, grad_v, r_vG, dM_vaii, *,
                                       only_pseudo=False):
     """Calculate magnetic moment on grid.
 
@@ -24,8 +23,6 @@ def calculate_magnetic_moment_on_grid(wfs, grad_v, r_vG, dM_vaii,
         Grid point coordinates
     dM_vaii
         Atomic PAW corrections for magnetic moment
-    timer
-        Timer object
     only_pseudo
         If true, do not add atomic corrections
 
@@ -38,11 +35,7 @@ def calculate_magnetic_moment_on_grid(wfs, grad_v, r_vG, dM_vaii,
     bd = wfs.bd
     kpt_u = wfs.kpt_u
 
-    timer.start('Magnetic moment')
-
     rxnabla_v = np.zeros(3, dtype=complex)
-
-    timer.start('Pseudo')
     if mode == 'lcao':
         psit_G = gd.empty(dtype=complex)
     nabla_psit_vG = gd.empty(3, dtype=complex)
@@ -68,10 +61,7 @@ def calculate_magnetic_moment_on_grid(wfs, grad_v, r_vG, dM_vaii,
                                  - r_vG[v2] * nabla_psit_vG[v1])
                 rxnabla_v[v] += f * gd.integrate(psit_G.conj() * rnabla_psit_G)
 
-    timer.stop('Pseudo')
-
     if not only_pseudo:
-        timer.start('PAW')
         paw_rxnabla_v = np.zeros(3, dtype=complex)
         for kpt in kpt_u:
             for v in range(3):
@@ -82,11 +72,8 @@ def calculate_magnetic_moment_on_grid(wfs, grad_v, r_vG, dM_vaii,
                                                   optimize=True)
         gd.comm.sum(paw_rxnabla_v)
         rxnabla_v += paw_rxnabla_v
-        timer.stop('PAW')
 
     bd.comm.sum(rxnabla_v)
-    timer.stop('Magnetic moment')
-
     return -0.5 * rxnabla_v.imag
 
 
@@ -140,7 +127,8 @@ def get_magnetic_moment_atomic_corrections(R_av, setups, partition):
     return dM_vaii
 
 
-def calculate_magnetic_moment_matrix(kpt_u, bfs, correction, r_vG, dM_vaii, only_pseudo=False):
+def calculate_magnetic_moment_matrix(kpt_u, bfs, correction, r_vG, dM_vaii, *,
+                                     only_pseudo=False):
     """Calculate magnetic moment matrix in LCAO basis.
 
     Parameters
@@ -394,15 +382,19 @@ class MagneticMomentWriter(TDDFTObserver):
 
     def _calculate_mm(self, paw):
         if self.calculate_on_grid:
+            self.timer.start('Calculate magnetic moment on grid')
             mm_v = calculate_magnetic_moment_on_grid(
                         paw.wfs, self.grad_v, self.r_vG,
-                        self.dM_vaii, self.timer,
+                        self.dM_vaii,
                         only_pseudo=self.only_pseudo)
+            self.timer.stop('Calculate magnetic moment on grid')
         else:
+            self.timer.start('Calculate magnetic moment in LCAO')
             u = 0
             rho_mm = self.dmat.get_density_matrix((paw.niter, paw.action))[u]
             mm_v = calculate_magnetic_moment_in_lcao(
                         paw.wfs.ksl, rho_mm, self.M_vmm)
+            self.timer.stop('Calculate magnetic moment in LCAO')
         assert mm_v.shape == (3,)
         assert mm_v.dtype == float
         return mm_v
