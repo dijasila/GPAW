@@ -298,7 +298,7 @@ class MagneticMomentWriter(TDDFTObserver):
         self.origin_v = origin_v
 
         dM_vaii = get_magnetic_moment_atomic_corrections(
-                    R_av, paw.setups, paw.hamiltonian.dH_asp.partition)
+            R_av, paw.setups, paw.hamiltonian.dH_asp.partition)
 
         if self.calculate_on_grid:
             self.only_pseudo = only_pseudo
@@ -311,11 +311,9 @@ class MagneticMomentWriter(TDDFTObserver):
             self.grad_v = grad_v
         else:
             M_vmM = calculate_magnetic_moment_matrix(
-                             paw.wfs.kpt_u,
-                             paw.wfs.basis_functions,
-                             paw.wfs.atomic_correction,
-                             r_vG, dM_vaii,
-                             only_pseudo=only_pseudo)
+                paw.wfs.kpt_u, paw.wfs.basis_functions,
+                paw.wfs.atomic_correction, r_vG, dM_vaii,
+                only_pseudo=only_pseudo)
 
             self.dmat = DensityMatrix(paw)  # XXX
             ksl = paw.wfs.ksl
@@ -384,16 +382,15 @@ class MagneticMomentWriter(TDDFTObserver):
         if self.calculate_on_grid:
             self.timer.start('Calculate magnetic moment on grid')
             mm_v = calculate_magnetic_moment_on_grid(
-                        paw.wfs, self.grad_v, self.r_vG,
-                        self.dM_vaii,
-                        only_pseudo=self.only_pseudo)
+                paw.wfs, self.grad_v, self.r_vG, self.dM_vaii,
+                only_pseudo=self.only_pseudo)
             self.timer.stop('Calculate magnetic moment on grid')
         else:
             self.timer.start('Calculate magnetic moment in LCAO')
             u = 0
             rho_mm = self.dmat.get_density_matrix((paw.niter, paw.action))[u]
             mm_v = calculate_magnetic_moment_in_lcao(
-                        paw.wfs.ksl, rho_mm, self.M_vmm)
+                paw.wfs.ksl, rho_mm, self.M_vmm)
             self.timer.stop('Calculate magnetic moment in LCAO')
         assert mm_v.shape == (3,)
         assert mm_v.dtype == float
