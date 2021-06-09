@@ -28,7 +28,7 @@ def calculate_magnetic_moment_on_grid(wfs, grad_v, r_vG, dM_vaii, *,
 
     Returns
     -------
-    Magnetic moment vector.
+    Magnetic moment vector
     """
     gd = wfs.gd
     mode = wfs.mode
@@ -77,7 +77,7 @@ def calculate_magnetic_moment_on_grid(wfs, grad_v, r_vG, dM_vaii, *,
     return -0.5 * rxnabla_v.imag
 
 
-def get_magnetic_moment_atomic_corrections(R_av, setups, partition):
+def calculate_magnetic_moment_atomic_corrections(R_av, setups, partition):
     """Calculate atomic PAW augmentation corrections for magnetic moment.
 
     Parameters
@@ -87,11 +87,11 @@ def get_magnetic_moment_atomic_corrections(R_av, setups, partition):
     setups
         PAW setups object
     partition
-        Partition object
+        Atom partition object
 
     Returns
     -------
-    Atomic correction matrices.
+    Atomic correction matrices
     """
     # augmentation contributions to magnetic moment
     # <psi1| r x nabla |psi2> = <psi1| (r - Ra + Ra) x nabla |psi2>
@@ -148,7 +148,7 @@ def calculate_magnetic_moment_matrix(kpt_u, bfs, correction, r_vG, dM_vaii, *,
 
     Returns
     -------
-    Magnetic moment matrix.
+    Magnetic moment matrix
     """
     Mstart = correction.Mstart
     Mstop = correction.Mstop
@@ -196,7 +196,7 @@ def calculate_magnetic_moment_in_lcao(ksl, rho_mm, M_vmm):
 
     Returns
     -------
-    Magnetic moment vector.
+    Magnetic moment vector
     """
     assert M_vmm.dtype == float
     mm_v = np.sum(rho_mm.imag * M_vmm, axis=(1, 2))
@@ -302,7 +302,7 @@ class MagneticMomentWriter(TDDFTObserver):
         r_vG, _ = coordinates(gd, origin=origin_v)
         self.origin_v = origin_v
 
-        dM_vaii = get_magnetic_moment_atomic_corrections(
+        dM_vaii = calculate_magnetic_moment_atomic_corrections(
             R_av, paw.setups, paw.hamiltonian.dH_asp.partition)
 
         if self.calculate_on_grid:
