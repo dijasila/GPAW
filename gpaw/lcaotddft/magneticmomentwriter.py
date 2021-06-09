@@ -9,8 +9,9 @@ from gpaw.lcaotddft.observer import TDDFTObserver
 from gpaw.lcaotddft.densitymatrix import DensityMatrix
 
 
-def calculate_mm_on_grid(wfs, grad_v, r_cG, dX0_caii, timer,
-                         only_pseudo=False):
+def calculate_magnetic_moment_on_grid(wfs, grad_v, r_cG, dM_caii,
+                                      timer, *,
+                                      only_pseudo=False):
     """Calculate magnetic moment on grid.
 
     Parameters
@@ -21,12 +22,12 @@ def calculate_mm_on_grid(wfs, grad_v, r_cG, dX0_caii, timer,
         List of gradient operators
     r_cG
         Grid point coordinates
-    dX0_caii
-        PAW corrections
+    dM_caii
+        Atomic PAW corrections for magnetic moment
     timer
         Timer object
     only_pseudo
-        If true, do not add PAW corrections
+        If true, do not add atomic corrections
 
     Returns
     -------
@@ -77,7 +78,7 @@ def calculate_mm_on_grid(wfs, grad_v, r_cG, dX0_caii, timer,
                 for a, P_ni in kpt.P_ani.items():
                     paw_rxnabla_v[v] += np.einsum('n,ni,ij,nj',
                                                   kpt.f_n, P_ni.conj(),
-                                                  dX0_caii[v][a], P_ni,
+                                                  dM_caii[v][a], P_ni,
                                                   optimize=True)
         gd.comm.sum(paw_rxnabla_v)
         rxnabla_v += paw_rxnabla_v
@@ -89,12 +90,12 @@ def calculate_mm_on_grid(wfs, grad_v, r_cG, dX0_caii, timer,
     return -0.5 * rxnabla_v.imag
 
 
-def get_dX0(Ra_a, setups, partition):
-    """Calculate PAW corrections for magnetic moment.
+def get_magnetic_moment_atomic_corrections(R_av, setups, partition):
+    """Calculate atomic PAW augmentation corrections for magnetic moment.
 
     Parameters
     ----------
-    Ra_a
+    R_av
         Atom positions
     setups
         PAW setups object
@@ -103,7 +104,7 @@ def get_dX0(Ra_a, setups, partition):
 
     Returns
     -------
-    PAW corrections.
+    Atomic correction matrices.
     """
     # augmentation contributions to magnetic moment
     # <psi1| r x nabla |psi2> = <psi1| (r - Ra + Ra) x nabla |psi2>
@@ -114,13 +115,13 @@ def get_dX0(Ra_a, setups, partition):
         ni = setups[a].ni
         return ni, ni
 
-    dX0_caii = []
+    dM_caii = []
     for _ in range(3):
-        dX0_aii = partition.arraydict(shapes=shape, dtype=complex)
-        dX0_caii.append(dX0_aii)
+        dM_aii = partition.arraydict(shapes=shape, dtype=complex)
+        dM_caii.append(dM_aii)
 
     for a in partition.my_indices:
-        Ra = Ra_a[a]
+        Ra_v = R_av[a]
         rxnabla_iiv = setups[a].rxnabla_iiv
         nabla_iiv = setups[a].nabla_iiv
 
@@ -132,20 +133,18 @@ def get_dX0(Ra_a, setups, partition):
         for v in range(3):
             v1 = (v + 1) % 3
             v2 = (v + 2) % 3
-            Rxnabla_ii = (Ra[v1] * nabla_iiv[:, :, v2]
-                          - Ra[v2] * nabla_iiv[:, :, v1])
-            dX0_caii[v][a][:] = Rxnabla_ii + rxnabla_iiv[:, :, v]
+            Rxnabla_ii = (Ra_v[v1] * nabla_iiv[:, :, v2]
+                          - Ra_v[v2] * nabla_iiv[:, :, v1])
+            dM_caii[v][a][:] = Rxnabla_ii + rxnabla_iiv[:, :, v]
 
-    return dX0_caii
+    return dM_caii
 
 
-def calculate_E(dX0_caii, kpt_u, bfs, correction, r_cG, only_pseudo=False):
+def calculate_magnetic_moment_matrix(kpt_u, bfs, correction, r_cG, dM_caii, only_pseudo=False):
     """Calculate magnetic moment matrix in LCAO basis.
 
     Parameters
     ----------
-    dX0_caii
-        PAW corrections
     kpt_u
         K-points
     bfs
@@ -154,6 +153,8 @@ def calculate_E(dX0_caii, kpt_u, bfs, correction, r_cG, only_pseudo=False):
         Correction object
     r_cG
         Grid point coordinates
+    dM_caii
+        Atomic PAW corrections for magnetic moment
     only_pseudo
         If true, do not add PAW corrections
 
@@ -170,21 +171,21 @@ def calculate_E(dX0_caii, kpt_u, bfs, correction, r_cG, only_pseudo=False):
     assert bfs.Mstop == Mstop
 
     M_cmM = np.zeros((3, mynao, nao), dtype=complex)
-    A_cmM = np.empty((3, mynao, nao), dtype=complex)
+    rnabla_cmM = np.empty((3, mynao, nao), dtype=complex)
 
     for v in range(3):
         v1 = (v + 1) % 3
         v2 = (v + 2) % 3
-        A_cmM[:] = 0.0
-        bfs.calculate_potential_matrix_derivative(r_cG[v], A_cmM, 0)
-        M_cmM[v1] += A_cmM[v2]
-        M_cmM[v2] -= A_cmM[v1]
+        rnabla_cmM[:] = 0.0
+        bfs.calculate_potential_matrix_derivative(r_cG[v], rnabla_cmM, 0)
+        M_cmM[v1] += rnabla_cmM[v2]
+        M_cmM[v2] -= rnabla_cmM[v1]
 
     if not only_pseudo:
         for kpt in kpt_u:
             assert kpt.k == 0
             for c in range(3):
-                correction.calculate(kpt.q, dX0_caii[c], M_cmM[c],
+                correction.calculate(kpt.q, dM_caii[c], M_cmM[c],
                                      Mstart, Mstop)
 
     # The matrix should be real
@@ -193,7 +194,7 @@ def calculate_E(dX0_caii, kpt_u, bfs, correction, r_cG, only_pseudo=False):
     return -0.5 * M_cmM
 
 
-def calculate_mm_lcao(ksl, rho_mm, E_cmm):
+def calculate_magnetic_moment_in_lcao(ksl, rho_mm, M_cmm):
     """Calculate magnetic moment in LCAO.
 
     Parameters
@@ -202,15 +203,15 @@ def calculate_mm_lcao(ksl, rho_mm, E_cmm):
         Kohn-Sham Layouts object
     rho_mm
         Density matrix in LCAO basis
-    E_cmm
+    M_cmm
         Magnetic moment matrix in LCAO basis
 
     Returns
     -------
     Magnetic moment vector.
     """
-    assert E_cmm.dtype == float
-    mm_c = np.sum(rho_mm.imag * E_cmm, axis=(1, 2))
+    assert M_cmm.dtype == float
+    mm_c = np.sum(rho_mm.imag * M_cmm, axis=(1, 2))
     if ksl.using_blacs:
         ksl.mmdescriptor.blacsgrid.comm.sum(mm_c)
     return mm_c
@@ -304,34 +305,37 @@ class MagneticMomentWriter(TDDFTObserver):
         if self.origin_shift is not None:
             origin_v += np.asarray(self.origin_shift, dtype=float) / Bohr
 
-        Ra_av = paw.atoms.positions / Bohr - origin_v[np.newaxis, :]
+        R_av = paw.atoms.positions / Bohr - origin_v[np.newaxis, :]
         r_cG, _ = coordinates(gd, origin=origin_v)
         self.origin_v = origin_v
 
-        dX0_caii = get_dX0(Ra_av, paw.setups, paw.hamiltonian.dH_asp.partition)
+        dM_caii = get_magnetic_moment_atomic_corrections(
+                    R_av, paw.setups, paw.hamiltonian.dH_asp.partition)
 
         if self.calculate_on_grid:
             self.only_pseudo = only_pseudo
             self.r_cG = r_cG
-            self.dX0_caii = dX0_caii
+            self.dM_caii = dM_caii
 
             grad_v = []
             for v in range(3):
                 grad_v.append(Gradient(gd, v, dtype=complex, n=2))
             self.grad_v = grad_v
         else:
-            E_cmM = calculate_E(dX0_caii, paw.wfs.kpt_u,
-                                paw.wfs.basis_functions,
-                                paw.wfs.atomic_correction, r_cG,
-                                only_pseudo=only_pseudo)
+            M_cmM = calculate_magnetic_moment_matrix(
+                             paw.wfs.kpt_u,
+                             paw.wfs.basis_functions,
+                             paw.wfs.atomic_correction,
+                             r_cG, dM_caii,
+                             only_pseudo=only_pseudo)
 
             self.dmat = DensityMatrix(paw)  # XXX
             ksl = paw.wfs.ksl
             if ksl.using_blacs:
-                self.E_cmm = ksl.distribute_overlap_matrix(E_cmM)
+                self.M_cmm = ksl.distribute_overlap_matrix(M_cmM)
             else:
-                gd.comm.sum(E_cmM)
-                self.E_cmm = E_cmM
+                gd.comm.sum(M_cmM)
+                self.M_cmm = M_cmM
 
     def _write(self, line):
         if self.master:
@@ -390,13 +394,15 @@ class MagneticMomentWriter(TDDFTObserver):
 
     def _calculate_mm(self, paw):
         if self.calculate_on_grid:
-            mm_c = calculate_mm_on_grid(paw.wfs, self.grad_v, self.r_cG,
-                                        self.dX0_caii, self.timer,
-                                        only_pseudo=self.only_pseudo)
+            mm_c = calculate_magnetic_moment_on_grid(
+                        paw.wfs, self.grad_v, self.r_cG,
+                        self.dM_caii, self.timer,
+                        only_pseudo=self.only_pseudo)
         else:
             u = 0
             rho_mm = self.dmat.get_density_matrix((paw.niter, paw.action))[u]
-            mm_c = calculate_mm_lcao(paw.wfs.ksl, rho_mm, self.E_cmm)
+            mm_c = calculate_magnetic_moment_in_lcao(
+                        paw.wfs.ksl, rho_mm, self.M_cmm)
         assert mm_c.shape == (3,)
         assert mm_c.dtype == float
         return mm_c
