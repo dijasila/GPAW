@@ -1,5 +1,8 @@
 """
-Calculates Raman matrices and intensities
+Calculates Raman matrices and intensities.
+
+Momentum matrices are not symmetric. The first index is the bra, the other the
+ket.
 """
 
 import numpy as np
@@ -16,9 +19,24 @@ def gaussian(w, sigma):
     g = 1. / (np.sqrt(2. * np.pi) * sigma) * np.exp(-w**2 / (2 * sigma**2))
     return g
 
+def _term1(f_vc, E_vc, mom_dnn, elph_lnn, vs, cs):
+    term1_l = np.zeros((elph_lnn.shape[0]), dtype=complex)
+    print(mom_dnn[0, cs][:,vs])
+    print(mom_dnn[0, vs][:,cs])
+
+    t1_ij = (f_vc * mom_vnn[d_i, vs, cs] / (w_in - E_vc))
+    for l in range(nmodes):
+        t1_xx = elph_lnn[l]
+        t1_mn = fvc.T * mom_vnn[d_o][ cs, vs] / (w_in - w_ph[l] - Enm.T)
+        print(t_1_mn)
+        term1_l[l] += np.einsum('sj,jm,ms', t1_ij, t1_xx[nc:, nc:], t1_mn,
+                                optimize=opt)
+        term1_l[l] -= np.einsum('is,ni,sn', t1_ij, t1_xx[:nv, :nv], t1_mn,
+                                optimize=opt)
+    return term1_l
 
 def calculate_raman(atoms, calc, w_in, d_i, d_o, resonant_only=False,
-                    ramanname=None, momname=None, basename=None, gamma_l=0.2):
+                    ramanname=None, momname=None, basename=None, gamma_l=0.1):
     """
     Calculates the first order Raman spectrum
 
@@ -29,38 +47,39 @@ def calculate_raman(atoms, calc, w_in, d_i, d_o, resonant_only=False,
         momname         Suffix for the momentumfile
         basename        Suffix for the gs.gpw and gqklnn.npy files
         w_in, gamma_l   Laser energy, broadening factor for the electron
-                        energies
+                        energies (in eV)
         d_i, d_o        Laser polarization in, out (0, 1, 2 for x, y, z)
     Output:
         RI.npy          Numpy array containing the raman spectre
     """
 
-    print("Calculating Raman spectrum: Laser frequency = {}".format(w_in))
+    print("Calculating Raman spectrum: Laser frequency = {} eV".format(w_in))
 
     cm = 1. / 8065.544  # cm^-1 to eV
 
-    ph = Phonons(atoms=atoms, supercell=(1, 1, 1))
+    ph = Phonons(atoms=atoms, name='elph', supercell=(1, 1, 1))
     ph.read()
-    w_ph = np.array(ph.band_structure([[0, 0, 0]])[0])
-    w_max = int(np.max(w_ph) / cm + 200)
+    w_ph = np.array(ph.band_structure([[0, 0, 0]])[0]) # in eV
+    if w_ph.dtype == "complex128":
+        w_ph = w_ph.real
+    assert max(w_ph) < 1. # else not eV units
+    w_max = int(np.round(np.max(w_ph) / cm + 100, -1)) # in rcm
     # NOTE: Should make grid-spacing an input variable
     ngrid = w_max + 1
     w_cm = np.linspace(0., w_max, num=ngrid)  # Defined in cm^-1
     w = w_cm * cm  # eV (Raman shift?)
-    # w_s = w_in - w  # Stokes ?
-    # m = len(w_ph)  # Number of phonon bands
-    # Exclude 3 accustic phonons + anything imaginary (<10cm^-1)
 
-    l_min = max(np.where(w_ph.real / cm < 30.)[0].size, 3)
+    # Exclude 3 accustic phonons + anything imaginary (<10cm^-1)
+    l_min = max(np.where(w_ph / cm < 30.)[0].size, 3)
     w_ph = w_ph[l_min:]
     ieta = complex(0, gamma_l)
     nmodes = len(w_ph)
 
     # Load files
     if momname is None:
-        mom_sk = np.load("dip_svknm.npy")  # [:,k,:,:]dim, k
+        mom_sk = np.load("mom_skvnm.npy")  # [:,k,:,:]dim, k
     else:
-        mom_sk = np.load("dip_svknm_{}.npy".format(momname))
+        mom_sk = np.load("mom_skvnm_{}.npy".format(momname))
     if basename is None:
         elph_sk = np.load("gsqklnn.npy")[:, 0, :, l_min:]  # [s,q=0,k,l,n,m]
     else:
@@ -76,22 +95,7 @@ def calculate_raman(atoms, calc, w_in, d_i, d_o, resonant_only=False,
     print("Evaluating Raman sum")
     opt = 'optimal'  # mode for np.einsum. not sure what is fastest
 
-    def _term1(f_n, E_n, mom_vnn, elph_lnn, nc, nv):
-        term1_l = np.zeros((nmodes), dtype=complex)
-        t1_ij = (f_n[:nv, None] * (1. - f_n[None, nc:]) *
-                 mom_vnn[d_i, :nv, nc:] /
-                 (w_in - (E_n[None, nc:] - E_n[:nv, None]) + ieta))
-        for l in range(nmodes):
-            t1_xx = elph_lnn[l]
-            t1_mn = (f_n[None, :nv] * (1. - f_n[nc:, None]) *
-                     mom_vnn[d_o, nc:, :nv] /
-                     (w_in - w_ph[l] - (E_n[None, :nv] -
-                                        E_n[nc:, None]) + ieta))
-            term1_l[l] += np.einsum('sj,jm,ms', t1_ij, t1_xx[nc:, nc:], t1_mn,
-                                    optimize=opt)
-            term1_l[l] -= np.einsum('is,ni,sn', t1_ij, t1_xx[:nv, :nv], t1_mn,
-                                    optimize=opt)
-        return term1_l
+
 
     def _term2(f_n, E_n, mom_vnn, elph_lnn, nc, nv):
         term2_lw = np.zeros((nmodes, ngrid), dtype=complex)
@@ -185,45 +189,67 @@ def calculate_raman(atoms, calc, w_in, d_i, d_o, resonant_only=False,
         for k in range(nk):
             print("For k = {}".format(k))
 
+            # XXX: Need to rethink weights and stuff, as symmetry not allowed
+            # at the moment.
             weight = calc.wfs.collect_auxiliary("weight", k, s)
             f_n = calc.wfs.collect_occupations(k, s)
             f_n = f_n / weight
             elph_lnn = weight * elph_sk[s, k]
-            mom_vnn = mom_sk[s, :, k]
+            # give momentum matrix for d_i and d_o directions
+            mom_dnn = mom_sk[s, k+1, [d_i, d_o]]
+            assert mom_dnn.shape[0] == 2
             E_n = E_kn[k]
 
             # limit sums to relevant bands, partially occupied bands are a pain
-            nv = len(np.where(f_n > 0.1)[0])  # highest index of occupied +1
-            nc = len(np.where(f_n > 0.9)[0])  # lowest index of unoccupied
+            # So, in principal, partially occupied bands can be initial and final
+            # states, but we need to restrict to a positive deltaE if we allow
+            # this.
+            vs = np.where(f_n >= 0.1)[0]
+            cs = np.where(f_n < 0.9)[0]
 
+            # for TESTING need different shapes for v and c
+            print(cs, vs)
+            cs = cs[:-1]
+            print(cs)
+
+
+            # f * (1-f) term
+            f_vc = np.outer(f_n[vs], 1. - f_n[cs])
+            # E-E term
+            E_vc = np.empty((len(vs), len(cs)), dtype=complex)
+            for n in vs:
+                E_vc[n] = E_n[cs] - E_n[n] + ieta
+                # set weights for negative energy transitions zero
+                neg = np.where(E_vc[n] <= 0.)[0]
+                f_vc[n, neg] = 0.
             # i -> j -> m -> n
-            # i, n are valence; j, m are conduction
+            # i, n are valence; j, m are conduction, also i=n in the end
             # see https://doi.org/10.1038/s41467-020-16529-6
 
             # Term 1
-            term1_l = _term1(f_n, E_n, mom_vnn, elph_lnn, nc, nv)
-            # print("Term1: ", np.max(np.abs(term1_l)))
-            raman_lw += term1_l[:, None]
+            term1_l = _term1(f_vc, E_vc, mom_dnn, elph_lnn, vs, cs)
+            print("Term1: ", np.max(np.abs(term1_l)))
+            raman_lw += term1_l[:, None] * weight
 
             if not resonant_only:
                 term2_lw = _term2(f_n, E_n, mom_vnn, elph_lnn, nc, nv)
-                # print("Term2: ", np.max(np.abs(term2_lw)))
+                print("Term2: ", np.max(np.abs(term2_lw)))
                 raman_lw += term2_lw
 
                 term3_lw = _term3(f_n, E_n, mom_vnn, elph_lnn, nc, nv)
-                # print("Term3: ", np.max(np.abs(term3_lw)))
+                print("Term3: ", np.max(np.abs(term3_lw)))
                 raman_lw += term3_lw
 
                 term4_lw = _term4(f_n, E_n, mom_vnn, elph_lnn, nc, nv)
-                # print("Term4: ", np.max(np.abs(term4_lw)))
+                print("Term4: ", np.max(np.abs(term4_lw)))
                 raman_lw += term4_lw
 
                 term5_l = _term5(f_n, E_n, mom_vnn, elph_lnn, nc, nv)
-                # print("Term5: ", np.max(np.abs(term5_l)))
+                print("Term5: ", np.max(np.abs(term5_l)))
                 raman_lw += term5_l[:, None]
 
                 term6_lw = _term6(f_n, E_n, mom_vnn, elph_lnn, nc, nv)
-                # print("Term6: ", np.max(np.abs(term6_lw)))
+                print("Term6: ", np.max(np.abs(term6_lw)))
                 raman_lw += term6_lw
 
     for l in range(nmodes):

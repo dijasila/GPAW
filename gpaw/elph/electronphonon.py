@@ -74,22 +74,7 @@ from gpaw.utilities.timing import StepTimer, nulltimer
 from gpaw.utilities.tools import tri2full
 
 
-class BackwardsCompatibleDisplacement(Displacement):
-    # NOTE: It's probably save to remove this, as we are not compatible with
-    # old ASE anyway, thanks to breaking pckl to json change.
-    def __init__(self, atoms, calc, supercell,
-                 name, delta):
-        if hasattr(Displacement, 'compute_lattice_vectors'):
-            Displacement.__init__(self, atoms, calc, supercell,
-                                  name, delta, center_refcell=True)
-        else:
-            Displacement.__init__(self, atoms, calc, supercell,
-                                  name, delta, refcell='center')
-            self.supercell = self.N_c
-            self.compute_lattice_vectors = self.lattice_vectors
-
-
-class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
+class ElectronPhononCoupling(Displacement):
     """Class for calculating the electron-phonon coupling in an LCAO basis.
 
     The derivative of the effective potential wrt atomic displacements is
@@ -114,7 +99,7 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
             The atoms to work on.
         calc: GPAW
             Calculator for the supercell calculation.
-        supercell: tuple
+        supercell: tuple, list
             Size of supercell given by the number of repetitions (l, m, n) of
             the small unit cell in each direction.
         name: str
@@ -127,9 +112,9 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
 
         # Init base class and make the center cell in the supercell the
         # reference cell
-        BackwardsCompatibleDisplacement.__init__(
+        Displacement.__init__(
             self, atoms, calc=calc, supercell=supercell,
-            name=name, delta=delta)
+            name=name, delta=delta, center_refcell=True)
 
         self.calculate_forces = calculate_forces
         # Log

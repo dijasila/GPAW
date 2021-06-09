@@ -89,7 +89,7 @@ def get_elph_matrix(atoms, calc, basename=None, dump=1,
 
     # Read previous phonon calculation.
     # This only looks at gamma point phonons
-    ph = Phonons(atoms=atoms, supercell=(1, 1, 1))
+    ph = Phonons(atoms=atoms, supercell=(1, 1, 1), name='elph')
     ph.read()
     frequencies, modes = ph.band_structure(qpts, modes=True)
     if world.rank == 0:
