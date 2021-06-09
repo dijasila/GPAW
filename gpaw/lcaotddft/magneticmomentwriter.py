@@ -44,7 +44,7 @@ def calculate_mm_on_grid(wfs, grad_v, r_cG, dX0_caii, timer,
     timer.start('Pseudo')
     if mode == 'lcao':
         psit_G = gd.empty(dtype=complex)
-    grad_psit_vG = gd.empty(3, dtype=complex)
+    nabla_psit_vG = gd.empty(3, dtype=complex)
     for kpt in kpt_u:
         for n, f in enumerate(kpt.f_n):
             if mode == 'lcao':
@@ -54,20 +54,19 @@ def calculate_mm_on_grid(wfs, grad_v, r_cG, dX0_caii, timer,
                 psit_G = kpt.psit_nG[n]
 
             for v in range(3):
-                grad_v[v].apply(psit_G, grad_psit_vG[v], kpt.phase_cd)
-
-            def rxnabla(v1, v2):
-                return f * gd.integrate(psit_G.conjugate() *
-                                        (r_cG[v1] * grad_psit_vG[v2] -
-                                         r_cG[v2] * grad_psit_vG[v1]))
+                grad_v[v].apply(psit_G, nabla_psit_vG[v], kpt.phase_cd)
 
             # rxnabla   = <psi1| r x nabla |psi2>
             # rxnabla_x = <psi1| r_y nabla_z - r_z nabla_y |psi2>
             # rxnabla_y = <psi1| r_z nabla_x - r_x nabla_z |psi2>
             # rxnabla_z = <psi1| r_x nabla_y - r_y nabla_x |psi2>
-            rxnabla_v[0] += rxnabla(1, 2)
-            rxnabla_v[1] += rxnabla(2, 0)
-            rxnabla_v[2] += rxnabla(0, 1)
+            for v in range(3):
+                v1 = (v + 1) % 3
+                v2 = (v + 2) % 3
+                rnabla_psit_G = (r_cG[v1] * nabla_psit_vG[v2]
+                                 - r_cG[v2] * nabla_psit_vG[v1])
+                rxnabla_v[v] += f * gd.integrate(psit_G.conj() * rnabla_psit_G)
+
     timer.stop('Pseudo')
 
     if not only_pseudo:
@@ -122,22 +121,20 @@ def get_dX0(Ra_a, setups, partition):
 
     for a in partition.my_indices:
         Ra = Ra_a[a]
+        rxnabla_iiv = setups[a].rxnabla_iiv
+        nabla_iiv = setups[a].nabla_iiv
 
-        rxnabla_iiv = setups[a].rxnabla_iiv.copy()
-        nabla_iiv = setups[a].nabla_iiv.copy()
-
-        def Rxnabla(v1, v2):
-            return (Ra[v1] * nabla_iiv[:, :, v2] -
-                    Ra[v2] * nabla_iiv[:, :, v1])
-
-        # rxnabla: <psi1| (r - Ra) x nabla |psi2>
-        # Rxnabla: Ra x <psi1| nabla |psi2>
-        # Rxnabla_x = (Ra_y nabla_z - Ra_z nabla_y)
-        # Rxnabla_y = (Ra_z nabla_x - Ra_x nabla_z)
-        # Rxnabla_z = (Ra_x nabla_y - Ra_y nabla_x)
-        dX0_caii[0][a][:] = Rxnabla(1, 2) + rxnabla_iiv[:, :, 0]
-        dX0_caii[1][a][:] = Rxnabla(2, 0) + rxnabla_iiv[:, :, 1]
-        dX0_caii[2][a][:] = Rxnabla(0, 1) + rxnabla_iiv[:, :, 2]
+        # rxnabla   = <psi1| (r - Ra) x nabla |psi2>
+        # Rxnabla   = Ra x <psi1| nabla |psi2>
+        # Rxnabla_x = Ra_y nabla_z - Ra_z nabla_y
+        # Rxnabla_y = Ra_z nabla_x - Ra_x nabla_z
+        # Rxnabla_z = Ra_x nabla_y - Ra_y nabla_x
+        for v in range(3):
+            v1 = (v + 1) % 3
+            v2 = (v + 2) % 3
+            Rxnabla_ii = (Ra[v1] * nabla_iiv[:, :, v2]
+                          - Ra[v2] * nabla_iiv[:, :, v1])
+            dX0_caii[v][a][:] = Rxnabla_ii + rxnabla_iiv[:, :, v]
 
     return dX0_caii
 
@@ -172,34 +169,28 @@ def calculate_E(dX0_caii, kpt_u, bfs, correction, r_cG, only_pseudo=False):
     assert bfs.Mstart == Mstart
     assert bfs.Mstop == Mstop
 
-    E_cmM = np.zeros((3, mynao, nao), dtype=complex)
-    A_cmM = np.zeros((3, mynao, nao), dtype=complex)
+    M_cmM = np.zeros((3, mynao, nao), dtype=complex)
+    A_cmM = np.empty((3, mynao, nao), dtype=complex)
 
-    bfs.calculate_potential_matrix_derivative(r_cG[0], A_cmM, 0)
-    E_cmM[1] += A_cmM[2]
-    E_cmM[2] -= A_cmM[1]
-
-    A_cmM[:] = 0.0
-    bfs.calculate_potential_matrix_derivative(r_cG[1], A_cmM, 0)
-    E_cmM[0] -= A_cmM[2]
-    E_cmM[2] += A_cmM[0]
-
-    A_cmM[:] = 0.0
-    bfs.calculate_potential_matrix_derivative(r_cG[2], A_cmM, 0)
-    E_cmM[0] += A_cmM[1]
-    E_cmM[1] -= A_cmM[0]
+    for v in range(3):
+        v1 = (v + 1) % 3
+        v2 = (v + 2) % 3
+        A_cmM[:] = 0.0
+        bfs.calculate_potential_matrix_derivative(r_cG[v], A_cmM, 0)
+        M_cmM[v1] += A_cmM[v2]
+        M_cmM[v2] -= A_cmM[v1]
 
     if not only_pseudo:
         for kpt in kpt_u:
             assert kpt.k == 0
             for c in range(3):
-                correction.calculate(kpt.q, dX0_caii[c], E_cmM[c],
+                correction.calculate(kpt.q, dX0_caii[c], M_cmM[c],
                                      Mstart, Mstop)
 
     # The matrix should be real
-    assert np.max(np.absolute(E_cmM.imag)) == 0.0
-    E_cmM = E_cmM.real.copy()
-    return -0.5 * E_cmM
+    assert np.max(np.absolute(M_cmM.imag)) == 0.0
+    M_cmM = M_cmM.real.copy()
+    return -0.5 * M_cmM
 
 
 def calculate_mm_lcao(ksl, rho_mm, E_cmm):
