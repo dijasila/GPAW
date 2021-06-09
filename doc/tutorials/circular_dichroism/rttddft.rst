@@ -83,6 +83,25 @@ The resulting spectrum:
 The spectrum compares well with the one obtained
 with LCAO mode and augmented basis sets.
 
+
+Origin dependence
+-----------------
+
+The present implementation of circular dichroism calculations has
+origin dependence.
+
+Here is an example for defining a few different origins for outputing
+the data during the same propagation.
+See the documentation of :class:`~gpaw.tddft.MagneticMomentWriter`
+for parameters controlling the origin location.
+
+.. literalinclude:: lcao/td_origins.py
+
+The resulting spectra:
+
+.. image:: spectra_origins.png
+
+
 .. [#Makkonen2021]
    | E. Makkonen, T. P. Rossi, A. H. Larsen, O. Lopez-Acevedo, P. Rinke,  M. Kuisma, and X. Chen,
    | :doi:`Real-time time-dependent density functional theory implementation of electronic circular dichroism applied to nanoscale metal-organic clusters <10.1063/5.0038904>`
