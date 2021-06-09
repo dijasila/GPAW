@@ -353,7 +353,7 @@ class MagneticMomentWriter(TDDFTObserver):
                         % tuple(self.origin_shift))
         line += ', '.join(args)
         line += ')\n'
-        line += ('# origin_v = [%.6f, %.6f, %.6f]\n'
+        line += ('# origin_v = [%.6f, %.6f, %.6f] Å\n'
                  % tuple(self.origin_v * Bohr))
         line += ('# %15s %22s %22s %22s\n'
                  % ('time', 'cmx', 'cmy', 'cmz'))
