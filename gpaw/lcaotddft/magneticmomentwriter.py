@@ -227,6 +227,10 @@ class MagneticMomentWriter(TDDFTObserver):
     origin_shift
         Vector in Å shifting the origin from the position defined
         by :attr:`origin`
+    dmat
+        Density matrix object.
+        Define this for LCAO calculations to avoid
+        expensive recalculations of the density matrix.
     calculate_on_grid
         Parameter for testing.
         In LCAO mode, if true, calculation is performed on real-space grid.
@@ -244,6 +248,7 @@ class MagneticMomentWriter(TDDFTObserver):
     def __init__(self, paw, filename: str, *,
                  origin: str = None,
                  origin_shift: ArrayLike = None,
+                 dmat: DensityMatrix = None,
                  calculate_on_grid: bool = False,
                  only_pseudo: bool = False,
                  interval: int = 1):
@@ -315,7 +320,14 @@ class MagneticMomentWriter(TDDFTObserver):
                 paw.wfs.atomic_correction, r_vG, dM_vaii,
                 only_pseudo=only_pseudo)
 
-            self.dmat = DensityMatrix(paw)  # XXX
+            # TODO: All observers recalculate density matrix
+            # unless dmat is given.
+            # Calculator itself could have a density matrix object to avoid
+            # this expensive recalculation in a clean way.
+            if dmat is None:
+                self.dmat = DensityMatrix(paw)
+            else:
+                self.dmat = dmat
             ksl = paw.wfs.ksl
             if ksl.using_blacs:
                 self.M_vmm = ksl.distribute_overlap_matrix(M_vmM)
