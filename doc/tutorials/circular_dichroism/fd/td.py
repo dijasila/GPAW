@@ -7,7 +7,9 @@ def main(kick):
     kick_strength = [0., 0., 0.]
     kick_strength['xyz'.index(kick)] = 1e-5
 
-    td_calc = TDDFT('gs.gpw', tolerance=1e-8, txt=f'td-{kick}.out')
+    td_calc = TDDFT('gs.gpw',
+                    solver=dict(name='CSCG', tolerance=1e-8),
+                    txt=f'td-{kick}.out')
 
     DipoleMomentWriter(td_calc, f'dm-{kick}.dat')
     MagneticMomentWriter(td_calc, f'mm-{kick}.dat')
