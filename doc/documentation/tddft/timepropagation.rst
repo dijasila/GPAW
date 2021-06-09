@@ -185,6 +185,9 @@ TDDFT reference manual
 .. autoclass:: gpaw.tddft.DipoleMomentWriter
    :members:
 
+.. autoclass:: gpaw.tddft.MagneticMomentWriter
+   :members:
+
 .. autoclass:: gpaw.tddft.RestartFileWriter
    :members:
 

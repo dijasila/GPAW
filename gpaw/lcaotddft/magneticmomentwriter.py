@@ -221,8 +221,8 @@ class MagneticMomentWriter(TDDFTObserver):
     origin
         Origin of the coordinate system used in calculation.
         Possible values:
-        ``'COM'``: center of mass (default)
-        ``'COC'``: center of cell
+        ``'COM'``: center of mass (default),
+        ``'COC'``: center of cell,
         ``'zero'``: (0, 0, 0)
     origin_shift
         Vector in Å shifting the origin from the position defined
