@@ -34,7 +34,7 @@ Let's do the ground-state calculation (note the ``basis`` keyword):
 
 Then, we carry the time propagation as usual in
 :ref:`real-time TDDFT LCAO mode <lcaotddft>`,
-but we attach ``MagneticMomentWriter``
+but we attach :class:`~gpaw.tddft.MagneticMomentWriter`
 to record the time-dependent magnetic moment.
 In this script, we wrap the time propagation code
 inside ``main()`` function to make the same script reusable
@@ -65,7 +65,8 @@ with respect to these parameters need to be checked for both modes separately):
 .. literalinclude:: fd/gs.py
 
 Then, similarly to LCAO mode, we carry the time propagation as usual but attach
-``MagneticMomentWriter`` to record the time-dependent magnetic moment
+:class:`~gpaw.tddft.MagneticMomentWriter`
+to record the time-dependent magnetic moment
 (note the ``tolerance`` parameter for the iterative solver;
 smaller values might be required when signal is weak):
 
