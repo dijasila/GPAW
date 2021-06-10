@@ -99,8 +99,11 @@ for parameters controlling the origin location.
 
 The resulting spectra:
 
-.. image:: spectra_origins.png
+.. image:: lcao/spectra_origins.png
 
+
+References
+----------
 
 .. [#Makkonen2021]
    | E. Makkonen, T. P. Rossi, A. H. Larsen, O. Lopez-Acevedo, P. Rinke,  M. Kuisma, and X. Chen,

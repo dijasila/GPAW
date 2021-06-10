@@ -6,7 +6,7 @@ fig, ax = plt.subplots(figsize=(6, 6 / 1.62))
 
 for i in range(1, 6):
     data_ej = np.loadtxt(f'rot_spec-o{i}.dat')
-    ax.plot(data_ej[:, 0], data_ej[:, 1], label=f'origin {i}')
+    ax.plot(data_ej[:, 0], data_ej[:, 1], label=f'{i}')
 
 ax.spines['right'].set_visible(False)
 ax.spines['top'].set_visible(False)
