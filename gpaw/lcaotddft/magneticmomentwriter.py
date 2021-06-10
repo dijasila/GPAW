@@ -355,8 +355,7 @@ class MagneticMomentWriter(TDDFTObserver):
         line += ')\n'
         line += ('# origin_v = [%.6f, %.6f, %.6f] Å\n'
                  % tuple(self.origin_v * Bohr))
-        line += ('# %15s %22s %22s %22s\n'
-                 % ('time', 'cmx', 'cmy', 'cmz'))
+        line += f'# {"time":>15} {"mmx":>17} {"mmy":>22} {"mmz":>22}\n'
         self._write(line)
 
     def _read_header(self, filename):

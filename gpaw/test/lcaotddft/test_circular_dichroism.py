@@ -74,8 +74,8 @@ def test_magnetic_moment_values(initialize_system, module_tmp_path,
     with open('mm_ref.dat', 'w') as f:
         f.write('''
 # MagneticMomentWriter[version=4](origin='COM')
-# origin_v = [7.634300, 5.000000, 4.302858]
-#            time                    cmx                    cmy                    cmz
+# origin_v = [7.634300, 5.000000, 4.302858] Å
+#            time               mmx                    mmy                    mmz
           0.00000000     0.000000000000e+00     0.000000000000e+00     0.000000000000e+00
 # Kick = [    1.000000000000e-05,     0.000000000000e+00,     0.000000000000e+00]; Time = 0.00000000
           0.00000000     8.192189793082e-06     1.038446327373e-05    -2.730498071751e-05
@@ -132,6 +132,7 @@ def test_spectrum(in_tmp_dir):
         with open(f'mm-{kick}.dat', 'w') as f:
             f.write(f'''
 # MagneticMomentWriter[version=4](origin='COM')
+#            time               mmx                    mmy                    mmz
           0.00000000     0.000000000000e+00     0.000000000000e+00     0.000000000000e+00
 # Kick = {kick_v}; Time = 0.00000000
 ''')  # noqa: E501
