@@ -173,6 +173,7 @@ def dipole_moment_reference(initialize_system):
 
     unocc_calc, fdm = initialize_system
     _, time_t, _, dm_tv = read_dipole_moment_file('dm.dat')
+    dm_tv = dm_tv - dm_tv[0]
     dm_wv = calculate_fourier_transform(time_t, dm_tv,
                                         fdm.foldedfreqs_f[0])
     return dm_wv
