@@ -1,6 +1,8 @@
+import json
 import re
 import numpy as np
 
+from ase import Atoms
 from ase.units import Bohr
 from gpaw.fd_operators import Gradient
 from gpaw.typing import ArrayLike
@@ -205,6 +207,36 @@ def calculate_magnetic_moment_in_lcao(ksl, rho_mm, M_vmm):
     return mm_v
 
 
+def get_origin_coordinates(atoms: Atoms,
+                           origin: str,
+                           origin_shift: ArrayLike) -> np.ndarray:
+    """Get origin coordinates.
+
+    Parameters
+    ----------
+    atoms
+        Atoms object
+    origin
+        See :class:`~gpaw.tddft.MagneticMomentWriter`
+    origin_shift
+        See :class:`~gpaw.tddft.MagneticMomentWriter`
+
+    Returns
+    -------
+    Origin coordinates in atomic units
+    """
+    if origin == 'COM':
+        origin_v = atoms.get_center_of_mass() / Bohr
+    elif origin == 'COC':
+        origin_v = 0.5 * atoms.get_cell().sum(0) / Bohr
+    elif origin == 'zero':
+        origin_v = np.zeros(3, dtype=float)
+    else:
+        raise ValueError('unknown origin')
+    origin_v += np.asarray(origin_shift, dtype=float) / Bohr
+    return origin_v
+
+
 class MagneticMomentWriter(TDDFTObserver):
     """Observer for writing time-dependent magnetic moment data.
 
@@ -243,68 +275,69 @@ class MagneticMomentWriter(TDDFTObserver):
         Update interval. Value of 1 corresponds to evaluating and
         writing data after every propagation step.
     """
-    version = 4
+    version = 5
 
     def __init__(self, paw, filename: str, *,
                  origin: str = None,
                  origin_shift: ArrayLike = None,
                  dmat: DensityMatrix = None,
-                 calculate_on_grid: bool = False,
-                 only_pseudo: bool = False,
+                 calculate_on_grid: bool = None,
+                 only_pseudo: bool = None,
                  interval: int = 1):
         TDDFTObserver.__init__(self, paw, interval)
+        mode = paw.wfs.mode
+        assert mode in ['fd', 'lcao'], 'unknown mode: {}'.format(mode)
         self.master = paw.world.rank == 0
         if paw.niter == 0:
             if origin is None:
-                self.origin = 'COM'
-            else:
-                self.origin = origin
-            self.origin_shift = origin_shift
+                origin = 'COM'
+            if origin_shift is None:
+                origin_shift = [0., 0., 0.]
+            if calculate_on_grid is None:
+                calculate_on_grid = mode == 'fd'
+            if only_pseudo is None:
+                only_pseudo = False
+            _kwargs = dict(origin=origin,
+                           origin_shift=origin_shift,
+                           calculate_on_grid=calculate_on_grid,
+                           only_pseudo=only_pseudo)
 
             # Initialize
             if self.master:
                 self.fd = open(filename, 'w')
+            self._write_header(paw, _kwargs)
         else:
+            if origin is not None:
+                raise ValueError('Do not set origin in restart')
+            if origin_shift is not None:
+                raise ValueError('Do not set origin_shift in restart')
+            if calculate_on_grid is not None:
+                raise ValueError('Do not set calculate_on_grid in restart')
+            if only_pseudo is not None:
+                raise ValueError('Do not set only_pseudo in restart')
+
             # Read and continue
-            self._read_header(filename)
+            _kwargs = self._read_header(filename)
+            origin = _kwargs['origin']
+            origin_shift = _kwargs['origin_shift']
+            calculate_on_grid = _kwargs['calculate_on_grid']
+            only_pseudo = _kwargs['only_pseudo']
+
             if self.master:
                 self.fd = open(filename, 'a')
 
-            if origin is not None and origin != self.origin:
-                raise ValueError('origin changed in restart')
-            if origin_shift is not None:
-                if self.origin_shift is None \
-                   or not np.allclose(origin_shift, self.origin_shift):
-                    raise ValueError('origin_shift changed in restart')
-
-        mode = paw.wfs.mode
-        assert mode in ['fd', 'lcao'], 'unknown mode: {}'.format(mode)
-        if mode == 'fd':
-            self.calculate_on_grid = True
-        else:
-            self.calculate_on_grid = calculate_on_grid
-
+        atoms = paw.atoms
         gd = paw.wfs.gd
         self.timer = paw.timer
 
-        if self.origin == 'COM':
-            origin_v = paw.atoms.get_center_of_mass() / Bohr
-        elif self.origin == 'COC':
-            origin_v = 0.5 * gd.cell_cv.sum(0)
-        elif self.origin == 'zero':
-            origin_v = np.zeros(3, dtype=float)
-        else:
-            raise ValueError('unknown origin')
-        if self.origin_shift is not None:
-            origin_v += np.asarray(self.origin_shift, dtype=float) / Bohr
-
-        R_av = paw.atoms.positions / Bohr - origin_v[np.newaxis, :]
+        origin_v = get_origin_coordinates(atoms, origin, origin_shift)
+        R_av = atoms.positions / Bohr - origin_v[np.newaxis, :]
         r_vG, _ = coordinates(gd, origin=origin_v)
-        self.origin_v = origin_v
 
         dM_vaii = calculate_magnetic_moment_atomic_corrections(
             R_av, paw.setups, paw.hamiltonian.dH_asp.partition)
 
+        self.calculate_on_grid = calculate_on_grid
         if self.calculate_on_grid:
             self.only_pseudo = only_pseudo
             self.r_vG = r_vG
@@ -340,47 +373,30 @@ class MagneticMomentWriter(TDDFTObserver):
             self.fd.write(line)
             self.fd.flush()
 
-    def _write_header(self, paw):
-        if paw.niter != 0:
-            return
-        line = '# %s[version=%s]' % (self.__class__.__name__, self.version)
-        line += '('
-        args = []
-        if self.origin is not None:
-            args.append('origin=%s' % repr(self.origin))
-        if self.origin_shift is not None:
-            args.append('origin_shift=[%.6f, %.6f, %.6f]'
-                        % tuple(self.origin_shift))
-        line += ', '.join(args)
-        line += ')\n'
-        line += ('# origin_v = [%.6f, %.6f, %.6f] Å\n'
-                 % tuple(self.origin_v * Bohr))
-        line += f'# {"time":>15} {"mmx":>17} {"mmy":>22} {"mmz":>22}\n'
-        self._write(line)
+    def _write_header(self, paw, kwargs):
+        origin_v = get_origin_coordinates(
+            paw.atoms, kwargs['origin'], kwargs['origin_shift'])
+        lines = [f'{self.__class__.__name__}[version={self.version}]'
+                 f'(**{json.dumps(kwargs)})',
+                 'origin_v = [%.6f, %.6f, %.6f] Å' % tuple(origin_v * Bohr)]
+        self._write('# ' + '\n# '.join(lines) + '\n')
+        self._write(f'# {"time":>15} {"mmx":>17} {"mmy":>22} {"mmz":>22}\n')
 
     def _read_header(self, filename):
         with open(filename, 'r') as f:
             line = f.readline()
-        regexp = r"^(?P<name>\w+)\[version=(?P<version>\d+)\]\((?P<args>.*)\)$"
+        regexp = r"^(?P<name>\w+)\[version=(?P<ver>\d+)\]\(\*\*(?P<args>.*)\)$"
         m = re.match(regexp, line[2:])
         assert m is not None, 'Unknown fileformat'
         assert m.group('name') == self.__class__.__name__
-        assert int(m.group('version')) == self.version
+        assert int(m.group('ver')) == self.version
+        kwargs = json.loads(m.group('args'))
+        return kwargs
 
-        args = m.group('args')
-        self.origin = None
-        self.origin_shift = None
-
-        m = re.search(r"origin='(\w+)'", args)
-        if m is not None:
-            self.origin = m.group(1)
-        m = re.search(r"origin_shift=\["
-                      r"([-+0-9\.]+), "
-                      r"([-+0-9\.]+), "
-                      r"([-+0-9\.]+)\]",
-                      args)
-        if m is not None:
-            self.origin_shift = [float(m.group(v + 1)) for v in range(3)]
+    def _write_init(self, paw):
+        time = paw.time
+        line = '# Start; Time = %.8lf\n' % time
+        self._write(line)
 
     def _write_kick(self, paw):
         time = paw.time
@@ -415,11 +431,10 @@ class MagneticMomentWriter(TDDFTObserver):
         self._write(line)
 
     def _update(self, paw):
-        if hasattr(paw, 'action'):
-            if paw.action == 'init':
-                self._write_header(paw)
-            elif paw.action == 'kick':
-                self._write_kick(paw)
+        if paw.action == 'init':
+            self._write_init(paw)
+        elif paw.action == 'kick':
+            self._write_kick(paw)
         self._write_mm(paw)
 
     def __del__(self):
