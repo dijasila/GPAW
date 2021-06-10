@@ -1,6 +1,4 @@
-from gpaw.tddft import TDDFT
-from gpaw.lcaotddft.dipolemomentwriter import DipoleMomentWriter
-from gpaw.lcaotddft.magneticmomentwriter import MagneticMomentWriter
+from gpaw.tddft import TDDFT, DipoleMomentWriter, MagneticMomentWriter
 
 
 def main(kick):
