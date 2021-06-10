@@ -18,6 +18,17 @@ from .test_molecule import only_on_master, calculate_error
 pytestmark = pytest.mark.usefixtures('module_tmp_path')
 
 
+def copy_and_cut_file(src, dst, *, cut_lines=0):
+    with open(src, 'r') as fd:
+        lines = fd.readlines()
+        if cut_lines > 0:
+            lines = lines[:-cut_lines]
+
+    with open(dst, 'w') as fd:
+        for line in lines:
+            fd.write(line)
+
+
 parallel_i = [{}]
 if compiled_with_sl():
     parallel_i.append({'sl_auto': True})
@@ -64,9 +75,12 @@ def initialize_system():
     dmat = DensityMatrix(td_calc)
     MagneticMomentWriter(td_calc, 'mm.dat', dmat=dmat)
     MagneticMomentWriter(td_calc, 'mm_grid.dat', calculate_on_grid=True)
-    # MagneticMomentWriter(td_calc, 'mm.dat', origin_shift=[1.0, 2.0, 3.0])
+    MagneticMomentWriter(td_calc, 'mm_origin.dat',
+                         origin='zero', origin_shift=[1.0, 2.0, 3.0])
     td_calc.absorption_kick([1e-5, 0., 0.])
-    td_calc.propagate(100, 5)
+    td_calc.propagate(100, 3)
+    td_calc.write('td.gpw', mode='all')
+    td_calc.propagate(100, 2)
 
 
 def test_magnetic_moment_values(initialize_system, module_tmp_path,
@@ -102,11 +116,30 @@ def test_magnetic_moment_parallel(initialize_system, module_tmp_path, parallel,
                         txt='td.out')
     MagneticMomentWriter(td_calc, 'mm.dat')
     MagneticMomentWriter(td_calc, 'mm_grid.dat', calculate_on_grid=True)
+    MagneticMomentWriter(td_calc, 'mm_origin.dat',
+                         origin='zero', origin_shift=[1.0, 2.0, 3.0])
     td_calc.absorption_kick([1e-5, 0., 0.])
     td_calc.propagate(100, 5)
 
-    check_mm(module_tmp_path / 'mm.dat', 'mm.dat', atol=3e-14)
-    check_mm(module_tmp_path / 'mm_grid.dat', 'mm_grid.dat', atol=3e-14)
+    for fname in ['mm.dat', 'mm_grid.dat', 'mm_origin.dat']:
+        check_mm(module_tmp_path / fname, fname, atol=3e-14)
+
+
+@pytest.mark.parametrize('parallel', parallel_i)
+def test_magnetic_moment_restart(initialize_system, module_tmp_path, parallel,
+                                 in_tmp_dir):
+    td_calc = LCAOTDDFT(module_tmp_path / 'td.gpw',
+                        parallel=parallel,
+                        txt='td.out')
+    for fname in ['mm.dat', 'mm_grid.dat', 'mm_origin.dat']:
+        if world.rank == 0:
+            copy_and_cut_file(module_tmp_path / fname, fname, cut_lines=3)
+        world.barrier()
+        MagneticMomentWriter(td_calc, fname)
+    td_calc.propagate(100, 2)
+
+    for fname in ['mm.dat', 'mm_grid.dat', 'mm_origin.dat']:
+        check_mm(module_tmp_path / fname, fname, atol=3e-14)
 
 
 @only_on_master(world)
