@@ -13,9 +13,14 @@ def calculate_fourier_transform(x_t, y_ti, foldedfrequencies):
     X_w = ff.frequencies
     envelope = ff.folding.envelope
 
-    # Integration weights for trapezoidal rule
+    # Construct integration weights:
+    # We use trapezoidal rule except the end point is accounted with
+    # full weight. This ensures better numerical compatibility
+    # with the on-the-fly Fourier integrators.
+    # This shouldn't affect in usual scenarios as the envelope
+    # should damp the data to zero at the end point in any case.
     dx_t1 = x_t[1:] - x_t[:-1]
-    dx_t = 0.5 * (np.insert(dx_t1, 0, 0.0) + np.append(dx_t1, 0.0))
+    dx_t = 0.5 * (np.insert(dx_t1, 0, 0.0) + np.append(dx_t1, dx_t1[-1]))
 
     # Integrate
     f_wt = np.exp(1.0j * np.outer(X_w, x_t))
