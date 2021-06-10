@@ -138,15 +138,17 @@ def test_spectrum(in_tmp_dir):
             np.savetxt(f, data_tv)
 
     # Calculate spectrum
+    folding_kwargs = dict(folding='Gauss', width=0.2)
     rotatory_strength_spectrum(['mm-x.dat', 'mm-y.dat', 'mm-z.dat'],
                                'spec.dat',
-                               folding='Gauss', width=0.1,
+                               **folding_kwargs,
                                e_min=0.0, e_max=5.0, delta_e=0.01)
 
     # Reference spectrum
     energy_e = np.arange(0, 5.0 + 1e-8, 0.01)
-    f = Folder(folding='Gauss', width=0.1).fold_values
-    spec_e = f(frequency_v * au_to_eV, strength_v, energy_e)[1]
+    f = Folder(**folding_kwargs).fold_values
+    spec_e = (f(frequency_v * au_to_eV, strength_v, energy_e)[1]
+              + f(-frequency_v * au_to_eV, strength_v, energy_e)[1])
     spec_e *= 0.5
     spec_e *= rot_au_to_cgs * 1e40
 
