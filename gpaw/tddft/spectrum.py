@@ -395,11 +395,10 @@ def rotatory_strength_spectrum(magnetic_moment_files, spectrum_file,
     """Calculates rotatory strength spectrum from the time-dependent
     magnetic moment.
 
-    Parameters:
-
-    magnetic_moment_file: string
-        Name of the time-dependent magnetic moment files from which
-        the spectrum is calculated
+    Parameters
+    ----------
+    magnetic_moment_files: list of string
+        Time-dependent magnetic moment files for x, y, and z kicks
     spectrum_file: string
         Name of the spectrum file
     folding: 'Gauss' or 'Lorentz'
@@ -430,7 +429,9 @@ def rotatory_strength_spectrum(magnetic_moment_files, spectrum_file,
         for v0 in range(3):
             if v0 == v:
                 continue
-            assert kick_v[v0] == 0.0
+            if kick_v[v0] != 0.0:
+                raise RuntimeError('The magnetic moment files must be '
+                                   'for kicks in x, y, and z directions.')
         rot_wv = calculate_rotatory_strength_components(kick_v, time_t,
                                                         mm_tv, ff)
         rot_w += rot_wv[:, v]

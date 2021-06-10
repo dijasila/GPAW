@@ -156,3 +156,14 @@ def test_spectrum(in_tmp_dir):
     data_ei = np.loadtxt('spec.dat')
     assert np.allclose(data_ei[:, 0], energy_e)
     assert np.allclose(data_ei[:, 1], spec_e)
+
+    # Test failure
+    with pytest.raises(RuntimeError):
+        rotatory_strength_spectrum(['mm-x.dat', 'mm-x.dat', 'mm-z.dat'],
+                                   'spec.dat')
+    with pytest.raises(RuntimeError):
+        rotatory_strength_spectrum(['mm-y.dat', 'mm-x.dat', 'mm-z.dat'],
+                                   'spec.dat')
+    with pytest.raises(RuntimeError):
+        rotatory_strength_spectrum(['mm-x.dat', 'mm-y.dat', 'mm-x.dat'],
+                                   'spec.dat')
