@@ -88,13 +88,13 @@ with LCAO mode and augmented basis sets.
 Origin dependence
 -----------------
 
-The present implementation of circular dichroism calculations has
-origin dependence.
-
-Here is an example for defining a few different origins for outputing
-the data during the same propagation.
+The circular dichroism spectra obtained with the present implementation
+depend on the choice of origin.
 See the documentation of :class:`~gpaw.tddft.MagneticMomentWriter`
 for parameters controlling the origin location.
+
+The magnetic moment data can be written at multiple different origins
+during a single propagation as demonstrated in this script:
 
 .. literalinclude:: lcao/td_origins.py
 
