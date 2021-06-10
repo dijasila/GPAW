@@ -423,20 +423,51 @@ def rotatory_strength_spectrum(magnetic_moment_files, spectrum_file,
     omega_w = ff.frequencies * au_to_eV
     rot_w = np.zeros_like(omega_w)
 
+    tot_time = np.inf
+    time_steps = []
+    kick_strength = None
     for v, fpath in enumerate(magnetic_moment_files):
         kick_i, time_t, mm_tv = read_magnetic_moment_file(fpath)
         kick_v, time_t, mm_tv = clean_td_data(kick_i, time_t, mm_tv)
+
+        tot_time = min(tot_time, time_t[-1])
+        time_steps.append(np.around(time_t[1:] - time_t[:-1], 6))
+
+        # Check kicks
         for v0 in range(3):
             if v0 == v:
                 continue
             if kick_v[v0] != 0.0:
                 raise RuntimeError('The magnetic moment files must be '
                                    'for kicks in x, y, and z directions.')
+        if kick_strength is None:
+            kick_strength = np.sqrt(np.sum(kick_v**2))
+        if np.sqrt(np.sum(kick_v**2)) != kick_strength:
+            raise RuntimeError('The magnetic moment files must have '
+                               'been calculated with the same kick strength.')
+
         rot_wv = calculate_rotatory_strength_components(kick_v, time_t,
                                                         mm_tv, ff)
         rot_w += rot_wv[:, v]
 
     rot_w *= rot_au_to_cgs * 1e40 / au_to_eV
-    data_wi = np.vstack((omega_w, rot_w)).T
-    np.savetxt(spectrum_file, data_wi,
-               fmt='%12.6lf' + (' %20.10le' * (data_wi.shape[1] - 1)))
+
+    # Unique non-zero time steps
+    time_steps = np.unique(time_steps)
+    time_steps = time_steps[time_steps != 0]
+
+    with open(spectrum_file, 'w') as fd:
+        steps_str = ', '.join(f'{val:.4f}' for val in time_steps * au_to_as)
+        lines = ['Rotatory strength spectrum from real-time propagations',
+                 f'Total time = {tot_time * au_to_fs:.4f} fs, '
+                 f'Time steps = [{steps_str}] as',
+                 f'Kick strength = {kick_strength}',
+                 f'{folding.folding}ian folding, '
+                 f'width = {folding.width * au_to_eV:.4f} eV '
+                 f'<=> FWHM = {folding.fwhm * au_to_eV:.4f} eV']
+        fd.write('# ' + '\n# '.join(lines) + '\n')
+        fd.write(f'# {"Energy (eV)":>12} {"R (1e-40 cgs / eV)":>20}\n')
+
+        data_wi = np.vstack((omega_w, rot_w)).T
+        np.savetxt(fd, data_wi,
+                   fmt='%14.6lf' + (' %20.10le' * (data_wi.shape[1] - 1)))
