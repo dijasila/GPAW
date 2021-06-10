@@ -109,6 +109,7 @@ def test_magnetic_moment_parallel(initialize_system, module_tmp_path, parallel,
     check_mm(module_tmp_path / 'mm_grid.dat', 'mm_grid.dat', atol=3e-14)
 
 
+@only_on_master(world)
 def test_spectrum(in_tmp_dir):
     from gpaw.utilities.folder import Folder
 
