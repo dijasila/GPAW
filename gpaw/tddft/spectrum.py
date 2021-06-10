@@ -13,10 +13,11 @@ def calculate_fourier_transform(x_t, y_ti, foldedfrequencies):
     X_w = ff.frequencies
     envelope = ff.folding.envelope
 
-    x_t = x_t - x_t[0]
-    dx_t = np.insert(x_t[1:] - x_t[:-1], 0, 0.0)
-    y_ti = y_ti[:] - y_ti[0]
+    # Integration weights for trapezoidal rule
+    dx_t1 = x_t[1:] - x_t[:-1]
+    dx_t = 0.5 * (np.insert(dx_t1, 0, 0.0) + np.append(dx_t1, 0.0))
 
+    # Integrate
     f_wt = np.exp(1.0j * np.outer(X_w, x_t))
     y_it = np.swapaxes(y_ti, 0, 1)
     Y_wi = np.tensordot(f_wt, dx_t * envelope(x_t) * y_it, axes=(1, 1))
@@ -51,7 +52,11 @@ def read_td_file_data(fname, remove_duplicates=True):
         flt_t = np.ones_like(time_t, dtype=bool)
         maxtime = time_t[0]
         for t in range(1, len(time_t)):
-            if time_t[t] > maxtime:
+            # Note about ">=" here:
+            # The equality is included here in order to
+            # retain step-like data (for example, the data both just before
+            # and just after the kick is kept).
+            if time_t[t] >= maxtime:
                 maxtime = time_t[t]
             else:
                 flt_t[t] = False
@@ -143,10 +148,14 @@ def clean_td_data(kick_i, time_t, data_ti):
     kick_time = kick['time']
 
     # Discard times before kick
-    dt_t = time_t[1:] - time_t[:-1]
-    flt_t = time_t > (kick_time - 0.5 * dt_t.min())
+    flt_t = time_t >= kick_time
     time_t = time_t[flt_t]
     data_ti = data_ti[flt_t]
+
+    # Move time zero to kick time
+    time_t -= kick_time
+    assert time_t[0] == 0.0
+
     return kick_v, time_t, data_ti
 
 
@@ -182,6 +191,7 @@ def read_dipole_moment_file(fname, remove_duplicates=True):
 
 
 def calculate_polarizability(kick_v, time_t, dm_tv, foldedfrequencies):
+    dm_tv = dm_tv - dm_tv[0]
     alpha_wv = calculate_fourier_transform(time_t, dm_tv, foldedfrequencies)
     kick_magnitude = np.sqrt(np.sum(kick_v**2))
     alpha_wv /= kick_magnitude
@@ -228,6 +238,7 @@ def read_magnetic_moment_file(fname, remove_duplicates=True):
 
 def calculate_rotatory_strength_components(kick_v, time_t, mm_tv,
                                            foldedfrequencies):
+    assert np.all(mm_tv[0] == 0.0)
     mm_wv = calculate_fourier_transform(time_t, mm_tv, foldedfrequencies)
     kick_magnitude = np.sqrt(np.sum(kick_v**2))
     rot_wv = mm_wv.real / (np.pi * kick_magnitude)
