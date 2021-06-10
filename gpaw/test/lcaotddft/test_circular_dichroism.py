@@ -8,6 +8,8 @@ from gpaw.mpi import world, serial_comm
 from gpaw.lcaotddft import LCAOTDDFT
 from gpaw.lcaotddft.densitymatrix import DensityMatrix
 from gpaw.lcaotddft.magneticmomentwriter import MagneticMomentWriter
+from gpaw.tddft.spectrum import rotatory_strength_spectrum
+from gpaw.tddft.units import as_to_au, eV_to_au, au_to_eV, rot_au_to_cgs
 from gpaw.utilities import compiled_with_sl
 
 from .test_molecule import only_on_master, calculate_error
@@ -105,3 +107,50 @@ def test_magnetic_moment_parallel(initialize_system, module_tmp_path, parallel,
 
     check_mm(module_tmp_path / 'mm.dat', 'mm.dat', atol=3e-14)
     check_mm(module_tmp_path / 'mm_grid.dat', 'mm_grid.dat', atol=3e-14)
+
+
+def test_spectrum(in_tmp_dir):
+    from gpaw.utilities.folder import Folder
+
+    # Parameters for test data
+    kick_strength = 1e-5
+    frequency_v = np.array([1.0, 2.0, 3.0]) * eV_to_au
+    strength_v = np.array([1.0, 2.0, 3.0])
+
+    # Create dummy magnetic moment files
+    for v, kick in enumerate('xyz'):
+        kick_v = [0.0, 0.0, 0.0]
+        kick_v[v] = kick_strength
+        time_t = np.arange(0, 31e3, 10.0) * as_to_au
+        data_tv = np.zeros((len(time_t), 4))
+        data_tv[:, 0] = time_t
+        # Fill unused columns with random values
+        data_tv[:, 1:] = np.random.rand(len(time_t), 3)
+        # Diagonal column has the data used for spectrum
+        data_tv[:, v + 1] = (kick_strength * strength_v[v]
+                             * np.cos(frequency_v[v] * time_t))
+        with open(f'mm-{kick}.dat', 'w') as f:
+            f.write(f'''
+# MagneticMomentWriter[version=4](origin='COM')
+          0.00000000     0.000000000000e+00     0.000000000000e+00     0.000000000000e+00
+# Kick = {kick_v}; Time = 0.00000000
+''')  # noqa: E501
+            np.savetxt(f, data_tv)
+
+    # Calculate spectrum
+    rotatory_strength_spectrum(['mm-x.dat', 'mm-y.dat', 'mm-z.dat'],
+                               'spec.dat',
+                               folding='Gauss', width=0.1,
+                               e_min=0.0, e_max=5.0, delta_e=0.01)
+
+    # Reference spectrum
+    energy_e = np.arange(0, 5.0 + 1e-8, 0.01)
+    f = Folder(folding='Gauss', width=0.1).fold_values
+    spec_e = f(frequency_v * au_to_eV, strength_v, energy_e)[1]
+    spec_e *= 0.5
+    spec_e *= rot_au_to_cgs * 1e40
+
+    # Compare spectrum
+    data_ei = np.loadtxt('spec.dat')
+    assert np.allclose(data_ei[:, 0], energy_e)
+    assert np.allclose(data_ei[:, 1], spec_e)
