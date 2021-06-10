@@ -122,7 +122,7 @@ def test_magnetic_moment_parallel(initialize_system, module_tmp_path, parallel,
     td_calc.propagate(100, 5)
 
     for fname in ['mm.dat', 'mm_grid.dat', 'mm_origin.dat']:
-        check_mm(module_tmp_path / fname, fname, atol=3e-14)
+        check_mm(module_tmp_path / fname, fname, atol=7e-14)
 
 
 @pytest.mark.parametrize('parallel', parallel_i)
@@ -139,7 +139,7 @@ def test_magnetic_moment_restart(initialize_system, module_tmp_path, parallel,
     td_calc.propagate(100, 2)
 
     for fname in ['mm.dat', 'mm_grid.dat', 'mm_origin.dat']:
-        check_mm(module_tmp_path / fname, fname, atol=3e-14)
+        check_mm(module_tmp_path / fname, fname, atol=7e-14)
 
 
 @only_on_master(world)
