@@ -318,10 +318,10 @@ class MagneticMomentWriter(TDDFTObserver):
 
             # Read and continue
             _kwargs = self._read_header(filename)
-            origin = _kwargs['origin']
-            origin_shift = _kwargs['origin_shift']
-            calculate_on_grid = _kwargs['calculate_on_grid']
-            only_pseudo = _kwargs['only_pseudo']
+            origin = _kwargs['origin']  # type: ignore
+            origin_shift = _kwargs['origin_shift']  # type: ignore
+            calculate_on_grid = _kwargs['calculate_on_grid']  # type: ignore
+            only_pseudo = _kwargs['only_pseudo']  # type: ignore
 
             if self.master:
                 self.fd = open(filename, 'a')
@@ -330,6 +330,8 @@ class MagneticMomentWriter(TDDFTObserver):
         gd = paw.wfs.gd
         self.timer = paw.timer
 
+        assert isinstance(origin, str)
+        assert isinstance(origin_shift, list)
         origin_v = get_origin_coordinates(atoms, origin, origin_shift)
         R_av = atoms.positions / Bohr - origin_v[np.newaxis, :]
         r_vG, _ = coordinates(gd, origin=origin_v)
