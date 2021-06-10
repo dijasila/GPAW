@@ -6,6 +6,7 @@ from ase import Atoms
 from gpaw import GPAW
 from gpaw.mpi import world, serial_comm
 from gpaw.lcaotddft import LCAOTDDFT
+from gpaw.lcaotddft.densitymatrix import DensityMatrix
 from gpaw.lcaotddft.magneticmomentwriter import MagneticMomentWriter
 from gpaw.utilities import compiled_with_sl
 
@@ -58,7 +59,8 @@ def initialize_system():
     td_calc = LCAOTDDFT('gs.gpw',
                         communicator=comm,
                         txt='td.out')
-    MagneticMomentWriter(td_calc, 'mm.dat')
+    dmat = DensityMatrix(td_calc)
+    MagneticMomentWriter(td_calc, 'mm.dat', dmat=dmat)
     MagneticMomentWriter(td_calc, 'mm_grid.dat', calculate_on_grid=True)
     # MagneticMomentWriter(td_calc, 'mm.dat', origin_shift=[1.0, 2.0, 3.0])
     td_calc.absorption_kick([1e-5, 0., 0.])
@@ -69,7 +71,6 @@ def test_magnetic_moment_values(initialize_system, module_tmp_path,
                                 in_tmp_dir):
     with open('mm_ref.dat', 'w') as f:
         f.write('''
-
 # MagneticMomentWriter[version=4](origin='COM')
 # origin_v = [7.634300, 5.000000, 4.302858]
 #            time                    cmx                    cmy                    cmz
