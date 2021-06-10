@@ -24,6 +24,10 @@ Git master branch
 
   * Corresponding updates for :ref:`qsfdtd` and :ref:`hybridscheme`.
 
+* It is now possible to calculate electronic circular dichroism spectra
+  with real-time time-propagation TDDFT.
+  See the tutorial: :ref:`circular_dichroism_rtddft`.
+
 * The documentation and tutorial for :ref:`lrtddft2` updated.
 
 * True occupation numbers are now printed in the text output for the
