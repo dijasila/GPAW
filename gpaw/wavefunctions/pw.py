@@ -1,30 +1,31 @@
 # -*- coding: utf-8 -*-
 import numbers
-from math import pi, factorial as fac
+from math import factorial as fac
+from math import pi
 
-import numpy as np
-from ase.units import Ha, Bohr
-from ase.utils.timing import timer
-
-import gpaw.fftw as fftw
+import _gpaw
 import gpaw
+import gpaw.fftw as fftw
+import numpy as np
+from ase.units import Bohr, Ha
+from ase.utils.timing import timer
 from gpaw.arraydict import ArrayDict
 from gpaw.band_descriptor import BandDescriptor
-from gpaw.blacs import BlacsGrid, BlacsDescriptor, Redistributor
+from gpaw.blacs import BlacsDescriptor, BlacsGrid, Redistributor
 from gpaw.density import Density
-from gpaw.lfc import BaseLFC
-from gpaw.lcao.overlap import fbt
 from gpaw.hamiltonian import Hamiltonian
+from gpaw.lcao.overlap import fbt
+from gpaw.lfc import BaseLFC
 from gpaw.matrix_descriptor import MatrixDescriptor
 from gpaw.spherical_harmonics import Y, nablarlYL
 from gpaw.spline import Spline
+from gpaw.typing import Array3D
 from gpaw.utilities import unpack
-from gpaw.utilities.blas import rk, r2k, axpy, mmm
+from gpaw.utilities.blas import axpy, mmm, r2k, rk
 from gpaw.utilities.progressbar import ProgressBar
+from gpaw.wavefunctions.arrays import PlaneWaveExpansionWaveFunctions
 from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
 from gpaw.wavefunctions.mode import Mode
-from gpaw.wavefunctions.arrays import PlaneWaveExpansionWaveFunctions
-import _gpaw
 
 
 def pad(array, N):
@@ -2044,6 +2045,6 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         dens.nct.derivative(self.vt_Q, nct_av)
         self.vbar.derivative(dens.nt_Q, vbar_av)
 
-    def get_electrostatic_potential(self, dens):
+    def get_electrostatic_potential(self, dens: Density) -> Array3D:
         self.poisson.solve(self.vHt_q, dens)
         return self.pd3.ifft(self.vHt_q, distribute=False)
