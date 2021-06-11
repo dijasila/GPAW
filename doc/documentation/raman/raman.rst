@@ -63,18 +63,36 @@ a converged Raman spectrum though.
 The :meth:`~gpaw.raman.dipoletransition.get_momentum_transitions` method is
 currently not aware of symmetry. It is therefore required to switch off
 symmetry in GPAW completely, so that matrix elements for all k-points and not
-just the irreducible ones are calculated.
+just the irreducible ones are calculated. The momentum matrix elements transform
+as `p \rightarrow -p^*` under time-reversal symmetry `\mathbf{k} \rightarrow -\mathbf{k}`.
+Accordingly, it is possible to enable time-reversal symmetry, but then the mapping 
+needs to be taken care of manually.
 By default the routine saves a file called ``mom_skvnm.npy`` containing the
 momentum matrix. This can be deactivated using the ``savetofile`` switch. The
 matrix is always the return value of :meth:`~gpaw.raman.dipoletransition.get_momentum_transitions`.
 
+In a typical application one would compute the phonon modes and electron-phonon
+components separately as those need very different convergence settings. In
+principle the phonon modes can be obtained in any fashion, which yields an ASE
+phonon object. In GPAW an input script could look like this 
+(:git:`~doc/documentation/raman/phonon.py`):
+
+.. literalinclude:: phonon.py
+
+Again, in the above example the k-point grid is not converged. As only
+zone-centre phonons are of required for the Raman calculations, no extended
+supercell needs to be used. Point group symmetry needs to be deactivated, as
+symmetry is lowered by the displacements, which is not permitted by GPAW. The
+above convergence criteria should be good starting points, but convergence tests
+are incouraged.
 
 
 
 
-In a typical application one would compute the phonon modes electron-phonon
-components separately as those need very different convergence settings. An
-example can found under :ref:`elph`.
+
+
+
+
 
 The Raman code offers wrappers for the electron-phonon part of the calculations:
 :meth:`~gpaw.raman.elph.run_elph`
@@ -106,13 +124,7 @@ being read at once. Instead they are loaded and processed one-by-one. This can
 save lots of memory for larger systems with hundreds of atoms, where the
 supercell matrix can be over 100GiB large.
 
-Our second ingredient is the transition dipole moments at the ground-state
-structure, which are computed like this
-(:git:`~doc/documentation/raman/dipole_transitions.py`):
-
-.. literalinclude:: dipole_transitions.py
-
-This script save the transition dipole moments as ``dip_svknm.npy``. The last
+ The last
 ingredient, the pickle file for the phonons should have been calculated in a
 separate calculation as well. Now the Raman intensities can be computed
 (:git:`~doc/documentation/raman/raman_intensities.py`):
@@ -155,7 +167,6 @@ Code
 .. autofunction:: gpaw.raman.elph.run_elph
 .. autofunction:: gpaw.raman.elph.calculate_supercell_matrix
 .. autofunction:: gpaw.raman.elph.get_elph_matrix
-.. autofunction:: gpaw.raman.dipoletransition.get_dipole_transitions
 .. autofunction:: gpaw.raman.raman.calculate_raman
 .. autofunction:: gpaw.raman.raman.calculate_raman_intensity
 .. autofunction:: gpaw.raman.raman.plot_raman

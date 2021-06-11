@@ -48,11 +48,11 @@ def calculate_raman(atoms, calc, w_in, d_i, d_o, resonant_only=False,
 
     ph = Phonons(atoms=atoms, name='elph', supercell=(1, 1, 1))
     ph.read()
-    w_ph = np.array(ph.band_structure([[0, 0, 0]])[0]) # in eV
+    w_ph = np.array(ph.band_structure([[0, 0, 0]])[0])  # in eV
     if w_ph.dtype == "complex128":
         w_ph = w_ph.real
-    assert max(w_ph) < 1. # else not eV units
-    w_max = int(np.round(np.max(w_ph) / cm + 100, -1)) # in rcm
+    assert max(w_ph) < 1.  # else not eV units
+    w_max = int(np.round(np.max(w_ph) / cm + 100, -1))  # in rcm
     # NOTE: Should make grid-spacing an input variable
     ngrid = w_max + 1
     w_cm = np.linspace(0., w_max, num=ngrid)  # Defined in cm^-1
@@ -84,13 +84,14 @@ def calculate_raman(atoms, calc, w_in, d_i, d_o, resonant_only=False,
     print("Evaluating Raman sum")
     opt = 'optimal'  # mode for np.einsum. not sure what is fastest
 
-
+    # note: valence is ket in ij and bra in mn
+    # XXX: The below can probably be made better by lambdas a lot
     def _term1(f_vc, E_vc, mom_dnn, elph_lnn, nc, nv):
         term1_l = np.zeros((elph_lnn.shape[0]), dtype=complex)
-        t1_ij = f_vc * mom_dnn[0, nc:, :nv].T / (w_in - E_vc)  # v is ket
+        t1_ij = f_vc * mom_dnn[0, nc:, :nv].T / (w_in - E_vc)
         for l in range(nmodes):
             t1_xx = elph_lnn[l]
-            t1_mn = (f_vc * mom_dnn[1, :nv, nc:] / (w_in - w_ph[l] - E_vc)).T  # v is bra
+            t1_mn = (f_vc * mom_dnn[1, :nv, nc:] / (w_in - w_ph[l] - E_vc)).T
             term1_l[l] += np.einsum('sj,jm,ms', t1_ij, t1_xx[nc:, nc:], t1_mn,
                                     optimize=opt)
             term1_l[l] -= np.einsum('is,ni,sn', t1_ij, t1_xx[:nv, :nv], t1_mn,
@@ -99,15 +100,17 @@ def calculate_raman(atoms, calc, w_in, d_i, d_o, resonant_only=False,
 
     def _term2(f_vc, E_vc, mom_dnn, elph_lnn, nc, nv):
         term2_lw = np.zeros((nmodes, ngrid), dtype=complex)
-        t2_ij = f_vc * mom_dnn[0, nc:, :nv].T / (w_in - E_vc)  # v is ket
+        t2_ij = f_vc * mom_dnn[0, nc:, :nv].T / (w_in - E_vc)
         t2_xx = mom_dnn[1]  # XXX might need to T or conj
         for l in range(nmodes):
             for wi in range(len(w)):
                 t2_mn = f_vc.T * elph_lnn[l][nc:, :nv] / (w[wi] - E_vc.T)
-                term2_lw[l, wi] += np.einsum('sj,jm,ms', t2_ij, t2_xx[nc:, nc:],
-                                             t2_mn, optimize=opt)
-                term2_lw[l, wi] -= np.einsum('is,ni,sn', t2_ij, t2_xx[:nv, :nv],
-                                             t2_mn, optimize=opt)
+                term2_lw[l, wi] += np.einsum('sj,jm,ms', t2_ij,
+                                             t2_xx[nc:, nc:], t2_mn,
+                                             optimize=opt)
+                term2_lw[l, wi] -= np.einsum('is,ni,sn', t2_ij,
+                                             t2_xx[:nv, :nv], t2_mn,
+                                             optimize=opt)
         return term2_lw
 
     def _term3(f_vc, E_vc, mom_dnn, elph_lnn, nc, nv):
@@ -118,10 +121,12 @@ def calculate_raman(atoms, calc, w_in, d_i, d_o, resonant_only=False,
                 t3_ij = f_vc * mom_dnn[1, nc:, :nv].T / (-w_in + w[wi] - E_vc)
                 t3_mn = (f_vc * mom_dnn[0, :nv, nc:] / (-w_in - w_ph[l] + w[wi]
                                                         - E_vc)).T
-                term3_lw[l, wi] += np.einsum('sj,jm,ms', t3_ij, t3_xx[nc:, nc:],
-                                             t3_mn, optimize=opt)
-                term3_lw[l, wi] -= np.einsum('is,ni,sn', t3_ij, t3_xx[:nv, :nv],
-                                             t3_mn, optimize=opt)
+                term3_lw[l, wi] += np.einsum('sj,jm,ms', t3_ij,
+                                             t3_xx[nc:, nc:], t3_mn,
+                                             optimize=opt)
+                term3_lw[l, wi] -= np.einsum('is,ni,sn', t3_ij,
+                                             t3_xx[:nv, :nv], t3_mn,
+                                             optimize=opt)
         return term3_lw
 
     def _term4(f_vc, E_vc, mom_dnn, elph_lnn, nc, nv):
@@ -131,10 +136,12 @@ def calculate_raman(atoms, calc, w_in, d_i, d_o, resonant_only=False,
             for wi in range(len(w)):
                 t4_ij = f_vc * mom_dnn[1, nc:, :nv].T / (-w_in + w[wi] - E_vc)
                 t4_mn = (f_vc * elph_lnn[l, nc:, :nv].T / (w[wi] - E_vc)).T
-                term4_lw[l, wi] += np.einsum('sj,jm,ms', t4_ij, t4_xx[nc:, nc:],
-                                             t4_mn, optimize=opt)
-                term4_lw[l, wi] -= np.einsum('is,ni,sn', t4_ij, t4_xx[:nv, :nv],
-                                             t4_mn, optimize=opt)
+                term4_lw[l, wi] += np.einsum('sj,jm,ms', t4_ij,
+                                             t4_xx[nc:, nc:], t4_mn,
+                                             optimize=opt)
+                term4_lw[l, wi] -= np.einsum('is,ni,sn', t4_ij,
+                                             t4_xx[:nv, :nv], t4_mn,
+                                             optimize=opt)
         return term4_lw
 
     def _term5(f_vc, E_vc, mom_dnn, elph_lnn, nc, nv):
@@ -157,10 +164,12 @@ def calculate_raman(atoms, calc, w_in, d_i, d_o, resonant_only=False,
             for wi in range(len(w)):
                 t6_mn = (f_vc * mom_dnn[0, :nv, nc:] / (-w_in - w_ph[l] + w[wi]
                                                         - E_vc)).T
-                term6_lw[l, wi] += np.einsum('sj,jm,ms', t6_ij, t6_xx[nc:, nc:],
-                                             t6_mn, optimize=opt)
-                term6_lw[l, wi] -= np.einsum('is,ni,sn', t6_ij, t6_xx[:nv, :nv],
-                                             t6_mn, optimize=opt)
+                term6_lw[l, wi] += np.einsum('sj,jm,ms', t6_ij,
+                                             t6_xx[nc:, nc:], t6_mn,
+                                             optimize=opt)
+                term6_lw[l, wi] -= np.einsum('is,ni,sn', t6_ij,
+                                             t6_xx[:nv, :nv], t6_mn,
+                                             optimize=opt)
         return term6_lw
 
     for s in range(nspins):
@@ -177,9 +186,9 @@ def calculate_raman(atoms, calc, w_in, d_i, d_o, resonant_only=False,
             E_n = E_kn[k]
 
             # limit sums to relevant bands, partially occupied bands are a pain
-            # So, in principal, partially occupied bands can be initial and final
-            # states, but we need to restrict to a positive deltaE if we allow
-            # this.
+            # So, in principal, partially occupied bands can be initial and
+            # final states, but we need to restrict to a positive deltaE if we
+            # allow this.
             vs = np.where(f_n >= 0.1)[0]
             cs = np.where(f_n < 0.9)[0]
             nv = max(vs) + 1  # VBM+1 index

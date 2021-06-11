@@ -1,16 +1,12 @@
 from ase.build import bulk
 from ase.phonons import Phonons
 
-from gpaw import GPAW, FermiDirac
+from gpaw import GPAW
 
-a = 3.567
-atoms = bulk('C', 'diamond', a=a)
+atoms = bulk('C', 'diamond', a=3.567)
 
-calc = GPAW(mode='lcao',
-            basis='dzp',
-            kpts=(5, 5, 5),
-            xc='PBE',
-            occupations=FermiDirac(0.01),
+calc = GPAW(mode='lcao', basis='dzp',
+            kpts=(5, 5, 5), xc='PBE',
             symmetry={'point_group': False},
             convergence={'energy': 1e-5, 'density': 0.3e-5},
             txt='phonons.txt')
