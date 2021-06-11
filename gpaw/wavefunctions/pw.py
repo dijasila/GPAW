@@ -325,7 +325,7 @@ class PWDescriptor:
 
         return self.scatter(f_G, q)
 
-    def ifft(self, c_G, q=None, local=False, safe=True):
+    def ifft(self, c_G, q=None, local=False, safe=True, distribute=True):
         """Inverse fast Fourier transform.
 
         Returns::
@@ -363,7 +363,7 @@ class PWDescriptor:
                 t[-n:, -m:] = t[n:0:-1, m:0:-1].conj()
                 t[-n:, 0] = t[n:0:-1, 0].conj()
             self.ifftplan.execute()
-        if comm.size == 1 or local:
+        if comm.size == 1 or local or not distribute:
             if safe:
                 return self.tmp_R.copy()
             return self.tmp_R
@@ -2046,4 +2046,4 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
 
     def get_electrostatic_potential(self, dens):
         self.poisson.solve(self.vHt_q, dens)
-        return self.pd3.ifft(self.vHt_q)
+        return self.pd3.ifft(self.vHt_q, distribute=False)
