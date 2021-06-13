@@ -305,8 +305,12 @@ class Matrix:
             info = _gpaw.scalapack_diagonalize_dc(array, H.dist.desc, 'U',
                                                   H.array, eps)
             assert info == 0, info
-        
-        self.dist.comm.broadcast(eps, 0)
+
+        # necessary to broadcast eps when some ranks are not used
+        # in current scalapack parameter set
+        # eg. (2, 1, 2) with 4 processes
+        if rows * columns < slcomm.size:
+            H.dist.comm.broadcast(eps, 0)
 
         if redist:
             H.redist(self)
