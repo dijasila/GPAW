@@ -309,7 +309,7 @@ class Matrix:
         # necessary to broadcast eps when some ranks are not used
         # in current scalapack parameter set
         # eg. (2, 1, 2) with 4 processes
-        if rows * columns < slcomm.size:
+        if rows * columns != 1 and rows * columns < slcomm.size:
             H.dist.comm.broadcast(eps, 0)
 
         if redist:
