@@ -11,12 +11,12 @@ see https://doi.org/10.1038/s41467-020-16529-6
 
 import numpy as np
 from ase.phonons import Phonons
+from ase.units import invcm
 
 
-def L(w, gamma=10 / 8065.544):
-    # Lorentzian
-    lor = 0.5 * gamma / (np.pi * ((w.real)**2 + 0.25 * gamma**2))
-    return lor
+def lorentzian(w, gamma):
+    l = 0.5 * gamma / (np.pi * (w**2 + 0.25 * gamma**2))
+    return l
 
 
 def gaussian(w, sigma):
@@ -44,22 +44,20 @@ def calculate_raman(atoms, calc, w_in, d_i, d_o, resonant_only=False,
 
     print("Calculating Raman spectrum: Laser frequency = {} eV".format(w_in))
 
-    cm = 1. / 8065.544  # cm^-1 to eV
-
     ph = Phonons(atoms=atoms, name='elph', supercell=(1, 1, 1))
     ph.read()
     w_ph = np.array(ph.band_structure([[0, 0, 0]])[0])  # in eV
     if w_ph.dtype == "complex128":
         w_ph = w_ph.real
     assert max(w_ph) < 1.  # else not eV units
-    w_max = int(np.round(np.max(w_ph) / cm + 100, -1))  # in rcm
+    w_max = int(np.round(np.max(w_ph) / invcm + 100, -1))  # in rcm
     # NOTE: Should make grid-spacing an input variable
     ngrid = w_max + 1
     w_cm = np.linspace(0., w_max, num=ngrid)  # Defined in cm^-1
-    w = w_cm * cm  # eV (Raman shift?)
+    w = w_cm * invcm  # eV (Raman shift?)
 
     # Exclude 3 accustic phonons + anything imaginary (<10cm^-1)
-    l_min = max(np.where(w_ph / cm < 30.)[0].size, 3)
+    l_min = max(np.where(w_ph / invcm < 30.)[0].size, 3)
     w_ph = w_ph[l_min:]
     ieta = complex(0, gamma_l)
     nmodes = len(w_ph)
@@ -177,12 +175,18 @@ def calculate_raman(atoms, calc, w_in, d_i, d_o, resonant_only=False,
         for k in range(nk):
             print("For k = {}".format(k))
 
-            # XXX: Need to rethink weights and stuff, as symmetry not allowed
-            # at the moment.
+            if (calc.symmetry.time_reversal and not
+                np.allclose(calc.wfs.kd.ibzk_kc[k], [0., 0., 0.])):
+                add_time_reversed = True
+            else:
+                add_time_reversed = False
+
+            this_lw = np.zeros((len(w_ph), len(w)), dtype=complex)
+
             weight = calc.wfs.collect_auxiliary("weight", k, s)
             f_n = calc.wfs.collect_occupations(k, s)
             f_n = f_n / weight
-            elph_lnn = weight * elph_sk[s, k]
+            elph_lnn = elph_sk[s, k]
             E_n = E_kn[k]
 
             # limit sums to relevant bands, partially occupied bands are a pain
@@ -211,31 +215,39 @@ def calculate_raman(atoms, calc, w_in, d_i, d_o, resonant_only=False,
             # Term 1
             term1_l = _term1(f_vc, E_vc, mom_dnn, elph_lnn, nc, nv)
             print("Term1: ", np.max(np.abs(term1_l)))
-            raman_lw += term1_l[:, None] * weight
+            this_lw += term1_l[:, None]
 
             if not resonant_only:
                 term2_lw = _term2(f_vc, E_vc, mom_dnn, elph_lnn, nc, nv)
                 print("Term2: ", np.max(np.abs(term2_lw)))
-                raman_lw += term2_lw * weight
+                this_lw += term2_lw
 
                 term3_lw = _term3(f_vc, E_vc, mom_dnn, elph_lnn, nc, nv)
                 print("Term3: ", np.max(np.abs(term3_lw)))
-                raman_lw += term3_lw * weight
+                this_lw += term3_lw
 
                 term4_lw = _term4(f_vc, E_vc, mom_dnn, elph_lnn, nc, nv)
                 print("Term4: ", np.max(np.abs(term4_lw)))
-                raman_lw += term4_lw * weight
+                this_lw += term4_lw
 
                 term5_l = _term5(f_vc, E_vc, mom_dnn, elph_lnn, nc, nv)
                 print("Term5: ", np.max(np.abs(term5_l)))
-                raman_lw += term5_l[:, None] * weight
+                this_lw += term5_l[:, None]
 
                 term6_lw = _term6(f_vc, E_vc, mom_dnn, elph_lnn, nc, nv)
                 print("Term6: ", np.max(np.abs(term6_lw)))
-                raman_lw += term6_lw * weight
+                this_lw += term6_lw
+
+            # At the moment we only allow no symmetry, so all k-points same
+            # weight, or time_reversal only. In the later case r -> 2*Re(r)
+            # because gdd-> (gdd)^* for k-> -k
+            if add_time_reversed:
+                raman_lw += 2. * this_lw.real
+            else:
+                raman_lw += this_lw
 
     for l in range(nmodes):
-        print("Phonon {} with energy = {}: {}".format(l, w_ph[l] / cm,
+        print("Phonon {} with energy = {}: {}".format(l, w_ph[l] / invcm,
               np.max(np.abs(raman_lw[l]))))
 
     raman = np.vstack((w_cm, raman_lw))
