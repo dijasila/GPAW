@@ -8,6 +8,7 @@ from gpaw.mpi import world, serial_comm
 from gpaw.lcaotddft import LCAOTDDFT
 from gpaw.lcaotddft.densitymatrix import DensityMatrix
 from gpaw.lcaotddft.magneticmomentwriter import MagneticMomentWriter
+from gpaw.lcaotddft.magneticmomentwriter import parse_header
 from gpaw.tddft.spectrum import rotatory_strength_spectrum
 from gpaw.tddft.units import as_to_au, eV_to_au, au_to_eV, rot_au_to_cgs
 from gpaw.utilities import compiled_with_sl
@@ -202,3 +203,19 @@ def test_spectrum(in_tmp_dir):
     with pytest.raises(RuntimeError):
         rotatory_strength_spectrum(['mm-x.dat', 'mm-y.dat', 'mm-x.dat'],
                                    'spec.dat')
+
+
+def test_parse_header():
+    line = 'SomeWriter[version=42](**{"str": "value", "vector": [1.2, 3.4], "boolean": true})'  # noqa: E501
+    name, version, kwargs = parse_header(line)
+    assert name == 'SomeWriter'
+    assert version == 42
+    assert kwargs['str'] == 'value'
+    assert kwargs['vector'] == [1.2, 3.4]
+    assert kwargs['boolean']
+
+    # Test failure
+    with pytest.raises(ValueError):
+        parse_header('wrong line')
+    with pytest.raises(ValueError):
+        parse_header('A[version=1](**{wrong json})')

@@ -1,5 +1,7 @@
 import json
 import re
+from typing import Tuple
+
 import numpy as np
 
 from ase import Atoms
@@ -237,6 +239,45 @@ def get_origin_coordinates(atoms: Atoms,
     return origin_v / Bohr
 
 
+def parse_header(line: str) -> Tuple[str, int, dict]:
+    """Parse header line.
+
+    Example header line (keyword arguments as json):
+
+        NameOfWriter[version=1](**{"arg1": "abc", ...})
+
+    Parameters
+    ----------
+    line
+        Header line
+
+    Returns
+    -------
+    name
+        Name
+    version
+        Version
+    kwargs
+        Keyword arguments
+
+    Raises
+    ------
+    ValueError
+        Line cannot be parsed
+    """
+    regexp = r"^(?P<name>\w+)\[version=(?P<ver>\d+)\]\(\*\*(?P<args>.*)\)$"
+    m = re.match(regexp, line)
+    if m is None:
+        raise ValueError('unable parse header')
+    name = m.group('name')
+    version = int(m.group('ver'))
+    try:
+        kwargs = json.loads(m.group('args'))
+    except json.decoder.JSONDecodeError:
+        raise ValueError('unable parse keyword arguments')
+    return name, version, kwargs
+
+
 class MagneticMomentWriter(TDDFTObserver):
     """Observer for writing time-dependent magnetic moment data.
 
@@ -387,12 +428,16 @@ class MagneticMomentWriter(TDDFTObserver):
     def _read_header(self, filename):
         with open(filename, 'r') as f:
             line = f.readline()
-        regexp = r"^(?P<name>\w+)\[version=(?P<ver>\d+)\]\(\*\*(?P<args>.*)\)$"
-        m = re.match(regexp, line[2:])
-        assert m is not None, 'Unknown fileformat'
-        assert m.group('name') == self.__class__.__name__
-        assert int(m.group('ver')) == self.version
-        kwargs = json.loads(m.group('args'))
+        try:
+            name, version, kwargs = parse_header(line[2:])
+        except ValueError as e:
+            raise ValueError(f'File {filename} cannot be parsed: {e}')
+        if name != self.__class__.__name__:
+            raise ValueError(f'File {filename} is not '
+                             f'for {self.__class__.__name__}')
+        if version != self.version:
+            raise ValueError(f'File {filename} is not '
+                             f'of version {self.version}')
         return kwargs
 
     def _write_init(self, paw):
