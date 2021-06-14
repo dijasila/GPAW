@@ -53,7 +53,6 @@ def get_nabla_lcao(wfs):
             nabla_skvnm[kpt.s, kpt.k, v] = nabla_nn_lcao
 
     gd.comm.sum(nabla_skvnm)
-    # wfs.kd.comm.sum(nabla_skvnm)
     kd.comm.sum(nabla_skvnm)
     return nabla_skvnm
 
@@ -72,10 +71,26 @@ def get_nabla_paw(wfs):
             nabla_iiv = wfs.setups[a].nabla_iiv
             nabla_vnm += np.einsum('ni,ijv,mj->vnm',
                                    P_ni.conj(), nabla_iiv, P_ni)
-        gd.comm.sum(nabla_vnm)
         nabla_skvnm[kpt.s, kpt.k] = nabla_vnm
+    gd.comm.sum(nabla_vnm)
     kd.comm.sum(nabla_skvnm)
     return nabla_skvnm
+
+
+"""
+Some defitions:
+
+Theta_mu,nu = <Phi_mu|Phi_nu> (from LCAO forces)
+dThetadR = d[Theta_mu,nu]/d[R_nu] (also LCAO forces)
+
+S_mu,nu = <Phi_mu|Phi_nu> + Sum_aij <Phi_mu|p_ia> dO_aij <p_ja|Phi_nu>
+
+But we are looking at the matrix elements of Nabla:
+D_mu,nu = <Phi_mu|Nabla|Phi_nu> + Sum_aij <Phi_mu|p_ia> nabla_aij <p_ja|Phi_nu>
+
+
+...which is slightly different then.
+"""
 
 
 def test_nabla_matrix(calc):
