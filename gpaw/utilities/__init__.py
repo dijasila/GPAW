@@ -361,3 +361,20 @@ def file_barrier(path: Union[str, Path], world=None):
 
 
 devnull = open(os.devnull, 'w')
+
+
+def convert_string_to_fd(name, world=None):
+    """Create a file-descriptor for text output.
+
+    Will open a file for writing with given name.  Use None for no output and
+    '-' for sys.stdout.
+    """
+    if world is None:
+        from ase.parallel import world
+    if name is None or world.rank != 0:
+        return open(os.devnull, 'w')
+    if name == '-':
+        return sys.stdout
+    if isinstance(name, (str, Path)):
+        return open(name, 'w')
+    return name  # we assume name is already a file-descriptor
