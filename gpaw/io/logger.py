@@ -5,15 +5,15 @@ import time
 import numpy as np
 import ase
 from ase import __version__ as ase_version
-from ase.utils import IOContext
 from ase.utils import search_current_git_hash
 
 import gpaw
 import _gpaw
 from gpaw.utilities.memory import maxrss
+from gpaw.utilities import convert_string_to_fd
 
 
-class GPAWLogger(IOContext):
+class GPAWLogger:
     """Class for handling all text output."""
     def __init__(self, world):
         self.world = world
@@ -39,7 +39,7 @@ class GPAWLogger(IOContext):
         if fd == self.oldfd:
             return
         self.oldfd = fd
-        self._fd = self.openfile(fd, mode='w', comm=self.world)
+        self._fd = convert_string_to_fd(fd, self.world)
         self.header()
 
     def __call__(self, *args, **kwargs):
@@ -153,7 +153,6 @@ class GPAWLogger(IOContext):
                 self('Memory usage: %.2f GiB' % (mr / 1024**3))
 
         self('Date: ' + time.asctime())
-        self.close()
 
 
 def cut(s, indent='        '):
