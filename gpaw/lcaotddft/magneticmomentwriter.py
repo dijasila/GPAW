@@ -226,15 +226,15 @@ def get_origin_coordinates(atoms: Atoms,
     Origin coordinates in atomic units
     """
     if origin == 'COM':
-        origin_v = atoms.get_center_of_mass() / Bohr
+        origin_v = atoms.get_center_of_mass()
     elif origin == 'COC':
-        origin_v = 0.5 * atoms.get_cell().sum(0) / Bohr
+        origin_v = 0.5 * atoms.get_cell().sum(0)
     elif origin == 'zero':
         origin_v = np.zeros(3, dtype=float)
     else:
         raise ValueError('unknown origin')
-    origin_v += np.asarray(origin_shift, dtype=float) / Bohr
-    return origin_v
+    origin_v += np.asarray(origin_shift, dtype=float)
+    return origin_v / Bohr
 
 
 class MagneticMomentWriter(TDDFTObserver):
