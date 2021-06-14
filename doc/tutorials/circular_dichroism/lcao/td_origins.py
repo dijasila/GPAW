@@ -14,15 +14,20 @@ def main(kick):
     td_calc = LCAOTDDFT('gs.gpw', txt=f'td-{kick}.out')
 
     DipoleMomentWriter(td_calc, f'dm-{kick}.dat')
-    MagneticMomentWriter(td_calc, f'mm-o1-{kick}.dat',
+
+    # Origin: center of mass
+    MagneticMomentWriter(td_calc, f'mm-COM-{kick}.dat',
                          origin='COM')
-    MagneticMomentWriter(td_calc, f'mm-o2-{kick}.dat',
-                         origin='COM', origin_shift=[5, 0, 0])
-    MagneticMomentWriter(td_calc, f'mm-o3-{kick}.dat',
-                         origin='COM', origin_shift=[0, 5, 0])
-    MagneticMomentWriter(td_calc, f'mm-o4-{kick}.dat',
-                         origin='COM', origin_shift=[0, 0, 5])
-    MagneticMomentWriter(td_calc, f'mm-o5-{kick}.dat',
+
+    # Origin: center of mass + 5 Å shift
+    for shift_axis in 'xyz':
+        origin_shift = [0, 0, 0]
+        origin_shift['xyz'.index(shift_axis)] = 5
+        MagneticMomentWriter(td_calc, f'mm-COM+{shift_axis}-{kick}.dat',
+                             origin='COM', origin_shift=origin_shift)
+
+    # Origin: arbitrary coordinate
+    MagneticMomentWriter(td_calc, f'mm-123-{kick}.dat',
                          origin='zero', origin_shift=[1, 2, 3])
 
     td_calc.absorption_kick(kick_strength)
