@@ -299,7 +299,7 @@ class MagneticMomentWriter(TDDFTObserver):
         ``'zero'``: (0, 0, 0)
     origin_shift
         Vector in Å shifting the origin from the position defined
-        by :attr:`origin`
+        by *origin*.
     dmat
         Density matrix object.
         Define this for LCAO calculations to avoid
