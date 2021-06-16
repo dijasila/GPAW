@@ -299,13 +299,14 @@ class Matrix:
                                                    lower=True,  # ???
                                                    overwrite_a=True,
                                                    check_finite=debug)
-            self.dist.comm.broadcast(eps, 0)
         elif slcomm.rank < rows * columns:
             assert cc
             array = H.array.copy()
             info = _gpaw.scalapack_diagonalize_dc(array, H.dist.desc, 'U',
                                                   H.array, eps)
             assert info == 0, info
+        
+        self.dist.comm.broadcast(eps, 0)
 
         if redist:
             H.redist(self)
