@@ -4,6 +4,15 @@
 Documentation
 =============
 
+.. toctree::
+   :maxdepth: 1
+
+   manual
+   advanced_topics
+   introduction_to_paw
+   utilities/utilities
+
+
 Links to guides and manual pages
 --------------------------------
 
@@ -100,14 +109,3 @@ citing at least one of the other papers, not the sum of all citation
 counts.
 
 See :ref:`citation` for a list of the method papers.
-
-.. toctree::
-   :maxdepth: 2
-
-   manual
-   smearing
-   tools/tools
-   hyperfine
-   advanced_topics
-   introduction_to_paw
-   utilities/utilities

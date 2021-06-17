@@ -43,8 +43,16 @@ to get help (or ``-h`` for short).
 Other command-line tools
 ========================
 
-There are also CLI tools for analysing :ref:`point groups`
-and for :ref:`hyperfine`.  Try::
+There are also CLI tools for:
+
+============================= =====================
+description                   module
+============================= =====================
+analysing :ref:`point groups` ``gpaw.point_groups``
+ref:`hyperfine`               `` gpaw.hyperfine``
+============================= =====================
+
+Try::
 
     $ python3 -m gpaw.point_groups --help
     $ python3 -m gpaw.hyperfine --help
@@ -53,6 +61,35 @@ See also::
 
     $ python3 -m gpaw.utilities.dipole --help
     $ python3 -m gpaw.utilities.ekin --help
+
+
+Finding all or some unocupied states
+------------------------------------
+
+If you have a gpw-file containing the ground-state density for a plane-wave
+calculation, then you can set up the full
+`H_{\mathbf{G}\mathbf{G}'}(\mathbf{k})` and
+`S_{\mathbf{G}\mathbf{G}'}(\mathbf{k})` matrices in your plane-wave basis and
+use direct diagonalization to find all the eigenvalues and eigenstates in one
+step.
+
+Usage::
+
+    $ python3 -m gpaw.fulldiag [options] <gpw-file>
+
+Options:
+
+-h, --help            Show this help message and exit
+-n BANDS, --bands=BANDS
+                      Number of bands to calculate.  Defaults to all.
+-s SCALAPACK, --scalapack=SCALAPACK
+                      Number of cores to use for ScaLapack.  Default is one.
+-d, --dry-run         Just write out size of matrices.
+
+Typpically, you will want to run this in parallel and distrubute the matrices
+using ScaLapack::
+
+    $ gpaw -P 8 python -m gpaw.fulldiag abc.gpw --scalapack=8 ...
 
 
 .. _bash completion:
