@@ -323,7 +323,7 @@ def test_density(kind, density, load_ksd, density_reference):
     ref_wg = density_reference[kind]
     rho_wg = fdm.dmat.density.finegd.collect(density[kind])
     err = calculate_error(rho_wg, ref_wg)
-    atol = 2e-19
+    atol = 3e-19
     assert err < atol
 
 
