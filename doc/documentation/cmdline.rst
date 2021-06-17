@@ -45,25 +45,23 @@ Other command-line tools
 
 There are also CLI tools for:
 
-============================= =====================
-description                    module
-=============================  =====================
-analysing :ref:`point groups`  ``gpaw.point_groups``
-:ref:`hyperfine`               ``gpaw.hyperfine``
-:ref:`fulldiag`                ``gpaw.fulldiag``
-=============================  =====================
+=====================================  ============================
+description                            module
+=====================================  ============================
+analysing :ref:`point groups`          :mod:`gpaw.point_groups`
+:ref:`hyperfine`                       :mod:`gpaw.hyperfine`
+:ref:`fulldiag`                        :mod:`gpaw.fulldiag`
+Calculation of dipole matrix elements  :mod:`gpaw.utilities.dipole`
+PAW-dataset convergence                :mod:`gpaw.utilities.ekin`
+=====================================  ============================
 
 Try::
 
     $ python3 -m <module> --help
 
-See also::
 
-    $ python3 -m gpaw.utilities.dipole --help
-    $ python3 -m gpaw.utilities.ekin --help
-
-
-.. fulldiag:
+.. module:: gpaw.fulldiag
+.. _fulldiag:
 
 Finding all or some unocupied states
 ------------------------------------

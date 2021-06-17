@@ -14,12 +14,12 @@ Documentation
    utilities/utilities
 
 
-Links to guides and manual pages
---------------------------------
+Important links
+---------------
 
 * Tutorials: :ref:`tutorials`
 
-* The GPAW calculator :ref:`manual`
+* Exercises: :ref:`exercises`
 
 * Introduction to the theory of PAW:
 
