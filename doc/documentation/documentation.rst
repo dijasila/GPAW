@@ -10,6 +10,7 @@ Documentation
    manual
    advanced_topics
    introduction_to_paw
+   cmdline
    utilities/utilities
 
 

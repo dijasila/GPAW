@@ -35,7 +35,6 @@ GPAW calculator:
    elph/elph
    xas/xas
    densitymix/densitymix
-   cmdline
    ../devel/electrostatic_potential
    ../devel/eigenvalues_of_core_states
    ../devel/grids
