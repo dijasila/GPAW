@@ -299,6 +299,8 @@ class ElectronPhononCoupling(Displacement):
         bfs = wfs.basis_functions
         dtype = wfs.dtype
         nspins = wfs.nspins
+        # XXX: Domain parallelisation broken
+        assert gd.comm.size == 1
 
         # If gamma calculation, overlap with neighboring cell cannot be removed
         if kd.gamma:
@@ -324,6 +326,7 @@ class ElectronPhononCoupling(Displacement):
 
         # For the contribution from the derivative of the projectors
         dP_aqvMi = wfs.manytci.P_aqMi(self.indices, derivative=True)
+
         # Equilibrium atomic Hamiltonian matrix (projector coefficients)
         Vt_sG, dH_asp, _ = self.cache['eq']  # caution, eq file is different...
 
@@ -392,8 +395,9 @@ class ElectronPhononCoupling(Displacement):
                         dH1_asp = dH1_xasp[x]
                         for a_, dH1_sp in dH1_asp.items():
                             dH1_ii = unpack2(dH1_sp[kpt.s])
-                            gp_MM += np.dot(P_aqMi[a_][kpt.q], np.dot(dH1_ii,
-                                            P_aqMi[a_][kpt.q].T.conjugate()))
+                            P_Mi = P_aqMi[a_][kpt.q]
+                            gp_MM += np.dot(P_Mi, np.dot(dH1_ii,
+                                                         P_Mi.T.conjugate()))
                         g_sqMM[kpt.s, kpt.q] += gp_MM
                     self.timer.write_now("Finished gradient of dH^a")
 
