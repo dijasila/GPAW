@@ -4,12 +4,22 @@
 Documentation
 =============
 
-Links to guides and manual pages
---------------------------------
+.. toctree::
+   :maxdepth: 1
+
+   manual
+   advanced_topics
+   introduction_to_paw
+   cmdline
+   utilities/utilities
+
+
+Important links
+---------------
 
 * Tutorials: :ref:`tutorials`
 
-* The GPAW calculator :ref:`manual`
+* Exercises: :ref:`exercises`
 
 * Introduction to the theory of PAW:
 
@@ -100,14 +110,3 @@ citing at least one of the other papers, not the sum of all citation
 counts.
 
 See :ref:`citation` for a list of the method papers.
-
-.. toctree::
-   :maxdepth: 2
-
-   manual
-   smearing
-   tools/tools
-   hyperfine
-   advanced_topics
-   introduction_to_paw
-   utilities/utilities
