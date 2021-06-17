@@ -46,22 +46,24 @@ Other command-line tools
 There are also CLI tools for:
 
 ============================= =====================
-description                   module
-============================= =====================
-analysing :ref:`point groups` ``gpaw.point_groups``
-ref:`hyperfine`               `` gpaw.hyperfine``
-============================= =====================
+description                    module
+=============================  =====================
+analysing :ref:`point groups`  ``gpaw.point_groups``
+:ref:`hyperfine`               ``gpaw.hyperfine``
+:ref:`fulldiag`                ``gpaw.fulldiag``
+=============================  =====================
 
 Try::
 
-    $ python3 -m gpaw.point_groups --help
-    $ python3 -m gpaw.hyperfine --help
+    $ python3 -m <module> --help
 
 See also::
 
     $ python3 -m gpaw.utilities.dipole --help
     $ python3 -m gpaw.utilities.ekin --help
 
+
+.. fulldiag:
 
 Finding all or some unocupied states
 ------------------------------------
