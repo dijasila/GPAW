@@ -39,51 +39,15 @@ class GPUArray(pycuda_GPUArray):
                 base=self,
                 gpudata=int(self.gpudata))
 
-    # slicing
-    def __getitem__(self, idx):
-        if idx == ():
-            return self
-
-        if len(self.shape) > 1:
-            if isinstance(idx, int):
-                if idx >= self.shape[0]:
-                    raise IndexError("index out of bounds")
-                return self.__class__(
-                    shape=self.shape[1:],
-                    dtype=self.dtype,
-                    allocator=self.allocator,
-                    base=self,
-                    gpudata=int(self.gpudata)
-                           + self.dtype.itemsize * idx * self.size
-                           // len(self))
-            elif isinstance(idx, slice):
-                start, stop, stride = idx.indices(len(self))
-                return self.__class__(
-                    shape=((stop - start) // stride,) + self.shape[1:],
-                    dtype=self.dtype,
-                    allocator=self.allocator,
-                    base=self,
-                    gpudata=int(self.gpudata)
-                           + self.dtype.itemsize * start * self.size
-                           // len(self))
-            raise NotImplementedError("multi-d slicing is not yet implemented")
-
-        if not isinstance(idx, slice):
-            raise ValueError("non-slice indexing not supported: %s" \
-                    % (idx,))
-
-        l, = self.shape
-        start, stop, stride = idx.indices(l)
-
-        if stride != 1:
-            raise NotImplementedError("strided slicing is not yet implemented")
-
+    def __getitem__(self, index):
+        x = super().__getitem__(index)
         return self.__class__(
-                shape=((stop - start) // stride,),
+                shape=x.shape,
                 dtype=self.dtype,
                 allocator=self.allocator,
+                strides=x.strides,
                 base=self,
-                gpudata=int(self.gpudata) + start * self.dtype.itemsize)
+                gpudata=int(x.gpudata))
 
     def _axpbyz(self, selffac, other, otherfac, out, add_timer=None, stream=None):
         """Compute ``out = selffac * self + otherfac*other``,
