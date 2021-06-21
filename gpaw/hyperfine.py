@@ -29,12 +29,15 @@ from gpaw.setup import Setup
 from gpaw.typing import Array1D, Array2D, Array3D
 from gpaw.utilities import unpack2
 from gpaw.wavefunctions.pw import PWDescriptor
+from gpaw.wavefunctions.base import WaveFunctions
 from gpaw.xc.functional import XCFunctional
 
 # Fine-structure constant: (~1/137)
 alpha = 0.5 * units._mu0 * units._c * units._e**2 / units._hplanck
 
 g_factor_e = 2.00231930436256
+
+r_proton = 0.875e-5 / units.Bohr
 
 
 def hyperfine_parameters(calc: GPAW,
@@ -181,7 +184,6 @@ def paw_correction(density_sii: Array3D,
     dn2_mg -= np.einsum('mab, ag, bg -> mg', D2_mjj, phit_jg, phit_jg)
     A_m = dn2_mg[:, 1:].dot(rgd.dr_g[1:] / rgd.r_g[1:]) / 5
     A_m *= Y2_m
-    # W_vv: Array2D = Y2_mvv.T.dot(A_m)  # type: ignore
     W_vv = Y2_mvv.T @ A_m
     W = np.trace(W_vv) / 3
     for v in range(3):
@@ -293,6 +295,48 @@ def core_contribution(density_sii: Array3D,
         sign = -1.0
 
     return core_spin_density_g
+
+
+def fermi_contact_interaction_fractions(wfs: WaveFunctions) -> Array1D:
+    """Fractions of the defect electron being of the Fermi contact
+    interaction with the nuclei.
+
+    See::
+
+        Y. Tu, Z. Tang, X. G. Zhao, Y. Chen, Z. Q. Zhu, J. H. Chu,
+        and J. C. Fang: doi.org/10.1063/1.4818659
+    """
+    assert wfs.world.size == 1
+    assert wfs.kd.gamma
+
+    kpt_major, kpt_minor = wfs.kpt_qs[0]
+    nocc_major = (kpt_major.f_n > 0.5).sum()
+    nocc_minor = (kpt_minor.f_n > 0.5).sum()
+
+    assert nocc_major > nocc_minor
+
+    dN_a = []
+    for a, P_ni in kpt_major.projections.items():
+        P_i = P_ni[nocc_major - 1]
+        P_i[:] = 0.0
+        P_i[0] = 1.0
+        D_ii = np.outer(P_i, P_i)
+        setup = wfs.setups[a]
+        D_jj = expand(D_ii, setup.l_j, l=0)[0]
+        phi_jg = np.array(setup.data.phi_jg)
+        rgd = setup.rgd
+        n_g = np.einsum('ab, ag, bg -> g',
+                        D_jj, phi_jg, phi_jg) / (4 * pi)**0.5
+
+        # n(r) = k * r^(-beta)
+        beta = 2 * (1 - (1 - (setup.Z * alpha)**2)**0.5)
+        k = n_g[1] * rgd.r_g[1]**beta
+
+        r_nucleus = setup.Z**(1 / 3) * r_proton
+
+        dN_a.append(4 * pi / (3 - beta) * k * r_nucleus**(3 - beta))
+
+    return np.array(dN_a)
 
 
 # From https://en.wikipedia.org/wiki/Gyromagnetic_ratio

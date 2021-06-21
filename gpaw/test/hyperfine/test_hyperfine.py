@@ -1,19 +1,20 @@
 from math import pi
 
+import ase.units as units
 import numpy as np
 import pytest
-from scipy.special import expn
-import ase.units as units
-
-from gpaw.grid_descriptor import GridDescriptor
-from gpaw.hyperfine import (hyperfine_parameters, paw_correction, smooth_part,
-                            integrate, alpha, g_factor_e, core_contribution)
 from gpaw import GPAW
 from gpaw.atom.aeatom import AllElectronAtom
 from gpaw.atom.radialgd import RadialGridDescriptor
+from gpaw.grid_descriptor import GridDescriptor
+from gpaw.hyperfine import (alpha, core_contribution,
+                            fermi_contact_interaction_fractions, g_factor_e,
+                            hyperfine_parameters, integrate, paw_correction,
+                            r_proton, smooth_part)
 from gpaw.lfc import LFC
 from gpaw.setup import create_setup
 from gpaw.xc import XC
+from scipy.special import expn
 
 
 @pytest.mark.serial
@@ -142,7 +143,7 @@ def test_h(gpw_files):
 
 def thomson():
     """Analytic integrals for testing."""
-    from sympy import var, integrate, oo, E, expint
+    from sympy import E, expint, integrate, oo, var
     x, a, b = var('x, a, b')
     print(integrate(E**(-b * x) / (1 + x)**2, (x, 0, oo)))
     print(expint(2, 1.0))
@@ -184,3 +185,12 @@ def test_hyper_core():
         plt.show()
 
     assert spin_density1_g[0] == pytest.approx(spin_density2_g[0], abs=0.04)
+
+
+@pytest.mark.serial
+def test_h_fermi_contact(gpw_files):
+    calc = GPAW(gpw_files['h_pw'])
+    dN, = fermi_contact_interaction_fractions(calc.wfs)
+    n0 = 1 / pi
+    assert dN == pytest.approx(4 * pi / 3 * n0 * r_proton**3, rel=0.1)
+    
