@@ -98,7 +98,7 @@ class ElectronPhononCoupling(Displacement):
         atoms: Atoms
             The atoms to work on.
         calc: GPAW
-            Calculator for the supercell calculation.
+            Calculator for the supercell finite displacement calculation.
         supercell: tuple, list
             Size of supercell given by the number of repetitions (l, m, n) of
             the small unit cell in each direction.
