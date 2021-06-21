@@ -1,8 +1,8 @@
 import numpy as np
 
-from ase.phonons import Phonons
 from gpaw.elph.electronphonon import ElectronPhononCoupling
 from gpaw.mpi import world
+
 
 # XXX DELETE
 def run_elph(atoms, calc, delta=0.01, calculate_forces=True):
@@ -63,8 +63,9 @@ def calculate_supercell_matrix(atoms, calc, dump=1):
     return elph
 
 
-def get_elph_matrix(atoms, calc, elphcache='elph', phononcache='elph', dump=1,
-                    load_gx_as_needed=False, elph=None):
+# XXX move into ElectronPhononCoupling object
+def get_elph_matrix(atoms, calc, elph, phonon, dump=1,
+                    load_gx_as_needed=False):
     """
     Evaluates the dipole transition matrix elements.
 
@@ -76,19 +77,16 @@ def get_elph_matrix(atoms, calc, elphcache='elph', phononcache='elph', dump=1,
         Equilibrium geometry
     calc: GPAW
         Converged ground-state calculation.
-    elphcache: str
-        String used for elph cache
-    elphcache: str
-        String used for phonon cache
+    elph: ElectronPhononCoupling
+        Electron-phonon coupling object with calculated supercell matrix
+    phonon: Phonons
+        Phonon object
     dump: (0, 1, 2)
         Whether to elph matrix was written in one file(1), several files (2) or
         not at all (0).
     load_gx_as_needed: bool
         If dump=2 allows to load elph elements as needed, instead of the whole
         matrix. Recommended for large systems.
-    elph: ElectronPhononCoupling object
-        If dump=0 an ElectronPhononCoupling onject containing the supercell
-        matrix must be supplied. Only recommend for smallest of systems.
     """
 
     kpts = calc.get_ibz_k_points()
@@ -96,16 +94,12 @@ def get_elph_matrix(atoms, calc, elphcache='elph', phononcache='elph', dump=1,
 
     # Read previous phonon calculation.
     # This only looks at gamma point phonons
-    ph = Phonons(atoms=atoms, supercell=(1, 1, 1), name=phononcache)
-    ph.read()
-    frequencies, modes = ph.band_structure(qpts, modes=True)
+    phonon.read()
+    frequencies, modes = phonon.band_structure(qpts, modes=True)
 
     # Find el-ph matrix in the LCAO basis
-    if elph is None:
-        elph = ElectronPhononCoupling(atoms, name=elphcache,
-                                      supercell=(1, 1, 1))
-        elph.set_lcao_calculator(calc)
-        basis = calc.parameters['basis']
+    elph.set_lcao_calculator(calc)
+    basis = calc.parameters['basis']
     if not load_gx_as_needed:
         elph.load_supercell_matrix(basis=basis, dump=dump)
 
