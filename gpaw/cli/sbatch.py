@@ -1,6 +1,6 @@
 import subprocess
 import sys
-
+import os
 usage = """gpaw sbatch [-0] -- [sbatch options] script.py [script options]
    or: gpaw sbatch [-0] -- [sbatch options] python -m module [module options]
 """
@@ -37,6 +37,10 @@ class CLICommand:
                 if line.startswith('#SBATCH'):
                     script += line
         script += ('cd $SLURM_SUBMIT_DIR\n')
+        venv = os.getenv('VIRTUAL_ENV')
+        if venv:
+            print("Detected virtual environment:", venv)
+            script += 'source {}/bin/activate\n'.format(venv)
         script += ('OMP_NUM_THREADS=1 '
                    'mpiexec `echo $GPAW_MPI_OPTIONS` gpaw python {}\n'
                    .format(' '.join(args.arguments[i:])))
