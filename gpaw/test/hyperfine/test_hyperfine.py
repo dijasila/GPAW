@@ -193,4 +193,3 @@ def test_h_fermi_contact(gpw_files):
     dN, = fermi_contact_interaction_fractions(calc.wfs)
     n0 = 1 / pi
     assert dN == pytest.approx(4 * pi / 3 * n0 * r_proton**3, rel=0.1)
-    
