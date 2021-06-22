@@ -49,6 +49,7 @@ libxc:
   script:
     - git clone https://gitlab.com/libxc/libxc.git
     - cd libxc
+    - autoreconf -i
     - ./configure --enable-shared --disable-fortran --prefix=$HOME/libxc
     - make
     - make install
