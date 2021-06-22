@@ -43,6 +43,7 @@ master:
     - mq init
     - mq workflow -p agts.py -zT | tail -1 | tee count
     - python -c "assert int(open('count').read().split()[0]) >= 350"
+  when: manual
 
 libxc:
   image: python:3.6
@@ -51,19 +52,18 @@ libxc:
     - cd libxc
     - autoreconf -i
     - ./configure --enable-shared --disable-fortran --prefix=$HOME/libxc
-    - make
+    - make > libxc-install.out
     - make install
     - cd ..
     - pip install pytest ase
     - >
-      echo "noblas = True
-      libraries = ['xc']
-      xc = Path.home() / 'libxc'
-      lib = xc / 'lib'
-      library_dirs = [lib]
-      include_dirs = [xc / 'include']
+      echo "noblas = True;
+      libraries = ['xc'];
+      xc = Path.home() / 'libxc';
+      lib = xc / 'lib';
+      library_dirs = [lib];
+      include_dirs = [xc / 'include'];
       extra_link_args = [f'-Wl,-rpath={lib}']
       " > siteconfig.py
     - pip install -e .
     - pytest -m libxc
-  when: manual
