@@ -67,4 +67,5 @@ libxc:
       extra_link_args = [f'-Wl,-rpath={lib}']
       " > siteconfig.py
     - pip install -e .
-    - pytest -m libxc
+    - gpaw install-data --register gpaw-datasets
+    - pytest -m libxc -x
