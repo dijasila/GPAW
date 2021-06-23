@@ -297,7 +297,8 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
 
         # Initialize calculator if required and extract useful quantities
         calc = self.calc_lcao
-        if not hasattr(calc.wfs, 'S_qMM'):
+        if (not hasattr(calc.wfs, 'S_qMM') or
+            not hasattr(calc.wfs.basis_functions, 'M_a')):
             calc.initialize(atoms_N)
             calc.initialize_positions(atoms_N)
         self.set_basis_info()
