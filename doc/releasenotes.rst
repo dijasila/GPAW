@@ -64,6 +64,9 @@ Git master branch
   dropped.  There is now only https://wiki.fysik.dtu.dk/gpaw/ and it documents
   the use of the in development version of GPAW.
 
+* ``gpaw sbatch`` will now detect an active virtual environment (venv)
+  and activate it in the job script.
+
 
 Version 21.1.0
 ===============
