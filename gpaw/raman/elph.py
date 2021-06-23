@@ -35,7 +35,7 @@ def run_elph(atoms, calc, delta=0.01, calculate_forces=True):
     elph.run()
 
 
-# DELETE
+# XXX DELETE
 def calculate_supercell_matrix(atoms, calc, dump=1):
     """
     Calculate elph supercell matrix.
@@ -63,7 +63,7 @@ def calculate_supercell_matrix(atoms, calc, dump=1):
     return elph
 
 
-# XXX move into ElectronPhononCoupling object
+# XXX move into ElectronPhononCoupling object, it is refactored
 def get_elph_matrix(atoms, calc, elph, phonon, dump=1,
                     load_gx_as_needed=False):
     """
@@ -71,7 +71,8 @@ def get_elph_matrix(atoms, calc, elph, phonon, dump=1,
 
     Note: This part is currently NOT parallelised properly. Use serial only!
 
-    Parameters:
+    Parameters
+    ----------
 
     atoms: Atoms
         Equilibrium geometry
@@ -81,14 +82,14 @@ def get_elph_matrix(atoms, calc, elph, phonon, dump=1,
         Electron-phonon coupling object with calculated supercell matrix
     phonon: Phonons
         Phonon object
-    dump: (0, 1, 2)
-        Whether to elph matrix was written in one file(1), several files (2) or
-        not at all (0).
+    dump: int
+        Whether to elph matrix was written in one file (1, default), several
+        files (2) or not at all (0).
     load_gx_as_needed: bool
         If dump=2 allows to load elph elements as needed, instead of the whole
         matrix. Recommended for large systems.
     """
-
+    assert dump in (0, 1, 2)
     kpts = calc.get_ibz_k_points()
     qpts = [[0, 0, 0], ]
 

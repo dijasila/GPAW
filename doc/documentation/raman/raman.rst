@@ -6,7 +6,7 @@ Raman spectroscopy
 
 GPAW offers two ways of calculating Raman intensities. One can use the `ASE Raman
 <https://wiki.fysik.dtu.dk/ase/ase/vibrations/raman.html>`_ utility together
-with the GPAW LRTDDFT module as shown in the Resonant Raman tutorial (enter link).
+with the GPAW LRTDDFT module as shown in the Resonant Raman tutorial :ref:`resonant_raman_water`.
 
 GPAW also implements Raman spectroscopy for zone-center phonons of extended systems
 using the electron-phonon coupling (see :ref:`elph`) within 3rd order perturbation 
@@ -48,25 +48,6 @@ states and phonon modes throughout the Brillouin zone.
 For these calculations we can employ in the :meth:`~gpaw.raman.dipoletransition.get_momentum_transitions`
 method, the GPAW electron-phonon module :ref:`elph` and the ASE phonon module, respectively.
 
-Some more details are elaborated in the related tutorial (link).
-
-Example
-=======
-
-In this example we compute the Raman spectrum of diamond. For convenience
-we split the calculations into three independent parts before the calculation
-of the Raman tensor.
-
-The momentum matrix elements are easiest to compute, as they only require a
-converged DFT calculation (:git:`~doc/documentation/raman/momentum_matrix.py`):
-
-.. literalinclude:: momentum_matrix.py
-
-In the above script we converge all states to ensure valid matrix elements
-throughout. The momentum matrix elements do not depend too strongly on grid spacings
-and convergence parameters, though convergence studies are encouraged. Parameters
-should be chosen to be consistent with electron-phonon calculations to ensure the same
-order of nearly degenerate states.
 The :meth:`~gpaw.raman.dipoletransition.get_momentum_transitions` method is
 currently not aware of symmetry. It is therefore required to switch off
 point-group symmetry in GPAW, so that matrix elements for all k-points and not
@@ -81,96 +62,17 @@ Energy changes for phonons and potential changes for electron-phonon couplings
 are both computed using a finite displacement technique. Both quantities can be
 obtained simultaenously. In principle the phonon modes can be obtained in any
 fashion, which yields an ASE phonon object though.
-In GPAW an input script could look like this
-(:git:`~doc/documentation/raman/phonon_and_potential.py`):
+For small systems the finite displacement method has the disadvantage of leading
+to an interaction of a displaced atom with its periodic images. This can lead to
+large errors especially in the electron-phonon matrix. This can be avoided by using
+a sufficiently large supercell for the finite displacement simulations.
 
-.. literalinclude:: phonon_and_potential.py
-
-Again, in the above example the k-point grid is not converged. As only
-zone-centre phonons are of required for the Raman calculations, no extended
-supercell needs to be used. Point group symmetry needs to be deactivated again, as
-symmetry is lowered by the displacements, which is not permitted by GPAW. The
-above convergence criteria should be good starting points, but convergence tests
-are always encouraged.
+If phonon and effective potential are calculated simultaenously, results are saved
+in the same cache files with default name `elph`.
 
 
+Some more details are elaborated in the related tutorial :ref:`elphraman`.
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-TODO:
-- test if we need supercell for g
-- test parallelisation of load_supercell_matrix
-
-
-calculate_supercell_matrix no domain parallelisation
-calculate_supercell_matrix needs clean converged calc,
-
-
-.. The Raman code offers wrappers for the electron-phonon part of the calculations:
-.. :meth:`~gpaw.raman.elph.run_elph`
-.. :meth:`~gpaw.raman.elph.calculate_supercell_matrix`
-.. :meth:`~gpaw.raman.elph.get_elph_matrix`
-.. 
-.. where the last function is currently not parallelised and needs to be run in a
-.. separate serial run.
-.. 
-.. Using the wrappers an electron-phonon calculation could look like this
-.. (:git:`~doc/documentation/raman/elph.py`):
-.. 
-.. .. literalinclude:: elph.py
-.. 
-.. The last steps, which usually are not computationally intensive, have not been
-.. parallelised yet, and need to be executed in a serial run.
-.. 
-.. The previously calculated supercell matrix needs to be converted into the
-.. electron-phonon matrix for the Bloch states, which can be like this
-.. (:git:`~doc/documentation/raman/elph_matrix.py`):
-.. 
-.. .. literalinclude:: elph_matrix.py
-.. 
-.. The electron-phonon matrix is saved as ``gsqklnn.npy`` and is our first
-.. ingredient for the Raman calculation.
-.. 
-.. The optional ``load_gx_as_needed`` tag prevents from all supercell pickle files
-.. being read at once. Instead they are loaded and processed one-by-one. This can
-.. save lots of memory for larger systems with hundreds of atoms, where the
-.. supercell matrix can be over 100GiB large.
-.. 
-..  The last
-.. ingredient, the pickle file for the phonons should have been calculated in a
-.. separate calculation as well. Now the Raman intensities can be computed
-.. (:git:`~doc/documentation/raman/raman_intensities.py`):
-.. 
-.. .. literalinclude:: raman_intensities.py
-.. 
-.. The :meth:`calculate_raman` function computes the Raman tensor for each mode
-.. for the given incident and outgoing directions. The results are saved as
-.. ``Rlab_??.npy`` files. The optional ``resonant_only`` tag can be used to
-.. deactivate the calculation of the last 5 terms in Ref. [#Taghizadeh2020]_ Eq.10.
-.. This might be necessary for very large unit cells.
-.. 
-.. The :meth:`calculate_raman_intensity` function computes the Raman intensity on
-.. a frequency grid using the ``Rlab`` files and and saves them into ``RI_??.npy``
-.. files.
-.. 
-.. Lastly, we can plot the ``RI`` files with :meth:`plot_raman`. As the Raman
-.. intensities are saved as ``npy`` files the users can of course use their own
-.. routines instead for plotting.
-.. 
-.. .. image:: Raman_xx_532nm.png
-..    :scale: 30
-..    :align: center 
 
 ----------
 References
@@ -186,6 +88,8 @@ Code
 ----
 
 .. autofunction:: gpaw.raman.dipoletransition.get_momentum_transitions
-.. autofunction:: gpaw.raman.elph.run_elph
-.. autofunction:: gpaw.raman.elph.calculate_supercell_matrix
+.. autofunction:: gpaw.raman.elph.get_elph_matrix
+.. autofunction:: gpaw.raman.raman.calculate_raman
+.. autofunction:: gpaw.raman.raman.calculate_raman_intensity
+.. autofunction:: gpaw.raman.raman.plot_raman
 

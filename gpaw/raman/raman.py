@@ -25,26 +25,37 @@ def gaussian(w, sigma):
 
 
 def calculate_raman(atoms, calc, w_in, d_i, d_o, resonant_only=False,
-                    ramanname=None, momname=None, basename=None, gamma_l=0.1):
+                    gamma_l=0.1, phononname='phonon', momname='mom_skvnm.npy',
+                    elphname='gsqklnn.npy'):
     """
-    Calculates the first order Raman spectrum
+    Calculates the first order Raman tensor contribution for a given
+    polarization.
 
-    Input:
-        atoms           ASE atoms object used for the phonon calculation
-        resonant_only   If False, use all Fermi terms
-        ramanname       Suffix for the raman.npy file
-        momname         Suffix for the momentumfile
-        basename        Suffix for the gs.gpw and gqklnn.npy files
-        w_in, gamma_l   Laser energy, broadening factor for the electron
-                        energies (in eV)
-        d_i, d_o        Laser polarization in, out (0, 1, 2 for x, y, z)
-    Output:
-        RI.npy          Numpy array containing the raman spectre
+    Parameters
+    ----------
+    atoms: Atoms
+        Primitive cell geometry
+    calc: GPAW
+        Converged ground state calculation
+    w_in: float
+        Laser energy in eV
+    d_i: int
+        Incoming polarization
+    d_o: int
+        Outgoing polarization
+    gamma_l: float
+        Line broadening in eV
+    phononname: str
+        Name of phonon cache
+    momname: str
+        Name of momentum file
+    elphname: str
+        Name of electron-phonon file
     """
 
     print("Calculating Raman spectrum: Laser frequency = {} eV".format(w_in))
 
-    ph = Phonons(atoms=atoms, name='elph', supercell=(1, 1, 1))
+    ph = Phonons(atoms=atoms, name=phononname, supercell=(1, 1, 1))
     ph.read()
     w_ph = np.array(ph.band_structure([[0, 0, 0]])[0])  # in eV
     if w_ph.dtype == "complex128":
@@ -63,14 +74,8 @@ def calculate_raman(atoms, calc, w_in, d_i, d_o, resonant_only=False,
     nmodes = len(w_ph)
 
     # Load files
-    if momname is None:
-        mom_sk = np.load("mom_skvnm.npy")  # [:,k,:,:]dim, k
-    else:
-        mom_sk = np.load("mom_skvnm_{}.npy".format(momname))
-    if basename is None:
-        elph_sk = np.load("gsqklnn.npy")[:, 0, :, l_min:]  # [s,q=0,k,l,n,m]
-    else:
-        elph_sk = np.load("gsqklnn_{}.npy".format(basename))[:, 0, :, l_min:]
+    mom_sk = np.load(momname)  # [:,k,:,:]dim, k
+    elph_sk = np.load(elphname)[:, 0, :, l_min:]  # [s,q=0,k,l,n,m]
 
     nspins = elph_sk.shape[0]
     nk = elph_sk.shape[1]
@@ -253,23 +258,30 @@ def calculate_raman(atoms, calc, w_in, d_i, d_o, resonant_only=False,
     raman = np.vstack((w_cm, raman_lw))
     np.save("vib_frequencies.npy", w_ph)
     xyz = 'xyz'
-    if ramanname is None:
-        np.save("Rlab_{}{}.npy".format(xyz[d_i], xyz[d_o]), raman)
-    else:
-        np.save("Rlab_{}{}_{}.npy".format(xyz[d_i], xyz[d_o], ramanname),
-                raman)
+    np.save("Rlab_{}{}.npy".format(xyz[d_i], xyz[d_o]), raman)
 
 
-def calculate_raman_tensor(atoms, calc, resonant_only=True, ramanname=None,
-                           momname=None, basename=None, w_in=2.54066,
-                           gamma_l=0.2):
+def calculate_raman_tensor(atoms, calc, w_in, d_i, d_o, resonant_only=False,
+                    gamma_l=0.1, phononname='phonon', momname='mom_skvnm.npy',
+                    elphname='gsqklnn.npy'):
     for i in range(3):
         for j in range(3):
-            calculate_raman(atoms, calc, resonant_only, ramanname,
-                            momname, basename, w_in, gamma_l, d_i=i, d_o=j)
+            calculate_raman(atoms, calc, w_in, d_i=i, d_o=j,
+                            resonant_only=resonant_only, gamma_l=gamma_l, phononname=phononname, momname=momname,
+                            elphname=elphname)
 
 
 def calculate_raman_intensity(d_i, d_o, ramanname=None, T=300):
+    """
+    Calculates Raman intensities from Raman tensor.
+
+    Parameters
+    ----------
+    d_i: int
+        Incoming polarization
+    d_o: int
+        Outgoing polarization
+    """
     # KtoeV = 8.617278E-5
     cm = 1. / 8065.544  # cm^-1 to eV
     w_ph = np.load("vib_frequencies.npy")  # in ev?
@@ -303,18 +315,12 @@ def calculate_raman_intensity(d_i, d_o, ramanname=None, T=300):
 
 def plot_raman(figname="Raman.png", relative=True, w_min=None, w_max=None,
                ramanname=None, yscale="linear"):
-    """
-        Plots a given Raman spectrum
+    """Plots a given Raman spectrum.
 
-        Input:
-            yscale: Linear or logarithmic yscale
-            figname: Name of the generated figure
-            relative: Scale to the highest peak
-            w_min, w_max: The plotting range wrt the Raman shift
-            ramanname: Suffix used for the file containing the Raman spectrum
-
-        Output:
-            ramanname: image containing the Raman spectrum.
+    Parameters
+    ----------
+    figname: str
+        Filename for figure
 
     """
     from scipy import signal
