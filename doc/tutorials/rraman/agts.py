@@ -1,3 +1,4 @@
+from pathlib import Path
 from myqueue.workflow import run
 
 
@@ -10,4 +11,4 @@ def workflow():
 
 def check():
     """Read result and make sure it's OK."""
-    ...
+    assert Path('H2O_rraman_spectrum.png').exists()
