@@ -14,4 +14,3 @@ atoms.calc = calc
 atoms.get_potential_energy()
 atoms.calc.write("gs.gpw", mode="all")
 get_momentum_transitions(calc.wfs, savetofile=True)
-

@@ -22,4 +22,4 @@ if world.rank == 0:
     print('  i    cm^-1')
     print('------------')
     for i, fr in enumerate(frequencies):
-        print('{:3d}  {:4.2f}'.format(i, fr/invcm))
+        print('{:3d}  {:4.2f}'.format(i, fr / invcm))

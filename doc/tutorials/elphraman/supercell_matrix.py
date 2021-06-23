@@ -18,4 +18,3 @@ atoms_sc.get_potential_energy()
 elph = elph = ElectronPhononCoupling(atoms, supercell=supercell)
 elph.set_lcao_calculator(calc)
 elph.calculate_supercell_matrix(dump=2, include_pseudo=True)
-

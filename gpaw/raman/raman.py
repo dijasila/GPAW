@@ -262,12 +262,13 @@ def calculate_raman(atoms, calc, w_in, d_i, d_o, resonant_only=False,
 
 
 def calculate_raman_tensor(atoms, calc, w_in, d_i, d_o, resonant_only=False,
-                    gamma_l=0.1, phononname='phonon', momname='mom_skvnm.npy',
-                    elphname='gsqklnn.npy'):
+                           gamma_l=0.1, phononname='phonon',
+                           momname='mom_skvnm.npy', elphname='gsqklnn.npy'):
     for i in range(3):
         for j in range(3):
             calculate_raman(atoms, calc, w_in, d_i=i, d_o=j,
-                            resonant_only=resonant_only, gamma_l=gamma_l, phononname=phononname, momname=momname,
+                            resonant_only=resonant_only, gamma_l=gamma_l,
+                            phononname=phononname, momname=momname,
                             elphname=elphname)
 
 

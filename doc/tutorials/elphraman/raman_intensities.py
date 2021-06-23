@@ -1,5 +1,3 @@
-import numpy as np
-
 from gpaw import GPAW
 from gpaw.raman.raman import (calculate_raman, calculate_raman_intensity,
                               plot_raman)
@@ -23,4 +21,3 @@ for d_i in (0, 1, 2):
 
 # And plot
 plot_raman(figname="Raman_all.png", ramanname=pollist)
-

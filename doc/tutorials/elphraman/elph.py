@@ -12,4 +12,3 @@ calc = GPAW(mode='lcao', basis='dzp',
 elph = ElectronPhononCoupling(atoms, calc, supercell=(2, 2, 2),
                               calculate_forces=False)
 elph.run()
-
