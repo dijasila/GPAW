@@ -43,7 +43,6 @@ master:
     - mq init
     - mq workflow -p agts.py -zT | tail -1 | tee count
     - python -c "assert int(open('count').read().split()[0]) >= 350"
-  when: manual
 
 libxc:
   image: python:3.6
@@ -69,3 +68,4 @@ libxc:
     - pip install -e .
     - gpaw install-data --register gpaw-datasets
     - pytest -m libxc -x
+  when: manual
