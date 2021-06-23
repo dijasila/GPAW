@@ -407,7 +407,6 @@ class KSSRestrictor:
 class KSSingle(Excitation, PairDensity):
     """Single Kohn-Sham transition containing all its indices
 
-
       pspin=physical spin
       spin=virtual  spin, i.e. spin in the ground state calc.
       kpt=the Kpoint object

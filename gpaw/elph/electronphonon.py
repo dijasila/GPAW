@@ -112,9 +112,8 @@ class ElectronPhononCoupling(Displacement):
 
         # Init base class and make the center cell in the supercell the
         # reference cell
-        Displacement.__init__(
-            self, atoms, calc=calc, supercell=supercell,
-            name=name, delta=delta, center_refcell=True)
+        Displacement.__init__(self, atoms, calc=calc, supercell=supercell,
+                              name=name, delta=delta, center_refcell=True)
 
         self.calculate_forces = calculate_forces
         # Log
@@ -299,7 +298,7 @@ class ElectronPhononCoupling(Displacement):
         bfs = wfs.basis_functions
         dtype = wfs.dtype
         nspins = wfs.nspins
-        # XXX: Domain parallelisation broken
+        # FIXME: Domain parallelisation broken
         assert gd.comm.size == 1
 
         # If gamma calculation, overlap with neighboring cell cannot be removed
