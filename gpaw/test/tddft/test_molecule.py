@@ -109,7 +109,7 @@ def test_dipole_moment_values(time_propagation_reference,
           4.96096480       1.44537040e-15     1.324352983945e-04     1.324326482531e-04     1.324473352117e-04
 '''.strip())  # noqa: E501
 
-    rtol = 4e-4
+    rtol = 5e-4
     atol = 1e-8
     check_dm('dm.dat', module_tmp_path / 'dm.dat', rtol=rtol, atol=atol)
     check_dm('dm2.dat', module_tmp_path / 'dm2.dat', rtol=rtol, atol=atol)
@@ -124,16 +124,22 @@ def test_propagation(time_propagation_reference,
     calculate_time_propagation(module_tmp_path / 'gs.gpw',
                                propagator=propagator,
                                parallel=parallel)
+    atol = 1e-12
     if propagator == 'SICN':
         # This is the same propagator as the reference;
         # error comes only from parallelization
         rtol = 1e-8
         if 'band' in parallel:
+            # XXX band parallelization is inaccurate!
             rtol = 7e-4
+            atol = 3e-8
     else:
         # Other propagators match qualitatively
         rtol = 5e-2
-    check_dm(module_tmp_path / 'dm.dat', 'dm.dat', rtol=rtol)
+        if 'band' in parallel:
+            # XXX band parallelization is inaccurate!
+            atol = 3e-8
+    check_dm(module_tmp_path / 'dm.dat', 'dm.dat', rtol=rtol, atol=atol)
 
 
 @pytest.mark.parametrize('parallel', parallel_i)

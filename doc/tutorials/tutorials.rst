@@ -70,3 +70,4 @@ Specialized tutorials
    wannier90/wannier90_tutorial
    sjm/solvated_jellium_method.rst
    rraman/resonant_raman_water.rst
+   circular_dichroism/rttddft

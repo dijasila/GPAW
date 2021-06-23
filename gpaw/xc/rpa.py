@@ -4,7 +4,7 @@ from time import ctime
 
 import numpy as np
 from ase.units import Hartree
-from ase.utils import convert_string_to_fd
+from gpaw.utilities import convert_string_to_fd
 from ase.utils.timing import timer, Timer
 from scipy.special.orthogonal import p_roots
 

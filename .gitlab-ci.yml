@@ -42,4 +42,5 @@ master:
     - mq config --in-place
     - mq init
     - mq workflow -p agts.py -zT | tail -1 | tee count
-    - python -c "assert int(open('count').read().split()[0]) >= 337"
+    - python -c "assert int(open('count').read().split()[0]) >= 373"
+    - python -c "import pathlib; assert len(list(pathlib.Path().glob('**/*.png'))) <= 6"

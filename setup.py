@@ -96,7 +96,7 @@ for siteconfig in [gpaw_config,
             print('Reading configuration from', path)
             exec(path.read_text())
             break
-else:
+else:  # no break
     if not noblas:
         libraries.append('blas')
 

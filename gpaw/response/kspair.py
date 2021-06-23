@@ -3,7 +3,7 @@ from pathlib import Path
 import numpy as np
 from scipy.spatial import cKDTree
 
-from ase.utils import convert_string_to_fd
+from gpaw.utilities import convert_string_to_fd
 from ase.utils.timing import Timer, timer
 
 from gpaw import GPAW, disable_dry_run
