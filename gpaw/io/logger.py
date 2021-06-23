@@ -5,15 +5,15 @@ import time
 import numpy as np
 import ase
 from ase import __version__ as ase_version
-from ase.utils import convert_string_to_fd
 from ase.utils import search_current_git_hash
 
 import gpaw
 import _gpaw
 from gpaw.utilities.memory import maxrss
+from gpaw.utilities import convert_string_to_fd
 
 
-class GPAWLogger(object):
+class GPAWLogger:
     """Class for handling all text output."""
     def __init__(self, world):
         self.world = world
@@ -142,7 +142,7 @@ class GPAWLogger(object):
 
         try:
             mr = maxrss()
-        except (LookupError, TypeError, NameError):
+        except (LookupError, TypeError, NameError, AttributeError):
             # Thing can get weird during interpreter shutdown ...
             mr = 0
 

@@ -10,6 +10,8 @@ Git master branch
 
 :git:`master <>`.
 
+* :ref:`resonant_raman_water` tutorial added.
+
 * Corresponding ASE release: ASE-3.21.1b1
 
 * The :ref:`time-propagation TDDFT (fd-mode) <timepropagation>` calculator
@@ -23,6 +25,10 @@ Git master branch
     the kick instead of after it.
 
   * Corresponding updates for :ref:`qsfdtd` and :ref:`hybridscheme`.
+
+* It is now possible to calculate electronic circular dichroism spectra
+  with real-time time-propagation TDDFT.
+  See the tutorial: :ref:`circular_dichroism_rtddft`.
 
 * The documentation and tutorial for :ref:`lrtddft2` updated.
 
@@ -57,6 +63,9 @@ Git master branch
   confusing.  The https://wiki.fysik.dtu.dk/gpaw/dev/ web-page has now been
   dropped.  There is now only https://wiki.fysik.dtu.dk/gpaw/ and it documents
   the use of the in development version of GPAW.
+
+* ``gpaw sbatch`` will now detect an active virtual environment (venv)
+  and activate it in the job script.
 
 
 Version 21.1.0

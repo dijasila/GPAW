@@ -3,7 +3,7 @@ GPAW: DFT and beyond within the projector-augmented wave method
 ===============================================================
 
 GPAW is a density-functional theory (DFT) Python_ code based on the
-projector-augmented wave (:ref:`PAW <literature>`) method and the
+projector-augmented wave (:ref:`PAW <introduction_to_paw>`) method and the
 atomic simulation environment (ASE_).  The wave functions can be described
 with:
 
@@ -43,6 +43,11 @@ array([[  9.37566400e-14,   4.40256983e-14,  -6.44750360e-01],
 
 News
 ====
+
+* Slides from the "GPAW 2021 Users and developers meeting" are
+  now available `here
+  <https://www.cecam.org/workshop-details/1039#document_tab>`__
+  (2 Jun 2021).
 
 * Upcoming workshop:  The
   `GPAW 2021 Users and developers meeting

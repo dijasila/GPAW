@@ -58,7 +58,8 @@ Approximations
 More information on PAW
 =======================
 
-You can find additional information on the :ref:`literature` page, or
+You can find additional information on the
+:ref:`literature <literature_reports_presentations_and_theses>` page, or
 by reading the :download:`paw note <paw_note.pdf>`.
 
 
