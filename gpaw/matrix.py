@@ -299,6 +299,7 @@ class Matrix:
                                                    lower=True,  # ???
                                                    overwrite_a=True,
                                                    check_finite=debug)
+            self.dist.comm.broadcast(eps, 0)
         else:
             if slcomm.rank < rows * columns:
                 assert cc
