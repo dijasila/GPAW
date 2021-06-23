@@ -19,7 +19,7 @@ class CLICommand:
     def add_arguments(parser):
         parser.usage = usage
         parser.add_argument('-0', '--test', action='store_true',
-            help='Print the driver script instead of submitting it.')
+                            help='Dry run: Print driver script.')
         parser.add_argument('arguments', nargs='*')
 
     @staticmethod
