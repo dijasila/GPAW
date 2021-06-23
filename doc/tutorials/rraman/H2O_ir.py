@@ -1,9 +1,8 @@
-from ase.build import molecule
 from ase import optimize
+from ase.build import molecule
 from ase.vibrations.infrared import Infrared
-
-from gpaw.cluster import Cluster
 from gpaw import GPAW, FermiDirac
+from gpaw.cluster import Cluster
 
 h = 0.20
 

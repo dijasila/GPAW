@@ -1,6 +1,5 @@
 # web-page: H2O_rraman_spectrum.png
-import pylab as plt
-
+import matplotlib.pyplot as plt
 from ase import io
 from ase.vibrations.placzek import Placzek
 from gpaw.lrtddft import LrTDDFT

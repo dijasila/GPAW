@@ -1,5 +1,4 @@
 from ase.vibrations.resonant_raman import ResonantRamanCalculator
-
 from gpaw import GPAW, FermiDirac
 from gpaw.cluster import Cluster
 from gpaw.lrtddft import LrTDDFT

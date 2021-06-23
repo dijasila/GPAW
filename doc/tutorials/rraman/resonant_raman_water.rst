@@ -9,6 +9,7 @@ This tutorial shows how to calculate (resonant-)Raman spectra of a
 single water molecule in the gas-phase. The theoretical background
 can be found in Ref. [#WM20]_.
 
+
 Accurate Forces
 ===============
 
@@ -25,27 +26,12 @@ We can get the resulting frequencies
 
 .. literalinclude:: H2O_ir_summary.py
 
-with the result::
+with the result:
 
-  -------------------------------------
-  Mode    Frequency        Intensity
-  #    meV     cm^-1   (D/Å)^2 amu^-1
-  -------------------------------------
-  0   25.6i    206.7i     0.0484
-  1   22.6i    182.0i     0.5406
-  2   14.9i    119.9i     4.0093
-  3   12.9i    104.1i     0.6191
-  4   21.9     176.9      0.0034
-  5   29.5     237.8      1.7874
-  6  198.4    1599.9      1.6001
-  7  464.6    3747.0      0.0669
-  8  477.1    3848.0      1.1835
-  -------------------------------------
-  Zero-point energy: 0.596 eV
-  Static dipole moment: 1.828 D
-  Maximum force on atom in `equilibrium`: 0.0096 eV/Å
+.. literalinclude:: H2O_ir_summary.txt
 
 Only the last three vibrations are meaningful.
+
 
 Excitations at each displacement
 ================================
@@ -61,6 +47,7 @@ to this.
 
 .. literalinclude:: H2O_rraman_calc.py
 
+
 Raman intensities
 =================
 
@@ -70,30 +57,13 @@ We may use :literal:`summary()` similar to :class:`~ase.vibrations.Infrared`,
 but the Raman intensity depends on the excitation frequency.
 
 .. literalinclude:: H2O_rraman_summary.py
-		
-with the result::
 
-  -------------------------------------
-  excitation at 0 eV
-  gamma 0.2 eV
-  method: standard
-  approximation: PlaczekAlpha
-  Mode    Frequency        Intensity
-  #    meV     cm^-1      [A^4/amu]
-  -------------------------------------
-  0    0.0       0.0        0.01
-  1    0.0       0.0        0.00
-  2    0.0       0.0        0.17
-  3    0.0       0.0        1.05
-  4   21.9     176.9        0.58
-  5   29.5     237.8        0.11
-  6  198.4    1599.9        3.12
-  7  464.6    3747.0      133.38
-  8  477.1    3848.0       56.20
-  -------------------------------------
-  Zero-point energy: 0.596 eV
+with the result:
+
+.. literalinclude:: H2O_rraman_summary.txt
 
 Note, that the absolute intensity [#WM20]_ is given in the summary.
+
 
 Raman spectrum
 ==============
@@ -107,7 +77,8 @@ can be obtained with the following script
 
 The figure shows the sensitivity of relative peak heights on the
 scattered photons energy.
-		    
+
+
 References
 ==========
 
