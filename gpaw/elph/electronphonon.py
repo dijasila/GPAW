@@ -314,6 +314,9 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
         dtype = wfs.dtype
         nspins = wfs.nspins
 
+        # FIXME: Domain parallelisation broken
+        assert gd.comm.size == 1
+
         # If gamma calculation, overlap with neighboring cell cannot be removed
         if kd.gamma:
             print("WARNING: Gamma-point calculation.")
