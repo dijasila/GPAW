@@ -53,7 +53,7 @@ class WannierOverlaps:
         size = self.monkhorst_pack_size
         i_c = np.unravel_index(bz_index, size)
         i2_c = np.array(i_c) + direction
-        bz_index2 = np.ravel_multi_index(i2_c, size, 'wrap')
+        bz_index2 = np.ravel_multi_index(i2_c, size, 'wrap')  # type: ignore
         direction2 = tuple([-d for d in direction])
         dindex2 = self.directions[direction2]
         return self._overlaps[bz_index2, dindex2].T.conj()
@@ -151,7 +151,9 @@ def calculate_overlaps(calc: GPAW,
         i1_c = np.unravel_index(bz_index1, size)
         for direction, d in directions.items():
             i2_c = np.array(i1_c) + direction
-            bz_index2 = np.ravel_multi_index(i2_c, size, 'wrap')
+            bz_index2 = np.ravel_multi_index(i2_c,
+                                             size,
+                                             'wrap')  # type: ignore
             wf2 = bzwfs[bz_index2]
             phase_c = (i2_c % size - i2_c) // size
             u2_nR = wf2.u_nR

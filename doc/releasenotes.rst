@@ -10,6 +10,8 @@ Git master branch
 
 :git:`master <>`.
 
+* :ref:`resonant_raman_water` tutorial added.
+
 * Corresponding ASE release: ASE-3.21.1b1
 
 * The :ref:`time-propagation TDDFT (fd-mode) <timepropagation>` calculator
