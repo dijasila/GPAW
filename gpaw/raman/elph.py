@@ -90,6 +90,10 @@ def get_elph_matrix(atoms, calc, elph, phonon, dump=1,
         matrix. Recommended for large systems.
     """
     assert dump in (0, 1, 2)
+    # avoid issues while parallelisation not implemented
+    assert calc.wfs.kd.comm.size == 1
+    assert calc.wfs.gd.comm.size == 1
+    assert calc.wfs.bd.comm.size == 1
     kpts = calc.get_ibz_k_points()
     qpts = [[0, 0, 0], ]
 
@@ -99,7 +103,8 @@ def get_elph_matrix(atoms, calc, elph, phonon, dump=1,
     frequencies, modes = phonon.band_structure(qpts, modes=True)
 
     # Find el-ph matrix in the LCAO basis
-    elph.set_lcao_calculator(calc)
+    if elph.calc_lcao is None:
+        elph.set_lcao_calculator(calc)
     basis = calc.parameters['basis']
     if not load_gx_as_needed:
         elph.load_supercell_matrix(basis=basis, dump=dump)
@@ -111,7 +116,6 @@ def get_elph_matrix(atoms, calc, elph, phonon, dump=1,
         c_kn = []
         for k in range(calc.wfs.kd.nibzkpts):
             C_nM = calc.wfs.collect_array('C_nM', k, s)
-            # if world.rank == 0:
             c_kn.append(C_nM)
         c_kn = np.array(c_kn)
 
@@ -125,4 +129,4 @@ def get_elph_matrix(atoms, calc, elph, phonon, dump=1,
 
     if world.rank == 0:
         np.save("gsqklnn.npy", np.array(g_sqklnn))
-    return g_sqklnn
+    return np.array(g_sqklnn)

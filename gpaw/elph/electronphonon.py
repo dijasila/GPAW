@@ -178,14 +178,9 @@ class ElectronPhononCoupling(Displacement):
         # - check that gamma
         # - check that no symmetries are used
         # - ...
-        assert calc.parameters['mode'] == 'lcao', 'LCAO mode required.'
-        symmetry = calc.parameters['symmetry']
-        if isinstance(symmetry, dict):
-            assert not symmetry.get('point_group', True),\
-                'Point group symmetry not supported'
-        else:
-            assert symmetry == 'off', 'Point group symmetry not supported'
-
+        assert calc.wfs.mode == 'lcao', 'LCAO mode required.'
+        assert not calc.symmetry.point_group, \
+            'Point group symmetry not supported'
         self.calc_lcao = calc
 
     def set_basis_info(self, *args):
@@ -223,9 +218,11 @@ class ElectronPhononCoupling(Displacement):
         else:
             self.timer = StepTimer(name='elph', out=open(log, 'w'))
 
-    def _set_file_name(self, dump, basis, name=None, x=None):
+    def _set_file_name(self, dump, basis=None, name=None, x=None):
         """Set name of supercell file."""
         assert dump in (1, 2)
+        if basis is None:
+            basis = ''
         basestr = ".supercell_matrix"
         if name is not None:
             assert isinstance(name, str)
@@ -236,6 +233,7 @@ class ElectronPhononCoupling(Displacement):
         if dump == 1:
             fname = nname + basestr + '.' + basis + '.pckl'
         else:  # dump == 2
+            assert x is not None
             fname = nname + basestr + '_x_' + str(x) + '.' + basis + '.pckl'
         return fname
 
@@ -288,6 +286,8 @@ class ElectronPhononCoupling(Displacement):
             calc.initialize_positions(atoms_N)
         self.set_basis_info()
         basis = calc.parameters['basis']
+        if isinstance(basis, dict):
+            basis = ''
 
         # Extract useful objects from the calculator
         wfs = calc.wfs
@@ -372,7 +372,6 @@ class ElectronPhononCoupling(Displacement):
                 for kpt in kpt_u:
                     # Matrix elements
                     geff_MM = np.zeros((nao, nao), dtype)
-                    print(V1t_sG.shape, kpt.s)
                     bfs.calculate_potential_matrix(V1t_sG[kpt.s], geff_MM,
                                                    q=kpt.q)
                     tri2full(geff_MM, 'L')
@@ -490,8 +489,8 @@ class ElectronPhononCoupling(Displacement):
             2: Dumped matrix for different gradients in separate files.
         """
 
-        assert (basis is not None) or (name is not None), \
-            "Provide basis or name."
+        if (basis is None) or isinstance(basis, dict):
+            basis = ''
         assert dump in (0, 1, 2)
 
         if dump == 0:
@@ -500,9 +499,7 @@ class ElectronPhononCoupling(Displacement):
             assert self.basis_info is not None
         elif dump == 1:
             fname = self._set_file_name(dump, basis, name)
-            fd = open(fname, 'rb')
-            self.g_xsNNMM, M_a, nao_a = pickle.load(fd)
-            fd.close()
+            g_xsNNMM, M_a, nao_a = self.load_supercell_matrix_x(fname)
         else:  # dump == 2
             g_xsNNMM = []
             for x in range(len(self.indices) * 3):
@@ -651,7 +648,7 @@ class ElectronPhononCoupling(Displacement):
 
     def bloch_matrix(self, kpts, qpts, c_kn, u_ql,
                      omega_ql=None, kpts_from=None, spin=0,
-                     basis='dzp', name=None, load_gx_as_needed=False):
+                     basis=None, name=None, load_gx_as_needed=False):
         r"""Calculate el-ph coupling in the Bloch basis for the electrons.
 
         This function calculates the electron-phonon coupling between the
@@ -693,6 +690,8 @@ class ElectronPhononCoupling(Displacement):
             In case of spin-polarised system, define which spin to use
             (0 or 1).
         """
+        if (basis is None) or isinstance(basis, dict):
+            basis = ''
 
         if not load_gx_as_needed:
             assert self.g_xNNMM is not None, "Load supercell matrix."
