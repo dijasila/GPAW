@@ -300,12 +300,19 @@ class Matrix:
                                                    overwrite_a=True,
                                                    check_finite=debug)
             self.dist.comm.broadcast(eps, 0)
-        elif slcomm.rank < rows * columns:
-            assert cc
-            array = H.array.copy()
-            info = _gpaw.scalapack_diagonalize_dc(array, H.dist.desc, 'U',
-                                                  H.array, eps)
-            assert info == 0, info
+        else:
+            if slcomm.rank < rows * columns:
+                assert cc
+                array = H.array.copy()
+                info = _gpaw.scalapack_diagonalize_dc(array, H.dist.desc, 'U',
+                                                      H.array, eps)
+                assert info == 0, info
+
+            # necessary to broadcast eps when some ranks are not used
+            # in current scalapack parameter set
+            # eg. (2, 1, 2) with 4 processes
+            if rows * columns < slcomm.size:
+                H.dist.comm.broadcast(eps, 0)
 
         if redist:
             H.redist(self)
