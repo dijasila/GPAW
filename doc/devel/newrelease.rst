@@ -20,4 +20,6 @@ New release
 
 * Increase the version number and push.
 
-* Send announcement email to the ``gpaw-users`` mailing list.
+* Send announcement email to the ``gpaw-users`` mailing list::
+
+    $ git shortlog -s -n 21.6.0..
