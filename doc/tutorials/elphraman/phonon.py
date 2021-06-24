@@ -19,6 +19,8 @@ ph.run()
 ph.read(method='frederiksen', acoustic=True)
 frequencies = ph.band_structure([[0, 0, 0], ])[0]  # Get frequencies at Gamma
 if world.rank == 0:
+    # save phonon frequencies for later use
+    np.save("vib_frequencies.npy", w_ph)
     print('  i    cm^-1')
     print('------------')
     for i, fr in enumerate(frequencies):

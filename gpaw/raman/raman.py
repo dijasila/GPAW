@@ -10,7 +10,6 @@ see https://doi.org/10.1038/s41467-020-16529-6
 """
 
 import numpy as np
-from ase.phonons import Phonons
 from ase.units import invcm
 
 
@@ -24,19 +23,19 @@ def gaussian(w, sigma):
     return g
 
 
-def calculate_raman(atoms, calc, w_in, d_i, d_o, resonant_only=False,
-                    gamma_l=0.1, phononname='phonon', momname='mom_skvnm.npy',
-                    elphname='gsqklnn.npy'):
+def calculate_raman(calc, w_ph, w_in, d_i, d_o, resonant_only=False,
+                    gamma_l=0.1, momname='mom_skvnm.npy',
+                    elphname='gsqklnn.npy', gridspacing=1.0):
     """
     Calculates the first order Raman tensor contribution for a given
     polarization.
 
     Parameters
     ----------
-    atoms: Atoms
-        Primitive cell geometry
     calc: GPAW
         Converged ground state calculation
+    phonon: NDArray, str
+        Array of phonon frequencies in eV, or name of file with them
     w_in: float
         Laser energy in eV
     d_i: int
@@ -45,49 +44,48 @@ def calculate_raman(atoms, calc, w_in, d_i, d_o, resonant_only=False,
         Outgoing polarization
     gamma_l: float
         Line broadening in eV
-    phononname: str
-        Name of phonon cache
     momname: str
         Name of momentum file
     elphname: str
         Name of electron-phonon file
+    gridspacing: float
+        grid spacing in cm^-1
     """
+    # those won't make sense here
+    assert calc.wfs.gd.comm.size == 1
+    assert calc.wfs.bd.comm.size == 1
+    kd = calc.wfs.kd
 
     print("Calculating Raman spectrum: Laser frequency = {} eV".format(w_in))
 
-    ph = Phonons(atoms=atoms, name=phononname, supercell=(1, 1, 1))
-    ph.read()
-    w_ph = np.array(ph.band_structure([[0, 0, 0]])[0])  # in eV
-    if w_ph.dtype == "complex128":
-        w_ph = w_ph.real
+    # Phonon frequencies
+    if isinstance(w_ph, str):
+        w_ph = np.load(w_ph)
     assert max(w_ph) < 1.  # else not eV units
-    w_max = int(np.round(np.max(w_ph) / invcm + 100, -1))  # in rcm
-    # NOTE: Should make grid-spacing an input variable
-    ngrid = w_max + 1
-    w_cm = np.linspace(0., w_max, num=ngrid)  # Defined in cm^-1
-    w = w_cm * invcm  # eV (Raman shift?)
-
-    # Exclude 3 accustic phonons + anything imaginary (<10cm^-1)
-    l_min = max(np.where(w_ph / invcm < 30.)[0].size, 3)
-    w_ph = w_ph[l_min:]
-    ieta = complex(0, gamma_l)
     nmodes = len(w_ph)
 
+    # Set grid
+    w_max = np.round(np.max(w_ph) / invcm + 50, -1)  # max of grid in rcm
+    ngrid = int(w_max / gridspacing)
+    w = np.linspace(0., w_max, num=ngrid) * invcm  # in eV
+
     # Load files
-    mom_sk = np.load(momname)  # [:,k,:,:]dim, k
-    elph_sk = np.load(elphname)[:, 0, :, l_min:]  # [s,q=0,k,l,n,m]
+    mom_skvnm = np.load(momname, mmap_mode='c')
+    g_sqklnn = np.load(elphname, mmap_mode='c')  # [s,q=0,k,l,n,m]
 
-    nspins = elph_sk.shape[0]
-    nk = elph_sk.shape[1]
+    # Define a few more variables
+    opt = 'optimal'  # mode for np.einsum. not sure what is fastest
+    nspins = g_sqklnn.shape[0]
+    nk = g_sqklnn.shape[2]
+    assert nmodes == g_sqklnn.shape[3]
+    assert mom_skvnm.shape[0] == nspins
+    assert mom_skvnm.shape[1] == nk
+    assert mom_skvnm.shape[-1] == g_sqklnn.shape[-1]
 
+    # valence is ket in ij and bra in mn
     # ab is in and out polarization
     # l is the phonon mode and w is the raman shift
-    raman_lw = np.zeros((len(w_ph), len(w)), dtype=complex)
 
-    print("Evaluating Raman sum")
-    opt = 'optimal'  # mode for np.einsum. not sure what is fastest
-
-    # note: valence is ket in ij and bra in mn
     # XXX: The below can probably be made better by lambdas a lot
     def _term1(f_vc, E_vc, mom_dnn, elph_lnn, nc, nv):
         term1_l = np.zeros((elph_lnn.shape[0]), dtype=complex)
@@ -106,7 +104,7 @@ def calculate_raman(atoms, calc, w_in, d_i, d_o, resonant_only=False,
         t2_ij = f_vc * mom_dnn[0, nc:, :nv].T / (w_in - E_vc)
         t2_xx = mom_dnn[1]  # XXX might need to T or conj
         for l in range(nmodes):
-            for wi in range(len(w)):
+            for wi in range(ngrid):
                 t2_mn = f_vc.T * elph_lnn[l][nc:, :nv] / (w[wi] - E_vc.T)
                 term2_lw[l, wi] += np.einsum('sj,jm,ms', t2_ij,
                                              t2_xx[nc:, nc:], t2_mn,
@@ -120,7 +118,7 @@ def calculate_raman(atoms, calc, w_in, d_i, d_o, resonant_only=False,
         term3_lw = np.zeros((nmodes, ngrid), dtype=complex)
         for l in range(nmodes):
             t3_xx = elph_lnn[l]
-            for wi in range(len(w)):
+            for wi in range(ngrid):
                 t3_ij = f_vc * mom_dnn[1, nc:, :nv].T / (-w_in + w[wi] - E_vc)
                 t3_mn = (f_vc * mom_dnn[0, :nv, nc:] / (-w_in - w_ph[l] + w[wi]
                                                         - E_vc)).T
@@ -136,7 +134,7 @@ def calculate_raman(atoms, calc, w_in, d_i, d_o, resonant_only=False,
         term4_lw = np.zeros((nmodes, ngrid), dtype=complex)
         t4_xx = mom_dnn[0]  # XXX might need to T or conj
         for l in range(nmodes):
-            for wi in range(len(w)):
+            for wi in range(ngrid):
                 t4_ij = f_vc * mom_dnn[1, nc:, :nv].T / (-w_in + w[wi] - E_vc)
                 t4_mn = (f_vc * elph_lnn[l, nc:, :nv].T / (w[wi] - E_vc)).T
                 term4_lw[l, wi] += np.einsum('sj,jm,ms', t4_ij,
@@ -164,7 +162,7 @@ def calculate_raman(atoms, calc, w_in, d_i, d_o, resonant_only=False,
         t6_xx = mom_dnn[1]  # XXX might need to T or conj
         for l in range(nmodes):
             t6_ij = f_vc * elph_lnn[l, :nv, nc:] / (-w_ph[l] - E_vc)
-            for wi in range(len(w)):
+            for wi in range(ngrid):
                 t6_mn = (f_vc * mom_dnn[0, :nv, nc:] / (-w_in - w_ph[l] + w[wi]
                                                         - E_vc)).T
                 term6_lw[l, wi] += np.einsum('sj,jm,ms', t6_ij,
@@ -175,101 +173,108 @@ def calculate_raman(atoms, calc, w_in, d_i, d_o, resonant_only=False,
                                              optimize=opt)
         return term6_lw
 
-    for s in range(nspins):
-        E_kn = calc.band_structure().todict()["energies"][s]
-        for k in range(nk):
-            print("For k = {}".format(k))
+    # -------------------------------------------------------------------------
 
-            if (calc.symmetry.time_reversal and not
-                np.allclose(calc.wfs.kd.ibzk_kc[k], [0., 0., 0.])):
-                add_time_reversed = True
-            else:
-                add_time_reversed = False
+    print("Evaluating Raman sum")
+    raman_lw = np.zeros((nmodes, ngrid), dtype=complex)
 
-            this_lw = np.zeros((len(w_ph), len(w)), dtype=complex)
+    # Loop over kpoints - this is parallelised
+    for kpt in calc.wfs.kpt_u:
+        print("Rank {}: s={}, k={}".format(kd.comm.rank, kpt.s, kpt.k))
 
-            weight = calc.wfs.collect_auxiliary("weight", k, s)
-            f_n = calc.wfs.collect_occupations(k, s)
-            f_n = f_n / weight
-            elph_lnn = elph_sk[s, k]
-            E_n = E_kn[k]
+        # Check if we need to add timer-add time reversed kpoint
+        if (calc.symmetry.time_reversal and not
+            np.allclose(kd.ibzk_kc[kpt.k], [0., 0., 0.])):
+            add_time_reversed = True
+        else:
+            add_time_reversed = False
 
-            # limit sums to relevant bands, partially occupied bands are a pain
-            # So, in principal, partially occupied bands can be initial and
-            # final states, but we need to restrict to a positive deltaE if we
-            # allow this.
-            vs = np.where(f_n >= 0.1)[0]
-            cs = np.where(f_n < 0.9)[0]
-            nv = max(vs) + 1  # VBM+1 index
-            nc = min(cs)  # CBM index
+        # Limit sums to relevant bands, partially occupied bands are a pain.
+        # So, in principal, partially occupied bands can be initial and
+        # final states, but we need to restrict to a positive deltaE if we
+        # allow this.
+        f_n = kpt.f_n / kpt.weight
+        assert np.isclose(max(f_n), 1.0, atol=0.1)
+        vs = np.where(f_n >= 0.1)[0]
+        cs = np.where(f_n < 0.9)[0]
+        nv = max(vs) + 1  # VBM+1 index
+        nc = min(cs)  # CBM index
 
-            # give momentum matrix for d_i and d_o directions
-            mom_dnn = np.ascontiguousarray(mom_sk[s, k, [d_i, d_o]])
-            assert mom_dnn.shape[0] == 2
+        # Precalculate f * (1-f) term
+        f_vc = np.outer(kpt.f_n[vs], 1. - kpt.f_n[cs])
+        # Precalculate E-E term
+        E_vc = np.empty((len(vs), len(cs)), dtype=complex)
+        for n in vs:
+            E_vc[n] = kpt.eps_n[cs] - kpt.eps_n[n] + 1j * gamma_l
+            # set weights for negative energy transitions zero
+            neg = np.where(E_vc[n] <= 0.)[0]
+            f_vc[n, neg] = 0.
 
-            # f * (1-f) term
-            f_vc = np.outer(f_n[vs], 1. - f_n[cs])
-            # E-E term
-            E_vc = np.empty((len(vs), len(cs)), dtype=complex)
-            for n in vs:
-                E_vc[n] = E_n[cs] - E_n[n] + ieta
-                # set weights for negative energy transitions zero
-                neg = np.where(E_vc[n] <= 0.)[0]
-                f_vc[n, neg] = 0.
+        # Obtain appropriate part of mom and g arrays
+        mom_dnn = np.ascontiguousarray(mom_skvnm[kpt.s, kpt.k, [d_i, d_o]])
+        assert mom_dnn.shape[0] == 2
+        g_lnn = np.ascontiguousarray(g_sqklnn[kpt.s, 0, kpt.k])
 
-            # Term 1
-            term1_l = _term1(f_vc, E_vc, mom_dnn, elph_lnn, nc, nv)
-            print("Term1: ", np.max(np.abs(term1_l)))
-            this_lw += term1_l[:, None]
+        # Raman contribution of this k-point
+        this_lw = np.zeros((nmodes, ngrid), dtype=complex)
 
-            if not resonant_only:
-                term2_lw = _term2(f_vc, E_vc, mom_dnn, elph_lnn, nc, nv)
-                print("Term2: ", np.max(np.abs(term2_lw)))
-                this_lw += term2_lw
+        # Resonant term
+        term1_l = _term1(f_vc, E_vc, mom_dnn, g_lnn, nc, nv)
+        # print("Term1: ", np.max(np.abs(term1_l)))
+        this_lw += term1_l[:, None]
 
-                term3_lw = _term3(f_vc, E_vc, mom_dnn, elph_lnn, nc, nv)
-                print("Term3: ", np.max(np.abs(term3_lw)))
-                this_lw += term3_lw
+        if not resonant_only:
+            term2_lw = _term2(f_vc, E_vc, mom_dnn, g_lnn, nc, nv)
+            # print("Term2: ", np.max(np.abs(term2_lw)))
+            this_lw += term2_lw
 
-                term4_lw = _term4(f_vc, E_vc, mom_dnn, elph_lnn, nc, nv)
-                print("Term4: ", np.max(np.abs(term4_lw)))
-                this_lw += term4_lw
+            term3_lw = _term3(f_vc, E_vc, mom_dnn, g_lnn, nc, nv)
+            # print("Term3: ", np.max(np.abs(term3_lw)))
+            this_lw += term3_lw
 
-                term5_l = _term5(f_vc, E_vc, mom_dnn, elph_lnn, nc, nv)
-                print("Term5: ", np.max(np.abs(term5_l)))
-                this_lw += term5_l[:, None]
+            term4_lw = _term4(f_vc, E_vc, mom_dnn, g_lnn, nc, nv)
+            # print("Term4: ", np.max(np.abs(term4_lw)))
+            this_lw += term4_lw
 
-                term6_lw = _term6(f_vc, E_vc, mom_dnn, elph_lnn, nc, nv)
-                print("Term6: ", np.max(np.abs(term6_lw)))
-                this_lw += term6_lw
+            term5_l = _term5(f_vc, E_vc, mom_dnn, g_lnn, nc, nv)
+            # print("Term5: ", np.max(np.abs(term5_l)))
+            this_lw += term5_l[:, None]
 
-            # At the moment we only allow no symmetry, so all k-points same
-            # weight, or time_reversal only. In the later case r -> 2*Re(r)
-            # because gdd-> (gdd)^* for k-> -k
-            if add_time_reversed:
-                raman_lw += 2. * this_lw.real
-            else:
-                raman_lw += this_lw
+            term6_lw = _term6(f_vc, E_vc, mom_dnn, g_lnn, nc, nv)
+            # print("Term6: ", np.max(np.abs(term6_lw)))
+            this_lw += term6_lw
 
-    for l in range(nmodes):
-        print("Phonon {} with energy = {}: {}".format(l, w_ph[l] / invcm,
-              np.max(np.abs(raman_lw[l]))))
+        # At the moment we only allow no symmetry, so all k-points same
+        # weight, or time_reversal only. In the later case r -> 2*Re(r)
+        # because gdd-> (gdd)^* for k-> -k
+        if add_time_reversed:
+            raman_lw += 2. * this_lw.real
+        else:
+            raman_lw += this_lw
 
-    raman = np.vstack((w_cm, raman_lw))
-    np.save("vib_frequencies.npy", w_ph)
-    xyz = 'xyz'
-    np.save("Rlab_{}{}.npy".format(xyz[d_i], xyz[d_o]), raman)
+    # Collect parallel contributions
+    kd.comm.sum(raman_lw)
+
+    if kd.comm.rank == 0:
+        print('Raman intensities per mode')
+        print('--------------------------')
+        ff = '  Phonon {} with energy = {:4.2f} rcm: {:.4f}'
+        for l in range(nmodes):
+            print(ff.format(l, w_ph[l] / invcm, abs(np.sum(raman_lw[l]))))
+
+        # Save Raman intensities to disk
+        raman = np.vstack((w / invcm, raman_lw))
+        np.save("Rlab_{}{}.npy".format('xyz'[d_i], 'xyz'[d_o]), raman)
 
 
-def calculate_raman_tensor(atoms, calc, w_in, d_i, d_o, resonant_only=False,
-                           gamma_l=0.1, phononname='phonon',
-                           momname='mom_skvnm.npy', elphname='gsqklnn.npy'):
+def calculate_raman_tensor(calc, w_ph, w_in, resonant_only=False,
+                           gamma_l=0.1, momname='mom_skvnm.npy',
+                           elphname='gsqklnn.npy'):
     for i in range(3):
         for j in range(3):
-            calculate_raman(atoms, calc, w_in, d_i=i, d_o=j,
+            calculate_raman(calc, w_ph, w_in, d_i=i, d_o=j,
                             resonant_only=resonant_only, gamma_l=gamma_l,
-                            phononname=phononname, momname=momname,
-                            elphname=elphname)
+                            momname=momname, elphname=elphname)
 
 
 def calculate_raman_intensity(d_i, d_o, ramanname=None, T=300):

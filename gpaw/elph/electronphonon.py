@@ -298,6 +298,7 @@ class ElectronPhononCoupling(Displacement):
         bfs = wfs.basis_functions
         dtype = wfs.dtype
         nspins = wfs.nspins
+
         # FIXME: Domain parallelisation broken
         assert gd.comm.size == 1
 
