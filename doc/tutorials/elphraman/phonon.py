@@ -1,3 +1,4 @@
+import numpy as np
 from ase.build import bulk
 from ase.phonons import Phonons
 from ase.units import invcm
@@ -20,7 +21,7 @@ ph.read(method='frederiksen', acoustic=True)
 frequencies = ph.band_structure([[0, 0, 0], ])[0]  # Get frequencies at Gamma
 if world.rank == 0:
     # save phonon frequencies for later use
-    np.save("vib_frequencies.npy", w_ph)
+    np.save("vib_frequencies.npy", frequencies)
     print('  i    cm^-1')
     print('------------')
     for i, fr in enumerate(frequencies):

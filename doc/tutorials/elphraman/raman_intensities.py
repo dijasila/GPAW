@@ -1,9 +1,10 @@
+import numpy as np
 from gpaw import GPAW
 from gpaw.raman.raman import (calculate_raman, calculate_raman_intensity,
                               plot_raman)
 
 # Load pre-computed calculation
-calc = GPAW("gs.gpw", parallel={'domain':1, 'band': 1})
+calc = GPAW("gs.gpw", parallel={'domain': 1, 'band': 1})
 atoms = calc.atoms
 
 # laser frequency 633 nm approx 1.958676 eV
