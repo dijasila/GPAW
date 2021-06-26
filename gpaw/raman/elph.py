@@ -1,132 +1,130 @@
 import numpy as np
-
+import ase.units as units
 from gpaw.elph.electronphonon import ElectronPhononCoupling
 from gpaw.mpi import world
 
 
-# XXX DELETE
-def run_elph(atoms, calc, delta=0.01, calculate_forces=True):
-    """
-    Finds the forces and effective potential at different atomic positions used
-    to calculate the change in the effective potential.
+class EPC(ElectronPhononCoupling):
+    """Modify ElectronPhononCoupling to fit Raman stuff better.
 
-    Use calculate_forces=False, if phonons are calculated separately.
-
-    This is an optional wrapper. Use ElectronPhononCoupling directly,
-    if you want to change further parameters, or want to use a supercell.
-
-    Parameters
-    ----------
-    atoms: Atoms
-        Equilibrium geometry
-    calc: GPAW
-        Calculator for finite displacements
-    delta: float
-        Displacement increment (default 0.01)
-    calculate_forces: bool
-        Whether to include phonon calculation (default True)
+    Primarily, always save the supercell matrix in separate files,
+    so that calculation of the elph matrix can be better parallelised.
     """
 
-    # Calculate the forces and effective potential at different nuclear
-    # positions
-    elph = ElectronPhononCoupling(atoms, calc, supercell=(1, 1, 1),
-                                  delta=delta,
-                                  calculate_forces=calculate_forces)
-    elph.run()
+    def calculate_supercell_matrix(self, calc, name=None, filter=None,
+                                   include_pseudo=True):
+        """
+        Calculate elph supercell matrix.
 
+        This is a necessary intermediary step before calculating the electron-
+        phonon matrix.
 
-# XXX DELETE
-def calculate_supercell_matrix(atoms, calc, dump=1):
-    """
-    Calculate elph supercell matrix.
+        The Raman version always uses dump=2 when calling
+        the ElectronPhononCoupling routine.
 
-    This is a necessary intermediary step before calculating the electron-
-    phonon matrix.
+        Parameters
+        ----------
+        calc: GPAW
+            Converged ground-state calculation. Same grid as before.
+        name: str
+            User specified name of the generated pickle file(s). If not
+            provided, the string in the ``name`` attribute is used.
+        filter: str
+            Fourier filter atomic gradients of the effective potential. The
+            specified components (``normal`` or ``umklapp``) are removed
+            (default: None).
+        include_pseudo: bool
+            Include the contribution from the psedupotential in the atomic
+            gradients. If ``False``, only the gradient of the effective
+            potential is included (default: True).
+        """
+        self.set_lcao_calculator(calc)
+        ElectronPhononCoupling.calculate_supercell_matrix(self, 2, name, filter,
+                                                          include_pseudo)
 
-    This is an optional wrapper. Use ElectronPhononCoupling directly,
-    if you want to change further parameters, or want to use a supercell.
+    def _bloch_matrix(self, kpt, k_c, u_l, basis=None, name=None):
+        """
+        This is a special q=0 version. Need to implement general version in
+        ElectronPhononCoupling.
+        """
+        if basis is None:
+            basis = ''
+        assert len(u_l.shape) == 3
 
-    Parameters
-    ----------
-    atoms: Atoms
-        Equilibrium geometry
-    calc: GPAW
-        Converged ground-state calculation. Same grid as before.
-    dump: int
-        Whether to write elph supercell matrix in one file(1), several
-        files (2) or not at all (0).
-    """
-    assert dump in (0, 1, 2)
-    elph = ElectronPhononCoupling(atoms, supercell=(1, 1, 1))
-    elph.set_lcao_calculator(calc)
-    elph.calculate_supercell_matrix(dump=dump, include_pseudo=True)
-    return elph
+        # Defining system sizes
+        nmodes = u_l.shape[0]
+        nbands = kpt.C_nM.shape[0]
+        nao = kpt.C_nM.shape[1]
+        ndisp = 3 * len(self.indices)
 
+        # Lattice vectors
+        R_cN = self.compute_lattice_vectors()
+        # Number of unit cell in supercell
+        N = np.prod(self.supercell)
 
-# XXX move into ElectronPhononCoupling object, it is refactored
-def get_elph_matrix(atoms, calc, elph, phonon, dump=1,
-                    load_gx_as_needed=False):
-    """
-    Evaluates the dipole transition matrix elements.
+        # Allocate array for couplings
+        g_lnn = np.zeros((nmodes, nbands, nbands), dtype=complex)
 
-    Note: This part is currently NOT parallelised properly. Use serial only!
+        # Mass scaled polarization vectors
+        u_lx = u_l.reshape(nmodes, ndisp)
 
-    Parameters
-    ----------
+        # Multiply phase factors
+        for x in range(ndisp):
+            # Allocate array
+            g_MM = np.zeros((nao, nao), dtype=complex)
+            fname = self._set_file_name(2, basis, name, x=x)
+            g_sNNMM, M_a, nao_a = self.load_supercell_matrix_x(fname)
+            assert nao == g_sNNMM.shape[-1]
+            if x == 0:
+                self.set_basis_info(M_a, nao_a)
+            for m in range(N):
+                for n in range(N):
+                    phase = self._get_phase_factor(R_cN, m, n, k_c,
+                                                   [0., 0., 0.])
+                    # Sum contributions from different cells
+                    g_MM += g_sNNMM[kpt.s, m, n, :, :] * phase
 
-    atoms: Atoms
-        Equilibrium geometry
-    calc: GPAW
-        Converged ground-state calculation.
-    elph: ElectronPhononCoupling
-        Electron-phonon coupling object with calculated supercell matrix
-    phonon: Phonons
-        Phonon object
-    dump: int
-        Whether to elph matrix was written in one file (1, default), several
-        files (2) or not at all (0).
-    load_gx_as_needed: bool
-        If dump=2 allows to load elph elements as needed, instead of the whole
-        matrix. Recommended for large systems.
-    """
-    assert dump in (0, 1, 2)
-    # avoid issues while parallelisation not implemented
-    assert calc.wfs.kd.comm.size == 1
-    assert calc.wfs.gd.comm.size == 1
-    assert calc.wfs.bd.comm.size == 1
-    kpts = calc.get_ibz_k_points()
-    qpts = [[0, 0, 0], ]
+            g_nn = np.dot(kpt.C_nM.conj(), np.dot(g_MM, kpt.C_nM.T))
+            g_lnn += np.einsum('i,kl->ikl', u_lx[:, x], g_nn)
 
-    # Read previous phonon calculation.
-    # This only looks at gamma point phonons
-    phonon.read()
-    frequencies, modes = phonon.band_structure(qpts, modes=True)
+        return g_lnn * units.Hartree / units.Bohr  # eV / Ang
 
-    # Find el-ph matrix in the LCAO basis
-    if elph.calc_lcao is None:
-        elph.set_lcao_calculator(calc)
-    basis = calc.parameters['basis']
-    if not load_gx_as_needed:
-        elph.load_supercell_matrix(basis=basis, dump=dump)
+    def get_elph_matrix(self, calc, phonon):
+        """Calculate the electronphonon matrix in Bloch states.
 
-    # Find the bloch expansion coefficients
-    g_sqklnn = []
-    for s in range(calc.wfs.nspins):
-        # c_kn = np.zeros((nk, nbands, nbands), dtype=complex)
-        c_kn = []
-        for k in range(calc.wfs.kd.nibzkpts):
-            C_nM = calc.wfs.collect_array('C_nM', k, s)
-            c_kn.append(C_nM)
-        c_kn = np.array(c_kn)
+        Always uses q=0.
 
-        # And we finally find the electron-phonon coupling matrix elements!
-        if not load_gx_as_needed:
-            elph.g_xNNMM = elph.g_xsNNMM[:, s]
-        g_qklnn = elph.bloch_matrix(kpts, qpts, c_kn, u_ql=modes,
-                                    spin=s, basis=basis,
-                                    load_gx_as_needed=load_gx_as_needed)
-        g_sqklnn.append(g_qklnn)
+        Parameters
+        ----------
+        calc: GPAW
+            Converged ground-state calculation. NOT supercell.
+        phonon: Phonons
+            Phonon object
+        """
+        assert calc.wfs.bd.comm.size == 1
 
-    if world.rank == 0:
-        np.save("gsqklnn.npy", np.array(g_sqklnn))
-    return np.array(g_sqklnn)
+        # Read previous phonon calculation.
+        # This only looks at gamma point phonons
+        phonon.read()
+        frequencies, modes = phonon.band_structure([[0., 0., 0.]], modes=True)
+        # Find el-ph matrix in the LCAO basis
+        self.set_lcao_calculator(calc)
+        basis = calc.parameters['basis']
+        if isinstance(basis, dict):
+            basis = ""
+
+        g_sqklnn = np.zeros([calc.wfs.nspins, 1, calc.wfs.kd.nibzkpts,
+                             frequencies.shape[1], calc.wfs.bd.nbands,
+                             calc.wfs.bd.nbands], dtype=complex)
+
+        # loop over k-points
+        for kpt in calc.wfs.kpt_u:
+            k_c = calc.wfs.kd.ibzk_kc[kpt.k]
+            g_lnn = self._bloch_matrix(kpt, k_c, modes[0], basis)
+            g_sqklnn[kpt.s, 0, kpt.k] += g_lnn
+
+        calc.wfs.kd.comm.sum(g_sqklnn)
+
+        if world.rank == 0:
+            np.save("gsqklnn.npy", g_sqklnn)
+        return g_sqklnn

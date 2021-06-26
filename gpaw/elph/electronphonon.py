@@ -750,13 +750,6 @@ class ElectronPhononCoupling(Displacement):
         g_qklnn = np.zeros((kd_qpts.nbzkpts, len(kpts_kc), nmodes,
                             nbands, nbands), dtype=complex)
 
-        def _get_phase_factor(m, n, k_c, q_c):
-            Rm_c = R_cN[:, m]
-            Rn_c = R_cN[:, n]
-            phase = np.exp(2.j * np.pi * (np.dot(k_c, Rm_c - Rn_c)
-                                          + np.dot(q_c, Rm_c)))
-            return phase
-
         self.timer.write_now("Calculating coupling matrix elements")
         for q, q_c in enumerate(kd_qpts.bzk_kc):
 
@@ -796,7 +789,8 @@ class ElectronPhononCoupling(Displacement):
                             self.set_basis_info(M_a, nao_a)
                         for m in range(N):
                             for n in range(N):
-                                phase = _get_phase_factor(m, n, k_c, q_c)
+                                phase = self._get_phase_factor(R_cN, m, n, k_c,
+                                                               q_c)
                                 # Sum contributions from different cells
                                 g_MM += g_sNNMM[spin, m, n, :, :] * phase
 
@@ -814,7 +808,7 @@ class ElectronPhononCoupling(Displacement):
                     # Multiply phase factors
                     for m in range(N):
                         for n in range(N):
-                            phase = _get_phase_factor(m, n, k_c, q_c)
+                            phase = self._get_phase_factor(R_cN, m, n, k_c, q_c)
                             # Sum contributions from different cells
                             g_xMM += g_xNNMM[:, m, n, :, :] * phase
 
@@ -962,3 +956,10 @@ class ElectronPhononCoupling(Displacement):
                 x += 1
 
         return np.array(V1t_xsG), dH1_xasp
+
+    def _get_phase_factor(self, R_cN, m, n, k_c, q_c):
+        Rm_c = R_cN[:, m]
+        Rn_c = R_cN[:, n]
+        phase = np.exp(2.j * np.pi * (np.dot(k_c, Rm_c - Rn_c)
+                                      + np.dot(q_c, Rm_c)))
+        return phase

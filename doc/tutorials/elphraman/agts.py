@@ -7,8 +7,8 @@ def workflow():
     mo = run(script='momentum_matrix.py')
     with ph, el:
         with run(script='supercell_matrix.py'):
-            with run(script='elph_matrix.py', cores=1), mo:
-                run(script='raman_intensities.py', cores=1)
+            with run(script='elph_matrix.py'), mo:
+                run(script='raman_intensities.py')
                 run(function=check)
 
 

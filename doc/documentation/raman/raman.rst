@@ -70,9 +70,11 @@ a sufficiently large supercell for the finite displacement simulations.
 If phonon and effective potential are calculated simultaenously, results are saved
 in the same cache files with default name `elph`.
 
+The Raman module offers a wrapper, :meth:`~gpaw.raman.elph.EPC`, around the
+:meth:`~gpaw.elph.electronphonon.ElectronPhononCoupling` class to facilitate easier
+computation of the electron-phonon matrix.
 
 Some more details are elaborated in the related tutorial :ref:`elphraman`.
-
 
 ----------
 References
@@ -88,7 +90,9 @@ Code
 ----
 
 .. autofunction:: gpaw.raman.dipoletransition.get_momentum_transitions
-.. autofunction:: gpaw.raman.elph.get_elph_matrix
+.. autoclass:: gpaw.raman.elph.EPC
+.. autofunction:: gpaw.raman.elph.EPC.calculate_supercell_matrix
+.. autofunction:: gpaw.raman.elph.EPC.get_elph_matrix
 .. autofunction:: gpaw.raman.raman.calculate_raman
 .. autofunction:: gpaw.raman.raman.calculate_raman_intensity
 .. autofunction:: gpaw.raman.raman.plot_raman

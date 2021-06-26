@@ -1,6 +1,6 @@
 from ase.build import bulk
 from gpaw import GPAW
-from gpaw.elph.electronphonon import ElectronPhononCoupling
+from gpaw.raman.elph import EPC
 
 supercell = (2, 2, 2)
 atoms = bulk('C', 'diamond', a=3.567)
@@ -15,6 +15,5 @@ atoms_sc.calc = calc
 atoms_sc.get_potential_energy()
 
 # Supercell matrix
-elph = elph = ElectronPhononCoupling(atoms, supercell=supercell)
-elph.set_lcao_calculator(calc)
-elph.calculate_supercell_matrix(dump=2, include_pseudo=True)
+elph = EPC(atoms, supercell=supercell)
+elph.calculate_supercell_matrix(calc, include_pseudo=True)

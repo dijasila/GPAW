@@ -34,7 +34,7 @@ def calculate_raman(calc, w_ph, w_in, d_i, d_o, resonant_only=False,
     ----------
     calc: GPAW
         Converged ground state calculation
-    phonon: NDArray, str
+    phonon: Array, str
         Array of phonon frequencies in eV, or name of file with them
     w_in: float
         Laser energy in eV
