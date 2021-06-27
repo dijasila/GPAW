@@ -30,7 +30,7 @@ class FakePh(Phonons):
         if self.D_N is None:
             self.D_N = np.random.random([3 * natoms, 3 * natoms])
 
-
+@pyest.mark.disable
 @pytest.mark.serial
 def test_load_as_needed(gpw_files, tmp_path_factory):
     """Test of elph_matrix function as well as load_gx_as_needed feature."""

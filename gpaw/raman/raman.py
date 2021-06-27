@@ -34,7 +34,7 @@ def calculate_raman(calc, w_ph, w_in, d_i, d_o, resonant_only=False,
     ----------
     calc: GPAW
         Converged ground state calculation
-    phonon: Array, str
+    w_ph: Array, str
         Array of phonon frequencies in eV, or name of file with them
     w_in: float
         Laser energy in eV
@@ -57,6 +57,7 @@ def calculate_raman(calc, w_ph, w_in, d_i, d_o, resonant_only=False,
     kd = calc.wfs.kd
 
     print("Calculating Raman spectrum: Laser frequency = {} eV".format(w_in))
+    suffix = "{:d}nm".format(np.round(1239.841 / w_in))
 
     # Phonon frequencies
     if isinstance(w_ph, str):
@@ -264,7 +265,8 @@ def calculate_raman(calc, w_ph, w_in, d_i, d_o, resonant_only=False,
 
         # Save Raman intensities to disk
         raman = np.vstack((w / invcm, raman_lw))
-        np.save("Rlab_{}{}.npy".format('xyz'[d_i], 'xyz'[d_o]), raman)
+        np.save("Rlab_{}{}_{}.npy".format('xyz'[d_i], 'xyz'[d_o], suffix),
+                raman)
 
 
 def calculate_raman_tensor(calc, w_ph, w_in, resonant_only=False,
@@ -277,90 +279,87 @@ def calculate_raman_tensor(calc, w_ph, w_in, resonant_only=False,
                             momname=momname, elphname=elphname)
 
 
-def calculate_raman_intensity(d_i, d_o, ramanname=None, T=300):
+def calculate_raman_intensity(w_ph, d_i, d_o, suffix, T=300):
     """
     Calculates Raman intensities from Raman tensor.
 
     Parameters
     ----------
+    w_ph: Array, str
+        Array of phonon frequencies in eV, or name of file with them
     d_i: int
         Incoming polarization
     d_o: int
         Outgoing polarization
+    suffix: str
+        Suffix for Rlab and RI files. Usually XXXnm
     """
-    # KtoeV = 8.617278E-5
-    cm = 1. / 8065.544  # cm^-1 to eV
-    w_ph = np.load("vib_frequencies.npy")  # in ev?
+    KtoeV = 8.617278e-5
+    # Phonon frequencies
+    if isinstance(w_ph, str):
+        w_ph = np.load(w_ph)
+    assert max(w_ph) < 1.  # else not eV units
 
     # Load raman matrix elements R_lab
-    xyz = 'xyz'
-    if ramanname is None:
-        tmp = np.load("Rlab_{}{}.npy".format(xyz[d_i], xyz[d_o]))
-    else:
-        tmp = np.load("Rlab_{}{}_{}.npy".format(xyz[d_i], xyz[d_o], ramanname))
-    w = tmp[0].real
+    tmp = np.load("Rlab_{}{}_{}.npy".format('xyz'[d_i], 'xyz'[d_o], suffix))
+    w = tmp[0].real  # already in rcm
     raman_lw = tmp[1:]
+    assert raman_lw.shape[0] == len(w_ph)
 
-    intensity = np.zeros_like(w)
-    for l in range(len(raman_lw)):
-        # occ = 1. / (np.exp(w_ph[l] / (KtoeV * T)) - 1.) + 1.
-        delta = gaussian(w=w - w_ph[l] / cm, sigma=5.)
-        # print(occ, np.max(delta), w_ph[l], np.max(np.abs(raman_lw[l])**2))
-        # intensity += occ / w_ph[l] * np.abs(raman_lw[l])**2 * delta
-        # ignore phonon occupation numbers for now
-        # not sure, if the above is correct or not, but the below yields nicer
-        # looking results
-        intensity += np.abs(raman_lw[l])**2 * delta
+    int_bare = np.zeros_like(w, dtype=float)
+    int_occ = np.zeros_like(w, dtype=float)
+    for l in range(len(w_ph)):
+        occ = 1. / (np.exp(w_ph[l] / (KtoeV * T)) - 1.) + 1.
+        delta = gaussian(w=(w - w_ph[l] / invcm), sigma=5.)
+        R = raman_lw[l] * raman_lw[l].conj
+        int_bare += R.real * delta
+        int_occ += occ / w_ph[l] * R.real * delta
 
-    raman = np.vstack((w, intensity))
-    if ramanname is None:
-        np.save("RI_{}{}.npy".format(xyz[d_i], xyz[d_o]), raman)
-    else:
-        np.save("RI_{}{}_{}.npy".format(xyz[d_i], xyz[d_o], ramanname), raman)
+    raman = np.vstack((w, int_bare, int_occ))
+    np.save("RI_{}{}_{}.npy".format('xyz'[d_i], 'xyz'[d_o], suffix), raman)
 
 
-def plot_raman(figname="Raman.png", relative=True, w_min=None, w_max=None,
-               ramanname=None, yscale="linear"):
+def plot_raman(figname, RIsuffix, relative=True, w_min=None, w_max=None):
     """Plots a given Raman spectrum.
 
     Parameters
     ----------
     figname: str
-        Filename for figure
-
+        Filename for figure.
+    RIsuffix: str, list
+        Suffix of Raman intensity files to use for plotting. For example 
+        "0_1_455nm" for RI_0_1_455nm.npy
     """
     from scipy import signal
     import matplotlib.pyplot as plt
     import matplotlib.colors as colors
     import matplotlib.cm as cmx
 
-    if ramanname is None:
+    if isinstance(RIsuffix, str):
         legend = False
-        RI_name = ["RI.npy"]
-    elif type(ramanname) == list:
+        RI_name = ["RI_{}.npy".format(RIsuffix)]
+    else:  # assume list
         legend = True
-        RI_name = ["RI_{}.npy".format(name) for name in ramanname]
-    else:
-        legend = False
-        RI_name = ["RI_{}.npy".format(ramanname)]
+        RI_name = ["RI_{}.npy".format(name) for name in RIsuffix]
+        cm = plt.get_cmap('inferno')
+        cNorm = colors.Normalize(vmin=0, vmax=len(RI_name))
+        scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=cm)
 
     ylabel = "Intensity (arb. units)"
-    cm = plt.get_cmap('inferno')
-    cNorm = colors.Normalize(vmin=0, vmax=len(RI_name))
-    scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=cm)
+    if w_min is None:
+        w_min = 0.
+
     peaks = None
     for i, name in enumerate(RI_name):
-        RI = np.real(np.load(name))
-        if w_min is None:
-            w_min = np.min(RI[0])
+        RI = np.load(name)  # load raman intensity
         if w_max is None:
             w_max = np.max(RI[0])
         r = RI[1][np.logical_and(RI[0] >= w_min, RI[0] <= w_max)]
         w = RI[0][np.logical_and(RI[0] >= w_min, RI[0] <= w_max)]
-        cval = scalarMap.to_rgba(i)
         if relative:
             ylabel = "I/I_max"
             r /= np.max(r)
+
         if peaks is None:
             peaks = signal.find_peaks(r[np.logical_and(w >= w_min, w <= w_max)
                                         ])[0]
@@ -368,21 +367,24 @@ def plot_raman(figname="Raman.png", relative=True, w_min=None, w_max=None,
                                 peaks)
             intensities = np.take(r[np.logical_and(w >= w_min, w <= w_max)],
                                   peaks)
+
         if legend:
-            plt.plot(w, r, color=cval, label=ramanname[i])
+            cval = scalarMap.to_rgba(i)
+            plt.plot(w, r, color=cval, label=RIsuffix[i])
         else:
-            plt.plot(w, r, color=cval)
+            plt.plot(w, r)
+
     for i, loc in enumerate(locations):
         if intensities[i] / np.max(intensities) > 0.05:
             plt.axvline(x=loc, color="grey", linestyle="--")
-    plt.yscale(yscale)
+
     plt.minorticks_on()
     if legend:
-        plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
+        plt.legend()
     plt.title("Raman intensity")
     plt.xlabel("Raman shift (cm$^{-1}$)")
     plt.ylabel(ylabel)
-    if not relative:
+    if relative:
         plt.yticks([])
     plt.savefig(figname, dpi=300)
     plt.clf()
