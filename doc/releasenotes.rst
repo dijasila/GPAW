@@ -10,7 +10,7 @@ Git master branch
 
 :git:`master <>`.
 
-* Corresponding ASE release: ASE-3.21.1b1
+* Corresponding ASE release: ASE-3.23.0b1
 
 
 Version 21.6.0
@@ -18,7 +18,7 @@ Version 21.6.0
 
 Jun 24, 2021: :git:`21.6.0 <../21.6.0>`
 
-* Corresponding ASE release: ASE-3.21.1.
+* Corresponding ASE release: ASE-3.22.0.
 
 * :ref:`resonant_raman_water` tutorial added.
 
