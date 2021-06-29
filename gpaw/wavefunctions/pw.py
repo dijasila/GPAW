@@ -15,7 +15,7 @@ from gpaw.blacs import BlacsDescriptor, BlacsGrid, Redistributor
 from gpaw.density import Density
 from gpaw.hamiltonian import Hamiltonian
 from gpaw.lcao.overlap import fbt
-from gpaw.lfc import BaseLFC
+from gpaw.lfc import BaseLFC, BasisFunctions
 from gpaw.matrix_descriptor import MatrixDescriptor
 from gpaw.spherical_harmonics import Y, nablarlYL
 from gpaw.spline import Spline
@@ -1247,8 +1247,11 @@ class PWWaveFunctions(FDPWWaveFunctions):
         return nbands
 
     def initialize_from_lcao_coefficients(self,
-                                          basis_functions,
+                                          basis_functions: BasisFunctions,
                                           block_size: int = 10) -> None:
+        """Convert from LCAO to PW coefficients."""
+        # We go from LCAO to real-space and then to PW's.
+        # It's too expensive to allocate one big real-spaces array:
         N = min(self.bd.mynbands, block_size)
         psit_nR = self.gd.empty(N, self.dtype)
 
@@ -1263,7 +1266,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
                 dist=(self.bd.comm, -1, 1),
                 spin=kpt.s, collinear=self.collinear)
             psit_nG = kpt.psit.array
-            if psit_nG.ndim == 3:
+            if psit_nG.ndim == 3:  # non-collinear calculation
                 N, S, G = psit_nG.shape
                 psit_nG = psit_nG.reshape((N * S, G))
             for n1 in range(0, len(psit_nG), block_size):

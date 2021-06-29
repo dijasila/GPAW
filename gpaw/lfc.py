@@ -1067,7 +1067,11 @@ class BasisFunctions(LocalizedFunctionsCollection):
         self.lfc.calculate_potential_matrix(vt_G, Vt_MM, q,
                                             self.Mstart, self.Mstop)
 
-    def lcao_to_grid(self, C_xM, psit_xG, q, block_size: int = 10) -> None:
+    def lcao_to_grid(self,
+                     C_xM: np.ndarray,
+                     psit_xG: np.ndarray,
+                     q: int,
+                     block_size: int = 10) -> None:
         r"""Deploy basis functions onto grids according to coefficients.
 
         ::
