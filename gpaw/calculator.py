@@ -928,7 +928,7 @@ class GPAW(Calculator):
             monkhorst_pack_size=self.wfs.kd.N_c,
             bz2ibzmap=self.wfs.kd.bz2ibz_k)
 
-        self.log(occ)
+        self.log('Occupation numbers:', occ, '\n')
         return occ
 
     def create_scf(self, criteria, mode):

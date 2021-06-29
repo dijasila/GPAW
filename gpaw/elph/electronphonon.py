@@ -74,22 +74,7 @@ from gpaw.utilities.timing import StepTimer, nulltimer
 from gpaw.utilities.tools import tri2full
 
 
-class BackwardsCompatibleDisplacement(Displacement):
-    # NOTE: It's probably save to remove this, as we are not compatible with
-    # old ASE anyway, thanks to breaking pckl to json change.
-    def __init__(self, atoms, calc, supercell,
-                 name, delta):
-        if hasattr(Displacement, 'compute_lattice_vectors'):
-            Displacement.__init__(self, atoms, calc, supercell,
-                                  name, delta, center_refcell=True)
-        else:
-            Displacement.__init__(self, atoms, calc, supercell,
-                                  name, delta, refcell='center')
-            self.supercell = self.N_c
-            self.compute_lattice_vectors = self.lattice_vectors
-
-
-class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
+class ElectronPhononCoupling(Displacement):
     """Class for calculating the electron-phonon coupling in an LCAO basis.
 
     The derivative of the effective potential wrt atomic displacements is
@@ -113,8 +98,8 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
         atoms: Atoms
             The atoms to work on.
         calc: GPAW
-            Calculator for the supercell calculation.
-        supercell: tuple
+            Calculator for the supercell finite displacement calculation.
+        supercell: tuple, list
             Size of supercell given by the number of repetitions (l, m, n) of
             the small unit cell in each direction.
         name: str
@@ -127,9 +112,8 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
 
         # Init base class and make the center cell in the supercell the
         # reference cell
-        BackwardsCompatibleDisplacement.__init__(
-            self, atoms, calc=calc, supercell=supercell,
-            name=name, delta=delta)
+        Displacement.__init__(self, atoms, calc=calc, supercell=supercell,
+                              name=name, delta=delta, center_refcell=True)
 
         self.calculate_forces = calculate_forces
         # Log
@@ -297,7 +281,8 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
 
         # Initialize calculator if required and extract useful quantities
         calc = self.calc_lcao
-        if not hasattr(calc.wfs, 'S_qMM'):
+        if (not hasattr(calc.wfs, 'S_qMM') or
+            not hasattr(calc.wfs.basis_functions, 'M_a')):
             calc.initialize(atoms_N)
             calc.initialize_positions(atoms_N)
         self.set_basis_info()
@@ -313,6 +298,9 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
         bfs = wfs.basis_functions
         dtype = wfs.dtype
         nspins = wfs.nspins
+
+        # FIXME: Domain parallelisation broken
+        assert gd.comm.size == 1
 
         # If gamma calculation, overlap with neighboring cell cannot be removed
         if kd.gamma:

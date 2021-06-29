@@ -11,6 +11,7 @@ GPAW calculator:
 
    lcao/lcao
    parallel_runs/parallel_runs
+   smearing
    convergence
    custom_convergence
    restart_files
@@ -21,6 +22,7 @@ GPAW calculator:
    xc/exx
    xc/rpa
    poisson
+   hyperfine
    tddft/tddft
    ehrenfest/ehrenfest_theory
    ehrenfest/ehrenfest
@@ -34,7 +36,6 @@ GPAW calculator:
    elph/elph
    xas/xas
    densitymix/densitymix
-   cmdline
    ../devel/electrostatic_potential
    ../devel/eigenvalues_of_core_states
    ../devel/grids
