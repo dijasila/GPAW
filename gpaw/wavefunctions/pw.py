@@ -1246,8 +1246,11 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
         return nbands
 
-    def initialize_from_lcao_coefficients(self, basis_functions):
-        psit_nR = self.gd.empty(1, self.dtype)
+    def initialize_from_lcao_coefficients(self,
+                                          basis_functions,
+                                          block_size: int = 10) -> None:
+        N = min(self.bd.mynbands, block_size)
+        psit_nR = self.gd.empty(N, self.dtype)
 
         for kpt in self.kpt_u:
             if self.kd.gamma:
@@ -1263,11 +1266,15 @@ class PWWaveFunctions(FDPWWaveFunctions):
             if psit_nG.ndim == 3:
                 N, S, G = psit_nG.shape
                 psit_nG = psit_nG.reshape((N * S, G))
-            for n, psit_G in enumerate(psit_nG):
+            for n1 in range(0, len(psit_nG), block_size):
+                n2 = min(n1 + block_size, len(psit_nG))
                 psit_nR[:] = 0.0
-                basis_functions.lcao_to_grid(kpt.C_nM[n:n + 1],
-                                             psit_nR, kpt.q)
-                psit_G[:] = self.pd.fft(psit_nR[0] * emikr_R, kpt.q)
+                basis_functions.lcao_to_grid(kpt.C_nM[n1:n2],
+                                             psit_nR[:n2 - n1],
+                                             kpt.q,
+                                             block_size)
+                for psit_R, psit_G in zip(psit_nR, psit_nG[n1:n2]):
+                    psit_G[:] = self.pd.fft(psit_R * emikr_R, kpt.q)
             kpt.C_nM = None
 
     def random_wave_functions(self, mynao):
