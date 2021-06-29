@@ -180,11 +180,7 @@ def find_fm_goldstone_scaling(chi0_GG, Kxc_GG):
     """Find goldstone scaling of the kernel by ensuring that the
     macroscopic inverse enhancement function has a root in (q=0, omega=0)."""
     fxcs = 1.
-    chi_GG = np.dot(np.linalg.inv(np.eye(len(chi0_GG)) +
-                                  np.dot(chi0_GG, Kxc_GG * fxcs)),
-                    chi0_GG)
-    # Scale so that kappaM=0 in the static limit (omega=0)
-    kappaM = (chi0_GG[0, 0] / chi_GG[0, 0]).real
+    kappaM = calculate_macroscopic_kappa(chi0_GG, Kxc_GG * fxcs)
     # If kappaM > 0, increase scaling (recall: kappaM ~ 1 - Kxc Re{chi_0})
     scaling_incr = 0.1 * np.sign(kappaM)
     while abs(kappaM) > 1.e-7 and abs(scaling_incr) > 1.e-7:
@@ -192,10 +188,7 @@ def find_fm_goldstone_scaling(chi0_GG, Kxc_GG):
         if fxcs <= 0.0 or fxcs >= 10.:
             raise Exception('Found an invalid fxc_scaling of %.4f' % fxcs)
 
-        chi_GG = np.dot(np.linalg.inv(np.eye(len(chi0_GG)) +
-                                      np.dot(chi0_GG, Kxc_GG * fxcs)),
-                        chi0_GG)
-        kappaM = (chi0_GG[0, 0] / chi_GG[0, 0]).real
+        kappaM = calculate_macroscopic_kappa(chi0_GG, Kxc_GG * fxcs)
 
         # If kappaM changes sign, change sign and refine increment
         if np.sign(kappaM) != np.sign(scaling_incr):
@@ -207,4 +200,32 @@ def find_fm_goldstone_scaling(chi0_GG, Kxc_GG):
 def find_afm_goldstone_scaling(chi0_GG, Kxc_GG):
     """Find goldstone scaling of the kernel by ensuring that the
     macroscopic magnon spectrum vanishes at q=0. for finite frequencies."""
+    fxcs = 1.
+    _, chiM = calculate_macroscopic_kappa(chi0_GG, Kxc_GG * fxcs)
+    # If chi > 0., increase the scaling. If chi < 0., decrease the scaling.
+    scaling_incr = 0.1 * np.sign(chiM)
+    while (chiM < 0. or chiM > 1.e-7) or abs(scaling_incr) > 1.e-7:
+        fxcs += scaling_incr
+        if fxcs <= 0. or fxcs >= 10.:
+            raise Exception('Found an invalid fxc_scaling of %.4f' % fxcs)
+
+        _, chiM = calculate_macroscopic_kappa(chi0_GG, Kxc_GG * fxcs)
+
+        # If chi changes sign, change sign and refine increment
+        if np.sign(chiM) != np.sign(scaling_incr):
+            scaling_incr *= -0.2
+
     return fxcs
+
+
+def calculate_macroscopic_kappa(chi0_GG, Kxc_GG, return_chi=False):
+    """Invert dyson equation and calculate the inverse enhancement function."""
+    chi_GG = np.dot(np.linalg.inv(np.eye(len(chi0_GG)) +
+                                  np.dot(chi0_GG, Kxc_GG * fxcs)),
+                    chi0_GG)
+    kappaM = (chi0_GG[0, 0] / chi_GG[0, 0]).real
+
+    if not return_chi:
+        return kappaM
+    else:
+        return kappaM, chi_GG[0, 0]
