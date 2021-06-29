@@ -1250,10 +1250,12 @@ class PWWaveFunctions(FDPWWaveFunctions):
                                           basis_functions: BasisFunctions,
                                           block_size: int = 10) -> None:
         """Convert from LCAO to PW coefficients."""
+        nlcao = len(self.kpt_qs[0][0].C_nM)
+
         # We go from LCAO to real-space and then to PW's.
         # It's too expensive to allocate one big real-space array:
-        N = min(self.bd.mynbands, block_size)
-        psit_nR = self.gd.empty(N, self.dtype)
+        block_size = min(nlcao, block_size)
+        psit_nR = self.gd.empty(block_size, self.dtype)
 
         for kpt in self.kpt_u:
             if self.kd.gamma:
@@ -1269,8 +1271,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
             if psit_nG.ndim == 3:  # non-collinear calculation
                 N, S, G = psit_nG.shape
                 psit_nG = psit_nG.reshape((N * S, G))
-            for n1 in range(0, len(psit_nG), block_size):
-                n2 = min(n1 + block_size, len(psit_nG))
+            for n1 in range(0, nlcao, block_size):
+                n2 = min(n1 + block_size, nlcao)
                 psit_nR[:] = 0.0
                 basis_functions.lcao_to_grid(kpt.C_nM[n1:n2],
                                              psit_nR[:n2 - n1],
