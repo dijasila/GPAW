@@ -1251,7 +1251,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
                                           block_size: int = 10) -> None:
         """Convert from LCAO to PW coefficients."""
         # We go from LCAO to real-space and then to PW's.
-        # It's too expensive to allocate one big real-spaces array:
+        # It's too expensive to allocate one big real-space array:
         N = min(self.bd.mynbands, block_size)
         psit_nR = self.gd.empty(N, self.dtype)
 
