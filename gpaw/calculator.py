@@ -915,7 +915,7 @@ class GPAW(Calculator):
             nspins=self.wfs.nspins
         )
 
-        self.log(occ)
+        self.log('Occupation numbers:', occ, '\n')
         return occ
 
     def create_scf(self, nvalence, mode):

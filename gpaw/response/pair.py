@@ -8,7 +8,7 @@ import numpy as np
 from scipy.spatial import Delaunay, cKDTree
 
 from ase.units import Ha
-from ase.utils import convert_string_to_fd
+from gpaw.utilities import convert_string_to_fd
 from ase.utils.timing import timer, Timer
 
 import gpaw.mpi as mpi

@@ -10,7 +10,17 @@ Git master branch
 
 :git:`master <>`.
 
-* Corresponding ASE release: ASE-3.21.1b1
+* Corresponding ASE release: ASE-3.23.0b1
+
+
+Version 21.6.0
+===============
+
+Jun 24, 2021: :git:`21.6.0 <../21.6.0>`
+
+* Corresponding ASE release: ASE-3.22.0.
+
+* :ref:`resonant_raman_water` tutorial added.
 
 * The :ref:`time-propagation TDDFT (fd-mode) <timepropagation>` calculator
   refactored and observer support generalized.
@@ -23,6 +33,10 @@ Git master branch
     the kick instead of after it.
 
   * Corresponding updates for :ref:`qsfdtd` and :ref:`hybridscheme`.
+
+* It is now possible to calculate electronic circular dichroism spectra
+  with real-time time-propagation TDDFT.
+  See the tutorial: :ref:`circular_dichroism_rtddft`.
 
 * The documentation and tutorial for :ref:`lrtddft2` updated.
 
@@ -58,11 +72,14 @@ Git master branch
   dropped.  There is now only https://wiki.fysik.dtu.dk/gpaw/ and it documents
   the use of the in development version of GPAW.
 
+* ``gpaw sbatch`` will now detect an active virtual environment (venv)
+  and activate it in the job script.
+
 
 Version 21.1.0
 ===============
 
-18 Jan 2021: :git:`21.1.0 <../21.1.0>`
+Jan 18, 2021: :git:`21.1.0 <../21.1.0>`
 
 * Corresponding ASE release: ASE-3.21.0.
 
@@ -106,7 +123,7 @@ Version 21.1.0
 Version 20.10.0
 ===============
 
-19 Oct 2020: :git:`20.10.0 <../20.10.0>`
+Oct 19, 2020: :git:`20.10.0 <../20.10.0>`
 
 * Corresponding ASE release: ASE-3.20.1.
 
@@ -224,7 +241,7 @@ Version 20.10.0
 Version 20.1.0
 ==============
 
-30 Jan 2020: :git:`20.1.0 <../20.1.0>`
+Jan 30, 2020: :git:`20.1.0 <../20.1.0>`
 
 * Corresponding ASE release: ASE-3.19.0.
 
@@ -299,7 +316,7 @@ Version 20.1.0
 Version 19.8.1
 ==============
 
-8 Aug 2019: :git:`19.8.1 <../19.8.1>`
+Aug 8, 2019: :git:`19.8.1 <../19.8.1>`
 
 .. warning:: Upgrading from version 1.5.2
 
@@ -318,7 +335,7 @@ Version 19.8.1
 Version 19.8.0
 ==============
 
-1 Aug 2019: :git:`19.8.0 <../19.8.0>`
+Aug 1, 2019: :git:`19.8.0 <../19.8.0>`
 
 * Corresponding ASE release: ASE-3.18.0.
 
@@ -365,7 +382,7 @@ Version 19.8.0
 Version 1.5.2
 =============
 
-8 May 2019: :git:`1.5.2 <../1.5.2>`
+May 8, 2019: :git:`1.5.2 <../1.5.2>`
 
 * Corresponding ASE release: ASE-3.17.0.
 
@@ -384,7 +401,7 @@ Version 1.5.2
 Version 1.5.1
 =============
 
-23 Jan 2019: :git:`1.5.1 <../1.5.1>`
+Jan 23, 2019: :git:`1.5.1 <../1.5.1>`
 
 * Corresponding ASE release: ASE-3.17.0.
 
@@ -394,7 +411,7 @@ Version 1.5.1
 Version 1.5.0
 =============
 
-11 Jan 2019: :git:`1.5.0 <../1.5.0>`
+Jan 11, 2019: :git:`1.5.0 <../1.5.0>`
 
 * Corresponding ASE release: ASE-3.17.0.
 
@@ -468,7 +485,7 @@ Version 1.5.0
 Version 1.4.0
 =============
 
-29 May 2018: :git:`1.4.0 <../1.4.0>`
+May 29, 2018: :git:`1.4.0 <../1.4.0>`
 
 * Corresponding ASE release: ASE-3.16.0.
 
@@ -544,7 +561,7 @@ Version 1.4.0
 Version 1.3.0
 =============
 
-2 October 2017: :git:`1.3.0 <../1.3.0>`
+October 2, 2017: :git:`1.3.0 <../1.3.0>`
 
 * Corresponding ASE release: ASE-3.15.0.
 
@@ -608,7 +625,7 @@ Version 1.3.0
 Version 1.2.0
 =============
 
-7 February 2017: :git:`1.2.0 <../1.2.0>`.
+Feb 7, 2017: :git:`1.2.0 <../1.2.0>`.
 
 * Corresponding ASE release: ASE-3.13.0.
 
@@ -661,7 +678,7 @@ Version 1.2.0
 Version 1.1.0
 =============
 
-22 June 2016: :git:`1.1.0 <../1.1.0>`.
+June 22, 2016: :git:`1.1.0 <../1.1.0>`.
 
 * Corresponding ASE release: ASE-3.11.0.
 
@@ -703,7 +720,7 @@ Version 1.1.0
 Version 1.0.0
 =============
 
-17 March 2016: :git:`1.0.0 <../1.0.0>`.
+Mar 17, 2016: :git:`1.0.0 <../1.0.0>`.
 
 * Corresponding ASE release: ASE-3.10.0.
 
@@ -741,7 +758,7 @@ Version 1.0.0
 Version 0.11.0
 ==============
 
-22 July 2015: :git:`0.11.0 <../0.11.0>`.
+July 22, 2015: :git:`0.11.0 <../0.11.0>`.
 
 * Corresponding ASE release: ASE-3.9.1.
 
@@ -799,7 +816,7 @@ Version 0.11.0
 Version 0.10.0
 ==============
 
-8 April 2014: :git:`0.10.0 <../0.10.0>`.
+Apr 8, 2014: :git:`0.10.0 <../0.10.0>`.
 
 * Corresponding ASE release: ASE-3.8.1
 
@@ -878,7 +895,7 @@ Version 0.10.0
 Version 0.9.0
 =============
 
-7 March 2012: :git:`0.9.0 <../0.9.0>`.
+Mar 7, 2012: :git:`0.9.0 <../0.9.0>`.
 
 * Corresponding ASE release: ase-3.6
 
@@ -898,7 +915,7 @@ Version 0.9.0
 Version 0.8.0
 =============
 
-25 May 2011: :git:`0.8.0 <../0.8.0>`.
+May 25, 2011: :git:`0.8.0 <../0.8.0>`.
 
 * Corresponding ASE release: ase-3.5.1
 * Energy convergence criterion changed from 1 meV/atom to 0.5
@@ -920,7 +937,7 @@ Version 0.8.0
 Version 0.7.2
 =============
 
-13 August 2010: :git:`0.7.2 <../0.7.2>`.
+Aug 13, 2010: :git:`0.7.2 <../0.7.2>`.
 
 * Corresponding ASE release: ase-3.4.1
 * For version 0.7, the default Poisson solver was changed to
@@ -931,7 +948,7 @@ Version 0.7.2
 Version 0.7
 ===========
 
-23 April 2010: :git:`0.7 <../0.7>`.
+Apr 23, 2010: :git:`0.7 <../0.7>`.
 
 * Corresponding ASE release: ase-3.4.0
 * Better and much more efficient handling of non-orthorhombic unit
@@ -953,7 +970,7 @@ Version 0.7
 Version 0.6
 ===========
 
-9 October 2009: :git:`0.6 <../0.6>`.
+Oct 9, 2009: :git:`0.6 <../0.6>`.
 
 * Corresponding ASE release: ase-3.2.0
 * Much improved default parameters.
@@ -965,7 +982,7 @@ Version 0.6
 Version 0.5
 ===========
 
-1 April 2009: :git:`0.5 <../0.5>`.
+Apr 1, 2009: :git:`0.5 <../0.5>`.
 
 * Corresponding ASE release: ase-3.1.0
 * `new setups added Bi, Br, I, In, Os, Sc, Te; changed Rb setup <https://trac.fysik.dtu.dk/projects/gpaw/changeset/3612>`_.
@@ -975,7 +992,7 @@ Version 0.5
 Version 0.4
 ===========
 
-13 November 2008: :git:`0.4 <../0.4>`.
+Nov 13, 2008: :git:`0.4 <../0.4>`.
 
 * Corresponding ASE release: ase-3.0.0
 * Now using ASE-3 and numpy.
@@ -1010,4 +1027,4 @@ Version 0.4
 Version 0.3
 ===========
 
-19 December 2007: :git:`0.3 <../0.3>`.
+Dec 19, 2007: :git:`0.3 <../0.3>`.

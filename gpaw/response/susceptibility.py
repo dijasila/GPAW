@@ -6,7 +6,7 @@ import pickle
 import numpy as np
 
 from ase.units import Hartree
-from ase.utils import convert_string_to_fd
+from gpaw.utilities import convert_string_to_fd
 from ase.utils.timing import Timer, timer
 
 import gpaw.mpi as mpi

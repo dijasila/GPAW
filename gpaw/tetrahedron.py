@@ -116,9 +116,10 @@ def triangulate_everything(size_c: Array1D,
     ABC_ck = np.unravel_index(np.arange(nbzk), size_c)
     ABC_tqck = ABC_tqc[..., np.newaxis] + ABC_ck
     ABC_cktq = np.transpose(ABC_tqck, (2, 3, 0, 1))
-    k_ktq = np.ravel_multi_index(ABC_cktq.reshape((3, nbzk * 6 * 4)),
-                                 size_c,
-                                 mode='wrap').reshape((nbzk, 6, 4))
+    k_ktq = np.ravel_multi_index(
+        ABC_cktq.reshape((3, nbzk * 6 * 4)),
+        size_c,
+        mode='wrap').reshape((nbzk, 6, 4))  # type: ignore
     i_ktq = i_k[k_ktq]
     return i_ktq
 
