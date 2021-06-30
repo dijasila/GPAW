@@ -911,7 +911,7 @@ class DirectMin(Eigensolver):
                 lu_nn = np.diagonal(lumo).real / 1.0
                 # if 'SIC' in self.odd_parameters['name']:
                 #     self.odd.lagr_diag_s[k] = np.append(lo_nn, lu_nn)
-                    # self.odd.lagr_diag_s[k][:n_occ] /= kpt.f_n[:n_occ]
+                #     self.odd.lagr_diag_s[k][:n_occ] /= kpt.f_n[:n_occ]
                 if n_occ != 0:
                     evals, lamb = np.linalg.eigh(lamb)
                     # evals = np.empty(lamb.shape[0])
@@ -944,8 +944,8 @@ class DirectMin(Eigensolver):
                     orb_en[i][:] = orb_en[i][ind]
                     if not rewrite_psi:
                         # we need to sort wfs
-                        kpt.psit_nG[n_occ*i + np.arange(len(ind)), :] = \
-                            kpt.psit_nG[n_occ*i + ind, :]
+                        kpt.psit_nG[n_occ * i + np.arange(len(ind)), :] = \
+                            kpt.psit_nG[n_occ * i + ind, :]
                 wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
                 if 'SIC' in self.odd_parameters['name']:
                     self.odd.lagr_diag_s[k] = np.append(lo_nn, lu_nn)
