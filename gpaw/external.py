@@ -57,6 +57,9 @@ class ExternalPotential:
     def calculate_potential(self, gd):
         raise NotImplementedError
 
+    def calculate(self, density, hamiltonian):
+        ...
+
     def get_name(self):
         return self.__class__.__name__
 
