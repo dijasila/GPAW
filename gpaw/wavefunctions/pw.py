@@ -1254,7 +1254,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
         # We go from LCAO to real-space and then to PW's.
         # It's too expensive to allocate one big real-space array:
-        block_size = min(nlcao, block_size)
+        block_size = min(max(nlcao, 1), block_size)
         psit_nR = self.gd.empty(block_size, self.dtype)
 
         for kpt in self.kpt_u:
