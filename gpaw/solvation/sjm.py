@@ -374,13 +374,8 @@ class SJM(SolvationGPAW):
         if p.write_grandpotential_energy:
             self.results['energy'] = self.omega_extrapolated * Ha
             self.results['free_energy'] = self.omega_free * Ha
-            self.sog('Final energy at {} with {} electrons: {}'
-                     .format(self.get_electrode_potential(),
-                             p.excess_electrons, self.results['energy']))
             self.sog('Grand-potential energy was written into results.\n')
         else:
-            self.sog('Final energy at {} electrons: {}'
-                     .format(p.excess_electrons, self.results['energy']))
             self.sog('Canonical energy was written into results.\n')
 
         self.results['excess_electrons'] = p.excess_electrons
