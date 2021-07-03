@@ -113,8 +113,11 @@ class EPC(ElectronPhononCoupling):
         frequencies, modes = phonon.band_structure([[0., 0., 0.]], modes=True)
 
         # Find el-ph matrix in the LCAO basis
-        if self.calc_lcao is None:
-            self.set_lcao_calculator(calc)
+        # Always overwrite calc_lcao. The one used for
+        # calculate_supercell_matrix might not be the same as required here
+        self.calc_lcao = None
+        #if self.calc_lcao is None:
+        #    self.set_lcao_calculator(calc)
         basis = calc.parameters['basis']
         if isinstance(basis, dict):
             basis = ""

@@ -25,7 +25,7 @@ def gaussian(w, sigma):
 
 def calculate_raman(calc, w_ph, w_in, d_i, d_o, resonant_only=False,
                     gamma_l=0.1, momname='mom_skvnm.npy',
-                    elphname='gsqklnn.npy', gridspacing=1.0):
+                    elphname='gsqklnn.npy', gridspacing=1.0, suffix=None):
     """
     Calculates the first order Raman tensor contribution for a given
     polarization.
@@ -50,6 +50,8 @@ def calculate_raman(calc, w_ph, w_in, d_i, d_o, resonant_only=False,
         Name of electron-phonon file
     gridspacing: float
         grid spacing in cm^-1
+    suffix: str
+        suffix for Rlab file name. Defaults to XXXnm if not given.
     """
     # those won't make sense here
     assert calc.wfs.gd.comm.size == 1
@@ -57,7 +59,8 @@ def calculate_raman(calc, w_ph, w_in, d_i, d_o, resonant_only=False,
     kd = calc.wfs.kd
 
     print("Calculating Raman spectrum: Laser frequency = {} eV".format(w_in))
-    suffix = "{:d}nm".format(np.round(1239.841 / w_in))
+    if suffix is None:
+        suffix = "{}nm".format(int(1239.841 / w_in))
 
     # Phonon frequencies
     if isinstance(w_ph, str):
@@ -311,7 +314,7 @@ def calculate_raman_intensity(w_ph, d_i, d_o, suffix, T=300):
     for l in range(len(w_ph)):
         occ = 1. / (np.exp(w_ph[l] / (KtoeV * T)) - 1.) + 1.
         delta = gaussian(w=(w - w_ph[l] / invcm), sigma=5.)
-        R = raman_lw[l] * raman_lw[l].conj
+        R = raman_lw[l] * raman_lw[l].conj()
         int_bare += R.real * delta
         int_occ += occ / w_ph[l] * R.real * delta
 

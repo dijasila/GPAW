@@ -9,6 +9,7 @@ atoms = calc.atoms
 
 # laser frequency 633 nm approx 1.958676 eV
 w_l = 1.958676
+suffix = '632nm'
 
 # use previously saved phonon frequencies
 w_ph = np.load("vib_frequencies.npy")
@@ -18,12 +19,13 @@ pollist = []
 for d_i in (0, 1, 2):
     for d_o in (0, 1, 2):
         # Calculate mode resolved Raman tensor for given direction
-        calculate_raman(calc, w_ph, w_l, d_i, d_o, resonant_only=True)
+        calculate_raman(calc, w_ph, w_l, d_i, d_o, resonant_only=True,
+                        suffix=suffix)
         if calc.wfs.kd.comm.rank == 0:
             # Calculate Raman intensity
-            calculate_raman_intensity(d_i, d_o)
-            pollist.append("{}{}".format('xyz'[d_i], 'xyz'[d_o]))
+            calculate_raman_intensity(w_ph, d_i, d_o, suffix=suffix)
+            pollist.append("{}{}_{}".format('xyz'[d_i], 'xyz'[d_o], suffix))
 
 # And plot
 if calc.wfs.kd.comm.rank == 0:
-    plot_raman(figname="Raman_all.png", ramanname=pollist)
+    plot_raman(figname="Raman_all.png", RIsuffix=pollist)

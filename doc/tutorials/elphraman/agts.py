@@ -15,6 +15,6 @@ def workflow():
 def check():
     """Read result and make sure it's OK."""
     import numpy as np
-    ri = np.load("RI_xz.npy")
-    assert ri[1].argmax == 1304
-    assert np.isclose(max(ri[1]), 0.04889, atol=1e-3)
+    ri = np.load("RI_xz_632nm.npy")
+    assert ri[1].argmax() == 1304
+    assert np.isclose(max(ri[1]), 4.8486e-5, rtol=1e-3)
