@@ -2,6 +2,7 @@ import numpy as np
 import ase.units as units
 from gpaw.elph.electronphonon import ElectronPhononCoupling
 from gpaw.mpi import world
+from gpaw.typing import ArrayND
 
 
 class EPC(ElectronPhononCoupling):
@@ -39,10 +40,11 @@ class EPC(ElectronPhononCoupling):
             potential is included (default: True).
         """
         self.set_lcao_calculator(calc)
-        ElectronPhononCoupling.calculate_supercell_matrix(self, 2, name, filter,
+        ElectronPhononCoupling.calculate_supercell_matrix(self, 2, name,
+                                                          filter,
                                                           include_pseudo)
 
-    def _bloch_matrix(self, kpt, k_c, u_l, basis=None, name=None):
+    def _bloch_matrix(self, kpt, k_c, u_l, basis=None, name=None) -> ArrayND:
         """
         This is a special q=0 version. Need to implement general version in
         ElectronPhononCoupling.
@@ -89,7 +91,7 @@ class EPC(ElectronPhononCoupling):
 
         return g_lnn * units.Hartree / units.Bohr  # eV / Ang
 
-    def get_elph_matrix(self, calc, phonon):
+    def get_elph_matrix(self, calc, phonon, savetofile=True) -> ArrayND:
         """Calculate the electronphonon matrix in Bloch states.
 
         Always uses q=0.
@@ -100,6 +102,8 @@ class EPC(ElectronPhononCoupling):
             Converged ground-state calculation. NOT supercell.
         phonon: Phonons
             Phonon object
+        savetofile: bool
+            Switch for saving to gsqklnn.npy file
         """
         assert calc.wfs.bd.comm.size == 1
 
@@ -107,8 +111,10 @@ class EPC(ElectronPhononCoupling):
         # This only looks at gamma point phonons
         phonon.read()
         frequencies, modes = phonon.band_structure([[0., 0., 0.]], modes=True)
+
         # Find el-ph matrix in the LCAO basis
-        self.set_lcao_calculator(calc)
+        if self.calc_lcao is None:
+            self.set_lcao_calculator(calc)
         basis = calc.parameters['basis']
         if isinstance(basis, dict):
             basis = ""
@@ -125,6 +131,6 @@ class EPC(ElectronPhononCoupling):
 
         calc.wfs.kd.comm.sum(g_sqklnn)
 
-        if world.rank == 0:
+        if world.rank == 0 and savetofile:
             np.save("gsqklnn.npy", g_sqklnn)
         return g_sqklnn

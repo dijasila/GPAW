@@ -327,7 +327,7 @@ def plot_raman(figname, RIsuffix, relative=True, w_min=None, w_max=None):
     figname: str
         Filename for figure.
     RIsuffix: str, list
-        Suffix of Raman intensity files to use for plotting. For example 
+        Suffix of Raman intensity files to use for plotting. For example
         "0_1_455nm" for RI_0_1_455nm.npy
     """
     from scipy import signal
