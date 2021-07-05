@@ -32,9 +32,9 @@ potential. For a description of the method, see [#Castro2003]_.
 
 This can be accomplished by following solver::
 
-  from gpaw.poisson_extended import ExtendedPoissonSolver
-  poissonsolver = ExtendedPoissonSolver(eps=eps,
-                                        moment_corrections=4)
+  from gpaw.poisson_moment import MomentCorrectionPoissonSolver
+  poissonsolver = MomentCorrectionPoissonSolver(poissonsolver=PoissonSolver(),
+                                                moment_corrections=4)
 
 This corrects the 4 first multipole moments, i.e., `s`, `p_x`, `p_y`, and
 `p_z` type multipoles. The range of multipoles can be changed by changing
@@ -48,9 +48,10 @@ alternatively, a multicenter multipole approach. For this, consider the
 advanced syntax of the moment_corrections. The previous code snippet is
 equivalent to::
 
-  from gpaw.poisson_extended import ExtendedPoissonSolver
   poissonsolver = ExtendedPoissonSolver(eps=eps,
-                                        moment_corrections=[{'moms': range(4), 'center': None}])
+  from gpaw.poisson_moment import MomentCorrectionPoissonSolver
+  poissonsolver = MomentCorrectionPoissonSolver(poissonsolver=PoissonSolver(),
+                                                moment_corrections=[{'moms': range(4), 'center': None}])
 
 Here ``moment_corrections`` is a list of dictionaries with following
 keywords: ``moms`` specifies the considered multipole moments, e.g.,
@@ -64,13 +65,13 @@ following settings for the ``ExtendedPoissonSolver`` may be tried out::
 
   import numpy as np
   from ase.units import Bohr
-  from gpaw.poisson_extended import ExtendedPoissonSolver
+  from gpaw.poisson_moment import MomentCorrectionPoissonSolver
   moms = range(4)
   center1 = np.array([x1, y1, z1]) / Bohr
   center2 = np.array([x2, y2, z2]) / Bohr
-  poissonsolver = ExtendedPoissonSolver(eps=eps,
-                                        moment_corrections=[{'moms': moms, 'center': center1},
-                                                            {'moms': moms, 'center': center2}])
+  poissonsolver = MomentCorrectionPoissonSolver(poissonsolver=PoissonSolver(),
+                                                moment_corrections=[{'moms': moms, 'center': center1},
+                                                                    {'moms': moms, 'center': center2}])
 
 When multiple centers are used, the multipole moments are calculated on
 non-overlapping regions of the calculation cell. Each point in space is
