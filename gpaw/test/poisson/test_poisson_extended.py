@@ -40,22 +40,22 @@ def test_poisson_poisson_extended():
             Ng_c = gd.get_size_of_global_array()
             plt.sca(ax_i[ploti])
             ploti += 1
-            plt.pcolormesh(big_rho_g[Ng_c[0] / 2])
+            plt.pcolormesh(big_rho_g[Ng_c[0] // 2])
             plt.sca(ax_i[ploti])
             ploti += 1
-            plt.plot(big_rho_g[Ng_c[0] / 2, Ng_c[1] / 2])
+            plt.plot(big_rho_g[Ng_c[0] // 2, Ng_c[1] // 2])
 
     def plot_phi(phi_g):
         if do_plot:
             big_phi_g = gd.collect(phi_g)
             if gd.comm.rank == 0:
-                global ploti
+                nonlocal ploti
                 plt.sca(ax_i[ploti])
                 ploti += 1
-                plt.pcolormesh(big_phi_g[Ng_c[0] / 2])
+                plt.pcolormesh(big_phi_g[Ng_c[0] // 2])
                 plt.sca(ax_i[ploti])
                 ploti += 1
-                plt.plot(big_phi_g[Ng_c[0] / 2, Ng_c[1] / 2])
+                plt.plot(big_phi_g[Ng_c[0] // 2, Ng_c[1] // 2])
                 plt.ylim(np.array([-1, 1]) * 0.15)
 
     def poisson_solve(gd, rho_g, poisson):
