@@ -1,17 +1,17 @@
+from typing import Any, Dict, Optional, List, Union
+
 import numpy as np
 from ase.units import Bohr
-from gpaw.poisson import FDPoissonSolver
+from ase.utils.timing import Timer
+from gpaw.poisson import _PoissonSolver
 from gpaw.utilities.gauss import Gaussian
-from gpaw.utilities.timing import nulltimer
+from gpaw.utilities.timing import nulltimer, NullTimer
 
 from ase.utils.timing import timer
 
-from gpaw.utilities.extend_grid import extended_grid_descriptor, \
-    extend_array, deextend_array
 
-
-class ExtendedPoissonSolver(FDPoissonSolver):
-    """ExtendedPoissonSolver
+class MomentCorrectionPoissonSolver(_PoissonSolver):
+    """MomentCorrectionPoissonSolver
 
     Parameter syntax:
 
@@ -21,32 +21,19 @@ class ExtendedPoissonSolver(FDPoissonSolver):
     Here moms_listX is list of integers of multipole moments to be corrected
     at centerX.
 
-    extended = {'gpts': gpts, 'useprev': useprev}
-    Here gpts is number of grid points in the **coarse** grid corresponding
-    to the larger grid used for PoissonSolver (the Poisson equation
-    is solved on fine grid as usual, but the gpts is given in coarse grid
-    units for convenience), and useprev is boolean determining whether previous
-    solution of the PoissonSolver instance is used as an initial guess
-    for the next solve() call.
-
     Important: provide timer for PoissonSolver to analyze the cost of
     the multipole moment corrections and grid extension to your system!
 
     """
-    # TODO: enable 'comm' parameter for 'extended' dictionary. This would
-    # allow to use the whole mpi.world for PoissonSolver.
-    # Currently, Poisson equation calculation is duplicated over, e.g.,
-    # band and kpt communicators.
 
-    def __init__(self, nn=3, relax='J', eps=2e-10, maxiter=1000,
-                 moment_corrections=None,
-                 extended=None,
-                 timer=nulltimer):
+    def __init__(self,
+                 poissonsolver: _PoissonSolver,
+                 moment_corrections: Optional[Union[int, List[Dict[str, Any]]]] = None,
+                 timer: Union[NullTimer, Timer] = nulltimer):
 
-        FDPoissonSolver.__init__(self, nn=nn, relax=relax,
-                                 eps=eps, maxiter=maxiter,
-                                 remove_moment=None)
-
+        self._initialized = False
+        self.poissonsolver = poissonsolver
+        self.gd = self.poissonsolver.gd
         self.timer = timer
 
         if moment_corrections is None:
@@ -57,41 +44,13 @@ class ExtendedPoissonSolver(FDPoissonSolver):
         else:
             self.moment_corrections = moment_corrections
 
-        self.is_extended = False
-        # Broadcast over band, kpt, etc. communicators required?
-        self.requires_broadcast = False
-        if extended is not None:
-            self.is_extended = True
-            self.extended = extended
-            assert 'gpts' in extended.keys(), 'gpts parameter is missing'
-            self.extended['gpts'] = np.array(self.extended['gpts'])
-            # Multiply gpts by 2 to get gpts on fine grid
-            self.extended['finegpts'] = self.extended['gpts'] * 2
-            assert 'useprev' in extended.keys(), 'useprev parameter is missing'
-            if self.extended.get('comm') is not None:
-                self.requires_broadcast = True
-
     def set_grid_descriptor(self, gd):
-        if self.is_extended:
-            self.gd_original = gd
-            assert np.all(self.gd_original.N_c <= self.extended['finegpts']), \
-                'extended grid has to be larger than the original one'
-            gd, _, _ = extended_grid_descriptor(
-                gd,
-                N_c=self.extended['finegpts'],
-                extcomm=self.extended.get('comm'))
-        FDPoissonSolver.set_grid_descriptor(self, gd)
+        self.poissonsolver.set_grid_descriptor(gd)
 
-    def get_description(self):
-        description = FDPoissonSolver.get_description(self)
+    def get_description(self) -> str:
+        description = self.poissonsolver.get_description()
 
         lines = [description]
-
-        if self.is_extended:
-            lines.extend(['    Extended %d*%d*%d grid' %
-                          tuple(self.gd.N_c)])
-            lines.extend(['    Use previous is %s' %
-                          self.extended['useprev']])
 
         if self.moment_corrections:
             lines.extend(['    %d moment corrections:' %
@@ -110,15 +69,7 @@ class ExtendedPoissonSolver(FDPoissonSolver):
     def _init(self):
         if self._initialized:
             return
-        FDPoissonSolver._init(self)
-
-        if self.is_extended:
-            if not self.gd.orthogonal or self.gd.pbc_c.any():
-                raise NotImplementedError('Only orthogonal unit cells '
-                                          'and non-periodic boundary '
-                                          'conditions are tested')
-            self.rho_g = self.gd.zeros()
-            self.phi_g = self.gd.zeros()
+        self.poissonsolver._init()
 
         if self.moment_corrections is not None:
             if not self.gd.orthogonal or self.gd.pbc_c.any():
@@ -126,6 +77,8 @@ class ExtendedPoissonSolver(FDPoissonSolver):
                                           'and non-periodic boundary '
                                           'conditions are tested')
             self.load_moment_corrections_gauss()
+
+        self._initialized = True
 
     @timer('Load moment corrections')
     def load_moment_corrections_gauss(self):
@@ -171,26 +124,8 @@ class ExtendedPoissonSolver(FDPoissonSolver):
     def solve(self, phi, rho, charge=None, maxcharge=1e-6,
               zero_initial_phi=False):
         self._init()
-        if self.is_extended:
-            self.rho_g[:] = 0
-            if not self.extended['useprev']:
-                self.phi_g[:] = 0
-
-            self.timer.start('Extend array')
-            extend_array(self.gd_original, self.gd, rho, self.rho_g)
-            self.timer.stop('Extend array')
-
-            retval = self._solve(self.phi_g, self.rho_g, charge,
-                                 maxcharge, zero_initial_phi)
-
-            self.timer.start('Deextend array')
-            deextend_array(self.gd_original, self.gd, phi, self.phi_g)
-            self.timer.stop('Deextend array')
-
-            return retval
-        else:
-            return self._solve(phi, rho, charge, maxcharge,
-                               zero_initial_phi)
+        return self._solve(phi, rho, charge, maxcharge,
+                           zero_initial_phi)
 
     @timer('Solve')
     def _solve(self, phi, rho, charge=None, maxcharge=1e-6,
@@ -218,7 +153,7 @@ class ExtendedPoissonSolver(FDPoissonSolver):
             self.timer.stop('Multipole moment corrections')
 
             self.timer.start('Solve neutral')
-            niter = self.solve_neutral(phi, rho_neutral)
+            niter = self.poissonsolver.solve(phi, rho_neutral)
             self.timer.stop('Solve neutral')
 
             self.timer.start('Multipole moment corrections')
@@ -229,21 +164,26 @@ class ExtendedPoissonSolver(FDPoissonSolver):
 
             return niter
         else:
-            return FDPoissonSolver.solve(self, phi, rho, charge,
-                                         maxcharge,
-                                         zero_initial_phi)
+            return self.poissonsolver.solve(phi, rho, charge,
+                                            maxcharge,
+                                            zero_initial_phi)
 
     def estimate_memory(self, mem):
-        FDPoissonSolver.estimate_memory(self, mem)
+        self.poissonsolver.estimate_memory(mem)
         gdbytes = self.gd.bytecount()
-        if self.is_extended:
-            mem.subnode('extended arrays',
-                        2 * gdbytes)
         if self.moment_corrections is not None:
             mem.subnode('moment_corrections masks',
                         len(self.moment_corrections) * gdbytes)
 
     def __repr__(self):
-        template = 'ExtendedPoissonSolver(relax=\'%s\', nn=%s, eps=%e)'
-        representation = template % (self.relax, repr(self.nn), self.eps)
+        if self.moment_corrections is None or len(self.moment_corrections) == 0:
+            corrections_str = 'no corrections'
+        else:
+            if len(self.moment_corrections) == 1:
+                m = self.moment_corrections[0]
+                corrections_str = f'{repr(m["moms"]) @ {repr(m["center"])}}'
+            else:
+                corrections_str = f'{len(self.moment_corrections)} corrections'
+
+        representation = f'MomentCorrectionPoissonSolver ({corrections_str})'
         return representation

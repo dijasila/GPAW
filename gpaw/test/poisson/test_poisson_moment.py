@@ -1,7 +1,7 @@
 import numpy as np
 
-from gpaw.poisson import FDPoissonSolver as PoissonSolver
-from gpaw.poisson_extended import ExtendedPoissonSolver
+from gpaw.poisson import FDPoissonSolver
+from gpaw.poisson_moment import MomentCorrectionPoissonSolver
 from gpaw.grid_descriptor import GridDescriptor
 
 from gpaw.test import equal
@@ -12,7 +12,7 @@ from gpaw.test import equal
 
 # Model grid
 
-def test_poisson_poisson_extended():
+def test_poisson_poisson_moment():
     N_c = (16, 16, 3 * 16)
     cell_cv = (1, 1, 3)
     gd = GridDescriptor(N_c, cell_cv, False)
@@ -71,74 +71,33 @@ def test_poisson_poisson_extended():
                   val, np.sqrt(poissoneps))
 
     # Get reference from default poissonsolver
-    poisson = PoissonSolver(eps=poissoneps)
-    poisson.set_grid_descriptor(gd)
-    phiref_g, npoisson = poisson_solve(gd, rho_g, poisson)
+    poisson_ref = FDPoissonSolver(eps=poissoneps)
+    poisson_ref.set_grid_descriptor(gd)
+    phiref_g, npoisson = poisson_solve(gd, rho_g, poisson_ref)
 
     # Test agreement with default
-    poisson = ExtendedPoissonSolver(eps=poissoneps)
+    poisson = MomentCorrectionPoissonSolver(poissonsolver=poisson_ref)
     poisson.set_grid_descriptor(gd)
     phi_g, npoisson = poisson_solve(gd, rho_g, poisson)
     plot_phi(phi_g)
     compare(phi_g, phiref_g, 0.0)
 
     # Test moment_corrections=int
-    poisson = ExtendedPoissonSolver(eps=poissoneps, moment_corrections=4)
+    poisson = MomentCorrectionPoissonSolver(poissonsolver=poisson_ref, moment_corrections=4)
     poisson.set_grid_descriptor(gd)
     phi_g, npoisson = poisson_solve(gd, rho_g, poisson)
     plot_phi(phi_g)
     compare(phi_g, phiref_g, 4.1182101206e-02)
 
     # Test moment_corrections=list
-    poisson = ExtendedPoissonSolver(
-        eps=poissoneps,
-        moment_corrections=[{'moms': range(4), 'center': [.5, .5, 1]},
-                            {'moms': range(4), 'center': [.5, .5, 2]}])
+    moment_corrections = [{'moms': range(4), 'center': [.5, .5, 1]},
+                          {'moms': range(4), 'center': [.5, .5, 2]}]
+    poisson = MomentCorrectionPoissonSolver(poissonsolver=poisson_ref,
+                                            moment_corrections=moment_corrections)
     poisson.set_grid_descriptor(gd)
     phi_g, npoisson = poisson_solve(gd, rho_g, poisson)
     plot_phi(phi_g)
     compare(phi_g, phiref_g, 2.7569628594e-02)
-
-    # Test extendedgpts
-    poisson = ExtendedPoissonSolver(eps=poissoneps,
-                                    extended={'gpts': (24, 24, 3 * 24),
-                                              'useprev': False})
-    poisson.set_grid_descriptor(gd)
-    phi_g, npoisson = poisson_solve(gd, rho_g, poisson)
-    plot_phi(phi_g)
-    compare(phi_g, phiref_g, 2.5351851105e-02)
-
-    # Test extendedgpts + moment_corrections, extendedhistory=False
-    poisson = ExtendedPoissonSolver(
-        eps=poissoneps,
-        extended={'gpts': (24, 24, 3 * 24),
-                  'useprev': False},
-        moment_corrections=[{'moms': range(4), 'center': [.5, .5, 1]},
-                            {'moms': range(4), 'center': [.5, .5, 2]}])
-    poisson.set_grid_descriptor(gd)
-    phi_g, npoisson = poisson_solve(gd, rho_g, poisson)
-    plot_phi(phi_g)
-    phi2_g, npoisson2 = poisson_solve(gd, rho_g, poisson)
-    equal(npoisson, npoisson2)
-    compare(phi_g, phi2_g, 0.0)
-    compare(phi_g, phiref_g, 2.75205170866e-02)
-
-    # Test extendedgpts + moment_corrections,
-    # extendedhistory=True
-    poisson = ExtendedPoissonSolver(
-        eps=poissoneps,
-        extended={'gpts': (24, 24, 3 * 24),
-                  'useprev': True},
-        moment_corrections=[{'moms': range(4), 'center': [.5, .5, 1]},
-                            {'moms': range(4), 'center': [.5, .5, 2]}])
-    poisson.set_grid_descriptor(gd)
-    phi_g, npoisson = poisson_solve(gd, rho_g, poisson)
-    phi2_g, npoisson2 = poisson_solve(gd, rho_g, poisson)
-    # The second run should use the old value -> niter=1
-    equal(npoisson2, 1)
-    # There is a slight difference in values
-    # because one more iteration in phi2_g
-    compare(phi_g, phi2_g, 0.0)
 
     if do_plot:
         if gd.comm.rank == 0:
