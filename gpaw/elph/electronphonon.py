@@ -808,7 +808,8 @@ class ElectronPhononCoupling(Displacement):
                     # Multiply phase factors
                     for m in range(N):
                         for n in range(N):
-                            phase = self._get_phase_factor(R_cN, m, n, k_c, q_c)
+                            phase = self._get_phase_factor(R_cN, m, n,
+                                                           k_c, q_c)
                             # Sum contributions from different cells
                             g_xMM += g_xNNMM[:, m, n, :, :] * phase
 

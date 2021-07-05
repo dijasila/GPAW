@@ -1,9 +1,6 @@
 """
 Calculates Raman matrices and intensities.
 
-Momentum matrices are not symmetric. The first index is the bra, the other the
-ket.
-
 i -> j -> m -> n
 i, n are valence; j, m are conduction, also i=n in the end
 see https://doi.org/10.1038/s41467-020-16529-6
@@ -34,7 +31,7 @@ def calculate_raman(calc, w_ph, w_in, d_i, d_o, resonant_only=False,
     ----------
     calc: GPAW
         Converged ground state calculation
-    w_ph: Array, str
+    w_ph: ndarray, str
         Array of phonon frequencies in eV, or name of file with them
     w_in: float
         Laser energy in eV
@@ -288,7 +285,7 @@ def calculate_raman_intensity(w_ph, d_i, d_o, suffix, T=300):
 
     Parameters
     ----------
-    w_ph: Array, str
+    w_ph: ndarray, str
         Array of phonon frequencies in eV, or name of file with them
     d_i: int
         Incoming polarization

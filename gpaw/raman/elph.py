@@ -112,12 +112,7 @@ class EPC(ElectronPhononCoupling):
         phonon.read()
         frequencies, modes = phonon.band_structure([[0., 0., 0.]], modes=True)
 
-        # Find el-ph matrix in the LCAO basis
-        # Always overwrite calc_lcao. The one used for
-        # calculate_supercell_matrix might not be the same as required here
-        self.calc_lcao = None
-        #if self.calc_lcao is None:
-        #    self.set_lcao_calculator(calc)
+        # Need this to find correct files
         basis = calc.parameters['basis']
         if isinstance(basis, dict):
             basis = ""
@@ -129,6 +124,7 @@ class EPC(ElectronPhononCoupling):
         # loop over k-points
         for kpt in calc.wfs.kpt_u:
             k_c = calc.wfs.kd.ibzk_kc[kpt.k]
+            # Find el-ph matrix in the LCAO basis
             g_lnn = self._bloch_matrix(kpt, k_c, modes[0], basis)
             g_sqklnn[kpt.s, 0, kpt.k] += g_lnn
 
