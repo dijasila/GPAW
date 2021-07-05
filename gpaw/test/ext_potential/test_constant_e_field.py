@@ -1,9 +1,11 @@
 """A proton in an electric field."""
+import pytest
 from ase import Atoms
 from ase.units import Hartree, Bohr
 
 from gpaw import GPAW
 from gpaw.external import ConstantElectricField
+from gpaw.external import StaticPolarizability
 
 
 def test_ext_potential_constant_e_field(in_tmp_dir):
@@ -25,3 +27,14 @@ def test_ext_potential_constant_e_field(in_tmp_dir):
     h.calc.write('h')
     vext = GPAW('h', txt=None).hamiltonian.vext
     assert abs(vext.field_v[2] - 1.0 * Bohr / Hartree) < 1e-13
+
+
+def test_polarizability(in_tmp_dir):
+    h = Atoms('H')
+    h.center(vacuum=2.5)
+    h.calc = GPAW()
+
+    strength = 0.1  # V/Ang
+    alpha_cc = StaticPolarizability(strength).calculate(h)
+    assert alpha_cc.shape == (3, 3)
+    assert alpha_cc.diagonal() == pytest.approx(0.05262094)
