@@ -33,8 +33,10 @@ class MomentCorrectionPoissonSolver(_PoissonSolver):
 
         self._initialized = False
         self.poissonsolver = poissonsolver
-        self.gd = self.poissonsolver.gd
         self.timer = timer
+
+        if hasattr(self.poissonsolver, 'gd'):
+            self.gd = self.poissonsolver.gd
 
         if moment_corrections is None:
             self.moment_corrections = None
@@ -176,10 +178,10 @@ class MomentCorrectionPoissonSolver(_PoissonSolver):
                         len(self.moment_corrections) * gdbytes)
 
     def __repr__(self):
-        if self.moment_corrections is None or len(self.moment_corrections) == 0:
+        if self.moment_corrections is None:
             corrections_str = 'no corrections'
         else:
-            if len(self.moment_corrections) == 1:
+            if len(self.moment_corrections) < 2:
                 m = self.moment_corrections[0]
                 corrections_str = f'{repr(m["moms"]) @ {repr(m["center"])}}'
             else:

@@ -1,18 +1,85 @@
 import numpy as np
+import pytest
 
-from gpaw.poisson import FDPoissonSolver
+from ase.units import Bohr
+from gpaw.poisson import FDPoissonSolver, NoInteractionPoissonSolver
 from gpaw.poisson_moment import MomentCorrectionPoissonSolver
 from gpaw.grid_descriptor import GridDescriptor
 
 from gpaw.test import equal
 
-# def equal(x, y, tol=0):
-#     print '%.10e vs %.10e at %.10e' % (x, y, tol)
+
+@pytest.mark.parametrize('moment_corrections, expected_len', [
+        (None, None),
+        ([], 0),
+        (4, 1),
+        (9, 1),
+        ([dict(moms=range(4), center=np.array([1, 3, 5]))], 1),
+        ([dict(moms=range(4), center=np.array([5, 3, 5])),
+         dict(moms=range(4), center=np.array([7, 5, 3]))], 2)
+    ])
+def test_defaults(moment_corrections, expected_len):
+    poisson_ref = NoInteractionPoissonSolver()
+    poisson = MomentCorrectionPoissonSolver(poissonsolver=poisson_ref,
+                                            moment_corrections=moment_corrections)
+
+    if expected_len is None:
+        assert poisson.moment_corrections is None, poisson.moment_corrections
+    else:
+        assert isinstance(poisson.moment_corrections, list), poisson.moment_corrections
+        assert len(poisson.moment_corrections) == expected_len
+        assert all([isinstance(mom, dict) for mom in poisson.moment_corrections])
 
 
-# Model grid
+@pytest.mark.parametrize('moment_corrections', [
+        (None),
+        ([]),
+    ])
+def test_description_empty(moment_corrections):
+    poisson_ref = NoInteractionPoissonSolver()
+    poisson = MomentCorrectionPoissonSolver(poissonsolver=poisson_ref,
+                                            moment_corrections=moment_corrections)
 
-def test_poisson_poisson_moment():
+    desc = poisson.get_description()
+    desc_ref = poisson_ref.get_description()
+
+    assert isinstance(desc, str)
+    assert isinstance(desc_ref, str)
+    assert desc == desc_ref
+
+
+@pytest.mark.parametrize('moment_corrections, expected_strings', [
+        (4, ['1 moment corrections', 'center', 'range(0, 4)']),
+        (9, ['1 moment corrections', 'center', 'range(0, 9)']),
+        ([dict(moms=range(4), center=np.array([1, 1, 1]) / Bohr)],
+            ['1 moment corrections', '[1.00, 1.00, 1.00]', 'range(0, 4)']),
+        ([dict(moms=range(4), center=np.array([2, 3, 4]) / Bohr),
+          dict(moms=range(4), center=np.array([7.4, 3.1, 0.1]) / Bohr)],
+            ['2 moment corrections', '[2.00, 3.00, 4.00]', '[7.40, 3.10, 0.10]', 'range(0, 4)']),
+    ])
+def test_description(moment_corrections, expected_strings):
+    poisson_ref = NoInteractionPoissonSolver()
+    poisson = MomentCorrectionPoissonSolver(poissonsolver=poisson_ref,
+                                            moment_corrections=moment_corrections)
+
+    desc = poisson.get_description()
+
+    desc = poisson.get_description()
+    desc_ref = poisson_ref.get_description()
+
+    assert isinstance(desc, str)
+    assert isinstance(desc_ref, str)
+
+    # Make sure that the description starts with the description of the wrapped solver
+    assert desc.startswith(desc_ref)
+
+    # and follows with the moments
+    desc_rem = desc[len(desc_ref):]
+    for expected_str in expected_strings:
+        assert expected_str in desc_rem, f'"{expected_str}" not in "{desc_rem}"'
+
+
+def test_poisson_moment_correction():
     N_c = (16, 16, 3 * 16)
     cell_cv = (1, 1, 3)
     gd = GridDescriptor(N_c, cell_cv, False)
