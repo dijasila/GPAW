@@ -6,8 +6,8 @@ It is for lcao
 """
 
 import numpy as np
-from gpaw.directmin.lcao.tools import cubic_interpolation, \
-    parabola_interpolation
+from gpaw.directmin.lcao.tools import minimum_cubic_interpol, \
+    minimum_parabola_interpol
 
 
 def descent(phi_0, phi_j, eps=1.0e-2):
@@ -93,7 +93,7 @@ class Parabola(UnitStepLength):
         if descent(phi_0, phi_i, eps=1.0e-2):
             return 1.0, phi_i, der_phi_i, g_i
         else:
-            a_star = parabola_interpolation(0.0, 1.0,
+            a_star = minimum_parabola_interpol(0.0, 1.0,
                                             phi_0, phi_i,
                                             der_phi_0)
             if a_star < 0.01:
@@ -262,7 +262,7 @@ class StrongWolfeConditions(UnitStepLength):
                         g_star = g_max
                         break
 
-            a_new = cubic_interpolation(alpha[i], alpha_max,
+            a_new = minimum_cubic_interpol(alpha[i], alpha_max,
                                         phi_i, phi_max,
                                         der_phi_i, der_phi_max)
 
@@ -301,7 +301,7 @@ class StrongWolfeConditions(UnitStepLength):
 
         while True:
 
-            a_j = cubic_interpolation(a_lo, a_hi,
+            a_j = minimum_cubic_interpol(a_lo, a_hi,
                                       f_lo, f_hi,
                                       df_lo, df_hi)
             if a_j < 0.01:
