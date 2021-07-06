@@ -3,11 +3,47 @@ from typing import Any, Dict, Optional, List, Union
 import numpy as np
 from ase.units import Bohr
 from ase.utils.timing import Timer
-from gpaw.poisson import _PoissonSolver
+from gpaw.poisson import _PoissonSolver, create_poisson_solver
 from gpaw.utilities.gauss import Gaussian
 from gpaw.utilities.timing import nulltimer, NullTimer
 
 from ase.utils.timing import timer
+
+
+def dict_sanitize(dict_in: Dict[str, Any]) -> Dict[str, Any]:
+    """ sanitize the moment correction dictionary """
+
+    center = dict_in['center']
+    if center is not None:
+        center = np.asarray(center)
+
+    dict_out = dict(moms=np.asarray(dict_in['moms']), center=center)
+
+    return dict_out
+
+
+def dict_A_to_au(dict_in: Dict[str, Any]) -> Dict[str, Any]:
+    """ convert a moment correction dictionary from Ångström to units of Bohr """
+
+    center = dict_in['center']
+    if center is not None:
+        center = np.asarray(center) / Bohr
+
+    dict_out = dict(moms=dict_in['moms'], center=center)
+
+    return dict_out
+
+
+def dict_au_to_A(dict_in: Dict[str, Any]) -> Dict[str, Any]:
+    """ convert a moment correction dictionary from units of Bohr to Ångström """
+
+    center = dict_in['center']
+    if center is not None:
+        center = center * Bohr
+
+    dict_out = dict(moms=dict_in['moms'], center=center)
+
+    return dict_out
 
 
 class MomentCorrectionPoissonSolver(_PoissonSolver):
@@ -32,22 +68,40 @@ class MomentCorrectionPoissonSolver(_PoissonSolver):
                  timer: Union[NullTimer, Timer] = nulltimer):
 
         self._initialized = False
-        self.poissonsolver = poissonsolver
+        self.poissonsolver = create_poisson_solver(poissonsolver)
         self.timer = timer
 
-        if hasattr(self.poissonsolver, 'gd'):
-            self.gd = self.poissonsolver.gd
+        gd = getattr(self.poissonsolver, 'gd', None)
+        if gd is not None:
+            self.gd = gd
 
         if moment_corrections is None:
             self.moment_corrections = None
         elif isinstance(moment_corrections, int):
-            self.moment_corrections = [{'moms': range(moment_corrections),
-                                        'center': None}]
+            _moment_corrections = {'moms': range(moment_corrections), 'center': None}
+            self.moment_corrections = [dict_sanitize(_moment_corrections)]
+        elif isinstance(moment_corrections, list):
+            assert all(['moms' in mom and 'center' in mom for mom in moment_corrections]), \
+                   f'{self.__class__.__name__}: each element in moment_correction must be a dictionary' \
+                   'with the keys "moms" and "center"'
+
+            # Convert to Bohr units
+            self.moment_corrections = [dict_A_to_au(dict_sanitize(mom)) for mom in moment_corrections]
         else:
-            self.moment_corrections = moment_corrections
+            raise ValueError(f'{self.__class__.__name__}: moment_correction must be a list of dictionaries')
+
+    def todict(self):
+        d = {'name': 'MomentCorrectionPoissonSolver',
+             'poissonsolver': self.poissonsolver.todict()}
+        if self.moment_corrections:
+            mom_corr = [dict_au_to_A(mom) for mom in self.moment_corrections]
+            d['moment_corrections'] = mom_corr
+
+        return d
 
     def set_grid_descriptor(self, gd):
         self.poissonsolver.set_grid_descriptor(gd)
+        self.gd = gd
 
     def get_description(self) -> str:
         description = self.poissonsolver.get_description()
@@ -55,17 +109,27 @@ class MomentCorrectionPoissonSolver(_PoissonSolver):
         lines = [description]
 
         if self.moment_corrections:
-            lines.extend(['    %d moment corrections:' %
-                          len(self.moment_corrections)])
-            lines.extend(['      %s' %
-                          ('[%s] %s' %
-                           ('center' if mom['center'] is None
-                            else (', '.join(['%.2f' % (x * Bohr)
-                                             for x in mom['center']])),
-                            mom['moms']))
-                          for mom in self.moment_corrections])
+            lines.extend([f'    {len(self.moment_corrections)} moment corrections:'])
+            lines.extend([f'      {self.describe_dict(mom)}' for mom in self.moment_corrections])
 
         return '\n'.join(lines)
+
+    def describe_dict(self,
+                      mom: Dict[str, Any]) -> str:
+        if mom['center'] is None:
+            center = 'center'
+        else:
+            center = ', '.join([f'{x:.2f}' for x in mom['center'] * Bohr])
+
+        moms = mom['moms']
+        if np.allclose(np.diff(moms), 1):
+            # Increasing sequence
+            moms = f'range({moms[0]}, {moms[-1]+1})'
+        else:
+            # List of integers
+            _moms = ', '.join([f'{m:.0f}' for m in moms])
+            moms = f'({_moms})'
+        return f'[{center}] {moms}'
 
     @timer('Poisson initialize')
     def _init(self):
@@ -123,21 +187,21 @@ class MomentCorrectionPoissonSolver(_PoissonSolver):
                 # if self.gd.comm.rank == 0:
                 #     big_g.dump('mask_%dg' % (i))
 
-    def solve(self, phi, rho, charge=None, maxcharge=1e-6,
-              zero_initial_phi=False):
+    def solve(self, phi, rho, **kwargs):
         self._init()
-        return self._solve(phi, rho, charge, maxcharge,
-                           zero_initial_phi)
+        return self._solve(phi, rho, **kwargs)
 
     @timer('Solve')
-    def _solve(self, phi, rho, charge=None, maxcharge=1e-6,
-               zero_initial_phi=False):
+    def _solve(self, phi, rho, **kwargs):
         self._init()
+        timer = kwargs.get('timer', None)
+        if timer is None:
+            timer = self.timer
 
         if self.moment_corrections:
             assert not self.gd.pbc_c.any()
 
-            self.timer.start('Multipole moment corrections')
+            timer.start('Multipole moment corrections')
 
             rho_neutral = rho * 0.0
             phi_cor_k = []
@@ -152,23 +216,21 @@ class MomentCorrectionPoissonSolver(_PoissonSolver):
             for phi_cor in phi_cor_k:
                 phi -= phi_cor
 
-            self.timer.stop('Multipole moment corrections')
+            timer.stop('Multipole moment corrections')
 
-            self.timer.start('Solve neutral')
+            timer.start('Solve neutral')
             niter = self.poissonsolver.solve(phi, rho_neutral)
-            self.timer.stop('Solve neutral')
+            timer.stop('Solve neutral')
 
-            self.timer.start('Multipole moment corrections')
+            timer.start('Multipole moment corrections')
             # correct error introduced by removing multipoles
             for phi_cor in phi_cor_k:
                 phi += phi_cor
-            self.timer.stop('Multipole moment corrections')
+            timer.stop('Multipole moment corrections')
 
             return niter
         else:
-            return self.poissonsolver.solve(phi, rho, charge,
-                                            maxcharge,
-                                            zero_initial_phi)
+            return self.poissonsolver.solve(phi, rho, **kwargs)
 
     def estimate_memory(self, mem):
         self.poissonsolver.estimate_memory(mem)
