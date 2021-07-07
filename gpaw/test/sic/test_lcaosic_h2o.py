@@ -4,7 +4,6 @@ from gpaw import GPAW, LCAO
 from ase import Atoms
 import numpy as np
 from gpaw.directmin.lcao.directmin_lcao import DirectMinLCAO
-from gpaw.test import equal
 
 
 def test_lcaosic_h2o(in_tmp_dir):
@@ -54,4 +53,3 @@ def test_lcaosic_h2o(in_tmp_dir):
     niter = calc.get_number_of_iterations()
     assert niter == pytest.approx(4, abs=3)
     assert f2 == pytest.approx(f3, abs=3e-2)
-
