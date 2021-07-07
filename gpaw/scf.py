@@ -258,8 +258,6 @@ class SCFLoop:
             self.errors_check_convergence_log(
                 energy, dens, ham, wfs, callback, log)
 
-            yield
-
             if self.converged:
                 if wfs.mode == 'fd' or wfs.mode == 'pw':
                     solver.choose_optimal_orbitals(
