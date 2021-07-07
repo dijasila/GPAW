@@ -1,10 +1,11 @@
+import pytest
+
 from gpaw import GPAW, LCAO
 from gpaw.directmin.lcao.directmin_lcao import DirectMinLCAO
 from gpaw.mom import prepare_mom_calculation
 from gpaw.directmin.exstatetools import excite_and_sort
 from ase import Atoms
 import numpy as np
-from gpaw.test import equal
 
 
 def test_xc_pw(gpw_files):
@@ -33,13 +34,13 @@ def test_xc_pw(gpw_files):
         f_sn.append(f_n)
     prepare_mom_calculation(calc, atoms, f_sn)
     e = atoms.get_potential_energy()
-    equal(e, -0.353021, 1.0e-6)
+    assert e == pytest.approx(-0.353021, abs=1.0e-4)
     f = atoms.get_forces()
-    equal(np.min(f), -17.74544, 1.0e-3)
-    equal(np.max(f), 17.77512, 1.0e-3)
+    assert np.min(f) == pytest.approx(-17.74544, abs=1.0e-3)
+    assert np.max(f) == pytest.approx(17.77512, abs=1.0e-3)
 
     pos = atoms.get_positions()
     pos[0][2] -= 0.01
     atoms.set_positions(pos)
     e2 = atoms.get_potential_energy()
-    equal(e2, -0.527327, 1.0e-6)
+    assert e2 == pytest.approx(-0.527327, abs=1.0e-4)

@@ -1,3 +1,5 @@
+import pytest
+
 from gpaw import GPAW, LCAO
 from ase import Atoms
 import numpy as np
@@ -37,12 +39,12 @@ def test_lcaosic_h2o(in_tmp_dir):
     e = H2O.get_potential_energy()
     f = H2O.get_forces()
 
-    equal(e, -11.856260, 1e-5)
+    assert e == pytest.approx(-11.856260, abs=1e-4)
 
     f2 = np.array([[-3.27136, -5.34168, -0.00001],
                    [5.13882, -0.17066, 0.00001],
                    [-1.40629, 5.05699, -0.00001]])
-    equal(f2, f, 3e-2)
+    assert f2 == pytest.approx(f, abs=3.0e-2)
 
     calc.write('h2o.gpw', mode='all')
     from gpaw import restart
@@ -50,5 +52,6 @@ def test_lcaosic_h2o(in_tmp_dir):
     H2O.positions += 1.0e-6
     f3 = H2O.get_forces()
     niter = calc.get_number_of_iterations()
-    equal(niter, 4, 3)
-    equal(f2, f3, 3e-2)
+    assert niter == pytest.approx(4, abs=3)
+    assert f2 == pytest.approx(f3, abs=3e-2)
+
