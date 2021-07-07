@@ -24,7 +24,7 @@ def test_lcaosic_h2o(in_tmp_dir):
 
     calc = GPAW(mode=LCAO(force_complex_dtype=True),
                 h=0.25,
-                occupations={'name': 'fixed-occ-zero-width'},
+                occupations={'name': 'fixed-uniform'},
                 eigensolver=DirectMinLCAO(
                     odd_parameters={'name': 'PZ_SIC',
                                     'scaling_factor': (0.5, 0.5)  # SIC/2

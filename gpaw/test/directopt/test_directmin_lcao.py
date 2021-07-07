@@ -23,7 +23,7 @@ def test_directmin_lcao(in_tmp_dir):
 
     calc = GPAW(mode=LCAO(),
                 basis='dzp',
-                occupations={'name': 'fixed-occ-zero-width'},
+                occupations={'name': 'fixed-uniform'},
                 eigensolver='direct_min_lcao',
                 mixer={'name': 'dummy'},
                 nbands='nao',

@@ -1421,14 +1421,8 @@ class DirectMin(Eigensolver):
             'Band parallelization is not supported'
         if wfs.occupations.name != 'mom':
             errormsg = \
-                'Please, use occupations={\'name\': \'fixed-occ-zero-width\'}'
-
-            if wfs.occupations.name == 'fixmagmom':
-                assert wfs.occupations.occ.name == 'fixed-occ-zero-width', \
-                    errormsg
-            else:
-                assert wfs.occupations.name == 'fixed-occ-zero-width', \
-                    errormsg
+                'Please, use occupations={\'name\': \'fixed-uniform\'}'
+            assert wfs.occupations.name == 'fixed-uniform', errormsg
 
     def check_mom(self, wfs, ham, dens):
 

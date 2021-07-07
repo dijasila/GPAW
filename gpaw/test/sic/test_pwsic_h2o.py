@@ -26,7 +26,7 @@ def test_pwsic_h2o(in_tmp_dir):
     H2O.center(vacuum=5.0)
 
     calc = GPAW(mode=PW(300, force_complex_dtype=True),
-                occupations={'name': 'fixed-occ-zero-width'},
+                occupations={'name': 'fixed-uniform'},
                 eigensolver=DirectMin(
                     odd_parameters={'name': 'PZ_SIC',
                                     'scaling_factor': (0.5, 0.5)  # SIC/2

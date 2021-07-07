@@ -17,7 +17,7 @@ def test_xc_pw(gpw_files):
                 symmetry='off',
                 eigensolver=DirectMin(),
                 mixer={'name': 'dummy'},
-                occupations={'name': 'fixed-occ-zero-width'}
+                occupations={'name': 'fixed-uniform'}
                 )
     atoms.calc = calc
     atoms.get_potential_energy()

@@ -23,7 +23,7 @@ def test_dofd_ethylene(in_tmp_dir):
     calc = GPAW(mode=FD(),
                 h=0.3,
                 xc='PBE',
-                occupations={'name': 'fixed-occ-zero-width'},
+                occupations={'name': 'fixed-uniform'},
                 eigensolver=DirectMin(convergelumo=True),
                 mixer={'name': 'dummy'},
                 spinpol=True,
