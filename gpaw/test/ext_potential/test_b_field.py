@@ -1,8 +1,8 @@
 import pytest
+from ase import Atoms
+
 from gpaw import GPAW
 from gpaw.bfield import BField
-from ase import Atoms
-import pytest
 
 
 @pytest.mark.serial

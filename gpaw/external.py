@@ -287,7 +287,7 @@ class CDFTPotential(ExternalPotential):
     def todict(self):
         return {'name': 'CDFTPotential',
                 # 'regions': self.indices_i,
-                'constraints': self.v_i * Hartree,
+                'constraints': self.v_i * Ha,
                 'n_charge_regions': self.n_charge_regions,
                 'difference': self.difference,
                 'regions': self.regions}
