@@ -12,6 +12,10 @@ Git master branch
 
 * Corresponding ASE release: ASE-3.23.0b1
 
+* Constant magnetic field calculations can now be done:
+  See :class:`gpaw.bfield.BField` and this example:
+  :git:`gpaw/test/external/test_b_field.py`.
+
 
 Version 21.6.0
 ===============
@@ -37,10 +41,6 @@ Jun 24, 2021: :git:`21.6.0 <../21.6.0>`
 * It is now possible to calculate electronic circular dichroism spectra
   with real-time time-propagation TDDFT.
   See the tutorial: :ref:`circular_dichroism_rtddft`.
-
-* Constant magnetic field calculations can now be done:
-  See :class:`gpaw.bfield.BField` and this example:
-  :git:`gpaw/test/external/test_b_field.py`.
 
 * The documentation and tutorial for :ref:`lrtddft2` updated.
 
