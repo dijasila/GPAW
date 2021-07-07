@@ -42,6 +42,9 @@ def test_elph_matrix(gpw_files, tmp_path_factory):
         calc.wfs.set_positions
         calc.initialize_positions(atoms)
 
+    for kpt in calc.wfs.kpt_u:
+        print(kpt.eps_n)
+
     # create phonon object
     phonon = FakePh(atoms)
     # create an electron-phonon object
@@ -58,7 +61,14 @@ def test_elph_matrix(gpw_files, tmp_path_factory):
     assert modes[2] == pytest.approx([0.21915917, 0.21915917, 0.21915917])
 
     # this should always be the same, as long as CnM doesn't change
-    tmp = np.sum(elph.gx, axis=0)[0, 0, 0] / g_sqklnn[0, 0, 0, 2].real
+    # there are plenty of generate bands. will lead of different results on
+    # different machines for some bands
+    tmp = g_sqklnn[0, 0, :, 2].real
     print(tmp)
-    assert tmp[0, 0] == pytest.approx(5.59528988e-01)
-    assert tmp[3, 3] == pytest.approx(1.02694678e+06)
+    # bands 1-3 degenerate for this kpoint, don't use
+    assert tmp[0, 0, 0] == pytest.approx(8.57864400e+01)
+    # bands 2-3 degenerate for this kpoint, don't use
+    assert tmp[1, 0, 0] == pytest.approx(2.49398305e+02)
+    # absolute value because of random phase
+    assert abs(tmp[1, 0, 1]) == pytest.approx(4.15645630e+02)
+    assert tmp[1, 1, 1] == pytest.approx(1.41967585e+04)
