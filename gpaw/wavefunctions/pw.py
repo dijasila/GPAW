@@ -1964,6 +1964,7 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         dens.map23.add_to1(self.vt_Q, self.vHt_q)
 
         eext = self.vext.update_potential_pw(self, dens)
+        eext /= self.finegd.comm.size
 
         self.timer.start('XC 3D grid')
 

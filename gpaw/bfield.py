@@ -14,7 +14,7 @@ class BField(NoExternalPotential):
         """Constant magnetic field.
 
         field:
-            F-field vector in units of eV/bohr-nagnoton.
+            B-field vector in units of eV/bohr-magnoton.
         """
         self.name = 'BField'
         self.field_v = np.array(field) / Ha

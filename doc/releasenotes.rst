@@ -13,7 +13,8 @@ Git master branch
 * Corresponding ASE release: ASE-3.21.1b1
 
 * Constant magnetic field calculations can now be done:
-  See :class:`gpaw.bfield.BField`.
+  See :class:`gpaw.bfield.BField` and this example:
+  :git:`gpaw/test/external/test_b_field.py`.
 
 * The documentation and tutorial for :ref:`lrtddft2` updated.
 
