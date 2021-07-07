@@ -62,16 +62,17 @@ parallelisation over domains disabled. (:git:`~doc/tutorials/elphraman/supercell
 
 .. literalinclude:: supercell_matrix.py
 
-The ``calculate_supercell_matrix()`` method will then compute the gradients and 
-calculate the matrix elements. The results are saved in `pckl` files in a basis
-of LCAO orbitals and supercell indices.
+The ``calculate_supercell_matrix()`` method will then compute the gradients and
+calculate the matrix elements. The results are saved in ``pckl`` files in a
+basis of LCAO orbitals and supercell indices.
+
 
 Momentum matrix
 ===============
 
 The Raman tensor does not only depend on the electron-phonon matrix, but also
 on the transition probability between electronic states, which in this case is
-expressed in the momentum matrix elements. 
+expressed in the momentum matrix elements.
 Those can be extracted directly from a converged LCAO calculation of the primitive
 cell. (:git:`~doc/tutorials/elphraman/momentum_matrix.py`)
 
@@ -83,7 +84,7 @@ Phonon mode projected electron-phonon matrix
 ============================================
 
 With all the above calculations finished we can extract the electron-phonon
-matrix in the Bloch basis of the primitive cell projected onto the phonon modes: 
+matrix in the Bloch basis of the primitive cell projected onto the phonon modes:
 (:git:`~doc/tutorials/elphraman/elph_matrix.py`)
 
 .. literalinclude:: elph_matrix.py
@@ -101,7 +102,7 @@ in serial mode only.
 Raman spectrum
 ==============
 
-With all ingredients provided we can now commence with the computation of the 
+With all ingredients provided we can now commence with the computation of the
 Raman tensor. This can take some time, if calculation of the non-resonant terms
 is included. (:git:`~doc/tutorials/elphraman/raman_intensities.py`)
 
@@ -117,5 +118,4 @@ in serial mode only.
 
 .. image:: Raman_all.png
     :scale: 30
-    :align: center 
-
+    :align: center
