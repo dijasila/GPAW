@@ -42,4 +42,31 @@ master:
     - mq config --in-place
     - mq init
     - mq workflow -p agts.py -zT | tail -1 | tee count
-    - python -c "assert int(open('count').read().split()[0]) >= 337"
+    - python -c "assert int(open('count').read().split()[0]) >= 373"
+    - python -c "import pathlib; assert len(list(pathlib.Path().glob('**/*.png'))) <= 6"
+
+libxc:
+  image: python:3.6
+  script:
+    - git clone https://gitlab.com/libxc/libxc.git
+    - cd libxc
+    - git checkout 5.1.5
+    - autoreconf -i
+    - ./configure --enable-shared --disable-fortran --prefix=$HOME/libxc
+    - make > libxc-install.out
+    - make install
+    - cd ..
+    - pip install pytest ase
+    - >
+      echo "noblas = True;
+      libraries = ['xc'];
+      xc = Path.home() / 'libxc';
+      lib = xc / 'lib';
+      library_dirs = [lib];
+      include_dirs = [xc / 'include'];
+      extra_link_args = [f'-Wl,-rpath={lib}']
+      " > siteconfig.py
+    - pip install -e .
+    - gpaw install-data --register gpaw-datasets
+    - pytest -m libxc -x
+  when: manual

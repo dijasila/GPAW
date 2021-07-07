@@ -1,4 +1,5 @@
 import re
+
 import numpy as np
 
 from gpaw.lcaotddft.observer import TDDFTObserver
@@ -25,15 +26,16 @@ class DipoleMomentWriter(TDDFTObserver):
     version = 1
 
     def __init__(self, paw, filename, center=False, density='comp',
-                 interval=1):
+                 force_new_file=False, interval=1):
         TDDFTObserver.__init__(self, paw, interval)
         self.master = paw.world.rank == 0
-        if paw.niter == 0:
+        if paw.niter == 0 or force_new_file:
             # Initialize
             self.do_center = center
             self.density_type = density
             if self.master:
                 self.fd = open(filename, 'w')
+            self._write_header(paw)
         else:
             # Read and continue
             self.read_header(filename)
@@ -46,8 +48,6 @@ class DipoleMomentWriter(TDDFTObserver):
             self.fd.flush()
 
     def _write_header(self, paw):
-        if paw.niter != 0:
-            return
         line = '# %s[version=%s]' % (self.__class__.__name__, self.version)
         line += ('(center=%s, density=%s)\n' %
                  (repr(self.do_center), repr(self.density_type)))
@@ -71,6 +71,11 @@ class DipoleMomentWriter(TDDFTObserver):
             # Translate key
             k = {'center': 'do_center', 'density': 'density_type'}[k]
             setattr(self, k, v)
+
+    def _write_init(self, paw):
+        time = paw.time
+        line = '# Start; Time = %.8lf\n' % time
+        self._write(line)
 
     def _write_kick(self, paw):
         time = paw.time
@@ -108,13 +113,15 @@ class DipoleMomentWriter(TDDFTObserver):
         norm = gd.integrate(rho_g)
         # dm = self.calculate_dipole_moment(gd, rho_g, center=self.do_center)
         dm = gd.calculate_dipole_moment(rho_g, center=self.do_center)
+        if paw.hamiltonian.poisson.get_description() == 'FDTD+TDDFT':  # XXX
+            dm += paw.hamiltonian.poisson.get_classical_dipole_moment()
         line = ('%20.8lf %20.8le %22.12le %22.12le %22.12le\n' %
                 (time, norm, dm[0], dm[1], dm[2]))
         self._write(line)
 
     def _update(self, paw):
         if paw.action == 'init':
-            self._write_header(paw)
+            self._write_init(paw)
         elif paw.action == 'kick':
             self._write_kick(paw)
         self._write_dm(paw)
@@ -122,4 +129,3 @@ class DipoleMomentWriter(TDDFTObserver):
     def __del__(self):
         if self.master:
             self.fd.close()
-        TDDFTObserver.__del__(self)

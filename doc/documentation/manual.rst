@@ -763,7 +763,7 @@ There exist three special names that, if used, do not specify a file name:
   see :ref:`ghost-atoms`.
 
 .. _SG15 optimized norm-conserving Vanderbilt pseudopotentials:
-    http://fpmd.ucdavis.edu/qso/potentials/sg15_oncv/
+    http://www.quantum-simulation.org/potentials/sg15_oncv/
 
 If a dictionary contains both chemical element specifications *and*
 atomic number specifications, the latter is dominant.
