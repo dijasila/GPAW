@@ -667,6 +667,7 @@ class FixedOccupationNumbers(OccupationNumberCalculator):
 class FixedOccupationNumbersUniform(OccupationNumberCalculator):
 
     extrapolate_factor = 0.0
+    name = 'fixed-uniform'
 
     def __init__(self, nelectrons, nspins, magmom, nkpts, nbands,
                  parallel_layout: ParallelLayout = None):
