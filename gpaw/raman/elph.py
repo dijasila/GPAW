@@ -100,7 +100,7 @@ class EPC(ElectronPhononCoupling):
         ----------
         calc: GPAW
             Converged ground-state calculation. NOT supercell.
-        phonon: Phonons
+        phonon: ase.phonons.Phonons
             Phonon object
         savetofile: bool
             Switch for saving to gsqklnn.npy file

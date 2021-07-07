@@ -1,3 +1,4 @@
+# web-page: Raman_all.png
 import numpy as np
 from gpaw import GPAW
 from gpaw.raman.raman import (calculate_raman, calculate_raman_intensity,
