@@ -15,6 +15,8 @@ def workflow():
 def check():
     """Read result and make sure it's OK."""
     import numpy as np
+    from gpaw.test import findpeak
     ri = np.load('RI_xz_632nm.npy')
-    assert ri[1].argmax() == 1304
-    assert np.isclose(max(ri[1]), 4.8486e-5, rtol=1e-3)
+    x0, y0 = findpeak(ri[0], ri[1])
+    assert np.isclose(x0, 1304.497, atol=0.2)
+    assert np.isclose(y0, 4.8486e-5, atol=0.2e-5)
