@@ -14,7 +14,7 @@ Git master branch
 
 * Constant magnetic field calculations can now be done:
   See :class:`gpaw.bfield.BField` and this example:
-  :git:`gpaw/test/external/test_b_field.py`.
+  :git:`gpaw/test/ext_potential/test_b_field.py`.
 
 
 Version 21.6.0

@@ -29,7 +29,7 @@ Examples
 >>> calc = GPAW(external=step, ...)
 
 .. autoclass:: StepPotentialz
-.. autoclass:: BField
+.. autoclass:: gpaw.bfield.BField
 
 
 Several potentials
