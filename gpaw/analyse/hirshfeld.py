@@ -74,7 +74,7 @@ class HirshfeldDensity(RealSpaceDensity):
         par = self.calculator.parameters
         setups = Setups(Z_a, par.setups, par.basis,
                         XC(par.xc),
-                        self.calculator.wfs.world)
+                        world=self.calculator.wfs.world)
 
         # initialize
         self.initialize(setups,

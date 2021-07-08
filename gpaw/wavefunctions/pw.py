@@ -1,18 +1,19 @@
-# -*- coding: utf-8 -*-
 import numbers
 from math import factorial as fac
 from math import pi
 
-import _gpaw
-import gpaw
-import gpaw.fftw as fftw
 import numpy as np
 from ase.units import Bohr, Ha
 from ase.utils.timing import timer
+
+import _gpaw
+import gpaw
+import gpaw.fftw as fftw
 from gpaw.arraydict import ArrayDict
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.blacs import BlacsDescriptor, BlacsGrid, Redistributor
 from gpaw.density import Density
+from gpaw.external import NoExternalPotential
 from gpaw.hamiltonian import Hamiltonian
 from gpaw.lcao.overlap import fbt
 from gpaw.lfc import BaseLFC
@@ -1912,6 +1913,10 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
                  psolver=None, redistributor=None, realpbc_c=None):
 
         assert redistributor is not None  # XXX should not be like this
+
+        if vext is None:
+            vext = NoExternalPotential()
+
         Hamiltonian.__init__(self, gd, finegd, nspins, collinear, setups,
                              timer, xc, world, vext=vext,
                              redistributor=redistributor)
@@ -1955,18 +1960,12 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
             self.poisson.solve(self.vHt_q, dens)
             epot = 0.5 * integrate(self.pd3, self.vHt_q, dens.rhot_q)
 
-        if self.vext is None:
-            v_q = self.vHt_q
-            eext = 0.0
-        else:
-            v_q = self.vext.get_potentialq(self.finegd, self.pd3).copy()
-            eext = integrate(self.pd3, v_q, dens.rhot_q)
-            v_q += self.vHt_q
-
         self.vt_Q = self.vbar_Q.copy()
-        dens.map23.add_to1(self.vt_Q, v_q)
 
-        self.vt_sG[:] = self.pd2.ifft(self.vt_Q)
+        dens.map23.add_to1(self.vt_Q, self.vHt_q)
+
+        eext = self.vext.update_potential_pw(self, dens)
+        eext /= self.finegd.comm.size
 
         self.timer.start('XC 3D grid')
 
@@ -1984,15 +1983,13 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         if redist is not None:
             vxct_xg = redist.collect(vxct_xg)
 
-        x = 0
-        for vt_G, vxct_g in zip(self.vt_xG, vxct_xg):
+        for x, (vt_G, vxct_g) in enumerate(zip(self.vt_xG, vxct_xg)):
             vxc_G, vxc_Q = self.pd3.restrict(vxct_g, self.pd2)
             if x < self.nspins:
                 vt_G += vxc_G
                 self.vt_Q += vxc_Q / self.nspins
             else:
-                vt_G[:] = vxc_G
-            x += 1
+                vt_G += vxc_G
 
         self.timer.stop('XC 3D grid')
 
@@ -2006,12 +2003,7 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
                        for l, _ in enumerate(self.setups[a].ghat_l)),
         W_aL = ArrayDict(self.atomdist.aux_partition, getshape, float)
 
-        if self.vext:
-            vext_q = self.vext.get_potentialq(self.finegd, self.pd3)
-            density.ghat.integrate(self.vHt_q + vext_q, W_aL)
-        else:
-            density.ghat.integrate(self.vHt_q, W_aL)
-
+        self.vext.update_atomic_hamiltonians_pw(self, W_aL, density)
         return self.atomdist.to_work(self.atomdist.from_aux(W_aL))
 
     def calculate_kinetic_energy(self, density):
@@ -2037,11 +2029,7 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
     restrict_and_collect = restrict
 
     def calculate_forces2(self, dens, ghat_aLv, nct_av, vbar_av):
-        if self.vext:
-            vext_q = self.vext.get_potentialq(self.finegd, self.pd3)
-            dens.ghat.derivative(self.vHt_q + vext_q, ghat_aLv)
-        else:
-            dens.ghat.derivative(self.vHt_q, ghat_aLv)
+        self.vext.derivative_pw(self, ghat_aLv, dens)
         dens.nct.derivative(self.vt_Q, nct_av)
         self.vbar.derivative(dens.nt_Q, vbar_av)
 
