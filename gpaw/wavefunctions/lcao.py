@@ -545,10 +545,11 @@ class LCAO_forces:
         self.isblacs = isinstance(ksl, BlacsOrbitalLayouts)  # XXX
 
         self.timer.start('TCI derivative')
-        dThetadR_qvMM, dTdR_qvMM = self.manytci.O_qMM_T_qMM(
-            gd.comm, self.Mstart, self.Mstop, False, derivative=True)
-        dPdR_aqvMi = self.manytci.P_aqMi(
-            self.bfs.my_atom_indices, derivative=True)
+        dThetadR_qvMM, dTdR_qvMM = self.manytci.O_qMM_T_qMM(gd.comm, self.Mstart,
+                                                            self.Mstop, False, derivative=True)
+        self.dPdR_aqvMi = self.manytci.P_aqMi(self.bfs.my_atom_indices,
+                                              derivative=True)
+
         gd.comm.sum(dThetadR_qvMM)
         gd.comm.sum(dTdR_qvMM)
         self.timer.stop('TCI derivative')
@@ -745,9 +746,43 @@ class LCAO_forces:
         #
 
         Frho_av=np.zeros_like(self.Fref_av)
-        dPdR_aqvMi = self.manytci.P_aqMi(self.bfs.my_atom_indices,
-                                         derivative=True)
-        #self.basis_functions.my_atom_indices, derivative=True)
+        ET_uMM = []
+        ET_uMM, ET_MM=self.get_density_matrix()
+        self.timer.start('add paw correction')
+        ZE_MM = self.get_paw_correction()
+        for u, kpt in enumerate(self.kpt_u):
+            work_MM = np.zeros((self.mynao, self.nao), self.dtype)
+            for b in self.my_atom_indices:
+                for v in range(3):
+                    for a, M1, M2 in self.slices():
+                        dE = 2 * ZE_MM[u,b,v,M1:M2].sum()
+                        Frho_av[a, v] -= dE  # the "b; mu in a; nu" term
+                        Frho_av[b, v] += dE  # the "mu nu" term
+        self.timer.stop('add paw correction')
+        return Frho_av
+
+    def get_paw_correction(self):
+        #<Phi_nu|pt_i>O_ii<dPt_i/dR|Phi_mu>
+        ET_uMM, ET_MM=self.get_density_matrix()
+        self.timer.start('get paw correction')
+        ZE_MM=np.zeros((len(self.kpt_u),len(self.my_atom_indices),3,
+                       self.mynao, self.nao), self.dtype)
+        for u, kpt in enumerate(self.kpt_u):
+            work_MM = np.zeros((self.mynao, self.nao), self.dtype)
+            for b in self.my_atom_indices:
+                setup = self.setups[b]
+                dO_ii = np.asarray(setup.dO_ii, self.dtype)
+                dOP_iM = np.zeros((setup.ni, self.nao), self.dtype)
+                gemm(1.0, self.P_aqMi[b][kpt.q], dO_ii, 0.0, dOP_iM, 'c')
+                for v in range(3):
+                    gemm(1.0, dOP_iM,
+                         self.dPdR_aqvMi[b][kpt.q][v][self.Mstart:self.Mstop],
+                         0.0, work_MM, 'n')
+                    ZE_MM[u,b,v,:,:] = (work_MM * ET_uMM[u]).real
+        self.timer.stop('get paw correction')
+        return ZE_MM
+
+    def get_density_matrix(self):
         ET_uMM = []
         if self.kpt_u[0].rho_MM is None:
             self.timer.start('Get density matrix')
@@ -757,49 +792,19 @@ class LCAO_forces:
                                                           kpt.C_nM)
                 ET_uMM.append(ET_MM)
             self.timer.stop('Get density matrix')
-
-        Frho_av = np.zeros_like(Frho_av)
-        self.timer.start('add paw correction')
-        for u, kpt in enumerate(self.kpt_u):
-            work_MM = np.zeros((self.mynao, self.nao), self.dtype)
-            ZE_MM = None
-            for b in self.my_atom_indices:
-                setup = self.setups[b]
-                dO_ii = np.asarray(setup.dO_ii, self.dtype)
-                dOP_iM = np.zeros((setup.ni, self.nao), self.dtype)
-                gemm(1.0, self.P_aqMi[b][kpt.q], dO_ii, 0.0, dOP_iM, 'c')
-                for v in range(3):
-                    gemm(1.0, dOP_iM,
-                         dPdR_aqvMi[b][kpt.q][v][self.Mstart:self.Mstop],
-                         0.0, work_MM, 'n')
-                    ZE_MM = (work_MM * ET_uMM[u]).real
-                    for a, M1, M2 in self.slices():
-                        dE = 2 * ZE_MM[M1:M2].sum()
-                        Frho_av[a, v] -= dE  # the "b; mu in a; nu" term
-                        Frho_av[b, v] += dE  # the "mu nu" term
- 
-
-        del work_MM, ZE_MM
-        self.timer.stop('add paw correction')
-        return Frho_av
-
-        
+        return ET_uMM, ET_MM
 
     def get_atomic_density_term (self):
 
         Fatom_av=np.zeros_like(self.Fref_av)
-        dPdR_aqvMi = self.manytci.P_aqMi(self.bfs.my_atom_indices,
-                                         derivative=True)
-        #self.basis_functions.my_atom_indices, derivative=True)
-
         rhoT_uMM = []
         if self.kpt_u[0].rho_MM is None:
-            self.timer.start('Get density matrix')
+#            self.timer.start('Get density matrix')
             for kpt in self.kpt_u:
                 rhoT_MM = self.ksl.get_transposed_density_matrix(kpt.f_n,
                                                             kpt.C_nM)
                 rhoT_uMM.append(rhoT_MM)
-            self.timer.stop('Get density matrix')
+#            self.timer.stop('Get density matrix')
         # Atomic density contribution
         #            -----                         -----
         #  a          \     a                       \     b
@@ -826,7 +831,7 @@ class LCAO_forces:
                                 np.ascontiguousarray(
                                     self.P_aqMi[b][kpt.q].T.conj()))
                 for v in range(3):
-                    dPdR_Mi = dPdR_aqvMi[b][kpt.q][v][self.Mstart:self.Mstop]
+                    dPdR_Mi = self.dPdR_aqvMi[b][kpt.q][v][self.Mstart:self.Mstop]
                     ArhoT_MM = (gemmdot(dPdR_Mi, HP_iM) * rhoT_uMM[u]).real
                     for a, M1, M2 in self.slices():
                         dE = 2 * ArhoT_MM[M1:M2].sum()
