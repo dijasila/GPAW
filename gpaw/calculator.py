@@ -8,7 +8,7 @@ from typing import Any, Dict
 
 import numpy as np
 from ase import Atoms
-from ase.calculators.calculator import Calculator, kpts2ndarray, InputError
+from ase.calculators.calculator import Calculator, kpts2ndarray
 from ase.dft.bandgap import bandgap
 from ase.units import Bohr, Ha
 from ase.utils import plural
@@ -764,16 +764,12 @@ class GPAW(Calculator):
             custom = [custom]
         for criterion in custom:
             if isinstance(criterion, dict):  # from .gpw file
-                # Note below will raise an InputError.
-                try:
-                    criterion = dict2criterion(criterion)
-                except InputError:
-                    msg = ('Custom convergence criterion "{:s}" encountered, '
-                           'which GPAW does not know how to load. This '
-                           'criterion is NOT enabled; you may want to manually'
-                           ' set it.'.format(criterion['name']))
-                    warnings.warn(msg)
-                    continue
+                msg = ('Custom convergence criterion "{:s}" encountered, '
+                       'which GPAW does not know how to load. This '
+                       'criterion is NOT enabled; you may want to manually'
+                       ' set it.'.format(criterion['name']))
+                warnings.warn(msg)
+                continue
 
             criteria[criterion.name] = criterion
             msg = ('Custom convergence criterion {:s} encountered. '
