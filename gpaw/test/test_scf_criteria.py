@@ -36,7 +36,6 @@ def test_scf_criterion(in_tmp_dir):
                    'density': 1.0,
                    'energy': 1.0,
                    'work function': 1.0}
-
     atoms = Atoms('HF', [(0., 0.5, 0.5),
                          (0., 0.4, -0.4)],
                   cell=(5., 5., 9.),
@@ -69,13 +68,15 @@ def test_scf_criterion(in_tmp_dir):
     assert workfunctions1[1] == pytest.approx(workfunctions2[0])
     assert calc.scf.criteria['work function'].tol == pytest.approx(1.0)
 
-    # Try import syntax.
+    # Try import syntax, and verify it creates a new instance internally.
+    workfunction = WorkFunction(0.5)
     convergence = {'eigenstates': 1.0,
                    'density': 1.0,
                    'energy': 1.0,
-                   'work function': WorkFunction(0.5)}
+                   'work function': workfunction}
     calc.set(convergence=convergence)
     atoms.get_potential_energy()
+    assert calc.scf.criteria['work function'] is not workfunction
     assert calc.scf.criteria['work function'].tol == pytest.approx(0.5)
 
     # Switch to H2 for faster calcs.
