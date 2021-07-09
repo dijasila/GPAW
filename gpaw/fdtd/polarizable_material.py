@@ -19,17 +19,12 @@ _eps0_au = 1.0 / (4.0 * np.pi)
 #    -contains routines for calculating them from each other and/or external potential
 
 class PolarizableMaterial():
-    def __init__(self, *, components=None, sign=-1.0):
+    def __init__(self, *, sign=-1.0):
         self.gd          = None
         self.initialized = False
         self.sign        = sign
         self.messages    = []
-
-        if components is None:
-            self.components = []
-        else:
-            self.components  = components
-
+        self.components = []
 
     def add_component(self, component):
         self.components.append(component)
