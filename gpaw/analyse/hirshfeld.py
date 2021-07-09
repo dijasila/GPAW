@@ -1,5 +1,5 @@
 import numpy as np
-
+from typing import Tuple
 from ase.units import Bohr
 from gpaw.density import RealSpaceDensity
 from gpaw.lfc import BasisFunctions
@@ -9,12 +9,14 @@ from gpaw.utilities.tools import coordinates
 from gpaw.utilities.partition import AtomPartition
 from gpaw.mpi import world
 from gpaw.io.logger import GPAWLogger
+from gpaw.grid_descriptor import GridDescriptor
+from gpaw import GPAW
 
 
 class HirshfeldDensity(RealSpaceDensity):
     """Density as sum of atomic densities."""
 
-    def __init__(self, calculator, log=None):
+    def __init__(self, calculator: GPAW, log=None):
         self.calculator = calculator
         dens = calculator.density
         RealSpaceDensity.__init__(self, dens.gd, dens.finegd,
@@ -46,7 +48,9 @@ class HirshfeldDensity(RealSpaceDensity):
         self.nct_G = self.gd.zeros()
         self.nct.add(self.nct_G, 1.0 / self.nspins)
 
-    def get_density(self, atom_indices=None, gridrefinement=2):
+    def get_density(self,
+                    atom_indices=None,
+                    gridrefinement=2) -> Tuple[np.ndarray, GridDescriptor]:
         """Get sum of atomic densities from the given atom list.
 
         Parameters
@@ -72,9 +76,11 @@ class HirshfeldDensity(RealSpaceDensity):
         Z_a = atoms.get_atomic_numbers()
 
         par = self.calculator.parameters
+        reveal_type(self.calculator.wfs.world)
         setups = Setups(Z_a, par.setups, par.basis,
                         XC(par.xc),
-                        world=self.calculator.wfs.world)
+                        # world=self.calculator.wfs.world)
+                        self.calculator.wfs.world)
 
         # initialize
         self.initialize(setups,

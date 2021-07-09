@@ -51,6 +51,14 @@ def broadcast_exception(comm):
         raise broadcast(None, rank, comm)
 
 
+class MPI:
+    rank: int
+    size: int
+
+    def sum(self, a, root: int = -1) -> None:
+        ...
+
+
 class _Communicator:
     def __init__(self, comm, parent=None):
         """Construct a wrapper of the C-object for any MPI-communicator.
@@ -604,7 +612,7 @@ class _Communicator:
 
 
 # Serial communicator
-class SerialCommunicator:
+class SerialCommunicator(MPI):
     size = 1
     rank = 0
 

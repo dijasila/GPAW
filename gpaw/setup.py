@@ -1,7 +1,7 @@
 import functools
 from io import StringIO
 from math import pi, sqrt
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 
 import ase.units as units
 import numpy as np
@@ -15,6 +15,7 @@ from gpaw.rotation import rotation
 from gpaw.setup_data import SetupData, search_for_file
 from gpaw.utilities import pack, unpack
 from gpaw.xc import XC
+from gpaw.mpi import MPI
 
 
 def parse_hubbard_string(type: str) -> Tuple[str,
@@ -1302,7 +1303,7 @@ class Setups(list):
     """
 
     def __init__(self, Z_a, setup_types, basis_sets, xc,
-                 filter=None, world=None):
+                 filter: int = None, world: MPI = None):
         list.__init__(self)
         symbols = [chemical_symbols[Z] for Z in Z_a]
         type_a = types2atomtypes(symbols, setup_types, default='paw')
@@ -1348,7 +1349,7 @@ class Setups(list):
                         basis_a[a] = fullname
 
         # Construct necessary PAW-setup objects:
-        self.setups = {}
+        self.setups: Dict[Tuple[int, str, str], Setup] = {}
         natoms = {}
         Mcumulative = 0
         self.M_a = []

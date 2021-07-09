@@ -8,6 +8,7 @@ from gpaw.projections import Projections
 from gpaw.utilities import pack, unpack2
 from gpaw.utilities.blas import gemm, axpy
 from gpaw.utilities.partition import AtomPartition
+from gpaw.mpi import MPI
 
 
 class WaveFunctions:
@@ -38,8 +39,10 @@ class WaveFunctions:
         MPI-communicator for parallelization over **k**-points.
     """
 
+    mode: str
+
     def __init__(self, gd, nvalence, setups, bd, dtype, collinear,
-                 world, kd, kptband_comm, timer):
+                 world: MPI, kd, kptband_comm, timer):
         self.gd = gd
         self.nspins = kd.nspins
         self.collinear = collinear

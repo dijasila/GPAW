@@ -13,7 +13,6 @@ from ase.dft.bandgap import bandgap
 from ase.units import Bohr, Ha
 from ase.utils import plural
 from ase.utils.timing import Timer
-
 import gpaw
 import gpaw.mpi as mpi
 import gpaw.wavefunctions.pw as pw
@@ -46,6 +45,7 @@ from gpaw.utilities.grid import GridRedistributor
 from gpaw.utilities.memory import MemNode, maxrss
 from gpaw.utilities.partition import AtomPartition
 from gpaw.wavefunctions.mode import create_wave_function_mode
+from gpaw.wavefunctions.base import WaveFunctions
 from gpaw.xc import XC
 from gpaw.xc.kernel import XCKernel
 from gpaw.xc.sic import SIC
@@ -145,7 +145,7 @@ class GPAW(Calculator):
             self.timer = timer
 
         self.scf = None
-        self.wfs = None
+        self.wfs: WaveFunctions = None
         self.density = None
         self.hamiltonian = None
         self.spos_ac = None  # XXX store this in some better way.
