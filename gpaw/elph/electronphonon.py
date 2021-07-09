@@ -177,14 +177,9 @@ class ElectronPhononCoupling(Displacement):
         # - check that gamma
         # - check that no symmetries are used
         # - ...
-        assert calc.parameters['mode'] == 'lcao', 'LCAO mode required.'
-        symmetry = calc.parameters['symmetry']
-        if isinstance(symmetry, dict):
-            assert not symmetry.get('point_group', True),\
-                'Point group symmetry not supported'
-        else:
-            assert symmetry == 'off', 'Point group symmetry not supported'
-
+        assert calc.wfs.mode == 'lcao', 'LCAO mode required.'
+        assert not calc.symmetry.point_group, \
+            'Point group symmetry not supported'
         self.calc_lcao = calc
 
     def set_basis_info(self, *args):
@@ -222,9 +217,11 @@ class ElectronPhononCoupling(Displacement):
         else:
             self.timer = StepTimer(name='elph', out=open(log, 'w'))
 
-    def _set_file_name(self, dump, basis, name=None, x=None):
+    def _set_file_name(self, dump, basis=None, name=None, x=None):
         """Set name of supercell file."""
         assert dump in (1, 2)
+        if basis is None:
+            basis = ''
         basestr = ".supercell_matrix"
         if name is not None:
             assert isinstance(name, str)
@@ -235,6 +232,7 @@ class ElectronPhononCoupling(Displacement):
         if dump == 1:
             fname = nname + basestr + '.' + basis + '.pckl'
         else:  # dump == 2
+            assert x is not None
             fname = nname + basestr + '_x_' + str(x) + '.' + basis + '.pckl'
         return fname
 
@@ -287,6 +285,8 @@ class ElectronPhononCoupling(Displacement):
             calc.initialize_positions(atoms_N)
         self.set_basis_info()
         basis = calc.parameters['basis']
+        if isinstance(basis, dict):
+            basis = ''
 
         # Extract useful objects from the calculator
         wfs = calc.wfs
@@ -326,6 +326,7 @@ class ElectronPhononCoupling(Displacement):
 
         # For the contribution from the derivative of the projectors
         dP_aqvMi = wfs.manytci.P_aqMi(self.indices, derivative=True)
+
         # Equilibrium atomic Hamiltonian matrix (projector coefficients)
         Vt_sG, dH_asp, _ = self.cache['eq']  # caution, eq file is different...
 
@@ -371,7 +372,6 @@ class ElectronPhononCoupling(Displacement):
                 for kpt in kpt_u:
                     # Matrix elements
                     geff_MM = np.zeros((nao, nao), dtype)
-                    print(V1t_sG.shape, kpt.s)
                     bfs.calculate_potential_matrix(V1t_sG[kpt.s], geff_MM,
                                                    q=kpt.q)
                     tri2full(geff_MM, 'L')
@@ -394,8 +394,9 @@ class ElectronPhononCoupling(Displacement):
                         dH1_asp = dH1_xasp[x]
                         for a_, dH1_sp in dH1_asp.items():
                             dH1_ii = unpack2(dH1_sp[kpt.s])
-                            gp_MM += np.dot(P_aqMi[a_][kpt.q], np.dot(dH1_ii,
-                                            P_aqMi[a_][kpt.q].T.conjugate()))
+                            P_Mi = P_aqMi[a_][kpt.q]
+                            gp_MM += np.dot(P_Mi, np.dot(dH1_ii,
+                                                         P_Mi.T.conjugate()))
                         g_sqMM[kpt.s, kpt.q] += gp_MM
                     self.timer.write_now("Finished gradient of dH^a")
 
@@ -488,8 +489,8 @@ class ElectronPhononCoupling(Displacement):
             2: Dumped matrix for different gradients in separate files.
         """
 
-        assert (basis is not None) or (name is not None), \
-            "Provide basis or name."
+        if (basis is None) or isinstance(basis, dict):
+            basis = ''
         assert dump in (0, 1, 2)
 
         if dump == 0:
@@ -498,20 +499,24 @@ class ElectronPhononCoupling(Displacement):
             assert self.basis_info is not None
         elif dump == 1:
             fname = self._set_file_name(dump, basis, name)
-            fd = open(fname, 'rb')
-            self.g_xsNNMM, M_a, nao_a = pickle.load(fd)
-            fd.close()
+            g_xsNNMM, M_a, nao_a = self.load_supercell_matrix_x(fname)
         else:  # dump == 2
             g_xsNNMM = []
             for x in range(len(self.indices) * 3):
-                fname = self._set_file_name(dump, basis, name)
-                fd = open(fname, 'rb')
-                g_sNNMM, M_a, nao_a = pickle.load(fd)
-                fd.close()
+                fname = self._set_file_name(dump, basis, name, x=x)
+                g_sNNMM, M_a, nao_a = self.load_supercell_matrix_x(fname)
                 g_xsNNMM.append(g_sNNMM)
             self.g_xsNNMM = np.array(g_xsNNMM)
 
         self.set_basis_info(M_a, nao_a)
+
+    def load_supercell_matrix_x(self, fname):
+        """Load one element of supercell matrix from pickle file.
+        """
+        fd = open(fname, 'rb')
+        g_sNNMM, M_a, nao_a = pickle.load(fd)
+        fd.close()
+        return g_sNNMM, M_a, nao_a
 
     def apply_cutoff(self, cutmax=None, cutmin=None):
         """Zero matrix element inside/beyond the specified cutoffs.
@@ -642,7 +647,8 @@ class ElectronPhononCoupling(Displacement):
         return g_lsMM
 
     def bloch_matrix(self, kpts, qpts, c_kn, u_ql,
-                     omega_ql=None, kpts_from=None, spin=0):
+                     omega_ql=None, kpts_from=None, spin=0,
+                     basis=None, name=None, load_gx_as_needed=False):
         r"""Calculate el-ph coupling in the Bloch basis for the electrons.
 
         This function calculates the electron-phonon coupling between the
@@ -677,17 +683,18 @@ class ElectronPhononCoupling(Displacement):
             corresponding ``qpts`` argument.
         omega_ql: ndarray
             Vibrational frequencies in eV.
-        kpts_from: List[int] or int
+        kpts_from: list[int] or int
             Calculate only the matrix element for the k-vectors specified by
             their index in the ``kpts`` argument (default: all).
         spin: int
             In case of spin-polarised system, define which spin to use
             (0 or 1).
-
-
         """
+        if (basis is None) or isinstance(basis, dict):
+            basis = ''
 
-        assert self.g_xsNNMM is not None, "Load supercell matrix."
+        if not load_gx_as_needed:
+            assert self.g_xNNMM is not None, "Load supercell matrix."
         assert len(c_kn.shape) == 3
         assert len(u_ql.shape) == 4
         if omega_ql is not None:
@@ -720,7 +727,8 @@ class ElectronPhononCoupling(Displacement):
                 kpts_k = list(kpts_from)
 
         # Supercell matrix (real matrix in Hartree / Bohr)
-        g_xNNMM = self.g_xsNNMM[:, spin]
+        if not load_gx_as_needed:
+            g_xNNMM = self.g_xsNNMM[:, spin]
 
         # Number of phonon modes and electronic bands
         nmodes = u_ql.shape[1]
@@ -729,8 +737,9 @@ class ElectronPhononCoupling(Displacement):
         ndisp = np.prod(u_ql.shape[2:])
         assert ndisp == (3 * len(self.indices))
         nao = c_kn.shape[2]
-        assert ndisp == g_xNNMM.shape[0]
-        assert nao == g_xNNMM.shape[-1]
+        if not load_gx_as_needed:
+            assert ndisp == g_xNNMM.shape[0]
+            assert nao == g_xNNMM.shape[-1]
 
         # Lattice vectors
         R_cN = self.compute_lattice_vectors()
@@ -758,34 +767,61 @@ class ElectronPhononCoupling(Displacement):
                 assert np.allclose(kplusq_c, kd_kpts.bzk_kc[kplusq_k[i]]), \
                     (i, k, k_c, q_c, kd_kpts.bzk_kc[kplusq_k[i]])
 
-                # Allocate array
-                g_xMM = np.zeros((ndisp, nao, nao), dtype=complex)
-
-                # Multiply phase factors
-                for m in range(N):
-                    for n in range(N):
-                        Rm_c = R_cN[:, m]
-                        Rn_c = R_cN[:, n]
-                        phase = np.exp(2.j * pi * (np.dot(k_c, Rm_c - Rn_c)
-                                                   + np.dot(q_c, Rm_c)))
-                        # Sum contributions from different cells
-                        g_xMM += g_xNNMM[:, m, n, :, :] * phase
-
                 # LCAO coefficient for Bloch states
                 ck_nM = c_kn[k]
                 ckplusq_nM = c_kn[kplusq_k[i]]
                 # Mass scaled polarization vectors
                 u_lx = u_ql[q].reshape(nmodes, 3 * len(self.atoms))
 
-                g_nxn = np.dot(ckplusq_nM.conj(), np.dot(g_xMM, ck_nM.T))
-                g_lnn = np.dot(u_lx, g_nxn)
+                # Multiply phase factors
+                # This fix for very large matrices is a bit... dodgy,
+                # but should work
+                if load_gx_as_needed:
+                    g_lnn = np.zeros((nmodes, nbands, nbands), dtype=complex)
+                    for x in range(len(self.indices) * 3):
+                        # Allocate array
+                        g_MM = np.zeros((nao, nao), dtype=complex)
+                        fname = self._set_file_name(2, basis, name, x=x)
+                        g_sNNMM, M_a, nao_a = self.load_supercell_matrix_x(
+                            fname)
+                        assert nao == g_sNNMM.shape[-1]
+                        if x == 0:
+                            self.set_basis_info(M_a, nao_a)
+                        for m in range(N):
+                            for n in range(N):
+                                phase = self._get_phase_factor(R_cN, m, n, k_c,
+                                                               q_c)
+                                # Sum contributions from different cells
+                                g_MM += g_sNNMM[spin, m, n, :, :] * phase
+
+                        g_nn = np.dot(ckplusq_nM.conj(), np.dot(g_MM, ck_nM.T))
+                        # not sure if einsum is faster or slower
+                        # g_nn = np.einsum('ij,jk,kl->il',ckplusq_nM.conj(),
+                        # g_MM, ck_nM.T)
+                        # g_lnn += np.outer(u_lx[:,x],g_nn).reshape(nmodes,
+                        # nbands, nbands)
+                        g_lnn += np.einsum('i,kl->ikl', u_lx[:, x], g_nn)
+                else:
+                    # Allocate array
+                    g_xMM = np.zeros((ndisp, nao, nao), dtype=complex)
+
+                    # Multiply phase factors
+                    for m in range(N):
+                        for n in range(N):
+                            phase = self._get_phase_factor(R_cN, m, n,
+                                                           k_c, q_c)
+                            # Sum contributions from different cells
+                            g_xMM += g_xNNMM[:, m, n, :, :] * phase
+
+                    g_nxn = np.dot(ckplusq_nM.conj(), np.dot(g_xMM, ck_nM.T))
+                    g_lnn = np.dot(u_lx, g_nxn)
 
                 # Insert value
                 g_qklnn[q, i] = g_lnn
 
                 # XXX Temp
                 if np.all(q_c == 0.0):
-                    # These should be real
+                    # These should be real. Problem is... they are usually not
                     print(g_qklnn[q].imag.min(), g_qklnn[q].imag.max())
 
         self.timer.write_now("Finished calculation of "
@@ -921,3 +957,10 @@ class ElectronPhononCoupling(Displacement):
                 x += 1
 
         return np.array(V1t_xsG), dH1_xasp
+
+    def _get_phase_factor(self, R_cN, m, n, k_c, q_c):
+        Rm_c = R_cN[:, m]
+        Rn_c = R_cN[:, n]
+        phase = np.exp(2.j * np.pi * (np.dot(k_c, Rm_c - Rn_c)
+                                      + np.dot(q_c, Rm_c)))
+        return phase
