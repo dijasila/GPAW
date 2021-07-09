@@ -42,23 +42,23 @@ Ground state example::
   # Standard magic
   from ase import Atoms
   from gpaw import GPAW
-  
+
   # Beryllium atom
   atoms = Atoms(symbols='Be',
                 positions=[(0, 0, 0)],
                 pbc=False)
-  
+
   # Add 6.0 ang vacuum around the atom
   atoms.center(vacuum=6.0)
-  
+
   # Create GPAW calculator
   calc = GPAW(nbands=1, h=0.3)
   # Attach calculator to atoms
   atoms.calc = calc
-  
+
   # Calculate the ground state
   energy = atoms.get_potential_energy()
-  
+
   # Save the ground state
   calc.write('be_gs.gpw', 'all')
 
@@ -79,11 +79,11 @@ of femtoseconds depending on the desired resolution.
 Example::
 
   from gpaw.tddft import *
-  
+
   time_step = 8.0                  # 1 attoseconds = 0.041341 autime
   iterations = 2500                # 2500 x 8 as => 20 fs
   kick_strength = [0.0,0.0,1e-3]   # Kick to z-direction
-  
+
   # Read ground state
   td_calc = TDDFT('be_gs.gpw')
 
@@ -114,7 +114,7 @@ simulation time was too short.
 Example::
 
   from gpaw.tddft import *
-  
+
   time_step = 8.0                  # 1 attoseconds = 0.041341 autime
   iterations = 2500                # 2500 x 8 as => 20 fs
 
@@ -185,7 +185,13 @@ TDDFT reference manual
 .. autoclass:: gpaw.tddft.DipoleMomentWriter
    :members:
 
+.. autoclass:: gpaw.tddft.MagneticMomentWriter
+   :members:
+
 .. autoclass:: gpaw.tddft.RestartFileWriter
    :members:
 
 .. autofunction:: gpaw.tddft.photoabsorption_spectrum
+
+.. autoclass:: gpaw.lcaotddft.densitymatrix.DensityMatrix
+   :members:

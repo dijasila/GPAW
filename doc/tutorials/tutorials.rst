@@ -68,4 +68,7 @@ Specialized tutorials
    ofdft/ofdft
    berry/berry_tutorial
    wannier90/wannier90_tutorial
-   sjm/solvated_jellium_method.rst
+   sjm/solvated_jellium_method
+   rraman/resonant_raman_water
+   elphraman/elphraman
+   circular_dichroism/rttddft

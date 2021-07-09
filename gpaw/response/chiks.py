@@ -1,7 +1,7 @@
 import numpy as np
 from time import ctime
 
-from ase.utils import convert_string_to_fd
+from gpaw.utilities import convert_string_to_fd
 from ase.utils.timing import timer
 
 from gpaw.utilities.blas import gemm

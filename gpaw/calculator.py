@@ -754,15 +754,31 @@ class GPAW(Calculator):
         custom = criteria.pop('custom', [])
         del criteria['bands']
         for name, criterion in criteria.items():
-            if not hasattr(criterion, 'todict'):
+            if hasattr(criterion, 'todict'):
+                # 'Copy' so no two calculators share an instance.
+                criteria[name] = dict2criterion(criterion.todict())
+            else:
                 criteria[name] = dict2criterion({name: criterion})
 
         if not isinstance(custom, (list, tuple)):
             custom = [custom]
         for criterion in custom:
             if isinstance(criterion, dict):  # from .gpw file
-                criterion = dict2criterion(criterion)
+                msg = ('Custom convergence criterion "{:s}" encountered, '
+                       'which GPAW does not know how to load. This '
+                       'criterion is NOT enabled; you may want to manually'
+                       ' set it.'.format(criterion['name']))
+                warnings.warn(msg)
+                continue
+
             criteria[criterion.name] = criterion
+            msg = ('Custom convergence criterion {:s} encountered. '
+                   'Please be sure that each calculator is fed a '
+                   'unique instance of this criterion. '
+                   'Note that if you save the calculator instance to '
+                   'a .gpw file you may not be able to re-open it. '
+                   .format(criterion.name))
+            warnings.warn(msg)
 
         if self.scf is None:
             self.create_scf(criteria, mode)
@@ -928,7 +944,7 @@ class GPAW(Calculator):
             monkhorst_pack_size=self.wfs.kd.N_c,
             bz2ibzmap=self.wfs.kd.bz2ibz_k)
 
-        self.log(occ)
+        self.log('Occupation numbers:', occ, '\n')
         return occ
 
     def create_scf(self, criteria, mode):
