@@ -8,7 +8,7 @@ from typing import Any, Dict
 
 import numpy as np
 from ase import Atoms
-from ase.calculators.calculator import Calculator, kpts2ndarray
+from ase.calculators.calculator import Calculator, kpts2ndarray, InputError
 from ase.dft.bandgap import bandgap
 from ase.units import Bohr, Ha
 from ase.utils import plural
@@ -754,15 +754,35 @@ class GPAW(Calculator):
         custom = criteria.pop('custom', [])
         del criteria['bands']
         for name, criterion in criteria.items():
-            if not hasattr(criterion, 'todict'):
+            if hasattr(criterion, 'todict'):
+                # 'Copy' so no two calculators share an instance.
+                criteria[name] = dict2criterion(criterion.todict())
+            else:
                 criteria[name] = dict2criterion({name: criterion})
 
         if not isinstance(custom, (list, tuple)):
             custom = [custom]
         for criterion in custom:
             if isinstance(criterion, dict):  # from .gpw file
-                criterion = dict2criterion(criterion)
+                # Note below will raise an InputError.
+                try:
+                    criterion = dict2criterion(criterion)
+                except InputError:
+                    msg = ('Custom convergence criterion "{:s}" encountered, '
+                           'which GPAW does not know how to load. This '
+                           'criterion is NOT enabled; you may want to manually'
+                           ' set it.'.format(criterion['name']))
+                    warnings.warn(msg)
+                    continue
+
             criteria[criterion.name] = criterion
+            msg = ('Custom convergence criterion {:s} encountered. '
+                   'Please be sure that each calculator is fed a '
+                   'unique instance of this criterion. '
+                   'Note that if you save the calculator instance to '
+                   'a .gpw file you may not be able to re-open it. '
+                   .format(criterion.name))
+            warnings.warn(msg)
 
         if self.scf is None:
             self.create_scf(criteria, mode)
