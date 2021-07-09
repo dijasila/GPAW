@@ -302,6 +302,7 @@ class PolarizableRod():
         for c in corners:
             self.arguments += '[%20.12e, %20.12e, %20.12e],' % (c[0], c[1], c[2])
         self.arguments = self.arguments[:-1] + ']'
+        self.arguments += f', round_corners={round_corners}'
 
         self.corners      = np.array(corners)/Bohr # from Angstroms to atomic units
         self.radius       = radius/Bohr  # from Angstroms to atomic units
