@@ -292,7 +292,7 @@ class PolarizableEllipsoid():
 
  # Rod-shaped classical material
 class PolarizableRod():
-    def __init__(self, corners, radius, permittivity, round_corners=True):
+    def __init__(self, corners, radius, permittivity, round_corners):
         # sanity check
         assert(np.array(corners).shape[0]>1)  # at least two points
         assert(np.array(corners).shape[1]==3) # 3D
