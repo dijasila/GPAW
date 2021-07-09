@@ -371,7 +371,7 @@ class Forces(Criterion):
         with its force from the previous iteration, and the change in each
         atom's force is calculated as an l2-norm (Euclidean distance). The
         atom with the largest norm must be less than tol. [eV/Angstrom]
-    last : bool
+    calc_last : bool
         If True, calculates forces last; that is, it waits until all other
         convergence criteria are satisfied before checking to see if the
         forces have converged. (This is more computationally efficient.)
