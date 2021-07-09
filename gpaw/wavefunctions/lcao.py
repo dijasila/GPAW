@@ -545,13 +545,13 @@ class LCAO_forces:
         self.isblacs = isinstance(ksl, BlacsOrbitalLayouts)  # XXX
 
         self.timer.start('TCI derivative')
-        dThetadR_qvMM, dTdR_qvMM = self.manytci.O_qMM_T_qMM(gd.comm, self.Mstart,
+        self.dThetadR_qvMM, self.dTdR_qvMM = self.manytci.O_qMM_T_qMM(gd.comm, self.Mstart,
                                                             self.Mstop, False, derivative=True)
         self.dPdR_aqvMi = self.manytci.P_aqMi(self.bfs.my_atom_indices,
                                               derivative=True)
 
-        gd.comm.sum(dThetadR_qvMM)
-        gd.comm.sum(dTdR_qvMM)
+        gd.comm.sum(self.dThetadR_qvMM)
+        gd.comm.sum(self.dTdR_qvMM)
         self.timer.stop('TCI derivative')
 
     def _slices(self,indices):
@@ -566,33 +566,45 @@ class LCAO_forces:
         return self._slices(self.my_atom_indices)
 
     def get_forces_sum_GS(self):
-        
-        self.get_initial()
 
+        # Calculate rhoT_uMM and self.ET_uMM
+        self.rhoT_uMM,self.ET_uMM = self.get_den_mat_and_E()
+        # Calculate force contributions
         F_av=np.zeros_like(self.Fref_av)
         Fkin_av=self.get_kinetic_term()
         Fpot_av=self.get_den_mat_term ()
         Ftheta_av=self.get_pot_term()
         Frho_av=self.get_den_mat_paw_term()
         Fatom_av=self.get_atomic_density_term()
+        # Calculate sum of forces
         F_av += Fkin_av + Fpot_av + Ftheta_av + Frho_av + Fatom_av
 
         return F_av
 
-    def get_initial(self):
+    def get_den_mat_and_E(self):
+        #
+        #         -----                    -----
+        #          \    -1                  \    *
+        # E      =  )  S     H    rho     =  )  c     eps  f  c
+        #  mu nu   /    mu x  x z    z nu   /    n mu    n  n  n nu
+        #         -----                    -----
+        #          x z                       n
+        #
+        # We use the transpose of that matrix.  The first form is used
+        # if rho is given, otherwise the coefficients are used.
         self.timer.start('Initial')
-        self.rhoT_uMM = []
-        self.ET_uMM = []     
         if self.kpt_u[0].rho_MM is None:
+            rhoT_uMM = []
+            ET_uMM = []     
             self.timer.start('Get density matrix')
             for kpt in self.kpt_u:
                 rhoT_MM = self.ksl.get_transposed_density_matrix(kpt.f_n,
                                                             kpt.C_nM)
-                self.rhoT_uMM.append(rhoT_MM)
+                rhoT_uMM.append(rhoT_MM)
                 ET_MM = self.ksl.get_transposed_density_matrix(kpt.f_n *
                                                           kpt.eps_n,
                                                           kpt.C_nM)
-                self.ET_uMM.append(ET_MM)
+                ET_uMM.append(ET_MM)
                 if hasattr(kpt, 'c_on'):
                     # XXX does this work with BLACS/non-BLACS/etc.?
                     assert self.bd.comm.size == 1
@@ -606,8 +618,8 @@ class LCAO_forces:
                         d_nn * kpt.eps_n, kpt.C_nM)
             self.timer.stop('Get density matrix')
         else:
-            self.rhoT_uMM = []
-            self.ET_uMM = []
+            rhoT_uMM = []
+            ET_uMM = []
             for kpt in self.kpt_u:
                 H_MM = self.eigensolver.calculate_hamiltonian_matrix(
                     hamiltonian, self, kpt)
@@ -618,25 +630,14 @@ class LCAO_forces:
                                                       kpt.rho_MM)).T.copy()
                 del S_MM, H_MM
                 rhoT_MM = kpt.rho_MM.T.copy()
-                self.rhoT_uMM.append(rhoT_MM)
-                self.ET_uMM.append(ET_MM)
+                rhoT_uMM.append(rhoT_MM)
+                ET_uMM.append(ET_MM)
         self.timer.stop('Initial')
+        return rhoT_uMM,ET_uMM
 
     def get_kinetic_term(self):
-        # requires get_initial
         Fkin_av=np.zeros_like(self.Fref_av)
-
-        if self.kpt_u[0].rho_MM is None:
-            self.timer.start('Get density matrix')
-            for kpt in self.kpt_u:
-                rhoT_MM = self.ksl.get_transposed_density_matrix(kpt.f_n,
-                                                            kpt.C_nM)
-                self.rhoT_uMM.append(rhoT_MM)
-            self.timer.stop('Get density matrix')
-
         self.timer.start('TCI derivative')
-        dThetadR_qvMM, dTdR_qvMM = self.manytci.O_qMM_T_qMM(
-            self.gd.comm, self.Mstart, self.Mstop, False, derivative=True)
         # Kinetic energy contribution
         #
         #           ----- d T
@@ -648,7 +649,7 @@ class LCAO_forces:
         #
         Fkin_av = np.zeros_like(Fkin_av)
         for u, kpt in enumerate(self.kpt_u):
-            dEdTrhoT_vMM = (dTdR_qvMM[kpt.q] *
+            dEdTrhoT_vMM = (self.dTdR_qvMM[kpt.q] *
                             self.rhoT_uMM[u][np.newaxis]).real
             # XXX load distribution!
             for a, M1, M2 in self.my_slices():
@@ -660,19 +661,7 @@ class LCAO_forces:
         return Fkin_av
 
     def get_den_mat_term (self):
-
         Ftheta_av=np.zeros_like(self.Fref_av)
-        dThetadR_qvMM, dTdR_qvMM = self.manytci.O_qMM_T_qMM(
-                self.gd.comm, self.Mstart, self.Mstop, False, derivative=True)
-
-        if self.kpt_u[0].rho_MM is None:
-            self.timer.start('Get density matrix')
-            for kpt in self.kpt_u:
-                ET_MM = self.ksl.get_transposed_density_matrix(kpt.f_n *
-                                                          kpt.eps_n,
-                                                          kpt.C_nM)
-                self.ET_uMM.append(ET_MM)
-            self.timer.stop('Get density matrix')
         # Density matrix contribution due to basis overlap
         #
         #            ----- d Theta
@@ -684,7 +673,7 @@ class LCAO_forces:
         #
         Ftheta_av = np.zeros_like(Ftheta_av)
         for u, kpt in enumerate(self.kpt_u):
-            dThetadRE_vMM = (dThetadR_qvMM[kpt.q] *
+            dThetadRE_vMM = (self.dThetadR_qvMM[kpt.q] *
                              self.ET_uMM[u][np.newaxis]).real
             for a, M1, M2 in self.my_slices():
                 Ftheta_av[a, :] += \
@@ -694,7 +683,6 @@ class LCAO_forces:
         return Ftheta_av
 
     def get_pot_term(self):
-
         Fpot_av=np.zeros_like(self.Fref_av)
         # Potential contribution
         #
@@ -708,20 +696,11 @@ class LCAO_forces:
         self.timer.start('Potential')
         vt_sG = self.hamiltonian.vt_sG
         ksl = self.ksl
-        rhoT_uMM = []
-        if self.kpt_u[0].rho_MM is None:
-            self.timer.start('Get density matrix')
-            for kpt in self.kpt_u:
-                rhoT_MM = self.ksl.get_transposed_density_matrix(kpt.f_n,
-                                                            kpt.C_nM)
-                rhoT_uMM.append(rhoT_MM)
-            self.timer.stop('Get density matrix')
         Fpot_av = np.zeros_like(Fpot_av)
         for u, kpt in enumerate(self.kpt_u):
             vt_G = vt_sG[kpt.s]
-            Fpot_av += self.bfs.calculate_force_contribution(vt_G, rhoT_uMM[u],
-                                                        kpt.q)
-
+            Fpot_av += self.bfs.calculate_force_contribution(vt_G, self.rhoT_uMM[u],
+                                                             kpt.q)
         self.timer.stop('Potential')
         return Fpot_av        
 
@@ -744,10 +723,7 @@ class LCAO_forces:
         #         -----    b mu
         #           ij
         #
-
         Frho_av=np.zeros_like(self.Fref_av)
-        ET_uMM = []
-        ET_uMM, ET_MM=self.get_density_matrix()
         self.timer.start('add paw correction')
         ZE_MM = self.get_paw_correction()
         for u, kpt in enumerate(self.kpt_u):
@@ -763,7 +739,6 @@ class LCAO_forces:
 
     def get_paw_correction(self):
         #<Phi_nu|pt_i>O_ii<dPt_i/dR|Phi_mu>
-        ET_uMM, ET_MM=self.get_density_matrix()
         self.timer.start('get paw correction')
         ZE_MM=np.zeros((len(self.kpt_u),len(self.my_atom_indices),3,
                        self.mynao, self.nao), self.dtype)
@@ -778,33 +753,12 @@ class LCAO_forces:
                     gemm(1.0, dOP_iM,
                          self.dPdR_aqvMi[b][kpt.q][v][self.Mstart:self.Mstop],
                          0.0, work_MM, 'n')
-                    ZE_MM[u,b,v,:,:] = (work_MM * ET_uMM[u]).real
+                    ZE_MM[u,b,v,:,:] = (work_MM * self.ET_uMM[u]).real
         self.timer.stop('get paw correction')
         return ZE_MM
 
-    def get_density_matrix(self):
-        ET_uMM = []
-        if self.kpt_u[0].rho_MM is None:
-            self.timer.start('Get density matrix')
-            for kpt in self.kpt_u:
-                ET_MM = self.ksl.get_transposed_density_matrix(kpt.f_n *
-                                                          kpt.eps_n,
-                                                          kpt.C_nM)
-                ET_uMM.append(ET_MM)
-            self.timer.stop('Get density matrix')
-        return ET_uMM, ET_MM
-
     def get_atomic_density_term (self):
-
         Fatom_av=np.zeros_like(self.Fref_av)
-        rhoT_uMM = []
-        if self.kpt_u[0].rho_MM is None:
-#            self.timer.start('Get density matrix')
-            for kpt in self.kpt_u:
-                rhoT_MM = self.ksl.get_transposed_density_matrix(kpt.f_n,
-                                                            kpt.C_nM)
-                rhoT_uMM.append(rhoT_MM)
-#            self.timer.stop('Get density matrix')
         # Atomic density contribution
         #            -----                         -----
         #  a          \     a                       \     b
@@ -821,18 +775,16 @@ class LCAO_forces:
         #         -----    b mu
         #           ij
         #
-
         self.timer.start('Atomic Hamiltonian force')
         Fatom_av = np.zeros_like(Fatom_av)
         for u, kpt in enumerate(self.kpt_u):
             for b in self.my_atom_indices:
                 H_ii = np.asarray(unpack(self.dH_asp[b][kpt.s]), self.dtype)
-                HP_iM = gemmdot(H_ii,
-                                np.ascontiguousarray(
-                                    self.P_aqMi[b][kpt.q].T.conj()))
+                HP_iM = gemmdot(H_ii,np.ascontiguousarray(
+                                self.P_aqMi[b][kpt.q].T.conj()))
                 for v in range(3):
                     dPdR_Mi = self.dPdR_aqvMi[b][kpt.q][v][self.Mstart:self.Mstop]
-                    ArhoT_MM = (gemmdot(dPdR_Mi, HP_iM) * rhoT_uMM[u]).real
+                    ArhoT_MM = (gemmdot(dPdR_Mi, HP_iM) * self.rhoT_uMM[u]).real
                     for a, M1, M2 in self.slices():
                         dE = 2 * ArhoT_MM[M1:M2].sum()
                         Fatom_av[a, v] += dE  # the "b; mu in a; nu" term
