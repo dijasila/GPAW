@@ -499,7 +499,7 @@ class ElectronPhononCoupling(Displacement):
             assert self.basis_info is not None
         elif dump == 1:
             fname = self._set_file_name(dump, basis, name)
-            g_xsNNMM, M_a, nao_a = self.load_supercell_matrix_x(fname)
+            self.g_xsNNMM, M_a, nao_a = self.load_supercell_matrix_x(fname)
         else:  # dump == 2
             g_xsNNMM = []
             for x in range(len(self.indices) * 3):
@@ -694,7 +694,7 @@ class ElectronPhononCoupling(Displacement):
             basis = ''
 
         if not load_gx_as_needed:
-            assert self.g_xNNMM is not None, "Load supercell matrix."
+            assert self.g_xsNNMM is not None, "Load supercell matrix."
         assert len(c_kn.shape) == 3
         assert len(u_ql.shape) == 4
         if omega_ql is not None:
