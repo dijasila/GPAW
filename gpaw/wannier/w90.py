@@ -94,7 +94,9 @@ class Wannier90:
                 i1_c = np.unravel_index(bz_index1, size)
                 for direction in directions:
                     i2_c = np.array(i1_c) + direction
-                    bz_index2 = np.ravel_multi_index(i2_c, size, 'wrap')
+                    bz_index2 = np.ravel_multi_index(i2_c,
+                                                     size,
+                                                     'wrap')  # type: ignore
                     d_c = (i2_c - i2_c % size) // size
                     print(bz_index1 + 1, bz_index2 + 1, *d_c, file=fd)
                     M_nn = overlaps.overlap(bz_index1, direction)

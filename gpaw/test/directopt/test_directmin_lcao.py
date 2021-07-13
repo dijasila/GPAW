@@ -1,7 +1,8 @@
+import pytest
+
 from gpaw import GPAW, LCAO
 from ase import Atoms
 import numpy as np
-from gpaw.test import equal
 
 
 def test_directmin_lcao(in_tmp_dir):
@@ -23,7 +24,7 @@ def test_directmin_lcao(in_tmp_dir):
 
     calc = GPAW(mode=LCAO(),
                 basis='dzp',
-                occupations={'name': 'fixed-occ-zero-width'},
+                occupations={'name': 'fixed-uniform'},
                 eigensolver='direct_min_lcao',
                 mixer={'name': 'dummy'},
                 nbands='nao',
@@ -33,12 +34,11 @@ def test_directmin_lcao(in_tmp_dir):
     e = H2O.get_potential_energy()
     f = H2O.get_forces()
 
-    equal(e, -13.643156256566218, 1.0e-5)
-
+    assert e == pytest.approx(-13.643156256566218, abs=1.0e-4)
     f2 = np.array([[-1.11463, -1.23723, 0.0],
                    [1.35791, 0.00827, 0.0],
                    [-0.34423, 1.33207, 0.0]])
-    equal(f2, f, 1e-2)
+    assert f2 == pytest.approx(f, abs=1e-2)
 
     calc.write('h2o.gpw', mode='all')
     from gpaw import restart
@@ -46,5 +46,6 @@ def test_directmin_lcao(in_tmp_dir):
     H2O.positions += 1.0e-6
     f3 = H2O.get_forces()
     niter = calc.get_number_of_iterations()
-    equal(niter, 3, 1)
-    equal(f2, f3, 1e-2)
+
+    assert niter == pytest.approx(3, abs=1)
+    assert f2 == pytest.approx(f3, abs=1e-2)

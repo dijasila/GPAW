@@ -22,7 +22,7 @@ Let's try to converge the lattice constant with respect to number of
 plane-waves:
 
 .. literalinclude:: al.py
-    :lines: 1-19
+    :end-before: al.calc.set
 
 .. image:: Al_conv_ecut.png
 
@@ -30,7 +30,7 @@ Using a plane-wave cutoff energy of 400 eV, we now check convergence
 with respect to number of **k**-points:
 
 .. literalinclude:: al.py
-    :lines: 21-
+    :start-after: al.get_potential_energy
 
 .. image:: Al_conv_k.png
 

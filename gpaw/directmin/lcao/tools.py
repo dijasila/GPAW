@@ -94,9 +94,10 @@ def D_matrix(omega):
     return u_m
 
 
-def cubic_interpolation(x_0, x_1, f_0, f_1, df_0, df_1):
+def minimum_cubic_interpol(x_0, x_1, f_0, f_1, df_0, df_1):
     """
-    f(x) = a x^3 + b x^2 + c x + d
+    given f, f' at boundaries of interval calc. minimum
+    of cubic interpolation
     :param x_0:
     :param x_1:
     :param f_0:
@@ -105,6 +106,18 @@ def cubic_interpolation(x_0, x_1, f_0, f_1, df_0, df_1):
     :param df_1:
     :return:
     """
+
+    def cubic_function(a, b, c, d, x):
+        """
+        f(x) = a x^3 + b x^2 + c x + d
+        :param a:
+        :param b:
+        :param c:
+        :param d:
+        :param x:
+        :return:
+        """
+        return a * x ** 3 + b * x ** 2 + c * x + d
 
     if x_0 > x_1:
         x_0, x_1 = x_1, x_0
@@ -145,12 +158,10 @@ def cubic_interpolation(x_0, x_1, f_0, f_1, df_0, df_1):
     return alpha
 
 
-def cubic_function(a, b, c, d, x):
-    return a * x ** 3 + b * x ** 2 + c * x + d
-
-
-def parabola_interpolation(x_0, x_1, f_0, f_1, df_0):
+def minimum_parabola_interpol(x_0, x_1, f_0, f_1, df_0):
     """
+    given f(x0), f'(x0) and f(x1)
+    calc. minimum of parabola interpolation
     f(x) = a x^2 + b x + c
     :param x_0:
     :param x_1:
@@ -160,13 +171,6 @@ def parabola_interpolation(x_0, x_1, f_0, f_1, df_0):
     :return:
     """
     assert x_0 <= x_1
-
-    # print(x_0, x_1)
-
-    # if x_0 > x_1:
-    #     x_0, x_1 = x_1, x_0
-    #     f_0, f_1 = f_1, f_0
-    #     df_1 = df_0
 
     r = x_1 - x_0
     a = (f_1 - f_0 - r * df_0) / r**2

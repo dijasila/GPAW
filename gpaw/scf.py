@@ -70,19 +70,10 @@ class SCFLoop:
             wfs.eigensolver.iterate(ham, wfs)
             e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
             energy = ham.get_energy(e_entropy, wfs)
-            self.old_energies.append(energy)
-            errors = self.collect_errors(dens, ham, wfs)
 
-            # Converged?
-            for kind, error in errors.items():
-                if error > self.max_errors[kind]:
-                    self.converged = False
-                    break
-            else:
-                self.converged = True
+            errors = self.errors_check_convergence_log(
+                energy, dens, ham, wfs, callback, log)
 
-            callback(self.niter)
-            self.log(log, self.niter, wfs, ham, dens, errors)
             yield
 
             if self.converged and self.niter >= self.niter_fixdensity:
@@ -261,22 +252,11 @@ class SCFLoop:
                 e_sic = solver.e_sic
             else:
                 e_sic = 0.0
-            energy = ham.get_energy(0.0, wfs, kin_en_using_band=False,
-                                    e_sic=e_sic)
+            energy = ham.get_energy(
+                0.0, wfs, kin_en_using_band=False, e_sic=e_sic)
 
-            self.old_energies.append(energy)
-            errors = self.collect_errors(dens, ham, wfs)
-
-            # Converged?
-            for kind, error in errors.items():
-                if error > self.max_errors[kind]:
-                    self.converged = False
-                    break
-            else:
-                self.converged = True
-
-            callback(self.niter)
-            self.log(log, self.niter, wfs, ham, dens, errors)
+            self.errors_check_convergence_log(
+                energy, dens, ham, wfs, callback, log)
 
             if self.converged:
                 if wfs.mode == 'fd' or wfs.mode == 'pw':
@@ -345,8 +325,6 @@ class SCFLoop:
                         '\nOccupied states converged after'
                         ' {:d} e/g evaluations'.format(niter))
                     break
-                # else:
-                #     raise NotImplementedError
             ham.npoisson = 0
             self.niter += 1
 
@@ -354,6 +332,22 @@ class SCFLoop:
             log(oops)
             raise KohnShamConvergenceError(
                 'Did not converge!  See text output for help.')
+
+    def errors_check_convergence_log(self, energy, dens, ham, wfs,
+                                     callback, log):
+        self.old_energies.append(energy)
+        errors = self.collect_errors(dens, ham, wfs)
+        # Converged?
+        for kind, error in errors.items():
+            if error > self.max_errors[kind]:
+                self.converged = False
+                break
+        else:
+            self.converged = True
+        callback(self.niter)
+        self.log(log, self.niter, wfs, ham, dens, errors)
+
+        return errors
 
 
 oops = """

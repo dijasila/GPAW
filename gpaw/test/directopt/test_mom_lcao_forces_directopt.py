@@ -3,7 +3,6 @@ import pytest
 from ase import Atoms
 from gpaw import GPAW
 from gpaw.mom import prepare_mom_calculation
-from gpaw.test import equal
 from gpaw.directmin.lcao.directmin_lcao import DirectMinLCAO
 
 
@@ -66,5 +65,5 @@ def test_mom_lcao_forces_directopt(in_tmp_dir):
     fnum = (E[0] - E[1]) / (2. * delta)     # central difference
 
     print(fnum)
-    equal(fnum, 11.9364629545, 0.01)
-    equal(f, fnum, 0.1)
+    assert fnum == pytest.approx(11.9364629545, 0.01)
+    assert f == pytest.approx(fnum, 0.1)

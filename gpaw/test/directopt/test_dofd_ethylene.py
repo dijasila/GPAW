@@ -1,7 +1,8 @@
+import pytest
+
 from gpaw import GPAW, FD
 from gpaw.directmin.fdpw.directmin import DirectMin
 import numpy as np
-from gpaw.test import equal
 from ase import Atoms
 
 
@@ -23,7 +24,7 @@ def test_dofd_ethylene(in_tmp_dir):
     calc = GPAW(mode=FD(),
                 h=0.3,
                 xc='PBE',
-                occupations={'name': 'fixed-occ-zero-width'},
+                occupations={'name': 'fixed-uniform'},
                 eigensolver=DirectMin(convergelumo=True),
                 mixer={'name': 'dummy'},
                 spinpol=True,
@@ -42,7 +43,7 @@ def test_dofd_ethylene(in_tmp_dir):
               [3.42732, 2.17634, 2.66001]]
 
     assert (np.abs(forces - fsaved) < 1.0e-3).all()
-    equal(energy, -24.789097, 1.0e-6)
+    assert energy == pytest.approx(-24.789097, abs=1.0e-4)
     assert calc.wfs.kpt_u[0].eps_n[5] > calc.wfs.kpt_u[0].eps_n[6]
 
     calc.write('ethylene.gpw', mode='all')
@@ -51,5 +52,5 @@ def test_dofd_ethylene(in_tmp_dir):
     atoms.positions += 1.0e-6
     f3 = atoms.get_forces()
     niter = calc.get_number_of_iterations()
-    equal(niter, 3, 1)
-    equal(fsaved, f3, 1e-2)
+    assert niter == pytest.approx(3, abs=1)
+    assert fsaved == pytest.approx(f3, abs=1e-2)

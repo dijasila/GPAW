@@ -320,7 +320,7 @@ class FermiDiracCalculator(SmoothDistribution):
         return fermi_dirac(eig_n, fermi_level, self._width)
 
     def __str__(self):
-        return f'  Fermi-Dirac: width={self._width:.4f} eV\n'
+        return f'Fermi-Dirac: width={self._width:.4f} eV\n'
 
 
 class MarzariVanderbiltCalculator(SmoothDistribution):
@@ -333,7 +333,7 @@ class MarzariVanderbiltCalculator(SmoothDistribution):
         return marzari_vanderbilt(eig_n, fermi_level, self._width)
 
     def __str__(self):
-        return f'  Marzari-Vanderbilt: width={self._width:.4f} eV\n'
+        return f'Marzari-Vanderbilt: width={self._width:.4f} eV\n'
 
 
 class MethfesselPaxtonCalculator(SmoothDistribution):
@@ -350,7 +350,7 @@ class MethfesselPaxtonCalculator(SmoothDistribution):
         return dct
 
     def __str__(self):
-        return (f'  Methfessel-Paxton: width={self._width:.4f} eV, ' +
+        return (f'Methfessel-Paxton: width={self._width:.4f} eV, ' +
                 f'order={self.order}\n')
 
     def distribution(self, eig_n, fermi_level):
@@ -488,85 +488,15 @@ def distribute_occupation_numbers(f_kn: np.ndarray,  # input
             k += 1
 
 
-class FixedOccupationsZeroWidth(OccupationNumberCalculator):
-    """
-    we would like to occupy just first N orbitals independently on
-    their eigenvalues. The class still should return the efermi too
-    """
-    name = 'fixed-occ-zero-width'
-    extrapolate_factor = 0.0
-
-    def todict(self):
-        return {'name': 'fixed-occ-zero-width'}
-
-    def distribution(self, eig_n, fermi_level):
-
-        raise NotImplementedError
-
-    def _calculate(self,
-                   nelectrons,
-                   eig_qn,
-                   weight_q,
-                   f_qn,
-                   fermi_level_guess=nan):
-        eig_kn, weight_k, nkpts_r = collect_eigelvalues(eig_qn, weight_q,
-                                                        self.bd, self.kpt_comm)
-
-        if eig_kn.size != 0:
-            # Try to use integer weights (avoid round-off errors):
-            N = int(round(1 / min(weight_k)))
-            w_k = (weight_k * N).round().astype(int)
-            if abs(w_k - N * weight_k).max() > 1e-10:
-                # Did not work.  Use original fractional weights:
-                w_k = weight_k
-                N = 1
-
-            f_kn = np.zeros_like(eig_kn)
-            f_m = f_kn.ravel()
-            w_kn = np.empty_like(eig_kn, dtype=w_k.dtype)
-            w_kn[:] = w_k[:, np.newaxis]
-            eig_m = eig_kn.ravel()
-            w_m = w_kn.ravel()
-            m_i = eig_m.argsort()
-            w_i = w_m[m_i]
-            sum_i = np.add.accumulate(w_i)
-            filled_i = (sum_i <= nelectrons * N)
-            i = sum(filled_i)
-            f_m[m_i[:i]] = 1.0
-            if i == len(m_i):
-                fermi_level = inf
-            else:
-                extra = nelectrons * N - (sum_i[i - 1] if i > 0 else 0.0)
-                if extra > 0:
-                    assert extra <= w_i[i]
-                    f_m[m_i[i]] = extra / w_i[i]
-                    fermi_level = eig_m[m_i[i]]
-                else:
-                    fermi_level = (eig_m[m_i[i]] + eig_m[m_i[i - 1]]) / 2
-            # don't have holes:
-            for f in f_kn:
-                f[::-1].sort()
-        else:
-            f_kn = None
-            fermi_level = nan
-
-        distribute_occupation_numbers(f_kn, f_qn, nkpts_r,
-                                      self.bd, self.kpt_comm)
-
-        if self.kpt_comm.rank == 0:
-            fermi_level = broadcast_float(fermi_level, self.bd.comm)
-        fermi_level = broadcast_float(fermi_level, self.kpt_comm)
-
-        e_entropy = 0.0
-        return fermi_level, e_entropy
-
-
 class ZeroWidth(OccupationNumberCalculator):
     name = 'zero-width'
     extrapolate_factor = 0.0
 
     def todict(self):
         return {'width': 0.0}
+
+    def __str__(self):
+        return 'width=0.000 eV'
 
     def distribution(self, eig_n, fermi_level):
         f_n = np.zeros_like(eig_n)
@@ -652,18 +582,121 @@ class FixedOccupationNumbers(OccupationNumberCalculator):
                    weight_q,
                    f_qn,
                    fermi_level_guess=nan):
-        if self.bd.nbands == self.f_sn.shape[1]:
-            for q, f_n in enumerate(f_qn):
-                s = q % len(self.f_sn)
-                self.bd.distribute(self.f_sn[s], f_n)
-        else:
-            # Non-collinear calculation:
-            self.bd.distribute(self.f_sn.T.flatten().copy(), f_qn[0])
+
+        calc_fixed(self.bd, self.f_sn, f_qn)
 
         return inf, 0.0
 
     def todict(self):
         return {'name': 'fixed', 'numbers': self.f_sn}
+
+
+class FixedOccupationNumbersUniform(OccupationNumberCalculator):
+
+    extrapolate_factor = 0.0
+    name = 'fixed-uniform'
+
+    def __init__(self, nelectrons, nspins, magmom, nkpts, nbands,
+                 parallel_layout: ParallelLayout = None):
+        """
+        Uniform distribution of occupation numbers: each
+        k-point per spin has the same number of occupied states
+        Magnetic moment defines difference between two spins occ. numb.
+        """
+        OccupationNumberCalculator.__init__(self, parallel_layout)
+
+        def get_f(nelectrons, magmom, nkpts, nbands, spin):
+            """
+            :param nelectrons:
+            :param magmom:
+            :param nkpts:
+            :param nbands:
+            :param spin: +1 or -1
+            :return: occupation numbers per spin channel
+            """
+
+            f_qn = np.zeros(shape=(nkpts, nbands))
+            nelecps = (nelectrons + spin * magmom) / 2
+            assert int(nelecps) < nbands, 'need more bands!'
+
+            f_qn[:, : int(nelecps)] = 1.0
+            f_qn[:, int(nelecps)] = nelecps - int(nelecps)
+
+            return f_qn
+
+        if nspins == 2:
+            f1_qn = get_f(nelectrons, magmom, nkpts, nbands, 1)
+            f2_qn = get_f(nelectrons, magmom, nkpts, nbands, -1)
+            f_qn = []
+            for f1_n, f2_n in zip(f1_qn, f2_qn):
+                f_qn += [f1_n, f2_n]
+        else:
+            f_qn = get_f(nelectrons, magmom, nkpts, nbands, 0)
+
+        self.f_sn = np.array(f_qn)
+        self.nspins = nspins
+        self.magmom = magmom
+
+    def _calculate(self,
+                   nelectrons,
+                   eig_qn,
+                   weight_q,
+                   f_qn,
+                   fermi_level_guess=nan):
+
+        calc_fixed(self.bd, self.f_sn, f_qn)
+
+        eig_kn, weight_k, nkpts_r = collect_eigelvalues(
+            eig_qn, weight_q, self.bd, self.kpt_comm)
+
+        def get_homo(eig_kn, nelectrons, deg, magmom, spin):
+            nelecps = int((nelectrons * deg + spin * magmom) / 2)
+            return np.max(eig_kn[:, np.maximum(nelecps - 1, 0)])
+
+        def get_lumo(eig_kn, nelectrons, deg, magmom, spin):
+            nelecps = int((nelectrons * deg + spin * magmom) / 2)
+            return np.min(eig_kn[:, nelecps])
+
+        deg = 3 - self.nspins
+        mm = self.magmom
+        if eig_kn.size != 0:
+            if self.nspins == 2:
+                hup = get_homo(eig_kn[::2], nelectrons, deg, mm, 1)
+                hdown = get_homo(eig_kn[1::2], nelectrons, deg, mm, -1)
+                homo = np.maximum(hup, hdown)
+
+                lup = get_lumo(eig_kn[::2], nelectrons, deg, mm, 1)
+                ldown = get_lumo(eig_kn[1::2], nelectrons, deg, mm, -1)
+                lumo = np.maximum(lup, ldown)
+
+            else:
+                homo = get_homo(eig_kn, nelectrons, deg, mm, 0)
+                lumo = get_lumo(eig_kn, nelectrons, deg, mm, 0)
+            fermi_level = (homo + lumo) / 2
+        else:
+            fermi_level = nan
+
+        if self.kpt_comm.rank == 0:
+            fermi_level = broadcast_float(fermi_level, self.bd.comm)
+        fermi_level = broadcast_float(fermi_level, self.kpt_comm)
+
+        return fermi_level, 0.0
+
+    def todict(self):
+        return {'name': 'fixed-uniform'}
+
+    def __str__(self):
+        return "Uniform distribution of occupation numbers"
+
+
+def calc_fixed(bd, f_sn, f_qn):
+    if bd.nbands == f_sn.shape[1]:
+        for q, f_n in enumerate(f_qn):
+            s = q % len(f_sn)
+            bd.distribute(f_sn[s], f_n)
+    else:
+        # Non-collinear calculation:
+        bd.distribute(f_sn.T.flatten().copy(), f_qn[0])
 
 
 def FixedOccupations(f_sn):
@@ -696,7 +729,10 @@ def create_occ_calc(dct: Dict[str, Any],
                     rcell=None,
                     monkhorst_pack_size=None,
                     bz2ibzmap=None,
-                    nspins=None
+                    nspins=None,
+                    nelectrons=None,
+                    nkpts=None,
+                    nbands=None
                     ) -> OccupationNumberCalculator:
     """Surprise: Create occupation-number object.
 
@@ -747,14 +783,10 @@ def create_occ_calc(dct: Dict[str, Any],
         return ThomasFermiOccupations(**kwargs)
     elif name == 'fixed':
         return FixedOccupationNumbers(**kwargs)
-    elif name == 'fixed-occ-zero-width':
-        occ = FixedOccupationsZeroWidth(**kwargs)
-        if nspins == 2:
-            fix_the_magnetic_moment = True
-            # occ = FixMagneticMomentOccupationNumberCalculator(
-            #     occ,
-            #     fixed_magmom_value)
-            #
+    elif name == 'fixed-uniform':
+        return FixedOccupationNumbersUniform(
+            nelectrons, nspins, fixed_magmom_value,
+            nkpts, nbands, **kwargs)
     else:
         raise ValueError(f'Unknown occupation number object name: {name}')
 

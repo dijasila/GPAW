@@ -5,7 +5,7 @@ from gpaw.mpi import world
 from gpaw.atom.radialgd import EquidistantRadialGridDescriptor
 from gpaw.fd_operators import Gradient
 from gpaw.grid_descriptor import GridDescriptor
-from gpaw.setup import Setup
+from gpaw.setup import Setup, Setups
 from gpaw.spherical_harmonics import YL
 from gpaw.utilities.tools import coordinates
 
@@ -163,7 +163,7 @@ def test_phit_integrals(lmax, radial_function, integrals_on_radial_grid):
 @pytest.mark.parametrize('kind', ['nabla', 'rxnabla'])
 def test_skew_symmetry(kind, integrals_on_radial_grid):
     arr_LLv = integrals_on_radial_grid[kind]
-    rtol = {'nabla': 1e-7, 'rxnabla': 0}[kind]
+    rtol = {'nabla': 1e-8, 'rxnabla': 0}[kind]
     for v in range(3):
         arr_LL = arr_LLv[..., v]
         assert np.allclose(arr_LL, -arr_LL.T, rtol=rtol, atol=1e-11)
@@ -187,3 +187,15 @@ def test_lmax_zero(radial_function):
                                            lmax=0)
     for kind, ref_LLv in integrals.items():
         assert np.allclose(ref_LLv, 0, rtol=0, atol=0)
+
+
+@pytest.mark.parametrize('xc', ['LDA', 'PBE'])
+@pytest.mark.parametrize('Z', (
+    list(range(1, 43)) + list(range(44, 57)) + list(range(72, 84)) + [86]))
+def test_skew_symmetry_real_setup(Z, xc):
+    setup = Setups([Z], {}, {}, xc)[0]
+    for v in range(3):
+        arr_ii = setup.nabla_iiv[:, :, v]
+        assert np.allclose(arr_ii, -arr_ii.T, rtol=5e-6, atol=1e-12)
+        arr_ii = setup.rxnabla_iiv[:, :, v]
+        assert np.allclose(arr_ii, -arr_ii.T, rtol=0, atol=1e-14)

@@ -3,7 +3,7 @@ import functools
 from ase.calculators.calculator import Calculator
 from ase.data import covalent_radii, atomic_numbers
 from ase.units import Bohr, Hartree
-from ase.utils import convert_string_to_fd
+from gpaw.utilities import convert_string_to_fd
 import numpy as np
 from math import pi
 from scipy.optimize import minimize

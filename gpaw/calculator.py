@@ -765,7 +765,7 @@ class GPAW(Calculator):
             self.wfs.set_setups(self.setups)
 
         occ = self.create_occupations(cell_cv, magmom_av[:, 2].sum(),
-                                      orbital_free)
+                                      orbital_free, nvalence)
         self.wfs.occupations = occ
 
         if not self.wfs.eigensolver:
@@ -876,7 +876,7 @@ class GPAW(Calculator):
         return GridDescriptor(N_c, cell_cv, pbc_c, domain_comm,
                               parsize_domain)
 
-    def create_occupations(self, cell_cv, magmom, orbital_free):
+    def create_occupations(self, cell_cv, magmom, orbital_free, nvalence):
         dct = self.parameters.occupations
 
         if dct is None:
@@ -912,10 +912,13 @@ class GPAW(Calculator):
             rcell=np.linalg.inv(cell_cv).T,
             monkhorst_pack_size=self.wfs.kd.N_c,
             bz2ibzmap=self.wfs.kd.bz2ibz_k,
-            nspins=self.wfs.nspins
+            nspins=self.wfs.nspins,
+            nelectrons=nvalence,
+            nkpts=self.wfs.kd.nibzkpts,
+            nbands=self.wfs.bd.nbands
         )
 
-        self.log(occ)
+        self.log('Occupation numbers:', occ, '\n')
         return occ
 
     def create_scf(self, nvalence, mode):

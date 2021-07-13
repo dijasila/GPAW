@@ -793,19 +793,17 @@ class DirectMin(Eigensolver):
         self.choose_optimal_orbitals(wfs, ham, dens)
 
         if self.exstopt:
-            grad_knG = self.get_gradients_2(ham, wfs, scalewithocc=False)
-            if 'SIC' in self.odd_parameters['name']:
-                self.odd.get_energy_and_gradients(wfs, grad_knG, dens,
-                                                  self.iloop.U_k,
-                                                  add_grad=True,
-                                                  scalewithocc=False)
+            scalewithocc = False
         else:
-            grad_knG = self.get_gradients_2(ham, wfs)
-            if 'SIC' in self.odd_parameters['name']:
-                self.odd.get_energy_and_gradients(wfs, grad_knG, dens,
-                                                  self.iloop.U_k,
-                                                  add_grad=True)
+            scalewithocc = True
 
+        grad_knG = self.get_gradients_2(
+            ham, wfs, scalewithocc=scalewithocc)
+        if 'SIC' in self.odd_parameters['name']:
+            self.odd.get_energy_and_gradients(wfs, grad_knG, dens,
+                                              self.iloop.U_k,
+                                              add_grad=True,
+                                              scalewithocc=scalewithocc)
         for kpt in wfs.kpt_u:
             if self.exstopt:
                 if 'SIC' in self.odd_parameters['name']:
@@ -894,7 +892,6 @@ class DirectMin(Eigensolver):
                 # TODO: if homo-lumo is around zero then
                 #  it is not good to do diagonalization
                 #  of occupied and unoccupied states
-
                 # separete diagonaliztion of two subspaces:
                 k = self.n_kps * kpt.s + kpt.q
                 n_occ = get_n_occ(kpt)
@@ -905,25 +902,16 @@ class DirectMin(Eigensolver):
                                      grad_knG[k][:n_occ],
                                      True)
                 lamb = (lamb + lamb.T.conj()) / 2.0
-
-                # lamb = np.ascontiguousarray(lamb)
-
                 lumo = wfs.integrate(kpt.psit_nG[n_occ:n_occ + dim],
                                      grad_knG[k][n_occ:n_occ + dim],
                                      True)
                 lumo = (lumo + lumo.T.conj()) / 2.0
-                # lumo = np.ascontiguousarray(lumo)
-                # wfs.gd.comm.sum(lamb)
-                # wfs.gd.comm.sum(lumo)
-                if 'SIC' in self.odd_parameters['name']:
-                    self.odd.lagr_diag_s[k] = np.append(
-                        np.diagonal(lamb).real, np.diagonal(lumo).real)
-                    # self.odd.lagr_diag_s[k][n_occ] = lumo.real
-                    # np.ones(shape=n_unocc) * np.inf)
-                    # inf is not a good
-                    # for example for ase get gap
-                    self.odd.lagr_diag_s[k][:n_occ] /= kpt.f_n[:n_occ]
 
+                lo_nn = np.diagonal(lamb).real / kpt.f_n[:n_occ]
+                lu_nn = np.diagonal(lumo).real / 1.0
+                # if 'SIC' in self.odd_parameters['name']:
+                #     self.odd.lagr_diag_s[k] = np.append(lo_nn, lu_nn)
+                #     self.odd.lagr_diag_s[k][:n_occ] /= kpt.f_n[:n_occ]
                 if n_occ != 0:
                     evals, lamb = np.linalg.eigh(lamb)
                     # evals = np.empty(lamb.shape[0])
@@ -931,11 +919,8 @@ class DirectMin(Eigensolver):
                     wfs.gd.comm.broadcast(evals, 0)
                     wfs.gd.comm.broadcast(lamb, 0)
                     lamb = lamb.T
-
                     kpt.eps_n[:n_occ] = evals[:n_occ] / kpt.f_n[:n_occ]
 
-                # evals_lumo = np.empty(lumo.shape[0])
-                # diagonalize(lumo, evals_lumo)
                 evals_lumo, lumo = np.linalg.eigh(lumo)
                 wfs.gd.comm.broadcast(evals_lumo, 0)
                 wfs.gd.comm.broadcast(lumo, 0)
@@ -948,15 +933,22 @@ class DirectMin(Eigensolver):
                 kpt.eps_n[n_occ + dim:] +=\
                     np.absolute(5.0 * kpt.eps_n[n_occ + dim - 1])
                 if rewrite_psi:
-                    # TODO:
-                    # Do we need sort wfs according to eps_n
-                    # or they will be automatically sorted?
                     kpt.psit_nG[:n_occ] = \
                         np.tensordot(lamb.conj(), kpt.psit_nG[:n_occ],
                                      axes=1)
                     kpt.psit_nG[n_occ:n_occ + dim] = np.tensordot(
                         lumo.conj(), kpt.psit_nG[n_occ:n_occ + dim], axes=1)
-                    wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+                orb_en = [lo_nn, lu_nn]
+                for i in [0, 1]:
+                    ind = np.argsort(orb_en[i])
+                    orb_en[i][:] = orb_en[i][ind]
+                    if not rewrite_psi:
+                        # we need to sort wfs
+                        kpt.psit_nG[n_occ * i + np.arange(len(ind)), :] = \
+                            kpt.psit_nG[n_occ * i + ind, :]
+                wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+                if 'SIC' in self.odd_parameters['name']:
+                    self.odd.lagr_diag_s[k] = np.append(lo_nn, lu_nn)
 
         # update fermi level?
         del grad_knG
@@ -1429,14 +1421,8 @@ class DirectMin(Eigensolver):
             'Band parallelization is not supported'
         if wfs.occupations.name != 'mom':
             errormsg = \
-                'Please, use occupations={\'name\': \'fixed-occ-zero-width\'}'
-
-            if wfs.occupations.name == 'fixmagmom':
-                assert wfs.occupations.occ.name == 'fixed-occ-zero-width', \
-                    errormsg
-            else:
-                assert wfs.occupations.name == 'fixed-occ-zero-width', \
-                    errormsg
+                'Please, use occupations={\'name\': \'fixed-uniform\'}'
+            assert wfs.occupations.name == 'fixed-uniform', errormsg
 
     def check_mom(self, wfs, ham, dens):
 
