@@ -38,7 +38,7 @@ class SCFLoop:
             ('integral of absolute density change: {0:g} electrons',
              cc['density'] / self.nvalence),
             ('integral of absolute eigenstate change: {0:g} eV^2',
-             cc['eigenstates'] * Ha**2 / self.nvalence),
+             cc['eigenstates'] * Ha ** 2 / self.nvalence),
             ('change in atomic force: {0:g} eV / Ang',
              cc['force'] * Ha / Bohr),
             ('number of iterations: {0}', self.maxiter)]:
@@ -58,24 +58,21 @@ class SCFLoop:
         self.converged = False
 
     def irun(self, wfs, ham, dens, log, callback):
+
+        egs_name = getattr(wfs.eigensolver, "name", None)
+        if egs_name == 'direct-min' or egs_name == 'direct-min-lcao':
+            self.run_dm(wfs, ham, dens, log, callback)
+            return
+
         self.niter = 1
         while self.niter <= self.maxiter:
             wfs.eigensolver.iterate(ham, wfs)
             e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
             energy = ham.get_energy(e_entropy, wfs)
-            self.old_energies.append(energy)
-            errors = self.collect_errors(dens, ham, wfs)
 
-            # Converged?
-            for kind, error in errors.items():
-                if error > self.max_errors[kind]:
-                    self.converged = False
-                    break
-            else:
-                self.converged = True
+            errors = self.errors_check_convergence_log(
+                energy, dens, ham, wfs, callback, log)
 
-            callback(self.niter)
-            self.log(log, self.niter, wfs, ham, dens, errors)
             yield
 
             if self.converged and self.niter >= self.niter_fixdensity:
@@ -206,6 +203,130 @@ class SCFLoop:
                 log(' {:+.1f},{:+.1f},{:+.1f}'.format(*totmom_v), end='')
 
         log(flush=True)
+
+    def run_dm(self, wfs, ham, dens, log, callback):
+
+        self.niter = 1
+
+        solver = wfs.eigensolver
+        occ_name = getattr(wfs.occupations, 'name', None)
+
+        solver.eg_count = 0
+        solver.globaliters = 0
+        if hasattr(solver, 'iloop'):
+            if solver.iloop is not None:
+                solver.iloop.total_eg_count = 0
+        if hasattr(solver, 'iloop_outer'):
+            if solver.iloop_outer is not None:
+                solver.iloop_outer.total_eg_count = 0
+
+        solver.check_assertions(wfs, dens)
+
+        while self.niter <= self.maxiter:
+            # we need to check each time if initialization is needed
+            # as sometimes one need to erase the memory in L-BFGS
+            # or mom can require restart if it detects the collapse
+            if not solver.initialized:
+                solver.init_me(wfs, ham, dens, log)
+
+            solver.iterate(ham, wfs, dens, log)
+            solver.check_mom(wfs, ham, dens)
+
+            energy = ham.get_energy(0.0, wfs, kin_en_using_band=False)
+
+            self.errors_check_convergence_log(
+                energy, dens, ham, wfs, callback, log)
+
+            if self.converged:
+                if wfs.mode == 'fd' or wfs.mode == 'pw':
+                    solver.choose_optimal_orbitals(
+                        wfs, ham, dens)
+                    niter1 = solver.eg_count
+                    niter2 = 0
+                    niter3 = 0
+
+                    iloop1 = solver.iloop is not None
+                    iloop2 = solver.iloop_outer is not None
+                    if iloop1:
+                        niter2 = solver.total_eg_count_iloop
+                    if iloop2:
+                        niter3 = solver.total_eg_count_iloop_outer
+
+                    if iloop1 and iloop2:
+                        log(
+                            '\nOccupied states converged after'
+                            ' {:d} KS and {:d} SIC e/g '
+                            'evaluations'.format(niter3,
+                                                 niter2 + niter3))
+                    elif not iloop1 and iloop2:
+                        log(
+                            '\nOccupied states converged after'
+                            ' {:d} e/g evaluations'.format(niter3))
+                    elif iloop1 and not iloop2:
+                        log(
+                            '\nOccupied states converged after'
+                            ' {:d} KS and {:d} SIC e/g '
+                            'evaluations'.format(niter1, niter2))
+                    else:
+                        log(
+                            '\nOccupied states converged after'
+                            ' {:d} e/g evaluations'.format(niter1))
+                    if solver.convergelumo:
+                        log('Converge unoccupied states:')
+                        max_er = self.max_errors['eigenstates']
+                        max_er *= Ha ** 2 / wfs.nvalence
+                        solver.run_lumo(ham, wfs, dens, max_er, log)
+                    else:
+                        solver.initialized = False
+                        log('Unoccupied states are not converged.')
+                    rewrite_psi = True
+                    sic_calc = 'SIC' in solver.odd_parameters['name']
+                    if sic_calc:
+                        rewrite_psi = False
+                    solver.get_canonical_representation(
+                        ham, wfs, dens, rewrite_psi)
+                    solver._e_entropy = \
+                        wfs.calculate_occupation_numbers(dens.fixed)
+                    if not sic_calc and occ_name:
+                        for kpt in wfs.kpt_u:
+                            solver.sort_wavefunctions(wfs, kpt)
+                        solver._e_entropy =\
+                            wfs.calculate_occupation_numbers(dens.fixed)
+                    solver.get_energy_and_tangent_gradients(
+                        ham, wfs, dens)
+                    break
+                elif wfs.mode == 'lcao':
+                    # Do we need to calculate the occupation numbers here?
+                    wfs.calculate_occupation_numbers(dens.fixed)
+                    solver.get_canonical_representation(ham, wfs, dens)
+                    niter = solver.eg_count
+                    log(
+                        '\nOccupied states converged after'
+                        ' {:d} e/g evaluations'.format(niter))
+                    break
+            ham.npoisson = 0
+            self.niter += 1
+
+        if not self.converged:
+            log(oops)
+            raise KohnShamConvergenceError(
+                'Did not converge!  See text output for help.')
+
+    def errors_check_convergence_log(self, energy, dens, ham, wfs,
+                                     callback, log):
+        self.old_energies.append(energy)
+        errors = self.collect_errors(dens, ham, wfs)
+        # Converged?
+        for kind, error in errors.items():
+            if error > self.max_errors[kind]:
+                self.converged = False
+                break
+        else:
+            self.converged = True
+        callback(self.niter)
+        self.log(log, self.niter, wfs, ham, dens, errors)
+
+        return errors
 
 
 oops = """

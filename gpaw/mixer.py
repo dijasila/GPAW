@@ -379,6 +379,9 @@ class DummyMixer:
     nmaxold = 1
     weight = 1
 
+    def __init__(self, *args, **kwargs):
+        return
+
     def mix(self, basemixers, nt_sG, D_asp):
         return 0.0
 
