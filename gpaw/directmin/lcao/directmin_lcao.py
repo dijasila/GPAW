@@ -975,7 +975,8 @@ class DirectMinLCAO(DirectLCAO):
 
         """
            calculate gradient with respect to skew-hermitian
-           matrix using finite differences
+           matrix using finite differences with random noise
+           this is just to test the implementation of anal. gradient
 
         :param n_dim:
         :param ham:
@@ -1074,7 +1075,8 @@ class DirectMinLCAO(DirectLCAO):
             for kpt in wfs.kpt_u:
                 u = self.n_kps * kpt.s + kpt.q
                 c_nm_ref[u] = kpt.C_nM.copy()
-        self.matrix_exp = 'egdecomp'
+
+        assert self.matrix_exp == 'egdecomp'
 
         h = [eps, -eps]
         coeif = [1.0, -1.0]
