@@ -12,7 +12,7 @@ calc = GPAW(mode='lcao',
             xc='PBE',
             occupations=FermiDirac(0.01),
             symmetry={'point_group': False},
-            convergence={'energy': 1e-5, 'density': 0.3e-5},
+            convergence={'energy': 2e-5, 'density': 1e-5},
             txt='phonons.txt')
 
 atoms.calc = calc

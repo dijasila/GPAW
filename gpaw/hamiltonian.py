@@ -305,6 +305,9 @@ class Hamiltonian:
 
             dH_sp[:self.nspins] += dH_p
 
+            if self.vext is not None:
+                self.vext.paw_correction(setup.Delta_pL[:, 0], dH_sp)
+
             if self.vext and self.vext.get_name() == 'CDFTPotential':
                 # cDFT atomic hamiltonian, eq. 25
                 # energy correction added in cDFT main
