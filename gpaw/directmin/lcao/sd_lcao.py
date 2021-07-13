@@ -1,14 +1,15 @@
 """
-Search direction in space of skew-hermitian matrices
+Search directions in space of skew-hermitian matrices
 
 LSR1 algorithm and application to excited states:
 arXiv:2006.15922 [physics.chem-ph]
+J. Chem. Theory Comput. 16, 6968 (2020).
+https://pubs.acs.org/doi/10.1021/acs.jctc.0c00597
 """
 
 import numpy as np
 import copy
 from ase.parallel import parprint
-# from gpaw.utilities.blas import dotc
 
 
 class SteepestDescent(object):

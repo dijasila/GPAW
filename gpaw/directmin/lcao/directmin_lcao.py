@@ -5,6 +5,8 @@ functionals using exponential transformation
 direct minimization
 
 arXiv:2101.12597 [physics.comp-ph]
+Comput. Phys. Commun. 267, 108047 (2021).
+https://doi.org/10.1016/j.cpc.2021.108047
 """
 
 
@@ -19,7 +21,7 @@ from gpaw.directmin.lcao import search_direction, line_search_algorithm
 from gpaw.xc import xc_string_to_dict
 from ase.utils import basestring
 from gpaw.directmin.functional.lcao import get_functional
-from gpaw.directmin.lcao.tools import loewdin, gramschmidt
+from gpaw.directmin.lcao.tools import loewdin_lcao, gramschmidt_lcao
 
 
 class DirectMinLCAO(DirectLCAO):
@@ -1241,9 +1243,9 @@ class DirectMinLCAO(DirectLCAO):
                 else:
                     C = kpt.C_nM
                 if self.orthonormalization['name'] == 'loewdin':
-                    kpt.C_nM[:] = loewdin(C, kpt.S_MM.conj())
+                    kpt.C_nM[:] = loewdin_lcao(C, kpt.S_MM.conj())
                 elif self.orthonormalization['name'] == 'gramschmidt':
-                    kpt.C_nM[:] = gramschmidt(C, kpt.S_MM.conj())
+                    kpt.C_nM[:] = gramschmidt_lcao(C, kpt.S_MM.conj())
         if wfs.coefficients_read_from_file and \
                 'SIC' in self.functional['name']:
             self.need_localization = False

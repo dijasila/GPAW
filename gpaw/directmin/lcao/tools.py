@@ -194,13 +194,18 @@ def matrix_function(evals, evecs, func=None):
         return np.dot(evecs * func(evals), evecs.T.conj())
 
 
-def loewdin(C_nM, S_MM):
+def loewdin_lcao(C_nM, S_MM):
 
     """
     Loewdin based orthonormalization
-    C_nM = sum_m C_nM[m] [1/sqrt(S)]_mn
+    for LCAO mode
 
+    C_nM <- sum_m C_nM[m] [1/sqrt(S)]_mn
     S_mn = (C_nM[m].conj(), S_MM C_nM[n])
+
+    :param C_nM: LCAO coefficients
+    :param S_MM: Overlap matrix between basis functions
+    :return: Orthonormalized coefficients so that new S_mn = delta_mn
     """
 
     ev, S_overlapp = np.linalg.eigh(np.dot(C_nM.conj(),
@@ -212,9 +217,15 @@ def loewdin(C_nM, S_MM):
     return np.dot(S.T, C_nM)
 
 
-def gramschmidt(C_nM, S_MM):
+def gramschmidt_lcao(C_nM, S_MM):
+
     """
-    Gram-Schmidt orthonormalization
+    Gram-Schmidt orthonormalization using cholesky decomposition
+    for LCAO mode
+
+    :param C_nM: LCAO coefficients
+    :param S_MM: Overlap matrix between basis functions
+    :return: Orthonormalized coefficients so that new S_mn = delta_mn
     """
 
     S_nn = np.dot(C_nM.conj(), np.dot(S_MM, C_nM.T))
