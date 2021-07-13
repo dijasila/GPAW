@@ -1282,7 +1282,7 @@ class DirectMinLCAO(DirectLCAO):
                 'Please, use occupations={\'name\': \'fixed-uniform\'}'
             assert wfs.occupations.name == 'fixed-uniform', errormsg
 
-    def check_mom(self, wfs, ham, dens):
+    def check_mom(self, wfs, dens):
         occ_name = getattr(wfs.occupations, "name", None)
         if occ_name == 'mom':
             self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
