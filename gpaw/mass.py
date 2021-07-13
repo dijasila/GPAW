@@ -1,15 +1,20 @@
 import pickle
 from math import pi
 from pathlib import Path
+from typing import Tuple, Generator, List
 
 import numpy as np
 from ase.dft.bandgap import bandgap
 from ase.units import Bohr, Ha
 from gpaw import GPAW
 from gpaw.spinorbit import soc_eigenstates
+from gpaw.typing import Array1D, Array2D, Array3D
 
 
-def extract_stuff_from_gpw_file(path):
+def extract_stuff_from_gpw_file(path: Path) -> Tuple[Array1D,
+                                                     float, float,
+                                                     Array2D,
+                                                     Array3D]:
     out = path.with_suffix('.pckl')
     if out.is_file():
         print(f'Reading from {out}')
@@ -44,7 +49,9 @@ def extract_stuff_from_gpw_file(path):
     return results
 
 
-def connect(eigenvalues, fingerprints, eps=0.001):
+def connect(eigenvalues: Array2D,
+            fingerprints: Array3D,
+            eps: float = 0.001) -> Array2D:
     K, N = eigenvalues.shape
 
     for k in range(K - 1):
@@ -76,7 +83,8 @@ def connect(eigenvalues, fingerprints, eps=0.001):
     return eigenvalues
 
 
-def clusters(eigs, eps=1e-4):
+def clusters(eigs: Array1D,
+             eps: float = 1e-4) -> Generator[List[int], None, None]:
     degenerate = abs(eigs - eigs[:, np.newaxis]) < eps
     taken = set()
     for row in degenerate:
@@ -86,14 +94,14 @@ def clusters(eigs, eps=1e-4):
         taken.update(bands)
 
 
-def fit(kpoints,
-        length,
-        fermi_level,
-        eigenvalues,
-        fingerprints,
-        kind='cbm',
-        N=4,
-        plot=True):
+def fit(kpoints: Array1D,
+        length: float,
+        fermi_level: float,
+        eigenvalues: Array2D,
+        fingerprints: Array3D,
+        kind: str = 'cbm',
+        N: int = 4,
+        plot: bool = True) -> List[Tuple[float, float, float]]:
 
     K = len(kpoints)
 
@@ -131,13 +139,14 @@ def fit(kpoints,
             xfit = np.linspace(x[i - 3], x[i + 3], 61)
             yfit = np.polyval(poly, xfit)
             mass = 0.5 / Bohr**2 / Ha / poly[0]
+            assert mass > 0
             k = -0.5 * poly[1] / poly[0]
             energy = np.polyval(poly, k)
             if kind == 'vbm':
                 energy *= -1
                 yfit *= -1
                 band *= -1
-            print(f'{k:10.3f} {energy:7.3f} {mass:8.3f}')
+            print(f'{k:10.3f} {energy:7.3f} {mass:9.3f}')
             extrema[n] = (xfit, yfit, mass, k, energy)
 
     if plot:
@@ -157,7 +166,7 @@ def fit(kpoints,
             for (_, _, mass, k, energy) in extrema.values()]
 
 
-def test():
+def a_test():
     k = np.linspace(-1, 1, 7)
     b1 = (k - 0.2)**2
     b2 = 1 * (k + 0.2)**2 + 0.01 * 0
@@ -182,6 +191,5 @@ if __name__ == '__main__':
     path = Path(sys.argv[1])
     kpoints, length, fermi_level, eigenvalues, fingerprints = \
         extract_stuff_from_gpw_file(path)
-    fit(kpoints, length, fermi_level,
-        eigenvalues, fingerprints, kind=sys.argv[2])
-    
+    extrema = fit(kpoints, length, fermi_level,
+                  eigenvalues, fingerprints, kind=sys.argv[2])
