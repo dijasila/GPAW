@@ -113,10 +113,6 @@ class DirectMinLCAO(DirectLCAO):
             self.orthonormalization = \
                 xc_string_to_dict(self.orthonormalization)
 
-        if self.functional['name'] == 'PZ_SIC':
-            if self.localizationtype is None:
-                self.localizationtype = 'FB'
-
         if self.sda['name'] == 'LBFGS_P' and not self.use_prec:
             raise ValueError('Use LBFGS_P with use_prec=True')
 
@@ -851,33 +847,28 @@ class DirectMinLCAO(DirectLCAO):
             # wfs.atomic_correction.calculate_projections(wfs, kpt)
             h_mm = self.calculate_hamiltonian_matrix(ham, wfs, kpt)
             tri2full(h_mm)
-            if self.func.name == 'Zero':
-                if self.update_ref_orbs_canonical or self.restart:
-                    # Diagonalize entire Hamiltonian matrix
+            if self.update_ref_orbs_canonical or self.restart:
+                # Diagonalize entire Hamiltonian matrix
+                with wfs.timer('Diagonalize and rotate'):
+                    kpt.C_nM, kpt.eps_n = rotate_subspace(
+                        h_mm, kpt.C_nM)
+            else:
+                # Diagonalize equally occupied subspaces separately
+                n_init = 0
+                while True:
+                    n_fin = \
+                        find_equally_occupied_subspace(kpt.f_n, n_init)
                     with wfs.timer('Diagonalize and rotate'):
-                        kpt.C_nM, kpt.eps_n = rotate_subspace(
-                            h_mm, kpt.C_nM)
-                else:
-                    # Diagonalize equally occupied subspaces separately
-                    n_init = 0
-                    while True:
-                        n_fin = \
-                            find_equally_occupied_subspace(kpt.f_n, n_init)
-                        with wfs.timer('Diagonalize and rotate'):
-                            kpt.C_nM[n_init:n_init + n_fin, :], \
-                                kpt.eps_n[n_init:n_init + n_fin] = \
-                                rotate_subspace(
-                                    h_mm, kpt.C_nM[n_init:n_init + n_fin, :])
-                        n_init += n_fin
-                        if n_init == len(kpt.f_n):
-                            break
-                        elif n_init > len(kpt.f_n):
-                            raise SystemExit('Bug is here!')
-            elif self.func.name == 'PZ_SIC':
-                self.func.get_lagrange_matrices(
-                    h_mm, kpt.C_nM, kpt.f_n, kpt, wfs,
-                    update_eigenvalues=update_eigenvalues,
-                    update_wfs=update_wfs)
+                        kpt.C_nM[n_init:n_init + n_fin, :], \
+                            kpt.eps_n[n_init:n_init + n_fin] = \
+                            rotate_subspace(
+                                h_mm, kpt.C_nM[n_init:n_init + n_fin, :])
+                    n_init += n_fin
+                    if n_init == len(kpt.f_n):
+                        break
+                    elif n_init > len(kpt.f_n):
+                        raise SystemExit('Bug is here!')
+
             with wfs.timer('Calculate projections'):
                 wfs.atomic_correction.calculate_projections(wfs, kpt)
         self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
