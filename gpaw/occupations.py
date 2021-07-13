@@ -617,6 +617,8 @@ class FixedOccupationNumbersUniform(OccupationNumberCalculator):
 
             f_qn = np.zeros(shape=(nkpts, nbands))
             nelecps = (nelectrons + spin * magmom) / 2
+            assert int(nelecps) < nbands, 'need more bands!'
+
             f_qn[:, : int(nelecps)] = 1.0
             f_qn[:, int(nelecps)] = nelecps - int(nelecps)
 
@@ -647,27 +649,29 @@ class FixedOccupationNumbersUniform(OccupationNumberCalculator):
         eig_kn, weight_k, nkpts_r = collect_eigelvalues(
             eig_qn, weight_q, self.bd, self.kpt_comm)
 
-        def get_homo(eig_kn, nelectrons, magmom, spin):
-            nelecps = int((nelectrons + spin * magmom) / 2)
+        def get_homo(eig_kn, nelectrons, deg, magmom, spin):
+            nelecps = int((nelectrons * deg + spin * magmom) / 2)
             return np.max(eig_kn[:, np.maximum(nelecps - 1, 0)])
 
-        def get_lumo(eig_kn, nelectrons, magmom, spin):
-            nelecps = int((nelectrons + spin * magmom) / 2)
+        def get_lumo(eig_kn, nelectrons, deg, magmom, spin):
+            nelecps = int((nelectrons * deg + spin * magmom) / 2)
             return np.min(eig_kn[:, nelecps])
 
+        deg = 3 - self.nspins
+        mm = self.magmom
         if eig_kn.size != 0:
             if self.nspins == 2:
-                hup = get_homo(eig_kn[::2], nelectrons, self.magmom, 1)
-                hdown = get_homo(eig_kn[1::2], nelectrons, self.magmom, -1)
+                hup = get_homo(eig_kn[::2], nelectrons, deg, mm, 1)
+                hdown = get_homo(eig_kn[1::2], nelectrons, deg, mm, -1)
                 homo = np.maximum(hup, hdown)
 
-                lup = get_lumo(eig_kn[::2], nelectrons, self.magmom, 1)
-                ldown = get_lumo(eig_kn[1::2], nelectrons, self.magmom, -1)
+                lup = get_lumo(eig_kn[::2], nelectrons, deg, mm, 1)
+                ldown = get_lumo(eig_kn[1::2], nelectrons, deg, mm, -1)
                 lumo = np.maximum(lup, ldown)
 
             else:
-                homo = get_homo(eig_kn, nelectrons, self.magmom, 0)
-                lumo = get_lumo(eig_kn, nelectrons, self.magmom, 0)
+                homo = get_homo(eig_kn, nelectrons, deg, mm, 0)
+                lumo = get_lumo(eig_kn, nelectrons, deg, mm, 0)
             fermi_level = (homo + lumo) / 2
         else:
             fermi_level = nan
