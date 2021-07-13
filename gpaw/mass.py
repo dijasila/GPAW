@@ -145,9 +145,11 @@ def fit(kpoints: Array1D,
             if kind == 'vbm':
                 energy *= -1
                 yfit *= -1
-                band *= -1
             print(f'{k:10.3f} {energy:7.3f} {mass:9.3f}')
             extrema[n] = (xfit, yfit, mass, k, energy)
+
+    if kind == 'vbm':
+        eigs *= -1
 
     if plot:
         import matplotlib.pyplot as plt
