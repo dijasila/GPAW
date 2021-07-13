@@ -52,8 +52,10 @@ class DirectMinLCAO(DirectLCAO):
         :param update_ref_orbs_canonical: update C_ref to can. orb.
         :param update_precond_counter: when to update the preconditioner
         :param use_prec: use preconditioner or not
-        :param matrix_exp: algorithm for calc matrix exponential
-        :param representation: the way A are stored
+        :param matrix_exp: algorithm for calc matrix exponential and grad.
+        'pade_approx', 'egdecomp', 'egdecomp2' (used with u_invar represnt.),
+        :param representation: the way A are stored,
+        'sparse', 'full', 'u_invar',
         :param functional: KS or PZ-SIC functionals
         :param orthonormalization:
         :param randomizeorbitals: if need a noise in initial guess
@@ -194,13 +196,13 @@ class DirectMinLCAO(DirectLCAO):
             u = kpt.s * self.n_kps + kpt.q
             self.n_dim[u] = wfs.bd.nbands
 
-        # values: matrices, keys: kpt number
+        # values: matrices, keys: kpt number (and spins)
         self.a_mat_u = {}  # skew-hermitian matrix to be exponented
         self.g_mat_u = {}  # gradient matrix
         self.c_nm_ref = {}  # reference orbitals to be rotated
 
-        self.evecs = {}   # eigendecomposition for a
-        self.evals = {}
+        self.evecs = {}   # eigenvectors for i*a_mat_u
+        self.evals = {}   # eigenvalues for i*a_mat_u
         self.ind_up = {}
 
         if self.representation['name'] in ['sparse', 'u_invar']:
@@ -485,7 +487,7 @@ class DirectMinLCAO(DirectLCAO):
 
             self._normcomm = norm
             self._normg = norm2
-        # print("{:.2e}, {:.2e}, {:.2e}".format(norm, norm2))
+
         return e_total + self.e_sic, g_mat_u
 
     def update_ks_energy(self, ham, wfs, dens):
@@ -684,7 +686,7 @@ class DirectMinLCAO(DirectLCAO):
     def update_ref_orbitals(self, wfs, ham, dens):
         """
         update orbitals which are chosen as reference
-        orbitals to whihc rotation is applied
+        orbitals to which rotation is applied
 
         :param wfs:
         :param ham:
@@ -713,6 +715,7 @@ class DirectMinLCAO(DirectLCAO):
                     # self.sort_wavefunctions(ham, wfs, kpt)
 
             # choose search direction and line search algorithm
+            # as you need to restart it
             if isinstance(self.sda, (basestring, dict)):
                 self.search_direction = search_direction(self.sda, wfs)
             else:
@@ -791,7 +794,7 @@ class DirectMinLCAO(DirectLCAO):
         calculate approximate hessian:
 
         h_{lm, lm} = -2.0 * (eps_n[l] - eps_n[m]) * (f[l] - f[m])
-
+        other elements are zero
         :param kpt:
         :return:
         """
