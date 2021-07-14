@@ -94,7 +94,7 @@ class DirectLCAO(object):
                     hamiltonian.vt_sG[s])
                 wfs.timer.stop('Potential matrix')
             self.iterate_one_k_point(hamiltonian, wfs, kpt, Vt_xMM)
-
+        wfs.set_orthonormalized(True)
         wfs.timer.stop('LCAO eigensolver')
 
     def iterate_one_k_point(self, hamiltonian, wfs, kpt, Vt_xMM):
