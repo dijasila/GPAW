@@ -3,8 +3,6 @@ from math import pi, factorial as fac
 
 import numpy as np
 from scipy.interpolate import make_interp_spline, splder
-from ase.units import Ha
-
 from gpaw.spline import Spline
 from gpaw.utilities import hartree, divrl
 
@@ -358,7 +356,7 @@ class RadialGridDescriptor:
         fsolve(f, x0)
         return b_g, c_x[-1]
 
-    def pseudize_smooth(self, a_g, gc, l=0, points=3, ecut=400):
+    def pseudize_smooth(self, a_g, gc, l=0, points=3, ecut=20.0):
         """Construct normalized smooth continuation of a_g for g<gc.
 
         Same as pseudize() with also this constraint::
@@ -376,7 +374,7 @@ class RadialGridDescriptor:
         i = [gc0] + list(range(gc, gc + points))
         r_i = r_g[i]
 
-        Gcut = (2 * ecut / Ha)**0.5
+        Gcut = (2 * ecut)**0.5
 
         def f(x):
             b_g[gc0] = x
@@ -385,9 +383,7 @@ class RadialGridDescriptor:
             g_k, b_k = self.fft(b_g * r_g, l)
             kc = int(Gcut / g_k[1])
             f_k = g_k[kc:] * b_k[kc:]
-            c = f_k @ f_k
-            print(x, c)
-            return c#f_k @ f_k
+            return f_k @ f_k
 
         from scipy.optimize import fmin
         R = fmin(f, x0)
