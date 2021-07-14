@@ -316,6 +316,12 @@ class RadialGridDescriptor:
         c_p = np.polyfit(r_i**2, a_g[i] / r_i**l, points - 1)
         b_g = a_g.copy()
         b_g[:gc] = np.polyval(c_p, r_g[:gc]**2) * r_g[:gc]**l
+        if 0:
+            import matplotlib.pyplot as plt
+            plt.plot(r_g, a_g)
+            plt.plot(r_g, b_g)
+            plt.xlim(0, 4)
+            plt.show()
         return b_g, c_p[-1]
 
     def cut(self, a_g, rcut):
@@ -357,15 +363,6 @@ class RadialGridDescriptor:
         return b_g, c_x[-1]
 
     def pseudize_smooth(self, a_g, gc, l=0, points=3, ecut=20.0):
-        """Construct normalized smooth continuation of a_g for g<gc.
-
-        Same as pseudize() with also this constraint::
-
-            /  _     2  /  _     2
-            | dr b(r) = | dr a(r)
-            /           /
-        """
-
         b_g = self.pseudize(a_g, gc, l, points)[0]
         c_x = np.empty(points + 1)
         gc0 = gc // 2
@@ -386,8 +383,13 @@ class RadialGridDescriptor:
             return f_k @ f_k
 
         from scipy.optimize import fmin
-        R = fmin(f, x0)
-        print(R)
+        fmin(f, x0)
+        if 0:
+            import matplotlib.pyplot as plt
+            plt.plot(r_g, a_g)
+            plt.plot(r_g, b_g)
+            plt.xlim(0, 4)
+            plt.show()
         return b_g, c_x[-1]
 
     def jpseudize(self, a_g, gc, l=0, points=4):

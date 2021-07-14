@@ -1,6 +1,7 @@
 from functools import partial
 import sys
 from math import exp, log, pi, sqrt
+from typing import Tuple, Optional, Union, Dict, List
 
 import numpy as np
 from ase.data import atomic_numbers, chemical_symbols
@@ -309,26 +310,27 @@ class PAWSetupGenerator:
         self.fd = fd or sys.stdout
         self.yukawa_gamma = yukawa_gamma
 
+        self.core_hole: Optional[Tuple[int, int, float]]
         if core_hole:
             state, occ = core_hole.split(',')
-            n = int(state[0])
-            l = 'spdf'.find(state[1])
-            occ = float(occ)
-            aea.add(n, l, -occ)
-            self.core_hole = (n, l, occ)
+            n0 = int(state[0])
+            l0 = 'spdf'.find(state[1])
+            occ0 = float(occ)
+            aea.add(n0, l0, -occ0)
+            self.core_hole = (n0, l0, occ0)
         else:
             self.core_hole = None
 
+        self.l0: Optional[int] = None
         if projectors[-1].isupper():
             self.l0 = 'SPDFG'.find(projectors[-1])
             projectors = projectors[:-2]
-        else:
-            self.l0 = None
 
         self.lmax = -1
-        self.states = {}
+        self.states: Dict[int, List[Union[None, int, float]]] = {}
         for s in projectors.split(','):
             l = 'spdf'.find(s[-1])
+            n: Union[None, int, float]
             if len(s) == 1:
                 n = None
             elif '.' in s:
@@ -357,10 +359,10 @@ class PAWSetupGenerator:
         self.rgd = aea.rgd
 
         if ecut is None:
-            self.pseudize = self.rgd.pseudize
+            self.pseudizer = self.rgd.pseudize
         else:
-            self.pseudize = partial(self.rgd.pseudize_smooth,
-                                    ecut=ecut / Ha)
+            self.pseudizer = partial(self.rgd.pseudize_smooth,
+                                     ecut=ecut / Ha)
 
         self.vtr_g = None
 
@@ -442,7 +444,7 @@ class PAWSetupGenerator:
     def find_polynomial_potential(self, r0, P, dv0):
         self.log('Constructing smooth local potential for r < %.3f' % r0)
         g0 = self.rgd.ceil(r0)
-        self.vtr_g = self.pseudize(self.aea.vr_sg[0], g0, 1, P)[0]
+        self.vtr_g = self.pseudizer(self.aea.vr_sg[0], g0, 1, P)[0]
         if dv0:
             x = self.rgd.r_g[:g0] / r0
             dv_g = dv0 * (1 - 2 * x**2 + x**4)
@@ -465,7 +467,7 @@ class PAWSetupGenerator:
         phi_g[1:gc] /= self.rgd.r_g[1:gc]
         phi_g[0] = a
 
-        phit_g, c = self.pseudize(phi_g, g0, l=l0, points=P)
+        phit_g, c = self.pseudizer(phi_g, g0, l=l0, points=P)
 
         dgdr_g = 1 / self.rgd.dr_g
         d2gdr2_g = self.rgd.d2gdr2()
@@ -535,12 +537,10 @@ class PAWSetupGenerator:
         self.Q = -self.aea.Z + self.ncore
 
         self.nt_g = self.rgd.zeros()
-
         if type == 'poly':
-            pseudizer = partial(self.pseudize, nderiv=nderiv)
+            pseudizer = partial(self.pseudizer, points=nderiv)
         elif type == 'nc':
-            pseudizer = partial(self.rgd.pseudize_normalized, nderiv=nderiv)
-
+            pseudizer = partial(self.rgd.pseudize_normalized, points=nderiv)
         for waves in self.waves_l:
             waves.pseudize(pseudizer, self.vtr_g, self.aea.vr_sg[0],
                            2.0 * self.rcmax)
@@ -564,7 +564,7 @@ class PAWSetupGenerator:
             # Make sure pseudo density is monotonically decreasing:
             while True:
                 gcore = self.rgd.round(rcore)
-                self.nct_g = self.pseudize(self.nc_g, gcore)[0]
+                self.nct_g = self.pseudizer(self.nc_g, gcore)[0]
                 nt_g = self.nt_g + self.nct_g
                 dntdr_g = self.rgd.derivative(nt_g)[:gcore]
                 if dntdr_g.max() < 0.0:
@@ -573,25 +573,25 @@ class PAWSetupGenerator:
 
             rcore *= 1.2
             gcore = self.rgd.round(rcore)
-            self.nct_g = self.pseudize(self.nc_g, gcore)[0]
+            self.nct_g = self.pseudizer(self.nc_g, gcore)[0]
             nt_g = self.nt_g + self.nct_g
 
             self.log('Constructing smooth pseudo core density for r < %.3f' %
                      rcore)
             self.nt_g = nt_g
 
-            self.tauct_g = self.pseudize(self.tauc_g, gcore)[0]
+            self.tauct_g = self.pseudizer(self.tauc_g, gcore)[0]
         else:
             rcore *= -1
             gcore = self.rgd.round(rcore)
-            nt_g = self.pseudize(self.aea.n_sg[0], gcore)[0]
+            nt_g = self.pseudizer(self.aea.n_sg[0], gcore)[0]
             self.nct_g = nt_g - self.nt_g
             self.nt_g = nt_g
 
             self.log('Constructing NLCC-style smooth pseudo core density for '
                      'r < %.3f' % rcore)
 
-            self.tauct_g = self.pseudize(self.tauc_g, gcore)[0]
+            self.tauct_g = self.pseudizer(self.tauc_g, gcore)[0]
 
         self.npseudocore = self.rgd.integrate(self.nct_g)
         self.log('Pseudo core electrons: %.6f' % self.npseudocore)
@@ -867,7 +867,7 @@ class PAWSetupGenerator:
             gc = (norm - n_g > splitnorm * norm).sum()
             rc = rgd.r_g[gc]
 
-            phit2_g = self.pseudize(phit_g, gc, l, 2)[0]  # "split valence"
+            phit2_g = self.pseudizer(phit_g, gc, l, 2)[0]  # "split valence"
             bf = BasisFunction(n, l, rc, phit_g - phit2_g, 'split valence')
             self.basis.append(bf)
 
@@ -880,7 +880,7 @@ class PAWSetupGenerator:
 
         # Gaussian that is continuous and has a continuous derivative at rcpol:
         phit_g = np.exp(-alpha * rgd.r_g**2) * rgd.r_g**lpol
-        phit_g -= self.pseudize(phit_g, gcpol, lpol, 2)[0]
+        phit_g -= self.pseudizer(phit_g, gcpol, lpol, 2)[0]
         phit_g[gcpol:] = 0.0
 
         bf = BasisFunction(None, lpol, rcpol, phit_g, 'polarization')
@@ -1297,7 +1297,8 @@ def get_parameters(symbol, args):
                 pseudize=pseudize, rcore=rcore,
                 core_hole=args.core_hole,
                 output=args.output,
-                yukawa_gamma=args.gamma)
+                yukawa_gamma=args.gamma,
+                ecut=args.ecut)
 
 
 def generate(symbol,
@@ -1402,6 +1403,7 @@ class CLICommand:
         add('--core-hole')
         add('-e', '--electrons', type=int)
         add('-o', '--output')
+        add('--ecut', type=float)
 
     @staticmethod
     def run(args):
