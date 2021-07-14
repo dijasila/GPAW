@@ -165,7 +165,8 @@ def fit(kpoints: Array1D,
         i = band.argmin()
         if 2 <= i <= K - 3:
             poly = np.polyfit(x[i - 2:i + 3], band[i - 2:i + 3], 2)
-            xfit = np.linspace(x[i - 3], x[i + 3], 61)
+            dx = 1.5 * (x[i + 2] - x[i])
+            xfit = np.linspace(x[i] - dx, x[i] + dx, 61)
             yfit = np.polyval(poly, xfit)
             mass = 0.5 * Bohr**2 * Ha / poly[0]
             assert mass > 0
