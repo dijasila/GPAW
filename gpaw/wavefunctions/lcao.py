@@ -1,5 +1,7 @@
 import numpy as np
 from ase.units import Bohr
+from ase.utils.timing import timer
+from gpaw.directmin.lcao.tools import loewdin_lcao, gramschmidt_lcao
 
 from gpaw.lfc import BasisFunctions
 from gpaw.utilities import unpack
@@ -121,9 +123,23 @@ class LCAOWaveFunctions(WaveFunctions):
                                               cut=True)
 
         self.coefficients_read_from_file = False
+        self.set_orthonormalized(False)
 
-    def set_orthonormalized(self, o):
-        pass
+    def set_orthonormalized(self, flag):
+        self.orthonormalized = flag
+
+    @timer('Orthonormalize')
+    def orthonormalize(self, kpt=None, type='gramschmidt'):
+        assert type == 'gramschmidt' or type == 'loewdin'
+        if kpt is None:
+            for kpt in self.kpt_u:
+                self.orthonormalize(kpt)
+            self.orthonormalized = True
+            return
+        if type == 'loewdin':
+            kpt.C_nM[:] = loewdin_lcao(kpt.C_nM, kpt.S_MM.conj())
+        elif type == 'gramschmidt':
+            kpt.C_nM[:] = gramschmidt_lcao(kpt.C_nM, kpt.S_MM.conj())
 
     def empty(self, n=(), global_array=False, realspace=False):
         if realspace:
@@ -304,6 +320,7 @@ class LCAOWaveFunctions(WaveFunctions):
         # since this is where we change S_qMM.  Hence, expect this to
         # become arrays after the first diagonalization:
         self.decomposed_S_qMM = [None] * len(self.S_qMM)
+        self.set_orthonormalized(False)
 
     def initialize(self, density, hamiltonian, spos_ac):
         # Note: The above line exists also in set_positions.

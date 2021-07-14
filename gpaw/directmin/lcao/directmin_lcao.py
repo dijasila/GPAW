@@ -21,7 +21,6 @@ from gpaw.directmin.lcao import search_direction, line_search_algorithm
 from gpaw.xc import xc_string_to_dict
 from ase.utils import basestring
 from gpaw.directmin.functional.lcao import get_functional
-from gpaw.directmin.lcao.tools import loewdin_lcao, gramschmidt_lcao
 
 
 class DirectMinLCAO(DirectLCAO):
@@ -40,9 +39,11 @@ class DirectMinLCAO(DirectLCAO):
                  checkgraderror=False,
                  localizationtype=None,
                  need_localization=True,
+                 need_init_orbs=True
                  ):
         """
-        This class describes the exponential transformation direct minimization:
+        This class describes the exponential transformation
+        direct minimization:
         E = E[C_ref e^{A}]
         C_ref is reference orbitals
         A is a skew-hermitian matrix which needs to be found
@@ -64,6 +65,7 @@ class DirectMinLCAO(DirectLCAO):
         :param checkgraderror: check error in estimation of gradient
         :param localizationtype: Foster-Boys, Pipek-Mezey, Edm.-Rudenb.
         :param need_localization: use localized orbitals as initial guess
+        :param need_init_orbs: if false then use coef. stored in kpt.C_nM
         """
 
         super(DirectMinLCAO, self).__init__(diagonalizer)
@@ -84,6 +86,7 @@ class DirectMinLCAO(DirectLCAO):
         self.name = 'direct-min-lcao'
         self.localizationtype = localizationtype
         self.need_localization = need_localization
+        self.need_init_orbs = need_init_orbs
 
         self.a_mat_u = None  # skew-hermitian matrix to be exponented
         self.g_mat_u = None  # gradient matrix
@@ -1232,26 +1235,15 @@ class DirectMinLCAO(DirectLCAO):
 
         # if it is the first use of the scf then initialize
         # coefficient matrix using eigensolver
+        orthname = self.orthonormalization['name']
         need_canon_coef = \
-            (not wfs.coefficients_read_from_file and self.c_nm_ref is None)
-        # Orthogonalize orbitals
-        if need_canon_coef or self.orthonormalization['name'] == 'diag':
+            (not wfs.coefficients_read_from_file and self.need_init_orbs)
+        if need_canon_coef or orthname == 'diag':
             super(DirectMinLCAO, self).iterate(ham, wfs)
         else:
-            for kpt in wfs.kpt_u:
-                u = kpt.s * wfs.kd.nbzkpts + kpt.q
-                if self.c_nm_ref is not None:
-                    C = self.c_nm_ref[u]
-                else:
-                    C = kpt.C_nM
-                if self.orthonormalization['name'] == 'loewdin':
-                    kpt.C_nM[:] = loewdin_lcao(C, kpt.S_MM.conj())
-                elif self.orthonormalization['name'] == 'gramschmidt':
-                    kpt.C_nM[:] = gramschmidt_lcao(C, kpt.S_MM.conj())
-        if wfs.coefficients_read_from_file and \
-                'SIC' in self.functional['name']:
-            self.need_localization = False
+            wfs.orthonormalize(type=orthname)
         wfs.coefficients_read_from_file = False
+        self.need_init_orbs = False
 
     def localize_wfs(self, wfs, dens, ham, log):
         """
