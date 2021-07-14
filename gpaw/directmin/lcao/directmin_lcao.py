@@ -1291,6 +1291,7 @@ class DirectMinLCAO(DirectLCAO):
     def error(self, e):
         self._error = e
 
+
 def get_indices(dimens, dtype):
 
     if dtype == complex:

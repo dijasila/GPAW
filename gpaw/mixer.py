@@ -391,6 +391,7 @@ class DummyMixer:
     def todict(self):
         return {'name': 'dummy'}
 
+
 class NotMixingMixer:
     name = 'no-mixing'
 
