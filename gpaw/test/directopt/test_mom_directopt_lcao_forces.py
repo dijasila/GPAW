@@ -41,7 +41,8 @@ def test_mom_directopt_lcao_forces(in_tmp_dir):
 
     calc.set(eigensolver=DirectMinLCAO(searchdir_algo={'name': 'LSR1P',
                                                        'method': 'LSR1'},
-                                       linesearch_algo={'name': 'UnitStep'}))
+                                       linesearch_algo={'name': 'UnitStep'},
+                                       need_init_orbs=False))
     prepare_mom_calculation(calc, atoms, f_sn)
     F = atoms.get_forces()
 
