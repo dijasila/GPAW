@@ -42,7 +42,7 @@ class DirectMinLCAO(DirectLCAO):
                  need_init_orbs=True
                  ):
         """
-        This class describes the exponential transformation
+        This class performs the exponential transformation
         direct minimization:
         E = E[C_ref e^{A}]
         C_ref is reference orbitals
