@@ -1,11 +1,12 @@
 import pickle
 from math import pi
 from pathlib import Path
-from typing import Tuple, Generator, List
+from typing import Generator, List, Tuple
 
 import numpy as np
 from ase.dft.bandgap import bandgap
 from ase.units import Bohr, Ha
+
 from gpaw import GPAW
 from gpaw.spinorbit import soc_eigenstates
 from gpaw.typing import Array1D, Array2D, Array3D
@@ -52,6 +53,13 @@ def extract_stuff_from_gpw_file(path: Path) -> Tuple[Array1D,
 def connect(eigenvalues: Array2D,
             fingerprints: Array3D,
             eps: float = 0.001) -> Array2D:
+    """
+    >>> eigs = np.array([[0, 1], [0, 1]])
+    >>> fps = np.array([[[0, 1], [1, 0]], [[1, 0], [0, 1]]])
+    >>> connect(eigs, fps)
+    array([[0, 1],
+           [1, 0]])
+    """
     K, N = eigenvalues.shape
 
     for k in range(K - 1):
@@ -85,6 +93,14 @@ def connect(eigenvalues: Array2D,
 
 def clusters(eigs: Array1D,
              eps: float = 1e-4) -> Generator[List[int], None, None]:
+    """
+    >>> list(clusters(np.zeros(4)))
+    [[0, 1, 2, 3]]
+    >>> list(clusters(np.arange(4)))
+    []
+    >>> list(clusters(np.array([0, 0, 1, 1, 1, 2])))
+    [[0, 1], [2, 3, 4]]
+    """
     degenerate = abs(eigs - eigs[:, np.newaxis]) < eps
     taken = set()
     for row in degenerate:
@@ -95,13 +111,27 @@ def clusters(eigs: Array1D,
 
 
 def fit(kpoints: Array1D,
-        length: float,
         fermi_level: float,
         eigenvalues: Array2D,
         fingerprints: Array3D,
         kind: str = 'cbm',
         N: int = 4,
         plot: bool = True) -> List[Tuple[float, float, float]]:
+    """...
+
+    >>> k = np.linspace(-1, 1, 7)
+    >>> eigs = 0.5 * k**2 * Ha * Bohr**2
+    >>> minima = fit(kpoints=k,
+    ...              fermi_level=-1.0,
+    ...              eigenvalues=eigs[:, np.newaxis],
+    ...              fingerprints=np.zeros((7, 1, 1)),
+    ...              kind='cbm',
+    ...              N=1,
+    ...              plot=False)
+    k [Ang^-1]  e-e_F [eV]    m [m_e]
+        -0.000       1.000      1.000
+    >>> k0, e0, m0 = minima[0]
+    """
 
     K = len(kpoints)
 
@@ -123,14 +153,13 @@ def fit(kpoints: Array1D,
     for i in range(K):
         eigs2[(i0 + i) % K] = eigs[(imin + i) % K]
         fps2[(i0 + i) % K] = fps[(imin + i) % K]
-    kpoints2 = kpoints[imin] + np.linspace(0, 1, K, endpoint=False) - i0 / K
-    x = 2 * pi / length * kpoints2
+    x = kpoints[imin] + kpoints - kpoints[i0]
 
     eigs = connect(eigs2, fps2)
 
     extrema = {}
     indices = eigs[i0].argsort()
-    print('k [Ang^-1]  e [eV]   m [m_e]')
+    print('k [Ang^-1]  e-e_F [eV]    m [m_e]')
     for n in indices:
         band = eigs[:, n]
         i = band.argmin()
@@ -138,15 +167,15 @@ def fit(kpoints: Array1D,
             poly = np.polyfit(x[i - 2:i + 3], band[i - 2:i + 3], 2)
             xfit = np.linspace(x[i - 3], x[i + 3], 61)
             yfit = np.polyval(poly, xfit)
-            mass = 0.5 / Bohr**2 / Ha / poly[0]
+            mass = 0.5 * Bohr**2 * Ha / poly[0]
             assert mass > 0
             k = -0.5 * poly[1] / poly[0]
             energy = np.polyval(poly, k)
             if kind == 'vbm':
                 energy *= -1
                 yfit *= -1
-            print(f'{k:10.3f} {energy:7.3f} {mass:9.3f}')
-            extrema[n] = (xfit, yfit, mass, k, energy)
+            print(f'{k:10.3f} {energy:11.3f} {mass:10.3f}')
+            extrema[n] = (xfit, yfit, k, energy, mass)
 
     if kind == 'vbm':
         eigs *= -1
@@ -164,8 +193,8 @@ def fit(kpoints: Array1D,
         plt.ylabel('e - e$_F$ [eV]')
         plt.show()
 
-    return [(mass, k, energy)
-            for (_, _, mass, k, energy) in extrema.values()]
+    return [(k, energy, mass)
+            for (_, _, k, energy, mass) in extrema.values()]
 
 
 def a_test():
@@ -193,5 +222,8 @@ if __name__ == '__main__':
     path = Path(sys.argv[1])
     kpoints, length, fermi_level, eigenvalues, fingerprints = \
         extract_stuff_from_gpw_file(path)
-    extrema = fit(kpoints, length, fermi_level,
-                  eigenvalues, fingerprints, kind=sys.argv[2])
+    extrema = fit(kpoints * 2 * pi / length,
+                  fermi_level,
+                  eigenvalues,
+                  fingerprints,
+                  kind=sys.argv[2])
