@@ -26,7 +26,7 @@ def test_directmin_lcao(in_tmp_dir):
                 basis='dzp',
                 occupations={'name': 'fixed-uniform'},
                 eigensolver='direct-min-lcao',
-                mixer={'name': 'dummy'},
+                mixer={'backend': 'no-mixing'},
                 nbands='nao',
                 symmetry='off'
                 )

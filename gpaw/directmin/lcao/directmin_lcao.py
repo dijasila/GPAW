@@ -1273,8 +1273,8 @@ class DirectMinLCAO(DirectLCAO):
 
     def check_assertions(self, wfs, dens):
 
-        assert dens.mixer.driver.name == 'dummy', \
-            'Please, use: mixer={\'name\': \'dummy\'}'
+        assert dens.mixer.driver.basemixerclass.name == 'no-mixing', \
+            'Please, use: mixer={\'backend\': \'no-mixing\'}'
         assert wfs.bd.nbands == wfs.basis_functions.Mmax, \
             'Please, use: nbands=\'nao\''
         assert wfs.bd.comm.size == 1, \
@@ -1291,6 +1291,13 @@ class DirectMinLCAO(DirectLCAO):
             self.restart = self.sort_wavefunctions_mom(wfs)
             self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
 
+    @property
+    def error(self):
+        return self._error
+
+    @error.setter
+    def error(self, e):
+        self._error = e
 
 def get_indices(dimens, dtype):
 

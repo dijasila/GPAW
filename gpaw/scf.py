@@ -209,17 +209,8 @@ class SCFLoop:
         self.niter = 1
 
         solver = wfs.eigensolver
-        occ_name = getattr(wfs.occupations, 'name', None)
-
         solver.eg_count = 0
         solver.globaliters = 0
-        if hasattr(solver, 'iloop'):
-            if solver.iloop is not None:
-                solver.iloop.total_eg_count = 0
-        if hasattr(solver, 'iloop_outer'):
-            if solver.iloop_outer is not None:
-                solver.iloop_outer.total_eg_count = 0
-
         solver.check_assertions(wfs, dens)
 
         while self.niter <= self.maxiter:
