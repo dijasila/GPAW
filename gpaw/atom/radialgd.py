@@ -3,6 +3,7 @@ from math import pi, factorial as fac
 
 import numpy as np
 from scipy.interpolate import make_interp_spline, splder
+from ase.units import Ha
 
 from gpaw.spline import Spline
 from gpaw.utilities import hartree, divrl
@@ -355,6 +356,42 @@ class RadialGridDescriptor:
 
         from scipy.optimize import fsolve
         fsolve(f, x0)
+        return b_g, c_x[-1]
+
+    def pseudize_smooth(self, a_g, gc, l=0, points=3, ecut=400):
+        """Construct normalized smooth continuation of a_g for g<gc.
+
+        Same as pseudize() with also this constraint::
+
+            /  _     2  /  _     2
+            | dr b(r) = | dr a(r)
+            /           /
+        """
+
+        b_g = self.pseudize(a_g, gc, l, points)[0]
+        c_x = np.empty(points + 1)
+        gc0 = gc // 2
+        x0 = b_g[gc0]
+        r_g = self.r_g
+        i = [gc0] + list(range(gc, gc + points))
+        r_i = r_g[i]
+
+        Gcut = (2 * ecut / Ha)**0.5
+
+        def f(x):
+            b_g[gc0] = x
+            c_x[:] = np.polyfit(r_i**2, b_g[i] / r_i**l, points)
+            b_g[:gc] = np.polyval(c_x, r_g[:gc]**2) * r_g[:gc]**l
+            g_k, b_k = self.fft(b_g * r_g, l)
+            kc = int(Gcut / g_k[1])
+            f_k = g_k[kc:] * b_k[kc:]
+            c = f_k @ f_k
+            print(x, c)
+            return c#f_k @ f_k
+
+        from scipy.optimize import fmin
+        R = fmin(f, x0)
+        print(R)
         return b_g, c_x[-1]
 
     def jpseudize(self, a_g, gc, l=0, points=4):
