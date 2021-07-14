@@ -166,7 +166,7 @@ class DirectMinLCAO(DirectLCAO):
 
     def init_me(self, wfs, ham, dens, log):
         # need to initialize c_nm, eps, f_n and so on.
-        self.initialize_orbitals(wfs, ham, dens, log)
+        self.initialize_orbitals(wfs, ham)
         wfs.calculate_occupation_numbers(dens.fixed)
         occ_name = getattr(wfs.occupations, "name", None)
         if occ_name == 'mom':
@@ -1220,7 +1220,7 @@ class DirectMinLCAO(DirectLCAO):
 
         wfs.timer.stop('Unitary rotation')
 
-    def initialize_orbitals(self, wfs, ham, dens, log):
+    def initialize_orbitals(self, wfs, ham):
         """
         if it is the first use of the scf then initialize
         coefficient matrix using eigensolver
