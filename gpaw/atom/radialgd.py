@@ -1,10 +1,14 @@
 import numbers
-from math import pi, factorial as fac
+from math import factorial as fac
+from math import pi
+from typing import Tuple
 
 import numpy as np
 from scipy.interpolate import make_interp_spline, splder
+
 from gpaw.spline import Spline
-from gpaw.utilities import hartree, divrl
+from gpaw.typing import Array1D
+from gpaw.utilities import divrl, hartree
 
 
 def radial_grid_descriptor(eq: str, **kwargs) -> 'RadialGridDescriptor':
@@ -316,12 +320,6 @@ class RadialGridDescriptor:
         c_p = np.polyfit(r_i**2, a_g[i] / r_i**l, points - 1)
         b_g = a_g.copy()
         b_g[:gc] = np.polyval(c_p, r_g[:gc]**2) * r_g[:gc]**l
-        if 0:
-            import matplotlib.pyplot as plt
-            plt.plot(r_g, a_g)
-            plt.plot(r_g, b_g)
-            plt.xlim(0, 4)
-            plt.show()
         return b_g, c_p[-1]
 
     def cut(self, a_g, rcut):
@@ -362,16 +360,19 @@ class RadialGridDescriptor:
         fsolve(f, x0)
         return b_g, c_x[-1]
 
-    def pseudize_smooth(self, a_g, gc, l=0, points=3, ecut=20.0):
-        b_g = self.pseudize(a_g, gc, l, points)[0]
+    def pseudize_smooth(self,
+                        a_g: Array1D,
+                        gc: int,
+                        l: int = 0,
+                        points: int = 3,
+                        Gcut: float = 6.0) -> Tuple[Array1D, float]:
+        b_g, _ = self.pseudize(a_g, gc, l, points)
         c_x = np.empty(points + 1)
         gc0 = gc // 2
         x0 = b_g[gc0]
-        r_g = self.r_g
         i = [gc0] + list(range(gc, gc + points))
+        r_g = self.r_g
         r_i = r_g[i]
-
-        Gcut = (2 * ecut)**0.5
 
         def f(x):
             b_g[gc0] = x
@@ -382,14 +383,9 @@ class RadialGridDescriptor:
             f_k = g_k[kc:] * b_k[kc:]
             return f_k @ f_k
 
-        from scipy.optimize import fmin
-        fmin(f, x0)
-        if 0:
-            import matplotlib.pyplot as plt
-            plt.plot(r_g, a_g)
-            plt.plot(r_g, b_g)
-            plt.xlim(0, 4)
-            plt.show()
+        from scipy.optimize import minimize
+        minimize(f, x0)
+
         return b_g, c_x[-1]
 
     def jpseudize(self, a_g, gc, l=0, points=4):
@@ -404,8 +400,8 @@ class RadialGridDescriptor:
         for g < gc+P, where.
         """
 
-        from scipy.special import sph_jn
         from scipy.optimize import brentq
+        from scipy.special import sph_jn
 
         if a_g[gc] == 0:
             return self.zeros(), 0.0

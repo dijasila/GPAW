@@ -250,7 +250,8 @@ class PAWWaves:
 
         self.nt_g = rgd.zeros()
         for n, phi_g in enumerate(phi_ng):
-            phit_ng[n], c0 = pseudizer(phi_g, gc, self.l)
+            phit_ng[n], c0 = pseudizer(phi_g, gc, self.l,
+                                       divergent=self.n_n[n] <= 0)
             a_g, dadg_g, d2adg2_g = rgd.zeros(3)
             a_g[1:] = self.phit_ng[n, 1:] / r_g[1:]**l
             a_g[0] = c0
@@ -358,11 +359,14 @@ class PAWSetupGenerator:
 
         self.rgd = aea.rgd
 
-        if ecut is None:
-            self.pseudizer = self.rgd.pseudize
-        else:
-            self.pseudizer = partial(self.rgd.pseudize_smooth,
-                                     ecut=ecut / Ha)
+        def pseudize(a_g, gc, l=0, points=4, ecut=ecut, divergent=False):
+            if ecut is None or divergent:
+                return self.rgd.pseudize(a_g, gc, l, points)
+            Gcut = (2 * ecut)**0.5
+            return self.rgd.pseudize_smooth(a_g, gc, l, points,
+                                            Gcut=Gcut)
+
+        self.pseudizer = pseudize
 
         self.vtr_g = None
 
