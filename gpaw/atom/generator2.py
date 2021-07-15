@@ -471,7 +471,7 @@ class PAWSetupGenerator:
         phi_g[1:gc] /= self.rgd.r_g[1:gc]
         phi_g[0] = a
 
-        phit_g, c = self.pseudizer(phi_g, g0, l=l0, points=P)
+        phit_g, c = self.pseudizer(phi_g, g0, l=l0, points=P, divergent=True)
 
         dgdr_g = 1 / self.rgd.dr_g
         d2gdr2_g = self.rgd.d2gdr2()
@@ -568,7 +568,7 @@ class PAWSetupGenerator:
             # Make sure pseudo density is monotonically decreasing:
             while True:
                 gcore = self.rgd.round(rcore)
-                self.nct_g = self.pseudizer(self.nc_g, gcore)[0]
+                self.nct_g = self.rgd.pseudize(self.nc_g, gcore)[0]
                 nt_g = self.nt_g + self.nct_g
                 dntdr_g = self.rgd.derivative(nt_g)[:gcore]
                 if dntdr_g.max() < 0.0:
