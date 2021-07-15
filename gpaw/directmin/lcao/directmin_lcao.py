@@ -874,7 +874,7 @@ class DirectMinLCAO(DirectLCAO):
             else:
                 self.sort_wavefunctions(ham, wfs, use_eps=True)
                 if not wfs.occupations.update_numbers\
-                    or wfs.occupations.use_fixed_occupations:
+                        or wfs.occupations.use_fixed_occupations:
                     wfs.occupations.numbers = self.initial_occupation_numbers
 
         for kpt in wfs.kpt_u:
