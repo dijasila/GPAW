@@ -246,6 +246,5 @@ def excite(f_sn, i, a, spin=(0, 0)):
     homo = len(f_sn[spin[0]][f_sn[spin[0]] > 0]) - 1
     lumo = len(f_sn[spin[1]][f_sn[spin[1]] > 0])
 
-    print(homo, lumo, spin)
     f_sn[spin[0]][homo + i] -= 1
     f_sn[spin[1]][lumo + a] += 1
