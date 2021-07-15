@@ -230,7 +230,8 @@ class SCFLoop:
 
             if self.converged:
                 wfs.calculate_occupation_numbers(dens.fixed)
-                solver.get_canonical_representation(ham, wfs, dens)
+                solver.get_canonical_representation(ham, wfs, dens,
+                                                    sort_eigenvalues=True)
                 log(
                     '\nOccupied states converged after'
                     ' {:d} e/g evaluations'.format(solver.eg_count))

@@ -4,6 +4,7 @@ from ase import Atoms
 from gpaw import GPAW, restart
 from gpaw.mom import prepare_mom_calculation
 from gpaw.directmin.lcao.directmin_lcao import DirectMinLCAO
+from gpaw.test import equal
 
 
 @pytest.mark.mom
@@ -33,7 +34,7 @@ def test_mom_directopt_lcao_forces(in_tmp_dir):
                 eigensolver='direct-min-lcao',
                 mixer={'backend': 'no-mixing'},
                 nbands='nao',
-                convergence={'energy': 100,
+                convergence={'energy': 1e-3,
                              'density': 1e-3,
                              'eigenstates': 1e-3})
     atoms.calc = calc
@@ -55,6 +56,22 @@ def test_mom_directopt_lcao_forces(in_tmp_dir):
         assert (np.allclose(P, f_n))
 
     calc.write('co.gpw', mode='all')
+
+    # Exercise fixed occupations and no update of numbers in OccupationsMOM
+    atoms, calc = restart('co.gpw', txt='-')
+    e0 = atoms.get_potential_energy()
+    for i in [True, False]:
+        prepare_mom_calculation(calc, atoms, f_sn,
+                                use_fixed_occupations=i,
+                                update_numbers=i)
+        e1 = atoms.get_potential_energy()
+        for spin in range(calc.get_number_of_spins()):
+            if i:
+                f_n = calc.get_occupation_numbers(spin=spin)
+                assert (np.allclose(f_sn[spin], f_n))
+            assert (np.allclose(f_sn[spin],
+                                calc.wfs.occupations.numbers[spin]))
+        equal(e0, e1, 1e-3)
 
     E = []
     for i in [-1, 1]:

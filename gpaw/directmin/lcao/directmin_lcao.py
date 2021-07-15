@@ -170,18 +170,11 @@ class DirectMinLCAO(DirectLCAO):
         wfs.calculate_occupation_numbers(dens.fixed)
         occ_name = getattr(wfs.occupations, "name", None)
         if occ_name == 'mom':
-            # We need to initialize the MOM reference orbitals
-            # before sorting coefficients and occupation numbers
-            wfs.occupations.initialize_reference_orbitals()
-            self.sort_wavefunctions_mom(wfs)
-            wfs.calculate_occupation_numbers(dens.fixed)
+            self.initial_occupation_numbers = wfs.occupations.numbers.copy()
+            self.initialize_mom(wfs, dens)
         self.localize_wfs(wfs, dens, ham, log)
         if occ_name == 'mom':
-            # Need to reinitialize the MOM reference orbitals
-            # before sorting coefficients and occupation numbers
-            wfs.occupations.initialize_reference_orbitals()
-            self.sort_wavefunctions_mom(wfs)
-            wfs.calculate_occupation_numbers(dens.fixed)
+            self.initialize_mom(wfs, dens)
         self.update_ks_energy(ham, wfs, dens)
         self.initialize_2(wfs, dens, ham)
 
@@ -710,10 +703,8 @@ class DirectMinLCAO(DirectLCAO):
             else:
                 for kpt in wfs.kpt_u:
                     u = kpt.s * self.n_kps + kpt.q
-                    # self.sort_wavefunctions(ham, wfs, kpt)
                     self.c_nm_ref[u] = kpt.C_nM.copy()
                     self.a_mat_u[u] = np.zeros_like(self.a_mat_u[u])
-                    # self.sort_wavefunctions(ham, wfs, kpt)
 
             # choose search direction and line search algorithm
             # as you need to restart it
@@ -829,8 +820,7 @@ class DirectMinLCAO(DirectLCAO):
         return np.inf
 
     def get_canonical_representation(self, ham, wfs, dens,
-                                     update_eigenvalues=True,
-                                     update_wfs=False):
+                                     sort_eigenvalues=False):
         """
         choose canonical orbitals which diagonalise
         lagrange matrix. it's probably necessary
@@ -879,9 +869,13 @@ class DirectMinLCAO(DirectLCAO):
         self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
         occ_name = getattr(wfs.occupations, "name", None)
         if occ_name == 'mom':
-            self.sort_wavefunctions_mom(wfs)
-            self._e_entropy = wfs.calculate_occupation_numbers(
-                dens.fixed)
+            if not sort_eigenvalues:
+                self.sort_wavefunctions_mom(wfs)
+            else:
+                self.sort_wavefunctions(ham, wfs, use_eps=True)
+                if not wfs.occupations.update_numbers\
+                    or wfs.occupations.use_fixed_occupations:
+                    wfs.occupations.numbers = self.initial_occupation_numbers
 
         for kpt in wfs.kpt_u:
             u = kpt.s * self.n_kps + kpt.q
@@ -895,45 +889,60 @@ class DirectMinLCAO(DirectLCAO):
         self._error = np.inf
         self.initialized = False
 
-    def sort_wavefunctions(self, ham, wfs, kpt):
+    def sort_wavefunctions(self, ham, wfs, use_eps=False):
         """
-        this function sorts wavefunctions according
-        it's orbitals energies, not eigenvalues.
+        Sort wavefunctions according to the eigenvalues or
+        the diagonal elements of the Hamiltonian matrix.
         :return:
         """
         wfs.timer.start('Sort WFS')
-        h_mm = self.calculate_hamiltonian_matrix(ham, wfs, kpt)
-        tri2full(h_mm)
-        hc_mn = np.zeros(shape=(kpt.C_nM.shape[1], kpt.C_nM.shape[0]),
-                         dtype=kpt.C_nM.dtype)
-        mmm(1.0, h_mm.conj(), 'N', kpt.C_nM, 'T', 0.0, hc_mn)
-        mmm(1.0, kpt.C_nM.conj(), 'N', hc_mn, 'N', 0.0, h_mm)
-        orbital_energies = h_mm.diagonal().real.copy()
-        # label each orbital energy
-        # add some noise to get rid off degeneracy
-        orbital_energies += \
-            np.random.rand(len(orbital_energies)) * 1.0e-8
-        oe_labeled = {}
-        for i, lamb in enumerate(orbital_energies):
-            oe_labeled[str(round(lamb, 12))] = i
-        # now sort orb energies
-        oe_sorted = np.sort(orbital_energies)
-        # run over sorted orbital energies and get their label
-        ind = []
-        for x in oe_sorted:
-            i = oe_labeled[str(round(x, 12))]
-            ind.append(i)
-        # check if it is necessary to sort
-        x = np.max(abs(np.array(ind) - np.arange(len(ind))))
-        if x > 0:
-            # now sort wfs according to orbital energies
-            kpt.C_nM[np.arange(len(ind)), :] = kpt.C_nM[ind, :]
-            kpt.eps_n[:] = np.sort(h_mm.diagonal().real.copy())
+        for kpt in wfs.kpt_u:
+            if use_eps:
+                orbital_energies = kpt.eps_n
+            else:
+                h_mm = self.calculate_hamiltonian_matrix(ham, wfs, kpt)
+                tri2full(h_mm)
+                hc_mn = np.zeros(shape=(kpt.C_nM.shape[1], kpt.C_nM.shape[0]),
+                                 dtype=kpt.C_nM.dtype)
+                mmm(1.0, h_mm.conj(), 'N', kpt.C_nM, 'T', 0.0, hc_mn)
+                mmm(1.0, kpt.C_nM.conj(), 'N', hc_mn, 'N', 0.0, h_mm)
+                orbital_energies = h_mm.diagonal().real.copy()
+            # label each orbital energy
+            # add some noise to get rid off degeneracy
+            orbital_energies += \
+                np.random.rand(len(orbital_energies)) * 1.0e-8
+            oe_labeled = {}
+            for i, lamb in enumerate(orbital_energies):
+                oe_labeled[str(round(lamb, 12))] = i
+            # now sort orb energies
+            oe_sorted = np.sort(orbital_energies)
+            # run over sorted orbital energies and get their label
+            ind = []
+            for x in oe_sorted:
+                i = oe_labeled[str(round(x, 12))]
+                ind.append(i)
+            # check if it is necessary to sort
+            x = np.max(abs(np.array(ind) - np.arange(len(ind))))
+            if x > 0:
+                # now sort wfs according to orbital energies
+                kpt.C_nM[np.arange(len(ind)), :] = kpt.C_nM[ind, :]
+                kpt.f_n[np.arange(len(ind))] = kpt.f_n[ind]
+                kpt.eps_n[np.arange(len(ind))] = orbital_energies[ind]
+                occ_name = getattr(wfs.occupations, "name", None)
+                if occ_name == 'mom':
+                    # OccupationsMOM.numbers needs to be updated after sorting
+                    wfs.occupations.numbers[kpt.s] = kpt.f_n
         wfs.timer.stop('Sort WFS')
 
         return
 
     def sort_wavefunctions_mom(self, wfs):
+        """
+        Sort wavefunctions according to the occupation
+        numbers so that there are no holes in the
+        distribution of occupation numbers
+        :return:
+        """
         changedocc = False
         for kpt in wfs.kpt_u:
             f_sn = kpt.f_n.copy()
@@ -956,6 +965,8 @@ class DirectMinLCAO(DirectLCAO):
             if not np.allclose(kpt.f_n, f_sn):
                 changedocc = True
                 wfs.atomic_correction.calculate_projections(wfs, kpt)
+                # OccupationsMOM.numbers needs to be updated after sorting
+                wfs.occupations.numbers[kpt.s] = kpt.f_n
 
         return changedocc
 
@@ -1276,12 +1287,18 @@ class DirectMinLCAO(DirectLCAO):
                 'Please, use occupations={\'name\': \'fixed-uniform\'}'
             assert wfs.occupations.name == 'fixed-uniform', errormsg
 
+    def initialize_mom(self, wfs, dens):
+        # Reinitialize the MOM reference orbitals
+        # after orthogonalization/localization
+        wfs.occupations.initialize_reference_orbitals()
+        wfs.calculate_occupation_numbers(dens.fixed)
+        self.sort_wavefunctions_mom(wfs)
+
     def check_mom(self, wfs, dens):
         occ_name = getattr(wfs.occupations, "name", None)
         if occ_name == 'mom':
             self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
             self.restart = self.sort_wavefunctions_mom(wfs)
-            self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
 
     @property
     def error(self):
