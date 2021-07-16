@@ -37,6 +37,8 @@ effective potential and the electronic states.
 
 The current implementation supports spin-paired and spin-polarized computations.
 
+A short example is given below. Another worked out example can be found in the
+tutorial for Raman calculations :ref:`here <elphraman>`.
 
 Example
 =======
