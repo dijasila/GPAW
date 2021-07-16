@@ -44,7 +44,9 @@ class SCFLoop:
 
     def irun(self, wfs, ham, dens, log, callback):
         self.niter = 1
-        calculate_expensive = False  # expensive criteria
+        cheap = {k: c for k, c in self.criteria.items() if not c.calc_last}
+        expensive = {k: c for k, c in self.criteria.items() if c.calc_last}
+        calculate_expensive = False  # switches to True when cheap converge
         while self.niter <= self.maxiter:
             wfs.eigensolver.iterate(ham, wfs)
             e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
@@ -54,8 +56,6 @@ class SCFLoop:
             converged_items = {}  # True/False, per criteria
             context = SCFEvent(dens=dens, ham=ham, wfs=wfs, niter=self.niter,
                                log=log)
-            cheap = {k: c for k, c in self.criteria.items() if not c.calc_last}
-            expensive = {k: c for k, c in self.criteria.items() if c.calc_last}
 
             for name, criterion in cheap.items():
                 converged, entry = criterion(context)
@@ -94,7 +94,10 @@ class SCFLoop:
         self.niter_fixdensity = 0
 
         if not self.converged:
-            if not np.isfinite(self.criteria['eigenstates'].get_error()):
+            context = SCFEvent(dens=dens, ham=ham, wfs=wfs, niter=self.niter,
+                               log=log)
+            eigerr = self.criteria['eigenstates'].get_error(context)
+            if not np.isfinite(eigerr):
                 msg = 'Not enough bands for ' + wfs.eigensolver.nbands_converge
                 log(msg, flush=True)
                 raise KohnShamConvergenceError(msg)
@@ -276,10 +279,11 @@ class Energy(Criterion):
         # peak energy difference on e_total_free, while reporting
         # e_total_extrapolated in the SCF table (logfile). I changed it to
         # use e_total_extrapolated for both. (Should be a miniscule
-        # difference, but at more consistent.)
+        # difference, but more consistent.)
         energy = context.ham.e_total_extrapolated * Ha
-        energy_per_el = energy / context.wfs.nvalence
-        self._old.append(energy_per_el)  # Pops off >3!
+        if context.wfs.nvalence != 0:
+            energy = energy / context.wfs.nvalence
+        self._old.append(energy)  # Pops off >3!
         error = np.inf
         if len(self._old) == self._old.maxlen:
             error = np.ptp(self._old)
@@ -313,11 +317,15 @@ class Density(Criterion):
         """Should return (bool, entry), where bool is True if converged and
         False if not, and entry is a <=5 character string to be printed in
         the user log file."""
+        if context.dens.fixed:
+            return True, ''
         nv = context.wfs.nvalence
+        if nv == 0:
+            return True, ''
         # Make sure all agree on the density error.
         error = broadcast_float(context.dens.error, context.wfs.world) / nv
         converged = (error < self.tol)
-        if (error is None or np.isinf(error) or error == 0 or nv == 0):
+        if (error is None or np.isinf(error) or error == 0):
             entry = ''
         else:
             entry = '{:+5.2f}'.format(np.log10(error))
@@ -348,6 +356,8 @@ class Eigenstates(Criterion):
         """Should return (bool, entry), where bool is True if converged and
         False if not, and entry is a <=5 character string to be printed in
         the user log file."""
+        if context.wfs.nvalence == 0:
+            return True, ''
         error = self.get_error(context)
         converged = (error < self.tol)
         if (context.wfs.nvalence == 0 or error == 0 or np.isinf(error)):
@@ -440,7 +450,7 @@ class WorkFunction(Criterion):
         """Should return (bool, entry), where bool is True if converged and
         False if not, and entry is a <=5 character string to be printed in
         the user log file."""
-        workfunctions = context.ham.get_workfunctions(context.wfs.fermi_level)
+        workfunctions = context.ham.get_workfunctions(context.wfs)
         workfunctions = Ha * np.array(workfunctions)
         self._old.append(workfunctions)  # Pops off >3!
         if len(self._old) == self._old.maxlen:

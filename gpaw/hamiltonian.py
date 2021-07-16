@@ -150,7 +150,7 @@ class Hamiltonian:
         self.xc.summary(log)
 
         try:
-            workfunctions = self.get_workfunctions(wfs.fermi_level)
+            workfunctions = self.get_workfunctions(wfs)
         except ValueError:
             pass
         else:
@@ -158,11 +158,11 @@ class Hamiltonian:
                 .format(*np.array(workfunctions) * Ha))
             log()
 
-    def get_workfunctions(self, fermilevel):
+    def get_workfunctions(self, wfs):
         """
         Returns the work functions, in Hartree, for a dipole-corrected
         simulation. Returns None if no dipole correction is present.
-        (fermilevel can be obtained from calc.wfs.fermi_level.)
+        (wfs can be obtained from calc.wfs)
         """
         try:
             dipole_correction = self.poisson.correction
@@ -184,6 +184,7 @@ class Hamiltonian:
             else:
                 vacuum = np.nan
 
+        fermilevel = wfs.fermi_level
         wf1 = vacuum - fermilevel + dipole_correction
         wf2 = vacuum - fermilevel - dipole_correction
         return np.array([wf1, wf2])

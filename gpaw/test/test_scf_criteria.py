@@ -48,8 +48,7 @@ def test_scf_criterion(in_tmp_dir):
                 poissonsolver={'dipolelayer': 'xy'})
     atoms.calc = calc
     atoms.get_potential_energy()
-    fermilevel = calc.wfs.fermi_level
-    workfunctions1 = Ha * calc.hamiltonian.get_workfunctions(fermilevel)
+    workfunctions1 = Ha * calc.hamiltonian.get_workfunctions(calc.wfs)
     calc.write('scf-criterion.gpw')
 
     # Flip and use saved calculator; work functions should be opposite.
@@ -61,8 +60,7 @@ def test_scf_criterion(in_tmp_dir):
     calc = GPAW('scf-criterion.gpw', txt=None)  # checks loading
     atoms.calc = calc
     atoms.get_potential_energy()
-    fermilevel = calc.wfs.fermi_level
-    workfunctions2 = Ha * calc.hamiltonian.get_workfunctions(fermilevel)
+    workfunctions2 = Ha * calc.hamiltonian.get_workfunctions(calc.wfs)
 
     assert workfunctions1[0] == pytest.approx(workfunctions2[1])
     assert workfunctions1[1] == pytest.approx(workfunctions2[0])
