@@ -223,20 +223,20 @@ class SJM(SolvationGPAW):
 
         # We handle 'sj' and 'background_charge' internally; passing to GPAW's
         # set function will trigger a deletion of the density, etc.
-        sj_kwargs = kwargs.pop('sj', {})
-        p.update(sj_kwargs)
+        sj_changes = kwargs.pop('sj', {})
+        try:
+            sj_changes = {key: value for key, value in sj_changes.items() if not
+                          equal(value, p[key])}
+        except KeyError:
+            raise InputError(
+                'Unexpected key(s) provided to sj dict. '
+                'Keys provided were "{}". '
+                'Only keys allowed are "{}".'
+                .format(', '.join(sj_changes),
+                        ', '.join(self.default_parameters['sj'])))
+        p.update(sj_changes)
         background_charge = kwargs.pop('background_charge', None)
         parent_changed = True if len(kwargs) > 0 else False
-        badkeys = [key for key in sj_kwargs if key not in
-                   self.default_parameters['sj']]
-        if badkeys:
-            msg = ('Unexpected key(s) "{}" provided to sj dict. '
-                   'Only keys allowed are "{}".'
-                   .format(', '.join(badkeys),
-                           ', '.join(self.default_parameters['sj'])))
-            raise InputError(textwrap.fill(msg))
-        sj_changes = [key for key, value in sj_kwargs.items() if not
-                      equal(value, p.get(key))]
 
         SolvationGPAW.set(self, **kwargs)
 
