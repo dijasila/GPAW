@@ -27,8 +27,10 @@ def test_mom_directopt_lcao(in_tmp_dir):
                 mixer={'backend': 'no-mixing'},
                 nbands='nao',
                 symmetry='off',
-                spinpol=True
-                )
+                spinpol=True,
+                convergence={'energy': 1e-3,
+                             'density': 1e-3,
+                             'eigenstates': 1e-3})
     H2O.calc = calc
     H2O.get_potential_energy()
 
@@ -46,14 +48,14 @@ def test_mom_directopt_lcao(in_tmp_dir):
     def rotate_homo_lumo(calc=calc):
         a = np.pi / 2
         iters = calc.get_number_of_iterations()
-        if iters == 5:
+        if iters == 3:
             c = calc.wfs.kpt_u[0].C_nM.copy()
             calc.wfs.kpt_u[0].C_nM[3] = np.cos(a) * c[3] + np.sin(a) * c[4]
             calc.wfs.kpt_u[0].C_nM[4] = np.cos(a) * c[4] - np.sin(a) * c[3]
+            calc.wfs.eigensolver.c_nm_ref[0] = calc.wfs.kpt_u[0].C_nM.copy()
+            calc.wfs.eigensolver.c_nm_ref[1] = calc.wfs.kpt_u[1].C_nM.copy()
 
     calc.attach(rotate_homo_lumo, 1)
-
     e = H2O.get_potential_energy()
 
     assert e == pytest.approx(-5.091912426348663, abs=1.0e-4)
-

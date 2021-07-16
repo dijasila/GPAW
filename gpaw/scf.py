@@ -220,8 +220,8 @@ class SCFLoop:
             if not solver.initialized:
                 solver.init_me(wfs, ham, dens, log)
 
-            solver.check_mom(wfs, dens)
             solver.iterate(ham, wfs, dens, log)
+            solver.check_mom(wfs, dens)
 
             energy = ham.get_energy(0.0, wfs, kin_en_using_band=False)
 
