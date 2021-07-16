@@ -516,7 +516,9 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
         parallel_layout = ParallelLayout(BandDescriptor(1),
                                          kd.comm,
                                          serial_comm)
-        occcalc = occcalc or calc.wfs.occupations
+        if occcalc is None:
+            occcalc = calc.wfs.occupations
+            assert occcalc is not None
         occcalc = occcalc.copy(bz2ibzmap=np.arange(kd.nbzkpts),
                                parallel_layout=parallel_layout)
     else:

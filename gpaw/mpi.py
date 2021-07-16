@@ -7,7 +7,7 @@ import traceback
 import atexit
 import pickle
 from contextlib import contextmanager
-from typing import Any
+from typing import Any, TypeVar, overload
 
 from ase.parallel import world as aseworld
 import numpy as np
@@ -15,6 +15,7 @@ import numpy as np
 import gpaw
 from .broadcast_imports import world
 import _gpaw
+from gpaw.typing import ArrayND
 
 MASTER = 0
 
@@ -51,11 +52,25 @@ def broadcast_exception(comm):
         raise broadcast(None, rank, comm)
 
 
-class MPI:
+T = TypeVar('T', int, float, complex)
+
+
+class MPIComm:
     rank: int
     size: int
 
-    def sum(self, a, root: int = -1) -> None:
+    @overload
+    def sum(self, a: T, root: int = -1) -> T:
+        ...
+
+    @overload
+    def sum(self, a: ArrayND, root: int = -1) -> None:
+        ...
+
+    def sum(self, a, root=-1):
+        ...
+
+    def broadcast(self, a: ArrayND, root: int = -1) -> None:
         ...
 
 
@@ -612,7 +627,7 @@ class _Communicator:
 
 
 # Serial communicator
-class SerialCommunicator(MPI):
+class SerialCommunicator:
     size = 1
     rank = 0
 

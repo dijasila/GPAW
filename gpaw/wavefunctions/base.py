@@ -8,7 +8,7 @@ from gpaw.projections import Projections
 from gpaw.utilities import pack, unpack2
 from gpaw.utilities.blas import gemm, axpy
 from gpaw.utilities.partition import AtomPartition
-from gpaw.mpi import MPI
+from gpaw.mpi import MPIComm
 
 
 class WaveFunctions:
@@ -42,7 +42,7 @@ class WaveFunctions:
     mode: str
 
     def __init__(self, gd, nvalence, setups, bd, dtype, collinear,
-                 world: MPI, kd, kptband_comm, timer):
+                 world: MPIComm, kd, kptband_comm, timer):
         self.gd = gd
         self.nspins = kd.nspins
         self.collinear = collinear

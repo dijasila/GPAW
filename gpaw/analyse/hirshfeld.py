@@ -76,11 +76,9 @@ class HirshfeldDensity(RealSpaceDensity):
         Z_a = atoms.get_atomic_numbers()
 
         par = self.calculator.parameters
-        reveal_type(self.calculator.wfs.world)
         setups = Setups(Z_a, par.setups, par.basis,
                         XC(par.xc),
-                        # world=self.calculator.wfs.world)
-                        self.calculator.wfs.world)
+                        world=self.calculator.wfs.world)
 
         # initialize
         self.initialize(setups,

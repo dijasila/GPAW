@@ -1,7 +1,7 @@
 import functools
 from io import StringIO
 from math import pi, sqrt
-from typing import List, Tuple, Dict
+from typing import Any, Dict, List, Tuple, Union, Callable
 
 import ase.units as units
 import numpy as np
@@ -10,12 +10,14 @@ from ase.data import chemical_symbols
 from gpaw import debug
 from gpaw.basis_data import Basis
 from gpaw.gaunt import gaunt, nabla
+from gpaw.mpi import MPIComm
 from gpaw.overlap import OverlapCorrections
 from gpaw.rotation import rotation
 from gpaw.setup_data import SetupData, search_for_file
+from gpaw.typing import ArrayLike1D
 from gpaw.utilities import pack, unpack
 from gpaw.xc import XC
-from gpaw.mpi import MPI
+from gpaw.xc.functional import XCFunctional
 
 
 def parse_hubbard_string(type: str) -> Tuple[str,
@@ -1289,6 +1291,9 @@ class Setup(BaseSetup):
         assert i == self.ni
 
 
+Types = Union[str, Dict[Union[str, int], Any]]
+
+
 class Setups(list):
     """Collection of Setup objects. One for each distinct atom.
 
@@ -1302,8 +1307,13 @@ class Setups(list):
     ``core_charge`` Core hole charge.
     """
 
-    def __init__(self, Z_a, setup_types, basis_sets, xc,
-                 filter: int = None, world: MPI = None):
+    def __init__(self,
+                 Z_a: List[int],
+                 setup_types: Types,
+                 basis_sets: Types,
+                 xc: XCFunctional,
+                 filter: Callable[..., None] = None,
+                 world: MPIComm = None):
         list.__init__(self)
         symbols = [chemical_symbols[Z] for Z in Z_a]
         type_a = types2atomtypes(symbols, setup_types, default='paw')
@@ -1458,7 +1468,9 @@ class FunctionIndices:
         return self.M_a[a], self.M_a[a + 1]
 
 
-def types2atomtypes(symbols, types, default):
+def types2atomtypes(symbols: List[str],
+                    types: Types,
+                    default: Union[str, None]) -> List[Any]:
     """Map a types identifier to a list with a type id for each atom.
 
     types can be a single str, or a dictionary mapping chemical
@@ -1489,9 +1501,9 @@ def types2atomtypes(symbols, types, default):
                     type_a[a] = type
 
     # and then atom indices
-    for a, type in types.items():
-        if isinstance(a, int):
-            type_a[a] = type
+    for index, type in types.items():
+        if isinstance(index, int):
+            type_a[index] = type
 
     return type_a
 
