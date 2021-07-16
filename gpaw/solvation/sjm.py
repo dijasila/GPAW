@@ -225,8 +225,8 @@ class SJM(SolvationGPAW):
         # set function will trigger a deletion of the density, etc.
         sj_changes = kwargs.pop('sj', {})
         try:
-            sj_changes = {key: value for key, value in sj_changes.items() if not
-                          equal(value, p[key])}
+            sj_changes = {key: value for key, value in sj_changes.items()
+                          if not equal(value, p[key])}
         except KeyError:
             raise InputError(
                 'Unexpected key(s) provided to sj dict. '
