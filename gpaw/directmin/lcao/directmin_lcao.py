@@ -243,7 +243,8 @@ class DirectMinLCAO(DirectLCAO):
                     n_occ = get_n_occ(kpt)
                     u = self.n_kps * kpt.s + kpt.q
                     zero_ind = ((M - n_occ) * (M - n_occ - 1)) // 2
-                    # TODO: This breaks if there is only one unoccupied band
+                    if len(ind_up[0]) == 1:
+                        zero_ind = -1
                     self.ind_up[u] = (ind_up[0][:-zero_ind].copy(),
                                       ind_up[1][:-zero_ind].copy())
                 del ind_up
