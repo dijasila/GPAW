@@ -238,3 +238,13 @@ def gramschmidt_lcao(C_nM, S_MM):
                          check_finite=False)
 
     return np.dot(S_nn.conj(), C_nM)
+
+
+def excite(f_sn, i, a, spin=(0, 0)):
+    assert len(f_sn) < 3
+
+    homo = len(f_sn[spin[0]][f_sn[spin[0]] > 0]) - 1
+    lumo = len(f_sn[spin[1]][f_sn[spin[1]] > 0])
+
+    f_sn[spin[0]][homo + i] -= 1
+    f_sn[spin[1]][lumo + a] += 1
