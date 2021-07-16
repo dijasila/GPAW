@@ -4,7 +4,6 @@ from ase import Atoms
 from gpaw import GPAW, restart
 from gpaw.mom import prepare_mom_calculation
 from gpaw.directmin.lcao.directmin_lcao import DirectMinLCAO
-from gpaw.test import equal
 
 
 @pytest.mark.mom
@@ -71,7 +70,7 @@ def test_mom_directopt_lcao_forces(in_tmp_dir):
                 assert (np.allclose(f_sn[spin], f_n))
             assert (np.allclose(f_sn[spin],
                                 calc.wfs.occupations.numbers[spin]))
-        equal(e0, e1, 1e-3)
+        assert e0 == pytest.approx(e1, abs=1e-3)
 
     E = []
     for i in [-1, 1]:
