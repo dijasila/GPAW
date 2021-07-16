@@ -46,14 +46,18 @@ def test_mom_directopt_lcao(in_tmp_dir):
     prepare_mom_calculation(calc, H2O, f_sn)
 
     def rotate_homo_lumo(calc=calc):
-        a = np.pi / 2
+        a = 70 / 180 * np.pi
         iters = calc.get_number_of_iterations()
         if iters == 3:
             c = calc.wfs.kpt_u[0].C_nM.copy()
             calc.wfs.kpt_u[0].C_nM[3] = np.cos(a) * c[3] + np.sin(a) * c[4]
             calc.wfs.kpt_u[0].C_nM[4] = np.cos(a) * c[4] - np.sin(a) * c[3]
-            calc.wfs.eigensolver.c_nm_ref[0] = calc.wfs.kpt_u[0].C_nM.copy()
-            calc.wfs.eigensolver.c_nm_ref[1] = calc.wfs.kpt_u[1].C_nM.copy()
+            counter = calc.wfs.eigensolver.update_ref_orbs_counter
+            calc.wfs.eigensolver.update_ref_orbs_counter = iters + 1
+            calc.wfs.eigensolver.update_ref_orbitals(calc.wfs,
+                                                     calc.hamiltonian,
+                                                     calc.density)
+            calc.wfs.eigensolver.update_ref_orbs_counter = counter
 
     calc.attach(rotate_homo_lumo, 1)
     e = H2O.get_potential_energy()
