@@ -1,16 +1,19 @@
-import numpy as np
 from typing import Tuple
+
+import numpy as np
 from ase.units import Bohr
-from gpaw.density import RealSpaceDensity
-from gpaw.lfc import BasisFunctions
-from gpaw.setup import Setups
-from gpaw.xc import XC
-from gpaw.utilities.tools import coordinates
-from gpaw.utilities.partition import AtomPartition
-from gpaw.mpi import world
-from gpaw.io.logger import GPAWLogger
-from gpaw.grid_descriptor import GridDescriptor
+
 from gpaw import GPAW
+from gpaw.density import RealSpaceDensity
+from gpaw.grid_descriptor import GridDescriptor
+from gpaw.io.logger import GPAWLogger
+from gpaw.lfc import BasisFunctions
+from gpaw.mpi import world
+from gpaw.setup import Setups
+from gpaw.typing import Array3D
+from gpaw.utilities.partition import AtomPartition
+from gpaw.utilities.tools import coordinates
+from gpaw.xc import XC
 
 
 class HirshfeldDensity(RealSpaceDensity):
@@ -50,7 +53,7 @@ class HirshfeldDensity(RealSpaceDensity):
 
     def get_density(self,
                     atom_indices=None,
-                    gridrefinement=2) -> Tuple[np.ndarray, GridDescriptor]:
+                    gridrefinement=2) -> Tuple[Array3D, GridDescriptor]:
         """Get sum of atomic densities from the given atom list.
 
         Parameters

@@ -14,7 +14,6 @@ from gpaw.mpi import MPIComm
 from gpaw.overlap import OverlapCorrections
 from gpaw.rotation import rotation
 from gpaw.setup_data import SetupData, search_for_file
-from gpaw.typing import ArrayLike1D
 from gpaw.utilities import pack, unpack
 from gpaw.xc import XC
 from gpaw.xc.functional import XCFunctional
