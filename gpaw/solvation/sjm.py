@@ -662,8 +662,7 @@ class SJM(SolvationGPAW):
         """Returns the potential of the simulated electrode, in V, relative
         to the vacuum. This comes directly from the work function."""
         try:
-            return Ha * self.hamiltonian.get_workfunctions(
-                self.wfs.fermi_level)[1]
+            return Ha * self.hamiltonian.get_workfunctions(self.wfs)[1]
         except TypeError:
             # Error happens on freshly-opened *.gpw file.
             if 'electrode_potential' in self.results:

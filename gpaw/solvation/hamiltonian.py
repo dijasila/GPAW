@@ -247,7 +247,7 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
         self.xc.summary(log)
 
         try:
-            workfunctions = self.get_workfunctions(wfs.fermi_level)
+            workfunctions = self.get_workfunctions(wfs)
         except ValueError:
             pass
         else:
