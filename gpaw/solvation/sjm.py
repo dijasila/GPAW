@@ -255,8 +255,11 @@ class SJM(SolvationGPAW):
                 pass
             else:
                 if self.atoms and p.slope:
-                    p.excess_electrons = ((p.target_potential -
-                                          true_potential) / p.slope)
+                    p.excess_electrons += ((p.target_potential -
+                                            true_potential) / p.slope)
+                    self.sog('Number of electrons changed to {:.4f} based '
+                             'on slope of {:.4f} V/electron.'
+                             .format(p.excess_electrons, p.slope))
 
         if (any(key in ['target_potential', 'excess_electrons',
             'jelliumregion'] for key in sj_changes) and not parent_changed):
