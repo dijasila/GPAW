@@ -286,6 +286,10 @@ class DirectMinLCAO(DirectLCAO):
             self.evecs[u] = None
             self.evals[u] = None
 
+        for k in self.ind_up.keys():
+            if not self.ind_up[k][0].size or not self.ind_up[k][1].size:
+                self.n_dim[k] = 0
+
         self.randomizeorbitals = False
         self.alpha = 1.0  # step length
         self.phi_2i = [None, None]  # energy at last two iterations
