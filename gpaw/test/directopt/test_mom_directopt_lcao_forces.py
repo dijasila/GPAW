@@ -6,6 +6,7 @@ from gpaw.mom import prepare_mom_calculation
 from gpaw.directmin.lcao.directmin_lcao import DirectMinLCAO
 from gpaw.directmin.lcao.tools import excite
 
+
 @pytest.mark.mom
 def test_mom_directopt_lcao_forces(in_tmp_dir):
     L = 6.0

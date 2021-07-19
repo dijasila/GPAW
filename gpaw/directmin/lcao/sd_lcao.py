@@ -9,7 +9,6 @@ https://pubs.acs.org/doi/10.1021/acs.jctc.0c00597
 
 import numpy as np
 import copy
-from ase.parallel import parprint
 
 
 class SteepestDescent(object):
