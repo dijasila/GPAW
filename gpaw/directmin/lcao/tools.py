@@ -240,11 +240,40 @@ def gramschmidt_lcao(C_nM, S_MM):
     return np.dot(S_nn.conj(), C_nM)
 
 
-def excite(f_sn, i, a, spin=(0, 0)):
-    assert len(f_sn) < 3
+def excite(calc, i, a, spin=(0, 0)):
+    """
+    remove an electron from spin[0], homo + i
+    and add an electron to spin[1], lumo + a
+    occupation number will be taken from
+    calc.get_occupation_numbers() for each spin
 
-    homo = len(f_sn[spin[0]][f_sn[spin[0]] > 0]) - 1
-    lumo = len(f_sn[spin[1]][f_sn[spin[1]] > 0])
+    :param calc:
+    :param i:
+    :param a:
+    :param spin:
+    :return:
+    """
+
+    f_sn = []
+    for s in range(calc.wfs.nspins):
+        f_sn.append(
+            calc.get_occupation_numbers(spin=s))
+
+    k = 0
+    for _ in reversed(f_sn[spin[0]]):
+        k += 1
+        if _ > 0:
+            break
+
+    homo = len(f_sn[spin[0]]) - k
+
+    lumo = 0
+    for _ in f_sn[spin[1]]:
+        if _ == 0:
+            break
+        lumo += 1
 
     f_sn[spin[0]][homo + i] -= 1
     f_sn[spin[1]][lumo + a] += 1
+
+    return f_sn
