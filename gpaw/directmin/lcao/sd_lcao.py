@@ -133,67 +133,67 @@ class FRcg(SteepestDescent):
             self.iters += 1
 
             return self.p_k
-
-
-class HZcg(SteepestDescent):
-
-    """
-    conjugate gradient method from paper of
-    William W. Hager and Hongchao Zhang
-    SIAM J. optim., 16(1), 170-192. (23 pages)
-    """
-
-    def __init__(self, wfs):
-
-        super(HZcg, self).__init__(wfs)
-        self.eta = 0.01
-
-    def __str__(self):
-
-        return 'Hager-Zhang conjugate gradient method'
-
-    def update_data(self, wfs, x_k1, g_k1, precond=None):
-
-        if precond is not None:
-            g_k1 = self.apply_prec(precond, g_k1, 1.0)
-
-        if self.iters == 0:
-            self.p_k = self.minus(g_k1)
-            # save the step
-            self.g_k = g_k1
-            self.iters += 1
-
-            return self.p_k
-        else:
-            y_k = self.calc_diff(g_k1, self.g_k, wfs)
-            try:
-                dot_yp = self.dot_all_k_and_b(y_k, self.p_k, wfs)
-                rho = 1.0 / dot_yp
-            except ZeroDivisionError:
-                rho = 1.0e10
-
-            norm2 = self.dot_all_k_and_b(y_k, y_k, wfs)
-
-            y1 = self.calc_diff(y_k, self.p_k, wfs,
-                                const=2.0 * rho * norm2)
-
-            beta_k = rho * self.dot_all_k_and_b(y1, g_k1, wfs)
-
-            try:
-                norm_p = np.sqrt(self.dot_all_k_and_b(self.p_k,
-                                                      self.p_k, wfs))
-                norm_g = np.sqrt(self.dot_all_k_and_b(self.g_k,
-                                                      self.g_k, wfs))
-                eta_k = - 1.0 / (norm_p * min(self.eta, norm_g))
-            except ZeroDivisionError:
-                eta_k = 1.0e10
-            beta_k = max(beta_k, eta_k)
-            self.p_k = self.calc_diff(self.p_k, g_k1, wfs, beta_k)
-            # save this step
-            self.g_k = g_k1
-            self.iters += 1
-
-            return self.p_k
+#
+#
+# class HZcg(SteepestDescent):
+#
+#     """
+#     conjugate gradient method from paper of
+#     William W. Hager and Hongchao Zhang
+#     SIAM J. optim., 16(1), 170-192. (23 pages)
+#     """
+#
+#     def __init__(self, wfs):
+#
+#         super(HZcg, self).__init__(wfs)
+#         self.eta = 0.01
+#
+#     def __str__(self):
+#
+#         return 'Hager-Zhang conjugate gradient method'
+#
+#     def update_data(self, wfs, x_k1, g_k1, precond=None):
+#
+#         if precond is not None:
+#             g_k1 = self.apply_prec(precond, g_k1, 1.0)
+#
+#         if self.iters == 0:
+#             self.p_k = self.minus(g_k1)
+#             # save the step
+#             self.g_k = g_k1
+#             self.iters += 1
+#
+#             return self.p_k
+#         else:
+#             y_k = self.calc_diff(g_k1, self.g_k, wfs)
+#             try:
+#                 dot_yp = self.dot_all_k_and_b(y_k, self.p_k, wfs)
+#                 rho = 1.0 / dot_yp
+#             except ZeroDivisionError:
+#                 rho = 1.0e10
+#
+#             norm2 = self.dot_all_k_and_b(y_k, y_k, wfs)
+#
+#             y1 = self.calc_diff(y_k, self.p_k, wfs,
+#                                 const=2.0 * rho * norm2)
+#
+#             beta_k = rho * self.dot_all_k_and_b(y1, g_k1, wfs)
+#
+#             try:
+#                 norm_p = np.sqrt(self.dot_all_k_and_b(self.p_k,
+#                                                       self.p_k, wfs))
+#                 norm_g = np.sqrt(self.dot_all_k_and_b(self.g_k,
+#                                                       self.g_k, wfs))
+#                 eta_k = - 1.0 / (norm_p * min(self.eta, norm_g))
+#             except ZeroDivisionError:
+#                 eta_k = 1.0e10
+#             beta_k = max(beta_k, eta_k)
+#             self.p_k = self.calc_diff(self.p_k, g_k1, wfs, beta_k)
+#             # save this step
+#             self.g_k = g_k1
+#             self.iters += 1
+#
+#             return self.p_k
 
 
 class QuickMin(SteepestDescent):
@@ -525,121 +525,6 @@ class LBFGS_P(SteepestDescent):
             self.kp[self.k] = self.p
 
             del q
-
-            return self.multiply(r, const=-1.0)
-
-
-class LBFGS_P2(SteepestDescent):
-
-    def __init__(self, wfs, memory=3):
-        """
-        :param m: memory (amount of previous steps to use)
-        """
-        super(LBFGS_P2, self).__init__(wfs)
-        self.n_kps = wfs.kd.nibzkpts
-        self.s_k = {i: None for i in range(memory)}
-        self.y_k = {i: None for i in range(memory)}
-        self.rho_k = np.zeros(shape=memory)
-        self.kp = {}
-        self.p = 0
-        self.k = 0
-        self.m = memory
-        self.stable = True
-        self.beta_0 = 1.0
-
-    def __str__(self):
-
-        return 'LBFGS_P2'
-
-    def update_data(self, wfs, x_k1, g_k1, hess_1=None):
-
-        if self.k == 0:
-            self.kp[self.k] = self.p
-            self.g_k = copy.deepcopy(g_k1)
-            self.s_k[self.kp[self.k]] = self.zeros(g_k1)
-            self.y_k[self.kp[self.k]] = self.zeros(g_k1)
-            self.k += 1
-            self.p += 1
-            self.kp[self.k] = self.p
-            p = self.apply_prec(hess_1, g_k1, -1.0)
-            self.beta_0 = 1.0
-            return p
-
-        else:
-
-            if self.p == self.m:
-                self.p = 0
-                self.kp[self.k] = self.p
-
-            y_k = self.y_k
-            g_k = self.g_k
-            rho_k = self.rho_k
-
-            kp = self.kp
-            k = self.k
-            m = self.m
-
-            self.s_k[kp[k]] = x_k1
-            s_k = self.s_k
-
-            y_k[kp[k]] = self.calc_diff(g_k1, g_k, wfs)
-
-            try:
-                dot_ys = self.dot_all_k_and_b(y_k[kp[k]],
-                                              s_k[kp[k]],
-                                              wfs)
-                rho_k[kp[k]] = 1.0 / dot_ys
-            except ZeroDivisionError:
-                rho_k[kp[k]] = 1.0e12
-
-            if dot_ys < 0.0:
-                # raise Exception('y_k^Ts_k is not positive!')
-                parprint("y_k^Ts_k is not positive!")
-                self.stable = False
-                self.__init__(wfs, memory=self.m)
-                return self.update_data(wfs, x_k1, g_k1, hess_1)
-
-            # q = np.copy(g_k1)
-            q = copy.deepcopy(g_k1)
-
-            alpha = np.zeros(np.minimum(k + 1, m))
-            j = np.maximum(-1, k - m)
-
-            for i in range(k, j, -1):
-                dot_sq = self.dot_all_k_and_b(s_k[kp[i]],
-                                              q, wfs)
-                alpha[kp[i]] = rho_k[kp[i]] * dot_sq
-                q = self.calc_diff(q, y_k[kp[i]],
-                                   wfs, const=alpha[kp[i]])
-
-            try:
-                t = k
-                dot_yy = self.dot_all_k_and_b(y_k[kp[t]],
-                                              y_k[kp[t]], wfs)
-
-                self.beta_0 = 1.0 / (rho_k[kp[t]] * dot_yy)
-                r = self.apply_prec(hess_1, q)
-
-            except ZeroDivisionError:
-                r = self.multiply(q, 1.0e12)
-
-            for i in range(np.maximum(0, k - m + 1), k + 1):
-                dot_yr = self.dot_all_k_and_b(y_k[kp[i]], r, wfs)
-                beta = rho_k[kp[i]] * dot_yr
-                r = self.calc_diff(r, s_k[kp[i]], wfs,
-                                   const=(beta - alpha[kp[i]]))
-
-            # save this step:
-            del s_k
-            del y_k
-            del g_k
-            del rho_k
-            del q
-
-            self.g_k = copy.deepcopy(g_k1)
-            self.k += 1
-            self.p += 1
-            self.kp[self.k] = self.p
 
             return self.multiply(r, const=-1.0)
 
