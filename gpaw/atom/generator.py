@@ -597,14 +597,14 @@ class Generator(AllElectron):
                         dH_nn = dH_lnn[l]
                         q_n = q_ln[l]
 
-                    with open(self.symbol + '.ae.ld.' + 'spdf'[l], 'w') as fae,\
-                         open(self.symbol + '.ps.ld.' + 'spdf'[l], 'w') as fps:
-
+                    ae = self.symbol + '.ae.ld.' + 'spdf'[l]
+                    ps = self.symbol + '.ps.ld.' + 'spdf'[l]
+                    with open(ae, 'w') as fae, open(ps, 'w') as fps:
                         for i, e in enumerate(self.elog):
                             # All-electron logarithmic derivative:
                             u[:] = 0.0
-                            shoot(u, l, self.vr, e, self.r2dvdr, r, dr, c10, c2,
-                                  self.scalarrel, gmax=gld)
+                            shoot(u, l, self.vr, e, self.r2dvdr, r, dr,
+                                  c10, c2, self.scalarrel, gmax=gld)
                             dudr = 0.5 * (u[gld + 1] - u[gld - 1]) / dr[gld]
                             ld = dudr / u[gld] - 1.0 / r[gld]
                             print(e, ld, file=fae)
