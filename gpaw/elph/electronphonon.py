@@ -64,13 +64,13 @@ import pickle
 import numpy as np
 
 import ase.units as units
+from ase.parallel import parprint
 from ase.phonons import Displacement
 
 from gpaw import GPAW
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.lcao.tightbinding import TightBinding
 from gpaw.utilities import unpack2
-from gpaw.utilities.timing import StepTimer, nulltimer
 from gpaw.utilities.tools import tri2full
 
 
@@ -116,8 +116,6 @@ class ElectronPhononCoupling(Displacement):
                               name=name, delta=delta, center_refcell=True)
 
         self.calculate_forces = calculate_forces
-        # Log
-        self.set_log()
         # LCAO calculator
         self.calc_lcao = None
         # Supercell matrix
@@ -206,16 +204,6 @@ class ElectronPhononCoupling(Displacement):
 
         self.basis_info = {'M_a': M_a,
                            'nao_a': nao_a}
-
-    def set_log(self, log=None):
-        """Set output log."""
-
-        if log is None:
-            self.timer = nulltimer
-        elif log == '-':
-            self.timer = StepTimer(name='elph')
-        else:
-            self.timer = StepTimer(name='elph', out=open(log, 'w'))
 
     def _set_file_name(self, dump, basis=None, name=None, x=None):
         """Set name of supercell file."""
@@ -309,20 +297,20 @@ class ElectronPhononCoupling(Displacement):
             # Bloch to real-space converter
             tb = TightBinding(atoms_N, calc)
 
-        self.timer.write_now("Calculating supercell matrix")
+        parprint("Calculating supercell matrix")
 
-        self.timer.write_now("Calculating real-space gradients")
+        parprint("Calculating real-space gradients")
         # Calculate finite-difference gradients (in Hartree / Bohr)
         V1t_xsG, dH1_xasp = self.calculate_gradient()
-        self.timer.write_now("Finished real-space gradients")
+        parprint("Finished real-space gradients")
 
         # Fourier filter the atomic gradients of the effective potential
         if filter is not None:
-            self.timer.write_now("Fourier filtering gradients")
+            parprint("Fourier filtering gradients")
             # V1_xsG = V1t_xsG.copy()
             for s in range(nspins):
                 self.fourier_filter(V1t_xsG[:, s], components=filter)
-            self.timer.write_now("Finished Fourier filtering")
+            parprint("Finished Fourier filtering")
 
         # For the contribution from the derivative of the projectors
         dP_aqvMi = wfs.manytci.P_aqMi(self.indices, derivative=True)
@@ -339,7 +327,7 @@ class ElectronPhononCoupling(Displacement):
         # Calculate < i k | grad H | j k >, i.e. matrix elements in Bloch basis
         # List for supercell matrices;
         g_xsNNMM = []
-        self.timer.write_now("Calculating gradient of PAW Hamiltonian")
+        parprint("Calculating gradient of PAW Hamiltonian")
 
         # Do each cartesian component separately
         for i, a in enumerate(self.indices):
@@ -359,16 +347,14 @@ class ElectronPhononCoupling(Displacement):
 
                 V1t_sG = V1t_xsG[x]
 
-                self.timer.write_now("%s-gradient of atom %u" %
-                                     (['x', 'y', 'z'][v], a))
+                parprint("%s-gradient of atom %u" % (['x', 'y', 'z'][v], a))
 
                 # Array for different k-point components
                 g_sqMM = np.zeros((nspins, len(kpt_u) // nspins, nao, nao),
                                   dtype)
 
                 # 1) Gradient of effective potential
-                self.timer.write_now("Starting gradient of"
-                                     " effective potential")
+                parprint("Starting gradient of effective potential")
                 for kpt in kpt_u:
                     # Matrix elements
                     geff_MM = np.zeros((nao, nao), dtype)
@@ -378,14 +364,13 @@ class ElectronPhononCoupling(Displacement):
                     # Insert in array
                     g_sqMM[kpt.s, kpt.q] += geff_MM
 
-                self.timer.write_now("Finished gradient of "
-                                     "effective potential")
+                parprint("Finished gradient of effective potential")
 
                 if include_pseudo:
-                    self.timer.write_now("Starting gradient of pseudo part")
+                    parprint("Starting gradient of pseudo part")
 
                     # 2) Gradient of non-local part (projectors)
-                    self.timer.write_now("Starting gradient of dH^a")
+                    parprint("Starting gradient of dH^a")
                     P_aqMi = calc.wfs.P_aqMi
                     # 2a) dH^a part has contributions from all other atoms
                     for kpt in kpt_u:
@@ -398,9 +383,9 @@ class ElectronPhononCoupling(Displacement):
                             gp_MM += np.dot(P_Mi, np.dot(dH1_ii,
                                                          P_Mi.T.conjugate()))
                         g_sqMM[kpt.s, kpt.q] += gp_MM
-                    self.timer.write_now("Finished gradient of dH^a")
+                    parprint("Finished gradient of dH^a")
 
-                    self.timer.write_now("Starting gradient of projectors")
+                    parprint("Starting gradient of projectors")
                     # 2b) dP^a part has only contributions from the same atoms
                     dP_qvMi = dP_aqvMi[a]
                     dH_ii = unpack2(dH_asp[str(a)][kpt.s])
@@ -411,8 +396,8 @@ class ElectronPhononCoupling(Displacement):
                         # Matrix elements
                         gp_MM = P1HP_MM + P1HP_MM.T.conjugate()
                         g_sqMM[kpt.s, kpt.q] += gp_MM
-                    self.timer.write_now("Finished gradient of projectors")
-                    self.timer.write_now("Finished gradient of pseudo part")
+                    parprint("Finished gradient of projectors")
+                    parprint("Finished gradient of pseudo part")
 
                 # Extract R_c=(0, 0, 0) block by Fourier transforming
                 if kd.gamma or kd.N_c is None:
@@ -432,7 +417,7 @@ class ElectronPhononCoupling(Displacement):
                 nao_cell = nao // N
                 g_sNMNM = g_sMM.reshape((nspins, N, nao_cell, N, nao_cell))
                 g_sNNMM = g_sNMNM.swapaxes(2, 3).copy()
-                self.timer.write_now("Finished supercell matrix")
+                parprint("Finished supercell matrix")
 
                 if dump != 2:
                     g_xsNNMM.append(g_sNNMM)
@@ -450,7 +435,7 @@ class ElectronPhononCoupling(Displacement):
                         pickle.dump((g_sNNMM, M_a, nao_a), fd, 2)
                         fd.close()
 
-        self.timer.write_now("Finished gradient of PAW Hamiltonian")
+        parprint("Finished gradient of PAW Hamiltonian")
 
         if dump != 2:
             # Collect gradients in one array
@@ -750,7 +735,7 @@ class ElectronPhononCoupling(Displacement):
         g_qklnn = np.zeros((kd_qpts.nbzkpts, len(kpts_kc), nmodes,
                             nbands, nbands), dtype=complex)
 
-        self.timer.write_now("Calculating coupling matrix elements")
+        parprint("Calculating coupling matrix elements")
         for q, q_c in enumerate(kd_qpts.bzk_kc):
 
             # Find indices of k+q for the k-points
@@ -824,8 +809,7 @@ class ElectronPhononCoupling(Displacement):
                     # These should be real. Problem is... they are usually not
                     print(g_qklnn[q].imag.min(), g_qklnn[q].imag.max())
 
-        self.timer.write_now("Finished calculation of "
-                             "coupling matrix elements")
+        parprint("Finished calculation of coupling matrix elements")
 
         # Return the bare matrix element if frequencies are not given
         if omega_ql is None:
