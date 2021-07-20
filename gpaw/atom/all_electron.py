@@ -8,7 +8,6 @@ Atomic Density Functional Theory
 from math import pi, sqrt, log
 import tempfile
 import pickle
-import sys
 import os
 
 import numpy as np
