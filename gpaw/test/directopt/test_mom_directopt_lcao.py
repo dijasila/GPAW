@@ -39,10 +39,7 @@ def test_mom_directopt_lcao(in_tmp_dir):
                                        linesearch_algo={'name': 'UnitStep'},
                                        need_init_orbs=False))
     # Ground-state occupation numbers
-    f_sn = []
-    for s in range(2):
-        f_sn.append(calc.get_occupation_numbers(spin=s))
-    excite(f_sn, 0, 0, spin=(0, 0))
+    f_sn = excite(calc, 0, 0, spin=(0, 0))
     prepare_mom_calculation(calc, H2O, f_sn)
 
     def rotate_homo_lumo(calc=calc):
