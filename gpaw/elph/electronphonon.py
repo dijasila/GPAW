@@ -59,7 +59,6 @@ DFT Hamiltonian.
 
 """
 import numpy as np
-import pickle
 
 import ase.units as units
 from ase.parallel import parprint
@@ -386,54 +385,22 @@ class ElectronPhononCoupling(Displacement):
                     handle.save(g_sNNMM)
         parprint("Finished gradient of PAW Hamiltonian")
 
-    def load_supercell_matrix(self, basis=None, name=None, dump=0):
-        """Load supercell matrix from pickle file.
+    def load_supercell_matrix(self, name='supercell'):
+        """Load supercell matrix from cache.
 
         Parameters
         ----------
-        basis: str
-            String specifying the LCAO basis used to calculate the supercell
-            matrix, e.g. 'dz(dzp)'.
         name: str
-            User specified name of the pickle file.
-        dump: int
-            Dump supercell matrix to pickle file (default: 0).
-
-            0: Supercell matrix not saved by calculate_supercell_matrix
-
-            1: Supercell matrix was saved in a single pickle file.
-
-            2: Dumped matrix for different gradients in separate files.
+            User specified name of the cache.
         """
+        self.supercell_cache = MultiFileJSONCache(name)
+        self.basis_info = self.supercell_cache['basis']
 
-        if (basis is None) or isinstance(basis, dict):
-            basis = ''
-        assert dump in (0, 1, 2)
-
-        if dump == 0:
-            # Nothing to load, just make sure everything is there
-            assert self.g_xsNNMM is not None
-            assert self.basis_info is not None
-        elif dump == 1:
-            fname = self._set_file_name(dump, basis, name)
-            self.g_xsNNMM, M_a, nao_a = self.load_supercell_matrix_x(fname)
-        else:  # dump == 2
-            g_xsNNMM = []
-            for x in range(len(self.indices) * 3):
-                fname = self._set_file_name(dump, basis, name, x=x)
-                g_sNNMM, M_a, nao_a = self.load_supercell_matrix_x(fname)
-                g_xsNNMM.append(g_sNNMM)
-            self.g_xsNNMM = np.array(g_xsNNMM)
-
-        self.set_basis_info(M_a, nao_a)
-
-    def load_supercell_matrix_x(self, fname):
-        """Load one element of supercell matrix from pickle file.
-        """
-        fd = open(fname, 'rb')
-        g_sNNMM, M_a, nao_a = pickle.load(fd)
-        fd.close()
-        return g_sNNMM, M_a, nao_a
+        nx = len(self.indices) * 3
+        shape = self.supercell_cache['0'].shape
+        self.g_xsNNMM = np.empty([nx, ] + list(shape))
+        for x in range(nx):
+            self.g_xsNNMM[x] = self.supercell_cache[str(x)]
 
     def apply_cutoff(self, cutmax=None, cutmin=None):
         """Zero matrix element inside/beyond the specified cutoffs.
@@ -566,7 +533,7 @@ class ElectronPhononCoupling(Displacement):
 
     def bloch_matrix(self, kpts, qpts, c_kn, u_ql,
                      omega_ql=None, kpts_from=None, spin=0,
-                     basis=None, name=None, load_gx_as_needed=False):
+                     name='supercell'):
         r"""Calculate el-ph coupling in the Bloch basis for the electrons.
 
         This function calculates the electron-phonon coupling between the
@@ -608,11 +575,6 @@ class ElectronPhononCoupling(Displacement):
             In case of spin-polarised system, define which spin to use
             (0 or 1).
         """
-        if (basis is None) or isinstance(basis, dict):
-            basis = ''
-
-        if not load_gx_as_needed:
-            assert self.g_xsNNMM is not None, "Load supercell matrix."
         assert len(c_kn.shape) == 3
         assert len(u_ql.shape) == 4
         if omega_ql is not None:
@@ -644,10 +606,6 @@ class ElectronPhononCoupling(Displacement):
             else:
                 kpts_k = list(kpts_from)
 
-        # Supercell matrix (real matrix in Hartree / Bohr)
-        if not load_gx_as_needed:
-            g_xNNMM = self.g_xsNNMM[:, spin]
-
         # Number of phonon modes and electronic bands
         nmodes = u_ql.shape[1]
         nbands = c_kn.shape[1]
@@ -655,9 +613,6 @@ class ElectronPhononCoupling(Displacement):
         ndisp = np.prod(u_ql.shape[2:])
         assert ndisp == (3 * len(self.indices))
         nao = c_kn.shape[2]
-        if not load_gx_as_needed:
-            assert ndisp == g_xNNMM.shape[0]
-            assert nao == g_xNNMM.shape[-1]
 
         # Lattice vectors
         R_cN = self.compute_lattice_vectors()
@@ -668,16 +623,17 @@ class ElectronPhononCoupling(Displacement):
         g_qklnn = np.zeros((kd_qpts.nbzkpts, len(kpts_kc), nmodes,
                             nbands, nbands), dtype=complex)
 
+        self.supercell_cache = MultiFileJSONCache(name)
+        self.basis_info = self.supercell_cache['basis']
+
         parprint("Calculating coupling matrix elements")
         for q, q_c in enumerate(kd_qpts.bzk_kc):
-
             # Find indices of k+q for the k-points
             kplusq_k = kd_kpts.find_k_plus_q(q_c, kpts_k=kpts_k)
 
             # Here, ``i`` is counting from 0 and ``k`` is the global index of
             # the k-point
             for i, (k, k_c) in enumerate(zip(kpts_k, kpts_kc)):
-
                 # Check the wave vectors (adapted to the ``KPointDescriptor``
                 # class)
                 kplusq_c = k_c + q_c
@@ -692,47 +648,26 @@ class ElectronPhononCoupling(Displacement):
                 u_lx = u_ql[q].reshape(nmodes, 3 * len(self.atoms))
 
                 # Multiply phase factors
-                # This fix for very large matrices is a bit... dodgy,
-                # but should work
-                if load_gx_as_needed:
-                    g_lnn = np.zeros((nmodes, nbands, nbands), dtype=complex)
-                    for x in range(len(self.indices) * 3):
-                        # Allocate array
-                        g_MM = np.zeros((nao, nao), dtype=complex)
-                        fname = self._set_file_name(2, basis, name, x=x)
-                        g_sNNMM, M_a, nao_a = self.load_supercell_matrix_x(
-                            fname)
-                        assert nao == g_sNNMM.shape[-1]
-                        if x == 0:
-                            self.set_basis_info(M_a, nao_a)
-                        for m in range(N):
-                            for n in range(N):
-                                phase = self._get_phase_factor(R_cN, m, n, k_c,
-                                                               q_c)
-                                # Sum contributions from different cells
-                                g_MM += g_sNNMM[spin, m, n, :, :] * phase
-
-                        g_nn = np.dot(ckplusq_nM.conj(), np.dot(g_MM, ck_nM.T))
-                        # not sure if einsum is faster or slower
-                        # g_nn = np.einsum('ij,jk,kl->il',ckplusq_nM.conj(),
-                        # g_MM, ck_nM.T)
-                        # g_lnn += np.outer(u_lx[:,x],g_nn).reshape(nmodes,
-                        # nbands, nbands)
-                        g_lnn += np.einsum('i,kl->ikl', u_lx[:, x], g_nn)
-                else:
+                g_lnn = np.zeros((nmodes, nbands, nbands), dtype=complex)
+                for x in range(len(self.indices) * 3):
                     # Allocate array
-                    g_xMM = np.zeros((ndisp, nao, nao), dtype=complex)
-
-                    # Multiply phase factors
+                    g_MM = np.zeros((nao, nao), dtype=complex)
+                    g_sNNMM = self.supercell_cache[str(x)]
+                    assert nao == g_sNNMM.shape[-1]
                     for m in range(N):
                         for n in range(N):
-                            phase = self._get_phase_factor(R_cN, m, n,
-                                                           k_c, q_c)
+                            phase = self._get_phase_factor(R_cN, m, n, k_c,
+                                                           q_c)
                             # Sum contributions from different cells
-                            g_xMM += g_xNNMM[:, m, n, :, :] * phase
+                            g_MM += g_sNNMM[spin, m, n, :, :] * phase
 
-                    g_nxn = np.dot(ckplusq_nM.conj(), np.dot(g_xMM, ck_nM.T))
-                    g_lnn = np.dot(u_lx, g_nxn)
+                    g_nn = np.dot(ckplusq_nM.conj(), np.dot(g_MM, ck_nM.T))
+                    # not sure if einsum is faster or slower
+                    # g_nn = np.einsum('ij,jk,kl->il',ckplusq_nM.conj(),
+                    # g_MM, ck_nM.T)
+                    # g_lnn += np.outer(u_lx[:,x],g_nn).reshape(nmodes,
+                    # nbands, nbands)
+                    g_lnn += np.einsum('i,kl->ikl', u_lx[:, x], g_nn)
 
                 # Insert value
                 g_qklnn[q, i] = g_lnn
