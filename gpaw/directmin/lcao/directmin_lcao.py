@@ -1059,8 +1059,8 @@ class DirectMinLCAO(DirectLCAO):
     def get_numerical_hessian(self, n_dim, ham, wfs, dens,
                               c_nm_ref, eps=1.0e-5):
         """
-        calculate hessian with respect to skew-hermitian elements
-        using finite differences
+        Calculate hessian with respect to skew-hermitian
+        elements using central finite differences
 
         :param n_dim:
         :param ham:
@@ -1070,6 +1070,9 @@ class DirectMinLCAO(DirectLCAO):
         :param eps:
         :return:
         """
+        assert self.representation != 'full', 'Use sparse or ' \
+            'unitary invariant representations to calculate the ' \
+            'Hessian matrix'
 
         occ_name = getattr(wfs.occupations, "name", None)
         if occ_name == 'mom':
@@ -1077,57 +1080,100 @@ class DirectMinLCAO(DirectLCAO):
             for kpt in wfs.kpt_u:
                 u = self.n_kps * kpt.s + kpt.q
                 c_nm_ref[u] = kpt.C_nM.copy()
+        matrix_exp = self.matrix_exp
+        self.matrix_exp = 'egdecomp'
 
-        assert self.matrix_exp == 'egdecomp'
-
-        h = [eps, -eps]
-        coeif = [1.0, -1.0]
-
-        if self.dtype == complex:
-            range_z = 2
-            complex_gr = [1.0, 1.0j]
-        else:
-            range_z = 1
-            complex_gr = [1.0]
-
+        dim_z = 2 if self.dtype == complex else 1
+        dim_k = {}
+        dim_k_total = 0
         a_m = {}
         for kpt in wfs.kpt_u:
             u = self.n_kps * kpt.s + kpt.q
             a_m[u] = np.zeros_like(self.a_mat_u[u])
+            dim_k_total += len(self.a_mat_u[u])
+            dim_k[u] = len(self.a_mat_u[u])
 
-        hess_a = {}
-        hess_n = {}
+        hess_a = []
+        hess_n = np.zeros(shape = (dim_z * dim_k_total,
+                                 dim_z * dim_k_total))
         for kpt in wfs.kpt_u:
-            u = self.n_kps * kpt.s + kpt.q
-            hess_a[u] = self.get_hessian(kpt)
+            hess_a += list(self.get_hessian(kpt).copy())
 
-            m2 = self.a_mat_u[u].shape[0]
-            hess_n[u] = np.zeros((m2, m2))
+        # Real displacement
+        k_count = dim_k[0]
+        k = 0
+        i = 0
+        l = 0
+        while True:
+            k_count -= 1
+            if k_count < 0:
+                k += 1
+                if k == len(wfs.kpt_u):
+                    break
+                i = 0
+                k_count = dim_k[k] - 1
+                if k_count < 0:
+                    continue
+            a_m[k][i] = eps
+            gp = self.get_energy_and_gradients(a_m, n_dim,
+                                               ham, wfs, dens,
+                                               c_nm_ref)[1]
+            a_m[k][i] = -eps
+            gm = self.get_energy_and_gradients(a_m, n_dim,
+                                               ham, wfs, dens,
+                                               c_nm_ref)[1]
+            hess = []
+            for u in range(len(wfs.kpt_u)):
+                hess += list((gp[u] - gm[u]) * 0.5 / eps)
+            hess = np.asarray(hess)
+            if self.dtype == complex:
+                hessc = np.zeros(shape = 2 * dim_k_total)
+                hessc[: dim_k_total] = np.real(hess)
+                hessc[dim_k_total:] = np.imag(hess)
+                hess_n[l] = hessc
+            else:
+                hess_n[l] = hess
+            a_m[k][i] = 0.0
+            i += 1
+            l += 1
 
-            for z in range(range_z):
-                r = 0
-                for i in range(m2):
-                    a = a_m[u][i]
-                    hess = np.zeros(m2)
-                    for l in range(2):
-                        # Does this work when self.dtype == complex?
-                        if z == 0:
-                            a_m[u][i] = a + h[l]
-                        else:
-                            a_m[u][i] = a + 1.0j * h[l]
+        # Complex displacement
+        if self.dtype == complex:
+            k_count = dim_k[0]
+            k = 0
+            i = 0
+            while True:
+                k_count -= 1
+                if k_count < 0:
+                    k += 1
+                    if k == len(wfs.kpt_u):
+                        break
+                    i = 0
+                    k_count = dim_k[k] - 1
+                    if k_count < 0:
+                        continue
+                a_m[k][i] = 1.0j * eps
+                gp = self.get_energy_and_gradients(a_m, n_dim,
+                                                   ham, wfs, dens,
+                                                   c_nm_ref)[1]
+                a_m[k][i] = -1.0j * eps
+                gm = self.get_energy_and_gradients(a_m, n_dim,
+                                                   ham, wfs, dens,
+                                                   c_nm_ref)[1]
+                hess = []
+                for u in range(len(wfs.kpt_u)):
+                    hess += list((gp[u] - gm[u]) * 0.5 / eps)
+                hess = np.asarray(hess)
+                hessc = np.zeros(shape = 2 * dim_k_total)
+                hessc[: dim_k_total] = np.real(hess)
+                hessc[dim_k_total:] = np.imag(hess)
+                hess_n[l] = hessc
+                a_m[k][i] = 0.0
+                i += 1
+                l += 1
 
-                        g = self.get_energy_and_gradients(
-                            a_m, n_dim, ham, wfs, dens, c_nm_ref)[1]
-
-                        hess += g[u] * coeif[l]
-
-                    hess *= 1.0 / (2.0 * eps)
-
-                    hess_n[u][r] += hess * complex_gr[z]
-                    a_m[u][i] = a
-
-                    r += 1
-
+        hess_a = np.diag(hess_a)
+        self.matrix_exp = matrix_exp
         return hess_a, hess_n
 
     def rotate_wavefunctions(self, wfs, a_mat_u, n_dim, c_nm_ref):
