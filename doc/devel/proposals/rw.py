@@ -66,7 +66,7 @@ class Writer:
                 self.itemoffsets = 32
                 self.offsets = np.array([-1], np.int64)
 
-                fd = open(fd, 'wb')
+                fd = with open(fd, 'wb') as fd:
 
                 # Write file format identifier:
                 fd.write(b'IOASE...')
@@ -74,7 +74,7 @@ class Writer:
                          np.int64).tofile(fd)
                 self.offsets.tofile(fd)
             elif mode == 'a':
-                fd = open(fd, 'r+b')
+                fd = with open(fd, 'r+b') as fd:
 
                 version, self.nitems, self.itemoffsets, offsets = \
                     read_header(fd)
@@ -201,7 +201,7 @@ class Reader:
         assert np.little_endian
 
         if isinstance(fd, str):
-            fd = open(fd, 'rb')
+            fd = with open(fd, 'rb') as fd:
 
         self.fd = fd
 

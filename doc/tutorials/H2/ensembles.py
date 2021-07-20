@@ -9,7 +9,7 @@ e1 = atom.get_potential_energy()
 e2 = molecule.get_potential_energy()
 ea = 2 * e1 - e2
 
-fd = open('ensemble_energies.txt', 'w')
+fd = with open('ensemble_energies.txt', 'w') as fd:
 print('PBE:', ea, 'eV', file=fd)
 
 e1i = get_ensemble_energies(atom)
@@ -22,7 +22,7 @@ sigma = (np.sum((eai - ea0)**2) / n)**0.5
 print('Best fit:', ea0, '+-', sigma, 'eV', file=fd)
 fd.close()
 
-fd = open('ensemble.dat', 'w')
+fd = with open('ensemble.dat', 'w') as fd:
 for e in eai:
     print(e, file=fd)
 fd.close()

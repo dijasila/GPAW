@@ -18,7 +18,7 @@ class Reader(xml.sax.handler.ContentHandler):
             import gzip
             source = gzip.open(filename)
         else:
-            source = open(filename)
+            source = with open(filename) as source:
         xml.sax.parse(source, self)
 
     def startElement(self, name, attrs):

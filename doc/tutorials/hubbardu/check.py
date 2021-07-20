@@ -2,7 +2,7 @@
 from ase.io import read
 
 
-fd = open('gaps.csv', 'w')
+fd = with open('gaps.csv', 'w') as fd:
 gaps = []
 for name in ['no_u', 'normalized_u', 'not_normalized_u']:
     n = read(name + '.txt')

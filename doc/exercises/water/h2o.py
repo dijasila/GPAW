@@ -5,7 +5,7 @@ a = 8.0
 h = 0.2
 
 energies = {}
-resultfile = open(f'results-{h:.2f}.txt', 'w')
+resultfile = with open(f'results-{h:.2f}.txt', 'w') as resultfile:
 
 for name in ['H2O', 'H', 'O']:
     system = molecule(name)
@@ -25,3 +25,4 @@ for name in ['H2O', 'H', 'O']:
 
 e_atomization = energies['H2O'] - 2 * energies['H'] - energies['O']
 print(e_atomization, file=resultfile)
+close.resultfile()

@@ -56,7 +56,7 @@ def count_lines():
     year = 2005
     month = 11
 
-    fd = open('lines.data', 'w')
+    fd = with open('lines.data', 'w') as fd:
     while (year, month) <= stop:
         hash = subprocess.check_output(
             'git rev-list -n 1 --before="{}-{}-01 12:00" master'

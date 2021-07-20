@@ -127,7 +127,7 @@ def analyse_benchmark(ncores=8, startcores=1, machine='TEST', runs=7):
         # extract results
         rundir = os.path.join(root_abspath, system + run)
         file = os.path.join(rundir, 'out.txt')
-        f = open(file, 'r')
+        f = with open(file, 'r') as f:
         #
         print('Analysing ' + file, end=' ')
         #
