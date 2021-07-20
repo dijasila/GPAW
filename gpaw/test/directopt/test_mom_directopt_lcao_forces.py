@@ -4,16 +4,11 @@ from ase import Atoms
 from gpaw import GPAW, restart
 from gpaw.mom import prepare_mom_calculation
 from gpaw.directmin.lcao.directmin_lcao import DirectMinLCAO
+from gpaw.directmin.lcao.tools import excite
 
 
 @pytest.mark.mom
 def test_mom_directopt_lcao_forces(in_tmp_dir):
-    f_sn = []
-    for s in range(2):
-        f_sn.append([1. if i < 5 else 0. for i in range(26)])
-    f_sn[0][4] = 0.
-    f_sn[0][5] = 1.
-
     L = 6.0
     d = 1.13
     delta = 0.01
@@ -39,9 +34,13 @@ def test_mom_directopt_lcao_forces(in_tmp_dir):
     atoms.calc = calc
     atoms.get_potential_energy()
 
+    f_sn = excite(calc, 0, 0, spin=(0, 0))
+
     calc.set(eigensolver=DirectMinLCAO(searchdir_algo={'name': 'LSR1P',
                                                        'method': 'LSR1'},
                                        linesearch_algo={'name': 'UnitStep'},
+                                       representation='u_invar',
+                                       matrix_exp='egdecomp2',
                                        need_init_orbs=False))
     prepare_mom_calculation(calc, atoms, f_sn)
     F = atoms.get_forces()

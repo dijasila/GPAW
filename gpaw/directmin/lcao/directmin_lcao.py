@@ -132,11 +132,10 @@ class DirectMinLCAO(DirectLCAO):
 
         sds = {'SD': 'Steepest Descent',
                'FRcg': 'Fletcher-Reeves conj. grad. method',
-               'HZcg': 'Hager-Zhang conj. grad. method',
+               # 'HZcg': 'Hager-Zhang conj. grad. method',
                'QuickMin': 'Molecular-dynamics based algorithm',
                'LBFGS': 'LBFGS algorithm',
                'LBFGS_P': 'LBFGS algorithm with preconditioning',
-               'LBFGS_P2': 'LBFGS algorithm with preconditioning',
                'LSR1P': 'Limited-memory SR1P algorithm'}
 
         lss = {'UnitStep': 'step size equals one',
@@ -286,6 +285,10 @@ class DirectMinLCAO(DirectLCAO):
             self.evecs[u] = None
             self.evals[u] = None
 
+        for k in self.ind_up.keys():
+            if not self.ind_up[k][0].size or not self.ind_up[k][1].size:
+                self.n_dim[k] = 0
+
         self.randomizeorbitals = False
         self.alpha = 1.0  # step length
         self.phi_2i = [None, None]  # energy at last two iterations
@@ -341,11 +344,6 @@ class DirectMinLCAO(DirectLCAO):
         precond = self.update_preconditioning(wfs, self.use_prec)
         wfs.timer.stop('Preconditioning:')
 
-        if str(self.search_direction) == 'LBFGS_P2':
-            for kpt in wfs.kpt_u:
-                u = kpt.s * self.n_kps + kpt.q
-                self.c_nm_ref[u] = kpt.C_nM.copy()
-
         a_mat_u = self.a_mat_u
         n_dim = self.n_dim
         alpha = self.alpha
@@ -378,11 +376,6 @@ class DirectMinLCAO(DirectLCAO):
                 # der_phi_c += dotc(g[k][il1], p[k][il1]).real
         der_phi_2i[0] = wfs.kd.comm.sum(der_phi_2i[0])
 
-        if str(self.search_direction) == 'LBFGS_P2':
-            for kpt in wfs.kpt_u:
-                u = kpt.s * self.n_kps + kpt.q
-                a_mat_u[u] = np.zeros_like(a_mat_u[u])
-
         alpha, phi_alpha, der_phi_alpha, g_mat_u = \
             self.line_search.step_length_update(a_mat_u, p_mat_u,
                                                 n_dim, ham, wfs, dens,
@@ -410,10 +403,7 @@ class DirectMinLCAO(DirectLCAO):
 
         # calculate new matrices for optimal step length
         for k in a_mat_u.keys():
-            if str(self.search_direction) == 'LBFGS_P2':
-                a_mat_u[k] = alpha * p_mat_u[k]
-            else:
-                a_mat_u[k] += alpha * p_mat_u[k]
+            a_mat_u[k] += alpha * p_mat_u[k]
         self.alpha = alpha
         self.g_mat_u = g_mat_u
         self.iters += 1
@@ -687,9 +677,6 @@ class DirectMinLCAO(DirectLCAO):
         :param ham:
         :return:
         """
-
-        if str(self.search_direction) == 'LBFGS_P2':
-            return 0
 
         if self.representation['name'] == 'full':
             badgrad = self._normcomm > self._normg / 3. and self.checkgraderror
