@@ -15,12 +15,12 @@ def test_directmin_lcao_numerical_hessian(in_tmp_dir):
     """
 
     calc = GPAW(xc='PBE',
-                mode=LCAO(force_complex_dtype = True),
+                mode=LCAO(force_complex_dtype=True),
                 h=0.25,
                 basis='dz(dzp)',
                 spinpol=False,
                 eigensolver={'name': 'direct-min-lcao',
-                               'representation': 'u_invar'},
+                             'representation': 'u_invar'},
                 occupations={'name': 'fixed-uniform'},
                 mixer={'backend': 'no-mixing'},
                 nbands='nao',
@@ -47,7 +47,7 @@ def test_directmin_lcao_numerical_hessian(in_tmp_dir):
     eigvt = np.asarray([[2.1840779e-08, -1.0000000e+00],
                        [-1.0000000e+00, -2.1840779e-08]])
     hess_nt = np.asarray([[1.32720630e+00, -1.93947467e-11],
-                         [3.95786680e-09,  1.14599176e+00]])
+                         [3.95786680e-09, 1.14599176e+00]])
     assert eig == pytest.approx(eigt, abs=1e-4)
     assert eigv == pytest.approx(eigvt, abs=1e-4)
     assert hess_n == pytest.approx(hess_nt, abs=1e-4)
