@@ -12,7 +12,7 @@ class EPC(ElectronPhononCoupling):
     so that calculation of the elph matrix can be better parallelised.
     """
 
-    def calculate_supercell_matrix(self, calc, name=None, filter=None,
+    def calculate_supercell_matrix(self, calc, name='supercell', filter=None,
                                    include_pseudo=True):
         """
         Calculate elph supercell matrix.
@@ -40,8 +40,7 @@ class EPC(ElectronPhononCoupling):
             potential is included (default: True).
         """
         self.set_lcao_calculator(calc)
-        ElectronPhononCoupling.calculate_supercell_matrix(self, 2, name,
-                                                          filter,
+        ElectronPhononCoupling.calculate_supercell_matrix(self, name, filter,
                                                           include_pseudo)
 
     def _bloch_matrix(self, kpt, k_c, u_l, basis=None, name=None) -> ArrayND:
