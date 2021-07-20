@@ -1094,8 +1094,8 @@ class DirectMinLCAO(DirectLCAO):
             dim_k[u] = len(self.a_mat_u[u])
 
         hess_a = []
-        hess_n = np.zeros(shape = (dim_z * dim_k_total,
-                                 dim_z * dim_k_total))
+        hess_n = np.zeros(shape=(dim_z * dim_k_total,
+                          dim_z * dim_k_total))
         for kpt in wfs.kpt_u:
             hess_a += list(self.get_hessian(kpt).copy())
 
@@ -1127,7 +1127,7 @@ class DirectMinLCAO(DirectLCAO):
                 hess += list((gp[u] - gm[u]) * 0.5 / eps)
             hess = np.asarray(hess)
             if self.dtype == complex:
-                hessc = np.zeros(shape = 2 * dim_k_total)
+                hessc = np.zeros(shape=2 * dim_k_total)
                 hessc[: dim_k_total] = np.real(hess)
                 hessc[dim_k_total:] = np.imag(hess)
                 hess_n[l] = hessc
@@ -1164,7 +1164,7 @@ class DirectMinLCAO(DirectLCAO):
                 for u in range(len(wfs.kpt_u)):
                     hess += list((gp[u] - gm[u]) * 0.5 / eps)
                 hess = np.asarray(hess)
-                hessc = np.zeros(shape = 2 * dim_k_total)
+                hessc = np.zeros(shape=2 * dim_k_total)
                 hessc[: dim_k_total] = np.real(hess)
                 hessc[dim_k_total:] = np.imag(hess)
                 hess_n[l] = hessc
