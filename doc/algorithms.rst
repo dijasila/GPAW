@@ -31,7 +31,7 @@ Quick links to all features:
       - :ref:`point groups`
 
 This Page gives a quick overview of the algorithms used.  We have
-written some :ref:`papers <gpaw_publications>` about the implementation,
+written some :ref:`papers <faq>` about the implementation,
 where *all* the details can be found.
 
 
