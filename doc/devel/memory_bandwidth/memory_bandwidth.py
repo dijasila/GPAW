@@ -127,11 +127,11 @@ def analyse_benchmark(ncores=8, startcores=1, machine='TEST', runs=7):
         # extract results
         rundir = os.path.join(root_abspath, system + run)
         file = os.path.join(rundir, 'out.txt')
-        f = open(file, 'r')
-        #
-        print('Analysing ' + file, end=' ')
-        #
-        lines = f.readlines()
+        with open(file, 'r') as f:
+            #
+            print('Analysing ' + file, end=' ')
+            #
+            lines = f.readlines()
         # extract gpaw version
         for n, l in enumerate(lines):
             if l.startswith(' |__ |  _|___|_____|'):
