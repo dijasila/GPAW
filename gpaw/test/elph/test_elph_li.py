@@ -47,8 +47,10 @@ def test_elph_li(in_tmp_dir):
         # this step produces pickle files. do we need to clean them manually?
         if spinpol:
             name = 'elph_spinpol'
+            sc_name = 'sc_spinpol'
         else:
             name = 'elph_spinpared'
+            sc_name = 'sc_spinpaired'
         elph = ElectronPhononCoupling(atoms=atoms, calc=atoms.calc,
                                       supercell=(1, 1, 1), name=name,
                                       calculate_forces=False)
@@ -58,7 +60,8 @@ def test_elph_li(in_tmp_dir):
 
         # szp, k222: 4s on 1 core
         elph.set_lcao_calculator(atoms.calc)
-        elph.calculate_supercell_matrix(dump=0, include_pseudo=True)
+        elph.calculate_supercell_matrix(name=sc_name, include_pseudo=True)
+        elph.load_supercell_matrix(name=sc_name)
         if spinpol:
             g_xsMM = elph.g_xsNNMM[:, :, 0, 0]
         else:

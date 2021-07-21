@@ -371,7 +371,7 @@ class ElectronPhononCoupling(Displacement):
                             g_MM = tb.bloch_to_real_space(g_sqMM[s],
                                                           R_c=(0, 0, 0))
                             g_sMM.append(g_MM[0])  # [0] because of above
-                            g_sMM = np.array(g_sMM)
+                        g_sMM = np.array(g_sMM)
 
                     # Reshape to global unit cell indices
                     N = np.prod(self.supercell)
@@ -383,6 +383,10 @@ class ElectronPhononCoupling(Displacement):
                     parprint("Finished supercell matrix")
 
                     handle.save(g_sNNMM)
+                if x == 0:
+                    with self.supercell_cache.lock('info') as handle:
+                        if handle is not None:
+                            handle.save([g_sNNMM.shape, g_sNNMM.dtype.name])
         parprint("Finished gradient of PAW Hamiltonian")
 
     def load_supercell_matrix(self, name='supercell'):
@@ -395,10 +399,10 @@ class ElectronPhononCoupling(Displacement):
         """
         self.supercell_cache = MultiFileJSONCache(name)
         self.basis_info = self.supercell_cache['basis']
+        [shape, dtype] = self.supercell_cache['info']
 
         nx = len(self.indices) * 3
-        shape = self.supercell_cache['0'].shape
-        self.g_xsNNMM = np.empty([nx, ] + list(shape))
+        self.g_xsNNMM = np.empty([nx, ] + list(shape), dtype=dtype)
         for x in range(nx):
             self.g_xsNNMM[x] = self.supercell_cache[str(x)]
 
@@ -645,11 +649,11 @@ class ElectronPhononCoupling(Displacement):
                 ck_nM = c_kn[k]
                 ckplusq_nM = c_kn[kplusq_k[i]]
                 # Mass scaled polarization vectors
-                u_lx = u_ql[q].reshape(nmodes, 3 * len(self.atoms))
+                u_lx = u_ql[q].reshape(nmodes, ndisp)
 
                 # Multiply phase factors
                 g_lnn = np.zeros((nmodes, nbands, nbands), dtype=complex)
-                for x in range(len(self.indices) * 3):
+                for x in range(ndisp):
                     # Allocate array
                     g_MM = np.zeros((nao, nao), dtype=complex)
                     g_sNNMM = self.supercell_cache[str(x)]
