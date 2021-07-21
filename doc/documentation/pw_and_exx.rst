@@ -1,6 +1,6 @@
-==========
-Planewaves
-==========
+=============================
+Planewaves and exact exchange
+=============================
 
 With `N=N_1N_2N_3` grid points: `\br^T=(g_1/N_1,g_2/N_2,g_3/N_3)\mathbf
 A`, where `g_c=0,1,...,N_c-1`, we get a plane wave expansion of the wave
@@ -18,8 +18,7 @@ where the coefficients are given as:
     c_{\bk n}(\bG) = \sum_\br e^{-i(\bG+\bk)\cdot\br}\tilde\psi_{\bk n}(\br)
 
 
-Exact Exchange
-==============
+**Exact exchange**
 
 From the pair densities:
 

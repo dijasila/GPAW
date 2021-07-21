@@ -9,3 +9,4 @@ To be filled.
    :maxdepth: 1
 
    introduction_to_paw
+   pw_and_exx
