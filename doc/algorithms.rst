@@ -72,7 +72,7 @@ Linear combination of atomic orbitals (LCAO):
     Expansion in atom-centered basis functions.
 
 
-**Grid-based techniques for FD-mode*
+**Grid-based techniques for FD-mode**
 
 Solving the Kohn-Sham equation is done via iterative multi-grid
 eigensolvers starting from a good guess for the wave functions
