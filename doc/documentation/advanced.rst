@@ -1,4 +1,4 @@
-.. _advanced_topics:
+.. _advanced:
 
 Advanced topics
 ---------------

@@ -1,8 +1,8 @@
-.. _manual:
+.. _basic:
 
-======
-Manual
-======
+===========
+Basic usage
+===========
 
 GPAW calculations are controlled through scripts written in the
 programming language Python_.  GPAW relies on the `Atomic
