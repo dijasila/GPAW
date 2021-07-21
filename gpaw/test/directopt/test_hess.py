@@ -8,7 +8,7 @@ import numpy as np
 def test_directmin_lcao_numerical_hessian(in_tmp_dir):
     """
     Test complex numerical Hessian
-    for direct minimization LCAO
+    w.r.t rotation parameters in LCAO
 
     :param in_tmp_dir:
     :return:
@@ -42,14 +42,8 @@ def test_directmin_lcao_numerical_hessian(in_tmp_dir):
         calc.density,
         calc.wfs.eigensolver.c_nm_ref,
         eps=1e-7)
-    eig, eigv = np.linalg.eigh(hess_n)
-    eigt = np.asarray([1.14599176, 1.3272063])
-    eigvt = np.asarray([[2.1840779e-08, -1.0000000e+00],
-                       [-1.0000000e+00, -2.1840779e-08]])
     hess_nt = np.asarray([[1.32720630e+00, -1.93947467e-11],
                          [3.95786680e-09, 1.14599176e+00]])
-    assert eig == pytest.approx(eigt, abs=1e-4)
-    assert eigv == pytest.approx(eigvt, abs=1e-4)
     assert hess_n == pytest.approx(hess_nt, abs=1e-4)
     a_mat_u = {}
     a_mat_u[0] = [np.sqrt(2) * np.pi / 4.0 + 1.0j * np.sqrt(2) * np.pi / 4.0]
@@ -57,8 +51,8 @@ def test_directmin_lcao_numerical_hessian(in_tmp_dir):
                                               a_mat_u,
                                               n_dim,
                                               calc.wfs.eigensolver.c_nm_ref)
-    c_nm = [calc.wfs.kpt_u[x].C_nM.copy()
-            for x in range(len(calc.wfs.kpt_u))]
+    c_nm = {x: calc.wfs.kpt_u[x].C_nM.copy()
+            for x in range(len(calc.wfs.kpt_u))}
     hess_a, hess_n = calc.wfs.eigensolver.get_numerical_hessian(
         n_dim,
         calc.hamiltonian,
@@ -66,12 +60,6 @@ def test_directmin_lcao_numerical_hessian(in_tmp_dir):
         calc.density,
         c_nm,
         eps=1e-7)
-    eig, eigv = np.linalg.eigh(hess_n)
     hess_nt = np.asarray([[-1.08209601e+00, -1.11022302e-09],
                          [8.50014503e-10, -9.37664521e-01]])
-    eigt = np.asarray([-1.08209601, -0.93766452])
-    eigvt = np.asarray([[-1.00000000e+00, -5.88524373e-09],
-                       [5.88524373e-09, -1.00000000e+00]])
-    assert eig == pytest.approx(eigt, abs=1e-4)
-    assert eigv == pytest.approx(eigvt, abs=1e-4)
     assert hess_n == pytest.approx(hess_nt, abs=1e-4)
