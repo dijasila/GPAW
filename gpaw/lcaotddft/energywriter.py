@@ -1,29 +1,27 @@
 import numpy as np
 
+from ase.utils import IOContext
+
 from gpaw.lcaotddft.observer import TDDFTObserver
 from gpaw.utilities.scalapack import scalapack_zero
 
 
-class EnergyWriter(TDDFTObserver):
+class EnergyWriter(TDDFTObserver, IOContext):
     version = 1
 
     def __init__(self, paw, dmat, filename, interval=1):
         TDDFTObserver.__init__(self, paw, interval)
-        self.master = paw.world.rank == 0
         self.dmat = dmat
         if paw.niter == 0:
             # Initialize
-            if self.master:
-                self.fd = open(filename, 'w')
+            self.fd = self.openfile(filename, comm=paw.world, mode='w')
         else:
             # Read and continue
-            if self.master:
-                self.fd = open(filename, 'a')
+            self.fd = self.openfile(filename, comm=paw.world, mode='a')
 
     def _write(self, line):
-        if self.master:
-            self.fd.write(line)
-            self.fd.flush()
+        self.fd.write(line)
+        self.fd.flush()
 
     def _write_header(self, paw):
         if paw.niter != 0:
@@ -97,5 +95,4 @@ class EnergyWriter(TDDFTObserver):
         self._write_energy(paw)
 
     def __del__(self):
-        if self.master:
-            self.fd.close()
+        self.fd.close()
