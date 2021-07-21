@@ -94,9 +94,8 @@ def get_system_config(define_macros, undef_macros,
         extra_compile_args += ['-Kpic', '-fast']
 
         # Suppress warning from -fast (-xarch=native):
-        f = open('cc-test.c', 'w')
-        f.write('int main(){}\n')
-        f.close()
+        with open('cc-test.c', 'w') as f:
+            f.write('int main(){}\n')
         stderr = os.popen3('cc cc-test.c -fast')[2].read()
         arch = re.findall('-xarch=(\S+)', stderr)
         os.remove('cc-test.c')
