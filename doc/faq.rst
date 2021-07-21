@@ -72,7 +72,7 @@ If you use the :ref:`ksdecomposition` in the :ref:`lcaotddft`, please cite also:
 Citations of the GPAW method papers
 -----------------------------------
 
-.. image:: citations.png
+.. image:: documentation/citations.png
    :width: 750
 
 (updated on 18 Mar 2021)
