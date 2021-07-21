@@ -344,7 +344,7 @@ class MagneticMomentWriter(TDDFTObserver, IOContext):
                            only_pseudo=only_pseudo)
 
             # Initialize
-            self.fd = self.openfile(filename, comm = paw.world, mode='w')
+            self.fd = self.openfile(filename, comm=paw.world, mode='w')
             self._write_header(paw, _kwargs)
         else:
             if origin is not None:
@@ -362,8 +362,7 @@ class MagneticMomentWriter(TDDFTObserver, IOContext):
             origin_shift = _kwargs['origin_shift']  # type: ignore
             calculate_on_grid = _kwargs['calculate_on_grid']  # type: ignore
             only_pseudo = _kwargs['only_pseudo']  # type: ignore
-            self.fd = self.openfile(filename, comm = paw.world, mode='a')
-
+            self.fd = self.openfile(filename, comm=paw.world, mode='a')
 
         atoms = paw.atoms
         gd = paw.wfs.gd
