@@ -201,7 +201,7 @@ class Reader:
         assert np.little_endian
 
         if isinstance(fd, str):
-            fd = with open(fd, 'rb') as fd:
+            fd = open(fd, 'rb')
 
         self.fd = fd
 

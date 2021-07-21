@@ -94,9 +94,8 @@ def get_system_config(define_macros, undef_macros,
         extra_compile_args += ['-Kpic', '-fast']
 
         # Suppress warning from -fast (-xarch=native):
-        f = with open('cc-test.c', 'w') as f:
-        f.write('int main(){}\n')
-        f.close()
+        with open('cc-test.c', 'w') as f:
+            f.write('int main(){}\n')
         stderr = os.popen3('cc cc-test.c -fast')[2].read()
         arch = re.findall('-xarch=(\S+)', stderr)
         os.remove('cc-test.c')
@@ -325,7 +324,7 @@ def write_configuration(define_macros, include_dirs, libraries, library_dirs,
 
     # Write the compilation configuration into a file
     try:
-        out = with open('configuration.log', 'w') as out:
+        out = open('configuration.log', 'w')
     except IOError as x:
         print(x)
         return
