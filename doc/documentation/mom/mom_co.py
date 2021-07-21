@@ -1,36 +1,51 @@
 from ase.build import molecule
 from ase.optimize import LBFGS
 from ase.parallel import paropen
-from gpaw import GPAW
+from gpaw import GPAW, LCAO
 from gpaw.mom import prepare_mom_calculation
+from gpaw.directmin.lcao.tools import excite
+from gpaw.directmin.lcao.directmin_lcao import DirectMinLCAO
 
 
 atoms = molecule('CO')
 atoms.center(vacuum=5)
 
-calc = GPAW(mode='lcao',
-            basis='dzp',
-            nbands=8,
+calc = GPAW(xc='PBE',
+            mode=LCAO(force_complex_dtype=True),
             h=0.2,
-            xc='PBE',
+            basis='dzp',
+            spinpol=True,
+            eigensolver='direct-min-lcao',
+            occupations={'name': 'fixed-uniform'},
+            mixer={'backend': 'no-mixing'},
+            nbands='nao',
             symmetry='off',
-            convergence={'density': 1e-7},
             txt='co.txt')
 atoms.calc = calc
 
 # Ground-state calculation
 E_gs = atoms.get_potential_energy()
 
-# Ground-state occupation numbers
-f = [calc.get_occupation_numbers(spin=0) / 2.]
+# Prepare initial guess complex pi* orbitals by taking
+# linear combination of real pi*x and pi*y orbitals
+lumo = 5
+for kpt in calc.wfs.kpt_u:
+    pp = kpt.C_nM[lumo] + 1.0j * kpt.C_nM[lumo + 1]
+    pm = kpt.C_nM[lumo] - 1.0j * kpt.C_nM[lumo + 1]
+    kpt.C_nM[lumo][:] = pm
+    kpt.C_nM[lumo + 1][:] = pp
 
-# Singlet sigma->pi* occupation numbers
-f[0][4] -= 0.5  # Remove one electron from homo (sigma)
-f[0][5] += 0.5  # Add one electron to lumo (pi*)
+calc.set(eigensolver=DirectMinLCAO(searchdir_algo={'name': 'LSR1P',
+                                                   'method': 'LSR1'},
+                                   linesearch_algo={'name': 'UnitStep'},
+                                   need_init_orbs=False))
 
-# Excited-state MOM calculation with Gaussian
-# smearing of the occupation numbers
-prepare_mom_calculation(calc, atoms, f, width=0.01)
+# Occupation numbers for sigma->pi* excited state:
+# Remove one electron from homo (sigma) and and add one electron to lumo (pi*)
+f = excite(calc, 0, 0, spin=(0, 0))
+
+# Excited-state DO-MOM calculation
+prepare_mom_calculation(calc, atoms, f)
 
 opt = LBFGS(atoms, logfile='co.log')
 opt.run(fmax=0.05)
