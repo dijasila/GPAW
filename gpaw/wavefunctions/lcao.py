@@ -971,3 +971,48 @@ class LCAOWaveFunctions(WaveFunctions):
         self.basis_functions.estimate_memory(mem.subnode('BasisFunctions'))
         self.eigensolver.estimate_memory(mem.subnode('Eigensolver'),
                                          self.dtype)
+
+
+class LCAOforces:
+
+    def __init__(self, ksl, dtype, gd, bd, kd, kpt_u, bfs, newtci,
+                 P_aqMi, setups, manytci, hamiltonian, spos_ac,
+                 timer, Fref_av):
+        """    Calculate LCAO forces    """
+
+        self.ksl = ksl
+        self.nao = ksl.nao
+        self.mynao = ksl.mynao
+        self.dtype = dtype
+        self.newtci = newtci
+        self.manytci = manytci
+        self.P_aqMi = P_aqMi
+        self.gd = gd
+        self.bd = bd
+        self.kd = kd
+        self.kpt_u = kpt_u
+        self.bfs = bfs
+        self.spos_ac = spos_ac
+        self.Mstart = ksl.Mstart
+        self.Mstop = ksl.Mstop
+        self.setups = setups
+        self.hamiltonian = hamiltonian
+        self.timer = timer
+        self.Fref_av = Fref_av
+        self.my_atom_indices = bfs.my_atom_indices
+        self.atom_indices = bfs.atom_indices
+        self.dH_asp = hamiltonian.dH_asp
+
+        from gpaw.kohnsham_layouts import BlacsOrbitalLayouts
+        self.isblacs = isinstance(self.ksl, BlacsOrbitalLayouts)
+
+        self.timer.start('TCI derivative')
+        self.dThetadR_qvMM, self.dTdR_qvMM = self.manytci.O_qMM_T_qMM(gd.comm,
+                                             self.Mstart, self.Mstop,
+                                             False, derivative=True)
+        self.dPdR_aqvMi = self.manytci.P_aqMi(self.bfs.my_atom_indices,
+                                              derivative=True)
+
+        gd.comm.sum(self.dThetadR_qvMM)
+        gd.comm.sum(self.dTdR_qvMM)
+        self.timer.stop('TCI derivative')
