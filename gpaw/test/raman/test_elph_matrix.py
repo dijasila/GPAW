@@ -12,18 +12,19 @@ class FakeEPC(EPC):
     def __init__(self, fake_basis, natom, **params):
         EPC.__init__(self, **params)
         # self.gx = np.random.random(size=[3, 1, 1, 1, 4, 4])
-        gx = np.arange(3*natom*4*4).reshape([3*natom, 1, 1, 1, 4, 4])
+        gx = np.arange(3 * natom * 4 * 4).reshape([3 * natom, 1, 1, 1, 4, 4])
 
         # Fake supercell cache
         self.supercell_cache = MultiFileJSONCache('supercell')
         with self.supercell_cache.lock('basis') as handle:
             if handle is not None:
                 handle.save(fake_basis)
-        for x in range(3*natom):
+        for x in range(3 * natom):
             with self.supercell_cache.lock(str(x)) as handle:
                 if handle is None:
                     continue
                 handle.save(gx[x])
+
 
 class FakePh(Phonons):
     """Fake Phonons object class to overwrite reading routine."""

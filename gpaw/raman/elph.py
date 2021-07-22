@@ -69,14 +69,12 @@ class EPC(ElectronPhononCoupling):
 
         self.supercell_cache = MultiFileJSONCache(name)
         self.basis_info = self.supercell_cache['basis']
-        print(self.basis_info)
 
         # Multiply phase factors
         for x in range(ndisp):
             # Allocate array
             g_MM = np.zeros((nao, nao), dtype=complex)
             g_sNNMM = self.supercell_cache[str(x)]
-            print(nao, g_sNNMM)
             assert nao == g_sNNMM.shape[-1]
             for m in range(N):
                 for n in range(N):

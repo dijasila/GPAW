@@ -19,7 +19,7 @@ frequencies, modes = ph.band_structure(qpts, modes=True)
 # Find el-ph matrix in the LCAO basis
 elph = ElectronPhononCoupling(calc.atoms, calc=None, calculate_forces=False)
 elph.set_lcao_calculator(calc)
-elph.load_supercell_matrix(basis='dzp', dump=1)
+elph.load_supercell_matrix()
 
 # Find the bloch expansion coefficients
 g_sqklnn = []
