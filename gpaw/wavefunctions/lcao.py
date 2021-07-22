@@ -1007,9 +1007,8 @@ class LCAOforces:
         self.isblacs = isinstance(self.ksl, BlacsOrbitalLayouts)
 
         self.timer.start('TCI derivative')
-        self.dThetadR_qvMM, self.dTdR_qvMM = self.manytci.O_qMM_T_qMM(gd.comm,
-                                             self.Mstart, self.Mstop,
-                                             False, derivative=True)
+        self.dThetadR_qvMM, self.dTdR_qvMM = self.manytci.O_qMM_T_qMM(
+            gd.comm, self.Mstart, self.Mstop, False, derivative=True)
         self.dPdR_aqvMi = self.manytci.P_aqMi(self.bfs.my_atom_indices,
                                               derivative=True)
 
