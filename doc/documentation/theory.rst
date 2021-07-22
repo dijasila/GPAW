@@ -1,7 +1,7 @@
-.. _theoretical:
+.. _theory:
 
-Theoretical background
-----------------------
+Theory
+------
 
 To be filled.
 
