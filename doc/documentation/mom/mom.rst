@@ -118,7 +118,18 @@ the function ``mom.prepare_mom_calculation`` can be used::
 where ``f`` contains the occupation numbers of the excited state
 (see examples below). Alternatively, the MOM calculation can be
 initialized by setting ``calc.set(occupations={'name': 'mom', 'numbers': f}``.
+To prepare the list of excited-state occupation numbers, a helper
+function can be used::
 
+  from gpaw.directmin.lcao.tools import excite
+  f = excite(calc, i, a, spin=(si, sa))
+
+which will promote an electron from occupied orbital ``i`` in spin
+channel ``si`` to unoccupied orbital ``a`` in spin channel ``sa``
+(the index of HOMO and LUMO is 0). For example,
+``excite(calc, -1, 2, spin=(0, 1))`` will remove an electron from
+the HOMO-1 in spin channel 0 and add an electron to LUMO+2 of spin
+channel 1.
 
 The default is to use eq. :any:`eq:mommaxoverlap` to compute
 the numerical weights used to assign the occupation numbers.
@@ -129,25 +140,13 @@ one has to specify::
 
   mom.prepare_mom_calculation(..., use_projections=True, ...)
 
-For such cases, it is possible to use a Gaussian smearing
-of the holes and excited electrons in the MOM calculation
-to improve convergence. This is done by specifying a ``width``
-in eV (e.g. ``width=0.01``) for the Gaussian smearing function.
-For difficult cases, the ``width`` can be increased at regular
-intervals to force convergence by specifying a ``width_increment=...``.
-*Note*, however, that too extended smearing can lead to
-discontinuities in the potentials and forces close to
-crossings between electronic states [#momgpaw2]_, so this feature
-should only be used at geometries far from state crossings.
-
 .. autofunction:: gpaw.mom.prepare_mom_calculation
-
-
-.. _example_1:
 
 -------------------
 Direct Optimization
 -------------------
+
+.. _example_1:
 
 ---------------------------------------------------
 Example I: Excitation energy Rydberg state of water
@@ -189,8 +188,18 @@ Gaussian smearing of the excited electron is used to
 force equal fractional occupations of the two `\pi^*`
 orbitals to avoid convergence issues.
 
-.. literalinclude:: mom_co.py
+.. literalinclude:: domom_co.py
 
+For such cases, it is possible to use a Gaussian smearing
+of the holes and excited electrons in the MOM calculation
+to improve convergence. This is done by specifying a ``width``
+in eV (e.g. ``width=0.01``) for the Gaussian smearing function.
+For difficult cases, the ``width`` can be increased at regular
+intervals to force convergence by specifying a ``width_increment=...``.
+*Note*, however, that too extended smearing can lead to
+discontinuities in the potentials and forces close to
+crossings between electronic states [#momgpaw2]_, so this feature
+should only be used at geometries far from state crossings.
 
 ----------
 References
