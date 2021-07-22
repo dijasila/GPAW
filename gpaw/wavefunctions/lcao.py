@@ -1015,3 +1015,16 @@ class LCAOforces:
         gd.comm.sum(self.dThetadR_qvMM)
         gd.comm.sum(self.dTdR_qvMM)
         self.timer.stop('TCI derivative')
+
+    def _slices(self, indices):
+        for a in indices:
+            M1 = self.bfs.M_a[a] - self.Mstart
+            M2 = M1 + self.setups[a].nao
+            if M2 > 0:
+                yield a, max(0, M1), M2
+
+    def slices(self):
+        return self._slices(self.atom_indices)
+
+    def my_slices(self):
+        return self._slices(self.my_atom_indices)
