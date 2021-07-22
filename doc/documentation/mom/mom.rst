@@ -1,42 +1,60 @@
 .. _mom:
 
-======================
-Maximum Overlap Method
-======================
+==============================================================================
+Excited-State Calculations with Maximum Overlap Method and Direct Optimization
+==============================================================================
 
 The maximum overlap method (MOM) is used to perform
 variational calculations of excited states. It is an
 alternative to the linear expansion :ref:`dscf` for obtaining
 excited states within a time-independent DFT framework. Since
 MOM calculations are variational, atomic forces are readily
-available from routines for ground-state calculations and can
-be used to perform geometry optimization and molecular dynamics.
+available from the method ``get_forces`` and can, therefore,
+be used to perform geometry optimization and molecular dynamics
+in the excited state.
 
 Excited-state solutions of the SCF equations are obtained
-for non-Aufbau orbital occupations and can correspond
-to saddle points of the energy as a function of the electronic
-degrees of freedom (the orbital variations) [#momgpaw1]_ [#momgpaw2]_
-[#momgpaw3]_.
-Hence, excited-state calculations can be affected by variational
-collapse to lower-energy solutions. MOM is a simple strategy to
+for non-Aufbau orbital occupations. MOM is a simple strategy to
 choose non-Aufbau occupation numbers consistent
 with the initial guess for an excited state during
-optimization of the wave function, thereby avoiding variational
-collapse.
+optimization of the wave function, thereby facilitating convergence
+to the target excited state and avoiding variational collapse to
+lower energy solutions.
 
+Even if MOM is used, an excited-state calculation can still be difficult
+to convergence with the SCF algorithms based on diagonalization of the Hamiltonian
+matrix that are commonly employed in ground-state
+calculations. One of the main problems is that excited states
+often correspond to saddle points of the energy as a function of the electronic
+degrees of freedom (the orbital variations), but these algorithms perform better
+for minima (ground states usually correspond to minima).
+Moreover, standard SCF algorithms tend to fail when degenerate or nearly
+degenerate orbitals are unequally occupied, a situation that is
+more common in excited-state rather than ground-state calculations.
+A :ref:`Direct Optimization <directmin>` (DO) method that can converge
+to a generic stationary point, and not only to a minimum, is available in GPAW.
+The DO method has been shown to be more robust than SCF algorithms with
+density mixing in excited-state calculations of molecules
+[#momgpaw1]_ [#momgpaw2]_ [#momgpaw3]_. Therefore,
+MOM excited-state calculations should use the DO approach rather than the
+:ref:`eigensolvers <manual_eigensolver>` with density mixing.
 
---------------
+----------------------
+Maximum Overlap Method
+----------------------
+
+~~~~~~~~~~~~~~
 Implementation
---------------
+~~~~~~~~~~~~~~
 
-The GPAW implementation of MOM is presented in [#momgpaw1]_
-(real space grid and plane waves approaches) and [#momgpaw2]_
-(LCAO approach).
+The MOM approach implemented in GPAW is the initial maximum
+overlap method [#imom]_. The implementation is
+presented in [#momgpaw1]_ (real space grid and plane waves
+approaches) and [#momgpaw2]_ (LCAO approach).
 
 The orbitals `\{|\psi_{i}\rangle\}` used as initial guess for an
-excited-state calculation are taken as the reference orbitals
-for MOM (this approach is also known as initial maximum overlap
-method, see [#imom]_). The implementation in GPAW supports the
+excited-state calculation are taken as fixed reference orbitals
+for MOM. The implementation in GPAW supports the
 use of fractional occupation numbers. Let `\{|\psi_{n}\rangle\}_{s}`
 be a subspace of `N` initial guess orbitals with occupation
 number `f_{s}` and `\{|\psi_{m}^{(k)}\rangle\}` the orbitals
@@ -84,13 +102,13 @@ where `c^*_{\mu n}` and `c^{(k)}_{\nu m}` are the expansion
 coefficients for the initial guess orbitals and orbitals at
 iteration `k`, while `|\Phi_{\nu}\rangle` are the basis functions.
 
+~~~~~~~~~~~~~~
+How to use MOM
+~~~~~~~~~~~~~~
 
---------------
-Notes on usage
---------------
-
-Typically, one first performs a ground-state calculation.
-To prepare the calculator for an excited-state calculation,
+Initial guess orbitals for the excited-state calculation are first
+needed. Typically, they are obtained from a ground-state calculation.
+Then, to prepare the calculator for a MOM excited-state calculation,
 the function ``mom.prepare_mom_calculation`` can be used::
 
   from gpaw import mom
@@ -99,7 +117,8 @@ the function ``mom.prepare_mom_calculation`` can be used::
 
 where ``f`` contains the occupation numbers of the excited state
 (see examples below). Alternatively, the MOM calculation can be
-initialized by setting ``calc.set(occupations={'name': 'mom', 'numbers': f_sn}``.
+initialized by setting ``calc.set(occupations={'name': 'mom', 'numbers': f}``.
+
 
 The default is to use eq. :any:`eq:mommaxoverlap` to compute
 the numerical weights used to assign the occupation numbers.
@@ -110,10 +129,6 @@ one has to specify::
 
   mom.prepare_mom_calculation(..., use_projections=True, ...)
 
-SCF algorithms based on diagonalization of the Hamiltonian
-matrix tend to fail when degenerate or nearly degenerate
-orbitals are unequally occupied, a situation that is common
-in excited-state calculations.
 For such cases, it is possible to use a Gaussian smearing
 of the holes and excited electrons in the MOM calculation
 to improve convergence. This is done by specifying a ``width``
@@ -130,9 +145,13 @@ should only be used at geometries far from state crossings.
 
 .. _example_1:
 
------------------------------------------------------
-Example I: Excitation energy molecular Rydberg states
------------------------------------------------------
+-------------------
+Direct Optimization
+-------------------
+
+---------------------------------------------------
+Example I: Excitation energy Rydberg state of water
+---------------------------------------------------
 In this example, the excitation energies of the singlet and
 triplet states of water corresponding to excitation
 from the HOMO-1 non-bonding (`n`) to the LUMO `3s` Rydberg
@@ -148,9 +167,9 @@ the energies of the mixed-spin and triplet states, respectively.
 .. literalinclude:: mom_h2o.py
 
 
----------------------------------------------
-Example II: Excited-state geometry relaxation
----------------------------------------------
+----------------------------------------------------------------
+Example II: Geometry relaxation excited-state of carbon monoxide
+----------------------------------------------------------------
 Here, the bond length of the carbon monoxide molecule
 is optimized in the singlet excited state obtained by
 promotion of an electron from the HOMO `\sigma` orbital
@@ -178,8 +197,8 @@ References
 ----------
 
 .. [#momgpaw1] A. V. Ivanov, G. Levi, H. Jónsson
-               `Direct Optimization Method for Variational Excited-State Density Functional Calculations Using Real Space Grid or Plane Waves <https://arxiv.org/abs/2102.06542>`_
-               (2020).
+               :doi:`Method for Calculating Excited Electronic States Using Density Functionals and Direct Orbital Optimization with Real Space Grid or Plane-Wave Basis Set <h10.1021/acs.jctc.1c00157>`,
+               *J. Chem. Theory Comput.*, (2021).
 
 .. [#momgpaw2] G. Levi, A. V. Ivanov, H. Jónsson
                :doi:`Variational Density Functional Calculations of Excited States via Direct Optimization <10.1021/acs.jctc.0c00597>`,

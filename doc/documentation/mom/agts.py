@@ -5,7 +5,7 @@ from myqueue.workflow import run
 
 
 def workflow():
-    with run(script='mom_co.py', cores=8):
+    with run(script='domom_co.py', cores=8):
         run(function=check_co)
     with run(script='mom_h2o.py', cores=8):
         run(function=check_h2o)
