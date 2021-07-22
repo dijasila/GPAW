@@ -61,7 +61,7 @@ number `f_{s}` and `\{|\psi_{m}^{(k)}\rangle\}` the orbitals
 determined at iteration `k` of the wave-function optimization.
 An occupation number of `f_{s}` is given to the first `N`
 orbitals with the biggest numerical weights, evaluated as
-[#Dongmom]_:
+[#dongmom]_:
 
 .. math::
    :label: eq:mommaxoverlap
@@ -118,8 +118,8 @@ the function ``mom.prepare_mom_calculation`` can be used::
 where ``f`` contains the occupation numbers of the excited state
 (see examples below). Alternatively, the MOM calculation can be
 initialized by setting ``calc.set(occupations={'name': 'mom', 'numbers': f}``.
-To prepare the list of excited-state occupation numbers, a helper
-function can be used::
+A helper function can be used to create the list of excited-state occupation
+numbers::
 
   from gpaw.directmin.lcao.tools import excite
   f = excite(calc, i, a, spin=(si, sa))
@@ -128,13 +128,13 @@ which will promote an electron from occupied orbital ``i`` in spin
 channel ``si`` to unoccupied orbital ``a`` in spin channel ``sa``
 (the index of HOMO and LUMO is 0). For example,
 ``excite(calc, -1, 2, spin=(0, 1))`` will remove an electron from
-the HOMO-1 in spin channel 0 and add an electron to LUMO+2 of spin
+the HOMO-1 in spin channel 0 and add an electron to LUMO+2 in spin
 channel 1.
 
 The default is to use eq. :any:`eq:mommaxoverlap` to compute
 the numerical weights used to assign the occupation numbers.
 This was found to be more stable in the presence of diffuse
-virtual orbitals [#Dongmom]_. In order to use eq. :any:`eq:momprojections`,
+virtual orbitals [#dongmom]_. In order to use eq. :any:`eq:momprojections`,
 instead, corresponding to the original MOM approach [#imom]_,
 one has to specify::
 
@@ -146,6 +146,31 @@ one has to specify::
 Direct Optimization
 -------------------
 
+The DO method [#momgpaw1]_ [#momgpaw2]_ [#momgpaw3]_ finds
+stationary points of the energy in the space of unitary
+matrices by using efficient quasi-Newton algorithms.
+More details on the methodology and the GPAW implementation
+can be found in :ref:`directmin`.
+
+For excited-state calculations, the recommended quasi-Newton
+algorithm is a limited-memory symmetric rank-one (L-SR1) method
+[#momgpaw2]_ with unit step. In order to use this algorithm, the
+following ``eigensolver`` has to be specified (LCAO mode)::
+
+  from gpaw.directmin.lcao.directmin_lcao import DirectMinLCAO
+
+  calc.set(eigensolver=DirectMinLCAO(searchdir_algo={'name': 'LSR1P',
+                                                     'method': 'LSR1'},
+                                     linesearch_algo={'name': 'UnitStep',
+                                                      'max_step': 0.20})
+
+The maximum step length avoids taking too large steps at the
+beginning of the wave function optimization. The default maximum step length
+is 0.20, which was found to provide an adequate balance between stability
+and speed of convergence for calculations of excited states of molecules
+[#momgpaw2]_. However, a different value might improve the convergence for
+specific cases.
+
 .. _example_1:
 
 ---------------------------------------------------
@@ -154,13 +179,12 @@ Example I: Excitation energy Rydberg state of water
 In this example, the excitation energies of the singlet and
 triplet states of water corresponding to excitation
 from the HOMO-1 non-bonding (`n`) to the LUMO `3s` Rydberg
-orbitals are calculated. The `n` and `3s` orbitals have the
-same symmetry (a1), therefore, variational collapse can
-potentially affect a calculation without MOM. In order to calculate
-the energy of the open-shell singlet state, first a calculation
+orbitals are calculated.
+In order to calculate the energy of the open-shell singlet state,
+first a calculation
 of the mixed-spin state obtained for excitation within the same
 spin channel is performed, and, then, the spin-purification
-formula is used: `E_s=2E_m-E_t`, where `E_m` and `E_t` are
+formula [#spinpur]_ is used: `E_s=2E_m-E_t`, where `E_m` and `E_t` are
 the energies of the mixed-spin and triplet states, respectively.
 
 .. literalinclude:: mom_h2o.py
@@ -206,7 +230,7 @@ References
 ----------
 
 .. [#momgpaw1] A. V. Ivanov, G. Levi, H. Jónsson
-               :doi:`Method for Calculating Excited Electronic States Using Density Functionals and Direct Orbital Optimization with Real Space Grid or Plane-Wave Basis Set <h10.1021/acs.jctc.1c00157>`,
+               :doi:`Method for Calculating Excited Electronic States Using Density Functionals and Direct Orbital Optimization with Real Space Grid or Plane-Wave Basis Set <10.1021/acs.jctc.1c00157>`,
                *J. Chem. Theory Comput.*, (2021).
 
 .. [#momgpaw2] G. Levi, A. V. Ivanov, H. Jónsson
@@ -221,9 +245,13 @@ References
                :doi:`Simple Models for Difficult Electronic Excitations <10.1021/acs.jctc.7b00994>`,
                *J. Chem. Theory Comput.*, **14** 1501-1509 (2018).
 
-.. [#Dongmom]  X. Dong, A. D. Mahler, E. M. Kempfer-Robertson, L. M. Thompson
+.. [#dongmom]  X. Dong, A. D. Mahler, E. M. Kempfer-Robertson, L. M. Thompson
                :doi:`Global Elucidation of Self-Consistent Field Solution Space Using Basin Hopping <10.1021/acs.jctc.0c00488>`,
                *J. Chem. Theory Comput.*, **16** 5635−5644 (2020).
+
+.. [#spinpur]  T. Ziegler, A. Rauk, E. J. Baerends
+               :doi:`On the calculation of multiplet energies by the hartree-fock-slater method <10.1007/BF00551551>`
+               *Theoret. Chim. Acta*, **43** 261–271 (1977).
 
 .. [#levi2018] G. Levi, M. Pápai, N. E. Henriksen, A. O. Dohn, K. B. Møller
                :doi:`Solution structure and ultrafast vibrational relaxation of the PtPOP complex revealed by ∆SCF-QM/MM Direct Dynamics simulations <10.1021/acs.jpcc.8b00301>`,
