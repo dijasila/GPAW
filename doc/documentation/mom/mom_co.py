@@ -26,9 +26,9 @@ atoms.calc = calc
 # Ground-state calculation
 E_gs = atoms.get_potential_energy()
 
-# Prepare initial guess complex pi* orbitals by taking
+# Prepare initial guess for complex pi* orbitals by taking
 # linear combination of real pi*x and pi*y orbitals
-lumo = 5
+lumo = 5  # lumo is pi*x or pi*y orbital
 for kpt in calc.wfs.kpt_u:
     pp = kpt.C_nM[lumo] + 1.0j * kpt.C_nM[lumo + 1]
     pm = kpt.C_nM[lumo] - 1.0j * kpt.C_nM[lumo + 1]
@@ -41,10 +41,10 @@ calc.set(eigensolver=DirectMinLCAO(searchdir_algo={'name': 'LSR1P',
                                    need_init_orbs=False))
 
 # Occupation numbers for sigma->pi* excited state:
-# Remove one electron from homo (sigma) and and add one electron to lumo (pi*)
+# Remove one electron from homo (sigma) and add one electron to lumo (pi*)
 f = excite(calc, 0, 0, spin=(0, 0))
 
-# Excited-state DO-MOM calculation
+# Prepare excited-state DO-MOM calculation
 prepare_mom_calculation(calc, atoms, f)
 
 opt = LBFGS(atoms, logfile='co.log')
