@@ -126,33 +126,33 @@ class ExcitedState(GPAW, Calculator):
                                log=calculator.log)
         lrtddft.calculator = calculator
         
-        f = open(filename + '.exst', 'r')
-        f.readline()
-        d = f.readline().replace('\n', '').split()[1]
-        indextype = f.readline().replace('\n', '').split()[1]
-        if indextype == 'UnconstraintIndex':
-            iex = int(f.readline().replace('\n', '').split()[1])
-            index = UnconstraintIndex(iex)
-        else:
-            direction = f.readline().replace('\n', '').split()[1]
-            if direction in [str(0), str(1), str(2)]:
-                direction = int(direction)
+        with open(filename + '.exst', 'r') as f:
+            f.readline()
+            d = f.readline().replace('\n', '').split()[1]
+            indextype = f.readline().replace('\n', '').split()[1]
+            if indextype == 'UnconstraintIndex':
+                iex = int(f.readline().replace('\n', '').split()[1])
+                index = UnconstraintIndex(iex)
             else:
-                direction = None
-
-            val = f.readline().replace('\n', '').split()
-            if indextype == 'MinimalOSIndex':
-
-                index = MinimalOSIndex(float(val[1]), direction)
-            else:
-                emin = float(val[2])
-                emax = float(val[3].replace(']', ''))
-                index = MaximalOSIndex([emin, emax], direction)
-
-        exst = cls(lrtddft, index, d, communicator=communicator,
-                   txt=calculator.log.oldfd)
-        index = exst.index.apply(lrtddft)
-        exst.results['energy'] = E0 + lrtddft[index].energy * Hartree
+                direction = f.readline().replace('\n', '').split()[1]
+                if direction in [str(0), str(1), str(2)]:
+                    direction = int(direction)
+                else:
+                    direction = None
+    
+                val = f.readline().replace('\n', '').split()
+                if indextype == 'MinimalOSIndex':
+    
+                    index = MinimalOSIndex(float(val[1]), direction)
+                else:
+                    emin = float(val[2])
+                    emax = float(val[3].replace(']', ''))
+                    index = MaximalOSIndex([emin, emax], direction)
+    
+            exst = cls(lrtddft, index, d, communicator=communicator,
+                       txt=calculator.log.oldfd)
+            index = exst.index.apply(lrtddft)
+            exst.results['energy'] = E0 + lrtddft[index].energy * Hartree
 
         return exst
 

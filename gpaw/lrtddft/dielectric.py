@@ -92,31 +92,30 @@ def dielectric(exlist,
 
     # output
     out = sys.stdout
-    if filename is not None:
-        out = open(filename, 'w')
-    if comment:
-        print('#', comment, file=out)
 
-    print('# Dielec function', file=out)
-    print('# GPAW version:', gpaw.__version__, file=out)
-    print('# width={0} [{1}]'.format(width, energyunit), file=out)
-    if form == 'r':
-        print('# length form', file=out)
-    else:
-        assert(form == 'v')
-        print('# velocity form', file=out)
-    print(
-        '# om [{0}]      eps1/eps0      eps2/eps0       n     k     R'.format(
-            energyunit),
-        file=out)
-
-    energies, eps1, eps2, N, K, R = get_dielectric(
-        exlist=exlist, volume=volume, emin=emin, emax=emax, de=de,
-        energyunit=energyunit, width=width, form=form)
+    with open(filename, 'w') as out:
+        if comment:
+            print('#', comment, file=out)
     
-    for e, e1, e2, n, k, r in zip(energies, eps1, eps2, N, K, R):
-        print('%10.5f %12.7e %12.7e %12.7e %12.7e %12.7e' %
-              (e, e1, e2, n, k, r), file=out)
-
-    if filename is not None:
-        out.close()
+        print('# Dielec function', file=out)
+        print('# GPAW version:', gpaw.__version__, file=out)
+        print('# width={0} [{1}]'.format(width, energyunit), file=out)
+        if form == 'r':
+            print('# length form', file=out)
+        else:
+            assert(form == 'v')
+            print('# velocity form', file=out)
+        print(
+            '# om [{0}]  eps1/eps0  eps2/eps0   n     k     R'
+            .format(energyunit), file=out)
+    
+        energies, eps1, eps2, N, K, R = get_dielectric(
+            exlist=exlist, volume=volume, emin=emin, emax=emax, de=de,
+            energyunit=energyunit, width=width, form=form)
+        
+        for e, e1, e2, n, k, r in zip(energies, eps1, eps2, N, K, R):
+            print('%10.5f %12.7e %12.7e %12.7e %12.7e %12.7e' %
+                  (e, e1, e2, n, k, r), file=out)
+    
+        if filename is not None:
+            out.close()
