@@ -1083,7 +1083,8 @@ class DirectMinLCAO(DirectLCAO):
         matrix_exp = self.matrix_exp
         self.matrix_exp = 'egdecomp'
 
-        dim_z = 2 if self.dtype == complex else 1
+        dim_z, disp = (2, [eps, 1.0j * eps]) \
+            if self.dtype == complex else (1, [eps])
         dim_k = {}
         dim_k_total = 0
         a_m = {}
@@ -1099,46 +1100,8 @@ class DirectMinLCAO(DirectLCAO):
         for kpt in wfs.kpt_u:
             hess_a += list(self.get_hessian(kpt).copy())
 
-        # Real displacement
-        k_count = dim_k[0]
-        k = 0
-        i = 0
         l = 0
-        while True:
-            k_count -= 1
-            if k_count < 0:
-                k += 1
-                if k == len(wfs.kpt_u):
-                    break
-                i = 0
-                k_count = dim_k[k] - 1
-                if k_count < 0:
-                    continue
-            a_m[k][i] = eps
-            gp = self.get_energy_and_gradients(a_m, n_dim,
-                                               ham, wfs, dens,
-                                               c_nm_ref)[1]
-            a_m[k][i] = -eps
-            gm = self.get_energy_and_gradients(a_m, n_dim,
-                                               ham, wfs, dens,
-                                               c_nm_ref)[1]
-            hess = []
-            for u in range(len(wfs.kpt_u)):
-                hess += list((gp[u] - gm[u]) * 0.5 / eps)
-            hess = np.asarray(hess)
-            if self.dtype == complex:
-                hessc = np.zeros(shape=2 * dim_k_total)
-                hessc[: dim_k_total] = np.real(hess)
-                hessc[dim_k_total:] = np.imag(hess)
-                hess_n[l] = hessc
-            else:
-                hess_n[l] = hess
-            a_m[k][i] = 0.0
-            i += 1
-            l += 1
-
-        # Complex displacement
-        if self.dtype == complex:
+        for z in range(dim_z):
             k_count = dim_k[0]
             k = 0
             i = 0
@@ -1152,11 +1115,11 @@ class DirectMinLCAO(DirectLCAO):
                     k_count = dim_k[k] - 1
                     if k_count < 0:
                         continue
-                a_m[k][i] = 1.0j * eps
+                a_m[k][i] = disp[z]
                 gp = self.get_energy_and_gradients(a_m, n_dim,
                                                    ham, wfs, dens,
                                                    c_nm_ref)[1]
-                a_m[k][i] = -1.0j * eps
+                a_m[k][i] = -disp[z]
                 gm = self.get_energy_and_gradients(a_m, n_dim,
                                                    ham, wfs, dens,
                                                    c_nm_ref)[1]
@@ -1164,10 +1127,13 @@ class DirectMinLCAO(DirectLCAO):
                 for u in range(len(wfs.kpt_u)):
                     hess += list((gp[u] - gm[u]) * 0.5 / eps)
                 hess = np.asarray(hess)
-                hessc = np.zeros(shape=2 * dim_k_total)
-                hessc[: dim_k_total] = np.real(hess)
-                hessc[dim_k_total:] = np.imag(hess)
-                hess_n[l] = hessc
+                if self.dtype == complex:
+                    hessc = np.zeros(shape=2 * dim_k_total)
+                    hessc[: dim_k_total] = np.real(hess)
+                    hessc[dim_k_total:] = np.imag(hess)
+                    hess_n[l] = hessc
+                else:
+                    hess_n[l] = hess
                 a_m[k][i] = 0.0
                 i += 1
                 l += 1
