@@ -1028,3 +1028,9 @@ class LCAOforces:
 
     def my_slices(self):
         return self._slices(self.my_atom_indices)
+
+    def get_density_matrix_blocked_blacs(self, f_n, C_nM, redistributor):
+        rho1_mm = self.ksl.calculate_blocked_density_matrix(f_n,
+                                                            C_nM).conj()
+        rho_mm = redistributor.redistribute(rho1_mm)
+        return rho_mm
