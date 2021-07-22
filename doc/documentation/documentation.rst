@@ -9,7 +9,7 @@ Documentation
 
    basic
    advanced
-   theoretical
+   theory
    cmdline
    utilities/utilities
    reports_presentations_and_theses
