@@ -97,40 +97,41 @@ Performance
 G2 molecular set
 `````````````````
 
-The number of energy and gradient evaluations in direct minimization
-using L-BFGS algorithm (memory=3) with preconditioning
-and the number of iterations in the SCF algorithm employing default
-density-mixing are shown below.
-Figure (a) shows several examples of molecules.
+Here we compare the number of energy and gradient evaluations
+in direct minimization using the L-BFGS algorithm (memory=3) with preconditioning
+and the number of iterations in the SCF LCAO eigensolver with default
+density mixing.
+Figure (a) shows several examples for molecules from the G2 set.
 Figure (b) shows the results of the direct minimization for molecules
-for which SCF with default density-mixing fails to converge.
+for which SCF with default density mixing fails to converge.
 SCF fails to converge for 5 molecules,
-while direct minimization demonstrates a stable performance. Note,
-by choosing different mixing parameters one can improve the convergence
-of SCF methods.
+while direct minimization demonstrates stable performance. Note that
+by choosing different parameters for the density mixing one may improve
+the convergence of the SCF methods.
 
 .. image:: g2.png
 
 32-576 Water molecules
 ```````````````````````
-In this example, the ground state of 32, 64, 128, 256, 384 and 576
-water molecules is calculated respectively. The geometries are taken
-from `here <https://wiki.fysik.dtu.dk/gpaw/devel/benchmarks.html>`_
-The GPAW parameters used in this test include the PBE functional,
-the DZP basis set, grid spacing h = 0.2,
-8-core domain decomposition, and
-the ’eingensolver’ convergence criterion 1.0e-10.
-The ratio of the elapsed times spent by the default eigensolver and
-the direct minimization methods as a function of
+In this test, the ground state of clusters of 32, 64, 128, 256, 384 and 576
+water molecules is calculated. The geometries are taken
+from `here <https://wiki.fysik.dtu.dk/gpaw/devel/benchmarks.html>`_.
+The GPAW parameters used in this test include: PBE functional,
+DZP basis set, grid spacing h=0.2 and
+8-core domain decomposition. The convergence criterion is a
+square of the residuals of the Kohn-Sham equations smaller than `1.0 \times 10^{-10}\text{eV}^{2}`.
+The ratio of the elapsed times spent by the default LCAO eigensolver and
+the direct minimization methods as a function of the number of
 water molecules is shown below.
-In the picture, ‘ss’ refers to the scaling and squaring method [#AlMoly]_ for
+In the figure, ‘ss’ refers to the scaling and squaring method [#AlMoly]_
+used for
 the calculation of the matrix exponential, while
 ‘uinv’ refers to the method for the calculation of
-the matrix exponential taking into account the unitary invariance
+the matrix exponential that takes into account the unitary invariance
 of the KS functional [#Hutter]_ (see `Implementation Details`_).
 As can be seen, direct minimization converges faster
 by a factor of 1.5 for 32 molecules and a factor of 2 for 512 molecules
-using the 'uinv' method. 'ss' outperforms the SCF by a factor of 1.2.
+using the 'uinv' method. 'ss' outperforms the SCF by a factor of ~~.2.
 
 .. image:: water.png
   :width: 70%
