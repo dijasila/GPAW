@@ -57,14 +57,16 @@ with respect to `A`.
 Example
 ~~~~~~~~
 Firstly, it is necessary to ensure that the number of bands used
-in calculations is equal to the number of atomic orbitals.
-Secondly, one needs to use a mixer which does not mix the density.
+in calculations is equal to the number of atomic orbitals. Also, one should
+not use the density mixing and must use fixed occupation numbers.
 Here is example of how to run the calculations:
 
 .. literalinclude:: h2o.py
 
 As one can see, it is possible to specify the amount of memory used in L-BFGS algorithm.
-The large the memory, the more efficient algorithm is. Default value is 3.
+The large the memory, the fewer iterations are required to reach the convergence [#Nocedal]_.
+Default value is 3. One cannot use the memory large than the number of iterations after which
+the reference orbitals are updated to the canonical orbitals (the default value is 20).
 
 **Important:** The exponential matrix is calculated here using
 the SciPy function *expm*. In order to obtain a good performance,
@@ -85,6 +87,9 @@ occupation numbers a more efficient algorithm can be used:
 
 Performance
 ~~~~~~~~~~~~~
+Calculations were carried out with GPAW version 1.5.2. In the newer versions
+of GPAW (>20.10.0) the default density mixing is different for spin-polarized systems
+and therefore, the performance results of these calculations can be different as well.
 
 G2 molecular set
 `````````````````
