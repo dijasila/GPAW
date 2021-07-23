@@ -324,32 +324,29 @@ class ApmB(OmegaMatrix):
         """Read myself from a file"""
         if mpi.rank == 0:
             if fh is None:
-                f = open(filename, 'r')
+                fc = open(filename, 'r')
             else:
-                f = fh
-
-            f.readline()
-            nij = int(f.readline())
-            ApB = np.zeros((nij, nij))
-            for ij in range(nij):
-                l = f.readline().split()
-                for kq in range(ij, nij):
-                    ApB[ij, kq] = float(l[kq - ij])
-                    ApB[kq, ij] = ApB[ij, kq]
-            self.ApB = ApB
-
-            f.readline()
-            nij = int(f.readline())
-            AmB = np.zeros((nij, nij))
-            for ij in range(nij):
-                l = f.readline().split()
-                for kq in range(ij, nij):
-                    AmB[ij, kq] = float(l[kq - ij])
-                    AmB[kq, ij] = AmB[ij, kq]
-            self.AmB = AmB
-
-            if fh is None:
-                f.close()
+                fc = fh
+            with fc as f:
+                f.readline()
+                nij = int(f.readline())
+                ApB = np.zeros((nij, nij))
+                for ij in range(nij):
+                    l = f.readline().split()
+                    for kq in range(ij, nij):
+                        ApB[ij, kq] = float(l[kq - ij])
+                        ApB[kq, ij] = ApB[ij, kq]
+                self.ApB = ApB
+    
+                f.readline()
+                nij = int(f.readline())
+                AmB = np.zeros((nij, nij))
+                for ij in range(nij):
+                    l = f.readline().split()
+                    for kq in range(ij, nij):
+                        AmB[ij, kq] = float(l[kq - ij])
+                        AmB[kq, ij] = AmB[ij, kq]
+                self.AmB = AmB
 
     def weight_Kijkq(self, ij, kq):
         """weight for the coupling matrix terms"""
@@ -359,29 +356,26 @@ class ApmB(OmegaMatrix):
         """Write current state to a file."""
         if mpi.rank == 0:
             if fh is None:
-                f = open(filename, 'w')
+                fc = open(filename, 'w')
             else:
-                f = fh
-
-            f.write('# A+B\n')
-            nij = len(self.fullkss)
-            f.write('%d\n' % nij)
-            for ij in range(nij):
-                for kq in range(ij, nij):
-                    f.write(' %g' % self.ApB[ij, kq])
-                f.write('\n')
-
-            f.write('# A-B\n')
-            nij = len(self.fullkss)
-            f.write('%d\n' % nij)
-            for ij in range(nij):
-                for kq in range(ij, nij):
-                    f.write(' %g' % self.AmB[ij, kq])
-                f.write('\n')
-
-            if fh is None:
-                f.close()
-
+                fc = fh
+            with fc as f:
+                f.write('# A+B\n')
+                nij = len(self.fullkss)
+                f.write('%d\n' % nij)
+                for ij in range(nij):
+                    for kq in range(ij, nij):
+                        f.write(' %g' % self.ApB[ij, kq])
+                    f.write('\n')
+    
+                f.write('# A-B\n')
+                nij = len(self.fullkss)
+                f.write('%d\n' % nij)
+                for ij in range(nij):
+                    for kq in range(ij, nij):
+                        f.write(' %g' % self.AmB[ij, kq])
+                    f.write('\n')
+    
     def __str__(self):
         string = '<ApmB> '
         if hasattr(self, 'eigenvalues'):

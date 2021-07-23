@@ -603,22 +603,19 @@ class OmegaMatrix:
     def read(self, filename=None, fh=None):
         """Read myself from a file"""
         if fh is None:
-            f = open(filename, 'r')
+            fc = open(filename, 'r')
         else:
-            f = fh
-
-        f.readline()
-        nij = int(f.readline())
-        full = np.zeros((nij, nij))
-        for ij in range(nij):
-            l = [float(x) for x in f.readline().split()]
-            full[ij, ij:] = l
-            full[ij:, ij] = l
-        self.full = full
-
-        if fh is None:
-            f.close()
-
+            fc = fh
+        with fc as f:
+            f.readline()
+            nij = int(f.readline())
+            full = np.zeros((nij, nij))
+            for ij in range(nij):
+                l = [float(x) for x in f.readline().split()]
+                full[ij, ij:] = l
+                full[ij:, ij] = l
+            self.full = full
+    
     def write(self, filename=None, fh=None):
         """Write current state to a file."""
 
@@ -628,20 +625,17 @@ class OmegaMatrix:
             rank = mpi.world.rank
         if rank == 0:
             if fh is None:
-                f = open(filename, 'w')
+                fc = open(filename, 'w')
             else:
-                f = fh
-
-            f.write('# OmegaMatrix\n')
-            nij = len(self.fullkss)
-            f.write('%d\n' % nij)
-            for ij in range(nij):
-                for kq in range(ij, nij):
-                    f.write(' %g' % self.full[ij, kq])
-                f.write('\n')
-
-            if fh is None:
-                f.close()
+                fc = fh
+            with fc as f:
+                f.write('# OmegaMatrix\n')
+                nij = len(self.fullkss)
+                f.write('%d\n' % nij)
+                for ij in range(nij):
+                    for kq in range(ij, nij):
+                        f.write(' %g' % self.full[ij, kq])
+                    f.write('\n')
 
     def weight_Kijkq(self, ij, kq):
         """weight for the coupling matrix terms"""
