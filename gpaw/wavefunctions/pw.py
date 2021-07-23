@@ -196,14 +196,14 @@ class PWDescriptor:
         spiral = qspiral is not None
         if spiral:
             if kd is None:
-                self.q_c = np.array([0, 0, 0])
-                self.q_v = np.array([0, 0, 0])
+                self.qs_c = np.array([0, 0, 0])
+                self.qs_v = np.array([0, 0, 0])
             else:
-                self.q_c = np.asarray(qspiral)
-                self.q_v = np.dot(self.q_c, B_cv)
+                self.qs_c = np.asarray(qspiral)
+                self.qs_v = np.dot(self.qs_c, B_cv)
                 
             R_Rc = np.indices(N_c).T / N_c
-            self.phase_R = np.exp(2j * pi * np.dot(R_Rc, self.q_c).T)
+            self.phase_R = np.exp(2j * pi * np.dot(R_Rc, self.qs_c).T)
             G2p_qG = []
             G2m_qG = []
 
@@ -216,8 +216,8 @@ class PWDescriptor:
         for q, K_v in enumerate(self.K_qv):
             G2_Q = ((self.G_Qv + K_v)**2).sum(axis=1)
             if spiral:
-                G2m_Q = ((self.G_Qv + K_v - self.q_v / 2)**2).sum(axis=1)
-                G2p_Q = ((self.G_Qv + K_v + self.q_v / 2)**2).sum(axis=1)
+                G2m_Q = ((self.G_Qv + K_v - self.qs_v / 2)**2).sum(axis=1)
+                G2p_Q = ((self.G_Qv + K_v + self.qs_v / 2)**2).sum(axis=1)
 
             if gammacentered:
                 mask_Q = ((self.G_Qv**2).sum(axis=1) <= 2 * ecut)
@@ -272,12 +272,14 @@ class PWDescriptor:
         else:
             self.tmp_G = None
 
-    def get_reciprocal_vectors(self, q=0, add_q=True):
+    def get_reciprocal_vectors(self, q=0, add_q=True, sign=0):
         """Returns reciprocal lattice vectors plus q, G + q,
         in xyz coordinates."""
 
         if add_q:
             q_v = self.K_qv[q]
+            if sign != 0:
+                q_v = q_v + sign*self.qs_v / 2
             return self.G_Qv[self.myQ_qG[q]] + q_v
         return self.G_Qv[self.myQ_qG[q]]
 
