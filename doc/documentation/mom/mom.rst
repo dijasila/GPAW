@@ -4,7 +4,7 @@
 Excited-State Calculations with Maximum Overlap Method and Direct Optimization
 ==============================================================================
 
-The maximum overlap method (MOM) is used to perform
+The maximum overlap method (MOM) can be used to perform
 variational calculations of excited states. It is an
 alternative to the linear expansion :ref:`dscf` for obtaining
 excited states within a time-independent DFT framework. Since
@@ -32,12 +32,13 @@ Moreover, standard SCF algorithms tend to fail when degenerate or nearly
 degenerate orbitals are unequally occupied, a situation that is
 more common in excited-state rather than ground-state calculations.
 A :ref:`Direct Optimization <directmin>` (DO) method that can converge
-to a generic stationary point, and not only to a minimum, is available in GPAW.
-The DO method has been shown to be more robust than SCF algorithms with
-density mixing in excited-state calculations of molecules
+to a generic stationary point, and not only to a minimum, is available in GPAW
+in LCAO mode.
+The DO method has been shown to be more robust than diagonalization-based
+SCF algorithms with density mixing in excited-state calculations of molecules
 [#momgpaw1]_ [#momgpaw2]_ [#momgpaw3]_. Therefore,
-MOM excited-state calculations should use the DO approach rather than the
-:ref:`eigensolvers <manual_eigensolver>` with density mixing.
+MOM excited-state calculations in LCAO should use the DO approach rather than the
+direct :ref:`eigensolver <manual_eigensolver>` with density mixing.
 
 ----------------------
 Maximum Overlap Method
@@ -150,12 +151,13 @@ The DO method [#momgpaw1]_ [#momgpaw2]_ [#momgpaw3]_ finds
 stationary points of the energy in the space of unitary
 matrices by using efficient quasi-Newton algorithms.
 More details on the methodology and the GPAW implementation
-can be found in :ref:`directmin`.
+can be found in :ref:`directmin`. Currently, DO is only
+implemented in LCAO mode.
 
 For excited-state calculations, the recommended quasi-Newton
 algorithm is a limited-memory symmetric rank-one (L-SR1) method
 [#momgpaw2]_ with unit step. In order to use this algorithm, the
-following ``eigensolver`` has to be specified (LCAO mode)::
+following ``eigensolver`` has to be specified::
 
   from gpaw.directmin.lcao.directmin_lcao import DirectMinLCAO
 
@@ -166,7 +168,7 @@ following ``eigensolver`` has to be specified (LCAO mode)::
 
 The maximum step length avoids taking too large steps at the
 beginning of the wave function optimization. The default maximum step length
-is 0.20, which was found to provide an adequate balance between stability
+is 0.20, which has been found to provide an adequate balance between stability
 and speed of convergence for calculations of excited states of molecules
 [#momgpaw2]_. However, a different value might improve the convergence for
 specific cases.
@@ -186,6 +188,8 @@ of the mixed-spin state obtained for excitation within the same
 spin channel is performed, and, then, the spin-purification
 formula [#spinpur]_ is used: `E_s=2E_m-E_t`, where `E_m` and `E_t` are
 the energies of the mixed-spin and triplet states, respectively.
+The calculations use the Finite Difference mode to obtain an accurate
+representation of the diffuse Rydberg orbital [#momgpaw1]_.
 
 .. literalinclude:: mom_h2o.py
 
@@ -194,36 +198,41 @@ the energies of the mixed-spin and triplet states, respectively.
 Example II: Geometry relaxation excited-state of carbon monoxide
 ----------------------------------------------------------------
 Here, the bond length of the carbon monoxide molecule
-is optimized in the singlet excited state obtained by
-promotion of an electron from the HOMO `\sigma` orbital
-to the LUMO `\pi^*_x` or `\pi^*_y` orbital. A practical
-choice for geometry optimization and dynamics in an
-open-shell singlet excited state is to employ a spin-paired
-approach where the occupation numbers of the open-shell
-orbitals are set to 1 [#levi2018]_. This approach delivers
-pure singlet states while avoiding an additional calculation of the
-corresponding triplet state needed to employ the spin-purification
-formula (see :ref:`example_1`). Since the `\pi^*_x` and
-`\pi^*_y` orbitals of carbon monoxide are degenerate,
-diagonalization-based SCF algorithms fail to converge
-to the `\sigma\rightarrow\pi^*` excited state unless
-symmetry constraints on the density are used. Here,
-Gaussian smearing of the excited electron is used to
-force equal fractional occupations of the two `\pi^*`
-orbitals to avoid convergence issues.
+in the lowest `\Pi(\sigma\rightarrow \pi^*)` excited state
+is optimized. In order to obtain the correct angular momentum
+of the excited state, the electron is excited into a complex
+`\pi^*_{+1}` or `\pi^*_{-1}` orbital, where +1 or −1 is the
+eigenvalue of the z-component angular momentum operator. The
+use of complex orbitals also provides an excited-state density
+with the uniaxial symmetry consistent with the symmetry of the
+molecule [#momgpaw1]_. The potential energy curve of the
+open-shell excited singlet state is approximated with that
+of the mixed-spin state, as often done in geometry optimizations
+and molecular dynamics simulations.
 
 .. literalinclude:: domom_co.py
 
-For such cases, it is possible to use a Gaussian smearing
-of the holes and excited electrons in the MOM calculation
-to improve convergence. This is done by specifying a ``width``
-in eV (e.g. ``width=0.01``) for the Gaussian smearing function.
+Due to the degeneracy of the `\pi^*` orbitals, convergence
+to the `\Pi(\sigma\rightarrow \pi^*)` excited state is more
+difficult when using SCF eigensolvers with density mixing
+instead of DO, unless symmetry constraints on the density
+are enforced during the calculation. Convergence of such
+excited-state calculations with an SCF eigensolver can be
+improved by using a Gaussian smearing of the holes and excited
+electrons [#levi2018]_.
+Gaussian smearing is implemented in MOM and can be used
+by specifying a ``width`` in eV for the Gaussian smearing
+function::
+
+  mom.prepare_mom_calculation(..., width=0.01, ...)
+
 For difficult cases, the ``width`` can be increased at regular
-intervals to force convergence by specifying a ``width_increment=...``.
+intervals by specifying a ``width_increment=...``.
 *Note*, however, that too extended smearing can lead to
 discontinuities in the potentials and forces close to
-crossings between electronic states [#momgpaw2]_, so this feature
-should only be used at geometries far from state crossings.
+crossings between electronic states [#momgpaw2]_, so
+this feature should only be used with caution and only
+at geometries far from state crossings.
 
 ----------
 References
