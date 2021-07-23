@@ -214,8 +214,8 @@ class PWDescriptor:
         for q, K_v in enumerate(self.K_qv):
             G2_Q = ((self.G_Qv + K_v)**2).sum(axis=1)
             if spiral:
-                G2m_Q = ((self.G_Qv + K_v - self.q_v/2)**2).sum(axis=1)
-                G2p_Q = ((self.G_Qv + K_v + self.q_v/2)**2).sum(axis=1)
+                G2m_Q = ((self.G_Qv + K_v - self.q_v / 2)**2).sum(axis=1)
+                G2p_Q = ((self.G_Qv + K_v + self.q_v / 2)**2).sum(axis=1)
 
             if gammacentered:
                 mask_Q = ((self.G_Qv**2).sum(axis=1) <= 2 * ecut)
@@ -800,7 +800,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
     def set_setups(self, setups):
         self.timer.start('PWDescriptor')
         self.pd = PWDescriptor(self.ecut, self.gd, self.dtype, self.kd,
-                               self.fftwflags, self.gammacentered, self.qspiral)
+                               self.fftwflags, self.gammacentered,
+                               self.qspiral)
         self.timer.stop('PWDescriptor')
 
         # Build array of number of plane wave coefficiants for all k-points
@@ -882,6 +883,10 @@ class PWWaveFunctions(FDPWWaveFunctions):
             kpt, psit_xG, Htpsit_xG, ham.dH_asp)
 
     def apply_pseudo_hamiltonian_nc(self, kpt, ham, psit_xG, Htpsit_xG):
+        if self.qspiral is not None:
+            self.apply_pseudo_hamiltonian_ss(kpt, ham, psit_xG, Htpsit_xG)
+            return
+
         Htpsit_xG[:] = 0.5 * self.pd.G2_qG[kpt.q] * psit_xG
         v, x, y, z = ham.vt_xG
         iy = y * 1j
@@ -890,6 +895,19 @@ class PWWaveFunctions(FDPWWaveFunctions):
             b = self.pd.ifft(psit_sG[1], kpt.q)
             Htpsit_sG[0] += self.pd.fft(a * (v + z) + b * (x - iy), kpt.q)
             Htpsit_sG[1] += self.pd.fft(a * (x + iy) + b * (v - z), kpt.q)
+
+    def apply_pseudo_hamiltonian_ss(self, kpt, ham, psit_xG, Htpsit_xG):
+        Htpsit_xG[:, 0, :] = 0.5 * self.pd.G2m_qG[kpt.q] * psit_xG[:, 0, :]
+        Htpsit_xG[:, 1, :] = 0.5 * self.pd.G2p_qG[kpt.q] * psit_xG[:, 1, :]
+        v, x, y, z = ham.vt_xG
+        iy = y * 1j
+        for psit_sG, Htpsit_sG in zip(psit_xG, Htpsit_xG):
+            a = self.pd.ifft(psit_sG[0], kpt.q)
+            b = self.pd.ifft(psit_sG[1], kpt.q)
+            bxy = b * (x - iy) * self.pd.phase_R
+            axy = a * (x + iy) * np.conj(self.pd.phase_R)
+            Htpsit_sG[0] += self.pd.fft(a * (v + z) + bxy, kpt.q)
+            Htpsit_sG[1] += self.pd.fft(axy + b * (v - z), kpt.q)
 
     def add_orbital_density(self, nt_G, kpt, n):
         axpy(1.0, abs(self.pd.ifft(kpt.psit_nG[n], kpt.q))**2, nt_G)
