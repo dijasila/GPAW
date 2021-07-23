@@ -266,9 +266,9 @@ def dump_hamiltonian_parallel(filename, atoms, direction=None, Ef=None):
         else:
             if direction is not None:
                 remove_pbc(atoms, H_qMM[kpt.s, kpt.q], None, d)
-        if calc.occupations.width > 0:
+        if calc.wfs.occupations._width > 0:
             if Ef is None:
-                Ef = calc.occupations.get_fermi_level()
+                Ef = calc.get_fermi_level() / Ha
 
             H_qMM[kpt.s, kpt.q] -= S_qMM[kpt.q] * Ef
 
