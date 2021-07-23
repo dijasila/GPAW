@@ -5,8 +5,8 @@ Direct Minimization Methods
 ================================
 
 An alternative to self-consistent field algorithms is employing
-direct minimization methods which avoid using density mixing and
-diagonalization of the Kohn-Sham hamiltonian.
+direct minimization methods, which avoid density mixing and
+diagonalization of the Kohn-Sham Hamiltonian matrix.
 
 LCAO mode
 ----------
@@ -15,17 +15,17 @@ LCAO mode
 Exponential Transformation Direct Minimization
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The orbitals are expanded onto a finite basis set:
+The orbitals are expanded into a finite basis set:
 
 .. math:: \phi_{i} ({\bf r}) = \sum_{\mu=1..M} O_{\mu i} \chi_{\mu}({\bf r}), \quad i = 1 .. M
 
 and the energy needs to be minimised with respect
-to the expansion coefficients subject to orthonormality constraints,
+to the expansion coefficients subject to orthonormality constraints:
 
 .. math:: E_0 = \min_{O^{\dagger}SO = I} E\left(O\right)
 
 If we have some orthonormal reference orbitals with known
-coefficient matrix (c.m.) `C`, then *any* c.m. 'O'
+coefficient matrix (c.m.) `C`, then *any* c.m. `O`
 can be obtained from the reference c.m. `C`
 by some unitary transformation:
 
@@ -35,17 +35,17 @@ where U is a unitary matrix. Thus, the objective is to find the unitary
 matrix which transforms the reference c.m. into an optimal c.m.,
 minimizing the energy of the electronic system.
 A unitary matrix can parametrised as
-the exponential of a skew-hermitian matrix `A`.
+the exponential of a skew-hermitian matrix `A`:
 
 .. math:: U = \exp(A)
 
 This parametrisation is advantageous since the orthonormality
-constraints are satisfied:
+constraints are automatically satisfied:
 
 .. math:: UU^{\dagger} = \exp(A)\exp(A^{\dagger}) = \exp(A)\exp(-A) =I
 
 If the reference c.m. is fixed,
-then the energy is a function of `A`.
+then the energy is a function of `A`:
 
 .. math:: F\left(A\right) = E\left(C e^A \right)
 
