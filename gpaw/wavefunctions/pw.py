@@ -1511,7 +1511,7 @@ class PWLFC(BaseLFC):
         elif sign == 0:
             self.eikR_qa = np.exp(2j * pi * np.dot(kd.ibzk_qc, spos_ac.T))
         else:
-            k_qc = kd.ibzk_qc + sign * self.pd.q_c / 2
+            k_qc = kd.ibzk_qc + sign * self.pd.qs_c / 2
             self.eikR_qa = np.exp(2j * pi * np.dot(k_qc, spos_ac.T))
 
         self.pos_av = np.dot(spos_ac, self.pd.gd.cell_cv)
