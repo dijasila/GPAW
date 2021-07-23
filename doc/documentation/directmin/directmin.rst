@@ -4,9 +4,8 @@
 Direct Minimization Methods
 ================================
 
-An alternative to self-consistent field eigensolvers is employing
-direct minimization methods, which avoid density mixing and
-diagonalization of the Kohn-Sham Hamiltonian matrix.
+Direct minimization methods are an alternative to self-consistent field eigensolvers
+avoiding density mixing and diagonalization of the Kohn-Sham Hamiltonian matrix.
 
 LCAO mode
 ----------
@@ -32,9 +31,9 @@ by some unitary transformation:
 .. math:: O = C U
 
 where U is a unitary matrix. Thus, the objective is to find the unitary
-matrix which transforms the reference c.m. into an optimal c.m.,
+matrix that transforms the reference c.m. into an optimal c.m.,
 minimizing the energy of the electronic system.
-A unitary matrix can parametrised as
+A unitary matrix can be parametrised as
 the exponential of a skew-hermitian matrix `A`:
 
 .. math:: U = \exp(A)
@@ -42,14 +41,14 @@ the exponential of a skew-hermitian matrix `A`:
 This parametrisation is advantageous since the orthonormality
 constraints are automatically satisfied:
 
-.. math:: UU^{\dagger} = \exp(A)\exp(A^{\dagger}) = \exp(A)\exp(-A) =I
+.. math:: UU^{\dagger} = \exp(A)\exp(A^{\dagger}) = \exp(A)\exp(-A) = I
 
 If the reference c.m. is fixed,
 then the energy is a function of `A`:
 
 .. math:: F\left(A\right) = E\left(C e^A \right)
 
-The skew-hermitian matrices form a linear space and,
+Skew-hermitian matrices form a linear space and,
 therefore, conventional unconstrained minimization algorithms
 can be applied to minimise the energy
 with respect to `A`.
@@ -69,12 +68,14 @@ in LCAO:
 .. literalinclude:: h2o.py
 
 As one can see, it is possible to specify the amount of memory used in
-the L-BFGS algorithm. The larger the memory, the more robust the algorithm
-is. Default value is 3.
+the L-BFGS algorithm. The larger the memory, the fewer the iterations required to reach convergence.
+Default value is 3. One cannot use a memory larger than the number of iterations after which
+the reference orbitals are updated to the canonical orbitals (specified by the keyword ``update_ref_orbs_counter``
+in ``DirectMinLCAO``, default value is 20).
 
 **Important:** The exponential matrix is calculated here using
 the SciPy function *expm*. In order to obtain good performance,
-please be sure that your SciPy library is optimized
+please make sure that your SciPy library is optimized
 (e.g. use the Math Kernel Library (MKL)).
 Otherwise see `Implementation Details`_.
 
@@ -93,6 +94,9 @@ exponential can be used (see also `Implementation Details`_):
 
 Performance
 ~~~~~~~~~~~~~
+All calculations were carried out with GPAW version 1.5.2. In the newer versions
+of GPAW (>20.10.0) the default density mixing is different for spin-polarized systems
+and, therefore, the performance results of these calculations can be different as well.
 
 G2 molecular set
 `````````````````
@@ -131,7 +135,7 @@ the matrix exponential that takes into account the unitary invariance
 of the KS functional [#Hutter]_ (see `Implementation Details`_).
 As can be seen, direct minimization converges faster
 by a factor of 1.5 for 32 molecules and a factor of 2 for 512 molecules
-using the 'uinv' method. 'ss' outperforms the SCF by a factor of ~~.2.
+using the 'uinv' method. 'ss' outperforms the SCF by a factor of ~1.2.
 
 .. image:: water.png
   :width: 70%
@@ -140,45 +144,45 @@ using the 'uinv' method. 'ss' outperforms the SCF by a factor of ~~.2.
 Implementation Details
 ~~~~~~~~~~~~~~~~~~~~~~
 
-The implementation follows the ref. [#Ivanov2021]_ The iteratives are:
+The implementation follows ref. [#Ivanov2021]_ The iteratives are:
 
 .. math:: A^{(k+1)} = A^{(k)} + \gamma^{(k)} Q^{(k)}
 
-Here `Q` is the search direction and `\gamma` is step length.
+where `Q` is the search direction and `\gamma` is step length.
 The search direction is calculated according to the L-BFGS algorithm
 with preconditioning, and the step length satisfies
 the Strong Wolfe Conditions [#Nocedal]_ and/or
 approximate Wolfe Conditions [#Hager]_.
 The last two conditions are important as they guarantee stability
-and fast convergence of the L-BFGS algorithm [#Nocedal]_. Apart from L-BFGS
-algorithm, one can use limited-memory symmetric rank one (L-SR1, default memory is 20)
-quasi-Newton algorithm which also demonstrates good performance and is
-especially recommended for the calculation of the excited states [#Levi2020]_
-(see also :ref:`Maximum Overlap Method and Direct Optimization <mom>` ).
-There is also an option to use a conjugate gradient algortihm but it is less efficient.
+and fast convergence of the L-BFGS algorithm [#Nocedal]_. Apart from the L-BFGS
+algorithm, one can use a limited-memory symmetric rank-one (L-SR1, default memory 20)
+quasi-Newton algorithm, which has also been shown to have good convergence performance
+and is especially recommended for calculations of excited states [#Levi2020]_
+(see also :ref:`mom` ).
+There is also an option to use a conjugate gradient algorithm, but it is less efficient.
 
 
-Here are three algorithms which can be used to calculate the
+Here are the three algorithms that can be used to calculate the
 matrix exponential:
 
-1. The scaling and squaring algorithm which is based on the equation:
+1. The scaling and squaring algorithm, which is based on the equation:
 
    .. math:: \exp(A) = \exp(A/2^{m})^{2^{m}}
 
    Since :math:`A/2^{m}` has a small norm, then :math:`\exp(A/2^{m})`
    can be effectively estimated using a Pade approximant
    of order :math:`[q/q]`. Here q and m are positive integers.
-   The algorithm of Al-Moly and Higham [#AlMoly]_
-   from the SciPy library is used here.
+   The scaling and squaring algorithm algorithm of Al-Moly and Higham [#AlMoly]_
+   from the SciPy library is used.
 
-2. Using eigendecompostion of the matrix :math:`iA`.
+2. Using the eigendecompostion of the matrix :math:`iA`.
    Let :math:`\Omega` be a diagonal real-valued matrix with elements
    corresponding to the eigenvalues of the matrix :math:`iA`,
-   and let :math:`U` be a matrix, the columns of which are
+   and let :math:`U` be the matrix having as columns
    the eigenvectors of :math:`iA`.
    Then the matrix exponential of :math:`A` is:
 
-   .. math:: \exp(A) = U \exp(-i\Omega) U^{\dagger}.
+   .. math:: \exp(A) = U \exp(-i\Omega) U^{\dagger}
 
 3. For a unitary invariant functional, the matrix `A`
    can be parametrised as [#Hutter]_:
@@ -188,12 +192,12 @@ matrix exponential:
      A = \begin{pmatrix}
      0 & A_{ov} \\
      -A_{ov}^{\dagger} & 0
-     \end{pmatrix},
+     \end{pmatrix}
 
-   where :math:`A_{ov}` is :math:`N \times (M-N)`,
-   where :math:`N` is a number of occupied states and
-   :math:`M` is a number of basis functions.
-   `0` here is :math:`N \times N` zero matrix. In this case
+   where :math:`A_{ov}` has size :math:`N \times (M-N)`,
+   where :math:`N` is the number of occupied states and
+   :math:`M` is the number of basis functions, while
+   `0` is an :math:`N \times N` zero matrix. In this case
    the matrix exponential can be calculated as [#Hutter]_:
 
    .. math::
@@ -202,12 +206,12 @@ matrix exponential:
      \cos(P) & P^{-1/2} \sin(P^{1/2}) A_{ov}\\
      -A_{ov}^{\dagger} P^{-1/2} \sin(P^{1/2}) & I_{M-N} +
       A_{ov}^{\dagger}\cos(P^{1/2} - I_N) P^{-1} A_{ov} )
-     \end{pmatrix},
+     \end{pmatrix}
 
-   where :math:`P = A_{ov}A_{ov}^{\dagger}`.
+   where :math:`P = A_{ov}A_{ov}^{\dagger}`
 
-The first method is the default choice. If one would like to use
-the second algorithm, then do the following:
+The first method is the default choice. To use
+the second algorithm do the following:
 
 .. code-block:: python
 
@@ -215,7 +219,7 @@ the second algorithm, then do the following:
     calc = GPAW(eigensolver=DirectMinLCAO(matrix_exp='egdecomp'),
                 ...)
 
-To use the third method, firstly please ensure that your functional
+To use the third method, first ensure that your functional
 is unitary invariant and then do the following:
 
 .. code-block:: python
@@ -226,14 +230,14 @@ is unitary invariant and then do the following:
                 ...)
 
 The last option is the most efficient but it is valid only for a unitary invariant functionals
-(e.g. when occupied orbitals for a given spin state have the same occupation numbers)
+(e.g. when all occupied orbitals of a given spin channel have the same occupation number)
 
 For all three algorithms, the unitary invariant representation can be chosen.
 
 ScaLAPCK and the parallelization over bands are currently not supported.
 It is also not recommended to use the direct minimization for metals
 because the occupation numbers are not found variationally
-but rather fixed during calculations.
+but rather fixed during the calculation.
 
 References
 ~~~~~~~~~~
