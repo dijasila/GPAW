@@ -816,7 +816,10 @@ class PWWaveFunctions(FDPWWaveFunctions):
                 self.ng_k[kpt.k] = len(self.pd.Q_qG[kpt.q])
         self.kd.comm.sum(self.ng_k)
 
-        self.pt = PWLFC([setup.pt_j for setup in setups], self.pd)
+        if self.qspiral is None:
+            self.pt = PWLFC([setup.pt_j for setup in setups], self.pd)
+        else:
+            self.pt = SPWLFC([setup.pt_j for setup in setups], self.pd)
 
         FDPWWaveFunctions.set_setups(self, setups)
 
