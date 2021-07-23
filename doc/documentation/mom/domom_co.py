@@ -35,8 +35,7 @@ for kpt in calc.wfs.kpt_u:
     kpt.C_nM[lumo][:] = pm
     kpt.C_nM[lumo + 1][:] = pp
 
-calc.set(eigensolver=DirectMinLCAO(searchdir_algo={'name': 'LSR1P',
-                                                   'method': 'LSR1'},
+calc.set(eigensolver=DirectMinLCAO(searchdir_algo={'name': 'LSR1P'},
                                    linesearch_algo={'name': 'UnitStep'},
                                    need_init_orbs=False))
 

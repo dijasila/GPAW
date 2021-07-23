@@ -36,8 +36,7 @@ def test_mom_directopt_lcao_forces(in_tmp_dir):
 
     f_sn = excite(calc, 0, 0, spin=(0, 0))
 
-    calc.set(eigensolver=DirectMinLCAO(searchdir_algo={'name': 'LSR1P',
-                                                       'method': 'LSR1'},
+    calc.set(eigensolver=DirectMinLCAO(searchdir_algo={'name': 'LSR1P'},
                                        linesearch_algo={'name': 'UnitStep'},
                                        representation='u_invar',
                                        matrix_exp='egdecomp2',

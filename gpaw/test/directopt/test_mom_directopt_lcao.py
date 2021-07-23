@@ -34,8 +34,7 @@ def test_mom_directopt_lcao(in_tmp_dir):
     H2O.calc = calc
     H2O.get_potential_energy()
 
-    calc.set(eigensolver=DirectMinLCAO(searchdir_algo={'name': 'LSR1P',
-                                                       'method': 'LSR1'},
+    calc.set(eigensolver=DirectMinLCAO(searchdir_algo={'name': 'LSR1P'},
                                        linesearch_algo={'name': 'UnitStep'},
                                        need_init_orbs=False))
     # Ground-state occupation numbers

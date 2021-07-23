@@ -530,7 +530,7 @@ class LBFGS_P(SteepestDescent):
 
 class LSR1P(SteepestDescent):
 
-    def __init__(self, wfs, memory=10, method='LSR1', phi=None):
+    def __init__(self, wfs, memory=20, method='LSR1', phi=None):
         """
         :param m: memory (amount of previous steps to use)
         """

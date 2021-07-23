@@ -161,8 +161,7 @@ following ``eigensolver`` has to be specified::
 
   from gpaw.directmin.lcao.directmin_lcao import DirectMinLCAO
 
-  calc.set(eigensolver=DirectMinLCAO(searchdir_algo={'name': 'LSR1P',
-                                                     'method': 'LSR1'},
+  calc.set(eigensolver=DirectMinLCAO(searchdir_algo={'name': 'LSR1P'},
                                      linesearch_algo={'name': 'UnitStep',
                                                       'max_step': 0.20})
 

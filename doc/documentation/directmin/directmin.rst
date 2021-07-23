@@ -75,7 +75,11 @@ Otherwise see `Implementation Details`_.
 Since fot this example, the occupied orbitals have the same
 occupation numbers a more efficient algorithm can be used:
 
-.. literalinclude:: h2o-2.py
+.. code-block:: python
+
+    calc = GPAW(eigensolver=DirectMinLCAO(matrix_exp='egdecomp2',
+                                          representation='u_invar'),
+                ...)
 
 .. _Performance:
 
@@ -138,7 +142,7 @@ the Strong Wolfe Conditions [#Nocedal]_ and/or
 approximate Wolfe Conditions [#Hager]_.
 The last two conditions are important as they guarantee stability
 and fast convergence of the L-BFGS algorithm [#Nocedal]_. Apart from L-BFGS
-algorithm, one can use limited-memory symmetric rank one (L-SR1)
+algorithm, one can use limited-memory symmetric rank one (L-SR1, default memory is 20)
 quasi-Newton algorithm which also demonstrates good performance and is
 especially recommended for the calculation of the excited states [#Levi2020]_
 (see also :ref:`Maximum Overlap Method and Direct Optimization <mom>` ).
