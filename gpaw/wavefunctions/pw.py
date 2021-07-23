@@ -46,7 +46,7 @@ class PW(Mode):
     def __init__(self, ecut=340, fftwflags=fftw.MEASURE, cell=None,
                  gammacentered=False,
                  pulay_stress=None, dedecut=None,
-                 force_complex_dtype=False):
+                 force_complex_dtype=False, qspiral=None):
         """Plane-wave basis mode.
 
         ecut: float
@@ -79,7 +79,7 @@ class PW(Mode):
         self.pulay_stress = (None
                              if pulay_stress is None
                              else pulay_stress * Bohr**3 / Ha)
-
+        self.qspiral = qspiral
         assert pulay_stress is None or dedecut is None
 
         if cell is None:
@@ -110,7 +110,7 @@ class PW(Mode):
         wfs = PWWaveFunctions(ecut, self.gammacentered,
                               self.fftwflags, dedepsilon,
                               parallel, initksl, gd=gd,
-                              **kwargs)
+                              qspiral=self.qspiral, **kwargs)
 
         return wfs
 
@@ -131,7 +131,7 @@ class PW(Mode):
 class PWDescriptor:
     ndim = 1  # all 3d G-vectors are stored in a 1d ndarray
 
-    def __init__(self, ecut, gd, dtype=None, kd=None,
+    def __init__(self, ecut, gd, dtype=None, kd=None, qspiral=None,
                  fftwflags=fftw.MEASURE, gammacentered=False):
 
         assert gd.pbc_c.all()
@@ -733,14 +733,14 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
     def __init__(self, ecut, gammacentered, fftwflags, dedepsilon,
                  parallel, initksl,
-                 reuse_wfs_method, collinear,
+                 reuse_wfs_method, collinear, qspiral,
                  gd, nvalence, setups, bd, dtype,
                  world, kd, kptband_comm, timer):
         self.ecut = ecut
         self.gammacentered = gammacentered
         self.fftwflags = fftwflags
         self.dedepsilon = dedepsilon  # Pulay correction for stress tensor
-
+        self.qspiral = qspiral
         self.ng_k = None  # number of G-vectors for all IBZ k-points
 
         FDPWWaveFunctions.__init__(self, parallel, initksl,
@@ -771,7 +771,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
     def set_setups(self, setups):
         self.timer.start('PWDescriptor')
         self.pd = PWDescriptor(self.ecut, self.gd, self.dtype, self.kd,
-                               self.fftwflags, self.gammacentered)
+                               self.fftwflags, self.gammacentered, self.qspiral)
         self.timer.stop('PWDescriptor')
 
         # Build array of number of plane wave coefficiants for all k-points
