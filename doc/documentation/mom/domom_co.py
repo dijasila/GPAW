@@ -1,5 +1,5 @@
 from ase.build import molecule
-from ase.optimize import LBFGS
+from ase.optimize import BFGS
 from ase.parallel import paropen
 from gpaw import GPAW, LCAO
 from gpaw.mom import prepare_mom_calculation
@@ -46,7 +46,7 @@ f = excite(calc, 0, 0, spin=(0, 0))
 # Prepare excited-state DO-MOM calculation
 prepare_mom_calculation(calc, atoms, f)
 
-opt = LBFGS(atoms, logfile='co.log')
+opt = BFGS(atoms, logfile='co.log')
 opt.run(fmax=0.05)
 
 d = atoms.get_distance(0, 1)
