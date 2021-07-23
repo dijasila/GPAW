@@ -279,7 +279,7 @@ class PWDescriptor:
         if add_q:
             q_v = self.K_qv[q]
             if sign != 0:
-                q_v = q_v + sign*self.qs_v / 2
+                q_v = q_v + sign * self.qs_v / 2
             return self.G_Qv[self.myQ_qG[q]] + q_v
         return self.G_Qv[self.myQ_qG[q]]
 
@@ -947,7 +947,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
             p22 = p2.real**2 + p2.imag**2
             p12 = p1.conj() * p2
             if self.qspiral is not None:
-                p12 = p12* self.pd.phase_R
+                p12 = p12 * self.pd.phase_R
             nt_xR[0] += f * (p11 + p22)
             nt_xR[1] += 2 * f * p12.real
             nt_xR[2] += 2 * f * p12.imag
@@ -2119,9 +2119,11 @@ class SPWLFC(BaseLFC):
         mem.subnode('Arrays', nbytes)
 
     def set_positions(self, spos_ac, atom_partition=None):
-        # Note, set_positions is executed 
-        self.ptUp.set_positions(spos_ac, atom_partition, self.pd.G2m_qG, sign=-1)
-        self.ptDn.set_positions(spos_ac, atom_partition, self.pd.G2p_qG, sign=1)
+        # Note, set_positions is executed
+        self.ptUp.set_positions(spos_ac, atom_partition,
+                                self.pd.G2m_qG, sign=-1)
+        self.ptDn.set_positions(spos_ac, atom_partition,
+                                self.pd.G2p_qG, sign=1)
 
         # Required for baseLFC functionality
         assert (self.ptUp.my_atom_indices == self.ptDn.my_atom_indices)
