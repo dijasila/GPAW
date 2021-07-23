@@ -83,5 +83,5 @@ def test_mom_directopt_lcao_forces(in_tmp_dir):
     fnum = (E[0] - E[1]) / (2. * delta)     # central difference
 
     print(fnum)
-    assert fnum == pytest.approx(11.9364629545, 0.01)
-    assert f == pytest.approx(fnum, 0.1)
+    assert fnum == pytest.approx(11.9364629545, abs=0.01)
+    assert f == pytest.approx(fnum, abs=0.1)
