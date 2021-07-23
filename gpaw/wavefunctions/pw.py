@@ -2137,3 +2137,33 @@ class SPWLFC(BaseLFC):
         # Required for baseLFC functionality
         assert (self.ptUp.my_atom_indices == self.ptDn.my_atom_indices)
         self.my_atom_indices = self.ptUp.my_atom_indices
+
+    def add(self, a_xG, c_axi=1.0, q=-1, f0_IG=None):
+        aUp = a_xG[:, 0, :]
+        aDn = a_xG[:, 1, :]
+        cUp = {a: c_xi[:, 0, :] for a, c_xi in c_axi.items()}
+        cDn = {a: c_xi[:, 1, :] for a, c_xi in c_axi.items()}
+        
+        # Execute PWLFC add, which acts in-place on aUp, aDn
+        self.ptUp.add(aUp, cUp, q, f0_IG)
+        self.ptDn.add(aDn, cDn, q, f0_IG)
+
+        a_xG[:, 0, :] = aUp
+        a_xG[:, 1, :] = aDn
+
+    def integrate(self, a_xG, c_axi=None, q=-1):
+        aUp = a_xG[:, 0, :]
+        aDn = a_xG[:, 1, :]
+        cUp = {a: c_xi[:, 0, :] for a, c_xi in c_axi.items()}
+        cDn = {a: c_xi[:, 1, :] for a, c_xi in c_axi.items()}
+
+        # Execute PWLFC integration, which returns output
+        cUp = self.ptUp.integrate(aUp, cUp, q)
+        cDn = self.ptDn.integrate(aDn, cDn, q)
+
+        # Rebuild array
+        for a, c_xi in c_axi.items():
+            c_xi[:, 0] = cUp[a]
+            c_xi[:, 1] = cDn[a]
+
+        return c_axi
