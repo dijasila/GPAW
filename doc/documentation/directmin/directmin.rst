@@ -4,7 +4,7 @@
 Direct Minimization Methods
 ================================
 
-An alternative to self-consistent field algorithms is employing
+An alternative to self-consistent field eigensolvers is employing
 direct minimization methods, which avoid density mixing and
 diagonalization of the Kohn-Sham Hamiltonian matrix.
 
@@ -56,24 +56,32 @@ with respect to `A`.
 
 Example
 ~~~~~~~~
-Firstly, it is necessary to ensure that the number of bands used
-in calculations is equal to the number of atomic orbitals.
-Secondly, one needs to use a mixer which does not mix the density.
-Here is example of how to run the calculations:
+To run an LCAO calculation with direct minimization, it is necessary
+to specify the following in the calculator:
+
+* ``nbands='nao'``. Ensures that the number of bands used in the calculation is equal to the number of atomic orbitals.
+* ``mixer={'backend': 'no-mixing'}``. No density mixing.
+* ``occupations={'name': 'fixed-uniform'}``. Uniform distribution of the occupation numbers (same number of occupied bands for each **k**-point per spin).
+
+Here is an example of how to run a calculation with direct minimization
+in LCAO:
 
 .. literalinclude:: h2o.py
 
-As one can see, it is possible to specify the amount of memory used in L-BFGS algorithm.
-The large the memory, the more efficient algorithm is. Default value is 3.
+As one can see, it is possible to specify the amount of memory used in
+the L-BFGS algorithm. The larger the memory, the more robust the algorithm
+is. Default value is 3.
 
 **Important:** The exponential matrix is calculated here using
-the SciPy function *expm*. In order to obtain a good performance,
+the SciPy function *expm*. In order to obtain good performance,
 please be sure that your SciPy library is optimized
 (e.g. use the Math Kernel Library (MKL)).
 Otherwise see `Implementation Details`_.
 
-Since fot this example, the occupied orbitals have the same
-occupation numbers a more efficient algorithm can be used:
+When all occupied orbitals of a given spin channel have the same
+occupation number, as in the example above, the functional is unitary
+invariant and a more efficient algorithm for computing the matrix
+exponential can be used (see also `Implementation Details`_):
 
 .. code-block:: python
 
