@@ -68,7 +68,7 @@ in LCAO:
 .. literalinclude:: h2o.py
 
 As one can see, it is possible to specify the amount of memory used in
-the L-BFGS algorithm. The larger the memory, the fewer the iterations required to reach convergence.
+the L-BFGS algorithm. The larger the memory, the fewer iterations required to reach convergence.
 Default value is 3. One cannot use a memory larger than the number of iterations after which
 the reference orbitals are updated to the canonical orbitals (specified by the keyword ``update_ref_orbs_counter``
 in ``DirectMinLCAO``, default value is 20).
@@ -96,7 +96,7 @@ Performance
 ~~~~~~~~~~~~~
 All calculations were carried out with GPAW version 1.5.2. In the newer versions
 of GPAW (>20.10.0) the default density mixing is different for spin-polarized systems
-and, therefore, the performance results of these calculations can be different as well.
+and therefore, the performance results of these calculations can be different as well.
 
 G2 molecular set
 `````````````````
@@ -117,11 +117,11 @@ the convergence of the SCF methods.
 
 32-576 Water molecules
 ```````````````````````
-In this test, the ground state of clusters of 32, 64, 128, 256, 384 and 576
-water molecules is calculated. The geometries are taken
-from `here <https://wiki.fysik.dtu.dk/gpaw/devel/benchmarks.html>`_.
-The GPAW parameters used in this test include: PBE functional,
-DZP basis set, grid spacing h=0.2 and
+In this test, the ground state of liquid water configurations with 32, 64, 128, 256, 384 and 576
+molecules are calculated. The geometries are taken
+from `here <https://wiki.fysik.dtu.dk/gpaw/devel/benchmarks.html>`_
+The GPAW parameters used in this test include: the PBE functional,
+the DZP basis set, grid spacing h=0.2, and
 8-core domain decomposition. The convergence criterion is a
 square of the residuals of the Kohn-Sham equations smaller than `1.0 \times 10^{-10}\text{eV}^{2}`.
 The ratio of the elapsed times spent by the default LCAO eigensolver and
@@ -194,7 +194,7 @@ matrix exponential:
      -A_{ov}^{\dagger} & 0
      \end{pmatrix}
 
-   where :math:`A_{ov}` has size :math:`N \times (M-N)`,
+   where :math:`A_{ov}` is a :math:`N \times (M-N)` matrix,
    where :math:`N` is the number of occupied states and
    :math:`M` is the number of basis functions, while
    `0` is an :math:`N \times N` zero matrix. In this case
