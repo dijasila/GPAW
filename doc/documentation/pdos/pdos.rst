@@ -235,6 +235,8 @@ present, hence using these takes no extra computational effort.
 Wigner-Seitz LDOS
 -----------------
 
+(Note: this is currently only implemented for Gamma point calculations, ie. with no k-points.)
+
 For the Wigner-Seitz LDOS, the eigenstates are projected onto the function
 
 .. math::
