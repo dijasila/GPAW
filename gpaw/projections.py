@@ -1,11 +1,11 @@
-from typing import Any, Optional
+from typing import Any, Generator, Optional, Tuple
 
 import numpy as np
 
 from gpaw.matrix import Matrix
 from gpaw.mpi import serial_comm
+from gpaw.typing import Array2D, ArrayLike1D, ArrayND
 from gpaw.utilities.partition import AtomPartition
-from gpaw.typing import Array2D, ArrayLike1D
 
 MPIComm = Any
 
@@ -14,7 +14,7 @@ class Projections:
     def __init__(self,
                  nbands: int,
                  nproj_a: ArrayLike1D,
-                 atom_partition: AtomPartition,
+                 atom_partition: AtomPartition = None,
                  bcomm: MPIComm = None,
                  collinear=True,
                  spin=0,
@@ -29,6 +29,9 @@ class Projections:
             self.bcomm = bdist[0]
 
         self.nproj_a = np.asarray(nproj_a)
+        if atom_partition is None:
+            atom_partition = AtomPartition(serial_comm,
+                                           np.zeros(len(self.nproj_a)))
         self.atom_partition = atom_partition
         self.collinear = collinear
         self.spin = spin
@@ -65,7 +68,10 @@ class Projections:
         else:
             return self.matrix.array.reshape(self.myshape)
 
-    def new(self, bcomm='inherit', nbands=None, atom_partition=None):
+    def new(self,
+            bcomm='inherit',
+            nbands=None,
+            atom_partition=None) -> 'Projections':
         if bcomm == 'inherit':
             bcomm = self.bcomm
         elif bcomm is None:
@@ -82,11 +88,11 @@ class Projections:
                            self.bcomm, self.collinear, self.spin,
                            self.matrix.dtype, self.matrix.array[n1:n2])
 
-    def items(self):
+    def items(self) -> Generator[Tuple[int, ArrayND], None, None]:
         for a, I1, I2 in self.indices:
             yield a, self.array[..., I1:I2]
 
-    def __getitem__(self, a):
+    def __getitem__(self, a: int) -> ArrayND:
         I1, I2 = self.map[a]
         return self.array[..., I1:I2]
 

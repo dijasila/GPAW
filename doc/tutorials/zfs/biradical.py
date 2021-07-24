@@ -1,6 +1,7 @@
 import numpy as np
 from ase import Atoms
 from gpaw import GPAW
+from gpaw.zfs import BS
 
 d = 1.54
 dx = d * (2 / 3)**0.5
@@ -50,3 +51,6 @@ if __name__ == '__main__':
                           txt=name + '.txt')
         atoms.get_potential_energy()
         atoms.calc.write(name + '.gpw', 'all')
+        atoms.calc.set(occupations=BS())
+        atoms.get_potential_energy()
+        atoms.calc.write(name + '.BS.gpw', 'all')

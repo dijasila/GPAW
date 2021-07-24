@@ -38,6 +38,7 @@ from math import pi, sqrt  # noqa
 
 from gpaw import debug
 from _gpaw import spherical_harmonics as Yl
+from gpaw.typing import Array4D
 
 __all__ = ['Y', 'YL', 'nablarlYL', 'Yl', 'gam']
 
@@ -228,3 +229,86 @@ def nablarlYL(L, R):
         dYdy += N * powy * x**powx * y**abs(powy - 1) * z**powz
         dYdz += N * powz * x**powx * y**powy * z**abs(powz - 1)
     return dYdx, dYdy, dYdz
+
+
+def second_derivatives(l1: int,
+                       *,
+                       kind: str = 'lesser',
+                       l2: int = None,
+                       eps: float = 1e-12) -> Array4D:
+    """Create the array of second derivative intergrals.
+
+    The result is::
+
+                     2
+      /  ^     2-n  d         n
+      | dr Y  r   ------(Y   r ),
+      /     L2    dr dr   L1
+                    a  b
+
+    where n=l1 or -(l1+1) for kind='lesser' and 'greater' respectively.
+    """
+    assert kind in ['lesser', 'greater']
+
+    if l2 is None:
+        if kind == 'lesser':
+            l2 = l1 - 2
+        else:
+            l2 = l1 + 2
+
+    assert 0 <= l1 < 8
+    assert 0 <= l2 < 8
+
+    if kind == 'lesser':
+        d2 = d2_lesser
+    else:
+        d2 = d2_greater
+
+    Y_mmvv = np.zeros((2 * l1 + 1, 2 * l2 + 1, 3, 3))
+    for m1 in range(2 * l1 + 1):
+        for m2 in range(2 * l2 + 1):
+            for v1 in range(3):
+                for v2 in range(v1, 3):
+                    r = 0.0
+                    for c1, n1 in YL[l1**2 + m1]:
+                        for c2, n2 in YL[l2**2 + m2]:
+                            r += c1 * c2 * d2(n1, n2, v1, v2)
+                    if abs(r) > eps:
+                        Y_mmvv[m1, m2, v1, v2] = r
+                        Y_mmvv[m1, m2, v2, v1] = r
+    return Y_mmvv
+
+
+def G(coef: int, n) -> float:
+    return coef * gam(*n) if coef else 0.0
+
+
+N = np.eye(3, dtype=int)
+
+
+def d2_lesser(n1, n2, v1, v2):
+    n = np.array(n1) + n2
+    if v1 != v2:
+        d = G(n1[v1] * n1[v2], n - N[v1] - N[v2])
+    else:
+        v = v1
+        d = G(n1[v] * (n1[v] - 1), n - 2 * N[v1])
+    return d
+
+
+def d2_greater(n1, n2, v1, v2):
+    l = sum(n1)
+    n = np.array(n1) + n2
+    if v1 != v2:
+        d = G(n1[v1] * n1[v2], n - N[v1] - N[v2])
+        d -= (2 * l + 1) * (
+            G(n1[v1], n - N[v1] + N[v2]) +
+            G(n1[v2], n - N[v2] + N[v1]))
+        d += (2 * l + 1) * (2 * l + 3) * G(1.0, n + N[v1] + N[v2])
+    else:
+        v = v1
+        d = G(n1[v] * (n1[v] - 1), n - 2 * N[v1])
+        d -= 2 * (2 * l + 1) * G(n1[v], n)
+        d += G((2 * l + 1) * (2 * l + 3), n + 2 * N[v])
+        d -= G(2 * l + 1, n)
+    return d

@@ -520,6 +520,10 @@ class AERadialGridDescriptor(RadialGridDescriptor):
         dr_g = (self.b * r_g + self.a)**2 / self.a
         RadialGridDescriptor.__init__(self, r_g, dr_g, default_spline_points)
 
+    def __repr__(self):
+        N = len(self)
+        return f'AERadialGridDescriptor(a={self.a}, b={self.b}, {N})'
+
     def r2g(self, r):
         # return r / (r * self.b + self.a)
         # Hack to preserve backwards compatibility:
