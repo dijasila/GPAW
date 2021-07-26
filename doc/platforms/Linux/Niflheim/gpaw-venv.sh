@@ -4,6 +4,9 @@
 set -e  # stop if there are errors
 
 NAME=$1
+ASE_REPO=https://gitlab.com/ase/ase.git
+GPAW_REPO=https://gitlab.com/gkastlun/gpaw.git
+
 USAGE="Usage: $0 foldername [intel]"
 
 if [[ $# -ne 2 && $# -ne 1 ]]; then
@@ -60,12 +63,12 @@ $PIP install --upgrade pip -qq
 
 # Load modules in activate script:
 mv bin/activate old
-mv ../modules.sh bin/activate
+mv $FOLDER/modules.sh bin/activate
 cat old >> bin/activate
 rm old
 
 # Install ASE from git:
-git clone https://gitlab.com/ase/ase.git
+git clone $ASE_REPO
 $PIP install -e ase/
 
 $PIP install myqueue graphviz qeh
@@ -77,7 +80,7 @@ echo $CMD
 ssh fjorm $CMD
 
 # Install GPAW:
-git clone https://gitlab.com/gpaw/gpaw.git
+git clone $GPAW_REPO
 cd gpaw
 cp doc/platforms/Linux/Niflheim/siteconfig-${TCHAIN}.py siteconfig.py
 for HOST in fjorm svol thul slid
