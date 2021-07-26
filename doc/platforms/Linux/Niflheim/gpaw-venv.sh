@@ -5,7 +5,7 @@ set -e  # stop if there are errors
 
 NAME=$1
 ASE_REPO=https://gitlab.com/ase/ase.git
-GPAW_REPO=https://gitlab.com/gkastlun/gpaw.git
+GPAW_REPO=https://gitlab.com/gpaw/gpaw.git
 
 USAGE="Usage: $0 foldername [intel]"
 
