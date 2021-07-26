@@ -13,6 +13,7 @@ GPAW calculator:
    parallel_runs/parallel_runs
    smearing
    convergence
+   custom_convergence
    restart_files
    rmm-diis
    orthogonalization

@@ -150,28 +150,44 @@ class Hamiltonian:
         self.xc.summary(log)
 
         try:
-            correction = self.poisson.correction
-        except AttributeError:
+            workfunctions = self.get_workfunctions(wfs)
+        except ValueError:
             pass
         else:
-            c = self.poisson.c  # index of axis perpendicular to dipole-layer
-            if not self.gd.pbc_c[c]:
-                # zero boundary conditions
-                vacuum = 0.0
-            else:
-                v_q = self.pd3.gather(self.vHt_q)
-                if self.pd3.comm.rank == 0:
-                    axes = (c, (c + 1) % 3, (c + 2) % 3)
-                    v_g = self.pd3.ifft(v_q, local=True).transpose(axes)
-                    vacuum = v_g[0].mean()
-                else:
-                    vacuum = np.nan
-
-            wf1 = (vacuum - wfs.fermi_level + correction) * Ha
-            wf2 = (vacuum - wfs.fermi_level - correction) * Ha
             log('Dipole-layer corrected work functions: {:.6f}, {:.6f} eV'
-                .format(wf1, wf2))
+                .format(*np.array(workfunctions) * Ha))
             log()
+
+    def get_workfunctions(self, wfs):
+        """
+        Returns the work functions, in Hartree, for a dipole-corrected
+        simulation. Returns None if no dipole correction is present.
+        (wfs can be obtained from calc.wfs)
+        """
+        try:
+            dipole_correction = self.poisson.correction
+        except AttributeError:
+            raise ValueError(
+                'Work function not defined if no field-free region. Consider '
+                'using a dipole correction if you are looking for a '
+                'work function.')
+        c = self.poisson.c  # index of axis perpendicular to dipole-layer
+        if not self.gd.pbc_c[c]:
+            # zero boundary conditions
+            vacuum = 0.0
+        else:
+            v_q = self.pd3.gather(self.vHt_q)
+            if self.pd3.comm.rank == 0:
+                axes = (c, (c + 1) % 3, (c + 2) % 3)
+                v_g = self.pd3.ifft(v_q, local=True).transpose(axes)
+                vacuum = v_g[0].mean()
+            else:
+                vacuum = np.nan
+
+        fermilevel = wfs.fermi_level
+        wf1 = vacuum - fermilevel + dipole_correction
+        wf2 = vacuum - fermilevel - dipole_correction
+        return np.array([wf1, wf2])
 
     def set_positions_without_ruining_everything(self, spos_ac,
                                                  atom_partition):
