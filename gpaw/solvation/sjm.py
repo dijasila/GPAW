@@ -174,7 +174,7 @@ class SJM(SolvationGPAW):
                            'thickness': None,
                            'fix_bottom': False},
          'target_potential': None,
-         'write_grandpotential_energy': True,
+         'write_grandpotential_energy': None,
          'tol': 0.01,
          'always_adjust': False,
          'max_iters': 10,
@@ -185,6 +185,9 @@ class SJM(SolvationGPAW):
     # would make more sense in constant-charge mode, no? Shall we make
     # this keyword be None and set it automatically, and the user can
     # override if they want something else?
+    # GK: I fully agree and think we spoke about this some time back
+    # I added an if statement in the calculate function (marked as a
+    # FIXME).
     default_parameters = copy.deepcopy(SolvationGPAW.default_parameters)
     default_parameters.update({'poissonsolver': {'dipolelayer': 'xy'}})
     default_parameters.update({'sj': _sj_default_parameters})
@@ -371,10 +374,20 @@ class SJM(SolvationGPAW):
             # unnecessary computations (mostly of forces) in the loop.
             SolvationGPAW.calculate(self, atoms, properties, [])
 
+        # FIXME GK: I have added the following if statement:
+        # If the user sets the 'write_grandpotential_energy' the kind of energy
+        # in the output  is locked in. Otherwise it will be checked after the
+        # calculation converged.
+        if p.write_grandpotential_energy is not None:
+            write_GC = p.write_grandpotential_energy
+        elif p.target_potential:
+            write_GC = True
+        else:
+            write_GC = False
+
         # Note that grand-potential energies were assembled in summary,
         # which in turn was called by GPAW.calculate.
-
-        if p.write_grandpotential_energy:
+        if write_GC:
             self.results['energy'] = self.omega_extrapolated * Ha
             self.results['free_energy'] = self.omega_free * Ha
             self.sog('Grand-potential energy was written into results.\n')
