@@ -1034,3 +1034,57 @@ class LCAOforces:
                                                             C_nM).conj()
         rho_mm = redistributor.redistribute(rho1_mm)
         return rho_mm
+
+    def get_den_mat_and_E(self):
+        #
+        #         -----                    -----
+        #          \    -1                  \    *
+        # E      =  )  S     H    rho     =  )  c     eps  f  c
+        #  mu nu   /    mu x  x z    z nu   /    n mu    n  n  n nu
+        #         -----                    -----
+        #          x z                       n
+        #
+        # We use the transpose of that matrix.  The first form is used
+        # if rho is given, otherwise the coefficients are used.
+        self.timer.start('Initial')
+        if self.kpt_u[0].rho_MM is None:
+            rhoT_uMM = []
+            ET_uMM = []
+            self.timer.start('Get density matrix')
+            for kpt in self.kpt_u:
+                rhoT_MM = self.ksl.get_transposed_density_matrix(kpt.f_n,
+                                                                 kpt.C_nM)
+                rhoT_uMM.append(rhoT_MM)
+                ET_MM = self.ksl.get_transposed_density_matrix(kpt.f_n *
+                                                               kpt.eps_n,
+                                                               kpt.C_nM)
+                ET_uMM.append(ET_MM)
+                if hasattr(kpt, 'c_on'):
+                    # XXX does this work with BLACS/non-BLACS/etc.?
+                    assert self.bd.comm.size == 1
+                    d_nn = np.zeros((self.bd.mynbands, self.bd.mynbands),
+                                    dtype=kpt.C_nM.dtype)
+                    for ne, c_n in zip(kpt.ne_o, kpt.c_on):
+                        d_nn += ne * np.outer(c_n.conj(), c_n)
+                    rhoT_MM += self.ksl.get_transposed_density_matrix_delta(
+                        d_nn, kpt.C_nM)
+                    ET_MM += self.ksl.get_transposed_density_matrix_delta(
+                        d_nn * kpt.eps_n, kpt.C_nM)
+            self.timer.stop('Get density matrix')
+        else:
+            rhoT_uMM = []
+            ET_uMM = []
+            for kpt in self.kpt_u:
+                H_MM = self.eigensolver.calculate_hamiltonian_matrix(
+                    self.hamiltonian, self, kpt)
+                tri2full(H_MM)
+                S_MM = kpt.S_MM.copy()
+                tri2full(S_MM)
+                ET_MM = np.linalg.solve(S_MM, gemmdot(H_MM,
+                                                      kpt.rho_MM)).T.copy()
+                del S_MM, H_MM
+                rhoT_MM = kpt.rho_MM.T.copy()
+                rhoT_uMM.append(rhoT_MM)
+                ET_uMM.append(ET_MM)
+        self.timer.stop('Initial')
+        return rhoT_uMM, ET_uMM
