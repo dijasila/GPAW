@@ -1088,3 +1088,92 @@ class LCAOforces:
                 ET_uMM.append(ET_MM)
         self.timer.stop('Initial')
         return rhoT_uMM, ET_uMM
+
+    def get_den_mat_paw_term(self):
+        # Density matrix contribution from PAW correction
+        #
+        #           -----                        -----
+        #  a         \      a                     \     b
+        # F +=  2 Re  )    Z      E        - 2 Re  )   Z      E
+        #            /      mu nu  nu mu          /     mu nu  nu mu
+        #           -----                        -----
+        #           mu nu                    b; mu in a; nu
+        #
+        # with
+        #                  b*
+        #         -----  dP
+        #   b      \       i mu    b   b
+        #  Z     =  )   -------- dS   P
+        #   mu nu  /     dR        ij  j nu
+        #         -----    b mu
+        #           ij
+        #
+        Frho_av = np.zeros_like(self.Fref_av)
+        self.timer.start('add paw correction')
+        ZE_MM = self.get_paw_correction()
+        for u, kpt in enumerate(self.kpt_u):
+            for b in self.my_atom_indices:
+                for v in range(3):
+                    for a, M1, M2 in self.slices():
+                        dE = 2 * ZE_MM[u, b, v, M1:M2].sum()
+                        Frho_av[a, v] -= dE  # the "b; mu in a; nu" term
+                        Frho_av[b, v] += dE  # the "mu nu" term
+        self.timer.stop('add paw correction')
+        return Frho_av
+
+    def get_paw_correction(self):
+        #  <Phi_nu|pt_i>O_ii<dPt_i/dR|Phi_mu>
+        self.timer.start('get paw correction')
+        ZE_MM = np.zeros((len(self.kpt_u), len(self.my_atom_indices), 3,
+                          self.mynao, self.nao), self.dtype)
+        for u, kpt in enumerate(self.kpt_u):
+            work_MM = np.zeros((self.mynao, self.nao), self.dtype)
+            for b in self.my_atom_indices:
+                setup = self.setups[b]
+                dO_ii = np.asarray(setup.dO_ii, self.dtype)
+                dOP_iM = np.zeros((setup.ni, self.nao), self.dtype)
+                gemm(1.0, self.P_aqMi[b][kpt.q], dO_ii, 0.0, dOP_iM, 'c')
+                for v in range(3):
+                    gemm(1.0, dOP_iM,
+                         self.dPdR_aqvMi[b][kpt.q][v][self.Mstart:self.Mstop],
+                         0.0, work_MM, 'n')
+                    ZE_MM[u, b, v, :, :] = (work_MM * self.ET_uMM[u]).real
+        self.timer.stop('get paw correction')
+        return ZE_MM
+
+        Fatom_av = np.zeros_like(self.Fref_av)
+        # Atomic density contribution
+        #            -----                         -----
+        #  a          \     a                       \     b
+        # F  += -2 Re  )   A      rho       + 2 Re   )   A      rho
+        #             /     mu nu    nu mu          /     mu nu    nu mu
+        #            -----                         -----
+        #            mu nu                     b; mu in a; nu
+        #
+        #                  b*
+        #         ----- d P
+        #  b       \       i mu   b   b
+        # A     =   )   ------- dH   P
+        #  mu nu   /    d R       ij  j nu
+        #         -----    b mu
+        #           ij
+        #
+        self.timer.start('Atomic Hamiltonian force')
+        Fatom_av = np.zeros_like(Fatom_av)
+        for u, kpt in enumerate(self.kpt_u):
+            for b in self.my_atom_indices:
+                H_ii = np.asarray(unpack(self.dH_asp[b][kpt.s]), self.dtype)
+                HP_iM = gemmdot(H_ii, np.ascontiguousarray(
+                                self.P_aqMi[b][kpt.q].T.conj()))
+                for v in range(3):
+                    dPdR_Mi = \
+                        self.dPdR_aqvMi[b][kpt.q][v][self.Mstart:self.Mstop]
+                    ArhoT_MM = \
+                        (gemmdot(dPdR_Mi, HP_iM) * self.rhoT_uMM[u]).real
+                    for a, M1, M2 in self.slices():
+                        dE = 2 * ArhoT_MM[M1:M2].sum()
+                        Fatom_av[a, v] += dE  # the "b; mu in a; nu" term
+                        Fatom_av[b, v] -= dE  # the "mu nu" term
+
+        self.timer.stop('Atomic Hamiltonian force')
+        return Fatom_av
