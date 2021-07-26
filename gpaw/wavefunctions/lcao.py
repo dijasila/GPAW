@@ -1029,7 +1029,7 @@ class LCAOforces:
     def my_slices(self):
         return self._slices(self.my_atom_indices)
 
-    def get_density_matrix_blocked_blacs(self, f_n, C_nM, redistributor):
+    def get_den_mat_bloc_blacs(self, f_n, C_nM, redistributor):
         rho1_mm = self.ksl.calculate_blocked_density_matrix(f_n,
                                                             C_nM).conj()
         rho_mm = redistributor.redistribute(rho1_mm)
@@ -1177,3 +1177,279 @@ class LCAOforces:
 
         self.timer.stop('Atomic Hamiltonian force')
         return Fatom_av
+
+    def get_atomic_density_term(self):
+        Fatom_av = np.zeros_like(self.Fref_av)
+        # Atomic density contribution
+        #            -----                         -----
+        #  a          \     a                       \     b
+        # F  += -2 Re  )   A      rho       + 2 Re   )   A      rho
+        #             /     mu nu    nu mu          /     mu nu    nu mu
+        #            -----                         -----
+        #            mu nu                     b; mu in a; nu
+        #
+        #                  b*
+        #         ----- d P
+        #  b       \       i mu   b   b
+        # A     =   )   ------- dH   P
+        #  mu nu   /    d R       ij  j nu
+        #         -----    b mu
+        #           ij
+        #
+        self.timer.start('Atomic Hamiltonian force')
+        Fatom_av = np.zeros_like(Fatom_av)
+        for u, kpt in enumerate(self.kpt_u):
+            for b in self.my_atom_indices:
+                H_ii = np.asarray(unpack(self.dH_asp[b][kpt.s]), self.dtype)
+                HP_iM = gemmdot(H_ii, np.ascontiguousarray(
+                                self.P_aqMi[b][kpt.q].T.conj()))
+                for v in range(3):
+                    dPdR_Mi = \
+                        self.dPdR_aqvMi[b][kpt.q][v][self.Mstart:self.Mstop]
+                    ArhoT_MM = \
+                        (gemmdot(dPdR_Mi, HP_iM) * self.rhoT_uMM[u]).real
+                    for a, M1, M2 in self.slices():
+                        dE = 2 * ArhoT_MM[M1:M2].sum()
+                        Fatom_av[a, v] += dE  # the "b; mu in a; nu" term
+                        Fatom_av[b, v] -= dE  # the "mu nu" term
+
+        self.timer.stop('Atomic Hamiltonian force')
+        return Fatom_av
+
+    def get_den_mat_blacs(self):
+        rhoT_umm = []
+        for u, kpt in enumerate(self.kpt_u):
+            self.timer.start('Get density matrix')
+            rhoT_mm = self.get_density_matrix_blocked_blacs(kpt.f_n, kpt.C_nM,
+                                                            self.redistributor)
+            rhoT_umm.append(rhoT_mm)
+            self.timer.stop('Get density matrix')
+        return rhoT_umm, rhoT_mm
+
+    def get_pot_term_blacs(self):
+        if self.isblacs:
+            from gpaw.blacs import BlacsGrid, Redistributor
+            self.grid = BlacsGrid(self.ksl.block_comm, self.gd.comm.size,
+                                  self.bd.comm.size)
+
+            # pcutoff_a = [max([pt.get_cutoff() for pt in setup.pt_j])
+            #              for setup in self.setups]
+            # phicutoff_a = [max([phit.get_cutoff() for phit in setup.phit_j])
+            #                for setup in self.setups]
+
+            # XXX should probably use bdsize x gdsize instead
+            # That would be consistent with some existing grids
+            vt_sG = self.hamiltonian.vt_sG
+
+            self.blocksize1 = -(-self.nao // self.grid.nprow)
+            self.blocksize2 = -(-self.nao // self.grid.npcol)
+            # XXX what are rows and columns actually?
+            self.desc = self.grid.new_descriptor(self.nao, self.nao,
+                                                 self.blocksize1,
+                                                 self.blocksize2)
+            self.rhoT_umm = []
+            self.ET_umm = []
+            self.redistributor = Redistributor(self.grid.comm,
+                                               self.ksl.mmdescriptor,
+                                               self.desc)
+            Fpot_av = np.zeros_like(self.Fref_av)
+            for u, kpt in enumerate(self.kpt_u):
+                self.timer.start('Get density matrix')
+                self.rhoT_umm, self.rhoT_mm = self.get_den_mat_blacs()
+                self.timer.stop('Get density matrix')
+
+                self.timer.start('Potential')
+                rhoT_mM = self.ksl.distribute_to_columns(self.rhoT_mm,
+                                                         self.desc)
+
+                vt_G = vt_sG[kpt.s]
+                Fpot_av += self.bfs.calculate_force_contribution(vt_G, rhoT_mM,
+                                                                 kpt.q)
+                del rhoT_mM
+                self.timer.stop('Potential')
+
+            self.timer.start('Get density matrix')
+            for kpt in self.kpt_u:
+                ET_mm = self.get_den_mat_block_blacs(kpt.f_n * kpt.eps_n,
+                                                     kpt.C_nM,
+                                                     self.redistributor)
+                self.ET_umm.append(ET_mm)
+            self.timer.stop('Get density matrix')
+
+            self.M1start = self.blocksize1 * self.grid.myrow
+            self.M2start = self.blocksize2 * self.grid.mycol
+
+            self.M1stop = min(self.M1start + self.blocksize1, self.nao)
+            self.M2stop = min(self.M2start + self.blocksize2, self.nao)
+
+            self.m1max = self.M1stop - self.M1start
+            self.m2max = self.M2stop - self.M2start
+
+            self.ksl.orbital_comm.sum(Fpot_av)
+            if self.bd.comm.rank == 0:
+                self.kd.comm.sum(Fpot_av, 0)
+
+        return Fpot_av
+
+    def get_kin_and_den_term_blacs(self):
+        # from gpaw.lcao.overlap import TwoCenterIntegralCalculator
+        self.timer.start('Prepare TCI loop')
+        M_a = self.bfs.M_a
+        Fkin2_av = np.zeros_like(self.Fref_av)
+        Ftheta2_av = np.zeros_like(self.Fref_av)
+        atompairs = self.newtci.a1a2.get_atompairs()
+        self.timer.start('broadcast dH')
+        self.alldH_asp = {}
+        for a in range(len(self.setups)):
+            gdrank = self.bfs.sphere_a[a].rank
+            if gdrank == self.gd.rank:
+                dH_sp = self.dH_asp[a]
+            else:
+                ni = self.setups[a].ni
+                dH_sp = np.empty((self.nspins, ni * (ni + 1) // 2))
+            self.gd.comm.broadcast(dH_sp, gdrank)
+            # okay, now everyone gets copies of dH_sp
+            self.alldH_asp[a] = dH_sp
+        self.timer.stop('broadcast dH')
+        # This will get sort of hairy.  We need to account for some
+        # three-center overlaps, such as:
+        #
+        #         a1
+        #      Phi   ~a3    a3  ~a3     a2     a2,a1
+        #   < ----  |p  > dH   <p   |Phi  > rho
+        #      dR
+        #
+        # To this end we will loop over all pairs of atoms (a1, a3),
+        # and then a sub-loop over (a3, a2).
+        self.timer.stop('Prepare TCI loop')
+        self.timer.start('Not so complicated loop')
+        for (a1, a2) in atompairs:
+            if a1 >= a2:
+                # Actually this leads to bad load balance.
+                # We should take a1 > a2 or a1 < a2 equally many times.
+                # Maybe decide which of these choices
+                # depending on whether a2 % 1 == 0
+                continue
+            m1start = M_a[a1] - self.M1start
+            m2start = M_a[a2] - self.M2start
+            if m1start >= self.blocksize1 or m2start >= self.blocksize2:
+                continue  # (we have only one block per CPU)
+            nm1 = self.setups[a1].nao
+            nm2 = self.setups[a2].nao
+            m1stop = min(m1start + nm1, self.m1max)
+            m2stop = min(m2start + nm2, self.m2max)
+            if m1stop <= 0 or m2stop <= 0:
+                continue
+            m1start = max(m1start, 0)
+            m2start = max(m2start, 0)
+            J1start = max(0, self.M1start - M_a[a1])
+            J2start = max(0, self.M2start - M_a[a2])
+            M1stop = J1start + m1stop - m1start
+            J2stop = J2start + m2stop - m2start
+            dThetadR_qvmm, dTdR_qvmm = self.newtci.dOdR_dTdR(a1, a2)
+            for u, kpt in enumerate(self.kpt_u):
+                self.rhoT_mm = self.rhoT_umm[u][m1start:m1stop, m2start:m2stop]
+                ET_mm = self.ET_umm[u][m1start:m1stop, m2start:m2stop]
+                Fkin_v = 2.0 * (dTdR_qvmm[kpt.q][:, J1start:M1stop,
+                                                 J2start:J2stop] *
+                                self.rhoT_mm[np.newaxis]).real.sum(-1).sum(-1)
+                Ftheta_v = 2.0 * (dThetadR_qvmm[kpt.q][:, J1start:M1stop,
+                                                       J2start:J2stop] *
+                                  ET_mm[np.newaxis]).real.sum(-1).sum(-1)
+                Fkin2_av[a1] += Fkin_v
+                Fkin2_av[a2] -= Fkin_v
+                Ftheta2_av[a1] -= Ftheta_v
+                Ftheta2_av[a2] += Ftheta_v
+        Fkin_av = Fkin2_av
+        Ftheta_av = Ftheta2_av
+        self.timer.stop('Not so complicated loop')
+        return Fkin_av, Ftheta_av
+
+    def get_at_den_and_den_paw_blacs(self):
+        dHP_and_dSP_aauim = {}
+        a2values = {}
+        atompairs = self.newtci.a1a2.get_atompairs()
+        M_a = self.bfs.M_a
+        for (a2, a3) in atompairs:
+            if a3 not in a2values:
+                a2values[a3] = []
+            a2values[a3].append(a2)
+        Fatom_av = np.zeros_like(self.Fref_av)
+        Frho_av = np.zeros_like(self.Fref_av)
+        self.timer.start('Complicated loop')
+        for a1, a3 in atompairs:
+            if a1 == a3:
+                # Functions reside on same atom, so their overlap
+                # does not change when atom is displaced
+                continue
+            m1start = M_a[a1] - self.M1start
+            if m1start >= self.blocksize1:
+                continue
+            nm1 = self.setups[a1].nao
+            m1stop = min(m1start + nm1, self.m1max)
+            if m1stop <= 0:
+                continue
+
+            dPdR_qvim = self.newtci.dPdR(a3, a1)
+            if dPdR_qvim is None:
+                continue
+
+            dPdR_qvmi = -dPdR_qvim.transpose(0, 1, 3, 2).conj()
+
+            m1start = max(m1start, 0)
+            J1start = max(0, self.M1start - M_a[a1])
+            J1stop = J1start + m1stop - m1start
+            dPdR_qvmi = dPdR_qvmi[:, :, J1start:J1stop, :].copy()
+            for a2 in a2values[a3]:
+                m2start = M_a[a2] - self.M2start
+                if m2start >= self.blocksize2:
+                    continue
+
+                nm2 = self.setups[a2].nao
+                m2stop = min(m2start + nm2, self.m2max)
+                if m2stop <= 0:
+                    continue
+
+                m2start = max(m2start, 0)
+                J2start = max(0, self.M2start - M_a[a2])
+                J2stop = J2start + m2stop - m2start
+
+                if (a2, a3) in dHP_and_dSP_aauim:
+                    dHP_uim, dSP_uim = dHP_and_dSP_aauim[(a2, a3)]
+                else:
+                    P_qim = self.newtci.P(a3, a2)
+                    if P_qim is None:
+                        continue
+                    P_qmi = P_qim.transpose(0, 2, 1).conj()
+                    P_qmi = P_qmi[:, J2start:J2stop].copy()
+                    dH_sp = self.alldH_asp[a3]
+                    dS_ii = self.setups[a3].dO_ii
+
+                    dHP_uim = []
+                    dSP_uim = []
+                    for u, kpt in enumerate(self.kpt_u):
+                        dH_ii = unpack(dH_sp[kpt.s])
+                        dHP_im = np.dot(P_qmi[kpt.q], dH_ii).T.conj()
+                        # XXX only need nq of these,
+                        # but the looping is over all u
+                        dSP_im = np.dot(P_qmi[kpt.q], dS_ii).T.conj()
+                        dHP_uim.append(dHP_im)
+                        dSP_uim.append(dSP_im)
+                        dHP_and_dSP_aauim[(a2, a3)] = dHP_uim, dSP_uim
+
+                for u, kpt in enumerate(self.kpt_u):
+                    rhoT_mm = self.rhoT_umm[u][m1start:m1stop, m2start:m2stop]
+                    ET_mm = self.ET_umm[u][m1start:m1stop, m2start:m2stop]
+                    dPdRdHP_vmm = np.dot(dPdR_qvmi[kpt.q], dHP_uim[u])
+                    dPdRdSP_vmm = np.dot(dPdR_qvmi[kpt.q], dSP_uim[u])
+                    Fatom_c = 2.0 * (dPdRdHP_vmm *
+                                     rhoT_mm).real.sum(-1).sum(-1)
+                    Frho_c = 2.0 * (dPdRdSP_vmm *
+                                    ET_mm).real.sum(-1).sum(-1)
+                    Fatom_av[a1] += Fatom_c
+                    Fatom_av[a3] -= Fatom_c
+                    Frho_av[a1] -= Frho_c
+                    Frho_av[a3] += Frho_c
+
+        self.timer.stop('Complicated loop')
+        return Fatom_av, Frho_av
