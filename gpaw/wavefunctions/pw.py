@@ -48,7 +48,7 @@ class PW(Mode):
     def __init__(self, ecut=340, fftwflags=fftw.MEASURE, cell=None,
                  gammacentered=False,
                  pulay_stress=None, dedecut=None,
-                 force_complex_dtype=False):
+                 force_complex_dtype=False, qspiral=None):
         """Plane-wave basis mode.
 
         ecut: float
@@ -81,7 +81,7 @@ class PW(Mode):
         self.pulay_stress = (None
                              if pulay_stress is None
                              else pulay_stress * Bohr**3 / Ha)
-
+        self.qspiral = qspiral
         assert pulay_stress is None or dedecut is None
 
         if cell is None:
@@ -112,7 +112,7 @@ class PW(Mode):
         wfs = PWWaveFunctions(ecut, self.gammacentered,
                               self.fftwflags, dedepsilon,
                               parallel, initksl, gd=gd,
-                              **kwargs)
+                              qspiral=self.qspiral, **kwargs)
 
         return wfs
 
@@ -133,7 +133,7 @@ class PW(Mode):
 class PWDescriptor:
     ndim = 1  # all 3d G-vectors are stored in a 1d ndarray
 
-    def __init__(self, ecut, gd, dtype=None, kd=None,
+    def __init__(self, ecut, gd, dtype=None, kd=None, qspiral=None,
                  fftwflags=fftw.MEASURE, gammacentered=False):
 
         assert gd.pbc_c.all()
@@ -193,6 +193,20 @@ class PWDescriptor:
             self.K_qv = np.dot(kd.ibzk_qc, B_cv)
             self.only_one_k_point = (kd.nbzkpts == 1)
 
+        spiral = qspiral is not None
+        if spiral:
+            if kd is None:
+                self.qs_c = np.array([0, 0, 0])
+                self.qs_v = np.array([0, 0, 0])
+            else:
+                self.qs_c = np.asarray(qspiral)
+                self.qs_v = np.dot(self.qs_c, B_cv)
+                
+            R_Rc = np.indices(N_c).T / N_c
+            self.phase_R = np.exp(2j * pi * np.dot(R_Rc, self.qs_c).T)
+            G2p_qG = []
+            G2m_qG = []
+
         # Map from vectors inside sphere to fft grid:
         self.Q_qG = []
         G2_qG = []
@@ -201,6 +215,10 @@ class PWDescriptor:
         self.ng_q = []
         for q, K_v in enumerate(self.K_qv):
             G2_Q = ((self.G_Qv + K_v)**2).sum(axis=1)
+            if spiral:
+                G2m_Q = ((self.G_Qv + K_v - self.qs_v / 2)**2).sum(axis=1)
+                G2p_Q = ((self.G_Qv + K_v + self.qs_v / 2)**2).sum(axis=1)
+
             if gammacentered:
                 mask_Q = ((self.G_Qv**2).sum(axis=1) <= 2 * ecut)
             else:
@@ -213,6 +231,9 @@ class PWDescriptor:
             Q_G = Q_Q[mask_Q]
             self.Q_qG.append(Q_G)
             G2_qG.append(G2_Q[Q_G])
+            if spiral:
+                G2p_qG.append(G2p_Q[Q_G])
+                G2m_qG.append(G2m_Q[Q_G])
             ng = len(Q_G)
             self.ng_q.append(ng)
 
@@ -237,18 +258,28 @@ class PWDescriptor:
             myQ_G = self.Q_qG[q][ng1:ng2]
             self.myQ_qG.append(myQ_G)
             self.myng_q.append(len(myQ_G))
+        
+        if spiral:
+            self.G2p_qG = []
+            self.G2m_qG = []
+            for q, G2p_G in enumerate(G2p_qG):
+                self.G2p_qG.append(G2p_G[ng1:ng2].copy())
+            for q, G2m_G in enumerate(G2m_qG):
+                self.G2m_qG.append(G2m_G[ng1:ng2].copy())
 
         if S > 1:
             self.tmp_G = np.empty(self.maxmyng * S, complex)
         else:
             self.tmp_G = None
 
-    def get_reciprocal_vectors(self, q=0, add_q=True):
+    def get_reciprocal_vectors(self, q=0, add_q=True, sign=0):
         """Returns reciprocal lattice vectors plus q, G + q,
         in xyz coordinates."""
 
         if add_q:
             q_v = self.K_qv[q]
+            if sign != 0:
+                q_v = q_v + sign * self.qs_v / 2
             return self.G_Qv[self.myQ_qG[q]] + q_v
         return self.G_Qv[self.myQ_qG[q]]
 
@@ -735,14 +766,14 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
     def __init__(self, ecut, gammacentered, fftwflags, dedepsilon,
                  parallel, initksl,
-                 reuse_wfs_method, collinear,
+                 reuse_wfs_method, collinear, qspiral,
                  gd, nvalence, setups, bd, dtype,
                  world, kd, kptband_comm, timer):
         self.ecut = ecut
         self.gammacentered = gammacentered
         self.fftwflags = fftwflags
         self.dedepsilon = dedepsilon  # Pulay correction for stress tensor
-
+        self.qspiral = qspiral
         self.ng_k = None  # number of G-vectors for all IBZ k-points
 
         FDPWWaveFunctions.__init__(self, parallel, initksl,
@@ -773,7 +804,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
     def set_setups(self, setups):
         self.timer.start('PWDescriptor')
         self.pd = PWDescriptor(self.ecut, self.gd, self.dtype, self.kd,
-                               self.fftwflags, self.gammacentered)
+                               self.qspiral, self.fftwflags,
+                               self.gammacentered)
         self.timer.stop('PWDescriptor')
 
         # Build array of number of plane wave coefficiants for all k-points
@@ -784,7 +816,10 @@ class PWWaveFunctions(FDPWWaveFunctions):
                 self.ng_k[kpt.k] = len(self.pd.Q_qG[kpt.q])
         self.kd.comm.sum(self.ng_k)
 
-        self.pt = PWLFC([setup.pt_j for setup in setups], self.pd)
+        if self.qspiral is None:
+            self.pt = PWLFC([setup.pt_j for setup in setups], self.pd)
+        else:
+            self.pt = SPWLFC([setup.pt_j for setup in setups], self.pd)
 
         FDPWWaveFunctions.set_setups(self, setups)
 
@@ -855,6 +890,10 @@ class PWWaveFunctions(FDPWWaveFunctions):
             kpt, psit_xG, Htpsit_xG, ham.dH_asp)
 
     def apply_pseudo_hamiltonian_nc(self, kpt, ham, psit_xG, Htpsit_xG):
+        if self.qspiral is not None:
+            self.apply_pseudo_hamiltonian_ss(kpt, ham, psit_xG, Htpsit_xG)
+            return
+
         Htpsit_xG[:] = 0.5 * self.pd.G2_qG[kpt.q] * psit_xG
         v, x, y, z = ham.vt_xG
         iy = y * 1j
@@ -863,6 +902,19 @@ class PWWaveFunctions(FDPWWaveFunctions):
             b = self.pd.ifft(psit_sG[1], kpt.q)
             Htpsit_sG[0] += self.pd.fft(a * (v + z) + b * (x - iy), kpt.q)
             Htpsit_sG[1] += self.pd.fft(a * (x + iy) + b * (v - z), kpt.q)
+
+    def apply_pseudo_hamiltonian_ss(self, kpt, ham, psit_xG, Htpsit_xG):
+        Htpsit_xG[:, 0, :] = 0.5 * self.pd.G2m_qG[kpt.q] * psit_xG[:, 0, :]
+        Htpsit_xG[:, 1, :] = 0.5 * self.pd.G2p_qG[kpt.q] * psit_xG[:, 1, :]
+        v, x, y, z = ham.vt_xG
+        iy = y * 1j
+        for psit_sG, Htpsit_sG in zip(psit_xG, Htpsit_xG):
+            a = self.pd.ifft(psit_sG[0], kpt.q)
+            b = self.pd.ifft(psit_sG[1], kpt.q)
+            bxy = b * (x - iy) * self.pd.phase_R
+            axy = a * (x + iy) * np.conj(self.pd.phase_R)
+            Htpsit_sG[0] += self.pd.fft(a * (v + z) + bxy, kpt.q)
+            Htpsit_sG[1] += self.pd.fft(axy + b * (v - z), kpt.q)
 
     def add_orbital_density(self, nt_G, kpt, n):
         axpy(1.0, abs(self.pd.ifft(kpt.psit_nG[n], kpt.q))**2, nt_G)
@@ -897,6 +949,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
             p11 = p1.real**2 + p1.imag**2
             p22 = p2.real**2 + p2.imag**2
             p12 = p1.conj() * p2
+            if self.qspiral is not None:
+                p12 = p12 * self.pd.phase_R
             nt_xR[0] += f * (p11 + p22)
             nt_xR[1] += 2 * f * p12.real
             nt_xR[2] += 2 * f * p12.imag
@@ -1382,7 +1436,7 @@ class PWLFC(BaseLFC):
             assert False
         self.comm = comm
 
-    def initialize(self):
+    def initialize(self, G2_qG=None, sign=0):
         """Initialize position-independent stuff."""
         if self.initialized:
             return
@@ -1402,6 +1456,9 @@ class PWLFC(BaseLFC):
         self.s_J = np.empty(nJ, np.int32)
 
         # Fourier transform radial functions:
+        if G2_qG is None:
+            G2_qG = self.pd.G2_qG
+
         J = 0
         done = set()  # Set[Spline]
         for a, spline_j in enumerate(self.spline_aj):
@@ -1409,7 +1466,7 @@ class PWLFC(BaseLFC):
                 s = splines[spline]  # get spline index
                 if spline not in done:
                     f = ft(spline)
-                    for f_Gs, G2_G in zip(self.f_qGs, self.pd.G2_qG):
+                    for f_Gs, G2_G in zip(self.f_qGs, G2_qG):
                         G_G = G2_G**0.5
                         f_Gs[:, s] = f.map(G_G)
                     self.l_s[s] = spline.get_angular_momentum_number()
@@ -1422,7 +1479,7 @@ class PWLFC(BaseLFC):
 
         # Spherical harmonics:
         for q, K_v in enumerate(self.pd.K_qv):
-            G_Gv = self.pd.get_reciprocal_vectors(q=q)
+            G_Gv = self.pd.get_reciprocal_vectors(q=q, sign=sign)
             Y_GL = np.empty((len(G_Gv), (self.lmax + 1)**2))
             for L in range((self.lmax + 1)**2):
                 Y_GL[:, L] = Y(L, *G_Gv.T)
@@ -1446,13 +1503,16 @@ class PWLFC(BaseLFC):
         return sum(2 * spline.get_angular_momentum_number() + 1
                    for spline in self.spline_aj[a])
 
-    def set_positions(self, spos_ac, atom_partition=None):
-        self.initialize()
+    def set_positions(self, spos_ac, atom_partition=None, G2_qG=None, sign=0):
+        self.initialize(G2_qG, sign)
         kd = self.pd.kd
         if kd is None or kd.gamma:
             self.eikR_qa = np.ones((1, len(spos_ac)))
-        else:
+        elif sign == 0:
             self.eikR_qa = np.exp(2j * pi * np.dot(kd.ibzk_qc, spos_ac.T))
+        else:
+            k_qc = kd.ibzk_qc + sign * self.pd.qs_c / 2
+            self.eikR_qa = np.exp(2j * pi * np.dot(k_qc, spos_ac.T))
 
         self.pos_av = np.dot(spos_ac, self.pd.gd.cell_cv)
 
@@ -2036,3 +2096,68 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
     def get_electrostatic_potential(self, dens: Density) -> Array3D:
         self.poisson.solve(self.vHt_q, dens)
         return self.pd3.ifft(self.vHt_q, distribute=False)
+
+
+class SPWLFC(BaseLFC):
+    def __init__(self, spline_aj, pd, blocksize=5000, comm=None):
+        self.pd = pd
+        self.spline_aj = spline_aj
+        self.ptUp = PWLFC(spline_aj, pd, blocksize, comm)
+        self.ptDn = PWLFC(spline_aj, pd, blocksize, comm)
+
+    def initialize(self):
+        self.ptUp.initialize(G2_qG=self.pd.G2m_qG, sign=-1)
+        self.ptDn.initialize(G2_qG=self.pd.G2p_qG, sign=1)
+
+    def estimate_memory(self, mem):
+        splines = set()
+        lmax = -1
+        for spline_j in self.spline_aj:
+            for spline in spline_j:
+                splines.add(spline)
+                l = spline.get_angular_momentum_number()
+                lmax = max(lmax, l)
+        nbytes = ((len(splines) + (lmax + 1)**2) *
+                  sum(G2_G.nbytes for G2_G in self.pd.G2_qG))
+        mem.subnode('Arrays', nbytes)
+
+    def set_positions(self, spos_ac, atom_partition=None):
+        # Note, set_positions is executed
+        self.ptUp.set_positions(spos_ac, atom_partition,
+                                self.pd.G2m_qG, sign=-1)
+        self.ptDn.set_positions(spos_ac, atom_partition,
+                                self.pd.G2p_qG, sign=1)
+
+        # Required for baseLFC functionality
+        assert (self.ptUp.my_atom_indices == self.ptDn.my_atom_indices)
+        self.my_atom_indices = self.ptUp.my_atom_indices
+
+    def add(self, a_xG, c_axi=1.0, q=-1, f0_IG=None):
+        aUp = a_xG[:, 0, :]
+        aDn = a_xG[:, 1, :]
+        cUp = {a: c_xi[:, 0, :] for a, c_xi in c_axi.items()}
+        cDn = {a: c_xi[:, 1, :] for a, c_xi in c_axi.items()}
+        
+        # Execute PWLFC add, which acts in-place on aUp, aDn
+        self.ptUp.add(aUp, cUp, q, f0_IG)
+        self.ptDn.add(aDn, cDn, q, f0_IG)
+
+        a_xG[:, 0, :] = aUp
+        a_xG[:, 1, :] = aDn
+
+    def integrate(self, a_xG, c_axi=None, q=-1):
+        aUp = a_xG[:, 0, :]
+        aDn = a_xG[:, 1, :]
+        cUp = {a: c_xi[:, 0, :] for a, c_xi in c_axi.items()}
+        cDn = {a: c_xi[:, 1, :] for a, c_xi in c_axi.items()}
+
+        # Execute PWLFC integration, which returns output
+        cUp = self.ptUp.integrate(aUp, cUp, q)
+        cDn = self.ptDn.integrate(aDn, cDn, q)
+
+        # Rebuild array
+        for a, c_xi in c_axi.items():
+            c_xi[:, 0] = cUp[a]
+            c_xi[:, 1] = cDn[a]
+
+        return c_axi
