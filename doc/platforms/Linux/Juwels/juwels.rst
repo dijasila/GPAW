@@ -4,6 +4,7 @@
 juwels @ FZ-Jülich
 ==================
 
+This installation tutorial was written for GPAW version 21.6.1b1.
 In order to build GPAW manually two possibilities are provided:
 
 Building in virtual environment
