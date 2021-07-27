@@ -44,6 +44,7 @@ needed for running e.g. this file we call ``GPAW_env``::
     module load intel-para
     module load FFTW/3.3.8
     module load libxc/4.3.4
+    module load ELPA/2020.05.001
 
     basepath=<YOUR_PATH_TO_COMPILED_CODES>
 
