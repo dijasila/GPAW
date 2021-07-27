@@ -4,9 +4,6 @@
 juwels @ FZ-Jülich
 ==================
 
-Building from repository
-===================
-
 In order to build GPAW manually two possibilities are provided:
 
 Building in virtual environment
@@ -42,12 +39,14 @@ Running GPAW
 ==================
 
 Note that in both ways of compiling GPAW the old ``gpaw-python`` was produced.
-Hence, the easiest way to submit a job is to write a script containing the following::
+Hence, the easiest way to submit a job is to write a shell script containing
+the following::
 
 
     #!/bin/bash
     #<SBATCH keys> (Don't forget the account key!)
 
     source <PATH_TO_VENV>/bin/activate
-    srun -n $((<CORES>*<NODES>)) -N <NODES>  gpaw-python <YOUR RUNSCRIPT>
+    srun -n <CORES>*<NODES> -N <NODES>  gpaw-python <YOUR RUNSCRIPT> [OPTIONS]
 
+The script can then be submitted via ``sbatch <SCRIPTNAME>``
