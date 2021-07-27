@@ -34,8 +34,8 @@ After having downloaded the GPAW source code you can run::
     bash doc/platforms/Linux/Juwels/compile_gpaw_only.sh
 
 This script should compile GPAW in the build directory. For running jobs with
-this comilation it is recommended to create a bash script which sets all paths
-needed for running e.g. this file we call ``GPAW_env``::
+this compilation it is recommended to create a bash script which sets all paths
+needed for running GPAW e.g. the following file we call ``GPAW_env``::
 
     module purge
     module load StdEnv
@@ -60,7 +60,7 @@ needed for running e.g. this file we call ``GPAW_env``::
     export GPAW_SETUP_PATH=$basepath/gpaw-setups-0.9.20000
 
 This file can be sourced in a submission script or when GPAW/ASE is needed. If
-ASE and the GPAW setups are located in a different directory, ``$basepath``
+ASE and/or the GPAW-setups are located in a different directory, ``$basepath``
 needs to be substituted accordingly.
 
 Running GPAW
@@ -81,4 +81,4 @@ the following::
 
     srun -n <CORES>*<NODES> -N <NODES>  gpaw-python <YOUR RUNSCRIPT> [OPTIONS]
 
-The script can then be submitted via ``sbatch <SCRIPTNAME>``
+The script can then be submitted via ``sbatch <SCRIPTNAME>``.
