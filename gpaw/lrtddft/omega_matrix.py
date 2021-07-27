@@ -3,6 +3,7 @@ from scipy.linalg import eigh
 
 from ase.units import Hartree
 from ase.utils.timing import Timer
+from ase.utils import IOContext
 
 import gpaw.mpi as mpi
 from gpaw.lrtddft.kssingle import KSSingles, KSSRestrictor
@@ -602,16 +603,16 @@ class OmegaMatrix:
 
     def read(self, filename=None, fh=None):
         """Read myself from a file"""
-        if fh is None:
-            fc = open(filename, 'r')
-        else:
-            fc = fh
-        with fc as f:
-            f.readline()
-            nij = int(f.readline())
+        with IOContext() as io:
+            if fh is None:
+                fd = io.openfile(filename, 'w')
+            else:
+                fd = fh
+            fd.readline()
+            nij = int(fd.readline())
             full = np.zeros((nij, nij))
             for ij in range(nij):
-                l = [float(x) for x in f.readline().split()]
+                l = [float(x) for x in fd.readline().split()]
                 full[ij, ij:] = l
                 full[ij:, ij] = l
             self.full = full
@@ -625,17 +626,16 @@ class OmegaMatrix:
             rank = mpi.world.rank
         if rank == 0:
             if fh is None:
-                fc = open(filename, 'w')
+                f = open(filename, 'w')
             else:
-                fc = fh
-            with fc as f:
-                f.write('# OmegaMatrix\n')
-                nij = len(self.fullkss)
-                f.write('%d\n' % nij)
-                for ij in range(nij):
-                    for kq in range(ij, nij):
-                        f.write(' %g' % self.full[ij, kq])
-                    f.write('\n')
+                f = fh
+            f.write('# OmegaMatrix\n')
+            nij = len(self.fullkss)
+            f.write('%d\n' % nij)
+            for ij in range(nij):
+                for kq in range(ij, nij):
+                    f.write(' %g' % self.full[ij, kq])
+                f.write('\n')
 
     def weight_Kijkq(self, ij, kq):
         """weight for the coupling matrix terms"""
