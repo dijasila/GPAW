@@ -51,6 +51,16 @@ master:
       -e gpaw/point_groups/groups.py
       gpaw
 
+
+docker:
+  image: registry.gitlab.com/ase/ase:gpaw-test
+  script:
+    - pip install --editable .
+    - gpaw install-data --register gpaw-datasets
+    - cd gpaw/test
+    - mpiexec -n 4 gpaw python -m pytest -- lcao -m 'not slow'
+
+
 libxc:
   image: python:3.7
   script:
