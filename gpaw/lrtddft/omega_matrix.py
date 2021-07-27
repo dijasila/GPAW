@@ -625,17 +625,18 @@ class OmegaMatrix:
         except AttributeError:
             rank = mpi.world.rank
         if rank == 0:
-            if fh is None:
-                f = open(filename, 'w')
-            else:
-                f = fh
-            f.write('# OmegaMatrix\n')
-            nij = len(self.fullkss)
-            f.write('%d\n' % nij)
-            for ij in range(nij):
-                for kq in range(ij, nij):
-                    f.write(' %g' % self.full[ij, kq])
-                f.write('\n')
+            with IOContext as io:
+                if fh is None:
+                    fd = io.openfile(filename, 'w')
+                else:
+                    fd = fh
+                fd.write('# OmegaMatrix\n')
+                nij = len(self.fullkss)
+                fd.write('%d\n' % nij)
+                for ij in range(nij):
+                    for kq in range(ij, nij):
+                        fd.write(' %g' % self.full[ij, kq])
+                    fd.write('\n')
 
     def weight_Kijkq(self, ij, kq):
         """weight for the coupling matrix terms"""
