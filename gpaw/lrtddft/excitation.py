@@ -67,8 +67,8 @@ class ExcitationList(list):
         for ex in self:
             e = ex.get_energy()
             f = ex.get_oscillator_strength()[0]
-            for l in range(lmax + 1):
-                S[l] += e ** (-2 * l) * f
+            for ll in range(lmax + 1):
+                S[ll] += e ** (-2 * ll) * f
         return S
 
     def __truediv__(self, x):

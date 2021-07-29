@@ -106,8 +106,8 @@ class KSSingles(ExcitationList):
             # throw away all not needed entries
             for i, ks in reversed(list(enumerate(self))):
                 if ((ks.fij / ks.weight) <= eps or
-                    ks.i < istart or ks.j > jend or
-                    ks.energy < emin or ks.energy > emax):
+                   ks.i < istart or ks.j > jend or
+                   ks.energy < emin or ks.energy > emax):
                     del(self[i])
             return None
 
@@ -626,26 +626,26 @@ class KSSingle(Excitation, PairDensity):
     __div__ = __truediv__
 
     def fromstring(self, string, dtype=float):
-        l = string.split()
-        self.i = int(l.pop(0))
-        self.j = int(l.pop(0))
-        self.pspin = int(l.pop(0))
-        self.spin = int(l.pop(0))
+        ll = string.split()
+        self.i = int(ll.pop(0))
+        self.j = int(ll.pop(0))
+        self.pspin = int(ll.pop(0))
+        self.spin = int(ll.pop(0))
         if dtype == float:
             self.k = 0
             self.weight = 1
         else:
-            self.k = int(l.pop(0))
-            self.weight = float(l.pop(0))
-        self.energy = float(l.pop(0))
-        self.fij = float(l.pop(0))
-        self.mur = np.array([dtype(l.pop(0)) for i in range(3)])
+            self.k = int(ll.pop(0))
+            self.weight = float(ll.pop(0))
+        self.energy = float(ll.pop(0))
+        self.fij = float(ll.pop(0))
+        self.mur = np.array([dtype(ll.pop(0)) for i in range(3)])
         self.me = - self.mur * np.sqrt(self.energy * self.fij)
         self.muv = self.magn = None
-        if len(l):
-            self.muv = np.array([dtype(l.pop(0)) for i in range(3)])
-        if len(l):
-            self.magn = np.array([dtype(l.pop(0)) for i in range(3)])
+        if len(ll):
+            self.muv = np.array([dtype(ll.pop(0)) for i in range(3)])
+        if len(ll):
+            self.magn = np.array([dtype(ll.pop(0)) for i in range(3)])
         return None
 
     def outstring(self):

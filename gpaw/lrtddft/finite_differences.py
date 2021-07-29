@@ -49,7 +49,7 @@ class FiniteDifference:
         else:
             self.log = ExcitationLogger(world=mpi.world)
             self.log.fd = txt
-            
+
         if parallel > world.size:
             self.log('#', (self.__class__.__name__ + ':'),
                      'Serial calculation, keyword parallel ignored.')
@@ -95,7 +95,7 @@ class FiniteDifference:
         self.atoms.positions[a, i] = p0
 
         self.value[a, i] = (eminus - eplus) / (2 * self.d)
-        
+
         if self.parallel > 1 and self.world.rank == 0:
             self.log('# rank', mpi.world.rank, 'Atom', a,
                      'direction', i, 'FD: ', self.value[a, i])
@@ -107,7 +107,7 @@ class FiniteDifference:
         """Evaluate finite differences for all atoms
         """
         self.value = np.zeros([len(self.atoms), 3])
-        
+
         for filename, a, i in self.displacements():
             if a in self.myindices:
                 self.calculate(a, i, filename=filename, **kwargs)
@@ -115,7 +115,7 @@ class FiniteDifference:
         self.world.barrier()
         self.value /= self.cores_per_atom
         self.world.sum(self.value)
-        
+
         return self.value
 
     def displacements(self):

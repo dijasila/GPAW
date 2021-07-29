@@ -56,11 +56,11 @@ def check_convergence(lr,             # LrTDDFT object
         print('set range [' + emin_gpl + ':' + emax_gpl + ']', file=fgpl)
         if title:
             print('set title "' + str(title) + '"', file=fgpl)
-    
+
         # kss
         spectrum(lr.kss, fname('kss.dat'), width=width)
         spectrum(lr.kss, fname('ksssticks.dat'), folding=None)
-    
+
         # full
         lr.diagonalize(istart=istart0, jend=jend0)
         spectrum(lr, fname('full.dat'), width=width)
@@ -72,11 +72,11 @@ def check_convergence(lr,             # LrTDDFT object
         print('     "' + fname('kss.dat') + '" t "Kohn-Sham" w l lt 2',
               file=fgpl)
         print('pause -10', file=fgpl)
-    
+
         if dn is None:
             dn = -istart0 + jend0
             dn = int(dn / 10.)
-    
+
         if dE is None:
             # vary istart
             print('plot "' + fname('full.dat') + '" t "istart=' +
@@ -92,7 +92,7 @@ def check_convergence(lr,             # LrTDDFT object
                     print(', \\', end=' ', file=fgpl)
                 print(file=fgpl)
             print('pause -10', file=fgpl)
-    
+
             # vary jend
             print('plot "' + fname('full.dat') + '" t "jend=' +
                   str(jend0) + '" w l lt 1, \\', file=fgpl)
@@ -127,7 +127,7 @@ def check_convergence(lr,             # LrTDDFT object
                     print(', \\', end=' ', file=fgpl)
                 print(file=fgpl)
             print('pause -10', file=fgpl)
-    
+
         # plot different directions
         print('plot "' + fname('full.dat') +
               '" u 1:3 t "x" w l lt 1, \\', file=fgpl)
@@ -136,7 +136,7 @@ def check_convergence(lr,             # LrTDDFT object
         print('     "' + fname('full.dat') + '" u 1:5 t "z" w l lt 3',
               file=fgpl)
         print('pause -10', file=fgpl)
-    
+
         # plot rotary strength
         if lr[0].magn is not None:
             print('set ylabel "Folded rot. strength [cgs/eV]"', file=fgpl)

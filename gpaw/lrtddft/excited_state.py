@@ -20,7 +20,7 @@ class ExcitedState(GPAW, Calculator):
     nparts = 1
     implemented_properties = ['energy', 'forces']
     default_parameters: Dict[str, Any] = {}
-    
+
     def __init__(self, lrtddft, index, d=0.001, log=None, txt='-',
                  parallel=1, communicator=None):
         """ExcitedState object.
@@ -54,25 +54,25 @@ class ExcitedState(GPAW, Calculator):
         self.calculator = self.lrtddft.calculator
         self.log = self.calculator.log
         self.atoms = self.calculator.atoms
-        
+
         self.d = d
         self.name = self.__class__.__name__
 
         self.results = {}
         self.parameters = {'d': d, 'index': self.index}
-        
+
         # set output
         if log:
             self.log = log
         else:
             self.log = ExcitationLogger(mpi.world)
             self.log.fd = txt
-        
+
         self.log('#', self.__class__.__name__, __version__)
         self.log('#', self.index)
         self.log('# Force displacement:', self.d)
         self.log
-        
+
         self.split(parallel)
 
     def __del__(self):
@@ -112,7 +112,7 @@ class ExcitedState(GPAW, Calculator):
                 for k, v in self.index.__dict__.items():
                     f.write('{0}, {1}'.format(k, v) + '\n')
         self.world.barrier()
- 
+
     @classmethod
     def read(cls, dirname, communicator=None, log=None, txt=None):
         """Read ExcitedState from a directory"""
@@ -125,7 +125,7 @@ class ExcitedState(GPAW, Calculator):
         lrtddft = LrTDDFT.read(filename + '.lr.dat.gz',
                                log=calculator.log)
         lrtddft.calculator = calculator
-        
+
         with open(filename + '.exst', 'r') as f:
             f.readline()
             d = f.readline().replace('\n', '').split()[1]
@@ -139,16 +139,16 @@ class ExcitedState(GPAW, Calculator):
                     direction = int(direction)
                 else:
                     direction = None
-    
+
                 val = f.readline().replace('\n', '').split()
                 if indextype == 'MinimalOSIndex':
-    
+
                     index = MinimalOSIndex(float(val[1]), direction)
                 else:
                     emin = float(val[2])
                     emax = float(val[3].replace(']', ''))
                     index = MaximalOSIndex([emin, emax], direction)
-    
+
             exst = cls(lrtddft, index, d, communicator=communicator,
                        txt=calculator.log.oldfd)
             index = exst.index.apply(lrtddft)
@@ -216,7 +216,7 @@ class ExcitedState(GPAW, Calculator):
         """Split world into parts and allow log in masters' part"""
         # only split once
         assert self.nparts == 1
-        
+
         if self.world.size == 1 or nparts == 1:
             return
 
@@ -224,12 +224,12 @@ class ExcitedState(GPAW, Calculator):
         self.nparts = nparts
         allranks = np.array(range(self.world.size), dtype=int)
         allranks = allranks.reshape(nparts, self.world.size // nparts)
-        
+
         # force hard reset
         self.calculator.reset()
         self.calculator.set(
             external=self.calculator.parameters['external'])
-        
+
         for ranks in allranks:
             if self.world.rank in ranks:
                 self.world = self.world.new_communicator(ranks)
@@ -238,7 +238,7 @@ class ExcitedState(GPAW, Calculator):
                     self.calculator.log.fd = None
                     self.lrtddft.log.fd = None
                 return
-                    
+
     def get_forces(self, atoms=None, save=False):
         """Get finite-difference forces
         If save = True, restartfiles for every displacement are given
@@ -251,7 +251,7 @@ class ExcitedState(GPAW, Calculator):
             # ranks to the same density to start with
             p0 = atoms.get_positions().copy()
             atoms.calc = self
-            
+
             finite = FiniteDifference(
                 atoms=atoms,
                 propertyfunction=atoms.get_potential_energy,

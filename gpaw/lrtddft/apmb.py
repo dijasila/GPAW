@@ -68,7 +68,7 @@ class ApmB(OmegaMatrix):
             rsf_integrals = {}
         # setup things for IVOs
         if (hasattr(self.xc, 'excitation') and
-            (self.xc.excitation is not None or self.xc.excited != 0)):
+           (self.xc.excitation is not None or self.xc.excited != 0)):
             sin_tri_weight = 1
             if self.xc.excitation is not None:
                 ex_type = self.xc.excitation.lower()
@@ -122,13 +122,13 @@ class ApmB(OmegaMatrix):
                 pre = self.weight_Kijkq(ij, kq)
 
                 timer2.start('integrate')
-                I = self.Coulomb_integral_kss(kss[ij], kss[kq], phit, rhot)
+                II = self.Coulomb_integral_kss(kss[ij], kss[kq], phit, rhot)
                 if kss[ij].spin == kss[kq].spin:
                     name = self.Coulomb_integral_name(kss[ij].i, kss[ij].j,
                                                       kss[kq].i, kss[kq].j,
                                                       kss[ij].spin)
-                    integrals[name] = I
-                ApB[ij, kq] = pre * I
+                    integrals[name] = II
+                ApB[ij, kq] = pre * II
                 timer2.stop()
 
                 if ij == kq:
@@ -183,7 +183,7 @@ class ApmB(OmegaMatrix):
         if ivo_l is not None:
             # IVO RPA after Berman, Kaldor, Chem. Phys. 43 (3) 1979
             # doi: 10.1016/0301-0104(79)85205-2
-            l = ivo_l
+            ll = ivo_l
             for ij in range(nij):
                 i = kss[ij].i
                 j = kss[ij].j
@@ -192,15 +192,15 @@ class ApmB(OmegaMatrix):
                     if kss[kq].i == i and kss[ij].pspin == kss[kq].pspin:
                         k = kss[kq].i
                         q = kss[kq].j
-                        jqll = self.Coulomb_integral_ijkq(j, q, l, l, s,
+                        jqll = self.Coulomb_integral_ijkq(j, q, ll, ll, s,
                                                           integrals)
-                        jllq = self.Coulomb_integral_ijkq(j, l, l, q, s,
+                        jllq = self.Coulomb_integral_ijkq(j, ll, ll, q, s,
                                                           integrals)
                         if yukawa:
-                            jqll -= self.Coulomb_integral_ijkq(j, q, l, l, s,
+                            jqll -= self.Coulomb_integral_ijkq(j, q, ll, ll, s,
                                                                rsf_integrals,
                                                                yukawa)
-                            jllq -= self.Coulomb_integral_ijkq(j, l, l, q, s,
+                            jllq -= self.Coulomb_integral_ijkq(j, ll, ll, q, s,
                                                                rsf_integrals,
                                                                yukawa)
                         jllq *= sin_tri_weight
@@ -210,17 +210,17 @@ class ApmB(OmegaMatrix):
                         AmB[kq, ij] = AmB[ij, kq]
         return AmB
 
-    def Coulomb_integral_name(self, i, j, k, l, spin):
+    def Coulomb_integral_name(self, i, j, k, ll, spin):
         """return a unique name considering the Coulomb integral
         symmetry"""
         def ij_name(i, j):
             return str(max(i, j)) + ' ' + str(min(i, j))
 
         # maximal gives the first
-        if max(i, j) >= max(k, l):
-            base = ij_name(i, j) + ' ' + ij_name(k, l)
+        if max(i, j) >= max(k, ll):
+            base = ij_name(i, j) + ' ' + ij_name(k, ll)
         else:
-            base = ij_name(k, l) + ' ' + ij_name(i, j)
+            base = ij_name(k, ll) + ' ' + ij_name(i, j)
         return base + ' ' + str(spin)
 
     def Coulomb_integral_ijkq(self, i, j, k, q, spin, integrals,
@@ -333,19 +333,19 @@ class ApmB(OmegaMatrix):
                 nij = int(fd.readline())
                 ApB = np.zeros((nij, nij))
                 for ij in range(nij):
-                    l = fd.readline().split()
+                    ll = fd.readline().split()
                     for kq in range(ij, nij):
-                        ApB[ij, kq] = float(l[kq - ij])
+                        ApB[ij, kq] = float(ll[kq - ij])
                         ApB[kq, ij] = ApB[ij, kq]
                 self.ApB = ApB
-    
+
                 fd.readline()
                 nij = int(fd.readline())
                 AmB = np.zeros((nij, nij))
                 for ij in range(nij):
-                    l = fd.readline().split()
+                    ll = fd.readline().split()
                     for kq in range(ij, nij):
-                        AmB[ij, kq] = float(l[kq - ij])
+                        AmB[ij, kq] = float(ll[kq - ij])
                         AmB[kq, ij] = AmB[ij, kq]
                 self.AmB = AmB
 
@@ -368,7 +368,7 @@ class ApmB(OmegaMatrix):
                     for kq in range(ij, nij):
                         fd.write(' %g' % self.ApB[ij, kq])
                     fd.write('\n')
-    
+
                 fd.write('# A-B\n')
                 nij = len(self.fullkss)
                 fd.write('%d\n' % nij)
@@ -376,7 +376,7 @@ class ApmB(OmegaMatrix):
                     for kq in range(ij, nij):
                         fd.write(' %g' % self.AmB[ij, kq])
                     fd.write('\n')
-    
+
     def __str__(self):
         string = '<ApmB> '
         if hasattr(self, 'eigenvalues'):

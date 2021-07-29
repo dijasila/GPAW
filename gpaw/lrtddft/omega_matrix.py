@@ -3,7 +3,6 @@ from scipy.linalg import eigh
 
 from ase.units import Hartree
 from ase.utils.timing import Timer
-from ase.utils import IOContext
 
 import gpaw.mpi as mpi
 from gpaw.lrtddft.kssingle import KSSingles, KSSRestrictor
@@ -366,7 +365,7 @@ class OmegaMatrix:
         # smooth part
         if timer:
             timer.start('integrate')
-        I = self.gd.integrate(rhot * phit)
+        II = self.gd.integrate(rhot * phit)
         if timer:
             timer.stop()
             timer.start('integrate corrections 2')
@@ -396,11 +395,11 @@ class OmegaMatrix:
             #   ----    ip  jr prst ks qt
             #   prst
             Ia += 2.0 * np.dot(Dkq_p, np.dot(C_pp, Dij_p))
-        I += self.gd.comm.sum(Ia)
+        II += self.gd.comm.sum(Ia)
         if timer:
             timer.stop()
 
-        return I
+        return II
 
     def get_rpa(self):
         """calculate RPA part of the omega matrix"""
@@ -459,9 +458,9 @@ class OmegaMatrix:
                                   kss[kq].get_energy() *
                                   kss[ij].get_weight() *
                                   kss[kq].get_weight())
-                I = self.Coulomb_integral_kss(kss[ij], kss[kq],
-                                              rhot, phit, timer2)
-                Om[ij, kq] = pre * I
+                II = self.Coulomb_integral_kss(kss[ij], kss[kq],
+                                               rhot, phit, timer2)
+                Om[ij, kq] = pre * II
 
                 if ij == kq:
                     Om[ij, kq] += kss[ij].get_energy() ** 2
@@ -573,9 +572,8 @@ class OmegaMatrix:
 
     def diagonalize(self, restrict={}):
         """Evaluate Eigenvectors and Eigenvalues:"""
-
         map, kss = self.get_map(restrict)
-        
+
         nij = len(kss)
         if map is None:
             evec = self.full.copy()
@@ -603,40 +601,45 @@ class OmegaMatrix:
 
     def read(self, filename=None, fh=None):
         """Read myself from a file"""
-        with IOContext() as io:
-            if fh is None:
-                fd = io.openfile(filename, 'w')
-            else:
-                fd = fh
-            fd.readline()
-            nij = int(fd.readline())
-            full = np.zeros((nij, nij))
-            for ij in range(nij):
-                l = [float(x) for x in fd.readline().split()]
-                full[ij, ij:] = l
-                full[ij:, ij] = l
-            self.full = full
-    
+        if fh is None:
+            f = open(filename, 'r')
+        else:
+            f = fh
+
+        f.readline()
+        nij = int(f.readline())
+        full = np.zeros((nij, nij))
+        for ij in range(nij):
+            ll = [float(x) for x in f.readline().split()]
+            full[ij, ij:] = ll
+            full[ij:, ij] = ll
+        self.full = full
+
+        if fh is None:
+            f.close()
+
     def write(self, filename=None, fh=None):
         """Write current state to a file."""
-
         try:
             rank = self.paw.wfs.world.rank
         except AttributeError:
             rank = mpi.world.rank
         if rank == 0:
-            with IOContext as io:
-                if fh is None:
-                    fd = io.openfile(filename, 'w')
-                else:
-                    fd = fh
-                fd.write('# OmegaMatrix\n')
-                nij = len(self.fullkss)
-                fd.write('%d\n' % nij)
-                for ij in range(nij):
-                    for kq in range(ij, nij):
-                        fd.write(' %g' % self.full[ij, kq])
-                    fd.write('\n')
+            if fh is None:
+                f = open(filename, 'w')
+            else:
+                f = fh
+
+            f.write('# OmegaMatrix\n')
+            nij = len(self.fullkss)
+            f.write('%d\n' % nij)
+            for ij in range(nij):
+                for kq in range(ij, nij):
+                    f.write(' %g' % self.full[ij, kq])
+                f.write('\n')
+
+            if fh is None:
+                f.close()
 
     def weight_Kijkq(self, ij, kq):
         """weight for the coupling matrix terms"""
