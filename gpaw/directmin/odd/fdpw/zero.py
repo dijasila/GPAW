@@ -54,7 +54,7 @@ class ZeroCorrections:
             occ_name = getattr(wfs.occupations, 'name', None)
             if occ_name == 'mom':
                 for kpt in wfs.kpt_u:
-                    wfs.occupations.sort_wavefunctions(kpt)
+                    wfs.eigensolver.sort_wavefunctions(wfs, kpt)
             if self.changedocc:
                 self.restart = 1
         self.momcounter += 1
