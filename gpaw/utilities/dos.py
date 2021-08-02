@@ -280,7 +280,8 @@ def get_all_electron_IPR(paw):
 
 
 def raw_wignerseitz_LDOS(paw, a, spin):
-    """Return a list of eigenvalues, and their weight on the specified atom"""
+    """Return a list of eigenvalues, and their weight on the specified atom.
+       Only supports real (gamma-point only) wavefunctions."""
     wfs = paw.wfs
     assert wfs.dtype == float
     gd = wfs.gd
