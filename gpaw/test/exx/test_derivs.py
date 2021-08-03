@@ -8,7 +8,7 @@ from gpaw.response.wstc import WignerSeitzTruncatedCoulomb as WSTC
 from gpaw.hybrids.kpts import PWKPoint
 from gpaw.symmetry import Symmetry
 from gpaw.wavefunctions.arrays import PlaneWaveExpansionWaveFunctions
-from gpaw.wavefunctions.pw import PWDescriptor, PWLFC
+from gpaw.pw.descriptor import PWDescriptor, PWLFC
 from gpaw.projections import Projections
 from gpaw.mpi import world
 from gpaw.spline import Spline

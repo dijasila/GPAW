@@ -28,7 +28,7 @@ from gpaw.grid_descriptor import GridDescriptor
 from gpaw.setup import Setup
 from gpaw.typing import Array1D, Array2D, Array3D
 from gpaw.utilities import unpack2
-from gpaw.wavefunctions.pw import PWDescriptor
+from gpaw.pw.descriptor import PWDescriptor
 from gpaw.xc.functional import XCFunctional
 
 # Fine-structure constant: (~1/137)

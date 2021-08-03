@@ -6,7 +6,7 @@ from gpaw.grid_descriptor import GridDescriptor
 from gpaw.spline import Spline
 import gpaw.mpi as mpi
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
-from gpaw.wavefunctions.pw import PWDescriptor, PWLFC
+from gpaw.pw.descriptor import PWDescriptor, PWLFC
 from gpaw.kpt_descriptor import KPointDescriptor
 
 

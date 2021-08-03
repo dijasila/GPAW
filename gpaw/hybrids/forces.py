@@ -4,7 +4,7 @@ import numpy as np
 
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.mpi import serial_comm, broadcast
-from gpaw.wavefunctions.pw import PWDescriptor, PWLFC
+from gpaw.pw.descriptor import PWDescriptor, PWLFC
 from .kpts import get_kpt
 
 

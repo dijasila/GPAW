@@ -7,7 +7,7 @@ from ase.units import Ha
 from gpaw import GPAW
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.mpi import serial_comm
-from gpaw.wavefunctions.pw import PWDescriptor, PWLFC
+from gpaw.pw.descriptor import PWDescriptor, PWLFC
 from gpaw.xc import XC
 from . import parse_name
 from .coulomb import coulomb_interaction
