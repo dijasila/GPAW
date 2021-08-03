@@ -12,7 +12,8 @@ from gpaw.mpi import serial_comm
 from gpaw.xc import XC
 from gpaw.xc.tools import vxc
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.pw.descriptor import PWDescriptor, PWLFC
+from gpaw.pw.descriptor import PWDescriptor
+from gpaw.pw.lfc import PWLFC
 from gpaw.typing import Array3D
 from . import parse_name
 from .coulomb import coulomb_interaction

@@ -6,7 +6,8 @@ from gpaw.fftw import FFTPlan
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.spline import Spline
 import gpaw.mpi as mpi
-from gpaw.pw.descriptor import PWDescriptor, PWLFC
+from gpaw.pw.descriptor import PWDescriptor
+from gpaw.pw.lfc import PWLFC
 
 
 @pytest.mark.ci
