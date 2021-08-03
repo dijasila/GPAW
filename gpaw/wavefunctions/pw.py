@@ -16,7 +16,7 @@ from gpaw.density import Density
 from gpaw.external import NoExternalPotential
 from gpaw.hamiltonian import Hamiltonian
 from gpaw.lcao.overlap import fbt
-from gpaw.lfc import BaseLFC
+from gpaw.lfc import BaseLFC, BasisFunctions
 from gpaw.matrix_descriptor import MatrixDescriptor
 from gpaw.spherical_harmonics import Y, nablarlYL
 from gpaw.spline import Spline
@@ -1247,8 +1247,16 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
         return nbands
 
-    def initialize_from_lcao_coefficients(self, basis_functions):
-        psit_nR = self.gd.empty(1, self.dtype)
+    def initialize_from_lcao_coefficients(self,
+                                          basis_functions: BasisFunctions,
+                                          block_size: int = 10) -> None:
+        """Convert from LCAO to PW coefficients."""
+        nlcao = len(self.kpt_qs[0][0].C_nM)
+
+        # We go from LCAO to real-space and then to PW's.
+        # It's too expensive to allocate one big real-space array:
+        block_size = min(max(nlcao, 1), block_size)
+        psit_nR = self.gd.empty(block_size, self.dtype)
 
         for kpt in self.kpt_u:
             if self.kd.gamma:
@@ -1261,14 +1269,18 @@ class PWWaveFunctions(FDPWWaveFunctions):
                 dist=(self.bd.comm, -1, 1),
                 spin=kpt.s, collinear=self.collinear)
             psit_nG = kpt.psit.array
-            if psit_nG.ndim == 3:
+            if psit_nG.ndim == 3:  # non-collinear calculation
                 N, S, G = psit_nG.shape
                 psit_nG = psit_nG.reshape((N * S, G))
-            for n, psit_G in enumerate(psit_nG):
+            for n1 in range(0, nlcao, block_size):
+                n2 = min(n1 + block_size, nlcao)
                 psit_nR[:] = 0.0
-                basis_functions.lcao_to_grid(kpt.C_nM[n:n + 1],
-                                             psit_nR, kpt.q)
-                psit_G[:] = self.pd.fft(psit_nR[0] * emikr_R, kpt.q)
+                basis_functions.lcao_to_grid(kpt.C_nM[n1:n2],
+                                             psit_nR[:n2 - n1],
+                                             kpt.q,
+                                             block_size)
+                for psit_R, psit_G in zip(psit_nR, psit_nG[n1:n2]):
+                    psit_G[:] = self.pd.fft(psit_R * emikr_R, kpt.q)
             kpt.C_nM = None
 
     def random_wave_functions(self, mynao):
