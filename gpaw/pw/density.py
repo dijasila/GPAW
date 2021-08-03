@@ -3,8 +3,8 @@ from math import pi
 import numpy as np
 
 from gpaw.density import Density
+from gpaw.pw.descriptor import PWDescriptor, PWMapping
 from gpaw.pw.lfc import PWLFC
-from gpaw.pw.pw_descriptor import PWDescriptor, PWMapping
 
 
 class PseudoCoreKineticEnergyDensityLFC(PWLFC):

@@ -2,16 +2,17 @@ import numbers
 from math import pi
 
 import _gpaw
-import gpaw
-import gpaw.fftw as fftw
 import numpy as np
 from ase.units import Bohr, Ha
 from ase.utils.timing import timer
+
+import gpaw
+import gpaw.fftw as fftw
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.blacs import BlacsDescriptor, BlacsGrid, Redistributor
 from gpaw.matrix_descriptor import MatrixDescriptor
+from gpaw.pw.descriptor import PWDescriptor
 from gpaw.pw.lfc import PWLFC
-from gpaw.pw.pw_descriptor import PWDescriptor
 from gpaw.utilities import unpack
 from gpaw.utilities.blas import axpy
 from gpaw.utilities.progressbar import ProgressBar
