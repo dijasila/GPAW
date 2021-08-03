@@ -444,23 +444,15 @@ class LBFGS_P(SteepestDescent):
             s_k[kp[k]] = self.calc_diff(x_k1, x_k, wfs)
             y_k[kp[k]] = self.calc_diff(g_k1, g_k, wfs)
 
-            dot_ys = self.dot_all_k_and_b(y_k[kp[k]],
-                                          s_k[kp[k]],
-                                          wfs)
-            if abs(dot_ys) > 1.0e-20:
+            try:
+                dot_ys = self.dot_all_k_and_b(y_k[kp[k]],
+                                              s_k[kp[k]],
+                                              wfs)
                 rho_k[kp[k]] = 1.0 / dot_ys
-            else:
-                rho_k[kp[k]] = 1.0e20
+            except ZeroDivisionError:
+                rho_k[kp[k]] = 1.0e12
 
-            # try:
-            #     dot_ys = self.dot_all_k_and_b(y_k[kp[k]],
-            #                                   s_k[kp[k]],
-            #                                   wfs)
-            #     rho_k[kp[k]] = 1.0 / dot_ys
-            # except ZeroDivisionError:
-            #     rho_k[kp[k]] = 1.0e12
-
-            if rho_k[kp[k]] < 0.0:
+            if dot_ys < 0.0:
                 # raise Exception('y_k^Ts_k is not positive!')
                 # parprint("y_k^Ts_k is not positive!")
                 self.stable = False
@@ -484,19 +476,23 @@ class LBFGS_P(SteepestDescent):
 
                 # q -= alpha[kp[i]] * y_k[kp[i]]
 
-            t = k
-            dot_yy = self.dot_all_k_and_b(y_k[kp[t]],
-                                          y_k[kp[t]], wfs)
+            try:
+                # t = np.maximum(1, k - m + 1)
 
-            rhoyy = rho_k[kp[t]] * dot_yy
-            if hess_1 is not None:
+                t = k
+
+                dot_yy = self.dot_all_k_and_b(y_k[kp[t]],
+                                              y_k[kp[t]], wfs)
+
+                # r = self.multiply(q, 1.0 / (rho_k[kp[t]] * dot_yy))
+
+                self.beta_0 = 1.0 / (rho_k[kp[t]] * dot_yy)
+
                 r = self.apply_prec(hess_1, q)
-            else:
-                if abs(rhoyy) > 1.0e-20:
-                    self.beta_0 = 1.0 / rhoyy
-                else:
-                    self.beta_0 = 1.0e20
-                r = self.multiply(q, self.beta_0)
+
+            except ZeroDivisionError:
+                # r = 1.0e12 * q
+                r = self.multiply(q, 1.0e12)
 
             for i in range(np.maximum(0, k - m + 1), k + 1):
                 dot_yr = self.dot_all_k_and_b(y_k[kp[i]], r, wfs)
