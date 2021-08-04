@@ -74,7 +74,7 @@ class DipoleCorrection:
             # finite-diference Poisson solver:
             return self.fdsolve(pot, dens, **kwargs)
         # Plane-wave solver:
-        self.pwsolve(pot, dens)
+        return self.pwsolve(pot, dens)
 
     def fdsolve(self, vHt_g, rhot_g, **kwargs):
         gd = self.poissonsolver.gd

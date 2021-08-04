@@ -1,7 +1,3 @@
-# -*- coding: utf-8 -*-
-# Copyright (C) 2003-2015  CAMP
-# Please see the accompanying LICENSE file for further information.
-
 """This module defines a Hamiltonian."""
 
 import functools
@@ -16,9 +12,10 @@ from gpaw.lfc import LFC
 from gpaw.poisson import PoissonSolver
 from gpaw.spinorbit import soc
 from gpaw.transformers import Transformer
-from gpaw.utilities import (unpack, pack2, unpack_atomic_matrices,
-                            pack_atomic_matrices)
+from gpaw.utilities import (pack2, pack_atomic_matrices, unpack,
+                            unpack_atomic_matrices)
 from gpaw.utilities.partition import AtomPartition
+
 # from gpaw.utilities.debug import frozen
 
 
@@ -548,7 +545,8 @@ class Hamiltonian:
 class RealSpaceHamiltonian(Hamiltonian):
     def __init__(self, gd, finegd, nspins, collinear, setups, timer, xc, world,
                  vext=None,
-                 psolver=None, stencil=3, redistributor=None):
+                 psolver=None, stencil=3, redistributor=None,
+                 charge: float = 0.0):
         Hamiltonian.__init__(self, gd, finegd, nspins, collinear,
                              setups, timer, xc,
                              world, vext=vext,

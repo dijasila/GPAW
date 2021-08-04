@@ -18,7 +18,7 @@ def test_charged_pw_poisson():
     rho = -np.exp(-1 / (4 * a) * pd.G2_qG[0] +
                   1j * (pd.get_reciprocal_vectors() @ C)) / gd.dv
     v = np.empty_like(rho)
-    e = ps.solve(v, rho)
+    e = ps._solve(v, rho)
     print(pd.ifft(v)[20, 20])
     print(e)
     print((a / 2 / np.pi)**0.5)
