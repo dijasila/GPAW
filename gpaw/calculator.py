@@ -1066,7 +1066,8 @@ class GPAW(Calculator):
             world=self.world,
             redistributor=dens.redistributor,
             vext=self.parameters.external,
-            psolver=self.parameters.poissonsolver)
+            psolver=self.parameters.poissonsolver,
+            charge=dens.charge)
         if realspace:
             self.hamiltonian = RealSpaceHamiltonian(stencil=mode.interpolation,
                                                     **kwargs)

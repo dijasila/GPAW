@@ -74,6 +74,7 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         ebar = integrate(self.pd2, self.vbar_Q, dens.nt_Q)
         with self.timer('Poisson'):
             epot = self.poisson.solve(self.vHt_q, dens.rhot_q)
+            epot /= self.finegd.comm.size
 
         self.vt_Q = self.vbar_Q.copy()
 
