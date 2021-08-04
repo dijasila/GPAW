@@ -177,7 +177,7 @@ with broadcast_imports:
     from gpaw.occupations import (FermiDirac, MethfesselPaxton,
                                   MarzariVanderbilt)
     from gpaw.wavefunctions.lcao import LCAO
-    from gpaw.wavefunctions.pw import PW
+    from gpaw import PW
     from gpaw.wavefunctions.fd import FD
 
 

@@ -573,4 +573,3 @@ def count_reciprocal_vectors(ecut, gd, q_c):
 
     G2_Q = (Gpq_Qv**2).sum(axis=1)
     return (G2_Q <= 2 * ecut).sum()
-
