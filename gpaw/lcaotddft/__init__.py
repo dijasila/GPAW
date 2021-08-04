@@ -14,6 +14,7 @@ from gpaw.tddft.tdopers import  TimeDependentDensity
 
 from scipy.linalg import eigh
 from scipy.linalg import norm
+from scipy.linalg import schur, eigvals
 
 
 class LCAOTDDFT(GPAW):
@@ -248,11 +249,10 @@ class LCAOTDDFT(GPAW):
         
         for kpt in self.wfs.kpt_u:
             S_MM=np.real(kpt.S_MM.copy())
+           
+            T1, Seig_v = schur(S_MM, output='real')
+            Seig=eigvals(T1)
 
- #           if not np.allclose(S_MM, np.asmatrix(S_MM).H):
- #               raise ValueError('expected symmetric or Hermitian matrix, try using numpy.linalg.eig instead')       
-            
-            Seig, Seig_v  = np.linalg.eig(S_MM)
             Seig_dm12=np.diag(1/np.sqrt(Seig))
             Seig_dp12=np.diag(Seig**0.5)
 
@@ -261,7 +261,9 @@ class LCAOTDDFT(GPAW):
             Sp12=np.matmul(Seig_v,np.matmul((Seig_dp12),np.conj(Seig_v).T))
  
             # OLD OVERLAP S^-1/2 
-            Seig_o, Seig_v_o  = np.linalg.eig(self.S_MM_old)
+            T2_o, Seig_v_o = schur(self.S_MM_old, output='real')
+            Seig_o=eigvals(T2_o)
+
             Seig_dm12_o=np.diag(Seig_o**-0.5)
             Seig_dp12_o=np.diag(Seig_o**0.5)
             Sm12_o=np.matmul(Seig_v_o,np.matmul(Seig_dm12_o,np.conj(Seig_v_o).T))
