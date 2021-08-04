@@ -11,7 +11,7 @@ from scipy.linalg import eigh
 
 from gpaw import GPAW
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.wavefunctions.pw import PWDescriptor
+from gpaw.pw.descriptor import PWDescriptor
 from gpaw.spinorbit import soc_eigenstates
 from gpaw.blacs import BlacsGrid, Redistributor
 from gpaw.mpi import world, serial_comm, broadcast

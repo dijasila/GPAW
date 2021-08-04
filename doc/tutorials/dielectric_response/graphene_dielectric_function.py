@@ -6,7 +6,7 @@ from ase.units import Hartree, Bohr
 from ase.utils import seterr
 
 from gpaw import GPAW, FermiDirac
-from gpaw.wavefunctions.pw import PW
+from gpaw import PW
 from gpaw.response.df import DielectricFunction
 from gpaw.mpi import world
 from gpaw.bztools import find_high_symmetry_monkhorst_pack

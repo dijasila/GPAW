@@ -1,6 +1,6 @@
 from ase.build import bulk
 from gpaw import GPAW, FermiDirac
-from gpaw.wavefunctions.pw import PW
+from gpaw import PW
 
 
 # Plane wave cutoff

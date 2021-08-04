@@ -1,7 +1,7 @@
 from ase import Atoms
 from ase.build import bulk
 from gpaw import GPAW
-from gpaw.wavefunctions.pw import PW
+from gpaw import PW
 from gpaw.occupations import FermiDirac
 
 cell = bulk('Si', 'fcc', a=5.421).get_cell()

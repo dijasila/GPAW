@@ -16,7 +16,6 @@ from ase.utils.timing import Timer
 
 import gpaw
 import gpaw.mpi as mpi
-import gpaw.wavefunctions.pw as pw
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.density import RealSpaceDensity
 from gpaw.dos import DOSCalculator
@@ -36,10 +35,13 @@ from gpaw.matrix import suggest_blocking
 from gpaw.occupations import ParallelLayout, create_occ_calc
 from gpaw.output import (print_cell, print_parallelization_details,
                          print_positions)
+from gpaw.pw.density import ReciprocalSpaceDensity
+from gpaw.pw.hamiltonian import ReciprocalSpaceHamiltonian
 from gpaw.scf import SCFLoop, dict2criterion
 from gpaw.setup import Setups
 from gpaw.stress import calculate_stress
 from gpaw.symmetry import Symmetry
+from gpaw.typing import Array1D
 from gpaw.utilities import check_atoms_too_close
 from gpaw.utilities.gpts import get_number_of_grid_points
 from gpaw.utilities.grid import GridRedistributor
@@ -49,7 +51,6 @@ from gpaw.wavefunctions.mode import create_wave_function_mode
 from gpaw.xc import XC
 from gpaw.xc.kernel import XCKernel
 from gpaw.xc.sic import SIC
-from gpaw.typing import Array1D
 
 
 class GPAW(Calculator):
@@ -1049,8 +1050,7 @@ class GPAW(Calculator):
                 ecut = 2 * self.wfs.pd.ecut
             else:
                 ecut = 0.5 * (np.pi / h)**2
-            self.density = pw.ReciprocalSpaceDensity(ecut=ecut,
-                                                     **kwargs)
+            self.density = ReciprocalSpaceDensity(ecut=ecut, **kwargs)
 
         self.log(self.density, '\n')
 
@@ -1090,7 +1090,7 @@ class GPAW(Calculator):
                     xc_redist = GridRedistributor(self.world, bcast_comm,
                                                   gd, aux_gd)
 
-            self.hamiltonian = pw.ReciprocalSpaceHamiltonian(
+            self.hamiltonian = ReciprocalSpaceHamiltonian(
                 pd2=dens.pd2, pd3=dens.pd3, realpbc_c=self.atoms.pbc,
                 xc_redistributor=xc_redist,
                 **kwargs)
