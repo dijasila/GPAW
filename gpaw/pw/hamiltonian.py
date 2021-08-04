@@ -1,13 +1,13 @@
 
 import numpy as np
-
 from gpaw.arraydict import ArrayDict
 from gpaw.density import Density
 from gpaw.external import NoExternalPotential
 from gpaw.hamiltonian import Hamiltonian
-from gpaw.typing import Array3D
 from gpaw.pw.lfc import PWLFC
-from gpaw.pw.poisson import ReciprocalSpacePoissonSolver
+from gpaw.pw.poisson import (ChargedReciprocalSpacePoissonSolver,
+                             ReciprocalSpacePoissonSolver)
+from gpaw.typing import Array3D
 
 
 def integrate(pd, a, b):
@@ -19,7 +19,8 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
     def __init__(self, gd, finegd, pd2, pd3, nspins, collinear,
                  setups, timer, xc, world, xc_redistributor,
                  vext=None,
-                 psolver=None, redistributor=None, realpbc_c=None):
+                 psolver=None, redistributor=None, realpbc_c=None,
+                 charge=0.0):
 
         assert redistributor is not None  # XXX should not be like this
 
@@ -37,15 +38,21 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
 
         self.vHt_q = pd3.empty()
 
-        if psolver is None:
-            psolver = ReciprocalSpacePoissonSolver(pd3, realpbc_c)
-        elif isinstance(psolver, dict):
+        if isinstance(psolver, dict):
             direction = psolver['dipolelayer']
             assert len(psolver) == 1
             from gpaw.dipole_correction import DipoleCorrection
-            psolver = DipoleCorrection(
+            self.poisson = DipoleCorrection(
                 ReciprocalSpacePoissonSolver(pd3, realpbc_c), direction)
-        self.poisson = psolver
+        else:
+            assert psolver is None
+            if charge == 0.0:
+                self.poisson = ReciprocalSpacePoissonSolver(pd3, realpbc_c)
+            else:
+                self.poisson = ChargedReciprocalSpacePoissonSolver(pd3,
+                                                                   realpbc_c,
+                                                                   charge)
+
         self.npoisson = 0
 
         self.vbar_Q = None
@@ -66,8 +73,7 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
     def update_pseudo_potential(self, dens):
         ebar = integrate(self.pd2, self.vbar_Q, dens.nt_Q)
         with self.timer('Poisson'):
-            self.poisson.solve(self.vHt_q, dens)
-            epot = 0.5 * integrate(self.pd3, self.vHt_q, dens.rhot_q)
+            epot = self.poisson.solve(self.vHt_q, dens.rhot_q)
 
         self.vt_Q = self.vbar_Q.copy()
 
