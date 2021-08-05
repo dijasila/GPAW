@@ -400,6 +400,8 @@ class LBFGS_P(SteepestDescent):
         self.stable = True
         self.beta_0 = 1.0
 
+        np.seterr(divide='raise')
+
     def __str__(self):
 
         return 'LBFGS_P'
@@ -423,7 +425,7 @@ class LBFGS_P(SteepestDescent):
             return p
 
         else:
-
+           
             if self.p == self.m:
                 self.p = 0
                 self.kp[self.k] = self.p
@@ -449,7 +451,7 @@ class LBFGS_P(SteepestDescent):
                                               s_k[kp[k]],
                                               wfs)
                 rho_k[kp[k]] = 1.0 / dot_ys
-            except ZeroDivisionError:
+            except (ZeroDivisionError, FloatingPointError):
                 rho_k[kp[k]] = 1.0e12
 
             if dot_ys < 0.0:
@@ -490,7 +492,7 @@ class LBFGS_P(SteepestDescent):
 
                 r = self.apply_prec(hess_1, q)
 
-            except ZeroDivisionError:
+            except (ZeroDivisionError, FloatingPointError):
                 # r = 1.0e12 * q
                 r = self.multiply(q, 1.0e12)
 
