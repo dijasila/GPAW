@@ -44,8 +44,8 @@ def apply_non_local_hamilton(dH_asp, collinear, P, out=None):
     return out
 
 
-from gpaw.utilities.debug import frozen
-@frozen
+# from gpaw.utilities.debug import frozen
+# @frozen
 class Hamiltonian:
 
     def __init__(self, gd, finegd, nspins, collinear, setups, timer, xc, world,
