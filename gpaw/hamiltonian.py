@@ -16,9 +16,6 @@ from gpaw.utilities import (pack2, pack_atomic_matrices, unpack,
                             unpack_atomic_matrices)
 from gpaw.utilities.partition import AtomPartition
 
-# from gpaw.utilities.debug import frozen
-
-
 ENERGY_NAMES = ['e_kinetic', 'e_coulomb', 'e_zero', 'e_external', 'e_xc',
                 'e_entropy', 'e_total_free', 'e_total_extrapolated']
 
@@ -47,7 +44,8 @@ def apply_non_local_hamilton(dH_asp, collinear, P, out=None):
     return out
 
 
-# @frozen
+from gpaw.utilities.debug import frozen
+@frozen
 class Hamiltonian:
 
     def __init__(self, gd, finegd, nspins, collinear, setups, timer, xc, world,
@@ -82,6 +80,7 @@ class Hamiltonian:
         self.e_external = None
         self.e_xc = None
         self.e_entropy = None
+        self.e_band = None
 
         self.e_total_free = None
         self.e_total_extrapolated = None

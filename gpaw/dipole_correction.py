@@ -91,12 +91,15 @@ class DipoleCorrection:
         if self.sawtooth_q is None:
             self.initialize_sawtooth()
 
-        self.poissonsolver.solve(vHt_q, dens)
+        epot = self.poissonsolver.solve(vHt_q, dens)
+
         dip_v = dens.calculate_dipole_moment()
         c = self.c
         L = gd.cell_cv[c, c]
         self.correction = 2 * np.pi * dip_v[c] * L / gd.volume
         vHt_q -= 2 * self.correction * self.sawtooth_q
+
+        return epot + 2 * np.pi * dip_v[c]**2 / gd.volume
 
     def initialize_sawtooth(self):
         gd = self.poissonsolver.pd.gd
