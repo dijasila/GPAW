@@ -57,7 +57,7 @@ class KSLCAO:
             hc_mn = hc_mn[:, occ] - \
                 kpt.S_MM.conj() @ c_nm[occ].T @ h_mm[occ][:, occ]
             norm = sum(hc_mn.conj() * hc_mn * kpt.f_n[occ])
-            error = sum(norm) * Hartree ** 2 / self.nvalence
+            error = sum(norm.real) * Hartree ** 2 / self.nvalence
             del hc_mn, norm
             timer.stop('Residual')
 
