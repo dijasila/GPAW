@@ -97,9 +97,6 @@ class ReciprocalSpaceDensity(Density):
         self.map23.add_to2(self.rhot_q, self.nt_Q)
         self.background_charge.add_fourier_space_charge_to(self.pd3,
                                                            self.rhot_q)
-        if self.gd.comm.rank == 0:
-            # self.rhot_q[0] = 0.0
-            print('HMMMMMMMMM',self.rhot_q[0])
 
     def get_pseudo_core_kinetic_energy_density_lfc(self):
         return PseudoCoreKineticEnergyDensityLFC(

@@ -35,16 +35,16 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         self.vHt_q = pd3.empty()
 
         if charge == 0.0 or realpbc_c.any():
-            self.poisson = ReciprocalSpacePoissonSolver(pd3, realpbc_c, charge)
+            self.poisson = ReciprocalSpacePoissonSolver(pd3, charge)
         else:
-            self.poisson = ChargedReciprocalSpacePoissonSolver(
-                pd3, realpbc_c, charge)
+            self.poisson = ChargedReciprocalSpacePoissonSolver(pd3, charge)
 
         if isinstance(psolver, dict):
             direction = psolver['dipolelayer']
             assert len(psolver) == 1
             from gpaw.dipole_correction import DipoleCorrection
             self.poisson = DipoleCorrection(self.poisson, direction)
+            self.poisson.check_direction(gd, realpbc_c)
         else:
             assert psolver is None
 

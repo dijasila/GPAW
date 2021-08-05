@@ -88,7 +88,7 @@ class NoExternalPotential(ExternalPotential):
     vext_g = np.zeros((0, 0, 0))
 
     def __str__(self):
-        return 'NoExternalPotential()'
+        return 'NoExternalPotential'
 
     def update_potential_pw(self, ham, dens) -> float:
         ham.vt_sG[:] = ham.pd2.ifft(ham.vt_Q)

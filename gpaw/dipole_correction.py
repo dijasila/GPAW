@@ -103,7 +103,6 @@ class DipoleCorrection:
 
     def initialize_sawtooth(self):
         gd = self.poissonsolver.pd.gd
-        self.check_direction(gd, self.poissonsolver.realpbc_c)
         if gd.comm.rank == 0:
             c = self.c
             L = gd.cell_cv[c, c]
