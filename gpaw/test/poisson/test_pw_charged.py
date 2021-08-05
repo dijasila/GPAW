@@ -8,6 +8,9 @@ from gpaw.pw.poisson import ChargedReciprocalSpacePoissonSolver as CRSPC
 
 
 def test_charged_pw_poisson():
+    """Calculate Coulomb energy of Gaussian charge and compare to analytic
+    result.
+    """
     n = 50
     L = n / 40 * 8.0
     charge = 1.5
@@ -29,6 +32,7 @@ def test_charged_pw_poisson():
 
 
 def test_pw_proton():
+    """Check that the energy of a proton is 0.0."""
     proton = Atoms('H')
     proton.center(vacuum=2.0)
     proton.calc = GPAW(mode='pw', charge=1)

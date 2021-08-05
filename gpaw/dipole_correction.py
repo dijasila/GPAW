@@ -70,6 +70,10 @@ class DipoleCorrection:
         self.poissonsolver.initialize()
 
     def solve(self, pot, dens, **kwargs):
+        # Note that fdsolve() returns number of iterations and pwsolve()
+        # returns the energy!!  This is because the
+        # ChargedReciprocalSpacePoissonSolver has corrections to
+        # the energy ...
         if isinstance(dens, np.ndarray):
             # finite-diference Poisson solver:
             return self.fdsolve(pot, dens, **kwargs)

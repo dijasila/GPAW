@@ -2,10 +2,11 @@ from math import pi
 
 import numpy as np
 from ase.utils import seterr
+from scipy.special import erf
+
 from gpaw.pw.density import ReciprocalSpaceDensity
 from gpaw.pw.descriptor import PWDescriptor
 from gpaw.typing import Array1D
-from scipy.special import erf
 
 
 class ReciprocalSpacePoissonSolver:
@@ -54,7 +55,20 @@ class ChargedReciprocalSpacePoissonSolver(ReciprocalSpacePoissonSolver):
                  charge: float,
                  alpha: float = None,
                  eps: float = 1e-5):
-        """"""
+        """Reciprocal-space Poisson solver for charged molecules.
+
+        * Add a compensating Guassian-shaped charge to the density
+          in order to make the total charge neutral (placed in the
+          middle of the unit cell
+
+        * Solve Poisson equation.
+
+        * Correct potential so that it has the correct 1/r
+          asymptotic behavior
+
+        * Correct energy to remove the artificial interaction with
+          the compensation charge
+        """
         ReciprocalSpacePoissonSolver.__init__(self, pd, charge)
         self.charge = charge
 
@@ -86,7 +100,7 @@ class ChargedReciprocalSpacePoissonSolver(ReciprocalSpacePoissonSolver):
         self.potential_q = charge * pd.fft(potential_R)
 
     def __str__(self):
-        return ('Using Gaussion-shaped compensation charge: e^(-ar^2) '
+        return ('Using Gaussian-shaped compensation charge: e^(-ar^2) '
                 f'with a={self.alpha:.3f} bohr^-2')
 
     def _solve(self,
