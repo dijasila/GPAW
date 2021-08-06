@@ -9,5 +9,6 @@ calc = GPAW(mode='pw',
 ag.calc = calc
 ag.get_potential_energy()
 calc.write('Ag_LDA.gpw')
-with open('eels.py').read() as code:
-    exec(code)
+with open('eels.py') as fd:
+    code = fd.read()
+exec(code)
