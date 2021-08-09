@@ -4,7 +4,7 @@ import pickle
 import numpy as np
 from ase.units import Ha
 from ase.calculators.singlepoint import SinglePointCalculator
-
+from ase.utils import IOContext
 
 from gpaw.utilities import pack
 from gpaw.utilities.tools import tri2full
@@ -202,17 +202,16 @@ def dump_hamiltonian(filename, atoms, direction=None, Ef=None):
                     remove_pbc(atoms, h_skmm[s, k], None, d)
 
     if atoms.calc.master:
-        fd = open(filename, 'wb')
-        pickle.dump((h_skmm, s_kmm), fd, 2)
-        atoms_data = {'cell': atoms.cell, 'positions': atoms.positions,
-                      'numbers': atoms.numbers, 'pbc': atoms.pbc}
+        with open(filename, 'wb') as fd:
+            pickle.dump((h_skmm, s_kmm), fd, 2)
+            atoms_data = {'cell': atoms.cell, 'positions': atoms.positions,
+                          'numbers': atoms.numbers, 'pbc': atoms.pbc}
 
-        pickle.dump(atoms_data, fd, 2)
-        calc_data = {'weight_k': atoms.calc.weight_k,
-                     'ibzk_kc': atoms.calc.ibzk_kc}
+            pickle.dump(atoms_data, fd, 2)
+            calc_data = {'weight_k': atoms.calc.weight_k,
+                         'ibzk_kc': atoms.calc.ibzk_kc}
 
-        pickle.dump(calc_data, fd, 2)
-        fd.close()
+            pickle.dump(calc_data, fd, 2)
 
     world.barrier()
 
@@ -273,11 +272,10 @@ def dump_hamiltonian_parallel(filename, atoms, direction=None, Ef=None):
             H_qMM[kpt.s, kpt.q] -= S_qMM[kpt.q] * Ef
 
     if wfs.gd.comm.rank == 0:
-        fd = open(filename + '%i.pckl' % wfs.kd.comm.rank, 'wb')
-        H_qMM *= Ha
-        pickle.dump((H_qMM, S_qMM), fd, 2)
-        pickle.dump(calc_data, fd, 2)
-        fd.close()
+        with open(filename + '%i.pckl' % wfs.kd.comm.rank, 'wb') as fd:
+            H_qMM *= Ha
+            pickle.dump((H_qMM, S_qMM), fd, 2)
+            pickle.dump(calc_data, fd, 2)
 
 
 def get_lcao_hamiltonian(calc):
@@ -543,9 +541,14 @@ def makeV(gpwfile='grid.gpw', orbitalfile='w_wG__P_awi.pckl',
           rotationfile='eps_q__U_pq.pckl', coulombfile='V_qq.pckl',
           log='V_qq.log', fft=False):
 
-    if isinstance(log, str) and world.rank == 0:
-        log = open(log, 'w')
+    with IOContext() as io:
+        log = io.openfile(log)
+        _makeV(gpwfile=gpwfile, orbitalfile=orbitalfile,
+               rotationfile=rotationfile, coulombfile=coulombfile,
+               log=log, fft=fft)
 
+
+def _makeV(gpwfile, orbitalfile, rotationfile, coulombfile, log, fft):
     # Extract data from files
     calc = GPAW(gpwfile, txt=None, communicator=serial_comm)
     coulomb = Coulomb(calc.wfs.gd, calc.wfs.setups, calc.spos_ac, fft)
