@@ -3,22 +3,37 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
+def read_molecules(filename, molnames):
+    
+    file2read = open(filename, 'r')
+    calculated_data_string = file2read.read().split('\n')
+    calculated_data = {}
+    for i in calculated_data_string:
+        if i == '':
+            continue
+        mol = i.split()
+        # ignore last two columns which are memory and elapsed time
+        calculated_data[mol[0]] = np.array([float(_) for _ in mol[1:-2]])
+    file2read.close()
+
+    data2return = []
+    for _ in molnames:
+        if 'scf' in filename:
+            x = 0
+        elif 'dm' in filename:
+            x = 1
+        data2return.append(_)
+        data2return.append(calculated_data[_][x])
+
+    return data2return
+
 f = plt.figure(figsize=(12, 4), dpi=240)
 plt.subplot(121)
-# plt.title('Convegrence: ' + r'res$^2$ $< 1\cdot10^{-10} $eV$^2$')
-
+mollist = \
+    ['PH3', 'P2', 'CH3CHO', 'H2COH', 'CS', 'OCHCHO',
+     'C3H9C', 'CH3COF', 'CH3CH2OCH3', 'HCOOH']
+data = read_molecules('scf-g2-results.txt', mollist)
 # scf
-data = \
-['PH3',     18, 
-'P2',     14,
-'CH3CHO',  17,
-'H2COH',   18,
-'CS',      15,
-'OCHCHO',  17,
-'C3H9C',  19,
-'CH3COF',  17,
-'CH3CH2OCH3', 17,
-'HCOOH',   18]
 x = data[::2]
 y = data[1::2]
 plt.xticks(range(len(x)), x, rotation=45)
@@ -26,19 +41,9 @@ plt.grid(color='k', linestyle=':', linewidth=0.3)
 plt.plot(range(len(x)), y, 'b^-', label='SCF', fillstyle='none')
 
 # direct_min
-data = \
-['PH3', 9,
-'P2', 6,
-'CH3CHO', 14,
-'H2COH', 12,
-'CS', 10,
-'OCHCHO', 11,
-'C3H9C', 13,
-'CH3COF', 13,
-'CH3CH2OCH3', 12,
-'HCOOH', 13]
-
+data = read_molecules('dm-g2-results.txt', mollist)
 x = data[::2]
+# add 2 because dm also need 2 diagonalizations
 y = np.asarray(data[1::2])+2
 
 plt.plot(range(len(x)), y, 'ro-', label='ETDM',
@@ -46,16 +51,11 @@ plt.plot(range(len(x)), y, 'ro-', label='ETDM',
 plt.legend()
 plt.ylabel('Number of iterations (energy and gradients calls)')
 
-
 plt.subplot(122)
-
 # direct_min
-data = \
-['NO', 47,
- 'CH', 38,
- 'OH', 27,
- 'ClO', 52,
- 'SH', 41]
+mollist = \
+    ['NO', 'CH', 'OH', 'ClO', 'SH']
+data = read_molecules('dm-g2-results.txt', mollist)
 x = data[::2]
 y = np.asarray(data[1::2]) + 2
 
@@ -64,15 +64,9 @@ plt.grid(color='k', linestyle=':', linewidth=0.3)
 plt.plot(range(len(x)), y, 'ro-', label='ETDM',
          fillstyle='none')
 # scf
-data = \
-['NO', 163,
- 'CH', 80,
- 'OH', 156,
- 'ClO', 117,
- 'SH', 35]
+data = read_molecules('scf-g2-results.txt', mollist)
 x = data[::2]
 y = np.asarray(data[1::2]) 
-
 plt.xticks(range(len(x)), x, rotation=45)
 plt.grid(color='k', linestyle=':', linewidth=0.3)
 plt.plot(range(len(x)), y, 'bo-', label='SCF',

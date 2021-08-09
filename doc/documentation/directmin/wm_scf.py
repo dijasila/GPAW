@@ -60,7 +60,7 @@ r = [[1, 1, 1],
      # [3, 3, 2]
      ]
 
-file2write = open('scf-results.txt', 'w')
+file2write = open('scf-water-results.txt', 'w')
 
 for x in r:
     atoms = Atoms('32(OH2)',
