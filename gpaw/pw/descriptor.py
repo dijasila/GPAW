@@ -1,24 +1,12 @@
 import numbers
 from math import pi
-
+from typing import overload
 import numpy as np
 
 import _gpaw
 import gpaw.fftw as fftw
 from gpaw.utilities.blas import mmm, r2k, rk
-
-
-def pad(array, N):
-    """Pad 1-d ndarray with zeros up to length N."""
-    if array is None:
-        return None
-    n = len(array)
-    if n == N:
-        return array
-    b = np.empty(N, complex)
-    b[:n] = array
-    b[n:] = 0
-    return b
+from gpaw.typing import Array1D
 
 
 class PWDescriptor:
@@ -124,7 +112,9 @@ class PWDescriptor:
         self.myQ_qG = []
         self.myng_q = []
         for q, G2_G in enumerate(G2_qG):
-            self.G2_qG.append(G2_G[ng1:ng2].copy())
+            G2_G = G2_G[ng1:ng2].copy()
+            G2_G.flags.writeable = False
+            self.G2_qG.append(G2_G)
             myQ_G = self.Q_qG[q][ng1:ng2]
             self.myQ_qG.append(myQ_G)
             self.myng_q.append(len(myQ_G))
@@ -573,3 +563,35 @@ def count_reciprocal_vectors(ecut, gd, q_c):
 
     G2_Q = (Gpq_Qv**2).sum(axis=1)
     return (G2_Q <= 2 * ecut).sum()
+
+
+@overload
+def pad(array: Array1D, N: int) -> Array1D:
+    ...
+
+
+@overload
+def pad(array: None, N: int) -> None:
+    ...
+
+
+def pad(array, N):
+    """Pad 1-d ndarray with zeros up to length N.
+
+    >>> a = np.ones(2, complex)
+    >>> pad(a, 3)
+    array([1.+0.j, 1.+0.j, 0.+0.j])
+    >>> pad(a, 2) is a
+    True
+    >>> pad(None, 7) is None
+    True
+    """
+    if array is None:
+        return None
+    n = len(array)
+    if n == N:
+        return array
+    b = np.empty(N, complex)
+    b[:n] = array
+    b[n:] = 0
+    return b
