@@ -18,7 +18,7 @@ The orbitals are expanded into a finite basis set:
 
 .. math:: \phi_{i} ({\bf r}) = \sum_{\mu=1..M} O_{\mu i} \chi_{\mu}({\bf r}), \quad i = 1 .. M
 
-and the energy needs to be minimised with respect
+and the energy needs to be minimized with respect
 to the expansion coefficients subject to orthonormality constraints:
 
 .. math:: E_0 = \min_{O^{\dagger}SO = I} E\left(O\right)
@@ -33,7 +33,7 @@ by some unitary transformation:
 where U is a unitary matrix. Thus, the objective is to find the unitary
 matrix that transforms the reference c.m. into an optimal c.m.,
 minimizing the energy of the electronic system.
-A unitary matrix can be parametrised as
+A unitary matrix can be parametrized as
 the exponential of a skew-hermitian matrix `A`:
 
 .. math:: U = \exp(A)
@@ -50,7 +50,7 @@ then the energy is a function of `A`:
 
 Skew-hermitian matrices form a linear space and,
 therefore, conventional unconstrained minimization algorithms
-can be applied to minimise the energy
+can be applied to minimize the energy
 with respect to `A`.
 
 Example
@@ -75,14 +75,13 @@ in ``DirectMinLCAO``, default value is 20).
 
 **Important:** The exponential matrix is calculated here using
 the SciPy function *expm*. In order to obtain good performance,
-please make sure that your SciPy library is optimized
-(e.g. use the Math Kernel Library (MKL)).
+please make sure that your SciPy library is optimized.
 Otherwise see `Implementation Details`_.
 
 When all occupied orbitals of a given spin channel have the same
 occupation number, as in the example above, the functional is unitary
 invariant and a more efficient algorithm for computing the matrix
-exponential can be used (see also `Implementation Details`_):
+exponential should be used (see also `Implementation Details`_):
 
 .. code-block:: python
 
@@ -94,9 +93,7 @@ exponential can be used (see also `Implementation Details`_):
 
 Performance
 ~~~~~~~~~~~~~
-All calculations were carried out with GPAW version 1.5.2. In the newer versions
-of GPAW (>20.10.0) the default density mixing is different for spin-polarized systems
-and therefore, the performance results of these calculations can be different as well.
+All calculations were carried out with GPAW version 21.6.1. 
 
 G2 molecular set
 `````````````````
@@ -106,39 +103,32 @@ in direct minimization using the L-BFGS algorithm (memory=3) with preconditionin
 and the number of iterations in the SCF LCAO eigensolver with default
 density mixing.
 Figure (a) shows several examples for molecules from the G2 set.
-Figure (b) shows the results of the direct minimization for molecules
-for which SCF with default density mixing fails to converge.
-SCF fails to converge for 5 molecules,
-while direct minimization demonstrates stable performance. Note that
+Figure (b) shows the results of the direct minimization and SCF for molecules
+which are difficult to converge; these molecules are radicals and calculations are
+carried out with the spin-polarized DFT. 
+Direct minimization demonstrates stable performance in all cases. Note that
 by choosing different parameters for the density mixing one may improve
 the convergence of the SCF methods.
 
 .. image:: g2.png
 
-32-576 Water molecules
+32-128 Water molecules
 ```````````````````````
-In this test, the ground state of liquid water configurations with 32, 64, 128, 256, 384 and 576
-molecules are calculated. The geometries are taken
+In this test, the ground state of liquid water configurations with 32, 64, 128
+molecules and the TZDP basis set are calculated. The geometries are taken
 from `here <https://wiki.fysik.dtu.dk/gpaw/devel/benchmarks.html>`_
-The GPAW parameters used in this test include: the PBE functional,
-the DZP basis set, grid spacing h=0.2, and
+The GPAW parameters used in this test include: the PBE functional, grid spacing h=0.2, and
 8-core domain decomposition. The convergence criterion is a
-square of the residuals of the Kohn-Sham equations smaller than `1.0 \times 10^{-10}\text{eV}^{2}`.
+change in density is smaller than `10^{-6}` electrons per valence electron.
 The ratio of the elapsed times spent by the default LCAO eigensolver and
 the direct minimization methods as a function of the number of
-water molecules is shown below.
-In the figure, ‘ss’ refers to the scaling and squaring method [#AlMoly]_
-used for
-the calculation of the matrix exponential, while
-‘uinv’ refers to the method for the calculation of
-the matrix exponential that takes into account the unitary invariance
-of the KS functional [#Hutter]_ (see `Implementation Details`_).
+water molecules is shown below. In direct minimization, the unitary invariant representation
+has been used [#Hutter]_ (see `Implementation Details`_). 
 As can be seen, direct minimization converges faster
-by a factor of 1.5 for 32 molecules and a factor of 2 for 512 molecules
-using the 'uinv' method. 'ss' outperforms the SCF by a factor of ~1.2.
+by around a factor of 1.5 for 32 molecules and around a factor of 2 for 128 molecules.
 
 .. image:: water.png
-  :width: 70%
+  :width: 100%
   :align: center
 
 Implementation Details
@@ -185,7 +175,7 @@ matrix exponential:
    .. math:: \exp(A) = U \exp(-i\Omega) U^{\dagger}
 
 3. For a unitary invariant functional, the matrix `A`
-   can be parametrised as [#Hutter]_:
+   can be parametrized as [#Hutter]_:
 
    .. math::
 
