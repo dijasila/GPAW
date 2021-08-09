@@ -59,7 +59,7 @@ for _ in scf.keys():
     data2plot.append(_)
     ratio = (scf[_][3] / scf[_][2]) / (dm_ui[_][3] / (dm_ui[_][2] + 2))
     data2plot.append(ratio)
-    assert ratio > 1.3
+    assert ratio > 1.1
 
 x = data2plot[::2]
 y = data2plot[1::2]
