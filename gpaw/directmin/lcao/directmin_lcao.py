@@ -831,7 +831,7 @@ class DirectMinLCAO(DirectLCAO):
                 occ_name = getattr(wfs.occupations, "name", None)
                 if occ_name == 'mom':
                     # OccupationsMOM.numbers needs to be updated after sorting
-                    wfs.occupations.numbers[kpt.s] = kpt.f_n
+                    self.update_mom_numbers(wfs, kpt)
         wfs.timer.stop('Sort WFS')
 
         return
@@ -866,7 +866,7 @@ class DirectMinLCAO(DirectLCAO):
                 changedocc = True
                 wfs.atomic_correction.calculate_projections(wfs, kpt)
                 # OccupationsMOM.numbers needs to be updated after sorting
-                wfs.occupations.numbers[kpt.s] = kpt.f_n
+                self.update_mom_numbers(wfs, kpt)
 
         return changedocc
 
@@ -1221,6 +1221,14 @@ class DirectMinLCAO(DirectLCAO):
         if occ_name == 'mom':
             self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
             self.restart = self.sort_wavefunctions_mom(wfs)
+
+    def update_mom_numbers(self, wfs, kpt):
+        if wfs.collinear and wfs.nspins == 1:
+            degeneracy = 2
+        else:
+            degeneracy = 1
+        wfs.occupations.numbers[kpt.s] = \
+            kpt.f_n / (kpt.weightk * degeneracy)
 
     @property
     def error(self):
