@@ -10,10 +10,10 @@ https://doi.org/10.1016/j.cpc.2021.108047
 """
 
 
-from ase.units import Hartree
 import numpy as np
+from ase.parallel import parprint
 from gpaw.utilities.blas import mmm
-from gpaw.directmin.lcao.tools import d_matrix, expm_ed, expm_ed_unit_inv
+from gpaw.directmin.lcao.tools import expm_ed, expm_ed_unit_inv
 from gpaw.lcao.eigensolver import DirectLCAO
 from scipy.linalg import expm
 from gpaw.utilities.tools import tri2full
@@ -244,8 +244,12 @@ class DirectMinLCAO(DirectLCAO):
                     zero_ind = ((M - n_occ) * (M - n_occ - 1)) // 2
                     if len(ind_up[0]) == 1:
                         zero_ind = -1
-                    self.ind_up[u] = (ind_up[0][:-zero_ind].copy(),
-                                      ind_up[1][:-zero_ind].copy())
+                    if zero_ind == 0:
+                        self.ind_up[u] = (ind_up[0][:].copy(),
+                                          ind_up[1][:].copy())
+                    else:
+                        self.ind_up[u] = (ind_up[0][:-zero_ind].copy(),
+                                          ind_up[1][:-zero_ind].copy())
                 del ind_up
             else:
                 # take indices of A_2 only
@@ -274,6 +278,7 @@ class DirectMinLCAO(DirectLCAO):
                 if wfs.dtype is complex:
                     arand += 1.j * np.random.rand(nst, nst) * wt
                 arand = arand - arand.T.conj()
+                wfs.gd.comm.broadcast(arand, 0)
                 kpt.C_nM[:] = expm(arand) @ kpt.C_nM[:]
                 wfs.atomic_correction.calculate_projections(wfs, kpt)
             self.a_mat_u[u] = np.zeros(shape=shape_of_arr,
@@ -493,99 +498,6 @@ class DirectMinLCAO(DirectLCAO):
         # wfs.timer.stop('Update Kohn-Sham energy')
 
         return ham.get_energy(0.0, wfs, False)
-
-    def get_gradients(self, h_mm, c_nm, f_n, evec, evals, kpt, timer):
-
-        """
-        calculate derivatives of the energy
-        with respect to skew-hermitian
-        matrix elements
-
-        :param h_mm:
-        :param c_nm:
-        :param f_n:
-        :param evec:
-        :param evals:
-        :param kpt:
-        :param timer:
-        :return:
-        """
-
-        timer.start('Construct Gradient Matrix')
-        hc_mn = np.zeros(shape=(c_nm.shape[1], c_nm.shape[0]),
-                         dtype=self.dtype)
-        mmm(1.0, h_mm.conj(), 'N', c_nm, 'T', 0.0, hc_mn)
-        if c_nm.shape[0] != c_nm.shape[1]:
-            h_mm = np.zeros(shape=(c_nm.shape[0], c_nm.shape[0]),
-                            dtype=self.dtype)
-        mmm(1.0, c_nm.conj(), 'N', hc_mn, 'N', 0.0, h_mm)
-        timer.stop('Construct Gradient Matrix')
-
-        # let's also calculate residual here.
-        # it's extra calculation though, maybe it's better to use
-        # norm of grad as convergence criteria..
-        timer.start('Residual')
-        n_occ = 0
-        nbands = len(f_n)
-        while n_occ < nbands and f_n[n_occ] > 1e-10:
-            n_occ += 1
-        # what if there are empty states between occupied?
-        rhs = np.zeros(shape=(c_nm.shape[1], n_occ),
-                       dtype=self.dtype)
-        rhs2 = np.zeros(shape=(c_nm.shape[1], n_occ),
-                        dtype=self.dtype)
-        mmm(1.0, kpt.S_MM.conj(), 'N', c_nm[:n_occ], 'T', 0.0, rhs)
-        mmm(1.0, rhs, 'N', h_mm[:n_occ, :n_occ], 'N', 0.0, rhs2)
-        hc_mn = hc_mn[:, :n_occ] - rhs2[:, :n_occ]
-        norm = []
-        for i in range(n_occ):
-            norm.append(np.dot(hc_mn[:, i].conj(),
-                               hc_mn[:, i]).real * kpt.f_n[i])
-            # needs to be contig. to use this:
-            # x = np.ascontiguousarray(hc_mn[:,i])
-            # norm.append(dotc(x, x).real * kpt.f_n[i])
-
-        error = sum(norm) * Hartree ** 2 / self.nvalence
-        del rhs, rhs2, hc_mn, norm
-        timer.stop('Residual')
-
-        # continue with gradients
-        timer.start('Construct Gradient Matrix')
-        h_mm = f_n * h_mm - f_n[:, np.newaxis] * h_mm
-        if self.matrix_exp in ['pade_approx', 'egdecomp2']:
-            # timer.start('Frechet derivative')
-            # frechet derivative, unfortunately it calculates unitary
-            # matrix which we already calculated before. Could it be used?
-            # it also requires a lot of memory so don't use it now
-            # u, grad = expm_frechet(a_mat, h_mm,
-            #                        compute_expm=True,
-            #                        check_finite=False)
-            # grad = grad @ u.T.conj()
-            # timer.stop('Frechet derivative')
-            grad = np.ascontiguousarray(h_mm)
-        elif self.matrix_exp == 'egdecomp':
-            timer.start('Use Eigendecomposition')
-            grad = np.dot(evec.T.conj(), np.dot(h_mm, evec))
-            grad = grad * d_matrix(evals)
-            grad = np.dot(evec, np.dot(grad, evec.T.conj()))
-            timer.stop('Use Eigendecomposition')
-            for i in range(grad.shape[0]):
-                grad[i][i] *= 0.5
-        else:
-            raise ValueError('Check the keyword '
-                             'for matrix_exp. \n'
-                             'Must be '
-                             '\'pade_approx\' or '
-                             '\'egdecomp\'')
-
-        if self.dtype == float:
-            grad = grad.real
-        if self.representation['name'] in ['sparse', 'u_invar']:
-            u = self.n_kps * kpt.s + kpt.q
-            grad = grad[self.ind_up[u]]
-        timer.stop('Construct Gradient Matrix')
-
-        return 2.0 * grad, error
 
     def get_search_direction(self, a_mat_u, g_mat_u, precond, wfs):
         """
@@ -972,45 +884,65 @@ class DirectMinLCAO(DirectLCAO):
                 'orthonormalization': self.orthonormalization
                 }
 
-    def get_numerical_gradients(self, n_dim, ham, wfs, dens,
-                                c_nm_ref, eps=1.0e-7):
+    def get_numerical_gradients(self, ham, wfs, dens,
+                                c_nm_ref=None, eps=1.0e-7,
+                                random_amat=False, update_c_nm_ref=False,
+                                seed=None):
 
         """
            calculate gradient with respect to skew-hermitian
            matrix using finite differences with random noise
            this is just to test the implementation of anal. gradient
 
-        :param n_dim:
         :param ham:
         :param wfs:
         :param dens:
         :param c_nm_ref:
         :param eps:
+        :param random_amat:
+        :update_c_nm_ref:
+        :seed: seed for random generator
         :return:
         """
 
-        assert not self.representation['name'] in ['sparse', 'u_invar']
+        assert self.representation['name'] in ['sparse', 'u_invar']
         a_m = {}
         g_n = {}
-        if self.matrix_exp == 'pade_approx':
-            c_nm_ref = {}
+        n_dim = self.n_dim
+        
+        if c_nm_ref is None:
+            c_nm_ref = self.c_nm_ref
         for kpt in wfs.kpt_u:
             u = self.n_kps * kpt.s + kpt.q
-            a = np.random.random_sample(self.a_mat_u[u].shape) + \
-                1.0j * np.random.random_sample(self.a_mat_u[u].shape)
-            a = a - a.T.conj()
-            u_nn = expm(a)
+            if random_amat:
+                np.random.seed(seed)
+                a = np.random.random_sample(self.a_mat_u[u].shape)
+                if wfs.dtype == complex:
+                    a = a.astype(complex)
+                    a += 1.0j * np.random.random_sample(self.a_mat_u[u].shape)
+            else:
+                a = np.zeros_like(self.a_mat_u[u])
+            wfs.gd.comm.broadcast(a, 0)
+            a_m[u] = a
             g_n[u] = np.zeros_like(self.a_mat_u[u])
+        
+        if update_c_nm_ref:
+            for kpt in wfs.kpt_u:
+                u = self.n_kps * kpt.s + kpt.q
+                
+                # construct full matrix
+                a = np.zeros(shape=(n_dim[u], n_dim[u]), dtype=self.dtype)
+                a[self.ind_up[u]] = a_m[u]
+                a += -a.T.conj()
 
-            if self.matrix_exp == 'pade_approx':
-                a_m[u] = np.zeros_like(self.a_mat_u[u])
+                u_nn = expm(a)
                 c_nm_ref[u] = np.dot(u_nn.T, kpt.C_nM[:u_nn.shape[0]])
-            elif self.matrix_exp == 'egdecomp':
-                a_m[u] = a
-
+                a_m[u] = np.zeros_like(self.a_mat_u[u])
+        
+        # calc analitical gradient
         g_a = self.get_energy_and_gradients(a_m, n_dim, ham, wfs,
                                             dens, c_nm_ref)[1]
-
+        # calc numerical gradient
         h = [eps, -eps]
         coeif = [1.0, -1.0]
 
@@ -1023,36 +955,26 @@ class DirectMinLCAO(DirectLCAO):
 
         for kpt in wfs.kpt_u:
             u = self.n_kps * kpt.s + kpt.q
-            dim = a_m[u].shape[0]
+            dim = len(a_m[u])
             for z in range(range_z):
                 for i in range(dim):
-                    for j in range(dim):
-                        print(u, z, i, j)
-                        a = a_m[u][i][j]
-                        g = 0.0
-                        for l in range(2):
-                            if z == 0:
-                                if i != j:
-                                    a_m[u][i][j] = a + h[l]
-                                    a_m[u][j][i] = -np.conjugate(a + h[l])
-                            else:
-                                a_m[u][i][j] = a + 1.0j * h[l]
-                                if i != j:
-                                    a_m[u][j][i] = \
-                                        -np.conjugate(a + 1.0j * h[l])
+                    parprint(u, z, i)
+                    a = a_m[u][i]
+                    g = 0.0
+                    for l in range(2):
+                        if z == 0:
+                            a_m[u][i] = a + h[l]
+                        else:
+                            a_m[u][i] = a + 1.0j * h[l]
+                        E = self.get_energy_and_gradients(
+                            a_m, n_dim, ham, wfs, dens,
+                            c_nm_ref)[0]
+                        g += E * coeif[l]
 
-                            E = self.get_energy_and_gradients(
-                                a_m, n_dim, ham, wfs, dens,
-                                c_nm_ref)[0]
-
-                            g += E * coeif[l]
-
-                        g *= 1.0 / (2.0 * eps)
-
-                        g_n[u][i][j] += g * complex_gr[z]
-                        a_m[u][i][j] = a
-                        if i != j:
-                            a_m[u][j][i] = -np.conjugate(a)
+                    g *= 1.0 / (2.0 * eps)
+                    
+                    g_n[u][i] += g * complex_gr[z]
+                    a_m[u][i] = a
 
         return g_a, g_n
 
