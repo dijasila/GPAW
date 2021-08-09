@@ -93,9 +93,8 @@ exponential should be used (see also `Implementation Details`_):
 
 Performance
 ~~~~~~~~~~~~~
-All calculations were carried out with GPAW version 21.6.1. 
 
-G2 molecular set
+G2 Molecular Set
 `````````````````
 
 Here we compare the number of energy and gradient evaluations
@@ -110,9 +109,11 @@ Direct minimization demonstrates stable performance in all cases. Note that
 by choosing different parameters for the density mixing one may improve
 the convergence of the SCF methods.
 
+Examples of scripts to run such calcualtions :download:`run_g2_with_dm_ui.py`, :download:`run_g2_with_scf.py`, :download:`plot_g2.py`. 
+
 .. image:: g2.png
 
-32-128 Water molecules
+32-128 Water Molecules
 ```````````````````````
 In this test, the ground state of liquid water configurations with 32, 64, 128
 molecules and the TZDP basis set are calculated. The geometries are taken
@@ -126,6 +127,9 @@ water molecules is shown below. In direct minimization, the unitary invariant re
 has been used [#Hutter]_ (see `Implementation Details`_). 
 As can be seen, direct minimization converges faster
 by around a factor of 1.5 for 32 molecules and around a factor of 2 for 128 molecules.
+
+
+Examples of scripts to run such calcualtions :download:`wm_dm.py`, :download:`wm_scf.py`, :download:`plot_h2o.py`. 
 
 .. image:: water.png
   :width: 100%
