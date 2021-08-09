@@ -8,12 +8,11 @@ Atomic Density Functional Theory
 from math import pi, sqrt, log
 import tempfile
 import pickle
-import sys
 import os
 
 import numpy as np
 from ase.data import atomic_names
-from gpaw.utilities import devnull
+from ase.utils import IOContext
 
 from gpaw.atom.configurations import configurations
 from gpaw.atom.radialgd import AERadialGridDescriptor
@@ -28,7 +27,7 @@ tempdir = tempfile.gettempdir()
 alpha = 1 / 137.036
 
 
-class AllElectron:
+class AllElectron(IOContext):
     """Object for doing an atomic DFT calculation."""
 
     def __init__(self, symbol, xcname='LDA', scalarrel=True,
@@ -42,13 +41,7 @@ class AllElectron:
           a.run()
         """
 
-        if txt is None:
-            txt = devnull
-        elif txt == '-':
-            txt = sys.stdout
-        elif isinstance(txt, str):
-            txt = open(txt, 'w')
-        self.txt = txt
+        self.txt = self.openfile(txt)
 
         self.symbol = symbol
         self.xcname = xcname
@@ -691,6 +684,9 @@ class AllElectron:
         potential[i_rc + 1:] = np.inf
 
         return alpha * potential
+
+    def __del__(self):
+        self.close()
 
 
 def shoot(u, l, vr, e, r2dvdr, r, dr, c10, c2, scalarrel, gmax=None):
