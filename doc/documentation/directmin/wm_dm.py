@@ -1,6 +1,6 @@
 from ase import Atoms
 from gpaw import GPAW, LCAO, ConvergenceError
-from ase.parallel import parprint, paropen
+from ase.parallel import parprint
 from gpaw.utilities.memory import maxrss
 import time
 from gpaw.directmin.lcao.directmin_lcao import DirectMinLCAO
@@ -58,8 +58,7 @@ r = [[1, 1, 1],
 file2write = open('dm-water-results.txt', 'w')
 
 for x in r:
-    atoms = Atoms('32(OH2)',
-                positions=positions)
+    atoms = Atoms('32(OH2)', positions=positions)
     atoms.set_cell((L, L, L))
     atoms.set_pbc(1)
     atoms = atoms.repeat(x)
@@ -76,8 +75,7 @@ for x in r:
                 nbands='nao',
                 occupations={'name': 'fixed-uniform'},
                 symmetry='off',
-                parallel={'domain': world.size}
-               )
+                parallel={'domain': world.size})
 
     atoms.set_calculator(calc)
 
@@ -88,25 +86,20 @@ for x in r:
         steps = atoms.calc.get_number_of_iterations()
         iters = atoms.calc.wfs.eigensolver.eg_count
         memory = maxrss() / 1024.0 ** 2
-        parprint(
-                 "{}\t{}\t{}\t{}\t{}\t{:.3f}".format(len(atoms), steps, e, iters,
-                                                   t2 - t1, memory),
-                 flush=True, file=file2write)  # s,MB
-        # calc.write(str(len(atoms) // 3) + '_H2O.gpw')
-        del calc
-        del atoms
+        parprint("{}\t{}\t{}\t{}\t{}\t{:.3f}".format(
+            len(atoms), steps, e, iters, t2 - t1, memory),
+            flush=True, file=file2write)  # s,MB
     except ConvergenceError:
-        parprint(
-                 "{}\t{}\t{}\t{}\t{}\t{}".format(None, None, None, None, None,
-                                               None),
-                 flush=True, file=file2write)
-        del calc
-        del atoms
+        parprint("{}\t{}\t{}\t{}\t{}\t{}".format(
+            None, None, None, None, None, None),
+            flush=True, file=file2write)
+    del calc
+    del atoms
 
 file2write.close()
 
 output = \
-"""
+    """
 96	13	-449.29433888653887	15	13.834846258163452	417.422
 192	13	-899.8689779482846	15	47.11155915260315	893.156
 384	13	-1802.1980642103324	15	243.71619248390198	2633.445
@@ -145,4 +138,3 @@ error = np.array([3, 1.0e-2, 3])
 assert len(calculated_data) == len(saved_data)
 for k in saved_data.keys():
     assert (abs(saved_data[k] - calculated_data[k]) < error).all()
-

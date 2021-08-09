@@ -3,6 +3,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
+
 def read_molecules(filename, molnames):
     
     file2read = open(filename, 'r')
@@ -27,6 +28,7 @@ def read_molecules(filename, molnames):
 
     return data2return
 
+
 f = plt.figure(figsize=(12, 4), dpi=240)
 plt.subplot(121)
 mollist = \
@@ -44,7 +46,7 @@ plt.plot(range(len(x)), y, 'b^-', label='SCF', fillstyle='none')
 data = read_molecules('dm-g2-results.txt', mollist)
 x = data[::2]
 # add 2 because dm also need 2 diagonalizations
-y = np.asarray(data[1::2])+2
+y = np.asarray(data[1::2]) + 2
 
 plt.plot(range(len(x)), y, 'ro-', label='ETDM',
          fillstyle='none')
@@ -66,7 +68,7 @@ plt.plot(range(len(x)), y, 'ro-', label='ETDM',
 # scf
 data = read_molecules('scf-g2-results.txt', mollist)
 x = data[::2]
-y = np.asarray(data[1::2]) 
+y = np.asarray(data[1::2])
 plt.xticks(range(len(x)), x, rotation=45)
 plt.grid(color='k', linestyle=':', linewidth=0.3)
 plt.plot(range(len(x)), y, 'bo-', label='SCF',

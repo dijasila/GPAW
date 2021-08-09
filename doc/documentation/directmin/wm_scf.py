@@ -1,7 +1,6 @@
 from ase import Atoms
 from gpaw import GPAW, FermiDirac, LCAO, ConvergenceError
-from ase.parallel import parprint, paropen
-from gpaw.utilities import h2gpts
+from ase.parallel import parprint
 from gpaw.utilities.memory import maxrss
 import time
 
@@ -63,8 +62,7 @@ r = [[1, 1, 1],
 file2write = open('scf-water-results.txt', 'w')
 
 for x in r:
-    atoms = Atoms('32(OH2)',
-                positions=positions)
+    atoms = Atoms('32(OH2)', positions=positions)
     atoms.set_cell((L, L, L))
     atoms.set_pbc(1)
     atoms = atoms.repeat(x)
@@ -75,8 +73,7 @@ for x in r:
                 mode=LCAO(),
                 txt=str(len(atoms) // 3) + '_H2Omlcls_scf.txt',
                 occupations=FermiDirac(width=0.0, fixmagmom=True),
-                parallel={'domain': world.size}
-               )
+                parallel={'domain': world.size})
 
     atoms.set_calculator(calc)
 
@@ -85,25 +82,20 @@ for x in r:
         e = atoms.get_potential_energy()
         t2 = time.time()
         steps = atoms.calc.get_number_of_iterations()
-        iters = steps 
+        iters = steps
         memory = maxrss() / 1024.0 ** 2
-        parprint(
-                 "{}\t{}\t{}\t{}\t{}\t{:.3f}".format(len(atoms), steps, e, iters,
-                                                   t2 - t1, memory),
-                 flush=True, file=file2write)  # s,MB
-        # calc.write(str(len(atoms) // 3) + '_H2O.gpw')
-        del calc
-        del atoms
+        parprint("{}\t{}\t{}\t{}\t{}\t{:.3f}".format(
+            len(atoms), steps, e, iters, t2 - t1, memory),
+            flush=True, file=file2write)  # s,MB
     except ConvergenceError:
-        parprint(
-                 "{}\t{}\t{}\t{}\t{}\t{}".formati(None, None, None, None, None,
-                                               None),
+        parprint("{}\t{}\t{}\t{}\t{}\t{}".format(
+                 None, None, None, None, None, None),
                  flush=True, file=file2write)
-        del calc
-        del atoms
+    del calc
+    del atoms
 
 output = \
-"""
+    """
 96	22	-449.2501666690716	22	22.129411935806274	381.734
 192	21	-899.7732083940263	21	91.08534455299377	773.613
 384	21	-1802.1232238298205	21	659.9850523471832	2085.758
@@ -142,4 +134,3 @@ error = np.array([3, 1.0e-2, 3])
 assert len(calculated_data) == len(saved_data)
 for k in saved_data.keys():
     assert (abs(saved_data[k] - calculated_data[k]) < error).all()
-

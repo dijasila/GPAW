@@ -3,7 +3,6 @@ from gpaw import GPAW, LCAO, ConvergenceError
 from ase.parallel import parprint
 from gpaw.utilities.memory import maxrss
 import time
-from gpaw.mpi import world
 from gpaw.directmin.lcao.directmin_lcao import DirectMinLCAO
 
 xc = 'PBE'
@@ -11,8 +10,8 @@ mode = LCAO()
 
 file2write = open('dm-g2-results.txt', 'w')
 
-for name in g2.names:
 
+for name in g2.names:
     atoms = g2[name]
     if len(atoms) == 1:
         continue
@@ -30,7 +29,6 @@ for name in g2.names:
                 occupations={'name': 'fixed-uniform'},
                 symmetry='off'
                 )
-
     atoms.calc = calc
 
     try:
@@ -40,19 +38,20 @@ for name in g2.names:
         steps = atoms.calc.get_number_of_iterations()
         iters = atoms.calc.wfs.eigensolver.eg_count
         memory = maxrss() / 1024.0 ** 2
-        parprint(name +
-                 "\t{}\t{}\t{}\t{}\t{:.3f}".format(steps, iters, e,
-                                                   t2-t1, memory), file=file2write, flush=True)  # s,MB
+        parprint(name + "\t{}\t{}\t{}\t{}\t{:.3f}".format(
+            steps, iters, e, t2 - t1, memory),
+            file=file2write, flush=True)  # s,MB
     except ConvergenceError:
-        parprint(name +
-                 "\t{}\t{}\t{}\t{}\t{}".format(None, None, None, None, None), file=file2write, flush=True)
+        parprint(name + "\t{}\t{}\t{}\t{}\t{}".format(
+            None, None, None, None, None),
+            file=file2write, flush=True)
     calc = None
     atoms = None
 
 file2write.close()
 
 output = \
-"""
+    """
 PH3	9	10	-15.067594250491323	6.6201441287994385	341.027
 P2	6	8	-8.379318635747365	5.050562620162964	341.027
 CH3CHO	14	17	-37.75204876792297	13.296800136566162	394.836
@@ -236,4 +235,3 @@ error = np.array([3, 3, 1.0e-3])
 assert len(calculated_data) == len(saved_data)
 for k in saved_data.keys():
     assert (abs(saved_data[k] - calculated_data[k]) < error).all()
-

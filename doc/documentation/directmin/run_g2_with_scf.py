@@ -3,7 +3,6 @@ from gpaw import GPAW, LCAO, FermiDirac, ConvergenceError
 from ase.parallel import parprint
 from gpaw.utilities.memory import maxrss
 import time
-from gpaw.mpi import world
 
 xc = 'PBE'
 mode = LCAO()
@@ -34,19 +33,20 @@ for name in g2.names:
         t2 = time.time()
         steps = atoms.calc.get_number_of_iterations()
         memory = maxrss() / 1024.0 ** 2
-        parprint(name +
-                 "\t{}\t{}\t{}\t{:.3f}".format(steps, e,
-                                               t2-t1, memory), file=file2write, flush=True)  # s,MB
+        parprint(name + "\t{}\t{}\t{}\t{:.3f}".format(
+            steps, e, t2 - t1, memory),
+            file=file2write, flush=True)  # s,MB
     except ConvergenceError:
-        parprint(name +
-                 "\t{}\t{}\t{}\t{}".format(None, None, None, None), file=file2write, flush=True)
+        parprint(name + "\t{}\t{}\t{}\t{}".format(
+            None, None, None, None),
+            file=file2write, flush=True)
     calc = None
     atoms = None
 
 file2write.close()
 
 output = \
-"""
+    """
 PH3	18	-15.067939739162565	9.424316883087158	345.191
 P2	14	-8.379364578606403	6.812095403671265	345.191
 CH3CHO	17	-37.752640153790544	12.035242795944214	398.117
@@ -230,4 +230,3 @@ error = np.array([3, 3, 1.0e-3])
 assert len(calculated_data) == len(saved_data)
 for k in saved_data.keys():
     assert (abs(saved_data[k] - calculated_data[k]) < error).all()
-
