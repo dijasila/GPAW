@@ -1,25 +1,21 @@
 
 import numpy as np
-
 from gpaw.arraydict import ArrayDict
 from gpaw.density import Density
 from gpaw.external import NoExternalPotential
 from gpaw.hamiltonian import Hamiltonian
-from gpaw.typing import Array3D
 from gpaw.pw.lfc import PWLFC
-from gpaw.pw.poisson import ReciprocalSpacePoissonSolver
-
-
-def integrate(pd, a, b):
-    """Shortcut for integrals without calling pd.gd.comm.sum()."""
-    return pd.integrate(a, b, global_integral=False)
+from gpaw.pw.poisson import (ChargedReciprocalSpacePoissonSolver,
+                             ReciprocalSpacePoissonSolver)
+from gpaw.typing import Array3D
 
 
 class ReciprocalSpaceHamiltonian(Hamiltonian):
     def __init__(self, gd, finegd, pd2, pd3, nspins, collinear,
                  setups, timer, xc, world, xc_redistributor,
                  vext=None,
-                 psolver=None, redistributor=None, realpbc_c=None):
+                 psolver=None, redistributor=None, realpbc_c=None,
+                 charge=0.0):
 
         assert redistributor is not None  # XXX should not be like this
 
@@ -34,23 +30,35 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         self.pd2 = pd2
         self.pd3 = pd3
         self.xc_redistributor = xc_redistributor
+        self.charge = charge
 
         self.vHt_q = pd3.empty()
 
-        if psolver is None:
-            psolver = ReciprocalSpacePoissonSolver(pd3, realpbc_c)
-        elif isinstance(psolver, dict):
+        if charge == 0.0 or realpbc_c.any():
+            self.poisson = ReciprocalSpacePoissonSolver(pd3, charge)
+        else:
+            self.poisson = ChargedReciprocalSpacePoissonSolver(pd3, charge)
+
+        if isinstance(psolver, dict):
             direction = psolver['dipolelayer']
             assert len(psolver) == 1
             from gpaw.dipole_correction import DipoleCorrection
-            psolver = DipoleCorrection(
-                ReciprocalSpacePoissonSolver(pd3, realpbc_c), direction)
-        self.poisson = psolver
+            self.poisson = DipoleCorrection(self.poisson, direction)
+            self.poisson.check_direction(gd, realpbc_c)
+        else:
+            assert psolver is None
+
         self.npoisson = 0
 
         self.vbar_Q = None
         self.vt_Q = None
         self.estress = None
+
+    def __str__(self):
+        s = Hamiltonian.__str__(self)
+        if self.charge != 0.0:
+            s += f'Poisson solver:\n  {self.poisson}\n'
+        return s
 
     @property
     def xc_gd(self):
@@ -64,10 +72,11 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         self.vbar.add(self.vbar_Q)
 
     def update_pseudo_potential(self, dens):
-        ebar = integrate(self.pd2, self.vbar_Q, dens.nt_Q)
+        ebar = self.pd2.integrate(self.vbar_Q, dens.nt_Q,
+                                  global_integral=False)
         with self.timer('Poisson'):
-            self.poisson.solve(self.vHt_q, dens)
-            epot = 0.5 * integrate(self.pd3, self.vHt_q, dens.rhot_q)
+            epot = self.poisson.solve(self.vHt_q, dens)
+            epot /= self.finegd.comm.size
 
         self.vt_Q = self.vbar_Q.copy()
 
@@ -118,8 +127,9 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
     def calculate_kinetic_energy(self, density):
         ekin = 0.0
         for vt_G, nt_G in zip(self.vt_xG, density.nt_xG):
-            ekin -= integrate(self.gd, vt_G, nt_G)
-        ekin += integrate(self.gd, self.vt_sG, density.nct_G).sum()
+            ekin -= self.gd.integrate(vt_G, nt_G, global_integral=False)
+        ekin += self.gd.integrate(self.vt_sG, density.nct_G,
+                                  global_integral=False).sum()
         return ekin
 
     def restrict(self, in_xR, out_xR=None):

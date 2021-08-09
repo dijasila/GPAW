@@ -112,7 +112,9 @@ class PWDescriptor:
         self.myQ_qG = []
         self.myng_q = []
         for q, G2_G in enumerate(G2_qG):
-            self.G2_qG.append(G2_G[ng1:ng2].copy())
+            G2_G = G2_G[ng1:ng2].copy()
+            G2_G.flags.writeable = False
+            self.G2_qG.append(G2_G)
             myQ_G = self.Q_qG[q][ng1:ng2]
             self.myQ_qG.append(myQ_G)
             self.myng_q.append(len(myQ_G))
