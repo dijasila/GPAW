@@ -69,7 +69,6 @@ Pick among them according to your interest.  You can also look at the
    eels/eels
    gw/gw
    rpa/rpa
-   dcdft/dcdft
    stress/stress
    lrtddft/lrtddft
 

@@ -43,7 +43,6 @@ Specialized tutorials
    point_groups/point_groups
    jellium/jellium
    hydrogen/h
-   scissors/scissors
    zfs/zfs
    muonsites/mnsi
    defects/defects
@@ -51,7 +50,6 @@ Specialized tutorials
    bader/bader
    all-electron/all_electron_density
    ps2ae/ps2ae
-   cdft/cdft
    neb/neb
    pbe0/pbe0
    xas/xas
@@ -65,7 +63,6 @@ Specialized tutorials
    rangerpa/rangerpa_tut
    H2/ensembles
    continuum_solvent_model/continuum_solvent_model
-   ofdft/ofdft
    berry/berry_tutorial
    wannier90/wannier90_tutorial
    sjm/solvated_jellium_method
