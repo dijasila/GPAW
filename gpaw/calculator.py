@@ -56,8 +56,9 @@ from gpaw.xc.sic import SIC
 class GPAW(Calculator):
     """This is the ASE-calculator frontend for doing a GPAW calculation."""
 
-    implemented_properties = ['energy', 'forces', 'stress', 'dipole',
-                              'magmom', 'magmoms']
+    implemented_properties = ['energy', 'free_energy',
+                              'forces', 'stress',
+                              'dipole', 'magmom', 'magmoms']
 
     default_parameters: Dict[str, Any] = {
         'mode': 'fd',
