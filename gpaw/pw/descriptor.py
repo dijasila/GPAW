@@ -72,6 +72,20 @@ class PWDescriptor:
             self.K_qv = np.dot(kd.ibzk_qc, B_cv)
             self.only_one_k_point = (kd.nbzkpts == 1)
 
+        spiral = qspiral is not None
+        if spiral:
+            if kd is None:
+                self.q_c = np.array([0, 0, 0])
+                self.q_v = np.array([0, 0, 0])
+            else:
+                self.q_c = np.asarray(qspiral)
+                self.q_v = np.dot(self.q_c, B_cv)
+                
+            R_Rc = np.indices(N_c).T / N_c
+            self.phase_R = np.exp(2j * pi * np.dot(R_Rc, self.q_c).T)
+            G2p_qG = []
+            G2m_qG = []
+
         # Map from vectors inside sphere to fft grid:
         self.Q_qG = []
         G2_qG = []
@@ -80,6 +94,10 @@ class PWDescriptor:
         self.ng_q = []
         for q, K_v in enumerate(self.K_qv):
             G2_Q = ((self.G_Qv + K_v)**2).sum(axis=1)
+            if spiral:
+                G2m_Q = ((self.G_Qv + K_v - self.q_v/2)**2).sum(axis=1)
+                G2p_Q = ((self.G_Qv + K_v + self.q_v/2)**2).sum(axis=1)
+
             if gammacentered:
                 mask_Q = ((self.G_Qv**2).sum(axis=1) <= 2 * ecut)
             else:
@@ -92,6 +110,9 @@ class PWDescriptor:
             Q_G = Q_Q[mask_Q]
             self.Q_qG.append(Q_G)
             G2_qG.append(G2_Q[Q_G])
+            if spiral:
+                G2p_qG.append(G2p_Q[Q_G])
+                G2m_qG.append(G2m_Q[Q_G])
             ng = len(Q_G)
             self.ng_q.append(ng)
 
@@ -118,6 +139,14 @@ class PWDescriptor:
             myQ_G = self.Q_qG[q][ng1:ng2]
             self.myQ_qG.append(myQ_G)
             self.myng_q.append(len(myQ_G))
+        
+        if spiral:
+            self.G2p_qG = []
+            self.G2m_qG = []
+            for q, G2p_G in enumerate(G2p_qG):
+                self.G2p_qG.append(G2p_G[ng1:ng2].copy())
+            for q, G2m_G in enumerate(G2m_qG):
+                self.G2m_qG.append(G2m_G[ng1:ng2].copy())
 
         if S > 1:
             self.tmp_G = np.empty(self.maxmyng * S, complex)
