@@ -23,6 +23,7 @@ from ase.utils import basestring
 from gpaw.directmin.functional.lcao import get_functional
 from gpaw import BadParallelization
 
+
 class DirectMinLCAO(DirectLCAO):
 
     def __init__(self, diagonalizer=None,
