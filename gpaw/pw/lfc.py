@@ -146,13 +146,16 @@ class PWLFC(BaseLFC):
         return sum(2 * spline.get_angular_momentum_number() + 1
                    for spline in self.spline_aj[a])
 
-    def set_positions(self, spos_ac, atom_partition=None):
-        self.initialize()
+    def set_positions(self, spos_ac, atom_partition=None, G2_qG=None, sign=0):
+        self.initialize(G2_qG, sign)
         kd = self.pd.kd
         if kd is None or kd.gamma:
             self.eikR_qa = np.ones((1, len(spos_ac)))
-        else:
+        elif sign == 0:
             self.eikR_qa = np.exp(2j * pi * np.dot(kd.ibzk_qc, spos_ac.T))
+        else:
+            k_qc = kd.ibzk_qc + sign * self.pd.qs_c / 2
+            self.eikR_qa = np.exp(2j * pi * np.dot(k_qc, spos_ac.T))
 
         self.pos_av = np.dot(spos_ac, self.pd.gd.cell_cv)
 
@@ -455,3 +458,38 @@ class PWLFC(BaseLFC):
         for a, I1, I2 in self.my_indices:
             stress -= self.eikR_qa[q][a] * (c_axi[a] * c_xI[..., I1:I2]).sum()
         return stress.real
+
+
+class SPWLFC(BaseLFC):
+    def __init__(self, spline_aj, pd, blocksize=5000, comm=None):
+        self.pd = pd
+        self.spline_aj = spline_aj
+        self.ptUp = PWLFC(spline_aj, pd, blocksize, comm)
+        self.ptDn = PWLFC(spline_aj, pd, blocksize, comm)
+
+    def initialize(self):
+        self.ptUp.initialize(G2_qG=self.pd.G2m_qG, sign=-1)
+        self.ptDn.initialize(G2_qG=self.pd.G2p_qG, sign=1)
+
+    def estimate_memory(self, mem):
+        splines = set()
+        lmax = -1
+        for spline_j in self.spline_aj:
+            for spline in spline_j:
+                splines.add(spline)
+                l = spline.get_angular_momentum_number()
+                lmax = max(lmax, l)
+        nbytes = ((len(splines) + (lmax + 1)**2) *
+                  sum(G2_G.nbytes for G2_G in self.pd.G2_qG))
+        mem.subnode('Arrays', nbytes)
+
+    def set_positions(self, spos_ac, atom_partition=None):
+        # Note, set_positions is executed
+        self.ptUp.set_positions(spos_ac, atom_partition,
+                                self.pd.G2m_qG, sign=-1)
+        self.ptDn.set_positions(spos_ac, atom_partition,
+                                self.pd.G2p_qG, sign=1)
+
+        # Required for baseLFC functionality
+        assert (self.ptUp.my_atom_indices == self.ptDn.my_atom_indices)
+        self.my_atom_indices = self.ptUp.my_atom_indices
