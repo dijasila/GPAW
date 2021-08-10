@@ -21,7 +21,7 @@ from gpaw.directmin.lcao import search_direction, line_search_algorithm
 from gpaw.xc import xc_string_to_dict
 from ase.utils import basestring
 from gpaw.directmin.functional.lcao import get_functional
-
+from gpaw import BadParallelization
 
 class DirectMinLCAO(DirectLCAO):
 
@@ -482,7 +482,7 @@ class DirectMinLCAO(DirectLCAO):
 
     def update_ks_energy(self, ham, wfs, dens):
         """
-        Update Kohn-Shame energy
+        Update Kohn-Sham energy
         It assumes the temperature is zero K.
 
 
@@ -1202,8 +1202,12 @@ class DirectMinLCAO(DirectLCAO):
             'Please, use: mixer={\'backend\': \'no-mixing\'}'
         assert wfs.bd.nbands == wfs.basis_functions.Mmax, \
             'Please, use: nbands=\'nao\''
-        assert wfs.bd.comm.size == 1, \
-            'Band parallelization is not supported'
+        if not wfs.bd.comm.size == 1, \
+            raise BadParallelization(
+                'Band parallelization is not supported')
+        if wfs.ksl.using_blacs:
+            raise BadParallelization(
+                'ScaLapack parallelization is not supported')
         if wfs.occupations.name != 'mom':
             errormsg = \
                 'Please, use occupations={\'name\': \'fixed-uniform\'}'
