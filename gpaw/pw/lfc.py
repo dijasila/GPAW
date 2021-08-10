@@ -80,7 +80,7 @@ class PWLFC(BaseLFC):
             assert False
         self.comm = comm
 
-    def initialize(self):
+    def initialize(self, G2_qG=None, sign=0):
         """Initialize position-independent stuff."""
         if self.initialized:
             return
@@ -99,6 +99,8 @@ class PWLFC(BaseLFC):
         self.a_J = np.empty(nJ, np.int32)
         self.s_J = np.empty(nJ, np.int32)
 
+        if G2_qG is None:
+            G2_qG = self.pd.G2_qG
         # Fourier transform radial functions:
         J = 0
         done = set()  # Set[Spline]
@@ -107,7 +109,7 @@ class PWLFC(BaseLFC):
                 s = splines[spline]  # get spline index
                 if spline not in done:
                     f = ft(spline)
-                    for f_Gs, G2_G in zip(self.f_qGs, self.pd.G2_qG):
+                    for f_Gs, G2_G in zip(self.f_qGs, G2_qG):
                         G_G = G2_G**0.5
                         f_Gs[:, s] = f.map(G_G)
                     self.l_s[s] = spline.get_angular_momentum_number()
@@ -120,7 +122,7 @@ class PWLFC(BaseLFC):
 
         # Spherical harmonics:
         for q, K_v in enumerate(self.pd.K_qv):
-            G_Gv = self.pd.get_reciprocal_vectors(q=q)
+            G_Gv = self.pd.get_reciprocal_vectors(q=q, sign=sign)
             Y_GL = np.empty((len(G_Gv), (self.lmax + 1)**2))
             for L in range((self.lmax + 1)**2):
                 Y_GL[:, L] = Y(L, *G_Gv.T)
