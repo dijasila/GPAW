@@ -74,13 +74,13 @@ class KickHamiltonian(object):
         W_aL = dens.ghat.dict()
         dens.ghat.integrate(vext_g, W_aL)
         # XXX this is a quick hack to get the distribution right
-        dHtmp_asp = ham.atomdist.to_aux(dH_asp)
+        dHaux_asp = ham.atomdist.to_aux(dH_asp)
         for a, W_L in W_aL.items():
             setup = dens.setups[a]
             dH_p = np.dot(setup.Delta_pL, W_L)
             for s in range(nspins):
-                dHtmp_asp[a][s] = dH_p
-        self.dH_asp = ham.atomdist.from_aux(dHtmp_asp)
+                dHaux_asp[a][s] = dH_p
+        self.dH_asp = ham.atomdist.from_aux(dHaux_asp)
 
 
 class TimeDependentHamiltonian(object):
