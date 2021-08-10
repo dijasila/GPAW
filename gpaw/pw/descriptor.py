@@ -12,7 +12,7 @@ from gpaw.typing import Array1D
 class PWDescriptor:
     ndim = 1  # all 3d G-vectors are stored in a 1d ndarray
 
-    def __init__(self, ecut, gd, dtype=None, qspiral=None, kd=None,
+    def __init__(self, ecut, gd, dtype=None, kd=None, qspiral=None,
                  fftwflags=fftw.MEASURE, gammacentered=False):
 
         assert gd.pbc_c.all()

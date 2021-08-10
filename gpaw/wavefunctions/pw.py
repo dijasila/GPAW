@@ -198,8 +198,9 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
     def set_setups(self, setups):
         self.timer.start('PWDescriptor')
-        self.pd = PWDescriptor(self.ecut, self.gd, self.dtype, self.qspiral,
-                               self.kd, self.fftwflags, self.gammacentered)
+        self.pd = PWDescriptor(self.ecut, self.gd, self.dtype, self.kd,
+                               self.qspiral, self.fftwflags,
+                               self.gammacentered)
         self.timer.stop('PWDescriptor')
 
         # Build array of number of plane wave coefficiants for all k-points
