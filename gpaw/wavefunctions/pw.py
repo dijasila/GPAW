@@ -13,7 +13,7 @@ from gpaw.blacs import BlacsDescriptor, BlacsGrid, Redistributor
 from gpaw.lfc import BasisFunctions
 from gpaw.matrix_descriptor import MatrixDescriptor
 from gpaw.pw.descriptor import PWDescriptor
-from gpaw.pw.lfc import PWLFC
+from gpaw.pw.lfc import PWLFC, SPWLFC
 from gpaw.utilities import unpack
 from gpaw.utilities.blas import axpy
 from gpaw.utilities.progressbar import ProgressBar
