@@ -69,7 +69,7 @@ def test_mom_directopt_lcao_forces(in_tmp_dir):
                 assert (np.allclose(f_sn[spin], f_n))
             assert (np.allclose(f_sn[spin],
                                 calc.wfs.occupations.numbers[spin]))
-        assert e0 == pytest.approx(e1, abs=1e-3)
+        assert e0 == pytest.approx(e1, abs=1e-2)
 
     E = []
     for i in [-1, 1]:
