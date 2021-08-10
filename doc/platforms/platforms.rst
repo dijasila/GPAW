@@ -22,6 +22,7 @@ Linux:
    Linux/akka
    Linux/armageddon
    Linux/batman
+   Linux/brown
    Linux/bwgrid
    Linux/bwuni
    Linux/carbon_cnm

@@ -12,6 +12,21 @@ Git master branch
 
 * Corresponding ASE release: ASE-3.23.0b1
 
+* Constant magnetic field calculations can now be done:
+  See :class:`gpaw.bfield.BField` and this example:
+  :git:`gpaw/test/ext_potential/test_b_field.py`.
+
+* :ref:`raman` calculations for extended systems using electron-phonon coupling
+  are now implemented in the LCAO mode.
+
+  * An example can be found under :ref:`elphraman`.
+
+  * The electron-phonon code has been updated. It can now be avoided to load
+    the whole supercell matrix into memory.
+
+  * A routine to calculate dipole and nabla (momentum) matrix elements for
+    LCAO wave functions has been added: :git:`gpaw/raman/dipoletransition.py`
+
 
 Version 21.6.0
 ===============
