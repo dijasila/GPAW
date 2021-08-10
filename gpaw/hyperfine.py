@@ -58,8 +58,7 @@ def hyperfine_parameters(calc: GPAW,
         \int \frac{3 r_i r_j - \delta_{ij} r^2}{r^5}
         \rho_s(\mathbf{r}) d\mathbf{r}.
 
-    Remember to multiply each tensor by the g-factors of the nuclei
-    and divide by the total electron spin.
+    Remember to multiply each tensor by the g-factors of the nuclei.
 
     Use ``exclude_core=True`` to exclude contribution from "frozen" core.
     """
@@ -341,7 +340,6 @@ def main(argv: List[str] = None) -> None:
     symbols = atoms.symbols
     magmoms = atoms.get_magnetic_moments()
     total_magmom = atoms.get_magnetic_moment()
-    assert total_magmom != 0.0
 
     g_factors = {symbol: ratio * 1e6 * 4 * pi * units._mp / units._e
                  for symbol, (n, ratio) in gyromagnetic_ratios.items()}
@@ -375,7 +373,7 @@ def main(argv: List[str] = None) -> None:
         magmom = magmoms[a]
         g_factor = g_factors.get(symbol, 1.0)
         used[symbol] = g_factor
-        A_vv *= g_factor / total_magmom * scale
+        A_vv *= g_factor * scale
         if args.diagonalize:
             numbers = np.linalg.eigvalsh(A_vv)
         else:

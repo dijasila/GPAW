@@ -12,7 +12,7 @@ Python API and CLI
 
 Use the :func:`hyperfine_parameters` function or the CLI tool::
 
-    $ python3 -m gpaw.hyperfine <gpw-file>
+    $ python3 -m gpaw.hyperfine --help
 
 .. autofunction:: hyperfine_parameters
 
