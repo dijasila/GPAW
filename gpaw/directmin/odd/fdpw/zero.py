@@ -10,8 +10,7 @@ from gpaw.directmin.fdpw.tools import d_matrix
 class ZeroCorrections:
 
     """
-    Perdew-Zunger self-interaction corrections
-
+    KS-DFT 
     """
     def __init__(self, wfs, dens, ham, scaling_factor=(1.0, 1.0),
                  sic_coarse_grid=True, store_potentials=False,
@@ -144,9 +143,9 @@ class ZeroCorrections:
             if a_mat[k] is None:
                 g_k[k] = l_odd.T
             else:
-                g_mat = evec.T.conj() @ l_odd.T.conj() @ evec
-                g_mat = g_mat * d_matrix(evals)
-                g_mat = evec @ g_mat @ evec.T.conj()
+                g_mat = evec[k].T.conj() @ l_odd.T.conj() @ evec[k]
+                g_mat = g_mat * d_matrix(evals[k])
+                g_mat = evec[k] @ g_mat @ evec[k].T.conj()
                 for i in range(g_mat.shape[0]):
                     g_mat[i][i] *= 0.5
                 if a_mat[k].dtype == float:

@@ -60,8 +60,9 @@ class InnerLoop:
 
         g_k = {}
         self.e_total = 0.0
-
         self.kappa = 0.0
+        evals = {}
+        evecs = {}
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
             n_occ = self.n_occ[k]
@@ -69,7 +70,7 @@ class InnerLoop:
                 g_k[k] = np.zeros_like(a_k[k])
                 continue
             wfs.timer.start('Unitary matrix')
-            u_mat, evecs, evals = expm_ed(a_k[k], evalevec=True)
+            u_mat, evecs[k], evals[k] = expm_ed(a_k[k], evalevec=True)
             wfs.timer.stop('Unitary matrix')
             self.Unew_k[k] = u_mat.copy()
             kpt.psit_nG[:n_occ] = \
