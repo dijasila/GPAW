@@ -1,6 +1,6 @@
 from ase import Atoms
 from gpaw import GPAW
-atoms = Atoms('(O2Ti4O6)3V2O6',
+atoms = Atoms('(O2Ti4O6)3V2O5',
               [(8.3411, 1.9309, 9.2647),
                (3.2338, 0.0854, 9.4461),
                (1.5783, 0.1417, 8.4327),
