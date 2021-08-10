@@ -10,7 +10,7 @@ from gpaw.directmin.fdpw.tools import d_matrix
 class ZeroCorrections:
 
     """
-    KS-DFT 
+    KS-DFT
     """
     def __init__(self, wfs, dens, ham, scaling_factor=(1.0, 1.0),
                  sic_coarse_grid=True, store_potentials=False,
