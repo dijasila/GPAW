@@ -1,6 +1,3 @@
-# Copyright (C) 2003  CAMP
-# Please see the accompanying LICENSE file for further information.
-
 r"""
 Real-valued spherical harmonics
 
@@ -35,7 +32,7 @@ Gaunt coefficients::
 import numpy as np
 
 from math import pi, sqrt  # noqa
-
+from collections import defaultdict
 from gpaw import debug
 from _gpaw import spherical_harmonics as Yl
 
@@ -228,3 +225,66 @@ def nablarlYL(L, R):
         dYdy += N * powy * x**powx * y**abs(powy - 1) * z**powz
         dYdz += N * powz * x**powx * y**powy * z**abs(powz - 1)
     return dYdx, dYdy, dYdz
+
+
+def YYY(l, m):
+    from fractions import Fraction
+    from sympy import assoc_legendre, sqrt, simplify, factorial as fac, I
+    from sympy.abc import x, y, z
+    c = sqrt((2 * l + 1) * fac(l - m) / fac(l + m))
+    if m > 0:
+        return simplify(c * (x + I * y)**m / (1 - z**2)**Fraction(m, 2) *
+                        assoc_legendre(l, m, z))
+    return simplify(c * (x - I * y)**(-m) / (1 - z**2)**Fraction(-m, 2) *
+                    assoc_legendre(l, m, z))
+
+
+def YYYY(l, m):
+    from sympy import I, Number, sqrt, re
+    if m > 0:
+        return (YYY(l, m) + (-1)**m * YYY(l, -m)) / sqrt(2)
+    if m < 0:
+        return (YYY(l, m) - Number(-1)**m * YYY(l, -m)) / (sqrt(2) * I)
+    return YYY(l, m)
+
+
+def f(l, m):
+    from sympy.abc import x, y, z
+    Y = YYYY(l, m)
+    coeffs = {}
+    for nx, coef in enumerate(reversed(Poly(Y, x).all_coeffs())):
+        for ny, coef in enumerate(reversed(Poly(coef, y).all_coeffs())):
+            for nz, coef in enumerate(reversed(Poly(coef, z).all_coeffs())):
+                if coef:
+                    coeffs[(nx, ny, nz)] = coef
+    return coeffs
+
+
+def fix(coeffs, l):
+    from sympy import Number
+    new = defaultdict(lambda: Number(0))
+    for (nx, ny, nz), coef in coeffs.items():
+        if nx + ny + nz == l:
+            new[(nx, ny, nz)] += coef
+        else:
+            new[(nx + 2, ny, nz)] += coef
+            new[(nx, ny + 2, nz)] += coef
+            new[(nx, ny, nz + 2)] += coef
+
+    new = {nxyz: coef for nxyz, coef in new.items() if coef}
+
+    if not all(sum(nxyz) == l for nxyz in new):
+        new = fix(new, l)
+
+    return new
+
+
+if __name__ == '__main__':
+    from sympy import assoc_legendre, sqrt, simplify, Poly, degree_list
+    for l in range(7, 8):
+        for m in range(-l, l + 1):
+            print(l, m)
+            y1 = f(l, m)
+            print(y1)
+            print(fix(y1, l))
+            
