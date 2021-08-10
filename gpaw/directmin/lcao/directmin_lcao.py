@@ -1202,7 +1202,7 @@ class DirectMinLCAO(DirectLCAO):
             'Please, use: mixer={\'backend\': \'no-mixing\'}'
         assert wfs.bd.nbands == wfs.basis_functions.Mmax, \
             'Please, use: nbands=\'nao\''
-        if not wfs.bd.comm.size == 1, \
+        if not wfs.bd.comm.size == 1:
             raise BadParallelization(
                 'Band parallelization is not supported')
         if wfs.ksl.using_blacs:
