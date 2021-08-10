@@ -1,4 +1,5 @@
 from gpaw.directmin.fdpw.inner_loop import InnerLoop
+from gpaw.directmin.fdpw.inner_loop_exst import InnerLoop as ILEXST
 import numpy as np
 
 
@@ -8,12 +9,18 @@ class DirectMinLocalize:
 
         self.obj_f = obj_f
         self.randval = randval
-        self.iloop = InnerLoop(
-            obj_f, wfs, maxiter=maxiter,
-            g_tol=g_tol)
+
+        if obj_f.name == 'Zero':
+            self.iloop = ILEXST(
+                obj_f, wfs, 'all', 5.0e-4, maxiter,
+                g_tol=g_tol, useprec=True)
+        else:
+            self.iloop = InnerLoop(
+                obj_f, wfs, maxiter=maxiter,
+                g_tol=g_tol)
 
     def run(self, wfs, dens, log=None, max_iter=None,
-            g_tol=None, rewritepsi=True):
+            g_tol=None, rewritepsi=True, ham=None):
 
         if g_tol is not None:
             self.iloop.tol = g_tol
@@ -24,8 +31,15 @@ class DirectMinLocalize:
 
         wfs.timer.start('Inner loop')
 
-        counter = self.iloop.run(0.0, wfs, dens, log, 0,
-                                 randvalue=self.randval)
+        if self.obj_f.name == 'Zero':
+            etotal, counter = self.iloop.run(
+                0.0, wfs, dens, log, 0,
+                small_random=False,
+                ham=ham)
+        else:
+            counter = self.iloop.run(0.0, wfs, dens, log, 0,
+                                     randvalue=self.randval)
+
         if rewritepsi:
             for kpt in wfs.kpt_u:
                 k = self.iloop.n_kps * kpt.s + kpt.q

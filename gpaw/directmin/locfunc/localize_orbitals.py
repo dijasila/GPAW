@@ -8,15 +8,17 @@ from gpaw.pipekmezey.wannier_basic import WannierLocalization
 import numpy as np
 
 
-def localize_orbitals(wfs, dens, ham, log, localizationtype):
-
+def localize_orbitals(wfs, dens, ham, log, localizationtype, tol=None):
     io = localizationtype
+
     if io is None:
         return
-    elif io == 'PM':
-        tol = 1.0e-6
-    else:
-        tol = 1.0e-10
+
+    if tol is None:
+        if io == 'PM':
+            tol = 1.0e-6
+        else:
+            tol = 1.0e-10
     locnames = io.split('-')
 
     log("Initial Localization: ...", flush=True)
@@ -50,9 +52,6 @@ def localize_orbitals(wfs, dens, ham, log, localizationtype):
             log('Perdew-Zunger localization finished',
                 flush=True)
         elif name == 'KS':
-            print('============')
-            print('I am here!\n')
-            print('============', flush=True)
             log('ETDM minimization using occupied and virtual orbitals',
                 flush=True)
             if wfs.mode == 'lcao':
@@ -61,7 +60,7 @@ def localize_orbitals(wfs, dens, ham, log, localizationtype):
                 KS = KSpwfd
             dm = DirectMinLocalize(
                 KS(wfs, dens, ham), wfs,
-                maxiter=200, g_tol=5.0e-4, randval=0)
+                maxiter=200, g_tol=tol, randval=0)
             dm.run(wfs, dens, log, ham=ham)
             log('ETDM minimization finished', flush=True)
         else:
