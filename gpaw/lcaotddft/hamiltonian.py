@@ -62,17 +62,24 @@ class TimeDependentPotential(object):
 
 class KickHamiltonian(object):
     def __init__(self, ham, dens, ext):
+        nspins = ham.nspins
         vext_g = ext.get_potential(ham.finegd)
-        self.vt_sG = [ham.restrict_and_collect(vext_g)]
-        self.dH_asp = ham.setups.empty_atomic_matrix(1, ham.atom_partition)
+        vext_G = ham.restrict_and_collect(vext_g)
+        self.vt_sG = ham.gd.empty(nspins)
+        for s in range(nspins):
+            self.vt_sG[s] = vext_G
 
+        dH_asp = ham.setups.empty_atomic_matrix(nspins,
+                                                ham.atom_partition)
         W_aL = dens.ghat.dict()
         dens.ghat.integrate(vext_g, W_aL)
         # XXX this is a quick hack to get the distribution right
-        dHtmp_asp = ham.atomdist.to_aux(self.dH_asp)
+        dHtmp_asp = ham.atomdist.to_aux(dH_asp)
         for a, W_L in W_aL.items():
             setup = dens.setups[a]
-            dHtmp_asp[a] = np.dot(setup.Delta_pL, W_L).reshape((1, -1))
+            dH_p = np.dot(setup.Delta_pL, W_L)
+            for s in range(nspins):
+                dHtmp_asp[a][s] = dH_p
         self.dH_asp = ham.atomdist.from_aux(dHtmp_asp)
 
 
