@@ -79,7 +79,7 @@ class PWDescriptor:
                 self.qs_v = np.array([0, 0, 0])
             else:
                 self.qs_c = np.asarray(qspiral)
-                self.qs_v = np.dot(self.q_c, B_cv)
+                self.qs_v = np.dot(self.qs_c, B_cv)
                 
             R_Rc = np.indices(N_c).T / N_c
             self.phase_R = np.exp(2j * pi * np.dot(R_Rc, self.qs_c).T)
