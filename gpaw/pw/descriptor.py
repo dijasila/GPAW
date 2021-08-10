@@ -12,7 +12,7 @@ from gpaw.typing import Array1D
 class PWDescriptor:
     ndim = 1  # all 3d G-vectors are stored in a 1d ndarray
 
-    def __init__(self, ecut, gd, dtype=None, kd=None,
+    def __init__(self, ecut, gd, dtype=None, qspiral=None, kd=None,
                  fftwflags=fftw.MEASURE, gammacentered=False):
 
         assert gd.pbc_c.all()
@@ -95,8 +95,8 @@ class PWDescriptor:
         for q, K_v in enumerate(self.K_qv):
             G2_Q = ((self.G_Qv + K_v)**2).sum(axis=1)
             if spiral:
-                G2m_Q = ((self.G_Qv + K_v - self.q_v/2)**2).sum(axis=1)
-                G2p_Q = ((self.G_Qv + K_v + self.q_v/2)**2).sum(axis=1)
+                G2m_Q = ((self.G_Qv + K_v - self.q_v / 2)**2).sum(axis=1)
+                G2p_Q = ((self.G_Qv + K_v + self.q_v / 2)**2).sum(axis=1)
 
             if gammacentered:
                 mask_Q = ((self.G_Qv**2).sum(axis=1) <= 2 * ecut)
