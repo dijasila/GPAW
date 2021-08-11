@@ -58,23 +58,6 @@ double bmgs_splinevalue(const bmgsspline* spline, double r);
 void bmgs_get_value_and_derivative(const bmgsspline* spline, double r,
            double *f, double *dfdr);
 void bmgs_deletespline(bmgsspline* spline);
-void bmgs_radial1(const bmgsspline* spline,
-      const int n[3], const double C[3],
-      const double h[3],
-      int* b, double* d);
-void bmgs_radial2(const bmgsspline* spline, const int n[3],
-      const int* b, const double* d,
-      double* f, double* g);
-void bmgs_radial3(const bmgsspline* spline, int m,
-      const int n[3],
-      const double C[3],
-      const double h[3],
-      const double* f, double* a);
-void bmgs_radiald3(const bmgsspline* spline, int m, int c,
-      const int n[3],
-      const double C[3],
-      const double h[3],
-      const double* f, const double* g, double* a);
 void bmgs_fd(const bmgsstencil* s, const double* a, double* b);
 void bmgs_wfd(int nweights, const bmgsstencil* stencils, const double** weights, const double* a, double* b);
 void bmgs_relax(const int relax_method, const bmgsstencil* s, double* a, double* b,
