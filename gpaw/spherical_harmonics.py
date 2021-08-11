@@ -142,7 +142,7 @@ def fix_exponents(coeffs, l):
     new = {nxyz: coef for nxyz, coef in new.items() if coef}
 
     if not all(sum(nxyz) == l for nxyz in new):
-        new = fix(new, l)
+        new = fix_exponents(new, l)
 
     return new
 
