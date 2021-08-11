@@ -58,7 +58,13 @@ def test_y_c_code2():
 def test_write_c_code(capsys):
     write_c_code(1)
     s = capsys.readouterr().out
-    print(s)
+    s = s.replace(' ', '')
+    s = s.replace('\n', '')
+    assert s == (
+        'elseif(l==1)' +
+        '{Y_m[0]=0.4886025119029199*y;' +
+        'Y_m[1]=0.4886025119029199*z;' +
+        'Y_m[2]=0.4886025119029199*x;}')
 
 
 def test_print_YL_table_code():
