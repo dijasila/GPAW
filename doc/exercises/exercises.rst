@@ -33,8 +33,6 @@ Do these first...
 .. toctree::
    :maxdepth: 1
 
-   gettingstarted/gettingstarted
-   water/water
    wavefunctions/wavefunctions
 
 
@@ -44,8 +42,6 @@ Intermediate exercises
 .. toctree::
    :maxdepth: 1
 
-   aluminium/aluminium
-   surface/surface
    diffusion/diffusion
 
 
@@ -69,7 +65,6 @@ Pick among them according to your interest.  You can also look at the
    eels/eels
    gw/gw
    rpa/rpa
-   stress/stress
    lrtddft/lrtddft
 
 Further information:

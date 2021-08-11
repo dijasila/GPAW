@@ -23,10 +23,8 @@ Introductory tutorials
    :maxdepth: 2
 
    H2/atomization
-   H2/optimization
    plotting/plot_wave_functions
    bandstructures/bandstructures
-   lattice_constants/lattice_constants
 
 
 Specialized tutorials
