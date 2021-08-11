@@ -90,7 +90,8 @@ def gam(n0, n1, n2):
     return 2.0 * pi * g[h0] * g[h1] * g[h2] / g[1 + h0 + h1 + h2]
 
 
-def YYY(l, m):
+def Y0(l, m):
+    """Sympy version of spherical harmonics."""
     from fractions import Fraction
     from sympy import assoc_legendre, sqrt, simplify, factorial as fac, I, pi
     from sympy.abc import x, y, z
@@ -102,19 +103,21 @@ def YYY(l, m):
                     assoc_legendre(l, m, z))
 
 
-def YYYY(l, m):
+def S(l, m):
+    """Sympy version of real valued spherical harmonics."""
     from sympy import I, Number, sqrt
     if m > 0:
-        return (YYY(l, m) + (-1)**m * YYY(l, -m)) / sqrt(2) * (-1)**m
+        return (Y0(l, m) + (-1)**m * Y0(l, -m)) / sqrt(2) * (-1)**m
     if m < 0:
-        return -(YYY(l, m) - Number(-1)**m * YYY(l, -m)) / (sqrt(2) * I)
-    return YYY(l, m)
+        return -(Y0(l, m) - Number(-1)**m * Y0(l, -m)) / (sqrt(2) * I)
+    return Y0(l, m)
 
 
-def f(l, m):
+def poly_coeffs(l, m):
+    """Sympy coefficients for polynomiunm in x, y and z."""
     from sympy import Poly
     from sympy.abc import x, y, z
-    Y = YYYY(l, m)
+    Y = S(l, m)
     coeffs = {}
     for nx, coef in enumerate(reversed(Poly(Y, x).all_coeffs())):
         for ny, coef in enumerate(reversed(Poly(coef, y).all_coeffs())):
@@ -124,7 +127,8 @@ def f(l, m):
     return coeffs
 
 
-def fix(coeffs, l):
+def fix_exponents(coeffs, l):
+    """Make sure exponents add up to l."""
     from sympy import Number
     new = defaultdict(lambda: Number(0))
     for (nx, ny, nz), coef in coeffs.items():
@@ -158,8 +162,8 @@ def print_YL_table_code():
         s = 'spdfghijk'[l]
         print(f'    # {s}, l={l}:')
         for m in range(-l, l + 1):
-            y1 = f(l, m)
-            e = fix(y1, l)
+            e = poly_coeffs(l, m)
+            e = fix_exponents(e, l)
             if l**2 + m + l < len(YL):
                 assert len(e) == len(YL[l**2 + m + l])
                 for c0, n in YL[l**2 + m + l]:
