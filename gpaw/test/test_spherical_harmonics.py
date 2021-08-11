@@ -2,7 +2,7 @@ from math import pi
 
 import numpy as np
 import pytest
-from gpaw.spherical_harmonics import YL, Yl, gam
+from gpaw.spherical_harmonics import YL, Yl, gam, Y
 
 
 def yLL(L1, L2):
@@ -31,3 +31,24 @@ def test_y_c_code():
     Y = np.zeros(2 * 8 + 1)
     with pytest.raises(RuntimeError):
         Yl(8, R, Y)
+
+
+def test_y_c_code2():
+    R_c = np.array([0.1, -0.2, 0.3])
+    for l in range(8):
+        print('l', l)
+
+        # Using C implementation
+        rlY1_m = np.zeros(2 * l + 1) + np.nan
+        Yl(l, R_c, rlY1_m)
+        print(rlY1_m)
+
+        # Using Python implementation
+        rlY2_m = []
+        for m in range(-l, l + 1):
+            L = l**2 + l + m
+            rlY2_m.append(Y(L, *R_c))
+        rlY2_m = np.array(rlY2_m)
+        print(rlY2_m)
+
+        assert np.allclose(rlY2_m, rlY1_m)
