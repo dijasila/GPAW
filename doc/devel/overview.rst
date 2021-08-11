@@ -46,7 +46,7 @@ The :class:`gpaw.GPAW` inherits from:
 
 * :class:`ase.calculators.calculator.Calculator`
 
-  This implements the ASE :ref:`ase:calculator interface`
+  This implements the ASE calculator interface.
 
 .. note::
 
