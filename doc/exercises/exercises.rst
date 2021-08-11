@@ -57,8 +57,6 @@ Pick among them according to your interest.  You can also look at the
 
    wannier/wannier
    vibrations/vibrations
-   eels/eels
-   lrtddft/lrtddft
 
 Further information:
 

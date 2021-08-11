@@ -11,6 +11,6 @@ Currently two different approaches are available:
    lcaotddft
    linear_response
    linear_response2
-   dielectric_response
+   ../../../documentation/tddft/dielectric_response
    inducedfield/inducedfield
 

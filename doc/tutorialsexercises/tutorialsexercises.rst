@@ -28,3 +28,4 @@ Tutorials and exercises
    electrostatics/electrostatics
    magnetic/magnetic
    moleculardynamics/moleculardynamics
+   opticalresponse/opticalresponse

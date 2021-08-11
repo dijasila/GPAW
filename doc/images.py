@@ -64,12 +64,12 @@ get('exercises/wavefunctions', ['co_bonding.jpg'])
 
 get('tutorialsexercises/structureoptimization/H2', ['ensemble.png'])
 
-get('exercises/lrtddft', ['spectrum.png'])
+get('tutorialsexercises/opticalresponse/lrtddft', ['spectrum.png'])
 get('documentation/xc', 'g2test_pbe0.png  g2test_pbe.png  results.png'.split())
 get('performance', 'dacapoperf.png  goldwire.png  gridperf.png'.split(),
     'static')
 
-get('tutorials/xas', ['h2o_xas_3.png', 'h2o_xas_4.png',
+get('tutorialsexercises/opticalresponse/xas', ['h2o_xas_3.png', 'h2o_xas_4.png',
                       'xas_illustration.png', 'xas_h2o_convergence.png'])
 
 get('bgp', ['bgp_mapping_intranode.png',

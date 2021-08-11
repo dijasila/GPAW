@@ -35,12 +35,6 @@ Specialized tutorials
    bader/bader
    all-electron/all_electron_density
    ps2ae/ps2ae
-   xas/xas
-   dielectric_response/dielectric_response
-   nlopt/nlopt
-   qeh/qeh
-   gw_tutorial/gw_tutorial
-   bse_tutorial/bse_tutorial
    wannier90/wannier90_tutorial
    rraman/resonant_raman_water
    elphraman/elphraman
