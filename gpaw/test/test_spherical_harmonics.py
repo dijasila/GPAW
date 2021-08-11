@@ -2,8 +2,7 @@ from math import pi
 
 import numpy as np
 import pytest
-from gpaw.gaunt import gam
-from gpaw.spherical_harmonics import YL, Yl
+from gpaw.spherical_harmonics import YL, Yl, gam
 
 
 def yLL(L1, L2):
