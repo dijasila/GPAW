@@ -2,7 +2,8 @@ from math import pi
 
 import numpy as np
 import pytest
-from gpaw.spherical_harmonics import YL, Yl, gam, Y
+from gpaw.spherical_harmonics import (YL, Y, Yl, gam, print_YL_table_code,
+                                      write_c_code)
 
 
 def yLL(L1, L2):
@@ -52,3 +53,14 @@ def test_y_c_code2():
         print(rlY2_m)
 
         assert np.allclose(rlY2_m, rlY1_m)
+
+
+def test_write_c_code(capsys):
+    write_c_code(1)
+    s = capsys.readouterr().out
+    print(s)
+
+
+def test_print_YL_table_code():
+    pytest.importorskip('sympy')
+    print_YL_table_code()
