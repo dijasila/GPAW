@@ -1,11 +1,26 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 from typing import Dict
+from math import pi
 
 import numpy as np
 
 _gaunt: Dict[int, np.ndarray] = {}
 _nabla: Dict[int, np.ndarray] = {}
+
+
+g = [1.0]
+for l in range(9):
+    g.append(g[-1] * (l + 0.5))
+
+
+def gam(n0, n1, n2):
+    h0 = n0 // 2
+    h1 = n1 // 2
+    h2 = n2 // 2
+    if 2 * h0 != n0 or 2 * h1 != n1 or 2 * h2 != n2:
+        return 0.0
+    return 2.0 * pi * g[h0] * g[h1] * g[h2] / g[1 + h0 + h1 + h2]
 
 
 def gaunt(lmax=2):
