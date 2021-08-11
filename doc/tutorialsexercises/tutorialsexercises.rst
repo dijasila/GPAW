@@ -29,3 +29,4 @@ Tutorials and exercises
    magnetic/magnetic
    moleculardynamics/moleculardynamics
    opticalresponse/opticalresponse
+   vibrational/vibrational

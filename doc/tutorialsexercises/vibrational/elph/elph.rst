@@ -44,12 +44,12 @@ Example
 =======
 
 In a typical application one would compute the phonon modes separately as those
-need very different convergence settings. (:git:`~doc/documentation/elph/phonon.py`)
+need very different convergence settings. (:git:`~doc/tutorialsexercises/vibrational/elph/phonon.py`)
 
 .. literalinclude:: phonon.py
 
 The corresponding calculation of the effective potential changes can be done
-simultaneously. (:git:`~doc/documentation/elph/elph.py`)
+simultaneously. (:git:`~doc/tutorialsexercises/vibrational/elph/elph.py`)
 
 .. literalinclude:: elph.py
 
@@ -57,7 +57,7 @@ The last line in the above script constructs the electron-phonon matrix in terms
 of LCAO orbitals (and cell repetitions) and saves it as ``elph.supercell_matrix.dzp.pckl``.
 
 After both calculations are finished the final electron-phonon matrix can be constructed
-with a 'simple' script. (:git:`~doc/documentation/elph/construct_matrix.py`)
+with a 'simple' script. (:git:`~doc/tutorialsexercises/vibrational/elph/construct_matrix.py`)
 
 .. literalinclude:: construct_matrix.py
 

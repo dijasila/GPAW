@@ -56,7 +56,6 @@ Pick among them according to your interest.  You can also look at the
    :maxdepth: 1
 
    wannier/wannier
-   vibrations/vibrations
 
 Further information:
 

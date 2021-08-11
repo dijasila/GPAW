@@ -31,10 +31,7 @@ Specialized tutorials
 .. toctree::
    :maxdepth: 2
 
-   point_groups/point_groups
    bader/bader
    all-electron/all_electron_density
    ps2ae/ps2ae
    wannier90/wannier90_tutorial
-   rraman/resonant_raman_water
-   elphraman/elphraman
