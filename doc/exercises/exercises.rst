@@ -56,7 +56,6 @@ Pick among them according to your interest.  You can also look at the
 .. toctree::
    :maxdepth: 1
 
-   stm/stm
    wannier/wannier
    vibrations/vibrations
    iron/iron

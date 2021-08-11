@@ -18,3 +18,4 @@ Electronic structure
    gw/gw
    pbe0/pbe0
    stm/stm
+   stm_ex/stm
