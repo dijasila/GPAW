@@ -22,7 +22,6 @@ Introductory tutorials
 .. toctree::
    :maxdepth: 2
 
-   H2/atomization
    plotting/plot_wave_functions
    bandstructures/bandstructures
 
@@ -37,13 +36,11 @@ Specialized tutorials
    unfold/unfold
    spinorbit/spinorbit
    dipole_correction/dipole
-   hubbardu/hubbardu
    point_groups/point_groups
    jellium/jellium
    hydrogen/h
    zfs/zfs
    muonsites/mnsi
-   defects/defects
    stm/stm
    bader/bader
    all-electron/all_electron_density
@@ -56,10 +53,6 @@ Specialized tutorials
    qeh/qeh
    gw_tutorial/gw_tutorial
    bse_tutorial/bse_tutorial
-   rpa/rpa_tut
-   fxc_correlation/rapbe_tut
-   rangerpa/rangerpa_tut
-   H2/ensembles
    continuum_solvent_model/continuum_solvent_model
    berry/berry_tutorial
    wannier90/wannier90_tutorial

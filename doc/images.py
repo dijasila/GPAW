@@ -62,7 +62,7 @@ get('doc/literature', literature, 'documentation')
 get('.', ['bz-all.png'], 'static')
 get('exercises/wavefunctions', ['co_bonding.jpg'])
 
-get('tutorials/H2', ['ensemble.png'])
+get('tutorialsexercises/structureoptimization/H2', ['ensemble.png'])
 
 get('exercises/lrtddft', ['spectrum.png'])
 get('documentation/xc', 'g2test_pbe0.png  g2test_pbe.png  results.png'.split())

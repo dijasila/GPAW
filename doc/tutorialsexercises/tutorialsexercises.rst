@@ -23,4 +23,4 @@ Tutorials and exercises
    :maxdepth: 2
 
    structureoptimization/structureoptimization
-   
+   energetics/energetics

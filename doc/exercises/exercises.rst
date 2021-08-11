@@ -64,7 +64,6 @@ Pick among them according to your interest.  You can also look at the
    iron/iron
    eels/eels
    gw/gw
-   rpa/rpa
    lrtddft/lrtddft
 
 Further information:
