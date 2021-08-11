@@ -42,7 +42,6 @@ Intermediate exercises
 .. toctree::
    :maxdepth: 1
 
-   diffusion/diffusion
 
 
 Advanced exercises

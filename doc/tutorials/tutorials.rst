@@ -35,7 +35,6 @@ Specialized tutorials
    bader/bader
    all-electron/all_electron_density
    ps2ae/ps2ae
-   neb/neb
    xas/xas
    dielectric_response/dielectric_response
    nlopt/nlopt

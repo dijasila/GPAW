@@ -27,3 +27,4 @@ Tutorials and exercises
    electronic/electronic
    electrostatics/electrostatics
    magnetic/magnetic
+   moleculardynamics/moleculardynamics
