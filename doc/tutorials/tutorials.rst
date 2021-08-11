@@ -31,12 +31,8 @@ Specialized tutorials
 .. toctree::
    :maxdepth: 2
 
-   dipole_correction/dipole
    point_groups/point_groups
-   jellium/jellium
-   hydrogen/h
    zfs/zfs
-   muonsites/mnsi
    bader/bader
    all-electron/all_electron_density
    ps2ae/ps2ae
@@ -47,9 +43,7 @@ Specialized tutorials
    qeh/qeh
    gw_tutorial/gw_tutorial
    bse_tutorial/bse_tutorial
-   continuum_solvent_model/continuum_solvent_model
    wannier90/wannier90_tutorial
-   sjm/solvated_jellium_method
    rraman/resonant_raman_water
    elphraman/elphraman
    circular_dichroism/rttddft
