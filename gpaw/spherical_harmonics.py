@@ -31,7 +31,7 @@ Gaunt coefficients::
 
 import numpy as np
 
-from math import pi, sqrt  # noqa
+from math import pi, sqrt
 from collections import defaultdict
 from gpaw import debug
 from _gpaw import spherical_harmonics as Yl
@@ -229,9 +229,9 @@ def nablarlYL(L, R):
 
 def YYY(l, m):
     from fractions import Fraction
-    from sympy import assoc_legendre, sqrt, simplify, factorial as fac, I
+    from sympy import assoc_legendre, sqrt, simplify, factorial as fac, I, pi
     from sympy.abc import x, y, z
-    c = sqrt((2 * l + 1) * fac(l - m) / fac(l + m))
+    c = sqrt((2 * l + 1) * fac(l - m) / fac(l + m) / 4 / pi)
     if m > 0:
         return simplify(c * (x + I * y)**m / (1 - z**2)**Fraction(m, 2) *
                         assoc_legendre(l, m, z))
@@ -240,15 +240,16 @@ def YYY(l, m):
 
 
 def YYYY(l, m):
-    from sympy import I, Number, sqrt, re
+    from sympy import I, Number, sqrt
     if m > 0:
-        return (YYY(l, m) + (-1)**m * YYY(l, -m)) / sqrt(2)
+        return (YYY(l, m) + (-1)**m * YYY(l, -m)) / sqrt(2) * (-1)**m
     if m < 0:
-        return (YYY(l, m) - Number(-1)**m * YYY(l, -m)) / (sqrt(2) * I)
+        return -(YYY(l, m) - Number(-1)**m * YYY(l, -m)) / (sqrt(2) * I)
     return YYY(l, m)
 
 
 def f(l, m):
+    from sympy import Poly
     from sympy.abc import x, y, z
     Y = YYYY(l, m)
     coeffs = {}
@@ -280,11 +281,13 @@ def fix(coeffs, l):
 
 
 if __name__ == '__main__':
-    from sympy import assoc_legendre, sqrt, simplify, Poly, degree_list
-    for l in range(7, 8):
+    # from sympy import assoc_legendre, sqrt, simplify, Poly, degree_list
+    for l in range(1, 8):
         for m in range(-l, l + 1):
             print(l, m)
             y1 = f(l, m)
             print(y1)
-            print(fix(y1, l))
-            
+            e = fix(y1, l)
+            assert len(e) == len(YL[l**2 + m + l])
+            for c, n in YL[l**2 + m + l]:
+                assert abs(c - e[n].evalf()) < 1e-8
