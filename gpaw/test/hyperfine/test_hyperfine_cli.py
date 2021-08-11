@@ -21,6 +21,6 @@ def test_hyperfine_cli(gpw_files, capsys, option):
         ref = [0.689, 202.31, -78.01, -78.01, 0.0, 0.0, 0.0]
     for line in lines[3:5]:
         errors = (np.array([float(x) for x in line[2:]]) - ref)
-        assert abs(errors).max() < 0.1
+        assert abs(errors).max() < 0.2
     assert float(lines[7][3]) == 2.0
     assert float(lines[10][1]) == -0.757
