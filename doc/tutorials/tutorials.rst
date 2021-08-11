@@ -22,7 +22,6 @@ Introductory tutorials
 .. toctree::
    :maxdepth: 2
 
-   plotting/plot_wave_functions
 
 
 Specialized tutorials
@@ -31,7 +30,3 @@ Specialized tutorials
 .. toctree::
    :maxdepth: 2
 
-   bader/bader
-   all-electron/all_electron_density
-   ps2ae/ps2ae
-   wannier90/wannier90_tutorial

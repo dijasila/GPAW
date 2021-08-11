@@ -60,7 +60,7 @@ get('doc/literature', literature, 'documentation')
 # Note: bz-all.png is used both in an exercise and a tutorial.  Therefore
 # we put it in the common dir so far, rather than any of the two places
 get('.', ['bz-all.png'], 'static')
-get('exercises/wavefunctions', ['co_bonding.jpg'])
+get('tutorialsexercises/wavefunctions/wavefunctions', ['co_bonding.jpg'])
 
 get('tutorialsexercises/structureoptimization/H2', ['ensemble.png'])
 
@@ -127,7 +127,7 @@ pbe_nwchem_def2_qzvppd_opt_ea_vs.csv pbe_nwchem_def2_qzvppd_opt_distance_vs.csv
 
 get('things', g2_1_stuff, target='setups')
 
-get('tutorials/wannier90', ['GaAs.png', 'Cu.png', 'Fe.png'])
+get('tutorialsexercises/wavefunctions/wannier90', ['GaAs.png', 'Cu.png', 'Fe.png'])
 
 get('things', ['datasets.json'], 'setups')
 

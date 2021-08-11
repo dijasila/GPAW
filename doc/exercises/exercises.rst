@@ -33,7 +33,6 @@ Do these first...
 .. toctree::
    :maxdepth: 1
 
-   wavefunctions/wavefunctions
 
 
 Intermediate exercises
@@ -55,7 +54,6 @@ Pick among them according to your interest.  You can also look at the
 .. toctree::
    :maxdepth: 1
 
-   wannier/wannier
 
 Further information:
 
