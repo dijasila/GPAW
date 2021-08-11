@@ -153,6 +153,19 @@ def print_YL_table_code():
     print(']')
 
 
+def write_c_code(l: int) -> None:
+    print(f'          else if (l == {l})')
+    print('            {')
+    for m in range(2 * l + 1):
+        terms = []
+        for c, n in YL[l**2 + m]:
+            terms.append(f'{c!r} * ' + '*'.join('x' * n[0] +
+                                                'y' * n[1] +
+                                                'z' * n[2]))
+        print(f'              Y_m[{m}] = ' + ' + '.join(terms) + ';')
+    print('            }')
+
+
 # Computer generated table - do not touch!
 YL = [
     # s, l=0:

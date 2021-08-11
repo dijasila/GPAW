@@ -1,4 +1,6 @@
-from gpaw.sphericcal_harmonics import YL
+from math import pi
+import pytest
+from gpaw.sphericcal_harmonics import YL, Yl
 from gpaw.gaunt import gam
 
 
@@ -17,4 +19,10 @@ def test_yy():
             r = 0.0
             if L1 == L2:
                 r = 1.0
-            assert abs(yLL(L1, L2) - r) < 1e-14
+            assert yLL(L1, L2) == pytest.approx(r, abs=1e-14)
+
+
+def test_y_c_code():
+    assert Yl(0, 0) == pytest.approx((4 * pi)**-0.5)
+    with pytest.raises():
+        Yl(8, 0)
