@@ -1,7 +1,9 @@
 from math import pi
+
+import numpy as np
 import pytest
-from gpaw.sphericcal_harmonics import YL, Yl
 from gpaw.gaunt import gam
+from gpaw.spherical_harmonics import YL, Yl
 
 
 def yLL(L1, L2):
@@ -23,6 +25,10 @@ def test_yy():
 
 
 def test_y_c_code():
-    assert Yl(0, 0) == pytest.approx((4 * pi)**-0.5)
-    with pytest.raises():
-        Yl(8, 0)
+    R = np.zeros(3)
+    Y = np.zeros(1)
+    Yl(0, R, Y)
+    assert Y[0] == pytest.approx((4 * pi)**-0.5)
+    Y = np.zeros(2 * 8 + 1)
+    with pytest.raises(RuntimeError):
+        Yl(8, R, Y)
