@@ -26,3 +26,4 @@ Tutorials and exercises
    energetics/energetics
    electronic/electronic
    electrostatics/electrostatics
+   magnetic/magnetic

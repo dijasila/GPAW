@@ -32,7 +32,6 @@ Specialized tutorials
    :maxdepth: 2
 
    point_groups/point_groups
-   zfs/zfs
    bader/bader
    all-electron/all_electron_density
    ps2ae/ps2ae
@@ -46,4 +45,3 @@ Specialized tutorials
    wannier90/wannier90_tutorial
    rraman/resonant_raman_water
    elphraman/elphraman
-   circular_dichroism/rttddft
