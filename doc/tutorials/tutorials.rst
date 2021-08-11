@@ -23,7 +23,6 @@ Introductory tutorials
    :maxdepth: 2
 
    plotting/plot_wave_functions
-   bandstructures/bandstructures
 
 
 Specialized tutorials
@@ -32,21 +31,16 @@ Specialized tutorials
 .. toctree::
    :maxdepth: 2
 
-   band_gap/band_gap
-   unfold/unfold
-   spinorbit/spinorbit
    dipole_correction/dipole
    point_groups/point_groups
    jellium/jellium
    hydrogen/h
    zfs/zfs
    muonsites/mnsi
-   stm/stm
    bader/bader
    all-electron/all_electron_density
    ps2ae/ps2ae
    neb/neb
-   pbe0/pbe0
    xas/xas
    dielectric_response/dielectric_response
    nlopt/nlopt
@@ -54,7 +48,6 @@ Specialized tutorials
    gw_tutorial/gw_tutorial
    bse_tutorial/bse_tutorial
    continuum_solvent_model/continuum_solvent_model
-   berry/berry_tutorial
    wannier90/wannier90_tutorial
    sjm/solvated_jellium_method
    rraman/resonant_raman_water

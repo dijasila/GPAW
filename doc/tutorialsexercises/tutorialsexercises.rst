@@ -24,3 +24,4 @@ Tutorials and exercises
 
    structureoptimization/structureoptimization
    energetics/energetics
+   electronic/electronic

@@ -12,7 +12,7 @@ careful with the choice of exchange-correlation functional to get a good
 description of the d-band, which is generally poorly described within LDA.
 (Why do you think that is?).  Modify the script
 :download:`bandstructure.py
-<../../tutorials/bandstructures/bandstructure.py>` so that it will work for
+<../bandstructures/bandstructure.py>` so that it will work for
 Ag instead of Si.
 
 .. image:: Ag.png

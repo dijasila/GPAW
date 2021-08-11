@@ -58,12 +58,9 @@ Pick among them according to your interest.  You can also look at the
 
    stm/stm
    wannier/wannier
-   dos/dos
-   band_structure/bands
    vibrations/vibrations
    iron/iron
    eels/eels
-   gw/gw
    lrtddft/lrtddft
 
 Further information:

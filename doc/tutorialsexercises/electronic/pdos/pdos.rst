@@ -102,9 +102,9 @@ calculated by
 The example below calculates the density of states for CO adsorbed on
 a Pt(111) slab and the density of states projected onto the gas phase
 orbitals of CO. The ``.gpw`` files can be generated with the script
-:git:`~doc/documentation/pdos/top.py`
+:git:`~doc/tutorialsexercises/electronic/pdos/top.py`
 
-PDOS script (:git:`~doc/documentation/pdos/pdos.py`):
+PDOS script (:git:`~doc/tutorialsexercises/electronic/pdos/pdos.py`):
 
 .. literalinclude:: pdos.py
 
@@ -127,11 +127,11 @@ overlaps and energies in Hartree. It is useful to simply save these in
 a ``.pickle`` file since the ``.gpw`` files with wave functions can be
 quite large. The following script pickles the overlaps
 
-Pickle script (:git:`~doc/documentation/pdos/p1.py`):
+Pickle script (:git:`~doc/tutorialsexercises/electronic/pdos/p1.py`):
 
 .. literalinclude:: p1.py
 
-Plot PDOS (:git:`~doc/documentation/pdos/p2.py`):
+Plot PDOS (:git:`~doc/tutorialsexercises/electronic/pdos/p2.py`):
 
 .. literalinclude:: p2.py
 
@@ -285,8 +285,8 @@ as an input for the PDOS calculation.
 
 An example and with explanation is provided below.
 
-LCAO PDOS (see :git:`~doc/documentation/pdos/lcaodos_gs.py` and
-:git:`~doc/documentation/pdos/lcaodos_plt.py`):
+LCAO PDOS (see :git:`~doc/tutorialsexercises/electronic/pdos/lcaodos_gs.py` and
+:git:`~doc/tutorialsexercises/electronic/pdos/lcaodos_plt.py`):
 
 .. literalinclude:: lcaodos_plt.py
    :end-before: things
@@ -308,7 +308,7 @@ way but it will come later.
 
 .. image:: lcaodos.png
 
-Last part of :git:`~doc/documentation/pdos/lcaodos_plt.py` script:
+Last part of :git:`~doc/tutorialsexercises/electronic/pdos/lcaodos_plt.py` script:
 
 .. literalinclude:: lcaodos_plt.py
    :start-after: things
