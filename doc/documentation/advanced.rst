@@ -25,4 +25,4 @@ GPAW calculator:
    xc/rpa
    scissors/scissors
    xc/xc
-
+   custom_convergence
