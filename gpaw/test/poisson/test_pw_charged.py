@@ -23,7 +23,7 @@ def test_charged_pw_poisson():
                   1j * (pd.get_reciprocal_vectors() @ C)) / gd.dv
     v = np.empty_like(rho)
     e = ps._solve(v, rho * charge)
-    w = gd.collect(pd.ifft(v))
+    w = gd.collect(pd.ifft(v), broadcast=True)
     for pot, d in [(w[n // 2, n // 2, 0], L / 2),
                    (w[n // 2, 0, 0], L / 2 * 2**0.5),
                    (w[0, 0, 0], L / 2 * 3**0.5)]:
