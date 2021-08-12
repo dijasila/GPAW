@@ -1,15 +1,15 @@
-# creates: water.png
+# web-page: water.png
 import matplotlib.pyplot as plt
 import numpy as np
 
 
 def read_data(filename):
-    
+
     file2read = open(filename, 'r')
     calculated_data_string = file2read.read().split('\n')
-    
+
     calculated_data = {}
-    
+
     for i in calculated_data_string:
         if i == '':
             continue
@@ -19,7 +19,7 @@ def read_data(filename):
             np.array([float(_) for _ in mol[1:-1]])
 
     file2read.close()
-    
+
     return calculated_data
 
 

@@ -1,11 +1,11 @@
-# creates: g2.png
+# web-page: g2.png
 
 import matplotlib.pyplot as plt
 import numpy as np
 
 
 def read_molecules(filename, molnames):
-    
+
     file2read = open(filename, 'r')
     calculated_data_string = file2read.read().split('\n')
     calculated_data = {}
