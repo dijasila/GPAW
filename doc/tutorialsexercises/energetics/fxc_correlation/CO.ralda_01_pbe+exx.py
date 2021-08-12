@@ -3,7 +3,7 @@ from ase.parallel import paropen
 from gpaw import GPAW, FermiDirac
 from gpaw.mixer import MixerSum
 from gpaw.hybrids.energy import non_self_consistent_energy as nsc_energy
-from gpaw.wavefunctions.pw import PW
+from gpaw import PW
 
 # CO
 

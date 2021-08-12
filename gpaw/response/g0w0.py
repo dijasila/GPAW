@@ -22,8 +22,8 @@ from gpaw.response.pair import PairDensity
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 from gpaw.utilities import devnull
 from gpaw.utilities.progressbar import ProgressBar
-from gpaw.wavefunctions.pw import (PWDescriptor, PWMapping,
-                                   count_reciprocal_vectors)
+from gpaw.pw.descriptor import (PWDescriptor, PWMapping,
+                                count_reciprocal_vectors)
 from gpaw.xc.exx import EXX, select_kpts
 from gpaw.xc.fxc import set_flags
 from gpaw.xc.tools import vxc

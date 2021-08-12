@@ -1,7 +1,7 @@
 from ase import Atoms
 from ase.parallel import paropen
 from gpaw import GPAW
-from gpaw.wavefunctions.pw import PW
+from gpaw import PW
 
 resultfile = paropen('H.ralda.DFT_corr_energies.txt', 'w')
 resultfile.write('DFT Correlation energies for H atom\n')

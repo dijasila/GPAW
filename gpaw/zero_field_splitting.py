@@ -22,7 +22,8 @@ from gpaw.typing import Array1D, Array2D, Array4D
 from gpaw.hyperfine import alpha  # fine-structure constant: ~ 1 / 137
 from gpaw.projections import Projections
 from gpaw.setup import Setup
-from gpaw.wavefunctions.pw import PWLFC, PWDescriptor
+from gpaw.pw.lfc import PWLFC
+from gpaw.pw.descriptor import PWDescriptor
 
 
 def zfs(calc: GPAW,

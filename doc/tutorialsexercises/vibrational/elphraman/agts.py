@@ -8,8 +8,8 @@ def workflow():
     with ph, el:
         with run(script='supercell_matrix.py', tmax='1h'):
             with run(script='elph_matrix.py'), mo:
-                run(script='raman_intensities.py')
-                run(function=check)
+                with run(script='raman_intensities.py'):
+                    run(function=check)
 
 
 def check():

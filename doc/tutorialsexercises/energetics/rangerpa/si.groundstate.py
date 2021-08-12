@@ -1,6 +1,6 @@
 from ase.build import bulk
 from gpaw import GPAW, FermiDirac
-from gpaw.wavefunctions.pw import PW
+from gpaw import PW
 
 bulk_si = bulk('Si', a=5.42935602)
 calc = GPAW(mode=PW(400.0),

@@ -16,7 +16,7 @@ from gpaw.response.pair import PairDensity, PWSymmetryAnalyzer
 from gpaw.utilities import devnull
 from gpaw.utilities.blas import gemm
 from gpaw.utilities.memory import maxrss
-from gpaw.wavefunctions.pw import PWDescriptor
+from gpaw.pw.descriptor import PWDescriptor
 
 
 class ArrayDescriptor:

@@ -3,7 +3,7 @@ from ase.build import bulk
 from ase.dft import monkhorst_pack
 from ase.parallel import paropen
 from gpaw import GPAW, FermiDirac
-from gpaw.wavefunctions.pw import PW
+from gpaw import PW
 from gpaw.hybrids.energy import non_self_consistent_energy as nsc_energy
 import numpy as np
 

@@ -9,7 +9,8 @@ def plot():
     import numpy as np
     import pylab as plt
     from ase.io import read
-    code = open('h.py').read().replace('ae', 'paw')
+    with open('h.py') as fd:
+        code = fd.read().replace('ae', 'paw')
     exec(code)
     ae = np.array([h.get_potential_energy() for h in read('H.ae.txt@:')])
     paw = np.array([h.get_potential_energy() for h in read('H.paw.txt@:')])

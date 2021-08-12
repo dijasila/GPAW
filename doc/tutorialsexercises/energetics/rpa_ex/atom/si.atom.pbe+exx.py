@@ -1,6 +1,6 @@
 from ase import Atoms
 from gpaw import GPAW, FermiDirac, Mixer
-from gpaw.wavefunctions.pw import PW
+from gpaw import PW
 from gpaw.hybrids.energy import non_self_consistent_energy as nsc_energy
 
 from ase.parallel import paropen

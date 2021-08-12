@@ -59,9 +59,8 @@ def read_gaussian_basis_file(fname):
     gtos = []
     description = ''
 
-    f = open(fname, 'r')
-    line_i = f.readlines()
-    f.close()
+    with open(fname, 'r') as fd:
+        line_i = fd.readlines()
 
     i = 0
     Ni = len(line_i)

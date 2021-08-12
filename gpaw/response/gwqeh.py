@@ -13,7 +13,7 @@ import gpaw.mpi as mpi
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.response.chi0 import HilbertTransform, frequency_grid
 from gpaw.response.pair import PairDensity
-from gpaw.wavefunctions.pw import PWDescriptor
+from gpaw.pw.descriptor import PWDescriptor
 from gpaw.xc.exx import select_kpts
 
 

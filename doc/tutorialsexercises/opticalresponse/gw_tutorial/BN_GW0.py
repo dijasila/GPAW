@@ -3,7 +3,7 @@ import numpy as np
 from gpaw import GPAW, FermiDirac
 from gpaw.response.g0w0 import G0W0
 from ase.build import bulk
-from gpaw.wavefunctions.pw import PW
+from gpaw import PW
 
 atoms = bulk('BN', 'zincblende', a=3.615)
 

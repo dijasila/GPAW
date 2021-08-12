@@ -6,9 +6,9 @@ def workflow():
     with run(script='H2O_ir.py'):
         run(script='H2O_ir_summary.py')
         with run(script='H2O_rraman_calc.py', cores=4, tmax='1h'):
-            run(script='H2O_rraman_summary.py')
             run(script='H2O_rraman_spectrum.py')
-            run(function=check)
+            with run(script='H2O_rraman_summary.py'):
+                run(function=check)
 
 
 def check():

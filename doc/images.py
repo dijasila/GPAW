@@ -40,9 +40,8 @@ def get(path, names, target=None, source=None):
             print(dst, end=' ')
             try:
                 data = urlopen(src).read()
-                sink = open(dst, 'wb')
-                sink.write(data)
-                sink.close()
+                with open(dst, 'wb') as sink:
+                    sink.write(data)
                 print('OK')
                 got_something = True
             except HTTPError:
