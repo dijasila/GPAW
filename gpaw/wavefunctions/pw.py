@@ -298,7 +298,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
     def apply_pseudo_hamiltonian_ss(self, kpt, ham, psit_xG, Htpsit_xG):
         Htpsit_xG[:, 0, :] = 0.5 * self.pd.G2m_qG[kpt.q] * psit_xG[:, 0, :]
-        Htpsit_xG[:, 1, :] = 0.5 * self.pd.G2m_qG[kpt.q] * psit_xG[:, 1, :]
+        Htpsit_xG[:, 1, :] = 0.5 * self.pd.G2p_qG[kpt.q] * psit_xG[:, 1, :]
         v, x, y, z = ham.vt_xG
         iy = y * 1j
         for psit_sG, Htpsit_sG in zip(psit_xG, Htpsit_xG):
