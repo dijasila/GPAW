@@ -5,5 +5,5 @@ def workflow():
             run(script='non.py', cores=2, tmax='15m')]
     run(script='PBE.py', deps=runs)
     for r, name in zip(runs, ['ferro', 'anti', 'non']):
-        run(script='../dos/dos.py', args=[f'{name}.gpw'], deps=[r])
-    run(script='../dos/pdos.py', deps=[runs[0]])
+        run(script='../../electronic/dos/dos.py', args=[f'{name}.gpw'], deps=[r])
+    run(script='../../electronic/dos/pdos.py', deps=[runs[0]])
