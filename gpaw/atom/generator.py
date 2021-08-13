@@ -618,7 +618,7 @@ class Generator(AllElectron):
                                        for q in q_n]
                                 B_nn = np.inner(q_n, s_n * dr)
                                 a_n = np.dot(q_n, s * dr)
-                                
+
                                 B_nn = np.dot(A_nn, B_nn)
                                 B_nn.ravel()[::len(a_n) + 1] += 1.0
                                 c_n = solve(B_nn, np.dot(A_nn, a_n))

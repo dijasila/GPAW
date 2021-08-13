@@ -7,7 +7,7 @@ import xml.sax
 from distutils.version import LooseVersion
 from glob import glob
 from math import pi, sqrt
-from typing import Tuple
+from typing import Tuple, IO
 
 import numpy as np
 from ase.data import atomic_names, atomic_numbers
@@ -240,9 +240,12 @@ class SetupData:
 
         return xc_correction
 
-    def write_xml(self):
+    def write_xml(self) -> None:
+        with open(self.stdfilename, 'w') as fd:
+            self._write_xml(fd)
+
+    def _write_xml(self, xml: IO[str]) -> None:
         l_j = self.l_j
-        xml = open(self.stdfilename, 'w')
 
         print('<?xml version="1.0"?>', file=xml)
         print('<paw_dataset version="{version}">'
@@ -400,9 +403,11 @@ def search_for_file(name: str, world=None) -> Tuple[str, bytes]:
                 filename = max(filenames)
                 assert has_gzip  # Which systems do not have the gzip module?
                 if filename.endswith('.gz'):
-                    source = gzip.open(filename).read()
+                    with gzip.open(filename) as fd:
+                        source = fd.read()
                 else:
-                    source = open(filename, 'rb').read()
+                    with open(filename, 'rb') as fd:
+                        source = fd.read()
                 break
 
     if world is not None:
