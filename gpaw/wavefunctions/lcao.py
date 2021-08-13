@@ -664,6 +664,8 @@ class LCAOforces:
             for a, M1, M2 in self.my_slices():
                 Fkin_av[a, :] += \
                     2.0 * dEdTrhoT_vMM[:, M1:M2].sum(-1).sum(-1)
+        if self.bd.comm.rank == 0:
+            self.kd.comm.sum(Fkin_av, 0)
         del dEdTrhoT_vMM
         self.timer.stop('TCI derivative')
 
@@ -687,6 +689,8 @@ class LCAOforces:
             for a, M1, M2 in self.my_slices():
                 Ftheta_av[a, :] += \
                     -2.0 * dThetadRE_vMM[:, M1:M2].sum(-1).sum(-1)
+        if self.bd.comm.rank == 0:
+            self.kd.comm.sum(Ftheta_av, 0)
         del dThetadRE_vMM
 
         return Ftheta_av
@@ -710,6 +714,8 @@ class LCAOforces:
             Fpot_av += self.bfs.calculate_force_contribution(vt_G,
                                                              self.rhoT_uMM[u],
                                                              kpt.q)
+        if self.bd.comm.rank == 0:
+            self.kd.comm.sum(Fpot_av, 0)
         self.timer.stop('Potential')
         return Fpot_av
 
@@ -754,6 +760,8 @@ class LCAOforces:
                         dE = 2 * ZE_MM[M1:M2].sum()
                         Frho_av[a, v] -= dE  # the "b; mu in a; nu" term
                         Frho_av[b, v] += dE  # the "mu nu" term
+        if self.bd.comm.rank == 0:
+            self.kd.comm.sum(Frho_av, 0)
         del work_MM, ZE_MM
         self.timer.stop('Paw correction')
         return Frho_av
@@ -844,7 +852,8 @@ class LCAOforces:
                         dE = 2 * ArhoT_MM[M1:M2].sum()
                         Fatom_av[a, v] += dE  # the "b; mu in a; nu" term
                         Fatom_av[b, v] -= dE  # the "mu nu" term
-
+        if self.bd.comm.rank == 0:
+            self.kd.comm.sum(Fatom_av, 0)
         self.timer.stop('Atomic Hamiltonian force')
         return Fatom_av
 
