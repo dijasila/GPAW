@@ -5,7 +5,7 @@ import time
 import numpy as np
 import ase
 from ase import __version__ as ase_version
-from ase.utils import search_current_git_hash
+from ase.utils import search_current_git_hash, IOContext
 
 import gpaw
 import _gpaw
@@ -21,6 +21,7 @@ class GPAWLogger:
         self.verbose = False
         self._fd = None
         self.oldfd = 42
+        self.iocontext = IOContext()
 
     @property
     def fd(self):
@@ -39,7 +40,7 @@ class GPAWLogger:
         if fd == self.oldfd:
             return
         self.oldfd = fd
-        self._fd = convert_string_to_fd(fd, self.world)
+        self._fd = self.iocontext.openfile(fd, self.world)
         self.header()
 
     def __call__(self, *args, **kwargs):
@@ -153,6 +154,8 @@ class GPAWLogger:
                 self('Memory usage: %.2f GiB' % (mr / 1024**3))
 
         self('Date: ' + time.asctime())
+
+        self.iocontext.close()
 
 
 def cut(s, indent='        '):
