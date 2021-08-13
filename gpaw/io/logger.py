@@ -10,7 +10,6 @@ from ase.utils import search_current_git_hash, IOContext
 import gpaw
 import _gpaw
 from gpaw.utilities.memory import maxrss
-from gpaw.utilities import convert_string_to_fd
 
 
 class GPAWLogger:
