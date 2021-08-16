@@ -8,8 +8,8 @@ from gpaw.mpi import world, serial_comm
 from gpaw.lcaotddft.wfwriter import WaveFunctionReader
 from gpaw.utilities import compiled_with_sl
 
-from .test_molecule import \
-    only_on_master, calculate_error, calculate_time_propagation, check_wfs
+from gpaw.test import only_on_master
+from . import calculate_error, calculate_time_propagation, check_wfs
 
 pytestmark = pytest.mark.usefixtures('module_tmp_path')
 
