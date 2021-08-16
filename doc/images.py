@@ -59,18 +59,28 @@ get('doc/literature', literature, 'documentation')
 # Note: bz-all.png is used both in an exercise and a tutorial.  Therefore
 # we put it in the common dir so far, rather than any of the two places
 get('.', ['bz-all.png'], 'static')
-get('tutorialsexercises/wavefunctions/wavefunctions', ['co_bonding.jpg'])
 
-get('tutorialsexercises/structureoptimization/H2', ['ensemble.png'])
+# These files have different destinations after webpage refactor then they
+# used to have. Might need to keep track of this.
+get('exercises/wavefunctions', ['co_bonding.jpg'],
+    target='tutorialsexercises/wavefunctions/wavefunctions')
+get('tutorials/H2', ['ensemble.png'], target='tutorialsexercises/H2')
+get('exercises/lrtddft', ['spectrum.png'],
+    target='tutorialsexercises/opticalresponse/lrtddft')
+get('tutorials/wannier90', ['GaAs.png', 'Cu.png', 'Fe.png'],
+    target='tutorialsexercises/wavefunctions/wannier90')
+get('tutorials/xas', ['h2o_xas_3.png', 'h2o_xas_4.png'],
+    target='tutorialsexercises/opticalresponse/xas')
+get('tutorials/xas',
+    ['xas_illustration.png'], target='documentation/xas')
 
-get('tutorialsexercises/opticalresponse/lrtddft', ['spectrum.png'])
+# This files is not used anymore?
+# get('tutorialsexercises/opticalresponse/xas', ['xas_h2o_convergence.png'])
+# ----
+
 get('documentation/xc', 'g2test_pbe0.png  g2test_pbe.png  results.png'.split())
 get('performance', 'dacapoperf.png  goldwire.png  gridperf.png'.split(),
     'static')
-
-get('tutorialsexercises/opticalresponse/xas',
-    ['h2o_xas_3.png', 'h2o_xas_4.png',
-     'xas_illustration.png', 'xas_h2o_convergence.png'])
 
 get('bgp', ['bgp_mapping_intranode.png',
             'bgp_mapping1.png',
@@ -126,9 +136,6 @@ pbe_nwchem_def2_qzvppd_opt_ea_vs.csv pbe_nwchem_def2_qzvppd_opt_distance_vs.csv
 """.split()
 
 get('things', g2_1_stuff, target='setups')
-
-get('tutorialsexercises/wavefunctions/wannier90',
-    ['GaAs.png', 'Cu.png', 'Fe.png'])
 
 get('things', ['datasets.json'], 'setups')
 
