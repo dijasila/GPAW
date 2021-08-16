@@ -1,4 +1,5 @@
 from functools import wraps
+
 import numpy as np
 import pytest
 
@@ -14,6 +15,8 @@ from gpaw.lcaotddft.frequencydensitymatrix import FrequencyDensityMatrix
 from gpaw.lcaotddft.ksdecomposition import KohnShamDecomposition
 from gpaw.tddft.folding import frequencies
 from gpaw.utilities import compiled_with_sl
+
+from gpaw.test import in_path
 
 pytestmark = pytest.mark.usefixtures('module_tmp_path')
 
@@ -55,7 +58,26 @@ def calculate_error(a, ref_a):
     return err
 
 
-def calculate_time_propagation(gs_fpath, kick,
+def calculate_ground_state(*, communicator=world,
+                           spinpol=False):
+    atoms = molecule('NaCl')
+    atoms.center(vacuum=4.0)
+    calc = GPAW(nbands=6,
+                h=0.4,
+                setups=dict(Na='1'),
+                basis='dzp',
+                mode='lcao',
+                convergence={'density': 1e-8},
+                spinpol=spinpol,
+                communicator=communicator,
+                txt='gs.out')
+    atoms.calc = calc
+    atoms.get_potential_energy()
+    calc.write('gs.gpw', mode='all')
+    return calc
+
+
+def calculate_time_propagation(gs_fpath, *, kick,
                                communicator=world, parallel={},
                                do_fdm=False):
     td_calc = LCAOTDDFT(gs_fpath,
@@ -90,6 +112,14 @@ def check_wfs(wf_ref_fpath, wf_fpath, atol=1e-12):
         assert err < atol, f'error at i={i}'
 
 
+def check_txt_data(ref_fpath, data_fpath, atol):
+    world.barrier()
+    ref = np.loadtxt(ref_fpath)
+    data = np.loadtxt(data_fpath)
+    err = calculate_error(data, ref)
+    assert err < atol
+
+
 # Generate different parallelization options
 parallel_i = [{}]
 if compiled_with_sl():
@@ -107,22 +137,7 @@ if compiled_with_sl():
 def initialize_system():
     comm = serial_comm
 
-    # Ground-state calculation
-    atoms = molecule('NaCl')
-    atoms.center(vacuum=4.0)
-    calc = GPAW(nbands=6,
-                h=0.4,
-                setups=dict(Na='1'),
-                basis='dzp',
-                mode='lcao',
-                convergence={'density': 1e-8},
-                communicator=comm,
-                txt='gs.out')
-    atoms.calc = calc
-    atoms.get_potential_energy()
-    calc.write('gs.gpw', mode='all')
-
-    # Time-propagation calculation
+    calc = calculate_ground_state(communicator=comm)
     fdm = calculate_time_propagation('gs.gpw',
                                      kick=np.ones(3) * 1e-5,
                                      communicator=comm,
@@ -342,3 +357,24 @@ def test_dipole_moment_from_density(kind, density, load_ksd,
     err = calculate_error(dm_wv, ref_wv)
     atol = 5e-7
     assert err < atol
+
+
+@pytest.fixture(scope='module')
+@only_on_master(world)
+@in_path('spinpol')
+def initialize_system_spinpol():
+    comm = serial_comm
+    calculate_ground_state(communicator=comm, spinpol=True)
+    calculate_time_propagation('gs.gpw',
+                               kick=np.ones(3) * 1e-5,
+                               communicator=comm,
+                               do_fdm=True)
+
+
+def test_spinpol_dipole_moment(initialize_system, initialize_system_spinpol,
+                               module_tmp_path):
+    # The test system has even number of electrons and is non-magnetic
+    # so spin-paired and spin-polarized calculation should give same result
+    check_txt_data(module_tmp_path / 'dm.dat',
+                   module_tmp_path / 'spinpol' / 'dm.dat',
+                   atol=3e-14)
