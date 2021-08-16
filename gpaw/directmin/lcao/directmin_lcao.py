@@ -19,7 +19,6 @@ from scipy.linalg import expm
 from gpaw.utilities.tools import tri2full
 from gpaw.directmin.lcao import search_direction, line_search_algorithm
 from gpaw.xc import xc_string_to_dict
-from ase.utils import basestring
 from gpaw.directmin.functional.lcao import get_functional
 from gpaw import BadParallelization
 
@@ -98,24 +97,24 @@ class DirectMinLCAO(DirectLCAO):
 
         self.initialized = False
 
-        if isinstance(self.functional, basestring):
+        if isinstance(self.functional, str):
             self.functional = xc_string_to_dict(self.functional)
-        if isinstance(self.sda, basestring):
+        if isinstance(self.sda, str):
             self.sda = xc_string_to_dict(self.sda)
-        if isinstance(self.lsa, basestring):
+        if isinstance(self.lsa, str):
             self.lsa = xc_string_to_dict(self.lsa)
             if self.lsa['name'] == 'SwcAwc':
                 # for SwcAwc we need to know
                 # what search. dir. algo is used
                 self.lsa['searchdir'] = self.sda['name']
 
-        if isinstance(self.representation, basestring):
+        if isinstance(self.representation, str):
             assert self.representation in ['sparse', 'u_invar', 'full'], \
                 'Value Error'
             self.representation = \
                 xc_string_to_dict(self.representation)
 
-        if isinstance(self.orthonormalization, basestring):
+        if isinstance(self.orthonormalization, str):
             assert self.orthonormalization in [
                 'gramschmidt', 'loewdin', 'diag'], \
                 'Value Error'
@@ -312,12 +311,12 @@ class DirectMinLCAO(DirectLCAO):
         self.precond = {}  # precondiner for other methods
 
         # choose search direction and line search algorithm
-        if isinstance(self.sda, (basestring, dict)):
+        if isinstance(self.sda, (str, dict)):
             self.search_direction = search_direction(self.sda, wfs)
         else:
             raise Exception('Check Search Direction Parameters')
 
-        if isinstance(self.lsa, (basestring, dict)):
+        if isinstance(self.lsa, (str, dict)):
             self.line_search = \
                 line_search_algorithm(self.lsa,
                                       self.evaluate_phi_and_der_phi)
@@ -325,7 +324,7 @@ class DirectMinLCAO(DirectLCAO):
             raise Exception('Check Search Direction Parameters')
 
         # odd corrections
-        if isinstance(self.functional, (basestring, dict)):
+        if isinstance(self.functional, (str, dict)):
             self.func = \
                 get_functional(self.functional, wfs, dens, ham)
         elif self.func is None:
@@ -612,12 +611,12 @@ class DirectMinLCAO(DirectLCAO):
 
             # choose search direction and line search algorithm
             # as you need to restart it
-            if isinstance(self.sda, (basestring, dict)):
+            if isinstance(self.sda, (str, dict)):
                 self.search_direction = search_direction(self.sda, wfs)
             else:
                 raise Exception('Check Search Direction Parameters')
 
-            if isinstance(self.lsa, (basestring, dict)):
+            if isinstance(self.lsa, (str, dict)):
                 self.line_search = \
                     line_search_algorithm(self.lsa,
                                           self.evaluate_phi_and_der_phi)
