@@ -49,7 +49,7 @@ class UnitStepLength(object):
         slength = 0.0
         tmp = 0.0
 
-        for k in p.keys():
+        for k in p:
             tmp = np.linalg.norm(p[k])
             if tmp > slength:
                 slength = tmp

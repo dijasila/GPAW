@@ -293,7 +293,7 @@ class DirectMinLCAO(DirectLCAO):
             self.evecs[u] = None
             self.evals[u] = None
 
-        for k in self.ind_up.keys():
+        for k in self.ind_up:
             if not self.ind_up[k][0].size or not self.ind_up[k][1].size:
                 self.n_dim[k] = 0
 
@@ -373,7 +373,7 @@ class DirectMinLCAO(DirectLCAO):
 
         # recalculate derivative with new search direction
         der_phi_2i[0] = 0.0
-        for k in g_mat_u.keys():
+        for k in g_mat_u:
             if self.representation['name'] in ['sparse', 'u_invar']:
                 der_phi_2i[0] += np.dot(g_mat_u[k].conj(),
                                         p_mat_u[k]).real
@@ -410,7 +410,7 @@ class DirectMinLCAO(DirectLCAO):
             wfs.timer.stop('Broadcast gradients')
 
         # calculate new matrices for optimal step length
-        for k in a_mat_u.keys():
+        for k in a_mat_u:
             a_mat_u[k] += alpha * p_mat_u[k]
         self.alpha = alpha
         self.g_mat_u = g_mat_u
@@ -522,7 +522,7 @@ class DirectMinLCAO(DirectLCAO):
             g_vec = {}
             a_vec = {}
 
-            for k in a_mat_u.keys():
+            for k in a_mat_u:
                 il1 = get_indices(a_mat_u[k].shape[0], self.dtype)
                 a_vec[k] = a_mat_u[k][il1]
                 g_vec[k] = g_mat_u[k][il1]
@@ -532,7 +532,7 @@ class DirectMinLCAO(DirectLCAO):
             del a_vec, g_vec
 
             p_mat_u = {}
-            for k in p_vec.keys():
+            for k in p_vec:
                 p_mat_u[k] = np.zeros_like(a_mat_u[k])
                 il1 = get_indices(p_mat_u[k].shape[0], self.dtype)
                 p_mat_u[k][il1] = p_vec[k]
@@ -554,7 +554,7 @@ class DirectMinLCAO(DirectLCAO):
         """
         if phi is None or g_mat_u is None:
             x_mat_u = {k: a_mat_u[k] + alpha * p_mat_u[k]
-                       for k in a_mat_u.keys()}
+                       for k in a_mat_u}
             phi, g_mat_u = \
                 self.get_energy_and_gradients(x_mat_u, n_dim,
                                               ham, wfs, dens,
@@ -566,11 +566,11 @@ class DirectMinLCAO(DirectLCAO):
 
         der_phi = 0.0
         if self.representation['name'] in ['sparse', 'u_invar']:
-            for k in p_mat_u.keys():
+            for k in p_mat_u:
                 der_phi += np.dot(g_mat_u[k].conj(),
                                   p_mat_u[k]).real
         else:
-            for k in p_mat_u.keys():
+            for k in p_mat_u:
 
                 il1 = get_indices(p_mat_u[k].shape[0], self.dtype)
 

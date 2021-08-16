@@ -37,7 +37,7 @@ class SteepestDescent(object):
     def zeros(self, x):
 
         y = {}
-        for k in x.keys():
+        for k in x:
             y[k] = np.zeros_like(x[k])
 
         return y
@@ -46,7 +46,7 @@ class SteepestDescent(object):
 
         p = {}
 
-        for k in x.keys():
+        for k in x:
             p[k] = - x[k].copy()
 
         return p
@@ -76,7 +76,7 @@ class SteepestDescent(object):
     def multiply(self, x, const=1.0):
 
         y = {}
-        for k in x.keys():
+        for k in x:
             y[k] = const * x[k]
 
         return y
@@ -84,7 +84,7 @@ class SteepestDescent(object):
     def apply_prec(self, prec, x, const=1.0):
 
         y = {}
-        for k in x.keys():
+        for k in x:
             if prec[k].dtype == complex:
                 y[k] = const * (prec[k].real * x[k].real +
                                 1.0j * prec[k].imag * x[k].imag)
