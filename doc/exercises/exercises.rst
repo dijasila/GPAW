@@ -33,9 +33,6 @@ Do these first...
 .. toctree::
    :maxdepth: 1
 
-   gettingstarted/gettingstarted
-   water/water
-   wavefunctions/wavefunctions
 
 
 Intermediate exercises
@@ -44,9 +41,6 @@ Intermediate exercises
 .. toctree::
    :maxdepth: 1
 
-   aluminium/aluminium
-   surface/surface
-   diffusion/diffusion
 
 
 Advanced exercises
@@ -60,18 +54,6 @@ Pick among them according to your interest.  You can also look at the
 .. toctree::
    :maxdepth: 1
 
-   stm/stm
-   wannier/wannier
-   dos/dos
-   band_structure/bands
-   vibrations/vibrations
-   iron/iron
-   eels/eels
-   gw/gw
-   rpa/rpa
-   dcdft/dcdft
-   stress/stress
-   lrtddft/lrtddft
 
 Further information:
 

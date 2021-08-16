@@ -59,17 +59,18 @@ get('doc/literature', literature, 'documentation')
 # Note: bz-all.png is used both in an exercise and a tutorial.  Therefore
 # we put it in the common dir so far, rather than any of the two places
 get('.', ['bz-all.png'], 'static')
-get('exercises/wavefunctions', ['co_bonding.jpg'])
+get('tutorialsexercises/wavefunctions/wavefunctions', ['co_bonding.jpg'])
 
-get('tutorials/H2', ['ensemble.png'])
+get('tutorialsexercises/structureoptimization/H2', ['ensemble.png'])
 
-get('exercises/lrtddft', ['spectrum.png'])
+get('tutorialsexercises/opticalresponse/lrtddft', ['spectrum.png'])
 get('documentation/xc', 'g2test_pbe0.png  g2test_pbe.png  results.png'.split())
 get('performance', 'dacapoperf.png  goldwire.png  gridperf.png'.split(),
     'static')
 
-get('tutorials/xas', ['h2o_xas_3.png', 'h2o_xas_4.png',
-                      'xas_illustration.png', 'xas_h2o_convergence.png'])
+get('tutorialsexercises/opticalresponse/xas',
+    ['h2o_xas_3.png', 'h2o_xas_4.png',
+     'xas_illustration.png', 'xas_h2o_convergence.png'])
 
 get('bgp', ['bgp_mapping_intranode.png',
             'bgp_mapping1.png',
@@ -126,7 +127,8 @@ pbe_nwchem_def2_qzvppd_opt_ea_vs.csv pbe_nwchem_def2_qzvppd_opt_distance_vs.csv
 
 get('things', g2_1_stuff, target='setups')
 
-get('tutorials/wannier90', ['GaAs.png', 'Cu.png', 'Fe.png'])
+get('tutorialsexercises/wavefunctions/wannier90',
+    ['GaAs.png', 'Cu.png', 'Fe.png'])
 
 get('things', ['datasets.json'], 'setups')
 

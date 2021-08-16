@@ -22,11 +22,6 @@ Introductory tutorials
 .. toctree::
    :maxdepth: 2
 
-   H2/atomization
-   H2/optimization
-   plotting/plot_wave_functions
-   bandstructures/bandstructures
-   lattice_constants/lattice_constants
 
 
 Specialized tutorials
@@ -35,40 +30,3 @@ Specialized tutorials
 .. toctree::
    :maxdepth: 2
 
-   band_gap/band_gap
-   unfold/unfold
-   spinorbit/spinorbit
-   dipole_correction/dipole
-   hubbardu/hubbardu
-   point_groups/point_groups
-   jellium/jellium
-   hydrogen/h
-   scissors/scissors
-   zfs/zfs
-   muonsites/mnsi
-   defects/defects
-   stm/stm
-   bader/bader
-   all-electron/all_electron_density
-   ps2ae/ps2ae
-   cdft/cdft
-   neb/neb
-   pbe0/pbe0
-   xas/xas
-   dielectric_response/dielectric_response
-   nlopt/nlopt
-   qeh/qeh
-   gw_tutorial/gw_tutorial
-   bse_tutorial/bse_tutorial
-   rpa/rpa_tut
-   fxc_correlation/rapbe_tut
-   rangerpa/rangerpa_tut
-   H2/ensembles
-   continuum_solvent_model/continuum_solvent_model
-   ofdft/ofdft
-   berry/berry_tutorial
-   wannier90/wannier90_tutorial
-   sjm/solvated_jellium_method
-   rraman/resonant_raman_water
-   elphraman/elphraman
-   circular_dichroism/rttddft

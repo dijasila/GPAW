@@ -9,35 +9,20 @@ GPAW calculator:
 .. toctree::
    :maxdepth: 2
 
-   lcao/lcao
-   parallel_runs/parallel_runs
-   smearing
-   convergence
-   custom_convergence
-   restart_files
-   rmm-diis
-   orthogonalization
-   external
-   xc/xc
-   xc/exx
-   xc/rpa
    poisson
-   hyperfine
-   tddft/tddft
-   ehrenfest/ehrenfest_theory
-   ehrenfest/ehrenfest
    electrodynamics/electrodynamics
-   bse/bse
-   gw_theory/gw_theory
-   defects_theory
+   cdft/cdft
    dscf/dscf
+   dcdft/dcdft
+   xc/exx
+   external
+   grids
+   hyperfine
+   lcao/lcao
    mom/mom
-   pdos/pdos
-   elph/elph
-   raman/raman
-   xas/xas
-   densitymix/densitymix
-   ../devel/electrostatic_potential
-   ../devel/eigenvalues_of_core_states
-   ../devel/grids
-   ../setups/generation_of_setups
+   smearing
+   ofdft/ofdft
+   xc/rpa
+   scissors/scissors
+   xc/xc
+   custom_convergence
