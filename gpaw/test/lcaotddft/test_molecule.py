@@ -38,15 +38,24 @@ def calculate_ground_state(*, communicator=world,
 
 
 # Generate different parallelization options
-parallel_i = [{}]
-if compiled_with_sl():
-    if world.size == 1:
-        # Choose BLACS grid manually as the one given by sl_auto
-        # doesn't work well for the small test system and 1 process
-        parallel_i.append({'sl_default': (1, 1, 8)})
-    else:
-        parallel_i.append({'sl_auto': True})
-        parallel_i.append({'sl_auto': True, 'band': 2})
+parallel_i = []
+for sl_auto in [False, True]:
+    if not compiled_with_sl() and sl_auto:
+        continue
+    for band in [1, 2]:
+        if world.size < band:
+            continue
+        parallel = {'sl_auto': sl_auto, 'band': band}
+
+        if world.size == 1 and parallel['sl_auto']:
+            # Choose BLACS grid manually as the one given by sl_auto
+            # doesn't work well for the small test system and 1 process
+            del parallel['sl_auto']
+            parallel['sl_default'] = (1, 1, 8)
+
+        parallel_i.append(parallel)
+
+print(f'Tested parallel options: {parallel_i}')
 
 
 @pytest.fixture(scope='module')
@@ -142,6 +151,9 @@ def ksd_transform_reference(ksd_reference):
 @pytest.fixture(scope='module', params=parallel_i)
 def build_ksd(initialize_system, request):
     calc = GPAW('unocc.gpw', parallel=request.param, txt=None)
+    if not calc.wfs.ksl.using_blacs and calc.wfs.bd.comm.size > 1:
+        pytest.xfail('Band parallelization without scalapack '
+                     'is not supported')
     ksd = KohnShamDecomposition(calc)
     ksd.initialize(calc)
     ksd.write('ksd.ulm')
