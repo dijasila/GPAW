@@ -1,6 +1,6 @@
 from ase import Atoms
 from gpaw import GPAW, FermiDirac, Mixer
-from gpaw.wavefunctions.pw import PW
+from gpaw import PW
 
 # This calculation is too heavy to run as an exercise!!
 

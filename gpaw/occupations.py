@@ -213,6 +213,10 @@ class FixMagneticMomentOccupationNumberCalculator(OccupationNumberCalculator):
         self.fixed_magmom_value = magmom
         self.extrapolate_factor = occ.extrapolate_factor
 
+    def __str__(self):
+        return (f'Fixed magnetic moment: {self.fixed_magmom_value:.3f}\n' +
+                str(self.occ))
+
     def todict(self):
         dct = self.occ.todict()
         dct['fixmagmom'] = True

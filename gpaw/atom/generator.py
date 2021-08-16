@@ -597,37 +597,37 @@ class Generator(AllElectron):
                         dH_nn = dH_lnn[l]
                         q_n = q_ln[l]
 
-                    fae = open(self.symbol + '.ae.ld.' + 'spdf'[l], 'w')
-                    fps = open(self.symbol + '.ps.ld.' + 'spdf'[l], 'w')
+                    ae = self.symbol + '.ae.ld.' + 'spdf'[l]
+                    ps = self.symbol + '.ps.ld.' + 'spdf'[l]
+                    with open(ae, 'w') as fae, open(ps, 'w') as fps:
+                        for i, e in enumerate(self.elog):
+                            # All-electron logarithmic derivative:
+                            u[:] = 0.0
+                            shoot(u, l, self.vr, e, self.r2dvdr, r, dr,
+                                  c10, c2, self.scalarrel, gmax=gld)
+                            dudr = 0.5 * (u[gld + 1] - u[gld - 1]) / dr[gld]
+                            ld = dudr / u[gld] - 1.0 / r[gld]
+                            print(e, ld, file=fae)
+                            self.logd[l][0][i] = ld
 
-                    for i, e in enumerate(self.elog):
-                        # All-electron logarithmic derivative:
-                        u[:] = 0.0
-                        shoot(u, l, self.vr, e, self.r2dvdr, r, dr, c10, c2,
-                              self.scalarrel, gmax=gld)
-                        dudr = 0.5 * (u[gld + 1] - u[gld - 1]) / dr[gld]
-                        ld = dudr / u[gld] - 1.0 / r[gld]
-                        print(e, ld, file=fae)
-                        self.logd[l][0][i] = ld
+                            # PAW logarithmic derivative:
+                            s = self.integrate(l, vt, e, gld)
+                            if l <= lmax:
+                                A_nn = dH_nn - e * dO_nn
+                                s_n = [self.integrate(l, vt, e, gld, q)
+                                       for q in q_n]
+                                B_nn = np.inner(q_n, s_n * dr)
+                                a_n = np.dot(q_n, s * dr)
+                                
+                                B_nn = np.dot(A_nn, B_nn)
+                                B_nn.ravel()[::len(a_n) + 1] += 1.0
+                                c_n = solve(B_nn, np.dot(A_nn, a_n))
+                                s -= np.dot(c_n, s_n)
 
-                        # PAW logarithmic derivative:
-                        s = self.integrate(l, vt, e, gld)
-                        if l <= lmax:
-                            A_nn = dH_nn - e * dO_nn
-                            s_n = [self.integrate(l, vt, e, gld, q)
-                                   for q in q_n]
-                            B_nn = np.inner(q_n, s_n * dr)
-                            a_n = np.dot(q_n, s * dr)
-
-                            B_nn = np.dot(A_nn, B_nn)
-                            B_nn.ravel()[::len(a_n) + 1] += 1.0
-                            c_n = solve(B_nn, np.dot(A_nn, a_n))
-                            s -= np.dot(c_n, s_n)
-
-                        dsdr = 0.5 * (s[gld + 1] - s[gld - 1]) / dr[gld]
-                        ld = dsdr / s[gld] - 1.0 / r[gld]
-                        print(e, ld, file=fps)
-                        self.logd[l][1][i] = ld
+                            dsdr = 0.5 * (s[gld + 1] - s[gld - 1]) / dr[gld]
+                            ld = dsdr / s[gld] - 1.0 / r[gld]
+                            print(e, ld, file=fps)
+                            self.logd[l][1][i] = ld
 
             except KeyboardInterrupt:
                 pass

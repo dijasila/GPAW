@@ -43,11 +43,11 @@ def analyse(c, collection):
 
 E, V, B0, B1, R = analyse(c, collection)
 
-fd = open(db + '_raw.txt', 'w')
-for name, e, v, b0, b1, r, in zip(collection.names, E, V, B0, B1, R):
-    if not np.isnan(e):
-        print('%2s %8.4f %8.4f %8.4f' % (name, v, b0, b1), file=fd)
-fd = open(db + '_raw.csv', 'w')
-for name, e, v, b0, b1, r, in zip(collection.names, E, V, B0, B1, R):
-    if not np.isnan(e):
-        print(f'{name}, {v:8.4f}, {b0:8.4f}, {b1:8.4f}', file=fd)
+with open(db + '_raw.txt', 'w') as fd:
+    for name, e, v, b0, b1, r, in zip(collection.names, E, V, B0, B1, R):
+        if not np.isnan(e):
+            print('%2s %8.4f %8.4f %8.4f' % (name, v, b0, b1), file=fd)
+with open(db + '_raw.csv', 'w') as fd:
+    for name, e, v, b0, b1, r, in zip(collection.names, E, V, B0, B1, R):
+        if not np.isnan(e):
+            print(f'{name}, {v:8.4f}, {b0:8.4f}, {b1:8.4f}', file=fd)

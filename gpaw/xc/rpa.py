@@ -14,7 +14,7 @@ from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.response.chi0 import Chi0
 from gpaw.response.kernels import get_coulomb_kernel
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
-from gpaw.wavefunctions.pw import PWDescriptor, count_reciprocal_vectors
+from gpaw.pw.descriptor import PWDescriptor, count_reciprocal_vectors
 
 
 def rpa(filename, ecut=200.0, blocks=1, extrapolate=4):
