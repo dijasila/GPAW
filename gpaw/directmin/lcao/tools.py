@@ -33,6 +33,14 @@ def expm_ed(a_mat, evalevec=False):
 
 def expm_ed_unit_inv(a_upp_r, oo_vo_blockonly=False):
 
+    """
+    calculate matrix exponentail using
+    Eq. (6) from
+    J. Hutter, M. Parrinello, and S. Vogel,
+    J. Chem. Phys., 101, 3862 (1994)
+    :param a_upp_r: X (see eq in paper)
+    :return: unitary matrix
+    """
     if np.allclose(a_upp_r, np.zeros_like(a_upp_r)):
         dim_v = a_upp_r.shape[1]
         dim_o = a_upp_r.shape[0]
@@ -77,6 +85,14 @@ def expm_ed_unit_inv(a_upp_r, oo_vo_blockonly=False):
 
 
 def d_matrix(omega):
+    """
+    Helper function for calculation of gradient
+    w.r.t. skew-hermitian matrix
+    see eq. 40 from
+    A. V. Ivanov, E. Jónsson, T. Vegge, and H. Jónsso
+    Comput. Phys. Commun., 267, 108047 (2021).
+    arXiv:2101.12597 [physics.comp-ph]
+    """
 
     m = omega.shape[0]
     u_m = np.ones(shape=(m, m))
@@ -94,26 +110,15 @@ def d_matrix(omega):
 
 def minimum_cubic_interpol(x_0, x_1, f_0, f_1, df_0, df_1):
     """
-    given f, f' at boundaries of interval calc. minimum
-    of cubic interpolation
-    :param x_0:
-    :param x_1:
-    :param f_0:
-    :param f_1:
-    :param df_0:
-    :param df_1:
-    :return:
+    given f, f' at boundaries of interval [x0, x1]
+    calc. x_min where cubic interpolation is minimal
+    :return: x_min
     """
 
     def cubic_function(a, b, c, d, x):
         """
         f(x) = a x^3 + b x^2 + c x + d
-        :param a:
-        :param b:
-        :param c:
-        :param d:
-        :param x:
-        :return:
+        :return: f(x)
         """
         return a * x ** 3 + b * x ** 2 + c * x + d
 
@@ -133,40 +138,35 @@ def minimum_cubic_interpol(x_0, x_1, f_0, f_1, df_0, df_1):
 
     if D < 0.0:
         if f_0 < f_1:
-            alpha = x_0
+            x_min = x_0
         else:
-            alpha = x_1
+            x_min = x_1
     else:
         r0 = (-b + np.sqrt(D)) / (3.0 * a) + x_0
         if x_0 < r0 < x_1:
             f_r0 = cubic_function(a, b, c, d, r0 - x_0)
             if f_0 > f_r0 and f_1 > f_r0:
-                alpha = r0
+                x_min = r0
             else:
                 if f_0 < f_1:
-                    alpha = x_0
+                    x_min = x_0
                 else:
-                    alpha = x_1
+                    x_min = x_1
         else:
             if f_0 < f_1:
-                alpha = x_0
+                x_min = x_0
             else:
-                alpha = x_1
+                x_min = x_1
 
-    return alpha
+    return x_min
 
 
 def minimum_parabola_interpol(x_0, x_1, f_0, f_1, df_0):
     """
     given f(x0), f'(x0) and f(x1)
-    calc. minimum of parabola interpolation
-    f(x) = a x^2 + b x + c
-    :param x_0:
-    :param x_1:
-    :param f_0:
-    :param f_1:
-    :param df_0:
-    :return:
+    calc. x_min where parabola interpolation
+    f(x) = a x^2 + b x + c is minimal
+    :return: x_min
     """
     assert x_0 <= x_1
 
@@ -181,8 +181,8 @@ def minimum_parabola_interpol(x_0, x_1, f_0, f_1, df_0):
         a_min = x_1 - x_0
         if f_0 < f_1:
             a_min = 0
-
-    return a_min + x_0
+    x_min = a_min + x_0
+    return x_min
 
 
 def matrix_function(evals, evecs, func=lambda x: x):
@@ -242,11 +242,7 @@ def excite(calc, i, a, spin=(0, 0)):
     occupation number will be taken from
     calc.get_occupation_numbers() for each spin
 
-    :param calc:
-    :param i:
-    :param a:
-    :param spin:
-    :return:
+    :return: new occupation numbers
     """
 
     f_sn = []
