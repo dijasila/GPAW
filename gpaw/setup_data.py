@@ -269,7 +269,8 @@ class SetupData:
         print(f'  <generator {gen_attrs}>', file=xml)
         print(f'    {self.generatordata}', file=xml)
         print('  </generator>', file=xml)
-        print(f'  <ae_energy kinetic="{self.e_kinetic!r}" xc="{self.e_xc!r}"', file=xml)
+        print(f'  <ae_energy kinetic="{self.e_kinetic!r}" xc="{self.e_xc!r}"',
+              file=xml)
         print('             electrostatic="%r" total="%r"/>' %
               (self.e_electrostatic, self.e_total), file=xml)
 
