@@ -34,7 +34,7 @@ def expm_ed(a_mat, evalevec=False):
 def expm_ed_unit_inv(a_upp_r, oo_vo_blockonly=False):
 
     """
-    calculate matrix exponentail using
+    calculate matrix exponential using
     Eq. (6) from
     J. Hutter, M. Parrinello, and S. Vogel,
     J. Chem. Phys., 101, 3862 (1994)
