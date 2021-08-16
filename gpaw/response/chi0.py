@@ -230,13 +230,7 @@ class Chi0:
         calc = self.pair.calc
         self.calc = calc
 
-        if world.rank != 0:
-            txt = devnull
-        elif txt == '-':
-            txt = sys.stdout
-        elif isinstance(txt, str):
-            txt = open(txt, 'w')
-        self.fd = txt
+        self.fd = self.pair.fd
 
         self.vol = abs(np.linalg.det(calc.wfs.gd.cell_cv))
 
