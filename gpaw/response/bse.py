@@ -92,7 +92,7 @@ class BSE:
         # assert calc.wfs.kd.nbzkpts % world.size == 0
 
         self.iocontext = IOContext()
-        self.fd = self.iocontext.open(txt)
+        self.fd = self.iocontext.openfile(txt)
 
         self.ecut = ecut / Hartree
         self.nbands = nbands
