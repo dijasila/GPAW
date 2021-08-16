@@ -1,5 +1,4 @@
 import numbers
-import sys
 from functools import partial
 from time import ctime
 
@@ -13,7 +12,6 @@ from gpaw.bztools import convex_hull_volume
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.response.integrators import PointIntegrator, TetrahedronIntegrator
 from gpaw.response.pair import PairDensity, PWSymmetryAnalyzer
-from gpaw.utilities import devnull
 from gpaw.utilities.blas import gemm
 from gpaw.utilities.memory import maxrss
 from gpaw.pw.descriptor import PWDescriptor
