@@ -33,7 +33,7 @@ def appr_wc(der_phi_0, phi_0, der_phi_j, phi_j):
 
 class UnitStepLength(object):
 
-    def __init__(self, evaluate_phi_and_der_phi, max_step=0.2, **kwargs):
+    def __init__(self, evaluate_phi_and_der_phi, max_step=0.2):
         """
 
         :param evaluate_phi_and_der_phi:
@@ -123,13 +123,13 @@ class StrongWolfeConditions(UnitStepLength):
 
     def __init__(self, evaluate_phi_and_der_phi,
                  c1=1.0e-4, c2=0.9,
-                 method=None, max_iter=3, eps_dx=1.0e-10,
+                 searchdir=None, max_iter=3, eps_dx=1.0e-10,
                  eps_df=1.0e-10, awc=True):
         """
         :param evaluate_phi_and_der_phi: function which calculate
         phi, der_phi and g for given A_s, P_s, n_dim and alpha
         A_s[s] is skew-hermitian matrix, P_s[s] is matrix direction
-        :param method: used only in initial guess for alpha
+        :param searchdir: used only in initial guess for alpha
         :param max_iter: maximum number of iterations
         :param eps_dx: length of minimal interval where alpha can
         be found
@@ -146,7 +146,7 @@ class StrongWolfeConditions(UnitStepLength):
             evaluate_phi_and_der_phi)
 
         self.max_iter = max_iter
-        self.method = method
+        self.searchdir = searchdir
         self.eps_dx = eps_dx
         self.eps_df = eps_df
         self.c1 = c1
@@ -155,7 +155,7 @@ class StrongWolfeConditions(UnitStepLength):
 
     def step_length_update(self, x, p, n_dim,
                            *args, **kwargs):
-        if self.method in ['HZcg', 'SD', 'FRcg', 'PRcg', 'PRpcg']:
+        if self.searchdir in ['HZcg', 'SD', 'FRcg', 'PRcg', 'PRpcg']:
             c1 = self.c1 = 1.0e-4
             c2 = self.c2 = 0.9
         else:
@@ -399,7 +399,7 @@ class StrongWolfeConditions(UnitStepLength):
                    alpha_old=1.0):
 
         # chose initial alpha
-        if self.method in ['HZcg', 'SD', 'FRcg', 'PRcg', 'PRpcg']:
+        if self.searchdir in ['HZcg', 'SD', 'FRcg', 'PRcg', 'PRpcg']:
             if phi_old is not None and der_phi_old is not None:
                 try:
                     alpha_1 = 2.0 * (phi_0 - phi_old) / der_phi_old
@@ -414,7 +414,7 @@ class StrongWolfeConditions(UnitStepLength):
                     alpha_1 = 1.0
             else:
                 alpha_1 = 1.0
-        elif self.method in ['BFGS', 'LBFGS', 'LBFGS_P']:
+        elif self.searchdir in ['BFGS', 'LBFGS', 'LBFGS_P']:
             alpha_1 = 1.0
         else:
             alpha_1 = 1.0

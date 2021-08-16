@@ -104,7 +104,10 @@ class DirectMinLCAO(DirectLCAO):
             self.sda = xc_string_to_dict(self.sda)
         if isinstance(self.lsa, basestring):
             self.lsa = xc_string_to_dict(self.lsa)
-            self.lsa['method'] = self.sda['name']
+            if self.lsa['name'] == 'SwcAwc':
+                # for SwcAwc we need to know
+                # what search. dir. algo is used
+                self.lsa['searchdir'] = self.sda['name']
 
         if isinstance(self.representation, basestring):
             assert self.representation in ['sparse', 'u_invar', 'full'], \
