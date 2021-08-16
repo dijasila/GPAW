@@ -32,6 +32,7 @@ def extract_stuff_from_gpw_file(path: Path) -> Tuple[Array1D,
                             for wf in states])
     fingerprints = np.array([wf.projections.matrix.array
                              for wf in states])
+    spinprojections = states.spin_projections()
 
     for direct in [False, True]:
         bandgap(eigenvalues=eigenvalues,
@@ -43,7 +44,8 @@ def extract_stuff_from_gpw_file(path: Path) -> Tuple[Array1D,
                calc.atoms.cell[2, 2],
                states.fermi_level,
                eigenvalues,
-               fingerprints)
+               fingerprints,
+               spinprojections)
 
     out.write_bytes(pickle.dumps(results))
 
@@ -52,6 +54,7 @@ def extract_stuff_from_gpw_file(path: Path) -> Tuple[Array1D,
 
 def connect(eigenvalues: Array2D,
             fingerprints: Array3D,
+            spinprojections: Array3D = None,
             eps: float = 0.001) -> Array2D:
     """
     >>> eigs = np.array([[0, 1], [0, 1]])
@@ -61,6 +64,12 @@ def connect(eigenvalues: Array2D,
            [1, 0]])
     """
     K, N = eigenvalues.shape
+
+    eigenvalues = eigenvalues.copy()
+    fingerprints = fingerprints.copy()
+
+    if spinprojections is not None:
+        spinprojections = spinprojections.copy()
 
     for k in range(K - 1):
         overlap = abs(fingerprints[k] @ fingerprints[k + 1].conj().T)
@@ -75,6 +84,8 @@ def connect(eigenvalues: Array2D,
                 1 / 0
         eigenvalues[k + 1] = eigenvalues[k + 1, bands]
         fingerprints[k + 1] = fingerprints[k + 1, bands]
+        if spinprojections is not None:
+            spinprojections[k + 1] = spinprojections[k + 1, bands]
 
     for k in range(1, K - 1):
         eigs = eigenvalues[k]
@@ -87,8 +98,11 @@ def connect(eigenvalues: Array2D,
             bands2 = [bands[i] for i in indices]
             eigenvalues[k + 1:, bands] = eigenvalues[k + 1:, bands2]
             fingerprints[k + 1:, bands] = fingerprints[k + 1:, bands2]
+            if spinprojections is not None:
+                spinprojections[k + 1:, bands] = spinprojections[k + 1:,
+                                                                 bands2]
 
-    return eigenvalues
+    return eigenvalues, spinprojections
 
 
 def clusters(eigs: Array1D,
@@ -114,6 +128,7 @@ def fit(kpoints: Array1D,
         fermi_level: float,
         eigenvalues: Array2D,
         fingerprints: Array3D,
+        spinprojections: Array3D = None,
         kind: str = 'cbm',
         N: int = 4,
         plot: bool = True) -> List[Tuple[float, float, float]]:
@@ -145,17 +160,20 @@ def fit(kpoints: Array1D,
         eigs = fermi_level - eigenvalues[:, bands]
 
     fps = fingerprints[:, bands]
+    sps = spinprojections[:, bands]
 
     eigs2 = np.empty_like(eigs)
     fps2 = np.empty_like(fps)
+    sps2 = np.empty_like(sps)
     imin = eigs[:, 0].argmin()
     i0 = K // 2
     for i in range(K):
         eigs2[(i0 + i) % K] = eigs[(imin + i) % K]
         fps2[(i0 + i) % K] = fps[(imin + i) % K]
+        sps2[(i0 + i) % K] = sps[(imin + i) % K]
     x = kpoints[imin] + kpoints - kpoints[i0]
 
-    eigs = connect(eigs2, fps2)
+    eigs, sps = connect(eigs2, fps2, sps2)
 
     extrema = {}
     indices = eigs[i0].argsort()
@@ -176,7 +194,7 @@ def fit(kpoints: Array1D,
                 energy *= -1
                 yfit *= -1
             print(f'{k:10.3f} {energy:11.3f} {mass:10.3f}')
-            extrema[n] = (xfit, yfit, k, energy, mass)
+            extrema[n] = (xfit, yfit, k, energy, mass, sps[i, n])
 
     if kind == 'vbm':
         eigs *= -1
