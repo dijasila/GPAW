@@ -60,7 +60,8 @@ class DirectMinLCAO(DirectLCAO):
         :param representation: the way A are stored,
         'sparse', 'full', 'u_invar',
         :param functional: KS or PZ-SIC functionals
-        :param orthonormalization:
+        :param orthonormalization: gram-schmidt, loewdin, or eigenstates of ham
+        'gramschmidt', 'loewdin', 'diag', respectively
         :param randomizeorbitals: if need a noise in initial guess
         :param checkgraderror: check error in estimation of gradient
         :param localizationtype: Foster-Boys, Pipek-Mezey, Edm.-Rudenb.
