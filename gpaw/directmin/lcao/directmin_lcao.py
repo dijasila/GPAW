@@ -561,8 +561,6 @@ class DirectMinLCAO(DirectLCAO):
                                               c_ref
                                               )
             del x_mat_u
-        else:
-            pass
 
         der_phi = 0.0
         if self.representation['name'] in ['sparse', 'u_invar']:
