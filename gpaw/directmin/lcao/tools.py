@@ -3,7 +3,7 @@ Tools for direcmin
 """
 
 import numpy as np
-import scipy as sp
+import scipy.linalg as lalg
 
 
 def expm_ed(a_mat, evalevec=False):
@@ -225,16 +225,10 @@ def gramschmidt_lcao(C_nM, S_MM):
     :return: Orthonormalized coefficients so that new S_mn = delta_mn
     """
 
-    S_nn = C_nM.conj() @ S_MM @ C_nM.T
-    L_nn = sp.linalg.cholesky(S_nn,
-                              lower=True,
-                              overwrite_a=True,
-                              check_finite=False)
-    S_nn = sp.linalg.inv(L_nn,
-                         overwrite_a=True,
-                         check_finite=False)
-
-    return S_nn.conj() @ C_nM
+    S_nn = C_nM @ S_MM.conj() @ C_nM.T.conj()
+    L_nn = lalg.cholesky(S_nn, lower=True,
+                         overwrite_a=True, check_finite=False)
+    return lalg.solve(L_nn, C_nM)
 
 
 def excite(calc, i, a, spin=(0, 0)):
