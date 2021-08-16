@@ -7,6 +7,29 @@ from gpaw.lcaotddft.wfwriter import WaveFunctionWriter, WaveFunctionReader
 from gpaw.lcaotddft.densitymatrix import DensityMatrix
 from gpaw.lcaotddft.frequencydensitymatrix import FrequencyDensityMatrix
 from gpaw.tddft.folding import frequencies
+from gpaw.utilities import compiled_with_sl
+
+
+def parallel_options(*, include_kpt=False, fix_sl_auto=False):
+    """Generate different parallelization options"""
+    parallel_i = []
+    for sl_auto in [False, True]:
+        if not compiled_with_sl() and sl_auto:
+            continue
+        for band in [1, 2]:
+            for kpt in [1, 2] if include_kpt else [1]:
+                if world.size < band * kpt:
+                    continue
+                parallel = {'sl_auto': sl_auto, 'band': band, 'kpt': kpt}
+
+                if fix_sl_auto and world.size == 1 and parallel['sl_auto']:
+                    # Choose BLACS grid manually as the one given by sl_auto
+                    # doesn't work well for the small test system and 1 process
+                    del parallel['sl_auto']
+                    parallel['sl_default'] = (1, 1, 8)
+
+                parallel_i.append(parallel)
+    return parallel_i
 
 
 def calculate_time_propagation(gs_fpath, *, kick,

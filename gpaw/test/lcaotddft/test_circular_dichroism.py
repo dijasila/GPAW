@@ -11,21 +11,14 @@ from gpaw.lcaotddft.magneticmomentwriter import MagneticMomentWriter
 from gpaw.lcaotddft.magneticmomentwriter import parse_header
 from gpaw.tddft.spectrum import rotatory_strength_spectrum
 from gpaw.tddft.units import as_to_au, eV_to_au, au_to_eV, rot_au_to_cgs
-from gpaw.utilities import compiled_with_sl
 
 from gpaw.test import only_on_master
-from . import check_txt_data, copy_and_cut_file
-
+from . import parallel_options, check_txt_data, copy_and_cut_file
 
 pytestmark = pytest.mark.usefixtures('module_tmp_path')
 
-
-parallel_i = [{}]
-if compiled_with_sl():
-    parallel_i.append({'sl_auto': True})
-    if world.size > 1:
-        parallel_i.append({'band': 2})
-        parallel_i.append({'sl_auto': True, 'band': 2})
+parallel_i = parallel_options()
+print(f'Tested parallel options: {list(enumerate(parallel_i))}')
 
 
 @pytest.fixture(scope='module')

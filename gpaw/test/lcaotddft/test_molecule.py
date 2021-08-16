@@ -9,13 +9,15 @@ from gpaw.lcaotddft.wfwriter import WaveFunctionReader
 from gpaw.lcaotddft.densitymatrix import DensityMatrix
 from gpaw.lcaotddft.frequencydensitymatrix import FrequencyDensityMatrix
 from gpaw.lcaotddft.ksdecomposition import KohnShamDecomposition
-from gpaw.utilities import compiled_with_sl
 
 from gpaw.test import in_path, only_on_master
-from . import (calculate_time_propagation, calculate_error,
+from . import (parallel_options, calculate_time_propagation, calculate_error,
                check_txt_data, check_wfs)
 
 pytestmark = pytest.mark.usefixtures('module_tmp_path')
+
+parallel_i = parallel_options(fix_sl_auto=True)
+print(f'Tested parallel options: {list(enumerate(parallel_i))}')
 
 
 def calculate_ground_state(*, communicator=world,
@@ -35,27 +37,6 @@ def calculate_ground_state(*, communicator=world,
     atoms.get_potential_energy()
     calc.write('gs.gpw', mode='all')
     return calc
-
-
-# Generate different parallelization options
-parallel_i = []
-for sl_auto in [False, True]:
-    if not compiled_with_sl() and sl_auto:
-        continue
-    for band in [1, 2]:
-        if world.size < band:
-            continue
-        parallel = {'sl_auto': sl_auto, 'band': band}
-
-        if world.size == 1 and parallel['sl_auto']:
-            # Choose BLACS grid manually as the one given by sl_auto
-            # doesn't work well for the small test system and 1 process
-            del parallel['sl_auto']
-            parallel['sl_default'] = (1, 1, 8)
-
-        parallel_i.append(parallel)
-
-print(f'Tested parallel options: {parallel_i}')
 
 
 @pytest.fixture(scope='module')
