@@ -561,8 +561,6 @@ class DirectMinLCAO(DirectLCAO):
                                               c_ref
                                               )
             del x_mat_u
-        else:
-            pass
 
         der_phi = 0.0
         if self.representation['name'] in ['sparse', 'u_invar']:
@@ -836,8 +834,6 @@ class DirectMinLCAO(DirectLCAO):
                     # OccupationsMOM.numbers needs to be updated after sorting
                     self.update_mom_numbers(wfs, kpt)
         wfs.timer.stop('Sort WFS')
-
-        return
 
     def sort_wavefunctions_mom(self, wfs):
         """
