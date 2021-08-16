@@ -3,7 +3,6 @@ Exponential Transformation Direct Minimization
 """
 
 from gpaw.xc import xc_string_to_dict
-from ase.utils import basestring
 from gpaw.directmin.lcao.sd_lcao import SteepestDescent, FRcg, QuickMin,\
     LBFGS, LBFGS_P, LSR1P
 from gpaw.directmin.lcao.ls_lcao import UnitStepLength, \
@@ -11,7 +10,7 @@ from gpaw.directmin.lcao.ls_lcao import UnitStepLength, \
 
 
 def search_direction(method, wfs):
-    if isinstance(method, basestring):
+    if isinstance(method, str):
         method = xc_string_to_dict(method)
 
     if isinstance(method, dict):
