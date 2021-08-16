@@ -70,8 +70,36 @@ class DirectMinLCAO(DirectLCAO):
 
         super(DirectMinLCAO, self).__init__(diagonalizer)
 
-        self.sda = searchdir_algo
-        self.lsa = linesearch_algo
+        if isinstance(functional, str):
+            functional = xc_string_to_dict(functional)
+        if isinstance(searchdir_algo, str):
+            searchdir_algo = xc_string_to_dict(searchdir_algo)
+        if isinstance(linesearch_algo, str):
+            linesearch_algo = xc_string_to_dict(linesearch_algo)
+            if linesearch_algo['name'] == 'SwcAwc':
+                # for SwcAwc we need to know
+                # what search. dir. algo is used
+                linesearch_algo['searchdir'] = searchdir_algo['name']
+        if isinstance(representation, str):
+            assert representation in ['sparse', 'u_invar', 'full'], \
+                'Value Error'
+            representation = \
+                xc_string_to_dict(representation)
+        
+        if matrix_exp == 'egdecomp2':
+            assert representation['name'] == 'u_invar', \
+                'Use u_invar representation with egdecomp2'
+        
+        if isinstance(orthonormalization, str):
+            assert orthonormalization in [
+                'gramschmidt', 'loewdin', 'diag'], \
+                'Value Error'
+            orthonormalization = \
+                xc_string_to_dict(orthonormalization)
+
+        if searchdir_algo['name'] == 'LBFGS_P' and not use_prec:
+            raise ValueError('Use LBFGS_P with use_prec=True')
+        
         self.localizationtype = localizationtype
         self.eg_count = 0
         self.update_ref_orbs_counter = update_ref_orbs_counter
@@ -79,8 +107,6 @@ class DirectMinLCAO(DirectLCAO):
         self.update_precond_counter = update_precond_counter
         self.use_prec = use_prec
         self.matrix_exp = matrix_exp
-        self.representation = representation
-        self.orthonormalization = orthonormalization
         self.iters = 0
         self.restart = False
         self.name = 'direct-min-lcao'
@@ -92,42 +118,16 @@ class DirectMinLCAO(DirectLCAO):
         self.g_mat_u = None  # gradient matrix
         self.c_nm_ref = None  # reference orbitals to be rotated
 
-        self.functional = functional
         self.randomizeorbitals = randomizeorbitals
 
         self.initialized = False
 
-        if isinstance(self.functional, str):
-            self.functional = xc_string_to_dict(self.functional)
-        if isinstance(self.sda, str):
-            self.sda = xc_string_to_dict(self.sda)
-        if isinstance(self.lsa, str):
-            self.lsa = xc_string_to_dict(self.lsa)
-            if self.lsa['name'] == 'SwcAwc':
-                # for SwcAwc we need to know
-                # what search. dir. algo is used
-                self.lsa['searchdir'] = self.sda['name']
-
-        if isinstance(self.representation, str):
-            assert self.representation in ['sparse', 'u_invar', 'full'], \
-                'Value Error'
-            self.representation = \
-                xc_string_to_dict(self.representation)
-
-        if isinstance(self.orthonormalization, str):
-            assert self.orthonormalization in [
-                'gramschmidt', 'loewdin', 'diag'], \
-                'Value Error'
-            self.orthonormalization = \
-                xc_string_to_dict(self.orthonormalization)
-
-        if self.sda['name'] == 'LBFGS_P' and not self.use_prec:
-            raise ValueError('Use LBFGS_P with use_prec=True')
-
-        if matrix_exp == 'egdecomp2':
-            assert self.representation['name'] == 'u_invar', \
-                'Use u_invar representation with egdecomp2'
-
+        self.sda = searchdir_algo
+        self.lsa = linesearch_algo
+        self.functional = functional
+        self.representation = representation
+        self.orthonormalization = orthonormalization
+        
         self.checkgraderror = checkgraderror
         self._normcomm, self._normg = 0., 0.
 
