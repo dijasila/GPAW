@@ -835,8 +835,6 @@ class DirectMinLCAO(DirectLCAO):
                     self.update_mom_numbers(wfs, kpt)
         wfs.timer.stop('Sort WFS')
 
-        return
-
     def sort_wavefunctions_mom(self, wfs):
         """
         Sort wavefunctions according to the occupation
