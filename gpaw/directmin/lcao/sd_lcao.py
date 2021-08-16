@@ -510,12 +510,6 @@ class LBFGS_P(SteepestDescent):
                 # r += s_k[kp[i]] * (alpha[kp[i]] - beta)
 
             # save this step:
-            del s_k
-            del x_k
-            del y_k
-            del g_k
-            del rho_k
-
             self.x_k = copy.deepcopy(x_k1)
             self.g_k = copy.deepcopy(g_k1)
 
@@ -523,8 +517,6 @@ class LBFGS_P(SteepestDescent):
             self.p += 1
 
             self.kp[self.k] = self.p
-
-            del q
 
             return self.multiply(r, const=-1.0)
 

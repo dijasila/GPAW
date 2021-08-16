@@ -254,7 +254,6 @@ class DirectMinLCAO(DirectLCAO):
                     else:
                         self.ind_up[u] = (ind_up[0][:-zero_ind].copy(),
                                           ind_up[1][:-zero_ind].copy())
-                del ind_up
             else:
                 # take indices of A_2 only
                 for kpt in wfs.kpt_u:
@@ -528,8 +527,6 @@ class DirectMinLCAO(DirectLCAO):
 
             p_vec = self.search_direction.update_data(wfs, a_vec,
                                                       g_vec, precond)
-            del a_vec, g_vec
-
             p_mat_u = {}
             for k in p_vec:
                 p_mat_u[k] = np.zeros_like(a_mat_u[k])
@@ -538,8 +535,6 @@ class DirectMinLCAO(DirectLCAO):
                 # make it skew-hermitian
                 il1 = np.tril_indices(p_mat_u[k].shape[0], -1)
                 p_mat_u[k][(il1[1], il1[0])] = -p_mat_u[k][il1].conj()
-
-            del p_vec
 
         return p_mat_u
 
@@ -557,9 +552,7 @@ class DirectMinLCAO(DirectLCAO):
             phi, g_mat_u = \
                 self.get_energy_and_gradients(x_mat_u, n_dim,
                                               ham, wfs, dens,
-                                              c_ref
-                                              )
-            del x_mat_u
+                                              c_ref)
 
         der_phi = 0.0
         if self.representation['name'] in ['sparse', 'u_invar']:
@@ -1119,9 +1112,6 @@ class DirectMinLCAO(DirectLCAO):
                 dimens1 = u_nn.shape[0]
                 dimens2 = u_nn.shape[1]
                 kpt.C_nM[:dimens2] = u_nn.T @ c_nm_ref[k][:dimens1]
-
-                del u_nn
-                del a
 
             wfs.timer.start('Broadcast coefficients')
             self.gd.comm.broadcast(kpt.C_nM, 0)
