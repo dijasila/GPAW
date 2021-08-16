@@ -7,4 +7,3 @@ def test_atomic_el_pot(gpw_files):
     values = calc.get_atomic_electrostatic_potentials()
     ref = -49.48543067
     assert values == pytest.approx([ref, ref])
-    
