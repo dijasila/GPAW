@@ -295,3 +295,13 @@ def test_spinpol_dipole_moment(initialize_system, initialize_system_spinpol,
     check_txt_data(module_tmp_path / 'dm.dat',
                    module_tmp_path / 'spinpol' / 'dm.dat',
                    atol=3e-14)
+
+
+@pytest.mark.parametrize('parallel', parallel_i)
+def test_spinpol_propagation(initialize_system_spinpol, module_tmp_path,
+                             parallel, in_tmp_dir):
+    ref_path = module_tmp_path / 'spinpol'
+    calculate_time_propagation(ref_path / 'gs.gpw',
+                               kick=np.ones(3) * 1e-5,
+                               parallel=parallel)
+    check_wfs(ref_path / 'wf.ulm', 'wf.ulm', atol=1e-12)
