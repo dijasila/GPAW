@@ -376,13 +376,11 @@ class DirectMinLCAO(DirectLCAO):
         der_phi_2i[0] = 0.0
         for k in g_mat_u:
             if self.representation['name'] in ['sparse', 'u_invar']:
-                der_phi_2i[0] += np.dot(g_mat_u[k].conj(),
-                                        p_mat_u[k]).real
+                der_phi_2i[0] += g_mat_u[k].conj() @ p_mat_u[k]
             else:
                 il1 = get_indices(g_mat_u[k].shape[0], self.dtype)
-                der_phi_2i[0] += np.dot(g_mat_u[k][il1].conj(),
-                                        p_mat_u[k][il1]).real
-                # der_phi_c += dotc(g[k][il1], p[k][il1]).real
+                der_phi_2i[0] += g_mat_u[k][il1].conj() @ p_mat_u[k][il1]
+        der_phi_2i[0] = der_phi_2i[0].real
         der_phi_2i[0] = wfs.kd.comm.sum(der_phi_2i[0])
 
         alpha, phi_alpha, der_phi_alpha, g_mat_u = \
@@ -566,18 +564,13 @@ class DirectMinLCAO(DirectLCAO):
         der_phi = 0.0
         if self.representation['name'] in ['sparse', 'u_invar']:
             for k in p_mat_u:
-                der_phi += np.dot(g_mat_u[k].conj(),
-                                  p_mat_u[k]).real
+                der_phi += g_mat_u[k].conj() @ p_mat_u[k]
         else:
             for k in p_mat_u:
-
                 il1 = get_indices(p_mat_u[k].shape[0], self.dtype)
+                der_phi += g_mat_u[k][il1].conj() @ p_mat_u[k][il1]
 
-                der_phi += np.dot(g_mat_u[k][il1].conj(),
-                                  p_mat_u[k][il1]).real
-                # der_phi += dotc(g_mat_u[k][il1],
-                #                 p_mat_u[k][il1]).real
-
+        der_phi = der_phi.real
         der_phi = wfs.kd.comm.sum(der_phi)
 
         return phi, der_phi, g_mat_u
@@ -936,7 +929,7 @@ class DirectMinLCAO(DirectLCAO):
                 a += -a.T.conj()
 
                 u_nn = expm(a)
-                c_nm_ref[u] = np.dot(u_nn.T, kpt.C_nM[:u_nn.shape[0]])
+                c_nm_ref[u] = u_nn.T @ kpt.C_nM[:u_nn.shape[0]]
                 a_m[u] = np.zeros_like(self.a_mat_u[u])
         
         # calc analitical gradient
@@ -1125,8 +1118,7 @@ class DirectMinLCAO(DirectLCAO):
 
                 dimens1 = u_nn.shape[0]
                 dimens2 = u_nn.shape[1]
-                kpt.C_nM[:dimens2] = np.dot(
-                    u_nn.T, c_nm_ref[k][:dimens1])
+                kpt.C_nM[:dimens2] = u_nn.T @ c_nm_ref[k][:dimens1]
 
                 del u_nn
                 del a
@@ -1286,7 +1278,7 @@ def rotate_subspace(h_mm, c_nm):
     :param c_nm:
     :return:
     """
-    l_nn = np.dot(np.dot(c_nm, h_mm), c_nm.conj().T).conj()
+    l_nn = (c_nm @ h_mm @ c_nm.conj().T).conj()
     # check if diagonal then don't rotate? it could save a bit of time
     eps, w = np.linalg.eigh(l_nn)
     return w.T.conj() @ c_nm, eps

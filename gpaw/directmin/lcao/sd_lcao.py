@@ -66,9 +66,8 @@ class SteepestDescent(object):
 
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
-            # dot_pr_x1x2 += 2.0 * dotc(x1[k], x2[k]).real
-            dot_pr_x1x2 += np.dot(x1[k].conj(), x2[k]).real
-
+            dot_pr_x1x2 += x1[k].conj() @ x2[k]
+        dot_pr_x1x2 = dot_pr_x1x2.real
         dot_pr_x1x2 = wfs.kd.comm.sum(dot_pr_x1x2)
 
         return dot_pr_x1x2

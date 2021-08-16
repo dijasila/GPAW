@@ -66,9 +66,9 @@ class KSLCAO:
            
             if matrix_exp == 'egdecomp':
                 timer.start('Use Eigendecomposition')
-                grad = np.dot(evec.T.conj(), np.dot(h_mm, evec))
+                grad = evec.T.conj() @ h_mm @ evec
                 grad = grad * d_matrix(evals)
-                grad = np.dot(evec, np.dot(grad, evec.T.conj()))
+                grad = evec @ grad @ evec.T.conj()
                 for i in range(grad.shape[0]):
                     grad[i][i] *= 0.5
                 timer.stop('Use Eigendecomposition')

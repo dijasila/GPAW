@@ -21,7 +21,7 @@ def expm_ed(a_mat, evalevec=False):
 
     eigval, evec = np.linalg.eigh(1.0j * a_mat)
 
-    product = np.dot(evec * np.exp(-1.0j * eigval), evec.T.conj())
+    product = (evec * np.exp(-1.0j * eigval)) @ evec.T.conj()
 
     if a_mat.dtype == float:
         product = product.real
@@ -46,7 +46,7 @@ def expm_ed_unit_inv(a_upp_r, oo_vo_blockonly=False):
                               np.zeros(shape=(dim_v, dim_o),
                                        dtype=a_upp_r.dtype)])
 
-    p_nn = np.dot(a_upp_r, a_upp_r.T.conj())
+    p_nn = a_upp_r @ a_upp_r.T.conj()
     eigval, evec = np.linalg.eigh(p_nn)
     # Eigenvalues cannot be negative
     eigval[eigval.real < 1.0e-16] = 1.0e-16
@@ -56,19 +56,17 @@ def expm_ed_unit_inv(a_upp_r, oo_vo_blockonly=False):
     cos_sqrt_p = matrix_function(sqrt_eval, evec, np.cos)
     sqrt_inv_p = matrix_function(1.0 / sqrt_eval, evec)
 
-    psin = np.dot(sqrt_inv_p, sin_sqrt_p)
+    psin = sqrt_inv_p @ sin_sqrt_p
     u_oo = cos_sqrt_p
-    u_vo = - np.dot(a_upp_r.T.conj(), psin)
+    u_vo = - a_upp_r.T.conj() @ psin
 
     if not oo_vo_blockonly:
         inv_p = matrix_function(1.0 / eigval, evec)
-        u_ov = np.dot(psin, a_upp_r)
+        u_ov = psin @ a_upp_r
         dim_v = a_upp_r.shape[1]
         dim_o = a_upp_r.shape[0]
         u_vv = np.eye(dim_v) + \
-            np.dot(a_upp_r.T.conj(),
-                   np.dot(np.dot((cos_sqrt_p - np.eye(dim_o)), inv_p),
-                          a_upp_r))
+            a_upp_r.T.conj() @ (cos_sqrt_p - np.eye(dim_o)) @ inv_p @ a_upp_r
         u = np.vstack([
             np.hstack([u_oo, u_ov]),
             np.hstack([u_vo, u_vv])])
@@ -189,9 +187,9 @@ def minimum_parabola_interpol(x_0, x_1, f_0, f_1, df_0):
 
 def matrix_function(evals, evecs, func=None):
     if func is None:
-        return np.dot(evecs * evals, evecs.T.conj())
+        return (evecs * evals) @ evecs.T.conj()
     else:
-        return np.dot(evecs * func(evals), evecs.T.conj())
+        return (evecs * func(evals)) @ evecs.T.conj()
 
 
 def loewdin_lcao(C_nM, S_MM):
@@ -208,13 +206,12 @@ def loewdin_lcao(C_nM, S_MM):
     :return: Orthonormalized coefficients so that new S_mn = delta_mn
     """
 
-    ev, S_overlapp = np.linalg.eigh(np.dot(C_nM.conj(),
-                                           np.dot(S_MM, C_nM.T)))
+    ev, S_overlapp = np.linalg.eigh(C_nM.conj() @ S_MM @ C_nM.T)
     ev_sqrt = np.diag(1.0 / np.sqrt(ev))
 
-    S = np.dot(np.dot(S_overlapp, ev_sqrt), S_overlapp.T.conj())
+    S = S_overlapp @ ev_sqrt @ S_overlapp.T.conj()
 
-    return np.dot(S.T, C_nM)
+    return S.T @ C_nM
 
 
 def gramschmidt_lcao(C_nM, S_MM):
@@ -228,7 +225,7 @@ def gramschmidt_lcao(C_nM, S_MM):
     :return: Orthonormalized coefficients so that new S_mn = delta_mn
     """
 
-    S_nn = np.dot(C_nM.conj(), np.dot(S_MM, C_nM.T))
+    S_nn = C_nM.conj() @ S_MM @ C_nM.T
     L_nn = sp.linalg.cholesky(S_nn,
                               lower=True,
                               overwrite_a=True,
@@ -237,7 +234,7 @@ def gramschmidt_lcao(C_nM, S_MM):
                          overwrite_a=True,
                          check_finite=False)
 
-    return np.dot(S_nn.conj(), C_nM)
+    return S_nn.conj() @ C_nM
 
 
 def excite(calc, i, a, spin=(0, 0)):
