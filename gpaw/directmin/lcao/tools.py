@@ -185,11 +185,15 @@ def minimum_parabola_interpol(x_0, x_1, f_0, f_1, df_0):
     return a_min + x_0
 
 
-def matrix_function(evals, evecs, func=None):
-    if func is None:
-        return (evecs * evals) @ evecs.T.conj()
-    else:
-        return (evecs * func(evals)) @ evecs.T.conj()
+def matrix_function(evals, evecs, func=lambda x: x):
+    """
+    calculate matrix function func(A)
+    you need to provide
+    :param evals: eigenvalues of A
+    :param evecs: eigenvectors of A
+    :return: func(A)
+    """
+    return (evecs * func(evals)) @ evecs.T.conj()
 
 
 def loewdin_lcao(C_nM, S_MM):
