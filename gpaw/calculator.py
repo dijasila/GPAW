@@ -1291,8 +1291,11 @@ class GPAW(Calculator):
         dens.calculate_pseudo_charge()
         ham.update(dens)
         W_aL = ham.calculate_atomic_hamiltonians(dens)
-        return np.array([W_L[0] / (4 * np.pi)**0.5 * Ha
-                         for W_L in W_aL.values()])
+        W_a = np.zeros(len(self.atoms))
+        for a, W_L in W_aL.items():
+            W_a[a] = W_L[0] / (4 * np.pi)**0.5 * Ha
+        W_aL.partition.comm.sum(W_a)
+        return W_a
 
     def linearize_to_xc(self, newxc):
         """Linearize Hamiltonian to difference XC functional.
