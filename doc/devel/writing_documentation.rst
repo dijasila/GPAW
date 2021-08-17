@@ -74,5 +74,5 @@ always generate them again if needed.
 For quick scripts (no more than 5 seconds), see :ref:`ase:generated`.  For
 more expensive scripts you can use :ref:`AGTS <agts>` for running long jobs
 that create figures or table data for this web-page.  For an example, look at
-the source code :git:`here <doc/tutorials/stm>` which will produce this:
+the source code :git:`here <doc/tutorialsexercises/electronic/stm>` which will produce this:
 :ref:`stm tutorial`.

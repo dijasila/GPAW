@@ -10,3 +10,7 @@ Molecular dynamics
    neb/neb
    diffusion/diffusion
    ehrenfest/ehrenfest
+
+You might also be interested in this ASE tutorial:
+
+:ref:`Nudged elastic band calculations <ase:selfdiffusion>`
