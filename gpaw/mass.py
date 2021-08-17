@@ -15,6 +15,7 @@ from gpaw.typing import Array1D, Array2D, Array3D
 def extract_stuff_from_gpw_file(path: Path) -> Tuple[Array1D,
                                                      float, float,
                                                      Array2D,
+                                                     Array3D,
                                                      Array3D]:
     out = path.with_suffix('.pckl')
     if out.is_file():
@@ -131,7 +132,7 @@ def fit(kpoints: Array1D,
         spinprojections: Array3D = None,
         kind: str = 'cbm',
         N: int = 4,
-        plot: bool = True) -> List[Tuple[float, float, float]]:
+        plot: bool = True) -> List[Tuple[float, float, float, Array1D]]:
     """...
 
     >>> k = np.linspace(-1, 1, 7)
@@ -177,7 +178,7 @@ def fit(kpoints: Array1D,
 
     extrema = {}
     indices = eigs[i0].argsort()
-    print('k [Ang^-1]  e-e_F [eV]    m [m_e]')
+    print('k [Ang^-1]  e-e_F [eV]    m [m_e]            spin [x,y,z]')
     for n in indices:
         band = eigs[:, n]
         i = band.argmin()
@@ -193,8 +194,10 @@ def fit(kpoints: Array1D,
             if kind == 'vbm':
                 energy *= -1
                 yfit *= -1
-            print(f'{k:10.3f} {energy:11.3f} {mass:10.3f}')
-            extrema[n] = (xfit, yfit, k, energy, mass, sps[i, n])
+            spin = sps[i, n]
+            print(f'{k:10.3f} {energy:11.3f} {mass:10.3f}',
+                  '  (' + ', '.join(f'{s:+.2f}' for s in spin) + ')')
+            extrema[n] = (xfit, yfit, k, energy, mass, spin)
 
     if kind == 'vbm':
         eigs *= -1
@@ -205,15 +208,15 @@ def fit(kpoints: Array1D,
         for n in indices:
             plt.plot(x, eigs[:, n], 'o', color=f'C{color}')
             if n in extrema:
-                xfit, yfit, _, _, _ = extrema[n]
+                xfit, yfit, *_ = extrema[n]
                 plt.plot(xfit, yfit, '-', color=f'C{color}')
             color += 1
         plt.xlabel('k [Ang$^{-1}$]')
         plt.ylabel('e - e$_F$ [eV]')
         plt.show()
 
-    return [(k, energy, mass)
-            for (_, _, k, energy, mass) in extrema.values()]
+    return [(k, energy, mass, spin)
+            for (_, _, k, energy, mass, spin) in extrema.values()]
 
 
 def a_test():
@@ -239,10 +242,12 @@ def a_test():
 if __name__ == '__main__':
     import sys
     path = Path(sys.argv[1])
-    kpoints, length, fermi_level, eigenvalues, fingerprints = \
-        extract_stuff_from_gpw_file(path)
+    (kpoints, length, fermi_level,
+     eigenvalues, fingerprints,
+     spinprojections) = extract_stuff_from_gpw_file(path)
     extrema = fit(kpoints * 2 * pi / length,
                   fermi_level,
                   eigenvalues,
                   fingerprints,
+                  spinprojections,
                   kind=sys.argv[2])
