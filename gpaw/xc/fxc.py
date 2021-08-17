@@ -255,9 +255,9 @@ class FXCCorrelation(RPACorrelation):
         #              the calculation is spin-polarized!)
 
         if self.spin_kernel:
-            r = ulm.open('fhxc_%s_%s_%s_%s.ulm' %
-                         (self.tag, self.xc, self.ecut_max, qi))
-            fv = r.fhxc_sGsG
+            with ulm.open('fhxc_%s_%s_%s_%s.ulm' %
+                          (self.tag, self.xc, self.ecut_max, qi)) as r:
+                fv = r.fhxc_sGsG
 
             if cut_G is not None:
                 cut_sG = np.tile(cut_G, ns)
@@ -353,9 +353,9 @@ class FXCCorrelation(RPACorrelation):
                 fv = np.exp(-0.25 * (G_G * self.range_rc)**2.0)
 
             elif self.linear_kernel:
-                r = ulm.open('fhxc_%s_%s_%s_%s.ulm' %
-                             (self.tag, self.xc, self.ecut_max, qi))
-                fv = r.fhxc_sGsG
+                with ulm.open('fhxc_%s_%s_%s_%s.ulm' %
+                              (self.tag, self.xc, self.ecut_max, qi)) as r:
+                    fv = r.fhxc_sGsG
 
                 if cut_G is not None:
                     fv = fv.take(cut_G, 0).take(cut_G, 1)
@@ -363,17 +363,17 @@ class FXCCorrelation(RPACorrelation):
             elif not self.dyn_kernel:
                 # static kernel which does not scale with lambda
 
-                r = ulm.open('fhxc_%s_%s_%s_%s.ulm' %
-                             (self.tag, self.xc, self.ecut_max, qi))
-                fv = r.fhxc_lGG
+                with ulm.open('fhxc_%s_%s_%s_%s.ulm' %
+                              (self.tag, self.xc, self.ecut_max, qi)) as r:
+                    fv = r.fhxc_lGG
 
                 if cut_G is not None:
                     fv = fv.take(cut_G, 1).take(cut_G, 2)
 
             else:  # dynamical kernel
-                r = ulm.open('fhxc_%s_%s_%s_%s.ulm' %
-                             (self.tag, self.xc, self.ecut_max, qi))
-                fv = r.fhxc_lwGG
+                with ulm.open('fhxc_%s_%s_%s_%s.ulm' %
+                              (self.tag, self.xc, self.ecut_max, qi)) as r:
+                    fv = r.fhxc_lwGG
 
                 if cut_G is not None:
                     fv = fv.take(cut_G, 2).take(cut_G, 3)
