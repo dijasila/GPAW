@@ -11,7 +11,7 @@ See::
 
 """
 from math import pi
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 
 import numpy as np
 from ase.units import Bohr, Ha, _c, _e, _hplanck

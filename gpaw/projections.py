@@ -171,5 +171,13 @@ class Projections:
                 self.atom_partition.comm.send(P.array[:, I1:I2].T.copy(), 0)
             return None
 
-    def as_dict_on_master(self):
-        pass
+    def as_dict_on_master(self, n1, n2):
+        P_nI = self.collect()
+        if P_nI is None:
+            return None
+        I1 = 0
+        P_ani = {}
+        for a, ni in enumerate(self.nproj_a):
+            I2 = I1 + ni
+            P_ani[a] = P_nI[n1:n2, I1:I2]
+        return P_ani
