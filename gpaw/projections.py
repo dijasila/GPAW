@@ -170,3 +170,6 @@ class Projections:
             for a, I1, I2 in self.indices:
                 self.atom_partition.comm.send(P.array[:, I1:I2].T.copy(), 0)
             return None
+
+    def as_dict_on_master(self):
+        pass

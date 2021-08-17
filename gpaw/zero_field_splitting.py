@@ -20,10 +20,10 @@ from gpaw import GPAW
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.typing import Array1D, Array2D, Array4D
 from gpaw.hyperfine import alpha  # fine-structure constant: ~ 1 / 137
-from gpaw.projections import Projections
 from gpaw.setup import Setup
 from gpaw.pw.lfc import PWLFC
 from gpaw.pw.descriptor import PWDescriptor
+from gpaw.mpi import serial_comm
 
 
 def zfs(calc: GPAW,
@@ -32,14 +32,25 @@ def zfs(calc: GPAW,
 
     Calculate magnetic dipole coupling tensor in eV.
     """
-    wf1, wf2 = (WaveFunctions.from_calc(calc, spin) for spin in [0, 1])
+    (kpt1, kpt2), = calc.wfs.kpt_qs
 
-    compensation_charge = create_compensation_charge(wf1, calc.spos_ac)
+    nocc1 = (kpt1.f_n > 0.5).sum()
+    nocc2 = (kpt1.f_n > 0.5).sum()
 
     if method == 1:
-        n1 = len(wf1)
-        wf = wf1.view(n1 - 2, n1)
-        return zfs1(wf, wf, compensation_charge)
+        wf1 = WaveFunctions.from_calc(calc, 0, nocc1 - 2, nocc1)
+
+        compensation_charge = create_compensation_charge(wf1.setups,
+                                                         wf1.pd,
+                                                         calc.spos_ac)
+        return zfs1(wf1, wf1, compensation_charge)
+
+    wf1 = WaveFunctions.from_calc(calc, 0, 0, nocc1)
+    wf2 = WaveFunctions.from_calc(calc, 1, 0, nocc2)
+
+    compensation_charge = create_compensation_charge(wf1.setups,
+                                                     wf1.pd,
+                                                     calc.spos_ac)
 
     D_vv = np.zeros((3, 3))
     for wfa in [wf1, wf2]:
@@ -53,7 +64,7 @@ def zfs(calc: GPAW,
 class WaveFunctions:
     def __init__(self,
                  psit_nR: Array4D,
-                 projections: Projections,
+                 P_ani: Dict[int, Array2D],
                  spin: int,
                  setups: List[Setup],
                  gd: GridDescriptor = None,
@@ -62,7 +73,7 @@ class WaveFunctions:
 
         self.pd = pd or PWDescriptor(ecut=None, gd=gd)
         self.psit_nR = psit_nR
-        self.projections = projections
+        self.P_ani = P_ani
         self.spin = spin
         self.setups = setups
 
@@ -75,18 +86,19 @@ class WaveFunctions:
                              pd=self.pd)
 
     @staticmethod
-    def from_calc(calc, spin) -> 'WaveFunctions':
+    def from_calc(calc, spin, n1, n2) -> 'WaveFunctions':
         """Create WaveFunctions object from PW-mode representation."""
         kpt = calc.wfs.kpt_qs[0][spin]
-        nocc = (kpt.f_n > 0.5).sum()
-        gd = calc.wfs.gd.new_descriptor(pbc_c=np.ones(3, bool))
-        psit_nR = gd.empty(nocc)
+        gd = calc.wfs.gd.new_descriptor(pbc_c=np.ones(3, bool),
+                                        comm=serial_comm)
+        psit_nR = gd.empty(n2 - n1)
         for band, psit_R in enumerate(psit_nR):
-            psit_R[:] = calc.get_pseudo_wave_function(band,
+            psit_R[:] = calc.get_pseudo_wave_function(band + n1,
                                                       spin=spin,
                                                       pad=True) * Bohr**1.5
+
         return WaveFunctions(psit_nR,
-                             kpt.projections.view(0, nocc),
+                             kpt.projections.as_dict_on_master(n1, n2),
                              spin,
                              calc.setups,
                              gd=gd)
@@ -95,9 +107,10 @@ class WaveFunctions:
         return len(self.psit_nR)
 
 
-def create_compensation_charge(wf: WaveFunctions,
+def create_compensation_charge(setups: List[Setup],
+                               pd: PWDescriptor,
                                spos_ac: Array2D) -> PWLFC:
-    compensation_charge = PWLFC([data.ghat_l for data in wf.setups], wf.pd)
+    compensation_charge = PWLFC([data.ghat_l for data in setups], pd)
     compensation_charge.set_positions(spos_ac)
     return compensation_charge
 
@@ -118,7 +131,7 @@ def zfs1(wf1: WaveFunctions,
     for n_G, wf in zip(n_sG, [wf1, wf2]):
         D_aii = {}
         Q_aL = {}
-        for a, P_ni in wf.projections.items():
+        for a, P_ni in wf.P_ani.items():
             D_ii = np.einsum('ni, nj -> ij', P_ni, P_ni)
             D_aii[a] = D_ii
             Q_aL[a] = np.einsum('ij, ijL -> L', D_ii, setups[a].Delta_iiL)
@@ -135,7 +148,7 @@ def zfs1(wf1: WaveFunctions,
     for n1, psit1_R in enumerate(wf1.psit_nR):
         D_anii = {}
         Q_anL = {}
-        for a, P1_ni in wf1.projections.items():
+        for a, P1_ni in wf1.P_ani.items():
             D_nii = np.einsum('i, nj -> nij', P1_ni[n1], wf2.projections[a])
             D_anii[a] = D_nii
             Q_anL[a] = np.einsum('nij, ijL -> nL',
