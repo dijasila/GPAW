@@ -77,14 +77,6 @@ class WaveFunctions:
         self.spin = spin
         self.setups = setups
 
-    def view(self, n1: int, n2: int) -> 'WaveFunctions':
-        """Create WaveFuntions object with view of data."""
-        return WaveFunctions(self.psit_nR[n1:n2],
-                             self.projections.view(n1, n2),
-                             self.spin,
-                             self.setups,
-                             pd=self.pd)
-
     @staticmethod
     def from_calc(calc, spin, n1, n2) -> 'WaveFunctions':
         """Create WaveFunctions object from PW-mode representation."""
@@ -149,7 +141,7 @@ def zfs1(wf1: WaveFunctions,
         D_anii = {}
         Q_anL = {}
         for a, P1_ni in wf1.P_ani.items():
-            D_nii = np.einsum('i, nj -> nij', P1_ni[n1], wf2.projections[a])
+            D_nii = np.einsum('i, nj -> nij', P1_ni[n1], wf2.P_ani[a])
             D_anii[a] = D_nii
             Q_anL[a] = np.einsum('nij, ijL -> nL',
                                  D_nii, setups[a].Delta_iiL)
