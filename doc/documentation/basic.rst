@@ -1,8 +1,8 @@
 .. _basic:
 
-===========
-Basic usage
-===========
+============
+Introduction
+============
 
 GPAW calculations are controlled through scripts written in the
 programming language Python_.  GPAW relies on the `Atomic
@@ -1017,14 +1017,14 @@ processes for the calculator when calculating e.g. different atomic images
 in parallel. See :ref:`different_calculations_in parallel` for more details.
 
 
-.. _manual_parallel_calculations:
-
----------------------
-Parallel calculations
----------------------
-
-Information about running parallel calculations can be found on the
-:ref:`parallel_runs` page.
+.. .. _manual_parallel_calculations:
+..
+.. ---------------------
+.. Parallel calculations
+.. ---------------------
+..
+.. Information about running parallel calculations can be found on the
+.. :ref:`parallel_runs` page.
 
 
 .. _zero_energy:

@@ -196,7 +196,6 @@ News
    algorithms
    install
    documentation/documentation
-   usage/basic_usage
    tutorialsexercises/tutorialsexercises
    setups/setups
    releasenotes

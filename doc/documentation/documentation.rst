@@ -7,7 +7,7 @@ Documentation
 .. toctree::
    :maxdepth: 1
 
-   basic
+   basic_usage
    advanced
    theory
    cmdline
