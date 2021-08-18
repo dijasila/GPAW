@@ -3,7 +3,7 @@ from ase.parallel import paropen
 from ase.build import bulk
 from ase.optimize import BFGS
 from gpaw import GPAW, PW
-from gpaw.zeroo_field_splitting import zfs
+from gpaw.zero_field_splitting import zfs
 
 
 def nv_minus(n: int, relax: bool = False) -> None:
