@@ -32,31 +32,33 @@ def zfs(calc: GPAW,
 
     Calculate magnetic dipole coupling tensor in eV.
     """
-    (kpt1, kpt2), = calc.wfs.kpt_qs
+    (kpt1, kpt2), = calc.wfs.kpt_qs  # spin-polarized and gamma only
 
     nocc1 = (kpt1.f_n > 0.5).sum()
-    nocc2 = (kpt1.f_n > 0.5).sum()
+    nocc2 = (kpt2.f_n > 0.5).sum()
+
+    assert nocc1 == nocc2 + 2, (nocc1, nocc2)
 
     if method == 1:
         wf1 = WaveFunctions.from_calc(calc, 0, nocc1 - 2, nocc1)
+        wf12 = [wf1]
+    else:
+        wf1 = WaveFunctions.from_calc(calc, 0, 0, nocc1)
+        wf2 = WaveFunctions.from_calc(calc, 1, 0, nocc2)
+        wf12 = [wf1, wf2]
 
+    D_vv = np.zeros((3, 3))
+
+    if calc.world.rank == 0:
         compensation_charge = create_compensation_charge(wf1.setups,
                                                          wf1.pd,
                                                          calc.spos_ac)
-        return zfs1(wf1, wf1, compensation_charge)
+        for wfa in wf12:
+            for wfb in wf12:
+                d_vv = zfs1(wfa, wfb, compensation_charge)
+                D_vv += d_vv
 
-    wf1 = WaveFunctions.from_calc(calc, 0, 0, nocc1)
-    wf2 = WaveFunctions.from_calc(calc, 1, 0, nocc2)
-
-    compensation_charge = create_compensation_charge(wf1.setups,
-                                                     wf1.pd,
-                                                     calc.spos_ac)
-
-    D_vv = np.zeros((3, 3))
-    for wfa in [wf1, wf2]:
-        for wfb in [wf1, wf2]:
-            d_vv = zfs1(wfa, wfb, compensation_charge)
-            D_vv += d_vv
+    calc.world.broadcast(D_vv, 0)
 
     return D_vv
 
@@ -78,8 +80,8 @@ class WaveFunctions:
         self.setups = setups
 
     @staticmethod
-    def from_calc(calc, spin, n1, n2) -> 'WaveFunctions':
-        """Create WaveFunctions object from PW-mode representation."""
+    def from_calc(calc: GPAW, spin: int, n1: int, n2: int) -> 'WaveFunctions':
+        """Create WaveFunctions object GPAW calculation."""
         kpt = calc.wfs.kpt_qs[0][spin]
         gd = calc.wfs.gd.new_descriptor(pbc_c=np.ones(3, bool),
                                         comm=serial_comm)
