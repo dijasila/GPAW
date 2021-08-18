@@ -1,7 +1,6 @@
 """Module for linear response TDDFT class with indexed K-matrix storage."""
 
 import os
-import sys
 import datetime
 import glob
 
@@ -9,7 +8,6 @@ import numpy as np
 
 import ase.units
 from ase.utils import IOContext
-from gpaw.utilities import devnull
 
 from gpaw.xc import XC
 
