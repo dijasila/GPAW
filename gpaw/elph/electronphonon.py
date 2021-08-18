@@ -123,11 +123,7 @@ class ElectronPhononCoupling(Displacement):
         self.supercell_cache = None
 
     def calculate(self, atoms_N, disp):
-        Vt_sG, dH_all_asp, forces = self(atoms_N)
-        output = {'Vt_sG': Vt_sG, 'dH_all_asp': dH_all_asp}
-        if forces is not None:
-            output['forces'] = forces
-        return output
+        return self(atoms_N)
 
     def __call__(self, atoms_N):
         """Extract effective potential and projector coefficients."""
@@ -165,7 +161,10 @@ class ElectronPhononCoupling(Displacement):
             gd_comm.sum(dH_tmp_sp)
             dH_all_asp[a] = dH_tmp_sp
 
-        return Vt_sG, dH_all_asp, forces
+        output = {'Vt_sG': Vt_sG, 'dH_all_asp': dH_all_asp}
+        if forces is not None:
+            output['forces'] = forces
+        return output
 
     def set_lcao_calculator(self, calc):
         """Set LCAO calculator for the calculation of the supercell matrix."""
@@ -208,7 +207,8 @@ class ElectronPhononCoupling(Displacement):
         nspins = wfs.nspins
 
         # Equilibrium atomic Hamiltonian matrix (projector coefficients)
-        Vt_sG, dH_asp, _ = self.cache['eq']  # caution, eq file is different...
+        dH_asp = self.cache['eq']['dH_all_asp']
+
 
         # For the contribution from the derivative of the projectors
         dP_aqvMi = wfs.manytci.P_aqMi(self.indices, derivative=True)
@@ -246,7 +246,7 @@ class ElectronPhononCoupling(Displacement):
 
             # parprint("Starting gradient of projectors")
             # 2b) dP^a part has only contributions from the same atoms
-            dH_ii = unpack2(dH_asp[str(a)][kpt.s])
+            dH_ii = unpack2(dH_asp[a][kpt.s])
             for kpt in kpt_u:
                 # XXX Sort out the sign here; conclusion -> sign = +1 !
                 P1HP_MM = +1 * np.dot(dP_qvMi[kpt.q][v], np.dot(dH_ii,
