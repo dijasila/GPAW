@@ -259,7 +259,7 @@ class ElectronPhononCoupling(Displacement):
         return g_sqMM
 
     def calculate_supercell_matrix(self, name='supercell', filter=None,
-                                   include_pseudo=True):
+                                   include_pseudo=True, singleprecision=False):
         """Calculate matrix elements of the el-ph coupling in the LCAO basis.
 
         This function calculates the matrix elements between LCAOs and local
@@ -382,6 +382,12 @@ class ElectronPhononCoupling(Displacement):
                     g_sNNMM = g_sNMNM.swapaxes(2, 3).copy()
                     parprint("Finished supercell matrix")
 
+                    # g_sNNMM should always be float not complex
+                    assert g_sNNMM.dtype.name == 'float64'
+                    print(g_sNNMM.dtype)
+                    if singleprecision:
+                        g_sNNMM = g_sNNMM.astype(np.float32)
+                    print(g_sNNMM.dtype)
                     handle.save(g_sNNMM)
                 if x == 0:
                     with self.supercell_cache.lock('info') as handle:
@@ -781,7 +787,7 @@ class ElectronPhononCoupling(Displacement):
     def calculate_gradient(self):
         """Calculate gradient of effective potential and projector coefs.
 
-        This function loads the generated pickle files and calculates
+        This function loads the generated cache files and calculates
         finite-difference derivatives.
 
         """
