@@ -174,7 +174,7 @@ class Projections:
     def as_dict_on_master(self, n1: int, n2: int) -> Dict[int, Array2D]:
         P_nI = self.collect()
         if P_nI is None:
-            return None
+            return {}
         I1 = 0
         P_ani = {}
         for a, ni in enumerate(self.nproj_a):
