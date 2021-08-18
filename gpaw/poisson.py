@@ -127,8 +127,8 @@ class BasePoissonSolver(_PoissonSolver):
                 "Please do not specify the remove_moment parameter "
                 f"for {self.__class__.__name__}. "
                 "The remove moment functionality is deprecated in this solver "
-                "and will throw an error in the future. "
-                "Instead use the MomentCorrectionPoissonSolver as a wrapper to "
+                "and will throw an error in the future. Instead "
+                "use the MomentCorrectionPoissonSolver as a wrapper to "
                 f"{self.__class__.__name__}.",
                 FutureWarning)
 
