@@ -750,7 +750,7 @@ class DirectMinLCAO(DirectLCAO):
                     if n_init == len(kpt.f_n):
                         break
                     elif n_init > len(kpt.f_n):
-                        raise SystemExit('Bug is here!')
+                        raise RuntimeError('Bug is here!')
 
             with wfs.timer('Calculate projections'):
                 wfs.atomic_correction.calculate_projections(wfs, kpt)
