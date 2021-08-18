@@ -103,8 +103,8 @@ comparing floating point numbers::
 Big tests
 =========
 
-The directories in :git:`gpaw/test/big/`, :git:`doc/tutorials/` and
-:git:`doc/exercises/` contain longer and more
+The directories in :git:`gpaw/test/big/` and :git:`doc/tutorialsexercises/`
+contain longer and more
 realistic tests that we run every weekend.  These are submitted to a
 queueing system of a large computer.  The scripts in the :git:`doc` folder
 are used both for testing GPAW and for generating up to date figures and
