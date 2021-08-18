@@ -64,7 +64,7 @@ class MomentCorrectionPoissonSolver(_PoissonSolver):
 
     def __init__(self,
                  poissonsolver: _PoissonSolver,
-                 moment_corrections: Optional[Union[int, List[Dict[str, Any]]]] = None,
+                 moment_corrections: Optional[Union[int, List[Dict[str, Any]]]],
                  timer: Union[NullTimer, Timer] = nulltimer):
 
         self._initialized = False
@@ -76,7 +76,7 @@ class MomentCorrectionPoissonSolver(_PoissonSolver):
             self.gd = gd
 
         if moment_corrections is None:
-            self.moment_corrections = None
+            self.moment_corrections = []
         elif isinstance(moment_corrections, int):
             _moment_corrections = {'moms': range(moment_corrections), 'center': None}
             self.moment_corrections = [dict_sanitize(_moment_corrections)]
@@ -91,11 +91,10 @@ class MomentCorrectionPoissonSolver(_PoissonSolver):
             raise ValueError(f'{self.__class__.__name__}: moment_correction must be a list of dictionaries')
 
     def todict(self):
+        mom_corr = [dict_au_to_A(mom) for mom in self.moment_corrections]
         d = {'name': 'MomentCorrectionPoissonSolver',
-             'poissonsolver': self.poissonsolver.todict()}
-        if self.moment_corrections:
-            mom_corr = [dict_au_to_A(mom) for mom in self.moment_corrections]
-            d['moment_corrections'] = mom_corr
+             'poissonsolver': self.poissonsolver.todict(),
+             'moment_corrections': mom_corr}
 
         return d
 
@@ -107,10 +106,8 @@ class MomentCorrectionPoissonSolver(_PoissonSolver):
         description = self.poissonsolver.get_description()
 
         lines = [description]
-
-        if self.moment_corrections:
-            lines.extend([f'    {len(self.moment_corrections)} moment corrections:'])
-            lines.extend([f'      {self.describe_dict(mom)}' for mom in self.moment_corrections])
+        lines.extend([f'    {len(self.moment_corrections)} moment corrections:'])
+        lines.extend([f'      {self.describe_dict(mom)}' for mom in self.moment_corrections])
 
         return '\n'.join(lines)
 
@@ -137,12 +134,11 @@ class MomentCorrectionPoissonSolver(_PoissonSolver):
             return
         self.poissonsolver._init()
 
-        if self.moment_corrections is not None:
-            if not self.gd.orthogonal or self.gd.pbc_c.any():
-                raise NotImplementedError('Only orthogonal unit cells '
-                                          'and non-periodic boundary '
-                                          'conditions are tested')
-            self.load_moment_corrections_gauss()
+        if not self.gd.orthogonal or self.gd.pbc_c.any():
+            raise NotImplementedError('Only orthogonal unit cells '
+                                      'and non-periodic boundary '
+                                      'conditions are tested')
+        self.load_moment_corrections_gauss()
 
         self._initialized = True
 
@@ -150,9 +146,14 @@ class MomentCorrectionPoissonSolver(_PoissonSolver):
     def load_moment_corrections_gauss(self):
         if not hasattr(self, 'gauss_i'):
             self.gauss_i = []
+            self.mom_ij = []
+            self.mask_ig = []
+
+            if len(self.moment_corrections) == 0:
+                return
+
             mask_ir = []
             r_ir = []
-            self.mom_ij = []
 
             for rmom in self.moment_corrections:
                 if rmom['center'] is None:
@@ -176,7 +177,6 @@ class MomentCorrectionPoissonSolver(_PoissonSolver):
                 i = np.argmin(r_ir[:, r])
                 mask_ir[i, r] = 1
 
-            self.mask_ig = []
             for i in range(Ni):
                 mask_r = mask_ir[i]
                 mask_g = mask_r.reshape(self.gd.n_c)
@@ -193,12 +193,11 @@ class MomentCorrectionPoissonSolver(_PoissonSolver):
 
     @timer('Solve')
     def _solve(self, phi, rho, **kwargs):
-        self._init()
         timer = kwargs.get('timer', None)
         if timer is None:
             timer = self.timer
 
-        if self.moment_corrections:
+        if len(self.moment_corrections) > 0:
             assert not self.gd.pbc_c.any()
 
             timer.start('Multipole moment corrections')
@@ -240,14 +239,13 @@ class MomentCorrectionPoissonSolver(_PoissonSolver):
                         len(self.moment_corrections) * gdbytes)
 
     def __repr__(self):
-        if self.moment_corrections is None:
+        if len(self.moment_corrections) == 0:
             corrections_str = 'no corrections'
+        elif len(self.moment_corrections) < 2:
+            m = self.moment_corrections[0]
+            corrections_str = f'{repr(m["moms"]) @ {repr(m["center"])}}'
         else:
-            if len(self.moment_corrections) < 2:
-                m = self.moment_corrections[0]
-                corrections_str = f'{repr(m["moms"]) @ {repr(m["center"])}}'
-            else:
-                corrections_str = f'{len(self.moment_corrections)} corrections'
+            corrections_str = f'{len(self.moment_corrections)} corrections'
 
         representation = f'MomentCorrectionPoissonSolver ({corrections_str})'
         return representation

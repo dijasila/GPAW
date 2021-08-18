@@ -64,7 +64,7 @@ def create_poisson_solver(name='fast', **kwargs):
     elif name == 'ExtraVacuumPoissonSolver':
         from gpaw.poisson_extravacuum import ExtraVacuumPoissonSolver
         return ExtraVacuumPoissonSolver(**kwargs)
-    elif name == 'MomentCorrectionPoissonSolver' or name == 'momentcorrection':  # TODO
+    elif name == 'MomentCorrectionPoissonSolver':
         from gpaw.poisson_moment import MomentCorrectionPoissonSolver
         return MomentCorrectionPoissonSolver(**kwargs)
     elif name == 'nointeraction':

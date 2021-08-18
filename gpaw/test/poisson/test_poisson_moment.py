@@ -11,7 +11,7 @@ from gpaw.test import equal
 
 
 @pytest.mark.parametrize('moment_corrections, expected_len', [
-        (None, None),
+        (None, 0),
         ([], 0),
         (4, 1),
         (9, 1),
@@ -24,12 +24,9 @@ def test_defaults(moment_corrections, expected_len):
     poisson = MomentCorrectionPoissonSolver(poissonsolver=poisson_ref,
                                             moment_corrections=moment_corrections)
 
-    if expected_len is None:
-        assert poisson.moment_corrections is None, poisson.moment_corrections
-    else:
-        assert isinstance(poisson.moment_corrections, list), poisson.moment_corrections
-        assert len(poisson.moment_corrections) == expected_len
-        assert all([isinstance(mom, dict) for mom in poisson.moment_corrections])
+    assert isinstance(poisson.moment_corrections, list), poisson.moment_corrections
+    assert len(poisson.moment_corrections) == expected_len
+    assert all([isinstance(mom, dict) for mom in poisson.moment_corrections])
 
 
 @pytest.mark.parametrize('moment_corrections', [
@@ -46,7 +43,8 @@ def test_description_empty(moment_corrections):
 
     assert isinstance(desc, str)
     assert isinstance(desc_ref, str)
-    assert desc == desc_ref
+    assert desc_ref in desc
+    assert '0 moment corrections' in desc
 
 
 @pytest.mark.parametrize('moment_corrections, expected_strings', [
@@ -183,7 +181,7 @@ def test_poisson_moment_correction(gd):
     phiref_g, npoisson = poisson_solve(gd, rho_g, poisson_ref)
 
     # Test agreement with default
-    poisson = MomentCorrectionPoissonSolver(poissonsolver=poisson_ref)
+    poisson = MomentCorrectionPoissonSolver(poissonsolver=poisson_ref, moment_corrections=None)
     poisson.set_grid_descriptor(gd)
     phi_g, npoisson = poisson_solve(gd, rho_g, poisson)
     plot_phi(phi_g, 'phi no correction')
@@ -213,7 +211,7 @@ def test_poisson_moment_correction(gd):
     phiref2_g, npoisson = poisson_solve(gd, rho_g, poisson_ref2)
 
     # extravacuum + no correction
-    poisson = MomentCorrectionPoissonSolver(poissonsolver=poisson_ref2)
+    poisson = MomentCorrectionPoissonSolver(poissonsolver=poisson_ref2, moment_corrections=None)
     poisson.set_grid_descriptor(gd)
     phi_g, npoisson = poisson_solve(gd, rho_g, poisson)
     compare(phi_g, phiref2_g, 0.0)
@@ -227,7 +225,7 @@ def test_poisson_moment_correction(gd):
     poisson.set_grid_descriptor(gd)
     phi_g, npoisson = poisson_solve(gd, rho_g, poisson)
     plot_phi(phi_g, 'phi extra vacuum + multi dipole correction')
-    compare(phi_g, phiref_g, 2.7523450309062e-02)  # TODO check value
+    compare(phi_g, phiref_g, 2.7523450309062e-02)
 
     if do_plot:
         if gd.comm.rank == 0:
