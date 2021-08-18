@@ -35,6 +35,7 @@ for symbol in elements:
                   orbital_free=True, tw_coeff=lambda_coeff,
                   gpernode=gpernode)
 
-    g.run(exx=False, name=name, use_restart_file=False,
+    g.run(exx=False,
+          name=name,
           rcut=rcut,
           write_xml=True)

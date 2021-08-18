@@ -27,7 +27,7 @@ class Generator(AllElectron):
     def run(self, core='', rcut=1.0, extra=None,
             logderiv=False, vbar=None, exx=False, name=None,
             normconserving='', filter=(0.4, 1.75), rcutcomp=None,
-            write_xml=True, use_restart_file=not True,
+            write_xml=True,
             empty_states='', yukawa_gamma=0.0):
 
         self.name = name
@@ -130,7 +130,7 @@ class Generator(AllElectron):
             lmaxocc = 0
 
         # Do all-electron calculation:
-        AllElectron.run(self, use_restart_file)
+        AllElectron.run(self)
 
         # Highest occupied atomic orbital:
         self.emax = max(e_j)
@@ -916,7 +916,7 @@ if __name__ == '__main__':
             if os.path.isfile(filename) or os.path.isfile(filename + '.gz'):
                 continue
             g = Generator(symbol, xcname, scalarrel=True, nofiles=True)
-            g.run(exx=True, logderiv=False, use_restart_file=False, **par)
+            g.run(exx=True, logderiv=False, **par)
 
             if xcname == 'PBE':
                 bm = BasisMaker(g, name='dzp', run=False)

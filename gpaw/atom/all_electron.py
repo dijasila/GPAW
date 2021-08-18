@@ -1,27 +1,18 @@
-# Copyright (C) 2003  CAMP
-# Please see the accompanying LICENSE file for further information.
-
 """
 Atomic Density Functional Theory
 """
 
-from math import pi, sqrt, log
-import tempfile
-import pickle
-import os
+from math import log, pi, sqrt
 
 import numpy as np
 from ase.data import atomic_names
 from ase.utils import IOContext
 
+from gpaw import ConvergenceError
 from gpaw.atom.configurations import configurations
 from gpaw.atom.radialgd import AERadialGridDescriptor
-from gpaw.xc import XC
 from gpaw.utilities import hartree
-from gpaw import ConvergenceError
-
-tempdir = tempfile.gettempdir()
-
+from gpaw.xc import XC
 
 # fine-structure constant
 alpha = 1 / 137.036
@@ -141,7 +132,7 @@ class AllElectron(IOContext):
             norm = np.dot(u**2, dr)
             u *= 1.0 / sqrt(norm)
 
-    def run(self, use_restart_file=True):
+    def run(self):
         #     beta g
         # r = ------, g = 0, 1, ..., N - 1
         #     N - g
@@ -193,34 +184,8 @@ class AllElectron(IOContext):
         vHr = np.zeros(self.N)
         self.vXC = np.zeros(self.N)
 
-        restartfile = '%s/%s.restart' % (tempdir, self.symbol)
-        if self.xc.type == 'GLLB' or not use_restart_file:
-            # Do not start from initial guess when doing
-            # non local XC!
-            # This is because we need wavefunctions as well
-            # on the first iteration.
-            fd = None
-        else:
-            try:
-                fd = open(restartfile, 'rb')
-            except IOError:
-                fd = None
-            else:
-                try:
-                    n[:] = pickle.load(fd)
-                except (ValueError, IndexError):
-                    fd = None
-                else:
-                    norm = np.dot(n * r**2, dr) * 4 * pi
-                    if abs(norm - sum(f_j)) > 0.01:
-                        fd = None
-                    else:
-                        t('Using old density for initial guess.')
-                        n *= sum(f_j) / norm
-
-        if fd is None:
-            self.initialize_wave_functions()
-            n[:] = self.calculate_density()
+        self.initialize_wave_functions()
+        n[:] = self.calculate_density()
 
         bar = '|------------------------------------------------|'
         t(bar)
@@ -304,17 +269,6 @@ class AllElectron(IOContext):
 
         t()
         t('Converged in %d iteration%s.' % (niter, 's'[:niter != 1]))
-
-        try:
-            with open(restartfile, 'wb') as fd:
-                pickle.dump(n, fd)
-        except IOError:
-            pass
-        else:
-            try:
-                os.chmod(restartfile, 0o666)
-            except OSError:
-                pass
 
         Ekin = 0
 
