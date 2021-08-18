@@ -1,6 +1,9 @@
+import json
+from ase.parallel import paropen
 from ase.build import bulk
 from ase.optimize import BFGS
 from gpaw import GPAW, PW
+from gpaw.zero_field_splitting import zfs
 
 
 def nv_minus(n: int, relax: bool = False) -> None:
@@ -14,11 +17,17 @@ def nv_minus(n: int, relax: bool = False) -> None:
                       charge=-1,
                       txt=name + '.txt')
     atoms.get_forces()
-    atoms.calc.write(name + '.gpw', 'all')
+    # atoms.calc.write(name + '.gpw', 'all')
+    D1 = zfs(atoms.calc)
+
     if relax:
         BFGS(atoms,
              logfile=name + '.log').run(fmax=0.05)
-        atoms.calc.write(name + '.relaxed.gpw', 'all')
+        # atoms.calc.write(name + '.relaxed.gpw', 'all')
+
+    D2 = zfs(atoms.calc)
+    with paropen(name + '.json', 'w') as fd:
+        json.dump(dict(D1=D1.tolist(), D2=D2.tolist()), fd)
 
 
 if __name__ == '__main__':
