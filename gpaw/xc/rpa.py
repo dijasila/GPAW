@@ -4,7 +4,7 @@ from time import ctime
 
 import numpy as np
 from ase.units import Hartree
-from gpaw.utilities import convert_string_to_fd
+from ase.utils import IOContext
 from ase.utils.timing import timer, Timer
 from scipy.special.orthogonal import p_roots
 
@@ -91,7 +91,8 @@ class RPACorrelation:
             calc = GPAW(calc, txt=None, communicator=mpi.serial_comm)
         self.calc = calc
 
-        self.fd = convert_string_to_fd(txt, world)
+        self.iocontext = IOContext()
+        self.fd = self.iocontext.openfile(txt, world)
 
         self.timer = Timer()
 
@@ -125,6 +126,9 @@ class RPACorrelation:
         self.filename = filename
 
         self.print_initialization(xc, frequency_scale, nlambda, user_spec)
+
+    def __del__(self):
+        self.iocontext.close()
 
     def initialize_q_points(self, qsym):
         kd = self.calc.wfs.kd
