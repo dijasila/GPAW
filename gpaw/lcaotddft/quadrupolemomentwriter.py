@@ -21,12 +21,13 @@ def calculate_quadrupole_moments(gd, rho_g, center_v):
     return qm_i
 
 
-class QuadrupoleMomentWriter(TDDFTObserver, IOContext):
+class QuadrupoleMomentWriter(TDDFTObserver):
     version = 1
 
     def __init__(self, paw, filename, center=[0, 0, 0], density='comp',
                  interval=1):
         TDDFTObserver.__init__(self, paw, interval)
+        self.ioctx = IOContext()
         if paw.niter == 0:
             # Initialize
             if isinstance(center, str) and center == 'center':
@@ -35,11 +36,11 @@ class QuadrupoleMomentWriter(TDDFTObserver, IOContext):
                 assert len(center) == 3
                 self.center_v = center
             self.density_type = density
-            self.fd = self.openfile(filename, comm=paw.world, mode='w')
+            self.fd = self.ioctx.openfile(filename, comm=paw.world, mode='w')
         else:
             # Read and continue
             self.read_header(filename)
-            self.fd = self.openfile(filename, comm=paw.world, mode='a')
+            self.fd = self.ioctx.openfile(filename, comm=paw.world, mode='a')
 
     def _write(self, line):
         self.fd.write(line)
@@ -105,4 +106,4 @@ class QuadrupoleMomentWriter(TDDFTObserver, IOContext):
         self._write_dm(paw)
 
     def __del__(self):
-        self.fd.close()
+        self.ioctx.close()

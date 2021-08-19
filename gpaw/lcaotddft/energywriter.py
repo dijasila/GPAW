@@ -6,18 +6,19 @@ from gpaw.lcaotddft.observer import TDDFTObserver
 from gpaw.utilities.scalapack import scalapack_zero
 
 
-class EnergyWriter(TDDFTObserver, IOContext):
+class EnergyWriter(TDDFTObserver):
     version = 1
 
     def __init__(self, paw, dmat, filename, interval=1):
         TDDFTObserver.__init__(self, paw, interval)
+        self.ioctx = IOContext()
         self.dmat = dmat
         if paw.niter == 0:
             # Initialize
-            self.fd = self.openfile(filename, comm=paw.world, mode='w')
+            self.fd = self.ioctx.openfile(filename, comm=paw.world, mode='w')
         else:
             # Read and continue
-            self.fd = self.openfile(filename, comm=paw.world, mode='a')
+            self.fd = self.ioctx.openfile(filename, comm=paw.world, mode='a')
 
     def _write(self, line):
         self.fd.write(line)
@@ -95,4 +96,4 @@ class EnergyWriter(TDDFTObserver, IOContext):
         self._write_energy(paw)
 
     def __del__(self):
-        self.fd.close()
+        self.ioctx.close()

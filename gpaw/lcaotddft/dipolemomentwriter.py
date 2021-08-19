@@ -24,22 +24,23 @@ def convert_repr(r):
     raise RuntimeError('Unknown value: %s' % r)
 
 
-class DipoleMomentWriter(TDDFTObserver, IOContext):
+class DipoleMomentWriter(TDDFTObserver):
     version = 1
 
     def __init__(self, paw, filename, center=False, density='comp',
                  force_new_file=False, interval=1):
         TDDFTObserver.__init__(self, paw, interval)
+        self.ioctx = IOContext()
         if paw.niter == 0 or force_new_file:
             # Initialize
             self.do_center = center
             self.density_type = density
-            self.fd = self.openfile(filename, comm=paw.world, mode='w')
+            self.fd = self.ioctx.openfile(filename, comm=paw.world, mode='w')
             self._write_header(paw)
         else:
             # Read and continue
             self.read_header(filename)
-            self.fd = self.openfile(filename, comm=paw.world, mode='a')
+            self.fd = self.ioctx.openfile(filename, comm=paw.world, mode='a')
 
     def _write(self, line):
         self.fd.write(line)
@@ -125,4 +126,4 @@ class DipoleMomentWriter(TDDFTObserver, IOContext):
         self._write_dm(paw)
 
     def __del__(self):
-        self.fd.close()
+        self.ioctx.close()
