@@ -492,15 +492,15 @@ class LrTDDFTExcitation(Excitation):
         raise NotImplementedError
 
     def fromstring(self, string):
-        l = string.split()
-        self.energy = float(l.pop(0))
-        if len(l) == 3:  # old writing style
-            self.me = np.array([float(l.pop(0)) for i in range(3)])
+        ll = string.split()
+        self.energy = float(ll.pop(0))
+        if len(ll) == 3:  # old writing style
+            self.me = np.array([float(ll.pop(0)) for i in range(3)])
         else:
-            self.mur = np.array([float(l.pop(0)) for i in range(3)])
+            self.mur = np.array([float(ll.pop(0)) for i in range(3)])
             self.me = - self.mur * sqrt(self.energy)
-            self.muv = np.array([float(l.pop(0)) for i in range(3)])
-            self.magn = np.array([float(l.pop(0)) for i in range(3)])
+            self.muv = np.array([float(ll.pop(0)) for i in range(3)])
+            self.magn = np.array([float(ll.pop(0)) for i in range(3)])
 
     def outstring(self):
         str = '%g ' % self.energy
