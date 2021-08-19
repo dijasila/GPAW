@@ -365,7 +365,7 @@ class OmegaMatrix:
         # smooth part
         if timer:
             timer.start('integrate')
-        II = self.gd.integrate(rhot * phit)
+        I = self.gd.integrate(rhot * phit)
         if timer:
             timer.stop()
             timer.start('integrate corrections 2')
@@ -395,11 +395,11 @@ class OmegaMatrix:
             #   ----    ip  jr prst ks qt
             #   prst
             Ia += 2.0 * np.dot(Dkq_p, np.dot(C_pp, Dij_p))
-        II += self.gd.comm.sum(Ia)
+        I += self.gd.comm.sum(Ia)
         if timer:
             timer.stop()
 
-        return II
+        return I
 
     def get_rpa(self):
         """calculate RPA part of the omega matrix"""
@@ -458,9 +458,9 @@ class OmegaMatrix:
                                   kss[kq].get_energy() *
                                   kss[ij].get_weight() *
                                   kss[kq].get_weight())
-                II = self.Coulomb_integral_kss(kss[ij], kss[kq],
-                                               rhot, phit, timer2)
-                Om[ij, kq] = pre * II
+                I = self.Coulomb_integral_kss(kss[ij], kss[kq],
+                                              rhot, phit, timer2)
+                Om[ij, kq] = pre * I
 
                 if ij == kq:
                     Om[ij, kq] += kss[ij].get_energy() ** 2
@@ -610,9 +610,9 @@ class OmegaMatrix:
         nij = int(f.readline())
         full = np.zeros((nij, nij))
         for ij in range(nij):
-            ll = [float(x) for x in f.readline().split()]
-            full[ij, ij:] = ll
-            full[ij:, ij] = ll
+            l = [float(x) for x in f.readline().split()]
+            full[ij, ij:] = l
+            full[ij:, ij] = l
         self.full = full
 
         if fh is None:

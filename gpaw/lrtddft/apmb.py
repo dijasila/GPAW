@@ -122,13 +122,13 @@ class ApmB(OmegaMatrix):
                 pre = self.weight_Kijkq(ij, kq)
 
                 timer2.start('integrate')
-                II = self.Coulomb_integral_kss(kss[ij], kss[kq], phit, rhot)
+                I = self.Coulomb_integral_kss(kss[ij], kss[kq], phit, rhot)
                 if kss[ij].spin == kss[kq].spin:
                     name = self.Coulomb_integral_name(kss[ij].i, kss[ij].j,
                                                       kss[kq].i, kss[kq].j,
                                                       kss[ij].spin)
-                    integrals[name] = II
-                ApB[ij, kq] = pre * II
+                    integrals[name] = I
+                ApB[ij, kq] = pre * I
                 timer2.stop()
 
                 if ij == kq:
@@ -183,7 +183,7 @@ class ApmB(OmegaMatrix):
         if ivo_l is not None:
             # IVO RPA after Berman, Kaldor, Chem. Phys. 43 (3) 1979
             # doi: 10.1016/0301-0104(79)85205-2
-            ll = ivo_l
+            l = ivo_l
             for ij in range(nij):
                 i = kss[ij].i
                 j = kss[ij].j
@@ -192,15 +192,15 @@ class ApmB(OmegaMatrix):
                     if kss[kq].i == i and kss[ij].pspin == kss[kq].pspin:
                         k = kss[kq].i
                         q = kss[kq].j
-                        jqll = self.Coulomb_integral_ijkq(j, q, ll, ll, s,
+                        jqll = self.Coulomb_integral_ijkq(j, q, l, l, s,
                                                           integrals)
-                        jllq = self.Coulomb_integral_ijkq(j, ll, ll, q, s,
+                        jllq = self.Coulomb_integral_ijkq(j, l, l, q, s,
                                                           integrals)
                         if yukawa:
-                            jqll -= self.Coulomb_integral_ijkq(j, q, ll, ll, s,
+                            jqll -= self.Coulomb_integral_ijkq(j, q, l, l, s,
                                                                rsf_integrals,
                                                                yukawa)
-                            jllq -= self.Coulomb_integral_ijkq(j, ll, ll, q, s,
+                            jllq -= self.Coulomb_integral_ijkq(j, l, l, q, s,
                                                                rsf_integrals,
                                                                yukawa)
                         jllq *= sin_tri_weight
@@ -210,17 +210,17 @@ class ApmB(OmegaMatrix):
                         AmB[kq, ij] = AmB[ij, kq]
         return AmB
 
-    def Coulomb_integral_name(self, i, j, k, ll, spin):
+    def Coulomb_integral_name(self, i, j, k, l, spin):
         """return a unique name considering the Coulomb integral
         symmetry"""
         def ij_name(i, j):
             return str(max(i, j)) + ' ' + str(min(i, j))
 
         # maximal gives the first
-        if max(i, j) >= max(k, ll):
-            base = ij_name(i, j) + ' ' + ij_name(k, ll)
+        if max(i, j) >= max(k, l):
+            base = ij_name(i, j) + ' ' + ij_name(k, l)
         else:
-            base = ij_name(k, ll) + ' ' + ij_name(i, j)
+            base = ij_name(k, l) + ' ' + ij_name(i, j)
         return base + ' ' + str(spin)
 
     def Coulomb_integral_ijkq(self, i, j, k, q, spin, integrals,
@@ -333,9 +333,9 @@ class ApmB(OmegaMatrix):
                 nij = int(fd.readline())
                 ApB = np.zeros((nij, nij))
                 for ij in range(nij):
-                    ll = fd.readline().split()
+                    l = fd.readline().split()
                     for kq in range(ij, nij):
-                        ApB[ij, kq] = float(ll[kq - ij])
+                        ApB[ij, kq] = float(l[kq - ij])
                         ApB[kq, ij] = ApB[ij, kq]
                 self.ApB = ApB
 
@@ -343,9 +343,9 @@ class ApmB(OmegaMatrix):
                 nij = int(fd.readline())
                 AmB = np.zeros((nij, nij))
                 for ij in range(nij):
-                    ll = fd.readline().split()
+                    l = fd.readline().split()
                     for kq in range(ij, nij):
-                        AmB[ij, kq] = float(ll[kq - ij])
+                        AmB[ij, kq] = float(l[kq - ij])
                         AmB[kq, ij] = AmB[ij, kq]
                 self.AmB = AmB
 

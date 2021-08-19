@@ -111,8 +111,7 @@ def rotatory_spectrum(exlist=None,
                       energyunit='eV',
                       folding='Gauss',
                       width=0.08,  # Gauss/Lorentz width
-                      comment=None
-                      ):
+                      comment=None):
     """Write out a folded rotatory spectrum.
 
     See spectrum() for explanation of the parameters.
