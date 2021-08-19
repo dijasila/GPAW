@@ -168,13 +168,13 @@ class DirectMinLCAO(DirectLCAO):
     def initialize_2(self, wfs, dens, ham):
 
         self.dtype = wfs.dtype
-        self.n_kps = wfs.kd.nibzkpts
+        self.nkpts = wfs.kd.nibzkpts
 
         # dimensionality of the problem.
         # this implementation rotates among all bands
         self.n_dim = {}
         for kpt in wfs.kpt_u:
-            u = kpt.s * self.n_kps + kpt.q
+            u = kpt.s * self.nkpts + kpt.q
             self.n_dim[u] = wfs.bd.nbands
 
         # values: matrices, keys: kpt number (and spins)
@@ -228,7 +228,7 @@ class DirectMinLCAO(DirectLCAO):
                 ind_up = np.triu_indices(M, 1)
                 for kpt in wfs.kpt_u:
                     n_occ = get_n_occ(kpt)
-                    u = self.n_kps * kpt.s + kpt.q
+                    u = self.nkpts * kpt.s + kpt.q
                     zero_ind = ((M - n_occ) * (M - n_occ - 1)) // 2
                     if len(ind_up[0]) == 1:
                         zero_ind = -1
@@ -242,7 +242,7 @@ class DirectMinLCAO(DirectLCAO):
                 # take indices of A_2 only
                 for kpt in wfs.kpt_u:
                     n_occ = get_n_occ(kpt)
-                    u = self.n_kps * kpt.s + kpt.q
+                    u = self.nkpts * kpt.s + kpt.q
                     i1, i2 = [], []
                     for i in range(n_occ):
                         for j in range(n_occ, M):
@@ -251,7 +251,7 @@ class DirectMinLCAO(DirectLCAO):
                     self.ind_up[u] = (np.asarray(i1), np.asarray(i2))
 
         for kpt in wfs.kpt_u:
-            u = self.n_kps * kpt.s + kpt.q
+            u = self.nkpts * kpt.s + kpt.q
             if self.representation in ['sparse', 'u-invar']:
                 shape_of_arr = len(self.ind_up[u][0])
             else:
@@ -366,7 +366,7 @@ class DirectMinLCAO(DirectLCAO):
             phi_2i[0] = alpha_phi_der_phi[1]
             der_phi_2i[0] = alpha_phi_der_phi[2]
             for kpt in wfs.kpt_u:
-                k = self.n_kps * kpt.s + kpt.q
+                k = self.nkpts * kpt.s + kpt.q
                 wfs.gd.comm.broadcast(g_mat_u[k], 0)
             wfs.timer.stop('Broadcast gradients')
 
@@ -404,7 +404,7 @@ class DirectMinLCAO(DirectLCAO):
         self._error = 0.0
         self.e_sic = 0.0  # this is odd energy
         for kpt in wfs.kpt_u:
-            k = self.n_kps * kpt.s + kpt.q
+            k = self.nkpts * kpt.s + kpt.q
             if n_dim[k] == 0:
                 g_mat_u[k] = np.zeros_like(a_mat_u[k])
                 continue
@@ -426,7 +426,7 @@ class DirectMinLCAO(DirectLCAO):
         if self.representation == 'full' and self.checkgraderror:
             norm = 0.0
             for kpt in wfs.kpt_u:
-                u = kpt.s * self.n_kps + kpt.q
+                u = kpt.s * self.nkpts + kpt.q
                 normt = np.linalg.norm(
                     g_mat_u[u] @ self.a_mat_u[u] -
                     self.a_mat_u[u] @ g_mat_u[u])
@@ -434,7 +434,7 @@ class DirectMinLCAO(DirectLCAO):
                     norm = normt
             norm2 = 0.0
             for kpt in wfs.kpt_u:
-                u = kpt.s * self.n_kps + kpt.q
+                u = kpt.s * self.nkpts + kpt.q
                 normt = np.linalg.norm(g_mat_u[u])
                 if norm2 < normt:
                     norm2 = normt
@@ -551,7 +551,7 @@ class DirectMinLCAO(DirectLCAO):
                 self.get_canonical_representation(ham, wfs, dens)
             else:
                 for kpt in wfs.kpt_u:
-                    u = kpt.s * self.n_kps + kpt.q
+                    u = kpt.s * self.nkpts + kpt.q
                     self.c_nm_ref[u] = kpt.C_nM.copy()
                     self.a_mat_u[u] = np.zeros_like(self.a_mat_u[u])
 
@@ -577,7 +577,7 @@ class DirectMinLCAO(DirectLCAO):
             if self.searchdir_algo.name != 'LBFGS_P':
                 if self.iters % counter == 0 or self.iters == 1:
                     for kpt in wfs.kpt_u:
-                        k = self.n_kps * kpt.s + kpt.q
+                        k = self.nkpts * kpt.s + kpt.q
                         hess = self.get_hessian(kpt)
                         if self.dtype is float:
                             self.precond[k] = np.zeros_like(hess)
@@ -604,7 +604,7 @@ class DirectMinLCAO(DirectLCAO):
                 # but in 'if' above self.precond
                 precond = {}
                 for kpt in wfs.kpt_u:
-                    k = self.n_kps * kpt.s + kpt.q
+                    k = self.nkpts * kpt.s + kpt.q
                     w = kpt.weight / (3.0 - wfs.nspins)
                     if self.iters % counter == 0 or self.iters == 1:
                         self.hess[k] = self.get_hessian(kpt)
@@ -637,7 +637,7 @@ class DirectMinLCAO(DirectLCAO):
         f_n = kpt.f_n
         eps_n = kpt.eps_n
         if self.representation in ['sparse', 'u-invar']:
-            u = self.n_kps * kpt.s + kpt.q
+            u = self.nkpts * kpt.s + kpt.q
             il1 = list(self.ind_up[u])
         else:
             il1 = get_indices(eps_n.shape[0], self.dtype)
@@ -721,7 +721,7 @@ class DirectMinLCAO(DirectLCAO):
                     wfs.occupations.numbers = self.initial_occupation_numbers
 
         for kpt in wfs.kpt_u:
-            u = kpt.s * self.n_kps + kpt.q
+            u = kpt.s * self.nkpts + kpt.q
             self.c_nm_ref[u] = kpt.C_nM.copy()
             self.a_mat_u[u] = np.zeros_like(self.a_mat_u[u])
 
@@ -854,7 +854,7 @@ class DirectMinLCAO(DirectLCAO):
         if c_nm_ref is None:
             c_nm_ref = self.c_nm_ref
         for kpt in wfs.kpt_u:
-            u = self.n_kps * kpt.s + kpt.q
+            u = self.nkpts * kpt.s + kpt.q
             if random_amat:
                 np.random.seed(seed)
                 a = np.random.random_sample(self.a_mat_u[u].shape)
@@ -869,7 +869,7 @@ class DirectMinLCAO(DirectLCAO):
         
         if update_c_nm_ref:
             for kpt in wfs.kpt_u:
-                u = self.n_kps * kpt.s + kpt.q
+                u = self.nkpts * kpt.s + kpt.q
                 
                 # construct full matrix
                 a = np.zeros(shape=(n_dim[u], n_dim[u]), dtype=self.dtype)
@@ -895,7 +895,7 @@ class DirectMinLCAO(DirectLCAO):
             complex_gr = [1.0]
 
         for kpt in wfs.kpt_u:
-            u = self.n_kps * kpt.s + kpt.q
+            u = self.nkpts * kpt.s + kpt.q
             dim = len(a_m[u])
             for z in range(range_z):
                 for i in range(dim):
@@ -941,7 +941,7 @@ class DirectMinLCAO(DirectLCAO):
         if occ_name == 'mom':
             self.sort_wavefunctions_mom(wfs)
             for kpt in wfs.kpt_u:
-                u = self.n_kps * kpt.s + kpt.q
+                u = self.nkpts * kpt.s + kpt.q
                 c_nm_ref[u] = kpt.C_nM.copy()
         matrix_exp = self.matrix_exp
         self.matrix_exp = 'egdecomp'
@@ -952,7 +952,7 @@ class DirectMinLCAO(DirectLCAO):
         dim_k_total = 0
         a_m = {}
         for kpt in wfs.kpt_u:
-            u = self.n_kps * kpt.s + kpt.q
+            u = self.nkpts * kpt.s + kpt.q
             a_m[u] = np.zeros_like(self.a_mat_u[u])
             dim_k_total += len(self.a_mat_u[u])
             dim_k[u] = len(self.a_mat_u[u])
@@ -1020,7 +1020,7 @@ class DirectMinLCAO(DirectLCAO):
 
         wfs.timer.start('Unitary rotation')
         for kpt in wfs.kpt_u:
-            k = self.n_kps * kpt.s + kpt.q
+            k = self.nkpts * kpt.s + kpt.q
             if n_dim[k] == 0:
                 continue
 

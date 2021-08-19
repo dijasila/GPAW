@@ -56,20 +56,20 @@ class SteepestDescent(object):
 
     def calc_diff(self, x1, x2, wfs, const_0=1.0, const=1.0):
         y_k = {}
-        n_kps = wfs.kd.nibzkpts
+        nkpts = wfs.kd.nibzkpts
         for kpt in wfs.kpt_u:
-            y_k[n_kps * kpt.s + kpt.q] = \
-                const_0 * x1[n_kps * kpt.s + kpt.q] - \
-                const * x2[n_kps * kpt.s + kpt.q]
+            y_k[nkpts * kpt.s + kpt.q] = \
+                const_0 * x1[nkpts * kpt.s + kpt.q] - \
+                const * x2[nkpts * kpt.s + kpt.q]
 
         return y_k
 
     def dot_all_k_and_b(self, x1, x2, wfs):
 
         dot_pr_x1x2 = 0.0
-        n_kps = wfs.kd.nibzkpts
+        nkpts = wfs.kd.nibzkpts
         for kpt in wfs.kpt_u:
-            k = n_kps * kpt.s + kpt.q
+            k = nkpts * kpt.s + kpt.q
             dot_pr_x1x2 += x1[k].conj() @ x2[k]
         dot_pr_x1x2 = dot_pr_x1x2.real
         dot_pr_x1x2 = wfs.kd.comm.sum(dot_pr_x1x2)
