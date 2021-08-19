@@ -1,14 +1,13 @@
 """Module for linear response TDDFT class with indexed K-matrix storage."""
 
 import os
-import sys
 import datetime
 import glob
 
 import numpy as np
 
 import ase.units
-from gpaw.utilities import devnull
+from ase.utils import IOContext
 
 from gpaw.xc import XC
 
@@ -135,17 +134,8 @@ class LrTDDFT2:
         self.lr_comms.initialize(gs_calc)
 
         # Init text output
-        if self.lr_comms.parent_comm.rank == 0 and txt is not None:
-            if txt == '-':
-                self.txt = sys.stdout
-            elif isinstance(txt, str):
-                self.txt = open(txt, 'w')
-            else:
-                self.txt = txt
-        elif self.calc is not None:
-            self.txt = self.calc.log.fd
-        else:
-            self.txt = devnull
+        self.iocontext = IOContext()
+        self.txt = self.iocontext.openfile(txt, self.lr_comms.parent_comm)
 
         # Check and set unset params
 
@@ -472,4 +462,5 @@ class LrTDDFT2:
         f.close()
 
     def __del__(self):
+        self.iocontext.close()
         self.timer.stop('LrTDDFT')

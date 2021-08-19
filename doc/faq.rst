@@ -69,6 +69,18 @@ If you use the :ref:`ksdecomposition` in the :ref:`lcaotddft`, please cite also:
    | J. Chem. Theory Comput. **13**, 4779 (2017)
 
 
+Citations of the GPAW method papers
+-----------------------------------
+
+.. image:: documentation/citations.png
+   :width: 750
+
+(updated on 18 Mar 2021)
+
+The total number of citations above is the number of publications
+citing at least one of the other papers, not the sum of all citation
+counts.
+
 BibTex (:git:`doc/GPAW.bib`):
 
 .. literalinclude:: GPAW.bib

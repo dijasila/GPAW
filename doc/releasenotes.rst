@@ -27,6 +27,23 @@ Git master branch
   * A routine to calculate dipole and nabla (momentum) matrix elements for
     LCAO wave functions has been added: :git:`gpaw/raman/dipoletransition.py`
 
+* You can now change all sorts of things about how the SCF cycle decides it
+  is converged. You can specify new, non-default convergence keywords like
+  ``work function`` or ``minimum iterations``, you can change how default
+  convergence keywords behave (like changing how many past energies the
+  ``energy`` criterion examines), and you can even write your own custom
+  convergence criteria. See :ref:`custom_convergence`.
+
+* The SCF output table has been simplified, and a letter "c" now appears
+  next to converged items.
+
+* Charged molecule calculations with PW-mode have been improved.  The
+  Poisson equation is now solved in a way so that monopole interactions
+  between cells correctly vanish.
+
+* The hyperfine tensor CLI-tool no longer divides by total magnetic moment:
+  :ref:`hyperfine`.
+
 
 Version 21.6.0
 ===============

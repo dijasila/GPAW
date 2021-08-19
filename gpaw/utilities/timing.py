@@ -111,41 +111,6 @@ class ParallelTimer(DebugTimer):
         fd.close()
 
 
-class StepTimer(Timer):
-    """Step timer to print out timing used in computation steps.
-
-    Use it like this::
-
-      from gpaw.utilities.timing import StepTimer
-      st = StepTimer()
-      ...
-      st.write_now('step 1')
-      ...
-      st.write_now('step 2')
-
-    The parameter write_as_master_only can be used to force the timer to
-    print from processess that are not the mpi master process.
-    """
-
-    def __init__(self, out=sys.stdout, name=None, write_as_master_only=True):
-        Timer.__init__(self)
-        if name is None:
-            name = '<%s>' % sys._getframe(1).f_code.co_name
-        self.name = name
-        self.out = out
-        self.alwaysprint = not write_as_master_only
-        self.now = 'temporary now'
-        self.start(self.now)
-
-    def write_now(self, mark=''):
-        self.stop(self.now)
-        if self.alwaysprint or mpi.rank == 0:
-            print(self.name, mark, self.get_time(self.now), file=self.out)
-        self.out.flush()
-        del self.timers[self.now]
-        self.start(self.now)
-
-
 class HPMTimer(Timer):
     """HPMTimer requires installation of the IBM BlueGene/P HPM
     middleware interface to the low-level UPC library. This will
