@@ -457,7 +457,8 @@ def makeU(gpwfile='grid.gpw', orbitalfile='w_wG__P_awi.pckl',
 
     # Load orbitals on master and distribute to slaves
     if world.rank == 0:
-        wglobal_wG, P_awi = pickle.load(open(orbitalfile, 'rb'))
+        with open(orbitalfile, 'rb') as fd:
+            wglobal_wG, P_awi = pickle.load(fd)
         Nw = len(wglobal_wG)
         print('Estimated total (serial) mem usage: %0.3f GB' % (
             np.prod(gd.N_c) * Nw**2 * 8 / 1024.**3))
@@ -519,7 +520,8 @@ def makeU(gpwfile='grid.gpw', orbitalfile='w_wG__P_awi.pckl',
         eps_q = np.ascontiguousarray(eps_q[indices])
 
         # Dump to file
-        pickle.dump((eps_q, U_pq), open(rotationfile, 'wb'), 2)
+        with open(rotationfile, 'wb') as fd:
+            pickle.dump((eps_q, U_pq), fd, 2)
 
     if writeoptimizedpairs is not False:
         assert world.size == 1  # works in parallel if U and eps are broadcast
@@ -534,7 +536,8 @@ def makeU(gpwfile='grid.gpw', orbitalfile='w_wG__P_awi.pckl',
                           for a, P_wi in P_awi.items()])
             P_aqp = dict([(a, np.dot(Uisq_qp, Px_pp))
                           for a, Px_pp in P_app.items()])
-            pickle.dump((g_qG, P_aqp), open(writeoptimizedpairs, 'wb'), 2)
+            with open(writeoptimizedpairs, 'wb') as fd:
+                pickle.dump((g_qG, P_aqp), fd, 2)
 
 
 def makeV(gpwfile='grid.gpw', orbitalfile='w_wG__P_awi.pckl',
@@ -552,8 +555,10 @@ def _makeV(gpwfile, orbitalfile, rotationfile, coulombfile, log, fft):
     # Extract data from files
     calc = GPAW(gpwfile, txt=None, communicator=serial_comm)
     coulomb = Coulomb(calc.wfs.gd, calc.wfs.setups, calc.spos_ac, fft)
-    w_wG, P_awi = pickle.load(open(orbitalfile, 'rb'))
-    eps_q, U_pq = pickle.load(open(rotationfile, 'rb'))
+    with open(orbitalfile, 'rb') as fd:
+        w_wG, P_awi = pickle.load(fd)
+    with open(rotationfile, 'rb') as fd:
+        eps_q, U_pq = pickle.load(fd)
     del calc
 
     # Make rotation matrix divided by sqrt of norm
