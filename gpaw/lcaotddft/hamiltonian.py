@@ -74,6 +74,17 @@ class KickHamiltonian(object):
         W_aL = dens.ghat.dict()
         dens.ghat.integrate(vext_g, W_aL)
         # XXX this is a quick hack to get the distribution right
+        # It'd be better to have these distributions abstracted elsewhere.
+        # The idea is (thanks Ask, see discussion in !910):
+        # * gd has D cores and coarse grid
+        # * aux_gd is the same grid as gd but with either D or
+        #   K * B * D cores (with augment_grids = True)
+        # * finegd is then aux_gd.refine().
+        # In integrals like W_aL, the atomic quantities are distributed
+        # according to the domains of those atoms (so finegd for W_aL,
+        # but gd for dH_asp).
+        # And, some things (atomic XC corrections) are calculated evenly
+        # distributed among all cores.
         dHaux_asp = ham.atomdist.to_aux(dH_asp)
         for a, W_L in W_aL.items():
             setup = dens.setups[a]
