@@ -35,8 +35,8 @@ for kpt in calc.wfs.kpt_u:
     kpt.C_nM[lumo][:] = pm
     kpt.C_nM[lumo + 1][:] = pp
 
-calc.set(eigensolver=DirectMinLCAO(searchdir_algo={'name': 'LSR1P'},
-                                   linesearch_algo={'name': 'UnitStep'},
+calc.set(eigensolver=DirectMinLCAO(searchdir_algo={'name': 'l-sr1p'},
+                                   linesearch_algo={'name': 'max-step'},
                                    need_init_orbs=False))
 
 # Occupation numbers for sigma->pi* excited state:

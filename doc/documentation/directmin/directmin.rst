@@ -85,8 +85,8 @@ exponential should be used (see also `Implementation Details`_):
 
 .. code-block:: python
 
-    calc = GPAW(eigensolver=DirectMinLCAO(matrix_exp='egdecomp2',
-                                          representation='u_invar'),
+    calc = GPAW(eigensolver=DirectMinLCAO(matrix_exp='egdecomp-u-invar',
+                                          representation='u-invar'),
                 ...)
 
 .. _Performance:
@@ -219,8 +219,8 @@ is unitary invariant and then do the following:
 .. code-block:: python
 
     from gpaw.directmin.lcao.directmin_lcao import DirectMinLCAO
-    calc = GPAW(eigensolver=DirectMinLCAO(matrix_exp='egdecomp2',
-                                          representation='u_invar'),
+    calc = GPAW(eigensolver=DirectMinLCAO(matrix_exp='egdecomp-u-invar',
+                                          representation='u-invar'),
                 ...)
 
 The last option is the most efficient but it is valid only for a unitary invariant functionals

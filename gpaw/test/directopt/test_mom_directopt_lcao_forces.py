@@ -26,7 +26,7 @@ def test_mom_directopt_lcao_forces(in_tmp_dir):
                 symmetry='off',
                 occupations={'name': 'fixed-uniform'},
                 eigensolver={'name': 'direct-min-lcao',
-                             'linesearch_algo': 'UnitStep'},
+                             'linesearch_algo': 'max-step'},
                 mixer={'backend': 'no-mixing'},
                 nbands='nao',
                 convergence={'energy': 1e-3,
@@ -37,10 +37,10 @@ def test_mom_directopt_lcao_forces(in_tmp_dir):
 
     f_sn = excite(calc, 0, 0, spin=(0, 0))
 
-    calc.set(eigensolver=DirectMinLCAO(searchdir_algo={'name': 'LSR1P'},
-                                       linesearch_algo={'name': 'UnitStep'},
-                                       representation='u_invar',
-                                       matrix_exp='egdecomp2',
+    calc.set(eigensolver=DirectMinLCAO(searchdir_algo={'name': 'l-sr1p'},
+                                       linesearch_algo={'name': 'max-step'},
+                                       representation='u-invar',
+                                       matrix_exp='egdecomp-u-invar',
                                        need_init_orbs=False))
     prepare_mom_calculation(calc, atoms, f_sn)
     F = atoms.get_forces()

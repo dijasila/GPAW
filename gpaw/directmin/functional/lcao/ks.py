@@ -10,15 +10,14 @@ class KSLCAO:
     w.r.t rotation parameters
     """
 
-    def __init__(self, wfs, dens, ham, **kwargs):
+    def __init__(self):
         self.name = 'ks'
-        self.n_kps = wfs.kd.nibzkpts
-        self.dtype = wfs.dtype
-        self.nvalence = wfs.nvalence
 
-    def get_gradients(self, h_mm, c_nm, f_n,
-                      evec, evals, kpt, wfs, timer, matrix_exp,
-                      repr_name, ind_up, occupied_only=False):
+    def todict(self):
+        return {'name': self.name}
+
+    def get_gradients(self, h_mm, c_nm, f_n, evec, evals, kpt, wfs, timer,
+                      matrix_exp, repr_name, ind_up):
 
         with timer('Construct Gradient Matrix'):
             use_egdecomp = matrix_exp == 'egdecomp'
@@ -28,9 +27,9 @@ class KSLCAO:
             
             with timer('Residual'):
                 error = self.get_residual_error(
-                    hc_mn, kpt.S_MM, c_nm, h_ij, f_n)
+                    hc_mn, kpt.S_MM, c_nm, h_ij, f_n, wfs.nvalence)
 
-            if repr_name in ['sparse', 'u_invar'] and not use_egdecomp:
+            if repr_name in ['sparse', 'u-invar'] and not use_egdecomp:
                 if repr_name == 'sparse':
                     indl_oo = np.tril_indices(h_ij.shape[0])
                     h_ij[indl_oo] = np.inf
@@ -54,23 +53,23 @@ class KSLCAO:
                         grad = self.get_exact_gradient_matrix(
                             grad, evec, evals)
 
-                if repr_name in ['sparse', 'u_invar']:
+                if repr_name in ['sparse', 'u-invar']:
                     grad = grad[ind_up]
 
-        if self.dtype == float:
+        if wfs.dtype == float:
             grad = grad.real
 
         return 2.0 * grad, error
 
-    def get_ham_in_mol_orb_representation(self, h_mm, c_nm,
-                                          f_n, matrix_rep, full_ham):
+    def get_ham_in_mol_orb_representation(self, h_mm, c_nm, f_n, matrix_rep,
+                                          full_ham):
 
         """
         H = (C_nM @ H_MM @ C_nM.T.conj()).conj()
         for sparse and u_inv representation we calculate
         H_ij and H_ia, where i,j -- occupied and a - virtual
         H_ij is really needed only to calculate the residual later
-        but it is not needed for u_inver representation.
+        but it is not needed for u-invar representation.
         When matrix exp calcualted using egdecomp method
         we need the whole matrix H though
 
@@ -79,7 +78,7 @@ class KSLCAO:
         """
 
         occ = sum(f_n > 1.0e-10)
-        if matrix_rep in ['sparse', 'u_invar'] and not full_ham:
+        if matrix_rep in ['sparse', 'u-invar'] and not full_ham:
             hc_mn = h_mm.conj() @ c_nm[:occ].T
             h_ij = hc_mn.T.conj() @ c_nm[:occ].T
             h_ia = hc_mn.T.conj() @ c_nm[occ:].T
@@ -90,16 +89,15 @@ class KSLCAO:
 
         return hc_mn, h_ij, h_ia
     
-    def get_residual_error(self, hc_mn, S_MM, c_nm, h_ij, f_n):
+    def get_residual_error(self, hc_mn, S_MM, c_nm, h_ij, f_n, nvalence):
         """
         calculate residual error of KS equations
         """
-
         occ = sum(f_n > 1.0e-10)
         hc_mn = hc_mn[:, :occ] - \
             S_MM.conj() @ c_nm[:occ].T @ h_ij[:occ, :occ]
         norm = sum(hc_mn.conj() * hc_mn * f_n[:occ])
-        error = sum(norm.real) * Hartree ** 2 / self.nvalence
+        error = sum(norm.real) * Hartree ** 2 / nvalence
         
         return error
 

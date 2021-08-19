@@ -31,7 +31,7 @@ def appr_wc(der_phi_0, phi_0, der_phi_j, phi_j):
         return False
 
 
-class UnitStepLength(object):
+class MaxStep(object):
 
     def __init__(self, evaluate_phi_and_der_phi, max_step=0.2):
         """
@@ -41,6 +41,11 @@ class UnitStepLength(object):
 
         self.evaluate_phi_and_der_phi = evaluate_phi_and_der_phi
         self.max_step = max_step
+        self.name = 'max-step'
+
+    def todict(self):
+        return {'name': self.name,
+                'max_step': self.max_step}
 
     def step_length_update(self, x, p, n_dim,
                            *args, **kwargs):
@@ -66,7 +71,7 @@ class UnitStepLength(object):
         return a_star, phi_star, der_phi_star, g_star
 
 
-class Parabola(UnitStepLength):
+class Parabola(MaxStep):
 
     """
     phi = f (x_k + a_k*p_k)
@@ -79,6 +84,10 @@ class Parabola(UnitStepLength):
         :param evaluate_phi_and_der_phi:
         """
         super(Parabola, self).__init__(evaluate_phi_and_der_phi)
+        self.name = 'parabola'
+
+    def todict(self):
+        return {'name': self.name}
 
     def step_length_update(self, x, p, n_dim,
                            *args, **kwargs):
@@ -104,7 +113,7 @@ class Parabola(UnitStepLength):
         return a_star, phi_star, der_phi_star, g_star
 
 
-class StrongWolfeConditions(UnitStepLength):
+class StrongWolfeConditions(MaxStep):
     """
     From a book of Jorge Nocedal and Stephen J. Wright 'Numerical
     Optimization' Second Edition, 2006 (p. 56)
@@ -123,13 +132,13 @@ class StrongWolfeConditions(UnitStepLength):
 
     def __init__(self, evaluate_phi_and_der_phi,
                  c1=1.0e-4, c2=0.9,
-                 searchdir=None, max_iter=3, eps_dx=1.0e-10,
+                 searchdirtype=None, max_iter=3, eps_dx=1.0e-10,
                  eps_df=1.0e-10, awc=True):
         """
         :param evaluate_phi_and_der_phi: function which calculate
         phi, der_phi and g for given A_s, P_s, n_dim and alpha
         A_s[s] is skew-hermitian matrix, P_s[s] is matrix direction
-        :param searchdir: used only in initial guess for alpha
+        :param searchdirtype: used only in initial guess for alpha
         :param max_iter: maximum number of iterations
         :param eps_dx: length of minimal interval where alpha can
         be found
@@ -146,22 +155,27 @@ class StrongWolfeConditions(UnitStepLength):
             evaluate_phi_and_der_phi)
 
         self.max_iter = max_iter
-        self.searchdir = searchdir
+        self.searchdirtype = searchdirtype
         self.eps_dx = eps_dx
         self.eps_df = eps_df
         self.c1 = c1
         self.c2 = c2
         self.awc = awc
+        self.name = 'swc-awc'
+
+    def todict(self):
+        return {'name': self.name,
+                'max_iter': self.max_iter,
+                'searchdirtype': self.searchdirtype,
+                'eps_dx': self.eps_dx,
+                'eps_df': self.eps_df,
+                'c1': self.c1,
+                'c2': self.c2}
 
     def step_length_update(self, x, p, n_dim,
                            *args, **kwargs):
-        if self.searchdir in ['HZcg', 'SD', 'FRcg', 'PRcg', 'PRpcg']:
-            c1 = self.c1 = 1.0e-4
-            c2 = self.c2 = 0.9
-        else:
-            c1 = self.c1
-            c2 = self.c2
-
+        c1 = self.c1
+        c2 = self.c2
         phi_0 = kwargs['phi_0']
         der_phi_0 = kwargs['der_phi_0']
         phi_old = kwargs['phi_old']
@@ -399,24 +413,20 @@ class StrongWolfeConditions(UnitStepLength):
                    alpha_old=1.0):
 
         # chose initial alpha
-        if self.searchdir in ['HZcg', 'SD', 'FRcg', 'PRcg', 'PRpcg']:
+        if self.searchdirtype in ['quasi-newton', 'newton']:
+            alpha_1 = 1.0
+        else:
             if phi_old is not None and der_phi_old is not None:
                 try:
                     alpha_1 = 2.0 * (phi_0 - phi_old) / der_phi_old
-                    # alpha_1 = alpha_old * der_phi_old / der_phi_0
                     if alpha_1 < 0.1:
                         if alpha_old < 0.1:
                             alpha_1 = 10.0
                         else:
                             alpha_1 = alpha_old
-
                 except ZeroDivisionError:
                     alpha_1 = 1.0
             else:
                 alpha_1 = 1.0
-        elif self.searchdir in ['BFGS', 'LBFGS', 'LBFGS_P']:
-            alpha_1 = 1.0
-        else:
-            alpha_1 = 1.0
 
         return alpha_1

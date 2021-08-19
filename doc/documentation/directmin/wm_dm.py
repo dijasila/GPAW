@@ -68,8 +68,8 @@ for x in r:
                 basis='tzdp',
                 mode=LCAO(),
                 txt=str(len(atoms) // 3) + '_H2Omlcls_scf.txt',
-                eigensolver=DirectMinLCAO(matrix_exp='egdecomp2',
-                                          representation='u_invar'
+                eigensolver=DirectMinLCAO(matrix_exp='egdecomp-u-invar',
+                                          representation='u-invar'
                                           ),
                 mixer={'backend': 'no-mixing'},
                 nbands='nao',

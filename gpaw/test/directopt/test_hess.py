@@ -20,7 +20,7 @@ def test_directmin_lcao_numerical_hessian(in_tmp_dir):
                 basis='dz(dzp)',
                 spinpol=False,
                 eigensolver={'name': 'direct-min-lcao',
-                             'representation': 'u_invar'},
+                             'representation': 'u-invar'},
                 occupations={'name': 'fixed-uniform'},
                 mixer={'backend': 'no-mixing'},
                 nbands='nao',

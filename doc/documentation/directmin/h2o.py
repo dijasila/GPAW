@@ -14,7 +14,7 @@ H2O.center(vacuum=5.0)
 calc = GPAW(mode=LCAO(),
             basis='dzp',
             eigensolver=DirectMinLCAO(
-                searchdir_algo={'name': 'LBFGS_P', 'memory': 10}),
+                searchdir_algo={'name': 'l-bfgs-p', 'memory': 10}),
             occupations={'name': 'fixed-uniform'},
             mixer={'backend': 'no-mixing'},
             nbands='nao'

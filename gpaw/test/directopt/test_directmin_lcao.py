@@ -52,9 +52,9 @@ def test_directmin_lcao(in_tmp_dir):
     assert f2 == pytest.approx(f3, abs=1e-2)
 
     calc.set(eigensolver=DirectMinLCAO(
-        representation='u_invar', matrix_exp='egdecomp',
+        representation='u-invar', matrix_exp='egdecomp',
         need_init_orbs=False,
-        linesearch_algo={'name': 'UnitStep'}
+        linesearch_algo={'name': 'max-step'}
     ))
     e = H2O.get_potential_energy()
     niter = calc.get_number_of_iterations()

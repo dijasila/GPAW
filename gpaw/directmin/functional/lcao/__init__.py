@@ -3,18 +3,15 @@ from ase.utils import basestring
 from gpaw.directmin.functional.lcao.ks import KSLCAO
 
 
-def get_functional(odd, wfs, dens, ham):
+def get_functional(func):
 
-    if isinstance(odd, basestring):
-        odd = xc_string_to_dict(odd)
+    if isinstance(func, basestring):
+        func = xc_string_to_dict(func)
 
-    if isinstance(odd, dict):
-        kwargs = odd.copy()
+    if isinstance(func, dict):
+        kwargs = func.copy()
         name = kwargs.pop('name')
-        if name == 'ks':
-            return KSLCAO(wfs, dens, ham, **kwargs)
-        else:
-            raise NotImplementedError('Check name of the '
-                                      'functional (ks)')
+        functional = {'ks': KSLCAO}[name](**kwargs)
+        return functional
     else:
-        raise NotImplementedError('Check functional parameter')
+        raise TypeError('Check functional parameter')

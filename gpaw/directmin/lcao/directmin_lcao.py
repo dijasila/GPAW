@@ -18,7 +18,6 @@ from gpaw.lcao.eigensolver import DirectLCAO
 from scipy.linalg import expm
 from gpaw.utilities.tools import tri2full
 from gpaw.directmin.lcao import search_direction, line_search_algorithm
-from gpaw.xc import xc_string_to_dict
 from gpaw.directmin.functional.lcao import get_functional
 from gpaw import BadParallelization
 
@@ -26,12 +25,12 @@ from gpaw import BadParallelization
 class DirectMinLCAO(DirectLCAO):
 
     def __init__(self, diagonalizer=None,
-                 searchdir_algo='LBFGS_P',
-                 linesearch_algo='SwcAwc',
+                 searchdir_algo='l-bfgs-p',
+                 linesearch_algo='swc-awc',
                  update_ref_orbs_counter=20,
                  update_ref_orbs_canonical=False,
                  update_precond_counter=1000,
-                 use_prec=True, matrix_exp='pade_approx',
+                 use_prec=True, matrix_exp='pade-approx',
                  representation='sparse',
                  functional='ks',
                  orthonormalization='gramschmidt',
@@ -56,9 +55,10 @@ class DirectMinLCAO(DirectLCAO):
         :param update_precond_counter: when to update the preconditioner
         :param use_prec: use preconditioner or not
         :param matrix_exp: algorithm for calc matrix exponential and grad.
-        'pade_approx', 'egdecomp', 'egdecomp2' (used with u_invar represnt.),
+        'pade-approx', 'egdecomp', 'egdecomp-u-invar' (used with u-invar
+        represnt.),
         :param representation: the way A are stored,
-        'sparse', 'full', 'u_invar',
+        'sparse', 'full', 'u-invar',
         :param functional: KS or PZ-SIC functionals
         :param orthonormalization: gram-schmidt, loewdin, or eigenstates of ham
         'gramschmidt', 'loewdin', 'diag', respectively
@@ -71,36 +71,15 @@ class DirectMinLCAO(DirectLCAO):
 
         super(DirectMinLCAO, self).__init__(diagonalizer)
 
-        if isinstance(functional, str):
-            functional = xc_string_to_dict(functional)
-        if isinstance(searchdir_algo, str):
-            searchdir_algo = xc_string_to_dict(searchdir_algo)
-        if isinstance(linesearch_algo, str):
-            linesearch_algo = xc_string_to_dict(linesearch_algo)
-            if linesearch_algo['name'] == 'SwcAwc':
-                # for SwcAwc we need to know
-                # what search. dir. algo is used
-                linesearch_algo['searchdir'] = searchdir_algo['name']
-        if isinstance(representation, str):
-            assert representation in ['sparse', 'u_invar', 'full'], \
-                'Value Error'
-            representation = \
-                xc_string_to_dict(representation)
-        
-        if matrix_exp == 'egdecomp2':
-            assert representation['name'] == 'u_invar', \
-                'Use u_invar representation with egdecomp2'
-        
-        if isinstance(orthonormalization, str):
-            assert orthonormalization in [
-                'gramschmidt', 'loewdin', 'diag'], \
-                'Value Error'
-            orthonormalization = \
-                xc_string_to_dict(orthonormalization)
+        assert representation in ['sparse', 'u-invar', 'full'], 'Value Error'
+        assert matrix_exp in ['egdecomp', 'egdecomp-u-invar', 'pade-approx'], \
+            'Value Error'
+        if matrix_exp == 'egdecomp-u-invar':
+            assert representation == 'u-invar', 'Use u-invar representation ' \
+                                                'with egdecomp-u-invar'
+        assert orthonormalization in ['gramschmidt', 'loewdin', 'diag'], \
+            'Value Error'
 
-        if searchdir_algo['name'] == 'LBFGS_P' and not use_prec:
-            raise ValueError('Use LBFGS_P with use_prec=True')
-        
         self.localizationtype = localizationtype
         self.eg_count = 0
         self.update_ref_orbs_counter = update_ref_orbs_counter
@@ -114,49 +93,54 @@ class DirectMinLCAO(DirectLCAO):
         self.localizationtype = localizationtype
         self.need_localization = need_localization
         self.need_init_orbs = need_init_orbs
-
         self.a_mat_u = None  # skew-hermitian matrix to be exponented
         self.g_mat_u = None  # gradient matrix
         self.c_nm_ref = None  # reference orbitals to be rotated
-
         self.randomizeorbitals = randomizeorbitals
-
-        self.initialized = False
-
-        self.sda = searchdir_algo
-        self.lsa = linesearch_algo
-        self.functional = functional
         self.representation = representation
         self.orthonormalization = orthonormalization
-        
+
+        self.searchdir_algo = search_direction(searchdir_algo)
+        if self.searchdir_algo.name == 'l-bfgs-p' and not self.use_prec:
+            raise ValueError('Use l-bfgs-p with use_prec=True')
+
+        self.line_search = line_search_algorithm(linesearch_algo,
+                                                 self.evaluate_phi_and_der_phi,
+                                                 self.searchdir_algo)
+        self.func = get_functional(functional)
+
         self.checkgraderror = checkgraderror
         self._normcomm, self._normg = 0., 0.
 
+        self.initialized = False
+
     def __repr__(self):
 
-        sds = {'SD': 'Steepest Descent',
-               'FRcg': 'Fletcher-Reeves conj. grad. method',
-               # 'HZcg': 'Hager-Zhang conj. grad. method',
-               'QuickMin': 'Molecular-dynamics based algorithm',
-               'LBFGS': 'LBFGS algorithm',
-               'LBFGS_P': 'LBFGS algorithm with preconditioning',
-               'LSR1P': 'Limited-memory SR1P algorithm'}
+        sda_name = self.searchdir_algo.name
+        lsa_name = self.line_search.name
 
-        lss = {'UnitStep': 'step size equals one',
-               'Parabola': 'Parabolic line search',
-               'SwcAwc': 'Inexact line search based '
-                         'on cubic interpolation,\n'
-                         '                    strong'
-                         ' and approximate Wolfe conditions'}
+        sds = {'sd': 'Steepest Descent',
+               'fr-cg': 'Fletcher-Reeves conj. grad. method',
+               # 'HZcg': 'Hager-Zhang conj. grad. method',
+               'quick-min': 'Molecular-dynamics based algorithm',
+               'l-bfgs': 'L-BFGS algorithm',
+               'l-bfgs-p': 'L-BFGS algorithm with preconditioning',
+               'l-sr1p': 'Limited-memory SR1P algorithm'}
+
+        lss = {'max-step': 'step size equals one',
+               'parabola': 'Parabolic line search',
+               'swc-awc': 'Inexact line search based on cubic interpolation,\n'
+                          '                    strong and approximate Wolfe '
+                          'conditions'}
 
         repr_string = 'Direct minimisation using exponential ' \
                       'transformation.\n'
         repr_string += '       ' \
                        'Search ' \
-                       'direction: {}\n'.format(sds[self.sda['name']])
+                       'direction: {}\n'.format(sds[sda_name])
         repr_string += '       ' \
                        'Line ' \
-                       'search: {}\n'.format(lss[self.lsa['name']])
+                       'search: {}\n'.format(lss[lsa_name])
         repr_string += '       ' \
                        'Preconditioning: {}\n'.format(self.use_prec)
         repr_string += '       ' \
@@ -202,7 +186,7 @@ class DirectMinLCAO(DirectLCAO):
         self.evals = {}   # eigenvalues for i*a_mat_u
         self.ind_up = {}
 
-        if self.representation['name'] in ['sparse', 'u_invar']:
+        if self.representation in ['sparse', 'u-invar']:
             # Matrices are sparse and Skew-Hermitian.
             # They have this structure:
             #  A_BigMatrix =
@@ -233,11 +217,11 @@ class DirectMinLCAO(DirectLCAO):
             # also will store indices of the A_BigMatrix
             # which correspond to these elements.
             #
-            # 'u_invar' corresponds to the case when we want to
+            # 'u-invar' corresponds to the case when we want to
             # store only A_2, that is this representaion is sparser
 
             M = wfs.bd.nbands  # M - one dimension of the A_BigMatrix
-            if self.representation['name'] == 'sparse':
+            if self.representation == 'sparse':
                 # let's take all upper triangular indices
                 # of A_BigMatrix and then delete indices from ind_up
                 # which correspond to 0 matrix in in A_BigMatrix.
@@ -268,7 +252,7 @@ class DirectMinLCAO(DirectLCAO):
 
         for kpt in wfs.kpt_u:
             u = self.n_kps * kpt.s + kpt.q
-            if self.representation['name'] in ['sparse', 'u_invar']:
+            if self.representation in ['sparse', 'u-invar']:
                 shape_of_arr = len(self.ind_up[u][0])
             else:
                 self.ind_up[u] = None
@@ -310,27 +294,6 @@ class DirectMinLCAO(DirectLCAO):
         self.hess = {}  # hessian for LBFGS-P
         self.precond = {}  # precondiner for other methods
 
-        # choose search direction and line search algorithm
-        if isinstance(self.sda, (str, dict)):
-            self.search_direction = search_direction(self.sda, wfs)
-        else:
-            raise Exception('Check Search Direction Parameters')
-
-        if isinstance(self.lsa, (str, dict)):
-            self.line_search = \
-                line_search_algorithm(self.lsa,
-                                      self.evaluate_phi_and_der_phi)
-        else:
-            raise Exception('Check Search Direction Parameters')
-
-        # odd corrections
-        if isinstance(self.functional, (str, dict)):
-            self.func = \
-                get_functional(self.functional, wfs, dens, ham)
-        elif self.func is None:
-            pass
-        else:
-            raise Exception('Check ODD Parameters')
         self.initialized = True
 
     def iterate(self, ham, wfs, dens, log):
@@ -374,7 +337,7 @@ class DirectMinLCAO(DirectLCAO):
         # recalculate derivative with new search direction
         der_phi_2i[0] = 0.0
         for k in g_mat_u:
-            if self.representation['name'] in ['sparse', 'u_invar']:
+            if self.representation in ['sparse', 'u-invar']:
                 der_phi_2i[0] += g_mat_u[k].conj() @ p_mat_u[k]
             else:
                 il1 = get_indices(g_mat_u[k].shape[0], self.dtype)
@@ -451,7 +414,7 @@ class DirectMinLCAO(DirectLCAO):
             g_mat_u[k], error = self.func.get_gradients(
                 h_mm, kpt.C_nM, kpt.f_n, self.evecs[k], self.evals[k],
                 kpt, wfs, wfs.timer, self.matrix_exp,
-                self.representation['name'], self.ind_up[k])
+                self.representation, self.ind_up[k])
 
             self._error += error
         self._error = self.kd_comm.sum(self._error)
@@ -460,7 +423,7 @@ class DirectMinLCAO(DirectLCAO):
 
         self.eg_count += 1
 
-        if self.representation['name'] == 'full' and self.checkgraderror:
+        if self.representation == 'full' and self.checkgraderror:
             norm = 0.0
             for kpt in wfs.kpt_u:
                 u = kpt.s * self.n_kps + kpt.q
@@ -512,10 +475,9 @@ class DirectMinLCAO(DirectLCAO):
         :return:
         """
 
-        if self.representation['name'] in ['sparse', 'u_invar']:
-            p_mat_u = self.search_direction.update_data(wfs, a_mat_u,
-                                                        g_mat_u,
-                                                        precond)
+        if self.representation in ['sparse', 'u-invar']:
+            p_mat_u = self.searchdir_algo.update_data(wfs, a_mat_u, g_mat_u,
+                                                      precond)
         else:
             g_vec = {}
             a_vec = {}
@@ -525,8 +487,7 @@ class DirectMinLCAO(DirectLCAO):
                 a_vec[k] = a_mat_u[k][il1]
                 g_vec[k] = g_mat_u[k][il1]
 
-            p_vec = self.search_direction.update_data(wfs, a_vec,
-                                                      g_vec, precond)
+            p_vec = self.searchdir_algo.update_data(wfs, a_vec, g_vec, precond)
             p_mat_u = {}
             for k in p_vec:
                 p_mat_u[k] = np.zeros_like(a_mat_u[k])
@@ -555,7 +516,7 @@ class DirectMinLCAO(DirectLCAO):
                                               c_ref)
 
         der_phi = 0.0
-        if self.representation['name'] in ['sparse', 'u_invar']:
+        if self.representation in ['sparse', 'u-invar']:
             for k in p_mat_u:
                 der_phi += g_mat_u[k].conj() @ p_mat_u[k]
         else:
@@ -578,7 +539,7 @@ class DirectMinLCAO(DirectLCAO):
         :return:
         """
 
-        if self.representation['name'] == 'full':
+        if self.representation == 'full':
             badgrad = self._normcomm > self._normg / 3. and self.checkgraderror
         else:
             badgrad = False
@@ -596,17 +557,11 @@ class DirectMinLCAO(DirectLCAO):
 
             # choose search direction and line search algorithm
             # as you need to restart it
-            if isinstance(self.sda, (str, dict)):
-                self.search_direction = search_direction(self.sda, wfs)
-            else:
-                raise Exception('Check Search Direction Parameters')
-
-            if isinstance(self.lsa, (str, dict)):
-                self.line_search = \
-                    line_search_algorithm(self.lsa,
-                                          self.evaluate_phi_and_der_phi)
-            else:
-                raise Exception('Check Search Direction Parameters')
+            self.searchdir_algo = search_direction(self.searchdir_algo.name)
+            self.line_search = \
+                line_search_algorithm(self.line_search.name,
+                                      self.evaluate_phi_and_der_phi,
+                                      self.searchdir_algo)
 
     def update_preconditioning(self, wfs, use_prec):
         """
@@ -619,7 +574,7 @@ class DirectMinLCAO(DirectLCAO):
 
         counter = self.update_precond_counter
         if use_prec:
-            if self.sda['name'] != 'LBFGS_P':
+            if self.searchdir_algo.name != 'LBFGS_P':
                 if self.iters % counter == 0 or self.iters == 1:
                     for kpt in wfs.kpt_u:
                         k = self.n_kps * kpt.s + kpt.q
@@ -654,7 +609,7 @@ class DirectMinLCAO(DirectLCAO):
                     if self.iters % counter == 0 or self.iters == 1:
                         self.hess[k] = self.get_hessian(kpt)
                     hess = self.hess[k]
-                    beta0 = self.search_direction.beta_0
+                    beta0 = self.searchdir_algo.beta_0
                     if self.dtype is float:
                         precond[k] = \
                             1. / (0.75 * hess +
@@ -681,7 +636,7 @@ class DirectMinLCAO(DirectLCAO):
 
         f_n = kpt.f_n
         eps_n = kpt.eps_n
-        if self.representation['name'] in ['sparse', 'u_invar']:
+        if self.representation in ['sparse', 'u-invar']:
             u = self.n_kps * kpt.s + kpt.q
             il1 = list(self.ind_up[u])
         else:
@@ -797,8 +752,7 @@ class DirectMinLCAO(DirectLCAO):
                 orbital_energies = h_mm.diagonal().real.copy()
             # label each orbital energy
             # add some noise to get rid off degeneracy
-            orbital_energies += \
-                np.random.rand(len(orbital_energies)) * 1.0e-8
+            orbital_energies += np.random.rand(len(orbital_energies)) * 1.0e-8
             oe_labeled = {}
             for i, lamb in enumerate(orbital_energies):
                 oe_labeled[str(round(lamb, 12))] = i
@@ -857,16 +811,17 @@ class DirectMinLCAO(DirectLCAO):
         return changedocc
 
     def todict(self):
+
         return {'name': self.name,
-                'searchdir_algo': self.sda,
-                'linesearch_algo': self.lsa,
+                'searchdir_algo': self.searchdir_algo.todict(),
+                'linesearch_algo': self.line_search.todict(),
                 'localizationtype': self.localizationtype,
                 'update_ref_orbs_counter': self.update_ref_orbs_counter,
                 'update_precond_counter': self.update_precond_counter,
                 'use_prec': self.use_prec,
                 'matrix_exp': self.matrix_exp,
                 'representation': self.representation,
-                'functional': self.functional,
+                'functional': self.func.todict(),
                 'orthonormalization': self.orthonormalization
                 }
 
@@ -891,7 +846,7 @@ class DirectMinLCAO(DirectLCAO):
         :return:
         """
 
-        assert self.representation['name'] in ['sparse', 'u_invar']
+        assert self.representation in ['sparse', 'u-invar']
         a_m = {}
         g_n = {}
         n_dim = self.n_dim
@@ -1070,9 +1025,9 @@ class DirectMinLCAO(DirectLCAO):
                 continue
 
             if self.gd.comm.rank == 0:
-                if self.representation['name'] in ['sparse', 'u_invar']:
-                    if self.matrix_exp == 'egdecomp2' and \
-                            self.representation['name'] == 'u_invar':
+                if self.representation in ['sparse', 'u-invar']:
+                    if self.matrix_exp == 'egdecomp-u-invar' and \
+                            self.representation == 'u-invar':
                         n_occ = get_n_occ(kpt)
                         n_v = self.nbands - n_occ
                         a = a_mat_u[k].reshape(n_occ, n_v)
@@ -1084,7 +1039,7 @@ class DirectMinLCAO(DirectLCAO):
                 else:
                     a = a_mat_u[k]
 
-                if self.matrix_exp == 'pade_approx':
+                if self.matrix_exp == 'pade-approx':
                     # this function takes a lot of memory
                     # for large matrices... what can we do?
                     wfs.timer.start('Pade Approximants')
@@ -1096,8 +1051,8 @@ class DirectMinLCAO(DirectLCAO):
                     u_nn, evecs, evals = \
                         expm_ed(a, evalevec=True)
                     wfs.timer.stop('Eigendecomposition')
-                elif self.matrix_exp == 'egdecomp2':
-                    assert self.representation['name'] == 'u_invar'
+                elif self.matrix_exp == 'egdecomp-u-invar':
+                    assert self.representation == 'u-invar'
                     wfs.timer.start('Eigendecomposition')
                     u_nn = expm_ed_unit_inv(a, oo_vo_blockonly=False)
                     wfs.timer.stop('Eigendecomposition')
@@ -1106,7 +1061,7 @@ class DirectMinLCAO(DirectLCAO):
                     raise ValueError('Check the keyword '
                                      'for matrix_exp. \n'
                                      'Must be '
-                                     '\'pade_approx\' or '
+                                     '\'pade-approx\' or '
                                      '\'egdecomp\'')
 
                 dimens1 = u_nn.shape[0]
@@ -1150,7 +1105,7 @@ class DirectMinLCAO(DirectLCAO):
 
         # if it is the first use of the scf then initialize
         # coefficient matrix using eigensolver
-        orthname = self.orthonormalization['name']
+        orthname = self.orthonormalization
         need_canon_coef = \
             (not wfs.coefficients_read_from_file and self.need_init_orbs)
         if need_canon_coef or orthname == 'diag':

@@ -39,9 +39,9 @@ def test_gradient_numerically_lcao(in_tmp_dir):
               'matrix_exp': 'egdecomp'},
               {'name': 'direct-min-lcao',
                'representation': 'sparse',
-               'matrix_exp': 'pade_approx'},
+               'matrix_exp': 'pade-approx'},
               {'name': 'direct-min-lcao',
-               'representation': 'u_invar',
+               'representation': 'u-invar',
                'matrix_exp': 'egdecomp'}]
 
     for eigsolver in params:

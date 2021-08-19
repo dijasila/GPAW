@@ -161,8 +161,8 @@ following ``eigensolver`` has to be specified::
 
   from gpaw.directmin.lcao.directmin_lcao import DirectMinLCAO
 
-  calc.set(eigensolver=DirectMinLCAO(searchdir_algo={'name': 'LSR1P'},
-                                     linesearch_algo={'name': 'UnitStep',
+  calc.set(eigensolver=DirectMinLCAO(searchdir_algo={'name': 'l-sr1p'},
+                                     linesearch_algo={'name': 'max-step',
                                                       'max_step': 0.20})
 
 The maximum step length avoids taking too large steps at the

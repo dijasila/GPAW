@@ -16,14 +16,17 @@ class SteepestDescent(object):
     Steepest descent algorithm
     """
 
-    def __init__(self, wfs):
-        """
-        """
-        self.n_kps = wfs.kd.nibzkpts
+    def __init__(self):
+
         self.iters = 0
+        self.name = 'sd'
+        self.type = 'steepest-descent'
 
     def __str__(self):
         return 'Steepest Descent algorithm'
+
+    def todict(self):
+        return {'name': self.name}
 
     def update_data(self, wfs, x_k1, g_k1, precond=None):
 
@@ -53,19 +56,20 @@ class SteepestDescent(object):
 
     def calc_diff(self, x1, x2, wfs, const_0=1.0, const=1.0):
         y_k = {}
+        n_kps = wfs.kd.nibzkpts
         for kpt in wfs.kpt_u:
-            y_k[self.n_kps * kpt.s + kpt.q] = \
-                const_0 * x1[self.n_kps * kpt.s + kpt.q] - \
-                const * x2[self.n_kps * kpt.s + kpt.q]
+            y_k[n_kps * kpt.s + kpt.q] = \
+                const_0 * x1[n_kps * kpt.s + kpt.q] - \
+                const * x2[n_kps * kpt.s + kpt.q]
 
         return y_k
 
     def dot_all_k_and_b(self, x1, x2, wfs):
 
         dot_pr_x1x2 = 0.0
-
+        n_kps = wfs.kd.nibzkpts
         for kpt in wfs.kpt_u:
-            k = self.n_kps * kpt.s + kpt.q
+            k = n_kps * kpt.s + kpt.q
             dot_pr_x1x2 += x1[k].conj() @ x2[k]
         dot_pr_x1x2 = dot_pr_x1x2.real
         dot_pr_x1x2 = wfs.kd.comm.sum(dot_pr_x1x2)
@@ -100,11 +104,16 @@ class FRcg(SteepestDescent):
     Optimization' Second Edition, 2006 (p. 121)
     """
 
-    def __init__(self, wfs):
-        super(FRcg, self).__init__(wfs)
+    def __init__(self):
+        super(FRcg, self).__init__()
+        self.name = 'fr-cg'
+        self.type = 'conjugate-gradients'
 
     def __str__(self):
         return 'Fletcher-Reeves conjugate gradient method'
+
+    def todict(self):
+        return {'name': self.name}
 
     def update_data(self, wfs, x_k1, g_k1, precond=None):
 
@@ -131,79 +140,25 @@ class FRcg(SteepestDescent):
             self.iters += 1
 
             return self.p_k
-#
-#
-# class HZcg(SteepestDescent):
-#
-#     """
-#     conjugate gradient method from paper of
-#     William W. Hager and Hongchao Zhang
-#     SIAM J. optim., 16(1), 170-192. (23 pages)
-#     """
-#
-#     def __init__(self, wfs):
-#
-#         super(HZcg, self).__init__(wfs)
-#         self.eta = 0.01
-#
-#     def __str__(self):
-#
-#         return 'Hager-Zhang conjugate gradient method'
-#
-#     def update_data(self, wfs, x_k1, g_k1, precond=None):
-#
-#         if precond is not None:
-#             g_k1 = self.apply_prec(precond, g_k1, 1.0)
-#
-#         if self.iters == 0:
-#             self.p_k = self.minus(g_k1)
-#             # save the step
-#             self.g_k = g_k1
-#             self.iters += 1
-#
-#             return self.p_k
-#         else:
-#             y_k = self.calc_diff(g_k1, self.g_k, wfs)
-#             try:
-#                 dot_yp = self.dot_all_k_and_b(y_k, self.p_k, wfs)
-#                 rho = 1.0 / dot_yp
-#             except ZeroDivisionError:
-#                 rho = 1.0e10
-#
-#             norm2 = self.dot_all_k_and_b(y_k, y_k, wfs)
-#
-#             y1 = self.calc_diff(y_k, self.p_k, wfs,
-#                                 const=2.0 * rho * norm2)
-#
-#             beta_k = rho * self.dot_all_k_and_b(y1, g_k1, wfs)
-#
-#             try:
-#                 norm_p = np.sqrt(self.dot_all_k_and_b(self.p_k,
-#                                                       self.p_k, wfs))
-#                 norm_g = np.sqrt(self.dot_all_k_and_b(self.g_k,
-#                                                       self.g_k, wfs))
-#                 eta_k = - 1.0 / (norm_p * min(self.eta, norm_g))
-#             except ZeroDivisionError:
-#                 eta_k = 1.0e10
-#             beta_k = max(beta_k, eta_k)
-#             self.p_k = self.calc_diff(self.p_k, g_k1, wfs, beta_k)
-#             # save this step
-#             self.g_k = g_k1
-#             self.iters += 1
-#
-#             return self.p_k
 
 
 class QuickMin(SteepestDescent):
 
-    def __init__(self, wfs):
-        super(QuickMin, self).__init__(wfs)
-        self.dt = 0.01
-        self.m = 0.01
+    def __init__(self, dt=0.01, mass=0.01):
+        super(QuickMin, self).__init__()
+        self.dt = dt
+        self.mass = mass
+        self.name = 'quick-min'
+        self.type = 'equation-of-motion'
 
     def __str__(self):
 
         return 'QuickMin'
+
+    def todict(self):
+        return {'name': self.name,
+                'dt': self.dt,
+                'mass': self.mass}
 
     def update_data(self, wfs, x_k1, g_k1, precond=None):
 
@@ -211,7 +166,7 @@ class QuickMin(SteepestDescent):
             g_k1 = self.apply_prec(precond, g_k1, 1.0)
 
         dt = self.dt
-        m = self.m
+        m = self.mass
 
         if self.iters == 0:
             self.v = self.multiply(g_k1, -dt / m)
@@ -232,11 +187,11 @@ class QuickMin(SteepestDescent):
 
 class LBFGS(SteepestDescent):
 
-    def __init__(self, wfs, memory=3):
+    def __init__(self, memory=3):
         """
         :param m: memory (amount of previous steps to use)
         """
-        super(LBFGS, self).__init__(wfs)
+        super(LBFGS, self).__init__()
 
         self.s_k = {i: None for i in range(memory)}
         self.y_k = {i: None for i in range(memory)}
@@ -248,12 +203,17 @@ class LBFGS(SteepestDescent):
         self.k = 0
 
         self.m = memory
-
         self.stable = True
+        self.name = 'l-bfgs'
+        self.type = 'quasi-newton'
 
     def __str__(self):
 
-        return 'LBFGS'
+        return 'L-BFGS'
+
+    def todict(self):
+        return {'name': self.name,
+                'memory': self.m}
 
     def update_data(self, wfs, x_k1, g_k1, precond=None):
 
@@ -309,20 +269,9 @@ class LBFGS(SteepestDescent):
             else:
                 rho_k[kp[k]] = 1.0e15
 
-            # try:
-            #     dot_ys = self.dot_all_k_and_b(y_k[kp[k]],
-            #                                   s_k[kp[k]],
-            #                                   wfs)
-            #     rho_k[kp[k]] = 1.0 / dot_ys
-            # except ZeroDivisionError:
-            #     rho_k[kp[k]] = 1.0e12
-
             if dot_ys < 0.0:
-                # raise Exception('y_k^Ts_k is not positive!')
-                # print("y_k^Ts_k is not positive!")
                 self.stable = False
 
-            # q = np.copy(g_k1)
             q = copy.deepcopy(g_k1)
 
             alpha = np.zeros(np.minimum(k + 1, m))
@@ -337,8 +286,6 @@ class LBFGS(SteepestDescent):
                 q = self.calc_diff(q, y_k[kp[i]],
                                    wfs, const=alpha[kp[i]])
 
-                # q -= alpha[kp[i]] * y_k[kp[i]]
-
             t = k
             dot_yy = self.dot_all_k_and_b(y_k[kp[t]],
                                           y_k[kp[t]], wfs)
@@ -346,19 +293,6 @@ class LBFGS(SteepestDescent):
                 r = self.multiply(q, 1.0 / (rho_k[kp[t]] * dot_yy))
             else:
                 r = self.multiply(q, 1.0e15)
-            # try:
-            #     # t = np.maximum(1, k - m + 1)
-            #
-            #     t = k
-            #
-            #     dot_yy = self.dot_all_k_and_b(y_k[kp[t]],
-            #                                   y_k[kp[t]], wfs)
-            #
-            #     r = self.multiply(q, 1.0 / (rho_k[kp[t]] * dot_yy))
-            #
-            # except ZeroDivisionError:
-            #     # r = 1.0e12 * q
-            #     r = self.multiply(q, 1.0e12)
 
             for i in range(np.maximum(0, k - m + 1), k + 1):
                 dot_yr = self.dot_all_k_and_b(y_k[kp[i]], r, wfs)
@@ -367,8 +301,6 @@ class LBFGS(SteepestDescent):
 
                 r = self.calc_diff(r, s_k[kp[i]], wfs,
                                    const=(beta - alpha[kp[i]]))
-
-                # r += s_k[kp[i]] * (alpha[kp[i]] - beta)
 
             # save this step:
             self.x_k = copy.deepcopy(x_k1)
@@ -383,12 +315,11 @@ class LBFGS(SteepestDescent):
 
 class LBFGS_P(SteepestDescent):
 
-    def __init__(self, wfs, memory=3):
+    def __init__(self, memory=3, beta_0=1.0):
         """
         :param m: memory (amount of previous steps to use)
         """
-        super(LBFGS_P, self).__init__(wfs)
-        # self.n_kps = wfs.kd.nibzkpts
+        super(LBFGS_P, self).__init__()
         self.s_k = {i: None for i in range(memory)}
         self.y_k = {i: None for i in range(memory)}
         self.rho_k = np.zeros(shape=memory)
@@ -397,11 +328,19 @@ class LBFGS_P(SteepestDescent):
         self.k = 0
         self.m = memory
         self.stable = True
-        self.beta_0 = 1.0
+        self.beta_0 = beta_0
+        self.name = 'l-bfgs-p'
+        self.type = 'quasi-newton'
 
     def __str__(self):
 
-        return 'LBFGS_P'
+        return 'L-BFGS-P'
+
+    def todict(self):
+
+        return {'name': self.name,
+                'memory': self.m,
+                'beta_0': self.beta_0}
 
     def update_data(self, wfs, x_k1, g_k1, hess_1=None):
 
@@ -422,7 +361,6 @@ class LBFGS_P(SteepestDescent):
             return p
 
         else:
-
             if self.p == self.m:
                 self.p = 0
                 self.kp[self.k] = self.p
@@ -431,11 +369,7 @@ class LBFGS_P(SteepestDescent):
             x_k = self.x_k
             y_k = self.y_k
             g_k = self.g_k
-
-            # x_k1 = copy.deepcopy(x_k1)
-
             rho_k = self.rho_k
-
             kp = self.kp
             k = self.k
             m = self.m
@@ -451,44 +385,24 @@ class LBFGS_P(SteepestDescent):
             else:
                 rho_k[kp[k]] = 1.0e20
 
-            # try:
-            #     dot_ys = self.dot_all_k_and_b(y_k[kp[k]],
-            #                                   s_k[kp[k]],
-            #                                   wfs)
-            #     rho_k[kp[k]] = 1.0 / dot_ys
-            # except ZeroDivisionError:
-            #     rho_k[kp[k]] = 1.0e12
-
             if rho_k[kp[k]] < 0.0:
-                # raise Exception('y_k^Ts_k is not positive!')
-                # parprint("y_k^Ts_k is not positive!")
                 self.stable = False
-                self.__init__(wfs, memory=self.m)
+                self.__init__(memory=self.m)
                 return self.update_data(wfs, x_k1, g_k1, hess_1)
 
-            # q = np.copy(g_k1)
             q = copy.deepcopy(g_k1)
 
             alpha = np.zeros(np.minimum(k + 1, m))
             j = np.maximum(-1, k - m)
 
             for i in range(k, j, -1):
-                dot_sq = self.dot_all_k_and_b(s_k[kp[i]],
-                                              q, wfs)
-
+                dot_sq = self.dot_all_k_and_b(s_k[kp[i]], q, wfs)
                 alpha[kp[i]] = rho_k[kp[i]] * dot_sq
-
-                q = self.calc_diff(q, y_k[kp[i]],
-                                   wfs, const=alpha[kp[i]])
-
-                # q -= alpha[kp[i]] * y_k[kp[i]]
+                q = self.calc_diff(q, y_k[kp[i]], wfs, const=alpha[kp[i]])
 
             t = k
-            dot_yy = self.dot_all_k_and_b(y_k[kp[t]],
-                                          y_k[kp[t]], wfs)
-
+            dot_yy = self.dot_all_k_and_b(y_k[kp[t]], y_k[kp[t]], wfs)
             rhoyy = rho_k[kp[t]] * dot_yy
-
             if abs(rhoyy) > 1.0e-20:
                 self.beta_0 = 1.0 / rhoyy
             else:
@@ -501,13 +415,9 @@ class LBFGS_P(SteepestDescent):
 
             for i in range(np.maximum(0, k - m + 1), k + 1):
                 dot_yr = self.dot_all_k_and_b(y_k[kp[i]], r, wfs)
-
                 beta = rho_k[kp[i]] * dot_yr
-
                 r = self.calc_diff(r, s_k[kp[i]], wfs,
                                    const=(beta - alpha[kp[i]]))
-
-                # r += s_k[kp[i]] * (alpha[kp[i]] - beta)
 
             # save this step:
             self.x_k = copy.deepcopy(x_k1)
@@ -522,12 +432,16 @@ class LBFGS_P(SteepestDescent):
 
 
 class LSR1P(SteepestDescent):
+    """
+    This class describes limited memory versions of
+    SR-1, Powell and their combintaions (such as Bofill).
+    """
 
-    def __init__(self, wfs, memory=20, method='LSR1', phi=None):
+    def __init__(self, memory=20, method='LSR1', phi=None):
         """
         :param m: memory (amount of previous steps to use)
         """
-        super(LSR1P, self).__init__(wfs)
+        super(LSR1P, self).__init__()
 
         self.u_k = {i: None for i in range(memory)}
         self.j_k = {i: None for i in range(memory)}
@@ -550,10 +464,18 @@ class LSR1P(SteepestDescent):
         self.k = 0
 
         self.m = memory
+        self.name = 'l-sr1p'
+        self.type = 'quasi-newton'
 
     def __str__(self):
 
         return 'LSR1P'
+
+    def todict(self):
+
+        return {'name': self.name,
+                'memory': self.m,
+                'method': self.method}
 
     def update_data(self, wfs, x_k1, g_k1, precond=None):
 

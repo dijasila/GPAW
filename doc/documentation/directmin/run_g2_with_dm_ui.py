@@ -21,8 +21,8 @@ for name in g2.names:
                 basis='dzp',
                 mode=mode,
                 txt=name + '.txt',
-                eigensolver=DirectMinLCAO(matrix_exp='egdecomp2',
-                                          representation='u_invar'
+                eigensolver=DirectMinLCAO(matrix_exp='egdecomp-u-invar',
+                                          representation='u-invar'
                                           ),
                 mixer={'backend': 'no-mixing'},
                 nbands='nao',
