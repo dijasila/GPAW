@@ -27,7 +27,7 @@ def test_mom_lcao_forces(in_tmp_dir):
                 spinpol=True,
                 symmetry='off',
                 convergence={'energy': 100,
-                             'density': 1e-3})
+                             'density': 1e-4})
 
     atoms.calc = calc
     prepare_mom_calculation(calc, atoms, f_sn)
@@ -55,5 +55,5 @@ def test_mom_lcao_forces(in_tmp_dir):
     fnum = (E[0] - E[1]) / (2. * delta)  # central difference
 
     print(fnum)
-    assert fnum == pytest.approx(11.5048143494, abs=0.015)
+    assert fnum == pytest.approx(11.52, abs=0.015)
     assert f == pytest.approx(fnum, abs=0.1)
