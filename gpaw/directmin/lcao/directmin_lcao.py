@@ -129,6 +129,7 @@ class DirectMinLCAO(DirectLCAO):
         self.iters = 0
         self.hess = {}  # hessian for l-bfgs-p
         self.precond = {}  # precondiner for other methods
+
         # for mom
         self.initial_occupation_numbers = None
 
@@ -170,35 +171,46 @@ class DirectMinLCAO(DirectLCAO):
 
         return repr_string
 
-    def init_me(self, wfs, ham, dens, log):
+    def init_me(self, wfs, ham, dens):
+
+        self.dtype = wfs.dtype
+        self.nkpts = wfs.kd.nibzkpts
+        for kpt in wfs.kpt_u:
+            u = kpt.s * self.nkpts + kpt.q
+            # dimensionality of the problem.
+            # this implementation rotates among all bands
+            self.n_dim[u] = wfs.bd.nbands
+
         # need to initialize c_nm, eps, f_n and so on.
+        # for this we call super class which make one diagonalization step
+        # or if we load wfs from a file or from previous step then
+        # just do orthonormalization procedure
         self.initialize_orbitals(wfs, ham)
+
+        # mom
         wfs.calculate_occupation_numbers(dens.fixed)
         occ_name = getattr(wfs.occupations, "name", None)
         if occ_name == 'mom':
             self.initial_occupation_numbers = wfs.occupations.numbers.copy()
             self.initialize_mom(wfs, dens)
-        self.localize_wfs(wfs, dens, ham, log)
-        if occ_name == 'mom':
-            self.initialize_mom(wfs, dens)
+
+        # randomize orbitals?
         if self.randomizeorbitals:
             for kpt in wfs.kpt_u:
                 self.randomize_orbitals_kpt(wfs, kpt)
             self.randomizeorbitals = False
-        self.update_ks_energy(ham, wfs, dens)
-        self.initialize_2(wfs)
+
+        # initialize matrices
+        self.set_variable_matrices(wfs)
+
+        # if no empty state no need to optimize
+        for k in self.ind_up:
+            if not self.ind_up[k][0].size or not self.ind_up[k][1].size:
+                self.n_dim[k] = 0
+
         self.initialized = True
 
-    def initialize_2(self, wfs):
-
-        self.dtype = wfs.dtype
-        self.nkpts = wfs.kd.nibzkpts
-
-        # dimensionality of the problem.
-        # this implementation rotates among all bands
-        for kpt in wfs.kpt_u:
-            u = kpt.s * self.nkpts + kpt.q
-            self.n_dim[u] = wfs.bd.nbands
+    def set_variable_matrices(self, wfs):
 
         if self.representation in ['sparse', 'u-invar']:
             # Matrices are sparse and Skew-Hermitian.
@@ -234,29 +246,22 @@ class DirectMinLCAO(DirectLCAO):
             # 'u-invar' corresponds to the case when we want to
             # store only A_2, that is this representaion is sparser
 
-            M = wfs.bd.nbands  # M - one dimension of the A_BigMatrix
-            if self.representation == 'sparse':
-                # let's take all upper triangular indices
-                # of A_BigMatrix and then delete indices from ind_up
-                # which correspond to 0 matrix in in A_BigMatrix.
-                ind_up = np.triu_indices(M, 1)
-                for kpt in wfs.kpt_u:
-                    n_occ = get_n_occ(kpt)
-                    u = self.nkpts * kpt.s + kpt.q
-                    zero_ind = ((M - n_occ) * (M - n_occ - 1)) // 2
-                    if len(ind_up[0]) == 1:
-                        zero_ind = -1
+            for kpt in wfs.kpt_u:
+                n_occ = get_n_occ(kpt)
+                u = self.nkpts * kpt.s + kpt.q
+                # M - one dimension of the A_BigMatrix
+                M = self.n_dim[u]
+                if self.representation == 'sparse':
+                    # let's take all upper triangular indices
+                    # of A_BigMatrix and then delete indices from ind_up
+                    # which correspond to 0 matrix in in A_BigMatrix.
+                    ind_up = np.triu_indices(self.n_dim[u], 1)
+                    zero_ind = -((M - n_occ) * (M - n_occ - 1)) // 2
                     if zero_ind == 0:
-                        self.ind_up[u] = (ind_up[0][:].copy(),
-                                          ind_up[1][:].copy())
-                    else:
-                        self.ind_up[u] = (ind_up[0][:-zero_ind].copy(),
-                                          ind_up[1][:-zero_ind].copy())
-            else:
-                # take indices of A_2 only
-                for kpt in wfs.kpt_u:
-                    n_occ = get_n_occ(kpt)
-                    u = self.nkpts * kpt.s + kpt.q
+                        zero_ind = None
+                    self.ind_up[u] = (ind_up[0][:zero_ind].copy(),
+                                      ind_up[1][:zero_ind].copy())
+                else:
                     i1, i2 = [], []
                     for i in range(n_occ):
                         for j in range(n_occ, M):
@@ -271,18 +276,12 @@ class DirectMinLCAO(DirectLCAO):
             else:
                 self.ind_up[u] = None
                 shape_of_arr = (self.n_dim[u], self.n_dim[u])
-            self.a_mat_u[u] = np.zeros(shape=shape_of_arr,
-                                       dtype=self.dtype)
-            self.g_mat_u[u] = np.zeros(shape=shape_of_arr,
-                                       dtype=self.dtype)
+            self.a_mat_u[u] = np.zeros(shape=shape_of_arr, dtype=self.dtype)
+            self.g_mat_u[u] = np.zeros(shape=shape_of_arr, dtype=self.dtype)
             # use initial KS orbitals, but can be others
             self.c_nm_ref[u] = np.copy(kpt.C_nM[:self.n_dim[u]])
             self.evecs[u] = None
             self.evals[u] = None
-
-        for k in self.ind_up:
-            if not self.ind_up[k][0].size or not self.ind_up[k][1].size:
-                self.n_dim[k] = 0
 
         self.iters = 1
 
@@ -1084,18 +1083,6 @@ class DirectMinLCAO(DirectLCAO):
             wfs.orthonormalize(type=orthname)
         wfs.coefficients_read_from_file = False
         self.need_init_orbs = False
-
-    def localize_wfs(self, wfs, dens, ham, log):
-        """
-        initial orbitals can be localised using Pipek-Mezey,
-        Foster-Boys or Edmiston-Ruedenberg functions.
-        """
-        pass
-
-        # if not self.need_localization:
-        #     return
-        # localize_orbitals(wfs, dens, ham, log, self.localizationtype)
-        # self.need_localization = False
 
     def check_assertions(self, wfs, dens):
 
