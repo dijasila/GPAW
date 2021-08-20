@@ -93,9 +93,6 @@ class DirectMinLCAO(DirectLCAO):
         self.localizationtype = localizationtype
         self.need_localization = need_localization
         self.need_init_orbs = need_init_orbs
-        self.a_mat_u = None  # skew-hermitian matrix to be exponented
-        self.g_mat_u = None  # gradient matrix
-        self.c_nm_ref = None  # reference orbitals to be rotated
         self.randomizeorbitals = randomizeorbitals
         self.representation = representation
         self.orthonormalization = orthonormalization
@@ -111,6 +108,29 @@ class DirectMinLCAO(DirectLCAO):
 
         self.checkgraderror = checkgraderror
         self._normcomm, self._normg = 0., 0.
+        self._error = 0
+
+        # these are things we cannot initialize now
+        self.dtype = None
+        self.nkpts = None
+        # dimensionality of the problem.
+        # this implementation rotates among all bands
+        # values: matrices, keys: kpt number (and spins)
+        self.a_mat_u = {}  # skew-hermitian matrix to be exponented
+        self.g_mat_u = {}  # gradient matrix
+        self.c_nm_ref = {}  # reference orbitals to be rotated
+        self.evecs = {}   # eigenvectors for i*a_mat_u
+        self.evals = {}   # eigenvalues for i*a_mat_u
+        self.ind_up = {}
+        self.n_dim = {}
+        self.alpha = 1.0  # step length
+        self.phi_2i = [None, None]  # energy at last two iterations
+        self.der_phi_2i = [None, None]  # energy gradient w.r.t. alpha
+        self.iters = 0
+        self.hess = {}  # hessian for l-bfgs-p
+        self.precond = {}  # precondiner for other methods
+        # for mom
+        self.initial_occupation_numbers = None
 
         self.initialized = False
 
@@ -121,7 +141,6 @@ class DirectMinLCAO(DirectLCAO):
 
         sds = {'sd': 'Steepest Descent',
                'fr-cg': 'Fletcher-Reeves conj. grad. method',
-               # 'HZcg': 'Hager-Zhang conj. grad. method',
                'quick-min': 'Molecular-dynamics based algorithm',
                'l-bfgs': 'L-BFGS algorithm',
                'l-bfgs-p': 'L-BFGS algorithm with preconditioning',
@@ -163,28 +182,19 @@ class DirectMinLCAO(DirectLCAO):
         if occ_name == 'mom':
             self.initialize_mom(wfs, dens)
         self.update_ks_energy(ham, wfs, dens)
-        self.initialize_2(wfs, dens, ham)
+        self.initialize_2(wfs)
+        self.initialized = True
 
-    def initialize_2(self, wfs, dens, ham):
+    def initialize_2(self, wfs):
 
         self.dtype = wfs.dtype
         self.nkpts = wfs.kd.nibzkpts
 
         # dimensionality of the problem.
         # this implementation rotates among all bands
-        self.n_dim = {}
         for kpt in wfs.kpt_u:
             u = kpt.s * self.nkpts + kpt.q
             self.n_dim[u] = wfs.bd.nbands
-
-        # values: matrices, keys: kpt number (and spins)
-        self.a_mat_u = {}  # skew-hermitian matrix to be exponented
-        self.g_mat_u = {}  # gradient matrix
-        self.c_nm_ref = {}  # reference orbitals to be rotated
-
-        self.evecs = {}   # eigenvectors for i*a_mat_u
-        self.evals = {}   # eigenvalues for i*a_mat_u
-        self.ind_up = {}
 
         if self.representation in ['sparse', 'u-invar']:
             # Matrices are sparse and Skew-Hermitian.
@@ -282,19 +292,7 @@ class DirectMinLCAO(DirectLCAO):
                 self.n_dim[k] = 0
 
         self.randomizeorbitals = False
-        self.alpha = 1.0  # step length
-        self.phi_2i = [None, None]  # energy at last two iterations
-        self.der_phi_2i = [None, None]  # energy gradient w.r.t. alpha
-        self.precond = None
-
         self.iters = 1
-        self.nvalence = wfs.nvalence
-        self.nbands = wfs.bd.nbands
-        self.kd_comm = wfs.kd.comm
-        self.hess = {}  # hessian for LBFGS-P
-        self.precond = {}  # precondiner for other methods
-
-        self.initialized = True
 
     def iterate(self, ham, wfs, dens, log):
         """
@@ -417,8 +415,8 @@ class DirectMinLCAO(DirectLCAO):
                 self.representation, self.ind_up[k])
 
             self._error += error
-        self._error = self.kd_comm.sum(self._error)
-        self.e_sic = self.kd_comm.sum(self.e_sic)
+        self._error = wfs.kd.comm.sum(self._error)
+        self.e_sic = wfs.kd.comm.sum(self.e_sic)
         wfs.timer.stop('Calculate gradients')
 
         self.eg_count += 1
@@ -466,13 +464,7 @@ class DirectMinLCAO(DirectLCAO):
     def get_search_direction(self, a_mat_u, g_mat_u, precond, wfs):
         """
         calculate search direction according to chosen
-        optimization algorithm (LBFGS for example)
-
-        :param a_mat_u:
-        :param g_mat_u:
-        :param precond:
-        :param wfs:
-        :return:
+        optimization algorithm (L-BFGS for example)
         """
 
         if self.representation in ['sparse', 'u-invar']:
@@ -566,15 +558,11 @@ class DirectMinLCAO(DirectLCAO):
     def update_preconditioning(self, wfs, use_prec):
         """
         update preconditioning
-
-        :param wfs:
-        :param use_prec:
-        :return:
         """
 
         counter = self.update_precond_counter
         if use_prec:
-            if self.searchdir_algo.name != 'LBFGS_P':
+            if self.searchdir_algo.name != 'l-bfgs-p':
                 if self.iters % counter == 0 or self.iters == 1:
                     for kpt in wfs.kpt_u:
                         k = self.nkpts * kpt.s + kpt.q
@@ -659,9 +647,6 @@ class DirectMinLCAO(DirectLCAO):
 
         return hess
 
-    def calculate_residual(self, kpt, H_MM, S_MM, wfs):
-        return np.inf
-
     def get_canonical_representation(self, ham, wfs, dens,
                                      sort_eigenvalues=False):
         """
@@ -736,7 +721,6 @@ class DirectMinLCAO(DirectLCAO):
         """
         Sort wavefunctions according to the eigenvalues or
         the diagonal elements of the Hamiltonian matrix.
-        :return:
         """
         wfs.timer.start('Sort WFS')
         for kpt in wfs.kpt_u:
@@ -841,8 +825,8 @@ class DirectMinLCAO(DirectLCAO):
         :param c_nm_ref:
         :param eps:
         :param random_amat:
-        :update_c_nm_ref:
-        :seed: seed for random generator
+        :param update_c_nm_ref:
+        :param seed: seed for random generator
         :return:
         """
 
@@ -1029,7 +1013,7 @@ class DirectMinLCAO(DirectLCAO):
                     if self.matrix_exp == 'egdecomp-u-invar' and \
                             self.representation == 'u-invar':
                         n_occ = get_n_occ(kpt)
-                        n_v = self.nbands - n_occ
+                        n_v = wfs.bd.nbands - n_occ
                         a = a_mat_u[k].reshape(n_occ, n_v)
                     else:
                         a = np.zeros(shape=(n_dim[k], n_dim[k]),
@@ -1095,12 +1079,6 @@ class DirectMinLCAO(DirectLCAO):
         if it is the first use of the scf then initialize
         coefficient matrix using eigensolver
         and then localise orbitals
-
-        :param wfs:
-        :param ham:
-        :param dens:
-        :param log:
-        :return:
         """
 
         # if it is the first use of the scf then initialize
@@ -1119,12 +1097,6 @@ class DirectMinLCAO(DirectLCAO):
         """
         initial orbitals can be localised using Pipek-Mezey,
         Foster-Boys or Edmiston-Ruedenberg functions.
-
-        :param wfs:
-        :param dens:
-        :param ham:
-        :param log:
-        :return:
         """
         pass
 
@@ -1193,9 +1165,6 @@ def get_indices(dimens, dtype):
 def get_n_occ(kpt):
     """
     get number of occupied orbitals
-
-    :param kpt:
-    :return:
     """
     nbands = len(kpt.f_n)
     n_occ = 0
@@ -1218,10 +1187,6 @@ def find_equally_occupied_subspace(f_n, index=0):
 def rotate_subspace(h_mm, c_nm):
     """
     choose canonical orbitals
-
-    :param h_mm:
-    :param c_nm:
-    :return:
     """
     l_nn = (c_nm @ h_mm @ c_nm.conj().T).conj()
     # check if diagonal then don't rotate? it could save a bit of time
