@@ -217,12 +217,15 @@ def dump_hamiltonian(filename, atoms, direction=None, Ef=None):
 
 
 def dump_hamiltonian_parallel(filename, atoms, direction=None, Ef=None):
+    raise DeprecationWarning(
+        'Please use dump_hamiltonian_and_overlap() instead.')
+
+
+def dump_hamiltonian_and_overlap(filename, atoms, direction=None):
     """
         Dump the lcao representation of H and S to file(s) beginning
         with filename. If direction is x, y or z, the periodic boundary
         conditions will be removed in the specified direction.
-        If the Fermi temperature is different from zero,  the
-        energy zero-point is taken as the Fermi level.
 
         Note:
         H and S are parallized over spin and k-points and
@@ -232,9 +235,6 @@ def dump_hamiltonian_parallel(filename, atoms, direction=None, Ef=None):
     """
     if direction is not None:
         d = 'xyz'.index(direction)
-
-    if Ef is not None:
-        Ef = Ef / Ha
 
     calc = atoms.calc
     wfs = calc.wfs
@@ -265,11 +265,6 @@ def dump_hamiltonian_parallel(filename, atoms, direction=None, Ef=None):
         else:
             if direction is not None:
                 remove_pbc(atoms, H_qMM[kpt.s, kpt.q], None, d)
-        if calc.occupations.width > 0:
-            if Ef is None:
-                Ef = calc.occupations.get_fermi_level()
-
-            H_qMM[kpt.s, kpt.q] -= S_qMM[kpt.q] * Ef
 
     if wfs.gd.comm.rank == 0:
         with open(filename + '%i.pckl' % wfs.kd.comm.rank, 'wb') as fd:
