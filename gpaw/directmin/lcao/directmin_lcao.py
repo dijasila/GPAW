@@ -295,81 +295,77 @@ class DirectMinLCAO(DirectLCAO):
         :param log:
         :return:
         """
-        self.check_assertions(wfs, dens)
+        with wfs.timer('Direct Minimisation step'):
 
-        wfs.timer.start('Direct Minimisation step')
-        self.update_ref_orbitals(wfs, ham, dens)
-        wfs.timer.start('Preconditioning:')
-        precond = self.update_preconditioning(wfs, self.use_prec)
-        wfs.timer.stop('Preconditioning:')
+            self.check_assertions(wfs, dens)
+            self.update_ref_orbitals(wfs, ham, dens)
 
-        a_mat_u = self.a_mat_u
-        n_dim = self.n_dim
-        alpha = self.alpha
-        phi_2i = self.phi_2i
-        der_phi_2i = self.der_phi_2i
-        c_ref = self.c_nm_ref
+            with wfs.timer('Preconditioning:'):
+                precond = self.update_preconditioning(wfs, self.use_prec)
 
-        if self.iters == 1:
-            phi_2i[0], g_mat_u = \
-                self.get_energy_and_gradients(a_mat_u, n_dim, ham, wfs,
-                                              dens, c_ref)
-        else:
-            g_mat_u = self.g_mat_u
+            a_mat_u = self.a_mat_u
+            n_dim = self.n_dim
+            alpha = self.alpha
+            phi_2i = self.phi_2i
+            der_phi_2i = self.der_phi_2i
+            c_ref = self.c_nm_ref
 
-        wfs.timer.start('Get Search Direction')
-        p_mat_u = self.get_search_direction(a_mat_u, g_mat_u, precond,
-                                            wfs)
-        wfs.timer.stop('Get Search Direction')
-
-        # recalculate derivative with new search direction
-        der_phi_2i[0] = 0.0
-        for k in g_mat_u:
-            if self.representation in ['sparse', 'u-invar']:
-                der_phi_2i[0] += g_mat_u[k].conj() @ p_mat_u[k]
+            if self.iters == 1:
+                phi_2i[0], g_mat_u = \
+                    self.get_energy_and_gradients(a_mat_u, n_dim, ham, wfs,
+                                                  dens, c_ref)
             else:
-                il1 = get_indices(g_mat_u[k].shape[0], self.dtype)
-                der_phi_2i[0] += g_mat_u[k][il1].conj() @ p_mat_u[k][il1]
-        der_phi_2i[0] = der_phi_2i[0].real
-        der_phi_2i[0] = wfs.kd.comm.sum(der_phi_2i[0])
+                g_mat_u = self.g_mat_u
 
-        alpha, phi_alpha, der_phi_alpha, g_mat_u = \
-            self.line_search.step_length_update(a_mat_u, p_mat_u,
-                                                n_dim, ham, wfs, dens,
-                                                c_ref,
-                                                phi_0=phi_2i[0],
-                                                der_phi_0=der_phi_2i[0],
-                                                phi_old=phi_2i[1],
-                                                der_phi_old=der_phi_2i[1],
-                                                alpha_max=5.0,
-                                                alpha_old=alpha,
-                                                kpdescr=wfs.kd)
+            with wfs.timer('Get Search Direction'):
+                p_mat_u = self.get_search_direction(a_mat_u, g_mat_u,
+                                                    precond, wfs)
 
-        if wfs.gd.comm.size > 1:
-            wfs.timer.start('Broadcast gradients')
-            alpha_phi_der_phi = np.array([alpha, phi_2i[0],
-                                          der_phi_2i[0]])
-            wfs.gd.comm.broadcast(alpha_phi_der_phi, 0)
-            alpha = alpha_phi_der_phi[0]
-            phi_2i[0] = alpha_phi_der_phi[1]
-            der_phi_2i[0] = alpha_phi_der_phi[2]
-            for kpt in wfs.kpt_u:
-                k = self.nkpts * kpt.s + kpt.q
-                wfs.gd.comm.broadcast(g_mat_u[k], 0)
-            wfs.timer.stop('Broadcast gradients')
+            # recalculate derivative with new search direction
+            der_phi_2i[0] = 0.0
+            for k in g_mat_u:
+                if self.representation in ['sparse', 'u-invar']:
+                    der_phi_2i[0] += g_mat_u[k].conj() @ p_mat_u[k]
+                else:
+                    il1 = get_indices(g_mat_u[k].shape[0], self.dtype)
+                    der_phi_2i[0] += g_mat_u[k][il1].conj() @ p_mat_u[k][il1]
+            der_phi_2i[0] = der_phi_2i[0].real
+            der_phi_2i[0] = wfs.kd.comm.sum(der_phi_2i[0])
 
-        # calculate new matrices for optimal step length
-        for k in a_mat_u:
-            a_mat_u[k] += alpha * p_mat_u[k]
-        self.alpha = alpha
-        self.g_mat_u = g_mat_u
-        self.iters += 1
+            alpha, phi_alpha, der_phi_alpha, g_mat_u = \
+                self.line_search.step_length_update(a_mat_u, p_mat_u,
+                                                    n_dim, ham, wfs, dens,
+                                                    c_ref,
+                                                    phi_0=phi_2i[0],
+                                                    der_phi_0=der_phi_2i[0],
+                                                    phi_old=phi_2i[1],
+                                                    der_phi_old=der_phi_2i[1],
+                                                    alpha_max=5.0,
+                                                    alpha_old=alpha,
+                                                    kpdescr=wfs.kd)
 
-        # and 'shift' phi, der_phi for the next iteration
-        phi_2i[1], der_phi_2i[1] = phi_2i[0], der_phi_2i[0]
-        phi_2i[0], der_phi_2i[0] = phi_alpha, der_phi_alpha,
+            if wfs.gd.comm.size > 1:
+                with wfs.timer('Broadcast gradients'):
+                    alpha_phi_der_phi = np.array([alpha, phi_2i[0],
+                                                  der_phi_2i[0]])
+                    wfs.gd.comm.broadcast(alpha_phi_der_phi, 0)
+                    alpha = alpha_phi_der_phi[0]
+                    phi_2i[0] = alpha_phi_der_phi[1]
+                    der_phi_2i[0] = alpha_phi_der_phi[2]
+                    for kpt in wfs.kpt_u:
+                        k = self.nkpts * kpt.s + kpt.q
+                        wfs.gd.comm.broadcast(g_mat_u[k], 0)
 
-        wfs.timer.stop('Direct Minimisation step')
+            # calculate new matrices for optimal step length
+            for k in a_mat_u:
+                a_mat_u[k] += alpha * p_mat_u[k]
+            self.alpha = alpha
+            self.g_mat_u = g_mat_u
+            self.iters += 1
+
+            # and 'shift' phi, der_phi for the next iteration
+            phi_2i[1], der_phi_2i[1] = phi_2i[0], der_phi_2i[0]
+            phi_2i[0], der_phi_2i[0] = phi_alpha, der_phi_alpha,
 
     def get_energy_and_gradients(self, a_mat_u, n_dim, ham, wfs, dens,
                                  c_nm_ref):
@@ -387,27 +383,26 @@ class DirectMinLCAO(DirectLCAO):
 
         e_total = self.update_ks_energy(ham, wfs, dens)
 
-        wfs.timer.start('Calculate gradients')
-        g_mat_u = {}
-        self._error = 0.0
-        self.e_sic = 0.0  # this is odd energy
-        for kpt in wfs.kpt_u:
-            k = self.nkpts * kpt.s + kpt.q
-            if n_dim[k] == 0:
-                g_mat_u[k] = np.zeros_like(a_mat_u[k])
-                continue
-            h_mm = self.calculate_hamiltonian_matrix(ham, wfs, kpt)
-            # make matrix hermitian
-            tri2full(h_mm)
-            g_mat_u[k], error = self.func.get_gradients(
-                h_mm, kpt.C_nM, kpt.f_n, self.evecs[k], self.evals[k],
-                kpt, wfs, wfs.timer, self.matrix_exp,
-                self.representation, self.ind_up[k])
+        with wfs.timer('Calculate gradients'):
+            g_mat_u = {}
+            self._error = 0.0
+            self.e_sic = 0.0  # this is odd energy
+            for kpt in wfs.kpt_u:
+                k = self.nkpts * kpt.s + kpt.q
+                if n_dim[k] == 0:
+                    g_mat_u[k] = np.zeros_like(a_mat_u[k])
+                    continue
+                h_mm = self.calculate_hamiltonian_matrix(ham, wfs, kpt)
+                # make matrix hermitian
+                tri2full(h_mm)
+                g_mat_u[k], error = self.func.get_gradients(
+                    h_mm, kpt.C_nM, kpt.f_n, self.evecs[k], self.evals[k],
+                    kpt, wfs, wfs.timer, self.matrix_exp,
+                    self.representation, self.ind_up[k])
 
-            self._error += error
-        self._error = wfs.kd.comm.sum(self._error)
-        self.e_sic = wfs.kd.comm.sum(self.e_sic)
-        wfs.timer.stop('Calculate gradients')
+                self._error += error
+            self._error = wfs.kd.comm.sum(self._error)
+            self.e_sic = wfs.kd.comm.sum(self.e_sic)
 
         self.eg_count += 1
 
@@ -415,9 +410,8 @@ class DirectMinLCAO(DirectLCAO):
             norm = 0.0
             for kpt in wfs.kpt_u:
                 u = kpt.s * self.nkpts + kpt.q
-                normt = np.linalg.norm(
-                    g_mat_u[u] @ self.a_mat_u[u] -
-                    self.a_mat_u[u] @ g_mat_u[u])
+                normt = np.linalg.norm(g_mat_u[u] @ self.a_mat_u[u] -
+                                       self.a_mat_u[u] @ g_mat_u[u])
                 if norm < normt:
                     norm = normt
             norm2 = 0.0
@@ -436,18 +430,10 @@ class DirectMinLCAO(DirectLCAO):
         """
         Update Kohn-Sham energy
         It assumes the temperature is zero K.
-
-
-        :param ham:
-        :param wfs:
-        :param dens:
-        :return:
         """
 
-        # wfs.timer.start('Update Kohn-Sham energy')
         dens.update(wfs)
         ham.update(dens, wfs, False)
-        # wfs.timer.stop('Update Kohn-Sham energy')
 
         return ham.get_energy(0.0, wfs, False)
 
@@ -646,61 +632,54 @@ class DirectMinLCAO(DirectLCAO):
         occupied states.
         In this case, the total energy remains the same,
         as it's unitary invariant within equally occupied subspaces.
-
-        :param ham:
-        :param wfs:
-        :param update_eigenvalues:
-        :param update_wfs:
-        :return:
         """
 
-        wfs.timer.start('Get canonical representation')
-
-        for kpt in wfs.kpt_u:
-            # wfs.atomic_correction.calculate_projections(wfs, kpt)
-            h_mm = self.calculate_hamiltonian_matrix(ham, wfs, kpt)
-            tri2full(h_mm)
-            if self.update_ref_orbs_canonical or self.restart:
-                # Diagonalize entire Hamiltonian matrix
-                with wfs.timer('Diagonalize and rotate'):
-                    kpt.C_nM, kpt.eps_n = rotate_subspace(
-                        h_mm, kpt.C_nM)
-            else:
-                # Diagonalize equally occupied subspaces separately
-                n_init = 0
-                while True:
-                    n_fin = \
-                        find_equally_occupied_subspace(kpt.f_n, n_init)
+        with wfs.timer('Get canonical representation'):
+            for kpt in wfs.kpt_u:
+                # wfs.atomic_correction.calculate_projections(wfs, kpt)
+                h_mm = self.calculate_hamiltonian_matrix(ham, wfs, kpt)
+                tri2full(h_mm)
+                if self.update_ref_orbs_canonical or self.restart:
+                    # Diagonalize entire Hamiltonian matrix
                     with wfs.timer('Diagonalize and rotate'):
-                        kpt.C_nM[n_init:n_init + n_fin, :], \
-                            kpt.eps_n[n_init:n_init + n_fin] = \
-                            rotate_subspace(
-                                h_mm, kpt.C_nM[n_init:n_init + n_fin, :])
-                    n_init += n_fin
-                    if n_init == len(kpt.f_n):
-                        break
-                    elif n_init > len(kpt.f_n):
-                        raise RuntimeError('Bug is here!')
+                        kpt.C_nM, kpt.eps_n = rotate_subspace(
+                            h_mm, kpt.C_nM)
+                else:
+                    # Diagonalize equally occupied subspaces separately
+                    n_init = 0
+                    while True:
+                        n_fin = \
+                            find_equally_occupied_subspace(kpt.f_n, n_init)
+                        with wfs.timer('Diagonalize and rotate'):
+                            kpt.C_nM[n_init:n_init + n_fin, :], \
+                                kpt.eps_n[n_init:n_init + n_fin] = \
+                                rotate_subspace(
+                                    h_mm, kpt.C_nM[n_init:n_init + n_fin, :])
+                        n_init += n_fin
+                        if n_init == len(kpt.f_n):
+                            break
+                        elif n_init > len(kpt.f_n):
+                            raise RuntimeError('Bug is here!')
 
-            with wfs.timer('Calculate projections'):
-                wfs.atomic_correction.calculate_projections(wfs, kpt)
-        self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
-        occ_name = getattr(wfs.occupations, "name", None)
-        if occ_name == 'mom':
-            if not sort_eigenvalues:
-                self.sort_wavefunctions_mom(wfs)
-            else:
-                self.sort_wavefunctions(ham, wfs, use_eps=True)
-                if not wfs.occupations.update_numbers\
-                        or wfs.occupations.use_fixed_occupations:
-                    wfs.occupations.numbers = self.initial_occupation_numbers
+                with wfs.timer('Calculate projections'):
+                    wfs.atomic_correction.calculate_projections(wfs, kpt)
+            self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
+            occ_name = getattr(wfs.occupations, "name", None)
+            if occ_name == 'mom':
+                if not sort_eigenvalues:
+                    self.sort_wavefunctions_mom(wfs)
+                else:
+                    self.sort_wavefunctions(ham, wfs, use_eps=True)
+                    not_update = not wfs.occupations.update_numbers
+                    fixed_occ = wfs.occupations.use_fixed_occupations
+                    if not_update or fixed_occ:
+                        wfs.occupations.numbers = \
+                            self.initial_occupation_numbers
 
-        for kpt in wfs.kpt_u:
-            u = kpt.s * self.nkpts + kpt.q
-            self.c_nm_ref[u] = kpt.C_nM.copy()
-            self.a_mat_u[u] = np.zeros_like(self.a_mat_u[u])
-
-        wfs.timer.stop('Get canonical representation')
+            for kpt in wfs.kpt_u:
+                u = kpt.s * self.nkpts + kpt.q
+                self.c_nm_ref[u] = kpt.C_nM.copy()
+                self.a_mat_u[u] = np.zeros_like(self.a_mat_u[u])
 
     def reset(self):
         super(DirectMinLCAO, self).reset()
@@ -712,47 +691,49 @@ class DirectMinLCAO(DirectLCAO):
         Sort wavefunctions according to the eigenvalues or
         the diagonal elements of the Hamiltonian matrix.
         """
-        wfs.timer.start('Sort WFS')
-        for kpt in wfs.kpt_u:
-            if use_eps:
-                orbital_energies = kpt.eps_n
-            else:
-                h_mm = self.calculate_hamiltonian_matrix(ham, wfs, kpt)
-                tri2full(h_mm)
-                hc_mn = np.zeros(shape=(kpt.C_nM.shape[1], kpt.C_nM.shape[0]),
-                                 dtype=kpt.C_nM.dtype)
-                mmm(1.0, h_mm.conj(), 'N', kpt.C_nM, 'T', 0.0, hc_mn)
-                mmm(1.0, kpt.C_nM.conj(), 'N', hc_mn, 'N', 0.0, h_mm)
-                orbital_energies = h_mm.diagonal().real.copy()
-            # label each orbital energy
-            # add some noise to get rid off degeneracy
-            orbital_energies += np.random.rand(len(orbital_energies)) * 1.0e-8
-            oe_labeled = {}
-            for i, lamb in enumerate(orbital_energies):
-                oe_labeled[str(round(lamb, 12))] = i
-            # now sort orb energies
-            oe_sorted = np.sort(orbital_energies)
-            # run over sorted orbital energies and get their label
-            ind = []
-            for x in oe_sorted:
-                i = oe_labeled[str(round(x, 12))]
-                ind.append(i)
-            # check if it is necessary to sort
-            x = np.max(abs(np.array(ind) - np.arange(len(ind))))
-            if x > 0:
-                # now sort wfs according to orbital energies
-                kpt.C_nM[np.arange(len(ind)), :] = kpt.C_nM[ind, :]
-                kpt.f_n[np.arange(len(ind))] = kpt.f_n[ind]
-                kpt.eps_n[np.arange(len(ind))] = orbital_energies[ind]
-                occ_name = getattr(wfs.occupations, "name", None)
-                if occ_name == 'mom':
-                    # OccupationsMOM.numbers needs to be updated after sorting
-                    self.update_mom_numbers(wfs, kpt)
-        wfs.timer.stop('Sort WFS')
+        with wfs.timer('Sort WFS'):
+            for kpt in wfs.kpt_u:
+                if use_eps:
+                    orbital_energies = kpt.eps_n
+                else:
+                    h_mm = self.calculate_hamiltonian_matrix(ham, wfs, kpt)
+                    tri2full(h_mm)
+                    hc_mn = np.zeros(shape=(kpt.C_nM.shape[1],
+                                            kpt.C_nM.shape[0]),
+                                     dtype=kpt.C_nM.dtype)
+                    mmm(1.0, h_mm.conj(), 'N', kpt.C_nM, 'T', 0.0, hc_mn)
+                    mmm(1.0, kpt.C_nM.conj(), 'N', hc_mn, 'N', 0.0, h_mm)
+                    orbital_energies = h_mm.diagonal().real.copy()
+                # label each orbital energy
+                # add some noise to get rid off degeneracy
+                orbital_energies += \
+                    np.random.rand(len(orbital_energies)) * 1.0e-8
+                oe_labeled = {}
+                for i, lamb in enumerate(orbital_energies):
+                    oe_labeled[str(round(lamb, 12))] = i
+                # now sort orb energies
+                oe_sorted = np.sort(orbital_energies)
+                # run over sorted orbital energies and get their label
+                ind = []
+                for x in oe_sorted:
+                    i = oe_labeled[str(round(x, 12))]
+                    ind.append(i)
+                # check if it is necessary to sort
+                x = np.max(abs(np.array(ind) - np.arange(len(ind))))
+                if x > 0:
+                    # now sort wfs according to orbital energies
+                    kpt.C_nM[np.arange(len(ind)), :] = kpt.C_nM[ind, :]
+                    kpt.f_n[np.arange(len(ind))] = kpt.f_n[ind]
+                    kpt.eps_n[np.arange(len(ind))] = orbital_energies[ind]
+                    occ_name = getattr(wfs.occupations, "name", None)
+                    if occ_name == 'mom':
+                        # OccupationsMOM.numbers needs to be updated after
+                        # sorting
+                        self.update_mom_numbers(wfs, kpt)
 
     def sort_wavefunctions_mom(self, wfs):
         """
-        Sort wavefunctions according to the occupation
+        Sort wave functions according to the occupation
         numbers so that there are no holes in the
         distribution of occupation numbers
         :return:
@@ -992,77 +973,66 @@ class DirectMinLCAO(DirectLCAO):
         :return:
         """
 
-        wfs.timer.start('Unitary rotation')
-        for kpt in wfs.kpt_u:
-            k = self.nkpts * kpt.s + kpt.q
-            if n_dim[k] == 0:
-                continue
+        with wfs.timer('Unitary rotation'):
+            for kpt in wfs.kpt_u:
+                k = self.nkpts * kpt.s + kpt.q
+                if n_dim[k] == 0:
+                    continue
 
-            if self.gd.comm.rank == 0:
-                if self.representation in ['sparse', 'u-invar']:
-                    if self.matrix_exp == 'egdecomp-u-invar' and \
-                            self.representation == 'u-invar':
-                        n_occ = get_n_occ(kpt)
-                        n_v = wfs.bd.nbands - n_occ
-                        a = a_mat_u[k].reshape(n_occ, n_v)
+                if self.gd.comm.rank == 0:
+                    if self.representation in ['sparse', 'u-invar']:
+                        if self.matrix_exp == 'egdecomp-u-invar' and \
+                                self.representation == 'u-invar':
+                            n_occ = get_n_occ(kpt)
+                            n_v = wfs.bd.nbands - n_occ
+                            a = a_mat_u[k].reshape(n_occ, n_v)
+                        else:
+                            a = np.zeros(shape=(n_dim[k], n_dim[k]),
+                                         dtype=self.dtype)
+                            a[self.ind_up[k]] = a_mat_u[k]
+                            a += -a.T.conj()
                     else:
-                        a = np.zeros(shape=(n_dim[k], n_dim[k]),
-                                     dtype=self.dtype)
-                        a[self.ind_up[k]] = a_mat_u[k]
-                        a += -a.T.conj()
-                else:
-                    a = a_mat_u[k]
+                        a = a_mat_u[k]
 
-                if self.matrix_exp == 'pade-approx':
-                    # this function takes a lot of memory
-                    # for large matrices... what can we do?
-                    wfs.timer.start('Pade Approximants')
-                    u_nn = expm(a)
-                    wfs.timer.stop('Pade Approximants')
-                elif self.matrix_exp == 'egdecomp':
-                    # this method is based on diagonalisation
-                    wfs.timer.start('Eigendecomposition')
-                    u_nn, evecs, evals = \
-                        expm_ed(a, evalevec=True)
-                    wfs.timer.stop('Eigendecomposition')
-                elif self.matrix_exp == 'egdecomp-u-invar':
-                    assert self.representation == 'u-invar'
-                    wfs.timer.start('Eigendecomposition')
-                    u_nn = expm_ed_unit_inv(a, oo_vo_blockonly=False)
-                    wfs.timer.stop('Eigendecomposition')
+                    if self.matrix_exp == 'pade-approx':
+                        # this function takes a lot of memory
+                        # for large matrices... what can we do?
+                        with wfs.timer('Pade Approximants'):
+                            u_nn = expm(a)
+                    elif self.matrix_exp == 'egdecomp':
+                        # this method is based on diagonalisation
+                        with wfs.timer('Eigendecomposition'):
+                            u_nn, evecs, evals = expm_ed(a, evalevec=True)
+                    elif self.matrix_exp == 'egdecomp-u-invar':
+                        with wfs.timer('Eigendecomposition'):
+                            u_nn = expm_ed_unit_inv(a, oo_vo_blockonly=False)
+                    else:
+                        raise ValueError('Check the keyword '
+                                         'for matrix_exp. \n'
+                                         'Must be '
+                                         '\'pade-approx\' or '
+                                         '\'egdecomp\'')
 
-                else:
-                    raise ValueError('Check the keyword '
-                                     'for matrix_exp. \n'
-                                     'Must be '
-                                     '\'pade-approx\' or '
-                                     '\'egdecomp\'')
+                    dimens1 = u_nn.shape[0]
+                    dimens2 = u_nn.shape[1]
+                    kpt.C_nM[:dimens2] = u_nn.T @ c_nm_ref[k][:dimens1]
 
-                dimens1 = u_nn.shape[0]
-                dimens2 = u_nn.shape[1]
-                kpt.C_nM[:dimens2] = u_nn.T @ c_nm_ref[k][:dimens1]
+                with wfs.timer('Broadcast coefficients'):
+                    self.gd.comm.broadcast(kpt.C_nM, 0)
 
-            wfs.timer.start('Broadcast coefficients')
-            self.gd.comm.broadcast(kpt.C_nM, 0)
-            wfs.timer.stop('Broadcast coefficients')
+                if self.matrix_exp == 'egdecomp':
+                    with wfs.timer('Broadcast evecs and evals'):
+                        if self.gd.comm.rank != 0:
+                            evecs = np.zeros(shape=(n_dim[k], n_dim[k]),
+                                             dtype=complex)
+                            evals = np.zeros(shape=n_dim[k],
+                                             dtype=float)
 
-            if self.matrix_exp == 'egdecomp':
-                wfs.timer.start('Broadcast evecs and evals')
-                if self.gd.comm.rank != 0:
-                    evecs = np.zeros(shape=(n_dim[k], n_dim[k]),
-                                     dtype=complex)
-                    evals = np.zeros(shape=n_dim[k],
-                                     dtype=float)
-
-                self.gd.comm.broadcast(evecs, 0)
-                self.gd.comm.broadcast(evals, 0)
-                self.evecs[k], self.evals[k] = evecs, evals
-                wfs.timer.stop('Broadcast evecs and evals')
-
-            with wfs.timer('Calculate projections'):
-                wfs.atomic_correction.calculate_projections(wfs, kpt)
-
-        wfs.timer.stop('Unitary rotation')
+                        self.gd.comm.broadcast(evecs, 0)
+                        self.gd.comm.broadcast(evals, 0)
+                        self.evecs[k], self.evals[k] = evecs, evals
+                with wfs.timer('Calculate projections'):
+                    wfs.atomic_correction.calculate_projections(wfs, kpt)
 
     def initialize_orbitals(self, wfs, ham):
         """
