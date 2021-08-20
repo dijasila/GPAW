@@ -547,7 +547,8 @@ class LCAOforces:
     def get_forces_sum_GS(self):
         if not self.isblacs:
             self.timer.start('TCI derivative')
-            self.dThetadR_qvMM, self.dTdR_qvMM = self.manytci.O_qMM_T_qMM(self.gd.comm, self.Mstart, self.Mstop, False, derivative=True)
+            self.dThetadR_qvMM, self.dTdR_qvMM = self.manytci.O_qMM_T_qMM(
+                self.gd.comm, self.Mstart, self.Mstop, False, derivative=True)
             self.dPdR_aqvMi = self.manytci.P_aqMi(self.bfs.my_atom_indices,
                                                   derivative=True)
     
@@ -564,7 +565,6 @@ class LCAOforces:
             Fatom_av = self.get_atomic_density_term()
 
             F_av += Fkin_av + Fpot_av + Ftheta_av + Frho_av + Fatom_av
-
 
         if self.isblacs:
             F_av = np.zeros_like(self.Fref_av)
