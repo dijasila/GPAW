@@ -806,10 +806,11 @@ class DirectMin(Eigensolver):
                                               scalewithocc=scalewithocc)
         for kpt in wfs.kpt_u:
             if self.exstopt:
-                if 'SIC' in self.odd_parameters['name']:
-                    typediag = 'separate'
-                else:
-                    typediag = 'full'
+                typediag = 'separate'
+                # if 'SIC' in self.odd_parameters['name']:
+                #     typediag = 'separate'
+                # else:
+                #     typediag = 'full'
                 k = self.n_kps * kpt.s + kpt.q
                 lamb = wfs.integrate(kpt.psit_nG[:],
                                      grad_knG[k][:],
