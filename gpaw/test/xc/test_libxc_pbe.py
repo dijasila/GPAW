@@ -5,6 +5,7 @@ from gpaw.xc.libxc import LibXC
 from gpaw.xc.gga import PurePythonGGAKernel
 
 
+@pytest.mark.ci
 @pytest.mark.libxc
 def test_pbe():
     n = np.zeros((1, 1)) + 0.23
