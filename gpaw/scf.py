@@ -218,31 +218,30 @@ class SCFLoop:
             # as sometimes one need to erase the memory in L-BFGS
             # or mom can require restart if it detects the collapse
             if not solver.initialized:
-                solver.init_me(wfs, ham, dens, log)
-
+                solver.init_me(wfs, ham, dens)
             solver.iterate(ham, wfs, dens, log)
             solver.check_mom(wfs, dens)
 
             energy = ham.get_energy(0.0, wfs, kin_en_using_band=False)
 
-            self.errors_check_convergence_log(
-                energy, dens, ham, wfs, callback, log)
+            self.errors_check_convergence_log(energy, dens, ham, wfs,
+                                              callback, log)
 
             if self.converged:
                 wfs.calculate_occupation_numbers(dens.fixed)
                 solver.get_canonical_representation(ham, wfs, dens,
                                                     sort_eigenvalues=True)
-                log(
-                    '\nOccupied states converged after'
+                log('\nOccupied states converged after'
                     ' {:d} e/g evaluations'.format(solver.eg_count))
                 break
+
             ham.npoisson = 0
             self.niter += 1
 
         if not self.converged:
             log(oops)
-            raise KohnShamConvergenceError(
-                'Did not converge!  See text output for help.')
+            raise KohnShamConvergenceError('Did not converge! See text '
+                                           'output for help.')
 
     def errors_check_convergence_log(self, energy, dens, ham, wfs,
                                      callback, log):

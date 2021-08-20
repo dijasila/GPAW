@@ -212,73 +212,72 @@ class DirectMinLCAO(DirectLCAO):
 
     def set_variable_matrices(self, wfs):
 
-        if self.representation in ['sparse', 'u-invar']:
-            # Matrices are sparse and Skew-Hermitian.
-            # They have this structure:
-            #  A_BigMatrix =
-            #
-            # (  A_1          A_2 )
-            # ( -A_2.T.conj() 0   )
-            #
-            # where 0 is a zero-matrix of size of (M-N) * (M-N)
-            #
-            # A_1 i skew-hermitian matrix of N * N,
-            # N-number of occupied states
-            # A_2 is matrix of size of (M-N) * N,
-            # M - number of basis functions
-            #
-            # if the energy functional is unitary invariant
-            # then A_1 = 0
-            # (see Hutter J et. al, J. Chem. Phys. 101, 3862 (1994))
-            #
-            # We will keep A_1 as we would like to work with metals,
-            # SIC, and molecules with different occupation numbers.
-            # this corresponds to 'sparse' representation
-            #
-            # Thus, for the 'sparse' we need to store upper
-            # triangular part of A_1, and matrix A_2, so in total
-            # (M-N) * N + N * (N - 1)/2 = N * (M - (N + 1)/2) elements
-            #
-            # we will store these elements as a vector and
-            # also will store indices of the A_BigMatrix
-            # which correspond to these elements.
-            #
-            # 'u-invar' corresponds to the case when we want to
-            # store only A_2, that is this representaion is sparser
-
-            for kpt in wfs.kpt_u:
-                n_occ = get_n_occ(kpt)
-                u = self.nkpts * kpt.s + kpt.q
-                # M - one dimension of the A_BigMatrix
-                M = self.n_dim[u]
-                if self.representation == 'sparse':
-                    # let's take all upper triangular indices
-                    # of A_BigMatrix and then delete indices from ind_up
-                    # which correspond to 0 matrix in in A_BigMatrix.
-                    ind_up = np.triu_indices(self.n_dim[u], 1)
-                    zero_ind = -((M - n_occ) * (M - n_occ - 1)) // 2
-                    if zero_ind == 0:
-                        zero_ind = None
-                    self.ind_up[u] = (ind_up[0][:zero_ind].copy(),
-                                      ind_up[1][:zero_ind].copy())
-                else:
-                    i1, i2 = [], []
-                    for i in range(n_occ):
-                        for j in range(n_occ, M):
-                            i1.append(i)
-                            i2.append(j)
-                    self.ind_up[u] = (np.asarray(i1), np.asarray(i2))
+        # Matrices are sparse and Skew-Hermitian.
+        # They have this structure:
+        #  A_BigMatrix =
+        #
+        # (  A_1          A_2 )
+        # ( -A_2.T.conj() 0   )
+        #
+        # where 0 is a zero-matrix of size of (M-N) * (M-N)
+        #
+        # A_1 i skew-hermitian matrix of N * N,
+        # N-number of occupied states
+        # A_2 is matrix of size of (M-N) * N,
+        # M - number of basis functions
+        #
+        # if the energy functional is unitary invariant
+        # then A_1 = 0
+        # (see Hutter J et. al, J. Chem. Phys. 101, 3862 (1994))
+        #
+        # We will keep A_1 as we would like to work with metals,
+        # SIC, and molecules with different occupation numbers.
+        # this corresponds to 'sparse' representation
+        #
+        # Thus, for the 'sparse' we need to store upper
+        # triangular part of A_1, and matrix A_2, so in total
+        # (M-N) * N + N * (N - 1)/2 = N * (M - (N + 1)/2) elements
+        #
+        # we will store these elements as a vector and
+        # also will store indices of the A_BigMatrix
+        # which correspond to these elements.
+        #
+        # 'u-invar' corresponds to the case when we want to
+        # store only A_2, that is this representaion is sparser
 
         for kpt in wfs.kpt_u:
+            n_occ = get_n_occ(kpt)
             u = self.nkpts * kpt.s + kpt.q
+            # M - one dimension of the A_BigMatrix
+            M = self.n_dim[u]
+            if self.representation == 'sparse':
+                # let's take all upper triangular indices
+                # of A_BigMatrix and then delete indices from ind_up
+                # which correspond to 0 matrix in in A_BigMatrix.
+                ind_up = np.triu_indices(self.n_dim[u], 1)
+                zero_ind = -((M - n_occ) * (M - n_occ - 1)) // 2
+                if zero_ind == 0:
+                    zero_ind = None
+                self.ind_up[u] = (ind_up[0][:zero_ind].copy(),
+                                  ind_up[1][:zero_ind].copy())
+            elif self.representation == 'u-invar':
+                i1, i2 = [], []
+                for i in range(n_occ):
+                    for j in range(n_occ, M):
+                        i1.append(i)
+                        i2.append(j)
+                self.ind_up[u] = (np.asarray(i1), np.asarray(i2))
+            else:
+                self.ind_up[u] = None
+
             if self.representation in ['sparse', 'u-invar']:
                 shape_of_arr = len(self.ind_up[u][0])
             else:
-                self.ind_up[u] = None
                 shape_of_arr = (self.n_dim[u], self.n_dim[u])
+
             self.a_mat_u[u] = np.zeros(shape=shape_of_arr, dtype=self.dtype)
             self.g_mat_u[u] = np.zeros(shape=shape_of_arr, dtype=self.dtype)
-            # use initial KS orbitals, but can be others
+            # use initial KS orbitals
             self.c_nm_ref[u] = np.copy(kpt.C_nM[:self.n_dim[u]])
             self.evecs[u] = None
             self.evals[u] = None
