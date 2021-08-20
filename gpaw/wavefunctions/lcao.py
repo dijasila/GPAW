@@ -544,18 +544,16 @@ class LCAOforces:
         from gpaw.kohnsham_layouts import BlacsOrbitalLayouts
         self.isblacs = isinstance(self.ksl, BlacsOrbitalLayouts)
 
-        self.timer.start('TCI derivative')
-        self.dThetadR_qvMM, self.dTdR_qvMM = self.manytci.O_qMM_T_qMM(
-            gd.comm, self.Mstart, self.Mstop, False, derivative=True)
-        self.dPdR_aqvMi = self.manytci.P_aqMi(self.bfs.my_atom_indices,
-                                              derivative=True)
-
-        gd.comm.sum(self.dThetadR_qvMM)
-        gd.comm.sum(self.dTdR_qvMM)
-        self.timer.stop('TCI derivative')
-
     def get_forces_sum_GS(self):
         if not self.isblacs:
+            self.timer.start('TCI derivative')
+            self.dThetadR_qvMM, self.dTdR_qvMM = self.manytci.O_qMM_T_qMM(self.gd.comm, self.Mstart, self.Mstop, False, derivative=True)
+            self.dPdR_aqvMi = self.manytci.P_aqMi(self.bfs.my_atom_indices,
+                                                  derivative=True)
+    
+            self.gd.comm.sum(self.dThetadR_qvMM)
+            self.gd.comm.sum(self.dTdR_qvMM)
+            self.timer.stop('TCI derivative')
             self.rhoT_uMM, self.ET_uMM = self.get_den_mat_and_E()
 
             F_av = np.zeros_like(self.Fref_av)
@@ -567,6 +565,7 @@ class LCAOforces:
 
             F_av += Fkin_av + Fpot_av + Ftheta_av + Frho_av + Fatom_av
 
+
         if self.isblacs:
             F_av = np.zeros_like(self.Fref_av)
             Fpot_av = self.get_pot_term_blacs()
@@ -574,6 +573,8 @@ class LCAOforces:
             Fatom_av, Frho_av = self.get_at_den_and_den_paw_blacs()
              
             F_av += Fkin_av + Fpot_av + Ftheta_av + Frho_av + Fatom_av
+        
+        self.ksl.orbital_comm.sum(F_av)
 
         return F_av
 
@@ -992,8 +993,6 @@ class LCAOforces:
         Fkin_av_sum += Fkin_av
         Ftheta_av_sum += Ftheta_av
         self.timer.start('Wait for sum')
-        self.ksl.orbital_comm.sum(Fkin_av_sum)
-        self.ksl.orbital_comm.sum(Ftheta_av_sum)
         if self.bd.comm.rank == 0:
             self.kd.comm.sum(Fkin_av_sum, 0)
             self.kd.comm.sum(Ftheta_av_sum, 0)
@@ -1083,8 +1082,6 @@ class LCAOforces:
         Fatom_av_sum += Fatom_av
         Frho_av_sum += Frho_av
         self.timer.start('Wait for sum')
-        self.ksl.orbital_comm.sum(Fatom_av_sum)
-        self.ksl.orbital_comm.sum(Frho_av_sum)
         if self.bd.comm.rank == 0:
             self.kd.comm.sum(Fatom_av_sum, 0)
             self.kd.comm.sum(Frho_av_sum, 0)
