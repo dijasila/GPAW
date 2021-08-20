@@ -230,7 +230,7 @@ class MomentCorrectionPoissonSolver(_PoissonSolver):
             timer.stop('Multipole moment corrections')
 
             timer.start('Solve neutral')
-            niter = self.poissonsolver.solve(phi, rho_neutral)
+            niter = self.poissonsolver.solve(phi, rho_neutral, **kwargs)
             timer.stop('Solve neutral')
 
             timer.start('Multipole moment corrections')
