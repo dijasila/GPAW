@@ -181,6 +181,10 @@ class DirectMinLCAO(DirectLCAO):
         self.localize_wfs(wfs, dens, ham, log)
         if occ_name == 'mom':
             self.initialize_mom(wfs, dens)
+        if self.randomizeorbitals:
+            for kpt in wfs.kpt_u:
+                self.randomize_orbitals_kpt(wfs, kpt)
+            self.randomizeorbitals = False
         self.update_ks_energy(ham, wfs, dens)
         self.initialize_2(wfs)
         self.initialized = True
@@ -267,17 +271,6 @@ class DirectMinLCAO(DirectLCAO):
             else:
                 self.ind_up[u] = None
                 shape_of_arr = (self.n_dim[u], self.n_dim[u])
-
-            if self.randomizeorbitals:
-                nst = kpt.C_nM.shape[0]
-                wt = kpt.weight * 0.01
-                arand = wt * (np.random.rand(nst, nst)).astype(wfs.dtype)
-                if wfs.dtype is complex:
-                    arand += 1.j * np.random.rand(nst, nst) * wt
-                arand = arand - arand.T.conj()
-                wfs.gd.comm.broadcast(arand, 0)
-                kpt.C_nM[:] = expm(arand) @ kpt.C_nM[:]
-                wfs.atomic_correction.calculate_projections(wfs, kpt)
             self.a_mat_u[u] = np.zeros(shape=shape_of_arr,
                                        dtype=self.dtype)
             self.g_mat_u[u] = np.zeros(shape=shape_of_arr,
@@ -291,7 +284,6 @@ class DirectMinLCAO(DirectLCAO):
             if not self.ind_up[k][0].size or not self.ind_up[k][1].size:
                 self.n_dim[k] = 0
 
-        self.randomizeorbitals = False
         self.iters = 1
 
     def iterate(self, ham, wfs, dens, log):
@@ -1142,6 +1134,20 @@ class DirectMinLCAO(DirectLCAO):
             degeneracy = 1
         wfs.occupations.numbers[kpt.s] = \
             kpt.f_n / (kpt.weightk * degeneracy)
+
+    def randomize_orbitals_kpt(self, wfs, kpt):
+        """
+        add random noise to C_nM but keep them still orthonormal
+        """
+        nst = kpt.C_nM.shape[0]
+        wt = kpt.weight * 0.01
+        arand = wt * (np.random.rand(nst, nst)).astype(wfs.dtype)
+        if wfs.dtype is complex:
+            arand += 1.j * np.random.rand(nst, nst) * wt
+        arand = arand - arand.T.conj()
+        wfs.gd.comm.broadcast(arand, 0)
+        kpt.C_nM[:] = expm(arand) @ kpt.C_nM[:]
+        wfs.atomic_correction.calculate_projections(wfs, kpt)
 
     @property
     def error(self):
