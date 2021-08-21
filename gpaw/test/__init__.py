@@ -52,12 +52,10 @@ def gen(symbol, exx=False, name=None, yukawa_gamma=None,
         g = Generator(symbol, **kwargs)
         if 'orbital_free' in kwargs:
             setup = g.run(exx=exx, name=name, yukawa_gamma=yukawa_gamma,
-                          use_restart_file=False,
                           write_xml=write_xml,
                           **tf_parameters.get(symbol, {'rcut': 0.9}))
         else:
             setup = g.run(exx=exx, name=name, yukawa_gamma=yukawa_gamma,
-                          use_restart_file=False,
                           write_xml=write_xml,
                           **parameters[symbol])
     setup = mpi.broadcast(setup, 0)

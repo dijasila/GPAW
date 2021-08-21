@@ -213,33 +213,37 @@ class SimpleStm(STM):
             fname = 'stm_n%dk%ds%d.dat' % (n, k, s)
         else:
             fname = file
-        f = open(fname, 'w')
+        
+        with open(fname, 'w') as fd:
 
-        import datetime
-        print('#', datetime.datetime.now().ctime(), file=f)
-        print('# Simulated STM picture', file=f)
-        if hasattr(self, 'file'):
-            print('# density read from', self.file, file=f)
-        else:
-            if self.is_wf:
-                print('# pseudo-wf n=%d k=%d s=%d' % tuple(self.bias), file=f)
+            import datetime
+            print('#', datetime.datetime.now().ctime(), file=fd)
+            print('# Simulated STM picture', file=fd)
+            if hasattr(self, 'file'):
+                print('# density read from', self.file, file=fd)
             else:
-                print('# bias=', self.bias, '[eV]', file=f)
-        print('#', file=f)
-        print('# density=', self.density, '[e/Angstrom^3]', end=' ', file=f)
-        print(
-            '(current=', self.density_to_current(self.density), '[nA])',
-            file=f)
-        print('# x[Angs.]   y[Angs.]     h[Angs.] (-1 is not found)', file=f)
-        for i in range(nx):
-            for j in range(ny):
-                if heights[i, j] == -1:
-                    height = -1
+                if self.is_wf:
+                    print('# pseudo-wf n=%d k=%d s=%d' % tuple(self.bias),
+                          file=fd)
                 else:
-                    height = heights[i, j] * Bohr
-                print('%10g %10g %12g' % (yvals[j], xvals[i], height), file=f)
-            print(file=f)
-        f.close()
+                    print('# bias=', self.bias, '[eV]', file=fd)
+            print('#', file=fd)
+            print('# density=', self.density, '[e/Angstrom^3]',
+                  end=' ', file=fd)
+            print(
+                '(current=', self.density_to_current(self.density), '[nA])',
+                file=fd)
+            print('# x[Angs.]   y[Angs.]     h[Angs.] (-1 is not found)',
+                  file=fd)
+            for i in range(nx):
+                for j in range(ny):
+                    if heights[i, j] == -1:
+                        height = -1
+                    else:
+                        height = heights[i, j] * Bohr
+                    print('%10g %10g %12g' % (yvals[j], xvals[i], height),
+                          file=fd)
+                print(file=fd)
 
     def pylab_contour(self):
         """Return the countour to be plotted using pylab."""
