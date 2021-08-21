@@ -209,7 +209,6 @@ class ElectronPhononCoupling(Displacement):
         # Equilibrium atomic Hamiltonian matrix (projector coefficients)
         dH_asp = self.cache['eq']['dH_all_asp']
 
-
         # For the contribution from the derivative of the projectors
         dP_aqvMi = wfs.manytci.P_aqMi(self.indices, derivative=True)
         dP_qvMi = dP_aqvMi[a]
