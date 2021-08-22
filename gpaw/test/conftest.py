@@ -101,7 +101,7 @@ class GPWFiles:
         for file in path.glob('*.gpw'):
             self.gpw_files[file.name[:-4]] = file
 
-    def __getitem__(self, name):
+    def __getitem__(self, name: str) -> Path:
         if name not in self.gpw_files:
             rawname, _, _ = name.partition('_wfs')
             calc = getattr(self, rawname)()
@@ -276,6 +276,19 @@ def pytest_configure(config):
         else:
             tw._file = devnull
     config.pluginmanager.register(GPAWPlugin(), 'pytest_gpaw')
+    for line in ['soc: Spin-orbit coupling',
+                 'slow: slow test',
+                 'fast: fast test',
+                 'ci: test for CI',
+                 'libxc: LibXC requirered',
+                 'mgga: MGGA test',
+                 'dscf: Delta-SCF',
+                 'mom: MOM',
+                 'gllb: GLLBSC tests',
+                 'elph: Electron-phonon',
+                 'intel: fails on INTEL toolchain',
+                 'serial: run in serial only']:
+        config.addinivalue_line('markers', line)
 
 
 def pytest_runtest_setup(item):

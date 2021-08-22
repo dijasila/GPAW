@@ -1,12 +1,15 @@
 import numpy as np
+import pytest
 from ase import Atoms
+
 from gpaw import GPAW
-from gpaw.lrtddft import LrTDDFT
 from gpaw.inducedfield.inducedfield_lrtddft import LrTDDFTInducedField
+from gpaw.lrtddft import LrTDDFT
 from gpaw.poisson import FDPoissonSolver
 from gpaw.test import equal
 
 
+@pytest.mark.ci
 def test_inducedfield_lrtddft(in_tmp_dir):
     do_print_values = False  # Use this for printing the reference values
     poisson_eps = 1e-12

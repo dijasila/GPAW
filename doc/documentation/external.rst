@@ -6,6 +6,7 @@ External potential
 External potentials are applied to all charged particles, i.e. electrons
 and nuclei.
 
+
 Examples
 --------
 
@@ -21,13 +22,15 @@ Examples
 >>> calc = GPAW(external=pc, ...)
 
 .. autoclass:: PointChargePotential
-	       
+
 >>> # Step potential in z-direction
 >>> from gpaw.external import StepPotentialz
 >>> step = StepPotentialz(zstep=10, value_right=-7)
 >>> calc = GPAW(external=step, ...)
 
 .. autoclass:: StepPotentialz
+.. autoclass:: gpaw.bfield.BField
+
 
 Several potentials
 ------------------
@@ -42,6 +45,7 @@ A collection of potentials can be applied using :class:`PotentialCollection`
 >>> calc = GPAW(external=collection, ...)
 
 .. autoclass:: PotentialCollection
+
 
 Your own potential
 ------------------

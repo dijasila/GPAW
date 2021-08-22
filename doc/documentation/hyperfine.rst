@@ -12,12 +12,12 @@ Python API and CLI
 
 Use the :func:`hyperfine_parameters` function or the CLI tool::
 
-    $ python3 -m gpaw.hyperfine <gpw-file>
+    $ python3 -m gpaw.hyperfine --help
 
 .. autofunction:: hyperfine_parameters
 
 For details, see :doi:`Peter E. Blöchl <10.1103/PhysRevB.62.6158>` and
-:doi:`Oleg V. Yazyev *et al.* <10.1103/PhysRevB.71.115110>`.
+:doi:`Oleg V. Yazyev et al. <10.1103/PhysRevB.71.115110>`.
 
 
 G-factors

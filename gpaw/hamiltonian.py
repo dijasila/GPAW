@@ -1,7 +1,3 @@
-# -*- coding: utf-8 -*-
-# Copyright (C) 2003-2015  CAMP
-# Please see the accompanying LICENSE file for further information.
-
 """This module defines a Hamiltonian."""
 
 import functools
@@ -16,11 +12,9 @@ from gpaw.lfc import LFC
 from gpaw.poisson import PoissonSolver
 from gpaw.spinorbit import soc
 from gpaw.transformers import Transformer
-from gpaw.utilities import (unpack, pack2, unpack_atomic_matrices,
-                            pack_atomic_matrices)
+from gpaw.utilities import (pack2, pack_atomic_matrices, unpack,
+                            unpack_atomic_matrices)
 from gpaw.utilities.partition import AtomPartition
-# from gpaw.utilities.debug import frozen
-
 
 ENERGY_NAMES = ['e_kinetic', 'e_coulomb', 'e_zero', 'e_external', 'e_xc',
                 'e_entropy', 'e_total_free', 'e_total_extrapolated']
@@ -50,6 +44,7 @@ def apply_non_local_hamilton(dH_asp, collinear, P, out=None):
     return out
 
 
+# from gpaw.utilities.debug import frozen
 # @frozen
 class Hamiltonian:
 
@@ -85,6 +80,7 @@ class Hamiltonian:
         self.e_external = None
         self.e_xc = None
         self.e_entropy = None
+        self.e_band = None
 
         self.e_total_free = None
         self.e_total_extrapolated = None
@@ -150,28 +146,44 @@ class Hamiltonian:
         self.xc.summary(log)
 
         try:
-            correction = self.poisson.correction
-        except AttributeError:
+            workfunctions = self.get_workfunctions(wfs)
+        except ValueError:
             pass
         else:
-            c = self.poisson.c  # index of axis perpendicular to dipole-layer
-            if not self.gd.pbc_c[c]:
-                # zero boundary conditions
-                vacuum = 0.0
-            else:
-                v_q = self.pd3.gather(self.vHt_q)
-                if self.pd3.comm.rank == 0:
-                    axes = (c, (c + 1) % 3, (c + 2) % 3)
-                    v_g = self.pd3.ifft(v_q, local=True).transpose(axes)
-                    vacuum = v_g[0].mean()
-                else:
-                    vacuum = np.nan
-
-            wf1 = (vacuum - wfs.fermi_level + correction) * Ha
-            wf2 = (vacuum - wfs.fermi_level - correction) * Ha
             log('Dipole-layer corrected work functions: {:.6f}, {:.6f} eV'
-                .format(wf1, wf2))
+                .format(*np.array(workfunctions) * Ha))
             log()
+
+    def get_workfunctions(self, wfs):
+        """
+        Returns the work functions, in Hartree, for a dipole-corrected
+        simulation. Returns None if no dipole correction is present.
+        (wfs can be obtained from calc.wfs)
+        """
+        try:
+            dipole_correction = self.poisson.correction
+        except AttributeError:
+            raise ValueError(
+                'Work function not defined if no field-free region. Consider '
+                'using a dipole correction if you are looking for a '
+                'work function.')
+        c = self.poisson.c  # index of axis perpendicular to dipole-layer
+        if not self.gd.pbc_c[c]:
+            # zero boundary conditions
+            vacuum = 0.0
+        else:
+            v_q = self.pd3.gather(self.vHt_q)
+            if self.pd3.comm.rank == 0:
+                axes = (c, (c + 1) % 3, (c + 2) % 3)
+                v_g = self.pd3.ifft(v_q, local=True).transpose(axes)
+                vacuum = v_g[0].mean()
+            else:
+                vacuum = np.nan
+
+        fermilevel = wfs.fermi_level
+        wf1 = vacuum - fermilevel + dipole_correction
+        wf2 = vacuum - fermilevel - dipole_correction
+        return np.array([wf1, wf2])
 
     def set_positions_without_ruining_everything(self, spos_ac,
                                                  atom_partition):
@@ -287,11 +299,15 @@ class Hamiltonian:
 
             if setup.HubU is not None:
                 # assert self.collinear
-                eU, dHU_sp = hubbard(setup, D_sp)
-                e_xc += eU
-                dH_sp += dHU_sp
+                for l, U, scale in zip(setup.Hubl, setup.HubU, setup.Hubs):
+                    eU, dHU_sp = hubbard(setup, D_sp, l, U, scale)
+                    e_xc += eU
+                    dH_sp += dHU_sp
 
             dH_sp[:self.nspins] += dH_p
+
+            if self.vext is not None:
+                self.vext.paw_correction(setup.Delta_pL[:, 0], dH_sp)
 
             if self.vext and self.vext.get_name() == 'CDFTPotential':
                 # cDFT atomic hamiltonian, eq. 25
@@ -528,7 +544,8 @@ class Hamiltonian:
 class RealSpaceHamiltonian(Hamiltonian):
     def __init__(self, gd, finegd, nspins, collinear, setups, timer, xc, world,
                  vext=None,
-                 psolver=None, stencil=3, redistributor=None):
+                 psolver=None, stencil=3, redistributor=None,
+                 charge: float = 0.0):
         Hamiltonian.__init__(self, gd, finegd, nspins, collinear,
                              setups, timer, xc,
                              world, vext=vext,

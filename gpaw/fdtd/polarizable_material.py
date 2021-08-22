@@ -19,17 +19,12 @@ _eps0_au = 1.0 / (4.0 * np.pi)
 #    -contains routines for calculating them from each other and/or external potential
 
 class PolarizableMaterial():
-    def __init__(self, components=None, sign = -1.0):
+    def __init__(self, *, sign=-1.0):
         self.gd          = None
         self.initialized = False
         self.sign        = sign
         self.messages    = []
-
-        if components is None:
-            self.components = []
-        else:
-            self.components  = components
-
+        self.components = []
 
     def add_component(self, component):
         self.components.append(component)
@@ -170,7 +165,7 @@ class PolarizableMaterial():
 
 # Box-shaped classical material
 class PolarizableBox():
-    def __init__(self, corner1, corner2, permittivity):
+    def __init__(self, *, corner1, corner2, permittivity):
         # sanity check
         assert(len(corner1)==3)
         assert(len(corner2)==3)
@@ -203,7 +198,7 @@ class PolarizableBox():
 
 # Shape from atom positions (surrounding region)
 class PolarizableAtomisticRegion():
-    def __init__(self, atoms=None, atom_positions=None, distance=0.0, permittivity=None):
+    def __init__(self, *, atoms=None, atom_positions=None, distance=0.0, permittivity=None):
 
         if atoms is not None:
             self.atom_positions = np.array(atoms.get_positions())
@@ -244,7 +239,7 @@ class PolarizableAtomisticRegion():
 
 # Sphere-shaped classical material
 class PolarizableSphere():
-    def __init__(self, center, radius, permittivity):
+    def __init__(self, *, center, radius, permittivity):
         self.permittivity = permittivity
         self.center      = np.array(center)/Bohr # from Angstroms to atomic units
         self.radius      = radius/Bohr # from Angstroms to atomic units
@@ -267,7 +262,7 @@ class PolarizableSphere():
 
 # Sphere-shaped classical material
 class PolarizableEllipsoid():
-    def __init__(self, center, radii, permittivity):
+    def __init__(self, *, center, radii, permittivity):
         # sanity check
         assert(len(center)==3)
         assert(len(radii)==3)
@@ -292,7 +287,7 @@ class PolarizableEllipsoid():
 
  # Rod-shaped classical material
 class PolarizableRod():
-    def __init__(self, corners, radius, permittivity, round_corners=True):
+    def __init__(self, *, corners, radius, round_corners, permittivity):
         # sanity check
         assert(np.array(corners).shape[0]>1)  # at least two points
         assert(np.array(corners).shape[1]==3) # 3D
@@ -302,6 +297,7 @@ class PolarizableRod():
         for c in corners:
             self.arguments += '[%20.12e, %20.12e, %20.12e],' % (c[0], c[1], c[2])
         self.arguments = self.arguments[:-1] + ']'
+        self.arguments += f', round_corners={round_corners}'
 
         self.corners      = np.array(corners)/Bohr # from Angstroms to atomic units
         self.radius       = radius/Bohr  # from Angstroms to atomic units
@@ -420,7 +416,7 @@ class PolarizableTetrahedron():
     # If it is meaningful to you, the quantities bi = Di/D0 are the usual barycentric coordinates.
     # Comparing signs of Di and D0 is only a check that P and Vi are on the same side of boundary i.
 
-    def __init__(self, corners, permittivity):
+    def __init__(self, *, corners, permittivity):
         # sanity check
         assert(len(corners)==4)     # exactly 4 points
         assert(len(corners[0])==3)  # 3D
@@ -520,9 +516,8 @@ class Permittivity:
 
         # Input as filename
         if fname != None: # read permittivity from a 3-column file
-            fp = open(fname, 'r')
-            lines = fp.readlines()
-            fp.close()
+            with open(fname, 'r') as fp:
+                lines = fp.readlines()
 
             self.Nj = len(lines)
 

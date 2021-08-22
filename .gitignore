@@ -37,6 +37,7 @@ N.LDA
 theme.css
 *.svg
 *.json
+*.out
 doc/setups/[A-Z]*.rst
 *.ipynb
 !*.master.ipynb

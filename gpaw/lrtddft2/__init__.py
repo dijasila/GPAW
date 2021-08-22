@@ -1,14 +1,13 @@
 """Module for linear response TDDFT class with indexed K-matrix storage."""
 
 import os
-import sys
 import datetime
 import glob
 
 import numpy as np
 
 import ase.units
-from gpaw.utilities import devnull
+from ase.utils import IOContext
 
 from gpaw.xc import XC
 
@@ -49,49 +48,45 @@ class LrTDDFT2:
                  txt='-'):
         """Initialize linear response TDDFT without calculating anything.
 
-        Note: Does NOT support spin polarized calculations yet.
+        Note
+        ----
+        Does NOT support spin polarized calculations yet.
 
-        Protip: If K_matrix file is too large and you keep running out of
+        Tip
+        ---
+        If K_matrix file is too large and you keep running out of
         memory when trying to calculate spectrum or response wavefunction,
         you can try
-        "split -l 100000
-        xxx.K_matrix.ddddddofDDDDDD xxx.K_matrix.ddddddofDDDDDD."
+        ``split -l 100000
+        xxx.K_matrix.ddddddofDDDDDD xxx.K_matrix.ddddddofDDDDDD``.
 
 
-        Input parameters:
-
+        Parameters
+        ----------
         basefilename
           All files associated with this calculation are stored as
           *<basefilename>.<extension>*
-
         gs_calc
           Ground state calculator (if you are using eh_communicator,
           you need to take care that calc has suitable dd_communicator.)
-
         fxc
           Name of the exchange-correlation kernel (fxc) used in calculation.
           (optional)
-
         min_occ
           Index of the first occupied state to be included in the calculation.
           (optional)
-
         max_occ
           Index of the last occupied state (inclusive) to be included in the
           calculation. (optional)
-
         min_unocc
           Index of the first unoccupied state to be included in the
           calculation. (optional)
-
         max_unocc
           Index of the last unoccupied state (inclusive) to be included in the
           calculation. (optional)
-
         max_energy_diff
           Noninteracting Kohn-Sham excitations above this value are not
           included in the calculation. Units: eV (optional)
-
         recalculate
           | Force recalculation.
           | 'eigen'  : recalculate only eigensystem (useful for on-the-fly
@@ -99,14 +94,12 @@ class LrTDDFT2:
           | 'matrix' : recalculate matrix without solving the eigensystem
           | 'all'    : recalculate everything
           | None     : do not recalculate anything if not needed (default)
-
         lr_communicators
           Communicators for parallelizing over electron-hole pairs (i.e.,
           rows of K-matrix) and domain. Note that ground state calculator
           must have a matching (domain decomposition) communicator, which
           can be assured by using lr_communicators
           to create both communicators.
-
         txt
           Filename for text output
         """
@@ -137,21 +130,12 @@ class LrTDDFT2:
         self.lr_comms = lr_communicators
 
         if self.lr_comms is None:
-            self.lr_comms = LrCommunicators()
+            self.lr_comms = LrCommunicators(None, None)
         self.lr_comms.initialize(gs_calc)
 
         # Init text output
-        if self.lr_comms.parent_comm.rank == 0 and txt is not None:
-            if txt == '-':
-                self.txt = sys.stdout
-            elif isinstance(txt, str):
-                self.txt = open(txt, 'w')
-            else:
-                self.txt = txt
-        elif self.calc is not None:
-            self.txt = self.calc.log.fd
-        else:
-            self.txt = devnull
+        self.iocontext = IOContext()
+        self.txt = self.iocontext.openfile(txt, self.lr_comms.parent_comm)
 
         # Check and set unset params
 
@@ -241,14 +225,12 @@ class LrTDDFT2:
         S is an array of corresponding dipole strengths,
         and R is an array of corresponding rotatory strengths.
 
-        Input parameters:
-
+        Parameters
+        ----------
         min_energy
           Minimum energy
-
         min_energy
           Maximum energy
-
         units
           Units for spectrum: 'au' or 'eVcgs'
         """
@@ -276,20 +258,16 @@ class LrTDDFT2:
         S is an array of corresponding dipole strengths, and R is an array of
         corresponding rotatory strengths.
 
-        Input parameters:
-
+        Parameters
+        ----------
         min_energy
           Minimum energy
-
         min_energy
           Maximum energy
-
         energy_step
           Spacing between calculated energies
-
         width
           Width of the Gaussian
-
         units
           Units for spectrum: 'au' or 'eVcgs'
         """
@@ -315,8 +293,8 @@ class LrTDDFT2:
         large systems. Use transition contribution map (TCM) or similar
         approach for this.
 
-        Input parameters:
-
+        Parameters
+        ----------
         index_of_transition:
           index of transition starting from zero
         """
@@ -331,14 +309,12 @@ class LrTDDFT2:
                            units='eVang'):
         """Calculates and returns response using TD-DFPT.
 
-        Input parameters:
-
+        Parameters
+        ----------
         excitation_energy
           Energy of the laser in given units
-
         excitation_direction
           Vector for direction (will be normalized)
-
         lorentzian_width
           Life time or width parameter. Larger width results in wider
           energy envelope around excitation energy.
@@ -486,4 +462,5 @@ class LrTDDFT2:
         f.close()
 
     def __del__(self):
+        self.iocontext.close()
         self.timer.stop('LrTDDFT')

@@ -213,6 +213,10 @@ class FixMagneticMomentOccupationNumberCalculator(OccupationNumberCalculator):
         self.fixed_magmom_value = magmom
         self.extrapolate_factor = occ.extrapolate_factor
 
+    def __str__(self):
+        return (f'Fixed magnetic moment: {self.fixed_magmom_value:.3f}\n' +
+                str(self.occ))
+
     def todict(self):
         dct = self.occ.todict()
         dct['fixmagmom'] = True
@@ -320,7 +324,7 @@ class FermiDiracCalculator(SmoothDistribution):
         return fermi_dirac(eig_n, fermi_level, self._width)
 
     def __str__(self):
-        return f'  Fermi-Dirac: width={self._width:.4f} eV\n'
+        return f'Fermi-Dirac: width={self._width:.4f} eV\n'
 
 
 class MarzariVanderbiltCalculator(SmoothDistribution):
@@ -333,7 +337,7 @@ class MarzariVanderbiltCalculator(SmoothDistribution):
         return marzari_vanderbilt(eig_n, fermi_level, self._width)
 
     def __str__(self):
-        return f'  Marzari-Vanderbilt: width={self._width:.4f} eV\n'
+        return f'Marzari-Vanderbilt: width={self._width:.4f} eV\n'
 
 
 class MethfesselPaxtonCalculator(SmoothDistribution):
@@ -350,7 +354,7 @@ class MethfesselPaxtonCalculator(SmoothDistribution):
         return dct
 
     def __str__(self):
-        return (f'  Methfessel-Paxton: width={self._width:.4f} eV, ' +
+        return (f'Methfessel-Paxton: width={self._width:.4f} eV, ' +
                 f'order={self.order}\n')
 
     def distribution(self, eig_n, fermi_level):
@@ -494,6 +498,9 @@ class ZeroWidth(OccupationNumberCalculator):
 
     def todict(self):
         return {'width': 0.0}
+
+    def __str__(self):
+        return 'width=0.000 eV'
 
     def distribution(self, eig_n, fermi_level):
         f_n = np.zeros_like(eig_n)

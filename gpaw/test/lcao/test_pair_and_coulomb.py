@@ -28,14 +28,16 @@ def test_lcao_pair_and_coulomb(in_tmp_dir):
         lcao = LCAOwrap(calc)
         H = lcao.get_hamiltonian()
         S = lcao.get_overlap()
-        pickle.dump((H, S), open('lcao_pair_hs.pckl', 'wb'), 2)
+        with open('lcao_pair_hs.pckl', 'wb') as fd:
+            pickle.dump((H, S), fd, 2)
         # indices = get_bfi2(symbols, basis, scat)
         indices = range(2)
         lcao.get_xc(indices=indices).dump('lcao_pair_xc.pckl')
         lcao.get_Fcore(indices=indices).dump('lcao_pair_Fcore.pckl')
         w_wG = lcao.get_orbitals(indices=indices)
         P_awi = lcao.get_projections(indices=indices)
-        pickle.dump((w_wG, P_awi), open('lcao_pair_w_wG__P_awi.pckl', 'wb'), 2)
+        with open('lcao_pair_w_wG__P_awi.pckl', 'wb') as fd:
+            pickle.dump((w_wG, P_awi), fd, 2)
 
     world.barrier()
     makeU('lcao_pair.gpw',

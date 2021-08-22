@@ -3,7 +3,7 @@ from pathlib import Path
 import numpy as np
 from scipy.spatial import cKDTree
 
-from ase.utils import convert_string_to_fd
+from gpaw.utilities import convert_string_to_fd
 from ase.utils.timing import Timer, timer
 
 from gpaw import GPAW, disable_dry_run
@@ -200,7 +200,7 @@ class KohnShamPair:
     def pd0(self):
         """Get a PWDescriptor that includes all k-points"""
         if self._pd0 is None:
-            from gpaw.wavefunctions.pw import PWDescriptor
+            from gpaw.pw.descriptor import PWDescriptor
             wfs = self.calc.wfs
             assert wfs.gd.comm.size == 1
 

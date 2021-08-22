@@ -1,14 +1,13 @@
-# -*- coding: utf-8 -*-
-# Copyright (C) 2003  CAMP
-# Please see the accompanying LICENSE file for further information.
 import functools
 from io import StringIO
 from math import pi, sqrt
+from typing import List, Tuple
 
 import ase.units as units
 import numpy as np
 from ase.data import chemical_symbols
 
+from gpaw import debug
 from gpaw.basis_data import Basis
 from gpaw.gaunt import gaunt, nabla
 from gpaw.overlap import OverlapCorrections
@@ -18,6 +17,31 @@ from gpaw.utilities import pack, unpack
 from gpaw.xc import XC
 
 
+def parse_hubbard_string(type: str) -> Tuple[str,
+                                             List[int],
+                                             List[float],
+                                             List[bool]]:
+    # Parse DFT+U parameters from type-string:
+    # Examples: "type:l,U" or "type:l,U,scale"
+    type, lus = type.split(':')
+    if type == '':
+        type = 'paw'
+
+    l = []
+    U = []
+    scale = []
+
+    for lu in lus.split(';'):  # Multiple U corrections
+        l_, u_, scale_ = (lu + ',,').split(',')[:3]
+        l.append('spdf'.find(l_))
+        U.append(float(u_) / units.Hartree)
+        if scale_:
+            scale.append(bool(int(scale_)))
+        else:
+            scale.append(True)
+    return type, l, U, scale
+
+
 def create_setup(symbol, xc='LDA', lmax=0,
                  type='paw', basis=None, setupdata=None,
                  filter=None, world=None):
@@ -25,20 +49,7 @@ def create_setup(symbol, xc='LDA', lmax=0,
         xc = XC(xc)
 
     if isinstance(type, str) and ':' in type:
-        # Parse DFT+U parameters from type-string:
-        # Examples: "type:l,U" or "type:l,U,scale"
-        type, lu = type.split(':')
-        if type == '':
-            type = 'paw'
-        l = 'spdf'.find(lu[0])
-        assert lu[1] == ','
-        U = lu[2:]
-        if ',' in U:
-            U, scale = U.split(',')
-        else:
-            scale = True
-        U = float(U) / units.Hartree
-        scale = int(scale)
+        type, l, U, scale = parse_hubbard_string(type)
     else:
         U = None
 
@@ -637,8 +648,7 @@ class LeanSetup(BaseSetup):
 
         self.N0_p = s.N0_p  # req. by estimate_magnetic_moments
         self.nabla_iiv = s.nabla_iiv  # req. by lrtddft
-        self.rnabla_iiv = s.rnabla_iiv  # req. by lrtddft
-        self.rxnabla_iiv = s.rxnabla_iiv  # req. by lrtddft2
+        self.rxnabla_iiv = s.rxnabla_iiv  # req. by lrtddft and lrtddft2
 
         # XAS stuff
         self.phicorehole_g = s.phicorehole_g  # should be optional
@@ -997,13 +1007,7 @@ class Setup(BaseSetup):
 
         self.xc_correction = data.get_xc_correction(rgd2, xc, gcut2, lcut)
         self.nabla_iiv = self.get_derivative_integrals(rgd2, phi_jg, phit_jg)
-        self.rnabla_iiv = self.get_magnetic_integrals(rgd2, phi_jg, phit_jg)
-        try:
-            from gpaw.lrtddft2.rxnabla import get_magnetic_integrals_new
-            self.rxnabla_iiv = get_magnetic_integrals_new(self, rgd2,
-                                                          phi_jg, phit_jg)
-        except NotImplementedError:
-            self.rxnabla_iiv = None
+        self.rxnabla_iiv = self.get_magnetic_integrals(rgd2, phi_jg, phit_jg)
 
     def create_projectors(self, pt_jg, rcut):
         pt_j = []
@@ -1111,13 +1115,17 @@ class Setup(BaseSetup):
           /        1    dx    2         1    dx    2
 
         and similar for y and z."""
-
-        G_LLL = gaunt(max(1, max(self.l_j)))
-        Y_LLv = nabla(max(1, max(self.l_j)))
+        # lmax needs to be at least 1 for evaluating
+        # the Gaunt coefficients from derivatives
+        lmax = max(1, max(self.l_j))
+        G_LLL = gaunt(lmax)
+        Y_LLv = nabla(lmax)
 
         r_g = rgd.r_g
         dr_g = rgd.dr_g
         nabla_iiv = np.empty((self.ni, self.ni, 3))
+        if debug:
+            nabla_iiv[:] = np.nan
         i1 = 0
         for j1 in range(self.nj):
             l1 = self.l_j[j1]
@@ -1129,20 +1137,22 @@ class Setup(BaseSetup):
                 f1f2or = np.dot(phi_jg[j1] * phi_jg[j2] -
                                 phit_jg[j1] * phit_jg[j2], r_g * dr_g)
                 dphidr_g = np.empty_like(phi_jg[j2])
-                rgd.derivative(phi_jg[j2], dphidr_g)
+                rgd.derivative_spline(phi_jg[j2], dphidr_g)
                 dphitdr_g = np.empty_like(phit_jg[j2])
-                rgd.derivative(phit_jg[j2], dphitdr_g)
+                rgd.derivative_spline(phit_jg[j2], dphitdr_g)
                 f1df2dr = np.dot(phi_jg[j1] * dphidr_g -
                                  phit_jg[j1] * dphitdr_g, r_g**2 * dr_g)
                 for v in range(3):
                     Lv = 1 + (v + 2) % 3
+                    G_12 = G_LLL[Lv, l1**2:l1**2 + nm1, l2**2:l2**2 + nm2]
+                    Y_12 = Y_LLv[l1**2:l1**2 + nm1, l2**2:l2**2 + nm2, v]
                     nabla_iiv[i1:i1 + nm1, i2:i2 + nm2, v] = (
-                        (4 * pi / 3)**0.5 * (f1df2dr - l2 * f1f2or) *
-                        G_LLL[Lv, l2**2:l2**2 + nm2, l1**2:l1**2 + nm1].T +
-                        f1f2or *
-                        Y_LLv[l1**2:l1**2 + nm1, l2**2:l2**2 + nm2, v])
+                        sqrt(4 * pi / 3) * (f1df2dr - l2 * f1f2or) * G_12
+                        + f1f2or * Y_12)
                 i2 += nm2
             i1 += nm1
+        if debug:
+            assert not np.any(np.isnan(nabla_iiv))
         return nabla_iiv
 
     def get_magnetic_integrals(self, rgd, phi_jg, phit_jg):
@@ -1159,13 +1169,17 @@ class Setup(BaseSetup):
                  x     dz     dy
 
         and similar for y and z."""
-
-        G_LLL = gaunt(max(self.l_j))
-        Y_LLv = nabla(max(self.l_j))
+        # lmax needs to be at least 1 for evaluating
+        # the Gaunt coefficients from derivatives
+        lmax = max(1, max(self.l_j))
+        G_LLL = gaunt(lmax)
+        Y_LLv = nabla(2 * lmax)
 
         r_g = rgd.r_g
         dr_g = rgd.dr_g
-        rnabla_iiv = np.zeros((self.ni, self.ni, 3))
+        rxnabla_iiv = np.empty((self.ni, self.ni, 3))
+        if debug:
+            rxnabla_iiv[:] = np.nan
         i1 = 0
         for j1 in range(self.nj):
             l1 = self.l_j[j1]
@@ -1179,27 +1193,22 @@ class Setup(BaseSetup):
                 for v in range(3):
                     v1 = (v + 1) % 3
                     v2 = (v + 2) % 3
+                    Lv1 = 1 + (v1 + 2) % 3
+                    Lv2 = 1 + (v2 + 2) % 3
                     # term from radial wfs does not contribute
                     # term from spherical harmonics derivatives
-                    G = np.zeros((nm1, nm2))
-                    for l3 in range(abs(l1 - 1), l1 + 2):
-                        for m3 in range(0, (2 * l3 + 1)):
-                            L3 = l3**2 + m3
-                            try:
-                                G += np.outer(G_LLL[L3, l1**2:l1**2 + nm1,
-                                                    1 + v1],
-                                              Y_LLv[L3, l2**2:l2**2 + nm2,
-                                                    v2])
-                                G -= np.outer(G_LLL[L3, l1**2:l1**2 + nm1,
-                                                    1 + v2],
-                                              Y_LLv[L3, l2**2:l2**2 + nm2,
-                                                    v1])
-                            except IndexError:
-                                pass  # L3 might be too large, ignore
-                    rnabla_iiv[i1:i1 + nm1, i2:i2 + nm2, v] += f1f2or * G
+                    G_12 = np.zeros((nm1, nm2))
+                    G_12 += np.dot(G_LLL[Lv1, l1**2:l1**2 + nm1, :],
+                                   Y_LLv[:, l2**2:l2**2 + nm2, v2])
+                    G_12 -= np.dot(G_LLL[Lv2, l1**2:l1**2 + nm1, :],
+                                   Y_LLv[:, l2**2:l2**2 + nm2, v1])
+                    rxnabla_iiv[i1:i1 + nm1, i2:i2 + nm2, v] = (
+                        sqrt(4 * pi / 3) * f1f2or * G_12)
                 i2 += nm2
             i1 += nm1
-        return (4 * pi / 3) * rnabla_iiv
+        if debug:
+            assert not np.any(np.isnan(rxnabla_iiv))
+        return rxnabla_iiv
 
     def construct_core_densities(self, setupdata):
         rcore = self.data.find_core_density_cutoff(setupdata.nc_g)

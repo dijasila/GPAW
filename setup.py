@@ -20,15 +20,11 @@ assert sys.version_info >= (3, 6)
 
 # Get the current version number:
 txt = Path('gpaw/__init__.py').read_text()
-version = re.search("__version__ = '(.*)'", txt).group(1)
+version = re.search("__version__ = '(.*)'", txt)[1]
+ase_version_required = re.search("__ase_version_required__ = '(.*)'", txt)[1]
 
 description = 'GPAW: DFT and beyond within the projector-augmented wave method'
 long_description = Path('README.rst').read_text()
-
-remove_default_flags = False
-if '--remove-default-flags' in sys.argv:
-    remove_default_flags = True
-    sys.argv.remove('--remove-default-flags')
 
 for i, arg in enumerate(sys.argv):
     if arg.startswith('--customize='):
@@ -95,7 +91,7 @@ for siteconfig in [gpaw_config,
             print('Reading configuration from', path)
             exec(path.read_text())
             break
-else:
+else:  # no break
     if not noblas:
         libraries.append('blas')
 
@@ -115,17 +111,11 @@ if compiler is not None:
         from distutils.sysconfig import get_config_vars
     except ImportError:
         from sysconfig import get_config_vars
+
+    # If CC is set then the following hack will not work
+    assert not os.environ.get('CC'), 'Please unset CC'
+
     vars = get_config_vars()
-    if remove_default_flags:
-        for key in ['BASECFLAGS', 'CFLAGS', 'OPT', 'PY_CFLAGS',
-                    'CCSHARED', 'CFLAGSFORSHARED', 'LINKFORSHARED',
-                    'LIBS', 'SHLIBS']:
-            if key in vars:
-                value = vars[key].split()
-                # remove all gcc flags (causing problems with other compilers)
-                for v in list(value):
-                    value.remove(v)
-                vars[key] = ' '.join(value)
     for key in ['CC', 'LDSHARED']:
         if key in vars:
             value = vars[key].split()
@@ -243,7 +233,8 @@ setup(name='gpaw',
       packages=find_packages(),
       entry_points={'console_scripts': ['gpaw = gpaw.cli.main:main']},
       setup_requires=['numpy'],
-      install_requires=['ase>=3.20.1'],
+      install_requires=[f'ase>={ase_version_required}',
+                        'scipy>=1.2.0'],
       ext_modules=extensions,
       scripts=scripts,
       cmdclass=cmdclass,

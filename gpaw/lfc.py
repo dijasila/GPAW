@@ -1067,7 +1067,11 @@ class BasisFunctions(LocalizedFunctionsCollection):
         self.lfc.calculate_potential_matrix(vt_G, Vt_MM, q,
                                             self.Mstart, self.Mstop)
 
-    def lcao_to_grid(self, C_xM, psit_xG, q):
+    def lcao_to_grid(self,
+                     C_xM: np.ndarray,
+                     psit_xG: np.ndarray,
+                     q: int,
+                     block_size: int = 10) -> None:
         r"""Deploy basis functions onto grids according to coefficients.
 
         ::
@@ -1094,7 +1098,7 @@ class BasisFunctions(LocalizedFunctionsCollection):
                 f'but expected one of {self.dtype}')
 
         xshape = C_xM.shape[:-1]
-        assert psit_xG.shape[:-3] == xshape
+        assert psit_xG.shape[:-3] == xshape, (psit_xG.shape, xshape)
 
         C_xM = C_xM.reshape((-1,) + C_xM.shape[-1:])
         psit_xG = psit_xG.reshape((-1,) + psit_xG.shape[-3:])
@@ -1104,10 +1108,10 @@ class BasisFunctions(LocalizedFunctionsCollection):
                 self.lfc.lcao_to_grid(C_M, psit_G, q)
         else:
             # Do sum over unit cells first followed by sum over bands
-            # in blocks of 10 orbitals at the time:
+            # in blocks of block_size orbitals at the time:
             assert C_xM.flags.contiguous
             assert psit_xG.flags.contiguous
-            self.lfc.lcao_to_grid_k(C_xM, psit_xG, q, 10)
+            self.lfc.lcao_to_grid_k(C_xM, psit_xG, q, block_size)
 
     def calculate_potential_matrix_derivative(self, vt_G, DVt_vMM, q):
         """Calculate derivatives of potential matrix elements.

@@ -17,7 +17,15 @@ small and quick tests and by a weekly set of larger test.
 
 Use pytest_ and pytest-xdist_ to run the tests::
 
-    $ pytest -v -n <number-of-processes>
+    $ cd /root/of/gpaw/git/clone/
+    $ pytest -n <number-of-processes>
+
+.. hint::
+
+    If you don't have a git-clone from where you can run ``pytest``, but
+    instead want to test an installed version of GPAW, then use::
+
+        $ pytest --pyargs=gpaw -n ...
 
 The test suite consists of a large number of small and quick tests
 found in the :git:`gpaw/test/` directory.  The tests run nightly in serial
@@ -95,8 +103,8 @@ comparing floating point numbers::
 Big tests
 =========
 
-The directories in :git:`gpaw/test/big/`, :git:`doc/tutorials/` and
-:git:`doc/exercises/` contain longer and more
+The directories in :git:`gpaw/test/big/` and :git:`doc/tutorialsexercises/`
+contain longer and more
 realistic tests that we run every weekend.  These are submitted to a
 queueing system of a large computer.  The scripts in the :git:`doc` folder
 are used both for testing GPAW and for generating up to date figures and
@@ -123,6 +131,14 @@ something like::
 As shown, this script has to contain the definition of the function
 workflow_.  Start the workflow with ``mq workflow -p agts.py .``
 (see https://myqueue.readthedocs.io/ for more details).
+
+Scripts that generate figures or test files for inclusion in the
+GPAW web-pages should start with a special ``# web-page:`` comment like this::
+
+    # web-page: fig1.png, table1.csv
+    ...
+    # code that creates fig1.png and table1.csv
+    ...
 
 .. _workflow: https://myqueue.readthedocs.io/en/latest/
     workflows.html
