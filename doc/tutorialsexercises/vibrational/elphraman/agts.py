@@ -19,4 +19,4 @@ def check():
     ri = np.load('RI_xz_632nm.npy')
     x0, y0 = findpeak(ri[0], ri[1])
     assert np.isclose(x0, 1304.497, atol=0.2)
-    assert np.isclose(y0, 4.8486e-5, atol=0.2e-5)
+    assert np.isclose(y0, 4.8486e-5, atol=0.4e-5)

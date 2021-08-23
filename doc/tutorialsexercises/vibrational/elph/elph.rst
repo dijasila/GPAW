@@ -54,7 +54,8 @@ simultaneously. (:git:`~doc/tutorialsexercises/vibrational/elph/elph.py`)
 .. literalinclude:: elph.py
 
 The last line in the above script constructs the electron-phonon matrix in terms
-of LCAO orbitals (and cell repetitions) and saves it as ``elph.supercell_matrix.dzp.pckl``.
+of LCAO orbitals (and cell repetitions) and saves it as ASE JSON cache to the
+`supercell` directory.
 
 After both calculations are finished the final electron-phonon matrix can be constructed
 with a 'simple' script. (:git:`~doc/tutorialsexercises/vibrational/elph/construct_matrix.py`)
