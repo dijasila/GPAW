@@ -176,7 +176,7 @@ class DirectMinLCAO(DirectLCAO):
         self.dtype = wfs.dtype
         self.nkpts = wfs.kd.nibzkpts
         for kpt in wfs.kpt_u:
-            u = kpt.s * self.nkpts + kpt.q
+            u = self.kpointval(kpt)
             # dimensionality of the problem.
             # this implementation rotates among all bands
             self.n_dim[u] = wfs.bd.nbands
@@ -247,7 +247,7 @@ class DirectMinLCAO(DirectLCAO):
 
         for kpt in wfs.kpt_u:
             n_occ = get_n_occ(kpt)
-            u = self.nkpts * kpt.s + kpt.q
+            u = self.kpointval(kpt)
             # M - one dimension of the A_BigMatrix
             M = self.n_dim[u]
             if self.representation == 'sparse':
@@ -353,7 +353,7 @@ class DirectMinLCAO(DirectLCAO):
                     phi_2i[0] = alpha_phi_der_phi[1]
                     der_phi_2i[0] = alpha_phi_der_phi[2]
                     for kpt in wfs.kpt_u:
-                        k = self.nkpts * kpt.s + kpt.q
+                        k = self.kpointval(kpt)
                         wfs.gd.comm.broadcast(g_mat_u[k], 0)
 
             # calculate new matrices for optimal step length
@@ -388,7 +388,7 @@ class DirectMinLCAO(DirectLCAO):
             self._error = 0.0
             self.e_sic = 0.0  # this is odd energy
             for kpt in wfs.kpt_u:
-                k = self.nkpts * kpt.s + kpt.q
+                k = self.kpointval(kpt)
                 if n_dim[k] == 0:
                     g_mat_u[k] = np.zeros_like(a_mat_u[k])
                     continue
@@ -409,14 +409,14 @@ class DirectMinLCAO(DirectLCAO):
         if self.representation == 'full' and self.checkgraderror:
             norm = 0.0
             for kpt in wfs.kpt_u:
-                u = kpt.s * self.nkpts + kpt.q
+                u = self.kpointval(kpt)
                 normt = np.linalg.norm(g_mat_u[u] @ self.a_mat_u[u] -
                                        self.a_mat_u[u] @ g_mat_u[u])
                 if norm < normt:
                     norm = normt
             norm2 = 0.0
             for kpt in wfs.kpt_u:
-                u = kpt.s * self.nkpts + kpt.q
+                u = self.kpointval(kpt)
                 normt = np.linalg.norm(g_mat_u[u])
                 if norm2 < normt:
                     norm2 = normt
@@ -519,7 +519,7 @@ class DirectMinLCAO(DirectLCAO):
                 self.get_canonical_representation(ham, wfs, dens)
             else:
                 for kpt in wfs.kpt_u:
-                    u = kpt.s * self.nkpts + kpt.q
+                    u = self.kpointval(kpt)
                     self.c_nm_ref[u] = kpt.C_nM.copy()
                     self.a_mat_u[u] = np.zeros_like(self.a_mat_u[u])
 
@@ -541,7 +541,7 @@ class DirectMinLCAO(DirectLCAO):
             if self.searchdir_algo.name != 'l-bfgs-p':
                 if self.iters % counter == 0 or self.iters == 1:
                     for kpt in wfs.kpt_u:
-                        k = self.nkpts * kpt.s + kpt.q
+                        k = self.kpointval(kpt)
                         hess = self.get_hessian(kpt)
                         if self.dtype is float:
                             self.precond[k] = np.zeros_like(hess)
@@ -568,7 +568,7 @@ class DirectMinLCAO(DirectLCAO):
                 # but in 'if' above self.precond
                 precond = {}
                 for kpt in wfs.kpt_u:
-                    k = self.nkpts * kpt.s + kpt.q
+                    k = self.kpointval(kpt)
                     w = kpt.weight / (3.0 - wfs.nspins)
                     if self.iters % counter == 0 or self.iters == 1:
                         self.hess[k] = self.get_hessian(kpt)
@@ -601,7 +601,7 @@ class DirectMinLCAO(DirectLCAO):
         f_n = kpt.f_n
         eps_n = kpt.eps_n
         if self.representation in ['sparse', 'u-invar']:
-            u = self.nkpts * kpt.s + kpt.q
+            u = self.kpointval(kpt)
             il1 = list(self.ind_up[u])
         else:
             il1 = get_indices(eps_n.shape[0], self.dtype)
@@ -677,7 +677,7 @@ class DirectMinLCAO(DirectLCAO):
                             self.initial_occupation_numbers
 
             for kpt in wfs.kpt_u:
-                u = kpt.s * self.nkpts + kpt.q
+                u = self.kpointval(kpt)
                 self.c_nm_ref[u] = kpt.C_nM.copy()
                 self.a_mat_u[u] = np.zeros_like(self.a_mat_u[u])
 
@@ -780,185 +780,115 @@ class DirectMinLCAO(DirectLCAO):
                 'orthonormalization': self.orthonormalization
                 }
 
-    def get_numerical_gradients(self, ham, wfs, dens,
-                                c_nm_ref=None, eps=1.0e-7,
-                                random_amat=False, update_c_nm_ref=False,
-                                seed=None):
+    def finite_diff_appr_of_derivative(self, ham, wfs, dens, c_nm_ref=None,
+                                       eps=1.0e-7, random_amat=False,
+                                       update_c_nm_ref=False, seed=None,
+                                       what2calc='gradient'):
 
         """
-           calculate gradient with respect to skew-hermitian
+           calculate gradient or hessian with respect to skew-hermitian
            matrix using finite differences with random noise
-           this is just to test the implementation of anal. gradient
+           this is usually used to test the implementation of anal. gradient
 
         :param ham:
         :param wfs:
         :param dens:
-        :param c_nm_ref:
-        :param eps:
-        :param random_amat:
-        :param update_c_nm_ref:
+        :param c_nm_ref: reference orbitals
+        :param eps: finite difference step
+        :param random_amat: start at random skew-hermitian matrix
+        :param update_c_nm_ref: before calculations do c_ref <- c_ref e*A
         :param seed: seed for random generator
-        :return:
+        :param what2calc: gradient or hessian
+        :return: analytical and numerical
         """
 
         assert self.representation in ['sparse', 'u-invar']
-        a_m = {}
-        g_n = {}
+        assert what2calc in ['gradient', 'hessian']
+
+        a_m = {u: np.zeros_like(v) for u, v in self.a_mat_u.items()}
         n_dim = self.n_dim
-        
-        if c_nm_ref is None:
-            c_nm_ref = self.c_nm_ref
-        for kpt in wfs.kpt_u:
-            u = self.nkpts * kpt.s + kpt.q
-            if random_amat:
-                np.random.seed(seed)
-                a = np.random.random_sample(self.a_mat_u[u].shape)
-                if wfs.dtype == complex:
-                    a = a.astype(complex)
-                    a += 1.0j * np.random.random_sample(self.a_mat_u[u].shape)
-            else:
-                a = np.zeros_like(self.a_mat_u[u])
-            wfs.gd.comm.broadcast(a, 0)
-            a_m[u] = a
-            g_n[u] = np.zeros_like(self.a_mat_u[u])
-        
-        if update_c_nm_ref:
-            for kpt in wfs.kpt_u:
-                u = self.nkpts * kpt.s + kpt.q
-                
-                # construct full matrix
-                a = np.zeros(shape=(n_dim[u], n_dim[u]), dtype=self.dtype)
-                a[self.ind_up[u]] = a_m[u]
-                a += -a.T.conj()
-
-                u_nn = expm(a)
-                c_nm_ref[u] = u_nn.T @ kpt.C_nM[:u_nn.shape[0]]
-                a_m[u] = np.zeros_like(self.a_mat_u[u])
-        
-        # calc analitical gradient
-        g_a = self.get_energy_and_gradients(a_m, n_dim, ham, wfs,
-                                            dens, c_nm_ref)[1]
-        # calc numerical gradient
-        h = [eps, -eps]
-        coeif = [1.0, -1.0]
-
-        if self.dtype == complex:
-            range_z = 2
-            complex_gr = [1.0, 1.0j]
-        else:
-            range_z = 1
-            complex_gr = [1.0]
-
-        for kpt in wfs.kpt_u:
-            u = self.nkpts * kpt.s + kpt.q
-            dim = len(a_m[u])
-            for z in range(range_z):
-                for i in range(dim):
-                    parprint(u, z, i)
-                    a = a_m[u][i]
-                    g = 0.0
-                    for l in range(2):
-                        if z == 0:
-                            a_m[u][i] = a + h[l]
-                        else:
-                            a_m[u][i] = a + 1.0j * h[l]
-                        E = self.get_energy_and_gradients(
-                            a_m, n_dim, ham, wfs, dens,
-                            c_nm_ref)[0]
-                        g += E * coeif[l]
-
-                    g *= 1.0 / (2.0 * eps)
-                    
-                    g_n[u][i] += g * complex_gr[z]
-                    a_m[u][i] = a
-
-        return g_a, g_n
-
-    def get_numerical_hessian(self, n_dim, ham, wfs, dens,
-                              c_nm_ref, eps=1.0e-5):
-        """
-        Calculate hessian with respect to skew-hermitian
-        elements using central finite differences
-
-        :param n_dim:
-        :param ham:
-        :param wfs:
-        :param dens:
-        :param c_nm_ref:
-        :param eps:
-        :return:
-        """
-        assert self.representation != 'full', 'Use sparse or ' \
-            'unitary invariant representations to calculate the ' \
-            'Hessian matrix'
-
-        occ_name = getattr(wfs.occupations, "name", None)
-        if occ_name == 'mom':
-            self.sort_wavefunctions_mom(wfs)
-            for kpt in wfs.kpt_u:
-                u = self.nkpts * kpt.s + kpt.q
-                c_nm_ref[u] = kpt.C_nM.copy()
+        # total dimensionality if matrices are real:
+        dim = sum([len(a) for a in a_m.values()])
         matrix_exp = self.matrix_exp
-        self.matrix_exp = 'egdecomp'
-
+        g_a = None
+        g_n = None
+        hess_a = None
+        hess_n = None
         dim_z, disp = (2, [eps, 1.0j * eps]) \
             if self.dtype == complex else (1, [eps])
-        dim_k = {}
-        dim_k_total = 0
-        a_m = {}
-        for kpt in wfs.kpt_u:
-            u = self.nkpts * kpt.s + kpt.q
-            a_m[u] = np.zeros_like(self.a_mat_u[u])
-            dim_k_total += len(self.a_mat_u[u])
-            dim_k[u] = len(self.a_mat_u[u])
 
-        hess_a = []
-        hess_n = np.zeros(shape=(dim_z * dim_k_total,
-                          dim_z * dim_k_total))
-        for kpt in wfs.kpt_u:
-            hess_a += list(self.get_hessian(kpt).copy())
+        if what2calc == 'gradient':
+            g_n = {u: np.zeros_like(v) for u, v in a_m.items()}
+        else:
+            hess_n = np.zeros(shape=(dim_z * dim, dim_z * dim))
+            # have to use exact gradient when hessian is calculated
+            self.matrix_exp = 'egdecomp'
 
-        l = 0
+        if c_nm_ref is None:
+            c_nm_ref = self.c_nm_ref
+
+        # init matrices and use random if needed
+        for kpt in wfs.kpt_u:
+            u = self.kpointval(kpt)
+            if random_amat:
+                a = random_a(a_m[u].shape, wfs.dtype, seed)
+                wfs.gd.comm.broadcast(a, 0)
+                a_m[u] = a
+            # update ref orbitals if needed
+            if update_c_nm_ref:
+                amat = vec2skewmat(a_m[u], n_dim[u], self.ind_up[u], wfs.dtype)
+                u_nn = expm(amat)
+                c_nm_ref[u] = u_nn.T @ kpt.C_nM[:u_nn.shape[0]]
+                a_m[u] = np.zeros_like(a_m[u])
+
+        if what2calc == 'gradient':
+            # calc analytical gradient
+            g_a = self.get_energy_and_gradients(a_m, n_dim, ham, wfs, dens,
+                                                c_nm_ref)[1]
+            tmp = 0
+        else:
+            # calc analytical approximation to hessian
+            hess_a = []
+            for kpt in wfs.kpt_u:
+                hess_a += list(self.get_hessian(kpt).copy())
+            hess_a = np.diag(hess_a)
+            tmp = 1
+
+        row = 0
         for z in range(dim_z):
-            k_count = dim_k[0]
-            k = 0
-            i = 0
-            while True:
-                k_count -= 1
-                if k_count < 0:
-                    k += 1
-                    if k == len(wfs.kpt_u):
-                        break
-                    i = 0
-                    k_count = dim_k[k] - 1
-                    if k_count < 0:
-                        continue
-                a_m[k][i] = disp[z]
-                gp = self.get_energy_and_gradients(a_m, n_dim,
-                                                   ham, wfs, dens,
-                                                   c_nm_ref)[1]
-                a_m[k][i] = -disp[z]
-                gm = self.get_energy_and_gradients(a_m, n_dim,
-                                                   ham, wfs, dens,
-                                                   c_nm_ref)[1]
-                hess = []
-                for u in range(len(wfs.kpt_u)):
-                    hess += list((gp[u] - gm[u]) * 0.5 / eps)
-                hess = np.asarray(hess)
-                if self.dtype == complex:
-                    hessc = np.zeros(shape=2 * dim_k_total)
-                    hessc[: dim_k_total] = np.real(hess)
-                    hessc[dim_k_total:] = np.imag(hess)
-                    hess_n[l] = hessc
-                else:
-                    hess_n[l] = hess
-                a_m[k][i] = 0.0
-                i += 1
-                l += 1
+            for kpt in wfs.kpt_u:
+                u = self.kpointval(kpt)
+                for i in range(len(a_m[u])):
+                    parprint(z, u, i)
+                    a = a_m[u][i]
+                    a_m[u][i] = a + disp[z]
+                    valp = self.get_energy_and_gradients(
+                        a_m, n_dim, ham, wfs, dens, c_nm_ref)[tmp]
+                    a_m[u][i] = a - disp[z]
+                    valm = self.get_energy_and_gradients(
+                        a_m, n_dim, ham, wfs, dens, c_nm_ref)[tmp]
+                    if what2calc == 'gradient':
+                        g_n[u][i] += disp[z] * (valp - valm) * 0.5 / eps ** 2
+                    else:
+                        hess = []
+                        for k in range(len(wfs.kpt_u)):
+                            hess += list((valp[k] - valm[k]) * 0.5 / eps)
+                        hess = np.asarray(hess)
+                        if dim_z == 2:
+                            hessc = np.zeros(shape=dim_z * dim)
+                            hessc[: dim] = np.real(hess)
+                            hessc[dim:] = np.imag(hess)
+                            hess_n[row] = hessc
+                        else:
+                            hess_n[row] = hess
+                    row += 1
+                    a_m[u][i] = a
 
-        hess_a = np.diag(hess_a)
-        self.matrix_exp = matrix_exp
-        return hess_a, hess_n
+        if what2calc == 'gradient':
+            return g_a, g_n
+        else:
+            self.matrix_exp = matrix_exp
+            return hess_a, hess_n
 
     def rotate_wavefunctions(self, wfs, a_mat_u, n_dim, c_nm_ref):
 
@@ -975,7 +905,7 @@ class DirectMinLCAO(DirectLCAO):
 
         with wfs.timer('Unitary rotation'):
             for kpt in wfs.kpt_u:
-                k = self.nkpts * kpt.s + kpt.q
+                k = self.kpointval(kpt)
                 if n_dim[k] == 0:
                     continue
 
@@ -987,10 +917,8 @@ class DirectMinLCAO(DirectLCAO):
                             n_v = wfs.bd.nbands - n_occ
                             a = a_mat_u[k].reshape(n_occ, n_v)
                         else:
-                            a = np.zeros(shape=(n_dim[k], n_dim[k]),
-                                         dtype=self.dtype)
-                            a[self.ind_up[k]] = a_mat_u[k]
-                            a += -a.T.conj()
+                            a = vec2skewmat(a_mat_u[k], n_dim[k],
+                                            self.ind_up[k], self.dtype)
                     else:
                         a = a_mat_u[k]
 
@@ -1097,13 +1025,14 @@ class DirectMinLCAO(DirectLCAO):
         """
         nst = kpt.C_nM.shape[0]
         wt = kpt.weight * 0.01
-        arand = wt * (np.random.rand(nst, nst)).astype(wfs.dtype)
-        if wfs.dtype is complex:
-            arand += 1.j * np.random.rand(nst, nst) * wt
+        arand = wt * random_a((nst, nst), wfs.dtype, None)
         arand = arand - arand.T.conj()
         wfs.gd.comm.broadcast(arand, 0)
         kpt.C_nM[:] = expm(arand) @ kpt.C_nM[:]
         wfs.atomic_correction.calculate_projections(wfs, kpt)
+
+    def kpointval(self, kpt):
+        return self.nkpts * kpt.s + kpt.q
 
     @property
     def error(self):
@@ -1154,3 +1083,23 @@ def rotate_subspace(h_mm, c_nm):
     # check if diagonal then don't rotate? it could save a bit of time
     eps, w = np.linalg.eigh(l_nn)
     return w.T.conj() @ c_nm, eps
+
+
+def random_a(shape, dtype, seed):
+
+    np.random.seed(seed)
+    a = np.random.random_sample(shape)
+    if dtype == complex:
+        a = a.astype(complex)
+        a += 1.0j * np.random.random_sample(shape)
+
+    return a
+
+
+def vec2skewmat(a_vec, dim, ind_up, dtype):
+
+    a = np.zeros(shape=(dim, dim), dtype=dtype)
+    a[ind_up] = a_vec
+    a -= a.T.conj()
+
+    return a

@@ -7,7 +7,6 @@ import scipy.linalg as lalg
 
 
 def expm_ed(a_mat, evalevec=False):
-
     """
     calculate matrix exponential
     using eigendecomposition of matrix a_mat
@@ -32,7 +31,6 @@ def expm_ed(a_mat, evalevec=False):
 
 
 def expm_ed_unit_inv(a_upp_r, oo_vo_blockonly=False):
-
     """
     calculate matrix exponential using
     Eq. (6) from
@@ -171,7 +169,7 @@ def minimum_parabola_interpol(x_0, x_1, f_0, f_1, df_0):
     assert x_0 <= x_1
 
     r = x_1 - x_0
-    a = (f_1 - f_0 - r * df_0) / r**2
+    a = (f_1 - f_0 - r * df_0) / r ** 2
     b = df_0
     c = f_0
 
@@ -197,7 +195,6 @@ def matrix_function(evals, evecs, func=lambda x: x):
 
 
 def loewdin_lcao(C_nM, S_MM):
-
     """
     Loewdin based orthonormalization
     for LCAO mode
@@ -219,7 +216,6 @@ def loewdin_lcao(C_nM, S_MM):
 
 
 def gramschmidt_lcao(C_nM, S_MM):
-
     """
     Gram-Schmidt orthonormalization using cholesky decomposition
     for LCAO mode
