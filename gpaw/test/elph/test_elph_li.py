@@ -9,6 +9,7 @@ import numpy as np
 import pytest
 from ase import __version__
 from ase.build import bulk
+from ase.parallel import world
 from gpaw import GPAW
 from gpaw.elph.electronphonon import ElectronPhononCoupling
 
@@ -67,19 +68,22 @@ def test_elph_li(in_tmp_dir):
         else:
             g_xMM = elph.g_xsNNMM[:, 0, 0, 0]
 
-        # Part 4:  analyse matrix
-        for s in range(spinpol + 1):
-            for x in range(6):  # 2 atoms * 3 directions
-                # gMM is symmetric
-                assert (np.allclose(elph.g_xsNNMM[x, s, 0, 0],
-                                    elph.g_xsNNMM[x, s, 0, 0].T))
-                # in this case both atoms and all displacements are equivalent
-                # all six gMM have same entries, but in different places
-                assert (abs(np.max(abs(elph.g_xsNNMM[x, s, 0, 0])) -
-                            np.max(abs(elph.g_xsNNMM[0, 0, 0, 0]))) < 5e-5)
+        if world.rank == 0:  # others don't have g_xsNNMM
+            # Part 4:  analyse matrix
+            for s in range(spinpol + 1):
+                for x in range(6):  # 2 atoms * 3 directions
+                    # gMM is symmetric
+                    assert (np.allclose(elph.g_xsNNMM[x, s, 0, 0],
+                                        elph.g_xsNNMM[x, s, 0, 0].T))
+                    # in this case both atoms and all displacements are
+                    # equivalent
+                    # all six gMM have same entries, but in different places
+                    assert (abs(np.max(abs(elph.g_xsNNMM[x, s, 0, 0])) -
+                                np.max(abs(elph.g_xsNNMM[0, 0, 0, 0]))) < 5e-5)
         # remove json cache
         elph.clean()
 
-    # Part 5: compare spin-paired and spin-polarised
-    assert np.allclose(g_xsMM[:, 0], g_xsMM[:, 1])
-    assert np.allclose(g_xMM, g_xsMM[:, 0])
+    if world.rank == 0:
+        # Part 5: compare spin-paired and spin-polarised
+        assert np.allclose(g_xsMM[:, 0], g_xsMM[:, 1])
+        assert np.allclose(g_xMM, g_xsMM[:, 0])
