@@ -778,7 +778,7 @@ class DirectMinLCAO(DirectLCAO):
 
     def finite_diff_appr_of_derivative(self, ham, wfs, dens, c_nm_ref=None,
                                        eps=1.0e-7, random_amat=False,
-                                       update_c_nm_ref=False, seed=None,
+                                       update_c_nm_ref=False,
                                        what2calc='gradient'):
 
         """
@@ -827,7 +827,7 @@ class DirectMinLCAO(DirectLCAO):
         for kpt in wfs.kpt_u:
             u = self.kpointval(kpt)
             if random_amat:
-                a = random_a(a_m[u].shape, wfs.dtype, seed)
+                a = random_a(a_m[u].shape, wfs.dtype)
                 wfs.gd.comm.broadcast(a, 0)
                 a_m[u] = a
             # update ref orbitals if needed
@@ -1021,7 +1021,7 @@ class DirectMinLCAO(DirectLCAO):
         """
         nst = kpt.C_nM.shape[0]
         wt = kpt.weight * 0.01
-        arand = wt * random_a((nst, nst), wfs.dtype, None)
+        arand = wt * random_a((nst, nst), wfs.dtype)
         arand = arand - arand.T.conj()
         wfs.gd.comm.broadcast(arand, 0)
         kpt.C_nM[:] = expm(arand) @ kpt.C_nM[:]
@@ -1077,9 +1077,8 @@ def rotate_subspace(h_mm, c_nm):
     return w.T.conj() @ c_nm, eps
 
 
-def random_a(shape, dtype, seed):
+def random_a(shape, dtype):
 
-    np.random.seed(seed)
     a = np.random.random_sample(shape)
     if dtype == complex:
         a = a.astype(complex)
