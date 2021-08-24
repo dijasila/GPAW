@@ -10,25 +10,21 @@ from gpaw.directmin.lcao.tools import minimum_cubic_interpol, \
     minimum_parabola_interpol
 
 
-def descent(phi_0, phi_j, eps=1.0e-2):
-    if phi_j <= phi_0 + eps * abs(phi_0):
-        return True
-    else:
-        return False
+def is_descent(phi_0, phi_j, eps=1.0e-2):
+    return phi_j <= phi_0 + eps * abs(phi_0)
 
 
-def appr_wc(der_phi_0, phi_0, der_phi_j, phi_j):
+def is_descent_and_approximate_wolfe_conditions(
+        der_phi_0, phi_0, der_phi_j, phi_j, eps=1.0e-6, delta=0.1, sigma=0.9):
+    """
+     William W. Hager and Hongchao Zhang
+     SIAM J. optim., 16(1), 170-192.
+     """
 
-    eps = 1.0e-6
-    delta = 0.1
-    sigma = 0.9
+    descent = is_descent(phi_0, phi_j, eps)
+    awc = (2.0 * delta - 1.0) * der_phi_0 >= der_phi_j >= sigma * der_phi_0
 
-    if (phi_j <= phi_0 + eps * abs(phi_0)) and \
-            ((2.0 * delta - 1.0) * der_phi_0 >= der_phi_j >= sigma *
-             der_phi_0):
-        return True
-    else:
-        return False
+    return descent and awc
 
 
 class MaxStep(object):
@@ -99,7 +95,7 @@ class Parabola(MaxStep):
             self.evaluate_phi_and_der_phi(x, p, n_dim, 1.0, *args)
 
         # if appr_wc(der_phi_0, phi_0, der_phi_i, phi_i):
-        if descent(phi_0, phi_i, eps=1.0e-2):
+        if is_descent(phi_0, phi_i, eps=1.0e-2):
             return 1.0, phi_i, der_phi_i, g_i
         else:
             a_star = minimum_parabola_interpol(
@@ -125,6 +121,11 @@ class StrongWolfeConditions(MaxStep):
 
     |grad f(x_k + a_k p_k) cdot p_k | <= c_2 |grad f_k cdot p_k|,
 
+    or descent conditions and approximate Wolfe conditions from
+
+    William W. Hager and Hongchao Zhang
+    SIAM J. optim., 16(1), 170-192.
+
     phi = f (x_k + a_k*p_k)
     der_phi = grad f(x_k + a_k p_k) cdot p_k
     g = grad f(x_k + a_k p_k)
@@ -133,7 +134,7 @@ class StrongWolfeConditions(MaxStep):
     def __init__(self, evaluate_phi_and_der_phi,
                  c1=1.0e-4, c2=0.9,
                  searchdirtype=None, max_iter=3, eps_dx=1.0e-10,
-                 eps_df=1.0e-10, awc=True):
+                 eps_df=1.0e-10, use_descent_and_awc=True):
         """
         :param evaluate_phi_and_der_phi: function which calculate
         phi, der_phi and g for given A_s, P_s, n_dim and alpha
@@ -145,6 +146,8 @@ class StrongWolfeConditions(MaxStep):
         :param eps_df: minimal change of function
         :param c1: see above
         :param c2: see above
+        :param use_descent_and_awc: check descent and approximate Wolfe
+        conditions
 
         this class works fine, but these parameters eps_dx, eps_df
         might not be needed
@@ -160,7 +163,7 @@ class StrongWolfeConditions(MaxStep):
         self.eps_df = eps_df
         self.c1 = c1
         self.c2 = c2
-        self.awc = awc
+        self.use_descent_and_awc = use_descent_and_awc
         self.name = 'swc-awc'
 
     def todict(self):
@@ -216,8 +219,9 @@ class StrongWolfeConditions(MaxStep):
                                                   alpha[i],
                                                   *args)
 
-            if self.awc is True:
-                if appr_wc(der_phi_0, phi_0, der_phi_i, phi_i):
+            if self.use_descent_and_awc:
+                if is_descent_and_approximate_wolfe_conditions(
+                        der_phi_0, phi_0, der_phi_i, phi_i):
 
                     a_star = alpha[i]
                     phi_star = phi_i
@@ -267,8 +271,9 @@ class StrongWolfeConditions(MaxStep):
                                                   alpha_max,
                                                   *args)
 
-                if self.awc is True:
-                    if appr_wc(der_phi_0, phi_0, der_phi_max, phi_max):
+                if self.use_descent_and_awc:
+                    if is_descent_and_approximate_wolfe_conditions(
+                            der_phi_0, phi_0, der_phi_max, phi_max):
                         a_star = alpha_max
                         phi_star = phi_max
                         der_phi_star = der_phi_max
@@ -327,8 +332,9 @@ class StrongWolfeConditions(MaxStep):
             phi_j, der_phi_j, g_j = \
                 self.evaluate_phi_and_der_phi(x, p, n_dim, a_j, *args)
 
-            if self.awc is True:
-                if appr_wc(der_phi_0, phi_0, der_phi_j, phi_j):
+            if self.use_descent_and_awc:
+                if is_descent_and_approximate_wolfe_conditions(
+                        der_phi_0, phi_0, der_phi_j, phi_j):
 
                     a_star = a_j
                     phi_star = phi_j
