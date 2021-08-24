@@ -11,14 +11,28 @@ import numpy as np
 import copy
 
 
-class SteepestDescent(object):
+class SearchDirectionBase(object):
+    def __init__(self):
+        self.iters = 0
+        super(SearchDirectionBase, self).__init__()
+
+    def __str__(self):
+        raise NotImplementedError('Search direction class needs string '
+                                  'representation')
+
+    def update_data(self, wfs, x_k1, g_k1, precond=None):
+        raise NotImplementedError('Search direction class needs '
+                                  '\'update_data\' method')
+
+
+class SteepestDescent(SearchDirectionBase):
     """
     Steepest descent algorithm
     """
 
     def __init__(self):
+        super(SteepestDescent, self).__init__()
 
-        self.iters = 0
         self.name = 'sd'
         self.type = 'steepest-descent'
 
@@ -31,70 +45,11 @@ class SteepestDescent(object):
     def update_data(self, wfs, x_k1, g_k1, precond=None):
 
         if precond is None:
-            p_k = self.minus(g_k1)
+            p_k = minus(g_k1)
         else:
-            p_k = self.apply_prec(precond, g_k1, -1.0)
+            p_k = apply_prec(precond, g_k1, -1.0)
         self.iters += 1
         return p_k
-
-    def zeros(self, x):
-
-        y = {}
-        for k in x:
-            y[k] = np.zeros_like(x[k])
-
-        return y
-
-    def minus(self, x):
-
-        p = {}
-
-        for k in x:
-            p[k] = - x[k].copy()
-
-        return p
-
-    def calc_diff(self, x1, x2, wfs, const_0=1.0, const=1.0):
-        y_k = {}
-        nkpts = wfs.kd.nibzkpts
-        for kpt in wfs.kpt_u:
-            y_k[nkpts * kpt.s + kpt.q] = \
-                const_0 * x1[nkpts * kpt.s + kpt.q] - \
-                const * x2[nkpts * kpt.s + kpt.q]
-
-        return y_k
-
-    def dot_all_k_and_b(self, x1, x2, wfs):
-
-        dot_pr_x1x2 = 0.0
-        nkpts = wfs.kd.nibzkpts
-        for kpt in wfs.kpt_u:
-            k = nkpts * kpt.s + kpt.q
-            dot_pr_x1x2 += x1[k].conj() @ x2[k]
-        dot_pr_x1x2 = dot_pr_x1x2.real
-        dot_pr_x1x2 = wfs.kd.comm.sum(dot_pr_x1x2)
-
-        return dot_pr_x1x2
-
-    def multiply(self, x, const=1.0):
-
-        y = {}
-        for k in x:
-            y[k] = const * x[k]
-
-        return y
-
-    def apply_prec(self, prec, x, const=1.0):
-
-        y = {}
-        for k in x:
-            if prec[k].dtype == complex:
-                y[k] = const * (prec[k].real * x[k].real +
-                                1.0j * prec[k].imag * x[k].imag)
-            else:
-                y[k] = const * prec[k] * x[k]
-
-        return y
 
 
 class FRcg(SteepestDescent):
@@ -118,19 +73,19 @@ class FRcg(SteepestDescent):
     def update_data(self, wfs, x_k1, g_k1, precond=None):
 
         if precond is not None:
-            g_k1 = self.apply_prec(precond, g_k1, 1.0)
+            g_k1 = apply_prec(precond, g_k1, 1.0)
 
         if self.iters == 0:
-            self.p_k = self.minus(g_k1)
+            self.p_k = minus(g_k1)
             # save the step
             self.g_k = copy.deepcopy(g_k1)
         else:
 
-            dot_g_k1_g_k1 = self.dot_all_k_and_b(g_k1, g_k1, wfs)
-            dot_g_g = self.dot_all_k_and_b(self.g_k, self.g_k, wfs)
+            dot_g_k1_g_k1 = dot_all_k_and_b(g_k1, g_k1, wfs)
+            dot_g_g = dot_all_k_and_b(self.g_k, self.g_k, wfs)
             beta_k = dot_g_k1_g_k1 / dot_g_g
 
-            self.p_k = self.calc_diff(self.p_k, g_k1, wfs, const_0=beta_k)
+            self.p_k = calc_diff(self.p_k, g_k1, beta_k)
             # save this step
             self.g_k = copy.deepcopy(g_k1)
 
@@ -138,7 +93,7 @@ class FRcg(SteepestDescent):
         return self.p_k
 
 
-class QuickMin(SteepestDescent):
+class QuickMin(SearchDirectionBase):
 
     def __init__(self, dt=0.01, mass=0.01):
         super(QuickMin, self).__init__()
@@ -159,28 +114,28 @@ class QuickMin(SteepestDescent):
     def update_data(self, wfs, x_k1, g_k1, precond=None):
 
         if precond is not None:
-            g_k1 = self.apply_prec(precond, g_k1, 1.0)
+            g_k1 = apply_prec(precond, g_k1, 1.0)
 
         dt = self.dt
         m = self.mass
 
         if self.iters == 0:
-            self.v = self.multiply(g_k1, -dt / m)
-            p = self.multiply(self.v, dt)
+            self.v = multiply(g_k1, -dt / m)
+            p = multiply(self.v, dt)
         else:
-            dot_gv = self.dot_all_k_and_b(g_k1, self.v, wfs)
-            dot_gg = self.dot_all_k_and_b(g_k1, g_k1, wfs)
+            dot_gv = dot_all_k_and_b(g_k1, self.v, wfs)
+            dot_gg = dot_all_k_and_b(g_k1, g_k1, wfs)
             if dot_gv > 0.0:
                 dot_gv = 0.0
             gamma = (dt / m - dot_gv / dot_gg)
-            self.v = self.multiply(g_k1, -gamma)
-            p = self.multiply(self.v, dt)
+            self.v = multiply(g_k1, -gamma)
+            p = multiply(self.v, dt)
 
         self.iters += 1
         return p
 
 
-class LBFGS(SteepestDescent):
+class LBFGS(SearchDirectionBase):
 
     def __init__(self, memory=3):
         """
@@ -215,20 +170,20 @@ class LBFGS(SteepestDescent):
         self.iters += 1
 
         if precond is not None:
-            g_k1 = self.apply_prec(precond, g_k1, 1.0)
+            g_k1 = apply_prec(precond, g_k1, 1.0)
 
         if self.k == 0:
 
             self.kp[self.k] = self.p
             self.x_k = copy.deepcopy(x_k1)
             self.g_k = g_k1
-            self.s_k[self.kp[self.k]] = self.zeros(g_k1)
-            self.y_k[self.kp[self.k]] = self.zeros(g_k1)
+            self.s_k[self.kp[self.k]] = zeros(g_k1)
+            self.y_k[self.kp[self.k]] = zeros(g_k1)
             self.k += 1
             self.p += 1
             self.kp[self.k] = self.p
 
-            return self.minus(g_k1)
+            return minus(g_k1)
 
         else:
 
@@ -249,9 +204,9 @@ class LBFGS(SteepestDescent):
             k = self.k
             m = self.memory
 
-            s_k[kp[k]] = self.calc_diff(x_k1, x_k, wfs)
-            y_k[kp[k]] = self.calc_diff(g_k1, g_k, wfs)
-            dot_ys = self.dot_all_k_and_b(y_k[kp[k]], s_k[kp[k]], wfs)
+            s_k[kp[k]] = calc_diff(x_k1, x_k)
+            y_k[kp[k]] = calc_diff(g_k1, g_k)
+            dot_ys = dot_all_k_and_b(y_k[kp[k]], s_k[kp[k]], wfs)
 
             if abs(dot_ys) > 1.0e-15:
                 rho_k[kp[k]] = 1.0 / dot_ys
@@ -267,29 +222,26 @@ class LBFGS(SteepestDescent):
             j = np.maximum(-1, k - m)
 
             for i in range(k, j, -1):
-                dot_sq = self.dot_all_k_and_b(s_k[kp[i]],
-                                              q, wfs)
+                dot_sq = dot_all_k_and_b(s_k[kp[i]], q, wfs)
 
                 alpha[kp[i]] = rho_k[kp[i]] * dot_sq
 
-                q = self.calc_diff(q, y_k[kp[i]],
-                                   wfs, const=alpha[kp[i]])
+                q = calc_diff(q, y_k[kp[i]], const=alpha[kp[i]])
 
             t = k
-            dot_yy = self.dot_all_k_and_b(y_k[kp[t]],
-                                          y_k[kp[t]], wfs)
+            dot_yy = dot_all_k_and_b(y_k[kp[t]], y_k[kp[t]], wfs)
+
             if abs(dot_yy) > 1.0e-15:
-                r = self.multiply(q, 1.0 / (rho_k[kp[t]] * dot_yy))
+                r = multiply(q, 1.0 / (rho_k[kp[t]] * dot_yy))
             else:
-                r = self.multiply(q, 1.0e15)
+                r = multiply(q, 1.0e15)
 
             for i in range(np.maximum(0, k - m + 1), k + 1):
-                dot_yr = self.dot_all_k_and_b(y_k[kp[i]], r, wfs)
+                dot_yr = dot_all_k_and_b(y_k[kp[i]], r, wfs)
 
                 beta = rho_k[kp[i]] * dot_yr
 
-                r = self.calc_diff(r, s_k[kp[i]], wfs,
-                                   const=(beta - alpha[kp[i]]))
+                r = calc_diff(r, s_k[kp[i]], const=(beta - alpha[kp[i]]))
 
             # save this step:
             self.x_k = copy.deepcopy(x_k1)
@@ -298,10 +250,10 @@ class LBFGS(SteepestDescent):
             self.p += 1
             self.kp[self.k] = self.p
 
-            return self.multiply(r, const=-1.0)
+            return multiply(r, -1.0)
 
 
-class LBFGS_P(SteepestDescent):
+class LBFGS_P(SearchDirectionBase):
 
     def __init__(self, memory=3, beta_0=1.0):
         """
@@ -336,15 +288,15 @@ class LBFGS_P(SteepestDescent):
             self.kp[self.k] = self.p
             self.x_k = copy.deepcopy(x_k1)
             self.g_k = copy.deepcopy(g_k1)
-            self.s_k[self.kp[self.k]] = self.zeros(g_k1)
-            self.y_k[self.kp[self.k]] = self.zeros(g_k1)
+            self.s_k[self.kp[self.k]] = zeros(g_k1)
+            self.y_k[self.kp[self.k]] = zeros(g_k1)
             self.k += 1
             self.p += 1
             self.kp[self.k] = self.p
             if hess_1 is None:
-                p = self.minus(g_k1)
+                p = minus(g_k1)
             else:
-                p = self.apply_prec(hess_1, g_k1, -1.0)
+                p = apply_prec(hess_1, g_k1, -1.0)
             self.beta_0 = 1.0
             return p
 
@@ -362,10 +314,10 @@ class LBFGS_P(SteepestDescent):
             k = self.k
             m = self.memory
 
-            s_k[kp[k]] = self.calc_diff(x_k1, x_k, wfs)
-            y_k[kp[k]] = self.calc_diff(g_k1, g_k, wfs)
+            s_k[kp[k]] = calc_diff(x_k1, x_k)
+            y_k[kp[k]] = calc_diff(g_k1, g_k)
 
-            dot_ys = self.dot_all_k_and_b(y_k[kp[k]], s_k[kp[k]], wfs)
+            dot_ys = dot_all_k_and_b(y_k[kp[k]], s_k[kp[k]], wfs)
 
             if abs(dot_ys) > 1.0e-20:
                 rho_k[kp[k]] = 1.0 / dot_ys
@@ -383,12 +335,12 @@ class LBFGS_P(SteepestDescent):
             j = np.maximum(-1, k - m)
 
             for i in range(k, j, -1):
-                dot_sq = self.dot_all_k_and_b(s_k[kp[i]], q, wfs)
+                dot_sq = dot_all_k_and_b(s_k[kp[i]], q, wfs)
                 alpha[kp[i]] = rho_k[kp[i]] * dot_sq
-                q = self.calc_diff(q, y_k[kp[i]], wfs, const=alpha[kp[i]])
+                q = calc_diff(q, y_k[kp[i]], const=alpha[kp[i]])
 
             t = k
-            dot_yy = self.dot_all_k_and_b(y_k[kp[t]], y_k[kp[t]], wfs)
+            dot_yy = dot_all_k_and_b(y_k[kp[t]], y_k[kp[t]], wfs)
             rhoyy = rho_k[kp[t]] * dot_yy
             if abs(rhoyy) > 1.0e-20:
                 self.beta_0 = 1.0 / rhoyy
@@ -396,15 +348,14 @@ class LBFGS_P(SteepestDescent):
                 self.beta_0 = 1.0e20
             
             if hess_1 is not None:
-                r = self.apply_prec(hess_1, q)
+                r = apply_prec(hess_1, q)
             else:
-                r = self.multiply(q, self.beta_0)
+                r = multiply(q, self.beta_0)
 
             for i in range(np.maximum(0, k - m + 1), k + 1):
-                dot_yr = self.dot_all_k_and_b(y_k[kp[i]], r, wfs)
+                dot_yr = dot_all_k_and_b(y_k[kp[i]], r, wfs)
                 beta = rho_k[kp[i]] * dot_yr
-                r = self.calc_diff(r, s_k[kp[i]], wfs,
-                                   const=(beta - alpha[kp[i]]))
+                r = calc_diff(r, s_k[kp[i]], const=(beta - alpha[kp[i]]))
 
             # save this step:
             self.x_k = copy.deepcopy(x_k1)
@@ -415,10 +366,10 @@ class LBFGS_P(SteepestDescent):
 
             self.kp[self.k] = self.p
 
-            return self.multiply(r, const=-1.0)
+            return multiply(r, -1.0)
 
 
-class LSR1P(SteepestDescent):
+class LSR1P(SearchDirectionBase):
     """
     This class describes limited memory versions of
     SR-1, Powell and their combintaions (such as Bofill).
@@ -466,7 +417,7 @@ class LSR1P(SteepestDescent):
     def update_data(self, wfs, x_k1, g_k1, precond=None):
 
         if precond is not None:
-            bg_k1 = self.apply_prec(precond, g_k1, 1.0)
+            bg_k1 = apply_prec(precond, g_k1, 1.0)
         else:
             bg_k1 = g_k1.copy()
 
@@ -474,8 +425,8 @@ class LSR1P(SteepestDescent):
             self.kp[self.k] = self.p
             self.x_k = copy.deepcopy(x_k1)
             self.g_k = copy.deepcopy(g_k1)
-            self.u_k[self.kp[self.k]] = self.zeros(g_k1)
-            self.j_k[self.kp[self.k]] = self.zeros(g_k1)
+            self.u_k[self.kp[self.k]] = zeros(g_k1)
+            self.j_k[self.kp[self.k]] = zeros(g_k1)
             self.k += 1
             self.p += 1
             self.kp[self.k] = self.p
@@ -497,34 +448,34 @@ class LSR1P(SteepestDescent):
             k = self.k
             m = self.memory
 
-            s_k = self.calc_diff(x_k1, x_k, wfs)
-            y_k = self.calc_diff(g_k1, g_k, wfs)
+            s_k = calc_diff(x_k1, x_k)
+            y_k = calc_diff(g_k1, g_k)
             if precond is not None:
-                by_k = self.apply_prec(precond, y_k, 1.0)
+                by_k = apply_prec(precond, y_k, 1.0)
             else:
                 by_k = y_k.copy()
 
             by_k = self.update_bv(wfs, by_k, y_k, u_k, j_k, yj_k, phi_k,
                                   np.maximum(1, k - m), k)
 
-            j_k[kp[k]] = self.calc_diff(s_k, by_k, wfs)
-            yj_k[kp[k]] = self.dot_all_k_and_b(y_k, j_k[kp[k]], wfs)
+            j_k[kp[k]] = calc_diff(s_k, by_k)
+            yj_k[kp[k]] = dot_all_k_and_b(y_k, j_k[kp[k]], wfs)
 
             if self.method == 'LSR1':
                 if abs(yj_k[kp[k]]) < 1e-12:
                     yj_k[kp[k]] = 1e-12
 
-            dot_yy = self.dot_all_k_and_b(y_k, y_k, wfs)
+            dot_yy = dot_all_k_and_b(y_k, y_k, wfs)
             if abs(dot_yy) > 1.0e-15:
-                u_k[kp[k]] = self.multiply(y_k, 1.0 / dot_yy)
+                u_k[kp[k]] = multiply(y_k, 1.0 / dot_yy)
             else:
-                u_k[kp[k]] = self.multiply(y_k, 1.0e15)
+                u_k[kp[k]] = multiply(y_k, 1.0e15)
 
             if self.method == 'LBofill' and self.phi is None:
-                jj_k = self.dot_all_k_and_b(j_k[kp[k]], j_k[kp[k]], wfs)
+                jj_k = dot_all_k_and_b(j_k[kp[k]], j_k[kp[k]], wfs)
                 phi_k[kp[k]] = 1 - yj_k[kp[k]]**2 / (dot_yy * jj_k)
             elif self.method == 'Linverse_Bofill' and self.phi is None:
-                jj_k = self.dot_all_k_and_b(j_k[kp[k]], j_k[kp[k]], wfs)
+                jj_k = dot_all_k_and_b(j_k[kp[k]], j_k[kp[k]], wfs)
                 phi_k[kp[k]] = yj_k[kp[k]] ** 2 / (dot_yy * jj_k)
 
             bg_k1 = self.update_bv(wfs, bg_k1, g_k1, u_k, j_k, yj_k, phi_k,
@@ -538,28 +489,65 @@ class LSR1P(SteepestDescent):
             self.kp[self.k] = self.p
 
         self.iters += 1
-        return self.multiply(bg_k1, const=-1.0)
+        return multiply(bg_k1, -1.0)
 
     def update_bv(self, wfs, bv, v, u_k, j_k, yj_k, phi_k, i_0, i_m):
         kp = self.kp
 
         for i in range(i_0, i_m):
-            dot_uv = self.dot_all_k_and_b(u_k[kp[i]],
-                                          v, wfs)
-            dot_jv = self.dot_all_k_and_b(j_k[kp[i]],
-                                          v, wfs)
+            dot_uv = dot_all_k_and_b(u_k[kp[i]], v, wfs)
+            dot_jv = dot_all_k_and_b(j_k[kp[i]], v, wfs)
 
             alpha = dot_jv - yj_k[kp[i]] * dot_uv
-            beta_p = self.calc_diff(j_k[kp[i]], u_k[kp[i]],
-                                    wfs, const_0=dot_uv,
-                                    const=-alpha)
+            beta_p = calc_diff(j_k[kp[i]], u_k[kp[i]], dot_uv, -alpha)
 
-            beta_ms = self.multiply(j_k[kp[i]], dot_jv / yj_k[kp[i]])
+            beta_ms = multiply(j_k[kp[i]], dot_jv / yj_k[kp[i]])
 
-            beta = self.calc_diff(beta_ms, beta_p, wfs,
-                                  const_0=1 - phi_k[kp[i]],
-                                  const=-phi_k[kp[i]])
+            beta = calc_diff(beta_ms, beta_p, 1 - phi_k[kp[i]], -phi_k[kp[i]])
 
-            bv = self.calc_diff(bv, beta, wfs, const=-1.0)
+            bv = calc_diff(bv, beta, const=-1.0)
 
         return bv
+
+
+def multiply(y, const):
+    for k in y.keys():
+        y[k] *= const
+    return y
+
+
+def zeros(x):
+    y = {}
+    for k in x.keys():
+        y[k] = np.zeros_like(x[k])
+    return y
+
+
+def minus(x):
+    return multiply(x, -1.0)
+
+
+def calc_diff(x1, x2, const_0=1.0, const=1.0):
+    y_k = {}
+    for k in x1.keys():
+        y_k[k] = const_0 * x1[k] - const * x2[k]
+    return y_k
+
+
+def dot_all_k_and_b(x1, x2, wfs):
+    dot_pr_x1x2 = 0.0
+    for k in x1.keys():
+        dot_pr_x1x2 += np.dot(x1[k].conj(), x2[k]).real
+    dot_pr_x1x2 = wfs.kd.comm.sum(dot_pr_x1x2)
+    return dot_pr_x1x2
+
+
+def apply_prec(prec, x, const=1.0):
+    y = {}
+    for k in x.keys():
+        if prec[k].dtype == complex:
+            y[k] = const * (prec[k].real * x[k].real +
+                            1.0j * prec[k].imag * x[k].imag)
+        else:
+            y[k] = const * prec[k] * x[k]
+    return y
