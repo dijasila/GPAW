@@ -107,7 +107,7 @@ class DirectMinLCAO(DirectLCAO):
         self.func = get_functional(functional)
 
         self.checkgraderror = checkgraderror
-        self._normcomm, self._normg = 0., 0.
+        self._norm_commutator, self._norm_grad = 0., 0.
         self._error = 0
 
         # these are things we cannot initialize now
@@ -407,22 +407,17 @@ class DirectMinLCAO(DirectLCAO):
         self.eg_count += 1
 
         if self.representation == 'full' and self.checkgraderror:
-            norm = 0.0
+            self._norm_commutator = 0.0
             for kpt in wfs.kpt_u:
                 u = self.kpointval(kpt)
-                normt = np.linalg.norm(g_mat_u[u] @ self.a_mat_u[u] -
-                                       self.a_mat_u[u] @ g_mat_u[u])
-                if norm < normt:
-                    norm = normt
-            norm2 = 0.0
-            for kpt in wfs.kpt_u:
-                u = self.kpointval(kpt)
-                normt = np.linalg.norm(g_mat_u[u])
-                if norm2 < normt:
-                    norm2 = normt
+                tmp = np.linalg.norm(g_mat_u[u] @ self.a_mat_u[u] -
+                                     self.a_mat_u[u] @ g_mat_u[u])
+                if self._norm_commutator < tmp:
+                    self._norm_commutator = tmp
 
-            self._normcomm = norm
-            self._normg = norm2
+                tmp = np.linalg.norm(g_mat_u[u])
+                if self._norm_grad < tmp:
+                    self._norm_grad = tmp
 
         return e_total + self.e_sic, g_mat_u
 
@@ -508,7 +503,8 @@ class DirectMinLCAO(DirectLCAO):
         """
 
         if self.representation == 'full':
-            badgrad = self._normcomm > self._normg / 3. and self.checkgraderror
+            badgrad = self._norm_commutator > self._norm_grad / 3. and \
+                self.checkgraderror
         else:
             badgrad = False
         counter = self.update_ref_orbs_counter
