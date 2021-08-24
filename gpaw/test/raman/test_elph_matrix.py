@@ -2,23 +2,28 @@ import numpy as np
 import pytest
 
 from ase.phonons import Phonons
+from ase.utils.filecache import MultiFileJSONCache
 from gpaw import GPAW
 from gpaw.raman.elph import EPC
 
 
 class FakeEPC(EPC):
     """Fake ElectronPhononCoupling class to overwrite loading routine."""
-    def __init__(self, fake_M_a, fake_nao_a, **params):
+    def __init__(self, fake_basis, natom, **params):
         EPC.__init__(self, **params)
-        self.fake_M_a = fake_M_a
-        self.fake_nao_a = fake_nao_a
         # self.gx = np.random.random(size=[3, 1, 1, 1, 4, 4])
-        self.gx = np.arange(3 * 4 * 4).reshape([3, 1, 1, 1, 4, 4])
+        gx = np.arange(3 * natom * 4 * 4).reshape([3 * natom, 1, 1, 1, 4, 4])
 
-    def load_supercell_matrix_x(self, fname):
-        index = int(fname.split('_')[-1].split('.')[0])
-        g_sNNMM = self.gx[index]
-        return g_sNNMM, self.fake_M_a, self.fake_nao_a
+        # Fake supercell cache
+        self.supercell_cache = MultiFileJSONCache('supercell')
+        with self.supercell_cache.lock('basis') as handle:
+            if handle is not None:
+                handle.save(fake_basis)
+        for x in range(3 * natom):
+            with self.supercell_cache.lock(str(x)) as handle:
+                if handle is None:
+                    continue
+                handle.save(gx[x])
 
 
 class FakePh(Phonons):
@@ -48,7 +53,8 @@ def test_elph_matrix(gpw_files, tmp_path_factory):
     # create phonon object
     phonon = FakePh(atoms)
     # create an electron-phonon object
-    elph = FakeEPC([0], [4], atoms=atoms)
+    elph = FakeEPC(fake_basis={'M_a': [0], 'nao_a': [4]}, natom=1,
+                   atoms=atoms)
     elph.calc_lcao = calc  # set calc directly to circumvent some checks
 
     g_sqklnn = elph.get_elph_matrix(calc, phonon, savetofile=False)
