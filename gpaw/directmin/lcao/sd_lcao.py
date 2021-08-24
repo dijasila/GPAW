@@ -124,22 +124,18 @@ class FRcg(SteepestDescent):
             self.p_k = self.minus(g_k1)
             # save the step
             self.g_k = copy.deepcopy(g_k1)
-            self.iters += 1
-
-            return self.p_k
         else:
 
             dot_g_k1_g_k1 = self.dot_all_k_and_b(g_k1, g_k1, wfs)
             dot_g_g = self.dot_all_k_and_b(self.g_k, self.g_k, wfs)
             beta_k = dot_g_k1_g_k1 / dot_g_g
 
-            self.p_k = self.calc_diff(self.p_k, g_k1, wfs,
-                                      const_0=beta_k)
+            self.p_k = self.calc_diff(self.p_k, g_k1, wfs, const_0=beta_k)
             # save this step
             self.g_k = copy.deepcopy(g_k1)
-            self.iters += 1
 
-            return self.p_k
+        self.iters += 1
+        return self.p_k
 
 
 class QuickMin(SteepestDescent):
@@ -171,8 +167,6 @@ class QuickMin(SteepestDescent):
         if self.iters == 0:
             self.v = self.multiply(g_k1, -dt / m)
             p = self.multiply(self.v, dt)
-            self.iters += 1
-            return p
         else:
             dot_gv = self.dot_all_k_and_b(g_k1, self.v, wfs)
             dot_gg = self.dot_all_k_and_b(g_k1, g_k1, wfs)
@@ -181,15 +175,16 @@ class QuickMin(SteepestDescent):
             gamma = (dt / m - dot_gv / dot_gg)
             self.v = self.multiply(g_k1, -gamma)
             p = self.multiply(self.v, dt)
-            self.iters += 1
-            return p
+
+        self.iters += 1
+        return p
 
 
 class LBFGS(SteepestDescent):
 
     def __init__(self, memory=3):
         """
-        :param m: memory (amount of previous steps to use)
+        :param memory: amount of previous steps to use
         """
         super(LBFGS, self).__init__()
 
@@ -202,7 +197,7 @@ class LBFGS(SteepestDescent):
         self.p = 0
         self.k = 0
 
-        self.m = memory
+        self.memory = memory
         self.stable = True
         self.name = 'l-bfgs'
         self.type = 'quasi-newton'
@@ -213,9 +208,11 @@ class LBFGS(SteepestDescent):
 
     def todict(self):
         return {'name': self.name,
-                'memory': self.m}
+                'memory': self.memory}
 
     def update_data(self, wfs, x_k1, g_k1, precond=None):
+
+        self.iters += 1
 
         if precond is not None:
             g_k1 = self.apply_prec(precond, g_k1, 1.0)
@@ -225,23 +222,17 @@ class LBFGS(SteepestDescent):
             self.kp[self.k] = self.p
             self.x_k = copy.deepcopy(x_k1)
             self.g_k = g_k1
-
             self.s_k[self.kp[self.k]] = self.zeros(g_k1)
             self.y_k[self.kp[self.k]] = self.zeros(g_k1)
-
             self.k += 1
             self.p += 1
-
             self.kp[self.k] = self.p
 
-            p = self.minus(g_k1)
-            self.iters += 1
-
-            return p
+            return self.minus(g_k1)
 
         else:
 
-            if self.p == self.m:
+            if self.p == self.memory:
                 self.p = 0
                 self.kp[self.k] = self.p
 
@@ -256,14 +247,12 @@ class LBFGS(SteepestDescent):
 
             kp = self.kp
             k = self.k
-            m = self.m
+            m = self.memory
 
             s_k[kp[k]] = self.calc_diff(x_k1, x_k, wfs)
             y_k[kp[k]] = self.calc_diff(g_k1, g_k, wfs)
+            dot_ys = self.dot_all_k_and_b(y_k[kp[k]], s_k[kp[k]], wfs)
 
-            dot_ys = self.dot_all_k_and_b(y_k[kp[k]],
-                                          s_k[kp[k]],
-                                          wfs)
             if abs(dot_ys) > 1.0e-15:
                 rho_k[kp[k]] = 1.0 / dot_ys
             else:
@@ -308,7 +297,6 @@ class LBFGS(SteepestDescent):
             self.k += 1
             self.p += 1
             self.kp[self.k] = self.p
-            self.iters += 1
 
             return self.multiply(r, const=-1.0)
 
@@ -317,7 +305,7 @@ class LBFGS_P(SteepestDescent):
 
     def __init__(self, memory=3, beta_0=1.0):
         """
-        :param m: memory (amount of previous steps to use)
+        :param memory: amount of previous steps to use
         """
         super(LBFGS_P, self).__init__()
         self.s_k = {i: None for i in range(memory)}
@@ -326,7 +314,7 @@ class LBFGS_P(SteepestDescent):
         self.kp = {}
         self.p = 0
         self.k = 0
-        self.m = memory
+        self.memory = memory
         self.stable = True
         self.beta_0 = beta_0
         self.name = 'l-bfgs-p'
@@ -339,11 +327,11 @@ class LBFGS_P(SteepestDescent):
     def todict(self):
 
         return {'name': self.name,
-                'memory': self.m,
+                'memory': self.memory,
                 'beta_0': self.beta_0}
 
     def update_data(self, wfs, x_k1, g_k1, hess_1=None):
-
+        self.iters += 1
         if self.k == 0:
             self.kp[self.k] = self.p
             self.x_k = copy.deepcopy(x_k1)
@@ -361,7 +349,7 @@ class LBFGS_P(SteepestDescent):
             return p
 
         else:
-            if self.p == self.m:
+            if self.p == self.memory:
                 self.p = 0
                 self.kp[self.k] = self.p
 
@@ -372,14 +360,13 @@ class LBFGS_P(SteepestDescent):
             rho_k = self.rho_k
             kp = self.kp
             k = self.k
-            m = self.m
+            m = self.memory
 
             s_k[kp[k]] = self.calc_diff(x_k1, x_k, wfs)
             y_k[kp[k]] = self.calc_diff(g_k1, g_k, wfs)
 
-            dot_ys = self.dot_all_k_and_b(y_k[kp[k]],
-                                          s_k[kp[k]],
-                                          wfs)
+            dot_ys = self.dot_all_k_and_b(y_k[kp[k]], s_k[kp[k]], wfs)
+
             if abs(dot_ys) > 1.0e-20:
                 rho_k[kp[k]] = 1.0 / dot_ys
             else:
@@ -387,7 +374,7 @@ class LBFGS_P(SteepestDescent):
 
             if rho_k[kp[k]] < 0.0:
                 self.stable = False
-                self.__init__(memory=self.m)
+                self.__init__(memory=self.memory)
                 return self.update_data(wfs, x_k1, g_k1, hess_1)
 
             q = copy.deepcopy(g_k1)
@@ -439,7 +426,7 @@ class LSR1P(SteepestDescent):
 
     def __init__(self, memory=20, method='LSR1', phi=None):
         """
-        :param m: memory (amount of previous steps to use)
+        :param memory: amount of previous steps to use
         """
         super(LSR1P, self).__init__()
 
@@ -451,9 +438,8 @@ class LSR1P(SteepestDescent):
 
         self.phi_k = np.zeros(shape=memory)
         if self.phi is None:
-            assert self.method in ['LSR1', 'LP',
-                                   'LBofill', 'Linverse_Bofill'], \
-                'Value Error'
+            assert self.method in ['LSR1', 'LP', 'LBofill',
+                                   'Linverse_Bofill'], 'Value Error'
             if self.method == 'LP':
                 self.phi_k.fill(1.0)
         else:
@@ -463,7 +449,7 @@ class LSR1P(SteepestDescent):
         self.p = 0
         self.k = 0
 
-        self.m = memory
+        self.memory = memory
         self.name = 'l-sr1p'
         self.type = 'quasi-newton'
 
@@ -474,7 +460,7 @@ class LSR1P(SteepestDescent):
     def todict(self):
 
         return {'name': self.name,
-                'memory': self.m,
+                'memory': self.memory,
                 'method': self.method}
 
     def update_data(self, wfs, x_k1, g_k1, precond=None):
@@ -493,13 +479,8 @@ class LSR1P(SteepestDescent):
             self.k += 1
             self.p += 1
             self.kp[self.k] = self.p
-            p = self.minus(bg_k1)
-            self.iters += 1
-
-            return p
-
         else:
-            if self.p == self.m:
+            if self.p == self.memory:
                 self.p = 0
                 self.kp[self.k] = self.p
 
@@ -514,7 +495,7 @@ class LSR1P(SteepestDescent):
 
             kp = self.kp
             k = self.k
-            m = self.m
+            m = self.memory
 
             s_k = self.calc_diff(x_k1, x_k, wfs)
             y_k = self.calc_diff(g_k1, g_k, wfs)
@@ -555,8 +536,8 @@ class LSR1P(SteepestDescent):
             self.k += 1
             self.p += 1
             self.kp[self.k] = self.p
-            self.iters += 1
 
+        self.iters += 1
         return self.multiply(bg_k1, const=-1.0)
 
     def update_bv(self, wfs, bv, v, u_k, j_k, yj_k, phi_k, i_0, i_m):
