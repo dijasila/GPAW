@@ -1053,11 +1053,7 @@ def get_n_occ(kpt):
     """
     get number of occupied orbitals
     """
-    nbands = len(kpt.f_n)
-    n_occ = 0
-    while n_occ < nbands and kpt.f_n[n_occ] > 1e-10:
-        n_occ += 1
-    return n_occ
+    return len(kpt.f_n) - np.searchsorted(kpt.f_n[::-1], 1e-10)
 
 
 def find_equally_occupied_subspace(f_n, index=0):
