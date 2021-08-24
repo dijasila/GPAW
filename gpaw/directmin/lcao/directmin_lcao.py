@@ -108,7 +108,7 @@ class DirectMinLCAO(DirectLCAO):
 
         self.checkgraderror = checkgraderror
         self._norm_commutator, self._norm_grad = 0., 0.
-        self._error = 0
+        self.error = 0
 
         # these are things we cannot initialize now
         self.dtype = None
@@ -385,7 +385,7 @@ class DirectMinLCAO(DirectLCAO):
 
         with wfs.timer('Calculate gradients'):
             g_mat_u = {}
-            self._error = 0.0
+            self.error = 0.0
             self.e_sic = 0.0  # this is odd energy
             for kpt in wfs.kpt_u:
                 k = self.kpointval(kpt)
@@ -400,8 +400,8 @@ class DirectMinLCAO(DirectLCAO):
                     kpt, wfs, wfs.timer, self.matrix_exp,
                     self.representation, self.ind_up[k])
 
-                self._error += error
-            self._error = wfs.kd.comm.sum(self._error)
+                self.error += error
+            self.error = wfs.kd.comm.sum(self.error)
             self.e_sic = wfs.kd.comm.sum(self.e_sic)
 
         self.eg_count += 1
@@ -679,7 +679,7 @@ class DirectMinLCAO(DirectLCAO):
 
     def reset(self):
         super(DirectMinLCAO, self).reset()
-        self._error = np.inf
+        self.error = np.inf
         self.initialized = False
 
     def sort_wavefunctions(self, ham, wfs, use_eps=False):
