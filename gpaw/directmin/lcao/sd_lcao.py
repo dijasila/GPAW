@@ -510,9 +510,16 @@ class LSR1P(SearchDirectionBase):
         return bv
 
 
-def multiply(y, const):
-    for k in y.keys():
-        y[k] *= const
+def multiply(x, const=1.0):
+    """
+    it must not change x!
+    :param x:
+    :param const:
+    :return: new dictionary y = cons*x
+    """
+    y = {}
+    for k in x:
+        y[k] = const * x[k]
     return y
 
 
