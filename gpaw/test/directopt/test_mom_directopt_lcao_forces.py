@@ -29,7 +29,10 @@ def test_mom_directopt_lcao_forces(in_tmp_dir):
                 eigensolver={'name': 'direct-min-lcao',
                              'linesearch_algo': 'max-step'},
                 mixer={'backend': 'no-mixing'},
-                nbands='nao')
+                nbands='nao',
+                convergence={'density': 1.0e-4,
+                             'eigenstates': 4.0e-8}
+                )
     atoms.calc = calc
     atoms.get_potential_energy()
 
