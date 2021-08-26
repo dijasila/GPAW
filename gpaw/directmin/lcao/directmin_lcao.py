@@ -37,23 +37,24 @@ class DirectMinLCAO(DirectLCAO):
             u = self.kpointval(kpt)
             self.reference_orbitals[u] = np.copy(kpt.C_nM[:n_dim[u]])
 
-    def appy_transformation_kpt(self, wfs, u_mat, kpt, c_ref=None):
+    def appy_transformation_kpt(self, wfs, u_mat, kpt, c_ref=None,
+                                broadcast=True,
+                                update_proj=True):
 
-        dimens1 = u_mat.shape[0]
-        dimens2 = u_mat.shape[1]
-
-        k = self.kpointval(kpt)
+        dimens1 = u_mat.shape[1]
+        dimens2 = u_mat.shape[0]
 
         if c_ref is None:
             kpt.C_nM[:dimens2] = u_mat @ kpt.C_nM[:dimens1]
         else:
-            kpt.C_nM[:dimens2] = u_mat @ c_ref[k][:dimens1]
+            kpt.C_nM[:dimens2] = u_mat @ c_ref[:dimens1]
 
-        with wfs.timer('Broadcast coefficients'):
-            wfs.gd.comm.broadcast(kpt.C_nM, 0)
-
-        with wfs.timer('Calculate projections'):
-            wfs.atomic_correction.calculate_projections(wfs, kpt)
+        if broadcast:
+            with wfs.timer('Broadcast coefficients'):
+                wfs.gd.comm.broadcast(kpt.C_nM, 0)
+        if update_proj:
+            with wfs.timer('Calculate projections'):
+                wfs.atomic_correction.calculate_projections(wfs, kpt)
 
     def initialize_orbitals(self, wfs, ham):
 

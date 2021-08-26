@@ -112,6 +112,9 @@ class ETDM:
         # these are things we cannot initialize now
         self.dtype = None
         self.nkpts = None
+        self.gd = None
+        self.nbands = None
+
         # dimensionality of the problem.
         # this implementation rotates among all bands
         # values: matrices, keys: kpt number (and spins)
@@ -124,12 +127,14 @@ class ETDM:
         self.alpha = 1.0  # step length
         self.phi_2i = [None, None]  # energy at last two iterations
         self.der_phi_2i = [None, None]  # energy gradient w.r.t. alpha
-        self.iters = 0
         self.hess = {}  # hessian for l-bfgs-p
         self.precond = {}  # precondiner for other methods
 
         # for mom
         self.initial_occupation_numbers = None
+
+        # in this attribute we sotre the object specific to each mode
+        self.dm_helper = None
 
         self.initialized = False
 
@@ -185,7 +190,6 @@ class ETDM:
         self.dtype = dtype
         self.nbands = nbands
         self.nkpts = nkpts
-        self.nao = nao
 
         for kpt in kpt_u:
             u = self.kpointval(kpt)
@@ -262,7 +266,7 @@ class ETDM:
         # which correspond to these elements.
         #
         # 'u-invar' corresponds to the case when we want to
-        # store only A_2, that is this representaion is sparser
+        # store only A_2, that is this representation is sparser
 
         for kpt in kpt_u:
             n_occ = get_n_occ(kpt)
@@ -681,10 +685,23 @@ class ETDM:
                 else:
                     orbital_energies = self.dm_helper.orbital_energies(
                         wfs, ham, kpt)
-
-                ind = np.argsort(orbital_energies)
+                # label each orbital energy
+                # add some noise to get rid off degeneracy
+                orbital_energies += \
+                    np.random.rand(len(orbital_energies)) * 1.0e-8
+                oe_labeled = {}
+                for i, lamb in enumerate(orbital_energies):
+                    oe_labeled[str(round(lamb, 12))] = i
+                # now sort orb energies
+                oe_sorted = np.sort(orbital_energies)
+                # run over sorted orbital energies and get their label
+                ind = []
+                for x in oe_sorted:
+                    i = oe_labeled[str(round(x, 12))]
+                    ind.append(i)
                 # check if it is necessary to sort
-                x = np.max(abs(ind - np.arange(len(ind))))
+                x = np.max(abs(np.array(ind) - np.arange(len(ind))))
+
                 if x > 0:
                     # now sort wfs according to orbital energies
                     self.dm_helper.sort_orbitals(kpt, ind)
@@ -905,8 +922,11 @@ class ETDM:
                                          '\'pade-approx\' or '
                                          '\'egdecomp\'')
 
-                    self.dm_helper.appy_transformation_kpt(wfs, u_nn.T, kpt,
-                                                           c_nm_ref)
+                    self.dm_helper.appy_transformation_kpt(
+                        wfs, u_nn.T, kpt, c_nm_ref[k], False, False)
+
+                with wfs.timer('Broadcast coefficients'):
+                    self.dm_helper.broadcast(wfs, kpt)
 
                 if self.matrix_exp == 'egdecomp':
                     with wfs.timer('Broadcast evecs and evals'):
@@ -919,6 +939,8 @@ class ETDM:
                         self.gd.comm.broadcast(evecs, 0)
                         self.gd.comm.broadcast(evals, 0)
                         self.evecs[k], self.evals[k] = evecs, evals
+                with wfs.timer('Calculate projections'):
+                    self.dm_helper.update_projections(wfs, kpt)
 
     def check_assertions(self, wfs, dens):
 

@@ -48,7 +48,6 @@ class MaxStep(object):
 
         kd = kwargs['kpdescr']
         slength = 0.0
-        tmp = 0.0
 
         for k in p:
             tmp = np.linalg.norm(p[k])
