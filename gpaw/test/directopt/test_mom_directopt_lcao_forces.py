@@ -9,7 +9,7 @@ from gpaw.directmin.lcao.tools import excite
 
 @pytest.mark.mom
 def test_mom_directopt_lcao_forces(in_tmp_dir):
-    L = 6.0
+    L = 4.0
     d = 1.13
     delta = 0.01
 
@@ -17,10 +17,11 @@ def test_mom_directopt_lcao_forces(in_tmp_dir):
                   [[0.5 * L, 0.5 * L, 0.5 * L - 0.5 * d],
                    [0.5 * L, 0.5 * L, 0.5 * L + 0.5 * d]])
     atoms.set_cell([L, L, L])
+    atoms.set_pbc(True)
 
     calc = GPAW(mode='lcao',
                 basis='dzp',
-                h=0.20,
+                h=0.22,
                 xc='PBE',
                 spinpol=True,
                 symmetry='off',
@@ -29,9 +30,7 @@ def test_mom_directopt_lcao_forces(in_tmp_dir):
                              'linesearch_algo': 'max-step'},
                 mixer={'backend': 'no-mixing'},
                 nbands='nao',
-                convergence={'energy': 1e-3,
-                             'density': 1e-3,
-                             'eigenstates': 1e-3})
+                convergence={'density': 1e-6})
     atoms.calc = calc
     atoms.get_potential_energy()
 
@@ -84,5 +83,5 @@ def test_mom_directopt_lcao_forces(in_tmp_dir):
     fnum = (E[0] - E[1]) / (2. * delta)     # central difference
 
     print(fnum)
-    assert fnum == pytest.approx(11.9364629545, abs=0.01)
+    assert fnum == pytest.approx(12.407162321236331, abs=0.01)
     assert f == pytest.approx(fnum, abs=0.1)
