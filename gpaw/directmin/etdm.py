@@ -12,11 +12,9 @@ https://doi.org/10.1016/j.cpc.2021.108047
 
 import numpy as np
 from ase.parallel import parprint
-from gpaw.utilities.blas import mmm
 from gpaw.directmin.lcao.tools import expm_ed, expm_ed_unit_inv
 from gpaw.directmin.lcao.directmin_lcao import DirectMinLCAO
 from scipy.linalg import expm
-from gpaw.utilities.tools import tri2full
 from gpaw.directmin.lcao import search_direction, line_search_algorithm
 from gpaw.directmin.functional.lcao import get_functional
 from gpaw import BadParallelization
@@ -764,7 +762,6 @@ class ETDM:
         :param eps: finite difference step
         :param random_amat: start at random skew-hermitian matrix
         :param update_c_nm_ref: before calculations do c_ref <- c_ref e*A
-        :param seed: seed for random generator
         :param what2calc: gradient or hessian
         :return: analytical and numerical
         """

@@ -89,8 +89,8 @@ class DirectMinLCAO(DirectLCAO):
 
         return g_mat, error
 
-    def update_to_canonical_orbitals(self,
-            wfs, ham, kpt, update_ref_orbs_canonical, restart):
+    def update_to_canonical_orbitals(self, wfs, ham, kpt,
+                                     update_ref_orbs_canonical, restart):
 
         h_mm = self.calculate_hamiltonian_matrix(ham, wfs, kpt)
         tri2full(h_mm)
@@ -116,7 +116,7 @@ class DirectMinLCAO(DirectLCAO):
                     raise RuntimeError('Bug is here!')
 
         with wfs.timer('Calculate projections'):
-            wfs.atomic_correction.calculate_projections(wfs, kpt)
+            self.update_projections(wfs, kpt)
 
     def squeeze(self, kpt, ind):
         kpt.C_nM = np.squeeze(kpt.C_nM[ind])
