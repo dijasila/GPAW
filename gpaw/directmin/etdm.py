@@ -678,6 +678,9 @@ class ETDM:
         Sort wavefunctions according to the eigenvalues or
         the diagonal elements of the Hamiltonian matrix.
         """
+
+        rand_numbers = np.random.rand(self.nbands) * 1.0e-8
+        wfs.world.broadcast(rand_numbers, 0)
         with wfs.timer('Sort WFS'):
             for kpt in wfs.kpt_u:
                 if use_eps:
@@ -687,8 +690,7 @@ class ETDM:
                         wfs, ham, kpt)
                 # label each orbital energy
                 # add some noise to get rid off degeneracy
-                orbital_energies += \
-                    np.random.rand(len(orbital_energies)) * 1.0e-8
+                orbital_energies += rand_numbers
                 oe_labeled = {}
                 for i, lamb in enumerate(orbital_energies):
                     oe_labeled[str(round(lamb, 12))] = i
