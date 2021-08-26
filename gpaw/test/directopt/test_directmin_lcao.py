@@ -3,7 +3,7 @@ import pytest
 from gpaw import GPAW, LCAO
 from ase import Atoms
 import numpy as np
-from gpaw.directmin.lcao.directmin_lcao import DirectMinLCAO
+from gpaw.directmin.etdm import ETDM
 
 
 def test_directmin_lcao(in_tmp_dir):
@@ -26,7 +26,7 @@ def test_directmin_lcao(in_tmp_dir):
     calc = GPAW(mode=LCAO(),
                 basis='dzp',
                 occupations={'name': 'fixed-uniform'},
-                eigensolver='direct-min-lcao',
+                eigensolver='etdm',
                 mixer={'backend': 'no-mixing'},
                 nbands='nao',
                 symmetry='off'
@@ -51,7 +51,7 @@ def test_directmin_lcao(in_tmp_dir):
     assert niter == pytest.approx(3, abs=1)
     assert f2 == pytest.approx(f3, abs=1e-2)
 
-    calc.set(eigensolver=DirectMinLCAO(
+    calc.set(eigensolver=ETDM(
         representation='u-invar', matrix_exp='egdecomp',
         need_init_orbs=False,
         linesearch_algo={'name': 'max-step'}

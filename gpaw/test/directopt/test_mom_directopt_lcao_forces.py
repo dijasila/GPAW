@@ -3,7 +3,7 @@ import pytest
 from ase import Atoms
 from gpaw import GPAW, restart
 from gpaw.mom import prepare_mom_calculation
-from gpaw.directmin.lcao.directmin_lcao import DirectMinLCAO
+from gpaw.directmin.etdm import ETDM
 from gpaw.directmin.lcao.tools import excite
 
 
@@ -25,7 +25,7 @@ def test_mom_directopt_lcao_forces(in_tmp_dir):
                 spinpol=True,
                 symmetry='off',
                 occupations={'name': 'fixed-uniform'},
-                eigensolver={'name': 'direct-min-lcao',
+                eigensolver={'name': 'etdm',
                              'linesearch_algo': 'max-step'},
                 mixer={'backend': 'no-mixing'},
                 nbands='nao',
@@ -37,7 +37,7 @@ def test_mom_directopt_lcao_forces(in_tmp_dir):
 
     f_sn = excite(calc, 0, 0, spin=(0, 0))
 
-    calc.set(eigensolver=DirectMinLCAO(searchdir_algo={'name': 'l-sr1p'},
+    calc.set(eigensolver=ETDM(searchdir_algo={'name': 'l-sr1p'},
                                        linesearch_algo={'name': 'max-step'},
                                        representation='u-invar',
                                        matrix_exp='egdecomp-u-invar',

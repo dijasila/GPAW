@@ -22,7 +22,11 @@ from gpaw.directmin.functional.lcao import get_functional
 from gpaw import BadParallelization
 
 
-class DirectMinLCAO(DirectLCAO):
+class ETDM(DirectLCAO):
+
+    """
+    Exponential Transformation Direct Minimzation (ETDM)
+    """
 
     def __init__(self, diagonalizer=None,
                  searchdir_algo='l-bfgs-p',
@@ -69,7 +73,7 @@ class DirectMinLCAO(DirectLCAO):
         :param need_init_orbs: if false then use coef. stored in kpt.C_nM
         """
 
-        super(DirectMinLCAO, self).__init__(diagonalizer)
+        super(ETDM, self).__init__(diagonalizer)
 
         assert representation in ['sparse', 'u-invar', 'full'], 'Value Error'
         assert matrix_exp in ['egdecomp', 'egdecomp-u-invar', 'pade-approx'], \
@@ -89,7 +93,7 @@ class DirectMinLCAO(DirectLCAO):
         self.matrix_exp = matrix_exp
         self.iters = 0
         self.restart = False
-        self.name = 'direct-min-lcao'
+        self.name = 'etdm'
         self.localizationtype = localizationtype
         self.need_localization = need_localization
         self.need_init_orbs = need_init_orbs
@@ -678,7 +682,7 @@ class DirectMinLCAO(DirectLCAO):
                 self.a_mat_u[u] = np.zeros_like(self.a_mat_u[u])
 
     def reset(self):
-        super(DirectMinLCAO, self).reset()
+        super(ETDM, self).reset()
         self.error = np.inf
         self.initialized = False
 
@@ -971,7 +975,7 @@ class DirectMinLCAO(DirectLCAO):
         need_canon_coef = \
             (not wfs.coefficients_read_from_file and self.need_init_orbs)
         if need_canon_coef or orthname == 'diag':
-            super(DirectMinLCAO, self).iterate(ham, wfs)
+            super(ETDM, self).iterate(ham, wfs)
         else:
             wfs.orthonormalize(type=orthname)
         wfs.coefficients_read_from_file = False

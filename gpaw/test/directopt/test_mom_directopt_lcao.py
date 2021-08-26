@@ -3,7 +3,7 @@ import pytest
 from gpaw import GPAW, LCAO
 from gpaw.directmin.lcao.tools import excite
 from gpaw.mom import prepare_mom_calculation
-from gpaw.directmin.lcao.directmin_lcao import DirectMinLCAO
+from gpaw.directmin.etdm import ETDM
 
 from ase import Atoms
 import numpy as np
@@ -23,7 +23,7 @@ def test_mom_directopt_lcao(in_tmp_dir):
                 basis='dzp',
                 h=0.20,
                 occupations={'name': 'fixed-uniform'},
-                eigensolver='direct-min-lcao',
+                eigensolver='etdm',
                 mixer={'backend': 'no-mixing'},
                 nbands='nao',
                 symmetry='off',
@@ -34,7 +34,7 @@ def test_mom_directopt_lcao(in_tmp_dir):
     H2O.calc = calc
     H2O.get_potential_energy()
 
-    calc.set(eigensolver=DirectMinLCAO(searchdir_algo={'name': 'l-sr1p'},
+    calc.set(eigensolver=ETDM(searchdir_algo={'name': 'l-sr1p'},
                                        linesearch_algo={'name': 'max-step'},
                                        need_init_orbs=False))
     # Ground-state occupation numbers

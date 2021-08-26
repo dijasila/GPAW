@@ -60,7 +60,7 @@ class SCFLoop:
     def irun(self, wfs, ham, dens, log, callback):
 
         egs_name = getattr(wfs.eigensolver, "name", None)
-        if egs_name == 'direct-min' or egs_name == 'direct-min-lcao':
+        if egs_name == 'etdm':
             self.run_dm(wfs, ham, dens, log, callback)
             return
 

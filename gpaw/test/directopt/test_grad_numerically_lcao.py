@@ -26,7 +26,7 @@ def test_gradient_numerically_lcao(in_tmp_dir):
                              'density': 10.0,
                              'energy': 10.0},
                 occupations={'name': 'fixed-uniform'},
-                eigensolver={'name': 'direct-min-lcao',
+                eigensolver={'name': 'etdm',
                              'matrix_exp': 'egdecomp'},
                 mixer={'backend': 'no-mixing'},
                 nbands='nao',
@@ -34,13 +34,13 @@ def test_gradient_numerically_lcao(in_tmp_dir):
                 )
     atoms.calc = calc
    
-    params = [{'name': 'direct-min-lcao',
+    params = [{'name': 'etdm',
                'representation': 'sparse',
               'matrix_exp': 'egdecomp'},
-              {'name': 'direct-min-lcao',
+              {'name': 'etdm',
                'representation': 'sparse',
                'matrix_exp': 'pade-approx'},
-              {'name': 'direct-min-lcao',
+              {'name': 'etdm',
                'representation': 'u-invar',
                'matrix_exp': 'egdecomp'}]
 
