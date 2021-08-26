@@ -44,10 +44,12 @@ def test_directmin_lcao_numerical_hessian(in_tmp_dir):
     assert hess_n == pytest.approx(hess_nt, abs=1e-4)
 
     a_mat_u = {0: [np.sqrt(2) * np.pi / 4.0 + 1.0j * np.sqrt(2) * np.pi / 4.0]}
+    c_nm_ref = calc.wfs.eigensolver.dm_helper.reference_orbitals
     calc.wfs.eigensolver.rotate_wavefunctions(calc.wfs,
                                               a_mat_u,
                                               {0: calc.wfs.bd.nbands},
-                                              calc.wfs.eigensolver.c_nm_ref)
+                                              c_nm_ref
+                                              )
     c_nm = {x: calc.wfs.kpt_u[x].C_nM.copy()
             for x in range(len(calc.wfs.kpt_u))}
     hess_a, hess_n = calc.wfs.eigensolver.finite_diff_appr_of_derivative(

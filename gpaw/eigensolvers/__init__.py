@@ -33,6 +33,7 @@ def get_eigensolver(eigensolver, mode, convergence=None):
     if isinstance(eigensolver, CG):
         eigensolver.tolerance = convergence.get('eigenstates', 4.0e-8)
 
-    assert isinstance(eigensolver, DirectLCAO) == (mode.name == 'lcao')
+    assert isinstance(eigensolver, DirectLCAO) == (mode.name == 'lcao') or \
+           isinstance(eigensolver, ETDM) == (mode.name == 'lcao')
 
     return eigensolver

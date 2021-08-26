@@ -14,7 +14,7 @@ import numpy as np
 from ase.parallel import parprint
 from gpaw.utilities.blas import mmm
 from gpaw.directmin.lcao.tools import expm_ed, expm_ed_unit_inv
-from gpaw.lcao.eigensolver import DirectLCAO
+from gpaw.directmin.lcao.directmin_lcao import DirectMinLCAO
 from scipy.linalg import expm
 from gpaw.utilities.tools import tri2full
 from gpaw.directmin.lcao import search_direction, line_search_algorithm
@@ -22,13 +22,13 @@ from gpaw.directmin.functional.lcao import get_functional
 from gpaw import BadParallelization
 
 
-class ETDM(DirectLCAO):
+class ETDM:
 
     """
     Exponential Transformation Direct Minimzation (ETDM)
     """
 
-    def __init__(self, diagonalizer=None,
+    def __init__(self,
                  searchdir_algo='l-bfgs-p',
                  linesearch_algo='swc-awc',
                  update_ref_orbs_counter=20,
@@ -51,7 +51,6 @@ class ETDM(DirectLCAO):
         C_ref is reference orbitals
         A is a skew-hermitian matrix which needs to be found
 
-        :param diagonalizer: inherent from direct-lcao eigensolver
         :param searchdir_algo: algo for calc search direction (e.g.LBFGS)
         :param linesearch_algo: line search (e.g. strong Wolfe conditions)
         :param update_ref_orbs_counter: (when to update C_ref)
@@ -72,8 +71,6 @@ class ETDM(DirectLCAO):
         :param need_localization: use localized orbitals as initial guess
         :param need_init_orbs: if false then use coef. stored in kpt.C_nM
         """
-
-        super(ETDM, self).__init__(diagonalizer)
 
         assert representation in ['sparse', 'u-invar', 'full'], 'Value Error'
         assert matrix_exp in ['egdecomp', 'egdecomp-u-invar', 'pade-approx'], \
@@ -122,7 +119,6 @@ class ETDM(DirectLCAO):
         # values: matrices, keys: kpt number (and spins)
         self.a_mat_u = {}  # skew-hermitian matrix to be exponented
         self.g_mat_u = {}  # gradient matrix
-        self.c_nm_ref = {}  # reference orbitals to be rotated
         self.evecs = {}   # eigenvectors for i*a_mat_u
         self.evals = {}   # eigenvalues for i*a_mat_u
         self.ind_up = {}
@@ -175,22 +171,44 @@ class ETDM(DirectLCAO):
 
         return repr_string
 
-    def init_me(self, wfs, ham, dens):
+    def initialize(self, gd, dtype, nbands, nkpts, nao, using_blacs,
+                   bd_comm_size, kpt_u):
 
-        self.dtype = wfs.dtype
-        self.nkpts = wfs.kd.nibzkpts
-        for kpt in wfs.kpt_u:
+        assert nbands == nao, \
+            'Please, use: nbands=\'nao\''
+        if not bd_comm_size == 1:
+            raise BadParallelization(
+                'Band parallelization is not supported')
+        if using_blacs:
+            raise BadParallelization(
+                'ScaLapack parallelization is not supported')
+
+        self.gd = gd
+        self.dtype = dtype
+        self.nbands = nbands
+        self.nkpts = nkpts
+        self.nao = nao
+
+        for kpt in kpt_u:
             u = self.kpointval(kpt)
             # dimensionality of the problem.
             # this implementation rotates among all bands
-            self.n_dim[u] = wfs.bd.nbands
+            self.n_dim[u] = self.nbands
 
-        # need to initialize c_nm, eps, f_n and so on.
-        # for this we call super class which make one diagonalization step
-        # or if we load wfs from a file or from previous step then
-        # just do orthonormalization procedure
-        self.initialize_orbitals(wfs, ham)
+        self.initialized = True
 
+        # need reference orbitals
+        self.dm_helper = None
+
+    def initialize_dm_helper(self, wfs, ham, dens):
+
+        self.dm_helper = DirectMinLCAO(
+            wfs, ham, self.nkpts,
+            diagonalizer=None,
+            orthonormalization=self.orthonormalization,
+            need_init_orbs=self.need_init_orbs
+        )
+        self.need_init_orbs = self.dm_helper.need_init_orbs
         # mom
         wfs.calculate_occupation_numbers(dens.fixed)
         occ_name = getattr(wfs.occupations, "name", None)
@@ -205,16 +223,15 @@ class ETDM(DirectLCAO):
             self.randomizeorbitals = False
 
         # initialize matrices
-        self.set_variable_matrices(wfs)
-
+        self.set_variable_matrices(wfs.kpt_u)
         # if no empty state no need to optimize
         for k in self.ind_up:
             if not self.ind_up[k][0].size or not self.ind_up[k][1].size:
                 self.n_dim[k] = 0
+        # set reference orbitals
+        self.dm_helper.set_reference_orbitlas(wfs, self.n_dim)
 
-        self.initialized = True
-
-    def set_variable_matrices(self, wfs):
+    def set_variable_matrices(self, kpt_u):
 
         # Matrices are sparse and Skew-Hermitian.
         # They have this structure:
@@ -249,7 +266,7 @@ class ETDM(DirectLCAO):
         # 'u-invar' corresponds to the case when we want to
         # store only A_2, that is this representaion is sparser
 
-        for kpt in wfs.kpt_u:
+        for kpt in kpt_u:
             n_occ = get_n_occ(kpt)
             u = self.kpointval(kpt)
             # M - one dimension of the A_BigMatrix
@@ -281,14 +298,12 @@ class ETDM(DirectLCAO):
 
             self.a_mat_u[u] = np.zeros(shape=shape_of_arr, dtype=self.dtype)
             self.g_mat_u[u] = np.zeros(shape=shape_of_arr, dtype=self.dtype)
-            # use initial KS orbitals
-            self.c_nm_ref[u] = np.copy(kpt.C_nM[:self.n_dim[u]])
             self.evecs[u] = None
             self.evals[u] = None
 
         self.iters = 1
 
-    def iterate(self, ham, wfs, dens, log):
+    def iterate(self, ham, wfs, dens):
         """
         One iteration of direct optimization
         for occupied states
@@ -296,14 +311,10 @@ class ETDM(DirectLCAO):
         :param ham:
         :param wfs:
         :param dens:
-        :param log:
         :return:
         """
         with wfs.timer('Direct Minimisation step'):
-
-            self.check_assertions(wfs, dens)
             self.update_ref_orbitals(wfs, ham, dens)
-
             with wfs.timer('Preconditioning:'):
                 precond = self.update_preconditioning(wfs, self.use_prec)
 
@@ -312,7 +323,7 @@ class ETDM(DirectLCAO):
             alpha = self.alpha
             phi_2i = self.phi_2i
             der_phi_2i = self.der_phi_2i
-            c_ref = self.c_nm_ref
+            c_ref = self.dm_helper.reference_orbitals
 
             if self.iters == 1:
                 phi_2i[0], g_mat_u = \
@@ -396,13 +407,9 @@ class ETDM(DirectLCAO):
                 if n_dim[k] == 0:
                     g_mat_u[k] = np.zeros_like(a_mat_u[k])
                     continue
-                h_mm = self.calculate_hamiltonian_matrix(ham, wfs, kpt)
-                # make matrix hermitian
-                tri2full(h_mm)
-                g_mat_u[k], error = self.func.get_gradients(
-                    h_mm, kpt.C_nM, kpt.f_n, self.evecs[k], self.evals[k],
-                    kpt, wfs, wfs.timer, self.matrix_exp,
-                    self.representation, self.ind_up[k])
+                g_mat_u[k], error = self.dm_helper.calc_grad(
+                    wfs, ham, kpt, self.func, self.evecs[k], self.evals[k],
+                    self.matrix_exp, self.representation, self.ind_up[k])
 
                 self.error += error
             self.error = wfs.kd.comm.sum(self.error)
@@ -518,9 +525,9 @@ class ETDM(DirectLCAO):
             if self.update_ref_orbs_canonical or self.restart:
                 self.get_canonical_representation(ham, wfs, dens)
             else:
+                self.dm_helper.set_reference_orbitlas(wfs, self.n_dim)
                 for kpt in wfs.kpt_u:
                     u = self.kpointval(kpt)
-                    self.c_nm_ref[u] = kpt.C_nM.copy()
                     self.a_mat_u[u] = np.zeros_like(self.a_mat_u[u])
 
             # choose search direction and line search algorithm
@@ -636,33 +643,10 @@ class ETDM(DirectLCAO):
 
         with wfs.timer('Get canonical representation'):
             for kpt in wfs.kpt_u:
-                # wfs.atomic_correction.calculate_projections(wfs, kpt)
-                h_mm = self.calculate_hamiltonian_matrix(ham, wfs, kpt)
-                tri2full(h_mm)
-                if self.update_ref_orbs_canonical or self.restart:
-                    # Diagonalize entire Hamiltonian matrix
-                    with wfs.timer('Diagonalize and rotate'):
-                        kpt.C_nM, kpt.eps_n = rotate_subspace(
-                            h_mm, kpt.C_nM)
-                else:
-                    # Diagonalize equally occupied subspaces separately
-                    n_init = 0
-                    while True:
-                        n_fin = \
-                            find_equally_occupied_subspace(kpt.f_n, n_init)
-                        with wfs.timer('Diagonalize and rotate'):
-                            kpt.C_nM[n_init:n_init + n_fin, :], \
-                                kpt.eps_n[n_init:n_init + n_fin] = \
-                                rotate_subspace(
-                                    h_mm, kpt.C_nM[n_init:n_init + n_fin, :])
-                        n_init += n_fin
-                        if n_init == len(kpt.f_n):
-                            break
-                        elif n_init > len(kpt.f_n):
-                            raise RuntimeError('Bug is here!')
+                self.dm_helper.update_to_canonical_orbitals(
+                    wfs, ham, kpt, self.update_ref_orbs_canonical,
+                    self.restart)
 
-                with wfs.timer('Calculate projections'):
-                    wfs.atomic_correction.calculate_projections(wfs, kpt)
             self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
             occ_name = getattr(wfs.occupations, "name", None)
             if occ_name == 'mom':
@@ -676,13 +660,14 @@ class ETDM(DirectLCAO):
                         wfs.occupations.numbers = \
                             self.initial_occupation_numbers
 
+            self.dm_helper.set_reference_orbitlas(wfs, self.n_dim)
             for kpt in wfs.kpt_u:
                 u = self.kpointval(kpt)
-                self.c_nm_ref[u] = kpt.C_nM.copy()
                 self.a_mat_u[u] = np.zeros_like(self.a_mat_u[u])
 
     def reset(self):
-        super(ETDM, self).reset()
+
+        self.dm_helper = None
         self.error = np.inf
         self.initialized = False
 
@@ -696,33 +681,15 @@ class ETDM(DirectLCAO):
                 if use_eps:
                     orbital_energies = kpt.eps_n
                 else:
-                    h_mm = self.calculate_hamiltonian_matrix(ham, wfs, kpt)
-                    tri2full(h_mm)
-                    hc_mn = np.zeros(shape=(kpt.C_nM.shape[1],
-                                            kpt.C_nM.shape[0]),
-                                     dtype=kpt.C_nM.dtype)
-                    mmm(1.0, h_mm.conj(), 'N', kpt.C_nM, 'T', 0.0, hc_mn)
-                    mmm(1.0, kpt.C_nM.conj(), 'N', hc_mn, 'N', 0.0, h_mm)
-                    orbital_energies = h_mm.diagonal().real.copy()
-                # label each orbital energy
-                # add some noise to get rid off degeneracy
-                orbital_energies += \
-                    np.random.rand(len(orbital_energies)) * 1.0e-8
-                oe_labeled = {}
-                for i, lamb in enumerate(orbital_energies):
-                    oe_labeled[str(round(lamb, 12))] = i
-                # now sort orb energies
-                oe_sorted = np.sort(orbital_energies)
-                # run over sorted orbital energies and get their label
-                ind = []
-                for x in oe_sorted:
-                    i = oe_labeled[str(round(x, 12))]
-                    ind.append(i)
+                    orbital_energies = self.dm_helper.orbital_energies(
+                        wfs, ham, kpt)
+
+                ind = np.argsort(orbital_energies)
                 # check if it is necessary to sort
-                x = np.max(abs(np.array(ind) - np.arange(len(ind))))
+                x = np.max(abs(ind - np.arange(len(ind))))
                 if x > 0:
                     # now sort wfs according to orbital energies
-                    kpt.C_nM[np.arange(len(ind)), :] = kpt.C_nM[ind, :]
+                    self.dm_helper.sort_orbitals(kpt, ind)
                     kpt.f_n[np.arange(len(ind))] = kpt.f_n[ind]
                     kpt.eps_n[np.arange(len(ind))] = orbital_energies[ind]
                     occ_name = getattr(wfs.occupations, "name", None)
@@ -750,16 +717,16 @@ class ETDM(DirectLCAO):
                     ind_occ = np.argwhere(occupied)
                     ind_unocc = np.argwhere(~occupied)
                     ind = np.vstack((ind_occ, ind_unocc))
-                    kpt.C_nM = np.squeeze(kpt.C_nM[ind])
+                    self.dm_helper.squeeze(kpt, ind)
                     kpt.f_n = np.squeeze(kpt.f_n[ind])
                     kpt.eps_n = np.squeeze(kpt.eps_n[ind])
             # Broadcast coefficients, occupation numbers, eigenvalues
             wfs.gd.comm.broadcast(kpt.eps_n, 0)
             wfs.gd.comm.broadcast(kpt.f_n, 0)
-            wfs.gd.comm.broadcast(kpt.C_nM, 0)
+            self.dm_helper.broadcast(wfs, kpt)
             if not np.allclose(kpt.f_n, f_sn):
                 changedocc = True
-                wfs.atomic_correction.calculate_projections(wfs, kpt)
+                self.dm_helper.update_projections(wfs, kpt)
                 # OccupationsMOM.numbers needs to be updated after sorting
                 self.update_mom_numbers(wfs, kpt)
 
@@ -825,7 +792,7 @@ class ETDM(DirectLCAO):
             self.matrix_exp = 'egdecomp'
 
         if c_nm_ref is None:
-            c_nm_ref = self.c_nm_ref
+            c_nm_ref = self.dm_helper.reference_orbitals
 
         # init matrices and use random if needed
         for kpt in wfs.kpt_u:
@@ -941,12 +908,8 @@ class ETDM(DirectLCAO):
                                          '\'pade-approx\' or '
                                          '\'egdecomp\'')
 
-                    dimens1 = u_nn.shape[0]
-                    dimens2 = u_nn.shape[1]
-                    kpt.C_nM[:dimens2] = u_nn.T @ c_nm_ref[k][:dimens1]
-
-                with wfs.timer('Broadcast coefficients'):
-                    self.gd.comm.broadcast(kpt.C_nM, 0)
+                    self.dm_helper.appy_transformation_kpt(wfs, u_nn.T, kpt,
+                                                           c_nm_ref)
 
                 if self.matrix_exp == 'egdecomp':
                     with wfs.timer('Broadcast evecs and evals'):
@@ -959,40 +922,11 @@ class ETDM(DirectLCAO):
                         self.gd.comm.broadcast(evecs, 0)
                         self.gd.comm.broadcast(evals, 0)
                         self.evecs[k], self.evals[k] = evecs, evals
-                with wfs.timer('Calculate projections'):
-                    wfs.atomic_correction.calculate_projections(wfs, kpt)
-
-    def initialize_orbitals(self, wfs, ham):
-        """
-        if it is the first use of the scf then initialize
-        coefficient matrix using eigensolver
-        and then localise orbitals
-        """
-
-        # if it is the first use of the scf then initialize
-        # coefficient matrix using eigensolver
-        orthname = self.orthonormalization
-        need_canon_coef = \
-            (not wfs.coefficients_read_from_file and self.need_init_orbs)
-        if need_canon_coef or orthname == 'diag':
-            super(ETDM, self).iterate(ham, wfs)
-        else:
-            wfs.orthonormalize(type=orthname)
-        wfs.coefficients_read_from_file = False
-        self.need_init_orbs = False
 
     def check_assertions(self, wfs, dens):
 
         assert dens.mixer.driver.basemixerclass.name == 'no-mixing', \
             'Please, use: mixer={\'backend\': \'no-mixing\'}'
-        assert wfs.bd.nbands == wfs.basis_functions.Mmax, \
-            'Please, use: nbands=\'nao\''
-        if not wfs.bd.comm.size == 1:
-            raise BadParallelization(
-                'Band parallelization is not supported')
-        if wfs.ksl.using_blacs:
-            raise BadParallelization(
-                'ScaLapack parallelization is not supported')
         if wfs.occupations.name != 'mom':
             errormsg = \
                 'Please, use occupations={\'name\': \'fixed-uniform\'}'
@@ -1021,15 +955,14 @@ class ETDM(DirectLCAO):
 
     def randomize_orbitals_kpt(self, wfs, kpt):
         """
-        add random noise to C_nM but keep them still orthonormal
+        add random noise to orbitals but keep them still orthonormal
         """
-        nst = kpt.C_nM.shape[0]
+        nst = self.nbands
         wt = kpt.weight * 0.01
         arand = wt * random_a((nst, nst), wfs.dtype)
         arand = arand - arand.T.conj()
         wfs.gd.comm.broadcast(arand, 0)
-        kpt.C_nM[:] = expm(arand) @ kpt.C_nM[:]
-        wfs.atomic_correction.calculate_projections(wfs, kpt)
+        self.dm_helper.appy_transformation_kpt(wfs, expm(arand), kpt)
 
     def kpointval(self, kpt):
         return self.nkpts * kpt.s + kpt.q
@@ -1058,28 +991,6 @@ def get_n_occ(kpt):
     get number of occupied orbitals
     """
     return len(kpt.f_n) - np.searchsorted(kpt.f_n[::-1], 1e-10)
-
-
-def find_equally_occupied_subspace(f_n, index=0):
-    n_occ = 0
-    f1 = f_n[index]
-    for f2 in f_n[index:]:
-        if abs(f1 - f2) < 1.0e-8:
-            n_occ += 1
-        else:
-            return n_occ
-    return n_occ
-
-
-def rotate_subspace(h_mm, c_nm):
-    """
-    choose canonical orbitals
-    """
-    l_nn = (c_nm @ h_mm @ c_nm.conj().T).conj()
-    # check if diagonal then don't rotate? it could save a bit of time
-    eps, w = np.linalg.eigh(l_nn)
-    return w.T.conj() @ c_nm, eps
-
 
 def random_a(shape, dtype):
 

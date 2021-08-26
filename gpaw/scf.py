@@ -217,9 +217,10 @@ class SCFLoop:
             # we need to check each time if initialization is needed
             # as sometimes one need to erase the memory in L-BFGS
             # or mom can require restart if it detects the collapse
-            if not solver.initialized:
-                solver.init_me(wfs, ham, dens)
-            solver.iterate(ham, wfs, dens, log)
+            if solver.dm_helper is None:
+                solver.initialize_dm_helper(wfs, ham, dens)
+
+            solver.iterate(ham, wfs, dens)
             solver.check_mom(wfs, dens)
 
             energy = ham.get_energy(0.0, wfs, kin_en_using_band=False)

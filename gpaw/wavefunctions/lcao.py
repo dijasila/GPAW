@@ -14,7 +14,7 @@ from gpaw.wavefunctions.base import WaveFunctions
 from gpaw.lcao.atomic_correction import (DenseAtomicCorrection,
                                          SparseAtomicCorrection)
 from gpaw.wavefunctions.mode import Mode
-
+from gpaw.directmin.etdm import ETDM
 
 class LCAO(Mode):
     name = 'lcao'
@@ -161,8 +161,14 @@ class LCAOWaveFunctions(WaveFunctions):
     def set_eigensolver(self, eigensolver):
         WaveFunctions.set_eigensolver(self, eigensolver)
         if eigensolver:
-            eigensolver.initialize(self.gd, self.dtype, self.setups.nao,
-                                   self.ksl)
+            if isinstance(eigensolver, ETDM):
+                eigensolver.initialize(self.gd, self.dtype, self.bd.nbands,
+                                       self.kd.nibzkpts, self.setups.nao,
+                                       self.ksl.using_blacs,
+                                       self.bd.comm.size, self.kpt_u)
+            else:
+                eigensolver.initialize(self.gd, self.dtype, self.setups.nao,
+                                       self.ksl)
 
     def set_positions(self, spos_ac, atom_partition=None, move_wfs=False):
         oldspos_ac = self.spos_ac
