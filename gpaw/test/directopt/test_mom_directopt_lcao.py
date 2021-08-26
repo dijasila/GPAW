@@ -17,20 +17,19 @@ def test_mom_directopt_lcao(in_tmp_dir):
                 positions=[(0, 0, 0),
                            (d, 0, 0),
                            (d * np.cos(t), d * np.sin(t), 0)])
-    H2O.center(vacuum=5.0)
+    H2O.center(vacuum=4.0)
 
     calc = GPAW(mode=LCAO(),
                 basis='dzp',
-                h=0.20,
+                h=0.22,
                 occupations={'name': 'fixed-uniform'},
                 eigensolver='direct-min-lcao',
                 mixer={'backend': 'no-mixing'},
                 nbands='nao',
                 symmetry='off',
                 spinpol=True,
-                convergence={'energy': 1e-3,
-                             'density': 1e-3,
-                             'eigenstates': 1e-3})
+                convergence={'density': 1.0e-4,
+                             'eigenstates': 4.0e-8})
     H2O.calc = calc
     H2O.get_potential_energy()
 
@@ -58,4 +57,4 @@ def test_mom_directopt_lcao(in_tmp_dir):
     calc.attach(rotate_homo_lumo, 1)
     e = H2O.get_potential_energy()
 
-    assert e == pytest.approx(-5.091912426348663, abs=1.0e-4)
+    assert e == pytest.approx(-4.854496813259008, abs=1.0e-4)
