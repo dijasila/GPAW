@@ -17,9 +17,10 @@ class SCFLoop:
         self.criteria = criteria
         self.maxiter = maxiter
         self.niter_fixdensity = niter_fixdensity
-
         self.niter = None
         self.reset()
+        self.converged = False
+        self.eigensolver_used = None
 
     def __str__(self):
         s = 'Convergence criteria:\n'
@@ -41,73 +42,31 @@ class SCFLoop:
         for criterion in self.criteria.values():
             criterion.reset()
         self.converged = False
+        self.eigensolver_used = None
 
     def irun(self, wfs, ham, dens, log, callback):
 
-        egs_name = getattr(wfs.eigensolver, "name", None)
-        if egs_name == 'etdm':
-            self.run_dm(wfs, ham, dens, log, callback)
-            return
-
+        self.eigensolver_used = getattr(wfs.eigensolver, "name", None)
+        self.check_eigensolver_state(wfs, ham, dens)
         self.niter = 1
         cheap, expensive = self.prepear_convergence_criteria()
 
         while self.niter <= self.maxiter:
-            wfs.eigensolver.iterate(ham, wfs)
-            e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
-            ham.get_energy(e_entropy, wfs)
+            self.iterate_eigensolver(wfs, ham, dens)
 
             self.converged = self.check_convergence(
                 dens, ham, wfs, log, cheap, expensive, callback)
             yield
 
             if self.converged and self.niter >= self.niter_fixdensity:
+                self.do_if_converged(wfs, ham, dens, log)
                 break
 
-            if self.niter > self.niter_fixdensity and not dens.fixed:
-                dens.update(wfs)
-                ham.update(dens)
-            else:
-                ham.npoisson = 0
+            self.update_ham_and_dens(wfs, ham, dens)
             self.niter += 1
 
         # Don't fix the density in the next step.
         self.niter_fixdensity = 0
-
-        if not self.converged:
-            self.not_converged(dens, ham, wfs, log)
-
-    def run_dm(self, wfs, ham, dens, log, callback):
-
-        self.niter = 1
-
-        solver = wfs.eigensolver
-        solver.eg_count = 0
-        solver.globaliters = 0
-        solver.check_assertions(wfs, dens)
-        if solver.dm_helper is None:
-            solver.initialize_dm_helper(wfs, ham, dens)
-
-        cheap, expensive = self.prepear_convergence_criteria()
-
-        while self.niter <= self.maxiter:
-            solver.iterate(ham, wfs, dens)
-            solver.check_mom(wfs, dens)
-            ham.get_energy(0.0, wfs, kin_en_using_band=False)
-
-            self.converged = self.check_convergence(
-                dens, ham, wfs, log, cheap, expensive, callback)
-
-            if self.converged:
-                wfs.calculate_occupation_numbers(dens.fixed)
-                solver.get_canonical_representation(ham, wfs, dens,
-                                                    sort_eigenvalues=True)
-                log('\nOccupied states converged after'
-                    ' {:d} e/g evaluations'.format(solver.eg_count))
-                break
-
-            ham.npoisson = 0
-            self.niter += 1
 
         if not self.converged:
             self.not_converged(dens, ham, wfs, log)
@@ -214,6 +173,47 @@ class SCFLoop:
         log(oops, flush=True)
         raise KohnShamConvergenceError(
             'Did not converge!  See text output for help.')
+
+    def check_eigensolver_state(self, wfs, ham, dens):
+
+        if self.eigensolver_used == 'etdm':
+            wfs.eigensolver.eg_count = 0
+            wfs.eigensolver.globaliters = 0
+            wfs.eigensolver.check_assertions(wfs, dens)
+            if wfs.eigensolver.dm_helper is None:
+                wfs.eigensolver.initialize_dm_helper(wfs, ham, dens)
+
+    def iterate_eigensolver(self, wfs, ham, dens):
+
+        if self.eigensolver_used == 'etdm':
+            wfs.eigensolver.iterate(ham, wfs, dens)
+            wfs.eigensolver.check_mom(wfs, dens)
+            e_entropy = 0.0
+            kin_en_using_band = False
+        else:
+            wfs.eigensolver.iterate(ham, wfs)
+            e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
+            kin_en_using_band = True
+
+        ham.get_energy(e_entropy, wfs, kin_en_using_band=kin_en_using_band)
+
+    def do_if_converged(self, wfs, ham, dens, log):
+
+        if self.eigensolver_used == 'etdm':
+            wfs.calculate_occupation_numbers(dens.fixed)
+            wfs.eigensolver.get_canonical_representation(
+                ham, wfs, dens, sort_eigenvalues=True)
+            log('\nOccupied states converged after'
+                ' {:d} e/g evaluations'.format(wfs.eigensolver.eg_count))
+
+    def update_ham_and_dens(self, wfs, ham, dens):
+
+        to_update = self.niter > self.niter_fixdensity and not dens.fixed
+        if self.eigensolver_used == 'etdm' or not to_update:
+            ham.npoisson = 0
+        else:
+            dens.update(wfs)
+            ham.update(dens)
 
 
 class SCFEvent:
