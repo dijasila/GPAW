@@ -200,9 +200,17 @@ class SCFLoop:
     def do_if_converged(self, wfs, ham, dens, log):
 
         if self.eigensolver_used == 'etdm':
+            energy = ham.get_energy(0.0, wfs, kin_en_using_band=False)
             wfs.calculate_occupation_numbers(dens.fixed)
             wfs.eigensolver.get_canonical_representation(
                 ham, wfs, dens, sort_eigenvalues=True)
+            energy_converged = wfs.eigensolver.update_ks_energy(ham, wfs, dens)
+            energy_diff_after_scf = abs(energy - energy_converged) * Ha
+            assert energy_diff_after_scf <= 1.0e-6, \
+                'Jump in energy of %f eV detected at the end of SCF ' \
+                'after getting canonical orbitals, SCF might have ' \
+                'converged to the wrong solution' % (energy_diff_after_scf)
+
             log('\nOccupied states converged after'
                 ' {:d} e/g evaluations'.format(wfs.eigensolver.eg_count))
 

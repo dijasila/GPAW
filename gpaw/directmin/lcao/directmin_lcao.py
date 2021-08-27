@@ -2,7 +2,7 @@
 A class for finding optimal
 orbitals of the KS-DFT or PZ-SIC
 functionals using exponential transformation
-direct minimization
+direct minimization in lcao mode
 
 arXiv:2101.12597 [physics.comp-ph]
 Comput. Phys. Commun. 267, 108047 (2021).

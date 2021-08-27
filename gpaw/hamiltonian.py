@@ -635,14 +635,11 @@ class Hamiltonian:
             #
             # the code below is faster
             self.timer.start('Pseudo part')
-            n_occ = 0
-            nbands = len(kpt.f_n)
-            while n_occ < nbands and kpt.f_n[n_occ] > 1e-10:
-                n_occ += 1
-            x_nn = np.dot(kpt.C_nM[:n_occ],
+            occ = kpt.f_n > 1e-10
+            x_nn = np.dot(kpt.C_nM[occ],
                           np.dot(kpt.T_MM,
-                                 kpt.C_nM[:n_occ].T.conj())).real
-            e_kinetic += np.einsum('i,ii->', kpt.f_n[:n_occ], x_nn)
+                                 kpt.C_nM[occ].T.conj())).real
+            e_kinetic += np.einsum('i,ii->', kpt.f_n[occ], x_nn)
             self.timer.stop('Pseudo part')
         # del rho_MM
 
