@@ -122,8 +122,9 @@ class DirectMinLCAO(DirectLCAO):
     def squeeze(self, kpt, ind):
         kpt.C_nM = np.squeeze(kpt.C_nM[ind])
 
-    def sort_orbitals(self, kpt, ind):
+    def sort_orbitals(self, wfs, kpt, ind):
         kpt.C_nM[np.arange(len(ind)), :] = kpt.C_nM[ind, :]
+        self.update_projections(wfs, kpt)
 
     def broadcast(self, wfs, kpt):
         wfs.gd.comm.broadcast(kpt.C_nM, 0)

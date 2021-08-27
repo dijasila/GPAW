@@ -679,8 +679,6 @@ class ETDM:
         the diagonal elements of the Hamiltonian matrix.
         """
 
-        rand_numbers = np.random.rand(self.nbands) * 1.0e-8
-        wfs.world.broadcast(rand_numbers, 0)
         with wfs.timer('Sort WFS'):
             for kpt in wfs.kpt_u:
                 if use_eps:
@@ -688,25 +686,13 @@ class ETDM:
                 else:
                     orbital_energies = self.dm_helper.orbital_energies(
                         wfs, ham, kpt)
-                # label each orbital energy
-                # add some noise to get rid off degeneracy
-                orbital_energies += rand_numbers
-                oe_labeled = {}
-                for i, lamb in enumerate(orbital_energies):
-                    oe_labeled[str(round(lamb, 12))] = i
-                # now sort orb energies
-                oe_sorted = np.sort(orbital_energies)
-                # run over sorted orbital energies and get their label
-                ind = []
-                for x in oe_sorted:
-                    i = oe_labeled[str(round(x, 12))]
-                    ind.append(i)
+                ind = np.argsort(orbital_energies)
                 # check if it is necessary to sort
-                x = np.max(abs(np.array(ind) - np.arange(len(ind))))
+                x = np.max(abs(ind - np.arange(len(ind))))
 
                 if x > 0:
                     # now sort wfs according to orbital energies
-                    self.dm_helper.sort_orbitals(kpt, ind)
+                    self.dm_helper.sort_orbitals(wfs, kpt, ind)
                     kpt.f_n[np.arange(len(ind))] = kpt.f_n[ind]
                     kpt.eps_n[np.arange(len(ind))] = orbital_energies[ind]
                     occ_name = getattr(wfs.occupations, "name", None)
@@ -734,16 +720,16 @@ class ETDM:
                     ind_occ = np.argwhere(occupied)
                     ind_unocc = np.argwhere(~occupied)
                     ind = np.vstack((ind_occ, ind_unocc))
-                    self.dm_helper.squeeze(kpt, ind)
-                    kpt.f_n = np.squeeze(kpt.f_n[ind])
-                    kpt.eps_n = np.squeeze(kpt.eps_n[ind])
+                    ind = np.squeeze(ind)
+                    self.dm_helper.sort_orbitals(wfs, kpt, ind)
+                    kpt.f_n = kpt.f_n[ind]
+                    kpt.eps_n = kpt.eps_n[ind]
             # Broadcast coefficients, occupation numbers, eigenvalues
             wfs.gd.comm.broadcast(kpt.eps_n, 0)
             wfs.gd.comm.broadcast(kpt.f_n, 0)
             self.dm_helper.broadcast(wfs, kpt)
             if not np.allclose(kpt.f_n, f_sn):
                 changedocc = True
-                self.dm_helper.update_projections(wfs, kpt)
                 # OccupationsMOM.numbers needs to be updated after sorting
                 self.update_mom_numbers(wfs, kpt)
 
