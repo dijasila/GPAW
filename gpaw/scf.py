@@ -50,40 +50,15 @@ class SCFLoop:
             return
 
         self.niter = 1
-        cheap = {k: c for k, c in self.criteria.items() if not c.calc_last}
-        expensive = {k: c for k, c in self.criteria.items() if c.calc_last}
-        calculate_expensive = False  # switches to True when cheap converge
+        cheap, expensive = self.prepear_convergence_criteria()
+
         while self.niter <= self.maxiter:
             wfs.eigensolver.iterate(ham, wfs)
             e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
             ham.get_energy(e_entropy, wfs)
 
-            entries = {}  # for log file, per criteria
-            converged_items = {}  # True/False, per criteria
-            context = SCFEvent(dens=dens, ham=ham, wfs=wfs, niter=self.niter,
-                               log=log)
-
-            for name, criterion in cheap.items():
-                converged, entry = criterion(context)
-                converged_items[name] = converged
-                entries[name] = entry
-
-            if all(converged_items.values()):
-                # Stays on rest of cycle even if a cheap one slips back out.
-                calculate_expensive = True
-
-            for name, criterion in expensive.items():
-                converged, entry = False, ''
-                if calculate_expensive:
-                    converged, entry = criterion(context)
-                converged_items[name] = converged
-                entries[name] = entry
-
-            # Converged?
-            self.converged = all(converged_items.values())
-
-            callback(self.niter)
-            self.log(log, converged_items, entries, context)
+            self.converged = self.check_convergence(
+                dens, ham, wfs, log, cheap, expensive, callback)
             yield
 
             if self.converged and self.niter >= self.niter_fixdensity:
@@ -100,16 +75,42 @@ class SCFLoop:
         self.niter_fixdensity = 0
 
         if not self.converged:
-            context = SCFEvent(dens=dens, ham=ham, wfs=wfs, niter=self.niter,
-                               log=log)
-            eigerr = self.criteria['eigenstates'].get_error(context)
-            if not np.isfinite(eigerr):
-                msg = 'Not enough bands for ' + wfs.eigensolver.nbands_converge
-                log(msg, flush=True)
-                raise KohnShamConvergenceError(msg)
-            log(oops, flush=True)
-            raise KohnShamConvergenceError(
-                'Did not converge!  See text output for help.')
+            self.not_converged(dens, ham, wfs, log)
+
+    def run_dm(self, wfs, ham, dens, log, callback):
+
+        self.niter = 1
+
+        solver = wfs.eigensolver
+        solver.eg_count = 0
+        solver.globaliters = 0
+        solver.check_assertions(wfs, dens)
+        if solver.dm_helper is None:
+            solver.initialize_dm_helper(wfs, ham, dens)
+
+        cheap, expensive = self.prepear_convergence_criteria()
+
+        while self.niter <= self.maxiter:
+            solver.iterate(ham, wfs, dens)
+            solver.check_mom(wfs, dens)
+            ham.get_energy(0.0, wfs, kin_en_using_band=False)
+
+            self.converged = self.check_convergence(
+                dens, ham, wfs, log, cheap, expensive, callback)
+
+            if self.converged:
+                wfs.calculate_occupation_numbers(dens.fixed)
+                solver.get_canonical_representation(ham, wfs, dens,
+                                                    sort_eigenvalues=True)
+                log('\nOccupied states converged after'
+                    ' {:d} e/g evaluations'.format(solver.eg_count))
+                break
+
+            ham.npoisson = 0
+            self.niter += 1
+
+        if not self.converged:
+            self.not_converged(dens, ham, wfs, log)
 
     def log(self, log, converged_items, entries, context):
         """Output from each iteration."""
@@ -162,6 +163,57 @@ class SCFLoop:
                 line += ' {:+.1f},{:+.1f},{:+.1f}'.format(*totmom_v)
 
         log(line, flush=True)
+
+    def prepear_convergence_criteria(self):
+        cheap = {k: c for k, c in self.criteria.items() if not c.calc_last}
+        expensive = {k: c for k, c in self.criteria.items() if c.calc_last}
+        return cheap, expensive
+
+    def check_convergence(self, dens, ham, wfs, log, cheap, expensive,
+                          callback):
+
+        entries = {}  # for log file, per criteria
+        converged_items = {}  # True/False, per criteria
+        context = SCFEvent(dens=dens, ham=ham, wfs=wfs, niter=self.niter,
+                           log=log)
+
+        for name, criterion in cheap.items():
+            converged, entry = criterion(context)
+            converged_items[name] = converged
+            entries[name] = entry
+
+        calculate_expensive = False
+        if all(converged_items.values()):
+            # Stays on rest of cycle even if a cheap one slips back out.
+            calculate_expensive = True
+
+        for name, criterion in expensive.items():
+            converged, entry = False, ''
+            if calculate_expensive:
+                converged, entry = criterion(context)
+            converged_items[name] = converged
+            entries[name] = entry
+
+        # Converged?
+        converged = all(converged_items.values())
+
+        callback(self.niter)
+        self.log(log, converged_items, entries, context)
+
+        return converged
+
+    def not_converged(self, dens, ham, wfs, log):
+
+        context = SCFEvent(dens=dens, ham=ham, wfs=wfs, niter=self.niter,
+                           log=log)
+        eigerr = self.criteria['eigenstates'].get_error(context)
+        if not np.isfinite(eigerr):
+            msg = 'Not enough bands for ' + wfs.eigensolver.nbands_converge
+            log(msg, flush=True)
+            raise KohnShamConvergenceError(msg)
+        log(oops, flush=True)
+        raise KohnShamConvergenceError(
+            'Did not converge!  See text output for help.')
 
 
 class SCFEvent:
@@ -494,62 +546,6 @@ class MinIter(Criterion):
         converged = context.niter >= self.n
         entry = '{:d}'.format(context.niter)
         return converged, entry
-
-    def run_dm(self, wfs, ham, dens, log, callback):
-
-        self.niter = 1
-
-        solver = wfs.eigensolver
-        solver.eg_count = 0
-        solver.globaliters = 0
-        solver.check_assertions(wfs, dens)
-
-        while self.niter <= self.maxiter:
-            # we need to check each time if initialization is needed
-            # as sometimes one need to erase the memory in L-BFGS
-            # or mom can require restart if it detects the collapse
-            if solver.dm_helper is None:
-                solver.initialize_dm_helper(wfs, ham, dens)
-
-            solver.iterate(ham, wfs, dens)
-            solver.check_mom(wfs, dens)
-
-            energy = ham.get_energy(0.0, wfs, kin_en_using_band=False)
-
-            self.errors_check_convergence_log(energy, dens, ham, wfs,
-                                              callback, log)
-
-            if self.converged:
-                wfs.calculate_occupation_numbers(dens.fixed)
-                solver.get_canonical_representation(ham, wfs, dens,
-                                                    sort_eigenvalues=True)
-                log('\nOccupied states converged after'
-                    ' {:d} e/g evaluations'.format(solver.eg_count))
-                break
-
-            ham.npoisson = 0
-            self.niter += 1
-
-        if not self.converged:
-            log(oops)
-            raise KohnShamConvergenceError('Did not converge! See text '
-                                           'output for help.')
-
-    def errors_check_convergence_log(self, energy, dens, ham, wfs,
-                                     callback, log):
-        self.old_energies.append(energy)
-        errors = self.collect_errors(dens, ham, wfs)
-        # Converged?
-        for kind, error in errors.items():
-            if error > self.max_errors[kind]:
-                self.converged = False
-                break
-        else:
-            self.converged = True
-        callback(self.niter)
-        self.log(log, self.niter, wfs, ham, dens, errors)
-
-        return errors
 
 
 oops = """
