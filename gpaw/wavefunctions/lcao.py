@@ -16,6 +16,7 @@ from gpaw.lcao.atomic_correction import (DenseAtomicCorrection,
 from gpaw.wavefunctions.mode import Mode
 from gpaw.directmin.etdm import ETDM
 
+
 class LCAO(Mode):
     name = 'lcao'
 

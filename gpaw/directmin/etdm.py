@@ -999,6 +999,7 @@ def get_n_occ(kpt):
     """
     return len(kpt.f_n) - np.searchsorted(kpt.f_n[::-1], 1e-10)
 
+
 def random_a(shape, dtype):
 
     a = np.random.random_sample(shape)

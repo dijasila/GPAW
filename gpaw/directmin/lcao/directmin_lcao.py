@@ -107,7 +107,7 @@ class DirectMinLCAO(DirectLCAO):
                     find_equally_occupied_subspace(kpt.f_n, n_init)
                 with wfs.timer('Diagonalize and rotate'):
                     kpt.C_nM[n_init:n_init + n_fin, :], \
-                    kpt.eps_n[n_init:n_init + n_fin] = \
+                        kpt.eps_n[n_init:n_init + n_fin] = \
                         rotate_subspace(
                             h_mm, kpt.C_nM[n_init:n_init + n_fin, :])
                 n_init += n_fin

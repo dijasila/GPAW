@@ -38,10 +38,10 @@ def test_mom_directopt_lcao_spinpaired(in_tmp_dir):
     f_sn[0] /= 2
 
     calc.set(eigensolver=ETDM(searchdir_algo={'name': 'l-sr1p'},
-                                       linesearch_algo={'name': 'max-step'},
-                                       representation='u-invar',
-                                       matrix_exp='egdecomp-u-invar',
-                                       need_init_orbs=False))
+                              linesearch_algo={'name': 'max-step'},
+                              representation='u-invar',
+                              matrix_exp='egdecomp-u-invar',
+                              need_init_orbs=False))
     prepare_mom_calculation(calc, atoms, f_sn)
     e = atoms.get_potential_energy()
 
