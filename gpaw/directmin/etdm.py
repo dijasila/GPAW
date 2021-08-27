@@ -12,11 +12,11 @@ https://doi.org/10.1016/j.cpc.2021.108047
 
 import numpy as np
 from ase.parallel import parprint
-from gpaw.directmin.lcao.tools import expm_ed, expm_ed_unit_inv
+from gpaw.directmin.tools import expm_ed, expm_ed_unit_inv
 from gpaw.directmin.lcao.directmin_lcao import DirectMinLCAO
 from scipy.linalg import expm
-from gpaw.directmin.lcao import search_direction, line_search_algorithm
-from gpaw.directmin.functional.lcao import get_functional
+from gpaw.directmin import search_direction, line_search_algorithm
+from gpaw.directmin.functional import get_functional
 from gpaw import BadParallelization
 
 

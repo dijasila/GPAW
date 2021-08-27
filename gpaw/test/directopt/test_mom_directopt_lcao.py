@@ -1,7 +1,7 @@
 import pytest
 
 from gpaw import GPAW, LCAO
-from gpaw.directmin.lcao.tools import excite
+from gpaw.directmin.tools import excite
 from gpaw.mom import prepare_mom_calculation
 from gpaw.directmin.etdm import ETDM
 

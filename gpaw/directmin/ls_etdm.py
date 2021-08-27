@@ -6,7 +6,7 @@ It is for lcao
 """
 
 import numpy as np
-from gpaw.directmin.lcao.tools import minimum_cubic_interpol, \
+from gpaw.directmin.tools import minimum_cubic_interpol, \
     minimum_parabola_interpol
 
 

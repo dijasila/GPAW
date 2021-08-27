@@ -3,7 +3,7 @@ from ase.optimize import BFGS
 from ase.parallel import paropen
 from gpaw import GPAW, LCAO
 from gpaw.mom import prepare_mom_calculation
-from gpaw.directmin.lcao.tools import excite
+from gpaw.directmin.tools import excite
 from gpaw.directmin.etdm import ETDM
 
 

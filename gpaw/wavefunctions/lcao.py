@@ -1,7 +1,7 @@
 import numpy as np
 from ase.units import Bohr
 from ase.utils.timing import timer
-from gpaw.directmin.lcao.tools import loewdin_lcao, gramschmidt_lcao
+from gpaw.directmin.tools import loewdin_lcao, gramschmidt_lcao
 
 from gpaw.lfc import BasisFunctions
 from gpaw.utilities import unpack

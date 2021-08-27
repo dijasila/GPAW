@@ -122,7 +122,7 @@ initialized by setting ``calc.set(occupations={'name': 'mom', 'numbers': f}``.
 A helper function can be used to create the list of excited-state occupation
 numbers::
 
-  from gpaw.directmin.lcao.tools import excite
+  from gpaw.directmin.tools import excite
   f = excite(calc, i, a, spin=(si, sa))
 
 which will promote an electron from occupied orbital ``i`` in spin

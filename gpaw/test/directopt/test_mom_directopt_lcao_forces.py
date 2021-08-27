@@ -4,7 +4,7 @@ from ase import Atoms
 from gpaw import GPAW, restart
 from gpaw.mom import prepare_mom_calculation
 from gpaw.directmin.etdm import ETDM
-from gpaw.directmin.lcao.tools import excite
+from gpaw.directmin.tools import excite
 
 
 @pytest.mark.mom
