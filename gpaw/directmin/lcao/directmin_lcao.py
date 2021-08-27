@@ -157,11 +157,4 @@ def rotate_subspace(h_mm, c_nm):
 
 
 def find_equally_occupied_subspace(f_n, index=0):
-    n_occ = 0
-    f1 = f_n[index]
-    for f2 in f_n[index:]:
-        if abs(f1 - f2) < 1.0e-8:
-            n_occ += 1
-        else:
-            return n_occ
-    return n_occ
+    return np.searchsorted(f_n[index] - f_n[index:], 1.0e-10)
