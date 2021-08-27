@@ -40,6 +40,11 @@ class DirectMinLCAO(DirectLCAO):
     def appy_transformation_kpt(self, wfs, u_mat, kpt, c_ref=None,
                                 broadcast=True,
                                 update_proj=True):
+        """
+        if c_ref are not provied then
+        kpt.C_nM <- u_mat kpt.C_nM
+        otherwise kpt.C_nM <- u_mat c_ref
+        """
 
         dimens1 = u_mat.shape[1]
         dimens2 = u_mat.shape[0]
@@ -79,6 +84,10 @@ class DirectMinLCAO(DirectLCAO):
     def calc_grad(self, wfs, ham, kpt, func, evecs, evals, matrix_exp,
                   representation, ind_up):
 
+        """
+        gradient w.r.t. skew-hermitian matrices
+        """
+
         h_mm = self.calculate_hamiltonian_matrix(ham, wfs, kpt)
         # make matrix hermitian
         tri2full(h_mm)
@@ -92,6 +101,9 @@ class DirectMinLCAO(DirectLCAO):
 
     def update_to_canonical_orbitals(self, wfs, ham, kpt,
                                      update_ref_orbs_canonical, restart):
+        """
+        choose canonical representation
+        """
 
         h_mm = self.calculate_hamiltonian_matrix(ham, wfs, kpt)
         tri2full(h_mm)
@@ -119,20 +131,30 @@ class DirectMinLCAO(DirectLCAO):
         with wfs.timer('Calculate projections'):
             self.update_projections(wfs, kpt)
 
-    def squeeze(self, kpt, ind):
-        kpt.C_nM = np.squeeze(kpt.C_nM[ind])
-
     def sort_orbitals(self, wfs, kpt, ind):
+        """
+        sort orbitals according to indices stored in ind
+        """
         kpt.C_nM[np.arange(len(ind)), :] = kpt.C_nM[ind, :]
         self.update_projections(wfs, kpt)
 
     def broadcast(self, wfs, kpt):
+        """
+        broadcast orbitals
+        """
         wfs.gd.comm.broadcast(kpt.C_nM, 0)
 
     def update_projections(self, wfs, kpt):
+        """
+        calculate projections kpt.P_ani
+        """
+
         wfs.atomic_correction.calculate_projections(wfs, kpt)
 
     def orbital_energies(self, wfs, ham, kpt):
+        """
+        diagonal elements of hamiltonian matrix in orbital representation
+        """
 
         h_mm = self.calculate_hamiltonian_matrix(ham, wfs, kpt)
         tri2full(h_mm)
