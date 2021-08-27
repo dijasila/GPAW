@@ -236,7 +236,7 @@ class SCFLoop:
                 assert energy_diff_after_scf <= 1.0e-6, \
                     'Jump in energy of %f eV detected at the end of SCF ' \
                     'after getting canonical orbitals, SCF might have ' \
-                    'converged to the wrong solution' %(energy_diff_after_scf)
+                    'converged to the wrong solution' % (energy_diff_after_scf)
                 log('\nOccupied states converged after'
                     ' {:d} e/g evaluations'.format(solver.eg_count))
                 break
