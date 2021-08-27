@@ -3,7 +3,7 @@ from gpaw import GPAW, LCAO, ConvergenceError
 from ase.parallel import parprint
 from gpaw.utilities.memory import maxrss
 import time
-from gpaw.directmin.lcao.directmin_lcao import DirectMinLCAO
+from gpaw.directmin.etdm import ETDM
 from gpaw.mpi import world
 
 from gpaw import setup_paths
@@ -68,9 +68,8 @@ for x in r:
                 basis='tzdp',
                 mode=LCAO(),
                 txt=str(len(atoms) // 3) + '_H2Omlcls_scf.txt',
-                eigensolver=DirectMinLCAO(matrix_exp='egdecomp-u-invar',
-                                          representation='u-invar'
-                                          ),
+                eigensolver=ETDM(matrix_exp='egdecomp-u-invar',
+                                 representation='u-invar'),
                 mixer={'backend': 'no-mixing'},
                 nbands='nao',
                 occupations={'name': 'fixed-uniform'},

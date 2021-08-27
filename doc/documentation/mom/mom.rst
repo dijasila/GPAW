@@ -159,11 +159,11 @@ algorithm is a limited-memory symmetric rank-one (L-SR1) method
 [#momgpaw2]_ with unit step. In order to use this algorithm, the
 following ``eigensolver`` has to be specified::
 
-  from gpaw.directmin.lcao.directmin_lcao import DirectMinLCAO
+  from gpaw.directmin.etdm import ETDM
 
-  calc.set(eigensolver=DirectMinLCAO(searchdir_algo={'name': 'l-sr1p'},
-                                     linesearch_algo={'name': 'max-step',
-                                                      'max_step': 0.20})
+  calc.set(eigensolver=ETDM(searchdir_algo={'name': 'l-sr1p'},
+                            linesearch_algo={'name': 'max-step',
+                                             'max_step': 0.20})
 
 The maximum step length avoids taking too large steps at the
 beginning of the wave function optimization. The default maximum step length

@@ -3,7 +3,7 @@ from gpaw import GPAW, LCAO, ConvergenceError
 from ase.parallel import parprint
 from gpaw.utilities.memory import maxrss
 import time
-from gpaw.directmin.lcao.directmin_lcao import DirectMinLCAO
+from gpaw.directmin.etdm import ETDM
 
 xc = 'PBE'
 mode = LCAO()
@@ -21,9 +21,8 @@ for name in g2.names:
                 basis='dzp',
                 mode=mode,
                 txt=name + '.txt',
-                eigensolver=DirectMinLCAO(matrix_exp='egdecomp-u-invar',
-                                          representation='u-invar'
-                                          ),
+                eigensolver=ETDM(matrix_exp='egdecomp-u-invar',
+                                 representation='u-invar'),
                 mixer={'backend': 'no-mixing'},
                 nbands='nao',
                 occupations={'name': 'fixed-uniform'},

@@ -4,7 +4,7 @@ from ase.parallel import paropen
 from gpaw import GPAW, LCAO
 from gpaw.mom import prepare_mom_calculation
 from gpaw.directmin.lcao.tools import excite
-from gpaw.directmin.lcao.directmin_lcao import DirectMinLCAO
+from gpaw.directmin.etdm import ETDM
 
 
 atoms = molecule('CO')
@@ -35,9 +35,9 @@ for kpt in calc.wfs.kpt_u:
     kpt.C_nM[lumo][:] = pm
     kpt.C_nM[lumo + 1][:] = pp
 
-calc.set(eigensolver=DirectMinLCAO(searchdir_algo={'name': 'l-sr1p'},
-                                   linesearch_algo={'name': 'max-step'},
-                                   need_init_orbs=False))
+calc.set(eigensolver=ETDM(searchdir_algo={'name': 'l-sr1p'},
+                          linesearch_algo={'name': 'max-step'},
+                          need_init_orbs=False))
 
 # Occupation numbers for sigma->pi* excited state:
 # Remove one electron from homo (sigma) and add one electron to lumo (pi*)
@@ -46,7 +46,7 @@ f = excite(calc, 0, 0, spin=(0, 0))
 # Prepare excited-state DO-MOM calculation
 prepare_mom_calculation(calc, atoms, f)
 
-opt = BFGS(atoms, logfile='co.log')
+opt = BFGS(atoms, logfile='co.log', maxstep=0.05)
 opt.run(fmax=0.05)
 
 d = atoms.get_distance(0, 1)
