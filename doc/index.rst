@@ -155,7 +155,7 @@ News
 
 * :ref:`GPAW version 0.4 <releasenotes>` released (Nov 13, 2008)
 
-* The :ref:`exercises` are finally ready for use in the `CAMd summer
+* The :ref:`tutorialsexercises` are finally ready for use in the `CAMd summer
   school 2008`_ (Aug 15, 2008)
 
 * This site is now powered by Sphinx_ (Jul 31, 2008)
@@ -196,8 +196,7 @@ News
    algorithms
    install
    documentation/documentation
-   tutorials/tutorials
-   exercises/exercises
+   tutorialsexercises/tutorialsexercises
    setups/setups
    releasenotes
    contact

@@ -2,7 +2,7 @@
 from ase import Atoms
 from gpaw import GPAW
 from gpaw.test import equal
-from gpaw.wavefunctions.pw import PW
+from gpaw import PW
 
 from gpaw.external import ConstantPotential
 

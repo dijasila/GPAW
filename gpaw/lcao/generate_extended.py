@@ -121,7 +121,7 @@ def main():
         # This generates only dz setups
         bm = BasisMaker(sym, '%s' % (name),
                         run=False, gtxt=gtxt, xc=opts.xc)
-        bm.generator.run(write_xml=False, use_restart_file=False, **p[sym])
+        bm.generator.run(write_xml=False, **p[sym])
         basis = bm.generate(2, 0, txt=None, jvalues=spec.jvalues)
         basis.write_xml()
 

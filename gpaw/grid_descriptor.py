@@ -10,7 +10,7 @@ For radial grid descriptors, look atom/radialgd.py.
 
 import numbers
 from math import pi
-from typing import Iterable
+from typing import Iterable, Sequence
 
 import numpy as np
 from scipy.ndimage import map_coordinates
@@ -724,3 +724,7 @@ class GridDescriptor(Domain):
                                (spos_nc * self.N_c).T,
                                order=3,
                                mode='wrap')
+
+    def is_my_grid_point(self, R_c: Sequence[int]) -> bool:
+        """Check if grid point belongs to this domain."""
+        return ((self.beg_c <= R_c) & (R_c < self.end_c)).all()

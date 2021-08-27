@@ -236,7 +236,7 @@ OpenMP parallelization. Also, MPI library needs to support
 the MPI_THREAD_MULTIPLE thread support level.
 
 Instructions for running parallel calculations can be found in the
-:ref:`user manual <manual_parallel_calculations>`.
+:ref:`user manual <parallel_runs>`.
 
 
 FFTW

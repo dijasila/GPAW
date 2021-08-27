@@ -6,6 +6,7 @@ import numpy as np
 
 from ase import Atoms
 from ase.units import Bohr
+from ase.utils import IOContext
 from gpaw.fd_operators import Gradient
 from gpaw.typing import ArrayLike
 from gpaw.utilities.tools import coordinates
@@ -326,9 +327,9 @@ class MagneticMomentWriter(TDDFTObserver):
                  only_pseudo: bool = None,
                  interval: int = 1):
         TDDFTObserver.__init__(self, paw, interval)
+        self.ioctx = IOContext()
         mode = paw.wfs.mode
         assert mode in ['fd', 'lcao'], 'unknown mode: {}'.format(mode)
-        self.master = paw.world.rank == 0
         if paw.niter == 0:
             if origin is None:
                 origin = 'COM'
@@ -344,8 +345,7 @@ class MagneticMomentWriter(TDDFTObserver):
                            only_pseudo=only_pseudo)
 
             # Initialize
-            if self.master:
-                self.fd = open(filename, 'w')
+            self.fd = self.ioctx.openfile(filename, comm=paw.world, mode='w')
             self._write_header(paw, _kwargs)
         else:
             if origin is not None:
@@ -363,9 +363,7 @@ class MagneticMomentWriter(TDDFTObserver):
             origin_shift = _kwargs['origin_shift']  # type: ignore
             calculate_on_grid = _kwargs['calculate_on_grid']  # type: ignore
             only_pseudo = _kwargs['only_pseudo']  # type: ignore
-
-            if self.master:
-                self.fd = open(filename, 'a')
+            self.fd = self.ioctx.openfile(filename, comm=paw.world, mode='a')
 
         atoms = paw.atoms
         gd = paw.wfs.gd
@@ -412,9 +410,8 @@ class MagneticMomentWriter(TDDFTObserver):
                 self.M_vmm = M_vmM
 
     def _write(self, line):
-        if self.master:
-            self.fd.write(line)
-            self.fd.flush()
+        self.fd.write(line)
+        self.fd.flush()
 
     def _write_header(self, paw, kwargs):
         origin_v = get_origin_coordinates(
@@ -426,8 +423,8 @@ class MagneticMomentWriter(TDDFTObserver):
         self._write(f'# {"time":>15} {"mmx":>17} {"mmy":>22} {"mmz":>22}\n')
 
     def _read_header(self, filename):
-        with open(filename, 'r') as f:
-            line = f.readline()
+        with open(filename, 'r') as fd:
+            line = fd.readline()
         try:
             name, version, kwargs = parse_header(line[2:])
         except ValueError as e:
@@ -485,5 +482,4 @@ class MagneticMomentWriter(TDDFTObserver):
         self._write_mm(paw)
 
     def __del__(self):
-        if self.master:
-            self.fd.close()
+        self.ioctx.close()

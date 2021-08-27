@@ -7,7 +7,7 @@ Development
 GPAW development can be done by anyone! Just take a look at the
 `issue tracker`_ and find something that suits your talents.
 
-The primary source of information is still the :ref:`manual` and
+The primary source of information is still the :ref:`basic` and
 :ref:`documentation`, but as a developer you might need additional
 information which can be found here. For example the :ref:`code_overview`.
 
@@ -80,7 +80,6 @@ the corresponding objects are defined in the code:
    wavefunctions
    setups
    density_and_hamiltonian
-   planewaves
    matrices
    communicators
    others
