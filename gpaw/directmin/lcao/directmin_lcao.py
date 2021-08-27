@@ -721,6 +721,7 @@ class DirectMinLCAO(DirectLCAO):
                     kpt.C_nM[np.arange(len(ind)), :] = kpt.C_nM[ind, :]
                     kpt.f_n[np.arange(len(ind))] = kpt.f_n[ind]
                     kpt.eps_n[np.arange(len(ind))] = orbital_energies[ind]
+                    wfs.atomic_correction.calculate_projections(wfs, kpt)
                     occ_name = getattr(wfs.occupations, "name", None)
                     if occ_name == 'mom':
                         # OccupationsMOM.numbers needs to be updated after
