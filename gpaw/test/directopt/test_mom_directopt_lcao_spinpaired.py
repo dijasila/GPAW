@@ -20,7 +20,7 @@ def test_mom_directopt_lcao_spinpaired(in_tmp_dir):
 
     calc = GPAW(mode='lcao',
                 basis='dzp',
-                h=0.20,
+                h=0.24,
                 xc='PBE',
                 symmetry='off',
                 occupations={'name': 'fixed-uniform'},
@@ -28,9 +28,8 @@ def test_mom_directopt_lcao_spinpaired(in_tmp_dir):
                              'linesearch_algo': 'max-step'},
                 mixer={'backend': 'no-mixing'},
                 nbands='nao',
-                convergence={'energy': 1e-3,
-                             'density': 1e-3,
-                             'eigenstates': 1e-3})
+                convergence={'density': 1.0e-4,
+                             'eigenstates': 4.0e-8})
     atoms.calc = calc
     atoms.get_potential_energy()
 
@@ -50,4 +49,4 @@ def test_mom_directopt_lcao_spinpaired(in_tmp_dir):
 
     # These fail if the OccupationsMOM.numbers are not updated correctly
     assert np.all(calc.get_occupation_numbers() <= 2.0)
-    assert e == pytest.approx(-21.710807435576783, abs=0.01)
+    assert e == pytest.approx(-21.275119614691956, abs=0.01)
