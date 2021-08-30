@@ -32,6 +32,7 @@ def test_H2plus():
                       convergence=convergence)
     atoms.get_potential_energy()
 
-    assert atoms.calc.charge == approx(1, abs=1e-10)
+    assert atoms.calc.charge == approx(
+        atoms.get_initial_charges().sum(), abs=1e-10)
     assert atoms.calc.get_occupation_numbers(0, 0)[0] == approx(1, abs=1e-5)
     assert atoms.calc.get_occupation_numbers(0, 1)[0] == approx(0, abs=1e-5)
