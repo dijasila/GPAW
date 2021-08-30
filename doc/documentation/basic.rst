@@ -93,7 +93,7 @@ given in the following sections.
       - Specification of :ref:`manual_basis`
     * - ``charge``
       - ``float``
-      - ``0``
+      - ``None``
       - Total :ref:`manual_charge` of the system
     * - ``communicator``
       - Object
@@ -595,7 +595,9 @@ and including `\ell=\ell_{max}`.  Default value: ``lmax=2``.
 Charge
 ------
 
-The default is charge neutral.  The systems total charge may be set in
+The default is charge taken from the atoms object
+(i.e. neutral if you do not set initial charges there).
+The systems total charge may be set in
 units of the negative electron charge (i.e. ``charge=-1`` means one
 electron more than the neutral).
 
