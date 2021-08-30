@@ -832,11 +832,10 @@ class GPAW(Calculator):
         if self.density is None:
             self.create_density(realspace, mode, background, h)
 
-        # XXXXXXXXXX if setups change, then setups.core_charge may change.
-        # But that parameter was supplied in Density constructor!
-        # This surely is a bug!
         self.density.initialize(self.setups, self.timer,
                                 magmom_av, par.hund, self.charge_a)
+        self.log(self.density, '\n')
+
         self.density.set_mixer(par.mixer)
         if self.density.mixer.driver.name == 'dummy' or par.fixdensity:
             self.log('No density mixing\n')
@@ -1050,7 +1049,6 @@ class GPAW(Calculator):
             gd=gd, finegd=finegd,
             nspins=self.wfs.nspins,
             collinear=self.wfs.collinear,
-            charge=self.charge + self.wfs.setups.core_charge,
             redistributor=redistributor,
             background_charge=background)
 
@@ -1063,8 +1061,6 @@ class GPAW(Calculator):
             else:
                 ecut = 0.5 * (np.pi / h)**2
             self.density = ReciprocalSpaceDensity(ecut=ecut, **kwargs)
-
-        self.log(self.density, '\n')
 
     def create_hamiltonian(self, realspace, mode, xc):
         dens = self.density

@@ -81,7 +81,7 @@ class Density:
      ========== =========================================
     """
 
-    def __init__(self, gd, finegd, nspins, collinear, charge, redistributor,
+    def __init__(self, gd, finegd, nspins, collinear, redistributor,
                  background_charge=None):
         """Create the Density object."""
 
@@ -89,7 +89,6 @@ class Density:
         self.finegd = finegd
         self.nspins = nspins
         self.collinear = collinear
-        self.charge = float(charge)
         self.redistributor = redistributor
         self.atomdist = None
 
@@ -167,6 +166,7 @@ class Density:
         self.hund = hund
         self.magmom_av = magmom_av
         self.charge_a = charge_a
+        self.charge = self.charge_a.sum() + self.setups.core_charge
 
     def reset(self):
         # TODO: reset other parameters?
@@ -652,11 +652,11 @@ class Density:
 
 
 class RealSpaceDensity(Density):
-    def __init__(self, gd, finegd, nspins, collinear, charge, redistributor,
+    def __init__(self, gd, finegd, nspins, collinear, redistributor,
                  stencil=3,
                  background_charge=None):
         Density.__init__(self, gd, finegd, nspins, collinear,
-                         charge, redistributor,
+                         redistributor,
                          background_charge=background_charge)
         self.stencil = stencil
 
