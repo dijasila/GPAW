@@ -159,6 +159,10 @@ class Density:
         except (TypeError, AttributeError):
             pass
 
+    @property
+    def charge(self):
+        return self._charge
+
     def initialize(self, setups, timer, magmom_av, hund, charge_a):
         self.timer = timer
         self.setups = setups
@@ -166,7 +170,7 @@ class Density:
         self.hund = hund
         self.magmom_av = magmom_av
         self.charge_a = charge_a
-        self.charge = self.charge_a.sum() + self.setups.core_charge
+        self._charge = self.charge_a.sum() + self.setups.core_charge
 
     def reset(self):
         # TODO: reset other parameters?
