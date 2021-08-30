@@ -570,6 +570,10 @@ class GPAW(Calculator):
             self.wfs.occupations.initialize_reference_orbitals()
         print_positions(self.atoms, self.log, self.density.magmom_av)
 
+    @property
+    def charge(self):
+        return self.charge_a.sum()
+
     def initialize(self, atoms=None, reading=False):
         """Inexpensive initialization."""
 
@@ -598,10 +602,9 @@ class GPAW(Calculator):
 
         if par.charge is not None:
             # setting charge overwrites initial charges
-            charge_a = np.ones(len(atoms)) / len(atoms)
+            self.charge_a = par.charge * np.ones(len(atoms)) / len(atoms)
         else:
-            charge_a = atoms.get_initial_charges()
-        self.charge = charge_a.sum()
+            self.charge_a = atoms.get_initial_charges()
 
         if par.experimental.get('magmoms') is not None:
             magmom_av = np.array(par.experimental['magmoms'], float)
@@ -833,7 +836,7 @@ class GPAW(Calculator):
         # But that parameter was supplied in Density constructor!
         # This surely is a bug!
         self.density.initialize(self.setups, self.timer,
-                                magmom_av, par.hund, charge_a)
+                                magmom_av, par.hund, self.charge_a)
         self.density.set_mixer(par.mixer)
         if self.density.mixer.driver.name == 'dummy' or par.fixdensity:
             self.log('No density mixing\n')
