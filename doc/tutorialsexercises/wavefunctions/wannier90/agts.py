@@ -22,6 +22,6 @@ def workflow():
     with run(script='GaAs.py'):
         r1 = run(script='GaAs_wannier.py')
     with run(script='Fe.py', cores=8):
-        r2 = run(script='Fe_wannier.py', nodename='xeon8_48', tmax='1h')
+        r2 = run(script='Fe_wannier.py', tmax='1h')
     with r1, r2:
         run(function=check)

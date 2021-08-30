@@ -42,7 +42,7 @@ def test_electronphonon(in_tmp_dir):
     elph.run()
 
     elph.set_lcao_calculator(elph_calc)
-    elph.calculate_supercell_matrix(dump=1)
+    elph.calculate_supercell_matrix()
 
     ph = Phonons(atoms=atoms, name='elph+ph', supercell=supercell, calc=None)
     ph.read()
