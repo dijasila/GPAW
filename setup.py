@@ -136,6 +136,8 @@ sources = [Path('c/bmgs/bmgs.c')]
 sources += Path('c').glob('*.c')
 sources += Path('c/xc').glob('*.c')
 if nolibxc:
+    if 'xc' in libraries:
+        libraries.remove('xc')
     for name in ['libxc.c', 'm06l.c',
                  'tpss.c', 'revtpss.c', 'revtpss_c_pbe.c',
                  'xc_mgga.c']:

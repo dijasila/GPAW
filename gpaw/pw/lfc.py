@@ -136,6 +136,7 @@ class PWLFC(BaseLFC):
                 splines.add(spline)
                 l = spline.get_angular_momentum_number()
                 lmax = max(lmax, l)
+
         nbytes = ((len(splines) + (lmax + 1)**2) *
                   sum(G2_G.nbytes for G2_G in self.pd.G2_qG))
         mem.subnode('Arrays', nbytes)
