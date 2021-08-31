@@ -33,6 +33,13 @@ def check_response(ref_response, response, atol=1e-12):
             assert np.allclose(ref_response.vt_sG, vt_sG, rtol=0, atol=atol)
 
 
+def check_partitions(response, gs_calc):
+    partition = response.D_asp.partition
+    assert response.Dresp_asp.partition is partition
+    assert partition == gs_calc.wfs.atom_partition
+    assert partition == gs_calc.density.atom_partition
+
+
 def calculate_ground_state(**kwargs):
     atoms = molecule('H2O')
     atoms.center(vacuum=4)
@@ -59,6 +66,7 @@ def test_read(ground_state_calculation, module_tmp_path):
     gs_calc = GPAW(module_tmp_path / 'gs.gpw', txt=None)
     response = gs_calc.hamiltonian.xc.response
     check_response(ref_response, response)
+    check_partitions(response, gs_calc)
 
 
 def test_calculate(ground_state_calculation, in_tmp_dir):
@@ -68,20 +76,23 @@ def test_calculate(ground_state_calculation, in_tmp_dir):
     gs_calc = calculate_ground_state(parallel=parallel)
     response = gs_calc.hamiltonian.xc.response
     check_response(ref_response, response)
+    check_partitions(response, gs_calc)
 
 
 def test_fixed_density(ground_state_calculation, module_tmp_path, in_tmp_dir):
     ref_response = ground_state_calculation
 
-    gs_calc = GPAW(module_tmp_path / 'gs.gpw', txt=None)
     parallel = {'band': 2 if world.size >= 4 else 1}
-    bs_calc = gs_calc.fixed_density(parallel=parallel,
-                                    txt='unocc.out',
-                                    )
+    bs_calc = GPAW(module_tmp_path / 'gs.gpw', txt=None) \
+        .fixed_density(parallel=parallel,
+                       txt='unocc.out',
+                       )
     response = bs_calc.hamiltonian.xc.response
     check_response(ref_response, response)
+    check_partitions(response, bs_calc)
     bs_calc.write('unocc.gpw', mode='all')
 
     bs_calc = GPAW('unocc.gpw', txt=None)
     response = bs_calc.hamiltonian.xc.response
     check_response(ref_response, response)
+    check_partitions(response, bs_calc)
