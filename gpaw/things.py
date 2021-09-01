@@ -11,8 +11,13 @@ from gpaw.grid_descriptor import GridDescriptor
 from gpaw.kpt_descriptor import KPointDescriptor
 import gpaw.fftw as fftw
 import _gpaw
+from gpaw.utilities.grid import GridRedistributor
+
+from typing import Any
 
 __all__ = ['Matrix']
+
+MPIComm = Any
 
 
 def gaussian(l=0, alpha=3.0, rcut=4.0):
@@ -51,7 +56,8 @@ class UniformGrid:
                  size: ArrayLike1D,
                  pbc=(True, True, True),
                  kpt: ArrayLike1D = None,
-                 dist=None):
+                 dist: MPIComm | UniformGridDistribution | None = None):
+        """"""
         self.cell = _normalize_cell(cell)
         self.size = size
         self.pbc = np.array(pbc, bool)
@@ -65,10 +71,10 @@ class UniformGrid:
         self.dtype = float if kpt is None else complex
         self.icell = np.linalg.inv(self.cell).T
 
-    def new(self, kpt=None) -> UniformGrid:
+    def new(self, kpt='_default', dist='_default') -> UniformGrid:
         return UniformGrid(self.cell, self.size, self.pbc,
-                           kpt=self.kpt if kpt is None else kpt,
-                           dist=self.dist)
+                           kpt=self.kpt if kpt == '_default' else kpt,
+                           dist=self.dist if dist == '_default' else dist)
 
     def empty(self, shape=(), dist=None) -> UniformGrids:
         if isinstance(shape, int):
@@ -82,14 +88,26 @@ class UniformGrid:
         return funcs
 
     def redistributor(self, other):
-        from gpaw.utilities.grid import GridRedistributor
-        return GridRedistributor(...)
+        return Redistributor(self, other)
 
     @property
     def gd(self):
         return GridDescriptor(self.size, pbc_c=self.pbc, comm=self.dist.comm,
                               parsize_c=[len(d) - 1
                                          for d in self.dist.decomposition])
+
+
+class Redistributor:
+    def __init__(self, ug1, ug2):
+        self.ug2 = ug2
+        comm = max(ug1.dist.comm, ug2.dist.comm, key=lambda comm: comm.size)
+        self.redistributor = GridRedistributor(comm, serial_comm,
+                                               ug1.gd, ug2.gd)
+
+    def distribute(self, input, out=None):
+        out = out or self.ug2.empty(input.shape)
+        self.redistributor.distribute(input._data, out._data)
+        return out
 
 
 class UniformGrids:

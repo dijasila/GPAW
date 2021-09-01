@@ -2,16 +2,20 @@ import numpy as np
 from gpaw.things import (PlaneWaves,
                          ReciprocalSpaceAtomCenteredFunctions, UniformGrid,
                          gaussian)
+from gpaw.mpi import world
 
 a = 2.5
 n = 20
 
-ug = UniformGrid(cell=[a, a, a], size=(n, n, n))
-wfs = ug.empty(3)
+comm = world.new_communicator([world.rank])
+ug1 = UniformGrid(cell=[a, a, a], size=(n, n, n), dist=comm)
+wfs = ug1.empty(3)
 wfs._data[:] = 1.0
+ug = ug1.new(dist=world)
 kpts = [(0, 0, 0), (0.5, 0, 0)]
 
-w2 = ug.redistributor(ug).redistribute(wfs)
+w2 = ug1.redistributor(ug).distribute(wfs)
+
 
 ibz = []
 for kpt in kpts:
