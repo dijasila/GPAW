@@ -1,5 +1,3 @@
-import numpy as np
-
 from gpaw.mixer import DummyMixer
 from gpaw.xc import XC
 
