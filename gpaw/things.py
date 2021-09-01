@@ -4,6 +4,13 @@ import numpy as np
 from gpaw.pw.lfc import PWLFC
 from gpaw.spline import Spline
 from gpaw.matrix import Matrix
+from gpaw.typing import ArrayLike1D, ArrayLike, Array2D, ArrayLike2D
+from gpaw.mpi import serial_comm
+from gpaw.pw.descriptor import PWDescriptor
+from gpaw.grid_descriptor import GridDescriptor
+from gpaw.kpt_descriptor import KPointDescriptor
+import gpaw.fftw as fftw
+import _gpaw
 
 __all__ = ['Matrix']
 
@@ -13,39 +20,132 @@ def gaussian(l=0, alpha=3.0, rcut=4.0):
     return Spline(l, rcut, np.exp(-alpha * r**2))
 
 
+def _normalize_cell(cell: ArrayLike) -> Array2D:
+    cell = np.array(cell, float)
+    if cell.ndim == 2:
+        return cell
+    if len(cell) == 3:
+        return np.diag(cell)
+    ...
+
+
+class UniformGridDistribution:
+    def __init__(self, comm, size, pbc, decomposition=None):
+        self.comm = comm
+        if decomposition is None:
+            decomposition = GridDescriptor(size, pbc_c=pbc).n_cp
+        self.decomposition = decomposition
+
+        self.myposition = np.unravel_index(comm.rank,
+                                           [len(d) - 1 for d in decomposition])
+        self.start = tuple([d[p]
+                            for d, p in zip(decomposition, self.myposition)])
+        self.end = tuple([d[p + 1]
+                          for d, p in zip(decomposition, self.myposition)])
+        self.size = tuple([e - s for s, e in zip(self.start, self.end)])
+
+
 class UniformGrid:
-    def __init__(self, cell,
-                 size,
+    def __init__(self,
+                 cell: ArrayLike1D | ArrayLike2D,
+                 size: ArrayLike1D,
                  pbc=(True, True, True),
-                 kpt=(0.0, 0.0, 0.0),
+                 kpt: ArrayLike1D = None,
                  dist=None):
-        self.cell = np.array(cell)
+        self.cell = _normalize_cell(cell)
         self.size = size
         self.pbc = np.array(pbc, bool)
         self.kpt = kpt
 
+        dist = dist or serial_comm
+        if not isinstance(dist, UniformGridDistribution):
+            dist = UniformGridDistribution(dist, size, pbc)
+        self.dist = dist
+
+        self.dtype = float if kpt is None else complex
+        self.icell = np.linalg.inv(self.cell).T
+
     def new(self, kpt=None) -> UniformGrid:
         return UniformGrid(self.cell, self.size, self.pbc,
-                           kpt=self.kpt if kpt is None else kpt)
+                           kpt=self.kpt if kpt is None else kpt,
+                           dist=self.dist)
 
-    def empty(self, shape=()) -> UniformGrids:
+    def empty(self, shape=(), dist=None) -> UniformGrids:
         if isinstance(shape, int):
             shape = (shape,)
-        return UniformGrids(np.empty(shape + self.size), self)
+        array = np.empty(shape + self.dist.size, self.dtype)
+        return UniformGrids(array, self, dist)
 
-    def zeros(self, shape=()) -> UniformGrids:
-        funcs = self.empty(shape)
+    def zeros(self, shape=(), dist=None) -> UniformGrids:
+        funcs = self.empty(shape, dist)
         funcs._data[:] = 0.0
         return funcs
+
+    def redistributor(self, other):
+        from gpaw.utilities.grid import GridRedistributor
+        return GridRedistributor(...)
+
+    @property
+    def gd(self):
+        return GridDescriptor(self.size, pbc_c=self.pbc, comm=self.dist.comm,
+                              parsize_c=[len(d) - 1
+                                         for d in self.dist.decomposition])
 
 
 class UniformGrids:
     def __init__(self, data, ug, dist=None):
         self.ug = ug
         self._data = data
+        self.shape = data.shape[:-3]
 
-    def __index__(self, index):
+    def __getitem__(self, index):
         return UniformGrids(self._data[index], self.ug)
+
+    def _arrays(self):
+        return self._data.reshape((-1,) + self._data.shape[-3:])
+
+    def redistribute(self, other):
+        self.ug.redistributer(other.ug).redistribute(self, out=other)
+
+
+def find_reciprocal_vectors(ecut, ug):
+    size = ug.size
+
+    if ug.kpt is None:
+        Nr_c = list(size)
+        Nr_c[2] = size[2] // 2 + 1
+        i_Qc = np.indices(Nr_c).transpose((1, 2, 3, 0))
+        i_Qc[..., :2] += size[:2] // 2
+        i_Qc[..., :2] %= size[:2]
+        i_Qc[..., :2] -= size[:2] // 2
+    else:
+        i_Qc = np.indices(size).transpose((1, 2, 3, 0))
+        half = [s // 2 for s in size]
+        i_Qc += half
+        i_Qc %= size
+        i_Qc -= half
+
+    # Calculate reciprocal lattice vectors:
+    B_cv = 2.0 * pi * ug.icell
+    i_Qc.shape = (-1, 3)
+    G_plus_k_Qv = np.dot(i_Qc + ug.kpt, B_cv)
+
+    # Map from vectors inside sphere to fft grid:
+    Q_Q = np.arange(len(i_Qc), dtype=np.int32)
+
+    G2_Q = (G_plus_k_Qv**2).sum(axis=1)
+    mask_Q = (G2_Q <= 2 * ecut)
+
+    if ug.kpt is None:
+        mask_Q &= ((i_Qc[:, 2] > 0) |
+                   (i_Qc[:, 1] > 0) |
+                   ((i_Qc[:, 0] >= 0) & (i_Qc[:, 1] == 0)))
+
+    indices = Q_Q[mask_Q]
+    ekin = 0.5 * G2_Q[indices]
+    G_plus_k = G_plus_k_Qv[mask_Q]
+
+    return G_plus_k, ekin, indices
 
 
 class PlaneWaves:
@@ -53,119 +153,90 @@ class PlaneWaves:
         self.ug = ug
         self.ecut = ecut
 
-        size = ug.size
-        if ug.kpt is None:
-            Nr_c = list(size)
-            Nr_c[2] = size[2] // 2 + 1
-            i_Qc = np.indices(Nr_c).transpose((1, 2, 3, 0))
-            i_Qc[..., :2] += size[:2] // 2
-            i_Qc[..., :2] %= size[:2]
-            i_Qc[..., :2] -= size[:2] // 2
-        else:
-            i_Qc = np.indices(size).transpose((1, 2, 3, 0))
-            half = [s // 2 for s in size]
-            i_Qc += half
-            i_Qc %= size
-            i_Qc -= half
-
-        # Calculate reciprocal lattice vectors:
-        B_cv = 2.0 * pi * ug.icell
-        i_Qc.shape = (-1, 3)
-        self.G_Qv = np.dot(i_Qc, B_cv)
-
-        self.K_qv = np.dot(kd.ibzk_qc, B_cv)
-
-        # Map from vectors inside sphere to fft grid:
-        self.Q_qG = []
-        G2_qG = []
-        Q_Q = np.arange(len(i_Qc), dtype=np.int32)
-
-        self.ng_q = []
-        for q, K_v in enumerate(self.K_qv):
-            G2_Q = ((self.G_Qv + K_v)**2).sum(axis=1)
-            mask_Q = (G2_Q <= 2 * ecut)
-
-            if self.dtype == float:
-                mask_Q &= ((i_Qc[:, 2] > 0) |
-                           (i_Qc[:, 1] > 0) |
-                           ((i_Qc[:, 0] >= 0) & (i_Qc[:, 1] == 0)))
-            Q_G = Q_Q[mask_Q]
-            self.Q_qG.append(Q_G)
-            G2_qG.append(G2_Q[Q_G])
-            ng = len(Q_G)
-            self.ng_q.append(ng)
-
-        self.ngmin = min(self.ng_q)
-        self.ngmax = max(self.ng_q)
-
-        if kd is not None:
-            self.ngmin = kd.comm.min(self.ngmin)
-            self.ngmax = kd.comm.max(self.ngmax)
+        G_plus_k, ekin, self.all_indices = find_reciprocal_vectors(ecut, ug)
 
         # Distribute things:
-        S = gd.comm.size
-        self.maxmyng = (self.ngmax + S - 1) // S
-        ng1 = gd.comm.rank * self.maxmyng
-        ng2 = ng1 + self.maxmyng
+        S = ug.dist.comm.size
+        ng = len(self.all_indices)
+        myng = (ng + S - 1) // S
+        ng1 = ug.dist.comm.rank * myng
+        ng2 = ng1 + myng
 
-        self.G2_qG = []
-        self.myQ_qG = []
-        self.myng_q = []
-        for q, G2_G in enumerate(G2_qG):
-            G2_G = G2_G[ng1:ng2].copy()
-            G2_G.flags.writeable = False
-            self.G2_qG.append(G2_G)
-            myQ_G = self.Q_qG[q][ng1:ng2]
-            self.myQ_qG.append(myQ_G)
-            self.myng_q.append(len(myQ_G))
+        self.ekin = ekin[ng1:ng2].copy()
+        self.ekin.flags.writeable = False
+        self.indices = self.all_indices[ng1:ng2]
+        self.G_plus_k = G_plus_k[ng1:ng2]
+        self.size = len(self.indices)
 
-        if S > 1:
-            self.tmp_G = np.empty(self.maxmyng * S, complex)
-        else:
-            self.tmp_G = None
-
-    def get_reciprocal_vectors(self, q=0, add_q=True):
-        """Returns reciprocal lattice vectors plus q, G + q,
+    def reciprocal_vectors(self):
+        """Returns reciprocal lattice vectors, G + k,
         in xyz coordinates."""
+        return self.G_plus_k
 
-        if add_q:
-            q_v = self.K_qv[q]
-            return self.G_Qv[self.myQ_qG[q]] + q_v
-        return self.G_Qv[self.myQ_qG[q]]
+    def kinetic_energies(self):
+        return self.ekin
 
-    def zeros(self, x=(), dtype=None, q=None, global_array=False):
-        """Return zeroed array.
+    def empty(self, shape=(), dist=None) -> PlaneWaveExpansions:
+        if isinstance(shape, int):
+            shape = (shape,)
+        array = np.empty(shape + (self.size,), complex)
+        return PlaneWaveExpansions(array, self, dist)
 
-        The shape of the array will be x + (ng,) where ng is the number
-        of G-vectors for on this core.  Different k-points will have
-        different values for ng.  Therefore, the q index must be given,
-        unless we are describibg a real-valued function."""
+    def zeros(self, shape=(), dist=None) -> PlaneWaveExpansions:
+        funcs = self.empty(shape, dist)
+        funcs._data[:] = 0.0
+        return funcs
 
-        a_xG = self.empty(x, dtype, q, global_array)
-        a_xG.fill(0.0)
-        return a_xG
-
-    def empty(self, x=(), dtype=None, q=None, global_array=False):
-        """Return empty array."""
-        if dtype is not None:
-            assert dtype == self.dtype
-        if isinstance(x, numbers.Integral):
-            x = (x,)
-        if q is None:
-            assert self.only_one_k_point
-            q = 0
-        if global_array:
-            shape = x + (self.ng_q[q],)
+    def fft_plans(self, flags=fftw.MEASURE):
+        size = self.ug.size
+        if self.ug.kpt is None:
+            rsize = size[:2] + (size[2] // 2 + 1,)
+            tmp1 = fftw.empty(rsize, complex)
+            tmp2 = tmp1.view(float)[:, :, :size[2]]
         else:
-            shape = x + (self.myng_q[q],)
-        return np.empty(shape, complex)
+            tmp1 = fftw.empty(size, complex)
+            tmp2 = tmp1
+
+        fftplan = fftw.FFTPlan(tmp2, tmp1, -1, flags)
+        ifftplan = fftw.FFTPlan(tmp1, tmp2, 1, flags)
+        return fftplan, ifftplan
+
+
+class PlaneWaveExpansions:
+    def __init__(self, data, pw, dist=None):
+        self.pw = pw
+        self._data = data
+        self.shape = data.shape[:-1]
+
+    def __getitem__(self, index):
+        return PlaneWaveExpansions(self._data[index], self.pw)
+
+    def _arrays(self):
+        return self._data.reshape((-1,) + self._data.shape[-1:])
+
+    def ifft(self, plan=None, out=None):
+        out = out or self.pw.ug.empty(self.shape)
+        plan = plan or self.pw.fft_plans()[1]
+        scale = 1.0 / plan.out_R.size
+        for input, output in zip(self._arrays(), out._arrays()):
+            _gpaw.pw_insert(input, self.pw.indices, scale, plan.in_R[:])
+            if self.pw.ug.kpt is None:
+                t = plan.in_R[:, :, 0]
+                n, m = (s // 2 - 1 for s in self.pw.ug.size[:2])
+                t[0, -m:] = t[0, m:0:-1].conj()
+                t[n:0:-1, -m:] = t[-n:, m:0:-1].conj()
+                t[-n:, -m:] = t[n:0:-1, m:0:-1].conj()
+                t[-n:, 0] = t[n:0:-1, 0].conj()
+            plan.execute()
+            output[:] = plan.out_R
+
+        return out
 
 
 class AtomCenteredFunctions:
     def __init__(self, functions, positions=None, kpts=None):
         self.functions = functions
-        self.positions = positions
-        self.kpts = kpts
+        self.positions = np.array(positions)
         if kpts is None:
             self.kpt2index = {}
         else:
@@ -176,9 +247,18 @@ class AtomCenteredFunctions:
 class ReciprocalSpaceAtomCenteredFunctions(AtomCenteredFunctions):
     def __init__(self, functions, positions=None, kpts=None):
         AtomCenteredFunctions.__init__(self, functions, positions, kpts)
-        self.lfc = PWLFC()
-        self.lfc.set_positions(positions)
+        self.lfc = None
+
+    def _lazy_init(self, pw):
+        if self.lfc is not None:
+            return
+        gd = GridDescriptor(pw.ug.size, pw.ug.cell, pw.ug.pbc)
+        kd = KPointDescriptor(np.array(list(self.kpt2index)))
+        pd = PWDescriptor(pw.ecut, gd, kd=kd)
+        self.lfc = PWLFC(self.functions, pd)
+        self.lfc.set_positions(self.positions)
 
     def add(self, coefs, functions):
-        index = self.kpt2index[functions.kpt]
-        self.lfc.add(functions._data._data, coefs, q=index)
+        self._lazy_init(functions.pw)
+        index = self.kpt2index[functions.pw.ug.kpt]
+        self.lfc.add(functions._data, coefs, q=index)
