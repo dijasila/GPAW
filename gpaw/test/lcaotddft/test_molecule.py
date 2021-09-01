@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 
 from ase.build import molecule
+from ase.utils import workdir
 
 from gpaw import GPAW
 from gpaw.mpi import world, serial_comm, broadcast
@@ -10,7 +11,7 @@ from gpaw.lcaotddft.densitymatrix import DensityMatrix
 from gpaw.lcaotddft.frequencydensitymatrix import FrequencyDensityMatrix
 from gpaw.lcaotddft.ksdecomposition import KohnShamDecomposition
 
-from gpaw.test import in_path, only_on_master
+from gpaw.test import only_on_master
 from . import (parallel_options, calculate_time_propagation, calculate_error,
                check_txt_data, check_wfs)
 
@@ -271,7 +272,7 @@ def test_dipole_moment_from_density(kind, density, load_ksd,
 
 @pytest.fixture(scope='module')
 @only_on_master(world)
-@in_path('spinpol')
+@workdir('spinpol', mkdir=True)
 def initialize_system_spinpol():
     comm = serial_comm
     calculate_ground_state(communicator=comm, spinpol=True)

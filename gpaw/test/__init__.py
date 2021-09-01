@@ -1,6 +1,4 @@
-import os
 from functools import wraps
-from pathlib import Path
 from typing import Tuple
 
 import numpy as np
@@ -67,31 +65,6 @@ def gen(symbol, exx=False, name=None, yukawa_gamma=None,
     if setup_paths[0] != '.':
         setup_paths.insert(0, '.')
     return setup
-
-
-def in_path(path):
-    """Decorator for executing the function in a given path.
-
-    Parameters
-    ----------
-    path
-        Path object or string
-    """
-    path = Path(path)
-
-    def wrap(func):
-        @wraps(func)
-        def wrapped_func(*args, **kwargs):
-            path.mkdir(parents=True, exist_ok=True)
-            cwd = os.getcwd()
-            os.chdir(path)
-            try:
-                ret = func(*args, **kwargs)
-            finally:
-                os.chdir(cwd)
-            return ret
-        return wrapped_func
-    return wrap
 
 
 def only_on_master(comm, broadcast=None):
