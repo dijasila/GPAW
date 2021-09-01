@@ -10,7 +10,7 @@ from gpaw.tddft.spectrum import photoabsorption_spectrum as spec_td
 from gpaw.lrtddft import LrTDDFT
 from gpaw.lrtddft import photoabsorption_spectrum as spec_lr
 from gpaw.lrtddft2 import LrTDDFT2
-from gpaw.mpi import world
+from gpaw.mpi import world, serial_comm
 
 from gpaw.test.lcaotddft.test_molecule import only_on_master
 
@@ -26,6 +26,7 @@ def ground_state_calculation():
     calc = GPAW(nbands=2, h=0.4, setups=dict(Na='1'),
                 basis='sz(dzp)', mode='lcao', xc='oldLDA',
                 convergence={'density': 1e-8},
+                communicator=serial_comm,
                 txt='gs.out')
     atoms.calc = calc
     atoms.get_potential_energy()
@@ -40,6 +41,7 @@ def time_propagation_calculation(ground_state_calculation):
     td_calc.propagate(30, 150)
     spec_td('dm.dat', 'spec_td.dat',
             e_min=0, e_max=10, width=0.5, delta_e=0.1)
+    world.barrier()
 
     # Scale energy out due to \omega vs \omega_I difference in
     # broadened spectra in RT-TDDFT and LR-TDDFT
@@ -56,6 +58,7 @@ def lrtddft_calculation(ground_state_calculation):
     lr.diagonalize()
     spec_lr(lr, 'spec_lr.dat',
             e_min=0, e_max=10, width=0.5, delta_e=0.1)
+    world.barrier()
 
     # Scale energy out due to \omega vs \omega_I difference in
     # broadened spectra in RT-TDDFT and LR-TDDFT
@@ -71,6 +74,7 @@ def lrtddft2_calculation(ground_state_calculation):
     lr2 = LrTDDFT2('lr2', calc, fxc='LDA')
     lr2.calculate()
     lr2.get_spectrum('spec_lr2.dat', 0, 10.1, 0.1, width=0.5)
+    world.barrier()
 
     # Scale energy out due to \omega vs \omega_I difference in
     # broadened spectra in RT-TDDFT and LR-TDDFT
