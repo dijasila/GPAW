@@ -88,7 +88,7 @@ class KickHamiltonian(object):
         dHaux_asp = ham.atomdist.to_aux(dH_asp)
         for a, W_L in W_aL.items():
             setup = dens.setups[a]
-            dH_p = np.dot(setup.Delta_pL, W_L)
+            dH_p = setup.Delta_pL @ W_L
             for s in range(nspins):
                 dHaux_asp[a][s] = dH_p
         self.dH_asp = ham.atomdist.from_aux(dHaux_asp)
