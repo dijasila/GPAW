@@ -110,17 +110,27 @@ class Redistributor:
         return out
 
 
-class UniformGrids:
+class UniformGridFunctions:
     def __init__(self, data, ug, dist=None):
         self.ug = ug
         self._data = data
         self.shape = data.shape[:-3]
 
     def __getitem__(self, index):
-        return UniformGrids(self._data[index], self.ug)
+        return UniformGridFunctions(self._data[index], self.ug)
 
     def _arrays(self):
         return self._data.reshape((-1,) + self._data.shape[-3:])
+
+    def xy(self, *axes):
+        assert len(axes) == 3 + len(self.shape)
+        index = [slice(0, None) if axis is ... else axis for axis in axes]
+        y = self.data[index]
+        assert y.ndim == 1
+        n = axes[-3:].index(...)
+        dx = (self.ug.cell[n]**2).sum()**0.5
+        x = np.arange(self.ug.dist.start[n], self.ug.dist.end[n]) * dx
+        return x, y
 
     def redistribute(self, other):
         self.ug.redistributer(other.ug).redistribute(self, out=other)
