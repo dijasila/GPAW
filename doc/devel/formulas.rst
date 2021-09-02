@@ -2,7 +2,7 @@
 Formulas
 ========
 
-See also `Useful geometry formulas <http://xkcd.com/>`_.
+See also `Useful geometry formulas <http://xkcd.com/2509/>`_.
 
 
 Coulomb
