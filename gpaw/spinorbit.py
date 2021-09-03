@@ -271,7 +271,7 @@ class BZWaveFunctions:
                      a: int,
                      indices: List[int],
                      broadcast: bool = True
-                     ) -> Array4D:
+                     ) -> Array3D:
         """Projections for PDOS.
 
         Returns (nbzkpts, nbands, 2)-shaped ndarray
