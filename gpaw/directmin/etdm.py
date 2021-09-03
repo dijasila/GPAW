@@ -712,7 +712,7 @@ class ETDM:
                 occupied = kpt.f_n > 1.0e-10
                 n_occ = len(kpt.f_n[occupied])
                 if n_occ == 0.0:
-                    return
+                    continue
                 if np.min(kpt.f_n[:n_occ]) == 0:
                     ind_occ = np.argwhere(occupied)
                     ind_unocc = np.argwhere(~occupied)
