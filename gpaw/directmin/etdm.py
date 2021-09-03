@@ -541,9 +541,6 @@ class ETDM:
                                       self.searchdir_algo)
 
     def update_preconditioning(self, wfs, use_prec):
-        """
-        update preconditioning
-        """
 
         counter = self.update_precond_counter
         if use_prec:
