@@ -127,8 +127,7 @@ class ETDM:
         self.alpha = 1.0  # step length
         self.phi_2i = [None, None]  # energy at last two iterations
         self.der_phi_2i = [None, None]  # energy gradient w.r.t. alpha
-        self.hess = {}  # hessian for l-bfgs-p
-        self.precond = {}  # precondiner for other methods
+        self.hess = {}  # approximate hessian
 
         # for mom
         self.initial_occupation_numbers = None
@@ -318,7 +317,7 @@ class ETDM:
         with wfs.timer('Direct Minimisation step'):
             self.update_ref_orbitals(wfs, ham, dens)
             with wfs.timer('Preconditioning:'):
-                precond = self.update_preconditioning(wfs, self.use_prec)
+                precond = self.get_preconditioning(wfs, self.use_prec)
 
             a_mat_u = self.a_mat_u
             n_dim = self.n_dim
@@ -484,12 +483,9 @@ class ETDM:
         :return:  phi, der_phi # floats
         """
         if phi is None or g_mat_u is None:
-            x_mat_u = {k: a_mat_u[k] + alpha * p_mat_u[k]
-                       for k in a_mat_u}
-            phi, g_mat_u = \
-                self.get_energy_and_gradients(x_mat_u, n_dim,
-                                              ham, wfs, dens,
-                                              c_ref)
+            x_mat_u = {k: a_mat_u[k] + alpha * p_mat_u[k] for k in a_mat_u}
+            phi, g_mat_u = self.get_energy_and_gradients(x_mat_u, n_dim,
+                                                         ham, wfs, dens, c_ref)
 
         der_phi = 0.0
         if self.representation in ['sparse', 'u-invar']:
@@ -540,59 +536,37 @@ class ETDM:
                                       self.evaluate_phi_and_der_phi,
                                       self.searchdir_algo)
 
-    def update_preconditioning(self, wfs, use_prec):
+    def get_preconditioning(self, wfs, use_prec):
+
+        if not use_prec:
+            return None
+
+        if self.searchdir_algo.name == 'l-bfgs-p':
+            beta0 = self.searchdir_algo.beta_0
+            gamma = 0.25
+        else:
+            beta0 = 1.0
+            gamma = 0.0
 
         counter = self.update_precond_counter
-        if use_prec:
+        precond = {}
+        for kpt in wfs.kpt_u:
+            k = self.kpointval(kpt)
+            w = kpt.weight / (3.0 - wfs.nspins)
+            if self.iters % counter == 0 or self.iters == 1:
+                self.hess[k] = self.get_hessian(kpt)
+            hess = self.hess[k]
+            precond[k] = np.zeros_like(hess)
+            correction = w * gamma * beta0 ** (-1)
             if self.searchdir_algo.name != 'l-bfgs-p':
-                if self.iters % counter == 0 or self.iters == 1:
-                    for kpt in wfs.kpt_u:
-                        k = self.kpointval(kpt)
-                        hess = self.get_hessian(kpt)
-                        if self.dtype is float:
-                            self.precond[k] = np.zeros_like(hess)
-                            for i in range(hess.shape[0]):
-                                if abs(hess[i]) < 1.0e-4:
-                                    self.precond[k][i] = 1.0
-                                else:
-                                    self.precond[k][i] = \
-                                        1.0 / (hess[i].real)
-                        else:
-                            self.precond[k] = np.zeros_like(hess)
-                            for i in range(hess.shape[0]):
-                                if abs(hess[i]) < 1.0e-4:
-                                    self.precond[k][i] = 1.0 + 1.0j
-                                else:
-                                    self.precond[k][i] = \
-                                        1.0 / hess[i].real + \
-                                        1.0j / hess[i].imag
-                    return self.precond
-                else:
-                    return self.precond
-            else:
-                # it's a bit messy, here you store self.heis,
-                # but in 'if' above self.precond
-                precond = {}
-                for kpt in wfs.kpt_u:
-                    k = self.kpointval(kpt)
-                    w = kpt.weight / (3.0 - wfs.nspins)
-                    if self.iters % counter == 0 or self.iters == 1:
-                        self.hess[k] = self.get_hessian(kpt)
-                    hess = self.hess[k]
-                    beta0 = self.searchdir_algo.beta_0
-                    if self.dtype is float:
-                        precond[k] = \
-                            1. / (0.75 * hess +
-                                  w * 0.25 * beta0 ** (-1))
-                    else:
-                        precond[k] = \
-                            1. / (0.75 * hess.real +
-                                  w * 0.25 * beta0 ** (-1)) + \
-                            1.j / (0.75 * hess.imag +
-                                   w * 0.25 * beta0 ** (-1))
-                return precond
-        else:
-            return None
+                correction = np.zeros_like(hess)
+                zeros = abs(hess) < 1.0e-4
+                correction[zeros] = 1.0
+            precond[k] += 1. / ((1 - gamma) * hess.real + correction)
+            if self.dtype == complex:
+                precond[k] += 1.j / ((1 - gamma) * hess.imag + correction)
+
+        return precond
 
     def get_hessian(self, kpt):
         """
@@ -600,8 +574,6 @@ class ETDM:
 
         h_{lm, lm} = -2.0 * (eps_n[l] - eps_n[m]) * (f[l] - f[m])
         other elements are zero
-        :param kpt:
-        :return:
         """
 
         f_n = kpt.f_n
@@ -615,16 +587,13 @@ class ETDM:
 
         hess = np.zeros(len(il1[0]), dtype=self.dtype)
         x = 0
-        for l, m in zip(*il1):
-            df = f_n[l] - f_n[m]
-            hess[x] = -2.0 * (eps_n[l] - eps_n[m]) * df
-            if self.dtype is complex:
+        for n, m in zip(*il1):
+            df = f_n[n] - f_n[m]
+            hess[x] = -2.0 * (eps_n[n] - eps_n[m]) * df
+            if abs(hess[x]) < 1.0e-10:
+                hess[x] = 0.0
+            if self.dtype == complex:
                 hess[x] += 1.0j * hess[x]
-                if abs(hess[x]) < 1.0e-10:
-                    hess[x] = 0.0 + 0.0j
-            else:
-                if abs(hess[x]) < 1.0e-10:
-                    hess[x] = 0.0
             x += 1
 
         return hess
