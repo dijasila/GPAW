@@ -117,6 +117,8 @@ def test_write(gd, moment_corrections):
     from gpaw.io import Writer
     from gpaw.mpi import world
     filename = '/dev/null'
+
+    # By using the Writer we check that everything is JSON serializable
     writer = Writer(filename, world)
     writer.child('poisson').write(**poisson.todict())
     writer.close()

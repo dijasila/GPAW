@@ -51,6 +51,23 @@ def dict_au_to_A(dict_in: Dict[str, Any]) -> Dict[str, Any]:
     return dict_out
 
 
+def describe_dict(mom: Dict[str, Any]) -> str:
+    if mom['center'] is None:
+        center = 'center'
+    else:
+        center = ', '.join([f'{x:.2f}' for x in mom['center'] * Bohr])
+
+    moms = mom['moms']
+    if np.allclose(np.diff(moms), 1):
+        # Increasing sequence
+        moms = f'range({moms[0]}, {moms[-1]+1})'
+    else:
+        # List of integers
+        _moms = ', '.join([f'{m:.0f}' for m in moms])
+        moms = f'({_moms})'
+    return f'[{center}] {moms}'
+
+
 class MomentCorrectionPoissonSolver(_PoissonSolver):
     """MomentCorrectionPoissonSolver
 
@@ -75,10 +92,6 @@ class MomentCorrectionPoissonSolver(_PoissonSolver):
         self._initialized = False
         self.poissonsolver = create_poisson_solver(poissonsolver)
         self.timer = timer
-
-        gd = getattr(self.poissonsolver, 'gd', None)
-        if gd is not None:
-            self.gd = gd
 
         if moment_corrections is None:
             self.moment_corrections = []
@@ -118,27 +131,10 @@ class MomentCorrectionPoissonSolver(_PoissonSolver):
 
         lines = [description]
         lines.extend([f'    {n} moment corrections:'])
-        lines.extend([f'      {self.describe_dict(mom)}'
+        lines.extend([f'      {describe_dict(mom)}'
                      for mom in self.moment_corrections])
 
         return '\n'.join(lines)
-
-    def describe_dict(self,
-                      mom: Dict[str, Any]) -> str:
-        if mom['center'] is None:
-            center = 'center'
-        else:
-            center = ', '.join([f'{x:.2f}' for x in mom['center'] * Bohr])
-
-        moms = mom['moms']
-        if np.allclose(np.diff(moms), 1):
-            # Increasing sequence
-            moms = f'range({moms[0]}, {moms[-1]+1})'
-        else:
-            # List of integers
-            _moms = ', '.join([f'{m:.0f}' for m in moms])
-            moms = f'({_moms})'
-        return f'[{center}] {moms}'
 
     @timer('Poisson initialize')
     def _init(self):
@@ -156,48 +152,47 @@ class MomentCorrectionPoissonSolver(_PoissonSolver):
 
     @timer('Load moment corrections')
     def load_moment_corrections_gauss(self):
-        if not hasattr(self, 'gauss_i'):
-            self.gauss_i = []
-            self.mom_ij = []
-            self.mask_ig = []
+        self.gauss_i = []
+        self.mom_ij = []
+        self.mask_ig = []
 
-            if len(self.moment_corrections) == 0:
-                return
+        if len(self.moment_corrections) == 0:
+            return
 
-            mask_ir = []
-            r_ir = []
+        mask_ir = []
+        r_ir = []
 
-            for rmom in self.moment_corrections:
-                if rmom['center'] is None:
-                    center = None
-                else:
-                    center = np.array(rmom['center'])
-                mom_j = rmom['moms']
-                gauss = Gaussian(self.gd, center=center)
-                self.gauss_i.append(gauss)
-                r_ir.append(gauss.r.ravel())
-                mask_ir.append(self.gd.zeros(dtype=int).ravel())
-                self.mom_ij.append(mom_j)
+        for rmom in self.moment_corrections:
+            if rmom['center'] is None:
+                center = None
+            else:
+                center = np.array(rmom['center'])
+            mom_j = rmom['moms']
+            gauss = Gaussian(self.gd, center=center)
+            self.gauss_i.append(gauss)
+            r_ir.append(gauss.r.ravel())
+            mask_ir.append(self.gd.zeros(dtype=int).ravel())
+            self.mom_ij.append(mom_j)
 
-            r_ir = np.array(r_ir)
-            mask_ir = np.array(mask_ir)
+        r_ir = np.array(r_ir)
+        mask_ir = np.array(mask_ir)
 
-            Ni = r_ir.shape[0]
-            Nr = r_ir.shape[1]
+        Ni = r_ir.shape[0]
+        Nr = r_ir.shape[1]
 
-            for r in range(Nr):
-                i = np.argmin(r_ir[:, r])
-                mask_ir[i, r] = 1
+        for r in range(Nr):
+            i = np.argmin(r_ir[:, r])
+            mask_ir[i, r] = 1
 
-            for i in range(Ni):
-                mask_r = mask_ir[i]
-                mask_g = mask_r.reshape(self.gd.n_c)
-                self.mask_ig.append(mask_g)
+        for i in range(Ni):
+            mask_r = mask_ir[i]
+            mask_g = mask_r.reshape(self.gd.n_c)
+            self.mask_ig.append(mask_g)
 
-                # Uncomment this to see masks on grid
-                # big_g = self.gd.collect(mask_g)
-                # if self.gd.comm.rank == 0:
-                #     big_g.dump('mask_%dg' % (i))
+            # Uncomment this to see masks on grid
+            # big_g = self.gd.collect(mask_g)
+            # if self.gd.comm.rank == 0:
+            #     big_g.dump('mask_%dg' % (i))
 
     def solve(self, phi, rho, **kwargs):
         self._init()
@@ -215,17 +210,16 @@ class MomentCorrectionPoissonSolver(_PoissonSolver):
             timer.start('Multipole moment corrections')
 
             rho_neutral = rho * 0.0
-            phi_cor_k = []
+            phi_cor_g = self.gd.zeros()
             for gauss, mask_g, mom_j in zip(self.gauss_i, self.mask_ig,
                                             self.mom_ij):
                 rho_masked = rho * mask_g
                 for mom in mom_j:
-                    phi_cor_k.append(gauss.remove_moment(rho_masked, mom))
+                    phi_cor_g += gauss.remove_moment(rho_masked, mom)
                 rho_neutral += rho_masked
 
             # Remove multipoles for better initial guess
-            for phi_cor in phi_cor_k:
-                phi -= phi_cor
+            phi -= phi_cor_g
 
             timer.stop('Multipole moment corrections')
 
@@ -235,8 +229,7 @@ class MomentCorrectionPoissonSolver(_PoissonSolver):
 
             timer.start('Multipole moment corrections')
             # correct error introduced by removing multipoles
-            for phi_cor in phi_cor_k:
-                phi += phi_cor
+            phi += phi_cor_g
             timer.stop('Multipole moment corrections')
 
             return niter
