@@ -21,14 +21,13 @@ class AtomicOrbitals:
         self.dist = dist
         self.size = dist.total_size
 
-    def empty(self, shape=(), dist=None) -> AtomicOrbitalCoefficients:
-        if isinstance(shape, int):
-            shape = (shape,)
-
-        self.dist = create_distribution(dist)
-
-        array = np.empty(shape + self.dist.size, self.dtype)
-        return UniformGridFunctions(array, self, dist)
+    def empty(self,
+              shape: tuple[int] = None,
+              dist: MPIComm | ShapeDistribution | None = None
+              ) -> AtomicOrbitalCoefficients:
+        dist = create_shape_distributuion(shape, dist)
+        array = np.empty(dist.shape + self.dist.size, self.dtype)
+        return AtomicOrbitalCoefficients(array, self, dist)
 
     def zeros(self, shape=(), dist=None) -> UniformGridFunctions:
         funcs = self.empty(shape, dist)

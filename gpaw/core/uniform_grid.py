@@ -4,7 +4,7 @@ from gpaw.typing import ArrayLike1D, ArrayLike, Array2D, ArrayLike2D
 from gpaw.mpi import serial_comm
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.utilities.grid import GridRedistributor
-
+from gpaw.core.distribution import create_shape_distributuion
 from typing import Any
 
 MPIComm = Any
@@ -67,15 +67,7 @@ class UniformGrid:
                            dist=self.dist if dist == '_default' else dist)
 
     def empty(self, shape=None, dist=None) -> UniformGridFunctions:
-        if isinstance(dist, ShapeDistribution):
-            assert shape is None
-            shape = dist.total_shape
-        else:
-            if isinstance(shape, int):
-                shape = (shape,)
-            dist = dist or serial_comm
-            dist = ShapeDistribution(dist, shape)
-
+        dist = create_shape_distributuion(shape, dist)
         array = np.empty(dist.shape + self.dist.size, self.dtype)
         return UniformGridFunctions(array, self, dist)
 
@@ -117,7 +109,7 @@ class UniformGridFunctions:
         return UniformGridFunctions(self.data[index], self.ug)
 
     def _arrays(self):
-        return self.data.reshape((-1,) + self._data.shape[-3:])
+        return self.data.reshape((-1,) + self.data.shape[-3:])
 
     def xy(self, *axes):
         assert len(axes) == 3 + len(self.shape)
