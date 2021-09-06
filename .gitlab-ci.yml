@@ -74,6 +74,8 @@ libxc:
 docs:
   image: python:3.9
   script:
+    - python3 -m venv venv
+    - source venv/bin/activate
     - pip install sphinx-rtd-theme
     - echo "noblas = True; nolibxc = True" > siteconfig.py
     - pip install -e .
