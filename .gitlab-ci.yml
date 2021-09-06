@@ -70,3 +70,13 @@ libxc:
     - gpaw install-data --register gpaw-datasets
     - pytest -m libxc -x
   when: manual
+
+docs:
+  image: python:3.9
+  script:
+    - pip install sphinx-rtd-theme
+    - echo "noblas = True; nolibxc = True" > siteconfig.py
+    - pip install -e .
+    - cd doc
+    - make
+  when: manual
