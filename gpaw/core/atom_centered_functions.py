@@ -49,7 +49,7 @@ class PlaneWaveAtomCenteredFunctions:
 
 class AtomArraysLayout(Layout):
     def __init__(self,
-                 shapes: list[int | tuple[int]],
+                 shapes: list[int | tuple[int, ...]],
                  atomdist: AtomDistribution | MPIComm = serial_comm,
                  dtype=float):
         self.shapes = [shape if isinstance(shape, tuple) else (shape,)
@@ -72,7 +72,7 @@ class AtomArraysLayout(Layout):
         Layout.__init__(self, (self.mysize,))
 
     def empty(self,
-              shape: int | tuple[int] = (),
+              shape: int | tuple[int, ...] = (),
               comm: MPIComm = serial_comm) -> AtomArrays:
         return AtomArrays(self, shape, comm)
 
@@ -87,15 +87,15 @@ class AtomDistribution:
 class AtomArrays(DistributedArrays):
     def __init__(self,
                  layout: AtomArraysLayout,
-                 shape: int | tuple[int] = (),
+                 shape: int | tuple[int, ...] = (),
                  comm: MPIComm = serial_comm,
                  data: np.ndarray = None):
         DistributedArrays. __init__(self, layout, shape, comm, data)
         self.layout = layout
         self._arrays = {}
         for a, I1, I2 in layout.myindices:
-            self._arrays[a] = data[..., I1:I2].reshape(self.myshape +
-                                                       layout.shapes[a])
+            self._arrays[a] = self.data[..., I1:I2].reshape(
+                self.myshape + layout.shapes[a])
 
     def __getitem__(self, a):
         return self._arrays[a]

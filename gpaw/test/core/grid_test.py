@@ -1,7 +1,9 @@
+import pytest
 from gpaw.core import UniformGrid
 from gpaw.mpi import world, serial_comm
 
 
+@pytest.mark.ci
 def test_redist():
     a = 2.5
     n = 20

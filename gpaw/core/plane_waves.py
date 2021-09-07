@@ -96,7 +96,7 @@ class PlaneWaves(Layout):
         return self.ekin
 
     def empty(self,
-              shape: int | tuple[int] = (),
+              shape: int | tuple[int, ...] = (),
               comm: MPIComm = serial_comm) -> PlaneWaveExpansions:
         return PlaneWaveExpansions(self, shape, comm)
 
@@ -118,7 +118,7 @@ class PlaneWaves(Layout):
 class PlaneWaveExpansions(DistributedArrays):
     def __init__(self,
                  pw: PlaneWaves,
-                 shape: int | tuple[int] = (),
+                 shape: int | tuple[int, ...] = (),
                  comm: MPIComm = serial_comm,
                  data: np.ndarray = None):
         DistributedArrays. __init__(self, pw, shape, comm, data)

@@ -7,7 +7,7 @@ from gpaw.core.layout import Layout
 class DistributedArrays:
     def __init__(self,
                  layout: Layout,
-                 shape: int | tuple[int] = (),
+                 shape: int | tuple[int, ...] = (),
                  comm: MPIComm = serial_comm,
                  data: np.ndarray = None):
         self.comm = comm

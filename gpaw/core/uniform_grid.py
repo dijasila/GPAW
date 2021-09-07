@@ -80,7 +80,7 @@ class UniformGrid(Layout):
                            decomposition=decomposition)
 
     def empty(self,
-              shape: int | tuple[int] = (),
+              shape: int | tuple[int, ...] = (),
               comm: MPIComm = serial_comm) -> UniformGridFunctions:
         return UniformGridFunctions(self, shape, comm)
 
@@ -111,7 +111,7 @@ class Redistributor:
 class UniformGridFunctions(DistributedArrays):
     def __init__(self,
                  grid: UniformGrid,
-                 shape: int | tuple[int] = (),
+                 shape: int | tuple[int, ...] = (),
                  comm: MPIComm = serial_comm,
                  data: np.ndarray = None):
         DistributedArrays. __init__(self, grid, shape, comm, data)

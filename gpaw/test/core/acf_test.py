@@ -1,8 +1,10 @@
 import numpy as np
+import pytest
 from gpaw.core import UniformGrid, PlaneWaves, PlaneWaveAtomCenteredFunctions
 from gpaw.mpi import world
 
 
+@pytest.mark.ci
 def test_acf():
     a = 2.5
     n = 20
