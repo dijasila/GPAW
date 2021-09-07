@@ -1,4 +1,5 @@
 import time
+import warnings
 from collections import deque
 from inspect import signature
 
@@ -206,10 +207,11 @@ class SCFLoop:
                 ham, wfs, dens, sort_eigenvalues=True)
             energy_converged = wfs.eigensolver.update_ks_energy(ham, wfs, dens)
             energy_diff_after_scf = abs(energy - energy_converged) * Ha
-            assert energy_diff_after_scf <= 1.0e-6, \
-                'Jump in energy of %f eV detected at the end of SCF ' \
-                'after getting canonical orbitals, SCF might have ' \
-                'converged to the wrong solution' % (energy_diff_after_scf)
+            if energy_diff_after_scf > 1.0e-6:
+                warnings.warn('Jump in energy of %f eV detected at the end of '
+                              'SCF after getting canonical orbitals, SCF might '
+                              'have converged to the wrong solution'
+                              % (energy_diff_after_scf))
 
             log('\nOccupied states converged after'
                 ' {:d} e/g evaluations'.format(wfs.eigensolver.eg_count))
