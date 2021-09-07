@@ -23,10 +23,17 @@ for kpt in kpts:
     wfs = pws.zeros(3, dist=...)
     ibz.append(wfs)
 
+
+AtomArraySizes
+AtomArrayDistribution
+AtomArrays
+
+
 s = gaussian(l=0, alpha=4.0, rcut=3.0)
-basis = ReciprocalSpaceAtomCenteredFunctions(
+basis = AtomCenteredFunctions(
     [[s]],
-    positions=[[0.5, 0.5, 0.5]],
+    positions=[[0.5, 0.5, 0.5]])
+
     kpts=kpts)
 for kpt, wfs in zip(kpts, ibz):
     coefs = {0: np.ones((3, 1))}
