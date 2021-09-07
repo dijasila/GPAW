@@ -79,11 +79,12 @@ docs:
     - pip install sphinx-rtd-theme pytest
     - echo "noblas = True; nolibxc = True" > siteconfig.py
     - pip install -e .
-    - tools/gpaw-setup H C O
+    - tools/gpaw-setup H Li C O
     - export GPAW_SETUP_PATH=$PWD
     - cd doc
     - make
+    - mv build/html ..
   when: manual
   artifacts:
     paths:
-      - doc/build/html
+      - html
