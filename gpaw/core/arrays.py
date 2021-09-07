@@ -10,6 +10,7 @@ class DistributedArrays:
                  shape: int | tuple[int] = (),
                  comm: MPIComm = serial_comm,
                  data: np.ndarray = None):
+        self.comm = comm
         self.shape = shape if isinstance(shape, tuple) else (shape,)
         if self.shape:
             myshape0 = (self.shape[0] + comm.size - 1) // comm.size

@@ -135,14 +135,14 @@ class UniformGridFunctions(DistributedArrays):
     def redistribute(self, other):
         self.ug.redistributer(other.ug).redistribute(self, out=other)
 
-    def fft(self, plan=None, pws=None, out=None):
+    def fft(self, plan=None, pw=None, out=None):
         if out is None:
-            out = pws.empty(self.shape)
-        if pws is None:
-            pws = out.pws
-        plan = plan or pws.fft_plans()[0]
+            out = pw.empty(self.shape)
+        if pw is None:
+            pw = out.pw
+        plan = plan or pw.fft_plans()[0]
         for input, output in zip(self._arrays(), out._arrays()):
             plan.in_R[:] = input
             plan.execute()
-            output[:] = plan.out_R.ravel()[pws.indices]
+            output[:] = plan.out_R.ravel()[pw.indices]
         return out

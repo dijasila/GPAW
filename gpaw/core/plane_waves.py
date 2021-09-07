@@ -54,14 +54,15 @@ def find_reciprocal_vectors(ecut: float,
 
 
 class PlaneWaves(Layout):
-    def __init__(self, ecut: float,
+    def __init__(self,
+                 ecut: float,
                  grid: UniformGrid,
                  comm: MPIComm = serial_comm,
                  dtype=None):
-        self.grid = grid
         self.ecut = ecut
+        self.grid = grid
 
-        self.dtype = grid.dtype
+        self.dtype = complex
 
         G_plus_k, ekin, self.indices = find_reciprocal_vectors(ecut, grid)
 
@@ -79,6 +80,12 @@ class PlaneWaves(Layout):
         self.G_plus_k = G_plus_k[ng1:ng2]
 
         Layout.__init__(self, (len(self.myindices),))
+
+    def __str__(self):
+        a, b, c = self.grid.size
+        comm = self.grid.comm
+        return (f'PlaneWaves(ecut={self.ecut}, grid={a}*{b}*{c}, '
+                f'comm={comm.rank}/{comm.size}, dtype={self.dtype})')
 
     def reciprocal_vectors(self):
         """Returns reciprocal lattice vectors, G + k,
@@ -110,26 +117,30 @@ class PlaneWaves(Layout):
 
 class PlaneWaveExpansions(DistributedArrays):
     def __init__(self,
-                 pws: PlaneWaves,
+                 pw: PlaneWaves,
                  shape: int | tuple[int] = (),
                  comm: MPIComm = serial_comm,
                  data: np.ndarray = None):
-        DistributedArrays. __init__(self, pws, shape, comm, data)
-        self.pws = pws
+        DistributedArrays. __init__(self, pw, shape, comm, data)
+        self.pw = pw
+
+    def __repr__(self):
+        return (f'PlaneWaveExpansions(pw={self.pw}, shape={self.shape}, '
+                f'comm={self.comm.rank}/{self.comm.size})')
 
     def __getitem__(self, index):
-        return PlaneWaveExpansions(self.pws, data=self.data[index])
+        return PlaneWaveExpansions(self.pw, data=self.data[index])
 
     def _arrays(self):
         return self.data.reshape((-1,) + self.data.shape[-1:])
 
     def ifft(self, plan=None, out=None):
-        out = out or self.pws.grid.empty(self.shape)
-        plan = plan or self.pws.fft_plans()[1]
+        out = out or self.pw.grid.empty(self.shape)
+        plan = plan or self.pw.fft_plans()[1]
         scale = 1.0 / plan.out_R.size
         for input, output in zip(self._arrays(), out._arrays()):
             _gpaw.pw_insert(input, self.pw.indices, scale, plan.in_R[:])
-            if self.pws.grid.kpt is None:
+            if self.pw.grid.kpt is None:
                 t = plan.in_R[:, :, 0]
                 n, m = (s // 2 - 1 for s in self.pw.grid.size[:2])
                 t[0, -m:] = t[0, m:0:-1].conj()

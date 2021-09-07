@@ -17,7 +17,7 @@ Uniform grids
 >>> p1 = pws.empty()
 >>> u1.fft(out=p1)
 >>> p1.data[0]
-1.0
+(8000+0j)
 
 aos = AO()
 
