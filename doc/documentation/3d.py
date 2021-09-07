@@ -1,16 +1,16 @@
 import numpy as np
 from gpaw.core import (PlaneWaves,
-                       PlaneWaveAtomicOrbitals, UniformGrid)
+                       PlaneWaveAtomCenteredFunctions, UniformGrid)
 from gpaw.mpi import world
 
 a = 2.5
 n = 20
 
 comm = world.new_communicator([world.rank])
-grid1 = UniformGrid(cell=[a, a, a], size=(n, n, n), dist=comm)
+grid1 = UniformGrid(cell=[a, a, a], size=(n, n, n), comm=comm)
 wfs = grid1.empty(3)
 wfs.data[:] = 1.0
-grid = grid1.new(dist=world)
+grid = grid1.new(comm=world)
 kpts = [(0, 0, 0), (0.5, 0, 0)]
 
 w2 = grid1.redistribute(wfs)
@@ -27,17 +27,10 @@ s = (0, 3.0, lambda r: np.exp(-alpha * r**2))
 basis = PlaneWaveAtomicOrbitals([[s]],
                                 positions=[[0.5, 0.5, 0.5]])
 
-AtomArraySizes
-AtomArrayDistribution
-AtomArrays
-
-
 s = gaussian(l=0, alpha=4.0, rcut=3.0)
 basis = AtomCenteredFunctions(
     [[s]],
     positions=[[0.5, 0.5, 0.5]])
-
-    kpts=kpts)
 
 for kpt, wfs in zip(kpts, ibz):
     coefs = {0: np.ones((3, 1))}

@@ -3,12 +3,20 @@ import numpy as np
 from math import pi
 import gpaw.fftw as fftw
 import _gpaw
+from gpaw.core.layout import Layout
+from gpaw.core.uniform_grid import UniformGrid
+from gpaw.typing import Array1D, Array2D
+from gpaw.mpi import MPIComm, serial_comm
+from gpaw.core.arrays import DistributedArrays
 
 
-def find_reciprocal_vectors(ecut, ug):
-    size = ug.size
+def find_reciprocal_vectors(ecut: float,
+                            grid: UniformGrid) -> tuple[Array2D,
+                                                        Array1D,
+                                                        Array1D]:
+    size = grid.size
 
-    if ug.kpt is None:
+    if grid.dtype == float:
         Nr_c = list(size)
         Nr_c[2] = size[2] // 2 + 1
         i_Qc = np.indices(Nr_c).transpose((1, 2, 3, 0))
@@ -23,9 +31,9 @@ def find_reciprocal_vectors(ecut, ug):
         i_Qc -= half
 
     # Calculate reciprocal lattice vectors:
-    B_cv = 2.0 * pi * ug.icell
+    B_cv = 2.0 * pi * grid.icell
     i_Qc.shape = (-1, 3)
-    G_plus_k_Qv = np.dot(i_Qc + ug.kpt, B_cv)
+    G_plus_k_Qv = np.dot(i_Qc + grid.kpt, B_cv)
 
     # Map from vectors inside sphere to fft grid:
     Q_Q = np.arange(len(i_Qc), dtype=np.int32)
@@ -33,7 +41,7 @@ def find_reciprocal_vectors(ecut, ug):
     G2_Q = (G_plus_k_Qv**2).sum(axis=1)
     mask_Q = (G2_Q <= 2 * ecut)
 
-    if ug.kpt is None:
+    if grid.kpt is None:
         mask_Q &= ((i_Qc[:, 2] > 0) |
                    (i_Qc[:, 1] > 0) |
                    ((i_Qc[:, 0] >= 0) & (i_Qc[:, 1] == 0)))
@@ -45,27 +53,32 @@ def find_reciprocal_vectors(ecut, ug):
     return G_plus_k, ekin, indices
 
 
-class PlaneWaves:
+class PlaneWaves(Layout):
     def __init__(self, ecut: float,
-                 ug,
-                 dist):
-        self.ug = ug
+                 grid: UniformGrid,
+                 comm: MPIComm = serial_comm,
+                 dtype=None):
+        self.grid = grid
         self.ecut = ecut
 
-        G_plus_k, ekin, self.all_indices = find_reciprocal_vectors(ecut, ug)
+        self.dtype = grid.dtype
 
-        # Distribute things:
-        S = ug.dist.comm.size
-        ng = len(self.all_indices)
+        G_plus_k, ekin, self.indices = find_reciprocal_vectors(ecut, grid)
+
+        # Find distribution:
+        S = grid.comm.size
+        ng = len(self.indices)
         myng = (ng + S - 1) // S
-        ng1 = ug.dist.comm.rank * myng
+        ng1 = grid.comm.rank * myng
         ng2 = ng1 + myng
 
+        # Distribute things:
         self.ekin = ekin[ng1:ng2].copy()
         self.ekin.flags.writeable = False
-        self.indices = self.all_indices[ng1:ng2]
+        self.myindices = self.indices[ng1:ng2]
         self.G_plus_k = G_plus_k[ng1:ng2]
-        self.size = len(self.indices)
+
+        Layout.__init__(self, (len(self.myindices),))
 
     def reciprocal_vectors(self):
         """Returns reciprocal lattice vectors, G + k,
@@ -75,20 +88,14 @@ class PlaneWaves:
     def kinetic_energies(self):
         return self.ekin
 
-    def empty(self, shape=(), dist=None) -> PlaneWaveExpansions:
-        if isinstance(shape, int):
-            shape = (shape,)
-        array = np.empty(shape + (self.size,), complex)
-        return PlaneWaveExpansions(array, self, dist)
-
-    def zeros(self, shape=(), dist=None) -> PlaneWaveExpansions:
-        funcs = self.empty(shape, dist)
-        funcs.data[:] = 0.0
-        return funcs
+    def empty(self,
+              shape: int | tuple[int] = (),
+              comm: MPIComm = serial_comm) -> PlaneWaveExpansions:
+        return PlaneWaveExpansions(self, shape, comm)
 
     def fft_plans(self, flags=fftw.MEASURE):
-        size = self.ug.size
-        if self.ug.kpt is None:
+        size = self.grid.size
+        if self.grid.kpt is None:
             rsize = size[:2] + (size[2] // 2 + 1,)
             tmp1 = fftw.empty(rsize, complex)
             tmp2 = tmp1.view(float)[:, :, :size[2]]
@@ -101,27 +108,30 @@ class PlaneWaves:
         return fftplan, ifftplan
 
 
-class PlaneWaveExpansions:
-    def __init__(self, data, pw, dist=None):
-        self.pw = pw
-        self.data = data
-        self.shape = data.shape[:-1]
+class PlaneWaveExpansions(DistributedArrays):
+    def __init__(self,
+                 pws: PlaneWaves,
+                 shape: int | tuple[int] = (),
+                 comm: MPIComm = serial_comm,
+                 data: np.ndarray = None):
+        DistributedArrays. __init__(self, pws, shape, comm, data)
+        self.pws = pws
 
     def __getitem__(self, index):
-        return PlaneWaveExpansions(self.data[index], self.pw)
+        return PlaneWaveExpansions(self.pws, data=self.data[index])
 
     def _arrays(self):
-        return self.data.reshape((-1,) + self._data.shape[-1:])
+        return self.data.reshape((-1,) + self.data.shape[-1:])
 
     def ifft(self, plan=None, out=None):
-        out = out or self.pw.ug.empty(self.shape)
-        plan = plan or self.pw.fft_plans()[1]
+        out = out or self.pws.grid.empty(self.shape)
+        plan = plan or self.pws.fft_plans()[1]
         scale = 1.0 / plan.out_R.size
         for input, output in zip(self._arrays(), out._arrays()):
             _gpaw.pw_insert(input, self.pw.indices, scale, plan.in_R[:])
-            if self.pw.ug.kpt is None:
+            if self.pws.grid.kpt is None:
                 t = plan.in_R[:, :, 0]
-                n, m = (s // 2 - 1 for s in self.pw.ug.size[:2])
+                n, m = (s // 2 - 1 for s in self.pw.grid.size[:2])
                 t[0, -m:] = t[0, m:0:-1].conj()
                 t[n:0:-1, -m:] = t[-n:, m:0:-1].conj()
                 t[-n:, -m:] = t[n:0:-1, m:0:-1].conj()

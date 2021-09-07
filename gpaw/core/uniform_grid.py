@@ -1,13 +1,12 @@
 from __future__ import annotations
 import numpy as np
 from gpaw.typing import ArrayLike1D, ArrayLike, Array2D, ArrayLike2D
-from gpaw.mpi import serial_comm
+from gpaw.mpi import serial_comm, MPIComm
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.utilities.grid import GridRedistributor
-from gpaw.core.distribution import create_shape_distributuion
-from typing import Any
-
-MPIComm = Any
+from gpaw.core.arrays import DistributedArrays
+from typing import Sequence
+from gpaw.core.layout import Layout
 
 
 def _normalize_cell(cell: ArrayLike) -> Array2D:
@@ -19,71 +18,80 @@ def _normalize_cell(cell: ArrayLike) -> Array2D:
     ...
 
 
-class UniformGridDistribution:
-    def __init__(self, comm, size, pbc, decomposition=None):
+class UniformGrid(Layout):
+    def __init__(self,
+                 *,
+                 cell: ArrayLike1D | ArrayLike2D,
+                 size: ArrayLike1D,
+                 pbc=(True, True, True),
+                 kpt: ArrayLike1D = (0.0, 0.0, 0.0),
+                 comm: MPIComm = serial_comm,
+                 decomposition: Sequence[Sequence[int]] = None,
+                 dtype=None):
+        """"""
+        self.cell = _normalize_cell(cell)
+        self.size = np.array(size, int)
+        self.pbc = np.array(pbc, bool)
+        self.kpt = np.array(kpt, float)
         self.comm = comm
+
         if decomposition is None:
-            decomposition = GridDescriptor(size, pbc_c=pbc).n_cp
+            gd = GridDescriptor(size, pbc_c=pbc, comm=comm)
+            decomposition = gd.n_cp
         self.decomposition = decomposition
 
         self.myposition = np.unravel_index(comm.rank,
                                            [len(d) - 1 for d in decomposition])
-        self.start = tuple([d[p]
-                            for d, p in zip(decomposition, self.myposition)])
-        self.end = tuple([d[p + 1]
-                          for d, p in zip(decomposition, self.myposition)])
-        self.size = tuple([e - s for s, e in zip(self.start, self.end)])
-        self.total_size = size
+        self.start = np.array([d[p]
+                               for d, p
+                               in zip(decomposition, self.myposition)])
+        self.end = np.array([d[p + 1]
+                             for d, p
+                             in zip(decomposition, self.myposition)])
+        self.mysize = self.end - self.start
 
+        Layout.__init__(self, tuple(self.mysize))
 
-class UniformGrid:
-    def __init__(self,
-                 *
-                 cell: ArrayLike1D | ArrayLike2D,
-                 size: ArrayLike1D = None,
-                 pbc=(True, True, True),
-                 kpt: ArrayLike1D = None,
-                 dist: MPIComm | UniformGridDistribution | None = None):
-        """"""
-        self.cell = _normalize_cell(cell)
-        self.pbc = np.array(pbc, bool)
-        self.kpt = kpt
-
-        if isinstance(dist, UniformGridDistribution):
-            assert size is None
-            size = dist.total_size
+        assert dtype in [None, float, complex]
+        if self.kpt.any():
+            if dtype == float:
+                raise ValueError
+            dtype = complex
         else:
-            dist = dist or serial_comm
-            dist = UniformGridDistribution(dist, size, pbc)
-        self.dist = dist
-        self.size = size
+            dtype = dtype or float
+        self.dtype = dtype
 
-        self.dtype = float if kpt is None else complex
-        self.icell = np.linalg.inv(self.cell).T
+    @property
+    def icell(self):
+        return np.linalg.inv(self.cell).T
 
-    def new(self, kpt='_default', dist='_default') -> UniformGrid:
-        return UniformGrid(self.cell, self.size, self.pbc,
-                           kpt=self.kpt if kpt == '_default' else kpt,
-                           dist=self.dist if dist == '_default' else dist)
+    def new(self,
+            kpt=None,
+            comm=None) -> UniformGrid:
+        if comm is None:
+            decomposition = self.decomposition
+        else:
+            decomposition = None
+        return UniformGrid(cell=self.cell,
+                           size=self.size,
+                           pbc=self.pbc,
+                           kpt=kpt or self.kpt,
+                           comm=comm or self.comm,
+                           decomposition=decomposition)
 
-    def empty(self, shape=None, dist=None) -> UniformGridFunctions:
-        dist = create_shape_distributuion(shape, dist)
-        array = np.empty(dist.shape + self.dist.size, self.dtype)
-        return UniformGridFunctions(array, self, dist)
-
-    def zeros(self, shape=(), dist=None) -> UniformGridFunctions:
-        funcs = self.empty(shape, dist)
-        funcs.data[:] = 0.0
-        return funcs
+    def empty(self,
+              shape: int | tuple[int] = (),
+              comm: MPIComm = serial_comm) -> UniformGridFunctions:
+        return UniformGridFunctions(self, shape, comm)
 
     def redistributor(self, other):
         return Redistributor(self, other)
 
     @property
-    def gd(self):
-        return GridDescriptor(self.size, pbc_c=self.pbc, comm=self.dist.comm,
+    def _gd(self):
+        return GridDescriptor(self.size, pbc_c=self.pbc, comm=self.comm,
                               parsize_c=[len(d) - 1
-                                         for d in self.dist.decomposition])
+                                         for d in self.decomposition])
 
 
 class Redistributor:
@@ -99,14 +107,17 @@ class Redistributor:
         return out
 
 
-class UniformGridFunctions:
-    def __init__(self, data, ug, dist=None):
-        self.ug = ug
-        self.data = data
-        self.shape = data.shape[:-3]
+class UniformGridFunctions(DistributedArrays):
+    def __init__(self,
+                 grid: UniformGrid,
+                 shape: int | tuple[int] = (),
+                 comm: MPIComm = serial_comm,
+                 data: np.ndarray = None):
+        DistributedArrays. __init__(self, grid, shape, comm, data)
+        self.grid = grid
 
     def __getitem__(self, index):
-        return UniformGridFunctions(self.data[index], self.ug)
+        return UniformGridFunctions(data=self.data[index], grid=self.grid)
 
     def _arrays(self):
         return self.data.reshape((-1,) + self.data.shape[-3:])
@@ -123,3 +134,15 @@ class UniformGridFunctions:
 
     def redistribute(self, other):
         self.ug.redistributer(other.ug).redistribute(self, out=other)
+
+    def fft(self, plan=None, pws=None, out=None):
+        if out is None:
+            out = pws.empty(self.shape)
+        if pws is None:
+            pws = out.pws
+        plan = plan or pws.fft_plans()[0]
+        for input, output in zip(self._arrays(), out._arrays()):
+            plan.in_R[:] = input
+            plan.execute()
+            output[:] = plan.out_R.ravel()[pws.indices]
+        return out

@@ -1,66 +1,61 @@
+from __future__ import annotations
+
 import numpy as np
-from gpaw.pw.lfc import PWLFC
-from gpaw.pw.descriptor import PWDescriptor
 from gpaw.kpt_descriptor import KPointDescriptor
+from gpaw.mpi import MPIComm, serial_comm
+from gpaw.pw.descriptor import PWDescriptor
+from gpaw.pw.lfc import PWLFC
+from gpaw.core.arrays import DistributedArrays
+from gpaw.core.layout import Layout
 
 
-AtomCenteredFunctions
-AtomArrayDistribution
-AtomArray
-class AtomicOrbitals:
-    def __init__(self, functions, positions, dist=None):
+class PlaneWaveAtomCenteredFunctions:
+    def __init__(self, functions, positions, pws, atomdist=serial_comm):
         self.functions = functions
         self.positions = np.array(positions)
+        self.pws = pws
 
-        if dist is None:
-            dist = serial_comm
+        self.layout = AtomArraysLayout([len(f) for f in functions],
+                                       atomdist,
+                                       pws.dtype)
+        gd = pws.grid._gd
+        kd = KPointDescriptor(np.array([pws.grid.kpt]))
+        pd = PWDescriptor(pws.ecut, gd, kd=kd)
+        self.lfc = PWLFC(functions, pd)
+        self.lfc.set_positions(self.positions)
 
-        if not isinstance(dist, AtomicOrbitalDistribution):
-            comm = dist
-            ranks = np.zeros(len(positions), int)
-            atomdist = AtomDistribution(ranks, comm)
-            dist = AtomicOrbitalDistribution([len(f) for f in functions],
-                                             atomdist)
-        self.dist = dist
-        self.size = dist.total_size
-
-    def empty(self,
-              shape: tuple[int] = None,
-              dist: MPIComm | ShapeDistribution | None = None
-              ) -> AtomicOrbitalCoefficients:
-        dist = create_shape_distributuion(shape, dist)
-        array = np.empty(dist.shape + self.dist.size, self.dtype)
-        return AtomicOrbitalCoefficients(array, self, dist)
-
-    def zeros(self, shape=(), dist=None) -> UniformGridFunctions:
-        funcs = self.empty(shape, dist)
-        funcs.data[:] = 0.0
-        return funcs
+    def add_to(self, functions, coefs):
+        self.lfc.add(functions.data, coefs, q=0)
 
 
-def distribute_atoms(positions, grid, kind):
-    if kind == 'master':
-        return np.zeros(len(positions), int)
-    1 / 0
-
-
-class AtomicOrbitalDistribution:
+class AtomArraysLayout(Layout):
     def __init__(self,
-                 nfunctions: list[int],
-                 atomdist: AtomDistribution):
-        self.nfunctions = nfunctions
+                 shapes: list[int | tuple[int]],
+                 atomdist: AtomDistribution | MPIComm = serial_comm,
+                 dtype=float):
+        self.shapes = [shape if isinstance(shape, tuple) else (shape,)
+                       for shape in shapes]
+        if not isinstance(atomdist, AtomDistribution):
+            atomdist = AtomDistribution(np.zeros(len(shapes), int), atomdist)
         self.atomdist = atomdist
-        self.indices = []
-        self.size = 0
+        self.dtype = dtype
+
+        self.size = sum(np.prod(shape) for shape in self.shapes)
+
+        self.myindices = []
+        self.mysize = 0
         I1 = 0
         for a in atomdist.indices:
-            I2 = I1 + nfunctions[a]
-            self.indices.append((a, I1, I2))
-            self.size += I2 - I1
+            I2 = I1 + np.prod(self.shapes[a])
+            self.myindices.append((a, I1, I2))
+            self.mysize += I2 - I1
 
-    @property
-    def total_size(self):
-        return sum(self.nfunctions)
+        Layout.__init__(self, (self.mysize,))
+
+    def empty(self,
+              shape: int | tuple[int] = (),
+              comm: MPIComm = serial_comm) -> AtomArrays:
+        return AtomArrays(self, shape, comm)
 
 
 class AtomDistribution:
@@ -70,27 +65,18 @@ class AtomDistribution:
         self.indices = np.where(ranks == comm.rank)[0]
 
 
-class AtomicOrbitalCoefficients:
-    def __init__(self, aodist):
+class AtomArrays(DistributedArrays):
+    def __init__(self,
+                 layout: AtomArraysLayout,
+                 shape: int | tuple[int] = (),
+                 comm: MPIComm = serial_comm,
+                 data: np.ndarray = None):
+        DistributedArrays. __init__(self, layout, shape, comm, data)
+        self.layout = layout
+        self._arrays = {}
+        for a, I1, I2 in layout.myindices:
+            self._arrays[a] = data[..., I1:I2].reshape(self.myshape +
+                                                       layout.shapes[a])
 
-class UniformGridAtomicOrbitals:
-    def __init__(self, functions, grid, positions):
-        AtomicOrbitals.__init__(self, functions, positions, grid)
-        self.grid = grid
-
-
-class PlaneWaveAtomicOrbitals:
-    def __init__(self, functions, pws, positions):
-        AtomicOrbitals.__init__(self, functions, positions, pws.grid)
-        self.pws = pws
-        gd = pws.grid.gd
-        kd = KPointDescriptor(np.array([pws.grid.kpt]))
-        pd = PWDescriptor(pws.ecut, gd, kd=kd)
-        self.lfc = PWLFC(functions, pd)
-        self.lfc.set_positions(self.positions)
-
-    def add(self, coefs, functions):
-        self.lfc.add(functions.data, coefs, q=0)
-
-
-class
+    def __getitem__(self, a):
+        return self._arrays[a]
