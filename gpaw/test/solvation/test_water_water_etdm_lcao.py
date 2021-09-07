@@ -22,15 +22,11 @@ def test_solvation_water_water_etdm_lcao():
     atoms.minimal_box(vac, h)
 
     if not SKIP_VAC_CALC:
-        atoms.calc = GPAW(mode='lcao',
-                          xc='PBE',
-                          h=h,
-                          basis='dzp',
+        atoms.calc = GPAW(mode='lcao', xc='PBE', h=h, basis='dzp',
                           occupations={'name': 'fixed-uniform'},
                           eigensolver='etdm',
                           mixer={'backend': 'no-mixing'},
-                          nbands='nao',
-                          symmetry='off',
+                          nbands='nao', symmetry='off',
                           convergence=convergence)
         Evac = atoms.get_potential_energy()
         print(Evac)
@@ -38,18 +34,14 @@ def test_solvation_water_water_etdm_lcao():
         # h=0.24, vac=4.0, setups: 0.9.20000, convergence: only energy 0.05 / 8
         Evac = -12.68228003345474
 
-    atoms.calc = SolvationGPAW(mode='lcao',
-        xc='PBE',
-        h=h,
-        basis='dzp',
-        occupations={'name': 'fixed-uniform'},
-        eigensolver=ETDM(linesearch_algo={'name': 'max-step'}),
-        mixer={'backend': 'no-mixing'},
-        nbands='nao',
-        symmetry='off',
-        convergence=convergence,
-        **get_HW14_water_kwargs()
-    )
+    atoms.calc = SolvationGPAW(mode='lcao', xc='PBE', h=h, basis='dzp',
+                               occupations={'name': 'fixed-uniform'},
+                               eigensolver=ETDM(
+                                   linesearch_algo={'name': 'max-step'}),
+                               mixer={'backend': 'no-mixing'},
+                               nbands='nao', symmetry='off',
+                               convergence=convergence,
+                               **get_HW14_water_kwargs())
     Ewater = atoms.get_potential_energy()
     Eelwater = atoms.calc.get_electrostatic_energy()
     Esurfwater = atoms.calc.get_solvation_interaction_energy('surf')
