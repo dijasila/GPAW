@@ -9,19 +9,38 @@ from gpaw.core.arrays import DistributedArrays
 from gpaw.core.layout import Layout
 
 
+class Function:
+    def __init__(self, l, rcut, f):
+        self.l = l
+        self.rcut = rcut
+        self.f = f
+
+    def get_angular_momentum_number(self):
+        return self.l
+
+    def get_cutoff(self):
+        return self.rcut
+
+    def map(self, r):
+        return self.d(r)
+
+
 class PlaneWaveAtomCenteredFunctions:
-    def __init__(self, functions, positions, pws, atomdist=serial_comm):
+    def __init__(self, functions, positions, pw, atomdist=serial_comm):
         self.functions = functions
         self.positions = np.array(positions)
-        self.pws = pws
+        self.pw = pw
 
-        self.layout = AtomArraysLayout([len(f) for f in functions],
+        self.layout = AtomArraysLayout([sum(2 * l + 1 for l, rc, f in funcs)
+                                        for funcs in functions],
                                        atomdist,
-                                       pws.dtype)
-        gd = pws.grid._gd
-        kd = KPointDescriptor(np.array([pws.grid.kpt]))
-        pd = PWDescriptor(pws.ecut, gd, kd=kd)
-        self.lfc = PWLFC(functions, pd)
+                                       pw.grid.dtype)
+        gd = pw.grid._gd
+        kd = KPointDescriptor(np.array([pw.grid.kpt]))
+        pd = PWDescriptor(pw.ecut, gd, kd=kd)
+        self.lfc = PWLFC([[Function(*f) for f in funcs]
+                          for funcs in functions],
+                         pd)
         self.lfc.set_positions(self.positions)
 
     def add_to(self, functions, coefs):
@@ -80,3 +99,6 @@ class AtomArrays(DistributedArrays):
 
     def __getitem__(self, a):
         return self._arrays[a]
+
+    def __contains__(self, a):
+        return a in self._arrays

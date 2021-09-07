@@ -1,18 +1,24 @@
 import numpy as np
 from gpaw.core import UniformGrid, PlaneWaves, PlaneWaveAtomCenteredFunctions
+from gpaw.mpi import world
 
 
 def test_acf():
+    a = 2.5
+    n = 20
+
+    # comm = world.new_communicator([world.rank])
+    grid = UniformGrid(cell=[a, a, a], size=(n, n, n), comm=world)
+    pw = PlaneWaves(ecut=10, grid=grid)
     alpha = 4.0
     s = (0, 3.0, lambda r: np.exp(-alpha * r**2))
-    basis = PlaneWaveAtomicOrbitals([[s]],
-                                    positions=[[0.5, 0.5, 0.5]])
+    basis = PlaneWaveAtomCenteredFunctions([[s]],
+                                           positions=[[0.5, 0.5, 0.5]],
+                                           pw=pw)
 
-    s = gaussian(l=0, alpha=4.0, rcut=3.0)
-    basis = AtomCenteredFunctions(
-        [[s]],
-        positions=[[0.5, 0.5, 0.5]])
-
-    for kpt, wfs in zip(kpts, ibz):
-        coefs = {0: np.ones((3, 1))}
-        basis.add(coefs, wfs)
+    coefs = basis.layout.empty()
+    if 0 in coefs:
+        coefs[0] = [1.0]
+    f1 = pw.zeros()
+    basis.add_to(f1, coefs)
+    

@@ -12,6 +12,10 @@ Uniform grids
 >>> u1 = grid.empty()
 >>> u1.data[:] = 1.0
 
+
+Plane waves
+===========
+
 >>> from gpaw.core import PlaneWaves
 >>> pws = PlaneWaves(ecut=100, grid=grid)
 >>> p1 = pws.empty()
@@ -19,6 +23,21 @@ Uniform grids
 >>> p1.data[0]
 (8000+0j)
 
+
+Atom-centered functions
+=======================
+
 aos = AO()
 
+
+
 Conventions: grid, pws, aos?
+
+
+API
+===
+
+Uniform grids
+-------------
+
+.. automodule:: gpaw.core.uniform_grid

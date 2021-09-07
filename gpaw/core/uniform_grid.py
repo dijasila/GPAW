@@ -95,14 +95,15 @@ class UniformGrid(Layout):
 
 
 class Redistributor:
-    def __init__(self, ug1, ug2):
-        self.ug2 = ug2
-        comm = max(ug1.dist.comm, ug2.dist.comm, key=lambda comm: comm.size)
+    def __init__(self, grid1, grid2):
+        self.grid2 = grid2
+        comm = max(grid1.dist.comm, grid2.dist.comm,
+                   key=lambda comm: comm.size)
         self.redistributor = GridRedistributor(comm, serial_comm,
-                                               ug1.gd, ug2.gd)
+                                               grid1.gd, grid2.gd)
 
     def distribute(self, input, out=None):
-        out = out or self.ug2.empty(input.shape)
+        out = out or self.grid2.empty(input.shape)
         self.redistributor.distribute(input.data, out._data)
         return out
 
@@ -128,12 +129,12 @@ class UniformGridFunctions(DistributedArrays):
         y = self.data[index]
         assert y.ndim == 1
         n = axes[-3:].index(...)
-        dx = (self.ug.cell[n]**2).sum()**0.5
-        x = np.arange(self.ug.dist.start[n], self.ug.dist.end[n]) * dx
+        dx = (self.grid.cell[n]**2).sum()**0.5
+        x = np.arange(self.grid.dist.start[n], self.grid.dist.end[n]) * dx
         return x, y
 
     def redistribute(self, other):
-        self.ug.redistributer(other.ug).redistribute(self, out=other)
+        self.grid.redistributer(other.grid).redistribute(self, out=other)
 
     def fft(self, plan=None, pw=None, out=None):
         if out is None:
