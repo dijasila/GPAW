@@ -22,7 +22,7 @@ class Function:
         return self.rcut
 
     def map(self, r):
-        return self.d(r)
+        return self.f(r)
 
 
 class PlaneWaveAtomCenteredFunctions:
@@ -99,6 +99,9 @@ class AtomArrays(DistributedArrays):
 
     def __getitem__(self, a):
         return self._arrays[a]
+
+    def __setitem__(self, a, value):
+        self._arrays[a][:] = value
 
     def __contains__(self, a):
         return a in self._arrays

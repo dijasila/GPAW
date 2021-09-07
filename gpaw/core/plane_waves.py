@@ -8,6 +8,7 @@ from gpaw.core.uniform_grid import UniformGrid
 from gpaw.typing import Array1D, Array2D
 from gpaw.mpi import MPIComm, serial_comm
 from gpaw.core.arrays import DistributedArrays
+from gpaw.pw.descriptor import pad
 
 
 def find_reciprocal_vectors(ecut: float,
@@ -57,10 +58,10 @@ class PlaneWaves(Layout):
     def __init__(self,
                  ecut: float,
                  grid: UniformGrid,
-                 comm: MPIComm = serial_comm,
-                 dtype=None):
+                 comm: MPIComm = serial_comm):
         self.ecut = ecut
-        self.grid = grid
+        self.grid = grid.new(pbc=(True, True, True))
+        self.pbc = grid.pbc
 
         self.dtype = complex
 
@@ -69,9 +70,9 @@ class PlaneWaves(Layout):
         # Find distribution:
         S = grid.comm.size
         ng = len(self.indices)
-        myng = (ng + S - 1) // S
-        ng1 = grid.comm.rank * myng
-        ng2 = ng1 + myng
+        self.maxmysize = (ng + S - 1) // S
+        ng1 = grid.comm.rank * self.maxmysize
+        ng2 = ng1 + self.maxmysize
 
         # Distribute things:
         self.ekin = ekin[ng1:ng2].copy()
@@ -85,7 +86,13 @@ class PlaneWaves(Layout):
         a, b, c = self.grid.size
         comm = self.grid.comm
         return (f'PlaneWaves(ecut={self.ecut}, grid={a}*{b}*{c}, '
-                f'comm={comm.rank}/{comm.size}, dtype={self.dtype})')
+                f'comm={comm.rank}/{comm.size})')
+
+    def new(self,
+            comm=None) -> PlaneWaves:
+        return PlaneWaves(ecut=self.ecut,
+                          grid=self.grid,
+                          comm=comm or self.comm)
 
     def reciprocal_vectors(self):
         """Returns reciprocal lattice vectors, G + k,
@@ -149,5 +156,29 @@ class PlaneWaveExpansions(DistributedArrays):
                 t[-n:, 0] = t[n:0:-1, 0].conj()
             plan.execute()
             output[:] = plan.out_R
+
+        return out
+
+    def collect(self, out=None):
+        """Gather coefficients on master."""
+        if out is None:
+            out = self.pw.empty(self.shape)
+        comm = self.pw.grid.comm
+
+        if comm.size == 1:
+            if out is not self:
+                out.data[:] = self.data
+            return out
+
+        if comm.rank == 0:
+            data = np.empty(self.maxmysize * comm.size, complex)
+        else:
+            data = None
+
+        for input, output in zip(self._arrays(), out._arrays()):
+            mydata = pad(input, self.maxmyng)
+            comm.gather(mydata, 0, data)
+            if comm.rank == 0:
+                output[:] = data[:self.grid.size]
 
         return out

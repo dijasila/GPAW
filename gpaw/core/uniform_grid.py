@@ -61,11 +61,18 @@ class UniformGrid(Layout):
             dtype = dtype or float
         self.dtype = dtype
 
+    def __str__(self):
+        a, b, c = self.size
+        comm = self.comm
+        return (f'UniformGrid(size={a}*{b}*{c}, pbc={self.pbc}, '
+                f'comm={comm.rank}/{comm.size}, dtype={self.dtype})')
+
     @property
     def icell(self):
         return np.linalg.inv(self.cell).T
 
     def new(self,
+            pbc=None,
             kpt=None,
             comm=None) -> UniformGrid:
         if comm is None:
@@ -74,7 +81,7 @@ class UniformGrid(Layout):
             decomposition = None
         return UniformGrid(cell=self.cell,
                            size=self.size,
-                           pbc=self.pbc,
+                           pbc=pbc or self.pbc,
                            kpt=kpt or self.kpt,
                            comm=comm or self.comm,
                            decomposition=decomposition)
@@ -97,15 +104,12 @@ class UniformGrid(Layout):
 class Redistributor:
     def __init__(self, grid1, grid2):
         self.grid2 = grid2
-        comm = max(grid1.dist.comm, grid2.dist.comm,
-                   key=lambda comm: comm.size)
+        comm = max(grid1.comm, grid2.comm, key=lambda comm: comm.size)
         self.redistributor = GridRedistributor(comm, serial_comm,
-                                               grid1.gd, grid2.gd)
+                                               grid1._gd, grid2._gd)
 
-    def distribute(self, input, out=None):
-        out = out or self.grid2.empty(input.shape)
-        self.redistributor.distribute(input.data, out._data)
-        return out
+    def distribute(self, input, output):
+        self.redistributor.distribute(input.data, output.data)
 
 
 class UniformGridFunctions(DistributedArrays):
@@ -133,8 +137,18 @@ class UniformGridFunctions(DistributedArrays):
         x = np.arange(self.grid.dist.start[n], self.grid.dist.end[n]) * dx
         return x, y
 
-    def redistribute(self, other):
-        self.grid.redistributer(other.grid).redistribute(self, out=other)
+    def redistribute(self, grid=None, out=None):
+        if out is self:
+            return out
+        if out is None:
+            out = grid.empty(self.shape, self.comm)
+        if grid is None:
+            grid = out.grid
+        if self.grid.comm.size == 1 and grid.comm.size == 1:
+            out.data[:] = self.data
+            return out
+        self.grid.redistributor(grid).redistribute(self, out)
+        return out
 
     def fft(self, plan=None, pw=None, out=None):
         if out is None:

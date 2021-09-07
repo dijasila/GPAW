@@ -1,7 +1,9 @@
 from __future__ import annotations
+from typing import TYPE_CHECKING
 import numpy as np
 from gpaw.mpi import MPIComm, serial_comm
-from gpaw.core.arrays import DistributedArrays
+if TYPE_CHECKING:
+    from gpaw.core.arrays import DistributedArrays
 
 
 class Layout:
