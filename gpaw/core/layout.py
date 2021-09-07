@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 import numpy as np
+from numpy.typing import DTypeLike
 from gpaw.mpi import MPIComm, serial_comm
 if TYPE_CHECKING:
     from gpaw.core.arrays import DistributedArrays
@@ -9,7 +10,7 @@ if TYPE_CHECKING:
 class Layout:
     def __init__(self, myshape):
         self.myshape = myshape
-        self.dtype: np.dtype
+        self.dtype: DTypeLike
 
     def empty(self,
               shape: int | tuple[int, ...] = (),

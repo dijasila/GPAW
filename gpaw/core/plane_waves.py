@@ -25,7 +25,7 @@ def find_reciprocal_vectors(ecut: float,
         i_Qc[..., :2] %= size[:2]
         i_Qc[..., :2] -= size[:2] // 2
     else:
-        i_Qc = np.indices(size).transpose((1, 2, 3, 0))
+        i_Qc = np.indices(size).transpose((1, 2, 3, 0))  # type: ignore
         half = [s // 2 for s in size]
         i_Qc += half
         i_Qc %= size

@@ -15,7 +15,7 @@ def _normalize_cell(cell: ArrayLike) -> Array2D:
         return cell
     if len(cell) == 3:
         return np.diag(cell)
-    ...
+    raise ValueError
 
 
 class UniformGrid(Layout):
