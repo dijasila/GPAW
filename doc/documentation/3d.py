@@ -26,6 +26,19 @@ alpha = 4.0
 s = (0, 3.0, lambda r: np.exp(-alpha * r**2))
 basis = PlaneWaveAtomicOrbitals([[s]],
                                 positions=[[0.5, 0.5, 0.5]])
+
+AtomArraySizes
+AtomArrayDistribution
+AtomArrays
+
+
+s = gaussian(l=0, alpha=4.0, rcut=3.0)
+basis = AtomCenteredFunctions(
+    [[s]],
+    positions=[[0.5, 0.5, 0.5]])
+
+    kpts=kpts)
+
 for kpt, wfs in zip(kpts, ibz):
     coefs = {0: np.ones((3, 1))}
     basis.add(coefs, wfs)

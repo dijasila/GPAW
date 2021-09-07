@@ -4,6 +4,9 @@ from gpaw.pw.descriptor import PWDescriptor
 from gpaw.kpt_descriptor import KPointDescriptor
 
 
+AtomCenteredFunctions
+AtomArrayDistribution
+AtomArray
 class AtomicOrbitals:
     def __init__(self, functions, positions, dist=None):
         self.functions = functions
