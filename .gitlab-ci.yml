@@ -84,6 +84,6 @@ docs:
     - cd doc
     - make
   when: manual
-  artifacts_
+  artifacts:
     paths:
       - doc/build/html
