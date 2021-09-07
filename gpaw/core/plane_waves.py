@@ -57,8 +57,7 @@ def find_reciprocal_vectors(ecut: float,
 class PlaneWaves(Layout):
     def __init__(self,
                  ecut: float,
-                 grid: UniformGrid,
-                 comm: MPIComm = serial_comm):
+                 grid: UniformGrid):
         self.ecut = ecut
         self.grid = grid.new(pbc=(True, True, True))
         self.pbc = grid.pbc
@@ -87,12 +86,6 @@ class PlaneWaves(Layout):
         comm = self.grid.comm
         return (f'PlaneWaves(ecut={self.ecut}, grid={a}*{b}*{c}, '
                 f'comm={comm.rank}/{comm.size})')
-
-    def new(self,
-            comm=None) -> PlaneWaves:
-        return PlaneWaves(ecut=self.ecut,
-                          grid=self.grid,
-                          comm=comm or self.comm)
 
     def reciprocal_vectors(self):
         """Returns reciprocal lattice vectors, G + k,
@@ -161,14 +154,21 @@ class PlaneWaveExpansions(DistributedArrays):
 
     def collect(self, out=None):
         """Gather coefficients on master."""
-        if out is None:
-            out = self.pw.empty(self.shape)
         comm = self.pw.grid.comm
 
         if comm.size == 1:
-            if out is not self:
-                out.data[:] = self.data
+            if out is None:
+                return self
+            out.data[:] = self.data
             return out
+
+        if out is None:
+            if comm.rank == 0:
+                pw = PlaneWaves(ecut=self.ecut,
+                                grid=self.pw.grid.new(comm=serial_comm))
+                out = pw.empty(self.shape)
+            else:
+                out = Empty()
 
         if comm.rank == 0:
             data = np.empty(self.maxmysize * comm.size, complex)
@@ -181,4 +181,10 @@ class PlaneWaveExpansions(DistributedArrays):
             if comm.rank == 0:
                 output[:] = data[:self.grid.size]
 
-        return out
+        return out if comm.rank == 0 else None
+
+
+class Empty:
+    def _arrays(self):
+        while True:
+            yield
