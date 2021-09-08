@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 from ase.units import Bohr
-from gpaw.poisson import FDPoissonSolver, NoInteractionPoissonSolver
+from gpaw.poisson import PoissonSolver, NoInteractionPoissonSolver
 from gpaw.poisson_moment import MomentCorrectionPoissonSolver
 from gpaw.poisson_extravacuum import ExtraVacuumPoissonSolver
 from gpaw.grid_descriptor import GridDescriptor
@@ -106,7 +106,7 @@ def gd():
      dict(moms=range(4), center=np.array([7.4, 3.1, 0.1]))],
 ])
 def test_write(gd, moment_corrections):
-    poisson_ref = FDPoissonSolver()
+    poisson_ref = PoissonSolver()
     poisson_ref.set_grid_descriptor(gd)
 
     poisson = MomentCorrectionPoissonSolver(
@@ -128,14 +128,17 @@ def test_poisson_moment_correction(gd):
 
     # Construct model density
     coord_vg = gd.get_grid_point_coordinates()
+    Ng_c = gd.get_size_of_global_array()
+    center_slice_25 = np.ix_(*[np.arange(int(N * 0.25), int(N * 0.75))
+                               for N in Ng_c])
+    center_slice_40 = np.ix_(*[np.arange(int(N * 0.40), int(N * 0.60))
+                               for N in Ng_c])
     z_g = coord_vg[2, :]
     rho_g = gd.zeros()
     for z0 in [1, 2]:
         rho_g += 10 * (z_g - z0) * \
             np.exp(-20 * np.sum((coord_vg.T - np.array([.5, .5, z0])).T**2,
                                 axis=0))
-
-    poissoneps = 1e-20
 
     do_plot = False
 
@@ -146,7 +149,6 @@ def test_poisson_moment_correction(gd):
             fig, ax_ij = plt.subplots(3, 4, figsize=(20, 10))
             ax_i = ax_ij.ravel()
             ploti = 0
-            Ng_c = gd.get_size_of_global_array()
             plt.sca(ax_i[ploti])
             ploti += 1
             plt.pcolormesh(big_rho_g[Ng_c[0] // 2])
@@ -177,19 +179,40 @@ def test_poisson_moment_correction(gd):
         npoisson = poisson.solve(phi_g, rho_g)
         return phi_g, npoisson
 
-    def compare(phi1_g, phi2_g, val):
+    def compare(phi1_g, phi2_g, tol, slice=None):
+        big_phi1_g = gd.collect(phi1_g)
+        big_phi2_g = gd.collect(phi2_g)
+        if slice is not None:
+            big_phi1_g = big_phi1_g[slice]
+            big_phi2_g = big_phi2_g[slice]
+        if gd.comm.rank == 0:
+            equal(np.max(np.absolute(big_phi1_g - big_phi2_g)), 0.0, tol)
+
+    def compare_notequal(phi1_g, phi2_g, tol):
         big_phi1_g = gd.collect(phi1_g)
         big_phi2_g = gd.collect(phi2_g)
         if gd.comm.rank == 0:
-            equal(np.max(np.absolute(big_phi1_g - big_phi2_g)),
-                  val, np.sqrt(poissoneps))
+            equal(np.max(np.absolute(big_phi1_g - big_phi2_g)), 0.0, tol)
 
     # Get reference from default poissonsolver
-    poisson_ref = FDPoissonSolver(eps=poissoneps)
+    # Using the default solver the potential is forced to zero at the box
+    # boundries. The potential thus has the wrong shape near the boundries
+    # but is nearly right in the center of the box
+    poisson_ref = PoissonSolver()
     poisson_ref.set_grid_descriptor(gd)
     phiref_g, npoisson = poisson_solve(gd, rho_g, poisson_ref)
 
-    # Test agreement with default
+    # Get reference from extravacuum solver
+    # With 4 times extra vacuum the potential is well converged everywhere
+    poisson_extra = ExtraVacuumPoissonSolver(gpts=4 * gd.N_c,
+                                             poissonsolver_large=poisson_ref)
+    poisson_extra.set_grid_descriptor(gd)
+    phiref_extra_g, npoisson = poisson_solve(gd, rho_g, poisson_extra)
+
+    # Test the MomentCorrectionPoissonSolver
+
+    # MomentCorrectionPoissonSolver without any moment corrections should be
+    # exactly as the underlying solver
     poisson = MomentCorrectionPoissonSolver(poissonsolver=poisson_ref,
                                             moment_corrections=None)
     poisson.set_grid_descriptor(gd)
@@ -197,17 +220,34 @@ def test_poisson_moment_correction(gd):
     plot_phi(phi_g, 'phi no correction')
     compare(phi_g, phiref_g, 0.0)
 
+    # It should also be possible to chain default+extravacuum+moment correction
+    # With moment_correction=None the MomentCorrection solver doesn't actually
+    # do anything, so the potential should be identical to the extra vacuum
+    # reference
+    poisson = MomentCorrectionPoissonSolver(poissonsolver=poisson_extra,
+                                            moment_corrections=None)
+    poisson.set_grid_descriptor(gd)
+    phi_g, npoisson = poisson_solve(gd, rho_g, poisson)
+    plot_phi(phi_g, 'phi extra vacuum no correction')
+    compare(phi_g, phiref_extra_g, 0.0)
+
     # Test moment_corrections=int
+    # The moment correction is applied to the center of the cell. This is not
+    # enough to have a converged potential near the edges
+    # The closer we are to the center the better though
     poisson = MomentCorrectionPoissonSolver(poissonsolver=poisson_ref,
                                             moment_corrections=4)
     poisson.set_grid_descriptor(gd)
     phi_g, npoisson = poisson_solve(gd, rho_g, poisson)
     plot_phi(phi_g, 'phi dipole correction')
-    compare(phi_g, phiref_g, 4.1182101206e-02)
+    compare(phi_g, phiref_g, 3.5e-2, slice=center_slice_25)
+    compare(phi_g, phiref_g, 2.5e-2, slice=center_slice_40)
 
     # Test moment_corrections=list
     # Remember that the solver expects Ångström units and we have specified
     # the grid in Bohr
+    # This should give a well converged potential everywhere, that we can
+    # compare to the reference extravacuum potential
     moment_corrections = [{'moms': range(4),
                            'center': np.array([.5, .5, 1]) * Bohr},
                           {'moms': range(4),
@@ -216,36 +256,23 @@ def test_poisson_moment_correction(gd):
         poissonsolver=poisson_ref,
         moment_corrections=moment_corrections)
     poisson.set_grid_descriptor(gd)
-    phi_g, npoisson = poisson_solve(gd, rho_g, poisson)
-    plot_phi(phi_g, 'phi multi dipole correction')
-    compare(phi_g, phiref_g, 2.7569628594e-02)
+    phiref_moment_g, npoisson = poisson_solve(gd, rho_g, poisson)
+    plot_phi(phiref_moment_g, 'phi multi dipole correction')
+    compare(phiref_moment_g, phiref_extra_g, 3e-3)
 
-    # Get reference from extravacuum solver
-    poisson_ref2 = ExtraVacuumPoissonSolver(gpts=(24, 24, 3 * 24),
-                                            poissonsolver_large=poisson_ref)
-    poisson_ref2.set_grid_descriptor(gd)
-    phiref2_g, npoisson = poisson_solve(gd, rho_g, poisson_ref2)
-
-    # extravacuum + no correction
-    poisson = MomentCorrectionPoissonSolver(poissonsolver=poisson_ref2,
-                                            moment_corrections=None)
-    poisson.set_grid_descriptor(gd)
-    phi_g, npoisson = poisson_solve(gd, rho_g, poisson)
-    compare(phi_g, phiref2_g, 0.0)
-    plot_phi(phi_g, 'phi extra vacuum no correction')
-
-    # extravacuum + multi dipole correction
+    # It should be possible to chain default+extravacuum+moment correction
+    # As the potential is already well converged, there should be little change
     moment_corrections = [{'moms': range(4),
                            'center': np.array([.5, .5, 1]) * Bohr},
                           {'moms': range(4),
                            'center': np.array([.5, .5, 2]) * Bohr}]
     poisson = MomentCorrectionPoissonSolver(
-        poissonsolver=poisson_ref2,
+        poissonsolver=poisson_extra,
         moment_corrections=moment_corrections)
     poisson.set_grid_descriptor(gd)
     phi_g, npoisson = poisson_solve(gd, rho_g, poisson)
     plot_phi(phi_g, 'phi extra vacuum + multi dipole correction')
-    compare(phi_g, phiref_g, 2.7523450309062e-02)
+    compare(phi_g, phiref_moment_g, 5e-4)
 
     if do_plot:
         if gd.comm.rank == 0:
