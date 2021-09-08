@@ -1,3 +1,15 @@
+class BlockMatrix:
+    def __init__(self, blocks, layout):
+        self.blocks = blocks
+        self.layout = layout
+
+    def __rmatmul__(self, other):
+        out = other.new()
+        for a, I1, I2 in self.layout.myindices:
+            out.data[:, I1:I2] = other.data[:, I1:I2] @ self.blocks[a]
+        return out
+
+
 class WaveFunctions:
     def __init__(self, wave_functions, spin, setups):
         self.wave_functions = wave_functions
@@ -11,9 +23,13 @@ class WaveFunctions:
         S = work_matrix
         W = self.wave_functions.as_matrix()
         P = projections.as_matrix()
+        dS = BlockMatrix({a: self.setups[a].dO_ii
+                          for a in projections.layout.atomdist.indices},
+                         projections.layout)
 
         S[:] = layout.dv * W @ W.C
-        P2 = P @ self.setups.dS
+        P2 = P @ dS
+        print('***', P2)
         S += P.multiply(P2.C, symmetric=True)
         #cc?
 

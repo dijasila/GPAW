@@ -202,6 +202,14 @@ class Eigensolver:
             # We calculate the complex conjugate of H, because
             # that is what is most efficient with BLAS given the layout of
             # our matrices.
+            if 0:
+                # Simple version:
+                tmp = Ht(W)
+                H[:] = W.C @ tmp.T
+            else:
+                # Same, but faster:
+                H[:] = W.multiply2(Ht, W, out=tmp)
+
             psit.matrix_elements(operator=Ht, result=tmp, out=H,
                                  symmetric=True, cc=True)
             ham.dH(kpt.projections, out=P2)

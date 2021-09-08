@@ -148,6 +148,7 @@ class MatrixMatrixProduct:
                 else:
                     return fastmmm2notsym(A, B, out)
 
+        print(alpha, A, opa, B, opb, beta, out, self.symmetric)
         dist.multiply(alpha, A, opa, B, opb, beta, out, self.symmetric)
         return out
 
@@ -202,29 +203,36 @@ class Matrix:
         dist = str(self.dist).split('(')[1]
         return 'Matrix({}: {}'.format(self.dtype.name, dist)
 
-    def new(self, dist='inherit'):
+    def new(self, dist='inherit', data=None):
         """Create new matrix of same shape and dtype.
 
         Default is to use same BLACS distribution.  Use dist to use another
         distribution.
         """
-        return Matrix(*self.shape, dtype=self.dtype,
-                      dist=self.dist if dist == 'inherit' else dist)
+        return Matrix(*self.shape,
+                      dtype=self.dtype,
+                      dist=self.dist if dist == 'inherit' else dist,
+                      data=data)
 
     def __setitem__(self, item, value):
         assert item == slice(None)
-        assert isinstance(value, MatrixMatrixProduct)
-        value.eval(self)
+        if isinstance(value, MatrixMatrixProduct):
+            value.eval(self)
+        else:
+            assert isinstance(value, Matrix)
+            self.data[:] = value.data
 
     def __iadd__(self, value):
         value.eval(self, 1.0)
         return self
 
     def __matmul__(self, other):
-        return self.multiply(self, other)
+        if not isinstance(other, (Matrix, MatrixMatrixProduct)):
+            return NotImplemented
+        return self.multiply(other)
 
     def multiply(self, other, symmetric=False):
-        if not isinstance(other, Matrix):
+        if isinstance(other, MatrixMatrixProduct):
             other = other.eval()
         return MatrixMatrixProduct.from_matrices(self, other,
                                                  symmetric=symmetric)
