@@ -1,6 +1,5 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
-import numpy as np
 from numpy.typing import DTypeLike
 from gpaw.mpi import MPIComm, serial_comm
 if TYPE_CHECKING:
@@ -8,7 +7,8 @@ if TYPE_CHECKING:
 
 
 class Layout:
-    def __init__(self, myshape):
+    def __init__(self, shape, myshape):
+        self.shape = shape
         self.myshape = myshape
         self.dtype: DTypeLike
 

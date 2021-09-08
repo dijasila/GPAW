@@ -35,6 +35,8 @@ class UniformGrid(Layout):
         self.kpt = np.array(kpt, float)
         self.comm = comm
 
+        self.dv = abs(np.linalg.det(self.cell)) / self.size.prod()
+
         if decomposition is None:
             gd = GridDescriptor(size, pbc_c=pbc, comm=comm)
             decomposition = gd.n_cp
@@ -50,7 +52,9 @@ class UniformGrid(Layout):
                              in zip(decomposition, self.myposition)])
         self.mysize = self.end - self.start
 
-        Layout.__init__(self, tuple(self.mysize))
+        Layout.__init__(self,
+                        tuple(self.size - 1 + self.pbc),
+                        tuple(self.mysize))
 
         assert dtype in [None, float, complex]
         if self.kpt.any():
@@ -96,9 +100,22 @@ class UniformGrid(Layout):
 
     @property
     def _gd(self):
-        return GridDescriptor(self.size, pbc_c=self.pbc, comm=self.comm,
+        return GridDescriptor(self.size,
+                              cell_cv=self.cell,
+                              pbc_c=self.pbc,
+                              comm=self.comm,
                               parsize_c=[len(d) - 1
                                          for d in self.decomposition])
+
+    @classmethod
+    def _from_gd_and_kpt_and_dtype(cls, gd, kpt, dtype):
+        return UniformGrid(cell=gd.cell_cv,
+                           size=gd.N_c,
+                           pbc=gd.pbc_c,
+                           comm=gd.comm,
+                           dtype=dtype,
+                           kpt=kpt,
+                           decomposition=gd.n_cp)
 
 
 class Redistributor:
@@ -119,7 +136,6 @@ class UniformGridFunctions(DistributedArrays):
                  comm: MPIComm = serial_comm,
                  data: np.ndarray = None):
         DistributedArrays. __init__(self, grid, shape, comm, data)
-        self.grid = grid
 
     def __getitem__(self, index):
         return UniformGridFunctions(data=self.data[index], grid=self.grid)

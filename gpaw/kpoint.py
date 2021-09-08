@@ -43,7 +43,7 @@ class KPoint:
         q: int
             local k-point index.
         phase_cd: complex ndarray
-            Bloch phase-factors for translations - axis c=0,1,2
+            Bloch phase-factors for funcs in  for translations - axis c=0,1,2
             and direction d=0,1.
         """
 
@@ -61,6 +61,7 @@ class KPoint:
         # Only one of these two will be used:
         self.psit = None  # UniformGridMatrix/PWExpansionMatrix
         self.C_nM = None  # LCAO coefficients for wave functions
+        self.projectors = None
 
         # LCAO stuff:
         self.rho_MM = None
@@ -88,4 +89,4 @@ class KPoint:
     @property
     def psit_nG(self):
         if self.psit is not None:
-            return self.psit.array
+            return self.psit.wfs.data

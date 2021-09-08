@@ -272,8 +272,8 @@ class FDPWWaveFunctions(WaveFunctions):
             paste_wfs()
 
         self.set_orthonormalized(False)
-        self.pt.set_positions(spos_ac, atom_partition)
-        self.allocate_arrays_for_projections(self.pt.my_atom_indices)
+        #self.pt.set_positions(spos_ac, atom_partition)
+        #self.allocate_arrays_for_projections(self.pt.my_atom_indices)
         self.positions_set = True
 
     def initialize(self, density, hamiltonian, spos_ac):
@@ -394,30 +394,10 @@ class FDPWWaveFunctions(WaveFunctions):
             self.orthonormalized = True
             return
 
-        psit = kpt.psit
-        P = kpt.projections
-
-        with self.timer('projections'):
-            psit.matrix_elements(self.pt, out=P)
-
-        S = self.work_matrix_nn
-        P2 = P.new()
-
-        with self.timer('calc_s_matrix'):
-            psit.matrix_elements(out=S, symmetric=True, cc=True)
-            self.setups.dS.apply(P, out=P2)
-            mmm(1.0, P, 'N', P2, 'C', 1.0, S, symmetric=True)
-
-        with self.timer('inverse-cholesky'):
-            S.invcholesky()
-            # S now contains the inverse of the Cholesky factorization
-
-        psit2 = psit.new(buf=self.work_array)
-        with self.timer('rotate_psi_s'):
-            mmm(1.0, S, 'N', psit, 'N', 0.0, psit2)
-            mmm(1.0, S, 'N', P, 'N', 0.0, P2)
-            psit[:] = psit2
-            kpt.projections = P2
+        projections = kpt.psit.orthonormalize(kpt.projectors,
+                                              self.work_matrix_nn,
+                                              self.work_array)
+        kpt.projections = projections
 
     def calculate_forces(self, hamiltonian, F_av):
         # Calculate force-contribution from k-points:

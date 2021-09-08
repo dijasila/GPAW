@@ -14,6 +14,8 @@ from gpaw.wavefunctions.arrays import UniformGridWaveFunctions
 from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
 from gpaw.wavefunctions.mode import Mode
 import _gpaw
+from gpaw.core.wfs import WaveFunctions
+from gpaw.core.atom_centered_functions import UniformGridAtomCenteredFunctions
 
 
 class FD(Mode):
@@ -63,12 +65,19 @@ class FDWaveFunctions(FDPWWaveFunctions):
         return self.gd.bytecount(self.dtype)
 
     def set_setups(self, setups):
-        self.pt = LFC(self.gd, [setup.pt_j for setup in setups],
-                      self.kd, dtype=self.dtype, forces=True)
         FDPWWaveFunctions.set_setups(self, setups)
 
     def set_positions(self, spos_ac, atom_partition=None):
         FDPWWaveFunctions.set_positions(self, spos_ac, atom_partition)
+        for kpt in self.kpt_u:
+            if kpt.projectors is None:
+                kpt.projectors = UniformGridAtomCenteredFunctions(
+                    [setup.pt_j for setup in self.setups],
+                    spos_ac,
+                    kpt.grid)
+            else:
+                kpt.projectors.positions = spos_ac
+                kpt.projections = None
 
     def __str__(self):
         s = 'Wave functions: Uniform real-space grid\n'
@@ -262,14 +271,11 @@ class FDWaveFunctions(FDPWWaveFunctions):
 
     def initialize_from_lcao_coefficients(self, basis_functions):
         for kpt in self.kpt_u:
-            kpt.psit = UniformGridWaveFunctions(
-                self.bd.nbands, self.gd, self.dtype, kpt=kpt.q,
-                dist=(self.bd.comm, self.bd.comm.size, 1),
-                spin=kpt.s, collinear=True)
-            kpt.psit_nG[:] = 0.0
+            wfs = kpt.grid.zeros(self.bd.nbands, self.bd.comm)
+            kpt.psit = WaveFunctions(wfs, kpt.s, self.setups)
             mynbands = len(kpt.C_nM)
             basis_functions.lcao_to_grid(kpt.C_nM,
-                                         kpt.psit_nG[:mynbands], kpt.q)
+                                         wfs.data[:mynbands], kpt.q)
             kpt.C_nM = None
 
     def random_wave_functions(self, nao):

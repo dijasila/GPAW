@@ -2,6 +2,7 @@ from __future__ import annotations
 import numpy as np
 from gpaw.mpi import MPIComm, serial_comm
 from gpaw.core.layout import Layout
+from gpaw.matrix import Matrix
 
 
 class DistributedArrays:
@@ -10,6 +11,7 @@ class DistributedArrays:
                  shape: int | tuple[int, ...] = (),
                  comm: MPIComm = serial_comm,
                  data: np.ndarray = None):
+        self.layout = layout
         self.comm = comm
         self.shape = shape if isinstance(shape, tuple) else (shape,)
         if self.shape:
@@ -27,3 +29,10 @@ class DistributedArrays:
             data = np.empty(fullshape, layout.dtype)
 
         self.data = data
+
+    def as_matrix(self):
+        shape = (np.prod(self.shape), np.prod(self.layout.shape))
+        myshape = (np.prod(self.myshape), np.prod(self.layout.myshape))
+        return Matrix(*shape,
+                      data=self.data.reshape(myshape),
+                      dist=(self.comm, -1, 1))

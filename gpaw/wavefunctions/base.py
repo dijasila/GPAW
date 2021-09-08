@@ -8,6 +8,7 @@ from gpaw.projections import Projections
 from gpaw.utilities import pack, unpack2
 from gpaw.utilities.blas import gemm, axpy
 from gpaw.utilities.partition import AtomPartition
+from gpaw.core import UniformGrid
 
 
 class WaveFunctions:
@@ -55,6 +56,9 @@ class WaveFunctions:
 
         self.kpt_qs = kd.create_k_points(self.gd.sdisp_cd, collinear)
         self.kpt_u = [kpt for kpt_s in self.kpt_qs for kpt in kpt_s]
+        for kpt in self.kpt_u:
+            kpt.grid = UniformGrid._from_gd_and_kpt_and_dtype(
+                gd, kd.ibzk_qc[kpt.q], dtype)
 
         self.occupations: Optional[OccupationNumberCalculator] = None
         self.fermi_levels: Optional[np.ndarray] = None
@@ -247,6 +251,8 @@ class WaveFunctions:
         self.spos_ac = spos_ac
 
     def allocate_arrays_for_projections(self, my_atom_indices):  # XXX unused
+        if self.mode != 'lcao':
+            return
         if not self.positions_set and self.kpt_u[0]._projections is not None:
             # Projections have been read from file - don't delete them!
             pass

@@ -24,9 +24,9 @@ def matrix_matrix_multiply(alpha, a, opa, b, opb, beta=0.0, c=None,
     'N', 'T', or 'C' .  For opa='N' and opb='N', the operation performed is
     equivalent to::
 
-        c.array[:] =  alpha * np.dot(a.array, b.array) + beta * c.array
+        c.data[:] =  alpha * np.dot(a.data, b.data) + beta * c.data
 
-    Replace a.array with a.array.T or a.array.T.conj() for opa='T' and 'C'
+    Replace a.data with a.data.T or a.data.T.conj() for opa='T' and 'C'
     respectively (similarly for opb).
 
     Use symmetric=True if the result matrix is symmetric/hermetian
@@ -69,6 +69,89 @@ def suggest_blocking(N, ncpus):
     return nprow, npcol, blocksize
 
 
+class ConjugatedMatrix:
+    def __init__(self, matrix):
+        self.matrix = matrix
+
+
+class ScaledMatrix:
+    def __init__(self, matrix, scale):
+        self.matrix = matrix
+        self.scale = scale
+
+    def __matmul__(self, other):
+        return MatrixMatrixProduct.from_matrices(self, other)
+
+
+class MatrixMatrixProduct:
+    def __init__(self, scale, A, opa, B, opb, symmetric=False):
+        self.scale = scale
+        self.A = A
+        self.opa = opa
+        self.B = B
+        self.opb = opb
+        self.symmetric = symmetric
+
+    @classmethod
+    def from_matrices(cls, A, B, symmetric=False):
+        opa = 'N'
+        if isinstance(A, ScaledMatrix):
+            scale = A.scale
+            A = A.matrix
+        else:
+            assert isinstance(A, Matrix)
+            scale = 1.0
+
+        if isinstance(B, ConjugatedMatrix):
+            B = B.matrix
+            opb = 'C'
+        else:
+            assert isinstance(B, Matrix)
+            opb = 'N'
+
+        if A is B and opa == 'N' and opb == 'C':
+            symmetric = True
+
+        return MatrixMatrixProduct(scale, A, opa, B, opb, symmetric)
+
+    @property
+    def C(self):
+        return MatrixMatrixProduct(self.scale,
+                                   self.B,
+                                   'N' if self.opb == 'C' else 'C',
+                                   self.A,
+                                   'N' if self.opa == 'C' else 'C',
+                                   self.symmetric)
+
+    def eval(self, out=None, beta=0.0):
+        A = self.A
+        B = self.B
+        opa = self.opa
+        opb = self.opb
+        alpha = self.scale
+        dist = A.dist
+        if out is None:
+            assert beta == 0.0
+            M = A.shape[0] if opa == 'N' else A.shape[1]
+            N = B.shape[1] if opb == 'N' else B.shape[0]
+            out = Matrix(M, N, A.dtype,
+                         dist=(dist.comm, dist.rows, dist.columns))
+
+        if dist.comm.size > 1:
+            # Special cases that don't need scalapack - most likely also
+            # faster:
+            if alpha == 1.0 and opa == 'N' and opb == 'N':
+                return fastmmm(A, B, out, beta)
+            if alpha == 1.0 and beta == 1.0 and opa == 'N' and opb == 'C':
+                if self.symmetric:
+                    return fastmmm2(A, B, out)
+                else:
+                    return fastmmm2notsym(A, B, out)
+
+        dist.multiply(alpha, A, opa, B, opb, beta, out, self.symmetric)
+        return out
+
+
 class Matrix:
     def __init__(self, M, N, dtype=None, data=None, dist=None):
         """Matrix object.
@@ -101,12 +184,16 @@ class Matrix:
         self.dist = dist
 
         if data is None:
-            self.array = np.empty(dist.shape, self.dtype)
+            self.data = np.empty(dist.shape, self.dtype)
         else:
-            self.array = data.reshape(dist.shape)
+            self.data = data.reshape(dist.shape)
 
-        self.comm = serial_comm
-        self.state = 'everything is fine'
+    @property
+    def C(self):
+        return ConjugatedMatrix(self)
+
+    def __rmul__(self, other: float):
+        return ScaledMatrix(self, other)
 
     def __len__(self):
         return self.shape[0]
@@ -124,49 +211,23 @@ class Matrix:
         return Matrix(*self.shape, dtype=self.dtype,
                       dist=self.dist if dist == 'inherit' else dist)
 
-    def __setitem__(self, i, x):
-        # assert i == slice(None)
-        if isinstance(x, np.ndarray):
-            1 / 0  # sssssself.array[:] = x
-        else:
-            x.eval(self)
+    def __setitem__(self, item, value):
+        assert item == slice(None)
+        assert isinstance(value, MatrixMatrixProduct)
+        value.eval(self)
 
-    def __iadd__(self, x):
-        x.eval(self, 1.0)
+    def __iadd__(self, value):
+        value.eval(self, 1.0)
         return self
 
-    def multiply(self, alpha, opa, b, opb, beta=0.0, out=None,
-                 symmetric=False):
-        """BLAS-style Matrix-matrix multiplication.
+    def __matmul__(self, other):
+        return self.multiply(self, other)
 
-        See matrix_matrix_multipliction() for details.
-        """
-        dist = self.dist
-        if out is None:
-            assert beta == 0.0
-            if opa == 'N':
-                M = self.shape[0]
-            else:
-                M = self.shape[1]
-            if opb == 'N':
-                N = b.shape[1]
-            else:
-                N = b.shape[0]
-            out = Matrix(M, N, self.dtype,
-                         dist=(dist.comm, dist.rows, dist.columns))
-        if dist.comm.size > 1:
-            # Special cases that don't need scalapack - most likely also
-            # faster:
-            if alpha == 1.0 and opa == 'N' and opb == 'N':
-                return fastmmm(self, b, out, beta)
-            if alpha == 1.0 and beta == 1.0 and opa == 'N' and opb == 'C':
-                if symmetric:
-                    return fastmmm2(self, b, out)
-                else:
-                    return fastmmm2notsym(self, b, out)
-
-        dist.multiply(alpha, self, opa, b, opb, beta, out, symmetric)
-        return out
+    def multiply(self, other, symmetric=False):
+        if not isinstance(other, Matrix):
+            other = other.eval()
+        return MatrixMatrixProduct.from_matrices(self, other,
+                                                 symmetric=symmetric)
 
     def redist(self, other):
         """Redistribute to other BLACS layout."""
@@ -177,7 +238,7 @@ class Matrix:
         n1 = d1.rows * d1.columns
         n2 = d2.rows * d2.columns
         if n1 == n2 == 1:
-            other.array[:] = self.array
+            other.data[:] = self.data
             return
 
         if n2 == 1 and d1.blocksize is None:
@@ -186,13 +247,13 @@ class Matrix:
             if comm.rank == 0:
                 M = len(self)
                 m = (M + comm.size - 1) // comm.size
-                other.array[:m] = self.array
+                other.data[:m] = self.data
                 for r in range(1, comm.size):
                     m1 = min(r * m, M)
                     m2 = min(m1 + m, M)
-                    comm.receive(other.array[m1:m2], r)
+                    comm.receive(other.data[m1:m2], r)
             else:
-                comm.send(self.array, 0)
+                comm.send(self.data, 0)
             return
 
         if n1 == 1 and d2.blocksize is None:
@@ -201,13 +262,13 @@ class Matrix:
             if comm.rank == 0:
                 M = len(self)
                 m = (M + comm.size - 1) // comm.size
-                other.array[:] = self.array[:m]
+                other.data[:] = self.data[:m]
                 for r in range(1, comm.size):
                     m1 = min(r * m, M)
                     m2 = min(m1 + m, M)
-                    comm.send(self.array[m1:m2], r)
+                    comm.send(self.data[m1:m2], r)
             else:
-                comm.receive(other.array, 0)
+                comm.receive(other.data, 0)
             return
 
         c = d1.comm if d1.comm.size > d2.comm.size else d2.comm
@@ -224,17 +285,16 @@ class Matrix:
                 ctx = d1.desc[1]
             else:
                 ctx = d2.desc[1]
-            redist(d1, self.array, d2, other.array, ctx)
+            redist(d1, self.data, d2, other.data, ctx)
 
-    def invcholesky(self):
+    def invcholesky(self, comm=serial_comm):
         """Inverse of Cholesky decomposition.
 
         Only the lower part is used.
         """
-        if self.state == 'a sum is needed':
-            self.comm.sum(self.array, 0)
+        comm.sum(self.data, 0)
 
-        if self.comm.rank == 0:
+        if comm.rank == 0:
             if self.dist.comm.size > 1:
                 S = self.new(dist=(self.dist.comm, 1, 1))
                 self.redist(S)
@@ -242,20 +302,19 @@ class Matrix:
                 S = self
             if self.dist.comm.rank == 0:
                 if debug:
-                    S.array[np.triu_indices(S.shape[0], 1)] = 42.0
-                L_nn = linalg.cholesky(S.array,
+                    S.data[np.triu_indices(S.shape[0], 1)] = 42.0
+                L_nn = linalg.cholesky(S.data,
                                        lower=True,
                                        overwrite_a=True,
                                        check_finite=debug)
-                S.array[:] = linalg.inv(L_nn,
-                                        overwrite_a=True,
+                S.data[:] = linalg.inv(L_nn,
+                                       overwrite_a=True,
                                         check_finite=debug)
             if S is not self:
                 S.redist(self)
 
-        if self.comm.size > 1:
-            self.comm.broadcast(self.array, 0)
-            self.state == 'everything is fine'
+        if comm.size > 1:
+            comm.broadcast(self.data, 0)
 
     def eigh(self, cc=False, scalapack=(None, 1, 1, None)):
         """Calculate eigenvectors and eigenvalues.
@@ -271,7 +330,7 @@ class Matrix:
         slcomm, rows, columns, blocksize = scalapack
 
         if self.state == 'a sum is needed':
-            self.comm.sum(self.array, 0)
+            self.comm.sum(self.data, 0)
 
         slcomm = slcomm or self.dist.comm
         dist = (slcomm, rows, columns, blocksize)
@@ -292,10 +351,10 @@ class Matrix:
         if rows * columns == 1:
             if self.comm.rank == 0 and self.dist.comm.rank == 0:
                 if cc and H.dtype == complex:
-                    np.negative(H.array.imag, H.array.imag)
+                    np.negative(H.data.imag, H.data.imag)
                 if debug:
-                    H.array[np.triu_indices(H.shape[0], 1)] = 42.0
-                eps[:], H.array.T[:] = linalg.eigh(H.array,
+                    H.data[np.triu_indices(H.shape[0], 1)] = 42.0
+                eps[:], H.data.T[:] = linalg.eigh(H.data,
                                                    lower=True,  # ???
                                                    overwrite_a=True,
                                                    check_finite=debug)
@@ -303,9 +362,9 @@ class Matrix:
         else:
             if slcomm.rank < rows * columns:
                 assert cc
-                array = H.array.copy()
+                array = H.data.copy()
                 info = _gpaw.scalapack_diagonalize_dc(array, H.dist.desc, 'U',
-                                                      H.array, eps)
+                                                      H.data, eps)
                 assert info == 0, info
 
             # necessary to broadcast eps when some ranks are not used
@@ -320,7 +379,7 @@ class Matrix:
         assert (self.state == 'a sum is needed') == (
             self.comm.size > 1)
         if self.comm.size > 1:
-            self.comm.broadcast(self.array, 0)
+            self.comm.broadcast(self.data, 0)
             self.comm.broadcast(eps, 0)
             self.state == 'everything is fine'
 
@@ -329,7 +388,7 @@ class Matrix:
     def complex_conjugate(self):
         """Inplace complex conjugation."""
         if self.dtype == complex:
-            np.negative(self.array.imag, self.array.imag)
+            np.negative(self.data.imag, self.data.imag)
 
 
 def _matrix(M):
@@ -359,13 +418,13 @@ class NoDistribution:
             assert opa == 'N'
             assert opb == 'C' or opb == 'T' and a.dtype == float
             if a is b:
-                blas.rk(alpha, a.array, beta, c.array)
+                blas.rk(alpha, a.data, beta, c.data)
             else:
                 if beta == 1.0 and a.shape[1] == 0:
                     return
-                blas.r2k(0.5 * alpha, a.array, b.array, beta, c.array)
+                blas.r2k(0.5 * alpha, a.data, b.data, beta, c.data)
         else:
-            blas.mmm(alpha, a.array, opa, b.array, opb, beta, c.array)
+            blas.mmm(alpha, a.data, opa, b.data, opb, beta, c.data)
 
 
 class BLACSDistribution:
@@ -431,13 +490,13 @@ class BLACSDistribution:
             assert opb == 'C' or opb == 'T' and a.dtype == float
             N, K = a.shape
             if a is b:
-                _gpaw.pblas_rk(N, K, alpha, a.array,
-                               beta, c.array,
+                _gpaw.pblas_rk(N, K, alpha, a.data,
+                               beta, c.data,
                                a.dist.desc, c.dist.desc,
                                'U')
             else:
-                _gpaw.pblas_r2k(N, K, 0.5 * alpha, b.array, a.array,
-                                beta, c.array,
+                _gpaw.pblas_r2k(N, K, 0.5 * alpha, b.data, a.data,
+                                beta, c.data,
                                 b.dist.desc, a.dist.desc, c.dist.desc,
                                 'U')
         else:
@@ -447,8 +506,8 @@ class BLACSDistribution:
                 Ka, M = M, Ka
             if opb == 'N':
                 N, Kb = Kb, N
-            _gpaw.pblas_gemm(N, M, Ka, alpha, b.array, a.array,
-                             beta, c.array,
+            _gpaw.pblas_gemm(N, M, Ka, alpha, b.data, a.data,
+                             beta, c.data,
                              b.dist.desc, a.dist.desc, c.dist.desc,
                              opb, opa)
 
@@ -475,7 +534,7 @@ def create_distribution(M, N, comm=None, r=1, c=1, b=None):
 def fastmmm(m1, m2, m3, beta):
     comm = m1.dist.comm
 
-    buf1 = m2.array
+    buf1 = m2.data
 
     N = len(m1)
     n = (N + comm.size - 1) // comm.size
@@ -493,14 +552,14 @@ def fastmmm(m1, m2, m3, beta):
             if rn2 > rn1:
                 rrequest = comm.receive(buf2[:rn2 - rn1], rrank, 21, False)
             srank = (comm.rank - r - 1) % comm.size
-            if len(m2.array) > 0:
-                srequest = comm.send(m2.array, srank, 21, False)
+            if len(m2.data) > 0:
+                srequest = comm.send(m2.data, srank, 21, False)
 
         r0 = (comm.rank + r) % comm.size
         n1 = min(r0 * n, N)
         n2 = min(n1 + n, N)
-        blas.mmm(1.0, m1.array[:, n1:n2], 'N', buf1[:n2 - n1], 'N',
-                 beta, m3.array)
+        blas.mmm(1.0, m1.data[:, n1:n2], 'N', buf1[:n2 - n1], 'N',
+                 beta, m3.data)
 
         beta = 1.0
 
@@ -527,13 +586,13 @@ def fastmmm2(a, b, out):
     comm = a.dist.comm
     M, N = a.shape
     m = (M + comm.size - 1) // comm.size
-    mym = len(a.array)
+    mym = len(a.data)
 
     buf1 = np.empty((m, N), dtype=a.dtype)
     buf2 = np.empty((m, N), dtype=a.dtype)
     half = comm.size // 2
-    aa = a.array
-    bb = b.array
+    aa = a.data
+    bb = b.data
 
     for r in range(half + 1):
         rrequest = None
@@ -548,19 +607,19 @@ def fastmmm2(a, b, out):
             if not (skip and comm.rank < half) and m2 > m1:
                 rrequest = comm.receive(buf1[:m2 - m1], rrank, 11, False)
             if not (skip and comm.rank >= half) and mym > 0:
-                srequest = comm.send(b.array, srank, 11, False)
+                srequest = comm.send(b.data, srank, 11, False)
 
         if not (comm.size % 2 == 0 and r == half and comm.rank < half):
             m1 = min(((comm.rank - r) % comm.size) * m, M)
             m2 = min(m1 + m, M)
             if r == 0:
                 # symmmmmmmmmmmmmmmmmmmmmmetricccccccccccccccc
-                blas.mmm(1.0, aa, 'N', bb, 'C', 1.0, out.array[:, m1:m2])
+                blas.mmm(1.0, aa, 'N', bb, 'C', 1.0, out.data[:, m1:m2])
             else:
                 beta = 1.0 if r <= comm.rank else 0.0
                 blas.mmm(1.0, aa, 'N', buf2[:m2 - m1], 'C',
-                         beta, out.array[:, m1:m2])
-            # out.array[:, m1:m2] = m12.array[:, :m2 - m1]
+                         beta, out.data[:, m1:m2])
+            # out.data[:, m1:m2] = m12.data[:, :m2 - m1]
 
         if rrequest:
             comm.wait(rrequest)
@@ -580,7 +639,7 @@ def fastmmm2(a, b, out):
                 m2 = min(m1 + m, M)
                 if mym > 0 and m2 > m1:
                     requests.append(
-                        comm.send(out.array[:, m1:m2].T.conj().copy(),
+                        comm.send(out.data[:, m1:m2].T.conj().copy(),
                                   column, 12, False))
             elif comm.rank == column:
                 m1 = min(row * m, M)
@@ -592,7 +651,7 @@ def fastmmm2(a, b, out):
 
     comm.waitall(requests)
     for m1, m2, block in blocks:
-        out.array[:, m1:m2] += block
+        out.data[:, m1:m2] += block
 
     return out
 
@@ -607,12 +666,12 @@ def fastmmm2notsym(a, b, out):
     comm = a.dist.comm
     M, N = a.shape
     m = (M + comm.size - 1) // comm.size
-    mym = len(a.array)
+    mym = len(a.data)
 
     buf1 = np.empty((m, N), dtype=a.dtype)
     buf2 = np.empty((m, N), dtype=a.dtype)
-    aa = a.array
-    bb = b.array
+    aa = a.data
+    bb = b.data
 
     for r in range(comm.size):
         rrequest = None
@@ -626,12 +685,12 @@ def fastmmm2notsym(a, b, out):
             if m2 > m1:
                 rrequest = comm.receive(buf1[:m2 - m1], rrank, 11, False)
             if mym > 0:
-                srequest = comm.send(b.array, srank, 11, False)
+                srequest = comm.send(b.data, srank, 11, False)
 
         m1 = min(((comm.rank - r) % comm.size) * m, M)
         m2 = min(m1 + m, M)
         # symmmmmmmmmmmmmmmmmmmmmmetricccccccccccccccc ??
-        blas.mmm(1.0, aa, 'N', bb[:m2 - m1], 'C', 1.0, out.array[:, m1:m2])
+        blas.mmm(1.0, aa, 'N', bb[:m2 - m1], 'C', 1.0, out.data[:, m1:m2])
 
         if rrequest:
             comm.wait(rrequest)

@@ -54,16 +54,16 @@ class Projections:
         self.matrix = Matrix(nbands, I1, dtype, data, dist=bdist)
 
         if collinear:
-            self.myshape = self.matrix.array.shape
+            self.myshape = self.matrix.data.shape
         else:
-            self.myshape = (len(self.matrix.array), 2, I1 // 2)
+            self.myshape = (len(self.matrix.data), 2, I1 // 2)
 
     @property
     def array(self):
         if self.collinear:
-            return self.matrix.array
+            return self.matrix.data
         else:
-            return self.matrix.array.reshape(self.myshape)
+            return self.matrix.data.reshape(self.myshape)
 
     def new(self, bcomm='inherit', nbands=None, atom_partition=None):
         if bcomm == 'inherit':
@@ -80,7 +80,7 @@ class Projections:
         return Projections(n2 - n1, self.nproj_a,
                            self.atom_partition,
                            self.bcomm, self.collinear, self.spin,
-                           self.matrix.dtype, self.matrix.array[n1:n2])
+                           self.matrix.dtype, self.matrix.data[n1:n2])
 
     def items(self):
         for a, I1, I2 in self.indices:
@@ -139,7 +139,7 @@ class Projections:
         shape = self.myshape[:-1]
         shapes = [shape + (nproj,) for nproj in self.nproj_a]
 
-        d = self.atom_partition.arraydict(shapes, self.matrix.array.dtype)
+        d = self.atom_partition.arraydict(shapes, self.matrix.data.dtype)
         for a, I1, I2 in self.indices:
             d[a][:] = self.array[..., I1:I2]  # Blocks will be contiguous
         return d
