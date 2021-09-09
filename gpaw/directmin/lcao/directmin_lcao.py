@@ -32,7 +32,7 @@ class DirectMinLCAO(DirectLCAO):
     def __repr__(self):
         pass
 
-    def set_reference_orbitlas(self, wfs, n_dim):
+    def set_reference_orbitals(self, wfs, n_dim):
         for kpt in wfs.kpt_u:
             u = self.kpointval(kpt)
             self.reference_orbitals[u] = np.copy(kpt.C_nM[:n_dim[u]])

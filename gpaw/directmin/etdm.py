@@ -230,7 +230,7 @@ class ETDM:
             if not self.ind_up[k][0].size or not self.ind_up[k][1].size:
                 self.n_dim[k] = 0
         # set reference orbitals
-        self.dm_helper.set_reference_orbitlas(wfs, self.n_dim)
+        self.dm_helper.set_reference_orbitals(wfs, self.n_dim)
 
     def set_variable_matrices(self, kpt_u):
 
@@ -523,7 +523,7 @@ class ETDM:
             if self.update_ref_orbs_canonical or self.restart:
                 self.get_canonical_representation(ham, wfs, dens)
             else:
-                self.dm_helper.set_reference_orbitlas(wfs, self.n_dim)
+                self.dm_helper.set_reference_orbitals(wfs, self.n_dim)
                 for kpt in wfs.kpt_u:
                     u = self.kpointval(kpt)
                     self.a_mat_u[u] = np.zeros_like(self.a_mat_u[u])
@@ -628,7 +628,7 @@ class ETDM:
                         wfs.occupations.numbers = \
                             self.initial_occupation_numbers
 
-            self.dm_helper.set_reference_orbitlas(wfs, self.n_dim)
+            self.dm_helper.set_reference_orbitals(wfs, self.n_dim)
             for kpt in wfs.kpt_u:
                 u = self.kpointval(kpt)
                 self.a_mat_u[u] = np.zeros_like(self.a_mat_u[u])
