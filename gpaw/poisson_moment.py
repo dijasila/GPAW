@@ -84,10 +84,11 @@ class MomentCorrectionPoissonSolver(_PoissonSolver):
             >>>                       {'moms': moms_list2, 'center': center2},
             >>>                       ...]
 
-        Here moms_listX is list of integers of multipole moments to be corrected
-        at centerX.
+        Here moms_listX is list of integers of multipole moments to be
+        corrected at centerX.
 
-        Optionally an integer to place moment corrections at the center of the box
+        Optionally an integer to place moment corrections at the center of the
+        box
     timer
         timer
 
