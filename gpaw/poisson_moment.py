@@ -69,18 +69,27 @@ def describe_dict(mom: Dict[str, Any]) -> str:
 
 
 class MomentCorrectionPoissonSolver(_PoissonSolver):
-    """MomentCorrectionPoissonSolver
+    """Wrapper for the poisson solver that includes moment corrections
 
-    Parameter syntax:
+    Parameters
+    ----------
+    poissonsolver
+        underlying poisson solver
+    moment_corrections
+        list of moment corrections, expressed as dictionaries
+        `{'moms': ..., 'center': ...}` that specify the multipole moments
+        and their centres.
 
-    moment_corrections = [{'moms': moms_list1, 'center': center1},
-                          {'moms': moms_list2, 'center': center2},
-                          ...]
-    Here moms_listX is list of integers of multipole moments to be corrected
-    at centerX.
+            >>> moment_corrections = [{'moms': moms_list1, 'center': center1},
+            >>>                       {'moms': moms_list2, 'center': center2},
+            >>>                       ...]
 
-    Important: provide timer for PoissonSolver to analyze the cost of
-    the multipole moment corrections and grid extension to your system!
+        Here moms_listX is list of integers of multipole moments to be corrected
+        at centerX.
+
+        Optionally an integer to place moment corrections at the center of the box
+    timer
+        timer
 
     """
 
