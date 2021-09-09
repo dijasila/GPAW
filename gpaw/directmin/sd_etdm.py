@@ -165,6 +165,11 @@ class LBFGS(SearchDirectionBase):
         return {'name': self.name,
                 'memory': self.memory}
 
+    def reset(self):
+        self.kp = {}
+        self.p = 0
+        self.k = 0
+
     def update_data(self, wfs, x_k1, g_k1, precond=None):
 
         self.iters += 1
@@ -281,6 +286,11 @@ class LBFGS_P(SearchDirectionBase):
         return {'name': self.name,
                 'memory': self.memory,
                 'beta_0': self.beta_0}
+
+    def reset(self):
+        self.kp = {}
+        self.p = 0
+        self.k = 0
 
     def update_data(self, wfs, x_k1, g_k1, hess_1=None):
         self.iters += 1
@@ -413,6 +423,11 @@ class LSR1P(SearchDirectionBase):
         return {'name': self.name,
                 'memory': self.memory,
                 'method': self.method}
+
+    def reset(self):
+        self.kp = {}
+        self.p = 0
+        self.k = 0
 
     def update_data(self, wfs, x_k1, g_k1, precond=None):
 

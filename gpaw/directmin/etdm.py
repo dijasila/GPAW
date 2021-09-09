@@ -638,6 +638,7 @@ class ETDM:
         self.dm_helper = None
         self.error = np.inf
         self.initialized = False
+        self.searchdir_algo.reset()
 
     def sort_wavefunctions(self, ham, wfs, use_eps=False):
         """
