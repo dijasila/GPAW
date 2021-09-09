@@ -210,7 +210,9 @@ class SCFLoop:
             if energy_diff_after_scf > 1.0e-6:
                 warnings.warn('Jump in energy of %f eV detected at the end of '
                               'SCF after getting canonical orbitals, SCF '
-                              'might have converged to the wrong solution'
+                              'might have converged to the wrong solution '
+                              'or achieved energy convergence to the correct '
+                              'solution above 1.0e-6 eV'
                               % (energy_diff_after_scf))
 
             log('\nOccupied states converged after'
