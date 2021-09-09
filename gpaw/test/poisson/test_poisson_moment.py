@@ -175,9 +175,10 @@ def test_poisson_moment_correction(gd):
                 plt.ylim(np.array([-1, 1]) * 0.15)
 
     def poisson_solve(gd, rho_g, poisson):
+        poisson.set_grid_descriptor(gd)
         phi_g = gd.zeros()
-        npoisson = poisson.solve(phi_g, rho_g)
-        return phi_g, npoisson
+        poisson.solve(phi_g, rho_g)
+        return phi_g
 
     def compare(phi1_g, phi2_g, tol, slice=None):
         big_phi1_g = gd.collect(phi1_g)
@@ -188,26 +189,18 @@ def test_poisson_moment_correction(gd):
         if gd.comm.rank == 0:
             equal(np.max(np.absolute(big_phi1_g - big_phi2_g)), 0.0, tol)
 
-    def compare_notequal(phi1_g, phi2_g, tol):
-        big_phi1_g = gd.collect(phi1_g)
-        big_phi2_g = gd.collect(phi2_g)
-        if gd.comm.rank == 0:
-            equal(np.max(np.absolute(big_phi1_g - big_phi2_g)), 0.0, tol)
-
     # Get reference from default poissonsolver
     # Using the default solver the potential is forced to zero at the box
     # boundries. The potential thus has the wrong shape near the boundries
     # but is nearly right in the center of the box
     poisson_ref = PoissonSolver()
-    poisson_ref.set_grid_descriptor(gd)
-    phiref_g, npoisson = poisson_solve(gd, rho_g, poisson_ref)
+    phiref_g = poisson_solve(gd, rho_g, poisson_ref)
 
     # Get reference from extravacuum solver
     # With 4 times extra vacuum the potential is well converged everywhere
     poisson_extra = ExtraVacuumPoissonSolver(gpts=4 * gd.N_c,
                                              poissonsolver_large=poisson_ref)
-    poisson_extra.set_grid_descriptor(gd)
-    phiref_extra_g, npoisson = poisson_solve(gd, rho_g, poisson_extra)
+    phiref_extra_g = poisson_solve(gd, rho_g, poisson_extra)
 
     # Test the MomentCorrectionPoissonSolver
 
@@ -215,8 +208,7 @@ def test_poisson_moment_correction(gd):
     # exactly as the underlying solver
     poisson = MomentCorrectionPoissonSolver(poissonsolver=poisson_ref,
                                             moment_corrections=None)
-    poisson.set_grid_descriptor(gd)
-    phi_g, npoisson = poisson_solve(gd, rho_g, poisson)
+    phi_g = poisson_solve(gd, rho_g, poisson)
     plot_phi(phi_g, 'phi no correction')
     compare(phi_g, phiref_g, 0.0)
 
@@ -226,8 +218,7 @@ def test_poisson_moment_correction(gd):
     # reference
     poisson = MomentCorrectionPoissonSolver(poissonsolver=poisson_extra,
                                             moment_corrections=None)
-    poisson.set_grid_descriptor(gd)
-    phi_g, npoisson = poisson_solve(gd, rho_g, poisson)
+    phi_g = poisson_solve(gd, rho_g, poisson)
     plot_phi(phi_g, 'phi extra vacuum no correction')
     compare(phi_g, phiref_extra_g, 0.0)
 
@@ -237,8 +228,7 @@ def test_poisson_moment_correction(gd):
     # The closer we are to the center the better though
     poisson = MomentCorrectionPoissonSolver(poissonsolver=poisson_ref,
                                             moment_corrections=4)
-    poisson.set_grid_descriptor(gd)
-    phi_g, npoisson = poisson_solve(gd, rho_g, poisson)
+    phi_g = poisson_solve(gd, rho_g, poisson)
     plot_phi(phi_g, 'phi dipole correction')
     compare(phi_g, phiref_g, 3.5e-2, slice=center_slice_25)
     compare(phi_g, phiref_g, 2.5e-2, slice=center_slice_40)
@@ -255,8 +245,7 @@ def test_poisson_moment_correction(gd):
     poisson = MomentCorrectionPoissonSolver(
         poissonsolver=poisson_ref,
         moment_corrections=moment_corrections)
-    poisson.set_grid_descriptor(gd)
-    phiref_moment_g, npoisson = poisson_solve(gd, rho_g, poisson)
+    phiref_moment_g = poisson_solve(gd, rho_g, poisson)
     plot_phi(phiref_moment_g, 'phi multi dipole correction')
     compare(phiref_moment_g, phiref_extra_g, 3e-3)
 
@@ -269,8 +258,7 @@ def test_poisson_moment_correction(gd):
     poisson = MomentCorrectionPoissonSolver(
         poissonsolver=poisson_extra,
         moment_corrections=moment_corrections)
-    poisson.set_grid_descriptor(gd)
-    phi_g, npoisson = poisson_solve(gd, rho_g, poisson)
+    phi_g = poisson_solve(gd, rho_g, poisson)
     plot_phi(phi_g, 'phi extra vacuum + multi dipole correction')
     compare(phi_g, phiref_moment_g, 5e-4)
 
