@@ -1,5 +1,3 @@
-from functools import partial
-
 from ase.utils.timing import timer
 import numpy as np
 
@@ -102,13 +100,13 @@ class Davidson(Eigensolver):
 
         self.subspace_diagonalize(ham, wfs, kpt)
 
-        psit = kpt.psit
-        psit2 = psit.new(buf=wfs.work_array)
-        P = kpt.projections
+        psit = kpt.psit.wave_functions
+        psit2 = psit.new(data=wfs.work_array)
+        P = kpt.projections.as_matrix()
         P2 = P.new()
         P3 = P.new()
         M = wfs.work_matrix_nn
-        dS = wfs.setups.dS
+
         comm = wfs.gd.comm
 
         is_gridband_master: bool = (
@@ -124,42 +122,56 @@ class Davidson(Eigensolver):
             if e_N is not None:
                 eps_N[:B] = e_N
 
-        Ht = partial(wfs.apply_pseudo_hamiltonian, kpt, ham)
+        def Ht(x, y):
+            wfs.apply_pseudo_hamiltonian(kpt, ham, x.data, y.data)
+
+        from gpaw.core.wfs import BlockMatrix
+        from gpaw.utilities import unpack
+
+        dS = BlockMatrix({a: wfs.setups[a].dO_ii
+                          for a in kpt.projections.layout.atomdist.indices},
+                         kpt.projections.layout)
+        dH = BlockMatrix({a: unpack(ham.dH_asp[a][kpt.s])
+                          for a in kpt.projections.layout.atomdist.indices},
+                         kpt.projections.layout)
 
         if self.keep_htpsit:
-            R = psit.new(buf=self.Htpsit_nG)
+            R = psit.new(data=self.Htpsit_nG)
         else:
-            R = psit.apply(Ht)
+            R = psit.new()
+            Ht(psit, R)
 
-        self.calculate_residuals(kpt, wfs, ham, psit, P, kpt.eps_n, R, P2)
+        self.calculate_residuals(kpt, wfs, ham, dH, dS,
+                                 psit, P, kpt.eps_n, R, P2)
 
+        dv = psit.layout.dv
         precond = self.preconditioner
 
         for nit in range(self.niter):
             if nit == self.niter - 1:
-                error = np.dot(weights, [integrate(R_G) for R_G in R.array])
+                error = np.dot(weights, [integrate(R_G) for R_G in R.data])
 
-            for psit_G, R_G, psit2_G in zip(psit.array, R.array, psit2.array):
+            for psit_G, R_G, psit2_G in zip(psit.data, R.data, psit2.data):
                 ekin = precond.calculate_kinetic_energy(psit_G, kpt)
                 precond(R_G, kpt, ekin, out=psit2_G)
 
             # Calculate projections
-            psit2.matrix_elements(wfs.pt, out=P2)
+            kpt.projectors.integrate(psit2, out=P2)
 
             def copy(M, C_nn):
-                comm.sum(M.array, 0)
+                comm.sum(M.data, 0)
                 if comm.rank == 0:
                     M.complex_conjugate()
                     M.redist(M0)
                     if bd.comm.rank == 0:
-                        C_nn[:] = M0.array
+                        C_nn[:] = M0.data
 
             with self.timer('calc. matrices'):
                 # <psi2 | H | psi2>
-                psit2.matrix_elements(
-                    operator=Ht, result=R, out=M, symmetric=True, cc=True)
-                ham.dH(P2, out=P3)
-                mmm(1.0, P2, 'N', P3, 'C', 1.0, M)  # , symmetric=True)
+                Ht(psit2, R)
+                M[:] = dv * psit2 @ R.C  #Symmetric=True
+                P3 = P2 @ dH
+                M += P2 @ P3.C
                 copy(M, H_NN[B:, B:])
 
                 # <psi2 | H | psi>
@@ -188,7 +200,8 @@ class Davidson(Eigensolver):
                     S_NN[np.triu_indices(2 * B, 1)] = 42.0
 
                 self.diagonalizer_backend.diagonalize(
-                    H_NN, S_NN, eps_N, is_master=is_gridband_master,
+                    H_NN, S_NN, eps_N,
+                    is_master=is_gridband_master,
                     debug=debug)
 
             if comm.rank == 0:

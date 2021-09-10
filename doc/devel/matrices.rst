@@ -9,7 +9,7 @@ A simple example that we can run with MPI on 4 cores::
     from gpaw.matrix import Matrix
     from gpaw.mpi import world
     a = Matrix(5, 5, dist=(world, 2, 2, 2))
-    a.array[:] = world.rank
+    a.data[:] = world.rank
     print(world.rank, a.array.shape)
 
 Here, we have created a 5x5 :class:`Matrix` of floats distributed on a 2x2
@@ -27,7 +27,7 @@ Let's create a new matrix ``b`` and :meth:`redistribute <Matrix.redist>` from
     b = a.new(dist=(None, 1, 1, None))
     a.redist(b)
     if world.rank == 0:
-        print(b.array)
+        print(b.data)
 
 This will output::
 
@@ -40,9 +40,10 @@ This will output::
 Matrix-matrix :meth:`multiplication <matrix_matrix_multiply>`
 works like this::
 
-    from gpaw.matrix import matrix_matrix_multiply as mmm
-    c = mmm(1.0, a, 'N', a, 'T')
-    mmm(1.0, a, 'N', a, 'T', 1.0, c, symmetric=True)
+    c = (a @ a.H).eval()
+    c = a.new()
+    c[:] = a @ a.H
+    c[:] = 0.5 * a @ a.H
 
 .. autofunction:: matrix_matrix_multiply
 

@@ -8,6 +8,7 @@ from gpaw.pw.lfc import PWLFC
 from gpaw.core.arrays import DistributedArrays
 from gpaw.core.layout import Layout
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
+from gpaw.matrix import Matrix
 
 
 class Function:
@@ -51,12 +52,18 @@ class AtomCenteredFunctions:
 
     def add_to(self, functions, coefs):
         self._lacy_init()
+        if isinstance(coefs, Matrix):
+            coefs = AtomArrays(self.layout, functions.shape, functions.comm,
+                               coefs.data)
         self.lfc.add(functions.data, coefs, q=0)
 
     def integrate(self, functions, out=None):
         self._lacy_init()
         if out is None:
             out = self.layout.empty(functions.shape, functions.comm)
+        elif isinstance(out, Matrix):
+            out = AtomArrays(self.layout, functions.shape, functions.comm,
+                             out.data)
         self.lfc.integrate(functions.data, out, q=0)
         return out
 

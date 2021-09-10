@@ -225,6 +225,11 @@ class Matrix:
         value.eval(self, 1.0)
         return self
 
+    def __isub__(self, value):
+        assert isinstance(value, Matrix)
+        self.data -= value.data
+        return self
+
     def __matmul__(self, other):
         if not isinstance(other, (Matrix, MatrixMatrixProduct)):
             return NotImplemented

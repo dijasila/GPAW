@@ -145,27 +145,24 @@ class Eigensolver:
         """Implemented in subclasses."""
         raise NotImplementedError
 
-    def calculate_residuals(self, kpt, wfs, ham, psit, P, eps_n,
+    def calculate_residuals(self, kpt, wfs, ham, dH, dS, psit, P, eps_n,
                             R, C, n_x=None, calculate_change=False):
         """Calculate residual.
 
         From R=Ht*psit calculate R=H*psit-eps*S*psit."""
 
-        for R_G, eps, psit_G in zip(R.array, eps_n, psit.array):
+        for R_G, eps, psit_G in zip(R.data, eps_n, psit.data):
             axpy(-eps, psit_G, R_G)
 
-        ham.dH(P, out=C)
-        for a, I1, I2 in P.indices:
-            dS_ii = ham.setups[a].dO_ii
-            C.array[..., I1:I2] -= np.dot((P.array[..., I1:I2].T * eps_n).T,
-                                          dS_ii)
+        C[:] = P @ dH
+        C -= P.new(data=P.data * eps_n[:, np.newaxis]) @ dS
 
-        ham.xc.add_correction(kpt, psit.array, R.array,
-                              {a: P_ni for a, P_ni in P.items()},
-                              {a: C_ni for a, C_ni in C.items()},
+        ham.xc.add_correction(kpt, psit.data, R.data,
+                              P,
+                              C,
                               n_x,
                               calculate_change)
-        wfs.pt.add(R.array, {a: C_ni for a, C_ni in C.items()}, kpt.q)
+        kpt.projectors.add_to(R, C)
 
     @timer('Subspace diag')
     def subspace_diagonalize(self, ham, wfs, kpt):
@@ -218,7 +215,7 @@ class Eigensolver:
                 H[:] = psit.layout.dv * W @ W2.C
             else:
                 # Same, but faster:
-                H[:] = W.multiply2(Ht, W, out=tmp)
+                ...  # H[:] = W.multiply2(Ht, W, out=tmp)
 
             P2 = P @ dH
             H += P.multiply(P2.C, symmetric=True)
