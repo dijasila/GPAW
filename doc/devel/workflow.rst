@@ -107,7 +107,7 @@ Make some changes and commit::
 
 Push your branch to GitLab::
 
- $ git push --uspstream origin fix-somthing
+ $ git push --uspstream origin fix-something
 
 and click the link to create a merge-request (MR).  Mark the MR as DRAFT to
 signal that it is work-in-progress and remove the DRAFT-marker once the MR
@@ -153,7 +153,7 @@ For MR's with code changes:
 * make sure all functions have docstrings
 
 For MR's with documentation changes,
-build the html-pages and make sure everythintg looks OK::
+build the html-pages and make sure everything looks OK::
 
  $ pip install sphinx-rtd-theme
  $ cd gpaw/doc
