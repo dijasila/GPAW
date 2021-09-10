@@ -15,6 +15,11 @@ Development workflow
 
 .. contents::
 
+.. seealso::
+
+   * :ref:`writing documentation`
+   * :ref:`testing`
+
 
 Setting up your development environment
 =======================================
@@ -27,12 +32,12 @@ Make a venv_::
  $ source venv/bin/activate  # venv/bin/ is now first in $PATH
  $ pip install --upgrade pip
 
-Install ASE_::
+Install master branch of ASE_ in *editable* mode::
 
  $ git clone git@gitlab.com:ase/ase
  $ pip install --editable ase/
 
-Install GPAW::
+Same thing for GPAW::
 
  $ git clone git@gitlab.com:gpaw/gpaw
  $ echo "noblas = True; nolibxc = True" > gpaw/siteconfig.py
@@ -40,35 +45,47 @@ Install GPAW::
 
 .. note::
 
-    ``noblas = True``: Use the BLAS library built into  NumPy_
-    (usually OpenBLAS).
+    Here we used a simple ``siteconfig.py`` that *should* always work:
 
-    ``nolibxc = True``: Use GPAW's own XC-functionals
-    (only LDA, PBE, revPBE, RPBE and PW91).
+    * ``noblas = True``: Use the BLAS library built into  NumPy_
+      (usually OpenBLAS).
+    * ``nolibxc = True``: Use GPAW's own XC-functionals
+      (only LDA, PBE, revPBE, RPBE and PW91).
 
-Get PAW datasets::
+    See :ref:`siteconfig` for details.
+
+Download PAW datasets::
 
  $ gpaw install-data --register ~/PAWDATA
+
 
 Run the tests
 =============
 
-::
+The test-suite can be found in :git:`gpaw/test/`.  Run it like this::
 
  $ pip install pytest-xdist
  $ pytest -n4
 
-With MPI (2, 4 and 8 cores)::
+And with MPI (2, 4 and 8 cores)::
 
  $ mpiexec -n 2 pytest
+
+.. warning::
+
+   This will take forever!  It's a good idea to learn and master pytest_'s
+   command-line options for selecting the subset of all the tests that are
+   relevant.
 
 
 Creating a merge request
 ========================
 
-Request to become a member of the ``gpaw`` group on GitLab.
+Request to become a member of the ``gpaw`` project on GitLab
+`here <https://gitlab.com/gpaw/gpaw/-/project_members>`__.  This will
+allow you to push branches to the central repository (see below).
 
-::
+Create a branch for your changes::
 
  $ cd gpaw
  $ git switch -c fix-something
@@ -81,9 +98,9 @@ Request to become a member of the ``gpaw`` group on GitLab.
    * ``git branch fix-something && git checkout fix-something``
    * ``git checkout -b fix-something``
 
-   :xkcd:`More git-tricks <1597>`__.
+   :xkcd:`More git-tricks <1597>`.
 
-Make changes and commit::
+Make some changes and commit::
 
  $ git add file1 file2 ...
  $ git commit -m "Short summary of changes"
@@ -121,3 +138,24 @@ It's a good idea to also run the CI-checks locally::
 
 .. _Static code analysis: https://mypy.readthedocs.io/en/stable/
 .. _flake8: https://flake8.pycqa.org/en/latest/
+
+
+A good MR
+=========
+
+* is short
+* does one thing
+* is not too old
+
+For MR's with code changes:
+
+* make sure there is a test that covers the new/fixed code
+* make sure all functions have docstrings
+
+For MR's with documentation changes,
+build the html-pages and make sure everythintg looks OK::
+
+ $ pip install sphinx-rtd-theme
+ $ cd gpaw/doc
+ $ make
+ $ make browse
