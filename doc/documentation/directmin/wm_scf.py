@@ -1,3 +1,4 @@
+import numpy as np
 from ase import Atoms
 from gpaw import GPAW, FermiDirac, LCAO, ConvergenceError
 from ase.parallel import parprint
@@ -101,7 +102,6 @@ output = \
 384	21	-1802.1232238298205	21	659.9850523471832	2085.758
 """
 
-import numpy as np
 output.splitlines()
 
 # this is saved data
