@@ -117,7 +117,7 @@ Examples of scripts to run such calcualtions :download:`run_g2_with_dm_ui.py`, :
 ```````````````````````
 In this test, the ground state of liquid water configurations with 32, 64, 128
 molecules and the TZDP basis set are calculated. The geometries are taken
-from `here <https://wiki.fysik.dtu.dk/gpaw/devel/benchmarks.html>`_
+from `here <https://wiki.fysik.dtu.dk/gpaw/devel/benchmarks.html>`_.
 The GPAW parameters used in this test include: the PBE functional, grid spacing h=0.2, and
 8-core domain decomposition. The convergence criterion is a
 change in density is smaller than `10^{-6}` electrons per valence electron.
