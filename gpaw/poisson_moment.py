@@ -80,15 +80,19 @@ class MomentCorrectionPoissonSolver(_PoissonSolver):
         `{'moms': ..., 'center': ...}` that specify the multipole moments
         and their centres.
 
-            >>> moment_corrections = [{'moms': moms_list1, 'center': center1},
-            >>>                       {'moms': moms_list2, 'center': center2},
-            >>>                       ...]
+        moment_corrections = [{'moms': moms_list1, 'center': center1},
+                              {'moms': moms_list2, 'center': center2},
+                              ...]
 
         Here moms_listX is list of integers of multipole moments to be
-        corrected at centerX.
+        corrected at centerX. For example moms_list=range(4) corresponds to
+        s, p_x, p_y and p_z type multipoles.
 
-        Optionally an integer to place moment corrections at the center of the
-        box
+        Optionally setting moment_corrections to an integer m is equivalent to
+        including multipole moments corresponding to range(m) at the center of
+        the cell
+
+
     timer
         timer
 
