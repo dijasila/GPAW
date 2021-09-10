@@ -107,7 +107,7 @@ Make some changes and commit::
 
 Push your branch to GitLab::
 
- $ git push --uspstream origin fix-something
+ $ git push --set-upstream origin fix-something
 
 and click the link to create a merge-request (MR).  Mark the MR as DRAFT to
 signal that it is work-in-progress and remove the DRAFT-marker once the MR
@@ -140,19 +140,24 @@ It's a good idea to also run the CI-checks locally::
 .. _flake8: https://flake8.pycqa.org/en/latest/
 
 
+How to write a good MR
+======================
+
 A good MR
-=========
 
 * is short
 * does one thing
 * is not too old
 
-For MR's with code changes:
+For MRs with code changes:
 
 * make sure there is a test that covers the new/fixed code
-* make sure all functions have docstrings
+* make sure all variable and functions have descriptive names.
+* remember docstrings - if needed
+  (no need for an ``add_numbers()`` function to have an
+  ``"""Add numbers."""`` docstring).
 
-For MR's with documentation changes,
+For MRs with documentation changes,
 build the html-pages and make sure everything looks OK::
 
  $ pip install sphinx-rtd-theme
