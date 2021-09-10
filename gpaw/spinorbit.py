@@ -109,7 +109,7 @@ class WaveFunction:
 
         domain_comm.broadcast(v_msn, 0)
 
-        P_mI = self.projections.matrix.array
+        P_mI = self.projections.matrix.data
         P_mI[:] = v_msn.transpose((0, 2, 1)).copy().reshape((M, M)).dot(P_mI)
 
         sx_m = []
@@ -432,7 +432,7 @@ def extract_ibz_wave_functions(kpt_qs: List[List[KPoint]],
                 projections.array[1::2, 1] = P2_nI[n1:n2]
             else:
                 eig_m = eig_sn[0][n1:n2] * Ha
-                projections.matrix.array[:] = P1_nI[n1:n2]
+                projections.matrix.data[:] = P1_nI[n1:n2]
         else:
             eig_m = np.empty(0)
 

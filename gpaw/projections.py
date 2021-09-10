@@ -127,7 +127,7 @@ class Projections:
             return None
 
         if self.atom_partition.comm.size == 1:
-            return P.array
+            return P.data
 
         P_In = self.collect_atoms(P)
         if P_In is not None:
