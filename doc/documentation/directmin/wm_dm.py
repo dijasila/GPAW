@@ -1,7 +1,7 @@
 import numpy as np
 from ase import Atoms
 from gpaw import GPAW, LCAO, ConvergenceError
-from ase.parallel import parprint
+from ase.parallel import paropen
 from gpaw.utilities.memory import maxrss
 import time
 from gpaw.directmin.etdm import ETDM
@@ -56,45 +56,43 @@ r = [[1, 1, 1],
      [2, 1, 1],
      [2, 2, 1]]
 
-file2write = open('dm-water-results.txt', 'w')
+with paropen('dm-water-results.txt', 'w') as fd:
+    for x in r:
+        atoms = Atoms('32(OH2)', positions=positions)
+        atoms.set_cell((L, L, L))
+        atoms.set_pbc(1)
+        atoms = atoms.repeat(x)
+        calc = GPAW(xc='PBE', h=0.2,
+                    convergence={'density': 1.0e-6},
+                    maxiter=333,
+                    basis='tzdp',
+                    mode=LCAO(),
+                    txt=str(len(atoms) // 3) + '_H2Omlcls_scf.txt',
+                    eigensolver=ETDM(matrix_exp='egdecomp-u-invar',
+                                     representation='u-invar'),
+                    mixer={'backend': 'no-mixing'},
+                    nbands='nao',
+                    occupations={'name': 'fixed-uniform'},
+                    symmetry='off',
+                    parallel={'domain': world.size})
 
-for x in r:
-    atoms = Atoms('32(OH2)', positions=positions)
-    atoms.set_cell((L, L, L))
-    atoms.set_pbc(1)
-    atoms = atoms.repeat(x)
-    calc = GPAW(xc='PBE', h=0.2,
-                convergence={'density': 1.0e-6},
-                maxiter=333,
-                basis='tzdp',
-                mode=LCAO(),
-                txt=str(len(atoms) // 3) + '_H2Omlcls_scf.txt',
-                eigensolver=ETDM(matrix_exp='egdecomp-u-invar',
-                                 representation='u-invar'),
-                mixer={'backend': 'no-mixing'},
-                nbands='nao',
-                occupations={'name': 'fixed-uniform'},
-                symmetry='off',
-                parallel={'domain': world.size})
+        atoms.set_calculator(calc)
 
-    atoms.set_calculator(calc)
+        try:
+            t1 = time.time()
+            e = atoms.get_potential_energy()
+            t2 = time.time()
+            steps = atoms.calc.get_number_of_iterations()
+            iters = atoms.calc.wfs.eigensolver.eg_count
+            memory = maxrss() / 1024.0 ** 2
+            print("{}\t{}\t{}\t{}\t{}\t{:.3f}".format(
+                len(atoms), steps, e, iters, t2 - t1, memory),
+                flush=True, file=fd)  # s,MB
+        except ConvergenceError:
+            print("{}\t{}\t{}\t{}\t{}\t{}".format(
+                None, None, None, None, None, None),
+                flush=True, file=fd)
 
-    try:
-        t1 = time.time()
-        e = atoms.get_potential_energy()
-        t2 = time.time()
-        steps = atoms.calc.get_number_of_iterations()
-        iters = atoms.calc.wfs.eigensolver.eg_count
-        memory = maxrss() / 1024.0 ** 2
-        parprint("{}\t{}\t{}\t{}\t{}\t{:.3f}".format(
-            len(atoms), steps, e, iters, t2 - t1, memory),
-            flush=True, file=file2write)  # s,MB
-    except ConvergenceError:
-        parprint("{}\t{}\t{}\t{}\t{}\t{}".format(
-            None, None, None, None, None, None),
-            flush=True, file=file2write)
-
-file2write.close()
 
 output = \
     """
@@ -114,9 +112,8 @@ for i in output.splitlines():
     # ignore last two columns which are memory and elapsed time
     saved_data[mol[0]] = np.array([float(_) for _ in mol[1:-2]])
 
-file2read = open('dm-water-results.txt', 'r')
-calculated_data_string = file2read.read().split('\n')
-file2read.close()
+with open('dm-water-results.txt', 'r') as fd:
+    calculated_data_string = fd.read().split('\n')
 
 # this is data calculated, we would like to coompare it to saved
 # compare number of iteration, energy and gradient evaluation,
