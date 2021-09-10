@@ -93,8 +93,6 @@ for x in r:
         parprint("{}\t{}\t{}\t{}\t{}\t{}".format(
             None, None, None, None, None, None),
             flush=True, file=file2write)
-    del calc
-    del atoms
 
 file2write.close()
 
