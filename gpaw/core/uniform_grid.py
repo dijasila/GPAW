@@ -137,6 +137,10 @@ class UniformGridFunctions(DistributedArrays):
                  data: np.ndarray = None):
         DistributedArrays. __init__(self, grid, shape, comm, data)
 
+    def new(self, data=None):
+        assert data is not None
+        return UniformGridFunctions(self.layout, self.shape, self.comm, data)
+
     def __getitem__(self, index):
         return UniformGridFunctions(data=self.data[index], grid=self.grid)
 

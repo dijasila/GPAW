@@ -148,7 +148,6 @@ class MatrixMatrixProduct:
                 else:
                     return fastmmm2notsym(A, B, out)
 
-        print(alpha, A, opa, B, opb, beta, out, self.symmetric)
         dist.multiply(alpha, A, opa, B, opb, beta, out, self.symmetric)
         return out
 
@@ -324,7 +323,7 @@ class Matrix:
         if comm.size > 1:
             comm.broadcast(self.data, 0)
 
-    def eigh(self, cc=False, scalapack=(None, 1, 1, None)):
+    def eigh(self, cc=False, scalapack=(None, 1, 1, None), comm=serial_comm):
         """Calculate eigenvectors and eigenvalues.
 
         Matrix must be symmetric/hermitian and stored in lower half.
@@ -337,8 +336,7 @@ class Matrix:
         """
         slcomm, rows, columns, blocksize = scalapack
 
-        if self.state == 'a sum is needed':
-            self.comm.sum(self.data, 0)
+        comm.sum(self.data, 0)
 
         slcomm = slcomm or self.dist.comm
         dist = (slcomm, rows, columns, blocksize)
@@ -357,15 +355,15 @@ class Matrix:
         eps = np.empty(H.shape[0])
 
         if rows * columns == 1:
-            if self.comm.rank == 0 and self.dist.comm.rank == 0:
+            if comm.rank == 0 and self.dist.comm.rank == 0:
                 if cc and H.dtype == complex:
                     np.negative(H.data.imag, H.data.imag)
                 if debug:
                     H.data[np.triu_indices(H.shape[0], 1)] = 42.0
                 eps[:], H.data.T[:] = linalg.eigh(H.data,
-                                                   lower=True,  # ???
-                                                   overwrite_a=True,
-                                                   check_finite=debug)
+                                                  lower=True,  # ???
+                                                  overwrite_a=True,
+                                                  check_finite=debug)
             self.dist.comm.broadcast(eps, 0)
         else:
             if slcomm.rank < rows * columns:
@@ -384,12 +382,9 @@ class Matrix:
         if redist:
             H.redist(self)
 
-        assert (self.state == 'a sum is needed') == (
-            self.comm.size > 1)
-        if self.comm.size > 1:
-            self.comm.broadcast(self.data, 0)
-            self.comm.broadcast(eps, 0)
-            self.state == 'everything is fine'
+        if comm.size > 1:
+            comm.broadcast(self.data, 0)
+            comm.broadcast(eps, 0)
 
         return eps
 

@@ -29,7 +29,6 @@ class WaveFunctions:
 
         S[:] = layout.dv * W @ W.C
         P2 = P @ dS
-        print('***', P2)
         S += P.multiply(P2.C, symmetric=True)
         #cc?
 
