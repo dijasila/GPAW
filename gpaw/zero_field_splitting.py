@@ -1,4 +1,4 @@
-"""Zero-field splitting (ZFS).
+"""Zero-field splitting.
 
 See::
 
