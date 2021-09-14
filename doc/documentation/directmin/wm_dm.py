@@ -2,14 +2,13 @@ import numpy as np
 from ase import Atoms
 from gpaw import GPAW, LCAO, ConvergenceError
 from ase.parallel import paropen
-from gpaw.utilities.memory import maxrss
 import time
 from gpaw.directmin.etdm import ETDM
 from gpaw.mpi import world
 
+from gpaw.atom.basis import BasisMaker
 from gpaw import setup_paths
 setup_paths.insert(0, '.')
-from gpaw.atom.basis import BasisMaker
 
 for symbol in ['H', 'O']:
     bm = BasisMaker(symbol, xc='PBE')
@@ -84,10 +83,9 @@ with paropen('dm-water-results.txt', 'w') as fd:
             t2 = time.time()
             steps = atoms.calc.get_number_of_iterations()
             iters = atoms.calc.wfs.eigensolver.eg_count
-            memory = maxrss() / 1024.0 ** 2
-            print("{}\t{}\t{}\t{}\t{}\t{:.3f}".format(
-                len(atoms), steps, e, iters, t2 - t1, memory),
-                flush=True, file=fd)  # s,MB
+            print("{}\t{}\t{}\t{}\t{}".format(
+                len(atoms), steps, e, iters, t2 - t1),
+                flush=True, file=fd)  # s
         except ConvergenceError:
             print("{}\t{}\t{}\t{}\t{}\t{}".format(
                 None, None, None, None, None, None),
@@ -124,8 +122,8 @@ for i in calculated_data_string:
     if i == '':
         continue
     mol = i.split()
-    # ignore last two columns which are memory and elapsed time
-    calculated_data[mol[0]] = np.array([float(_) for _ in mol[1:-2]])
+    # ignore last column (elapsed time)sure
+    calculated_data[mol[0]] = np.array([float(_) for _ in mol[1:-1]])
 
 error = np.array([3, 1.0e-2, 3])
 
