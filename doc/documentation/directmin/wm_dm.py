@@ -48,14 +48,13 @@ with paropen('dm-water-results.txt', 'w') as fd:
             t1 = time.time()
             e = atoms.get_potential_energy()
             t2 = time.time()
-            steps = atoms.calc.get_number_of_iterations()
             iters = atoms.calc.wfs.eigensolver.eg_count
-            print("{}\t{}\t{}\t{}\t{}".format(
-                len(atoms), steps, e, iters, t2 - t1),
+            print("{}\t{}".format(
+                iters, t2 - t1),
                 flush=True, file=fd)  # s
         except ConvergenceError:
-            print("{}\t{}\t{}\t{}\t{}\t{}".format(
-                None, None, None, None, None, None),
+            print("{}\t{}".format(
+                None, None, None, None),
                 flush=True, file=fd)
 
 
