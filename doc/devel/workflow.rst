@@ -65,6 +65,7 @@ Run the tests
 The test-suite can be found in :git:`gpaw/test/`.  Run it like this::
 
  $ pip install pytest-xdist
+ $ cd gpaw
  $ pytest -n4
 
 And with MPI (2, 4 and 8 cores)::
