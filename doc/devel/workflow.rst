@@ -24,7 +24,7 @@ Development workflow
 Setting up your development environment
 =======================================
 
-Make a venv_::
+Make a `virtual environment <venv>`_::
 
  $ mkdir devel
  $ cd devel
