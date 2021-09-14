@@ -10,7 +10,7 @@ and nuclei.
 Examples
 --------
 
->>> # 2.5 eV/Ang along z:
+>>> # 2.5 V/Ang along z:
 >>> from gpaw.external import ConstantElectricField
 >>> calc = GPAW(external=ConstantElectricField(2.5, [0, 0, 1]), ...)
 
