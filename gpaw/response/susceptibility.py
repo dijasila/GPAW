@@ -262,11 +262,16 @@ class FourComponentSusceptibilityTensor:
                 self.cfd.close()
             # Initiate new output file
             self.cfd = convert_string_to_fd(txt, self.world)
-        # Print to output file
-        if str(self.fd) != str(self.cfd) or txt is not None:
+        # Print to output file(s)
+        if str(self.fd) != str(self.cfd):
             print('---------------', file=self.fd)
             print(f'Calculating susceptibility spincomponent={spincomponent}'
-                  f'with q_c={pd.kd.bzk_kc[0]}', file=self.fd)
+                  f'with q_c={pd.kd.bzk_kc[0]}', flush=True, file=self.fd)
+        if txt is not None:
+            print('---------------', file=self.fd)
+            print(f'Calculating susceptibility spincomponent={spincomponent}'
+                  f'with q_c={pd.kd.bzk_kc[0]}', file=self.cfd)
+            print('---------------', flush=True, file=self.cfd)
 
         wd = FrequencyDescriptor(np.asarray(frequencies) / Hartree)
 
@@ -309,6 +314,9 @@ class FourComponentSusceptibilityTensor:
                                                 wd, txt=self.cfd)
 
         chi_wGG = self.invert_dyson(chiks_wGG, K_GG)
+
+        print(f'\nFinished calculating component', file=self.cfd)
+        print('---------------', flush=True, file=self.cfd)
 
         return pd, wd, chiks_wGG, chi_wGG
 
@@ -353,6 +361,7 @@ class FourComponentSusceptibilityTensor:
 
         chi = chi_ks + chi_ks Khxc chi
         """
+        print('Inverting Dyson-like equation', flush=True, file=self.cfd)
         chi_wGG = np.empty_like(chiks_wGG)
         for w, chiks_GG in enumerate(chiks_wGG):
             chi_GG = np.dot(np.linalg.inv(np.eye(len(chiks_GG)) +

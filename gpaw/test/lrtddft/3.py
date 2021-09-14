@@ -1,4 +1,3 @@
-from __future__ import print_function
 import sys
 import re
 
@@ -94,7 +93,8 @@ if rank == 0:
     lr.analyse(n)
     s = sio.getvalue()
     sys.stdout = origstdout
-    match = re.findall(r'%i: E=([0-9]*\.[0-9]*) eV, f=([0-9]*\.[0-9]*)*' % n, s)
+    match = re.findall(r'%i: E=([0-9]*\.[0-9]*) eV, f=([0-9]*\.[0-9]*)*' % n,
+                       s)
     Eanalyse = float(match[0][0])
     oszanalyse = float(match[0][1])
     print('From analyse           :', Eanalyse, oszanalyse)
@@ -104,7 +104,7 @@ if rank == 0:
     E2 = lr2[n].get_energy() * Hartree
     osz2 = lr2[n].get_oscillator_strength()
     print('Written and read object:', E2, osz2[0])
-    
+
     # Compare values of original and written/read objects
     equal(E, E2, 1e-4)
     for i in range(len(osz)):

@@ -66,4 +66,3 @@ Script
 ======
 
 .. literalinclude:: co_wavefunctions.py
-

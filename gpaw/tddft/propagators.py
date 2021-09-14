@@ -1,3 +1,4 @@
+# flake8: noqa
 # Written by Lauri Lehtovaara, 2007
 """This module implements time propagators for time-dependent density
 functional theory calculations."""

@@ -118,7 +118,8 @@ class ELF:
 
         # For periodic boundary conditions
         if self.paw.wfs.kd.symmetry is not None:
-            self.paw.wfs.kd.symmetry.symmetrize(self.taut_sG[0], self.paw.wfs.gd)
+            self.paw.wfs.kd.symmetry.symmetrize(self.taut_sG[0],
+                                                self.paw.wfs.gd)
 
         self.nt_grad2_sG[:] = 0.0
 

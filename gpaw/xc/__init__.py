@@ -68,8 +68,8 @@ def XC(kernel, parameters=None, atoms=None, collinear=True):
             from gpaw.xc.hybrid import HybridXC
             return HybridXC(parts[0], omega=float(parts[1][:-1]))
         elif name in ['HSE03', 'HSE06']:
-            from gpaw.xc.exx import EXX
-            return EXX(name, **kwargs)
+            from gpaw.hybrids import HybridXC
+            return HybridXC(name, **kwargs)
         elif name == 'BEE1':
             from gpaw.xc.bee import BEE1
             kernel = BEE1(parameters)

@@ -32,6 +32,7 @@ def hook(parser, args):
                         help='Run on N CPUs.')
     args, extra = parser.parse_known_args(args)
     if extra:
+        assert not args.arguments
         args.arguments = extra
 
     if args.command == 'python':
