@@ -4,7 +4,7 @@
 Development workflow
 ====================
 
-.. _ASE: https://wiki.fysik.dtu.dk/ase/
+.. _ASE_edit: https://wiki.fysik.dtu.dk/ase/
 .. _NumPy: http://docs.scipy.org/doc/numpy/reference/
 .. _SciPy: http://docs.scipy.org/doc/scipy/reference/
 .. _venv: https://docs.python.org/3/library/venv.html#module-venv
