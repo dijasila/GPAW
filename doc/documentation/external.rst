@@ -6,7 +6,6 @@ External potential
 External potentials are applied to all charged particles, i.e. electrons
 and nuclei.
 
-
 Examples
 --------
 
