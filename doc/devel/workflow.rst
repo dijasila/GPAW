@@ -24,7 +24,7 @@ Development workflow
 Setting up your development environment
 =======================================
 
-Make a venv_::
+Make a newvenv_::
 
  $ mkdir devel
  $ cd devel
@@ -37,7 +37,7 @@ Install master branch of ASE_ in *editable* mode::
  $ git clone git@gitlab.com:ase/ase
  $ pip install --editable ase/
 
-Same thing for GPAW::
+Same thing for GPAW installation::
 
  $ git clone git@gitlab.com:gpaw/gpaw
  $ echo "noblas = True; nolibxc = True" > gpaw/siteconfig.py
