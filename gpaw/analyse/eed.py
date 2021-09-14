@@ -1,5 +1,3 @@
-from __future__ import print_function
-
 import numpy as np
 from ase.units import Bohr, Hartree
 from ase.parallel import paropen
@@ -79,7 +77,8 @@ class ExteriorElectronDensity:
                         'relative EED weight: eed_weight']), end=' ', file=out)
 
         print(
-            '#; n   k s   weight      energy         occ  eed_weight', file=out)
+            '#; n   k s   weight      energy         occ  eed_weight',
+            file=out)
         for kpt in wfs.kpt_u:
             for n in range(wfs.bd.nbands):
                 print('%4d %3d %1d %8.5f  %10.5f  %10.5f  %10.5f' %

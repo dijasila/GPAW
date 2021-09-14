@@ -41,7 +41,8 @@ else:
     linspace = (0.92, 1.08, 7)  # eos numpy's linspace
 linspacestr = ''.join([str(t) + 'x' for t in linspace])[:-1]
 
-code = 'gpaw' + '-' + mode + str(e) + '_c' + str(constant_basis) + '_e' + linspacestr
+code = ('gpaw' + '-' + mode + str(e) + '_c' +
+        str(constant_basis) + '_e' + linspacestr)
 code = code + '_k' + str(kptdensity) + '_w' + str(width)
 code = code + '_r' + str(relativistic)
 

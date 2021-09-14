@@ -26,8 +26,9 @@ class DensityFourierTransform(Observer):
         """
 
         Observer.__init__(self, interval)
-        self.timestep = interval * timestep * attosec_to_autime # autime
-        self.omega_w = np.asarray(frequencies) * eV_to_aufrequency # autime^(-1)
+        self.timestep = interval * timestep * attosec_to_autime  # autime
+        self.omega_w = (np.asarray(frequencies) *
+                        eV_to_aufrequency)  # autime^(-1)
 
         if width is None:
             self.sigma = None
@@ -53,7 +54,8 @@ class DensityFourierTransform(Observer):
         self.gd = paw.density.gd
         self.finegd = paw.density.finegd
         self.nspins = paw.density.nspins
-        self.stencil = paw.input_parameters.stencils[1] # i.e. tar['InterpolationStencil']
+        # i.e. tar['InterpolationStencil']:
+        self.stencil = paw.input_parameters.stencils[1]
         self.interpolator = paw.density.interpolator
         self.cinterpolator = Transformer(self.gd, self.finegd, self.stencil, \
                                         dtype=self.dtype)
@@ -101,7 +103,7 @@ class DensityFourierTransform(Observer):
 
         for s in range(self.nspins):
             self.interpolator.apply(self.Ant_sG[s], self.Ant_sg[s])
-            
+
     def update(self, density):
 
         # Update time
@@ -294,7 +296,8 @@ class DensityFourierTransform(Observer):
             all_Ant_sG = None
 
         if debug:
-            assert all_Fnt_wsG is None or is_contiguous(all_Fnt_wsG, self.dtype)
+            assert all_Fnt_wsG is None or is_contiguous(all_Fnt_wsG,
+                                                        self.dtype)
             assert all_Ant_sG is None or is_contiguous(all_Ant_sG, float)
 
         if not self.allocated:

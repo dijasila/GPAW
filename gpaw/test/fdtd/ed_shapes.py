@@ -1,3 +1,4 @@
+# flake8: noqa
 from gpaw.fdtd.poisson_fdtd import QSFDTD
 from gpaw.fdtd.polarizable_material import PermittivityPlus, PolarizableMaterial, \
     PolarizableSphere, PolarizableBox, \

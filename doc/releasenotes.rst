@@ -12,6 +12,9 @@ Git master branch
 
 * Corresponding ASE release: ASE-3.18.1b1
 
+* Self-consistent calculations with hybrid functionals are now possible in
+  plane-wave mode.
+
 * We are now using setuptools_ instead of :mod:`distutils`.
   This means that installation with pip works much better.
 
@@ -58,6 +61,8 @@ Git master branch
 
 * Point-group symmetries now also used for non-periodic systems.
   Use ``symmetry={'point_group': False}`` if you don't want that.
+
+* :ref:`Marzari-Vanderbilt distribution function <manual_occ>` added.
 
 
 .. _setuptools: https://setuptools.readthedocs.io/en/latest/
