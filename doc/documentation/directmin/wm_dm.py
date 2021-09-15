@@ -22,7 +22,7 @@ r = [[1, 1, 1],
      [2, 1, 1],
      [2, 2, 1]]
 
-with paropen('dm-water-results.txt', 'w') as fd:
+with paropen('liquid-water-results.txt', 'w') as fd:
     for x in r:
         atoms = Atoms('32(OH2)', positions=positions)
         atoms.set_cell((L, L, L))
@@ -54,7 +54,7 @@ with paropen('dm-water-results.txt', 'w') as fd:
                 flush=True, file=fd)  # s
         except ConvergenceError:
             print("{}\t{}".format(
-                None, None, None, None),
+                None, None),
                 flush=True, file=fd)
 
 
