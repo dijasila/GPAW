@@ -39,8 +39,12 @@ class DistributedArrays:
             data = np.empty(fullshape, dtype)
 
         self.data = data
+        self._matrix = None
 
-    def matrix_view(self):
+    @property
+    def matrix(self):
+        if self._matrix is not None:
+            return self._matrix
         if self.layout_last:
             shape = (np.prod(self.shape), np.prod(self.layout.shape))
             myshape = (np.prod(self.myshape), np.prod(self.layout.myshape))
@@ -49,9 +53,10 @@ class DistributedArrays:
             shape = (np.prod(self.layout.shape), np.prod(self.shape))
             myshape = (np.prod(self.layout.myshape), np.prod(self.myshape))
             dist = (self.comm, 1, -1)
-        return Matrix(*shape,
-                      data=self.data.reshape(myshape),
-                      dist=dist)
+        self._matrix = Matrix(*shape,
+                              data=self.data.reshape(myshape),
+                              dist=dist)
+        return self._matrix
 
     def matrix_elements(self, other, *, symmetric=None, function=None,
                         out=None, add_to_out=False, domain_sum=True):
@@ -61,8 +66,8 @@ class DistributedArrays:
             symmetric = self is other
         if function:
             other = function(other)
-        M1 = self.matrix_view()
-        M2 = other.matrix_view()
+        M1 = self.matrix
+        M2 = other.matrix
         if self.layout_last and other.layout_last:
             assert not add_to_out
             M1.multiply(M2, opb='C', alpha=self.layout.dv, symmetric=symmetric,

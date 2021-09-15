@@ -140,6 +140,8 @@ class Matrix:
                  out=None,
                  beta=0.0,
                  symmetric=False):
+        if not isinstance(other, Matrix):
+            other = other.matrix
         A = self
         B = other
         dist = self.dist
@@ -149,6 +151,8 @@ class Matrix:
             N = B.shape[1] if opb == 'N' else B.shape[0]
             out = Matrix(M, N, A.dtype,
                          dist=(dist.comm, dist.rows, dist.columns))
+        elif not isinstance(out, Matrix):
+            out = out.matrix
 
         if dist.comm.size > 1:
             # Special cases that don't need scalapack - most likely also

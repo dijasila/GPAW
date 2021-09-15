@@ -103,16 +103,9 @@ class Davidson(Eigensolver):
         psit = kpt.psit.wave_functions
         psit2 = psit.new(data=wfs.work_array)
 
-        projections = kpt.projections
-        projections2 = projections.new()
-        projections3 = projections.new()
-
-        P = projections.matrix_view()
-        P2 = projections2.matrix_view()
-        P3 = projections3.matrix_view()
-
-        W = psit.matrix_view()
-        W2 = psit2.matrix_view()
+        proj = kpt.projections
+        proj2 = proj.new()
+        proj3 = proj.new()
 
         M = wfs.work_matrix_nn
 
@@ -136,33 +129,31 @@ class Davidson(Eigensolver):
         else:
             residual = psit.new()
 
-        R = residual.matrix_view()
-
         def Ht(x):
             wfs.apply_pseudo_hamiltonian(kpt, ham, x.data, residual.data)
             return residual
 
-        def dH(projections, out):
-            for a, I1, I2 in projections.layout.myindices:
+        def dH(proj, out):
+            for a, I1, I2 in proj.layout.myindices:
                 dh = unpack(ham.dH_asp[a][kpt.s])
-                out.data[I1:I2] = dh @ projections.data[I1:I2]
+                out.data[I1:I2] = dh @ proj.data[I1:I2]
             return out
 
-        def dS(projections, out):
-            for a, I1, I2 in projections.layout.myindices:
+        def dS(proj, out):
+            for a, I1, I2 in proj.layout.myindices:
                 ds = wfs.setups[a].dO_ii
-                out.data[I1:I2] = ds @ projections.data[I1:I2]
+                out.data[I1:I2] = ds @ proj.data[I1:I2]
             return out
 
         def me(a, b, **kwargs):
             return a.matrix_elements(b, domain_sum=False, out=M, **kwargs)
 
         if not self.keep_htpsit:
-            Ht(psit, projections3)
+            Ht(psit, proj3)
 
         self.calculate_residuals(kpt, wfs, ham, dH, dS,
-                                 psit, projections, kpt.eps_n, residual,
-                                 projections2, projections3)
+                                 psit, proj, kpt.eps_n, residual,
+                                 proj2, proj3)
 
         precond = self.preconditioner
 
@@ -177,7 +168,7 @@ class Davidson(Eigensolver):
                 precond(residual_G, kpt, ekin, out=psit2_G)
 
             # Calculate projections
-            kpt.projectors.integrate(psit2, out=projections2)
+            kpt.projectors.integrate(psit2, out=proj2)
 
             def copy(M, C_nn):
                 comm.sum(M.data, 0)
@@ -188,26 +179,26 @@ class Davidson(Eigensolver):
 
             # <psi2 | H | psi2>
             me(psit2, psit2, function=Ht)
-            me(projections2, projections2,
-               function=partial(dH, out=projections3),
+            me(proj2, proj2,
+               function=partial(dH, out=proj3),
                add_to_out=True)
             copy(M, H_NN[B:, B:])
 
             # <psi2 | H | psi>
             me(residual, psit)
-            P3.multiply(P, opa='C', beta=1.0, out=M)
+            proj3.matrix.multiply(proj, opa='C', beta=1.0, out=M)
             copy(M, H_NN[B:, :B])
 
             # <psi2 | S | psi2>
             me(psit2, psit2)
-            me(projections2, projections2,
-               function=partial(dS, out=projections3),
+            me(proj2, proj2,
+               function=partial(dS, out=proj3),
                add_to_out=True)
             copy(M, S_NN[B:, B:])
 
             # <psi2 | S | psi>
             me(psit2, psit)
-            P3.multiply(P, opa='C', beta=1.0, out=M)
+            proj3.matrix.multiply(proj, opa='C', beta=1.0, out=M)
             copy(M, S_NN[B:, :B])
 
             if is_gridband_master:
@@ -233,8 +224,8 @@ class Davidson(Eigensolver):
                 M0.redist(M)
             comm.broadcast(M.data, 0)
 
-            M.multiply(W, out=R)
-            P.multiply(M, opb='T', out=P3)
+            M.multiply(psit, out=residual)
+            proj.matrix.multiply(M, opb='T', out=proj3)
 
             if comm.rank == 0:
                 if bd.comm.rank == 0:
@@ -242,20 +233,19 @@ class Davidson(Eigensolver):
                 M0.redist(M)
             comm.broadcast(M.data, 0)
 
-            M.multiply(W2, beta=1.0, out=R)
-            P2.multiply(M, opb='T', beta=1.0, out=P3)
-            W[:] = R
-            P, P3 = P3, P
-            projections, projections3 = projections3, projections
-            kpt.projections = projections
+            M.multiply(psit2, beta=1.0, out=residual)
+            proj2.matrix.multiply(M, opb='T', beta=1.0, out=proj3)
+            psit.data[:] = residual.data
+            proj, proj3 = proj3, proj
+            kpt.projections = proj
 
             if nit < self.niter - 1:
                 Ht(psit)
                 self.calculate_residuals(
                     kpt, wfs,
                     ham, dH, dS,
-                    psit, projections, kpt.eps_n, residual,
-                    projections2, projections3)
+                    psit, proj, kpt.eps_n, residual,
+                    proj2, proj3)
 
         error = wfs.gd.comm.sum(error)
         return error

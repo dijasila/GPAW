@@ -12,6 +12,7 @@ class WaveFunctions:
 
         S = work_matrix
         projections2 = projections.new()
+        wfs2 = wfs.new(data=work_array)
 
         def dS(proj):
             for a, I1, I2 in proj.layout.myindices:
@@ -31,14 +32,9 @@ class WaveFunctions:
         domain_comm.broadcast(S.data, 0)
         #cc?
 
-        W = wfs.matrix_view()
-        P = projections.matrix_view()
-        P2 = projections2.matrix_view()
-        W2 = W.new(data=work_array)
-
-        S.multiply(W, out=W2)
-        P.multiply(S, opb='T', out=P2)
-        W[:] = W2
-        P[:] = P2
+        S.multiply(wfs, out=wfs2)
+        projections.matrix.multiply(S, opb='T', out=projections2)
+        wfs.data[:] = wfs2.data
+        projections.data[:] = projections2.data
 
         return projections

@@ -235,19 +235,15 @@ class Eigensolver:
         domain_comm.broadcast(eps_n, 0)
 
         kpt.eps_n = eps_n[wfs.bd.get_slice()]
-        W = psit.matrix_view()
-        W2 = psit2.matrix_view()
-        P = projections.matrix_view()
-        P2 = projections2.matrix_view()
 
         if self.keep_htpsit:
-            HW = W.new(data=self.Htpsit_nG)
-            H.multiply(W2, out=HW)
+            Htpsit = psit.new(data=self.Htpsit_nG)
+            H.multiply(psit2, out=Htpsit)
 
-        H.multiply(W, out=W2)
-        W[:] = W2
-        P.multiply(H, opb='T', out=P2)
-        P[:] = P2
+        H.multiply(psit, out=psit2)
+        psit.data[:] = psit2.data
+        projections.matrix.multiply(H, opb='T', out=projections2)
+        projections.data[:] = projections2.data
         # Rotate orbital dependent XC stuff:
         ham.xc.rotate(kpt, H.data.T)
 
