@@ -20,7 +20,11 @@ def test_acf():
 
     coefs = basis.layout.empty()
     if 0 in coefs:
+        print(coefs[0])
         coefs[0] = [1.0]
     f1 = pw.zeros()
-    basis.add_to(f1, coefs)
-    
+    f1 += coefs @ basis
+    r1 = f1.ifft()
+    x, y = r1.xy(10, 10, ...)
+    print(x)
+    print(y)

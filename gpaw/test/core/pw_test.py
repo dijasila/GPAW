@@ -15,4 +15,4 @@ def test_redist():
     f1.data[:] = 1.0
     f2 = f1.collect()
     assert (f2.data == 1.0).all()
-    assert f2.pw.grid.comm.size == 1
+    assert f2.layout.grid.comm.size == 1

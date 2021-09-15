@@ -35,7 +35,7 @@ class AtomCenteredFunctions:
         self._positions = np.array(positions)
 
         self.layout = AtomArraysLayout([sum(2 * f.l + 1 for f in funcs)
-                                        for funcs in functions],
+                                        for funcs in self.functions],
                                        atomdist,
                                        dtype)
 
@@ -87,7 +87,8 @@ class UniformGridAtomCenteredFunctions(AtomCenteredFunctions):
 
 class PlaneWaveAtomCenteredFunctions(AtomCenteredFunctions):
     def __init__(self, functions, positions, pw, atomdist=serial_comm):
-        AtomCenteredFunctions.__init__(self, functions, positions, pw.dtype,
+        AtomCenteredFunctions.__init__(self, functions, positions,
+                                       pw.grid.dtype,
                                        atomdist)
         self.pw = pw
 
@@ -131,6 +132,12 @@ class AtomArraysLayout(Layout):
         return AtomArrays(self, shape, comm)
 
 
+class LCACF:
+    def __init__(self, coefs, acfs):
+        self.coefs = coefs
+        self.acfs = acfs
+
+
 class AtomDistribution:
     def __init__(self, ranks, comm):
         self.comm = comm
@@ -144,10 +151,11 @@ class AtomArrays(DistributedArrays):
                  shape: int | tuple[int, ...] = (),
                  comm: MPIComm = serial_comm,
                  data: np.ndarray = None):
-        DistributedArrays. __init__(self, layout, shape, comm, data)
+        DistributedArrays. __init__(self, layout, shape, comm, data,
+                                    layout_last=False)
         self._arrays = {}
         for a, I1, I2 in layout.myindices:
-            self._arrays[a] = self.data[..., I1:I2].reshape(
+            self._arrays[a] = self.data[I1:I2].reshape(
                 self.myshape + layout.shapes[a])
 
     def __getitem__(self, a):
@@ -161,3 +169,8 @@ class AtomArrays(DistributedArrays):
 
     def __contains__(self, a):
         return a in self._arrays
+
+    def __matmul__(self, other):
+        assert isinstance(other, AtomCenteredFunctions)
+        return LCACF(self, other)
+        

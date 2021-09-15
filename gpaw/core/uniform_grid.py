@@ -153,21 +153,21 @@ class UniformGridFunctions(DistributedArrays):
         y = self.data[index]
         assert y.ndim == 1
         n = axes[-3:].index(...)
-        dx = (self.grid.cell[n]**2).sum()**0.5
-        x = np.arange(self.grid.dist.start[n], self.grid.dist.end[n]) * dx
+        dx = (self.layout.cell[n]**2).sum()**0.5
+        x = np.arange(self.layout.dist.start[n], self.layout.dist.end[n]) * dx
         return x, y
 
-    def redistribute(self, grid=None, out=None):
+    def redistribute(self, layout=None, out=None):
         if out is self:
             return out
         if out is None:
-            out = grid.empty(self.shape, self.comm)
-        if grid is None:
-            grid = out.grid
-        if self.grid.comm.size == 1 and grid.comm.size == 1:
+            out = layout.empty(self.shape, self.comm)
+        if layout is None:
+            layout = out.layout
+        if self.layout.comm.size == 1 and layout.comm.size == 1:
             out.data[:] = self.data
             return out
-        self.grid.redistributor(grid).redistribute(self, out)
+        self.layout.redistributor(layout).redistribute(self, out)
         return out
 
     def fft(self, plan=None, pw=None, out=None):

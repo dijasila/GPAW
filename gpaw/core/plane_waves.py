@@ -62,7 +62,7 @@ class PlaneWaves(Layout):
         self.grid = grid.new(pbc=(True, True, True))
         self.pbc = grid.pbc
 
-        self.dtype = complex
+        #self.dtype = grid.dtype
 
         G_plus_k, ekin, self.indices = find_reciprocal_vectors(ecut, grid)
 
@@ -121,7 +121,7 @@ class PlaneWaveExpansions(DistributedArrays):
                  shape: int | tuple[int, ...] = (),
                  comm: MPIComm = serial_comm,
                  data: np.ndarray = None):
-        DistributedArrays. __init__(self, pw, shape, comm, data)
+        DistributedArrays. __init__(self, pw, shape, comm, data, complex)
 
     def __repr__(self):
         return (f'PlaneWaveExpansions(pw={self.layout}, shape={self.shape}, '
