@@ -9,27 +9,17 @@ from gpaw.core.arrays import DistributedArrays
 from gpaw.core.layout import Layout
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
 from gpaw.matrix import Matrix
+from gpaw.spline import Spline
 
 
-class Function:
-    def __init__(self, l, rcut, f):
-        self.l = l
-        self.rcut = rcut
-        self.f = f
-
-    def get_angular_momentum_number(self):
-        return self.l
-
-    def get_cutoff(self):
-        return self.rcut
-
-    def map(self, r):
-        return self.f(r)
+def to_spline(l, rcut, f):
+    r = np.linspace(0, rcut, 100)
+    return Spline(l, rcut, f(r))
 
 
 class AtomCenteredFunctions:
     def __init__(self, functions, positions, dtype, atomdist=serial_comm):
-        self.functions = [[Function(*f) if isinstance(f, tuple) else f
+        self.functions = [[to_spline(*f) if isinstance(f, tuple) else f
                            for f in funcs]
                           for funcs in functions]
         self._positions = np.array(positions)
@@ -52,7 +42,7 @@ class AtomCenteredFunctions:
 
     def add_to(self, functions, coefs):
         self._lacy_init()
-        if isinstance(coefs, Matrix):
+        if 0:#isinstance(coefs, Matrix):
             coefs = AtomArrays(self.layout, functions.shape, functions.comm,
                                coefs.data)
         self.lfc.add(functions.data, coefs, q=0)
@@ -166,3 +156,9 @@ class AtomArrays(DistributedArrays):
 
     def __contains__(self, a):
         return a in self._arrays
+
+    def keys(self):
+        return self._arrays.keys()
+
+    def values(self):
+        return self._arrays.values()

@@ -153,9 +153,8 @@ class UniformGridFunctions(DistributedArrays):
         index = tuple([slice(0, None) if axis is ... else axis
                        for axis in axes])
         y = self.data[index]
-        assert y.ndim == 1
         n = axes[-3:].index(...)
-        dx = (self.grid.cell[n]**2).sum()**0.5
+        dx = (self.grid.cell[n]**2).sum()**0.5 / self.grid.size[n]
         x = np.arange(self.grid.start[n], self.grid.end[n]) * dx
         return x, y
 

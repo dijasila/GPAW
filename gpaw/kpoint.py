@@ -89,4 +89,4 @@ class KPoint:
     @property
     def psit_nG(self):
         if self.psit is not None:
-            return self.psit.wfs.data
+            return self.psit.wave_functions.data

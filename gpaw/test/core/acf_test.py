@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
-from gpaw.core import UniformGrid, PlaneWaves, PlaneWaveAtomCenteredFunctions
+from gpaw.core import (PlaneWaveAtomCenteredFunctions, PlaneWaves, UniformGrid,
+                       UniformGridAtomCenteredFunctions)
 from gpaw.mpi import world
 
 
@@ -23,8 +24,17 @@ def test_acf():
         print(coefs[0])
         coefs[0] = [1.0]
     f1 = pw.zeros()
-    f1 += coefs @ basis
+    basis.add_to(f1, coefs)
     r1 = f1.ifft()
     x, y = r1.xy(10, 10, ...)
+    print(x)
+    print(y)
+
+    basis = UniformGridAtomCenteredFunctions([[s]],
+                                             positions=[[0.5, 0.5, 0.5]],
+                                             grid=grid)
+    f1 = grid.zeros()
+    basis.add_to(f1, coefs)
+    x, y = f1.xy(10, 10, ...)
     print(x)
     print(y)
