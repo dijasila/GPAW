@@ -24,6 +24,8 @@ start development.
    :maxdepth: 2
 
    developer_installation
+   core
+
 
 .. note --- below toctrees are defined in separate files to make sure that the line spacing doesn't get very large (which is of course a bad hack)
 

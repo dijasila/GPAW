@@ -1,15 +1,3 @@
-class BlockMatrix:
-    def __init__(self, blocks, layout):
-        self.blocks = blocks
-        self.layout = layout
-
-    def __rmatmul__(self, other):
-        out = other.new()
-        for a, I1, I2 in self.layout.myindices:
-            out.data[:, I1:I2] = other.data[:, I1:I2] @ self.blocks[a]
-        return out
-
-
 class WaveFunctions:
     def __init__(self, wave_functions, spin, setups):
         self.wave_functions = wave_functions
@@ -17,24 +5,35 @@ class WaveFunctions:
         self.setups = setups
 
     def orthonormalize(self, projectors, work_matrix, work_array):
-        projections = projectors.integrate(self.wave_functions)
+        wfs = self.wave_functions
+        domain_comm = wfs.layout.comm
 
-        layout = self.wave_functions.layout
+        projections = projectors.integrate(wfs)
+
         S = work_matrix
-        W = self.wave_functions.as_matrix()
-        P = projections.as_matrix()
-        dS = BlockMatrix({a: self.setups[a].dO_ii
-                          for a in projections.layout.atomdist.indices},
-                         projections.layout)
+        projections2 = projections.new()
 
-        S[:] = layout.dv * W @ W.C
-        P2 = P @ dS
-        S += P.multiply(P2.C, symmetric=True)
+        def dS(proj):
+            for a, I1, I2 in proj.layout.myindices:
+                ds = self.setups[a].dO_ii
+                #use mmm
+                projections2.data[I1:I2] = ds @ proj.data[I1:I2]
+            return projections2
+
+        wfs.matrix_elements(wfs, domain_sum=False, out=S)
+        projections.matrix_elements(projections, function=dS,
+                                    domain_sum=False, out=S, add_to_out=True)
+
+        domain_comm.sum(S.data, 0)
+        if domain_comm.rank == 0:
+            S.invcholesky()
+        # S now contains the inverse of the Cholesky factorization
+        domain_comm.broadcast(S.data, 0)
         #cc?
 
-        S.invcholesky(layout.comm)
-        # S now contains the inverse of the Cholesky factorization
-
+        W = wfs.matrix_view()
+        P = projections.matrix_view()
+        P2 = projections2.matrix_view()
         W2 = W.new(data=work_array)
         W2[:] = S @ W
         P2[:] = S @ P

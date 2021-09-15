@@ -3,11 +3,11 @@ import numpy as np
 
 from gpaw import debug
 from gpaw.eigensolvers.eigensolver import Eigensolver
-from gpaw.matrix import matrix_matrix_multiply as mmm
 from gpaw.hybrids import HybridXC
 from gpaw.eigensolvers.diagonalizerbackend import (
     ScipyDiagonalizer,
     ScalapackDiagonalizer)
+from gpaw.utilities import unpack
 
 
 class DummyArray:
@@ -102,9 +102,18 @@ class Davidson(Eigensolver):
 
         psit = kpt.psit.wave_functions
         psit2 = psit.new(data=wfs.work_array)
-        P = kpt.projections.as_matrix()
-        P2 = P.new()
-        P3 = P.new()
+
+        projections = kpt.projections
+        projections2 = projections.new()
+        projections3 = projections.new()
+
+        P = projections.matrix_view()
+        P2 = projections2.matrix_view()
+        P3 = projections3.matrix_view()
+
+        W = psit.matrix_view()
+        W2 = psit2.matrix_view()
+
         M = wfs.work_matrix_nn
 
         comm = wfs.gd.comm
@@ -122,115 +131,125 @@ class Davidson(Eigensolver):
             if e_N is not None:
                 eps_N[:B] = e_N
 
-        def Ht(x, y):
-            wfs.apply_pseudo_hamiltonian(kpt, ham, x.data, y.data)
-
-        from gpaw.core.wfs import BlockMatrix
-        from gpaw.utilities import unpack
-
-        dS = BlockMatrix({a: wfs.setups[a].dO_ii
-                          for a in kpt.projections.layout.atomdist.indices},
-                         kpt.projections.layout)
-        dH = BlockMatrix({a: unpack(ham.dH_asp[a][kpt.s])
-                          for a in kpt.projections.layout.atomdist.indices},
-                         kpt.projections.layout)
-
         if self.keep_htpsit:
-            R = psit.new(data=self.Htpsit_nG)
+            residual = psit.new(data=self.Htpsit_nG)
         else:
-            R = psit.new()
-            Ht(psit, R)
+            residual = psit.new()
+
+        R = residual.matrix_view()
+
+        def Ht(x):
+            wfs.apply_pseudo_hamiltonian(kpt, ham, x.data, residual.data)
+            return residual
+
+        def dH(projections, out=projections3):
+            for a, I1, I2 in projections.layout.myindices:
+                dh = unpack(ham.dH_asp[a][kpt.s])
+                out.data[I1:I2] = dh @ projections.data[I1:I2]
+            return out
+
+        def dS(projections, out=projections3):
+            for a, I1, I2 in projections.layout.myindices:
+                ds = wfs.setups[a].dO_ii
+                out.data[I1:I2] = ds @ projections.data[I1:I2]
+            return out
+
+        def me(a, b, **kwargs):
+            return a.matrix_elements(b, domain_sum=False, out=M, **kwargs)
+
+        if not self.keep_htpsit:
+            Ht(psit)
 
         self.calculate_residuals(kpt, wfs, ham, dH, dS,
-                                 psit, P, kpt.eps_n, R, P2)
+                                 psit, projections, kpt.eps_n, residual,
+                                 projections2)
 
-        dv = psit.layout.dv
         precond = self.preconditioner
 
         for nit in range(self.niter):
             if nit == self.niter - 1:
-                error = np.dot(weights, [integrate(R_G) for R_G in R.data])
+                error = np.dot(weights, [integrate(residual_G)
+                                         for residual_G in residual.data])
 
-            for psit_G, R_G, psit2_G in zip(psit.data, R.data, psit2.data):
+            for psit_G, residual_G, psit2_G in zip(psit.data, residual.data,
+                                                   psit2.data):
                 ekin = precond.calculate_kinetic_energy(psit_G, kpt)
-                precond(R_G, kpt, ekin, out=psit2_G)
+                precond(residual_G, kpt, ekin, out=psit2_G)
 
             # Calculate projections
-            kpt.projectors.integrate(psit2, out=P2)
+            kpt.projectors.integrate(psit2, out=projections2)
 
             def copy(M, C_nn):
                 comm.sum(M.data, 0)
                 if comm.rank == 0:
-                    M.complex_conjugate()
                     M.redist(M0)
                     if bd.comm.rank == 0:
                         C_nn[:] = M0.data
 
-            with self.timer('calc. matrices'):
-                # <psi2 | H | psi2>
-                Ht(psit2, R)
-                M[:] = dv * psit2 @ R.C  #Symmetric=True
-                P3 = P2 @ dH
-                M += P2 @ P3.C
-                copy(M, H_NN[B:, B:])
+            # <psi2 | H | psi2>
+            me(psit2, psit2, function=Ht)
+            me(projections2, projections2, function=dH, add_to_out=True)
+            copy(M, H_NN[B:, B:])
 
-                # <psi2 | H | psi>
-                R.matrix_elements(psit, out=M, cc=True)
-                mmm(1.0, P3, 'N', P, 'C', 1.0, M)
-                copy(M, H_NN[B:, :B])
+            # <psi2 | H | psi>
+            me(residual, psit)
+            P3.multiply(P, opa='C', beta=1.0, out=M)
+            copy(M, H_NN[B:, :B])
 
-                # <psi2 | S | psi2>
-                psit2.matrix_elements(out=M, symmetric=True, cc=True)
-                dS.apply(P2, out=P3)
-                mmm(1.0, P2, 'N', P3, 'C', 1.0, M)
-                copy(M, S_NN[B:, B:])
+            # <psi2 | S | psi2>
+            me(psit2, psit2)
+            me(projections2, projections2, function=dS, add_to_out=True)
+            copy(M, S_NN[B:, B:])
 
-                # <psi2 | S | psi>
-                psit2.matrix_elements(psit, out=M, cc=True)
-                mmm(1.0, P3, 'N', P, 'C', 1.0, M)
-                copy(M, S_NN[B:, :B])
+            # <psi2 | S | psi>
+            me(psit2, psit)
+            P3.multiply(P, opa='C', beta=1.0, out=M)
+            copy(M, S_NN[B:, :B])
 
             if is_gridband_master:
                 H_NN[:B, :B] = np.diag(eps_N[:B])
                 S_NN[:B, :B] = np.eye(B)
 
-            with self.timer('diagonalize'):
-                if is_gridband_master and debug:
-                    H_NN[np.triu_indices(2 * B, 1)] = 42.0
-                    S_NN[np.triu_indices(2 * B, 1)] = 42.0
+            if is_gridband_master and debug:
+                H_NN[np.triu_indices(2 * B, 1)] = 42.0
+                S_NN[np.triu_indices(2 * B, 1)] = 42.0
 
-                self.diagonalizer_backend.diagonalize(
-                    H_NN, S_NN, eps_N,
-                    is_master=is_gridband_master,
-                    debug=debug)
+            self.diagonalizer_backend.diagonalize(
+                H_NN, S_NN, eps_N,
+                is_master=is_gridband_master,
+                debug=debug)
 
             if comm.rank == 0:
                 bd.distribute(eps_N[:B], kpt.eps_n)
             comm.broadcast(kpt.eps_n, 0)
 
-            with self.timer('rotate_psi'):
-                if comm.rank == 0:
-                    if bd.comm.rank == 0:
-                        M0.array[:] = H_NN[:B, :B].T
-                    M0.redist(M)
-                comm.broadcast(M.array, 0)
-                mmm(1.0, M, 'N', psit, 'N', 0.0, R)
-                mmm(1.0, M, 'N', P, 'N', 0.0, P3)
-                if comm.rank == 0:
-                    if bd.comm.rank == 0:
-                        M0.array[:] = H_NN[B:, :B].T
-                    M0.redist(M)
-                comm.broadcast(M.array, 0)
-                mmm(1.0, M, 'N', psit2, 'N', 1.0, R)
-                mmm(1.0, M, 'N', P2, 'N', 1.0, P3)
-                psit[:] = R
-                P, P3 = P3, P
-                kpt.projections = P
+            if comm.rank == 0:
+                if bd.comm.rank == 0:
+                    M0.data[:] = H_NN[:B, :B].T
+                M0.redist(M)
+            comm.broadcast(M.data, 0)
+
+            M.multiply(W, out=R)
+            M.multiply(P, out=P3)
+
+            if comm.rank == 0:
+                if bd.comm.rank == 0:
+                    M0.data[:] = H_NN[B:, :B].T
+                M0.redist(M)
+            comm.broadcast(M.data, 0)
+
+            M.multiply(W2, beta=1.0, out=R)
+            M.multiply(P2, beta=1.0, out=P3)
+            W[:] = R
+            P, P3 = P3, P
+            projections, projections3 = projections3, projections
+            kpt.projections = projections
 
             if nit < self.niter - 1:
-                psit.apply(Ht, out=R)
+                Ht(psit)
                 self.calculate_residuals(
-                    kpt, wfs, ham, psit, P, kpt.eps_n, R, P2)
+                    kpt, wfs, ham, dH, dS,
+                    psit, projections, kpt.eps_n, residual, projections2)
 
         error = wfs.gd.comm.sum(error)
         return error

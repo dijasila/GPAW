@@ -136,10 +136,11 @@ class UniformGridFunctions(DistributedArrays):
                  comm: MPIComm = serial_comm,
                  data: np.ndarray = None):
         DistributedArrays. __init__(self, grid, shape, comm, data)
+        self.grid = grid
 
     def new(self, data=None):
         assert data is not None
-        return UniformGridFunctions(self.layout, self.shape, self.comm, data)
+        return UniformGridFunctions(self.grid, self.shape, self.comm, data)
 
     def __getitem__(self, index):
         return UniformGridFunctions(data=self.data[index], grid=self.grid)
@@ -149,25 +150,26 @@ class UniformGridFunctions(DistributedArrays):
 
     def xy(self, *axes):
         assert len(axes) == 3 + len(self.shape)
-        index = [slice(0, None) if axis is ... else axis for axis in axes]
+        index = tuple([slice(0, None) if axis is ... else axis
+                       for axis in axes])
         y = self.data[index]
         assert y.ndim == 1
         n = axes[-3:].index(...)
-        dx = (self.layout.cell[n]**2).sum()**0.5
-        x = np.arange(self.layout.dist.start[n], self.layout.dist.end[n]) * dx
+        dx = (self.grid.cell[n]**2).sum()**0.5
+        x = np.arange(self.grid.start[n], self.grid.end[n]) * dx
         return x, y
 
-    def redistribute(self, layout=None, out=None):
+    def redistribute(self, grid=None, out=None):
         if out is self:
             return out
         if out is None:
-            out = layout.empty(self.shape, self.comm)
-        if layout is None:
-            layout = out.layout
-        if self.layout.comm.size == 1 and layout.comm.size == 1:
+            out = grid.empty(self.shape, self.comm)
+        if grid is None:
+            grid = out.grid
+        if self.grid.comm.size == 1 and grid.comm.size == 1:
             out.data[:] = self.data
             return out
-        self.layout.redistributor(layout).redistribute(self, out)
+        self.grid.redistributor(grid).redistribute(self, out)
         return out
 
     def fft(self, plan=None, pw=None, out=None):

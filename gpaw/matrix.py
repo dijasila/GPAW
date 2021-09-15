@@ -235,7 +235,39 @@ class Matrix:
             return NotImplemented
         return self.multiply(other)
 
-    def multiply(self, other, symmetric=False):
+    def multiply(self,
+                 other,
+                 alpha=1.0,
+                 opa='N',
+                 opb='N',
+                 out=None,
+                 beta=0.0,
+                 symmetric=False):
+        A = self
+        B = other
+        dist = self.dist
+        if out is None:
+            assert beta == 0.0
+            M = A.shape[0] if opa == 'N' else A.shape[1]
+            N = B.shape[1] if opb == 'N' else B.shape[0]
+            out = Matrix(M, N, A.dtype,
+                         dist=(dist.comm, dist.rows, dist.columns))
+
+        if dist.comm.size > 1:
+            # Special cases that don't need scalapack - most likely also
+            # faster:
+            if alpha == 1.0 and opa == 'N' and opb == 'N':
+                return fastmmm(A, B, out, beta)
+            if alpha == 1.0 and beta == 1.0 and opa == 'N' and opb == 'C':
+                if self.symmetric:
+                    return fastmmm2(A, B, out)
+                else:
+                    return fastmmm2notsym(A, B, out)
+
+        dist.multiply(alpha, A, opa, B, opb, beta, out, symmetric)
+        return out
+
+    def xxmultiply(self, other, symmetric=False):
         if isinstance(other, MatrixMatrixProduct):
             other = other.eval()
         return MatrixMatrixProduct.from_matrices(self, other,
@@ -328,7 +360,7 @@ class Matrix:
         if comm.size > 1:
             comm.broadcast(self.data, 0)
 
-    def eigh(self, cc=False, scalapack=(None, 1, 1, None), comm=serial_comm):
+    def eigh(self, cc=False, scalapack=(None, 1, 1, None)):
         """Calculate eigenvectors and eigenvalues.
 
         Matrix must be symmetric/hermitian and stored in lower half.
@@ -340,8 +372,6 @@ class Matrix:
             diagonalization.
         """
         slcomm, rows, columns, blocksize = scalapack
-
-        comm.sum(self.data, 0)
 
         slcomm = slcomm or self.dist.comm
         dist = (slcomm, rows, columns, blocksize)
@@ -360,7 +390,7 @@ class Matrix:
         eps = np.empty(H.shape[0])
 
         if rows * columns == 1:
-            if comm.rank == 0 and self.dist.comm.rank == 0:
+            if self.dist.comm.rank == 0:
                 if cc and H.dtype == complex:
                     np.negative(H.data.imag, H.data.imag)
                 if debug:
@@ -386,10 +416,6 @@ class Matrix:
 
         if redist:
             H.redist(self)
-
-        if comm.size > 1:
-            comm.broadcast(self.data, 0)
-            comm.broadcast(eps, 0)
 
         return eps
 
@@ -423,14 +449,20 @@ class NoDistribution:
 
     def multiply(self, alpha, a, opa, b, opb, beta, c, symmetric):
         if symmetric:
-            assert opa == 'N'
-            assert opb == 'C' or opb == 'T' and a.dtype == float
-            if a is b:
-                blas.rk(alpha, a.data, beta, c.data)
+            print(alpha, a, opa, b, opb, beta, c, symmetric)
+            if opa == 'N':
+                assert opb == 'C' or opb == 'T' and a.dtype == float
+                if a is b:
+                    blas.rk(alpha, a.data, beta, c.data)
+                else:
+                    if beta == 1.0 and a.shape[1] == 0:
+                        return
+                    blas.r2k(0.5 * alpha, a.data, b.data, beta, c.data)
             else:
-                if beta == 1.0 and a.shape[1] == 0:
-                    return
-                blas.r2k(0.5 * alpha, a.data, b.data, beta, c.data)
+                assert opa == 'C' and opb == 'N'
+                assert a is not b
+                blas.r2k(0.5 * alpha, a.data, b.data, beta, c.data, 'n')
+
         else:
             blas.mmm(alpha, a.data, opa, b.data, opb, beta, c.data)
 

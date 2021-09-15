@@ -1,12 +1,11 @@
 """Module defining an eigensolver base-class."""
-from functools import partial
 
 import numpy as np
 from ase.dft.bandgap import _bandgap
 from ase.units import Ha
 from ase.utils.timing import timer
 
-from gpaw.matrix import matrix_matrix_multiply as mmm
+from gpaw.utilities import unpack
 from gpaw.utilities.blas import axpy
 from gpaw.xc.hybrid import HybridXC
 
@@ -145,8 +144,9 @@ class Eigensolver:
         """Implemented in subclasses."""
         raise NotImplementedError
 
-    def calculate_residuals(self, kpt, wfs, ham, dH, dS, psit, P, eps_n,
-                            R, C, n_x=None, calculate_change=False):
+    def calculate_residuals(self, kpt, wfs, ham, dH, dS, psit, projections,
+                            eps_n,
+                            R, tmp, n_x=None, calculate_change=False):
         """Calculate residual.
 
         From R=Ht*psit calculate R=H*psit-eps*S*psit."""
@@ -154,11 +154,13 @@ class Eigensolver:
         for R_G, eps, psit_G in zip(R.data, eps_n, psit.data):
             axpy(-eps, psit_G, R_G)
 
-        C[:] = P @ dH
-        C -= P.new(data=P.data * eps_n[:, np.newaxis]) @ dS
+        C = dH(projections)
+        tmp.data[:] = projections.data * eps_n
+        dS(tmp, out=tmp)
+        C.data -= tmp.data
 
         ham.xc.add_correction(kpt, psit.data, R.data,
-                              P,
+                              projections,
                               C,
                               n_x,
                               calculate_change)
@@ -189,60 +191,63 @@ class Eigensolver:
             raise NotImplementedError
 
         psit = kpt.psit.wave_functions
+        projections = kpt.projections
         psit2 = psit.new(data=wfs.work_array)
+        projections2 = projections.new()
         H = wfs.work_matrix_nn
-        W = psit.as_matrix()
-        W2 = psit2.as_matrix()
-        P = kpt.projections.as_matrix()
+        domain_comm = psit.layout.comm
 
         def Ht(x):
             wfs.apply_pseudo_hamiltonian(kpt, ham, x.data, psit2.data)
+            return psit2
 
-        from gpaw.core.wfs import BlockMatrix
-        from gpaw.utilities import unpack
+        def dH(projections):
+            for a, I1, I2 in projections.layout.myindices:
+                dh = unpack(ham.dH_asp[a][kpt.s])
+                #use mmm
+                projections2.data[I1:I2] = dh @ projections.data[I1:I2]
+            return projections2
 
-        dH = BlockMatrix({a: unpack(ham.dH_asp[a][kpt.s])
-                          for a in kpt.projections.layout.atomdist.indices},
-                         kpt.projections.layout)
+        # We calculate the complex conjugate of H, because
+        # that is what is most efficient with BLAS given the layout of
+        # our matrices.
+        psit.matrix_elements(psit, function=Ht, domain_sum=False, out=H)
+        projections.matrix_elements(projections, function=dH,
+                                    domain_sum=False, out=H, add_to_out=True)
 
-        with self.timer('calc_h_matrix'):
-            # We calculate the complex conjugate of H, because
-            # that is what is most efficient with BLAS given the layout of
-            # our matrices.
-            if 1:
-                # Simple version:
-                Ht(psit)
-                H[:] = psit.layout.dv * W @ W2.C
-            else:
-                # Same, but faster:
-                ...  # H[:] = W.multiply2(Ht, W, out=tmp)
+        domain_comm.sum(H.data)
+        ham.xc.correct_hamiltonian_matrix(kpt, H.data)
 
-            P2 = P @ dH
-            H += P.multiply(P2.C, symmetric=True)
-            ham.xc.correct_hamiltonian_matrix(kpt, H.data)
-
-        with wfs.timer('diagonalize'):
+        if domain_comm.rank == 0:
             slcomm, r, c, b = wfs.scalapack_parameters
             if r == c == 1:
                 slcomm = None
             # Complex conjugate before diagonalizing:
             eps_n = H.eigh(cc=True,
-                           scalapack=(slcomm, r, c, b),
-                           comm=psit.layout.comm)
-            # H.array[n, :] now contains the n'th eigenvector and eps_n[n]
+                           scalapack=(slcomm, r, c, b))
+            # H.data[n, :] now contains the n'th eigenvector and eps_n[n]
             # the n'th eigenvalue
-            kpt.eps_n = eps_n[wfs.bd.get_slice()]
+        else:
+            eps_n = np.zeros(len(H))
 
-        with self.timer('rotate_psi'):
-            if self.keep_htpsit:
-                HW = W.new(data=self.Htpsit_nG)
-                HW[:] = H @ W2
-            W2[:] = H @ W
-            W[:] = W2
-            P2[:] = H @ P
-            P[:] = P2
-            # Rotate orbital dependent XC stuff:
-            ham.xc.rotate(kpt, H.data.T)
+        domain_comm.broadcast(H.data, 0)
+        domain_comm.broadcast(eps_n, 0)
+
+        kpt.eps_n = eps_n[wfs.bd.get_slice()]
+
+        W = psit.matrix_view()
+        W2 = psit2.matrix_view()
+        P = projections.matrix_view()
+        P2 = projections2.matrix_view()
+        if self.keep_htpsit:
+            HW = W.new(data=self.Htpsit_nG)
+            H.multiply(W2, out=HW)
+        H.multiply(W, out=W2)
+        W[:] = W2
+        P2[:] = H @ P
+        P[:] = P2
+        # Rotate orbital dependent XC stuff:
+        ham.xc.rotate(kpt, H.data.T)
 
     def estimate_memory(self, mem, wfs):
         gridmem = wfs.bytes_per_wave_function()

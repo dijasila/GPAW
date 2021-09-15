@@ -20,6 +20,7 @@ Plane waves
 >>> pws = PlaneWaves(ecut=100, grid=grid)
 >>> p1 = pws.empty()
 >>> u1.fft(out=p1)
+PlaneWaveExpansions(pw=PlaneWaves(ecut=100, grid=20*20*20), shape=())
 >>> p1.data[0]
 (8000+0j)
 

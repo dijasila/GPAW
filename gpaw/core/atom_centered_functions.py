@@ -132,12 +132,6 @@ class AtomArraysLayout(Layout):
         return AtomArrays(self, shape, comm)
 
 
-class LCACF:
-    def __init__(self, coefs, acfs):
-        self.coefs = coefs
-        self.acfs = acfs
-
-
 class AtomDistribution:
     def __init__(self, ranks, comm):
         self.comm = comm
@@ -158,6 +152,9 @@ class AtomArrays(DistributedArrays):
             self._arrays[a] = self.data[I1:I2].reshape(
                 self.myshape + layout.shapes[a])
 
+    def new(self):
+        return AtomArrays(self.layout, self.shape, self.comm)
+
     def __getitem__(self, a):
         return self._arrays[a]
 
@@ -169,8 +166,3 @@ class AtomArrays(DistributedArrays):
 
     def __contains__(self, a):
         return a in self._arrays
-
-    def __matmul__(self, other):
-        assert isinstance(other, AtomCenteredFunctions)
-        return LCACF(self, other)
-        
