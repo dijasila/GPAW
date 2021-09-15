@@ -1,10 +1,11 @@
-from typing import Any, Dict, Optional, List, Union
+from typing import Any, Dict, Optional, List, Sequence, Union
 
 import numpy as np
 from ase.units import Bohr
 from ase.utils.timing import Timer
 from gpaw.poisson import _PoissonSolver, create_poisson_solver
 from gpaw.utilities.gauss import Gaussian
+from gpaw.typing import Array1D
 from gpaw.utilities.timing import nulltimer, NullTimer
 
 from ase.utils.timing import timer
@@ -13,59 +14,43 @@ from ase.utils.timing import timer
 MomentCorrectionsType = Union[int, List[Dict[str, Any]]]
 
 
-def dict_sanitize(dict_in: Dict[str, Any]) -> Dict[str, Any]:
-    """ sanitize the moment correction dictionary """
+class MomentCorrection:
 
-    center = dict_in['center']
-    if center is not None:
-        center = np.asarray(center)
+    def __init__(self,
+                 center: Optional[Union[Sequence, Array1D]],
+                 moms: Union[int, Sequence[int]]):
+        if center is not None:
+            center = np.asarray(center) / Bohr
+        self.center = center
+        self.moms = np.asarray(moms)
 
-    dict_out = dict(moms=np.asarray(dict_in['moms']), center=center)
+    def todict(self) -> Dict[str, Any]:
+        """ return dictionary description, converting the moment correction
+        from units of Bohr to Ångström """
 
-    return dict_out
+        center = self.center
+        if center is not None:
+            center = center * Bohr
 
+        dict_out = dict(moms=self.moms, center=center)
 
-def dict_A_to_au(dict_in: Dict[str, Any]) -> Dict[str, Any]:
-    """ convert a moment correction dictionary from Ångström to units
-    of Bohr """
+        return dict_out
 
-    center = dict_in['center']
-    if center is not None:
-        center = np.asarray(center) / Bohr
+    def __str__(self) -> str:
+        if self.center is None:
+            center = 'center'
+        else:
+            center = ', '.join([f'{x:.2f}' for x in self.center * Bohr])
 
-    dict_out = dict(moms=dict_in['moms'], center=center)
-
-    return dict_out
-
-
-def dict_au_to_A(dict_in: Dict[str, Any]) -> Dict[str, Any]:
-    """ convert a moment correction dictionary from units of Bohr
-    to Ångström """
-
-    center = dict_in['center']
-    if center is not None:
-        center = center * Bohr
-
-    dict_out = dict(moms=dict_in['moms'], center=center)
-
-    return dict_out
-
-
-def describe_dict(mom: Dict[str, Any]) -> str:
-    if mom['center'] is None:
-        center = 'center'
-    else:
-        center = ', '.join([f'{x:.2f}' for x in mom['center'] * Bohr])
-
-    moms = mom['moms']
-    if np.allclose(np.diff(moms), 1):
-        # Increasing sequence
-        moms = f'range({moms[0]}, {moms[-1]+1})'
-    else:
-        # List of integers
-        _moms = ', '.join([f'{m:.0f}' for m in moms])
-        moms = f'({_moms})'
-    return f'[{center}] {moms}'
+        moms = self.moms
+        if np.allclose(np.diff(moms), 1):
+            # Increasing sequence
+            moms = f'range({moms[0]}, {moms[-1]+1})'
+        else:
+            # List of integers
+            _moms = ', '.join([f'{m:.0f}' for m in moms])
+            moms = f'({_moms})'
+        return f'[{center}] {moms}'
 
 
 class MomentCorrectionPoissonSolver(_PoissonSolver):
@@ -110,25 +95,24 @@ class MomentCorrectionPoissonSolver(_PoissonSolver):
         if moment_corrections is None:
             self.moment_corrections = []
         elif isinstance(moment_corrections, int):
-            _moment_corrections = {'moms': range(moment_corrections),
-                                   'center': None}
-            self.moment_corrections = [dict_sanitize(_moment_corrections)]
+            moms = range(moment_corrections)
+            center = None
+            self.moment_corrections = [MomentCorrection(moms=moms,
+                                                        center=center)]
         elif isinstance(moment_corrections, list):
             assert all(['moms' in mom and 'center' in mom
                         for mom in moment_corrections]), \
                    (f'{self.__class__.__name__}: each element in '
                     'moment_correction must be a dictionary'
                     'with the keys "moms" and "center"')
-
-            # Convert to Bohr units
-            self.moment_corrections = [dict_A_to_au(dict_sanitize(mom))
+            self.moment_corrections = [MomentCorrection(**mom)
                                        for mom in moment_corrections]
         else:
             raise ValueError(f'{self.__class__.__name__}: moment_correction '
                              'must be a list of dictionaries')
 
     def todict(self):
-        mom_corr = [dict_au_to_A(mom) for mom in self.moment_corrections]
+        mom_corr = [mom.todict() for mom in self.moment_corrections]
         d = {'name': 'MomentCorrectionPoissonSolver',
              'poissonsolver': self.poissonsolver.todict(),
              'moment_corrections': mom_corr}
@@ -145,7 +129,7 @@ class MomentCorrectionPoissonSolver(_PoissonSolver):
 
         lines = [description]
         lines.extend([f'    {n} moment corrections:'])
-        lines.extend([f'      {describe_dict(mom)}'
+        lines.extend([f'      {str(mom)}'
                      for mom in self.moment_corrections])
 
         return '\n'.join(lines)

@@ -3,7 +3,7 @@ import pytest
 
 from ase.units import Bohr
 from gpaw.poisson import PoissonSolver, NoInteractionPoissonSolver
-from gpaw.poisson_moment import MomentCorrectionPoissonSolver
+from gpaw.poisson_moment import MomentCorrectionPoissonSolver, MomentCorrection
 from gpaw.poisson_extravacuum import ExtraVacuumPoissonSolver
 from gpaw.grid_descriptor import GridDescriptor
 
@@ -28,7 +28,7 @@ def test_defaults(moment_corrections, expected_len):
     assert isinstance(poisson.moment_corrections, list), \
         poisson.moment_corrections
     assert len(poisson.moment_corrections) == expected_len
-    assert all([isinstance(mom, dict) for mom in poisson.moment_corrections])
+    assert all([isinstance(mom, MomentCorrection) for mom in poisson.moment_corrections])
 
 
 @pytest.mark.parametrize('moment_corrections', [
