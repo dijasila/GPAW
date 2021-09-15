@@ -146,7 +146,8 @@ class Eigensolver:
 
     def calculate_residuals(self, kpt, wfs, ham, dH, dS, psit, projections,
                             eps_n,
-                            R, tmp, n_x=None, calculate_change=False):
+                            R, tmp1, tmp2,
+                            n_x=None, calculate_change=False):
         """Calculate residual.
 
         From R=Ht*psit calculate R=H*psit-eps*S*psit."""
@@ -154,17 +155,17 @@ class Eigensolver:
         for R_G, eps, psit_G in zip(R.data, eps_n, psit.data):
             axpy(-eps, psit_G, R_G)
 
-        C = dH(projections)
-        tmp.data[:] = projections.data * eps_n
-        dS(tmp, out=tmp)
-        C.data -= tmp.data
+        dH(projections, out=tmp1)
+        tmp2.data[:] = projections.data * eps_n
+        dS(tmp2, out=tmp2)
+        tmp1.data -= tmp2.data
 
         ham.xc.add_correction(kpt, psit.data, R.data,
                               projections,
-                              C,
+                              tmp1,
                               n_x,
                               calculate_change)
-        kpt.projectors.add_to(R, C)
+        kpt.projectors.add_to(R, tmp1)
 
     @timer('Subspace diag')
     def subspace_diagonalize(self, ham, wfs, kpt):
@@ -234,7 +235,6 @@ class Eigensolver:
         domain_comm.broadcast(eps_n, 0)
 
         kpt.eps_n = eps_n[wfs.bd.get_slice()]
-
         W = psit.matrix_view()
         W2 = psit2.matrix_view()
         P = projections.matrix_view()

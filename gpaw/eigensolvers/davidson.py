@@ -1,12 +1,12 @@
-from ase.utils.timing import timer
-import numpy as np
+from functools import partial
 
+import numpy as np
+from ase.utils.timing import timer
 from gpaw import debug
+from gpaw.eigensolvers.diagonalizerbackend import (ScalapackDiagonalizer,
+                                                   ScipyDiagonalizer)
 from gpaw.eigensolvers.eigensolver import Eigensolver
 from gpaw.hybrids import HybridXC
-from gpaw.eigensolvers.diagonalizerbackend import (
-    ScipyDiagonalizer,
-    ScalapackDiagonalizer)
 from gpaw.utilities import unpack
 
 
@@ -142,13 +142,13 @@ class Davidson(Eigensolver):
             wfs.apply_pseudo_hamiltonian(kpt, ham, x.data, residual.data)
             return residual
 
-        def dH(projections, out=projections3):
+        def dH(projections, out):
             for a, I1, I2 in projections.layout.myindices:
                 dh = unpack(ham.dH_asp[a][kpt.s])
                 out.data[I1:I2] = dh @ projections.data[I1:I2]
             return out
 
-        def dS(projections, out=projections3):
+        def dS(projections, out):
             for a, I1, I2 in projections.layout.myindices:
                 ds = wfs.setups[a].dO_ii
                 out.data[I1:I2] = ds @ projections.data[I1:I2]
@@ -158,11 +158,11 @@ class Davidson(Eigensolver):
             return a.matrix_elements(b, domain_sum=False, out=M, **kwargs)
 
         if not self.keep_htpsit:
-            Ht(psit)
+            Ht(psit, projections3)
 
         self.calculate_residuals(kpt, wfs, ham, dH, dS,
                                  psit, projections, kpt.eps_n, residual,
-                                 projections2)
+                                 projections2, projections3)
 
         precond = self.preconditioner
 
@@ -188,7 +188,9 @@ class Davidson(Eigensolver):
 
             # <psi2 | H | psi2>
             me(psit2, psit2, function=Ht)
-            me(projections2, projections2, function=dH, add_to_out=True)
+            me(projections2, projections2,
+               function=partial(dH, out=projections3),
+               add_to_out=True)
             copy(M, H_NN[B:, B:])
 
             # <psi2 | H | psi>
@@ -198,7 +200,9 @@ class Davidson(Eigensolver):
 
             # <psi2 | S | psi2>
             me(psit2, psit2)
-            me(projections2, projections2, function=dS, add_to_out=True)
+            me(projections2, projections2,
+               function=partial(dS, out=projections3),
+               add_to_out=True)
             copy(M, S_NN[B:, B:])
 
             # <psi2 | S | psi>
@@ -248,8 +252,10 @@ class Davidson(Eigensolver):
             if nit < self.niter - 1:
                 Ht(psit)
                 self.calculate_residuals(
-                    kpt, wfs, ham, dH, dS,
-                    psit, projections, kpt.eps_n, residual, projections2)
+                    kpt, wfs,
+                    ham, dH, dS,
+                    psit, projections, kpt.eps_n, residual,
+                    projections2, projections3)
 
         error = wfs.gd.comm.sum(error)
         return error
