@@ -205,7 +205,7 @@ def r2k(alpha, a, b, beta, c, trans='c'):
     else:
         assert c.shape == (a.shape[1], a.shape[1])
     assert c.strides[1] == c.itemsize
-    _gpaw.r2k(alpha, a, b, beta, c)
+    _gpaw.r2k(alpha, a, b, beta, c, trans)
 
 
 def _gemmdot(a, b, alpha=1.0, beta=1.0, out=None, trans='n'):
@@ -291,17 +291,20 @@ if not hasattr(_gpaw, 'mmm'):
             a = a.reshape((len(a), -1))
             c += alpha * a.dot(a.conj().T)
 
-    def r2k(alpha, a, b, beta, c):  # noqa
+    def r2k(alpha, a, b, beta, c, trans='c'):  # noqa
         if c.size == 0:
             return
         if beta == 0.0:
             c[:] = 0.0
         else:
             c *= beta
-        c += (alpha * a.reshape((len(a), -1))
-              .dot(b.reshape((len(b), -1)).conj().T) +
-              alpha * b.reshape((len(b), -1))
-              .dot(a.reshape((len(a), -1)).conj().T))
+        if trans == 'c':
+            c += (alpha * a.reshape((len(a), -1))
+                  .dot(b.reshape((len(b), -1)).conj().T) +
+                  alpha * b.reshape((len(b), -1))
+                  .dot(a.reshape((len(a), -1)).conj().T))
+        else:
+            c += alpha * (a.conj().T @ b + b.conj().T @ a)
 
     def op(o, m):
         if o == 'N':

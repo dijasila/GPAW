@@ -40,7 +40,11 @@ def matrix_matrix_multiply(alpha, a, opa, b, opb, beta=0.0, c=None,
 def suggest_blocking(N, ncpus):
     """Suggest blocking of NxN matrix.
 
-    Returns rows, columns, blocksize tuple."""
+    Returns rows, columns, blocksize tuple.
+
+    >>> suggest_blocking(10, 6)
+    (3, 2, 2)
+    """
 
     nprow = ncpus
     npcol = 1
@@ -67,89 +71,6 @@ def suggest_blocking(N, ncpus):
     blocksize = max(min(blocksize, 64), 1)
 
     return nprow, npcol, blocksize
-
-
-class ConjugatedMatrix:
-    def __init__(self, matrix):
-        self.matrix = matrix
-
-
-class ScaledMatrix:
-    def __init__(self, matrix, scale):
-        self.matrix = matrix
-        self.scale = scale
-
-    def __matmul__(self, other):
-        return MatrixMatrixProduct.from_matrices(self, other)
-
-
-class MatrixMatrixProduct:
-    def __init__(self, scale, A, opa, B, opb, symmetric=False):
-        self.scale = scale
-        self.A = A
-        self.opa = opa
-        self.B = B
-        self.opb = opb
-        self.symmetric = symmetric
-
-    @classmethod
-    def from_matrices(cls, A, B, symmetric=False):
-        opa = 'N'
-        if isinstance(A, ScaledMatrix):
-            scale = A.scale
-            A = A.matrix
-        else:
-            assert isinstance(A, Matrix)
-            scale = 1.0
-
-        if isinstance(B, ConjugatedMatrix):
-            B = B.matrix
-            opb = 'C'
-        else:
-            assert isinstance(B, Matrix)
-            opb = 'N'
-
-        if A is B and opa == 'N' and opb == 'C':
-            symmetric = True
-
-        return MatrixMatrixProduct(scale, A, opa, B, opb, symmetric)
-
-    @property
-    def C(self):
-        return MatrixMatrixProduct(self.scale,
-                                   self.B,
-                                   'N' if self.opb == 'C' else 'C',
-                                   self.A,
-                                   'N' if self.opa == 'C' else 'C',
-                                   self.symmetric)
-
-    def eval(self, out=None, beta=0.0):
-        A = self.A
-        B = self.B
-        opa = self.opa
-        opb = self.opb
-        alpha = self.scale
-        dist = A.dist
-        if out is None:
-            assert beta == 0.0
-            M = A.shape[0] if opa == 'N' else A.shape[1]
-            N = B.shape[1] if opb == 'N' else B.shape[0]
-            out = Matrix(M, N, A.dtype,
-                         dist=(dist.comm, dist.rows, dist.columns))
-
-        if dist.comm.size > 1:
-            # Special cases that don't need scalapack - most likely also
-            # faster:
-            if alpha == 1.0 and opa == 'N' and opb == 'N':
-                return fastmmm(A, B, out, beta)
-            if alpha == 1.0 and beta == 1.0 and opa == 'N' and opb == 'C':
-                if self.symmetric:
-                    return fastmmm2(A, B, out)
-                else:
-                    return fastmmm2notsym(A, B, out)
-
-        dist.multiply(alpha, A, opa, B, opb, beta, out, self.symmetric)
-        return out
 
 
 class Matrix:
@@ -188,13 +109,6 @@ class Matrix:
         else:
             self.data = data.reshape(dist.shape)
 
-    @property
-    def C(self):
-        return ConjugatedMatrix(self)
-
-    def __rmul__(self, other: float):
-        return ScaledMatrix(self, other)
-
     def __len__(self):
         return self.shape[0]
 
@@ -215,25 +129,8 @@ class Matrix:
 
     def __setitem__(self, item, value):
         assert item == slice(None)
-        if isinstance(value, MatrixMatrixProduct):
-            value.eval(self)
-        else:
-            assert isinstance(value, Matrix)
-            self.data[:] = value.data
-
-    def __iadd__(self, value):
-        value.eval(self, 1.0)
-        return self
-
-    def __isub__(self, value):
         assert isinstance(value, Matrix)
-        self.data -= value.data
-        return self
-
-    def __matmul__(self, other):
-        if not isinstance(other, (Matrix, MatrixMatrixProduct)):
-            return NotImplemented
-        return self.multiply(other)
+        self.data[:] = value.data
 
     def multiply(self,
                  other,
@@ -266,12 +163,6 @@ class Matrix:
 
         dist.multiply(alpha, A, opa, B, opb, beta, out, symmetric)
         return out
-
-    def xxmultiply(self, other, symmetric=False):
-        if isinstance(other, MatrixMatrixProduct):
-            other = other.eval()
-        return MatrixMatrixProduct.from_matrices(self, other,
-                                                 symmetric=symmetric)
 
     def redist(self, other):
         """Redistribute to other BLACS layout."""
@@ -331,34 +222,28 @@ class Matrix:
                 ctx = d2.desc[1]
             redist(d1, self.data, d2, other.data, ctx)
 
-    def invcholesky(self, comm=serial_comm):
+    def invcholesky(self):
         """Inverse of Cholesky decomposition.
 
         Only the lower part is used.
         """
-        comm.sum(self.data, 0)
-
-        if comm.rank == 0:
-            if self.dist.comm.size > 1:
-                S = self.new(dist=(self.dist.comm, 1, 1))
-                self.redist(S)
-            else:
-                S = self
-            if self.dist.comm.rank == 0:
-                if debug:
-                    S.data[np.triu_indices(S.shape[0], 1)] = 42.0
-                L_nn = linalg.cholesky(S.data,
-                                       lower=True,
-                                       overwrite_a=True,
-                                       check_finite=debug)
-                S.data[:] = linalg.inv(L_nn,
-                                       overwrite_a=True,
-                                        check_finite=debug)
-            if S is not self:
-                S.redist(self)
-
-        if comm.size > 1:
-            comm.broadcast(self.data, 0)
+        if self.dist.comm.size > 1:
+            S = self.new(dist=(self.dist.comm, 1, 1))
+            self.redist(S)
+        else:
+            S = self
+        if self.dist.comm.rank == 0:
+            if debug:
+                S.data[np.triu_indices(S.shape[0], 1)] = 42.0
+            L_nn = linalg.cholesky(S.data,
+                                   lower=True,
+                                   overwrite_a=True,
+                                   check_finite=debug)
+            S.data[:] = linalg.inv(L_nn,
+                                   overwrite_a=True,
+                                   check_finite=debug)
+        if S is not self:
+            S.redist(self)
 
     def eigh(self, cc=False, scalapack=(None, 1, 1, None)):
         """Calculate eigenvectors and eigenvalues.
@@ -449,7 +334,6 @@ class NoDistribution:
 
     def multiply(self, alpha, a, opa, b, opb, beta, c, symmetric):
         if symmetric:
-            print(alpha, a, opa, b, opb, beta, c, symmetric)
             if opa == 'N':
                 assert opb == 'C' or opb == 'T' and a.dtype == float
                 if a is b:

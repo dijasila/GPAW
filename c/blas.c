@@ -204,7 +204,6 @@ PyObject* r2k(PyObject *self, PyObject *args)
     }
   int ldc = PyArray_STRIDES(c)[0] / PyArray_STRIDES(c)[1];
 
-
   if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
     dsyr2k_("u", trans, &n, &k,
             (double*)(&alpha), DOUBLEP(a), &lda,

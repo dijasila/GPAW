@@ -239,12 +239,14 @@ class Eigensolver:
         W2 = psit2.matrix_view()
         P = projections.matrix_view()
         P2 = projections2.matrix_view()
+
         if self.keep_htpsit:
             HW = W.new(data=self.Htpsit_nG)
             H.multiply(W2, out=HW)
+
         H.multiply(W, out=W2)
         W[:] = W2
-        P2[:] = H @ P
+        P.multiply(H, opb='T', out=P2)
         P[:] = P2
         # Rotate orbital dependent XC stuff:
         ham.xc.rotate(kpt, H.data.T)

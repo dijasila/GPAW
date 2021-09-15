@@ -35,8 +35,9 @@ class WaveFunctions:
         P = projections.matrix_view()
         P2 = projections2.matrix_view()
         W2 = W.new(data=work_array)
-        W2[:] = S @ W
-        P2[:] = S @ P
+
+        S.multiply(W, out=W2)
+        P.multiply(S, opb='T', out=P2)
         W[:] = W2
         P[:] = P2
 

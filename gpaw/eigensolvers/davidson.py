@@ -230,7 +230,7 @@ class Davidson(Eigensolver):
             comm.broadcast(M.data, 0)
 
             M.multiply(W, out=R)
-            M.multiply(P, out=P3)
+            P.multiply(M, opb='T', out=P3)
 
             if comm.rank == 0:
                 if bd.comm.rank == 0:
@@ -239,7 +239,7 @@ class Davidson(Eigensolver):
             comm.broadcast(M.data, 0)
 
             M.multiply(W2, beta=1.0, out=R)
-            M.multiply(P2, beta=1.0, out=P3)
+            P2.multiply(M, opb='T', beta=1.0, out=P3)
             W[:] = R
             P, P3 = P3, P
             projections, projections3 = projections3, projections
