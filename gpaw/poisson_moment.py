@@ -42,15 +42,20 @@ class MomentCorrection:
         else:
             center = ', '.join([f'{x:.2f}' for x in self.center * Bohr])
 
-        moms = self.moms
-        if np.allclose(np.diff(moms), 1):
+        if np.allclose(np.diff(self.moms), 1):
             # Increasing sequence
-            moms = f'range({moms[0]}, {moms[-1]+1})'
+            moms = f'range({self.moms[0]}, {self.moms[-1]+1})'
         else:
             # List of integers
-            _moms = ', '.join([f'{m:.0f}' for m in moms])
+            _moms = ', '.join([f'{m:.0f}' for m in self.moms])
             moms = f'({_moms})'
         return f'[{center}] {moms}'
+
+    def __repr__(self) -> str:
+        center = self.center
+        if center is not None:
+            center *= Bohr
+        return f'{repr(self.moms)} @ {repr(center)}'
 
 
 class MomentCorrectionPoissonSolver(_PoissonSolver):
@@ -103,7 +108,7 @@ class MomentCorrectionPoissonSolver(_PoissonSolver):
             assert all(['moms' in mom and 'center' in mom
                         for mom in moment_corrections]), \
                    (f'{self.__class__.__name__}: each element in '
-                    'moment_correction must be a dictionary'
+                    'moment_correction must be a dictionary '
                     'with the keys "moms" and "center"')
             self.moment_corrections = [MomentCorrection(**mom)
                                        for mom in moment_corrections]
@@ -161,11 +166,8 @@ class MomentCorrectionPoissonSolver(_PoissonSolver):
         r_ir = []
 
         for rmom in self.moment_corrections:
-            if rmom['center'] is None:
-                center = None
-            else:
-                center = np.array(rmom['center'])
-            mom_j = rmom['moms']
+            center = rmom.center
+            mom_j = rmom.moms
             gauss = Gaussian(self.gd, center=center)
             self.gauss_i.append(gauss)
             r_ir.append(gauss.r.ravel())
@@ -245,8 +247,7 @@ class MomentCorrectionPoissonSolver(_PoissonSolver):
         if len(self.moment_corrections) == 0:
             corrections_str = 'no corrections'
         elif len(self.moment_corrections) < 2:
-            m = self.moment_corrections[0]
-            corrections_str = f'{repr(m["moms"]) @ {repr(m["center"])}}'
+            corrections_str = f'{repr(self.moment_corrections[0])}'
         else:
             corrections_str = f'{len(self.moment_corrections)} corrections'
 

@@ -28,7 +28,8 @@ def test_defaults(moment_corrections, expected_len):
     assert isinstance(poisson.moment_corrections, list), \
         poisson.moment_corrections
     assert len(poisson.moment_corrections) == expected_len
-    assert all([isinstance(mom, MomentCorrection) for mom in poisson.moment_corrections])
+    assert all([isinstance(mom, MomentCorrection)
+                for mom in poisson.moment_corrections])
 
 
 @pytest.mark.parametrize('moment_corrections', [
@@ -71,8 +72,6 @@ def test_description(moment_corrections, expected_strings):
         moment_corrections=moment_corrections)
 
     desc = poisson.get_description()
-
-    desc = poisson.get_description()
     desc_ref = poisson_ref.get_description()
 
     assert isinstance(desc, str)
@@ -87,6 +86,33 @@ def test_description(moment_corrections, expected_strings):
     for expected_str in expected_strings:
         assert expected_str in desc_rem, \
             f'"{expected_str}" not in "{desc_rem}"'
+
+
+@pytest.mark.parametrize('moment_corrections, expected_string', [
+    ([], 'no corrections'),
+    (4, 'array([0, 1, 2, 3]) @ None'),
+    (9, 'array([0, 1, 2, 3, 4, 5, 6, 7, 8]) @ None'),
+    ([dict(moms=range(4), center=np.array([1., 1., 1.]))],
+        'array([0, 1, 2, 3]) @ array([1., 1., 1.])'),
+    ([dict(moms=[1, 2, 3], center=np.array([1., 1., 1.]))],
+        'array([1, 2, 3]) @ array([1., 1., 1.])'),
+    ([dict(moms=[0, 2, 3], center=np.array([1., 1., 1.]))],
+        'array([0, 2, 3]) @ array([1., 1., 1.])'),
+    ([dict(moms=range(4), center=np.array([2, 3, 4])),
+      dict(moms=range(4), center=np.array([7.4, 3.1, 0.1]))],
+        '2 corrections'),
+])
+def test_repr(moment_corrections, expected_string):
+    poisson_ref = NoInteractionPoissonSolver()
+    poisson = MomentCorrectionPoissonSolver(
+        poissonsolver=poisson_ref,
+        moment_corrections=moment_corrections)
+
+    rep = repr(poisson)
+    expected_repr = f'MomentCorrectionPoissonSolver ({expected_string})'
+
+    assert isinstance(rep, str)
+    assert rep == expected_repr, f'{rep} not equal to {expected_repr}'
 
 
 @pytest.fixture
