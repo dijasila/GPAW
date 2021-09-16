@@ -26,10 +26,9 @@ def read_data(filename):
 f = plt.figure(figsize=(12, 4), dpi=240)
 plt.subplot(121)
 
-# see data from wm_scf.py and wm_dm_vs_scf.py
+# see data from wm_dm_vs_scf.py and wm_dm_vs_scf.py
 
-scf = read_data('scf-water-results.txt')
-dm_ui = read_data('dm-water-results.txt')
+data = read_data('water-results.txt')
 
 data2plot = []
 for _ in scf.keys():

@@ -35,7 +35,7 @@ saved_results = {0: np.array([[-449.2501666690716, 22],
 
 t = np.zeros(2)
 iters = np.zeros(2)
-with paropen('liquid-water-results.txt', 'w') as fd:
+with paropen('water-results.txt', 'w') as fd:
     for i, x in enumerate(r):
         atoms = Atoms('32(OH2)', positions=positions)
         atoms.set_cell((L, L, L))
@@ -72,6 +72,6 @@ with paropen('liquid-water-results.txt', 'w') as fd:
         # 2 is added to account for the diagonalization
         # performed at the beginning and at the end of etdm
         ratio_per_iter = (t[0] / iters[0]) / (t[1] / (iters[1] + 2))
-        print("{}\t{}".format(
-              ratio_per_iter, t[0] / t[1]),
+        print("{}\t{}\t{}".format(
+              len(atoms), ratio_per_iter, t[0] / t[1]),
               flush=True, file=fd)
