@@ -116,11 +116,11 @@ Examples of scripts to run such calcualtions :download:`run_g2_with_dm_ui.py`, :
 32-128 Water Molecules
 ```````````````````````
 In this test, the ground state of liquid water configurations with 32, 64, 128
-molecules and the TZDP basis set are calculated. The geometries are taken
+molecules and the TZDP basis set is calculated. The geometries are taken
 from `here <https://wiki.fysik.dtu.dk/gpaw/devel/benchmarks.html>`_.
-The GPAW parameters used in this test include: the PBE functional, grid spacing h=0.2, and
+The GPAW parameters used in this test include: PBE functional, grid spacing h=0.2 Å, and
 8-core domain decomposition. The convergence criterion is a
-change in density is smaller than `10^{-6}` electrons per valence electron.
+change in density smaller than `10^{-6}` electrons per valence electron.
 The ratio of the elapsed times spent by the default LCAO eigensolver and
 the direct minimization methods as a function of the number of
 water molecules is shown below. In direct minimization, the unitary invariant representation
@@ -129,7 +129,7 @@ As can be seen, direct minimization converges faster
 by around a factor of 1.5 for 32 molecules and around a factor of 2 for 128 molecules.
 
 
-Example of script to run such calculations :download:`wm_dm_vs_scf.py`, :download:`plot_h2o.py`.
+The calculations were run with the script :download:`wm_dm_vs_scf.py`, while the figure was generated using :download:`plot_h2o.py`.
 
 .. image:: water.png
   :width: 100%

@@ -1,3 +1,4 @@
+# Generate the data plotted in web-page: water.png
 import time
 import numpy as np
 from doc.documentation.directmin import tests_data
@@ -26,6 +27,9 @@ calc_args = {'xc': 'PBE', 'h': 0.2,
              'maxiter': 333, 'basis': 'tzdp',
              'mode': LCAO(), 'symmetry': 'off',
              'parallel': {'domain': world.size}}
+# Results (total energy, number of iterations) obtained
+# in a previous calculation. Used to compare with the
+# current results.
 saved_results = {0: np.array([[-449.2501666690716, 22],
                               [-899.7732083940263, 21],
                               [-1802.1232238298205, 21]]),
@@ -61,6 +65,7 @@ with paropen('water-results.txt', 'w') as fd:
             e = atoms.get_potential_energy()
             t2 = time.time()
             assert abs(saved_results[dm][i, 0] - e) < 1.0e-2
+
             t[dm] = t2 - t1
             if dm:
                 iters[dm] = atoms.calc.wfs.eigensolver.eg_count
@@ -72,6 +77,7 @@ with paropen('water-results.txt', 'w') as fd:
         # 2 is added to account for the diagonalization
         # performed at the beginning and at the end of etdm
         ratio_per_iter = (t[0] / iters[0]) / (t[1] / (iters[1] + 2))
+
         print("{}\t{}\t{}".format(
               len(atoms), ratio_per_iter, t[0] / t[1]),
               flush=True, file=fd)

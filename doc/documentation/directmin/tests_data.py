@@ -1,3 +1,4 @@
+# Coordinates of liquid water configuration with 32 molecules
 positions = [
     (-0.069, 0.824, -1.295), (0.786, 0.943, -0.752), (-0.414, -0.001, -0.865),
     (-0.282, -0.674, -3.822), (0.018, -0.147, -4.624),
