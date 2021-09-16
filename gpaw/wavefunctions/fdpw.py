@@ -442,7 +442,7 @@ class FDPWWaveFunctions(WaveFunctions):
                 F_inv = F_inv.conj()
                 F_inv *= kpt.f_n[:, np.newaxis]
                 dH_ii = unpack(dH_asp[a][kpt.s])
-                P_ni = kpt.P_ani[a]
+                P_ni = kpt.projections[a].T
                 F_vii = np.dot(np.dot(F_inv.transpose((2, 0, 1)), P_ni), dH_ii)
                 F_inv *= kpt.eps_n[:, np.newaxis]
                 dO_ii = self.setups[a].dO_ii
