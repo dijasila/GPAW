@@ -171,7 +171,6 @@ class AtomArrays(DistributedArrays):
         return self._arrays.get(a)
 
     def __setitem__(self, a, value):
-        asdfkljhxsfdg
         self._arrays[a][:] = value
 
     def __contains__(self, a):

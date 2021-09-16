@@ -1,0 +1,9 @@
+class PseudoDensity:
+    def __init__(self, nt, D, nct):
+        ...
+
+    def from_superposition(self, pps):
+        ...
+
+    def from_wave_functions(self, ibz):
+        ...
