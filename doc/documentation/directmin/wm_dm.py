@@ -21,11 +21,17 @@ L = 9.8553729
 r = [[1, 1, 1],
      [2, 1, 1],
      [2, 2, 1]]
-calc_args = {'xc':'PBE', 'h':0.2,
-             'convergence':{'density': 1.0e-6},
-             'maxiter':333, 'basis':'tzdp',
-             'mode':LCAO(), 'symmetry':'off',
-             'parallel':{'domain': world.size}}
+calc_args = {'xc': 'PBE', 'h': 0.2,
+             'convergence': {'density': 1.0e-6},
+             'maxiter': 333, 'basis': 'tzdp',
+             'mode': LCAO(), 'symmetry': 'off',
+             'parallel': {'domain': world.size}}
+saved_results = {0: np.array([[-449.29433888653887, 15],
+                              [-899.8689779482846, 15],
+                              [-1802.1980642103324, 15]]),
+                 1: np.array([[-449.2501666690716, 22],
+                              [-899.7732083940263, 21],
+                              [-1802.1232238298205, 21]])}
 
 t = np.zeros(2)
 iters = np.zeros(2)
@@ -35,7 +41,6 @@ with paropen('liquid-water-results.txt', 'w') as fd:
         atoms.set_cell((L, L, L))
         atoms.set_pbc(1)
         atoms = atoms.repeat(x)
-
         for i in [0, 1]:
             if i:
                 calc = GPAW(**calc_args,
@@ -55,11 +60,13 @@ with paropen('liquid-water-results.txt', 'w') as fd:
             t1 = time.time()
             e = atoms.get_potential_energy()
             t2 = time.time()
+            assert abs(saved_results[i][x, 0] - e) < 1.0e-2
             t[i] = t2 - t1
             if i:
                 iters[i] = atoms.calc.wfs.eigensolver.eg_count
             else:
                 iters[i] = atoms.calc.get_number_of_iterations()
+            assert abs(saved_results[i][x, 1] - iters) < 3
 
         # Ratio of elapsed times per iteration
         # 2 is added to account for the diagonalization
@@ -68,43 +75,3 @@ with paropen('liquid-water-results.txt', 'w') as fd:
         print("{}\t{}".format(
               ratio_per_iter, t[0] / t[1]),
               flush=True, file=fd)
-
-
-output = \
-    """
-96	13	-449.29433888653887	15	13.834846258163452	417.422
-192	13	-899.8689779482846	15	47.11155915260315	893.156
-384	13	-1802.1980642103324	15	243.71619248390198	2633.445
-"""
-
-output.splitlines()
-
-# this is saved data
-saved_data = {}
-for i in output.splitlines():
-    if i == '':
-        continue
-    mol = i.split()
-    # ignore last two columns which are memory and elapsed time
-    saved_data[mol[0]] = np.array([float(_) for _ in mol[1:-2]])
-
-with open('dm-water-results.txt', 'r') as fd:
-    calculated_data_string = fd.read().split('\n')
-
-# this is data calculated, we would like to coompare it to saved
-# compare number of iteration, energy and gradient evaluation,
-# and energy
-
-calculated_data = {}
-for i in calculated_data_string:
-    if i == '':
-        continue
-    mol = i.split()
-    # ignore last column (elapsed time)sure
-    calculated_data[mol[0]] = np.array([float(_) for _ in mol[1:-1]])
-
-error = np.array([3, 1.0e-2, 3])
-
-assert len(calculated_data) == len(saved_data)
-for k in saved_data.keys():
-    assert (abs(saved_data[k] - calculated_data[k]) < error).all()
