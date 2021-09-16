@@ -45,16 +45,33 @@ class AtomCenteredFunctions:
         if 0:#isinstance(coefs, Matrix):
             coefs = AtomArrays(self.layout, functions.shape, functions.comm,
                                coefs.data)
-        self.lfc.add(functions.data, coefs, q=0)
+        self.lfc.add(functions.data,
+                     {a: np.moveaxis(array, 0, -1)
+                      for a, array in coefs._arrays.items()},
+                     q=0)
 
     def integrate(self, functions, out=None):
         self._lacy_init()
         if out is None:
             out = self.layout.empty(functions.shape, functions.comm)
         elif isinstance(out, Matrix):
+            1 / 0
             out = AtomArrays(self.layout, functions.shape, functions.comm,
                              out.data)
-        self.lfc.integrate(functions.data, out, q=0)
+        self.lfc.integrate(functions.data,
+                           {a: np.moveaxis(array, 0, -1)
+                            for a, array in out._arrays.items()},
+                           q=0)
+        return out
+
+    def derivative(self, functions, out=None):
+        self._lacy_init()
+        if out is None:
+            out = self.layout.empty(functions.shape + (3,), functions.comm)
+        self.lfc.derivative(functions.data,
+                            {a: np.moveaxis(array, 0, -2)
+                             for a, array in out._arrays.items()},
+                            q=0)
         return out
 
 
@@ -113,6 +130,7 @@ class AtomArraysLayout(Layout):
             I2 = I1 + np.prod(self.shapes[a])
             self.myindices.append((a, I1, I2))
             self.mysize += I2 - I1
+            I1 = I2
 
         Layout.__init__(self, (self.size,), (self.mysize,))
 
@@ -140,7 +158,8 @@ class AtomArrays(DistributedArrays):
         self._arrays = {}
         for a, I1, I2 in layout.myindices:
             self._arrays[a] = self.data[I1:I2].reshape(
-                self.myshape + layout.shapes[a])
+                #self.myshape + layout.shapes[a])
+                layout.shapes[a] + self.myshape)
 
     def new(self):
         return AtomArrays(self.layout, self.shape, self.comm)
@@ -152,10 +171,14 @@ class AtomArrays(DistributedArrays):
         return self._arrays.get(a)
 
     def __setitem__(self, a, value):
+        asdfkljhxsfdg
         self._arrays[a][:] = value
 
     def __contains__(self, a):
         return a in self._arrays
+
+    def items(self):
+        return self._arrays.items()
 
     def keys(self):
         return self._arrays.keys()

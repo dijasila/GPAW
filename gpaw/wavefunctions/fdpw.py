@@ -432,19 +432,21 @@ class FDPWWaveFunctions(WaveFunctions):
                 self.kd.comm.sum(F_av, 0)
             return
 
-        F_aniv = self.pt.dict(self.bd.mynbands, derivative=True)
+        # F_aniv = self.pt.dict(self.bd.mynbands, derivative=True)
+        F_ainv = None
         dH_asp = hamiltonian.dH_asp
         for kpt in self.kpt_u:
-            self.pt.derivative(kpt.psit_nG, F_aniv, kpt.q)
-            for a, F_niv in F_aniv.items():
-                F_niv = F_niv.conj()
-                F_niv *= kpt.f_n[:, np.newaxis, np.newaxis]
+            F_ainv = kpt.projectors.derivative(kpt.psit.wave_functions,
+                                               out=F_ainv)
+            for a, F_inv in F_ainv.items():
+                F_inv = F_inv.conj()
+                F_inv *= kpt.f_n[:, np.newaxis]
                 dH_ii = unpack(dH_asp[a][kpt.s])
                 P_ni = kpt.P_ani[a]
-                F_vii = np.dot(np.dot(F_niv.transpose(), P_ni), dH_ii)
-                F_niv *= kpt.eps_n[:, np.newaxis, np.newaxis]
+                F_vii = np.dot(np.dot(F_inv.transpose((2, 0, 1)), P_ni), dH_ii)
+                F_inv *= kpt.eps_n[:, np.newaxis]
                 dO_ii = self.setups[a].dO_ii
-                F_vii -= np.dot(np.dot(F_niv.transpose(), P_ni), dO_ii)
+                F_vii -= np.dot(np.dot(F_inv.transpose((2, 0, 1)), P_ni), dO_ii)
                 F_av[a] += 2 * F_vii.real.trace(0, 1, 2)
 
             # Hack used in delta-scf calculations:

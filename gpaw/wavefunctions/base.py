@@ -151,7 +151,8 @@ class WaveFunctions:
             D_sii[kpt.s] += D_ii.real
         else:
             if self.collinear:
-                P_ni = kpt.projections[a]
+                assert self.mode != 'lcao'
+                P_ni = kpt.projections[a].T
                 D_sii[kpt.s] += np.dot(P_ni.T.conj() * f_n, P_ni).real
             else:
                 P_nsi = kpt.projections[a]

@@ -84,7 +84,9 @@ class KPoint:
     @property
     def P_ani(self):
         if self._projections is not None:
-            return {a: P_ni for a, P_ni in self.projections.items()}
+            if isinstance(self._projections, Projections):
+                return {a: P_ni for a, P_ni in self.projections.items()}
+            #return {a: P_in.T for a, P_in in self.projections.items()}
 
     @property
     def psit_nG(self):
