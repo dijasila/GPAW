@@ -129,7 +129,7 @@ As can be seen, direct minimization converges faster
 by around a factor of 1.5 for 32 molecules and around a factor of 2 for 128 molecules.
 
 
-Examples of scripts to run such calcualtions :download:`wm_dm.py`, :download:`wm_scf.py`, :download:`plot_h2o.py`. 
+Example of script to run such calculations :download:`wm_dmscf.py`, :download:`plot_h2o.py`.
 
 .. image:: water.png
   :width: 100%
