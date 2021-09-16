@@ -1,7 +1,6 @@
 from typing import Tuple
 
 import numpy as np
-import pytest
 
 import gpaw.mpi as mpi
 from gpaw import setup_paths
@@ -11,6 +10,7 @@ from gpaw.typing import Array1D
 
 
 def equal(x, y, tolerance=0):
+    import pytest
     assert x == pytest.approx(y, abs=tolerance)
 
 

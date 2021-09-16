@@ -18,7 +18,8 @@ extensions = ['images',
               'sphinx.ext.mathjax',
               'sphinx.ext.intersphinx']
 extlinks = {'doi': ('https://doi.org/%s', 'doi:'),
-            'arxiv': ('https://arxiv.org/abs/%s', 'arXiv:')}
+            'arxiv': ('https://arxiv.org/abs/%s', 'arXiv:'),
+            'xkcd': ('https://xkcd.com/%s', 'XKCD:')}
 templates_path = ['templates']
 source_suffix = '.rst'
 master_doc = 'index'
