@@ -36,13 +36,13 @@ saved_results = {0: np.array([[-449.29433888653887, 15],
 t = np.zeros(2)
 iters = np.zeros(2)
 with paropen('liquid-water-results.txt', 'w') as fd:
-    for x in r:
+    for i, x in enumerate(r):
         atoms = Atoms('32(OH2)', positions=positions)
         atoms.set_cell((L, L, L))
         atoms.set_pbc(1)
         atoms = atoms.repeat(x)
-        for i in [0, 1]:
-            if i:
+        for dm in [0, 1]:
+            if dm:
                 calc = GPAW(**calc_args,
                             txt=str(len(atoms) // 3) + '_H2Omlcls_dm.txt',
                             eigensolver=ETDM(matrix_exp='egdecomp-u-invar',
@@ -60,13 +60,13 @@ with paropen('liquid-water-results.txt', 'w') as fd:
             t1 = time.time()
             e = atoms.get_potential_energy()
             t2 = time.time()
-            assert abs(saved_results[i][x, 0] - e) < 1.0e-2
-            t[i] = t2 - t1
-            if i:
-                iters[i] = atoms.calc.wfs.eigensolver.eg_count
+            assert abs(saved_results[dm][i, 0] - e) < 1.0e-1
+            t[dm] = t2 - t1
+            if dm:
+                iters[dm] = atoms.calc.wfs.eigensolver.eg_count
             else:
-                iters[i] = atoms.calc.get_number_of_iterations()
-            assert abs(saved_results[i][x, 1] - iters) < 3
+                iters[dm] = atoms.calc.get_number_of_iterations()
+            assert abs(saved_results[dm][i, 1] - iters[dm]) < 3
 
         # Ratio of elapsed times per iteration
         # 2 is added to account for the diagonalization
