@@ -170,7 +170,10 @@ if debug:
 
 
 with broadcast_imports:
-    from gpaw.calculator import GPAW
+    if os.environ.get('GPAW_NEW'):
+        from gpaw.ase_interface import GPAW
+    else:
+        from gpaw.calculator import GPAW
     from gpaw.mixer import Mixer, MixerSum, MixerDif, MixerSum2
     from gpaw.eigensolvers import Davidson, RMMDIIS, CG, DirectLCAO
     from gpaw.poisson import PoissonSolver
