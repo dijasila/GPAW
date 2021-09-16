@@ -17,6 +17,7 @@ from .broadcast_imports import world
 import _gpaw
 
 MASTER = 0
+MPIComm = Any  # for type hints
 
 
 def is_contiguous(*args, **kwargs):

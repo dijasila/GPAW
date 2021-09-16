@@ -1,0 +1,3 @@
+class Atoms:
+    def __init__(self, pos, cell, pbc, symb, distribution):
+        ...

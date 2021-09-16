@@ -166,13 +166,17 @@ def rk(alpha, a, beta, c, trans='c'):
     _gpaw.rk(alpha, a, beta, c, trans)
 
 
-def r2k(alpha, a, b, beta, c):
+def r2k(alpha, a, b, beta, c, trans='c'):
     """Rank-2k update of a matrix.
 
     Performs the operation::
 
                         dag        cc       dag
       c <- alpha * a . b    + alpha  * b . a    + beta * c
+
+    or if trans='n'::
+                    dag           cc   dag
+      c <- alpha * a   . b + alpha  * b   . a + beta * c
 
     where ``a.b`` denotes the matrix multiplication defined by::
 
@@ -196,9 +200,12 @@ def r2k(alpha, a, b, beta, c):
     assert a.flags.contiguous and b.flags.contiguous
     assert a.ndim > 1
     assert a.shape == b.shape
-    assert c.shape == (a.shape[0], a.shape[0])
+    if trans == 'c':
+        assert c.shape == (a.shape[0], a.shape[0])
+    else:
+        assert c.shape == (a.shape[1], a.shape[1])
     assert c.strides[1] == c.itemsize
-    _gpaw.r2k(alpha, a, b, beta, c)
+    _gpaw.r2k(alpha, a, b, beta, c, trans)
 
 
 def _gemmdot(a, b, alpha=1.0, beta=1.0, out=None, trans='n'):
@@ -284,17 +291,20 @@ if not hasattr(_gpaw, 'mmm'):
             a = a.reshape((len(a), -1))
             c += alpha * a.dot(a.conj().T)
 
-    def r2k(alpha, a, b, beta, c):  # noqa
+    def r2k(alpha, a, b, beta, c, trans='c'):  # noqa
         if c.size == 0:
             return
         if beta == 0.0:
             c[:] = 0.0
         else:
             c *= beta
-        c += (alpha * a.reshape((len(a), -1))
-              .dot(b.reshape((len(b), -1)).conj().T) +
-              alpha * b.reshape((len(b), -1))
-              .dot(a.reshape((len(a), -1)).conj().T))
+        if trans == 'c':
+            c += (alpha * a.reshape((len(a), -1))
+                  .dot(b.reshape((len(b), -1)).conj().T) +
+                  alpha * b.reshape((len(b), -1))
+                  .dot(a.reshape((len(a), -1)).conj().T))
+        else:
+            c += alpha * (a.conj().T @ b + b.conj().T @ a)
 
     def op(o, m):
         if o == 'N':
