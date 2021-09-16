@@ -1,6 +1,6 @@
 import time
 import numpy as np
-import tools_testing
+from doc.documentation.directmin import tests_data
 from ase import Atoms
 from gpaw import GPAW, LCAO, FermiDirac
 from ase.parallel import paropen
@@ -15,7 +15,7 @@ for symbol in ['H', 'O']:
     basis = bm.generate(zetacount=3, polarizationcount=2)
     basis.write_xml()
 
-positions = tools_testing.positions
+positions = tests_data.positions
 
 L = 9.8553729
 r = [[1, 1, 1],
