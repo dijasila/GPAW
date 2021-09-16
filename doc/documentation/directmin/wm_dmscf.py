@@ -60,7 +60,7 @@ with paropen('liquid-water-results.txt', 'w') as fd:
             t1 = time.time()
             e = atoms.get_potential_energy()
             t2 = time.time()
-            assert abs(saved_results[dm][i, 0] - e) < 1.0e-1
+            assert abs(saved_results[dm][i, 0] - e) < 1.0e-2
             t[dm] = t2 - t1
             if dm:
                 iters[dm] = atoms.calc.wfs.eigensolver.eg_count
