@@ -79,5 +79,5 @@ with paropen('water-results.txt', 'w') as fd:
         ratio_per_iter = (t[0] / iters[0]) / (t[1] / (iters[1] + 2))
 
         print("{}\t{}\t{}".format(
-              len(atoms), ratio_per_iter, t[0] / t[1]),
+              len(atoms), t[0] / t[1], ratio_per_iter),
               flush=True, file=fd)
