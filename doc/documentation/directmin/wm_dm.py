@@ -2,7 +2,7 @@ import time
 import numpy as np
 import tools_testing
 from ase import Atoms
-from gpaw import GPAW, LCAO, ConvergenceError
+from gpaw import GPAW, LCAO, FermiDirac
 from ase.parallel import paropen
 from gpaw.directmin.etdm import ETDM
 from gpaw.mpi import world
@@ -21,41 +21,53 @@ L = 9.8553729
 r = [[1, 1, 1],
      [2, 1, 1],
      [2, 2, 1]]
+calc_args = {'xc':'PBE', 'h':0.2,
+             'convergence':{'density': 1.0e-6},
+             'maxiter':333, 'basis':'tzdp',
+             'mode':LCAO(), 'symmetry':'off',
+             'parallel':{'domain': world.size}}
 
+t = np.zeros(2)
+iters = np.zeros(2)
 with paropen('liquid-water-results.txt', 'w') as fd:
     for x in r:
         atoms = Atoms('32(OH2)', positions=positions)
         atoms.set_cell((L, L, L))
         atoms.set_pbc(1)
         atoms = atoms.repeat(x)
-        calc = GPAW(xc='PBE', h=0.2,
-                    convergence={'density': 1.0e-6},
-                    maxiter=333,
-                    basis='tzdp',
-                    mode=LCAO(),
-                    txt=str(len(atoms) // 3) + '_H2Omlcls_scf.txt',
-                    eigensolver=ETDM(matrix_exp='egdecomp-u-invar',
-                                     representation='u-invar'),
-                    mixer={'backend': 'no-mixing'},
-                    nbands='nao',
-                    occupations={'name': 'fixed-uniform'},
-                    symmetry='off',
-                    parallel={'domain': world.size})
 
-        atoms.set_calculator(calc)
+        for i in [0, 1]:
+            if i:
+                calc = GPAW(**calc_args,
+                            txt=str(len(atoms) // 3) + '_H2Omlcls_dm.txt',
+                            eigensolver=ETDM(matrix_exp='egdecomp-u-invar',
+                                             representation='u-invar'),
+                            mixer={'backend': 'no-mixing'},
+                            nbands='nao',
+                            occupations={'name': 'fixed-uniform'})
+            else:
+                calc = GPAW(**calc_args,
+                            txt=str(len(atoms) // 3) + '_H2Omlcls_scf.txt',
+                            occupations=FermiDirac(width=0.0, fixmagmom=True))
 
-        try:
+            atoms.set_calculator(calc)
+
             t1 = time.time()
             e = atoms.get_potential_energy()
             t2 = time.time()
-            iters = atoms.calc.wfs.eigensolver.eg_count
-            print("{}\t{}".format(
-                iters, t2 - t1),
-                flush=True, file=fd)  # s
-        except ConvergenceError:
-            print("{}\t{}".format(
-                None, None),
-                flush=True, file=fd)
+            t[i] = t2 - t1
+            if i:
+                iters[i] = atoms.calc.wfs.eigensolver.eg_count
+            else:
+                iters[i] = atoms.calc.get_number_of_iterations()
+
+        # Ratio of elapsed times per iteration
+        # 2 is added to account for the diagonalization
+        # performed at the beginning and at the end of etdm
+        ratio_per_iter = (t[0] / iters[0]) / (t[1] / (iters[1] + 2))
+        print("{}\t{}".format(
+              ratio_per_iter, t[0] / t[1]),
+              flush=True, file=fd)
 
 
 output = \
