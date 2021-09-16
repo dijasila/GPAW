@@ -26,7 +26,7 @@ def read_data(filename):
 f = plt.figure(figsize=(12, 4), dpi=240)
 plt.subplot(121)
 
-# see data from wm_scf.py and wm_dmscf.py
+# see data from wm_scf.py and wm_dm_vs_scf.py
 
 scf = read_data('scf-water-results.txt')
 dm_ui = read_data('dm-water-results.txt')
@@ -50,7 +50,7 @@ plt.yticks(np.arange(1, 3.1, 0.5))
 plt.plot(x, y, 'bo-')
 
 plt.subplot(122)
-# see data from wm_scf.py and wm_dmscf.py
+# see data from wm_scf.py and wm_dm_vs_scf.py
 # add 2 because it also performs diagonalization
 # in the begining and the end of etdm
 

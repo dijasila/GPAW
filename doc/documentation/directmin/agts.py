@@ -7,6 +7,6 @@ def workflow():
     r2 = run(script='run_g2_with_scf.py', cores=8, tmax='2h')
     with r1, r2:
         run(script='plot_g2.py')
-    r3 = run(script='wm_dmscf.py', cores=8, tmax='30m')
+    r3 = run(script='wm_dm_vs_scf.py', cores=8, tmax='30m')
     with r3:
         run(script='plot_h2o.py')
