@@ -1,7 +1,7 @@
 from gpaw.utilities.gauss import Gaussian
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.poisson import PoissonSolver
-from poisson_with_gaussian_charges import PoissonSolverWithGaussianCharges
+from gpaw.poisson_with_gaussian_charges import PoissonSolverWithGaussianCharges
 
 
 def test_PoissonSolverWithGaussianCharges():
