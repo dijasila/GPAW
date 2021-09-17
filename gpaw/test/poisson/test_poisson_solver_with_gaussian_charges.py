@@ -43,4 +43,3 @@ def test_PoissonSolverWithGaussianCharges():
     assert abs(analytical_potential[50, 50, :]
                [-1] - phi_gaussian[50, 50, :][-1]) < 0.07
     # The difference is quite small
-
