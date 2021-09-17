@@ -1,43 +1,40 @@
+import numpy as np
 from ase.collections import g2
 from gpaw import GPAW, LCAO
-from ase.parallel import parprint
+from ase.parallel import paropen
 import time
 from gpaw.directmin.etdm import ETDM
 
 xc = 'PBE'
 mode = LCAO()
 
-file2write = open('dm-g2-results.txt', 'w')
+with paropen('dm-g2-results.txt', 'w') as fd:
+    for name in g2.names:
+        atoms = g2[name]
+        if len(atoms) == 1:
+            continue
+        atoms.center(vacuum=7.0)
+        calc = GPAW(xc=xc, h=0.15,
+                    convergence={'density': 1.0e-6},
+                    basis='dzp',
+                    mode=mode,
+                    txt=name + '.txt',
+                    eigensolver=ETDM(matrix_exp='egdecomp-u-invar',
+                                     representation='u-invar'),
+                    mixer={'backend': 'no-mixing'},
+                    nbands='nao',
+                    occupations={'name': 'fixed-uniform'},
+                    symmetry='off'
+                    )
+        atoms.calc = calc
 
-
-for name in g2.names:
-    atoms = g2[name]
-    if len(atoms) == 1:
-        continue
-    atoms.center(vacuum=7.0)
-    calc = GPAW(xc=xc, h=0.15,
-                convergence={'density': 1.0e-6},
-                basis='dzp',
-                mode=mode,
-                txt=name + '.txt',
-                eigensolver=ETDM(matrix_exp='egdecomp-u-invar',
-                                 representation='u-invar'),
-                mixer={'backend': 'no-mixing'},
-                nbands='nao',
-                occupations={'name': 'fixed-uniform'},
-                symmetry='off'
-                )
-    atoms.calc = calc
-
-    t1 = time.time()
-    e = atoms.get_potential_energy()
-    t2 = time.time()
-    steps = atoms.calc.get_number_of_iterations()
-    iters = atoms.calc.wfs.eigensolver.eg_count
-    parprint(name + "\t{}".format(iters),
-             file=file2write, flush=True)
-
-file2write.close()
+        t1 = time.time()
+        e = atoms.get_potential_energy()
+        t2 = time.time()
+        steps = atoms.calc.get_number_of_iterations()
+        iters = atoms.calc.wfs.eigensolver.eg_count
+        print(name + "\t{}".format(iters),
+              file=fd, flush=True)
 
 output = \
     """
@@ -191,7 +188,6 @@ C3H4_C2v	11	14	-37.68429215491533	11.209607362747192	628.715
 NO2	12	15	-17.169478949870694	13.804738521575928	628.715
 """
 
-import numpy as np
 output.splitlines()
 
 # this is saved data
