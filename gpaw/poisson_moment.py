@@ -89,7 +89,7 @@ class MomentCorrectionPoissonSolver(_PoissonSolver):
     """
 
     def __init__(self,
-                 poissonsolver: _PoissonSolver,
+                 poissonsolver: Union[_PoissonSolver, Dict[str, Any]],
                  moment_corrections: Optional[MomentCorrectionsType],
                  timer: Union[NullTimer, Timer] = nulltimer):
 
@@ -189,20 +189,13 @@ class MomentCorrectionPoissonSolver(_PoissonSolver):
             mask_g = mask_r.reshape(self.gd.n_c)
             self.mask_ig.append(mask_g)
 
-            # Uncomment this to see masks on grid
-            # big_g = self.gd.collect(mask_g)
-            # if self.gd.comm.rank == 0:
-            #     big_g.dump('mask_%dg' % (i))
-
     def solve(self, phi, rho, **kwargs):
         self._init()
         return self._solve(phi, rho, **kwargs)
 
     @timer('Solve')
     def _solve(self, phi, rho, **kwargs):
-        timer = kwargs.get('timer', None)
-        if timer is None:
-            timer = self.timer
+        timer = kwargs.get('timer', self.timer)
 
         if len(self.moment_corrections) > 0:
             assert not self.gd.pbc_c.any()
