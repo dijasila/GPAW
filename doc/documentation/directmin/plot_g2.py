@@ -20,9 +20,9 @@ def read_molecules(filename, molnames):
     data2return = []
     for _ in molnames:
         if 'scf' in filename:
-            x = 0
+            x = 0  # second column for scf
         elif 'dm' in filename:
-            x = 1
+            x = 1  # third column for dm
         data2return.append(_)
         data2return.append(calculated_data[_][x])
 

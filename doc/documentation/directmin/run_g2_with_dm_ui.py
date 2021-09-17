@@ -1,7 +1,6 @@
 from ase.collections import g2
-from gpaw import GPAW, LCAO, ConvergenceError
+from gpaw import GPAW, LCAO
 from ase.parallel import parprint
-from gpaw.utilities.memory import maxrss
 import time
 from gpaw.directmin.etdm import ETDM
 
@@ -30,22 +29,13 @@ for name in g2.names:
                 )
     atoms.calc = calc
 
-    try:
-        t1 = time.time()
-        e = atoms.get_potential_energy()
-        t2 = time.time()
-        steps = atoms.calc.get_number_of_iterations()
-        iters = atoms.calc.wfs.eigensolver.eg_count
-        memory = maxrss() / 1024.0 ** 2
-        parprint(name + "\t{}\t{}\t{}\t{}\t{:.3f}".format(
-            steps, iters, e, t2 - t1, memory),
-            file=file2write, flush=True)  # s,MB
-    except ConvergenceError:
-        parprint(name + "\t{}\t{}\t{}\t{}\t{}".format(
-            None, None, None, None, None),
-            file=file2write, flush=True)
-    calc = None
-    atoms = None
+    t1 = time.time()
+    e = atoms.get_potential_energy()
+    t2 = time.time()
+    steps = atoms.calc.get_number_of_iterations()
+    iters = atoms.calc.wfs.eigensolver.eg_count
+    parprint(name + "\t{}".format(iters),
+             file=file2write, flush=True)
 
 file2write.close()
 
