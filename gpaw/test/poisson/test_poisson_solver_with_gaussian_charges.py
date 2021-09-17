@@ -1,8 +1,7 @@
 from gpaw.utilities.gauss import Gaussian
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.poisson import PoissonSolver
-import matplotlib.pyplot as plt
-from gpaw.poisson_with_gaussian_charges import PoissonSolverWithGaussianCharges
+from poisson_with_gaussian_charges import PoissonSolverWithGaussianCharges
 
 
 def test_PoissonSolverWithGaussianCharges():
@@ -20,17 +19,17 @@ def test_PoissonSolverWithGaussianCharges():
     analytical_potential = gaussian_1.get_gauss_pot(
         0) + (-1 * gaussian_2.get_gauss_pot(0))  # Get analytic potential
     # Test agreement with standard PoissonSolver
-    do_plot = False
     phi_num = gd.zeros()  # Array for storing the potential
     solver = PoissonSolver(nn=3, use_charge_center=True)
     solver.set_grid_descriptor(gd)
     solver.solve(phi_num, total_density, zero_initial_phi=True)
-    if not do_plot:
-        plt.plot(analytical_potential[50, 50, :], label="Analytical_Potential")
-        plt.plot(phi_num[50, 50, :], '--', label="Numerical_Potential")
-        plt.legend()
-        plt.grid()
-    plt.show()  # There is a difference in values on borders
+    # Check the agreement between the analytical and numerical potentials
+    # at the boundaries
+    assert abs(analytical_potential[50, 50, :]
+               [0] - phi_num[50, 50, :][0]) > 0.44
+    assert abs(analytical_potential[50, 50, :]
+               [-1] - phi_num[50, 50, :][-1]) > 0.44
+    # There is a difference in values on borders
     # Test agreement with Gaussian charges
     poisson = PoissonSolverWithGaussianCharges()
     poisson.set_grid_descriptor(gd)
@@ -38,15 +37,10 @@ def test_PoissonSolverWithGaussianCharges():
     poisson.positions = [center_of_charge_1, center_of_charge_2]
     phi_gaussian = gd.zeros()  # Array for storing the potential
     poisson.solve(phi_gaussian, total_density)
+    # Check the agreement at the boundaries
+    assert abs(analytical_potential[50, 50, :]
+               [0] - phi_gaussian[50, 50, :][0]) < 0.07
+    assert abs(analytical_potential[50, 50, :]
+               [-1] - phi_gaussian[50, 50, :][-1]) < 0.07
+    # The difference is quite small
 
-    if not do_plot:
-        plt.plot(analytical_potential[50, 50, :], label="Analytical_Potential")
-        plt.plot(phi_gaussian[50, 50, :], '--',
-                 color="green", label="Corrected_Potential")
-        plt.plot(phi_num[50, 50, :], '--', color="orange",
-                 label="Previous_Numerical_Potential")
-        plt.legend()
-        plt.grid()
-        # The potential we get form PoissionSolverWithGaussianCharges gives the
-        # correct expected potential.
-    plt.show()
