@@ -1,4 +1,34 @@
 import time
+import numpy as np
+from gpaw import GPAW, FermiDirac
+from gpaw.directmin.etdm import ETDM
+
+
+def read_saved_data(output):
+    saved_data = {}
+    for i in output.splitlines():
+        if i == '':
+            continue
+        mol = i.split()
+        saved_data[mol[0]] = np.array([float(_) for _ in mol[1:]])
+
+    return saved_data
+
+
+def set_calc(atoms, calc_args, txt, dm):
+    if dm:
+        calc = GPAW(**calc_args,
+                    txt=txt,
+                    eigensolver=ETDM(matrix_exp='egdecomp-u-invar',
+                                     representation='u-invar'),
+                    mixer={'backend': 'no-mixing'},
+                    nbands='nao',
+                    occupations={'name': 'fixed-uniform'})
+    else:
+        calc = GPAW(**calc_args,
+                    txt=txt,
+                    occupations=FermiDirac(width=0.0, fixmagmom=True))
+    atoms.set_calculator(calc)
 
 
 def get_energy_and_iters(atoms, dm):
