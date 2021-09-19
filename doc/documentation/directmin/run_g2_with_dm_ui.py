@@ -23,24 +23,22 @@ def read_saved_data(output):
 # current results.
 saved_data_dm = read_saved_data(tests_data.output_g2_with_dm)
 
-xc = 'PBE'
-mode = LCAO()
+calc_args = {'xc': 'PBE', 'h': 0.15,
+             'convergence': {'density': 1.0e-6},
+             'maxiter': 333, 'basis': 'dzp',
+             'mode': LCAO(), 'symmetry': 'off'}
 
 with paropen('dm-g2-results.txt', 'w') as fd:
     for name in saved_data_dm.keys():
         atoms = g2[name]
         atoms.center(vacuum=7.0)
-        calc = GPAW(xc=xc, h=0.15,
-                    convergence={'density': 1.0e-6},
-                    basis='dzp',
-                    mode=mode,
+        calc = GPAW(**calc_args,
                     txt=name + '.txt',
                     eigensolver=ETDM(matrix_exp='egdecomp-u-invar',
                                      representation='u-invar'),
                     mixer={'backend': 'no-mixing'},
                     nbands='nao',
                     occupations={'name': 'fixed-uniform'},
-                    symmetry='off'
                     )
         atoms.calc = calc
 
