@@ -109,7 +109,7 @@ Direct minimization demonstrates stable performance in all cases. Note that
 by choosing different parameters for the density mixing one may improve
 the convergence of the SCF methods.
 
-Examples of scripts to run such calcualtions :download:`run_g2_with_dm_ui.py`, :download:`run_g2_with_scf.py`, :download:`plot_g2.py`. 
+An examples of scripts to run such calculations :download:`run_g2_with_dm_ui_vs_scf.py`, :download:`plot_g2.py`.
 
 .. image:: g2.png
 
