@@ -528,13 +528,8 @@ class ETDM:
                     u = self.kpointval(kpt)
                     self.a_mat_u[u] = np.zeros_like(self.a_mat_u[u])
 
-            # choose search direction and line search algorithm
-            # as you need to restart it
-            self.searchdir_algo = search_direction(self.searchdir_algo.name)
-            self.line_search = \
-                line_search_algorithm(self.line_search.name,
-                                      self.evaluate_phi_and_der_phi,
-                                      self.searchdir_algo)
+            # Erase memory of search direction algorithm
+            self.searchdir_algo.reset()
 
     def get_preconditioning(self, wfs, use_prec):
 
@@ -638,6 +633,7 @@ class ETDM:
         self.dm_helper = None
         self.error = np.inf
         self.initialized = False
+        self.searchdir_algo.reset()
 
     def sort_wavefunctions(self, ham, wfs, use_eps=False):
         """

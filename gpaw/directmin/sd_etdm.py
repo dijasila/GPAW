@@ -14,6 +14,9 @@ import copy
 class SearchDirectionBase(object):
     def __init__(self):
         self.iters = 0
+        self.kp = None
+        self.p = None
+        self.k = None
         super(SearchDirectionBase, self).__init__()
 
     def __str__(self):
@@ -23,6 +26,12 @@ class SearchDirectionBase(object):
     def update_data(self, wfs, x_k1, g_k1, precond=None):
         raise NotImplementedError('Search direction class needs '
                                   '\'update_data\' method')
+
+    def reset(self):
+        self.iters = 0
+        self.kp = {}
+        self.p = 0
+        self.k = 0
 
 
 class SteepestDescent(SearchDirectionBase):
