@@ -1,9 +1,8 @@
 import numpy as np
 from ase.collections import g2
-from doc.documentation.directmin import tests_data
+from doc.documentation.directmin import tools_and_data
 from gpaw import GPAW, LCAO, FermiDirac, ConvergenceError
 from ase.parallel import paropen
-import time
 from gpaw.directmin.etdm import ETDM
 
 
@@ -21,8 +20,8 @@ def read_saved_data(output):
 # Results (total energy, number of iterations) obtained
 # in a previous calculation. Used to compare with the
 # current results.
-saved_data = {0: read_saved_data(tests_data.output_g2_with_dm),
-              1: read_saved_data(tests_data.output_g2_with_dm)}
+saved_data = {0: read_saved_data(tools_and_data.output_g2_with_dm),
+              1: read_saved_data(tools_and_data.output_g2_with_dm)}
 
 calc_args = {'xc': 'PBE', 'h': 0.15,
              'convergence': {'density': 1.0e-6},
@@ -41,27 +40,20 @@ with paropen('dm-g2-results.txt', 'w') as fd:
                                              representation='u-invar'),
                             mixer={'backend': 'no-mixing'},
                             nbands='nao',
-                            occupations={'name': 'fixed-uniform'}
-                            )
+                            occupations={'name': 'fixed-uniform'})
             else:
                 calc = GPAW(**calc_args,
                             txt=name + '_scf.txt',
-                            occupations=FermiDirac(width=0.0, fixmagmom=True)
-                            )
+                            occupations=FermiDirac(width=0.0, fixmagmom=True))
             atoms.calc = calc
 
             try:
-                t1 = time.time()
-                e = atoms.get_potential_energy()
-                t2 = time.time()
+                e, iters, t = tools_and_data.get_energy_and_iters(atoms, dm)
                 assert abs(saved_data[dm][name][0] - e) < 1.0e-2
-
-                steps = atoms.calc.get_number_of_iterations()
-                iters = atoms.calc.wfs.eigensolver.eg_count
                 assert abs(saved_data[dm][name][1] - iters) < 3
-
                 print(name + "\t{}".format(iters),
                       file=fd, flush=True)
+
             except ConvergenceError:
                 print(name + "\t{}".format(None),
                       file=fd, flush=True)

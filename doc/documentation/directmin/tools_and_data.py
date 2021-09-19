@@ -1,3 +1,19 @@
+import time
+
+
+def get_energy_and_iters(atoms, dm):
+    t1 = time.time()
+    e = atoms.get_potential_energy()
+    t2 = time.time()
+
+    if dm:
+        iters = atoms.calc.wfs.eigensolver.eg_count
+    else:
+        iters = atoms.calc.get_number_of_iterations()
+
+    return e, iters, t2 - t1
+
+
 # Coordinates of liquid water configuration with 32 molecules
 positions = [
     (-0.069, 0.824, -1.295), (0.786, 0.943, -0.752), (-0.414, -0.001, -0.865),
