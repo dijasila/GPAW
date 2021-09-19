@@ -1,7 +1,7 @@
 import numpy as np
 from ase.collections import g2
 from doc.documentation.directmin import tests_data
-from gpaw import GPAW, LCAO
+from gpaw import GPAW, LCAO, FermiDirac
 from ase.parallel import paropen
 import time
 from gpaw.directmin.etdm import ETDM
@@ -32,24 +32,31 @@ with paropen('dm-g2-results.txt', 'w') as fd:
     for name in saved_data_dm.keys():
         atoms = g2[name]
         atoms.center(vacuum=7.0)
-        calc = GPAW(**calc_args,
-                    txt=name + '.txt',
-                    eigensolver=ETDM(matrix_exp='egdecomp-u-invar',
-                                     representation='u-invar'),
-                    mixer={'backend': 'no-mixing'},
-                    nbands='nao',
-                    occupations={'name': 'fixed-uniform'},
-                    )
-        atoms.calc = calc
+        for dm in [0, 1]:
+            if dm:
+                calc = GPAW(**calc_args,
+                            txt=name + '_dm.txt',
+                            eigensolver=ETDM(matrix_exp='egdecomp-u-invar',
+                                             representation='u-invar'),
+                            mixer={'backend': 'no-mixing'},
+                            nbands='nao',
+                            occupations={'name': 'fixed-uniform'},
+                            )
+            else:
+                calc = GPAW(**calc_args,
+                            txt=name + '_scf.txt',
+                            occupations=FermiDirac(width=0.0, fixmagmom=True),
+                            )
+            atoms.calc = calc
 
-        t1 = time.time()
-        e = atoms.get_potential_energy()
-        t2 = time.time()
-        assert abs(saved_data_dm[name][0] - e) < 1.0e-2
+            t1 = time.time()
+            e = atoms.get_potential_energy()
+            t2 = time.time()
+            assert abs(saved_data_dm[name][0] - e) < 1.0e-2
 
-        steps = atoms.calc.get_number_of_iterations()
-        iters = atoms.calc.wfs.eigensolver.eg_count
-        assert abs(saved_data_dm[name][1] - iters) < 3
+            steps = atoms.calc.get_number_of_iterations()
+            iters = atoms.calc.wfs.eigensolver.eg_count
+            assert abs(saved_data_dm[name][1] - iters) < 3
 
-        print(name + "\t{}".format(iters),
-              file=fd, flush=True)
+            print(name + "\t{}".format(iters),
+                  file=fd, flush=True)
