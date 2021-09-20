@@ -21,7 +21,8 @@ r = [[1, 1, 1],
      [2, 1, 1],
      [2, 2, 1]]
 calc_args = {'xc': 'PBE', 'h': 0.2,
-             'convergence': {'density': 1.0e-6},
+             'convergence': {'density': 1.0e-6,
+                             'eigenstates': 100},
              'maxiter': 333, 'basis': 'tzdp',
              'mode': LCAO(), 'symmetry': 'off',
              'parallel': {'domain': world.size}}

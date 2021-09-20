@@ -7,11 +7,12 @@ from ase.parallel import paropen
 # in a previous calculation. Used to compare with the
 # current results.
 saved_data = \
-    {0: tools_and_data.read_saved_data(tools_and_data.data_g2_dm),
+    {0: tools_and_data.read_saved_data(tools_and_data.data_g2_scf),
      1: tools_and_data.read_saved_data(tools_and_data.data_g2_dm)}
 
 calc_args = {'xc': 'PBE', 'h': 0.15,
-             'convergence': {'density': 1.0e-6},
+             'convergence': {'density': 1.0e-6,
+                             'eigenstates': 100},
              'maxiter': 333, 'basis': 'dzp',
              'mode': LCAO(), 'symmetry': 'off'}
 
@@ -30,8 +31,8 @@ with paropen('dm-g2-results.txt', 'w') as fdm, \
 
             try:
                 e, iters, t = tools_and_data.get_energy_and_iters(atoms, dm)
-                assert abs(saved_data[dm][name][0] - e) < 1.0e-2
-                assert abs(saved_data[dm][name][1] - iters) < 3
+                assert abs(saved_data[dm][name][1] - e) < 1.0e-2
+                assert abs(saved_data[dm][name][0] - iters) < 3
                 print(name + "\t{}".format(iters),
                       file=fd[dm], flush=True)
 
