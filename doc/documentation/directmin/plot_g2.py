@@ -1,30 +1,19 @@
 # web-page: g2.png
-
 import matplotlib.pyplot as plt
 import numpy as np
+from doc.documentation.directmin import tools_and_data
 
 
 def read_molecules(filename, molnames):
 
-    file2read = open(filename, 'r')
-    calculated_data_string = file2read.read().split('\n')
-    calculated_data = {}
-    for i in calculated_data_string:
-        if i == '':
-            continue
-        mol = i.split()
-        # ignore last two columns which are memory and elapsed time
-        calculated_data[mol[0]] = np.array([float(_) for _ in mol[1:-2]])
-    file2read.close()
+    with open(filename, 'r') as fd:
+        calculated_data_string = fd.read()
+        calculated_data = tools_and_data.read_saved_data(calculated_data_string)
 
     data2return = []
     for _ in molnames:
-        if 'scf' in filename:
-            x = 0  # second column for scf
-        elif 'dm' in filename:
-            x = 1  # third column for dm
         data2return.append(_)
-        data2return.append(calculated_data[_][x])
+        data2return.append(calculated_data[_][0])
 
     return data2return
 
