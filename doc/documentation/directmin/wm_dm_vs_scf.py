@@ -40,18 +40,21 @@ with paropen('water-results.txt', 'w') as fd:
         atoms.set_cell((L, L, L))
         atoms.set_pbc(1)
         atoms = atoms.repeat(x)
+        name = str(len(atoms) // 3) + '_H2Omlcls'
         try:
             for dm in [0, 1]:
-                txt = str(len(atoms) // 3) + '_H2Omlcls_' \
-                      + eig_string[dm] + '.txt'
+                txt = name + '_' + eig_string[dm] + '.txt'
                 tools_and_data.set_calc(atoms, calc_args, txt, dm)
 
                 e, iters[dm], t[dm] = \
                     tools_and_data.get_energy_and_iters(atoms, dm)
 
-                # Compare with saved data from previous calculation
-                assert abs(saved_results[dm][i, 0] - e) < 1.0e-2
-                assert abs(saved_results[dm][i, 1] - iters[dm]) < 3
+                # Compare with saved results from previous calculation
+                e_diff_saved_calc = abs(saved_results[dm][i, 0] - e)
+                iters_diff_saved_calc = abs(saved_results[dm][i, 1] - iters[dm])
+                tools_and_data.compare_calculated_and_saved_results(
+                    e_diff_saved_calc, iters_diff_saved_calc,
+                    eig_string, name, dm)
 
             # Ratio of elapsed times per iteration
             # 2 is added to account for the diagonalization

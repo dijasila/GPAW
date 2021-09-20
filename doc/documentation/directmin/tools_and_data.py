@@ -1,5 +1,6 @@
 import time
 import numpy as np
+import warnings
 from gpaw import GPAW, FermiDirac
 from gpaw.directmin.etdm import ETDM
 
@@ -42,6 +43,22 @@ def get_energy_and_iters(atoms, dm):
         iters = atoms.calc.get_number_of_iterations()
 
     return e, iters, t2 - t1
+
+
+def compare_calculated_and_saved_results(e_diff, iters_diff,
+                                         eig_string, name, dm):
+    if e_diff > 1.0e-2:
+        warnings.warn('Absolute difference in total energy '
+                      'for ' + eig_string[dm] + ' calculation of '
+                      + name + ' with respect to saved results '
+                      'is %f eV'
+                      % e_diff)
+    if iters_diff > 3:
+        warnings.warn('Absolute difference in total number of '
+                      'iterations for ' + eig_string[dm] +
+                      ' calculation of ' + name + ' with respect '
+                      'to saved results is %d'
+                      % iters_diff)
 
 
 # Coordinates of liquid water configuration with 32 molecules
