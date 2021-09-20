@@ -5,6 +5,9 @@ import numpy as np
 # Data from wm_dm_vs_scf.py
 calculated_data = np.genfromtxt('water-results.txt')
 
+# x should be number of water molecules.
+# First column is number of atoms, so divide by 3 to
+# obtain the number of water molecules.
 x = calculated_data[:, 0] / 3
 
 f = plt.figure(figsize=(12, 4), dpi=240)

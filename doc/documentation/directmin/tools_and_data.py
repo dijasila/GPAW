@@ -81,6 +81,10 @@ positions = [
     (5.067, 7.323, 0.662), (5.785, 6.667, 0.703), (4.718, 7.252, 1.585)
 ]
 
+# Results (total energy, number of iterations) of LCAO calculations on
+# liquid water configurations. Obtained with wm_dm_vs_scf.py.
+# 0: scf
+# 1: dm
 wm_saved_results = {0: np.array([[-449.2501666690716, 22],
                                  [-899.7732083940263, 21],
                                  [-1802.1232238298205, 21]]),
@@ -88,6 +92,9 @@ wm_saved_results = {0: np.array([[-449.2501666690716, 22],
                                  [-899.8689779482846, 15],
                                  [-1802.1980642103324, 15]])}
 
+# Results (total energy, number of iterations) of calculations
+# on the molecules from the G2 set using direct minimization
+# in LCAO. Obtained with g2_dm_ui_vs_scf.py.
 data_g2_dm = \
     """
 PH3	10	-15.067594250491323
@@ -240,6 +247,9 @@ C3H4_C2v 14	-37.68429215491533
 NO2	15	-17.169478949870694
 """
 
+# Results (total energy, number of iterations) of calculations
+# on the molecules from the G2 set using the standard SCF eigensolver
+# in LCAO . Obtained with g2_dm_ui_vs_scf.py.
 data_g2_scf = \
     """
 PH3	18	-15.067939739162565

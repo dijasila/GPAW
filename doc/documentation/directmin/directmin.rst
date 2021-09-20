@@ -101,15 +101,16 @@ Here we compare the number of energy and gradient evaluations
 in direct minimization using the L-BFGS algorithm (memory=3) with preconditioning
 and the number of iterations in the SCF LCAO eigensolver with default
 density mixing.
-Figure (a) shows several examples for molecules from the G2 set.
-Figure (b) shows the results of the direct minimization and SCF for molecules
-which are difficult to converge; these molecules are radicals and calculations are
-carried out with the spin-polarized DFT. 
+The left panel of the figure below shows several examples for molecules from the G2 set.
+The right panel shows the results of direct minimization and SCF for molecules
+that are difficult to converge; these molecules are radicals and the calculations are
+carried out within spin-polarized DFT.
 Direct minimization demonstrates stable performance in all cases. Note that
 by choosing different parameters for the density mixing one may improve
 the convergence of the SCF methods.
 
-An examples of scripts to run such calculations :download:`run_g2_with_dm_ui_vs_scf.py`, :download:`plot_g2.py`.
+The calculations were run with the script :download:`g2_dm_ui_vs_scf.py`,
+while the figure was generated using :download:`plot_g2.py`.
 
 .. image:: g2.png
 

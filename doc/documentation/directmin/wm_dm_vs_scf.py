@@ -1,4 +1,4 @@
-# Generate the data plotted in web-page: water.png
+# Generate the data visualized in web-page: water.png
 import numpy as np
 from doc.documentation.directmin import tools_and_data
 from ase import Atoms

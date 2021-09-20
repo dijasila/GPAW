@@ -35,7 +35,8 @@ plt.plot(range(len(x)), y, 'b^-', label='SCF', fillstyle='none')
 # direct_min
 data = read_molecules('dm-g2-results.txt', mollist)
 x = data[::2]
-# add 2 because dm also need 2 diagonalizations
+# 2 is added to account for the diagonalization
+# performed at the beginning and at the end of etdm
 y = np.asarray(data[1::2]) + 2
 
 plt.plot(range(len(x)), y, 'ro-', label='ETDM',
@@ -65,7 +66,5 @@ plt.plot(range(len(x)), y, 'bo-', label='SCF',
          fillstyle='none')
 plt.legend()
 plt.ylabel('Number of iterations (energy and gradients calls)')
-# plt.text(-6.3, 75.5, '(a)')
-# plt.text(-0.7, 75.5, '(b)')
-# f.savefig("conv.eps", bbox_inches='tight')
+
 f.savefig("g2.png", bbox_inches='tight')
