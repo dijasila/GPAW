@@ -11,7 +11,10 @@ def read_data(output):
         if i == '':
             continue
         mol = i.split()
-        saved_data[mol[0]] = np.array([float(_) for _ in mol[1:]])
+        if 'None' in mol[1:]:
+            saved_data[mol[0]] = np.array([None for _ in mol[1:]])
+        else:
+            saved_data[mol[0]] = np.array([float(_) for _ in mol[1:]])
 
     return saved_data
 
