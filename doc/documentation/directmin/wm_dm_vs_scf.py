@@ -51,7 +51,8 @@ with paropen('water-results.txt', 'w') as fd:
 
                 # Compare with saved results from previous calculation
                 e_diff_saved_calc = abs(saved_results[dm][i, 0] - e)
-                iters_diff_saved_calc = abs(saved_results[dm][i, 1] - iters[dm])
+                iters_diff_saved_calc = \
+                    abs(saved_results[dm][i, 1] - iters[dm])
                 tools_and_data.compare_calculated_and_saved_results(
                     e_diff_saved_calc, iters_diff_saved_calc,
                     eig_string, name, dm)
