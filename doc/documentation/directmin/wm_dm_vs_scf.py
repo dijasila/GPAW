@@ -48,6 +48,7 @@ with paropen('water-results.txt', 'w') as fd:
 
             e, iters[dm], t[dm] = \
                 tools_and_data.get_energy_and_iters(atoms, dm)
+            # Compare with saved data from previous calculation
             assert abs(saved_results[dm][i, 0] - e) < 1.0e-2
             assert abs(saved_results[dm][i, 1] - iters[dm]) < 3
 
