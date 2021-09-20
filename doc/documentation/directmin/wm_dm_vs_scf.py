@@ -30,12 +30,7 @@ calc_args = {'xc': 'PBE', 'h': 0.2,
 # Results (total energy, number of iterations) obtained
 # in a previous calculation. Used to compare with the
 # current results.
-saved_results = {0: np.array([[-449.2501666690716, 22],
-                              [-899.7732083940263, 21],
-                              [-1802.1232238298205, 21]]),
-                 1: np.array([[-449.29433888653887, 15],
-                              [-899.8689779482846, 15],
-                              [-1802.1980642103324, 15]])}
+saved_results = tools_and_data.wm_saved_results
 
 t = np.zeros(2)
 iters = np.zeros(2)
