@@ -2,7 +2,7 @@
 import numpy as np
 from doc.documentation.directmin import tools_and_data
 from ase import Atoms
-from gpaw import LCAO
+from gpaw import LCAO, ConvergenceError
 from ase.parallel import paropen
 from gpaw.mpi import world
 from gpaw.atom.basis import BasisMaker
@@ -31,6 +31,7 @@ calc_args = {'xc': 'PBE', 'h': 0.2,
 # current results.
 saved_results = tools_and_data.wm_saved_results
 
+eig_string = ['scf', 'dm']
 t = np.zeros(2)
 iters = np.zeros(2)
 with paropen('water-results.txt', 'w') as fd:
@@ -39,24 +40,29 @@ with paropen('water-results.txt', 'w') as fd:
         atoms.set_cell((L, L, L))
         atoms.set_pbc(1)
         atoms = atoms.repeat(x)
-        for dm in [0, 1]:
-            if dm:
-                txt = str(len(atoms) // 3) + '_H2Omlcls_dm.txt'
-            else:
-                txt = str(len(atoms) // 3) + '_H2Omlcls_scf.txt',
-            tools_and_data.set_calc(atoms, calc_args, txt, dm)
+        try:
+            for dm in [0, 1]:
+                txt = str(len(atoms) // 3) + '_H2Omlcls_' \
+                      + eig_string[dm] + '.txt'
+                tools_and_data.set_calc(atoms, calc_args, txt, dm)
 
-            e, iters[dm], t[dm] = \
-                tools_and_data.get_energy_and_iters(atoms, dm)
-            # Compare with saved data from previous calculation
-            assert abs(saved_results[dm][i, 0] - e) < 1.0e-2
-            assert abs(saved_results[dm][i, 1] - iters[dm]) < 3
+                e, iters[dm], t[dm] = \
+                    tools_and_data.get_energy_and_iters(atoms, dm)
 
-        # Ratio of elapsed times per iteration
-        # 2 is added to account for the diagonalization
-        # performed at the beginning and at the end of etdm
-        ratio_per_iter = (t[0] / iters[0]) / (t[1] / (iters[1] + 2))
+                # Compare with saved data from previous calculation
+                assert abs(saved_results[dm][i, 0] - e) < 1.0e-2
+                assert abs(saved_results[dm][i, 1] - iters[dm]) < 3
 
-        print("{}\t{}\t{}".format(
-              len(atoms), t[0] / t[1], ratio_per_iter),
-              flush=True, file=fd)
+            # Ratio of elapsed times per iteration
+            # 2 is added to account for the diagonalization
+            # performed at the beginning and at the end of etdm
+            ratio_per_iter = (t[0] / iters[0]) / (t[1] / (iters[1] + 2))
+
+            print("{}\t{}\t{}".format(
+                  len(atoms), t[0] / t[1], ratio_per_iter),
+                  flush=True, file=fd)
+
+        except ConvergenceError:
+            print("{}\t{}\t{}".format(
+                len(atoms), None, None),
+                flush=True, file=fd)
