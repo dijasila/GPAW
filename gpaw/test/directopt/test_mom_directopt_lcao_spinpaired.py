@@ -18,14 +18,18 @@ def test_mom_directopt_lcao_spinpaired(in_tmp_dir):
                    [-1.24286000e+00, -1.46832100e-02, -9.32554970e-01]])
     atoms.center(vacuum=4)
 
+    eigensolver = ETDM(searchdir_algo={'name': 'l-sr1p'},
+                       linesearch_algo={'name': 'max-step'},
+                       representation='u-invar',
+                       matrix_exp='egdecomp-u-invar')
+
     calc = GPAW(mode='lcao',
                 basis='dzp',
                 h=0.24,
                 xc='PBE',
                 symmetry='off',
                 occupations={'name': 'fixed-uniform'},
-                eigensolver={'name': 'etdm',
-                             'linesearch_algo': 'max-step'},
+                eigensolver=eigensolver,
                 mixer={'backend': 'no-mixing'},
                 nbands='nao',
                 convergence={'density': 1.0e-4,
@@ -36,12 +40,9 @@ def test_mom_directopt_lcao_spinpaired(in_tmp_dir):
     f_sn = excite(calc, 0, 0, spin=(0, 0))
     f_sn[0] /= 2
 
-    calc.set(eigensolver=ETDM(searchdir_algo={'name': 'l-sr1p'},
-                              linesearch_algo={'name': 'max-step'},
-                              representation='u-invar',
-                              matrix_exp='egdecomp-u-invar',
-                              need_init_orbs=False))
     prepare_mom_calculation(calc, atoms, f_sn)
+    # This fails if the memory of the search direction
+    # algorithm is not erased
     e = atoms.get_potential_energy()
 
     calc.wfs.occupations.initialize_reference_orbitals()
