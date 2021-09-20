@@ -5,7 +5,7 @@ from gpaw import GPAW, FermiDirac
 from gpaw.directmin.etdm import ETDM
 
 
-def read_saved_data(output):
+def read_data(output):
     saved_data = {}
     for i in output.splitlines():
         if i == '':

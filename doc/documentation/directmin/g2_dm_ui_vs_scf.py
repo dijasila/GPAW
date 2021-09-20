@@ -8,8 +8,8 @@ from ase.parallel import paropen
 # in a previous calculation. Used to compare with the
 # current results.
 saved_results = \
-    {0: tools_and_data.read_saved_data(tools_and_data.data_g2_scf),
-     1: tools_and_data.read_saved_data(tools_and_data.data_g2_dm)}
+    {0: tools_and_data.read_data(tools_and_data.data_g2_scf),
+     1: tools_and_data.read_data(tools_and_data.data_g2_dm)}
 
 calc_args = {'xc': 'PBE', 'h': 0.15,
              'convergence': {'density': 1.0e-6,
