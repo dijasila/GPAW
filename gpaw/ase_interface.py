@@ -191,10 +191,31 @@ def calculate_ground_state(atoms, parameters, parallel, log):
         filter = create_fourier_filter(grid)
         # setups = setups.filter(filter)
 
-    # density = ...
+    density = Density.from_superposition_of_atomic_densities(
+        atoms, setups, magmoms, grid)
 
     if mode.name == 'pw':
-        _ = mode.create_plane_waves(grid)
+        pw = mode.create_plane_waves(grid)
+        layout = pw
+    else:
+        layout = grid
+
+    interpolator = mode.create_interpolator(layout)
+    compensation_charges = layout.atom_centered_functions()
+
+    potential = calculate_potential(density, interpolator, compensation_charges)
+    if params.random.value:
+        wave_functions = WaveFunctions.from_random_numbers()
+
+    return calculate_ground_state2()
+
+
+def calculate_potential():
+    density2 = density.interpolate(interpolator)
+    vxc = xc(density2)
+
+    compensation_charges.add_to(density2, density.coefs)
+    vext = ...
 
 
 class DrasticChangesError(Exception):
