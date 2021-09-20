@@ -33,7 +33,6 @@ with paropen('dm-g2-results.txt', 'w') as fdm, \
                 e, iters, t = tools_and_data.get_energy_and_iters(atoms, dm)
                 # Compare with saved data from previous calculation
                 assert abs(saved_data[dm][name][1] - e) < 1.0e-2
-                assert abs(saved_data[dm][name][0] - iters) < 3
 
                 print(name + "\t{}".format(iters),
                       file=fd[dm], flush=True)
