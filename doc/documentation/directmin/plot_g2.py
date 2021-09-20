@@ -8,7 +8,8 @@ def read_molecules(filename, molnames):
 
     with open(filename, 'r') as fd:
         calculated_data_string = fd.read()
-        calculated_data = tools_and_data.read_saved_data(calculated_data_string)
+        calculated_data = \
+            tools_and_data.read_saved_data(calculated_data_string)
 
     data2return = []
     for _ in molnames:
