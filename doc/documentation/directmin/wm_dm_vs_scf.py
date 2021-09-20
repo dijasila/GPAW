@@ -1,11 +1,9 @@
 # Generate the data plotted in web-page: water.png
-import time
 import numpy as np
 from doc.documentation.directmin import tools_and_data
 from ase import Atoms
-from gpaw import GPAW, LCAO, FermiDirac
+from gpaw import LCAO
 from ase.parallel import paropen
-from gpaw.directmin.etdm import ETDM
 from gpaw.mpi import world
 from gpaw.atom.basis import BasisMaker
 from gpaw import setup_paths
@@ -42,30 +40,14 @@ with paropen('water-results.txt', 'w') as fd:
         atoms = atoms.repeat(x)
         for dm in [0, 1]:
             if dm:
-                calc = GPAW(**calc_args,
-                            txt=str(len(atoms) // 3) + '_H2Omlcls_dm.txt',
-                            eigensolver=ETDM(matrix_exp='egdecomp-u-invar',
-                                             representation='u-invar'),
-                            mixer={'backend': 'no-mixing'},
-                            nbands='nao',
-                            occupations={'name': 'fixed-uniform'})
+                txt = str(len(atoms) // 3) + '_H2Omlcls_dm.txt'
             else:
-                calc = GPAW(**calc_args,
-                            txt=str(len(atoms) // 3) + '_H2Omlcls_scf.txt',
-                            occupations=FermiDirac(width=0.0, fixmagmom=True))
+                txt = str(len(atoms) // 3) + '_H2Omlcls_scf.txt',
+            tools_and_data.set_calc(atoms, calc_args, txt, dm)
 
-            atoms.set_calculator(calc)
-
-            t1 = time.time()
-            e = atoms.get_potential_energy()
-            t2 = time.time()
+            e, iters[dm], t[dm] = \
+                tools_and_data.get_energy_and_iters(atoms, dm)
             assert abs(saved_results[dm][i, 0] - e) < 1.0e-2
-
-            t[dm] = t2 - t1
-            if dm:
-                iters[dm] = atoms.calc.wfs.eigensolver.eg_count
-            else:
-                iters[dm] = atoms.calc.get_number_of_iterations()
             assert abs(saved_results[dm][i, 1] - iters[dm]) < 3
 
         # Ratio of elapsed times per iteration

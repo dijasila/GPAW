@@ -36,5 +36,5 @@ with paropen('dm-g2-results.txt', 'w') as fdm, \
                       file=fd[dm], flush=True)
 
             except ConvergenceError:
-                    print(name + "\t{}".format(None),
-                          file=fd[dm], flush=True)
+                print(name + "\t{}".format(None),
+                      file=fd[dm], flush=True)
