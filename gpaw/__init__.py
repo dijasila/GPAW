@@ -6,7 +6,7 @@ import os
 import sys
 import contextlib
 from pathlib import Path
-from typing import List, Dict, Union
+from typing import List, Dict, Union, TYPE_CHECKING
 
 __version__ = '21.6.1b1'
 __ase_version_required__ = '3.22.0'
@@ -170,7 +170,7 @@ if debug:
 
 
 with broadcast_imports:
-    if os.environ.get('GPAW_NEW'):
+    if os.environ.get('GPAW_NEW') and not TYPE_CHECKING:
         from gpaw.ase_interface import GPAW
     else:
         from gpaw.calculator import GPAW

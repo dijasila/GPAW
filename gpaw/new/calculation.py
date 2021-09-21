@@ -32,15 +32,3 @@ def log():
     print('Time: lcao-init 1.2 s  |--|')
     print('Time: scf       7.2 s  |-------------|')
 """
-
-
-def create_setups():
-    ...
-
-
-def create_density_from_atoms(atoms, grid):
-    basis = atoms.create_basis_set(grid)
-
-
-def calculate(
-    

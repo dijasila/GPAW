@@ -78,7 +78,7 @@ class DistributedArrays:
             M1.multiply(M2, opa='C', symmetric=symmetric, out=out, beta=1.0)
         else:
             1 / 0
-        #operate_and_multiply(self, self.layout.dv, out, function, ...)
+        # operate_and_multiply(self, self.layout.dv, out, function, ...)
         return out
 
     def __iadd__(self, other):

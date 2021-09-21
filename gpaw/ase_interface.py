@@ -4,8 +4,9 @@ import os
 import sys
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, IO
 from ase.units import Bohr
+from ase import Atoms
 
 import numpy as np
 from gpaw.core import UniformGrid
@@ -37,28 +38,28 @@ class Logger:
 
         self._indent = ''
 
-    def __del__(self):
+    def __del__(self) -> None:
         if self.close_fd:
             self.fd.close()
 
-    def __call__(self, *args):
+    def __call__(self, *args) -> None:
         self.fd.write(self._indent)
         print(*args, file=self.fd)
 
     @contextmanager
-    def indent(self, text):
+    def indent(self, text: str) -> None:
         self(text)
         self._indent += '  '
         yield
         self._indent = self._indent[:-2]
 
 
-def GPAW(filename=None,
+def GPAW(filename: str | Path | IO[str] = None,
          *,
-         txt='?',
-         communicator=None,
-         parallel=None,
-         **parameters):
+         txt: str | Path | IO[str] = '?',
+         communicator: MPIComm = None,
+         parallel: dict[str, Any] = None,
+         **parameters) -> ASECalculator:
 
     if txt == '?' and filename:
         txt = None
@@ -87,16 +88,16 @@ def GPAW(filename=None,
 class ASECalculator:
     """This is the ASE-calculator frontend for doing a GPAW calculation."""
     def __init__(self,
-                 parameters,
-                 parallel,
-                 log,
-                 calculation=None):
+                 parameters: dict,
+                 parallel: dict,
+                 log: Logger,
+                 calculation: Calculation = None):
         self.parameters = parameters
         self.parallel = parallel
         self.log = log
         self.calculation = calculation
 
-    def calculate_property(self, atoms, prop: str):
+    def calculate_property(self, atoms: Atoms, prop: str) -> Any:
         if self.calculation is None:
             self.calculation = calculate_ground_state(
                 atoms, self.parameters, self.parallel, self.log)
@@ -106,7 +107,7 @@ class ASECalculator:
             self.calculation = None
             return self.calculate_property(atoms, prop)
 
-    def get_potential_energy(self, atoms):
+    def get_potential_energy(self, atoms: Atoms) -> float:
         return self.calculate_property(atoms, 'energy')
 
 
@@ -128,8 +129,20 @@ def create_communicators(world: MPIComm,
 class FDMode:
     name = 'fd'
 
-    def create_uniform_grid(self, h, gpts, cell, pbc, symmetry, comm):
+    def create_uniform_grid(self,
+                            h,
+                            gpts,
+                            cell,
+                            pbc,
+                            symmetry,
+                            comm) -> UniformGrid:
         return UniformGrid(cell=cell, pbc=pbc, size=gpts, comm=comm)
+
+    def create_interpolator(self, grid):
+        return grid.interpolator()
+
+    def create_restrictor(self, grid):
+        return grid.restrictor()
 
 
 class Symmetry:
@@ -170,7 +183,7 @@ def calculate_ground_state(atoms, parameters, parallel, log):
 
     symmetry = params.symmetry(atoms, setups, magmoms)
 
-    kpts = params.kpts(atoms)
+    # kpts = params.kpts(atoms)
     ibz = 'G'  # symmetry.reduce(kpts)
 
     d = parallel.pop('domain', None)
@@ -190,7 +203,7 @@ def calculate_ground_state(atoms, parameters, parallel, log):
                                     comm=communicators['d'])
 
     if mode.name == 'fd':
-        filter = create_fourier_filter(grid)
+        pass  # filter = create_fourier_filter(grid)
         # setups = setups.filter(filter)
 
     density = Density.from_superposition(grid, atoms, setups, magmoms,
@@ -206,19 +219,27 @@ def calculate_ground_state(atoms, parameters, parallel, log):
     interpolator = mode.create_interpolator(layout)
     compensation_charges = layout.atom_centered_functions()
 
-    potential = calculate_potential(density, interpolator, compensation_charges)
+    potential = calculate_potential(density, interpolator, xc,
+                                    compensation_charges)
     if params.random.value:
-        wave_functions = WaveFunctions.from_random_numbers()
+        wave_functions = ...  # WaveFunctions.from_random_numbers()
 
-    return calculate_ground_state2()
+    return calculate_ground_state2(wave_functions, potential)
 
 
-def calculate_potential():
-    density2 = density.interpolate(interpolator)
+def calculate_ground_state2(wave_functions, potential):
+    ...
+
+
+def calculate_potential(density, interpolator, xc, compensation_charges,
+                        poisson_solver):
+    density2 = density.density.interpolate(interpolator)
     vxc = xc(density2)
 
     compensation_charges.add_to(density2, density.coefs)
-    vext = ...
+    vext = poisson_solver.solve()
+
+    return vxc + vext
 
 
 class DrasticChangesError(Exception):

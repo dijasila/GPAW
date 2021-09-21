@@ -17,7 +17,7 @@ class WaveFunctions:
         def dS(proj):
             for a, I1, I2 in proj.layout.myindices:
                 ds = self.setups[a].dO_ii
-                #use mmm
+                # use mmm ?????
                 projections2.data[I1:I2] = ds @ proj.data[I1:I2]
             return projections2
 
@@ -30,7 +30,7 @@ class WaveFunctions:
             S.invcholesky()
         # S now contains the inverse of the Cholesky factorization
         domain_comm.broadcast(S.data, 0)
-        #cc?
+        # cc ??????
 
         S.multiply(wfs, out=wfs2)
         projections.matrix.multiply(S, opb='T', out=projections2)

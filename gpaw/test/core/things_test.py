@@ -36,4 +36,3 @@ for kpt, wfs in zip(kpts, ibz):
 
 for wfs in ibz:
     wfs[0].ifft().plot((10, 10))
-

@@ -47,9 +47,6 @@ class AtomCenteredFunctions:
             self.lfc.add(functions.data, coefs)
             return
 
-        if 0:#isinstance(coefs, Matrix):
-            coefs = AtomArrays(self.layout, functions.shape, functions.comm,
-                               coefs.data)
         self.lfc.add(functions.data,
                      {a: np.moveaxis(array, 0, -1)
                       for a, array in coefs._arrays.items()},
@@ -163,7 +160,6 @@ class AtomArrays(DistributedArrays):
         self._arrays = {}
         for a, I1, I2 in layout.myindices:
             self._arrays[a] = self.data[I1:I2].reshape(
-                #self.myshape + layout.shapes[a])
                 layout.shapes[a] + self.myshape)
 
     def new(self):

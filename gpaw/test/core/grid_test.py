@@ -13,4 +13,4 @@ def test_redist():
     grid2 = grid1.new(comm=serial_comm)
     f1 = grid1.empty()
     f1.data[:] = 1.0
-    f2 = f1.redistribute(grid2)
+    _ = f1.redistribute(grid2)

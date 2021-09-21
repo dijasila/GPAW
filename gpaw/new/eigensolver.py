@@ -205,7 +205,7 @@ class Eigensolver:
         def dH(projections):
             for a, I1, I2 in projections.layout.myindices:
                 dh = unpack(ham.dH_asp[a][kpt.s])
-                #use mmm
+                # use mmm ???
                 projections2.data[I1:I2] = dh @ projections.data[I1:I2]
             return projections2
 
