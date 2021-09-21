@@ -13,6 +13,7 @@ from gpaw.hybrids import HybridXC
 from gpaw.mpi import MPIComm, Parallelization, world
 from gpaw.new.input_parameters import (InputParameters,
                                        create_default_parameters)
+from gpaw.new.density import Density
 
 
 class Logger:
@@ -76,7 +77,10 @@ def GPAW(filename=None,
         calculation = Calculation.read(filename, log, parallel)
         return calculation.ase_calculator()
 
-    log('GPAW')
+    log(r'#  __  _  _')
+    log(r'# | _ |_)|_||  |')
+    log(r'# |__||  | ||/\|')
+    log('#')
     return ASECalculator(parameters, parallel, log)
 
 
@@ -161,10 +165,8 @@ def calculate_ground_state(atoms, parameters, parallel, log):
 
     magmoms = params.magmoms(atoms)
     collinear = magmoms.ndim == 1
-    if collinear:
-        zmagmoms = magmoms
-        magmoms = np.zeros((len(atoms), 3))
-        magmoms[:, 2] = zmagmoms
+    if collinear and not magmoms.any():
+        magmoms = None
 
     symmetry = params.symmetry(atoms, setups, magmoms)
 
@@ -191,8 +193,9 @@ def calculate_ground_state(atoms, parameters, parallel, log):
         filter = create_fourier_filter(grid)
         # setups = setups.filter(filter)
 
-    density = Density.from_superposition_of_atomic_densities(
-        atoms, setups, magmoms, grid)
+    density = Density.from_superposition(grid, atoms, setups, magmoms,
+                                         params.charge.value,
+                                         params.hund.value)
 
     if mode.name == 'pw':
         pw = mode.create_plane_waves(grid)

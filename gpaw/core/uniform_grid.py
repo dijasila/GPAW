@@ -7,6 +7,7 @@ from gpaw.utilities.grid import GridRedistributor
 from gpaw.core.arrays import DistributedArrays
 from typing import Sequence
 from gpaw.core.layout import Layout
+from gpaw.core.atom_centered_functions import UniformGridAtomCenteredFunctions
 
 
 def _normalize_cell(cell: ArrayLike) -> Array2D:
@@ -98,6 +99,9 @@ class UniformGrid(Layout):
     def redistributor(self, other):
         return Redistributor(self, other)
 
+    def atom_centered_functions(self, functions, positions):
+        return UniformGridAtomCenteredFunctions(functions, positions, self)
+
     @property
     def _gd(self):
         return GridDescriptor(self.size,
@@ -152,6 +156,7 @@ class UniformGridFunctions(DistributedArrays):
         assert len(axes) == 3 + len(self.shape)
         index = tuple([slice(0, None) if axis is ... else axis
                        for axis in axes])
+        print(self.data.shape, index)
         y = self.data[index]
         n = axes[-3:].index(...)
         dx = (self.grid.cell[n]**2).sum()**0.5 / self.grid.size[n]

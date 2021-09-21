@@ -42,6 +42,11 @@ class AtomCenteredFunctions:
 
     def add_to(self, functions, coefs):
         self._lacy_init()
+
+        if isinstance(coefs, float):
+            self.lfc.add(functions.data, coefs)
+            return
+
         if 0:#isinstance(coefs, Matrix):
             coefs = AtomArrays(self.layout, functions.shape, functions.comm,
                                coefs.data)

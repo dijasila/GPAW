@@ -38,6 +38,16 @@ class InputParameter:
         self.value = value
 
 
+class Charge(InputParameter):
+    def __init__(self, value=0.0):
+        self.value = value
+
+
+class Hund(InputParameter):
+    def __init__(self, value=False):
+        self.value = value
+
+
 class XC(InputParameter):
     def __init__(self, value='LDA'):
         if isinstance(value, str):
@@ -79,7 +89,12 @@ class Symmetry(InputParameter):
 
     def __call__(self, atoms, setups, magmoms):
         from gpaw.symmetry import Symmetry as OldSymmetry
-        ids = [id + tuple(m) for id, m in zip(setups.id_a, magmoms)]
+        if magmoms is None:
+            ids = setups.id_a
+        elif magmoms.ndim == 1:
+            ids = [id + (m,) for id, m in zip(setups.id_a, magmoms)]
+        else:
+            ids = [id + tuple(m) for id, m in zip(setups.id_a, magmoms)]
         symmetry = OldSymmetry(ids, atoms.cell, atoms.pbc, **self.value)
         symmetry.analyze(atoms.get_scaled_positions())
         return symmetry
