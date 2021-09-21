@@ -77,17 +77,18 @@ class UniformGrid(Layout):
         return np.linalg.inv(self.cell).T
 
     def new(self,
+            size=None,
             pbc=None,
             kpt=None,
-            comm=None) -> UniformGrid:
-        if comm is None:
-            decomposition = self.decomposition
-        else:
-            decomposition = None
+            comm=None,
+            decomposition=None) -> UniformGrid:
+        if decomposition is None and comm is None:
+            if (size == self.size).all() and (pbc == self.pbc).all():
+                decomposition = self.decomposition
         return UniformGrid(cell=self.cell,
-                           size=self.size,
-                           pbc=pbc or self.pbc,
-                           kpt=kpt or self.kpt,
+                           size=self.size if size is None else size,
+                           pbc=self.pbc if pbc is None else pbc,
+                           kpt=self.kpt if kpt is None else kpt,
                            comm=comm or self.comm,
                            decomposition=decomposition)
 
@@ -101,6 +102,22 @@ class UniformGrid(Layout):
 
     def atom_centered_functions(self, functions, positions):
         return UniformGridAtomCenteredFunctions(functions, positions, self)
+
+    def transformer(self, other):
+        from gpaw.transformers import Transformer
+
+        apply = Transformer(self._gd, other._gd, 3).apply
+
+        def transform(functions, out=None):
+            print(out)
+            if out is None:
+                print(other)
+                out = other.empty(functions.shape, functions.comm)
+            print(functions, out, out.data.shape)
+            apply(functions.data, out.data)
+            return out
+
+        return transform
 
     @property
     def _gd(self):
@@ -142,8 +159,15 @@ class UniformGridFunctions(DistributedArrays):
         DistributedArrays. __init__(self, grid, shape, comm, data)
         self.grid = grid
 
+    def __repr__(self):
+        txt = f'UniformGridFunctions(grid={self.grid}, shape={self.shape}'
+        if self.comm.size > 1:
+            txt += f', comm={self.comm.rank}/{self.comm.size}'
+        return txt + ')'
+
     def new(self, data=None):
-        assert data is not None
+        if data is None:
+            data = np.empty_like(self.data)
         return UniformGridFunctions(self.grid, self.shape, self.comm, data)
 
     def __getitem__(self, index):

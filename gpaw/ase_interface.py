@@ -15,6 +15,10 @@ from gpaw.mpi import MPIComm, Parallelization, world
 from gpaw.new.input_parameters import (InputParameters,
                                        create_default_parameters)
 from gpaw.new.density import Density
+from gpaw.poisson import PoissonSolver
+from gpaw.utilities import pack, unpack
+from gpaw.typing import Array1D, Array3D
+from gpaw.setup import Setup
 
 
 class Logger:
@@ -138,11 +142,22 @@ class FDMode:
                             comm) -> UniformGrid:
         return UniformGrid(cell=cell, pbc=pbc, size=gpts, comm=comm)
 
-    def create_interpolator(self, grid):
-        return grid.interpolator()
+    def create_poisson_solver(self, grid, params):
+        solver = PoissonSolver(**params)
+        solver.set_grid_descriptor(grid._gd)
+        return solver
 
-    def create_restrictor(self, grid):
-        return grid.restrictor()
+
+class XCFunctional:
+    def __init__(self, xc):
+        self.xc = xc
+        self.setup_name = xc.get_setup_name()
+
+    def calculate(self, density, out) -> float:
+        return self.xc.calculate(density.grid._gd, density.data, out.data)
+
+    def calculate_paw_correction(self, setup, d, h):
+        return self.xc.calculate_paw_correction(setup, d, h)
 
 
 class Symmetry:
@@ -173,7 +188,7 @@ def calculate_ground_state(atoms, parameters, parallel, log):
 
     setups = params.setups(atoms.numbers,
                            params.basis.value,
-                           xc.get_setup_name(),
+                           xc.setup_name,
                            world)
 
     magmoms = params.magmoms(atoms)
@@ -216,11 +231,19 @@ def calculate_ground_state(atoms, parameters, parallel, log):
     else:
         layout = grid
 
-    interpolator = mode.create_interpolator(layout)
-    compensation_charges = layout.atom_centered_functions()
+    grid2 = grid.new(size=grid.size * 2,
+                     )  # decomposition=[2 * d for d in grid.decomposition])
+    interpolate = layout.transformer(grid2)
+    restrict = grid2.transformer(layout)
 
-    potential = calculate_potential(density, interpolator, xc,
-                                    compensation_charges)
+    fracpos = atoms.get_scaled_positions()
+    compensation_charges = setups.create_compensation_charges(grid2, fracpos)
+    local_potentials = setups.create_local_potentials(layout, fracpos)
+    poisson_solver = mode.create_poisson_solver(grid2,
+                                                params.poissonsolver.value)
+    potential = calculate_potential(density, interpolate, restrict, xc,
+                                    compensation_charges, local_potentials,
+                                    poisson_solver)
     if params.random.value:
         wave_functions = ...  # WaveFunctions.from_random_numbers()
 
@@ -231,15 +254,70 @@ def calculate_ground_state2(wave_functions, potential):
     ...
 
 
-def calculate_potential(density, interpolator, xc, compensation_charges,
-                        poisson_solver):
-    density2 = density.density.interpolate(interpolator)
-    vxc = xc(density2)
+def calculate_potential(density,
+                        interpolate, restrict,
+                        xc, compensation_charges,
+                        local_potentials, poisson_solver):
+    density2 = interpolate(density.density)
+    vxc = density2.new()
+    e_xc = xc.calculate(density2, vxc)
 
-    compensation_charges.add_to(density2, density.coefs)
-    vext = poisson_solver.solve()
+    vext = density2.grid.empty()
+    charge = vext.new(data=density2.data[:density.ndensities].sum(axis=0))
+    coefs = density.calculate_compensation_charge_coefficients()
+    compensation_charges.add_to(charge, coefs)
+    poisson_solver.solve(vext.data, charge.data)
 
-    return vxc + vext
+    vnonloc, energy_corrections = calculate_non_local_potential(
+        density, xc,
+        compensation_charges, vext)
+
+    de_xc, = energy_corrections
+
+    return vxc + vext, {'xc': e_xc + de_xc,
+                        }
+
+
+def calculate_non_local_potential(density, xc,
+                                  compensation_charges, vext):
+    coefs = compensation_charges.integrate(vext)
+    vnonloc = density.density_matrices.new()
+    energy_corrections = np.zeros(5)
+    for a, D in density.density_matrices.items():
+        Q = coefs[a]
+        setup = density.setups[a]
+        dH, energies = calculate_non_local_potential1(setup, xc, D, Q)
+        vnonloc[a][:] = dH
+        energy_corrections += energies
+
+    return vnonloc, energy_corrections
+
+
+def calculate_non_local_potential1(setup: Setup,
+                                   xc: XCFunctional,
+                                   D: Array3D,
+                                   Q: Array1D) -> tuple[Array3D, Array1D]:
+    ndensities = 2 if D.shape[2] == 2 else 1
+    d = pack(D.T)
+    d1 = d[:ndensities].sum(0)
+
+    h1 = (setup.K_p + setup.M_p +
+          setup.MB_p + 2.0 * setup.M_pp @ d1 +
+          setup.Delta_pL @ Q)
+    e_kinetic = setup.K_p @ d1 + setup.Kc
+    e_zero = setup.MB + setup.MB_p @ d1
+    e_coulomb = setup.M + d1 @ (setup.M_p + setup.M_pp @ d1)
+
+    h = np.zeros_like(d)
+    h[:ndensities] = h1
+    e_xc = xc.calculate_paw_correction(setup, d, h)
+    e_kinetic = -(d * h).sum().real
+
+    e_external = 0.0
+
+    H = unpack(h).T
+
+    return H, np.array([e_kinetic, e_coulomb, e_zero, e_xc, e_external])
 
 
 class DrasticChangesError(Exception):

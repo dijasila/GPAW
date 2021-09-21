@@ -1442,6 +1442,23 @@ class Setups(list):
     def projector_indices(self):
         return FunctionIndices([setup.pt_j for setup in self])
 
+    def create_pseudo_core_densities(self, layout, positions):
+        spline_aj = []
+        for setup in self:
+            if setup.nct is None:
+                spline_aj.append([])
+            else:
+                spline_aj.append([setup.nct])
+        return layout.atom_centered_functions(spline_aj, positions)
+
+    def create_local_potentials(self, layout, positions):
+        return layout.atom_centered_functions(
+            [[setup.vbar] for setup in self], positions)
+
+    def create_compensation_charges(self, layout, positions):
+        return layout.atom_centered_functions(
+            [setup.ghat_l for setup in self], positions)
+
 
 class FunctionIndices:
     def __init__(self, f_aj):

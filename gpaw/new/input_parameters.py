@@ -38,6 +38,13 @@ class InputParameter:
         self.value = value
 
 
+class PoissonSolver(InputParameter):
+    def __init__(self, value=None):
+        if value is None:
+            value = {}
+        self.value = value
+
+
 class Charge(InputParameter):
     def __init__(self, value=0.0):
         self.value = value
@@ -56,7 +63,8 @@ class XC(InputParameter):
 
     def __call__(self):
         from gpaw.xc import XC
-        return XC(self.value)
+        from gpaw.ase_interface import XCFunctional
+        return XCFunctional(XC(self.value))
 
 
 class Mode(InputParameter):
