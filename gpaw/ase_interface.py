@@ -4,7 +4,7 @@ import os
 import sys
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, IO
+from typing import Any, IO, Iterator
 from ase.units import Bohr
 from ase import Atoms
 
@@ -16,9 +16,7 @@ from gpaw.new.input_parameters import (InputParameters,
                                        create_default_parameters)
 from gpaw.new.density import Density
 from gpaw.poisson import PoissonSolver
-from gpaw.utilities import pack, unpack
-from gpaw.typing import Array1D, Array3D
-from gpaw.setup import Setup
+from gpaw.new.hamiltonian import Hamiltonian
 
 
 class Logger:
@@ -50,8 +48,11 @@ class Logger:
         self.fd.write(self._indent)
         print(*args, file=self.fd)
 
+    def comment(self, text):
+        print('# ' + '\n# '.join(text.splitlines()), file=self.fd)
+
     @contextmanager
-    def indent(self, text: str) -> None:
+    def indent(self, text: str) -> Iterator:
         self(text)
         self._indent += '  '
         yield
@@ -60,7 +61,7 @@ class Logger:
 
 def GPAW(filename: str | Path | IO[str] = None,
          *,
-         txt: str | Path | IO[str] = '?',
+         txt: str | Path | IO[str] | None = '?',
          communicator: MPIComm = None,
          parallel: dict[str, Any] = None,
          **parameters) -> ASECalculator:
@@ -82,10 +83,8 @@ def GPAW(filename: str | Path | IO[str] = None,
         calculation = Calculation.read(filename, log, parallel)
         return calculation.ase_calculator()
 
-    log(r'#  __  _  _')
-    log(r'# | _ |_)|_||  |')
-    log(r'# |__||  | ||/\|')
-    log('#')
+    log.comment(' __  _  _\n| _ |_)|_||  |\n|__||  | ||/\\|')
+
     return ASECalculator(parameters, parallel, log)
 
 
@@ -177,6 +176,13 @@ class MonkhorstPackKPoints(KPoints):
 
 
 def calculate_ground_state(atoms, parameters, parallel, log):
+    initialize_things()
+    scf = scf()
+    for _ in scf():
+        ...
+
+
+def initialize_things(atoms, parameters, parallel, log):
     default_parameters = create_default_parameters()
     params = InputParameters(parameters, default_parameters)
 
@@ -192,9 +198,6 @@ def calculate_ground_state(atoms, parameters, parallel, log):
                            world)
 
     magmoms = params.magmoms(atoms)
-    collinear = magmoms.ndim == 1
-    if collinear and not magmoms.any():
-        magmoms = None
 
     symmetry = params.symmetry(atoms, setups, magmoms)
 
@@ -233,105 +236,20 @@ def calculate_ground_state(atoms, parameters, parallel, log):
 
     grid2 = grid.new(size=grid.size * 2,
                      )  # decomposition=[2 * d for d in grid.decomposition])
-    interpolate = layout.transformer(grid2)
-    restrict = grid2.transformer(layout)
-
-    fracpos = atoms.get_scaled_positions()
-    compensation_charges = setups.create_compensation_charges(grid2, fracpos)
-    local_potentials = setups.create_local_potentials(layout, fracpos)
     poisson_solver = mode.create_poisson_solver(grid2,
                                                 params.poissonsolver.value)
-    potential = calculate_potential(density, interpolate, restrict, xc,
-                                    compensation_charges, local_potentials,
-                                    poisson_solver)
+    hamiltonian = Hamiltonian(layout, setups, atoms, xc, poisson_solver)
+    potential = hamiltonian.calculate_potential(density)
+
     if params.random.value:
         wave_functions = ...  # WaveFunctions.from_random_numbers()
 
-    return calculate_ground_state2(wave_functions, potential)
+    return calculate_ground_state2(density, hamiltonian, wave_functions,
+                                   potential)
 
 
 def calculate_ground_state2(wave_functions, potential):
     ...
-
-
-def calculate_potential(density,
-                        interpolate, restrict,
-                        xc, compensation_charges,
-                        local_potentials, poisson_solver):
-    density1 = density.density
-    density2 = interpolate(density1)
-    vxc = density2.new()
-    e_xc = xc.calculate(density2, vxc)
-
-    vext = density2.grid.empty()
-    charge = vext.new(data=density2.data[:density.ndensities].sum(axis=0))
-    coefs = density.calculate_compensation_charge_coefficients()
-    compensation_charges.add_to(charge, coefs)
-    poisson_solver.solve(vext.data, charge.data)
-
-    potential2 = vxc
-    potential2.data += vext.data
-    local_potentials.add_to(potential2)
-    potential1 = restrict(potential2)
-    e_kinetic = 0.0
-    for s, (p, d) in enumerate(zip(potential1, density1)):
-        e_kinetic -= p.integrate(d)
-        if s < density.ndensities:
-            e_kinetic += p.integrate(density.core_density)
-
-    vnonloc, energy_corrections = calculate_non_local_potential(
-        density, xc,
-        compensation_charges, vext)
-
-    e_external = 0.0
-
-    de_kinetic, de_coulomb, de_zero, de_xc, de_external = energy_corrections
-
-    return vxc + vext, {'xc': e_xc + de_xc,
-                        'kinetic': e_kinetic + de_kinetic,
-                        }
-
-
-def calculate_non_local_potential(density, xc,
-                                  compensation_charges, vext):
-    coefs = compensation_charges.integrate(vext)
-    vnonloc = density.density_matrices.new()
-    energy_corrections = np.zeros(5)
-    for a, D in density.density_matrices.items():
-        Q = coefs[a]
-        setup = density.setups[a]
-        dH, energies = calculate_non_local_potential1(setup, xc, D, Q)
-        vnonloc[a][:] = dH
-        energy_corrections += energies
-
-    return vnonloc, energy_corrections
-
-
-def calculate_non_local_potential1(setup: Setup,
-                                   xc: XCFunctional,
-                                   D: Array3D,
-                                   Q: Array1D) -> tuple[Array3D, Array1D]:
-    ndensities = 2 if D.shape[2] == 2 else 1
-    d = pack(D.T)
-    d1 = d[:ndensities].sum(0)
-
-    h1 = (setup.K_p + setup.M_p +
-          setup.MB_p + 2.0 * setup.M_pp @ d1 +
-          setup.Delta_pL @ Q)
-    e_kinetic = setup.K_p @ d1 + setup.Kc
-    e_zero = setup.MB + setup.MB_p @ d1
-    e_coulomb = setup.M + d1 @ (setup.M_p + setup.M_pp @ d1)
-
-    h = np.zeros_like(d)
-    h[:ndensities] = h1
-    e_xc = xc.calculate_paw_correction(setup, d, h)
-    e_kinetic = -(d * h).sum().real
-
-    e_external = 0.0
-
-    H = unpack(h).T
-
-    return H, np.array([e_kinetic, e_coulomb, e_zero, e_xc, e_external])
 
 
 class DrasticChangesError(Exception):
@@ -368,6 +286,10 @@ class Calculation:
         self.atoms = atoms
         # self.parameters = parameters
         self.results = {}
+
+    @classmethod
+    def read(self, filename, log, parallel):
+        ...
 
     def calculate_property(self, atoms, prop):
         changes = compare_atoms(self.atoms, atoms)

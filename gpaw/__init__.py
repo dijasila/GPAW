@@ -170,10 +170,7 @@ if debug:
 
 
 with broadcast_imports:
-    if os.environ.get('GPAW_NEW') and not TYPE_CHECKING:
-        from gpaw.ase_interface import GPAW
-    else:
-        from gpaw.calculator import GPAW
+    from gpaw.calculator import GPAW
     from gpaw.mixer import Mixer, MixerSum, MixerDif, MixerSum2
     from gpaw.eigensolvers import Davidson, RMMDIIS, CG, DirectLCAO
     from gpaw.poisson import PoissonSolver
@@ -182,6 +179,9 @@ with broadcast_imports:
     from gpaw.wavefunctions.lcao import LCAO
     from gpaw.wavefunctions.pw import PW
     from gpaw.wavefunctions.fd import FD
+
+if os.environ.get('GPAW_NEW') and not TYPE_CHECKING:
+    from gpaw.ase_interface import GPAW
 
 
 def restart(filename, Class=GPAW, **kwargs):

@@ -15,15 +15,16 @@ default_parameters = {
     'basis': {},
     'spinpol': None,
     'xc': 'LDA',
-
-    'occupations': None,
-    'poissonsolver': None,
-    'mixer': None,
-    'eigensolver': None,
-    'reuse_wfs_method': 'paw',
     'external': None,
     'random': False,
     'hund': False,
+
+    'poissonsolver': None,
+
+    'occupations': None,
+    'mixer': None,
+    'eigensolver': None,
+    'reuse_wfs_method': 'paw',
     'maxiter': 333,
     'idiotproof': True,
     'convergence': {'energy': 0.0005,  # eV / electron
@@ -116,12 +117,17 @@ class Basis(InputParameter):
 class Magmoms(InputParameter):
     def __call__(self, atoms):
         if self.value is None:
-            return atoms.get_initial_magnetic_moments()
+            magmoms = atoms.get_initial_magnetic_moments()
+        elif isinstance(self.value, float):
+            magmoms = np.zeros(len(atoms)) + self.value
+        else:
+            magmoms = np.array(self.value)
 
-        if isinstance(self.value, float):
-            return np.zeros(len(atoms)) + self.value
+        collinear = magmoms.ndim == 1
+        if collinear and not magmoms.any():
+            magmoms = None
 
-        return np.array(self.value)
+        return magmoms
 
 
 class KPts(InputParameter):
