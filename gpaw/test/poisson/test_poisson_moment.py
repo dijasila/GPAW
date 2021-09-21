@@ -191,10 +191,10 @@ def compare(gd, tolerance, cmp_begin):
     def _compare(phi1_g, phi2_g):
         big_phi1_g = gd.collect(phi1_g)
         big_phi2_g = gd.collect(phi2_g)
-        if slice is not None:
-            big_phi1_g = big_phi1_g[slice]
-            big_phi2_g = big_phi2_g[slice]
         if gd.comm.rank == 0:
+            if slice is not None:
+                big_phi1_g = big_phi1_g[slice]
+                big_phi2_g = big_phi2_g[slice]
             equal(np.max(np.absolute(big_phi1_g - big_phi2_g)), 0.0, tolerance)
 
     return _compare
