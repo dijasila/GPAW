@@ -258,7 +258,8 @@ def calculate_potential(density,
                         interpolate, restrict,
                         xc, compensation_charges,
                         local_potentials, poisson_solver):
-    density2 = interpolate(density.density)
+    density1 = density.density
+    density2 = interpolate(density1)
     vxc = density2.new()
     e_xc = xc.calculate(density2, vxc)
 
@@ -268,13 +269,26 @@ def calculate_potential(density,
     compensation_charges.add_to(charge, coefs)
     poisson_solver.solve(vext.data, charge.data)
 
+    potential2 = vxc
+    potential2.data += vext.data
+    local_potentials.add_to(potential2)
+    potential1 = restrict(potential2)
+    e_kinetic = 0.0
+    for s, (p, d) in enumerate(zip(potential1, density1)):
+        e_kinetic -= p.integrate(d)
+        if s < density.ndensities:
+            e_kinetic += p.integrate(density.core_density)
+
     vnonloc, energy_corrections = calculate_non_local_potential(
         density, xc,
         compensation_charges, vext)
 
-    de_xc, = energy_corrections
+    e_external = 0.0
+
+    de_kinetic, de_coulomb, de_zero, de_xc, de_external = energy_corrections
 
     return vxc + vext, {'xc': e_xc + de_xc,
+                        'kinetic': e_kinetic + de_kinetic,
                         }
 
 
