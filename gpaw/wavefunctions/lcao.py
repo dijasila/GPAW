@@ -769,6 +769,7 @@ class LCAOforces:
         return Frho_av
 
     def _get_den_mat_paw_term(self):
+        # THIS doesn't work in parallel
         # Density matrix contribution from PAW correction
         #
         #           -----                        -----
@@ -801,22 +802,23 @@ class LCAOforces:
         return Frho_av
 
     def get_paw_correction(self):
+        # THIS doesn't work in parallel
         #  <Phi_nu|pt_i>O_ii<dPt_i/dR|Phi_mu>
         self.timer.start('get paw correction')
         ZE_MM = np.zeros((len(self.kpt_u), len(self.my_atom_indices), 3,
                           self.mynao, self.nao), self.dtype)
-        #    for u, kpt in enumerate(self.kpt_u):
-        #        work_MM = np.zeros((self.mynao, self.nao), self.dtype)
-        #        for b in self.my_atom_indices:
-        #            setup = self.setups[b]
-        #            dO_ii = np.asarray(setup.dO_ii, self.dtype)
-        #            dOP_iM = np.zeros((setup.ni, self.nao), self.dtype)
-        #            gemm(1.0, self.P_aqMi[b][kpt.q], dO_ii, 0.0, dOP_iM, 'c')
-        #            for v in range(3):
-        #                gemm(1.0, dOP_iM,
-        #                     self.dPdR_aqvMi[b][kpt.q][v][self.Mstart:self.Mstop],
-        #                     0.0, work_MM, 'n')
-        #                ZE_MM[u, b, v, :, :] = (work_MM * self.ET_uMM[u]).real
+        for u, kpt in enumerate(self.kpt_u):
+            work_MM = np.zeros((self.mynao, self.nao), self.dtype)
+            for b in self.my_atom_indices:
+                setup = self.setups[b]
+                dO_ii = np.asarray(setup.dO_ii, self.dtype)
+                dOP_iM = np.zeros((setup.ni, self.nao), self.dtype)
+                gemm(1.0, self.P_aqMi[b][kpt.q], dO_ii, 0.0, dOP_iM, 'c')
+                for v in range(3):
+                    gemm(1.0, dOP_iM,
+                         self.dPdR_aqvMi[b][kpt.q][v][self.Mstart:self.Mstop],
+                         0.0, work_MM, 'n')
+                    ZE_MM[u, b, v, :, :] = (work_MM * self.ET_uMM[u]).real
         self.timer.stop('get paw correction')
         return ZE_MM
 
