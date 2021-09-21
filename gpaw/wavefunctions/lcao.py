@@ -544,7 +544,6 @@ class LCAOforces:
         from gpaw.kohnsham_layouts import BlacsOrbitalLayouts
         self.isblacs = isinstance(self.ksl, BlacsOrbitalLayouts)
 
-    def get_forces_sum_GS(self):
         if not self.isblacs:
             self.timer.start('TCI derivative')
             self.dThetadR_qvMM, self.dTdR_qvMM = self.manytci.O_qMM_T_qMM(
@@ -557,6 +556,8 @@ class LCAOforces:
             self.timer.stop('TCI derivative')
             self.rhoT_uMM, self.ET_uMM = self.get_den_mat_and_E()
 
+    def get_forces_sum_GS(self):
+        if not self.isblacs:
             F_av = np.zeros_like(self.Fref_av)
             Fkin_av = self.get_kinetic_term()
             Fpot_av = self.get_pot_term()
