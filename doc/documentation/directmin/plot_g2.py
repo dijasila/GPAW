@@ -1,30 +1,20 @@
 # web-page: g2.png
-
 import matplotlib.pyplot as plt
 import numpy as np
+from doc.documentation.directmin import tools_and_data
 
 
 def read_molecules(filename, molnames):
 
-    file2read = open(filename, 'r')
-    calculated_data_string = file2read.read().split('\n')
-    calculated_data = {}
-    for i in calculated_data_string:
-        if i == '':
-            continue
-        mol = i.split()
-        # ignore last two columns which are memory and elapsed time
-        calculated_data[mol[0]] = np.array([float(_) for _ in mol[1:-2]])
-    file2read.close()
+    with open(filename, 'r') as fd:
+        calculated_data_string = fd.read()
+        calculated_data = \
+            tools_and_data.read_data(calculated_data_string)
 
     data2return = []
     for _ in molnames:
-        if 'scf' in filename:
-            x = 0
-        elif 'dm' in filename:
-            x = 1
         data2return.append(_)
-        data2return.append(calculated_data[_][x])
+        data2return.append(calculated_data[_][0])
 
     return data2return
 
@@ -45,7 +35,8 @@ plt.plot(range(len(x)), y, 'b^-', label='SCF', fillstyle='none')
 # direct_min
 data = read_molecules('dm-g2-results.txt', mollist)
 x = data[::2]
-# add 2 because dm also need 2 diagonalizations
+# 2 is added to account for the diagonalization
+# performed at the beginning and at the end of etdm
 y = np.asarray(data[1::2]) + 2
 
 plt.plot(range(len(x)), y, 'ro-', label='ETDM',
@@ -75,7 +66,5 @@ plt.plot(range(len(x)), y, 'bo-', label='SCF',
          fillstyle='none')
 plt.legend()
 plt.ylabel('Number of iterations (energy and gradients calls)')
-# plt.text(-6.3, 75.5, '(a)')
-# plt.text(-0.7, 75.5, '(b)')
-# f.savefig("conv.eps", bbox_inches='tight')
+
 f.savefig("g2.png", bbox_inches='tight')
