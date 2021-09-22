@@ -39,6 +39,7 @@ class DirectMinLCAO(DirectLCAO):
                  checkgraderror=False,
                  localizationtype=None,
                  need_localization=True,
+                 need_init_orbs=True
                  ):
 
         super(DirectMinLCAO, self).__init__(diagonalizer, error)
@@ -59,6 +60,7 @@ class DirectMinLCAO(DirectLCAO):
         self.name = 'direct_min'
         self.localizationtype = localizationtype
         self.need_localization = need_localization
+        self.need_init_orbs = need_init_orbs
 
         self.a_mat_u = None  # skew-hermitian matrix to be exponented
         self.g_mat_u = None  # gradient matrix
@@ -1218,7 +1220,7 @@ class DirectMinLCAO(DirectLCAO):
         # if it is the first use of the scf then initialize
         # coefficient matrix using eigensolver
         need_canon_coef = \
-            (not wfs.coefficients_read_from_file and self.c_nm_ref is None)
+            (not wfs.coefficients_read_from_file and self.need_init_orbs)
         # Orthogonalize orbitals
         if need_canon_coef or self.orthonormalization['name'] == 'diag':
             super(DirectMinLCAO, self).iterate(ham, wfs)
