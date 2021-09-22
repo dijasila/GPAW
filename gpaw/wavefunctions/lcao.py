@@ -668,9 +668,7 @@ class LCAOforces:
                     2.0 * dEdTrhoT_vMM[:, M1:M2].sum(-1).sum(-1)
         if self.bd.comm.rank == 0:
             self.kd.comm.sum(Fkin_av, 0)
-        del dEdTrhoT_vMM
         self.timer.stop('TCI derivative')
-
         return Fkin_av
 
     def get_den_mat_term(self):
@@ -693,8 +691,6 @@ class LCAOforces:
                     -2.0 * dThetadRE_vMM[:, M1:M2].sum(-1).sum(-1)
         if self.bd.comm.rank == 0:
             self.kd.comm.sum(Ftheta_av, 0)
-        del dThetadRE_vMM
-
         return Ftheta_av
 
     def get_pot_term(self):
@@ -764,7 +760,6 @@ class LCAOforces:
                         Frho_av[b, v] += dE  # the "mu nu" term
         if self.bd.comm.rank == 0:
             self.kd.comm.sum(Frho_av, 0)
-        del work_MM, ZE_MM
         self.timer.stop('Paw correction')
         return Frho_av
 
