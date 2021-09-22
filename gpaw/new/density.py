@@ -16,12 +16,13 @@ def magmoms2dims(magmoms):
 
 class Density:
     def __init__(self, density, density_matrices, core_density, core_acf,
-                 setups):
+                 setups, charge):
         self.density = density
         self.density_matrices = density_matrices
         self.core_density = core_density
         self.core_acf = core_acf
         self.setups = setups
+        self.charge = charge
 
         self.ndensities = {1: 1, 2: 2, 4: 1}[density.shape[0]]
 
@@ -41,31 +42,29 @@ class Density:
 
     @classmethod
     def from_superposition(self,
-                           layout,
-                           atoms,
-                           setups,
-                           magmoms=None,
+                           base,
                            charge=0.0,
                            hund=False):
         # density and magnitization components:
-        ndens, nmag = magmoms2dims(magmoms)
-        grid = layout.grid if hasattr(layout, 'grid') else layout
+        ndens, nmag = magmoms2dims(base.magmoms)
+        grid = base.grid
+        setups = base.setups
 
         basis_functions = BasisFunctions(grid._gd,
                                          [setup.phit_j for setup in setups],
                                          cut=True)
-        basis_functions.set_positions(atoms.get_scaled_positions())
+        basis_functions.set_positions(base.positions)
 
+        magmoms = base.magmoms
         if magmoms is None:
-            magmoms = [None] * len(atoms)
+            magmoms = [None] * len(setups)
         f_asi = {a: atomic_occupation_numbers(setup, magmom, hund,
-                                              charge / len(atoms))
+                                              charge / len(setups))
                  for a, (setup, magmom) in enumerate(zip(setups, magmoms))}
         density = grid.zeros(ndens + nmag)
         basis_functions.add_to_density(density.data, f_asi)
 
-        fracpos = atoms.get_scaled_positions()
-        core_acf = setups.create_pseudo_core_densities(layout, fracpos)
+        core_acf = setups.create_pseudo_core_densities(grid, base.positions)
         core_density = grid.zeros()
         core_acf.add_to(core_density, 1.0 / ndens)
         density.data[:ndens] += core_density.data
@@ -78,7 +77,7 @@ class Density:
             D[:] = unpack2(setups[a].initialize_density_matrix(f_asi[a])).T
 
         return Density(density, density_matrices, core_density, core_acf,
-                       setups)
+                       setups, charge)
 
     def from_wave_functions(self, ibz):
         ...

@@ -6,16 +6,19 @@ from gpaw.ase_interface import XCFunctional
 
 
 class Hamiltonian:
-    def __init__(self, layout, grid2, setups, atoms, xc, poisson_solver):
-        self.interpolate = layout.transformer(grid2)
-        self.restrict = grid2.transformer(layout)
+    def __init__(self, layout, base, poisson_solver):
+        setups = base.setups
+        grid2 = base.grid2
 
-        fracpos = atoms.get_scaled_positions()
+        self.interpolate = layout.transformer(grid2)
+        self.restrict = base.grid2.transformer(layout)
+
+        fracpos = base.positions
         self.compensation_charges = setups.create_compensation_charges(
             grid2, fracpos)
         self.local_potentials = setups.create_local_potentials(layout, fracpos)
         self.poisson_solver = poisson_solver
-        self.xc = xc
+        self.xc = base.xc
         self.v0 = grid2.zeros()
         self.local_potentials.add_to(self.v0)
 
@@ -51,12 +54,13 @@ class Hamiltonian:
         e_external = 0.0
 
         de_kinetic, de_coulomb, de_zero, de_xc, de_external = corrections
+        energies = {'kinetic': e_kinetic + de_kinetic,
+                    'coulomb': e_coulomb + de_coulomb,
+                    'zero': e_zero + de_zero,
+                    'xc': e_xc + de_xc,
+                    'external': e_external + de_external}
 
-        return vxc + vext, {'kinetic': e_kinetic + de_kinetic,
-                            'coulomb': e_coulomb + de_coulomb,
-                            'zero': e_zero + de_zero,
-                            'xc': e_xc + de_xc,
-                            'external': e_external + de_external}
+        return potential1, vnonloc, energies
 
 
 def calculate_non_local_potential(density, xc,

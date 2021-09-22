@@ -12,11 +12,10 @@ import numpy as np
 from gpaw.core import UniformGrid
 from gpaw.hybrids import HybridXC
 from gpaw.mpi import MPIComm, Parallelization, world
-from gpaw.new.input_parameters import (InputParameters,
-                                       create_default_parameters)
+from gpaw.new.input_parameters import InputParameters
 from gpaw.new.density import Density
 from gpaw.poisson import PoissonSolver
-from gpaw.new.hamiltonian import Hamiltonian
+from gpaw.new.wfs import IBZWaveFunctions
 
 
 class Logger:
@@ -62,8 +61,6 @@ class Logger:
 def GPAW(filename: str | Path | IO[str] = None,
          *,
          txt: str | Path | IO[str] | None = '?',
-         communicator: MPIComm = None,
-         parallel: dict[str, Any] = None,
          **parameters) -> ASECalculator:
 
     if txt == '?' and filename:
@@ -71,39 +68,37 @@ def GPAW(filename: str | Path | IO[str] = None,
     else:
         txt = '-'
 
-    communicator = communicator or world
+    params = InputParameters(parameters)
 
-    log = Logger(txt, communicator)
+    comm = params.parallel['world'] or world
 
-    parallel = parallel or {}
-    parallel = {**parallel, 'world': communicator}
+    log = Logger(txt, comm)
 
     if filename:
+        parameters.pop('parallel')
         assert not parameters
-        calculation = Calculation.read(filename, log, parallel)
+        calculation = Calculation.read(filename, log, comm)
         return calculation.ase_calculator()
 
-    log.comment(' __  _  _\n| _ |_)|_||  |\n|__||  | ||/\\|')
+    log.comment(' __  _  _\n| _ |_)|_||  |\n|__||  | ||/\\|\n')
 
-    return ASECalculator(parameters, parallel, log)
+    return ASECalculator(params, log)
 
 
 class ASECalculator:
     """This is the ASE-calculator frontend for doing a GPAW calculation."""
     def __init__(self,
-                 parameters: dict,
-                 parallel: dict,
+                 params: InputParameters,
                  log: Logger,
                  calculation: Calculation = None):
-        self.parameters = parameters
-        self.parallel = parallel
+        self.params = params
         self.log = log
         self.calculation = calculation
 
     def calculate_property(self, atoms: Atoms, prop: str) -> Any:
         if self.calculation is None:
             self.calculation = calculate_ground_state(
-                atoms, self.parameters, self.parallel, self.log)
+                atoms, self.params, self.log)
         try:
             return self.calculation.calculate_property(atoms, prop)
         except DrasticChangesError:
@@ -160,92 +155,137 @@ class XCFunctional:
 
 
 class Symmetry:
-    pass
+    def __init__(self, symmetry):
+        self.symmetry = symmetry
+
+    def reduce(self, bz):
+        return IBZ(self, bz, [0], [1.0])
 
 
-class KPoints:
+class BZ:
     def __init__(self, points):
         self.points = points
 
 
-class MonkhorstPackKPoints(KPoints):
+class MonkhorstPackKPoints(BZ):
     def __init__(self, size, shift=(0, 0, 0)):
         self.size = size
         self.shift = shift
-        KPoints.__init__(self, np.zeros((1, 3)))
+        BZ.__init__(self, np.zeros((1, 3)))
 
 
-def calculate_ground_state(atoms, parameters, parallel, log):
-    initialize_things()
-    scf = scf()
+class IBZ:
+    def __init__(self, symmetry, bz, indices, weights):
+        self.symmetry = symmetry
+        self.weights = weights
+        self.points = bz.points[indices]
+
+    def __len__(self):
+        return len(self.points)
+
+    def ranks(self, comm):
+        return [0]
+
+
+def calculate_ground_state(atoms, params, log):
+    from gpaw.new.hamiltonian import Hamiltonian
+    mode = params.mode
+    base = Base.from_parameters(atoms, params)
+    setups = base.setups
+
+    density = Density.from_superposition(base, params.charge, params.hund)
+
+    poisson_solver = mode.create_poisson_solver(base.grid2,
+                                                params.poissonsolver)
+    if mode.name == 'pw':
+        pw = mode.create_plane_waves(base.grid)
+        basis = pw
+    else:
+        basis = base.grid
+
+    hamiltonian = Hamiltonian(basis, base, poisson_solver)
+
+    potential1, vnonloc, energies = hamiltonian.calculate_potential(density)
+
+    nbands = params.nbands(setups, density.charge, base.magmoms,
+                           mode.name == 'lcao')
+
+    if params.random:
+        ibzwfs = IBZWaveFunctions.from_random_numbers(base, nbands)
+
+    scf = SCFLoop(ibzwfs)
     for _ in scf():
         ...
 
+    return
 
-def initialize_things(atoms, parameters, parallel, log):
-    default_parameters = create_default_parameters()
-    params = InputParameters(parameters, default_parameters)
 
-    world = parallel['world']
+class SCFLoop:
+    def __init__(self, kpts):
+        ...
 
-    mode = params.mode()
 
-    xc = params.xc()
+class Base:
+    def __init__(self,
+                 positions,
+                 setups,
+                 communicators,
+                 grid,
+                 xc,
+                 ibz,
+                 magmoms=None):
+        self.positions = positions
+        self.setups = setups
+        self.magmoms = magmoms
+        self.communicators = communicators
+        self.ibz = ibz
+        self.grid = grid
+        self.xc = xc
 
-    setups = params.setups(atoms.numbers,
-                           params.basis.value,
-                           xc.setup_name,
-                           world)
+        self.grid2 = grid.new(size=grid.size * 2)
+        # decomposition=[2 * d for d in grid.decomposition]
 
-    magmoms = params.magmoms(atoms)
+    @classmethod
+    def from_parameters(self, atoms, params):
+        parallel = params.parallel
+        world = parallel['world']
+        mode = params.mode
+        xc = params.xc
 
-    symmetry = params.symmetry(atoms, setups, magmoms)
+        setups = params.setups(atoms.numbers,
+                               params.basis,
+                               xc.setup_name,
+                               world)
 
-    # kpts = params.kpts(atoms)
-    ibz = 'G'  # symmetry.reduce(kpts)
+        magmoms = params.magmoms(atoms)
 
-    d = parallel.pop('domain', None)
-    k = parallel.pop('kpt', None)
-    b = parallel.pop('band', None)
+        symmetry = params.symmetry(atoms, setups, magmoms)
 
-    if isinstance(xc, HybridXC):
-        d = world.size
+        bz = params.kpts(atoms)
+        ibz = symmetry.reduce(bz)
 
-    communicators = create_communicators(world, len(ibz), d, k, b)
+        d = parallel.pop('domain', None)
+        k = parallel.pop('kpt', None)
+        b = parallel.pop('band', None)
 
-    grid = mode.create_uniform_grid(params.h.value,
-                                    params.gpts.value,
-                                    atoms.cell / Bohr,
-                                    atoms.pbc,
-                                    symmetry,
-                                    comm=communicators['d'])
+        if isinstance(xc, HybridXC):
+            d = world.size
 
-    if mode.name == 'fd':
-        pass  # filter = create_fourier_filter(grid)
-        # setups = setups.filter(filter)
+        communicators = create_communicators(world, len(ibz), d, k, b)
 
-    density = Density.from_superposition(grid, atoms, setups, magmoms,
-                                         params.charge.value,
-                                         params.hund.value)
+        grid = mode.create_uniform_grid(params.h,
+                                        params.gpts,
+                                        atoms.cell / Bohr,
+                                        atoms.pbc,
+                                        symmetry,
+                                        comm=communicators['d'])
 
-    if mode.name == 'pw':
-        pw = mode.create_plane_waves(grid)
-        layout = pw
-    else:
-        layout = grid
+        if mode.name == 'fd':
+            pass  # filter = create_fourier_filter(grid)
+            # setups = setups.filter(filter)
 
-    grid2 = grid.new(size=grid.size * 2,
-                     )  # decomposition=[2 * d for d in grid.decomposition])
-    poisson_solver = mode.create_poisson_solver(grid2,
-                                                params.poissonsolver.value)
-    hamiltonian = Hamiltonian(layout, setups, atoms, xc, poisson_solver)
-    potential = hamiltonian.calculate_potential(density)
-
-    if params.random.value:
-        wave_functions = ...  # WaveFunctions.from_random_numbers()
-
-    return calculate_ground_state2(density, hamiltonian, wave_functions,
-                                   potential)
+        return Base(atoms.get_scaled_positions(),
+                    setups, communicators, grid, xc, ibz, magmoms)
 
 
 def calculate_ground_state2(wave_functions, potential):
@@ -305,21 +345,3 @@ class Calculation:
             1 / 0
 
         return self.results[prop]
-
-
-default_parallel: dict[str, Any] = {
-    'kpt': None,
-    'domain': None,
-    'band': None,
-    'order': 'kdb',
-    'stridebands': False,
-    'augment_grids': False,
-    'sl_auto': False,
-    'sl_default': None,
-    'sl_diagonalize': None,
-    'sl_inverse_cholesky': None,
-    'sl_lcao': None,
-    'sl_lrtddft': None,
-    'use_elpa': False,
-    'elpasolver': '2stage',
-    'buffer_size': None}

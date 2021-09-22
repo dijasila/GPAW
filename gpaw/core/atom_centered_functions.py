@@ -40,7 +40,7 @@ class AtomCenteredFunctions:
         self._positions = value
         self.lfc.set_positions(value)
 
-    def add_to(self, functions, coefs):
+    def add_to(self, functions, coefs=1.0):
         self._lacy_init()
 
         if isinstance(coefs, float):

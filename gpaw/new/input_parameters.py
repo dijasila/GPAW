@@ -1,25 +1,36 @@
+from __future__ import annotations
 import numpy as np
 import functools
+from gpaw.mpi import world
+
+parameter_functions = {}
+
+
+class InputParameters:
+    def __init__(self, params, functions=None):
+        self.params = params
+        self.functions = functions or parameter_functions
+
+    def __getattr__(self, name):
+        param = self.params.get(name)
+        if param is not None:
+            if callable(param):
+                return param
+            func = self.functions[name]
+            if func.__code__.co_argcount == 1:
+                return func(param)
+            else:
+                return functools.partial(func, value=param)
+        func = self.functions[name]
+        if func.__code__.co_argcount == 1:
+            return func()
+        return func
 
 
 default_parameters = {
-    'h': None,  # Angstrom
-    'gpts': None,
-    'kpts': [(0.0, 0.0, 0.0)],
-    'nbands': None,
-    'charge': 0,
-    'magmoms': None,
     'soc': None,
     'background_charge': None,
-    'setups': {},
-    'basis': {},
-    'spinpol': None,
-    'xc': 'LDA',
     'external': None,
-    'random': False,
-    'hund': False,
-
-    'poissonsolver': None,
 
     'occupations': None,
     'mixer': None,
@@ -34,143 +45,199 @@ default_parameters = {
     'verbose': 0}  # deprecated
 
 
-class InputParameter:
-    def __init__(self, value=None):
-        self.value = value
+def input_parameter(func):
+    parameter_functions[func.__name__] = func
+    return func
 
 
-class PoissonSolver(InputParameter):
-    def __init__(self, value=None):
-        if value is None:
-            value = {}
-        self.value = value
+@input_parameter
+def poissonsolver(value=None):
+    if value is None:
+        value = {}
+    return value
 
 
-class Charge(InputParameter):
-    def __init__(self, value=0.0):
-        self.value = value
+@input_parameter
+def charge(value=0.0):
+    return value
 
 
-class Hund(InputParameter):
-    def __init__(self, value=False):
-        self.value = value
+@input_parameter
+def hund(value=False):
+    return value
 
 
-class XC(InputParameter):
-    def __init__(self, value='LDA'):
-        if isinstance(value, str):
-            value = {'name': value}
-        self.value = value
+@input_parameter
+def xc(value='LDA'):
+    from gpaw.xc import XC
+    from gpaw.ase_interface import XCFunctional
 
-    def __call__(self):
-        from gpaw.xc import XC
-        from gpaw.ase_interface import XCFunctional
-        return XCFunctional(XC(self.value))
+    if isinstance(value, str):
+        value = {'name': value}
+    return XCFunctional(XC(value))
 
 
-class Mode(InputParameter):
-    def __init__(self, value='fd'):
-        self.value = value
-
-    def __call__(self):
-        from gpaw.ase_interface import FDMode
-        return FDMode()
+@input_parameter
+def mode(value='fd'):
+    from gpaw.ase_interface import FDMode
+    return FDMode()
 
 
-class Setups(InputParameter):
-    def __init__(self, value='paw'):
-        self.value = value
-
-    def __call__(self, atomic_numbers, basis, xc_name, world):
-        from gpaw.setup import Setups
-        return Setups(atomic_numbers,
-                      self.value,
-                      basis,
-                      xc_name,
-                      world)
+@input_parameter
+def setups(atomic_numbers, basis, xc_name, world, value='paw'):
+    from gpaw.setup import Setups
+    return Setups(atomic_numbers,
+                  value,
+                  basis,
+                  xc_name,
+                  world)
 
 
-class Symmetry(InputParameter):
-    def __init__(self, value=None):
-        if value in {None, 'off'}:
-            value = {}
-        self.value = value
+@input_parameter
+def symmetry(atoms, setups, magmoms, value=None):
+    from gpaw.symmetry import Symmetry as OldSymmetry
+    from gpaw.ase_interface import Symmetry
+    if value in {None, 'off'}:
+        value = {}
+    if magmoms is None:
+        ids = setups.id_a
+    elif magmoms.ndim == 1:
+        ids = [id + (m,) for id, m in zip(setups.id_a, magmoms)]
+    else:
+        ids = [id + tuple(m) for id, m in zip(setups.id_a, magmoms)]
+    symmetry = OldSymmetry(ids, atoms.cell, atoms.pbc, **value)
+    symmetry.analyze(atoms.get_scaled_positions())
+    return Symmetry(symmetry)
 
-    def __call__(self, atoms, setups, magmoms):
-        from gpaw.symmetry import Symmetry as OldSymmetry
-        if magmoms is None:
-            ids = setups.id_a
-        elif magmoms.ndim == 1:
-            ids = [id + (m,) for id, m in zip(setups.id_a, magmoms)]
+
+@input_parameter
+def basis(value=None):
+    return value or {}
+
+
+@input_parameter
+def magmoms(atoms, value=None):
+    if value is None:
+        magmoms = atoms.get_initial_magnetic_moments()
+    elif isinstance(value, float):
+        magmoms = np.zeros(len(atoms)) + value
+    else:
+        magmoms = np.array(value)
+
+    collinear = magmoms.ndim == 1
+    if collinear and not magmoms.any():
+        magmoms = None
+
+    return magmoms
+
+
+@input_parameter
+def kpts(atoms, value=None):
+    from gpaw.ase_interface import BZ, MonkhorstPackKPoints
+    if value is None:
+        value = {'size': (1, 1, 1)}
+    elif not isinstance(value, dict):
+        if len(value) == 3 and isinstance(value[0], int):
+            value = {'size': value}
         else:
-            ids = [id + tuple(m) for id, m in zip(setups.id_a, magmoms)]
-        symmetry = OldSymmetry(ids, atoms.cell, atoms.pbc, **self.value)
-        symmetry.analyze(atoms.get_scaled_positions())
-        return symmetry
+            value = {'points': np.array(value)}
+
+    if 'points' in value:
+        return BZ(value['points'])
+    return MonkhorstPackKPoints(value['size'])
 
 
-class Basis(InputParameter):
-    def __init__(self, value=None):
-        self.value = value or {}
+@input_parameter
+def h(value=None):
+    return value
 
 
-class Magmoms(InputParameter):
-    def __call__(self, atoms):
-        if self.value is None:
-            magmoms = atoms.get_initial_magnetic_moments()
-        elif isinstance(self.value, float):
-            magmoms = np.zeros(len(atoms)) + self.value
+@input_parameter
+def random(value=False):
+    return value
+
+
+@input_parameter
+def gpts(value=None):
+    return value
+
+
+@input_parameter
+def nbands(setups,
+           charge=0.0,
+           magmoms=None,
+           is_lcao: bool = False,
+           value: str | int = None):
+    nbands = value
+    nao = setups.nao
+    nvalence = setups.nvalence - charge
+    M = 0 if magmoms is None else np.linalg.norm(magmoms.sum(0))
+
+    orbital_free = any(setup.orbital_free for setup in setups)
+    if orbital_free:
+        nbands = 1
+
+    if isinstance(nbands, str):
+        if nbands == 'nao':
+            nbands = nao
+        elif nbands[-1] == '%':
+            basebands = (nvalence + M) / 2
+            nbands = int(np.ceil(float(nbands[:-1]) / 100 * basebands))
         else:
-            magmoms = np.array(self.value)
+            raise ValueError('Integer expected: Only use a string '
+                             'if giving a percentage of occupied bands')
 
-        collinear = magmoms.ndim == 1
-        if collinear and not magmoms.any():
-            magmoms = None
+    if nbands is None:
+        # Number of bound partial waves:
+        nbandsmax = sum(setup.get_default_nbands()
+                        for setup in setups)
+        nbands = int(np.ceil((1.2 * (nvalence + M) / 2))) + 4
+        if nbands > nbandsmax:
+            nbands = nbandsmax
+        if is_lcao and nbands > nao:
+            nbands = nao
+    elif nbands <= 0:
+        nbands = max(1, int(nvalence + M + 0.5) // 2 + (-nbands))
 
-        return magmoms
+    if nbands > nao and is_lcao:
+        raise ValueError('Too many bands for LCAO calculation: '
+                         '%d bands and only %d atomic orbitals!' %
+                         (nbands, nao))
 
+    if nvalence < 0:
+        raise ValueError(
+            'Charge %f is not possible - not enough valence electrons' %
+            charge)
 
-class KPts(InputParameter):
-    def __init__(self, value=None):
-        if value is None:
-            value = {'size': (1, 1, 1)}
-        elif not isinstance(value, dict):
-            if len(value) == 3 and isinstance(value[0], int):
-                value = {'size': value}
-            else:
-                value = {'points': np.array(value)}
-        self.value = value
+    if nvalence > 2 * nbands and not orbital_free:
+        raise ValueError('Too few bands!  Electrons: %f, bands: %d'
+                         % (nvalence, nbands))
 
-    def __call__(self, atoms):
-        from gpaw.ase_interface import KPoints, MonkhorstPackKPoints
-        if 'points' in self.value:
-            return KPoints(self.values['points'])
-        return MonkhorstPackKPoints(self.value['size'])
-
-
-class H(InputParameter):
-    pass
-
-
-class GPts(InputParameter):
-    pass
+    return nbands
 
 
-class InputParameters:
-    def __init__(self, params, defaults):
-        self.defaults = defaults
-        self.params = {key: defaults[key](value)
-                       for key, value in params.items()}
-
-    def __getattr__(self, name):
-        param = self.params.get(name)
-        if param is not None:
-            return param
-        return self.defaults[name]()
-
-
-@functools.lru_cache
-def create_default_parameters():
-    return {param.__name__.lower(): param for param in
-            (cls for cls in globals().values()
-             if isinstance(cls, type) and issubclass(cls, InputParameter))}
+@input_parameter
+def parallel(value=None):
+    defaults = {
+        'kpt': None,
+        'domain': None,
+        'band': None,
+        'order': 'kdb',
+        'stridebands': False,
+        'augment_grids': False,
+        'sl_auto': False,
+        'sl_default': None,
+        'sl_diagonalize': None,
+        'sl_inverse_cholesky': None,
+        'sl_lcao': None,
+        'sl_lrtddft': None,
+        'use_elpa': False,
+        'elpasolver': '2stage',
+        'buffer_size': None,
+        'world': None}
+    value = value or {}
+    assert value.keys() < defaults.keys()
+    dct = defaults.copy()
+    dct.update(value)
+    dct['world'] = dct['world'] or world
+    return dct

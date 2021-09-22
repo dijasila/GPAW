@@ -138,6 +138,20 @@ class UniformGrid(Layout):
                            kpt=kpt,
                            decomposition=gd.n_cp)
 
+    def random(self,
+               shape: int | tuple[int, ...] = (),
+               comm: MPIComm = serial_comm) -> UniformGridFunctions:
+        functions = self.empty(shape, comm)
+        rnd = np.random.RandomState([functions.comm.rank,
+                                    functions.layout.comm.rank])
+        a = functions.data
+        if a.dtype == float:
+            a[:] = rnd.uniform(-1, 1, a.shape)
+        else:
+            a.real = rnd.uniform(-1, 1, a.shape)
+            a.imag = rnd.uniform(-1, 1, a.shape)
+        return functions
+
 
 class Redistributor:
     def __init__(self, grid1, grid2):

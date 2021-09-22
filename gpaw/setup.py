@@ -1459,6 +1459,10 @@ class Setups(list):
         return layout.atom_centered_functions(
             [setup.ghat_l for setup in self], positions)
 
+    def create_projectors(self, layout, positions):
+        return layout.atom_centered_functions(
+            [setup.pt_j for setup in self], positions)
+
 
 class FunctionIndices:
     def __init__(self, f_aj):
