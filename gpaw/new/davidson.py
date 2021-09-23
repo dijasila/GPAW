@@ -3,37 +3,104 @@ from functools import partial
 import numpy as np
 from gpaw import debug
 from gpaw.core.matrix import Matrix
+from gpaw.utilities.blas import axpy
 
-        for R_G, eps, psit_G in zip(R.data, eps_n, psit.data):
-            axpy(-eps, psit_G, R_G)
 
-        dH(projections, out=tmp1)
-        tmp2.data[:] = projections.data * eps_n
-        dS(tmp2, out=tmp2)
-        tmp1.data -= tmp2.data
+def calculate_residuals(residuals, dH, dS, wfs, p1, p2):
+    for r, e, p in zip(residuals.data, wfs.myeigs, wfs.wave_functions.data):
+        axpy(-e, p, r)
 
-        ham.xc.add_correction(kpt, psit.data, R.data,
-                              projections,
-                              tmp1,
-                              n_x,
-                              calculate_change)
-        kpt.projectors.add_to(R, tmp1)
+    dH(wfs.projections, out=p1)
+    p2.data[:] = wfs.projections.data * wfs.myeigs
+    dS(p2, out=p2)
+    p1.data -= p2.data
+    wfs.projectors.add_to(residuals, p1)
+
+
+def calculate_weights(convergence, wfs):
+    """Calculate convergence weights for all eigenstates."""
+    weight_un = np.zeros((len(wfs.kpt_u), self.bd.mynbands))
+
+    if isinstance(self.nbands_converge, int):
+        # Converge fixed number of bands:
+        n = self.nbands_converge - self.bd.beg
+        if n > 0:
+            for weight_n, kpt in zip(weight_un, wfs.kpt_u):
+                weight_n[:n] = kpt.weight
+    elif self.nbands_converge == 'occupied':
+        # Conveged occupied bands:
+        for weight_n, kpt in zip(weight_un, wfs.kpt_u):
+            if kpt.f_n is None:  # no eigenvalues yet
+                weight_n[:] = np.inf
+            else:
+                # Methfessel-Paxton distribution can give negative
+                # occupation numbers - so we take the absolute value:
+                weight_n[:] = np.abs(kpt.f_n)
+    else:
+        # Converge state with energy up to CBM + delta:
+        assert self.nbands_converge.startswith('CBM+')
+        delta = float(self.nbands_converge[4:]) / Ha
+
+        if wfs.kpt_u[0].f_n is None:
+            weight_un[:] = np.inf  # no eigenvalues yet
+        else:
+            # Collect all eigenvalues and calculate band gap:
+            efermi = np.mean(wfs.fermi_levels)
+            eps_skn = np.array(
+                [[wfs.collect_eigenvalues(k, spin) - efermi
+                  for k in range(wfs.kd.nibzkpts)]
+                 for spin in range(wfs.nspins)])
+            if wfs.world.rank > 0:
+                eps_skn = np.empty((wfs.nspins,
+                                    wfs.kd.nibzkpts,
+                                    wfs.bd.nbands))
+            wfs.world.broadcast(eps_skn, 0)
+            try:
+                # Find bandgap + positions of CBM:
+                gap, _, (s, k, n) = _bandgap(eps_skn,
+                                             spin=None, direct=False)
+            except ValueError:
+                gap = 0.0
+
+            if gap == 0.0:
+                cbm = efermi
+            else:
+                cbm = efermi + eps_skn[s, k, n]
+
+            ecut = cbm + delta
+
+            for weight_n, kpt in zip(weight_un, wfs.kpt_u):
+                weight_n[kpt.eps_n < ecut] = kpt.weight
+
+            if (eps_skn[:, :, -1] < ecut - efermi).any():
+                # We don't have enough bands!
+                weight_un[:] = np.inf
+
+    return weight_un
+
 
 class Davidson:
     def __init__(self,
-                 nbands, band_comm, basis,
-                 niter=2, scalapack_parameters=None):
+                 nbands,
+                 basis,
+                 band_comm,
+                 niter=2,
+                 convergence='occupied',
+                 scalapack_parameters=None):
+        self.niter = niter
         B = nbands
         domain_comm = basis.comm
         if domain_comm.rank == 0 and band_comm.rank == 0:
             self.H = Matrix(2 * B, 2 * B, basis.dtype)
             self.S = Matrix(2 * B, 2 * B, basis.dtype)
 
-        self.work_array1 = basis.empty(B, band_comm)
-        self.work_array2 = basis.empty(B, band_comm)
+        self.work_array1 = basis.empty(B, band_comm).data
+        self.work_array2 = basis.empty(B, band_comm).data
 
-    def iterate(self, ibzwfs, hamiltonian):
-        for wfs in ibzwfs:
+        self.preconditioner = ...
+
+    def iterate(self, ibz_wfs, Ht, dH, dS):
+        for wfs in ibz_wfs:
             self.iterate1(wfs, Ht, dH, dS)
 
     def iterate1(self, wfs, Ht, dH, dS):
@@ -41,23 +108,22 @@ class Davidson:
         S = self.S
         M = H.new()
 
-        B = len(H)  # number of bands
-
-        eigs = np.empty(2 * B)
-
         psit = wfs.wave_functions
         psit2 = psit.new(data=self.work_array1)
         psit3 = psit.new(data=self.work_array2)
 
-        wfs.subspace_diagonalize(Ht, dH, psit2, psit3)
+        B = psit.shape[0]  # number of bands
+        eigs = np.empty(2 * B)
+
+        wfs.subspace_diagonalize(Ht, dH, psit2.data, psit3)
         residuals = psit3  # will become (H-e*S)|psit> later
 
         proj = wfs.projections
         proj2 = proj.new()
         proj3 = proj.new()
 
-        domain_comm = wfs.grid.comm
-        band_comm = wfs.comm
+        domain_comm = psit.grid.comm
+        band_comm = psit.comm
 
         if domain_comm.rank == 0:
             eigs[:B] = wfs.eigs
@@ -65,16 +131,13 @@ class Davidson:
         def me(a, b, **kwargs):
             return a.matrix_elements(b, domain_sum=False, out=M, **kwargs)
 
-        self.calculate_residuals(kpt, wfs, ham, dH, dS,
-                                 psit, proj, kpt.eps_n, residual,
-                                 proj2, proj3)
+        calculate_residuals(residuals, dH, dS, wfs, proj2, proj3)
 
         precond = self.preconditioner
 
-        for nit in range(self.niter):
-            if nit == self.niter - 1:
-                error = np.dot(weights, [integrate(residual_G)
-                                         for residual_G in residual.data])
+        for i in range(self.niter):
+            if i == self.niter - 1:
+                errors = residuals.norm()
 
             for psit_G, residual_G, psit2_G in zip(psit.data, residual.data,
                                                    psit2.data):

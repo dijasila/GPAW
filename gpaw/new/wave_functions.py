@@ -9,6 +9,10 @@ class IBZWaveFunctions:
         self.kpt_comm = kpt_comm
         self.mykpts = mykpts
 
+    def __iter__(self):
+        for wfs in self.mykpts:
+            yield wfs
+
     @classmethod
     def from_random_numbers(self, cfg, nbands):
         ibz = cfg.ibz
@@ -31,7 +35,7 @@ class IBZWaveFunctions:
         return IBZWaveFunctions(ibz, ranks, kpt_comm, mykpts)
 
     def orthonormalize(self, work_array=None):
-        for wfs in self.mykpts:
+        for wfs in self:
             wfs.orthonormalize(work_array)
 
 
@@ -69,12 +73,7 @@ class WaveFunctions:
         projections2 = projections.new()
         wfs2 = wfs.new(data=work_array)
 
-        def dS(proj):
-            for a, I1, I2 in proj.layout.myindices:
-                ds = self.setups[a].dO_ii
-                # use mmm ?????
-                projections2.data[I1:I2] = ds @ proj.data[I1:I2]
-            return projections2
+        dS = partial(self.setups.overlap_correction, out=projections2)
 
         S = wfs.matrix_elements(wfs, domain_sum=False)
         projections.matrix_elements(projections, function=dS,
@@ -119,7 +118,8 @@ class WaveFunctions:
         projections2 = projections.new()
         domain_comm = psit.layout.comm
 
-        Ht = partial(Ht, out=psit2)
+        Ht = partial(Ht, out=psit2, spin=0)
+        dH = partial(dH, out=projections2, spin=0)
         H = psit.matrix_elements(psit, function=Ht, domain_sum=False)
         projections.matrix_elements(projections, function=dH,
                                     domain_sum=False, out=H, add_to_out=True)

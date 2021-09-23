@@ -53,6 +53,8 @@ class CalculationConfiguration:
         self.grid2 = grid.new(size=grid.size * 2)
         # decomposition=[2 * d for d in grid.decomposition]
 
+        self.band_comm = communicators['b']
+
     @classmethod
     def from_parameters(self, atoms, params):
         parallel = params.parallel

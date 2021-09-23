@@ -6,7 +6,7 @@ from gpaw.new.davidson import Davidson
 
 
 def calculate_ground_state(atoms, params, log):
-    from gpaw.new.hamiltonian import Hamiltonian
+    from gpaw.new.potential import PotentialCalculator
     mode = params.mode
     cfg = CalculationConfiguration.from_parameters(atoms, params)
     setups = cfg.setups
@@ -21,8 +21,8 @@ def calculate_ground_state(atoms, params, log):
     else:
         basis = cfg.grid
 
-    hamiltonian = Hamiltonian(basis, cfg, poisson_solver)
-    potential = hamiltonian.calculate_potential(density)
+    pot_calc = PotentialCalculator(basis, cfg, poisson_solver)
+    potential = pot_calc.calculate(density)
 
     nbands = params.nbands(setups, density.charge, cfg.magmoms,
                            mode.name == 'lcao')
@@ -32,10 +32,12 @@ def calculate_ground_state(atoms, params, log):
     else:
         ...
 
-    eigensolver = Davidson()
+    hamiltonian = mode.create_hamiltonian_operator(basis)
+    eigensolver = Davidson(nbands, basis, cfg.band_comm, **params.eigensolver)
     mixer = ...
 
-    scf = SCFLoop(ibzwfs, density, potential, hamiltonian, eigensolver, mixer)
+    scf = SCFLoop(ibzwfs, density, potential, hamiltonian, pot_calc,
+                  eigensolver, mixer)
 
     for _ in scf.iconverge(params.convergence):
         ...

@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 from typing import Iterator
 from contextlib import contextmanager
+from pprint import pformat
 
 
 class Logger:
@@ -35,8 +36,10 @@ class Logger:
         self.fd.write(self._indent)
         print(*args, file=self.fd)
 
-    def comment(self, text):
-        print('# ' + '\n# '.join(text.splitlines()), file=self.fd)
+    def pp(self, obj):
+        print(self._indent +
+              f'\n{self._indent}'.join(pformat(obj).splitlines()),
+              file=self.fd)
 
     @contextmanager
     def indent(self, text: str) -> Iterator:

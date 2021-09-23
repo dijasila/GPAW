@@ -31,8 +31,9 @@ def GPAW(filename: str | Path | IO[str] = None,
         calculation = Calculation.read(filename, log, comm)
         return calculation.ase_calculator()
 
-    log(' __  _  _\n| _ |_)|_||  |\n|__||  | ||/\\|')
-
+    log(' __  _  _\n| _ |_)|_||  |\n|__||  | ||/\\|\n')
+    with log.indent('Input parameters:'):
+        log.pp(params.params)
     return ASECalculator(params, log)
 
 

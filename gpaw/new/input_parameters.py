@@ -34,7 +34,6 @@ default_parameters = {
 
     'occupations': None,
     'mixer': None,
-    'eigensolver': None,
     'reuse_wfs_method': 'paw',
     'maxiter': 333,
     'idiotproof': True,
@@ -62,6 +61,13 @@ def convergence(value=None):
 
 @input_parameter
 def poissonsolver(value=None):
+    if value is None:
+        value = {}
+    return value
+
+
+@input_parameter
+def eigensolver(value=None):
     if value is None:
         value = {}
     return value

@@ -1463,6 +1463,13 @@ class Setups(list):
         return layout.atom_centered_functions(
             [setup.pt_j for setup in self], positions)
 
+    def overlap_correction(self, projections, out):
+        for a, I1, I2 in projections.layout.myindices:
+            ds = self[a].dO_ii
+            # use mmm ?????
+            out.data[I1:I2] = ds @ projections.data[I1:I2]
+        return out
+
 
 class FunctionIndices:
     def __init__(self, f_aj):
