@@ -1,4 +1,4 @@
-from gpaw import GPAW
+from gpaw.calculator import GPAW
 from gpaw.solvation.hamiltonian import SolvationRealSpaceHamiltonian
 from ase.units import Hartree, Bohr
 

@@ -7,7 +7,7 @@ from typing import List, Union, Tuple, Generator, Optional
 import numpy as np
 from ase.units import Ha
 
-from gpaw import GPAW
+from gpaw.calculator import GPAW
 from gpaw.mpi import serial_comm
 from gpaw.xc import XC
 from gpaw.xc.tools import vxc

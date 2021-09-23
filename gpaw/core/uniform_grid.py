@@ -139,7 +139,7 @@ class UniformGrid(Layout):
                shape: int | tuple[int, ...] = (),
                comm: MPIComm = serial_comm) -> UniformGridFunctions:
         functions = self.empty(shape, comm)
-        seed = [functions.comm.rank, functions.layout.comm.rank]
+        seed = [functions.comm.rank, functions.grid.comm.rank]
         rng = np.random.default_rng(seed)
         a = functions.data.view(float)
         rng.random(a.shape, out=a)

@@ -79,7 +79,7 @@ def xc(value='LDA'):
 
 @input_parameter
 def mode(value='fd'):
-    from gpaw.new.mode import FDMode
+    from gpaw.new.modes import FDMode
     return FDMode()
 
 

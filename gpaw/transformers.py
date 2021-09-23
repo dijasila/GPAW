@@ -96,7 +96,7 @@ class TransformerWrapper:
         assert input.shape[-3:] == self.ngpin
         if output is not None:
             assert is_contiguous(output, self.dtype)
-            assert output.shape[-3:] == self.ngpout, (output.shape, self.ngpout)
+            assert output.shape[-3:] == self.ngpout
         assert (self.dtype == float or
                 (phases.dtype == complex and
                  phases.shape == (3, 2)))

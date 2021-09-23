@@ -7,7 +7,9 @@ if TYPE_CHECKING:
 
 
 class Layout:
-    def __init__(self, shape, myshape):
+    def __init__(self,
+                 shape: tuple[int, ...],
+                 myshape: tuple[int, ...]):
         self.shape = shape
         self.myshape = myshape
         self.dtype: DTypeLike

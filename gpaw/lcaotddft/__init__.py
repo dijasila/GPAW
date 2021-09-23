@@ -2,7 +2,7 @@ import numpy as np
 
 from ase.units import Bohr, Hartree
 
-from gpaw import GPAW
+from gpaw.calculator import GPAW
 from gpaw.external import ConstantElectricField
 from gpaw.lcaotddft.hamiltonian import TimeDependentHamiltonian
 from gpaw.lcaotddft.logger import TDDFTLogger

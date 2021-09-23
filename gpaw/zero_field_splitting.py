@@ -16,7 +16,7 @@ from typing import List, Tuple, Dict
 import numpy as np
 from ase.units import Bohr, Ha, _c, _e, _hplanck
 
-from gpaw import GPAW
+from gpaw.calculator import GPAW
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.typing import Array1D, Array2D, Array4D
 from gpaw.hyperfine import alpha  # fine-structure constant: ~ 1 / 137
@@ -218,7 +218,6 @@ def main(argv: List[str] = None) -> Array2D:
     """CLI interface."""
     import argparse
 
-    from gpaw import GPAW
     parser = argparse.ArgumentParser(
         prog='python3 -m gpaw.zero_field_splitting',
         description='...')

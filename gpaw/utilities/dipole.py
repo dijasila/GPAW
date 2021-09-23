@@ -6,7 +6,7 @@ from typing import List, Iterable
 from ase.units import Bohr
 import numpy as np
 
-from gpaw import GPAW
+from gpaw.calculator import GPAW
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.setup import Setup
 from gpaw.mpi import serial_comm

@@ -19,7 +19,7 @@ import ase.units as units
 import numpy as np
 from scipy.integrate import simps
 
-from gpaw import GPAW
+from gpaw.calculator import GPAW
 from gpaw.atom.aeatom import Channel
 from gpaw.atom.configurations import configurations
 from gpaw.atom.radialgd import RadialGridDescriptor

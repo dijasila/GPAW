@@ -1,8 +1,9 @@
+from __future__ import annotations
 import numpy as np
 from gpaw.utilities import pack, unpack
 from gpaw.typing import Array1D, Array3D
 from gpaw.setup import Setup
-from gpaw.new.ase_interface import XCFunctional
+from gpaw.new.xc import XCFunctional
 
 
 class Hamiltonian:

@@ -6,7 +6,7 @@ import os
 import sys
 import contextlib
 from pathlib import Path
-from typing import List, Dict, Union, TYPE_CHECKING
+from typing import List, Dict, Union
 
 __version__ = '21.6.1b1'
 __ase_version_required__ = '3.22.0'
@@ -170,7 +170,7 @@ if debug:
 
 
 with broadcast_imports:
-    from gpaw.calculator import GPAW
+    from gpaw.calculator import GPAW as OldGPAW
     from gpaw.mixer import Mixer, MixerSum, MixerDif, MixerSum2
     from gpaw.eigensolvers import Davidson, RMMDIIS, CG, DirectLCAO
     from gpaw.poisson import PoissonSolver
@@ -180,8 +180,12 @@ with broadcast_imports:
     from gpaw.wavefunctions.pw import PW
     from gpaw.wavefunctions.fd import FD
 
-if os.environ.get('GPAW_NEW') and not TYPE_CHECKING:
-    from gpaw.new.ase_interface import GPAW
+
+def GPAW(*args, **kwargs) -> OldGPAW:
+    if os.environ.get('GPAW_NEW'):
+        from gpaw.new.ase_interface import GPAW as NewGPAW
+        return NewGPAW(*args, **kwargs)
+    return OldGPAW(*args, **kwargs)
 
 
 def restart(filename, Class=GPAW, **kwargs):
