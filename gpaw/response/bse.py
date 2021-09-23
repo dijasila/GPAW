@@ -853,7 +853,7 @@ class BSE:
                 grid = BlacsGrid(world, world.size, 1)
                 desc = grid.new_descriptor(nS, nS, ns, nS)
 
-                desc2 = grid.new_descriptor(nS, nS, 128, 128)
+                desc2 = grid.new_descriptor(nS, nS, 2, 2)
                 H_tmp = desc2.zeros(dtype=complex)
                 r = Redistributor(world, desc, desc2)
                 r.redistribute(self.H_sS, H_tmp)
@@ -1093,7 +1093,7 @@ class BSE:
         wchi_w = (w_w[1:] * vchi_w[1:] + w_w[:-1] * vchi_w[:-1]) / Hartree / 2
         N = -np.dot(dw_w, wchi_w.imag) * self.vol / (2 * np.pi**2)
         print('  Integrated response: %f' % N, file=self.fd)
-        N = 2 * np.dot(w_T, C_T.real)
+        N = 2 * np.dot(w_T, C_T).real
         print('  Sum of weights:      %f' % N , file=self.fd)
         print(file=self.fd)
 
