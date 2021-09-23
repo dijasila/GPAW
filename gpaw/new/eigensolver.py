@@ -1,4 +1,4 @@
-"""Module defining an eigensolver base-class."""
+"""Module defining an eigensolver cfg-class."""
 
 import numpy as np
 from ase.dft.bandgap import _bandgap
@@ -166,86 +166,6 @@ class Eigensolver:
                               n_x,
                               calculate_change)
         kpt.projectors.add_to(R, tmp1)
-
-    @timer('Subspace diag')
-    def subspace_diagonalize(self, ham, wfs, kpt):
-        """Diagonalize the Hamiltonian in the subspace of kpt.psit_nG
-
-        *Htpsit_nG* is a work array of same size as psit_nG which contains
-        the local part of the Hamiltonian times psit on exit
-
-        First, the Hamiltonian (defined by *kin*, *vt_sG*, and
-        *dH_asp*) is applied to the wave functions, then the *H_nn*
-        matrix is calculated and diagonalized, and finally, the wave
-        functions (and also Htpsit_nG are rotated.  Also the
-        projections *P_ani* are rotated.
-
-        It is assumed that the wave functions *psit_nG* are orthonormal
-        and that the integrals of projector functions and wave functions
-        *P_ani* are already calculated.
-
-        Return rotated wave functions and H applied to the rotated
-        wave functions if self.keep_htpsit is True.
-        """
-
-        if self.band_comm.size > 1 and wfs.bd.strided:
-            raise NotImplementedError
-
-        psit = kpt.psit.wave_functions
-        projections = kpt.projections
-        psit2 = psit.new(data=wfs.work_array)
-        projections2 = projections.new()
-        H = wfs.work_matrix_nn
-        domain_comm = psit.layout.comm
-
-        def Ht(x):
-            wfs.apply_pseudo_hamiltonian(kpt, ham, x.data, psit2.data)
-            return psit2
-
-        def dH(projections):
-            for a, I1, I2 in projections.layout.myindices:
-                dh = unpack(ham.dH_asp[a][kpt.s])
-                # use mmm ???
-                projections2.data[I1:I2] = dh @ projections.data[I1:I2]
-            return projections2
-
-        # We calculate the complex conjugate of H, because
-        # that is what is most efficient with BLAS given the layout of
-        # our matrices.
-        psit.matrix_elements(psit, function=Ht, domain_sum=False, out=H)
-        projections.matrix_elements(projections, function=dH,
-                                    domain_sum=False, out=H, add_to_out=True)
-
-        domain_comm.sum(H.data)
-        ham.xc.correct_hamiltonian_matrix(kpt, H.data)
-
-        if domain_comm.rank == 0:
-            slcomm, r, c, b = wfs.scalapack_parameters
-            if r == c == 1:
-                slcomm = None
-            # Complex conjugate before diagonalizing:
-            eps_n = H.eigh(cc=True,
-                           scalapack=(slcomm, r, c, b))
-            # H.data[n, :] now contains the n'th eigenvector and eps_n[n]
-            # the n'th eigenvalue
-        else:
-            eps_n = np.zeros(len(H))
-
-        domain_comm.broadcast(H.data, 0)
-        domain_comm.broadcast(eps_n, 0)
-
-        kpt.eps_n = eps_n[wfs.bd.get_slice()]
-
-        if self.keep_htpsit:
-            Htpsit = psit.new(data=self.Htpsit_nG)
-            H.multiply(psit2, out=Htpsit)
-
-        H.multiply(psit, out=psit2)
-        psit.data[:] = psit2.data
-        projections.matrix.multiply(H, opb='T', out=projections2)
-        projections.data[:] = projections2.data
-        # Rotate orbital dependent XC stuff:
-        ham.xc.rotate(kpt, H.data.T)
 
     def estimate_memory(self, mem, wfs):
         gridmem = wfs.bytes_per_wave_function()

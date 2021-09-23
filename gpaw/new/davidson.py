@@ -1,155 +1,69 @@
 from functools import partial
 
 import numpy as np
-from ase.utils.timing import timer
 from gpaw import debug
-from gpaw.eigensolvers.diagonalizerbackend import (ScalapackDiagonalizer,
-                                                   ScipyDiagonalizer)
-from gpaw.eigensolvers.eigensolver import Eigensolver
-from gpaw.hybrids import HybridXC
-from gpaw.utilities import unpack
+from gpaw.core.matrix import Matrix
 
+        for R_G, eps, psit_G in zip(R.data, eps_n, psit.data):
+            axpy(-eps, psit_G, R_G)
 
-class DummyArray:
-    def __getitem__(self, x):
-        return np.empty((0, 0))
+        dH(projections, out=tmp1)
+        tmp2.data[:] = projections.data * eps_n
+        dS(tmp2, out=tmp2)
+        tmp1.data -= tmp2.data
 
+        ham.xc.add_correction(kpt, psit.data, R.data,
+                              projections,
+                              tmp1,
+                              n_x,
+                              calculate_change)
+        kpt.projectors.add_to(R, tmp1)
 
-class Davidson(Eigensolver):
-    """Simple Davidson eigensolver
+class Davidson:
+    def __init__(self,
+                 nbands, band_comm, basis,
+                 niter=2, scalapack_parameters=None):
+        B = nbands
+        domain_comm = basis.comm
+        if domain_comm.rank == 0 and band_comm.rank == 0:
+            self.H = Matrix(2 * B, 2 * B, basis.dtype)
+            self.S = Matrix(2 * B, 2 * B, basis.dtype)
 
-    It is expected that the trial wave functions are orthonormal
-    and the integrals of projector functions and wave functions
-    ``nucleus.P_uni`` are already calculated.
+        self.work_array1 = basis.empty(B, band_comm)
+        self.work_array2 = basis.empty(B, band_comm)
 
-    Solution steps are:
+    def iterate(self, ibzwfs, hamiltonian):
+        for wfs in ibzwfs:
+            self.iterate1(wfs, Ht, dH, dS)
 
-    * Subspace diagonalization
-    * Calculate all residuals
-    * Add preconditioned residuals to the subspace and diagonalize
-    """
+    def iterate1(self, wfs, Ht, dH, dS):
+        H = self.H
+        S = self.S
+        M = H.new()
 
-    def __init__(
-            self, niter=2):
-        Eigensolver.__init__(self)
-        self.niter = niter
-        self.diagonalizer_backend = None
+        B = len(H)  # number of bands
 
-        self.orthonormalization_required = False
-        self.H_NN = DummyArray()
-        self.S_NN = DummyArray()
-        self.eps_N = DummyArray()
+        eigs = np.empty(2 * B)
 
-    def __repr__(self):
-        return 'Davidson(niter=%d)' % (
-            self.niter)
+        psit = wfs.wave_functions
+        psit2 = psit.new(data=self.work_array1)
+        psit3 = psit.new(data=self.work_array2)
 
-    def todict(self):
-        return {'name': 'dav', 'niter': self.niter}
+        wfs.subspace_diagonalize(Ht, dH, psit2, psit3)
+        residuals = psit3  # will become (H-e*S)|psit> later
 
-    def initialize(self, wfs):
-        Eigensolver.initialize(self, wfs)
-        slcomm, nrows, ncols, slsize = wfs.scalapack_parameters
-
-        if wfs.gd.comm.rank == 0 and wfs.bd.comm.rank == 0:
-            # Allocate arrays
-            B = self.nbands
-            self.H_NN = np.zeros((2 * B, 2 * B), self.dtype)
-            self.S_NN = np.zeros((2 * B, 2 * B), self.dtype)
-            self.eps_N = np.zeros(2 * B)
-
-        if slsize is not None:
-            self.diagonalizer_backend = ScalapackDiagonalizer(
-                arraysize=self.nbands * 2,
-                grid_nrows=nrows,
-                grid_ncols=ncols,
-                scalapack_communicator=slcomm,
-                dtype=self.dtype,
-                blocksize=slsize)
-        else:
-            self.diagonalizer_backend = ScipyDiagonalizer()
-
-    def estimate_memory(self, mem, wfs):
-        Eigensolver.estimate_memory(self, mem, wfs)
-        nbands = wfs.bd.nbands
-        mem.subnode('H_nn', nbands * nbands * mem.itemsize[wfs.dtype])
-        mem.subnode('S_nn', nbands * nbands * mem.itemsize[wfs.dtype])
-        mem.subnode('H_2n2n', 4 * nbands * nbands * mem.itemsize[wfs.dtype])
-        mem.subnode('S_2n2n', 4 * nbands * nbands * mem.itemsize[wfs.dtype])
-        mem.subnode('eps_2n', 2 * nbands * mem.floatsize)
-
-    @timer('Davidson')
-    def iterate_one_k_point(self, ham, wfs, kpt, weights):
-        """Do Davidson iterations for the kpoint"""
-        if isinstance(ham.xc, HybridXC):
-            self.niter = 1
-
-        bd = wfs.bd
-        B = bd.nbands
-
-        H_NN = self.H_NN
-        S_NN = self.S_NN
-        eps_N = self.eps_N
-
-        def integrate(a_G):
-            if wfs.collinear:
-                return np.real(wfs.integrate(a_G, a_G, global_integral=False))
-            return sum(
-                np.real(wfs.integrate(b_G, b_G, global_integral=False))
-                for b_G in a_G)
-
-        self.subspace_diagonalize(ham, wfs, kpt)
-
-        psit = kpt.psit.wave_functions
-        psit2 = psit.new(data=wfs.work_array)
-
-        proj = kpt.projections
+        proj = wfs.projections
         proj2 = proj.new()
         proj3 = proj.new()
 
-        M = wfs.work_matrix_nn
+        domain_comm = wfs.grid.comm
+        band_comm = wfs.comm
 
-        comm = wfs.gd.comm
-
-        is_gridband_master: bool = (
-            comm.rank == 0) and (bd.comm.rank == 0)
-
-        if bd.comm.size > 1:
-            M0 = M.new(dist=(bd.comm, 1, 1))
-        else:
-            M0 = M
-
-        if comm.rank == 0:
-            e_N = bd.collect(kpt.eps_n)
-            if e_N is not None:
-                eps_N[:B] = e_N
-
-        if self.keep_htpsit:
-            residual = psit.new(data=self.Htpsit_nG)
-        else:
-            residual = psit.new()
-
-        def Ht(x):
-            wfs.apply_pseudo_hamiltonian(kpt, ham, x.data, residual.data)
-            return residual
-
-        def dH(proj, out):
-            for a, I1, I2 in proj.layout.myindices:
-                dh = unpack(ham.dH_asp[a][kpt.s])
-                out.data[I1:I2] = dh @ proj.data[I1:I2]
-            return out
-
-        def dS(proj, out):
-            for a, I1, I2 in proj.layout.myindices:
-                ds = wfs.setups[a].dO_ii
-                out.data[I1:I2] = ds @ proj.data[I1:I2]
-            return out
+        if domain_comm.rank == 0:
+            eigs[:B] = wfs.eigs
 
         def me(a, b, **kwargs):
             return a.matrix_elements(b, domain_sum=False, out=M, **kwargs)
-
-        if not self.keep_htpsit:
-            Ht(psit, proj3)
 
         self.calculate_residuals(kpt, wfs, ham, dH, dS,
                                  psit, proj, kpt.eps_n, residual,

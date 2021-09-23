@@ -17,6 +17,7 @@ class DistributedArrays:
         self.comm = comm
         self.layout_last = layout_last
 
+        # convert int to tuple:
         self.shape = shape if isinstance(shape, tuple) else (shape,)
 
         if self.shape:

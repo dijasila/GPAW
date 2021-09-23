@@ -2,6 +2,7 @@ from gpaw.new.density import Density
 from gpaw.new.wave_functions import IBZWaveFunctions
 from gpaw.new.configuration import CalculationConfiguration
 from gpaw.new.scf import SCFLoop
+from gpaw.new.davidson import Davidson
 
 
 def calculate_ground_state(atoms, params, log):
@@ -21,17 +22,22 @@ def calculate_ground_state(atoms, params, log):
         basis = cfg.grid
 
     hamiltonian = Hamiltonian(basis, cfg, poisson_solver)
-
-    potential1, vnonloc, energies = hamiltonian.calculate_potential(density)
+    potential = hamiltonian.calculate_potential(density)
 
     nbands = params.nbands(setups, density.charge, cfg.magmoms,
                            mode.name == 'lcao')
 
     if params.random:
         ibzwfs = IBZWaveFunctions.from_random_numbers(cfg, nbands)
+    else:
+        ...
 
-    scf = SCFLoop(ibzwfs, density, hamiltonian, ..., ...)
-    for _ in scf():
+    eigensolver = Davidson()
+    mixer = ...
+
+    scf = SCFLoop(ibzwfs, density, potential, hamiltonian, eigensolver, mixer)
+
+    for _ in scf.iconverge(params.convergence):
         ...
 
     return

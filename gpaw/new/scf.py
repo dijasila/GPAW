@@ -6,7 +6,14 @@ class SCFLoop:
                  hamiltonian,
                  eigensolver,
                  mixer):
-        ibzwfs.mykpts[0].orthonormalize()
+        self.ibzwfs = ibzwfs
+        self.potential = potential
+        self.eigensolver = eigensolver
 
     def converge(self, conv_criteria):
-        ...
+        yield from self.iconverge(conv_criteria)
+
+    def iconverge(self, conv_criteria):
+        while True:
+            self.eigensolver.iterate(self.potential, self.ibzwfs)
+            yield

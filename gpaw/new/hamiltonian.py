@@ -7,19 +7,19 @@ from gpaw.new.xc import XCFunctional
 
 
 class Hamiltonian:
-    def __init__(self, layout, base, poisson_solver):
-        setups = base.setups
-        grid2 = base.grid2
+    def __init__(self, layout, cfg, poisson_solver):
+        setups = cfg.setups
+        grid2 = cfg.grid2
 
         self.interpolate = layout.transformer(grid2)
-        self.restrict = base.grid2.transformer(layout)
+        self.restrict = cfg.grid2.transformer(layout)
 
-        fracpos = base.positions
+        fracpos = cfg.positions
         self.compensation_charges = setups.create_compensation_charges(
             grid2, fracpos)
         self.local_potentials = setups.create_local_potentials(layout, fracpos)
         self.poisson_solver = poisson_solver
-        self.xc = base.xc
+        self.xc = cfg.xc
         self.v0 = grid2.zeros()
         self.local_potentials.add_to(self.v0)
 

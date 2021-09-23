@@ -42,20 +42,20 @@ class Density:
 
     @classmethod
     def from_superposition(self,
-                           base,
+                           cfg,
                            charge=0.0,
                            hund=False):
         # density and magnitization components:
-        ndens, nmag = magmoms2dims(base.magmoms)
-        grid = base.grid
-        setups = base.setups
+        ndens, nmag = magmoms2dims(cfg.magmoms)
+        grid = cfg.grid
+        setups = cfg.setups
 
         basis_functions = BasisFunctions(grid._gd,
                                          [setup.phit_j for setup in setups],
                                          cut=True)
-        basis_functions.set_positions(base.positions)
+        basis_functions.set_positions(cfg.positions)
 
-        magmoms = base.magmoms
+        magmoms = cfg.magmoms
         if magmoms is None:
             magmoms = [None] * len(setups)
         f_asi = {a: atomic_occupation_numbers(setup, magmom, hund,
@@ -64,7 +64,7 @@ class Density:
         density = grid.zeros(ndens + nmag)
         basis_functions.add_to_density(density.data, f_asi)
 
-        core_acf = setups.create_pseudo_core_densities(grid, base.positions)
+        core_acf = setups.create_pseudo_core_densities(grid, cfg.positions)
         core_density = grid.zeros()
         core_acf.add_to(core_density, 1.0 / ndens)
         density.data[:ndens] += core_density.data

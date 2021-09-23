@@ -8,7 +8,7 @@ from gpaw.mpi import world
 from gpaw.new.calculation import (Calculation, DrasticChangesError,
                                   calculate_ground_state)
 from gpaw.new.input_parameters import InputParameters
-from gpaw.new.logging import Logger
+from gpaw.new.logger import Logger
 
 
 def GPAW(filename: str | Path | IO[str] = None,

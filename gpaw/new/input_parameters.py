@@ -38,16 +38,26 @@ default_parameters = {
     'reuse_wfs_method': 'paw',
     'maxiter': 333,
     'idiotproof': True,
-    'convergence': {'energy': 0.0005,  # eV / electron
-                    'density': 1.0e-4,  # electrons / electron
-                    'eigenstates': 4.0e-8,  # eV^2 / electron
-                    'bands': 'occupied'},
     'verbose': 0}  # deprecated
 
 
 def input_parameter(func):
     parameter_functions[func.__name__] = func
     return func
+
+
+@input_parameter
+def convergence(value=None):
+    defaults = {
+        'energy': 0.0005,  # eV / electron
+        'density': 1.0e-4,  # electrons / electron
+        'eigenstates': 4.0e-8,  # eV^2 / electron
+        'bands': 'occupied'}  # value = value or {}
+    value = value or {}
+    assert value.keys() < defaults.keys()
+    dct = defaults.copy()
+    dct.update(value)
+    return dct
 
 
 @input_parameter
@@ -181,8 +191,8 @@ def nbands(setups,
         if nbands == 'nao':
             nbands = nao
         elif nbands[-1] == '%':
-            basebands = (nvalence + M) / 2
-            nbands = int(np.ceil(float(nbands[:-1]) / 100 * basebands))
+            cfgbands = (nvalence + M) / 2
+            nbands = int(np.ceil(float(nbands[:-1]) / 100 * cfgbands))
         else:
             raise ValueError('Integer expected: Only use a string '
                              'if giving a percentage of occupied bands')

@@ -171,6 +171,13 @@ class UniformGridFunctions(DistributedArrays):
         txt = f'UniformGridFunctions(grid={self.grid}, shape={self.shape}'
         if self.comm.size > 1:
             txt += f', comm={self.comm.rank}/{self.comm.size}'
+
+        def integrate(a_G):
+            if wfs.collinear:
+                return np.real(wfs.integrate(a_G, a_G, global_integral=False))
+            return sum(
+                np.real(wfs.integrate(b_G, b_G, global_integral=False))
+                for b_G in a_G)
         return txt + ')'
 
     def new(self, data=None):
