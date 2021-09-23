@@ -109,11 +109,8 @@ class UniformGrid(Layout):
         apply = Transformer(self._gd, other._gd, 3).apply
 
         def transform(functions, out=None):
-            print(out)
             if out is None:
-                print(other)
                 out = other.empty(functions.shape, functions.comm)
-            print(functions, out, out.data.shape)
             apply(functions.data, out.data)
             return out
 
@@ -142,14 +139,11 @@ class UniformGrid(Layout):
                shape: int | tuple[int, ...] = (),
                comm: MPIComm = serial_comm) -> UniformGridFunctions:
         functions = self.empty(shape, comm)
-        rnd = np.random.RandomState([functions.comm.rank,
-                                    functions.layout.comm.rank])
-        a = functions.data
-        if a.dtype == float:
-            a[:] = rnd.uniform(-1, 1, a.shape)
-        else:
-            a.real = rnd.uniform(-1, 1, a.shape)
-            a.imag = rnd.uniform(-1, 1, a.shape)
+        seed = [functions.comm.rank, functions.layout.comm.rank]
+        rng = np.random.default_rng(seed)
+        a = functions.data.view(float)
+        rng.random(a.shape, out=a)
+        a -= 0.5
         return functions
 
 
@@ -194,7 +188,6 @@ class UniformGridFunctions(DistributedArrays):
         assert len(axes) == 3 + len(self.shape)
         index = tuple([slice(0, None) if axis is ... else axis
                        for axis in axes])
-        print(self.data.shape, index)
         y = self.data[index]
         n = axes[-3:].index(...)
         dx = (self.grid.cell[n]**2).sum()**0.5 / self.grid.size[n]

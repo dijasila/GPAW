@@ -2,7 +2,7 @@ from __future__ import annotations
 import numpy as np
 from gpaw.mpi import MPIComm, serial_comm
 from gpaw.core.layout import Layout
-from gpaw.matrix import Matrix
+from gpaw.core.matrix import Matrix
 
 
 class DistributedArrays:
@@ -60,7 +60,6 @@ class DistributedArrays:
 
     def matrix_elements(self, other, *, symmetric=None, function=None,
                         out=None, add_to_out=False, domain_sum=True):
-        assert out is not None
         assert not domain_sum
         if symmetric is None:
             symmetric = self is other
@@ -68,10 +67,13 @@ class DistributedArrays:
             other = function(other)
         M1 = self.matrix
         M2 = other.matrix
+        # if out is None:
+        #     assert not add_to_out
+        #     out = Matrix(M1.shape[0], M2.shape[0], dist=(M1.comm, -1, 1))
         if self.layout_last and other.layout_last:
             assert not add_to_out
-            M1.multiply(M2, opb='C', alpha=self.layout.dv, symmetric=symmetric,
-                        out=out)
+            out = M1.multiply(M2, opb='C', alpha=self.layout.dv,
+                              symmetric=symmetric, out=out)
             out.complex_conjugate()
         elif not self.layout_last and not other.layout_last:
             assert add_to_out

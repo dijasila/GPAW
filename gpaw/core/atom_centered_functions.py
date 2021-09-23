@@ -8,7 +8,7 @@ from gpaw.pw.lfc import PWLFC
 from gpaw.core.arrays import DistributedArrays
 from gpaw.core.layout import Layout
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
-from gpaw.matrix import Matrix
+from gpaw.core.matrix import Matrix
 from gpaw.spline import Spline
 
 

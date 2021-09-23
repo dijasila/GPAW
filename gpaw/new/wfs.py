@@ -20,7 +20,8 @@ class IBZWaveFunctions:
             basis = base.grid.new(kpt=kpt)
             wfs = WaveFunctions.from_random_numbers(basis, weight,
                                                     nbands, band_comm,
-                                                    base.setups, base.positions)
+                                                    base.setups,
+                                                    base.positions)
             mykpts.append(wfs)
 
         return IBZWaveFunctions(ibz, ranks, kpt_comm, mykpts)
@@ -38,8 +39,7 @@ class WaveFunctions:
     @property
     def projections(self):
         if self._projections is None:
-            self._projections = self.projectors.matrix_element(
-                self.wave_functions)
+            self._projections = self.projectors.integrate(self.wave_functions)
         return self._projections
 
     @classmethod
@@ -52,9 +52,8 @@ class WaveFunctions:
         wfs = self.wave_functions
         domain_comm = wfs.layout.comm
 
-        projections = projectors.integrate(wfs)
+        projections = self.projections
 
-        S = work_matrix
         projections2 = projections.new()
         wfs2 = wfs.new(data=work_array)
 
@@ -65,10 +64,9 @@ class WaveFunctions:
                 projections2.data[I1:I2] = ds @ proj.data[I1:I2]
             return projections2
 
-        wfs.matrix_elements(wfs, domain_sum=False, out=S)
+        S = wfs.matrix_elements(wfs, domain_sum=False)
         projections.matrix_elements(projections, function=dS,
                                     domain_sum=False, out=S, add_to_out=True)
-
         domain_comm.sum(S.data, 0)
         if domain_comm.rank == 0:
             S.invcholesky()
@@ -80,5 +78,3 @@ class WaveFunctions:
         projections.matrix.multiply(S, opb='T', out=projections2)
         wfs.data[:] = wfs2.data
         projections.data[:] = projections2.data
-
-        return projections

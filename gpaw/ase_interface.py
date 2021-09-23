@@ -177,6 +177,7 @@ class MonkhorstPackKPoints(BZ):
 class IBZ:
     def __init__(self, symmetry, bz, indices, weights):
         self.symmetry = symmetry
+        self.bz = bz
         self.weights = weights
         self.points = bz.points[indices]
 
@@ -213,7 +214,7 @@ def calculate_ground_state(atoms, params, log):
     if params.random:
         ibzwfs = IBZWaveFunctions.from_random_numbers(base, nbands)
 
-    scf = SCFLoop(ibzwfs)
+    scf = SCFLoop(ibzwfs, density, hamiltonian, ..., ...)
     for _ in scf():
         ...
 
@@ -221,7 +222,8 @@ def calculate_ground_state(atoms, params, log):
 
 
 class SCFLoop:
-    def __init__(self, kpts):
+    def __init__(self, ibzwfs, density, hamiltonian, eigensolver, mixer):
+        ibzwfs.mykpts[0].orthonormalize()
         ...
 
 
