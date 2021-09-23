@@ -70,7 +70,7 @@ def hund(value=False):
 @input_parameter
 def xc(value='LDA'):
     from gpaw.xc import XC
-    from gpaw.ase_interface import XCFunctional
+    from gpaw.new.xc import XCFunctional
 
     if isinstance(value, str):
         value = {'name': value}
@@ -79,7 +79,7 @@ def xc(value='LDA'):
 
 @input_parameter
 def mode(value='fd'):
-    from gpaw.ase_interface import FDMode
+    from gpaw.new.mode import FDMode
     return FDMode()
 
 
@@ -96,7 +96,7 @@ def setups(atomic_numbers, basis, xc_name, world, value='paw'):
 @input_parameter
 def symmetry(atoms, setups, magmoms, value=None):
     from gpaw.symmetry import Symmetry as OldSymmetry
-    from gpaw.ase_interface import Symmetry
+    from gpaw.new.symmetry import Symmetry
     if value in {None, 'off'}:
         value = {}
     if magmoms is None:
@@ -133,7 +133,7 @@ def magmoms(atoms, value=None):
 
 @input_parameter
 def kpts(atoms, value=None):
-    from gpaw.ase_interface import BZ, MonkhorstPackKPoints
+    from gpaw.new.brillouin import BZ, MonkhorstPackKPoints
     if value is None:
         value = {'size': (1, 1, 1)}
     elif not isinstance(value, dict):

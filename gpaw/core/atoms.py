@@ -1,3 +1,0 @@
-class Atoms:
-    def __init__(self, fractional_coordinates, cell, pbc, symb, distribution):
-        ...

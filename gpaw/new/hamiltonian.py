@@ -2,7 +2,7 @@ import numpy as np
 from gpaw.utilities import pack, unpack
 from gpaw.typing import Array1D, Array3D
 from gpaw.setup import Setup
-from gpaw.ase_interface import XCFunctional
+from gpaw.new.ase_interface import XCFunctional
 
 
 class Hamiltonian:

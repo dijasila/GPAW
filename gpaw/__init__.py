@@ -181,7 +181,7 @@ with broadcast_imports:
     from gpaw.wavefunctions.fd import FD
 
 if os.environ.get('GPAW_NEW') and not TYPE_CHECKING:
-    from gpaw.ase_interface import GPAW
+    from gpaw.new.ase_interface import GPAW
 
 
 def restart(filename, Class=GPAW, **kwargs):
