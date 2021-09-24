@@ -23,7 +23,7 @@ class SCFLoop:
     def iconverge(self, conv_criteria):
         dS = self.density.setups.overlap_correction
         dH = self.potential.dH
-        Ht = partial(self.hamiltonian, self.potential.vt)
+        Ht = partial(self.hamiltonian.apply, self.potential.vt)
         while True:
             self.eigensolver.iterate(self.ibzwfs, Ht, dH, dS)
             yield

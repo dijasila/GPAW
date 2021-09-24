@@ -98,7 +98,7 @@ class ScalapackDiagonalizer:
 
     def diagonalize(self, A, B, eps, is_master, debug):
         """Solves the eigenproblem A @ x = eps [B] @ x.
-        
+
         The problem is solved inplace, so when done, A has the eigenvectors
         as columns and eps has the eigenvalues.
 

@@ -10,6 +10,7 @@ def calculate_ground_state(atoms, params, log):
     mode = params.mode
     cfg = CalculationConfiguration.from_parameters(atoms, params)
     setups = cfg.setups
+    write_info(cfg, atoms, log)
 
     density = Density.from_superposition(cfg, params.charge, params.hund)
 
@@ -46,6 +47,15 @@ def calculate_ground_state(atoms, params, log):
         ...
 
     return
+
+
+def write_info(cfg, atoms, log):
+    with log.indent('\nAtoms('):
+        symbols = atoms.symbols.formula.format('reduce')
+        log(f'symbols = {symbols!r},')
+        with log.indent('positions ='):
+            log.pp(atoms.positions.tolist())
+        log(')')
 
 
 class DrasticChangesError(Exception):

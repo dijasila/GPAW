@@ -4,6 +4,7 @@ import numpy as np
 from gpaw import debug
 from gpaw.core.matrix import Matrix
 from gpaw.utilities.blas import axpy
+from scipy.linalg import eigh
 
 
 def calculate_residuals(residuals, dH, dS, wfs, p1, p2):
@@ -19,6 +20,8 @@ def calculate_residuals(residuals, dH, dS, wfs, p1, p2):
 
 def calculate_weights(convergence, wfs):
     """Calculate convergence weights for all eigenstates."""
+
+    """
     weight_un = np.zeros((len(wfs.kpt_u), self.bd.mynbands))
 
     if isinstance(self.nbands_converge, int):
@@ -77,6 +80,8 @@ def calculate_weights(convergence, wfs):
                 weight_un[:] = np.inf
 
     return weight_un
+    """
+    pass
 
 
 class Davidson:
@@ -95,6 +100,7 @@ class Davidson:
         if domain_comm.rank == 0 and band_comm.rank == 0:
             self.H = Matrix(2 * B, 2 * B, basis.dtype)
             self.S = Matrix(2 * B, 2 * B, basis.dtype)
+            self.M = Matrix(B, B, basis.dtype)
 
         self.work_array1 = basis.empty(B, band_comm).data
         self.work_array2 = basis.empty(B, band_comm).data
@@ -108,7 +114,7 @@ class Davidson:
     def iterate1(self, wfs, Ht, dH, dS):
         H = self.H
         S = self.S
-        M = H.new()
+        M = self.M
 
         psit = wfs.wave_functions
         psit2 = psit.new(data=self.work_array1)
@@ -117,7 +123,7 @@ class Davidson:
         B = psit.shape[0]  # number of bands
         eigs = np.empty(2 * B)
 
-        wfs.subspace_diagonalize(Ht, dH, psit2.data, psit3)
+        wfs.subspace_diagonalize(Ht, dH, work_array=psit2.data, Htpsit=psit3)
         residuals = psit3  # will become (H-e*S)|psit> later
 
         proj = wfs.projections
@@ -126,6 +132,10 @@ class Davidson:
 
         domain_comm = psit.grid.comm
         band_comm = psit.comm
+        is_domain_band_master = domain_comm.rank == 0 and band_comm.rank == 0
+
+        M0 = M
+        assert band_comm.size == 1
 
         if domain_comm.rank == 0:
             eigs[:B] = wfs.eigs
@@ -135,20 +145,23 @@ class Davidson:
 
         calculate_residuals(residuals, dH, dS, wfs, proj2, proj3)
 
+        Ht = partial(Ht, out=residuals, spin=0)
+
         for i in range(self.niter):
             if i == self.niter - 1:
                 errors = residuals.norm2()
+                print(errors)
 
-            self.preconditioner.apply(psit, residuals, out=psit2)
+            self.preconditioner(psit, residuals, out=psit2)
 
             # Calculate projections
-            kpt.projectors.integrate(psit2, out=proj2)
+            wfs.projectors.integrate(psit2, out=proj2)
 
             def copy(M, C_nn):
-                comm.sum(M.data, 0)
-                if comm.rank == 0:
+                domain_comm.sum(M.data, 0)
+                if domain_comm.rank == 0:
                     M.redist(M0)
-                    if bd.comm.rank == 0:
+                    if band_comm.rank == 0:
                         C_nn[:] = M0.data
 
             # <psi2 | H | psi2>
@@ -156,69 +169,65 @@ class Davidson:
             me(proj2, proj2,
                function=partial(dH, out=proj3),
                add_to_out=True)
-            copy(M, H_NN[B:, B:])
+            copy(M, H.data[B:, B:])
 
             # <psi2 | H | psi>
-            me(residual, psit)
+            me(residuals, psit)
             proj3.matrix.multiply(proj, opa='C', beta=1.0, out=M)
-            copy(M, H_NN[B:, :B])
+            copy(M, H.data[B:, :B])
 
             # <psi2 | S | psi2>
             me(psit2, psit2)
             me(proj2, proj2,
                function=partial(dS, out=proj3),
                add_to_out=True)
-            copy(M, S_NN[B:, B:])
+            copy(M, S.data[B:, B:])
 
             # <psi2 | S | psi>
             me(psit2, psit)
             proj3.matrix.multiply(proj, opa='C', beta=1.0, out=M)
-            copy(M, S_NN[B:, :B])
+            copy(M, S.data[B:, :B])
 
-            if is_gridband_master:
-                H_NN[:B, :B] = np.diag(eps_N[:B])
-                S_NN[:B, :B] = np.eye(B)
+            if is_domain_band_master:
+                H.data[:B, :B] = np.diag(eigs[:B])
+                S.data[:B, :B] = np.eye(B)
+                if debug:
+                    H.data[np.triu_indices(2 * B, 1)] = 42.0
+                    S.data[np.triu_indices(2 * B, 1)] = 42.0
 
-            if is_gridband_master and debug:
-                H_NN[np.triu_indices(2 * B, 1)] = 42.0
-                S_NN[np.triu_indices(2 * B, 1)] = 42.0
+                eigs[:], H.data[:] = eigh(H.data, S.data,
+                                          lower=True,
+                                          check_finite=debug,
+                                          overwrite_b=True)
+                wfs.eigs = eigs[:B]
 
-            self.diagonalizer_backend.diagonalize(
-                H_NN, S_NN, eps_N,
-                is_master=is_gridband_master,
-                debug=debug)
+            if domain_comm.rank == 0:
+                band_comm.broadcast(wfs.eigs, 0)
+            domain_comm.broadcast(wfs.eigs, 0)
 
-            if comm.rank == 0:
-                bd.distribute(eps_N[:B], kpt.eps_n)
-            comm.broadcast(kpt.eps_n, 0)
-
-            if comm.rank == 0:
-                if bd.comm.rank == 0:
-                    M0.data[:] = H_NN[:B, :B].T
+            if domain_comm.rank == 0:
+                if band_comm.rank == 0:
+                    M0.data[:] = H.data[:B, :B].T
                 M0.redist(M)
-            comm.broadcast(M.data, 0)
+            domain_comm.broadcast(M.data, 0)
 
-            M.multiply(psit, out=residual)
+            M.multiply(psit, out=residuals)
             proj.matrix.multiply(M, opb='T', out=proj3)
 
-            if comm.rank == 0:
-                if bd.comm.rank == 0:
-                    M0.data[:] = H_NN[B:, :B].T
+            if domain_comm.rank == 0:
+                if band_comm.rank == 0:
+                    M0.data[:] = H.data[B:, :B].T
                 M0.redist(M)
-            comm.broadcast(M.data, 0)
+            domain_comm.broadcast(M.data, 0)
 
-            M.multiply(psit2, beta=1.0, out=residual)
+            M.multiply(psit2, beta=1.0, out=residuals)
             proj2.matrix.multiply(M, opb='T', beta=1.0, out=proj3)
-            psit.data[:] = residual.data
+            psit.data[:] = residuals.data
             proj, proj3 = proj3, proj
-            kpt.projections = proj
+            wfs._projections = proj
 
-            if nit < self.niter - 1:
+            if i < self.niter - 1:
                 Ht(psit)
-                self.calculate_residuals(
-                    kpt, wfs,
-                    ham, dH, dS,
-                    psit, proj, kpt.eps_n, residual,
-                    proj2, proj3)
+                calculate_residuals(residuals, dH, dS, wfs, proj2, proj3)
 
-        return errors
+        return errors  # * weights
