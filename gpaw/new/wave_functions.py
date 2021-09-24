@@ -1,4 +1,5 @@
 from __future__ import annotations
+import numpy as np
 from functools import partial
 from gpaw.core.arrays import DistributedArrays as DA
 from gpaw.setup import Setups
@@ -12,19 +13,20 @@ class IBZWaveFunctions:
                  ibz: IBZ,
                  ranks: ArrayLike1D,
                  kpt_comm: MPIComm,
-                 mykpts: list[WaveFunctions]):
+                 mykpts: list[WaveFunctions],
+                 nelectrons: int):
         self.ibz = ibz
         self.ranks = ranks
         self.kpt_comm = kpt_comm
         self.mykpts = mykpts
+        self.nelectrons = nelectrons
 
     def __iter__(self):
         for wfs in self.mykpts:
             yield wfs
 
-    @classmethod
-    def from_random_numbers(self,
-                            cfg,
+    @staticmethod
+    def from_random_numbers(cfg,
                             nbands: int) -> IBZWaveFunctions:
         ibz = cfg.ibz
         assert len(ibz) == 1
@@ -43,14 +45,15 @@ class IBZWaveFunctions:
                                                     cfg.positions)
             mykpts.append(wfs)
 
-        return IBZWaveFunctions(ibz, ranks, kpt_comm, mykpts)
+        return IBZWaveFunctions(ibz, ranks, kpt_comm, mykpts, cfg.nelectrons)
 
     def orthonormalize(self, work_array=None):
         for wfs in self:
             wfs.orthonormalize(work_array)
 
     def calculate_occs(self, occs_calc):
-        pass
+        for wfs in self:
+            wfs._occs = np.ones(2)
 
 
 class WaveFunctions:
@@ -58,10 +61,13 @@ class WaveFunctions:
                  wave_functions: DA,
                  spin: int | None,
                  setups: Setups,
-                 positions: Array2D):
+                 positions: Array2D,
+                 weight: float = 1.0):
         self.wave_functions = wave_functions
         self.spin = spin
         self.setups = setups
+        self.weight = weight
+
         self._projections = None
         self.projectors = setups.create_projectors(wave_functions.layout,
                                                    positions)
@@ -93,8 +99,8 @@ class WaveFunctions:
         assert self.wave_functions.comm.size == 1
         return self.eigs
 
-    @classmethod
-    def from_random_numbers(self, basis, weight, nbands, band_comm, setups,
+    @staticmethod
+    def from_random_numbers(basis, weight, nbands, band_comm, setups,
                             positions):
         wfs = basis.random(nbands, band_comm)
         return WaveFunctions(wfs, 0, setups, positions)

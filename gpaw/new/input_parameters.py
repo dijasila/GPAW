@@ -41,9 +41,7 @@ default_parameters = {
     'occupations': None,
     'mixer': None,
     'reuse_wfs_method': 'paw',
-    'maxiter': 333,
-    'idiotproof': True,
-    'verbose': 0}  # deprecated
+    'maxiter': 333}
 
 
 def input_parameter(func):
@@ -103,6 +101,9 @@ def convergence(value=None):
                'a .gpw file you may not be able to re-open it. '
                .format(criterion.name))
         warnings.warn(msg)
+
+    for criterion in criteria.values():
+        criterion.reset()
 
     return criteria
 

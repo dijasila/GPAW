@@ -25,6 +25,7 @@ class Density:
         self.charge = charge
 
         self.ndensities = {1: 1, 2: 2, 4: 1}[density.shape[0]]
+        self.collinear = density.shape[0] != 4
 
     def calculate_compensation_charge_coefficients(self):
         coefs = AtomArraysLayout(

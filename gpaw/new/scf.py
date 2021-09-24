@@ -1,5 +1,6 @@
 from functools import partial
 from types import SimpleNamespace
+from gpaw.scf import write_iteration
 
 
 class SCFLoop:
@@ -10,29 +11,32 @@ class SCFLoop:
                  hamiltonian,
                  pot_calc,
                  eigensolver,
-                 mixer):
+                 mixer,
+                 world):
         self.ibz_wfs = ibz_wfs
         self.density = density
         self.potential = potential
         self.hamiltonian = hamiltonian
         self.eigensolver = eigensolver
         self.occs_calc = ...
-    def converge(self, conv_criteria):
-        for _ in self.iconverge(conv_criteria):
-            pass
+        self.world = world
 
-    def iconverge(self, conv_criteria):
+    def iconverge(self, conv_criteria=None, log=None):
+        conv_criteria = conv_criteria or {}
         dS = self.density.setups.overlap_correction
         dH = self.potential.dH
         Ht = partial(self.hamiltonian.apply, self.potential.vt)
         for i in range(999_999_999_999_999):
-            self.eigensolver.iterate(self.ibz_wfs, Ht, dH, dS)
+            error = self.eigensolver.iterate(self.ibz_wfs, Ht, dH, dS)
             self.ibz_wfs.calculate_occs(self.occs_calc)
             energy = calculate_energy(self.occs_calc,
                                       self.ibz_wfs,
                                       self.potential)
-            ctx = SCFEvent(energy, self.ibz_wfs)
+            ctx = SCFEvent(energy, self.ibz_wfs, self.density,
+                           self.world, error, i)
             entries, converged = check_convergence(ctx, conv_criteria)
+            if log:
+                write_iteration(conv_criteria, converged, entries, ctx, log)
             yield entries
             if all(converged.values()):
                 break
@@ -43,9 +47,15 @@ def calculate_energy(occs_calc, ibz_wfs, potential):
 
 
 class SCFEvent:
-    def __init__(self, energy, ibz_wfs):
+    def __init__(self, energy, ibz_wfs, density, world, error, i):
+        self.niter = i
         self.ham = SimpleNamespace(e_total_extrapolated=energy)
-        self.wfs = SimpleNamespace(nvalence=ibz_wfs.nvalence)
+        self.wfs = SimpleNamespace(nvalence=ibz_wfs.nelectrons,
+                                   world=world,
+                                   eigensolver=SimpleNamespace(error=error),
+                                   nspins=density.ndensities,
+                                   collinear=density.collinear)
+        self.dens = SimpleNamespace(fixed=False, error=0.0)
 
 
 def check_convergence(ctx, criteria):

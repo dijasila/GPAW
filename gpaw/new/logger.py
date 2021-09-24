@@ -32,9 +32,9 @@ class Logger:
         if self.close_fd:
             self.fd.close()
 
-    def __call__(self, *args) -> None:
+    def __call__(self, *args, **kwargs) -> None:
         self.fd.write(self._indent)
-        print(*args, file=self.fd)
+        print(*args, **kwargs, file=self.fd)
 
     def pp(self, obj):
         print(self._indent +

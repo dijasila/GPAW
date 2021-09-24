@@ -41,7 +41,8 @@ class CalculationConfiguration:
                  grid,
                  xc,
                  ibz,
-                 magmoms=None):
+                 magmoms=None,
+                 charge=0.0):
         self.positions = positions
         self.setups = setups
         self.magmoms = magmoms
@@ -49,14 +50,16 @@ class CalculationConfiguration:
         self.ibz = ibz
         self.grid = grid
         self.xc = xc
+        self.charge = charge
 
         self.grid2 = grid.new(size=grid.size * 2)
         # decomposition=[2 * d for d in grid.decomposition]
 
         self.band_comm = communicators['b']
+        self.nelectrons = setups.nvalence - charge
 
-    @classmethod
-    def from_parameters(self, atoms, params):
+    @staticmethod
+    def from_parameters(atoms, params):
         parallel = params.parallel
         world = parallel['world']
         mode = params.mode
@@ -82,6 +85,7 @@ class CalculationConfiguration:
             d = world.size
 
         communicators = create_communicators(world, len(ibz), d, k, b)
+        communicators['w'] = world
 
         grid = mode.create_uniform_grid(params.h,
                                         params.gpts,
@@ -96,4 +100,5 @@ class CalculationConfiguration:
 
         return CalculationConfiguration(
             atoms.get_scaled_positions(),
-            setups, communicators, grid, xc, ibz, magmoms)
+            setups, communicators, grid, xc, ibz, magmoms,
+            params.charge)

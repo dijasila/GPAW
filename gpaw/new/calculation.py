@@ -40,13 +40,14 @@ def calculate_ground_state(atoms, params, log):
 
     mixer = ...
 
-    scf = SCFLoop(ibz_wfs, density, potential, hamiltonian, pot_calc,
-                  eigensolver, mixer)
+    scf = SCFLoop(hamiltonian, pot_calc,
+                  eigensolver, mixer, cfg.communicators['w'])
 
-    for _ in scf.iconverge(params.convergence):
-        ...
+    for _ in scf.iconverge(ibz_wfs, density, potential,
+                           params.convergence, log):
+        pass
 
-    return
+    return Calculation(ibz_wfs, density, potential, scf)
 
 
 def write_info(cfg, atoms, log):
@@ -79,7 +80,8 @@ def compare_atoms(a1, a2):
 
 
 class Calculation:
-    def __init__(self, atoms, parameters):
+    def __init__(self, atoms, params):
+    return Calculation(ibz_wfs, density, potential, scf)
         self.atoms = atoms
         # self.parameters = parameters
         self.results = {}

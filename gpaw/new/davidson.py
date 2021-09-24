@@ -120,9 +120,12 @@ class Davidson:
 
         self.preconditioner = preconditioner_factory(blocksize)
 
-    def iterate(self, ibz_wfs, Ht, dH, dS):
+    def iterate(self, ibz_wfs, Ht, dH, dS) -> float:
+        error = 0.0
         for wfs in ibz_wfs:
-            self.iterate1(wfs, Ht, dH, dS)
+            e = self.iterate1(wfs, Ht, dH, dS)
+            error += wfs.weight * e
+        return error
 
     def iterate1(self, wfs, Ht, dH, dS):
         H = self.H
@@ -223,7 +226,6 @@ class Davidson:
             if i == self.niter - 1:
                 # Calulate error before we destroy residuals:
                 weights = calculate_weights(self.converge, wfs)
-                print(residuals.norm2())
                 error = weights @ residuals.norm2()
 
             M.multiply(psit, out=residuals)
