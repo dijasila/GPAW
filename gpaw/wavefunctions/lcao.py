@@ -574,8 +574,12 @@ class LCAOforces:
             Fatom_av, Frho_av = self.get_at_den_and_den_paw_blacs()
              
             F_av += Fkin_av + Fpot_av + Ftheta_av + Frho_av + Fatom_av
-        
+
+        self.timer.start('Wait for sum')
         self.ksl.orbital_comm.sum(F_av)
+        if self.bd.comm.rank == 0:
+            self.kd.comm.sum(F_av, 0)
+        self.timer.stop('Wait for sum')
 
         return F_av
 
@@ -666,9 +670,8 @@ class LCAOforces:
             for a, M1, M2 in self.my_slices():
                 Fkin_av[a, :] += \
                     2.0 * dEdTrhoT_vMM[:, M1:M2].sum(-1).sum(-1)
-        if self.bd.comm.rank == 0:
-            self.kd.comm.sum(Fkin_av, 0)
         self.timer.stop('TCI derivative')
+
         return Fkin_av
 
     def get_den_mat_term(self):
@@ -689,8 +692,6 @@ class LCAOforces:
             for a, M1, M2 in self.my_slices():
                 Ftheta_av[a, :] += \
                     -2.0 * dThetadRE_vMM[:, M1:M2].sum(-1).sum(-1)
-        if self.bd.comm.rank == 0:
-            self.kd.comm.sum(Ftheta_av, 0)
         return Ftheta_av
 
     def get_pot_term(self):
@@ -712,9 +713,8 @@ class LCAOforces:
             Fpot_av += self.bfs.calculate_force_contribution(vt_G,
                                                              self.rhoT_uMM[u],
                                                              kpt.q)
-        if self.bd.comm.rank == 0:
-            self.kd.comm.sum(Fpot_av, 0)
         self.timer.stop('Potential')
+
         return Fpot_av
 
     def get_den_mat_paw_term(self):
@@ -758,8 +758,6 @@ class LCAOforces:
                         dE = 2 * ZE_MM[M1:M2].sum()
                         Frho_av[a, v] -= dE  # the "b; mu in a; nu" term
                         Frho_av[b, v] += dE  # the "mu nu" term
-        if self.bd.comm.rank == 0:
-            self.kd.comm.sum(Frho_av, 0)
         self.timer.stop('Paw correction')
         return Frho_av
 
@@ -851,9 +849,8 @@ class LCAOforces:
                         dE = 2 * ArhoT_MM[M1:M2].sum()
                         Fatom_av[a, v] += dE  # the "b; mu in a; nu" term
                         Fatom_av[b, v] -= dE  # the "mu nu" term
-        if self.bd.comm.rank == 0:
-            self.kd.comm.sum(Fatom_av, 0)
         self.timer.stop('Atomic Hamiltonian force')
+
         return Fatom_av
 
     def get_den_mat_block_blacs(self, f_n, C_nM, redistributor):
@@ -890,6 +887,7 @@ class LCAOforces:
                                                              kpt.q)
             del rhoT_mM
             self.timer.stop('Potential')
+
         return Fpot_av
 
     def get_kin_and_den_term_blacs(self):
@@ -990,11 +988,7 @@ class LCAOforces:
 
         Fkin_av_sum += Fkin_av
         Ftheta_av_sum += Ftheta_av
-        self.timer.start('Wait for sum')
-        if self.bd.comm.rank == 0:
-            self.kd.comm.sum(Fkin_av_sum, 0)
-            self.kd.comm.sum(Ftheta_av_sum, 0)
-        self.timer.stop('Wait for sum')
+
         return Fkin_av_sum, Ftheta_av_sum
 
     def get_at_den_and_den_paw_blacs(self):
@@ -1079,9 +1073,5 @@ class LCAOforces:
 
         Fatom_av_sum += Fatom_av
         Frho_av_sum += Frho_av
-        self.timer.start('Wait for sum')
-        if self.bd.comm.rank == 0:
-            self.kd.comm.sum(Fatom_av_sum, 0)
-            self.kd.comm.sum(Frho_av_sum, 0)
-        self.timer.stop('Wait for sum')
+
         return Fatom_av_sum, Frho_av_sum
