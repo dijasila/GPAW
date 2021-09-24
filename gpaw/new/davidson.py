@@ -1,13 +1,26 @@
+from __future__ import annotations
 from functools import partial
+from typing import Callable
 
 import numpy as np
 from gpaw import debug
 from gpaw.core.matrix import Matrix
 from gpaw.utilities.blas import axpy
 from scipy.linalg import eigh
+from gpaw.new.wave_functions import WaveFunctions
+from gpaw.typing import Array1D
+from gpaw.core.arrays import DistributedArrays as DA
+from gpaw.core.atom_centered_functions import AtomArrays as AA
+
+AAFunc = Callable[[AA, AA], AA]
 
 
-def calculate_residuals(residuals, dH, dS, wfs, p1, p2):
+def calculate_residuals(residuals: DA,
+                        dH: AAFunc,
+                        dS: AAFunc,
+                        wfs: DA,
+                        p1: AA,
+                        p2: AA) -> None:
     for r, e, p in zip(residuals.data, wfs.myeigs, wfs.wave_functions.data):
         axpy(-e, p, r)
 
@@ -18,27 +31,26 @@ def calculate_residuals(residuals, dH, dS, wfs, p1, p2):
     wfs.projectors.add_to(residuals, p1)
 
 
-def calculate_weights(convergence, wfs):
+def calculate_weights(converge: int | str, wfs: WaveFunctions) -> Array1D:
     """Calculate convergence weights for all eigenstates."""
+    if converge == 'occupied':
+        # Converge occupied bands:
+        try:
+            # Methfessel-Paxton distribution can give negative
+            # occupation numbers - so we take the absolute value:
+            return np.abs(wfs.occs)
+        except ValueError:
+            # No eigenvalues yet:
+            return np.zeros(wfs.wave_functions.myshape) + np.inf
 
+    1 / 0
     """
-    weight_un = np.zeros((len(wfs.kpt_u), self.bd.mynbands))
-
-    if isinstance(self.nbands_converge, int):
+    if isinstance(converge, int):
         # Converge fixed number of bands:
         n = self.nbands_converge - self.bd.beg
         if n > 0:
             for weight_n, kpt in zip(weight_un, wfs.kpt_u):
                 weight_n[:n] = kpt.weight
-    elif self.nbands_converge == 'occupied':
-        # Conveged occupied bands:
-        for weight_n, kpt in zip(weight_un, wfs.kpt_u):
-            if kpt.f_n is None:  # no eigenvalues yet
-                weight_n[:] = np.inf
-            else:
-                # Methfessel-Paxton distribution can give negative
-                # occupation numbers - so we take the absolute value:
-                weight_n[:] = np.abs(kpt.f_n)
     else:
         # Converge state with energy up to CBM + delta:
         assert self.nbands_converge.startswith('CBM+')
@@ -81,7 +93,6 @@ def calculate_weights(convergence, wfs):
 
     return weight_un
     """
-    pass
 
 
 class Davidson:
@@ -92,9 +103,11 @@ class Davidson:
                  preconditioner_factory,
                  niter=2,
                  blocksize=10,
-                 convergence='occupied',
+                 converge='occupied',
                  scalapack_parameters=None):
         self.niter = niter
+        self.converge = converge
+
         B = nbands
         domain_comm = basis.comm
         if domain_comm.rank == 0 and band_comm.rank == 0:
@@ -148,10 +161,6 @@ class Davidson:
         Ht = partial(Ht, out=residuals, spin=0)
 
         for i in range(self.niter):
-            if i == self.niter - 1:
-                errors = residuals.norm2()
-                print(errors)
-
             self.preconditioner(psit, residuals, out=psit2)
 
             # Calculate projections
@@ -199,7 +208,7 @@ class Davidson:
                                           lower=True,
                                           check_finite=debug,
                                           overwrite_b=True)
-                wfs.eigs = eigs[:B]
+                wfs._eigs = eigs[:B]
 
             if domain_comm.rank == 0:
                 band_comm.broadcast(wfs.eigs, 0)
@@ -210,6 +219,12 @@ class Davidson:
                     M0.data[:] = H.data[:B, :B].T
                 M0.redist(M)
             domain_comm.broadcast(M.data, 0)
+
+            if i == self.niter - 1:
+                # Calulate error before we destroy residuals:
+                weights = calculate_weights(self.converge, wfs)
+                print(residuals.norm2())
+                error = weights @ residuals.norm2()
 
             M.multiply(psit, out=residuals)
             proj.matrix.multiply(M, opb='T', out=proj3)
@@ -230,4 +245,4 @@ class Davidson:
                 Ht(psit)
                 calculate_residuals(residuals, dH, dS, wfs, proj2, proj3)
 
-        return errors  # * weights
+        return error

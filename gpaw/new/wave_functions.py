@@ -1,8 +1,18 @@
+from __future__ import annotations
 from functools import partial
+from gpaw.core.arrays import DistributedArrays as DA
+from gpaw.setup import Setups
+from gpaw.typing import Array1D, Array2D, ArrayLike1D
+from gpaw.new.brillouin import IBZ
+from gpaw.mpi import MPIComm
 
 
 class IBZWaveFunctions:
-    def __init__(self, ibz, ranks, kpt_comm, mykpts):
+    def __init__(self,
+                 ibz: IBZ,
+                 ranks: ArrayLike1D,
+                 kpt_comm: MPIComm,
+                 mykpts: list[WaveFunctions]):
         self.ibz = ibz
         self.ranks = ranks
         self.kpt_comm = kpt_comm
@@ -13,7 +23,9 @@ class IBZWaveFunctions:
             yield wfs
 
     @classmethod
-    def from_random_numbers(self, cfg, nbands):
+    def from_random_numbers(self,
+                            cfg,
+                            nbands: int) -> IBZWaveFunctions:
         ibz = cfg.ibz
         assert len(ibz) == 1
         ranks = [0]
@@ -37,9 +49,16 @@ class IBZWaveFunctions:
         for wfs in self:
             wfs.orthonormalize(work_array)
 
+    def calculate_occs(self, occs_calc):
+        pass
+
 
 class WaveFunctions:
-    def __init__(self, wave_functions, spin, setups, positions):
+    def __init__(self,
+                 wave_functions: DA,
+                 spin: int | None,
+                 setups: Setups,
+                 positions: Array2D):
         self.wave_functions = wave_functions
         self.spin = spin
         self.setups = setups
@@ -47,7 +66,21 @@ class WaveFunctions:
         self.projectors = setups.create_projectors(wave_functions.layout,
                                                    positions)
         self.orthonormalized = False
-        self.eigs = None
+
+        self._eigs: Array1D | None = None
+        self._occs: Array1D | None = None
+
+    @property
+    def eigs(self) -> Array1D:
+        if self._eigs is None:
+            raise ValueError
+        return self._eigs
+
+    @property
+    def occs(self) -> Array1D:
+        if self._occs is None:
+            raise ValueError
+        return self._occs
 
     @property
     def projections(self):
@@ -133,7 +166,7 @@ class WaveFunctions:
             slcomm, r, c, b = scalapack_parameters
             if r == c == 1:
                 slcomm = None
-            self.eigs = H.eigh(scalapack=(slcomm, r, c, b))
+            self._eigs = H.eigh(scalapack=(slcomm, r, c, b))
             # H.data[n, :] now contains the n'th eigenvector and eps_n[n]
             # the n'th eigenvalue
 

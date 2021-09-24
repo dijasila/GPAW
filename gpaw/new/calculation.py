@@ -29,7 +29,7 @@ def calculate_ground_state(atoms, params, log):
                            mode.name == 'lcao')
 
     if params.random:
-        ibzwfs = IBZWaveFunctions.from_random_numbers(cfg, nbands)
+        ibz_wfs = IBZWaveFunctions.from_random_numbers(cfg, nbands)
     else:
         ...
 
@@ -40,7 +40,7 @@ def calculate_ground_state(atoms, params, log):
 
     mixer = ...
 
-    scf = SCFLoop(ibzwfs, density, potential, hamiltonian, pot_calc,
+    scf = SCFLoop(ibz_wfs, density, potential, hamiltonian, pot_calc,
                   eigensolver, mixer)
 
     for _ in scf.iconverge(params.convergence):
@@ -55,6 +55,10 @@ def write_info(cfg, atoms, log):
         log(f'symbols = {symbols!r},')
         with log.indent('positions ='):
             log.pp(atoms.positions.tolist())
+        with log.indent('cell ='):
+            log.pp(atoms.cell.tolist())
+        with log.indent('pbc ='):
+            log.pp(atoms.pbc.tolist())
         log(')')
 
 
