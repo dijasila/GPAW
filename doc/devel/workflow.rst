@@ -24,10 +24,11 @@ Development workflow
 Setting up your development environment
 =======================================
 
-Make a venv_::
+Make a `virtual environment <venv>`_::
 
  $ mkdir devel
  $ cd devel
+ $ unset PYTHONPATH
  $ python3 -m venv venv
  $ source venv/bin/activate  # venv/bin/ is now first in $PATH
  $ pip install --upgrade pip
@@ -65,6 +66,7 @@ Run the tests
 The test-suite can be found in :git:`gpaw/test/`.  Run it like this::
 
  $ pip install pytest-xdist
+ $ cd gpaw
  $ pytest -n4
 
 And with MPI (2, 4 and 8 cores)::
@@ -82,7 +84,7 @@ Creating a merge request
 ========================
 
 Request to become a member of the ``gpaw`` project on GitLab
-`here <https://gitlab.com/gpaw/gpaw/-/project_members>`__.  This will
+`here <https://gitlab.com/gpaw/gpaw/>`__.  This will
 allow you to push branches to the central repository (see below).
 
 Create a branch for your changes::
