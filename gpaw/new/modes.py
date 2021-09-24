@@ -1,4 +1,3 @@
-import numpy as np
 from gpaw.core import UniformGrid
 from gpaw.poisson import PoissonSolver
 from gpaw.fd_operators import Laplace
@@ -23,20 +22,23 @@ class FDMode:
         return solver
 
     def create_hamiltonian_operator(self, grid):
-        gd = grid._gd
-        kin = Laplace(gd, -0.5, self.stencil, grid.dtype)
-        phases = {}
+        return Hamiltonian(grid, self.stencil)
 
-        def Ht(vt, psit, out, spin):
-            print(vt, psit, out, spin)
-            kpt = psit.grid.kpt
-            ph = phases.get(tuple(kpt))
-            if ph is None:
-                ph = np.exp(2j * np.pi * gd.sdisp_cd * kpt[:, np.newaxis])
-                phases[tuple(kpt)] = ph
-            kin.apply(psit.data, out.data, ph)
-            for p, o in zip(psit.data, out.data):
-                o += p * vt.data[spin]
-            return out
 
-        return Ht
+class Hamiltonian:
+    def __init__(self, grid, stencil=3):
+        self.gd = grid._gd
+        self.kin = Laplace(self.gd, -0.5, self.stencil, grid.dtype)
+
+    def apply(self, vt, psit, out, spin):
+        self.apply(kin.apply(psit.data, out.data, psit.grid.phase_factors)
+        for p, o in zip(psit.data, out.data):
+            o += p * vt.data[spin]
+        return out
+
+    def create_preconditioner(self, blocksize):
+        pc = PC(self.gd, self.kin, self.grid.dtype,
+                self.blocksize)
+
+        def apply(psit, residuals, out):
+            ...

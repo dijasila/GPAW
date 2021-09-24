@@ -66,6 +66,17 @@ class UniformGrid(Layout):
             dtype = dtype or float
         self.dtype = dtype
 
+        self._phase_factors = None
+
+    # @cached_property
+    def phase_factors(self):
+        if self._phase_factors is None:
+            assert self.comm.size == 1
+            disp = np.array([[1.0, -1.0], [1.0, -1.0], [1.0, -1.0]])
+            self._phase_factors = np.exp(2j * np.pi *
+                                         disp * self.kpt[:, np.newaxis])
+        return self._phase_factors
+
     def __str__(self):
         a, b, c = self.size
         comm = self.comm
@@ -171,13 +182,6 @@ class UniformGridFunctions(DistributedArrays):
         txt = f'UniformGridFunctions(grid={self.grid}, shape={self.shape}'
         if self.comm.size > 1:
             txt += f', comm={self.comm.rank}/{self.comm.size}'
-
-        def integrate(a_G):
-            if wfs.collinear:
-                return np.real(wfs.integrate(a_G, a_G, global_integral=False))
-            return sum(
-                np.real(wfs.integrate(b_G, b_G, global_integral=False))
-                for b_G in a_G)
         return txt + ')'
 
     def new(self, data=None):
@@ -225,3 +229,12 @@ class UniformGridFunctions(DistributedArrays):
             plan.execute()
             output[:] = plan.out_R.ravel()[pw.indices]
         return out
+
+    def norm2(self):
+        norms = []
+        arrays = self._arrays()
+        for a in arrays:
+            norms.append(np.vdot(a, a).real)
+        result = np.array(norms).reshape(self.myshape)
+        self.grid.comm.sum(result)
+        return result

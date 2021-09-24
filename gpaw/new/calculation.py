@@ -33,7 +33,10 @@ def calculate_ground_state(atoms, params, log):
         ...
 
     hamiltonian = mode.create_hamiltonian_operator(basis)
-    eigensolver = Davidson(nbands, basis, cfg.band_comm, **params.eigensolver)
+    eigensolver = Davidson(nbands, basis, cfg.band_comm,
+                           hamiltonian.create_preconditioner,
+                           **params.eigensolver)
+
     mixer = ...
 
     scf = SCFLoop(ibzwfs, density, potential, hamiltonian, pot_calc,

@@ -48,13 +48,18 @@ class WaveFunctions:
         self.projectors = setups.create_projectors(wave_functions.layout,
                                                    positions)
         self.orthonormalized = False
-        self.eps_n = None
+        self.eigs = None
 
     @property
     def projections(self):
         if self._projections is None:
             self._projections = self.projectors.integrate(self.wave_functions)
         return self._projections
+
+    @property
+    def myeigs(self):
+        assert self.wave_functions.comm.size == 1
+        return self.eigs
 
     @classmethod
     def from_random_numbers(self, basis, weight, nbands, band_comm, setups,
@@ -129,12 +134,12 @@ class WaveFunctions:
             slcomm, r, c, b = scalapack_parameters
             if r == c == 1:
                 slcomm = None
-            self.eps_n = H.eigh(scalapack=(slcomm, r, c, b))
+            self.eigs = H.eigh(scalapack=(slcomm, r, c, b))
             # H.data[n, :] now contains the n'th eigenvector and eps_n[n]
             # the n'th eigenvalue
 
         domain_comm.broadcast(H.data, 0)
-        domain_comm.broadcast(self.eps_n, 0)
+        domain_comm.broadcast(self.eigs, 0)
 
         if Htpsit is not None:
             H.multiply(psit2, out=Htpsit)

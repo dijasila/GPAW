@@ -84,7 +84,9 @@ class Davidson:
                  nbands,
                  basis,
                  band_comm,
+                 preconditioner_factory,
                  niter=2,
+                 blocksize=10,
                  convergence='occupied',
                  scalapack_parameters=None):
         self.niter = niter
@@ -97,7 +99,7 @@ class Davidson:
         self.work_array1 = basis.empty(B, band_comm).data
         self.work_array2 = basis.empty(B, band_comm).data
 
-        self.preconditioner = ...
+        self.preconditioner = preconditioner_factory(blocksize)
 
     def iterate(self, ibz_wfs, Ht, dH, dS):
         for wfs in ibz_wfs:
@@ -133,16 +135,11 @@ class Davidson:
 
         calculate_residuals(residuals, dH, dS, wfs, proj2, proj3)
 
-        precond = self.preconditioner
-
         for i in range(self.niter):
             if i == self.niter - 1:
-                errors = residuals.norm()
+                errors = residuals.norm2()
 
-            for psit_G, residual_G, psit2_G in zip(psit.data, residual.data,
-                                                   psit2.data):
-                ekin = precond.calculate_kinetic_energy(psit_G, kpt)
-                precond(residual_G, kpt, ekin, out=psit2_G)
+            self.preconditioner.apply(psit, residuals, out=psit2)
 
             # Calculate projections
             kpt.projectors.integrate(psit2, out=proj2)
@@ -224,5 +221,4 @@ class Davidson:
                     psit, proj, kpt.eps_n, residual,
                     proj2, proj3)
 
-        error = wfs.gd.comm.sum(error)
-        return error
+        return errors
