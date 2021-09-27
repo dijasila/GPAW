@@ -161,8 +161,6 @@ class PolarizationPoissonSolver(SolvationPoissonSolver):
             niter = 0
 
         phi_old = phi.copy()
-        error = 1.e23
-
         while niter < self.maxiter:
             rho_mod = self.rho_with_polarization_charge(phi, rho)
             niter += self.gas_phase_poisson.solve(
