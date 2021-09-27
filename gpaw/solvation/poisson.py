@@ -137,6 +137,8 @@ class PolarizationPoissonSolver(SolvationPoissonSolver):
             use_charge_center=use_charge_center)
         self.phi_tilde = None
 
+        self.gas_phase_poisson = FDPoissonSolver
+
     def get_description(self):
         if len(self.operators) == 0:
             return 'uninitialized PolarizationPoissonSolver'
@@ -152,7 +154,7 @@ class PolarizationPoissonSolver(SolvationPoissonSolver):
         self._init()
         # get initial meaningful phi -> only do this if necessary
         if zero_initial_phi:
-            niter = FDPoissonSolver.solve(
+            niter = self.gas_phase_poisson.solve(
                 self, phi, rho, None, maxcharge,
                 zero_initial_phi, timer=timer)
         else:
@@ -163,7 +165,7 @@ class PolarizationPoissonSolver(SolvationPoissonSolver):
 
         while(niter < self.maxiter):
             rho_mod = self.rho_with_polarization_charge(phi, rho)
-            niter += FDPoissonSolver.solve(
+            niter += self.gas_phase_poisson.solve(
                 self, phi, rho_mod, None,
                 maxcharge, zero_initial_phi, timer=timer)
             residual = phi - phi_old
@@ -194,7 +196,7 @@ class PolarizationPoissonSolver(SolvationPoissonSolver):
         return (rho + scalar_product / (4. * np.pi)) / epsr
 
     def load_gauss(self, center=None):
-        return FDPoissonSolver.load_gauss(self, center=center)
+        return self.gas_phase_poisson.load_gauss(self, center=center)
 
 
 class ADM12PoissonSolver(SolvationPoissonSolver):
