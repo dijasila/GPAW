@@ -1,44 +1,65 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import IO, Any
+from typing import IO, Any, Sequence, TypedDict
 
 from ase import Atoms
 from gpaw import __version__
-from gpaw.mpi import world
+from gpaw.mpi import world, MPIComm
 from gpaw.new.calculation import (Calculation, DrasticChangesError,
                                   calculate_ground_state)
 from gpaw.new.input_parameters import InputParameters
 from gpaw.new.logger import Logger
 
 
-def GPAW(filename: str | Path | IO[str] = None,
-         **parameters) -> ASECalculator:
+class ParallelKeyword(TypedDict):
+    world: Sequence[int] | MPIComm
 
-    params = InputParameters(parameters)
-    comm = params.parallel['world'] or world
-    txt = params.txt(filename is not None)
-    log = Logger(txt, comm)
 
-    if filename:
-        parameters.pop('parallel')
-        assert not parameters
-        calculation = Calculation.read(filename, log, comm)
-        return calculation.ase_calculator()
+def GPAW(*,
+         txt: str | Path | IO[str] = '-',
+         parallel: ParallelKeyword = None,
+         nbands: int | str = None,
+         gpts: Sequence[int] = None,
+         random: bool = False) -> ASECalculator:
 
+    params = InputParameters(nbands=nbands,
+                             gpts=gpts,
+                             random=random)
+
+    log = Logger(params.txt, params.parallel['world'])
     log(f' __  _  _\n| _ |_)|_||  |\n|__||  | ||/\\| - {__version__}\n')
     with log.indent('Input parameters ='):
-        log.pp(params.params)
+        log.pp(params)
 
     return ASECalculator(params, log)
 
+
+parallel, mode, xc, basis, setups, kpts, h, gpts, symmetry, charge, magmoms
+background_charge': None,
+external': None,
+
+hund
+random
+nbands
+
+occupations': None,
+mixer': None,
+reuse_wfs_method': 'paw',
+maxiter': 333}
+convergence
+poissonsolver
+eigensolver
 
 class ASECalculator:
     """This is the ASE-calculator frontend for doing a GPAW calculation."""
     def __init__(self,
                  params: InputParameters,
                  log: Logger,
-                 calculation: Calculation = None):
+                 density,
+                 potential,
+                 ibz_wfs,
+                 cfg):
         self.params = params
         self.log = log
         self.calculation = calculation

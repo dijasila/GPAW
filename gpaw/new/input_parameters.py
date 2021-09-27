@@ -37,7 +37,6 @@ default_parameters = {
     'soc': None,
     'background_charge': None,
     'external': None,
-
     'occupations': None,
     'mixer': None,
     'reuse_wfs_method': 'paw',
