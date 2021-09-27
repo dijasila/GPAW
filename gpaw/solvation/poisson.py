@@ -155,23 +155,23 @@ class PolarizationPoissonSolver(SolvationPoissonSolver):
         # get initial meaningful phi -> only do this if necessary
         if zero_initial_phi:
             niter = self.gas_phase_poisson.solve(
-                self, phi, rho, None, maxcharge,
-                zero_initial_phi, timer=timer)
+                self, phi, rho, charge=None, maxcharge=maxcharge,
+                zero_initial_phi=zero_initial_phi, timer=timer)
         else:
             niter = 0
 
         phi_old = phi.copy()
         error = 1.e23
 
-        while(niter < self.maxiter):
+        while niter < self.maxiter:
             rho_mod = self.rho_with_polarization_charge(phi, rho)
             niter += self.gas_phase_poisson.solve(
-                self, phi, rho_mod, None,
-                maxcharge, zero_initial_phi, timer=timer)
+                self, phi, rho_mod, charge=None, maxcharge=maxcharge,
+                zero_initial_phi=zero_initial_phi, timer=timer)
             residual = phi - phi_old
             error = self.gd.comm.sum(np.dot(residual.ravel(),
                                             residual.ravel())) * self.gd.dv
-            if (error < self.eps):
+            if error < self.eps:
                 return niter
             phi_old = phi.copy()
             
