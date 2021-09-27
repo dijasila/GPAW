@@ -3,7 +3,7 @@ import warnings
 import numpy as np
 from scipy.special import erf
 
-from gpaw.poisson import FDPoissonSolver
+from gpaw.poisson import FDPoissonSolver, FastPoissonSolver
 from gpaw.fd_operators import Laplace, Gradient
 from gpaw.wfd_operators import WeightedFDOperator
 from gpaw.utilities.gauss import Gaussian
@@ -137,7 +137,7 @@ class PolarizationPoissonSolver(SolvationPoissonSolver):
             use_charge_center=use_charge_center)
         self.phi_tilde = None
 
-        self.gas_phase_poisson = FDPoissonSolver
+        self.gas_phase_poisson = FastPoissonSolver
 
     def get_description(self):
         if len(self.operators) == 0:
