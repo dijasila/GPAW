@@ -1,4 +1,7 @@
+import pytest
 
+
+@pytest.mark.xfail
 def test_ase_features_wannierk(in_tmp_dir):
     'Test ase.dft.wannier module with k-points.'
     from ase.build import bulk
