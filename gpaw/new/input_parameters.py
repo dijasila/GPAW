@@ -10,7 +10,6 @@ parameter_functions = {}
 """
 background_charge
 external
-occupations
 mixer
 reuse_wfs_method
 maxiter
@@ -43,6 +42,11 @@ class InputParameters:
 
         h: float | None
         parallel: dict[str, Any]
+
+
+@input_parameter
+def occupations(value=None):
+    return value
 
 
 @input_parameter

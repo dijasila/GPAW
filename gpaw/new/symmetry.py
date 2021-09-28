@@ -6,4 +6,4 @@ class Symmetry:
         self.symmetry = symmetry
 
     def reduce(self, bz):
-        return IBZ(self, bz, [0], [1.0])
+        return IBZ(self, bz, [0], [0], [1.0])

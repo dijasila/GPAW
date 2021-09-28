@@ -19,6 +19,7 @@ from gpaw.new.wave_functions import IBZWaveFunctions
 from gpaw.new.davidson import Davidson
 from gpaw.new.scf import SCFLoop
 from gpaw.new.density import Density
+from gpaw.new.smearing import OccupationNumberCalculator
 
 
 class DFTConfiguration:
@@ -119,8 +120,16 @@ class DFTConfiguration:
 
         mixer = ...
         cc = create_convergence_criteria(self.params.convergence)
+        occ_calc = OccupationNumberCalculator(
+            self.params.occupations,
+            self.grid.pbc,
+            self.ibz,
+            self.nbands,
+            self.communicators,
+            self.initial_magmoms,
+            self.grid.icell)
 
-        return SCFLoop(hamiltonian, self.potential_calculator,
+        return SCFLoop(hamiltonian, self.potential_calculator, occ_calc,
                        eigensolver, mixer, self.communicators['w'], cc)
 
 

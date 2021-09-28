@@ -7,13 +7,14 @@ class SCFLoop:
     def __init__(self,
                  hamiltonian,
                  pot_calc,
+                 occ_calc,
                  eigensolver,
                  mixer,
                  world,
                  cc):
         self.hamiltonian = hamiltonian
         self.eigensolver = eigensolver
-        self.occs_calc = ...
+        self.occ_calc = occ_calc
         self.world = world
         self.cc = cc
 
@@ -24,8 +25,8 @@ class SCFLoop:
         Ht = partial(self.hamiltonian.apply, potential.vt)
         for i in range(999_999_999_999_999):
             error = self.eigensolver.iterate(ibz_wfs, Ht, dH, dS)
-            ibz_wfs.calculate_occs(self.occs_calc)
-            energy = calculate_energy(self.occs_calc,
+            ibz_wfs.calculate_occs(self.occ_calc)
+            energy = calculate_energy(self.occ_calc,
                                       ibz_wfs,
                                       potential)
             ctx = SCFEvent(energy, ibz_wfs, density,
@@ -36,7 +37,7 @@ class SCFLoop:
             yield entries
             if all(converged.values()):
                 break
-        return density, potential
+        return density, potential, energy
 
 
 def calculate_energy(occs_calc, ibz_wfs, potential):

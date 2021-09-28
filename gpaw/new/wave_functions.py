@@ -6,6 +6,7 @@ from gpaw.setup import Setups
 from gpaw.typing import Array1D, Array2D, ArrayLike1D
 from gpaw.new.brillouin import IBZ
 from gpaw.mpi import MPIComm
+from ase.units import Ha
 
 
 class IBZWaveFunctions:
@@ -20,6 +21,9 @@ class IBZWaveFunctions:
         self.kpt_comm = kpt_comm
         self.mykpts = mykpts
         self.nelectrons = nelectrons
+        self.fermi_levels = None
+        self.collinear = False
+        self.spin_degeneracy = 2
 
     def __iter__(self):
         for wfs in self.mykpts:
@@ -55,9 +59,26 @@ class IBZWaveFunctions:
         for wfs in self:
             wfs.orthonormalize(work_array)
 
-    def calculate_occs(self, occs_calc):
+    def calculate_occs(self, occ_calc, fixed_fermi_level=False):
+        degeneracy = self.spin_degeneracy
+
+        occs, fermi_levels, e_entropy = occ_calc.calculate(
+            nelectrons=self.nelectrons / degeneracy,
+            eigenvalues=[wfs.eigs * Ha for wfs in self],
+            weights=[wfs.weight for wfs in self],
+            fermi_levels_guess=
+            self.fermi_levels * Ha if self.fermi_levels is not None else None)
+
+        if not fixed_fermi_level or self.fermi_levels is None:
+            self.fermi_levels = np.array(fermi_levels) / Ha
+
+        for occsk, wfs in zip(occs, self):
+            wfs._occs = occsk * (wfs.weight * degeneracy)
+
+        self.e_entropy = e_entropy * degeneracy / Ha
+        self.e_band = 0.0
         for wfs in self:
-            wfs._occs = np.ones(2)
+            self.e_band += wfs.occs @ wfs.eigs * wfs.weight * degeneracy
 
 
 class WaveFunctions:
