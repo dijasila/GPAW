@@ -6,7 +6,9 @@ from gpaw.lcaotddft.utilities import read_uMM
 from gpaw.lcaotddft.utilities import read_wuMM
 from gpaw.lcaotddft.utilities import write_uMM
 from gpaw.lcaotddft.utilities import write_wuMM
-
+from gpaw.external import ConstantElectricField
+from ase.units import alpha, Hartree, Bohr
+from gpaw.lcaotddft import qed
 
 class TimeDependentPotential(object):
     def __init__(self):
@@ -159,6 +161,10 @@ class TimeDependentHamiltonian(object):
         self.density = paw.density
         self.hamiltonian = paw.hamiltonian
         niter = paw.niter
+        self.iterpredcop = 0
+        self.time_previous = paw.time
+        self.dipolexyz = [0,0,0]
+        self.dipolexyz_previous = self.density.calculate_dipole_moment()
 
         # Reset the density mixer
         # XXX: density mixer is not written to the gpw file
@@ -238,6 +244,9 @@ class TimeDependentHamiltonian(object):
             self.wfs.atomic_correction.calculate_projections(self.wfs, kpt)
         self.timer.stop('Update projectors')
 
+    def get_rremission_values(self):
+        return self.rrvalues
+
     def get_hamiltonian_matrix(self, kpt, time, addfxc=True, addpot=True,
                                scale=True):
         self.timer.start('Calculate H_MM')
@@ -249,6 +258,10 @@ class TimeDependentHamiltonian(object):
         H_MM = get_matrix(self.hamiltonian, self.wfs, kpt, root=-1)
         if addfxc and self.has_fxc:
             H_MM += self.deltaXC_H_uMM[u]
+
+        if qed.rr_quantization_plane > 0:
+          H_MM += self.vradiationreaction(kpt, time)
+
         if scale and self.has_scale:
             H_MM *= self.scale
             H_MM += self.scale_H_uMM[u]
@@ -265,3 +278,40 @@ class TimeDependentHamiltonian(object):
         if mode in ['all']:
             self.hamiltonian.update(self.density)
         self.timer.stop('Update TDDFT Hamiltonian')
+
+    def vradiationreaction(self, kpt, time):
+        # See gpaw.lcaotddft.qed.RRemission and Schaefer et al. [arXiv 2109.09839] for more details
+        if self.iterpredcop==0: 
+          self.iterpredcop+=1
+          self.dipolexyz_previous = self.density.calculate_dipole_moment()
+          self.time_previous = time
+          deltat = 1
+        else:
+          self.iterpredcop=0
+          deltat = (time-self.time_previous)
+          self.dipolexyz = (self.density.calculate_dipole_moment()-self.dipolexyz_previous)/deltat
+
+        ext = ConstantElectricField(1.0 * Hartree / Bohr, qed.polarization_cavity) # function uses V/Angstroem and therefore conversion necessary
+        uvalue = 0
+        self.ext_i = []
+        self.ext_i.append(ext)
+        get_matrix = self.wfs.eigensolver.calculate_hamiltonian_matrix
+        self.V_iuMM = []
+        for ext in self.ext_i:
+            V_uMM = []
+            hamiltonian = KickHamiltonian(self.hamiltonian, self.density, ext)
+            for kpt in self.wfs.kpt_u:
+                V_MM = get_matrix(hamiltonian, self.wfs, kpt,
+                                  add_kinetic=False, root=-1)
+                V_uMM.append(V_MM)
+            self.V_iuMM.append(V_uMM) 
+        self.Ni = len(self.ext_i) 
+
+        if time > 5: # to remove the overlap with the initial kick
+          rr_argument = -4.0*np.pi*alpha / qed.rr_quantization_plane * np.dot( qed.polarization_cavity, self.dipolexyz )
+        else:
+          rr_argument = 0
+        Vrr_MM = rr_argument * self.V_iuMM[0][uvalue] 
+        for i in range(1, self.Ni):
+            Vrr_MM += rr_argument * self.V_iuMM[i][uvalue]
+        return Vrr_MM
