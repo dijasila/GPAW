@@ -1,106 +1,48 @@
-from gpaw.new.density import Density
-from gpaw.new.wave_functions import IBZWaveFunctions
-from gpaw.new.configuration import CalculationConfiguration
-from gpaw.new.scf import SCFLoop
-from gpaw.new.davidson import Davidson
+from gpaw.new.configuration import DFTConfiguration
 
 
-def calculate_ground_state(atoms, params, log):
-    from gpaw.new.potential import PotentialCalculator
-    mode = params.mode
-    cfg = CalculationConfiguration.from_parameters(atoms, params)
-    setups = cfg.setups
-    write_info(cfg, atoms, log)
-
-    density = Density.from_superposition(cfg, params.charge, params.hund)
-
-    poisson_solver = mode.create_poisson_solver(cfg.grid2,
-                                                params.poissonsolver)
-    if mode.name == 'pw':
-        pw = mode.create_plane_waves(cfg.grid)
-        basis = pw
-    else:
-        basis = cfg.grid
-
-    pot_calc = PotentialCalculator(basis, cfg, poisson_solver)
-    potential = pot_calc.calculate(density)
-
-    nbands = params.nbands(setups, density.charge, cfg.magmoms,
-                           mode.name == 'lcao')
-
-    if params.random:
-        ibz_wfs = IBZWaveFunctions.from_random_numbers(cfg, nbands)
-    else:
-        ...
-
-    hamiltonian = mode.create_hamiltonian_operator(basis)
-    eigensolver = Davidson(nbands, basis, cfg.band_comm,
-                           hamiltonian.create_preconditioner,
-                           **params.eigensolver)
-
-    mixer = ...
-
-    scf = SCFLoop(hamiltonian, pot_calc,
-                  eigensolver, mixer, cfg.communicators['w'])
-
-    for _ in scf.iconverge(ibz_wfs, density, potential,
-                           params.convergence, log):
-        pass
-
-    return Calculation(ibz_wfs, density, potential, scf)
-
-
-def write_info(cfg, atoms, log):
-    with log.indent('\nAtoms('):
-        symbols = atoms.symbols.formula.format('reduce')
-        log(f'symbols = {symbols!r},')
-        with log.indent('positions ='):
-            log.pp(atoms.positions.tolist())
-        with log.indent('cell ='):
-            log.pp(atoms.cell.tolist())
-        with log.indent('pbc ='):
-            log.pp(atoms.pbc.tolist())
-        log(')')
-
-
-class DrasticChangesError(Exception):
-    """Atoms have changed so much that a fresh start is needed."""
-
-
-def compare_atoms(a1, a2):
-    if len(a1.numbers) != len(a2.numbers) or (a1.numbers != a2.numbers).any():
-        raise DrasticChangesError
-    if (a1.cell - a2.cell).abs().max() > 0.0:
-        raise DrasticChangesError
-    if (a1.pbc != a2.pbc).any():
-        raise DrasticChangesError
-    if (a1.positions - a2.positions).abs().max() > 0.0:
-        return {'positions'}
-    return set()
-
-
-class Calculation:
-    def __init__(self, atoms, params):
-    return Calculation(ibz_wfs, density, potential, scf)
-        self.atoms = atoms
-        # self.parameters = parameters
-        self.results = {}
+class DFTCalculation:
+    def __init__(self,
+                 cfg,
+                 ibz_wfs,
+                 density,
+                 potential):
+        self.cfg = cfg
+        self.ibz_wfs = ibz_wfs
+        self.density = density
+        self.potential = potential
+        self._scf = None
 
     @classmethod
-    def read(self, filename, log, parallel):
+    def from_parameters(cls, atoms, params, log):
+        cfg = DFTConfiguration(atoms, params)
+
+        density = cfg.density_from_superposition()
+        pot_calc = cfg.potential_calculator
+        potential = pot_calc.calculate(density)
+
+        if params.random:
+            ibz_wfs = cfg.random_ibz_wave_functions()
+        else:
+            ...
+
+        return cls(cfg, ibz_wfs, density, potential)
+
+    def energy(self):
+        1 / 0
+
+    def move(self, fracpos):
         ...
 
-    def calculate_property(self, atoms, prop):
-        changes = compare_atoms(self.atoms, atoms)
-        if changes:
-            self.recompute_ground_state()
+    def converge(self, log):
+        if self._scf is None:
+            self._scf = self.cfg.scf_loop()
+        scf = self._scf
 
-        if prop in self.results:
-            return self.results[prop]
+        for _ in scf.iconverge(self.ibz_wfs, self.density, self.potential,
+                               log):
+            pass
 
-        if prop == 'forces':
-            self.calculate_forces()
-        else:
-            1 / 0
-
-        return self.results[prop]
+    @staticmethod
+    def read(filename, log, parallel):
+        ...

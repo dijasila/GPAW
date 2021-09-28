@@ -25,27 +25,31 @@ class IBZWaveFunctions:
         for wfs in self.mykpts:
             yield wfs
 
-    @staticmethod
-    def from_random_numbers(cfg,
-                            nbands: int) -> IBZWaveFunctions:
-        ibz = cfg.ibz
+    @classmethod
+    def from_random_numbers(cls,
+                            ibz,
+                            band_comm,
+                            kpt_comm,
+                            grid,
+                            setups,
+                            fracpos,
+                            nbands: int,
+                            nelectrons: float) -> IBZWaveFunctions:
         assert len(ibz) == 1
         ranks = [0]
-        band_comm = cfg.communicators['b']
-        kpt_comm = cfg.communicators['k']
 
         mykpts = []
         for kpt, weight, rank in zip(ibz.points, ibz.weights, ranks):
             if rank != kpt_comm.rank:
                 continue
-            basis = cfg.grid.new(kpt=kpt)
+            basis = grid.new(kpt=kpt)
             wfs = WaveFunctions.from_random_numbers(basis, weight,
                                                     nbands, band_comm,
-                                                    cfg.setups,
-                                                    cfg.positions)
+                                                    setups,
+                                                    fracpos)
             mykpts.append(wfs)
 
-        return IBZWaveFunctions(ibz, ranks, kpt_comm, mykpts, cfg.nelectrons)
+        return cls(ibz, ranks, kpt_comm, mykpts, nelectrons)
 
     def orthonormalize(self, work_array=None):
         for wfs in self:

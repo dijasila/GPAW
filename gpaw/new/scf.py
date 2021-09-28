@@ -5,34 +5,30 @@ from gpaw.scf import write_iteration
 
 class SCFLoop:
     def __init__(self,
-                 ibz_wfs,
-                 density,
-                 potential,
                  hamiltonian,
                  pot_calc,
                  eigensolver,
                  mixer,
-                 world):
-        self.ibz_wfs = ibz_wfs
-        self.density = density
-        self.potential = potential
+                 world,
+                 cc):
         self.hamiltonian = hamiltonian
         self.eigensolver = eigensolver
         self.occs_calc = ...
         self.world = world
+        self.cc = cc
 
-    def iconverge(self, conv_criteria=None, log=None):
-        conv_criteria = conv_criteria or {}
-        dS = self.density.setups.overlap_correction
-        dH = self.potential.dH
-        Ht = partial(self.hamiltonian.apply, self.potential.vt)
+    def iconverge(self, ibz_wfs, density, potential, log=None):
+        conv_criteria = self.cc
+        dS = density.setups.overlap_correction
+        dH = potential.dH
+        Ht = partial(self.hamiltonian.apply, potential.vt)
         for i in range(999_999_999_999_999):
-            error = self.eigensolver.iterate(self.ibz_wfs, Ht, dH, dS)
-            self.ibz_wfs.calculate_occs(self.occs_calc)
+            error = self.eigensolver.iterate(ibz_wfs, Ht, dH, dS)
+            ibz_wfs.calculate_occs(self.occs_calc)
             energy = calculate_energy(self.occs_calc,
-                                      self.ibz_wfs,
-                                      self.potential)
-            ctx = SCFEvent(energy, self.ibz_wfs, self.density,
+                                      ibz_wfs,
+                                      potential)
+            ctx = SCFEvent(energy, ibz_wfs, density,
                            self.world, error, i)
             entries, converged = check_convergence(ctx, conv_criteria)
             if log:
@@ -40,6 +36,7 @@ class SCFLoop:
             yield entries
             if all(converged.values()):
                 break
+        return density, potential
 
 
 def calculate_energy(occs_calc, ibz_wfs, potential):

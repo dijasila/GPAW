@@ -42,21 +42,23 @@ class Density:
         return coefs
 
     @classmethod
-    def from_superposition(self,
-                           cfg,
+    def from_superposition(cls,
+                           grid,
+                           setups,
+                           magmoms,
+                           fracpos,
                            charge=0.0,
                            hund=False):
         # density and magnitization components:
-        ndens, nmag = magmoms2dims(cfg.magmoms)
-        grid = cfg.grid
-        setups = cfg.setups
+        ndens, nmag = magmoms2dims(magmoms)
+        grid = grid
+        setups = setups
 
         basis_functions = BasisFunctions(grid._gd,
                                          [setup.phit_j for setup in setups],
                                          cut=True)
-        basis_functions.set_positions(cfg.positions)
+        basis_functions.set_positions(fracpos)
 
-        magmoms = cfg.magmoms
         if magmoms is None:
             magmoms = [None] * len(setups)
         f_asi = {a: atomic_occupation_numbers(setup, magmom, hund,
@@ -65,7 +67,7 @@ class Density:
         density = grid.zeros(ndens + nmag)
         basis_functions.add_to_density(density.data, f_asi)
 
-        core_acf = setups.create_pseudo_core_densities(grid, cfg.positions)
+        core_acf = setups.create_pseudo_core_densities(grid, fracpos)
         core_density = grid.zeros()
         core_acf.add_to(core_density, 1.0 / ndens)
         density.data[:ndens] += core_density.data
@@ -77,8 +79,8 @@ class Density:
         for a, D in density_matrices.items():
             D[:] = unpack2(setups[a].initialize_density_matrix(f_asi[a])).T
 
-        return Density(density, density_matrices, core_density, core_acf,
-                       setups, charge)
+        return cls(density, density_matrices, core_density, core_acf,
+                   setups, charge)
 
     def from_wave_functions(self, ibz):
         ...

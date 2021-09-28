@@ -20,19 +20,15 @@ class Potential:
 
 
 class PotentialCalculator:
-    def __init__(self, layout, cfg, poisson_solver):
-        setups = cfg.setups
-        grid2 = cfg.grid2
+    def __init__(self, grid1, grid2, setups, fracpos, xc, poisson_solver):
+        self.interpolate = grid1.transformer(grid2)
+        self.restrict = grid2.transformer(grid1)
 
-        self.interpolate = layout.transformer(grid2)
-        self.restrict = cfg.grid2.transformer(layout)
-
-        fracpos = cfg.positions
         self.compensation_charges = setups.create_compensation_charges(
             grid2, fracpos)
-        self.local_potentials = setups.create_local_potentials(layout, fracpos)
+        self.local_potentials = setups.create_local_potentials(grid1, fracpos)
         self.poisson_solver = poisson_solver
-        self.xc = cfg.xc
+        self.xc = xc
         self.v0 = grid2.zeros()
         self.local_potentials.add_to(self.v0)
 
