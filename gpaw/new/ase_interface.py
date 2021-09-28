@@ -16,40 +16,28 @@ class ParallelKeyword(TypedDict):
     world: Sequence[int] | MPIComm
 
 
-def GPAW(*,
-         txt: str | Path | IO[str] = '-',
+def GPAW(filename: str | Path | IO[str] = None,
+         *,
+         txt: str | Path | IO[str] = '?',
          parallel: ParallelKeyword = None,
-         nbands: int | str = None,
-         gpts: Sequence[int] = None,
-         random: bool = False) -> ASECalculator:
+         **kwargs) -> ASECalculator:
+    """"""
+    if txt == '?':
+        txt = '-' if filename is None else None
 
-    params = InputParameters(nbands=nbands,
-                             gpts=gpts,
-                             random=random)
+    params = InputParameters(kwarg)
 
-    log = Logger(params.txt, params.parallel['world'])
+    log = Logger(txt, params.parallel['world'])
+
+    if filename is not None:
+        ...
+
     log(f' __  _  _\n| _ |_)|_||  |\n|__||  | ||/\\| - {__version__}\n')
     with log.indent('Input parameters ='):
         log.pp(params)
 
     return ASECalculator(params, log)
 
-
-parallel, mode, xc, basis, setups, kpts, h, gpts, symmetry, charge, magmoms
-background_charge': None,
-external': None,
-
-hund
-random
-nbands
-
-occupations': None,
-mixer': None,
-reuse_wfs_method': 'paw',
-maxiter': 333}
-convergence
-poissonsolver
-eigensolver
 
 class ASECalculator:
     """This is the ASE-calculator frontend for doing a GPAW calculation."""

@@ -58,6 +58,49 @@ class CalculationConfiguration:
         self.band_comm = communicators['b']
         self.nelectrons = setups.nvalence - charge
 
+    # Gather convergence criteria for SCF loop.
+    custom = criteria.pop('custom', [])
+    for name, criterion in criteria.items():
+        if hasattr(criterion, 'todict'):
+            # 'Copy' so no two calculators share an instance.
+            criteria[name] = dict2criterion(criterion.todict())
+        else:
+            criteria[name] = dict2criterion({name: criterion})
+
+    if not isinstance(custom, (list, tuple)):
+        custom = [custom]
+    for criterion in custom:
+        if isinstance(criterion, dict):  # from .gpw file
+            msg = ('Custom convergence criterion "{:s}" encountered, '
+                   'which GPAW does not know how to load. This '
+                   'criterion is NOT enabled; you may want to manually'
+                   ' set it.'.format(criterion['name']))
+            warnings.warn(msg)
+            continue
+
+        criteria[criterion.name] = criterion
+        msg = ('Custom convergence criterion {:s} encountered. '
+               'Please be sure that each calculator is fed a '
+               'unique instance of this criterion. '
+               'Note that if you save the calculator instance to '
+               'a .gpw file you may not be able to re-open it. '
+               .format(criterion.name))
+        warnings.warn(msg)
+
+    for criterion in criteria.values():
+        criterion.reset()
+
+    return criteria
+
+    from gpaw.new.xc import XCFunctional
+    from gpaw.xc import XC
+
+    return XCFunctional(XC(value))
+
+
+    from gpaw.new.modes import FDMode
+    return FDMode()
+
     @staticmethod
     def from_parameters(atoms, params):
         parallel = params.parallel
