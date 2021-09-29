@@ -20,10 +20,12 @@ def new(q):
         x, y = atoms.calc.calculation.potential.vt.xy(0, 4, 4, ...)
         plt.plot(x, y)
         x, y = atoms.calc.calculation.scf.pot_calc.v0.xy(8, 8, ...)
+        print(atoms.calc.calculation.density.density_matrices.data)
         plt.plot(x, y)
     if 'o' in q:
         atoms.calc = OldGPAW(**params)
         atoms.get_potential_energy()
+        print(atoms.calc.density.D_asp[0])
         x = atoms.calc.density.gd.coords(2, pad=False)
         # plt.plot(x, atoms.calc.density.nt_sG[0, 4, 4])
         plt.plot(x, atoms.calc.hamiltonian.vt_sG[0, 4, 4])

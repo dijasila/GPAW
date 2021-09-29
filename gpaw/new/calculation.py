@@ -68,7 +68,7 @@ class DFTCalculation:
         ...
 
     def write_converged(self, log):
-        print(self.ibz_wfs.fermi_levels * Ha)
+        log(self.ibz_wfs.fermi_levels * Ha)
         for wfs in self.ibz_wfs:
-            print(wfs.eigs * Ha)
-            print(wfs.occs)
+            log(wfs.eigs * Ha)
+            log(wfs.occs)

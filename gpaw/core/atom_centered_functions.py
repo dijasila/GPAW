@@ -46,10 +46,9 @@ class AtomCenteredFunctions:
         self.lfc.set_positions(value)
 
     def add_to(self, functions, coefs=1.0):
-        self._lacy_init(functions.grid)
+        self._lacy_init()
 
         if isinstance(coefs, float):
-            print(self.functions, functions, coefs)
             self.lfc.add(functions.data, coefs)
             return
 
@@ -59,7 +58,7 @@ class AtomCenteredFunctions:
                      q=0)
 
     def integrate(self, functions, out=None):
-        self._lacy_init(functions.grid)
+        self._lacy_init()
         if out is None:
             out = self.layout.empty(functions.shape, functions.comm)
         elif isinstance(out, Matrix):
@@ -73,7 +72,7 @@ class AtomCenteredFunctions:
         return out
 
     def derivative(self, functions, out=None):
-        self._lacy_init(functions.grid)
+        self._lacy_init()
         if out is None:
             out = self.layout.empty(functions.shape + (3,), functions.comm)
         self.lfc.derivative(functions.data,
@@ -89,9 +88,7 @@ class UniformGridAtomCenteredFunctions(AtomCenteredFunctions):
                                        atomdist)
         self.grid = grid
 
-    def _lacy_init(self, grid):
-        if debug:
-            assert self.grid == grid
+    def _lacy_init(self):
         if self.lfc is not None:
             return
         gd = self.grid._gd

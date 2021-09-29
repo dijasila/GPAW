@@ -64,6 +64,7 @@ class Density:
         f_asi = {a: atomic_occupation_numbers(setup, magmom, hund,
                                               charge / len(setups))
                  for a, (setup, magmom) in enumerate(zip(setups, magmoms))}
+
         density = grid.zeros(ndens + nmag)
         basis_functions.add_to_density(density.data, f_asi)
 

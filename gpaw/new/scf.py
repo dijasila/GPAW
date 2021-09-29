@@ -44,7 +44,6 @@ class SCFLoop:
             ibz_wfs.calculate_density(out=density)
             dens_error = self.mixer.mix(density)
             potential = self.pot_calc.calculate(density)
-
             ctx = SCFContext(ibz_wfs, density, potential, niter,
                              wfs_error, dens_error, self.world)
             yield ctx

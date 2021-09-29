@@ -627,10 +627,15 @@ class MixerWrapper:
             return self.driver.mix(self.basemixers, nt_sG, D_asp)
         # new interface:
         density = nt_sG
-        return self.driver.mix(self.basemixers,
-                               density.density.data,
-                               {a: D.T
-                                for a, D in density.density_matrices.items()})
+        D_asp = {a: D.T.copy().reshape((1, -1))
+                 for a, D in density.density_matrices.items()}
+        error = self.driver.mix(self.basemixers,
+                                density.density.data,
+                                D_asp)
+        for a, D in density.density_matrices.items():
+            ni = len(D)
+            D[:] = D_asp[a].T.reshape((ni, ni, -1))
+        return error
 
     def estimate_memory(self, mem, gd):
         for i, basemixer in enumerate(self.basemixers):
