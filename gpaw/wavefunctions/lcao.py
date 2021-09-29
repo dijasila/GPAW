@@ -515,7 +515,7 @@ class LCAOforces:
     def __init__(self, ksl, dtype, gd, bd, kd, kpt_u, nspins, bfs, newtci,
                  P_aqMi, setups, manytci, hamiltonian, spos_ac,
                  timer, Fref_av):
-        """    Calculate LCAO forces    """
+        """ Object which calculates LCAO forces """
 
         self.ksl = ksl
         self.nao = ksl.nao
@@ -557,6 +557,7 @@ class LCAOforces:
             self.rhoT_uMM, self.ET_uMM = self.get_den_mat_and_E()
 
     def get_forces_sum_GS(self):
+        """ This function calculates ground state forces in LCAO mode """
         if not self.isblacs:
             F_av = np.zeros_like(self.Fref_av)
             Fkin_av = self.get_kinetic_term()
@@ -651,6 +652,7 @@ class LCAOforces:
         return rhoT_uMM, ET_uMM
 
     def get_kinetic_term(self):
+        """Calculate Kinetic energy term in LCAO"""
         Fkin_av = np.zeros_like(self.Fref_av)
         self.timer.start('TCI derivative')
         # Kinetic energy contribution
@@ -675,6 +677,7 @@ class LCAOforces:
         return Fkin_av
 
     def get_den_mat_term(self):
+        """Calculate density matrix term in LCAO"""
         Ftheta_av = np.zeros_like(self.Fref_av)
         # Density matrix contribution due to basis overlap
         #
@@ -695,6 +698,7 @@ class LCAOforces:
         return Ftheta_av
 
     def get_pot_term(self):
+        """Calculate potential term"""
         Fpot_av = np.zeros_like(self.Fref_av)
         # Potential contribution
         #
@@ -718,6 +722,7 @@ class LCAOforces:
         return Fpot_av
 
     def get_den_mat_paw_term(self):
+        """Calcualte PAW correction"""
         # TO DO: split this function into
         # _get_den_mat_paw_term (which calculate Frho_av) and
         # get_paw_correction (which calculate ZE_MM)
