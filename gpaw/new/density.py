@@ -41,6 +41,18 @@ class Density:
 
         return coefs
 
+    def normalize(self):
+        ccc = self.calculate_compensation_charge_coefficients()
+        if (pseudo_charge + self.charge + comp_charge -
+            self.background_charge.charge != 0):
+            if pseudo_charge != 0:
+                x = (self.background_charge.charge - self.charge -
+                     comp_charge) / pseudo_charge
+                self.nt_xG *= x
+
+        local_charge = sqrt(4 * pi) * sum(Q_L[0] for Q_L in Q_aL.values())
+        return Q_aL.partition.comm.sum(local_charge)
+
     @classmethod
     def from_superposition(cls,
                            grid,
