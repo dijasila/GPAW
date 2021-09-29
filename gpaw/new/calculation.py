@@ -1,4 +1,5 @@
 from gpaw.new.configuration import DFTConfiguration
+from gpaw.new.scf import calculate_energy
 
 
 class DFTCalculation:
@@ -29,19 +30,28 @@ class DFTCalculation:
         return cls(cfg, ibz_wfs, density, potential)
 
     def energy(self):
-        1 / 0
+        return calculate_energy(self.ibz_wfs, self.potential)
 
     def move(self, fracpos):
         ...
 
-    def converge(self, log):
+    @property
+    def scf(self):
         if self._scf is None:
             self._scf = self.cfg.scf_loop()
-        scf = self._scf
+        return self._scf
 
-        for _ in scf.iconverge(self.ibz_wfs, self.density, self.potential,
-                               log):
-            pass
+    def converge(self, log, convergence=None):
+        convergence = convergence or self.cfg.params.convergence
+
+        density, potential = self.scf.converge(self.ibz_wfs,
+                                               self.density,
+                                               self.potential,
+                                               convergence,
+                                               self.cfg.params.maxiter,
+                                               log)
+        self.density = density
+        self.potential = potential
 
     @staticmethod
     def read(filename, log, parallel):

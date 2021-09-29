@@ -1,25 +1,23 @@
 from __future__ import annotations
 
-import warnings
-
 import numpy as np
 from ase.units import Bohr
 from gpaw.hybrids import HybridXC
+from gpaw.mixer import MixerWrapper, get_mixer_from_keywords
 from gpaw.mpi import MPIComm, Parallelization, world
 from gpaw.new.brillouin import BZ, MonkhorstPackKPoints
+from gpaw.new.davidson import Davidson
+from gpaw.new.density import Density
 from gpaw.new.modes import FDMode
+from gpaw.new.potential import PotentialCalculator
+from gpaw.new.scf import SCFLoop
+from gpaw.new.smearing import OccupationNumberCalculator
 from gpaw.new.symmetry import Symmetry
+from gpaw.new.wave_functions import IBZWaveFunctions
 from gpaw.new.xc import XCFunctional
-from gpaw.scf import dict2criterion
 from gpaw.setup import Setups
 from gpaw.symmetry import Symmetry as OldSymmetry
 from gpaw.xc import XC
-from gpaw.new.potential import PotentialCalculator
-from gpaw.new.wave_functions import IBZWaveFunctions
-from gpaw.new.davidson import Davidson
-from gpaw.new.scf import SCFLoop
-from gpaw.new.density import Density
-from gpaw.new.smearing import OccupationNumberCalculator
 
 
 class DFTConfiguration:
@@ -83,6 +81,13 @@ class DFTConfiguration:
                                                 self.initial_magmoms,
                                                 self.mode.name == 'lcao')
 
+        if self.initial_magmoms is None:
+            self.ncomponents = 1
+        elif self.initial_magmoms.ndim == 1:
+            self.ncomponents = 2
+        else:
+            self.ncomponents = 4
+
         self._pot_calc = None
 
     def random_ibz_wave_functions(self):
@@ -118,8 +123,11 @@ class DFTConfiguration:
                                hamiltonian.create_preconditioner,
                                **self.params.eigensolver)
 
-        mixer = ...
-        cc = create_convergence_criteria(self.params.convergence)
+        mixer = MixerWrapper(
+            get_mixer_from_keywords(self.grid.pbc.any(),
+                                    self.ncomponents, **self.params.mixer),
+            self.ncomponents, self.grid._gd)
+
         occ_calc = OccupationNumberCalculator(
             self.params.occupations,
             self.grid.pbc,
@@ -130,7 +138,7 @@ class DFTConfiguration:
             self.grid.icell)
 
         return SCFLoop(hamiltonian, self.potential_calculator, occ_calc,
-                       eigensolver, mixer, self.communicators['w'], cc)
+                       eigensolver, mixer, self.communicators['w'])
 
 
 def create_communicators(comm: MPIComm = None,
@@ -184,46 +192,9 @@ def create_symmetry_object(atoms, ids=None, magmoms=None, parameters=None):
         ids = [id + (m,) for id, m in zip(ids, magmoms)]
     else:
         ids = [id + tuple(m) for id, m in zip(ids, magmoms)]
-    print(ids, parameters)
     symmetry = OldSymmetry(ids, atoms.cell, atoms.pbc, **(parameters or {}))
     symmetry.analyze(atoms.get_scaled_positions())
     return Symmetry(symmetry)
-
-
-def create_convergence_criteria(criteria):
-    # Gather convergence criteria for SCF loop.
-    custom = criteria.pop('custom', [])
-    for name, criterion in criteria.items():
-        if hasattr(criterion, 'todict'):
-            # 'Copy' so no two calculators share an instance.
-            criteria[name] = dict2criterion(criterion.todict())
-        else:
-            criteria[name] = dict2criterion({name: criterion})
-
-    if not isinstance(custom, (list, tuple)):
-        custom = [custom]
-    for criterion in custom:
-        if isinstance(criterion, dict):  # from .gpw file
-            msg = ('Custom convergence criterion "{:s}" encountered, '
-                   'which GPAW does not know how to load. This '
-                   'criterion is NOT enabled; you may want to manually'
-                   ' set it.'.format(criterion['name']))
-            warnings.warn(msg)
-            continue
-
-        criteria[criterion.name] = criterion
-        msg = ('Custom convergence criterion {:s} encountered. '
-               'Please be sure that each calculator is fed a '
-               'unique instance of this criterion. '
-               'Note that if you save the calculator instance to '
-               'a .gpw file you may not be able to re-open it. '
-               .format(criterion.name))
-        warnings.warn(msg)
-
-    for criterion in criteria.values():
-        criterion.reset()
-
-    return criteria
 
 
 def create_mode(mode):

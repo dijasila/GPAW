@@ -7,6 +7,8 @@ from gpaw.typing import Array1D, Array2D, ArrayLike1D
 from gpaw.new.brillouin import IBZ
 from gpaw.mpi import MPIComm
 from ase.units import Ha
+from gpaw.new.density import Density
+import _gpaw
 
 
 class IBZWaveFunctions:
@@ -66,8 +68,9 @@ class IBZWaveFunctions:
             nelectrons=self.nelectrons / degeneracy,
             eigenvalues=[wfs.eigs * Ha for wfs in self],
             weights=[wfs.weight for wfs in self],
-            fermi_levels_guess=
-            self.fermi_levels * Ha if self.fermi_levels is not None else None)
+            fermi_levels_guess=(None
+                                if self.fermi_levels is None else
+                                self.fermi_levels * Ha))
 
         if not fixed_fermi_level or self.fermi_levels is None:
             self.fermi_levels = np.array(fermi_levels) / Ha
@@ -79,6 +82,14 @@ class IBZWaveFunctions:
         self.e_band = 0.0
         for wfs in self:
             self.e_band += wfs.occs @ wfs.eigs * wfs.weight * degeneracy
+
+    def calculate_density(self, out: Density) -> None:
+        return
+        density = out
+        density.density.data[:] = 0.0
+        density.density_matrices.data[:] = 0.0
+        for wfs in self:
+            wfs.add_to_density(density.density, density.density_matrices)
 
 
 class WaveFunctions:
@@ -124,11 +135,21 @@ class WaveFunctions:
         assert self.wave_functions.comm.size == 1
         return self.eigs
 
+    @property
+    def myoccs(self):
+        assert self.wave_functions.comm.size == 1
+        return self.occs
+
     @staticmethod
     def from_random_numbers(basis, weight, nbands, band_comm, setups,
                             positions):
         wfs = basis.random(nbands, band_comm)
         return WaveFunctions(wfs, 0, setups, positions)
+
+    def add_to_density(self, density, density_matrices) -> None:
+        for f, psit in zip(self.myoccs, self.wave_functions.data):
+            # Same as density.data += f * abs(psit)**2, but much faster:
+            _gpaw.add_to_density(f, psit, density.data)
 
     def orthonormalize(self, work_array=None):
         if self.orthonormalized:

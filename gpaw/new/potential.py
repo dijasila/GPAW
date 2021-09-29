@@ -36,6 +36,7 @@ class PotentialCalculator:
         density1 = density.density
         density2 = self.interpolate(density1)
         vxc = density2.new()
+        vxc.data[:] = 0.0
         e_xc = self.xc.calculate(density2, vxc)
 
         vext = density2.grid.empty()

@@ -10,9 +10,7 @@ parameter_functions = {}
 """
 background_charge
 external
-mixer
 reuse_wfs_method
-maxiter
 """
 
 
@@ -42,6 +40,10 @@ class InputParameters:
 
         h: float | None
         parallel: dict[str, Any]
+
+    def __repr__(self):
+        p = ', '.join(f'{key}={value!r}' for key, value in self.params.items())
+        return f'InputParameters({p})'
 
 
 @input_parameter
@@ -87,6 +89,11 @@ def eigensolver(value=None):
 @input_parameter
 def charge(value=0.0):
     return value
+
+
+@input_parameter
+def mixer(value=None):
+    return value or {}
 
 
 @input_parameter
@@ -146,8 +153,20 @@ def kpts(value=None):
 
 
 @input_parameter
+def maxiter(value=333):
+    """Maximum number of SCF-iterations."""
+    return value
+
+
+@input_parameter
 def h(value=None):
     """Grid spacing."""
+    return value
+
+
+@input_parameter
+def txt(value='?'):
+    """Log file."""
     return value
 
 
