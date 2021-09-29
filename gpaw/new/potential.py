@@ -26,7 +26,7 @@ class PotentialCalculator:
 
         self.compensation_charges = setups.create_compensation_charges(
             grid2, fracpos)
-        self.local_potentials = setups.create_local_potentials(grid1, fracpos)
+        self.local_potentials = setups.create_local_potentials(grid2, fracpos)
         self.poisson_solver = poisson_solver
         self.xc = xc
         self.v0 = grid2.zeros()

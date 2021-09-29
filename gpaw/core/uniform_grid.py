@@ -68,6 +68,10 @@ class UniformGrid(Layout):
 
         self._phase_factors = None
 
+    def __eq__(self, other):
+        return ((self.size == other.size).all() and
+                (self.pbc == other.pbc).all())
+
     # @cached_property
     def phase_factors(self):
         if self._phase_factors is None:
