@@ -12,6 +12,7 @@ from gpaw.mpi import MPIComm
 from gpaw.new.calculation import DFTCalculation
 from gpaw.new.input_parameters import InputParameters
 from gpaw.new.logger import Logger
+from gpaw.new.old import OldStuff
 
 
 class ParallelKeyword(TypedDict):
@@ -50,7 +51,7 @@ def compare_atoms(a1, a2):
     return set()
 
 
-class ASECalculator:
+class ASECalculator(OldStuff):
     """This is the ASE-calculator frontend for doing a GPAW calculation."""
     def __init__(self,
                  params: InputParameters,
@@ -64,16 +65,18 @@ class ASECalculator:
         self.results = {}
 
     def calculate_property(self, atoms: Atoms, prop: str) -> Any:
+        log = self.log
         timer = Timer()
         if self.calculation is None:
-            write_atoms(atoms, self.log)
+            write_atoms(atoms, log)
             with timer('init'):
                 self.calculation = DFTCalculation.from_parameters(
-                    atoms, self.params, self.log)
+                    atoms, self.params, log)
             with timer('SCF'):
-                self.calculation.converge(self.log)
+                self.calculation.converge(log)
             self.results = {}
             self.atoms = atoms.copy()
+            changes = {'number', 'pbc', 'cell'}
         else:
             changes = compare_atoms(self.atoms, atoms)
             if changes & {'number', 'pbc', 'cell'}:
@@ -82,21 +85,24 @@ class ASECalculator:
             if changes:
                 fracpos = atoms.get_scaled_positions()
                 with timer('move'):
-                    self.calculation.move(fracpos, self.log)
+                    self.calculation.move(fracpos, log)
                 with timer('SCF'):
-                    self.calculation.converge(self.log)
+                    self.calculation.converge(log)
                 self.results = {}
+
+        if changes:
+            self.calculation.write_converged(log)
 
         if prop not in self.results:
             if prop == 'energy':
-                self.results[prop] = self.calculation.energy()
+                self.results[prop] = self.calculation.energy(log)
             elif prop == 'forces':
                 with timer('Forces'):
                     self.results[prop] = self.calculation.forces()
             else:
                 raise ValueError('Unknown property:', prop)
 
-        timer.write(self.log)
+        timer.write(log)
 
         return self.results[prop]
 
@@ -134,6 +140,6 @@ class Timer:
         self.times[name] += t2 - t1
 
     def write(self, log):
-        log('Timing (seconds):\n   ',
+        log('\nTiming (seconds):\n   ',
             '\n    '.join(f'{name + ":":10}{t:10.3f}'
                           for name, t in self.times.items()))

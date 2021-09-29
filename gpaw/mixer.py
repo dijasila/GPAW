@@ -622,8 +622,15 @@ class MixerWrapper:
         for basemixer in self.basemixers:
             basemixer.initialize_metric(gd)
 
-    def mix(self, nt_sG, D_asp):
-        return self.driver.mix(self.basemixers, nt_sG, D_asp)
+    def mix(self, nt_sG, D_asp=None):
+        if D_asp is not None:
+            return self.driver.mix(self.basemixers, nt_sG, D_asp)
+        # new interface:
+        density = nt_sG
+        return self.driver.mix(self.basemixers,
+                               density.density.data,
+                               {a: D.T
+                                for a, D in density.density_matrices.items()})
 
     def estimate_memory(self, mem, gd):
         for i, basemixer in enumerate(self.basemixers):

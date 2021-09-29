@@ -196,8 +196,6 @@ def pack(A: np.ndarray) -> np.ndarray:
 
       (a00, a01 + a10, a02 + a20, a11, a12 + a21, a22)
     """
-    if A.ndim == 3:
-        return np.array([pack(a) for a in A])
     assert A.ndim == 2
     assert A.shape[0] == A.shape[1]
     assert A.dtype in [float, complex]

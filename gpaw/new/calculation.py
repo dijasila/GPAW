@@ -1,11 +1,13 @@
+from __future__ import annotations
 from gpaw.new.configuration import DFTConfiguration
-from gpaw.new.scf import calculate_energy
+from gpaw.new.wave_functions import IBZWaveFunctions
+from ase.units import Ha
 
 
 class DFTCalculation:
     def __init__(self,
-                 cfg,
-                 ibz_wfs,
+                 cfg: DFTConfiguration,
+                 ibz_wfs: IBZWaveFunctions,
                  density,
                  potential):
         self.cfg = cfg
@@ -15,7 +17,7 @@ class DFTCalculation:
         self._scf = None
 
     @classmethod
-    def from_parameters(cls, atoms, params, log):
+    def from_parameters(cls, atoms, params, log) -> DFTCalculation:
         cfg = DFTConfiguration(atoms, params)
 
         density = cfg.density_from_superposition()
@@ -29,8 +31,16 @@ class DFTCalculation:
 
         return cls(cfg, ibz_wfs, density, potential)
 
-    def energy(self):
-        return calculate_energy(self.ibz_wfs, self.potential)
+    def energy(self, log):
+        energies = self.potential.energies.copy()
+        energies['kinetic'] += self.ibz_wfs.e_band
+        energies['entropy'] = self.ibz_wfs.e_entropy
+        log('\nEnergies (eV):')
+        for name, e in energies.items():
+            log(f'    {name + ":":10} {e * Ha:14.6f}')
+        total_energy = sum(energies.values())
+        log(f'    Total:     {total_energy * Ha:14.6f}')
+        return total_energy
 
     def move(self, fracpos):
         ...
@@ -56,3 +66,9 @@ class DFTCalculation:
     @staticmethod
     def read(filename, log, parallel):
         ...
+
+    def write_converged(self, log):
+        print(self.ibz_wfs.fermi_levels * Ha)
+        for wfs in self.ibz_wfs:
+            print(wfs.eigs * Ha)
+            print(wfs.occs)

@@ -93,7 +93,8 @@ def calculate_non_local_potential1(setup: Setup,
                                    D: Array3D,
                                    Q: Array1D) -> tuple[Array3D, Array1D]:
     ndensities = 2 if D.shape[2] == 2 else 1
-    d = pack(D.T)
+    d = np.array([pack(D1) for D1 in D.T])
+
     d1 = d[:ndensities].sum(0)
 
     h1 = (setup.K_p + setup.M_p +

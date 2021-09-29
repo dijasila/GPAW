@@ -31,6 +31,9 @@ class IBZWaveFunctions:
         for wfs in self.mykpts:
             yield wfs
 
+    def __getitem__(self, n: int) -> WaveFunctions:
+        return self.mykpts[n]
+
     @classmethod
     def from_random_numbers(cls,
                             ibz,
@@ -76,7 +79,7 @@ class IBZWaveFunctions:
             self.fermi_levels = np.array(fermi_levels) / Ha
 
         for occsk, wfs in zip(occs, self):
-            wfs._occs = occsk * (wfs.weight * degeneracy)
+            wfs._occs = occsk
 
         self.e_entropy = e_entropy * degeneracy / Ha
         self.e_band = 0.0
@@ -84,12 +87,12 @@ class IBZWaveFunctions:
             self.e_band += wfs.occs @ wfs.eigs * wfs.weight * degeneracy
 
     def calculate_density(self, out: Density) -> None:
-        return
         density = out
         density.density.data[:] = 0.0
         density.density_matrices.data[:] = 0.0
         for wfs in self:
-            wfs.add_to_density(density.density, density.density_matrices)
+            wfs.add_to_density(density.density, density.density_matrices,
+                               self.spin_degeneracy)
 
 
 class WaveFunctions:
@@ -146,10 +149,18 @@ class WaveFunctions:
         wfs = basis.random(nbands, band_comm)
         return WaveFunctions(wfs, 0, setups, positions)
 
-    def add_to_density(self, density, density_matrices) -> None:
-        for f, psit in zip(self.myoccs, self.wave_functions.data):
+    def add_to_density(self,
+                       density,
+                       density_matrices,
+                       spin_degeneracy: int) -> None:
+        myoccs = self.myoccs * spin_degeneracy
+        for f, psit in zip(myoccs, self.wave_functions.data):
             # Same as density.data += f * abs(psit)**2, but much faster:
-            _gpaw.add_to_density(f, psit, density.data)
+            _gpaw.add_to_density(f, psit, density.data[self.spin])
+
+        for D, P in zip(density_matrices.values(), self.projections.values()):
+            D[:, :, self.spin] += np.einsum('in, n, jn -> ij',
+                                            P.conj(), myoccs, P)
 
     def orthonormalize(self, work_array=None):
         if self.orthonormalized:

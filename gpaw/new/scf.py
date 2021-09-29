@@ -8,6 +8,10 @@ from gpaw.new.potential import Potential
 from gpaw.new.density import Density
 
 
+class SCFConvergenceError(Exception):
+    ...
+
+
 class SCFLoop:
     def __init__(self,
                  hamiltonian,
@@ -31,12 +35,14 @@ class SCFLoop:
         dH = potential.dH
         Ht = partial(self.hamiltonian.apply, potential.vt)
 
+        self.mixer.reset()
+
         niter = 0
         while True:
             wfs_error = self.eigensolver.iterate(ibz_wfs, Ht, dH, dS)
             ibz_wfs.calculate_occs(self.occ_calc)
             ibz_wfs.calculate_density(out=density)
-            dens_error = 0#self.mix(density)
+            dens_error = self.mixer.mix(density)
             potential = self.pot_calc.calculate(density)
 
             ctx = SCFContext(ibz_wfs, density, potential, niter,
@@ -59,7 +65,8 @@ class SCFLoop:
             if all(converged.values()):
                 break
             if ctx.niter == maxiter:
-                raise ...
+                raise SCFConvergenceError
+
         return ctx.density, ctx.potential
 
 
