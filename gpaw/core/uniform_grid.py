@@ -242,3 +242,10 @@ class UniformGridFunctions(DistributedArrays):
         result = np.array(norms).reshape(self.myshape)
         self.grid.comm.sum(result)
         return result
+
+    def integrate(self, other=None):
+        if other is not None:
+            return DistributedArrays.integrate(self, other)
+        result = self.data.sum(axis=(-3, -2, -1)) * self.grid.dv
+        self.grid.comm.sum(result)
+        return result

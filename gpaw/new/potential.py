@@ -34,7 +34,7 @@ class PotentialCalculator:
 
     def calculate(self, density):
         density1 = density.density
-        density2 = self.interpolate(density1)
+        density2 = self.interpolate(density1, preserve_integral=True)
 
         vxc = density2.new()
         vxc.data[:] = 0.0

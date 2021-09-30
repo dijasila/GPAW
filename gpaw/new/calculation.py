@@ -21,6 +21,7 @@ class DFTCalculation:
         cfg = DFTConfiguration(atoms, params)
 
         density = cfg.density_from_superposition()
+        density.normalize()
         pot_calc = cfg.potential_calculator
         potential = pot_calc.calculate(density)
 

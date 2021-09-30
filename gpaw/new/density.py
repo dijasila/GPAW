@@ -1,4 +1,5 @@
 from __future__ import annotations
+from math import sqrt, pi
 import numpy as np
 from gpaw.lfc import BasisFunctions
 from gpaw.typing import ArrayLike1D
@@ -42,16 +43,18 @@ class Density:
         return coefs
 
     def normalize(self):
-        ccc = self.calculate_compensation_charge_coefficients()
-        if (pseudo_charge + self.charge + comp_charge -
-            self.background_charge.charge != 0):
-            if pseudo_charge != 0:
-                x = (self.background_charge.charge - self.charge -
-                     comp_charge) / pseudo_charge
-                self.nt_xG *= x
-
-        local_charge = sqrt(4 * pi) * sum(Q_L[0] for Q_L in Q_aL.values())
-        return Q_aL.partition.comm.sum(local_charge)
+        comp_charge = self.charge
+        for a, D in self.density_matrices.items():
+            setup = self.setups[a]
+            comp_charge += np.einsum('ijs, ij ->',
+                                     D[:, :, :self.ndensities],
+                                     setup.Delta_iiL[:, :, 0])
+            comp_charge += setup.Delta0
+        comp_charge = self.density.grid.comm.sum(comp_charge * sqrt(4 * pi))
+        charge = comp_charge + self.charge
+        pseudo_charge = self.density.integrate().sum()
+        x = -charge / pseudo_charge
+        self.density.data *= x
 
     @classmethod
     def from_superposition(cls,
