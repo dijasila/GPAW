@@ -10,7 +10,6 @@ from gpaw.mpi import MPIComm, serial_comm
 from gpaw.pw.descriptor import PWDescriptor
 from gpaw.pw.lfc import PWLFC
 from gpaw.spline import Spline
-from gpaw import debug
 
 
 def to_spline(l, rcut, f):
@@ -83,10 +82,12 @@ class AtomCenteredFunctions:
 
 
 class UniformGridAtomCenteredFunctions(AtomCenteredFunctions):
-    def __init__(self, functions, positions, grid, atomdist=serial_comm):
+    def __init__(self, functions, positions, grid, atomdist=serial_comm,
+                 integral=None):
         AtomCenteredFunctions.__init__(self, functions, positions, grid.dtype,
                                        atomdist)
         self.grid = grid
+        self.integral = integral
 
     def _lacy_init(self):
         if self.lfc is not None:
@@ -95,6 +96,7 @@ class UniformGridAtomCenteredFunctions(AtomCenteredFunctions):
         kd = KPointDescriptor(np.array([self.grid.kpt]))
         self.lfc = LFC(gd, self.functions, kd,
                        dtype=self.grid.dtype,
+                       integral=self.integral,
                        forces=True)
         self.lfc.set_positions(self._positions)
 

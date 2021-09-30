@@ -1449,7 +1449,9 @@ class Setups(list):
                 spline_aj.append([])
             else:
                 spline_aj.append([setup.nct])
-        return layout.atom_centered_functions(spline_aj, positions)
+        return layout.atom_centered_functions(
+            spline_aj, positions,
+            integral=[setup.Nct for setup in self])
 
     def create_local_potentials(self, layout, positions):
         return layout.atom_centered_functions(
@@ -1457,7 +1459,8 @@ class Setups(list):
 
     def create_compensation_charges(self, layout, positions):
         return layout.atom_centered_functions(
-            [setup.ghat_l for setup in self], positions)
+            [setup.ghat_l for setup in self], positions,
+            integral=sqrt(4 * pi))
 
     def create_projectors(self, layout, positions):
         return layout.atom_centered_functions(

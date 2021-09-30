@@ -31,6 +31,7 @@ class PotentialCalculator:
         self.xc = xc
         self.v0 = grid2.zeros()
         self.local_potentials.add_to(self.v0)
+        self.description = poisson_solver.get_description()
 
     def calculate(self, density):
         density1 = density.density
@@ -39,7 +40,6 @@ class PotentialCalculator:
         vxc = density2.new()
         vxc.data[:] = 0.0
         e_xc = self.xc.calculate(density2, vxc)
-
         vext = density2.grid.empty()
         charge = vext.new(data=density2.data[:density.ndensities].sum(axis=0))
         e_zero = self.v0.integrate(charge)
@@ -108,7 +108,7 @@ def calculate_non_local_potential1(setup: Setup,
     h = np.zeros_like(d)
     h[:ndensities] = h1
     e_xc = xc.calculate_paw_correction(setup, d, h)
-    e_kinetic = -(d * h).sum().real
+    e_kinetic -= (d * h).sum().real
 
     e_external = 0.0
 

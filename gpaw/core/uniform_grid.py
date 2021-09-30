@@ -115,18 +115,21 @@ class UniformGrid(Layout):
     def redistributor(self, other):
         return Redistributor(self, other)
 
-    def atom_centered_functions(self, functions, positions):
-        return UniformGridAtomCenteredFunctions(functions, positions, self)
+    def atom_centered_functions(self, functions, positions, integral=None):
+        return UniformGridAtomCenteredFunctions(functions, positions, self,
+                                                integral=integral)
 
     def transformer(self, other):
         from gpaw.transformers import Transformer
 
         apply = Transformer(self._gd, other._gd, 3).apply
 
-        def transform(functions, out=None):
+        def transform(functions, out=None, preserve_integral=False):
             if out is None:
                 out = other.empty(functions.shape, functions.comm)
             apply(functions.data, out.data)
+            if preserve_integral and not self.pbc.all():
+                out.data *= functions.integrate() / out.integrate()
             return out
 
         return transform

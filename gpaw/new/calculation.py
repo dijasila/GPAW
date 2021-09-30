@@ -54,7 +54,7 @@ class DFTCalculation:
 
     def converge(self, log, convergence=None):
         convergence = convergence or self.cfg.params.convergence
-
+        log(self.scf.description)
         density, potential = self.scf.converge(self.ibz_wfs,
                                                self.density,
                                                self.potential,
