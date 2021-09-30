@@ -9,7 +9,7 @@ def new(q):
     atoms.center(vacuum=1)
     params = {'txt': '-',
               'gpts': (8, 8, 12),
-              'random': 1}
+              'random': 0}
     import matplotlib.pyplot as plt
     if 'n' in q:
         atoms.calc = NewGPAW(**params)

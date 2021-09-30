@@ -20,7 +20,8 @@ class DFTCalculation:
     def from_parameters(cls, atoms, params, log) -> DFTCalculation:
         cfg = DFTConfiguration(atoms, params)
 
-        density = cfg.density_from_superposition()
+        basis_set = cfg.create_basis_set()
+        density = cfg.density_from_superposition(basis_set)
         density.normalize()
         pot_calc = cfg.potential_calculator
         potential = pot_calc.calculate(density)
@@ -28,7 +29,7 @@ class DFTCalculation:
         if params.random:
             ibz_wfs = cfg.random_ibz_wave_functions()
         else:
-            ...
+            ibz_wfs = cfg.lcao_ibz_wave_functions(basis_set, potential)
 
         return cls(cfg, ibz_wfs, density, potential)
 

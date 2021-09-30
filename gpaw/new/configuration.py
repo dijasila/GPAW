@@ -18,6 +18,7 @@ from gpaw.new.xc import XCFunctional
 from gpaw.setup import Setups
 from gpaw.symmetry import Symmetry as OldSymmetry
 from gpaw.xc import XC
+from gpaw.lfc import BasisFunctions
 
 
 class DFTConfiguration:
@@ -88,7 +89,16 @@ class DFTConfiguration:
         else:
             self.ncomponents = 4
 
+        if len(bz.points) == 1 and not bz.points[0].any():
+            self.dtype = float
+        else:
+            self.dtype = complex
+
         self._pot_calc = None
+
+    def lcao_ibz_wave_functions(self, basis_set, potential):
+        from gpaw.new.lcao import create_lcao_ibz_wave_functions
+        return create_lcao_ibz_wave_functions(self, basis_set, potential)
 
     def random_ibz_wave_functions(self):
         return IBZWaveFunctions.from_random_numbers(
@@ -101,10 +111,17 @@ class DFTConfiguration:
             self.nbands,
             self.nelectrons)
 
-    def density_from_superposition(self):
+    def create_basis_set(self):
+        basis_set = BasisFunctions(self.grid._gd,
+                                   [setup.phit_j for setup in self.setups],
+                                   cut=True)
+        basis_set.set_positions(self.fracpos)
+        return basis_set
+
+    def density_from_superposition(self, basis_set):
         return Density.from_superposition(
             self.grid, self.setups, self.initial_magmoms,
-            self.fracpos, self.params.charge, self.params.hund)
+            self.fracpos, basis_set, self.params.charge, self.params.hund)
 
     @property
     def potential_calculator(self):

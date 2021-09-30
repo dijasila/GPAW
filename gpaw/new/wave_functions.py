@@ -82,9 +82,10 @@ class IBZWaveFunctions:
             wfs._occs = occsk
 
         self.e_entropy = e_entropy * degeneracy / Ha
-        self.e_band = 0.0
+        e_band = 0.0
         for wfs in self:
-            self.e_band += wfs.occs @ wfs.eigs * wfs.weight * degeneracy
+            e_band += wfs.occs @ wfs.eigs * wfs.weight * degeneracy
+        self.e_band = self.kpt_comm.sum(e_band)
 
     def calculate_density(self, out: Density) -> None:
         density = out
@@ -143,11 +144,11 @@ class WaveFunctions:
         assert self.wave_functions.comm.size == 1
         return self.occs
 
-    @staticmethod
-    def from_random_numbers(basis, weight, nbands, band_comm, setups,
+    @classmethod
+    def from_random_numbers(cls, basis, weight, nbands, band_comm, setups,
                             positions):
         wfs = basis.random(nbands, band_comm)
-        return WaveFunctions(wfs, 0, setups, positions)
+        return cls(wfs, 0, setups, positions)
 
     def add_to_density(self,
                        density,

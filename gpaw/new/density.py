@@ -1,7 +1,6 @@
 from __future__ import annotations
 from math import sqrt, pi
 import numpy as np
-from gpaw.lfc import BasisFunctions
 from gpaw.typing import ArrayLike1D
 from gpaw.core.atom_centered_functions import AtomArraysLayout
 from gpaw.utilities import unpack2
@@ -62,17 +61,13 @@ class Density:
                            setups,
                            magmoms,
                            fracpos,
+                           basis_set,
                            charge=0.0,
                            hund=False):
         # density and magnitization components:
         ndens, nmag = magmoms2dims(magmoms)
         grid = grid
         setups = setups
-
-        basis_functions = BasisFunctions(grid._gd,
-                                         [setup.phit_j for setup in setups],
-                                         cut=True)
-        basis_functions.set_positions(fracpos)
 
         if magmoms is None:
             magmoms = [None] * len(setups)
@@ -81,7 +76,7 @@ class Density:
                  for a, (setup, magmom) in enumerate(zip(setups, magmoms))}
 
         density = grid.zeros(ndens + nmag)
-        basis_functions.add_to_density(density.data, f_asi)
+        basis_set.add_to_density(density.data, f_asi)
 
         core_acf = setups.create_pseudo_core_densities(grid, fracpos)
         core_density = grid.zeros()
