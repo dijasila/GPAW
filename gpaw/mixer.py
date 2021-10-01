@@ -625,6 +625,7 @@ class MixerWrapper:
     def mix(self, nt_sG, D_asp=None):
         if D_asp is not None:
             return self.driver.mix(self.basemixers, nt_sG, D_asp)
+
         # new interface:
         density = nt_sG
         D_asp = {a: D.T.copy().reshape((1, -1))

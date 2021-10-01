@@ -235,7 +235,6 @@ class WaveFunctions:
             # the n'th eigenvalue
         domain_comm.broadcast(H.data, 0)
         domain_comm.broadcast(self.eigs, 0)
-
         if Htpsit is not None:
             H.multiply(psit2, out=Htpsit)
 

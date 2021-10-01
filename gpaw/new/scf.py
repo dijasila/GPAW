@@ -1,5 +1,5 @@
 from functools import partial
-from math import inf
+# from math import inf
 from types import SimpleNamespace
 from gpaw.scf import write_iteration
 import warnings
@@ -37,14 +37,15 @@ class SCFLoop:
                 density: Density,
                 potential: Potential):
         dS = density.setups.overlap_correction
-        dH = potential.dH
-        Ht = partial(self.hamiltonian.apply, potential.vt)
 
         self.mixer.reset()
 
-        dens_error = inf
+        # dens_error = inf
+        dens_error = self.mixer.mix(density)
         niter = 1
         while True:
+            dH = potential.dH
+            Ht = partial(self.hamiltonian.apply, potential.vt)
             wfs_error = self.eigensolver.iterate(ibz_wfs, Ht, dH, dS)
             ibz_wfs.calculate_occs(self.occ_calc)
 
@@ -54,7 +55,6 @@ class SCFLoop:
 
             if niter > 0:
                 ibz_wfs.calculate_density(out=density)
-                print(density.density.data[0,4,4])
                 dens_error = self.mixer.mix(density)
                 potential = self.pot_calc.calculate(density)
 

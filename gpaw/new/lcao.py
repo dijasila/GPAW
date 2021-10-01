@@ -74,7 +74,6 @@ def create_lcao_ibz_wave_functions(cfg: DFTConfiguration,
             continue
         grid = cfg.grid.new(kpt=kpt)
         lcaokpt = lcaowfs.kpt_u[u]
-        print(ibz.bz.points[lcaokpt.k], kpt)
         assert (ibz.bz.points[lcaokpt.k] == kpt).all()
         wfs = grid.zeros(cfg.nbands, band_comm)
         mynbands = len(lcaokpt.C_nM)

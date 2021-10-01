@@ -50,7 +50,6 @@ class PotentialCalculator:
 
         potential2 = vxc
         potential2.data += vext.data + self.v0.data
-
         potential1 = self.restrict(potential2)
         e_kinetic = 0.0
         for s, (p, d) in enumerate(zip(potential1, density1)):
@@ -64,7 +63,6 @@ class PotentialCalculator:
 
         e_external = 0.0
 
-        # print(e_kinetic, e_coulomb, e_zero, e_xc, e_external);asdgf
         de_kinetic, de_coulomb, de_zero, de_xc, de_external = corrections
         energies = {'kinetic': e_kinetic + de_kinetic,
                     'coulomb': e_coulomb + de_coulomb,
