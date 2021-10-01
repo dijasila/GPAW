@@ -6,10 +6,8 @@ from gpaw.lcaotddft import LCAOTDDFT
 from gpaw.lcaotddft.dipolemomentwriter import DipoleMomentWriter
 from gpaw.lcaotddft.qed import RRemission
 from gpaw.mpi import world
-from gpaw.test import equal
-from .test_molecule import only_on_master, calculate_error
+from .test_molecule import calculate_error
 
-# Atoms
 
 def check_mm(ref_fpath, data_fpath, atol):
     world.barrier()
@@ -18,17 +16,17 @@ def check_mm(ref_fpath, data_fpath, atol):
     err = calculate_error(data, ref)
     assert err < atol
 
-def test_lcaotddft_simple(in_tmp_dir):
 
+def test_lcaotddft_simple(in_tmp_dir):
     atoms = molecule('Na2')
     atoms.center(vacuum=4.0)
     calc = GPAW(mode='lcao', h=0.4, basis='dzp',
                 setups={'Na': '1'},
                 convergence={'density': 1e-12})
     atoms.calc = calc
-    energy = atoms.get_potential_energy()
+    atoms.get_potential_energy()
     calc.write('gs.gpw', mode='all')
-    td_calc = LCAOTDDFT('gs.gpw',rremission=RRemission(0.5, [0,0,1]))
+    td_calc = LCAOTDDFT('gs.gpw', rremission=RRemission(0.5, [0, 0, 1]))
     DipoleMomentWriter(td_calc, 'dm.dat')
     td_calc.absorption_kick([0.0, 0.0, 1e-5])
     td_calc.propagate(40, 20)
