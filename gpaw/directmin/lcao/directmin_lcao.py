@@ -1239,6 +1239,7 @@ class DirectMinLCAO(DirectLCAO):
                 'SIC' in self.odd_parameters['name']:
             self.need_localization = False
         wfs.coefficients_read_from_file = False
+        self.need_init_orbs = False
 
     def localize_wfs(self, wfs, dens, ham, log):
         """
