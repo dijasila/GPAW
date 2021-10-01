@@ -1,4 +1,5 @@
 from functools import partial
+from math import inf
 from types import SimpleNamespace
 from gpaw.scf import write_iteration
 import warnings
@@ -41,16 +42,22 @@ class SCFLoop:
 
         self.mixer.reset()
 
-        niter = 0
+        dens_error = inf
+        niter = 1
         while True:
             wfs_error = self.eigensolver.iterate(ibz_wfs, Ht, dH, dS)
             ibz_wfs.calculate_occs(self.occ_calc)
-            ibz_wfs.calculate_density(out=density)
-            dens_error = self.mixer.mix(density)
-            potential = self.pot_calc.calculate(density)
+
             ctx = SCFContext(ibz_wfs, density, potential, niter,
                              wfs_error, dens_error, self.world)
             yield ctx
+
+            if niter > 0:
+                ibz_wfs.calculate_density(out=density)
+                print(density.density.data[0,4,4])
+                dens_error = self.mixer.mix(density)
+                potential = self.pot_calc.calculate(density)
+
             niter += 1
 
     def converge(self,

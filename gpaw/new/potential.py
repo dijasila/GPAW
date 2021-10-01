@@ -64,13 +64,13 @@ class PotentialCalculator:
 
         e_external = 0.0
 
+        # print(e_kinetic, e_coulomb, e_zero, e_xc, e_external);asdgf
         de_kinetic, de_coulomb, de_zero, de_xc, de_external = corrections
         energies = {'kinetic': e_kinetic + de_kinetic,
                     'coulomb': e_coulomb + de_coulomb,
                     'zero': e_zero + de_zero,
                     'xc': e_xc + de_xc,
                     'external': e_external + de_external}
-
         return Potential(potential1, vnonloc, energies)
 
 

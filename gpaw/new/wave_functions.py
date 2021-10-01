@@ -233,7 +233,6 @@ class WaveFunctions:
             self._eigs = H.eigh(scalapack=(slcomm, r, c, b))
             # H.data[n, :] now contains the n'th eigenvector and eps_n[n]
             # the n'th eigenvalue
-
         domain_comm.broadcast(H.data, 0)
         domain_comm.broadcast(self.eigs, 0)
 

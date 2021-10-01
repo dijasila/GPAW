@@ -347,6 +347,14 @@ class Hamiltonian:
         self.e_band = wfs.calculate_band_energy()
         self.e_kinetic = self.e_kinetic0 + self.e_band
         self.e_entropy = e_entropy
+        if 0:
+            print(self.e_kinetic0,
+                  self.e_band,
+                  self.e_coulomb,
+                  self.e_external,
+                  self.e_zero,
+                  self.e_xc,
+                  self.e_entropy)
 
         self.e_total_free = (self.e_kinetic + self.e_coulomb +
                              self.e_external + self.e_zero + self.e_xc +
