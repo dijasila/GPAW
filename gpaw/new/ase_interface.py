@@ -7,7 +7,7 @@ from collections import defaultdict
 from time import time
 
 from ase import Atoms
-from gpaw import __version__
+from gpaw import __version__, debug
 from gpaw.mpi import MPIComm
 from gpaw.new.calculation import DFTCalculation
 from gpaw.new.input_parameters import InputParameters
@@ -32,10 +32,7 @@ def GPAW(filename: str | Path | IO[str] = None,
         assert len(kwargs) == 0
         ...
 
-    log(f' __  _  _\n| _ |_)|_||  |\n|__||  | ||/\\| - {__version__}\n')
-    log('Input parameters = {\n    ', end='')
-    log(',\n    '.join(f'{k!r}: {v!r}' for k, v in kwargs.items()) + '}')
-
+    write_header(log, kwargs)
     return ASECalculator(params, log)
 
 
@@ -98,7 +95,7 @@ class ASECalculator(OldStuff):
                 self.results[prop] = self.calculation.energy(log)
             elif prop == 'forces':
                 with timer('Forces'):
-                    self.results[prop] = self.calculation.forces()
+                    self.results[prop] = self.calculation.forces(log)
             else:
                 raise ValueError('Unknown property:', prop)
 
@@ -111,6 +108,13 @@ class ASECalculator(OldStuff):
 
     def get_forces(self, atoms: Atoms) -> float:
         return self.calculate_property(atoms, 'forces')
+
+
+def write_header(log, kwargs):
+    log(f' __  _  _\n| _ |_)|_||  |\n|__||  | ||/\\| - {__version__}\n')
+    log(debug)
+    log('Input parameters = {\n    ', end='')
+    log(',\n    '.join(f'{k!r}: {v!r}' for k, v in kwargs.items()) + '}')
 
 
 def write_atoms(atoms, log):

@@ -2,6 +2,7 @@ from gpaw.mpi import MPIComm, world
 import sys
 import os
 from pathlib import Path
+from gpaw.utilities.memory import maxrss
 
 
 class Logger:
@@ -24,6 +25,8 @@ class Logger:
             self.close_fd = False
 
     def __del__(self) -> None:
+        mib = maxrss() / 1024**2
+        self.fd.write(f'\nMax RSS: {mib:.3f} MiB\n')
         if self.close_fd:
             self.fd.close()
 

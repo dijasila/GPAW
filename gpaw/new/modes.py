@@ -2,6 +2,43 @@ from gpaw.core import UniformGrid
 from gpaw.poisson import PoissonSolver
 from gpaw.fd_operators import Laplace
 
+        if par.gpts is not None:
+            if par.h is not None:
+                raise ValueError("""You can't use both "gpts" and "h"!""")
+            N_c = np.array(par.gpts)
+            h = None
+        else:
+            h = par.h
+            if h is not None:
+                h /= Bohr
+            if h is None and reading:
+                shape = self.reader.density.proxy('density').shape[-3:]
+                N_c = 1 - pbc_c + shape
+            elif h is None and self.density is not None:
+                N_c = self.density.gd.N_c
+            else:
+                N_c = get_number_of_grid_points(cell_cv, h, mode, realspace,
+                                                self.symmetry, self.log)
+
+
+class PWMode:
+    name = 'pw'
+
+    def xxxcreate_uniform_grid(self,
+                               h,
+                               gpts,
+                               cell,
+                               pbc,
+                               symmetry,
+                               comm) -> UniformGrid:
+        return UniformGrid(cell=cell, pbc=pbc, size=gpts, comm=comm)
+
+    def create_poisson_solver(self, grid, params):
+        1 / 0
+
+    def create_hamiltonian_operator(self, grid, blocksize=10):
+        return 1 / 0
+
 
 class FDMode:
     name = 'fd'

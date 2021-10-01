@@ -9,6 +9,7 @@ from gpaw.mpi import MPIComm
 from ase.units import Ha
 from gpaw.new.density import Density
 import _gpaw
+from gpaw.core.atom_arrays import AtomArrays
 
 
 class IBZWaveFunctions:
@@ -26,6 +27,13 @@ class IBZWaveFunctions:
         self.fermi_levels = None
         self.collinear = False
         self.spin_degeneracy = 2
+
+        self.ibz_index_to_local_index = {}
+        j = 0
+        for i, rank in enumerate(ranks):
+            if rank == kpt_comm.rank:
+                self.ibz_index_to_local_index[i] = j
+                j += 1
 
     def __iter__(self):
         for wfs in self.mykpts:
@@ -92,8 +100,18 @@ class IBZWaveFunctions:
         density.density.data[:] = 0.0
         density.density_matrices.data[:] = 0.0
         for wfs in self:
-            wfs.add_to_density(density.density, density.density_matrices,
-                               self.spin_degeneracy)
+            wfs.add_to_density(density.density, density.density_matrices)
+
+    def get_eigs_and_occs(self, i):
+        assert self.ranks[i] == self.kpt_comm.rank
+        wfs = self.mykpts[self.ibz_index_to_local_index[i]]
+        return wfs.eigs, wfs.occs
+
+    def forces(self, dv: AtomArrays):
+        F = np.zeros((len(dv.layout.shapes), 3))
+        for wfs in self:
+            wfs.force_contribution(dv, F)
+        return F
 
 
 class WaveFunctions:
@@ -102,11 +120,13 @@ class WaveFunctions:
                  spin: int | None,
                  setups: Setups,
                  positions: Array2D,
-                 weight: float = 1.0):
+                 weight: float = 1.0,
+                 spin_degeneracy: int = 2):
         self.wave_functions = wave_functions
         self.spin = spin
         self.setups = setups
         self.weight = weight
+        self.spin_degeneracy = spin_degeneracy
 
         self._projections = None
         self.projectors = setups.create_projectors(wave_functions.layout,
@@ -152,9 +172,8 @@ class WaveFunctions:
 
     def add_to_density(self,
                        density,
-                       density_matrices,
-                       spin_degeneracy: int) -> None:
-        myoccs = self.myoccs * spin_degeneracy
+                       density_matrices: AtomArrays) -> None:
+        myoccs = self.weight * self.spin_degeneracy * self.myoccs
         for f, psit in zip(myoccs, self.wave_functions.data):
             # Same as density.data += f * abs(psit)**2, but much faster:
             _gpaw.add_to_density(f, psit, density.data[self.spin])
@@ -242,3 +261,17 @@ class WaveFunctions:
         psit.data[:] = psit2.data
         projections.matrix.multiply(H, opb='T', out=projections2)
         projections.data[:] = projections2.data
+
+    def force_contribution(self, dv: AtomArrays, F_av: Array2D):
+        F_ainv = self.projectors.derivative(self.wave_functions)
+        myoccs = self.weight * self.spin_degeneracy * self.myoccs
+        for a, F_inv in F_ainv.items():
+            F_inv = F_inv.conj()
+            F_inv *= myoccs[:, np.newaxis]
+            dH_ii = dv[a][:, :, self.spin]
+            P_in = self.projections[a]
+            F_vii = np.einsum('inv, jn, jk -> vik', F_inv, P_in, dH_ii)
+            F_inv *= self.myeigs[:, np.newaxis]
+            dO_ii = self.setups[a].dO_ii
+            F_vii -= np.einsum('inv, jn, jk -> vik', F_inv, P_in, dO_ii)
+            F_av[a] += 2 * F_vii.real.trace(0, 1, 2)

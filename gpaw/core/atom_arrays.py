@@ -30,6 +30,10 @@ class AtomArraysLayout(Layout):
 
         Layout.__init__(self, (self.size,), (self.mysize,))
 
+    def __repr__(self):
+        return (f'AtomArraysLayout({self.shapes}, {self.atomdist}, '
+                f'{self.dtype})')
+
     def empty(self,
               shape: int | tuple[int, ...] = (),
               comm: MPIComm = serial_comm) -> AtomArrays:
@@ -41,6 +45,9 @@ class AtomDistribution:
         self.comm = comm
         self.ranks = ranks
         self.indices = np.where(ranks == comm.rank)[0]
+
+    def __repr__(self):
+        return f'AtomDistribution({self.ranks}, {self.comm})'
 
 
 class AtomArrays(DistributedArrays):
@@ -55,6 +62,9 @@ class AtomArrays(DistributedArrays):
         for a, I1, I2 in layout.myindices:
             self._arrays[a] = self.data[I1:I2].reshape(
                 layout.shapes[a] + self.myshape)
+
+    def __repr__(self):
+        return f'AtomArrays({self.layout})'
 
     def new(self):
         return AtomArrays(self.layout, self.shape, self.comm)

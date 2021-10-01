@@ -77,7 +77,7 @@ class AtomCenteredFunctions:
         self.lfc.derivative(functions.data,
                             {a: np.moveaxis(array, 0, -2)
                              for a, array in out._arrays.items()},
-                            q=0)
+                            q=-1)
         return out
 
 

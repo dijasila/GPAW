@@ -23,6 +23,7 @@ setup_paths: List[Union[str, Path]] = []
 is_gpaw_python = '_gpaw' in sys.builtin_module_names
 dry_run = 0
 debug: bool = bool(sys.flags.debug)
+debug = True
 
 
 @contextlib.contextmanager

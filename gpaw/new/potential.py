@@ -31,25 +31,35 @@ class PotentialCalculator:
         self.xc = xc
         self.v0 = grid2.zeros()
         self.local_potentials.add_to(self.v0)
-        self.description = poisson_solver.get_description()
+
+        self.vext = grid2.zeros()  # initial guess for Coulomb potential
+        self.total_density2 = grid2.empty()
+
+        self.description = (poisson_solver.get_description() +
+                            str(xc) + '...')
 
     def calculate(self, density):
         density1 = density.density
         density2 = self.interpolate(density1, preserve_integral=True)
 
-        vxc = density2.new()
-        vxc.data[:] = 0.0
+        grid2 = density2.grid
+
+        vxc = grid2.zeros(density2.shape)
         e_xc = self.xc.calculate(density2, vxc)
-        vext = density2.grid.empty()
-        charge = vext.new(data=density2.data[:density.ndensities].sum(axis=0))
-        e_zero = self.v0.integrate(charge)
+
+        self.total_density2.data[:] = density2.data[:density.ndensities].sum(
+            axis=0)
+        e_zero = self.v0.integrate(self.total_density2)
+
+        charge = grid2.empty()
+        charge.data[:] = self.total_density2.data
         coefs = density.calculate_compensation_charge_coefficients()
         self.compensation_charges.add_to(charge, coefs)
-        self.poisson_solver.solve(vext.data, charge.data)
-        e_coulomb = 0.5 * vext.integrate(charge)
+        self.poisson_solver.solve(self.vext.data, charge.data)
+        e_coulomb = 0.5 * self.vext.integrate(charge)
 
         potential2 = vxc
-        potential2.data += vext.data + self.v0.data
+        potential2.data += self.vext.data + self.v0.data
         potential1 = self.restrict(potential2)
         e_kinetic = 0.0
         for s, (p, d) in enumerate(zip(potential1, density1)):
@@ -59,7 +69,7 @@ class PotentialCalculator:
 
         vnonloc, corrections = calculate_non_local_potential(
             density, self.xc,
-            self.compensation_charges, vext)
+            self.compensation_charges, self.vext)
 
         e_external = 0.0
 

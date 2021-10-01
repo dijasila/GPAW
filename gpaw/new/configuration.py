@@ -8,7 +8,7 @@ from gpaw.mpi import MPIComm, Parallelization, world
 from gpaw.new.brillouin import BZ, MonkhorstPackKPoints
 from gpaw.new.davidson import Davidson
 from gpaw.new.density import Density
-from gpaw.new.modes import FDMode
+from gpaw.new.modes import PWMode, FDMode
 from gpaw.new.potential import PotentialCalculator
 from gpaw.new.scf import SCFLoop
 from gpaw.new.smearing import OccupationNumberCalculator
@@ -19,18 +19,25 @@ from gpaw.setup import Setups
 from gpaw.symmetry import Symmetry as OldSymmetry
 from gpaw.xc import XC
 from gpaw.lfc import BasisFunctions
+from gpaw.new.input_parameters import InputParameters
+from ase import Atoms
+from typing import Any
 
 
 class DFTConfiguration:
     def __init__(self,
-                 atoms,
-                 params):
+                 atoms: Atoms,
+                 params: dict[str, Any] | InputParameters):
+        self.atoms = atoms.copy()
+        if isinstance(params, dict):
+            params = InputParameters(params)
         self.params = params
         parallel = params.parallel
         world = parallel['world']
 
-        self.mode = create_mode(params.mode)
+        self.mode = create_mode(**params.mode)
         self.xc = XCFunctional(XC(params.xc))
+
         self.setups = Setups(atoms.numbers,
                              params.setups,
                              params.basis,
@@ -95,6 +102,9 @@ class DFTConfiguration:
             self.dtype = complex
 
         self._pot_calc = None
+
+    def __repr__(self):
+        return f'DFTCalculation({self.atoms}, {self.params})'
 
     def lcao_ibz_wave_functions(self, basis_set, potential):
         from gpaw.new.lcao import create_lcao_ibz_wave_functions
@@ -214,8 +224,12 @@ def create_symmetry_object(atoms, ids=None, magmoms=None, parameters=None):
     return Symmetry(symmetry)
 
 
-def create_mode(mode):
-    return FDMode()
+def create_mode(name, **kwargs):
+    if name == 'pw':
+        return PWMode()
+    if name == 'fd':
+        return FDMode()
+    1 / 0
 
 
 def create_kpts(kpts, atoms):
