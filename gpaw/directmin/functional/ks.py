@@ -17,20 +17,20 @@ class KSLCAO:
         return {'name': self.name}
 
     def get_gradients(self, h_mm, c_nm, f_n, evec, evals, kpt, wfs, timer,
-                      matrix_exp, repr_name, ind_up):
+                      matrix_exp, representation, ind_up):
 
         with timer('Construct Gradient Matrix'):
             use_egdecomp = matrix_exp == 'egdecomp'
             
             hc_mn, h_ij, h_ia = self.get_ham_in_mol_orb_representation(
-                h_mm, c_nm, f_n, repr_name, use_egdecomp)
+                h_mm, c_nm, f_n, representation, use_egdecomp)
             
             with timer('Residual'):
                 error = self.get_residual_error(
                     hc_mn, kpt.S_MM, c_nm, h_ij, f_n, wfs.nvalence)
 
-            if repr_name in ['sparse', 'u-invar'] and not use_egdecomp:
-                if repr_name == 'sparse':
+            if representation in ['sparse', 'u-invar'] and not use_egdecomp:
+                if representation == 'sparse':
                     indl_oo = np.tril_indices(h_ij.shape[0])
                     h_ij[indl_oo] = np.inf
                     h_ij = np.concatenate((h_ij, h_ia), axis=1)
@@ -53,7 +53,7 @@ class KSLCAO:
                         grad = self.get_exact_gradient_matrix(
                             grad, evec, evals)
 
-                if repr_name in ['sparse', 'u-invar']:
+                if representation in ['sparse', 'u-invar']:
                     grad = grad[ind_up]
 
         if wfs.dtype == float:
