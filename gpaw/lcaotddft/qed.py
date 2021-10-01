@@ -63,12 +63,8 @@ class RRemission(object):
                 V_uMM.append(V_MM)
             self.V_iuMM.append(V_uMM)
         self.Ni = len(self.ext_i)
-
-        if time > 5:  # to remove the overlap with the initial kick -- REMOVE
-            rr_argument = (-4.0 * np.pi * alpha / self.rr_quantization_plane
-                           * np.dot(self.polarization_cavity, self.dipolexyz))
-        else:
-            rr_argument = 0
+        rr_argument = (-4.0 * np.pi * alpha / self.rr_quantization_plane
+                       * np.dot(self.polarization_cavity, self.dipolexyz))
         Vrr_MM = rr_argument * self.V_iuMM[0][uvalue]
         for i in range(1, self.Ni):
             Vrr_MM += rr_argument * self.V_iuMM[i][uvalue]
