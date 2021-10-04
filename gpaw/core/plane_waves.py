@@ -9,6 +9,7 @@ from gpaw.typing import Array1D, Array2D
 from gpaw.mpi import MPIComm, serial_comm
 from gpaw.core.arrays import DistributedArrays
 from gpaw.pw.descriptor import pad
+from gpaw.core.atom_centered_functions import PlaneWaveAtomCenteredFunctions
 
 
 def find_reciprocal_vectors(ecut: float,
@@ -59,7 +60,8 @@ class PlaneWaves(Layout):
                  ecut: float,
                  grid: UniformGrid):
         self.ecut = ecut
-        self.grid = grid.new(pbc=(True, True, True))
+        self.grid = grid
+        assert grid.pbc.all()
         self.pbc = grid.pbc
 
         G_plus_k, ekin, self.indices = find_reciprocal_vectors(ecut, grid)
@@ -79,7 +81,7 @@ class PlaneWaves(Layout):
 
         Layout.__init__(self, (ng,), (len(self.myindices),))
 
-    def __str__(self):
+    def __str__(self) -> str:
         a, b, c = self.grid.size
         comm = self.grid.comm
         txt = f'PlaneWaves(ecut={self.ecut}, grid={a}*{b}*{c}'
@@ -87,12 +89,12 @@ class PlaneWaves(Layout):
             txt += f', comm={comm.rank}/{comm.size}'
         return txt + ')'
 
-    def reciprocal_vectors(self):
+    def reciprocal_vectors(self) -> Array2D:
         """Returns reciprocal lattice vectors, G + k,
         in xyz coordinates."""
         return self.G_plus_k
 
-    def kinetic_energies(self):
+    def kinetic_energies(self) -> Array1D:
         return self.ekin
 
     def empty(self,
@@ -100,7 +102,7 @@ class PlaneWaves(Layout):
               comm: MPIComm = serial_comm) -> PlaneWaveExpansions:
         return PlaneWaveExpansions(self, shape, comm)
 
-    def fft_plans(self, flags=fftw.MEASURE):
+    def fft_plans(self, flags: int = fftw.MEASURE):
         size = tuple(self.grid.size)
         if self.grid.dtype == float:
             rsize = size[:2] + (size[2] // 2 + 1,)
@@ -113,6 +115,9 @@ class PlaneWaves(Layout):
         fftplan = fftw.FFTPlan(tmp2, tmp1, -1, flags)
         ifftplan = fftw.FFTPlan(tmp1, tmp2, 1, flags)
         return fftplan, ifftplan
+
+    def atom_centered_functions(self, functions, positions, integral=None):
+        return PlaneWaveAtomCenteredFunctions(functions, positions, self)
 
 
 class PlaneWaveExpansions(DistributedArrays):

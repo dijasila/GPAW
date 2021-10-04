@@ -1,14 +1,19 @@
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
-from ase.units import Bohr
+from ase import Atoms
 from gpaw.hybrids import HybridXC
+from gpaw.lfc import BasisFunctions
 from gpaw.mixer import MixerWrapper, get_mixer_from_keywords
 from gpaw.mpi import MPIComm, Parallelization, world
+from gpaw.new import cached_property
 from gpaw.new.brillouin import BZ, MonkhorstPackKPoints
 from gpaw.new.davidson import Davidson
 from gpaw.new.density import Density
-from gpaw.new.modes import PWMode, FDMode
+from gpaw.new.input_parameters import InputParameters
+from gpaw.new.modes import FDMode, PWMode
 from gpaw.new.potential import PotentialCalculator
 from gpaw.new.scf import SCFLoop
 from gpaw.new.smearing import OccupationNumberCalculator
@@ -18,26 +23,25 @@ from gpaw.new.xc import XCFunctional
 from gpaw.setup import Setups
 from gpaw.symmetry import Symmetry as OldSymmetry
 from gpaw.xc import XC
-from gpaw.lfc import BasisFunctions
-from gpaw.new.input_parameters import InputParameters
-from ase import Atoms
-from typing import Any
+from gpaw.core.plane_waves import PlaneWaves
 
 
 class DFTConfiguration:
     def __init__(self,
                  atoms: Atoms,
                  params: dict[str, Any] | InputParameters):
+
         self.atoms = atoms.copy()
+
         if isinstance(params, dict):
             params = InputParameters(params)
         self.params = params
+
         parallel = params.parallel
         world = parallel['world']
 
         self.mode = create_mode(**params.mode)
         self.xc = XCFunctional(XC(params.xc))
-
         self.setups = Setups(atoms.numbers,
                              params.setups,
                              params.basis,
@@ -60,28 +64,26 @@ class DFTConfiguration:
             d = world.size
         self.communicators = create_communicators(world, len(self.ibz),
                                                   d, k, b)
-        self.communicators['w'] = world
 
-        self.grid = self.mode.create_uniform_grid(params.h,
-                                                  params.gpts,
-                                                  atoms.cell,
-                                                  atoms.pbc,
-                                                  symmetry,
-                                                  comm=self.communicators['d'])
+        self.grid = self.mode.create_uniform_grid(
+            params.h,
+            params.gpts,
+            atoms.cell,
+            atoms.pbc,
+            symmetry,
+            comm=self.communicators['d'])
+
+        if self.mode.name == 'fd':
+            self.wf_grid = self.grid
+        else:
+            assert self.mode.name == 'pw'
+            self.wf_grid = PlaneWaves(ecut=self.mode.ecut, grid=self.grid)
 
         if self.mode.name == 'fd':
             pass  # filter = create_fourier_filter(grid)
             # setups = stups.filter(filter)
 
-        self.fracpos = atoms.get_scaled_positions()
-
-        self.grid2 = self.grid.new(size=self.grid.size * 2)
-        # decomposition=[2 * d for d in grid.decomposition]
-
         self.nelectrons = self.setups.nvalence - params.charge
-
-        if self.mode.name == 'pw':
-            self.mode.create_plane_waves(self.grid)
 
         self.nbands = calculate_number_of_bands(params.nbands,
                                                 self.setups,
@@ -89,19 +91,36 @@ class DFTConfiguration:
                                                 self.initial_magmoms,
                                                 self.mode.name == 'lcao')
 
+        self.fine_grid = self.grid.new(size=self.grid.size * 2)
+        # decomposition=[2 * d for d in grid.decomposition]
+
+    @cached_property
+    def ncomponents(self):
         if self.initial_magmoms is None:
-            self.ncomponents = 1
-        elif self.initial_magmoms.ndim == 1:
-            self.ncomponents = 2
-        else:
-            self.ncomponents = 4
+            return 1
+        if self.initial_magmoms.ndim == 1:
+            return 2
+        return 4
 
+    @cached_property
+    def dtype(self):
+        bz = self.ibz.bz
         if len(bz.points) == 1 and not bz.points[0].any():
-            self.dtype = float
-        else:
-            self.dtype = complex
+            return float
+        return complex
 
-        self._pot_calc = None
+    @cached_property
+    def fracpos(self):
+        return self.atoms.get_scaled_positions()
+
+    @cached_property
+    def potential_calculator(self):
+        poisson_solver = self.mode.create_poisson_solver(
+            self.fine_grid,
+            self.params.poissonsolver)
+        return PotentialCalculator(self.wf_grid, self.fine_grid,
+                                   self.setups, self.fracpos,
+                                   self.xc, poisson_solver)
 
     def __repr__(self):
         return f'DFTCalculation({self.atoms}, {self.params})'
@@ -115,7 +134,7 @@ class DFTConfiguration:
             self.ibz,
             self.communicators['b'],
             self.communicators['k'],
-            self.grid,
+            self.wf_grid,
             self.setups,
             self.fracpos,
             self.nbands,
@@ -130,34 +149,25 @@ class DFTConfiguration:
 
     def density_from_superposition(self, basis_set):
         return Density.from_superposition(
-            self.grid, self.setups, self.initial_magmoms,
+            self.wf_grid, self.grid, self.setups, self.initial_magmoms,
             self.fracpos, basis_set, self.params.charge, self.params.hund)
 
-    @property
-    def potential_calculator(self):
-        if self._pot_calc is None:
-            poisson_solver = self.mode.create_poisson_solver(
-                self.grid2,
-                self.params.poissonsolver)
-            self._pot_calc = PotentialCalculator(self.grid, self.grid2,
-                                                 self.setups, self.fracpos,
-                                                 self.xc, poisson_solver)
-        return self._pot_calc
-
     def scf_loop(self):
-        hamiltonian = self.mode.create_hamiltonian_operator(self.grid)
-        eigensolver = Davidson(self.nbands, self.grid, self.communicators['b'],
+        hamiltonian = self.mode.create_hamiltonian_operator(self.wf_grid)
+        eigensolver = Davidson(self.nbands,
+                               self.wf_grid,
+                               self.communicators['b'],
                                hamiltonian.create_preconditioner,
                                **self.params.eigensolver)
 
         mixer = MixerWrapper(
-            get_mixer_from_keywords(self.grid.pbc.any(),
+            get_mixer_from_keywords(self.atoms.pbc.any(),
                                     self.ncomponents, **self.params.mixer),
             self.ncomponents, self.grid._gd)
 
         occ_calc = OccupationNumberCalculator(
             self.params.occupations,
-            self.grid.pbc,
+            self.atoms.pbc,
             self.ibz,
             self.nbands,
             self.communicators,
@@ -180,6 +190,7 @@ def create_communicators(comm: MPIComm = None,
                         domain=domain,
                         band=band)
     comms = parallelization.build_communicators()
+    comms['w'] = comm
     return comms
 
 
@@ -226,9 +237,9 @@ def create_symmetry_object(atoms, ids=None, magmoms=None, parameters=None):
 
 def create_mode(name, **kwargs):
     if name == 'pw':
-        return PWMode()
+        return PWMode(**kwargs)
     if name == 'fd':
-        return FDMode()
+        return FDMode(**kwargs)
     1 / 0
 
 

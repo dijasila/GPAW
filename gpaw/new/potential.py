@@ -4,10 +4,16 @@ from gpaw.utilities import pack, unpack
 from gpaw.typing import Array1D, Array3D
 from gpaw.setup import Setup
 from gpaw.new.xc import XCFunctional
+from gpaw.core import UniformGrid, PlaneWaves
+from gpaw.core.arrays import DistributedArrays
+from gpaw.core.atom_arrays import AtomArrays
 
 
 class Potential:
-    def __init__(self, vt, dH, energies):
+    def __init__(self,
+                 vt: DistributedArrays,
+                 dH: AtomArrays,
+                 energies: dict[str, float]):
         self.vt = vt
         self.dv = dH
         self.energies = energies
@@ -20,9 +26,15 @@ class Potential:
 
 
 class PotentialCalculator:
-    def __init__(self, grid1, grid2, setups, fracpos, xc, poisson_solver):
-        self.interpolate = grid1.transformer(grid2)
-        self.restrict = grid2.transformer(grid1)
+    def __init__(self,
+                 wf_grid: UniformGrid | PlaneWaves,
+                 fine_grid: UniformGrid,
+                 setups,
+                 fracpos,
+                 xc,
+                 poisson_solver):
+        self.interpolate = wf_grid.transformer(fine_grid)
+        self.restrict = fine_grid.transformer(wf_grid)
 
         self.compensation_charges = setups.create_compensation_charges(
             grid2, fracpos)

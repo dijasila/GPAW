@@ -2,9 +2,10 @@ from __future__ import annotations
 from gpaw.core import UniformGrid
 from gpaw.poisson import PoissonSolver
 from gpaw.fd_operators import Laplace
-from gpaw.mpi import  serial_comm, MPIComm
-from ase.units import Bohr
+from gpaw.mpi import serial_comm, MPIComm
+from ase.units import Bohr, Ha
 from gpaw.utilities.gpts import get_number_of_grid_points
+from gpaw.new.input_parameters import InputParameters
 
 
 class Mode:
@@ -19,12 +20,15 @@ class Mode:
         if h is not None:
             h /= Bohr
 
+        realspace = (self.name != 'pw' and self.interpolation != 'fft')
+        if not realspace:
+            pbc = (True, True, True)
+
         if gpts is not None:
             if h is not None:
                 raise ValueError("""You can't use both "gpts" and "h"!""")
             size = gpts
         else:
-            realspace = (self.name != 'pw' and self.interpolation != 'fft')
             size = get_number_of_grid_points(cell, h, self, realspace,
                                              symmetry.symmetry)
         return UniformGrid(cell=cell, pbc=pbc, size=size, comm=comm)
@@ -33,8 +37,13 @@ class Mode:
 class PWMode(Mode):
     name = 'pw'
 
+    def __init__(self, ecut: float = 340.0):
+        if ecut is not None:
+            ecut /= Ha
+        self.ecut = ecut
+
     def create_poisson_solver(self, grid, params):
-        1 / 0
+        print(grid, params)
 
     def create_hamiltonian_operator(self, grid, blocksize=10):
         return 1 / 0
@@ -45,7 +54,9 @@ class FDMode(Mode):
     stencil = 3
     interpolation = 'not fft'
 
-    def create_poisson_solver(self, grid, params):
+    def create_poisson_solver(self,
+                              grid: UniformGrid,
+                              params: InputParameters) -> PoissonSolver:
         solver = PoissonSolver(**params)
         solver.set_grid_descriptor(grid._gd)
         return solver

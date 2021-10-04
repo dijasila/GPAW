@@ -64,7 +64,7 @@ class UniformGrid(Layout):
             dtype = complex
         else:
             dtype = dtype or float
-        self.dtype = dtype
+        self.dtype = np.dtype(dtype)
 
         self._phase_factors = None
 

@@ -15,7 +15,7 @@ class AtomArraysLayout(Layout):
         if not isinstance(atomdist, AtomDistribution):
             atomdist = AtomDistribution(np.zeros(len(shapes), int), atomdist)
         self.atomdist = atomdist
-        self.dtype = dtype
+        self.dtype = np.dtype(dtype)
 
         self.size = sum(np.prod(shape) for shape in self.shapes)
 

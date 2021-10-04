@@ -116,3 +116,14 @@ class PlaneWaveAtomCenteredFunctions(AtomCenteredFunctions):
         pd = PWDescriptor(self.pw.ecut, gd, kd=kd)
         self.lfc = PWLFC(self.functions, pd)
         self.lfc.set_positions(self._positions)
+
+    def add_to(self, functions, coefs=1.0):
+        self._lacy_init()
+
+        if isinstance(coefs, float):
+            pw_functions = self.pw.zeros(functions.shape)
+            self.lfc.add(pw_functions.data, coefs)
+            ug_functions = pw_functions.ifft()
+            functions.data += ug_functions.data
+        else:
+            AtomCenteredFunctions.add_to(self, functions, coefs)

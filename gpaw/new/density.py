@@ -58,6 +58,7 @@ class Density:
     @classmethod
     def from_superposition(cls,
                            grid,
+                           grid1,
                            setups,
                            magmoms,
                            fracpos,
@@ -66,7 +67,6 @@ class Density:
                            hund=False):
         # density and magnitization components:
         ndens, nmag = magmoms2dims(magmoms)
-        grid = grid
         setups = setups
 
         if magmoms is None:
@@ -75,17 +75,17 @@ class Density:
                                               charge / len(setups))
                  for a, (setup, magmom) in enumerate(zip(setups, magmoms))}
 
-        density = grid.zeros(ndens + nmag)
+        density = grid1.zeros(ndens + nmag)
         basis_set.add_to_density(density.data, f_asi)
 
         core_acf = setups.create_pseudo_core_densities(grid, fracpos)
-        core_density = grid.zeros()
+        core_density = grid1.zeros()
         core_acf.add_to(core_density, 1.0 / ndens)
         density.data[:ndens] += core_density.data
 
         atom_array_layout = AtomArraysLayout([(setup.ni, setup.ni)
                                               for setup in setups],
-                                             atomdist=grid.comm)
+                                             atomdist=grid1.comm)
         density_matrices = atom_array_layout.empty(ndens + nmag)
         for a, D in density_matrices.items():
             D[:] = unpack2(setups[a].initialize_density_matrix(f_asi[a])).T
