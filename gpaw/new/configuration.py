@@ -64,7 +64,7 @@ class DFTConfiguration:
 
         self.grid = self.mode.create_uniform_grid(params.h,
                                                   params.gpts,
-                                                  atoms.cell / Bohr,
+                                                  atoms.cell,
                                                   atoms.pbc,
                                                   symmetry,
                                                   comm=self.communicators['d'])

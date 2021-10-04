@@ -31,6 +31,11 @@ class InputParameters:
         """Accuracy of the self-consistency cycle."""
         self.params = params
 
+        for key in params:
+            if key not in parameter_functions:
+                raise ValueError(
+                    f'Unknown parameter {key!r}.  Must be one of: ' +
+                    ', '.join(parameter_functions))
         for key, func in parameter_functions.items():
             if key in params:
                 value = func(params[key])
