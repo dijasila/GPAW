@@ -1,11 +1,16 @@
 from __future__ import annotations
-from gpaw.core import UniformGrid
-from gpaw.poisson import PoissonSolver
-from gpaw.fd_operators import Laplace
-from gpaw.mpi import serial_comm, MPIComm
+
 from ase.units import Bohr, Ha
-from gpaw.utilities.gpts import get_number_of_grid_points
+from gpaw.core import UniformGrid
+from gpaw.fd_operators import Laplace
+from gpaw.mpi import MPIComm, serial_comm
 from gpaw.new.input_parameters import InputParameters
+from gpaw.new.potential import (PlaneWavePotentialCalculator,
+                                UniformGridPotentialCalculator)
+from gpaw.poisson import PoissonSolver
+from gpaw.new.poisson import ReciprocalSpacePoissonSolver
+from gpaw.utilities.gpts import get_number_of_grid_points
+from gpaw.core import PlaneWaves
 
 
 class Mode:
@@ -42,8 +47,21 @@ class PWMode(Mode):
             ecut /= Ha
         self.ecut = ecut
 
-    def create_poisson_solver(self, grid, params):
-        print(grid, params)
+    def create_poisson_solver(self, fine_grid_pw, params):
+        return ReciprocalSpacePoissonSolver(fine_grid_pw)
+
+    def create_potential_calculator(self,
+                                    wf_pw: PlaneWaves,
+                                    fine_grid, setups,
+                                    fracpos,
+                                    xc,
+                                    poisson_solver_params):
+        fine_grid_pw = PlaneWaves(ecut=4 * wf_pw.ecut, grid=fine_grid)
+        poisson_solver = self.create_poisson_solver(fine_grid_pw,
+                                                    poisson_solver_params)
+        return PlaneWavePotentialCalculator(wf_pw, fine_grid_pw,
+                                            setups, fracpos,
+                                            xc, poisson_solver)
 
     def create_hamiltonian_operator(self, grid, blocksize=10):
         return 1 / 0
@@ -59,7 +77,16 @@ class FDMode(Mode):
                               params: InputParameters) -> PoissonSolver:
         solver = PoissonSolver(**params)
         solver.set_grid_descriptor(grid._gd)
+        solver.description = solver.get_description()
         return solver
+
+    def create_potential_calculator(self, wf_grid, fine_grid, setups,
+                                    fracpos, xc, poisson_solver_params):
+        poisson_solver = self.create_poisson_solver(fine_grid,
+                                                    poisson_solver_params)
+        return UniformGridPotentialCalculator(wf_grid, fine_grid,
+                                              setups, fracpos,
+                                              xc, poisson_solver)
 
     def create_hamiltonian_operator(self, grid, blocksize=10):
         return Hamiltonian(grid, self.stencil, blocksize)
@@ -80,6 +107,7 @@ class Hamiltonian:
 
     def create_preconditioner(self, blocksize):
         from types import SimpleNamespace
+
         from gpaw.preconditioner import Preconditioner as PC
         pc = PC(self.gd, self.kin, self.grid.dtype, self.blocksize)
 

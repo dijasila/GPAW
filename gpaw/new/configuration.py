@@ -14,7 +14,6 @@ from gpaw.new.davidson import Davidson
 from gpaw.new.density import Density
 from gpaw.new.input_parameters import InputParameters
 from gpaw.new.modes import FDMode, PWMode
-from gpaw.new.potential import PotentialCalculator
 from gpaw.new.scf import SCFLoop
 from gpaw.new.smearing import OccupationNumberCalculator
 from gpaw.new.symmetry import Symmetry
@@ -115,12 +114,11 @@ class DFTConfiguration:
 
     @cached_property
     def potential_calculator(self):
-        poisson_solver = self.mode.create_poisson_solver(
-            self.fine_grid,
+        return self.mode.create_potential_calculator(
+            self.wf_grid, self.fine_grid,
+            self.setups, self.fracpos,
+            self.xc,
             self.params.poissonsolver)
-        return PotentialCalculator(self.wf_grid, self.fine_grid,
-                                   self.setups, self.fracpos,
-                                   self.xc, poisson_solver)
 
     def __repr__(self):
         return f'DFTCalculation({self.atoms}, {self.params})'

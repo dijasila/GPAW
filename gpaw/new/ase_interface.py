@@ -1,22 +1,18 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import IO, Any, Sequence, TypedDict
+from typing import IO, Any
 from contextlib import contextmanager
 from collections import defaultdict
 from time import time
 
 from ase import Atoms
+from ase.units import Bohr, Ha
 from gpaw import __version__, debug
-from gpaw.mpi import MPIComm
 from gpaw.new.calculation import DFTCalculation
 from gpaw.new.input_parameters import InputParameters
 from gpaw.new.logger import Logger
 from gpaw.new.old import OldStuff
-
-
-class ParallelKeyword(TypedDict):
-    world: Sequence[int] | MPIComm
 
 
 def GPAW(filename: str | Path | IO[str] = None,
@@ -60,54 +56,61 @@ class ASECalculator(OldStuff):
 
         self.atoms = None
         self.results = {}
+        self.timer = Timer()
 
     def calculate_property(self, atoms: Atoms, prop: str) -> Any:
         log = self.log
-        timer = Timer()
-        if self.calculation is None:
-            write_atoms(atoms, log)
-            with timer('init'):
-                self.calculation = DFTCalculation.from_parameters(
-                    atoms, self.params, log)
-            with timer('SCF'):
-                self.calculation.converge(log)
-            self.results = {}
-            self.atoms = atoms.copy()
-            changes = {'number', 'pbc', 'cell'}
-        else:
+
+        if self.calculation is not None:
             changes = compare_atoms(self.atoms, atoms)
             if changes & {'number', 'pbc', 'cell'}:
                 self.calculation = None
-                return self.calculate_property(atoms, prop)
-            if changes:
-                fracpos = atoms.get_scaled_positions()
-                with timer('move'):
-                    self.calculation.move(fracpos, log)
-                with timer('SCF'):
-                    self.calculation.converge(log)
-                self.results = {}
 
-        if changes:
-            self.calculation.write_converged(log)
+        if self.calculation is None:
+            write_atoms(atoms, log)
+            with self.timer('init'):
+                self.calculation = DFTCalculation.from_parameters(
+                    atoms, self.params, log)
+            self.converge(atoms)
+        else:
+            if changes:
+                write_atoms(atoms, log)
+                with self.timer('move'):
+                    self.calculation = self.calculation.move_atoms(atoms, log)
+                self.converge(atoms)
 
         if prop not in self.results:
-            if prop == 'energy':
-                self.results[prop] = self.calculation.energy(log)
+            if prop.endswith('energy'):
+                free, extrapolated = self.calculation.energies(log)
+                self.results['free_energy'] = free
+                self.results['energy'] = extrapolated
             elif prop == 'forces':
-                with timer('Forces'):
+                with self.timer('Forces'):
                     self.results[prop] = self.calculation.forces(log)
             else:
                 raise ValueError('Unknown property:', prop)
 
-        timer.write(log)
-
         return self.results[prop]
 
-    def get_potential_energy(self, atoms: Atoms) -> float:
-        return self.calculate_property(atoms, 'energy')
+    def converge(self, atoms):
+        with self.timer('SCF'):
+            self.calculation.converge(self.log)
+            self.results = {}
+            self.atoms = atoms.copy()
+            self.calculation.write_converged(self.log)
+
+    def __del__(self):
+        self.timer.write(self.log)
+
+    def get_potential_energy(self,
+                             atoms: Atoms,
+                             force_consistent: bool = False) -> float:
+        return self.calculate_property(atoms,
+                                       'free_energy' if force_consistent else
+                                       'energy') * Ha
 
     def get_forces(self, atoms: Atoms) -> float:
-        return self.calculate_property(atoms, 'forces')
+        return self.calculate_property(atoms, 'forces') * Ha / Bohr
 
 
 def write_header(log, kwargs):
@@ -144,6 +147,6 @@ class Timer:
         self.times[name] += t2 - t1
 
     def write(self, log):
-        log('\nTiming (seconds):\n   ',
-            '\n    '.join(f'{name + ":":10}{t:10.3f}'
-                          for name, t in self.times.items()))
+        log('\n' +
+            '\n'.join(f'Time ({name + "):":12}{t:10.3f} seconds'
+                      for name, t in self.times.items()))

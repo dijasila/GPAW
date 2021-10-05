@@ -55,10 +55,17 @@ class Density:
         x = -charge / pseudo_charge
         self.density.data *= x
 
+    def move(self, fracpos):
+        self.core_acf.positions = fracpos
+        core_density = self.core_acf.evaluate(1.0 / self.ndensities)
+        self.density.data[:self.ndensities] += (core_density.data -
+                                                self.core_density.data)
+        self.core_density = core_density
+
     @classmethod
     def from_superposition(cls,
+                           wf_grid,
                            grid,
-                           grid1,
                            setups,
                            magmoms,
                            fracpos,
@@ -75,26 +82,22 @@ class Density:
                                               charge / len(setups))
                  for a, (setup, magmom) in enumerate(zip(setups, magmoms))}
 
-        density = grid1.zeros(ndens + nmag)
+        density = grid.zeros(ndens + nmag)
         basis_set.add_to_density(density.data, f_asi)
 
-        core_acf = setups.create_pseudo_core_densities(grid, fracpos)
-        core_density = grid1.zeros()
-        core_acf.add_to(core_density, 1.0 / ndens)
+        core_acf = setups.create_pseudo_core_densities(wf_grid, fracpos)
+        core_density = core_acf.evaluate(1.0 / ndens)
         density.data[:ndens] += core_density.data
 
         atom_array_layout = AtomArraysLayout([(setup.ni, setup.ni)
                                               for setup in setups],
-                                             atomdist=grid1.comm)
+                                             atomdist=grid.comm)
         density_matrices = atom_array_layout.empty(ndens + nmag)
         for a, D in density_matrices.items():
             D[:] = unpack2(setups[a].initialize_density_matrix(f_asi[a])).T
 
         return cls(density, density_matrices, core_density, core_acf,
                    setups, charge)
-
-    def from_wave_functions(self, ibz):
-        ...
 
 
 def atomic_occupation_numbers(setup,

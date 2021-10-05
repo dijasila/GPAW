@@ -20,37 +20,34 @@ class ReciprocalSpacePoissonSolver:
             # Avoid division by zero:
             self.ekin[0] = 1.0
 
-    def __str__(self):
-        return f'Uniform background charge: {self.charge:.3f} electrons'
-
-    def estimate_memory(self, mem):
-        pass
+        self.description = (
+            f'Uniform background charge: {self.charge:.3f} electrons')
 
     def solve(self,
-              vHt_q: Array1D,
-              dens: ReciprocalSpaceDensity) -> float:
+              vHt,
+              rhot) -> float:
         """Solve Poisson equeation.
 
         Places result in vHt_q ndarray.
         """
-        epot = self._solve(vHt_q, dens.rhot_q)
+        epot = self._solve(vHt, rhot)
         return epot
 
     def _solve(self,
-               vHt_q: Array1D,
-               rhot_q: Array1D) -> float:
-        vHt_q[:] = 4 * pi * rhot_q
-        if self.pd.gd.comm.rank == 0:
+               vHt,
+               rhot) -> float:
+        vHt.data[:] = 2 * pi * rhot.data
+        if self.pw.grid.comm.rank == 0:
             # Use uniform backgroud charge in case we have a charged system:
-            vHt_q[0] = 0.0
-        vHt_q /= self.G2_q
-        epot = 0.5 * self.pd.integrate(vHt_q, rhot_q)
+            vHt.data[0] = 0.0
+        vHt.data /= self.ekin
+        epot = 0.5 * vHt.integrate(rhot_q)
         return epot
 
 
 class ChargedReciprocalSpacePoissonSolver(ReciprocalSpacePoissonSolver):
     def __init__(self,
-                 pd: PWDescriptor,
+                 pw: PlaneWaves,
                  charge: float,
                  alpha: float = None,
                  eps: float = 1e-5):

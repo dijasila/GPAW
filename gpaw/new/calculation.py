@@ -33,16 +33,49 @@ class DFTCalculation:
 
         return cls(cfg, ibz_wfs, density, potential)
 
-    def energy(self, log):
-        energies = self.potential.energies.copy()
-        energies['kinetic'] += self.ibz_wfs.e_band
-        energies['entropy'] = self.ibz_wfs.e_entropy
+    def move_atoms(self, atoms, log) -> DFTCalculation:
+        cfg = DFTConfiguration(atoms, self.cfg.params)
+
+        if self.cfg.ibz.symmetry != cfg.ibz.symmetry:
+            raise ValueError
+
+        self.density.move(cfg.fracpos)
+        self.ibz_wfs.move(cfg.fracpos)
+        self.potential.energies.clear()
+
+        return DFTCalculation(cfg, self.ibz_wfs, self.density, self.potential)
+
+    @property
+    def scf(self):
+        if self._scf is None:
+            self._scf = self.cfg.scf_loop()
+        return self._scf
+
+    def converge(self, log, convergence=None):
+        convergence = convergence or self.cfg.params.convergence
+        log('\n', self.scf.description)
+        density, potential = self.scf.converge(self.ibz_wfs,
+                                               self.density,
+                                               self.potential,
+                                               convergence,
+                                               self.cfg.params.maxiter,
+                                               log)
+        self.density = density
+        self.potential = potential
+
+    def energies(self, log):
+        energies1 = self.potential.energies.copy()
+        energies2 = self.ibz_wfs.energies
+        energies1['kinetic'] += energies2['band']
+        energies1['entropy'] = energies2['entropy']
+        free_energy = sum(energies1.values())
+        extrapolated_energy = free_energy + energies2['extrapolation']
         log('\nEnergies (eV):')
-        for name, e in energies.items():
-            log(f'    {name + ":":10} {e * Ha:14.6f}')
-        total_energy = sum(energies.values())
-        log(f'    Total:     {total_energy * Ha:14.6f}')
-        return total_energy
+        for name, e in energies1.items():
+            log(f'    {name + ":":10}   {e * Ha:14.6f}')
+        log(f'    Total:       {free_energy * Ha:14.6f}')
+        log(f'    Extrapolated:{extrapolated_energy * Ha:14.6f}')
+        return free_energy, extrapolated_energy
 
     def forces(self, log):
         """Return atomic force contributions."""
@@ -79,30 +112,8 @@ class DFTCalculation:
         for a, setup in enumerate(self.cfg.setups):
             x, y, z = forces[a] * c
             log(f'{a:4} {setup.symbol:2} {x:10.3f} {y:10.3f} {z:10.3f}')
-        log()
 
         return forces
-
-    def move(self, fracpos):
-        ...
-
-    @property
-    def scf(self):
-        if self._scf is None:
-            self._scf = self.cfg.scf_loop()
-        return self._scf
-
-    def converge(self, log, convergence=None):
-        convergence = convergence or self.cfg.params.convergence
-        log('\n', self.scf.description)
-        density, potential = self.scf.converge(self.ibz_wfs,
-                                               self.density,
-                                               self.potential,
-                                               convergence,
-                                               self.cfg.params.maxiter,
-                                               log)
-        self.density = density
-        self.potential = potential
 
     @staticmethod
     def read(filename, log, parallel):
@@ -114,8 +125,11 @@ class DFTCalculation:
         log(f'\nFermi level: {fl[0]:.3f}\n')
 
         ibz = self.ibz_wfs.ibz
-        for i, point in enumerate(ibz.points):
-            log(f'kpt={point}, weight={ibz.weights[i]}')
+        for i, (x, y, z) in enumerate(ibz.points):
+            log(f'kpt = [{x:.3f}, {y:.3f}, {z:.3f}], '
+                f'weight = {ibz.weights[i]:.3f}:')
             eigs, occs = self.ibz_wfs.get_eigs_and_occs(i)
+            eigs *= Ha
+            occs *= self.ibz_wfs.spin_degeneracy
             for n, (e, f) in enumerate(zip(eigs, occs)):
-                log(f'{n} {e:10.3f} {f:.3f}')
+                log(f'    {n:4} {e:10.3f}   {f:.3f}')

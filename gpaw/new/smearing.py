@@ -36,6 +36,7 @@ class OccupationNumberCalculator:
             rcell=rcell,
             monkhorst_pack_size=ibz.bz.size,
             bz2ibzmap=ibz.bz2ibz)
+        self.extrapolate_factor = self.occ.extrapolate_factor
 
     def calculate(self,
                   nelectrons: float,

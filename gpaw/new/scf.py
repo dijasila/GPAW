@@ -49,8 +49,11 @@ class SCFLoop:
             wfs_error = self.eigensolver.iterate(ibz_wfs, Ht, dH, dS)
             ibz_wfs.calculate_occs(self.occ_calc)
 
-            ctx = SCFContext(ibz_wfs, density, potential, niter,
-                             wfs_error, dens_error, self.world)
+            ctx = SCFContext(
+                ibz_wfs, density, potential, niter,
+                wfs_error, dens_error,
+                self.world)
+
             yield ctx
 
             if niter > 0:
@@ -80,20 +83,17 @@ class SCFLoop:
         return ctx.density, ctx.potential
 
 
-def calculate_energy(ibz_wfs: IBZWaveFunctions,
-                     potential: Potential) -> float:
-    return (sum(potential.energies.values()) +
-            ibz_wfs.e_band +
-            ibz_wfs.e_entropy)
-
-
 class SCFContext:
-    def __init__(self, ibz_wfs, density, potential, niter,
-                 wfs_error, dens_error, world):
+    def __init__(self, ibz_wfs, density, potential,
+                 niter: int,
+                 wfs_error: float,
+                 dens_error: float,
+                 world):
         self.density = density
         self.potential = potential
         self.niter = niter
-        energy = calculate_energy(ibz_wfs, potential)
+        energy = (sum(potential.energies.values()) +
+                  sum(ibz_wfs.energies.values()))
         self.ham = SimpleNamespace(e_total_extrapolated=energy)
         self.wfs = SimpleNamespace(nvalence=ibz_wfs.nelectrons,
                                    world=world,

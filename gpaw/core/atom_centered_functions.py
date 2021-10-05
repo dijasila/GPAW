@@ -100,6 +100,11 @@ class UniformGridAtomCenteredFunctions(AtomCenteredFunctions):
                        forces=True)
         self.lfc.set_positions(self._positions)
 
+    def evaluate(self, coef: float = 1.0):
+        out = self.grid.zeros()
+        self.add_to(out, coef)
+        return out
+
 
 class PlaneWaveAtomCenteredFunctions(AtomCenteredFunctions):
     def __init__(self, functions, positions, pw, atomdist=serial_comm):
@@ -117,13 +122,7 @@ class PlaneWaveAtomCenteredFunctions(AtomCenteredFunctions):
         self.lfc = PWLFC(self.functions, pd)
         self.lfc.set_positions(self._positions)
 
-    def add_to(self, functions, coefs=1.0):
-        self._lacy_init()
-
-        if isinstance(coefs, float):
-            pw_functions = self.pw.zeros(functions.shape)
-            self.lfc.add(pw_functions.data, coefs)
-            ug_functions = pw_functions.ifft()
-            functions.data += ug_functions.data
-        else:
-            AtomCenteredFunctions.add_to(self, functions, coefs)
+    def evaluate(self, coef: float = 1.0):
+        out = self.pw.zeros()
+        self.add_to(out, coef)
+        return out.ifft()

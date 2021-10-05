@@ -10,8 +10,11 @@ from ase.units import Ha
 from gpaw.new.density import Density
 import _gpaw
 from gpaw.core.atom_arrays import AtomArrays
+from gpaw.utilities.debug import frozen
+from typing import Iterator
 
 
+@frozen
 class IBZWaveFunctions:
     def __init__(self,
                  ibz: IBZ,
@@ -34,8 +37,9 @@ class IBZWaveFunctions:
             if rank == kpt_comm.rank:
                 self.ibz_index_to_local_index[i] = j
                 j += 1
+        self.energies = {}
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[WaveFunctions]:
         for wfs in self.mykpts:
             yield wfs
 
@@ -68,6 +72,13 @@ class IBZWaveFunctions:
 
         return cls(ibz, ranks, kpt_comm, mykpts, nelectrons)
 
+    def move(self, fracpos):
+        self.energies.clear()
+        for wfs in self:
+            wfs._projections = None
+            wfs.orthonormalized = False
+            wfs.projectors.positions = fracpos
+
     def orthonormalize(self, work_array=None):
         for wfs in self:
             wfs.orthonormalize(work_array)
@@ -89,11 +100,15 @@ class IBZWaveFunctions:
         for occsk, wfs in zip(occs, self):
             wfs._occs = occsk
 
-        self.e_entropy = e_entropy * degeneracy / Ha
+        e_entropy *= degeneracy / Ha
         e_band = 0.0
         for wfs in self:
             e_band += wfs.occs @ wfs.eigs * wfs.weight * degeneracy
-        self.e_band = self.kpt_comm.sum(e_band)
+        e_band = self.kpt_comm.sum(e_band)
+        self.energies = {
+            'band': e_band,
+            'entropy': e_entropy,
+            'extrapolation': e_entropy * occ_calc.extrapolate_factor}
 
     def calculate_density(self, out: Density) -> None:
         density = out
@@ -114,6 +129,7 @@ class IBZWaveFunctions:
         return F
 
 
+@frozen
 class WaveFunctions:
     def __init__(self,
                  wave_functions: DA,

@@ -12,49 +12,6 @@ from gpaw.pw.descriptor import pad
 from gpaw.core.atom_centered_functions import PlaneWaveAtomCenteredFunctions
 
 
-def find_reciprocal_vectors(ecut: float,
-                            grid: UniformGrid) -> tuple[Array2D,
-                                                        Array1D,
-                                                        Array1D]:
-    size = grid.size
-
-    if grid.dtype == float:
-        Nr_c = list(size)
-        Nr_c[2] = size[2] // 2 + 1
-        i_Qc = np.indices(Nr_c).transpose((1, 2, 3, 0))
-        i_Qc[..., :2] += size[:2] // 2
-        i_Qc[..., :2] %= size[:2]
-        i_Qc[..., :2] -= size[:2] // 2
-    else:
-        i_Qc = np.indices(size).transpose((1, 2, 3, 0))  # type: ignore
-        half = [s // 2 for s in size]
-        i_Qc += half
-        i_Qc %= size
-        i_Qc -= half
-
-    # Calculate reciprocal lattice vectors:
-    B_cv = 2.0 * pi * grid.icell
-    i_Qc.shape = (-1, 3)
-    G_plus_k_Qv = np.dot(i_Qc + grid.kpt, B_cv)
-
-    # Map from vectors inside sphere to fft grid:
-    Q_Q = np.arange(len(i_Qc), dtype=np.int32)
-
-    G2_Q = (G_plus_k_Qv**2).sum(axis=1)
-    mask_Q = (G2_Q <= 2 * ecut)
-
-    if grid.kpt is None:
-        mask_Q &= ((i_Qc[:, 2] > 0) |
-                   (i_Qc[:, 1] > 0) |
-                   ((i_Qc[:, 0] >= 0) & (i_Qc[:, 1] == 0)))
-
-    indices = Q_Q[mask_Q]
-    ekin = 0.5 * G2_Q[indices]
-    G_plus_k = G_plus_k_Qv[mask_Q]
-
-    return G_plus_k, ekin, indices
-
-
 class PlaneWaves(Layout):
     def __init__(self,
                  ecut: float,
@@ -195,3 +152,112 @@ class Empty:
     def _arrays(self):
         while True:
             yield
+
+
+def find_reciprocal_vectors(ecut: float,
+                            grid: UniformGrid) -> tuple[Array2D,
+                                                        Array1D,
+                                                        Array1D]:
+    size = grid.size
+
+    if grid.dtype == float:
+        Nr_c = list(size)
+        Nr_c[2] = size[2] // 2 + 1
+        i_Qc = np.indices(Nr_c).transpose((1, 2, 3, 0))
+        i_Qc[..., :2] += size[:2] // 2
+        i_Qc[..., :2] %= size[:2]
+        i_Qc[..., :2] -= size[:2] // 2
+    else:
+        i_Qc = np.indices(size).transpose((1, 2, 3, 0))  # type: ignore
+        half = [s // 2 for s in size]
+        i_Qc += half
+        i_Qc %= size
+        i_Qc -= half
+
+    # Calculate reciprocal lattice vectors:
+    B_cv = 2.0 * pi * grid.icell
+    i_Qc.shape = (-1, 3)
+    G_plus_k_Qv = np.dot(i_Qc + grid.kpt, B_cv)
+
+    # Map from vectors inside sphere to fft grid:
+    Q_Q = np.arange(len(i_Qc), dtype=np.int32)
+
+    G2_Q = (G_plus_k_Qv**2).sum(axis=1)
+    mask_Q = (G2_Q <= 2 * ecut)
+
+    if grid.kpt is None:
+        mask_Q &= ((i_Qc[:, 2] > 0) |
+                   (i_Qc[:, 1] > 0) |
+                   ((i_Qc[:, 0] >= 0) & (i_Qc[:, 1] == 0)))
+
+    indices = Q_Q[mask_Q]
+    ekin = 0.5 * G2_Q[indices]
+    G_plus_k = G_plus_k_Qv[mask_Q]
+
+    return G_plus_k, ekin, indices
+
+
+class PWMapping:
+    def __init__(self, pw1: PlaneWaves, pw2: PlaneWaves):
+        """Mapping from pd1 to pd2."""
+        N_c = pw1.grid.size
+        N2_c = pw2.grid.size
+        assert pw1.grid.dtype == pw2.grid.dtype
+        if pw1.grid.dtype == float:
+            N_c = N_c.copy()
+            N_c[2] = N_c[2] // 2 + 1
+            N2_c = N2_c.copy()
+            N2_c[2] = N2_c[2] // 2 + 1
+
+        Q1_G = pw1.myindices
+        Q1_Gc = np.empty((len(Q1_G), 3), int)
+        Q1_Gc[:, 0], r_G = divmod(Q1_G, N_c[1] * N_c[2])
+        Q1_Gc.T[1:] = divmod(r_G, N_c[2])
+        if pw1.grid.dtype == float:
+            C = 2
+        else:
+            C = 3
+        Q1_Gc[:, :C] += N_c[:C] // 2
+        Q1_Gc[:, :C] %= N_c[:C]
+        Q1_Gc[:, :C] -= N_c[:C] // 2
+        Q1_Gc[:, :C] %= N2_c[:C]
+        Q2_G = Q1_Gc[:, 2] + N2_c[2] * (Q1_Gc[:, 1] + N2_c[1] * Q1_Gc[:, 0])
+        G2_Q = np.empty(N2_c, int).ravel()
+        G2_Q[:] = -1
+        G2_Q[pw2.myindices] = np.arange(len(pw2.myindices))
+        G2_G1 = G2_Q[Q2_G]
+
+        if pw1.grid.comm.size == 1:
+            self.G2_G1 = G2_G1
+            self.G1 = None
+        else:
+            mask_G1 = (G2_G1 != -1)
+            self.G2_G1 = G2_G1[mask_G1]
+            self.G1 = np.arange(pw1.maxmysize)[mask_G1]
+
+        self.pw1 = pw1
+        self.pw2 = pw2
+
+    def add_to1(self, a_G1, b_G2):
+        """Do a += b * scale, where a is on pd1 and b on pd2."""
+        scale = self.pd1.tmp_R.size / self.pd2.tmp_R.size
+
+        if self.pd1.gd.comm.size == 1:
+            a_G1 += b_G2[self.G2_G1] * scale
+            return
+
+        b_G1 = self.pd1.tmp_G
+        b_G1[:] = 0.0
+        b_G1[self.G1] = b_G2[self.G2_G1]
+        self.pd1.gd.comm.sum(b_G1)
+        ng1 = self.pd1.gd.comm.rank * self.pd1.maxmyng
+        ng2 = ng1 + self.pd1.myng_q[0]
+        a_G1 += b_G1[ng1:ng2] * scale
+
+    def add_to2(self, a2, b1):
+        """Do a += b * scale, where a is on pd2 and b on pd1."""
+        myb = b1.data * (self.pw2.grid.shape[0] / self.pw1.grid.shape[0])
+        if self.pw1.grid.comm.size == 1:
+            a2.data[self.G2_G1] += myb
+        else:
+            1 / 0

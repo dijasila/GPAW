@@ -77,6 +77,7 @@ class ReciprocalSpaceDensity(Density):
 
     def interpolate(self, in_xR, out_xR=None):
         """Interpolate array(s)."""
+        asdfgljkh
         if out_xR is None:
             out_xR = self.finegd.empty(in_xR.shape[:-3])
 
