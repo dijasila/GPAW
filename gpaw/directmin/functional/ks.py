@@ -29,13 +29,14 @@ class KSLCAO:
                 error = self.get_residual_error(
                     hc_mn, kpt.S_MM, c_nm, h_ij, f_n, wfs.nvalence)
 
-            if representation in ['sparse', 'u-invar'] and not use_egdecomp:
-                if representation == 'sparse':
+            if not use_egdecomp:
+                if representation == 'u-invar':
+                    h_ij = h_ia
+                else:
                     indl_oo = np.tril_indices(h_ij.shape[0])
                     h_ij[indl_oo] = np.inf
-                    h_ij = np.concatenate((h_ij, h_ia), axis=1)
-                else:
-                    h_ij = h_ia
+                    if representation == 'sparse':
+                        h_ij = np.concatenate((h_ij, h_ia), axis=1)
                 h_ij = h_ij.ravel()
                 h_ij = h_ij[h_ij != np.inf]
         
@@ -48,13 +49,10 @@ class KSLCAO:
                 h_ij = f_n * h_ij - f_n[:, np.newaxis] * h_ij
                 grad = np.ascontiguousarray(h_ij)
 
-                if use_egdecomp:
-                    with timer('Use Eigendecomposition'):
-                        grad = self.get_exact_gradient_matrix(
-                            grad, evec, evals)
+                with timer('Use Eigendecomposition'):
+                    grad = self.get_exact_gradient_matrix(grad, evec, evals)
 
-                if representation in ['sparse', 'u-invar']:
-                    grad = grad[ind_up]
+                grad = grad[ind_up]
 
         if wfs.dtype == float:
             grad = grad.real
