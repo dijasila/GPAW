@@ -2,9 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import IO, Any
-from contextlib import contextmanager
-from collections import defaultdict
-from time import time
 
 from ase import Atoms
 from ase.units import Bohr, Ha
@@ -13,6 +10,7 @@ from gpaw.new.calculation import DFTCalculation
 from gpaw.new.input_parameters import InputParameters
 from gpaw.new.logger import Logger
 from gpaw.new.old import OldStuff
+from gpaw.new import Timer
 
 
 def GPAW(filename: str | Path | IO[str] = None,
@@ -30,18 +28,6 @@ def GPAW(filename: str | Path | IO[str] = None,
 
     write_header(log, kwargs)
     return ASECalculator(params, log)
-
-
-def compare_atoms(a1, a2):
-    if len(a1.numbers) != len(a2.numbers) or (a1.numbers != a2.numbers).any():
-        return {'atomic_numbers'}
-    if (a1.pbc != a2.pbc).any():
-        return {'pbc'}
-    if abs(a1.cell - a2.cell).max() > 0.0:
-        return {'cell'}
-    if abs(a1.positions - a2.positions).max() > 0.0:
-        return {'positions'}
-    return set()
 
 
 class ASECalculator(OldStuff):
@@ -67,17 +53,11 @@ class ASECalculator(OldStuff):
                 self.calculation = None
 
         if self.calculation is None:
-            write_atoms(atoms, log)
-            with self.timer('init'):
-                self.calculation = DFTCalculation.from_parameters(
-                    atoms, self.params, log)
+            self.create_new_calculation(atoms)
             self.converge(atoms)
-        else:
-            if changes:
-                write_atoms(atoms, log)
-                with self.timer('move'):
-                    self.calculation = self.calculation.move_atoms(atoms, log)
-                self.converge(atoms)
+        elif changes:
+            self.move_atoms(atoms)
+            self.converge(atoms)
 
         if prop not in self.results:
             if prop.endswith('energy'):
@@ -92,12 +72,23 @@ class ASECalculator(OldStuff):
 
         return self.results[prop]
 
+    def create_new_calculation(self, atoms):
+        write_atoms(atoms, self.log)
+        with self.timer('init'):
+            self.calculation = DFTCalculation.from_parameters(
+                atoms, self.params, self.log)
+
+    def move_atoms(self, atoms):
+        write_atoms(atoms, self.log)
+        with self.timer('move'):
+            self.calculation = self.calculation.move_atoms(atoms, self.log)
+
     def converge(self, atoms):
         with self.timer('SCF'):
             self.calculation.converge(self.log)
-            self.results = {}
-            self.atoms = atoms.copy()
-            self.calculation.write_converged(self.log)
+        self.results = {}
+        self.atoms = atoms.copy()
+        self.calculation.write_converged(self.log)
 
     def __del__(self):
         self.timer.write(self.log)
@@ -135,18 +126,13 @@ def write_atoms(atoms, log):
     log(f'    pbc={atoms.pbc.tolist()})')
 
 
-class Timer:
-    def __init__(self):
-        self.times = defaultdict(float)
-
-    @contextmanager
-    def __call__(self, name):
-        t1 = time()
-        yield
-        t2 = time()
-        self.times[name] += t2 - t1
-
-    def write(self, log):
-        log('\n' +
-            '\n'.join(f'Time ({name + "):":12}{t:10.3f} seconds'
-                      for name, t in self.times.items()))
+def compare_atoms(a1, a2):
+    if len(a1.numbers) != len(a2.numbers) or (a1.numbers != a2.numbers).any():
+        return {'atomic_numbers'}
+    if (a1.pbc != a2.pbc).any():
+        return {'pbc'}
+    if abs(a1.cell - a2.cell).max() > 0.0:
+        return {'cell'}
+    if abs(a1.positions - a2.positions).max() > 0.0:
+        return {'positions'}
+    return set()

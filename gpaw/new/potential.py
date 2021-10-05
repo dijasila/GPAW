@@ -7,7 +7,7 @@ from gpaw.new.xc import XCFunctional
 from gpaw.core import UniformGrid, PlaneWaves
 from gpaw.core.arrays import DistributedArrays
 from gpaw.core.atom_arrays import AtomArrays
-from gpaw.core.plane_waves import PWMapping
+from gpaw.core.plane_waves import PWMapping, interpolate
 
 
 class Potential:
@@ -119,13 +119,13 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
                                      poisson_solver, setups, fracpos)
 
         self.pwmap = PWMapping(wf_pw, fine_grid_pw)
+        self.fftplan, self.ifftplan = wf_pw.fft_plans()
+        self.fftplan2, self.ifftplan2 = fine_grid_pw.fft_plans()
 
     def calculate(self, density):
         density1 = density.density
-        rdensity1 = density1.fft(self.pwmap.pw1)
-        rdensity2 = self.pwmap.pw2.zeros(density1.shape)
-        rdensity2.data[:, self.pwmap.indices] = rdensity1.data
-        density2 = rdensity2.ifft()
+        density2 = self.fine_grid.empty(density.shape)
+        interpolate(density1, self.fftplan, self.ifftplan2, density2)
 
         vxc = density2.grid.zeros(density2.shape)
         e_xc = self.xc.calculate(density2, vxc)

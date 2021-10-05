@@ -261,3 +261,99 @@ class PWMapping:
             a2.data[self.G2_G1] += myb
         else:
             1 / 0
+
+
+def interpolate(function, fftplan, ifftplan, out):
+    size1 = function.size
+    size2 = out.size
+    if (size1 <= size2).any():
+        raise ValueError('Too few points in target grid!')
+
+    fftplan.in_R[:] = function.data
+
+    fftplan.execute()
+
+    a_Q = fftplan.out_R
+    b_Q = ifftplan.in_R
+
+    e0, e1, e2 = 1 - size1 % 2  # even or odd size
+    a0, a1, a2 = size2 // 2 - size1 // 2
+    b0, b1, b2 = size1 + (a0, a1, a2)
+
+    if function.dtype == float:
+        b2 = (b2 - a2) // 2 + 1
+        a2 = 0
+        axes = (0, 1)
+    else:
+        axes = (0, 1, 2)
+
+    b_Q[:] = 0.0
+    b_Q[a0:b0, a1:b1, a2:b2] = np.fft.fftshift(a_Q, axes=axes)
+
+    if e0:
+        b_Q[a0, a1:b1, a2:b2] *= 0.5
+        b_Q[b0, a1:b1, a2:b2] = b_Q[a0, a1:b1, a2:b2]
+        b0 += 1
+    if e1:
+        b_Q[a0:b0, a1, a2:b2] *= 0.5
+        b_Q[a0:b0, b1, a2:b2] = b_Q[a0:b0, a1, a2:b2]
+        b1 += 1
+    if function.dtype == complex:
+        if e2:
+            b_Q[a0:b0, a1:b1, a2] *= 0.5
+            b_Q[a0:b0, a1:b1, b2] = b_Q[a0:b0, a1:b1, a2]
+    else:
+        if e2:
+            b_Q[a0:b0, a1:b1, b2 - 1] *= 0.5
+
+    b_Q[:] = np.fft.ifftshift(b_Q, axes=axes)
+    ifftplan.execute()
+    out.data[:] = ifftplan.out_R
+    out.data *= (1.0 / out.data.size)
+    return out
+
+
+def restrict(self, a_R, pd):
+    self.gd.collect(a_R, self.tmp_R[:])
+
+    if self.gd.comm.rank == 0:
+        a_Q = pd.tmp_Q
+        b_Q = self.tmp_Q
+
+        e0, e1, e2 = 1 - pd.gd.N_c % 2  # even or odd size
+        a0, a1, a2 = self.gd.N_c // 2 - pd.gd.N_c // 2
+        b0, b1, b2 = pd.gd.N_c // 2 + self.gd.N_c // 2 + 1
+
+        if self.dtype == float:
+            b2 = pd.gd.N_c[2] // 2 + 1
+            a2 = 0
+            axes = (0, 1)
+        else:
+            axes = (0, 1, 2)
+
+        self.fftplan.execute()
+        b_Q[:] = np.fft.fftshift(b_Q, axes=axes)
+
+        if e0:
+            b_Q[a0, a1:b1, a2:b2] += b_Q[b0 - 1, a1:b1, a2:b2]
+            b_Q[a0, a1:b1, a2:b2] *= 0.5
+            b0 -= 1
+        if e1:
+            b_Q[a0:b0, a1, a2:b2] += b_Q[a0:b0, b1 - 1, a2:b2]
+            b_Q[a0:b0, a1, a2:b2] *= 0.5
+            b1 -= 1
+        if self.dtype == complex and e2:
+            b_Q[a0:b0, a1:b1, a2] += b_Q[a0:b0, a1:b1, b2 - 1]
+            b_Q[a0:b0, a1:b1, a2] *= 0.5
+            b2 -= 1
+
+        a_Q[:] = b_Q[a0:b0, a1:b1, a2:b2]
+        a_Q[:] = np.fft.ifftshift(a_Q, axes=axes)
+        a_G = a_Q.ravel()[pd.Q_qG[0]] / 8
+        pd.ifftplan.execute()
+    else:
+        a_G = None
+
+    return (pd.gd.distribute(pd.tmp_R) * (1.0 / self.tmp_R.size),
+            pd.scatter(a_G))
+
