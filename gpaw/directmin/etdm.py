@@ -272,17 +272,7 @@ class ETDM:
             u = self.kpointval(kpt)
             # M - one dimension of the A_BigMatrix
             M = self.n_dim[u]
-            if self.representation == 'sparse':
-                # let's take all upper triangular indices
-                # of A_BigMatrix and then delete indices from ind_up
-                # which correspond to 0 matrix in in A_BigMatrix.
-                ind_up = np.triu_indices(self.n_dim[u], 1)
-                zero_ind = -((M - n_occ) * (M - n_occ - 1)) // 2
-                if zero_ind == 0:
-                    zero_ind = None
-                self.ind_up[u] = (ind_up[0][:zero_ind].copy(),
-                                  ind_up[1][:zero_ind].copy())
-            elif self.representation == 'u-invar':
+            if self.representation == 'u-invar':
                 i1, i2 = [], []
                 for i in range(n_occ):
                     for j in range(n_occ, M):
@@ -290,12 +280,18 @@ class ETDM:
                         i2.append(j)
                 self.ind_up[u] = (np.asarray(i1), np.asarray(i2))
             else:
-                self.ind_up[u] = None
+                # Take all upper triangular indices of A_BigMatrix
+                self.ind_up[u] = np.triu_indices(self.n_dim[u], 1)
+                if self.representation == 'sparse':
+                    # Delete indices of elements that correspond
+                    # to 0 matrix in A_BigMatrix
+                    zero_ind = -((M - n_occ) * (M - n_occ - 1)) // 2
+                    if zero_ind == 0:
+                        zero_ind = None
+                    self.ind_up[u] = (self.ind_up[u][0][:zero_ind].copy(),
+                                      self.ind_up[u][1][:zero_ind].copy())
 
-            if self.representation in ['sparse', 'u-invar']:
-                shape_of_arr = len(self.ind_up[u][0])
-            else:
-                shape_of_arr = (self.n_dim[u], self.n_dim[u])
+            shape_of_arr = len(self.ind_up[u][0])
 
             self.a_mat_u[u] = np.zeros(shape=shape_of_arr, dtype=self.dtype)
             self.g_mat_u[u] = np.zeros(shape=shape_of_arr, dtype=self.dtype)
