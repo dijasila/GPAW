@@ -1,4 +1,3 @@
-from pathlib import Path
 from myqueue.workflow import run
 
 
