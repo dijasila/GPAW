@@ -241,7 +241,7 @@ class UniformGridFunctions(DistributedArrays):
         norms = []
         arrays = self._arrays()
         for a in arrays:
-            norms.append(np.vdot(a, a).real)
+            norms.append(np.vdot(a, a).real * self.grid.dv)
         result = np.array(norms).reshape(self.myshape)
         self.grid.comm.sum(result)
         return result

@@ -125,7 +125,7 @@ class Davidson:
         for wfs in ibz_wfs:
             e = self.iterate1(wfs, Ht, dH, dS)
             error += wfs.weight * e
-        return error
+        return error * ibz_wfs.spin_degeneracy
 
     def iterate1(self, wfs, Ht, dH, dS):
         H = self.H
@@ -163,42 +163,47 @@ class Davidson:
 
         Ht = partial(Ht, out=residuals, spin=0)
 
+        def copy(C_nn):
+            domain_comm.sum(M.data, 0)
+            if domain_comm.rank == 0:
+                M.redist(M0)
+                if band_comm.rank == 0:
+                    C_nn[:] = M0.data
+
         for i in range(self.niter):
+            if i == self.niter - 1:
+                # Calulate error before we destroy residuals:
+                weights = calculate_weights(self.converge, wfs)
+                error = weights @ residuals.norm2()
+
             self.preconditioner(psit, residuals, out=psit2)
 
             # Calculate projections
             wfs.projectors.integrate(psit2, out=proj2)
-
-            def copy(M, C_nn):
-                domain_comm.sum(M.data, 0)
-                if domain_comm.rank == 0:
-                    M.redist(M0)
-                    if band_comm.rank == 0:
-                        C_nn[:] = M0.data
 
             # <psi2 | H | psi2>
             me(psit2, psit2, function=Ht)
             me(proj2, proj2,
                function=partial(dH, out=proj3),
                add_to_out=True)
-            copy(M, H.data[B:, B:])
+            copy(H.data[B:, B:])
 
             # <psi2 | H | psi>
             me(residuals, psit)
             proj3.matrix.multiply(proj, opa='C', beta=1.0, out=M)
-            copy(M, H.data[B:, :B])
+            copy(H.data[B:, :B])
 
             # <psi2 | S | psi2>
             me(psit2, psit2)
             me(proj2, proj2,
                function=partial(dS, out=proj3),
                add_to_out=True)
-            copy(M, S.data[B:, B:])
+            copy(S.data[B:, B:])
 
             # <psi2 | S | psi>
             me(psit2, psit)
             proj3.matrix.multiply(proj, opa='C', beta=1.0, out=M)
-            copy(M, S.data[B:, :B])
+            copy(S.data[B:, :B])
 
             if is_domain_band_master:
                 H.data[:B, :B] = np.diag(eigs[:B])
@@ -222,11 +227,6 @@ class Davidson:
                     M0.data[:] = H.data[:B, :B].T
                 M0.redist(M)
             domain_comm.broadcast(M.data, 0)
-
-            if i == self.niter - 1:
-                # Calulate error before we destroy residuals:
-                weights = calculate_weights(self.converge, wfs)
-                error = weights @ residuals.norm2()
 
             M.multiply(psit, out=residuals)
             proj.matrix.multiply(M, opb='T', out=proj3)

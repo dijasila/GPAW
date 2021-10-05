@@ -86,7 +86,7 @@ class ASECalculator(OldStuff):
                 self.results['energy'] = extrapolated
             elif prop == 'forces':
                 with self.timer('Forces'):
-                    self.results[prop] = self.calculation.forces(log)
+                    self.results['forces'] = self.calculation.forces(log)
             else:
                 raise ValueError('Unknown property:', prop)
 

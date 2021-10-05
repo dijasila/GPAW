@@ -129,7 +129,7 @@ class DFTCalculation:
             log(f'kpt = [{x:.3f}, {y:.3f}, {z:.3f}], '
                 f'weight = {ibz.weights[i]:.3f}:')
             eigs, occs = self.ibz_wfs.get_eigs_and_occs(i)
-            eigs *= Ha
-            occs *= self.ibz_wfs.spin_degeneracy
+            eigs = eigs * Ha
+            occs = occs * self.ibz_wfs.spin_degeneracy
             for n, (e, f) in enumerate(zip(eigs, occs)):
                 log(f'    {n:4} {e:10.3f}   {f:.3f}')
