@@ -837,17 +837,14 @@ class ETDM:
                     continue
 
                 if self.gd.comm.rank == 0:
-                    if self.representation in ['sparse', 'u-invar']:
-                        if self.matrix_exp == 'egdecomp-u-invar' and \
-                                self.representation == 'u-invar':
-                            n_occ = get_n_occ(kpt)
-                            n_v = wfs.bd.nbands - n_occ
-                            a = a_mat_u[k].reshape(n_occ, n_v)
-                        else:
-                            a = vec2skewmat(a_mat_u[k], n_dim[k],
-                                            self.ind_up[k], self.dtype)
+                    if self.matrix_exp == 'egdecomp-u-invar' and \
+                            self.representation == 'u-invar':
+                        n_occ = get_n_occ(kpt)
+                        n_v = n_dim[k] - n_occ
+                        a = a_mat_u[k].reshape(n_occ, n_v)
                     else:
-                        a = a_mat_u[k]
+                        a = vec2skewmat(a_mat_u[k], n_dim[k],
+                                        self.ind_up[k], self.dtype)
 
                     if self.matrix_exp == 'pade-approx':
                         # this function takes a lot of memory
