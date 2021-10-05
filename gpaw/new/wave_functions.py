@@ -78,6 +78,8 @@ class IBZWaveFunctions:
             wfs._projections = None
             wfs.orthonormalized = False
             wfs.projectors.positions = fracpos
+            wfs._eigs = None
+            wfs._occs = None
 
     def orthonormalize(self, work_array=None):
         for wfs in self:

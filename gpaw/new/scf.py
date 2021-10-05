@@ -1,5 +1,5 @@
 from functools import partial
-# from math import inf
+from math import inf
 from types import SimpleNamespace
 from gpaw.scf import write_iteration
 import warnings
@@ -40,8 +40,8 @@ class SCFLoop:
 
         self.mixer.reset()
 
-        # dens_error = inf
-        dens_error = self.mixer.mix(density)
+        dens_error = inf
+        # dens_error = self.mixer.mix(density)
         niter = 1
         while True:
             dH = potential.dH
@@ -56,10 +56,9 @@ class SCFLoop:
 
             yield ctx
 
-            if niter > 0:
-                ibz_wfs.calculate_density(out=density)
-                dens_error = self.mixer.mix(density)
-                potential = self.pot_calc.calculate(density)
+            ibz_wfs.calculate_density(out=density)
+            dens_error = self.mixer.mix(density)
+            potential = self.pot_calc.calculate(density)
 
             niter += 1
 
