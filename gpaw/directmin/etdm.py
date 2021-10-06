@@ -336,11 +336,7 @@ class ETDM:
             # recalculate derivative with new search direction
             der_phi_2i[0] = 0.0
             for k in g_mat_u:
-                if self.representation in ['sparse', 'u-invar']:
-                    der_phi_2i[0] += g_mat_u[k].conj() @ p_mat_u[k]
-                else:
-                    il1 = get_indices(g_mat_u[k].shape[0], self.dtype)
-                    der_phi_2i[0] += g_mat_u[k][il1].conj() @ p_mat_u[k][il1]
+                der_phi_2i[0] += g_mat_u[k].conj() @ p_mat_u[k]
             der_phi_2i[0] = der_phi_2i[0].real
             der_phi_2i[0] = wfs.kd.comm.sum(der_phi_2i[0])
 
@@ -462,13 +458,8 @@ class ETDM:
                                                          ham, wfs, dens, c_ref)
 
         der_phi = 0.0
-        if self.representation in ['sparse', 'u-invar']:
-            for k in p_mat_u:
-                der_phi += g_mat_u[k].conj() @ p_mat_u[k]
-        else:
-            for k in p_mat_u:
-                il1 = get_indices(p_mat_u[k].shape[0], self.dtype)
-                der_phi += g_mat_u[k][il1].conj() @ p_mat_u[k][il1]
+        for k in p_mat_u:
+            der_phi += g_mat_u[k].conj() @ p_mat_u[k]
 
         der_phi = der_phi.real
         der_phi = wfs.kd.comm.sum(der_phi)
