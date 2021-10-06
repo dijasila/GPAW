@@ -334,8 +334,10 @@ class ETDM:
                 g_mat_u = self.g_mat_u
 
             with wfs.timer('Get Search Direction'):
-                p_mat_u = self.get_search_direction(a_mat_u, g_mat_u,
-                                                    precond, wfs)
+                # calculate search direction according to chosen
+                # optimization algorithm (e.g. L-BFGS)
+                p_mat_u = self.searchdir_algo.update_data(wfs, a_mat_u,
+                                                          g_mat_u, precond)
 
             # recalculate derivative with new search direction
             der_phi_2i[0] = 0.0
@@ -439,14 +441,6 @@ class ETDM:
         ham.update(dens, wfs, False)
 
         return ham.get_energy(0.0, wfs, False)
-
-    def get_search_direction(self, a_mat_u, g_mat_u, precond, wfs):
-        """
-        calculate search direction according to chosen
-        optimization algorithm (L-BFGS for example)
-        """
-
-        return self.searchdir_algo.update_data(wfs, a_mat_u, g_mat_u, precond)
 
     def evaluate_phi_and_der_phi(self, a_mat_u, p_mat_u, n_dim, alpha,
                                  ham, wfs, dens, c_ref,
@@ -904,17 +898,6 @@ class ETDM:
     @error.setter
     def error(self, e):
         self._error = e
-
-
-def get_indices(dimens, dtype):
-
-    if dtype == complex:
-        il1 = np.tril_indices(dimens)
-    else:
-        il1 = np.tril_indices(dimens, -1)
-
-    return il1
-
 
 def get_n_occ(kpt):
     """
