@@ -159,7 +159,7 @@ class LCAOTDDFT(GPAW):
         self.niter += 1
         self.timer.stop('Kick')
 
-    def kick(self, ext: ExternalPotential):
+    def kick(self, ext):
         """Kick with any external potential.
 
         Parameters
