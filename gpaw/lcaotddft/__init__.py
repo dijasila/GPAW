@@ -65,17 +65,9 @@ class LCAOTDDFT(GPAW):
                       communicator=communicator, txt=txt)
         self.set_positions()
 
-    def write(self, filename: str, mode: str = 'all'):
-        """Write calculator object to a file.
-
-        Parameters
-        ----------
-        filename
-            File to be written
-        mode
-            Write mode. Use ``mode='all'``
-            to include wave functions in the file.
-        """
+    def write(self, filename, mode=''):
+        # This function is included here in order to generate
+        # documentation for LCAOTDDFT.write() with autoclass in sphinx
         GPAW.write(self, filename, mode=mode)
 
     def _write(self, writer, mode):
