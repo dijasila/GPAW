@@ -36,13 +36,10 @@ def test_gradient_numerically_lcao(in_tmp_dir):
    
     params = [{'name': 'etdm',
                'representation': 'sparse',
-              'matrix_exp': 'egdecomp'},
+               'matrix_exp': 'egdecomp'},
               {'name': 'etdm',
                'representation': 'sparse',
                'matrix_exp': 'pade-approx'},
-              {'name': 'etdm',
-               'representation': 'u-invar',
-               'matrix_exp': 'egdecomp'},
               {'name': 'etdm',
                'representation': 'full',
                'matrix_exp': 'egdecomp'}]

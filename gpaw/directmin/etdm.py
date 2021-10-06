@@ -446,29 +446,7 @@ class ETDM:
         optimization algorithm (L-BFGS for example)
         """
 
-        if self.representation in ['sparse', 'u-invar']:
-            p_mat_u = self.searchdir_algo.update_data(wfs, a_mat_u, g_mat_u,
-                                                      precond)
-        else:
-            g_vec = {}
-            a_vec = {}
-
-            for k in a_mat_u:
-                il1 = get_indices(a_mat_u[k].shape[0], self.dtype)
-                a_vec[k] = a_mat_u[k][il1]
-                g_vec[k] = g_mat_u[k][il1]
-
-            p_vec = self.searchdir_algo.update_data(wfs, a_vec, g_vec, precond)
-            p_mat_u = {}
-            for k in p_vec:
-                p_mat_u[k] = np.zeros_like(a_mat_u[k])
-                il1 = get_indices(p_mat_u[k].shape[0], self.dtype)
-                p_mat_u[k][il1] = p_vec[k]
-                # make it skew-hermitian
-                il1 = np.tril_indices(p_mat_u[k].shape[0], -1)
-                p_mat_u[k][(il1[1], il1[0])] = -p_mat_u[k][il1].conj()
-
-        return p_mat_u
+        return self.searchdir_algo.update_data(wfs, a_mat_u, g_mat_u, precond)
 
     def evaluate_phi_and_der_phi(self, a_mat_u, p_mat_u, n_dim, alpha,
                                  ham, wfs, dens, c_ref,
@@ -569,12 +547,8 @@ class ETDM:
 
         f_n = kpt.f_n
         eps_n = kpt.eps_n
-        if self.representation in ['sparse', 'u-invar']:
-            u = self.kpointval(kpt)
-            il1 = list(self.ind_up[u])
-        else:
-            il1 = get_indices(eps_n.shape[0], self.dtype)
-            il1 = list(il1)
+        u = self.kpointval(kpt)
+        il1 = list(self.ind_up[u])
 
         hess = np.zeros(len(il1[0]), dtype=self.dtype)
         x = 0
