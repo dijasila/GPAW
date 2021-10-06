@@ -280,16 +280,20 @@ class ETDM:
                         i2.append(j)
                 self.ind_up[u] = (np.asarray(i1), np.asarray(i2))
             else:
-                # Take all upper triangular indices of A_BigMatrix
-                self.ind_up[u] = np.triu_indices(self.n_dim[u], 1)
-                if self.representation == 'sparse':
-                    # Delete indices of elements that correspond
-                    # to 0 matrix in A_BigMatrix
-                    zero_ind = -((M - n_occ) * (M - n_occ - 1)) // 2
-                    if zero_ind == 0:
-                        zero_ind = None
-                    self.ind_up[u] = (self.ind_up[u][0][:zero_ind].copy(),
-                                      self.ind_up[u][1][:zero_ind].copy())
+                if self.representation == 'full' and self.dtype == complex:
+                    # Take indices of all upper triangular and diagonal
+                    # elements of A_BigMatrix
+                    self.ind_up[u] = np.triu_indices(self.n_dim[u])
+                else:
+                    self.ind_up[u] = np.triu_indices(self.n_dim[u], 1)
+                    if self.representation == 'sparse':
+                        # Delete indices of elements that correspond
+                        # to 0 matrix in A_BigMatrix
+                        zero_ind = -((M - n_occ) * (M - n_occ - 1)) // 2
+                        if zero_ind == 0:
+                            zero_ind = None
+                        self.ind_up[u] = (self.ind_up[u][0][:zero_ind].copy(),
+                                          self.ind_up[u][1][:zero_ind].copy())
 
             shape_of_arr = len(self.ind_up[u][0])
 

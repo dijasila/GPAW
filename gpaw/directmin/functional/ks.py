@@ -33,8 +33,11 @@ class KSLCAO:
                 if representation == 'u-invar':
                     h_ij = h_ia
                 else:
-                    indl_oo = np.tril_indices(h_ij.shape[0])
-                    h_ij[indl_oo] = np.inf
+                    if representation == 'full' and wfs.dtype == complex:
+                        indl = np.tril_indices(h_ij.shape[0], -1)
+                    else:
+                        indl = np.tril_indices(h_ij.shape[0])
+                    h_ij[indl] = np.inf
                     if representation == 'sparse':
                         h_ij = np.concatenate((h_ij, h_ia), axis=1)
                 h_ij = h_ij.ravel()
