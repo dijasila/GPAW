@@ -694,7 +694,6 @@ class ETDM:
         :return: analytical and numerical
         """
 
-        assert self.representation in ['sparse', 'u-invar']
         assert what2calc in ['gradient', 'hessian']
 
         a_m = {u: np.zeros_like(v) for u, v in self.a_mat_u.items()}
