@@ -41,6 +41,9 @@ def test_gradient_numerically_lcao(in_tmp_dir):
                'representation': 'sparse',
                'matrix_exp': 'pade-approx'},
               {'name': 'etdm',
+               'representation': 'u-invar',
+               'matrix_exp': 'egdecomp'},
+              {'name': 'etdm',
                'representation': 'full',
                'matrix_exp': 'egdecomp'}]
 
