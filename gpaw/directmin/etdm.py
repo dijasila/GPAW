@@ -899,6 +899,7 @@ class ETDM:
     def error(self, e):
         self._error = e
 
+
 def get_n_occ(kpt):
     """
     get number of occupied orbitals
