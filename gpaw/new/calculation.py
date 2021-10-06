@@ -53,7 +53,7 @@ class DFTCalculation:
 
     def converge(self, log, convergence=None):
         convergence = convergence or self.cfg.params.convergence
-        log('\n', self.scf.description)
+        log(self.scf)
         density, potential = self.scf.converge(self.ibz_wfs,
                                                self.density,
                                                self.potential,
@@ -90,18 +90,17 @@ class DFTCalculation:
 
         # Force from compensation charges:
         ccc = self.density.calculate_compensation_charge_coefficients()
-        F_aLv = pot_calc.compensation_charges.derivative(pot_calc.vext)
+        F_aLv = pot_calc.ghat_acf.derivative(pot_calc.vHt)
         for a, dF_Lv in F_aLv.items():
             forces[a] += ccc[a] @ dF_Lv
 
         # Force from smooth core charge:
-        assert self.potential.vt.shape == (1,)
-        F_av = self.density.core_acf.derivative(self.potential.vt[0])
+        F_av = self.density.core_acf.derivative(pot_calc.vt)
         for a, dF_v in F_av.items():
             forces[a] += dF_v[0]
 
         # Force from zero potential:
-        F_av = pot_calc.local_potentials.derivative(pot_calc.total_density2)
+        F_av = pot_calc.vbar_acf.derivative(pot_calc.nt)
         for a, dF_v in F_av.items():
             forces[a] += dF_v[0]
 

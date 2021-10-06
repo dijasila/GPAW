@@ -28,25 +28,29 @@ class Potential:
 
 class PotentialCalculator:
     def __init__(self,
-                 fine_grid: UniformGrid,
                  xc,
-                 poisson_solver,
-                 setups, fracpos):
+                 poisson_solver):
         self.poisson_solver = poisson_solver
         self.xc = xc
+        self.vbar = self.vbar_acf.evaluate()
 
-        self.vext = fine_grid.zeros()  # initial guess for Coulomb potential
-        self.total_density2 = fine_grid.empty()
+    def __str__(self):
+        return f'\n{self.poisson_solver}\n{self.xc}'
 
-        self.local_potentials = setups.create_local_potentials(fine_grid,
-                                                               fracpos)
-        self.v0 = self.local_potentials.evaluate()
+    def calculate(self, density):
+        energies, potential= self._calculate(density)
 
-        self.compensation_charges = setups.create_compensation_charges(
-            fine_grid, fracpos)
+        vnonloc, corrections = calculate_non_local_potential(
+            density, self.xc, self.ghat_acf, self.vHt)
 
-        self.description = (poisson_solver.description +
-                            str(xc) + '...')
+        de_kinetic, de_coulomb, de_zero, de_xc, de_external = corrections
+        energies['kinetic'] += de_kinetic
+        energies['coulomb'] += de_coulomb
+        energies['zero'] += de_zero
+        energies['xc'] += de_xc
+        energies['external'] += de_external
+
+        return Potential(potential, vnonloc, energies)
 
 
 class UniformGridPotentialCalculator(PotentialCalculator):
@@ -57,112 +61,122 @@ class UniformGridPotentialCalculator(PotentialCalculator):
                  fracpos,
                  xc,
                  poisson_solver):
-        PotentialCalculator.__init__(self, fine_grid, xc, poisson_solver,
-                                     setups, fracpos)
+        self.vHt = fine_grid.zeros()  # initial guess for Coulomb potential
+        self.nt = fine_grid.empty()
+        self.vt = wf_grid.empty()
+
+        self.vbar_acf = setups.create_local_potentials(fine_grid, fracpos)
+        self.ghat_acf = setups.create_compensation_charges(fine_grid, fracpos)
 
         self.interpolate = wf_grid.transformer(fine_grid)
         self.restrict = fine_grid.transformer(wf_grid)
 
-    def calculate(self, density):
+        PotentialCalculator.__init__(self, xc, poisson_solver)
+
+    def _calculate(self, density):
         density1 = density.density
         density2 = self.interpolate(density1, preserve_integral=True)
 
         grid2 = density2.grid
 
-        vxc = grid2.zeros(density2.shape)
-        e_xc = self.xc.calculate(density2, vxc)
+        vxct = grid2.zeros(density2.shape)
+        e_xc = self.xc.calculate(density2, vxct)
 
-        self.total_density2.data[:] = density2.data[:density.ndensities].sum(
-            axis=0)
-        e_zero = self.v0.integrate(self.total_density2)
+        self.nt.data[:] = density2.data[:density.ndensities].sum(axis=0)
+        e_zero = self.vbar.integrate(self.nt)
 
         charge = grid2.empty()
-        charge.data[:] = self.total_density2.data
+        charge.data[:] = self.nt.data
         coefs = density.calculate_compensation_charge_coefficients()
-        self.compensation_charges.add_to(charge, coefs)
-        self.poisson_solver.solve(self.vext, charge)
-        e_coulomb = 0.5 * self.vext.integrate(charge)
+        self.ghat_acf.add_to(charge, coefs)
+        self.poisson_solver.solve(self.vHt, charge)
+        e_coulomb = 0.5 * self.vHt.integrate(charge)
 
-        potential2 = vxc
-        potential2.data += self.vext.data + self.v0.data
+        potential2 = vxct
+        potential2.data += self.vHt.data + self.vbar.data
         potential1 = self.restrict(potential2)
         e_kinetic = 0.0
-        for s, (p, d) in enumerate(zip(potential1, density1)):
-            e_kinetic -= p.integrate(d)
-            if s < density.ndensities:
-                e_kinetic += p.integrate(density.core_density)
-
-        vnonloc, corrections = calculate_non_local_potential(
-            density, self.xc,
-            self.compensation_charges, self.vext)
+        self.vt.data[:] = 0.0
+        for spin, (vt, nt) in enumerate(zip(potential1, density1)):
+            e_kinetic -= vt.integrate(nt)
+            if spin < density.ndensities:
+                e_kinetic += vt.integrate(density.core_density)
+                self.vt.data += vt.data / density.ndensities
 
         e_external = 0.0
 
-        de_kinetic, de_coulomb, de_zero, de_xc, de_external = corrections
-        energies = {'kinetic': e_kinetic + de_kinetic,
-                    'coulomb': e_coulomb + de_coulomb,
-                    'zero': e_zero + de_zero,
-                    'xc': e_xc + de_xc,
-                    'external': e_external + de_external}
-        return Potential(potential1, vnonloc, energies)
+        return {'kinetic': e_kinetic,
+                'coulomb': e_coulomb,
+                'zero': e_zero,
+                'xc': e_xc,
+                'external': e_external}, potential1
 
 
 class PlaneWavePotentialCalculator(PotentialCalculator):
     def __init__(self,
                  wf_pw: PlaneWaves,
-                 fine_grid_pw: PlaneWaves,
+                 fine_pw: PlaneWaves,
                  setups,
                  fracpos,
                  xc,
                  poisson_solver):
-        PotentialCalculator.__init__(self, fine_grid_pw.grid, xc,
-                                     poisson_solver, setups, fracpos)
+        self.vHt = fine_pw.zeros()  # initial guess for Coulomb potential
+        self.nt = wf_pw.empty()
+        self.vt = wf_pw.empty()
 
-        self.pwmap = PWMapping(wf_pw, fine_grid_pw)
+        self.vbar_acf = setups.create_local_potentials(wf_pw, fracpos)
+        self.ghat_acf = setups.create_compensation_charges(fine_pw, fracpos)
+
+        PotentialCalculator.__init__(self,xc, poisson_solver)
+
+        self.pwmap = PWMapping(wf_pw, fine_pw)
         self.fftplan, self.ifftplan = wf_pw.grid.fft_plans()
-        self.fftplan2, self.ifftplan2 = fine_grid_pw.grid.fft_plans()
+        self.fftplan2, self.ifftplan2 = fine_pw.grid.fft_plans()
 
-    def calculate(self, density):
-        density1 = density.density
-        density2 = self.fine_grid.empty(density.shape)
-        density1.fft_interpolate(density2, self.fftplan, self.ifftplan2)
+    def _calculate(self, density):
+        fine_density = self.fine_grid.empty(density.shape)
+        for spin, (nt1, nt2) in enumerate(zip(density.density, fine_density)):
+            nt1.fft_interpolate(nt2, self.fftplan, self.ifftplan2)
 
-        vxc = density2.grid.zeros(density2.shape)
-        e_xc = self.xc.calculate(density2, vxc)
+        vxct = fine_density.grid.zeros(density.shape)
+        e_xc = self.xc.calculate(fine_density, vxct)
 
-        self.total_density2.data[:] = density2.data[:density.ndensities].sum(
-            axis=0)
-        e_zero = self.v0.integrate(self.total_density2)
+        nt = density.grid.empty()
+        nt.data[:] = density.data[:density.ndensities].sum(axis=0)
+        nt.fft(plan=self.fftplan, out=self.nt)
+        e_zero = self.vbar.integrate(self.nt)
 
-        charge = grid2.empty()
-        charge.data[:] = self.total_density2.data
+        charge = self.vHt.pw.zeros()
+        indices = self.pwmap.G2_G1
+        scale = charge.pw.grid.size.prod() / self.nt.pw.grid.size.prod()
+        assert scale == 8
+        charge.data[indices] = self.nt.data * scale
         coefs = density.calculate_compensation_charge_coefficients()
-        self.compensation_charges.add_to(charge, coefs)
-        self.poisson_solver.solve(self.vext.data, charge.data)
-        e_coulomb = 0.5 * self.vext.integrate(charge)
+        self.ghat_acf.add_to(charge, coefs)
+        self.poisson_solver.solve(self.vHt, charge)
+        e_coulomb = 0.5 * self.vHt.integrate(charge)
 
-        potential2 = vxc
-        potential2.data += self.vext.data + self.v0.data
-        potential1 = self.restrict(potential2)
+        vt = self.vbar.new()
+        vt.data[:] = self.vbar.data
+        vt.data += self.vHt.data[indices] * scale**-1
+        potential1 = ...
+        potential2 = vxct
+        potential2.data += vt.ifft(plan=self.ifftplan).data
+
         e_kinetic = 0.0
-        for s, (p, d) in enumerate(zip(potential1, density1)):
+        for spin, (vt, nt) in enumerate(zip(potential1, density1)):
+            potential1 = self.restrict(potential2)
             e_kinetic -= p.integrate(d)
             if s < density.ndensities:
                 e_kinetic += p.integrate(density.core_density)
 
-        vnonloc, corrections = calculate_non_local_potential(
-            density, self.xc,
-            self.compensation_charges, self.vext)
-
         e_external = 0.0
 
-        de_kinetic, de_coulomb, de_zero, de_xc, de_external = corrections
-        energies = {'kinetic': e_kinetic + de_kinetic,
-                    'coulomb': e_coulomb + de_coulomb,
-                    'zero': e_zero + de_zero,
-                    'xc': e_xc + de_xc,
-                    'external': e_external + de_external}
-        return Potential(potential1, vnonloc, energies)
+        return {'kinetic': e_kinetic,
+                'coulomb': e_coulomb,
+                'zero': e_zero,
+                'xc': e_xc,
+                'external': e_external}, potential1
 
 
 def calculate_non_local_potential(density, xc,

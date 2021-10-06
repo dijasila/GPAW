@@ -28,9 +28,8 @@ class SCFLoop:
         self.occ_calc = occ_calc
         self.world = world
 
-    @property
-    def description(self):
-        return self.pot_calc.description
+    def __str__(self):
+        return str(self.pot_calc)
 
     def iterate(self,
                 ibz_wfs: IBZWaveFunctions,

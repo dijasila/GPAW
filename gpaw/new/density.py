@@ -4,6 +4,7 @@ import numpy as np
 from gpaw.typing import ArrayLike1D
 from gpaw.core.atom_centered_functions import AtomArraysLayout
 from gpaw.utilities import unpack2
+from typing import Union
 
 
 def magmoms2dims(magmoms):
@@ -101,7 +102,7 @@ class Density:
 
 
 def atomic_occupation_numbers(setup,
-                              magmom: float | ArrayLike1D = None,
+                              magmom: Union[float, ArrayLike1D] = None,
                               hund: bool = False,
                               charge: float = 0.0):
     if magmom is None:

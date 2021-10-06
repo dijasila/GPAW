@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import IO, Any
+from typing import IO, Any, Union
 
 from ase import Atoms
 from ase.units import Bohr, Ha
@@ -13,7 +13,7 @@ from gpaw.new.old import OldStuff
 from gpaw.new import Timer
 
 
-def GPAW(filename: str | Path | IO[str] = None,
+def GPAW(filename: Union[str, Path, IO[str]] = None,
          **kwargs) -> ASECalculator:
     """"""
     params = InputParameters(kwargs)

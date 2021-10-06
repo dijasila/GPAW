@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Union
 
 import numpy as np
 from ase import Atoms
@@ -178,7 +178,7 @@ class DFTConfiguration:
 
 def create_communicators(comm: MPIComm = None,
                          nibzkpts: int = 1,
-                         domain: int | tuple[int, int, int] = None,
+                         domain: Union[int, tuple[int, int, int]] = None,
                          kpt: int = None,
                          band: int = None) -> dict[str, MPIComm]:
     parallelization = Parallelization(comm or world, nibzkpts)
