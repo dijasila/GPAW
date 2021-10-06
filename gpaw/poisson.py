@@ -17,10 +17,8 @@ from gpaw.transformers import Transformer
 from gpaw.utilities.blas import axpy
 from gpaw.utilities.gauss import Gaussian
 from gpaw.utilities.grid import grid2grid
-from gpaw.utilities.ewald import madelung
 from gpaw.utilities.tools import construct_reciprocal
 from gpaw.utilities.timing import NullTimer
-import _gpaw
 
 POISSON_GRID_WARNING = """Grid unsuitable for FDPoissonSolver!
 
@@ -64,6 +62,9 @@ def create_poisson_solver(name='fast', **kwargs):
     elif name == 'ExtraVacuumPoissonSolver':
         from gpaw.poisson_extravacuum import ExtraVacuumPoissonSolver
         return ExtraVacuumPoissonSolver(**kwargs)
+    elif name == 'MomentCorrectionPoissonSolver':
+        from gpaw.poisson_moment import MomentCorrectionPoissonSolver
+        return MomentCorrectionPoissonSolver(**kwargs)
     elif name == 'nointeraction':
         return NoInteractionPoissonSolver()
     else:
@@ -117,6 +118,16 @@ class BasePoissonSolver(_PoissonSolver):
                 f"for {self.__class__.__name__}. "
                 "The parameter doesn't do anything for this solver "
                 "and defining it will throw an error in the future.",
+                FutureWarning)
+
+        if remove_moment is not None:
+            warnings.warn(
+                "Please do not specify the remove_moment parameter "
+                f"for {self.__class__.__name__}. "
+                "The remove moment functionality is deprecated in this solver "
+                "and will throw an error in the future. Instead "
+                "use the MomentCorrectionPoissonSolver as a wrapper to "
+                f"{self.__class__.__name__}.",
                 FutureWarning)
 
         # metallic electrodes: mirror image method to allow calculation of
@@ -292,7 +303,6 @@ class FDPoissonSolver(BasePoissonSolver):
         self.eps = eps
         self.relax = relax
         self.nn = nn
-        self.charged_periodic_correction = None
         self.maxiter = maxiter
 
         # Relaxation method
@@ -604,209 +614,6 @@ class FFTPoissonSolver(BasePoissonSolver):
 
     def estimate_memory(self, mem):
         mem.subnode('k squared', self.grids[-1].bytecount())
-
-
-class FixedBoundaryPoissonSolver(FDPoissonSolver):
-    """Solve the Poisson equation with FFT in two directions,
-    and with central differential method in the third direction."""
-
-    def __init__(self, nn=1):
-        # XXX How can this work when it does not call __init___
-        # on PoissonSolver? -askhl
-        self.nn = nn
-        self.charged_periodic_correction = None
-        assert self.nn == 1
-
-    def set_grid_descriptor(self, gd):
-        assert gd.pbc_c.all()
-        assert gd.orthogonal
-        self.gd = gd
-
-    def initialize(self, b_phi1, b_phi2):
-        distribution = np.zeros([self.gd.comm.size], int)
-        if self.gd.comm.rank == 0:
-            gd = self.gd
-            N_c1 = gd.N_c[:2, np.newaxis]
-            i_cq = np.indices(gd.N_c[:2]).reshape((2, -1))
-            i_cq += N_c1 // 2
-            i_cq %= N_c1
-            i_cq -= N_c1 // 2
-            B_vc = 2.0 * np.pi * gd.icell_cv.T[:2, :2]
-            k_vq = np.dot(B_vc, i_cq)
-            k_vq *= k_vq
-            k_vq2 = np.sum(k_vq, axis=0)
-            k_vq2 = k_vq2.reshape(-1)
-
-            b_phi1 = fft2(b_phi1, None, (0, 1))
-            b_phi2 = fft2(b_phi2, None, (0, 1))
-
-            b_phi1 = b_phi1[:, :, -1].reshape(-1)
-            b_phi2 = b_phi2[:, :, 0].reshape(-1)
-
-            loc_b_phi1 = np.array_split(b_phi1, self.gd.comm.size)
-            loc_b_phi2 = np.array_split(b_phi2, self.gd.comm.size)
-            loc_k_vq2 = np.array_split(k_vq2, self.gd.comm.size)
-
-            self.loc_b_phi1 = loc_b_phi1[0]
-            self.loc_b_phi2 = loc_b_phi2[0]
-            self.k_vq2 = loc_k_vq2[0]
-
-            for i in range(self.gd.comm.size):
-                distribution[i] = len(loc_b_phi1[i])
-            self.gd.comm.broadcast(distribution, 0)
-
-            for i in range(1, self.gd.comm.size):
-                self.gd.comm.ssend(loc_b_phi1[i], i, 135)
-                self.gd.comm.ssend(loc_b_phi2[i], i, 246)
-                self.gd.comm.ssend(loc_k_vq2[i], i, 169)
-        else:
-            self.gd.comm.broadcast(distribution, 0)
-            self.loc_b_phi1 = np.zeros([distribution[self.gd.comm.rank]],
-                                       dtype=complex)
-            self.loc_b_phi2 = np.zeros([distribution[self.gd.comm.rank]],
-                                       dtype=complex)
-            self.k_vq2 = np.zeros([distribution[self.gd.comm.rank]])
-            self.gd.comm.receive(self.loc_b_phi1, 0, 135)
-            self.gd.comm.receive(self.loc_b_phi2, 0, 246)
-            self.gd.comm.receive(self.k_vq2, 0, 169)
-
-        k_distribution = np.arange(np.sum(distribution))
-        self.k_distribution = np.array_split(k_distribution,
-                                             self.gd.comm.size)
-
-        self.d1, self.d2, self.d3 = self.gd.N_c
-        self.r_distribution = np.array_split(np.arange(self.d3),
-                                             self.gd.comm.size)
-        self.comm_reshape = not (self.gd.parsize_c[0] == 1 and
-                                 self.gd.parsize_c[1] == 1)
-
-    def solve(self, phi_g, rho_g, charge=None, timer=None):
-        if charge is None:
-            actual_charge = self.gd.integrate(rho_g)
-        else:
-            actual_charge = charge
-
-        if self.charged_periodic_correction is None:
-            self.charged_periodic_correction = madelung(self.gd.cell_cv)
-
-        background = (actual_charge / self.gd.dv /
-                      self.gd.get_size_of_global_array().prod())
-
-        self.solve_neutral(phi_g, rho_g - background)
-        phi_g += actual_charge * self.charged_periodic_correction
-
-    def scatter_r_distribution(self, global_rho_g, dtype=float):
-        d1 = self.d1
-        d2 = self.d2
-        comm = self.gd.comm
-        index = self.r_distribution[comm.rank]
-        if comm.rank == 0:
-            rho_g1 = global_rho_g[:, :, index]
-            for i in range(1, comm.size):
-                ind = self.r_distribution[i]
-                comm.ssend(global_rho_g[:, :, ind].copy(), i, 178)
-        else:
-            rho_g1 = np.zeros([d1, d2, len(index)], dtype=dtype)
-            comm.receive(rho_g1, 0, 178)
-        return rho_g1
-
-    def gather_r_distribution(self, rho_g, dtype=complex):
-        comm = self.gd.comm
-        index = self.r_distribution[comm.rank]
-        d1, d2, d3 = self.d1, self.d2, self.d3
-        if comm.rank == 0:
-            global_rho_g = np.zeros([d1, d2, d3], dtype)
-            global_rho_g[:, :, index] = rho_g
-            for i in range(1, comm.size):
-                ind = self.r_distribution[i]
-                rho_gi = np.zeros([d1, d2, len(ind)], dtype)
-                comm.receive(rho_gi, i, 368)
-                global_rho_g[:, :, ind] = rho_gi
-        else:
-            comm.ssend(rho_g, 0, 368)
-            global_rho_g = None
-        return global_rho_g
-
-    def scatter_k_distribution(self, global_rho_g):
-        comm = self.gd.comm
-        index = self.k_distribution[comm.rank]
-        if comm.rank == 0:
-            rho_g = global_rho_g[index]
-            for i in range(1, comm.size):
-                ind = self.k_distribution[i]
-                comm.ssend(global_rho_g[ind], i, 370)
-        else:
-            rho_g = np.zeros([len(index), self.d3], dtype=complex)
-            comm.receive(rho_g, 0, 370)
-        return rho_g
-
-    def gather_k_distribution(self, phi_g):
-        comm = self.gd.comm
-        index = self.k_distribution[comm.rank]
-        d12 = self.d1 * self.d2
-        if comm.rank == 0:
-            global_phi_g = np.zeros([d12, self.d3], dtype=complex)
-            global_phi_g[index] = phi_g
-            for i in range(1, comm.size):
-                ind = self.k_distribution[i]
-                phi_gi = np.zeros([len(ind), self.d3], dtype=complex)
-                comm.receive(phi_gi, i, 569)
-                global_phi_g[ind] = phi_gi
-        else:
-            comm.ssend(phi_g, 0, 569)
-            global_phi_g = None
-        return global_phi_g
-
-    def solve_neutral(self, phi_g, rho_g, timer=None):
-        # b_phi1 and b_phi2 are the boundary Hartree potential values
-        # of left and right sides
-
-        if self.comm_reshape:
-            global_rho_g0 = self.gd.collect(rho_g)
-            rho_g1 = self.scatter_r_distribution(global_rho_g0)
-        else:
-            rho_g1 = rho_g
-
-        # use copy() to avoid the C_contiguous=False
-        rho_g2 = fft2(rho_g1, None, (0, 1)).copy()
-
-        global_rho_g = self.gather_r_distribution(rho_g2)
-        if self.gd.comm.rank == 0:
-            global_rho_g.shape = (self.d1 * self.d2, self.d3)
-        rho_g3 = self.scatter_k_distribution(global_rho_g)
-
-        du0 = np.zeros(self.d3 - 1, dtype=complex)
-        du20 = np.zeros(self.d3 - 2, dtype=complex)
-        h2 = self.gd.h_cv[2, 2] ** 2
-
-        phi_g1 = np.zeros(rho_g3.shape, dtype=complex)
-        index = self.k_distribution[self.gd.comm.rank]
-        for phi, rho, rv2, bp1, bp2, i in zip(phi_g1, rho_g3,
-                                              self.k_vq2,
-                                              self.loc_b_phi1,
-                                              self.loc_b_phi2,
-                                              range(len(index))):
-            A = np.zeros(self.d3, dtype=complex) + 2 + h2 * rv2
-            phi = rho * np.pi * 4 * h2
-            phi[0] += bp1
-            phi[-1] += bp2
-            du = du0 - 1
-            dl = du0 - 1
-            du2 = du20 - 1
-            _gpaw.linear_solve_tridiag(self.d3, A, du, dl, du2, phi)
-            phi_g1[i] = phi
-
-        global_phi_g = self.gather_k_distribution(phi_g1)
-        if self.gd.comm.rank == 0:
-            global_phi_g.shape = (self.d1, self.d2, self.d3)
-        phi_g2 = self.scatter_r_distribution(global_phi_g, dtype=complex)
-        # use copy() to avoid the C_contiguous=False
-        phi_g3 = ifft2(phi_g2, None, (0, 1)).real.copy()
-        if self.comm_reshape:
-            global_phi_g = self.gather_r_distribution(phi_g3, dtype=float)
-            self.gd.distribute(global_phi_g, phi_g)
-        else:
-            phi_g[:] = phi_g3
 
 
 """def rfst2(A_g, axes=[0,1]):

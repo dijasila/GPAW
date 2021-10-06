@@ -1,5 +1,4 @@
 import numbers
-import sys
 from functools import partial
 from time import ctime
 
@@ -13,10 +12,9 @@ from gpaw.bztools import convex_hull_volume
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.response.integrators import PointIntegrator, TetrahedronIntegrator
 from gpaw.response.pair import PairDensity, PWSymmetryAnalyzer
-from gpaw.utilities import devnull
 from gpaw.utilities.blas import gemm
 from gpaw.utilities.memory import maxrss
-from gpaw.wavefunctions.pw import PWDescriptor
+from gpaw.pw.descriptor import PWDescriptor
 
 
 class ArrayDescriptor:
@@ -230,13 +228,7 @@ class Chi0:
         calc = self.pair.calc
         self.calc = calc
 
-        if world.rank != 0:
-            txt = devnull
-        elif txt == '-':
-            txt = sys.stdout
-        elif isinstance(txt, str):
-            txt = open(txt, 'w')
-        self.fd = txt
+        self.fd = self.pair.fd
 
         self.vol = abs(np.linalg.det(calc.wfs.gd.cell_cv))
 

@@ -20,10 +20,10 @@ master:
     - su user -c 'gpaw install-data --register gpaw-datasets'
     - su user -c 'gpaw -P 1 info'
     - su user -c 'gpaw test'
-    - su user -c 'OMP_NUM_THREADS=2 pytest -v -m ci'
+    - su user -c 'OMP_NUM_THREADS=2 pytest -v -m ci -We'
     - mypy -p gpaw
     - >
-      interrogate -m -i -f 35.1
+      interrogate -m -i -f 35.2
       -e gpaw/test
       -e gpaw/point_groups/groups.py
       gpaw
@@ -42,4 +42,48 @@ master:
     - mq config --in-place
     - mq init
     - mq workflow -p agts.py -zT | tail -1 | tee count
-    - python -c "assert int(open('count').read().split()[0]) >= 350"
+    - python -c "assert int(open('count').read().split()[0]) >= 387"
+    - python -c "import pathlib; assert len(list(pathlib.Path().glob('**/*.png'))) <= 6"
+
+libxc:
+  image: python:3.6
+  script:
+    - git clone https://gitlab.com/libxc/libxc.git
+    - cd libxc
+    - git checkout 5.1.6
+    - autoreconf -i
+    - ./configure --enable-shared --disable-fortran --prefix=$HOME/libxc
+    - make > libxc-install.out
+    - make install
+    - cd ..
+    - pip install pytest ase
+    - >
+      echo "noblas = True;
+      libraries = ['xc'];
+      xc = Path.home() / 'libxc';
+      lib = xc / 'lib';
+      library_dirs = [lib];
+      include_dirs = [xc / 'include'];
+      extra_link_args = [f'-Wl,-rpath={lib}']
+      " > siteconfig.py
+    - pip install -e .
+    - gpaw install-data --register gpaw-datasets
+    - pytest -m libxc -x
+  when: manual
+
+docs:
+  image: python:3.9
+  script:
+    - python3 -m venv venv
+    - source venv/bin/activate
+    - pip install sphinx-rtd-theme pytest
+    - echo "noblas = True; nolibxc = True" > siteconfig.py
+    - pip install -e .
+    - tools/gpaw-setup H C O
+    - export GPAW_SETUP_PATH=$PWD
+    - cd doc
+    - make
+  when: manual
+  artifacts:
+    paths:
+      - doc/build/html

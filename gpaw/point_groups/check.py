@@ -1,16 +1,17 @@
 """Symmetry checking code."""
 import sys
-from typing import Sequence, Any, Dict, List, Union
+from typing import Any, Dict, List, Sequence, Union
 
-from ase import Atoms
 import numpy as np
-from numpy.linalg import inv, det, solve
+from ase import Atoms
+from numpy.linalg import det, inv, solve
 from scipy.ndimage import map_coordinates
 
-from . import PointGroup
-from gpaw.typing import Array2D, Array3D, ArrayLike
+from gpaw.typing import Array1D, Array2D, Array3D, ArrayLike
 
-Axis = Union[str, Sequence[float], None]
+from . import PointGroup
+
+Axis = Union[str, Sequence[float], Array1D, None]
 
 
 class SymmetryChecker:
@@ -166,14 +167,16 @@ def rotation_matrix(axes: Sequence[Axis]) -> Array3D:
     return np.array(axes)
 
 
-def normalize(vector: Union[str, Sequence[float]]) -> Sequence[float]:
+def normalize(vector: Union[str, Sequence[float], Array1D]) -> Array1D:
     """Normalize a vector.
 
     The *vector* must be a sequence of three numbers or one of the following
-    strings: x, y, z, -z, -y, -z.
+    strings: x, y, z, -x, -y, -z.
     """
     if isinstance(vector, str):
         if vector[0] == '-':
             return -np.array(normalize(vector[1:]))
-        return {'x': [1, 0, 0], 'y': [0, 1, 0], 'z': [0, 0, 1]}[vector]
+        return {'x': np.array([1, 0, 0]),
+                'y': np.array([0, 1, 0]),
+                'z': np.array([0, 0, 1])}[vector]
     return np.array(vector) / np.linalg.norm(vector)

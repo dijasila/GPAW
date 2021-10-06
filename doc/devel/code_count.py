@@ -56,28 +56,26 @@ def count_lines():
     year = 2005
     month = 11
 
-    fd = open('lines.data', 'w')
-    while (year, month) <= stop:
-        hash = subprocess.check_output(
-            'git rev-list -n 1 --before="{}-{}-01 12:00" master'
-            .format(year, month), shell=True).strip()
-        print(year, month, hash)
-        subprocess.call(['git', 'checkout', hash])
-
-        c = count('c', r'\*.[ch]')
-        py = count('.', r'\*.py')
-        test = count('gpaw/test', r'\*.py')
-        test += count('test', r'\*.py')
-        doc = count('doc', r'\*.py')
-        py -= test + doc  # avoid double counting
-        rst = count('.', r'\*.rst')
-        print(year, month, 0, c, py, test, doc, rst, file=fd)
-        month += 1
-        if month == 13:
-            month = 1
-            year += 1
-
-    fd.close()
+    with open('lines.data', 'w') as fd:
+        while (year, month) <= stop:
+            hash = subprocess.check_output(
+                'git rev-list -n 1 --before="{}-{}-01 12:00" master'
+                .format(year, month), shell=True).strip()
+            print(year, month, hash)
+            subprocess.call(['git', 'checkout', hash])
+    
+            c = count('c', r'\*.[ch]')
+            py = count('.', r'\*.py')
+            test = count('gpaw/test', r'\*.py')
+            test += count('test', r'\*.py')
+            doc = count('doc', r'\*.py')
+            py -= test + doc  # avoid double counting
+            rst = count('.', r'\*.rst')
+            print(year, month, 0, c, py, test, doc, rst, file=fd)
+            month += 1
+            if month == 13:
+                month = 1
+                year += 1
 
 
 plot_count()

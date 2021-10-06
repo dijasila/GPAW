@@ -31,8 +31,8 @@ def test_rattle(in_tmp_dir):
 
             atoms.calc = calc
 
-            opt = FIRE(atoms, logfile='test.log')
-            opt.run(0.05)
+            with FIRE(atoms, logfile='test.log') as opt:
+                opt.run(0.05)
             p = atoms.get_positions()
             d = np.linalg.norm(p[0] - p[3])
             distances[ct] = d

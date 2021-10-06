@@ -2,6 +2,8 @@ import re
 
 import numpy as np
 
+from ase.utils import IOContext
+
 from gpaw.lcaotddft.observer import TDDFTObserver
 
 
@@ -61,24 +63,21 @@ class DipoleMomentWriter(TDDFTObserver):
                  force_new_file: bool = False,
                  interval: int = 1):
         TDDFTObserver.__init__(self, paw, interval)
-        self.master = paw.world.rank == 0
+        self.ioctx = IOContext()
         if paw.niter == 0 or force_new_file:
             # Initialize
             self.do_center = center
             self.density_type = density
-            if self.master:
-                self.fd = open(filename, 'w')
+            self.fd = self.ioctx.openfile(filename, comm=paw.world, mode='w')
             self._write_header(paw)
         else:
             # Read and continue
             self.read_header(filename)
-            if self.master:
-                self.fd = open(filename, 'a')
+            self.fd = self.ioctx.openfile(filename, comm=paw.world, mode='a')
 
     def _write(self, line):
-        if self.master:
-            self.fd.write(line)
-            self.fd.flush()
+        self.fd.write(line)
+        self.fd.flush()
 
     def _write_header(self, paw):
         line = '# %s[version=%s]' % (self.__class__.__name__, self.version)
@@ -160,5 +159,4 @@ class DipoleMomentWriter(TDDFTObserver):
         self._write_dm(paw)
 
     def __del__(self):
-        if self.master:
-            self.fd.close()
+        self.ioctx.close()

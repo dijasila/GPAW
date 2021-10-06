@@ -4,6 +4,9 @@ Miscellaneous objects and functions
 .. autoclass:: gpaw.lfc.LocalizedFunctionsCollection
     :members:
 
+.. autoclass:: gpaw.lfc.BasisFunctions
+    :members:
+
 .. autoclass:: gpaw.spline.Spline
     :members:
 
@@ -38,10 +41,3 @@ Miscellaneous objects and functions
 
 .. autoclass:: gpaw.projections.Projections
     :members:
-
-.. autoclass:: gpaw.utilities.partition.AtomPartition
-    :members:
-
-.. autofunction:: gpaw.utilities.dipole.dipole_matrix_elements
-
-.. autofunction:: gpaw.utilities.dipole.dipole_matrix_elements_from_calc

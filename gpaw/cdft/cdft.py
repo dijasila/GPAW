@@ -1,20 +1,22 @@
-import functools
+"""Module for constrained DFT
 
-from ase.calculators.calculator import Calculator
-from ase.data import covalent_radii, atomic_numbers
-from ase.units import Bohr, Hartree
-from ase.utils import convert_string_to_fd
-import numpy as np
-from math import pi
-from scipy.optimize import minimize
-from gpaw.external import ExternalPotential
-import copy
-'''
-Module for constrained DFT
 for review see Chem. Rev., 2012, 112 (1), pp 321-370
 article on GPAW implementation:
 J. Chem. Theory Comput., 2016, 12 (11), pp 5367-5378
-'''
+"""
+
+import copy
+import functools
+from math import pi
+
+import numpy as np
+from ase.calculators.calculator import Calculator
+from ase.data import atomic_numbers, covalent_radii
+from ase.units import Bohr, Hartree
+from ase.utils import IOContext
+from scipy.optimize import minimize
+
+from gpaw.external import ExternalPotential
 
 
 class CDFT(Calculator):
@@ -33,12 +35,10 @@ class CDFT(Calculator):
                  txt='-',
                  minimizer_options={'gtol': 0.01},
                  Rc={},
-                 mu={
-                     'Li': 0.5,
+                 mu={'Li': 0.5,
                      'F': 0.7,
                      'O': 0.7,
-                     'V': 0.5
-                 },
+                     'V': 0.5},
                  method='BFGS',
                  forces='analytical',
                  use_charge_difference=False,
@@ -97,7 +97,8 @@ class CDFT(Calculator):
 
         self.calc = calc
 
-        self.log = convert_string_to_fd(txt)
+        self.iocontext = IOContext()
+        self.log = self.iocontext.openfile(txt, calc.world)
         self.method = method
         self.forces = forces
         self.options = minimizer_options
@@ -238,6 +239,9 @@ class CDFT(Calculator):
         self.calc.set(external=self.ext)
 
         self.w = self.ext.w_ig
+
+    def __del__(self):
+        self.iocontext.close()
 
     def calculate(self, atoms, properties, system_changes):
         # check we're dealing with same atoms
@@ -455,9 +459,9 @@ class CDFT(Calculator):
             gridrefinement=gridrefinement, spin=spin)
 
     def update_hessian(self, v_i):
-        '''Computation of a BFGS Hessian
+        """Computation of a BFGS Hessian
         returns a pos.def. hessian
-        '''
+        """
         iteration = self.iteration - 1
         if not self.difference:
             n_regions = len(self.regions)
@@ -684,7 +688,8 @@ class CDFTPotential(ExternalPotential):
 
         self.indices_i = regions
         self.gd = gd
-        self.log = convert_string_to_fd(txt)
+        self.iocontext = IOContext()
+        self.log = self.iocontext.openfile(txt)
         self.atoms = atoms
         self.pos_av = None
         self.Z_a = None
@@ -696,6 +701,9 @@ class CDFTPotential(ExternalPotential):
         self.Rc = Rc
         self.mu = mu
         self.name = 'CDFTPotential'
+
+    def __del__(self):
+        self.iocontext.close()
 
     def __str__(self):
         self.name = 'CDFTPotential'
@@ -998,7 +1006,7 @@ class WeightFunc:
 
     def get_cdft_forces2(self, dens, v_i, n_charge_regions, n_spin_regions,
                          w_ig, method, difference):
-        ''' Calculate cDFT force as a sum
+        """ Calculate cDFT force as a sum
         dF/dRi = Fi(inside) + Fs(surf)
         due to cutoff (Rc) in gauss
                   / dw(r)
@@ -1014,7 +1022,7 @@ class WeightFunc:
         method = 'fd' or 'analytical' for
               finite difference or analytical
               dw/dR
-        '''
+        """
 
         cdft_forces = np.zeros((len(self.atoms), 3))
 
@@ -1077,10 +1085,10 @@ class WeightFunc:
 
     def get_derivative_prefactor(self, n_charge_regions, n_spin_regions, w_ig,
                                  v_i, difference, atom, rho_kd):
-        '''Computes the dw/dRa array needed for derivatives/forces
+        """Computes the dw/dRa array needed for derivatives/forces
         eq 31
         needed for lfc-derivative/integrals
-        '''
+        """
         wc = self.gd.zeros()
         ws = self.gd.zeros()
 
@@ -1191,14 +1199,14 @@ def get_promolecular_constraints(calc_a,
                                  restart=False,
                                  Rc={},
                                  mu={}):
-    '''
+    """
     - calc_a is for the region you're interested in. Its charge
         should correspond to the "free charge" of the promolecule
     - atoms_a: atoms object for the region of interest
     - calc_b is for the other region
     - atoms_b: atoms object for the other region
     - restart: bool. If true, atoms_a have used calc_a and atoms_b calc_b
-    '''
+    """
 
     constraints = []
     atoms = atoms_a + atoms_b
