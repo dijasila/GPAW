@@ -7,7 +7,7 @@ from gpaw.new.xc import XCFunctional
 from gpaw.core import UniformGrid, PlaneWaves
 from gpaw.core.arrays import DistributedArrays
 from gpaw.core.atom_arrays import AtomArrays
-from gpaw.core.plane_waves import PWMapping, interpolate
+from gpaw.core.plane_waves import PWMapping
 
 
 class Potential:
@@ -80,7 +80,7 @@ class UniformGridPotentialCalculator(PotentialCalculator):
         charge.data[:] = self.total_density2.data
         coefs = density.calculate_compensation_charge_coefficients()
         self.compensation_charges.add_to(charge, coefs)
-        self.poisson_solver.solve(self.vext.data, charge.data)
+        self.poisson_solver.solve(self.vext, charge)
         e_coulomb = 0.5 * self.vext.integrate(charge)
 
         potential2 = vxc
@@ -119,13 +119,13 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
                                      poisson_solver, setups, fracpos)
 
         self.pwmap = PWMapping(wf_pw, fine_grid_pw)
-        self.fftplan, self.ifftplan = wf_pw.fft_plans()
-        self.fftplan2, self.ifftplan2 = fine_grid_pw.fft_plans()
+        self.fftplan, self.ifftplan = wf_pw.grid.fft_plans()
+        self.fftplan2, self.ifftplan2 = fine_grid_pw.grid.fft_plans()
 
     def calculate(self, density):
         density1 = density.density
         density2 = self.fine_grid.empty(density.shape)
-        interpolate(density1, self.fftplan, self.ifftplan2, density2)
+        density1.fft_interpolate(density2, self.fftplan, self.ifftplan2)
 
         vxc = density2.grid.zeros(density2.shape)
         e_xc = self.xc.calculate(density2, vxc)

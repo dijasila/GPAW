@@ -108,7 +108,7 @@ def atomic_occupation_numbers(setup,
         M = 0.0
         nspins = 1
     elif isinstance(magmom, float):
-        M = abs(M)
+        M = abs(magmom)
         nspins = 2
     else:
         M = np.linalg.norm(magmom)

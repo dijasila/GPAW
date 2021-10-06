@@ -3,7 +3,7 @@ import numpy as np
 from functools import partial
 from gpaw.core.arrays import DistributedArrays as DA
 from gpaw.setup import Setups
-from gpaw.typing import Array1D, Array2D, ArrayLike1D
+from gpaw.typing import Array1D, Array2D
 from gpaw.new.brillouin import IBZ
 from gpaw.mpi import MPIComm
 from ase.units import Ha
@@ -11,17 +11,17 @@ from gpaw.new.density import Density
 import _gpaw
 from gpaw.core.atom_arrays import AtomArrays
 from gpaw.utilities.debug import frozen
-from typing import Iterator
+from typing import Iterator, Sequence
 
 
 @frozen
 class IBZWaveFunctions:
     def __init__(self,
                  ibz: IBZ,
-                 ranks: ArrayLike1D,
+                 ranks: Sequence[int],
                  kpt_comm: MPIComm,
                  mykpts: list[WaveFunctions],
-                 nelectrons: int):
+                 nelectrons: float):
         self.ibz = ibz
         self.ranks = ranks
         self.kpt_comm = kpt_comm
@@ -37,7 +37,7 @@ class IBZWaveFunctions:
             if rank == kpt_comm.rank:
                 self.ibz_index_to_local_index[i] = j
                 j += 1
-        self.energies = {}
+        self.energies: dict[str, float] = {}
 
     def __iter__(self) -> Iterator[WaveFunctions]:
         for wfs in self.mykpts:
@@ -125,7 +125,7 @@ class IBZWaveFunctions:
         return wfs.eigs, wfs.occs
 
     def forces(self, dv: AtomArrays):
-        F = np.zeros((len(dv.layout.shapes), 3))
+        F = np.zeros((dv.natoms, 3))
         for wfs in self:
             wfs.force_contribution(dv, F)
         return F

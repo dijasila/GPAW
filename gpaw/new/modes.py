@@ -1,19 +1,23 @@
 from __future__ import annotations
 
+from typing import Any
+
 from ase.units import Bohr, Ha
-from gpaw.core import UniformGrid
+from gpaw.core import PlaneWaves, UniformGrid
 from gpaw.fd_operators import Laplace
 from gpaw.mpi import MPIComm, serial_comm
-from gpaw.new.input_parameters import InputParameters
+from gpaw.new.poisson import (PoissonSolver, PoissonSolverWrapper,
+                              ReciprocalSpacePoissonSolver)
 from gpaw.new.potential import (PlaneWavePotentialCalculator,
                                 UniformGridPotentialCalculator)
-from gpaw.poisson import PoissonSolver
-from gpaw.new.poisson import ReciprocalSpacePoissonSolver
+from gpaw.poisson import PoissonSolver as make_poisson_solver
 from gpaw.utilities.gpts import get_number_of_grid_points
-from gpaw.core import PlaneWaves
 
 
 class Mode:
+    name: str
+    interpolation: str
+
     def create_uniform_grid(self,
                             h: float | None,
                             gpts,
@@ -74,11 +78,10 @@ class FDMode(Mode):
 
     def create_poisson_solver(self,
                               grid: UniformGrid,
-                              params: InputParameters) -> PoissonSolver:
-        solver = PoissonSolver(**params)
+                              params: dict[str, Any]) -> PoissonSolver:
+        solver = make_poisson_solver(**params)
         solver.set_grid_descriptor(grid._gd)
-        solver.description = solver.get_description()
-        return solver
+        return PoissonSolverWrapper(solver)
 
     def create_potential_calculator(self, wf_grid, fine_grid, setups,
                                     fracpos, xc, poisson_solver_params):

@@ -118,7 +118,7 @@ class PlaneWaveAtomCenteredFunctions(AtomCenteredFunctions):
             return
         gd = self.pw.grid._gd
         kd = KPointDescriptor(np.array([self.pw.grid.kpt]))
-        pd = PWDescriptor(self.pw.ecut, gd, kd=kd)
+        pd = PWDescriptor(self.pw.ecut, gd, kd=kd, dtype=self.pw.grid.dtype)
         self.lfc = PWLFC(self.functions, pd)
         self.lfc.set_positions(self._positions)
 

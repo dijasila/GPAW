@@ -1,14 +1,33 @@
-from math import pi
+from math import pi, nan
 
-import numpy as np
-from ase.utils import seterr
-from scipy.special import erf
+# import numpy as np
+# from ase.utils import seterr
+# from scipy.special import erf
 
-from gpaw.typing import Array1D
+# from gpaw.typing import Array1D
 from gpaw.core import PlaneWaves
 
 
-class ReciprocalSpacePoissonSolver:
+class PoissonSolver:
+    def solve(self,
+              vHt,
+              rhot) -> float:
+        raise NotImplementedError
+
+
+class PoissonSolverWrapper(PoissonSolver):
+    def __init__(self, solver):
+        self.description = solver.get_description()
+        self.solver = solver
+
+    def solve(self,
+              vHt,
+              rhot) -> float:
+        self.solver.solve(vHt.data, rhot.data)
+        return nan
+
+
+class ReciprocalSpacePoissonSolver(PoissonSolver):
     def __init__(self,
                  pw: PlaneWaves,
                  charge: float = 0.0):
@@ -41,10 +60,11 @@ class ReciprocalSpacePoissonSolver:
             # Use uniform backgroud charge in case we have a charged system:
             vHt.data[0] = 0.0
         vHt.data /= self.ekin
-        epot = 0.5 * vHt.integrate(rhot_q)
+        epot = 0.5 * vHt.integrate(rhot)
         return epot
 
 
+'''
 class ChargedReciprocalSpacePoissonSolver(ReciprocalSpacePoissonSolver):
     def __init__(self,
                  pw: PlaneWaves,
@@ -116,3 +136,4 @@ class ChargedReciprocalSpacePoissonSolver(ReciprocalSpacePoissonSolver):
         epot -= self.charge**2 * (self.alpha / 2 / pi)**0.5
         vHt_q -= self.potential_q
         return epot
+'''

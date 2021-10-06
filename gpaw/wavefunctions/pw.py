@@ -238,10 +238,10 @@ class PWWaveFunctions(FDPWWaveFunctions):
         s += ('  Pulay-stress correction: {:.6f} eV/Ang^3 '
               '(de/decut={:.6f})\n'.format(stress, dedecut))
 
-        if fftw.FFTPlan is fftw.NumpyFFTPlan:
-            s += "  Using Numpy's FFT\n"
-        else:
+        if fftw.have_fftw():
             s += '  Using FFTW library\n'
+        else:
+            s += "  Using Numpy's FFT\n"
         return s + FDPWWaveFunctions.__str__(self)
 
     def make_preconditioner(self, block=1):

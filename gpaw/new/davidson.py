@@ -18,7 +18,7 @@ AAFunc = Callable[[AA, AA], AA]
 def calculate_residuals(residuals: DA,
                         dH: AAFunc,
                         dS: AAFunc,
-                        wfs: DA,
+                        wfs: WaveFunctions,
                         p1: AA,
                         p2: AA) -> None:
     for r, e, p in zip(residuals.data, wfs.myeigs, wfs.wave_functions.data):

@@ -1,6 +1,7 @@
 from __future__ import annotations
+from pathlib import Path
 
-from typing import Any
+from typing import Any, IO
 
 import numpy as np
 from gpaw.mpi import world
@@ -27,6 +28,10 @@ def update_dict(default, value) -> dict[str, Any]:
 
 
 class InputParameters:
+    h: float | None
+    parallel: dict[str, Any]
+    txt: str | Path | IO[str] | None
+
     def __init__(self, params):
         """Accuracy of the self-consistency cycle."""
         self.params = params
@@ -42,9 +47,6 @@ class InputParameters:
             else:
                 value = func()
             self.__dict__[key] = value
-
-        h: float | None
-        parallel: dict[str, Any]
 
     def __repr__(self):
         p = ', '.join(f'{key}={value!r}' for key, value in self.params.items())
@@ -170,7 +172,8 @@ def h(value=None):
 
 
 @input_parameter
-def txt(value='?'):
+def txt(value: str | Path | IO[str] | None = '?'
+        ) -> str | Path | IO[str] | None:
     """Log file."""
     return value
 
@@ -187,7 +190,7 @@ def gpts(value=None):
 
 
 @input_parameter
-def nbands(value: str | int = None):
+def nbands(value: str | int | None = None) -> int | float | None:
     """Number of electronic bands."""
     if isinstance(value, int) or value is None:
         return value

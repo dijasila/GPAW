@@ -1,13 +1,16 @@
 from __future__ import annotations
-import numpy as np
-from gpaw.typing import ArrayLike1D, ArrayLike, Array2D, ArrayLike2D
-from gpaw.mpi import serial_comm, MPIComm
-from gpaw.grid_descriptor import GridDescriptor
-from gpaw.utilities.grid import GridRedistributor
-from gpaw.core.arrays import DistributedArrays
+
 from typing import Sequence
-from gpaw.core.layout import Layout
+
+import gpaw.fftw as fftw
+import numpy as np
+from gpaw.core.arrays import DistributedArrays
 from gpaw.core.atom_centered_functions import UniformGridAtomCenteredFunctions
+from gpaw.core.layout import Layout
+from gpaw.grid_descriptor import GridDescriptor
+from gpaw.mpi import MPIComm, serial_comm
+from gpaw.typing import Array2D, ArrayLike, ArrayLike1D, ArrayLike2D
+from gpaw.utilities.grid import GridRedistributor
 
 
 def _normalize_cell(cell: ArrayLike) -> Array2D:
@@ -164,6 +167,21 @@ class UniformGrid(Layout):
         a -= 0.5
         return functions
 
+    def fft_plans(self, flags: int = fftw.MEASURE) -> tuple[fftw.FFTPlan,
+                                                            fftw.FFTPlan]:
+        size = tuple(self.size)
+        if self.dtype == float:
+            rsize = size[:2] + (size[2] // 2 + 1,)
+            tmp1 = fftw.empty(rsize, complex)
+            tmp2 = tmp1.view(float)[:, :, :size[2]]
+        else:
+            tmp1 = fftw.empty(size, complex)
+            tmp2 = tmp1
+
+        fftplan = fftw.create_plan(tmp2, tmp1, -1, flags)
+        ifftplan = fftw.create_plan(tmp1, tmp2, 1, flags)
+        return fftplan, ifftplan
+
 
 class Redistributor:
     def __init__(self, grid1, grid2):
@@ -252,3 +270,103 @@ class UniformGridFunctions(DistributedArrays):
         result = self.data.sum(axis=(-3, -2, -1)) * self.grid.dv
         self.grid.comm.sum(result)
         return result
+
+    def fft_interpolate(self,
+                        out: UniformGridFunctions,
+                        fftplan: fftw.FFTPlan = None,
+                        ifftplan: fftw.FFTPlan = None) -> None:
+        size1 = self.grid.size
+        size2 = out.grid.size
+        if (size2 <= size1).any():
+            raise ValueError('Too few points in target grid!')
+
+        fftplan = fftplan or self.grid.fft_plans()[0]
+        ifftplan = ifftplan or out.grid.fft_plans()[1]
+
+        fftplan.in_R[:] = self.data
+        fftplan.execute()
+
+        a_Q = fftplan.out_R
+        b_Q = ifftplan.in_R
+
+        e0, e1, e2 = 1 - size1 % 2  # even or odd size
+        a0, a1, a2 = size2 // 2 - size1 // 2
+        b0, b1, b2 = size1 + (a0, a1, a2)
+
+        if self.grid.dtype == float:
+            b2 = (b2 - a2) // 2 + 1
+            a2 = 0
+            axes = [0, 1]
+        else:
+            axes = [0, 1, 2]
+
+        b_Q[:] = 0.0
+        b_Q[a0:b0, a1:b1, a2:b2] = np.fft.fftshift(a_Q, axes=axes)
+
+        if e0:
+            b_Q[a0, a1:b1, a2:b2] *= 0.5
+            b_Q[b0, a1:b1, a2:b2] = b_Q[a0, a1:b1, a2:b2]
+            b0 += 1
+        if e1:
+            b_Q[a0:b0, a1, a2:b2] *= 0.5
+            b_Q[a0:b0, b1, a2:b2] = b_Q[a0:b0, a1, a2:b2]
+            b1 += 1
+        if self.grid.dtype == complex:
+            if e2:
+                b_Q[a0:b0, a1:b1, a2] *= 0.5
+                b_Q[a0:b0, a1:b1, b2] = b_Q[a0:b0, a1:b1, a2]
+        else:
+            if e2:
+                b_Q[a0:b0, a1:b1, b2 - 1] *= 0.5
+
+        b_Q[:] = np.fft.ifftshift(b_Q, axes=axes)
+        ifftplan.execute()
+        out.data[:] = ifftplan.out_R
+        out.data *= (1.0 / self.data.size)
+
+    def fft_restrict(self,
+                     out: UniformGridFunctions,
+                     fftplan: fftw.FFTPlan = None,
+                     ifftplan: fftw.FFTPlan = None) -> None:
+        size1 = self.grid.size
+        size2 = out.grid.size
+
+        fftplan = fftplan or self.grid.fft_plans()[0]
+        ifftplan = ifftplan or out.grid.fft_plans()[1]
+
+        fftplan.in_R[:] = self.data
+        a_Q = ifftplan.in_R
+        b_Q = fftplan.out_R
+
+        e0, e1, e2 = 1 - size2 % 2  # even or odd size
+        a0, a1, a2 = size1 // 2 - size2 // 2
+        b0, b1, b2 = size2 // 2 + size1 // 2 + 1
+
+        if self.grid.dtype == float:
+            b2 = size2[2] // 2 + 1
+            a2 = 0
+            axes = [0, 1]
+        else:
+            axes = [0, 1, 2]
+
+        fftplan.execute()
+        b_Q[:] = np.fft.fftshift(b_Q, axes=axes)
+
+        if e0:
+            b_Q[a0, a1:b1, a2:b2] += b_Q[b0 - 1, a1:b1, a2:b2]
+            b_Q[a0, a1:b1, a2:b2] *= 0.5
+            b0 -= 1
+        if e1:
+            b_Q[a0:b0, a1, a2:b2] += b_Q[a0:b0, b1 - 1, a2:b2]
+            b_Q[a0:b0, a1, a2:b2] *= 0.5
+            b1 -= 1
+        if self.grid.dtype == complex and e2:
+            b_Q[a0:b0, a1:b1, a2] += b_Q[a0:b0, a1:b1, b2 - 1]
+            b_Q[a0:b0, a1:b1, a2] *= 0.5
+            b2 -= 1
+
+        a_Q[:] = b_Q[a0:b0, a1:b1, a2:b2]
+        a_Q[:] = np.fft.ifftshift(a_Q, axes=axes)
+        ifftplan.execute()
+        out.data[:] = ifftplan.out_R
+        out.data *= (1.0 / self.data.size)

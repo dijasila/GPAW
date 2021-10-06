@@ -41,7 +41,7 @@ class ASECalculator(OldStuff):
         self.calculation = calculation
 
         self.atoms = None
-        self.results = {}
+        self.results: dict[str, Any] = {}
         self.timer = Timer()
 
     def calculate_property(self, atoms: Atoms, prop: str) -> Any:
@@ -53,7 +53,7 @@ class ASECalculator(OldStuff):
                 self.calculation = None
 
         if self.calculation is None:
-            self.create_new_calculation(atoms)
+            self.calculation = self.create_new_calculation(atoms)
             self.converge(atoms)
         elif changes:
             self.move_atoms(atoms)
@@ -72,11 +72,10 @@ class ASECalculator(OldStuff):
 
         return self.results[prop]
 
-    def create_new_calculation(self, atoms):
+    def create_new_calculation(self, atoms: Atoms) -> DFTCalculation:
         write_atoms(atoms, self.log)
         with self.timer('init'):
-            self.calculation = DFTCalculation.from_parameters(
-                atoms, self.params, self.log)
+            return DFTCalculation.from_parameters(atoms, self.params, self.log)
 
     def move_atoms(self, atoms):
         write_atoms(atoms, self.log)

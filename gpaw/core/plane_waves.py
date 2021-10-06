@@ -1,7 +1,6 @@
 from __future__ import annotations
 import numpy as np
 from math import pi
-import gpaw.fftw as fftw
 import _gpaw
 from gpaw.core.layout import Layout
 from gpaw.core.uniform_grid import UniformGrid
@@ -59,20 +58,6 @@ class PlaneWaves(Layout):
               comm: MPIComm = serial_comm) -> PlaneWaveExpansions:
         return PlaneWaveExpansions(self, shape, comm)
 
-    def fft_plans(self, flags: int = fftw.MEASURE):
-        size = tuple(self.grid.size)
-        if self.grid.dtype == float:
-            rsize = size[:2] + (size[2] // 2 + 1,)
-            tmp1 = fftw.empty(rsize, complex)
-            tmp2 = tmp1.view(float)[:, :, :size[2]]
-        else:
-            tmp1 = fftw.empty(size, complex)
-            tmp2 = tmp1
-
-        fftplan = fftw.FFTPlan(tmp2, tmp1, -1, flags)
-        ifftplan = fftw.FFTPlan(tmp1, tmp2, 1, flags)
-        return fftplan, ifftplan
-
     def atom_centered_functions(self, functions, positions, integral=None):
         return PlaneWaveAtomCenteredFunctions(functions, positions, self)
 
@@ -100,11 +85,11 @@ class PlaneWaveExpansions(DistributedArrays):
 
     def ifft(self, plan=None, out=None):
         out = out or self.pw.grid.empty(self.shape)
-        plan = plan or self.pw.fft_plans()[1]
+        plan = plan or self.pw.grid.fft_plans()[1]
         scale = 1.0 / plan.out_R.size
         for input, output in zip(self._arrays(), out._arrays()):
-            _gpaw.pw_insert(input, self.pw.indices, scale, plan.in_R[:])
-            if self.pw.grid.kpt is None:
+            _gpaw.pw_insert(input, self.pw.indices, scale, plan.in_R)
+            if self.pw.grid.dtype == float:
                 t = plan.in_R[:, :, 0]
                 n, m = (s // 2 - 1 for s in self.pw.grid.size[:2])
                 t[0, -m:] = t[0, m:0:-1].conj()
@@ -261,99 +246,3 @@ class PWMapping:
             a2.data[self.G2_G1] += myb
         else:
             1 / 0
-
-
-def interpolate(function, fftplan, ifftplan, out):
-    size1 = function.size
-    size2 = out.size
-    if (size1 <= size2).any():
-        raise ValueError('Too few points in target grid!')
-
-    fftplan.in_R[:] = function.data
-
-    fftplan.execute()
-
-    a_Q = fftplan.out_R
-    b_Q = ifftplan.in_R
-
-    e0, e1, e2 = 1 - size1 % 2  # even or odd size
-    a0, a1, a2 = size2 // 2 - size1 // 2
-    b0, b1, b2 = size1 + (a0, a1, a2)
-
-    if function.dtype == float:
-        b2 = (b2 - a2) // 2 + 1
-        a2 = 0
-        axes = (0, 1)
-    else:
-        axes = (0, 1, 2)
-
-    b_Q[:] = 0.0
-    b_Q[a0:b0, a1:b1, a2:b2] = np.fft.fftshift(a_Q, axes=axes)
-
-    if e0:
-        b_Q[a0, a1:b1, a2:b2] *= 0.5
-        b_Q[b0, a1:b1, a2:b2] = b_Q[a0, a1:b1, a2:b2]
-        b0 += 1
-    if e1:
-        b_Q[a0:b0, a1, a2:b2] *= 0.5
-        b_Q[a0:b0, b1, a2:b2] = b_Q[a0:b0, a1, a2:b2]
-        b1 += 1
-    if function.dtype == complex:
-        if e2:
-            b_Q[a0:b0, a1:b1, a2] *= 0.5
-            b_Q[a0:b0, a1:b1, b2] = b_Q[a0:b0, a1:b1, a2]
-    else:
-        if e2:
-            b_Q[a0:b0, a1:b1, b2 - 1] *= 0.5
-
-    b_Q[:] = np.fft.ifftshift(b_Q, axes=axes)
-    ifftplan.execute()
-    out.data[:] = ifftplan.out_R
-    out.data *= (1.0 / out.data.size)
-    return out
-
-
-def restrict(self, a_R, pd):
-    self.gd.collect(a_R, self.tmp_R[:])
-
-    if self.gd.comm.rank == 0:
-        a_Q = pd.tmp_Q
-        b_Q = self.tmp_Q
-
-        e0, e1, e2 = 1 - pd.gd.N_c % 2  # even or odd size
-        a0, a1, a2 = self.gd.N_c // 2 - pd.gd.N_c // 2
-        b0, b1, b2 = pd.gd.N_c // 2 + self.gd.N_c // 2 + 1
-
-        if self.dtype == float:
-            b2 = pd.gd.N_c[2] // 2 + 1
-            a2 = 0
-            axes = (0, 1)
-        else:
-            axes = (0, 1, 2)
-
-        self.fftplan.execute()
-        b_Q[:] = np.fft.fftshift(b_Q, axes=axes)
-
-        if e0:
-            b_Q[a0, a1:b1, a2:b2] += b_Q[b0 - 1, a1:b1, a2:b2]
-            b_Q[a0, a1:b1, a2:b2] *= 0.5
-            b0 -= 1
-        if e1:
-            b_Q[a0:b0, a1, a2:b2] += b_Q[a0:b0, b1 - 1, a2:b2]
-            b_Q[a0:b0, a1, a2:b2] *= 0.5
-            b1 -= 1
-        if self.dtype == complex and e2:
-            b_Q[a0:b0, a1:b1, a2] += b_Q[a0:b0, a1:b1, b2 - 1]
-            b_Q[a0:b0, a1:b1, a2] *= 0.5
-            b2 -= 1
-
-        a_Q[:] = b_Q[a0:b0, a1:b1, a2:b2]
-        a_Q[:] = np.fft.ifftshift(a_Q, axes=axes)
-        a_G = a_Q.ravel()[pd.Q_qG[0]] / 8
-        pd.ifftplan.execute()
-    else:
-        a_G = None
-
-    return (pd.gd.distribute(pd.tmp_R) * (1.0 / self.tmp_R.size),
-            pd.scatter(a_G))
-
