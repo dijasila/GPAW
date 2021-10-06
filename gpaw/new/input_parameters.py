@@ -1,7 +1,7 @@
 from __future__ import annotations
 from pathlib import Path
 
-from typing import Any, IO
+from typing import Any, IO, Sequence
 
 import numpy as np
 from gpaw.mpi import world
@@ -31,6 +31,16 @@ class InputParameters:
     h: float | None
     parallel: dict[str, Any]
     txt: str | Path | IO[str] | None
+    mode: dict[str, Any]
+    xc: dict[str, Any]
+    symmetry: dict[str, Any]
+    kpts: dict[str, Any]
+    setups: Any
+    basis: Any
+    magmoms: Any
+    gpts: None | Sequence[int]
+    charge: float
+    nbands: None | int | float
 
     def __init__(self, params):
         """Accuracy of the self-consistency cycle."""

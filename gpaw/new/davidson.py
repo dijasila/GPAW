@@ -24,9 +24,9 @@ def calculate_residuals(residuals: DA,
     for r, e, p in zip(residuals.data, wfs.myeigs, wfs.wave_functions.data):
         axpy(-e, p, r)
 
-    dH(wfs.projections, out=p1)
+    dH(wfs.projections, p1)
     p2.data[:] = wfs.projections.data * wfs.myeigs
-    dS(p2, out=p2)
+    dS(p2, p2)
     p1.data -= p2.data
     wfs.projectors.add_to(residuals, p1)
 
@@ -44,6 +44,8 @@ def calculate_weights(converge: int | str, wfs: WaveFunctions) -> Array1D:
             return np.zeros(wfs.wave_functions.myshape) + np.inf
 
     1 / 0
+    return np.zeros(42)
+
     """
     if isinstance(converge, int):
         # Converge fixed number of bands:

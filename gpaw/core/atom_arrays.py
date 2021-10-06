@@ -62,7 +62,7 @@ class AtomArrays(DistributedArrays):
         for a, I1, I2 in layout.myindices:
             self._arrays[a] = self.data[I1:I2].reshape(
                 layout.shapes[a] + self.myshape)
-        self.natoms = len(layout.shapes)
+        self.natoms: int = len(layout.shapes)
 
     def __repr__(self):
         return f'AtomArrays({self.layout})'

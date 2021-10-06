@@ -1,12 +1,10 @@
 import numbers
 from math import pi
-from typing import overload
 import numpy as np
 
 import _gpaw
 import gpaw.fftw as fftw
 from gpaw.utilities.blas import mmm, r2k, rk
-from gpaw.typing import Array1D
 
 
 class PWDescriptor:
@@ -563,16 +561,6 @@ def count_reciprocal_vectors(ecut, gd, q_c):
 
     G2_Q = (Gpq_Qv**2).sum(axis=1)
     return (G2_Q <= 2 * ecut).sum()
-
-
-@overload
-def pad(array: Array1D, N: int) -> Array1D:
-    ...
-
-
-@overload
-def pad(array: None, N: int) -> None:
-    ...
 
 
 def pad(array, N):

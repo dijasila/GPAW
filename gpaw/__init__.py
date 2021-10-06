@@ -6,7 +6,7 @@ import os
 import sys
 import contextlib
 from pathlib import Path
-from typing import List, Dict, Union
+from typing import List, Dict, Union, Any
 
 __version__ = '21.6.1b1'
 __ase_version_required__ = '3.22.0'
@@ -180,11 +180,11 @@ with broadcast_imports:
     from gpaw.wavefunctions.lcao import LCAO
     from gpaw.wavefunctions.pw import PW
     from gpaw.wavefunctions.fd import FD
+    from gpaw.new.ase_interface import GPAW as NewGPAW
 
 
-def GPAW(*args, **kwargs) -> OldGPAW:
+def GPAW(*args, **kwargs) -> Any:
     if os.environ.get('GPAW_NEW'):
-        from gpaw.new.ase_interface import GPAW as NewGPAW
         return NewGPAW(*args, **kwargs)
     return OldGPAW(*args, **kwargs)
 
