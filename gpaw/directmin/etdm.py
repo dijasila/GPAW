@@ -420,12 +420,16 @@ class ETDM:
             self._norm_commutator = 0.0
             for kpt in wfs.kpt_u:
                 u = self.kpointval(kpt)
-                tmp = np.linalg.norm(g_mat_u[u] @ self.a_mat_u[u] -
-                                     self.a_mat_u[u] @ g_mat_u[u])
+                a = vec2skewmat(a_mat_u[u], self.n_dim[u],
+                                self.ind_up[u], wfs.dtype)
+                g = vec2skewmat(g_mat_u[u], self.n_dim[u],
+                                self.ind_up[u], wfs.dtype)
+
+                tmp = np.linalg.norm(g @ a - a @ g)
                 if self._norm_commutator < tmp:
                     self._norm_commutator = tmp
 
-                tmp = np.linalg.norm(g_mat_u[u])
+                tmp = np.linalg.norm(g)
                 if self._norm_grad < tmp:
                     self._norm_grad = tmp
 
