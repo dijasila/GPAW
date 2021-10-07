@@ -174,20 +174,12 @@ class SJM(SolvationGPAW):
                            'thickness': None,
                            'fix_bottom': False},
          'target_potential': None,
-         'write_grandpotential_energy': None,
+         'write_grandpotential_energy': True,
          'tol': 0.01,
          'always_adjust': False,
          'max_iters': 10,
          'max_step': 2.,
          'slope': None})
-    # FIXME/ap: It seems we should only be writing out grand-potential
-    # energy when in constant-potential mode; regular helmholtz energy
-    # would make more sense in constant-charge mode, no? Shall we make
-    # this keyword be None and set it automatically, and the user can
-    # override if they want something else?
-    # GK: I fully agree and think we spoke about this some time back
-    # I added an if statement in the calculate function (marked as a
-    # FIXME).
     default_parameters = copy.deepcopy(SolvationGPAW.default_parameters)
     default_parameters.update({'poissonsolver': {'dipolelayer': 'xy'}})
     default_parameters.update({'sj': _sj_default_parameters})
@@ -245,7 +237,7 @@ class SJM(SolvationGPAW):
 
         self.sog('Solvated Jellium parameters:')
         self.log.print_dict(p)
-        self.sog()
+        self.log()
 
         if 'target_potential' in sj_changes and p.target_potential is not None:
             # If target potential is changed by the user and the slope is
@@ -374,20 +366,10 @@ class SJM(SolvationGPAW):
             # unnecessary computations (mostly of forces) in the loop.
             SolvationGPAW.calculate(self, atoms, properties, [])
 
-        # FIXME GK: I have added the following if statement:
-        # If the user sets the 'write_grandpotential_energy' the kind of energy
-        # in the output  is locked in. Otherwise it will be checked after the
-        # calculation converged.
-        if p.write_grandpotential_energy is not None:
-            write_GC = p.write_grandpotential_energy
-        elif p.target_potential:
-            write_GC = True
-        else:
-            write_GC = False
-
         # Note that grand-potential energies were assembled in summary,
         # which in turn was called by GPAW.calculate.
-        if write_GC:
+
+        if p.write_grandpotential_energy:
             self.results['energy'] = self.omega_extrapolated * Ha
             self.results['free_energy'] = self.omega_free * Ha
             self.sog('Grand-potential energy was written into results.\n')
