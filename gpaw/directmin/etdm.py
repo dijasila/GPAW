@@ -840,40 +840,12 @@ class ETDM:
                 if n_dim[k] == 0:
                     continue
 
-                if self.gd.comm.rank == 0:
-                    if self.representation in ['sparse', 'u-invar']:
-                        if self.matrix_exp == 'egdecomp-u-invar' and \
-                                self.representation == 'u-invar':
-                            n_occ = get_n_occ(kpt)
-                            n_v = wfs.bd.nbands - n_occ
-                            a = a_mat_u[k].reshape(n_occ, n_v)
-                        else:
-                            a = vec2skewmat(a_mat_u[k], n_dim[k],
-                                            self.ind_up[k], self.dtype)
-                    else:
-                        a = a_mat_u[k]
+                u_nn, evecs, evals = self.get_exponential_matrix(wfs, kpt,
+                                                                 a_mat_u,
+                                                                 n_dim)
 
-                    if self.matrix_exp == 'pade-approx':
-                        # this function takes a lot of memory
-                        # for large matrices... what can we do?
-                        with wfs.timer('Pade Approximants'):
-                            u_nn = expm(a)
-                    elif self.matrix_exp == 'egdecomp':
-                        # this method is based on diagonalisation
-                        with wfs.timer('Eigendecomposition'):
-                            u_nn, evecs, evals = expm_ed(a, evalevec=True)
-                    elif self.matrix_exp == 'egdecomp-u-invar':
-                        with wfs.timer('Eigendecomposition'):
-                            u_nn = expm_ed_unit_inv(a, oo_vo_blockonly=False)
-                    else:
-                        raise ValueError('Check the keyword '
-                                         'for matrix_exp. \n'
-                                         'Must be '
-                                         '\'pade-approx\' or '
-                                         '\'egdecomp\'')
-
-                    self.dm_helper.appy_transformation_kpt(
-                        wfs, u_nn.T, kpt, c_nm_ref[k], False, False)
+                self.dm_helper.appy_transformation_kpt(
+                    wfs, u_nn.T, kpt, c_nm_ref[k], False, False)
 
                 with wfs.timer('Broadcast coefficients'):
                     self.dm_helper.broadcast(wfs, kpt)
@@ -891,6 +863,44 @@ class ETDM:
                         self.evecs[k], self.evals[k] = evecs, evals
                 with wfs.timer('Calculate projections'):
                     self.dm_helper.update_projections(wfs, kpt)
+
+    def get_exponential_matrix(self, wfs, kpt, a_mat_u, n_dim):
+        """
+        Get unitary matrix U as the exponential of a skew-Hermitian
+        matrix a_mat_u (U = exp(a_mat_u))
+        """
+
+        k = self.kpointval(kpt)
+        if self.gd.comm.rank == 0:
+            if self.representation in ['sparse', 'u-invar']:
+                if self.matrix_exp == 'egdecomp-u-invar' and \
+                        self.representation == 'u-invar':
+                    n_occ = get_n_occ(kpt)
+                    n_v = n_dim[k] - n_occ
+                    a = a_mat_u[k].reshape(n_occ, n_v)
+                else:
+                    a = vec2skewmat(a_mat_u[k], n_dim[k],
+                                    self.ind_up[k], self.dtype)
+            else:
+                a = a_mat_u[k]
+
+            if self.matrix_exp == 'egdecomp':
+                # this method is based on diagonalisation
+                with wfs.timer('Eigendecomposition'):
+                    u_nn, evecs, evals = expm_ed(a, evalevec=True)
+            else:
+                evecs = None
+                evals = None
+                if self.matrix_exp == 'pade-approx':
+                    # this function takes a lot of memory
+                    # for large matrices... what can we do?
+                    with wfs.timer('Pade Approximants'):
+                        u_nn = expm(a)
+                elif self.matrix_exp == 'egdecomp-u-invar':
+                    with wfs.timer('Eigendecomposition'):
+                        u_nn = expm_ed_unit_inv(a, oo_vo_blockonly=False)
+
+        return u_nn, evecs, evals
 
     def check_assertions(self, wfs, dens):
 
