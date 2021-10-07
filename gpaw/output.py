@@ -76,7 +76,7 @@ def print_positions(atoms, log, magmom_av):
 
     # Print the legend
     if any(constraints.values()):
-        log('\n' + const_legend[:-1])
+        log('\n' + const_legend[:-3])
 
     # Constraints that are not applied to specific atoms are printed
     # below the table
