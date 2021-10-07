@@ -100,7 +100,7 @@ def calculate_weights(converge: int | str, wfs: WaveFunctions) -> Array1D:
 class Davidson:
     def __init__(self,
                  nbands,
-                 basis,
+                 wf_grid,
                  band_comm,
                  preconditioner_factory,
                  niter=2,
@@ -111,14 +111,14 @@ class Davidson:
         self.converge = converge
 
         B = nbands
-        domain_comm = basis.comm
+        domain_comm = wf_grid.comm
         if domain_comm.rank == 0 and band_comm.rank == 0:
-            self.H = Matrix(2 * B, 2 * B, basis.dtype)
-            self.S = Matrix(2 * B, 2 * B, basis.dtype)
-            self.M = Matrix(B, B, basis.dtype)
+            self.H = Matrix(2 * B, 2 * B, wf_grid.dtype)
+            self.S = Matrix(2 * B, 2 * B, wf_grid.dtype)
+            self.M = Matrix(B, B, wf_grid.dtype)
 
-        self.work_array1 = basis.empty(B, band_comm).data
-        self.work_array2 = basis.empty(B, band_comm).data
+        self.work_array1 = wf_grid.empty(B, band_comm).data
+        self.work_array2 = wf_grid.empty(B, band_comm).data
 
         self.preconditioner = preconditioner_factory(blocksize)
 
@@ -185,9 +185,7 @@ class Davidson:
 
             # <psi2 | H | psi2>
             me(psit2, psit2, function=Ht)
-            me(proj2, proj2,
-               function=partial(dH, out=proj3),
-               add_to_out=True)
+            me(proj2, proj2, function=partial(dH, out=proj3), add_to_out=True)
             copy(H.data[B:, B:])
 
             # <psi2 | H | psi>

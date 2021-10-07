@@ -18,8 +18,9 @@ class PlaneWaves(Layout):
         self.ecut = ecut
         self.grid = grid
         assert grid.pbc.all()
-        self.pbc = grid.pbc
 
+        self.comm = grid.comm
+        self.dtype = grid.dtype
         G_plus_k, ekin, self.indices = find_reciprocal_vectors(ecut, grid)
 
         # Find distribution:
@@ -82,6 +83,11 @@ class PlaneWaveExpansions(DistributedArrays):
     def __getitem__(self, index):
         return PlaneWaveExpansions(self.pw, data=self.data[index])
 
+    def new(self, data=None):
+        if data is None:
+            data = np.empty_like(self.data)
+        return PlaneWaveExpansions(self.pw, self.shape, self.comm, data)
+
     def _arrays(self):
         return self.data.reshape((-1,) + self.data.shape[-1:])
 
@@ -140,14 +146,14 @@ class PlaneWaveExpansions(DistributedArrays):
             a = self._arrays()
             b = other._arrays()
             dv = self.pw.dv
-            if self.pw.grid.dtype == float:
+            if self.pw.dtype == float:
                 a = a.view(float)
                 b = b.view(float)
                 dv *= 2
             result = a @ b.T.conj()
             if self.pw.grid.dtype == float and self.pw.grid.comm.rank == 0:
                 result -= 0.5 * np.outer(a[:, 0], b[:, 0])
-            self.pw.grid.comm.sum(result)
+            self.pw.comm.sum(result)
             result.shape = self.shape + other.shape
         else:
             dv = self.pw.grid.dv
@@ -159,6 +165,46 @@ class PlaneWaveExpansions(DistributedArrays):
         if self.pw.grid.dtype == float:
             result = result.real
         return result * dv
+
+    def matrix_elements(self, other, *, symmetric=None, function=None,
+                        out=None, add_to_out=False, domain_sum=True):
+        assert not domain_sum
+        if symmetric is None:
+            symmetric = self is other
+        if function:
+            other = function(other)
+        special case for float
+        M1 = self.matrix
+        M2 = other.matrix
+        # if out is None:
+        #     assert not add_to_out
+        #     out = Matrix(M1.shape[0], M2.shape[0], dist=(M1.comm, -1, 1))
+        if self.layout_last and other.layout_last:
+            assert not add_to_out
+            out = M1.multiply(M2, opb='C', alpha=self.layout.dv,
+                              symmetric=symmetric, out=out)
+            out.complex_conjugate()
+        else:
+            1 / 0
+        # operate_and_multiply(self, self.layout.dv, out, function, ...)
+        return out
+
+    def norm2(self, kind='mormal'):
+        a = self._arrays().view(float)
+        if kind == 'normal':
+            result = np.einsum('ig, ig -> i', a, a)
+        if kind == 'kinetic':
+            a.shape = (len(a), -1, 2)
+            result = np.einsum('igx, igx, g -> i', a, a, self.pw.ekin)
+        else:
+            1 / 0
+        if self.pw.dtype == float:
+            result *= 2
+            if self.pw.comm.rank == 0 and kind == 'normal':
+                result -= a[:, 0] * a[:, 0]
+        self.pw.comm.sum(result)
+        result.shape = self.myshape
+        return result * self.pw.dv
 
 
 class Empty:

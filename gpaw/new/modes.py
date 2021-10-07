@@ -13,6 +13,7 @@ from gpaw.new.potential import (PlaneWavePotentialCalculator,
                                 UniformGridPotentialCalculator)
 from gpaw.poisson import PoissonSolver as make_poisson_solver
 from gpaw.utilities.gpts import get_number_of_grid_points
+import _gpaw
 
 
 class Mode:
@@ -84,17 +85,13 @@ class PWHamiltonian:
         return out
 
     def create_preconditioner(self, blocksize):
-        1 / 0
-        from types import SimpleNamespace
+        return precondition
 
-        from gpaw.preconditioner import Preconditioner as PC
-        pc = PC(self.gd, self.kin, self.grid.dtype, self.blocksize)
 
-        def apply(psit, residuals, out):
-            kpt = SimpleNamespace(phase_cd=psit.grid.phase_factors)
-            pc(residuals.data, kpt, out=out.data)
-
-        return apply
+def precondition(psit, residuals, out):
+    G2 = psit.pw.ekin * 2
+    for r, o, ekin in zip(residuals.data, out.data, psit.norm2('kinetic')):
+        _gpaw.pw_precond(G2, r, ekin, o)
 
 
 class FDMode(Mode):

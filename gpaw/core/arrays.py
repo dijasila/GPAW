@@ -77,6 +77,7 @@ class DistributedArrays:
                               symmetric=symmetric, out=out)
             out.complex_conjugate()
         elif not self.layout_last and not other.layout_last:
+            use matrix multiply directly
             assert add_to_out
             M1.multiply(M2, opa='C', symmetric=symmetric, out=out, beta=1.0)
         else:
