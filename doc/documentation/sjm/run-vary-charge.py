@@ -1,5 +1,5 @@
-import numpy as np
 import pickle
+import numpy as np
 from ase import Atoms
 from ase.units import Pascal, m
 from ase.parallel import paropen
@@ -11,6 +11,35 @@ from gpaw.solvation import (
     GradientSurface,
     SurfaceInteraction
 )
+
+
+def write_everything(label):
+    """Writes out all the useful data after the SJM calculation."""
+    # FIXME/ap: delete commmented lines
+    atoms.write(f'atoms{label}.traj')
+    # calc.write_sjm_traces(path=f'sjm_traces{label}.out')
+    esp = atoms.calc.get_electrostatic_potential()
+    with paropen(f'esp{label}.pickle', 'wb') as f:
+        pickle.dump(esp, f)
+    # nt = calc.get_pseudo_density()
+    n = calc.get_all_electron_density()
+    # with open(f'pseudodensity{label}.pickle', 'wb') as f:
+    #     pickle.dump(nt, f)
+    with open(f'allelectrondensity{label}.pickle', 'wb') as f:
+        pickle.dump(n, f)
+    # grid = calc.density.gd.get_grid_point_coordinates()
+    # with open(f'grid{label}.pickle', 'wb') as f:
+    #     pickle.dump(grid, f)
+
+
+def log_potential():
+    """Saves charge and potential in simple text file for subsequent
+    plot."""
+    with paropen('potential.txt', 'a') as f:
+        f.write('{:10.4f}, {:10.4f}\n'
+                .format(calc.results['electrode_potential'],
+                        calc.results['excess_electrons']))
+
 
 atoms = Atoms(symbols='Pt27OH2OH2OH2OH2OH2OH2',
               pbc=np.array([True, True, False]),
@@ -66,7 +95,7 @@ atoms = Atoms(symbols='Pt27OH2OH2OH2OH2OH2OH2',
                    [2.36035150, 5.52417539, 15.56370623]]))
 
 # Solvated jellium parameters.
-sj = {'excess_electrons': 0.45235}
+sj = {'excess_electrons': 0.}
 
 # Implicit solvent parameters (to SolvationGPAW).
 epsinf = 78.36  # dielectric constant of water at 298 K
@@ -93,9 +122,10 @@ calc = SJM(txt='gpaw.txt',
 
 
 atoms.set_calculator(calc)
-atoms.get_potential_energy()
-calc.write_sjm_traces(path='sjm_traces4.4.out')  # .out for .gitignore
-esp = atoms.calc.get_electrostatic_potential()
-with paropen('esp4.4.pickle', 'wb') as f:
-    pickle.dump(esp, f)
-atoms.write('atoms.traj')
+
+for excess_electrons in [-0.2, -0.1, 0., .1, .2]:
+    sj['excess_electrons'] = excess_electrons
+    calc.set(sj=sj)
+    atoms.get_potential_energy()
+    log_potential()
+    write_everything(label='{:.4f}'.format(excess_electrons))

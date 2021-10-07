@@ -1,4 +1,5 @@
 .. _sjm:
+.. module:: gpaw.solvation.sjm
 
 ======================================================
 Solvated Jellium (constant-potential electrochemistry)
@@ -12,7 +13,7 @@ A full description of the approach can be found in [Kastlunger2018]_.
 The method allows you to control the simulated electrode potential (manifested as the topside work function) by varying the number of electrons in the simulation; calculations can be run in either constant-charge or constant-potential mode.
 The :class:`~gpaw.solvation.sjm.SJM` calculator can be used just like the standard GPAW calculator; it returns energy and forces, but can do so at a fixed potential.
 (Please see the note below on the Legendre-transform of the energy.)
-The potential is controlled by a simple iterative technique; in practice if you are running a trajectory (such as a relaxation or nudged elastic band) the first image will take longer than a conventional calculation as the potential equilibrates, but the computational cost is much less on subsequent images; practically, we estimate the extra cost to be <50% compared to a traditional DFT calculation.
+The potential is controlled by a simple iterative technique; in practice if you are running a trajectory (such as a relaxation or nudged elastic band) the first image will take longer than a conventional calculation as the potential equilibrates, but the computational cost is much less on subsequent images; practically, we estimate the extra cost to be <50% compared to a traditional DFT calculation of a full trajectory.
 For a practical guide on the use of the method, please see the :ref:`solvated_jellium_method` tutorial.
 
 
@@ -24,14 +25,13 @@ The solvated jellium approach consists of two components: jellium and an implici
 A schematic is shown below:
 
 .. image:: overview.png
-           :height: 250 px
+           :width: 600 px
            :align: center
-
-FIXME/ap: Add a big JELLIUM label in the hashed area and a big SOLVATION label in the blue part.
-FIXME/ap: Make own figure? Above is from Per and will presumably be copyrighted.  alternatively we give the copyright to GPAW and cite it in that work.
 
 In this figure, the jellium is shown by the hashed marks, while the implicit solvent is shown in the blue shaded region. Note that an explicit solvent (the water molecules) is also conventionally used in this approach, as the major purpose of the implicit solvent is not to simulate the solvation of individual species but rather to screen the net field.
 A more detailed discussion of both of these components follows.
+
+FIXME/ap: The above image could show all data on the same xz or yz projection. That is, in each point in xz space it could show the y-average value of the dielectric constant and the presence or absence of jellium. The intensity of blue would show the value of the dielectric constant.
 
 
 The jellium slab: charging
@@ -41,20 +41,20 @@ In a periodic system we cannot have a net charge; therefore, any additional, fra
 In GPAW, this is conveniently accomplished with a :class:`~gpaw.jellium.JelliumSlab`.
 This adds a smeared-out background charge in a fixed region of the simulation cell; in the figure above it is shown as the dashed region to the right of the atoms.
 The :class:`~gpaw.jellium.JelliumSlab` also increases the number of electrons in the simulation by an amount equal to the total charge of the slab.
-When you run a simulation, you should see that these excess electrons localize on the right side of the metal atoms that simulate the electrode surface, and not on the left, which simulates the bulk.
-This is accomplished by only putting the jellium region on one side of the simulation, and employing a dipole correction (included by default when you run SJM) to decouple the two sides of the cell.
+When you run a simulation, you should see that these excess electrons localize on the `+z` side (the right side in these figures) of the metal atoms that simulate the electrode surface, and not on the `-z` (left) side, which simulates the bulk.
+This is accomplished by only putting the jellium region on one side of the simulation, and employing a dipole correction (included by default when you run SJM) to electrostatically decouple the two sides of the cell.
 
+The figure below shows the difference in two simulations, one run at 4.4 V and one run at 4.3 V.
+The orange curve shows where the potential drops off, and the blue curve shows where the electrons localize.
 
-.. image:: electrons.png
-           :height: 250 px
+.. image:: traces.png
+           :width: 600 px
            :align: center
-
-FIXME/ap: Add in image of excess electrons and where they localize.
 
 The jellium region is conventionally thought of as a region of smeared-out positive charge, accompanied by a positive number of electrons.
 However, the signs can readily be reversed, making the jellium region a smeared-out negative region accompanied by a reduction in the total number of electrons.
 In this way, the same tool can be used to perturb the electrons in either a positive or negative direction, and thus vary the potential in either direction in order to find its target.
-Note also that the jellium region is not overlapping any atoms, separating this from approaches that employ a homogeneous background charge throughout the unit cell (in which spurious interactions can occur).
+Note also that the jellium region does not overlap any atoms, separating this from approaches that employ a homogeneous background charge throughout the unit cell (in which spurious interactions can occur).
 This is important to not distort the electronic structure of the atoms and molecules being simulated.
 Additionally, note that the jellium is enclosed in a regular slab geometry in the figure above, but this need not be the case; it can, for example, follow the cavity of the implicit solvent if this is preferred (by using the :code:`jelliumregion` keyword as described in the :class:`~gpaw.solvation.sjm.SJM` documentation).
 
@@ -67,7 +67,7 @@ To screen this large field, an implicit solvent is added to the simulation in th
 For this purpose, the solvated jellium method employs the implicit solvation model of Held and Walter [Held2014]_, which changes the dielectric constant of the vacuum region.
 (You can learn more about the solvation method in the :ref:`continuum_solvent_model` tutorial.)
 
-The primary purpose of the implicit solvent in the solvated jellium method is not to affect the energetics of the species reacting at the surface; explicit solvent (shown by the water molecules above) is typically employed in SJ simulations for this purpose.
+Here, the primary purpose of the implicit solvent is *not* to solvate the species reacting at the surface; explicit solvent (shown by the water molecules above) is typically employed in SJ simulations for this purpose.
 The implicit solvent is located above the explicit solvent (and therefore may provide some solvent stabilization to the explicit solvent molecules).
 This can be seen in the figure above, where the implicit solvent is shown as the blue shaded region.
 In this figure, the small amount of solvent that is apparent at a `z` coordinate corresponding to the water layer is just the result of the implicit solvent penetrating slightly into the cavity at the center of a hexagonal ice-like water structure.
@@ -77,7 +77,7 @@ If this occurs, "ghost" atoms can be added to exclude the solvent from specific 
 Generalized Poisson equation
 ----------------------------
 
-The above is manifested as two changes to the generalized Poisson equation,
+In net, the SJ method is manifested as two changes to the generalized Poisson equation,
 
 .. math:: \nabla \Big(\epsilon(\br) \nabla \Phi(\br)\Big) = -4\pi \Big[ \rho_\mathrm{explicit}(\br) + \rho_\mathrm{jellium} (\br) \Big],
 
@@ -118,13 +118,17 @@ Potential control
 
 The below figure shows both the localization of excess electrons and the local change in potential, when the total number of electrons in an example simulation are changed.
 
-FIXME/ap: Add two figures. One shows delta ne and one shows delta phi, at a few different values of excess electrons. (Versus z.)
+.. image:: delta-ne-phi.png
+           :width: 600 px
+           :align: center
 
 As mentioned above, the excess electrons localize only on the top side of the slab, which is meant to represent the electrode surface, and not on the bottom side, which is mean to represent the bulk.
 The potential drop is seen to localize in the Stern layer where the reaction takes place.
 Over reasonable deviations, the relationship between the number of excess electrons and the potential :math:`\phi` is approximately linear:
 
-FIXME/ap: Figure of potential versus excess electrons.
+.. image:: charge-potential.png
+           :width: 600 px
+           :align: center
 
 Due to the simple relationship between the excess electrons and the potential, reaching a desired potential is typically a fast process.
 If you are running a trajectory---for example, a relaxation, a molecular dynamics simulation, or a saddle-point search---the first image will often take a few repetitions (that is, sequential constant-electron calculations) until the desired potential is reached.
