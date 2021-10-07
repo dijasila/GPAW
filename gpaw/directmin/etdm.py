@@ -840,27 +840,11 @@ class ETDM:
                 if n_dim[k] == 0:
                     continue
 
-                u_nn, evecs, evals = self.get_exponential_matrix(wfs, kpt,
-                                                                 a_mat_u,
-                                                                 n_dim)
+                u_nn = self.get_exponential_matrix(wfs, kpt, a_mat_u, n_dim)
 
                 self.dm_helper.appy_transformation_kpt(
                     wfs, u_nn.T, kpt, c_nm_ref[k], False, False)
 
-                with wfs.timer('Broadcast coefficients'):
-                    self.dm_helper.broadcast(wfs, kpt)
-
-                if self.matrix_exp == 'egdecomp':
-                    with wfs.timer('Broadcast evecs and evals'):
-                        if self.gd.comm.rank != 0:
-                            evecs = np.zeros(shape=(n_dim[k], n_dim[k]),
-                                             dtype=complex)
-                            evals = np.zeros(shape=n_dim[k],
-                                             dtype=float)
-
-                        self.gd.comm.broadcast(evecs, 0)
-                        self.gd.comm.broadcast(evals, 0)
-                        self.evecs[k], self.evals[k] = evecs, evals
                 with wfs.timer('Calculate projections'):
                     self.dm_helper.update_projections(wfs, kpt)
 
@@ -888,19 +872,33 @@ class ETDM:
                 # this method is based on diagonalisation
                 with wfs.timer('Eigendecomposition'):
                     u_nn, evecs, evals = expm_ed(a, evalevec=True)
-            else:
-                evecs = None
-                evals = None
-                if self.matrix_exp == 'pade-approx':
-                    # this function takes a lot of memory
-                    # for large matrices... what can we do?
-                    with wfs.timer('Pade Approximants'):
-                        u_nn = expm(a)
-                elif self.matrix_exp == 'egdecomp-u-invar':
-                    with wfs.timer('Eigendecomposition'):
-                        u_nn = expm_ed_unit_inv(a, oo_vo_blockonly=False)
+            elif self.matrix_exp == 'pade-approx':
+                # this function takes a lot of memory
+                # for large matrices... what can we do?
+                with wfs.timer('Pade Approximants'):
+                    u_nn = np.ascontiguousarray(expm(a))
+            elif self.matrix_exp == 'egdecomp-u-invar':
+                with wfs.timer('Eigendecomposition'):
+                    u_nn = expm_ed_unit_inv(a, oo_vo_blockonly=False)
 
-        return u_nn, evecs, evals
+        with wfs.timer('Broadcast u_nn'):
+            if self.gd.comm.rank != 0:
+                u_nn = np.zeros(shape=(n_dim[k], n_dim[k]),
+                                dtype=wfs.dtype)
+            self.gd.comm.broadcast(u_nn, 0)
+
+        if self.matrix_exp == 'egdecomp':
+            with wfs.timer('Broadcast evecs and evals'):
+                if self.gd.comm.rank != 0:
+                    evecs = np.zeros(shape=(n_dim[k], n_dim[k]),
+                                     dtype=complex)
+                    evals = np.zeros(shape=n_dim[k],
+                                     dtype=float)
+                self.gd.comm.broadcast(evecs, 0)
+                self.gd.comm.broadcast(evals, 0)
+                self.evecs[k], self.evals[k] = evecs, evals
+
+        return u_nn
 
     def check_assertions(self, wfs, dens):
 

@@ -25,9 +25,9 @@ def expm_ed(a_mat, evalevec=False):
     if a_mat.dtype == float:
         product = product.real
     if evalevec:
-        return product, evec, eigval
+        return np.ascontiguousarray(product), evec, eigval
 
-    return product
+    return np.ascontiguousarray(product)
 
 
 def expm_ed_unit_inv(a_upp_r, oo_vo_blockonly=False):
