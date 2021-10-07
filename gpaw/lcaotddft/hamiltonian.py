@@ -8,7 +8,7 @@ from gpaw.lcaotddft.utilities import read_uMM
 from gpaw.lcaotddft.utilities import read_wuMM
 from gpaw.lcaotddft.utilities import write_uMM
 from gpaw.lcaotddft.utilities import write_wuMM
-
+from gpaw.utilities.blas import gemm, gemmdot
 
 class TimeDependentPotential(object):
     def __init__(self):
@@ -160,6 +160,8 @@ class TimeDependentHamiltonian(object):
         if self.td_potential is not None:
             self.td_potential.initialize(paw)
 
+        self.P = get_P(self.wfs)
+
         self.timer.stop('Initialize TDDFT Hamiltonian')
 
     def initialize_fxc(self, niter):
@@ -249,3 +251,112 @@ class TimeDependentHamiltonian(object):
         if mode in ['all']:
             self.hamiltonian.update(self.density)
         self.timer.stop('Update TDDFT Hamiltonian')
+
+    def get_D_lcao(self):
+        print ('pocitam D operator')
+
+    def get_P_lcao(self):
+        print ('pocitam P operator')
+
+class get_P:
+    def __init__(self, wfs):
+#        self.v = v
+        self.wfs = wfs
+        self.dpt_aniv = wfs.basis_functions.dict(wfs.bd.mynbands,
+                                                 derivative=True)
+        self.manytci = wfs.tciexpansions.get_manytci_calculator(wfs.setups,
+                       wfs.gd, wfs.spos_ac, wfs.kd.ibzk_qc,
+                       wfs.dtype, wfs.timer)
+        self.my_atom_indices = wfs.basis_functions.my_atom_indices
+        self.nao = wfs.ksl.nao
+        self.mynao = wfs.ksl.mynao
+        self.dtype = wfs.dtype
+        self.Mstop = wfs.ksl.Mstop
+        self.Mstart = wfs.ksl.Mstart
+        self.P_aqMi = self.manytci.P_aqMi(self.my_atom_indices)
+
+    def D1_1(self):
+        # This function calculate the first term
+        # in square bracket in eq. 4.66 pp.49
+        # D1_1_aqvMM = <Phi_nu|pt^a_i>O^a_ii<grad pt^a_i|Phi_mu>
+        dPdR_aqvMi = self.manytci.P_aqMi(self.my_atom_indices, True)
+        self.D1_1_aqvMM = np.zeros((len(self.my_atom_indices),
+                                   len(self.wfs.kpt_u), 3,
+                                   self.mynao, self.nao), self.dtype)
+        for u, kpt in enumerate(self.wfs.kpt_u):
+            print ('k===\n',u,kpt)
+            for a in self.my_atom_indices:
+                setup = self.wfs.setups[a]
+                dO_ii = np.asarray(setup.dO_ii, self.dtype)
+                P_aqMi_dO_iM = np.zeros((setup.ni, self.nao), self.dtype)
+            # Calculate first product: P_aqMi_dO_iM=<Phi_nu|pt^a_i>O^a_ii
+                gemm(1.0, self.P_aqMi[a][kpt.q], dO_ii, 0.0,
+                     P_aqMi_dO_iM, 'c')
+            # Calculate final term:
+            # D1_1_aqvMM=<Phi_nu|p^a_i>O^a_ii<grad p^a_i|Phi_mu>
+                for c in range(3):
+                    gemm(1.0, P_aqMi_dO_iM, dPdR_aqvMi[a][kpt.q][c],
+                         0.0, self.D1_1_aqvMM[a, kpt.q, c], 'n')
+        return self.D1_1_aqvMM
+
+    def D1_2(self):
+        # This function calculate the second term
+        # in square bracket in eq. 4.66 pp.49
+        # D1_2_aqvMM = <Phi_nu|pt^a_i>nabla^a_ii<pt^a_i|Phi_mu>
+        self.D1_2_aqvMM = np.zeros((len(self.my_atom_indices),
+                                    len(self.wfs.kpt_u), 3,
+                                    self.mynao, self.nao), self.dtype)
+        for u, kpt in enumerate(self.wfs.kpt_u):
+            for a in self.my_atom_indices:
+                setup = self.wfs.setups[a]
+                nabla_ii = self.wfs.setups[a].nabla_iiv
+                Pnabla_ii_iM_aux = np.zeros((3, setup.ni, self.nao),
+                                            self.dtype)
+                # <Phi_nu|p^a_i>nabla^a_ii
+                for c in range(3):
+                    gemm(1.0, self.P_aqMi[a][kpt.q],
+                         nabla_ii[:, :, c], 0.0,
+                         Pnabla_ii_iM_aux[c, :, :], 'c')
+                    self.D1_2_aqvMM[a, kpt.q, c, :, :] = gemmdot(self.P_aqMi[a][kpt.q].conj(),
+                    Pnabla_ii_iM_aux[c, :, :])
+        return self.D1_2_aqvMM
+
+    def D2_1(self):
+        # This function calculate the first term
+        # in square bracket in eq. 4.67 pp.49
+        # D2_1_qvMM = <Phi_nu|dPhi_mu/dR_amu>
+        self.D2_1_qvMM, self.dTdR_qvMM = self._get_overlap_derivatives(self.wfs.ksl.using_blacs)
+        return self.D2_1_qvMM, self.dTdR_qvMM
+
+    def calc_P(self):
+        # Calculate P1_MM = i sum ((V_a) . (D1_1 + D1_2))   eq. 4.66 p.49
+        P_MM = np.zeros((self.mynao, self.nao), self.dtype)
+        P1_MM = np.zeros((self.mynao, self.nao), self.dtype)
+        P2_MM = np.zeros((self.mynao, self.nao), self.dtype)
+        self.D1_1()
+        self.D1_2()
+        self.D2_1()
+
+        for u, kpt in enumerate(self.wfs.kpt_u):
+            for a in self.my_atom_indices:
+                for c in range(3):
+                    P1_MM[:, :] += self.v[a][c]*(self.D1_1_aqvMM[a, kpt.q, c, :, :] +
+                                   self.D1_2_aqvMM[a, kpt.q, c, :, :])
+
+        # Calculate P2_MM= -i [ V_a . D2_1 + V_a . sum( D1_2 ) ]   4.67 p 49
+
+        for u, kpt in enumerate(self.wfs.kpt_u):
+            for a in self.my_atom_indices:
+                for c in range(3):
+                    P2_MM[:, :] += self.v[a][c]*(self.D2_1_qvMM[kpt.q, c, :, :] +
+                                                 self.D1_1_aqvMM[a, kpt.q, c, :, :])
+
+        P_MM = (P1_MM - P2_MM)*complex(0, 1)
+
+        return P_MM
+
+    def _get_overlap_derivatives(self, ignore_upper=False):
+        dThetadR_qvMM, dTdR_qvMM = self.wfs.manytci.O_qMM_T_qMM(
+        self.wfs.gd.comm, self.wfs.ksl.Mstart, self.wfs.ksl.Mstop,
+        ignore_upper, derivative=True)
+        return dThetadR_qvMM, dTdR_qvMM

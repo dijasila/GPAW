@@ -508,7 +508,11 @@ class LCAOWaveFunctions(WaveFunctions):
         self.basis_functions.estimate_memory(mem.subnode('BasisFunctions'))
         self.eigensolver.estimate_memory(mem.subnode('Eigensolver'),
                                          self.dtype)
-
+    def _get_overlap_derivatives(self, ignore_upper=False):
+        dThetadR_qvMM, dTdR_qvMM = self.manytci.O_qMM_T_qMM(
+        self.gd.comm, self.ksl.Mstart, self.ksl.Mstop,
+        ignore_upper, derivative=True)
+        return dThetadR_qvMM, dTdR_qvMM
 
 class LCAOforces:
 
