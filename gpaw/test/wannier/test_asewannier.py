@@ -13,7 +13,6 @@ pytestmark = pytest.mark.skipif(world.size > 1,
                                 reason='world.size > 1')
 
 
-@pytest.mark.xfail
 def test_ase_features_asewannier(in_tmp_dir):
     calc = GPAW(gpts=(32, 32, 32), nbands=4)
     atoms = molecule('H2', calculator=calc)
@@ -41,7 +40,7 @@ def test_ase_features_asewannier(in_tmp_dir):
     equal(wan.get_functional_value(), 3.100, 2e-3)
     equal(np.linalg.norm(wan.get_centers() - pos), 0, 1e-3)
     equal(np.linalg.norm(wan.get_radii() - 1.2393), 0, 2e-3)
-    eig = np.sort(np.linalg.eigvals(wan.get_hamiltonian().real))
+    eig = np.sort(np.linalg.eigvals(wan.get_hamiltonian(k=0).real))
     equal(np.linalg.norm(eig - calc.get_eigenvalues()[:2]), 0, 1e-4)
 
     wan.write_cube(0, 'H2.cube')
