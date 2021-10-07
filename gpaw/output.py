@@ -27,14 +27,61 @@ def print_cell(gd, pbc_c, log):
 
 
 def print_positions(atoms, log, magmom_av):
+    """Print out the atomic symbols, positions, constraints, and magmoms
+       at each ionic step"""
+
+    # ASCII plot of unit cell
     log(plot(atoms))
-    log('\nPositions:')
+
+    # Header
+    log('\n' + ' ' * 23 + 'Positions' + ' ' * 13 +
+        'Constr' + ' ' * 11 + '(Magmoms)')
+
+    # Extract the contraints from the atoms object, label them and identify
+    # the involved atoms. A little legend is produced which is printed at
+    # the bottom.
+    constraints = {i: '' for i in range(len(atoms))}
+    const_legend = '  Contraints: '
+    other_consts = []
+    for const in atoms.constraints:
+        const_name = const.todict()['name']
+        const_label = [i for i in const_name if i.lstrip('Fix').isupper()][0]
+
+        indices = []
+        for key, value in const.__dict__.items():
+            # Since the indices in the varying constraints are labeled
+            # differently we have to search for all the labels
+            if key in ['a', 'index', 'pairs', 'indices']:
+                indices = np.unique(np.array(value).reshape(-1))
+
+        if not len(indices):
+            other_consts.append(const_name)
+        elif const_name not in const_legend:
+            const_legend += '{0:1} = {1:s},  '.format(const_label, const_name)
+            if not (const_legend.count('=') + 1) % 4:
+                const_legend += '\n   '
+
+        for index in indices:
+            constraints[index] += const_label
+
+    # Print the table
     symbols = atoms.get_chemical_symbols()
     for a, pos_v in enumerate(atoms.get_positions()):
         symbol = symbols[a]
-        log('{0:>4} {1:3} {2[0]:11.6f} {2[1]:11.6f} {2[2]:11.6f}'
-            '    ({3[0]:7.4f}, {3[1]:7.4f}, {3[2]:7.4f})'
-            .format(a, symbol, pos_v, magmom_av[a]))
+        const = constraints[a]
+
+        log('{0:>4} {1:3} {2[0]:11.6f} {2[1]:11.6f} {2[2]:11.6f} '
+            '{3:^7}({4[0]:7.4f}, {4[1]:7.4f}, {4[2]:7.4f})'
+            .format(a, symbol, pos_v, const, magmom_av[a]))
+
+    # Print the legend
+    if any(constraints.values()):
+        log('\n' + const_legend[:-1])
+
+    # Constraints that are not applied to specific atoms are printed
+    # below the table
+    if len(other_consts):
+        log('   Additional constraints: ' + ', '.join(other_consts))
     log()
 
 
