@@ -58,7 +58,7 @@ class Density:
 
     def move(self, fracpos):
         self.core_acf.positions = fracpos
-        core_density = self.core_acf.evaluate(1.0 / self.ndensities)
+        core_density = self.core_acf.to_uniform_grid(1.0 / self.ndensities)
         self.density.data[:self.ndensities] += (core_density.data -
                                                 self.core_density.data)
         self.core_density = core_density
@@ -87,7 +87,7 @@ class Density:
         basis_set.add_to_density(density.data, f_asi)
 
         core_acf = setups.create_pseudo_core_densities(wf_grid, fracpos)
-        core_density = core_acf.evaluate(1.0 / ndens)
+        core_density = core_acf.to_uniform_grid(1.0 / ndens)
         density.data[:ndens] += core_density.data
 
         atom_array_layout = AtomArraysLayout([(setup.ni, setup.ni)

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+import numpy as np
 from ase.units import Bohr, Ha
 from gpaw.core import PlaneWaves, UniformGrid
 from gpaw.fd_operators import Laplace
@@ -68,7 +69,32 @@ class PWMode(Mode):
                                             xc, poisson_solver)
 
     def create_hamiltonian_operator(self, grid, blocksize=10):
-        return 1 / 0
+        return PWHamiltonian()
+
+
+class PWHamiltonian:
+    def __init__(self):
+        ...
+
+    def apply(self, vt, psit, out, spin):
+        v = vt.data[spin]
+        np.multiply(psit.pw.ekin, psit.data, out.data)
+        for p, o in zip(psit, out):
+            o.data += (p.ifft() * v).fft()
+        return out
+
+    def create_preconditioner(self, blocksize):
+        1 / 0
+        from types import SimpleNamespace
+
+        from gpaw.preconditioner import Preconditioner as PC
+        pc = PC(self.gd, self.kin, self.grid.dtype, self.blocksize)
+
+        def apply(psit, residuals, out):
+            kpt = SimpleNamespace(phase_cd=psit.grid.phase_factors)
+            pc(residuals.data, kpt, out=out.data)
+
+        return apply
 
 
 class FDMode(Mode):
@@ -92,10 +118,10 @@ class FDMode(Mode):
                                               xc, poisson_solver)
 
     def create_hamiltonian_operator(self, grid, blocksize=10):
-        return Hamiltonian(grid, self.stencil, blocksize)
+        return FDHamiltonian(grid, self.stencil, blocksize)
 
 
-class Hamiltonian:
+class FDHamiltonian:
     def __init__(self, grid, stencil=3, blocksize=10):
         self.grid = grid
         self.blocksize = blocksize

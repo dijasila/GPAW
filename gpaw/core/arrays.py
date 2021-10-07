@@ -84,13 +84,6 @@ class DistributedArrays:
         # operate_and_multiply(self, self.layout.dv, out, function, ...)
         return out
 
-    def integrate(self, other):
-        a = self._arrays()
-        b = other._arrays()
-        a = a.reshape((len(a), -1))
-        b = b.reshape((len(b), -1))
-        return (a @ b.T).reshape(self.shape + other.shape) * self.layout.dv
-
     def __iadd__(self, other):
         other.acfs.add_to(self, other.coefs)
         return self

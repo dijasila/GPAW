@@ -27,6 +27,7 @@ class DFTCalculation:
         potential = pot_calc.calculate(density)
 
         if params.random:
+            log('Initializing wave functions with random numbers')
             ibz_wfs = cfg.random_ibz_wave_functions()
         else:
             ibz_wfs = cfg.lcao_ibz_wave_functions(basis_set, potential)

@@ -100,7 +100,7 @@ class UniformGridAtomCenteredFunctions(AtomCenteredFunctions):
                        forces=True)
         self.lfc.set_positions(self._positions)
 
-    def evaluate(self, coef: float = 1.0):
+    def to_uniform_grid(self, coef: float = 1.0):
         out = self.grid.zeros()
         self.add_to(out, coef)
         return out
@@ -122,7 +122,7 @@ class PlaneWaveAtomCenteredFunctions(AtomCenteredFunctions):
         self.lfc = PWLFC(self.functions, pd)
         self.lfc.set_positions(self._positions)
 
-    def evaluate(self, coef: float = 1.0):
+    def to_uniform_grid(self, coef: float = 1.0):
         out = self.pw.zeros()
         self.add_to(out, coef)
         return out.ifft()

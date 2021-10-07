@@ -37,6 +37,8 @@ class PlaneWaves(Layout):
 
         Layout.__init__(self, (ng,), (len(self.myindices),))
 
+        self.dv = grid.dv / grid.size.prod()
+
     def __str__(self) -> str:
         a, b, c = self.grid.size
         comm = self.grid.comm
@@ -131,6 +133,32 @@ class PlaneWaveExpansions(DistributedArrays):
                 output[:] = data[:self.grid.size]
 
         return out if comm.rank == 0 else None
+
+    def integrate(self, other=None):
+        if other is not None:
+            assert self.pw.grid.dtype == other.pw.grid.dtype
+            a = self._arrays()
+            b = other._arrays()
+            dv = self.pw.dv
+            if self.pw.grid.dtype == float:
+                a = a.view(float)
+                b = b.view(float)
+                dv *= 2
+            result = a @ b.T.conj()
+            if self.pw.grid.dtype == float and self.pw.grid.comm.rank == 0:
+                result -= 0.5 * np.outer(a[:, 0], b[:, 0])
+            self.pw.grid.comm.sum(result)
+            result.shape = self.shape + other.shape
+        else:
+            dv = self.pw.grid.dv
+            result = self.data[..., 0]
+            if self.pw.grid.comm.rank > 0:
+                result = np.empty_like(result)
+            self.pw.grid.comm.broadcast(result[np.newaxis], 0)
+
+        if self.pw.grid.dtype == float:
+            result = result.real
+        return result * dv
 
 
 class Empty:

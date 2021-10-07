@@ -99,7 +99,8 @@ class UniformGrid(Layout):
             pbc=None,
             kpt=None,
             comm=None,
-            decomposition=None) -> UniformGrid:
+            decomposition=None,
+            dtype=None) -> UniformGrid:
         if decomposition is None and comm is None:
             if (size == self.size).all() and (pbc == self.pbc).all():
                 decomposition = self.decomposition
@@ -108,7 +109,8 @@ class UniformGrid(Layout):
                            pbc=self.pbc if pbc is None else pbc,
                            kpt=self.kpt if kpt is None else kpt,
                            comm=comm or self.comm,
-                           decomposition=decomposition)
+                           decomposition=decomposition,
+                           dtype=self.dtype if dtype is None else dtype)
 
     def empty(self,
               shape: int | tuple[int, ...] = (),
@@ -248,7 +250,7 @@ class UniformGridFunctions(DistributedArrays):
             out = pw.empty(self.shape)
         if pw is None:
             pw = out.pw
-        plan = plan or pw.fft_plans()[0]
+        plan = plan or pw.grid.fft_plans()[0]
         for input, output in zip(self._arrays(), out._arrays()):
             plan.in_R[:] = input
             plan.execute()
@@ -266,10 +268,21 @@ class UniformGridFunctions(DistributedArrays):
 
     def integrate(self, other=None):
         if other is not None:
-            return DistributedArrays.integrate(self, other)
-        result = self.data.sum(axis=(-3, -2, -1)) * self.grid.dv
-        self.grid.comm.sum(result)
-        return result
+            assert self.grid.dtype == other.grid.dtype
+            a = self._arrays()
+            b = other._arrays()
+            a = a.reshape((len(a), -1))
+            b = b.reshape((len(b), -1))
+            result = (a @ b.T.conj()).reshape(self.shape + other.shape)
+        else:
+            result = self.data.sum(axis=(-3, -2, -1))
+
+        if result.ndim == 0:
+            result = self.grid.comm.sum(result.item())
+        else:
+            self.grid.comm.sum(result)
+
+        return result * self.grid.dv
 
     def fft_interpolate(self,
                         out: UniformGridFunctions,

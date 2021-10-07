@@ -32,17 +32,16 @@ class PotentialCalculator:
                  poisson_solver):
         self.poisson_solver = poisson_solver
         self.xc = xc
-        self.vbar = self.vbar_acf.evaluate()
 
     def __str__(self):
         return f'\n{self.poisson_solver}\n{self.xc}'
 
     def calculate(self, density):
-        energies, potential= self._calculate(density)
+        energies, potential = self._calculate(density)
 
         vnonloc, corrections = calculate_non_local_potential(
             density, self.xc, self.ghat_acf, self.vHt)
-
+        print(energies, corrections)
         de_kinetic, de_coulomb, de_zero, de_xc, de_external = corrections
         energies['kinetic'] += de_kinetic
         energies['coulomb'] += de_coulomb
@@ -67,6 +66,8 @@ class UniformGridPotentialCalculator(PotentialCalculator):
 
         self.vbar_acf = setups.create_local_potentials(fine_grid, fracpos)
         self.ghat_acf = setups.create_compensation_charges(fine_grid, fracpos)
+
+        self.vbar = self.vbar_acf.to_uniform_grid()
 
         self.interpolate = wf_grid.transformer(fine_grid)
         self.restrict = fine_grid.transformer(wf_grid)
@@ -127,48 +128,56 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         self.vbar_acf = setups.create_local_potentials(wf_pw, fracpos)
         self.ghat_acf = setups.create_compensation_charges(fine_pw, fracpos)
 
-        PotentialCalculator.__init__(self,xc, poisson_solver)
+        PotentialCalculator.__init__(self, xc, poisson_solver)
 
         self.pwmap = PWMapping(wf_pw, fine_pw)
         self.fftplan, self.ifftplan = wf_pw.grid.fft_plans()
         self.fftplan2, self.ifftplan2 = fine_pw.grid.fft_plans()
 
+        self.fine_grid = fine_pw.grid
+
+        self.vbar = wf_pw.zeros()
+        self.vbar_acf.add_to(self.vbar)
+
     def _calculate(self, density):
-        fine_density = self.fine_grid.empty(density.shape)
+        fine_density = self.fine_grid.empty(density.density.shape)
+        self.nt.data[:] = 0.0
         for spin, (nt1, nt2) in enumerate(zip(density.density, fine_density)):
             nt1.fft_interpolate(nt2, self.fftplan, self.ifftplan2)
+            if spin < density.ndensities:
+                self.nt.data += self.fftplan.out_R.ravel()[self.nt.pw.indices]
 
-        vxct = fine_density.grid.zeros(density.shape)
-        e_xc = self.xc.calculate(fine_density, vxct)
-
-        nt = density.grid.empty()
-        nt.data[:] = density.data[:density.ndensities].sum(axis=0)
-        nt.fft(plan=self.fftplan, out=self.nt)
         e_zero = self.vbar.integrate(self.nt)
 
         charge = self.vHt.pw.zeros()
+        coefs = density.calculate_compensation_charge_coefficients()
+        self.ghat_acf.add_to(charge, coefs)
         indices = self.pwmap.G2_G1
         scale = charge.pw.grid.size.prod() / self.nt.pw.grid.size.prod()
         assert scale == 8
-        charge.data[indices] = self.nt.data * scale
-        coefs = density.calculate_compensation_charge_coefficients()
-        self.ghat_acf.add_to(charge, coefs)
+        charge.data[indices] += self.nt.data * scale
+        # background charge ???
+
         self.poisson_solver.solve(self.vHt, charge)
         e_coulomb = 0.5 * self.vHt.integrate(charge)
 
-        vt = self.vbar.new()
-        vt.data[:] = self.vbar.data
-        vt.data += self.vHt.data[indices] * scale**-1
-        potential1 = ...
-        potential2 = vxct
-        potential2.data += vt.ifft(plan=self.ifftplan).data
+        self.vt.data[:] = self.vbar.data
+        self.vt.data += self.vHt.data[indices] * scale**-1
+
+        potential = density.density.new()
+        potential.data[:] = self.vt.ifft().data
+
+        vxct = fine_density.grid.zeros(density.density.shape)
+        e_xc = self.xc.calculate(fine_density, vxct)
 
         e_kinetic = 0.0
-        for spin, (vt, nt) in enumerate(zip(potential1, density1)):
-            potential1 = self.restrict(potential2)
-            e_kinetic -= p.integrate(d)
-            if s < density.ndensities:
-                e_kinetic += p.integrate(density.core_density)
+        for spin, (vt1, vxct1) in enumerate(zip(potential, vxct)):
+            vxct1.fft_restrict(potential, self.fftplan2, self.ifftplan)
+            e_kinetic -= vt1.integrate(density.density[spin])
+            if spin < density.ndensities:
+                self.vt.data += (self.fftplan2.out_R.ravel()[indices] /
+                                 density.ndensities)
+                e_kinetic -= vt1.integrate(density.core_density)
 
         e_external = 0.0
 
@@ -176,12 +185,12 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
                 'coulomb': e_coulomb,
                 'zero': e_zero,
                 'xc': e_xc,
-                'external': e_external}, potential1
+                'external': e_external}, potential
 
 
 def calculate_non_local_potential(density, xc,
-                                  compensation_charges, vext):
-    coefs = compensation_charges.integrate(vext)
+                                  ghat_acf, vHt):
+    coefs = ghat_acf.integrate(vHt)
     vnonloc = density.density_matrices.new()
     energy_corrections = np.zeros(5)
     for a, D in density.density_matrices.items():
