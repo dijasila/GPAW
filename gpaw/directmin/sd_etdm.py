@@ -86,17 +86,14 @@ class FRcg(SteepestDescent):
 
         if self.iters == 0:
             self.p_k = minus(g_k1)
-            # save the step
-            self.g_k = copy.deepcopy(g_k1)
         else:
-
             dot_g_k1_g_k1 = dot_all_k_and_b(g_k1, g_k1, wfs)
             dot_g_g = dot_all_k_and_b(self.g_k, self.g_k, wfs)
             beta_k = dot_g_k1_g_k1 / dot_g_g
-
             self.p_k = calc_diff(self.p_k, g_k1, beta_k)
-            # save this step
-            self.g_k = copy.deepcopy(g_k1)
+
+        # save this step
+        self.g_k = copy.deepcopy(g_k1)
 
         self.iters += 1
         return self.p_k
