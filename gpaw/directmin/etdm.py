@@ -840,7 +840,9 @@ class ETDM:
                 if n_dim[k] == 0:
                     continue
 
-                u_nn = self.get_exponential_matrix_kpt(wfs, kpt, a_mat_u, n_dim)
+                u_nn = self.get_exponential_matrix_kpt(wfs, kpt,
+                                                       a_mat_u,
+                                                       n_dim)
 
                 self.dm_helper.appy_transformation_kpt(
                     wfs, u_nn.T, kpt, c_nm_ref[k], False, False)
