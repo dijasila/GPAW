@@ -1,4 +1,5 @@
 from __future__ import annotations
+from collections import defaultdict
 import numpy as np
 from gpaw.utilities import pack, unpack
 from gpaw.typing import Array1D, Array3D
@@ -41,13 +42,9 @@ class PotentialCalculator:
 
         vnonloc, corrections = calculate_non_local_potential(
             density, self.xc, self.ghat_acf, self.vHt)
-        print(energies, corrections)
-        de_kinetic, de_coulomb, de_zero, de_xc, de_external = corrections
-        energies['kinetic'] += de_kinetic
-        energies['coulomb'] += de_coulomb
-        energies['zero'] += de_zero
-        energies['xc'] += de_xc
-        energies['external'] += de_external
+
+        for key, e in corrections.items():
+            energies[key] += e
 
         return Potential(potential, vnonloc, energies)
 
@@ -147,6 +144,12 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
             if spin < density.ndensities:
                 self.nt.data += self.fftplan.out_R.ravel()[self.nt.pw.indices]
 
+        if 0:
+            import matplotlib.pyplot as plt
+            plt.plot(*density.density.xy(0, 4, 4, ...))
+            plt.plot(*fine_density.xy(0, 8, 8, ...))
+            plt.show()
+
         e_zero = self.vbar.integrate(self.nt)
 
         charge = self.vHt.pw.zeros()
@@ -160,13 +163,12 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
 
         self.poisson_solver.solve(self.vHt, charge)
         e_coulomb = 0.5 * self.vHt.integrate(charge)
-
+        print(e_zero, e_coulomb)
         self.vt.data[:] = self.vbar.data
         self.vt.data += self.vHt.data[indices] * scale**-1
 
         potential = density.density.new()
         potential.data[:] = self.vt.ifft().data
-
         vxct = fine_density.grid.zeros(density.density.shape)
         e_xc = self.xc.calculate(fine_density, vxct)
 
@@ -192,13 +194,14 @@ def calculate_non_local_potential(density, xc,
                                   ghat_acf, vHt):
     coefs = ghat_acf.integrate(vHt)
     vnonloc = density.density_matrices.new()
-    energy_corrections = np.zeros(5)
+    energy_corrections = defaultdict(float)
     for a, D in density.density_matrices.items():
         Q = coefs[a]
         setup = density.setups[a]
         dH, energies = calculate_non_local_potential1(setup, xc, D, Q)
         vnonloc[a][:] = dH
-        energy_corrections += energies
+        for key, e in energies.items():
+            energy_corrections[key] += e
 
     return vnonloc, energy_corrections
 
@@ -206,7 +209,8 @@ def calculate_non_local_potential(density, xc,
 def calculate_non_local_potential1(setup: Setup,
                                    xc: XCFunctional,
                                    D: Array3D,
-                                   Q: Array1D) -> tuple[Array3D, Array1D]:
+                                   Q: Array1D) -> tuple[Array3D,
+                                                        dict[str, float]]:
     ndensities = 2 if D.shape[2] == 2 else 1
     d = np.array([pack(D1) for D1 in D.T])
 
@@ -228,4 +232,8 @@ def calculate_non_local_potential1(setup: Setup,
 
     H = unpack(h).T
 
-    return H, np.array([e_kinetic, e_coulomb, e_zero, e_xc, e_external])
+    return H, {'kinetic': e_kinetic,
+               'coulomb': e_coulomb,
+               'zero': e_zero,
+               'xc': e_xc,
+               'external': e_external}

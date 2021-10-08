@@ -74,14 +74,13 @@ class PWMode(Mode):
 
 
 class PWHamiltonian:
-    def __init__(self):
-        ...
-
     def apply(self, vt, psit, out, spin):
         v = vt.data[spin]
         np.multiply(psit.pw.ekin, psit.data, out.data)
         for p, o in zip(psit, out):
-            o.data += (p.ifft() * v).fft()
+            f = p.ifft()
+            f.data *= v
+            o.data += f.fft(pw=psit.pw).data
         return out
 
     def create_preconditioner(self, blocksize):

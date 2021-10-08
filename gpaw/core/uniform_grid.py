@@ -247,6 +247,7 @@ class UniformGridFunctions(DistributedArrays):
 
     def fft(self, plan=None, pw=None, out=None):
         if out is None:
+            assert pw is not None
             out = pw.empty(self.shape)
         if pw is None:
             pw = out.pw

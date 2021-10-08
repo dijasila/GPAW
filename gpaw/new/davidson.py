@@ -148,7 +148,7 @@ class Davidson:
         proj2 = proj.new()
         proj3 = proj.new()
 
-        domain_comm = psit.grid.comm
+        domain_comm = psit.layout.comm
         band_comm = psit.comm
         is_domain_band_master = domain_comm.rank == 0 and band_comm.rank == 0
 
@@ -158,8 +158,9 @@ class Davidson:
         if domain_comm.rank == 0:
             eigs[:B] = wfs.eigs
 
-        def me(a, b, **kwargs):
-            return a.matrix_elements(b, domain_sum=False, out=M, **kwargs)
+        def me(a, b, function=None):
+            return a.matrix_elements(b, domain_sum=False, out=M,
+                                     function=function)
 
         calculate_residuals(residuals, dH, dS, wfs, proj2, proj3)
 
@@ -185,7 +186,9 @@ class Davidson:
 
             # <psi2 | H | psi2>
             me(psit2, psit2, function=Ht)
-            me(proj2, proj2, function=partial(dH, out=proj3), add_to_out=True)
+            dH(proj2, out=proj3)
+            proj2.matrix.multiply(proj3, opa='C', symmetric=True, beta=1,
+                                  out=M)
             copy(H.data[B:, B:])
 
             # <psi2 | H | psi>
@@ -195,9 +198,9 @@ class Davidson:
 
             # <psi2 | S | psi2>
             me(psit2, psit2)
-            me(proj2, proj2,
-               function=partial(dS, out=proj3),
-               add_to_out=True)
+            dS(proj2, out=proj3)
+            proj2.matrix.multiply(proj3, opa='C', symmetric=True, beta=1,
+                                  out=M)
             copy(S.data[B:, B:])
 
             # <psi2 | S | psi>

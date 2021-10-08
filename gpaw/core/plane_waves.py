@@ -9,6 +9,7 @@ from gpaw.mpi import MPIComm, serial_comm
 from gpaw.core.arrays import DistributedArrays
 from gpaw.pw.descriptor import pad
 from gpaw.core.atom_centered_functions import PlaneWaveAtomCenteredFunctions
+from gpaw.core.matrix import Matrix
 
 
 class PlaneWaves(Layout):
@@ -166,34 +167,20 @@ class PlaneWaveExpansions(DistributedArrays):
             result = result.real
         return result * dv
 
-    def matrix_elements(self, other, *, symmetric=None, function=None,
-                        out=None, add_to_out=False, domain_sum=True):
-        assert not domain_sum
-        if symmetric is None:
-            symmetric = self is other
-        if function:
-            other = function(other)
-        special case for float
-        M1 = self.matrix
-        M2 = other.matrix
-        # if out is None:
-        #     assert not add_to_out
-        #     out = Matrix(M1.shape[0], M2.shape[0], dist=(M1.comm, -1, 1))
-        if self.layout_last and other.layout_last:
-            assert not add_to_out
-            out = M1.multiply(M2, opb='C', alpha=self.layout.dv,
-                              symmetric=symmetric, out=out)
-            out.complex_conjugate()
-        else:
-            1 / 0
-        # operate_and_multiply(self, self.layout.dv, out, function, ...)
-        return out
+    def _matrix_elements_correction(self,
+                                    M1: Matrix,
+                                    M2: Matrix,
+                                    out: Matrix) -> None:
+        if self.pw.dtype == float:
+            out.data *= 2.0
+            if self.pw.comm.rank == 0:
+                out.data -= np.outer(M1.data[:, 0], M2.data[:, 0]) * self.pw.dv
 
-    def norm2(self, kind='mormal'):
+    def norm2(self, kind='normal'):
         a = self._arrays().view(float)
         if kind == 'normal':
             result = np.einsum('ig, ig -> i', a, a)
-        if kind == 'kinetic':
+        elif kind == 'kinetic':
             a.shape = (len(a), -1, 2)
             result = np.einsum('igx, igx, g -> i', a, a, self.pw.ekin)
         else:

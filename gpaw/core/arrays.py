@@ -54,36 +54,45 @@ class DistributedArrays:
             shape = (np.prod(self.layout.shape), np.prod(self.shape))
             myshape = (np.prod(self.layout.myshape), np.prod(self.myshape))
             dist = (self.comm, 1, -1)
-        self._matrix = Matrix(*shape,
-                              data=self.data.reshape(myshape),
-                              dist=dist)
+        data = self.data.reshape(myshape)
+        if data.dtype == complex and self.layout.dtype == float:
+            data = data.view(float)
+            shape = (shape[0], shape[1] * 2)
+        self._matrix = Matrix(*shape, data=data, dist=dist)
         return self._matrix
 
-    def matrix_elements(self, other, *, symmetric=None, function=None,
-                        out=None, add_to_out=False, domain_sum=True):
-        assert not domain_sum
+    def matrix_elements(self,
+                        other,
+                        *,
+                        out=None,
+                        symmetric=None,
+                        function=None,
+                        domain_sum=True):
         if symmetric is None:
             symmetric = self is other
         if function:
             other = function(other)
         M1 = self.matrix
         M2 = other.matrix
-        # if out is None:
-        #     assert not add_to_out
-        #     out = Matrix(M1.shape[0], M2.shape[0], dist=(M1.comm, -1, 1))
-        if self.layout_last and other.layout_last:
-            assert not add_to_out
-            out = M1.multiply(M2, opb='C', alpha=self.layout.dv,
-                              symmetric=symmetric, out=out)
-            out.complex_conjugate()
-        elif not self.layout_last and not other.layout_last:
-            use matrix multiply directly
-            assert add_to_out
-            M1.multiply(M2, opa='C', symmetric=symmetric, out=out, beta=1.0)
-        else:
-            1 / 0
+        assert self.layout_last and other.layout_last
+        out = M1.multiply(M2, opb='C', alpha=self.layout.dv,
+                          symmetric=symmetric, out=out)
+        out.complex_conjugate()
         # operate_and_multiply(self, self.layout.dv, out, function, ...)
+
+        self._matrix_elements_correction(M1, M2, out)
+
+        if domain_sum:
+            self.layout.comm.sum(out.data)
+
         return out
+
+    def _matrix_elements_correction(self,
+                                    M1: Matrix,
+                                    M2: Matrix,
+                                    out: Matrix) -> None:
+        """Hook for PlaneWaveExpansion."""
+        pass
 
     def __iadd__(self, other):
         other.acfs.add_to(self, other.coefs)

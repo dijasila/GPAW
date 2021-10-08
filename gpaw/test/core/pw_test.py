@@ -56,3 +56,13 @@ def test_pw_integrate():
         i2 = f.integrate(f)
         assert i1 == i2
         assert type(i1) == g.grid.dtype
+
+        g1 = g.grid.empty(1)
+        g1.data[:] = g.data
+        m1 = g1.matrix_elements(g1)
+        print(i1, m1.data)
+
+        f1 = f.pw.empty(1)
+        f1.data[:] = f.data
+        m2 = f1.matrix_elements(f1)
+        print(i2, m2.data)

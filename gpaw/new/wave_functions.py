@@ -211,12 +211,14 @@ class WaveFunctions:
         projections2 = projections.new()
         wfs2 = wfs.new(data=work_array)
 
-        dS = partial(self.setups.overlap_correction, out=projections2)
+        dS = self.setups.overlap_correction
 
         S = wfs.matrix_elements(wfs, domain_sum=False)
-        projections.matrix_elements(projections, function=dS,
-                                    domain_sum=False, out=S, add_to_out=True)
+        dS(projections, out=projections2)
+        projections.matrix.multiply(projections2, opa='C', symmetric=True,
+                                    out=S, beta=1.0)
         domain_comm.sum(S.data, 0)
+
         if domain_comm.rank == 0:
             S.invcholesky()
         # S now contains the inverse of the Cholesky factorization
@@ -256,11 +258,12 @@ class WaveFunctions:
         projections2 = projections.new()
         domain_comm = psit.layout.comm
 
-        Ht = partial(Ht, out=psit2, spin=0)
-        dH = partial(dH, out=projections2, spin=0)
+        Ht = partial(Ht, out=psit2, spin=self.spin)
+
         H = psit.matrix_elements(psit, function=Ht, domain_sum=False)
-        projections.matrix_elements(projections, function=dH,
-                                    domain_sum=False, out=H, add_to_out=True)
+        dH(projections, out=projections2, spin=self.spin)
+        projections.matrix.multiply(projections2, opa='C', symmetric=True,
+                                    out=H, beta=1.0)
         domain_comm.sum(H.data, 0)
 
         if domain_comm.rank == 0:
