@@ -1,5 +1,5 @@
-.. _sjm:
 .. module:: gpaw.solvation.sjm
+.. _sjm:
 
 ======================================================
 Solvated Jellium (constant-potential electrochemistry)
@@ -30,8 +30,6 @@ A schematic is shown below:
 
 In this figure, the jellium is shown by the hashed marks, while the implicit solvent is shown in the blue shaded region. Note that an explicit solvent (the water molecules) is also conventionally used in this approach, as the major purpose of the implicit solvent is not to simulate the solvation of individual species but rather to screen the net field.
 A more detailed discussion of both of these components follows.
-
-FIXME/ap: The above image could show all data on the same xz or yz projection. That is, in each point in xz space it could show the y-average value of the dielectric constant and the presence or absence of jellium. The intensity of blue would show the value of the dielectric constant.
 
 
 The jellium slab: charging
@@ -96,6 +94,8 @@ This is divided by the unit electronic charge `e` to convert from energy (typica
 
 Note that this gives the potential with respect to vacuum; if you would like your potential on a reference electrode scale, such as SHE, please see the :ref:`solvated_jellium_method` tutorial.
 
+.. _grand-potential-energy:
+
 Legendre-transformed energy
 ---------------------------
 
@@ -146,3 +146,8 @@ References
 .. [Held2014] A. Held and M. Walter,
            :doi:`Simplified continuum solvent model with a smooth cavity based on volumetric data <10.1063/1.4900838>`,
            *J. Chem. Phys.* **141**, 174108 (2014).
+
+Class documentation
+===================
+
+.. autoclass:: gpaw.solvation.sjm.SJM

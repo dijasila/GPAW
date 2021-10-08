@@ -4,6 +4,66 @@
 Solvated Jellium Method (SJM)
 =============================
 
+Please familiarize yourself with the theory of the SJM approach before starting this tutorial, by reading the :ref:`SJM documentation page<sjm>`.
+
+Usage Example: A simple Au(111) slab
+====================================
+
+As a simple example, we'll examine the calculation of a Au slab with a water overlayer calculated at a potential of -1.0 V versus SHE.
+To speed the computation, we'll use a tiny slab with a single water molecule over the top.
+
+To use the solvated jellium approach, instead of importing GPAW as our calculator object, we import :class:`~gpaw.solvation.sjm.SJM`.
+All of the SJM-specific parameters are fed to the calculator as a single dictionary called :literal:`sj`.
+In this script, the :literal:`sj` dictionary contains only a single parameter: the target potential; the rest of the SJM parameters are kept at their default values.
+Keep in mind that the *absolute* potential has to be provided, where the value of the SHE potential on an absolute scale is approximately 4.4 V.
+
+Since SJM utilizes an implicit solvent to screen the field, we will need to specify some solvent parameters as well.
+The SJM calculator is a subclass of the :class:`~gpaw.solvation.calculator.SolvationGPAW` calculator, so any solvation parameters can be passed straight through to SolvationGPAW.
+Some reasonable values to simulate room-temperature water are below.
+In practice, since the purpose of the implicit solvent is just to screen the field, the net results---such as binding energies and barrier heights---will be relatively insensitive to the choice of implicit solvent parameters, so long as they are kept consistent.
+
+.. literalinclude:: Au111.py
+
+If you examine the output in 'Au.txt', you'll see that the code varies the number of excess electrons until the target potential is within a tolerance of 3.4 V; the default tolerance is 0.01 V.
+This process usually takes a few steps on the first image, but is faster on subsequent images of a trajectory, since the changes are less dramatic and the potential--charge slope is retained from previous steps.
+You should see that in net the routine removed about 0.1 electrons from the simulation, as compared to a charge-neutral simulation, in order to achieve the desired work function.
+
+You'll notice that the output in 'Au.txt' contains additional information, as compared to a charge-neutral simulation::
+
+    Legendre-transformed energies (Omega = E - N mu)
+      (grand potential energies)
+      N (excess electrons):   -0.111796
+      mu (workfunction, eV):   +3.394631
+    --------------------------
+    Free energy:    -21.542749
+    Extrapolated:   -21.520483
+
+These Legendre-transformed energies, `\Omega = E - N \mu`, are written into the any ASE trajectories created, and are the quantity returned by :literal:`calc.get_potential_energy()`.
+As discussed in :ref:`grand-potential-energy`, these are the energies are consistent with the forces in the grand-canonical scheme, and are thuse compatible with method such as saddle-point searches and energy optimizations.
+If you'd rather have it write out the traditional canonical energies, you can use the :literal:`write_grandcanonical_energy` keyword.
+
+In the last line of the script above, we wrote out some additional information in the form of 'sjm traces'.
+These are traces of the electrostatic potential, the background charge, and the solvent cavity across the `z` axis (that is, `xy`-averaged). 
+It's a good idea to take a look at these, and perhaps make a plot for each, when running a simulation with a new system so you can be sure it is behaving as you expect.
+The three files that are created are:
+
+potential.txt:
+ Electrostatic potential averaged over `xy` and referenced to the system's Fermi Level.
+ The outer parts should correspond to the respective work functions and the potential at the top boundary should correspond to the potential set in the input.
+
+cavity.txt:
+ The shape of the implicit solvent cavity averaged over `xy`.
+ Multiplying the cavity function with epsinf corresponds to the `xy`-averaged dielectric constant distribution in the unit cell.
+
+background_charge.txt:
+ The shape of the jellium background charge averaged over `xy` and normalized.
+
+.. Note:: Alternatively, :literal:`calc.write_sjm_traces(style='cube')`
+          can be used to write cube files on the 3-D grid, instead of traces.
+
+
+FIXME/ap: PICKUP editing here.
+
 FIXME/ap: Move the module documentation to the theory.
 
 FIXME/ap: Most of the background should be remove from here and just linked to the theory page.
@@ -64,64 +124,6 @@ on consistent force and energy information (such as BFGSLineSearch or NEB)
 will work fine as long as :math:`\Omega` is employed. Thus, this calculator
 returns :math:`\Omega` by default, rather than :math:`E_\mathrm{tot}`.
 
-Usage Example: A simple Au(111) slab
-====================================
-
-FIXME/ap: Simplify this script a bit. I.e., we can remove jelliumregion.
-Do we need so many imports from solvation?
-
-As a simple example, we'll examine the calculation of a simple Au slab
-at a potential of -1 V versus SHE. Keep in mind that the absolute
-potential has to be provided, where the value of the SHE potential on
-an absolute scale is approximately 4.4 V.
-
-.. literalinclude:: Au111.py
-
-If you examine the output in 'Au.txt', you'll see that the code
-varies the number of excess electrons until the target potential
-is approximately 3.4 V. This process usually takes a few steps
-on the first image, but often takeso
-
-FIXME/ap: pick up here! And change the output below to have right
-mu!
-
-The output in 'Au.txt' is extended by the grand canonical energy
-and contains the new part::
-
-    Legendre-transformed energies (Omega = E - N mu)
-      (grand potential energies)
-      N (excess electrons):   +0.100000
-      mu (workfunction, eV):   +3.564009
-    --------------------------
-    Free energy:     -8.997787
-    Extrapolated:    -8.976676
-
-These energies are written e.g. into trajectory files if
-:literal:`write_grandcanonical_energy = True` (default).
-
-After converging the constant potential scf loop we can write
-some additional information in a xy format for plotting. By
-default three files will be written in the created `sjm_traces` directory:
-
-elstat_potential.out:
- Electrostatic potential averaged over xy and referenced to the systems
- Fermi Level. The outer parts should correspond to the respective work
- functions and the potential at the right boundary should correspond to
- the potential set in the input.
-
-cavity.out:
- The shape of the implicit solvent cavity averaged over xy. Multiplying
- the cavity function with epsinf corresponds to the xy-averaged dielectric
- constant distribution in the unit cell.
-
-background_charge_XX.out:
- The shape of the jellium background charge averaged over xy and
- normalized.
-
-.. Note:: Alternatively, :literal:`calc.write_sjm_traces(style='cube')`
-          can be used to write cube files of the three described
-          quantities on the 3-D grid.
-
 Structure optimization
 ======================
 
@@ -159,8 +161,6 @@ by a simpler, more manual script as can be found in
 .. Note:: For CI-NEBs (with :literal:`climb = True`), we advice to either set
          :literal:`tol` to a tighter value (e.g. 0.05) if
          :literal:`always_adjust=True` or set the keyword to False
-
-.. autoclass:: gpaw.solvation.sjm.SJM
 
 
 References
