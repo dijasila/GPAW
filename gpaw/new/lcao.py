@@ -73,7 +73,7 @@ def create_lcao_ibz_wave_functions(cfg: DFTConfiguration,
     for kpt, weight, rank in zip(ibz.points, ibz.weights, ranks):
         if rank != kpt_comm.rank:
             continue
-        grid = cfg.grid.new(kpt=kpt)
+        grid = cfg.grid.new(kpt=kpt) # dtype?
         lcaokpt = lcaowfs.kpt_u[u]
         assert (ibz.bz.points[lcaokpt.k] == kpt).all()
         wfs = grid.zeros(cfg.nbands, band_comm)

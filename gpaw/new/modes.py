@@ -20,6 +20,9 @@ class Mode:
     name: str
     interpolation: str
 
+    def __init__(self, dtype=None):
+        self.dtype = dtype
+
     def create_uniform_grid(self,
                             h: float | None,
                             gpts,
@@ -48,7 +51,8 @@ class Mode:
 class PWMode(Mode):
     name = 'pw'
 
-    def __init__(self, ecut: float = 340.0):
+    def __init__(self, ecut: float = 340.0, dtype=None):
+        Mode.__init__(self, dtype)
         if ecut is not None:
             ecut /= Ha
         self.ecut = ecut

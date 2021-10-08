@@ -9,8 +9,9 @@ from gpaw.core.atom_centered_functions import UniformGridAtomCenteredFunctions
 from gpaw.core.layout import Layout
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.mpi import MPIComm, serial_comm
-from gpaw.typing import Array2D, ArrayLike, ArrayLike1D, ArrayLike2D
+from gpaw.typing import Array2D, ArrayLike, ArrayLike1D, ArrayLike2D, Array1D
 from gpaw.utilities.grid import GridRedistributor
+import _gpaw
 
 
 def _normalize_cell(cell: ArrayLike) -> Array2D:
@@ -384,3 +385,11 @@ class UniformGridFunctions(DistributedArrays):
         ifftplan.execute()
         out.data[:] = ifftplan.out_R
         out.data *= (1.0 / self.data.size)
+
+    def abs_square(self,
+                   weights: Array1D,
+                   out: UniformGridFunctions = None) -> None:
+        assert out is not None
+        for f, psit in zip(weights, self.data):
+            # Same as density.data += f * abs(psit)**2, but much faster:
+            _gpaw.add_to_density(f, psit, out.data)

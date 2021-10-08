@@ -144,12 +144,6 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
             if spin < density.ndensities:
                 self.nt.data += self.fftplan.out_R.ravel()[self.nt.pw.indices]
 
-        if 0:
-            import matplotlib.pyplot as plt
-            plt.plot(*density.density.xy(0, 4, 4, ...))
-            plt.plot(*fine_density.xy(0, 8, 8, ...))
-            plt.show()
-
         e_zero = self.vbar.integrate(self.nt)
 
         charge = self.vHt.pw.zeros()

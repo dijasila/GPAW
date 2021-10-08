@@ -55,7 +55,8 @@ class IBZWaveFunctions:
                             setups,
                             fracpos,
                             nbands: int,
-                            nelectrons: float) -> IBZWaveFunctions:
+                            nelectrons: float,
+                            dtype=None) -> IBZWaveFunctions:
         assert len(ibz) == 1
         ranks = [0]
 
@@ -63,7 +64,7 @@ class IBZWaveFunctions:
         for kpt, weight, rank in zip(ibz.points, ibz.weights, ranks):
             if rank != kpt_comm.rank:
                 continue
-            basis = grid.new(kpt=kpt)
+            basis = grid.new(kpt=kpt, dtype=dtype)
             wfs = WaveFunctions.from_random_numbers(basis, weight,
                                                     nbands, band_comm,
                                                     setups,
@@ -118,6 +119,8 @@ class IBZWaveFunctions:
         density.density_matrices.data[:] = 0.0
         for wfs in self:
             wfs.add_to_density(density.density, density.density_matrices)
+        self.kpt_comm.sum(density.density.data)
+        self.kpt_comm.sum(density.density_matrices.data)
 
     def get_eigs_and_occs(self, i):
         assert self.ranks[i] == self.kpt_comm.rank
@@ -191,14 +194,12 @@ class WaveFunctions:
     def add_to_density(self,
                        density,
                        density_matrices: AtomArrays) -> None:
-        myoccs = self.weight * self.spin_degeneracy * self.myoccs
-        for f, psit in zip(myoccs, self.wave_functions.data):
-            # Same as density.data += f * abs(psit)**2, but much faster:
-            _gpaw.add_to_density(f, psit, density.data[self.spin])
+        occs = self.weight * self.spin_degeneracy * self.myoccs
+        self.wave_functions.abs_square(weights=occs, out=density[self.spin])
 
         for D, P in zip(density_matrices.values(), self.projections.values()):
             D[:, :, self.spin] += np.einsum('in, n, jn -> ij',
-                                            P.conj(), myoccs, P)
+                                            P.conj(), occs, P)
 
     def orthonormalize(self, work_array=None):
         if self.orthonormalized:

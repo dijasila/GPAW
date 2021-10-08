@@ -3,7 +3,7 @@ import numpy as np
 from math import pi
 import _gpaw
 from gpaw.core.layout import Layout
-from gpaw.core.uniform_grid import UniformGrid
+from gpaw.core.uniform_grid import UniformGrid, UniformGridFunctions
 from gpaw.typing import Array1D, Array2D
 from gpaw.mpi import MPIComm, serial_comm
 from gpaw.core.arrays import DistributedArrays
@@ -141,7 +141,7 @@ class PlaneWaveExpansions(DistributedArrays):
 
         return out if comm.rank == 0 else None
 
-    def integrate(self, other=None):
+    def integrate(self, other: PlaneWaveExpansions = None) -> np.ndarray:
         if other is not None:
             assert self.pw.grid.dtype == other.pw.grid.dtype
             a = self._arrays()
@@ -176,7 +176,7 @@ class PlaneWaveExpansions(DistributedArrays):
             if self.pw.comm.rank == 0:
                 out.data -= np.outer(M1.data[:, 0], M2.data[:, 0]) * self.pw.dv
 
-    def norm2(self, kind='normal'):
+    def norm2(self, kind: str = 'normal') -> np.ndarray:
         a = self._arrays().view(float)
         if kind == 'normal':
             result = np.einsum('ig, ig -> i', a, a)
@@ -192,6 +192,15 @@ class PlaneWaveExpansions(DistributedArrays):
         self.pw.comm.sum(result)
         result.shape = self.myshape
         return result * self.pw.dv
+
+    def abs_square(self,
+                   weights: Array1D,
+                   out: UniformGridFunctions = None) -> None:
+        assert out is not None
+        for f, psit in zip(weights, self):
+            # Same as (but much faster):
+            # out.data += f * abs(psit.ifft().data)**2
+            _gpaw.add_to_density(f, psit.ifft().data, out.data)
 
 
 class Empty:
