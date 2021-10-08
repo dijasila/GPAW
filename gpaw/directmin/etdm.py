@@ -840,7 +840,7 @@ class ETDM:
                 if n_dim[k] == 0:
                     continue
 
-                u_nn = self.get_exponential_matrix(wfs, kpt, a_mat_u, n_dim)
+                u_nn = self.get_exponential_matrix_kpt(wfs, kpt, a_mat_u, n_dim)
 
                 self.dm_helper.appy_transformation_kpt(
                     wfs, u_nn.T, kpt, c_nm_ref[k], False, False)
@@ -848,7 +848,7 @@ class ETDM:
                 with wfs.timer('Calculate projections'):
                     self.dm_helper.update_projections(wfs, kpt)
 
-    def get_exponential_matrix(self, wfs, kpt, a_mat_u, n_dim):
+    def get_exponential_matrix_kpt(self, wfs, kpt, a_mat_u, n_dim):
         """
         Get unitary matrix U as the exponential of a skew-Hermitian
         matrix a_mat_u (U = exp(a_mat_u))
