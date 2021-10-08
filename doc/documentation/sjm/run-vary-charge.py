@@ -107,7 +107,7 @@ cavity = EffectivePotentialCavity(
 dielectric = LinearDielectric(epsinf=epsinf)
 interactions = [SurfaceInteraction(surface_tension=gamma)]
 
-calc = SJM(txt='gpaw.txt',
+calc = SJM(txt='gpaw-charge.txt',
            kpts=(4, 4, 1),
            gpts=(48, 48, 192),
            xc='PBE',

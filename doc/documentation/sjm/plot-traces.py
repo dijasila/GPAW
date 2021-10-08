@@ -29,14 +29,14 @@ def get_potential_trace(filename):
 
 fig, ax_potential = pyplot.subplots(figsize=(6.4, 2.2))
 fig.subplots_adjust(bottom=0.2, top=0.99, left=0.11, right=0.90)
-atoms = ase.io.read('atoms4.4.traj')
+atoms = ase.io.read('atoms.traj')
 
 ###########################
 # Potential axis.
 ###########################
 
-z_trace44 = get_potential_trace('esp4.4.pickle')
-z_trace43 = get_potential_trace('esp4.3.pickle')
+z_trace44 = get_potential_trace('esp4.4V.pickle')
+z_trace43 = get_potential_trace('esp4.3V.pickle')
 z_trace44 -= z_trace44[0]
 z_trace43 -= z_trace43[0]
 diff = z_trace43 - z_trace44
@@ -53,8 +53,8 @@ ax_potential.text(zs[label_at], diff[label_at] + 0.01, 'potential',
 ax_electrons = ax_potential.twinx()
 # ax1.set_zorder(ax2.get_zorder()+1)
 
-z_trace44 = get_electron_trace('all-4.4.pickle')
-z_trace43 = get_electron_trace('all-4.3.pickle')
+z_trace44 = get_electron_trace('all4.4V.pickle')
+z_trace43 = get_electron_trace('all4.3V.pickle')
 diff = z_trace43 - z_trace44
 ax_electrons.plot(zs, diff)
 ax_electrons.text(zs[label_at], diff[label_at] - 0.003, 'electrons',
@@ -67,7 +67,6 @@ ax_electrons.text(zs[label_at], diff[label_at] - 0.003, 'electrons',
 ax_atoms = ax_potential.twinx()
 
 # Sort atoms by x value.
-atoms = ase.io.read('atoms4.4.traj')
 cell = atoms.cell
 atomslist = [atom for atom in atoms]
 atomslist = sorted(atomslist, key=lambda atom: atom.x)

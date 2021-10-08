@@ -1,5 +1,8 @@
-.. module:: gpaw.solvation.sjm
 .. _solvated_jellium_method:
+
+=============================
+Solvated Jellium Method (SJM)
+=============================
 
 FIXME/ap: Move the module documentation to the theory.
 
@@ -14,10 +17,6 @@ FIXME/ap: Show a plot of the dielectric versus position as a check that should b
 FIXME/ap: Discuss the old sequential versus simultaneous modes.
 
 FIXME/ap: Show a simple NEB script, and have a link to the more elaborate one.
-
-=============================
-Solvated Jellium Method (SJM)
-=============================
 
 Theoretical Background
 ======================

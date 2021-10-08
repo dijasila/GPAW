@@ -79,7 +79,7 @@ cavity = EffectivePotentialCavity(
 dielectric = LinearDielectric(epsinf=epsinf)
 interactions = [SurfaceInteraction(surface_tension=gamma)]
 
-calc = SJM(txt='gpaw.txt',
+calc = SJM(txt='gpaw-potential.txt',
            kpts=(4, 4, 1),
            gpts=(48, 48, 192),
            xc='PBE',
@@ -95,10 +95,26 @@ calc = SJM(txt='gpaw.txt',
 
 atoms.set_calculator(calc)
 atoms.get_potential_energy()
-calc.write_sjm_traces(path='sjm_traces4.4.out')  # *.out for .gitignore
-calc.write_sjm_traces(path='sjm_traces4.4-cube.out',
-                      style='cube')  # *.out for .gitignore
-esp = atoms.calc.get_electrostatic_potential()
-with paropen('esp4.4.pickle', 'wb') as f:
-    pickle.dump(esp, f)
+
+
+def write_potential_and_charge(label):
+    esp = atoms.calc.get_electrostatic_potential()
+    with paropen(f'esp{label}.pickle', 'wb') as f:
+        pickle.dump(esp, f)
+    n = calc.get_all_electron_density()
+    with paropen(f'all{label}.pickle', 'wb') as f:
+        pickle.dump(n, f)
+
+
+# Write output for all the figures.
 atoms.write('atoms.traj')
+calc.write_sjm_traces(path='sjm_traces4.4V.out')  # *.out for .gitignore
+calc.write_sjm_traces(path='sjm_traces4.4V-cube.out',
+                      style='cube')  # *.out for .gitignore
+write_potential_and_charge('4.4V')
+
+# Vary the potential for the traces figure.
+sj = {'target_potential': 4.3}  # FIXME/ap add right no. of electrons
+atoms.calc.set(sj=sj)
+atoms.get_potential_energy()
+write_potential_and_charge('4.3V')
