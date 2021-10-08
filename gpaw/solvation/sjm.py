@@ -63,7 +63,7 @@ class SJM(SolvationGPAW):
 
     By default, this method writes the grand-potential energy to the output;
     that is, the energy that has been adjusted with "- mu N" (in this case,
-    mu is the workfunction and N is the excess electrons). This is the energy
+    mu is the work function and N is the excess electrons). This is the energy
     that is compatible with the forces in constant-potential mode and thus
     will behave well with optimizers, NEBs, etc. It is also frequently used in
     subsequent free-energy calculations.
@@ -71,10 +71,14 @@ class SJM(SolvationGPAW):
     Within this method, the potential is expressed as the top-side work
     function of the slab. Therefore, a potential of 0 V_SHE corresponds to
     a work function of roughly 4.4 eV. (That is, the user should specify
-    target_potential as 4.4 in this case.)
+    target_potential as 4.4 in this case.) Because this method is
+    attempting to bring the work function to a target value, the work
+    function itself needs to be well-converged. For this reason, the
+    'work function' keyword is automatically added to the SCF convergence
+    dictionary with a value of 0.001. This can be overriden by the user.
 
-    This method requires a poissonsolver, and this is turned on
-    automatically, but can be overwritten with the poissonsolver keyword.
+    This method requires a dipole correction, and this is turned on
+    automatically, but can be overridden with the poissonsolver keyword.
 
     The SJM class takes a single argument, the sj dictionary. All other
     arguments are fed to the parent SolvationGPAW (and therefore GPAW)
@@ -97,7 +101,7 @@ class SJM(SolvationGPAW):
         The potential that should be reached or kept in the course of the
         calculation. If set to "None" (default) a constant-charge
         calculation based on the value of `excess_electrons` is performed.
-        Expressed as a workfunction, on the top side of the slab; see note
+        Expressed as a work function, on the top side of the slab; see note
         above.
     tol: float
         Tolerance for the deviation of the target potential.
@@ -182,6 +186,7 @@ class SJM(SolvationGPAW):
          'slope': None})
     default_parameters = copy.deepcopy(SolvationGPAW.default_parameters)
     default_parameters.update({'poissonsolver': {'dipolelayer': 'xy'}})
+    default_parameters['convergence'].update({'work function': 0.001})
     default_parameters.update({'sj': _sj_default_parameters})
 
     def __init__(self, restart=None, **kwargs):
