@@ -156,6 +156,14 @@ class SJM(SolvationGPAW):
         potential changing by more than `max_step` V, then the step size is
         cut in half and we try again. This is to avoid leaving the linear
         region. You can set to np.inf to turn this off. Default: 2 V.
+    mixer : float
+        Damping for the slope estimate. Because estimating slopes can
+        sometimes be noisy (particularly for small changes, or when
+        positions have also changed), some fraction of the previous slope
+        estimate can be "mixed" with the current slope estimate before the
+        new slope is established. E.g., new_slope = mixer * old_slope +
+        (1. - mixer) * current_slope_estimate. Set to 0 for no damping.
+        Default: 0.5.
 
     Special SJM methods (in addition to those of GPAW/SolvationGPAW):
 
@@ -183,7 +191,8 @@ class SJM(SolvationGPAW):
          'always_adjust': False,
          'max_iters': 10,
          'max_step': 2.,
-         'slope': None})
+         'slope': None,
+         'mixer': 0.5})
     default_parameters = copy.deepcopy(SolvationGPAW.default_parameters)
     default_parameters.update({'poissonsolver': {'dipolelayer': 'xy'}})
     default_parameters['convergence'].update({'work function': 0.001})
@@ -441,15 +450,21 @@ class SJM(SolvationGPAW):
             self._previous_electrons += [p.excess_electrons]
             self._previous_potentials += [true_potential]
             if len(self._previous_electrons) > 1:
-                p.slope = _calculate_slope(self._previous_electrons,
-                                           self._previous_potentials)
+                slope = _calculate_slope(self._previous_electrons,
+                                         self._previous_potentials)
                 self.sog('Slope regressed from last {:d} attempts is '
                          '{:.4f} V/electron,'
-                         .format(len(self._previous_electrons[-4:]), p.slope))
+                         .format(len(self._previous_electrons[-4:]), slope))
                 area = np.product(np.diag(atoms.cell[:2, :2]))
                 capacitance = -1.6022 * 1e3 / (area * p.slope)
                 self.sog('or apparent capacitance of {:.4f} muF/cm^2'
                          .format(capacitance))
+                if p.slope is not None:
+                    p.slope = p.mixer * p.slope + (1. - p.mixer) * slope
+                    self.sog('After mixing with {:.2f}, new slope is {:.4f} '
+                             'V/electron.'.format(p.mixer, p.slope))
+                else:
+                    p.slope = slope
 
             # Check if we're equilibrated and exit if always_adjust is False.
             if abs(true_potential - p.target_potential) < p.tol:

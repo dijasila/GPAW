@@ -4,10 +4,12 @@
 Solvated Jellium Method (SJM)
 =============================
 
+FIXME/ap: Change the target potential to 4.2 (-0.2 V). -1 V is too downhill for volmer.
+
 Please familiarize yourself with the theory of the SJM approach before starting this tutorial, by reading the :ref:`SJM documentation page<sjm>`.
 
-Usage Example: A simple Au(111) slab
-====================================
+A simple Au(111) slab
+=====================
 
 As a simple example, we'll examine the calculation of a Au slab with a water overlayer calculated at a potential of -1.0 V versus SHE.
 To speed the computation, we'll use a tiny slab with a single water molecule over the top.
@@ -22,7 +24,7 @@ The SJM calculator is a subclass of the :class:`~gpaw.solvation.calculator.Solva
 Some reasonable values to simulate room-temperature water are below.
 In practice, since the purpose of the implicit solvent is just to screen the field, the net results---such as binding energies and barrier heights---will be relatively insensitive to the choice of implicit solvent parameters, so long as they are kept consistent.
 
-.. literalinclude:: Au111.py
+.. literalinclude:: run-Au111.py
 
 If you examine the output in 'Au.txt', you'll see that the code varies the number of excess electrons until the target potential is within a tolerance of 3.4 V; the default tolerance is 0.01 V.
 This process usually takes a few steps on the first image, but is faster on subsequent images of a trajectory, since the changes are less dramatic and the potential--charge slope is retained from previous steps.
@@ -61,8 +63,59 @@ background_charge.txt:
 .. Note:: Alternatively, :literal:`calc.write_sjm_traces(style='cube')`
           can be used to write cube files on the 3-D grid, instead of traces.
 
+Relaxing the slab and adsorbate
+===============================
+
+Next, let's perform a structural optimization at a constant potential.
+Use the same system as the previous example, but add an H atom to the surface as an adsorbate.
+
+.. literalinclude:: run-Au111-H.py
+
+Aside: simultaneous potential and structure optimization
+========================================================
+
+It can sometimes be faster to optimize the structure and the potential simultaneously.
+That is, instead of waiting until the potential is perfectly equilibrated before taking an ionic step, you can take an ionic step and adjust the number of electrons simultaneously.
+To do this, set a loose potential tolerance and turn the :literal:`always_adjust` keyword to :literal:`True`.
+An example script of this is below.
+
+.. literalinclude:: run-Au111-H-sim.py
+
+Some things to note:
+
+* We switched from the BFGSLineSearch algorithm---which uses both force and energy information---to the regular BFGS algorithm---which uses only force information.
+  This is because the forces and energy are not necessarily consistent until the optimization finishes, and that might confuse an optimizer that uses the energy.
+
+* We loosened the SCF convergence criteria while we were at it, so that it takes fewer SCF steps per ionic step.
+
+* At the end of the script, we tightened the criteria back up, in order to guarantee precise results consistent with a normal, sequential calculation (assuming it found the same local minimum).
+
+Finding a barrier
+=================
+
+We next turn to the task of finding a saddle point on the potential energy surface, at constant-potential conditions.
+We'll use the standard NEB algorithm for this.
+
+Here, we'll study the Volmer reaction, which is the deposition of a proton from the water layer to the surface.
+If we did not use potential control---that is, if we ran a standard DFT calculation---we would see a very large change in the work function for this reaction.
+We might also have a hard time setting up one of the endstates, as at the uncontrolled work function there can be a massive driving force for the reaction, resulting in barrierless discharge.
+These problems are alleviated by the constant-potential approach.
+
+The first step in any NEB calculation is to relax the two end states.
+We'll use the relaxed H on the surface, from above, as our final state.
+We created an initial state with the H in the water layer in :download:`run-Au111-H3O.py`.
+
+The script to run the NEB is below.
+Here, let's use the DyNEB method of ASE, which can be much faster for sequential calculations such as this.
+However, a script that uses the standard NEB method would be structured identically to below.
+
+FIXME/ap: Should we use DyNEB?
+
+FIXME
+=====
 
 FIXME/ap: PICKUP editing here.
+Next: 1. relax a H on the surface. 2. sequential/simultaneous. 3. Neb with this system. (Show the regular vs gc energy.) 4. Constant charge mode. (You can also run calculations with a fixed number of electrons. Depending upon your objectives, you may want to turn off writing grand canonical energy if you are doing this; that is, if you are looking for a NEB to be performed at a constant charge.) 5. Working with the legendre-transformed energies. (Actually move this before 4. Just show the decoupled ocmputational electrode, and maybe reference our paper.)
 
 FIXME/ap: Move the module documentation to the theory.
 

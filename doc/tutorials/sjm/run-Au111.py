@@ -14,7 +14,7 @@ atoms.center(axis=2, vacuum=8.)
 atoms.translate([0., 0., -2.])
 water = molecule('H2O')
 water.rotate('y', 90.)
-water.positions += atoms[2].position + (0., 0., 2.) - water[0].position
+water.positions += atoms[2].position + (0., 0., 3.) - water[0].position
 atoms.extend(water)
 
 # Solvated jellium parameters.
@@ -33,7 +33,7 @@ interactions = [SurfaceInteraction(surface_tension=gamma)]
 # The calculator
 calc = SJM(
     # General GPAW parameters.
-    txt='Au.txt',
+    txt='Au111.txt',
     gpts=(16, 16, 136),
     kpts=(9, 9, 1),
     xc='PBE',
@@ -47,4 +47,5 @@ atoms.calc = calc
 
 # Run the calculation.
 atoms.get_potential_energy()
+atoms.write('Au111.traj')
 calc.write_sjm_traces()
