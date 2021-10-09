@@ -731,27 +731,12 @@ class ETDM:
 
         assert what2calc in ['gradient', 'hessian']
 
-        a_m = {u: np.zeros_like(v) for u, v in self.a_mat_u.items()}
-        n_dim = self.n_dim
-
-        if c_nm_ref is None:
-            c_nm_ref = self.dm_helper.reference_orbitals
-
-        # init matrices and use random if needed
-        for kpt in wfs.kpt_u:
-            u = self.kpointval(kpt)
-            if amatu:
-                a_m[u] = amatu[u]
-            # update ref orbitals if needed
-            if update_c_nm_ref:
-                amat = vec2skewmat(a_m[u], n_dim[u], self.ind_up[u], wfs.dtype)
-                u_nn = expm(amat)
-                c_nm_ref[u] = u_nn.T @ kpt.C_nM[:u_nn.shape[0]]
-                a_m[u] = np.zeros_like(a_m[u])
+        a_m, c_nm_ref = self.init_calc_derivatives(wfs, c_nm_ref, amatu,
+                                                   update_c_nm_ref)
 
         if what2calc == 'gradient':
             # calc analytical gradient
-            analytical_der = self.get_energy_and_gradients(a_m, n_dim,
+            analytical_der = self.get_energy_and_gradients(a_m, self.n_dim,
                                                            ham, wfs, dens,
                                                            c_nm_ref)[1]
         else:
@@ -787,8 +772,9 @@ class ETDM:
         assert self.representation in ['sparse', 'u-invar']
         assert what2calc in ['gradient', 'hessian']
 
-        a_m = {u: np.zeros_like(v) for u, v in self.a_mat_u.items()}
-        n_dim = self.n_dim
+        a_m, c_nm_ref = self.init_calc_derivatives(wfs, c_nm_ref, amatu,
+                                                   update_c_nm_ref)
+
         # total dimensionality if matrices are real:
         dim = sum([len(a) for a in a_m.values()])
         matrix_exp = self.matrix_exp
@@ -804,21 +790,6 @@ class ETDM:
             self.matrix_exp = 'egdecomp'
             tmp = 1
 
-        if c_nm_ref is None:
-            c_nm_ref = self.dm_helper.reference_orbitals
-
-        # init matrices and use random if needed
-        for kpt in wfs.kpt_u:
-            u = self.kpointval(kpt)
-            if amatu:
-                a_m[u] = amatu[u]
-            # update ref orbitals if needed
-            if update_c_nm_ref:
-                amat = vec2skewmat(a_m[u], n_dim[u], self.ind_up[u], wfs.dtype)
-                u_nn = expm(amat)
-                c_nm_ref[u] = u_nn.T @ kpt.C_nM[:u_nn.shape[0]]
-                a_m[u] = np.zeros_like(a_m[u])
-
         row = 0
         for z in range(dim_z):
             for kpt in wfs.kpt_u:
@@ -828,10 +799,10 @@ class ETDM:
                     a = a_m[u][i]
                     a_m[u][i] = a + disp[z]
                     valp = self.get_energy_and_gradients(
-                        a_m, n_dim, ham, wfs, dens, c_nm_ref)[tmp]
+                        a_m, self.n_dim, ham, wfs, dens, c_nm_ref)[tmp]
                     a_m[u][i] = a - disp[z]
                     valm = self.get_energy_and_gradients(
-                        a_m, n_dim, ham, wfs, dens, c_nm_ref)[tmp]
+                        a_m, self.n_dim, ham, wfs, dens, c_nm_ref)[tmp]
                     if what2calc == 'gradient':
                         numerical_der[u][i] += \
                             disp[z] * (valp - valm) * 0.5 / eps ** 2
@@ -854,6 +825,29 @@ class ETDM:
             self.matrix_exp = matrix_exp
 
         return numerical_der
+
+    def init_calc_derivatives(self, wfs, c_nm_ref=None,
+                              amatu=None, update_c_nm_ref=False):
+
+        a_m = {u: np.zeros_like(v) for u, v in self.a_mat_u.items()}
+
+        if c_nm_ref is None:
+            c_nm_ref = self.dm_helper.reference_orbitals
+
+        # init matrices and use random if needed
+        for kpt in wfs.kpt_u:
+            u = self.kpointval(kpt)
+            if amatu:
+                a_m[u] = amatu[u]
+            # update ref orbitals if needed
+            if update_c_nm_ref:
+                amat = vec2skewmat(a_m[u], self.n_dim[u],
+                                   self.ind_up[u], wfs.dtype)
+                u_nn = expm(amat)
+                c_nm_ref[u] = u_nn.T @ kpt.C_nM[:u_nn.shape[0]]
+                a_m[u] = np.zeros_like(a_m[u])
+
+        return a_m, c_nm_ref
 
     def rotate_wavefunctions(self, wfs, a_mat_u, n_dim, c_nm_ref):
 
