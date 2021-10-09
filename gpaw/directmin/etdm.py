@@ -738,19 +738,17 @@ class ETDM:
 
         if what2calc == 'gradient':
             # calc analytical gradient
-            g_a = self.get_energy_and_gradients(a_m, n_dim, ham, wfs, dens,
-                                                c_nm_ref)[1]
+            analytical_der = self.get_energy_and_gradients(a_m, n_dim,
+                                                           ham, wfs, dens,
+                                                           c_nm_ref)[1]
         else:
             # calc analytical approximation to hessian
-            hess_a = []
+            analytical_der = []
             for kpt in wfs.kpt_u:
-                hess_a += list(self.get_hessian(kpt).copy())
-            hess_a = np.diag(hess_a)
+                analytical_der += list(self.get_hessian(kpt).copy())
+            analytical_der = np.diag(analytical_der)
 
-        if what2calc == 'gradient':
-            return g_a
-        else:
-            return hess_a
+        return analytical_der
 
     def get_numerical_derivatives(self, ham, wfs, dens, c_nm_ref=None,
                                   eps=1.0e-7, amatu=None,
@@ -767,7 +765,7 @@ class ETDM:
         :param dens:
         :param c_nm_ref: reference orbitals
         :param eps: finite difference step
-        :param random_amat: start at random skew-hermitian matrix
+        :param amatu: start at random skew-hermitian matrix
         :param update_c_nm_ref: before calculations do c_ref <- c_ref e*A
         :param what2calc: gradient or hessian
         :return: analytical and numerical
@@ -781,16 +779,14 @@ class ETDM:
         # total dimensionality if matrices are real:
         dim = sum([len(a) for a in a_m.values()])
         matrix_exp = self.matrix_exp
-        g_n = None
-        hess_n = None
         dim_z, disp = (2, [eps, 1.0j * eps]) \
             if self.dtype == complex else (1, [eps])
 
         if what2calc == 'gradient':
-            g_n = {u: np.zeros_like(v) for u, v in a_m.items()}
+            numerical_der = {u: np.zeros_like(v) for u, v in a_m.items()}
             tmp = 0
         else:
-            hess_n = np.zeros(shape=(dim_z * dim, dim_z * dim))
+            numerical_der = np.zeros(shape=(dim_z * dim, dim_z * dim))
             # have to use exact gradient when hessian is calculated
             self.matrix_exp = 'egdecomp'
             tmp = 1
@@ -824,7 +820,8 @@ class ETDM:
                     valm = self.get_energy_and_gradients(
                         a_m, n_dim, ham, wfs, dens, c_nm_ref)[tmp]
                     if what2calc == 'gradient':
-                        g_n[u][i] += disp[z] * (valp - valm) * 0.5 / eps ** 2
+                        numerical_der[u][i] += disp[z] * (valp - valm) * 0.5 \
+                                               / eps ** 2
                     else:
                         hess = []
                         for k in range(len(wfs.kpt_u)):
@@ -834,17 +831,16 @@ class ETDM:
                             hessc = np.zeros(shape=dim_z * dim)
                             hessc[: dim] = np.real(hess)
                             hessc[dim:] = np.imag(hess)
-                            hess_n[row] = hessc
+                            numerical_der[row] = hessc
                         else:
-                            hess_n[row] = hess
+                            numerical_der[row] = hess
                     row += 1
                     a_m[u][i] = a
 
-        if what2calc == 'gradient':
-            return g_n
-        else:
+        if what2calc == 'hessian':
             self.matrix_exp = matrix_exp
-            return hess_n
+
+        return numerical_der
 
     def rotate_wavefunctions(self, wfs, a_mat_u, n_dim, c_nm_ref):
 
