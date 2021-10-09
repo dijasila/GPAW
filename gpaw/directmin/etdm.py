@@ -715,6 +715,20 @@ class ETDM:
     def get_analytical_derivatives(self, ham, wfs, dens, c_nm_ref=None,
                                    amatu=None, update_c_nm_ref=False,
                                    what2calc='gradient'):
+        """
+           Calculate analytical gradient or hessian with respect
+           to skew-hermitian matrix
+
+        :param ham:
+        :param wfs:
+        :param dens:
+        :param c_nm_ref: reference orbitals
+        :param eps: finite difference step
+        :param amatu: start at random skew-hermitian matrix
+        :param update_c_nm_ref: before calculations do c_ref <- c_ref e*A
+        :param what2calc: gradient or hessian
+        :return: analytical and numerical
+        """
 
         assert what2calc in ['gradient', 'hessian']
 
