@@ -723,7 +723,6 @@ class ETDM:
         :param wfs:
         :param dens:
         :param c_nm_ref: reference orbitals
-        :param eps: finite difference step
         :param amatu: start at random skew-hermitian matrix
         :param update_c_nm_ref: before calculations do c_ref <- c_ref e*A
         :param what2calc: gradient or hessian
@@ -834,8 +833,8 @@ class ETDM:
                     valm = self.get_energy_and_gradients(
                         a_m, n_dim, ham, wfs, dens, c_nm_ref)[tmp]
                     if what2calc == 'gradient':
-                        numerical_der[u][i] += disp[z] * (valp - valm) * 0.5 \
-                                               / eps ** 2
+                        numerical_der[u][i] += \
+                            disp[z] * (valp - valm) * 0.5 / eps ** 2
                     else:
                         hess = []
                         for k in range(len(wfs.kpt_u)):
