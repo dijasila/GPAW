@@ -33,7 +33,7 @@ def test_directmin_lcao_numerical_hessian(in_tmp_dir):
     atoms.calc = calc
     atoms.get_potential_energy()
 
-    hess_a, hess_n = calc.wfs.eigensolver.finite_diff_appr_of_derivative(
+    hess_n = calc.wfs.eigensolver.get_numerical_derivatives(
         calc.hamiltonian,
         calc.wfs,
         calc.density,
@@ -52,7 +52,7 @@ def test_directmin_lcao_numerical_hessian(in_tmp_dir):
                                               )
     c_nm = {x: calc.wfs.kpt_u[x].C_nM.copy()
             for x in range(len(calc.wfs.kpt_u))}
-    hess_a, hess_n = calc.wfs.eigensolver.finite_diff_appr_of_derivative(
+    hess_n = calc.wfs.eigensolver.get_numerical_derivatives(
         calc.hamiltonian,
         calc.wfs,
         calc.density,

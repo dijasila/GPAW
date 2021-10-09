@@ -712,10 +712,50 @@ class ETDM:
                 'orthonormalization': self.orthonormalization
                 }
 
-    def finite_diff_appr_of_derivative(self, ham, wfs, dens, c_nm_ref=None,
-                                       eps=1.0e-7, random_amat=False,
-                                       update_c_nm_ref=False,
-                                       what2calc='gradient'):
+    def get_analytical_derivatives(self, ham, wfs, dens, c_nm_ref=None,
+                                   amatu=None, update_c_nm_ref=False,
+                                   what2calc='gradient'):
+
+        assert what2calc in ['gradient', 'hessian']
+
+        a_m = {u: np.zeros_like(v) for u, v in self.a_mat_u.items()}
+        n_dim = self.n_dim
+
+        if c_nm_ref is None:
+            c_nm_ref = self.dm_helper.reference_orbitals
+
+        # init matrices and use random if needed
+        for kpt in wfs.kpt_u:
+            u = self.kpointval(kpt)
+            if amatu:
+                a_m[u] = amatu[u]
+            # update ref orbitals if needed
+            if update_c_nm_ref:
+                amat = vec2skewmat(a_m[u], n_dim[u], self.ind_up[u], wfs.dtype)
+                u_nn = expm(amat)
+                c_nm_ref[u] = u_nn.T @ kpt.C_nM[:u_nn.shape[0]]
+                a_m[u] = np.zeros_like(a_m[u])
+
+        if what2calc == 'gradient':
+            # calc analytical gradient
+            g_a = self.get_energy_and_gradients(a_m, n_dim, ham, wfs, dens,
+                                                c_nm_ref)[1]
+        else:
+            # calc analytical approximation to hessian
+            hess_a = []
+            for kpt in wfs.kpt_u:
+                hess_a += list(self.get_hessian(kpt).copy())
+            hess_a = np.diag(hess_a)
+
+        if what2calc == 'gradient':
+            return g_a
+        else:
+            return hess_a
+
+    def get_numerical_derivatives(self, ham, wfs, dens, c_nm_ref=None,
+                                  eps=1.0e-7, amatu=None,
+                                  update_c_nm_ref=False,
+                                  what2calc='gradient'):
 
         """
            calculate gradient or hessian with respect to skew-hermitian
@@ -741,19 +781,19 @@ class ETDM:
         # total dimensionality if matrices are real:
         dim = sum([len(a) for a in a_m.values()])
         matrix_exp = self.matrix_exp
-        g_a = None
         g_n = None
-        hess_a = None
         hess_n = None
         dim_z, disp = (2, [eps, 1.0j * eps]) \
             if self.dtype == complex else (1, [eps])
 
         if what2calc == 'gradient':
             g_n = {u: np.zeros_like(v) for u, v in a_m.items()}
+            tmp = 0
         else:
             hess_n = np.zeros(shape=(dim_z * dim, dim_z * dim))
             # have to use exact gradient when hessian is calculated
             self.matrix_exp = 'egdecomp'
+            tmp = 1
 
         if c_nm_ref is None:
             c_nm_ref = self.dm_helper.reference_orbitals
@@ -761,29 +801,14 @@ class ETDM:
         # init matrices and use random if needed
         for kpt in wfs.kpt_u:
             u = self.kpointval(kpt)
-            if random_amat:
-                a = random_a(a_m[u].shape, wfs.dtype)
-                wfs.gd.comm.broadcast(a, 0)
-                a_m[u] = a
+            if amatu:
+                a_m[u] = amatu[u]
             # update ref orbitals if needed
             if update_c_nm_ref:
                 amat = vec2skewmat(a_m[u], n_dim[u], self.ind_up[u], wfs.dtype)
                 u_nn = expm(amat)
                 c_nm_ref[u] = u_nn.T @ kpt.C_nM[:u_nn.shape[0]]
                 a_m[u] = np.zeros_like(a_m[u])
-
-        if what2calc == 'gradient':
-            # calc analytical gradient
-            g_a = self.get_energy_and_gradients(a_m, n_dim, ham, wfs, dens,
-                                                c_nm_ref)[1]
-            tmp = 0
-        else:
-            # calc analytical approximation to hessian
-            hess_a = []
-            for kpt in wfs.kpt_u:
-                hess_a += list(self.get_hessian(kpt).copy())
-            hess_a = np.diag(hess_a)
-            tmp = 1
 
         row = 0
         for z in range(dim_z):
@@ -816,10 +841,10 @@ class ETDM:
                     a_m[u][i] = a
 
         if what2calc == 'gradient':
-            return g_a, g_n
+            return g_n
         else:
             self.matrix_exp = matrix_exp
-            return hess_a, hess_n
+            return hess_n
 
     def rotate_wavefunctions(self, wfs, a_mat_u, n_dim, c_nm_ref):
 

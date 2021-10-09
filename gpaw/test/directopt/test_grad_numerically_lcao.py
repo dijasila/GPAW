@@ -1,6 +1,7 @@
 import pytest
 
 from gpaw import GPAW, LCAO
+from gpaw.directmin.etdm import random_a
 from ase import Atoms
 
 
@@ -50,8 +51,13 @@ def test_gradient_numerically_lcao(in_tmp_dir):
         ham = calc.hamiltonian
         wfs = calc.wfs
         dens = calc.density
-        g_a, g_n = calc.wfs.eigensolver.finite_diff_appr_of_derivative(
-            ham, wfs, dens, random_amat=True, update_c_nm_ref=True)
+        a = random_a(wfs.eigensolver.a_mat_u[0].shape, wfs.dtype)
+        wfs.gd.comm.broadcast(a, 0)
+        amatu = {0: a}
+        g_n = calc.wfs.eigensolver.get_numerical_derivatives(
+            ham, wfs, dens, amatu=amatu, update_c_nm_ref=True)
+        g_a = calc.wfs.eigensolver.get_analytical_derivatives(
+            ham, wfs, dens, amatu=None, update_c_nm_ref=False)
         for x, y in zip(g_a[0], g_n[0]):
             assert x.real == pytest.approx(y.real, abs=1.0e-2)
             assert x.imag == pytest.approx(y.imag, abs=1.0e-2)
