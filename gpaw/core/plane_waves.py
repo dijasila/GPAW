@@ -1,15 +1,17 @@
 from __future__ import annotations
-import numpy as np
+
 from math import pi
+
 import _gpaw
-from gpaw.core.layout import Layout
-from gpaw.core.uniform_grid import UniformGrid, UniformGridFunctions
-from gpaw.typing import Array1D, Array2D
-from gpaw.mpi import MPIComm, serial_comm
+import numpy as np
 from gpaw.core.arrays import DistributedArrays
-from gpaw.pw.descriptor import pad
 from gpaw.core.atom_centered_functions import PlaneWaveAtomCenteredFunctions
+from gpaw.core.layout import Layout
 from gpaw.core.matrix import Matrix
+from gpaw.core.uniform_grid import UniformGrid, UniformGridFunctions
+from gpaw.mpi import MPIComm, serial_comm
+from gpaw.pw.descriptor import pad
+from gpaw.typing import Array1D, Array2D
 
 
 class PlaneWaves(Layout):
@@ -81,8 +83,12 @@ class PlaneWaveExpansions(DistributedArrays):
             txt += f', comm={self.comm.rank}/{self.comm.size}'
         return txt + ')'
 
-    def __getitem__(self, index):
+    def __getitem__(self, index: int) -> PlaneWaveExpansions:
         return PlaneWaveExpansions(self.pw, data=self.data[index])
+
+    def __iter__(self):
+        for data in self.data:
+            yield PlaneWaveExpansions(self.pw, data=data)
 
     def new(self, data=None):
         if data is None:

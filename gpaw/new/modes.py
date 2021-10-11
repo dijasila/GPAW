@@ -66,10 +66,11 @@ class PWMode(Mode):
                                     fracpos,
                                     xc,
                                     poisson_solver_params):
-        fine_grid_pw = PlaneWaves(ecut=4 * wf_pw.ecut, grid=fine_grid)
-        poisson_solver = self.create_poisson_solver(fine_grid_pw,
+        pw = PlaneWaves(ecut=2 * wf_pw.ecut, grid=wf_pw.grid)
+        fine_pw = PlaneWaves(ecut=8 * wf_pw.ecut, grid=fine_grid)
+        poisson_solver = self.create_poisson_solver(fine_pw,
                                                     poisson_solver_params)
-        return PlaneWavePotentialCalculator(wf_pw, fine_grid_pw,
+        return PlaneWavePotentialCalculator(pw, fine_pw,
                                             setups, fracpos,
                                             xc, poisson_solver)
 

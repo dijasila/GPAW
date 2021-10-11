@@ -3,6 +3,10 @@ import numpy as np
 from gpaw.mpi import MPIComm, serial_comm
 from gpaw.core.layout import Layout
 from gpaw.core.matrix import Matrix
+from gpaw.typing import Array1D
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from gpaw.core.uniform_grid import UniformGridFunctions
 
 
 class DistributedArrays:
@@ -97,6 +101,11 @@ class DistributedArrays:
     def __iadd__(self, other):
         other.acfs.add_to(self, other.coefs)
         return self
+
+    def abs_square(self,
+                   weights: Array1D,
+                   out: UniformGridFunctions = None) -> None:
+        raise NotImplementedError
 
 
 def operate_and_multiply(psit1, dv, out, operator, psit2):

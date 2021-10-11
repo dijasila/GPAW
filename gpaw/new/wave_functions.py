@@ -8,7 +8,6 @@ from gpaw.new.brillouin import IBZ
 from gpaw.mpi import MPIComm
 from ase.units import Ha
 from gpaw.new.density import Density
-import _gpaw
 from gpaw.core.atom_arrays import AtomArrays
 from gpaw.utilities.debug import frozen
 from typing import Iterator, Sequence
@@ -274,6 +273,7 @@ class WaveFunctions:
             self._eigs = H.eigh(scalapack=(slcomm, r, c, b))
             # H.data[n, :] now contains the n'th eigenvector and eps_n[n]
             # the n'th eigenvalue
+
         domain_comm.broadcast(H.data, 0)
         domain_comm.broadcast(self.eigs, 0)
         if Htpsit is not None:

@@ -76,7 +76,6 @@ def test_grr():
     print(pw.G_plus_k.shape)
     from gpaw.grid_descriptor import GridDescriptor
     from gpaw.pw.descriptor import PWDescriptor
-    g=GridDescriptor((9, 9, 12), [2 / Bohr, 2 / Bohr, 2.737166 / Bohr])
+    g = GridDescriptor((9, 9, 12), [2 / Bohr, 2 / Bohr, 2.737166 / Bohr])
     p = PWDescriptor(340 / Ha, g)
-    print(p.get_reciprocal_vectors())
-
+    assert (p.get_reciprocal_vectors() == pw.G_plus_k).all()
