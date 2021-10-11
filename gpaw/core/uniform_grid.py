@@ -246,6 +246,13 @@ class UniformGridFunctions(DistributedArrays):
         self.grid.redistributor(grid).redistribute(self, out)
         return out
 
+    def collect(self, out=None):
+        if out is None:
+            grid = self.grid.new(comm=serial_comm)
+        else:
+            grid = out.grid
+        return self.redistribute(grid=grid, out=out)
+
     def fft(self, plan=None, pw=None, out=None):
         if out is None:
             assert pw is not None

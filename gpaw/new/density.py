@@ -100,6 +100,9 @@ class Density:
         return cls(density, density_matrices, core_density, core_acf,
                    setups, charge)
 
+    def write(self, writer):
+        writer.write(density=self.density.collect().data)
+
 
 def atomic_occupation_numbers(setup,
                               magmom: Union[float, ArrayLike1D] = None,

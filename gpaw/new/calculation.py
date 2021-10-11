@@ -1,7 +1,12 @@
 from __future__ import annotations
+
+import ase.io.ulm as ulm
+from ase.io.trajectory import write_atoms, read_atoms
+from ase.units import Bohr, Ha
 from gpaw.new.configuration import DFTConfiguration
 from gpaw.new.wave_functions import IBZWaveFunctions
-from ase.units import Ha, Bohr
+import gpaw
+from typing import Any
 
 
 class DFTCalculation:
@@ -15,6 +20,7 @@ class DFTCalculation:
         self.density = density
         self.potential = potential
         self._scf = None
+        self.results: dict[str, Any] = {}
 
     @classmethod
     def from_parameters(cls, atoms, params, log) -> DFTCalculation:
@@ -76,7 +82,8 @@ class DFTCalculation:
             log(f'    {name + ":":10}   {e * Ha:14.6f}')
         log(f'    Total:       {free_energy * Ha:14.6f}')
         log(f'    Extrapolated:{extrapolated_energy * Ha:14.6f}')
-        return free_energy, extrapolated_energy
+        self.results['free_energy'] = free_energy
+        self.results['energy'] = extrapolated_energy
 
     def forces(self, log):
         """Return atomic force contributions."""
@@ -113,11 +120,7 @@ class DFTCalculation:
             x, y, z = forces[a] * c
             log(f'{a:4} {setup.symbol:2} {x:10.3f} {y:10.3f} {z:10.3f}')
 
-        return forces
-
-    @staticmethod
-    def read(filename, log, parallel):
-        ...
+        self.results['forces'] = forces
 
     def write_converged(self, log):
         fl = self.ibz_wfs.fermi_levels * Ha
@@ -136,3 +139,53 @@ class DFTCalculation:
                 log(f'    {n:4} {e:10.3f}   {f:.3f}')
             if i == 3:
                 break
+
+    def write(self,
+              filename: str,
+              skip_wfs: bool = True):
+        world = self.cfg.communicators['w']
+        if world.rank == 0:
+            writer = ulm.Writer(filename, tag='gpaw')
+        else:
+            writer = ulm.DummyWriter()
+        with writer:
+            writer.write(version=4,
+                         gpaw_version=gpaw.__version__,
+                         ha=Ha,
+                         bohr=Bohr)
+
+            write_atoms(writer.child('atoms'), self.cfg.atoms)
+            writer.child('results').write(**self.results)
+            writer.child('parameters').write(**self.cfg.params.params)
+
+            self.density.write(writer.child('density'))
+            self.potential.write(writer.child('hamiltonian'))
+            self.ibz_wfs.write(writer.child('wave_functions'), skip_wfs)
+
+        world.barrier()
+
+    @classmethod
+    def read(cls, filename, log):
+        log(f'Reading from {filename}')
+        reader = ulm.Reader(filename)
+        atoms = read_atoms(reader.atoms)
+
+        print(reader.parameters)
+        cfg = DFTConfiguration(atoms, dict(reader.parameters))
+        res = reader.results
+        print(res)
+        results = dict((key, res.get(key)) for key in res.keys())
+        if results:
+            log('Read {}'.format(', '.join(sorted(results))))
+
+        self.log('Reading input parameters:')
+        self.density.read(reader)
+        self.hamiltonian.read(reader)
+        self.scf.read(reader)
+        self.wfs.read(reader)
+
+        return cls(cfg, ibz_wfs, density, potential)
+
+    def ase_interface(self, log):
+        from gpaw.new.ase_interface import ASECalculator
+        return ASECalculator(self.cfg.params, log, self)

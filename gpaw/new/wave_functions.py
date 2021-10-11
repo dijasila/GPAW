@@ -132,6 +132,9 @@ class IBZWaveFunctions:
             wfs.force_contribution(dv, F)
         return F
 
+    def write(self, writer, skip_wfs):
+        writer.write(fermi_levels=self.fermi_levels)
+
 
 @frozen
 class WaveFunctions:

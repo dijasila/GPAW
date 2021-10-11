@@ -42,7 +42,7 @@ class InputParameters:
     charge: float
     nbands: None | int | float
 
-    def __init__(self, params):
+    def __init__(self, params: dict[str, Any]):
         """Accuracy of the self-consistency cycle."""
         self.params = params
 
@@ -58,7 +58,7 @@ class InputParameters:
                 value = func()
             self.__dict__[key] = value
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         p = ', '.join(f'{key}={value!r}' for key, value in self.params.items())
         return f'InputParameters({p})'
 

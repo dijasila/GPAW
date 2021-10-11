@@ -26,6 +26,9 @@ class Potential:
             out.data[I1:I2] = dh @ projections.data[I1:I2]
         return out
 
+    def write(self, writer):
+        writer.write(vt=self.vt.collect().data)
+
 
 class PotentialCalculator:
     def __init__(self,

@@ -23,8 +23,10 @@ def GPAW(filename: Union[str, Path, IO[str]] = None,
     log = Logger(txt, params.parallel['world'])
 
     if filename is not None:
+        kwargs.pop('txt')
         assert len(kwargs) == 0
-        ...
+        calculation = DFTCalculation.read(filename, log)
+        return calculation.ase_interface()
 
     write_header(log, kwargs)
     return ASECalculator(params, log)
@@ -41,7 +43,6 @@ class ASECalculator(OldStuff):
         self.calculation = calculation
 
         self.atoms = None
-        self.results: dict[str, Any] = {}
         self.timer = Timer()
 
     def calculate_property(self, atoms: Atoms, prop: str) -> Any:
@@ -59,18 +60,16 @@ class ASECalculator(OldStuff):
             self.move_atoms(atoms)
             self.converge(atoms)
 
-        if prop not in self.results:
+        if prop not in self.calculation.results:
             if prop.endswith('energy'):
-                free, extrapolated = self.calculation.energies(log)
-                self.results['free_energy'] = free
-                self.results['energy'] = extrapolated
+                self.calculation.energies(log)
             elif prop == 'forces':
                 with self.timer('Forces'):
-                    self.results['forces'] = self.calculation.forces(log)
+                    self.calculation.forces(log)
             else:
                 raise ValueError('Unknown property:', prop)
 
-        return self.results[prop]
+        return self.calculation.results[prop]
 
     def create_new_calculation(self, atoms: Atoms) -> DFTCalculation:
         write_atoms(atoms, self.log)
@@ -85,7 +84,6 @@ class ASECalculator(OldStuff):
     def converge(self, atoms):
         with self.timer('SCF'):
             self.calculation.converge(self.log)
-        self.results = {}
         self.atoms = atoms.copy()
         self.calculation.write_converged(self.log)
 

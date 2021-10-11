@@ -25,8 +25,12 @@ class Logger:
             self.close_fd = False
 
     def __del__(self) -> None:
-        mib = maxrss() / 1024**2
-        self.fd.write(f'\nMax RSS: {mib:.3f} MiB\n')
+        try:
+            mib = maxrss() / 1024**2
+        except NameError:
+            pass
+        else:
+            self.fd.write(f'\nMax RSS: {mib:.3f} MiB\n')
         if self.close_fd:
             self.fd.close()
 
