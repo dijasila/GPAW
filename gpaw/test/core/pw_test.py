@@ -60,9 +60,23 @@ def test_pw_integrate():
         g1 = g.grid.empty(1)
         g1.data[:] = g.data
         m1 = g1.matrix_elements(g1)
-        print(i1, m1.data)
+        assert (i1 == m1.data).all()
 
         f1 = f.pw.empty(1)
         f1.data[:] = f.data
         m2 = f1.matrix_elements(f1)
-        print(i2, m2.data)
+        assert (i2 == m2.data).all()
+
+
+def test_grr():
+    from ase.units import Ha, Bohr
+    grid = UniformGrid(cell=[2 / Bohr, 2 / Bohr, 2.737166 / Bohr],
+                       size=(9, 9, 12))
+    pw = PlaneWaves(ecut=340 / Ha, grid=grid)
+    print(pw.G_plus_k.shape)
+    from gpaw.grid_descriptor import GridDescriptor
+    from gpaw.pw.descriptor import PWDescriptor
+    g=GridDescriptor((9, 9, 12), [2 / Bohr, 2 / Bohr, 2.737166 / Bohr])
+    p = PWDescriptor(340 / Ha, g)
+    print(p.get_reciprocal_vectors())
+

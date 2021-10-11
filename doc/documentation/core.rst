@@ -2,6 +2,8 @@
 Core data structures
 ====================
 
+.. modeule gpaw.core
+
 Uniform grids
 =============
 
@@ -23,6 +25,8 @@ Plane waves
 PlaneWaveExpansions(pw=PlaneWaves(ecut=100, grid=20*20*20), shape=())
 >>> p1.data[0]
 (8000+0j)
+
+.. inheritance-diagram gpaw.core
 
 
 Atom-centered functions

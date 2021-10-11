@@ -240,7 +240,7 @@ def find_reciprocal_vectors(ecut: float,
     G2_Q = (G_plus_k_Qv**2).sum(axis=1)
     mask_Q = (G2_Q <= 2 * ecut)
 
-    if grid.kpt is None:
+    if grid.dtype == float:
         mask_Q &= ((i_Qc[:, 2] > 0) |
                    (i_Qc[:, 1] > 0) |
                    ((i_Qc[:, 0] >= 0) & (i_Qc[:, 1] == 0)))
