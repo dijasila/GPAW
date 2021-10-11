@@ -100,5 +100,4 @@ charges as are written out in the example above.
            A grid-based Bader analysis algorithm without lattice bias.
            J. Phys.: Compute Mater. 21, 084204 (2009).
 	      
-.. [Hirsh]
-F. L. Hirshfeld, Theor. Chim. Acta 44, 129 (1977).
+.. [Hirsh] F. L. Hirshfeld, Theor. Chim. Acta 44, 129 (1977).
