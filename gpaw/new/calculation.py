@@ -5,6 +5,7 @@ from ase.io.trajectory import write_atoms, read_atoms
 from ase.units import Bohr, Ha
 from gpaw.new.configuration import DFTConfiguration
 from gpaw.new.wave_functions import IBZWaveFunctions
+from gpaw.new.density import Density
 import gpaw
 from typing import Any
 
@@ -27,9 +28,9 @@ class DFTCalculation:
         cfg = DFTConfiguration(atoms, params)
 
         basis_set = cfg.create_basis_set()
-        density = cfg.density_from_superposition(basis_set)
+        density, nct = cfg.density_from_superposition(basis_set)
         density.normalize()
-        pot_calc = cfg.potential_calculator
+        pot_calc = cfg.create_potential_calculator(nct)
         potential = pot_calc.calculate(density)
 
         if params.random:
@@ -170,21 +171,18 @@ class DFTCalculation:
         reader = ulm.Reader(filename)
         atoms = read_atoms(reader.atoms)
 
-        print(reader.parameters)
-        cfg = DFTConfiguration(atoms, dict(reader.parameters))
-        res = reader.results
-        print(res)
-        results = dict((key, res.get(key)) for key in res.keys())
+        cfg = DFTConfiguration(atoms, reader.parameters.asdict())
+
+        grid = cfg.griiid
+
+        results = reader.results.asdict()
         if results:
             log('Read {}'.format(', '.join(sorted(results))))
 
-        self.log('Reading input parameters:')
-        self.density.read(reader)
-        self.hamiltonian.read(reader)
-        self.scf.read(reader)
-        self.wfs.read(reader)
+        density = Density.read(reader, grid)
 
-        return cls(cfg, ibz_wfs, density, potential)
+        calculation = cls(cfg, ibz_wfs, density, potential)
+        calculation.results = results
 
     def ase_interface(self, log):
         from gpaw.new.ase_interface import ASECalculator

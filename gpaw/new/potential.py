@@ -33,9 +33,11 @@ class Potential:
 class PotentialCalculator:
     def __init__(self,
                  xc,
-                 poisson_solver):
+                 poisson_solver,
+                 nct):
         self.poisson_solver = poisson_solver
         self.xc = xc
+        self.nct = nct
 
     def __str__(self):
         return f'\n{self.poisson_solver}\n{self.xc}'

@@ -8,6 +8,11 @@ from typing import Union
 
 
 def magmoms2dims(magmoms):
+    """Convert magmoms input to number of density and magnetization components.
+
+    >>> magmoms2dims(None)
+    (1, 0)
+    """
     if magmoms is None:
         return 1, 0
     if magmoms.shape[1] == 1:
@@ -16,13 +21,13 @@ def magmoms2dims(magmoms):
 
 
 class Density:
-    def __init__(self, density, density_matrices, core_density, core_acf,
-                 setups, charge):
+    def __init__(self, density, density_matrices,
+                 delta_aiiL, delta0_a,
+                 charge):
         self.density = density
         self.density_matrices = density_matrices
-        self.core_density = core_density
-        self.core_acf = core_acf
-        self.setups = setups
+        self.delta_aiiL = delta_aiiL
+        self.delta0_a = delta0_a
         self.charge = charge
 
         self.ndensities = {1: 1, 2: 2, 4: 1}[density.shape[0]]
@@ -30,14 +35,13 @@ class Density:
 
     def calculate_compensation_charge_coefficients(self):
         coefs = AtomArraysLayout(
-            [setup.Delta_iiL.shape[2] for setup in self.setups],
+            [delta_iiL.shape[2] for delta_iiL in self.delta_aiiL],
             atomdist=self.density_matrices.layout.atomdist).empty()
 
         for a, D in self.density_matrices.items():
-            setup = self.setups[a]
             Q = np.einsum('ijs, ijL -> L',
-                          D[:, :, :self.ndensities], setup.Delta_iiL)
-            Q[0] += setup.Delta0
+                          D[:, :, :self.ndensities], self.delta_aiiL[a])
+            Q[0] += self.delta0_a[a]
             coefs[a] = Q
 
         return coefs
@@ -102,6 +106,10 @@ class Density:
 
     def write(self, writer):
         writer.write(density=self.density.collect().data)
+
+    @classmethod
+    def read(cls, reader):
+        return cls(reader.density)
 
 
 def atomic_occupation_numbers(setup,
