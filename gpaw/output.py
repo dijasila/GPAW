@@ -37,15 +37,10 @@ def print_positions(atoms, log, magmom_av):
     log('\n' + ' ' * 23 + 'Positions' + ' ' * 13 +
         'Constr' + ' ' * 11 + '(Magmoms)')
 
-    # Extract the contraints from the atoms object, label them and identify
-    # the involved atoms. A little legend is produced which is printed at
-    # the bottom.
     constraints = {i: '' for i in range(len(atoms))}
-    const_legend = '  Contraints: '
-    other_consts = []
     for const in atoms.constraints:
-        const_name = const.todict()['name']
-        const_label = [i for i in const_name if i.lstrip('Fix').isupper()][0]
+        const_label = [i for i in const.todict()['name']
+                       if i.lstrip('Fix').isupper()][0]
 
         indices = []
         for key, value in const.__dict__.items():
@@ -53,13 +48,6 @@ def print_positions(atoms, log, magmom_av):
             # differently we have to search for all the labels
             if key in ['a', 'index', 'pairs', 'indices']:
                 indices = np.unique(np.array(value).reshape(-1))
-
-        if not len(indices):
-            other_consts.append(const_name)
-        elif const_name not in const_legend:
-            const_legend += '{0:1} = {1:s},  '.format(const_label, const_name)
-            if not (const_legend.count('=') + 1) % 4:
-                const_legend += '\n   '
 
         for index in indices:
             constraints[index] += const_label
@@ -74,15 +62,22 @@ def print_positions(atoms, log, magmom_av):
             '{3:^7}({4[0]:7.4f}, {4[1]:7.4f}, {4[2]:7.4f})'
             .format(a, symbol, pos_v, const, magmom_av[a]))
 
-    # Print the legend
-    if any(constraints.values()):
-        log('\n' + const_legend[:-3])
-
-    # Constraints that are not applied to specific atoms are printed
-    # below the table
-    if len(other_consts):
-        log('   Additional constraints: ' + ', '.join(other_consts))
     log()
+
+
+def print_constraint_details(atoms, log):
+
+    if len(atoms.constraints):
+        const_legend = 'ASE contraints:\n'
+        for const in atoms.constraints:
+            const_name = '{0}: {1}'\
+                .format(const.todict()['name'], const.todict()['kwargs'])
+            const_label = [i for i in const_name
+                           if i.lstrip('Fix').isupper()][0]
+
+            const_legend += f'  {const_name} ({const_label})\n'
+
+        log(const_legend)
 
 
 def print_parallelization_details(wfs, ham, log):

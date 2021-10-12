@@ -34,7 +34,7 @@ from gpaw.kpt_refine import create_kpoint_descriptor_with_refinement
 from gpaw.matrix import suggest_blocking
 from gpaw.occupations import ParallelLayout, create_occ_calc
 from gpaw.output import (print_cell, print_parallelization_details,
-                         print_positions)
+                         print_positions, print_constraint_details)
 from gpaw.pw.density import ReciprocalSpaceDensity
 from gpaw.pw.hamiltonian import ReciprocalSpaceHamiltonian
 from gpaw.scf import SCFLoop, dict2criterion
@@ -860,6 +860,8 @@ class GPAW(Calculator):
 
         if xc.type == 'GLLB' and olddens is not None:
             xc.heeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeelp(olddens)
+
+        print_constraint_details(atoms, self.log)
 
         self.print_memory_estimate(maxdepth=3)
 
