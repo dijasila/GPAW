@@ -55,9 +55,9 @@ def test_gradient_numerically_lcao(in_tmp_dir):
         wfs.gd.comm.broadcast(a, 0)
         amatu = {0: a}
         g_n = calc.wfs.eigensolver.get_numerical_derivatives(
-            ham, wfs, dens, amatu=amatu, update_c_nm_ref=True)
+            ham, wfs, dens, a_mat_u=amatu, update_c_nm_ref=True)
         g_a = calc.wfs.eigensolver.get_analytical_derivatives(
-            ham, wfs, dens, amatu=None, update_c_nm_ref=False)
+            ham, wfs, dens, a_mat_u=None, update_c_nm_ref=False)
         for x, y in zip(g_a[0], g_n[0]):
             assert x.real == pytest.approx(y.real, abs=1.0e-2)
             assert x.imag == pytest.approx(y.imag, abs=1.0e-2)

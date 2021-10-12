@@ -37,6 +37,8 @@ class DirectMinLCAO(DirectLCAO):
             u = self.kpointval(kpt)
             self.reference_orbitals[u] = np.copy(kpt.C_nM[:n_dim[u]])
 
+        return self.reference_orbitals
+
     def appy_transformation_kpt(self, wfs, u_mat, kpt, c_ref=None,
                                 broadcast=True,
                                 update_proj=True):

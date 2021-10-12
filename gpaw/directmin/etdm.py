@@ -713,7 +713,7 @@ class ETDM:
                 }
 
     def get_analytical_derivatives(self, ham, wfs, dens, c_nm_ref=None,
-                                   amatu=None, update_c_nm_ref=False,
+                                   a_mat_u=None, update_c_nm_ref=False,
                                    what2calc='gradient'):
         """
            Calculate analytical gradient or hessian with respect
@@ -723,7 +723,7 @@ class ETDM:
         :param wfs:
         :param dens:
         :param c_nm_ref: reference orbitals
-        :param amatu: start at random skew-hermitian matrix
+        :param a_mat_u: start at random skew-hermitian matrix
         :param update_c_nm_ref: before calculations do c_ref <- c_ref e*A
         :param what2calc: gradient or hessian
         :return: analytical and numerical
@@ -731,12 +731,11 @@ class ETDM:
 
         assert what2calc in ['gradient', 'hessian']
 
-        a_m, c_nm_ref = self.init_calc_derivatives(wfs, c_nm_ref, amatu,
-                                                   update_c_nm_ref)
-
         if what2calc == 'gradient':
+            a_mat_u, c_nm_ref = self.init_calc_derivatives(wfs, c_nm_ref, a_mat_u,
+                                                           update_c_nm_ref)
             # calc analytical gradient
-            analytical_der = self.get_energy_and_gradients(a_m, self.n_dim,
+            analytical_der = self.get_energy_and_gradients(a_mat_u, self.n_dim,
                                                            ham, wfs, dens,
                                                            c_nm_ref)[1]
         else:
@@ -749,7 +748,7 @@ class ETDM:
         return analytical_der
 
     def get_numerical_derivatives(self, ham, wfs, dens, c_nm_ref=None,
-                                  eps=1.0e-7, amatu=None,
+                                  eps=1.0e-7, a_mat_u=None,
                                   update_c_nm_ref=False,
                                   what2calc='gradient'):
 
@@ -763,7 +762,7 @@ class ETDM:
         :param dens:
         :param c_nm_ref: reference orbitals
         :param eps: finite difference step
-        :param amatu: start at random skew-hermitian matrix
+        :param a_mat_u: start at random skew-hermitian matrix
         :param update_c_nm_ref: before calculations do c_ref <- c_ref e*A
         :param what2calc: gradient or hessian
         :return: analytical and numerical
@@ -772,17 +771,17 @@ class ETDM:
         assert self.representation in ['sparse', 'u-invar']
         assert what2calc in ['gradient', 'hessian']
 
-        a_m, c_nm_ref = self.init_calc_derivatives(wfs, c_nm_ref, amatu,
-                                                   update_c_nm_ref)
+        a_mat_u, c_nm_ref = self.init_calc_derivatives(wfs, c_nm_ref, a_mat_u,
+                                                       update_c_nm_ref)
 
         # total dimensionality if matrices are real:
-        dim = sum([len(a) for a in a_m.values()])
+        dim = sum([len(a) for a in a_mat_u.values()])
         matrix_exp = self.matrix_exp
         dim_z, disp = (2, [eps, 1.0j * eps]) \
             if self.dtype == complex else (1, [eps])
 
         if what2calc == 'gradient':
-            numerical_der = {u: np.zeros_like(v) for u, v in a_m.items()}
+            numerical_der = {u: np.zeros_like(v) for u, v in a_mat_u.items()}
             tmp = 0
         else:
             numerical_der = np.zeros(shape=(dim_z * dim, dim_z * dim))
@@ -794,15 +793,15 @@ class ETDM:
         for z in range(dim_z):
             for kpt in wfs.kpt_u:
                 u = self.kpointval(kpt)
-                for i in range(len(a_m[u])):
+                for i in range(len(a_mat_u[u])):
                     parprint(z, u, i)
-                    a = a_m[u][i]
-                    a_m[u][i] = a + disp[z]
+                    a = a_mat_u[u][i]
+                    a_mat_u[u][i] = a + disp[z]
                     valp = self.get_energy_and_gradients(
-                        a_m, self.n_dim, ham, wfs, dens, c_nm_ref)[tmp]
-                    a_m[u][i] = a - disp[z]
+                        a_mat_u, self.n_dim, ham, wfs, dens, c_nm_ref)[tmp]
+                    a_mat_u[u][i] = a - disp[z]
                     valm = self.get_energy_and_gradients(
-                        a_m, self.n_dim, ham, wfs, dens, c_nm_ref)[tmp]
+                        a_mat_u, self.n_dim, ham, wfs, dens, c_nm_ref)[tmp]
                     if what2calc == 'gradient':
                         numerical_der[u][i] += \
                             disp[z] * (valp - valm) * 0.5 / eps ** 2
@@ -819,7 +818,7 @@ class ETDM:
                         else:
                             numerical_der[row] = hess
                     row += 1
-                    a_m[u][i] = a
+                    a_mat_u[u][i] = a
 
         if what2calc == 'hessian':
             self.matrix_exp = matrix_exp
@@ -827,27 +826,27 @@ class ETDM:
         return numerical_der
 
     def init_calc_derivatives(self, wfs, c_nm_ref=None,
-                              amatu=None, update_c_nm_ref=False):
-
-        a_m = {u: np.zeros_like(v) for u, v in self.a_mat_u.items()}
+                              a_mat_u=None, update_c_nm_ref=False):
+        """
+        Initialize skew-Hermitian and reference coefficient matrices
+        for calculation of analytical or numerical derivatives
+        """
 
         if c_nm_ref is None:
             c_nm_ref = self.dm_helper.reference_orbitals
 
-        # init matrices and use random if needed
-        for kpt in wfs.kpt_u:
-            u = self.kpointval(kpt)
-            if amatu:
-                a_m[u] = amatu[u]
-            # update ref orbitals if needed
-            if update_c_nm_ref:
-                amat = vec2skewmat(a_m[u], self.n_dim[u],
-                                   self.ind_up[u], wfs.dtype)
-                u_nn = expm(amat)
-                c_nm_ref[u] = u_nn.T @ kpt.C_nM[:u_nn.shape[0]]
-                a_m[u] = np.zeros_like(a_m[u])
+        if a_mat_u is None:
+            a_mat_u = {u: np.zeros_like(v) for u, v in self.a_mat_u.items()}
 
-        return a_m, c_nm_ref
+        # update ref orbitals if needed
+        if update_c_nm_ref:
+            self.rotate_wavefunctions(wfs, a_mat_u, self.n_dim, c_nm_ref)
+            c_nm_ref = self.dm_helper.set_reference_orbitals(wfs, self.n_dim)
+            for kpt in wfs.kpt_u:
+                u = self.kpointval(kpt)
+                a_mat_u[u] = np.zeros_like(self.a_mat_u[u])
+
+        return a_mat_u, c_nm_ref
 
     def rotate_wavefunctions(self, wfs, a_mat_u, n_dim, c_nm_ref):
 
