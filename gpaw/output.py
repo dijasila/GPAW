@@ -65,17 +65,23 @@ def print_positions(atoms, log, magmom_av):
     log()
 
 
-def print_constraint_details(atoms, log):
+def print_constraint_details(atoms, log) -> None:
+    """Print the constraints and their kwargs in the preamble"""
 
     if len(atoms.constraints):
         const_legend = 'ASE contraints:\n'
         for const in atoms.constraints:
             const_name = '{0}: {1}'\
                 .format(const.todict()['name'], const.todict()['kwargs'])
-            const_label = [i for i in const_name
-                           if i.lstrip('Fix').isupper()][0]
-
-            const_legend += f'  {const_name} ({const_label})\n'
+            index = 0
+            for key in const.__dict__.keys():
+                if key in ['a', 'index', 'pairs', 'indices']:
+                    const_label = [i for i in const_name
+                                   if i.lstrip('Fix').isupper()][0]
+                    const_legend += f'  {const_name} ({const_label})\n'
+                    index = 1
+            if not index:
+                const_legend += f'  {const_name}\n'
 
         log(const_legend)
 
