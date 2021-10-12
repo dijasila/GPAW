@@ -71,18 +71,15 @@ def print_constraint_details(atoms, log) -> None:
     if len(atoms.constraints):
         const_legend = 'ASE contraints:\n'
         for const in atoms.constraints:
-            const_name = '{0}: {1}'\
-                .format(const.todict()['name'], const.todict()['kwargs'])
             index = 0
             for key in const.__dict__.keys():
                 if key in ['a', 'index', 'pairs', 'indices']:
-                    const_label = [i for i in const_name
+                    const_label = [i for i in const.todict()['name']
                                    if i.lstrip('Fix').isupper()][0]
-                    const_legend += f'  {const_name} ({const_label})\n'
+                    const_legend += f'  {const} ({const_label})\n'
                     index = 1
             if not index:
-                const_legend += f'  {const_name}\n'
-
+                const_legend += f'  {const}\n'
         log(const_legend)
 
 
