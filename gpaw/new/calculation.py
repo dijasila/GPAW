@@ -27,8 +27,11 @@ class DFTCalculation:
     def from_parameters(cls, atoms, params, log) -> DFTCalculation:
         cfg = DFTConfiguration(atoms, params)
 
+        nct_acf = cfg.setups.create_pseudo_core_densities(cfg.wf_grid,
+                                                          cfg.fracpos)
+        nct = nct_acf.to_uniform_grid(1.0 / ndens)
         basis_set = cfg.create_basis_set()
-        density, nct = cfg.density_from_superposition(basis_set)
+        density, nct = cfg.density_from_superposition(basis_set, nct)
         density.normalize()
         pot_calc = cfg.create_potential_calculator(nct)
         potential = pot_calc.calculate(density)

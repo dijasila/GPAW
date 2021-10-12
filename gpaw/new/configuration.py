@@ -145,10 +145,11 @@ class DFTConfiguration:
         basis_set.set_positions(self.fracpos)
         return basis_set
 
-    def density_from_superposition(self, basis_set):
-        return Density.from_superposition(
-            self.wf_grid, self.grid, self.setups, self.initial_magmoms,
-            self.fracpos, basis_set, self.params.charge, self.params.hund)
+    def density_from_superposition(self, basis_set, nct):
+        return Density.from_superposition(nct,
+                                          self.setups, self.initial_magmoms,
+                                          basis_set, self.params.charge,
+                                          self.params.hund)
 
     def scf_loop(self):
         hamiltonian = self.mode.create_hamiltonian_operator(self.wf_grid)

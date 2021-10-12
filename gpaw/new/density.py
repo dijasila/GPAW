@@ -69,11 +69,9 @@ class Density:
 
     @classmethod
     def from_superposition(cls,
-                           wf_grid,
-                           grid,
+                           nct,
                            setups,
                            magmoms,
-                           fracpos,
                            basis_set,
                            charge=0.0,
                            hund=False):
@@ -87,22 +85,22 @@ class Density:
                                               charge / len(setups))
                  for a, (setup, magmom) in enumerate(zip(setups, magmoms))}
 
-        density = grid.zeros(ndens + nmag)
-        basis_set.add_to_density(density.data, f_asi)
+        nt_s = nct.grid.zeros(ndens + nmag)
+        basis_set.add_to_density(nt_s.data, f_asi)
 
-        core_acf = setups.create_pseudo_core_densities(wf_grid, fracpos)
-        core_density = core_acf.to_uniform_grid(1.0 / ndens)
-        density.data[:ndens] += core_density.data
+        nt_s.data[:ndens] += nct.data
 
         atom_array_layout = AtomArraysLayout([(setup.ni, setup.ni)
                                               for setup in setups],
-                                             atomdist=grid.comm)
+                                             atomdist=nct.grid.comm)
         density_matrices = atom_array_layout.empty(ndens + nmag)
         for a, D in density_matrices.items():
             D[:] = unpack2(setups[a].initialize_density_matrix(f_asi[a])).T
 
-        return cls(density, density_matrices, core_density, core_acf,
-                   setups, charge)
+        return cls(nt_s, density_matrices,
+                   [setup.Delta_iiL for setup in setups],
+                   [setup.Delta0 for setup in setups],
+                   charge)
 
     def write(self, writer):
         writer.write(density=self.density.collect().data)
