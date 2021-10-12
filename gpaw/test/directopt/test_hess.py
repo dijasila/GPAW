@@ -39,6 +39,12 @@ def test_directmin_lcao_numerical_hessian(in_tmp_dir):
         calc.density,
         what2calc='hessian'
     )
+    hess_a = calc.wfs.eigensolver.get_analytical_derivatives(
+        calc.hamiltonian,
+        calc.wfs,
+        calc.density,
+        what2calc='hessian'
+    )
     hess_nt = np.asarray([[1.32720630e+00, -1.93947467e-11],
                          [3.95786680e-09, 1.14599176e+00]])
     assert hess_n == pytest.approx(hess_nt, abs=1e-4)

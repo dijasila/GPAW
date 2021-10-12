@@ -732,7 +732,8 @@ class ETDM:
         assert what2calc in ['gradient', 'hessian']
 
         if what2calc == 'gradient':
-            a_mat_u, c_nm_ref = self.init_calc_derivatives(wfs, c_nm_ref, a_mat_u,
+            a_mat_u, c_nm_ref = self.init_calc_derivatives(wfs, c_nm_ref,
+                                                           a_mat_u,
                                                            update_c_nm_ref)
             # calc analytical gradient
             analytical_der = self.get_energy_and_gradients(a_mat_u, self.n_dim,
