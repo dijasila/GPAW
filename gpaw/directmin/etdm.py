@@ -744,6 +744,12 @@ class ETDM:
             analytical_der = []
             for kpt in wfs.kpt_u:
                 analytical_der += list(self.get_hessian(kpt).copy())
+            if self.dtype == complex:
+                dim = len(analytical_der)
+                hessc = np.zeros(shape=dim * 2)
+                hessc[: dim] = np.real(analytical_der)
+                hessc[dim:] = np.imag(analytical_der)
+                analytical_der = hessc
             analytical_der = np.diag(analytical_der)
 
         return analytical_der
