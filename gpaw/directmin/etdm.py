@@ -11,7 +11,6 @@ https://doi.org/10.1016/j.cpc.2021.108047
 
 
 import numpy as np
-from ase.parallel import parprint
 from gpaw.directmin.tools import expm_ed, expm_ed_unit_inv
 from gpaw.directmin.lcao.directmin_lcao import DirectMinLCAO
 from scipy.linalg import expm
@@ -786,13 +785,13 @@ class ETDM:
         dim_z, disp = (2, [eps, 1.0j * eps]) \
             if self.dtype == complex else (1, [eps])
 
+        matrix_exp = self.matrix_exp
         if what2calc == 'gradient':
             numerical_der = {u: np.zeros_like(v) for u, v in a_mat_u.items()}
             tmp = 0
         else:
             numerical_der = np.zeros(shape=(dim_z * dim, dim_z * dim))
             # have to use exact gradient when hessian is calculated
-            matrix_exp = self.matrix_exp
             self.matrix_exp = 'egdecomp'
             tmp = 1
 
