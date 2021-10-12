@@ -783,7 +783,6 @@ class ETDM:
 
         # total dimensionality if matrices are real:
         dim = sum([len(a) for a in a_mat_u.values()])
-        matrix_exp = self.matrix_exp
         dim_z, disp = (2, [eps, 1.0j * eps]) \
             if self.dtype == complex else (1, [eps])
 
@@ -793,6 +792,7 @@ class ETDM:
         else:
             numerical_der = np.zeros(shape=(dim_z * dim, dim_z * dim))
             # have to use exact gradient when hessian is calculated
+            matrix_exp = self.matrix_exp
             self.matrix_exp = 'egdecomp'
             tmp = 1
 
@@ -801,7 +801,6 @@ class ETDM:
             for kpt in wfs.kpt_u:
                 u = self.kpointval(kpt)
                 for i in range(len(a_mat_u[u])):
-                    parprint(z, u, i)
                     a = a_mat_u[u][i]
                     a_mat_u[u][i] = a + disp[z]
                     valp = self.get_energy_and_gradients(
@@ -849,9 +848,7 @@ class ETDM:
         if update_c_nm_ref:
             self.rotate_wavefunctions(wfs, a_mat_u, self.n_dim, c_nm_ref)
             c_nm_ref = self.dm_helper.set_reference_orbitals(wfs, self.n_dim)
-            for kpt in wfs.kpt_u:
-                u = self.kpointval(kpt)
-                a_mat_u[u] = np.zeros_like(self.a_mat_u[u])
+            a_mat_u = {u: np.zeros_like(v) for u, v in self.a_mat_u.items()}
 
         return a_mat_u, c_nm_ref
 
