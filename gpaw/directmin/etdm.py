@@ -740,15 +740,9 @@ class ETDM:
                                                            c_nm_ref)[1]
         else:
             # Calculate analytical approximation to hessian
-            analytical_der = []
-            for kpt in wfs.kpt_u:
-                analytical_der += list(self.get_hessian(kpt).copy())
-            if self.dtype == complex:
-                dim = len(analytical_der)
-                hessc = np.zeros(shape=dim * 2)
-                hessc[: dim] = np.real(analytical_der)
-                hessc[dim:] = np.imag(analytical_der)
-                analytical_der = hessc
+            analytical_der = np.hstack([self.get_hessian(kpt).copy()
+                                        for kpt in wfs.kpt_u])
+            analytical_der = construct_real_hessian(analytical_der)
             analytical_der = np.diag(analytical_der)
 
         return analytical_der
@@ -780,7 +774,7 @@ class ETDM:
         a_mat_u, c_nm_ref = self.init_calc_derivatives(wfs, c_nm_ref, a_mat_u,
                                                        update_c_nm_ref)
 
-        # total dimensionality if matrices are real:
+        # total dimensionality if matrices are real
         dim = sum([len(a) for a in a_mat_u.values()])
         dim_z, disp = (2, [1.0, 1.0j]) \
             if self.dtype == complex else (1, [1.0])
@@ -811,16 +805,12 @@ class ETDM:
                     derf = apply_central_finite_difference_approx(fplus,
                                                                   fminus,
                                                                   eps)
+
                     if what2calc == 'gradient':
                         numerical_der[u][i] += disp[z] * derf
                     else:
-                        if dim_z == 2:
-                            hessc = np.zeros(shape=dim_z * dim)
-                            hessc[: dim] = np.real(derf)
-                            hessc[dim:] = np.imag(derf)
-                            numerical_der[row] = hessc
-                        else:
-                            numerical_der[row] = derf
+                        numerical_der[row] = construct_real_hessian(derf)
+
                     row += 1
                     a_mat_u[u][i] = a
 
@@ -973,6 +963,7 @@ class ETDM:
     def error(self, e):
         self._error = e
 
+
 def apply_central_finite_difference_approx(fplus, fminus, eps):
 
     if isinstance(fplus, dict) and isinstance(fminus, dict):
@@ -985,6 +976,17 @@ def apply_central_finite_difference_approx(fplus, fminus, eps):
         raise ValueError()
 
     return derf
+
+
+def construct_real_hessian(hess):
+
+    if hess.dtype == complex:
+        hess_real = np.hstack((np.real(hess), np.imag(hess)))
+    else:
+        hess_real = hess
+
+    return hess_real
+
 
 def get_indices(dimens, dtype):
 
