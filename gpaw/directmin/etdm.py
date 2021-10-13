@@ -715,8 +715,8 @@ class ETDM:
                                    a_mat_u=None, update_c_nm_ref=False,
                                    what2calc='gradient'):
         """
-           Calculate analytical gradient or hessian with respect
-           to skew-hermitian matrix
+           Calculate analytical gradient or Hessian with respect
+           to the elements of a skew-Hermitian matrix
 
         :param ham:
         :param wfs:
@@ -734,12 +734,12 @@ class ETDM:
             a_mat_u, c_nm_ref = self.init_calc_derivatives(wfs, c_nm_ref,
                                                            a_mat_u,
                                                            update_c_nm_ref)
-            # calc analytical gradient
+            # Calculate analytical gradient
             analytical_der = self.get_energy_and_gradients(a_mat_u, self.n_dim,
                                                            ham, wfs, dens,
                                                            c_nm_ref)[1]
         else:
-            # calc analytical approximation to hessian
+            # Calculate analytical approximation to hessian
             analytical_der = []
             for kpt in wfs.kpt_u:
                 analytical_der += list(self.get_hessian(kpt).copy())
@@ -782,8 +782,8 @@ class ETDM:
 
         # total dimensionality if matrices are real:
         dim = sum([len(a) for a in a_mat_u.values()])
-        dim_z, disp = (2, [eps, 1.0j * eps]) \
-            if self.dtype == complex else (1, [eps])
+        dim_z, disp = (2, [1.0, 1.0j]) \
+            if self.dtype == complex else (1, [1.0])
 
         matrix_exp = self.matrix_exp
         if what2calc == 'gradient':
@@ -791,7 +791,7 @@ class ETDM:
             tmp = 0
         else:
             numerical_der = np.zeros(shape=(dim_z * dim, dim_z * dim))
-            # have to use exact gradient when hessian is calculated
+            # have to use exact gradient when Hessian is calculated
             self.matrix_exp = 'egdecomp'
             tmp = 1
 
@@ -801,27 +801,26 @@ class ETDM:
                 u = self.kpointval(kpt)
                 for i in range(len(a_mat_u[u])):
                     a = a_mat_u[u][i]
-                    a_mat_u[u][i] = a + disp[z]
-                    valp = self.get_energy_and_gradients(
+                    a_mat_u[u][i] = a + disp[z] * eps
+                    fplus = self.get_energy_and_gradients(
                         a_mat_u, self.n_dim, ham, wfs, dens, c_nm_ref)[tmp]
-                    a_mat_u[u][i] = a - disp[z]
-                    valm = self.get_energy_and_gradients(
+                    a_mat_u[u][i] = a - disp[z] * eps
+                    fminus = self.get_energy_and_gradients(
                         a_mat_u, self.n_dim, ham, wfs, dens, c_nm_ref)[tmp]
+
+                    derf = apply_central_finite_difference_approx(fplus,
+                                                                  fminus,
+                                                                  eps)
                     if what2calc == 'gradient':
-                        numerical_der[u][i] += \
-                            disp[z] * (valp - valm) * 0.5 / eps ** 2
+                        numerical_der[u][i] += disp[z] * derf
                     else:
-                        hess = []
-                        for k in range(len(wfs.kpt_u)):
-                            hess += list((valp[k] - valm[k]) * 0.5 / eps)
-                        hess = np.asarray(hess)
                         if dim_z == 2:
                             hessc = np.zeros(shape=dim_z * dim)
-                            hessc[: dim] = np.real(hess)
-                            hessc[dim:] = np.imag(hess)
+                            hessc[: dim] = np.real(derf)
+                            hessc[dim:] = np.imag(derf)
                             numerical_der[row] = hessc
                         else:
-                            numerical_der[row] = hess
+                            numerical_der[row] = derf
                     row += 1
                     a_mat_u[u][i] = a
 
@@ -974,6 +973,18 @@ class ETDM:
     def error(self, e):
         self._error = e
 
+def apply_central_finite_difference_approx(fplus, fminus, eps):
+
+    if isinstance(fplus, dict) and isinstance(fminus, dict):
+        assert (len(fplus) == len(fminus))
+        derf = np.hstack([(fplus[k] - fminus[k]) * 0.5 / eps
+                          for k in fplus.keys()])
+    elif isinstance(fplus, float) and isinstance(fminus, float):
+        derf = (fplus - fminus) * 0.5 / eps
+    else:
+        raise ValueError()
+
+    return derf
 
 def get_indices(dimens, dtype):
 
