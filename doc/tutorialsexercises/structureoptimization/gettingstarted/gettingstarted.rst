@@ -70,6 +70,7 @@ coarse value let us use a 6 Ångström cell::
 
 
 .. testcode::
+  :hide:
 
   from ase import Atoms
   atoms = Atoms('H2', cell=[2., 2., 2.], positions=[[0, 0, 0], [1, 1, 1]])
@@ -123,12 +124,14 @@ something different::
 
 
 .. testcode::
+  :hide:
 
   import gpaw
   gpaw.GPAW(hund=True)
 
 
 .. testoutput::
+  :hide:
 
   ...
 
