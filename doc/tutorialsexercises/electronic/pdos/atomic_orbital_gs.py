@@ -1,10 +1,10 @@
 from ase.build import bulk
-from gpaw import GPAW, PW
+from gpaw import GPAW
 
 atoms = bulk('Au')
 
 k = 4
-calc = GPAW(mode='pw',     
+calc = GPAW(mode='pw',
             kpts=(k, k, k))
 
 atoms.calc = calc
