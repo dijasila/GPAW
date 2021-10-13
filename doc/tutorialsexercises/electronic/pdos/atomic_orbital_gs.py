@@ -9,5 +9,5 @@ calc = GPAW(mode='pw',
 
 atoms.calc = calc
 
-energy = atoms.get_potential_energy()
+atoms.get_potential_energy()
 calc.write('au.gpw', mode='all')
