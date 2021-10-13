@@ -715,8 +715,8 @@ class ETDM:
                                    a_mat_u=None, update_c_nm_ref=False,
                                    what2calc='gradient'):
         """
-           Calculate analytical gradient or Hessian with respect
-           to the elements of a skew-Hermitian matrix
+           Calculate analytical gradient or approximation to the Hessian
+           with respect to the elements of a skew-Hermitian matrix
 
         :param ham:
         :param wfs:
