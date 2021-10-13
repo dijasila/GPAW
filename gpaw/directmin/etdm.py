@@ -722,10 +722,10 @@ class ETDM:
         :param wfs:
         :param dens:
         :param c_nm_ref: reference orbitals
-        :param a_mat_u: start at random skew-hermitian matrix
-        :param update_c_nm_ref: before calculations do c_ref <- c_ref e*A
-        :param what2calc: gradient or hessian
-        :return: analytical and numerical
+        :param a_mat_u: skew-hermitian matrix
+        :param update_c_nm_ref: if True update reference orbitals
+        :param what2calc: calculate gradient or Hessian
+        :return: analytical gradient or Hessian
         """
 
         assert what2calc in ['gradient', 'hessian']
@@ -753,19 +753,19 @@ class ETDM:
                                   what2calc='gradient'):
 
         """
-           calculate gradient or hessian with respect to skew-hermitian
-           matrix using finite differences with random noise
-           this is usually used to test the implementation of anal. gradient
+           Calculate numerical gradient or Hessian with respect to
+           the elements of a skew-Hermitian matrix using central finite
+           differences
 
         :param ham:
         :param wfs:
         :param dens:
         :param c_nm_ref: reference orbitals
-        :param eps: finite difference step
-        :param a_mat_u: start at random skew-hermitian matrix
-        :param update_c_nm_ref: before calculations do c_ref <- c_ref e*A
-        :param what2calc: gradient or hessian
-        :return: analytical and numerical
+        :param eps: finite difference displacement
+        :param a_mat_u: skew-Hermitian matrix
+        :param update_c_nm_ref: if True update reference orbitals
+        :param what2calc: calculate gradient or Hessian
+        :return: numerical gradient or Hessian
         """
 
         assert self.representation in ['sparse', 'u-invar']
@@ -776,41 +776,37 @@ class ETDM:
 
         # total dimensionality if matrices are real
         dim = sum([len(a) for a in a_mat_u.values()])
-        dim_z, disp = (2, [1.0, 1.0j]) \
-            if self.dtype == complex else (1, [1.0])
+        steps = [1.0, 1.0j] if self.dtype == complex else [1.0]
+        use_energy_or_gradient = {'gradient': 0, 'hessian': 1}
 
         matrix_exp = self.matrix_exp
         if what2calc == 'gradient':
             numerical_der = {u: np.zeros_like(v) for u, v in a_mat_u.items()}
-            tmp = 0
         else:
-            numerical_der = np.zeros(shape=(dim_z * dim, dim_z * dim))
+            numerical_der = np.zeros(shape=(len(steps) * dim,
+                                            len(steps) * dim))
             # have to use exact gradient when Hessian is calculated
             self.matrix_exp = 'egdecomp'
-            tmp = 1
 
         row = 0
-        for z in range(dim_z):
+        f = use_energy_or_gradient[what2calc]
+        for step in steps:
             for kpt in wfs.kpt_u:
                 u = self.kpointval(kpt)
                 for i in range(len(a_mat_u[u])):
                     a = a_mat_u[u][i]
-                    a_mat_u[u][i] = a + disp[z] * eps
+                    a_mat_u[u][i] = a + step * eps
                     fplus = self.get_energy_and_gradients(
-                        a_mat_u, self.n_dim, ham, wfs, dens, c_nm_ref)[tmp]
-                    a_mat_u[u][i] = a - disp[z] * eps
+                        a_mat_u, self.n_dim, ham, wfs, dens, c_nm_ref)[f]
+                    a_mat_u[u][i] = a - step * eps
                     fminus = self.get_energy_and_gradients(
-                        a_mat_u, self.n_dim, ham, wfs, dens, c_nm_ref)[tmp]
-
-                    derf = apply_central_finite_difference_approx(fplus,
-                                                                  fminus,
-                                                                  eps)
-
+                        a_mat_u, self.n_dim, ham, wfs, dens, c_nm_ref)[f]
+                    derf = apply_central_finite_difference_approx(
+                        fplus, fminus, eps)
                     if what2calc == 'gradient':
-                        numerical_der[u][i] += disp[z] * derf
+                        numerical_der[u][i] += step * derf
                     else:
                         numerical_der[row] = construct_real_hessian(derf)
-
                     row += 1
                     a_mat_u[u][i] = a
 
