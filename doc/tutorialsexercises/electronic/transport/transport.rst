@@ -4,6 +4,10 @@
 Electron transport
 ==================
 
+.. warning::
+
+   Tutorial broken, please do not do it unless you want to fix it.
+
 This exercise shows how to use the ase transport module for performing
 electron transport calculations in nanoscale contacts.
 
