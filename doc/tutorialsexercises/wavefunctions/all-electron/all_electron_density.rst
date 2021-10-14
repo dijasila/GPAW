@@ -22,24 +22,19 @@ The :meth:`~gpaw.GPAW.get_all_electron_density` method is used in
 the same way as you would normally use the
 :meth:`~gpaw.GPAW.get_pseudo_density` method, i.e.:
 
->>> from gpaw import GPAW
->>> from ase.build import molecule
->>> calc = GPAW()
->>> mol = molecule('C6H6', calculator=calc)
->>> mol.center(vacuum=5)
->>> E  = mol.get_potential_energy()
->>> nt = calc.get_pseudo_density()
->>> n  = calc.get_all_electron_density()
+.. literalinclude:: C6H6.py
+   :end-before: literalinclude division line
 
 would give you the pseudo-density in ``nt`` and the all-electron
-density in ``n``.
+density in ``n_ae``.
 
 As the all-electron density has more structure than the
 pseudo-density, it is necessary to refine the density grid used to
 represent the pseudo-density. This can be done using the
-``gridrefinement`` keyword of the ``get_all_electron_density`` method:
+``gridrefinement`` keyword of the ``get_all_electron_density`` method for ``n_ae_fine``:
 
->>> n = calc.get_all_electron_density(gridrefinement=2)
+.. literalinclude:: C6H6.py
+   :start-after: literalinclude division line
 
 Current only the values 1, 2, and 4 are supported (2 is default).
 
