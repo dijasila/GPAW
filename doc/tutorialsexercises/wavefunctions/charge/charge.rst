@@ -29,12 +29,9 @@ The program takes cube input files. It does *not* support units, and
 assumes atomic units for the density (`\text{bohr}^{-3}`).
 
 A simple Python script for making a
-cube file, ready for the Bader program, could be:
+cube file containing the electron density of the water molecule, ready for the Bader program, could be:
 
->>> from ase.io import write
->>> from ase.units import Bohr
->>> density = calc.get_all_electron_density() * Bohr**3
->>> write('density.cube', atoms, data=density)
+.. literalinclude:: h2o.py
 
 One can also use :meth:`~gpaw.GPAW.get_pseudo_density` but it is
 better to use the :meth:`~gpaw.GPAW.get_all_electron_density`
