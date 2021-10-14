@@ -34,10 +34,10 @@ class PotentialCalculator:
     def __init__(self,
                  xc,
                  poisson_solver,
-                 nct):
+                 setups):
         self.poisson_solver = poisson_solver
         self.xc = xc
-        self.nct = nct
+        self.setups = setups
 
     def __str__(self):
         return f'\n{self.poisson_solver}\n{self.xc}'
@@ -46,7 +46,7 @@ class PotentialCalculator:
         energies, potential = self._calculate(density)
 
         vnonloc, corrections = calculate_non_local_potential(
-            density, self.xc, self.ghat_acf, self.vHt)
+            self.setups, density, self.xc, self.ghat_acf, self.vHt)
 
         for key, e in corrections.items():
             energies[key] += e
@@ -74,18 +74,18 @@ class UniformGridPotentialCalculator(PotentialCalculator):
         self.interpolate = wf_grid.transformer(fine_grid)
         self.restrict = fine_grid.transformer(wf_grid)
 
-        PotentialCalculator.__init__(self, xc, poisson_solver)
+        PotentialCalculator.__init__(self, xc, poisson_solver, setups)
 
     def _calculate(self, density):
-        density1 = density.density
-        density2 = self.interpolate(density1, preserve_integral=True)
+        nt1_s = density.nt_s
+        nt2_s = self.interpolate(nt1_s, preserve_integral=True)
 
-        grid2 = density2.grid
+        grid2 = nt2_s.grid
 
-        vxct = grid2.zeros(density2.shape)
-        e_xc = self.xc.calculate(density2, vxct)
+        vxct = grid2.zeros(nt2_s.shape)
+        e_xc = self.xc.calculate(nt2_s, vxct)
 
-        self.nt.data[:] = density2.data[:density.ndensities].sum(axis=0)
+        self.nt.data[:] = nt2_s.data[:density.ndensities].sum(axis=0)
         e_zero = self.vbar.integrate(self.nt)
 
         charge = grid2.empty()
@@ -100,10 +100,10 @@ class UniformGridPotentialCalculator(PotentialCalculator):
         potential1 = self.restrict(potential2)
         e_kinetic = 0.0
         self.vt.data[:] = 0.0
-        for spin, (vt, nt) in enumerate(zip(potential1, density1)):
+        for spin, (vt, nt) in enumerate(zip(potential1, nt1_s)):
             e_kinetic -= vt.integrate(nt)
             if spin < density.ndensities:
-                e_kinetic += vt.integrate(density.core_density)
+                e_kinetic += vt.integrate(density.nct)
                 self.vt.data += vt.data / density.ndensities
 
         e_external = 0.0
@@ -130,7 +130,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         self.vbar_acf = setups.create_local_potentials(pw, fracpos)
         self.ghat_acf = setups.create_compensation_charges(fine_pw, fracpos)
 
-        PotentialCalculator.__init__(self, xc, poisson_solver)
+        PotentialCalculator.__init__(self, xc, poisson_solver, setups)
 
         self.pwmap = PWMapping(pw, fine_pw)
         self.fftplan, self.ifftplan = pw.grid.fft_plans()
@@ -191,14 +191,14 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
                 'external': e_external}, potential
 
 
-def calculate_non_local_potential(density, xc,
+def calculate_non_local_potential(setups, density, xc,
                                   ghat_acf, vHt):
     coefs = ghat_acf.integrate(vHt)
     vnonloc = density.density_matrices.new()
     energy_corrections = defaultdict(float)
     for a, D in density.density_matrices.items():
         Q = coefs[a]
-        setup = density.setups[a]
+        setup = setups[a]
         dH, energies = calculate_non_local_potential1(setup, xc, D, Q)
         vnonloc[a][:] = dH
         for key, e in energies.items():

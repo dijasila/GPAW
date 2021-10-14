@@ -5,6 +5,7 @@ from gpaw.typing import ArrayLike1D
 from gpaw.core.atom_centered_functions import AtomArraysLayout
 from gpaw.utilities import unpack2
 from typing import Union
+from gpaw.core.atom_arrays import AtomArrays
 
 
 def magmoms2dims(magmoms):
@@ -21,19 +22,28 @@ def magmoms2dims(magmoms):
 
 
 class Density:
-    def __init__(self, density, density_matrices,
-                 delta_aiiL, delta0_a,
-                 charge):
-        self.density = density
+    def __init__(self,
+                 nt_s,
+                 nct,
+                 nct_acf,
+                 density_matrices,
+                 delta_aiiL,
+                 delta0_a,
+                 charge=0.0):
+        self.nt_s = nt_s
+        self.nct = nct
+        self.nct_scf = nct_acf
         self.density_matrices = density_matrices
         self.delta_aiiL = delta_aiiL
         self.delta0_a = delta0_a
         self.charge = charge
 
-        self.ndensities = {1: 1, 2: 2, 4: 1}[density.shape[0]]
-        self.collinear = density.shape[0] != 4
+        self.ndensities = {1: 1,
+                           2: 2,
+                           4: 1}[nt_s.shape[0]]
+        self.collinear = nt_s.shape[0] != 4
 
-    def calculate_compensation_charge_coefficients(self):
+    def calculate_compensation_charge_coefficients(self) -> AtomArrays:
         coefs = AtomArraysLayout(
             [delta_iiL.shape[2] for delta_iiL in self.delta_aiiL],
             atomdist=self.density_matrices.layout.atomdist).empty()
@@ -49,43 +59,61 @@ class Density:
     def normalize(self):
         comp_charge = self.charge
         for a, D in self.density_matrices.items():
-            setup = self.setups[a]
             comp_charge += np.einsum('ijs, ij ->',
                                      D[:, :, :self.ndensities],
-                                     setup.Delta_iiL[:, :, 0])
-            comp_charge += setup.Delta0
-        comp_charge = self.density.grid.comm.sum(comp_charge * sqrt(4 * pi))
+                                     self.delta_aiiL[a][:, :, 0])
+            comp_charge += self.delta0_a[a]
+        comp_charge = self.nt_s.grid.comm.sum(comp_charge * sqrt(4 * pi))
         charge = comp_charge + self.charge
-        pseudo_charge = self.density.integrate().sum()
+        pseudo_charge = self.nt_s.integrate().sum()
         x = -charge / pseudo_charge
-        self.density.data *= x
+        self.nt_s.data *= x
+
+    def overlap_correction(self,
+                           projections: AtomArrays,
+                           out: AtomArrays) -> AtomArrays:
+        x = (4 * np.pi)**0.5
+        for a, I1, I2 in projections.layout.myindices:
+            ds = self.delta_aiiL[a][:, :, 0] * x
+            # use mmm ?????
+            out.data[I1:I2] = ds @ projections.data[I1:I2]
+        return out
 
     def move(self, fracpos):
-        self.core_acf.positions = fracpos
-        core_density = self.core_acf.to_uniform_grid(1.0 / self.ndensities)
-        self.density.data[:self.ndensities] += (core_density.data -
-                                                self.core_density.data)
-        self.core_density = core_density
+        nct_acf = self.nct_acf.moved(fracpos),
+        nct = nct_acf.to_uniform_grid(1.0 / self.ndensities)
+        self.nt_s.data[:self.ndensities] += nct.data - self.nct_data
+        return Density(self.nt_s,
+                       nct,
+                       nct_acf,
+                       self.density_matrices,
+                       self.delta_aiiL,
+                       self.delta0_a,
+                       self.charge)
 
     @classmethod
     def from_superposition(cls,
-                           nct,
+                           grid,
+                           fracpos,
                            setups,
-                           magmoms,
                            basis_set,
+                           magmoms=None,
                            charge=0.0,
                            hund=False):
         # density and magnitization components:
         ndens, nmag = magmoms2dims(magmoms)
-        setups = setups
+
+        nct_acf = setups.create_pseudo_core_densities(grid, fracpos)
+        nct = nct_acf.to_uniform_grid(1.0 / ndens)
 
         if magmoms is None:
             magmoms = [None] * len(setups)
+
         f_asi = {a: atomic_occupation_numbers(setup, magmom, hund,
                                               charge / len(setups))
                  for a, (setup, magmom) in enumerate(zip(setups, magmoms))}
 
-        nt_s = nct.grid.zeros(ndens + nmag)
+        nt_s = grid.zeros(ndens + nmag)
         basis_set.add_to_density(nt_s.data, f_asi)
 
         nt_s.data[:ndens] += nct.data
@@ -97,7 +125,10 @@ class Density:
         for a, D in density_matrices.items():
             D[:] = unpack2(setups[a].initialize_density_matrix(f_asi[a])).T
 
-        return cls(nt_s, density_matrices,
+        return cls(nt_s,
+                   nct,
+                   nct_acf,
+                   density_matrices,
                    [setup.Delta_iiL for setup in setups],
                    [setup.Delta0 for setup in setups],
                    charge)

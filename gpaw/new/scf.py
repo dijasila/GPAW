@@ -35,7 +35,7 @@ class SCFLoop:
                 ibz_wfs: IBZWaveFunctions,
                 density: Density,
                 potential: Potential):
-        dS = density.setups.overlap_correction
+        dS = density.overlap_correction
 
         self.mixer.reset()
 
