@@ -115,7 +115,7 @@ class IBZWaveFunctions:
     def calculate_density(self, out: Density) -> None:
         density = out
         density.nt_s.data[:] = 0.0
-        density.nt_s.data[:] = 0.0
+        density.density_matrices.data[:] = 0.0
         for wfs in self:
             wfs.add_to_density(density.nt_s, density.density_matrices)
         self.kpt_comm.sum(density.nt_s.data)

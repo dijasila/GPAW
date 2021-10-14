@@ -106,7 +106,7 @@ class DFTCalculation:
             forces[a] += ccc[a] @ dF_Lv
 
         # Force from smooth core charge:
-        F_av = self.density.core_acf.derivative(pot_calc.vt)
+        F_av = self.density.nct_acf.derivative(pot_calc.vt)
         for a, dF_v in F_av.items():
             forces[a] += dF_v[0]
 

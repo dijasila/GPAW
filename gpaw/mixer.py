@@ -631,7 +631,7 @@ class MixerWrapper:
         D_asp = {a: D.T.copy().reshape((1, -1))
                  for a, D in density.density_matrices.items()}
         error = self.driver.mix(self.basemixers,
-                                density.density.data,
+                                density.nt_s.data,
                                 D_asp)
         for a, D in density.density_matrices.items():
             ni = len(D)

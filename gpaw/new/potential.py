@@ -142,9 +142,9 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         self.vbar_acf.add_to(self.vbar)
 
     def _calculate(self, density):
-        fine_density = self.fine_grid.empty(density.density.shape)
+        nt2_s = self.fine_grid.empty(density.nt_s.shape)
         self.nt.data[:] = 0.0
-        for spin, (nt1, nt2) in enumerate(zip(density.density, fine_density)):
+        for spin, (nt1, nt2) in enumerate(zip(density.nt_s, nt2_s)):
             nt1.fft_interpolate(nt2, self.fftplan, self.ifftplan2)
             if spin < density.ndensities:
                 self.nt.data += self.fftplan.out_R.ravel()[self.nt.pw.indices]
@@ -166,21 +166,21 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         self.vt.data[:] = self.vbar.data
         self.vt.data += self.vHt.data[indices] * scale**-1
 
-        potential = density.density.new()
-        potential.data[:] = self.vt.ifft().data
-        vxct = fine_density.grid.zeros(density.density.shape)
-        e_xc = self.xc.calculate(fine_density, vxct)
+        vt_s = density.nt_s.new()
+        vt_s.data[:] = self.vt.ifft().data
+        vxct_s = nt2_s.grid.zeros(density.nt_s.shape)
+        e_xc = self.xc.calculate(nt2_s, vxct_s)
 
-        vtmp = potential.grid.empty()
+        vtmp = vt_s.grid.empty()
         e_kinetic = 0.0
-        for spin, (vt1, vxct_fine) in enumerate(zip(potential, vxct)):
+        for spin, (vt1, vxct_fine) in enumerate(zip(vt_s, vxct_s)):
             vxct_fine.fft_restrict(vtmp, self.fftplan2, self.ifftplan)
             vt1.data += vtmp.data
-            e_kinetic -= vt1.integrate(density.density[spin])
+            e_kinetic -= vt1.integrate(density.nt_s[spin])
             if spin < density.ndensities:
                 self.vt.data += (self.fftplan2.out_R.ravel()[indices] /
                                  density.ndensities)
-                e_kinetic -= vt1.integrate(density.core_density)
+                e_kinetic -= vt1.integrate(density.nct)
 
         e_external = 0.0
 
@@ -188,7 +188,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
                 'coulomb': e_coulomb,
                 'zero': e_zero,
                 'xc': e_xc,
-                'external': e_external}, potential
+                'external': e_external}, vt_s
 
 
 def calculate_non_local_potential(setups, density, xc,

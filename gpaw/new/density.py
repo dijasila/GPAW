@@ -32,7 +32,7 @@ class Density:
                  charge=0.0):
         self.nt_s = nt_s
         self.nct = nct
-        self.nct_scf = nct_acf
+        self.nct_acf = nct_acf
         self.density_matrices = density_matrices
         self.delta_aiiL = delta_aiiL
         self.delta0_a = delta0_a
@@ -93,8 +93,7 @@ class Density:
 
     @classmethod
     def from_superposition(cls,
-                           grid,
-                           fracpos,
+                           nct_acf,
                            setups,
                            basis_set,
                            magmoms=None,
@@ -103,7 +102,6 @@ class Density:
         # density and magnitization components:
         ndens, nmag = magmoms2dims(magmoms)
 
-        nct_acf = setups.create_pseudo_core_densities(grid, fracpos)
         nct = nct_acf.to_uniform_grid(1.0 / ndens)
 
         if magmoms is None:
@@ -113,9 +111,8 @@ class Density:
                                               charge / len(setups))
                  for a, (setup, magmom) in enumerate(zip(setups, magmoms))}
 
-        nt_s = grid.zeros(ndens + nmag)
+        nt_s = nct.grid.zeros(ndens + nmag)
         basis_set.add_to_density(nt_s.data, f_asi)
-
         nt_s.data[:ndens] += nct.data
 
         atom_array_layout = AtomArraysLayout([(setup.ni, setup.ni)

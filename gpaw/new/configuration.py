@@ -146,8 +146,9 @@ class DFTConfiguration:
         return basis_set
 
     def density_from_superposition(self, basis_set):
-        return Density.from_superposition(self.wf_grid,
-                                          self.fracpos,
+        nct_acf = self.setups.create_pseudo_core_densities(self.wf_grid,
+                                                           self.fracpos)
+        return Density.from_superposition(nct_acf,
                                           self.setups,
                                           basis_set,
                                           self.initial_magmoms,
