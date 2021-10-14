@@ -30,6 +30,7 @@ def test_electronphonon(in_tmp_dir):
                   'txt': None,
                   'basis': 'dzp',
                   'symmetry': {'point_group': False},
+                  'parallel': {'domain': 1},
                   'xc': 'PBE'}
     elph_calc = GPAW(**parameters)
     atoms.calc = elph_calc
@@ -40,12 +41,8 @@ def test_electronphonon(in_tmp_dir):
                                   name='elph+ph', calculate_forces=True)
     elph.run()
 
-    parameters['parallel'] = {'domain': 1}
-    elph_calc = GPAW(**parameters)
-    elph = ElectronPhononCoupling(atoms, calc=None, supercell=supercell,
-                                  name='elph+ph', calculate_forces=True)
     elph.set_lcao_calculator(elph_calc)
-    elph.calculate_supercell_matrix(dump=1)
+    elph.calculate_supercell_matrix()
 
     ph = Phonons(atoms=atoms, name='elph+ph', supercell=supercell, calc=None)
     ph.read()

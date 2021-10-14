@@ -28,7 +28,7 @@ def test_fdtd_ed_shapes(in_tmp_dir):
                                                     radius = 3.9))
     classical_material.add_component(PolarizableRod(permittivity = PermittivityPlus(data = [[1.00, 0.20, 25.0]]),
                                                     corners = [[20.0, 21.5, 10.0], [25.0, 33.5, 10.0]],
-                                                    round_corners = False,
+                                                    round_corners = True,
                                                     radius = 2.9))
     classical_material.add_component(PolarizableTetrahedron(permittivity = PermittivityPlus(data = [[0.80, 0.20, 25.0]]),
                                                             corners = [[24.1, 16.1, 5.1],

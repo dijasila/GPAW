@@ -6,7 +6,7 @@ from ase import Atoms
 
 from gpaw import GPAW, PW
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.wavefunctions.pw import PWDescriptor
+from gpaw.pw.descriptor import PWDescriptor
 from gpaw.response.pair import PairDensity
 from gpaw.response.math_func import two_phi_nabla_planewave_integrals
 

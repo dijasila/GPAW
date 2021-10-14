@@ -106,8 +106,8 @@ class KSSingles(ExcitationList):
             # throw away all not needed entries
             for i, ks in reversed(list(enumerate(self))):
                 if ((ks.fij / ks.weight) <= eps or
-                    ks.i < istart or ks.j > jend or
-                    ks.energy < emin or ks.energy > emax):
+                   ks.i < istart or ks.j > jend or
+                   ks.energy < emin or ks.energy > emax):
                     del(self[i])
             return None
 
@@ -501,8 +501,8 @@ class KSSingle(Excitation, PairDensity):
         # velocity form .............................
 
         if self.lcao:
-            # XXX Velocity form not supported in LCAO
-            return
+            self.wfi = _get_and_distribute_wf(wfs, iidx, kpt.k, pspin)
+            self.wfj = _get_and_distribute_wf(wfs, jidx, kpt.k, pspin)
 
         me = np.zeros(self.mur.shape, dtype=dtype)
 
@@ -713,3 +713,16 @@ class KSSingle(Excitation, PairDensity):
 
     def get_weight(self):
         return self.fij
+
+
+def _get_and_distribute_wf(wfs, n, k, s):
+    gd = wfs.gd
+    wf = wfs.get_wave_function_array(n=n, k=k, s=s, realspace=True,
+                                     periodic=False)
+    if wfs.world.rank != 0:
+        wf = gd.empty(dtype=wfs.dtype, global_array=True)
+    wf = np.ascontiguousarray(wf)
+    wfs.world.broadcast(wf, 0)
+    wfd = gd.empty(dtype=wfs.dtype, global_array=False)
+    wfd = gd.distribute(wf)
+    return wfd

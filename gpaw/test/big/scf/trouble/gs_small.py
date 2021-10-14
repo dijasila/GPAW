@@ -2,7 +2,7 @@ from ase.dft import monkhorst_pack
 import numpy as np
 from ase import Atoms
 from gpaw import GPAW, FermiDirac
-from gpaw.wavefunctions.pw import PW
+from gpaw import PW
 from math import sqrt
 
 # Part 1: Ground state calculation

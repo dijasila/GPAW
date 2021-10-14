@@ -5,6 +5,7 @@ from math import sqrt
 
 from ase.units import Hartree
 from ase.utils.timing import Timer
+from ase.utils import IOContext
 import numpy as np
 from numpy.linalg import inv
 from scipy.linalg import eigh
@@ -67,7 +68,7 @@ class ApmB(OmegaMatrix):
             rsf_integrals = {}
         # setup things for IVOs
         if (hasattr(self.xc, 'excitation') and
-            (self.xc.excitation is not None or self.xc.excited != 0)):
+           (self.xc.excitation is not None or self.xc.excited != 0)):
             sin_tri_weight = 1
             if self.xc.excitation is not None:
                 ex_type = self.xc.excitation.lower()
@@ -323,33 +324,30 @@ class ApmB(OmegaMatrix):
     def read(self, filename=None, fh=None):
         """Read myself from a file"""
         if mpi.rank == 0:
-            if fh is None:
-                f = open(filename, 'r')
-            else:
-                f = fh
+            with IOContext() as io:
+                if fh is None:
+                    fd = io.openfile(filename, 'r')
+                else:
+                    fd = fh
+                fd.readline()
+                nij = int(fd.readline())
+                ApB = np.zeros((nij, nij))
+                for ij in range(nij):
+                    l = fd.readline().split()
+                    for kq in range(ij, nij):
+                        ApB[ij, kq] = float(l[kq - ij])
+                        ApB[kq, ij] = ApB[ij, kq]
+                self.ApB = ApB
 
-            f.readline()
-            nij = int(f.readline())
-            ApB = np.zeros((nij, nij))
-            for ij in range(nij):
-                l = f.readline().split()
-                for kq in range(ij, nij):
-                    ApB[ij, kq] = float(l[kq - ij])
-                    ApB[kq, ij] = ApB[ij, kq]
-            self.ApB = ApB
-
-            f.readline()
-            nij = int(f.readline())
-            AmB = np.zeros((nij, nij))
-            for ij in range(nij):
-                l = f.readline().split()
-                for kq in range(ij, nij):
-                    AmB[ij, kq] = float(l[kq - ij])
-                    AmB[kq, ij] = AmB[ij, kq]
-            self.AmB = AmB
-
-            if fh is None:
-                f.close()
+                fd.readline()
+                nij = int(fd.readline())
+                AmB = np.zeros((nij, nij))
+                for ij in range(nij):
+                    l = fd.readline().split()
+                    for kq in range(ij, nij):
+                        AmB[ij, kq] = float(l[kq - ij])
+                        AmB[kq, ij] = AmB[ij, kq]
+                self.AmB = AmB
 
     def weight_Kijkq(self, ij, kq):
         """weight for the coupling matrix terms"""
@@ -358,29 +356,26 @@ class ApmB(OmegaMatrix):
     def write(self, filename=None, fh=None):
         """Write current state to a file."""
         if mpi.rank == 0:
-            if fh is None:
-                f = open(filename, 'w')
-            else:
-                f = fh
+            with IOContext() as io:
+                if fh is None:
+                    fd = io.openfile(filename, 'r')
+                else:
+                    fd = fh
+                fd.write('# A+B\n')
+                nij = len(self.fullkss)
+                fd.write('%d\n' % nij)
+                for ij in range(nij):
+                    for kq in range(ij, nij):
+                        fd.write(' %g' % self.ApB[ij, kq])
+                    fd.write('\n')
 
-            f.write('# A+B\n')
-            nij = len(self.fullkss)
-            f.write('%d\n' % nij)
-            for ij in range(nij):
-                for kq in range(ij, nij):
-                    f.write(' %g' % self.ApB[ij, kq])
-                f.write('\n')
-
-            f.write('# A-B\n')
-            nij = len(self.fullkss)
-            f.write('%d\n' % nij)
-            for ij in range(nij):
-                for kq in range(ij, nij):
-                    f.write(' %g' % self.AmB[ij, kq])
-                f.write('\n')
-
-            if fh is None:
-                f.close()
+                fd.write('# A-B\n')
+                nij = len(self.fullkss)
+                fd.write('%d\n' % nij)
+                for ij in range(nij):
+                    for kq in range(ij, nij):
+                        fd.write(' %g' % self.AmB[ij, kq])
+                    fd.write('\n')
 
     def __str__(self):
         string = '<ApmB> '

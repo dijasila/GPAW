@@ -26,11 +26,6 @@ ase_version_required = re.search("__ase_version_required__ = '(.*)'", txt)[1]
 description = 'GPAW: DFT and beyond within the projector-augmented wave method'
 long_description = Path('README.rst').read_text()
 
-remove_default_flags = False
-if '--remove-default-flags' in sys.argv:
-    remove_default_flags = True
-    sys.argv.remove('--remove-default-flags')
-
 for i, arg in enumerate(sys.argv):
     if arg.startswith('--customize='):
         custom = arg.split('=')[1]
@@ -116,17 +111,11 @@ if compiler is not None:
         from distutils.sysconfig import get_config_vars
     except ImportError:
         from sysconfig import get_config_vars
+
+    # If CC is set then the following hack will not work
+    assert not os.environ.get('CC'), 'Please unset CC'
+
     vars = get_config_vars()
-    if remove_default_flags:
-        for key in ['BASECFLAGS', 'CFLAGS', 'OPT', 'PY_CFLAGS',
-                    'CCSHARED', 'CFLAGSFORSHARED', 'LINKFORSHARED',
-                    'LIBS', 'SHLIBS']:
-            if key in vars:
-                value = vars[key].split()
-                # remove all gcc flags (causing problems with other compilers)
-                for v in list(value):
-                    value.remove(v)
-                vars[key] = ' '.join(value)
     for key in ['CC', 'LDSHARED']:
         if key in vars:
             value = vars[key].split()
@@ -151,6 +140,9 @@ if nolibxc:
                  'tpss.c', 'revtpss.c', 'revtpss_c_pbe.c',
                  'xc_mgga.c']:
         sources.remove(Path(f'c/xc/{name}'))
+    if 'xc' in libraries:
+        libraries.remove('xc')
+
 # Make build process deterministic (for "reproducible build")
 sources = [str(source) for source in sources]
 sources.sort()

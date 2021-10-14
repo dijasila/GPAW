@@ -1,7 +1,7 @@
+from functools import wraps
 from typing import Tuple
 
 import numpy as np
-import pytest
 
 import gpaw.mpi as mpi
 from gpaw import setup_paths
@@ -11,6 +11,7 @@ from gpaw.typing import Array1D
 
 
 def equal(x, y, tolerance=0):
+    import pytest
     assert x == pytest.approx(y, abs=tolerance)
 
 
@@ -52,15 +53,39 @@ def gen(symbol, exx=False, name=None, yukawa_gamma=None,
         g = Generator(symbol, **kwargs)
         if 'orbital_free' in kwargs:
             setup = g.run(exx=exx, name=name, yukawa_gamma=yukawa_gamma,
-                          use_restart_file=False,
                           write_xml=write_xml,
                           **tf_parameters.get(symbol, {'rcut': 0.9}))
         else:
             setup = g.run(exx=exx, name=name, yukawa_gamma=yukawa_gamma,
-                          use_restart_file=False,
                           write_xml=write_xml,
                           **parameters[symbol])
     setup = mpi.broadcast(setup, 0)
     if setup_paths[0] != '.':
         setup_paths.insert(0, '.')
     return setup
+
+
+def only_on_master(comm, broadcast=None):
+    """Decorator for executing the function only on the rank 0.
+
+    Parameters
+    ----------
+    comm
+        communicator
+    broadcast
+        function for broadcasting the return value or
+        `None` for no broadcasting
+    """
+    def wrap(func):
+        @wraps(func)
+        def wrapped_func(*args, **kwargs):
+            if comm.rank == 0:
+                ret = func(*args, **kwargs)
+            else:
+                ret = None
+            comm.barrier()
+            if broadcast is not None:
+                ret = broadcast(ret, comm=comm)
+            return ret
+        return wrapped_func
+    return wrap

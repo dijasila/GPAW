@@ -1289,7 +1289,6 @@ def get_parameters(symbol, args):
                 r0=r0, v0=None, nderiv0=nderiv0,
                 pseudize=pseudize, rcore=rcore,
                 core_hole=args.core_hole,
-                output=args.output,
                 yukawa_gamma=args.gamma)
 
 
@@ -1306,14 +1305,13 @@ def generate(symbol,
              alpha=None,
              rcore=None,
              core_hole=None,
-             output=None,
+             *,
              yukawa_gamma=0.0):
-    if isinstance(output, str):
-        output = open(output, 'w')
+
     aea = AllElectronAtom(symbol, xc, Z=Z,
-                          configuration=configuration, log=output)
+                          configuration=configuration)
     gen = PAWSetupGenerator(aea, projectors, scalar_relativistic, core_hole,
-                            fd=output, yukawa_gamma=yukawa_gamma)
+                            yukawa_gamma=yukawa_gamma)
 
     gen.construct_shape_function(alpha, radii, eps=1e-10)
     gen.calculate_core_density()
@@ -1391,7 +1389,6 @@ class CLICommand:
             '(for vdW-DF functionals).')
         add('--core-hole')
         add('-e', '--electrons', type=int)
-        add('-o', '--output')
 
     @staticmethod
     def run(args):
