@@ -12,6 +12,8 @@ Git master branch
 
 * Corresponding ASE release: ASE-3.23.0b1
 
+* Static :ref:`static_polarizability` tutorial.
+
 * Constant magnetic field calculations can now be done:
   See :class:`gpaw.bfield.BField` and this example:
   :git:`gpaw/test/ext_potential/test_b_field.py`.
