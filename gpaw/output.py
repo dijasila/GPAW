@@ -37,24 +37,9 @@ def print_positions(atoms, log, magmom_av):
     log('\n' + ' ' * 23 + 'Positions' + ' ' * 13 +
         'Constr' + ' ' * 11 + '(Magmoms)')
 
-    constraints = {i: '' for i in range(len(atoms))}
-    for const in atoms.constraints:
-        const_label = [i for i in const.todict()['name']
-                       if i.lstrip('F').isupper()][0]
-
-        indices = []
-        for key, value in const.todict()['kwargs'].items():
-            # Since the indices in the varying constraints are labeled
-            # differently we have to search for all the labels
-            if (key in ['a', 'a1', 'a3', 'a4', 'index', 'pairs', 'indices'] or
-                (key == 'a2' and isinstance(value, int))):
-                indices.extend(np.unique(np.array(value).reshape(-1)))
-
-        for index in indices:
-            constraints[index] += const_label
-
     # Print the table
     symbols = atoms.get_chemical_symbols()
+    constraints = get_constraint_details(atoms)
     for a, pos_v in enumerate(atoms.get_positions()):
         symbol = symbols[a]
         const = constraints[a]
@@ -66,22 +51,48 @@ def print_positions(atoms, log, magmom_av):
     log()
 
 
-def print_constraint_details(atoms, log) -> None:
-    """Print the constraints and their kwargs in the preamble"""
+def get_constraint_details(atoms, print_preamble=False) -> str or dict:
+    """
+    Get the constraints on the atoms object:
+    If 'print_preamble = True': return a string of the constraint and their
+                                kwargs for the gpaw logfile preamble
+    If 'print_preamble = False': return a dict of the constraint initials
+                                 on the specific atoms
+    """
 
     if len(atoms.constraints):
-        const_legend = 'ASE contraints:\n'
+        if print_preamble:
+            const_legend = 'ASE contraints:\n'
+        else:
+            constraints = {i: '' for i in range(len(atoms))}
+
         for const in atoms.constraints:
-            index = 0
-            for key in const.todict()['kwargs']:
+            const_label = [i for i in const.todict()['name']
+                           if i.lstrip('F').isupper()][0]
+            indices = []
+            # Since the indices in the varying constraints are labeled
+            # differently we have to search for all the labels
+            for key, value in const.todict()['kwargs'].items():
                 if key in ['a', 'a1', 'index', 'pairs', 'indices']:
-                    const_label = [i for i in const.todict()['name']
-                                   if i.lstrip('F').isupper()][0]
-                    const_legend += f'  {const} ({const_label})\n'
-                    index = 1
-            if not index:
-                const_legend += f'  {const}\n'
-        log(const_legend)
+                    indices.extend(np.unique(np.array(value).reshape(-1)))
+                    if print_preamble:
+                        const_legend += f'  {const} ({const_label})\n'
+
+                elif (key in ['a3', 'a4'] or
+                        (key == 'a2' and isinstance(value, int))):
+                    indices.extend(np.unique(np.array(value).reshape(-1)))
+
+            if print_preamble:
+                if not len(indices):
+                    const_legend += f'  {const}\n'
+            else:
+                for index in indices:
+                    constraints[index] += const_label
+
+    if print_preamble:
+        return const_legend
+    else:
+        return constraints
 
 
 def print_parallelization_details(wfs, ham, log):
