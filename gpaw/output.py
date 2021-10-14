@@ -40,14 +40,15 @@ def print_positions(atoms, log, magmom_av):
     constraints = {i: '' for i in range(len(atoms))}
     for const in atoms.constraints:
         const_label = [i for i in const.todict()['name']
-                       if i.lstrip('Fix').isupper()][0]
+                       if i.lstrip('F').isupper()][0]
 
         indices = []
-        for key, value in const.__dict__.items():
+        for key, value in const.todict()['kwargs'].items():
             # Since the indices in the varying constraints are labeled
             # differently we have to search for all the labels
-            if key in ['a', 'index', 'pairs', 'indices']:
-                indices = np.unique(np.array(value).reshape(-1))
+            if (key in ['a', 'a1', 'a3', 'a4', 'index', 'pairs', 'indices'] or
+                (key == 'a2' and isinstance(value, int))):
+                indices.extend(np.unique(np.array(value).reshape(-1)))
 
         for index in indices:
             constraints[index] += const_label
@@ -72,10 +73,10 @@ def print_constraint_details(atoms, log) -> None:
         const_legend = 'ASE contraints:\n'
         for const in atoms.constraints:
             index = 0
-            for key in const.__dict__.keys():
-                if key in ['a', 'index', 'pairs', 'indices']:
+            for key in const.todict()['kwargs']:
+                if key in ['a', 'a1', 'index', 'pairs', 'indices']:
                     const_label = [i for i in const.todict()['name']
-                                   if i.lstrip('Fix').isupper()][0]
+                                   if i.lstrip('F').isupper()][0]
                     const_legend += f'  {const} ({const_label})\n'
                     index = 1
             if not index:
