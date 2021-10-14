@@ -23,7 +23,6 @@ the same way as you would normally use the
 :meth:`~gpaw.GPAW.get_pseudo_density` method, i.e.:
 
 .. literalinclude:: C6H6.py
-   :start-after: creates:
    :end-before: literalinclude division line
 
 would give you the pseudo-density in ``nt`` and the all-electron

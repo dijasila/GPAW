@@ -1,4 +1,3 @@
-# creates:
 from gpaw import GPAW
 from ase.build import molecule
 
