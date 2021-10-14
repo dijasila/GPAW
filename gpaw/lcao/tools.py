@@ -123,6 +123,7 @@ def get_realspace_hs(h_skmm, s_kmm, bzk_kc, weight_k,
     else:
         ibzk_kc = bzk_kc.copy()
         ibzk_t_kc = bzk_t_kc
+        ibzk_t_kc = ibzk_t_kc[:, :2]
         nkpts_t = len(bzk_t_kc)
         weights_t_k = [1. / nkpts_t for k in range(nkpts_t)]
 
