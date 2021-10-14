@@ -361,32 +361,30 @@ class PotentialCollection(ExternalPotential):
                 'potentials': [pot.todict() for pot in self.potentials]}
 
 
-class StaticPolarizability:
-    def __init__(self, strength=1):
-        self.strength = strength
+def static_polarizability(atoms, strength=0.01):
+    """Calculate polarizability tensor
 
-    def calculate(self, atoms):
-        """Calculate polarizability tensor
+    atoms: Atoms object
+    strength: field strength in V/Ang
 
-        atoms: Atoms object
-        strength: field strength in V/Ang
+    Returns
+    -------
+    polarizability tensor:
+        Unit (e^2 Angstrom^2 / eV).
+        Multiply with Bohr * Ha to get (Angstrom^3)
+    """
+    atoms.get_potential_energy()
+    calc = atoms.calc
+    assert calc.parameters.external is None
+    dipole_gs = calc.get_dipole_moment()
+    
+    alpha = np.zeros((3, 3))
+    for c in range(3):
+        axes = np.zeros(3)
+        axes[c] = 1
+        calc.set(external=ConstantElectricField(strength, axes))
+        calc.get_potential_energy()
+        alpha[c] = (calc.get_dipole_moment() - dipole_gs) / strength
+    calc.set(external=None)
 
-        Returns
-        -------
-        polarizability tensor:
-          Unit (e^2 Angstrom^2 / eV).
-          Multiply with Bohr * Ha to get (Angstrom^3)
-        """
-        atoms.get_potential_energy()
-        calc = atoms.calc
-        dipole_gs = calc.get_dipole_moment()
-
-        alpha = np.zeros((3, 3))
-        for c in range(3):
-            axes = np.zeros(3)
-            axes[c] = 1
-            calc.set(external=ConstantElectricField(self.strength, axes))
-            calc.get_potential_energy()
-            alpha[c] = (calc.get_dipole_moment() - dipole_gs) / self.strength
-
-        return alpha.T
+    return alpha.T
