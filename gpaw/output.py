@@ -51,7 +51,7 @@ def print_positions(atoms, log, magmom_av):
     log()
 
 
-def get_constraint_details(atoms, print_preamble=False) -> str or dict:
+def get_constraint_details(atoms, print_preamble=False):
     """
     Get the constraints on the atoms object:
     If 'print_preamble = True': return a string of the constraint and their
