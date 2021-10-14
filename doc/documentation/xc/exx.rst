@@ -55,8 +55,6 @@ Functional Type    Reference
 EXX        Global
 PBE0       Global  [AB98]_
 B3LYP      Global  [Ba94]_
-HSE03      RSF-SR
-HSE06      RSF-SR
 CAMY-B3LYP RSF-LR  [SZ12]_
 CAMY-BLYP  RSF-LR  [AT08]_
 CAMY-B3LYP RSF-LR  [SZ12]_
