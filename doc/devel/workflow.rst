@@ -103,7 +103,7 @@ Create a branch for your changes::
    :xkcd:`More git-tricks <1597>`.
 
 Make some changes and commit::
-
+#let's check a commit here
  $ git add file1 file2 ...
  $ git commit -m "Short summary of changes"
 
