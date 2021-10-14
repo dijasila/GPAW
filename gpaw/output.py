@@ -60,11 +60,11 @@ def get_constraint_details(atoms, print_preamble=False) -> str or dict:
                                  on the specific atoms
     """
 
+    const_a = {i: '' for i in range(len(atoms))}
+    const_legend = ''
     if len(atoms.constraints):
         if print_preamble:
-            const_legend = 'ASE contraints:\n'
-        else:
-            constraints = {i: '' for i in range(len(atoms))}
+            const_legend += 'ASE contraints:\n'
 
         for const in atoms.constraints:
             const_label = [i for i in const.todict()['name']
@@ -87,12 +87,12 @@ def get_constraint_details(atoms, print_preamble=False) -> str or dict:
                     const_legend += f'  {const}\n'
             else:
                 for index in indices:
-                    constraints[index] += const_label
+                    const_a[index] += const_label
 
     if print_preamble:
         return const_legend
     else:
-        return constraints
+        return const_a
 
 
 def print_parallelization_details(wfs, ham, log):
