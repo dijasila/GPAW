@@ -861,7 +861,8 @@ class GPAW(Calculator):
         if xc.type == 'GLLB' and olddens is not None:
             xc.heeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeelp(olddens)
 
-        self.log(get_constraint_details(atoms, print_preamble=True))
+        if len(atoms.constraints):
+            self.log(get_constraint_details(atoms, print_preamble=True))
 
         self.print_memory_estimate(maxdepth=3)
 

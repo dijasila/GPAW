@@ -54,13 +54,13 @@ def print_positions(atoms, log, magmom_av):
 def get_constraint_details(atoms, print_preamble=False):
     """
     Get the constraints on the atoms object:
-    If 'print_preamble = True': return a string of the constraint and their
-                                kwargs for the gpaw logfile preamble
+    If 'print_preamble = True': return a string listing the constraint and
+                                their kwargs for the gpaw logfile preamble.
     If 'print_preamble = False': return a dict of the constraint initials
                                  on the specific atoms
     """
 
-    const_a = {i: '' for i in range(len(atoms))}
+    const_a = [''] * len(atoms)
     const_legend = ''
     if len(atoms.constraints):
         if print_preamble:
