@@ -13,7 +13,8 @@ atoms.get_potential_energy()
 hf = HirshfeldPartitioning(atoms.calc)
 for atom, charge in zip(atoms, hf.get_charges()):
     atom.charge = charge
-atoms.write('Hirshfeld.traj')
+# atoms.write('Hirshfeld.traj') # XXX Trajectory writer needs a fix
+atoms.copy().write('Hirshfeld.traj')
 
 # create electron density cube file ready for bader
 rho = atoms.calc.get_all_electron_density(gridrefinement=4)
