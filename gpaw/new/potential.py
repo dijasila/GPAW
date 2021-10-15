@@ -180,7 +180,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
             if spin < density.ndensities:
                 self.vt.data += (self.fftplan2.out_R.ravel()[indices] /
                                  density.ndensities)
-                e_kinetic -= vt1.integrate(density.nct)
+                e_kinetic += vt1.integrate(density.nct)
 
         e_external = 0.0
 
