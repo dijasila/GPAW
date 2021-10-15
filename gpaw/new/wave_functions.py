@@ -77,7 +77,7 @@ class IBZWaveFunctions:
         for wfs in self:
             wfs._projections = None
             wfs.orthonormalized = False
-            wfs.projectors.positions = fracpos
+            wfs.projectors.move(fracpos)
             wfs._eigs = None
             wfs._occs = None
 
@@ -142,7 +142,7 @@ class WaveFunctions:
                  wave_functions: DA,
                  spin: int | None,
                  setups: Setups,
-                 positions: Array2D,
+                 fracpos: Array2D,
                  weight: float = 1.0,
                  spin_degeneracy: int = 2):
         self.wave_functions = wave_functions
@@ -153,7 +153,7 @@ class WaveFunctions:
 
         self._projections = None
         self.projectors = setups.create_projectors(wave_functions.layout,
-                                                   positions)
+                                                   fracpos)
         self.orthonormalized = False
 
         self._eigs: Array1D | None = None

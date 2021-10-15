@@ -58,6 +58,7 @@ class AtomArrays(DistributedArrays):
                  data: np.ndarray = None):
         DistributedArrays. __init__(self, layout, shape, comm, data,
                                     layout_last=False)
+        self.layout = layout
         self._arrays = {}
         for a, I1, I2 in layout.myindices:
             self._arrays[a] = self.data[I1:I2].reshape(

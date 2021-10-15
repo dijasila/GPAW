@@ -10,6 +10,7 @@ from gpaw.mpi import MPIComm, serial_comm
 from gpaw.pw.descriptor import PWDescriptor
 from gpaw.pw.lfc import PWLFC
 from gpaw.spline import Spline
+from gpaw.typing import ArrayLike2D
 
 
 def to_spline(l, rcut, f):
@@ -20,13 +21,13 @@ def to_spline(l, rcut, f):
 class AtomCenteredFunctions:
     def __init__(self,
                  functions,
-                 positions,
+                 fracpos: ArrayLike2D,
                  dtype,
                  atomdist: AtomDistribution | MPIComm = serial_comm):
         self.functions = [[to_spline(*f) if isinstance(f, tuple) else f
                            for f in funcs]
                           for funcs in functions]
-        self._positions = np.array(positions)
+        self.fracpos = np.array(fracpos)
 
         self.layout = AtomArraysLayout([sum(2 * f.l + 1 for f in funcs)
                                         for funcs in self.functions],
@@ -35,14 +36,9 @@ class AtomCenteredFunctions:
 
         self.lfc = None
 
-    @property
-    def positions(self):
-        return self._positions
-
-    @positions.setter
-    def positions(self, value):
-        self._positions = value
-        self.lfc.set_positions(value)
+    def move(self, fracpos):
+        self.fracpos = np.array(fracpos)
+        self.lfc.set_positions(fracpos)
 
     def add_to(self, functions, coefs=1.0):
         self._lacy_init()
@@ -82,9 +78,9 @@ class AtomCenteredFunctions:
 
 
 class UniformGridAtomCenteredFunctions(AtomCenteredFunctions):
-    def __init__(self, functions, positions, grid, atomdist=serial_comm,
+    def __init__(self, functions, fracpos, grid, atomdist=serial_comm,
                  integral=None):
-        AtomCenteredFunctions.__init__(self, functions, positions, grid.dtype,
+        AtomCenteredFunctions.__init__(self, functions, fracpos, grid.dtype,
                                        atomdist)
         self.grid = grid
         self.integral = integral
@@ -98,7 +94,7 @@ class UniformGridAtomCenteredFunctions(AtomCenteredFunctions):
                        dtype=self.grid.dtype,
                        integral=self.integral,
                        forces=True)
-        self.lfc.set_positions(self._positions)
+        self.lfc.set_positions(self.fracpos)
 
     def to_uniform_grid(self, coef: float = 1.0):
         out = self.grid.zeros()
@@ -107,8 +103,8 @@ class UniformGridAtomCenteredFunctions(AtomCenteredFunctions):
 
 
 class PlaneWaveAtomCenteredFunctions(AtomCenteredFunctions):
-    def __init__(self, functions, positions, pw, atomdist=serial_comm):
-        AtomCenteredFunctions.__init__(self, functions, positions,
+    def __init__(self, functions, fracpos, pw, atomdist=serial_comm):
+        AtomCenteredFunctions.__init__(self, functions, fracpos,
                                        pw.grid.dtype,
                                        atomdist)
         self.pw = pw
@@ -120,7 +116,7 @@ class PlaneWaveAtomCenteredFunctions(AtomCenteredFunctions):
         kd = KPointDescriptor(np.array([self.pw.grid.kpt]))
         pd = PWDescriptor(self.pw.ecut, gd, kd=kd, dtype=self.pw.grid.dtype)
         self.lfc = PWLFC(self.functions, pd)
-        self.lfc.set_positions(self._positions)
+        self.lfc.set_positions(self.fracpos)
 
     def to_uniform_grid(self, coef: float = 1.0):
         out = self.pw.zeros()

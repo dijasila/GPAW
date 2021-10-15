@@ -80,16 +80,10 @@ class Density:
         return out
 
     def move(self, fracpos):
-        nct_acf = self.nct_acf.moved(fracpos),
-        nct = nct_acf.to_uniform_grid(1.0 / self.ndensities)
-        self.nt_s.data[:self.ndensities] += nct.data - self.nct_data
-        return Density(self.nt_s,
-                       nct,
-                       nct_acf,
-                       self.density_matrices,
-                       self.delta_aiiL,
-                       self.delta0_a,
-                       self.charge)
+        self.nct_acf.move(fracpos)
+        nct = self.nct_acf.to_uniform_grid(1.0 / self.ndensities)
+        self.nt_s.data[:self.ndensities] += nct.data - self.nct.data
+        self.nct = nct
 
     @classmethod
     def from_superposition(cls,
