@@ -862,7 +862,7 @@ class GPAW(Calculator):
             xc.heeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeelp(olddens)
 
         if len(atoms.constraints):
-            self.log(get_constraint_details(atoms, print_preamble=True))
+            self.log(get_constraint_details(atoms)[0])
 
         self.print_memory_estimate(maxdepth=3)
 

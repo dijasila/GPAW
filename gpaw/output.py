@@ -39,7 +39,7 @@ def print_positions(atoms, log, magmom_av):
 
     # Print the table
     symbols = atoms.get_chemical_symbols()
-    constraints = get_constraint_details(atoms)
+    constraints = get_constraint_details(atoms)[1]
     for a, pos_v in enumerate(atoms.get_positions()):
         symbol = symbols[a]
         const = constraints[a]
@@ -51,19 +51,16 @@ def print_positions(atoms, log, magmom_av):
     log()
 
 
-def get_constraint_details(atoms, print_preamble=False):
+def get_constraint_details(atoms: Atoms) -> (str, list):
     """
-    Get the constraints on the atoms object:
-    If 'print_preamble = True': return a string listing the constraint and
-                                their kwargs for the gpaw logfile preamble.
-    If 'print_preamble = False': return a dict of the constraint initials
-                                 on the specific atoms
+    Get the constraints on the atoms object a tuple containing
+    [0] A string listing the constraints and their kwargs for the gpaw logfile
+        preamble.
+    [1] A list of the constraint initials on the specific atoms
     """
 
-    if print_preamble:
-        const_legend = 'ASE contraints:\n'
-    else:
-        const_a = [''] * len(atoms)
+    const_legend = 'ASE contraints:\n'
+    const_a = [''] * len(atoms)
 
     for const in atoms.constraints:
         const_label = [i for i in const.todict()['name']
@@ -74,24 +71,18 @@ def get_constraint_details(atoms, print_preamble=False):
         for key, value in const.todict()['kwargs'].items():
             if key in ['a', 'a1', 'index', 'pairs', 'indices']:
                 indices.extend(np.unique(np.array(value).reshape(-1)))
-                if print_preamble:
-                    const_legend += f'  {const} ({const_label})\n'
-
+                const_legend += f'  {const} ({const_label})\n'
             elif (key in ['a3', 'a4'] or
                     (key == 'a2' and isinstance(value, int))):
                 indices.extend(np.unique(np.array(value).reshape(-1)))
 
-        if print_preamble:
-            if not len(indices):
-                const_legend += f'  {const}\n'
-        else:
-            for index in indices:
-                const_a[index] += const_label
+        for index in indices:
+            const_a[index] += const_label
 
-    if print_preamble:
-        return const_legend
-    else:
-        return const_a
+        if not len(indices):
+            const_legend += f'  {const}\n'
+
+    return const_legend, const_a
 
 
 def print_parallelization_details(wfs, ham, log):
