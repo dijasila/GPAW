@@ -38,9 +38,10 @@ class Density:
         self.delta0_a = delta0_a
         self.charge = charge
 
+        self.ncomponents = nt_s.shape[0]
         self.ndensities = {1: 1,
                            2: 2,
-                           4: 1}[nt_s.shape[0]]
+                           4: 1}[self.ncomponents]
         self.collinear = nt_s.shape[0] != 4
 
     def calculate_compensation_charge_coefficients(self) -> AtomArrays:
@@ -123,13 +124,6 @@ class Density:
                    [setup.Delta_iiL for setup in setups],
                    [setup.Delta0 for setup in setups],
                    charge)
-
-    def write(self, writer):
-        writer.write(density=self.density.collect().data)
-
-    @classmethod
-    def read(cls, reader):
-        return cls(reader.density)
 
 
 def atomic_occupation_numbers(setup,

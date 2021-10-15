@@ -9,7 +9,7 @@ from gpaw import __version__, debug
 from gpaw.new.calculation import DFTCalculation
 from gpaw.new.input_parameters import InputParameters
 from gpaw.new.logger import Logger
-from gpaw.new.old import OldStuff
+from gpaw.new.old import OldStuff, read_gpw
 from gpaw.new import Timer
 
 
@@ -25,7 +25,7 @@ def GPAW(filename: Union[str, Path, IO[str]] = None,
     if filename is not None:
         kwargs.pop('txt')
         assert len(kwargs) == 0
-        calculation = DFTCalculation.read(filename, log)
+        calculation = read_gpw(filename, log)
         return calculation.ase_interface()
 
     write_header(log, kwargs)

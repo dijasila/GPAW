@@ -1,12 +1,8 @@
 from __future__ import annotations
 
-import ase.io.ulm as ulm
-from ase.io.trajectory import write_atoms, read_atoms
 from ase.units import Bohr, Ha
 from gpaw.new.configuration import DFTConfiguration
 from gpaw.new.wave_functions import IBZWaveFunctions
-from gpaw.new.density import Density
-import gpaw
 from typing import Any
 
 
@@ -142,49 +138,6 @@ class DFTCalculation:
                 log(f'    {n:4} {e:10.3f}   {f:.3f}')
             if i == 3:
                 break
-
-    def write(self,
-              filename: str,
-              skip_wfs: bool = True):
-        world = self.cfg.communicators['w']
-        if world.rank == 0:
-            writer = ulm.Writer(filename, tag='gpaw')
-        else:
-            writer = ulm.DummyWriter()
-        with writer:
-            writer.write(version=4,
-                         gpaw_version=gpaw.__version__,
-                         ha=Ha,
-                         bohr=Bohr)
-
-            write_atoms(writer.child('atoms'), self.cfg.atoms)
-            writer.child('results').write(**self.results)
-            writer.child('parameters').write(**self.cfg.params.params)
-
-            self.density.write(writer.child('density'))
-            self.potential.write(writer.child('hamiltonian'))
-            self.ibz_wfs.write(writer.child('wave_functions'), skip_wfs)
-
-        world.barrier()
-
-    @classmethod
-    def read(cls, filename, log):
-        log(f'Reading from {filename}')
-        reader = ulm.Reader(filename)
-        atoms = read_atoms(reader.atoms)
-
-        cfg = DFTConfiguration(atoms, reader.parameters.asdict())
-
-        grid = cfg.griiid
-
-        results = reader.results.asdict()
-        if results:
-            log('Read {}'.format(', '.join(sorted(results))))
-
-        density = Density.read(reader, grid)
-
-        calculation = cls(cfg, ibz_wfs, density, potential)
-        calculation.results = results
 
     def ase_interface(self, log):
         from gpaw.new.ase_interface import ASECalculator

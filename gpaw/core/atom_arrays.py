@@ -91,3 +91,7 @@ class AtomArrays(DistributedArrays):
 
     def values(self):
         return self._arrays.values()
+
+    def collect(self):
+        assert self.layout.atomdist.comm.size == 1
+        return self
