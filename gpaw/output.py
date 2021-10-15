@@ -4,6 +4,7 @@ from ase import Atoms
 from ase.data import chemical_symbols
 from ase.geometry import cell_to_cellpar
 from ase.units import Bohr
+from typing import Tuple
 
 
 def print_cell(gd, pbc_c, log):
@@ -51,7 +52,7 @@ def print_positions(atoms, log, magmom_av):
     log()
 
 
-def get_constraint_details(atoms: Atoms) -> (str, list):
+def get_constraint_details(atoms: Atoms) -> Tuple[str, list]:
     """
     Get the constraints on the atoms object a tuple containing
     [0] A string listing the constraints and their kwargs for the gpaw logfile
