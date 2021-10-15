@@ -67,21 +67,19 @@ def get_constraint_details(atoms: Atoms) -> Tuple[str, list]:
         const_label = [i for i in const.todict()['name']
                        if i.lstrip('F').isupper()][0]
         indices = []
-        # Since the indices in the varying constraints are labeled
-        # differently we have to search for all the labels
+        const_legend += f'  {const}'
         for key, value in const.todict()['kwargs'].items():
-            if key in ['a', 'a1', 'index', 'pairs', 'indices']:
+            # Since the indices in the varying constraints are labeled
+            # differently we have to search for all the labels
+            if (key in ['a', 'a1', 'a3', 'a4', 'index', 'pairs', 'indices',
+                'triples'] or (key == 'a2' and isinstance(value, int))):
                 indices.extend(np.unique(np.array(value).reshape(-1)))
-                const_legend += f'  {const} ({const_label})\n'
-            elif (key in ['a3', 'a4'] or
-                    (key == 'a2' and isinstance(value, int))):
-                indices.extend(np.unique(np.array(value).reshape(-1)))
+                if const_legend.split('\n')[-1] == f'  {const}':
+                    const_legend += f' ({const_label})'
+        const_legend += '\n'
 
         for index in indices:
             const_a[index] += const_label
-
-        if not len(indices):
-            const_legend += f'  {const}\n'
 
     return const_legend, const_a
 
