@@ -38,6 +38,7 @@ theme.css
 *.svg
 *.json
 *.out
+*.cube
 doc/setups/[A-Z]*.rst
 *.ipynb
 !*.master.ipynb

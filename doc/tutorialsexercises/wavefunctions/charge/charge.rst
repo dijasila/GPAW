@@ -1,8 +1,11 @@
-.. _bader analysis:
+.. _charge analysis:
 
-==============
-Bader Analysis
-==============
+===============
+Charge Analysis
+===============
+
+Bader
+=====
 
 Henkelman *et al.* have implemented a fast and robust algorithm for
 calculating the electronic charges on individual atoms in molecules or
@@ -78,6 +81,14 @@ volumes.  This was achieved by plotting a contour surface of
 
 .. image:: h2o-bader.png
 
+Hirshfeld
+=========
+
+Another charge analysis is possible by using the Hirshfeld [Hirsh]_
+charges as are written out in the example above. 
+
+.. literalinclude:: compare.py
+
 
 .. [Bader] R. F. W. Bader.  Atoms in Molecules: A Quantum Theory.
            Oxford University Press, New York, 1990.
@@ -85,3 +96,5 @@ volumes.  This was achieved by plotting a contour surface of
 .. [Tang]  W. Tang, E. Sanville, G. Henkelman.
            A grid-based Bader analysis algorithm without lattice bias.
            J. Phys.: Compute Mater. 21, 084204 (2009).
+	      
+.. [Hirsh] F. L. Hirshfeld, Theor. Chim. Acta 44, 129 (1977).
