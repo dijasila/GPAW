@@ -115,6 +115,7 @@ class DFTConfiguration:
     @cached_property
     def potential_calculator(self):
         return self.mode.create_potential_calculator(
+            self.density_grid,
             self.wf_grid, self.fine_grid,
             self.setups, self.fracpos,
             self.xc,
@@ -122,6 +123,12 @@ class DFTConfiguration:
 
     def __repr__(self):
         return f'DFTCalculation({self.atoms}, {self.params})'
+
+    @cached_property
+    def density_grid(self):
+        if self.mode.name == 'fd':
+            return self.grid
+        return PlaneWaves(ecut=2 * self.wf_grid.ecut, grid=self.grid)
 
     def lcao_ibz_wave_functions(self, basis_set, potential):
         from gpaw.new.lcao import create_lcao_ibz_wave_functions
@@ -146,7 +153,7 @@ class DFTConfiguration:
         return basis_set
 
     def density_from_superposition(self, basis_set):
-        nct_acf = self.setups.create_pseudo_core_densities(self.wf_grid,
+        nct_acf = self.setups.create_pseudo_core_densities(self.density_grid,
                                                            self.fracpos)
         return Density.from_superposition(nct_acf,
                                           self.setups,
