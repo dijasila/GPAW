@@ -1,5 +1,4 @@
-.. index:: static_polarizability
-.. _polarizabilty:
+.. _polarizability:
 
 ======================================
 Static polarizabilty in finite systems
