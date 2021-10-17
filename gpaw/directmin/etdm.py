@@ -824,12 +824,6 @@ class ETDM:
                     elif self.matrix_exp == 'egdecomp-u-invar':
                         with wfs.timer('Eigendecomposition'):
                             u_nn = expm_ed_unit_inv(a, oo_vo_blockonly=False)
-                    else:
-                        raise ValueError('Check the keyword '
-                                         'for matrix_exp. \n'
-                                         'Must be '
-                                         '\'pade-approx\' or '
-                                         '\'egdecomp\'')
 
                     self.dm_helper.appy_transformation_kpt(
                         wfs, u_nn.T, kpt, c_nm_ref[k], False, False)
@@ -926,5 +920,6 @@ def vec2skewmat(a_vec, dim, ind_up, dtype):
     a = np.zeros(shape=(dim, dim), dtype=dtype)
     a[ind_up] = a_vec
     a -= a.T.conj()
-
+    diag_el = np.arange(dim)
+    a[(diag_el, diag_el)] *= 0.5
     return a
