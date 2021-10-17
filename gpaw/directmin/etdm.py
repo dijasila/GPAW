@@ -834,7 +834,7 @@ class ETDM:
                 # this function takes a lot of memory
                 # for large matrices... what can we do?
                 with wfs.timer('Pade Approximants'):
-                    u_nn = expm(a)
+                    u_nn = np.ascontiguousarray(expm(a))
             elif self.matrix_exp == 'egdecomp':
                 # this method is based on diagonalisation
                 with wfs.timer('Eigendecomposition'):
