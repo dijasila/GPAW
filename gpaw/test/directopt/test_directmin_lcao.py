@@ -52,7 +52,7 @@ def test_directmin_lcao(in_tmp_dir):
     assert f2 == pytest.approx(f3, abs=1e-2)
 
     calc.set(eigensolver=ETDM(
-        representation='u-invar', matrix_exp='egdecomp',
+        representation='u-invar', matrix_exp='egdecomp-u-invar',
         need_init_orbs=False,
         linesearch_algo={'name': 'max-step'}
     ))

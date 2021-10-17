@@ -272,17 +272,7 @@ class ETDM:
             u = self.kpointval(kpt)
             # M - one dimension of the A_BigMatrix
             M = self.n_dim[u]
-            if self.representation == 'sparse':
-                # let's take all upper triangular indices
-                # of A_BigMatrix and then delete indices from ind_up
-                # which correspond to 0 matrix in in A_BigMatrix.
-                ind_up = np.triu_indices(self.n_dim[u], 1)
-                zero_ind = -((M - n_occ) * (M - n_occ - 1)) // 2
-                if zero_ind == 0:
-                    zero_ind = None
-                self.ind_up[u] = (ind_up[0][:zero_ind].copy(),
-                                  ind_up[1][:zero_ind].copy())
-            elif self.representation == 'u-invar':
+            if self.representation == 'u-invar':
                 i1, i2 = [], []
                 for i in range(n_occ):
                     for j in range(n_occ, M):
@@ -290,12 +280,22 @@ class ETDM:
                         i2.append(j)
                 self.ind_up[u] = (np.asarray(i1), np.asarray(i2))
             else:
-                self.ind_up[u] = None
+                if self.representation == 'full' and self.dtype == complex:
+                    # Take indices of all upper triangular and diagonal
+                    # elements of A_BigMatrix
+                    self.ind_up[u] = np.triu_indices(self.n_dim[u])
+                else:
+                    self.ind_up[u] = np.triu_indices(self.n_dim[u], 1)
+                    if self.representation == 'sparse':
+                        # Delete indices of elements that correspond
+                        # to 0 matrix in A_BigMatrix
+                        zero_ind = -((M - n_occ) * (M - n_occ - 1)) // 2
+                        if zero_ind == 0:
+                            zero_ind = None
+                        self.ind_up[u] = (self.ind_up[u][0][:zero_ind].copy(),
+                                          self.ind_up[u][1][:zero_ind].copy())
 
-            if self.representation in ['sparse', 'u-invar']:
-                shape_of_arr = len(self.ind_up[u][0])
-            else:
-                shape_of_arr = (self.n_dim[u], self.n_dim[u])
+            shape_of_arr = len(self.ind_up[u][0])
 
             self.a_mat_u[u] = np.zeros(shape=shape_of_arr, dtype=self.dtype)
             self.g_mat_u[u] = np.zeros(shape=shape_of_arr, dtype=self.dtype)
@@ -334,17 +334,15 @@ class ETDM:
                 g_mat_u = self.g_mat_u
 
             with wfs.timer('Get Search Direction'):
-                p_mat_u = self.get_search_direction(a_mat_u, g_mat_u,
-                                                    precond, wfs)
+                # calculate search direction according to chosen
+                # optimization algorithm (e.g. L-BFGS)
+                p_mat_u = self.searchdir_algo.update_data(wfs, a_mat_u,
+                                                          g_mat_u, precond)
 
             # recalculate derivative with new search direction
             der_phi_2i[0] = 0.0
             for k in g_mat_u:
-                if self.representation in ['sparse', 'u-invar']:
-                    der_phi_2i[0] += g_mat_u[k].conj() @ p_mat_u[k]
-                else:
-                    il1 = get_indices(g_mat_u[k].shape[0], self.dtype)
-                    der_phi_2i[0] += g_mat_u[k][il1].conj() @ p_mat_u[k][il1]
+                der_phi_2i[0] += g_mat_u[k].conj() @ p_mat_u[k]
             der_phi_2i[0] = der_phi_2i[0].real
             der_phi_2i[0] = wfs.kd.comm.sum(der_phi_2i[0])
 
@@ -422,12 +420,16 @@ class ETDM:
             self._norm_commutator = 0.0
             for kpt in wfs.kpt_u:
                 u = self.kpointval(kpt)
-                tmp = np.linalg.norm(g_mat_u[u] @ self.a_mat_u[u] -
-                                     self.a_mat_u[u] @ g_mat_u[u])
+                a = vec2skewmat(a_mat_u[u], self.n_dim[u],
+                                self.ind_up[u], wfs.dtype)
+                g = vec2skewmat(g_mat_u[u], self.n_dim[u],
+                                self.ind_up[u], wfs.dtype)
+
+                tmp = np.linalg.norm(g @ a - a @ g)
                 if self._norm_commutator < tmp:
                     self._norm_commutator = tmp
 
-                tmp = np.linalg.norm(g_mat_u[u])
+                tmp = np.linalg.norm(g)
                 if self._norm_grad < tmp:
                     self._norm_grad = tmp
 
@@ -444,36 +446,6 @@ class ETDM:
 
         return ham.get_energy(0.0, wfs, False)
 
-    def get_search_direction(self, a_mat_u, g_mat_u, precond, wfs):
-        """
-        calculate search direction according to chosen
-        optimization algorithm (L-BFGS for example)
-        """
-
-        if self.representation in ['sparse', 'u-invar']:
-            p_mat_u = self.searchdir_algo.update_data(wfs, a_mat_u, g_mat_u,
-                                                      precond)
-        else:
-            g_vec = {}
-            a_vec = {}
-
-            for k in a_mat_u:
-                il1 = get_indices(a_mat_u[k].shape[0], self.dtype)
-                a_vec[k] = a_mat_u[k][il1]
-                g_vec[k] = g_mat_u[k][il1]
-
-            p_vec = self.searchdir_algo.update_data(wfs, a_vec, g_vec, precond)
-            p_mat_u = {}
-            for k in p_vec:
-                p_mat_u[k] = np.zeros_like(a_mat_u[k])
-                il1 = get_indices(p_mat_u[k].shape[0], self.dtype)
-                p_mat_u[k][il1] = p_vec[k]
-                # make it skew-hermitian
-                il1 = np.tril_indices(p_mat_u[k].shape[0], -1)
-                p_mat_u[k][(il1[1], il1[0])] = -p_mat_u[k][il1].conj()
-
-        return p_mat_u
-
     def evaluate_phi_and_der_phi(self, a_mat_u, p_mat_u, n_dim, alpha,
                                  ham, wfs, dens, c_ref,
                                  phi=None, g_mat_u=None):
@@ -488,13 +460,8 @@ class ETDM:
                                                          ham, wfs, dens, c_ref)
 
         der_phi = 0.0
-        if self.representation in ['sparse', 'u-invar']:
-            for k in p_mat_u:
-                der_phi += g_mat_u[k].conj() @ p_mat_u[k]
-        else:
-            for k in p_mat_u:
-                il1 = get_indices(p_mat_u[k].shape[0], self.dtype)
-                der_phi += g_mat_u[k][il1].conj() @ p_mat_u[k][il1]
+        for k in p_mat_u:
+            der_phi += g_mat_u[k].conj() @ p_mat_u[k]
 
         der_phi = der_phi.real
         der_phi = wfs.kd.comm.sum(der_phi)
@@ -573,12 +540,8 @@ class ETDM:
 
         f_n = kpt.f_n
         eps_n = kpt.eps_n
-        if self.representation in ['sparse', 'u-invar']:
-            u = self.kpointval(kpt)
-            il1 = list(self.ind_up[u])
-        else:
-            il1 = get_indices(eps_n.shape[0], self.dtype)
-            il1 = list(il1)
+        u = self.kpointval(kpt)
+        il1 = list(self.ind_up[u])
 
         hess = np.zeros(len(il1[0]), dtype=self.dtype)
         x = 0
@@ -733,7 +696,6 @@ class ETDM:
         :return: analytical and numerical
         """
 
-        assert self.representation in ['sparse', 'u-invar']
         assert what2calc in ['gradient', 'hessian']
 
         a_m = {u: np.zeros_like(v) for u, v in self.a_mat_u.items()}
@@ -841,17 +803,14 @@ class ETDM:
                     continue
 
                 if self.gd.comm.rank == 0:
-                    if self.representation in ['sparse', 'u-invar']:
-                        if self.matrix_exp == 'egdecomp-u-invar' and \
-                                self.representation == 'u-invar':
-                            n_occ = get_n_occ(kpt)
-                            n_v = wfs.bd.nbands - n_occ
-                            a = a_mat_u[k].reshape(n_occ, n_v)
-                        else:
-                            a = vec2skewmat(a_mat_u[k], n_dim[k],
-                                            self.ind_up[k], self.dtype)
+                    if self.matrix_exp == 'egdecomp-u-invar' and \
+                            self.representation == 'u-invar':
+                        n_occ = get_n_occ(kpt)
+                        n_v = n_dim[k] - n_occ
+                        a = a_mat_u[k].reshape(n_occ, n_v)
                     else:
-                        a = a_mat_u[k]
+                        a = vec2skewmat(a_mat_u[k], n_dim[k],
+                                        self.ind_up[k], self.dtype)
 
                     if self.matrix_exp == 'pade-approx':
                         # this function takes a lot of memory
@@ -865,12 +824,6 @@ class ETDM:
                     elif self.matrix_exp == 'egdecomp-u-invar':
                         with wfs.timer('Eigendecomposition'):
                             u_nn = expm_ed_unit_inv(a, oo_vo_blockonly=False)
-                    else:
-                        raise ValueError('Check the keyword '
-                                         'for matrix_exp. \n'
-                                         'Must be '
-                                         '\'pade-approx\' or '
-                                         '\'egdecomp\'')
 
                     self.dm_helper.appy_transformation_kpt(
                         wfs, u_nn.T, kpt, c_nm_ref[k], False, False)
@@ -945,16 +898,6 @@ class ETDM:
         self._error = e
 
 
-def get_indices(dimens, dtype):
-
-    if dtype == complex:
-        il1 = np.tril_indices(dimens)
-    else:
-        il1 = np.tril_indices(dimens, -1)
-
-    return il1
-
-
 def get_n_occ(kpt):
     """
     get number of occupied orbitals
@@ -977,5 +920,5 @@ def vec2skewmat(a_vec, dim, ind_up, dtype):
     a = np.zeros(shape=(dim, dim), dtype=dtype)
     a[ind_up] = a_vec
     a -= a.T.conj()
-
+    np.fill_diagonal(a, a.diagonal() * 0.5)
     return a
