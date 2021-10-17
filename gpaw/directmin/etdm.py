@@ -920,6 +920,5 @@ def vec2skewmat(a_vec, dim, ind_up, dtype):
     a = np.zeros(shape=(dim, dim), dtype=dtype)
     a[ind_up] = a_vec
     a -= a.T.conj()
-    diag_el = np.arange(dim)
-    a[(diag_el, diag_el)] *= 0.5
+    np.fill_diagonal(a, a.diagonal() * 0.5)
     return a
