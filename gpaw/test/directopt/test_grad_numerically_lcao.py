@@ -2,6 +2,7 @@ import pytest
 
 from gpaw import GPAW, LCAO
 from gpaw.directmin.etdm import random_a
+from gpaw.directmin.numerical_derivatives import get_numerical_derivatives, get_analytical_derivatives
 from ase import Atoms
 
 
@@ -31,7 +32,8 @@ def test_gradient_numerically_lcao(in_tmp_dir):
                              'matrix_exp': 'egdecomp'},
                 mixer={'backend': 'no-mixing'},
                 nbands='nao',
-                symmetry='off'
+                symmetry='off',
+                txt=None
                 )
     atoms.calc = calc
    
@@ -56,6 +58,8 @@ def test_gradient_numerically_lcao(in_tmp_dir):
               ]
 
     for eigsolver in params:
+        print('IN PROGRESS: ', eigsolver)
+
         calc.set(eigensolver=eigsolver)
         atoms.get_potential_energy()
         ham = calc.hamiltonian
@@ -69,10 +73,14 @@ def test_gradient_numerically_lcao(in_tmp_dir):
 
         a = random_a(wfs.eigensolver.a_mat_u[0].shape, wfs.dtype)
         wfs.gd.comm.broadcast(a, 0)
-        amatu = {0: a}
-        g_n = calc.wfs.eigensolver.get_numerical_derivatives(
+
+        amatu = {0: a.copy()}
+
+        g_n = get_numerical_derivatives(wfs.eigensolver,
             ham, wfs, dens, a_mat_u=amatu, update_c_nm_ref=update_c_nm_ref)
-        g_a = calc.wfs.eigensolver.get_analytical_derivatives(
+
+        amatu = {0: a.copy()}
+        g_a = get_analytical_derivatives(wfs.eigensolver,
             ham, wfs, dens, a_mat_u=amatu, update_c_nm_ref=update_c_nm_ref)
 
         for x, y in zip(g_a[0], g_n[0]):
