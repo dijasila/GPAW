@@ -635,28 +635,23 @@ class ETDM:
         """
         changedocc = False
         for kpt in wfs.kpt_u:
-            f_sn = kpt.f_n.copy()
-            if wfs.gd.comm.rank == 0:
-                occupied = kpt.f_n > 1.0e-10
-                n_occ = len(kpt.f_n[occupied])
-                if n_occ == 0.0:
-                    continue
-                if np.min(kpt.f_n[:n_occ]) == 0:
-                    ind_occ = np.argwhere(occupied)
-                    ind_unocc = np.argwhere(~occupied)
-                    ind = np.vstack((ind_occ, ind_unocc))
-                    ind = np.squeeze(ind)
-                    self.dm_helper.sort_orbitals(wfs, kpt, ind)
-                    kpt.f_n = kpt.f_n[ind]
-                    kpt.eps_n = kpt.eps_n[ind]
-            # Broadcast coefficients, occupation numbers, eigenvalues
-            wfs.gd.comm.broadcast(kpt.eps_n, 0)
-            wfs.gd.comm.broadcast(kpt.f_n, 0)
-            self.dm_helper.broadcast(wfs, kpt)
-            if not np.allclose(kpt.f_n, f_sn):
-                changedocc = True
+            occupied = kpt.f_n > 1.0e-10
+            n_occ = len(kpt.f_n[occupied])
+            if n_occ == 0.0:
+                continue
+            if np.min(kpt.f_n[:n_occ]) == 0:
+                ind_occ = np.argwhere(occupied)
+                ind_unocc = np.argwhere(~occupied)
+                ind = np.vstack((ind_occ, ind_unocc))
+                ind = np.squeeze(ind)
+                self.dm_helper.sort_orbitals(wfs, kpt, ind)
+                kpt.f_n = kpt.f_n[ind]
+                kpt.eps_n = kpt.eps_n[ind]
+
                 # OccupationsMOM.numbers needs to be updated after sorting
                 self.update_mom_numbers(wfs, kpt)
+
+                changedocc = True
 
         return changedocc
 
