@@ -831,7 +831,8 @@ class ETDM:
         # update ref orbitals if needed
         if update_c_nm_ref:
             self.rotate_wavefunctions(wfs, a_mat_u, self.n_dim, c_nm_ref)
-            c_nm_ref = self.dm_helper.set_reference_orbitals(wfs, self.n_dim)
+            self.dm_helper.set_reference_orbitals(wfs, self.n_dim)
+            c_nm_ref = self.dm_helper.reference_orbitals
             a_mat_u = {u: np.zeros_like(v) for u, v in self.a_mat_u.items()}
 
         return a_mat_u, c_nm_ref
@@ -1016,5 +1017,5 @@ def vec2skewmat(a_vec, dim, ind_up, dtype):
     a = np.zeros(shape=(dim, dim), dtype=dtype)
     a[ind_up] = a_vec
     a -= a.T.conj()
-
+    np.fill_diagonal(a, a.diagonal() * 0.5)
     return a
