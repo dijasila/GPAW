@@ -33,7 +33,13 @@ def test_directmin_lcao_numerical_hessian(in_tmp_dir):
     atoms.calc = calc
     atoms.get_potential_energy()
 
-    hess_a, hess_n = calc.wfs.eigensolver.finite_diff_appr_of_derivative(
+    hess_n = calc.wfs.eigensolver.get_numerical_derivatives(
+        calc.hamiltonian,
+        calc.wfs,
+        calc.density,
+        what2calc='hessian'
+    )
+    hess_a = calc.wfs.eigensolver.get_analytical_derivatives(
         calc.hamiltonian,
         calc.wfs,
         calc.density,
@@ -42,6 +48,7 @@ def test_directmin_lcao_numerical_hessian(in_tmp_dir):
     hess_nt = np.asarray([[1.32720630e+00, -1.93947467e-11],
                          [3.95786680e-09, 1.14599176e+00]])
     assert hess_n == pytest.approx(hess_nt, abs=1e-4)
+    assert hess_a == pytest.approx(hess_nt, abs=0.2)
 
     a_mat_u = {0: [np.sqrt(2) * np.pi / 4.0 + 1.0j * np.sqrt(2) * np.pi / 4.0]}
     c_nm_ref = calc.wfs.eigensolver.dm_helper.reference_orbitals
@@ -50,15 +57,26 @@ def test_directmin_lcao_numerical_hessian(in_tmp_dir):
                                               {0: calc.wfs.bd.nbands},
                                               c_nm_ref
                                               )
+    calc.wfs.eigensolver.update_ks_energy(calc.hamiltonian,
+                                          calc.wfs, calc.density)
+    calc.wfs.eigensolver.get_canonical_representation(
+        calc.hamiltonian, calc.wfs, calc.density, sort_eigenvalues=True)
     c_nm = {x: calc.wfs.kpt_u[x].C_nM.copy()
             for x in range(len(calc.wfs.kpt_u))}
-    hess_a, hess_n = calc.wfs.eigensolver.finite_diff_appr_of_derivative(
+    hess_n = calc.wfs.eigensolver.get_numerical_derivatives(
         calc.hamiltonian,
         calc.wfs,
         calc.density,
         c_nm_ref=c_nm,
         what2calc='hessian'
     )
+    hess_a = calc.wfs.eigensolver.get_analytical_derivatives(
+        calc.hamiltonian,
+        calc.wfs,
+        calc.density,
+        what2calc='hessian'
+    )
     hess_nt = np.asarray([[-1.08209601e+00, -1.11022302e-09],
                          [8.50014503e-10, -9.37664521e-01]])
     assert hess_n == pytest.approx(hess_nt, abs=1e-4)
+    assert hess_a == pytest.approx(hess_nt, abs=0.2)
