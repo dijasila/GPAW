@@ -1,8 +1,7 @@
 import pytest
 
 from gpaw import GPAW, LCAO
-from gpaw.directmin.etdm import random_a
-from gpaw.directmin.numerical_derivatives import get_numerical_derivatives, get_analytical_derivatives
+from gpaw.directmin.numerical_derivatives import NumericalDerivatives
 from ase import Atoms
 
 
@@ -71,17 +70,12 @@ def test_gradient_numerically_lcao(in_tmp_dir):
         else:
             update_c_nm_ref = True
 
-        a = random_a(wfs.eigensolver.a_mat_u[0].shape, wfs.dtype)
-        wfs.gd.comm.broadcast(a, 0)
+        numder = NumericalDerivatives(wfs.eigensolver, wfs, random_amat=True,
+                                      update_c_nm_ref=update_c_nm_ref)
 
-        amatu = {0: a.copy()}
-
-        g_n = get_numerical_derivatives(wfs.eigensolver,
-            ham, wfs, dens, a_mat_u=amatu, update_c_nm_ref=update_c_nm_ref)
-
-        amatu = {0: a.copy()}
-        g_a = get_analytical_derivatives(wfs.eigensolver,
-            ham, wfs, dens, a_mat_u=amatu, update_c_nm_ref=update_c_nm_ref)
+        g_a = numder.get_analytical_derivatives(wfs.eigensolver, ham, wfs,
+                                                dens)
+        g_n = numder.get_numerical_derivatives(wfs.eigensolver, ham, wfs, dens)
 
         for x, y in zip(g_a[0], g_n[0]):
             assert x.real == pytest.approx(y.real, abs=1.0e-2)
