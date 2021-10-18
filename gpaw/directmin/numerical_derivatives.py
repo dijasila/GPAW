@@ -5,7 +5,7 @@ from gpaw.directmin.etdm import random_a
 class NumericalDerivatives:
 
     def __init__(self, etdm, wfs, c_nm_ref=None, a_mat_u=None,
-                 update_c_nm_ref=False, eps=1.0e-6, random_amat=False):
+                 update_c_nm_ref=False, eps=1.0e-7, random_amat=False):
         """
         :param etdm:
         :param wfs:
@@ -16,12 +16,12 @@ class NumericalDerivatives:
         :param random_amat: if you want to start at random point
         """
 
-
         self.eps = eps
 
         # initialize matrix a_mat_u
         if a_mat_u is None:
-            self.a_mat_u = {}
+            self.a_mat_u = {u: np.zeros_like(v) for u,
+                                                    v in etdm.a_mat_u.items()}
 
         for kpt in wfs.kpt_u:
             u = etdm.kpointval(kpt)
@@ -33,6 +33,8 @@ class NumericalDerivatives:
         # initialize orbitals:
         if c_nm_ref is None:
             self.c_nm_ref = etdm.dm_helper.reference_orbitals
+        else:
+            self.c_nm_ref = c_nm_ref
 
         # update ref orbitals if needed
         if update_c_nm_ref:
@@ -41,7 +43,7 @@ class NumericalDerivatives:
             etdm.dm_helper.set_reference_orbitals(wfs, etdm.n_dim)
             self.c_nm_ref = etdm.dm_helper.reference_orbitals
             self.a_mat_u = {u: np.zeros_like(v) for u,
-                                                   v in etdm.a_mat_u.items()}
+                                                    v in etdm.a_mat_u.items()}
 
     def get_analytical_derivatives(self, etdm, ham, wfs, dens,
                                    what2calc='gradient'):
