@@ -1,15 +1,31 @@
 import os
 
-mpicompiler = 'mpicc'
+parallel_python_interpreter=False
 
-parallel_python_interpreter = True
+#compiler = 'gcc'
+mpicompiler = 'mpicc'
+scalapack = True
 fftw = True
+
+libraries = ['mkl_intel_lp64',
+            'mkl_sequential',
+            'mkl_lapack',
+             'mkl_core',
+             'pthread',
+             'readline',
+             'termcap',
+             'xc',
+             'mkl_blacs_intelmpi_lp64']
+
+# FFTW should be configured from environment variables, but they do
+# not report the correct names for a dynamically loaded library.
 # Use Intel MKL
-libraries += ['mkl_sequential','mkl_core', 'fftw3xc_intel_pic', 'mkl_rt', ]
+if fftw:
+    libraries += ['fftw3xc_intel_pic', 'mkl_rt']
 
 # Use EasyBuild scalapack from the active toolchain
-scalapack = True
-libraries += ['mkl_scalapack_lp64', 'mkl_blacs_intelmpi_lp64']
+if scalapack:
+    libraries += ['mkl_scalapack_lp64','mkl_lapack95_lp64']
 
 # Use EasyBuild libxc
 libxc = os.getenv('EBROOTLIBXC')
@@ -18,14 +34,14 @@ include_dirs.append(os.path.join(libxc, 'include'))
 # libvdwxc:
 # Use EasyBuild libvdwxc
 # NOTE: This currenlty does not work together with the Intel MKL, so
-# we will not load libvdwxc
+# the easyconfig files does not load libvdwxc
 libvdwxc = os.getenv('EBROOTLIBVDWXC')
 if libvdwxc:
     include_dirs.append(os.path.join(libvdwxc, 'include'))
     libraries.append('vdwxc')
 
 # ELPA:
-# Use EasyBuild ELPA
+# Use EasyBuild ELPA if loaded
 elpa = os.getenv('EBROOTELPA')
 if elpa:
     libraries += ['elpa']

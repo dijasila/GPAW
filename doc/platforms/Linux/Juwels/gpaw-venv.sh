@@ -1,33 +1,29 @@
 #!/usr/bin/bash
-# Install gpaw, ase, ase-ext, spglib, sklearn and myqueue on Juwels in a venv
+# Install gpaw, ase, ase-ext on Juwels in a virtual environment
 
 set -e  # stop if there are errors
 
 NAME=$1
-USAGE="Usage: $0 foldername [intel]"
+USAGE="Usage: $0 foldername"
 FOLDER=$PWD
 ASE_REPO=https://gitlab.com/ase/ase.git
 GPAW_REPO=https://gitlab.com/gpaw/gpaw.git
 
-if [[ $# -ne 2 && $# -ne 1 ]]; then
-    echo "Wrong number of arguments, expected 1 or 2, got $#"
+if [[ $# -ne 1 ]]; then
+    echo "Wrong number of arguments, expected 1 (install dir), got $#"
     echo $USAGE
     exit 1
 fi
 
-
-# Some modules are not yet loaded.  Once they are installed, this
-# script is changed to load them instead of pip-installing them.
-
 echo "
 module purge
-module  load StdEnv/2020
-module load Python/3.8.5
-module load SciPy-Stack/2020-Python-3.8.5
-module load intel-para
-module load FFTW/3.3.8
-module load libxc/4.3.4
-module load ELPA/2020.05.001
+module  load StdEnv
+module load Python
+module load SciPy-Stack
+module load intel-para/2021
+module load FFTW
+module load libxc
+module load ELPA
 " > modules.sh
 
 . modules.sh
@@ -61,7 +57,7 @@ echo $CMD
 # Install GPAW:
 git clone $GPAW_REPO
 cd gpaw
-cp doc/platforms/Linux/Juwels/siteconfig_juwel.py siteconfig.py
+cp $FOLDER/siteconfig.py_juwel siteconfig.py
 cd $VENV
 . bin/activate
 pip install -e gpaw -v > compilation.out
@@ -78,6 +74,15 @@ ase completion >> bin/activate
 gpaw completion >> bin/activate
 mq completion >> bin/activate
 $PIP completion --bash >> bin/activate
+
+# Set matplotlib backend:
+echo '
+if [[ $SLURM_SUBMIT_DIR ]]; then
+    export MPLBACKEND=Agg
+else
+    export MPLBACKEND=TkAgg
+fi
+' >> bin/activate
 
 # Run tests:
 mq --version
