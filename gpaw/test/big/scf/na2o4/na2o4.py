@@ -4,7 +4,7 @@ from ase.io import read
 from ase.dft.kpoints import monkhorst_pack
 
 from gpaw import GPAW, ConvergenceError
-from gpaw.wavefunctions.pw import PW
+from gpaw import PW
 from gpaw.mixer import Mixer
 
 # the system does not converge with 3 diis steps, but converges with 2, 4, ...

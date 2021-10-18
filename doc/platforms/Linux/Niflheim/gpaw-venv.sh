@@ -73,17 +73,20 @@ $PIP install -e ase/
 
 $PIP install myqueue graphviz qeh
 
+# Compile ase-exc C-extension of old thul so that it works on
+# newer architectures
 CMD="cd $VENV &&
      . bin/activate &&
      pip install ase-ext"
 echo $CMD
-ssh fjorm $CMD
+ssh thul $CMD
 
 # Install GPAW:
 git clone $GPAW_REPO
 cd gpaw
 cp doc/platforms/Linux/Niflheim/siteconfig-${TCHAIN}.py siteconfig.py
-for HOST in fjorm svol thul slid
+# xeon16, xeon24, xeon40:
+for HOST in thul sylg svol surt
 do
   CMD="cd $VENV &&
        . bin/activate &&
@@ -96,6 +99,7 @@ done
 rm -r build/temp.linux-x86_64-*
 rm _gpaw.*.so
 
+# Create .pth file to load correct .so file:
 pth='import sys, os; '
 pth+='arch = os.environ["CPU_ARCH"]; '
 pth+="path = f'$VENV/gpaw/build/lib.linux-x86_64-{arch}-3.8'; "
@@ -123,6 +127,6 @@ else
 fi' >> bin/activate
 
 # Run tests:
-mq --version
+mq info
 ase info
 gpaw test
