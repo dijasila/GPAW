@@ -138,12 +138,6 @@ class DirectMinLCAO(DirectLCAO):
         kpt.C_nM[np.arange(len(ind)), :] = kpt.C_nM[ind, :]
         self.update_projections(wfs, kpt)
 
-    def broadcast(self, wfs, kpt):
-        """
-        broadcast orbitals
-        """
-        wfs.gd.comm.broadcast(kpt.C_nM, 0)
-
     def update_projections(self, wfs, kpt):
         """
         calculate projections kpt.P_ani
