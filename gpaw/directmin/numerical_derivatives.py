@@ -51,12 +51,10 @@ class NumericalDerivatives:
            Calculate analytical gradient or approximation to the Hessian
            with respect to the elements of a skew-Hermitian matrix
 
+        :param etdm:
         :param ham:
         :param wfs:
         :param dens:
-        :param c_nm_ref: reference orbitals
-        :param a_mat_u: skew-hermitian matrix
-        :param update_c_nm_ref: if True update reference orbitals
         :param what2calc: calculate gradient or Hessian
         :return: analytical gradient or Hessian
         """
