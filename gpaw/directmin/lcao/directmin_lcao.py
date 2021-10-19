@@ -41,7 +41,7 @@ class DirectMinLCAO(DirectLCAO):
                                 broadcast=True,
                                 update_proj=True):
         """
-        if c_ref are not provied then
+        If c_ref are not provided then
         kpt.C_nM <- u_mat kpt.C_nM
         otherwise kpt.C_nM <- u_mat c_ref
         """
@@ -64,7 +64,7 @@ class DirectMinLCAO(DirectLCAO):
     def initialize_orbitals(self, wfs, ham):
 
         """
-        if it is the first use of the scf then initialize
+        If it is the first use of the scf then initialize
         coefficient matrix using eigensolver
         and then localise orbitals
         """
@@ -85,7 +85,7 @@ class DirectMinLCAO(DirectLCAO):
                   representation, ind_up):
 
         """
-        gradient w.r.t. skew-hermitian matrices
+        Gradient w.r.t. skew-Hermitian matrices
         """
 
         h_mm = self.calculate_hamiltonian_matrix(ham, wfs, kpt)

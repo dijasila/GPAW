@@ -45,28 +45,32 @@ class ETDM:
         This class performs the exponential transformation
         direct minimization:
         E = E[C_ref e^{A}]
-        C_ref is reference orbitals
-        A is a skew-hermitian matrix which needs to be found
+        C_ref are the reference orbitals
+        A is a skew-Hermitian matrix which needs to be found
 
-        :param searchdir_algo: algo for calc search direction (e.g.LBFGS)
+        :param searchdir_algo: algorithm for calculating the search direction
+        (e.g.LBFGS)
         :param linesearch_algo: line search (e.g. strong Wolfe conditions)
-        :param update_ref_orbs_counter: (when to update C_ref)
-        :param update_ref_orbs_canonical: update C_ref to can. orb.
+        :param update_ref_orbs_counter: When to update C_ref
+        :param update_ref_orbs_canonical: update C_ref to canonical orbitals
         :param update_precond_counter: when to update the preconditioner
         :param use_prec: use preconditioner or not
-        :param matrix_exp: algorithm for calc matrix exponential and grad.
-        'pade-approx', 'egdecomp', 'egdecomp-u-invar' (used with u-invar
-        represnt.),
-        :param representation: the way A are stored,
-        'sparse', 'full', 'u-invar',
-        :param functional: KS or PZ-SIC functionals
-        :param orthonormalization: gram-schmidt, loewdin, or eigenstates of ham
-        'gramschmidt', 'loewdin', 'diag', respectively
-        :param randomizeorbitals: if need a noise in initial guess
+        :param matrix_exp: algorithm for calculating the matrix exponential and
+        gradient. Can be one of 'pade-approx', 'egdecomp', 'egdecomp-u-invar'
+        (used with u-invar representation)
+        :param representation: the way the elements of A are stored. Can be one
+        of 'sparse', 'full', 'u-invar'
+        :param functional: KS or PZ-SIC
+        :param orthonormalization: orthonormalize the orbitals using
+        gram-schmidt or loewdin orthogonalization, or getting the orbitals as
+        eigenstates of the Hamiltonian matrix. Can be one of 'gramschmidt',
+        'loewdin', 'diag'
+        :param randomizeorbitals: if True, add noise to the initial guess
         :param checkgraderror: check error in estimation of gradient
         :param localizationtype: Foster-Boys, Pipek-Mezey, Edm.-Rudenb.
         :param need_localization: use localized orbitals as initial guess
-        :param need_init_orbs: if false then use coef. stored in kpt.C_nM
+        :param need_init_orbs: if false, then use coefficients stored in
+        kpt.C_nM
         """
 
         assert representation in ['sparse', 'u-invar', 'full'], 'Value Error'
@@ -386,6 +390,9 @@ class ETDM:
         """
         Energy E = E[C exp(A)]. Gradients G_ij[C, A] = dE/dA_ij
 
+        :param wfs:
+        :param ham:
+        :param dens:
         :param a_mat_u: A
         :param c_nm_ref: C
         :param n_dim:
@@ -672,7 +679,7 @@ class ETDM:
     def rotate_wavefunctions(self, wfs, a_mat_u, n_dim, c_nm_ref):
 
         """
-        Appply unitary transformation U = exp(a_mat_u) to
+        Apply unitary transformation U = exp(a_mat_u) to
         coefficients c_nm_ref
 
         :param wfs:
@@ -722,7 +729,7 @@ class ETDM:
                 with wfs.timer('Pade Approximants'):
                     u_nn = np.ascontiguousarray(expm(a))
             elif self.matrix_exp == 'egdecomp':
-                # this method is based on diagonalisation
+                # this method is based on diagonalization
                 with wfs.timer('Eigendecomposition'):
                     u_nn, evecs, evals = expm_ed(a, evalevec=True)
             elif self.matrix_exp == 'egdecomp-u-invar':
