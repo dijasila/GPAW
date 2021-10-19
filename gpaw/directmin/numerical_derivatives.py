@@ -23,9 +23,9 @@ class NumericalDerivatives:
             self.a_mat_u = {u: np.zeros_like(v) for u,
                                                     v in etdm.a_mat_u.items()}
 
-        for kpt in wfs.kpt_u:
-            u = etdm.kpointval(kpt)
-            if random_amat:
+        if random_amat:
+            for kpt in wfs.kpt_u:
+                u = etdm.kpointval(kpt)
                 a = random_a(etdm.a_mat_u[u].shape, wfs.dtype)
                 wfs.gd.comm.broadcast(a, 0)
                 self.a_mat_u[u] = a
