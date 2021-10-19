@@ -576,9 +576,9 @@ class ETDM:
             occ_name = getattr(wfs.occupations, "name", None)
             if occ_name == 'mom':
                 if not sort_eigenvalues:
-                    self.sort_wavefunctions_mom(wfs)
+                    self.sort_orbitals_mom(wfs)
                 else:
-                    self.sort_wavefunctions(ham, wfs, use_eps=True)
+                    self.sort_orbitals(ham, wfs, use_eps=True)
                     not_update = not wfs.occupations.update_numbers
                     fixed_occ = wfs.occupations.use_fixed_occupations
                     if not_update or fixed_occ:
@@ -597,7 +597,7 @@ class ETDM:
         self.initialized = False
         self.searchdir_algo.reset()
 
-    def sort_wavefunctions(self, ham, wfs, use_eps=False):
+    def sort_orbitals(self, ham, wfs, use_eps=False):
         """
         Sort wavefunctions according to the eigenvalues or
         the diagonal elements of the Hamiltonian matrix.
@@ -625,7 +625,7 @@ class ETDM:
                         # sorting
                         self.update_mom_numbers(wfs, kpt)
 
-    def sort_wavefunctions_mom(self, wfs):
+    def sort_orbitals_mom(self, wfs):
         """
         Sort wave functions according to the occupation
         numbers so that there are no holes in the
@@ -762,13 +762,13 @@ class ETDM:
         # after orthogonalization/localization
         wfs.occupations.initialize_reference_orbitals()
         wfs.calculate_occupation_numbers(dens.fixed)
-        self.sort_wavefunctions_mom(wfs)
+        self.sort_orbitals_mom(wfs)
 
     def check_mom(self, wfs, dens):
         occ_name = getattr(wfs.occupations, "name", None)
         if occ_name == 'mom':
             self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
-            self.restart = self.sort_wavefunctions_mom(wfs)
+            self.restart = self.sort_orbitals_mom(wfs)
 
     def update_mom_numbers(self, wfs, kpt):
         if wfs.collinear and wfs.nspins == 1:
