@@ -66,12 +66,12 @@ def test_gradient_numerically_lcao(in_tmp_dir):
         dens = calc.density
 
         if eigsolver['matrix_exp'] == 'egdecomp':
-            update_c_nm_ref = False
+            update_c_ref = False
         else:
-            update_c_nm_ref = True
+            update_c_ref = True
 
         numder = Derivatives(wfs.eigensolver, wfs, random_amat=True,
-                             update_c_nm_ref=update_c_nm_ref)
+                             update_c_ref=update_c_ref)
 
         g_a = numder.get_analytical_derivatives(wfs.eigensolver, ham, wfs,
                                                 dens)

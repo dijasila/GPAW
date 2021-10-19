@@ -6,8 +6,8 @@ from gpaw.directmin.tools import d_matrix
 class KSLCAO:
 
     """
-    this class described derivartve of the KS functional
-    w.r.t rotation parameters
+    This class is used to calculate the gradient of the KS functional
+    w.r.t rotation parameters in LCAO
     """
 
     def __init__(self):
@@ -71,7 +71,7 @@ class KSLCAO:
         H_ij and H_ia, where i,j -- occupied and a - virtual
         H_ij is really needed only to calculate the residual later
         but it is not needed for u-invar representation.
-        When matrix exp calcualted using egdecomp method
+        When matrix exp calculated using egdecomp method
         we need the whole matrix H though
 
         :return: H@C_nM[:occ].T, H_ij, H_ia or
@@ -92,7 +92,7 @@ class KSLCAO:
     
     def get_residual_error(self, hc_mn, S_MM, c_nm, h_ij, f_n, nvalence):
         """
-        calculate residual error of KS equations
+        Calculate residual error of KS equations
         """
         occ = sum(f_n > 1.0e-10)
         hc_mn = hc_mn[:, :occ] - \
@@ -105,7 +105,7 @@ class KSLCAO:
     def get_exact_gradient_matrix(self, h_ij, evec, evals):
  
         """
-        given eigendecomposition of A
+        Given eigendecomposition of A
         calculate exact gradient matrix
         eq.(14), (39)-(41) from
         arXiv:2101.12597 [physics.comp-ph]

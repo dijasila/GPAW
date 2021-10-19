@@ -102,7 +102,7 @@ class DirectMinLCAO(DirectLCAO):
     def update_to_canonical_orbitals(self, wfs, ham, kpt,
                                      update_ref_orbs_canonical, restart):
         """
-        choose canonical representation
+        Choose canonical orbitals
         """
 
         h_mm = self.calculate_hamiltonian_matrix(ham, wfs, kpt)

@@ -70,7 +70,7 @@ def test_directmin_lcao_numerical_hessian(in_tmp_dir):
             for x in range(len(calc.wfs.kpt_u))}
 
     numder = Derivatives(calc.wfs.eigensolver, calc.wfs,
-                         c_nm_ref=c_nm)
+                         c_ref=c_nm)
 
     hess_n = numder.get_numerical_derivatives(
         calc.wfs.eigensolver,

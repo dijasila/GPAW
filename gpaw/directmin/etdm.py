@@ -22,7 +22,7 @@ from gpaw import BadParallelization
 class ETDM:
 
     """
-    Exponential Transformation Direct Minimzation (ETDM)
+    Exponential Transformation Direct Minimization (ETDM)
     """
 
     def __init__(self,
@@ -46,7 +46,10 @@ class ETDM:
         direct minimization:
         E = E[C_ref e^{A}]
         C_ref are the reference orbitals
-        A is a skew-Hermitian matrix which needs to be found
+        A is a skew-Hermitian matrix
+        We want to find A that optimizes the orbitals. The optimal orbitals
+        are those corresponding to a minimum for the ground state or a saddle
+        point for excited states.
 
         :param searchdir_algo: algorithm for calculating the search direction
         (e.g.LBFGS)
@@ -62,15 +65,14 @@ class ETDM:
         of 'sparse', 'full', 'u-invar'
         :param functional: KS or PZ-SIC
         :param orthonormalization: orthonormalize the orbitals using
-        gram-schmidt or loewdin orthogonalization, or getting the orbitals as
+        Gram-Schmidt or Loewdin orthogonalization, or getting the orbitals as
         eigenstates of the Hamiltonian matrix. Can be one of 'gramschmidt',
         'loewdin', 'diag'
         :param randomizeorbitals: if True, add noise to the initial guess
         :param checkgraderror: check error in estimation of gradient
         :param localizationtype: Foster-Boys, Pipek-Mezey, Edm.-Rudenb.
         :param need_localization: use localized orbitals as initial guess
-        :param need_init_orbs: if false, then use coefficients stored in
-        kpt.C_nM
+        :param need_init_orbs: if false, then use orbitals stored in kpt
         """
 
         assert representation in ['sparse', 'u-invar', 'full'], 'Value Error'
@@ -118,24 +120,22 @@ class ETDM:
         self.gd = None
         self.nbands = None
 
-        # dimensionality of the problem.
-        # this implementation rotates among all bands
-        # values: matrices, keys: kpt number (and spins)
-        self.a_mat_u = {}  # skew-hermitian matrix to be exponented
-        self.g_mat_u = {}  # gradient matrix
-        self.evecs = {}   # eigenvectors for i*a_mat_u
-        self.evals = {}   # eigenvalues for i*a_mat_u
+        # values: vectors of the elements of matrices, keys: kpt number
+        self.a_vec_u = {}  # for the elements of the skew-Hermitian matrix A
+        self.g_vec_u = {}  # for the elements of the gradient matrix G
+        self.evecs = {}   # eigenvectors for i*a_vec_u
+        self.evals = {}   # eigenvalues for i*a_vec_u
         self.ind_up = {}
         self.n_dim = {}
         self.alpha = 1.0  # step length
         self.phi_2i = [None, None]  # energy at last two iterations
         self.der_phi_2i = [None, None]  # energy gradient w.r.t. alpha
-        self.hess = {}  # approximate hessian
+        self.hess = {}  # approximate Hessian
 
         # for mom
         self.initial_occupation_numbers = None
 
-        # in this attribute we sotre the object specific to each mode
+        # in this attribute we store the object specific to each mode
         self.dm_helper = None
 
         self.initialized = False
@@ -300,8 +300,8 @@ class ETDM:
 
             shape_of_arr = len(self.ind_up[u][0])
 
-            self.a_mat_u[u] = np.zeros(shape=shape_of_arr, dtype=self.dtype)
-            self.g_mat_u[u] = np.zeros(shape=shape_of_arr, dtype=self.dtype)
+            self.a_vec_u[u] = np.zeros(shape=shape_of_arr, dtype=self.dtype)
+            self.g_vec_u[u] = np.zeros(shape=shape_of_arr, dtype=self.dtype)
             self.evecs[u] = None
             self.evals[u] = None
 
@@ -310,7 +310,7 @@ class ETDM:
     def iterate(self, ham, wfs, dens):
         """
         One iteration of direct optimization
-        for occupied states
+        for occupied orbitals
 
         :param ham:
         :param wfs:
@@ -322,7 +322,7 @@ class ETDM:
             with wfs.timer('Preconditioning:'):
                 precond = self.get_preconditioning(wfs, self.use_prec)
 
-            a_mat_u = self.a_mat_u
+            a_vec_u = self.a_vec_u
             n_dim = self.n_dim
             alpha = self.alpha
             phi_2i = self.phi_2i
@@ -330,27 +330,27 @@ class ETDM:
             c_ref = self.dm_helper.reference_orbitals
 
             if self.iters == 1:
-                phi_2i[0], g_mat_u = \
-                    self.get_energy_and_gradients(a_mat_u, n_dim, ham, wfs,
+                phi_2i[0], g_vec_u = \
+                    self.get_energy_and_gradients(a_vec_u, n_dim, ham, wfs,
                                                   dens, c_ref)
             else:
-                g_mat_u = self.g_mat_u
+                g_vec_u = self.g_vec_u
 
             with wfs.timer('Get Search Direction'):
                 # calculate search direction according to chosen
                 # optimization algorithm (e.g. L-BFGS)
-                p_mat_u = self.searchdir_algo.update_data(wfs, a_mat_u,
-                                                          g_mat_u, precond)
+                p_vec_u = self.searchdir_algo.update_data(wfs, a_vec_u,
+                                                          g_vec_u, precond)
 
             # recalculate derivative with new search direction
             der_phi_2i[0] = 0.0
-            for k in g_mat_u:
-                der_phi_2i[0] += g_mat_u[k].conj() @ p_mat_u[k]
+            for k in g_vec_u:
+                der_phi_2i[0] += g_vec_u[k].conj() @ p_vec_u[k]
             der_phi_2i[0] = der_phi_2i[0].real
             der_phi_2i[0] = wfs.kd.comm.sum(der_phi_2i[0])
 
-            alpha, phi_alpha, der_phi_alpha, g_mat_u = \
-                self.line_search.step_length_update(a_mat_u, p_mat_u,
+            alpha, phi_alpha, der_phi_alpha, g_vec_u = \
+                self.line_search.step_length_update(a_vec_u, p_vec_u,
                                                     n_dim, ham, wfs, dens,
                                                     c_ref,
                                                     phi_0=phi_2i[0],
@@ -371,48 +371,48 @@ class ETDM:
                     der_phi_2i[0] = alpha_phi_der_phi[2]
                     for kpt in wfs.kpt_u:
                         k = self.kpointval(kpt)
-                        wfs.gd.comm.broadcast(g_mat_u[k], 0)
+                        wfs.gd.comm.broadcast(g_vec_u[k], 0)
 
             # calculate new matrices for optimal step length
-            for k in a_mat_u:
-                a_mat_u[k] += alpha * p_mat_u[k]
+            for k in a_vec_u:
+                a_vec_u[k] += alpha * p_vec_u[k]
             self.alpha = alpha
-            self.g_mat_u = g_mat_u
+            self.g_vec_u = g_vec_u
             self.iters += 1
 
             # and 'shift' phi, der_phi for the next iteration
             phi_2i[1], der_phi_2i[1] = phi_2i[0], der_phi_2i[0]
             phi_2i[0], der_phi_2i[0] = phi_alpha, der_phi_alpha,
 
-    def get_energy_and_gradients(self, a_mat_u, n_dim, ham, wfs, dens,
-                                 c_nm_ref):
+    def get_energy_and_gradients(self, a_vec_u, n_dim, ham, wfs, dens,
+                                 c_ref):
 
         """
-        Energy E = E[C exp(A)]. Gradients G_ij[C, A] = dE/dA_ij
+        Energy E = E[C_ref exp(A)]. Gradients G_ij[C, A] = dE/dA_ij
 
         :param wfs:
         :param ham:
         :param dens:
-        :param a_mat_u: A
-        :param c_nm_ref: C
+        :param a_vec_u: A
+        :param c_ref: C_ref
         :param n_dim:
         :return:
         """
 
-        self.rotate_wavefunctions(wfs, a_mat_u, n_dim, c_nm_ref)
+        self.rotate_wavefunctions(wfs, a_vec_u, n_dim, c_ref)
 
         e_total = self.update_ks_energy(ham, wfs, dens)
 
         with wfs.timer('Calculate gradients'):
-            g_mat_u = {}
+            g_vec_u = {}
             self.error = 0.0
             self.e_sic = 0.0  # this is odd energy
             for kpt in wfs.kpt_u:
                 k = self.kpointval(kpt)
                 if n_dim[k] == 0:
-                    g_mat_u[k] = np.zeros_like(a_mat_u[k])
+                    g_vec_u[k] = np.zeros_like(a_vec_u[k])
                     continue
-                g_mat_u[k], error = self.dm_helper.calc_grad(
+                g_vec_u[k], error = self.dm_helper.calc_grad(
                     wfs, ham, kpt, self.func, self.evecs[k], self.evals[k],
                     self.matrix_exp, self.representation, self.ind_up[k])
 
@@ -426,20 +426,20 @@ class ETDM:
             self._norm_commutator = 0.0
             for kpt in wfs.kpt_u:
                 u = self.kpointval(kpt)
-                a = vec2skewmat(a_mat_u[u], self.n_dim[u],
-                                self.ind_up[u], wfs.dtype)
-                g = vec2skewmat(g_mat_u[u], self.n_dim[u],
-                                self.ind_up[u], wfs.dtype)
+                a_mat = vec2skewmat(a_vec_u[u], self.n_dim[u],
+                                    self.ind_up[u], wfs.dtype)
+                g_mat = vec2skewmat(g_vec_u[u], self.n_dim[u],
+                                    self.ind_up[u], wfs.dtype)
 
-                tmp = np.linalg.norm(g @ a - a @ g)
+                tmp = np.linalg.norm(g_mat @ a_mat - a_mat @ g_mat)
                 if self._norm_commutator < tmp:
                     self._norm_commutator = tmp
 
-                tmp = np.linalg.norm(g)
+                tmp = np.linalg.norm(g_mat)
                 if self._norm_grad < tmp:
                     self._norm_grad = tmp
 
-        return e_total + self.e_sic, g_mat_u
+        return e_total + self.e_sic, g_vec_u
 
     def update_ks_energy(self, ham, wfs, dens):
         """
@@ -452,32 +452,31 @@ class ETDM:
 
         return ham.get_energy(0.0, wfs, False)
 
-    def evaluate_phi_and_der_phi(self, a_mat_u, p_mat_u, n_dim, alpha,
+    def evaluate_phi_and_der_phi(self, a_vec_u, p_mat_u, n_dim, alpha,
                                  ham, wfs, dens, c_ref,
-                                 phi=None, g_mat_u=None):
+                                 phi=None, g_vec_u=None):
         """
         phi = f(x_k + alpha_k*p_k)
         der_phi = \\grad f(x_k + alpha_k*p_k) \\cdot p_k
         :return:  phi, der_phi # floats
         """
-        if phi is None or g_mat_u is None:
-            x_mat_u = {k: a_mat_u[k] + alpha * p_mat_u[k] for k in a_mat_u}
-            phi, g_mat_u = self.get_energy_and_gradients(x_mat_u, n_dim,
+        if phi is None or g_vec_u is None:
+            x_mat_u = {k: a_vec_u[k] + alpha * p_mat_u[k] for k in a_vec_u}
+            phi, g_vec_u = self.get_energy_and_gradients(x_mat_u, n_dim,
                                                          ham, wfs, dens, c_ref)
 
         der_phi = 0.0
         for k in p_mat_u:
-            der_phi += g_mat_u[k].conj() @ p_mat_u[k]
+            der_phi += g_vec_u[k].conj() @ p_mat_u[k]
 
         der_phi = der_phi.real
         der_phi = wfs.kd.comm.sum(der_phi)
 
-        return phi, der_phi, g_mat_u
+        return phi, der_phi, g_vec_u
 
     def update_ref_orbitals(self, wfs, ham, dens):
         """
-        update orbitals which are chosen as reference
-        orbitals to which rotation is applied
+        Update reference orbitals
 
         :param wfs:
         :param ham:
@@ -499,7 +498,7 @@ class ETDM:
                 self.dm_helper.set_reference_orbitals(wfs, self.n_dim)
                 for kpt in wfs.kpt_u:
                     u = self.kpointval(kpt)
-                    self.a_mat_u[u] = np.zeros_like(self.a_mat_u[u])
+                    self.a_vec_u[u] = np.zeros_like(self.a_vec_u[u])
 
             # Erase memory of search direction algorithm
             self.searchdir_algo.reset()
@@ -538,10 +537,8 @@ class ETDM:
 
     def get_hessian(self, kpt):
         """
-        calculate approximate hessian:
-
+        Calculate the following diagonal approximation to the Hessian:
         h_{lm, lm} = -2.0 * (eps_n[l] - eps_n[m]) * (f[l] - f[m])
-        other elements are zero
         """
 
         f_n = kpt.f_n
@@ -565,12 +562,10 @@ class ETDM:
     def get_canonical_representation(self, ham, wfs, dens,
                                      sort_eigenvalues=False):
         """
-        choose canonical orbitals which diagonalise
-        lagrange matrix. it's probably necessary
-        to do subspace rotation with equally
-        occupied states.
-        In this case, the total energy remains the same,
-        as it's unitary invariant within equally occupied subspaces.
+        Choose canonical orbitals as the orbitals that diagonalize the
+        Lagrange matrix. It is probably necessary to do a subspace rotation
+        with equally occupied orbitals as the total energy is unitary invariant
+        within equally occupied subspaces.
         """
 
         with wfs.timer('Get canonical representation'):
@@ -595,7 +590,7 @@ class ETDM:
             self.dm_helper.set_reference_orbitals(wfs, self.n_dim)
             for kpt in wfs.kpt_u:
                 u = self.kpointval(kpt)
-                self.a_mat_u[u] = np.zeros_like(self.a_mat_u[u])
+                self.a_vec_u[u] = np.zeros_like(self.a_vec_u[u])
 
     def reset(self):
 
@@ -606,8 +601,8 @@ class ETDM:
 
     def sort_orbitals(self, ham, wfs, use_eps=False):
         """
-        Sort wavefunctions according to the eigenvalues or
-        the diagonal elements of the Hamiltonian matrix.
+        Sort orbitals according to the eigenvalues or
+        the diagonal elements of the Hamiltonian matrix
         """
 
         with wfs.timer('Sort WFS'):
@@ -634,7 +629,7 @@ class ETDM:
 
     def sort_orbitals_mom(self, wfs):
         """
-        Sort wave functions according to the occupation
+        Sort orbitals according to the occupation
         numbers so that there are no holes in the
         distribution of occupation numbers
         :return:
@@ -676,16 +671,16 @@ class ETDM:
                 'orthonormalization': self.orthonormalization
                 }
 
-    def rotate_wavefunctions(self, wfs, a_mat_u, n_dim, c_nm_ref):
+    def rotate_wavefunctions(self, wfs, a_vec_u, n_dim, c_ref):
 
         """
-        Apply unitary transformation U = exp(a_mat_u) to
-        coefficients c_nm_ref
+        Apply unitary transformation U = exp(A) to
+        the orbitals c_ref
 
         :param wfs:
-        :param a_mat_u:
+        :param a_vec_u:
         :param n_dim:
-        :param c_nm_ref:
+        :param c_ref:
         :return:
         """
 
@@ -696,19 +691,19 @@ class ETDM:
                     continue
 
                 u_nn = self.get_exponential_matrix_kpt(wfs, kpt,
-                                                       a_mat_u,
+                                                       a_vec_u,
                                                        n_dim)
 
                 self.dm_helper.appy_transformation_kpt(
-                    wfs, u_nn.T, kpt, c_nm_ref[k], False, False)
+                    wfs, u_nn.T, kpt, c_ref[k], False, False)
 
                 with wfs.timer('Calculate projections'):
                     self.dm_helper.update_projections(wfs, kpt)
 
-    def get_exponential_matrix_kpt(self, wfs, kpt, a_mat_u, n_dim):
+    def get_exponential_matrix_kpt(self, wfs, kpt, a_vec_u, n_dim):
         """
         Get unitary matrix U as the exponential of a skew-Hermitian
-        matrix a_mat_u (U = exp(a_mat_u))
+        matrix A (U = exp(A))
         """
 
         k = self.kpointval(kpt)
@@ -718,23 +713,23 @@ class ETDM:
                     self.representation == 'u-invar':
                 n_occ = get_n_occ(kpt)
                 n_v = n_dim[k] - n_occ
-                a = a_mat_u[k].reshape(n_occ, n_v)
+                a_mat = a_vec_u[k].reshape(n_occ, n_v)
             else:
-                a = vec2skewmat(a_mat_u[k], n_dim[k],
-                                self.ind_up[k], self.dtype)
+                a_mat = vec2skewmat(a_vec_u[k], n_dim[k],
+                                    self.ind_up[k], self.dtype)
 
             if self.matrix_exp == 'pade-approx':
                 # this function takes a lot of memory
                 # for large matrices... what can we do?
                 with wfs.timer('Pade Approximants'):
-                    u_nn = np.ascontiguousarray(expm(a))
+                    u_nn = np.ascontiguousarray(expm(a_mat))
             elif self.matrix_exp == 'egdecomp':
                 # this method is based on diagonalization
                 with wfs.timer('Eigendecomposition'):
-                    u_nn, evecs, evals = expm_ed(a, evalevec=True)
+                    u_nn, evecs, evals = expm_ed(a_mat, evalevec=True)
             elif self.matrix_exp == 'egdecomp-u-invar':
                 with wfs.timer('Eigendecomposition'):
-                    u_nn = expm_ed_unit_inv(a, oo_vo_blockonly=False)
+                    u_nn = expm_ed_unit_inv(a_mat, oo_vo_blockonly=False)
 
         with wfs.timer('Broadcast u_nn'):
             if self.gd.comm.rank != 0:
@@ -787,7 +782,7 @@ class ETDM:
 
     def randomize_orbitals_kpt(self, wfs, kpt):
         """
-        add random noise to orbitals but keep them still orthonormal
+        Add random noise to orbitals but keep them orthonormal
         """
         nst = self.nbands
         wt = kpt.weight * 0.01
@@ -810,7 +805,7 @@ class ETDM:
 
 def get_n_occ(kpt):
     """
-    get number of occupied orbitals
+    Get number of occupied orbitals
     """
     return len(kpt.f_n) - np.searchsorted(kpt.f_n[::-1], 1e-10)
 
@@ -827,8 +822,8 @@ def random_a(shape, dtype):
 
 def vec2skewmat(a_vec, dim, ind_up, dtype):
 
-    a = np.zeros(shape=(dim, dim), dtype=dtype)
-    a[ind_up] = a_vec
-    a -= a.T.conj()
-    np.fill_diagonal(a, a.diagonal() * 0.5)
-    return a
+    a_mat = np.zeros(shape=(dim, dim), dtype=dtype)
+    a_mat[ind_up] = a_vec
+    a_mat -= a_mat.T.conj()
+    np.fill_diagonal(a_mat, a_mat.diagonal() * 0.5)
+    return a_mat
