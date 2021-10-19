@@ -2,7 +2,7 @@ import pytest
 
 from ase import Atoms
 from gpaw import GPAW, LCAO
-from gpaw.directmin.numerical_derivatives import NumericalDerivatives
+from gpaw.directmin.derivatives import Derivatives
 import numpy as np
 
 
@@ -34,7 +34,7 @@ def test_directmin_lcao_numerical_hessian(in_tmp_dir):
     atoms.calc = calc
     atoms.get_potential_energy()
 
-    numder = NumericalDerivatives(calc.wfs.eigensolver, calc.wfs)
+    numder = Derivatives(calc.wfs.eigensolver, calc.wfs)
 
     hess_n = numder.get_numerical_derivatives(
         calc.wfs.eigensolver,
@@ -69,8 +69,8 @@ def test_directmin_lcao_numerical_hessian(in_tmp_dir):
     c_nm = {x: calc.wfs.kpt_u[x].C_nM.copy()
             for x in range(len(calc.wfs.kpt_u))}
 
-    numder = NumericalDerivatives(calc.wfs.eigensolver, calc.wfs,
-                                  c_nm_ref=c_nm)
+    numder = Derivatives(calc.wfs.eigensolver, calc.wfs,
+                         c_nm_ref=c_nm)
 
     hess_n = numder.get_numerical_derivatives(
         calc.wfs.eigensolver,

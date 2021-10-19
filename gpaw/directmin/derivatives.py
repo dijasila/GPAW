@@ -2,7 +2,7 @@ import numpy as np
 from gpaw.directmin.etdm import random_a
 
 
-class NumericalDerivatives:
+class Derivatives:
 
     def __init__(self, etdm, wfs, c_nm_ref=None, a_mat_u=None,
                  update_c_nm_ref=False, eps=1.0e-7, random_amat=False):
