@@ -62,8 +62,8 @@ class KSLCAO:
 
         return 2.0 * grad, error
 
-    def get_ham_in_mol_orb_representation(self, h_mm, c_nm, f_n, matrix_rep,
-                                          full_ham):
+    def get_ham_in_mol_orb_representation(self, h_mm, c_nm, f_n,
+                                          representation, full_ham):
 
         """
         H = (C_nM @ H_MM @ C_nM.T.conj()).conj()
@@ -79,7 +79,8 @@ class KSLCAO:
         """
 
         occ = sum(f_n > 1.0e-10)
-        if matrix_rep in ['sparse', 'u-invar'] and not full_ham:
+        if representation in ['sparse', 'u-invar'] \
+                and not full_ham:
             hc_mn = h_mm.conj() @ c_nm[:occ].T
             h_ij = hc_mn.T.conj() @ c_nm[:occ].T
             h_ia = hc_mn.T.conj() @ c_nm[occ:].T
