@@ -63,3 +63,10 @@ doc/setups/[A-Z]*.rst
 !requirements.txt
 !mypy.ini
 !pytest.ini
+
+# Ignore PyCharm settings
+.idea/
+
+# Ignore VS Code settings
+.vscode/
+
