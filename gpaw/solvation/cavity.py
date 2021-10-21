@@ -364,29 +364,29 @@ def get_vdw_radii(atoms):
 class Power12Potential(Potential):
     """Inverse power law potential.
 
-    An 1 / r ** 12 repulsive potential
-    taking the value u0 at the atomic radius.
+    A 1 / r ** 12 repulsive potential taking the value u0 at the atomic radius.
 
     See also
     A. Held and M. Walter, J. Chem. Phys. 141, 174108 (2014).
+
+    Parameters:
+
+    atomic_radii: function
+        Callable mapping an ase.Atoms object to an iterable of atomic radii
+        in Angstroms. If not provided, defaults to van der Waals radii.
+    u0: float
+        Strength of the potential at the atomic radius in eV.
+        Defaults to 0.18 eV, the best-fit value for water from Held &
+        Walter.
+    pbc_cutoff: float
+        Cutoff in eV for including neighbor cells in a calculation with
+        periodic boundary conditions.
     """
     depends_on_el_density = False
     depends_on_atomic_positions = True
 
     def __init__(self, atomic_radii=None, u0=0.180, pbc_cutoff=1e-6,
                  tiny=1e-10):
-        """Constructor for the Power12Potential class.
-
-        Arguments:
-        atomic_radii -- Callable mapping an ase.Atoms object
-                        to an iterable of atomic radii in Angstroms.
-                        If not provided, defaults to van der Waals radii.
-        u0           -- Strength of the potential at the atomic radius in eV.
-                        Defaults to 0.180 eV, the best-fit value for water from
-                        Held & Walter.
-        pbc_cutoff   -- Cutoff in eV for including neighbor cells in
-                        a calculation with periodic boundary conditions.
-        """
         Potential.__init__(self)
         if atomic_radii is None:
             atomic_radii = get_vdw_radii

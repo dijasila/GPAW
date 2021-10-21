@@ -84,7 +84,7 @@ Use the same system as the previous example, but add an H atom to the surface as
 If you examine the output, you should see this behaves the same as any other relaxation job, except the potential is constant, rather than the number of electrons.
 
 A faster route: simultaneous potential and structure optimization
-========================================================
+=================================================================
 
 It is often faster to optimize the structure and the potential simultaneously.
 That is, instead of waiting until the potential is perfectly equilibrated before taking an ionic step, you can take an ionic step and adjust the number of electrons simultaneously.
@@ -136,7 +136,7 @@ Although the reaction modeled here is very simple and doesn't involve much need 
 You'll note that we used :literal:`DyNEB` instead of the regular :literal:`NEB`.
 Although :literal:`NEB` will also work fine, :literal:`DyNEB` is more efficient as it skips re-calculating individual images whose maximum force is already below the cutoff (of :literal:`fmax=0.05`).
 Note also that parallelizing a NEB over images is in general not a great strategy when using a grand-canonical method, because typically only one of the images might need potential equilibration on any individual force call of the NEB---and in parallel-image mode all of the images would need to wait for that individual image.
-However, running in serial allows us to take advantage of the computational efficiency of the :lilteral:`DyNEB` method, which is not possible when parallelizing over images.
+However, running in serial allows us to take advantage of the computational efficiency of the :literal:`DyNEB` method, which is not possible when parallelizing over images.
 
 Constant-charge mode
 ====================
@@ -156,16 +156,3 @@ To accomplish this, set :literal:`sj['grand_output'] = False`, like::
     sj = {'excess_electrons': ...,
           'grand_output': False} :
     calc = GPAW(sj=sj, ...)
-
-References
-==========
-
-.. [#SJM18] G. Kastlunger, P. Lindgren, A. A. Peterson,
-            :doi:`Controlled-Potential Simulation of Elementary Electrochemical Reactions: Proton Discharge on Metal Surfaces <10.1021/acs.jpcc.8b02465>`,
-            *J. Phys. Chem. C* **122** (24), 12771 (2018)
-.. [#NEB00] G. Henkelman and H. Jonsson,
-            :doi:`Improved Tangent Estimate in the NEB method for Finding Minimum Energy Paths and Saddle Points <10.1063/1.1323224>`,
-            *J. Chem. Phys.* **113**, 9978 (2000)
-.. [#HW14] A. Held and M. Walter,
-           :doi:`Simplified continuum solvent model with a smooth cavity based on volumetric data <10.1063/1.4900838>`,
-           *J. Chem. Phys.* **141**, 174108 (2014).

@@ -35,18 +35,18 @@ from gpaw.solvation.poisson import WeightedFDPoissonSolver
 class SJM(SolvationGPAW):
     r"""Solvated Jellium method.
     (Implemented as a subclass of the SolvationGPAW class.)
-
-    The method allows the simulation of an electrochemical environment,
-    where the potential can be varied by changing the charging (that is,
-    number of electrons) of the system. For this purpose, it allows the usage
-    of non-neutral periodic slab systems. Cell neutrality is achieved by adding
-    a background charge in the solvent region above the slab
-
+    
+    The method allows the simulation of an electrochemical environment, where
+    the potential can be varied by changing the charging (that is, number of
+    electrons) of the system. For this purpose, it allows the usagelof non-
+    neutral periodic slab systems. Cell neutrality is achieved by adding a
+    background charge in the solvent region above the slab
+    
     Further details are given in http://dx.doi.org/10.1021/acs.jpcc.8b02465
     If you use this method, we appreciate it if you cite that work.
-
+    
     The method can be run in two modes:
-
+    
         - Constant charge: The number of excess electrons in the simulation
           can be directly specified with the 'excess_electrons' keyword,
           leaving 'target_potential' set to None.
@@ -54,14 +54,14 @@ class SJM(SolvationGPAW):
           function) can be specified with the 'target_potential' keyword.
           Optionally, the 'excess_electrons' keyword can be supplied to specify
           the initial guess of the number of electrons.
-
+    
     By default, this method writes the grand-potential energy to the output;
     that is, the energy that has been adjusted with `- \mu N` (in this case,
     `\mu` is the work function and `N` is the excess electrons). This is the
     energy that is compatible with the forces in constant-potential mode and
     thus will behave well with optimizers, NEBs, etc. It is also frequently
     used in subsequent free-energy calculations.
-
+    
     Within this method, the potential is expressed as the top-side work
     function of the slab. Therefore, a potential of 0 V_SHE corresponds to
     a work function of roughly 4.4 eV. (That is, the user should specify
@@ -70,14 +70,14 @@ class SJM(SolvationGPAW):
     function itself needs to be well-converged. For this reason, the
     'work function' keyword is automatically added to the SCF convergence
     dictionary with a value of 0.001. This can be overriden by the user.
-
+    
     This method requires a dipole correction, and this is turned on
     automatically, but can be overridden with the poissonsolver keyword.
-
+    
     The SJM class takes a single argument, the sj dictionary. All other
     arguments are fed to the parent SolvationGPAW (and therefore GPAW)
     calculator.
-
+    
     Parameters:
 
     sj: dict
@@ -755,42 +755,39 @@ def _calculate_slope(previous_electrons, previous_potentials):
 
 
 class SJMPower12Potential(Power12Potential):
-    """Inverse power law potential.
+    r"""Inverse power-law potential.
+    Inverse power law potential for SJM, inherited from the
+    Power12Potential of gpaw.solvation. This is a 1/r^{12} repulive
+    potential taking the value u0 at the atomic radius. In SJM one also has the
+    option of removing the solvent from the electrode backside and adding
+    ghost plane/atoms to remove the solvent from the electrode-water interface.
 
-    A `1/r^{12}` repulsive potential taking the value u0 at the atomic radius.
+    Parameters:
 
-    See also
-    A. Held and M. Walter, J. Chem. Phys. 141, 174108 (2014).
-
-    In SJM one also has the option of removing the solvent from the
-    electrode backside and adding ghost plane/atoms to remove the solvent
-    from the electrode-water interface.
-
-    Parameters
-    ----------
-    atomic_radii : float
+    atomic_radii: function
         Callable mapping an ase.Atoms object to an iterable of atomic radii
         in Angstroms. If not provided, defaults to van der Waals radii.
-    u0 : float
+    u0: float
         Strength of the potential at the atomic radius in eV.
         Defaults to 0.18 eV, the best-fit value for water from Held &
         Walter.
-    pbc_cutoff : float
+    pbc_cutoff: float
         Cutoff in eV for including neighbor cells in a calculation with
         periodic boundary conditions.
-    H2O_layer: bool,int or 'plane' (default: False)
+    H2O_layer: bool, int or str
         True: Exclude the implicit solvent from the interface region
-            between electrode and water. Ghost atoms will be added below
-            the water layer.
-        int: Explicitly account for the given number of water molecules
-            above electrode. This is handy if H2O is directly adsorbed
-            and a water layer is present in the unit cell at the same time.
-        'plane': Use a plane instead of ghost atoms for freeing the
-            surface.
+        between electrode and water. Ghost atoms will be added below
+        the water layer.
+        False: The opposite of True. [default]
+        int: Explicitly account for the given number of water molecules above
+        electrode. This is handy if H2O is directly adsorbed and a water layer
+        is present in the unit cell at the same time.
+        'plane': Use a plane instead of ghost atoms for freeing the surface.
     unsolv_backside: bool
         Exclude implicit solvent from the region behind the electrode
 
     """
+
     depends_on_el_density = False
     depends_on_atomic_positions = True
 
@@ -968,7 +965,6 @@ class SJM_RealSpaceHamiltonian(SolvationRealSpaceHamiltonian):
 
     In contrast to the standard implicit solvent model a dipole correction can
     also be applied; this is the only difference from its parent.
-
     """
 
     def __init__(self, cavity, dielectric, interactions, gd, finegd, nspins,

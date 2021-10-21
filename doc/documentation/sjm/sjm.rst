@@ -140,12 +140,12 @@ As described in the  :ref:`solvated_jellium_method` tutorial, this can sometimes
 References
 ==========
 
-.. [Held2014] A. Held and M. Walter,
-           :doi:`Simplified continuum solvent model with a smooth cavity based on volumetric data <10.1063/1.4900838>`,
-           *J. Chem. Phys.* **141**, 174108 (2014).
 .. [Kastlunger2018] G. Kastlunger, P. Lindgren, A. A. Peterson,
                     :doi:`Controlled-Potential Simulation of Elementary Electrochemical Reactions: Proton Discharge on Metal Surfaces <10.1021/acs.jpcc.8b02465>`,
                     *J. Phys. Chem. C* **122** (24), 12771 (2018)
+.. [Held2014] A. Held and M. Walter,
+           :doi:`Simplified continuum solvent model with a smooth cavity based on volumetric data <10.1063/1.4900838>`,
+           *J. Chem. Phys.* **141**, 174108 (2014).
 
 Class documentation
 ===================
