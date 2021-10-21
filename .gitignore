@@ -62,6 +62,10 @@ doc/setups/[A-Z]*.rst
 # Emacs lock files:
 .\#*
 
+# Files produced by AGTS (myqueue)
+*.py.state
+*.py.*.err
+
 # These are OK:
 !requirements.txt
 !mypy.ini

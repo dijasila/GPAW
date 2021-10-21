@@ -39,7 +39,7 @@ def get_traceback_string():
 
 
 class SJM(SolvationGPAW):
-    """Solvated Jellium method.
+    r"""Solvated Jellium method.
     (Implemented as a subclass of the SolvationGPAW class.)
 
     The method allows the simulation of an electrochemical environment,
@@ -62,11 +62,11 @@ class SJM(SolvationGPAW):
           the initial guess of the number of electrons.
 
     By default, this method writes the grand-potential energy to the output;
-    that is, the energy that has been adjusted with "- mu N" (in this case,
-    mu is the work function and N is the excess electrons). This is the energy
-    that is compatible with the forces in constant-potential mode and thus
-    will behave well with optimizers, NEBs, etc. It is also frequently used in
-    subsequent free-energy calculations.
+    that is, the energy that has been adjusted with `- \mu N` (in this case,
+    `\mu` is the work function and `N` is the excess electrons). This is the
+    energy that is compatible with the forces in constant-potential mode and
+    thus will behave well with optimizers, NEBs, etc. It is also frequently
+    used in subsequent free-energy calculations.
 
     Within this method, the potential is expressed as the top-side work
     function of the slab. Therefore, a potential of 0 V_SHE corresponds to
@@ -94,18 +94,18 @@ class SJM(SolvationGPAW):
 
     excess_electrons: float
         Number of electrons added in the atomic system and (with opposite
-        sign) in the background charge region. If the `target_potential`
-        keyword is also supplied, `excess_electrons` is taken as an initial
+        sign) in the background charge region. If the 'target_potential'
+        keyword is also supplied, 'excess_electrons' is taken as an initial
         guess for the needed number of electrons.
     target_potential: float
         The potential that should be reached or kept in the course of the
-        calculation. If set to "None" (default) a constant-charge
-        calculation based on the value of `excess_electrons` is performed.
+        calculation. If set to 'None' (default) a constant-charge
+        calculation based on the value of 'excess_electrons' is performed.
         Expressed as a work function, on the top side of the slab; see note
         above.
     tol: float
         Tolerance for the deviation of the target potential.
-        If the potential is outside the defined range `ne` will be
+        If the potential is outside the defined range 'ne' will be
         changed in order to get inside again. Default: 0.01 V.
     max_iters: int
         In constant-potential mode, the maximum number of iterations to try
@@ -135,7 +135,7 @@ class SJM(SolvationGPAW):
             to a change in the atomic geometry during a relaxation.
             Omitted in a 'cavity_like' jelliumregion.
             Default: False
-    write_grandpotential_energy: bool
+    grand_output: bool
         Write the grand-potential energy into output files such as
         trajectory files. Default: True
     always_adjust: bool
@@ -153,9 +153,10 @@ class SJM(SolvationGPAW):
         apparent capacitance of 10 uF/cm^2.
     max_step : float
         When equilibrating the potential, if a step results in the
-        potential changing by more than `max_step` V, then the step size is
-        cut in half and we try again. This is to avoid leaving the linear
-        region. You can set to np.inf to turn this off. Default: 2 V.
+        potential being further from the target and changing by more than
+        'max_step' V, then the step size is cut in half and we try again. This
+        is to avoid leaving the linear region. You can set to np.inf to turn
+        this off. Default: 2 V.
     mixer : float
         Damping for the slope estimate. Because estimating slopes can
         sometimes be noisy (particularly for small changes, or when
@@ -186,9 +187,9 @@ class SJM(SolvationGPAW):
                            'thickness': None,
                            'fix_bottom': False},
          'target_potential': None,
-         'write_grandpotential_energy': True,
          'tol': 0.01,
          'always_adjust': False,
+         'grand_output': True,
          'max_iters': 10,
          'max_step': 2.,
          'slope': None,
@@ -291,9 +292,12 @@ class SJM(SolvationGPAW):
                     msg += 'new calculation required.'
                     self.results = {}
                     if self.atoms and p.slope is not None:
-                        p.excess_electrons = ((p.target_potential -
-                                              true_potential) / p.slope)
-                    self.set(background_charge=self._create_jellium())
+                        p.excess_electrons += ((p.target_potential -
+                                               true_potential) / p.slope)
+                        self.set(background_charge=self._create_jellium())
+                        msg += ('\n Excess electrons changed to {:.4f} based '
+                                'on slope of {:.4f} V/electron.'
+                                .format(p.excess_electrons, p.slope))
                 else:
                     msg += 'already within tolerance.'
                 self.sog(msg)
@@ -383,7 +387,7 @@ class SJM(SolvationGPAW):
         # Note that grand-potential energies were assembled in summary,
         # which in turn was called by GPAW.calculate.
 
-        if p.write_grandpotential_energy:
+        if p.grand_output:
             self.results['energy'] = self.omega_extrapolated * Ha
             self.results['free_energy'] = self.omega_free * Ha
             self.sog('Grand-potential energy was written into results.\n')
@@ -433,7 +437,10 @@ class SJM(SolvationGPAW):
             except IndexError:
                 pass
             else:
-                if stepsize > p.max_step:
+                new_diff = abs(true_potential - p.target_potential)
+                old_diff = abs(self._previous_potentials[-1] -
+                               p.target_potential)
+                if stepsize > p.max_step and new_diff > old_diff:
                     self.sog('Step resulted in a potential change of {:.2f} '
                              'V, larger than max_step ({:.2f} V).\nThe step is'
                              ' rejected and the change in excess_electrons '
@@ -537,7 +544,7 @@ class SJM(SolvationGPAW):
         self.omega_free = self.hamiltonian.e_total_free + mu_N
         self.omega_extrapolated = self.hamiltonian.e_total_extrapolated + mu_N
         self.sog('Legendre-transformed energies (Omega = E - N mu)')
-        self.sog('  (grand potential energies)')
+        self.sog('  (grand-potential energies)')
         self.sog('  N (excess electrons): {:+11.6f}'
                  .format(p.excess_electrons))
         self.sog('  mu (workfunction, eV): {:+11.6f}'
@@ -763,8 +770,7 @@ def _calculate_slope(previous_electrons, previous_potentials):
 class SJMPower12Potential(Power12Potential):
     """Inverse power law potential.
 
-    An 1 / r ** 12 repulsive potential
-    taking the value u0 at the atomic radius.
+    A `1/r^{12}` repulsive potential taking the value u0 at the atomic radius.
 
     See also
     A. Held and M. Walter, J. Chem. Phys. 141, 174108 (2014).

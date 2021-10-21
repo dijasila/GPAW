@@ -1,5 +1,8 @@
-from ase.build import fcc111, molecule
+from ase import Atom
+import ase.io
 from ase.units import Pascal, m
+from ase.optimize import BFGS
+from ase.constraints import FixAtoms
 
 from gpaw.solvation.sjm import SJM, SJMPower12Potential
 from gpaw.solvation import (
@@ -8,17 +11,17 @@ from gpaw.solvation import (
     GradientSurface,
     SurfaceInteraction)
 
-# Build a tiny gold slab with a single water molecule above.
-atoms = fcc111('Au', size=(1, 1, 3))
-atoms.center(axis=2, vacuum=12.)
-atoms.translate([0., 0., -4.])
-water = molecule('H2O')
-water.rotate('y', 90.)
-water.positions += atoms[2].position + (0., 0., 4.4) - water[0].position
-atoms.extend(water)
+# Add an H adsorbate.
+atoms = ase.io.read('Au111.traj')
+atoms.append(Atom('H', atoms[2].position + (0., 0., 1.5)))
+
+# Fix some atoms.
+atoms.set_constraint(FixAtoms(indices=[0, 1]))
 
 # Solvated jellium parameters.
-sj = {'target_potential': 4.2}  # Desired potential
+sj = {'target_potential': 4.2,
+      'tol': 0.2,
+      'always_adjust': True}
 
 # Implicit solvent parameters (to SolvationGPAW).
 epsinf = 78.36  # dielectric constant of water at 298 K
@@ -33,7 +36,7 @@ interactions = [SurfaceInteraction(surface_tension=gamma)]
 # The calculator
 calc = SJM(
     # General GPAW parameters.
-    txt='Au111.txt',
+    txt='Au111-H-sim.txt',
     gpts=(16, 16, 136),
     kpts=(9, 9, 1),
     xc='PBE',
@@ -46,6 +49,15 @@ calc = SJM(
 atoms.calc = calc
 
 # Run the calculation.
-atoms.get_potential_energy()
-atoms.write('Au111.traj')
-calc.write_sjm_traces()
+opt = BFGS(atoms, trajectory='qn-Au111-H-sim.traj',
+           logfile='qn-Au111-H-sim.log')
+opt.run()
+
+# Tighten the tolerances again.
+sj['tol'] = 0.01
+sj['always_adjust'] = False
+sj['slope'] = None
+calc.set(sj=sj)
+opt = BFGS(atoms, trajectory='qn-Au111-H-sim-1.traj',
+           logfile='qn-Au111-H-sim.log')
+opt.run()
