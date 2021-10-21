@@ -77,5 +77,4 @@ ax.set_ylim(ylim)
 ax.set_xlabel(r'$z$, $\mathrm{\AA}$')
 ax.set_ylabel(r'$y$, $\mathrm{\AA}$')
 
-fig.savefig('overview.pdf')  # FIXME/ap: remove
 fig.savefig('overview.png')

@@ -12,6 +12,18 @@ from gpaw.solvation import (
     SurfaceInteraction
 )
 
+
+def write_potential_and_charge(label):
+    """Dumps the full potential and charge to pickle files for analysis by
+    separate script."""
+    esp = atoms.calc.get_electrostatic_potential()
+    with paropen(f'esp{label}.pickle', 'wb') as f:
+        pickle.dump(esp, f)
+    n = calc.get_all_electron_density()
+    with paropen(f'all{label}.pickle', 'wb') as f:
+        pickle.dump(n, f)
+
+
 atoms = Atoms(symbols='Pt27OH2OH2OH2OH2OH2OH2',
               pbc=np.array([True, True, False]),
               cell=np.array(
@@ -96,16 +108,6 @@ calc = SJM(txt='gpaw-potential.txt',
 atoms.set_calculator(calc)
 atoms.get_potential_energy()
 
-
-def write_potential_and_charge(label):
-    esp = atoms.calc.get_electrostatic_potential()
-    with paropen(f'esp{label}.pickle', 'wb') as f:
-        pickle.dump(esp, f)
-    n = calc.get_all_electron_density()
-    with paropen(f'all{label}.pickle', 'wb') as f:
-        pickle.dump(n, f)
-
-
 # Write output for all the figures.
 atoms.write('atoms.traj')
 calc.write_sjm_traces(path='sjm_traces4.4V.out')  # *.out for .gitignore
@@ -114,7 +116,8 @@ calc.write_sjm_traces(path='sjm_traces4.4V-cube.out',
 write_potential_and_charge('4.4V')
 
 # Vary the potential for the traces figure.
-sj = {'target_potential': 4.3}  # FIXME/ap add right no. of electrons
+sj = {'target_potential': 4.3,
+      'excess_electrons': 0.47848}
 atoms.calc.set(sj=sj)
 atoms.get_potential_energy()
 write_potential_and_charge('4.3V')

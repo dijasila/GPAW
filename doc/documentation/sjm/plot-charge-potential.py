@@ -28,4 +28,3 @@ ax.text(np.mean(x_line) + 0.0 * np.ptp(x_line),
 ax.set_xlabel('excess electrons')
 ax.set_ylabel('potential, V')
 fig.savefig('charge-potential.png')
-fig.savefig('charge-potential.pdf')  # FIXME/ap remove

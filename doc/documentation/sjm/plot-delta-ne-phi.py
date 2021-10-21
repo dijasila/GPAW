@@ -74,4 +74,3 @@ axes[1].set_ylabel(r'$\Delta n_{xy}$')
 axes[1].set_xlabel(r'$z$ coordinate, $\mathrm{\AA}$')
 
 fig.savefig('delta-ne-phi.png')
-fig.savefig('delta-ne-phi.pdf')  # FIXME/ap remove

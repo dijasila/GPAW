@@ -29,7 +29,7 @@ from gpaw.solvation.hamiltonian import SolvationRealSpaceHamiltonian
 from gpaw.solvation.poisson import WeightedFDPoissonSolver
 
 
-# TODO/ap: Add release notes describing major changes.
+# FIXME/ap: Add release notes describing major changes.
 
 
 class SJM(SolvationGPAW):

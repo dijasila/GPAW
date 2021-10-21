@@ -15,21 +15,13 @@ from gpaw.solvation import (
 
 def write_everything(label):
     """Writes out all the useful data after the SJM calculation."""
-    # FIXME/ap: delete commmented lines
     atoms.write(f'atoms{label}.traj')
-    # calc.write_sjm_traces(path=f'sjm_traces{label}.out')
     esp = atoms.calc.get_electrostatic_potential()
     with paropen(f'esp{label}.pickle', 'wb') as f:
         pickle.dump(esp, f)
-    # nt = calc.get_pseudo_density()
     n = calc.get_all_electron_density()
-    # with open(f'pseudodensity{label}.pickle', 'wb') as f:
-    #     pickle.dump(nt, f)
     with open(f'allelectrondensity{label}.pickle', 'wb') as f:
         pickle.dump(n, f)
-    # grid = calc.density.gd.get_grid_point_coordinates()
-    # with open(f'grid{label}.pickle', 'wb') as f:
-    #     pickle.dump(grid, f)
 
 
 def log_potential():
