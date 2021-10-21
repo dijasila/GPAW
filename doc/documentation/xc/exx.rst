@@ -55,8 +55,6 @@ Functional Type    Reference
 EXX        Global
 PBE0       Global  [AB98]_
 B3LYP      Global  [Ba94]_
-HSE03      RSF-SR
-HSE06      RSF-SR
 CAMY-B3LYP RSF-LR  [SZ12]_
 CAMY-BLYP  RSF-LR  [AT08]_
 CAMY-B3LYP RSF-LR  [SZ12]_
@@ -73,8 +71,8 @@ increase for a "RSF-LR". See :ref:`rsf` for more detailed information on
 RSF(-LR).
 
 A thesis on the implementation of EXX in the PAW framework, and the
-specifics of the GPAW project can be seen on the :ref:`literature
-<literature_reports_presentations_and_theses>` page.
+specifics of the GPAW project can be seen on the :ref:`reports presentations and theses
+<reports_presentations_and_theses>` page.
 
 A comparison of the atomization energies of the g2-1 test-set calculated in
 VASP, Gaussian03, and GPAW is shown in the below two figures for the PBE and

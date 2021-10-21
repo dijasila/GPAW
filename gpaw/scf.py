@@ -280,9 +280,11 @@ class Energy(Criterion):
         # e_total_extrapolated in the SCF table (logfile). I changed it to
         # use e_total_extrapolated for both. (Should be a miniscule
         # difference, but more consistent.)
-        energy = context.ham.e_total_extrapolated * Ha
-        if context.wfs.nvalence != 0:
-            energy = energy / context.wfs.nvalence
+        total_energy = context.ham.e_total_extrapolated * Ha
+        if context.wfs.nvalence == 0:
+            energy = total_energy
+        else:
+            energy = total_energy / context.wfs.nvalence
         self._old.append(energy)  # Pops off >3!
         error = np.inf
         if len(self._old) == self._old.maxlen:
@@ -290,7 +292,7 @@ class Energy(Criterion):
         converged = error < self.tol
         entry = ''
         if np.isfinite(energy):
-            entry = '{:11.6f}'.format(energy)
+            entry = '{:11.6f}'.format(total_energy)
         return converged, entry
 
 

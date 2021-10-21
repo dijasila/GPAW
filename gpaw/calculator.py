@@ -16,7 +16,6 @@ from ase.utils.timing import Timer
 
 import gpaw
 import gpaw.mpi as mpi
-import gpaw.wavefunctions.pw as pw
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.density import RealSpaceDensity
 from gpaw.dos import DOSCalculator
@@ -36,11 +35,14 @@ from gpaw.matrix import suggest_blocking
 from gpaw.occupations import ParallelLayout, create_occ_calc
 from gpaw.output import (print_cell, print_parallelization_details,
                          print_positions)
+from gpaw.pw.density import ReciprocalSpaceDensity
+from gpaw.pw.hamiltonian import ReciprocalSpaceHamiltonian
 from gpaw.scf import SCFLoop, dict2criterion
 from gpaw.setup import Setups
 from gpaw.stress import calculate_stress
 from gpaw.symmetry import Symmetry
-from gpaw.utilities import check_atoms_too_close
+from gpaw.typing import Array1D
+from gpaw.utilities import check_atoms_too_close, compiled_with_sl
 from gpaw.utilities.gpts import get_number_of_grid_points
 from gpaw.utilities.grid import GridRedistributor
 from gpaw.utilities.memory import MemNode, maxrss
@@ -49,14 +51,14 @@ from gpaw.wavefunctions.mode import create_wave_function_mode
 from gpaw.xc import XC
 from gpaw.xc.kernel import XCKernel
 from gpaw.xc.sic import SIC
-from gpaw.typing import Array1D
 
 
 class GPAW(Calculator):
     """This is the ASE-calculator frontend for doing a GPAW calculation."""
 
-    implemented_properties = ['energy', 'forces', 'stress', 'dipole',
-                              'magmom', 'magmoms']
+    implemented_properties = ['energy', 'free_energy',
+                              'forces', 'stress',
+                              'dipole', 'magmom', 'magmoms']
 
     default_parameters: Dict[str, Any] = {
         'mode': 'fd',
@@ -225,6 +227,16 @@ class GPAW(Calculator):
             self.reader.close()
 
     def write(self, filename, mode=''):
+        """Write calculator object to a file.
+
+        Parameters
+        ----------
+        filename
+            File to be written
+        mode
+            Write mode. Use ``mode='all'``
+            to include wave functions in the file.
+        """
         self.log(f'Writing to {filename} (mode={mode!r})\n')
         writer = Writer(filename, self.world)
         self._write(writer, mode)
@@ -1049,8 +1061,7 @@ class GPAW(Calculator):
                 ecut = 2 * self.wfs.pd.ecut
             else:
                 ecut = 0.5 * (np.pi / h)**2
-            self.density = pw.ReciprocalSpaceDensity(ecut=ecut,
-                                                     **kwargs)
+            self.density = ReciprocalSpaceDensity(ecut=ecut, **kwargs)
 
         self.log(self.density, '\n')
 
@@ -1066,7 +1077,8 @@ class GPAW(Calculator):
             world=self.world,
             redistributor=dens.redistributor,
             vext=self.parameters.external,
-            psolver=self.parameters.poissonsolver)
+            psolver=self.parameters.poissonsolver,
+            charge=dens.charge)
         if realspace:
             self.hamiltonian = RealSpaceHamiltonian(stencil=mode.interpolation,
                                                     **kwargs)
@@ -1090,7 +1102,7 @@ class GPAW(Calculator):
                     xc_redist = GridRedistributor(self.world, bcast_comm,
                                                   gd, aux_gd)
 
-            self.hamiltonian = pw.ReciprocalSpaceHamiltonian(
+            self.hamiltonian = ReciprocalSpaceHamiltonian(
                 pd2=dens.pd2, pd3=dens.pd3, realpbc_c=self.atoms.pbc,
                 xc_redistributor=xc_redist,
                 **kwargs)
@@ -1191,7 +1203,7 @@ class GPAW(Calculator):
                           bd=bd, dtype=dtype, world=self.world, kd=kd,
                           kptband_comm=kptband_comm, timer=self.timer)
 
-        if self.parallel['sl_auto']:
+        if self.parallel['sl_auto'] and compiled_with_sl():
             # Choose scalapack parallelization automatically
 
             for key, val in self.parallel.items():
@@ -1289,8 +1301,11 @@ class GPAW(Calculator):
         dens.calculate_pseudo_charge()
         ham.update(dens)
         W_aL = ham.calculate_atomic_hamiltonians(dens)
-        return np.array([W_L[0] / (4 * np.pi)**0.5 * Ha
-                         for W_L in W_aL.values()])
+        W_a = np.zeros(len(self.atoms))
+        for a, W_L in W_aL.items():
+            W_a[a] = W_L[0] / (4 * np.pi)**0.5 * Ha
+        W_aL.partition.comm.sum(W_a)
+        return W_a
 
     def linearize_to_xc(self, newxc):
         """Linearize Hamiltonian to difference XC functional.

@@ -37,6 +37,14 @@ Git master branch
 * The SCF output table has been simplified, and a letter "c" now appears
   next to converged items.
 
+* Charged molecule calculations with PW-mode have been improved.  The
+  Poisson equation is now solved in a way so that monopole interactions
+  between cells correctly vanish.
+
+* The hyperfine tensor CLI-tool no longer divides by total magnetic moment:
+  :ref:`hyperfine`.
+
+
 Version 21.6.0
 ===============
 

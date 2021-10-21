@@ -1,7 +1,7 @@
 from ase import Atoms
 from gpaw import GPAW
 from gpaw.mixer import FFTMixer
-from gpaw.wavefunctions.pw import PW
+from gpaw import PW
 from gpaw.test import equal
 
 

@@ -68,11 +68,11 @@ class ZerothOrder1(State):
             r_R = AI.radii()
             psi_R = AI.average(self.corrt_G)
             v_R = AI.average(self.vt_G)
-            f = open('radial_dR' + str(dR) + '.dat', 'w')
-            print('# R  v(R)    psi(R)', file=f)
-            for r, psi, v in zip(r_R, psi_R, v_R):
-                print(r, psi, v, file=f)
-            f.close()
+            with open('radial_dR' + str(dR) + '.dat', 'w') as fd:
+                print('# R  v(R)    psi(R)', file=fd)
+                for r, psi, v in zip(r_R, psi_R, v_R):
+                    print(r, psi, v, file=fd)
+            
             self.written = True
 
         return self.pw.get_grid(k_c, r0) - 1e6 * self.corrt_G

@@ -97,7 +97,11 @@ def dipole_matrix_elements_from_calc(calc: GPAW,
                                            position_av,
                                            wfs.setups,
                                            center_v) * Bohr
-            d_snnv.append(d_nnv)
+        else:
+            d_nnv = np.empty((n2 - n1, n2 - n1, 3))
+        wfs.world.broadcast(d_nnv, 0)
+        d_snnv.append(d_nnv)
+
     return d_snnv
 
 
