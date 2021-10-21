@@ -1,8 +1,12 @@
+"""
+The solvated jellium method is contained in this module.
+This enables electronically grand-canonical calculations to be calculated,
+typically for simulating electrochemical interfaces.
+"""
+
 import os
 import copy
-import traceback
 import textwrap
-from io import StringIO
 
 import numpy as np
 from scipy.stats import linregress
@@ -24,16 +28,6 @@ from gpaw.solvation.calculator import SolvationGPAW
 from gpaw.solvation.hamiltonian import SolvationRealSpaceHamiltonian
 from gpaw.solvation.poisson import WeightedFDPoissonSolver
 
-
-def get_traceback_string():
-    # TODO. Temporary function for debugging.
-    # (Will delete right before merge request.)
-    # I guess traceback.format_stack would work easier!
-    filelike = StringIO()
-    traceback.print_stack(file=filelike)
-    return filelike.getvalue()
-
-# TODO/ap: Update website documentation when we're all through here.
 
 # TODO/ap: Add release notes describing major changes.
 
@@ -178,8 +172,8 @@ class SJM(SolvationGPAW):
 
     """
     implemented_properties = ['energy', 'forces', 'stress', 'dipole',
-                              'magmom', 'magmoms',
-                              'excess_electrons', 'electrode_potential']
+                              'magmom', 'magmoms', 'excess_electrons',
+                              'electrode_potential']
     _sj_default_parameters = Parameters(
         {'excess_electrons': 0.,
          'jelliumregion': {'top': -1.,
@@ -214,12 +208,6 @@ class SJM(SolvationGPAW):
         # Note the below line calls self.set().
         SolvationGPAW.__init__(self, restart, **kwargs)
 
-    def sog(self, message=''):
-        # TODO: Delete after all is set up.
-        message = 'SJ: ' + str(message)
-        self.log(message)
-        self.log.flush()
-
     def set(self, **kwargs):
         """Change parameters for calculator.
 
@@ -250,7 +238,7 @@ class SJM(SolvationGPAW):
 
         SolvationGPAW.set(self, **kwargs)
 
-        self.sog('Solvated Jellium parameters:')
+        self.log('Solvated Jellium parameters:')
         self.log.print_dict(p)
         self.log()
 
@@ -267,7 +255,7 @@ class SJM(SolvationGPAW):
                 if self.atoms and p.slope:
                     p.excess_electrons += ((p.target_potential -
                                             true_potential) / p.slope)
-                    self.sog('Number of electrons changed to {:.4f} based '
+                    self.log('Number of electrons changed to {:.4f} based '
                              'on slope of {:.4f} V/electron.'
                              .format(p.excess_electrons, p.slope))
 
@@ -300,14 +288,13 @@ class SJM(SolvationGPAW):
                                 .format(p.excess_electrons, p.slope))
                 else:
                     msg += 'already within tolerance.'
-                self.sog(msg)
+                self.log(msg)
 
         if background_charge:
-            # background_charge is a GPAW parameter that we handle
-            # internally, as it contains the jellium countercharge. Note if
-            # a user tries to specify an *additional* background charge
-            # this will probably conflict, but we know of no such use
-            # cases.
+            # background_charge is a GPAW parameter that we handle internally,
+            # as it contains the jellium countercharge. Note if a user tries to
+            # specify an *additional* background charge this will probably
+            # conflict, but we know of no such use cases.
             if self.wfs is None:
                 kwargs.update({'background_charge': background_charge})
                 SolvationGPAW.set(self, **kwargs)
@@ -322,7 +309,7 @@ class SJM(SolvationGPAW):
                             self.density.finegd)
 
                 self.wfs.nvalence = self.setups.nvalence + p.excess_electrons
-                self.sog('Number of valence electrons is now {:.5f}'
+                self.log('Number of valence electrons is now {:.5f}'
                          .format(self.wfs.nvalence))
 
     def _quick_reinitialization(self):
@@ -346,7 +333,7 @@ class SJM(SolvationGPAW):
         constant number of electrons or a target potential, as requested by
         the user in the 'sj' dict."""
 
-        self.sog('Solvated jellium method (SJM) calculation:')
+        self.log('Solvated jellium method (SJM) calculation:')
 
         if atoms and not self.atoms:
             # Need to be set before ASE's Calculator.calculate gets to it.
@@ -355,19 +342,19 @@ class SJM(SolvationGPAW):
         p = self.parameters['sj']
 
         if not p.target_potential:
-            self.sog('Constant-charge calculation with {:.5f} excess '
+            self.log('Constant-charge calculation with {:.5f} excess '
                      'electrons'.format(p.excess_electrons))
             # Background charge is set here, not earlier, because atoms needed.
             self.set(background_charge=self._create_jellium())
             SolvationGPAW.calculate(self, atoms, ['energy'], system_changes)
-            self.sog('Potential found to be {:.5f} V (with {:+.5f} '
+            self.log('Potential found to be {:.5f} V (with {:+.5f} '
                      'electrons)'.format(self.get_electrode_potential(),
                                          p.excess_electrons))
         else:
-            self.sog(' Constant-potential mode.')
-            self.sog(' Target potential: {:.5f} +/- {:.5f}'
+            self.log(' Constant-potential mode.')
+            self.log(' Target potential: {:.5f} +/- {:.5f}'
                      .format(p.target_potential, p.tol))
-            self.sog(' Initial guess of excess electrons: {:.5f}'
+            self.log(' Initial guess of excess electrons: {:.5f}'
                      .format(p.excess_electrons))
             if 'workfunction' in self.parameters.convergence:
                 if self.parameters.convergence['workfunction'] >= p.tol:
@@ -377,7 +364,7 @@ class SJM(SolvationGPAW):
                            'to issues with potential convergence.'
                            .format(self.parameters.convergence['workfunction'],
                                    p.tol))
-                    self.sog(textwrap.fill(msg))
+                    self.log(textwrap.fill(msg))
             self._equilibrate_potential(atoms, system_changes)
         if properties != ['energy']:
             # The equilibration loop only calculated energy, to save
@@ -390,14 +377,13 @@ class SJM(SolvationGPAW):
         if p.grand_output:
             self.results['energy'] = self.omega_extrapolated * Ha
             self.results['free_energy'] = self.omega_free * Ha
-            self.sog('Grand-potential energy was written into results.\n')
+            self.log('Grand-potential energy was written into results.\n')
         else:
-            self.sog('Canonical energy was written into results.\n')
+            self.log('Canonical energy was written into results.\n')
 
         self.results['excess_electrons'] = p.excess_electrons
         self.results['electrode_potential'] = self.get_electrode_potential()
 
-    # FIXME/ap: PICK UP PROOF READING HERE!
     def _equilibrate_potential(self, atoms, system_changes):
         """Adjusts the number of electrons until the potential reaches the
         desired value."""
@@ -408,10 +394,10 @@ class SJM(SolvationGPAW):
             self._previous_potentials = []
 
         while iteration < p.max_iters:
-            self.sog('Attempt {:d} to equilibrate potential to {:.3f} +/-'
+            self.log('Attempt {:d} to equilibrate potential to {:.3f} +/-'
                      ' {:.3f} V'
                      .format(iteration, p.target_potential, p.tol))
-            self.sog('Current guess of excess electrons: {:+.5f}\n'
+            self.log('Current guess of excess electrons: {:+.5f}\n'
                      .format(p.excess_electrons))
             if iteration == 1:
                 self.timer.start('Potential equilibration loop')
@@ -425,11 +411,10 @@ class SJM(SolvationGPAW):
             # Do the calculation.
             SolvationGPAW.calculate(self, atoms, ['energy'], system_changes)
             true_potential = self.get_electrode_potential()
-            self.sog()
-            self.sog('Potential found to be {:.5f} V (with {:+.5f} '
-                     'excess electrons, attempt {:d}/{:d})'
-                     .format(true_potential, p.excess_electrons, iteration,
-                             p.max_iters))
+            self.log()
+            self.log(f'Potential found to be {true_potential:.5f} V (with '
+                     f'{p.excess_electrons:+.5f} excess electrons, attempt '
+                     f'{iteration:d}/{p.max_iters:d}).')
 
             # Check if we took too big of a step.
             try:
@@ -441,10 +426,10 @@ class SJM(SolvationGPAW):
                 old_diff = abs(self._previous_potentials[-1] -
                                p.target_potential)
                 if stepsize > p.max_step and new_diff > old_diff:
-                    self.sog('Step resulted in a potential change of {:.2f} '
-                             'V, larger than max_step ({:.2f} V).\nThe step is'
-                             ' rejected and the change in excess_electrons '
-                             'will be halved.'.format(stepsize, p.max_step))
+                    self.log('Step resulted in a potential change of '
+                             f'{stepsize:.2f} V, larger than max_step '
+                             f'({p.max_step:.2f} V).\nThe step is rejected and'
+                             ' the change in excess_electrons will be halved.')
                     p.excess_electrons = (self._previous_electrons[-1] +
                                           (p.excess_electrons -
                                            self._previous_electrons[-1]) * 0.5)
@@ -459,23 +444,23 @@ class SJM(SolvationGPAW):
             if len(self._previous_electrons) > 1:
                 slope = _calculate_slope(self._previous_electrons,
                                          self._previous_potentials)
-                self.sog('Slope regressed from last {:d} attempts is '
+                self.log('Slope regressed from last {:d} attempts is '
                          '{:.4f} V/electron,'
                          .format(len(self._previous_electrons[-4:]), slope))
                 area = np.product(np.diag(atoms.cell[:2, :2]))
                 capacitance = -1.6022 * 1e3 / (area * p.slope)
-                self.sog('or apparent capacitance of {:.4f} muF/cm^2'
-                         .format(capacitance))
+                self.log(f'or apparent capacitance of {capacitance:.4f} '
+                         'muF/cm^2')
                 if p.slope is not None:
                     p.slope = p.mixer * p.slope + (1. - p.mixer) * slope
-                    self.sog('After mixing with {:.2f}, new slope is {:.4f} '
-                             'V/electron.'.format(p.mixer, p.slope))
+                    self.log(f'After mixing with {p.mixer:.2f}, new slope is '
+                             f'{p.slope:.4f} V/electron.')
                 else:
                     p.slope = slope
 
             # Check if we're equilibrated and exit if always_adjust is False.
             if abs(true_potential - p.target_potential) < p.tol:
-                self.sog('Potential is within tolerance. Equilibrated.')
+                self.log('Potential is within tolerance. Equilibrated.')
                 if iteration >= 2:
                     self.timer.stop('Potential equilibration loop')
                 if not p.always_adjust:
@@ -485,34 +470,32 @@ class SJM(SolvationGPAW):
             if p.slope is None:
                 area = np.product(np.diag(atoms.cell[:2, :2]))
                 p.slope = -1.6022e3 / (area * 10.)
-                self.sog('No slope provided, guessing a slope of {:.4f}'
-                         ' corresponding\nto an apparent capacitance of '
-                         '10 muF/cm^2.'.format(p.slope))
+                self.log('No slope provided, guessing a slope of '
+                         f'{p.slope:.4f} corresponding\nto an apparent '
+                         'capacitance of 10 muF/cm^2.')
 
             # Finally, update the number of electrons.
             p.excess_electrons += ((p.target_potential - true_potential)
                                    / p.slope)
-            self.sog('Number of electrons changed to {:.4f} based '
-                     'on slope of {:.4f} V/electron.'
-                     .format(p.excess_electrons, p.slope))
+            self.log(f'Number of electrons changed to {p.excess_electrons:.4f}'
+                     f' based on slope of {p.slope:.4f} V/electron.')
 
             # Check if we're equilibrated and exit if always_adjust is True.
             if (abs(true_potential - p.target_potential) < p.tol
                 and p.always_adjust):
                 return
 
-        msg = ('Potential could not be reached after {:d} iterations. '
-               'This may indicate your workfunction is noisier than '
-               'your potential tol. You may try setting the '
+        msg = (f'Potential could not be reached after {iteration:d} '
+               'iterations. This may indicate your workfunction is noisier '
+               'than your potential tol. You may try setting the '
                'convergence["workfunction"] keyword. The last values of '
                'excess_electrons and the potential are listed below; '
-               'plotting them could give you insight into the problem.'
-               .format(iteration))
+               'plotting them could give you insight into the problem.')
         msg = textwrap.fill(msg) + '\n'
         for n, p in zip(self._previous_electrons,
                         self._previous_potentials):
             msg += '{:+.6f} {:.6f}\n'.format(n, p)
-        self.sog(msg)
+        self.log(msg)
         raise PotentialConvergenceError(msg)
 
     def write_sjm_traces(self, path='sjm_traces', style='z',
@@ -529,31 +512,34 @@ class SJM(SolvationGPAW):
             os.makedirs(path)
         for prop in props:
             if style == 'z':
-                write_trace_in_z(grid, data[prop], prop + '.txt', path)
+                _write_trace_in_z(grid, data[prop], prop + '.txt', path)
             elif style == 'cube':
-                write_property_on_grid(grid, data[prop], self.atoms,
-                                       prop + '.cube', path)
+                _write_property_on_grid(grid, data[prop], self.atoms,
+                                        prop + '.cube', path)
 
     def summary(self):
+        """Writes summary information to the log file.
+        This varies from the implementation in gpaw.calculator.GPAW by the
+        inclusion of grand potential quantities."""
         # Standard GPAW summary.
         self.hamiltonian.summary(self.wfs, self.log)
         # Add grand-canonical terms.
         p = self.parameters['sj']
-        self.sog()
+        self.log()
         mu_N = self.get_electrode_potential() * p.excess_electrons / Ha
         self.omega_free = self.hamiltonian.e_total_free + mu_N
         self.omega_extrapolated = self.hamiltonian.e_total_extrapolated + mu_N
-        self.sog('Legendre-transformed energies (Omega = E - N mu)')
-        self.sog('  (grand-potential energies)')
-        self.sog('  N (excess electrons): {:+11.6f}'
+        self.log('Legendre-transformed energies (Omega = E - N mu)')
+        self.log('  (grand-potential energies)')
+        self.log('  N (excess electrons): {:+11.6f}'
                  .format(p.excess_electrons))
-        self.sog('  mu (workfunction, eV): {:+11.6f}'
+        self.log('  mu (workfunction, eV): {:+11.6f}'
                  .format(self.get_electrode_potential()))
-        self.sog('-' * 26)
-        self.sog('Free energy:   {:+11.6f}'.format(Ha * self.omega_free))
-        self.sog('Extrapolated:  {:+11.6f}'
+        self.log('-' * 26)
+        self.log('Free energy:   {:+11.6f}'.format(Ha * self.omega_free))
+        self.log('Extrapolated:  {:+11.6f}'
                  .format(Ha * self.omega_extrapolated))
-        self.sog()
+        self.log()
         # Back to standard GPAW summary.
         self.density.summary(self.atoms, self.results.get('magmom', 0.0),
                              self.log)
@@ -660,12 +646,11 @@ class SJM(SolvationGPAW):
                 self.initialized = False
             else:
                 self.set_positions(atoms)
-                # FIXME/ap: If you start with a fixed bottom, run a calc,
+                # XXX If you start with a fixed bottom, run a calc,
                 # then hot-switch to cavity_like it crashes here. Not sure
-                # that's common enough to worry about. Wish we understood
-                # how to reset all these things better.
+                # that's common enough to worry about.
                 g_g = self.hamiltonian.cavity.g_g
-            self.sog('Jellium counter-charge defined with:\n'
+            self.log('Jellium counter-charge defined with:\n'
                      ' Bottom: cavity-like\n'
                      ' Top: {:7.3f} AA\n'
                      ' Charge: {:5.4f}\n'
@@ -674,7 +659,7 @@ class SJM(SolvationGPAW):
                                        g_g=g_g,
                                        z2=top)
 
-        self.sog('Jellium counter-charge defined with:\n'
+        self.log('Jellium counter-charge defined with:\n'
                  ' Bottom: {:7.3f} AA\n'
                  ' Top: {:7.3f} AA\n'
                  ' Charge: {:5.4f}\n'
@@ -699,10 +684,12 @@ class SJM(SolvationGPAW):
                 raise PropertyNotPresent(textwrap.fill(msg))
 
     def initialize(self, atoms=None, reading=False):
-        """Inexpensive initialization."""
-        # This catches CavityShapedJellium, which GPAW's initialize does not
-        # know how to handle on restart. We can delete and it will it will be
-        # recreated by the _create_jellium method when needed.
+        """Inexpensive initialization.
+
+        This catches CavityShapedJellium, which GPAW's initialize does not
+        know how to handle on restart. We delete and it will be recreated by
+        the _create_jellium method when needed.
+        """
         background_charge = self.parameters['background_charge']
         if isinstance(background_charge, dict):
             if 'z1' in background_charge:
@@ -737,7 +724,7 @@ class SJM(SolvationGPAW):
         xc.set_grid_descriptor(self.hamiltonian.finegd)
 
 
-def write_trace_in_z(grid, property, name, dir):
+def _write_trace_in_z(grid, property, name, dir):
     """Writes out a property (like electrostatic potential, cavity, or
     background charge) as a function of the z coordinate only. `grid` is the
     grid descriptor, typically self.density.finegd. `property` is the property
@@ -749,7 +736,7 @@ def write_trace_in_z(grid, property, name, dir):
             f.write('%f %1.8f\n' % ((i + 1) * grid.h_cv[2][2] * Bohr, val))
 
 
-def write_property_on_grid(grid, property, atoms, name, dir):
+def _write_property_on_grid(grid, property, atoms, name, dir):
     """Writes out a property (like electrostatic potential, cavity, or
     background charge) on the grid, as a cube file. `grid` is the
     grid descriptor, typically self.density.finegd. `property` is the property
@@ -1043,23 +1030,22 @@ class SJM_RealSpaceHamiltonian(SolvationRealSpaceHamiltonian):
 
 
 class CavityShapedJellium(Jellium):
-    """The Solvated Jellium object, where the counter charge takes the form
-       of the cavity.
-    """
-    def __init__(self, charge, g_g, z2):
-        """Put the jellium background charge where the solvent is present and
-           z < z2.
+    """The jellium object, where the counter charge takes the form of the
+    solvent cavity. It puts the jellium background charge where the solvent is
+    present and z < z2.
 
-        Parameters:
-        ----------
-        charge: float
-            The total jellium background charge.
-        g_g: array
-            The g function from the implicit solvent model, representing the
-            percentage of the actual dielectric constant on the grid.
-        z2: float
-            Position of upper surface in Angstrom units.
-        """
+    Parameters:
+    ----------
+    charge: float
+        The total jellium background charge.
+    g_g: array
+        The g function from the implicit solvent model, representing the
+        percentage of the actual dielectric constant on the grid.
+    z2: float
+        Position of upper surface in Angstrom units.
+    """
+
+    def __init__(self, charge, g_g, z2):
 
         Jellium.__init__(self, charge)
         self.g_g = g_g
@@ -1097,15 +1083,15 @@ class SJMDipoleCorrection(DipoleCorrection):
     New Parameters
     ---------
     corrterm: float
-    Correction factor for the added countering dipole. This is calculated
-    iteratively.
+        Correction factor for the added countering dipole. This is calculated
+        iteratively.
 
     last_corrterm: float
-    Corrterm in the last iteration for getting the change of slope with change
-    corrterm
+        Corrterm in the last iteration for getting the change of slope with
+        change in corrterm
 
     last_slope: float
-    Same as for `last_corrterm`
+        Same as for `last_corrterm`
 
     """
     def __init__(self, poissonsolver, direction, width=1.0):
