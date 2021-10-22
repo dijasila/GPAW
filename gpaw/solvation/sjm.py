@@ -540,8 +540,8 @@ class SJM(SolvationGPAW):
         self.log('  mu (workfunction, eV): {:+11.6f}'
                  .format(self.get_electrode_potential()))
         self.log('-' * 26)
-        self.log('Free energy:   {:+11.6f}'.format(Ha * self.omega_free))
-        self.log('Extrapolated:  {:+11.6f}'
+        self.log('free energy:   {:+11.6f}'.format(Ha * self.omega_free))
+        self.log('extrapolated to 0K: {:+11.6f}'
                  .format(Ha * self.omega_extrapolated))
         self.log()
         # Back to standard GPAW summary.
