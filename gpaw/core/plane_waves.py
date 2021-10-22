@@ -176,11 +176,19 @@ class PlaneWaveExpansions(DistributedArrays):
     def _matrix_elements_correction(self,
                                     M1: Matrix,
                                     M2: Matrix,
-                                    out: Matrix) -> None:
+                                    out: Matrix,
+                                    symmetric: bool) -> None:
         if self.pw.dtype == float:
             out.data *= 2.0
             if self.pw.comm.rank == 0:
-                out.data -= np.outer(M1.data[:, 0], M2.data[:, 0]) * self.pw.dv
+                correction = np.outer(M1.data[:, 0],
+                                      M2.data[:, 0]) * self.pw.dv
+                if symmetric:
+                    correction *= 0.5
+                    out.data -= correction
+                    out.data -= correction.T
+                else:
+                    out.data -= correction
 
     def norm2(self, kind: str = 'normal') -> np.ndarray:
         a = self._arrays().view(float)

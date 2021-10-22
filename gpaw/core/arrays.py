@@ -84,7 +84,7 @@ class DistributedArrays:
         out.complex_conjugate()
         # operate_and_multiply(self, self.layout.dv, out, function, ...)
 
-        self._matrix_elements_correction(M1, M2, out)
+        self._matrix_elements_correction(M1, M2, out, symmetric)
 
         if domain_sum:
             self.layout.comm.sum(out.data)
@@ -94,7 +94,8 @@ class DistributedArrays:
     def _matrix_elements_correction(self,
                                     M1: Matrix,
                                     M2: Matrix,
-                                    out: Matrix) -> None:
+                                    out: Matrix,
+                                    symmetric: bool) -> None:
         """Hook for PlaneWaveExpansion."""
         pass
 

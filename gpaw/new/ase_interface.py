@@ -3,14 +3,16 @@ from __future__ import annotations
 from pathlib import Path
 from typing import IO, Any, Union
 
+import numpy as np
 from ase import Atoms
 from ase.units import Bohr, Ha
+
 from gpaw import __version__, debug
+from gpaw.new import Timer
 from gpaw.new.calculation import DFTCalculation
 from gpaw.new.input_parameters import InputParameters
 from gpaw.new.logger import Logger
 from gpaw.new.old import OldStuff, read_gpw
-from gpaw.new import Timer
 
 
 def GPAW(filename: Union[str, Path, IO[str]] = None,
@@ -72,9 +74,11 @@ class ASECalculator(OldStuff):
         return self.calculation.results[prop]
 
     def create_new_calculation(self, atoms: Atoms) -> DFTCalculation:
-        write_atoms(atoms, self.log)
         with self.timer('init'):
-            return DFTCalculation.from_parameters(atoms, self.params, self.log)
+            calculation = DFTCalculation.from_parameters(atoms, self.params,
+                                                         self.log)
+        write_atoms(calculation.cfg, self.log)
+        return calculation
 
     def move_atoms(self, atoms):
         write_atoms(atoms, self.log)
@@ -108,19 +112,13 @@ def write_header(log, kwargs):
     log(',\n    '.join(f'{k!r}: {v!r}' for k, v in kwargs.items()) + '}')
 
 
-def write_atoms(atoms, log):
-    log('\nAtoms(')
-    symbols = atoms.symbols.formula.format('reduce')
-    log(f'    symbols={symbols!r},')
-    log('    positions=[\n       ',
-        ',\n        '.join(f'({x:14.6f}, {y:14.6f}, {z:14.6f})'
-                           for x, y, z in atoms.positions) +
-        '],')
-    log('    cell=[\n       ',
-        ',\n        '.join(f'({x:14.6f}, {y:14.6f}, {z:14.6f})'
-                           for x, y, z in atoms.cell) +
-        '],')
-    log(f'    pbc={atoms.pbc.tolist()})')
+def write_atoms(cfg, log):
+    from gpaw.output import print_cell, print_positions
+    magmoms = cfg.initial_magmoms
+    if magmoms is None:
+        magmoms = np.zeros((len(cfg.atoms), 3))
+    print_positions(cfg.atoms, log, magmoms)
+    print_cell(cfg.grid._gd, cfg.atoms.pbc, log)
 
 
 def compare_atoms(a1, a2):
