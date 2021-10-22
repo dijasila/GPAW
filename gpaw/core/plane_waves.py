@@ -64,8 +64,13 @@ class PlaneWaves(Layout):
               comm: MPIComm = serial_comm) -> PlaneWaveExpansions:
         return PlaneWaveExpansions(self, shape, comm)
 
-    def atom_centered_functions(self, functions, positions, integral=None):
-        return PlaneWaveAtomCenteredFunctions(functions, positions, self)
+    def atom_centered_functions(self,
+                                functions,
+                                positions,
+                                atomdist=None,
+                                integral=None):
+        return PlaneWaveAtomCenteredFunctions(functions, positions, self,
+                                              atomdist)
 
 
 class PlaneWaveExpansions(DistributedArrays):
@@ -128,14 +133,14 @@ class PlaneWaveExpansions(DistributedArrays):
 
         if out is None:
             if comm.rank == 0:
-                pw = PlaneWaves(ecut=self.ecut,
+                pw = PlaneWaves(ecut=self.pw.ecut,
                                 grid=self.pw.grid.new(comm=serial_comm))
                 out = pw.empty(self.shape)
             else:
                 out = Empty()
 
         if comm.rank == 0:
-            data = np.empty(self.maxmysize * comm.size, complex)
+            data = np.empty(self.pw.maxmysize * comm.size, complex)
         else:
             data = None
 

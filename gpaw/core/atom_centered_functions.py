@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import numpy as np
 from gpaw.core.atom_arrays import (AtomArrays, AtomArraysLayout,
                                    AtomDistribution)
@@ -116,7 +118,9 @@ class PlaneWaveAtomCenteredFunctions(AtomCenteredFunctions):
         kd = KPointDescriptor(np.array([self.pw.grid.kpt]))
         pd = PWDescriptor(self.pw.ecut, gd, kd=kd, dtype=self.pw.grid.dtype)
         self.lfc = PWLFC(self.functions, pd)
-        self.lfc.set_positions(self.fracpos)
+        self.lfc.set_positions(self.fracpos,
+                               SimpleNamespace(
+                                   rank_a=self.layout.atomdist.ranks))
 
     def to_uniform_grid(self, coef: float = 1.0):
         out = self.pw.zeros()

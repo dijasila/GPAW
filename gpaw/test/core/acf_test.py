@@ -17,28 +17,32 @@ def test_acf():
     s = (0, 3.0, lambda r: np.exp(-alpha * r**2))
     basis = pw.atom_centered_functions(
         [[s]],
-        positions=[[0.5, 0.5, 0.5]])
+        positions=[[0.5, 0.5, 0.5]],
+        atomdist=world)
 
     coefs = basis.layout.empty()
     if 0 in coefs:
         coefs[0] = [1.0]
     f1 = pw.zeros()
     basis.add_to(f1, coefs)
-    r1 = f1.ifft()
-    x, y = r1.xy(10, 10, ...)
-    print(x)
-    print(y)
+    f2 = f1.collect()
+    r2 = f2.ifft()
+    if r2.grid.comm.rank == 0:
+        x, y = r2.xy(10, 10, ...)
+        print(x)
+        print(y)
 
     basis = grid.atom_centered_functions(
         [[s]],
         positions=[[0.5, 0.5, 0.5]])
     f1 = grid.zeros()
     basis.add_to(f1, coefs)
-    x, y = f1.xy(10, 10, ...)
+    x, y2 = f1.xy(10, 10, ...)
     print(x)
-    print(y)
+    print(y2)
 
-    # import matplotlib.pyplot as plt
-    # plt.plot(x, y)
-    # plt.plot(x, np.exp(-alpha * (x - a / 2)**2) / (4 * np.pi)**0.5)
-    # plt.show()
+    import matplotlib.pyplot as plt
+    plt.plot(x, y)
+    plt.plot(x, y2)
+    plt.plot(x, np.exp(-alpha * (x - a / 2)**2) / (4 * np.pi)**0.5)
+    plt.show()

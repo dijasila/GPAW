@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Sequence
+from types import SimpleNamespace
 
 import gpaw.fftw as fftw
 import numpy as np
@@ -118,9 +119,6 @@ class UniformGrid(Layout):
               comm: MPIComm = serial_comm) -> UniformGridFunctions:
         return UniformGridFunctions(self, shape, comm)
 
-    def redistributor(self, other):
-        return Redistributor(self, other)
-
     def atom_centered_functions(self, functions, positions, integral=None):
         return UniformGridAtomCenteredFunctions(functions, positions, self,
                                                 integral=integral)
@@ -186,17 +184,6 @@ class UniformGrid(Layout):
         return fftplan, ifftplan
 
 
-class Redistributor:
-    def __init__(self, grid1, grid2):
-        self.grid2 = grid2
-        comm = max(grid1.comm, grid2.comm, key=lambda comm: comm.size)
-        self.redistributor = GridRedistributor(comm, serial_comm,
-                                               grid1._gd, grid2._gd)
-
-    def distribute(self, input, output):
-        self.redistributor.distribute(input.data, output.data)
-
-
 class UniformGridFunctions(DistributedArrays):
     def __init__(self,
                  grid: UniformGrid,
@@ -233,9 +220,32 @@ class UniformGridFunctions(DistributedArrays):
         x = np.arange(self.grid.start[n], self.grid.end[n]) * dx
         return x, y
 
-    def redistribute(self, grid=None, out=None):
+    def distribute(self, grid=None, out=None):
         if out is self:
             return out
+        if out is None:
+            if grid is None:
+                raise ValueError('You must spicify grid or out!')
+            out = grid.empty(self.shape, self.comm)
+        if grid is None:
+            grid = out.grid
+        if self.grid.comm.size == 1 and grid.comm.size == 1:
+            out.data[:] = self.data
+            return out
+
+        bcast_comm = SimpleNamespace(
+            size=grid.comm.size // self.grid.comm.size,
+            )#broadcast=lambda array, rank: None)
+        redistributor = GridRedistributor(grid.comm, bcast_comm,
+                                          self.grid._gd, grid._gd)
+        redistributor.distribute(self.data, out.data)
+        return out
+
+    def collect(self, grid=None, out=None):
+        if out is self:
+            return out
+        if out is None and grid is None:
+            grid = self.grid.new(comm=serial_comm)
         if out is None:
             out = grid.empty(self.shape, self.comm)
         if grid is None:
@@ -243,10 +253,17 @@ class UniformGridFunctions(DistributedArrays):
         if self.grid.comm.size == 1 and grid.comm.size == 1:
             out.data[:] = self.data
             return out
-        self.grid.redistributor(grid).redistribute(self, out)
+
+        bcast_comm = SimpleNamespace(
+            size=self.grid.comm.size // grid.comm.size,
+            broadcast=lambda array, rank: None)
+        redistributor = GridRedistributor(self.grid.comm,
+                                          bcast_comm,
+                                          grid._gd, self.grid._gd)
+        redistributor.collect(self.data, out.data)
         return out
 
-    def collect(self, out=None):
+    def collectttttttttt(self, out=None):
         if out is None:
             grid = self.grid.new(comm=serial_comm)
         else:
