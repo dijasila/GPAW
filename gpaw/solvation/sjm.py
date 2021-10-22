@@ -35,18 +35,18 @@ from gpaw.solvation.poisson import WeightedFDPoissonSolver
 class SJM(SolvationGPAW):
     r"""Solvated Jellium method.
     (Implemented as a subclass of the SolvationGPAW class.)
-    
+
     The method allows the simulation of an electrochemical environment, where
     the potential can be varied by changing the charging (that is, number of
     electrons) of the system. For this purpose, it allows the usagelof non-
     neutral periodic slab systems. Cell neutrality is achieved by adding a
     background charge in the solvent region above the slab
-    
+
     Further details are given in http://dx.doi.org/10.1021/acs.jpcc.8b02465
     If you use this method, we appreciate it if you cite that work.
-    
+
     The method can be run in two modes:
-    
+
         - Constant charge: The number of excess electrons in the simulation
           can be directly specified with the 'excess_electrons' keyword,
           leaving 'target_potential' set to None.
@@ -54,14 +54,14 @@ class SJM(SolvationGPAW):
           function) can be specified with the 'target_potential' keyword.
           Optionally, the 'excess_electrons' keyword can be supplied to specify
           the initial guess of the number of electrons.
-    
+
     By default, this method writes the grand-potential energy to the output;
     that is, the energy that has been adjusted with `- \mu N` (in this case,
     `\mu` is the work function and `N` is the excess electrons). This is the
     energy that is compatible with the forces in constant-potential mode and
     thus will behave well with optimizers, NEBs, etc. It is also frequently
     used in subsequent free-energy calculations.
-    
+
     Within this method, the potential is expressed as the top-side work
     function of the slab. Therefore, a potential of 0 V_SHE corresponds to
     a work function of roughly 4.4 eV. (That is, the user should specify
@@ -70,14 +70,14 @@ class SJM(SolvationGPAW):
     function itself needs to be well-converged. For this reason, the
     'work function' keyword is automatically added to the SCF convergence
     dictionary with a value of 0.001. This can be overriden by the user.
-    
+
     This method requires a dipole correction, and this is turned on
     automatically, but can be overridden with the poissonsolver keyword.
-    
+
     The SJM class takes a single argument, the sj dictionary. All other
     arguments are fed to the parent SolvationGPAW (and therefore GPAW)
     calculator.
-    
+
     Parameters:
 
     sj: dict
@@ -238,9 +238,13 @@ class SJM(SolvationGPAW):
 
         SolvationGPAW.set(self, **kwargs)
 
-        self.log('Solvated Jellium parameters:')
-        self.log.print_dict(p)
-        self.log()
+        if len(sj_changes):
+            if self.wfs is None:
+                self.log('Non-default Solvated Jellium parameters:')
+            else:
+                self.log('Changed Solvated Jellium parameters:')
+            self.log.print_dict({i:p[i] for i in sj_changes})
+            self.log()
 
         if 'target_potential' in sj_changes and p.target_potential is not None:
             # If target potential is changed by the user and the slope is
