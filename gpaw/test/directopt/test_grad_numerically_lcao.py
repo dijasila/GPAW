@@ -60,7 +60,12 @@ def test_gradient_numerically_lcao(in_tmp_dir):
         print('IN PROGRESS: ', eigsolver)
 
         calc.set(eigensolver=eigsolver)
-        atoms.get_potential_energy()
+        if eigsolver['representation'] == 'u-invar':
+            with pytest.warns(UserWarning,
+                              match="Use representation == 'sparse'"):
+                atoms.get_potential_energy()
+        else:
+            atoms.get_potential_energy()
         ham = calc.hamiltonian
         wfs = calc.wfs
         dens = calc.density
