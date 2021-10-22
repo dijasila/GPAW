@@ -19,9 +19,7 @@ def test_mom_directopt_lcao_spinpaired(in_tmp_dir):
     atoms.center(vacuum=4)
 
     eigensolver = ETDM(searchdir_algo={'name': 'l-sr1p'},
-                       linesearch_algo={'name': 'max-step'},
-                       representation='u-invar',
-                       matrix_exp='egdecomp-u-invar')
+                       linesearch_algo={'name': 'max-step'})
 
     calc = GPAW(mode='lcao',
                 basis='dzp',
@@ -50,4 +48,4 @@ def test_mom_directopt_lcao_spinpaired(in_tmp_dir):
 
     # These fail if the OccupationsMOM.numbers are not updated correctly
     assert np.all(calc.get_occupation_numbers() <= 2.0)
-    assert e == pytest.approx(-21.275119614691956, abs=0.01)
+    assert e == pytest.approx(-21.38257404436053, abs=0.01)

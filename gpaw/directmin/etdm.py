@@ -11,6 +11,7 @@ https://doi.org/10.1016/j.cpc.2021.108047
 
 
 import numpy as np
+import warnings
 from gpaw.directmin.tools import expm_ed, expm_ed_unit_inv
 from gpaw.directmin.lcao.directmin_lcao import DirectMinLCAO
 from scipy.linalg import expm
@@ -219,6 +220,13 @@ class ETDM:
         if occ_name == 'mom':
             self.initial_occupation_numbers = wfs.occupations.numbers.copy()
             self.initialize_mom(wfs, dens)
+
+        for kpt in wfs.kpt_u:
+            f_unique = np.unique(kpt.f_n)
+            if len(f_unique) > 2 and self.representation == 'u-invar':
+                warnings.warn("Use representation == 'sparse' when "
+                              "there are unequally occupied orbitals "
+                              "as the functional is not unitary invariant")
 
         # randomize orbitals?
         if self.randomizeorbitals:
