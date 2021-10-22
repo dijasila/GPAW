@@ -243,7 +243,7 @@ class SJM(SolvationGPAW):
                 self.log('Non-default Solvated Jellium parameters:')
             else:
                 self.log('Changed Solvated Jellium parameters:')
-            self.log.print_dict({i:p[i] for i in sj_changes})
+            self.log.print_dict({i: p[i] for i in sj_changes})
             self.log()
 
         if 'target_potential' in sj_changes and p.target_potential is not None:
