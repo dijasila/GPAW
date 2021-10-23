@@ -397,7 +397,8 @@ class SJM(SolvationGPAW):
             self._previous_electrons = []
             self._previous_potentials = []
 
-        while iteration < p.max_iters:
+        rerun=False
+        while iteration <= p.max_iters:
             self.log('Attempt {:d} to equilibrate potential to {:.3f} +/-'
                      ' {:.3f} V'
                      .format(iteration, p.target_potential, p.tol))
@@ -416,9 +417,11 @@ class SJM(SolvationGPAW):
             SolvationGPAW.calculate(self, atoms, ['energy'], system_changes)
             true_potential = self.get_electrode_potential()
             self.log()
-            self.log(f'Potential found to be {true_potential:.5f} V (with '
-                     f'{p.excess_electrons:+.5f} excess electrons, attempt '
-                     f'{iteration:d}/{p.max_iters:d}).')
+            msg = (f'Potential found to be {true_potential:.5f} V (with '
+                   f'{p.excess_electrons:+.5f} excess electrons, attempt '
+                   f'{iteration:d}/{p.max_iters:d}')
+            msg += ' (rerun)).' if rerun else ').'
+            self.log(msg)
 
             # Check if we took too big of a step.
             try:
@@ -426,21 +429,27 @@ class SJM(SolvationGPAW):
             except IndexError:
                 pass
             else:
-                new_diff = abs(true_potential - p.target_potential)
-                old_diff = abs(self._previous_potentials[-1] -
-                               p.target_potential)
-                if stepsize > p.max_step and new_diff > old_diff:
+                # new_diff = abs(true_potential - p.target_potential)
+                # old_diff = abs(self._previous_potentials[-1] -
+                #                p.target_potential)
+                diff_ratio = (true_potential - p.target_potential)/\
+                             (self._previous_potentials[-1]-p.target_potential)
+                if stepsize > p.max_step and diff_ratio < -0.5:
                     self.log('Step resulted in a potential change of '
                              f'{stepsize:.2f} V, larger than max_step '
-                             f'({p.max_step:.2f} V).\nThe step is rejected and'
-                             ' the change in excess_electrons will be halved.')
+                             f'({p.max_step:.2f} V) and surpassed the'
+                             ' target potential by a dangerous amount.\n'
+                             ' The step is rejected and the change in'
+                             ' excess_electrons will be halved.')
                     p.excess_electrons = (self._previous_electrons[-1] +
                                           (p.excess_electrons -
                                            self._previous_electrons[-1]) * 0.5)
+                    rerun = True
                     continue  # back to while
 
             # Increase iteration count.
             iteration += 1
+            rerun = False
 
             # Store attempt and calculate slope.
             self._previous_electrons += [p.excess_electrons]
@@ -489,7 +498,7 @@ class SJM(SolvationGPAW):
                 and p.always_adjust):
                 return
 
-        msg = (f'Potential could not be reached after {iteration:d} '
+        msg = (f'Potential could not be reached after {iteration-1:d} '
                'iterations. This may indicate your workfunction is noisier '
                'than your potential tol. You may try setting the '
                'convergence["workfunction"] keyword. The last values of '
