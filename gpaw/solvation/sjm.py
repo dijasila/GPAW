@@ -397,7 +397,7 @@ class SJM(SolvationGPAW):
             self._previous_electrons = []
             self._previous_potentials = []
 
-        rerun=False
+        rerun = False
         while iteration <= p.max_iters:
             self.log('Attempt {:d} to equilibrate potential to {:.3f} +/-'
                      ' {:.3f} V'
@@ -410,7 +410,7 @@ class SJM(SolvationGPAW):
                 # changes, like positions, after attempt 0.
                 system_changes = []
 
-            if iteration > 0 or 'positions' in system_changes:
+            if any([iteration, rerun, 'positions' in system_changes]):
                 self.set(background_charge=self._create_jellium())
 
             # Do the calculation.
@@ -432,12 +432,12 @@ class SJM(SolvationGPAW):
                 # new_diff = abs(true_potential - p.target_potential)
                 # old_diff = abs(self._previous_potentials[-1] -
                 #                p.target_potential)
-                diff_ratio = (true_potential - p.target_potential)/\
-                             (self._previous_potentials[-1]-p.target_potential)
+                diff_ratio = (true_potential - p.target_potential) /\
+                    (self._previous_potentials[-1] - p.target_potential)
                 if stepsize > p.max_step and diff_ratio < -0.5:
                     self.log('Step resulted in a potential change of '
                              f'{stepsize:.2f} V, larger than max_step '
-                             f'({p.max_step:.2f} V) and surpassed the'
+                             f'({p.max_step:.2f} V) and\n surpassed the'
                              ' target potential by a dangerous amount.\n'
                              ' The step is rejected and the change in'
                              ' excess_electrons will be halved.')
