@@ -152,6 +152,15 @@ class PlaneWaveExpansions(DistributedArrays):
 
         return out if comm.rank == 0 else None
 
+    def _distribute(self, data, out)
+        """Scatter coefficients from master to all cores."""
+        comm = self.gd.comm
+        if comm.size == 1:
+            return a_G
+
+        mya_G = np.empty(self.maxmyng, complex)
+        comm.scatter(pad(a_G, self.maxmyng * comm.size), mya_G, 0)
+        return mya_G[:self.myng_q[q or 0]]
     def integrate(self, other: PlaneWaveExpansions = None) -> np.ndarray:
         if other is not None:
             assert self.pw.grid.dtype == other.pw.grid.dtype

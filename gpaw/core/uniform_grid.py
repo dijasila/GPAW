@@ -234,8 +234,7 @@ class UniformGridFunctions(DistributedArrays):
             return out
 
         bcast_comm = SimpleNamespace(
-            size=grid.comm.size // self.grid.comm.size,
-            )#broadcast=lambda array, rank: None)
+            size=grid.comm.size // self.grid.comm.size)
         redistributor = GridRedistributor(grid.comm, bcast_comm,
                                           self.grid._gd, grid._gd)
         redistributor.distribute(self.data, out.data)
@@ -263,24 +262,24 @@ class UniformGridFunctions(DistributedArrays):
         redistributor.collect(self.data, out.data)
         return out
 
-    def collectttttttttt(self, out=None):
-        if out is None:
-            grid = self.grid.new(comm=serial_comm)
-        else:
-            grid = out.grid
-        return self.redistribute(grid=grid, out=out)
-
     def fft(self, plan=None, pw=None, out=None):
+        assert self.shape == ()
         if out is None:
             assert pw is not None
-            out = pw.empty(self.shape)
+            out = pw.empty()
         if pw is None:
             pw = out.pw
         plan = plan or pw.grid.fft_plans()[0]
-        for input, output in zip(self._arrays(), out._arrays()):
-            plan.in_R[:] = input
+        in_ = self
+        if self.grid.comm.size > 1:
+            in_ = in_.collect()
+        if self.grid.comm.rank == 0:
+            plan.in_R[:] = in_.data
             plan.execute()
-            output[:] = plan.out_R.ravel()[pw.indices]
+            output = plan.out_R.ravel()[pw.indices]
+        else:
+            output = None
+        out._distribute(output)
         return out
 
     def norm2(self):

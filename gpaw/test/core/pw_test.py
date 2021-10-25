@@ -71,11 +71,13 @@ def test_pw_integrate():
 def test_grr():
     from ase.units import Ha, Bohr
     grid = UniformGrid(cell=[2 / Bohr, 2 / Bohr, 2.737166 / Bohr],
-                       size=(9, 9, 12))
+                       size=(9, 9, 12),
+                       comm=world)
     pw = PlaneWaves(ecut=340 / Ha, grid=grid)
     print(pw.G_plus_k.shape)
     from gpaw.grid_descriptor import GridDescriptor
     from gpaw.pw.descriptor import PWDescriptor
     g = GridDescriptor((9, 9, 12), [2 / Bohr, 2 / Bohr, 2.737166 / Bohr])
     p = PWDescriptor(340 / Ha, g)
+    print(p.get_reciprocal_vectors().shape)
     assert (p.get_reciprocal_vectors() == pw.G_plus_k).all()
