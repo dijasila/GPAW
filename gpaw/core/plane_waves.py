@@ -73,8 +73,7 @@ class PlaneWaves(Layout):
                                 positions,
                                 atomdist=None,
                                 integral=None):
-        return PlaneWaveAtomCenteredFunctions(functions, positions, self,
-                                              atomdist)
+        return PlaneWaveAtomCenteredFunctions(functions, positions, self)
 
 
 class PlaneWaveExpansions(DistributedArrays):

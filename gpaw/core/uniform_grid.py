@@ -240,7 +240,7 @@ class UniformGridFunctions(DistributedArrays):
         redistributor.distribute(self.data, out.data)
         return out
 
-    def collect(self, grid=None, out=None):
+    def collect(self, grid=None, out=None, broadcast=False):
         if out is self:
             return out
         if out is None and grid is None:
@@ -260,6 +260,8 @@ class UniformGridFunctions(DistributedArrays):
                                           bcast_comm,
                                           grid._gd, self.grid._gd)
         redistributor.collect(self.data, out.data)
+        if broadcast:
+            self.grid.comm.broadcast(out.data, 0)
         return out
 
     def fft(self, plan=None, pw=None, out=None):
