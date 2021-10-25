@@ -51,11 +51,11 @@ class DistributedArrays:
         if self._matrix is not None:
             return self._matrix
         if self.layout_last:
-            shape = (np.prod(self.shape), np.prod(self.layout.shape))
+            shape = (np.prod(self.shape), np.prod(self.layout.myshape))
             myshape = (np.prod(self.myshape), np.prod(self.layout.myshape))
             dist = (self.comm, -1, 1)
         else:
-            shape = (np.prod(self.layout.shape), np.prod(self.shape))
+            shape = (np.prod(self.layout.myshape), np.prod(self.shape))
             myshape = (np.prod(self.layout.myshape), np.prod(self.myshape))
             dist = (self.comm, 1, -1)
         data = self.data.reshape(myshape)

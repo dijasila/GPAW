@@ -64,6 +64,10 @@ class PlaneWaves(Layout):
               comm: MPIComm = serial_comm) -> PlaneWaveExpansions:
         return PlaneWaveExpansions(self, shape, comm)
 
+    def new(self,
+            grid: UniformGrid) -> PlaneWaves:
+        return PlaneWaves(ecut=self.ecut, grid=grid)
+
     def atom_centered_functions(self,
                                 functions,
                                 positions,
@@ -121,7 +125,7 @@ class PlaneWaveExpansions(DistributedArrays):
 
         return out
 
-    def collect(self, out=None):
+    def collect(self, out=None, broadcast=False):
         """Gather coefficients on master."""
         comm = self.pw.grid.comm
 
@@ -132,7 +136,7 @@ class PlaneWaveExpansions(DistributedArrays):
             return out
 
         if out is None:
-            if comm.rank == 0:
+            if comm.rank == 0 or broadcast:
                 pw = PlaneWaves(ecut=self.pw.ecut,
                                 grid=self.pw.grid.new(comm=serial_comm))
                 out = pw.empty(self.shape)
@@ -145,22 +149,42 @@ class PlaneWaveExpansions(DistributedArrays):
             data = None
 
         for input, output in zip(self._arrays(), out._arrays()):
-            mydata = pad(input, self.maxmysize)
+            mydata = pad(input, self.pw.maxmysize)
             comm.gather(mydata, 0, data)
             if comm.rank == 0:
-                output[:] = data[:self.grid.size]
+                output[:] = data[:len(output)]
 
-        return out if comm.rank == 0 else None
+        if broadcast:
+            comm.broadcast(out.data, 0)
 
-    def _distribute(self, data, out)
-        """Scatter coefficients from master to all cores."""
-        comm = self.gd.comm
+        return out if not isinstance(out, Empty) else None
+
+    def distribute(self, pw=None, out=None):
+        assert self.shape == ()
+        assert self.pw.grid.comm.size == 1
+        if out is self:
+            return out
+        if out is None:
+            if pw is None:
+                raise ValueError('You must specify "pw" or "out"!')
+            out = pw.empty(self.shape, self.comm)
+        if pw is None:
+            pw = out.pw
+        comm = pw.grid.comm
         if comm.size == 1:
-            return a_G
+            out.data[:] = self.data
+            return out
 
-        mya_G = np.empty(self.maxmyng, complex)
-        comm.scatter(pad(a_G, self.maxmyng * comm.size), mya_G, 0)
-        return mya_G[:self.myng_q[q or 0]]
+        mycoefs = np.empty(pw.maxmysize, complex)
+        if comm.rank == 0:
+            coefs = np.empty(pw.maxmysize * comm.size, complex)
+            coefs[:len(self.data)] = self.data
+        else:
+            coefs = None
+        comm.scatter(coefs, mycoefs, 0)
+        out.data[:] = mycoefs[:len(out.data)]
+        return out
+
     def integrate(self, other: PlaneWaveExpansions = None) -> np.ndarray:
         if other is not None:
             assert self.pw.grid.dtype == other.pw.grid.dtype

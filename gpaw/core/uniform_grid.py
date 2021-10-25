@@ -269,17 +269,23 @@ class UniformGridFunctions(DistributedArrays):
             out = pw.empty()
         if pw is None:
             pw = out.pw
-        plan = plan or pw.grid.fft_plans()[0]
-        in_ = self
+        input = self
         if self.grid.comm.size > 1:
-            in_ = in_.collect()
+            input = input.collect()
         if self.grid.comm.rank == 0:
-            plan.in_R[:] = in_.data
+            plan = plan or pw.grid.fft_plans()[0]
+            plan.in_R[:] = input.data
             plan.execute()
-            output = plan.out_R.ravel()[pw.indices]
+            coefs = plan.out_R.ravel()[pw.indices]
+
+        if pw.grid.comm.size > 1:
+            out1 = pw.new(grid=input.grid).empty()
+            if pw.grid.comm.rank == 0:
+                out1.data[:] = coefs
+            out1.distribute(out=out)
         else:
-            output = None
-        out._distribute(output)
+            out.data[:] = coefs
+
         return out
 
     def norm2(self):

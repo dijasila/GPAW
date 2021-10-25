@@ -15,8 +15,9 @@ def test_redist():
     f1 = pw1.empty()
     f1.data[:] = 1.0
     f2 = f1.collect()
-    assert (f2.data == 1.0).all()
-    assert f2.layout.grid.comm.size == 1
+    if f2 is not None:
+        assert (f2.data == 1.0).all()
+        assert f2.layout.grid.comm.size == 1
 
 
 def test_pw_integrate():
