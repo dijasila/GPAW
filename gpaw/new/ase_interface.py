@@ -7,7 +7,7 @@ import numpy as np
 from ase import Atoms
 from ase.units import Bohr, Ha
 
-from gpaw import __version__, debug
+from gpaw import __version__
 from gpaw.new import Timer
 from gpaw.new.calculation import DFTCalculation
 from gpaw.new.input_parameters import InputParameters
@@ -22,7 +22,8 @@ def GPAW(filename: Union[str, Path, IO[str]] = None,
     txt = params.txt
     if txt == '?':
         txt = '-' if filename is None else None
-    log = Logger(txt, params.parallel['world'])
+    world = params.parallel['world']
+    log = Logger(txt, world)
 
     if filename is not None:
         kwargs.pop('txt')
@@ -30,7 +31,7 @@ def GPAW(filename: Union[str, Path, IO[str]] = None,
         calculation = read_gpw(filename, log)
         return calculation.ase_interface()
 
-    write_header(log, kwargs)
+    write_header(log, world, kwargs)
     return ASECalculator(params, log)
 
 
@@ -105,9 +106,10 @@ class ASECalculator(OldStuff):
         return self.calculate_property(atoms, 'forces') * Ha / Bohr
 
 
-def write_header(log, kwargs):
+def write_header(log, world, kwargs):
+    from gpaw.io.logger import write_header as header
     log(f' __  _  _\n| _ |_)|_||  |\n|__||  | ||/\\| - {__version__}\n')
-    log(debug)
+    header(log, world)
     log('Input parameters = {\n    ', end='')
     log(',\n    '.join(f'{k!r}: {v!r}' for k, v in kwargs.items()) + '}')
 
