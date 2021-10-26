@@ -48,7 +48,6 @@ class PotentialCalculator:
         vnonloc, corrections = calculate_non_local_potential(
             self.setups, density, self.xc, self.ghat_acf, self.vHt)
 
-        print(energies, corrections)
         for key, e in corrections.items():
             energies[key] += e
 
@@ -192,8 +191,11 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
                 'external': e_external}, vt_s
 
 
-def calculate_non_local_potential(setups, density, xc,
-                                  ghat_acf, vHt):
+def calculate_non_local_potential(setups,
+                                  density,
+                                  xc,
+                                  ghat_acf,
+                                  vHt):
     coefs = ghat_acf.integrate(vHt)
     vnonloc = density.density_matrices.new()
     energy_corrections = defaultdict(float)
@@ -205,6 +207,10 @@ def calculate_non_local_potential(setups, density, xc,
         for key, e in energies.items():
             energy_corrections[key] += e
 
+    energies = np.array(list(energy_corrections.values()))
+    density.density_matrices.layout.atomdist.comm.sum(energies)
+    energy_corrections = {name: e for name, e in zip(energy_corrections,
+                                                     energies)}
     return vnonloc, energy_corrections
 
 

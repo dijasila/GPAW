@@ -111,6 +111,8 @@ class DFTCalculation:
         for a, dF_v in F_av.items():
             forces[a] += dF_v[0]
 
+        self.cfg.communicators['d'].sum(forces)
+
         forces = self.ibz_wfs.ibz.symmetry.symmetry.symmetrize_forces(forces)
 
         log('\nForces in eV/Ang:')
