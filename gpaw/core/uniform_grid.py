@@ -13,18 +13,10 @@ from gpaw.mpi import MPIComm, serial_comm
 from gpaw.typing import Array2D, ArrayLike, ArrayLike1D, ArrayLike2D, Array1D
 from gpaw.utilities.grid import GridRedistributor
 import _gpaw
+from gpaw.core.domain import Domain
 
 
-def _normalize_cell(cell: ArrayLike) -> Array2D:
-    cell = np.array(cell, float)
-    if cell.ndim == 2:
-        return cell
-    if len(cell) == 3:
-        return np.diag(cell)
-    raise ValueError
-
-
-class UniformGrid(Layout):
+class UniformGrid(Domain):
     def __init__(self,
                  *,
                  cell: ArrayLike1D | ArrayLike2D,
@@ -35,13 +27,7 @@ class UniformGrid(Layout):
                  decomposition: Sequence[Sequence[int]] = None,
                  dtype=None):
         """"""
-        self.cell = _normalize_cell(cell)
         self.size = np.array(size, int)
-        self.pbc = np.array(pbc, bool)
-        self.kpt = np.array(kpt, float)
-        self.comm = comm
-
-        self.dv = abs(np.linalg.det(self.cell)) / self.size.prod()
 
         if decomposition is None:
             gd = GridDescriptor(size, pbc_c=pbc, comm=comm)
@@ -61,6 +47,8 @@ class UniformGrid(Layout):
         Layout.__init__(self,
                         tuple(self.size - 1 + self.pbc),
                         tuple(self.mysize))
+
+        self.dv = abs(np.linalg.det(self.cell)) / self.size.prod()
 
         assert dtype in [None, float, complex]
         if self.kpt.any():
@@ -91,10 +79,6 @@ class UniformGrid(Layout):
         comm = self.comm
         return (f'UniformGrid(size={a}*{b}*{c}, pbc={self.pbc}, '
                 f'comm={comm.rank}/{comm.size}, dtype={self.dtype})')
-
-    @property
-    def icell(self):
-        return np.linalg.inv(self.cell).T
 
     def new(self,
             size=None,
