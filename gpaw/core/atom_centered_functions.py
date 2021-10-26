@@ -31,6 +31,12 @@ class AtomCenteredFunctions:
         self._layout = None
         self._lfc = None
 
+    def __repr__(self):
+        funcs = [['spdfgh'[f.l] for f in ff] for ff in self.functions[:4]]
+        if len(self.functions) > 4:
+            funcs.append(...)
+        return f'{self.__class__.__name__}(functions={funcs})'
+
     @property
     def layout(self):
         self._lacy_init()

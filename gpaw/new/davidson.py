@@ -97,6 +97,10 @@ def calculate_weights(converge: int | str, wfs: WaveFunctions) -> Array1D:
     """
 
 
+class EmptyMatrix:
+    data = np.empty((0, 0))
+
+
 class Davidson:
     def __init__(self,
                  nbands,
@@ -115,7 +119,10 @@ class Davidson:
         if domain_comm.rank == 0 and band_comm.rank == 0:
             self.H = Matrix(2 * B, 2 * B, wf_grid.dtype)
             self.S = Matrix(2 * B, 2 * B, wf_grid.dtype)
-            self.M = Matrix(B, B, wf_grid.dtype)
+        else:
+            self.H = self.S = EmptyMatrix()
+
+        self.M = Matrix(B, B, wf_grid.dtype, dist=(band_comm, band_comm.size))
 
         self.work_array1 = wf_grid.empty(B, band_comm).data
         self.work_array2 = wf_grid.empty(B, band_comm).data
@@ -159,6 +166,7 @@ class Davidson:
             eigs[:B] = wfs.eigs
 
         def me(a, b, function=None):
+            """Matrix elements"""
             return a.matrix_elements(b, domain_sum=False, out=M,
                                      function=function)
 

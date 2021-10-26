@@ -172,12 +172,6 @@ class WaveFunctions:
         return self._occs
 
     @property
-    def projections(self):
-        if self._projections is None:
-            self._projections = self.projectors.integrate(self.wave_functions)
-        return self._projections
-
-    @property
     def myeigs(self):
         assert self.wave_functions.comm.size == 1
         return self.eigs
@@ -186,6 +180,12 @@ class WaveFunctions:
     def myoccs(self):
         assert self.wave_functions.comm.size == 1
         return self.occs
+
+    @property
+    def projections(self):
+        if self._projections is None:
+            self._projections = self.projectors.integrate(self.wave_functions)
+        return self._projections
 
     @classmethod
     def from_random_numbers(cls, basis, weight, nbands, band_comm, setups,
@@ -276,9 +276,11 @@ class WaveFunctions:
             self._eigs = H.eigh(scalapack=(slcomm, r, c, b))
             # H.data[n, :] now contains the n'th eigenvector and eps_n[n]
             # the n'th eigenvalue
+        else:
+            self._eigs = np.empty(psit.shape)
 
         domain_comm.broadcast(H.data, 0)
-        domain_comm.broadcast(self.eigs, 0)
+        domain_comm.broadcast(self._eigs, 0)
         if Htpsit is not None:
             H.multiply(psit2, out=Htpsit)
 

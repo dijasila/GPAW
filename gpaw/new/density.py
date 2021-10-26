@@ -112,7 +112,7 @@ class Density:
 
         atom_array_layout = AtomArraysLayout([(setup.ni, setup.ni)
                                               for setup in setups],
-                                             atomdist=nct.grid.comm)
+                                             atomdist=nct_acf.layout.atomdist)
         density_matrices = atom_array_layout.empty(ndens + nmag)
         for a, D in density_matrices.items():
             D[:] = unpack2(setups[a].initialize_density_matrix(f_asi[a])).T

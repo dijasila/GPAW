@@ -40,13 +40,15 @@ def create_lcao_ibz_wave_functions(cfg: DFTConfiguration,
                     ibz.symmetry.symmetry,
                     comm=world)
 
+    atom_partition = AtomPartition(
+        domain_comm,
+        np.array([sphere.rank for sphere in basis_set.sphere_a]))
+
     lcaowfs = LCAOWaveFunctions(lcaoksl, gd, cfg.nelectrons,
                                 setups, lcaobd, cfg.dtype,
                                 world, kd, kptband_comm,
                                 nulltimer)
     lcaowfs.basis_functions = basis_set
-    atom_partition = AtomPartition(domain_comm,
-                                   np.zeros(len(cfg.fracpos), int))
     lcaowfs.set_positions(cfg.fracpos, atom_partition)
 
     if cfg.ncomponents != 4:
