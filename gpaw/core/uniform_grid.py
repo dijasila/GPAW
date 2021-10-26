@@ -375,7 +375,8 @@ class UniformGridFunctions(DistributedArrays):
     def fft_restrict(self,
                      out: UniformGridFunctions,
                      fftplan: fftw.FFTPlan = None,
-                     ifftplan: fftw.FFTPlan = None) -> None:
+                     ifftplan: fftw.FFTPlan = None,
+                     indices=None) -> None:
         size1 = self.grid.size
         size2 = out.grid.size
 
@@ -415,9 +416,14 @@ class UniformGridFunctions(DistributedArrays):
 
         a_Q[:] = b_Q[a0:b0, a1:b1, a2:b2]
         a_Q[:] = np.fft.ifftshift(a_Q, axes=axes)
+        if indices is not None:
+            coefs = a_Q.ravel()[indices]
+        else:
+            coefs = None
         ifftplan.execute()
         out.data[:] = ifftplan.out_R
         out.data *= (1.0 / self.data.size)
+        return coefs
 
     def abs_square(self,
                    weights: Array1D,

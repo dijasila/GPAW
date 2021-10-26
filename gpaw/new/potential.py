@@ -151,7 +151,8 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
 
         e_zero = self.vbar.integrate(self.nt)
 
-        charge = self.vHt.pw.zeros()
+        pw = self.vHt.pw
+        charge = pw.zeros()
         coefs = density.calculate_compensation_charge_coefficients()
         self.ghat_acf.add_to(charge, coefs)
         indices = self.pwmap.G2_G1
@@ -174,12 +175,13 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         vtmp = vt_s.grid.empty()
         e_kinetic = 0.0
         for spin, (vt1, vxct_fine) in enumerate(zip(vt_s, vxct_s)):
-            vxct_fine.fft_restrict(vtmp, self.fftplan2, self.ifftplan)
+            coefs = vxct_fine.fft_restrict(vtmp,
+                                           self.fftplan2, self.ifftplan,
+                                           self.vt.pw.indices)
             vt1.data += vtmp.data
             e_kinetic -= vt1.integrate(density.nt_s[spin])
             if spin < density.ndensities:
-                self.vt.data += (self.fftplan2.out_R.ravel()[indices] /
-                                 density.ndensities)
+                self.vt.data += coefs * (1 / scale / density.ndensities)
                 e_kinetic += vt1.integrate(density.nct)
 
         e_external = 0.0
@@ -207,6 +209,7 @@ def calculate_non_local_potential(setups,
         for key, e in energies.items():
             energy_corrections[key] += e
 
+    # Sum over domain:
     energies = np.array(list(energy_corrections.values()))
     density.density_matrices.layout.atomdist.comm.sum(energies)
     energy_corrections = {name: e for name, e in zip(energy_corrections,
