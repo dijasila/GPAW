@@ -48,6 +48,7 @@ class PotentialCalculator:
         vnonloc, corrections = calculate_non_local_potential(
             self.setups, density, self.xc, self.ghat_acf, self.vHt)
 
+        print(energies, corrections)
         for key, e in corrections.items():
             energies[key] += e
 
