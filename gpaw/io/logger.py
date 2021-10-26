@@ -142,10 +142,10 @@ def write_header(log, world):
     log('ase:   ', line)
 
     log('numpy:  %s (version %s)' %
-         (os.path.dirname(np.__file__), np.version.version))
+        (os.path.dirname(np.__file__), np.version.version))
     import scipy as sp
     log('scipy:  %s (version %s)' %
-         (os.path.dirname(sp.__file__), sp.version.version))
+        (os.path.dirname(sp.__file__), sp.version.version))
     # Explicitly deleting SciPy seems to remove garbage collection
     # problem of unknown cause
     del sp

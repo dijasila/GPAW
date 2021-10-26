@@ -32,6 +32,12 @@ class DFTConfiguration:
 
         self.atoms = atoms.copy()
 
+        number_of_lattice_vectors = atoms.cell.any(axis=1).sum()
+        if number_of_lattice_vectors < 3:
+            raise ValueError(
+                'GPAW requires 3 lattice vectors.  '
+                f'Your system has {number_of_lattice_vectors}.')
+
         if isinstance(params, dict):
             params = InputParameters(params)
         self.params = params

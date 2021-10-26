@@ -84,10 +84,11 @@ class AtomCenteredFunctions:
 
 
 class UniformGridAtomCenteredFunctions(AtomCenteredFunctions):
-    def __init__(self, functions, fracpos, grid, integral=None):
+    def __init__(self, functions, fracpos, grid, integral=None, cut=False):
         AtomCenteredFunctions.__init__(self, functions, fracpos)
         self.grid = grid
         self.integral = integral
+        self.cut = cut
 
     def _lacy_init(self):
         if self._lfc is not None:
@@ -97,7 +98,8 @@ class UniformGridAtomCenteredFunctions(AtomCenteredFunctions):
         self._lfc = LFC(gd, self.functions, kd,
                         dtype=self.grid.dtype,
                         integral=self.integral,
-                        forces=True)
+                        forces=True,
+                        cut=self.cut)
         self._lfc.set_positions(self.fracpos)
         atomdist = AtomDistribution(
             ranks=np.array([sphere.rank for sphere in self._lfc.sphere_a]),

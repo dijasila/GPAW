@@ -1451,7 +1451,8 @@ class Setups(list):
                 spline_aj.append([setup.nct])
         return layout.atom_centered_functions(
             spline_aj, positions,
-            integral=[setup.Nct for setup in self])
+            integral=[setup.Nct for setup in self],
+            cut=True)
 
     def create_local_potentials(self, layout, positions):
         return layout.atom_centered_functions(

@@ -119,9 +119,11 @@ class UniformGrid(Layout):
               comm: MPIComm = serial_comm) -> UniformGridFunctions:
         return UniformGridFunctions(self, shape, comm)
 
-    def atom_centered_functions(self, functions, positions, integral=None):
+    def atom_centered_functions(self, functions, positions,
+                                integral=None,
+                                cut=False):
         return UniformGridAtomCenteredFunctions(functions, positions, self,
-                                                integral=integral)
+                                                integral=integral, cut=cut)
 
     def transformer(self, other):
         from gpaw.transformers import Transformer

@@ -72,7 +72,8 @@ class PlaneWaves(Layout):
                                 functions,
                                 positions,
                                 atomdist=None,
-                                integral=None):
+                                integral=None,
+                                cut=False):
         return PlaneWaveAtomCenteredFunctions(functions, positions, self)
 
 

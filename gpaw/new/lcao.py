@@ -83,7 +83,11 @@ def create_lcao_ibz_wave_functions(cfg: DFTConfiguration,
         basis_set.lcao_to_grid(lcaokpt.C_nM,
                                wfs.data[:mynbands], lcaokpt.q)
         if cfg.mode.name == 'pw':
-            wfs = wfs.fft(pw=PlaneWaves(ecut=cfg.wf_grid.ecut, grid=grid))
+            wfs0 = wfs
+            pw = PlaneWaves(ecut=cfg.wf_grid.ecut, grid=grid)
+            wfs = pw.zeros(cfg.nbands, band_comm)
+            for a, b in zip(wfs0, wfs):
+                a.fft(out=b)
         mykpts.append(WaveFunctions(wfs, lcaokpt.s, setups, cfg.fracpos))
         assert mynbands == cfg.nbands
 
