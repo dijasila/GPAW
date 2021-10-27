@@ -96,6 +96,8 @@ class SolvationGPAW(GPAW):
         A = self.hamiltonian.cavity.A
         return A and A * Bohr ** 2
 
-    def write(self, *args, **kwargs):
-        raise NotImplementedError(
-            'IO is not implemented yet for SolvationGPAW!')
+    def _write(self, *args, **kwargs):
+        writer = super()._write(*args, **kwargs)
+        cavity, dielectric, interactions = self.stuff_for_hamiltonian
+        dielectric.write(writer.child('dielectric'))
+        return writer

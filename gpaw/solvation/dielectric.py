@@ -74,6 +74,9 @@ class Dielectric(NeedsGD):
         s += '  epsilon_inf: %s\n' % (self._epsinf, )
         return s
 
+    def write(self, writer):
+        writer.write(name=self.__class__.__name__, epsinf=self._epsinf)
+
 
 class LinearDielectric(Dielectric):
     """Dielectric depending (affine) linearly on the cavity.
