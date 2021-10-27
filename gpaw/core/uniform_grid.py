@@ -44,20 +44,12 @@ class UniformGrid(Domain):
                              in zip(decomposition, self.myposition)])
         self.mysize = self.end - self.start
 
-        Layout.__init__(self,
-                        tuple(self.size - 1 + self.pbc),
-                        tuple(self.mysize))
+        Domain.__init__(self, cell, pbc, kpt, comm, dtype)
+
+        # self.shape = tuple(self.size - 1 + self.pbc),
+        # self.myshape = tuple(self.mysize))
 
         self.dv = abs(np.linalg.det(self.cell)) / self.size.prod()
-
-        assert dtype in [None, float, complex]
-        if self.kpt.any():
-            if dtype == float:
-                raise ValueError
-            dtype = complex
-        else:
-            dtype = dtype or float
-        self.dtype = np.dtype(dtype)
 
         self._phase_factors = None
 
@@ -173,14 +165,16 @@ class UniformGrid(Domain):
 class UniformGridFunctions(DistributedArrays):
     def __init__(self,
                  grid: UniformGrid,
-                 shape: int | tuple[int, ...] = (),
+                 dims: int | tuple[int, ...] = (),
                  comm: MPIComm = serial_comm,
                  data: np.ndarray = None):
-        DistributedArrays. __init__(self, grid, shape, comm, data)
+        DistributedArrays. __init__(self, dims, tuple(grid.mysize),
+                                    comm, data,
+                                    grid.dtype, transposed=False)
         self.grid = grid
 
     def __repr__(self):
-        txt = f'UniformGridFunctions(grid={self.grid}, shape={self.shape}'
+        txt = f'UniformGridFunctions(grid={self.grid}, shape={self.dims}'
         if self.comm.size > 1:
             txt += f', comm={self.comm.rank}/{self.comm.size}'
         return txt + ')'
@@ -188,7 +182,7 @@ class UniformGridFunctions(DistributedArrays):
     def new(self, data=None):
         if data is None:
             data = np.empty_like(self.data)
-        return UniformGridFunctions(self.grid, self.shape, self.comm, data)
+        return UniformGridFunctions(self.grid, self.dims, self.comm, data)
 
     def __getitem__(self, index):
         return UniformGridFunctions(data=self.data[index], grid=self.grid)

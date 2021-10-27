@@ -1,7 +1,6 @@
 from __future__ import annotations
 import numpy as np
-from gpaw.mpi import MPIComm, serial_comm
-from gpaw.core.layout import Layout
+from gpaw.mpi import MPIComm
 from gpaw.core.matrix import Matrix
 from gpaw.typing import Array1D
 from typing import TYPE_CHECKING
@@ -11,31 +10,29 @@ if TYPE_CHECKING:
 
 class DistributedArrays:
     def __init__(self,
-                 layout: Layout,
-                 shape: int | tuple[int, ...] = (),
-                 comm: MPIComm = serial_comm,
-                 data: np.ndarray = None,
-                 dtype=None,
-                 layout_last: bool = True):
-        self.layout = layout
+                 dims: int | tuple[int, ...],
+                 myshape: tuple[int, ...],
+                 comm: MPIComm,
+                 data: np.ndarray,
+                 dtype,
+                 transposed: bool):
+        self.myshape = myshape
         self.comm = comm
-        self.layout_last = layout_last
+        self.transposed = transposed
 
         # convert int to tuple:
-        self.shape = shape if isinstance(shape, tuple) else (shape,)
+        self.dims = dims if isinstance(dims, tuple) else (dims,)
 
-        if self.shape:
-            myshape0 = (self.shape[0] + comm.size - 1) // comm.size
-            self.myshape = (myshape0,) + self.shape[1:]
+        if self.dims:
+            mydims0 = (self.dims[0] + comm.size - 1) // comm.size
+            self.mydims = (mydims0,) + self.dims[1:]
         else:
-            self.myshape = ()
+            self.mydims = ()
 
-        if layout_last:
-            fullshape = self.myshape + layout.myshape
+        if transposed:
+            fullshape = myshape + self.mydims
         else:
-            fullshape = layout.myshape + self.myshape
-
-        dtype = dtype or layout.dtype
+            fullshape = self.mydims + myshape
 
         if data is not None:
             assert data.shape == fullshape
@@ -50,14 +47,14 @@ class DistributedArrays:
     def matrix(self):
         if self._matrix is not None:
             return self._matrix
-        if self.layout_last:
-            shape = (np.prod(self.shape), np.prod(self.layout.myshape))
-            myshape = (np.prod(self.myshape), np.prod(self.layout.myshape))
-            dist = (self.comm, -1, 1)
-        else:
-            shape = (np.prod(self.layout.myshape), np.prod(self.shape))
-            myshape = (np.prod(self.layout.myshape), np.prod(self.myshape))
+        if self.transposed:
+            shape = (np.prod(self.myshape), np.prod(self.dims))
+            myshape = (np.prod(self.myshape), np.prod(self.mydims))
             dist = (self.comm, 1, -1)
+        else:
+            shape = (np.prod(self.dims), np.prod(self.myshape))
+            myshape = (np.prod(self.mydims), np.prod(self.myshape))
+            dist = (self.comm, -1, 1)
         data = self.data.reshape(myshape)
         if data.dtype == complex and self.layout.dtype == float:
             data = data.view(float)
@@ -78,8 +75,8 @@ class DistributedArrays:
             other = function(other)
         M1 = self.matrix
         M2 = other.matrix
-        assert self.layout_last and other.layout_last
-        out = M1.multiply(M2, opb='C', alpha=self.layout.dv,
+        assert not self.transposed and not other.transposed
+        out = M1.multiply(M2, opb='C', alpha=self.dv,
                           symmetric=symmetric, out=out)
         out.complex_conjugate()
         # operate_and_multiply(self, self.layout.dv, out, function, ...)
@@ -98,10 +95,6 @@ class DistributedArrays:
                                     symmetric: bool) -> None:
         """Hook for PlaneWaveExpansion."""
         pass
-
-    def __iadd__(self, other):
-        other.acfs.add_to(self, other.coefs)
-        return self
 
     def abs_square(self,
                    weights: Array1D,

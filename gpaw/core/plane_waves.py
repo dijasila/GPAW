@@ -11,19 +11,21 @@ from gpaw.core.matrix import Matrix
 from gpaw.core.uniform_grid import UniformGrid, UniformGridFunctions
 from gpaw.mpi import MPIComm, serial_comm
 from gpaw.pw.descriptor import pad
-from gpaw.typing import Array1D, Array2D
+from gpaw.typing import Array1D, Array2D, ArrayLike1D, ArrayLike2D
+from gpaw.core.domain import Domain
 
 
-class PlaneWaves(Layout):
+class PlaneWaves(Domain):
     def __init__(self,
+                 *,
                  ecut: float,
-                 grid: UniformGrid):
+                 cell: ArrayLike1D | ArrayLike2D,
+                 kpt: ArrayLike1D = (0.0, 0.0, 0.0),
+                 comm: MPIComm = serial_comm,
+                 dtype=None):
         self.ecut = ecut
-        self.grid = grid
-        assert grid.pbc.all()
+        Domain.__init__(self, cell, (True, True, True), kpt, comm, dtype)
 
-        self.comm = grid.comm
-        self.dtype = grid.dtype
         G_plus_k, ekin, self.indices = find_reciprocal_vectors(ecut, grid)
 
         # Find distribution:
@@ -262,12 +264,14 @@ class Empty:
 
 
 def find_reciprocal_vectors(ecut: float,
-                            grid: UniformGrid) -> tuple[Array2D,
-                                                        Array1D,
-                                                        Array1D]:
-    size = grid.size
+                            cell: Array2D,
+                            kpt=np.zeros(3),
+                            dtype=complex) -> tuple[Array2D,
+                                                    Array1D,
+                                                    Array1D]:
+    size = ((2 * ecut * (cell**2).sum(axis=1))**0.5 / pi).astype(int) + 1
 
-    if grid.dtype == float:
+    if dtype == float:
         Nr_c = list(size)
         Nr_c[2] = size[2] // 2 + 1
         i_Qc = np.indices(Nr_c).transpose((1, 2, 3, 0))
@@ -282,9 +286,9 @@ def find_reciprocal_vectors(ecut: float,
         i_Qc -= half
 
     # Calculate reciprocal lattice vectors:
-    B_cv = 2.0 * pi * grid.icell
+    B_cv = 2.0 * pi * np.linalg.inv(cell).T
     i_Qc.shape = (-1, 3)
-    G_plus_k_Qv = np.dot(i_Qc + grid.kpt, B_cv)
+    G_plus_k_Qv = np.dot(i_Qc + kpt, B_cv)
 
     # Map from vectors inside sphere to fft grid:
     Q_Q = np.arange(len(i_Qc), dtype=np.int32)

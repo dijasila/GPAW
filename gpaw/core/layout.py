@@ -1,6 +1,5 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
-from numpy.typing import DTypeLike
 from gpaw.mpi import MPIComm, serial_comm
 if TYPE_CHECKING:
     from gpaw.core.arrays import DistributedArrays
