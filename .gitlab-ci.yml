@@ -83,6 +83,7 @@ docs:
     - export GPAW_SETUP_PATH=$PWD
     - cd doc
     - make
+    - make doctest
   when: manual
   artifacts:
     paths:

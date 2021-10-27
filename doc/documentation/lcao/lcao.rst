@@ -7,7 +7,7 @@ LCAO Mode
 .. highlight:: bash
 
 GPAW supports an alternative mode of calculation,
-:dfn:`LCAO mode` [LCAO_article]_,
+:dfn:`LCAO mode` [LCAO-article]_,
 which will use a basis set of atomic orbital-like functions rather
 than grid-based wave functions.  This makes calculations considerably
 cheaper, although the accuracy will be limited by the quality of the
@@ -17,6 +17,7 @@ The sections below explain briefly how LCAO mode works, how to
 generate basis sets and how to use them in calculations.
 LCAO mode is available for TD-DFT via the
 :ref:`LCAOTDDFT <lcaotddft>` module.
+
 
 Introduction
 ------------
@@ -53,10 +54,9 @@ problem then becomes
 which can be solved by directly diagonalizating the Hamiltonian in the
 basis of the atomic orbitals.
 
-Some detailed information can be found in the master theses `1`_ and `2`_.
+Some detailed information can be found in the master theses
+:download:`1 <../askhl_master.pdf>` and :download:`2 <../marco_master.pdf>`.
 
-.. _1: ../../_static/askhl_master.pdf
-.. _2: ../../_static/marco_master.pdf
 
 Basis-set generation
 --------------------
@@ -82,6 +82,7 @@ For technical reasons, the basis set generator always generates the
 corresponding PAW, even if the latter exists on the user's system.
 Use the ``--save-setup`` option to save the calculated setup along with the
 basis set.
+
 
 Running a calculation
 ---------------------
@@ -117,6 +118,7 @@ relax the structure simply by doing::
 
   >>> calc.set(mode='fd')
   >>> dyn.run(fmax=0.05)
+
 
 More on basis sets
 ------------------
@@ -194,6 +196,7 @@ atoms are ghosts::
            mode='lcao',
            ...)
 
+
 .. _poisson_performance:
 
 Notes on performance
@@ -241,6 +244,7 @@ usually reduces the Poisson iteration count by around 40% (ideally
 50%).  Again, please note that none of the above applies to the
 ``FastPoissonSolver`` which is now default.
 
+
 Advanced basis generation
 -------------------------
 
@@ -260,6 +264,7 @@ state, and using a non-standard size of the augmentation sphere.
 
 .. literalinclude:: basisgeneration.py
 
+
 Miscellaneous remarks
 ---------------------
 
@@ -277,7 +282,7 @@ roughly to a single-zeta basis in most cases.  Depending on the unoccupied
 states defined on the PAW setups, it may be roughly equivalent to a
 single-zeta polarized basis set for certain elements.
 
-.. [LCAO_article] A. H. Larsen, M. Vanin, J. J. Mortensen, K. S. Thygesen,
+.. [LCAO-article] A. H. Larsen, M. Vanin, J. J. Mortensen, K. S. Thygesen,
   and K. W. Jacobsen, Phys. Rev. B 80, 195112 (2009)
 
 .. [Siesta] J.M. Soler et al.,
