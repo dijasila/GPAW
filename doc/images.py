@@ -64,7 +64,6 @@ get('.', ['bz-all.png'], 'static')
 # used to have. Might need to keep track of this.
 get('exercises/wavefunctions', ['co_bonding.jpg'],
     target='tutorialsexercises/wavefunctions/wavefunctions')
-get('tutorials/H2', ['ensemble.png'], target='tutorialsexercises/H2')
 get('exercises/lrtddft', ['spectrum.png'],
     target='tutorialsexercises/opticalresponse/lrtddft')
 get('tutorials/wannier90', ['GaAs.png', 'Cu.png', 'Fe.png'],
