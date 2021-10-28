@@ -44,6 +44,14 @@ Git master branch
 * The hyperfine tensor CLI-tool no longer divides by total magnetic moment:
   :ref:`hyperfine`.
 
+* The solvated jellium method (:class:`~gpaw.solvation.sjm.SJM`)---for
+  constant-potential calculations in simulating
+  electrochemical/electrified interfaces---has been thoroughly
+  updated, and more thorough :ref:`documentation<sjm>` and
+  :ref:`tutorials<solvated_jellium_method>` are now available. Al keywords
+  now enter the :class:`~gpaw.solvation.sjm.SJM` calculator through the
+  :literal:`sj` dictionary.
+
 
 Version 21.6.0
 ===============

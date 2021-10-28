@@ -29,9 +29,6 @@ from gpaw.solvation.hamiltonian import SolvationRealSpaceHamiltonian
 from gpaw.solvation.poisson import WeightedFDPoissonSolver
 
 
-# FIXME/ap: Add release notes describing major changes.
-
-
 class SJM(SolvationGPAW):
     r"""Solvated Jellium method.
     (Implemented as a subclass of the SolvationGPAW class.)
@@ -429,9 +426,6 @@ class SJM(SolvationGPAW):
             except IndexError:
                 pass
             else:
-                # new_diff = abs(true_potential - p.target_potential)
-                # old_diff = abs(self._previous_potentials[-1] -
-                #                p.target_potential)
                 diff_ratio = (true_potential - p.target_potential) /\
                     (self._previous_potentials[-1] - p.target_potential)
                 if stepsize > p.max_step and diff_ratio < -0.5:
