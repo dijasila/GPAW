@@ -26,7 +26,7 @@ for spinpol in [True, False]:
                 mixer={'backend': 'no-mixing'},
                 nbands='nao',
                 symmetry='off',
-                txt='co_'+tag+'.txt')
+                txt='co_' + tag + '.txt')
     atoms.calc = calc
 
     # Ground-state calculation
@@ -54,12 +54,12 @@ for spinpol in [True, False]:
     # Prepare excited-state DO-MOM calculation
     prepare_mom_calculation(calc, atoms, f)
 
-    opt = BFGS(atoms, logfile='co_'+tag+'.log', maxstep=0.05)
+    opt = BFGS(atoms, logfile='co_' + tag + '.log', maxstep=0.05)
     opt.run(fmax=0.05)
 
     d = atoms.get_distance(0, 1)
 
-    with paropen('co_'+tag+'.log', 'a') as fd:
+    with paropen('co_' + tag + '.log', 'a') as fd:
         print(f'Optimized CO bond length sigma->pi* state: {d:.2f} Å', file=fd)
         # https://doi.org/10.1007/978-1-4757-0961-2
         print('Experimental CO bond length sigma->pi* state: 1.24 Å', file=fd)
