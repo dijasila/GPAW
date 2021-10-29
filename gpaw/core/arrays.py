@@ -13,11 +13,15 @@ class DistributedArrays:
                  dims: int | tuple[int, ...],
                  myshape: tuple[int, ...],
                  comm: MPIComm,
+                 domain_comm: MPIComm,
+                 dv: float,
                  data: np.ndarray,
                  dtype,
                  transposed: bool):
         self.myshape = myshape
         self.comm = comm
+        self.domain_comm = domain_comm
+        self.dv = dv
         self.transposed = transposed
 
         # convert int to tuple:
@@ -41,12 +45,13 @@ class DistributedArrays:
             data = np.empty(fullshape, dtype)
 
         self.data = data
-        self._matrix = None
+        self._matrix: Matrix | None = None
 
     @property
-    def matrix(self):
+    def matrix(self) -> Matrix:
         if self._matrix is not None:
             return self._matrix
+
         if self.transposed:
             shape = (np.prod(self.myshape), np.prod(self.dims))
             myshape = (np.prod(self.myshape), np.prod(self.mydims))
@@ -55,20 +60,19 @@ class DistributedArrays:
             shape = (np.prod(self.dims), np.prod(self.myshape))
             myshape = (np.prod(self.mydims), np.prod(self.myshape))
             dist = (self.comm, -1, 1)
+
         data = self.data.reshape(myshape)
-        if data.dtype == complex and self.layout.dtype == float:
-            data = data.view(float)
-            shape = (shape[0], shape[1] * 2)
         self._matrix = Matrix(*shape, data=data, dist=dist)
+
         return self._matrix
 
     def matrix_elements(self,
                         other,
                         *,
-                        out=None,
-                        symmetric=None,
+                        out: Matrix = None,
+                        symmetric: bool = None,
                         function=None,
-                        domain_sum=True):
+                        domain_sum=True) -> Matrix:
         if symmetric is None:
             symmetric = self is other
         if function:
@@ -84,7 +88,7 @@ class DistributedArrays:
         self._matrix_elements_correction(M1, M2, out, symmetric)
 
         if domain_sum:
-            self.layout.comm.sum(out.data)
+            self.domain_comm.sum(out.data)
 
         return out
 

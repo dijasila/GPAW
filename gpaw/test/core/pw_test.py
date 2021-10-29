@@ -2,22 +2,20 @@ import numpy as np
 import pytest
 from gpaw.core import UniformGrid, PlaneWaves
 from gpaw.mpi import world
+from gpaw.core.plane_waves import find_reciprocal_vectors
+from math import pi
 
 
 @pytest.mark.ci
 def test_redist():
     a = 2.5
-    n = 20
-
-    # comm = world.new_communicator([world.rank])
-    grid = UniformGrid(cell=[a, a, a], size=(n, n, n), comm=world)
-    pw1 = PlaneWaves(ecut=10, grid=grid)
-    f1 = pw1.empty()
+    pw = PlaneWaves(ecut=10, cell=[a, a, a], comm=world)
+    f1 = pw.empty()
     f1.data[:] = 1.0
     f2 = f1.collect()
     if f2 is not None:
         assert (f2.data == 1.0).all()
-        assert f2.layout.grid.comm.size == 1
+        assert f2.pw.comm.size == 1
 
 
 def test_pw_integrate():
@@ -45,8 +43,13 @@ def test_pw_integrate():
 
     ecut = 0.5 * (2 * np.pi / a)**2 * 1.01
     for g in [g1, g2, g3, g4, g5]:
-        pw = PlaneWaves(grid=g.grid, ecut=ecut)
+        pw = PlaneWaves(cell=g.grid.cell, dtype=g.grid.dtype,
+                        ecut=ecut, comm=world)
         f = g.fft(pw=pw)
+        print(f.data)
+
+        gg = f.ifft(grid=g.grid)
+        assert (g.data == gg.data).all()
 
         i1 = g.integrate()
         i2 = f.integrate()
@@ -74,11 +77,36 @@ def test_grr():
     grid = UniformGrid(cell=[2 / Bohr, 2 / Bohr, 2.737166 / Bohr],
                        size=(9, 9, 12),
                        comm=world)
-    pw = PlaneWaves(ecut=340 / Ha, grid=grid)
-    print(pw.G_plus_k.shape)
+    pw = PlaneWaves(ecut=340 / Ha, cell=grid.cell, comm=world)
+    print(pw.G_plus_k_Gv.shape)
     from gpaw.grid_descriptor import GridDescriptor
     from gpaw.pw.descriptor import PWDescriptor
     g = GridDescriptor((9, 9, 12), [2 / Bohr, 2 / Bohr, 2.737166 / Bohr])
     p = PWDescriptor(340 / Ha, g)
     print(p.get_reciprocal_vectors().shape)
-    assert (p.get_reciprocal_vectors() == pw.G_plus_k).all()
+    assert (p.get_reciprocal_vectors() == pw.G_plus_k_Gv).all()
+
+
+def test_find_g():
+    G, e, i = find_reciprocal_vectors(0.501 * (2 * pi)**2,
+                                      np.eye(3))
+    assert i.T.tolist() == [[0, 0, 0],
+                            [0, 0, 1],
+                            [0, 0, -1],
+                            [0, 1, 0],
+                            [0, -1, 0],
+                            [1, 0, 0],
+                            [-1, 0, 0]]
+    G, e, i = find_reciprocal_vectors(0.501 * (2 * pi)**2,
+                                      np.eye(3),
+                                      dtype=float)
+    assert i.T.tolist() == [[0, 0, 0],
+                            [0, 0, 1],
+                            [0, 1, 0],
+                            [1, 0, 0]]
+    G, e, i = find_reciprocal_vectors(0.5 * (2 * pi)**2,
+                                      np.eye(3),
+                                      kpt=np.array([0.1, 0, 0]))
+    assert i.T.tolist() == [[0, 0, 0],
+                            [-1, 0, 0]]
+    

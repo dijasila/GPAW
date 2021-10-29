@@ -1,15 +1,11 @@
 from __future__ import annotations
 
-from types import SimpleNamespace
-
 import numpy as np
 from gpaw.core.atom_arrays import (AtomArrays, AtomArraysLayout,
                                    AtomDistribution)
 from gpaw.core.matrix import Matrix
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
-from gpaw.pw.descriptor import PWDescriptor
-from gpaw.pw.lfc import PWLFC
 from gpaw.spline import Spline
 from gpaw.typing import ArrayLike2D
 
@@ -53,19 +49,14 @@ class AtomCenteredFunctions:
             self._lfc.add(functions.data, coefs)
             return
 
-        self._lfc.add(functions.data,
-                      {a: np.moveaxis(array, 0, -1)
-                       for a, array in coefs._arrays.items()},
-                      q=0)
+        c = {a: np.moveaxis(array, 0, -1)
+             for a, array in coefs._arrays.items()}
+        self._lfc.add(functions.data, c, q=0)
 
     def integrate(self, functions, out=None):
         self._lacy_init()
         if out is None:
             out = self.layout.empty(functions.shape, functions.comm)
-        elif isinstance(out, Matrix):
-            1 / 0
-            out = AtomArrays(self.layout, functions.shape, functions.comm,
-                             out.data)
         self._lfc.integrate(functions.data,
                             {a: np.moveaxis(array, 0, -1)
                              for a, array in out._arrays.items()},
@@ -113,31 +104,3 @@ class UniformGridAtomCenteredFunctions(AtomCenteredFunctions):
         out = self.grid.zeros()
         self.add_to(out, coef)
         return out
-
-
-class PlaneWaveAtomCenteredFunctions(AtomCenteredFunctions):
-    def __init__(self, functions, fracpos, pw):
-        AtomCenteredFunctions.__init__(self, functions, fracpos)
-        self.pw = pw
-
-    def _lacy_init(self):
-        if self._lfc is not None:
-            return
-        gd = self.pw.grid._gd
-        kd = KPointDescriptor(np.array([self.pw.grid.kpt]))
-        pd = PWDescriptor(self.pw.ecut, gd, kd=kd, dtype=self.pw.grid.dtype)
-        self._lfc = PWLFC(self.functions, pd)
-        atomdist = AtomDistribution(
-            ranks=np.zeros(len(self.fracpos), int),
-            comm=self.pw.grid.comm)
-        self._lfc.set_positions(self.fracpos,
-                                SimpleNamespace(rank_a=atomdist.ranks))
-        self._layout = AtomArraysLayout([sum(2 * f.l + 1 for f in funcs)
-                                         for funcs in self.functions],
-                                        atomdist,
-                                        self.pw.grid.dtype)
-
-    def to_uniform_grid(self, coef: float = 1.0):
-        out = self.pw.zeros()
-        self.add_to(out, coef)
-        return out.ifft()

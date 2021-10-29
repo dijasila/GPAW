@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 from math import pi
+import functools
 
 import _gpaw
 import numpy as np
 from gpaw.core.arrays import DistributedArrays
-from gpaw.core.atom_centered_functions import PlaneWaveAtomCenteredFunctions
-from gpaw.core.layout import Layout
+from gpaw.core.pwacf import PlaneWaveAtomCenteredFunctions
 from gpaw.core.matrix import Matrix
-from gpaw.core.uniform_grid import UniformGrid, UniformGridFunctions
+from gpaw.core.uniform_grid import UniformGridFunctions
 from gpaw.mpi import MPIComm, serial_comm
 from gpaw.pw.descriptor import pad
 from gpaw.typing import Array1D, Array2D, ArrayLike1D, ArrayLike2D
@@ -26,24 +26,26 @@ class PlaneWaves(Domain):
         self.ecut = ecut
         Domain.__init__(self, cell, (True, True, True), kpt, comm, dtype)
 
-        G_plus_k, ekin, self.indices = find_reciprocal_vectors(ecut, grid)
+        G_plus_k_Gv, ekin_G, self.indices_cG = find_reciprocal_vectors(
+            ecut, self.cell, self.kpt, self.dtype)
 
         # Find distribution:
-        S = grid.comm.size
-        ng = len(self.indices)
+        S = comm.size
+        ng = len(ekin_G)
         self.maxmysize = (ng + S - 1) // S
-        ng1 = grid.comm.rank * self.maxmysize
+        ng1 = comm.rank * self.maxmysize
         ng2 = ng1 + self.maxmysize
 
         # Distribute things:
-        self.ekin = ekin[ng1:ng2].copy()
-        self.ekin.flags.writeable = False
-        self.myindices = self.indices[ng1:ng2]
-        self.G_plus_k = G_plus_k[ng1:ng2]
+        self.ekin_G = ekin_G[ng1:ng2].copy()
+        self.ekin_G.flags.writeable = False
+        #self.myindices_cG = self.indices_cG[:, ng1:ng2]
+        self.G_plus_k_Gv = G_plus_k_Gv[ng1:ng2]
 
-        Layout.__init__(self, (ng,), (len(self.myindices),))
+        self.shape = (ng,)
+        self.myshape = (len(self.ekin_G),)
 
-        self.dv = grid.dv / grid.size.prod()
+        self.dv = abs(np.linalg.det(self.cell))
 
     def __str__(self) -> str:
         a, b, c = self.grid.size
@@ -67,8 +69,24 @@ class PlaneWaves(Domain):
         return PlaneWaveExpansions(self, shape, comm)
 
     def new(self,
-            grid: UniformGrid) -> PlaneWaves:
-        return PlaneWaves(ecut=self.ecut, grid=grid)
+            comm: MPIComm) -> PlaneWaves:
+        return PlaneWaves(ecut=self.ecut,
+                          cell=self.cell,
+                          kpt=self.kpt,
+                          dtype=self.dtype,
+                          comm=comm)
+
+    @functools.lru_cache()
+    def indices(self, shape):
+        return np.ravel_multi_index(self.indices_cG, shape,
+                                    mode='wrap').astype(np.int32)
+
+    def cut(self, array_R):
+        return array_R.ravel()[self.indices(array_R.shape)]
+
+    def paste(self, coefs_G, scale, array_Q):
+        Q_G = self.indices(array_Q.shape)
+        _gpaw.pw_insert(coefs_G, Q_G, scale, array_Q)
 
     def atom_centered_functions(self,
                                 functions,
@@ -82,10 +100,13 @@ class PlaneWaves(Domain):
 class PlaneWaveExpansions(DistributedArrays):
     def __init__(self,
                  pw: PlaneWaves,
-                 shape: int | tuple[int, ...] = (),
+                 dims: int | tuple[int, ...] = (),
                  comm: MPIComm = serial_comm,
                  data: np.ndarray = None):
-        DistributedArrays. __init__(self, pw, shape, comm, data, complex)
+        DistributedArrays. __init__(self, dims, pw.myshape,
+                                    comm, pw.comm,
+                                    pw.dv, data, complex,
+                                    transposed=False)
         self.pw = pw
 
     def __repr__(self):
@@ -109,15 +130,34 @@ class PlaneWaveExpansions(DistributedArrays):
     def _arrays(self):
         return self.data.reshape((-1,) + self.data.shape[-1:])
 
-    def ifft(self, plan=None, out=None):
-        out = out or self.pw.grid.empty(self.shape)
-        plan = plan or self.pw.grid.fft_plans()[1]
-        scale = 1.0 / plan.out_R.size
+    @property
+    def matrix(self) -> Matrix:
+        if self._matrix is not None:
+            return self._matrix
+
+        shape = (np.prod(self.dims), self.myshape[0])
+        myshape = (np.prod(self.mydims), self.myshape[0])
+        dist = (self.comm, -1, 1)
+        data = self.data.reshape(myshape)
+
+        if self.pw.dtype == float:
+            data = data.view(float)
+            shape = (shape[0], shape[1] * 2)
+
+        self._matrix = Matrix(*shape, data=data, dist=dist)
+        return self._matrix
+
+    def ifft(self, plan=None, grid=None, out=None):
+        if out is None:
+            out = grid.empty()
+        assert out.grid.pbc.all()
+        plan = plan or out.grid.fft_plans()[1]
+        scale = 1.0# / plan.out_R.size
         for input, output in zip(self._arrays(), out._arrays()):
-            _gpaw.pw_insert(input, self.pw.indices, scale, plan.in_R)
-            if self.pw.grid.dtype == float:
+            self.pw.paste(input, scale, plan.in_R)
+            if self.pw.dtype == float:
                 t = plan.in_R[:, :, 0]
-                n, m = (s // 2 - 1 for s in self.pw.grid.size[:2])
+                n, m = (s // 2 - 1 for s in out.grid.size[:2])
                 t[0, -m:] = t[0, m:0:-1].conj()
                 t[n:0:-1, -m:] = t[-n:, m:0:-1].conj()
                 t[-n:, -m:] = t[n:0:-1, m:0:-1].conj()
@@ -129,7 +169,7 @@ class PlaneWaveExpansions(DistributedArrays):
 
     def collect(self, out=None, broadcast=False):
         """Gather coefficients on master."""
-        comm = self.pw.grid.comm
+        comm = self.pw.comm
 
         if comm.size == 1:
             if out is None:
@@ -139,9 +179,8 @@ class PlaneWaveExpansions(DistributedArrays):
 
         if out is None:
             if comm.rank == 0 or broadcast:
-                pw = PlaneWaves(ecut=self.pw.ecut,
-                                grid=self.pw.grid.new(comm=serial_comm))
-                out = pw.empty(self.shape)
+                pw = self.pw.new(comm=serial_comm)
+                out = pw.empty(self.dims)
             else:
                 out = Empty()
 
@@ -162,17 +201,17 @@ class PlaneWaveExpansions(DistributedArrays):
         return out if not isinstance(out, Empty) else None
 
     def distribute(self, pw=None, out=None):
-        assert self.shape == ()
-        assert self.pw.grid.comm.size == 1
+        assert self.dims == ()
+        assert self.pw.comm.size == 1
         if out is self:
             return out
         if out is None:
             if pw is None:
                 raise ValueError('You must specify "pw" or "out"!')
-            out = pw.empty(self.shape, self.comm)
+            out = pw.empty(self.dims, self.comm)
         if pw is None:
             pw = out.pw
-        comm = pw.grid.comm
+        comm = pw.comm
         if comm.size == 1:
             out.data[:] = self.data
             return out
@@ -189,27 +228,27 @@ class PlaneWaveExpansions(DistributedArrays):
 
     def integrate(self, other: PlaneWaveExpansions = None) -> np.ndarray:
         if other is not None:
-            assert self.pw.grid.dtype == other.pw.grid.dtype
+            assert self.pw.dtype == other.pw.dtype
             a = self._arrays()
             b = other._arrays()
-            dv = self.pw.dv
+            dv = self.dv
             if self.pw.dtype == float:
                 a = a.view(float)
                 b = b.view(float)
                 dv *= 2
             result = a @ b.T.conj()
-            if self.pw.grid.dtype == float and self.pw.grid.comm.rank == 0:
+            if self.pw.dtype == float and self.pw.comm.rank == 0:
                 result -= 0.5 * np.outer(a[:, 0], b[:, 0])
             self.pw.comm.sum(result)
-            result.shape = self.shape + other.shape
+            result.shape = self.dims + other.dims
         else:
-            dv = self.pw.grid.dv
+            dv = self.dv
             result = self.data[..., 0]
-            if self.pw.grid.comm.rank > 0:
+            if self.pw.comm.rank > 0:
                 result = np.empty_like(result)
-            self.pw.grid.comm.broadcast(result[np.newaxis], 0)
+            self.pw.comm.broadcast(result[np.newaxis], 0)
 
-        if self.pw.grid.dtype == float:
+        if self.pw.dtype == float:
             result = result.real
         return result * dv
 
@@ -269,12 +308,21 @@ def find_reciprocal_vectors(ecut: float,
                             dtype=complex) -> tuple[Array2D,
                                                     Array1D,
                                                     Array1D]:
-    size = ((2 * ecut * (cell**2).sum(axis=1))**0.5 / pi).astype(int) + 1
+    """Find reciprocal lattice vectors inside sphere.
+
+    >>> cell = np.eye(3)
+    >>> ecut = 0.5 * (2 * pi)**2
+    >>> G, e, i = find_reciprocal_vectors(ecut, cell)
+    >>> i
+
+    """
+    Gcut = (2 * ecut)**0.5
+    n = Gcut * (cell**2).sum(axis=1)**0.5 / (2 * pi) + abs(kpt)
+    size = 2 * n.astype(int) + 4
 
     if dtype == float:
-        Nr_c = list(size)
-        Nr_c[2] = size[2] // 2 + 1
-        i_Qc = np.indices(Nr_c).transpose((1, 2, 3, 0))
+        size[2] = size[2] // 2 + 1
+        i_Qc = np.indices(size).transpose((1, 2, 3, 0))
         i_Qc[..., :2] += size[:2] // 2
         i_Qc[..., :2] %= size[:2]
         i_Qc[..., :2] -= size[:2] // 2
@@ -287,25 +335,29 @@ def find_reciprocal_vectors(ecut: float,
 
     # Calculate reciprocal lattice vectors:
     B_cv = 2.0 * pi * np.linalg.inv(cell).T
-    i_Qc.shape = (-1, 3)
-    G_plus_k_Qv = np.dot(i_Qc + kpt, B_cv)
+    # i_Qc.shape = (-1, 3)
+    G_plus_k_Qv = (i_Qc + kpt) @ B_cv
 
-    # Map from vectors inside sphere to fft grid:
-    Q_Q = np.arange(len(i_Qc), dtype=np.int32)
+    ekin = 0.5 * (G_plus_k_Qv**2).sum(axis=3)
+    mask = ekin <= ecut
 
-    G2_Q = (G_plus_k_Qv**2).sum(axis=1)
-    mask_Q = (G2_Q <= 2 * ecut)
+    assert not mask[size[0] // 2].any()
+    assert not mask[:, size[1] // 2].any()
+    if dtype == complex:
+        assert not mask[:, :, size[2] // 2].any()
+    else:
+        assert not mask[:, :, -1].any()
 
-    if grid.dtype == float:
-        mask_Q &= ((i_Qc[:, 2] > 0) |
-                   (i_Qc[:, 1] > 0) |
-                   ((i_Qc[:, 0] >= 0) & (i_Qc[:, 1] == 0)))
+    if dtype == float:
+        mask &= ((i_Qc[..., 2] > 0) |
+                 (i_Qc[..., 1] > 0) |
+                 ((i_Qc[..., 0] >= 0) & (i_Qc[..., 1] == 0)))
 
-    indices = Q_Q[mask_Q]
-    ekin = 0.5 * G2_Q[indices]
-    G_plus_k = G_plus_k_Qv[mask_Q]
+    indices = i_Qc[mask]
+    ekin = ekin[mask]
+    G_plus_k = G_plus_k_Qv[mask]
 
-    return G_plus_k, ekin, indices
+    return G_plus_k, ekin, indices.T
 
 
 class PWMapping:

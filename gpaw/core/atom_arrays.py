@@ -1,11 +1,10 @@
 from __future__ import annotations
 import numpy as np
-from gpaw.core.layout import Layout
 from gpaw.core.arrays import DistributedArrays
 from gpaw.mpi import MPIComm, serial_comm
 
 
-class AtomArraysLayout(Layout):
+class AtomArraysLayout:
     def __init__(self,
                  shapes: list[int | tuple[int, ...]],
                  atomdist: AtomDistribution | MPIComm = serial_comm,
@@ -28,16 +27,17 @@ class AtomArraysLayout(Layout):
             self.mysize += I2 - I1
             I1 = I2
 
-        Layout.__init__(self, (self.size,), (self.mysize,))
+        #Layout.__init__(self, (self.size,), (self.mysize,))
 
     def __repr__(self):
         return (f'AtomArraysLayout({self.shapes}, {self.atomdist}, '
                 f'{self.dtype})')
 
     def empty(self,
-              shape: int | tuple[int, ...] = (),
-              comm: MPIComm = serial_comm) -> AtomArrays:
-        return AtomArrays(self, shape, comm)
+              dims: int | tuple[int, ...] = (),
+              comm: MPIComm = serial_comm,
+              transposed=False) -> AtomArrays:
+        return AtomArrays(self, dims, comm, transposed=transposed)
 
 
 class AtomDistribution:
@@ -54,11 +54,16 @@ class AtomDistribution:
 class AtomArrays(DistributedArrays):
     def __init__(self,
                  layout: AtomArraysLayout,
-                 shape: int | tuple[int, ...] = (),
+                 dims: int | tuple[int, ...] = (),
                  comm: MPIComm = serial_comm,
-                 data: np.ndarray = None):
-        DistributedArrays. __init__(self, layout, shape, comm, data,
-                                    layout_last=False)
+                 data: np.ndarray = None,
+                 transposed=False):
+        DistributedArrays. __init__(self, dims, (layout.mysize,),
+                                    comm, layout.atomdist.comm,
+                                    dtype=layout.dtype,
+                                    data=data,
+                                    dv=np.nan,
+                                    transposed=transposed)
         self.layout = layout
         self._arrays = {}
         for a, I1, I2 in layout.myindices:
@@ -70,7 +75,8 @@ class AtomArrays(DistributedArrays):
         return f'AtomArrays({self.layout})'
 
     def new(self):
-        return AtomArrays(self.layout, self.shape, self.comm)
+        return AtomArrays(self.layout, self.dims, self.comm,
+                          transposed=self.transposed)
 
     def __getitem__(self, a):
         return self._arrays[a]

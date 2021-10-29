@@ -7,10 +7,9 @@ import gpaw.fftw as fftw
 import numpy as np
 from gpaw.core.arrays import DistributedArrays
 from gpaw.core.atom_centered_functions import UniformGridAtomCenteredFunctions
-from gpaw.core.layout import Layout
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.mpi import MPIComm, serial_comm
-from gpaw.typing import Array2D, ArrayLike, ArrayLike1D, ArrayLike2D, Array1D
+from gpaw.typing import ArrayLike1D, ArrayLike2D, Array1D
 from gpaw.utilities.grid import GridRedistributor
 import _gpaw
 from gpaw.core.domain import Domain
@@ -169,7 +168,7 @@ class UniformGridFunctions(DistributedArrays):
                  comm: MPIComm = serial_comm,
                  data: np.ndarray = None):
         DistributedArrays. __init__(self, dims, tuple(grid.mysize),
-                                    comm, data,
+                                    comm, grid.comm, grid.dv, data,
                                     grid.dtype, transposed=False)
         self.grid = grid
 
@@ -191,7 +190,7 @@ class UniformGridFunctions(DistributedArrays):
         return self.data.reshape((-1,) + self.data.shape[-3:])
 
     def xy(self, *axes):
-        assert len(axes) == 3 + len(self.shape)
+        assert len(axes) == 3 + len(self.dims)
         index = tuple([slice(0, None) if axis is ... else axis
                        for axis in axes])
         y = self.data[index]
@@ -206,7 +205,7 @@ class UniformGridFunctions(DistributedArrays):
         if out is None:
             if grid is None:
                 raise ValueError('You must spicify grid or out!')
-            out = grid.empty(self.shape, self.comm)
+            out = grid.empty(self.dims, self.comm)
         if grid is None:
             grid = out.grid
         if self.grid.comm.size == 1 and grid.comm.size == 1:
@@ -226,7 +225,7 @@ class UniformGridFunctions(DistributedArrays):
         if out is None and grid is None:
             grid = self.grid.new(comm=serial_comm)
         if out is None:
-            out = grid.empty(self.shape, self.comm)
+            out = grid.empty(self.dims, self.comm)
         if grid is None:
             grid = out.grid
         if self.grid.comm.size == 1 and grid.comm.size == 1:
@@ -245,7 +244,7 @@ class UniformGridFunctions(DistributedArrays):
         return out
 
     def fft(self, plan=None, pw=None, out=None):
-        assert self.shape == ()
+        assert self.dims == ()
         if out is None:
             assert pw is not None
             out = pw.empty()
@@ -255,14 +254,14 @@ class UniformGridFunctions(DistributedArrays):
         if self.grid.comm.size > 1:
             input = input.collect()
         if self.grid.comm.rank == 0:
-            plan = plan or pw.grid.fft_plans()[0]
+            plan = plan or self.grid.fft_plans()[0]
             plan.in_R[:] = input.data
             plan.execute()
-            coefs = plan.out_R.ravel()[pw.indices]
+            coefs = pw.cut(plan.out_R) * (1 / plan.in_R.size)
 
-        if pw.grid.comm.size > 1:
-            out1 = pw.new(grid=input.grid).empty()
-            if pw.grid.comm.rank == 0:
+        if pw.comm.size > 1:
+            out1 = pw.new(comm=serial_comm).empty()
+            if pw.comm.rank == 0:
                 out1.data[:] = coefs
             out1.distribute(out=out)
         else:
@@ -286,7 +285,7 @@ class UniformGridFunctions(DistributedArrays):
             b = other._arrays()
             a = a.reshape((len(a), -1))
             b = b.reshape((len(b), -1))
-            result = (a @ b.T.conj()).reshape(self.shape + other.shape)
+            result = (a @ b.T.conj()).reshape(self.dims + other.dims)
         else:
             result = self.data.sum(axis=(-3, -2, -1))
 
