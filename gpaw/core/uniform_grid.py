@@ -65,7 +65,7 @@ class UniformGrid(Domain):
                                          disp * self.kpt[:, np.newaxis])
         return self._phase_factors
 
-    def __str__(self):
+    def __repr__(self):
         a, b, c = self.size
         comm = self.comm
         return (f'UniformGrid(size={a}*{b}*{c}, pbc={self.pbc}, '
@@ -75,17 +75,18 @@ class UniformGrid(Domain):
             size=None,
             pbc=None,
             kpt=None,
-            comm=None,
+            comm='inherit',
             decomposition=None,
             dtype=None) -> UniformGrid:
-        if decomposition is None and comm is None:
+        if decomposition is None and comm == 'inherit':
             if (size == self.size).all() and (pbc == self.pbc).all():
                 decomposition = self.decomposition
+        comm = self.comm if comm == 'inherit' else comm
         return UniformGrid(cell=self.cell,
                            size=self.size if size is None else size,
                            pbc=self.pbc if pbc is None else pbc,
                            kpt=self.kpt if kpt is None else kpt,
-                           comm=comm or self.comm,
+                           comm=comm or serial_comm,
                            decomposition=decomposition,
                            dtype=self.dtype if dtype is None else dtype)
 

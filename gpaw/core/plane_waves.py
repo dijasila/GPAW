@@ -47,10 +47,9 @@ class PlaneWaves(Domain):
 
         self.dv = abs(np.linalg.det(self.cell))
 
-    def __str__(self) -> str:
-        a, b, c = self.grid.size
-        comm = self.grid.comm
-        txt = f'PlaneWaves(ecut={self.ecut}, grid={a}*{b}*{c}'
+    def __repr__(self) -> str:
+        comm = self.comm
+        txt = f'PlaneWaves(ecut={self.ecut}, cell={self.cell.tolist()}'
         if comm.size > 1:
             txt += f', comm={comm.rank}/{comm.size}'
         return txt + ')'
@@ -69,12 +68,13 @@ class PlaneWaves(Domain):
         return PlaneWaveExpansions(self, shape, comm)
 
     def new(self,
-            comm: MPIComm) -> PlaneWaves:
+            comm: MPIComm | str = 'inherit') -> PlaneWaves:
+        comm = self.comm if comm == 'inherit' else comm
         return PlaneWaves(ecut=self.ecut,
                           cell=self.cell,
                           kpt=self.kpt,
                           dtype=self.dtype,
-                          comm=comm)
+                          comm=comm or serial_comm)
 
     @functools.lru_cache()
     def indices(self, shape):
@@ -110,7 +110,7 @@ class PlaneWaveExpansions(DistributedArrays):
         self.pw = pw
 
     def __repr__(self):
-        txt = f'PlaneWaveExpansions(pw={self.pw}, shape={self.shape}'
+        txt = f'PlaneWaveExpansions(pw={self.pw}, shape={self.dims}'
         if self.comm.size > 1:
             txt += f', comm={self.comm.rank}/{self.comm.size}'
         return txt + ')'
