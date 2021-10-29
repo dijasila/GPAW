@@ -5,15 +5,16 @@ from myqueue.workflow import run
 
 
 def workflow():
-    with run(script='mom_co.py', cores=8):
+    with run(script='domom_co.py', cores=8):
         run(function=check_co)
     with run(script='mom_h2o.py', cores=8):
         run(function=check_h2o)
 
 
 def check_co():
-    co = read('co.txt')
-    assert abs(co.get_distance(0, 1) - 1.248) < 0.001
+    for tag in ['spinpol', 'spinpaired']:
+        co = read('co_' + tag + '.txt')
+        assert abs(co.get_distance(0, 1) - 1.248) < 0.01
 
 
 def check_h2o():
