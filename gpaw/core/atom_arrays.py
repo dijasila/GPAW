@@ -67,8 +67,12 @@ class AtomArrays(DistributedArrays):
         self.layout = layout
         self._arrays = {}
         for a, I1, I2 in layout.myindices:
-            self._arrays[a] = self.data[I1:I2].reshape(
-                layout.shapes[a] + self.myshape)
+            if transposed:
+                self._arrays[a] = self.data[I1:I2].reshape(
+                    layout.shapes[a] + self.mydims)
+            else:
+                self._arrays[a] = self.data[..., I1:I2].reshape(
+                    self.mydims + layout.shapes[a])
         self.natoms: int = len(layout.shapes)
 
     def __repr__(self):

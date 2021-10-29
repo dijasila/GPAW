@@ -23,35 +23,35 @@ def magmoms2dims(magmoms):
 
 class Density:
     def __init__(self,
-                 nt_s,
-                 nct,
+                 nt_sR,
+                 nct_R,
                  nct_acf,
-                 density_matrices,
+                 D_asii,
                  delta_aiiL,
                  delta0_a,
                  charge=0.0):
-        self.nt_s = nt_s
-        self.nct = nct
+        self.nt_sR = nt_sR
+        self.nct = nct_R
         self.nct_acf = nct_acf
-        self.density_matrices = density_matrices
+        self.D_asii = D_asii
         self.delta_aiiL = delta_aiiL
         self.delta0_a = delta0_a
         self.charge = charge
 
-        self.ncomponents = nt_s.shape[0]
+        self.ncomponents = nt_sR.shape[0]
         self.ndensities = {1: 1,
                            2: 2,
                            4: 1}[self.ncomponents]
-        self.collinear = nt_s.shape[0] != 4
+        self.collinear = nt_sR.shape[0] != 4
 
     def calculate_compensation_charge_coefficients(self) -> AtomArrays:
         coefs = AtomArraysLayout(
             [delta_iiL.shape[2] for delta_iiL in self.delta_aiiL],
-            atomdist=self.density_matrices.layout.atomdist).empty()
+            atomdist=self.D_asii.layout.atomdist).empty()
 
-        for a, D in self.density_matrices.items():
-            Q = np.einsum('ijs, ijL -> L',
-                          D[:, :, :self.ndensities], self.delta_aiiL[a])
+        for a, D_sii in self.D_asii.items():
+            Q = np.einsum('sij, ijL -> L',
+                          D_sii[:self.ndensities], self.delta_aiiL[a])
             Q[0] += self.delta0_a[a]
             coefs[a] = Q
 
@@ -59,19 +59,19 @@ class Density:
 
     def normalize(self):
         comp_charge = self.charge
-        for a, D in self.density_matrices.items():
-            comp_charge += np.einsum('ijs, ij ->',
-                                     D[:, :, :self.ndensities],
+        for a, D_sii in self.D_asii.items():
+            comp_charge += np.einsum('sijs, ij ->',
+                                     D_sii[:self.ndensities],
                                      self.delta_aiiL[a][:, :, 0])
             comp_charge += self.delta0_a[a]
-        comp_charge = self.nt_s.grid.comm.sum(comp_charge * sqrt(4 * pi))
+        comp_charge = self.nt_sR.grid.comm.sum(comp_charge * sqrt(4 * pi))
         charge = comp_charge + self.charge
-        pseudo_charge = self.nt_s.integrate().sum()
+        pseudo_charge = self.nt_sR.integrate().sum()
         x = -charge / pseudo_charge
-        self.nt_s.data *= x
+        self.nt_sR.data *= x
 
     def overlap_correction(self,
-                           projections: AtomArrays,
+                           P_ain: AtomArrays,
                            out: AtomArrays) -> AtomArrays:
         x = (4 * np.pi)**0.5
         for a, I1, I2 in projections.layout.myindices:
