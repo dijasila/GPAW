@@ -50,7 +50,7 @@ libxc:
   script:
     - git clone https://gitlab.com/libxc/libxc.git
     - cd libxc
-    - git checkout 5.1.5
+    - git checkout 5.1.7
     - autoreconf -i
     - ./configure --enable-shared --disable-fortran --prefix=$HOME/libxc
     - make > libxc-install.out
@@ -70,3 +70,21 @@ libxc:
     - gpaw install-data --register gpaw-datasets
     - pytest -m libxc -x
   when: manual
+
+docs:
+  image: python:3.9
+  script:
+    - python3 -m venv venv
+    - source venv/bin/activate
+    - pip install sphinx-rtd-theme pytest
+    - echo "noblas = True; nolibxc = True" > siteconfig.py
+    - pip install -e .
+    - tools/gpaw-setup H C O
+    - export GPAW_SETUP_PATH=$PWD
+    - cd doc
+    - make
+    - make doctest
+  when: manual
+  artifacts:
+    paths:
+      - doc/build/html

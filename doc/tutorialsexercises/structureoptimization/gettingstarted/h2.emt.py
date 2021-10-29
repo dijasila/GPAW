@@ -1,3 +1,4 @@
+# creates: h2.emt.traj
 from ase import Atoms
 from ase.calculators.emt import EMT
 from ase.optimize import QuasiNewton

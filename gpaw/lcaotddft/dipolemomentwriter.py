@@ -25,10 +25,43 @@ def convert_repr(r):
 
 
 class DipoleMomentWriter(TDDFTObserver):
+    """Observer for writing time-dependent dipole moment data.
+
+    The data is written in atomic units.
+
+    The observer attaches to the TDDFT calculator during creation.
+
+    Parameters
+    ----------
+    paw
+        TDDFT calculator
+    filename
+        File for writing dipole moment data
+    center
+        If true, dipole moment is evaluated with the center of cell
+        as the origin
+    density
+        Density type used for evaluating dipole moment.
+        Use the default value for production calculations;
+        others are for testing purposes.
+        Possible values:
+        ``'comp'``: ``rhot_g``,
+        ``'pseudo'``: ``nt_sg``,
+        ``'pseudocoarse'``: ``nt_sG``.
+    force_new_file
+        If true, new dipole moment file is created (erasing any xisting one)
+        even when restarting time propagation.
+    interval
+        Update interval. Value of 1 corresponds to evaluating and
+        writing data after every propagation step.
+    """
     version = 1
 
-    def __init__(self, paw, filename, center=False, density='comp',
-                 force_new_file=False, interval=1):
+    def __init__(self, paw, filename: str, *,
+                 center: bool = False,
+                 density: str = 'comp',
+                 force_new_file: bool = False,
+                 interval: int = 1):
         TDDFTObserver.__init__(self, paw, interval)
         self.ioctx = IOContext()
         if paw.niter == 0 or force_new_file:
