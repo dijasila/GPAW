@@ -23,7 +23,7 @@ Git master branch
                   nbands='nao',
                   ...)
 
-  For more options see :ref:`directmin`. ETDM is particularly recommended for
+  The use of ETDM is particularly recommended in
   excited-state calculations using MOM (see :ref:`mom`).
 
 * Constant magnetic field calculations can now be done:

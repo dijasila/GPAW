@@ -30,18 +30,19 @@ degrees of freedom (the orbital variations), but these algorithms perform better
 for minima (ground states usually correspond to minima).
 Moreover, standard SCF algorithms tend to fail when degenerate or nearly
 degenerate orbitals are unequally occupied, a situation that is
-more common in excited-state rather than ground-state calculations.
-A :ref:`Direct Optimization <directmin>` (DO) method that can converge
-to a generic stationary point, and not only to a minimum, is available in GPAW
-in LCAO mode.
-The DO method has been shown to be more robust than diagonalization-based
-SCF algorithms with density mixing in excited-state calculations of molecules
-[#momgpaw1]_ [#momgpaw2]_ [#momgpaw3]_. Therefore,
-MOM excited-state calculations in LCAO should use the DO approach rather than the
-direct :ref:`eigensolver <manual_eigensolver>` with density mixing.
+more common in excited-state rather than ground-state calculations
+(see :ref:`coexample` below).
+In GPAW, excited-state calculations can be performed via a :ref:`direct
+optimization <directopt>` (DO) of the orbital (implemented for the moment only
+in LCAO). DO can converge to a generic stationary point,
+and not only to a minimum and has been shown to be more robust than diagonalization-based
+:ref:`SCF algorithms <manual_eigensolver>` using density mixing in excited-state
+calculations of molecules [#momgpaw1]_ [#momgpaw2]_ [#momgpaw3]_;
+therefore, it is the recommended method for obtaining excited-state solutions
+with MOM.
 
 ----------------------
-Maximum Overlap Method
+Maximum overlap method
 ----------------------
 
 ~~~~~~~~~~~~~~
@@ -143,16 +144,18 @@ one has to specify::
 
 .. autofunction:: gpaw.mom.prepare_mom_calculation
 
+.. _directopt:
+
 -------------------
-Direct Optimization
+Direct optimization
 -------------------
 
-The DO method [#momgpaw1]_ [#momgpaw2]_ [#momgpaw3]_ finds
-stationary points of the energy in the space of unitary
-matrices by using efficient quasi-Newton algorithms.
-More details on the methodology and the GPAW implementation
-can be found in :ref:`directmin`. Currently, DO is only
-implemented in LCAO mode.
+Direct optimization (DO) can be performed using the implementation
+of exponential transformation direct minimization (ETDM)
+[#momgpaw1]_ [#momgpaw2]_ [#momgpaw3]_ described in :ref:`directmin`.
+This method uses the exponential transformation and efficient quasi-Newton
+algorithms to find stationary points of the energy in the space of unitary
+matrices. Currently, DO can be performed only in LCAO mode.
 
 For excited-state calculations, the recommended quasi-Newton
 algorithm is a limited-memory symmetric rank-one (L-SR1) method
@@ -172,7 +175,7 @@ and speed of convergence for calculations of excited states of molecules
 [#momgpaw2]_. However, a different value might improve the convergence for
 specific cases.
 
-.. _example_1:
+.. _h2oexample:
 
 ---------------------------------------------------
 Example I: Excitation energy Rydberg state of water
@@ -192,27 +195,35 @@ representation of the diffuse Rydberg orbital [#momgpaw1]_.
 
 .. literalinclude:: mom_h2o.py
 
+..  _coexample:
 
 ----------------------------------------------------------------
 Example II: Geometry relaxation excited-state of carbon monoxide
 ----------------------------------------------------------------
-Here, the bond length of the carbon monoxide molecule
-in the lowest `\Pi(\sigma\rightarrow \pi^*)` excited state
-is optimized. In order to obtain the correct angular momentum
+In this example, the bond length of the carbon monoxide molecule
+in the lowest singlet `\Pi(\sigma\rightarrow \pi^*)` excited state
+is optimized using two types of calculations, each based on a
+different approximation to the potential energy curve of an open-shell
+excited singlet state.
+The first is a spin-polarized calculation of the mixed-spin state
+as defined in :ref:`h2oexample`. The second is a spin-paired calculation
+where the occupation numbers of the open-shell orbitals are set
+to 1 [#levi2018]_. Both calculations use LCAO basis and the
+:ref:`direct optimization <directopt>` (DO) method.
+
+In order to obtain the correct angular momentum
 of the excited state, the electron is excited into a complex
 `\pi^*_{+1}` or `\pi^*_{-1}` orbital, where +1 or −1 is the
 eigenvalue of the z-component angular momentum operator. The
-use of complex orbitals also provides an excited-state density
+use of complex orbitals provides an excited-state density
 with the uniaxial symmetry consistent with the symmetry of the
-molecule [#momgpaw1]_. The potential energy curve of the
-open-shell excited singlet state is approximated with that
-of the mixed-spin state, as often done in geometry optimizations
-and molecular dynamics simulations.
+molecule [#momgpaw1]_.
 
 .. literalinclude:: domom_co.py
 
-Due to the degeneracy of the `\pi^*` orbitals, convergence
-to the `\Pi(\sigma\rightarrow \pi^*)` excited state is more
+The electronic configuration of the `\Pi(\sigma\rightarrow \pi^*)`
+state includes two unequally occupied, degenerate `\pi^*` orbitals.
+Because of this, convergence to this excited state is more
 difficult when using SCF eigensolvers with density mixing
 instead of DO, unless symmetry constraints on the density
 are enforced during the calculation. Convergence of such
@@ -230,7 +241,7 @@ intervals by specifying a ``width_increment=...``.
 *Note*, however, that too extended smearing can lead to
 discontinuities in the potentials and forces close to
 crossings between electronic states [#momgpaw2]_, so
-this feature should only be used with caution and only
+this feature should be used with caution and only
 at geometries far from state crossings.
 
 ----------
