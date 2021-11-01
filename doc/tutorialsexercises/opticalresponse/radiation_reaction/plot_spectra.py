@@ -1,4 +1,4 @@
-# web-page: spectra.png
+# web-page: spectra_nad.png
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -13,4 +13,4 @@ plt.legend()
 plt.ylabel(r'Photoabsorption (1/eV)')
 plt.xlim(3., 3.16)
 plt.tight_layout()
-plt.savefig('spectra.png')
+plt.savefig('spectra_nad.png')

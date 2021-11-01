@@ -1,4 +1,4 @@
-# web-page: spectra.png
+# web-page: dipoles.png
 import numpy as np
 import matplotlib.pyplot as plt
 

@@ -1,8 +1,8 @@
 .. _radiation_reaction_rttddft:
 
-=======================================
+=================================================================================
 Radiation-Reaction: Self-consistent Light-Matter interaction with real-time TDDFT
-=======================================
+=================================================================================
 
 In this tutorial, we calculate the superradiant absorption-spectrum of a sodium-dimer chain.
 
@@ -41,7 +41,7 @@ We smoothed the spectra in both cases with a sharp Lorentzian for visual appeara
 corresponds to the correct lifetimes. In the perturbative limit, this corresponds to Wigner-Weisskop theory. 
 Two features can be observed.
 
-.. image:: spectra.png
+.. image:: spectra_nad.png
 
 1) The width of two sodium dimers is double the width of a single one.
 For a set of non-interacting matter-subsystems, their emission probability of a single photon
