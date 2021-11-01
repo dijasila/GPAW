@@ -66,11 +66,14 @@ class AtomCenteredFunctions:
     def integrate(self, functions, out=None):
         self._lacy_init()
         if out is None:
-            out = self.layout.empty(functions.shape, functions.comm)
-        self._lfc.integrate(functions.data,
-                            {a: np.moveaxis(array, 0, -1)
-                             for a, array in out._arrays.items()},
-                            q=0)
+            out = self.layout.empty(functions.dims, functions.comm)
+        if out.transposed:
+            c = {a: np.moveaxis(array, 0, -1)
+                 for a, array in out._arrays.items()}
+        else:
+            c = {a: array
+                 for a, array in out._arrays.items()}
+        self._lfc.integrate(functions.data, c, q=0)
         return out
 
     def derivative(self, functions, out=None):

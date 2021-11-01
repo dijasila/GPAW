@@ -8,27 +8,27 @@ from gpaw.core.matrix import Matrix
 from gpaw.utilities.blas import axpy
 from scipy.linalg import eigh
 from gpaw.new.wave_functions import WaveFunctions
-from gpaw.typing import Array1D
+from gpaw.typing import Array1D, Array2D
 from gpaw.core.arrays import DistributedArrays as DA
 from gpaw.core.atom_centered_functions import AtomArrays as AA
 
 AAFunc = Callable[[AA, AA], AA]
 
 
-def calculate_residuals(residuals: DA,
+def calculate_residuals(residuals_nX: DA,
                         dH: AAFunc,
                         dS: AAFunc,
                         wfs: WaveFunctions,
-                        p1: AA,
-                        p2: AA) -> None:
-    for r, e, p in zip(residuals.data, wfs.myeigs, wfs.wave_functions.data):
+                        P1_ain: AA,
+                        P2_ain: AA) -> None:
+    for r, e, p in zip(residuals_nX.data, wfs.myeig_n, wfs.psit_nX.data):
         axpy(-e, p, r)
 
-    dH(wfs.projections, p1)
-    p2.data[:] = wfs.projections.data * wfs.myeigs
-    dS(p2, p2)
-    p1.data -= p2.data
-    wfs.projectors.add_to(residuals, p1)
+    dH(wfs.P_ain, P1_ain)
+    P2_ain.data[:] = wfs.P_ain.data * wfs.myeig_n
+    dS(P2_ain, P2_ain)
+    P1_ain.data -= P2_ain.data
+    wfs.pt_acf.add_to(residuals_nX, P1_ain)
 
 
 def calculate_weights(converge: int | str, wfs: WaveFunctions) -> Array1D:
@@ -38,10 +38,10 @@ def calculate_weights(converge: int | str, wfs: WaveFunctions) -> Array1D:
         try:
             # Methfessel-Paxton distribution can give negative
             # occupation numbers - so we take the absolute value:
-            return np.abs(wfs.occs)
+            return np.abs(wfs.occ_n)
         except ValueError:
             # No eigenvalues yet:
-            return np.zeros(wfs.wave_functions.myshape) + np.inf
+            return np.zeros(wfs.psit_nX.myshape) + np.inf
 
     1 / 0
     return np.zeros(42)
@@ -117,145 +117,148 @@ class Davidson:
         B = nbands
         domain_comm = wf_grid.comm
         if domain_comm.rank == 0 and band_comm.rank == 0:
-            self.H = Matrix(2 * B, 2 * B, wf_grid.dtype)
-            self.S = Matrix(2 * B, 2 * B, wf_grid.dtype)
+            self.H_NN = Matrix(2 * B, 2 * B, wf_grid.dtype)
+            self.S_NN = Matrix(2 * B, 2 * B, wf_grid.dtype)
         else:
-            self.H = self.S = EmptyMatrix()
+            self.H_NN = self.S_NN = EmptyMatrix()
 
-        self.M = Matrix(B, B, wf_grid.dtype, dist=(band_comm, band_comm.size))
+        self.M_nn = Matrix(B, B, wf_grid.dtype,
+                           dist=(band_comm, band_comm.size))
 
         self.work_array1 = wf_grid.empty(B, band_comm).data
         self.work_array2 = wf_grid.empty(B, band_comm).data
 
         self.preconditioner = preconditioner_factory(blocksize)
 
-    def iterate(self, ibz_wfs, Ht, dH, dS) -> float:
+    def iterate(self, ibzwfs, Ht, dH, dS) -> float:
         error = 0.0
-        for wfs in ibz_wfs:
+        for wfs in ibzwfs.mykpts:
             e = self.iterate1(wfs, Ht, dH, dS)
             error += wfs.weight * e
-        return error * ibz_wfs.spin_degeneracy
+        return error * ibzwfs.spin_degeneracy
 
     def iterate1(self, wfs, Ht, dH, dS):
-        H = self.H
-        S = self.S
-        M = self.M
+        H_NN = self.H_NN
+        S_NN = self.S_NN
+        M_nn = self.M_nn
 
-        psit = wfs.wave_functions
-        psit2 = psit.new(data=self.work_array1)
-        psit3 = psit.new(data=self.work_array2)
+        psit_nX = wfs.psit_nX
+        psit2_nX = psit_nX.new(data=self.work_array1)
+        psit3_nX = psit_nX.new(data=self.work_array2)
 
-        B = psit.shape[0]  # number of bands
-        eigs = np.empty(2 * B)
+        B = psit_nX.dims[0]  # number of bands
+        eig_N = np.empty(2 * B)
 
-        wfs.subspace_diagonalize(Ht, dH, work_array=psit2.data, Htpsit=psit3)
-        residuals = psit3  # will become (H-e*S)|psit> later
+        wfs.subspace_diagonalize(Ht, dH,
+                                 work_array=psit2_nX.data,
+                                 Htpsit_nX=psit3_nX)
+        residuals_nX = psit3_nX  # will become (H-e*S)|psit> later
 
-        proj = wfs.projections
-        proj2 = proj.new()
-        proj3 = proj.new()
+        P_ain = wfs.P_ain
+        P2_ain = P_ain.new()
+        P3_ain = P_ain.new()
 
-        domain_comm = psit.layout.comm
-        band_comm = psit.comm
+        domain_comm = psit_nX.desc.comm
+        band_comm = psit_nX.comm
         is_domain_band_master = domain_comm.rank == 0 and band_comm.rank == 0
 
-        M0 = M
+        M0_nn = M_nn
         assert band_comm.size == 1
 
         if domain_comm.rank == 0:
-            eigs[:B] = wfs.eigs
+            eig_N[:B] = wfs.eig_n
 
         def me(a, b, function=None):
             """Matrix elements"""
-            return a.matrix_elements(b, domain_sum=False, out=M,
+            return a.matrix_elements(b, domain_sum=False, out=M_nn,
                                      function=function)
 
-        calculate_residuals(residuals, dH, dS, wfs, proj2, proj3)
+        calculate_residuals(residuals_nX, dH, dS, wfs, P2_ain, P3_ain)
 
-        Ht = partial(Ht, out=residuals, spin=0)
+        Ht = partial(Ht, out=residuals_nX, spin=0)
 
-        def copy(C_nn):
-            domain_comm.sum(M.data, 0)
+        def copy(C_nn: Array2D) -> None:
+            domain_comm.sum(M_nn.data, 0)
             if domain_comm.rank == 0:
-                M.redist(M0)
+                M_nn.redist(M0_nn)
                 if band_comm.rank == 0:
-                    C_nn[:] = M0.data
+                    C_nn[:] = M0_nn.data
 
         for i in range(self.niter):
             if i == self.niter - 1:
                 # Calulate error before we destroy residuals:
                 weights = calculate_weights(self.converge, wfs)
-                error = weights @ residuals.norm2()
+                error = weights @ residuals_nX.norm2()
 
-            self.preconditioner(psit, residuals, out=psit2)
+            self.preconditioner(psit_nX, residuals_nX, out=psit2_nX)
 
             # Calculate projections
-            wfs.projectors.integrate(psit2, out=proj2)
+            wfs.pt_acf.integrate(psit2_nX, out=P2_ain)
 
             # <psi2 | H | psi2>
-            me(psit2, psit2, function=Ht)
-            dH(proj2, out=proj3)
-            proj2.matrix.multiply(proj3, opa='C', symmetric=True, beta=1,
-                                  out=M)
-            copy(H.data[B:, B:])
+            me(psit2_nX, psit2_nX, function=Ht)
+            dH(P2_ain, out=P3_ain)
+            P2_ain.matrix.multiply(P3_ain, opa='C', symmetric=True, beta=1,
+                                   out=M_nn)
+            copy(H_NN.data[B:, B:])
 
             # <psi2 | H | psi>
-            me(residuals, psit)
-            proj3.matrix.multiply(proj, opa='C', beta=1.0, out=M)
-            copy(H.data[B:, :B])
+            me(residuals_nX, psit_nX)
+            P3_ain.matrix.multiply(P_ain, opa='C', beta=1.0, out=M_nn)
+            copy(H_NN.data[B:, :B])
 
             # <psi2 | S | psi2>
-            me(psit2, psit2)
-            dS(proj2, out=proj3)
-            proj2.matrix.multiply(proj3, opa='C', symmetric=True, beta=1,
-                                  out=M)
-            copy(S.data[B:, B:])
+            me(psit2_nX, psit2_nX)
+            dS(P2_ain, out=P3_ain)
+            P2_ain.matrix.multiply(P3_ain, opa='C', symmetric=True, beta=1,
+                                   out=M_nn)
+            copy(S_NN.data[B:, B:])
 
             # <psi2 | S | psi>
-            me(psit2, psit)
-            proj3.matrix.multiply(proj, opa='C', beta=1.0, out=M)
-            copy(S.data[B:, :B])
+            me(psit2_nX, psit_nX)
+            P3_ain.matrix.multiply(P_ain, opa='C', beta=1.0, out=M_nn)
+            copy(S_NN.data[B:, :B])
 
             if is_domain_band_master:
-                H.data[:B, :B] = np.diag(eigs[:B])
-                S.data[:B, :B] = np.eye(B)
+                H_NN.data[:B, :B] = np.diag(eig_N[:B])
+                S_NN.data[:B, :B] = np.eye(B)
                 if debug:
-                    H.data[np.triu_indices(2 * B, 1)] = 42.0
-                    S.data[np.triu_indices(2 * B, 1)] = 42.0
+                    H_NN.data[np.triu_indices(2 * B, 1)] = 42.0
+                    S_NN.data[np.triu_indices(2 * B, 1)] = 42.0
 
-                eigs[:], H.data[:] = eigh(H.data, S.data,
-                                          lower=True,
-                                          check_finite=debug,
-                                          overwrite_b=True)
-                wfs._eigs = eigs[:B]
-
-            if domain_comm.rank == 0:
-                band_comm.broadcast(wfs.eigs, 0)
-            domain_comm.broadcast(wfs.eigs, 0)
+                eig_N[:], H_NN.data[:] = eigh(H_NN.data, S_NN.data,
+                                              lower=True,
+                                              check_finite=debug,
+                                              overwrite_b=True)
+                wfs._eig_n = eig_N[:B]
 
             if domain_comm.rank == 0:
-                if band_comm.rank == 0:
-                    M0.data[:] = H.data[:B, :B].T
-                M0.redist(M)
-            domain_comm.broadcast(M.data, 0)
-
-            M.multiply(psit, out=residuals)
-            proj.matrix.multiply(M, opb='T', out=proj3)
+                band_comm.broadcast(wfs.eig_n, 0)
+            domain_comm.broadcast(wfs.eig_n, 0)
 
             if domain_comm.rank == 0:
                 if band_comm.rank == 0:
-                    M0.data[:] = H.data[B:, :B].T
-                M0.redist(M)
-            domain_comm.broadcast(M.data, 0)
+                    M0_nn.data[:] = H_NN.data[:B, :B].T
+                M0_nn.redist(M_nn)
+            domain_comm.broadcast(M_nn.data, 0)
 
-            M.multiply(psit2, beta=1.0, out=residuals)
-            proj2.matrix.multiply(M, opb='T', beta=1.0, out=proj3)
-            psit.data[:] = residuals.data
-            proj, proj3 = proj3, proj
-            wfs._projections = proj
+            M_nn.multiply(psit_nX, out=residuals_nX)
+            P_ain.matrix.multiply(M_nn, opb='T', out=P3_ain)
+
+            if domain_comm.rank == 0:
+                if band_comm.rank == 0:
+                    M0_nn.data[:] = H_NN.data[B:, :B].T
+                M0_nn.redist(M_nn)
+            domain_comm.broadcast(M_nn.data, 0)
+
+            M_nn.multiply(psit2_nX, beta=1.0, out=residuals_nX)
+            P2_ain.matrix.multiply(M_nn, opb='T', beta=1.0, out=P3_ain)
+            psit_nX.data[:] = residuals_nX.data
+            P_ain, P3_ain = P3_ain, P_ain
+            wfs._P_ain = P_ain
 
             if i < self.niter - 1:
-                Ht(psit)
-                calculate_residuals(residuals, dH, dS, wfs, proj2, proj3)
+                Ht(psit_nX)
+                calculate_residuals(residuals_nX, dH, dS, wfs, P2_ain, P3_ain)
 
         return error

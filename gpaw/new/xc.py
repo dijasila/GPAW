@@ -10,7 +10,7 @@ class XCFunctional:
                           self.name.startswith('GLLB'))
 
     def calculate(self, density, out) -> float:
-        return self.xc.calculate(density.grid._gd, density.data, out.data)
+        return self.xc.calculate(density.desc._gd, density.data, out.data)
 
     def calculate_paw_correction(self, setup, d, h):
         return self.xc.calculate_paw_correction(setup, d, h)

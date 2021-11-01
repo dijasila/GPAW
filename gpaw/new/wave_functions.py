@@ -146,8 +146,8 @@ class WaveFunctions:
         self.spin_degeneracy = spin_degeneracy
 
         self._P_ain = None
-        self.projectors = setups.create_projectors(self.psit_nX.desc,
-                                                   fracpos_ac)
+        self.pt_acf = setups.create_projectors(self.psit_nX.desc,
+                                               fracpos_ac)
         self.orthonormalized = False
 
         self._eig_n: Array1D | None = None
@@ -155,9 +155,9 @@ class WaveFunctions:
 
     @property
     def eig_n(self) -> Array1D:
-        if self._eigs_n is None:
+        if self._eig_n is None:
             raise ValueError
-        return self._eigs_n
+        return self._eig_n
 
     @property
     def occ_n(self) -> Array1D:
@@ -167,7 +167,7 @@ class WaveFunctions:
 
     @property
     def myeig_n(self):
-        assert self.wave_functions.comm.size == 1
+        assert self.psit_nX.comm.size == 1
         return self.eig_n
 
     @property
@@ -178,7 +178,10 @@ class WaveFunctions:
     @property
     def P_ain(self):
         if self._P_ain is None:
-            self._P_ain = self.pt_acf.integrate(self.psit_nX)
+            self._P_ain = self.pt_acf.empty(self.psit_nX.dims,
+                                            self.psit_nX.comm,
+                                            transposed=True)
+            self.pt_acf.integrate(self.psit_nX, self._P_ain)
         return self._P_ain
 
     @classmethod
@@ -231,7 +234,7 @@ class WaveFunctions:
     def subspace_diagonalize(self,
                              Ht,
                              dH,
-                             work_array_nX=None,
+                             work_array: ArrayND = None,
                              Htpsit_nX=None,
                              scalapack_parameters=(None, 1, 1, -1)):
         """
@@ -247,10 +250,10 @@ class WaveFunctions:
           <psi|p> dH    <p|psi>
               m i   ij    j   n
         """
-        self.orthonormalize(work_array_nX)
+        self.orthonormalize(work_array)
         psit_nX = self.psit_nX
         P_ain = self.P_ain
-        psit2_nX = psit_nX.new(data=work_array_nX)
+        psit2_nX = psit_nX.new(data=work_array)
         P2_ain = P_ain.new()
         domain_comm = psit_nX.desc.comm
 
@@ -266,14 +269,14 @@ class WaveFunctions:
             slcomm, r, c, b = scalapack_parameters
             if r == c == 1:
                 slcomm = None
-            self._eigs = H.eigh(scalapack=(slcomm, r, c, b))
+            self._eig_n = H.eigh(scalapack=(slcomm, r, c, b))
             # H.data[n, :] now contains the n'th eigenvector and eps_n[n]
             # the n'th eigenvalue
         else:
             self._eig_n = np.empty(psit_nX.dims)
 
         domain_comm.broadcast(H.data, 0)
-        domain_comm.broadcast(self._eigs, 0)
+        domain_comm.broadcast(self._eig_n, 0)
         if Htpsit_nX is not None:
             H.multiply(psit2_nX, out=Htpsit_nX)
 
@@ -283,7 +286,7 @@ class WaveFunctions:
         P_ain.data[:] = P2_ain.data
 
     def force_contribution(self, dv: AtomArrays, F_av: Array2D):
-        F_ainv = self.projectors.derivative(self.wave_functions)
+        F_ainv = self.pt_acf.derivative(self.wave_functions)
         myoccs = self.weight * self.spin_degeneracy * self.myoccs
         for a, F_inv in F_ainv.items():
             F_inv = F_inv.conj()

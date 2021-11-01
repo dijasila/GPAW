@@ -10,14 +10,14 @@ if TYPE_CHECKING:
 
 
 class DistributedArrays:
-    desc: Domain
+    # desc: Domain
 
     def __init__(self,
                  dims: int | tuple[int, ...],
                  myshape: tuple[int, ...],
                  comm: MPIComm,
                  domain_comm: MPIComm,
-                 data: np.ndarray,
+                 data: np.ndarray | None,
                  dv: float,
                  dtype,
                  transposed: bool):

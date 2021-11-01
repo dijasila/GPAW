@@ -13,17 +13,17 @@ from gpaw.core.plane_waves import PWMapping
 
 class Potential:
     def __init__(self,
-                 vt: DistributedArrays,
-                 dH: AtomArrays,
+                 vt_sR: DistributedArrays,
+                 dH_asii: AtomArrays,
                  energies: dict[str, float]):
-        self.vt = vt
-        self.dv = dH
+        self.vt_sR = vt_sR
+        self.dH_asii = dH_asii
         self.energies = energies
 
-    def dH(self, projections, out, spin=0):
-        for a, I1, I2 in projections.layout.myindices:
-            dh = self.dv[a][:, :, spin]
-            out.data[I1:I2] = dh @ projections.data[I1:I2]
+    def dH(self, P_ain, out, spin=0):
+        for a, I1, I2 in P_ain.layout.myindices:
+            dH_ii = self.dH_asii[a][spin]
+            out.data[I1:I2] = dH_ii @ P_ain.data[I1:I2]
         return out
 
     def write(self, writer):
@@ -43,15 +43,15 @@ class PotentialCalculator:
         return f'\n{self.poisson_solver}\n{self.xc}'
 
     def calculate(self, density):
-        energies, potential = self._calculate(density)
+        energies, vt_sR = self._calculate(density)
 
-        vnonloc, corrections = calculate_non_local_potential(
-            self.setups, density, self.xc, self.ghat_acf, self.vHt)
+        dH_asii, corrections = calculate_non_local_potential(
+            self.setups, density, self.xc, self.ghat_acf, self.vHt_x)
 
         for key, e in corrections.items():
             energies[key] += e
 
-        return Potential(potential, vnonloc, energies)
+        return Potential(vt_sR, dH_asii, energies)
 
 
 class UniformGridPotentialCalculator(PotentialCalculator):
@@ -59,17 +59,18 @@ class UniformGridPotentialCalculator(PotentialCalculator):
                  wf_grid: UniformGrid,
                  fine_grid: UniformGrid,
                  setups,
-                 fracpos,
+                 fracpos_ac,
                  xc,
                  poisson_solver):
-        self.vHt = fine_grid.zeros()  # initial guess for Coulomb potential
-        self.nt = fine_grid.empty()
-        self.vt = wf_grid.empty()
+        self.vHt_x = fine_grid.zeros()  # initial guess for Coulomb potential
+        self.nt_r = fine_grid.empty()
+        self.vt_R = wf_grid.empty()
 
-        self.vbar_acf = setups.create_local_potentials(fine_grid, fracpos)
-        self.ghat_acf = setups.create_compensation_charges(fine_grid, fracpos)
+        self.vbar_acf = setups.create_local_potentials(fine_grid, fracpos_ac)
+        self.ghat_acf = setups.create_compensation_charges(fine_grid,
+                                                           fracpos_ac)
 
-        self.vbar = self.vbar_acf.to_uniform_grid()
+        self.vbar_r = self.vbar_acf.to_uniform_grid()
 
         self.interpolate = wf_grid.transformer(fine_grid)
         self.restrict = fine_grid.transformer(wf_grid)
@@ -77,34 +78,34 @@ class UniformGridPotentialCalculator(PotentialCalculator):
         PotentialCalculator.__init__(self, xc, poisson_solver, setups)
 
     def _calculate(self, density):
-        nt1_s = density.nt_s
-        nt2_s = self.interpolate(nt1_s, preserve_integral=True)
+        nt_sR = density.nt_sR
+        nt_sr = self.interpolate(nt_sR, preserve_integral=True)
 
-        grid2 = nt2_s.grid
+        grid2 = nt_sr.desc
 
-        vxct = grid2.zeros(nt2_s.shape)
-        e_xc = self.xc.calculate(nt2_s, vxct)
+        vxct_sr = grid2.zeros(nt_sr.dims)
+        e_xc = self.xc.calculate(nt_sr, vxct_sr)
 
-        self.nt.data[:] = nt2_s.data[:density.ndensities].sum(axis=0)
-        e_zero = self.vbar.integrate(self.nt)
+        self.nt_r.data[:] = nt_sr.data[:density.ndensities].sum(axis=0)
+        e_zero = self.vbar_r.integrate(self.nt_r)
 
-        charge = grid2.empty()
-        charge.data[:] = self.nt.data
-        coefs = density.calculate_compensation_charge_coefficients()
-        self.ghat_acf.add_to(charge, coefs)
-        self.poisson_solver.solve(self.vHt, charge)
-        e_coulomb = 0.5 * self.vHt.integrate(charge)
+        charge_r = grid2.empty()
+        charge_r.data[:] = self.nt_r.data
+        ccc_aL = density.calculate_compensation_charge_coefficients()
+        self.ghat_acf.add_to(charge_r, ccc_aL)
+        self.poisson_solver.solve(self.vHt_x, charge_r)
+        e_coulomb = 0.5 * self.vHt_x.integrate(charge_r)
 
-        potential2 = vxct
-        potential2.data += self.vHt.data + self.vbar.data
-        potential1 = self.restrict(potential2)
+        vt_sr = vxct_sr
+        vt_sr.data += self.vHt_x.data + self.vbar_r.data
+        vt_sR = self.restrict(vt_sr)
         e_kinetic = 0.0
-        self.vt.data[:] = 0.0
-        for spin, (vt, nt) in enumerate(zip(potential1, nt1_s)):
-            e_kinetic -= vt.integrate(nt)
+        self.vt_R.data[:] = 0.0
+        for spin, (vt_R, nt_R) in enumerate(zip(vt_sR, nt_sR)):
+            e_kinetic -= vt_R.integrate(nt_R)
             if spin < density.ndensities:
-                e_kinetic += vt.integrate(density.nct)
-                self.vt.data += vt.data / density.ndensities
+                e_kinetic += vt_R.integrate(density.nct_R)
+                self.vt_R.data += vt_R.data / density.ndensities
 
         e_external = 0.0
 
@@ -112,7 +113,7 @@ class UniformGridPotentialCalculator(PotentialCalculator):
                 'coulomb': e_coulomb,
                 'zero': e_zero,
                 'xc': e_xc,
-                'external': e_external}, potential1
+                'external': e_external}, vt_sR
 
 
 class PlaneWavePotentialCalculator(PotentialCalculator):
@@ -197,54 +198,55 @@ def calculate_non_local_potential(setups,
                                   density,
                                   xc,
                                   ghat_acf,
-                                  vHt):
-    coefs = ghat_acf.integrate(vHt)
-    vnonloc = density.density_matrices.new()
+                                  vHt_x):
+    Q_aL = ghat_acf.integrate(vHt_x)
+    dH_asii = density.D_asii.new()
     energy_corrections = defaultdict(float)
-    for a, D in density.density_matrices.items():
-        Q = coefs[a]
+    for a, D_sii in density.D_asii.items():
+        Q_L = Q_aL[a]
         setup = setups[a]
-        dH, energies = calculate_non_local_potential1(setup, xc, D, Q)
-        vnonloc[a][:] = dH
+        dH_sii, energies = calculate_non_local_potential1(
+            setup, xc, D_sii, Q_L)
+        dH_asii[a][:] = dH_sii
         for key, e in energies.items():
             energy_corrections[key] += e
 
     # Sum over domain:
     energies = np.array(list(energy_corrections.values()))
-    density.density_matrices.layout.atomdist.comm.sum(energies)
+    density.D_asii.layout.atomdist.comm.sum(energies)
     energy_corrections = {name: e for name, e in zip(energy_corrections,
                                                      energies)}
-    return vnonloc, energy_corrections
+    return dH_asii, energy_corrections
 
 
 def calculate_non_local_potential1(setup: Setup,
                                    xc: XCFunctional,
-                                   D: Array3D,
-                                   Q: Array1D) -> tuple[Array3D,
-                                                        dict[str, float]]:
-    ndensities = 2 if D.shape[2] == 2 else 1
-    d = np.array([pack(D1) for D1 in D.T])
+                                   D_sii: Array3D,
+                                   Q_L: Array1D) -> tuple[Array3D,
+                                                          dict[str, float]]:
+    ndensities = 2 if len(D_sii) == 2 else 1
+    D_sp = np.array([pack(D_ii) for D_ii in D_sii])
 
-    d1 = d[:ndensities].sum(0)
+    D_p = D_sp[:ndensities].sum(0)
 
-    h1 = (setup.K_p + setup.M_p +
-          setup.MB_p + 2.0 * setup.M_pp @ d1 +
-          setup.Delta_pL @ Q)
-    e_kinetic = setup.K_p @ d1 + setup.Kc
-    e_zero = setup.MB + setup.MB_p @ d1
-    e_coulomb = setup.M + d1 @ (setup.M_p + setup.M_pp @ d1)
+    dH_p = (setup.K_p + setup.M_p +
+            setup.MB_p + 2.0 * setup.M_pp @ D_p +
+            setup.Delta_pL @ Q_L)
+    e_kinetic = setup.K_p @ D_p + setup.Kc
+    e_zero = setup.MB + setup.MB_p @ D_p
+    e_coulomb = setup.M + D_p @ (setup.M_p + setup.M_pp @ D_p)
 
-    h = np.zeros_like(d)
-    h[:ndensities] = h1
-    e_xc = xc.calculate_paw_correction(setup, d, h)
-    e_kinetic -= (d * h).sum().real
+    dH_sp = np.zeros_like(D_sp)
+    dH_sp[:ndensities] = dH_p
+    e_xc = xc.calculate_paw_correction(setup, D_sp, dH_sp)
+    e_kinetic -= (D_sp * dH_sp).sum().real
 
     e_external = 0.0
 
-    H = unpack(h).T
+    dH_sii = unpack(dH_sp)
 
-    return H, {'kinetic': e_kinetic,
-               'coulomb': e_coulomb,
-               'zero': e_zero,
-               'xc': e_xc,
-               'external': e_external}
+    return dH_sii, {'kinetic': e_kinetic,
+                    'coulomb': e_coulomb,
+                    'zero': e_zero,
+                    'xc': e_xc,
+                    'external': e_external}

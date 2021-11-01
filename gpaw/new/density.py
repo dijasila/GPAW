@@ -38,33 +38,33 @@ class Density:
         self.delta0_a = delta0_a
         self.charge = charge
 
-        self.ncomponents = nt_sR.shape[0]
+        self.ncomponents = nt_sR.dims[0]
         self.ndensities = {1: 1,
                            2: 2,
                            4: 1}[self.ncomponents]
-        self.collinear = nt_sR.shape[0] != 4
+        self.collinear = nt_sR.dims[0] != 4
 
     def calculate_compensation_charge_coefficients(self) -> AtomArrays:
-        coefs = AtomArraysLayout(
+        ccc_aL = AtomArraysLayout(
             [delta_iiL.shape[2] for delta_iiL in self.delta_aiiL],
             atomdist=self.D_asii.layout.atomdist).empty()
 
         for a, D_sii in self.D_asii.items():
-            Q = np.einsum('sij, ijL -> L',
-                          D_sii[:self.ndensities], self.delta_aiiL[a])
-            Q[0] += self.delta0_a[a]
-            coefs[a] = Q
+            Q_L = np.einsum('sij, ijL -> L',
+                            D_sii[:self.ndensities], self.delta_aiiL[a])
+            Q_L[0] += self.delta0_a[a]
+            ccc_aL[a] = Q_L
 
-        return coefs
+        return ccc_aL
 
     def normalize(self):
         comp_charge = self.charge
         for a, D_sii in self.D_asii.items():
-            comp_charge += np.einsum('sijs, ij ->',
+            comp_charge += np.einsum('sij, ij ->',
                                      D_sii[:self.ndensities],
                                      self.delta_aiiL[a][:, :, 0])
             comp_charge += self.delta0_a[a]
-        comp_charge = self.nt_sR.grid.comm.sum(comp_charge * sqrt(4 * pi))
+        comp_charge = self.nt_sR.desc.comm.sum(comp_charge * sqrt(4 * pi))
         charge = comp_charge + self.charge
         pseudo_charge = self.nt_sR.integrate().sum()
         x = -charge / pseudo_charge
@@ -82,9 +82,9 @@ class Density:
 
     def move(self, fracpos):
         self.nct_acf.move(fracpos)
-        nct = self.nct_acf.to_uniform_grid(1.0 / self.ndensities)
-        self.nt_s.data[:self.ndensities] += nct.data - self.nct.data
-        self.nct = nct
+        nct_R = self.nct_acf.to_uniform_grid(1.0 / self.ndensities)
+        self.nt_sR.data[:self.ndensities] += nct_R.data - self.nct_R.data
+        self.nct_R = nct_R
 
     @classmethod
     def from_superposition(cls,
@@ -97,7 +97,7 @@ class Density:
         # density and magnitization components:
         ndens, nmag = magmoms2dims(magmoms)
 
-        nct = nct_acf.to_uniform_grid(1.0 / ndens)
+        nct_R = nct_acf.to_uniform_grid(1.0 / ndens)
 
         if magmoms is None:
             magmoms = [None] * len(setups)
@@ -106,21 +106,21 @@ class Density:
                                               charge / len(setups))
                  for a, (setup, magmom) in enumerate(zip(setups, magmoms))}
 
-        nt_s = nct.grid.zeros(ndens + nmag)
-        basis_set.add_to_density(nt_s.data, f_asi)
-        nt_s.data[:ndens] += nct.data
+        nt_sR = nct_R.desc.zeros(ndens + nmag)
+        basis_set.add_to_density(nt_sR.data, f_asi)
+        nt_sR.data[:ndens] += nct_R.data
 
         atom_array_layout = AtomArraysLayout([(setup.ni, setup.ni)
                                               for setup in setups],
                                              atomdist=nct_acf.layout.atomdist)
-        density_matrices = atom_array_layout.empty(ndens + nmag)
-        for a, D in density_matrices.items():
-            D[:] = unpack2(setups[a].initialize_density_matrix(f_asi[a])).T
+        D_asii = atom_array_layout.empty(ndens + nmag)
+        for a, D_sii in D_asii.items():
+            D_sii[:] = unpack2(setups[a].initialize_density_matrix(f_asi[a]))
 
-        return cls(nt_s,
-                   nct,
+        return cls(nt_sR,
+                   nct_R,
                    nct_acf,
-                   density_matrices,
+                   D_asii,
                    [setup.Delta_iiL for setup in setups],
                    [setup.Delta0 for setup in setups],
                    charge)

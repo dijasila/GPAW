@@ -82,7 +82,8 @@ class DFTConfiguration:
             self.wf_grid = self.grid
         else:
             assert self.mode.name == 'pw'
-            self.wf_grid = PlaneWaves(ecut=self.mode.ecut, grid=self.grid)
+            self.wf_grid = PlaneWaves(ecut=self.mode.ecut,
+                                      cell=self.grid.cell)
 
         if self.mode.name == 'fd':
             pass  # filter = create_fourier_filter(grid)
@@ -96,7 +97,7 @@ class DFTConfiguration:
                                                 self.initial_magmoms,
                                                 self.mode.name == 'lcao')
 
-        self.fine_grid = self.grid.new(size=self.grid.size * 2)
+        self.fine_grid = self.grid.new(size=self.grid.size_c * 2)
         # decomposition=[2 * d for d in grid.decomposition]
 
     @cached_property
@@ -115,7 +116,7 @@ class DFTConfiguration:
         return complex
 
     @cached_property
-    def fracpos(self):
+    def fracpos_ac(self):
         return self.atoms.get_scaled_positions()
 
     @cached_property
@@ -123,7 +124,7 @@ class DFTConfiguration:
         return self.mode.create_potential_calculator(
             self.density_grid,
             self.wf_grid, self.fine_grid,
-            self.setups, self.fracpos,
+            self.setups, self.fracpos_ac,
             self.xc,
             self.params.poissonsolver)
 
@@ -134,7 +135,7 @@ class DFTConfiguration:
     def density_grid(self):
         if self.mode.name == 'fd':
             return self.grid
-        return PlaneWaves(ecut=2 * self.wf_grid.ecut, grid=self.grid)
+        return self.wf_grid.new(ecut=2 * self.wf_grid.ecut)
 
     def lcao_ibz_wave_functions(self, basis_set, potential):
         from gpaw.new.lcao import create_lcao_ibz_wave_functions
@@ -147,7 +148,7 @@ class DFTConfiguration:
             self.communicators['k'],
             self.wf_grid,
             self.setups,
-            self.fracpos,
+            self.fracpos_ac,
             self.nbands,
             self.nelectrons)
 
@@ -155,12 +156,12 @@ class DFTConfiguration:
         basis_set = BasisFunctions(self.grid._gd,
                                    [setup.phit_j for setup in self.setups],
                                    cut=True)
-        basis_set.set_positions(self.fracpos)
+        basis_set.set_positions(self.fracpos_ac)
         return basis_set
 
     def density_from_superposition(self, basis_set):
         nct_acf = self.setups.create_pseudo_core_densities(self.density_grid,
-                                                           self.fracpos)
+                                                           self.fracpos_ac)
         return Density.from_superposition(nct_acf,
                                           self.setups,
                                           basis_set,

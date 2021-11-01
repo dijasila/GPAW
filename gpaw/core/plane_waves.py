@@ -108,6 +108,7 @@ class PlaneWaveExpansions(DistributedArrays):
                                     data, pw.dv, complex,
                                     transposed=False)
         self.desc = pw
+        self._matrix: Matrix | None
 
     def __repr__(self):
         txt = f'PlaneWaveExpansions(pw={self.desc}, shape={self.dims}'
@@ -269,18 +270,19 @@ class PlaneWaveExpansions(DistributedArrays):
                     out.data -= correction
 
     def norm2(self, kind: str = 'normal') -> np.ndarray:
-        a = self._arrays().view(float)
+        a_xG = self._arrays().view(float)
         if kind == 'normal':
-            result = np.einsum('ig, ig -> i', a, a)
+            result = np.einsum('xG, xG -> G', a_xG, a_xG)
         elif kind == 'kinetic':
-            a.shape = (len(a), -1, 2)
-            result = np.einsum('igx, igx, g -> i', a, a, self.desc.ekin)
+            a_xG.shape = (len(a_xG), -1, 2)
+            result = np.einsum('xGi, xGi, G -> x',
+                               a_xG, a_xG, self.desc.ekin_G)
         else:
             1 / 0
         if self.desc.dtype == float:
             result *= 2
             if self.desc.comm.rank == 0 and kind == 'normal':
-                result -= a[:, 0] * a[:, 0]
+                result -= a_xG[:, 0] * a_xG[:, 0]
         self.desc.comm.sum(result)
         result.shape = self.myshape
         return result * self.desc.dv

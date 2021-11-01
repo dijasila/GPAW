@@ -44,7 +44,7 @@ class SCFLoop:
         niter = 1
         while True:
             dH = potential.dH
-            Ht = partial(self.hamiltonian.apply, potential.vt)
+            Ht = partial(self.hamiltonian.apply, potential.vt_sR)
             wfs_error = self.eigensolver.iterate(ibz_wfs, Ht, dH, dS)
             ibz_wfs.calculate_occs(self.occ_calc)
 
@@ -62,14 +62,14 @@ class SCFLoop:
             niter += 1
 
     def converge(self,
-                 ibz_wfs,
+                 ibzwfs,
                  density,
                  potential,
                  convergence=None,
                  maxiter=99,
                  log=None):
         cc = create_convergence_criteria(convergence)
-        for ctx in self.iterate(ibz_wfs, density, potential):
+        for ctx in self.iterate(ibzwfs, density, potential):
             entries, converged = check_convergence(ctx, cc)
             if log:
                 write_iteration(cc, converged, entries, ctx, log)
@@ -82,7 +82,7 @@ class SCFLoop:
 
 
 class SCFContext:
-    def __init__(self, ibz_wfs, density, potential,
+    def __init__(self, ibzwfs, density, potential,
                  niter: int,
                  wfs_error: float,
                  dens_error: float,
@@ -91,9 +91,9 @@ class SCFContext:
         self.potential = potential
         self.niter = niter
         energy = (sum(potential.energies.values()) +
-                  sum(ibz_wfs.energies.values()))
+                  sum(ibzwfs.energies.values()))
         self.ham = SimpleNamespace(e_total_extrapolated=energy)
-        self.wfs = SimpleNamespace(nvalence=ibz_wfs.nelectrons,
+        self.wfs = SimpleNamespace(nvalence=ibzwfs.nelectrons,
                                    world=world,
                                    eigensolver=SimpleNamespace(
                                        error=wfs_error),

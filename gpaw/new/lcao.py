@@ -49,7 +49,7 @@ def create_lcao_ibz_wave_functions(cfg: DFTConfiguration,
                                 world, kd, kptband_comm,
                                 nulltimer)
     lcaowfs.basis_functions = basis_set
-    lcaowfs.set_positions(cfg.fracpos, atom_partition)
+    lcaowfs.set_positions(cfg.fracpos_ac, atom_partition)
 
     if cfg.ncomponents != 4:
         eigensolver = DirectLCAO()
@@ -61,9 +61,9 @@ def create_lcao_ibz_wave_functions(cfg: DFTConfiguration,
 
     dH_asp = setups.empty_atomic_matrix(cfg.ncomponents, atom_partition,
                                         dtype=cfg.dtype)
-    for a, H in potential.dv.items():
-        dH_asp[a][:] = [pack2(h) for h in H.T]
-    ham = SimpleNamespace(vt_sG=potential.vt.data,
+    for a, dH_sii in potential.dH_asii.items():
+        dH_asp[a][:] = [pack2(dH_ii) for dH_ii in dH_sii]
+    ham = SimpleNamespace(vt_sG=potential.vt_sR.data,
                           dH_asp=dH_asp)
     eigensolver.iterate(ham, lcaowfs)
 
@@ -78,19 +78,21 @@ def create_lcao_ibz_wave_functions(cfg: DFTConfiguration,
         grid = cfg.grid.new(kpt=kpt)  # dtype?
         lcaokpt = lcaowfs.kpt_u[u]
         assert (ibz.bz.points[lcaokpt.k] == kpt).all()
-        wfs = grid.zeros(cfg.nbands, band_comm)
+        psit_nR = grid.zeros(cfg.nbands, band_comm)
         mynbands = len(lcaokpt.C_nM)
         basis_set.lcao_to_grid(lcaokpt.C_nM,
-                               wfs.data[:mynbands], lcaokpt.q)
+                               psit_nR.data[:mynbands], lcaokpt.q)
         if cfg.mode.name == 'pw':
-            wfs0 = wfs
-            pw = PlaneWaves(ecut=cfg.wf_grid.ecut, grid=grid)
-            wfs = pw.zeros(cfg.nbands, band_comm)
-            for a, b in zip(wfs0, wfs):
-                a.fft(out=b)
-        mykpts.append(WaveFunctions(wfs, lcaokpt.s, setups, cfg.fracpos))
+            pw = PlaneWaves(ecut=cfg.wf_grid.ecut, cell=grid.cell)
+            psit_nG = pw.zeros(cfg.nbands, band_comm)
+            for psit_R, psit_G in zip(psit_nR, psit_nG):
+                psit_R.fft(out=psit_G)
+            psit_nX = psit_nG
+        else:
+            psit_nX = psit_nR
+        mykpts.append(WaveFunctions(psit_nX, lcaokpt.s, setups,
+                                    cfg.fracpos_ac))
         assert mynbands == cfg.nbands
 
-    ibz_wfs = IBZWaveFunctions(cfg.ibz, ranks, kpt_comm, mykpts,
-                               cfg.nelectrons)
-    return ibz_wfs
+    ibzwfs = IBZWaveFunctions(cfg.ibz, ranks, kpt_comm, mykpts, cfg.nelectrons)
+    return ibzwfs

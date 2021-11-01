@@ -80,7 +80,7 @@ class UniformGrid(Domain):
             dtype=None) -> UniformGrid:
         if decomp is None and comm == 'inherit':
             if (size == self.size_c).all() and (pbc == self.pbc_c).all():
-                decomp = self.decompo
+                decomp = self.decomp_cp
         comm = self.comm if comm == 'inherit' else comm
         return UniformGrid(cell=self.cell_cv,
                            size=self.size_c if size is None else size,
@@ -113,7 +113,7 @@ class UniformGrid(Domain):
 
         def transform(functions, out=None, preserve_integral=False):
             if out is None:
-                out = other.empty(functions.shape, functions.comm)
+                out = other.empty(functions.dims, functions.comm)
             apply(functions.data, out.data)
             if preserve_integral and not self.pbc_c.all():
                 out.data *= functions.integrate() / out.integrate()
