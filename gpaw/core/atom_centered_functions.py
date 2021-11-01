@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 from gpaw.core.atom_arrays import (AtomArrays, AtomArraysLayout,
                                    AtomDistribution)
-from gpaw.core.matrix import Matrix
+from gpaw.mpi import serial_comm, MPIComm
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
 from gpaw.spline import Spline
@@ -38,6 +38,12 @@ class AtomCenteredFunctions:
         self._lacy_init()
         return self._layout
 
+    def empty(self,
+              dims: int | tuple[int, ...] = (),
+              comm: MPIComm = serial_comm,
+              transposed=False) -> AtomArrays:
+        return self.layout.empty(dims, comm, transposed=transposed)
+
     def move(self, fracpos):
         self.fracpos = np.array(fracpos)
         self._lfc.set_positions(fracpos)
@@ -49,8 +55,12 @@ class AtomCenteredFunctions:
             self._lfc.add(functions.data, coefs)
             return
 
-        c = {a: np.moveaxis(array, 0, -1)
-             for a, array in coefs._arrays.items()}
+        if coefs.transposed:
+            c = {a: np.moveaxis(array, 0, -1)
+                 for a, array in coefs._arrays.items()}
+        else:
+            c = {a: array
+                 for a, array in coefs._arrays.items()}
         self._lfc.add(functions.data, c, q=0)
 
     def integrate(self, functions, out=None):

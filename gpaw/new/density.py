@@ -31,7 +31,7 @@ class Density:
                  delta0_a,
                  charge=0.0):
         self.nt_sR = nt_sR
-        self.nct = nct_R
+        self.nct_R = nct_R
         self.nct_acf = nct_acf
         self.D_asii = D_asii
         self.delta_aiiL = delta_aiiL
@@ -74,10 +74,10 @@ class Density:
                            P_ain: AtomArrays,
                            out: AtomArrays) -> AtomArrays:
         x = (4 * np.pi)**0.5
-        for a, I1, I2 in projections.layout.myindices:
+        for a, I1, I2 in P_ain.layout.myindices:
             ds = self.delta_aiiL[a][:, :, 0] * x
             # use mmm ?????
-            out.data[I1:I2] = ds @ projections.data[I1:I2]
+            out.data[I1:I2] = ds @ P_ain.data[I1:I2]
         return out
 
     def move(self, fracpos):

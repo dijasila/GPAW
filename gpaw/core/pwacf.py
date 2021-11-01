@@ -142,7 +142,7 @@ class PWLFC(BaseLFC):
         GkR_Ga = Gk_Gv @ self.pos_av.T
         self.emiGR_Ga = np.exp(-1j * GkR_Ga) * self.eikR_a
 
-        rank_a = atomdist.ranks
+        rank_a = atomdist.rank_a
 
         self.my_atom_indices = []
         self.my_indices = []

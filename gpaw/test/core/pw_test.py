@@ -15,7 +15,7 @@ def test_redist():
     f2 = f1.collect()
     if f2 is not None:
         assert (f2.data == 1.0).all()
-        assert f2.pw.comm.size == 1
+        assert f2.desc.comm.size == 1
 
 
 def test_pw_integrate():
@@ -43,32 +43,32 @@ def test_pw_integrate():
 
     ecut = 0.5 * (2 * np.pi / a)**2 * 1.01
     for g in [g1, g2, g3, g4, g5]:
-        pw = PlaneWaves(cell=g.grid.cell, dtype=g.grid.dtype,
+        pw = PlaneWaves(cell=g.desc.cell, dtype=g.desc.dtype,
                         ecut=ecut, comm=world)
         f = g.fft(pw=pw)
         print(f.data)
 
         gg = (f.collect(broadcast=True)
-              .ifft(grid=g.grid.new(comm=None))
-              .distribute(grid=g.grid))
+              .ifft(grid=g.desc.new(comm=None))
+              .distribute(grid=g.desc))
         assert (g.data == gg.data).all()
 
         i1 = g.integrate()
         i2 = f.integrate()
         assert i1 == i2
-        assert type(i1) == g.grid.dtype
+        assert type(i1) == g.desc.dtype
 
         i1 = g.integrate(g)
         i2 = f.integrate(f)
         assert i1 == i2
-        assert type(i1) == g.grid.dtype
+        assert type(i1) == g.desc.dtype
 
-        g1 = g.grid.empty(1)
+        g1 = g.desc.empty(1)
         g1.data[:] = g.data
         m1 = g1.matrix_elements(g1)
         assert (i1 == m1.data).all()
 
-        f1 = f.pw.empty(1)
+        f1 = f.desc.empty(1)
         f1.data[:] = f.data
         m2 = f1.matrix_elements(f1)
         assert (i2 == m2.data).all()
@@ -111,4 +111,3 @@ def test_find_g():
                                       kpt=np.array([0.1, 0, 0]))
     assert i.T.tolist() == [[0, 0, 0],
                             [-1, 0, 0]]
-    

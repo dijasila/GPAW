@@ -9,28 +9,26 @@ class AtomArraysLayout:
                  shapes: list[int | tuple[int, ...]],
                  atomdist: AtomDistribution | MPIComm = serial_comm,
                  dtype=float):
-        self.shapes = [shape if isinstance(shape, tuple) else (shape,)
-                       for shape in shapes]
+        self.shape_a = [shape if isinstance(shape, tuple) else (shape,)
+                        for shape in shapes]
         if not isinstance(atomdist, AtomDistribution):
             atomdist = AtomDistribution(np.zeros(len(shapes), int), atomdist)
         self.atomdist = atomdist
         self.dtype = np.dtype(dtype)
 
-        self.size = sum(np.prod(shape) for shape in self.shapes)
+        self.size = sum(np.prod(shape) for shape in self.shape_a)
 
         self.myindices = []
         self.mysize = 0
         I1 = 0
         for a in atomdist.indices:
-            I2 = I1 + np.prod(self.shapes[a])
+            I2 = I1 + np.prod(self.shape_a[a])
             self.myindices.append((a, I1, I2))
             self.mysize += I2 - I1
             I1 = I2
 
-        #Layout.__init__(self, (self.size,), (self.mysize,))
-
     def __repr__(self):
-        return (f'AtomArraysLayout({self.shapes}, {self.atomdist}, '
+        return (f'AtomArraysLayout({self.shape_a}, {self.atomdist}, '
                 f'{self.dtype})')
 
     def empty(self,
@@ -43,7 +41,7 @@ class AtomArraysLayout:
 class AtomDistribution:
     def __init__(self, ranks, comm):
         self.comm = comm
-        self.ranks = ranks
+        self.rank_a = ranks
         self.indices = np.where(ranks == comm.rank)[0]
 
     def __repr__(self):
@@ -69,11 +67,11 @@ class AtomArrays(DistributedArrays):
         for a, I1, I2 in layout.myindices:
             if transposed:
                 self._arrays[a] = self.data[I1:I2].reshape(
-                    layout.shapes[a] + self.mydims)
+                    layout.shape_a[a] + self.mydims)
             else:
                 self._arrays[a] = self.data[..., I1:I2].reshape(
-                    self.mydims + layout.shapes[a])
-        self.natoms: int = len(layout.shapes)
+                    self.mydims + layout.shape_a[a])
+        self.natoms: int = len(layout.shape_a)
 
     def __repr__(self):
         return f'AtomArrays({self.layout})'

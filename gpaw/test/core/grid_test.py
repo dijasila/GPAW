@@ -18,5 +18,5 @@ def test_redist():
     if world.rank == 0:
         assert (f2.data == f3.data).all()
     print(f2.data)
-    f4 = f2.distribute(f1.grid)
+    f4 = f2.distribute(f1.desc)
     assert (f4.data == f1.data).all()

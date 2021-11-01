@@ -11,7 +11,11 @@ if TYPE_CHECKING:
     from gpaw.core.arrays import DistributedArrays
 
 
-def _normalize_cell(cell: ArrayLike) -> Array2D:
+def normalize_cell(cell: ArrayLike) -> Array2D:
+    """...
+
+    >>> normalize_cell([1, 2, 3])
+    """
     cell = np.array(cell, float)
     if cell.ndim == 2:
         return cell
@@ -28,19 +32,31 @@ class Domain:
                  comm: MPIComm = serial_comm,
                  dtype: DTypeLike = None):
         """"""
-        self.cell = _normalize_cell(cell)
-        self.pbc = np.array(pbc, bool)
-        self.kpt = np.array(kpt, float)
+        self.cell_cv = normalize_cell(cell)
+        self.pbc_c = np.array(pbc, bool)
+        self.kpt_c = np.array(kpt, float)
         self.comm = comm
 
         assert dtype in [None, float, complex]
-        if self.kpt.any():
+        if self.kpt_c.any():
             if dtype == float:
                 raise ValueError
             dtype = complex
         else:
             dtype = dtype or float
         self.dtype = np.dtype(dtype)
+
+    @property
+    def cell(self):
+        return self.cell_cv.copy()
+
+    @property
+    def pbc(self):
+        return self.pbc_c.copy()
+
+    @property
+    def kpt(self):
+        return self.kpt_c.copy()
 
     def empty(self,
               shape: int | tuple[int, ...] = (),

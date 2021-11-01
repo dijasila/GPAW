@@ -81,20 +81,22 @@ but faster.
 Atom-centered functions
 =======================
 
-alpha = 4.0
-rcut = 2.0
-l = 0
-gauss = (l, rcut, labmda r: np.exp(-alpha * r**2))
-grid = UniformGrid(cell=[4.0, 1.0, 1.0], size=[40, 10, 10])
-pos = [[0.25, 0.5, 0.5], [0.75, 0.5, 0.5]]
-acf = grid.atom_centered_functions([[gauss], [gauss]], pos)
-coefs = acf.empty()
-coefs[0] = [(4 * pi)**0.5]
-coefs[1] = [2 * (4 * pi)**0.5]
-f = grid.zeros()
-acf.add(f, coefs)
-x, y = f.xy(..., 5, 5)
-plt.plot(x, y)
+.. literalinclude: acf_example.py
+
+.. figure:: acf_example.png
+
+
+Examples
+========
+
+.. math::
+
+   D_{\sigma,i_1,i_2}^a
+   P_in^a
+   \tilde\psi_{n\mathbf{R}}
+   \tilde\psi_{n\mathbf{G}}
+   \tilde p_i^a(\mathbf{r}-\mathbf{R}^a)
+
 
 
 API

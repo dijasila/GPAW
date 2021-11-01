@@ -27,7 +27,7 @@ class PlaneWaves(Domain):
         Domain.__init__(self, cell, (True, True, True), kpt, comm, dtype)
 
         G_plus_k_Gv, ekin_G, self.indices_cG = find_reciprocal_vectors(
-            ecut, self.cell, self.kpt, self.dtype)
+            ecut, self.cell_cv, self.kpt_c, self.dtype)
 
         # Find distribution:
         S = comm.size
@@ -39,7 +39,7 @@ class PlaneWaves(Domain):
         # Distribute things:
         self.ekin_G = ekin_G[ng1:ng2].copy()
         self.ekin_G.flags.writeable = False
-        #self.myindices_cG = self.indices_cG[:, ng1:ng2]
+        # self.myindices_cG = self.indices_cG[:, ng1:ng2]
         self.G_plus_k_Gv = G_plus_k_Gv[ng1:ng2]
 
         self.shape = (ng,)
@@ -49,7 +49,7 @@ class PlaneWaves(Domain):
 
     def __repr__(self) -> str:
         comm = self.comm
-        txt = f'PlaneWaves(ecut={self.ecut}, cell={self.cell.tolist()}'
+        txt = f'PlaneWaves(ecut={self.ecut}, cell={self.cell_cv.tolist()}'
         if comm.size > 1:
             txt += f', comm={comm.rank}/{comm.size}'
         return txt + ')'
@@ -57,10 +57,10 @@ class PlaneWaves(Domain):
     def reciprocal_vectors(self) -> Array2D:
         """Returns reciprocal lattice vectors, G + k,
         in xyz coordinates."""
-        return self.G_plus_k
+        return self.G_plus_k_Gv
 
     def kinetic_energies(self) -> Array1D:
-        return self.ekin
+        return self.ekin_G
 
     def empty(self,
               shape: int | tuple[int, ...] = (),
@@ -71,8 +71,8 @@ class PlaneWaves(Domain):
             comm: MPIComm | str = 'inherit') -> PlaneWaves:
         comm = self.comm if comm == 'inherit' else comm
         return PlaneWaves(ecut=self.ecut,
-                          cell=self.cell,
-                          kpt=self.kpt,
+                          cell=self.cell_cv,
+                          kpt=self.kpt_c,
                           dtype=self.dtype,
                           comm=comm or serial_comm)
 
@@ -84,9 +84,9 @@ class PlaneWaves(Domain):
     def cut(self, array_R):
         return array_R.ravel()[self.indices(array_R.shape)]
 
-    def paste(self, coefs_G, scale, array_Q):
+    def paste(self, coefs_G, array_Q):
         Q_G = self.indices(array_Q.shape)
-        _gpaw.pw_insert(coefs_G, Q_G, scale, array_Q)
+        _gpaw.pw_insert(coefs_G, Q_G, 1.0, array_Q)
 
     def atom_centered_functions(self,
                                 functions,
@@ -105,27 +105,27 @@ class PlaneWaveExpansions(DistributedArrays):
                  data: np.ndarray = None):
         DistributedArrays. __init__(self, dims, pw.myshape,
                                     comm, pw.comm,
-                                    pw.dv, data, complex,
+                                    data, pw.dv, complex,
                                     transposed=False)
-        self.pw = pw
+        self.desc = pw
 
     def __repr__(self):
-        txt = f'PlaneWaveExpansions(pw={self.pw}, shape={self.dims}'
+        txt = f'PlaneWaveExpansions(pw={self.desc}, shape={self.dims}'
         if self.comm.size > 1:
             txt += f', comm={self.comm.rank}/{self.comm.size}'
         return txt + ')'
 
     def __getitem__(self, index: int) -> PlaneWaveExpansions:
-        return PlaneWaveExpansions(self.pw, data=self.data[index])
+        return PlaneWaveExpansions(self.desc, data=self.data[index])
 
     def __iter__(self):
         for data in self.data:
-            yield PlaneWaveExpansions(self.pw, data=data)
+            yield PlaneWaveExpansions(self.desc, data=data)
 
     def new(self, data=None):
         if data is None:
             data = np.empty_like(self.data)
-        return PlaneWaveExpansions(self.pw, self.shape, self.comm, data)
+        return PlaneWaveExpansions(self.desc, self.shape, self.comm, data)
 
     def _arrays(self):
         return self.data.reshape((-1,) + self.data.shape[-1:])
@@ -140,7 +140,7 @@ class PlaneWaveExpansions(DistributedArrays):
         dist = (self.comm, -1, 1)
         data = self.data.reshape(myshape)
 
-        if self.pw.dtype == float:
+        if self.desc.dtype == float:
             data = data.view(float)
             shape = (shape[0], shape[1] * 2)
 
@@ -150,14 +150,13 @@ class PlaneWaveExpansions(DistributedArrays):
     def ifft(self, plan=None, grid=None, out=None):
         if out is None:
             out = grid.empty()
-        assert out.grid.pbc.all()
-        plan = plan or out.grid.fft_plans()[1]
-        scale = 1.0# / plan.out_R.size
+        assert out.desc.pbc_c.all()
+        plan = plan or out.desc.fft_plans()[1]
         for input, output in zip(self._arrays(), out._arrays()):
-            self.pw.paste(input, scale, plan.in_R)
-            if self.pw.dtype == float:
+            self.desc.paste(input, plan.in_R)
+            if self.desc.dtype == float:
                 t = plan.in_R[:, :, 0]
-                n, m = (s // 2 - 1 for s in out.grid.size[:2])
+                n, m = (s // 2 - 1 for s in out.desc.size_c[:2])
                 t[0, -m:] = t[0, m:0:-1].conj()
                 t[n:0:-1, -m:] = t[-n:, m:0:-1].conj()
                 t[-n:, -m:] = t[n:0:-1, m:0:-1].conj()
@@ -169,7 +168,7 @@ class PlaneWaveExpansions(DistributedArrays):
 
     def collect(self, out=None, broadcast=False):
         """Gather coefficients on master."""
-        comm = self.pw.comm
+        comm = self.desc.comm
 
         if comm.size == 1:
             if out is None:
@@ -179,18 +178,18 @@ class PlaneWaveExpansions(DistributedArrays):
 
         if out is None:
             if comm.rank == 0 or broadcast:
-                pw = self.pw.new(comm=serial_comm)
+                pw = self.desc.new(comm=serial_comm)
                 out = pw.empty(self.dims)
             else:
                 out = Empty()
 
         if comm.rank == 0:
-            data = np.empty(self.pw.maxmysize * comm.size, complex)
+            data = np.empty(self.desc.maxmysize * comm.size, complex)
         else:
             data = None
 
         for input, output in zip(self._arrays(), out._arrays()):
-            mydata = pad(input, self.pw.maxmysize)
+            mydata = pad(input, self.desc.maxmysize)
             comm.gather(mydata, 0, data)
             if comm.rank == 0:
                 output[:] = data[:len(output)]
@@ -202,7 +201,7 @@ class PlaneWaveExpansions(DistributedArrays):
 
     def distribute(self, pw=None, out=None):
         assert self.dims == ()
-        assert self.pw.comm.size == 1
+        assert self.desc.comm.size == 1
         if out is self:
             return out
         if out is None:
@@ -210,7 +209,7 @@ class PlaneWaveExpansions(DistributedArrays):
                 raise ValueError('You must specify "pw" or "out"!')
             out = pw.empty(self.dims, self.comm)
         if pw is None:
-            pw = out.pw
+            pw = out.desc
         comm = pw.comm
         if comm.size == 1:
             out.data[:] = self.data
@@ -228,27 +227,27 @@ class PlaneWaveExpansions(DistributedArrays):
 
     def integrate(self, other: PlaneWaveExpansions = None) -> np.ndarray:
         if other is not None:
-            assert self.pw.dtype == other.pw.dtype
+            assert self.desc.dtype == other.desc.dtype
             a = self._arrays()
             b = other._arrays()
             dv = self.dv
-            if self.pw.dtype == float:
+            if self.desc.dtype == float:
                 a = a.view(float)
                 b = b.view(float)
                 dv *= 2
             result = a @ b.T.conj()
-            if self.pw.dtype == float and self.pw.comm.rank == 0:
+            if self.desc.dtype == float and self.desc.comm.rank == 0:
                 result -= 0.5 * np.outer(a[:, 0], b[:, 0])
-            self.pw.comm.sum(result)
+            self.desc.comm.sum(result)
             result.shape = self.dims + other.dims
         else:
             dv = self.dv
             result = self.data[..., 0]
-            if self.pw.comm.rank > 0:
+            if self.desc.comm.rank > 0:
                 result = np.empty_like(result)
-            self.pw.comm.broadcast(result[np.newaxis], 0)
+            self.desc.comm.broadcast(result[np.newaxis], 0)
 
-        if self.pw.dtype == float:
+        if self.desc.dtype == float:
             result = result.real
         return result * dv
 
@@ -257,11 +256,11 @@ class PlaneWaveExpansions(DistributedArrays):
                                     M2: Matrix,
                                     out: Matrix,
                                     symmetric: bool) -> None:
-        if self.pw.dtype == float:
+        if self.desc.dtype == float:
             out.data *= 2.0
-            if self.pw.comm.rank == 0:
+            if self.desc.comm.rank == 0:
                 correction = np.outer(M1.data[:, 0],
-                                      M2.data[:, 0]) * self.pw.dv
+                                      M2.data[:, 0]) * self.desc.dv
                 if symmetric:
                     correction *= 0.5
                     out.data -= correction
@@ -275,16 +274,16 @@ class PlaneWaveExpansions(DistributedArrays):
             result = np.einsum('ig, ig -> i', a, a)
         elif kind == 'kinetic':
             a.shape = (len(a), -1, 2)
-            result = np.einsum('igx, igx, g -> i', a, a, self.pw.ekin)
+            result = np.einsum('igx, igx, g -> i', a, a, self.desc.ekin)
         else:
             1 / 0
-        if self.pw.dtype == float:
+        if self.desc.dtype == float:
             result *= 2
-            if self.pw.comm.rank == 0 and kind == 'normal':
+            if self.desc.comm.rank == 0 and kind == 'normal':
                 result -= a[:, 0] * a[:, 0]
-        self.pw.comm.sum(result)
+        self.desc.comm.sum(result)
         result.shape = self.myshape
-        return result * self.pw.dv
+        return result * self.desc.dv
 
     def abs_square(self,
                    weights: Array1D,
@@ -420,7 +419,7 @@ class PWMapping:
     def add_to2(self, a2, b1):
         """Do a += b * scale, where a is on pd2 and b on pd1."""
         myb = b1.data * (self.pw2.grid.shape[0] / self.pw1.grid.shape[0])
-        if self.pw1.grid.comm.size == 1:
+        if self.desc1.grid.comm.size == 1:
             a2.data[self.G2_G1] += myb
         else:
             1 / 0

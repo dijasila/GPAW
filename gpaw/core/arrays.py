@@ -4,18 +4,21 @@ from gpaw.mpi import MPIComm
 from gpaw.core.matrix import Matrix
 from gpaw.typing import Array1D
 from typing import TYPE_CHECKING
+from gpaw.core.domain import Domain
 if TYPE_CHECKING:
     from gpaw.core.uniform_grid import UniformGridFunctions
 
 
 class DistributedArrays:
+    desc: Domain
+
     def __init__(self,
                  dims: int | tuple[int, ...],
                  myshape: tuple[int, ...],
                  comm: MPIComm,
                  domain_comm: MPIComm,
-                 dv: float,
                  data: np.ndarray,
+                 dv: float,
                  dtype,
                  transposed: bool):
         self.myshape = myshape
@@ -34,9 +37,9 @@ class DistributedArrays:
             self.mydims = ()
 
         if transposed:
-            fullshape = myshape + self.mydims
+            fullshape = self.myshape + self.mydims
         else:
-            fullshape = self.mydims + myshape
+            fullshape = self.mydims + self.myshape
 
         if data is not None:
             assert data.shape == fullshape
