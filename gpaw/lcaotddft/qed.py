@@ -1,16 +1,15 @@
 import numpy as np
-
 from gpaw.mpi import world
 from ase.units import Bohr
+from gpaw.external import ConstantElectricField
+from ase.units import alpha, Hartree, Bohr
+from gpaw.lcaotddft.hamiltonian import KickHamiltonian
 
-rr_quantization_plane = 0
-polarization_cavity   = [0,0,0]
-
-def create_qed(name, **kwargs):
-    if  name == 'RRemission':
-        return RRemission(**kwargs)
-    else:
-        raise ValueError('Unknown qed ansatz: %s' % name)
+#def create_qed(name, **kwargs):
+#    if  name == 'RRemission':
+#        return RRemission(**kwargs)
+#    else:
+#        raise ValueError('Unknown qed ansatz: %s' % name)
 
 class RRemission(object):
     r"""
@@ -31,7 +30,50 @@ class RRemission(object):
     """
 
     def __init__(self, rr_quantization_plane_in, pol_cavity_in):
-        global rr_quantization_plane 
-        global polarization_cavity 
-        rr_quantization_plane = rr_quantization_plane_in / Bohr**2
-        polarization_cavity = pol_cavity_in
+        self.rr_quantization_plane = rr_quantization_plane_in / Bohr**2
+        self.polarization_cavity = pol_cavity_in
+
+    def initialize(self,paw):
+        self.iterpredcop = 0
+        self.time_previous = paw.time
+        self.dipolexyz = [0,0,0]
+        self.density = paw.density
+        self.wfs = paw.wfs
+        self.hamiltonian = paw.hamiltonian
+        self.dipolexyz_previous = self.density.calculate_dipole_moment()
+
+    def vradiationreaction(self, kpt, time):
+        if self.iterpredcop==0: 
+          self.iterpredcop+=1
+          self.dipolexyz_previous = self.density.calculate_dipole_moment()
+          self.time_previous = time
+          deltat = 1
+        else:
+          self.iterpredcop=0
+          deltat = (time-self.time_previous)
+          self.dipolexyz = (self.density.calculate_dipole_moment()-self.dipolexyz_previous)/deltat
+
+        ext = ConstantElectricField(1.0 * Hartree / Bohr, self.polarization_cavity) # function uses V/Angstroem and therefore conversion necessary
+        uvalue = 0
+        self.ext_i = []
+        self.ext_i.append(ext)
+        get_matrix = self.wfs.eigensolver.calculate_hamiltonian_matrix
+        self.V_iuMM = []
+        for ext in self.ext_i:
+            V_uMM = []
+            hamiltonian = KickHamiltonian(self.hamiltonian, self.density, ext)
+            for kpt in self.wfs.kpt_u:
+                V_MM = get_matrix(hamiltonian, self.wfs, kpt,
+                                  add_kinetic=False, root=-1)
+                V_uMM.append(V_MM)
+            self.V_iuMM.append(V_uMM) 
+        self.Ni = len(self.ext_i) 
+
+        if time > 5: # to remove the overlap with the initial kick -- REMOVE LATER
+          rr_argument = -4.0*np.pi*alpha / self.rr_quantization_plane * np.dot( self.polarization_cavity, self.dipolexyz )
+        else:
+          rr_argument = 0
+        Vrr_MM = rr_argument * self.V_iuMM[0][uvalue] 
+        for i in range(1, self.Ni):
+            Vrr_MM += rr_argument * self.V_iuMM[i][uvalue]
+        return Vrr_MM
