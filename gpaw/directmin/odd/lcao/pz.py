@@ -975,11 +975,11 @@ class PzCorrectionsLcao:
             eigval, eigvec = np.linalg.eigh(fullham[a:b, a:b])
             if update_eigenvalues and update_wfs:
                 kpt.eps_n[a:b] = eigval
-                kpt.C_nM[a:b] = eigvec.T @ c_nm
+                kpt.C_nM[a:b] = eigvec.T @ c_nm[a:b]
             elif update_eigenvalues:
                 kpt.eps_n[a:b] = eigval
             elif update_wfs:
-                kpt.C_nM[a:b] = eigvec.T @ c_nm
+                kpt.C_nM[a:b] = eigvec.T @ c_nm[a:b]
 
         updatecan(0, n_occ)
         updatecan(n_occ, nbs)
