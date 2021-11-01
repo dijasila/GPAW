@@ -59,6 +59,7 @@ DFT Hamiltonian.
 
 """
 from .displacements import DisplacementRunner
+from .supercell import Supercell
 
 
-__all__ = ['DisplacementRunner']
+__all__ = ['DisplacementRunner', 'Supercell']

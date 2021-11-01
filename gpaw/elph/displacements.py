@@ -46,6 +46,8 @@ from ase.phonons import Displacement
 
 from gpaw import GPAW
 
+dr_version = 1
+
 
 class DisplacementRunner(Displacement):
     """Class for calculating the changes in effective potential.
@@ -130,3 +132,13 @@ class DisplacementRunner(Displacement):
         if forces is not None:
             output['forces'] = forces
         return output
+
+    def run(self):
+        """Run the calculations for the required displacements."""
+        # Save some information about this run
+        with self.cache.lock('info') as handle:
+            if handle is not None:
+                info = {'natom': len(self.atoms), 'supercell': self.supercell,
+                        'delta': self.delta, 'dr_version': dr_version}
+                handle.save(info)
+        Displacement.run(self)

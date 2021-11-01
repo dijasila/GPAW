@@ -38,15 +38,19 @@ def test_displacements(in_tmp_dir):
     # read stuff back
     if world.rank == 0:
         cache = MultiFileJSONCache('elph')
-        Vt_G = cache['eq']['Vt_sG'][0]
-        dH_all_asp = cache['eq']['dH_all_asp']
+        info = cache['info']
+        assert info['supercell'] == [1, 1, 1]
+        assert info['natom'] == 2
+        assert info['delta'] == 0.01
 
         # the following might change if defaults are changed
+        Vt_G = cache['eq']['Vt_sG'][0]
         # print(Vt_G.shape, np.min(Vt_G), np.max(Vt_G))
         assert Vt_G.shape == (16, 16, 16)
         assert pytest.approx(np.min(Vt_G), abs=1e-6) == -0.5670174
         assert pytest.approx(np.max(Vt_G), abs=1e-6) == -0.1267383
 
+        dH_all_asp = cache['eq']['dH_all_asp']
         # print(np.min(dH_all_asp[0][0]), np.max(dH_all_asp[0][0]))
         assert len(dH_all_asp) == 2
         dH_p = dH_all_asp[0][0]
