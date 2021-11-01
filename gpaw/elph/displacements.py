@@ -133,12 +133,15 @@ class DisplacementRunner(Displacement):
             output['forces'] = forces
         return output
 
-    def run(self):
-        """Run the calculations for the required displacements."""
-        # Save some information about this run
+    def save_info(self):
         with self.cache.lock('info') as handle:
             if handle is not None:
                 info = {'natom': len(self.atoms), 'supercell': self.supercell,
                         'delta': self.delta, 'dr_version': dr_version}
                 handle.save(info)
+
+    def run(self):
+        """Run the calculations for the required displacements."""
+        # Save some information about this run
+        self.save_info()
         Displacement.run(self)

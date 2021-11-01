@@ -34,6 +34,7 @@ def test_displacements(in_tmp_dir):
                               calculate_forces=False)
     elph.indices = []
     elph.run()
+    del elph
 
     # read stuff back
     if world.rank == 0:
@@ -42,6 +43,7 @@ def test_displacements(in_tmp_dir):
         assert info['supercell'] == [1, 1, 1]
         assert info['natom'] == 2
         assert info['delta'] == 0.01
+        assert 'dr_version' in info
 
         # the following might change if defaults are changed
         Vt_G = cache['eq']['Vt_sG'][0]

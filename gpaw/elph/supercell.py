@@ -1,7 +1,6 @@
 """Module for electron-phonon supercell properties."""
 
 from abc import ABC
-from ase.io.trajectory import VersionTooOldError
 import numpy as np
 
 from ase import Atoms
@@ -17,6 +16,11 @@ from gpaw.utilities.tools import tri2full
 from .filter import fourier_filter
 
 sc_version = 1
+
+
+class VersionError(Exception):
+    """Error raised for wrong cache versions."""
+    pass
 
 
 class Supercell(ABC):
@@ -241,7 +245,7 @@ class Supercell(ABC):
         return {'M_a': M_a, 'nao_a': nao_a}
 
     @classmethod
-    def calculate_gradient(self, cache: str):
+    def calculate_gradient(self, fd_name: str):
         """Calculate gradient of effective potential and projector coefs.
 
         This function loads the generated json files and calculates
@@ -249,12 +253,13 @@ class Supercell(ABC):
 
         Parameters
         ----------
-        cache: str
+        fd_name: str
             name of finite difference JSON cache
         """
-        if not hasattr(cache, 'dr_version'):
+        cache = MultiFileJSONCache(fd_name)
+        if 'dr_version' not in cache['info']:
             print("Cache created with old version. Use electronphonon.py")
-            raise VersionTooOldError
+            raise VersionError
         natom = cache['info']['natom']
         delta = cache['info']['delta']
 
@@ -263,7 +268,7 @@ class Supercell(ABC):
         dH1_xasp = []
 
         x = 0
-        for a in natom:
+        for a in range(natom):
             for v in 'xyz':
                 name = '%d%s' % (a, v)
                 # Potential and atomic density matrix for atomic displacement
@@ -294,9 +299,9 @@ class Supercell(ABC):
             User specified name of the cache.
         """
         supercell_cache = MultiFileJSONCache(name)
-        if not hasattr(supercell_cache, 'sc_version'):
+        if 'sc_version' not in supercell_cache['info']:
             print("Cache created with old version. Use electronphonon.py")
-            raise VersionTooOldError
+            raise VersionError
         shape = supercell_cache['info']['gshape']
         dtype = supercell_cache['info']['gtype']
         natom = supercell_cache['info']['natom']
