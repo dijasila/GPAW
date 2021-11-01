@@ -1,25 +1,19 @@
 import numpy as np
-from gpaw.mpi import world
-from ase.units import Bohr
 from gpaw.external import ConstantElectricField
 from ase.units import alpha, Hartree, Bohr
 from gpaw.lcaotddft.hamiltonian import KickHamiltonian
 
-#def create_qed(name, **kwargs):
-#    if  name == 'RRemission':
-#        return RRemission(**kwargs)
-#    else:
-#        raise ValueError('Unknown qed ansatz: %s' % name)
 
 class RRemission(object):
     r"""
-    # Radiation-reaction potential accoridng to Schaefer et al. [arXiv 2109.09839]
-    # The potential accounts for the friction forces acting on the radiating system
-    # of oscillating charges emitting into a single dimension. A more elegant 
-    # formulation would use the current instead of the dipole. 
-    # Please contact christian.schaefer.physics@gmail.com if any problems 
-    # should appear or you would like to consider more complex emission.
-    # Big thanks to Tuomas Rossi and Jakub Fojt for their help.
+    Radiation-reaction potential accoridng to Schaefer et al.
+    [arXiv 2109.09839] The potential accounts for the friction
+    forces acting on the radiating system of oscillating charges
+    emitting into a single dimension. A more elegant
+    formulation would use the current instead of the dipole.
+    Please contact christian.schaefer.physics@gmail.com if any problems
+    should appear or you would like to consider more complex emission.
+    Big thanks to Tuomas Rossi and Jakub Fojt for their help.
 
     Parameters
     ----------
@@ -33,27 +27,28 @@ class RRemission(object):
         self.rr_quantization_plane = rr_quantization_plane_in / Bohr**2
         self.polarization_cavity = pol_cavity_in
 
-    def initialize(self,paw):
+    def initialize(self, paw):
         self.iterpredcop = 0
         self.time_previous = paw.time
-        self.dipolexyz = [0,0,0]
+        self.dipolexyz = [0, 0, 0]
         self.density = paw.density
         self.wfs = paw.wfs
         self.hamiltonian = paw.hamiltonian
         self.dipolexyz_previous = self.density.calculate_dipole_moment()
 
     def vradiationreaction(self, kpt, time):
-        if self.iterpredcop==0: 
-          self.iterpredcop+=1
-          self.dipolexyz_previous = self.density.calculate_dipole_moment()
-          self.time_previous = time
-          deltat = 1
+        if self.iterpredcop == 0:
+            self.iterpredcop += 1
+            self.dipolexyz_previous = self.density.calculate_dipole_moment()
+            self.time_previous = time
+            deltat = 1
         else:
-          self.iterpredcop=0
-          deltat = (time-self.time_previous)
-          self.dipolexyz = (self.density.calculate_dipole_moment()-self.dipolexyz_previous)/deltat
-
-        ext = ConstantElectricField(1.0 * Hartree / Bohr, self.polarization_cavity) # function uses V/Angstroem and therefore conversion necessary
+            self.iterpredcop = 0
+            deltat = time - self.time_previous
+            self.dipolexyz = (self.density.calculate_dipole_moment()
+                              - self.dipolexyz_previous) / deltat
+        # function uses V/Angstroem and therefore conversion necessary
+        ext = ConstantElectricField(Hartree / Bohr, self.polarization_cavity)
         uvalue = 0
         self.ext_i = []
         self.ext_i.append(ext)
@@ -66,14 +61,15 @@ class RRemission(object):
                 V_MM = get_matrix(hamiltonian, self.wfs, kpt,
                                   add_kinetic=False, root=-1)
                 V_uMM.append(V_MM)
-            self.V_iuMM.append(V_uMM) 
-        self.Ni = len(self.ext_i) 
+            self.V_iuMM.append(V_uMM)
+        self.Ni = len(self.ext_i)
 
-        if time > 5: # to remove the overlap with the initial kick -- REMOVE LATER
-          rr_argument = -4.0*np.pi*alpha / self.rr_quantization_plane * np.dot( self.polarization_cavity, self.dipolexyz )
+        if time > 5:  # to remove the overlap with the initial kick -- REMOVE
+            rr_argument = (-4.0 * np.pi * alpha / self.rr_quantization_plane
+                           * np.dot(self.polarization_cavity, self.dipolexyz))
         else:
-          rr_argument = 0
-        Vrr_MM = rr_argument * self.V_iuMM[0][uvalue] 
+            rr_argument = 0
+        Vrr_MM = rr_argument * self.V_iuMM[0][uvalue]
         for i in range(1, self.Ni):
             Vrr_MM += rr_argument * self.V_iuMM[i][uvalue]
         return Vrr_MM

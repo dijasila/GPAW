@@ -7,6 +7,7 @@ from gpaw.lcaotddft.utilities import read_wuMM
 from gpaw.lcaotddft.utilities import write_uMM
 from gpaw.lcaotddft.utilities import write_wuMM
 
+
 class TimeDependentPotential(object):
     def __init__(self):
         self.ext_i = []
@@ -92,7 +93,8 @@ class KickHamiltonian(object):
 
 
 class TimeDependentHamiltonian(object):
-    def __init__(self, fxc=None, td_potential=None, scale=None, rremission=None):
+    def __init__(self, fxc=None, td_potential=None, scale=None,
+                 rremission=None):
         assert fxc is None or isinstance(fxc, str)
         self.fxc_name = fxc
         if isinstance(td_potential, dict):
@@ -160,7 +162,7 @@ class TimeDependentHamiltonian(object):
         self.hamiltonian = paw.hamiltonian
         niter = paw.niter
         if self.rremission is not None:
-          self.rremission.initialize(paw)
+            self.rremission.initialize(paw)
 
         # Reset the density mixer
         # XXX: density mixer is not written to the gpw file
@@ -253,7 +255,7 @@ class TimeDependentHamiltonian(object):
             H_MM += self.deltaXC_H_uMM[u]
 
         if self.rremission is not None:
-          H_MM += self.rremission.vradiationreaction(kpt, time)
+            H_MM += self.rremission.vradiationreaction(kpt, time)
 
         if scale and self.has_scale:
             H_MM *= self.scale
