@@ -1322,7 +1322,7 @@ def rotate_subspace(h_mm, c_nm):
     :param c_nm:
     :return:
     """
-    l_nn = np.dot(np.dot(c_nm, h_mm), c_nm.conj().T).conj()
+    l_nn = np.dot(np.dot(c_nm, h_mm), c_nm.conj().T)
     # check if diagonal then don't rotate? it could save a bit of time
     eps, w = np.linalg.eigh(l_nn)
     return w.T.conj() @ c_nm, eps
