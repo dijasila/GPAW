@@ -11,7 +11,7 @@ from gpaw.utilities import pack
 
 class OldStuff:
     def get_pseudo_wave_function(self, n):
-        return self.calculation.ibz_wfs[0].wave_functions.data[n]
+        return self.calculation.ibzwfs[0].wave_functions.data[n]
 
     def write(self, filename, mode=''):
         """Write calculator object to a file.
@@ -69,7 +69,7 @@ def write_gpw(filename: str,
             atomic_density_matrices=D)
 
         calculation.potential.write(writer.child('hamiltonian'))
-        calculation.ibz_wfs.write(writer.child('wave_functions'), skip_wfs)
+        calculation.ibzwfs.write(writer.child('wave_functions'), skip_wfs)
 
     world.barrier()
 
@@ -89,8 +89,8 @@ def read_gpw(filename, log):
 
     density = Density.read(reader, grid)
     potential = ...
-    ibz_wfs = ...
+    ibzwfs = ...
 
-    calculation = DFTCalculation(cfg, ibz_wfs, density, potential)
+    calculation = DFTCalculation(cfg, ibzwfs, density, potential)
     calculation.results = results
     return calculation

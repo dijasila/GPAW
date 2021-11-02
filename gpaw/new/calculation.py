@@ -9,11 +9,11 @@ from typing import Any
 class DFTCalculation:
     def __init__(self,
                  cfg: DFTConfiguration,
-                 ibz_wfs: IBZWaveFunctions,
+                 ibzwfs: IBZWaveFunctions,
                  density,
                  potential):
         self.cfg = cfg
-        self.ibz_wfs = ibz_wfs
+        self.ibzwfs = ibzwfs
         self.density = density
         self.potential = potential
         self._scf = None
@@ -33,11 +33,11 @@ class DFTCalculation:
 
         if params.random:
             log('Initializing wave functions with random numbers')
-            ibz_wfs = cfg.random_ibz_wave_functions()
+            ibzwfs = cfg.random_ibz_wave_functions()
         else:
-            ibz_wfs = cfg.lcao_ibz_wave_functions(basis_set, potential)
+            ibzwfs = cfg.lcao_ibz_wave_functions(basis_set, potential)
 
-        return cls(cfg, ibz_wfs, density, potential)
+        return cls(cfg, ibzwfs, density, potential)
 
     def move_atoms(self, atoms, log) -> DFTCalculation:
         cfg = DFTConfiguration(atoms, self.cfg.params)
@@ -46,10 +46,10 @@ class DFTCalculation:
             raise ValueError
 
         self.density.move(cfg.fracpos)
-        self.ibz_wfs.move(cfg.fracpos)
+        self.ibzwfs.move(cfg.fracpos)
         self.potential.energies.clear()
 
-        return DFTCalculation(cfg, self.ibz_wfs, self.density, self.potential)
+        return DFTCalculation(cfg, self.ibzwfs, self.density, self.potential)
 
     @property
     def scf(self):
@@ -60,7 +60,7 @@ class DFTCalculation:
     def converge(self, log, convergence=None):
         convergence = convergence or self.cfg.params.convergence
         log(self.scf)
-        density, potential = self.scf.converge(self.ibz_wfs,
+        density, potential = self.scf.converge(self.ibzwfs,
                                                self.density,
                                                self.potential,
                                                convergence,
@@ -71,7 +71,7 @@ class DFTCalculation:
 
     def energies(self, log):
         energies1 = self.potential.energies.copy()
-        energies2 = self.ibz_wfs.energies
+        energies2 = self.ibzwfs.energies
         energies1['kinetic'] += energies2['band']
         energies1['entropy'] = energies2['entropy']
         free_energy = sum(energies1.values())
@@ -93,49 +93,49 @@ class DFTCalculation:
         pot_calc = self.cfg.potential_calculator
 
         # Force from projector functions (and basis set):
-        forces = self.ibz_wfs.forces(self.potential.dv)
+        F_av = self.ibzwfs.forces(self.potential.dH_asii)
 
         # Force from compensation charges:
-        ccc = self.density.calculate_compensation_charge_coefficients()
-        F_aLv = pot_calc.ghat_acf.derivative(pot_calc.vHt)
-        for a, dF_Lv in F_aLv.items():
-            forces[a] += ccc[a] @ dF_Lv
+        ccc_aL = self.density.calculate_compensation_charge_coefficients()
+        dF_aLv = pot_calc.ghat_acf.derivative(pot_calc.vHt_x)
+        for a, dF_Lv in dF_aLv.items():
+            F_av[a] += ccc_aL[a] @ dF_Lv
 
         # Force from smooth core charge:
-        F_av = self.density.nct_acf.derivative(pot_calc.vt)
-        for a, dF_v in F_av.items():
-            forces[a] += dF_v[0]
+        dF_av = self.density.nct_acf.derivative(pot_calc.vt_x)
+        for a, dF_v in dF_av.items():
+            F_av[a] += dF_v[0]
 
         # Force from zero potential:
-        F_av = pot_calc.vbar_acf.derivative(pot_calc.nt)
-        for a, dF_v in F_av.items():
-            forces[a] += dF_v[0]
+        dF_av = pot_calc.vbar_acf.derivative(pot_calc.nt_X)
+        for a, dF_v in dF_av.items():
+            F_av[a] += dF_v[0]
 
-        self.cfg.communicators['d'].sum(forces)
+        self.cfg.communicators['d'].sum(F_av)
 
-        forces = self.ibz_wfs.ibz.symmetry.symmetry.symmetrize_forces(forces)
+        F_av = self.ibzwfs.ibz.symmetry.symmetry.symmetrize_forces(F_av)
 
         log('\nForces in eV/Ang:')
         c = Ha / Bohr
         for a, setup in enumerate(self.cfg.setups):
-            x, y, z = forces[a] * c
+            x, y, z = F_av[a] * c
             log(f'{a:4} {setup.symbol:2} {x:10.3f} {y:10.3f} {z:10.3f}')
 
-        self.results['forces'] = forces
+        self.results['forces'] = F_av
 
     def write_converged(self, log):
-        fl = self.ibz_wfs.fermi_levels * Ha
+        fl = self.ibzwfs.fermi_levels * Ha
         assert len(fl) == 1
         log(f'\nFermi level: {fl[0]:.3f}')
 
-        ibz = self.ibz_wfs.ibz
+        ibz = self.ibzwfs.ibz
         for i, (x, y, z) in enumerate(ibz.points):
             log(f'\nkpt = [{x:.3f}, {y:.3f}, {z:.3f}], '
                 f'weight = {ibz.weights[i]:.3f}:')
             log('  Band    eigenvalue   occupation')
-            eigs, occs = self.ibz_wfs.get_eigs_and_occs(i)
+            eigs, occs = self.ibzwfs.get_eigs_and_occs(i)
             eigs = eigs * Ha
-            occs = occs * self.ibz_wfs.spin_degeneracy
+            occs = occs * self.ibzwfs.spin_degeneracy
             for n, (e, f) in enumerate(zip(eigs, occs)):
                 log(f'    {n:4} {e:10.3f}   {f:.3f}')
             if i == 3:

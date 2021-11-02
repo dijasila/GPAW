@@ -79,7 +79,7 @@ class AtomCenteredFunctions:
     def derivative(self, functions, out=None):
         self._lacy_init()
         if out is None:
-            out = self.layout.empty(functions.shape + (3,), functions.comm)
+            out = self.layout.empty(functions.dims + (3,), functions.comm)
         self._lfc.derivative(functions.data,
                              {a: np.moveaxis(array, 0, -2)
                               for a, array in out._arrays.items()},

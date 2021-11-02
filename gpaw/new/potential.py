@@ -63,14 +63,14 @@ class UniformGridPotentialCalculator(PotentialCalculator):
                  xc,
                  poisson_solver):
         self.vHt_x = fine_grid.zeros()  # initial guess for Coulomb potential
-        self.nt_r = fine_grid.empty()
-        self.vt_R = wf_grid.empty()
+        self.nt_x = fine_grid.empty()
+        self.vt_X = wf_grid.empty()
 
         self.vbar_acf = setups.create_local_potentials(fine_grid, fracpos_ac)
         self.ghat_acf = setups.create_compensation_charges(fine_grid,
                                                            fracpos_ac)
 
-        self.vbar_r = self.vbar_acf.to_uniform_grid()
+        self.vbar_x = self.vbar_acf.to_uniform_grid()
 
         self.interpolate = wf_grid.transformer(fine_grid)
         self.restrict = fine_grid.transformer(wf_grid)
@@ -86,26 +86,26 @@ class UniformGridPotentialCalculator(PotentialCalculator):
         vxct_sr = grid2.zeros(nt_sr.dims)
         e_xc = self.xc.calculate(nt_sr, vxct_sr)
 
-        self.nt_r.data[:] = nt_sr.data[:density.ndensities].sum(axis=0)
-        e_zero = self.vbar_r.integrate(self.nt_r)
+        self.nt_x.data[:] = nt_sr.data[:density.ndensities].sum(axis=0)
+        e_zero = self.vbar_x.integrate(self.nt_x)
 
         charge_r = grid2.empty()
-        charge_r.data[:] = self.nt_r.data
+        charge_r.data[:] = self.nt_x.data
         ccc_aL = density.calculate_compensation_charge_coefficients()
         self.ghat_acf.add_to(charge_r, ccc_aL)
         self.poisson_solver.solve(self.vHt_x, charge_r)
         e_coulomb = 0.5 * self.vHt_x.integrate(charge_r)
 
         vt_sr = vxct_sr
-        vt_sr.data += self.vHt_x.data + self.vbar_r.data
+        vt_sr.data += self.vHt_x.data + self.vbar_x.data
         vt_sR = self.restrict(vt_sr)
         e_kinetic = 0.0
-        self.vt_R.data[:] = 0.0
+        self.vt_X.data[:] = 0.0
         for spin, (vt_R, nt_R) in enumerate(zip(vt_sR, nt_sR)):
             e_kinetic -= vt_R.integrate(nt_R)
             if spin < density.ndensities:
                 e_kinetic += vt_R.integrate(density.nct_R)
-                self.vt_R.data += vt_R.data / density.ndensities
+                self.vt_X.data += vt_R.data / density.ndensities
 
         e_external = 0.0
 

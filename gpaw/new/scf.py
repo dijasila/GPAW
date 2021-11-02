@@ -32,7 +32,7 @@ class SCFLoop:
         return str(self.pot_calc)
 
     def iterate(self,
-                ibz_wfs: IBZWaveFunctions,
+                ibzwfs: IBZWaveFunctions,
                 density: Density,
                 potential: Potential):
         dS = density.overlap_correction
@@ -45,17 +45,17 @@ class SCFLoop:
         while True:
             dH = potential.dH
             Ht = partial(self.hamiltonian.apply, potential.vt_sR)
-            wfs_error = self.eigensolver.iterate(ibz_wfs, Ht, dH, dS)
-            ibz_wfs.calculate_occs(self.occ_calc)
+            wfs_error = self.eigensolver.iterate(ibzwfs, Ht, dH, dS)
+            ibzwfs.calculate_occs(self.occ_calc)
 
             ctx = SCFContext(
-                ibz_wfs, density, potential, niter,
+                ibzwfs, density, potential, niter,
                 wfs_error, dens_error,
                 self.world)
 
             yield ctx
 
-            ibz_wfs.calculate_density(out=density)
+            ibzwfs.calculate_density(out=density)
             dens_error = self.mixer.mix(density)
             potential = self.pot_calc.calculate(density)
 

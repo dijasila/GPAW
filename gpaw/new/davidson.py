@@ -41,7 +41,7 @@ def calculate_weights(converge: int | str, wfs: WaveFunctions) -> Array1D:
             return np.abs(wfs.occ_n)
         except ValueError:
             # No eigenvalues yet:
-            return np.zeros(wfs.psit_nX.myshape) + np.inf
+            return np.zeros(wfs.psit_nX.mydims) + np.inf
 
     1 / 0
     return np.zeros(42)
@@ -152,7 +152,7 @@ class Davidson:
         wfs.subspace_diagonalize(Ht, dH,
                                  work_array=psit2_nX.data,
                                  Htpsit_nX=psit3_nX)
-        residuals_nX = psit3_nX  # will become (H-e*S)|psit> later
+        residual_nX = psit3_nX  # will become (H-e*S)|psit> later
 
         P_ain = wfs.P_ain
         P2_ain = P_ain.new()
@@ -173,9 +173,9 @@ class Davidson:
             return a.matrix_elements(b, domain_sum=False, out=M_nn,
                                      function=function)
 
-        calculate_residuals(residuals_nX, dH, dS, wfs, P2_ain, P3_ain)
+        calculate_residuals(residual_nX, dH, dS, wfs, P2_ain, P3_ain)
 
-        Ht = partial(Ht, out=residuals_nX, spin=0)
+        Ht = partial(Ht, out=residual_nX, spin=0)
 
         def copy(C_nn: Array2D) -> None:
             domain_comm.sum(M_nn.data, 0)
@@ -187,10 +187,10 @@ class Davidson:
         for i in range(self.niter):
             if i == self.niter - 1:
                 # Calulate error before we destroy residuals:
-                weights = calculate_weights(self.converge, wfs)
-                error = weights @ residuals_nX.norm2()
+                weights_n = calculate_weights(self.converge, wfs)
+                error = weights_n @ residual_nX.norm2()
 
-            self.preconditioner(psit_nX, residuals_nX, out=psit2_nX)
+            self.preconditioner(psit_nX, residual_nX, out=psit2_nX)
 
             # Calculate projections
             wfs.pt_acf.integrate(psit2_nX, out=P2_ain)
@@ -203,7 +203,7 @@ class Davidson:
             copy(H_NN.data[B:, B:])
 
             # <psi2 | H | psi>
-            me(residuals_nX, psit_nX)
+            me(residual_nX, psit_nX)
             P3_ain.matrix.multiply(P_ain, opa='C', beta=1.0, out=M_nn)
             copy(H_NN.data[B:, :B])
 
@@ -242,7 +242,7 @@ class Davidson:
                 M0_nn.redist(M_nn)
             domain_comm.broadcast(M_nn.data, 0)
 
-            M_nn.multiply(psit_nX, out=residuals_nX)
+            M_nn.multiply(psit_nX, out=residual_nX)
             P_ain.matrix.multiply(M_nn, opb='T', out=P3_ain)
 
             if domain_comm.rank == 0:
@@ -251,14 +251,14 @@ class Davidson:
                 M0_nn.redist(M_nn)
             domain_comm.broadcast(M_nn.data, 0)
 
-            M_nn.multiply(psit2_nX, beta=1.0, out=residuals_nX)
+            M_nn.multiply(psit2_nX, beta=1.0, out=residual_nX)
             P2_ain.matrix.multiply(M_nn, opb='T', beta=1.0, out=P3_ain)
-            psit_nX.data[:] = residuals_nX.data
+            psit_nX.data[:] = residual_nX.data
             P_ain, P3_ain = P3_ain, P_ain
             wfs._P_ain = P_ain
 
             if i < self.niter - 1:
                 Ht(psit_nX)
-                calculate_residuals(residuals_nX, dH, dS, wfs, P2_ain, P3_ain)
+                calculate_residuals(residual_nX, dH, dS, wfs, P2_ain, P3_ain)
 
         return error

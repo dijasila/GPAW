@@ -84,8 +84,8 @@ class IBZWaveFunctions:
 
         occ_kn, fermi_levels, e_entropy = occ_calc.calculate(
             nelectrons=self.nelectrons / degeneracy,
-            eigenvalues=[wfs.eigs * Ha for wfs in self],
-            weights=[wfs.weight for wfs in self],
+            eigenvalues=[wfs.eig_n * Ha for wfs in self.mykpts],
+            weights=[wfs.weight for wfs in self.mykpts],
             fermi_levels_guess=(None
                                 if self.fermi_levels is None else
                                 self.fermi_levels * Ha))
@@ -98,7 +98,7 @@ class IBZWaveFunctions:
 
         e_entropy *= degeneracy / Ha
         e_band = 0.0
-        for wfs in self:
+        for wfs in self.mykpts:
             e_band += wfs.occ_n @ wfs.eig_n * wfs.weight * degeneracy
         e_band = self.kpt_comm.sum(e_band)
         self.energies = {
@@ -110,20 +110,20 @@ class IBZWaveFunctions:
         density = out
         density.nt_sR.data[:] = density.nct_R.data
         density.D_asii.data[:] = 0.0
-        for wfs in self:
+        for wfs in self.mykpts:
             wfs.add_to_density(density.nt_sR, density.D_asii)
         self.kpt_comm.sum(density.nt_sR.data)
         self.kpt_comm.sum(density.D_asii.data)
 
-    def get_eigs_and_occs(self, i):
-        assert self.ranks[i] == self.kpt_comm.rank
-        wfs = self.mykpts[self.ibz_index_to_local_index[i]]
-        return wfs.eigs, wfs.occs
+    def get_eigs_and_occs(self, k):
+        assert self.rank_k[k] == self.kpt_comm.rank
+        wfs = self.mykpts[self.q_k[k]]
+        return wfs.eig_n, wfs.occ_n
 
-    def forces(self, dv: AtomArrays):
-        F_av = np.zeros((dv.natoms, 3))
+    def forces(self, dH_asii: AtomArrays):
+        F_av = np.zeros((dH_asii.natoms, 3))
         for wfs in self.mykpts:
-            wfs.force_contribution(dv, F_av)
+            wfs.force_contribution(dH_asii, F_av)
         return F_av
 
     def write(self, writer, skip_wfs):
@@ -163,7 +163,7 @@ class WaveFunctions:
     def occ_n(self) -> Array1D:
         if self._occ_n is None:
             raise ValueError
-        return self._occs
+        return self._occ_n
 
     @property
     def myeig_n(self):
@@ -172,7 +172,7 @@ class WaveFunctions:
 
     @property
     def myocc_n(self):
-        assert self.wave_functions.comm.size == 1
+        assert self.psit_nX.comm.size == 1
         return self.occ_n
 
     @property
@@ -285,16 +285,16 @@ class WaveFunctions:
         P_ain.matrix.multiply(H, opb='T', out=P2_ain)
         P_ain.data[:] = P2_ain.data
 
-    def force_contribution(self, dv: AtomArrays, F_av: Array2D):
-        F_ainv = self.pt_acf.derivative(self.wave_functions)
-        myoccs = self.weight * self.spin_degeneracy * self.myoccs
+    def force_contribution(self, dH_asii: AtomArrays, F_av: Array2D):
+        F_ainv = self.pt_acf.derivative(self.psit_nX)
+        myocc_n = self.weight * self.spin_degeneracy * self.myocc_n
         for a, F_inv in F_ainv.items():
             F_inv = F_inv.conj()
-            F_inv *= myoccs[:, np.newaxis]
-            dH_ii = dv[a][:, :, self.spin]
+            F_inv *= myocc_n[:, np.newaxis]
+            dH_ii = dH_asii[a][self.spin]
             P_in = self.P_ain[a]
             F_vii = np.einsum('inv, jn, jk -> vik', F_inv, P_in, dH_ii)
-            F_inv *= self.myeigs[:, np.newaxis]
+            F_inv *= self.myeig_n[:, np.newaxis]
             dO_ii = self.setups[a].dO_ii
             F_vii -= np.einsum('inv, jn, jk -> vik', F_inv, P_in, dO_ii)
             F_av[a] += 2 * F_vii.real.trace(0, 1, 2)

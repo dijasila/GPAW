@@ -281,7 +281,7 @@ class UniformGridFunctions(DistributedArrays):
         arrays_xR = self._arrays()
         for a_R in arrays_xR:
             norm_x.append(np.vdot(a_R, a_R).real * self.desc.dv)
-        result = np.array(norm_x).reshape(self.myshape)
+        result = np.array(norm_x).reshape(self.mydims)
         self.desc.comm.sum(result)
         return result
 
