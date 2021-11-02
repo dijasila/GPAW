@@ -1,14 +1,14 @@
 from ase.build import molecule
+from ase.parallel import paropen
 from gpaw import GPAW
 from gpaw.lcaotddft import LCAOTDDFT
 from gpaw.lcaotddft.dipolemomentwriter import DipoleMomentWriter
 from gpaw.lcaotddft.qed import RRemission
-from gpaw.mpi import world
 
 from . import check_txt_data
 
 
-def test_lcaotddft_simple(in_tmp_dir):
+def test_rremission(in_tmp_dir):
     atoms = molecule('Na2')
     atoms.center(vacuum=4.0)
     calc = GPAW(mode='lcao', h=0.4, basis='dzp',
@@ -21,10 +21,9 @@ def test_lcaotddft_simple(in_tmp_dir):
     DipoleMomentWriter(td_calc, 'dm.dat')
     td_calc.absorption_kick([0.0, 0.0, 1e-5])
     td_calc.propagate(40, 20)
-    world.barrier()
 
-    with open('dm_ref.dat', 'w') as f:
-        f.write('''
+    with paropen('dm_ref.dat', 'w') as fd:
+        fd.write('''
 # DipoleMomentWriter[version=1](center=False, density='comp')
 #            time            norm                    dmx                    dmy                    dmz
 # Start; Time = 0.00000000
