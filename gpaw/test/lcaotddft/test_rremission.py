@@ -1,20 +1,11 @@
-import numpy as np
-
 from ase.build import molecule
 from gpaw import GPAW
 from gpaw.lcaotddft import LCAOTDDFT
 from gpaw.lcaotddft.dipolemomentwriter import DipoleMomentWriter
 from gpaw.lcaotddft.qed import RRemission
 from gpaw.mpi import world
-from .test_molecule import calculate_error
 
-
-def check_mm(ref_fpath, data_fpath, atol):
-    world.barrier()
-    ref = np.loadtxt(ref_fpath)
-    data = np.loadtxt(data_fpath)
-    err = calculate_error(data, ref)
-    assert err < atol
+from . import check_txt_data
 
 
 def test_lcaotddft_simple(in_tmp_dir):
@@ -62,4 +53,4 @@ def test_lcaotddft_simple(in_tmp_dir):
          33.07309868      -9.49335599e-16     7.218231457491e-15     4.908397391094e-15     5.926517291299e-05
 '''.strip())  # noqa: E501
 
-    check_mm('dm.dat', 'dm_ref.dat', atol=5e-14)
+    check_txt_data('dm.dat', 'dm_ref.dat', atol=5e-14)
