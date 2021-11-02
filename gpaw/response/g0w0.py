@@ -418,6 +418,7 @@ class G0W0(PairDensity):
                 for i, k in enumerate(self.kpts):
                     for s in range(self.nspins):
                         u = s * nibzk + k
+                        # u = s + k * self.nspins
                         kpt = self.calc.wfs.kpt_u[u]
                         self.eps_skn[s, i] = kpt.eps_n[b1:b2]
                         self.f_skn[s, i] = kpt.f_n[b1:b2] / kpt.weight
