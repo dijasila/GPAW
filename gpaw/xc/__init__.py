@@ -59,6 +59,9 @@ def XC(kernel, parameters=None, atoms=None, collinear=True):
         elif backend == 'pw' or name in ['HSE03', 'HSE06']:
             from gpaw.hybrids import HybridXC
             return HybridXC(name, **kwargs)
+        elif backend == 'aux-lcao':
+            from gpaw.auxlcao import LCAOHybrid
+            return LCAOHybrid(name, **kwargs)
         elif backend:
             raise ValueError(
                 'A special backend for the XC functional was given, '
