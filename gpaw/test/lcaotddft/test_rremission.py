@@ -52,4 +52,4 @@ def test_rremission(in_tmp_dir):
          33.07309868      -9.49335599e-16     7.218231457491e-15     4.908397391094e-15     5.926517291299e-05
 '''.strip())  # noqa: E501
 
-    check_txt_data('dm.dat', 'dm_ref.dat', atol=5e-14)
+    check_txt_data('dm.dat', 'dm_ref.dat', atol=1e-8)
