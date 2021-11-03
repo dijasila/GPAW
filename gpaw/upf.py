@@ -93,8 +93,12 @@ def parse_upf(fname):
         attr = element.attrib
         numbers = [float(n) for n in element.text.split()]
         if attr:
-            assert attr['type'] == 'real'
-            assert int(attr['size']) == len(numbers)
+            atype = attr.get('type')
+            if atype is not None:
+                assert attr['type'] == 'real'
+            size = attr.get('size')
+            if size is not None:
+                assert int(attr['size']) == len(numbers)
             icut = attr.get('cutoff_radius_index')
             # XXX There's also something called ultrasoft_cutoff_radius
             if icut is not None:
@@ -108,7 +112,8 @@ def parse_upf(fname):
         for key in ['is_paw', 'is_coulomb', 'has_so', 'has_wfc', 'has_gipaw',
                     'paw_as_gipaw', 'core_correction']:
             if key in header:
-                header[key] = {'F': False, 'T': True}[header[key]]
+                header[key] = {'F': False, 'false': False, 'T': True,
+                               'true': True}[header[key]]
         for key in ['z_valence', 'total_psenergy', 'wfc_cutoff', 'rho_cutoff']:
             if key not in header:
                 continue

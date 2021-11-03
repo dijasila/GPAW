@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.special import erf
+from scipy.interpolate import interp1d
 
 from gpaw.atom.atompaw import AtomPAW
 from gpaw.atom.radialgd import EquidistantRadialGridDescriptor
@@ -48,6 +49,17 @@ def get_radial_hartree_energy(r_g, rho_g):
     # At least in some cases the zeroth point is moved to 1e-8 or so to
     # prevent division by zero and the like, so:
     dr = r_g[2] - r_g[1]
+    # Test if the grid is equidistant. If not, interpolate to one.
+    if any(abs(r_g[2:] - r_g[1:-1] - dr) > 1e-10):
+        # Prepend to start the grid from zero
+        if r_g[0] == 0:
+            r_g = np.concatenate(([0], r_g))
+            rho_g = np.concatenate(([rho_g[0]], rho_g))
+        rho_g_in = interp1d(r_g, rho_g, kind='cubic')
+        r_g = np.linspace(0, max(r_g), 1001)
+        dr = r_g[1] - r_g[0]
+        rho_g = rho_g_in(r_g)
+
     rho_r_dr_g = dr * r_g * rho_g
     vh_r_g = np.zeros(len(r_g))  # "r * vhartree"
     hartree_solve(0, rho_r_dr_g, r_g, vh_r_g)
