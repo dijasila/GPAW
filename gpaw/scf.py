@@ -55,7 +55,7 @@ class SCFLoop:
         while self.niter <= self.maxiter:
             self.iterate_eigensolver(wfs, ham, dens)
 
-            self.converged = self.check_convergence(
+            self.check_convergence(
                 dens, ham, wfs, log, cheap, expensive, callback)
             yield
 
@@ -155,12 +155,10 @@ class SCFLoop:
             entries[name] = entry
 
         # Converged?
-        converged = all(converged_items.values())
+        self.converged = all(converged_items.values())
 
         callback(self.niter)
         self.log(log, converged_items, entries, context)
-
-        return converged
 
     def not_converged(self, dens, ham, wfs, log):
 
