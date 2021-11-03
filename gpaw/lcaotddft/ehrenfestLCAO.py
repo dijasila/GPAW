@@ -52,10 +52,14 @@ class EhrenfestVelocityVerletLCAO:
         
         """
         self.calc = calc
+        self.calc.wfs.ED_F = calc.ED_F
+        self.calc.td_hamiltonian.P_flag = calc.PP_flag
+        self.calc.wfs.calculatePD = self.calc.td_hamiltonian.PPP.calc_P
         self.setups = setups
         self.x = self.calc.atoms.positions.copy() / Bohr
         self.xn = self.x.copy()
         self.v = self.x.copy()
+        self.calc.wfs.v = self.v
         amu_to_aumass = _amu / _me
         if self.calc.atoms.get_velocities() is not None:
             self.v = self.calc.atoms.get_velocities() / (Bohr / AUT)
@@ -172,15 +176,16 @@ class EhrenfestVelocityVerletLCAO:
         self.calc.atoms.set_positions(self.x * Bohr)
         self.calc.atoms.set_velocities(self.v * Bohr / AUT)
 
-        # propagate LCAO C using overlap matrix
-        self.calc.propagate_using_S12(self.time, dt)
+        if self.calc.S_flag == True:
+            # propagate LCAO C using overlap matrix
+            self.calc.propagate_using_S12(self.time, dt)
 
         self.calc.set_positions(self.calc.atoms)
         self.calc.get_td_energy()
 
     def propagate_single(self, dt):
 
-        if self.setups == 'paw' and self.calc.name == 'tddft':
+        if self.setups == 'paw':
             self.calc.propagator.propagate(self.time, dt, self.vh)
         else:
             self.calc.propagator.propagate(self.time, dt)

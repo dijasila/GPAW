@@ -1,5 +1,5 @@
 import numpy as np
-from ase.units import Bohr
+from ase.units import Bohr, Hartree
 
 from gpaw.lfc import BasisFunctions
 from gpaw.utilities import unpack
@@ -12,7 +12,7 @@ from gpaw.wavefunctions.base import WaveFunctions
 from gpaw.lcao.atomic_correction import (DenseAtomicCorrection,
                                          SparseAtomicCorrection)
 from gpaw.wavefunctions.mode import Mode
-
+from numpy.linalg import inv
 
 class LCAO(Mode):
     name = 'lcao'
@@ -443,9 +443,14 @@ class LCAOWaveFunctions(WaveFunctions):
                                     self.P_aqMi, self.setups,
                                     self.manytci, hamiltonian,
                                     self.spos_ac, self.timer,
-                                    Fref_av)
+                                    Fref_av, self.ED_F)
 
         F_av[:, :] = self.forcecalc.get_forces_sum_GS()
+        # Calculate EH_D contribution eq. 4.81
+        if self.ED_F == True:
+            F_EH = self.forcecalc.get_EH_F(self)
+            F_av[:,:] += F_EH[:,:]
+        
         self.timer.stop('LCAO forces')
 
     def _get_wave_function_array(self, u, n, realspace=True, periodic=False):
@@ -518,9 +523,9 @@ class LCAOforces:
 
     def __init__(self, ksl, dtype, gd, bd, kd, kpt_u, nspins, bfs, newtci,
                  P_aqMi, setups, manytci, hamiltonian, spos_ac,
-                 timer, Fref_av):
+                 timer, Fref_av, ED_F):
         """ Object which calculates LCAO forces """
-
+        self.ED_F = ED_F
         self.ksl = ksl
         self.nao = ksl.nao
         self.mynao = ksl.mynao
@@ -560,6 +565,64 @@ class LCAOforces:
             self.timer.stop('TCI derivative')
             self.rhoT_uMM, self.ET_uMM = self.get_den_mat_and_E()
 
+    def get_EH_F(self,WF):
+
+        # Calculate Ehrenfest dyn contribution to Forces 4.83
+        #     F^{a}= { partial E_{el}} over {partial bold R_{a}} 
+        #     + sum from{n} f_{n} [ 2 Re ( c_n^{*} [B_{a}^{+} +
+        #     + C_{a}^{+}] S^{-1} (H+P)c_n ) +
+        #     + ic_n^{*}[G_a+G_a^{+} ] ] c_n
+        #######     
+        #          S^-1 * H * c = eps * c
+        #######
+        #     F^{a}= { partial E_{el}} over {partial bold R_{a}} 
+        #     + sum from{n} f_{n} [ 2 Re ( c_n^{*} [D_{a}{+}] eps c_n ) ]
+
+        if self.ED_F == True:
+            vel=WF.v
+            vel[:,:]=1.0
+            #calculate_P = get_P(WF, self.v)
+            #P_MM, D_sum_aqvMM = calculate_P.calc_P()
+            #P_MM, D_sum_aqvMM = WF.calculatePD(W.v)
+            P_MM, D_sum_aqvMM = WF.calculatePD(vel)
+
+            H_MM = WF.eigensolver.calculate_hamiltonian_matrix(self.hamiltonian, \
+            WF, self.kpt_u[0])
+
+            M=len(H_MM[:,0])
+            S_MM = WF.kpt_u[0].S_MM
+            '''
+            HP_MM=H_MM+P_MM
+            S_inv_MM=inv(S_MM)
+            F=np.zeros_like(vel)
+            S_invHP_MM= (S_inv_MM @ HP_MM) 
+            '''
+            S_invHP_MM = np.eye(M,M) 
+            S_inv_MM = np.eye(M,M) 
+            #print('kpt.f_n *',WF.kpt_u[0].f_n.shape,WF.kpt_u[0].f_n)
+            HP_MM = np.eye(M,M)
+            F=np.zeros_like(vel)
+            '''
+            for u, kpt in enumerate(WF.kpt_u):
+                for a, M1, M2 in my_slices(calc.wfs):
+            #        F[a, :] +=-2.0 * dThetadRE_vMM[:, M1:M2].sum(-1).sum(-1)
+                    F[a, :] +=-2.0 * D_sum_aqvMM[a,kpt.q,:, M1:M2].sum(-1).sum(-1)
+            #        print('kpt.q,a',kpt.q,a)
+            #        print('WF',D_sum_aqvMM[a,kpt.q,:,:,:].shape,A.shape)
+            #        F[a, :] +=-2.0 * A[:, M1:M2].sum(-1).sum(-1)
+            print('===F \n',F)
+            '''
+            for u, kpt in enumerate(WF.kpt_u):
+                for a, M1, M2 in self.my_slices():
+                    for v in range(3):
+                #        F[a, :] +=-2.0 * dThetadRE_vMM[:, M1:M2].sum(-1).sum(-1)
+                        aux1 = D_sum_aqvMM[a,kpt.q,v].conj().T @ S_inv_MM
+                        #print('aux1 \n',aux1)
+                        aux2 = kpt.C_nM.T.conj() @ aux1 @ kpt.C_nM
+                        F[a, v] +=-2.0 * (aux2[:,M1:M2].sum(-1).sum(-1)).real
+            #            F[a, v] +=-2.0 * D_sum_aqvMM[a,kpt.q,v,:,M1:M2].sum(-1).sum(-1)
+        return F
+            
     def get_forces_sum_GS(self):
         """ This function calculates ground state forces in LCAO mode """
         if not self.isblacs:

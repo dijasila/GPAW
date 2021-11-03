@@ -143,6 +143,7 @@ class TimeDependentHamiltonian(object):
         self.density = paw.density
         self.hamiltonian = paw.hamiltonian
         niter = paw.niter
+        self.PPP = get_P(self.wfs)
 
         # Reset the density mixer
         # XXX: density mixer is not written to the gpw file
@@ -159,8 +160,6 @@ class TimeDependentHamiltonian(object):
         # Initialize td_potential
         if self.td_potential is not None:
             self.td_potential.initialize(paw)
-
-        self.P = get_P(self.wfs)
 
         self.timer.stop('Initialize TDDFT Hamiltonian')
 
@@ -260,7 +259,7 @@ class TimeDependentHamiltonian(object):
 
 class get_P:
     def __init__(self, wfs):
-#        self.v = v
+#        self.v = wfs.v
         self.wfs = wfs
         self.dpt_aniv = wfs.basis_functions.dict(wfs.bd.mynbands,
                                                  derivative=True)
@@ -284,7 +283,7 @@ class get_P:
                                    len(self.wfs.kpt_u), 3,
                                    self.mynao, self.nao), self.dtype)
         for u, kpt in enumerate(self.wfs.kpt_u):
-            print ('k===\n',u,kpt)
+            #print ('k===\n',u,kpt)
             for a in self.my_atom_indices:
                 setup = self.wfs.setups[a]
                 dO_ii = np.asarray(setup.dO_ii, self.dtype)
@@ -328,7 +327,8 @@ class get_P:
         self.D2_1_qvMM, self.dTdR_qvMM = self._get_overlap_derivatives(self.wfs.ksl.using_blacs)
         return self.D2_1_qvMM, self.dTdR_qvMM
 
-    def calc_P(self):
+    def calc_P(self, v):
+        self.v=v
         # Calculate P1_MM = i sum ((V_a) . (D1_1 + D1_2))   eq. 4.66 p.49
         P_MM = np.zeros((self.mynao, self.nao), self.dtype)
         P1_MM = np.zeros((self.mynao, self.nao), self.dtype)
@@ -336,7 +336,7 @@ class get_P:
         self.D1_1()
         self.D1_2()
         self.D2_1()
-
+        D_sum_aqvMM= self.D1_2_aqvMM + self.D1_1_aqvMM + self.D2_1_qvMM
         for u, kpt in enumerate(self.wfs.kpt_u):
             for a in self.my_atom_indices:
                 for c in range(3):
@@ -353,7 +353,7 @@ class get_P:
 
         P_MM = (P1_MM - P2_MM)*complex(0, 1)
 
-        return P_MM
+        return P_MM, D_sum_aqvMM
 
     def _get_overlap_derivatives(self, ignore_upper=False):
         dThetadR_qvMM, dTdR_qvMM = self.wfs.manytci.O_qMM_T_qMM(

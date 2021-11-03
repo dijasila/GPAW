@@ -19,7 +19,7 @@ from scipy.linalg import schur, eigvals
 
 class LCAOTDDFT(GPAW):
     def __init__(self, filename=None, propagator=None, scale=None,calculate_energy=True,
-                 fxc=None, td_potential=None, **kwargs):
+                 PP_flag=False, ED_F=False, S_flag=False, fxc=None, td_potential=None, **kwargs):
         self.time = 0.0
         self.niter = 0
         # TODO: deprecate kick keywords (and store them as td_potential)
@@ -45,6 +45,9 @@ class LCAOTDDFT(GPAW):
 
         self.td_density = TimeDependentDensity(self)
         self.calculate_energy = calculate_energy
+        self.PP_flag = PP_flag
+        self.ED_F = ED_F
+        self.S_flag = S_flag
         # Save old overlap matrix S_MM_old which is necessary for propagating C_MM
         for kpt in self.wfs.kpt_u:
             self.S_MM_old=kpt.S_MM.copy()
@@ -203,7 +206,8 @@ class LCAOTDDFT(GPAW):
         # Calculate eigenvalue by rho_uMM * H_MM      
         dmat=DensityMatrix(self)
         
-        e_band_rhoH = 0.0
+        self.e_band_rhoH = 0.0
+        self.e_band = 0.0
         rho_uMM = dmat.get_density_matrix((self.niter, self.action))
         get_H_MM = self.td_hamiltonian.get_hamiltonian_matrix
         ksl = self.wfs.ksl
@@ -227,13 +231,13 @@ class LCAOTDDFT(GPAW):
                 e = ksl.block_comm.sum(e)
             else:
                 e = np.sum(rho_MM * H_MM).real
-            e_band_rhoH += e
+            self.e_band_rhoH += e
 
         H = self.td_hamiltonian.hamiltonian
 
         # PAW
-        e_band = self.wfs.calculate_band_energy()
-        self.Ekin = H.e_kinetic0 + e_band
+        self.e_band = self.wfs.calculate_band_energy()
+        self.Ekin = H.e_kinetic0 + self.e_band
         self.e_coulomb = H.e_coulomb
         self.Eext = H.e_external
         self.Ebar = H.e_zero
