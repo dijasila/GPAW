@@ -30,6 +30,9 @@ class LCAOHybrid:
         self.ecc = np.nan
         self.evc = np.nan
 
+        self.ldaxc = XC('LDA')
+        self.use_lda = True
+
     def set_grid_descriptor(self, gd):
         pass
 
@@ -37,9 +40,13 @@ class LCAOHybrid:
 
     """
     def calculate(self, gd, nt_sr, vt_sr):
+        if self.use_lda:
+            print('Using LDA')
+            return self.ldaxc.calculate(gd, nt_sr, vt_sr)
         self.ecc = 0.0
         self.evv = 0.0
         self.evc = 0.0
+        print('at calculate')
         energy = self.ecc + self.evv + self.evc
         energy += self.localxc.calculate(gd, nt_sr, vt_sr)
         return energy
@@ -63,5 +70,17 @@ class LCAOHybrid:
         return self.localxc.calculate_paw_correction(setup, D_sp, dH_sp, a=a)
 
     def summary(self, log):
-        log(self.get_description())
+        if self.use_lda:
+            raise ValueError('Error: Due to an internal error, LDA was used thorough the calculation')
+        log(self.get_description())        
+
+    def add_nlxc_matrix(self, H_MM, dH_asp, wfs, kpt):
+        self.evv = 0.0
+        self.evc = 0.0
+        self.ekin = 0.0
+        if self.use_lda:
+            self.use_lda = False
+            return
+        print('Not using LDA anymore in add_nlxc')
+
 

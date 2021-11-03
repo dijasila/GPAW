@@ -61,6 +61,9 @@ class DirectLCAO(object):
                 H_MM += np.exp(2j * np.pi * np.dot(sdisp_c, k_c)) * Vt_MM
             wfs.timer.stop('Sum over cells')
 
+        if hamiltonian.xc.type == 'auxhybrid':
+            hamiltonian.xc.add_nlxc_matrix(H_MM, dH_asp, wfs, kpt)
+
         # Add atomic contribution
         #
         #           --   a     a  a*
