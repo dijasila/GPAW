@@ -50,7 +50,7 @@ class SCFLoop:
         self.eigensolver_used = getattr(wfs.eigensolver, "name", None)
         self.check_eigensolver_state(wfs, ham, dens)
         self.niter = 1
-        cheap, expensive = self.prepear_convergence_criteria()
+        cheap, expensive = self.prepare_convergence_criteria()
 
         while self.niter <= self.maxiter:
             self.iterate_eigensolver(wfs, ham, dens)
@@ -124,7 +124,7 @@ class SCFLoop:
 
         log(line, flush=True)
 
-    def prepear_convergence_criteria(self):
+    def prepare_convergence_criteria(self):
         cheap = {k: c for k, c in self.criteria.items() if not c.calc_last}
         expensive = {k: c for k, c in self.criteria.items() if c.calc_last}
         return cheap, expensive
