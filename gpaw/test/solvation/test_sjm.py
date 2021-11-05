@@ -12,9 +12,6 @@ from gpaw.solvation import (
     SurfaceInteraction)
 
 
-# import pytest
-# @pytest.mark.skip(reason='TODO')
-
 def test_sjm():
     # Solvent parameters
     u0 = 0.180  # eV
