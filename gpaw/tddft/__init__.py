@@ -383,9 +383,11 @@ class TDDFT(GPAW):
 
             # Propagate the Kohn-Shame wavefunctions a single timestep
             try:
-                niterpropagator = self.propagator.propagate(self.time, time_step)
+                niterpropagator = self.propagator.propagate(self.time,
+                                                            time_step)
             except TypeError:
-                print("You are using propagator for Ehrenfest dynamics. Use another one")
+                print("You are using propagator for Ehrenfest dynamics.")
+                print("Use another one")
                 exit()
             self.time += time_step
             self.niter += 1
