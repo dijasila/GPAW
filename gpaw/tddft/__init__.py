@@ -382,7 +382,11 @@ class TDDFT(GPAW):
                     self.update_dipole_moment_file(norm, dm)
 
             # Propagate the Kohn-Shame wavefunctions a single timestep
-            niterpropagator = self.propagator.propagate(self.time, time_step)
+            try:
+                niterpropagator = self.propagator.propagate(self.time, time_step)
+            except TypeError:
+                print("You are using propagator for Ehrenfest dynamics. Use another one")
+                exit()
             self.time += time_step
             self.niter += 1
 
