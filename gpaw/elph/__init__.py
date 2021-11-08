@@ -60,6 +60,6 @@ DFT Hamiltonian.
 """
 from .displacements import DisplacementRunner
 from .supercell import Supercell
+from .gmatrix import ElectronPhononMatrix
 
-
-__all__ = ['DisplacementRunner', 'Supercell']
+__all__ = ['DisplacementRunner', 'Supercell', 'ElectronPhononMatrix']

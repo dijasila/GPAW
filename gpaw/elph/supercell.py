@@ -2,6 +2,7 @@
 
 from abc import ABC
 import numpy as np
+from typing import Tuple
 
 from ase import Atoms
 from ase.parallel import parprint
@@ -12,10 +13,12 @@ from gpaw import GPAW
 from gpaw.lcao.tightbinding import TightBinding
 from gpaw.utilities import unpack2
 from gpaw.utilities.tools import tri2full
+from gpaw.typing import ArrayND
 
 from .filter import fourier_filter
 
 sc_version = 1
+# v1: saves natom, supercell, g_sNNMM.shape and dtype
 
 
 class VersionError(Exception):
@@ -45,7 +48,8 @@ class Supercell(ABC):
         self.supercell_name = supercell_name
         self.supercell = supercell
 
-    def _calculate_supercell_entry(self, a, v, V1t_sG, dH1_asp, wfs):
+    def _calculate_supercell_entry(self, a, v, V1t_sG, dH1_asp,
+                                   wfs) -> ArrayND:
         kpt_u = wfs.kpt_u
         setups = wfs.setups
         nao = setups.nao
@@ -181,7 +185,7 @@ class Supercell(ABC):
                 x = 3 * i + v
 
                 # If exist already, don't recompute
-                with self.supercell_cache.lock(str(x)) as handle:
+                with supercell_cache.lock(str(x)) as handle:
                     if handle is None:
                         continue
 
@@ -212,7 +216,7 @@ class Supercell(ABC):
                     g_sNNMM = g_sNMNM.swapaxes(2, 3).copy()
                     handle.save(g_sNNMM)
                 if x == 0:
-                    with self.supercell_cache.lock('info') as handle:
+                    with supercell_cache.lock('info') as handle:
                         if handle is not None:
                             info = {'sc_version': sc_version,
                                     'natom': len(self.atoms),
@@ -245,7 +249,7 @@ class Supercell(ABC):
         return {'M_a': M_a, 'nao_a': nao_a}
 
     @classmethod
-    def calculate_gradient(self, fd_name: str):
+    def calculate_gradient(cls, fd_name: str) -> Tuple[ArrayND, list]:
         """Calculate gradient of effective potential and projector coefs.
 
         This function loads the generated json files and calculates
@@ -290,7 +294,8 @@ class Supercell(ABC):
         return np.array(V1t_xsG), dH1_xasp
 
     @classmethod
-    def load_supercell_matrix(self, name: str = 'supercell'):
+    def load_supercell_matrix(cls, name: str = 'supercell'
+                              ) -> Tuple[ArrayND, dict]:
         """Load supercell matrix from cache.
 
         Parameters
@@ -312,93 +317,3 @@ class Supercell(ABC):
             g_xsNNMM[x] = supercell_cache[str(x)]
         basis_info = supercell_cache['basis']
         return g_xsNNMM, basis_info
-
-    # def apply_cutoff(self, cutmax=None, cutmin=None):
-    #     """Zero matrix element inside/beyond the specified cutoffs.
-
-    #     This method is not tested.
-    #     This method does not respect minimum image convention.
-
-    #     Parameters
-    #     ----------
-    #     cutmax: float
-    #         Zero matrix elements for basis functions with a distance to the
-    #         atomic gradient that is larger than the cutoff.
-    #     cutmin: float
-    #         Zero matrix elements where both basis functions have distances to
-    #         the atomic gradient that is smaller than the cutoff.
-    #     """
-
-    #     if cutmax is not None:
-    #         cutmax = float(cutmax)
-    #     if cutmin is not None:
-    #         cutmin = float(cutmin)
-
-    #     # Reference to supercell matrix attribute
-    #     g_xsNNMM = self.g_xsNNMM
-
-    #     # Number of atoms and primitive cells
-    #     N_atoms = len(self.indices)
-    #     N = np.prod(self.supercell)
-    #     nao = g_xsNNMM.shape[-1]
-    #     nspins = g_xsNNMM.shape[1]
-
-    #     # Reshape array
-    #     g_avsNNMM = g_xsNNMM.reshape(N_atoms, 3, nspins, N, N, nao, nao)
-
-    #     # Make slices for orbitals on atoms
-    #     M_a = self.basis_info['M_a']
-    #     nao_a = self.basis_info['nao_a']
-    #     slice_a = []
-    #     for a in range(len(self.atoms)):
-    #         start = M_a[a]
-    #         stop = start + nao_a[a]
-    #         s = slice(start, stop)
-    #         slice_a.append(s)
-
-    #     # Lattice vectors
-    #     R_cN = self.compute_lattice_vectors()
-
-    #     # Unit cell vectors
-    #     cell_vc = self.atoms.cell.transpose()
-    #     # Atomic positions in reference cell
-    #     pos_av = self.atoms.get_positions()
-
-    #     # Create a mask array to zero the relevant matrix elements
-    #     if cutmin is not None:
-    #         mask_avsNNMM = np.zeros(g_avsNNMM.shape, dtype=bool)
-
-    #     # Zero elements where one of the basis orbitals has a distance to
-    #     # atoms
-    #     # (atomic gradients) in the reference cell larger than the cutoff
-    #     for n in range(N):
-    #         # Lattice vector to cell
-    #         R_v = np.dot(cell_vc, R_cN[:, n])
-    #         # Atomic positions in cell
-    #         posn_av = pos_av + R_v
-    #         for i, a in enumerate(self.indices):
-    #             # Atomic distances wrt to the position of the gradient
-    #             dist_a = np.sqrt(np.sum((pos_av[a] - posn_av)**2, axis=-1))
-
-    #             if cutmax is not None:
-    #                 # Atoms indices where the distance is larger than the max
-    #                 # cufoff
-    #                 j_a = np.where(dist_a > cutmax)[0]
-    #                 # Zero elements
-    #                 for j in j_a:
-    #                     g_avsNNMM[a, :, :, n, :, slice_a[j], :] = 0.0
-    #                     g_avsNNMM[a, :, :, :, n, :, slice_a[j]] = 0.0
-
-    #             if cutmin is not None:
-    #                 # Atoms indices where the distance is larger than the min
-    #                 # cufoff
-    #                 j_a = np.where(dist_a > cutmin)[0]
-    #                 # Update mask to keep elements where one LCAO is outside
-    #                 # the min cutoff
-    #                 for j in j_a:
-    #                     mask_avsNNMM[a, :, :, n, :, slice_a[j], :] = True
-    #                     mask_avsNNMM[a, :, :, :, n, :, slice_a[j]] = True
-
-    #     # Zero elements where both LCAOs are located within the min cutoff
-    #     if cutmin is not None:
-    #         g_avsNNMM[~mask_avsNNMM] = 0.0

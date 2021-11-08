@@ -47,6 +47,7 @@ from ase.phonons import Displacement
 from gpaw import GPAW
 
 dr_version = 1
+# v1: saves natom, supercell, delta
 
 
 class DisplacementRunner(Displacement):
