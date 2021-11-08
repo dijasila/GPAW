@@ -307,6 +307,11 @@ class TDDFT(GPAW):
         """
         self.tddft_init()
 
+        if self.propagator.todict()['name'] in ['EFSICN', 'EFSICN_HGH']:
+            msg = ("You are using propagator for Ehrenfest dynamics. "
+                   "Please use regular propagator.")
+            raise RuntimeError(msg)
+
         def warn_deprecated(parameter, observer):
             warnings.warn(
                 f"The {parameter} parameter is deprecated. "
@@ -382,13 +387,7 @@ class TDDFT(GPAW):
                     self.update_dipole_moment_file(norm, dm)
 
             # Propagate the Kohn-Shame wavefunctions a single timestep
-            try:
-                niterpropagator = self.propagator.propagate(self.time,
-                                                            time_step)
-            except TypeError:
-                print("You are using propagator for Ehrenfest dynamics.")
-                print("Use another one")
-                exit()
+            niterpropagator = self.propagator.propagate(self.time, time_step)
             self.time += time_step
             self.niter += 1
 
