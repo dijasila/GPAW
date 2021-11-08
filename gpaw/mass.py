@@ -1,4 +1,5 @@
 import pickle
+from collections import defaultdict
 from math import pi
 from pathlib import Path
 from typing import Generator, List, Tuple
@@ -10,119 +11,6 @@ from ase.units import Bohr, Ha
 from gpaw import GPAW
 from gpaw.spinorbit import soc_eigenstates
 from gpaw.typing import Array1D, Array2D, Array3D
-
-
-def extract_stuff_from_gpw_file(path: Path) -> Tuple[Array1D,
-                                                     float, float,
-                                                     Array2D,
-                                                     Array3D,
-                                                     Array3D]:
-    out = path.with_suffix('.pckl')
-    if out.is_file():
-        print(f'Reading from {out}')
-        return pickle.loads(out.read_bytes())
-
-    print(f'Extracting eigenvalues and wave function projections from {path}')
-    calc = GPAW(path)
-    assert (calc.atoms.pbc == [False, False, True]).all()
-    states = soc_eigenstates(calc)
-
-    kpoints = np.array([calc.wfs.kd.bzk_kc[wf.bz_index]
-                        for wf in states])
-    eigenvalues = np.array([wf.eig_m
-                            for wf in states])
-    fingerprints = np.array([wf.projections.matrix.array
-                             for wf in states])
-    spinprojections = states.spin_projections()
-
-    for direct in [False, True]:
-        bandgap(eigenvalues=eigenvalues,
-                efermi=states.fermi_level,
-                direct=direct, kpts=kpoints)
-        print()
-
-    results = (kpoints[:, 2],
-               calc.atoms.cell[2, 2],
-               states.fermi_level,
-               eigenvalues,
-               fingerprints,
-               spinprojections)
-
-    out.write_bytes(pickle.dumps(results))
-
-    return results
-
-
-def connect(eigenvalues: Array2D,
-            fingerprints: Array3D,
-            spinprojections: Array3D = None,
-            eps: float = 0.001) -> Array2D:
-    """
-    >>> eigs = np.array([[0, 1], [0, 1]])
-    >>> fps = np.array([[[0, 1], [1, 0]], [[1, 0], [0, 1]]])
-    >>> connect(eigs, fps)
-    array([[0, 1],
-           [1, 0]])
-    """
-    K, N = eigenvalues.shape
-
-    eigenvalues = eigenvalues.copy()
-    fingerprints = fingerprints.copy()
-
-    if spinprojections is not None:
-        spinprojections = spinprojections.copy()
-
-    for k in range(K - 1):
-        overlap = abs(fingerprints[k] @ fingerprints[k + 1].conj().T)
-        indices = (-overlap).argsort(axis=1)
-        bands = []
-        for ii in indices:
-            for n in ii:
-                if n not in bands:
-                    bands.append(n)
-                    break
-            else:  # no break
-                1 / 0
-        eigenvalues[k + 1] = eigenvalues[k + 1, bands]
-        fingerprints[k + 1] = fingerprints[k + 1, bands]
-        if spinprojections is not None:
-            spinprojections[k + 1] = spinprojections[k + 1, bands]
-
-    for k in range(1, K - 1):
-        eigs = eigenvalues[k]
-        for bands in clusters(eigs, eps):
-            overlap = abs(fingerprints[k - 1, bands] @
-                          fingerprints[k + 1, bands].conj().T)
-            indices = overlap.argmax(axis=1)
-            # print(k, bands, overlap, indices)
-            assert indices.sum() == len(bands) * (len(bands) - 1) // 2
-            bands2 = [bands[i] for i in indices]
-            eigenvalues[k + 1:, bands] = eigenvalues[k + 1:, bands2]
-            fingerprints[k + 1:, bands] = fingerprints[k + 1:, bands2]
-            if spinprojections is not None:
-                spinprojections[k + 1:, bands] = spinprojections[k + 1:,
-                                                                 bands2]
-
-    return eigenvalues, spinprojections
-
-
-def clusters(eigs: Array1D,
-             eps: float = 1e-4) -> Generator[List[int], None, None]:
-    """
-    >>> list(clusters(np.zeros(4)))
-    [[0, 1, 2, 3]]
-    >>> list(clusters(np.arange(4)))
-    []
-    >>> list(clusters(np.array([0, 0, 1, 1, 1, 2])))
-    [[0, 1], [2, 3, 4]]
-    """
-    degenerate = abs(eigs - eigs[:, np.newaxis]) < eps
-    taken = set()
-    for row in degenerate:
-        bands = [n for n, deg in enumerate(row) if deg and n not in taken]
-        if len(bands) > 1:
-            yield bands
-        taken.update(bands)
 
 
 def fit(kpoints: Array1D,
@@ -239,15 +127,152 @@ def a_test():
     plt.show()
 
 
-if __name__ == '__main__':
+def extract_stuff_from_gpw_file(path: Path) -> Tuple[Array2D,
+                                                     float, float,
+                                                     Array2D,
+                                                     Array3D]:
+    out = path.with_suffix('.pckl')
+    if out.is_file():
+        print(f'Reading from {out}')
+        return pickle.loads(out.read_bytes())
+
+    print(f'Extracting eigenvalues and wave function projections from {path}')
+    calc = GPAW(path)
+    states = soc_eigenstates(calc)
+
+    kpoints = np.array([calc.wfs.kd.bzk_kc[wf.bz_index]
+                        for wf in states])
+    eigenvalues = np.array([wf.eig_m
+                            for wf in states])
+    fingerprints = np.array([wf.projections.matrix.array
+                             for wf in states])
+    spinprojections = states.spin_projections()
+
+    print(spinprojections.shape)
+
+    for direct in [False, True]:
+        bandgap(eigenvalues=eigenvalues,
+                efermi=states.fermi_level,
+                direct=direct, kpts=kpoints)
+        print()
+
+    shape = tuple(calc.wfs.kd.N_c)
+    results = (kpoints.reshape(shape + (-1,)),
+               calc.atoms.cell,
+               states.fermi_level,
+               eigenvalues.reshape((shape + eigenvalues.shape[1:])),
+               fingerprints.reshape((shape + fingerprints.shape[1:])))
+
+    out.write_bytes(pickle.dumps(results))
+
+    return results
+
+
+def connect(fingerprint_ijknx, threshold=2.0):
+    K1, K2, K3, N = fingerprint_ijknx.shape[:-1]
+    band_ijkn = np.zeros((K1, K2, K3, N), int) - 1
+    bnew = 0
+    equal = []
+    for k1 in range(K1):
+        for k2 in range(K2):
+            bnew = con1d(fingerprint_ijknx[k1, k2], band_ijkn[k1, k2],
+                         bnew, equal)
+    for k1 in range(K1):
+        for k3 in range(K3):
+            bnew = con1d(fingerprint_ijknx[k1, :, k3], band_ijkn[k1, :, k3],
+                         bnew, equal)
+    for k2 in range(K2):
+        for k3 in range(K3):
+            bnew = con1d(fingerprint_ijknx[:, k2, k3], band_ijkn[:, k2, k3],
+                         bnew, equal)
+
+    mapping = {}
+    for i, j in equal:
+        i, j = sorted([i, j])
+        if i not in mapping:
+            mapping[j] = i
+        else:
+            mapping[j] = mapping[i]
+
+    band_ijkn = np.array([mapping.get(b, b)
+                          for b in band_ijkn.ravel()]).reshape(band_ijkn.shape)
+
+    count = defaultdict(int)
+    for b in band_ijkn.ravel():
+        count[b] += 1
+
+    mapping = dict(zip(sorted(count, key=lambda k: -count[k]),
+                       range(len(count))))
+
+    band_ijkn = np.array([mapping[b]
+                          for b in band_ijkn.ravel()]).reshape(band_ijkn.shape)
+
+    return band_ijkn
+
+
+def con1d(fp_knx,
+          b_kn,
+          bnew,
+          equal):
+    K, N = fp_knx.shape[:2]
+    for k in range(K - 1):
+        print(k, K, N, fp_knx.shape)
+        ovl_n1n2 = abs(fp_knx[k] @ fp_knx[k + 1].conj().T)
+        taken = set()
+        for n2 in range(N):
+            n1b, n1a = ovl_n1n2[:, n2].argsort()[-2:]
+            b2 = b_kn[k + 1, n2]
+            if ovl_n1n2[n1a, n2] > 2 * ovl_n1n2[n1b, n2] and n1a not in taken:
+                b1 = b_kn[k, n1a]
+                if b1 == -1:
+                    b1 = bnew
+                    bnew += 1
+                    b_kn[k, n1a] = b1
+                taken.add(n1a)
+                if b2 == -1:
+                    b_kn[k + 1, n2] = b1
+                else:
+                    if b1 != b2:
+                        equal.append((b1, b2))
+            else:
+                if b2 == -1:
+                    b_kn[k + 1, n2] = bnew
+                    bnew += 1
+    return bnew
+
+
+def main(kind='cbm', N=4):
     import sys
     path = Path(sys.argv[1])
-    (kpoints, length, fermi_level,
-     eigenvalues, fingerprints,
-     spinprojections) = extract_stuff_from_gpw_file(path)
-    extrema = fit(kpoints * 2 * pi / length,
-                  fermi_level,
-                  eigenvalues,
-                  fingerprints,
-                  spinprojections,
-                  kind=sys.argv[2])
+    (k_ijkc, cell_cv, fermi_level, eig_ijkn, fp_ijknx) = \
+        extract_stuff_from_gpw_file(path)
+
+    nocc = (eig_ijkn[0, 0] < fermi_level).sum()
+    print(nocc)
+
+    if kind == 'cbm':
+        bands = slice(nocc, nocc + N)
+        eig_ijkn = eig_ijkn[..., bands] - fermi_level
+    else:
+        bands = slice(nocc - 1, nocc - 1 - N, -1)
+        eig_ijkn = fermi_level - eig_ijkn[:, :, bands]
+
+    fp_ijknx = fp_ijknx[..., bands, :]
+
+    ijk = eig_ijkn[..., 0].ravel().argmin()
+    i, j, k = np.unravel_index(ijk, eig_ijkn.shape[:3])
+    print(i, j, k)
+    I = np.arange(i - 3, i + 4)
+    J = np.arange(j - 3, j + 4)
+    K = np.arange(k - 0, k + 1)
+    eig_ijkn = eig_ijkn[I][:, J][:, :, K]
+    b_ijkn = connect(fp_ijknx[I][:, J][:, :, K])
+    k_ijkc = k_ijkc[I][:, J][:, :, K]
+
+    for b in range(N):
+        print(eig_ijkn[b_ijkn == b].shape)
+        print(k_ijkc[(b_ijkn == b).any(axis=3)].shape)
+
+
+if __name__ == '__main__':
+    main()
