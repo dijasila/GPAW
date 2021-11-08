@@ -90,10 +90,11 @@ class DFTCalculation:
         assert not xc.no_forces
         assert not hasattr(xc.xc, 'setup_force_corrections')
 
-        pot_calc = self.cfg.potential_calculator
-
         # Force from projector functions (and basis set):
         F_av = self.ibzwfs.forces(self.potential.dH_asii)
+
+        pot_calc = self.cfg.potential_calculator
+        Fcc_aLv, Fnct_av, Fvbar_av = pot_calc.forces(self.density.nct_acf)
 
         # Force from compensation charges:
         ccc_aL = self.density.calculate_compensation_charge_coefficients()
@@ -102,12 +103,12 @@ class DFTCalculation:
             F_av[a] += ccc_aL[a] @ dF_Lv
 
         # Force from smooth core charge:
-        dF_av = self.density.nct_acf.derivative(pot_calc.vt_x)
+        dF_av = self.density.nct_acf.derivative(pot_calc.vt_X)
         for a, dF_v in dF_av.items():
             F_av[a] += dF_v[0]
 
         # Force from zero potential:
-        dF_av = pot_calc.vbar_acf.derivative(pot_calc.nt_X)
+        dF_av = pot_calc.vbar_ax.derivative(pot_calc.nt_x)
         for a, dF_v in dF_av.items():
             F_av[a] += dF_v[0]
 

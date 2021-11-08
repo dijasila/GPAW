@@ -25,14 +25,12 @@ class Density:
     def __init__(self,
                  nt_sR,
                  nct_R,
-                 nct_acf,
                  D_asii,
                  delta_aiiL,
                  delta0_a,
                  charge=0.0):
         self.nt_sR = nt_sR
         self.nct_R = nct_R
-        self.nct_acf = nct_acf
         self.D_asii = D_asii
         self.delta_aiiL = delta_aiiL
         self.delta0_a = delta0_a
@@ -80,15 +78,17 @@ class Density:
             out.data[I1:I2] = ds @ P_ain.data[I1:I2]
         return out
 
-    def move(self, fracpos):
-        self.nct_acf.move(fracpos)
-        nct_R = self.nct_acf.to_uniform_grid(1.0 / self.ndensities)
-        self.nt_sR.data[:self.ndensities] += nct_R.data - self.nct_R.data
-        self.nct_R = nct_R
+    def move(self, fracpos_ac):
+        self.nt_sR.data[:self.ndensities] -= self.nct_R.data
+        self.nct_acf.move(fracpos_ac)
+        self.nct_acf.to_uniform_grid(out=self.nct_R,
+                                     scale=1.0 / self.ndensities)
+        self.nt_sR.data[:self.ndensities] += self.nct_R.data
 
     @classmethod
     def from_superposition(cls,
-                           nct_acf,
+                           grid,
+                           nct_R,
                            setups,
                            basis_set,
                            magmoms=None,
@@ -97,7 +97,8 @@ class Density:
         # density and magnitization components:
         ndens, nmag = magmoms2dims(magmoms)
 
-        nct_R = nct_acf.to_uniform_grid(1.0 / ndens)
+        nct_R = grid.empty()
+        nct_acf.to_uniform_grid(out=nct_R, scale=1.0 / ndens)
 
         if magmoms is None:
             magmoms = [None] * len(setups)

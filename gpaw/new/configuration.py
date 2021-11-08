@@ -122,8 +122,10 @@ class DFTConfiguration:
     @cached_property
     def potential_calculator(self):
         return self.mode.create_potential_calculator(
+            self.grid,
+            self.fine_grid,
             self.density_grid,
-            self.wf_grid, self.fine_grid,
+            self.wf_grid,
             self.setups, self.fracpos_ac,
             self.xc,
             self.params.poissonsolver)
@@ -162,7 +164,10 @@ class DFTConfiguration:
     def density_from_superposition(self, basis_set):
         nct_acf = self.setups.create_pseudo_core_densities(self.density_grid,
                                                            self.fracpos_ac)
-        return Density.from_superposition(nct_acf,
+        nct_R = self.grid.empty()
+        self.nct_a
+        return Density.from_superposition(self.grid,
+                                          nct_acf,
                                           self.setups,
                                           basis_set,
                                           self.initial_magmoms,

@@ -68,9 +68,10 @@ class PlaneWaves(Domain):
         return PlaneWaveExpansions(self, shape, comm)
 
     def new(self,
+            ecut: float = None,
             comm: MPIComm | str = 'inherit') -> PlaneWaves:
         comm = self.comm if comm == 'inherit' else comm
-        return PlaneWaves(ecut=self.ecut,
+        return PlaneWaves(ecut=ecut or self.ecut,
                           cell=self.cell_cv,
                           kpt=self.kpt_c,
                           dtype=self.dtype,
@@ -87,6 +88,13 @@ class PlaneWaves(Domain):
     def paste(self, coefs_G, array_Q):
         Q_G = self.indices(array_Q.shape)
         _gpaw.pw_insert(coefs_G, Q_G, 1.0, array_Q)
+
+    def map_indices(self, other):
+        size_c = tuple(self.indices_cG.ptp(axis=1) + 1)
+        Q_G = self.indices(size_c)
+        i_Q = np.empty(np.prod(size_c), int)
+        i_Q[Q_G] = np.arange(len(Q_G))
+        return i_Q[other.indices(size_c)]
 
     def atom_centered_functions(self,
                                 functions,

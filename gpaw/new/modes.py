@@ -61,16 +61,19 @@ class PWMode(Mode):
         return ReciprocalSpacePoissonSolver(fine_grid_pw)
 
     def create_potential_calculator(self,
+                                    grid,
+                                    fine_grid,
                                     density_pw: PlaneWaves,
                                     wf_pw: PlaneWaves,
-                                    fine_grid, setups,
+                                    setups,
                                     fracpos,
                                     xc,
                                     poisson_solver_params):
-        fine_density_pw = PlaneWaves(ecut=8 * wf_pw.ecut, grid=fine_grid)
+        fine_density_pw = wf_pw.new(ecut=8 * wf_pw.ecut)
         poisson_solver = self.create_poisson_solver(fine_density_pw,
                                                     poisson_solver_params)
-        return PlaneWavePotentialCalculator(density_pw, fine_density_pw,
+        return PlaneWavePotentialCalculator(grid, fine_grid,
+                                            density_pw, fine_density_pw,
                                             setups, fracpos,
                                             xc, poisson_solver)
 
@@ -110,7 +113,9 @@ class FDMode(Mode):
         solver.set_grid_descriptor(grid._gd)
         return PoissonSolverWrapper(solver)
 
-    def create_potential_calculator(self, grid, wf_grid, fine_grid, setups,
+    def create_potential_calculator(self, grid, fine_grid,
+                                    density_grid, wf_grid,
+                                    setups,
                                     fracpos_ac, xc, poisson_solver_params):
         poisson_solver = self.create_poisson_solver(fine_grid,
                                                     poisson_solver_params)

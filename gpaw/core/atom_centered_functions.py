@@ -1,5 +1,5 @@
 from __future__ import annotations
-
+from typing import TYPE_CHECKING
 import numpy as np
 from gpaw.core.atom_arrays import (AtomArrays, AtomArraysLayout,
                                    AtomDistribution)
@@ -8,6 +8,8 @@ from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
 from gpaw.spline import Spline
 from gpaw.typing import ArrayLike2D
+if TYPE_CHECKING:
+    from gpaw.core.uniform_grid import UniformGridFunctions
 
 
 def to_spline(l, rcut, f):
@@ -55,35 +57,25 @@ class AtomCenteredFunctions:
             self._lfc.add(functions.data, coefs)
             return
 
-        if coefs.transposed:
-            c = {a: np.moveaxis(array, 0, -1)
-                 for a, array in coefs._arrays.items()}
-        else:
-            c = {a: array
-                 for a, array in coefs._arrays.items()}
-        self._lfc.add(functions.data, c, q=0)
+        self._lfc.add(functions.data, coefs._dict_view(), q=0)
 
     def integrate(self, functions, out=None):
         self._lacy_init()
         if out is None:
             out = self.layout.empty(functions.dims, functions.comm)
-        if out.transposed:
-            c = {a: np.moveaxis(array, 0, -1)
-                 for a, array in out._arrays.items()}
-        else:
-            c = {a: array
-                 for a, array in out._arrays.items()}
-        self._lfc.integrate(functions.data, c, q=0)
+        self._lfc.integrate(functions.data, out._dict_view(), q=0)
         return out
 
     def derivative(self, functions, out=None):
         self._lacy_init()
         if out is None:
-            out = self.layout.empty(functions.dims + (3,), functions.comm)
-        self._lfc.derivative(functions.data,
-                             {a: np.moveaxis(array, 0, -2)
-                              for a, array in out._arrays.items()},
-                             q=-1)
+            out = self.layout.empty(functions.dims + (3,), functions.comm,
+                                    transposed=True)
+        else:
+            assert out.transposed
+        coef_axiv = {a: np.moveaxis(array_ixv, 0, -2)
+                     for a, array_ixv in out._arrays.items()}
+        self._lfc.derivative(functions.data, coef_axiv, q=-1)
         return out
 
 
@@ -113,7 +105,9 @@ class UniformGridAtomCenteredFunctions(AtomCenteredFunctions):
                                         atomdist,
                                         self.grid.dtype)
 
-    def to_uniform_grid(self, coef: float = 1.0):
-        out = self.grid.zeros()
-        self.add_to(out, coef)
+    def to_uniform_grid(self,
+                        out: UniformGridFunctions,
+                        scale: float = 1.0) -> UniformGridFunctions:
+        out.data[:] = 0.0
+        self.add_to(out, scale)
         return out

@@ -34,33 +34,33 @@ class ReciprocalSpacePoissonSolver(PoissonSolver):
         self.pw = pw
         self.charge = charge
 
-        self.ekin = pw.ekin.copy()
-        if pw.grid.comm.rank == 0:
+        self.ekin_g = pw.ekin_G.copy()
+        if pw.comm.rank == 0:
             # Avoid division by zero:
-            self.ekin[0] = 1.0
+            self.ekin_g[0] = 1.0
 
         self.description = (
             f'Uniform background charge: {self.charge:.3f} electrons')
 
     def solve(self,
-              vHt,
-              rhot) -> float:
+              vHt_g,
+              rhot_g) -> float:
         """Solve Poisson equeation.
 
         Places result in vHt_q ndarray.
         """
-        epot = self._solve(vHt, rhot)
+        epot = self._solve(vHt_g, rhot_g)
         return epot
 
     def _solve(self,
-               vHt,
-               rhot) -> float:
-        vHt.data[:] = 2 * pi * rhot.data
+               vHt_g,
+               rhot_g) -> float:
+        vHt_g.data[:] = 2 * pi * rhot_g.data
         if self.pw.grid.comm.rank == 0:
             # Use uniform backgroud charge in case we have a charged system:
-            vHt.data[0] = 0.0
-        vHt.data /= self.ekin
-        epot = 0.5 * vHt.integrate(rhot)
+            vHt_g.data[0] = 0.0
+        vHt_g.data /= self.ekin_g
+        epot = 0.5 * vHt_g.integrate(rhot_g)
         return epot
 
 

@@ -104,3 +104,9 @@ class AtomArrays(DistributedArrays):
     def collect(self):
         assert self.layout.atomdist.comm.size == 1
         return self
+
+    def _dict_view(self):
+        if self.transposed:
+            return {a: np.moveaxis(array, 0, -1)
+                    for a, array in self._arrays.items()}
+        return self

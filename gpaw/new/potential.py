@@ -8,7 +8,6 @@ from gpaw.new.xc import XCFunctional
 from gpaw.core import UniformGrid, PlaneWaves
 from gpaw.core.arrays import DistributedArrays
 from gpaw.core.atom_arrays import AtomArrays
-from gpaw.core.plane_waves import PWMapping
 
 
 class Potential:
@@ -66,11 +65,12 @@ class UniformGridPotentialCalculator(PotentialCalculator):
         self.nt_x = fine_grid.empty()
         self.vt_X = wf_grid.empty()
 
-        self.vbar_acf = setups.create_local_potentials(fine_grid, fracpos_ac)
+        self.vbar_ax = setups.create_local_potentials(fine_grid, fracpos_ac)
         self.ghat_acf = setups.create_compensation_charges(fine_grid,
                                                            fracpos_ac)
 
-        self.vbar_x = self.vbar_acf.to_uniform_grid()
+        self.vbar_x = fine_grid.empty()
+        self.vbar_ax.to_uniform_grid(out=self.vbar_x)
 
         self.interpolate = wf_grid.transformer(fine_grid)
         self.restrict = fine_grid.transformer(wf_grid)
@@ -115,32 +115,39 @@ class UniformGridPotentialCalculator(PotentialCalculator):
                 'xc': e_xc,
                 'external': e_external}, vt_sR
 
+    def derivatives(self, nct_aG):
+        return (self.ghat_ar.derivative(self.vHt_r),
+                nct_aG.derivative(self.vt_R),
+                self.vbar_ag.derivative(self.nt_g))
+
 
 class PlaneWavePotentialCalculator(PotentialCalculator):
     def __init__(self,
+                 grid,
+                 fine_grid,
                  pw: PlaneWaves,
                  fine_pw: PlaneWaves,
                  setups,
-                 fracpos,
+                 fracpos_ac,
                  xc,
                  poisson_solver):
-        self.vHt = fine_pw.zeros()  # initial guess for Coulomb potential
-        self.nt = pw.empty()
-        self.vt = pw.empty()
+        self.vHt_x = fine_pw.zeros()  # initial guess for Coulomb potential
+        self.nt_x = pw.empty()
+        self.vt_x = pw.empty()
 
-        self.vbar_acf = setups.create_local_potentials(pw, fracpos)
-        self.ghat_acf = setups.create_compensation_charges(fine_pw, fracpos)
+        self.vbar_ax = setups.create_local_potentials(pw, fracpos_ac)
+        self.ghat_acf = setups.create_compensation_charges(fine_pw, fracpos_ac)
 
         PotentialCalculator.__init__(self, xc, poisson_solver, setups)
 
-        self.pwmap = PWMapping(pw, fine_pw)
-        self.fftplan, self.ifftplan = pw.grid.fft_plans()
-        self.fftplan2, self.ifftplan2 = fine_pw.grid.fft_plans()
+        self.G2_G1 = fine_pw.map_indices(pw)
+        self.fftplan, self.ifftplan = grid.fft_plans()
+        self.fftplan2, self.ifftplan2 = fine_grid.fft_plans()
 
-        self.fine_grid = fine_pw.grid
+        self.fine_grid = fine_grid
 
-        self.vbar = pw.zeros()
-        self.vbar_acf.add_to(self.vbar)
+        self.vbar_G = pw.zeros()
+        self.vbar_a.add_to(self.vbar)
 
     def _calculate(self, density):
         nt2_s = self.fine_grid.empty(density.nt_s.shape)
@@ -156,7 +163,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         charge = pw.zeros()
         coefs = density.calculate_compensation_charge_coefficients()
         self.ghat_acf.add_to(charge, coefs)
-        indices = self.pwmap.G2_G1
+        indices = self.G2_G1
         scale = charge.pw.grid.size.prod() / self.nt.pw.grid.size.prod()
         assert scale == 8
         charge.data[indices] += self.nt.data * scale
@@ -192,6 +199,11 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
                 'zero': e_zero,
                 'xc': e_xc,
                 'external': e_external}, vt_s
+
+    def derivatives(self, nct_ag):
+        return (self.ghat_ah.derivative(self.vHt_h),
+                nct_ag.derivative(self.vt_g),
+                self.vbar_ag.derivative(self.nt_g))
 
 
 def calculate_non_local_potential(setups,

@@ -8,6 +8,7 @@ from gpaw.lfc import BaseLFC
 from gpaw.pw.lfc import ft
 from gpaw.spherical_harmonics import Y, nablarlYL
 from gpaw.utilities.blas import mmm
+from gpaw.core.uniform_grid import UniformGridFunctions
 
 
 class PlaneWaveAtomCenteredFunctions(AtomCenteredFunctions):
@@ -29,10 +30,12 @@ class PlaneWaveAtomCenteredFunctions(AtomCenteredFunctions):
                                         atomdist,
                                         self.pw.dtype)
 
-    def to_uniform_grid(self, coef: float = 1.0):
-        out = self.pw.zeros()
-        self.add_to(out, coef)
-        return out.ifft()
+    def to_uniform_grid(self,
+                        out: UniformGridFunctions,
+                        scale: float = 1.0) -> UniformGridFunctions:
+        out_G = self.pw.zeros()
+        self.add_to(out_G, scale)
+        return out_G.ifft(out=out)
 
 
 class PWLFC(BaseLFC):

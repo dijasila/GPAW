@@ -47,6 +47,9 @@ class WannierOverlaps:
                 bz_index: int,
                 direction: Tuple[int, ...]) -> Array2D:
         dindex = self.directions.get(direction)
+        print(self.kpoints[bz_index], dindex)
+        print(np.unravel_index(bz_index, self.monkhorst_pack_size),
+              self.monkhorst_pack_size)
         if dindex is not None:
             return self._overlaps[bz_index, dindex]
 
@@ -54,8 +57,10 @@ class WannierOverlaps:
         i_c = np.unravel_index(bz_index, size)
         i2_c = np.array(i_c) + direction
         bz_index2 = np.ravel_multi_index(i2_c, size, 'wrap')  # type: ignore
+        print(i2_c, size, 'wrap')  # type: ignore
         direction2 = tuple([-d for d in direction])
         dindex2 = self.directions[direction2]
+        print(bz_index2, dindex2)
         return self._overlaps[bz_index2, dindex2].T.conj()
 
     def localize_er(self,
