@@ -1,6 +1,5 @@
 """Module for electron-phonon supercell properties."""
 
-from abc import ABC
 import numpy as np
 from typing import Tuple
 
@@ -26,7 +25,7 @@ class VersionError(Exception):
     pass
 
 
-class Supercell(ABC):
+class Supercell:
     """Class for supercell-related stuff."""
 
     def __init__(self, atoms: Atoms, supercell_name: str = 'supercell',
@@ -49,7 +48,7 @@ class Supercell(ABC):
         self.supercell = supercell
 
     def _calculate_supercell_entry(self, a, v, V1t_sG, dH1_asp,
-                                   wfs) -> ArrayND:
+                                   wfs, dH_asp) -> ArrayND:
         kpt_u = wfs.kpt_u
         setups = wfs.setups
         nao = setups.nao
@@ -57,9 +56,6 @@ class Supercell(ABC):
         dtype = wfs.dtype
         nspins = wfs.nspins
         indices = np.arange(len(self.atoms))
-
-        # Equilibrium atomic Hamiltonian matrix (projector coefficients)
-        dH_asp = self.cache['eq']['dH_all_asp']
 
         # For the contribution from the derivative of the projectors
         dP_aqvMi = wfs.manytci.P_aqMi(indices, derivative=True)
@@ -140,7 +136,6 @@ class Supercell(ABC):
             not hasattr(calc.wfs.basis_functions, 'M_a')):
             calc.initialize(atoms_N)
             calc.initialize_positions(atoms_N)
-        basis_info = self.set_basis_info()
 
         # Extract useful objects from the calculator
         wfs = calc.wfs
@@ -149,10 +144,13 @@ class Supercell(ABC):
         nao = wfs.setups.nao
         nspins = wfs.nspins
         # FIXME: Domain parallelisation broken
-        assert gd.comm.size == 1
+        # assert gd.comm.size == 1
 
         # Calculate finite-difference gradients (in Hartree / Bohr)
         V1t_xsG, dH1_xasp = self.calculate_gradient(fd_name)
+        # Equilibrium atomic Hamiltonian matrix (projector coefficients)
+        fd_cache = MultiFileJSONCache(fd_name)
+        dH_asp = fd_cache['eq']['dH_all_asp']
 
         # Check that the grid is the same as in the calculator
         assert np.all(V1t_xsG.shape[-3:] == (gd.N_c + gd.pbc_c - 1)), \
@@ -161,6 +159,7 @@ class Supercell(ABC):
         # Save basis information, after we checked the data is kosher
         with supercell_cache.lock('basis') as handle:
             if handle is not None:
+                basis_info = self.set_basis_info(calc)
                 handle.save(basis_info)
 
         # Fourier filter the atomic gradients of the effective potential
@@ -179,7 +178,7 @@ class Supercell(ABC):
         # Calculate < i k | grad H | j k >, i.e. matrix elements in LCAO basis
 
         # Do each cartesian component separately
-        for i, a in enumerate(np.arange(len(atoms_N))):
+        for i, a in enumerate(np.arange(len(self.atoms))):
             for v in range(3):
                 # Corresponding array index
                 x = 3 * i + v
@@ -193,7 +192,8 @@ class Supercell(ABC):
                              (['x', 'y', 'z'][v], a))
 
                     g_sqMM = self._calculate_supercell_entry(a, v, V1t_xsG[x],
-                                                             dH1_xasp[x], wfs)
+                                                             dH1_xasp[x], wfs,
+                                                             dH_asp)
 
                     # Extract R_c=(0, 0, 0) block by Fourier transforming
                     if kd.gamma or kd.N_c is None:
@@ -237,7 +237,7 @@ class Supercell(ABC):
 
         """
         assert len(args) in (1, 2)
-        if len(args) == 0:
+        if len(args) == 1:
             calc = args[0]
             setups = calc.wfs.setups
             bfs = calc.wfs.basis_functions
@@ -310,8 +310,7 @@ class Supercell(ABC):
         shape = supercell_cache['info']['gshape']
         dtype = supercell_cache['info']['gtype']
         natom = supercell_cache['info']['natom']
-        supercell = supercell_cache['info']['supercell']
-        nx = natom * np.product(supercell) * 3
+        nx = natom * 3
         g_xsNNMM = np.empty([nx, ] + list(shape), dtype=dtype)
         for x in range(nx):
             g_xsNNMM[x] = supercell_cache[str(x)]
