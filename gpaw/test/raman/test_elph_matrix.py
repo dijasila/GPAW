@@ -6,6 +6,8 @@ from ase.utils.filecache import MultiFileJSONCache
 from gpaw import GPAW
 from gpaw.raman.elph import EPC
 
+pytestmark = pytest.mark.usefixtures('module_tmp_path')
+
 
 class FakeEPC(EPC):
     """Fake ElectronPhononCoupling class to overwrite loading routine."""
