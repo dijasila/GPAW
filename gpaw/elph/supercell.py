@@ -14,6 +14,8 @@ from gpaw.utilities import unpack2
 from gpaw.utilities.tools import tri2full
 from gpaw.typing import ArrayND
 
+#from gpaw.mpi import world
+
 from .filter import fourier_filter
 
 sc_version = 1
@@ -67,10 +69,12 @@ class Supercell:
         # 1) Gradient of effective potential
         for kpt in kpt_u:
             # Matrix elements
+            # Note: somehow this part does not work with gd-parallelisation
             geff_MM = np.zeros((nao, nao), dtype)
             bfs.calculate_potential_matrix(V1t_sG[kpt.s], geff_MM, q=kpt.q)
+            wfs.gd.comm.sum(geff_MM)
             tri2full(geff_MM, 'L')
-            # Insert in array
+            # print(world.rank, a, v, kpt.k, geff_MM)
             g_sqMM[kpt.s, kpt.q] += geff_MM
 
         # 2) Gradient of non-local part (projectors)
@@ -80,19 +84,26 @@ class Supercell:
             # Matrix elements
             gp_MM = np.zeros((nao, nao), dtype)
             for a_, dH1_sp in dH1_asp.items():
+                if a_ not in bfs.my_atom_indices:
+                    continue
                 dH1_ii = unpack2(dH1_sp[kpt.s])
                 P_Mi = P_aqMi[a_][kpt.q]
                 gp_MM += np.dot(P_Mi, np.dot(dH1_ii, P_Mi.T.conjugate()))
+            wfs.gd.comm.sum(gp_MM)
             g_sqMM[kpt.s, kpt.q] += gp_MM
 
         # 2b) dP^a part has only contributions from the same atoms
         dH_ii = unpack2(dH_asp[a][kpt.s])
         for kpt in kpt_u:
-            # XXX Sort out the sign here; conclusion -> sign = +1 !
-            P1HP_MM = +1 * np.dot(dP_qvMi[kpt.q][v], np.dot(dH_ii,
-                                  P_aqMi[a][kpt.q].T.conjugate()))
-            # Matrix elements
-            gp_MM = P1HP_MM + P1HP_MM.T.conjugate()
+            gp_MM = np.zeros((nao, nao), dtype)
+            if a in bfs.my_atom_indices:
+                # XXX Sort out the sign here; conclusion -> sign = +1 !
+                P1HP_MM = +1 * np.dot(dP_qvMi[kpt.q][v], np.dot(dH_ii,
+                                      P_aqMi[a][kpt.q].T.conjugate()))
+                # Matrix elements
+                gp_MM = P1HP_MM + P1HP_MM.T.conjugate()
+            wfs.gd.comm.sum(gp_MM)
+            # print(world.rank, a,v, kpt.k, bfs.my_atom_indices, gp_MM)
             g_sqMM[kpt.s, kpt.q] += gp_MM
         return g_sqMM
 
@@ -144,7 +155,7 @@ class Supercell:
         nao = wfs.setups.nao
         nspins = wfs.nspins
         # FIXME: Domain parallelisation broken
-        # assert gd.comm.size == 1
+        assert gd.comm.size == 1
 
         # Calculate finite-difference gradients (in Hartree / Bohr)
         V1t_xsG, dH1_xasp = self.calculate_gradient(fd_name)

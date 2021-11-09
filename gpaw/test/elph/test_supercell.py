@@ -1,6 +1,7 @@
 """Basic test of elph/supercell/
 
 """
+import numpy as np
 import pytest
 
 from ase.build import bulk
@@ -11,6 +12,15 @@ from gpaw.elph import Supercell
 
 pytestmark = pytest.mark.usefixtures('module_tmp_path')
 SUPERCELL = (2, 1, 1)
+
+g00 = np.array([[[[-1.16418518e-06, 1.26395317e-02],
+                  [1.26395317e-02, 4.05925161e-02]],
+                 [[3.48680871e-02, 1.26402319e-02],
+                  [1.37904135e-02, 5.31904081e-07]]],
+                [[[3.48680871e-02, 1.37904135e-02],
+                  [1.26402319e-02, 5.31904081e-07]],
+                 [[3.59539410e-07, -1.37902297e-02],
+                  [-1.37902297e-02, -4.05933006e-02]]]])
 
 
 @pytest.fixture()
@@ -46,6 +56,7 @@ def test_supercell(in_tmp_dir, elph_cache):
                 kpts={'size': (1, 2, 2), 'gamma': False},
                 symmetry={'point_group': False},
                 convergence={'density': 1.5e-1, 'energy': 1},
+                parallel={'domain': 1},
                 txt='gs_li.txt')
     atoms_N.calc = calc
     atoms_N.get_potential_energy()
@@ -55,4 +66,7 @@ def test_supercell(in_tmp_dir, elph_cache):
     sc.calculate_supercell_matrix(calc)
     
     # read supercell matrix
-    Supercell.load_supercell_matrix()
+    g_xsNNMM, basis_info = Supercell.load_supercell_matrix()
+    assert g_xsNNMM.shape == (6, 1, 2, 2, 2, 2)
+    print(g_xsNNMM[0, 0])
+    assert g_xsNNMM[0, 0] == pytest.approx(g00, abs=1e-4)
