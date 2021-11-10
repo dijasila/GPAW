@@ -1,12 +1,26 @@
 import numpy as np
 
+from gpaw.auxlcao.procedures import calculate_W_LL
+
 class RIAlgorithm:
     def __init__(self, exx_fraction):
         self.exx_fraction = exx_fraction
 
-class RIVFullBasis(RIAlgorithm):
+class RIMPV(RIAlgorithm):
     def __init__(self, exx_fraction):
         RIAlgorithm.__init__(self, exx_fraction)
+
+    def initialize(self, density, hamiltonian, wfs):
+        self.hamiltonian = hamiltonian
+        self.wfs = wfs
+
+    def set_positions(self, spos_ac):
+        self.W_LL = calculate_W_LL(self.hamiltonian.gd.cell_cv, 
+                                   spos_ac,
+                                   self.hamiltonian.gd.pbc_c,
+                                   self.wfs.kd.ibzk_qc,
+                                   self.wfs.dtype)
+
 
     def nlxc(self, H_MM, dH_asp, wfs, kpt):
         rho_MM = wfs.ksl.calculate_density_matrix(kpt.f_n, kpt.C_nM)

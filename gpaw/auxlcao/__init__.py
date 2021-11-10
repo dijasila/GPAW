@@ -6,7 +6,7 @@ for hybrid functionals.
 
 from gpaw.xc import XC
 import numpy as np
-from gpaw.auxlcao.algorithm import RIVFullBasis
+from gpaw.auxlcao.algorithm import RIMPV
 from gpaw.auxlcao.reference_algorithm import RIVFullBasisDebug, RIVRestrictedBasisDebug
 
 class LCAOHybrid:
@@ -14,8 +14,7 @@ class LCAOHybrid:
     orbital_dependent_lcao = True
     type = 'auxhybrid'
 
-    def __init__(self, xcname:str, **args):
-        print(args)
+    def __init__(self, xcname:str, algorithm=None):
  
         if xcname == 'EXX':
             self.exx_fraction = 1.0
@@ -36,7 +35,19 @@ class LCAOHybrid:
         self.ldaxc = XC('LDA')
         self.use_lda = True
 
-        self.ri_algorithm = RIVRestrictedBasisDebug(self.exx_fraction)
+        if algorithm == 'RIVRestrictedDebug':
+            self.ri_algorithm = RIVRestrictedBasisDebug(self.exx_fraction)
+        elif algorithm == 'RI-MPV':
+            self.ri_algorithm = RIMPV(self.exx_fraction)
+        else:
+            if algorithm is None:
+                s = 'Please spesify the algorithm variable i.e. xc=''%s:backend=aux-lcao:algorithm=ALG''\n'
+            else:
+                s = 'Unknown algorithm.'
+            s += 'Available algorithms are:\n'
+            s += '    RIVRestrictedDebug\n'
+            s += '    RI-MPV\n'
+            raise ValueError(s)
 
     def set_grid_descriptor(self, gd):
         pass
