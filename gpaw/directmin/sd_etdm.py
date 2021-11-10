@@ -39,14 +39,13 @@ class ModeFollowingBase(object):
     """
     Base gradient partitioning implementation for minimum mode following
     """
-    def __init__(self, wfs, partial_diagonalizer):
+    def __init__(self, partial_diagonalizer):
         self.eigv = None
         self.eigvec = None
         self.eigvec_old = None
-        self.dtype = wfs.dtype
         self.partial_diagonalizer = partial_diagonalizer
+        self.dtype = self.partial_diagonalizer.dtype
         self.fixed_sp_order = None
-        super(ModeFollowingBase, self).__init__(wfs)
 
     def update_eigenpairs(self, g_k1, wfs, ham, dens, log):
         self.partial_diagonalizer.grad = g_k1
@@ -96,6 +95,19 @@ class ModeFollowingBase(object):
         else:
             grad_mod = -grad_par
         return array_to_dict(grad_mod, dim)
+
+
+class ModeFollowing(ModeFollowingBase):
+    def __init__(self, partial_diagonalizer, search_direction):
+        self.sd = search_direction
+        super(ModeFollowing, self).__init__(partial_diagonalizer)
+
+    def __str__(self):
+        return self.sd.__str__() + '_MF'
+
+    def update_data(self, wfs, x_k1, g_k1, precond=None):
+        g_k1 = self.negate_parallel_grad(g_k1)
+        return self.sd.update_data(wfs, x_k1, g_k1, precond=precond)
 
 
 class SteepestDescent(SearchDirectionBase):
@@ -582,19 +594,6 @@ class LSR1P(SearchDirectionBase):
             bv = calc_diff(bv, beta, const=-1.0)
 
         return bv
-
-
-class ModeFollowing(ModeFollowingBase):
-    def __init__(self, wfs, partial_diagonalizer, search_direction):
-        self.sd = search_direction
-        super(ModeFollowing, self).__init__(wfs, partial_diagonalizer)
-
-    def __str__(self):
-        return self.sd.__str__() + '_MF'
-
-    def update_data(self, wfs, x_k1, g_k1, precond=None):
-        g_k1 = self.negate_parallel_grad(g_k1)
-        return self.sd.update_data(wfs, x_k1, g_k1, precond=precond)
 
 
 def multiply(x, const=1.0):
