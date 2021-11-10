@@ -443,7 +443,7 @@ class LCAOWaveFunctions(WaveFunctions):
                                     self.P_aqMi, self.setups,
                                     self.manytci, hamiltonian,
                                     self.spos_ac, self.timer,
-                                    Fref_av, self.ED_F)
+                                    Fref_av, self, self.ED_F)
 
         F_av[:, :] = self.forcecalc.get_forces_sum_GS()
         # Calculate EH_D contribution eq. 4.81
@@ -523,8 +523,9 @@ class LCAOforces:
 
     def __init__(self, ksl, dtype, gd, bd, kd, kpt_u, nspins, bfs, newtci,
                  P_aqMi, setups, manytci, hamiltonian, spos_ac,
-                 timer, Fref_av, ED_F):
+                 timer, Fref_av, WF, ED_F):
         """ Object which calculates LCAO forces """
+        self.WF=WF
         self.ED_F = ED_F
         self.ksl = ksl
         self.nao = ksl.nao
@@ -563,7 +564,11 @@ class LCAOforces:
             self.gd.comm.sum(self.dThetadR_qvMM)
             self.gd.comm.sum(self.dTdR_qvMM)
             self.timer.stop('TCI derivative')
-            self.rhoT_uMM, self.ET_uMM = self.get_den_mat_and_E()
+            if self.ED_F == True:
+                self.rhoT_uMM, self.ET_uMM = self.get_den_mat_and_E_ED()
+                print("pocitam S inv H rho")
+            else:
+                self.rhoT_uMM, self.ET_uMM = self.get_den_mat_and_E()
 
     def get_EH_F(self,WF):
 
@@ -716,6 +721,26 @@ class LCAOforces:
                 rhoT_uMM.append(rhoT_MM)
                 ET_uMM.append(ET_MM)
         self.timer.stop('Initial')
+        return rhoT_uMM, ET_uMM
+
+    def get_den_mat_and_E_ED(self):
+
+        rhoT_uMM = []
+        ET_uMM = []
+        self.timer.start('Get E_uMM=S^(-1)*H*rho')
+        for kpt in self.kpt_u:
+            H_MM = self.WF.eigensolver.calculate_hamiltonian_matrix(self.hamiltonian, \
+                                                               self.WF, kpt)
+            rhoT_MM = self.ksl.get_transposed_density_matrix(kpt.f_n,
+                                                             kpt.C_nM)
+            rhoT_uMM.append(rhoT_MM)
+
+            S_MM = kpt.S_MM.copy()
+            S_inv_MM=inv(S_MM)
+            ET_MM= (S_inv_MM @ H_MM @ rhoT_MM)
+            ET_uMM.append(ET_MM)
+
+        self.timer.stop('Get E_uMM=S^(-1)*H*rho')
         return rhoT_uMM, ET_uMM
 
     def get_kinetic_term(self):
