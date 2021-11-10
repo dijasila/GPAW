@@ -1,5 +1,5 @@
 """
-Tools for direcmin
+Tools for directmin
 """
 
 import numpy as np
