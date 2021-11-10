@@ -586,16 +586,15 @@ class LSR1P(SearchDirectionBase):
 
 class ModeFollowing(ModeFollowingBase):
     def __init__(self, wfs, partial_diagonalizer, search_direction):
-        self.search_direction = search_direction
+        self.sd = search_direction
         super(ModeFollowing, self).__init__(wfs, partial_diagonalizer)
 
     def __str__(self):
-        return self.search_direction.__str__() + '_MF'
+        return self.sd.__str__() + '_MF'
 
     def update_data(self, wfs, x_k1, g_k1, precond=None):
         g_k1 = self.negate_parallel_grad(g_k1)
-        return self.search_direction.update_data(wfs, x_k1, g_k1,
-                                                 precond=precond)
+        return self.sd.update_data(wfs, x_k1, g_k1, precond=precond)
 
 
 def multiply(x, const=1.0):
