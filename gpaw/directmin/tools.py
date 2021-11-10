@@ -264,3 +264,23 @@ def excite(calc, i, a, spin=(0, 0)):
     f_sn[spin[1]][lumo + a] += 1
 
     return f_sn
+
+def dict_to_array(x):
+    y = []
+    dim = []
+    dimtot = 0
+    for k in x.keys():
+        y += list(x[k])
+        dim.append(len(x[k]))
+        dimtot += len(x[k])
+    return np.asarray(y), dim, dimtot
+
+def array_to_dict(x, dim):
+    y = {}
+    start = 0
+    stop = 0
+    for i in range(len(dim)):
+        stop += dim[i]
+        y[i] = x[start : stop]
+        start += dim[i]
+    return y
