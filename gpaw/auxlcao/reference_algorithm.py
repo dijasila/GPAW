@@ -1,7 +1,9 @@
 from gpaw.auxlcao.algorithm import RIAlgorithm
 
 """
-Implements reference implementation which evaluates all matrix elements inefficiently on the grid
+Implements reference implementation which evaluates all matrix elements inefficiently on the grid.
+
+RIVFullBasisDebug calculates all 2 and 3-center matrix elements.
 """
 
 from gpaw.lfc import LFC
@@ -134,6 +136,10 @@ class RIVFullBasisDebug(RIAlgorithm):
                             #print('Multipole before l=%d' % l, M)
                             f_g -= M*g_lg[l]
                             #print('Multipole after', rgd.integrate(f_g * rgd.r_g**l) / (4*np.pi))
+
+                            print('Not adding auxiliary basis functions')
+                            continue
+
                             auxt_j.append(rgd.spline(f_g, cutoff, l, 100))
                             wauxt_j.append(rgd.spline(H(rgd, f_g, l), cutoff, l, 100))
                
@@ -221,6 +227,10 @@ class RIVFullBasisDebug(RIAlgorithm):
                         M += 1
                         Aind += 1
             self.W_AA = (self.W_AA + self.W_AA.T)/2
+
+            with open('RIVFullBasisDebug-W_AA.npy', 'wb') as f:
+                np.save(f, self.W_AA)
+
 
             # I_AMM += \sum_L \sum_a \sum_ii Delta^a_Lii P_aMi P_aMi G_AaL
 
@@ -365,6 +375,17 @@ class RIVRestrictedBasisDebug(RIAlgorithm):
         self.timer = ham.timer
 
     def set_positions(self, spos_ac):
+       # TODO: Faster loop, do not loop non-overlapping atoms
+       def loop_pairs():
+           for a1, setup in enumerate(self.wfs.setups):
+               for a2, setup in enumerate(self.wfs.setups):
+                   yield a1,a2
+
+       self.loop_pairs = loop_pairs
+
+       # For each pair of sites, we need to create projection matrix
+       # P_AMM = Wloc_AA^(-1) I_AMM
+
        if 1:
             #np.set_printoptions(formatter={'float': lambda x: "{0:0.6f}".format(x)})
 
@@ -436,7 +457,7 @@ class RIVRestrictedBasisDebug(RIAlgorithm):
                         Aind += 1
 
             self.W_AA = (self.W_AA + self.W_AA.T)/2
-            self.iW_AA = np.linalg.pinv(self.W_AA, hermitian=True, tolerance=1e-6)
+            self.iW_AA = np.linalg.pinv(self.W_AA, hermitian=True, rcond=1e-14)
             self.iW_AA = (self.iW_AA + self.iW_AA.T)/2
 
             print(np.linalg.eig(self.W_AA),"eigs of W_AA")
@@ -462,29 +483,49 @@ class RIVRestrictedBasisDebug(RIAlgorithm):
         self.evv = 0.0
         self.ekin = 0.0
 
+        # XXX Remove this recalculation, problem is that density matrix is not really stored anywhere,
+        # it only exists in the create density loop
         rho_MM = wfs.ksl.calculate_density_matrix(kpt.f_n, kpt.C_nM)
-        print(rho_MM,"rho_MM")
-        print(rho_MM-rho_MM.T,'asym')
-        Mstart_a = self.Mstart_a
+
+        assert(np.linalg.norm(rho_MM-rho_MM.T)<1e-12)
+
+        M_a = self.Mstart_a
+        A_a = self.Astart_a
+
+        
+
 
         """             __     __
               a1 a2     \      \     a1 a3 a2 a4  a3 a4
              P       =  /_     /_   K            P
               i  j      a3,a4   kl   i  k  j  l   k  l
 
-                       __     __   a1 a3        a2 a4
-                     = \      \           -1           a3 a4
-                       /_     /_  I      W     I      P
-                       a3,a5  kl   Aik    AA'   A'jl   k  l
-        """
+                       __     __   a1 a3 (a1,a3)          (a2,a4)   a2 a4
+                     = \      \           -1             -1                 a3 a4
+                       /_     /_  I      W        W      W         I       P
+                       a3,a4  kl   Aik    AA       AA      AA       A'jl    k  l
 
+
+             I_AMM((a1,a3), a1,a3)  inv(W_AA((a1,a3),(a1,a3)) W_AA( (a1,a3),(a2,a4) ) inv(W_AA((a2,a4),(a2,a4)) I_AMM(a2,a4) P_MM(a3, a4)
+
+             1) Generate all overlapping atomic pairs, represent equal pairs as a single tuple
+              
+             2) For each pair, generate
+                I_AMM = I_AMM_p[pair], where
+
+        """       
+        
+        
+
+
+        """
         with MyTimer('Atomwise loop'):
             F_MM = np.zeros_like(rho_MM)
             for a3, setup in enumerate(self.wfs.setups):       # k
                 for a4, setup in enumerate(self.wfs.setups):   # l
-                    rho_a3a4_MM = rho_MM[Mstart_a[a3]:Mstart_a[a3+1],Mstart_a[a4]:Mstart_a[a4+1]]
+                    rho_a3a4_MM = rho_MM[M_a[a3]:M_a[a3+1],M_a[a4]:M_a[a4+1]]
                     for a1, setup in enumerate(self.wfs.setups):               # i
-                        I_a1a3_AMM = self.I_AMM[:, Mstart_a[a1]:Mstart_a[a1+1], Mstart_a[a3]:Mstart_a[a3+1]]
+                        I_a1a3_AMM = self.I_AMM[:, M_a[a1]:M_a[a1+1], M_a[a3]:M_a[a3+1]]
                         for a2, setup in enumerate(self.wfs.setups):           # j
                             I_a2a4_AMM = self.I_AMM[:, Mstart_a[a2]:Mstart_a[a2+1], Mstart_a[a4]:Mstart_a[a4+1]]
                             iW_AA = self.iW_AA
@@ -494,7 +535,89 @@ class RIVRestrictedBasisDebug(RIAlgorithm):
                                                   iW_AA,
                                                   I_a2a4_AMM,
                                                   rho_a3a4_MM, optimize=True)
+        """
 
+        def get_rho_MM(a,ap):
+            return rho_MM[M_a[a]:M_a[a+1],M_a[ap]:M_a[ap+1]]
+
+        def get_I_AMM(a,ap,app):
+            return self.I_AMM[A_a[a]:A_a[a+1],M_a[ap]:M_a[ap+1], M_a[app]:M_a[app+1]]
+
+        def get_W_AA(a,ap):
+            return self.W_AA[A_a[a]:A_a[a+1], A_a[ap]:A_a[ap+1]]
+
+        def safe_inv(W_AA):
+            print(np.linalg.eigvalsh(W_AA), 'Eigenvalues of W_AA before inverse')
+            #iW_AA = np.linalg.pinv(W_AA, hermitian=True, rcond=1e-6)
+            iW_AA = np.linalg.inv(W_AA)
+            print('Non hermitian part of inverse', iW_AA-iW_AA.T)
+            iW_AA = (iW_AA + iW_AA.T)/2
+            return iW_AA
+
+        F_MM = np.zeros_like(rho_MM)
+        # a1 = a2 = a3 = a4
+        with MyTimer('a1 = a2 = a3 = a4'):
+            for a, setup in enumerate(self.wfs.setups):                      # k
+                rho_aa_MM = get_rho_MM(a, a)
+                I_AMM = get_I_AMM(a,a,a)
+                iW_AA = safe_inv(get_W_AA(a,a))
+                F_MM[M_a[a]:M_a[a+1],M_a[a]:M_a[a+1]] = \
+                       -0.5 * np.einsum('Aij,AB,Bkl,jl',
+                                         I_AMM,
+                                         iW_AA,
+                                         I_AMM,
+                                         rho_aa_MM, optimize=True)
+
+       
+
+        # One P matrix for all overlapping pairs
+
+
+        P1_aMMM = {}
+        with MyTimer('Single center projection operators'):
+            # Calculate single center projection operators
+            for a, setup in enumerate(self.wfs.setups):
+                P1_aAMM[a] = np.einsum('AB,Bij', safe_inv(get_W_AA(a,a)), get_I_AMM(a,a,a))
+
+        with MyTimer('a2=a4 , a1=a3, a1 != a2'):
+            C_aMM = {}
+            for a1, setup in enumerate(self.wfs.setups):
+                a3 = a1
+                for a2, setup in enumerate(self.wfs.setups):
+                    a4 = a2
+                    rho_a3a4_MM = get_rho_MM(a3, a4) # a3 != a4
+                    W_AA = get_W_AA(a1,a2)
+                    F_MM[M_a[a1]:M_a[a1+1],M_a[a2]:M_a[a2+1]] = -0.5 * \
+                        np.einsum('Aij,AB,Bkl,jl', P1_aAMM[a1], W_AA, P1_aAMM[a4], rho_a3a4_MM, optimize=True)
+
+        """
+        with MyTimer('Atomwise loop'):
+            F_MM = np.zeros_like(rho_MM)
+            for a3, setup in enumerate(self.wfs.setups):                      # k
+                for a4, setup in enumerate(self.wfs.setups):                  # l
+                    rho_a3a4_MM = get_rho_MM(a3, a4)
+                    for a2, setup in enumerate(self.wfs.setups):              # j
+                        I_a2a2a4_AMM = get_I_AMM(a2, a2, a4)
+                        # 1st contraction: I_a2a4_AMM rho_a3a4_MM
+                        Irho_a2a2a3_AMM = np.einsum('Ajl,kl', I_a2a2a4_AMM, rho_a3a4_MM)
+
+                        if a2 == a4:
+                            iW_a2a2_AA = safe_inv(get_W_AA(a2,a2))
+                            #iWIrho_a2a2a3_AMM = np.dot(iW_a2a2_AA, Irho_a2a2a3_AMM)
+                            iWIrho_a2a2a3_AMM = np.einsum('AB,Bij',iW_a2a2_AA, Irho_a2a2a3_AMM)
+
+                            for a1, setup in enumerate(self.wfs.setups):               # i
+                                if a1 == a3:
+                                    W_a1a2_AA = get_W_AA(a1, a2)
+                                    iWW_a1a2_AA = np.dot(safe_inv(get_W_AA(a1,a1)), W_a1a2_AA)
+                                    #WiWIrho_a1a2a3_AMM = np.dot(iWW_a1a2_AA, iWIrho_a2a2a3_AMM)
+                                    WiWIrho_a1a2a3_AMM = np.einsum('AB,Bij', iWW_a1a2_AA, iWIrho_a2a2a3_AMM)
+                                    I_a1a1a3_AMM = get_I_AMM(a1, a1, a3)
+                                    F_MM[M_a[a1]:M_a[a1+1],M_a[a2]:M_a[a2+1]] += \
+                                       -0.5 * np.einsum('Aik,Ajk', I_a1a1a3_AMM, WiWIrho_a1a2a3_AMM)
+                        else:
+                            raise NotImplementedError
+        """
         with MyTimer('Full einsum loop'):
             F2_MM = np.zeros_like(rho_MM)
             F2_MM = -0.5 * np.einsum('Aij,AB,Bkl,jl',
@@ -509,6 +632,7 @@ class RIVRestrictedBasisDebug(RIAlgorithm):
          
         print('F2_MM',F2_MM)
         print('F_MM-F2',F_MM-F2_MM)
+        print('F_MM / F2',F_MM / F2_MM)
         print('F2_MM-F2_MM.T',F2_MM-F2_MM.T)
         print('F_MM-F_MM.T',F_MM-F_MM.T)
         H_MM += self.exx_fraction * F_MM

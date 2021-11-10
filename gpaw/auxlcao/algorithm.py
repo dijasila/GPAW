@@ -1,6 +1,7 @@
 import numpy as np
 
-from gpaw.auxlcao.procedures import calculate_W_LL
+from gpaw.auxlcao.procedures import calculate_W_LL_offdiagonals_multipole,\
+                                    get_W_LL_diagonals_from_setups
 
 class RIAlgorithm:
     def __init__(self, exx_fraction):
@@ -9,19 +10,25 @@ class RIAlgorithm:
 class RIMPV(RIAlgorithm):
     def __init__(self, exx_fraction):
         RIAlgorithm.__init__(self, exx_fraction)
+        self.lmax = 2
 
     def initialize(self, density, hamiltonian, wfs):
+        self.density = density
         self.hamiltonian = hamiltonian
         self.wfs = wfs
 
     def set_positions(self, spos_ac):
-        self.W_LL = calculate_W_LL(self.hamiltonian.gd.cell_cv, 
-                                   spos_ac,
-                                   self.hamiltonian.gd.pbc_c,
-                                   self.wfs.kd.ibzk_qc,
-                                   self.wfs.dtype)
-
-
+        self.W_LL = calculate_W_LL_offdiagonals_multipole(\
+                        self.hamiltonian.gd.cell_cv, 
+                        spos_ac,
+                        self.hamiltonian.gd.pbc_c,
+                        self.wfs.kd.ibzk_qc,
+                        self.wfs.dtype,
+                        self.lmax)
+        get_W_LL_diagonals_from_setups(self.W_LL, self.lmax, self.density.setups)
+        with open('RIMPV-W_LL.npy', 'wb') as f:
+            np.save(f, self.W_LL)
+        
     def nlxc(self, H_MM, dH_asp, wfs, kpt):
         rho_MM = wfs.ksl.calculate_density_matrix(kpt.f_n, kpt.C_nM)
         F_MM = -0.5 * np.einsum('Aij,AB,Bkl,jl',

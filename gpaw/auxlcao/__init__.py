@@ -37,6 +37,8 @@ class LCAOHybrid:
 
         if algorithm == 'RIVRestrictedDebug':
             self.ri_algorithm = RIVRestrictedBasisDebug(self.exx_fraction)
+        if algorithm == 'RIVFullBasisDebug':
+            self.ri_algorithm = RIVFullBasisDebug(self.exx_fraction)
         elif algorithm == 'RI-MPV':
             self.ri_algorithm = RIMPV(self.exx_fraction)
         else:
@@ -46,6 +48,7 @@ class LCAOHybrid:
                 s = 'Unknown algorithm.'
             s += 'Available algorithms are:\n'
             s += '    RIVRestrictedDebug\n'
+            s += '    RIVFullBasisDebug\n'
             s += '    RI-MPV\n'
             raise ValueError(s)
 
