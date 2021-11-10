@@ -23,7 +23,6 @@ def test_lrtddft_pes(in_tmp_dir):
                     cell=(a, a, c))
 
     xc = 'LDA'
-
     calc = GPAW(gpts=(12, 12, 12), xc=xc, nbands=1,
                 poissonsolver=FDPoissonSolver(),
                 parallel={'domain': mpi.world.size},
@@ -69,8 +68,9 @@ def test_lrtddft_pes(in_tmp_dir):
     # io
     out = 'lrpes.dat.gz'
     lr.write(out)
-    lr = LrTDDFT(out)
+    lr = LrTDDFT.read(out)
     lr.calculator = calc_plus
+
     pes = TDDFTPES(calc, lr)
     parprint('Linear response:')
     pes.save_folded_pes(filename=None, folding=None)

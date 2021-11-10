@@ -86,7 +86,12 @@ class Basis:
             filename = '%s.basis' % self.symbol
         else:
             filename = '%s.%s.basis' % (self.symbol, self.name)
-        write = open(filename, 'w').write
+
+        with open(filename, 'w') as fd:
+            self.write_to(fd)
+
+    def write_to(self, fd):
+        write = fd.write
         write('<paw_basis version="0.1">\n')
 
         generatorattrs = ' '.join(['%s="%s"' % (key, value)
@@ -209,7 +214,8 @@ class BasisSetXMLParser(xml.sax.handler.ContentHandler):
             basis.filename, source = search_for_file(fullname, world=world)
         else:
             basis.filename = filename
-            source = open(filename, 'rb').read()
+            with open(filename, 'rb') as fd:
+                source = fd.read()
 
         self.data = None
         xml.sax.parseString(source, self)
@@ -287,7 +293,7 @@ class BasisPlotter:
         for j, bf in enumerate(basis.bf_j):
             ng = len(bf.phit_g)
             rphit_g = r_g[:ng] * bf.phit_g
-            norm = (rphit_g**2 * basis.rgd.dr_g).sum()
+            norm = (rphit_g**2 * basis.rgd.dr_g[:ng]).sum()
             norm_j.append(norm)
             print(bf.type, '[norm=%0.4f]' % norm)
 

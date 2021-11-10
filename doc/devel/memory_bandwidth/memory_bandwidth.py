@@ -2,6 +2,8 @@
 # -*- coding: utf-8 -*-
 
 # Emacs: treat this as -*- python -*-
+import numpy as np
+import os
 from optparse import OptionParser
 
 parser = OptionParser(usage='%prog [options]', version='%prog 0.1')
@@ -17,9 +19,6 @@ parser.add_option("--startcores",
 
 opt, args = parser.parse_args()
 
-import os
-
-import numpy as np
 
 colors = [
     'black', 'brown', 'red', 'orange', 'yellow', 'green', 'blue', 'violet',
@@ -28,7 +27,7 @@ colors = [
 
 
 def plot(xdata, ydata, std, title, xlabel, ylabel, label, color, num=1):
-    #matplotlib.use('Agg')
+    # matplotlib.use('Agg')
     import pylab
 
     # all goes to figure num
@@ -39,14 +38,10 @@ def plot(xdata, ydata, std, title, xlabel, ylabel, label, color, num=1):
     maxy = max(ydata)
     ywindow = maxy - miny
     pylab.gca().set_ylim(miny - ywindow / 4.0, maxy + ywindow / 3.0)
-    #pylab.plot(xdata, ydata, 'b.', label=label, color=color)
-    #pylab.plot(xdata, ydata, 'b-', label='_nolegend_', color=color)
     pylab.bar(xdata, ydata, 0.3, yerr=std, label=label, color=color)
     pylab.title(title)
     pylab.xlabel(xlabel)
     pylab.ylabel(ylabel)
-    #pylab.legend(loc='upper right')
-    #pylab.savefig(directory_name + os.path.sep + out_prefix +'.png')
 
 
 def plot_save(directory_name, out_prefix):
@@ -58,11 +53,6 @@ def plot_save(directory_name, out_prefix):
 
 
 def analyse_benchmark(ncores=8, startcores=1, machine='TEST', runs=7):
-    #system = ['carbon_py']
-    #system = ['carbon']
-    #system = ['niflheim_py']
-    #system = ['niflheim']
-    #system = ['TEST_py']
     system = machine + '_py'
 
     systems_string = {
@@ -137,14 +127,11 @@ def analyse_benchmark(ncores=8, startcores=1, machine='TEST', runs=7):
         # extract results
         rundir = os.path.join(root_abspath, system + run)
         file = os.path.join(rundir, 'out.txt')
-        try:
-            f = open(file, 'r')
+        with open(file, 'r') as f:
             #
             print('Analysing ' + file, end=' ')
             #
             lines = f.readlines()
-        except:
-            pass
         # extract gpaw version
         for n, l in enumerate(lines):
             if l.startswith(' |__ |  _|___|_____|'):
@@ -178,7 +165,7 @@ def analyse_benchmark(ncores=8, startcores=1, machine='TEST', runs=7):
                 m = timer_entries_re[timer_entries_all[entry]].search(line)
                 if m is not None:
                     h.append(float(line.split(':')[-1]))
-                #break # stop after the first match
+                # break # stop after the first match
             for h_entry in h:
                 if float(h_entry) < 0.0:
                     h_failed = True
@@ -188,7 +175,7 @@ def analyse_benchmark(ncores=8, startcores=1, machine='TEST', runs=7):
                 m = re.compile('Zero').search(line)
                 if m is not None:
                     ref.append(float(line.split(':')[-1]))
-                #break # stop after the first match
+                # break # stop after the first match
             for ref_entry in ref:
                 if abs(float(ref_entry) - ref_value) > tolerance:
                     ref_failed = True
@@ -219,7 +206,7 @@ def analyse_benchmark(ncores=8, startcores=1, machine='TEST', runs=7):
         for q in range(p):
             temp_q = []
             for i in range(len(pre_results[p])):
-                #print pre_results[p][i][q]
+                # print pre_results[p][i][q]
                 temp_q.append(pre_results[p][i][q])
                 temp.append(pre_results[p][i][q])
             # averages for a given core q
@@ -227,7 +214,7 @@ def analyse_benchmark(ncores=8, startcores=1, machine='TEST', runs=7):
         # max, avrg, and std across all cores
         results[p].append(
             (np.average(temp), np.std(temp), min(temp), max(temp)))
-    #for p in processes:
+    # for p in processes:
     #    #N = len(pre_results[p])
     #    #avg = sum(pre_results[p])/N
     #    #q = sqrt(sum([(x-avg)**2/(N) for x in pre_results[p]]))
@@ -261,7 +248,7 @@ def analyse_benchmark(ncores=8, startcores=1, machine='TEST', runs=7):
             avg.append(results[p][i][0])
             std.append(results[p][i][1])
         # height
-        #print parameters, avg, std
+        # print parameters, avg, std
         print('No. of processes ' + str(int(parameters[0])) +
               ': time [sec]: avg ' + str(round(results[p][-1][0], 1)) +
               ', stddev ' + str(round(results[p][-1][1], 1)) + ', min ' +

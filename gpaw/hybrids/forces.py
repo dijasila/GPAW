@@ -4,7 +4,8 @@ import numpy as np
 
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.mpi import serial_comm, broadcast
-from gpaw.wavefunctions.pw import PWDescriptor, PWLFC
+from gpaw.pw.descriptor import PWDescriptor
+from gpaw.pw.lfc import PWLFC
 from .kpts import get_kpt
 
 
@@ -52,11 +53,10 @@ def forces(kpts, paw, wfs, sym, coulomb, F_av):
         ghat.set_positions(wfs.spos_ac)
 
         v_G = coulomb.get_potential(pd12)
-        calculate_exx_for_pair(k1, k2,
-                               ghat, v_G, comm,
-                               paw, count, F_av)
-
-    F_av *= 1 / wfs.kd.nbzkpts**2
+        f_av = calculate_exx_for_pair(k1, k2,
+                                      ghat, v_G, comm,
+                                      paw, count)
+        F_av += f_av * (1 / wfs.kd.nbzkpts**2)
 
     for a, v_ii in paw.VV_aii.items():
         vv_ii = 8 * v_ii + 4 * paw.VC_aii[a]
@@ -74,8 +74,7 @@ def calculate_exx_for_pair(k1,
                            v_G,
                            comm,
                            paw,
-                           count,
-                           F_av):
+                           count) -> np.ndarray:
 
     N1 = len(k1.u_nR)
     N2 = len(k2.u_nR)
@@ -94,6 +93,7 @@ def calculate_exx_for_pair(k1,
         n2max = N2
 
     rho_nG = ghat.pd.empty(n2max, k1.u_nR.dtype)
+    F_av = np.zeros((len(Q_annL), 3))
 
     for n1, u1_R in enumerate(k1.u_nR):
         if k1 is k2:
@@ -128,3 +128,5 @@ def calculate_exx_for_pair(k1,
                                  k1.dPdR_aniv[a][n1].conj(),
                                  k2.proj[a][n2a:n2b],
                                  ff_n).real * 2
+
+    return F_av

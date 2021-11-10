@@ -2,7 +2,8 @@ import numpy as np
 
 from gpaw.mpi import serial_comm
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.wavefunctions.pw import PWDescriptor, PWLFC
+from gpaw.pw.descriptor import PWDescriptor
+from gpaw.pw.lfc import PWLFC
 from .kpts import PWKPoint, RSKPoint, to_real_space
 
 
@@ -131,7 +132,8 @@ def calculate_exx_for_pair(k1,
     Q_annL = [np.einsum('mi, ijL, nj -> mnL',
                         k1.proj[a],
                         Delta_iiL,
-                        k2.proj[a].conj())
+                        k2.proj[a].conj(),
+                        optimize=True)
               for a, Delta_iiL in enumerate(paw.Delta_aiiL)]
 
     if v2_nG is not None:

@@ -46,7 +46,7 @@ The :class:`gpaw.GPAW` inherits from:
 
 * :class:`ase.calculators.calculator.Calculator`
 
-  This implements the ASE :ref:`ase:calculator interface`
+  This implements the ASE calculator interface.
 
 .. note::
 
@@ -205,7 +205,7 @@ using the :func:`gpaw.xc.XC` function:
 
 Example::
 
-    # the default implementation of PBE from LibXC:
+    # Implementation of PBE from LibXC:
     from gpaw.xc import XC
     xc = XC('PBE')
     # alternative call:

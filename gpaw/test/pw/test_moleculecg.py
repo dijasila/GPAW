@@ -4,11 +4,10 @@ import pytest
 from gpaw.mpi import world
 from ase.build import molecule
 from gpaw import GPAW
-from gpaw.wavefunctions.pw import PW
+from gpaw import PW
 
 pytestmark = pytest.mark.skipif(world.size > 1,
                                 reason='world.size > 1')
-
 
 
 def test_pw_moleculecg():

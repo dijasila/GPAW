@@ -4,6 +4,7 @@
 
 """Utility functions and classes."""
 
+import os
 import re
 import sys
 import time
@@ -12,7 +13,6 @@ from contextlib import contextmanager
 from typing import Union
 from pathlib import Path
 
-from ase.utils import devnull
 import numpy as np
 
 import _gpaw
@@ -173,6 +173,8 @@ def unpack(M):
 
 def unpack2(M):
     """Unpack 1D array to 2D, assuming a packing as in ``pack``."""
+    if M.ndim == 2:
+        return np.array([unpack2(m) for m in M])
     M2 = unpack(M)
     M2 *= 0.5  # divide all by 2
     M2.flat[0::len(M2) + 1] *= 2  # rescale diagonal to original size
@@ -201,7 +203,18 @@ def pack(A: np.ndarray) -> np.ndarray:
 
 
 def pack2(M2, tolerance=1e-10):
-    """Pack a 2D array to 1D, averaging offdiagonal terms."""
+    r"""Pack a 2D array to 1D, averaging offdiagonal terms.
+
+    The matrix::
+
+           / a00 a01 a02 \
+       A = | a10 a11 a12 |
+           \ a20 a21 a22 /
+
+    is transformed to the vector::
+
+      (a00, [a01 + a10]/2, [a02 + a20]/2, a11, [a12 + a21]/2, a22)
+    """
     if M2.ndim == 3:
         return np.array([pack2(m2) for m2 in M2])
     n = len(M2)
@@ -356,3 +369,23 @@ def file_barrier(path: Union[str, Path], world=None):
     while not path.is_file():
         time.sleep(1.0)
     world.barrier()
+
+
+devnull = open(os.devnull, 'w')
+
+
+def convert_string_to_fd(name, world=None):
+    """Create a file-descriptor for text output.
+
+    Will open a file for writing with given name.  Use None for no output and
+    '-' for sys.stdout.
+    """
+    if world is None:
+        from ase.parallel import world
+    if name is None or world.rank != 0:
+        return open(os.devnull, 'w')
+    if name == '-':
+        return sys.stdout
+    if isinstance(name, (str, Path)):
+        return open(name, 'w')
+    return name  # we assume name is already a file-descriptor

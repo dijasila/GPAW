@@ -12,7 +12,7 @@ Compare results to::
 import ase.db
 from ase import Atoms
 from ase.build import molecule
-from ase.data.g2_1_ref import diatomic, ex_atomization
+from gpaw.data.g2_1_ref import diatomic, ex_atomization
 
 from gpaw import GPAW, PW
 from gpaw.hybrids.energy import non_self_consistent_energy
@@ -74,7 +74,7 @@ for name in list(ex_atomization.keys()) + 'H Li Be B C N O F Cl P'.split():
     a.center()
 
     a.calc = GPAW(xc='PBE',
-                  mode=PW(500, force_complex_dtype=True),
+                  mode=PW(500),
                   txt=name + '.txt')
     a.get_potential_energy()
 

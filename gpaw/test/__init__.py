@@ -1,13 +1,17 @@
-import numpy as np
-import pytest
+from functools import wraps
+from typing import Tuple
 
-from gpaw.atom.generator import Generator
-from gpaw.atom.configurations import parameters, tf_parameters
+import numpy as np
+
+import gpaw.mpi as mpi
 from gpaw import setup_paths
-from gpaw import mpi
+from gpaw.atom.configurations import parameters, tf_parameters
+from gpaw.atom.generator import Generator
+from gpaw.typing import Array1D
 
 
 def equal(x, y, tolerance=0):
+    import pytest
     assert x == pytest.approx(y, abs=tolerance)
 
 
@@ -23,13 +27,21 @@ def print_reference(data_i, name='ref_i', fmt='%.12le'):
         print('\b]')
 
 
-def findpeak(x, y):
-    dx = x[1] - x[0]
+def findpeak(x: Array1D, y: Array1D) -> Tuple[float, float]:
+    """Find peak.
+
+    >>> x = np.linspace(1, 5, 10)
+    >>> y = 1 - (x - np.pi)**2
+    >>> x0, y0 = findpeak(x, y)
+    >>> f'x0={x0:.6f}, y0={y0:.6f}'
+    'x0=3.141593, y0=1.000000'
+    """
     i = y.argmax()
-    a, b, c = np.polyfit([-1, 0, 1], y[i - 1:i + 2], 2)
+    a, b, c = np.polyfit(x[i - 1:i + 2] - x[i], y[i - 1:i + 2], 2)
     assert a < 0
-    x = -0.5 * b / a
-    return dx * (i + x), a * x**2 + b * x + c
+    dx = -0.5 * b / a
+    x0 = x[i] + dx
+    return x0, a * dx**2 + b * dx + c
 
 
 def gen(symbol, exx=False, name=None, yukawa_gamma=None,
@@ -41,15 +53,39 @@ def gen(symbol, exx=False, name=None, yukawa_gamma=None,
         g = Generator(symbol, **kwargs)
         if 'orbital_free' in kwargs:
             setup = g.run(exx=exx, name=name, yukawa_gamma=yukawa_gamma,
-                          use_restart_file=False,
                           write_xml=write_xml,
                           **tf_parameters.get(symbol, {'rcut': 0.9}))
         else:
             setup = g.run(exx=exx, name=name, yukawa_gamma=yukawa_gamma,
-                          use_restart_file=False,
                           write_xml=write_xml,
                           **parameters[symbol])
     setup = mpi.broadcast(setup, 0)
     if setup_paths[0] != '.':
         setup_paths.insert(0, '.')
     return setup
+
+
+def only_on_master(comm, broadcast=None):
+    """Decorator for executing the function only on the rank 0.
+
+    Parameters
+    ----------
+    comm
+        communicator
+    broadcast
+        function for broadcasting the return value or
+        `None` for no broadcasting
+    """
+    def wrap(func):
+        @wraps(func)
+        def wrapped_func(*args, **kwargs):
+            if comm.rank == 0:
+                ret = func(*args, **kwargs)
+            else:
+                ret = None
+            comm.barrier()
+            if broadcast is not None:
+                ret = broadcast(ret, comm=comm)
+            return ret
+        return wrapped_func
+    return wrap

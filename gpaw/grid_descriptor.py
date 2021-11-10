@@ -10,6 +10,7 @@ For radial grid descriptors, look atom/radialgd.py.
 
 import numbers
 from math import pi
+from typing import Iterable, Sequence
 
 import numpy as np
 from scipy.ndimage import map_coordinates
@@ -17,12 +18,8 @@ from scipy.ndimage import map_coordinates
 import _gpaw
 import gpaw.mpi as mpi
 from gpaw.domain import Domain
-from gpaw.utilities.blas import rk, r2k, gemm
-
-
-# Remove this:  XXX
-assert (-1) % 3 == 2
-assert (np.array([-1]) % 3)[0] == 2
+from gpaw.typing import Array1D, Array3D
+from gpaw.utilities.blas import gemm, r2k, rk
 
 NONBLOCKING = False
 
@@ -590,6 +587,35 @@ class GridDescriptor(Domain):
         b_xg[..., npbx:, npby:, npbz:] = a_xg
         return b_xg
 
+    def dipole_moment(self,
+                      rho_R: Array3D,
+                      center_v: Iterable[float] = None) -> Array1D:
+        """Calculate dipole moment of density.
+
+        Integration region will be centered on center_v.  Default center
+        is center of unit cell.
+        """
+        index_cr = [np.arange(self.beg_c[c], self.end_c[c], dtype=float)
+                    for c in range(3)]
+
+        if center_v is not None:
+            corner_c = (np.linalg.solve(self.h_cv.T,
+                                        center_v) % self.N_c) - self.N_c / 2
+            for corner, index_r, N in zip(corner_c, index_cr, self.N_c):
+                index_r -= corner
+                index_r %= N
+                index_r += corner
+
+        rho_ijk = rho_R
+        rho_ij = rho_ijk.sum(axis=2)
+        rho_ik = rho_ijk.sum(axis=1)
+        rho_cr = [rho_ij.sum(axis=1), rho_ij.sum(axis=0), rho_ik.sum(axis=0)]
+
+        d_c = [np.dot(index_cr[c], rho_cr[c]) for c in range(3)]
+        d_v = -np.dot(d_c, self.h_cv) * self.dv
+        self.comm.sum(d_v)
+        return d_v
+
     def calculate_dipole_moment(self, rho_g, center=False, origin_c=None):
         """Calculate dipole moment of density."""
         r_cz = [np.arange(self.beg_c[c], self.end_c[c]) for c in range(3)]
@@ -699,13 +725,6 @@ class GridDescriptor(Domain):
                                order=3,
                                mode='wrap')
 
-    def __eq__(self, other):
-        # XXX Wait, should this not check the global distribution?  This
-        # could return True on some nodes and False on others because the
-        # check does not verify self.n_cp.
-        return (self.dv == other.dv and
-                (self.h_cv == other.h_cv).all() and
-                (self.N_c == other.N_c).all() and
-                (self.n_c == other.n_c).all() and
-                (self.beg_c == other.beg_c).all() and
-                (self.end_c == other.end_c).all())
+    def is_my_grid_point(self, R_c: Sequence[int]) -> bool:
+        """Check if grid point belongs to this domain."""
+        return ((self.beg_c <= R_c) & (R_c < self.end_c)).all()

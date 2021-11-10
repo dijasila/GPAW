@@ -1,14 +1,19 @@
+from typing import Tuple
+
 import numpy as np
 
+from gpaw.typing import Array2D, ArrayLike2D
 from gpaw.utilities import pack2, unpack2
 
 
-def hubbard(setup, D_sp):
+def hubbard(setup,
+            D_sp,
+            l: int,
+            U: float,
+            scale: bool) -> Tuple[float, ArrayLike2D]:
     nspins = len(D_sp)
 
     l_j = setup.l_j
-    l = setup.Hubl
-    scale = setup.Hubs
     nl = np.where(np.equal(l_j, l))[0]
     nn = (2 * np.array(l_j) + 1)[0:nl[0]].sum()
 
@@ -23,20 +28,20 @@ def hubbard(setup, D_sp):
         if nspins == 4:
             N_mm = N_mm / 2.0
             if s == 0:
-                Eorb = setup.HubU / 2. * (N_mm - 
-                                    0.5 * np.dot(N_mm, N_mm)).trace()
+                Eorb = U / 2. * (N_mm -
+                                 0.5 * np.dot(N_mm, N_mm)).trace()
 
-                Vorb = setup.HubU / 2. * (np.eye(2 * l +1) -N_mm)
+                Vorb = U / 2. * (np.eye(2 * l + 1) - N_mm)
 
             else:
-                Eorb = setup.HubU / 2. * (-0.5*np.dot(N_mm , N_mm)).trace()
+                Eorb = U / 2. * (-0.5 * np.dot(N_mm, N_mm)).trace()
 
-                Vorb = -setup.HubU / 2. * N_mm
-        else:        
-            Eorb = setup.HubU / 2. * (N_mm -
-                                np.dot(N_mm, N_mm)).trace()
+                Vorb = -U / 2. * N_mm
+        else:
+            Eorb = U / 2. * (N_mm -
+                             np.dot(N_mm, N_mm)).trace()
 
-            Vorb = setup.HubU * (0.5 * np.eye(2 * l + 1) - N_mm)
+            Vorb = U * (0.5 * np.eye(2 * l + 1) - N_mm)
 
         e_xc += Eorb
         if nspins == 1:
@@ -55,11 +60,14 @@ def hubbard(setup, D_sp):
 
         dH_sp.append(pack2(V))
         s += 1
-        
+
     return e_xc, dH_sp
 
 
-def aoom(setup, DM, l, scale=1):
+def aoom(setup,
+         DM: Array2D,
+         l: int,
+         scale: bool = True) -> Tuple[Array2D, Array2D]:
     """Atomic Orbital Occupation Matrix.
 
     Determine the Atomic Orbital Occupation Matrix (aoom) for a

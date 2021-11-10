@@ -8,7 +8,8 @@ from gpaw.grid_descriptor import GridDescriptor
 from gpaw.kpoint import KPoint
 from gpaw.symmetry import Symmetry
 from gpaw.wavefunctions.arrays import PlaneWaveExpansionWaveFunctions
-from gpaw.wavefunctions.pw import PWDescriptor, PWLFC
+from gpaw.pw.descriptor import PWDescriptor
+from gpaw.pw.lfc import PWLFC
 from gpaw.projections import Projections
 from gpaw.mpi import world
 from gpaw.spline import Spline
@@ -50,7 +51,7 @@ def test_force():
     ep = energy(calc, sym, coulomb)
     error = (em - ep) / (dx * L * Bohr) - F_v[1]
     print(error)
-    assert abs(error) < 2.4e-10
+    assert abs(error) < 6e-10
 
 
 class Calc:

@@ -2,7 +2,7 @@ import numpy as np
 from ase.build import fcc111
 
 from gpaw.mpi import world
-from gpaw import GPAW, PoissonSolver
+from gpaw import GPAW
 from gpaw.utilities import compiled_with_sl
 from gpaw import FermiDirac, LCAO
 
@@ -45,7 +45,6 @@ def test_lcao_complicated():
                     kpts=(4, 1, 1),
                     # txt=None,
                     communicator=comm,
-                    poissonsolver=PoissonSolver(eps=1e-8),
                     nbands=16,
                     parallel=parallel,
                     h=0.35)
@@ -92,7 +91,6 @@ def test_lcao_complicated():
                                         % world.size)
 
     parallel = dict(domain=1, band=1)
-    sl_cpus = world.size
     if world.size % 2 == 0:
         parallel['band'] = 2
     if world.size % 4 == 0:
@@ -101,7 +99,7 @@ def test_lcao_complicated():
     # If size is 8, this will also use kpt parallelization.  This test should
     # run with 8 CPUs for best coverage of parallelizations
     if world.size == 8:
-        sl_cpus = 4
+        pass  # sl_cpus = 4 ???
 
     if world.size > 1:
         check(parallel)

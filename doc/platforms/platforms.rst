@@ -14,6 +14,7 @@ Linux:
    Linux/Fedora
    Linux/openSUSE
    Linux/ubuntu
+   Linux/sophia
    Linux/Niflheim/Niflheim
    Linux/Niflheim/load
    Linux/Niflheim/build
@@ -21,6 +22,7 @@ Linux:
    Linux/akka
    Linux/armageddon
    Linux/batman
+   Linux/brown
    Linux/bwgrid
    Linux/bwuni
    Linux/carbon_cnm

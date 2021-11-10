@@ -4,28 +4,27 @@
 Development
 ===========
 
+To get started, take a look a our :ref:`development workflow`.
+
 GPAW development can be done by anyone! Just take a look at the
 `issue tracker`_ and find something that suits your talents.
 
-The primary source of information is still the :ref:`manual` and
+The primary source of information is still the :ref:`basic` and
 :ref:`documentation`, but as a developer you might need additional
 information which can be found here. For example the :ref:`code_overview`.
 
 As a developer, you should subscribe to the GPAW :ref:`mail list`.
-We would also like to encourage you to join our channel for :ref:`irc`.
-
-Now you are ready to to perfom a :ref:`developer installation` and
-start development.
-
+We would also like to encourage you to join our #gpaw channel for :ref:`chat`.
 
 .. _issue tracker: https://gitlab.com/gpaw/gpaw/issues/
 
 .. toctree::
    :maxdepth: 2
 
-   developer_installation
+   workflow
 
 .. note --- below toctrees are defined in separate files to make sure that the line spacing doesn't get very large (which is of course a bad hack)
+
 
 Development topics
 ==================
@@ -80,7 +79,6 @@ the corresponding objects are defined in the code:
    wavefunctions
    setups
    density_and_hamiltonian
-   planewaves
    matrices
    communicators
    others

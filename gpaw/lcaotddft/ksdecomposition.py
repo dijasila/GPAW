@@ -12,8 +12,8 @@ from gpaw.lcaotddft.utilities import distribute_nM
 from gpaw.lcaotddft.utilities import read_uMM
 from gpaw.lcaotddft.utilities import write_uMM
 from gpaw.lcaotddft.utilities import read_uX, write_uX
-from gpaw.utilities.scalapack import pblas_simple_gemm
-from gpaw.utilities.scalapack import pblas_simple_hemm
+from gpaw.utilities.scalapack import \
+    pblas_simple_gemm, pblas_simple_hemm, scalapack_tri2full
 from gpaw.utilities.tools import tri2full
 
 
@@ -96,13 +96,15 @@ class KohnShamDecomposition(object):
         for kpt in paw.wfs.kpt_u:
             S_MM = kpt.S_MM
             assert np.max(np.absolute(S_MM.imag)) == 0.0
-            S_MM = S_MM.real
+            S_MM = np.ascontiguousarray(S_MM.real)
+            if self.ksl.using_blacs:
+                scalapack_tri2full(self.ksl.mmdescriptor, S_MM)
             self.S_uMM.append(S_MM)
 
             C_nM = kpt.C_nM
             if self.C0_dtype == float:
                 assert np.max(np.absolute(C_nM.imag)) == 0.0
-                C_nM = C_nM.real
+                C_nM = np.ascontiguousarray(C_nM.real)
             C_nM = distribute_nM(self.ksl, C_nM)
             self.C0_unM.append(C_nM)
 
@@ -331,21 +333,20 @@ class KohnShamDecomposition(object):
     def transform(self, rho_uMM, broadcast=False):
         assert len(rho_uMM) == 1, 'K-points not implemented'
         u = 0
-        rho_MM = rho_uMM[u]
+        rho_MM = np.ascontiguousarray(rho_uMM[u])
         C0S_nM = self.C0S_unM[u].astype(rho_MM.dtype, copy=True)
         # KS decomposition
         if self.ksl.using_blacs:
             tmp_nM = self.ksl.mmdescriptor.zeros(dtype=rho_MM.dtype)
-            pblas_simple_hemm(self.ksl.mmdescriptor,
+            pblas_simple_gemm(self.ksl.mmdescriptor,
                               self.ksl.mmdescriptor,
                               self.ksl.mmdescriptor,
-                              rho_MM, C0S_nM, tmp_nM,
-                              side='R', uplo='L')
+                              C0S_nM, rho_MM, tmp_nM)
             rho_nn = self.ksl.mmdescriptor.zeros(dtype=rho_MM.dtype)
             pblas_simple_gemm(self.ksl.mmdescriptor,
                               self.ksl.mmdescriptor,
                               self.ksl.mmdescriptor,
-                              tmp_nM, C0S_nM.conj(), rho_nn, transb='T')
+                              tmp_nM, C0S_nM, rho_nn, transb='C')
         else:
             rho_nn = np.dot(np.dot(C0S_nM, rho_MM), C0S_nM.T.conj())
 
@@ -408,6 +409,9 @@ class KohnShamDecomposition(object):
 
     def get_density(self, wfs, rho_up, density='comp'):
         from gpaw.lcaotddft.densitymatrix import get_density
+
+        if self.ksl.using_blacs:
+            raise NotImplementedError('Scalapack is not supported')
 
         density_type = density
         assert len(rho_up) == 1, 'K-points not implemented'
@@ -573,3 +577,7 @@ class KohnShamDecomposition(object):
         flta_p = self.filter_by_x_a(x_n, energy_u, buf)
         flt_p = np.logical_and(flti_p, flta_p)
         return flt_p
+
+    def __del__(self):
+        if self.reader is not None:
+            self.reader.close()

@@ -5,16 +5,14 @@ import time
 import numpy as np
 import ase
 from ase import __version__ as ase_version
-from ase.utils import convert_string_to_fd
-from ase.utils import search_current_git_hash
+from ase.utils import search_current_git_hash, IOContext
 
 import gpaw
 import _gpaw
 from gpaw.utilities.memory import maxrss
-from gpaw import extra_parameters
 
 
-class GPAWLogger(object):
+class GPAWLogger:
     """Class for handling all text output."""
     def __init__(self, world):
         self.world = world
@@ -22,6 +20,7 @@ class GPAWLogger(object):
         self.verbose = False
         self._fd = None
         self.oldfd = 42
+        self.iocontext = IOContext()
 
     @property
     def fd(self):
@@ -40,7 +39,7 @@ class GPAWLogger(object):
         if fd == self.oldfd:
             return
         self.oldfd = fd
-        self._fd = convert_string_to_fd(fd, self.world)
+        self._fd = self.iocontext.openfile(fd, self.world)
         self.header()
 
     def __call__(self, *args, **kwargs):
@@ -106,13 +105,11 @@ class GPAWLogger(object):
         self('libxc: ', getattr(_gpaw, 'libxc_version', '2.x.y'))
         self('units:  Angstrom and eV')
         self('cores:', self.world.size)
+        self('OpenMP:', _gpaw.have_openmp)
         self('OMP_NUM_THREADS:', os.environ['OMP_NUM_THREADS'])
 
         if gpaw.debug:
             self('DEBUG MODE')
-
-        if extra_parameters:
-            self('Extra parameters:', extra_parameters)
 
         self()
 
@@ -145,7 +142,7 @@ class GPAWLogger(object):
 
         try:
             mr = maxrss()
-        except (LookupError, TypeError, NameError):
+        except (LookupError, TypeError, NameError, AttributeError):
             # Thing can get weird during interpreter shutdown ...
             mr = 0
 
@@ -156,6 +153,8 @@ class GPAWLogger(object):
                 self('Memory usage: %.2f GiB' % (mr / 1024**3))
 
         self('Date: ' + time.asctime())
+
+        self.iocontext.close()
 
 
 def cut(s, indent='        '):

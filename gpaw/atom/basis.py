@@ -4,7 +4,7 @@ from io import StringIO
 
 import numpy as np
 from ase.units import Hartree
-from ase.utils import devnull
+from gpaw.utilities import devnull
 
 from gpaw import __version__ as version
 from gpaw.utilities import divrl
@@ -122,7 +122,7 @@ class BasisMaker:
                 ae0.run()
                 # Now files will be stored such that they can
                 # automagically be used by the next run()
-            setup = generator.run(write_xml=False, use_restart_file=False,
+            setup = generator.run(write_xml=False,
                                   name=name,
                                   **parameters[generator.symbol])
 

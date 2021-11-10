@@ -4,14 +4,12 @@ import time
 import numpy as np
 
 from gpaw.poisson import PoissonSolver
-from gpaw.poisson_extended import ExtendedPoissonSolver
 from gpaw.poisson_extravacuum import ExtraVacuumPoissonSolver
 from gpaw.grid_descriptor import GridDescriptor
 
 
 pytestmark = pytest.mark.skipif(world.size > 4,
                                 reason='world.size > 4')
-
 
 
 def test_poisson_poisson_extravacuum():
@@ -26,7 +24,6 @@ def test_poisson_poisson_extravacuum():
     else:
         from gpaw.test import equal
 
-
     # Model grid
     N = 16
     N_c = np.array((1, 1, 3)) * N
@@ -35,8 +32,6 @@ def test_poisson_poisson_extravacuum():
 
     # Construct model density
     coord_vg = gd.get_grid_point_coordinates()
-    x_g = coord_vg[0, :]
-    y_g = coord_vg[1, :]
     z_g = coord_vg[2, :]
     rho_g = gd.zeros()
     for z0 in [1, 2]:
@@ -59,7 +54,6 @@ def test_poisson_poisson_extravacuum():
             ploti += 1
             plt.plot(big_rho_g[Ng_c[0] / 2, Ng_c[1] / 2])
 
-
     def plot_phi(phi_g):
         if do_plot:
             big_phi_g = gd.collect(phi_g)
@@ -75,7 +69,6 @@ def test_poisson_poisson_extravacuum():
                 plt.plot(big_phi_g[Ng_c[0] / 2, Ng_c[1] / 2])
                 plt.ylim(np.array([-1, 1]) * 0.15)
 
-
     def poisson_solve(gd, rho_g, poisson):
         phi_g = gd.zeros()
         rho_g = rho_g
@@ -84,16 +77,15 @@ def test_poisson_poisson_extravacuum():
         t1 = time.time()
         if do_output:
             if gd.comm.rank == 0:
-                print('Iterations: %s, Time: %.3f s' % (str(npoisson), t1 - t0))
+                print('Iterations: %s, Time: %.3f s' %
+                      (str(npoisson), t1 - t0))
         return phi_g, npoisson
-
 
     def poisson_init_solve(gd, rho_g, poisson):
         poisson.set_grid_descriptor(gd)
         phi_g, npoisson = poisson_solve(gd, rho_g, poisson)
         plot_phi(phi_g)
         return phi_g, npoisson
-
 
     def compare(phi1_g, phi2_g, val, eps=np.sqrt(poissoneps)):
         big_phi1_g = gd.collect(phi1_g)
@@ -106,41 +98,40 @@ def test_poisson_poisson_extravacuum():
         gd.comm.broadcast(diff, 0)
         equal(diff[0], val, eps)
 
-
     # Get reference from default poissonsolver
     poisson = PoissonSolver('fd', eps=poissoneps)
     phiref_g, npoisson = poisson_init_solve(gd, rho_g, poisson)
 
     # Test agreement with default
-    poisson = ExtraVacuumPoissonSolver(N_c, PoissonSolver('fd', eps=poissoneps))
+    poisson = ExtraVacuumPoissonSolver(
+        N_c, PoissonSolver('fd', eps=poissoneps))
     phi_g, npoisson = poisson_init_solve(gd, rho_g, poisson)
     compare(phi_g, phiref_g, 0.0, 1e-24)
 
     # New reference with extra vacuum
     gpts = N_c * 4
-    poisson = ExtraVacuumPoissonSolver(gpts, PoissonSolver('fd', eps=poissoneps))
+    poisson = ExtraVacuumPoissonSolver(
+        gpts, PoissonSolver('fd', eps=poissoneps))
     phi_g, npoisson = poisson_init_solve(gd, rho_g, poisson)
     # print poisson.get_description()
     compare(phi_g, phiref_g, 2.6485385144e-02)
     phiref_g = phi_g
 
-    # Compare to ExtendedPoissonSolver
-    # TODO: remove this test when/if ExtendedPoissonSolver is deprecated
-    poisson = ExtendedPoissonSolver(eps=poissoneps,
-                                    extended={'gpts': gpts / 2,
-                                              'useprev': True})
-    phi_g, npoisson = poisson_init_solve(gd, rho_g, poisson)
-    compare(phi_g, phiref_g, 0.0, 1e-24)
-
     # Test with single coarsening
-    poisson = ExtraVacuumPoissonSolver(gpts, PoissonSolver('fd', eps=poissoneps),
-                                       PoissonSolver('fd', eps=poissoneps), 1)
+    poisson = ExtraVacuumPoissonSolver(
+        gpts,
+        PoissonSolver('fd', eps=poissoneps),
+        PoissonSolver('fd', eps=poissoneps),
+        1)
     phi_g, npoisson = poisson_init_solve(gd, rho_g, poisson)
     compare(phi_g, phiref_g, 1.5043946611e-04)
 
     # Test with two coarsenings
-    poisson = ExtraVacuumPoissonSolver(gpts, PoissonSolver('fd', eps=poissoneps),
-                                       PoissonSolver('fd', eps=poissoneps), 2)
+    poisson = ExtraVacuumPoissonSolver(
+        gpts,
+        PoissonSolver('fd', eps=poissoneps),
+        PoissonSolver('fd', eps=poissoneps),
+        2)
     phi_g, npoisson = poisson_init_solve(gd, rho_g, poisson)
     compare(phi_g, phiref_g, 1.2980906205e-03)
 

@@ -11,7 +11,7 @@ del atoms[3]
 del atoms[2]
 
 h = 0.16
-kpts=(8, 8, 4)
+kpts = (8, 8, 4)
 ecut = 800
 xc1 = 'PBE'
 atoms.calc = GPAW(mode=PW(ecut=ecut),

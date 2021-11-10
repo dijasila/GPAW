@@ -94,7 +94,7 @@ class DirectLCAO(object):
                     hamiltonian.vt_sG[s])
                 wfs.timer.stop('Potential matrix')
             self.iterate_one_k_point(hamiltonian, wfs, kpt, Vt_xMM)
-
+        wfs.set_orthonormalized(True)
         wfs.timer.stop('LCAO eigensolver')
 
     def iterate_one_k_point(self, hamiltonian, wfs, kpt, Vt_xMM):
@@ -123,6 +123,9 @@ class DirectLCAO(object):
         diagonalization_string = repr(self.diagonalizer)
         wfs.timer.start(diagonalization_string)
         # May overwrite S_MM (so the results will be stored as decomposed)
+        if kpt.C_nM is None:
+            kpt.C_nM = wfs.bd.empty(wfs.setups.nao, dtype=wfs.dtype)
+
         self.diagonalizer.diagonalize(H_MM, kpt.C_nM, kpt.eps_n, S_MM,
                                       is_already_decomposed)
         wfs.timer.stop(diagonalization_string)

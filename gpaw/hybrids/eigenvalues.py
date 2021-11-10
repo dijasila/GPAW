@@ -12,7 +12,9 @@ from gpaw.mpi import serial_comm
 from gpaw.xc import XC
 from gpaw.xc.tools import vxc
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.wavefunctions.pw import PWDescriptor, PWLFC
+from gpaw.pw.descriptor import PWDescriptor
+from gpaw.pw.lfc import PWLFC
+from gpaw.typing import Array3D
 from . import parse_name
 from .coulomb import coulomb_interaction
 from .kpts import RSKPoint, to_real_space, get_kpt
@@ -26,7 +28,9 @@ def non_self_consistent_eigenvalues(calc: Union[GPAW, str, Path],
                                     n2: int = 0,
                                     kpt_indices: List[int] = None,
                                     snapshot: Union[str, Path] = None,
-                                    ftol: float = 1e-9) -> np.ndarray:
+                                    ftol: float = 1e-9) -> Tuple[Array3D,
+                                                                 Array3D,
+                                                                 Array3D]:
     """Calculate non self-consistent eigenvalues for a hybrid functional.
 
     Based on a self-consistent DFT calculation (calc).  Only eigenvalues n1 to
@@ -45,7 +49,9 @@ def non_self_consistent_eigenvalues(calc: Union[GPAW, str, Path],
 
     if not isinstance(calc, GPAW):
         if calc == '<gpw-file>':  # for doctest
-            return np.zeros((3, 1, 1, 1))
+            return (np.zeros((1, 1, 1)),
+                    np.zeros((1, 1, 1)),
+                    np.zeros((1, 1, 1)))
         calc = GPAW(Path(calc), txt=None, parallel={'band': 1, 'kpt': 1})
 
     wfs = calc.wfs
@@ -116,7 +122,7 @@ def _non_local(calc: GPAW,
                n2: int,
                kpt_indices_s: List[List[int]],
                ftol: float,
-               omega: float) -> Generator[np.ndarray, None, None]:
+               omega: float) -> Generator[Tuple[int, np.ndarray], None, None]:
     wfs = calc.wfs
     kd = wfs.kd
     dens = calc.density

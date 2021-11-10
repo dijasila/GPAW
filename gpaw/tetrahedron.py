@@ -11,7 +11,7 @@ See::
 """
 
 from math import nan
-from typing import List, Tuple, Any
+from typing import List, Tuple, cast
 import numpy as np
 from scipy.spatial import Delaunay
 
@@ -19,10 +19,7 @@ from gpaw.occupations import (ZeroWidth, findroot, collect_eigelvalues,
                               distribute_occupation_numbers,
                               OccupationNumberCalculator, ParallelLayout)
 from gpaw.mpi import broadcast_float
-
-Array1D = Any
-Array2D = Any
-Array3D = Any
+from gpaw.typing import Array1D, Array2D, Array3D, ArrayLike1D, ArrayLike2D
 
 
 def bja1(e1: Array1D, e2: Array1D, e3: Array1D, e4: Array1D
@@ -34,7 +31,7 @@ def bja1(e1: Array1D, e2: Array1D, e3: Array1D, e4: Array1D
 
 
 def bja2(e1: Array1D, e2: Array1D, e3: Array1D, e4: Array1D
-         ) -> Tuple[float, float]:
+         ) -> Tuple[float, Array1D]:
     """Eq. (A3) and (C3) from Blöchl, Jepsen and Andersen."""
     x = 1.0 / ((e3 - e1) * (e4 - e1))
     y = (e3 - e1 + e4 - e2) / ((e3 - e2) * (e4 - e2))
@@ -48,7 +45,7 @@ def bja2(e1: Array1D, e2: Array1D, e3: Array1D, e4: Array1D
 
 
 def bja3(e1: Array1D, e2: Array1D, e3: Array1D, e4: Array1D
-         ) -> Tuple[float, float]:
+         ) -> Tuple[float, Array1D]:
     """Eq. (A4) and (C4) from Blöchl, Jepsen and Andersen."""
     x = 1.0 / ((e4 - e1) * (e4 - e2) * (e4 - e3))
     return (len(e1) - x.dot(e4**3),
@@ -115,13 +112,14 @@ def triangulate_everything(size_c: Array1D,
 
     to i: IBZ k-point index (0, 1, ...,  nibzk - 1).
     """
-    nbzk = size_c.prod()
+    nbzk = cast(int, size_c.prod())
     ABC_ck = np.unravel_index(np.arange(nbzk), size_c)
     ABC_tqck = ABC_tqc[..., np.newaxis] + ABC_ck
     ABC_cktq = np.transpose(ABC_tqck, (2, 3, 0, 1))
-    k_ktq = np.ravel_multi_index(ABC_cktq.reshape((3, nbzk * 6 * 4)),
-                                 size_c,
-                                 mode='wrap').reshape((nbzk, 6, 4))
+    k_ktq = np.ravel_multi_index(
+        ABC_cktq.reshape((3, nbzk * 6 * 4)),
+        size_c,
+        mode='wrap').reshape((nbzk, 6, 4))  # type: ignore
     i_ktq = i_k[k_ktq]
     return i_ktq
 
@@ -131,10 +129,10 @@ class TetrahedronMethod(OccupationNumberCalculator):
     extrapolate_factor = 0.0
 
     def __init__(self,
-                 rcell: List[List[float]],
-                 size: Tuple[int, int, int],
+                 rcell: ArrayLike2D,
+                 size: ArrayLike1D,
                  improved=False,
-                 bz2ibzmap: List[int] = None,
+                 bz2ibzmap: ArrayLike1D = None,
                  parallel_layout: ParallelLayout = None):
         """Tetrahedron method for calculating occupation numbers.
 
@@ -208,7 +206,7 @@ class TetrahedronMethod(OccupationNumberCalculator):
         eig_in, weight_i, nkpts_r = collect_eigelvalues(eig_qn, weight_q,
                                                         self.bd, self.kpt_comm)
 
-        if eig_in is not None:
+        if eig_in.size != 0:
             if len(eig_in) == self.nibzkpts:
                 nspins = 1
             else:
@@ -285,7 +283,7 @@ def count(fermi_level: float,
     for mask_T, bjaa in [(mask1_T, bja1), (mask2_T, bja2), (mask3_T, bja3)]:
         n, dn_T = bjaa(*eig_Tq[mask_T].T)
         ne += n / ntetra
-        dnedef += dn_T.sum() / ntetra
+        dnedef += dn_T.sum() / ntetra  # type: ignore
 
     mask4_T = ~mask1_T & ~mask2_T & ~mask3_T
     ne += mask4_T.sum() / ntetra
@@ -319,8 +317,8 @@ def weights(eig_in: Array2D, i_ktq: Array3D, improved=False) -> Array2D:
     mask2_T = ~mask0_T & ~mask1_T & (eig_Tq[:, 2] > 0.0)
     mask3_T = ~mask0_T & ~mask1_T & ~mask2_T & (eig_Tq[:, 3] > 0.0)
 
-    for mask_T, bja in [(mask1_T, bja1b), (mask2_T, bja2b), (mask3_T, bja3b)]:
-        w_qT = bja(*eig_Tq[mask_T].T)
+    for mask_T, bjab in [(mask1_T, bja1b), (mask2_T, bja2b), (mask3_T, bja3b)]:
+        w_qT = bjab(*eig_Tq[mask_T].T)
         f_Tq[mask_T] += w_qT.T
 
     if improved:

@@ -1,5 +1,7 @@
 import numpy as np
 
+from ase.utils import IOContext
+
 from gpaw.lcaotddft.observer import TDDFTObserver
 from gpaw.utilities.scalapack import scalapack_zero
 
@@ -9,28 +11,26 @@ class EnergyWriter(TDDFTObserver):
 
     def __init__(self, paw, dmat, filename, interval=1):
         TDDFTObserver.__init__(self, paw, interval)
-        self.master = paw.world.rank == 0
+        self.ioctx = IOContext()
         self.dmat = dmat
         if paw.niter == 0:
             # Initialize
-            if self.master:
-                self.fd = open(filename, 'w')
+            self.fd = self.ioctx.openfile(filename, comm=paw.world, mode='w')
         else:
             # Read and continue
-            if self.master:
-                self.fd = open(filename, 'a')
+            self.fd = self.ioctx.openfile(filename, comm=paw.world, mode='a')
 
     def _write(self, line):
-        if self.master:
-            self.fd.write(line)
-            self.fd.flush()
+        self.fd.write(line)
+        self.fd.flush()
 
     def _write_header(self, paw):
         if paw.niter != 0:
             return
         line = '# %s[version=%s]\n' % (self.__class__.__name__, self.version)
         line += ('# %15s %22s %22s %22s %22s %22s %22s\n' %
-                 ('time', 'kinetic0', 'coulomb', 'zero', 'external', 'xc', 'band'))
+                 ('time', 'kinetic0', 'coulomb', 'zero', 'external',
+                  'xc', 'band'))
         self._write(line)
 
     def _write_kick(self, paw):
@@ -82,8 +82,9 @@ class EnergyWriter(TDDFTObserver):
     def _write_energy(self, paw):
         time = paw.time
         energy_i = self._get_energies(paw) - self.energy0_i
-        line = ('%20.8lf %22.12le %22.12le %22.12le %22.12le %22.12le %22.12le\n' %
-                ((time, ) + tuple(energy_i)))
+        line = (
+            '%20.8lf %22.12le %22.12le %22.12le %22.12le %22.12le %22.12le\n' %
+            ((time, ) + tuple(energy_i)))
         self._write(line)
 
     def _update(self, paw):
@@ -95,6 +96,4 @@ class EnergyWriter(TDDFTObserver):
         self._write_energy(paw)
 
     def __del__(self):
-        if self.master:
-            self.fd.close()
-        TDDFTObserver.__del__(self)
+        self.ioctx.close()

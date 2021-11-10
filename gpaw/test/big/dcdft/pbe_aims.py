@@ -22,9 +22,9 @@ c = ase.db.connect('dcdft_aims.db')
 
 # select the basis set
 basis = 'light'
-#basis = 'tight'
-#basis = 'really_tight'
-#basis = 'tier2'
+# basis = 'tight'
+# basis = 'really_tight'
+# basis = 'tier2'
 
 kptdensity = 16.0  # this is converged
 kptdensity = 6.0  # just for testing
@@ -77,15 +77,15 @@ for name in names:
     if basis in ['tier2']:
         if name in ['Cr', 'Fe'] and relativistic == 'none':
             basis_threshold = 0.00005
-            sc_accuracy_rho=2.5e-3
-            sc_accuracy_eev=5.e-3
+            sc_accuracy_rho = 2.5e-3
+            sc_accuracy_eev = 5.e-3
         if name in ['Mn']:
             charge_mix_param = 0.01
             basis_threshold = 0.00005
-            sc_accuracy_rho=2.5e-3
-            sc_accuracy_eev=5.e-3
+            sc_accuracy_rho = 2.5e-3
+            sc_accuracy_eev = 5.e-3
             if relativistic == 'none':
-                sc_accuracy_rho=3.0e-3
+                sc_accuracy_rho = 3.0e-3
     # loop over EOS linspace
     for n, x in enumerate(np.linspace(linspace[0], linspace[1], linspace[2])):
         id = c.reserve(name=name, basis=basis, linspacestr=linspacestr,
@@ -121,6 +121,6 @@ for name in names:
                 basis_threshold=basis_threshold,
                 relativistic=relativistic,
                 x=x,
-                time=time.time()-t)
+                time=time.time() - t)
         traj.write(atoms)
         del c[id]

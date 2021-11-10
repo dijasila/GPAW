@@ -1,5 +1,8 @@
 import re
+
 import numpy as np
+
+from ase.utils import IOContext
 
 from gpaw.lcaotddft.observer import TDDFTObserver
 
@@ -22,32 +25,61 @@ def convert_repr(r):
 
 
 class DipoleMomentWriter(TDDFTObserver):
+    """Observer for writing time-dependent dipole moment data.
+
+    The data is written in atomic units.
+
+    The observer attaches to the TDDFT calculator during creation.
+
+    Parameters
+    ----------
+    paw
+        TDDFT calculator
+    filename
+        File for writing dipole moment data
+    center
+        If true, dipole moment is evaluated with the center of cell
+        as the origin
+    density
+        Density type used for evaluating dipole moment.
+        Use the default value for production calculations;
+        others are for testing purposes.
+        Possible values:
+        ``'comp'``: ``rhot_g``,
+        ``'pseudo'``: ``nt_sg``,
+        ``'pseudocoarse'``: ``nt_sG``.
+    force_new_file
+        If true, new dipole moment file is created (erasing any xisting one)
+        even when restarting time propagation.
+    interval
+        Update interval. Value of 1 corresponds to evaluating and
+        writing data after every propagation step.
+    """
     version = 1
 
-    def __init__(self, paw, filename, center=False, density='comp',
-                 interval=1):
+    def __init__(self, paw, filename: str, *,
+                 center: bool = False,
+                 density: str = 'comp',
+                 force_new_file: bool = False,
+                 interval: int = 1):
         TDDFTObserver.__init__(self, paw, interval)
-        self.master = paw.world.rank == 0
-        if paw.niter == 0:
+        self.ioctx = IOContext()
+        if paw.niter == 0 or force_new_file:
             # Initialize
             self.do_center = center
             self.density_type = density
-            if self.master:
-                self.fd = open(filename, 'w')
+            self.fd = self.ioctx.openfile(filename, comm=paw.world, mode='w')
+            self._write_header(paw)
         else:
             # Read and continue
             self.read_header(filename)
-            if self.master:
-                self.fd = open(filename, 'a')
+            self.fd = self.ioctx.openfile(filename, comm=paw.world, mode='a')
 
     def _write(self, line):
-        if self.master:
-            self.fd.write(line)
-            self.fd.flush()
+        self.fd.write(line)
+        self.fd.flush()
 
     def _write_header(self, paw):
-        if paw.niter != 0:
-            return
         line = '# %s[version=%s]' % (self.__class__.__name__, self.version)
         line += ('(center=%s, density=%s)\n' %
                  (repr(self.do_center), repr(self.density_type)))
@@ -71,6 +103,11 @@ class DipoleMomentWriter(TDDFTObserver):
             # Translate key
             k = {'center': 'do_center', 'density': 'density_type'}[k]
             setattr(self, k, v)
+
+    def _write_init(self, paw):
+        time = paw.time
+        line = '# Start; Time = %.8lf\n' % time
+        self._write(line)
 
     def _write_kick(self, paw):
         time = paw.time
@@ -108,18 +145,18 @@ class DipoleMomentWriter(TDDFTObserver):
         norm = gd.integrate(rho_g)
         # dm = self.calculate_dipole_moment(gd, rho_g, center=self.do_center)
         dm = gd.calculate_dipole_moment(rho_g, center=self.do_center)
+        if paw.hamiltonian.poisson.get_description() == 'FDTD+TDDFT':  # XXX
+            dm += paw.hamiltonian.poisson.get_classical_dipole_moment()
         line = ('%20.8lf %20.8le %22.12le %22.12le %22.12le\n' %
                 (time, norm, dm[0], dm[1], dm[2]))
         self._write(line)
 
     def _update(self, paw):
         if paw.action == 'init':
-            self._write_header(paw)
+            self._write_init(paw)
         elif paw.action == 'kick':
             self._write_kick(paw)
         self._write_dm(paw)
 
     def __del__(self):
-        if self.master:
-            self.fd.close()
-        TDDFTObserver.__del__(self)
+        self.ioctx.close()

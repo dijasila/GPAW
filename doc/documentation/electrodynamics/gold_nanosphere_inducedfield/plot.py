@@ -1,4 +1,4 @@
-# Creates: field.ind_Ffe.png
+# web-page: field.ind_Ffe.png
 # -*- coding: utf-8 -*-
 from gpaw.mpi import world
 
@@ -53,7 +53,7 @@ for fname, name in zip(['field.ind'], ['Classical system']):
     atoms = ind.atoms                          # Atoms
 
     do_plot(d_g, ng, box, atoms)
-    plt.title('%s\nField enhancement @ %.2f eV' % (name, freq))
+    plt.title(f'{name}\nField enhancement @ {freq:.2f} eV')
     plt.savefig(fname + '_Ffe.png', bbox_inches='tight')
 
     # Imaginary part of density
@@ -68,6 +68,5 @@ for fname, name in zip(['field.ind'], ['Classical system']):
     d_g = ind.Fphi_wg[w].imag
     ng = d_g.shape
     do_plot(d_g, ng, box, atoms)
-    plt.title('%s\nImaginary part of induced potential @ %.2f eV' %
-              (name, freq))
+    plt.title(f'{name}\nImaginary part of induced potential @ {freq:.2f} eV')
     plt.savefig(fname + '_Fphi.png', bbox_inches='tight')

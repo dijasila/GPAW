@@ -3,8 +3,7 @@ from math import sqrt
 import numpy as np
 from ase.atoms import Atoms
 from ase.units import Bohr, Hartree
-from ase.io.cube import write_cube
-from ase.io.plt import write_plt, read_plt
+from ase.io.cube import read_cube_data, write_cube
 from ase.dft.stm import STM
 
 import gpaw.mpi as mpi
@@ -133,12 +132,11 @@ class SimpleStm(STM):
         if filetype is None:
             # estimate file type from name ending
             filetype = file.split('.')[-1]
-        filetype.lower()
+        filetype = filetype.lower()
 
         if filetype == 'cube':
-            write_cube(file, self.calc.get_atoms(), ldos / Bohr ** 3)
-        elif filetype == 'plt':
-            write_plt(file, self.calc.get_atoms(), ldos / Bohr ** 3)
+            with open(file, 'w') as fd:
+                write_cube(fd, self.calc.get_atoms(), ldos / Bohr ** 3)
         else:
             raise NotImplementedError('unknown file type "' + filetype + '"')
 
@@ -148,10 +146,10 @@ class SimpleStm(STM):
         if filetype is None:
             # estimate file type from name ending
             filetype = file.split('.')[-1]
-        filetype.lower()
 
-        if filetype == 'plt':
-            data, self.cell = read_plt(file)
+        if filetype == 'cube':
+            data, atoms = read_cube_data(file)
+            self.cell = atoms.cell.array
 
             pbc_c = [True, True, True]
             N_c = np.array(data.shape)
@@ -166,7 +164,7 @@ class SimpleStm(STM):
             raise NotImplementedError('unknown file type "' + filetype + '"')
 
         self.file = file
-        self.ldos = np.array(data * Bohr ** 3, np.float)
+        self.ldos = np.array(data * Bohr ** 3)
 # print "read: integrated =", self.gd.integrate(self.ldos)
 
     def current_to_density(self, current):
@@ -215,33 +213,37 @@ class SimpleStm(STM):
             fname = 'stm_n%dk%ds%d.dat' % (n, k, s)
         else:
             fname = file
-        f = open(fname, 'w')
+        
+        with open(fname, 'w') as fd:
 
-        import datetime
-        print('#', datetime.datetime.now().ctime(), file=f)
-        print('# Simulated STM picture', file=f)
-        if hasattr(self, 'file'):
-            print('# density read from', self.file, file=f)
-        else:
-            if self.is_wf:
-                print('# pseudo-wf n=%d k=%d s=%d' % tuple(self.bias), file=f)
+            import datetime
+            print('#', datetime.datetime.now().ctime(), file=fd)
+            print('# Simulated STM picture', file=fd)
+            if hasattr(self, 'file'):
+                print('# density read from', self.file, file=fd)
             else:
-                print('# bias=', self.bias, '[eV]', file=f)
-        print('#', file=f)
-        print('# density=', self.density, '[e/Angstrom^3]', end=' ', file=f)
-        print(
-            '(current=', self.density_to_current(self.density), '[nA])',
-            file=f)
-        print('# x[Angs.]   y[Angs.]     h[Angs.] (-1 is not found)', file=f)
-        for i in range(nx):
-            for j in range(ny):
-                if heights[i, j] == -1:
-                    height = -1
+                if self.is_wf:
+                    print('# pseudo-wf n=%d k=%d s=%d' % tuple(self.bias),
+                          file=fd)
                 else:
-                    height = heights[i, j] * Bohr
-                print('%10g %10g %12g' % (yvals[j], xvals[i], height), file=f)
-            print(file=f)
-        f.close()
+                    print('# bias=', self.bias, '[eV]', file=fd)
+            print('#', file=fd)
+            print('# density=', self.density, '[e/Angstrom^3]',
+                  end=' ', file=fd)
+            print(
+                '(current=', self.density_to_current(self.density), '[nA])',
+                file=fd)
+            print('# x[Angs.]   y[Angs.]     h[Angs.] (-1 is not found)',
+                  file=fd)
+            for i in range(nx):
+                for j in range(ny):
+                    if heights[i, j] == -1:
+                        height = -1
+                    else:
+                        height = heights[i, j] * Bohr
+                    print('%10g %10g %12g' % (yvals[j], xvals[i], height),
+                          file=fd)
+                print(file=fd)
 
     def pylab_contour(self):
         """Return the countour to be plotted using pylab."""

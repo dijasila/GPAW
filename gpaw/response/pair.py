@@ -8,18 +8,18 @@ import numpy as np
 from scipy.spatial import Delaunay, cKDTree
 
 from ase.units import Ha
-from ase.utils import convert_string_to_fd
+from ase.utils import IOContext
 from ase.utils.timing import timer, Timer
 
 import gpaw.mpi as mpi
-from gpaw import GPAW
+from gpaw import GPAW, disable_dry_run
 from gpaw.fd_operators import Gradient
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.response.math_func import (two_phi_planewave_integrals,
                                      two_phi_nabla_planewave_integrals)
 from gpaw.utilities.blas import gemm
 from gpaw.utilities.progressbar import ProgressBar
-from gpaw.wavefunctions.pw import PWLFC
+from gpaw.pw.lfc import PWLFC
 from gpaw.bztools import get_reduced_bz, unique_rows
 
 
@@ -636,7 +636,8 @@ class PairDensity:
                  ftol=1e-6, threshold=1,
                  real_space_derivatives=False,
                  world=mpi.world, txt='-', timer=None,
-                 nblocks=1, gate_voltage=None, **unused):
+                 nblocks=1, gate_voltage=None,
+                 paw_correction='brute-force', **unused):
         """Density matrix elements
 
         Parameters
@@ -654,14 +655,16 @@ class PairDensity:
             Shift the fermi level by gate_voltage [Hartree].
         """
         self.world = world
-        self.fd = convert_string_to_fd(txt, world)
+        self.iocontext = IOContext()
+        self.fd = self.iocontext.openfile(txt, world)
         self.timer = timer or Timer()
 
         with self.timer('Read ground state'):
-            if isinstance(gs, str):
+            if not isinstance(gs, GPAW):
                 print('Reading ground state calculation:\n  %s' % gs,
                       file=self.fd)
-                calc = GPAW(gs, txt=None, communicator=mpi.serial_comm)
+                with disable_dry_run():
+                    calc = GPAW(gs, communicator=mpi.serial_comm)
             else:
                 calc = gs
                 assert calc.wfs.world.size == 1
@@ -697,8 +700,6 @@ class PairDensity:
 
         if gate_voltage is not None:
             self.add_gate_voltage(gate_voltage)
-        else:
-            self.add_gate_voltage(gate_voltage=0)
 
         self.spos_ac = calc.spos_ac
 
@@ -713,6 +714,11 @@ class PairDensity:
         kd = self.calc.wfs.kd
         self.KDTree = cKDTree(np.mod(np.mod(kd.bzk_kc, 1).round(6), 1))
         print('Number of blocks:', nblocks, file=self.fd)
+
+        self.paw_correction = paw_correction
+
+    def __del__(self):
+        self.iocontext.close()
 
     def find_kpoint(self, k_c):
         return self.KDTree.query(np.mod(np.mod(k_c, 1).round(6), 1))[1]
@@ -1234,8 +1240,14 @@ class PairDensity:
 
         ut_vR = self.ut_sKnvR[kpt1.s][kpt1.K][n - kpt1.n1]
         atomdata_a = self.calc.wfs.setups
-        C_avi = [np.dot(atomdata.nabla_iiv.T, P_ni[n - kpt1.na])
-                 for atomdata, P_ni in zip(atomdata_a, kpt1.P_ani)]
+        if self.paw_correction == 'brute-force':
+            C_avi = [np.dot(atomdata.nabla_iiv.T, P_ni[n - kpt1.na])
+                     for atomdata, P_ni in zip(atomdata_a, kpt1.P_ani)]
+        elif self.paw_correction == 'skip':
+            C_avi = [np.zeros((3, P_ni.shape[1]), complex)
+                     for atomdata, P_ni in zip(atomdata_a, kpt1.P_ani)]
+        else:
+            1 / 0
 
         blockbands = kpt2.nb - kpt2.na
         n0_mv = np.empty((kpt2.blocksize, 3), dtype=complex)
@@ -1486,9 +1498,14 @@ class PairDensity:
                 else:
                     Q_Gii = np.dot(atomdata.Delta_iiL, Q_LG).T
             else:
-                Q_Gii = two_phi_planewave_integrals(G_Gv, atomdata)
                 ni = atomdata.ni
-                Q_Gii.shape = (-1, ni, ni)
+                if self.paw_correction == 'brute-force':
+                    Q_Gii = two_phi_planewave_integrals(G_Gv, atomdata)
+                    Q_Gii.shape = (-1, ni, ni)
+                elif self.paw_correction == 'skip':
+                    Q_Gii = np.zeros((len(G_Gv), ni, ni), complex)
+                else:
+                    1 / 0
 
             Q_xGii[id] = Q_Gii
 

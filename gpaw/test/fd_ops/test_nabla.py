@@ -26,6 +26,7 @@ def test_fd_ops_nabla():
     c.add(psi, d0)
     d1 = c.dict(m, derivative=True)
     c.derivative(psi, d1)
+
     class TestSetup(Setup):
         l_j = range(lmax + 1)
         nj = lmax + 1
@@ -38,4 +39,4 @@ def test_fd_ops_nabla():
     d2 = TestSetup().get_derivative_integrals(rgd, g, np.zeros_like(g))
     if 0 in d1:
         print(abs(d1[0] - d2).max())
-        assert abs(d1[0] - d2).max() < 2e-6
+        assert abs(d1[0] - d2).max() < 2e-9

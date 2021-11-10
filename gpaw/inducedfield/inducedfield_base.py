@@ -134,6 +134,7 @@ class BaseInducedField(object):
             self.na = len(self.atoms.get_atomic_numbers())        # !
             self.gd = self.density.gd                             # !
             self.stencil = self.density.stencil
+            self.log = paw.log
 
         if allocate:
             self.allocate()
@@ -184,7 +185,7 @@ class BaseInducedField(object):
         # Always extend a bit to get field without jumps
         if extend_N_cd is None:
             extend_N = max(8, 2**int(np.ceil(np.log(gradient_n) / np.log(2.))))
-            extend_N_cd = extend_N * np.ones(shape=(3, 2), dtype=np.int)
+            extend_N_cd = extend_N * np.ones(shape=(3, 2), dtype=int)
             deextend = True
 
         # Extend grid
@@ -291,7 +292,7 @@ class BaseInducedField(object):
         ng = r.ng
 
         # Background electric field
-        Fbgef_v = r.Fbgef_v
+        self.Fbgef_v = r.Fbgef_v
 
         if self.has_paw:
             # Test dimensions
@@ -301,13 +302,12 @@ class BaseInducedField(object):
                 raise IOError('nspins is incompatible with calculator')
             if (ng != self.gd.get_size_of_global_array()).any():
                 raise IOError('grid is incompatible with calculator')
-            if (Fbgef_v != self.Fbgef_v).any():
+            if (self.Fbgef_v != self.paw.kick_strength).any():
                 raise IOError('kick is incompatible with calculator')
         else:
             # Construct objects / assign values without paw
             self.na = na
             self.nspins = nspins
-            self.Fbgef_v = Fbgef_v
 
             from ase.io.trajectory import read_atoms
             self.atoms = read_atoms(r.atoms)

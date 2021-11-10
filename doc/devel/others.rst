@@ -4,6 +4,9 @@ Miscellaneous objects and functions
 .. autoclass:: gpaw.lfc.LocalizedFunctionsCollection
     :members:
 
+.. autoclass:: gpaw.lfc.BasisFunctions
+    :members:
+
 .. autoclass:: gpaw.spline.Spline
     :members:
 
@@ -25,4 +28,16 @@ Miscellaneous objects and functions
     :members:
 
 .. autoclass:: gpaw.band_descriptor.BandDescriptor
+    :members:
+
+.. autoclass:: gpaw.spinorbit.BZWaveFunctions
+    :members:
+
+.. autoclass:: gpaw.spinorbit.WaveFunction
+    :members:
+
+.. autoclass:: gpaw.kpt_descriptor.KPointDescriptor
+    :members:
+
+.. autoclass:: gpaw.projections.Projections
     :members:

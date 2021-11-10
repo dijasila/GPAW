@@ -223,18 +223,17 @@ class CouplingParameters:
             # Weights, i.e., lagrange multipliers
             self.Va = Va
             self.Vb = Vb
-
             regionsA = []
             if charge_regions_A is not None:
-                regionsA.append(charge_regions_A)
+                regionsA += charge_regions_A
             if spin_regions_A is not None:
-                regionsA.append(spin_regions_A)
+                regionsA += spin_regions_A
 
             regionsB = []
             if charge_regions_B is not None:
-                regionsB.append(charge_regions_B)
+                regionsB += charge_regions_B
             if spin_regions_B is not None:
-                regionsB.append(spin_regions_B)
+                regionsB += spin_regions_B
 
             self.regionsA = regionsA
             self.regionsB = regionsB
@@ -478,8 +477,8 @@ class CouplingParameters:
             raise ValueError(nab_missing_error)
 
         # pseudo wfs to all-electron wfs
-        psi_A = PS2AE(self.calc_A, h=self.h)
-        psi_B = PS2AE(self.calc_B, h=self.h)
+        psi_A = PS2AE(self.calc_A, grid_spacing=self.h)
+        psi_B = PS2AE(self.calc_B, grid_apspacing=self.h)
 
         ns = self.calc_A.wfs.nspins
 
@@ -538,9 +537,9 @@ class CouplingParameters:
 
                 if spin == 0:
                     w_kij_AB.append(
-                        np.zeros((n_occup, n_occup), dtype=np.complex))
+                        np.zeros((n_occup, n_occup), dtype=complex))
                     w_kij_BA.append(
-                        np.zeros((n_occup, n_occup), dtype=np.complex))
+                        np.zeros((n_occup, n_occup), dtype=complex))
 
                 # store k-point weights
                 kd = self.calc_A.wfs.kd
@@ -654,8 +653,8 @@ class CouplingParameters:
             # form overlap matrices of correct size for each kpt
 
             if spin == 0:
-                w_kij_AB.append(np.zeros((n_occup, n_occup), dtype=np.complex))
-                w_kij_BA.append(np.zeros((n_occup, n_occup), dtype=np.complex))
+                w_kij_AB.append(np.zeros((n_occup, n_occup), dtype=complex))
+                w_kij_BA.append(np.zeros((n_occup, n_occup), dtype=complex))
 
             # store k-point weights
             kd = self.calc_A.wfs.kd
@@ -747,8 +746,8 @@ class CouplingParameters:
         if calc_A.wfs.kd.nibzkpts != 1:
             raise ValueError(ae_ibz_error)
         # <Psi_A|Psi_B> using the all-electron pair density
-        psi_A = PS2AE(calc_A, h=self.h)
-        psi_B = PS2AE(calc_B, h=self.h)
+        psi_A = PS2AE(calc_A, grid_spacing=self.h)
+        psi_B = PS2AE(calc_B, grid_spacing=self.h)
 
         ns = calc_A.wfs.nspins
 
@@ -791,7 +790,7 @@ class CouplingParameters:
                     warnings.warn(warning)
                 # form overlap matrices of correct size for each kpt
                 if spin == 0:
-                    n_AB.append(np.zeros((n_occup, n_occup), dtype=np.complex))
+                    n_AB.append(np.zeros((n_occup, n_occup), dtype=complex))
 
                 for i in range(n_occup_s[spin]):
                     for j in range(n_occup_s[spin]):
@@ -868,7 +867,7 @@ class CouplingParameters:
                 warnings.warn(warning)
             # form overlap matrices of correct size for each kpt
             if spin == 0:
-                n_AB.append(np.zeros((n_occup, n_occup), dtype=np.complex))
+                n_AB.append(np.zeros((n_occup, n_occup), dtype=complex))
 
             kd = calc_A.wfs.kd
             w_kA = kd.weight_k[k]
@@ -976,7 +975,7 @@ class CouplingParameters:
         # Cab = cofactor matrix
         # k and s --> kpt and spin
 
-        VW_ij = np.zeros((len(psit1_nG), len(psit2_nG)))
+        VW_ij = np.zeros((len(psit1_nG), len(psit2_nG)), complex)
         VW = V * W
 
         for n1 in range(len(psit1_nG)):
@@ -985,7 +984,7 @@ class CouplingParameters:
                 VW_ij[n1][n2] = self.gd.integrate(VW * nijt_G,
                                                   global_integral=True)
 
-        P_array = np.zeros(VW_ij.shape)
+        P_array = np.zeros(VW_ij.shape, complex)
         for a, P1_ni in P1_ani.items():
             P2_ni = P2_ani[a]
             if region is None or a in region:

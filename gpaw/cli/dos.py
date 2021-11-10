@@ -1,6 +1,6 @@
 """CLI-code for dos-subcommand."""
 from pathlib import Path
-from typing import Any, Union, List, Tuple, Optional
+from typing import Union, List, Tuple, Optional
 
 import numpy as np
 from ase.spectrum.dosdata import GridDOSData
@@ -29,7 +29,9 @@ class CLICommand:
             'interpolation.')
         add('-a', '--atom', help='Project onto atoms: "Cu-spd,H-s" or use '
             'atom indices "12-spdf".  Particular m-values can be obtained '
-            'like this: "N-p0,N-p1,N-p2".')
+            'like this: "N-p0,N-p1,N-p2. For p-orbitals, m=0,1,2 translates '
+            'to y, z and x. For d-orbitals, m=0,1,2,3,4 translates '
+            'to xy, yz, 3z2-r2, zx and x2-y2.')
         add('-t', '--total', action='store_true',
             help='Show both PDOS and total DOS.')
         add('-r', '--range', nargs=2, metavar=('emin', 'emax'),
@@ -49,10 +51,6 @@ class CLICommand:
             args.atom,
             args.soc,
             emin, emax, args.points, args.total)
-
-
-Array1D = Any
-Array3D = Any
 
 
 def parse_projection_string(projection: str,
@@ -153,9 +151,8 @@ def dos(filename: Union[Path, str],
     """
     calc = GPAW(filename)
 
-    doscalc = DOSCalculator.from_calculator(calc, emin, emax, npoints, soc)
-
-    energies = doscalc.energies
+    doscalc = DOSCalculator.from_calculator(calc, soc)
+    energies = doscalc.get_energies(emin, emax, npoints)
     nspins = doscalc.nspins
     spinlabels = [''] if nspins == 1 else [' up', ' dn']
     spins: List[Optional[int]] = [None] if nspins == 1 else [0, 1]
@@ -164,7 +161,8 @@ def dos(filename: Union[Path, str],
 
     if projection is None or show_total:
         for spin, label in zip(spins, spinlabels):
-            dosobjs += doscalc.dos(spin=spin, width=width)
+            dos = doscalc.raw_dos(energies, spin=spin, width=width)
+            dosobjs += GridDOSData(energies, dos, {'label': 'DOS' + label})
 
     if projection is not None:
         symbols = calc.atoms.get_chemical_symbols()
@@ -174,8 +172,8 @@ def dos(filename: Union[Path, str],
             for spin, spinlabel in zip(spins, spinlabels):
                 dos = np.zeros_like(energies)
                 for a, l, m in contributions:
-                    obj = doscalc.pdos(a, l, m, spin=spin, width=width)
-                    dos += obj.get_weights()
+                    dos += doscalc.raw_pdos(energies,
+                                            a, l, m, spin=spin, width=width)
                 dosobjs += GridDOSData(energies, dos,
                                        {'label': label + spinlabel})
 
