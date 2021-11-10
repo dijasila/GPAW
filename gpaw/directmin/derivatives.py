@@ -397,7 +397,7 @@ class Davidson(object):
         if converged:
             self.eigenvalues = deepcopy(self.lambda_)
             self.eigenvectors = deepcopy(self.x)
-            self.log(wfs, log, self.l)
+            self.log(log, 0)
             return
         n_dim = len(self.V)
         wfs.timer.start('Preconditioner calculation')
@@ -438,9 +438,9 @@ class Davidson(object):
         wfs.timer.stop('Modified Gram-Schmidt')
         self.V = self.V.T
         wfs.timer.stop('Krylov space augmentation')
-        self.log(wfs, log, self.l)
+        self.log(log, self.l)
 
-    def log(self, wfs, log, l):
+    def log(self, log, l):
         if self.print_level > 0:
             log('Dimensionality of Krylov space: ' + str(len(self.V[0]) - l),
                 flush = True)
