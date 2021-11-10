@@ -1,5 +1,8 @@
 import numpy as np
-from gpaw.directmin.etdm import random_a
+from gpaw.directmin.etdm import random_a, get_n_occ
+from ase.units import Hartree
+from gpaw.mpi import world
+from copy import deepcopy
 
 
 class Derivatives:
@@ -143,6 +146,380 @@ class Derivatives:
         return numerical_der
 
 
+class Davidson(object):
+    def __init__(self, etdm, fd_mode = 'central', m = np.inf, h = 1e-7,
+                 eps = 1e-2, cap_krylov = False, ef = False, print_level = 0,
+                 remember_sp_order = False, sp_order = None):
+        self.etdm = etdm
+        self.fd_mode = fd_mode
+        self.remember_sp_order = remember_sp_order
+        self.sp_order = sp_order
+        self.dtype = self.etdm.dtype
+        self.dim_z = 2 if self.dtype == complex else 1
+        self.log_sp_order_once = True
+        self.V = None
+        self.C = None
+        self.M = None
+        self.W = None
+        self.H = None
+        self.lambda_ = None
+        self.y = None
+        self.x = None
+        self.r = None
+        self.l = None
+        self.h = h
+        self.m = m
+        self.converged = None
+        self.error = None
+        self.n_iter = None
+        self.eigenvalues = None
+        self.eigenvectors = None
+        self.reset = None
+        self.eps = eps
+        self.grad = None
+        self.cap_krylov = cap_krylov
+        self.ef = ef
+        self.dim = {}
+        self.dimtot = None
+        self.nocc = {}
+        self.nbands = None
+        self.c_nm_ref = None
+        self.print_level = print_level
+        if self.ef:
+            self.lambda_all = None
+            self.y_all = None
+            self.x_all = None
+
+    def introduce(self, log):
+        if self.print_level > 0:
+            log('|-------------------------------------------------------|')
+            log('|             Davidson partial diagonalizer             |')
+            log('|-------------------------------------------------------|\n',
+                flush=True)
+
+    def run(self, wfs, ham, dens, log, use_prev = False):
+        self.initialize(wfs, log, use_prev)
+        if not self.ef:
+            self.etdm.sort_wavefunctions_mom(wfs)
+        self.n_iter = 0
+        self.c_nm_ref = [deepcopy(wfs.kpt_u[x].C_nM) \
+                         for x in range(len(wfs.kpt_u))]
+        if self.fd_mode == 'forward' and self.grad is None:
+            a_mat_u = {}
+            n_dim = {}
+            for kpt in wfs.kpt_u:
+                u = self.etdm.n_kps * kpt.s + kpt.q
+                n_dim[u] = wfs.bd.nbands
+                a_mat_u[u] = np.zeros_like(self.etdm.a_mat_u[u])
+            self.grad = self.etdm.get_energy_and_gradients(
+                a_mat_u, n_dim, ham, wfs, dens, self.c_nm_ref)[1]
+        while not self.converged:
+            self.iterate(wfs, ham, dens, log)
+        if self.remember_sp_order:
+            if self.sp_order is None:
+                sp_order = 0
+                for i in range(len(self.lambda_)):
+                    if self.lambda_[i] < 1e-8:
+                        sp_order += 1
+                    else:
+                        break
+                self.sp_order = sp_order
+                if self.sp_order == 0:
+                    self.sp_order = 1
+                log('Saved target saddle point order as ' \
+                    + str(self.sp_order) + ' for future partial ' \
+                        'diagonalizations.', flush = True)
+            elif self.log_sp_order_once:
+                self.log_sp_order_once = False
+                log('Using target saddle point order of ' \
+                    + str(self.sp_order) + '.', flush = True)
+        if self.ef:
+            self.x_all = []
+            for i in range(len(self.lambda_all)):
+                self.x_all.append(
+                    np.dot(self.V[:, :len(self.lambda_all)], self.y_all[i].T))
+            self.x_all = np.asarray(self.x_all).T
+        for kpt in wfs.kpt_u:
+            k = self.etdm.n_kps * kpt.s + kpt.q
+            kpt.C_nM = deepcopy(self.c_nm_ref[k])
+        if not self.ef:
+            for kpt in wfs.kpt_u:
+                self.etdm.sort_wavefunctions(ham, wfs, kpt)
+
+    def initialize(self, wfs, log, use_prev = False):
+        self.introduce(log)
+        self.reset = False
+        self.converged = False
+        self.l = 0
+        self.V = None
+        appr_sp_order = 0
+        dia = []
+        self.dimtot = 0
+        for kpt in wfs.kpt_u:
+            k = self.etdm.n_kps * kpt.s + kpt.q
+            hdia = self.etdm.get_hessian(kpt)
+            self.dim[k] = len(hdia)
+            self.dimtot += len(hdia)
+            dia += list(hdia.copy())
+            self.nocc[k] = get_n_occ(kpt)
+        self.nbands = wfs.bd.nbands
+        if use_prev:
+            for i in range(len(self.lambda_all)):
+                if self.lambda_all[i] < -1e-8:
+                    appr_sp_order += 1
+                    if self.dtype == complex:
+                        dia[i] = self.lambda_all[i] + 1.0j * self.lambda_all[i]
+                    else:
+                        dia[i] = self.lambda_all[i]
+        else:
+            for i in range(len(dia)):
+                if np.real(dia[i]) < -1e-8:
+                    appr_sp_order += 1
+        self.M = np.zeros(shape = self.dimtot * self.dim_z)
+        for i in range(self.dimtot * self.dim_z):
+            self.M[i] = np.real(dia[i % self.dimtot])
+        if self.sp_order is not None:
+            self.l = self.sp_order
+        else:
+            self.l = appr_sp_order if self.ef else appr_sp_order + 2
+        if self.l == 0:
+            self.l = 1
+        self.W = None
+        self.error = [np.inf for x in range(self.l)]
+        rng = np.random.default_rng()
+        reps = 1e-3
+        wfs.timer.start('Initial Krylov space')
+        if use_prev:
+            self.V = deepcopy(self.x)
+            for i in range(self.l):
+                for k in range(self.dimtot):
+                    for l in range(self.dim_z):
+                        rand = np.zeros(shape=2)
+                        if world.rank == 0:
+                            rand[0] = rng.random()
+                            rand[1] = 1 if rng.random() > 0.5 else -1
+                        else:
+                            rand[0] = 0.0
+                            rand[1] = 0.0
+                        world.broadcast(rand, 0)
+                        self.V[i][l * self.dimtot + k] \
+                            += rand[1] * reps * rand[0]
+        else:
+            self.V = []
+            for i in range(self.l):
+                rdia = np.real(dia).copy()
+                imin = int(np.where(rdia == min(rdia))[0][0])
+                rdia[imin] = np.inf
+                v = np.zeros(self.dimtot * self.dim_z)
+                v[imin] = 1.0
+                if self.dtype == complex:
+                    v[self.dimtot + imin] = 1.0
+                for l in range(self.dimtot):
+                    for m in range(self.dim_z):
+                        if l == imin:
+                            continue
+                        rand = np.zeros(shape = 2)
+                        if world.rank == 0:
+                            rand[0] = rng.random()
+                            rand[1] = 1 if rng.random() > 0.5 else -1
+                        else:
+                            rand[0] = 0.0
+                            rand[1] = 0.0
+                        world.broadcast(rand, 0)
+                        v[m * self.dimtot + l] = rand[1] * reps * rand[0]
+                self.V.append(v / np.linalg.norm(v))
+            self.V = np.asarray(self.V)
+        wfs.timer.start('Modified Gram-Schmidt')
+        self.V = mgs(self.V)
+        wfs.timer.stop('Modified Gram-Schmidt')
+        self.V = self.V.T
+        wfs.timer.stop('Initial Krylov space')
+        if self.print_level > 0:
+            text = 'Davidson will target the ' + str(self.l) \
+                   + ' lowest eigenpairs'
+            if self.sp_order is None:
+                text += '.'
+            else:
+                text += ' as recovered from previous calculation.'
+            log(text, flush = True)
+
+    def iterate(self, wfs, ham, dens, log):
+        wfs.timer.start('FD Hessian vector product')
+        if self.W is None:
+            self.W = []
+            Vt = self.V.T
+            for i in range(len(Vt)):
+                self.W.append(self.get_fd_hessian(Vt[i], wfs, ham, dens))
+            self.reset = False
+        else:
+            added = len(self.V[0]) - len(self.W[0])
+            self.W = self.W.T.tolist()
+            Vt = self.V.T
+            for i in range(added):
+                self.W.append(self.get_fd_hessian(
+                    Vt[-added + i], wfs, ham, dens))
+        self.W = np.asarray(self.W).T
+        wfs.timer.stop('FD Hessian vector product')
+        wfs.timer.start('Rayleigh matrix formation')
+        #self.H[k] = np.zeros(shape = (self.l[k], self.l[k]))
+        #mmm(1.0, self.V[k], 'N', self.W[k], 'T', 0.0, self.H[k])
+        self.H = np.dot(self.V.T, self.W)
+        wfs.timer.stop('Rayleigh matrix formation')
+        self.n_iter += 1
+        wfs.timer.start('Rayleigh matrix diagonalization')
+        eigv, eigvec = np.linalg.eigh(self.H)
+        wfs.timer.stop('Rayleigh matrix diagonalization')
+        eigvec = eigvec.T
+        if self.ef:
+            self.lambda_all = deepcopy(eigv)
+            self.y_all = deepcopy(eigvec)
+        self.lambda_ = eigv[: self.l]
+        self.y = eigvec[: self.l]
+        wfs.timer.start('Ritz vector calculation')
+        self.x = []
+        for i in range(self.l):
+            self.x.append(np.dot(self.V, self.y[i].T))
+        self.x = np.asarray(self.x)
+        wfs.timer.stop('Ritz vector calculation')
+        wfs.timer.start('Residual calculation')
+        self.r = []
+        for i in range(self.l):
+            self.r.append(self.x[i] * self.lambda_[i] \
+                          - np.dot(self.W, self.y[i].T))
+        self.r = np.asarray(self.r)
+        wfs.timer.stop('Residual calculation')
+        for i in range(self.l):
+            self.error[i] = np.abs(self.r[i]).max()
+        converged = True
+        for i in range(self.l):
+            converged = converged and self.error[i] < self.eps
+        self.converged = deepcopy(converged)
+        if converged:
+            self.eigenvalues = deepcopy(self.lambda_)
+            self.eigenvectors = deepcopy(self.x)
+            self.log(wfs, log, self.l)
+            return
+        n_dim = len(self.V)
+        wfs.timer.start('Preconditioner calculation')
+        self.C = np.zeros(shape = (self.l, n_dim))
+        for i in range(self.l):
+            self.C[i] = -np.abs(np.repeat(self.lambda_[i], n_dim) - self.M)**-1
+            for l in range(len(self.C[i])):
+                if self.C[i][l] > -0.1 * Hartree:
+                    self.C[i][l] = -0.1 * Hartree
+        wfs.timer.stop('Preconditioner calculation')
+        wfs.timer.start('Krylov space augmentation')
+        wfs.timer.start('New directions')
+        t = []
+        for i in range(self.l):
+            t.append(self.C[i] * self.r[i])
+        t = np.asarray(t)
+        if len(self.V[0]) <= self.l + self.m:
+            self.V = self.V.T.tolist()
+            for i in range(self.l):
+                self.V.append(t[i])
+        elif not self.cap_krylov:
+            self.reset = True
+            self.V = deepcopy(self.x.tolist())
+            for i in range(len(t)):
+                self.V.append(t[i])
+            self.W = None
+        wfs.timer.stop('New directions')
+        self.V = np.asarray(self.V)
+        if self.cap_krylov:
+            if len(self.V) > self.l + self.m:
+                if self.print_level > 0:
+                    log('Krylov space exceeded maximum size. '
+                            'Partial diagonalization is not fully converged.',
+                        flush = True)
+                self.converged = True
+        wfs.timer.start('Modified Gram-Schmidt')
+        self.V = mgs(self.V)
+        wfs.timer.stop('Modified Gram-Schmidt')
+        self.V = self.V.T
+        wfs.timer.stop('Krylov space augmentation')
+        self.log(wfs, log, self.l)
+
+    def log(self, wfs, log, l):
+        if self.print_level > 0:
+            log('Dimensionality of Krylov space: ' + str(len(self.V[0]) - l),
+                flush = True)
+            if self.reset:
+                log('Reset Krylov space', flush = True)
+            log('\nEigenvalues:\n', flush = True)
+            text = ''
+            for i in range(self.l):
+                text += '%10d '
+            indices = text % tuple(range(1, self.l + 1))
+            log(indices, flush = True)
+            text = ''
+            for i in range(self.l):
+                text += '%10.6f '
+            log(text % tuple(self.lambda_), flush = True)
+            log('\nResidual maximum components:\n', flush = True)
+            log(indices, flush = True)
+            text = ''
+            for i in range(self.l):
+                text += '%10.6f '
+            log(text % tuple(self.error), flush = True)
+
+    def get_fd_hessian(self, vin, wfs, ham, dens):
+        v = self.h * vin
+        c_nm = deepcopy(self.c_nm_ref)
+        a_mat_u = {}
+        n_dim = {}
+        start = 0
+        end = 0
+        for k in range(len(wfs.kpt_u)):
+            a_mat_u[k] = np.zeros_like(self.etdm.a_mat_u[k])
+            n_dim[k] = wfs.bd.nbands
+            end += self.dim[k]
+            a_mat_u[k] += v[start : end]
+            if self.dtype == complex:
+                a_mat_u[k] += 1.0j * v[self.dimtot + start : self.dimtot + end]
+            start += self.dim[k]
+        gp = self.etdm.get_energy_and_gradients(
+            a_mat_u, n_dim, ham, wfs, dens, c_nm)[1]
+        for k in range(len(wfs.kpt_u)):
+            a_mat_u[k] = np.zeros_like(self.etdm.a_mat_u[k])
+        hessi = []
+        if self.fd_mode == 'central':
+            start = 0
+            end = 0
+            for k in range(len(wfs.kpt_u)):
+                a_mat_u[k] = np.zeros_like(self.etdm.a_mat_u[k])
+                end += self.dim[k]
+                a_mat_u[k] -= v[start: end]
+                if self.dtype == complex:
+                    a_mat_u[k] \
+                        -= 1.0j * v[self.dimtot + start : self.dimtot + end]
+                start += self.dim[k]
+            gm = self.etdm.get_energy_and_gradients(
+                a_mat_u, n_dim, ham, wfs, dens, c_nm)[1]
+            for k in range(len(wfs.kpt_u)):
+                hessi += list((gp[k] - gm[k]) * 0.5 / self.h)
+        elif self.fd_mode == 'forward':
+            for k in range(len(wfs.kpt_u)):
+                hessi += list((gp[k] - self.grad[k]) / self.h)
+        if self.dtype == complex:
+            hessc = np.zeros(shape = (2 * self.dimtot))
+            hessc[: self.dimtot] = np.real(hessi)
+            hessc[self.dimtot :] = np.imag(hessi)
+            return hessc
+        else:
+            return np.asarray(hessi)
+
+
+def mgs(vin):
+
+    v = deepcopy(vin)
+    q = np.zeros_like(v)
+    for i in range(len(v)):
+        q[i] = v[i] / np.linalg.norm(v[i])
+        for k in range(len(v)):
+            v[k] = v[k] - np.dot(np.dot(q[i].T, v[k]), q[i])
+    return q
+
 def construct_real_hessian(hess):
 
     if hess.dtype == complex:
@@ -151,7 +528,6 @@ def construct_real_hessian(hess):
         hess_real = hess
 
     return hess_real
-
 
 def apply_central_finite_difference_approx(fplus, fminus, eps):
 
