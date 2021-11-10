@@ -6,15 +6,16 @@ from gpaw.xc import xc_string_to_dict
 from gpaw.directmin.sd_etdm import SteepestDescent, FRcg, QuickMin, LBFGS, \
     LBFGS_P, LSR1P, ModeFollowing
 from gpaw.directmin.ls_etdm import MaxStep, StrongWolfeConditions, Parabola
+from gpaw.directmin.derivatives import Davidson
 
 
-def search_direction(method):
+def search_direction(method, etdm=None):
     if isinstance(method, str):
         method = xc_string_to_dict(method)
 
     if isinstance(method, dict):
         kwargs = method.copy()
-        name = kwargs.pop('name').replace('-', '').lower()
+        names = kwargs.pop('name').replace('-', '').lower().split('_')
 
         searchdir = {'sd': SteepestDescent,
                      'frcg': FRcg,
@@ -22,7 +23,13 @@ def search_direction(method):
                      'lbfgs': LBFGS,
                      'lbfgsp': LBFGS_P,
                      'lsr1p': LSR1P
-                     }[name](**kwargs)
+                     }[names[0]](**kwargs)
+
+        if len(names) == 2:
+            if names[1] == 'mmf':
+                searchdir = ModeFollowing(
+                    partial_diagonalizer(method['partial_diagonalizer'], etdm),
+                    searchdir)
 
         return searchdir
     else:
@@ -50,3 +57,15 @@ def line_search_algorithm(method, objective_function, searchdir_algo):
         return ls_algo
     else:
         raise ValueError('Check keyword for line search!')
+
+def partial_diagonalizer(method, domom):
+    if isinstance(method, str):
+        method = xc_string_to_dict(method)
+
+    if isinstance(method, dict):
+        kwargs = method.copy()
+        name = kwargs.pop('name')
+        if name == 'Davidson':
+            return Davidson(domom, **kwargs)
+        else:
+            raise ValueError('Check keyword for partial diagonalizer!')
