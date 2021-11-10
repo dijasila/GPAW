@@ -147,9 +147,9 @@ class Derivatives:
 
 
 class Davidson(object):
-    def __init__(self, etdm, fd_mode = 'central', m = np.inf, h = 1e-7,
-                 eps = 1e-2, cap_krylov = False, ef = False, print_level = 0,
-                 remember_sp_order = False, sp_order = None):
+    def __init__(self, etdm, fd_mode='central', m=np.inf, h=1e-7, eps=1e-2,
+                 cap_krylov=False, ef=False, print_level=0,
+                 remember_sp_order=False, sp_order=None):
         self.etdm = etdm
         self.fd_mode = fd_mode
         self.remember_sp_order = remember_sp_order
@@ -197,7 +197,7 @@ class Davidson(object):
             log('|-------------------------------------------------------|\n',
                 flush=True)
 
-    def run(self, wfs, ham, dens, log, use_prev = False):
+    def run(self, wfs, ham, dens, log, use_prev=False):
         self.initialize(wfs, log, use_prev)
         if not self.ef:
             self.etdm.sort_wavefunctions_mom(wfs)
@@ -228,11 +228,11 @@ class Davidson(object):
                     self.sp_order = 1
                 log('Saved target saddle point order as ' \
                     + str(self.sp_order) + ' for future partial ' \
-                        'diagonalizations.', flush = True)
+                        'diagonalizations.', flush=True)
             elif self.log_sp_order_once:
                 self.log_sp_order_once = False
                 log('Using target saddle point order of ' \
-                    + str(self.sp_order) + '.', flush = True)
+                    + str(self.sp_order) + '.', flush=True)
         if self.ef:
             self.x_all = []
             for i in range(len(self.lambda_all)):
@@ -246,7 +246,7 @@ class Davidson(object):
             for kpt in wfs.kpt_u:
                 self.etdm.sort_wavefunctions(ham, wfs, kpt)
 
-    def initialize(self, wfs, log, use_prev = False):
+    def initialize(self, wfs, log, use_prev=False):
         self.introduce(log)
         self.reset = False
         self.converged = False
@@ -275,7 +275,7 @@ class Davidson(object):
             for i in range(len(dia)):
                 if np.real(dia[i]) < -1e-8:
                     appr_sp_order += 1
-        self.M = np.zeros(shape = self.dimtot * self.dim_z)
+        self.M = np.zeros(shape=self.dimtot * self.dim_z)
         for i in range(self.dimtot * self.dim_z):
             self.M[i] = np.real(dia[i % self.dimtot])
         if self.sp_order is not None:
@@ -318,7 +318,7 @@ class Davidson(object):
                     for m in range(self.dim_z):
                         if l == imin:
                             continue
-                        rand = np.zeros(shape = 2)
+                        rand = np.zeros(shape=2)
                         if world.rank == 0:
                             rand[0] = rng.random()
                             rand[1] = 1 if rng.random() > 0.5 else -1
@@ -341,7 +341,7 @@ class Davidson(object):
                 text += '.'
             else:
                 text += ' as recovered from previous calculation.'
-            log(text, flush = True)
+            log(text, flush=True)
 
     def iterate(self, wfs, ham, dens, log):
         wfs.timer.start('FD Hessian vector product')
@@ -361,7 +361,7 @@ class Davidson(object):
         self.W = np.asarray(self.W).T
         wfs.timer.stop('FD Hessian vector product')
         wfs.timer.start('Rayleigh matrix formation')
-        #self.H[k] = np.zeros(shape = (self.l[k], self.l[k]))
+        #self.H[k] = np.zeros(shape=(self.l[k], self.l[k]))
         #mmm(1.0, self.V[k], 'N', self.W[k], 'T', 0.0, self.H[k])
         self.H = np.dot(self.V.T, self.W)
         wfs.timer.stop('Rayleigh matrix formation')
@@ -401,7 +401,7 @@ class Davidson(object):
             return
         n_dim = len(self.V)
         wfs.timer.start('Preconditioner calculation')
-        self.C = np.zeros(shape = (self.l, n_dim))
+        self.C = np.zeros(shape=(self.l, n_dim))
         for i in range(self.l):
             self.C[i] = -np.abs(np.repeat(self.lambda_[i], n_dim) - self.M)**-1
             for l in range(len(self.C[i])):
@@ -431,7 +431,7 @@ class Davidson(object):
                 if self.print_level > 0:
                     log('Krylov space exceeded maximum size. '
                             'Partial diagonalization is not fully converged.',
-                        flush = True)
+                        flush=True)
                 self.converged = True
         wfs.timer.start('Modified Gram-Schmidt')
         self.V = mgs(self.V)
@@ -443,25 +443,25 @@ class Davidson(object):
     def log(self, log, l):
         if self.print_level > 0:
             log('Dimensionality of Krylov space: ' + str(len(self.V[0]) - l),
-                flush = True)
+                flush=True)
             if self.reset:
-                log('Reset Krylov space', flush = True)
-            log('\nEigenvalues:\n', flush = True)
+                log('Reset Krylov space', flush=True)
+            log('\nEigenvalues:\n', flush=True)
             text = ''
             for i in range(self.l):
                 text += '%10d '
             indices = text % tuple(range(1, self.l + 1))
-            log(indices, flush = True)
+            log(indices, flush=True)
             text = ''
             for i in range(self.l):
                 text += '%10.6f '
-            log(text % tuple(self.lambda_), flush = True)
-            log('\nResidual maximum components:\n', flush = True)
-            log(indices, flush = True)
+            log(text % tuple(self.lambda_), flush=True)
+            log('\nResidual maximum components:\n', flush=True)
+            log(indices, flush=True)
             text = ''
             for i in range(self.l):
                 text += '%10.6f '
-            log(text % tuple(self.error), flush = True)
+            log(text % tuple(self.error), flush=True)
 
     def get_fd_hessian(self, vin, wfs, ham, dens):
         v = self.h * vin
@@ -502,7 +502,7 @@ class Davidson(object):
             for k in range(len(wfs.kpt_u)):
                 hessi += list((gp[k] - self.grad[k]) / self.h)
         if self.dtype == complex:
-            hessc = np.zeros(shape = (2 * self.dimtot))
+            hessc = np.zeros(shape=(2 * self.dimtot))
             hessc[: self.dimtot] = np.real(hessi)
             hessc[self.dimtot :] = np.imag(hessi)
             return hessc
