@@ -2,7 +2,7 @@
 Core data structures
 ====================
 
-.. modeule gpaw.core
+.. module:: gpaw.core
 
 Uniform grids
 =============
@@ -19,10 +19,10 @@ A uniform grid can be created with the :class:`UniformGrid` class:
 Given a :class:`UniformGrid` object, one can create
 :class:`UniformGridFunctions` objects like this
 
->>> u1 = grid.empty()
->>> u1.data.shape
+>>> func_R = grid.empty()
+>>> func_R.data.shape
 (20, 20, 20)
->>> u1.data[:] = 1.0
+>>> func_R.data[:] = 1.0
 >>> grid.zeros((3, 2)).data.shape
 (3, 2, 20, 20, 20)
 
@@ -34,18 +34,18 @@ A set of plane-waves are characterized by a cutoff energy and a uniform
 grid
 >>> from gpaw.core import PlaneWaves
 >>> pw = PlaneWaves(ecut=100, cell=grid.cell)
->>> p1 = pw.empty()
->>> u1.fft(out=p1)
+>>> func_G = pw.empty()
+>>> func_R.fft(out=func_G)
 PlaneWaveExpansions(pw=PlaneWaves(ecut=100, grid=20*20*20), shape=())
 >>> G = pw.reciprocal_vectors()
 >>> G.shape
 (1536, 3)
 >>> G[0]
 array([0., 0., 0.])
->>> p1.data[0]
-(8000+0j)
->>> p1.ifft(out=u1)
->>> u1.data[0, 0, 0]
+>>> func_G.data[0]
+(1+0j)
+>>> func_G.ifft(out=func_R)
+>>> func_R.data[0, 0, 0]
 1.0
 
 
@@ -64,16 +64,16 @@ Block boundary conditions
 Matrix elements
 ===============
 
->>> def T(psi):
-...     out = psi.empty_like()
-...     out.data[:] = psi.pw.ekin * psit.data
+>>> def T(psit_nG):
+...     out = psit_nG.empty_like()
+...     out.data[:] = psit_nG.desc.ekin_G * psit_nG.data
 ...     return out
->>> H = psi.matrix_elements(psit, function=T)
+>>> H_nn = psit_nG.matrix_elements(psit_nG, function=T)
 
 Same as:
 
->>> Tpsi = T(psi)
->>> psi.matrix_elements(Tpsi, symmetric=True)
+>>> Tpsit_nG = T(psit_nG)
+>>> psit_nG.matrix_elements(Tpsit_nG, symmetric=True)
 
 but faster.
 
@@ -111,8 +111,6 @@ Uniform grids
     :undoc-members:
 .. autoclass:: gpaw.core.atom_centered_functions.AtomCenteredFunctions
     :undoc-members:
-.. autoclass:: gpaw.core.layout.Layout
-    :undoc-members:
 .. autoclass:: gpaw.core.uniform_grid.UniformGridFunctions
     :undoc-members:
 .. autoclass:: gpaw.core.arrays.DistributedArrays
@@ -137,8 +135,8 @@ A simple example that we can run with MPI on 4 cores::
     from gpaw.matrix import Matrix
     from gpaw.mpi import world
     a = Matrix(5, 5, dist=(world, 2, 2, 2))
-    a.array[:] = world.rank
-    print(world.rank, a.array.shape)
+    a.data[:] = world.rank
+    print(world.rank, a.data.shape)
 
 Here, we have created a 5x5 :class:`Matrix` of floats distributed on a 2x2
 BLACS grid with a block size of 2 and we then print the shapes of the ndarrays,
@@ -168,6 +166,4 @@ This will output::
 Matrix-matrix multiplication
 works like this::
 
-    from gpaw.matrix import matrix_matrix_multiply as mmm
-    c = mmm(1.0, a, 'N', a, 'T')
-    mmm(1.0, a, 'N', a, 'T', 1.0, c, symmetric=True)
+    c = a.multiply(a, opb='T')

@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 
 
 class DistributedArrays:
-    # desc: Domain
+    desc: Domain
 
     def __init__(self,
                  dims: int | tuple[int, ...],
@@ -49,6 +49,9 @@ class DistributedArrays:
 
         self.data = data
         self._matrix: Matrix | None = None
+
+    def new(self, data=None) -> DistributedArrays:
+        raise NotImplementedError
 
     @property
     def matrix(self) -> Matrix:
