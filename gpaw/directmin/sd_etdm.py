@@ -9,6 +9,7 @@ https://pubs.acs.org/doi/10.1021/acs.jctc.0c00597
 
 import numpy as np
 import copy
+from gpaw.directmin.tools import array_to_dict, dict_to_array
 
 
 class SearchDirectionBase(object):
@@ -32,6 +33,69 @@ class SearchDirectionBase(object):
         self.kp = {}
         self.p = 0
         self.k = 0
+
+
+class ModeFollowingBase(object):
+    """
+    Base gradient partitioning implementation for minimum mode following
+    """
+    def __init__(self, wfs, partial_diagonalizer):
+        self.eigv = None
+        self.eigvec = None
+        self.eigvec_old = None
+        self.dtype = wfs.dtype
+        self.partial_diagonalizer = partial_diagonalizer
+        self.fixed_sp_order = None
+        super(ModeFollowingBase, self).__init__(wfs)
+
+    def update_eigenpairs(self, g_k1, wfs, ham, dens, log):
+        self.partial_diagonalizer.grad = g_k1
+        use_prev = False if self.eigv is None else True
+        self.partial_diagonalizer.run(wfs, ham, dens, log, use_prev)
+        self.eigv = copy.deepcopy(self.partial_diagonalizer.lambda_complete)
+        self.eigvec_old = copy.deepcopy(self.eigvec)
+        self.eigvec = copy.deepcopy(self.partial_diagonalizer.x_complete.T)
+        if self.dtype == complex:
+            dimtot = int(len(self.eigvec[0]) / 2)
+            eigvec = np.zeros(shape=(len(self.eigvec), dimtot),
+                              dtype=complex)
+            for i in range(len(self.eigvec)):
+                eigvec[i] += self.eigvec[i][: dimtot] \
+                             + 1.0j * self.eigvec[i][dimtot :]
+            self.eigvec = eigvec
+        self.fixed_sp_order = self.partial_diagonalizer.sp_order
+
+    def negate_parallel_grad(self, g_k1):
+        grad, dim, dimtot = dict_to_array(g_k1)
+        get_dots = 0
+        if self.fixed_sp_order is None:
+            for i in range(len(self.eigv)):
+                if self.eigv[i] <= -1e-8:
+                    get_dots += 1
+                else:
+                    break
+        else:
+            neg_temp = 0
+            for i in range(len(self.eigv)):
+                if self.eigv[i] <= -1e-8:
+                    neg_temp += 1
+                else:
+                    break
+            get_dots = self.fixed_sp_order
+        grad_par = np.zeros_like(grad)
+        for i in range(get_dots):
+            grad_par += self.eigvec[i] \
+                        * np.dot(self.eigvec[i].conj(), grad.T).real
+        if self.fixed_sp_order is not None:
+            if neg_temp >= self.fixed_sp_order:
+                grad_mod = grad - 2.0 * grad_par
+            else:
+                grad_mod = -grad_par
+        elif get_dots == 1:
+            grad_mod = grad - 2.0 * grad_par
+        else:
+            grad_mod = -grad_par
+        return array_to_dict(grad_mod, dim)
 
 
 class SteepestDescent(SearchDirectionBase):
