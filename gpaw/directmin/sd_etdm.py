@@ -352,7 +352,11 @@ class LBFGS_P(SearchDirectionBase):
                 'memory': self.memory,
                 'beta_0': self.beta_0}
 
-    def update_data(self, wfs, x_k1, g_k1, hess_1=None):
+    def update_data(self, wfs, x_k1, g_k1, precond=None):
+        # For L-BFGS-P, the preconditioner passed here has to be differentiated
+        # from the preconditioner passed in ETDM. To keep the UI of this member
+        # function consistent, the term precond is still used in the signature
+        hess_1 = precond
         self.iters += 1
         if self.k == 0:
             self.kp[self.k] = self.p
@@ -580,12 +584,6 @@ class LSR1P(SearchDirectionBase):
         return bv
 
 
-# These MMF classes could potentially be unified by making the search
-# direction algorithm a member of a mode following class which appends
-# '_MF' to the __str__ representation
-# search_direction is already initialized, so add an initialization for this
-# class into etdm or whereever it needs to be
-
 class ModeFollowing(ModeFollowingBase):
     def __init__(self, wfs, partial_diagonalizer, search_direction):
         self.search_direction = search_direction
@@ -659,10 +657,10 @@ class LBFGS_P_MF(ModeFollowingBase, LBFGS_P):
     def __str__(self):
         return 'LBFGS_P_MF'
 
-    def update_data(self, wfs, x_k1, g_k1, hess_1=None):
+    def update_data(self, wfs, x_k1, g_k1, precond=None):
         g_k1 = self.negate_parallel_grad(g_k1)
         return super(LBFGS_P_MF, self).update_data(wfs, x_k1, g_k1,
-                                                   hess_1=hess_1)
+                                                   precond=precond)
 
 
 class LSR1P_MF(ModeFollowingBase, LSR1P):
