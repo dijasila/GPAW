@@ -28,13 +28,65 @@ class RIMPV(RIAlgorithm):
         get_W_LL_diagonals_from_setups(self.W_LL, self.lmax, self.density.setups)
         with open('RIMPV-W_LL.npy', 'wb') as f:
             np.save(f, self.W_LL)
-        
+
+        self.Wh_LL = np.linalg.cholesky(self.W_LL)
+
+        # Debugging: Reconstruct W_LL from Wh_LL
+        print(self.Wh_LL)
+        assert np.linalg.norm(self.Wh_LL @ self.Wh_LL.T - self.W_LL)<1e-10
+        print(self.Wh_LL @ self.Wh_LL.T - self.W_LL)
+
+        # Number of atoms
+        Na = len(spos_ac)
+
+        # Number of compensation charges per atom
+        locLmax = (self.lmax+1)**2
+
+        # Number of total compensation charges
+        Ltot = Na * locLmax
+
+        # Number of atomic orbitals
+        nao = self.wfs.setups.nao
+
+        """
+
+            P_LMM is a projection operator to the auxiliary compensation charge subspace
+
+        """
+        self.P_LMM = np.zeros( (Ltot, nao, nao) )
+
+
+        """
+
+           
+
+        """
+
+
+        """
+
+            Compensation charge contributions to P_LMM
+
+        """
+        for a, setup in enumerate(self.wfs.setups):
+            Delta_iiL = setup.Delta_iiL
+            P_Mi = self.wfs.atomic_correction.P_aqMi[a][0]
+            self.P_LMM[a*locLmax:(a+1)*locLmax, :, :] += \
+                      np.einsum('Mi,ijL,Nj->LMN', 
+                      P_Mi, Delta_iiL, P_Mi, optimize=True)
+
+
+        """
+            
+            Premultiply with cholesky
+        """
+        self.P_LMM = np.einsum('LO,OMN->LMN', self.Wh_LL, self.P_LMM)
+
     def nlxc(self, H_MM, dH_asp, wfs, kpt):
         rho_MM = wfs.ksl.calculate_density_matrix(kpt.f_n, kpt.C_nM)
-        F_MM = -0.5 * np.einsum('Aij,AB,Bkl,jl',
-                                self.I_AMM,
-                                self.iW_AA,
-                                self.I_AMM,
+        F_MM = -0.5 * np.einsum('Aij,Akl,jl',
+                                self.P_LMM,
+                                self.P_LMM,
                                 rho_MM, optimize=True)
         H_MM += self.exx_fraction * F_MM
         self.evv = 0.5 * self.exx_fraction * np.einsum('ij,ij', F_MM, rho_MM)

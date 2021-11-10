@@ -695,6 +695,9 @@ class LeanSetup(BaseSetup):
         self._Mg_pp = None
         self._gamma = 0
 
+        # Required by aux-lcao
+        self.W_LL = s.W_LL
+
 
 class Setup(BaseSetup):
     """Attributes:
@@ -1009,6 +1012,16 @@ class Setup(BaseSetup):
         self.xc_correction = data.get_xc_correction(rgd2, xc, gcut2, lcut)
         self.nabla_iiv = self.get_derivative_integrals(rgd2, phi_jg, phit_jg)
         self.rxnabla_iiv = self.get_magnetic_integrals(rgd2, phi_jg, phit_jg)
+
+
+        Lmax = len(self.g_lg)**2
+        self.W_LL = np.zeros((Lmax, Lmax))
+        L = 0
+        for l, (g_l, wg_l) in enumerate(zip(self.g_lg, self.wg_lg)):
+            integral = np.dot(g_l, wg_l)
+            for m in range(2*l+1):
+                self.W_LL[L,L] = integral
+                L += 1
 
     def create_projectors(self, pt_jg, rcut):
         pt_j = []
