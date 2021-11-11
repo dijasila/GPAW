@@ -1,5 +1,6 @@
-from gpaw.solvation.gridmem import NeedsGD
+import sys
 import numpy as np
+from gpaw.solvation.gridmem import NeedsGD
 
 
 class Dielectric(NeedsGD):
@@ -76,6 +77,12 @@ class Dielectric(NeedsGD):
 
     def write(self, writer):
         writer.write(name=self.__class__.__name__, epsinf=self._epsinf)
+
+    @classmethod
+    def read(cls, reader):
+        kwargs = reader.asdict()
+        obj = getattr(sys.modules[__name__], kwargs.pop('name'))
+        return obj(**kwargs)
 
 
 class LinearDielectric(Dielectric):

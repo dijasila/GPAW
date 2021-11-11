@@ -1,6 +1,9 @@
-from gpaw import GPAW
-from gpaw.solvation.hamiltonian import SolvationRealSpaceHamiltonian
 from ase.units import Hartree, Bohr
+
+from gpaw import GPAW
+from gpaw.io import Reader
+from gpaw.solvation.hamiltonian import SolvationRealSpaceHamiltonian
+from gpaw.solvation.dielectric import Dielectric
 
 
 class SolvationGPAW(GPAW):
@@ -99,5 +102,24 @@ class SolvationGPAW(GPAW):
     def _write(self, *args, **kwargs):
         writer = super()._write(*args, **kwargs)
         cavity, dielectric, interactions = self.stuff_for_hamiltonian
+        cavity.write(writer.child('cavity'))
         dielectric.write(writer.child('dielectric'))
+        # XXX interactions ???
         return writer
+
+    @classmethod
+    def read(cls, filename):
+        # read essential initialisation input
+        reader = Reader(filename)
+        dielectric = Dielectric.read(reader.dielectric)
+        from gpaw.solvation.cavity import Cavity
+        cavity = Cavity.read(reader.cavity)
+        obj = SolvationGPAW(cavity, dielectric)
+
+        def icalculate(*args, **kwargs):
+            raise NotImplementedError('Restart not implemented')
+
+        obj.icalculate = icalculate
+        GPAW.read(obj, filename)
+
+        return obj

@@ -1,8 +1,10 @@
+import sys
+import numpy as np
 from ase.units import kB, Hartree, Bohr
+
 from gpaw.solvation.gridmem import NeedsGD
 from gpaw.fd_operators import Gradient
 from gpaw.io.logger import indent
-import numpy as np
 
 
 BAD_RADIUS_MESSAGE = "All atomic radii have to be finite and >= zero."
@@ -179,6 +181,30 @@ class Cavity(NeedsGD):
         log('Cavity Surface Area: %s' % (A, ))
         log('Cavity Volume: %s' % (V, ))
 
+    def write(self, writer):
+        writer.write(name=self.__class__.__name__)
+        if self.surface_calculator is not None:
+            writer.write(
+                surface_calculator=self.surface_calculator.__class__.__name__)
+        if self.volume_calculator is not None:
+            writer.write(
+                volume_calculator=self.volume_calculator.__class__.__name__)
+
+    @classmethod
+    def read(cls, reader):
+        kwargs = reader.asdict()
+        obj = getattr(sys.modules[__name__], kwargs.pop('name'))
+        if 'surface_calculator' in kwargs:
+            kwargs['surface_calculator'] = getattr(
+                sys.modules[__name__], kwargs['surface_calculator'])()
+        if 'effective_potential' in kwargs:
+            kwargs['effective_potential'] = getattr(
+                sys.modules[__name__],
+                kwargs['effective_potential']['name']).read(
+                    reader.effective_potential)
+                                                   
+        return obj(**kwargs)
+
 
 class EffectivePotentialCavity(Cavity):
     """Cavity built from effective potential and Boltzmann distribution.
@@ -264,6 +290,11 @@ class EffectivePotentialCavity(Cavity):
 
     def update_atoms(self, atoms, log):
         self.effective_potential.update_atoms(atoms, log)
+
+    def write(self, writer):
+        super().write(writer)
+        writer.write(temperature=self.temperature)
+        self.effective_potential.write(writer.child('effective_potential'))
 
     # --- BEGIN GradientSurface API ---
 
@@ -433,6 +464,25 @@ class Power12Potential(Potential):
 
     def update_atoms(self, atoms, log):
         set_log_and_check_radii(self, atoms, log)
+
+    def write(self, writer):
+        kwargs = {
+            'name': self.__class__.__name__,
+            'u0': self.u0,
+            'pbc_cutoff': self.pbc_cutoff,
+            'tiny': self.tiny}
+        writer.write(**kwargs)
+
+    @classmethod
+    def read(cls, reader):
+        kwargs = reader.asdict()
+        obj = getattr(sys.modules[__name__], kwargs.pop('name'))
+
+        def fake_radii(atoms):
+            return np.zeros(len(atoms))
+
+        kwargs['atomic_radii'] = fake_radii
+        return obj(**kwargs)
 
 
 class SmoothStepCavity(Cavity):
