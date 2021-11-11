@@ -22,11 +22,15 @@ class SearchDirectionBase(object):
 
     def __str__(self):
         raise NotImplementedError('Search direction class needs string '
-                                  'representation')
+                                  'representation.')
+
+    def todict(self):
+        raise NotImplementedError('Search direction class needs \'todict\' '
+                                  'method.')
 
     def update_data(self, wfs, x_k1, g_k1, precond=None):
         raise NotImplementedError('Search direction class needs '
-                                  '\'update_data\' method')
+                                  '\'update_data\' method.')
 
     def reset(self):
         self.iters = 0
@@ -97,13 +101,16 @@ class ModeFollowingBase(object):
         return array_to_dict(grad_mod, dim)
 
 
-class ModeFollowing(ModeFollowingBase):
+class ModeFollowing(ModeFollowingBase, SearchDirectionBase):
     def __init__(self, partial_diagonalizer, search_direction):
         self.sd = search_direction
         super(ModeFollowing, self).__init__(partial_diagonalizer)
 
     def __str__(self):
-        return self.sd.__str__() + '_MF'
+        return self.sd.__str__() + ' with minimum mode following'
+
+    def todict(self):
+        return {'name': self.sd.name + '_MMF'}
 
     def update_data(self, wfs, x_k1, g_k1, precond=None):
         g_k1 = self.negate_parallel_grad(g_k1)
