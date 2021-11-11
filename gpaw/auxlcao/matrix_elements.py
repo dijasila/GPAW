@@ -96,3 +96,7 @@ class MatrixElements:
     def set_parameters(self, parameters):
         self.parameters = parameters
 
+    def evaluate_3ci(self, a1, a2, a3):
+        print(a1,a2,a3)
+        raise NotImplementedError
+        return 0.0

@@ -38,13 +38,12 @@ def calculate_local_I_LMM(matrix_elements, alst, lmax):
     Mloc_a = create_local_M_a(alst, matrix_elements.M_a)
     S = (lmax+1)**2
     Iloc_LMM = np.zeros( (S*len(alst), Mloc_a[-1], Mloc_a[-1]) )
+    loc_alst = range(len(alst))
+    for a1, Lslice in zip(alst, get_L_slices(loc_alst, S)):
+        for a2, M1slice in zip(alst, get_M_slices(loc_alst, Mloc_a)):
+            for a3, M2slice in zip(alst, get_M_slices(loc_alst, Mloc_a)):
+                Iloc_LMM[Lslice, M1slice, M2slice] = matrix_elements.evaluate_3ci(a1,a2,a3)
 
-    """
-    for aloc, Lslice in enumerate(get_L_slices(alst, S)):
-        for a1loc, M1slice in enumerate(get_M_slices(alst, Mloc_a)):
-            for a2loc, M2slice in enumerate(get_M_slices(alst, Mloc_a)):
-                Iloc_LMM[Lslice, M1slice, M2slice] = 0
-    """
     Lslices = get_L_slices(alst, S)
     Mslices = get_M_slices(alst, matrix_elements.M_a)
 
