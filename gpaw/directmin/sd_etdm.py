@@ -103,6 +103,8 @@ class ModeFollowingBase(object):
 class ModeFollowing(ModeFollowingBase, SearchDirectionBase):
     def __init__(self, partial_diagonalizer, search_direction):
         self.sd = search_direction
+        self.name = self.sd.name + '_mmf'
+        self.type = self.sd.type + '_mmf'
         super(ModeFollowing, self).__init__(partial_diagonalizer)
 
     def __str__(self):
@@ -110,7 +112,7 @@ class ModeFollowing(ModeFollowingBase, SearchDirectionBase):
 
     def todict(self):
         res = self.sd.todict()
-        res['name'] += '_mmf'
+        res['name'] += '_mmf' # tag will be removed in etdm
         return res
 
     def update_data(self, wfs, x_k1, g_k1, precond=None):
