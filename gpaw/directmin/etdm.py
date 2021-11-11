@@ -12,6 +12,7 @@ https://doi.org/10.1016/j.cpc.2021.108047
 
 import numpy as np
 import warnings
+from copy import deepcopy
 from gpaw.directmin.tools import expm_ed, expm_ed_unit_inv
 from gpaw.directmin.lcao.directmin_lcao import DirectMinLCAO
 from scipy.linalg import expm
@@ -500,6 +501,10 @@ class ETDM:
             x_mat_u = {k: a_vec_u[k] + alpha * p_mat_u[k] for k in a_vec_u}
             phi, g_vec_u = self.get_energy_and_gradients(x_mat_u, n_dim,
                                                          ham, wfs, dens, c_ref)
+
+            if self.mmf:
+                self.g_vec_u_original = deepcopy(g_vec_u)
+                g_vec_u = self.searchdir_algo.negate_parallel_grad(g_vec_u)
 
         der_phi = 0.0
         for k in p_mat_u:
