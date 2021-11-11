@@ -707,6 +707,8 @@ class ETDM:
 
         return {'name': self.name,
                 'searchdir_algo': self.searchdir_algo.todict(),
+                'partial_diagonalizer':
+                    self.searchdir_algo.partial_diagonalizer.todict(),
                 'linesearch_algo': self.line_search.todict(),
                 'localizationtype': self.localizationtype,
                 'update_ref_orbs_counter': self.update_ref_orbs_counter,
