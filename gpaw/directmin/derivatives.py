@@ -2,6 +2,7 @@ import numpy as np
 from gpaw.directmin.etdm import random_a, get_n_occ
 from ase.units import Hartree
 from gpaw.mpi import world
+from gpaw.io.logger import GPAWLogger
 from copy import deepcopy
 
 
@@ -147,7 +148,7 @@ class Derivatives:
 
 
 class Davidson(object):
-    def __init__(self, etdm, fd_mode='central', m=np.inf, h=1e-7, eps=1e-2,
+    def __init__(self, etdm, logfile, fd_mode='central', m=np.inf, h=1e-7, eps=1e-2,
                  cap_krylov=False, ef=False, print_level=0,
                  remember_sp_order=False, sp_order=None):
         self.etdm = etdm
@@ -183,6 +184,10 @@ class Davidson(object):
         self.nbands = None
         self.c_nm_ref = None
         self.print_level = print_level
+        self.logfile = logfile
+        if self.print_level > 0:
+            self.logger = GPAWLogger(world)
+            self.logger.fd(logfile)
         if self.ef:
             self.lambda_all = None
             self.y_all = None
@@ -190,6 +195,7 @@ class Davidson(object):
 
     def todict(self):
         return {'name': 'Davidson',
+                'logfile': self.logfile,
                 'fd_mode': self.fd_mode,
                 'm': self.m,
                 'h': self.h,
@@ -200,15 +206,15 @@ class Davidson(object):
                 'remember_sp_order': self.remember_sp_order,
                 'sp_order': self.sp_order}
 
-    def introduce(self, log):
+    def introduce(self):
         if self.print_level > 0:
-            log('|-------------------------------------------------------|')
-            log('|             Davidson partial diagonalizer             |')
-            log('|-------------------------------------------------------|\n',
+            self.logger('|-------------------------------------------------------|')
+            self.logger('|             Davidson partial diagonalizer             |')
+            self.logger('|-------------------------------------------------------|\n',
                 flush=True)
 
-    def run(self, wfs, ham, dens, log, use_prev=False):
-        self.initialize(wfs, log, use_prev)
+    def run(self, wfs, ham, dens, use_prev=False):
+        self.initialize(wfs, use_prev)
         if not self.ef:
             self.etdm.sort_wavefunctions_mom(wfs)
         self.n_iter = 0
@@ -224,7 +230,7 @@ class Davidson(object):
             self.grad = self.etdm.get_energy_and_gradients(
                 a_mat_u, n_dim, ham, wfs, dens, self.c_nm_ref)[1]
         while not self.converged:
-            self.iterate(wfs, ham, dens, log)
+            self.iterate(wfs, ham, dens)
         if self.remember_sp_order:
             if self.sp_order is None:
                 sp_order = 0
@@ -236,12 +242,12 @@ class Davidson(object):
                 self.sp_order = sp_order
                 if self.sp_order == 0:
                     self.sp_order = 1
-                log('Saved target saddle point order as ' \
+                self.logger('Saved target saddle point order as ' \
                     + str(self.sp_order) + ' for future partial ' \
                         'diagonalizations.', flush=True)
             elif self.log_sp_order_once:
                 self.log_sp_order_once = False
-                log('Using target saddle point order of ' \
+                self.logger('Using target saddle point order of ' \
                     + str(self.sp_order) + '.', flush=True)
         if self.ef:
             self.x_all = []
@@ -256,9 +262,9 @@ class Davidson(object):
             for kpt in wfs.kpt_u:
                 self.etdm.sort_wavefunctions(ham, wfs, kpt)
 
-    def initialize(self, wfs, log, use_prev=False):
+    def initialize(self, wfs, use_prev=False):
         dimz = 2 if self.etdm.dtype == complex else 1
-        self.introduce(log)
+        self.introduce()
         self.reset = False
         self.converged = False
         self.l = 0
@@ -352,9 +358,9 @@ class Davidson(object):
                 text += '.'
             else:
                 text += ' as recovered from previous calculation.'
-            log(text, flush=True)
+            self.logger(text, flush=True)
 
-    def iterate(self, wfs, ham, dens, log):
+    def iterate(self, wfs, ham, dens):
         wfs.timer.start('FD Hessian vector product')
         if self.W is None:
             self.W = []
@@ -408,7 +414,7 @@ class Davidson(object):
         if converged:
             self.eigenvalues = deepcopy(self.lambda_)
             self.eigenvectors = deepcopy(self.x)
-            self.log(log, 0)
+            self.log(0)
             return
         n_dim = len(self.V)
         wfs.timer.start('Preconditioner calculation')
@@ -440,7 +446,7 @@ class Davidson(object):
         if self.cap_krylov:
             if len(self.V) > self.l + self.m:
                 if self.print_level > 0:
-                    log('Krylov space exceeded maximum size. '
+                    self.logger('Krylov space exceeded maximum size. '
                             'Partial diagonalization is not fully converged.',
                         flush=True)
                 self.converged = True
@@ -449,30 +455,30 @@ class Davidson(object):
         wfs.timer.stop('Modified Gram-Schmidt')
         self.V = self.V.T
         wfs.timer.stop('Krylov space augmentation')
-        self.log(log, self.l)
+        self.log(self.l)
 
-    def log(self, log, l):
+    def log(self, l):
         if self.print_level > 0:
-            log('Dimensionality of Krylov space: ' + str(len(self.V[0]) - l),
+            self.logger('Dimensionality of Krylov space: ' + str(len(self.V[0]) - l),
                 flush=True)
             if self.reset:
-                log('Reset Krylov space', flush=True)
-            log('\nEigenvalues:\n', flush=True)
+                self.logger('Reset Krylov space', flush=True)
+            self.logger('\nEigenvalues:\n', flush=True)
             text = ''
             for i in range(self.l):
                 text += '%10d '
             indices = text % tuple(range(1, self.l + 1))
-            log(indices, flush=True)
+            self.logger(indices, flush=True)
             text = ''
             for i in range(self.l):
                 text += '%10.6f '
-            log(text % tuple(self.lambda_), flush=True)
-            log('\nResidual maximum components:\n', flush=True)
-            log(indices, flush=True)
+            self.logger(text % tuple(self.lambda_), flush=True)
+            self.logger('\nResidual maximum components:\n', flush=True)
+            self.logger(indices, flush=True)
             text = ''
             for i in range(self.l):
                 text += '%10.6f '
-            log(text % tuple(self.error), flush=True)
+            self.logger(text % tuple(self.error), flush=True)
 
     def get_fd_hessian(self, vin, wfs, ham, dens):
         v = self.h * vin
