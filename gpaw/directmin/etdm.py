@@ -29,6 +29,7 @@ class ETDM:
     def __init__(self,
                  searchdir_algo='l-bfgs-p',
                  linesearch_algo='swc-awc',
+                 partial_diagonalizer='Davidson',
                  update_ref_orbs_counter=20,
                  update_ref_orbs_canonical=False,
                  update_precond_counter=1000,
@@ -102,7 +103,8 @@ class ETDM:
         self.representation = representation
         self.orthonormalization = orthonormalization
 
-        self.searchdir_algo = search_direction(searchdir_algo)
+        self.searchdir_algo = search_direction(
+            searchdir_algo, self, partial_diagonalizer)
         if self.searchdir_algo.name == 'l-bfgs-p' and not self.use_prec:
             raise ValueError('Use l-bfgs-p with use_prec=True')
 
