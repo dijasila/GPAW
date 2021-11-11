@@ -7,13 +7,17 @@ from gpaw.auxlcao.utilities import get_compensation_charge_splines,\
 from gpaw.lcao.overlap import (FourierTransformer, TwoSiteOverlapCalculator,
                                ManySiteOverlapCalculator,
                                AtomicDisplacement, NullPhases)
+from gpaw.gaunt import gaunt
+
+G_LLL = gaunt(3) # XXX
+
 
 class MatrixElements:
     def __init__(self, lmax=2):
         self.lmax = lmax
 
     def initialize(self, density, ham, wfs):
-        setups = wfs.setups
+        self.setups = setups = wfs.setups
 
         self.M_a = setups.M_a.copy()
         self.M_a.append(setups.nao)
@@ -113,8 +117,41 @@ class MatrixElements:
 
         W_XM_expansion = self.W_XM_expansions.get(a1, a2)
         obj = W_qXM = W_XM_expansion.zeros((nq,), dtype=self.dtype)
-        print(obj)
-        print(a1,a2,a3)
-        print(R_c_and_offset_a)
-        raise NotImplementedError
-        return 0.0
+
+        for R_c, offset in R_c_and_offset_a:
+            norm = np.linalg.norm(R_c)
+            phases = NullPhases(self.ibzq_qc, offset)
+            disp = AtomicDisplacement(None, a1, a2, R_c, offset, phases)
+            disp.evaluate_overlap(W_XM_expansion, W_qXM)
+
+
+        setup1 = self.setups[a1]
+        M_a = self.M_a
+
+
+        W_XM = W_qXM[0]
+        local_I_AMM = np.zeros( ( (self.lmax+1)**2, M_a[a2+1]-M_a[a2], M_a[a3+1]-M_a[a3]) ) 
+        # 1) Loop over L
+        A = 0
+        X = 0
+        Astart = 0
+        M2start = 0 
+        for lg, gaux in enumerate(setup1.gaux_l):
+            M1start = 0
+            for j1, phit1 in enumerate(setup1.phit_j):
+                for l in range((lg + phit1.l) % 2, lg + phit1.l + 1, 2):
+                    for m in range(2*l+1):
+                        LX = l**2 + m
+                        for m1 in range(2*phit1.l+1):
+                            M1 = M1start + m1
+                            L1 = phit1.l**2 + m1
+                            for mA in range(2*lg+1):
+                                LA = lg**2 + mA
+                                A = Astart + mA
+                                local_I_AMM[A, M1, :] += G_LLL[LA,L1,LX] * W_XM[X, :]
+                        X += 1
+
+                M1start += 2*phit1.l+1
+            Astart += 2*lg+1
+
+        return local_I_AMM
