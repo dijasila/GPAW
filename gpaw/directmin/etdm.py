@@ -184,7 +184,7 @@ class ETDM:
                       'transformation.\n'
         repr_string += '       ' \
                        'Search ' \
-                       'direction: {}\n'.format(sds[sda_name[0]] + add)
+                       'direction: {}\n'.format(sds[sda_name] + add)
         repr_string += pd_add
         repr_string += '       ' \
                        'Line ' \
