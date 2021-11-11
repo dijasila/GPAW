@@ -168,15 +168,15 @@ class ETDM:
                 pardi[self.pd['name']])
 
         sds = {'sd': 'Steepest Descent',
-               'fr-cg': 'Fletcher-Reeves conj. grad. method',
-               'quick-min': 'Molecular-dynamics based algorithm',
-               'l-bfgs': 'L-BFGS algorithm',
-               'l-bfgs-p': 'L-BFGS algorithm with preconditioning',
-               'l-sr1p': 'Limited-memory SR1P algorithm'}
+               'frcg': 'Fletcher-Reeves conj. grad. method',
+               'quickmin': 'Molecular-dynamics based algorithm',
+               'lbfgs': 'L-BFGS algorithm',
+               'lbfgsp': 'L-BFGS algorithm with preconditioning',
+               'lsr1p': 'Limited-memory SR1P algorithm'}
 
-        lss = {'max-step': 'step size equals one',
+        lss = {'maxstep': 'step size equals one',
                'parabola': 'Parabolic line search',
-               'swc-awc': 'Inexact line search based on cubic interpolation,\n'
+               'swcawc': 'Inexact line search based on cubic interpolation,\n'
                           '                    strong and approximate Wolfe '
                           'conditions'}
 
