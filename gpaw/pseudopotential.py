@@ -52,7 +52,7 @@ def get_radial_hartree_energy(r_g, rho_g):
     # Test if the grid is equidistant. If not, interpolate to one.
     if any(abs(r_g[2:] - r_g[1:-1] - dr) > 1e-10):
         # Prepend to start the grid from zero
-        if r_g[0] == 0:
+        if r_g[0] > 0:
             r_g = np.concatenate(([0], r_g))
             rho_g = np.concatenate(([rho_g[0]], rho_g))
         rho_g_in = interp1d(r_g, rho_g, kind='cubic')
