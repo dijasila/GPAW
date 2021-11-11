@@ -1,3 +1,14 @@
+""" The rgd.poisson returns the radial Poisson solution multiplied with r.
+
+               /        n(r')
+    v(r) r = r | dr' ----------
+               /     | r - r' |
+
+
+   This function divides the r above, thus returning the actual poisson solution.
+   To avoid division by zero, the v_g[0] is approximated just by copying v_g[1] grid point.
+"""
+
 def Hartree(rgd, n_g, l):
     v_g = rgd.poisson(n_g, l)
     v_g[1:] /= rgd.r_g[1:]

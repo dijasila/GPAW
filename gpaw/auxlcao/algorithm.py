@@ -71,8 +71,13 @@ class RIMPV(RIAlgorithm):
         """
 
         gd = self.hamiltonian.gd
+        ibzq_qc = np.array([[0.0, 0.0, 0.0]])
+        dtype = self.wfs.dtype
         self.matrix_elements.set_positions_and_cell(spos_ac, 
-                                                    gd.cell_cv, gd.pbc_c)
+                                                    gd.cell_cv,
+                                                    gd.pbc_c,
+                                                    ibzq_qc,
+                                                    dtype)
 
 
         a1a2_p = self.matrix_elements.a1a2_p
