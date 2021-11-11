@@ -1,7 +1,9 @@
 import numpy as np
 
 from gpaw.auxlcao.procedures import calculate_W_LL_offdiagonals_multipole,\
-                                    get_W_LL_diagonals_from_setups
+                                    get_W_LL_diagonals_from_setups,\
+
+from gpaw.auxlcao.matrix_elements import MatrixElements
 
 class RIAlgorithm:
     def __init__(self, exx_fraction):
@@ -11,11 +13,13 @@ class RIMPV(RIAlgorithm):
     def __init__(self, exx_fraction):
         RIAlgorithm.__init__(self, exx_fraction)
         self.lmax = 2
+        self.matrix_elements = MatrixElements()
 
     def initialize(self, density, hamiltonian, wfs):
         self.density = density
         self.hamiltonian = hamiltonian
         self.wfs = wfs
+        self.matrix_elements.initialize(density, hamiltonian, wfs)
 
     def set_positions(self, spos_ac):
         self.W_LL = calculate_W_LL_offdiagonals_multipole(\
@@ -53,15 +57,27 @@ class RIMPV(RIAlgorithm):
             P_LMM is a projection operator to the auxiliary compensation charge subspace
 
         """
+
         self.P_LMM = np.zeros( (Ltot, nao, nao) )
 
 
         """
 
-           
+            Loop over overlapping basis function spheres
 
         """
 
+        gd = self.hamiltonian.gd
+        self.matrix_elements.set_positions_and_cell(spos_ac, 
+                                                    gd.cell_cv, gd.pbc_c)
+
+
+        a1a2_p = self.matrix_elements.a1a2_p
+        for a1, a2 in a1a2_p:
+            Wloc_LL, Lspan = grab_local_W_LL(self.W_LL, a1, a2)
+            Iloc_LMM, Lspan, Mspan = calculate_local_I_LMM(self.matrix_elements, a1, a2)
+            iWloc_LL = np.linalg.inv(Wloc_LL)
+            self.P_LMM[Lspan, Mspan, Mspan] += np.einsum('LO,OMN->LMN', iWloc_LL, Iloc_LMM)
 
         """
 
