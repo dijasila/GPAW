@@ -48,7 +48,6 @@ class ModeFollowingBase(object):
         self.eigvec = None
         self.eigvec_old = None
         self.partial_diagonalizer = partial_diagonalizer
-        self.dtype = self.partial_diagonalizer.dtype
         self.fixed_sp_order = None
 
     def update_eigenpairs(self, g_k1, wfs, ham, dens, log):
@@ -58,7 +57,7 @@ class ModeFollowingBase(object):
         self.eigv = copy.deepcopy(self.partial_diagonalizer.lambda_complete)
         self.eigvec_old = copy.deepcopy(self.eigvec)
         self.eigvec = copy.deepcopy(self.partial_diagonalizer.x_complete.T)
-        if self.dtype == complex:
+        if wfs.dtype == complex:
             dimtot = int(len(self.eigvec[0]) / 2)
             eigvec = np.zeros(shape=(len(self.eigvec), dimtot),
                               dtype=complex)
