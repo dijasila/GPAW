@@ -5,38 +5,66 @@ sqrt3 = 3**0.5
 sqrt5 = 5**0.5
 sqrt15 = 15**0.5
 
+"""
+
+    Methods helping with slicing of local arrays
+
+"""
 def reduce_list(lst):
     return list(dict.fromkeys(lst))
 
-def get_L_range(lst, S):
-    return np.block( [ np.arange(a*S, (a+1)*S) for a in lst ])
+def get_L_slices(lst, S):
+    for a in lst:
+        yield slice(a*S, (a+1)*S)
 
-def get_M_range(lst, M_a):
-    print('M_a', M_a)
-    return np.block( [ np.arange(M_a[a], M_a[a+1]) for a in lst ])
+def get_M_slices(lst, M_a):
+    for a in lst:
+        yield slice(M_a[a], M_a[a+1])
     
 def grab_local_W_LL(W_LL, alst, lmax):
     S = (lmax+1)**2
-    Lspan = get_L_range(reduce_list(alst), S)
-    return W_LL[Lspan][:,Lspan], Lspan
+    Lslices = [ slice for slice in get_L_slices(reduce_list(alst),S) ]
+    return np.block( [ [ W_LL[slice1, slice2] for slice2 in Lslices ] for slice1 in Lslices ] ), Lslices
+
+def create_local_M_a(alst, M_a):
+    M = 0
+    Mloc_a = [ 0 ]
+    for a in alst:
+        Msize = M_a[a+1] - M_a[a]
+        M += Msize
+        Mloc_a.append(M)
+    return Mloc_a
 
 def calculate_local_I_LMM(matrix_elements, alst, lmax):
     alst = reduce_list(alst)
+    Mloc_a = create_local_M_a(alst, matrix_elements.M_a)
     S = (lmax+1)**2
-    Lspan = get_L_range(alst, S)
-    Mspan = get_M_range(alst, matrix_elements.M_a)
+    Iloc_LMM = np.zeros( (S*len(alst), Mloc_a[-1], Mloc_a[-1]) )
 
-    Iloc_LMM = np.zeros( (len(Lspan), len(Mspan), len(Mspan)) )
+    """
+    for aloc, Lslice in enumerate(get_L_slices(alst, S)):
+        for a1loc, M1slice in enumerate(get_M_slices(alst, Mloc_a)):
+            for a2loc, M2slice in enumerate(get_M_slices(alst, Mloc_a)):
+                Iloc_LMM[Lslice, M1slice, M2slice] = 0
+    """
+    Lslices = get_L_slices(alst, S)
+    Mslices = get_M_slices(alst, matrix_elements.M_a)
 
-    for aloc, a in enumerate(alst):
-        atomLspan = get_L_range([aloc], S)
-        for bloc, b in enumerate(alst):
-            atomMspanb = np.arange(oc], matrix_elements.M_a[)
-            for c in alst:
-                atomMspanc = get_M_range([c], matrix_elements.M_a)
-                print(atomLspan, atomMspanb, atomMspanc)
-                Iloc_LMM[atomLspan][:,atomMspanb][:,:,atomMspanc] = 0
-    return Iloc_LMM, Lspan, Mspan
+    lLslices = get_L_slices(range(len(alst), S)
+    lMslices = get_M_slices(range(len(alst), Mloc_a)
+    gLslices = get_L_slices(alst, S)
+    gMslices = get_M_slices(alst, matrix_elements.M_a)
+
+    licing_internals = lLslices, lMslices, gLslices, gMslices
+    return Iloc_LMM, slicing_internals
+
+def add_to_global_P_LMM(P_LMM, result_LMM, slicing_internals):
+    lLslices, lMslices, gLslices, gMslices = slicing_internals
+    for lLslice, gLslice in zip(lLslices, gLslices):
+        for lMslice, gMslice in zip(lMslices, gMslices):
+            for lLslice, gLslice in zip(lLslices, gLslices):
+
+
 
 def get_W_LL_diagonals_from_setups(W_LL, lmax, setups):
     S = (lmax+1)**2
