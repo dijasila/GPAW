@@ -190,6 +190,18 @@ class Davidson(object):
             self.y_all = None
             self.x_all = None
 
+    def todict(self):
+        return {'name': 'Davidson',
+                'fd_mode': self.fd_mode,
+                'm': self.m,
+                'h': self.h,
+                'eps': self.eps,
+                'cap_krylov': self.cap_krylov,
+                'ef': self.ef,
+                'print_level': self.print_level,
+                'remember_sp_order': self.remember_sp_order,
+                'sp_order': self.sp_order}
+
     def introduce(self, log):
         if self.print_level > 0:
             log('|-------------------------------------------------------|')
