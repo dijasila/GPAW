@@ -1,8 +1,9 @@
-.. _charge analysis:
-
 ===============
 Charge Analysis
 ===============
+
+
+.. _bader analysis:
 
 Bader
 =====
@@ -85,7 +86,7 @@ Hirshfeld
 =========
 
 Another charge analysis is possible by using the Hirshfeld [Hirsh]_
-charges as are written out in the example above. 
+charges as are written out in the example above.
 
 .. literalinclude:: compare.py
 
@@ -96,5 +97,5 @@ charges as are written out in the example above.
 .. [Tang]  W. Tang, E. Sanville, G. Henkelman.
            A grid-based Bader analysis algorithm without lattice bias.
            J. Phys.: Compute Mater. 21, 084204 (2009).
-	      
+
 .. [Hirsh] F. L. Hirshfeld, Theor. Chim. Acta 44, 129 (1977).
