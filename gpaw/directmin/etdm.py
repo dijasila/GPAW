@@ -105,8 +105,13 @@ class ETDM:
 
         self.searchdir_algo = search_direction(
             searchdir_algo, self, partial_diagonalizer)
-        if self.searchdir_algo.name == 'l-bfgs-p' and not self.use_prec:
+        sd_name = self.searchdir_algo.name.replace('-', '').lower().split('_')
+        if sd_name[0] == 'lbfgsp' and not self.use_prec:
             raise ValueError('Use l-bfgs-p with use_prec=True')
+        if len(sd_name) == 2:
+            if sd_name[1] == 'mf':
+                self.g_mat_u_original = None
+                self.pd = partial_diagonalizer
 
         self.line_search = line_search_algorithm(linesearch_algo,
                                                  self.evaluate_phi_and_der_phi,
@@ -145,8 +150,19 @@ class ETDM:
 
     def __repr__(self):
 
-        sda_name = self.searchdir_algo.name
-        lsa_name = self.line_search.name
+        sda_name = self.searchdir_algo.name.replace('-', '').lower().split('_')
+        lsa_name = self.line_search.name.replace('-', '').lower().split('_')
+
+        add = ''
+        pd_add = ''
+        if len(sda_name) == 2:
+            if sda_name[1] == 'mmf':
+                add = ' with minimum mode following'
+                pardi = {'Davidson': 'Finite difference generalized Davidson '
+                         'algorithm'}
+                pd_add = '       ' \
+                         'Partial diagonalizer: {}\n'.format(
+                    pardi[self.pd['name']])
 
         sds = {'sd': 'Steepest Descent',
                'fr-cg': 'Fletcher-Reeves conj. grad. method',
@@ -161,11 +177,12 @@ class ETDM:
                           '                    strong and approximate Wolfe '
                           'conditions'}
 
-        repr_string = 'Direct minimisation using exponential ' \
+        repr_string = 'Direct minimisation' + add + ' using exponential ' \
                       'transformation.\n'
         repr_string += '       ' \
                        'Search ' \
-                       'direction: {}\n'.format(sds[sda_name])
+                       'direction: {}\n'.format(sds[sda_name[0]] + add)
+        repr_string += pd_add
         repr_string += '       ' \
                        'Line ' \
                        'search: {}\n'.format(lss[lsa_name])
