@@ -6,8 +6,6 @@ from gpaw.xc import xc_string_to_dict
 from gpaw.directmin.sd_etdm import SteepestDescent, FRcg, QuickMin, LBFGS, \
     LBFGS_P, LSR1P, ModeFollowing
 from gpaw.directmin.ls_etdm import MaxStep, StrongWolfeConditions, Parabola
-from gpaw.directmin.derivatives import Davidson
-
 
 def search_direction(method, etdm=None, pd=None):
     if isinstance(method, str):
@@ -58,6 +56,7 @@ def line_search_algorithm(method, objective_function, searchdir_algo):
         raise ValueError('Check keyword for line search!')
 
 def partial_diagonalizer(method, domom):
+    from gpaw.directmin.derivatives import Davidson
     if isinstance(method, str):
         method = xc_string_to_dict(method)
 
