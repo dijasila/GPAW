@@ -110,7 +110,9 @@ class ModeFollowing(ModeFollowingBase, SearchDirectionBase):
         return self.sd.__str__() + ' with minimum mode following'
 
     def todict(self):
-        return {'name': self.sd.name + '_MMF'}
+        res = self.sd.todict()
+        res['name'] += '_mmf'
+        return res
 
     def update_data(self, wfs, x_k1, g_k1, precond=None):
         g_k1 = self.negate_parallel_grad(g_k1)
