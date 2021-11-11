@@ -42,7 +42,7 @@ def calculate_local_I_LMM(matrix_elements, alst, lmax):
     for a1, Lslice in zip(alst, get_L_slices(loc_alst, S)):
         for a2, M1slice in zip(alst, get_M_slices(loc_alst, Mloc_a)):
             for a3, M2slice in zip(alst, get_M_slices(loc_alst, Mloc_a)):
-                Iloc_LMM[Lslice, M1slice, M2slice] = matrix_elements.evaluate_3ci(a1,a2,a3)
+                Iloc_LMM[Lslice, M1slice, M2slice] = matrix_elements.evaluate_3ci_LMM(a1,a2,a3)
 
     Lslices = get_L_slices(alst, S)
     Mslices = get_M_slices(alst, matrix_elements.M_a)

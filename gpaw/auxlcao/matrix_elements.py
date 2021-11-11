@@ -96,7 +96,24 @@ class MatrixElements:
     def set_parameters(self, parameters):
         self.parameters = parameters
 
-    def evaluate_3ci(self, a1, a2, a3):
+    """
+             /       ||               \
+     I    =  | g (r) || φ (r') φ (r') |
+      LMM    \  L    ||  M     M'     /,
+
+      where double bar stands for Coulomb integral.
+
+      a1 is always either a2 or a3.
+      a2 and a3 are overlapping centers.
+    """
+
+    def evaluate_3ci_LMM(self, a1, a2, a3):
+        
+        R_c_and_offset_a = self.apr.get(a2, a3)
+        if R_c_and_offset_a is None:
+            return None
+ 
         print(a1,a2,a3)
+        print(R_c_and_offset_a)
         raise NotImplementedError
         return 0.0
