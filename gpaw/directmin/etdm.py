@@ -367,7 +367,7 @@ class ETDM:
             make_pd = False
             if self.mmf:
                 with wfs.timer('Partial Hessian diagonalization'):
-                    self.searchdir_algo.update_eigenpairs(
+                    self.searchdir_algo.update_eigenpairs( #fix missing log
                         g_vec_u, wfs, ham, dens)
                 make_pd = True
 

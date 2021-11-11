@@ -187,7 +187,7 @@ class Davidson(object):
         self.logfile = logfile
         if self.print_level > 0:
             self.logger = GPAWLogger(world)
-            self.logger.fd(logfile)
+            self.logger.fd = logfile
         if self.ef:
             self.lambda_all = None
             self.y_all = None
