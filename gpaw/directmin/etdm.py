@@ -109,8 +109,10 @@ class ETDM:
         if sd_name[0] == 'lbfgsp' and not self.use_prec:
             raise ValueError('Use l-bfgs-p with use_prec=True')
         if len(sd_name) == 2:
-            if sd_name[1] == 'mf':
-                self.g_mat_u_original = None
+            if sd_name[1] == 'mmf':
+                self.searchdir_algo.name = sd_name[0]
+                self.mmf = True
+                self.g_vec_u_original = None
                 self.pd = partial_diagonalizer
 
         self.line_search = line_search_algorithm(linesearch_algo,
@@ -150,19 +152,18 @@ class ETDM:
 
     def __repr__(self):
 
-        sda_name = self.searchdir_algo.name.replace('-', '').lower().split('_')
-        lsa_name = self.line_search.name.replace('-', '').lower().split('_')
+        sda_name = self.searchdir_algo.name.replace('-', '').lower()
+        lsa_name = self.line_search.name.replace('-', '').lower()
 
         add = ''
         pd_add = ''
-        if len(sda_name) == 2:
-            if sda_name[1] == 'mmf':
-                add = ' with minimum mode following'
-                pardi = {'Davidson': 'Finite difference generalized Davidson '
-                         'algorithm'}
-                pd_add = '       ' \
-                         'Partial diagonalizer: {}\n'.format(
-                    pardi[self.pd['name']])
+        if self.mmf:
+            add = ' with minimum mode following'
+            pardi = {'Davidson': 'Finite difference generalized Davidson '
+                     'algorithm'}
+            pd_add = '       ' \
+                     'Partial diagonalizer: {}\n'.format(
+                pardi[self.pd['name']])
 
         sds = {'sd': 'Steepest Descent',
                'fr-cg': 'Fletcher-Reeves conj. grad. method',
