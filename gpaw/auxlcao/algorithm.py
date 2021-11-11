@@ -2,6 +2,8 @@ import numpy as np
 
 from gpaw.auxlcao.procedures import calculate_W_LL_offdiagonals_multipole,\
                                     get_W_LL_diagonals_from_setups,\
+                                    calculate_local_I_LMM,\
+                                    grab_local_W_LL
 
 from gpaw.auxlcao.matrix_elements import MatrixElements
 
@@ -74,10 +76,16 @@ class RIMPV(RIAlgorithm):
 
         a1a2_p = self.matrix_elements.a1a2_p
         for a1, a2 in a1a2_p:
-            Wloc_LL, Lspan = grab_local_W_LL(self.W_LL, a1, a2)
-            Iloc_LMM, Lspan, Mspan = calculate_local_I_LMM(self.matrix_elements, a1, a2)
+            Wloc_LL, Lspan = grab_local_W_LL(self.W_LL, [a1, a2], self.lmax)
+            print(Wloc_LL.shape)
+            print(Lspan)
+
+            Iloc_LMM, Lspan, Mspan = calculate_local_I_LMM(self.matrix_elements, [a1, a2], self.lmax)
             iWloc_LL = np.linalg.inv(Wloc_LL)
-            self.P_LMM[Lspan, Mspan, Mspan] += np.einsum('LO,OMN->LMN', iWloc_LL, Iloc_LMM)
+            print(iWloc_LL.shape, Iloc_LMM.shape)
+
+            self.P_LMM[Lspan][:, Mspan][:,:,Mspan] += np.einsum('LO,OMN->LMN', iWloc_LL, Iloc_LMM)
+
 
         """
 

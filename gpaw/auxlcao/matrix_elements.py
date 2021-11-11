@@ -43,6 +43,10 @@ class MatrixElements:
     def initialize(self, density, ham, wfs):
         setups = wfs.setups
 
+        self.M_a = setups.M_a.copy()
+        self.M_a.append(setups.nao)
+        print('M_a', self.M_a)
+
         # I_a is an index for each atom identifying which setup type it has.
         # setup_for_atom_a = setups_I[I_a[a]]
         I_a, setups_I = split_setups_to_types(setups)

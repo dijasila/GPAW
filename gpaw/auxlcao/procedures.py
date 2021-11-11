@@ -5,40 +5,37 @@ sqrt3 = 3**0.5
 sqrt5 = 5**0.5
 sqrt15 = 15**0.5
 
-def get_L_range(as, lmax):
-    # Remove duplicates and order
-    as = list(dict.fromkeys(as))
-    S = (lmax+1)**2
-    Lspan = []
-    for a in as:
-        Lspan.append(np.arange(a*S, (a+1)*S))
-    return np.block(Lspan)
+def reduce_list(lst):
+    return list(dict.fromkeys(lst))
 
-def get_M_range(as, M_a):
-    # Remove duplicates and order
-    as = list(dict.fromkeys(as))
-    Mspan = []
-    for a in as:
-        Mspan.append(np.arange(M_a[a], M_a[a+1]))
-    return np.block(Mspan)
+def get_L_range(lst, S):
+    return np.block( [ np.arange(a*S, (a+1)*S) for a in lst ])
+
+def get_M_range(lst, M_a):
+    print('M_a', M_a)
+    return np.block( [ np.arange(M_a[a], M_a[a+1]) for a in lst ])
     
-def grab_local_W_LL(W_LL, a1, a2, lmax)
-    Lspan = get_L_range([a1,a2], lmax)
-    return Wloc_LL[Lspan,Lspan], Lspan
+def grab_local_W_LL(W_LL, alst, lmax):
+    S = (lmax+1)**2
+    Lspan = get_L_range(reduce_list(alst), S)
+    return W_LL[Lspan][:,Lspan], Lspan
 
-def calculate_local_I_LMM(matrix_elements, a1, a2, lmax):
-    as = [ a1, a2 ]
-    Lspan = get_L_range(as, lmax)
-    Ispan = get_I_range(as, matrix_elements.M_a)
+def calculate_local_I_LMM(matrix_elements, alst, lmax):
+    alst = reduce_list(alst)
+    S = (lmax+1)**2
+    Lspan = get_L_range(alst, S)
+    Mspan = get_M_range(alst, matrix_elements.M_a)
 
-    as = list(dict.fromkeys(as))
-    for a in as:
-        atomLspan = get_L_range([a], lmax)
-        for b in as:
-            atomMspanb = get_M_range([b], M_a)
-            for c in cs:
-                atomMspanc = get_L_range([c], M_a)
-                Iloc_LMM[atomLspan, atomMspanb] = 
+    Iloc_LMM = np.zeros( (len(Lspan), len(Mspan), len(Mspan)) )
+
+    for aloc, a in enumerate(alst):
+        atomLspan = get_L_range([aloc], S)
+        for bloc, b in enumerate(alst):
+            atomMspanb = np.arange(oc], matrix_elements.M_a[)
+            for c in alst:
+                atomMspanc = get_M_range([c], matrix_elements.M_a)
+                print(atomLspan, atomMspanb, atomMspanc)
+                Iloc_LMM[atomLspan][:,atomMspanb][:,:,atomMspanc] = 0
     return Iloc_LMM, Lspan, Mspan
 
 def get_W_LL_diagonals_from_setups(W_LL, lmax, setups):
