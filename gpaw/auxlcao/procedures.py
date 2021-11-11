@@ -14,16 +14,14 @@ def reduce_list(lst):
     return list(dict.fromkeys(lst))
 
 def get_L_slices(lst, S):
-    for a in lst:
-        yield slice(a*S, (a+1)*S)
+    return [ slice(a*S, (a+1)*S) for a in lst ]
 
 def get_M_slices(lst, M_a):
-    for a in lst:
-        yield slice(M_a[a], M_a[a+1])
+    return [ slice(M_a[a], M_a[a+1]) for a in lst ]
     
 def grab_local_W_LL(W_LL, alst, lmax):
     S = (lmax+1)**2
-    Lslices = [ slice for slice in get_L_slices(reduce_list(alst),S) ]
+    Lslices = get_L_slices(reduce_list(alst),S)
     return np.block( [ [ W_LL[slice1, slice2] for slice2 in Lslices ] for slice1 in Lslices ] ), Lslices
 
 def create_local_M_a(alst, M_a):
@@ -50,21 +48,21 @@ def calculate_local_I_LMM(matrix_elements, alst, lmax):
     Lslices = get_L_slices(alst, S)
     Mslices = get_M_slices(alst, matrix_elements.M_a)
 
-    lLslices = get_L_slices(range(len(alst), S)
-    lMslices = get_M_slices(range(len(alst), Mloc_a)
+    lLslices = get_L_slices(range(len(alst)), S)
+    lMslices = get_M_slices(range(len(alst)), Mloc_a)
     gLslices = get_L_slices(alst, S)
     gMslices = get_M_slices(alst, matrix_elements.M_a)
 
-    licing_internals = lLslices, lMslices, gLslices, gMslices
+    slicing_internals = lLslices, lMslices, gLslices, gMslices
     return Iloc_LMM, slicing_internals
 
-def add_to_global_P_LMM(P_LMM, result_LMM, slicing_internals):
+def add_to_global_P_LMM(gP_LMM, lP_LMM, slicing_internals):
     lLslices, lMslices, gLslices, gMslices = slicing_internals
     for lLslice, gLslice in zip(lLslices, gLslices):
-        for lMslice, gMslice in zip(lMslices, gMslices):
-            for lLslice, gLslice in zip(lLslices, gLslices):
-
-
+        for lMslice1, gMslice1 in zip(lMslices, gMslices):
+            for lMslice2, gMslice2 in zip(lMslices, gMslices):
+                gP_LMM[gLslice, gMslice1, gMslice2] += \
+                lP_LMM[lLslice, lMslice1, lMslice2]
 
 def get_W_LL_diagonals_from_setups(W_LL, lmax, setups):
     S = (lmax+1)**2
