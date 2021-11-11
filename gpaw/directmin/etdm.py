@@ -104,6 +104,7 @@ class ETDM:
         self.representation = representation
         self.orthonormalization = orthonormalization
 
+        self.mmf = False
         self.searchdir_algo = search_direction(
             searchdir_algo, self, partial_diagonalizer)
         sd_name = self.searchdir_algo.name.replace('-', '').lower().split('_')
