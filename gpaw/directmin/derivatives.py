@@ -154,8 +154,6 @@ class Davidson(object):
         self.fd_mode = fd_mode
         self.remember_sp_order = remember_sp_order
         self.sp_order = sp_order
-        self.dtype = self.etdm.dtype
-        self.dim_z = 2 if self.dtype == complex else 1
         self.log_sp_order_once = True
         self.V = None
         self.C = None
@@ -259,6 +257,7 @@ class Davidson(object):
                 self.etdm.sort_wavefunctions(ham, wfs, kpt)
 
     def initialize(self, wfs, log, use_prev=False):
+        dimz = 2 if self.etdm.dtype == complex else 1
         self.introduce(log)
         self.reset = False
         self.converged = False
@@ -279,7 +278,7 @@ class Davidson(object):
             for i in range(len(self.lambda_all)):
                 if self.lambda_all[i] < -1e-8:
                     appr_sp_order += 1
-                    if self.dtype == complex:
+                    if self.etdm.dtype == complex:
                         dia[i] = self.lambda_all[i] + 1.0j * self.lambda_all[i]
                     else:
                         dia[i] = self.lambda_all[i]
@@ -287,8 +286,8 @@ class Davidson(object):
             for i in range(len(dia)):
                 if np.real(dia[i]) < -1e-8:
                     appr_sp_order += 1
-        self.M = np.zeros(shape=self.dimtot * self.dim_z)
-        for i in range(self.dimtot * self.dim_z):
+        self.M = np.zeros(shape=self.dimtot * dimz)
+        for i in range(self.dimtot * dimz):
             self.M[i] = np.real(dia[i % self.dimtot])
         if self.sp_order is not None:
             self.l = self.sp_order
@@ -305,7 +304,7 @@ class Davidson(object):
             self.V = deepcopy(self.x)
             for i in range(self.l):
                 for k in range(self.dimtot):
-                    for l in range(self.dim_z):
+                    for l in range(dimz):
                         rand = np.zeros(shape=2)
                         if world.rank == 0:
                             rand[0] = rng.random()
@@ -322,12 +321,12 @@ class Davidson(object):
                 rdia = np.real(dia).copy()
                 imin = int(np.where(rdia == min(rdia))[0][0])
                 rdia[imin] = np.inf
-                v = np.zeros(self.dimtot * self.dim_z)
+                v = np.zeros(self.dimtot * dimz)
                 v[imin] = 1.0
-                if self.dtype == complex:
+                if self.etdm.dtype == complex:
                     v[self.dimtot + imin] = 1.0
                 for l in range(self.dimtot):
-                    for m in range(self.dim_z):
+                    for m in range(dimz):
                         if l == imin:
                             continue
                         rand = np.zeros(shape=2)
@@ -487,7 +486,7 @@ class Davidson(object):
             n_dim[k] = wfs.bd.nbands
             end += self.dim[k]
             a_mat_u[k] += v[start : end]
-            if self.dtype == complex:
+            if self.etdm.dtype == complex:
                 a_mat_u[k] += 1.0j * v[self.dimtot + start : self.dimtot + end]
             start += self.dim[k]
         gp = self.etdm.get_energy_and_gradients(
@@ -502,7 +501,7 @@ class Davidson(object):
                 a_mat_u[k] = np.zeros_like(self.etdm.a_mat_u[k])
                 end += self.dim[k]
                 a_mat_u[k] -= v[start: end]
-                if self.dtype == complex:
+                if self.etdm.dtype == complex:
                     a_mat_u[k] \
                         -= 1.0j * v[self.dimtot + start : self.dimtot + end]
                 start += self.dim[k]
@@ -513,7 +512,7 @@ class Davidson(object):
         elif self.fd_mode == 'forward':
             for k in range(len(wfs.kpt_u)):
                 hessi += list((gp[k] - self.grad[k]) / self.h)
-        if self.dtype == complex:
+        if self.etdm.dtype == complex:
             hessc = np.zeros(shape=(2 * self.dimtot))
             hessc[: self.dimtot] = np.real(hessi)
             hessc[self.dimtot :] = np.imag(hessi)
