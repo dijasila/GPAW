@@ -9,7 +9,7 @@ from gpaw.directmin.ls_etdm import MaxStep, StrongWolfeConditions, Parabola
 from gpaw.directmin.derivatives import Davidson
 
 
-def search_direction(method, etdm=None):
+def search_direction(method, etdm=None, pd=None):
     if isinstance(method, str):
         method = xc_string_to_dict(method)
 
@@ -28,7 +28,7 @@ def search_direction(method, etdm=None):
         if len(names) == 2:
             if names[1] == 'mmf':
                 searchdir = ModeFollowing(
-                    partial_diagonalizer(method['partial_diagonalizer'], etdm),
+                    partial_diagonalizer(pd, etdm),
                     searchdir)
 
         return searchdir
