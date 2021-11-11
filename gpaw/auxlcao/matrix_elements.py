@@ -1,44 +1,12 @@
-"""
-
-These classes are completely serial, and deal only with calculating certain 
-blocks of the full matrices
-
-
-Things to calculate:
-
-
-     Local generalized-gaussian - generalized gaussian, will be be 
-precalculated in the setup.py
-
-     W_GG[a1,a2] = 
-        '2 center integrals, asymptotic generalized-gaussian - generalized gaussian'
-    
-        *  will be calculated utilizing multipole expansions'
-
-     W_GA[a1,a2] =
-        '2 center integrals Generalized-gaussian - screened auxiliary, will be calculated using tci.'
-
-     W_AA[a1,a2] =
-        '2 center integrals Screened auxiliary - screened auxiliary, will 
-         be calculated using tci.'
-
-     I_AMM[a1,a2] = 
-        '3 center integrals, where A and first M belong to atom a1, and second M belongs to atom a2.
-         
-Tasks:
-
-     1. Create a list of all atom pairs with finite basis function overlap
-        i) Obtain cutoffs for basis functions
-
-        i) This information is in the AtomRegistry of tci
-
-"""
 import numpy as np
 from gpaw.lcao.tci import get_cutoffs, split_setups_to_types, AtomPairRegistry
 
+from gpaw.auxlcao.utilities import get_compensation_charge_splines,\
+                                   get_wgauxphit_product_splines
+
 class MatrixElements:
-    def __init__(self):
-        pass
+    def __init__(self, lmax=2):
+        self.lmax = lmax
 
     def initialize(self, density, ham, wfs):
         setups = wfs.setups
@@ -57,6 +25,10 @@ class MatrixElements:
 
         # Obtain the maximum cutoff on per atom basis
         self.rcmax_a = [phit_rcmax_I[I] for I in I_a]
+
+        for I, (setup, rcmax) in enumerate(zip(setups_I, phit_rcmax_I)):
+            setup.gaux_l, setup.wgaux_j = get_compensation_charge_splines(setup, self.lmax, rcmax)
+            setup.wauxtphit_x = get_wgauxphit_product_splines(setup, setup.wgaux_j, setup.phit_j, rcmax)
 
     def set_positions_and_cell(self, spos_ac, cell_cv, pbc_c):
         self.spos_ac = spos_ac
