@@ -347,8 +347,6 @@ class ETDM:
         """
         with wfs.timer('Direct Minimisation step'):
             self.update_ref_orbitals(wfs, ham, dens)
-            with wfs.timer('Preconditioning:'):
-                precond = self.get_preconditioning(wfs, self.use_prec)
 
             a_vec_u = self.a_vec_u
             n_dim = self.n_dim
@@ -363,6 +361,17 @@ class ETDM:
                                                   dens, c_ref)
             else:
                 g_vec_u = self.g_vec_u
+
+            make_pd = False
+            if self.mmf:
+                with wfs.timer('Partial Hessian diagonalization'):
+                    self.searchdir_algo.update_eigenpairs(
+                        g_vec_u, wfs, ham, dens)
+                make_pd = True
+
+            with wfs.timer('Preconditioning:'):
+                precond = self.get_preconditioning(
+                    wfs, self.use_prec, make_pd=make_pd)
 
             with wfs.timer('Get Search Direction'):
                 # calculate search direction according to chosen
@@ -412,8 +421,7 @@ class ETDM:
             phi_2i[1], der_phi_2i[1] = phi_2i[0], der_phi_2i[0]
             phi_2i[0], der_phi_2i[0] = phi_alpha, der_phi_alpha,
 
-    def get_energy_and_gradients(self, a_vec_u, n_dim, ham, wfs, dens,
-                                 c_ref):
+    def get_energy_and_gradients(self, a_vec_u, n_dim, ham, wfs, dens, c_ref):
 
         """
         Energy E = E[C_ref exp(A)]. Gradients G_ij[C, A] = dE/dA_ij
