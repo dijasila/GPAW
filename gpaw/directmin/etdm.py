@@ -544,12 +544,12 @@ class ETDM:
             # Erase memory of search direction algorithm
             self.searchdir_algo.reset()
 
-    def get_preconditioning(self, wfs, use_prec):
+    def get_preconditioning(self, wfs, use_prec, make_pd=False):
 
         if not use_prec:
             return None
 
-        if self.searchdir_algo.name == 'l-bfgs-p':
+        if self.searchdir_algo.name == 'lbfgsp':
             beta0 = self.searchdir_algo.beta_0
             gamma = 0.25
         else:
@@ -563,10 +563,16 @@ class ETDM:
             w = kpt.weight / (3.0 - wfs.nspins)
             if self.iters % counter == 0 or self.iters == 1:
                 self.hess[k] = self.get_hessian(kpt)
+                if make_pd:
+                    if self.dtype == float:
+                        self.hess[k] = np.abs(self.hess[k])
+                    else:
+                        self.hess[k] = np.abs(self.hess[k].real) \
+                                       + 1.0j * np.abs(self.hess[k].imag)
             hess = self.hess[k]
             precond[k] = np.zeros_like(hess)
             correction = w * gamma * beta0 ** (-1)
-            if self.searchdir_algo.name != 'l-bfgs-p':
+            if self.searchdir_algo.name != 'lbfgsp':
                 correction = np.zeros_like(hess)
                 zeros = abs(hess) < 1.0e-4
                 correction[zeros] = 1.0
