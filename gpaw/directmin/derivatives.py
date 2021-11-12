@@ -221,14 +221,14 @@ class Davidson(object):
         self.c_nm_ref = [deepcopy(wfs.kpt_u[x].C_nM) \
                          for x in range(len(wfs.kpt_u))]
         if self.fd_mode == 'forward' and self.grad is None:
-            a_mat_u = {}
+            a_vec_u = {}
             n_dim = {}
             for kpt in wfs.kpt_u:
                 u = self.etdm.n_kps * kpt.s + kpt.q
                 n_dim[u] = wfs.bd.nbands
-                a_mat_u[u] = np.zeros_like(self.etdm.a_mat_u[u])
+                a_vec_u[u] = np.zeros_like(self.etdm.a_vec_u[u])
             self.grad = self.etdm.get_energy_and_gradients(
-                a_mat_u, n_dim, ham, wfs, dens, self.c_nm_ref)[1]
+                a_vec_u, n_dim, ham, wfs, dens, self.c_nm_ref)[1]
         while not self.converged:
             self.iterate(wfs, ham, dens)
         if self.remember_sp_order:
@@ -482,36 +482,36 @@ class Davidson(object):
     def get_fd_hessian(self, vin, wfs, ham, dens):
         v = self.h * vin
         c_nm = deepcopy(self.c_nm_ref)
-        a_mat_u = {}
+        a_vec_u = {}
         n_dim = {}
         start = 0
         end = 0
         for k in range(len(wfs.kpt_u)):
-            a_mat_u[k] = np.zeros_like(self.etdm.a_mat_u[k])
+            a_vec_u[k] = np.zeros_like(self.etdm.a_vec_u[k])
             n_dim[k] = wfs.bd.nbands
             end += self.dim[k]
-            a_mat_u[k] += v[start : end]
+            a_vec_u[k] += v[start : end]
             if self.etdm.dtype == complex:
-                a_mat_u[k] += 1.0j * v[self.dimtot + start : self.dimtot + end]
+                a_vec_u[k] += 1.0j * v[self.dimtot + start : self.dimtot + end]
             start += self.dim[k]
         gp = self.etdm.get_energy_and_gradients(
-            a_mat_u, n_dim, ham, wfs, dens, c_nm)[1]
+            a_vec_u, n_dim, ham, wfs, dens, c_nm)[1]
         for k in range(len(wfs.kpt_u)):
-            a_mat_u[k] = np.zeros_like(self.etdm.a_mat_u[k])
+            a_vec_u[k] = np.zeros_like(self.etdm.a_vec_u[k])
         hessi = []
         if self.fd_mode == 'central':
             start = 0
             end = 0
             for k in range(len(wfs.kpt_u)):
-                a_mat_u[k] = np.zeros_like(self.etdm.a_mat_u[k])
+                a_vec_u[k] = np.zeros_like(self.etdm.a_vec_u[k])
                 end += self.dim[k]
-                a_mat_u[k] -= v[start: end]
+                a_vec_u[k] -= v[start: end]
                 if self.etdm.dtype == complex:
-                    a_mat_u[k] \
+                    a_vec_u[k] \
                         -= 1.0j * v[self.dimtot + start : self.dimtot + end]
                 start += self.dim[k]
             gm = self.etdm.get_energy_and_gradients(
-                a_mat_u, n_dim, ham, wfs, dens, c_nm)[1]
+                a_vec_u, n_dim, ham, wfs, dens, c_nm)[1]
             for k in range(len(wfs.kpt_u)):
                 hessi += list((gp[k] - gm[k]) * 0.5 / self.h)
         elif self.fd_mode == 'forward':
