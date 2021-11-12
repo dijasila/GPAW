@@ -148,8 +148,8 @@ class Derivatives:
 
 
 class Davidson(object):
-    def __init__(self, etdm, logfile, fd_mode='central', m=np.inf, h=1e-7, eps=1e-2,
-                 cap_krylov=False, ef=False, print_level=0,
+    def __init__(self, etdm, logfile, fd_mode='central', m=np.inf, h=1e-7,
+                 eps=1e-2, cap_krylov=False, ef=False, print_level=0,
                  remember_sp_order=False, sp_order=None):
         self.etdm = etdm
         self.fd_mode = fd_mode
