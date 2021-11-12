@@ -50,10 +50,10 @@ class ModeFollowingBase(object):
         self.partial_diagonalizer = partial_diagonalizer
         self.fixed_sp_order = None
 
-    def update_eigenpairs(self, g_k1, wfs, ham, dens, log):
+    def update_eigenpairs(self, g_k1, wfs, ham, dens):
         self.partial_diagonalizer.grad = g_k1
         use_prev = False if self.eigv is None else True
-        self.partial_diagonalizer.run(wfs, ham, dens, log, use_prev)
+        self.partial_diagonalizer.run(wfs, ham, dens, use_prev)
         self.eigv = copy.deepcopy(self.partial_diagonalizer.lambda_complete)
         self.eigvec_old = copy.deepcopy(self.eigvec)
         self.eigvec = copy.deepcopy(self.partial_diagonalizer.x_complete.T)
