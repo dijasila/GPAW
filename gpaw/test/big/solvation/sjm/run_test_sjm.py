@@ -1,16 +1,18 @@
-from gpaw import restart
+import numpy as np
+
 from ase.optimize import BFGS
-from gpaw.solvation.sjm import SJM, SJMPower12Potential
-from gpaw import FermiDirac
 from ase import Atoms
 from ase.data.vdw import vdw_radii
+
+from gpaw import restart
+from gpaw.solvation.sjm import SJM, SJMPower12Potential
+from gpaw import FermiDirac
 from gpaw.solvation import (
     EffectivePotentialCavity,
     LinearDielectric,
     GradientSurface,
     SurfaceInteraction
 )
-import numpy as np
 
 
 def atomic_radii(atoms):
@@ -62,9 +64,10 @@ calc = SJM(sj=sj,
                temperature=T,
                surface_calculator=GradientSurface()),
            dielectric=LinearDielectric(epsinf=epsinf),
-           interactions=[SurfaceInteraction(surface_tension=gamma)])
+           interactions=[SurfaceInteraction(surface_tension=gamma)],
+           txt='sjm.txt')
 
-atoms.set_calculator(calc)
+atoms.calc = calc
 E = []
 
 for pot in [4.5, None, 4.3, 4.5]:
