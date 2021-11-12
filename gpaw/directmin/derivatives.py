@@ -259,7 +259,7 @@ class Davidson(object):
             kpt.C_nM = deepcopy(self.c_nm_ref[k])
         if not self.ef:
             for kpt in wfs.kpt_u:
-                self.etdm.sort_wavefunctions(ham, wfs, kpt)
+                self.etdm.sort_orbitals(ham, wfs, kpt)
 
     def initialize(self, wfs, use_prev=False):
         dimz = 2 if self.etdm.dtype == complex else 1
