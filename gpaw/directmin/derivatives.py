@@ -216,7 +216,7 @@ class Davidson(object):
     def run(self, wfs, ham, dens, use_prev=False):
         self.initialize(wfs, use_prev)
         if not self.ef:
-            self.etdm.sort_wavefunctions_mom(wfs)
+            self.etdm.dm_helper.sort_wavefunctions_mom(wfs)
         self.n_iter = 0
         self.c_nm_ref = [deepcopy(wfs.kpt_u[x].C_nM) \
                          for x in range(len(wfs.kpt_u))]
@@ -260,7 +260,7 @@ class Davidson(object):
             kpt.C_nM = deepcopy(self.c_nm_ref[k])
         if not self.ef:
             for kpt in wfs.kpt_u:
-                self.etdm.sort_wavefunctions(ham, wfs, kpt)
+                self.etdm.dm_helper.sort_wavefunctions(ham, wfs, kpt)
 
     def initialize(self, wfs, use_prev=False):
         dimz = 2 if self.etdm.dtype == complex else 1
