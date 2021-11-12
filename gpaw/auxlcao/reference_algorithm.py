@@ -110,6 +110,8 @@ class RIVFullBasisDebug(RIAlgorithm):
                     #ghat_l.append(wfs.setups[a].ghat_l[l])
                     #wghat_l.append(rgd.spline(H(rgd, f_g, l), cutoff, l, 100)) # XXX
                     
+                    print('not adding compensation charges to aux basis')
+                    continue
                     auxt_j.append(wfs.setups[a].ghat_l[l])
                     wauxt_j.append(rgd.spline(H(rgd, f_g, l), cutoff, l,500)) # XXX
 
@@ -132,13 +134,16 @@ class RIVFullBasisDebug(RIAlgorithm):
                         for l in range((l1 + l2) % 2, l1 + l2 + 1, 2):
                             if l > 2:
                                 continue
-                            M = rgd.integrate(f_g * rgd.r_g**l) / (4*np.pi)
-                            #print('Multipole before l=%d' % l, M)
-                            f_g -= M*g_lg[l]
+
+                            if 0: # Not removing multipole
+                                M = rgd.integrate(f_g * rgd.r_g**l) / (4*np.pi)
+                                #print('Multipole before l=%d' % l, M)
+                                f_g -= M*g_lg[l]
+
                             #print('Multipole after', rgd.integrate(f_g * rgd.r_g**l) / (4*np.pi))
 
-                            print('Not adding auxiliary basis functions')
-                            continue
+                            #print('Not adding auxiliary basis functions')
+                            #continue
 
                             auxt_j.append(rgd.spline(f_g, cutoff, l, 100))
                             wauxt_j.append(rgd.spline(H(rgd, f_g, l), cutoff, l, 100))
@@ -164,6 +169,7 @@ class RIVFullBasisDebug(RIAlgorithm):
                 wfs.setups[a].wauxtphit_x = wauxtphit_x
 
             self.aux_lfc = LFC(density.finegd, auxt_aj)
+            self.aux_lfc_coarse = LFC(density.gd, auxt_aj)
 
         self.timer = ham.timer
 
@@ -173,6 +179,7 @@ class RIVFullBasisDebug(RIAlgorithm):
 
             finegd = self.density.finegd
             self.aux_lfc.set_positions(spos_ac)
+            self.aux_lfc_coarse.set_positions(spos_ac)
 
             # Count the number of auxiliary functions
             Atot = 0
@@ -231,8 +238,10 @@ class RIVFullBasisDebug(RIAlgorithm):
             with open('RIVFullBasisDebug-W_AA.npy', 'wb') as f:
                 np.save(f, self.W_AA)
 
-
             # I_AMM += \sum_L \sum_a \sum_ii Delta^a_Lii P_aMi P_aMi G_AaL
+
+            with open('RIVFullBasisDebug-I_AMM.npy', 'wb') as f:
+                np.save(f, self.I_AMM)
 
             for A in range(Atot):
                 for a, setup in enumerate(self.wfs.setups):
@@ -243,17 +252,65 @@ class RIVFullBasisDebug(RIAlgorithm):
 
             self.iW_AA = np.linalg.inv(self.W_AA)
 
+    def cube_debug(self, atoms):
+        from gpaw.auxlcao.tools import orbital_product_to_cube
+        from ase.io.cube import write_cube
+
+        C_AMM = np.einsum('AB,Bkl',
+                           self.iW_AA,
+                           self.I_AMM, optimize=True)
+
+        nao = self.wfs.setups.nao
+        for M1 in range(nao):
+            for M2 in range(nao):
+                orbital_product_to_cube('ref_%03d_%03d.cube' % (M1, M2), atoms, self.wfs, M1, M2)
+
+                rho_MM = np.zeros( (nao, nao) )
+                A = 0
+                Q_aM = self.aux_lfc_coarse.dict(zero=True)
+                for a, setup in enumerate(self.wfs.setups):
+                    Aloc = 0
+                    for j, aux in enumerate(setup.auxt_j):
+                        for m in range(2*aux.l+1):
+                            Q_aM[a][Aloc] = C_AMM[A, M1, M2]
+                            A += 1
+                            Aloc += 1
+                fit_G = self.density.gd.zeros()
+                self.aux_lfc_coarse.add(fit_G, Q_aM)
+
+                write_cube(open('fit_%03d_%03d.cube' % (M1, M2),'w'), atoms, data=fit_G, comment='')
+
+        with open('RIVFullBasisDebug-C_AMM.npy', 'wb') as f:
+            np.save(f, C_AMM)
+        xxx
+        
+
     def nlxc(self, H_MM, dH_asp, wfs, kpt):
         self.evc = 0.0
         self.evv = 0.0
         self.ekin = 0.0
 
         rho_MM = wfs.ksl.calculate_density_matrix(kpt.f_n, kpt.C_nM)
+        rho_MM[:] = 0.0
+        rho_MM[0,0] = 1.0
+        C_AMM = np.einsum('AB,Bkl,jl',
+                          self.iW_AA,
+                          self.I_AMM,
+                          rho_MM, optimize=True)
+
+        with open('RIVFullBasisDebug-C_AMM.npy', 'wb') as f:
+            np.save(f, C_AMM)
+
         F_MM = -0.5 * np.einsum('Aij,AB,Bkl,jl',
                                 self.I_AMM,
                                 self.iW_AA,
                                 self.I_AMM,
                                 rho_MM, optimize=True)
+
+        with open('RIVFullBasisDebug-F_MM.npy', 'wb') as f:
+            np.save(f, F_MM)
+            xxx
+
         H_MM += self.exx_fraction * F_MM
         self.evv = 0.5 * self.exx_fraction * np.einsum('ij,ij', F_MM, rho_MM)
 
@@ -347,8 +404,9 @@ class RIVRestrictedBasisDebug(RIAlgorithm):
                             #print('Multipole before l=%d' % l, M)
                             f_g -= M*g_lg[l]
                             #print('Multipole after', rgd.integrate(f_g * rgd.r_g**l) / (4*np.pi))
-                            auxt_j.append(rgd.spline(f_g, cutoff, l, 100))
-                            wauxt_j.append(rgd.spline(H(rgd, f_g, l), cutoff, l, 100))
+                            print('Not adding aux orbital products')
+                            #auxt_j.append(rgd.spline(f_g, cutoff, l, 100))
+                            #wauxt_j.append(rgd.spline(H(rgd, f_g, l), cutoff, l, 100))
                
                 auxt_aj.append(auxt_j)
 
@@ -468,6 +526,7 @@ class RIVRestrictedBasisDebug(RIAlgorithm):
             print(self.iW_AA-self.iW_AA.T,"asym iW_AA")
             # I_AMM += \sum_L \sum_a \sum_ii Delta^a_Lii P_aMi P_aMi G_AaL
 
+            """
             for A in range(Atot):
                 for a, setup in enumerate(self.wfs.setups):
                     G_L = self.G_AaL[A][a]
@@ -477,6 +536,7 @@ class RIVRestrictedBasisDebug(RIAlgorithm):
                     self.I_AMM[A] += P_Mi @ X_ii @ P_Mi.T
                 self.I_AMM[A] = (self.I_AMM[A] + self.I_AMM[A].T)/2
            
+            """
 
     def nlxc(self, H_MM, dH_asp, wfs, kpt):
         self.evc = 0.0
@@ -491,9 +551,6 @@ class RIVRestrictedBasisDebug(RIAlgorithm):
 
         M_a = self.Mstart_a
         A_a = self.Astart_a
-
-        
-
 
         """             __     __
               a1 a2     \      \     a1 a3 a2 a4  a3 a4
@@ -557,7 +614,7 @@ class RIVRestrictedBasisDebug(RIAlgorithm):
         F_MM = np.zeros_like(rho_MM)
         # a1 = a2 = a3 = a4
         with MyTimer('a1 = a2 = a3 = a4'):
-            for a, setup in enumerate(self.wfs.setups):                      # k
+            for a, setup in enumerate(self.wfs.setups): # k
                 rho_aa_MM = get_rho_MM(a, a)
                 I_AMM = get_I_AMM(a,a,a)
                 iW_AA = safe_inv(get_W_AA(a,a))

@@ -30,6 +30,7 @@ class RIMPV(RIAlgorithm):
         self.timer = hamiltonian.timer
 
     def set_positions(self, spos_ac):
+        self.spos_ac = spos_ac
         with self.timer('calculate W_LL'):
             self.W_LL = calculate_W_LL_offdiagonals_multipole(\
                            self.hamiltonian.gd.cell_cv, 
@@ -44,6 +45,10 @@ class RIMPV(RIAlgorithm):
             np.save(f, self.W_LL)
 
         self.Wh_LL = np.linalg.cholesky(self.W_LL)
+
+        # Debugging inverse
+        self.iW_LL = np.linalg.inv(self.W_LL)
+        assert np.linalg.norm(self.iW_LL-self.iW_LL.T)<1e-10
 
         # Debugging: Reconstruct W_LL from Wh_LL
         print(self.Wh_LL)
@@ -85,8 +90,8 @@ class RIMPV(RIAlgorithm):
                                                     gd.pbc_c,
                                                     ibzq_qc,
                                                     dtype)
-
-        Msize = 1
+        
+        Msize = 5
         for a1 in range(2):
             locP_LMM = self.P_LMM[ a1*9:(a1+1)*9 ]
             for a2 in range(2):
@@ -97,9 +102,11 @@ class RIMPV(RIAlgorithm):
                         locP_LMM[:, a2*Msize: (a2+1)*Msize, a3*Msize:(a3+1)*Msize ] = np.nan
 
 
-        with open('RIMPV-I_LMM.npy', 'wb') as f:
-            np.save(f, self.P_LMM)
-            xxx
+        self.I_LMM = self.P_LMM.copy()
+
+        #with open('RIMPV-I_LMM.npy', 'wb') as f:
+        #    np.save(f, self.P_LMM)
+        #    xxx
 
         #with self.timer('3ci: build I_LMM'):
         if 0:
@@ -139,6 +146,38 @@ class RIMPV(RIAlgorithm):
         """
         print('xxx not premultiplying with cholesky')
         #self.P_LMM = np.einsum('LO,OMN->LMN', self.Wh_LL, self.P_LMM)
+
+    def cube_debug(self, atoms):
+        from ase.io.cube import write_cube
+
+        from gpaw.lfc import LFC
+        C_AMM = np.einsum('AB,Bkl',
+                           self.iW_LL,
+                           self.I_LMM, optimize=True)
+
+
+        gaux_lfc_coarse = LFC(self.density.gd, [setup.gaux_l for setup in self.wfs.setups])
+        gaux_lfc_coarse.set_positions(self.spos_ac)
+        nao = self.wfs.setups.nao
+
+        for M1 in range(nao):
+            for M2 in range(nao):
+                A = 0
+                Q_aM = gaux_lfc_coarse.dict(zero=True)
+                for a, setup in enumerate(self.wfs.setups):
+                    Aloc = 0
+                    for j, aux in enumerate(setup.gaux_l):
+                        for m in range(2*aux.l+1):
+                            Q_aM[a][Aloc] = C_AMM[A, M1, M2]
+                            A += 1
+                            Aloc += 1
+                fit_G = self.density.gd.zeros()
+                gaux_lfc_coarse.add(fit_G, Q_aM)
+                write_cube(open('new_%03d_%03d.cube' % (M1, M2),'w'), atoms, data=fit_G, comment='')
+
+
+
+        xxx
 
     def nlxc(self, H_MM, dH_asp, wfs, kpt):
         evc = 0.0
