@@ -1,9 +1,8 @@
-import os
 from gpaw import restart
 from ase.optimize import BFGS
 from gpaw.solvation.sjm import SJM, SJMPower12Potential
 from gpaw import FermiDirac
-from ase.io import read
+from ase import Atoms
 from ase.data.vdw import vdw_radii
 from gpaw.solvation import (
     EffectivePotentialCavity,
@@ -11,6 +10,7 @@ from gpaw.solvation import (
     GradientSurface,
     SurfaceInteraction
 )
+import numpy as np
 
 
 def atomic_radii(atoms):
@@ -23,7 +23,28 @@ epsinf = 78.36  # dielectric constant of water at 298 K
 gamma = 0.00114843767916  # 18.4*1e-3 * Pascal*m
 T = 298.15    # K
 
-atoms = read(os.getcwd() + '/test_system.traj')
+atoms = Atoms(symbols='Au6OH2OH2OH2OH2',
+              pbc=[True, True, False],
+              cell=[8.867119036079306, 5.119433562416841, 15.0])
+atoms.set_positions(
+    np.array([[0.56164375, 0.39256423, 5.4220237],
+              [3.51680174, 0.39253274, 5.42219168],
+              [6.4732849, 0.39549906, 5.42907972],
+              [2.03914701, 2.95449556, 5.42846579],
+              [4.99533678, 2.95180933, 5.42125025],
+              [7.9504729, 2.95176062, 5.42333033],
+              [6.58498136, 0.64530367, 9.09028872],
+              [7.06181382, -0.19870328, 9.30204832],
+              [6.58872823, 0.67663023, 8.10927953],
+              [7.99675219, 3.3136834, 9.76193639],
+              [7.58790792, 2.45509461, 9.51090101],
+              [8.93840968, 3.2284547, 9.49325933],
+              [3.56839946, 0.71728602, 9.69844062],
+              [3.16824247, -0.14379405, 9.43936165],
+              [4.51456907, 0.64768502, 9.44106286],
+              [2.14806966, 3.19083417, 9.07185988],
+              [2.62667731, 2.34458289, 9.26969167],
+              [2.10900492, 3.20816497, 8.09062402]]))
 
 sj = {'target_potential': 4.5,
       'excess_electrons': 0.124,
@@ -32,10 +53,8 @@ sj = {'target_potential': 4.5,
 
 calc = SJM(sj=sj,
            gpts=(48, 32, 88),
-           # gpts =  (24, 16, 48),
            kpts=(2, 2, 1),
            xc='PBE',
-           txt='sjm.txt',
            occupations=FermiDirac(0.1),
            cavity=EffectivePotentialCavity(
                effective_potential=SJMPower12Potential(atomic_radii, u0,
@@ -63,10 +82,8 @@ for pot in [4.5, None, 4.3, 4.5]:
 assert abs(E[0] - E[-1]) < 1e-2
 
 calc.write('sjm.gpw')
-atoms, calc = restart('sjm.gpw', Class=SJM)
-calc.set(txt='sjm2.txt')
-assert abs(calc.get_electrode_potential() - 4.5) < 0.002
 
+atoms, calc = restart('sjm.gpw', Class=SJM)
 calc.set(sj={'tol': 0.002})
 atoms.get_potential_energy()
 assert abs(calc.get_electrode_potential() - 4.5) < 0.002
@@ -79,6 +96,6 @@ calc.set(sj={'jelliumregion': {'thickness': 2}})
 atoms.get_potential_energy()
 assert abs(calc.get_electrode_potential() - 4.5) < 0.01
 
-qn = BFGS(atoms, logfile='relax_sim_set.log', maxstep=0.05)
+qn = BFGS(atoms, maxstep=0.05)
 qn.run(fmax=0.05, steps=2)
 assert abs(calc.get_electrode_potential() - 4.5) < 0.01
