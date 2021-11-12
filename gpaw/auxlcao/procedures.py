@@ -1,6 +1,5 @@
 import numpy as np
 
-
 sqrt3 = 3**0.5
 sqrt5 = 5**0.5
 sqrt15 = 15**0.5
@@ -34,34 +33,38 @@ def create_local_M_a(alst, M_a):
     return Mloc_a
 
 def calculate_local_I_LMM(matrix_elements, alst, lmax):
-    alst = reduce_list(alst)
-    Mloc_a = create_local_M_a(alst, matrix_elements.M_a)
-    S = (lmax+1)**2
-    Iloc_LMM = np.zeros( (S*len(alst), Mloc_a[-1], Mloc_a[-1]) )
-    loc_alst = range(len(alst))
-    for a1, Lslice in zip(alst, get_L_slices(loc_alst, S)):
-        for a2, M1slice in zip(alst, get_M_slices(loc_alst, Mloc_a)):
-            for a3, M2slice in zip(alst, get_M_slices(loc_alst, Mloc_a)):
-                Iloc_LMM[Lslice, M1slice, M2slice] = matrix_elements.evaluate_3ci_LMM(a1,a2,a3)
+    M_a = matrix_elements.M_a
+    gMslices = get_M_slices(alst, M_a)
 
-    Lslices = get_L_slices(alst, S)
-    Mslices = get_M_slices(alst, matrix_elements.M_a)
+    M1 = M_a[alst[0]+1] - M_a[alst[0]]
+    M2 = M_a[alst[1]+1] - M_a[alst[1]]
+
+    alstred = reduce_list(alst)
+    loc_alstred = range(len(alstred))
+
+    S = (lmax+1)**2
+    Iloc_LMM = np.zeros( (S*len(alstred), M1, M2) )
+
+    a2 = alstred[0]
+    a3 = alstred[-1]
+
+    for a1, Lslice in zip(alstred, get_L_slices(loc_alstred, S)):
+        Iloc_LMM[Lslice, :, :] = matrix_elements.evaluate_3ci_LMM(a1,a2,a3)
 
     lLslices = get_L_slices(range(len(alst)), S)
-    lMslices = get_M_slices(range(len(alst)), Mloc_a)
-    gLslices = get_L_slices(alst, S)
+    gLslices = get_L_slices(alstred, S)
     gMslices = get_M_slices(alst, matrix_elements.M_a)
 
-    slicing_internals = lLslices, lMslices, gLslices, gMslices
+    slicing_internals = lLslices, gLslices, gMslices
     return Iloc_LMM, slicing_internals
 
 def add_to_global_P_LMM(gP_LMM, lP_LMM, slicing_internals):
-    lLslices, lMslices, gLslices, gMslices = slicing_internals
+    lLslices, gLslices, gMslices = slicing_internals
     for lLslice, gLslice in zip(lLslices, gLslices):
-        for lMslice1, gMslice1 in zip(lMslices, gMslices):
-            for lMslice2, gMslice2 in zip(lMslices, gMslices):
-                gP_LMM[gLslice, gMslice1, gMslice2] += \
-                lP_LMM[lLslice, lMslice1, lMslice2]
+        #for lMslice1, gMslice1 in zip(lMslices, gMslices):
+        #    for lMslice2, gMslice2 in zip(lMslices, gMslices):
+        gP_LMM[gLslice, gMslices[0], gMslices[1]] += \
+          lP_LMM[lLslice, :, :]
 
 def get_W_LL_diagonals_from_setups(W_LL, lmax, setups):
     S = (lmax+1)**2

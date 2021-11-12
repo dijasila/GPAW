@@ -11,7 +11,6 @@ from gpaw.gaunt import gaunt
 
 G_LLL = gaunt(3) # XXX
 
-
 class MatrixElements:
     def __init__(self, lmax=2):
         self.lmax = lmax
@@ -63,7 +62,7 @@ class MatrixElements:
         # Build an atom pair registry for basis function overlap
         self.apr = AtomPairRegistry(self.rcmax_a, pbc_c, cell_cv, spos_ac)
 
-        self.a1a2_p = [ (a1,a2) for a1,a2 in self.apr.get_atompairs() if a1<=a2 ]
+        self.a1a2_p = [ (a1,a2) for a1,a2 in self.apr.get_atompairs() ]
 
         print(self.a1a2_p)
         print(self.rcmax_a)
@@ -108,6 +107,11 @@ class MatrixElements:
     """
 
     def evaluate_3ci_LMM(self, a1, a2, a3):
+        print('Calling', a1,a2,a3)
+        if a1 != a2:
+            return self.evaluate_3ci_LMM(a1, a3, a2)
+
+
         R_c_and_offset_a = self.apr.get(a2, a3)
         if R_c_and_offset_a is None:
             return None
@@ -126,10 +130,13 @@ class MatrixElements:
 
 
         setup1 = self.setups[a1]
+
+
         M_a = self.M_a
 
 
         W_XM = W_qXM[0]
+        print("W_XM", a1,a2,a3,W_XM)
         local_I_AMM = np.zeros( ( (self.lmax+1)**2, M_a[a2+1]-M_a[a2], M_a[a3+1]-M_a[a3]) ) 
         # 1) Loop over L
         A = 0

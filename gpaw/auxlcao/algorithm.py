@@ -6,6 +6,10 @@ from gpaw.auxlcao.procedures import calculate_W_LL_offdiagonals_multipole,\
                                     grab_local_W_LL,\
                                     add_to_global_P_LMM
 
+from gpaw.utilities import (pack_atomic_matrices, unpack_atomic_matrices,
+                            unpack2, unpack, packed_index, pack, pack2)
+
+
 from gpaw.auxlcao.matrix_elements import MatrixElements
 
 class RIAlgorithm:
@@ -23,16 +27,19 @@ class RIMPV(RIAlgorithm):
         self.hamiltonian = hamiltonian
         self.wfs = wfs
         self.matrix_elements.initialize(density, hamiltonian, wfs)
+        self.timer = hamiltonian.timer
 
     def set_positions(self, spos_ac):
-        self.W_LL = calculate_W_LL_offdiagonals_multipole(\
-                        self.hamiltonian.gd.cell_cv, 
-                        spos_ac,
-                        self.hamiltonian.gd.pbc_c,
-                        self.wfs.kd.ibzk_qc,
-                        self.wfs.dtype,
-                        self.lmax)
-        get_W_LL_diagonals_from_setups(self.W_LL, self.lmax, self.density.setups)
+        with self.timer('calculate W_LL'):
+            self.W_LL = calculate_W_LL_offdiagonals_multipole(\
+                           self.hamiltonian.gd.cell_cv, 
+                           spos_ac,
+                           self.hamiltonian.gd.pbc_c,
+                           self.wfs.kd.ibzk_qc,
+                           self.wfs.dtype,
+                           self.lmax)
+            get_W_LL_diagonals_from_setups(self.W_LL, self.lmax, self.density.setups)
+
         with open('RIMPV-W_LL.npy', 'wb') as f:
             np.save(f, self.W_LL)
 
@@ -79,21 +86,36 @@ class RIMPV(RIAlgorithm):
                                                     ibzq_qc,
                                                     dtype)
 
+        Msize = 1
+        for a1 in range(2):
+            locP_LMM = self.P_LMM[ a1*9:(a1+1)*9 ]
+            for a2 in range(2):
+                for a3 in range(2):
+                    if a2 == a1 or a3 == a1:
+                        locP_LMM[:,  a2*Msize: (a2+1)*Msize, a3*Msize:(a3+1)*Msize ] = self.matrix_elements.evaluate_3ci_LMM(a1,a2,a3)
+                    else:
+                        locP_LMM[:, a2*Msize: (a2+1)*Msize, a3*Msize:(a3+1)*Msize ] = np.nan
 
-        a1a2_p = self.matrix_elements.a1a2_p
-        for apair in a1a2_p:
-            """
-                 
-                 loc (a1,a2)    [  W[a1,a1]_LL   W[a1, a2]_LL ]
-                W    =          [                             ]
-                 LL             [  W[a2,a1]_LL   W[a2, a2]_LL ]
-            """
-            Wloc_LL, Lslices = grab_local_W_LL(self.W_LL, apair, self.lmax)
 
-            Iloc_LMM, slicing_internals = calculate_local_I_LMM(self.matrix_elements, apair, self.lmax)
-            iWloc_LL = np.linalg.inv(Wloc_LL)
-            result = np.einsum('LO,OMN->LMN', iWloc_LL, Iloc_LMM)
-            add_to_global_P_LMM(self.P_LMM, result, slicing_internals)
+        with open('RIMPV-I_LMM.npy', 'wb') as f:
+            np.save(f, self.P_LMM)
+            xxx
+
+        #with self.timer('3ci: build I_LMM'):
+        if 0:
+            a1a2_p = self.matrix_elements.a1a2_p
+            for apair in a1a2_p:
+                """                 
+                     loc (a1,a2)    [  W[a1,a1]_LL   W[a1, a2]_LL ]
+                    W    =          [                             ]
+                     LL             [  W[a2,a1]_LL   W[a2, a2]_LL ]
+                """
+                Wloc_LL, Lslices = grab_local_W_LL(self.W_LL, apair, self.lmax)
+
+                Iloc_LMM, slicing_internals = calculate_local_I_LMM(self.matrix_elements, apair, self.lmax)
+                iWloc_LL = np.linalg.inv(Wloc_LL)
+                result = np.einsum('LO,OMN->LMN', iWloc_LL, Iloc_LMM)
+                add_to_global_P_LMM(self.P_LMM, result, slicing_internals)
 
 
         """
@@ -101,28 +123,51 @@ class RIMPV(RIAlgorithm):
             Compensation charge contributions to P_LMM
 
         """
-        for a, setup in enumerate(self.wfs.setups):
-            Delta_iiL = setup.Delta_iiL
-            P_Mi = self.wfs.atomic_correction.P_aqMi[a][0]
-            self.P_LMM[a*locLmax:(a+1)*locLmax, :, :] += \
-                      np.einsum('Mi,ijL,Nj->LMN', 
-                      P_Mi, Delta_iiL, P_Mi, optimize=True)
+        #with self.timer('3ci: Compensation charge corrections'):
+        if 0:
+            for a, setup in enumerate(self.wfs.setups):
+                Delta_iiL = setup.Delta_iiL
+                P_Mi = self.wfs.atomic_correction.P_aqMi[a][0]
+                self.P_LMM[a*locLmax:(a+1)*locLmax, :, :] += \
+                          np.einsum('Mi,ijL,Nj->LMN', 
+                          P_Mi, Delta_iiL, P_Mi, optimize=True)
 
 
         """
             
             Premultiply with cholesky
         """
-        self.P_LMM = np.einsum('LO,OMN->LMN', self.Wh_LL, self.P_LMM)
+        print('xxx not premultiplying with cholesky')
+        #self.P_LMM = np.einsum('LO,OMN->LMN', self.Wh_LL, self.P_LMM)
 
     def nlxc(self, H_MM, dH_asp, wfs, kpt):
+        evc = 0.0
+        evv = 0.0
+        ekin = 0.0
+
         rho_MM = wfs.ksl.calculate_density_matrix(kpt.f_n, kpt.C_nM)
+        rho_MM[:] = 0.0
+        rho_MM[0,0] = 1.0
+
+        C_AMM = np.einsum('Bkl,jl',
+                          self.P_LMM,
+                          rho_MM, optimize=True)
+
+        with open('RMPV-C_AMM.npy', 'wb') as f:
+            np.save(f, C_AMM)
+
+
         F_MM = -0.5 * np.einsum('Aij,Akl,jl',
                                 self.P_LMM,
                                 self.P_LMM,
                                 rho_MM, optimize=True)
+
+
+        with open('RIMPV-F_MM.npy', 'wb') as f:
+            np.save(f, F_MM)
+            xxx
         H_MM += self.exx_fraction * F_MM
-        self.evv = 0.5 * self.exx_fraction * np.einsum('ij,ij', F_MM, rho_MM)
+        evv = 0.5 * self.exx_fraction * np.einsum('ij,ij', F_MM, rho_MM)
 
         for a in dH_asp.keys():
             #print(a)
@@ -142,13 +187,12 @@ class RIMPV(RIAlgorithm):
             V_p = pack2(V_ii)
             dH_asp[a][0] += (-V_p - self.density.setups[a].X_p) * self.exx_fraction
 
-            #print("Atomic Ex correction", np.dot(V_p, self.density.D_asp[a][0]) / 2)
-            #print("Atomic Ex correction", np.trace(V_ii @ D_ii))
-            self.evv -= self.exx_fraction * np.dot(V_p, self.density.D_asp[a][0]) / 2
-            self.evc -= self.exx_fraction * np.dot(self.density.D_asp[a][0], self.density.setups[a].X_p)
+            evv -= self.exx_fraction * np.dot(V_p, self.density.D_asp[a][0]) / 2
+            evc -= self.exx_fraction * np.dot(self.density.D_asp[a][0], self.density.setups[a].X_p)
 
-        self.ekin = -2*self.evv -self.evc
+        ekin = -2*evv -evc
 
+        return evv, evc, ekin 
 
     def get_description(self):
         return 'RI-V FullMetric: Resolution of identity Coulomb-metric fit to full auxiliary space RI-V'

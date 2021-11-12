@@ -4,6 +4,7 @@ for hybrid functionals.
 
 """
 
+
 from gpaw.xc import XC
 import numpy as np
 from gpaw.auxlcao.algorithm import RIMPV
@@ -14,7 +15,8 @@ class LCAOHybrid:
     orbital_dependent_lcao = True
     type = 'auxhybrid'
 
-    def __init__(self, xcname:str, algorithm=None):
+    def __init__(self, xcname:str, algorithm=None,
+                                   cubedebug=None):
  
         if xcname == 'EXX':
             self.exx_fraction = 1.0
@@ -26,6 +28,9 @@ class LCAOHybrid:
             self.localxc = XC('HYB_GGA_XC_PBEH')
         else:
             raise ValueError('Functional %s not supported by aux-lcao backend' % xcname)
+
+
+        self.cubedebug = cubedebug
 
         self.evv = np.nan
         self.ecc = np.nan
@@ -91,7 +96,7 @@ class LCAOHybrid:
         if self.use_lda:
             raise ValueError('Error: Due to an internal error, LDA was used thorough the calculation.')
 
-        log(self.get_description())        
+        log(self.get_description())
 
     def add_nlxc_matrix(self, H_MM, dH_asp, wfs, kpt):
         self.evv = 0.0
@@ -102,5 +107,9 @@ class LCAOHybrid:
             return
         print('Not using LDA anymore in add_nlxc')
 
+        if self.cubedebug:
+            self.ri_algorithm.cube_debug(self.cubedebug)
+
         self.evv, self.evc, self.ekin = self.ri_algorithm.nlxc(H_MM, dH_asp, wfs, kpt)
+
 
