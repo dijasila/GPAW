@@ -272,7 +272,7 @@ class Davidson(object):
         appr_sp_order = 0
         dia = []
         self.dimtot = 0
-        for k, kpt in wfs.kpt_u:
+        for k, kpt in enumerate(wfs.kpt_u):
             hdia = self.etdm.get_hessian(kpt)
             self.dim[k] = len(hdia)
             self.dimtot += len(hdia)
