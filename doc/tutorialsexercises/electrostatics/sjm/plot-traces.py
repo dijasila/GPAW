@@ -1,4 +1,4 @@
-# web-page: traces.png
+# web-page: traces-Au111.png
 
 import os
 import numpy as np
@@ -23,4 +23,4 @@ for atom in atoms:
 ax.set_xlabel('$z$')
 ax.set_ylabel('$xy$-averaged value')
 ax.legend()
-fig.savefig('traces.png')
+fig.savefig('traces-Au111.png')
