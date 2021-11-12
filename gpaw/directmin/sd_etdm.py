@@ -54,9 +54,9 @@ class ModeFollowingBase(object):
         self.partial_diagonalizer.grad = g_k1
         use_prev = False if self.eigv is None else True
         self.partial_diagonalizer.run(wfs, ham, dens, use_prev)
-        self.eigv = copy.deepcopy(self.partial_diagonalizer.lambda_complete)
+        self.eigv = copy.deepcopy(self.partial_diagonalizer.lambda_all)
         self.eigvec_old = copy.deepcopy(self.eigvec)
-        self.eigvec = copy.deepcopy(self.partial_diagonalizer.x_complete.T)
+        self.eigvec = copy.deepcopy(self.partial_diagonalizer.x_all.T)
         if wfs.dtype == complex:
             dimtot = int(len(self.eigvec[0]) / 2)
             eigvec = np.zeros(shape=(len(self.eigvec), dimtot),
