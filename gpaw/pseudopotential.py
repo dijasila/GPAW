@@ -43,9 +43,7 @@ def local_potential_to_spline(rgd, vbar_g, filter=None):
     return vbar
 
 
-def get_radial_hartree_energy(r_g, rho_g):
-    """Get energy of l=0 compensation charge on equidistant radial grid."""
-
+def interpolate_linear_grid_from_radial(r_g, rho_g, n_pts=1000):
     # At least in some cases the zeroth point is moved to 1e-8 or so to
     # prevent division by zero and the like, so:
     dr = r_g[2] - r_g[1]
@@ -59,7 +57,15 @@ def get_radial_hartree_energy(r_g, rho_g):
         r_g = np.linspace(0, max(r_g), 1001)
         dr = r_g[1] - r_g[0]
         rho_g = rho_g_in(r_g)
+        return r_g, rho_g, dr
+    return r_g, rho_g, dr
 
+
+def get_radial_hartree_energy(r_g, rho_g):
+    """Get energy of l=0 compensation charge on equidistant radial grid."""
+
+    # interpolate input grid and radial density to linear grid
+    r_g, rho_g, dr = interpolate_linear_grid_from_radial(r_g, rho_g)
     rho_r_dr_g = dr * r_g * rho_g
     vh_r_g = np.zeros(len(r_g))  # "r * vhartree"
     hartree_solve(0, rho_r_dr_g, r_g, vh_r_g)
