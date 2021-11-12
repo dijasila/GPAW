@@ -38,7 +38,7 @@ def get_compensation_charge_splines(setup, lmax, cutoff):
 def get_auxiliary_splines(setup, lmax, cutoff):
     rgd = setup.rgd
     auxt_j = []
-    #wauxt_j = []
+    wauxt_j = []
     for j1, spline1 in enumerate(setup.phit_j):
         for j2, spline2 in enumerate(setup.phit_j):
             if j1 > j2:
@@ -50,9 +50,11 @@ def get_auxiliary_splines(setup, lmax, cutoff):
                     continue
                 aux_g = spline_to_rgd(rgd, spline1, spline2)
                 auxt_j.append(rgd.spline(aux_g, cutoff, l, 100))
-                #wauxt_j.append(rgd.spline(H(rgd, f_g, l), cutoff, l, 100))
 
-    return auxt_j
+                v_g = Hartree(rgd, aux_g, l)
+                wauxt_j.append(rgd.spline(v_g, cutoff, l, 500))
+
+    return auxt_j, wauxt_j
 
 def get_wgauxphit_product_splines(setup, wgaux_j, phit_j, cutoff):
     rgd = setup.rgd
