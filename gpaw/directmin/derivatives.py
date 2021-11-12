@@ -255,8 +255,7 @@ class Davidson(object):
                 self.x_all.append(
                     np.dot(self.V[:, :len(self.lambda_all)], self.y_all[i].T))
             self.x_all = np.asarray(self.x_all).T
-        for kpt in wfs.kpt_u:
-            k = self.etdm.n_kps * kpt.s + kpt.q
+        for k, kpt in enumerate(wfs.kpt_u):
             kpt.C_nM = deepcopy(self.c_nm_ref[k])
         if not self.ef:
             for kpt in wfs.kpt_u:
