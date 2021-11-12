@@ -25,6 +25,7 @@ def search_direction(method, etdm=None, pd=None):
 
         if len(names) == 2:
             if names[1] == 'mmf':
+                pd['ef'] = True
                 searchdir = ModeFollowing(partial_diagonalizer(pd, etdm),
                     searchdir)
 
