@@ -107,6 +107,10 @@ class ModeFollowing(ModeFollowingBase, SearchDirectionBase):
         self.type = self.sd.type + '_mmf'
         super(ModeFollowing, self).__init__(partial_diagonalizer)
 
+    @property
+    def beta0(self):
+        return self.sd.beta0
+
     def __str__(self):
         return self.sd.__str__() + ' with minimum mode following'
 
