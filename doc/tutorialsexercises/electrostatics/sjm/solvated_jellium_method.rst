@@ -45,7 +45,7 @@ As discussed in :ref:`grand-potential-energy`, these grand-potential energies ar
 If you'd rather have it output the traditional canonical energies to the :literal:`get_potential_energy` methods, you can use the :literal:`sj['grand_output']` keyword.
 
 In the last line of the script above, we wrote out some additional information in the form of 'sjm traces'.
-These are traces of the electrostatic potential, the background charge, and the solvent cavity across the `z` axis (that is, `xy`-averaged). 
+These are traces of the electrostatic potential, the background charge, and the solvent cavity across the `z` axis (that is, `xy`-averaged).
 It's a good idea to take a look at these, and perhaps make a plot for each, when running a simulation with a new system so you can be sure it is behaving as you expect.
 The three files that are created are:
 
@@ -69,7 +69,7 @@ We see that both the solvent and the jellium are starting above the highest atom
 If you do see solvent appearing in a region where you do not want it, you can block it with ghost atoms or a boundary plane, as described in the :class:`~gpaw.solvation.sjm.SJMPower12Potential` docstring.
 If you see solvent in the metal region, you could increase the atomic radii as described in the same docstring.
 
-.. image:: traces.png
+.. image:: traces-Au111.png
            :width: 600 px
            :align: center
 
@@ -148,7 +148,7 @@ To use constant-charge mode, just specify the number of :literal:`excess_electro
     sj = {'excess_electrons': 0.5}
     calc = GPAW(sj=sj, ...)
 
-	 
+
 If your intent is to run in the constant-charge ensemble---like in the use of the charge-extrapolation scheme---you may want to output the canonical, rather than the grand-potential energies.
 The canonical energies are consistent with the forces in constant-charge mode.
 To accomplish this, set :literal:`sj['grand_output'] = False`, like::

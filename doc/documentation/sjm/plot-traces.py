@@ -1,3 +1,4 @@
+# web-page: traces.png
 import pickle
 import numpy as np
 import ase.io

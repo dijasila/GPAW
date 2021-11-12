@@ -55,6 +55,6 @@ def test_sjm():
                interactions=[SurfaceInteraction(surface_tension=gamma)])
 
     # Run the calculation
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     atoms.get_potential_energy()
     assert abs(calc.get_electrode_potential() - potential) < tol
