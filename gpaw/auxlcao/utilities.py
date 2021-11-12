@@ -35,6 +35,25 @@ def get_compensation_charge_splines(setup, lmax, cutoff):
         wghat_l.append(rgd.spline(v_g, cutoff, l, 500))
     return ghat_l, wghat_l
 
+def get_auxiliary_splines(setup, lmax, cutoff):
+    rgd = setup.rgd
+    auxt_j = []
+    #wauxt_j = []
+    for j1, spline1 in enumerate(setup.phit_j):
+        for j2, spline2 in enumerate(setup.phit_j):
+            if j1 > j2:
+                continue
+            l1 = spline1.get_angular_momentum_number()
+            l2 = spline2.get_angular_momentum_number()
+            for l in range((l1 + l2) % 2, l1 + l2 + 1, 2):
+                if l > 2:
+                    continue
+                aux_g = spline_to_rgd(rgd, spline1, spline2)
+                auxt_j.append(rgd.spline(aux_g, cutoff, l, 100))
+                #wauxt_j.append(rgd.spline(H(rgd, f_g, l), cutoff, l, 100))
+
+    return auxt_j
+
 def get_wgauxphit_product_splines(setup, wgaux_j, phit_j, cutoff):
     rgd = setup.rgd
     x = 0
