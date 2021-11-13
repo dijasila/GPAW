@@ -2,6 +2,34 @@
 Implements various versions of resolution of identity method
 for hybrid functionals.
 
+    Indices
+         a      atoms
+
+         j      index of radial splines, which are each assigned a given l-channel
+
+         m      Indices m-quantum number of given l. Has 2*l+1 items.
+
+         aj     list of atom wise spline list
+
+         al     list of atom wise spline list with angular momentum matching
+                the l index.
+
+         M      running basis function index. (a,j,m) tuple
+
+         A      running auxiliary function index. (a,j,m) tuple.
+
+         G      running generalized gaussian index (a,l,m) tuple.
+
+         x      running atom centered radial product index of phi_j and auxt_j,
+                extra l spanning possible product channels. (a, j, j', l) tuple.
+
+         X      running atom centered radial product index with angular
+                momentum. (a, j, j', l, m) tuple.
+
+    Arrays
+         W_AA   auxiliary-auxiliary 2-center integrals.
+
+
 """
 
 
