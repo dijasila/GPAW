@@ -29,8 +29,7 @@ def get_A_a(auxt_aj):
     A = 0
     for a, auxt_j in enumerate(auxt_aj):
         A_a.append(A)
-        for j, auxt in enumerate(auxt_j):
-            A += 2*auxt.l+1
+        A += sum([ 2*auxt.l+1 for auxt in auxt_j ])
     A_a.append(A)
     return A
 
