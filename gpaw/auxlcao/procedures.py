@@ -9,6 +9,7 @@ sqrt15 = 15**0.5
     Methods helping with slicing of local arrays
 
 """
+
 def reduce_list(lst):
     return list(dict.fromkeys(lst))
 
@@ -22,6 +23,16 @@ def grab_local_W_LL(W_LL, alst, lmax):
     S = (lmax+1)**2
     Lslices = get_L_slices(reduce_list(alst),S)
     return np.block( [ [ W_LL[slice1, slice2] for slice2 in Lslices ] for slice1 in Lslices ] ), Lslices
+
+def get_A_a(auxt_aj):
+    A_a = []
+    A = 0
+    for a, auxt_j in enumerate(auxt_aj):
+        A_a.append(A)
+        for j, auxt in enumerate(auxt_j):
+            A += 2*auxt.l+1
+    A_a.append(A)
+    return A
 
 def create_local_M_a(alst, M_a):
     M = 0
@@ -226,3 +237,10 @@ def calculate_W_LL_offdiagonals_multipole(cell_cv, spos_ac, pbc_c, ibzk_qc, dtyp
 
 
     raise NotImplementedError('lmax=%d for multipole interaction' % lmax)
+
+def reference_W_AA(density, auxt_aj):
+    aux_lfc = LFC(density.finegd, auxt_aj)
+    aux_lfc.set_positions(spos_ac)
+    A_a = get_A_a(auxt_aj)
+
+    
