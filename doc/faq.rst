@@ -27,7 +27,12 @@ and the major GPAW review:
    __ http://stacks.iop.org/0953-8984/22/253202
 
 
-together with ASE citation (see :ref:`ase:cite`).
+together with ASE citation (see :ref:`ase:cite`). GPAW relies on `Libxc <http://libxc.gitlab.io>`_ to enable density functional calculations, and Libxc should therefore be cited alongside GPAW in all scientific publications.
+
+   | S. Lehtola, C. Steigemann, M. J. T. Oliveira and M. A. L. Marques.
+   | :doi:`Recent developments in LIBXC — a comprehensive library of functionals for density functional theory <10.1016/j.softx.2017.11.002>`
+   | SoftwareX **7**, 1 (2018)
+
 
 If you are using the time-dependent DFT part of the code, please cite also:
 
