@@ -32,6 +32,7 @@ Linux:
    Linux/juropa
    Linux/jureca
    Linux/justus
+   Linux/Juwels/juwels
    Linux/monolith
    Linux/murska
    Linux/nanolab_EL4
