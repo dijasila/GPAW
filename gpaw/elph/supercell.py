@@ -14,8 +14,6 @@ from gpaw.utilities import unpack2
 from gpaw.utilities.tools import tri2full
 from gpaw.typing import ArrayND
 
-#from gpaw.mpi import world
-
 from .filter import fourier_filter
 
 sc_version = 1

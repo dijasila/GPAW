@@ -77,7 +77,7 @@ class ElectronPhononMatrix:
 
         if self.phonon.D_N is None:
             self.phonon.read(symmetrize=10)
-            
+
     def _bloch_matrix(self, C1_nM, C2_nM, s, k_c, q_c,
                       prefactor: bool) -> ArrayND:
         """Calculates elph matrix entry for a given k and q.
