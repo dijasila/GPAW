@@ -362,7 +362,7 @@ class ETDM:
                     self.get_energy_and_gradients(a_vec_u, n_dim, ham, wfs,
                                                   dens, c_ref)
             else:
-                g_vec_u = self.g_vec_u
+                g_vec_u = self.g_vec_u_original if self.mmf else self.g_vec_u
 
             make_pd = False
             if self.mmf:
