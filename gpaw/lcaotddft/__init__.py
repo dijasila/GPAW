@@ -29,6 +29,12 @@ class LCAOTDDFT(GPAW):
     scale
         Experimental option (use carefully).
         Scaling factor for the dynamic part of Hamiltonian
+    keep_static_external_potential
+        Experimental option (use carefully).
+        Whether to keep the external potential included in the DFT calculation
+        (default: True).
+        Setting this to False corresponds to sudden switching off of
+        the external potential.
     parallel
         Parallelization options
     communicator
@@ -41,6 +47,7 @@ class LCAOTDDFT(GPAW):
                  td_potential: dict = None,
                  fxc: str = None,
                  scale: float = None,
+                 keep_static_external_potential: bool = None,
                  parallel: dict = None,
                  communicator: object = None,
                  txt: str = '-'):
@@ -59,10 +66,23 @@ class LCAOTDDFT(GPAW):
 
         self.propagator_set = propagator is not None
         self.propagator = create_propagator(propagator)
+        self.keep_static_external_potential = keep_static_external_potential
         self.default_parameters = GPAW.default_parameters.copy()
         self.default_parameters['symmetry'] = {'point_group': False}
+
         GPAW.__init__(self, filename, parallel=parallel,
                       communicator=communicator, txt=txt)
+        # Note! Here happens implicitly self.read() that
+        #       GPAW.__init__() triggers!
+
+        if self.keep_static_external_potential is None:
+            # Set the default value if parameter is not set or read
+            self.keep_static_external_potential = True
+        if not self.keep_static_external_potential:
+            # Discard the external potential but keep it in
+            # the parameter listing
+            self.hamiltonian.vext = None
+
         self.set_positions()
 
     def write(self, filename, mode=''):
@@ -77,7 +97,9 @@ class LCAOTDDFT(GPAW):
             w.write(time=self.time,
                     niter=self.niter,
                     kick_strength=self.kick_strength,
-                    propagator=self.propagator.todict())
+                    propagator=self.propagator.todict(),
+                    keep_static_external_potential=self.keep_static_external_potential,  # noqa: E501
+                    )
             self.td_hamiltonian.write(w.child('td_hamiltonian'))
 
     def read(self, filename):
@@ -87,6 +109,10 @@ class LCAOTDDFT(GPAW):
             self.time = r.time
             self.niter = r.niter
             self.kick_strength = r.kick_strength
+            if self.keep_static_external_potential is None:
+                # Read this parameter only if it was not reset in __init__()
+                self.keep_static_external_potential = \
+                    r.get('keep_static_external_potential', None)
             if not self.propagator_set:
                 self.propagator = create_propagator(r.propagator)
             else:
