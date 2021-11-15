@@ -13,7 +13,7 @@ from gpaw.auxlcao.procedures import calculate_W_LL_offdiagonals_multipole,\
                                     reference_I_AMM,\
                                     reference_W_AA
    
-
+from gpaw.auxlcao.utilities import safe_inv
 
 from gpaw.utilities import (pack_atomic_matrices, unpack_atomic_matrices,
                             unpack2, unpack, packed_index, pack, pack2)
@@ -53,7 +53,6 @@ class RIMPV(RIAlgorithm):
         auxt_aj = [ setup.auxt_j for setup in self.wfs.setups ]
         M_aj = [ setup.M_j for setup in self.wfs.setups ]
 
-
         gd = self.hamiltonian.gd
         ibzq_qc = np.array([[0.0, 0.0, 0.0]])
         dtype = self.wfs.dtype
@@ -78,7 +77,6 @@ class RIMPV(RIAlgorithm):
 
         self.W_AA = self.V_AA + self.S_AA + self.M_AA + self.M_AA.T
 
-
         with self.timer('Calculate I_AMM'):
             self.I_AMM = calculate_I_AMM(self.matrix_elements)
 
@@ -88,9 +86,17 @@ class RIMPV(RIAlgorithm):
         with self.timer('Calculate reference I_AMM'):
             self.Iref_AMM = reference_I_AMM(self.wfs, self.density, self.hamiltonian, self.hamiltonian.poisson, auxt_aj, spos_ac)
 
-        self.iW_AA = np.linalg.inv(self.W_AA)
+        self.iW_AA = safe_inv(self.W_AA)
         self.Pref_AMM = np.einsum('AB,Bij->Aij', self.iW_AA, self.Iref_AMM)
+
+        self.K_MMMM = np.einsum('Aij,AB,Bkl', self.P_AMM, self.W_AA, self.P_AMM, optimize=True)
+        self.Kref_MMMM = np.einsum('Aij,AB,Bkl', self.Iref_AMM, self.iW_AA, self.Iref_AMM, optimize=True)
       
+        with open('RIMPV-K_MMMM.npy', 'wb') as f:
+            np.save(f, self.K_MMMM)
+        with open('RIMPV-Kref_MMMM.npy', 'wb') as f:
+            np.save(f, self.Kref_MMMM)
+
         with open('RIMPV-Pref_AMM.npy', 'wb') as f:
             np.save(f, self.Pref_AMM)
         with open('RIMPV-P_AMM.npy', 'wb') as f:
@@ -100,7 +106,6 @@ class RIMPV(RIAlgorithm):
             np.save(f, self.Iref_AMM)
         with open('RIMPV-I_AMM.npy', 'wb') as f:
             np.save(f, self.I_AMM)
-
 
         with self.timer('calculate reference W_AA'):
             self.Wref_AA = reference_W_AA(self.density, self.hamiltonian.poisson, auxt_aj, spos_ac)
@@ -113,7 +118,6 @@ class RIMPV(RIAlgorithm):
             np.save(f, self.Wref_AA)
         with open('RIMPV-W_AA.npy', 'wb') as f:
             np.save(f, self.W_AA)
-
 
         xxx
         self.Wh_LL = np.linalg.cholesky(self.W_LL)
@@ -182,7 +186,6 @@ class RIMPV(RIAlgorithm):
                 result = np.einsum('LO,OMN->LMN', iWloc_LL, Iloc_LMM)
                 add_to_global_P_LMM(self.P_LMM, result, slicing_internals)
 
-
         """
 
             Compensation charge contributions to P_LMM
@@ -213,7 +216,6 @@ class RIMPV(RIAlgorithm):
                            self.iW_LL,
                            self.I_LMM, optimize=True)
 
-
         gaux_lfc_coarse = LFC(self.density.gd, [setup.gaux_l for setup in self.wfs.setups])
         gaux_lfc_coarse.set_positions(self.spos_ac)
         nao = self.wfs.setups.nao
@@ -232,8 +234,6 @@ class RIMPV(RIAlgorithm):
                 fit_G = self.density.gd.zeros()
                 gaux_lfc_coarse.add(fit_G, Q_aM)
                 write_cube(open('new_%03d_%03d.cube' % (M1, M2),'w'), atoms, data=fit_G, comment='')
-
-
 
         xxx
 
