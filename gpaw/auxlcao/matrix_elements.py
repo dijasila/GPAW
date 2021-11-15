@@ -24,6 +24,9 @@ class MatrixElements:
         self.M_a = setups.M_a.copy()
         self.M_a.append(setups.nao)
 
+
+
+
         # I_a is an index for each atom identifying which setup type it has.
         # setup_for_atom_a = setups_I[I_a[a]]
         I_a, setups_I = split_setups_to_types(setups)
@@ -214,8 +217,8 @@ class MatrixElements:
     """
 
              /       ||               \
-     I    =  | g (r) || φ (r') φ (r') |
-      LMM    \  L    ||  M     M'     /,
+     I    =  | φ (r) || φ (r') φ (r') |
+      AMM    \  A    ||  M     M'     /,
 
       where double bar stands for Coulomb integral.
 
@@ -250,13 +253,13 @@ class MatrixElements:
         setup1 = self.setups[a1]
 
         M_a = self.M_a
+        A_a = self.A_a
 
         W_YM = W_qYM[0]
         print("W_XM", a1,a2,a3,W_YM)
 
 
-        local_I_AMM = np.zeros( (setup1.Na, M_a[a2+1]-M_a[a2], M_a[a3+1]-M_a[a3]) ) 
-        # 1) Loop over L
+        local_I_AMM = np.zeros( (A_a[a1+1]-A_a[a1], M_a[a2+1]-M_a[a2], M_a[a3+1]-M_a[a3]) ) 
         A = 0
         X = 0
         Astart = 0
@@ -271,13 +274,14 @@ class MatrixElements:
                         for m1 in range(2*phit1.l+1):
                             M1 = M1start + m1
                             L1 = phit1.l**2 + m1
-                            for mA in range(2*lg+1):
-                                LA = lg**2 + mA
+                            for mA in range(2*auxt.l+1):
+                                LA = auxt.l**2 + mA
                                 A = Astart + mA
+                                print(G_LLL.shape, LA,L1,LX, W_YM.shape, X, A, M1)
                                 local_I_AMM[A, M1, :] += G_LLL[LA,L1,LX] * W_YM[X, :]
                         X += 1
                 M1start += 2*phit1.l+1
-            Astart += 2*lg+1
+            Astart += 2*auxt.l+1
 
         return local_I_AMM
 

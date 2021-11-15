@@ -6,9 +6,11 @@ from gpaw.auxlcao.procedures import calculate_W_LL_offdiagonals_multipole,\
                                     grab_local_W_LL,\
                                     add_to_global_P_LMM,\
                                     calculate_V_AA,\
-                                    reference_W_AA,\
                                     calculate_S_AA,\
-                                    calculate_M_AA
+                                    calculate_M_AA,\
+                                    calculate_I_AMM,\
+                                    reference_I_AMM,\
+                                    reference_W_AA
    
 
 
@@ -53,12 +55,6 @@ class RIMPV(RIAlgorithm):
         with self.timer('calculate W_AA'):
             self.V_AA = calculate_V_AA(auxt_aj, M_aj, self.W_LL, self.lmax)
 
-        """
-
-            Loop over overlapping basis function spheres
-
-        """
-
         gd = self.hamiltonian.gd
         ibzq_qc = np.array([[0.0, 0.0, 0.0]])
         dtype = self.wfs.dtype
@@ -76,6 +72,18 @@ class RIMPV(RIAlgorithm):
             self.M_AA = calculate_M_AA(self.matrix_elements, auxt_aj, M_aj, self.lmax)
             print('M_AA', self.M_AA)
 
+        with self.timer('Calculate I_AMM'):
+            self.I_AMM = calculate_I_AMM(self.matrix_elements)
+
+        with self.timer('Calculate reference I_AMM'):
+            self.Iref_AMM = reference_I_AMM(self.wfs, self.density, self.hamiltonian, self.hamiltonian.poisson, auxt_aj, spos_ac)
+
+        with open('RIMPV-Iref_AMM.npy', 'wb') as f:
+            np.save(f, self.Iref_AMM)
+        with open('RIMPV-I_AMM.npy', 'wb') as f:
+            np.save(f, self.I_AMM)
+
+
         with self.timer('calculate reference W_AA'):
             self.Wref_AA = reference_W_AA(self.density, self.hamiltonian.poisson, auxt_aj, spos_ac)
             print(self.V_AA,'V_AA')
@@ -83,11 +91,14 @@ class RIMPV(RIAlgorithm):
             print(self.W_AA,'V_AA+S_AA+M_AA+M_AA.T')
             print(self.Wref_AA,'W_REF')
             print(np.linalg.norm(self.W_AA-self.Wref_AA),'norm error')
+
         with open('RIMPV-Wref_AA.npy', 'wb') as f:
             np.save(f, self.Wref_AA)
         with open('RIMPV-W_AA.npy', 'wb') as f:
             np.save(f, self.W_AA)
 
+
+        xxx
         self.Wh_LL = np.linalg.cholesky(self.W_LL)
 
         # Debugging inverse

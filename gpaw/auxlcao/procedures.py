@@ -1,5 +1,6 @@
 import numpy as np
 from gpaw.lfc import LFC
+from gpaw.utilities.tools import tri2full
 
 sqrt3 = 3**0.5
 sqrt5 = 5**0.5
@@ -270,6 +271,7 @@ def reference_W_AA(density, poisson, auxt_aj, spos_ac):
     for a, (Astart, Aend) in enumerate(zip(A_a[:-1], A_a[1:])):
         Aloctot = Aend - Astart
         for Aloc, Aglob in enumerate(range(Astart, Aend)):
+            print(a,Aloc)
             # Add a single function to the grid
             Q_aA = aux_lfc.dict(zero=True)
             Q_aA[a][Aloc] = 1.0
@@ -290,6 +292,89 @@ def reference_W_AA(density, poisson, auxt_aj, spos_ac):
                 W_AA[Aglob, A2start:A2end] = W_aM[a2]
     return W_AA
 
+
+
+"""
+
+    Production implementation of
+
+             /    /      a1      1       a2     a3 
+     I     = | dr | dr' φ (r) --------  φ (r') φ (r'),
+      AMM'   /    /      A    | r-r' |   M      M'
+
+    where a2 and a3 can be anything, and a1 ∈  (a2, a3).
+
+
+"""
+
+def calculate_I_AMM(matrix_elements):
+    A_a = matrix_elements.A_a
+    M_a = matrix_elements.M_a
+    Atot = A_a[-1]
+    nao = M_a[-1]
+    I_AMM = np.zeros( (Atot, nao, nao) )
+    I_AMM[:] = np.nan
+    for a1, (A1start, A1end) in enumerate(zip(A_a[:-1], A_a[1:])):
+        for a2, (M1start, M1end) in enumerate(zip(M_a[:-1], M_a[1:])):
+            for a3, (M2start, M2end) in enumerate(zip(M_a[:-1], M_a[1:])):
+                if a1 != a2 and a1 != a3:
+                    continue
+                I_AMM[A1start:A1end, M1start:M1end, M2start:M2end] = \
+                      matrix_elements.evaluate_3ci_AMM(a1, a2, a3)
+
+    return I_AMM
+
+
+"""
+
+    A reference implementation of
+
+             /    /              1 
+     I     = | dr | dr' φ (r) --------  φ (r') φ (r')
+      AMM'   /    /      A    | r-r' |   M      M'
+
+    This function separately places each phi (r),
+                                            A
+    to grid and evaluates it's Coulomb solution, and integrates
+    with phi products using the LocalizedFunctions object.
+    Only to be used for testing.
+
+"""
+
+def reference_I_AMM(wfs, density, hamiltonian, poisson, auxt_aj, spos_ac):
+    # Obtain local (per atom) coordinates for auxiliary functions,
+    # and allocate the W_AA array.
+    A_a = get_A_a(auxt_aj)
+    Atot = A_a[-1]
+    nao = wfs.setups.nao
+
+    I_AMM = np.zeros( (Atot, nao, nao) )
+
+    gd = density.finegd
+    aux_lfc = LFC(gd, auxt_aj)
+    aux_lfc.set_positions(spos_ac)
+
+    for a, (Astart, Aend) in enumerate(zip(A_a[:-1], A_a[1:])):
+        Aloctot = Aend - Astart
+        for Aloc, Aglob in enumerate(range(Astart, Aend)):
+            print(a,Aloc)
+            # Add a single function to the grid
+            Q_aA = aux_lfc.dict(zero=True)
+            Q_aA[a][Aloc] = 1.0
+            auxt_g = gd.zeros()
+            aux_lfc.add(auxt_g, Q_aA)
+
+            # Solve its Poisson equation
+            wauxt_g = gd.zeros()
+            poisson.solve(wauxt_g, auxt_g, charge=None)
+
+            wauxt_G = hamiltonian.gd.zeros()
+            hamiltonian.restrict(wauxt_g, wauxt_G)
+            V_MM = wfs.basis_functions.calculate_potential_matrices(wauxt_G)[0]
+            tri2full(V_MM)
+            I_AMM[Aglob] = (V_MM+V_MM.T)/2
+
+    return I_AMM
 
 """
 
@@ -369,3 +454,35 @@ def calculate_V_AA(auxt_aj, M_aj, W_LL, lmax):
                 A1 += 1
 
     return W_AA
+
+def calculate_S_AA(matrix_elements):
+    A_a = matrix_elements.A_a
+    Atot = A_a[-1]
+    S_AA = np.zeros( (Atot, Atot) )
+    
+    for a1, (A1start, A1end) in enumerate(zip(A_a[:-1], A_a[1:])):
+        for a2, (A2start, A2end) in enumerate(zip(A_a[:-1], A_a[1:])):
+            S_AA[A1start:A1end, A2start:A2end] = matrix_elements.evaluate_2ci_S_AA(a1, a2)
+    return S_AA
+
+
+def calculate_M_AA(matrix_elements, auxt_aj, M_aj, lmax):
+    A_a = matrix_elements.A_a
+    Atot = A_a[-1]
+    M_AA = np.zeros( (Atot, Atot) )
+    Lmax = (lmax+1)**2
+    
+    for a1, (A1start, A1end) in enumerate(zip(A_a[:-1], A_a[1:])):
+        A2 = 0
+        for a2, (A2start, A2end) in enumerate(zip(A_a[:-1], A_a[1:])):
+            M_AL = matrix_elements.evaluate_2ci_M_AL(a1, a2)
+            for M2, auxt2 in zip(M_aj[a2], auxt_aj[a2]):
+                for m2 in range(2*auxt2.l+1):
+                    L2 = auxt2.l**2 + m2
+                    print(M_AA.shape)
+                    print(M_AL.shape)
+                    print(A1start, A1end, A2, a2*Lmax + L2)
+                    M_AA[A1start:A1end, A2] = M2*M_AL[:, L2]
+                    A2 += 1
+
+    return M_AA
