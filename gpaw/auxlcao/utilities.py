@@ -90,3 +90,16 @@ def get_wgauxphit_product_splines(setup, wgaux_j, phit_j, cutoff):
                 wgauxphit_g = spline_to_rgd(rgd, wgaux, spline1)
                 wgauxphit_x.append(rgd.spline(wgauxphit_g, cutoff, l))
     return wgauxphit_x
+
+
+def safe_inv(W_AA):
+    eigs = np.linalg.eigvalsh(W_AA)
+    if np.any(eigs < 1e-8):
+        print('Warning. Nearly singular matrix.')
+        for x in eigs:
+            print(x,end=' ')
+          #iW_AA = np.linalg.pinv(W_AA, hermitian=True, rcond=1e-6)
+    iW_AA = np.linalg.inv(W_AA)
+    iW_AA = (iW_AA + iW_AA.T)/2
+    return iW_AA
+

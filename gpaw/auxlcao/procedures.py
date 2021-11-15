@@ -1,6 +1,7 @@
 import numpy as np
 from gpaw.lfc import LFC
 from gpaw.utilities.tools import tri2full
+from gpaw.auxlcao.utilities import safe_inv
 
 sqrt3 = 3**0.5
 sqrt5 = 5**0.5
@@ -375,6 +376,55 @@ def reference_I_AMM(wfs, density, hamiltonian, poisson, auxt_aj, spos_ac):
             I_AMM[Aglob] = (V_MM+V_MM.T)/2
 
     return I_AMM
+
+
+
+"""
+ Production implementation of two center auxiliary RI-V projection.
+
+                             -1
+           /       ||       \  /       ||             \
+ P       = | φ (r) || φ (r) |  | φ (r) || φ (r) φ (r) |
+  AM1M2    \  A    ||  A'   /  \  A'   ||  M1    M2   /
+
+ Where A and A' ∈  a(M1) ∪ a(M2).
+
+
+"""
+
+def calculate_P_AMM(matrix_elements, W_AA):
+    A_a = matrix_elements.A_a
+    M_a = matrix_elements.M_a
+    Atot = A_a[-1]
+    nao = M_a[-1]
+    P_AMM = np.zeros( (Atot, nao, nao) )
+
+    # Single center projections
+    for a, (Astart, Aend, Mstart, Mend) in enumerate(zip(A_a[:-1], A_a[1:], M_a[:-1], M_a[1:])):
+        iW_AA = safe_inv(W_AA[Astart:Aend, Astart:Aend])
+        I_AMM = matrix_elements.evaluate_3ci_AMM(a, a, a)
+        P_AMM[Astart:Aend, Mstart:Mend, Mstart:Mend] += \
+           np.einsum('AB,Bij->Aij', iW_AA, I_AMM)
+
+    # Two center projections
+    for a1, (A1start, A1end, M1start, M1end) in enumerate(zip(A_a[:-1], A_a[1:], M_a[:-1], M_a[1:])):
+        for a2, (A2start, A2end, M2start, M2end) in enumerate(zip(A_a[:-1], A_a[1:], M_a[:-1], M_a[1:])):
+            if a1 == a2:
+                continue
+            W_AA = np.block( [ [ W_AA[A1start:A1end, A1start:A1end], W_AA[A1start:A1end, A2start:A2end] ],
+                               [ W_AA[A2start:A2end, A1start:A1end], W_AA[A2start:A2end, A2start:A2end] ] ] )
+            iW_AA = safe_inv(W_AA)
+            I_AMM = [matrix_elements.evaluate_3ci_AMM(a1, a1, a2),
+                     matrix_elements.evaluate_3ci_AMM(a2, a1, a2) ]
+            print(I_AMM[0].shape, I_AMM[1].shape,'shapes')
+            I_AMM = np.vstack( I_AMM )
+            print(I_AMM.shape)
+            Ploc_AMM = np.einsum('AB,Bij', iW_AA, I_AMM)
+
+            P_AMM[A1start:A1end, M1start:M1end, M2start:M2end] += Ploc_AMM[:A1end-A1start]
+            P_AMM[A2start:A2end, M1start:M1end, M2start:M2end] += Ploc_AMM[A1end-A1start:]
+
+    return P_AMM
 
 """
 

@@ -9,6 +9,7 @@ from gpaw.auxlcao.procedures import calculate_W_LL_offdiagonals_multipole,\
                                     calculate_S_AA,\
                                     calculate_M_AA,\
                                     calculate_I_AMM,\
+                                    calculate_P_AMM,\
                                     reference_I_AMM,\
                                     reference_W_AA
    
@@ -52,8 +53,6 @@ class RIMPV(RIAlgorithm):
         auxt_aj = [ setup.auxt_j for setup in self.wfs.setups ]
         M_aj = [ setup.M_j for setup in self.wfs.setups ]
 
-        with self.timer('calculate W_AA'):
-            self.V_AA = calculate_V_AA(auxt_aj, M_aj, self.W_LL, self.lmax)
 
         gd = self.hamiltonian.gd
         ibzq_qc = np.array([[0.0, 0.0, 0.0]])
@@ -64,19 +63,38 @@ class RIMPV(RIAlgorithm):
                                                     ibzq_qc,
                                                     dtype)
 
+        """
+            Screened Coulomb integrals
+
+        """
+        with self.timer('calculate W_AA'):
+            self.V_AA = calculate_V_AA(auxt_aj, M_aj, self.W_LL, self.lmax)
+
         with self.timer('calculate S_AA'):
             self.S_AA = calculate_S_AA(self.matrix_elements)
-            print('S_AA', self.S_AA)
 
         with self.timer('calculate M_AA'):
             self.M_AA = calculate_M_AA(self.matrix_elements, auxt_aj, M_aj, self.lmax)
-            print('M_AA', self.M_AA)
+
+        self.W_AA = self.V_AA + self.S_AA + self.M_AA + self.M_AA.T
+
 
         with self.timer('Calculate I_AMM'):
             self.I_AMM = calculate_I_AMM(self.matrix_elements)
 
         with self.timer('Calculate reference I_AMM'):
             self.Iref_AMM = reference_I_AMM(self.wfs, self.density, self.hamiltonian, self.hamiltonian.poisson, auxt_aj, spos_ac)
+
+        with self.timer('Calculate P_AMM'):
+            self.P_AMM = calculate_P_AMM(self.matrix_elements, self.W_AA)
+
+        self.iW_AA = np.linalg.inv(self.W_AA)
+        self.Pref_AMM = np.einsum('AB,Bij->Aij', self.iW_AA, self.Iref_AMM)
+      
+        with open('RIMPV-Pref_AMM.npy', 'wb') as f:
+            np.save(f, self.Pref_AMM)
+        with open('RIMPV-P_AMM.npy', 'wb') as f:
+            np.save(f, self.P_AMM)
 
         with open('RIMPV-Iref_AMM.npy', 'wb') as f:
             np.save(f, self.Iref_AMM)
@@ -87,7 +105,6 @@ class RIMPV(RIAlgorithm):
         with self.timer('calculate reference W_AA'):
             self.Wref_AA = reference_W_AA(self.density, self.hamiltonian.poisson, auxt_aj, spos_ac)
             print(self.V_AA,'V_AA')
-            self.W_AA = self.V_AA + self.S_AA + self.M_AA + self.M_AA.T
             print(self.W_AA,'V_AA+S_AA+M_AA+M_AA.T')
             print(self.Wref_AA,'W_REF')
             print(np.linalg.norm(self.W_AA-self.Wref_AA),'norm error')
