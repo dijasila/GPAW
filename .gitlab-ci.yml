@@ -50,7 +50,7 @@ libxc:
   script:
     - git clone https://gitlab.com/libxc/libxc.git
     - cd libxc
-    - git checkout 5.1.6
+    - git checkout 5.1.7
     - autoreconf -i
     - ./configure --enable-shared --disable-fortran --prefix=$HOME/libxc
     - make > libxc-install.out
@@ -83,6 +83,7 @@ docs:
     - export GPAW_SETUP_PATH=$PWD
     - cd doc
     - make
+    - make doctest
   when: manual
   artifacts:
     paths:

@@ -528,3 +528,18 @@ References
    | T. P. Rossi, M. Kuisma, M. J. Puska, R. M. Nieminen, and P. Erhart,
    | :doi:`Kohn--Sham Decomposition in Real-Time Time-Dependent Density-Functional Theory: An Efficient Tool for Analyzing Plasmonic Excitations <10.1021/acs.jctc.7b00589>`
    | J. Chem. Theory Comput. **13**, 4779 (2017)
+
+
+Code documentation
+==================
+
+.. autoclass:: gpaw.lcaotddft.LCAOTDDFT
+   :members:
+   :exclude-members: read
+
+
+Observers
+---------
+
+.. autoclass:: gpaw.lcaotddft.dipolemomentwriter.DipoleMomentWriter
+   :members:

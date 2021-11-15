@@ -858,8 +858,11 @@ Here, ``niter`` specifies the maximum number of conjugate gradient iterations
 for each band (within a single SCF step), and if the relative change
 in residual is less than ``rtol``, the iteration for the band is not continued.
 
-LCAO mode has its own eigensolver, which directly diagonalizes the
-Hamiltonian matrix instead of using an iterative method.
+LCAO mode has its own eigensolvers. ``DirectLCAO`` eigensolver directly
+diagonalizes the Hamiltonian matrix instead of using an iterative method.
+One can also use Exponential Transformation Direct Minimization (ETDM) method
+(see :ref:`directmin`) but it is not recommended to use it for metals
+because occupation numbers are not found variationally in ETDM.
 
 
 .. _manual_poissonsolver:
