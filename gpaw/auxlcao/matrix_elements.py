@@ -5,10 +5,11 @@ from gpaw.lcao.tci import get_cutoffs, split_setups_to_types, AtomPairRegistry,\
 from gpaw.auxlcao.utilities import get_compensation_charge_splines,\
                                    get_wgauxphit_product_splines,\
                                    get_auxiliary_splines
-
+from gpaw.auxlcao.procedures import get_A_a
 from gpaw.lcao.overlap import (FourierTransformer, TwoSiteOverlapCalculator,
                                ManySiteOverlapCalculator,
                                AtomicDisplacement, NullPhases)
+
 from gpaw.gaunt import gaunt
 
 G_LLL = gaunt(3) # XXX
@@ -42,7 +43,7 @@ class MatrixElements:
             setup.wgauxphit_x = get_wgauxphit_product_splines(setup, setup.wgaux_l, setup.phit_j, rcmax)
 
             # Auxiliary basis functions
-            setup.auxt_j, setup.wauxt_j, setup.M_j = get_auxiliary_splines(setup, self.lmax, rcmax)
+            setup.auxt_j, setup.wauxt_j, setup.sauxt_j, setup.wsauxt_j, setup.M_j = get_auxiliary_splines(setup, self.lmax, rcmax)
 
             setup.Naux = sum([ 2*spline.l+1 for spline in setup.auxt_j])
 
@@ -54,21 +55,49 @@ class MatrixElements:
         tsoc = TwoSiteOverlapCalculator(transformer)
         msoc = ManySiteOverlapCalculator(tsoc, I_a, I_a)
 
+        # Poisson of auxiliary function times a basis function expanded on product angular momentum channels
         wauxtphit_Ix = [ setup.wauxtphit_x for setup in setups_I]
         wauxtphit_Ixq = msoc.transform(wauxtphit_Ix)
         wauxtphit_l_Ix = get_lvalues(wauxtphit_Ix)
 
+        # Poisson of gaussian function times a basis function expanded on product angular momentum channels
         wgauxphit_Ix = [ setup.wgauxphit_x for setup in setups_I]
         wgauxphit_Ixq = msoc.transform(wgauxphit_Ix)
         wgauxphit_l_Ix = get_lvalues(wgauxphit_Ix)
 
+        # Basis functions
         phit_Ij = [ setup.phit_j for setup in setups_I] 
         phit_Ijq = msoc.transform(phit_Ij)
         phit_l_Ij = get_lvalues(phit_Ij)
 
+        # Generalied gaussian functions
+        ghat_Il = [ setup.ghat_l for setup in setups_I] 
+        ghat_Ilq = msoc.transform(ghat_Il)
+        ghat_l_Il = get_lvalues(ghat_Il)
+
+        # Auxiliary functions
         auxt_Ij = [ setup.auxt_j for setup in setups_I] 
         auxt_Ijq = msoc.transform(auxt_Ij)
-        auxt_l_Ij = get_lvalues(phit_Ij)
+        auxt_l_Ij = get_lvalues(auxt_Ij)
+
+        # Generalized gaussian screened auxiliary functions
+        sauxt_Ij = [ setup.sauxt_j for setup in setups_I]
+        sauxt_Ijq = msoc.transform(sauxt_Ij)
+        sauxt_l_Ij = get_lvalues(sauxt_Ij)
+
+        # Potential from generalized gaussian screened auxiliary functions
+        wsauxt_Ij = [ setup.wsauxt_j for setup in setups_I] 
+        wsauxt_Ijq = msoc.transform(wsauxt_Ij)
+        wsauxt_l_Ij = get_lvalues(wsauxt_Ij)
+
+
+        # Screened Coulomb integrals between auxiliary functions
+        self.S_AA_expansions = msoc.calculate_expansions(wsauxt_l_Ij, wsauxt_Ijq,
+                                                         sauxt_l_Ij, sauxt_Ijq)
+
+        # Overlap between Poisson solution of screened auxiliary functions and gaussians
+        self.M_AL_expansions = msoc.calculate_expansions(wsauxt_l_Ij, wsauxt_Ijq,
+                                                         ghat_l_Il, ghat_Ilq)
 
         # X = Combined index of compensation l, phit j, selected gaunt expansion l channels, gaunt expansion m of those chanels
         self.W_XM_expansions = msoc.calculate_expansions(wgauxphit_l_Ix, wgauxphit_Ixq,
@@ -77,6 +106,8 @@ class MatrixElements:
         # Y = Combined index of auxiliary j, phit j, selected gaunt expansion l channels, gaunt expansion m of those channels
         self.W_YM_expansions = msoc.calculate_expansions(wauxtphit_l_Ix, wauxtphit_Ixq,
                                                          phit_l_Ij, phit_Ijq)
+
+        self.A_a = get_A_a( [ setup.auxt_j for setup in setups ] )
 
 
     def set_positions_and_cell(self, spos_ac, cell_cv, pbc_c, ibzq_qc, dtype):
@@ -118,6 +149,66 @@ class MatrixElements:
 
     def set_parameters(self, parameters):
         self.parameters = parameters
+
+
+    """
+
+             /   sr.   ||  sr.    \
+     S    =  |  φ (r)  || φ (r')  |
+      AA'    \   A     ||  A'     /
+
+    """
+
+    def evaluate_2ci_S_AA(self, a1, a2):
+        R_c_and_offset_a = self.apr.get(a1, a2)
+        if R_c_and_offset_a is None:
+            return None
+
+        # We do not support q-points yet
+        nq = len(self.ibzq_qc)
+
+        S_AA_expansion = self.S_AA_expansions.get(a1, a2)
+        obj = S_qAA = S_AA_expansion.zeros((nq,), dtype=self.dtype)
+
+        for R_c, offset in R_c_and_offset_a:
+            norm = np.linalg.norm(R_c)
+            phases = NullPhases(self.ibzq_qc, offset)
+            disp = AtomicDisplacement(None, a1, a2, R_c, offset, phases)
+            disp.evaluate_overlap(S_AA_expansion, S_qAA)
+
+        S_AA = S_qAA[0]
+
+        return S_AA
+
+
+    """
+
+             /   sr.   ||  lr.    \
+     M    =  |  φ (r)  || g (r')  |
+      AL     \   A     ||  L      /
+
+    """
+
+    def evaluate_2ci_M_AL(self, a1, a2):
+        R_c_and_offset_a = self.apr.get(a1, a2)
+        if R_c_and_offset_a is None:
+            return None
+
+        # We do not support q-points yet
+        nq = len(self.ibzq_qc)
+
+        M_AL_expansion = self.M_AL_expansions.get(a1, a2)
+        obj = M_qAL = M_AL_expansion.zeros((nq,), dtype=self.dtype)
+
+        for R_c, offset in R_c_and_offset_a:
+            norm = np.linalg.norm(R_c)
+            phases = NullPhases(self.ibzq_qc, offset)
+            disp = AtomicDisplacement(None, a1, a2, R_c, offset, phases)
+            disp.evaluate_overlap(M_AL_expansion, M_qAL)
+
+        M_AL = M_qAL[0]
+
+        return M_AL
 
 
     """

@@ -6,7 +6,10 @@ from gpaw.auxlcao.procedures import calculate_W_LL_offdiagonals_multipole,\
                                     grab_local_W_LL,\
                                     add_to_global_P_LMM,\
                                     calculate_V_AA,\
-                                    reference_W_AA
+                                    reference_W_AA,\
+                                    calculate_S_AA,\
+                                    calculate_M_AA
+   
 
 
 from gpaw.utilities import (pack_atomic_matrices, unpack_atomic_matrices,
@@ -50,13 +53,40 @@ class RIMPV(RIAlgorithm):
         with self.timer('calculate W_AA'):
             self.V_AA = calculate_V_AA(auxt_aj, M_aj, self.W_LL, self.lmax)
 
+        """
+
+            Loop over overlapping basis function spheres
+
+        """
+
+        gd = self.hamiltonian.gd
+        ibzq_qc = np.array([[0.0, 0.0, 0.0]])
+        dtype = self.wfs.dtype
+        self.matrix_elements.set_positions_and_cell(spos_ac, 
+                                                    gd.cell_cv,
+                                                    gd.pbc_c,
+                                                    ibzq_qc,
+                                                    dtype)
+
+        with self.timer('calculate S_AA'):
+            self.S_AA = calculate_S_AA(self.matrix_elements)
+            print('S_AA', self.S_AA)
+
+        with self.timer('calculate M_AA'):
+            self.M_AA = calculate_M_AA(self.matrix_elements, auxt_aj, M_aj, self.lmax)
+            print('M_AA', self.M_AA)
+
         with self.timer('calculate reference W_AA'):
             self.Wref_AA = reference_W_AA(self.density, self.hamiltonian.poisson, auxt_aj, spos_ac)
-            print(self.Wref_AA)
-            print(self.V_AA)
-            xxx
-        with open('RIMPV-W_LL.npy', 'wb') as f:
-            np.save(f, self.W_LL)
+            print(self.V_AA,'V_AA')
+            self.W_AA = self.V_AA + self.S_AA + self.M_AA + self.M_AA.T
+            print(self.W_AA,'V_AA+S_AA+M_AA+M_AA.T')
+            print(self.Wref_AA,'W_REF')
+            print(np.linalg.norm(self.W_AA-self.Wref_AA),'norm error')
+        with open('RIMPV-Wref_AA.npy', 'wb') as f:
+            np.save(f, self.Wref_AA)
+        with open('RIMPV-W_AA.npy', 'wb') as f:
+            np.save(f, self.W_AA)
 
         self.Wh_LL = np.linalg.cholesky(self.W_LL)
 
@@ -88,24 +118,6 @@ class RIMPV(RIAlgorithm):
         """
 
         self.P_LMM = np.zeros( (Ltot, nao, nao) )
-
-
-        """
-
-            Loop over overlapping basis function spheres
-
-        """
-
-        gd = self.hamiltonian.gd
-        ibzq_qc = np.array([[0.0, 0.0, 0.0]])
-        dtype = self.wfs.dtype
-        self.matrix_elements.set_positions_and_cell(spos_ac, 
-                                                    gd.cell_cv,
-                                                    gd.pbc_c,
-                                                    ibzq_qc,
-                                                    dtype)
-
-        self.matrix_elements.Na, 
 
         with open('RIMPV-I_LMM.npy', 'wb') as f:
             np.save(f, self.P_LMM)
