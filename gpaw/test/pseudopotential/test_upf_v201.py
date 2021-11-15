@@ -1,9 +1,9 @@
 from ase.build import molecule
-from gpaw.upf import UPFSetupData
 from gpaw import GPAW, PW
 
-# test the performance of a UPF file, v2.0.1 (produces by Quantum Espresso 6.8)
-# where the radial grid is non-linear and starts from non-zero.
+# test the reading and evaluation of a UPF file based on file path
+# The input file v2.0.1 is produced by Quantum Espresso 6.8, and it has
+# a radial grid that is non-linear and starts from non-zero.
 
 
 def test_upf_v201(in_tmp_dir):
@@ -11,7 +11,7 @@ def test_upf_v201(in_tmp_dir):
     system.center()
     system.calc = GPAW(txt='-',
                        nbands=4,
-                       setups={'H': UPFSetupData('H.ccecp.UPF')},
+                       setups={'H': 'H.ccecp.UPF'},
                        mode=PW(3000),  # large cutoff needed for ccecp
                        xc='LDA',
                        )
