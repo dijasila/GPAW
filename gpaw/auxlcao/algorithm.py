@@ -4,7 +4,10 @@ from gpaw.auxlcao.procedures import calculate_W_LL_offdiagonals_multipole,\
                                     get_W_LL_diagonals_from_setups,\
                                     calculate_local_I_LMM,\
                                     grab_local_W_LL,\
-                                    add_to_global_P_LMM
+                                    add_to_global_P_LMM,\
+                                    calculate_W_AA_multipole_corrections,\
+                                    reference_W_AA
+
 
 from gpaw.utilities import (pack_atomic_matrices, unpack_atomic_matrices,
                             unpack2, unpack, packed_index, pack, pack2)
@@ -41,6 +44,13 @@ class RIMPV(RIAlgorithm):
                            self.lmax)
             get_W_LL_diagonals_from_setups(self.W_LL, self.lmax, self.density.setups)
 
+        with self.timer('calculate W_AA'):
+            self.W_AA = calculate_W_AA_multipole_corrections(self.W_LL)
+        with self.timer('calculate reference W_AA'):
+            auxt_aj = [ setup.auxt_j for setup in self.wfs.setups ]
+            self.Wref_AA = reference_W_AA_multipole_corrections(self.density, auxt_aj)
+            print(self.W_AA-self.Wref_AA)
+            xxx
         with open('RIMPV-W_LL.npy', 'wb') as f:
             np.save(f, self.W_LL)
 
@@ -90,6 +100,13 @@ class RIMPV(RIAlgorithm):
                                                     gd.pbc_c,
                                                     ibzq_qc,
                                                     dtype)
+
+        self.matrix_elements.Na, 
+
+        with open('RIMPV-I_LMM.npy', 'wb') as f:
+            np.save(f, self.P_LMM)
+            xxx
+
         
         Msize = 5
         for a1 in range(2):
@@ -104,9 +121,6 @@ class RIMPV(RIAlgorithm):
 
         self.I_LMM = self.P_LMM.copy()
 
-        #with open('RIMPV-I_LMM.npy', 'wb') as f:
-        #    np.save(f, self.P_LMM)
-        #    xxx
 
         #with self.timer('3ci: build I_LMM'):
         if 0:

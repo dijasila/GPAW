@@ -42,7 +42,7 @@ class MatrixElements:
             setup.wgauxphit_x = get_wgauxphit_product_splines(setup, setup.wgaux_l, setup.phit_j, rcmax)
 
             # Auxiliary basis functions
-            setup.auxt_j, setup.wauxt_j = get_auxiliary_splines(setup, self.lmax, rcmax)
+            setup.auxt_j, setup.wauxt_j, setup.M_j = get_auxiliary_splines(setup, self.lmax, rcmax)
 
             setup.Naux = sum([ 2*spline.l+1 for spline in setup.auxt_j])
 

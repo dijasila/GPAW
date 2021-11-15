@@ -39,6 +39,8 @@ def get_auxiliary_splines(setup, lmax, cutoff):
     rgd = setup.rgd
     auxt_j = []
     wauxt_j = []
+    M_j = []
+
     for j1, spline1 in enumerate(setup.phit_j):
         for j2, spline2 in enumerate(setup.phit_j):
             if j1 > j2:
@@ -49,12 +51,16 @@ def get_auxiliary_splines(setup, lmax, cutoff):
                 if l > 2:
                     continue
                 aux_g = spline_to_rgd(rgd, spline1, spline2)
-                auxt_j.append(rgd.spline(aux_g, cutoff, l, 100))
+
+                # Evaluate multipole moment
+                M_j.append(rgd.integrate(aux_g * rgd.r_g**l) / (4*np.pi))
+
+                auxt_j.append(rgd.spline(aux_g, cutoff, l, 500))
 
                 v_g = Hartree(rgd, aux_g, l)
                 wauxt_j.append(rgd.spline(v_g, cutoff, l, 500))
 
-    return auxt_j, wauxt_j
+    return auxt_j, wauxt_j, M_j
 
 def get_wgauxphit_product_splines(setup, wgaux_j, phit_j, cutoff):
     rgd = setup.rgd

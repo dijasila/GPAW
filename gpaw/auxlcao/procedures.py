@@ -237,9 +237,133 @@ def calculate_W_LL_offdiagonals_multipole(cell_cv, spos_ac, pbc_c, ibzk_qc, dtyp
 
     raise NotImplementedError('lmax=%d for multipole interaction' % lmax)
 
-def reference_W_AA(density, auxt_aj):
-    aux_lfc = LFC(density.finegd, auxt_aj)
-    aux_lfc.set_positions(spos_ac)
-    A_a = get_A_a(auxt_aj)
 
+"""
+
+    A reference implementation of
+
+            /    /                1 
+     W    = | dr | dr' phi (r) --------  phi (r').
+      AA    /    /        A    | r-r' |     A'
+
+    This function separately places each phi (r),
+                                            A
+    to grid and evaluates it's Coulomb solution, and
+    integrates using LocaliedFunctions object.
+    Only to be used for testing.
     
+"""
+
+
+def reference_W_AA(density, auxt_aj):
+    # Obtain local (per atom) coordinates for auxiliary functions,
+    # and allocate the W_AA array.
+    A_a = get_A_a(auxt_aj)
+    Atot = A_a[-1]
+    W_AA = np.zeros( (Atot, Atot) )
+
+    gd = density.finegd
+    aux_lfc = LFC(gd, auxt_aj)
+    aux_lfc.set_positions(spos_ac)
+
+    for a, (Astart, Aend) in enumerate(zip(A_a[:-1], A_a[1:])):
+        Aloctot = Aend - Astart
+        for Aloc, Aglob in range(Astart, Aend):
+            # Add a single function to the grid
+            Q_aA = aux_lfc.dict(zero=True)
+            Q_aA[a][Aloc] = 1.0
+            auxt_g = gd.zeros()
+            self.aux_lfc.add(auxt_g, Q_aM)
+
+            # Solve its Poisson equation
+            wauxt_g = gd.zeros()
+            self.ham.poisson.solve(wauxt_g, auxt_g, charge=None)
+
+            # Integrate wrt. all other auxiliary functions
+            W_aM = self.aux_lfc.dict(zero=True)
+            self.aux_lfc.integrate(wauxt_g, W_aM)
+
+            # Fill a single row of the matrix
+            for a2, (A2start, A2end) in enumerate(zip(A_a[:-1], A_a[1:])):
+                W_M = W_aM[a2]
+                W_AA[Aglob, A2start:A2end] = W_aM[a2]
+
+
+def calculate_auxiliary_multipole_moments(rgd, auxt_j
+    M = rgd.integrate(f_g * rgd.r_g**l) / (4*np.pi)
+"""
+
+       /    /               1
+ W   = | dr | dr' φ (r) ---------- φ (r')
+  AA'  /    /      A    | r - r' |  A'
+
+The integrals are screened
+
+          lr.     sr.
+ φ (r) = φ (r) + φ (r) 
+  A       A       A
+
+       lr                                         sr
+Where φ (r) is a generalized gaussian, such that φ (r) has no multipole moment.
+
+Let
+
+       /    /      sr.      1       sr.
+ S   = | dr | dr' φ (r) ---------- φ (r')
+  AA'  /    /      A    | r - r' |  A'
+
+
+We can evaluate this with the Fourier-Bessel overlap code,
+
+             sr
+by defining V (r), which is short ranged Poisson solution,
+             A'
+    sr.
+to φ (r) due to missing multipoles.
+    A'
+
+
+       /     sr.   sr.
+ S   = | dr φ (r) V (r)
+  AA'  /     A     A'
+
+
+       /     lr.   sr.
+ M   = | dr φ (r) V (r)
+  AA'  /     A     A'
+
+                            T
+ W    = V   + S   + M    + M
+  AA     AA    AA    AA'    AA'
+
+ V    =M_A  M   ( R_a - R_a' ) M_A'
+  AA'        L L
+              A A'
+
+
+ 
+"""
+
+def calculate_W_AA_multipole_corrections(setups, W_LL):
+    # Obtain local (per atom) coordinates for auxiliary functions,
+    # and allocate the W_AA array.
+    A_a = get_A_a(auxt_aj)
+    Atot = A_a[-1]
+    W_AA = np.zeros( (Atot, Atot) )
+
+    M_A = np.zeros( (Atot,) )    
+    for a, (Astart, Aend) in enumerate(zip(A_a[:-1], A_a[1:])):
+        for M in setups[a].M_j:
+        
+
+        Aloctot = Aend - Astart
+        for Aloc, Aglob in range(Astart, Aend):
+            # Add a single function to the grid
+            Q_aA = aux_lfc.dict(zero=True)
+            Q_aA[a][Aloc] = 1.0
+            auxt_g = gd.zeros()
+            self.aux_lfc.add(auxt_g, Q_aM)
+
+    for a, setup in enumerate(setups):
+        
+
