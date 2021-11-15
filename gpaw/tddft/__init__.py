@@ -80,6 +80,7 @@ class TDDFT(GPAW):
                  propagator: dict = None,
                  solver: dict = None,
                  tolerance: float = None,  # deprecated
+                 keep_static_external_potential: bool = None,
                  parallel: dict = None,
                  communicator: object = None,
                  txt: str = '-'):
@@ -101,6 +102,12 @@ class TDDFT(GPAW):
         tolerance
             Deprecated. Do not use this, but use solver dictionary instead.
             Tolerance for the linear solver.
+        keep_static_external_potential
+            Experimental option (use carefully).
+            Whether to keep the external potential included in
+            the DFT calculation (default: True).
+            Setting this to False corresponds to sudden switching off of
+            the external potential.
         parallel
             Parallelization options
         communicator
@@ -123,6 +130,7 @@ class TDDFT(GPAW):
         self.kick_strength = np.array([0.0, 0.0, 0.0], dtype=float)
         self.niter = 0
         self.dm_file = None  # XXX remove and use observer instead
+        self.keep_static_external_potential = keep_static_external_potential
 
         # Parallelization dictionary should default to strided bands
         # but it does not work XXX
@@ -138,6 +146,16 @@ class TDDFT(GPAW):
         #     will override the initial settings for time/kick/niter.
         GPAW.__init__(self, filename, parallel=parallel,
                       communicator=communicator, txt=txt)
+        # Note! Here happens implicitly self.read() that
+        #       GPAW.__init__() triggers!
+
+        if self.keep_static_external_potential is None:
+            # Set the default value if parameter is not set or read
+            self.keep_static_external_potential = True
+        if not self.keep_static_external_potential:
+            # Discard the external potential but keep it in
+            # the parameter listing
+            self.hamiltonian.vext = None
 
         assert isinstance(self.wfs, TimeDependentWaveFunctions)
         assert isinstance(self.wfs.overlap, TimeDependentOverlap)
@@ -273,13 +291,19 @@ class TDDFT(GPAW):
             self.time = r.time
             self.niter = r.niter
             self.kick_strength = r.kick_strength
+            if self.keep_static_external_potential is None:
+                # Read this parameter only if it was not reset in __init__()
+                self.keep_static_external_potential = \
+                    r.get('keep_static_external_potential', None)
 
     def _write(self, writer, mode):
         GPAW._write(self, writer, mode)
         w = writer.child('tddft')
         w.write(time=self.time,
                 niter=self.niter,
-                kick_strength=self.kick_strength)
+                kick_strength=self.kick_strength,
+                keep_static_external_potential=self.keep_static_external_potential,  # noqa: E501
+                )
 
     def propagate(self, time_step: float, iterations: int,
                   dipole_moment_file: str = None,  # deprecated
