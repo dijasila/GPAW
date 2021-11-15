@@ -81,7 +81,7 @@ class Density:
      ========== =========================================
     """
 
-    def __init__(self, gd, finegd, nspins, collinear, charge, redistributor,
+    def __init__(self, gd, finegd, nspins, collinear, redistributor,
                  background_charge=None):
         """Create the Density object."""
 
@@ -89,7 +89,6 @@ class Density:
         self.finegd = finegd
         self.nspins = nspins
         self.collinear = collinear
-        self.charge = float(charge)
         self.redistributor = redistributor
         self.atomdist = None
 
@@ -160,12 +159,18 @@ class Density:
         except (TypeError, AttributeError):
             pass
 
-    def initialize(self, setups, timer, magmom_av, hund):
+    @property
+    def charge(self):
+        return self._charge
+
+    def initialize(self, setups, timer, magmom_av, hund, charge_a):
         self.timer = timer
         self.setups = setups
         self.Q = CompensationChargeExpansionCoefficients(setups, self.nspins)
         self.hund = hund
         self.magmom_av = magmom_av
+        self.charge_a = charge_a
+        self._charge = self.charge_a.sum() + self.setups.core_charge
 
     def reset(self):
         # TODO: reset other parameters?
@@ -282,7 +287,7 @@ class Density:
     def get_initial_occupations(self, a):
         # distribute charge on all atoms
         # XXX interaction with background charge may be finicky
-        c = (self.charge - self.background_charge.charge) / len(self.setups)
+        c = self.charge_a[a] - self.background_charge.charge / len(self.setups)
         M_v = self.magmom_av[a]
         M = np.linalg.norm(M_v)
         f_si = self.setups[a].calculate_initial_occupation_numbers(
@@ -651,18 +656,18 @@ class Density:
 
 
 class RealSpaceDensity(Density):
-    def __init__(self, gd, finegd, nspins, collinear, charge, redistributor,
+    def __init__(self, gd, finegd, nspins, collinear, redistributor,
                  stencil=3,
                  background_charge=None):
         Density.__init__(self, gd, finegd, nspins, collinear,
-                         charge, redistributor,
+                         redistributor,
                          background_charge=background_charge)
         self.stencil = stencil
 
         self.interpolator = None
 
-    def initialize(self, setups, timer, magmom_a, hund):
-        Density.initialize(self, setups, timer, magmom_a, hund)
+    def initialize(self, setups, timer, magmom_a, hund, charge_a):
+        Density.initialize(self, setups, timer, magmom_a, hund, charge_a)
 
         # Interpolation function for the density:
         self.interpolator = Transformer(self.redistributor.aux_gd,

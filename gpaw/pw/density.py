@@ -18,9 +18,9 @@ class PseudoCoreKineticEnergyDensityLFC(PWLFC):
 
 class ReciprocalSpaceDensity(Density):
     def __init__(self, ecut,
-                 gd, finegd, nspins, collinear, charge, redistributor,
+                 gd, finegd, nspins, collinear, redistributor,
                  background_charge=None):
-        Density.__init__(self, gd, finegd, nspins, collinear, charge,
+        Density.__init__(self, gd, finegd, nspins, collinear,
                          redistributor=redistributor,
                          background_charge=background_charge)
 
@@ -35,8 +35,8 @@ class ReciprocalSpaceDensity(Density):
         self.nt_Q = None
         self.rhot_q = None
 
-    def initialize(self, setups, timer, magmom_av, hund):
-        Density.initialize(self, setups, timer, magmom_av, hund)
+    def initialize(self, setups, timer, magmom_av, hund, charge_a):
+        Density.initialize(self, setups, timer, magmom_av, hund, charge_a)
 
         spline_aj = []
         for setup in setups:

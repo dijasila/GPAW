@@ -69,7 +69,7 @@ class GPAW(Calculator):
         'gpts': None,
         'kpts': [(0.0, 0.0, 0.0)],
         'nbands': None,
-        'charge': 0,
+        'charge': None,
         'setups': {},
         'basis': {},
         'spinpol': None,
@@ -580,6 +580,10 @@ class GPAW(Calculator):
             self.wfs.occupations.initialize_reference_orbitals()
         print_positions(self.atoms, self.log, self.density.magmom_av)
 
+    @property
+    def charge(self):
+        return self.charge_a.sum()
+
     def initialize(self, atoms=None, reading=False):
         """Inexpensive initialization."""
 
@@ -605,6 +609,12 @@ class GPAW(Calculator):
         pbc_c = atoms.get_pbc()
         assert len(pbc_c) == 3
         magmom_a = atoms.get_initial_magnetic_moments()
+
+        if par.charge is not None:
+            # setting charge overwrites initial charges
+            self.charge_a = par.charge * np.ones(len(atoms)) / len(atoms)
+        else:
+            self.charge_a = atoms.get_initial_charges()
 
         if par.experimental.get('magmoms') is not None:
             magmom_av = np.array(par.experimental['magmoms'], float)
@@ -660,7 +670,8 @@ class GPAW(Calculator):
             if natoms != 1:
                 raise ValueError('hund=True arg only valid for single atoms!')
             spinpol = True
-            magmom_av[0, 2] = self.setups[0].get_hunds_rule_moment(par.charge)
+            magmom_av[0, 2] = self.setups[0].get_hunds_rule_moment(
+                self.charge)
 
         if collinear:
             magnetic = magmom_av.any()
@@ -712,7 +723,7 @@ class GPAW(Calculator):
             background = par.background_charge
 
         nao = self.setups.nao
-        nvalence = self.setups.nvalence - par.charge
+        nvalence = self.setups.nvalence - self.charge
         if par.background_charge is not None:
             nvalence += background.charge
 
@@ -754,7 +765,7 @@ class GPAW(Calculator):
         if nvalence < 0:
             raise ValueError(
                 'Charge %f is not possible - not enough valence electrons' %
-                par.charge)
+                self.charge)
 
         if nvalence > 2 * nbands and not orbital_free:
             raise ValueError('Too few bands!  Electrons: %f, bands: %d'
@@ -831,11 +842,10 @@ class GPAW(Calculator):
         if self.density is None:
             self.create_density(realspace, mode, background, h)
 
-        # XXXXXXXXXX if setups change, then setups.core_charge may change.
-        # But that parameter was supplied in Density constructor!
-        # This surely is a bug!
         self.density.initialize(self.setups, self.timer,
-                                magmom_av, par.hund)
+                                magmom_av, par.hund, self.charge_a)
+        self.log(self.density, '\n')
+
         self.density.set_mixer(par.mixer)
         if self.density.mixer.driver.name == 'dummy' or par.fixdensity:
             self.log('No density mixing\n')
@@ -1054,7 +1064,6 @@ class GPAW(Calculator):
             gd=gd, finegd=finegd,
             nspins=self.wfs.nspins,
             collinear=self.wfs.collinear,
-            charge=self.parameters.charge + self.wfs.setups.core_charge,
             redistributor=redistributor,
             background_charge=background)
 
@@ -1067,8 +1076,6 @@ class GPAW(Calculator):
             else:
                 ecut = 0.5 * (np.pi / h)**2
             self.density = ReciprocalSpaceDensity(ecut=ecut, **kwargs)
-
-        self.log(self.density, '\n')
 
     def create_hamiltonian(self, realspace, mode, xc):
         dens = self.density

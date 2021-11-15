@@ -12,6 +12,8 @@ Git master branch
 
 * Corresponding ASE release: ASE-3.23.0b1
 
+* The default charge is read from the atoms object.
+
 * Variational calculations of molecules and periodic systems in LCAO mode can
   now be done using the :ref:`exponential transformation direct minimization
   (ETDM) <directmin>`::
