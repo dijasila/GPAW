@@ -82,11 +82,11 @@ class RIMPV(RIAlgorithm):
         with self.timer('Calculate I_AMM'):
             self.I_AMM = calculate_I_AMM(self.matrix_elements)
 
-        with self.timer('Calculate reference I_AMM'):
-            self.Iref_AMM = reference_I_AMM(self.wfs, self.density, self.hamiltonian, self.hamiltonian.poisson, auxt_aj, spos_ac)
-
         with self.timer('Calculate P_AMM'):
             self.P_AMM = calculate_P_AMM(self.matrix_elements, self.W_AA)
+
+        with self.timer('Calculate reference I_AMM'):
+            self.Iref_AMM = reference_I_AMM(self.wfs, self.density, self.hamiltonian, self.hamiltonian.poisson, auxt_aj, spos_ac)
 
         self.iW_AA = np.linalg.inv(self.W_AA)
         self.Pref_AMM = np.einsum('AB,Bij->Aij', self.iW_AA, self.Iref_AMM)

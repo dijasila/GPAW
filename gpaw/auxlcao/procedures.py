@@ -411,16 +411,12 @@ def calculate_P_AMM(matrix_elements, W_AA):
         for a2, (A2start, A2end, M2start, M2end) in enumerate(zip(A_a[:-1], A_a[1:], M_a[:-1], M_a[1:])):
             if a1 == a2:
                 continue
-            W_AA = np.block( [ [ W_AA[A1start:A1end, A1start:A1end], W_AA[A1start:A1end, A2start:A2end] ],
-                               [ W_AA[A2start:A2end, A1start:A1end], W_AA[A2start:A2end, A2start:A2end] ] ] )
-            iW_AA = safe_inv(W_AA)
-            I_AMM = [matrix_elements.evaluate_3ci_AMM(a1, a1, a2),
-                     matrix_elements.evaluate_3ci_AMM(a2, a1, a2) ]
-            print(I_AMM[0].shape, I_AMM[1].shape,'shapes')
-            I_AMM = np.vstack( I_AMM )
-            print(I_AMM.shape)
+            locW_AA = np.block( [ [ W_AA[A1start:A1end, A1start:A1end], W_AA[A1start:A1end, A2start:A2end] ],
+                                  [ W_AA[A2start:A2end, A1start:A1end], W_AA[A2start:A2end, A2start:A2end] ] ] )
+            iW_AA = safe_inv(locW_AA)
+            I_AMM = np.vstack([matrix_elements.evaluate_3ci_AMM(a1, a1, a2),
+                               matrix_elements.evaluate_3ci_AMM(a2, a1, a2) ])
             Ploc_AMM = np.einsum('AB,Bij', iW_AA, I_AMM)
-
             P_AMM[A1start:A1end, M1start:M1end, M2start:M2end] += Ploc_AMM[:A1end-A1start]
             P_AMM[A2start:A2end, M1start:M1end, M2start:M2end] += Ploc_AMM[A1end-A1start:]
 
