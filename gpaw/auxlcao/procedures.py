@@ -1,4 +1,5 @@
 import numpy as np
+from gpaw.lfc import LFC
 
 sqrt3 = 3**0.5
 sqrt5 = 5**0.5
@@ -31,7 +32,7 @@ def get_A_a(auxt_aj):
         A_a.append(A)
         A += sum([ 2*auxt.l+1 for auxt in auxt_j ])
     A_a.append(A)
-    return A
+    return A_a
 
 def create_local_M_a(alst, M_a):
     M = 0
@@ -255,7 +256,7 @@ def calculate_W_LL_offdiagonals_multipole(cell_cv, spos_ac, pbc_c, ibzk_qc, dtyp
 """
 
 
-def reference_W_AA(density, auxt_aj):
+def reference_W_AA(density, poisson, auxt_aj, spos_ac):
     # Obtain local (per atom) coordinates for auxiliary functions,
     # and allocate the W_AA array.
     A_a = get_A_a(auxt_aj)
@@ -268,29 +269,28 @@ def reference_W_AA(density, auxt_aj):
 
     for a, (Astart, Aend) in enumerate(zip(A_a[:-1], A_a[1:])):
         Aloctot = Aend - Astart
-        for Aloc, Aglob in range(Astart, Aend):
+        for Aloc, Aglob in enumerate(range(Astart, Aend)):
             # Add a single function to the grid
             Q_aA = aux_lfc.dict(zero=True)
             Q_aA[a][Aloc] = 1.0
             auxt_g = gd.zeros()
-            self.aux_lfc.add(auxt_g, Q_aM)
+            aux_lfc.add(auxt_g, Q_aA)
 
             # Solve its Poisson equation
             wauxt_g = gd.zeros()
-            self.ham.poisson.solve(wauxt_g, auxt_g, charge=None)
+            poisson.solve(wauxt_g, auxt_g, charge=None)
 
             # Integrate wrt. all other auxiliary functions
-            W_aM = self.aux_lfc.dict(zero=True)
-            self.aux_lfc.integrate(wauxt_g, W_aM)
+            W_aM = aux_lfc.dict(zero=True)
+            aux_lfc.integrate(wauxt_g, W_aM)
 
             # Fill a single row of the matrix
             for a2, (A2start, A2end) in enumerate(zip(A_a[:-1], A_a[1:])):
                 W_M = W_aM[a2]
                 W_AA[Aglob, A2start:A2end] = W_aM[a2]
+    return W_AA
 
 
-def calculate_auxiliary_multipole_moments(rgd, auxt_j
-    M = rgd.integrate(f_g * rgd.r_g**l) / (4*np.pi)
 """
 
        /    /               1
@@ -344,26 +344,28 @@ to φ (r) due to missing multipoles.
  
 """
 
-def calculate_W_AA_multipole_corrections(setups, W_LL):
+def calculate_V_AA(auxt_aj, M_aj, W_LL, lmax):
+    Lmax = (lmax+1)**2
+
     # Obtain local (per atom) coordinates for auxiliary functions,
     # and allocate the W_AA array.
     A_a = get_A_a(auxt_aj)
     Atot = A_a[-1]
     W_AA = np.zeros( (Atot, Atot) )
 
-    M_A = np.zeros( (Atot,) )    
-    for a, (Astart, Aend) in enumerate(zip(A_a[:-1], A_a[1:])):
-        for M in setups[a].M_j:
-        
+    M_AL = np.zeros( (Atot, Lmax) )    
+    A1 = 0
+    for a1, (A1start, A1end) in enumerate(zip(A_a[:-1], A_a[1:])):
+        for M1, auxt1 in zip(M_aj[a1], auxt_aj[a1]):
+            for m1 in range(2*auxt1.l+1):
+                L1 = auxt1.l**2 + m1
+                A2 = 0
+                for a2, (A2start, A2end) in enumerate(zip(A_a[:-1], A_a[1:])):
+                    for M2, auxt2 in zip(M_aj[a2], auxt_aj[a2]):
+                        for m2 in range(2*auxt2.l+1):
+                            L2 = auxt2.l**2 + m2
+                            W_AA[A1, A2] = M1*M2*W_LL[a1*Lmax + L1, a2*Lmax + L2]
+                            A2 += 1
+                A1 += 1
 
-        Aloctot = Aend - Astart
-        for Aloc, Aglob in range(Astart, Aend):
-            # Add a single function to the grid
-            Q_aA = aux_lfc.dict(zero=True)
-            Q_aA[a][Aloc] = 1.0
-            auxt_g = gd.zeros()
-            self.aux_lfc.add(auxt_g, Q_aM)
-
-    for a, setup in enumerate(setups):
-        
-
+    return W_AA

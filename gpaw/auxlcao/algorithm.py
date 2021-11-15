@@ -5,7 +5,7 @@ from gpaw.auxlcao.procedures import calculate_W_LL_offdiagonals_multipole,\
                                     calculate_local_I_LMM,\
                                     grab_local_W_LL,\
                                     add_to_global_P_LMM,\
-                                    calculate_W_AA_multipole_corrections,\
+                                    calculate_V_AA,\
                                     reference_W_AA
 
 
@@ -44,12 +44,16 @@ class RIMPV(RIAlgorithm):
                            self.lmax)
             get_W_LL_diagonals_from_setups(self.W_LL, self.lmax, self.density.setups)
 
+        auxt_aj = [ setup.auxt_j for setup in self.wfs.setups ]
+        M_aj = [ setup.M_j for setup in self.wfs.setups ]
+
         with self.timer('calculate W_AA'):
-            self.W_AA = calculate_W_AA_multipole_corrections(self.W_LL)
+            self.V_AA = calculate_V_AA(auxt_aj, M_aj, self.W_LL, self.lmax)
+
         with self.timer('calculate reference W_AA'):
-            auxt_aj = [ setup.auxt_j for setup in self.wfs.setups ]
-            self.Wref_AA = reference_W_AA_multipole_corrections(self.density, auxt_aj)
-            print(self.W_AA-self.Wref_AA)
+            self.Wref_AA = reference_W_AA(self.density, self.hamiltonian.poisson, auxt_aj, spos_ac)
+            print(self.Wref_AA)
+            print(self.V_AA)
             xxx
         with open('RIMPV-W_LL.npy', 'wb') as f:
             np.save(f, self.W_LL)

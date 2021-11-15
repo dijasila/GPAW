@@ -1,3 +1,5 @@
+import numpy as np
+
 """ The rgd.poisson returns the radial Poisson solution multiplied with r.
 
                /        n(r')
