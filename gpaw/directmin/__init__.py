@@ -7,6 +7,7 @@ from gpaw.directmin.sd_etdm import SteepestDescent, FRcg, QuickMin, LBFGS, \
     LBFGS_P, LSR1P, ModeFollowing
 from gpaw.directmin.ls_etdm import MaxStep, StrongWolfeConditions, Parabola
 
+
 def search_direction(method, etdm=None, pd=None):
     if isinstance(method, str):
         method = xc_string_to_dict(method)
@@ -26,8 +27,8 @@ def search_direction(method, etdm=None, pd=None):
         if len(names) == 2:
             if names[1] == 'mmf':
                 pd['ef'] = True
-                searchdir = ModeFollowing(partial_diagonalizer(pd, etdm),
-                    searchdir)
+                searchdir = ModeFollowing(
+                    partial_diagonalizer(pd, etdm), searchdir)
 
         return searchdir
     else:
@@ -55,6 +56,7 @@ def line_search_algorithm(method, objective_function, searchdir_algo):
         return ls_algo
     else:
         raise ValueError('Check keyword for line search!')
+
 
 def partial_diagonalizer(method, domom):
     from gpaw.directmin.derivatives import Davidson
