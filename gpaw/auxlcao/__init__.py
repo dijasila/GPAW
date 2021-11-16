@@ -44,7 +44,7 @@ class LCAOHybrid:
     type = 'auxhybrid'
 
     def __init__(self, xcname:str, algorithm=None,
-                                   cubedebug=None):
+                                   debug={'cube':False,'ref':False}):
  
         if xcname == 'EXX':
             self.exx_fraction = 1.0
@@ -58,7 +58,7 @@ class LCAOHybrid:
             raise ValueError('Functional %s not supported by aux-lcao backend' % xcname)
 
 
-        self.cubedebug = cubedebug
+        self.debug = debug
 
         self.evv = np.nan
         self.ecc = np.nan
@@ -105,7 +105,7 @@ class LCAOHybrid:
         self.ri_algorithm.initialize(density, hamiltonian, wfs)
 
     def set_positions(self, spos_ac):
-        self.ri_algorithm.set_positions(spos_ac)
+        self.ri_algorithm.set_positions(spos_ac, self.debug)
 
     def get_description(self):
         return 'Experimental aux-lcao RI-'+self.name
@@ -135,7 +135,7 @@ class LCAOHybrid:
             return
         print('Not using LDA anymore in add_nlxc')
 
-        if self.cubedebug:
+        if self.debug['cube']:
             self.ri_algorithm.cube_debug(self.cubedebug)
 
         self.evv, self.evc, self.ekin = self.ri_algorithm.nlxc(H_MM, dH_asp, wfs, kpt)

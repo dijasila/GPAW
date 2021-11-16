@@ -24,9 +24,6 @@ class MatrixElements:
         self.M_a = setups.M_a.copy()
         self.M_a.append(setups.nao)
 
-
-
-
         # I_a is an index for each atom identifying which setup type it has.
         # setup_for_atom_a = setups_I[I_a[a]]
         I_a, setups_I = split_setups_to_types(setups)
@@ -54,7 +51,7 @@ class MatrixElements:
             setup.wauxtphit_x = get_wgauxphit_product_splines(setup, setup.wauxt_j, setup.phit_j, rcmax)
 
 
-        transformer = FourierTransformer(rcmax=max(phit_rcmax_I)+1e-3, ng=2**14) # XXX Used to be 2**10, add accuracy for debug purposes
+        transformer = FourierTransformer(rcmax=max(phit_rcmax_I)+1e-3, ng=2**10)
         tsoc = TwoSiteOverlapCalculator(transformer)
         msoc = ManySiteOverlapCalculator(tsoc, I_a, I_a)
 
@@ -125,8 +122,6 @@ class MatrixElements:
 
         self.a1a2_p = [ (a1,a2) for a1,a2 in self.apr.get_atompairs() ]
 
-        print(self.a1a2_p)
-        print(self.rcmax_a)
         def log(name, quantity):
             print('%-70s %-5d' % (name, quantity))
 
@@ -231,9 +226,12 @@ class MatrixElements:
         if a1 != a2:
             if a1 != a3:
                 raise NotImplementedError('Only 3-center integrals spanning 2 centers are supported. Got: (%d, %d, %d).' % (a1,a2,a3))
-            return np.transpose(self.evaluate_3ci_AMM(a1, a3, a2), axes=(0,2,1))
+            locI_AMM = self.evaluate_3ci_AMM(a1, a3, a2)
+            if locI_AMM is None:
+                return None
+            return np.transpose(locI_AMM, axes=(0,2,1))
 
-        print('Calling 3ci_AMM', a1,a2,a3)
+        #print('Calling 3ci_AMM', a1,a2,a3)
 
         R_c_and_offset_a = self.apr.get(a2, a3)
         if R_c_and_offset_a is None:
@@ -257,7 +255,7 @@ class MatrixElements:
         A_a = self.A_a
 
         W_YM = W_qYM[0]
-        print("W_XM", a1,a2,a3,W_YM)
+        #print("W_XM", a1,a2,a3,W_YM)
 
 
         local_I_AMM = np.zeros( (A_a[a1+1]-A_a[a1], M_a[a2+1]-M_a[a2], M_a[a3+1]-M_a[a3]) )
@@ -278,7 +276,7 @@ class MatrixElements:
                             for mA in range(2*auxt.l+1):
                                 LA = auxt.l**2 + mA
                                 A = Astart + mA
-                                print(G_LLL.shape, LA,L1,LX, W_YM.shape, X, A, M1, local_I_AMM.shape)
+                                #print(G_LLL.shape, LA,L1,LX, W_YM.shape, X, A, M1, local_I_AMM.shape)
                                 local_I_AMM[A, M1, :] += G_LLL[LA,L1,LX] * W_YM[X, :]
                         X += 1
                 M1start += 2*phit1.l+1
@@ -289,7 +287,7 @@ class MatrixElements:
 
 
     def evaluate_3ci_LMM(self, a1, a2, a3):
-        print('Calling', a1,a2,a3)
+        #print('Calling', a1,a2,a3)
         if a1 != a2:
             return self.evaluate_3ci_LMM(a1, a3, a2)
 
@@ -313,7 +311,7 @@ class MatrixElements:
         M_a = self.M_a
 
         W_XM = W_qXM[0]
-        print("W_XM", a1,a2,a3,W_XM)
+        #print("W_XM", a1,a2,a3,W_XM)
         local_I_AMM = np.zeros( ( (self.lmax+1)**2, M_a[a2+1]-M_a[a2], M_a[a3+1]-M_a[a3]) ) 
         # 1) Loop over L
         A = 0

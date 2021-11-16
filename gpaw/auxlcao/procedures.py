@@ -408,15 +408,19 @@ def calculate_P_AMM(matrix_elements, W_AA):
 
     # Two center projections
     for a1, (A1start, A1end, M1start, M1end) in enumerate(zip(A_a[:-1], A_a[1:], M_a[:-1], M_a[1:])):
+        print(a1)
         for a2, (A2start, A2end, M2start, M2end) in enumerate(zip(A_a[:-1], A_a[1:], M_a[:-1], M_a[1:])):
             if a1 == a2:
                 continue
             locW_AA = np.block( [ [ W_AA[A1start:A1end, A1start:A1end], W_AA[A1start:A1end, A2start:A2end] ],
                                   [ W_AA[A2start:A2end, A1start:A1end], W_AA[A2start:A2end, A2start:A2end] ] ] )
             iW_AA = safe_inv(locW_AA)
-            I_AMM = np.vstack([matrix_elements.evaluate_3ci_AMM(a1, a1, a2),
-                               matrix_elements.evaluate_3ci_AMM(a2, a1, a2) ])
-            Ploc_AMM = np.einsum('AB,Bij', iW_AA, I_AMM)
+            I_AMM = [matrix_elements.evaluate_3ci_AMM(a1, a1, a2),
+                     matrix_elements.evaluate_3ci_AMM(a2, a1, a2) ]
+            if I_AMM[0] is None or I_AMM[1] is None:
+                continue
+            I_AMM = np.vstack(I_AMM)
+            Ploc_AMM = np.einsum('AB,Bij', iW_AA, I_AMM, optimize=True)
             P_AMM[A1start:A1end, M1start:M1end, M2start:M2end] += Ploc_AMM[:A1end-A1start]
             P_AMM[A2start:A2end, M1start:M1end, M2start:M2end] += Ploc_AMM[A1end-A1start:]
 
@@ -508,7 +512,10 @@ def calculate_S_AA(matrix_elements):
     
     for a1, (A1start, A1end) in enumerate(zip(A_a[:-1], A_a[1:])):
         for a2, (A2start, A2end) in enumerate(zip(A_a[:-1], A_a[1:])):
-            S_AA[A1start:A1end, A2start:A2end] = matrix_elements.evaluate_2ci_S_AA(a1, a2)
+            loc_S_AA = matrix_elements.evaluate_2ci_S_AA(a1, a2)
+            if loc_S_AA is None:
+                continue
+            S_AA[A1start:A1end, A2start:A2end] = loc_S_AA
     return S_AA
 
 
@@ -522,12 +529,11 @@ def calculate_M_AA(matrix_elements, auxt_aj, M_aj, lmax):
         A2 = 0
         for a2, (A2start, A2end) in enumerate(zip(A_a[:-1], A_a[1:])):
             M_AL = matrix_elements.evaluate_2ci_M_AL(a1, a2)
+            if M_AL is None:
+                continue
             for M2, auxt2 in zip(M_aj[a2], auxt_aj[a2]):
                 for m2 in range(2*auxt2.l+1):
                     L2 = auxt2.l**2 + m2
-                    print(M_AA.shape)
-                    print(M_AL.shape)
-                    print(A1start, A1end, A2, a2*Lmax + L2)
                     M_AA[A1start:A1end, A2] = M2*M_AL[:, L2]
                     A2 += 1
 

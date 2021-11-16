@@ -35,11 +35,13 @@ class RIMPV(RIAlgorithm):
         self.density = density
         self.hamiltonian = hamiltonian
         self.wfs = wfs
-        self.matrix_elements.initialize(density, hamiltonian, wfs)
         self.timer = hamiltonian.timer
+        with self.timer('Auxiliary Fourier-Bessel initialization'):
+            self.matrix_elements.initialize(density, hamiltonian, wfs)
 
-    def set_positions(self, spos_ac):
+    def set_positions(self, spos_ac, debug):
         self.spos_ac = spos_ac
+        print('W_LL')
         with self.timer('calculate W_LL'):
             self.W_LL = calculate_W_LL_offdiagonals_multipole(\
                            self.hamiltonian.gd.cell_cv, 
@@ -49,7 +51,8 @@ class RIMPV(RIAlgorithm):
                            self.wfs.dtype,
                            self.lmax)
             get_W_LL_diagonals_from_setups(self.W_LL, self.lmax, self.density.setups)
-
+            #print('W_LL', self.W_LL)
+            assert not np.isnan(self.W_LL).any()
         auxt_aj = [ setup.auxt_j for setup in self.wfs.setups ]
         M_aj = [ setup.M_j for setup in self.wfs.setups ]
 
@@ -66,58 +69,85 @@ class RIMPV(RIAlgorithm):
             Screened Coulomb integrals
 
         """
-        with self.timer('calculate W_AA'):
+        print('V_AA')
+        with self.timer('calculate V_AA'):
             self.V_AA = calculate_V_AA(auxt_aj, M_aj, self.W_LL, self.lmax)
+            #print('V_AA', self.V_AA)
+            assert not np.isnan(self.V_AA).any()
 
+        print('S_AA')
         with self.timer('calculate S_AA'):
             self.S_AA = calculate_S_AA(self.matrix_elements)
+            #print('S_AA', self.S_AA)
+            assert not np.isnan(self.S_AA).any()
 
+        print('M_AA')
         with self.timer('calculate M_AA'):
             self.M_AA = calculate_M_AA(self.matrix_elements, auxt_aj, M_aj, self.lmax)
+            self.W_AA = self.V_AA + self.S_AA + self.M_AA + self.M_AA.T
+            #print('M_AA', self.M_AA)
+            assert not np.isnan(self.M_AA).any()
 
-        self.W_AA = self.V_AA + self.S_AA + self.M_AA + self.M_AA.T
-
-        with self.timer('Calculate I_AMM'):
-            self.I_AMM = calculate_I_AMM(self.matrix_elements)
-
+        print('P_AMM')
         with self.timer('Calculate P_AMM'):
             self.P_AMM = calculate_P_AMM(self.matrix_elements, self.W_AA)
+            assert not np.isnan(self.P_AMM).any()
 
-        with self.timer('Calculate reference I_AMM'):
-            self.Iref_AMM = reference_I_AMM(self.wfs, self.density, self.hamiltonian, self.hamiltonian.poisson, auxt_aj, spos_ac)
+        """
 
-        self.iW_AA = safe_inv(self.W_AA)
-        self.Pref_AMM = np.einsum('AB,Bij->Aij', self.iW_AA, self.Iref_AMM)
+                    a       a    a       a'       a'    a'
+           W       Δ       P    P       Δ        P     P      ρ
+            LL'     Li1i2   i1μ  i2μ'    L'i3i4   i3ν   i4ν'    μ'ν'
 
-        self.K_MMMM = np.einsum('Aij,AB,Bkl', self.P_AMM, self.W_AA, self.P_AMM, optimize=True)
-        self.Kref_MMMM = np.einsum('Aij,AB,Bkl', self.Iref_AMM, self.iW_AA, self.Iref_AMM, optimize=True)
+
+
+
+        """
+
+        for A in range(Atot):
+            for a, setup in enumerate(self.wfs.setups):
+                G_L = self.G_AaL[A][a]
+                X_ii = np.dot(setup.Delta_iiL, G_L)
+                #print(X_ii,'X_ii')
+                P_Mi = self.wfs.atomic_correction.P_aqMi[a][0]
+                self.I_AMM[A] += P_Mi @ X_ii @ P_Mi.T
+                self.I_AMM[A] = (self.I_AMM[A] + self.I_AMM[A].T)/2
+
+
+        if debug['ref']:
+            with self.timer('Calculate reference I_AMM'):
+                self.Iref_AMM = reference_I_AMM(self.wfs, self.density, self.hamiltonian, self.hamiltonian.poisson, auxt_aj, spos_ac)
+
+            with self.timer('Calculate I_AMM'):
+                self.I_AMM = calculate_I_AMM(self.matrix_elements)
+
+            self.iW_AA = safe_inv(self.W_AA)
+            self.Pref_AMM = np.einsum('AB,Bij->Aij', self.iW_AA, self.Iref_AMM)
+            self.K_MMMM = np.einsum('Aij,AB,Bkl', self.P_AMM, self.W_AA, self.P_AMM, optimize=True)
+            self.Kref_MMMM = np.einsum('Aij,AB,Bkl', self.Iref_AMM, self.iW_AA, self.Iref_AMM, optimize=True)
       
-        with open('RIMPV-K_MMMM.npy', 'wb') as f:
-            np.save(f, self.K_MMMM)
-        with open('RIMPV-Kref_MMMM.npy', 'wb') as f:
-            np.save(f, self.Kref_MMMM)
+            with open('RIMPV-K_MMMM.npy', 'wb') as f:
+                np.save(f, self.K_MMMM)
+            with open('RIMPV-Kref_MMMM.npy', 'wb') as f:
+                np.save(f, self.Kref_MMMM)
 
-        with open('RIMPV-Pref_AMM.npy', 'wb') as f:
-            np.save(f, self.Pref_AMM)
-        with open('RIMPV-P_AMM.npy', 'wb') as f:
-            np.save(f, self.P_AMM)
+            with open('RIMPV-Pref_AMM.npy', 'wb') as f:
+                np.save(f, self.Pref_AMM)
+            with open('RIMPV-P_AMM.npy', 'wb') as f:
+                np.save(f, self.P_AMM)
 
-        with open('RIMPV-Iref_AMM.npy', 'wb') as f:
-            np.save(f, self.Iref_AMM)
-        with open('RIMPV-I_AMM.npy', 'wb') as f:
-            np.save(f, self.I_AMM)
+            with open('RIMPV-Iref_AMM.npy', 'wb') as f:
+                np.save(f, self.Iref_AMM)
+            with open('RIMPV-I_AMM.npy', 'wb') as f:
+                np.save(f, self.I_AMM)
 
-        with self.timer('calculate reference W_AA'):
-            self.Wref_AA = reference_W_AA(self.density, self.hamiltonian.poisson, auxt_aj, spos_ac)
-            print(self.V_AA,'V_AA')
-            print(self.W_AA,'V_AA+S_AA+M_AA+M_AA.T')
-            print(self.Wref_AA,'W_REF')
-            print(np.linalg.norm(self.W_AA-self.Wref_AA),'norm error')
+            with self.timer('calculate reference W_AA'):
+                self.Wref_AA = reference_W_AA(self.density, self.hamiltonian.poisson, auxt_aj, spos_ac)
 
-        with open('RIMPV-Wref_AA.npy', 'wb') as f:
-            np.save(f, self.Wref_AA)
-        with open('RIMPV-W_AA.npy', 'wb') as f:
-            np.save(f, self.W_AA)
+            with open('RIMPV-Wref_AA.npy', 'wb') as f:
+                np.save(f, self.Wref_AA)
+            with open('RIMPV-W_AA.npy', 'wb') as f:
+                np.save(f, self.W_AA)
 
         xxx
         self.Wh_LL = np.linalg.cholesky(self.W_LL)
