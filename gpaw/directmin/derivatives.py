@@ -381,8 +381,8 @@ class Davidson(object):
         self.W = np.asarray(self.W).T
         wfs.timer.stop('FD Hessian vector product')
         wfs.timer.start('Rayleigh matrix formation')
-        #self.H[k] = np.zeros(shape=(self.l[k], self.l[k]))
-        #mmm(1.0, self.V[k], 'N', self.W[k], 'T', 0.0, self.H[k])
+        # self.H[k] = np.zeros(shape=(self.l[k], self.l[k]))
+        # mmm(1.0, self.V[k], 'N', self.W[k], 'T', 0.0, self.H[k])
         self.H = np.dot(self.V.T, self.W)
         wfs.timer.stop('Rayleigh matrix formation')
         self.n_iter += 1
@@ -404,8 +404,8 @@ class Davidson(object):
         wfs.timer.start('Residual calculation')
         self.r = []
         for i in range(self.l):
-            self.r.append(self.x[i] * self.lambda_[i] \
-                          - np.dot(self.W, self.y[i].T))
+            self.r.append(
+                self.x[i] * self.lambda_[i] - np.dot(self.W, self.y[i].T))
         self.r = np.asarray(self.r)
         wfs.timer.stop('Residual calculation')
         for i in range(self.l):
@@ -449,9 +449,9 @@ class Davidson(object):
         if self.cap_krylov:
             if len(self.V) > self.l + self.m:
                 if self.print_level > 0:
-                    self.logger('Krylov space exceeded maximum size. '
-                            'Partial diagonalization is not fully converged.',
-                        flush=True)
+                    self.logger(
+                        'Krylov space exceeded maximum size. Partial '
+                        'diagonalization is not fully converged.', flush=True)
                 self.converged = True
         wfs.timer.start('Modified Gram-Schmidt')
         self.V = mgs(self.V)
@@ -462,7 +462,8 @@ class Davidson(object):
 
     def log(self, l):
         if self.print_level > 0:
-            self.logger('Dimensionality of Krylov space: ' + str(len(self.V[0]) - l),
+            self.logger(
+                'Dimensionality of Krylov space: ' + str(len(self.V[0]) - l),
                 flush=True)
             if self.reset:
                 self.logger('Reset Krylov space', flush=True)
@@ -494,9 +495,9 @@ class Davidson(object):
             a_vec_u[k] = np.zeros_like(self.etdm.a_vec_u[k])
             n_dim[k] = wfs.bd.nbands
             end += self.dim[k]
-            a_vec_u[k] += v[start : end]
+            a_vec_u[k] += v[start: end]
             if self.etdm.dtype == complex:
-                a_vec_u[k] += 1.0j * v[self.dimtot + start : self.dimtot + end]
+                a_vec_u[k] += 1.0j * v[self.dimtot + start: self.dimtot + end]
             start += self.dim[k]
         gp = self.etdm.get_energy_and_gradients(
             a_vec_u, n_dim, ham, wfs, dens, c_nm)[1]
@@ -512,7 +513,7 @@ class Davidson(object):
                 a_vec_u[k] -= v[start: end]
                 if self.etdm.dtype == complex:
                     a_vec_u[k] \
-                        -= 1.0j * v[self.dimtot + start : self.dimtot + end]
+                        -= 1.0j * v[self.dimtot + start: self.dimtot + end]
                 start += self.dim[k]
             gm = self.etdm.get_energy_and_gradients(
                 a_vec_u, n_dim, ham, wfs, dens, c_nm)[1]
@@ -527,7 +528,7 @@ class Davidson(object):
         if self.etdm.dtype == complex:
             hessc = np.zeros(shape=(2 * self.dimtot))
             hessc[: self.dimtot] = np.real(hessi)
-            hessc[self.dimtot :] = np.imag(hessi)
+            hessc[self.dimtot:] = np.imag(hessi)
             return hessc
         else:
             return np.asarray(hessi)
