@@ -245,12 +245,14 @@ class Davidson(object):
                 self.sp_order = sp_order
                 if self.sp_order == 0:
                     self.sp_order = 1
-                self.logger('Saved target saddle point order as ' \
-                    + str(self.sp_order) + ' for future partial ' \
-                        'diagonalizations.', flush=True)
+                self.logger(
+                    'Saved target saddle point order as ' \
+                    + str(self.sp_order) + ' for future partial '
+                    'diagonalizations.', flush=True)
             elif self.log_sp_order_once:
                 self.log_sp_order_once = False
-                self.logger('Using target saddle point order of ' \
+                self.logger(
+                    'Using target saddle point order of ' \
                     + str(self.sp_order) + '.', flush=True)
         if self.ef:
             self.x_all = []
