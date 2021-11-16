@@ -516,6 +516,9 @@ class Davidson(object):
         elif self.fd_mode == 'forward':
             for k in range(len(wfs.kpt_u)):
                 hessi += list((gp[k] - self.grad[k]) / self.h)
+        for k, kpt in enumerate(wfs.kpt_u):
+            kpt.C_nM = c_nm[k]
+        dens.update(wfs)
         if self.etdm.dtype == complex:
             hessc = np.zeros(shape=(2 * self.dimtot))
             hessc[: self.dimtot] = np.real(hessi)
