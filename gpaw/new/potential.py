@@ -147,7 +147,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         self.fine_grid = fine_grid
 
         self.vbar_G = pw.zeros()
-        self.vbar_a.add_to(self.vbar)
+        self.vbar_ax.add_to(self.vbar_G)
 
     def _calculate(self, density):
         nt2_s = self.fine_grid.empty(density.nt_s.shape)

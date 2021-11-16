@@ -56,7 +56,7 @@ class ReciprocalSpacePoissonSolver(PoissonSolver):
                vHt_g,
                rhot_g) -> float:
         vHt_g.data[:] = 2 * pi * rhot_g.data
-        if self.pw.grid.comm.rank == 0:
+        if self.pw.comm.rank == 0:
             # Use uniform backgroud charge in case we have a charged system:
             vHt_g.data[0] = 0.0
         vHt_g.data /= self.ekin_g

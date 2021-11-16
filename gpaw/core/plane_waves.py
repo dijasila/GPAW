@@ -370,6 +370,7 @@ def find_reciprocal_vectors(ecut: float,
     return G_plus_k, ekin, indices.T
 
 
+x = '''
 class PWMapping:
     def __init__(self, pw1: PlaneWaves, pw2: PlaneWaves):
         """Mapping from pd1 to pd2."""
@@ -434,3 +435,4 @@ class PWMapping:
             a2.data[self.G2_G1] += myb
         else:
             1 / 0
+'''
