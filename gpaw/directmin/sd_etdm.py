@@ -41,8 +41,10 @@ class SearchDirectionBase(object):
 
 class ModeFollowingBase(object):
     """
-    Base gradient partitioning implementation for minimum mode following
+    Base gradient partitioning and negation implementation for minimum mode
+    following
     """
+
     def __init__(self, partial_diagonalizer):
         self.eigv = None
         self.eigvec = None
@@ -101,6 +103,11 @@ class ModeFollowingBase(object):
 
 
 class ModeFollowing(ModeFollowingBase, SearchDirectionBase):
+    """
+    Minimum mode following class handling the MMF tag of the search direction
+    class for ETDM and gradient negation
+    """
+
     def __init__(self, partial_diagonalizer, search_direction):
         self.sd = search_direction
         self.name = self.sd.name + '_mmf'
