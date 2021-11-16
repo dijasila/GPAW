@@ -8,6 +8,7 @@ from gpaw.auxlcao.procedures import calculate_W_LL_offdiagonals_multipole,\
                                     calculate_V_AA,\
                                     calculate_S_AA,\
                                     calculate_M_AA,\
+                                    calculate_W_AL,\
                                     calculate_I_AMM,\
                                     calculate_P_AMM,\
                                     calculate_P_LMM,\
@@ -54,6 +55,7 @@ class RIMPV(RIAlgorithm):
             get_W_LL_diagonals_from_setups(self.W_LL, self.lmax, self.density.setups)
             #print('W_LL', self.W_LL)
             assert not np.isnan(self.W_LL).any()
+
         auxt_aj = [ setup.auxt_j for setup in self.wfs.setups ]
         M_aj = [ setup.M_j for setup in self.wfs.setups ]
 
@@ -94,10 +96,19 @@ class RIMPV(RIAlgorithm):
             self.P_AMM = calculate_P_AMM(self.matrix_elements, self.W_AA)
             assert not np.isnan(self.P_AMM).any()
 
+        print('WP_AMM')
+        with self.timer('Calculate WP_AMM'):
+            self.WP_AMM = np.einsum('AB,Bij',self.W_AA, self.P_AMM)
+
         print('P_LMM')
         with self.timer('Calculate P_LMM'):
             self.P_LMM = calculate_P_LMM(self.matrix_elements, self.wfs.setups, self.wfs.atomic_correction)
             assert not np.isnan(self.P_LMM).any()
+
+        print('W_AL')
+        with self.timer('Calculate W_AL'):
+            self.W_AL = calculate_W_AL(self.matrix_elements, auxt_aj, M_aj, self.W_LL)
+            assert not np.isnan(self.W_AL).any()
 
         """
 
@@ -173,7 +184,8 @@ class RIMPV(RIAlgorithm):
             with open('RIMPV-W_AA.npy', 'wb') as f:
                 np.save(f, self.W_AA)
 
-        xxx
+
+        """
         self.Wh_LL = np.linalg.cholesky(self.W_LL)
 
         # Debugging inverse
@@ -196,71 +208,7 @@ class RIMPV(RIAlgorithm):
 
         # Number of atomic orbitals
         nao = self.wfs.setups.nao
-
         """
-
-            P_LMM is a projection operator to the auxiliary compensation charge subspace
-
-        """
-
-        self.P_LMM = np.zeros( (Ltot, nao, nao) )
-
-        with open('RIMPV-I_LMM.npy', 'wb') as f:
-            np.save(f, self.P_LMM)
-            xxx
-
-        
-        Msize = 5
-        for a1 in range(2):
-            locP_LMM = self.P_LMM[ a1*9:(a1+1)*9 ]
-            for a2 in range(2):
-                for a3 in range(2):
-                    if a2 == a1 or a3 == a1:
-                        locP_LMM[:,  a2*Msize: (a2+1)*Msize, a3*Msize:(a3+1)*Msize ] = self.matrix_elements.evaluate_3ci_LMM(a1,a2,a3)
-                    else:
-                        locP_LMM[:, a2*Msize: (a2+1)*Msize, a3*Msize:(a3+1)*Msize ] = np.nan
-
-
-        self.I_LMM = self.P_LMM.copy()
-
-
-        #with self.timer('3ci: build I_LMM'):
-        if 0:
-            a1a2_p = self.matrix_elements.a1a2_p
-            for apair in a1a2_p:
-                """                 
-                     loc (a1,a2)    [  W[a1,a1]_LL   W[a1, a2]_LL ]
-                    W    =          [                             ]
-                     LL             [  W[a2,a1]_LL   W[a2, a2]_LL ]
-                """
-                Wloc_LL, Lslices = grab_local_W_LL(self.W_LL, apair, self.lmax)
-
-                Iloc_LMM, slicing_internals = calculate_local_I_LMM(self.matrix_elements, apair, self.lmax)
-                iWloc_LL = np.linalg.inv(Wloc_LL)
-                result = np.einsum('LO,OMN->LMN', iWloc_LL, Iloc_LMM)
-                add_to_global_P_LMM(self.P_LMM, result, slicing_internals)
-
-        """
-
-            Compensation charge contributions to P_LMM
-
-        """
-        #with self.timer('3ci: Compensation charge corrections'):
-        if 0:
-            for a, setup in enumerate(self.wfs.setups):
-                Delta_iiL = setup.Delta_iiL
-                P_Mi = self.wfs.atomic_correction.P_aqMi[a][0]
-                self.P_LMM[a*locLmax:(a+1)*locLmax, :, :] += \
-                          np.einsum('Mi,ijL,Nj->LMN', 
-                          P_Mi, Delta_iiL, P_Mi, optimize=True)
-
-
-        """
-            
-            Premultiply with cholesky
-        """
-        print('xxx not premultiplying with cholesky')
-        #self.P_LMM = np.einsum('LO,OMN->LMN', self.Wh_LL, self.P_LMM)
 
     def cube_debug(self, atoms):
         from ase.io.cube import write_cube
@@ -296,30 +244,41 @@ class RIMPV(RIAlgorithm):
         evv = 0.0
         ekin = 0.0
 
-        rho_MM = wfs.ksl.calculate_density_matrix(kpt.f_n, kpt.C_nM)
-        rho_MM[:] = 0.0
-        rho_MM[0,0] = 1.0
+        with self.timer('Calculate rho'):
+            rho_MM = wfs.ksl.calculate_density_matrix(kpt.f_n, kpt.C_nM)
+            print('rho_MM', rho_MM)
 
-        C_AMM = np.einsum('Bkl,jl',
-                          self.P_LMM,
-                          rho_MM, optimize=True)
+        with self.timer('Contractions'):
+            F1_MM = np.einsum('Aik,AB,Bjl,kl',
+                              self.P_LMM,
+                              self.W_LL,
+                              self.P_LMM,
+                              rho_MM, optimize=True) 
+            F2_MM = np.einsum('Aik,AB,Bjl,kl',
+                               self.P_LMM,
+                               self.W_AL.T,
+                               self.P_AMM,
+                               rho_MM, optimize=True)
+            F3_MM = np.einsum('Aik,AB,Bjl,kl',
+                               self.P_AMM,
+                               self.W_AL,
+                               self.P_LMM,
+                               rho_MM, optimize=True)
 
-        with open('RMPV-C_AMM.npy', 'wb') as f:
-            np.save(f, C_AMM)
+            F4_MM = np.einsum('Aik,Ajl,kl',
+                               self.P_AMM,
+                               self.WP_AMM,
+                               rho_MM, optimize=True)
+        print('W_AL', self.W_AL)
+        print('F1',F1_MM)
+        print('F2',F2_MM)
+        print('F3',F3_MM)
+        print('F4',F4_MM)
+        F_MM = -0.5*(F1_MM+F2_MM+F3_MM+F4_MM)
+        H_MM += (self.exx_fraction) * F_MM 
 
-
-        F_MM = -0.5 * np.einsum('Aij,Akl,jl',
-                                self.P_LMM,
-                                self.P_LMM,
-                                rho_MM, optimize=True)
-
-
-        with open('RIMPV-F_MM.npy', 'wb') as f:
-            np.save(f, F_MM)
-            xxx
-        H_MM += self.exx_fraction * F_MM
         evv = 0.5 * self.exx_fraction * np.einsum('ij,ij', F_MM, rho_MM)
-
+        print('evv', evv,' Ha')
         for a in dH_asp.keys():
             #print(a)
             D_ii = unpack2(self.density.D_asp[a][0]) / 2 # Check 1 or 2

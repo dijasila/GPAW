@@ -66,7 +66,6 @@ def get_auxiliary_splines(setup, lmax, cutoff):
 
                 g_g = spline_to_rgd(rgd, setup.ghat_l[l])
                 Mref = rgd.integrate(g_g * rgd.r_g**l) / (4*np.pi)
-                print('Mref',Mref, 'M',M)
                 saux_g = aux_g - M / Mref * g_g
                 sauxt_j.append(rgd.spline(saux_g, cutoff, l, 500))
 

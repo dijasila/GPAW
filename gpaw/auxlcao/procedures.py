@@ -398,7 +398,7 @@ def calculate_P_LMM(matrix_elements, setups, atomic_correction):
     for a, (setup, Lstart, Lend) in enumerate(zip(setups, L_a[:-1], L_a[1:])):
         P_Mi = atomic_correction.P_aqMi[a][0]
         P_LMM[Lstart:Lend, :, :] = np.einsum('ijL,Mi,Nj->LMN', setup.Delta_iiL, P_Mi, P_Mi, optimize=True)
-    return P_LMM
+    return P_LMM 
 
 """
  Production implementation of two center auxiliary RI-V projection.
@@ -429,7 +429,6 @@ def calculate_P_AMM(matrix_elements, W_AA):
 
     # Two center projections
     for a1, (A1start, A1end, M1start, M1end) in enumerate(zip(A_a[:-1], A_a[1:], M_a[:-1], M_a[1:])):
-        print(a1)
         for a2, (A2start, A2end, M2start, M2end) in enumerate(zip(A_a[:-1], A_a[1:], M_a[:-1], M_a[1:])):
             if a1 == a2:
                 continue
@@ -500,6 +499,51 @@ to φ (r) due to missing multipoles.
  
 """
 
+"""
+                                M_AL            L_AL = M_A W_(L_A)L
+
+    /       ||       \   /  sr.  ||       \   /  lr.  ||       \
+    | φ (r) || g (r) | = | φ (r) || g (r) | + | φ (r) || g (r) |
+    \  A    ||  L    /   \  A    ||  L    /   \  A    ||  L    /
+
+     M
+      A_
+
+
+"""
+
+def calculate_M_AL(matrix_elements):
+    A_a = matrix_elements.A_a
+    L_a = matrix_elements.L_a
+    Atot = A_a[-1]
+    Ltot = L_a[-1]
+    M_AL = np.zeros( (Atot, Ltot) )
+    for a1, (Astart, Aend) in enumerate(zip(A_a[:-1], A_a[1:])):
+        A2 = 0
+        for a2, (Lstart, Lend) in enumerate(zip(L_a[:-1], L_a[1:])):
+            Mloc_AL = matrix_elements.evaluate_2ci_M_AL(a1, a2)
+            if Mloc_AL is None:
+                continue
+            M_AL[Astart:Aend, Lstart:Lend] = Mloc_AL
+    return M_AL
+
+def calculate_W_AL(matrix_elements, auxt_aj, M_aj, W_LL):
+    W_AL = calculate_M_AL(matrix_elements)
+    A_a = matrix_elements.A_a
+    L_a = matrix_elements.L_a
+    Atot = A_a[-1]
+    M_AA = np.zeros( (Atot, Atot) )
+    
+    A = 0
+    for a1, (A1start, A1end) in enumerate(zip(A_a[:-1], A_a[1:])):
+        for auxt, M in zip(auxt_aj[a1], M_aj[a1]):
+            for m in range(2*auxt.l+1):
+                locL = auxt.l**2 + m
+                W_AL[A, :] += M*W_LL[L_a[a1]+locL, :]
+                A += 1
+    return W_AL
+
+
 def calculate_V_AA(auxt_aj, M_aj, W_LL, lmax):
     Lmax = (lmax+1)**2
 
@@ -508,8 +552,6 @@ def calculate_V_AA(auxt_aj, M_aj, W_LL, lmax):
     A_a = get_A_a(auxt_aj)
     Atot = A_a[-1]
     W_AA = np.zeros( (Atot, Atot) )
-
-    M_AL = np.zeros( (Atot, Lmax) )    
     A1 = 0
     for a1, (A1start, A1end) in enumerate(zip(A_a[:-1], A_a[1:])):
         for M1, auxt1 in zip(M_aj[a1], auxt_aj[a1]):
@@ -538,7 +580,6 @@ def calculate_S_AA(matrix_elements):
                 continue
             S_AA[A1start:A1end, A2start:A2end] = loc_S_AA
     return S_AA
-
 
 def calculate_M_AA(matrix_elements, auxt_aj, M_aj, lmax):
     A_a = matrix_elements.A_a
