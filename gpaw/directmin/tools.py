@@ -265,6 +265,7 @@ def excite(calc, i, a, spin=(0, 0)):
 
     return f_sn
 
+
 def dict_to_array(x):
     y = []
     dim = []
@@ -275,12 +276,13 @@ def dict_to_array(x):
         dimtot += len(x[k])
     return np.asarray(y), dim, dimtot
 
+
 def array_to_dict(x, dim):
     y = {}
     start = 0
     stop = 0
     for i in range(len(dim)):
         stop += dim[i]
-        y[i] = x[start : stop]
+        y[i] = x[start: stop]
         start += dim[i]
     return y
