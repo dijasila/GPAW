@@ -148,9 +148,20 @@ class Derivatives:
 
 
 class Davidson(object):
+    """
+    Finite difference generalized Davidson partial diagonalizer to obtain a
+    number of the eigenpairs with the smallest eigenvalues.
+    """
+
     def __init__(self, etdm, logfile, fd_mode='central', m=np.inf, h=1e-7,
                  eps=1e-2, cap_krylov=False, ef=False, print_level=0,
                  remember_sp_order=False, sp_order=None):
+        """
+        :param etdm: ETDM object for which the partial eigendecomposition
+                     should be performed
+        :param logfile:
+        """
+
         self.etdm = etdm
         self.fd_mode = fd_mode
         self.remember_sp_order = remember_sp_order
@@ -535,6 +546,9 @@ class Davidson(object):
 
 
 def mgs(vin):
+    """
+    Modified Gram-Schmidt orthonormalization
+    """
 
     v = deepcopy(vin)
     q = np.zeros_like(v)
