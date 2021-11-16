@@ -116,6 +116,7 @@ class PlaneWaveExpansions(DistributedArrays):
                                     data, pw.dv, complex,
                                     transposed=False)
         self.desc = pw
+        self.pw = pw
         self._matrix: Matrix | None
 
     def __repr__(self):
@@ -125,7 +126,7 @@ class PlaneWaveExpansions(DistributedArrays):
         return txt + ')'
 
     def __getitem__(self, index: int) -> PlaneWaveExpansions:
-        return PlaneWaveExpansions(self.desc, data=self.data[index])
+        return PlaneWaveExpansions(self.pw, data=self.data[index])
 
     def __iter__(self):
         for data in self.data:
@@ -269,7 +270,7 @@ class PlaneWaveExpansions(DistributedArrays):
             out.data *= 2.0
             if self.desc.comm.rank == 0:
                 correction = np.outer(M1.data[:, 0],
-                                      M2.data[:, 0]) * self.desc.dv
+                                      M2.data[:, 0]) * self.dv
                 if symmetric:
                     correction *= 0.5
                     out.data -= correction
@@ -284,7 +285,7 @@ class PlaneWaveExpansions(DistributedArrays):
         elif kind == 'kinetic':
             a_xG.shape = (len(a_xG), -1, 2)
             result = np.einsum('xGi, xGi, G -> x',
-                               a_xG, a_xG, self.desc.ekin_G)
+                               a_xG, a_xG, self.pw.ekin_G)
         else:
             1 / 0
         if self.desc.dtype == float:
@@ -293,7 +294,7 @@ class PlaneWaveExpansions(DistributedArrays):
                 result -= a_xG[:, 0] * a_xG[:, 0]
         self.desc.comm.sum(result)
         result.shape = self.myshape
-        return result * self.desc.dv
+        return result * self.dv
 
     def abs_square(self,
                    weights: Array1D,

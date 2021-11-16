@@ -45,8 +45,8 @@ class DFTCalculation:
         if self.cfg.ibz.symmetry != cfg.ibz.symmetry:
             raise ValueError
 
-        self.density.move(cfg.fracpos)
-        self.ibzwfs.move(cfg.fracpos)
+        self.density.move(cfg.fracpos_ac)
+        self.ibzwfs.move(cfg.fracpos_ac)
         self.potential.energies.clear()
 
         return DFTCalculation(cfg, self.ibzwfs, self.density, self.potential)

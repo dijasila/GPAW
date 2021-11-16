@@ -1,4 +1,5 @@
 """BLACS distributed matrix object."""
+from __future__ import annotations
 from typing import Dict, Tuple
 import numpy as np
 import scipy.linalg as linalg
@@ -10,31 +11,6 @@ import gpaw.utilities.blas as blas
 
 
 _global_blacs_context_store: Dict[Tuple[_Communicator, int, int], int] = {}
-
-
-def matrix_matrix_multiply(alpha, a, opa, b, opb, beta=0.0, c=None,
-                           symmetric=False):
-    """BLAS-style matrix-matrix multiplication.
-
-    Will use dgemm/zgemm/dsyrk/zherk/dsyr2k/zher2k as apropriate or the
-    equivalent PBLAS functions for distributed matrices.
-
-    The coefficients alpha and beta are of type float.  Matrices a, b and c
-    must have same type (float or complex).  The strings opa and opb must be
-    'N', 'T', or 'C' .  For opa='N' and opb='N', the operation performed is
-    equivalent to::
-
-        c.data[:] =  alpha * np.dot(a.data, b.data) + beta * c.data
-
-    Replace a.data with a.data.T or a.data.T.conj() for opa='T' and 'C'
-    respectively (similarly for opb).
-
-    Use symmetric=True if the result matrix is symmetric/hermetian
-    (only lower half of c will be evaluated).
-    """
-    return _matrix(a).multiply(alpha, opa, _matrix(b), opb,
-                               beta, c if c is None else _matrix(c),
-                               symmetric)
 
 
 def suggest_blocking(N, ncpus):
@@ -139,7 +115,7 @@ class Matrix:
                  opb='N',
                  out=None,
                  beta=0.0,
-                 symmetric=False):
+                 symmetric=False) -> Matrix:
         if not isinstance(other, Matrix):
             other = other.matrix
         A = self
@@ -160,7 +136,7 @@ class Matrix:
             if alpha == 1.0 and opa == 'N' and opb == 'N':
                 return fastmmm(A, B, out, beta)
             if alpha == 1.0 and beta == 1.0 and opa == 'N' and opb == 'C':
-                if self.symmetric:
+                if symmetric:
                     return fastmmm2(A, B, out)
                 else:
                     return fastmmm2notsym(A, B, out)

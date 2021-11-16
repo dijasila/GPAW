@@ -177,6 +177,7 @@ class UniformGridFunctions(DistributedArrays):
                                     comm, grid.comm, data, grid.dv,
                                     grid.dtype, transposed=False)
         self.desc = grid
+        self.grid = grid
 
     def __repr__(self):
         txt = f'UniformGridFunctions(grid={self.desc}, shape={self.dims}'
@@ -307,13 +308,13 @@ class UniformGridFunctions(DistributedArrays):
                         out: UniformGridFunctions,
                         fftplan: fftw.FFTPlan = None,
                         ifftplan: fftw.FFTPlan = None) -> None:
-        size1_c = self.desc.size_c
-        size2_c = out.desc.size_c
+        size1_c = self.grid.size_c
+        size2_c = out.grid.size_c
         if (size2_c <= size1_c).any():
             raise ValueError('Too few points in target grid!')
 
-        fftplan = fftplan or self.desc.fft_plans()[0]
-        ifftplan = ifftplan or out.desc.fft_plans()[1]
+        fftplan = fftplan or self.grid.fft_plans()[0]
+        ifftplan = ifftplan or out.grid.fft_plans()[1]
 
         fftplan.in_R[:] = self.data
         fftplan.execute()
@@ -325,7 +326,7 @@ class UniformGridFunctions(DistributedArrays):
         a0, a1, a2 = size2_c // 2 - size1_c // 2
         b0, b1, b2 = size1_c + (a0, a1, a2)
 
-        if self.desc.dtype == float:
+        if self.grid.dtype == float:
             b2 = (b2 - a2) // 2 + 1
             a2 = 0
             axes = [0, 1]
@@ -361,11 +362,11 @@ class UniformGridFunctions(DistributedArrays):
                      fftplan: fftw.FFTPlan = None,
                      ifftplan: fftw.FFTPlan = None,
                      indices=None) -> None:
-        size1_c = self.desc.size_c
-        size2_c = out.desc.size_c
+        size1_c = self.grid.size_c
+        size2_c = out.grid.size_c
 
-        fftplan = fftplan or self.desc.fft_plans()[0]
-        ifftplan = ifftplan or out.desc.fft_plans()[1]
+        fftplan = fftplan or self.grid.fft_plans()[0]
+        ifftplan = ifftplan or out.grid.fft_plans()[1]
 
         fftplan.in_R[:] = self.data
         a_Q = ifftplan.in_R
