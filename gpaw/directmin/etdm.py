@@ -165,7 +165,7 @@ class ETDM:
                      'algorithm'}
             pd_add = '       ' \
                      'Partial diagonalizer: {}\n'.format(
-                pardi[self.pd['name']])
+                     pardi[self.pd['name']])
 
         sds = {'sd': 'Steepest Descent',
                'frcg': 'Fletcher-Reeves conj. grad. method',
@@ -569,7 +569,7 @@ class ETDM:
                         self.hess[k] = np.abs(self.hess[k])
                     else:
                         self.hess[k] = np.abs(self.hess[k].real) \
-                                       + 1.0j * np.abs(self.hess[k].imag)
+                            + 1.0j * np.abs(self.hess[k].imag)
             hess = self.hess[k]
             precond[k] = np.zeros_like(hess)
             correction = w * gamma * beta0 ** (-1)
