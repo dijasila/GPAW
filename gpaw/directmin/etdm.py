@@ -165,7 +165,7 @@ class ETDM:
                      'algorithm'}
             pd_add = '       ' \
                      'Partial diagonalizer: {}\n'.format(
-                     pardi[self.pd['name']])
+                         pardi[self.pd['name']])
 
         sds = {'sd': 'Steepest Descent',
                'frcg': 'Fletcher-Reeves conj. grad. method',
