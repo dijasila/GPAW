@@ -208,9 +208,12 @@ class Davidson(object):
 
     def introduce(self):
         if self.print_level > 0:
-            self.logger('|-------------------------------------------------------|')
-            self.logger('|             Davidson partial diagonalizer             |')
-            self.logger('|-------------------------------------------------------|\n',
+            self.logger(
+                '|-------------------------------------------------------|')
+            self.logger(
+                '|             Davidson partial diagonalizer             |')
+            self.logger(
+                '|-------------------------------------------------------|\n',
                 flush=True)
 
     def run(self, wfs, ham, dens, use_prev=False):
@@ -218,7 +221,7 @@ class Davidson(object):
         if not self.ef:
             self.etdm.sort_orbitals_mom(wfs)
         self.n_iter = 0
-        self.c_nm_ref = [deepcopy(wfs.kpt_u[x].C_nM) \
+        self.c_nm_ref = [deepcopy(wfs.kpt_u[x].C_nM)
                          for x in range(len(wfs.kpt_u))]
         if self.fd_mode == 'forward' and self.grad is None:
             a_vec_u = {}
