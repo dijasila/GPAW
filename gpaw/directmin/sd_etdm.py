@@ -63,7 +63,7 @@ class ModeFollowingBase(object):
                               dtype=complex)
             for i in range(len(self.eigvec)):
                 eigvec[i] += self.eigvec[i][: dimtot] \
-                             + 1.0j * self.eigvec[i][dimtot :]
+                    + 1.0j * self.eigvec[i][dimtot:]
             self.eigvec = eigvec
         self.fixed_sp_order = self.partial_diagonalizer.sp_order
 
@@ -87,7 +87,7 @@ class ModeFollowingBase(object):
         grad_par = np.zeros_like(grad)
         for i in range(get_dots):
             grad_par += self.eigvec[i] \
-                        * np.dot(self.eigvec[i].conj(), grad.T).real
+                * np.dot(self.eigvec[i].conj(), grad.T).real
         if self.fixed_sp_order is not None:
             if neg_temp >= self.fixed_sp_order:
                 grad_mod = grad - 2.0 * grad_par
@@ -116,7 +116,7 @@ class ModeFollowing(ModeFollowingBase, SearchDirectionBase):
 
     def todict(self):
         res = self.sd.todict()
-        res['name'] += '_mmf' # tag will be removed in etdm
+        res['name'] += '_mmf'                    # tag will be removed in etdm
         return res
 
     def update_data(self, wfs, x_k1, g_k1, precond=None):
