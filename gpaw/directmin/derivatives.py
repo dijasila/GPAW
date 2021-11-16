@@ -246,13 +246,13 @@ class Davidson(object):
                 if self.sp_order == 0:
                     self.sp_order = 1
                 self.logger(
-                    'Saved target saddle point order as ' \
+                    'Saved target saddle point order as '
                     + str(self.sp_order) + ' for future partial '
                     'diagonalizations.', flush=True)
             elif self.log_sp_order_once:
                 self.log_sp_order_once = False
                 self.logger(
-                    'Using target saddle point order of ' \
+                    'Using target saddle point order of '
                     + str(self.sp_order) + '.', flush=True)
         if self.ef:
             self.x_all = []
@@ -544,6 +544,7 @@ def mgs(vin):
             v[k] = v[k] - np.dot(np.dot(q[i].T, v[k]), q[i])
     return q
 
+
 def construct_real_hessian(hess):
 
     if hess.dtype == complex:
@@ -552,6 +553,7 @@ def construct_real_hessian(hess):
         hess_real = hess
 
     return hess_real
+
 
 def apply_central_finite_difference_approx(fplus, fminus, eps):
 
