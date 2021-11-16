@@ -267,10 +267,19 @@ def excite(calc, i, a, spin=(0, 0)):
 
 
 def dict_to_array(x):
+    """
+    Converts dictionaries with integer keys to one long array by appending.
+
+    :param x: Dictionary
+    :return: Long array, dimensions of original dictionary parts, total
+             dimensions
+    """
     y = []
     dim = []
     dimtot = 0
     for k in x.keys():
+        assert type(k) == int, 'Cannot convert dict to array if keys are not '
+        'integer.'
         y += list(x[k])
         dim.append(len(x[k]))
         dimtot += len(x[k])
@@ -278,6 +287,14 @@ def dict_to_array(x):
 
 
 def array_to_dict(x, dim):
+    """
+    Converts long array to dictionary with integer keys with values of
+    dimensionality specified in dim.
+
+    :param x: Array
+    :param dim: List with dimensionalities of parts of the dictionary
+    :return: Dictionary
+    """
     y = {}
     start = 0
     stop = 0
