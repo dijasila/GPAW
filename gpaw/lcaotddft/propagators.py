@@ -21,6 +21,8 @@ def create_propagator(name, **kwargs):
         return create_propagator(**kwargs)
     elif name == 'sicn':
         return SICNPropagator(**kwargs)
+    elif name == 'edsicn':
+        return EDSICNPropagator(**kwargs)
     elif name == 'ecn':
         return ECNPropagator(**kwargs)
     elif name.endswith('.ulm'):
@@ -328,9 +330,55 @@ class ECNPropagator(LCAOPropagator):
     def todict(self):
         return {'name': 'ecn'}
 
-
 class SICNPropagator(ECNPropagator):
 
+    def __init__(self):
+        ECNPropagator.__init__(self)
+
+    def initialize(self, paw):
+        ECNPropagator.initialize(self, paw)
+        # Allocate kpt.C2_nM arrays
+        for kpt in self.wfs.kpt_u:
+            kpt.C2_nM = np.empty_like(kpt.C_nM)
+
+    def propagate(self, time, time_step):
+        get_H_MM = self.hamiltonian.get_hamiltonian_matrix
+        # --------------
+        # Predictor step
+        # --------------
+        for kpt in self.wfs.kpt_u:
+            # H_MM(t) = <M|H(t)|M>
+            kpt.H0_MM = get_H_MM(kpt, time)
+            # 2. Solve Psi(t+dt) from
+            #    (S_MM - 0.5j*H_MM(t)*dt) Psi(t+dt)
+            #       = (S_MM + 0.5j*H_MM(t)*dt) Psi(t)
+            self.propagate_wfs(kpt.C_nM, kpt.C_nM, kpt.S_MM, kpt.H0_MM,
+                               time_step)
+        # ---------------
+        # Propagator step
+        # ---------------
+        # 1. Calculate H(t+dt)
+        self.hamiltonian.update()
+        for kpt in self.wfs.kpt_u:
+            # 2. Estimate H(t+0.5*dt) ~ 0.5 * [ H(t) + H(t+dt) ]
+            kpt.H0_MM += get_H_MM(kpt, time + time_step)
+
+            kpt.H0_MM *= 0.5
+            # 3. Solve Psi(t+dt) from
+            #    (S_MM - 0.5j*H_MM(t+0.5*dt)*dt) Psi(t+dt)
+            #       = (S_MM + 0.5j*H_MM(t+0.5*dt)*dt) Psi(t)
+            self.propagate_wfs(kpt.C2_nM, kpt.C_nM, kpt.S_MM, kpt.H0_MM,
+                               time_step)
+            kpt.H0_MM = None
+        # 4. Calculate new Hamiltonian (and density)
+        self.hamiltonian.update()
+        return time + time_step
+
+    def todict(self):
+        return {'name': 'sicn'}
+
+class EDSICNPropagator(ECNPropagator):
+    # This could be merge with SICN (above)
     def __init__(self):
         ECNPropagator.__init__(self)
 
@@ -387,8 +435,7 @@ class SICNPropagator(ECNPropagator):
             kpt.C2_nM[:] = kpt.C_nM
 
     def todict(self):
-        return {'name': 'sicn'}
-
+        return {'name': 'edsicn'}
 
 class TaylorPropagator(Propagator):
 

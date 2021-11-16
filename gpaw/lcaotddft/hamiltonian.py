@@ -251,12 +251,6 @@ class TimeDependentHamiltonian(object):
             self.hamiltonian.update(self.density)
         self.timer.stop('Update TDDFT Hamiltonian')
 
-    def get_D_lcao(self):
-        print ('pocitam D operator')
-
-    def get_P_lcao(self):
-        print ('pocitam P operator')
-
 class get_P:
     def __init__(self, wfs):
 #        self.v = wfs.v
