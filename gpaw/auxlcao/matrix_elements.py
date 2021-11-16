@@ -108,6 +108,8 @@ class MatrixElements:
                                                          phit_l_Ij, phit_Ijq)
 
         self.A_a = get_A_a( [ setup.auxt_j for setup in setups ] )
+        Lsize = (self.lmax+1)**2
+        self.L_a = np.arange(0, len(self.A_a)*Lsize, Lsize)
 
 
     def set_positions_and_cell(self, spos_ac, cell_cv, pbc_c, ibzq_qc, dtype):

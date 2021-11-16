@@ -237,9 +237,7 @@ def calculate_W_LL_offdiagonals_multipole(cell_cv, spos_ac, pbc_c, ibzk_qc, dtyp
     if lmax == 2:
         return coeff * W_LL
 
-
     raise NotImplementedError('lmax=%d for multipole interaction' % lmax)
-
 
 """
 
@@ -378,6 +376,29 @@ def reference_I_AMM(wfs, density, hamiltonian, poisson, auxt_aj, spos_ac):
     return I_AMM
 
 
+"""
+ Production implementation of compensation charge projection
+
+                              
+               __   a      /  a    |       \  /  a  |       \
+ P           = \   Δ       | p (r) | φ (r) |  | p   | φ (r) |
+  (L,a)M1M2    /_   Li1i2  \  i1   |  M1   /  \  i2 |  M2   /
+               ai1i2
+
+
+"""
+
+def calculate_P_LMM(matrix_elements, setups, atomic_correction):
+    L_a = matrix_elements.L_a
+    M_a = matrix_elements.M_a
+    Ltot = L_a[-1]
+    nao = M_a[-1]
+    P_LMM = np.zeros( (Ltot, nao, nao) )
+
+    for a, (setup, Lstart, Lend) in enumerate(zip(setups, L_a[:-1], L_a[1:])):
+        P_Mi = atomic_correction.P_aqMi[a][0]
+        P_LMM[Lstart:Lend, :, :] = np.einsum('ijL,Mi,Nj->LMN', setup.Delta_iiL, P_Mi, P_Mi, optimize=True)
+    return P_LMM
 
 """
  Production implementation of two center auxiliary RI-V projection.

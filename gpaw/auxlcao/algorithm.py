@@ -10,6 +10,7 @@ from gpaw.auxlcao.procedures import calculate_W_LL_offdiagonals_multipole,\
                                     calculate_M_AA,\
                                     calculate_I_AMM,\
                                     calculate_P_AMM,\
+                                    calculate_P_LMM,\
                                     reference_I_AMM,\
                                     reference_W_AA
    
@@ -93,7 +94,40 @@ class RIMPV(RIAlgorithm):
             self.P_AMM = calculate_P_AMM(self.matrix_elements, self.W_AA)
             assert not np.isnan(self.P_AMM).any()
 
+        print('P_LMM')
+        with self.timer('Calculate P_LMM'):
+            self.P_LMM = calculate_P_LMM(self.matrix_elements, self.wfs.setups, self.wfs.atomic_correction)
+            assert not np.isnan(self.P_LMM).any()
+
         """
+
+              P     W    P     rho
+               AMM   AA   AMM     MM
+
+               
+              P      W   P     rho
+               LMM    LA  AMM     MM
+
+                [   W       W    ]
+                [    AA      AL  ]
+                [                ]
+                [   W       W    ]
+                [    LA      LL  ]
+
+
+            P     =
+             LMM
+
+                      a        a     a
+           P     =   Δ        P     P      
+            LMM       Li1i2    i1μ   i2μ'
+
+                    a       a    a       a'       a'    a'
+           W       Δ       P    P       Δ        P     P      ρ
+            LL'     Li1i2   i1μ  i2μ'    L'i3i4   i3ν   i4ν'    μ'ν'
+
+
+
 
                     a       a    a       a'       a'    a'
            W       Δ       P    P       Δ        P     P      ρ
@@ -103,16 +137,6 @@ class RIMPV(RIAlgorithm):
 
 
         """
-
-        for A in range(Atot):
-            for a, setup in enumerate(self.wfs.setups):
-                G_L = self.G_AaL[A][a]
-                X_ii = np.dot(setup.Delta_iiL, G_L)
-                #print(X_ii,'X_ii')
-                P_Mi = self.wfs.atomic_correction.P_aqMi[a][0]
-                self.I_AMM[A] += P_Mi @ X_ii @ P_Mi.T
-                self.I_AMM[A] = (self.I_AMM[A] + self.I_AMM[A].T)/2
-
 
         if debug['ref']:
             with self.timer('Calculate reference I_AMM'):
