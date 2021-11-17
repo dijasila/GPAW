@@ -104,15 +104,15 @@ class RIMPV(RIAlgorithm):
 
         with self.timer('Calculate WP_AMM'):
             print('W_AA @ P_AMM')
-            self.WP1_AMM = np.einsum('AB,Bij',self.W_AA, self.P_AMM, optimize=True)
+            self.WP_AMM = np.einsum('AB,Bij',self.W_AA, self.P_AMM, optimize=True)
             print('W_AL @ P_LMM')
-            self.WP1_AMM += np.einsum('AB,Bij',self.W_AL, self.P_LMM, optimize=True)
+            self.WP_AMM += np.einsum('AB,Bij',self.W_AL, self.P_LMM, optimize=True)
 
         with self.timer('Calculate WP_LMM'):
             print('W_LA @ P_AMM')
-            self.WP3_LMM = np.einsum('BA,Bij',self.W_AL, self.P_AMM, optimize=True)
+            self.WP_LMM = np.einsum('BA,Bij',self.W_AL, self.P_AMM, optimize=True)
             print('W_LL @ P_LMM')
-            self.WP3_LMM += np.einsum('AB,Bij',self.W_LL, self.P_LMM, optimize=True)
+            self.WP_LMM += np.einsum('AB,Bij',self.W_LL, self.P_LMM, optimize=True)
 
         """
 
@@ -252,35 +252,21 @@ class RIMPV(RIAlgorithm):
             rho_MM = wfs.ksl.calculate_density_matrix(kpt.f_n, kpt.C_nM)
 
         with self.timer('1st contractions'):
-            WP1_AMM_RHO_MM = np.einsum('Ajl,kl',
-                                        self.WP1_AMM,
+            WP_AMM_RHO_MM = np.einsum('Ajl,kl',
+                                        self.WP_AMM,
                                         rho_MM, optimize=True)
-            #WP2_AMM_RHO_MM = np.einsum('Ajl,kl',
-            #                            self.WP2_AMM,
-            #                            rho_MM, optimize=True)
-            WP3_LMM_RHO_MM = np.einsum('Ajl,kl',
-                                       self.WP3_LMM,
+            WP_LMM_RHO_MM = np.einsum('Ajl,kl',
+                                       self.WP_LMM,
                                        rho_MM, optimize=True)
-            #WP4_LMM_RHO_MM = np.einsum('Ajl,kl',
-            #                           self.WP4_LMM,
-            #                           rho_MM, optimize=True)
 
         with self.timer('2nd contractions'):
-            #F1_MM = np.einsum('Aik,Ajk',
-            #                   self.P_LMM,
-            #                   WP4_LMM_RHO_MM,
-            #                   optimize=True)
-            #F2_MM = np.einsum('Aik,Ajk',
-            #                  self.P_AMM,
-            #                  WP2_AMM_RHO_MM,
-            #                   optimize=True) 
             F3_MM = np.einsum('Aik,Ajk',
                                self.P_LMM,
-                               WP3_LMM_RHO_MM,
+                               WP_LMM_RHO_MM,
                                optimize=True)
             F4_MM = np.einsum('Aik,Ajk',
                               self.P_AMM,
-                              WP1_AMM_RHO_MM,
+                              WP_AMM_RHO_MM,
                                optimize=True) 
         F_MM = -0.5*(F3_MM+F4_MM)
         H_MM += (self.exx_fraction) * F_MM 
