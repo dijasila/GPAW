@@ -266,28 +266,27 @@ class RIMPV(RIAlgorithm):
                                        rho_MM, optimize=True)
 
         with self.timer('2nd contractions'):
-            F1_MM = np.einsum('Aij,Ajl',
+            F1_MM = np.einsum('Aik,Ajk',
                                self.P_LMM,
                                WP4_LMM_RHO_MM,
                                optimize=True)
-            F2_MM = np.einsum('Aij,Ajl',
+            F2_MM = np.einsum('Aik,Ajk',
                               self.P_AMM,
                               WP2_AMM_RHO_MM,
                                optimize=True) 
-            F3_MM = np.einsum('Aij,Ajl',
+            F3_MM = np.einsum('Aik,Ajk',
                                self.P_LMM,
                                WP3_LMM_RHO_MM,
                                optimize=True)
-            F4_MM = np.einsum('Aij,Ajl',
+            F4_MM = np.einsum('Aik,Ajk',
                               self.P_AMM,
                               WP1_AMM_RHO_MM,
                                optimize=True) 
-        print('F1',F1_MM, '\nF2',F2_MM, '\nF3',F3_MM, '\nF4',F4_MM,'Fs')
         F_MM = -0.5*(F1_MM+F2_MM+F3_MM+F4_MM)
         H_MM += (self.exx_fraction) * F_MM 
 
         evv = 0.5 * self.exx_fraction * np.einsum('ij,ij', F_MM, rho_MM, optimize=True)
-        print('evv',evv)
+
         with self.timer('RI Local atomic corrections'):
             for a in dH_asp.keys():
                 D_ii = unpack2(self.density.D_asp[a][0]) / 2 # Check 1 or 2
