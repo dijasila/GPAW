@@ -11,6 +11,7 @@ from gpaw.tddft.units import attosec_to_autime
 
 from gpaw.lcaotddft.densitymatrix import DensityMatrix
 from gpaw.tddft.tdopers import  TimeDependentDensity
+from gpaw.utilities.scalapack import scalapack_zero
 
 from scipy.linalg import eigh
 from scipy.linalg import norm

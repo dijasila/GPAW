@@ -137,8 +137,9 @@ class EhrenfestVelocityVerletLCAO:
 
         # Propagate wf
         # psi(t+dt)   = U(t,t+dt) psi(t)
+        self.calc.timer.start('PROPAGATE WF')
         self.propagate_single(dt)
-
+        self.calc.timer.stop('PROPAGATE WF')
 
         # m a(t+dt/2) = F[psi(t+dt),x(t+dt/2)]
         self.calc.atoms.positions = self.xh * Bohr
@@ -176,9 +177,11 @@ class EhrenfestVelocityVerletLCAO:
         self.calc.atoms.set_positions(self.x * Bohr)
         self.calc.atoms.set_velocities(self.v * Bohr / AUT)
 
+        self.calc.timer.start('PROPAGATE WF S1/2')
         if self.calc.S_flag == True:
             # propagate LCAO C using overlap matrix
             self.calc.propagate_using_S12(self.time, dt)
+        self.calc.timer.stop('PROPAGATE WF S1/2')
 
         self.calc.set_positions(self.calc.atoms)
         self.calc.get_td_energy()
