@@ -104,15 +104,15 @@ class RIMPV(RIAlgorithm):
 
         with self.timer('Calculate WP_AMM'):
             print('W_AA @ P_AMM')
-            self.WP_AMM = np.einsum('AB,Bij',self.W_AA, self.P_AMM, optimize=True)
+            self.WP1_AMM = np.einsum('AB,Bij',self.W_AA, self.P_AMM, optimize=True)
             print('W_AL @ P_LMM')
-            self.WP_AMM += np.einsum('AB,Bij',self.W_AL, self.P_LMM, optimize=True)
+            self.WP2_AMM = np.einsum('AB,Bij',self.W_AL, self.P_LMM, optimize=True)
 
         with self.timer('Calculate WP_LMM'):
             print('W_LA @ P_AMM')
-            self.WP_LMM = np.einsum('BA,Bij',self.W_AL, self.P_AMM, optimize=True)
+            self.WP3_LMM = np.einsum('BA,Bij',self.W_AL, self.P_AMM, optimize=True)
             print('W_LL @ P_LMM')
-            self.WP_LMM += np.einsum('AB,Bij',self.W_LL, self.P_LMM, optimize=True)
+            self.WP4_LMM = np.einsum('AB,Bij',self.W_LL, self.P_LMM, optimize=True)
 
         """
 
@@ -252,27 +252,42 @@ class RIMPV(RIAlgorithm):
             rho_MM = wfs.ksl.calculate_density_matrix(kpt.f_n, kpt.C_nM)
 
         with self.timer('1st contractions'):
-            WP_AMM_RHO_MM = np.einsum('Ajl,kl',
-                                       self.WP_AMM,
+            WP1_AMM_RHO_MM = np.einsum('Ajl,kl',
+                                        self.WP1_AMM,
+                                        rho_MM, optimize=True)
+            WP2_AMM_RHO_MM = np.einsum('Ajl,kl',
+                                        self.WP2_AMM,
+                                        rho_MM, optimize=True)
+            WP3_LMM_RHO_MM = np.einsum('Ajl,kl',
+                                       self.WP3_LMM,
                                        rho_MM, optimize=True)
-            WP_LMM_RHO_MM = np.einsum('Ajl,kl',
-                                       self.WP_LMM,
+            WP4_LMM_RHO_MM = np.einsum('Ajl,kl',
+                                       self.WP4_LMM,
                                        rho_MM, optimize=True)
 
         with self.timer('2nd contractions'):
             F1_MM = np.einsum('Aij,Ajl',
-                              self.P_LMM,
-                              WP_LMM_RHO_MM,
-                               optimize=True) 
-            F4_MM = np.einsum('Aij,Ajl',
-                               self.P_AMM,
-                               WP_AMM_RHO_MM,
+                               self.P_LMM,
+                               WP4_LMM_RHO_MM,
                                optimize=True)
-
-        F_MM = -0.5*(F1_MM+F4_MM)
+            F2_MM = np.einsum('Aij,Ajl',
+                              self.P_AMM,
+                              WP2_AMM_RHO_MM,
+                               optimize=True) 
+            F3_MM = np.einsum('Aij,Ajl',
+                               self.P_LMM,
+                               WP3_LMM_RHO_MM,
+                               optimize=True)
+            F4_MM = np.einsum('Aij,Ajl',
+                              self.P_AMM,
+                              WP1_AMM_RHO_MM,
+                               optimize=True) 
+        print('F1',F1_MM, '\nF2',F2_MM, '\nF3',F3_MM, '\nF4',F4_MM,'Fs')
+        F_MM = -0.5*(F1_MM+F2_MM+F3_MM+F4_MM)
         H_MM += (self.exx_fraction) * F_MM 
 
         evv = 0.5 * self.exx_fraction * np.einsum('ij,ij', F_MM, rho_MM, optimize=True)
+        print('evv',evv)
         with self.timer('RI Local atomic corrections'):
             for a in dH_asp.keys():
                 D_ii = unpack2(self.density.D_asp[a][0]) / 2 # Check 1 or 2
