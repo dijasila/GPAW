@@ -67,6 +67,7 @@ def partial_diagonalizer(method, domom):
         kwargs = method.copy()
         name = kwargs.pop('name')
         if name == 'Davidson':
+            kwargs['mmf'] = True
             return Davidson(domom, **kwargs)
         else:
             raise ValueError('Check keyword for partial diagonalizer!')
