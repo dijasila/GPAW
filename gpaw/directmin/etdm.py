@@ -525,6 +525,7 @@ class ETDM:
 
         :param wfs:
         :param ham:
+        :param dens:
         :return:
         """
 
