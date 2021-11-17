@@ -40,6 +40,7 @@ calc = SJM(
     gpts=(16, 16, 136),
     kpts=(9, 9, 1),
     xc='PBE',
+    maxiter=1000,
     # Solvated jellium parameters.
     sj=sj,
     # Implicit solvent parameters.
