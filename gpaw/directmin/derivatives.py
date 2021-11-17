@@ -215,7 +215,6 @@ class Davidson(object):
                         'h': 1e-3,
                         'eps': 1e-2,
                         'cap_krylov': True,
-                        'print_level': 1,
                         'remember_sp_order': True}
         else:
             defaults = {'fd_mode': 'central',
@@ -223,7 +222,6 @@ class Davidson(object):
                         'h': 1e-3,
                         'eps': 1e-3,
                         'cap_krylov': False,
-                        'print_level': 1,
                         'remember_sp_order': False}
         assert self.etdm.name == 'etdm', 'Check etdm.'
         if self.logfile is not None:
@@ -261,19 +259,17 @@ class Davidson(object):
                 'eps': self.eps,
                 'cap_krylov': self.cap_krylov,
                 'mmf': self.mmf,
-                'print_level': self.print_level,
                 'remember_sp_order': self.remember_sp_order,
                 'sp_order': self.sp_order}
 
     def introduce(self):
-        if self.print_level > 0:
-            self.logger(
-                '|-------------------------------------------------------|')
-            self.logger(
-                '|             Davidson partial diagonalizer             |')
-            self.logger(
-                '|-------------------------------------------------------|\n',
-                flush=True)
+        self.logger(
+            '|-------------------------------------------------------|')
+        self.logger(
+            '|             Davidson partial diagonalizer             |')
+        self.logger(
+            '|-------------------------------------------------------|\n',
+            flush=True)
 
     def run(self, wfs, ham, dens, use_prev=False):
         self.initialize(wfs, use_prev)
@@ -413,14 +409,12 @@ class Davidson(object):
         wfs.timer.stop('Modified Gram-Schmidt')
         self.V = self.V.T
         wfs.timer.stop('Initial Krylov space')
-        if self.print_level > 0:
-            text = 'Davidson will target the ' + str(self.l) \
-                   + ' lowest eigenpairs'
-            if self.sp_order is None:
-                text += '.'
-            else:
-                text += ' as recovered from previous calculation.'
-            self.logger(text, flush=True)
+        text = 'Davidson will target the ' + str(self.l) + ' lowest eigenpairs'
+        if self.sp_order is None:
+            text += '.'
+        else:
+            text += ' as recovered from previous calculation.'
+        self.logger(text, flush=True)
 
     def iterate(self, wfs, ham, dens):
         wfs.timer.start('FD Hessian vector product')
@@ -507,10 +501,9 @@ class Davidson(object):
         self.V = np.asarray(self.V)
         if self.cap_krylov:
             if len(self.V) > self.l + self.m:
-                if self.print_level > 0:
-                    self.logger(
-                        'Krylov space exceeded maximum size. Partial '
-                        'diagonalization is not fully converged.', flush=True)
+                self.logger('Krylov space exceeded maximum size. Partial '
+                            'diagonalization is not fully converged.',
+                            flush=True)
                 self.converged = True
         wfs.timer.start('Modified Gram-Schmidt')
         self.V = mgs(self.V)
@@ -520,28 +513,27 @@ class Davidson(object):
         self.log(self.l)
 
     def log(self, l):
-        if self.print_level > 0:
-            self.logger(
-                'Dimensionality of Krylov space: ' + str(len(self.V[0]) - l),
-                flush=True)
-            if self.reset:
-                self.logger('Reset Krylov space', flush=True)
-            self.logger('\nEigenvalues:\n', flush=True)
-            text = ''
-            for i in range(self.l):
-                text += '%10d '
-            indices = text % tuple(range(1, self.l + 1))
-            self.logger(indices, flush=True)
-            text = ''
-            for i in range(self.l):
-                text += '%10.6f '
-            self.logger(text % tuple(self.lambda_), flush=True)
-            self.logger('\nResidual maximum components:\n', flush=True)
-            self.logger(indices, flush=True)
-            text = ''
-            for i in range(self.l):
-                text += '%10.6f '
-            self.logger(text % tuple(self.error), flush=True)
+        self.logger(
+            'Dimensionality of Krylov space: ' + str(len(self.V[0]) - l),
+            flush=True)
+        if self.reset:
+            self.logger('Reset Krylov space', flush=True)
+        self.logger('\nEigenvalues:\n', flush=True)
+        text = ''
+        for i in range(self.l):
+            text += '%10d '
+        indices = text % tuple(range(1, self.l + 1))
+        self.logger(indices, flush=True)
+        text = ''
+        for i in range(self.l):
+            text += '%10.6f '
+        self.logger(text % tuple(self.lambda_), flush=True)
+        self.logger('\nResidual maximum components:\n', flush=True)
+        self.logger(indices, flush=True)
+        text = ''
+        for i in range(self.l):
+            text += '%10.6f '
+        self.logger(text % tuple(self.error), flush=True)
 
     def get_fd_hessian(self, vin, wfs, ham, dens):
         v = self.h * vin
