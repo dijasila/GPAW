@@ -153,8 +153,8 @@ class Davidson(object):
     number of the eigenpairs with the smallest eigenvalues.
     """
 
-    def __init__(self, etdm, logfile, fd_mode='central', m=np.inf, h=1e-7,
-                 eps=1e-2, cap_krylov=False, mmf=False, print_level=0,
+    def __init__(self, etdm, logfile, fd_mode=None, m=None, h=None,
+                 eps=None, cap_krylov=None, mmf=None,
                  remember_sp_order=False, sp_order=None):
         """
         :param etdm: ETDM object for which the partial eigendecomposition should be performed
@@ -167,6 +167,7 @@ class Davidson(object):
         :param mmf:
         """
 
+        self.mmf = mmf
         self.etdm = etdm
         self.fd_mode = fd_mode
         self.remember_sp_order = remember_sp_order
@@ -193,21 +194,63 @@ class Davidson(object):
         self.eps = eps
         self.grad = None
         self.cap_krylov = cap_krylov
-        self.mmf = mmf
         self.dim = {}
         self.dimtot = None
         self.nocc = {}
         self.nbands = None
         self.c_nm_ref = None
-        self.print_level = print_level
         self.logfile = logfile
-        if self.print_level > 0:
-            self.logger = GPAWLogger(world)
-            self.logger.fd = logfile
+        self.logger = GPAWLogger(world)
+        self.logger.fd = logfile
         if self.mmf:
             self.lambda_all = None
             self.y_all = None
             self.x_all = None
+        self.check_inputs()
+
+    def check_inputs(self):
+        if self.mmf:
+            defaults = {'fd_mode': 'forward',
+                        'm': 10,
+                        'h': 1e-3,
+                        'eps': 1e-2,
+                        'cap_krylov': True,
+                        'print_level': 1,
+                        'remember_sp_order': True}
+        else:
+            defaults = {'fd_mode': 'central',
+                        'm': np.inf,
+                        'h': 1e-3,
+                        'eps': 1e-3,
+                        'cap_krylov': False,
+                        'print_level': 1,
+                        'remember_sp_order': False}
+        assert self.etdm.name == 'etdm', 'Check etdm.'
+        if self.logfile is not None:
+            assert type(self.logfile) == str, 'Check logfile.'
+        if self.m is None:
+            self.m = defaults['m']
+        else:
+            assert type(self.m) == int, 'Check m.'
+        if self.h is None:
+            self.h = defaults['h']
+        else:
+            assert type(self.h) == float, 'Check h.'
+        if self.eps is None:
+            self.eps = defaults['eps']
+        else:
+            assert type(self.eps) == float, 'Check eps.'
+        if self.cap_krylov is None:
+            self.cap_krylov = defaults['cap_krylov']
+        else:
+            assert type(self.cap_krylov) == bool, 'Check cap_krylov.'
+        if self.remember_sp_order is None:
+            self.remember_sp_order = defaults['remember_sp_order']
+        else:
+            assert type(self.remember_sp_order) == bool, \
+                'Check remember_sp_order.'
+        if self.sp_order is not None:
+            assert type(self.sp_order) == int, 'Check sp_order.'
 
     def todict(self):
         return {'name': 'Davidson',
