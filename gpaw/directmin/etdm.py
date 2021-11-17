@@ -42,7 +42,8 @@ class ETDM:
                  checkgraderror=False,
                  localizationtype=None,
                  need_localization=True,
-                 need_init_orbs=True
+                 need_init_orbs=True,
+                 mom_the_canonical_representation=True
                  ):
         """
         This class performs the exponential transformation
@@ -103,6 +104,8 @@ class ETDM:
         self.randomizeorbitals = randomizeorbitals
         self.representation = representation
         self.orthonormalization = orthonormalization
+        self.mom_the_canonical_representation \
+            = mom_the_canonical_representation
 
         self.mmf = False
         self.searchdir_algo = search_direction(
@@ -622,7 +625,8 @@ class ETDM:
                     wfs, ham, kpt, self.update_ref_orbs_canonical,
                     self.restart)
 
-            self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
+            if self.mom_the_canonical_representation:
+                self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
             occ_name = getattr(wfs.occupations, "name", None)
             if occ_name == 'mom':
                 if not sort_eigenvalues:
