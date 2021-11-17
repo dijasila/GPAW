@@ -372,6 +372,7 @@ class ETDM:
                 with wfs.timer('Partial Hessian diagonalization'):
                     self.searchdir_algo.update_eigenpairs(
                         g_vec_u, wfs, ham, dens)
+                # The diagonal Hessian approximation must be
                 make_pd = True
 
             with wfs.timer('Preconditioning:'):
@@ -506,6 +507,8 @@ class ETDM:
             phi, g_vec_u = self.get_energy_and_gradients(x_mat_u, n_dim,
                                                          ham, wfs, dens, c_ref)
 
+            # If MMF is used save the original gradient and negate the parallel
+            # projection onto the eigenvectors with negative eigenvalues
             if self.mmf:
                 self.g_vec_u_original = deepcopy(g_vec_u)
                 g_vec_u = self.searchdir_algo.negate_parallel_grad(g_vec_u)
