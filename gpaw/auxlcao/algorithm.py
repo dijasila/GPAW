@@ -38,13 +38,13 @@ class RIMPV(RIAlgorithm):
         self.hamiltonian = hamiltonian
         self.wfs = wfs
         self.timer = hamiltonian.timer
-        with self.timer('Auxiliary Fourier-Bessel initialization'):
+        with self.timer('RI-V: Auxiliary Fourier-Bessel initialization'):
             self.matrix_elements.initialize(density, hamiltonian, wfs)
 
     def set_positions(self, spos_ac, debug):
         self.spos_ac = spos_ac
         print('W_LL')
-        with self.timer('calculate W_LL'):
+        with self.timer('RI-V: calculate W_LL'):
             self.W_LL = calculate_W_LL_offdiagonals_multipole(\
                            self.hamiltonian.gd.cell_cv, 
                            spos_ac,
@@ -72,43 +72,43 @@ class RIMPV(RIAlgorithm):
 
         """
         print('V_AA')
-        with self.timer('calculate V_AA'):
+        with self.timer('RI-V: calculate V_AA'):
             self.V_AA = calculate_V_AA(auxt_aj, M_aj, self.W_LL, self.lmax)
             assert not np.isnan(self.V_AA).any()
 
         print('S_AA')
-        with self.timer('calculate S_AA'):
+        with self.timer('RI-V: calculate S_AA'):
             self.S_AA = calculate_S_AA(self.matrix_elements)
             assert not np.isnan(self.S_AA).any()
 
         print('M_AA')
-        with self.timer('calculate M_AA'):
+        with self.timer('RI-V: calculate M_AA'):
             self.M_AA = calculate_M_AA(self.matrix_elements, auxt_aj, M_aj, self.lmax)
             self.W_AA = self.V_AA + self.S_AA + self.M_AA + self.M_AA.T
             assert not np.isnan(self.M_AA).any()
 
         print('P_AMM')
-        with self.timer('Calculate P_AMM'):
+        with self.timer('RI-V: Calculate P_AMM'):
             self.P_AMM = calculate_P_AMM(self.matrix_elements, self.W_AA)
             assert not np.isnan(self.P_AMM).any()
 
         print('P_LMM')
-        with self.timer('Calculate P_LMM'):
+        with self.timer('RI-V: Calculate P_LMM'):
             self.P_LMM = calculate_P_LMM(self.matrix_elements, self.wfs.setups, self.wfs.atomic_correction)
             assert not np.isnan(self.P_LMM).any()
 
         print('W_AL')
-        with self.timer('Calculate W_AL'):
+        with self.timer('RI-V: Calculate W_AL'):
             self.W_AL = calculate_W_AL(self.matrix_elements, auxt_aj, M_aj, self.W_LL)
             assert not np.isnan(self.W_AL).any()
 
-        with self.timer('Calculate WP_AMM'):
+        with self.timer('RI-V: Calculate WP_AMM'):
             print('W_AA @ P_AMM')
             self.WP_AMM = np.einsum('AB,Bij',self.W_AA, self.P_AMM, optimize=True)
             print('W_AL @ P_LMM')
             self.WP_AMM += np.einsum('AB,Bij',self.W_AL, self.P_LMM, optimize=True)
 
-        with self.timer('Calculate WP_LMM'):
+        with self.timer('RI-V: Calculate WP_LMM'):
             print('W_LA @ P_AMM')
             self.WP_LMM = np.einsum('BA,Bij',self.W_AL, self.P_AMM, optimize=True)
             print('W_LL @ P_LMM')
@@ -183,36 +183,12 @@ class RIMPV(RIAlgorithm):
             with self.timer('calculate reference W_AA'):
                 self.Wref_AA = reference_W_AA(self.density, self.hamiltonian.poisson, auxt_aj, spos_ac)
 
+
             with open('RIMPV-Wref_AA.npy', 'wb') as f:
                 np.save(f, self.Wref_AA)
             with open('RIMPV-W_AA.npy', 'wb') as f:
                 np.save(f, self.W_AA)
 
-
-        """
-        self.Wh_LL = np.linalg.cholesky(self.W_LL)
-
-        # Debugging inverse
-        self.iW_LL = np.linalg.inv(self.W_LL)
-        assert np.linalg.norm(self.iW_LL-self.iW_LL.T)<1e-10
-
-        # Debugging: Reconstruct W_LL from Wh_LL
-        print(self.Wh_LL)
-        assert np.linalg.norm(self.Wh_LL @ self.Wh_LL.T - self.W_LL)<1e-10
-        print(self.Wh_LL @ self.Wh_LL.T - self.W_LL)
-
-        # Number of atoms
-        Na = len(spos_ac)
-
-        # Number of compensation charges per atom
-        locLmax = (self.lmax+1)**2
-
-        # Number of total compensation charges
-        Ltot = Na * locLmax
-
-        # Number of atomic orbitals
-        nao = self.wfs.setups.nao
-        """
 
     def cube_debug(self, atoms):
         from ase.io.cube import write_cube
@@ -251,27 +227,31 @@ class RIMPV(RIAlgorithm):
         with self.timer('Calculate rho'):
             rho_MM = wfs.ksl.calculate_density_matrix(kpt.f_n, kpt.C_nM)
 
-        with self.timer('1st contractions'):
+        with self.timer('RI-V: 1st contraction AMM MM'):
             WP_AMM_RHO_MM = np.einsum('Ajl,kl',
                                         self.WP_AMM,
                                         rho_MM, optimize=True)
+        with self.timer('RI-V: 2nd contraction AMM AMM'):
+            F_MM = np.einsum('Aik,Ajk',
+                              self.P_AMM,
+                              WP_AMM_RHO_MM,
+                               optimize=True) 
+            WP_AMM_RHO_MM = None
+
+        with self.timer('RI-V: 1st contraction LMM MM'):
             WP_LMM_RHO_MM = np.einsum('Ajl,kl',
                                        self.WP_LMM,
                                        rho_MM, optimize=True)
 
-        with self.timer('2nd contractions'):
-            F3_MM = np.einsum('Aik,Ajk',
-                               self.P_LMM,
-                               WP_LMM_RHO_MM,
-                               optimize=True)
-            F4_MM = np.einsum('Aik,Ajk',
-                              self.P_AMM,
-                              WP_AMM_RHO_MM,
-                               optimize=True) 
-        F_MM = -0.5*(F3_MM+F4_MM)
-        H_MM += (self.exx_fraction) * F_MM 
+        with self.timer('RI-V: 2nd contraction LMM LMM'):
+            F_MM += np.einsum('Aik,Ajk',
+                             self.P_LMM,
+                             WP_LMM_RHO_MM,
+                             optimize=True)
+            WP_LMM_RHO_MM = None
 
-        evv = 0.5 * self.exx_fraction * np.einsum('ij,ij', F_MM, rho_MM, optimize=True)
+        H_MM += -0.5 * (self.exx_fraction) * F_MM
+        evv = -0.5 * 0.5 * self.exx_fraction * np.einsum('ij,ij', F_MM, rho_MM, optimize=True)
 
         with self.timer('RI Local atomic corrections'):
             for a in dH_asp.keys():
