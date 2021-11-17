@@ -154,12 +154,17 @@ class Davidson(object):
     """
 
     def __init__(self, etdm, logfile, fd_mode='central', m=np.inf, h=1e-7,
-                 eps=1e-2, cap_krylov=False, ef=False, print_level=0,
+                 eps=1e-2, cap_krylov=False, mmf=False, print_level=0,
                  remember_sp_order=False, sp_order=None):
         """
-        :param etdm: ETDM object for which the partial eigendecomposition
-                     should be performed
-        :param logfile:
+        :param etdm: ETDM object for which the partial eigendecomposition should be performed
+        :param logfile: Name string of the Davidson log file. Use '-' for stdout or None to discard.
+        :param fd_mode: Finite difference mode for partial Hessian evaluation. Must be one of 'central' for central FD or 'forward' for forward FD. Central FD uses two e/g evaluations per Davidson step and target eigenpair with an error scaling as O(h^2), forward FD uses one with O(h) scaling.
+        :param m: Memory parameter indicating how large the Krylov space should be able to become before resetting it with the Ritz vectors of the previous step or terminating the calculation if cap_krylov is True.
+        :param h: Displacement (in radians of orbital rotation) for finite difference partial Hessian calculation.
+        :param eps: Convergence threshold for maximum component of the residuals of the target eigenpairs.
+        :param cap_krylov: If True, terminate the calculation if the Krylov space contains more m vectors.
+        :param mmf:
         """
 
         self.etdm = etdm
@@ -188,7 +193,7 @@ class Davidson(object):
         self.eps = eps
         self.grad = None
         self.cap_krylov = cap_krylov
-        self.ef = ef
+        self.mmf = mmf
         self.dim = {}
         self.dimtot = None
         self.nocc = {}
@@ -199,7 +204,7 @@ class Davidson(object):
         if self.print_level > 0:
             self.logger = GPAWLogger(world)
             self.logger.fd = logfile
-        if self.ef:
+        if self.mmf:
             self.lambda_all = None
             self.y_all = None
             self.x_all = None
@@ -212,7 +217,7 @@ class Davidson(object):
                 'h': self.h,
                 'eps': self.eps,
                 'cap_krylov': self.cap_krylov,
-                'ef': self.ef,
+                'mmf': self.mmf,
                 'print_level': self.print_level,
                 'remember_sp_order': self.remember_sp_order,
                 'sp_order': self.sp_order}
@@ -229,7 +234,7 @@ class Davidson(object):
 
     def run(self, wfs, ham, dens, use_prev=False):
         self.initialize(wfs, use_prev)
-        if not self.ef:
+        if not self.mmf:
             self.etdm.sort_orbitals_mom(wfs)
         self.n_iter = 0
         self.c_nm_ref = [deepcopy(wfs.kpt_u[x].C_nM)
@@ -265,7 +270,7 @@ class Davidson(object):
                 self.logger(
                     'Using target saddle point order of '
                     + str(self.sp_order) + '.', flush=True)
-        if self.ef:
+        if self.mmf:
             self.x_all = []
             for i in range(len(self.lambda_all)):
                 self.x_all.append(
@@ -273,7 +278,7 @@ class Davidson(object):
             self.x_all = np.asarray(self.x_all).T
         for k, kpt in enumerate(wfs.kpt_u):
             kpt.C_nM = deepcopy(self.c_nm_ref[k])
-        if not self.ef:
+        if not self.mmf:
             for kpt in wfs.kpt_u:
                 self.etdm.sort_orbitals(ham, wfs, kpt)
 
@@ -312,7 +317,7 @@ class Davidson(object):
         if self.sp_order is not None:
             self.l = self.sp_order
         else:
-            self.l = appr_sp_order if self.ef else appr_sp_order + 2
+            self.l = appr_sp_order if self.mmf else appr_sp_order + 2
         if self.l == 0:
             self.l = 1
         self.W = None
@@ -401,7 +406,7 @@ class Davidson(object):
         eigv, eigvec = np.linalg.eigh(self.H)
         wfs.timer.stop('Rayleigh matrix diagonalization')
         eigvec = eigvec.T
-        if self.ef:
+        if self.mmf:
             self.lambda_all = deepcopy(eigv)
             self.y_all = deepcopy(eigvec)
         self.lambda_ = eigv[: self.l]
