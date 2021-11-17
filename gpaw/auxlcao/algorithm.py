@@ -53,7 +53,6 @@ class RIMPV(RIAlgorithm):
                            self.wfs.dtype,
                            self.lmax)
             get_W_LL_diagonals_from_setups(self.W_LL, self.lmax, self.density.setups)
-            #print('W_LL', self.W_LL)
             assert not np.isnan(self.W_LL).any()
 
         auxt_aj = [ setup.auxt_j for setup in self.wfs.setups ]
@@ -75,30 +74,23 @@ class RIMPV(RIAlgorithm):
         print('V_AA')
         with self.timer('calculate V_AA'):
             self.V_AA = calculate_V_AA(auxt_aj, M_aj, self.W_LL, self.lmax)
-            #print('V_AA', self.V_AA)
             assert not np.isnan(self.V_AA).any()
 
         print('S_AA')
         with self.timer('calculate S_AA'):
             self.S_AA = calculate_S_AA(self.matrix_elements)
-            #print('S_AA', self.S_AA)
             assert not np.isnan(self.S_AA).any()
 
         print('M_AA')
         with self.timer('calculate M_AA'):
             self.M_AA = calculate_M_AA(self.matrix_elements, auxt_aj, M_aj, self.lmax)
             self.W_AA = self.V_AA + self.S_AA + self.M_AA + self.M_AA.T
-            #print('M_AA', self.M_AA)
             assert not np.isnan(self.M_AA).any()
 
         print('P_AMM')
         with self.timer('Calculate P_AMM'):
             self.P_AMM = calculate_P_AMM(self.matrix_elements, self.W_AA)
             assert not np.isnan(self.P_AMM).any()
-
-        print('WP_AMM')
-        with self.timer('Calculate WP_AMM'):
-            self.WP_AMM = np.einsum('AB,Bij',self.W_AA, self.P_AMM)
 
         print('P_LMM')
         with self.timer('Calculate P_LMM'):
@@ -109,6 +101,18 @@ class RIMPV(RIAlgorithm):
         with self.timer('Calculate W_AL'):
             self.W_AL = calculate_W_AL(self.matrix_elements, auxt_aj, M_aj, self.W_LL)
             assert not np.isnan(self.W_AL).any()
+
+        with self.timer('Calculate WP_AMM'):
+            print('W_AA @ P_AMM')
+            self.WP_AMM = np.einsum('AB,Bij',self.W_AA, self.P_AMM, optimize=True)
+            print('W_AL @ P_LMM')
+            self.WP_AMM += np.einsum('AB,Bij',self.W_AL, self.P_LMM, optimize=True)
+
+        with self.timer('Calculate WP_LMM'):
+            print('W_LA @ P_AMM')
+            self.WP_LMM = np.einsum('BA,Bij',self.W_AL, self.P_AMM, optimize=True)
+            print('W_LL @ P_LMM')
+            self.WP_LMM += np.einsum('AB,Bij',self.W_LL, self.P_LMM, optimize=True)
 
         """
 
@@ -246,59 +250,49 @@ class RIMPV(RIAlgorithm):
 
         with self.timer('Calculate rho'):
             rho_MM = wfs.ksl.calculate_density_matrix(kpt.f_n, kpt.C_nM)
-            print('rho_MM', rho_MM)
 
-        with self.timer('Contractions'):
-            F1_MM = np.einsum('Aik,AB,Bjl,kl',
-                              self.P_LMM,
-                              self.W_LL,
-                              self.P_LMM,
-                              rho_MM, optimize=True) 
-            F2_MM = np.einsum('Aik,AB,Bjl,kl',
-                               self.P_LMM,
-                               self.W_AL.T,
-                               self.P_AMM,
-                               rho_MM, optimize=True)
-            F3_MM = np.einsum('Aik,AB,Bjl,kl',
-                               self.P_AMM,
-                               self.W_AL,
-                               self.P_LMM,
-                               rho_MM, optimize=True)
+        with self.timer('1st contractions'):
+            WP_AMM_RHO_MM = np.einsum('Ajl,kl',
+                                       self.WP_AMM,
+                                       rho_MM, optimize=True)
+            WP_LMM_RHO_MM = np.einsum('Ajl,kl',
+                                       self.WP_LMM,
+                                       rho_MM, optimize=True)
 
-            F4_MM = np.einsum('Aik,Ajl,kl',
+        with self.timer('2nd contractions'):
+            F1_MM = np.einsum('Aij,Ajl',
+                              self.P_LMM,
+                              WP_LMM_RHO_MM,
+                               optimize=True) 
+            F4_MM = np.einsum('Aij,Ajl',
                                self.P_AMM,
-                               self.WP_AMM,
-                               rho_MM, optimize=True)
-        print('W_AL', self.W_AL)
-        print('F1',F1_MM)
-        print('F2',F2_MM)
-        print('F3',F3_MM)
-        print('F4',F4_MM)
-        F_MM = -0.5*(F1_MM+F2_MM+F3_MM+F4_MM)
+                               WP_AMM_RHO_MM,
+                               optimize=True)
+
+        F_MM = -0.5*(F1_MM+F4_MM)
         H_MM += (self.exx_fraction) * F_MM 
 
-        evv = 0.5 * self.exx_fraction * np.einsum('ij,ij', F_MM, rho_MM)
-        print('evv', evv,' Ha')
-        for a in dH_asp.keys():
-            #print(a)
-            D_ii = unpack2(self.density.D_asp[a][0]) / 2 # Check 1 or 2
-            # Copy-pasted from hybrids/pw.py
-            ni = len(D_ii)
-            V_ii = np.empty((ni, ni))
-            for i1 in range(ni):
-                for i2 in range(ni):
-                    V = 0.0
-                    for i3 in range(ni):
-                        p13 = packed_index(i1, i3, ni)
-                        for i4 in range(ni):
-                            p24 = packed_index(i2, i4, ni)
-                            V += self.density.setups[a].M_pp[p13, p24] * D_ii[i3, i4]
-                    V_ii[i1, i2] = +V
-            V_p = pack2(V_ii)
-            dH_asp[a][0] += (-V_p - self.density.setups[a].X_p) * self.exx_fraction
+        evv = 0.5 * self.exx_fraction * np.einsum('ij,ij', F_MM, rho_MM, optimize=True)
+        with self.timer('RI Local atomic corrections'):
+            for a in dH_asp.keys():
+                D_ii = unpack2(self.density.D_asp[a][0]) / 2 # Check 1 or 2
+                # Copy-pasted from hybrids/pw.py
+                ni = len(D_ii)
+                V_ii = np.empty((ni, ni))
+                for i1 in range(ni):
+                    for i2 in range(ni):
+                        V = 0.0
+                        for i3 in range(ni):
+                            p13 = packed_index(i1, i3, ni)
+                            for i4 in range(ni):
+                                p24 = packed_index(i2, i4, ni)
+                                V += self.density.setups[a].M_pp[p13, p24] * D_ii[i3, i4]
+                        V_ii[i1, i2] = +V
+                V_p = pack2(V_ii)
+                dH_asp[a][0] += (-V_p - self.density.setups[a].X_p) * self.exx_fraction
 
-            evv -= self.exx_fraction * np.dot(V_p, self.density.D_asp[a][0]) / 2
-            evc -= self.exx_fraction * np.dot(self.density.D_asp[a][0], self.density.setups[a].X_p)
+                evv -= self.exx_fraction * np.dot(V_p, self.density.D_asp[a][0]) / 2
+                evc -= self.exx_fraction * np.dot(self.density.D_asp[a][0], self.density.setups[a].X_p)
 
         ekin = -2*evv -evc
 

@@ -93,9 +93,7 @@ class LCAOHybrid:
     """
     def calculate(self, gd, nt_sr, vt_sr):
         if self.use_lda:
-            print('Using LDA')
             return self.ldaxc.calculate(gd, nt_sr, vt_sr)
-        print('at calculate')
         energy = self.ecc + self.evv + self.evc
         energy += self.localxc.calculate(gd, nt_sr, vt_sr)
         return energy
@@ -133,7 +131,6 @@ class LCAOHybrid:
         if self.use_lda:
             self.use_lda = False
             return
-        print('Not using LDA anymore in add_nlxc')
 
         if self.debug['cube']:
             self.ri_algorithm.cube_debug(self.cubedebug)
