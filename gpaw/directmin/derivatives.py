@@ -350,6 +350,12 @@ class Davidson(object):
                 self.etdm.sort_orbitals(ham, wfs, kpt)
 
     def initialize(self, wfs, use_prev=False):
+        """
+        This is separate from __init__ since the initial Krylov space is
+        obtained here every time a partial diagonalization is performed at
+        different electronic coordinates.
+        """
+
         dimz = 2 if self.etdm.dtype == complex else 1
         self.introduce()
         self.reset = False
