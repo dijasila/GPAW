@@ -53,6 +53,17 @@ class ModeFollowingBase(object):
         self.fixed_sp_order = None
 
     def update_eigenpairs(self, g_k1, wfs, ham, dens):
+        """
+        Performs a partial Hessian diagonalization to obtain the eigenvectors
+        with negative eigenvalues.
+
+        :param g_k1: Gradient.
+        :param wfs:
+        :param ham:
+        :param dens:
+        :return:
+        """
+
         self.partial_diagonalizer.grad = g_k1
         use_prev = False if self.eigv is None else True
         self.partial_diagonalizer.run(wfs, ham, dens, use_prev)
@@ -70,6 +81,14 @@ class ModeFollowingBase(object):
         self.fixed_sp_order = self.partial_diagonalizer.sp_order
 
     def negate_parallel_grad(self, g_k1):
+        """
+        Uses the stored eigenpairs and negates the projections of the gradient
+        parallel to the eigenvectors with negative eigenvalues.
+
+        :param g_k1: Gradient.
+        :return: Modified gradient.
+        """
+
         grad, dim, dimtot = dict_to_array(g_k1)
         get_dots = 0
         if self.fixed_sp_order is None:
@@ -105,7 +124,7 @@ class ModeFollowingBase(object):
 class ModeFollowing(ModeFollowingBase, SearchDirectionBase):
     """
     Minimum mode following class handling the MMF tag of the search direction
-    class for ETDM and gradient negation
+    class for ETDM and negation of the gradient projection.
     """
 
     def __init__(self, partial_diagonalizer, search_direction):
