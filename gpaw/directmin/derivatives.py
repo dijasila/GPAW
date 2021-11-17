@@ -570,6 +570,17 @@ class Davidson(object):
         self.logger(text % tuple(self.error), flush=True)
 
     def get_fd_hessian(self, vin, wfs, ham, dens):
+        """
+        Get the dot product of the Hessian and a vector with a finite
+        difference approximation.
+
+        :param vin: The vector
+        :param wfs:
+        :param ham:
+        :param dens:
+        :return: Dot product vector of the Hessian and the vector.
+        """
+
         v = self.h * vin
         c_nm = deepcopy(self.c_nm_ref)
         a_vec_u = {}
@@ -622,6 +633,9 @@ class Davidson(object):
 def mgs(vin):
     """
     Modified Gram-Schmidt orthonormalization
+
+    :param vin: Set of vectors.
+    :return: Orthonormal set of vectors.
     """
 
     v = deepcopy(vin)
