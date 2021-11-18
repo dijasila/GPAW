@@ -494,7 +494,7 @@ class FourierTransformer:
             else:
                 a_g[0] = a_g[1]  # XXXX
             a_g *= (-1)**((l1 - l2 - l) // 2)
-            n = len(a_g) // 256
+            n = 1 # len(a_g) // 256   # XXXX
             s = Spline(l, 2 * self.rcmax, np.concatenate((a_g[::n], [0.0])))
             splines.append(s)
         return OverlapExpansion(l1, l2, splines)
