@@ -313,10 +313,9 @@ class Davidson(object):
         if self.fd_mode == 'forward' and self.grad is None:
             a_vec_u = {}
             n_dim = {}
-            for kpt in wfs.kpt_u:
-                u = self.etdm.n_kps * kpt.s + kpt.q
-                n_dim[u] = wfs.bd.nbands
-                a_vec_u[u] = np.zeros_like(self.etdm.a_vec_u[u])
+            for k, kpt in enumerate(wfs.kpt_u):
+                n_dim[k] = wfs.bd.nbands
+                a_vec_u[k] = np.zeros_like(self.etdm.a_vec_u[k])
             self.grad = self.etdm.get_energy_and_gradients(
                 a_vec_u, n_dim, ham, wfs, dens, self.c_nm_ref)[1]
         while not self.converged:
