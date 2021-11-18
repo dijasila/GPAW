@@ -380,7 +380,7 @@ class Davidson(object):
         self.nbands = wfs.bd.nbands
         if use_prev:
             for i in range(len(self.lambda_all)):
-                if self.lambda_all[i] < -1e-6:
+                if self.lambda_all[i] < -1e-4:
                     appr_sp_order += 1
                     if self.etdm.dtype == complex:
                         dia[i] = self.lambda_all[i] + 1.0j * self.lambda_all[i]
@@ -388,7 +388,7 @@ class Davidson(object):
                         dia[i] = self.lambda_all[i]
         else:
             for i in range(len(dia)):
-                if np.real(dia[i]) < -1e-8:
+                if np.real(dia[i]) < -1e-4:
                     appr_sp_order += 1
         self.M = np.zeros(shape=self.dimtot * dimz)
         for i in range(self.dimtot * dimz):
