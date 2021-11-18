@@ -404,7 +404,7 @@ class Davidson(object):
         self.W = None
         self.error = [np.inf for x in range(self.l)]
         rng = np.random.default_rng(self.seed)
-        reps = 1e-3
+        reps = 1e-4
         wfs.timer.start('Initial Krylov space')
         if use_prev:
             self.V = deepcopy(self.x)
