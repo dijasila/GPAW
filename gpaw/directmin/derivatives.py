@@ -420,6 +420,11 @@ class Davidson(object):
                             += rand[1] * reps * rand[0]
         else:
             do_conj = False
+
+            # Just for F821
+            v = None
+            imin = None
+
             self.V = []
             for i in range(self.l):
                 if do_conj:
