@@ -155,7 +155,7 @@ class Davidson(object):
 
     def __init__(self, etdm, logfile, fd_mode=None, m=None, h=None,
                  eps=None, cap_krylov=None, mmf=None,
-                 remember_sp_order=False, sp_order=None):
+                 remember_sp_order=False, sp_order=None, seed=None):
         """
         :param etdm:              ETDM object for which the partial
                                   eigendecomposition should be performed.
@@ -193,6 +193,8 @@ class Davidson(object):
                                   target eigenpairs instead of gathering it
                                   from the diagonal Hessian approximation in
                                   ETDM.
+        :param seed:              Seed for random perturbation of initial
+                                  Krylov space.
         """
 
         self.mmf = mmf
@@ -201,6 +203,7 @@ class Davidson(object):
         self.remember_sp_order = remember_sp_order
         self.sp_order = sp_order
         self.log_sp_order_once = True
+        self.seed = seed
         self.V = None
         self.C = None
         self.M = None
@@ -400,7 +403,7 @@ class Davidson(object):
             self.l = self.dimtot * dimz
         self.W = None
         self.error = [np.inf for x in range(self.l)]
-        rng = np.random.default_rng()
+        rng = np.random.default_rng(self.seed)
         reps = 1e-3
         wfs.timer.start('Initial Krylov space')
         if use_prev:
