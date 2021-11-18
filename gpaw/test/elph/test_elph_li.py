@@ -3,20 +3,16 @@ Calculate the electron-phonon matrix in lithium using ALDA.
 
 Tests whether the spin-paired and spin-polarised results are identical.
 """
-from distutils.version import LooseVersion
-
 import numpy as np
 import pytest
-from ase import __version__
 from ase.build import bulk
 from ase.parallel import world
+
 from gpaw import GPAW
 from gpaw.elph.electronphonon import ElectronPhononCoupling
 
 
 @pytest.mark.elph
-@pytest.mark.skipif(LooseVersion(__version__) < '3.22',
-                    reason='Too old ASE')
 def test_elph_li(in_tmp_dir):
     # 2 atoms with one 1 valence electron each
     atoms = bulk('Li', crystalstructure='bcc', a=3.51, cubic=True)
