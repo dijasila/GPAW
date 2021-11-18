@@ -377,7 +377,7 @@ class Davidson(object):
         self.nbands = wfs.bd.nbands
         if use_prev:
             for i in range(len(self.lambda_all)):
-                if self.lambda_all[i] < -1e-8:
+                if self.lambda_all[i] < -1e-6:
                     appr_sp_order += 1
                     if self.etdm.dtype == complex:
                         dia[i] = self.lambda_all[i] + 1.0j * self.lambda_all[i]
