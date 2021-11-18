@@ -14,7 +14,6 @@ from . import (parallel_options, calculate_error, calculate_time_propagation,
 pytestmark = pytest.mark.usefixtures('module_tmp_path')
 
 parallel_i = parallel_options(include_kpt=True)
-print(f'Tested parallel options: {list(enumerate(parallel_i))}')
 
 
 @pytest.fixture(scope='module')
