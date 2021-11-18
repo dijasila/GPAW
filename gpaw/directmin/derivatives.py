@@ -396,6 +396,8 @@ class Davidson(object):
             self.l = appr_sp_order if self.mmf else appr_sp_order + 2
         if self.l == 0:
             self.l = 1
+        if self.l > self.dimtot * dimz:
+            self.l = self.dimtot * dimz
         self.W = None
         self.error = [np.inf for x in range(self.l)]
         rng = np.random.default_rng()
@@ -417,28 +419,34 @@ class Davidson(object):
                         self.V[i][l * self.dimtot + k] \
                             += rand[1] * reps * rand[0]
         else:
+            do_conj = False
             self.V = []
             for i in range(self.l):
-                rdia = np.real(dia).copy()
-                imin = int(np.where(rdia == min(rdia))[0][0])
-                rdia[imin] = np.inf
-                v = np.zeros(self.dimtot * dimz)
-                v[imin] = 1.0
-                if self.etdm.dtype == complex:
-                    v[self.dimtot + imin] = 1.0
-                for l in range(self.dimtot):
-                    for m in range(dimz):
-                        if l == imin:
-                            continue
-                        rand = np.zeros(shape=2)
-                        if world.rank == 0:
-                            rand[0] = rng.random()
-                            rand[1] = 1 if rng.random() > 0.5 else -1
-                        else:
-                            rand[0] = 0.0
-                            rand[1] = 0.0
-                        world.broadcast(rand, 0)
-                        v[m * self.dimtot + l] = rand[1] * reps * rand[0]
+                if do_conj:
+                    v[self.dimtot + imin] = -1.0
+                    do_conj = False
+                else:
+                    v = np.zeros(self.dimtot * dimz)
+                    rdia = np.real(dia).copy()
+                    imin = int(np.where(rdia == min(rdia))[0][0])
+                    rdia[imin] = np.inf
+                    v[imin] = 1.0
+                    if self.etdm.dtype == complex:
+                        v[self.dimtot + imin] = 1.0
+                        do_conj = True
+                    for l in range(self.dimtot):
+                        for m in range(dimz):
+                            if l == imin:
+                                continue
+                            rand = np.zeros(shape=2)
+                            if world.rank == 0:
+                                rand[0] = rng.random()
+                                rand[1] = 1 if rng.random() > 0.5 else -1
+                            else:
+                                rand[0] = 0.0
+                                rand[1] = 0.0
+                            world.broadcast(rand, 0)
+                            v[m * self.dimtot + l] = rand[1] * reps * rand[0]
                 self.V.append(v / np.linalg.norm(v))
             self.V = np.asarray(self.V)
         wfs.timer.start('Modified Gram-Schmidt')
