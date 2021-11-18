@@ -257,7 +257,7 @@ class Davidson(object):
         if self.m is None:
             self.m = defaults['m']
         else:
-            assert type(self.m) == int, 'Check m.'
+            assert type(self.m) == int or np.isinf(self.m), 'Check m.'
         if self.h is None:
             self.h = defaults['h']
         else:
