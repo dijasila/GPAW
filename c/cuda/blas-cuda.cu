@@ -682,6 +682,27 @@ PyObject* scal_cuda_gpu(PyObject *self, PyObject *args)
         Py_RETURN_NONE;
 }
 
+static void _mmm_cuda(cublasOperation_t cu_opa, cublasOperation_t cu_opb,
+                      int m, int n, int k,
+                      Py_complex alpha, CUdeviceptr a, int lda,
+                      CUdeviceptr b, int ldb, Py_complex beta,
+                      CUdeviceptr c, int ldc, bool real)
+{
+    if (real) {
+        gpaw_cubSCall(
+                cublasDgemm(_gpaw_cublas_handle, cu_opa, cu_opb, m, n, k,
+                            &(alpha.real), (double*) a, lda, (double*) b, ldb,
+                            &(beta.real), (double*) c, ldc));
+    } else {
+        cuDoubleComplex cu_alpha = {alpha.real, alpha.imag};
+        cuDoubleComplex cu_beta = {beta.real, beta.imag};
+        gpaw_cubSCall(
+                cublasZgemm(_gpaw_cublas_handle, cu_opa, cu_opb, m, n, k,
+                            &cu_alpha, (cuDoubleComplex*) a, lda,
+                            (cuDoubleComplex*) b, ldb,
+                            &cu_beta, (cuDoubleComplex*) c, ldc));
+    }
+}
 
 extern "C"
 PyObject* mmm_gpu(PyObject *self, PyObject *args)
@@ -704,54 +725,25 @@ PyObject* mmm_gpu(PyObject *self, PyObject *args)
                           &beta, &c, &ldc, &bytes, &m, &n, &k))
         return NULL;
 
-    cublasOperation_t cu_opa;
-    cublasOperation_t cu_opb;
+    cublasOperation_t cu_opa = cublas_operation(opa);
+    cublasOperation_t cu_opb = cublas_operation(opb);
+    bool real = (bytes == NPY_SIZEOF_DOUBLE);
 
-    cu_opa = cublas_operation(opa);
-    cu_opb = cublas_operation(opb);
-
-    if (bytes == NPY_SIZEOF_DOUBLE) {
-        gpaw_cubSCall(
-                cublasDgemm(_gpaw_cublas_handle, cu_opa, cu_opb, m, n, k,
-                            &(alpha.real), (double*) a, lda, (double*) b, ldb,
-                            &(beta.real), (double*) c, ldc));
-    } else {
-        cuDoubleComplex cu_alpha = {alpha.real, alpha.imag};
-        cuDoubleComplex cu_beta = {beta.real, beta.imag};
-        gpaw_cubSCall(
-                cublasZgemm(_gpaw_cublas_handle, cu_opa, cu_opb, m, n, k,
-                            &cu_alpha, (cuDoubleComplex*) a, lda,
-                            (cuDoubleComplex*) b, ldb,
-                            &cu_beta, (cuDoubleComplex*) c, ldc));
-    }
+    _mmm_cuda(cu_opa, cu_opb, m, n, k, alpha, a, lda, b, ldb, beta,
+              c, ldc, real);
 
     Py_RETURN_NONE;
 }
 
-static void _gemm_cuda(char transa, cublasOperation_t transa_c,
+static void _gemm_cuda(cublasOperation_t transa_c,
                        int m, int n, int k,
                        Py_complex alpha, CUdeviceptr a_gpu, int lda,
                        CUdeviceptr b_gpu, int ldb, Py_complex beta,
                        CUdeviceptr c_gpu, int ldc,
                        bool real)
 {
-    if (real) {
-        gpaw_cubSCall(
-                cublasDgemm(_gpaw_cublas_handle, transa_c, CUBLAS_OP_N,
-                            m, n, k,
-                            &alpha.real, (double*) a_gpu, lda,
-                            (double*) b_gpu, ldb,
-                            &beta.real, (double*) c_gpu, ldc));
-    } else {
-        cuDoubleComplex alpha_gpu = {alpha.real, alpha.imag};
-        cuDoubleComplex beta_gpu = {beta.real, beta.imag};
-        gpaw_cubSCall(
-                cublasZgemm(_gpaw_cublas_handle, transa_c, CUBLAS_OP_N,
-                            m, n, k,
-                            &alpha_gpu, (cuDoubleComplex*) a_gpu, lda,
-                            (cuDoubleComplex*) b_gpu, ldb,
-                            &beta_gpu, (cuDoubleComplex*) c_gpu, ldc));
-    }
+    _mmm_cuda(transa_c, CUBLAS_OP_N, m, n, k, alpha, a_gpu, lda,
+              b_gpu, ldb, beta, c_gpu, ldc, real);
 }
 
 static void _gemm_cuda_hybrid(char transa, cublasOperation_t transa_c,
@@ -842,31 +834,16 @@ static void _gemm_cuda_hybrid(char transa, cublasOperation_t transa_c,
         pg->hybrid = 1;
     } else {
         pg->hybrid = 0;
-        _gemm_cuda(transa, transa_c, m, n, k,
-                   alpha, a_gpu, lda, b_gpu, ldb, beta, c_gpu, ldc, real);
+        _gemm_cuda(transa_c, m, n, k, alpha, a_gpu, lda, b_gpu, ldb, beta,
+                   c_gpu, ldc, real);
         return;
     }
 
     gpaw_cubSCall(
             cublasSetStream(_gpaw_cublas_handle, ph->stream[0]));
     cudaEventRecord(pg->event_gpu[0], ph->stream[0]);
-    if (real) {
-        gpaw_cubSCall(
-                cublasDgemm(_gpaw_cublas_handle, transa_c, CUBLAS_OP_N,
-                            pg->m1, pg->n1, k,
-                            &alpha.real, (double*) a_gpu, lda,
-                            (double*) b_gpu, ldb,
-                            &beta.real, (double*) c_gpu, ldc));
-    } else {
-        cuDoubleComplex alpha_gpu = {alpha.real, alpha.imag};
-        cuDoubleComplex beta_gpu = {beta.real, beta.imag};
-        gpaw_cubSCall(
-                cublasZgemm(_gpaw_cublas_handle, transa_c, CUBLAS_OP_N,
-                            pg->m1, pg->n1, k,
-                            &alpha_gpu, (cuDoubleComplex*) a_gpu, lda,
-                            (cuDoubleComplex*) b_gpu, ldb,
-                            &beta_gpu, (cuDoubleComplex*) c_gpu, ldc));
-    }
+    _gemm_cuda(transa_c, pg->m1, pg->n1, k, alpha, a_gpu, lda,
+               b_gpu, ldb, beta, c_gpu, ldc, real);
     cudaEventRecord(pg->event_gpu[1], ph->stream[0]);
     gpaw_cubSCall(
             cublasSetStream(_gpaw_cublas_handle, 0));
@@ -984,7 +961,7 @@ PyObject* gemm_cuda_gpu(PyObject *self, PyObject *args)
                           alpha, a_gpu, lda, b_gpu, ldb, beta,
                           c_gpu, ldc, real);
     } else {
-        _gemm_cuda(transa, transa_c, m, n, k,
+        _gemm_cuda(transa_c, m, n, k,
                    alpha, a_gpu, lda, b_gpu, ldb, beta,
                    c_gpu, ldc, real);
     }
