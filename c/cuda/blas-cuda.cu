@@ -180,7 +180,6 @@ inline hybrid_pace_t *hybrid_pace_get(hybrid_pace_t *paces, int count,
 }
 
 
-extern "C"
 void hybrid_pace_init(hybrid_pace_t *paces, int n)
 {
     for (int i=0; i < n; i++) {
@@ -194,7 +193,6 @@ void hybrid_pace_init(hybrid_pace_t *paces, int n)
 }
 
 
-extern "C"
 void hybrid_pace_update(hybrid_pace_t *pace, double time_gpu,
                         double time_cpu, double time_dtoh,
                         double time_htod)
