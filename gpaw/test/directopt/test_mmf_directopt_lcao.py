@@ -2,7 +2,6 @@ import pytest
 
 from gpaw import GPAW, LCAO
 from gpaw.directmin.tools import excite
-from gpaw.mom import prepare_mom_calculation
 from gpaw.directmin.etdm import ETDM
 
 from ase import Atoms
@@ -36,13 +35,13 @@ def test_mom_directopt_lcao(in_tmp_dir):
     # Excited state occupation numbers
     f_sn = excite(calc, 0, 0, spin=(0, 0))
 
-    calc.set(eigensolver=ETDM(partial_diagonalizer={
-        'name': 'Davidson', 'logfile': None, 'seed': 42},
-                              linesearch_algo={'name': 'max-step'},
-                              searchdir_algo={'name': 'LBFGS-P_MMF'},
-                              need_init_orbs=False),
-             occupations={
-                 'name': 'mom', 'numbers': f_sn, 'use_fixed_occupations': True}
+    calc.set(eigensolver=ETDM(
+        partial_diagonalizer={'name': 'Davidson', 'logfile': None, 'seed': 42},
+        linesearch_algo={'name': 'max-step'},
+        searchdir_algo={'name': 'LBFGS-P_MMF'},
+        need_init_orbs=False),
+        occupations={
+            'name': 'mom', 'numbers': f_sn, 'use_fixed_occupations': True}
     )
 
     e = H2O.get_potential_energy()
