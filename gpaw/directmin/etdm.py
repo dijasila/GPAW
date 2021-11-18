@@ -714,10 +714,10 @@ class ETDM:
 
     def todict(self):
 
-        return {'name': self.name,
+        ret =  {'name': self.name,
                 'searchdir_algo': self.searchdir_algo.todict(),
-                'partial_diagonalizer':
-                    self.searchdir_algo.partial_diagonalizer.todict(),
+                #'partial_diagonalizer':
+                #    self.searchdir_algo.partial_diagonalizer.todict(),
                 'linesearch_algo': self.line_search.todict(),
                 'localizationtype': self.localizationtype,
                 'update_ref_orbs_counter': self.update_ref_orbs_counter,
@@ -728,6 +728,10 @@ class ETDM:
                 'functional': self.func.todict(),
                 'orthonormalization': self.orthonormalization
                 }
+        if self.mmf:
+            ret['partial_diagonalizer'] = \
+                    self.searchdir_algo.partial_diagonalizer.todict()
+        return ret
 
     def rotate_wavefunctions(self, wfs, a_vec_u, n_dim, c_ref):
 
