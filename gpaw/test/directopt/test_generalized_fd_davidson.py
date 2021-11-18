@@ -34,7 +34,7 @@ def test_directmin_lcao_generalized_fd_davidson(in_tmp_dir):
     atoms.calc = calc
     atoms.get_potential_energy()
 
-    dave = Davidson(calc.wfs.eigensolver, None, 'forward', h=1e-7)
+    dave = Davidson(calc.wfs.eigensolver, None, 'forward', h=1e-7, seed=42)
     dave.run(calc.wfs, calc.hamiltonian, calc.density)
 
     hess_nt = np.asarray([[1.32720630e+00, -1.93947467e-11],
@@ -55,7 +55,7 @@ def test_directmin_lcao_generalized_fd_davidson(in_tmp_dir):
     calc.wfs.eigensolver.dm_helper.set_reference_orbitals(
         calc.wfs, {0: calc.wfs.bd.nbands})
 
-    dave = Davidson(calc.wfs.eigensolver, None, 'central', h=1e-7)
+    dave = Davidson(calc.wfs.eigensolver, None, 'central', h=1e-7, seed=42)
     dave.run(calc.wfs, calc.hamiltonian, calc.density)
 
     hess_nt = np.asarray([[-1.08209601e+00, -1.11022302e-09],
