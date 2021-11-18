@@ -254,6 +254,10 @@ class Davidson(object):
         assert self.etdm.name == 'etdm', 'Check etdm.'
         if self.logfile is not None:
             assert type(self.logfile) == str, 'Check logfile.'
+        if self.fd_mode is None:
+            self.fd_mode = defaults['fd_mode']
+        else:
+            assert self.fd_mode in ['central', 'forward'], 'Check fd_mode.'
         if self.m is None:
             self.m = defaults['m']
         else:
