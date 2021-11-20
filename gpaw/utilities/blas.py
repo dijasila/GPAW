@@ -32,11 +32,11 @@ def mmm(alpha: T,
         c: np.ndarray) -> None:
     """Matrix-matrix multiplication using dgemm or zgemm.
 
-    For opa='n' and opb='n', we have::
+    For opa='N' and opb='N', we have::
 
         c <- alpha * a * b + beta * c.
 
-    Use 't' to transpose matrices and 'c' to transpose and complex conjugate
+    Use 'T' to transpose matrices and 'C' to transpose and complex conjugate
     matrices.
     """
 
