@@ -346,6 +346,7 @@ class SICNPropagator(ECNPropagator):
         # --------------
         # Predictor step
         # --------------
+        self.save_wfs()  # kpt.C2_nM = kpt.C_nM
         for kpt in self.wfs.kpt_u:
             # H_MM(t) = <M|H(t)|M>
             kpt.H0_MM = get_H_MM(kpt, time)
@@ -373,6 +374,10 @@ class SICNPropagator(ECNPropagator):
         # 4. Calculate new Hamiltonian (and density)
         self.hamiltonian.update()
         return time + time_step
+
+    def save_wfs(self):
+        for kpt in self.wfs.kpt_u:
+            kpt.C2_nM[:] = kpt.C_nM
 
     def todict(self):
         return {'name': 'sicn'}

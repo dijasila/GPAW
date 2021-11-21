@@ -268,20 +268,12 @@ class LCAOTDDFT(GPAW):
 
             for kpt in self.wfs.kpt_u:
                 S_MM=(kpt.S_MM.copy())
-                print ('self.world.rank',self.world.rank)
-                print ('S_MM shape \n',S_MM.shape)
-                print ('S_MM \n',S_MM)
-    
                 S_MM_full = MM_descriptor.empty(dtype=S_MM.dtype)
                 mm2MM.redistribute(S_MM, S_MM_full)
-    
+
                 S_MM_old_full = MM_descriptor.empty(dtype=self.S_MM_old.dtype)
                 mm2MM.redistribute(self.S_MM_old, S_MM_old_full)
-       
-                print ('col S_MM shape \n',S_MM_full.shape)
-                print ('col S_MM \n',S_MM_full)
-                print ('col S_MM_old \n',S_MM_old_full)
-                print ("C_nM", kpt.C_nM )
+
     #            if self.world.rank == 0:                
                 if self.density.gd.comm.rank == 0:
                     T1, Seig_v = schur(S_MM_full, output='real')
@@ -342,6 +334,7 @@ class LCAOTDDFT(GPAW):
                 Sm12xSp12xC_nM=np.matmul(Sm12,Sp12xC_nM)
                 t_Sm12xSp12xC_nM=np.transpose(Sm12xSp12xC_nM)
                 kpt.C_nM=t_Sm12xSp12xC_nM.copy()
+
     #            kpt.C_nM[:,:]=t_Sm12xSp12xC_nM[:,:]
     
                 self.td_hamiltonian.update()
