@@ -15,8 +15,9 @@ from gpaw.gaunt import gaunt
 G_LLL = gaunt(3) # XXX
 
 class MatrixElements:
-    def __init__(self, lmax=2):
+    def __init__(self, lmax=2, screening_omega=0.0):
         self.lmax = lmax
+        self.screening_omega = screening_omega
 
     def initialize(self, density, ham, wfs):
         self.setups = setups = wfs.setups

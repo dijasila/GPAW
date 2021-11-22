@@ -33,12 +33,12 @@ class RIMPV(RIAlgorithm):
     def __init__(self, exx_fraction, screening_omega=0.0):
         RIAlgorithm.__init__(self, exx_fraction, screening_omega)
         self.lmax = 2
-        self.matrix_elements = MatrixElements(screening_omega)
+        self.matrix_elements = MatrixElements(self.lmax, screening_omega)
 
         if self.screening_omega == 0.0:
-            self.calculate_W_LL_offdiagonals = self.calculate_W_LL_offdiagonals_multipole
+            self.calculate_W_LL_offdiagonals = calculate_W_LL_offdiagonals_multipole
         else:
-            self.calculate_W_LL_offdiagonals = self.calculate_W_LL_offdiagonals_multipole_screened
+            self.calculate_W_LL_offdiagonals = calculate_W_LL_offdiagonals_multipole_screened
 
 
     def initialize(self, density, hamiltonian, wfs):
@@ -46,10 +46,10 @@ class RIMPV(RIAlgorithm):
         self.hamiltonian = hamiltonian
         self.wfs = wfs
         self.timer = hamiltonian.timer
-        with self.timer('RI-V: Auxiliary Fourier-Bessel initialization'):
-            self.matrix_elements.initialize(density, hamiltonian, wfs)
 
     def set_positions(self, spos_ac, debug):
+        with self.timer('RI-V: Auxiliary Fourier-Bessel initialization'):
+            self.matrix_elements.initialize(self.density, self.hamiltonian, self.wfs)
         self.spos_ac = spos_ac
         print('W_LL')
         with self.timer('RI-V: calculate W_LL'):
