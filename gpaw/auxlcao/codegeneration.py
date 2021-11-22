@@ -1,15 +1,14 @@
 
 from sympy import symbols, sqrt, diff, sqrt, pi, Matrix, diag, erfc, cse, pprint, numbered_symbols
 from sympy.codegen.pyutils import PythonCodePrinter
-
+from math import factorial, prod
 printer = PythonCodePrinter({'standard':'python3'})
 def pyprint(content):
-    return printer.doprint(content)
+    return printer.doprint(content).replace('math.erfc','scipy.special.erfc')
 
 with open("generatedcode.py", "w") as output:
-    pass
-
-
+    output.write('import numpy as math # :)\n')
+    output.write('import scipy\n')
 # Q = simple monimial multipole index
 # L = spherical harmonic index
 # Mapping below
@@ -58,13 +57,13 @@ x2, y2, z2 = symbols('x2 y2 z2')
 d, d2, d9 = symbols('d d2 d9')
 omega = symbols('omega')
 
-maxQ = 4
-maxL = 4
+maxQ = 1  + 3 + 6
+maxL = 1  + 3 + 5
 
 map_LQ = map_LQ[:maxL,:maxQ]
 M_Qc = M_Qc[:maxQ]
 
-for screening in [True, False]:
+for screening in [False, True]:
     if screening:
         V = erfc( omega * sqrt( (x1+dx-x2)**2 + (y1+dy-y2)**2 + (z1+dz-z2)**2 ) ) / sqrt( (x1+dx-x2)**2 + (y1+dy-y2)**2 + (z1+dz-z2)**2 )
     else:
@@ -74,49 +73,62 @@ for screening in [True, False]:
     for Q1, M1_c in enumerate(M_Qc):
         print(Q1)
         expr1 = diff(V, x1, M1_c[0])
-        expr1 = diff(expr1, x1, M1_c[0])
+        print(end='.')
         expr1 = expr1.subs(x1, 0)
+        print(end='.')
         expr1 = diff(expr1, y1, M1_c[1])
+        print(end='.')
         expr1 = expr1.subs(y1, 0)
+        print(end='.')
         expr1 = diff(expr1, z1, M1_c[2])
+        print(end='.')
         expr1 = expr1.subs(z1, 0)
+        
+        expr1 /= prod([ factorial(M_c) for M_c in M1_c ])
+        print(end='.')
         row = []
         for Q2, M2_c in enumerate(M_Qc):
-            print((Q1,Q2))
             expr2 = diff(expr1, x2, M2_c[0])
-            print('1')
+            print(end='.')
             expr2 = expr2.subs(x2, 0)
-            print('2')
+            print(end='.')
             expr2 = diff(expr2, y2, M2_c[1])
-            print('3')
+            print(end='.')
             expr2 = expr2.subs(y2, 0)
-            print('4')
+            print(end='.')
             expr2 = diff(expr2, z2, M2_c[2])
-            print('5')
+            print(end='.')
             expr2 = expr2.subs(z2, 0)
-            print('6')
+            print(end='.')
             expr2 = expr2.subs(sqrt(dx**2 + dy**2 + dz**2), d)
-            print('7')
+            print(end='.')
             #expr2 = expr2.subs(d**9, d9)
-            print('s')
+            print(end='.')
             expr2 = expr2.simplify()
-            print('s end')
+            expr2 /= prod([ factorial(M_c) for M_c in M2_c ])
             row.append(expr2)
+            print()
             print(expr2)
+
         rows.append(row)
     M_QQ = Matrix(rows) 
     M_LL = map_LQ @ M_QQ @ map_LQ.T
     CSE = cse(M_LL, numbered_symbols('x_'))
+    #CSE = ( (), M_LL )
     with open("generatedcode.py", "a") as output:
+        if screening:
+            output.write('def generated_W_LL_screening(W_LL, d, dx, dy, dz, omega):\n')
+        else:
+            output.write('def generated_W_LL(W_LL, d, dx, dy, dz):\n')
         for helper in CSE[0]:
-            write('    ' + pyprint(helper[0]) + '=' + pyprint(helper[1]))
-            write("\n")
+            output.write('    ' + pyprint(helper[0]) + '=' + pyprint(helper[1]))
+            output.write("\n")
 
         for i,result in enumerate(CSE[1]):
             assert i == 0
             for I in range(maxL):
                 for J in range(maxL):
-                    output.write('    W_LL[%d::%d, %d::%d] = %s\n' % (I, maxL, J, maxL, pyprint(result[I,J])))
+                    output.write('    W_LL[%d::%d, %d::%d] += %s\n' % (I, maxL, J, maxL, pyprint(result[I,J])))
             output.write("\n")
    
 
