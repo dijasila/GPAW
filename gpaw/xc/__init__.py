@@ -56,7 +56,7 @@ def XC(kernel, parameters=None, atoms=None, collinear=True):
             # vdW module, so that always refers to libvdwxc.
             from gpaw.xc.libvdwxc import get_libvdwxc_functional
             return get_libvdwxc_functional(name=name, **kwargs)
-        elif backend == 'pw' or name in ['HSE03', 'HSE06']:
+        elif backend == 'pw': # or name in ['HSE03', 'HSE06']:
             from gpaw.hybrids import HybridXC
             return HybridXC(name, **kwargs)
         elif backend == 'aux-lcao':
