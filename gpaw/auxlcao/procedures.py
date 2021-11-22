@@ -3,6 +3,9 @@ from gpaw.lfc import LFC
 from gpaw.utilities.tools import tri2full
 from gpaw.auxlcao.utilities import safe_inv
 
+
+from gpaw.auxlcao.generatedcode import generated_W_LL
+
 sqrt3 = 3**0.5
 sqrt5 = 5**0.5
 sqrt15 = 15**0.5
@@ -91,6 +94,36 @@ def calculate_W_LL_offdiagonals_multipole(cell_cv, spos_ac, pbc_c, ibzk_qc, dtyp
     if np.any(pbc_c):
         raise NotImplementedError('Periodic boundary conditions')
 
+    if lmax == 2:
+
+        S = (lmax+1)**2
+        Na = len(spos_ac)
+
+        R_av = np.dot(spos_ac, cell_cv)
+      
+        dx = R_av[:, None, 0] - R_av[None, :, 0]
+        dy = R_av[:, None, 1] - R_av[None, :, 1]
+        dz = R_av[:, None, 2] - R_av[None, :, 2]
+
+        # Diagonals will be done separately, just avoid division by zero here
+        dx = dx + 1000*np.eye(Na)
+        dy = dy + 1000*np.eye(Na)
+        dz = dz + 1000*np.eye(Na)
+
+        d2 = dx**2 + dy**2 + dz**2
+        d = d2**0.5
+
+        W_LL = np.zeros((Na*S, Na*S))
+        generated_W_LL(W_LL, d, dx, dy, dz)
+        return coeff * W_LL
+    else:
+        return calculate_W_LL_offdiagonals_multipole_old(cell_cv, spos_ac, pbc_c, ibzk_qc, dtype, lmax, coeff)
+
+
+def calculate_W_LL_offdiagonals_multipole_old(cell_cv, spos_ac, pbc_c, ibzk_qc, dtype, lmax, coeff = 4*np.pi):
+    if np.any(pbc_c):
+        raise NotImplementedError('Periodic boundary conditions')
+
     assert lmax < 3
 
     S = (lmax+1)**2
@@ -150,7 +183,6 @@ def calculate_W_LL_offdiagonals_multipole(cell_cv, spos_ac, pbc_c, ibzk_qc, dtyp
     W_LL[3::S, 1::S] = -(dx*dy)/d5
     W_LL[3::S, 2::S] = -(dx*dz)/d5
     W_LL[3::S, 3::S] = (d2 - 3*dx2)/(3*d5)
-
 
     if lmax == 1:
         return coeff * W_LL
