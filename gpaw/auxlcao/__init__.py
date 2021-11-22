@@ -138,3 +138,8 @@ class LCAOHybrid:
         self.evv, self.evc, self.ekin = self.ri_algorithm.nlxc(H_MM, dH_asp, wfs, kpt)
 
 
+    def write(self, *args):
+        pass
+
+    def read(self, *args):
+        pass

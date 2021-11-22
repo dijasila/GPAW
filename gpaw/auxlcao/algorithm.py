@@ -1,6 +1,7 @@
 import numpy as np
-
+from typing import Tuple, Dict
 from gpaw.auxlcao.procedures import calculate_W_LL_offdiagonals_multipole,\
+                                    calculate_W_LL_offdiagonals_multipole_screened,\
                                     get_W_LL_diagonals_from_setups,\
                                     calculate_local_I_LMM,\
                                     grab_local_W_LL,\
@@ -16,7 +17,6 @@ from gpaw.auxlcao.procedures import calculate_W_LL_offdiagonals_multipole,\
                                     reference_W_AA
    
 from gpaw.auxlcao.utilities import safe_inv
-
 from gpaw.utilities import (pack_atomic_matrices, unpack_atomic_matrices,
                             unpack2, unpack, packed_index, pack, pack2)
 
@@ -24,14 +24,22 @@ from gpaw.utilities import (pack_atomic_matrices, unpack_atomic_matrices,
 from gpaw.auxlcao.matrix_elements import MatrixElements
 
 class RIAlgorithm:
-    def __init__(self, exx_fraction):
+    def __init__(self, exx_fraction, screening_omega):
         self.exx_fraction = exx_fraction
+        self.screening_omega = screening_omega
+
 
 class RIMPV(RIAlgorithm):
-    def __init__(self, exx_fraction):
-        RIAlgorithm.__init__(self, exx_fraction)
+    def __init__(self, exx_fraction, screening_omega=0.0):
+        RIAlgorithm.__init__(self, exx_fraction, screening_omega)
         self.lmax = 2
-        self.matrix_elements = MatrixElements()
+        self.matrix_elements = MatrixElements(screening_omega)
+
+        if self.screening_omega == 0.0:
+            self.calculate_W_LL_offdiagonals = self.calculate_W_LL_offdiagonals_multipole
+        else:
+            self.calculate_W_LL_offdiagonals = self.calculate_W_LL_offdiagonals_multipole_screened
+
 
     def initialize(self, density, hamiltonian, wfs):
         self.density = density
@@ -45,13 +53,14 @@ class RIMPV(RIAlgorithm):
         self.spos_ac = spos_ac
         print('W_LL')
         with self.timer('RI-V: calculate W_LL'):
-            self.W_LL = calculate_W_LL_offdiagonals_multipole(\
-                           self.hamiltonian.gd.cell_cv, 
-                           spos_ac,
-                           self.hamiltonian.gd.pbc_c,
-                           self.wfs.kd.ibzk_qc,
-                           self.wfs.dtype,
-                           self.lmax)
+            self.W_LL = self.calculate_W_LL_offdiagonals(\
+                               self.hamiltonian.gd.cell_cv, 
+                               spos_ac,
+                               self.hamiltonian.gd.pbc_c,
+                               self.wfs.kd.ibzk_qc,
+                               self.wfs.dtype,
+                               self.lmax)
+                
             get_W_LL_diagonals_from_setups(self.W_LL, self.lmax, self.density.setups)
             assert not np.isnan(self.W_LL).any()
 
@@ -219,7 +228,11 @@ class RIMPV(RIAlgorithm):
 
         xxx
 
-    def nlxc(self, H_MM, dH_asp, wfs, kpt):
+    def nlxc(self, 
+             H_MM:np.ndarray,
+             dH_asp:Dict[int,np.ndarray],
+             wfs,
+             kpt) -> Tuple[float, float, float]:
         evc = 0.0
         evv = 0.0
         ekin = 0.0
@@ -231,11 +244,31 @@ class RIMPV(RIAlgorithm):
             WP_AMM_RHO_MM = np.einsum('Ajl,kl',
                                         self.WP_AMM,
                                         rho_MM, optimize=True)
+
+        """ Just testing wh
+            sA, sM1, sM2 = self.WP_AMM.shape
+        with self.timer('RI-V: 1st contraction AMM MM with np.dot'):
+            TEMPWP_AMM_RHO_MM = np.reshape(self.WP_AMM, (sA*sM1, sM2)) @ rho_MM
+        print(np.max(np.abs(WP_AMM_RHO_MM.ravel()-TEMPWP_AMM_RHO_MM.ravel())),'ERROR dot')
+
+        
+        from gpaw.utilities.blas import mmm        
+        with self.timer('RI-V: 1st contraction AMM MM width mmm'):
+            WP_ZM = np.reshape(self.WP_AMM, (sA*sM1, sM2))
+            print(WP_ZM.strides)
+            print(rho_MM.strides)
+            WR_ZM = np.zeros_like(WP_ZM)
+            mmm(1.0, WP_ZM, 'N',
+                     rho_MM, 'N',
+                0.0, WR_ZM)
+        print(np.max(np.abs(WR_ZM.ravel()-TEMPWP_AMM_RHO_MM.ravel())),'ERROR mmm')
+        """
+
         with self.timer('RI-V: 2nd contraction AMM AMM'):
             F_MM = np.einsum('Aik,Ajk',
                               self.P_AMM,
                               WP_AMM_RHO_MM,
-                               optimize=True) 
+                              optimize=True) 
             WP_AMM_RHO_MM = None
 
         with self.timer('RI-V: 1st contraction LMM MM'):
@@ -245,12 +278,12 @@ class RIMPV(RIAlgorithm):
 
         with self.timer('RI-V: 2nd contraction LMM LMM'):
             F_MM += np.einsum('Aik,Ajk',
-                             self.P_LMM,
-                             WP_LMM_RHO_MM,
-                             optimize=True)
+                              self.P_LMM,
+                              WP_LMM_RHO_MM,
+                              optimize=True)
             WP_LMM_RHO_MM = None
 
-        H_MM += -0.5 * (self.exx_fraction) * F_MM
+        H_MM += -0.5*(self.exx_fraction) * F_MM
         evv = -0.5 * 0.5 * self.exx_fraction * np.einsum('ij,ij', F_MM, rho_MM, optimize=True)
 
         with self.timer('RI Local atomic corrections'):
