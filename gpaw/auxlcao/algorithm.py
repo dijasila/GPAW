@@ -30,16 +30,17 @@ class RIAlgorithm:
 
 
 class RIMPV(RIAlgorithm):
-    def __init__(self, exx_fraction, screening_omega=0.0):
+    def __init__(self, exx_fraction=None, screening_omega=None):
         RIAlgorithm.__init__(self, exx_fraction, screening_omega)
         self.lmax = 2
+        assert exx_fraction is not None
+        assert screening_omega is not None
         self.matrix_elements = MatrixElements(self.lmax, screening_omega)
 
         if self.screening_omega == 0.0:
             self.calculate_W_LL_offdiagonals = calculate_W_LL_offdiagonals_multipole
         else:
             self.calculate_W_LL_offdiagonals = calculate_W_LL_offdiagonals_multipole_screened
-
 
     def initialize(self, density, hamiltonian, wfs):
         self.density = density

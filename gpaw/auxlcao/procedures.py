@@ -88,6 +88,8 @@ def get_W_LL_diagonals_from_setups(W_LL, lmax, setups):
         W_LL[a*S:(a+1)*S:,a*S:(a+1)*S] = setup.W_LL[:S, :S]
 
 def calculate_W_LL_offdiagonals_multipole_screened(cell_cv, spos_ac, pbc_c, ibzk_qc, dtype, lmax, coeff = 4*np.pi):
+    self.a1a2 = AtomPairRegistry(cutoff_a, pbc_c, cell_cv, spos_ac)
+
     TODO
 
 def calculate_W_LL_offdiagonals_multipole(cell_cv, spos_ac, pbc_c, ibzk_qc, dtype, lmax, coeff = 4*np.pi):
@@ -95,7 +97,6 @@ def calculate_W_LL_offdiagonals_multipole(cell_cv, spos_ac, pbc_c, ibzk_qc, dtyp
         raise NotImplementedError('Periodic boundary conditions')
 
     if lmax == 2:
-
         S = (lmax+1)**2
         Na = len(spos_ac)
 

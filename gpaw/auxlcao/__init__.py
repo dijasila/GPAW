@@ -46,17 +46,20 @@ class LCAOHybrid:
     def __init__(self, xcname:str, algorithm=None,
                                    debug={'cube':False,'ref':False}):
  
+        self.screening_omega = 0.0
+        self.name = xcname
         if xcname == 'EXX':
             self.exx_fraction = 1.0
-            self.name = xcname
             self.localxc = XC('null')
         elif xcname == 'PBE0':
             self.exx_fraction = 0.25
-            self.name = xcname
             self.localxc = XC('HYB_GGA_XC_PBEH')
+        elif xcname == 'HSE06':
+            self.exx_fraction = 0.25
+            self.screening_omega = 0.11
+            self.localxc = XC('HYB_GGA_XC_HSE06')
         else:
             raise ValueError('Functional %s not supported by aux-lcao backend' % xcname)
-
 
         self.debug = debug
 
@@ -69,11 +72,13 @@ class LCAOHybrid:
         self.use_lda = True
 
         if algorithm == 'RIVRestrictedDebug':
+            assert self.screening_omega == 0.0
             self.ri_algorithm = RIVRestrictedBasisDebug(self.exx_fraction)
         if algorithm == 'RIVFullBasisDebug':
+            assert self.screening_omega == 0.0
             self.ri_algorithm = RIVFullBasisDebug(self.exx_fraction)
         elif algorithm == 'RI-MPV':
-            self.ri_algorithm = RIMPV(self.exx_fraction)
+            self.ri_algorithm = RIMPV(exx_fraction = self.exx_fraction, screening_omega = self.screening_omega)
         else:
             if algorithm is None:
                 s = 'Please spesify the algorithm variable i.e. xc=''%s:backend=aux-lcao:algorithm=ALG''\n'
