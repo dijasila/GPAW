@@ -86,7 +86,7 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
             ia.allocate()
         RealSpaceHamiltonian.initialize(self)
 
-    def update(self, density):
+    def update(self, density, wfs=None, kin_en_using_band=True):
         self.timer.start('Hamiltonian')
         if self.vt_sg is None:
             self.timer.start('Initialize Hamiltonian')
@@ -128,6 +128,14 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
         energies = atomic_energies
         energies[1:] += finegd_energies
         energies[0] += Ekin1
+
+        if not kin_en_using_band:
+            assert wfs is not None
+            with self.timer('New Kinetic Energy'):
+                energies[0] = \
+                    self.calculate_kinetic_energy_directly(density,
+                                                           wfs)
+
         (self.e_kinetic0, self.e_coulomb, self.e_zero,
          self.e_external, self.e_xc) = energies
 
@@ -186,9 +194,12 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
                     fixed * del_g_del_r_vg[v],
                     global_integral=False)
 
-    def get_energy(self, e_entropy, wfs):
+    def get_energy(self, e_entropy, wfs, kin_en_using_band=True):
         e_band = wfs.calculate_band_energy()
-        self.e_kinetic = self.e_kinetic0 + e_band
+        if kin_en_using_band:
+            self.e_kinetic = self.e_kinetic0 + e_band
+        else:
+            self.e_kinetic = self.e_kinetic0
         self.e_entropy = e_entropy
         self.e_el_free = (
             self.e_kinetic + self.e_coulomb + self.e_external + self.e_zero +

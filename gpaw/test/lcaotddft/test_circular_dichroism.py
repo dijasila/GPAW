@@ -18,7 +18,6 @@ from . import parallel_options, check_txt_data, copy_and_cut_file
 pytestmark = pytest.mark.usefixtures('module_tmp_path')
 
 parallel_i = parallel_options()
-print(f'Tested parallel options: {list(enumerate(parallel_i))}')
 
 
 @pytest.fixture(scope='module')

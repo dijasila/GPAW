@@ -13,6 +13,7 @@ Theory in order of abstraction.
    rmm-diis
    orthogonalization
    densitymix/densitymix
+   directmin/directmin
    eigenvalues_of_core_states
    pw_and_exx
    defects_theory

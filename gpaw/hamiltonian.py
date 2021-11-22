@@ -223,7 +223,7 @@ class Hamiltonian:
         self.vt_sG = self.vt_xG[:self.nspins]
         self.vt_vG = self.vt_xG[self.nspins:]
 
-    def update(self, density):
+    def update(self, density, wfs=None, kin_en_using_band=True):
         """Calculate effective potential.
 
         The XC-potential and the Hartree potential are evaluated on
@@ -253,6 +253,12 @@ class Hamiltonian:
 
         with self.timer('Communicate'):  # time possible load imbalance
             self.world.sum(energies)
+        if not kin_en_using_band:
+            assert wfs is not None
+            with self.timer('New Kinetic Energy'):
+                energies[0] = \
+                    self.calculate_kinetic_energy_directly(density,
+                                                           wfs)
 
         (self.e_kinetic0, self.e_coulomb, self.e_zero,
          self.e_external, self.e_xc) = energies
@@ -341,10 +347,13 @@ class Hamiltonian:
 
         return np.array([e_kinetic, e_coulomb, e_zero, e_external, e_xc])
 
-    def get_energy(self, e_entropy, wfs):
+    def get_energy(self, e_entropy, wfs, kin_en_using_band=True):
         """Sum up all eigenvalues weighted with occupation numbers"""
         self.e_band = wfs.calculate_band_energy()
-        self.e_kinetic = self.e_kinetic0 + self.e_band
+        if kin_en_using_band:
+            self.e_kinetic = self.e_kinetic0 + self.e_band
+        else:
+            self.e_kinetic = self.e_kinetic0
         self.e_entropy = e_entropy
         if 0:
             print(self.e_kinetic0,
@@ -546,6 +555,111 @@ class Hamiltonian:
         if hasattr(self.poisson, 'read'):
             self.poisson.read(reader)
             self.poisson.set_grid_descriptor(self.finegd)
+
+    def calculate_kinetic_energy_directly(self, density, wfs):
+
+        """
+        Calculate kinetic energy as 1/2 (nable psi)^2
+        it gives better estimate of kinetic energy during the SCF.
+        Important for direct min.
+
+        'calculate_kinetic_energy' method gives a correct
+        value of kinetic energy only at self-consistent solution.
+
+        :param density:
+        :param wfs:
+        :return: total kinetic energy
+        """
+        # pseudo-part
+        if wfs.mode == 'lcao':
+            return self.calculate_kinetic_energy_using_kin_en_matrix(
+                density, wfs)
+        elif wfs.mode == 'pw':
+            e_kin = 0.0
+            for kpt in wfs.kpt_u:
+                for f, psit_G in zip(kpt.f_n, kpt.psit_nG):
+                    if f > 1.0e-10:
+                        G2_G = wfs.pd.G2_qG[kpt.q]
+                        e_kin += f * wfs.pd.integrate(
+                            0.5 * G2_G * psit_G, psit_G).real
+        else:
+            e_kin = 0.0
+
+            def Lapl(psit_G, kpt):
+                Lpsit_G = np.zeros_like(psit_G)
+                wfs.kin.apply(psit_G, Lpsit_G, kpt.phase_cd)
+                return Lpsit_G
+
+            for kpt in wfs.kpt_u:
+                for f, psit_G in zip(kpt.f_n, kpt.psit_nG):
+                    if f > 1.0e-10:
+                        e_kin += f * wfs.integrate(
+                            Lapl(psit_G, kpt), psit_G, False)
+            e_kin = e_kin.real
+            e_kin = wfs.gd.comm.sum(e_kin)
+
+        e_kin = wfs.kd.comm.sum(e_kin)  # ?
+        # paw corrections
+        e_kin_paw = 0.0
+        for a, D_sp in density.D_asp.items():
+            setup = wfs.setups[a]
+            D_p = D_sp.sum(0)
+            e_kin_paw += np.dot(setup.K_p, D_p) + setup.Kc
+        e_kin_paw = density.gd.comm.sum(e_kin_paw)
+        return e_kin + e_kin_paw
+
+    def calculate_kinetic_energy_using_kin_en_matrix(self, density,
+                                                     wfs):
+        """
+        E_k = sum_{M'M} rho_MM' T_M'M
+        better agreement between gradients of energy and
+        the total energy during the direct minimisation.
+        This is important when the line search is used.
+        Also avoids using the eigenvalues which are
+        not calculated during the direct minimisation.
+
+        'calculate_kinetic_energy' method gives a correct
+        value of kinetic energy only at self-consistent solution.
+
+        :param density:
+        :param wfs:
+        :return: total kinetic energy
+        """
+        # pseudo-part
+        e_kinetic = 0.0
+        e_kin_paw = 0.0
+
+        for kpt in wfs.kpt_u:
+            # calculation of the density matrix directly
+            # can be expansive for a large scale
+            # as there are lot of empty states
+            # when the exponential transformation is used
+            # (n_bands=n_basis_functions.)
+            #
+            # rho_MM = \
+            #     wfs.calculate_density_matrix(kpt.f_n, kpt.C_nM)
+            # e_kinetic += np.einsum('ij,ji->', kpt.T_MM, rho_MM)
+            #
+            # the code below is faster
+            self.timer.start('Pseudo part')
+            occ = kpt.f_n > 1e-10
+            x_nn = np.dot(kpt.C_nM[occ],
+                          np.dot(kpt.T_MM,
+                                 kpt.C_nM[occ].T.conj())).real
+            e_kinetic += np.einsum('i,ii->', kpt.f_n[occ], x_nn)
+            self.timer.stop('Pseudo part')
+        # del rho_MM
+
+        e_kinetic = wfs.kd.comm.sum(e_kinetic)
+        # paw corrections
+        for a, D_sp in density.D_asp.items():
+            setup = wfs.setups[a]
+            D_p = D_sp.sum(0)
+            e_kin_paw += np.dot(setup.K_p, D_p) + setup.Kc
+
+        e_kin_paw = self.gd.comm.sum(e_kin_paw)
+
+        return e_kinetic.real + e_kin_paw
 
 
 class RealSpaceHamiltonian(Hamiltonian):
