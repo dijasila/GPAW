@@ -1,6 +1,6 @@
 from gpaw.auxlcao.algorithm import RIAlgorithm
 
-"""
+r"""
 Implements reference implementation which evaluates all matrix elements inefficiently on the grid.
 
 RIVFullBasisDebug calculates all 2 and 3-center matrix elements.
@@ -552,7 +552,7 @@ class RIVRestrictedBasisDebug(RIAlgorithm):
         M_a = self.Mstart_a
         A_a = self.Astart_a
 
-        """             __     __
+        r"""             __     __
               a1 a2     \      \     a1 a3 a2 a4  a3 a4
              P       =  /_     /_   K            P
               i  j      a3,a4   kl   i  k  j  l   k  l

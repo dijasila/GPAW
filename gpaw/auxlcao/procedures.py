@@ -276,7 +276,7 @@ def calculate_W_LL_offdiagonals_multipole_old(cell_cv, spos_ac, pbc_c, ibzk_qc, 
 
     raise NotImplementedError('lmax=%d for multipole interaction' % lmax)
 
-"""
+r"""
 
     A reference implementation of
 
@@ -330,7 +330,7 @@ def reference_W_AA(density, poisson, auxt_aj, spos_ac):
 
 
 
-"""
+r"""
 
     Production implementation of
 
@@ -361,7 +361,7 @@ def calculate_I_AMM(matrix_elements):
     return I_AMM
 
 
-"""
+r"""
 
     A reference implementation of
 
@@ -413,7 +413,7 @@ def reference_I_AMM(wfs, density, hamiltonian, poisson, auxt_aj, spos_ac):
     return I_AMM
 
 
-"""
+r"""
  Production implementation of compensation charge projection
 
                               
@@ -437,7 +437,7 @@ def calculate_P_LMM(matrix_elements, setups, atomic_correction):
         P_LMM[Lstart:Lend, :, :] = np.einsum('ijL,Mi,Nj->LMN', setup.Delta_iiL, P_Mi, P_Mi, optimize=True)
     return P_LMM 
 
-"""
+r"""
  Production implementation of two center auxiliary RI-V projection.
 
                              -1
@@ -483,7 +483,7 @@ def calculate_P_AMM(matrix_elements, W_AA):
 
     return P_AMM
 
-"""
+r"""
 
        /    /               1
  W   = | dr | dr' φ (r) ---------- φ (r')
@@ -536,7 +536,7 @@ to φ (r) due to missing multipoles.
  
 """
 
-"""
+r"""
                                 M_AL            L_AL = M_A W_(L_A)L
 
     /       ||       \   /  sr.  ||       \   /  lr.  ||       \

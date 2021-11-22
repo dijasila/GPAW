@@ -152,7 +152,7 @@ class MatrixElements:
         self.parameters = parameters
 
 
-    """
+    r"""
 
              /   sr.   ||  sr.    \
      S    =  |  φ (r)  || φ (r')  |
@@ -182,7 +182,7 @@ class MatrixElements:
         return S_AA
 
 
-    """
+    r"""
 
              /   sr.   ||  lr.    \
      M    =  |  φ (r)  || g (r')  |
@@ -212,7 +212,7 @@ class MatrixElements:
         return M_AL
 
 
-    """
+    r"""
 
              /       ||               \
      I    =  | φ (r) || φ (r') φ (r') |

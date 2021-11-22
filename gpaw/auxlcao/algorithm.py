@@ -124,7 +124,7 @@ class RIMPV(RIAlgorithm):
             print('W_LL @ P_LMM')
             self.WP_LMM += np.einsum('AB,Bij',self.W_LL, self.P_LMM, optimize=True)
 
-        """
+        r"""
 
               P     W    P     rho
                AMM   AA   AMM     MM
