@@ -24,9 +24,11 @@ class Observable:
         # Phonon frequencies
         if isinstance(w_ql, str):
             self.w_ql = np.load(w_ql)
-        else:
+        elif isinstance(w_ql, np.ndarray):
             self.w_ql = w_ql
-        assert max(w_ql) < 1.  # else not eV units
+        else:
+            raise TypeError
+        assert np.max(self.w_ql) < 1.  # else not eV units
 
         self.g_sqklnn = np.load(elph, mmap_mode='c')
 

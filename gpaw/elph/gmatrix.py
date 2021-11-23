@@ -73,7 +73,7 @@ class ElectronPhononMatrix:
             self.phonon = Phonons(atoms, None, supercell, name, delta,
                                   center_refcell)
         else:
-            raise ValueError
+            raise TypeError
 
         if self.phonon.D_N is None:
             self.phonon.read(symmetrize=10)
@@ -111,6 +111,7 @@ class ElectronPhononMatrix:
             assert nao == g_sNNMM.shape[-1]
             for m in range(N):
                 for n in range(N):
+                    # m is bra, n is ket, so to say
                     phase = self._get_phase_factor(R_cN, m, n, k_c, q_c)
                     # Sum contributions from different cells
                     g_MM += g_sNNMM[s, m, n, :, :] * phase
@@ -131,7 +132,8 @@ class ElectronPhononMatrix:
 
     def bloch_matrix(self, calc: GPAW, k_qc: ArrayND = None,
                      savetofile: bool = True,
-                     prefactor: bool = True) -> ArrayND:
+                     prefactor: bool = True,
+                     accoustic: bool = True) -> ArrayND:
         r"""Calculate el-ph coupling in the Bloch basis for the electrons.
 
         This function calculates the electron-phonon coupling between the
@@ -153,21 +155,23 @@ class ElectronPhononMatrix:
             (don't use point group symmetry)
         k_qc: ndarray
             q-vectors of the phonons. Must only contain values comenserate
-            with k-point sampling of calculator. Default: all kpointsused.
+            with k-point sampling of calculator. Default: all kpoints used.
         savetofile: bool
             If true (default), saves matrix to gsqklnn.npy
         prefactor: bool
             if false, don't multiply with sqrt prefactor (Default: True)
+        accoustic: bool
+            if True, for 3 accoustic modes set g=0 for q=0 (Default: True)
         """
-        # assert calc.wfs.kd.comm.size == 1
-
         kd = calc.wfs.kd
+        assert kd.nbzkpts == kd.nibzkpts, 'Elph matrix requires FULL BZ'
         wfs = calc.wfs
-        gwa = wfs.get_wave_function_array  # only rank 0 gets stuff
+        gwa = wfs.get_wave_function_array  # only rank 0 gets stuff, IBZ
         if k_qc is None:
             k_qc = kd.get_bz_q_points(first=True)
-        else:
-            assert k_qc.ndim == 2
+        elif not isinstance(k_qc, np.ndarray):
+            k_qc = np.array(k_qc)
+        assert k_qc.ndim == 2
 
         g_sqklnn = np.zeros([wfs.nspins, k_qc.shape[0],
                              kd.nibzkpts, 3 * len(self.atoms),
@@ -177,11 +181,14 @@ class ElectronPhononMatrix:
         for s in range(wfs.nspins):
             for q, q_c in enumerate(k_qc):
                 # Find indices of k+q for the k-points
-                kplusq_k = kd.find_k_plus_q(q_c)
-                for k in enumerate(kd.nbzkpts):
-                    k_c = kd.ibzk_kc[k]
+                kplusq_k = kd.find_k_plus_q(q_c)  # works on FBZ
+                # Note: calculations require use of FULL BZ,
+                # so NO symmetry
+                for k in range(kd.nbzkpts):
+                    k_c = kd.bzk_kc[k]
                     kplusq_c = k_c + q_c
                     kplusq_c -= kplusq_c.round()
+                    # print(kplusq_c, kd.bzk_kc[kplusq_k[k]])
                     assert np.allclose(kplusq_c, kd.bzk_kc[kplusq_k[k]])
                     ck_nM = np.zeros((wfs.bd.nbands, wfs.setups.nao),
                                      dtype=complex)
@@ -192,10 +199,9 @@ class ElectronPhononMatrix:
                         ckplusq_nM[n] = gwa(n, kplusq_k[k], s, False)
                     g_lnn = self._bloch_matrix(ck_nM, ckplusq_nM, s, k_c, q_c,
                                                prefactor)
-                    # wfs.bd.comm.sum(g_lnn)
+                    if np.allclose(q_c, [0., 0., 0.]) and accoustic:
+                        g_lnn[0:3] = 0.
                     g_sqklnn[s, q, k] += g_lnn
-
-        # kd.comm.sum(g_sqklnn)
 
         if world.rank == 0 and savetofile:
             np.save("gsqklnn.npy", g_sqklnn)
@@ -203,10 +209,12 @@ class ElectronPhononMatrix:
 
     @classmethod
     def _get_phase_factor(cls, R_cN, m, n, k_c, q_c) -> float:
+        """Phase factor for gmatrix elements.
+        """
         Rm_c = R_cN[:, m]
         Rn_c = R_cN[:, n]
-        phase = np.exp(2.j * np.pi * (np.dot(k_c, Rm_c - Rn_c) +
-                                      np.dot(q_c, Rm_c)))
+        phase = np.exp(2.j * np.pi * (np.dot(k_c + q_c, Rm_c) -
+                                      np.dot(k_c, Rn_c)))
         return phase
 
 #   def lcao_matrix(self, u_l, omega_l):
