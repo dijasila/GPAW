@@ -334,11 +334,16 @@ class SJM(SolvationGPAW):
         constant number of electrons or a target potential, as requested by
         the user in the 'sj' dict."""
 
-        self.log('Solvated jellium method (SJM) calculation:')
-
         if atoms and not self.atoms:
             # Need to be set before ASE's Calculator.calculate gets to it.
             self.atoms = atoms.copy()
+
+        if len(system_changes) == 0 and len(self.results) > 0:
+            # Potential is already equilibrated.
+            SolvationGPAW.calculate(self, atoms, properties, system_changes)
+            return
+
+        self.log('Solvated jellium method (SJM) calculation:')
 
         p = self.parameters['sj']
 
