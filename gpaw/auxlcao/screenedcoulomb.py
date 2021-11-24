@@ -56,14 +56,14 @@ def Phi1(Xi, xi):
     Phi *= 1/2*(( np.exp(-(xi+Xi)**2) - np.exp(-(xi-Xi)**2 ) ) \
         * (2*xi**2 + 2*xi*Xi-(1-2*Xi**2)) - 4*xi*Xi*np.exp(-(xi+Xi)**2) ) -np.pi**0.5*((xi**3-Xi**3)* \
            erfc(Xi-xi)+(xi**3+Xi**3)*erfc(xi+Xi))
-    return Phi / (4*np.pi)**0.5
+    return Phi
 
 def Phi2(Xi, xi):
     Phi = -1/(2*np.pi**0.5*xi**3*Xi**3) * \
            (1/4*((np.exp(-(xi+Xi)**2)-np.exp(-(xi-Xi)**2))*(4*(xi**4+xi**3*Xi+Xi**4) \
             -2*xi**2*(1-2*Xi**2) + (1-2*xi*Xi)*(3-2*Xi**2))-4*np.exp(-(xi+Xi)**2)*xi*Xi*(2*xi**2-(3-2*Xi**2))) \
               -np.pi**0.5*((xi**5-Xi**5)*erfc(Xi-xi)+(xi**5+Xi**5)*erfc(xi+Xi)))
-    return Phi / 5
+    return Phi
 
 def F0(R,r,mu):
     return mu*Phi0(mu*R, mu*r)
@@ -92,7 +92,7 @@ for l in range(3):
             rmin = min(r1,r2)
             rmax = max(r1,r2)
             #Vord_gg[g,g2] = rmin**l / rmax**(l+1)
-            Vord_gg[g,g2] = F[l](rmax, rmin, omega)
+            Vord_gg[g,g2] = F[l](rmax, rmin, omega) / (2*l+1)
             print(Vord_gg[g,g2] / V_gg[g,g2])
 
     for g in gs:
