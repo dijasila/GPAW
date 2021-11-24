@@ -60,6 +60,9 @@ Git master branch
 * The hyperfine tensor CLI-tool no longer divides by total magnetic moment:
   :ref:`hyperfine`.
 
+* Radiative emission (lifetimes, ...) are obtainable from
+  real-time LCAO-TDDFT via the radiation-reaction potential.
+  See the tutorial: :ref:`radiation_reaction_rttddft`.
 
 Version 21.6.0
 ===============

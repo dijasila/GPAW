@@ -23,6 +23,8 @@ class LCAOTDDFT(GPAW):
         Time propagator for the Kohn-Sham wavefunctions
     td_potential
         External time-dependent potential
+    rremission
+        Radiation-reaction potential for Self-consistent Light-Matter coupling
     fxc
         Exchange-correlation functional used for
         the dynamic part of Hamiltonian
@@ -39,6 +41,7 @@ class LCAOTDDFT(GPAW):
     def __init__(self, filename: str, *,
                  propagator: dict = None,
                  td_potential: dict = None,
+                 rremission: object = None,
                  fxc: str = None,
                  scale: float = None,
                  parallel: dict = None,
@@ -54,7 +57,7 @@ class LCAOTDDFT(GPAW):
         self.tddft_initialized = False
         self.action = ''
         tdh = TimeDependentHamiltonian(fxc=fxc, td_potential=td_potential,
-                                       scale=scale)
+                                       scale=scale, rremission=rremission)
         self.td_hamiltonian = tdh
 
         self.propagator_set = propagator is not None
