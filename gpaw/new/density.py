@@ -88,7 +88,7 @@ class Density:
     @classmethod
     def from_superposition(cls,
                            grid,
-                           nct_R,
+                           nct,
                            setups,
                            basis_set,
                            magmoms=None,
@@ -98,7 +98,7 @@ class Density:
         ndens, nmag = magmoms2dims(magmoms)
 
         nct_R = grid.empty()
-        nct_acf.to_uniform_grid(out=nct_R, scale=1.0 / ndens)
+        nct.to_uniform_grid(out=nct_R, scale=1.0 / ndens)
 
         if magmoms is None:
             magmoms = [None] * len(setups)
@@ -113,14 +113,13 @@ class Density:
 
         atom_array_layout = AtomArraysLayout([(setup.ni, setup.ni)
                                               for setup in setups],
-                                             atomdist=nct_acf.layout.atomdist)
+                                             atomdist=nct.layout.atomdist)
         D_asii = atom_array_layout.empty(ndens + nmag)
         for a, D_sii in D_asii.items():
             D_sii[:] = unpack2(setups[a].initialize_density_matrix(f_asi[a]))
 
         return cls(nt_sR,
                    nct_R,
-                   nct_acf,
                    D_asii,
                    [setup.Delta_iiL for setup in setups],
                    [setup.Delta0 for setup in setups],

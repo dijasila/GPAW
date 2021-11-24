@@ -22,7 +22,6 @@ from gpaw.new.xc import XCFunctional
 from gpaw.setup import Setups
 from gpaw.symmetry import Symmetry as OldSymmetry
 from gpaw.xc import XC
-from gpaw.core.plane_waves import PlaneWaves
 
 
 class DFTConfiguration:
@@ -46,7 +45,7 @@ class DFTConfiguration:
         world = parallel['world']
 
         self.mode = create_mode(**params.mode)
-        self.xc = XCFunctional(XC(params.xc))
+        self.xc = XCFunctional(XC(params.xc))  # mode?
         self.setups = Setups(atoms.numbers,
                              params.setups,
                              params.basis,
@@ -78,12 +77,9 @@ class DFTConfiguration:
             symmetry,
             comm=self.communicators['d'])
 
-        if self.mode.name == 'fd':
-            self.wf_grid = self.grid
-        else:
-            assert self.mode.name == 'pw'
-            self.wf_grid = PlaneWaves(ecut=self.mode.ecut,
-                                      cell=self.grid.cell)
+        self.wf_desc = self.mode.create_wf_description(self.grid)
+        self.nct = self.mode.create_pseudo_core_densities(
+            self.setups, self.wf_desc, self.fracpos_ac)
 
         if self.mode.name == 'fd':
             pass  # filter = create_fourier_filter(grid)
@@ -122,22 +118,15 @@ class DFTConfiguration:
     @cached_property
     def potential_calculator(self):
         return self.mode.create_potential_calculator(
-            self.grid,
+            self.wf_desc,
             self.fine_grid,
-            self.density_grid,
-            self.wf_grid,
-            self.setups, self.fracpos_ac,
+            self.setups,
+            self.fracpos_ac,
             self.xc,
             self.params.poissonsolver)
 
     def __repr__(self):
         return f'DFTCalculation({self.atoms}, {self.params})'
-
-    @cached_property
-    def density_grid(self):
-        if self.mode.name == 'fd':
-            return self.grid
-        return self.wf_grid.new(ecut=2 * self.wf_grid.ecut)
 
     def lcao_ibz_wave_functions(self, basis_set, potential):
         from gpaw.new.lcao import create_lcao_ibz_wave_functions
@@ -162,12 +151,8 @@ class DFTConfiguration:
         return basis_set
 
     def density_from_superposition(self, basis_set):
-        nct_acf = self.setups.create_pseudo_core_densities(self.density_grid,
-                                                           self.fracpos_ac)
-        nct_R = self.grid.empty()
-        self.nct_a
         return Density.from_superposition(self.grid,
-                                          nct_acf,
+                                          self.nct,
                                           self.setups,
                                           basis_set,
                                           self.initial_magmoms,
@@ -175,9 +160,9 @@ class DFTConfiguration:
                                           self.params.hund)
 
     def scf_loop(self):
-        hamiltonian = self.mode.create_hamiltonian_operator(self.wf_grid)
+        hamiltonian = self.mode.create_hamiltonian_operator(self.wf_desc)
         eigensolver = Davidson(self.nbands,
-                               self.wf_grid,
+                               self.wf_desc,
                                self.communicators['b'],
                                hamiltonian.create_preconditioner,
                                **self.params.eigensolver)
