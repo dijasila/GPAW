@@ -76,58 +76,6 @@ class SCFLoop:
         """Output from each iteration."""
         write_iteration(self.criteria, converged_items, entries, context, log)
 
-
-def write_iteration(criteria, converged_items, entries, ctx, log):
-    custom = (set(criteria) -
-              {'energy', 'eigenstates', 'density'})
-    if ctx.niter == 1:
-        header1 = ('{:<4s} {:>8s} {:>12s}  '
-                   .format('iter', 'time', 'total'))
-        header2 = ('{:>4s} {:>8s} {:>12s}  '
-                   .format('', '', 'energy'))
-        header1 += 'log10-change:'
-        for title in ('eigst', 'dens'):
-            header2 += '{:>5s}  '.format(title)
-        for name in custom:
-            criterion = criteria[name]
-            header1 += ' ' * 7
-            header2 += '{:>5s}  '.format(criterion.tablename)
-        if ctx.wfs.nspins == 2:
-            header1 += '{:>8s} '.format('magmom')
-            header2 += '{:>8s} '.format('')
-        log(header1)
-        log(header2)
-
-    c = {k: 'c' if v else ' ' for k, v in converged_items.items()}
-
-    # Iterations and time.
-    now = time.localtime()
-    line = ('{:4d} {:02d}:{:02d}:{:02d} '
-            .format(ctx.niter, *now[3:6]))
-
-    # Energy.
-    line += '{:>12s}{:1s} '.format(entries['energy'], c['energy'])
-
-    # Eigenstates.
-    line += '{:>5s}{:1s} '.format(entries['eigenstates'], c['eigenstates'])
-
-    # Density.
-    line += '{:>5s}{:1s} '.format(entries['density'], c['density'])
-
-    # Custom criteria (optional).
-    for name in custom:
-        line += '{:>5s}{:s} '.format(entries[name], c[name])
-
-    # Magnetic moment (optional).
-    if ctx.wfs.nspins == 2 or not ctx.wfs.collinear:
-        totmom_v, _ = ctx.dens.estimate_magnetic_moments()
-        if ctx.wfs.collinear:
-            line += f'  {totmom_v[2]:+.4f}'
-        else:
-            line += ' {:+.1f},{:+.1f},{:+.1f}'.format(*totmom_v)
-
-    log(line, flush=True)
-
     def prepare_convergence_criteria(self):
         cheap = {k: c for k, c in self.criteria.items() if not c.calc_last}
         expensive = {k: c for k, c in self.criteria.items() if c.calc_last}
@@ -228,6 +176,58 @@ def write_iteration(criteria, converged_items, entries, ctx, log):
         else:
             dens.update(wfs)
             ham.update(dens)
+
+
+def write_iteration(criteria, converged_items, entries, ctx, log):
+    custom = (set(criteria) -
+              {'energy', 'eigenstates', 'density'})
+    if ctx.niter == 1:
+        header1 = ('{:<4s} {:>8s} {:>12s}  '
+                   .format('iter', 'time', 'total'))
+        header2 = ('{:>4s} {:>8s} {:>12s}  '
+                   .format('', '', 'energy'))
+        header1 += 'log10-change:'
+        for title in ('eigst', 'dens'):
+            header2 += '{:>5s}  '.format(title)
+        for name in custom:
+            criterion = criteria[name]
+            header1 += ' ' * 7
+            header2 += '{:>5s}  '.format(criterion.tablename)
+        if ctx.wfs.nspins == 2:
+            header1 += '{:>8s} '.format('magmom')
+            header2 += '{:>8s} '.format('')
+        log(header1)
+        log(header2)
+
+    c = {k: 'c' if v else ' ' for k, v in converged_items.items()}
+
+    # Iterations and time.
+    now = time.localtime()
+    line = ('{:4d} {:02d}:{:02d}:{:02d} '
+            .format(ctx.niter, *now[3:6]))
+
+    # Energy.
+    line += '{:>12s}{:1s} '.format(entries['energy'], c['energy'])
+
+    # Eigenstates.
+    line += '{:>5s}{:1s} '.format(entries['eigenstates'], c['eigenstates'])
+
+    # Density.
+    line += '{:>5s}{:1s} '.format(entries['density'], c['density'])
+
+    # Custom criteria (optional).
+    for name in custom:
+        line += '{:>5s}{:s} '.format(entries[name], c[name])
+
+    # Magnetic moment (optional).
+    if ctx.wfs.nspins == 2 or not ctx.wfs.collinear:
+        totmom_v, _ = ctx.dens.estimate_magnetic_moments()
+        if ctx.wfs.collinear:
+            line += f'  {totmom_v[2]:+.4f}'
+        else:
+            line += ' {:+.1f},{:+.1f},{:+.1f}'.format(*totmom_v)
+
+    log(line, flush=True)
 
 
 class SCFEvent:
