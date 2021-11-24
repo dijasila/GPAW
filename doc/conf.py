@@ -64,4 +64,5 @@ mathjax3_config = {
             'bk': '{\\mathbf k}',
             'bG': '{\\mathbf G}'}}}
 
-autodoc_typehints = 'signature'
+autodoc_typehints = 'description'
+autodoc_typehints_description_target = 'documented'

@@ -256,7 +256,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
             assert pw is not None
             out = pw.empty()
         if pw is None:
-            pw = out.pw
+            pw = out.desc
         input = self
         if self.desc.comm.size > 1:
             input = input.collect()

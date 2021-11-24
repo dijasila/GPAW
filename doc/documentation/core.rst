@@ -37,7 +37,7 @@ grid:
 >>> pw = PlaneWaves(ecut=100, cell=grid.cell)
 >>> func_G = pw.empty()
 >>> func_R.fft(out=func_G)
-PlaneWaveExpansions(pw=PlaneWaves(ecut=100, grid=20*20*20), shape=())
+PlaneWaveExpansions(pw=PlaneWaves(ecut=100, cell=[[4.0, 0.0, 0.0], [0.0, 4.0, 0.0], [0.0, 0.0, 4.0]]), shape=())
 >>> G = pw.reciprocal_vectors()
 >>> G.shape
 (1536, 3)
@@ -46,6 +46,7 @@ array([0., 0., 0.])
 >>> func_G.data[0]
 (1+0j)
 >>> func_G.ifft(out=func_R)
+UniformGridFunctions(grid=UniformGrid(size=20*20*20, pbc=[ True  True  True], comm=0/1, dtype=float64), shape=())
 >>> func_R.data[0, 0, 0]
 1.0
 
@@ -65,8 +66,10 @@ Block boundary conditions
 Matrix elements
 ===============
 
+>>> psit_nG = pw.zeros(5)
 >>> def T(psit_nG):
-...     out = psit_nG.empty_like()
+...     """Kinetic energy operator."""
+...     out = psit_nG.new()
 ...     out.data[:] = psit_nG.desc.ekin_G * psit_nG.data
 ...     return out
 >>> H_nn = psit_nG.matrix_elements(psit_nG, function=T)
@@ -75,6 +78,7 @@ Same as:
 
 >>> Tpsit_nG = T(psit_nG)
 >>> psit_nG.matrix_elements(Tpsit_nG, symmetric=True)
+Matrix(float64: 5x5)
 
 but faster.
 

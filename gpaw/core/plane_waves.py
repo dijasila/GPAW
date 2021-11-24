@@ -134,7 +134,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
     def new(self, data=None):
         if data is None:
             data = np.empty_like(self.data)
-        return PlaneWaveExpansions(self.desc, self.shape, self.comm, data)
+        return PlaneWaveExpansions(self.desc, self.dims, self.comm, data)
 
     def _arrays(self):
         return self.data.reshape((-1,) + self.data.shape[-1:])
