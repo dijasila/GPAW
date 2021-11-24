@@ -3,14 +3,16 @@ import numpy as np
 from gpaw.mpi import MPIComm
 from gpaw.core.matrix import Matrix
 from gpaw.typing import Array1D
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Generic, TypeVar
 from gpaw.core.domain import Domain
 if TYPE_CHECKING:
     from gpaw.core.uniform_grid import UniformGridFunctions
 
+DomainType = TypeVar('DomainType', bound=Domain)
 
-class DistributedArrays:
-    desc: Domain
+
+class DistributedArrays(Generic[DomainType]):
+    desc: DomainType
 
     def __init__(self,
                  dims: int | tuple[int, ...],

@@ -105,7 +105,7 @@ class PlaneWaves(Domain):
         return PlaneWaveAtomCenteredFunctions(functions, positions, self)
 
 
-class PlaneWaveExpansions(DistributedArrays):
+class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
     def __init__(self,
                  pw: PlaneWaves,
                  dims: int | tuple[int, ...] = (),
@@ -116,7 +116,6 @@ class PlaneWaveExpansions(DistributedArrays):
                                     data, pw.dv, complex,
                                     transposed=False)
         self.desc = pw
-        self.pw = pw
         self._matrix: Matrix | None
 
     def __repr__(self):
@@ -126,7 +125,7 @@ class PlaneWaveExpansions(DistributedArrays):
         return txt + ')'
 
     def __getitem__(self, index: int) -> PlaneWaveExpansions:
-        return PlaneWaveExpansions(self.pw, data=self.data[index])
+        return PlaneWaveExpansions(self.desc, data=self.data[index])
 
     def __iter__(self):
         for data in self.data:
@@ -285,7 +284,7 @@ class PlaneWaveExpansions(DistributedArrays):
         elif kind == 'kinetic':
             a_xG.shape = (len(a_xG), -1, 2)
             result = np.einsum('xGi, xGi, G -> x',
-                               a_xG, a_xG, self.pw.ekin_G)
+                               a_xG, a_xG, self.desc.ekin_G)
         else:
             1 / 0
         if self.desc.dtype == float:
