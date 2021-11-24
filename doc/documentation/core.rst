@@ -31,7 +31,8 @@ Plane waves
 ===========
 
 A set of plane-waves are characterized by a cutoff energy and a uniform
-grid
+grid:
+
 >>> from gpaw.core import PlaneWaves
 >>> pw = PlaneWaves(ecut=100, cell=grid.cell)
 >>> func_G = pw.empty()
@@ -81,7 +82,7 @@ but faster.
 Atom-centered functions
 =======================
 
-.. literalinclude: acf_example.py
+.. literalinclude:: acf_example.py
 
 .. figure:: acf_example.png
 
@@ -89,37 +90,95 @@ Atom-centered functions
 Examples
 ========
 
-.. math::
+An instance of the :class:`gpaw.new.calculation.DFTCalculation` class has
+the following attributes:
 
-   D_{\sigma,i_1,i_2}^a
-   P_in^a
-   \tilde\psi_{n\mathbf{R}}
-   \tilde\psi_{n\mathbf{G}}
-   \tilde p_i^a(\mathbf{r}-\mathbf{R}^a)
+.. list-table::
 
+  * - ``density``
+    - :class:`gpaw.new.density.Density`
+  * - ``cfg``
+    - :class:`gpaw.new.configuration.DFTConfiguration`
+  * - ``ibzwfs``
+    - :class:`gpaw.new.wave_functions.IBZWaveFunctions`
+  * - ``potential``
+    - :class:`gpaw.new.potential.Potential`
+  * - ``scf``
+    - :class:`gpaw.new.scf.SCFLoop`
+
+
+.. list-table::
+
+  * - ``density.D_asii``
+    - `D_{\sigma,i_1,i_2}^a`
+    - :class:`~atom_arrays.AtomArrays`
+  * - ``density.nt_sR``
+    - `\tilde{n}_\sigma`
+    - :class:`~uniform_grid.UniformGridFunctions`
+  * - ``ibzwfs.mykpt_qs[q][s].P_ain``
+    - `P_{\sigma \mathbf{k} in}^a`
+    - :class:`~atom_arrays.AtomArrays`
+  * - ``ibzwfs.mykpt_qs[q][s].psit_nX``
+    - `\tilde{\psi}_{\sigma \mathbf{k} n}(\mathbf{r})`
+    - :class:`~uniform_grid.UniformGridFunctions` |
+      :class:`~plane_waves.PlaneWaveExpansions`
+  * - ``ibzwfs.mykpt_qs[q][s].pt_aX``
+    - `\tilde{p}_{\sigma \mathbf{k} i}^a(\mathbf{r}-\mathbf{R}^a)`
+    - :class:`~atom_centered_functions.AtomCenteredFunctions`
 
 
 API
 ===
 
-Uniform grids
--------------
+Core
+----
 
 .. autoclass:: gpaw.core.UniformGrid
+    :members:
     :undoc-members:
 .. autoclass:: gpaw.core.PlaneWaves
+    :members:
     :undoc-members:
 .. autoclass:: gpaw.core.atom_centered_functions.AtomCenteredFunctions
+    :members:
     :undoc-members:
 .. autoclass:: gpaw.core.uniform_grid.UniformGridFunctions
+    :members:
     :undoc-members:
 .. autoclass:: gpaw.core.arrays.DistributedArrays
+    :members:
+    :undoc-members:
+.. autoclass:: gpaw.core.atom_arrays.AtomArrays
+    :members:
     :undoc-members:
 .. autoclass:: gpaw.core.plane_waves.PlaneWaveExpansions
+    :members:
     :undoc-members:
 .. autoclass:: gpaw.core.plane_waves.Empty
+    :members:
     :undoc-members:
-.. autoclass:: gpaw.core.plane_waves.PWMapping
+
+
+DFT
+---
+
+.. autoclass:: gpaw.new.calculation.DFTCalculation
+    :members:
+    :undoc-members:
+.. autoclass:: gpaw.new.density.Density
+    :members:
+    :undoc-members:
+.. autoclass:: gpaw.new.configuration.DFTConfiguration
+    :members:
+    :undoc-members:
+.. autoclass:: gpaw.new.wave_functions.IBZWaveFunctions
+    :members:
+    :undoc-members:
+.. autoclass:: gpaw.new.potential.Potential
+    :members:
+    :undoc-members:
+.. autoclass:: gpaw.new.scf.SCFLoop
+    :members:
     :undoc-members:
 
 
@@ -147,7 +206,8 @@ which looks like this (in random order)::
     3 (2, 2)
     0 (3, 3)
 
-Let's create a new matrix ``b`` and :meth:`redistribute <Matrix.redist>` from
+Let's create a new matrix ``b`` and :meth:`redistribute <Matrix.redistribute>`
+from
 ``a`` to ``b``::
 
     b = a.new(dist=(None, 1, 1, None))

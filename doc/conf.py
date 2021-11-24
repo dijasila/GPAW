@@ -46,7 +46,8 @@ nitpick_ignore = [('py:class', 'gpaw.calculator.GPAW'),
                   ('py:class', 'ndarray'),
                   ('py:class', 'ase.spectrum.dosdata.GridDOSData'),
                   ('py:class', 'ase.atoms.Atoms'),
-                  ('py:class', 'gpaw.point_groups.group.PointGroup')]
+                  ('py:class', 'gpaw.point_groups.group.PointGroup'),
+                  ('py:class', 'UniformGridFunctions')]
 
 html_theme = 'sphinx_rtd_theme'
 html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
@@ -62,3 +63,5 @@ mathjax3_config = {
             'br': '{\\mathbf r}',
             'bk': '{\\mathbf k}',
             'bG': '{\\mathbf G}'}}}
+
+autodoc_typehints = 'signature'
