@@ -49,4 +49,4 @@ atoms.calc = calc
 # Run the calculation.
 atoms.get_potential_energy()
 atoms.write('Au111.traj')
-calc.write_sjm_traces()
+calc.write_sjm_traces(path='sjm_traces.out')  # .out for .gitignore

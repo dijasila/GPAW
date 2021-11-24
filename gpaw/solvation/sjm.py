@@ -396,9 +396,8 @@ class SJM(SolvationGPAW):
         desired value."""
         p = self.parameters['sj']
         iteration = 0
-        if not p.always_adjust or not hasattr(self, '_previous_electrons'):
-            self._previous_electrons = []
-            self._previous_potentials = []
+        self._previous_electrons = []
+        self._previous_potentials = []
 
         rerun = False
         while iteration <= p.max_iters:
@@ -423,7 +422,7 @@ class SJM(SolvationGPAW):
             msg = (f'Potential found to be {true_potential:.5f} V (with '
                    f'{p.excess_electrons:+.5f} excess electrons, attempt '
                    f'{iteration:d}/{p.max_iters:d}')
-            msg += ' (rerun)).' if rerun else ').'
+            msg += ' rerun).' if rerun else ').'
             self.log(msg)
 
             # Check if we took too big of a step.
@@ -461,7 +460,7 @@ class SJM(SolvationGPAW):
                          '{:.4f} V/electron,'
                          .format(len(self._previous_electrons[-4:]), slope))
                 area = np.product(np.diag(atoms.cell[:2, :2]))
-                capacitance = -1.6022 * 1e3 / (area * p.slope)
+                capacitance = -1.6022 * 1e3 / (area * slope)
                 self.log(f'or apparent capacitance of {capacitance:.4f} '
                          'muF/cm^2')
                 if p.slope is not None:
