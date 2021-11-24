@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 gs = range(1, 300, 50)
 omega = 0.11
 N = 1200
-h = 0.03
+h = 0.01
 # Plot below is used to pick non-divergent radial direction to turn the other grid to
 # Average of points 23, 31, 16 is chosen as direction
 Rdir_v = np.mean(R_nv[[23,31,16],:],axis=0)
@@ -39,23 +39,39 @@ def solve(r, L=0, L2 =0):
             v_g[g] += weight_n[n2] * Y_nL[n2, L2] * np.sum(weight_n * Y_nL[:, L] * V_n)
     return 4*np.pi*v_g
 
+l = 1
+L = 1
+
 for g in gs:
     print(g)
-    V_gg[g,:] = solve(rgd.r_g[g])
+    V_gg[g,:] = solve(rgd.r_g[g], L=L, L2=L)
 
 #eigs, vectors = np.linalg.eig(V_gg)
 #print(eigs)
 #print(vectors)
 
-l = 0
 
 def Phi0(Xi, xi):
     return -1/(2*np.pi**0.5*xi*Xi) * ( ( np.exp(-(xi+Xi)**2) - np.exp(-(xi-Xi)**2 ) \
         -np.pi**0.5*((xi-Xi)*erfc(Xi-xi)+(Xi+xi)*erfc(xi+Xi))))
 
+def Phi1(Xi, xi):
+    Phi = -1/(2*np.pi**0.5*xi**2*Xi**2)
+    Phi *= 1/2*(( np.exp(-(xi+Xi)**2) - np.exp(-(xi-Xi)**2 ) ) \
+        * (2*xi**2 + 2*xi*Xi-(1-2*Xi**2)) - 4*xi*Xi*np.exp(-(xi+Xi)**2) ) -np.pi**0.5*((xi**3-Xi**3)* \
+           erfc(Xi-xi)+(xi**3+Xi**3)*erfc(xi+Xi))
+    #Phi *= ( 1/2*(( np.exp(-xi**2-2*xi*Xi-Xi**2) - np.exp(-xi**2+2*xi*Xi-Xi**2) \
+    #    * (2*xi**2 + 2*xi*Xi-(1-2*Xi**2)) - 4*xi*Xi*np.exp(-(xi+Xi)**2) ) -np.pi**0.5*((xi**3-Xi**3)* \
+    #       erfc(Xi-xi)+(xi**3+Xi**3)*erfc(xi+Xi))))
+    return Phi / (4*np.pi)**0.5
+
 def F0(R,r,mu):
     return mu*Phi0(mu*R, mu*r)
 
+def F1(R,r,mu):
+    return mu*Phi1(mu*R, mu*r)
+
+F = [ F0, F1 ]
 Vord_gg = np.zeros( (N, N) )
 for g in gs:
     r1 = rgd.r_g[g]
@@ -63,21 +79,11 @@ for g in gs:
         rmin = min(r1,r2)
         rmax = max(r1,r2)
         #Vord_gg[g,g2] = rmin**l / rmax**(l+1)
-        Vord_gg[g,g2] = F0(rmax, rmin, omega)
+        Vord_gg[g,g2] = F[l](rmax, rmin, omega)
 
 for g in gs:
     plt.plot(rgd.r_g, V_gg[g,:],'r')
     plt.plot(rgd.r_g, Vord_gg[g,:],'k--')
-
-plt.figure()
-plt.pcolor(Vord_gg)
-plt.clim([0,1])
-plt.colorbar()
-plt.figure()
-plt.pcolor(V_gg)
-plt.clim([0,1])
-plt.colorbar()
-plt.show()
-print(Vord_gg[5,15])
-print(V_gg[5,15])
+#plt.ylim([0,1])
 plt.savefig('coulomb.png')
+plt.show()
