@@ -57,7 +57,8 @@ def F0(R,r,mu):
     return mu*Phi0(mu*R, mu*r)
 
 Vord_gg = np.zeros( (N, N) )
-for g, r1 in enumerate(rgd.r_g):
+for g in gs:
+    r1 = rgd.r_g[g]
     for g2, r2 in enumerate(rgd.r_g):
         rmin = min(r1,r2)
         rmax = max(r1,r2)
