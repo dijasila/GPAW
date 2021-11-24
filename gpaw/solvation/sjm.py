@@ -396,8 +396,8 @@ class SJM(SolvationGPAW):
         desired value."""
         p = self.parameters['sj']
         iteration = 0
-        self._previous_electrons = []
-        self._previous_potentials = []
+        previous_electrons = []
+        previous_potentials = []
 
         rerun = False
         while iteration <= p.max_iters:
@@ -427,12 +427,12 @@ class SJM(SolvationGPAW):
 
             # Check if we took too big of a step.
             try:
-                stepsize = abs(true_potential - self._previous_potentials[-1])
+                stepsize = abs(true_potential - previous_potentials[-1])
             except IndexError:
                 pass
             else:
                 diff_ratio = (true_potential - p.target_potential) /\
-                    (self._previous_potentials[-1] - p.target_potential)
+                    (previous_potentials[-1] - p.target_potential)
                 if stepsize > p.max_step and diff_ratio < -0.5:
                     self.log('Step resulted in a potential change of '
                              f'{stepsize:.2f} V, larger than max_step '
@@ -440,9 +440,9 @@ class SJM(SolvationGPAW):
                              ' target potential by a dangerous amount.\n'
                              ' The step is rejected and the change in'
                              ' excess_electrons will be halved.')
-                    p.excess_electrons = (self._previous_electrons[-1] +
+                    p.excess_electrons = (previous_electrons[-1] +
                                           (p.excess_electrons -
-                                           self._previous_electrons[-1]) * 0.5)
+                                           previous_electrons[-1]) * 0.5)
                     rerun = True
                     continue  # back to while
 
@@ -451,14 +451,14 @@ class SJM(SolvationGPAW):
             rerun = False
 
             # Store attempt and calculate slope.
-            self._previous_electrons += [p.excess_electrons]
-            self._previous_potentials += [true_potential]
-            if len(self._previous_electrons) > 1:
-                slope = _calculate_slope(self._previous_electrons,
-                                         self._previous_potentials)
+            previous_electrons += [p.excess_electrons]
+            previous_potentials += [true_potential]
+            if len(previous_electrons) > 1:
+                slope = _calculate_slope(previous_electrons,
+                                         previous_potentials)
                 self.log('Slope regressed from last {:d} attempts is '
                          '{:.4f} V/electron,'
-                         .format(len(self._previous_electrons[-4:]), slope))
+                         .format(len(previous_electrons[-4:]), slope))
                 area = np.product(np.diag(atoms.cell[:2, :2]))
                 capacitance = -1.6022 * 1e3 / (area * slope)
                 self.log(f'or apparent capacitance of {capacitance:.4f} '
@@ -504,8 +504,7 @@ class SJM(SolvationGPAW):
                'excess_electrons and the potential are listed below; '
                'plotting them could give you insight into the problem.')
         msg = textwrap.fill(msg) + '\n'
-        for n, p in zip(self._previous_electrons,
-                        self._previous_potentials):
+        for n, p in zip(previous_electrons, previous_potentials):
             msg += '{:+.6f} {:.6f}\n'.format(n, p)
         self.log(msg)
         raise PotentialConvergenceError(msg)
