@@ -37,7 +37,19 @@ def get_compensation_charge_splines(setup, lmax, cutoff):
         wghat_l.append(rgd.spline(v_g, cutoff, l, 500))
     return ghat_l, wghat_l
 
-def get_auxiliary_splines(setup, lmax, cutoff):
+def get_compensation_charge_splines_screened(setup, lmax, cutoff):
+    rgd = setup.rgd
+    wghat_l = []
+    ghat_l = []
+    for l in range(lmax+1):
+        spline = setup.ghat_l[l]
+        ghat_l.append(spline)
+        g_g = spline_to_rgd(rgd, spline)
+        v_g = setup.screened_coulomb.screened_coulomb(g_g, l)
+        wghat_l.append(rgd.spline(v_g, cutoff, l, 500))
+    return ghat_l, wghat_l
+
+def _get_auxiliary_splines(setup, lmax, cutoff, poisson):
     rgd = setup.rgd
     auxt_j = []
     wauxt_j = []
@@ -57,7 +69,7 @@ def get_auxiliary_splines(setup, lmax, cutoff):
                 aux_g = spline_to_rgd(rgd, spline1, spline2)
                 auxt_j.append(rgd.spline(aux_g, cutoff, l, 500))
 
-                v_g = Hartree(rgd, aux_g, l)
+                v_g = poisson(aux_g, l)
                 wauxt_j.append(rgd.spline(v_g, cutoff, l, 500))
 
                 # Evaluate multipole moment
@@ -75,6 +87,15 @@ def get_auxiliary_splines(setup, lmax, cutoff):
 
 
     return auxt_j, wauxt_j, sauxt_j, wsauxt_j, M_j
+
+def get_auxiliary_splines(setup, lmax, cutoff):
+    def poisson(n_g,l):
+        return Hartree(setup.rgd, n_g, l)
+
+    return _get_auxiliary_splines(setup, lmax, cutoff, poisson)
+
+def get_auxiliary_splines_screened(setup, lmax, cutoff):
+    return _get_auxiliary_splines(setup, lmax, cutoff, setup.screened_coulomb.screened_coulomb)
 
 
 def get_wgauxphit_product_splines(setup, wgaux_j, phit_j, cutoff):

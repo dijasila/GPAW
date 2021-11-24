@@ -3,12 +3,15 @@ from gpaw.lcao.tci import get_cutoffs, split_setups_to_types, AtomPairRegistry,\
                           get_lvalues
 
 from gpaw.auxlcao.utilities import get_compensation_charge_splines,\
+                                   get_compensation_charge_splines_screened,\
                                    get_wgauxphit_product_splines,\
-                                   get_auxiliary_splines
+                                   get_auxiliary_splines,\
+                                   get_auxiliary_splines_screened
 from gpaw.auxlcao.procedures import get_A_a
 from gpaw.lcao.overlap import (FourierTransformer, TwoSiteOverlapCalculator,
                                ManySiteOverlapCalculator,
                                AtomicDisplacement, NullPhases)
+from gpaw.auxlcao.screenedcoulombkernel import ScreenedCoulombKernel
 
 from gpaw.gaunt import gaunt
 
@@ -37,20 +40,32 @@ class MatrixElements:
         self.rcmax_a = [phit_rcmax_I[I] for I in I_a]
 
         for I, (setup, rcmax) in enumerate(zip(setups_I, phit_rcmax_I)):
-            # Compensation charges
-            setup.gaux_l, setup.wgaux_l = get_compensation_charge_splines(setup, self.lmax, rcmax)
+
+            if self.screening_omega != 0.0:
+                setup.screened_coulomb = ScreenedCoulombKernel(setup.rgd, self.screening_omega)
+
+                # Compensation charges
+                setup.gaux_l, setup.wgaux_l = get_compensation_charge_splines_screened(setup, self.lmax, rcmax)
+
+                # Auxiliary basis functions
+                setup.auxt_j, setup.wauxt_j, setup.sauxt_j, setup.wsauxt_j, setup.M_j = get_auxiliary_splines_screened(setup, self.lmax, rcmax)
+
+            else:
+                # Compensation charges
+                setup.gaux_l, setup.wgaux_l = get_compensation_charge_splines(setup, self.lmax, rcmax)
+
+                # Auxiliary basis functions
+                setup.auxt_j, setup.wauxt_j, setup.sauxt_j, setup.wsauxt_j, setup.M_j = get_auxiliary_splines(setup, self.lmax, rcmax)
 
             # Single center Hartree of compensation charges * one phit_j
             setup.wgauxphit_x = get_wgauxphit_product_splines(setup, setup.wgaux_l, setup.phit_j, rcmax)
 
-            # Auxiliary basis functions
-            setup.auxt_j, setup.wauxt_j, setup.sauxt_j, setup.wsauxt_j, setup.M_j = get_auxiliary_splines(setup, self.lmax, rcmax)
+
 
             setup.Naux = sum([ 2*spline.l+1 for spline in setup.auxt_j])
 
             # Single center Hartree of auxiliary basis function * one phit_j
             setup.wauxtphit_x = get_wgauxphit_product_splines(setup, setup.wauxt_j, setup.phit_j, rcmax)
-
 
         transformer = FourierTransformer(rcmax=max(phit_rcmax_I)+1e-3, ng=2**10)
         tsoc = TwoSiteOverlapCalculator(transformer)

@@ -60,7 +60,7 @@ class RIMPV(RIAlgorithm):
                                self.hamiltonian.gd.pbc_c,
                                self.wfs.kd.ibzk_qc,
                                self.wfs.dtype,
-                               self.lmax)
+                               self.lmax, omega=self.screening_omega)
                 
             get_W_LL_diagonals_from_setups(self.W_LL, self.lmax, self.density.setups)
             assert not np.isnan(self.W_LL).any()

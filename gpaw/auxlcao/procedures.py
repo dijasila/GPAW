@@ -4,7 +4,8 @@ from gpaw.utilities.tools import tri2full
 from gpaw.auxlcao.utilities import safe_inv
 
 
-from gpaw.auxlcao.generatedcode import generated_W_LL
+from gpaw.auxlcao.generatedcode import generated_W_LL,\
+                                       generated_W_LL_screening
 
 sqrt3 = 3**0.5
 sqrt5 = 5**0.5
@@ -87,12 +88,36 @@ def get_W_LL_diagonals_from_setups(W_LL, lmax, setups):
     for a, setup in enumerate(setups):
         W_LL[a*S:(a+1)*S:,a*S:(a+1)*S] = setup.W_LL[:S, :S]
 
-def calculate_W_LL_offdiagonals_multipole_screened(cell_cv, spos_ac, pbc_c, ibzk_qc, dtype, lmax, coeff = 4*np.pi):
-    self.a1a2 = AtomPairRegistry(cutoff_a, pbc_c, cell_cv, spos_ac)
+def calculate_W_LL_offdiagonals_multipole_screened(cell_cv, spos_ac, pbc_c, ibzk_qc, dtype, lmax, coeff = 4*np.pi, omega=None):
+    if np.any(pbc_c):
+        raise NotImplementedError('Periodic boundary conditions')
 
-    TODO
+    if lmax == 2:
+        S = (lmax+1)**2
+        Na = len(spos_ac)
 
-def calculate_W_LL_offdiagonals_multipole(cell_cv, spos_ac, pbc_c, ibzk_qc, dtype, lmax, coeff = 4*np.pi):
+        R_av = np.dot(spos_ac, cell_cv)
+      
+        dx = R_av[:, None, 0] - R_av[None, :, 0]
+        dy = R_av[:, None, 1] - R_av[None, :, 1]
+        dz = R_av[:, None, 2] - R_av[None, :, 2]
+
+        # Diagonals will be done separately, just avoid division by zero here
+        dx = dx + 1000*np.eye(Na)
+        dy = dy + 1000*np.eye(Na)
+        dz = dz + 1000*np.eye(Na)
+
+        d2 = dx**2 + dy**2 + dz**2
+        d = d2**0.5
+
+        W_LL = np.zeros((Na*S, Na*S))
+        generated_W_LL_screening(W_LL, d, dx, dy, dz, omega)
+        return coeff * W_LL
+    else:
+        return calculate_W_LL_offdiagonals_multipole_old(cell_cv, spos_ac, pbc_c, ibzk_qc, dtype, lmax, coeff)
+
+def calculate_W_LL_offdiagonals_multipole(cell_cv, spos_ac, pbc_c, ibzk_qc, dtype, lmax, coeff = 4*np.pi, omega = 0.0):
+    assert omega == 0.0
     if np.any(pbc_c):
         raise NotImplementedError('Periodic boundary conditions')
 
