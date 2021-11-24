@@ -83,7 +83,7 @@ def create_lcao_ibz_wave_functions(cfg: DFTConfiguration,
         basis_set.lcao_to_grid(lcaokpt.C_nM,
                                psit_nR.data[:mynbands], lcaokpt.q)
         if cfg.mode.name == 'pw':
-            pw = PlaneWaves(ecut=cfg.wf_grid.ecut, cell=grid.cell)
+            pw = PlaneWaves(ecut=cfg.mode.ecut, cell=grid.cell)
             psit_nG = pw.empty(cfg.nbands, band_comm)
             for psit_R, psit_G in zip(psit_nR, psit_nG):
                 psit_R.fft(out=psit_G)
