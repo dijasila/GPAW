@@ -8,9 +8,9 @@ def new():
     atoms.positions[1, 2] = 0.8
     atoms.center(vacuum=1)
     params = {'txt': '-'}
-    atoms.calc = OldGPAW(**params)
-    atoms.get_forces()
     atoms.calc = NewGPAW(**params)
+    atoms.get_forces()
+    atoms.calc = OldGPAW(**params)
     atoms.get_forces()
 
 

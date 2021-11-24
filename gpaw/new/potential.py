@@ -45,7 +45,7 @@ class PotentialCalculator:
         energies, vt_sR = self._calculate(density)
 
         dH_asii, corrections = calculate_non_local_potential(
-            self.setups, density, self.xc, self.ghat_acf, self.vHt_x)
+            self.setups, density, self.xc, self.ghat_ar, self.vHt_r)
 
         for key, e in corrections.items():
             energies[key] += e
@@ -61,16 +61,16 @@ class UniformGridPotentialCalculator(PotentialCalculator):
                  fracpos_ac,
                  xc,
                  poisson_solver):
-        self.vHt_x = fine_grid.zeros()  # initial guess for Coulomb potential
-        self.nt_x = fine_grid.empty()
-        self.vt_X = wf_grid.empty()
+        self.vHt_r = fine_grid.zeros()  # initial guess for Coulomb potential
+        self.nt_r = fine_grid.empty()
+        self.vt_R = wf_grid.empty()
 
-        self.vbar_ax = setups.create_local_potentials(fine_grid, fracpos_ac)
-        self.ghat_acf = setups.create_compensation_charges(fine_grid,
-                                                           fracpos_ac)
+        self.vbar_ar = setups.create_local_potentials(fine_grid, fracpos_ac)
+        self.ghat_ar = setups.create_compensation_charges(fine_grid,
+                                                          fracpos_ac)
 
-        self.vbar_x = fine_grid.empty()
-        self.vbar_ax.to_uniform_grid(out=self.vbar_x)
+        self.vbar_r = fine_grid.empty()
+        self.vbar_ar.to_uniform_grid(out=self.vbar_r)
 
         self.interpolate = wf_grid.transformer(fine_grid)
         self.restrict = fine_grid.transformer(wf_grid)
@@ -86,26 +86,26 @@ class UniformGridPotentialCalculator(PotentialCalculator):
         vxct_sr = grid2.zeros(nt_sr.dims)
         e_xc = self.xc.calculate(nt_sr, vxct_sr)
 
-        self.nt_x.data[:] = nt_sr.data[:density.ndensities].sum(axis=0)
-        e_zero = self.vbar_x.integrate(self.nt_x)
+        self.nt_r.data[:] = nt_sr.data[:density.ndensities].sum(axis=0)
+        e_zero = self.vbar_r.integrate(self.nt_r)
 
         charge_r = grid2.empty()
-        charge_r.data[:] = self.nt_x.data
+        charge_r.data[:] = self.nt_r.data
         ccc_aL = density.calculate_compensation_charge_coefficients()
-        self.ghat_acf.add_to(charge_r, ccc_aL)
-        self.poisson_solver.solve(self.vHt_x, charge_r)
-        e_coulomb = 0.5 * self.vHt_x.integrate(charge_r)
+        self.ghat_ar.add_to(charge_r, ccc_aL)
+        self.poisson_solver.solve(self.vHt_r, charge_r)
+        e_coulomb = 0.5 * self.vHt_r.integrate(charge_r)
 
         vt_sr = vxct_sr
-        vt_sr.data += self.vHt_x.data + self.vbar_x.data
+        vt_sr.data += self.vHt_r.data + self.vbar_r.data
         vt_sR = self.restrict(vt_sr)
         e_kinetic = 0.0
-        self.vt_X.data[:] = 0.0
+        self.vt_R.data[:] = 0.0
         for spin, (vt_R, nt_R) in enumerate(zip(vt_sR, nt_sR)):
             e_kinetic -= vt_R.integrate(nt_R)
             if spin < density.ndensities:
                 e_kinetic += vt_R.integrate(density.nct_R)
-                self.vt_X.data += vt_R.data / density.ndensities
+                self.vt_R.data += vt_R.data / density.ndensities
 
         e_external = 0.0
 
@@ -115,10 +115,10 @@ class UniformGridPotentialCalculator(PotentialCalculator):
                 'xc': e_xc,
                 'external': e_external}, vt_sR
 
-    def derivatives(self, nct_aG):
+    def forces(self, nct_aG):
         return (self.ghat_ar.derivative(self.vHt_r),
                 nct_aG.derivative(self.vt_R),
-                self.vbar_ag.derivative(self.nt_g))
+                self.vbar_ar.derivative(self.nt_r))
 
 
 class PlaneWavePotentialCalculator(PotentialCalculator):
@@ -200,7 +200,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
                 'xc': e_xc,
                 'external': e_external}, vt_s
 
-    def derivatives(self, nct_ag):
+    def forces(self, nct_ag):
         return (self.ghat_ah.derivative(self.vHt_h),
                 nct_ag.derivative(self.vt_g),
                 self.vbar_ag.derivative(self.nt_g))

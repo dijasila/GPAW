@@ -94,22 +94,19 @@ class DFTCalculation:
         F_av = self.ibzwfs.forces(self.potential.dH_asii)
 
         pot_calc = self.cfg.potential_calculator
-        Fcc_aLv, Fnct_av, Fvbar_av = pot_calc.forces(self.density.nct_acf)
+        Fcc_aLv, Fnct_av, Fvbar_av = pot_calc.forces(self.cfg.nct)
 
         # Force from compensation charges:
         ccc_aL = self.density.calculate_compensation_charge_coefficients()
-        dF_aLv = pot_calc.ghat_acf.derivative(pot_calc.vHt_x)
-        for a, dF_Lv in dF_aLv.items():
+        for a, dF_Lv in Fcc_aLv.items():
             F_av[a] += ccc_aL[a] @ dF_Lv
 
         # Force from smooth core charge:
-        dF_av = self.density.nct_acf.derivative(pot_calc.vt_X)
-        for a, dF_v in dF_av.items():
+        for a, dF_v in Fnct_av.items():
             F_av[a] += dF_v[0]
 
         # Force from zero potential:
-        dF_av = pot_calc.vbar_ax.derivative(pot_calc.nt_x)
-        for a, dF_v in dF_av.items():
+        for a, dF_v in Fvbar_av.items():
             F_av[a] += dF_v[0]
 
         self.cfg.communicators['d'].sum(F_av)
