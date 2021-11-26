@@ -80,10 +80,7 @@ class EhrenfestVelocityVerletLCAO:
 
         self.calc.get_td_energy()    # Need modification
         self.F = self.get_forces()
-
-        for kpt in self.calc.wfs.kpt_u:
-            self.S_MM_old=np.empty_like(kpt.S_MM)
-    
+   
         for i in range(len(self.F)):
             self.a[i] = self.F[i] / self.M[i]
 

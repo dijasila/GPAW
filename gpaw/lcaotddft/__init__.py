@@ -53,7 +53,7 @@ class LCAOTDDFT(GPAW):
         self.S_flag = S_flag
         # Save old overlap matrix S_MM_old which is necessary for propagating C_MM
         for kpt in self.wfs.kpt_u:
-            self.S_MM_old=kpt.S_MM.copy()
+            kpt.S_MM_old=kpt.S_MM.copy()
 
 
     def _write(self, writer, mode):
@@ -249,7 +249,7 @@ class LCAOTDDFT(GPAW):
 
     def save_old_S_MM(self):
         for kpt in self.wfs.kpt_u:
-            self.S_MM_old=kpt.S_MM.copy()
+            kpt.S_MM_old=kpt.S_MM.copy()
 
     def propagate_using_S12(self, time, time_step):
 #       PROPAGATE C USING S : S(R+dR)^(1/2) PSI(R+dr) = S(R)^(1/2) PSI(R) 
@@ -271,8 +271,8 @@ class LCAOTDDFT(GPAW):
                 S_MM_full = MM_descriptor.empty(dtype=S_MM.dtype)
                 mm2MM.redistribute(S_MM, S_MM_full)
 
-                S_MM_old_full = MM_descriptor.empty(dtype=self.S_MM_old.dtype)
-                mm2MM.redistribute(self.S_MM_old, S_MM_old_full)
+                S_MM_old_full = MM_descriptor.empty(dtype=kpt.S_MM_old.dtype)
+                mm2MM.redistribute(kpt.S_MM_old, S_MM_old_full)
 
     #            if self.world.rank == 0:                
                 if self.density.gd.comm.rank == 0:
@@ -320,7 +320,7 @@ class LCAOTDDFT(GPAW):
                 Sp12=np.matmul(Seig_v,np.matmul((Seig_dp12),np.conj(Seig_v).T))
      
                 # OLD OVERLAP S^-1/2 
-                T2_o, Seig_v_o = schur(self.S_MM_old, output='real')
+                T2_o, Seig_v_o = schur(kpt.S_MM_old, output='real')
                 Seig_o=eigvals(T2_o)
     
                 Seig_dm12_o=np.diag(Seig_o**-0.5)
