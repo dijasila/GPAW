@@ -47,7 +47,7 @@ array([0., 0., 0.])
 (1+0j)
 >>> func_G.ifft(out=func_R)
 UniformGridFunctions(grid=UniformGrid(size=20*20*20, pbc=[ True  True  True], comm=0/1, dtype=float64), shape=())
->>> func_R.data[0, 0, 0]
+>>> round(func_R.data[0, 0, 0], 15)
 1.0
 
 
