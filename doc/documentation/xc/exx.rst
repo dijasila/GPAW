@@ -123,7 +123,7 @@ See this tutorial: :ref:`pbe0_tut`.
 
 Here is an example:
 
-.. litteral-include:: hydrogen_atom.py
+.. literalinclude:: hydrogen_atom.py
 
 
 .. autoclass:: gpaw.xc.exx.EXX
