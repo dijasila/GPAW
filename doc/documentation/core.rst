@@ -191,6 +191,7 @@ Matrix object
 
 .. module:: gpaw.core.matrix
 .. autoclass:: Matrix
+   :members:
    :undoc-members:
 
 A simple example that we can run with MPI on 4 cores::
@@ -210,7 +211,7 @@ which looks like this (in random order)::
     3 (2, 2)
     0 (3, 3)
 
-Let's create a new matrix ``b`` and :meth:`redistribute <Matrix.redistribute>`
+Let's create a new matrix ``b`` and :meth:`redistribute <Matrix.redist>`
 from
 ``a`` to ``b``::
 

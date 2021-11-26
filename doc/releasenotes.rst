@@ -561,7 +561,7 @@ May 29, 2018: :git:`1.4.0 <../1.4.0>`
   to fit parallelization.
 
 * Major code refactoring to facilitate work with parallel arrays.  See new
-  module: :mod:`gpaw.matrix`.
+  module: ``gpaw.matrix``.
 
 * Better reuse of wavefunctions when atoms are displaced.  This can
   improve performance of optimizations and dynamics in FD and PW mode.

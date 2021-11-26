@@ -31,7 +31,7 @@ This object is the central object for a GPAW calculation::
                           +-------+        +-------+
 
 The implementation is in :git:`gpaw/calculator.py`.  The
-:class:`gpaw.calculator.GPAW` class doesn't do any part of the actual
+:class:`~gpaw.calculator.GPAW` class doesn't do any part of the actual
 calculation - it only handles the logic of parsing the input
 parameters and setting up the necessary objects for doing the actual
 work (see figure above).
@@ -42,7 +42,7 @@ A GPAW instance has the following attributes: ``atoms``,
 ``hamiltonian``, ``scf``, ``log``, ``timer``,
 ``occupations``, ``initialized``, ``world`` and ``observers``.
 
-The :class:`gpaw.calculator.GPAW` inherits from:
+The :class:`~gpaw.calculator.GPAW` inherits from:
 
 * :class:`ase.calculators.calculator.Calculator`
 
