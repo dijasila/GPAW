@@ -11,8 +11,8 @@ Currently we have two implementations of exact exchange:
    calculations self-consistently (for molecules and large cells).
    No forces.
 
-2) Plane-wave mode implementation: :git:`~gpaw/xc/exx.py`.
-   Can handle k-points, exploits symmetries and calculates forces.
+2) Plane-wave mode implementation: :git:`~gpaw/hybrids/`.
+   Handles k-points, exploits symmetries and calculates forces.
 
 
 .. contents::
