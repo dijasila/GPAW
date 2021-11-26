@@ -1,4 +1,4 @@
-"""EXX hydrogen atoms tests.
+"""EXX hydrogen atom.
 
 Compare self-consistent EXX calculation with non self-consistent
 EXX calculation on top of LDA.
@@ -33,6 +33,7 @@ atoms.calc = GPAW(mode=PW(600),
                   xc='LDA')
 atoms.get_potential_energy()
 
+# Check non self-consistent eigenvalues
 result = non_self_consistent_eigenvalues(atoms.calc,
                                          'EXX',
                                          snapshot='h-hse-snapshot.json')
@@ -41,6 +42,7 @@ eig1b, eig2b = (eiglda - vlda + vexx)[:, 0, 0]
 assert abs(eig1b - eig1) < 0.04
 assert abs(eig2b - eig2) < 1.1
 
+# ... and energy
 energies = non_self_consistent_energy(atoms.calc, 'EXX')
 eexxb = energies.sum() + atoms.calc.get_reference_energy()
 assert abs(eexxb - eexx) < 0.03
