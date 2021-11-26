@@ -83,7 +83,7 @@ def non_self_consistent_eigenvalues(calc: Union[GPAW, str, Path],
 
     # Non-local hybrid contribution
     if v_hyb_nl_sin is None:
-        v_hyb_nl_sin = [[] * wfs.nspins]
+        v_hyb_nl_sin = [[] for s in range(wfs.nspins)]
 
     # Find missing indices:
     kpt_indices_s = [kpt_indices[len(v_hyb_nl_in):]
