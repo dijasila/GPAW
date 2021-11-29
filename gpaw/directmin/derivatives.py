@@ -653,8 +653,11 @@ class Davidson(object):
         eigvec = r2c(self.x)
         res = []
         for i in range(self.l):
-            temp = 'internal' if eigvec[i] @ eigvec[i].T > 0 else 'external'
-            res.append(temp)
+            if self.lambda_[i] < 0:
+                temp = 'internal' if eigvec[i] @ eigvec[i].T > 0 else 'external'
+                res.append(temp)
+        if len(res) == 0:
+            res = 'No instabilities detected.'
         return res
 
 
