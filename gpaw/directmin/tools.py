@@ -304,6 +304,7 @@ def array_to_dict(x, dim):
         start += dim[i]
     return y
 
+
 def complex_to_real(x):
     """
     Converts complex array to twice as long real array of its real and
@@ -316,8 +317,9 @@ def complex_to_real(x):
     length = len(x)
     y = np.zeros(2 * length)
     y[: length] = np.real(x)
-    y[length :] = np.imag(x)
+    y[length:] = np.imag(x)
     return y
+
 
 def real_to_complex(x):
     """
@@ -332,3 +334,4 @@ def real_to_complex(x):
     array = np.asarray(x)
     y = np.zeros(length, dtype=complex)
     y = array[: length] + 1.0j * array[length:]
+    return y
