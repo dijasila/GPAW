@@ -68,6 +68,9 @@ Git master branch
   now enter the :class:`~gpaw.solvation.sjm.SJM` calculator through the
   :literal:`sj` dictionary.
 
+* Radiative emission (lifetimes, ...) are obtainable from
+  real-time LCAO-TDDFT via the radiation-reaction potential.
+  See the tutorial: :ref:`radiation_reaction_rttddft`.
 
 Version 21.6.0
 ===============
