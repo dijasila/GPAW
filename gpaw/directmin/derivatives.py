@@ -661,6 +661,8 @@ class Davidson(object):
                 res.append(temp)
         if len(res) == 0:
             res = 'No instabilities detected.'
+        self.logger('Instability types:\n', flush=True)
+        self.logger(res + '\n', flush=True)
         return res
 
 
