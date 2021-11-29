@@ -3,6 +3,7 @@ from gpaw.directmin.etdm import random_a, get_n_occ
 from ase.units import Hartree
 from gpaw.mpi import world
 from gpaw.io.logger import GPAWLogger
+from gpaw.directmin.tools import real_to_complex as r2c
 from copy import deepcopy
 
 
@@ -647,6 +648,14 @@ class Davidson(object):
             return hessc
         else:
             return np.asarray(hessi)
+
+    def check_stability_type(self):
+        eigvec = r2c(self.x)
+        res = []
+        for i in range(self.l):
+            temp = 'internal' if eigvec[i] @ eigvec[i].T > 0 else 'external'
+            res.append(temp)
+        return res
 
 
 def mgs(vin):
