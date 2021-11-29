@@ -17,10 +17,10 @@ def write_everything(label):
     """Writes out all the useful data after the SJM calculation."""
     atoms.write(f'atoms{label}.traj')
     esp = atoms.calc.get_electrostatic_potential()
-    with paropen(f'esp{label}.pickle', 'wb') as f:
+    with paropen(f'esp{label}.pckl', 'wb') as f:
         pickle.dump(esp, f)
     n = calc.get_all_electron_density()
-    with open(f'allelectrondensity{label}.pickle', 'wb') as f:
+    with open(f'allelectrondensity{label}.pckl', 'wb') as f:
         pickle.dump(n, f)
 
 

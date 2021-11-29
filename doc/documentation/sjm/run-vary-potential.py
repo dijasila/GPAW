@@ -17,10 +17,10 @@ def write_potential_and_charge(label):
     """Dumps the full potential and charge to pickle files for analysis by
     separate script."""
     esp = atoms.calc.get_electrostatic_potential()
-    with paropen(f'esp{label}.pickle', 'wb') as f:
+    with paropen(f'esp{label}.pckl', 'wb') as f:
         pickle.dump(esp, f)
     n = calc.get_all_electron_density()
-    with paropen(f'all{label}.pickle', 'wb') as f:
+    with paropen(f'all{label}.pckl', 'wb') as f:
         pickle.dump(n, f)
 
 

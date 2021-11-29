@@ -36,12 +36,12 @@ fig.subplots_adjust(right=0.99, top=0.99)
 ###########################
 
 ax = axes[0]
-z_trace0 = get_potential_trace('esp0.0000.pickle')
+z_trace0 = get_potential_trace('esp0.0000.pckl')
 z_trace0 -= z_trace0[0]
 
 for excess_electron in excess_electrons:
     label = '{:.4f}'.format(excess_electron)
-    z_trace = get_potential_trace(f'esp{label}.pickle')
+    z_trace = get_potential_trace(f'esp{label}.pckl')
     z_trace -= z_trace[0]
     diff = z_trace - z_trace0
     zs = np.linspace(0., atoms.cell[2][2], num=len(diff))
@@ -54,11 +54,11 @@ for excess_electron in excess_electrons:
 ###########################
 
 ax = axes[1]
-z_trace0 = get_electron_trace('allelectrondensity0.0000.pickle')
+z_trace0 = get_electron_trace('allelectrondensity0.0000.pckl')
 
 for excess_electron in excess_electrons:
     label = '{:.4f}'.format(excess_electron)
-    z_trace = get_electron_trace(f'allelectrondensity{label}.pickle')
+    z_trace = get_electron_trace(f'allelectrondensity{label}.pckl')
     diff = z_trace - z_trace0
     ax.plot(zs, diff, color='C0')
     ax.text(zs[-1] + 1., diff[-1], '{:+.1f}'.format(excess_electron),

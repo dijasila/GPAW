@@ -36,8 +36,8 @@ atoms = ase.io.read('atoms.traj')
 # Potential axis.
 ###########################
 
-z_trace44 = get_potential_trace('esp4.4V.pickle')
-z_trace43 = get_potential_trace('esp4.3V.pickle')
+z_trace44 = get_potential_trace('esp4.4V.pckl')
+z_trace43 = get_potential_trace('esp4.3V.pckl')
 z_trace44 -= z_trace44[0]
 z_trace43 -= z_trace43[0]
 diff = z_trace43 - z_trace44
@@ -54,8 +54,8 @@ ax_potential.text(zs[label_at], diff[label_at] + 0.01, 'potential',
 ax_electrons = ax_potential.twinx()
 # ax1.set_zorder(ax2.get_zorder()+1)
 
-z_trace44 = get_electron_trace('all4.4V.pickle')
-z_trace43 = get_electron_trace('all4.3V.pickle')
+z_trace44 = get_electron_trace('all4.4V.pckl')
+z_trace43 = get_electron_trace('all4.3V.pckl')
 diff = z_trace43 - z_trace44
 ax_electrons.plot(zs, diff)
 ax_electrons.text(zs[label_at], diff[label_at] - 0.003, 'electrons',
