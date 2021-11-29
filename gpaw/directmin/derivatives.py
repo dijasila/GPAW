@@ -649,7 +649,7 @@ class Davidson(object):
         else:
             return np.asarray(hessi)
 
-    def check_stability_type(self):
+    def check_instability_types(self):
         eigvec = r2c(self.x)
         res = []
         for i in range(self.l):
