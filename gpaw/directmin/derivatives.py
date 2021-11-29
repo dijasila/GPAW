@@ -650,12 +650,14 @@ class Davidson(object):
             return np.asarray(hessi)
 
     def check_instability_types(self):
-        eigvec = r2c(self.x)
         res = []
         for i in range(self.l):
             if self.lambda_[i] < 0:
+                eigvec = r2c(self.x[i])
+                half = int(len(eigvec)) / 2
                 temp = 'internal' if np.dot(
-                    eigvec[i].conj(), eigvec[i].T).real > 0 else 'external'
+                    eigvec[: half].conj(), eigvec[half:].T).real > 0 \
+                    else 'external'
                 res.append(temp)
         if len(res) == 0:
             res = 'No instabilities detected.'
