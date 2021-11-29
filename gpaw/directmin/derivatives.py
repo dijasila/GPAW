@@ -654,7 +654,8 @@ class Davidson(object):
         res = []
         for i in range(self.l):
             if self.lambda_[i] < 0:
-                temp = 'internal' if eigvec[i] @ eigvec[i].T > 0 else 'external'
+                temp = 'internal' if np.dot(
+                    eigvec[i].conj(), eigvec[i].T).real > 0 else 'external'
                 res.append(temp)
         if len(res) == 0:
             res = 'No instabilities detected.'
