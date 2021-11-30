@@ -93,14 +93,14 @@ class ModeFollowingBase(object):
         get_dots = 0
         if self.fixed_sp_order is None:
             for i in range(len(self.eigv)):
-                if self.eigv[i] <= -1e-8:
+                if self.eigv[i] <= -1e-4:
                     get_dots += 1
                 else:
                     break
         else:
             neg_temp = 0
             for i in range(len(self.eigv)):
-                if self.eigv[i] <= -1e-8:
+                if self.eigv[i] <= -1e-4:
                     neg_temp += 1
                 else:
                     break
@@ -114,10 +114,10 @@ class ModeFollowingBase(object):
                 grad_mod = grad - 2.0 * grad_par
             else:
                 grad_mod = -grad_par
-        elif get_dots == 1:
-            grad_mod = grad - 2.0 * grad_par
-        else:
+        elif get_dots == 0:
             grad_mod = -grad_par
+        else:
+            grad_mod = grad - 2.0 * grad_par
         return array_to_dict(grad_mod, dim)
 
 
