@@ -80,7 +80,7 @@ class PWLFC(BaseLFC):
             assert False
         self.comm = comm
 
-    def initialize(self):
+    def initialize(self, G2_qG=None, sign=0):
         """Initialize position-independent stuff."""
         if self.initialized:
             return
@@ -99,6 +99,8 @@ class PWLFC(BaseLFC):
         self.a_J = np.empty(nJ, np.int32)
         self.s_J = np.empty(nJ, np.int32)
 
+        if G2_qG is None:
+            G2_qG = self.pd.G2_qG
         # Fourier transform radial functions:
         J = 0
         done = set()  # Set[Spline]
@@ -107,7 +109,7 @@ class PWLFC(BaseLFC):
                 s = splines[spline]  # get spline index
                 if spline not in done:
                     f = ft(spline)
-                    for f_Gs, G2_G in zip(self.f_qGs, self.pd.G2_qG):
+                    for f_Gs, G2_G in zip(self.f_qGs, G2_qG):
                         G_G = G2_G**0.5
                         f_Gs[:, s] = f.map(G_G)
                     self.l_s[s] = spline.get_angular_momentum_number()
@@ -120,7 +122,7 @@ class PWLFC(BaseLFC):
 
         # Spherical harmonics:
         for q, K_v in enumerate(self.pd.K_qv):
-            G_Gv = self.pd.get_reciprocal_vectors(q=q)
+            G_Gv = self.pd.get_reciprocal_vectors(q=q, sign=sign)
             Y_GL = np.empty((len(G_Gv), (self.lmax + 1)**2))
             for L in range((self.lmax + 1)**2):
                 Y_GL[:, L] = Y(L, *G_Gv.T)
@@ -144,13 +146,16 @@ class PWLFC(BaseLFC):
         return sum(2 * spline.get_angular_momentum_number() + 1
                    for spline in self.spline_aj[a])
 
-    def set_positions(self, spos_ac, atom_partition=None):
-        self.initialize()
+    def set_positions(self, spos_ac, atom_partition=None, G2_qG=None, sign=0):
+        self.initialize(G2_qG, sign)
         kd = self.pd.kd
         if kd is None or kd.gamma:
             self.eikR_qa = np.ones((1, len(spos_ac)))
-        else:
+        elif sign == 0:
             self.eikR_qa = np.exp(2j * pi * np.dot(kd.ibzk_qc, spos_ac.T))
+        else:
+            k_qc = kd.ibzk_qc + sign * self.pd.qs_c / 2
+            self.eikR_qa = np.exp(2j * pi * np.dot(k_qc, spos_ac.T))
 
         self.pos_av = np.dot(spos_ac, self.pd.gd.cell_cv)
 
@@ -453,3 +458,68 @@ class PWLFC(BaseLFC):
         for a, I1, I2 in self.my_indices:
             stress -= self.eikR_qa[q][a] * (c_axi[a] * c_xI[..., I1:I2]).sum()
         return stress.real
+
+
+class SPWLFC(BaseLFC):
+    def __init__(self, spline_aj, pd, blocksize=5000, comm=None):
+        self.pd = pd
+        self.spline_aj = spline_aj
+        self.ptUp = PWLFC(spline_aj, pd, blocksize, comm)
+        self.ptDn = PWLFC(spline_aj, pd, blocksize, comm)
+
+    def initialize(self):
+        self.ptUp.initialize(G2_qG=self.pd.G2m_qG, sign=-1)
+        self.ptDn.initialize(G2_qG=self.pd.G2p_qG, sign=1)
+
+    def estimate_memory(self, mem):
+        splines = set()
+        lmax = -1
+        for spline_j in self.spline_aj:
+            for spline in spline_j:
+                splines.add(spline)
+                l = spline.get_angular_momentum_number()
+                lmax = max(lmax, l)
+        nbytes = ((len(splines) + (lmax + 1)**2) *
+                  sum(G2_G.nbytes for G2_G in self.pd.G2_qG))
+        mem.subnode('Arrays', nbytes)
+
+    def set_positions(self, spos_ac, atom_partition=None):
+        # Note, set_positions is executed
+        self.ptUp.set_positions(spos_ac, atom_partition,
+                                self.pd.G2m_qG, sign=-1)
+        self.ptDn.set_positions(spos_ac, atom_partition,
+                                self.pd.G2p_qG, sign=1)
+
+        # Required for baseLFC functionality
+        assert (self.ptUp.my_atom_indices == self.ptDn.my_atom_indices)
+        self.my_atom_indices = self.ptUp.my_atom_indices
+
+    def add(self, a_xG, c_axi=1.0, q=-1, f0_IG=None):
+        aUp = a_xG[:, 0, :]
+        aDn = a_xG[:, 1, :]
+        cUp = {a: c_xi[:, 0, :] for a, c_xi in c_axi.items()}
+        cDn = {a: c_xi[:, 1, :] for a, c_xi in c_axi.items()}
+        
+        # Execute PWLFC add, which acts in-place on aUp, aDn
+        self.ptUp.add(aUp, cUp, q, f0_IG)
+        self.ptDn.add(aDn, cDn, q, f0_IG)
+
+        a_xG[:, 0, :] = aUp
+        a_xG[:, 1, :] = aDn
+
+    def integrate(self, a_xG, c_axi=None, q=-1):
+        aUp = a_xG[:, 0, :]
+        aDn = a_xG[:, 1, :]
+        cUp = {a: c_xi[:, 0, :] for a, c_xi in c_axi.items()}
+        cDn = {a: c_xi[:, 1, :] for a, c_xi in c_axi.items()}
+
+        # Execute PWLFC integration, which returns output
+        cUp = self.ptUp.integrate(aUp, cUp, q)
+        cDn = self.ptDn.integrate(aDn, cDn, q)
+
+        # Rebuild array
+        for a, c_xi in c_axi.items():
+            c_xi[:, 0] = cUp[a]
+            c_xi[:, 1] = cDn[a]
+
+        return c_axi
