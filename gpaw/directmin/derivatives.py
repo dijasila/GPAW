@@ -654,7 +654,7 @@ class Davidson(object):
         for i in range(self.l):
             if self.lambda_[i] < 0:
                 eigvec = r2c(self.x[i])
-                half = int(len(eigvec)) / 2
+                half = int(len(eigvec) / 2)
                 temp = 'internal' if np.dot(
                     eigvec[: half].conj(), eigvec[half:].T).real > 0 \
                     else 'external'
