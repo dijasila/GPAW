@@ -653,7 +653,9 @@ class Davidson(object):
         res = []
         for i in range(self.l):
             if self.lambda_[i] < 0:
-                eigvec = r2c(self.x[i])
+                eigvec = self.x[i]
+                if self.etdm.dtype == complex:
+                    eigvec = r2c(eigvec)
                 half = int(len(eigvec) / 2)
                 temp = 'internal' if np.dot(
                     eigvec[: half].conj(), eigvec[half:].T).real > 0 \
