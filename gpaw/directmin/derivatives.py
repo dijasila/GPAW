@@ -662,7 +662,9 @@ class Davidson(object):
         if len(res) == 0:
             res = 'No instabilities detected.'
         self.logger('Instability types:\n', flush=True)
-        self.logger(res + '\n', flush=True)
+        for i in range(self.l):
+            self.logger(res[i] + ' ')
+        self.logger('\n', flush=True)
 
 
 def mgs(vin):
