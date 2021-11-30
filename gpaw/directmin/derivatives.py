@@ -660,11 +660,19 @@ class Davidson(object):
                     else 'external'
                 res.append(temp)
         if len(res) == 0:
-            res = 'No instabilities detected.'
-        self.logger('Instability types:\n', flush=True)
-        for i in range(self.l):
-            self.logger(res[i] + ' ')
-        self.logger('\n', flush=True)
+            self.logger('No instabilities detected.\n\n')
+            return
+        self.logger('Instability types:\n\n', flush=True)
+        text = ''
+        for i in range(len(res)):
+            text += '%10d '
+        indices = text % tuple(range(1, len(res) + 1))
+        self.logger(indices, flush=True)
+        text = ''
+        for i in range(len(res)):
+            text += '%10s '
+        self.logger(text % tuple(res), flush=True)
+        self.logger('\n\n', flush=True)
 
 
 def mgs(vin):
