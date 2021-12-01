@@ -3,7 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import IO, Any, Union
 
-import numpy as np
 from ase import Atoms
 from ase.units import Bohr, Ha
 
