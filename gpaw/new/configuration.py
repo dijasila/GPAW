@@ -4,7 +4,6 @@ from typing import Any, Union
 
 import numpy as np
 from ase import Atoms
-from gpaw.hybrids import HybridXC
 from gpaw.lfc import BasisFunctions
 from gpaw.mixer import MixerWrapper, get_mixer_from_keywords
 from gpaw.mpi import MPIComm, Parallelization, world
@@ -24,7 +23,7 @@ from gpaw.symmetry import Symmetry as OldSymmetry
 from gpaw.xc import XC
 
 
-class DFTConfiguration:
+class DFTComponentBuilder:
     def __init__(self,
                  atoms: Atoms,
                  params: dict[str, Any] | InputParameters):
@@ -118,13 +117,14 @@ class DFTConfiguration:
         return self.mode.create_potential_calculator(
             self.wf_desc,
             self.fine_grid,
+            self.nct,
             self.setups,
             self.fracpos_ac,
             self.xc,
             self.params.poissonsolver)
 
     def __repr__(self):
-        return f'DFTCalculation({self.atoms}, {self.params})'
+        return f'DFTComponentsBuilder({self.atoms}, {self.params})'
 
     def lcao_ibz_wave_functions(self, basis_set, potential):
         from gpaw.new.lcao import create_lcao_ibz_wave_functions

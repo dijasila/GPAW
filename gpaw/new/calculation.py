@@ -30,115 +30,102 @@ class DFTCalculation:
                         params=None,
                         log=None,
                         builder=None) -> DFTCalculation:
-        self.atoms = atoms.copy()
-
-        number_of_lattice_vectors = atoms.cell.any(axis=1).sum()
-        if number_of_lattice_vectors < 3:
-            raise ValueError(
-                'GPAW requires 3 lattice vectors.  '
-                f'Your system has {number_of_lattice_vectors}.')
 
         if isinstance(params, dict):
             params = InputParameters(params)
-        self.params = params
+
+        if builder is None:
+            builder = DFTComponentsBuilder(atoms, params)
 
         parallel = params.parallel
         world = parallel['world']
 
-        self.mode = create_mode(**params.mode)
-        self.xc = XCFunctional(XC(params.xc))  # mode?
-        self.setups = Setups(atoms.numbers,
-                             params.setups,
-                             params.basis,
-                             self.xc.setup_name,
-                             world)
-        self.initial_magmoms = normalize_initial_magnetic_moments(
+        mode = create_mode(**params.mode)
+        xc = XCFunctional(XC(params.xc))  # mode?
+        setups = Setups(atoms.numbers,
+                        params.setups,
+                        params.basis,
+                        xc.setup_name,
+                        world)
+        initial_magmoms = normalize_initial_magnetic_moments(
             params.magmoms, atoms)
 
         symmetry = create_symmetry_object(atoms,
-                                          self.setups.id_a,
-                                          self.initial_magmoms,
+                                          setups.id_a,
+                                          initial_magmoms,
                                           params.symmetry)
         bz = create_kpts(params.kpts, atoms)
-        self.ibz = symmetry.reduce(bz)
+        ibz = symmetry.reduce(bz)
 
-        d = parallel.get('domain', None)
-        k = parallel.get('kpt', None)
-        b = parallel.get('band', None)
-        self.communicators = create_communicators(world, len(self.ibz),
-                                                  d, k, b)
+        communicators = create_communicators(world,
+                                             len(ibz),
+                                             parallel.get('domain', None),
+                                             parallel.get('kpt', None),
+                                             parallel.get('band', None))
 
-        self.grid = self.mode.create_uniform_grid(
+        grid = mode.create_uniform_grid(
             params.h,
             params.gpts,
             atoms.cell,
             atoms.pbc,
             symmetry,
-            comm=self.communicators['d'])
+            comm=communicators['d'])
 
-        self.wf_desc = self.mode.create_wf_description(self.grid)
-        self.nct = self.mode.create_pseudo_core_densities(
-            self.setups, self.wf_desc, self.fracpos_ac)
+        wf_desc = mode.create_wf_description(grid)
+        nct = mode.create_pseudo_core_densities(
+            setups, wf_desc, fracpos_ac)
 
-        if self.mode.name == 'fd':
+        if mode.name == 'fd':
             pass  # filter = create_fourier_filter(grid)
             # setups = stups.filter(filter)
 
-        self.nelectrons = self.setups.nvalence - params.charge
-
-        self.nbands = calculate_number_of_bands(params.nbands,
-                                                self.setups,
-                                                params.charge,
-                                                self.initial_magmoms,
-                                                self.mode.name == 'lcao')
-
-        self.fine_grid = self.grid.new(size=self.grid.size_c * 2)
+        fine_grid = grid.new(size=grid.size_c * 2)
         # decomposition=[2 * d for d in grid.decomposition]
 
-        cfg = DFTConfiguration(atoms, params)
+        builder = DFTConfiguration(atoms, params)
 
-        basis_set = cfg.create_basis_set()
+        basis_set = builder.create_basis_set()
 
-        density = cfg.density_from_superposition(basis_set)
+        density = builder.density_from_superposition(basis_set)
         density.normalize()
 
-        pot_calc = cfg.potential_calculator
+        pot_calc = builder.potential_calculator
         potential = pot_calc.calculate(density)
 
         if params.random:
             log('Initializing wave functions with random numbers')
-            ibzwfs = cfg.random_ibz_wave_functions()
+            ibzwfs = builder.random_ibz_wave_functions()
         else:
-            ibzwfs = cfg.lcao_ibz_wave_functions(basis_set, potential)
+            ibzwfs = builder.lcao_ibz_wave_functions(basis_set, potential)
 
-        return cls(cfg, ibzwfs, density, potential)
+        return cls(builder, ibzwfs, density, potential)
 
     def move_atoms(self, atoms, log) -> DFTCalculation:
-        cfg = DFTConfiguration(atoms, self.cfg.params)
+        builder = DFTConfiguration(atoms, self.builder.params)
 
-        if self.cfg.ibz.symmetry != cfg.ibz.symmetry:
+        if self.builder.ibz.symmetry != builder.ibz.symmetry:
             raise ValueError
 
-        self.density.move(cfg.fracpos_ac)
-        self.ibzwfs.move(cfg.fracpos_ac)
+        self.density.move(builder.fracpos_ac)
+        self.ibzwfs.move(builder.fracpos_ac)
         self.potential.energies.clear()
 
-        return DFTCalculation(cfg, self.ibzwfs, self.density, self.potential)
+        return DFTCalculation(builder, self.ibzwfs, self.density, self.potential)
 
     @property
     def scf(self):
         if self._scf is None:
-            self._scf = self.cfg.scf_loop()
+            self._scf = self.builder.scf_loop()
         return self._scf
 
     def converge(self, log, convergence=None):
-        convergence = convergence or self.cfg.params.convergence
+        convergence = convergence or self.builder.params.convergence
         log(self.scf)
         density, potential = self.scf.converge(self.ibzwfs,
                                                self.density,
                                                self.potential,
                                                convergence,
-                                               self.cfg.params.maxiter,
+                                               self.builder.params.maxiter,
                                                log)
         self.density = density
         self.potential = potential
@@ -160,15 +147,15 @@ class DFTCalculation:
 
     def forces(self, log):
         """Return atomic force contributions."""
-        xc = self.cfg.xc
+        xc = self.xc
         assert not xc.no_forces
         assert not hasattr(xc.xc, 'setup_force_corrections')
 
         # Force from projector functions (and basis set):
         F_av = self.ibzwfs.forces(self.potential.dH_asii)
 
-        pot_calc = self.cfg.potential_calculator
-        Fcc_aLv, Fnct_av, Fvbar_av = pot_calc.forces(self.cfg.nct)
+        pot_calc = self.potential_calculator
+        Fcc_aLv, Fnct_av, Fvbar_av = pot_calc.forces(self.builder.nct)
 
         # Force from compensation charges:
         ccc_aL = self.density.calculate_compensation_charge_coefficients()
@@ -183,13 +170,13 @@ class DFTCalculation:
         for a, dF_v in Fvbar_av.items():
             F_av[a] += dF_v[0]
 
-        self.cfg.communicators['d'].sum(F_av)
+        self.communicators['d'].sum(F_av)
 
         F_av = self.ibzwfs.ibz.symmetry.symmetry.symmetrize_forces(F_av)
 
         log('\nForces in eV/Ang:')
         c = Ha / Bohr
-        for a, setup in enumerate(self.cfg.setups):
+        for a, setup in enumerate(self.setups):
             x, y, z = F_av[a] * c
             log(f'{a:4} {setup.symbol:2} {x:10.3f} {y:10.3f} {z:10.3f}')
 
@@ -215,4 +202,4 @@ class DFTCalculation:
 
     def ase_interface(self, log):
         from gpaw.new.ase_interface import ASECalculator
-        return ASECalculator(self.cfg.params, log, self)
+        return ASECalculator(self.builder.params, log, self)
