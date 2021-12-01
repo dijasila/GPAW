@@ -8,19 +8,93 @@ from typing import Any
 
 class DFTCalculation:
     def __init__(self,
-                 cfg: DFTConfiguration,
                  ibzwfs: IBZWaveFunctions,
                  density,
-                 potential):
-        self.cfg = cfg
+                 potential,
+                 setups,
+                 fracpos_ac,
+                 mode,
+                 xc,
+                 comms):
         self.ibzwfs = ibzwfs
         self.density = density
         self.potential = potential
-        self._scf = None
+
         self.results: dict[str, Any] = {}
 
+        self._scf_loop = None
+
     @classmethod
-    def from_parameters(cls, atoms, params, log) -> DFTCalculation:
+    def from_parameters(cls,
+                        atoms,
+                        params=None,
+                        log=None,
+                        builder=None) -> DFTCalculation:
+        self.atoms = atoms.copy()
+
+        number_of_lattice_vectors = atoms.cell.any(axis=1).sum()
+        if number_of_lattice_vectors < 3:
+            raise ValueError(
+                'GPAW requires 3 lattice vectors.  '
+                f'Your system has {number_of_lattice_vectors}.')
+
+        if isinstance(params, dict):
+            params = InputParameters(params)
+        self.params = params
+
+        parallel = params.parallel
+        world = parallel['world']
+
+        self.mode = create_mode(**params.mode)
+        self.xc = XCFunctional(XC(params.xc))  # mode?
+        self.setups = Setups(atoms.numbers,
+                             params.setups,
+                             params.basis,
+                             self.xc.setup_name,
+                             world)
+        self.initial_magmoms = normalize_initial_magnetic_moments(
+            params.magmoms, atoms)
+
+        symmetry = create_symmetry_object(atoms,
+                                          self.setups.id_a,
+                                          self.initial_magmoms,
+                                          params.symmetry)
+        bz = create_kpts(params.kpts, atoms)
+        self.ibz = symmetry.reduce(bz)
+
+        d = parallel.get('domain', None)
+        k = parallel.get('kpt', None)
+        b = parallel.get('band', None)
+        self.communicators = create_communicators(world, len(self.ibz),
+                                                  d, k, b)
+
+        self.grid = self.mode.create_uniform_grid(
+            params.h,
+            params.gpts,
+            atoms.cell,
+            atoms.pbc,
+            symmetry,
+            comm=self.communicators['d'])
+
+        self.wf_desc = self.mode.create_wf_description(self.grid)
+        self.nct = self.mode.create_pseudo_core_densities(
+            self.setups, self.wf_desc, self.fracpos_ac)
+
+        if self.mode.name == 'fd':
+            pass  # filter = create_fourier_filter(grid)
+            # setups = stups.filter(filter)
+
+        self.nelectrons = self.setups.nvalence - params.charge
+
+        self.nbands = calculate_number_of_bands(params.nbands,
+                                                self.setups,
+                                                params.charge,
+                                                self.initial_magmoms,
+                                                self.mode.name == 'lcao')
+
+        self.fine_grid = self.grid.new(size=self.grid.size_c * 2)
+        # decomposition=[2 * d for d in grid.decomposition]
+
         cfg = DFTConfiguration(atoms, params)
 
         basis_set = cfg.create_basis_set()

@@ -64,8 +64,6 @@ class DFTConfiguration:
         d = parallel.get('domain', None)
         k = parallel.get('kpt', None)
         b = parallel.get('band', None)
-        if isinstance(self.xc, HybridXC):
-            d = world.size
         self.communicators = create_communicators(world, len(self.ibz),
                                                   d, k, b)
 
