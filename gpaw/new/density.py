@@ -3,7 +3,7 @@ from math import sqrt, pi
 import numpy as np
 from gpaw.typing import ArrayLike1D
 from gpaw.core.atom_centered_functions import AtomArraysLayout
-from gpaw.utilities import unpack2
+from gpaw.utilities import unpack2, unpack
 from typing import Union
 from gpaw.core.atom_arrays import AtomArrays
 
@@ -28,19 +28,22 @@ class Density:
                  D_asii,
                  delta_aiiL,
                  delta0_a,
+                 N0_aii,
                  charge=0.0):
         self.nt_sR = nt_sR
         self.nct_R = nct_R
         self.D_asii = D_asii
         self.delta_aiiL = delta_aiiL
         self.delta0_a = delta0_a
+        self.N0_aii = N0_aii
         self.charge = charge
 
         self.ncomponents = nt_sR.dims[0]
         self.ndensities = {1: 1,
                            2: 2,
                            4: 1}[self.ncomponents]
-        self.collinear = nt_sR.dims[0] != 4
+        self.collinear = self.ncomponents != 4
+        self.natoms = len(delta0_a)
 
     def calculate_compensation_charge_coefficients(self) -> AtomArrays:
         ccc_aL = AtomArraysLayout(
@@ -123,7 +126,41 @@ class Density:
                    D_asii,
                    [setup.Delta_iiL for setup in setups],
                    [setup.Delta0 for setup in setups],
+                   [unpack(setup.N0_p) for setup in setups],
                    charge)
+
+    def calculate_magnetic_moments(self):
+        magmom_av = np.zeros((self.natoms, 3))
+        magmom_v = np.zeros(3)
+        domain_comm = self.nt_sR.desc.comm
+
+        if self.ncomponents == 2:
+            for a, D_sii in self.D_asii.items():
+                M_ii = D_sii[0] - D_sii[1]
+                magmom_av[a, 2] = np.einsum('ij, ij ->', M_ii, self.N0_aii[a])
+                magmom_v[2] += (np.einsum('ij, ij ->', M_ii,
+                                          self.Delta_aiiL[a][:, :, 0]) *
+                                sqrt(4 * pi))
+            domain_comm.sum(magmom_av)
+            domain_comm.sum(magmom_v)
+
+            M_s = self.nt_sR.integrate()
+            magmom_v[2] += M_s[0] - M_s[1]
+
+        elif self.ncomponents == 4:
+            for a, D_sii in self.D_asii.items():
+                M_vii = D_sii[1:4]
+                magmom_av[a] = np.einsum('vij, ij -> v',
+                                         M_vii, self.N0_aii[a])
+                magmom_v += (np.einsum('vij, ij ->', M_vii,
+                                       self.Delta_aiiL[a][:, :, 0]) *
+                             sqrt(4 * pi))
+            domain_comm.sum(magmom_av)
+            domain_comm.sum(magmom_v)
+
+            magmom_v += self.nt_sR.integrate()[1:]
+
+        return magmom_v, magmom_av
 
 
 def atomic_occupation_numbers(setup,

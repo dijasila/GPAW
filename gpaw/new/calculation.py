@@ -73,17 +73,20 @@ class DFTCalculation:
                    builder.communicators)
 
     def move_atoms(self, atoms, log) -> DFTCalculation:
-        if self.builder.ibz.symmetry != builder.ibz.symmetry:
-            raise ValueError
+        self.fracpos_ac = atoms.get_scaled_positions()
 
-        self.density.move(builder.fracpos_ac)
-        self.ibzwfs.move(builder.fracpos_ac)
+        self.ibzwfs.move(self.fracpos_ac)
+        self.density.move(self.fracpos_ac)
         self.potential.energies.clear()
+        self.pot_calc.move(self.fracpos_ac)
+        self.scf_loop.reset()
 
-        write_atoms(atoms, builder.grid, builder.initial_magmoms, log)
+        _, magmom_av = self.density.calculate_magnetic_moments()
 
-        return DFTCalculation(builder, self.ibzwfs, self.density,
-                              self.potential)
+        write_atoms(atoms,
+                    self.density.nt_sR.desc,
+                    magmom_av,
+                    log)
 
     def iconverge(self, log, convergence=None, maxiter=None):
         log(self.scf_loop)
