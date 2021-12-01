@@ -29,6 +29,9 @@ class Dielectric(NeedsGD):
         self.del_eps_del_g_g = None
         self.cavity = None
 
+    def write(self, writer):
+        writer.write(epsinf=self.epsinf)
+
     def estimate_memory(self, mem):
         nbytes = self.gd.bytecount()
         mem.subnode('Permittivity', nbytes)
@@ -98,6 +101,10 @@ class LinearDielectric(Dielectric):
     def update_eps_only(self):
         np.multiply(self.cavity.g_g, self._epsinf - 1., self.eps_gradeps[0])
         self.eps_gradeps[0] += 1.
+
+    def write(self, writer):
+        writer.write(name='LinearDielectric',
+                     epsinf=self.epsinf)
 
 
 class CMDielectric(Dielectric):

@@ -26,6 +26,9 @@ class Interaction(NeedsGD):
         self.delta_E_delta_n_g = None
         self.delta_E_delta_g_g = None
 
+    def write(self, writer):
+        pass
+
     def update(self, atoms, density, cavity):
         """Update the Kohn-Sham potential and the energy.
 
@@ -86,6 +89,10 @@ class SurfaceInteraction(Interaction):
         """
         Interaction.__init__(self)
         self.surface_tension = float(surface_tension)
+
+    def write(self, writer):
+        writer.write(name='SurfaceInteraction',
+                     surface_tension=self.surface_tension)
 
     def update(self, atoms, density, cavity):
         if cavity is None:
