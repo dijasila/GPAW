@@ -1,5 +1,5 @@
 import pytest
-from gpaw import GPAW
+from gpaw import GPAW, restart
 from gpaw.cluster import Cluster
 from gpaw.test import equal
 from ase.build import molecule
@@ -60,7 +60,7 @@ def test_read(H2O, in_tmp_dir):
     """Read and check some basic properties"""
     fname = 'solvation.gpw'
     H2O.calc.write(fname)
-    calc = SolvationGPAW.read(fname)
+    atoms, calc = restart(fname, Class=SolvationGPAW)
 
     for method in ['get_potential_energy',
                    'get_eigenvalues', 'get_occupation_numbers']:
