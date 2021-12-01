@@ -1,10 +1,10 @@
 import numpy as np
 import ase.io.ulm as ulm
 import gpaw
-from ase.io.trajectory import write_atoms
+from ase.io.trajectory import write_atoms, read_atoms
 from ase.units import Bohr, Ha
 from gpaw.new.calculation import DFTCalculation
-# from gpaw.new.density import Density
+from gpaw.new.density import Density
 from gpaw.utilities import pack
 
 
@@ -76,15 +76,14 @@ def write_gpw(filename: str,
     world.barrier()
 
 
-"""
 def read_gpw(filename, log):
     log(f'Reading from {filename}')
     reader = ulm.Reader(filename)
     atoms = read_atoms(reader.atoms)
 
-    cfg = DFTConfiguration(atoms, reader.parameters.asdict())
+    builder = atoms, ...
 
-    grid = cfg.griiid
+    grid = builder, ...
 
     results = reader.results.asdict()
     if results:
@@ -94,7 +93,6 @@ def read_gpw(filename, log):
     potential = ...
     ibzwfs = ...
 
-    calculation = DFTCalculation(cfg, ibzwfs, density, potential)
-    calculation.results = results
+    calculation = DFTCalculation(ibzwfs, density, potential)
+    # calculation.results = results
     return calculation
-"""
