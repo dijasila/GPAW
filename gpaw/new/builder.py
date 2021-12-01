@@ -194,7 +194,9 @@ class DFTComponentsBuilder:
             self.grid.icell)
 
         return SCFLoop(hamiltonian, pot_calc, occ_calc,
-                       eigensolver, mixer, self.communicators['w'])
+                       eigensolver, mixer, self.communicators['w'],
+                       self.params.convergence,
+                       self.params.maxiter)
 
 
 def create_communicators(comm: MPIComm = None,

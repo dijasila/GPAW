@@ -1,12 +1,13 @@
+import itertools
+import warnings
 from functools import partial
 from math import inf
 from types import SimpleNamespace
-from gpaw.scf import write_iteration
-import warnings
-from gpaw.scf import dict2criterion
-from gpaw.new.wave_functions import IBZWaveFunctions
-from gpaw.new.potential import Potential
+
 from gpaw.new.density import Density
+from gpaw.new.potential import Potential
+from gpaw.new.wave_functions import IBZWaveFunctions
+from gpaw.scf import dict2criterion, write_iteration
 
 
 class SCFConvergenceError(Exception):
@@ -21,7 +22,8 @@ class SCFLoop:
                  eigensolver,
                  mixer,
                  world,
-                 convergence):
+                 convergence,
+                 maxiter):
         self.hamiltonian = hamiltonian
         self.pot_calc = pot_calc
         self.eigensolver = eigensolver
@@ -29,6 +31,7 @@ class SCFLoop:
         self.occ_calc = occ_calc
         self.world = world
         self.convergence = convergence
+        self.maxiter = maxiter
 
     def __str__(self):
         return str(self.pot_calc)
@@ -36,15 +39,20 @@ class SCFLoop:
     def iterate(self,
                 ibzwfs: IBZWaveFunctions,
                 density: Density,
-                potential: Potential):
+                potential: Potential,
+                convergence=None,
+                maxiter=None,
+                log=None):
+        cc = create_convergence_criteria(convergence or self.convergence)
+        maxiter = maxiter or self.maxiter
+
         dS = density.overlap_correction
 
         self.mixer.reset()
 
         dens_error = inf
         # dens_error = self.mixer.mix(density)
-        niter = 1
-        while True:
+        for niter in itertools.count(1):
             dH = potential.dH
             Ht = partial(self.hamiltonian.apply, potential.vt_sR)
             wfs_error = self.eigensolver.iterate(ibzwfs, Ht, dH, dS)
@@ -57,29 +65,17 @@ class SCFLoop:
 
             yield ctx
 
-            ibzwfs.calculate_density(out=density)
-            dens_error = self.mixer.mix(density)
-            potential = self.pot_calc.calculate(density)
-
-            niter += 1
-
-    def iconverge(self,
-                  ibzwfs,
-                  density,
-                  potential,
-                  convergence=None,
-                  maxiter=99,
-                  log=None):
-        cc = create_convergence_criteria(convergence or self.convergence)
-        for ctx in self.iterate(ibzwfs, density, potential):
             entries, converged = check_convergence(ctx, cc)
             if log:
                 write_iteration(cc, converged, entries, ctx, log)
             if all(converged.values()):
                 break
-            if ctx.niter == maxiter:
+            if niter == maxiter:
                 raise SCFConvergenceError
-            yield ctx
+
+            ibzwfs.calculate_density(out=density)
+            dens_error = self.mixer.mix(density)
+            potential = self.pot_calc.calculate(density)
 
 
 class SCFContext:

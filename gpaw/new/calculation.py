@@ -73,8 +73,6 @@ class DFTCalculation:
                    builder.communicators)
 
     def move_atoms(self, atoms, log) -> DFTCalculation:
-        builder = DFTConfiguration(atoms, self.builder.params)
-
         if self.builder.ibz.symmetry != builder.ibz.symmetry:
             raise ValueError
 
@@ -87,17 +85,27 @@ class DFTCalculation:
         return DFTCalculation(builder, self.ibzwfs, self.density,
                               self.potential)
 
-    def converge(self, log, convergence=None):
-        convergence = convergence or self.builder.params.convergence
-        log(self.scf)
-        density, potential = self.scf.converge(self.ibzwfs,
-                                               self.density,
-                                               self.potential,
-                                               convergence,
-                                               self.builder.params.maxiter,
-                                               log)
-        self.density = density
-        self.potential = potential
+    def iconverge(self, log, convergence=None, maxiter=None):
+        log(self.scf_loop)
+        for ctx in self.scf_loop.iterate(self.ibzwfs,
+                                         self.density,
+                                         self.potential,
+                                         convergence,
+                                         maxiter,
+                                         log=log):
+            self.density = ctx.density
+            self.potential = ctx.potential
+            yield ctx
+
+    def converge(self,
+                 log,
+                 convergence=None,
+                 maxiter=None,
+                 steps=99999999999999999):
+        for step, _ in enumerate(self.iconverge(log, convergence, maxiter),
+                                 start=1):
+            if step == steps:
+                break
 
     def energies(self, log):
         energies1 = self.potential.energies.copy()
@@ -123,8 +131,8 @@ class DFTCalculation:
         # Force from projector functions (and basis set):
         F_av = self.ibzwfs.forces(self.potential.dH_asii)
 
-        pot_calc = self.potential_calculator
-        Fcc_aLv, Fnct_av, Fvbar_av = pot_calc.forces(self.builder.nct)
+        pot_calc = self.pot_calc
+        Fcc_aLv, Fnct_av, Fvbar_av = pot_calc.forces()
 
         # Force from compensation charges:
         ccc_aL = self.density.calculate_compensation_charge_coefficients()
