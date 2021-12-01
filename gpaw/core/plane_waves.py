@@ -69,11 +69,12 @@ class PlaneWaves(Domain):
 
     def new(self,
             ecut: float = None,
+            kpt=None,
             comm: MPIComm | str = 'inherit') -> PlaneWaves:
         comm = self.comm if comm == 'inherit' else comm
         return PlaneWaves(ecut=ecut or self.ecut,
                           cell=self.cell_cv,
-                          kpt=self.kpt_c,
+                          kpt=self.kpt_c if kpt is None else kpt,
                           dtype=self.dtype,
                           comm=comm or serial_comm)
 

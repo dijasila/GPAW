@@ -82,7 +82,7 @@ class ASECalculator(OldStuff):
 
     def move_atoms(self, atoms):
         with self.timer('move'):
-            self.calculation.move_atoms(atoms, self.log)
+            self.calculation = self.calculation.move_atoms(atoms, self.log)
 
     def converge(self, atoms):
         with self.timer('SCF'):

@@ -25,10 +25,13 @@ class OldStuff:
         """
         self.log(f'Writing to {filename} (mode={mode!r})\n')
 
-        write_gpw(filename, self.calculation, skip_wfs=mode != 'all')
+        write_gpw(filename, self.atoms, self.params,
+                  self.calculation, skip_wfs=mode != 'all')
 
 
 def write_gpw(filename: str,
+              atoms,
+              params,
               calculation: DFTCalculation,
               skip_wfs: bool = True) -> None:
 
@@ -45,9 +48,9 @@ def write_gpw(filename: str,
                      ha=Ha,
                      bohr=Bohr)
 
-        write_atoms(writer.child('atoms'), cfg.atoms)
+        write_atoms(writer.child('atoms'), atoms)
         writer.child('results').write(**calculation.results)
-        writer.child('parameters').write(**cfg.params.params)
+        writer.child('parameters').write(**params.params)
 
         density = calculation.density
         dms = density.density_matrices.collect()

@@ -86,6 +86,7 @@ class DFTCalculation:
                     self.density.nt_sR.desc,
                     magmom_av,
                     log)
+        return self
 
     def iconverge(self, log, convergence=None, maxiter=None):
         log(self.scf_loop)
