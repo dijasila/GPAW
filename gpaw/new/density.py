@@ -81,11 +81,10 @@ class Density:
             out.data[I1:I2] = ds @ P_ain.data[I1:I2]
         return out
 
-    def move(self, fracpos_ac):
+    def move(self, fracpos_ac, nct_aR):
         self.nt_sR.data[:self.ndensities] -= self.nct_R.data
-        self.nct_acf.move(fracpos_ac)
-        self.nct_acf.to_uniform_grid(out=self.nct_R,
-                                     scale=1.0 / self.ndensities)
+        nct_aR.to_uniform_grid(out=self.nct_R,
+                               scale=1.0 / self.ndensities)
         self.nt_sR.data[:self.ndensities] += self.nct_R.data
 
     @classmethod

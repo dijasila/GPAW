@@ -75,11 +75,10 @@ class DFTCalculation:
     def move_atoms(self, atoms, log) -> DFTCalculation:
         self.fracpos_ac = atoms.get_scaled_positions()
 
-        self.ibzwfs.move(self.fracpos_ac)
-        self.density.move(self.fracpos_ac)
-        self.potential.energies.clear()
         self.pot_calc.move(self.fracpos_ac)
-        self.scf_loop.reset()
+        self.ibzwfs.move(self.fracpos_ac)
+        self.density.move(self.fracpos_ac, self.pot_calc.nct_aR)
+        self.potential.energies.clear()
 
         _, magmom_av = self.density.calculate_magnetic_moments()
 

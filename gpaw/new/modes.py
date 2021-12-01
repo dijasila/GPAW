@@ -9,8 +9,8 @@ from gpaw.fd_operators import Laplace
 from gpaw.mpi import MPIComm, serial_comm
 from gpaw.new.poisson import (PoissonSolver, PoissonSolverWrapper,
                               ReciprocalSpacePoissonSolver)
-from gpaw.new.potential import (PlaneWavePotentialCalculator,
-                                UniformGridPotentialCalculator)
+from gpaw.new.pot_calc import (PlaneWavePotentialCalculator,
+                               UniformGridPotentialCalculator)
 from gpaw.poisson import PoissonSolver as make_poisson_solver
 from gpaw.utilities.gpts import get_number_of_grid_points
 import _gpaw
