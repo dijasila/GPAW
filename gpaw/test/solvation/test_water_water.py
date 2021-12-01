@@ -60,18 +60,17 @@ def test_read(H2O, in_tmp_dir):
     """Read and check some basic properties"""
     fname = 'solvation.gpw'
     H2O.calc.write(fname)
-    atoms, calc = restart(fname, Class=SolvationGPAW)
+    atoms, calc = restart(fname, Class=SolvationGPAW, txt='-')
 
     for method in ['get_potential_energy',
                    'get_eigenvalues', 'get_occupation_numbers']:
         assert getattr(calc, method)() == pytest.approx(
             getattr(H2O.calc, method)())
 
-
-@pytest.mark.xfail(raises=NotImplementedError)
-def test_restart(H2O, in_tmp_dir):
-    fname = 'solvation.gpw'
-    H2O.calc.write(fname)
-    calc = SolvationGPAW.read(fname)
-    calc.calculate(H2O)
+    calc.calculate(atoms)
+    
+    for method in ['get_potential_energy',
+                   'get_eigenvalues', 'get_occupation_numbers']:
+        assert getattr(calc, method)() == pytest.approx(
+            getattr(H2O.calc, method)())
     
