@@ -23,7 +23,7 @@ from gpaw.symmetry import Symmetry as OldSymmetry
 from gpaw.xc import XC
 
 
-class DFTComponentBuilder:
+class DFTComponentsBuilder:
     def __init__(self,
                  atoms: Atoms,
                  params: dict[str, Any] | InputParameters):
@@ -112,23 +112,37 @@ class DFTComponentBuilder:
     def fracpos_ac(self):
         return self.atoms.get_scaled_positions()
 
-    @cached_property
-    def potential_calculator(self):
+    def create_potential_calculator(self):
         return self.mode.create_potential_calculator(
             self.wf_desc,
             self.fine_grid,
-            self.nct,
             self.setups,
             self.fracpos_ac,
             self.xc,
-            self.params.poissonsolver)
+            self.params.poissonsolver,
+            self.nct)
 
     def __repr__(self):
         return f'DFTComponentsBuilder({self.atoms}, {self.params})'
 
     def lcao_ibz_wave_functions(self, basis_set, potential):
         from gpaw.new.lcao import create_lcao_ibz_wave_functions
-        return create_lcao_ibz_wave_functions(self, basis_set, potential)
+        sl_default = self.params.parallel['sl_default']
+        sl_lcao = self.params.parallel['sl_lcao'] or sl_default
+        return create_lcao_ibz_wave_functions(
+            self.setups,
+            self.communicators,
+            self.nbands,
+            self.ncomponents,
+            self.nelectrons,
+            self.fracpos_ac,
+            self.dtype,
+            self.grid,
+            self.wf_desc,
+            self.ibz,
+            sl_lcao,
+            basis_set,
+            potential)
 
     def random_ibz_wave_functions(self):
         return IBZWaveFunctions.from_random_numbers(
@@ -157,7 +171,7 @@ class DFTComponentBuilder:
                                           self.params.charge,
                                           self.params.hund)
 
-    def scf_loop(self):
+    def create_scf_loop(self, pot_calc):
         hamiltonian = self.mode.create_hamiltonian_operator(self.wf_desc)
         eigensolver = Davidson(self.nbands,
                                self.wf_desc,
@@ -179,7 +193,7 @@ class DFTComponentBuilder:
             self.initial_magmoms,
             self.grid.icell)
 
-        return SCFLoop(hamiltonian, self.potential_calculator, occ_calc,
+        return SCFLoop(hamiltonian, pot_calc, occ_calc,
                        eigensolver, mixer, self.communicators['w'])
 
 

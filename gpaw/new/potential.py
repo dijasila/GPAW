@@ -37,6 +37,7 @@ class PotentialCalculator:
         self.poisson_solver = poisson_solver
         self.xc = xc
         self.setups = setups
+        self.ready_for_forces = False
 
     def __str__(self):
         return f'\n{self.poisson_solver}\n{self.xc}'
@@ -60,11 +61,13 @@ class UniformGridPotentialCalculator(PotentialCalculator):
                  setups,
                  fracpos_ac,
                  xc,
-                 poisson_solver):
+                 poisson_solver,
+                 nct_aR):
         self.vHt_r = fine_grid.zeros()  # initial guess for Coulomb potential
         self.nt_r = fine_grid.empty()
         self.vt_R = wf_grid.empty()
 
+        self.nct_aR = nct_aR
         self.vbar_ar = setups.create_local_potentials(fine_grid, fracpos_ac)
         self.ghat_ar = setups.create_compensation_charges(fine_grid,
                                                           fracpos_ac)
@@ -109,15 +112,18 @@ class UniformGridPotentialCalculator(PotentialCalculator):
 
         e_external = 0.0
 
+        self.ready_for_forces = True
+
         return {'kinetic': e_kinetic,
                 'coulomb': e_coulomb,
                 'zero': e_zero,
                 'xc': e_xc,
                 'external': e_external}, vt_sR
 
-    def forces(self, nct_aG):
+    def forces(self):
+        assert self.ready_for_forces
         return (self.ghat_ar.derivative(self.vHt_r),
-                nct_aG.derivative(self.vt_R),
+                self.nct_aR.derivative(self.vt_R),
                 self.vbar_ar.derivative(self.nt_r))
 
 

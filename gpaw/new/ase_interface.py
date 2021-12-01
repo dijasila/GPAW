@@ -78,11 +78,9 @@ class ASECalculator(OldStuff):
         with self.timer('init'):
             calculation = DFTCalculation.from_parameters(atoms, self.params,
                                                          self.log)
-        write_atoms(calculation.cfg, self.log)
         return calculation
 
     def move_atoms(self, atoms):
-        write_atoms(atoms, self.log)
         with self.timer('move'):
             self.calculation = self.calculation.move_atoms(atoms, self.log)
 
@@ -112,15 +110,6 @@ def write_header(log, world, kwargs):
     header(log, world)
     log('Input parameters = {\n    ', end='')
     log(',\n    '.join(f'{k!r}: {v!r}' for k, v in kwargs.items()) + '}')
-
-
-def write_atoms(cfg, log):
-    from gpaw.output import print_cell, print_positions
-    magmoms = cfg.initial_magmoms
-    if magmoms is None:
-        magmoms = np.zeros((len(cfg.atoms), 3))
-    print_positions(cfg.atoms, log, magmoms)
-    print_cell(cfg.grid._gd, cfg.atoms.pbc, log)
 
 
 def compare_atoms(a1, a2):

@@ -128,12 +128,15 @@ class FDMode(Mode):
 
     def create_potential_calculator(self, wf_desc, fine_grid,
                                     setups,
-                                    fracpos_ac, xc, poisson_solver_params):
+                                    fracpos_ac,
+                                    xc,
+                                    poisson_solver_params,
+                                    nct_ax):
         poisson_solver = self.create_poisson_solver(fine_grid,
                                                     poisson_solver_params)
         return UniformGridPotentialCalculator(wf_desc, fine_grid,
                                               setups, fracpos_ac,
-                                              xc, poisson_solver)
+                                              xc, poisson_solver, nct_ax)
 
     def create_hamiltonian_operator(self, grid, blocksize=10):
         return FDHamiltonian(grid, self.stencil, blocksize)

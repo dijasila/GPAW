@@ -5,7 +5,6 @@ from ase.io.trajectory import read_atoms, write_atoms
 from ase.units import Bohr, Ha
 from gpaw.new.calculation import DFTCalculation
 from gpaw.new.density import Density
-from gpaw.new.configuration import DFTConfiguration
 from gpaw.utilities import pack
 
 
@@ -32,8 +31,8 @@ class OldStuff:
 def write_gpw(filename: str,
               calculation: DFTCalculation,
               skip_wfs: bool = True) -> None:
-    cfg = calculation.cfg
-    world = cfg.communicators['w']
+
+    world = calculation.communicators['w']
 
     if world.rank == 0:
         writer = ulm.Writer(filename, tag='gpaw')

@@ -20,13 +20,15 @@ class SCFLoop:
                  occ_calc,
                  eigensolver,
                  mixer,
-                 world):
+                 world,
+                 convergence):
         self.hamiltonian = hamiltonian
         self.pot_calc = pot_calc
         self.eigensolver = eigensolver
         self.mixer = mixer
         self.occ_calc = occ_calc
         self.world = world
+        self.convergence = convergence
 
     def __str__(self):
         return str(self.pot_calc)
@@ -61,14 +63,14 @@ class SCFLoop:
 
             niter += 1
 
-    def converge(self,
-                 ibzwfs,
-                 density,
-                 potential,
-                 convergence=None,
-                 maxiter=99,
-                 log=None):
-        cc = create_convergence_criteria(convergence)
+    def iconverge(self,
+                  ibzwfs,
+                  density,
+                  potential,
+                  convergence=None,
+                  maxiter=99,
+                  log=None):
+        cc = create_convergence_criteria(convergence or self.convergence)
         for ctx in self.iterate(ibzwfs, density, potential):
             entries, converged = check_convergence(ctx, cc)
             if log:
@@ -77,8 +79,7 @@ class SCFLoop:
                 break
             if ctx.niter == maxiter:
                 raise SCFConvergenceError
-
-        return ctx.density, ctx.potential
+            yield ctx
 
 
 class SCFContext:
