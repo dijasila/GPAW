@@ -24,21 +24,27 @@ in both finite and periodic systems, i.e. expressed in a basis of molecular
 orbitals or Bloch states.
 """
 import numpy as np
+from typing import Optional
 
 from ase import Atoms
 from ase.phonons import Phonons
 import ase.units as units
 from ase.utils.filecache import MultiFileJSONCache
+from ase.utils.timing import timer, Timer
 
 from gpaw import GPAW
 from gpaw.mpi import world
 from gpaw.typing import ArrayND
 
+from .supercell import Supercell
+
+OPTIMIZE = 'optimal'
+
 
 class ElectronPhononMatrix:
     """Class for containing the electron-phonon matrix"""
     def __init__(self, atoms: Atoms, supercell_cache: str,
-                 phonon) -> None:
+                 phonon, load_sc_as_needed: bool = True) -> None:
         """Initialize with base class args and kwargs.
 
         Parameters
@@ -51,10 +57,25 @@ class ElectronPhononMatrix:
             Can be either name of phonon cache generated with
             electron-phonon DisplacementRunner or dictonary
             of arguments used in Phonon run or Phonon object.
+        load_sc_as_needed: bool
+            Load supercell matrix elements only as needed.
+            Greatly reduces memory requirement for large systems,
+            but introduces huge filesystem overhead
         """
+        self.timer = Timer()
+
         self.atoms = atoms
         self.supercell_cache = MultiFileJSONCache(supercell_cache)
+        self.R_cN = self._get_lattice_vectors()
 
+        if load_sc_as_needed:
+            self._yield_g_NNMM = self._yield_g_NNMM_as_needed
+            self.g_xNNMM = None
+        else:
+            self.g_xsNNMM, _ = Supercell.load_supercell_matrix(supercell_cache)
+            self._yield_g_NNMM = self._yield_g_NNMM_from_var
+
+        self.timer.start("Read phonons")
         if isinstance(phonon, Phonons):
             self.phonon = phonon
         elif isinstance(phonon, str):
@@ -77,25 +98,59 @@ class ElectronPhononMatrix:
 
         if self.phonon.D_N is None:
             self.phonon.read(symmetrize=10)
+        self.timer.stop("Read phonons")
 
-    def _bloch_matrix(self, C1_nM, C2_nM, s, k_c, q_c,
-                      prefactor: bool) -> ArrayND:
+    def _yield_g_NNMM_as_needed(self, x, s):
+        return self.supercell_cache[str(x)][s]
+
+    def _yield_g_NNMM_from_var(self, x, s):
+        return self.g_xsNNMM[x, s]
+
+    def _get_lattice_vectors(self):
+        """Recover lattice vectors of elph calculation"""
+        supercell = self.supercell_cache['info']['supercell']
+        ph = Phonons(self.atoms, supercell=supercell, center_refcell=True)
+        return ph.compute_lattice_vectors()
+
+    @classmethod
+    def _gather_all_wfc(cls, wfs, s):
+        """Return complete wave function on rank 0"""
+        c_knM = np.zeros((wfs.kd.nbzkpts, wfs.bd.nbands, wfs.setups.nao),
+                         dtype=complex)
+        for k in range(wfs.kd.nbzkpts):
+            for n in range(wfs.bd.nbands):
+                c_knM[k, n] = wfs.get_wave_function_array(n, k, s, False)
+        return c_knM
+
+    @timer('Bloch matrix q k')
+    def _bloch_matrix(self, var1: ArrayND, C2_nM: ArrayND,
+                      k_c: ArrayND, q_c: ArrayND,
+                      prefactor: bool, s: Optional[int] = None) -> ArrayND:
         """Calculates elph matrix entry for a given k and q.
+
+        The first argument must either be
+        C1_nM, the ket wavefunction at k_c
+        OR
+        or a preprocessed g_xNMn, where the ket side was taken care of.
         """
+        if var1.ndim == 2:
+            C1_nM = var1
+            precalc = False
+            assert s is not None
+        elif var1.ndim == 4:
+            g_xNMn = var1
+            precalc = True
+        else:
+            raise ValueError('var1 must be C1_nM or g_xNMn')
         omega_ql, u_ql = self.phonon.band_structure([q_c], modes=True)
         u_l = u_ql[0]
         assert len(u_l.shape) == 3
 
         # Defining system sizes
         nmodes = u_l.shape[0]
-        nbands = C1_nM.shape[0]
-        nao = C1_nM.shape[1]
+        nbands = C2_nM.shape[0]
+        nao = C2_nM.shape[1]
         ndisp = 3 * len(self.atoms)
-
-        # Lattice vectors
-        R_cN = self.phonon.compute_lattice_vectors()
-        # Number of unit cell in supercell
-        N = np.prod(self.phonon.supercell)
 
         # Allocate array for couplings
         g_lnn = np.zeros((nmodes, nbands, nbands), dtype=complex)
@@ -104,20 +159,33 @@ class ElectronPhononMatrix:
         u_lx = u_l.reshape(nmodes, ndisp)
 
         # Multiply phase factors
+        phase_m = np.exp(2.j * np.pi * np.einsum('i,im->m', k_c + q_c,
+                                                 self.R_cN))
+        if not precalc:
+            phase_n = np.exp(-2.j * np.pi * np.einsum('i,in->n', k_c,
+                                                      self.R_cN))
         for x in range(ndisp):
-            # Allocate array
-            g_MM = np.zeros((nao, nao), dtype=complex)
-            g_sNNMM = self.supercell_cache[str(x)]
-            assert nao == g_sNNMM.shape[-1]
-            for m in range(N):
-                for n in range(N):
-                    # m is bra, n is ket, so to say
-                    phase = self._get_phase_factor(R_cN, m, n, k_c, q_c)
-                    # Sum contributions from different cells
-                    g_MM += g_sNNMM[s, m, n, :, :] * phase
-
-            g_nn = np.dot(C2_nM.conj(), np.dot(g_MM, C1_nM.T))
-            g_lnn += np.einsum('i,kl->ikl', u_lx[:, x], g_nn)
+            if not precalc:
+                g_NNMM = self._yield_g_NNMM(x, s)
+                assert nao == g_NNMM.shape[-1]
+                # some of these things take a long time. make it fast
+                with self.timer("g_MM"):
+                    g_MM = np.einsum('mnop,m,n->op', g_NNMM, phase_m, phase_n,
+                                     optimize=OPTIMIZE)
+                    assert g_MM.shape[0] == g_MM.shape[1]
+                with self.timer("g_nn"):
+                    g_nn = np.dot(C2_nM.conj(), np.dot(g_MM, C1_nM.T))
+                    # g_nn = np.einsum('no,op,mp->nm', C2_nM.conj(),
+                    #                   g_MM, C1_nM)
+            else:
+                with self.timer("g_Mn"):
+                    g_Mn = np.einsum('mon,m->on', g_xNMn[x], phase_m)
+                with self.timer("g_nn"):
+                    g_nn = np.dot(C2_nM.conj(), g_Mn)
+            with self.timer('g_lnn'):
+                # g_lnn += np.einsum('i,kl->ikl', u_lx[:, x], g_nn,
+                #                   optimize=OPTIMIZE)
+                g_lnn += np.multiply.outer(u_lx[:, x], g_nn)
 
         if prefactor:
             # Multiply prefactor sqrt(hbar / 2 * M * omega) in units of Bohr
@@ -129,6 +197,21 @@ class ElectronPhononMatrix:
             return g_lnn * units.Hartree  # eV
         else:
             return g_lnn * units.Hartree / units.Bohr  # eV / Ang
+
+    @timer('g ket part')
+    def _precalculate_ket(self, c_knM, kd, s: int):
+        g_xNkMn = []
+        phase_kn = np.exp(-2.j * np.pi * np.einsum('ki,in->kn', kd.bzk_kc,
+                                                   self.R_cN))
+        for x in range(3 * len(self.atoms)):
+            g_NNMM = self._yield_g_NNMM_as_needed(x, s)
+            g_NkMM = np.einsum('mnop,kn->mkop', g_NNMM, phase_kn,
+                               optimize=OPTIMIZE)
+            g_NkMn = np.einsum('mkop,knp->mkon', g_NkMM, c_knM,
+                               optimize=OPTIMIZE)
+
+            g_xNkMn.append(g_NkMn)
+        return np.array(g_xNkMn)
 
     def bloch_matrix(self, calc: GPAW, k_qc: ArrayND = None,
                      savetofile: bool = True,
@@ -166,7 +249,6 @@ class ElectronPhononMatrix:
         kd = calc.wfs.kd
         assert kd.nbzkpts == kd.nibzkpts, 'Elph matrix requires FULL BZ'
         wfs = calc.wfs
-        gwa = wfs.get_wave_function_array  # only rank 0 gets stuff, IBZ
         if k_qc is None:
             k_qc = kd.get_bz_q_points(first=True)
         elif not isinstance(k_qc, np.ndarray):
@@ -179,43 +261,44 @@ class ElectronPhononMatrix:
                             dtype=complex)
 
         for s in range(wfs.nspins):
+            # Collect all wfcs on rank 0
+            with self.timer("Gather wavefunctions to root"):
+                c_knM = self._gather_all_wfc(wfs, s)
+
+            # precalculate k (ket) of g
+            g_xNkMn = self._precalculate_ket(c_knM, kd, s)
+
             for q, q_c in enumerate(k_qc):
+                if q == 20:
+                    exit()
                 # Find indices of k+q for the k-points
                 kplusq_k = kd.find_k_plus_q(q_c)  # works on FBZ
                 # Note: calculations require use of FULL BZ,
                 # so NO symmetry
+                print('Spin {}/{}; q-point {}/{}'.format(s + 1, wfs.nspins,
+                                                         q + 1, len(k_qc)))
+
                 for k in range(kd.nbzkpts):
                     k_c = kd.bzk_kc[k]
                     kplusq_c = k_c + q_c
                     kplusq_c -= kplusq_c.round()
                     # print(kplusq_c, kd.bzk_kc[kplusq_k[k]])
                     assert np.allclose(kplusq_c, kd.bzk_kc[kplusq_k[k]])
-                    ck_nM = np.zeros((wfs.bd.nbands, wfs.setups.nao),
-                                     dtype=complex)
-                    ckplusq_nM = np.zeros((wfs.bd.nbands, wfs.setups.nao),
-                                          dtype=complex)
-                    for n in range(wfs.bd.nbands):
-                        ck_nM[n] = gwa(n, k, s, False)
-                        ckplusq_nM[n] = gwa(n, kplusq_k[k], s, False)
-                    g_lnn = self._bloch_matrix(ck_nM, ckplusq_nM, s, k_c, q_c,
-                                               prefactor)
+                    ckplusq_nM = c_knM[kplusq_k[k]]
+                    g_lnn = self._bloch_matrix(g_xNkMn[:, :, k], ckplusq_nM,
+                                               k_c, q_c, prefactor)
                     if np.allclose(q_c, [0., 0., 0.]) and accoustic:
                         g_lnn[0:3] = 0.
                     g_sqklnn[s, q, k] += g_lnn
 
         if world.rank == 0 and savetofile:
             np.save("gsqklnn.npy", g_sqklnn)
+
         return g_sqklnn
 
-    @classmethod
-    def _get_phase_factor(cls, R_cN, m, n, k_c, q_c) -> float:
-        """Phase factor for gmatrix elements.
-        """
-        Rm_c = R_cN[:, m]
-        Rn_c = R_cN[:, n]
-        phase = np.exp(2.j * np.pi * (np.dot(k_c + q_c, Rm_c) -
-                                      np.dot(k_c, Rn_c)))
-        return phase
+    def __del__(self):
+        if world.rank == 0:
+            self.timer.write()
 
 #   def lcao_matrix(self, u_l, omega_l):
 #         """Calculate the el-ph coupling in the electronic LCAO basis.
