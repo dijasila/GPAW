@@ -1,5 +1,5 @@
-from gpaw.solvation.gridmem import NeedsGD
 import numpy as np
+from gpaw.solvation.gridmem import NeedsGD
 
 
 class Dielectric(NeedsGD):
@@ -27,9 +27,6 @@ class Dielectric(NeedsGD):
         self.eps_gradeps = None  # eps_g, dxeps_g, dyeps_g, dzeps_g
         self.del_eps_del_g_g = None
         self.cavity = None
-
-    def write(self, writer):
-        writer.write(epsinf=self.epsinf)
 
     def estimate_memory(self, mem):
         nbytes = self.gd.bytecount()
@@ -76,6 +73,9 @@ class Dielectric(NeedsGD):
         s = 'Dielectric: %s\n' % (self.__class__, )
         s += '  epsilon_inf: %s\n' % (self._epsinf, )
         return s
+
+    def write(self, writer):
+        writer.write(name=self.__class__.__name__, epsinf=self._epsinf)
 
 
 class LinearDielectric(Dielectric):
