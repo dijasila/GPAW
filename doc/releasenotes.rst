@@ -12,6 +12,22 @@ Git master branch
 
 * Corresponding ASE release: ASE-3.23.0b1
 
+* :ref:`polarizability` tutorial.
+
+* Variational calculations of molecules and periodic systems in LCAO mode can
+  now be done using the :ref:`exponential transformation direct minimization
+  (ETDM) <directmin>`::
+
+      from gpaw import GPAW
+      calc = GPAW(eigensolver='etdm',
+                  occupations={'name': 'fixed-uniform'},
+                  mixer={'backend': 'no-mixing'},
+                  nbands='nao',
+                  ...)
+
+  The use of ETDM is particularly recommended in
+  excited-state calculations using MOM (see :ref:`mom`).
+
 * Constant magnetic field calculations can now be done:
   See :class:`gpaw.bfield.BField` and this example:
   :git:`gpaw/test/ext_potential/test_b_field.py`.
@@ -44,6 +60,17 @@ Git master branch
 * The hyperfine tensor CLI-tool no longer divides by total magnetic moment:
   :ref:`hyperfine`.
 
+* The solvated jellium method (:class:`~gpaw.solvation.sjm.SJM`)---for
+  constant-potential calculations in simulating
+  electrochemical/electrified interfaces---has been thoroughly
+  updated, and more thorough :ref:`documentation<sjm>` and
+  :ref:`tutorials<solvated_jellium_method>` are now available. Al keywords
+  now enter the :class:`~gpaw.solvation.sjm.SJM` calculator through the
+  :literal:`sj` dictionary.
+
+* Radiative emission (lifetimes, ...) are obtainable from
+  real-time LCAO-TDDFT via the radiation-reaction potential.
+  See the tutorial: :ref:`radiation_reaction_rttddft`.
 
 Version 21.6.0
 ===============
@@ -76,10 +103,10 @@ Jun 24, 2021: :git:`21.6.0 <../21.6.0>`
   Kohn–Sham states.  Previously, the printed occupation numbers were
   scaled by **k**-point weight.
 
-* Calculations of excited states can now be performed with the :ref:`mom`
-  (MOM). Since calculations using MOM are variational, they provide atomic
-  forces and can be used for excited-state geometry optimization and molecular
-  dynamics.
+* Calculations of excited states can now be performed with the :ref:`Maximum
+  Overlap Method (MOM) <mom>`. Since calculations using MOM are variational,
+  they provide atomic forces and can be used for excited-state geometry
+  optimization and molecular dynamics.
 
 * The Davidson eigensolver now uses ScaLAPACK for the
   `(2 N_{\text{bands}}) \times (2 N_{\text{bands}})` diagonalization step
