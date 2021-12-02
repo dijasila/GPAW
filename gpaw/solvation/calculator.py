@@ -1,6 +1,8 @@
-from gpaw import GPAW
-from gpaw.solvation.hamiltonian import SolvationRealSpaceHamiltonian
 from ase.units import Hartree, Bohr
+
+from gpaw import GPAW
+from gpaw.io import Reader
+from gpaw.solvation.hamiltonian import SolvationRealSpaceHamiltonian
 
 
 class SolvationGPAW(GPAW):
@@ -31,8 +33,7 @@ class SolvationGPAW(GPAW):
         GPAW.__init__(self, restart, **gpaw_kwargs)
 
     def read(self, filename):
-
-        from gpaw.io import Reader
+        """Read yourself from a file"""
         self.reader = reader = Reader(filename)
         if 'implicit_solvent' in reader:
             impl_in = reader.implicit_solvent
@@ -53,7 +54,7 @@ class SolvationGPAW(GPAW):
                 elif efpot.name == 'Power12Potential':
                     from gpaw.solvation.sjm import Power12Potential
                     effective_potential = Power12Potential(
-                        atomic_radii=efpot.atomic_radii,
+                        atomic_radii=atomic_radii,
                         u0=efpot.u0)
                 else:
                     raise IOError('Reading the given effective potential'
@@ -162,7 +163,3 @@ class SolvationGPAW(GPAW):
         """
         A = self.hamiltonian.cavity.A
         return A and A * Bohr ** 2
-
-    # def write(self, *args, **kwargs):
-    #    raise NotImplementedError(
-    #        'IO is not implemented yet for SolvationGPAW!')

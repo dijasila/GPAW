@@ -467,6 +467,14 @@ class Power12Potential(Potential):
     def update_atoms(self, atoms, log):
         set_log_and_check_radii(self, atoms, log)
 
+    def write(self, writer):
+        writer.write(
+            name=self.__class__.__name__,
+            atomic_radii=self.atomic_radii_output,
+            u0=self.u0,
+            pbc_cutoff=self.pbc_cutoff,
+            tiny=self.tiny)
+
 
 class SmoothStepCavity(Cavity):
     """Base class for cavities based on a smooth step function and a density.
