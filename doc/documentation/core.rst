@@ -101,14 +101,14 @@ the following attributes:
 
   * - ``density``
     - :class:`gpaw.new.density.Density`
-  * - ``cfg``
-    - :class:`gpaw.new.configuration.DFTConfiguration`
   * - ``ibzwfs``
     - :class:`gpaw.new.wave_functions.IBZWaveFunctions`
   * - ``potential``
     - :class:`gpaw.new.potential.Potential`
-  * - ``scf``
+  * - ``scf_loop``
     - :class:`gpaw.new.scf.SCFLoop`
+  * - ``pot_calc``
+    - :class:`gpaw.new.pot_calc.PotentialCalculator`
 
 
 .. list-table::
@@ -172,13 +172,16 @@ DFT
 .. autoclass:: gpaw.new.density.Density
     :members:
     :undoc-members:
-.. autoclass:: gpaw.new.configuration.DFTConfiguration
+.. autoclass:: gpaw.new.builder.DFTComponentsBuilder
     :members:
     :undoc-members:
 .. autoclass:: gpaw.new.wave_functions.IBZWaveFunctions
     :members:
     :undoc-members:
 .. autoclass:: gpaw.new.potential.Potential
+    :members:
+    :undoc-members:
+.. autoclass:: gpaw.new.pot_calc.PotentialCalculator
     :members:
     :undoc-members:
 .. autoclass:: gpaw.new.scf.SCFLoop
