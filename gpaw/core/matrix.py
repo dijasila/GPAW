@@ -85,9 +85,6 @@ class Matrix:
         else:
             self.data = data.reshape(dist.shape)
 
-    def __len__(self):
-        return self.shape[0]
-
     def __repr__(self):
         dist = str(self.dist).split('(')[1]
         return 'Matrix({}: {}'.format(self.dtype.name, dist)
@@ -297,7 +294,12 @@ def _matrix(M):
     return _matrix(M.matrix)
 
 
-class NoDistribution:
+class MatrixDistribution:
+    def matrix(self, dtype=None, data=None):
+        return Matrix(*self.full_shape, dtype=dtype, data=data, dist=self)
+
+
+class NoDistribution(MatrixDistribution):
     comm = serial_comm
     rows = 1
     columns = 1
@@ -305,6 +307,7 @@ class NoDistribution:
 
     def __init__(self, M, N):
         self.shape = (M, N)
+        self.full_shape = (M, N)
 
     def __str__(self):
         return 'NoDistribution({}x{})'.format(*self.shape)
@@ -331,7 +334,7 @@ class NoDistribution:
             blas.mmm(alpha, a.data, opa, b.data, opb, beta, c.data)
 
 
-class BLACSDistribution:
+class BLACSDistribution(MatrixDistribution):
     serial = False
 
     def __init__(self, M, N, comm, r, c, b):
@@ -339,6 +342,7 @@ class BLACSDistribution:
         self.rows = r
         self.columns = c
         self.blocksize = b
+        self.full_shape = (M, N)
 
         key = (comm, r, c)
         context = _global_blacs_context_store.get(key)
