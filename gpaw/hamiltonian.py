@@ -417,27 +417,6 @@ class Hamiltonian:
         F_av += F_coarsegrid_av
 
     def apply_local_potential(self, psit_nG, Htpsit_nG, s):
-        """Apply the Hamiltonian operator to a set of vectors.
-
-        XXX Parameter description is deprecated!
-
-        Parameters:
-
-        a_nG: ndarray
-            Set of vectors to which the overlap operator is applied.
-        b_nG: ndarray, output
-            Resulting H times a_nG vectors.
-        kpt: KPoint object
-            k-point object defined in kpoint.py.
-        calculate_projections: bool
-            When True, the integrals of projector times vectors
-            P_ni = <p_i | a_nG> are calculated.
-            When False, existing P_uni are used
-        local_part_only: bool
-            When True, the non-local atomic parts of the Hamiltonian
-            are not applied and calculate_projections is ignored.
-
-        """
         vt_G = self.vt_sG[s]
         if psit_nG.ndim == 3:
             Htpsit_nG += psit_nG * vt_G
