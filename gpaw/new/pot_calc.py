@@ -1,11 +1,15 @@
+from __future__ import annotations
+
 from collections import defaultdict
+
 import numpy as np
-from gpaw.utilities import pack, unpack
-from gpaw.typing import Array1D, Array3D
-from gpaw.setup import Setup
-from gpaw.new.xc import XCFunctional
-from gpaw.core import UniformGrid, PlaneWaves
+
+from gpaw.core import PlaneWaves, UniformGrid
 from gpaw.new.potential import Potential
+from gpaw.new.xc import XCFunctional
+from gpaw.setup import Setup
+from gpaw.typing import Array1D, Array3D
+from gpaw.utilities import pack, unpack
 
 
 class PotentialCalculator:

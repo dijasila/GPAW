@@ -15,6 +15,9 @@ def normalize_cell(cell: ArrayLike) -> Array2D:
     """...
 
     >>> normalize_cell([1, 2, 3])
+    array([[1., 0., 0.],
+           [0., 2., 0.],
+           [0., 0., 3.]])
     """
     cell = np.array(cell, float)
     if cell.ndim == 2:

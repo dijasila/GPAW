@@ -317,14 +317,27 @@ def find_reciprocal_vectors(ecut: float,
                             kpt=np.zeros(3),
                             dtype=complex) -> tuple[Array2D,
                                                     Array1D,
-                                                    Array1D]:
+                                                    Array2D]:
     """Find reciprocal lattice vectors inside sphere.
 
     >>> cell = np.eye(3)
     >>> ecut = 0.5 * (2 * pi)**2
     >>> G, e, i = find_reciprocal_vectors(ecut, cell)
+    >>> G
+    array([[ 0.        ,  0.        ,  0.        ],
+           [ 0.        ,  0.        ,  6.28318531],
+           [ 0.        ,  0.        , -6.28318531],
+           [ 0.        ,  6.28318531,  0.        ],
+           [ 0.        , -6.28318531,  0.        ],
+           [ 6.28318531,  0.        ,  0.        ],
+           [-6.28318531,  0.        ,  0.        ]])
+    >>> e
+    array([ 0.       , 19.7392088, 19.7392088, 19.7392088, 19.7392088,
+           19.7392088, 19.7392088])
     >>> i
-
+    array([[ 0,  0,  0,  0,  0,  1, -1],
+           [ 0,  0,  0,  1, -1,  0,  0],
+           [ 0,  1, -1,  0,  0,  0,  0]])
     """
     Gcut = (2 * ecut)**0.5
     n = Gcut * (cell**2).sum(axis=1)**0.5 / (2 * pi) + abs(kpt)
