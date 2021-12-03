@@ -57,7 +57,7 @@ echo $CMD
 # Install GPAW:
 git clone $GPAW_REPO
 cd gpaw
-cp $FOLDER/siteconfig.py_juwel siteconfig.py
+cp ./doc/platforms/Linux/Juwels/siteconfig_juwels.py siteconfig.py
 cd $VENV
 . bin/activate
 pip install -e gpaw -v > compilation.out
