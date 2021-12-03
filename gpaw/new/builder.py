@@ -30,7 +30,7 @@ class DFTComponentsBuilder:
 
         self.atoms = atoms.copy()
 
-        number_of_lattice_vectors = atoms.cell.any(axis=1).sum()
+        number_of_lattice_vectors = atoms.cell.rank
         if number_of_lattice_vectors < 3:
             raise ValueError(
                 'GPAW requires 3 lattice vectors.  '
