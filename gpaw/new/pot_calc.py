@@ -66,7 +66,7 @@ class UniformGridPotentialCalculator(PotentialCalculator):
         self.interpolate = wf_grid.transformer(fine_grid)
         self.restrict = fine_grid.transformer(wf_grid)
 
-        PotentialCalculator.__init__(self, xc, poisson_solver, setups)
+        super().__init__(xc, poisson_solver, setups)
 
     def _calculate(self, density):
         nt_sR = density.nt_sR
@@ -132,7 +132,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         self.vbar_ax = setups.create_local_potentials(pw, fracpos_ac)
         self.ghat_acf = setups.create_compensation_charges(fine_pw, fracpos_ac)
 
-        PotentialCalculator.__init__(self, xc, poisson_solver, setups)
+        super().__init__(xc, poisson_solver, setups)
 
         self.G2_G1 = fine_pw.map_indices(pw)
         self.fftplan, self.ifftplan = grid.fft_plans()
