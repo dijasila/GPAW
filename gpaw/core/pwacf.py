@@ -22,9 +22,9 @@ class PlaneWaveAtomCenteredFunctions(AtomCenteredFunctions):
 
         self._lfc = PWLFC(self.functions, self.pw)
         atomdist = AtomDistribution(
-            ranks=np.zeros(len(self.fracpos), int),
+            ranks=np.zeros(len(self.fracpos_ac), int),
             comm=self.pw.comm)
-        self._lfc.set_positions(self.fracpos, atomdist)
+        self._lfc.set_positions(self.fracpos_ac, atomdist)
         self._layout = AtomArraysLayout([sum(2 * f.l + 1 for f in funcs)
                                          for funcs in self.functions],
                                         atomdist,
