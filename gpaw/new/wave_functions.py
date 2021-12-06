@@ -130,6 +130,23 @@ class IBZWaveFunctions:
     def write(self, writer, skip_wfs):
         writer.write(fermi_levels=self.fermi_levels)
 
+    def write_summary(self, log):
+        fl = self.fermi_levels * Ha
+        assert len(fl) == 1
+        log(f'\nFermi level: {fl[0]:.3f}')
+
+        ibz = self.ibz
+        for i, (x, y, z) in enumerate(ibz.points):
+            log(f'\nkpt = [{x:.3f}, {y:.3f}, {z:.3f}], '
+                f'weight = {ibz.weights[i]:.3f}:')
+            log('  Band    eigenvalue   occupation')
+            eigs, occs = self.get_eigs_and_occs(i)
+            eigs = eigs * Ha
+            occs = occs * self.spin_degeneracy
+            for n, (e, f) in enumerate(zip(eigs, occs)):
+                log(f'    {n:4} {e:10.3f}   {f:.3f}')
+            if i == 3:
+                break
 
 @frozen
 class WaveFunctions:

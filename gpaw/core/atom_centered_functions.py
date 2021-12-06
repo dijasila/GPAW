@@ -20,11 +20,11 @@ def to_spline(l, rcut, f):
 class AtomCenteredFunctions:
     def __init__(self,
                  functions,
-                 fracpos: ArrayLike2D):
+                 fracpos_ac: ArrayLike2D):
         self.functions = [[to_spline(*f) if isinstance(f, tuple) else f
                            for f in funcs]
                           for funcs in functions]
-        self.fracpos = np.array(fracpos)
+        self.fracpos_ac = np.array(fracpos_ac)
 
         self._layout = None
         self._lfc = None
@@ -46,9 +46,9 @@ class AtomCenteredFunctions:
               transposed=False) -> AtomArrays:
         return self.layout.empty(dims, comm, transposed=transposed)
 
-    def move(self, fracpos):
-        self.fracpos = np.array(fracpos)
-        self._lfc.set_positions(fracpos)
+    def move(self, fracpos_ac):
+        self.fracpos_ac = np.array(fracpos_ac)
+        self._lfc.set_positions(fracpos_ac)
 
     def add_to(self, functions, coefs=1.0):
         self._lacy_init()
@@ -80,8 +80,8 @@ class AtomCenteredFunctions:
 
 
 class UniformGridAtomCenteredFunctions(AtomCenteredFunctions):
-    def __init__(self, functions, fracpos, grid, integral=None, cut=False):
-        AtomCenteredFunctions.__init__(self, functions, fracpos)
+    def __init__(self, functions, fracpos_ac, grid, integral=None, cut=False):
+        AtomCenteredFunctions.__init__(self, functions, fracpos_ac)
         self.grid = grid
         self.integral = integral
         self.cut = cut
@@ -96,7 +96,7 @@ class UniformGridAtomCenteredFunctions(AtomCenteredFunctions):
                         integral=self.integral,
                         forces=True,
                         cut=self.cut)
-        self._lfc.set_positions(self.fracpos)
+        self._lfc.set_positions(self.fracpos_ac)
         atomdist = AtomDistribution(
             ranks=np.array([sphere.rank for sphere in self._lfc.sphere_a]),
             comm=self.grid.comm)

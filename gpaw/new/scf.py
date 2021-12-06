@@ -37,29 +37,27 @@ class SCFLoop:
         return str(self.pot_calc)
 
     def iterate(self,
-                ibzwfs: IBZWaveFunctions,
-                density: Density,
-                potential: Potential,
+                state,
                 convergence=None,
                 maxiter=None,
                 log=None):
         cc = create_convergence_criteria(convergence or self.convergence)
         maxiter = maxiter or self.maxiter
 
-        dS = density.overlap_correction
+        dS = state.density.overlap_correction
 
         self.mixer.reset()
 
         dens_error = inf
         # dens_error = self.mixer.mix(density)
         for niter in itertools.count(1):
-            dH = potential.dH
-            Ht = partial(self.hamiltonian.apply, potential.vt_sR)
-            wfs_error = self.eigensolver.iterate(ibzwfs, Ht, dH, dS)
-            ibzwfs.calculate_occs(self.occ_calc)
+            dH = state.potential.dH
+            Ht = partial(self.hamiltonian.apply, state.potential.vt_sR)
+            wfs_error = self.eigensolver.iterate(state.ibzwfs, Ht, dH, dS)
+            state.ibzwfs.calculate_occs(self.occ_calc)
 
             ctx = SCFContext(
-                ibzwfs, density, potential, niter,
+                state, niter,
                 wfs_error, dens_error,
                 self.world)
 
@@ -73,29 +71,29 @@ class SCFLoop:
             if niter == maxiter:
                 raise SCFConvergenceError
 
-            ibzwfs.calculate_density(out=density)
-            dens_error = self.mixer.mix(density)
-            potential = self.pot_calc.calculate(density)
+            state.ibzwfs.calculate_density(out=state.density)
+            dens_error = self.mixer.mix(state.density)
+            state.potential, state.vHt_x = self.pot_calc.calculate(
+                state.density, state.vHt_x)
 
 
 class SCFContext:
-    def __init__(self, ibzwfs, density, potential,
+    def __init__(self, state,
                  niter: int,
                  wfs_error: float,
                  dens_error: float,
                  world):
-        self.density = density
-        self.potential = potential
+        self.state = state
         self.niter = niter
-        energy = (sum(potential.energies.values()) +
-                  sum(ibzwfs.energies.values()))
+        energy = (sum(state.potential.energies.values()) +
+                  sum(state.ibzwfs.energies.values()))
         self.ham = SimpleNamespace(e_total_extrapolated=energy)
-        self.wfs = SimpleNamespace(nvalence=ibzwfs.nelectrons,
+        self.wfs = SimpleNamespace(nvalence=state.ibzwfs.nelectrons,
                                    world=world,
                                    eigensolver=SimpleNamespace(
                                        error=wfs_error),
-                                   nspins=density.ndensities,
-                                   collinear=density.collinear)
+                                   nspins=state.density.ndensities,
+                                   collinear=state.density.collinear)
         self.dens = SimpleNamespace(fixed=False, error=dens_error)
 
 

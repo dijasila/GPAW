@@ -9,30 +9,35 @@ from gpaw.new.input_parameters import InputParameters
 from gpaw.new.wave_functions import IBZWaveFunctions
 
 
-class DFTCalculation:
+class DFTState:
     def __init__(self,
                  ibzwfs: IBZWaveFunctions,
                  density,
                  potential,
-                 setups,
-                 fracpos_ac,
-                 xc,
-                 scf_loop,
-                 pot_calc,
-                 communicators):
+                 vHt_x=None):
         self.ibzwfs = ibzwfs
         self.density = density
         self.potential = potential
+        self.vHt_x = vHt_x  # initial guess for Hartree potential
+
+    def move(self, fracpos_ac, nct_aR):
+        self.ibzwfs.move(fracpos_ac)
+        self.density.move(fracpos_ac, nct_aR)
+        self.potential.energies.clear()
+
+
+class DFTCalculation:
+    def __init__(self,
+                 state: DFTState,
+                 setups,
+                 scf_loop,
+                 pot_calc):
+        self.state = state
         self.setups = setups
-        self.fracpos_ac = fracpos_ac
-        self.xc = xc
         self.scf_loop = scf_loop
         self.pot_calc = pot_calc
-        self.communicators = communicators
 
         self.results: dict[str, Any] = {}
-
-        self._scf_loop = None
 
     @classmethod
     def from_parameters(cls,
@@ -52,7 +57,7 @@ class DFTCalculation:
         density.normalize()
 
         pot_calc = builder.create_potential_calculator()
-        potential = pot_calc.calculate(density)
+        potential, vHt_x = pot_calc.calculate(density)
 
         if params.random:
             log('Initializing wave functions with random numbers')
@@ -62,42 +67,31 @@ class DFTCalculation:
 
         write_atoms(atoms, builder.grid, builder.initial_magmoms, log)
 
-        return cls(ibzwfs,
-                   density,
-                   potential,
+        return cls(DFTState(ibzwfs, density, potential, vHt_x),
                    builder.setups,
-                   builder.fracpos_ac,
-                   builder.xc,
                    builder.create_scf_loop(pot_calc),
-                   pot_calc,
-                   builder.communicators)
+                   pot_calc)
 
     def move_atoms(self, atoms, log) -> DFTCalculation:
         self.fracpos_ac = atoms.get_scaled_positions()
 
         self.pot_calc.move(self.fracpos_ac)
-        self.ibzwfs.move(self.fracpos_ac)
-        self.density.move(self.fracpos_ac, self.pot_calc.nct_aR)
-        self.potential.energies.clear()
+        self.state.move(self.fracpos_ac, self.pot_calc.nct_aR)
 
-        _, magmom_av = self.density.calculate_magnetic_moments()
+        _, magmom_av = self.state.density.calculate_magnetic_moments()
 
         write_atoms(atoms,
-                    self.density.nt_sR.desc,
+                    self.state.density.nt_sR.desc,
                     magmom_av,
                     log)
         return self
 
     def iconverge(self, log, convergence=None, maxiter=None):
         log(self.scf_loop)
-        for ctx in self.scf_loop.iterate(self.ibzwfs,
-                                         self.density,
-                                         self.potential,
+        for ctx in self.scf_loop.iterate(self.state,
                                          convergence,
                                          maxiter,
                                          log=log):
-            self.density = ctx.density
-            self.potential = ctx.potential
             yield ctx
 
     def converge(self,
@@ -111,8 +105,8 @@ class DFTCalculation:
                 break
 
     def energies(self, log):
-        energies1 = self.potential.energies.copy()
-        energies2 = self.ibzwfs.energies
+        energies1 = self.state.potential.energies.copy()
+        energies2 = self.state.ibzwfs.energies
         energies1['kinetic'] += energies2['band']
         energies1['entropy'] = energies2['entropy']
         free_energy = sum(energies1.values())
@@ -127,18 +121,20 @@ class DFTCalculation:
 
     def forces(self, log):
         """Return atomic force contributions."""
-        xc = self.xc
+        xc = self.pot_calc.xc
         assert not xc.no_forces
         assert not hasattr(xc.xc, 'setup_force_corrections')
 
         # Force from projector functions (and basis set):
-        F_av = self.ibzwfs.forces(self.potential.dH_asii)
+        F_av = self.state.ibzwfs.forces(self.state.potential.dH_asii)
 
         pot_calc = self.pot_calc
-        Fcc_aLv, Fnct_av, Fvbar_av = pot_calc.forces()
+        Fcc_aLv, Fnct_av, Fvbar_av = pot_calc.force_contributions(
+            self.state)
 
         # Force from compensation charges:
-        ccc_aL = self.density.calculate_compensation_charge_coefficients()
+        ccc_aL = \
+            self.state.density.calculate_compensation_charge_coefficients()
         for a, dF_Lv in Fcc_aLv.items():
             F_av[a] += ccc_aL[a] @ dF_Lv
 
@@ -150,9 +146,10 @@ class DFTCalculation:
         for a, dF_v in Fvbar_av.items():
             F_av[a] += dF_v[0]
 
-        self.communicators['d'].sum(F_av)
+        domain_comm = ccc_aL.layout.atomdist.comm
+        domain_comm.sum(F_av)
 
-        F_av = self.ibzwfs.ibz.symmetry.symmetry.symmetrize_forces(F_av)
+        F_av = self.state.ibzwfs.ibz.symmetry.symmetry.symmetrize_forces(F_av)
 
         log('\nForces in eV/Ang:')
         c = Ha / Bohr
@@ -163,22 +160,7 @@ class DFTCalculation:
         self.results['forces'] = F_av
 
     def write_converged(self, log):
-        fl = self.ibzwfs.fermi_levels * Ha
-        assert len(fl) == 1
-        log(f'\nFermi level: {fl[0]:.3f}')
-
-        ibz = self.ibzwfs.ibz
-        for i, (x, y, z) in enumerate(ibz.points):
-            log(f'\nkpt = [{x:.3f}, {y:.3f}, {z:.3f}], '
-                f'weight = {ibz.weights[i]:.3f}:')
-            log('  Band    eigenvalue   occupation')
-            eigs, occs = self.ibzwfs.get_eigs_and_occs(i)
-            eigs = eigs * Ha
-            occs = occs * self.ibzwfs.spin_degeneracy
-            for n, (e, f) in enumerate(zip(eigs, occs)):
-                log(f'    {n:4} {e:10.3f}   {f:.3f}')
-            if i == 3:
-                break
+        self.state.ibzwfs.write_summary(log)
 
     def ase_interface(self, log):
         from gpaw.new.ase_interface import ASECalculator
