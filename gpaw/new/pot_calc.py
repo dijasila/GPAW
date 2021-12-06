@@ -39,6 +39,7 @@ class PotentialCalculator:
         self.nct_aR.move(fracpos_ac)
         self.vbar_ar.move(fracpos_ac)
         self.ghat_ar.move(fracpos_ac)
+        self.vbar_ar.to_uniform_grid(out=self.vbar_r)
 
 
 class UniformGridPotentialCalculator(PotentialCalculator):

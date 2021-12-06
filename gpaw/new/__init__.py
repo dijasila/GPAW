@@ -12,6 +12,7 @@ def cached_property(method):
 class Timer:
     def __init__(self):
         self.times = defaultdict(float)
+        self.times['Total'] = -time()
 
     @contextmanager
     def __call__(self, name):
@@ -21,6 +22,7 @@ class Timer:
         self.times[name] += t2 - t1
 
     def write(self, log):
+        self.times['Total'] += time()
         log('\n' +
             '\n'.join(f'Time ({name + "):":12}{t:10.3f} seconds'
                       for name, t in self.times.items()))
