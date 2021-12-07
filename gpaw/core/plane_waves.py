@@ -45,7 +45,7 @@ class PlaneWaves(Domain):
         self.shape = (ng,)
         self.myshape = (len(self.ekin_G),)
 
-        self.dv = abs(np.linalg.det(self.cell))
+        self.dv = abs(np.linalg.det(self.cell_cv))
 
     def __repr__(self) -> str:
         comm = self.comm
@@ -136,6 +136,11 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
         if data is None:
             data = np.empty_like(self.data)
         return PlaneWaveExpansions(self.desc, self.dims, self.comm, data)
+
+    def copy(self):
+        a = self.new()
+        a.data[:] = self.data
+        return a
 
     def _arrays(self):
         return self.data.reshape((-1,) + self.data.shape[-1:])
@@ -293,7 +298,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
             if self.desc.comm.rank == 0 and kind == 'normal':
                 result -= a_xG[:, 0] * a_xG[:, 0]
         self.desc.comm.sum(result)
-        result.shape = self.myshape
+        result.shape = self.myshape/dims
         return result * self.dv
 
     def abs_square(self,

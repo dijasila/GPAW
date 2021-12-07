@@ -92,21 +92,23 @@ class PWMode(Mode):
 
 
 class PWHamiltonian:
-    def apply(self, vt, psit, out, spin):
-        v = vt.data[spin]
-        np.multiply(psit.pw.ekin, psit.data, out.data)
-        for p, o in zip(psit, out):
-            f = p.ifft()
-            f.data *= v
-            o.data += f.fft(pw=psit.pw).data
-        return out
+    def apply(self, vt_sR, psit_nG, out, spin):
+        out_nG = out
+        vt_R = vt_sR.data[spin]
+        np.multiply(psit_nG.desc.ekin_G, psit_nG.data, out_nG.data)
+        f_R = None
+        for p_G, o_G in zip(psit_nG, out_nG):
+            f_R = p_G.ifft(grid=vt_sR.desc, out=f_R)
+            f_R.data *= vt_R
+            o_G.data += f_R.fft(pw=p_G.desc).data
+        return out_nG
 
     def create_preconditioner(self, blocksize):
         return precondition
 
 
 def precondition(psit, residuals, out):
-    G2 = psit.pw.ekin * 2
+    G2 = psit.desc.ekin_G * 2
     for r, o, ekin in zip(residuals.data, out.data, psit.norm2('kinetic')):
         _gpaw.pw_precond(G2, r, ekin, o)
 

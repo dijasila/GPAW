@@ -268,14 +268,14 @@ class PWLFC(BaseLFC):
                 1.0, a_xG[:, G1:G2])
 
     def integrate(self, a_xG, c_axi=None, q=-1):
-        c_xI = np.zeros(a_xG.shape[:-1] + (self.nI,), self.pd.dtype)
+        c_xI = np.zeros(a_xG.shape[:-1] + (self.nI,), self.dtype)
 
         nx = np.prod(c_xI.shape[:-1], dtype=int)
         b_xI = c_xI.reshape((nx, self.nI))
         a_xG = a_xG.reshape((nx, a_xG.shape[-1]))
 
-        alpha = 1.0 / self.pd.gd.N_c.prod()
-        if self.pd.dtype == float:
+        alpha = 1.0  # / self.pd.gd.N_c.prod()
+        if self.dtype == float:
             alpha *= 2
             a_xG = a_xG.view(float)
 
@@ -284,8 +284,8 @@ class PWLFC(BaseLFC):
 
         x = 0.0
         for G1, G2 in self.block(q):
-            f_GI = self.expand(q, G1, G2, cc=self.pd.dtype == complex)
-            if self.pd.dtype == float:
+            f_GI = self.expand(G1, G2, cc=self.dtype == complex)
+            if self.dtype == float:
                 if G1 == 0 and self.comm.rank == 0:
                     f_GI[0] *= 0.5
                 G1 *= 2
@@ -295,7 +295,7 @@ class PWLFC(BaseLFC):
 
         self.comm.sum(b_xI)
         for a, I1, I2 in self.my_indices:
-            c_axi[a][:] = self.eikR_qa[q][a] * c_xI[..., I1:I2]
+            c_axi[a][:] = self.eikR_a[a] * c_xI[..., I1:I2]
 
         return c_axi
 

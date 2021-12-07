@@ -114,7 +114,7 @@ class DFTComponentsBuilder:
 
     def create_potential_calculator(self):
         return self.mode.create_potential_calculator(
-            self.wf_desc,
+            self.grid,
             self.fine_grid,
             self.setups,
             self.xc,
