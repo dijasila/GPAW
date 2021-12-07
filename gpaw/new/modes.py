@@ -60,8 +60,8 @@ class PWMode(Mode):
     def create_wf_description(self, grid: UniformGrid) -> PlaneWaves:
         return PlaneWaves(ecut=self.ecut, cell=grid.cell)
 
-    def create_pseudo_core_densities(self, setups, wf_desc, fracpos_ac):
-        pw = wf_desc.new(ecut=2 * self.ecut)
+    def create_pseudo_core_densities(self, setups, wf_pw, fracpos_ac):
+        pw = wf_pw.new(ecut=2 * self.ecut)
         return setups.create_pseudo_core_densities(pw, fracpos_ac)
 
     def create_poisson_solver(self, fine_grid_pw, params):
@@ -70,19 +70,22 @@ class PWMode(Mode):
     def create_potential_calculator(self,
                                     grid,
                                     fine_grid,
-                                    density_pw: PlaneWaves,
-                                    wf_pw: PlaneWaves,
                                     setups,
-                                    fracpos,
                                     xc,
-                                    poisson_solver_params):
-        fine_density_pw = wf_pw.new(ecut=8 * wf_pw.ecut)
-        poisson_solver = self.create_poisson_solver(fine_density_pw,
+                                    poisson_solver_params,
+                                    nct_ag):
+        pw = nct_ag.pw
+        fine_pw = pw.new(ecut=8 * self.ecut)
+        poisson_solver = self.create_poisson_solver(fine_pw,
                                                     poisson_solver_params)
-        return PlaneWavePotentialCalculator(grid, fine_grid,
-                                            density_pw, fine_density_pw,
-                                            setups, fracpos,
-                                            xc, poisson_solver)
+        return PlaneWavePotentialCalculator(grid,
+                                            fine_grid,
+                                            pw,
+                                            fine_pw,
+                                            setups,
+                                            xc,
+                                            poisson_solver,
+                                            nct_ag)
 
     def create_hamiltonian_operator(self, grid, blocksize=10):
         return PWHamiltonian()
@@ -126,15 +129,15 @@ class FDMode(Mode):
         solver.set_grid_descriptor(grid._gd)
         return PoissonSolverWrapper(solver)
 
-    def create_potential_calculator(self, wf_desc, fine_grid,
+    def create_potential_calculator(self, grid, fine_grid,
                                     setups,
-                                    fracpos_ac,
                                     xc,
                                     poisson_solver_params,
                                     nct_ax):
         poisson_solver = self.create_poisson_solver(fine_grid,
                                                     poisson_solver_params)
-        return UniformGridPotentialCalculator(wf_desc, fine_grid,
+        return UniformGridPotentialCalculator(grid,
+                                              fine_grid,
                                               setups,
                                               xc, poisson_solver, nct_ax)
 

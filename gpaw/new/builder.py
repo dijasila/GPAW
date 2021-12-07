@@ -117,7 +117,6 @@ class DFTComponentsBuilder:
             self.wf_desc,
             self.fine_grid,
             self.setups,
-            self.fracpos_ac,
             self.xc,
             self.params.poissonsolver,
             self.nct)

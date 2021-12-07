@@ -77,6 +77,7 @@ class DFTCalculation:
 
         self.pot_calc.move(self.fracpos_ac)
         self.state.move(self.fracpos_ac, self.pot_calc.nct_aR)
+        self.results = {}
 
         _, magmom_av = self.state.density.calculate_magnetic_moments()
 

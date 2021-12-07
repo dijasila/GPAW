@@ -128,26 +128,22 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
                  pw: PlaneWaves,
                  fine_pw: PlaneWaves,
                  setups,
-                 fracpos_ac,
                  xc,
-                 poisson_solver):
-        self.vHt_x = fine_pw.zeros()  # initial guess for Coulomb potential
-        self.nt_x = pw.empty()
-        self.vt_x = pw.empty()
-
-        self.vbar_ax = setups.create_local_potentials(pw, fracpos_ac)
-        self.ghat_acf = setups.create_compensation_charges(fine_pw, fracpos_ac)
-
+                 poisson_solver,
+                 nct_ag):
         super().__init__(xc, poisson_solver, setups)
 
-        self.G2_G1 = fine_pw.map_indices(pw)
+        fracpos_ac = nct_ag.fracpos_ac
+        self.nct_ag = nct_ag
+        self.vbar_ag = setups.create_local_potentials(pw, fracpos_ac)
+        self.ghat_ah = setups.create_compensation_charges(fine_pw, fracpos_ac)
+
+        self.h_g = fine_pw.map_indices(pw)
         self.fftplan, self.ifftplan = grid.fft_plans()
         self.fftplan2, self.ifftplan2 = fine_grid.fft_plans()
 
-        self.fine_grid = fine_grid
-
-        self.vbar_G = pw.zeros()
-        self.vbar_ax.add_to(self.vbar_G)
+        self.vbar_g = pw.zeros()
+        self.vbar_ag.add_to(self.vbar_g)
 
     def _calculate(self, density):
         nt2_s = self.fine_grid.empty(density.nt_s.shape)
