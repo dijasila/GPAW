@@ -110,8 +110,8 @@ class RIVFullBasisDebug(RIAlgorithm):
                     #ghat_l.append(wfs.setups[a].ghat_l[l])
                     #wghat_l.append(rgd.spline(H(rgd, f_g, l), cutoff, l, 100)) # XXX
                     
-                    print('not adding compensation charges to aux basis')
-                    continue
+                    #print('not adding compensation charges to aux basis')
+                    #continue
                     auxt_j.append(wfs.setups[a].ghat_l[l])
                     wauxt_j.append(rgd.spline(H(rgd, f_g, l), cutoff, l,500)) # XXX
 
@@ -145,8 +145,8 @@ class RIVFullBasisDebug(RIAlgorithm):
                             #print('Not adding auxiliary basis functions')
                             #continue
 
-                            auxt_j.append(rgd.spline(f_g, cutoff, l, 100))
-                            wauxt_j.append(rgd.spline(H(rgd, f_g, l), cutoff, l, 100))
+                            auxt_j.append(rgd.spline(f_g, cutoff, l, 500))
+                            wauxt_j.append(rgd.spline(H(rgd, f_g, l), cutoff, l, 500))
                
                 auxt_aj.append(auxt_j)
 
@@ -173,7 +173,7 @@ class RIVFullBasisDebug(RIAlgorithm):
 
         self.timer = ham.timer
 
-    def set_positions(self, spos_ac):
+    def set_positions(self, spos_ac, debug):
        if 1:
             #np.set_printoptions(formatter={'float': lambda x: "{0:0.6f}".format(x)})
 
@@ -291,8 +291,7 @@ class RIVFullBasisDebug(RIAlgorithm):
         self.ekin = 0.0
 
         rho_MM = wfs.ksl.calculate_density_matrix(kpt.f_n, kpt.C_nM)
-        rho_MM[:] = 0.0
-        rho_MM[0,0] = 1.0
+
         C_AMM = np.einsum('AB,Bkl,jl',
                           self.iW_AA,
                           self.I_AMM,
@@ -307,9 +306,9 @@ class RIVFullBasisDebug(RIAlgorithm):
                                 self.I_AMM,
                                 rho_MM, optimize=True)
 
-        with open('RIVFullBasisDebug-F_MM.npy', 'wb') as f:
-            np.save(f, F_MM)
-            xxx
+        #with open('RIVFullBasisDebug-F_MM.npy', 'wb') as f:
+        #    np.save(f, F_MM)
+        #    xxx
 
         H_MM += self.exx_fraction * F_MM
         self.evv = 0.5 * self.exx_fraction * np.einsum('ij,ij', F_MM, rho_MM)

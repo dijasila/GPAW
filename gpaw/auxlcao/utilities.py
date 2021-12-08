@@ -41,13 +41,19 @@ def get_compensation_charge_splines_screened(setup, lmax, cutoff):
     rgd = setup.rgd
     wghat_l = []
     ghat_l = []
+    W_LL = np.zeros( ( (lmax+1)**2, (lmax+1)**2 ) )
+    L=0
     for l in range(lmax+1):
         spline = setup.ghat_l[l]
         ghat_l.append(spline)
         g_g = spline_to_rgd(rgd, spline)
         v_g = setup.screened_coulomb.screened_coulomb(g_g, l)
+        integral = rgd.integrate(g_g*v_g)
+        for m in range(2*l+1):
+            W_LL[L,L] = integral / (np.pi*4)
+            L += 1
         wghat_l.append(rgd.spline(v_g, cutoff, l, 500))
-    return ghat_l, wghat_l
+    return ghat_l, wghat_l, W_LL
 
 def _get_auxiliary_splines(setup, lmax, cutoff, poisson):
     rgd = setup.rgd
@@ -81,9 +87,10 @@ def _get_auxiliary_splines(setup, lmax, cutoff, poisson):
                 saux_g = aux_g - M / Mref * g_g
                 sauxt_j.append(rgd.spline(saux_g, cutoff, l, 500))
 
-                v_g = Hartree(rgd, saux_g, l)
+                v_g = poisson(saux_g, l)
                 wsauxt_j.append(rgd.spline(v_g, cutoff, l, 500))
-                assert(np.abs(v_g[-1])<1e-6)
+                print('Last potential element', v_g[-1])
+                #assert(np.abs(v_g[-1])<1e-6)
 
 
     return auxt_j, wauxt_j, sauxt_j, wsauxt_j, M_j

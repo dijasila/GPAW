@@ -2,7 +2,9 @@ import numpy as np
 from gpaw.lfc import LFC
 from gpaw.utilities.tools import tri2full
 from gpaw.auxlcao.utilities import safe_inv
-
+from gpaw.lcao.tci import AtomPairRegistry
+from gpaw.kpt_descriptor import KPointDescriptor
+from gpaw.pw.descriptor import PWDescriptor
 
 from gpaw.auxlcao.generatedcode import generated_W_LL,\
                                        generated_W_LL_screening
@@ -88,14 +90,42 @@ def get_W_LL_diagonals_from_setups(W_LL, lmax, setups):
     for a, setup in enumerate(setups):
         W_LL[a*S:(a+1)*S:,a*S:(a+1)*S] = setup.W_LL[:S, :S]
 
-def calculate_W_LL_offdiagonals_multipole_screened(cell_cv, spos_ac, pbc_c, ibzk_qc, dtype, lmax, coeff = 4*np.pi, omega=None):
+def add_W_LL_diagonals_from_setups(W_LL, lmax, setups):
+    S = (lmax+1)**2
+    for a, setup in enumerate(setups):
+        W_LL[a*S:(a+1)*S:,a*S:(a+1)*S] += setup.W_LL[:S, :S]
+
+def calculate_W_LL_multipole_screened(setups, cell_cv, spos_ac, pbc_c, ibzk_qc, dtype, lmax, coeff = 4*np.pi, omega=None):
+    S = (lmax+1)**2
+    Na = len(spos_ac)
+    W_LL = np.zeros((Na*S, Na*S))
+
     if np.any(pbc_c):
-        raise NotImplementedError('Periodic boundary conditions')
+        cutoff_a = [ 3.0 / omega for spos_c in spos_ac ]
+        a1a2 = AtomPairRegistry(cutoff_a, pbc_c, cell_cv, spos_ac, self_interaction=False)
+        for a1, spos1_c in enumerate(spos_ac):
+            for a2, spos2_c in enumerate(spos_ac):
+                R_c_and_offset_a = a1a2.get(a1, a2)
+                ND = len(R_c_and_offset_a)
+                R_dc = np.array( [ R_c for R_c, offset_c in R_c_and_offset_a ] )
 
+                dx = -R_dc[:,0].reshape( ( R_dc.shape[0], 1) )
+                dy = -R_dc[:,1].reshape( ( R_dc.shape[0], 1) )
+                dz = -R_dc[:,2].reshape( ( R_dc.shape[0], 1) )
+                d2 = dx**2 + dy**2 + dz**2
+                d = d2**0.5
+                Wsingle_LL = np.zeros( (S*ND, S) )
+                
+                generated_W_LL_screening(Wsingle_LL, d, dx, dy, dz, omega)
+                for x in range(len(R_c_and_offset_a)):
+                    W_LL[a1*S:(a1+1)*S, a2*S:(a2+1)*S] += Wsingle_LL[x*S:(x+1)*S, :]
+        W_LL *= coeff
+        print('before',W_LL)
+        add_W_LL_diagonals_from_setups(W_LL, lmax, setups)
+        print('after',W_LL)
+        return W_LL
+        
     if lmax == 2:
-        S = (lmax+1)**2
-        Na = len(spos_ac)
-
         R_av = np.dot(spos_ac, cell_cv)
       
         dx = R_av[:, None, 0] - R_av[None, :, 0]
@@ -110,13 +140,14 @@ def calculate_W_LL_offdiagonals_multipole_screened(cell_cv, spos_ac, pbc_c, ibzk
         d2 = dx**2 + dy**2 + dz**2
         d = d2**0.5
 
-        W_LL = np.zeros((Na*S, Na*S))
         generated_W_LL_screening(W_LL, d, dx, dy, dz, omega)
-        return coeff * W_LL
+        W_LL *= coeff
+        get_W_LL_diagonals_from_setups(W_LL, lmax, setups)
+        return W_LL
     else:
-        return calculate_W_LL_offdiagonals_multipole_old(cell_cv, spos_ac, pbc_c, ibzk_qc, dtype, lmax, coeff)
+        raise NotImplementedError
 
-def calculate_W_LL_offdiagonals_multipole(cell_cv, spos_ac, pbc_c, ibzk_qc, dtype, lmax, coeff = 4*np.pi, omega = 0.0):
+def calculate_W_LL_multipole(setups, cell_cv, spos_ac, pbc_c, ibzk_qc, dtype, lmax, coeff = 4*np.pi, omega = 0.0):
     assert omega == 0.0
     if np.any(pbc_c):
         raise NotImplementedError('Periodic boundary conditions')
@@ -141,10 +172,12 @@ def calculate_W_LL_offdiagonals_multipole(cell_cv, spos_ac, pbc_c, ibzk_qc, dtyp
 
         W_LL = np.zeros((Na*S, Na*S))
         generated_W_LL(W_LL, d, dx, dy, dz)
-        return coeff * W_LL
+        W_LL *= coeff
+        get_W_LL_diagonals_from_setups(W_LL, lmax, setups)
+        return W_LL
     else:
+        xxx # Add get_W_LL_diagonals_from_setups here
         return calculate_W_LL_offdiagonals_multipole_old(cell_cv, spos_ac, pbc_c, ibzk_qc, dtype, lmax, coeff)
-
 
 def calculate_W_LL_offdiagonals_multipole_old(cell_cv, spos_ac, pbc_c, ibzk_qc, dtype, lmax, coeff = 4*np.pi):
     if np.any(pbc_c):
@@ -339,6 +372,7 @@ def reference_W_AA(density, poisson, auxt_aj, spos_ac):
             auxt_g = gd.zeros()
             aux_lfc.add(auxt_g, Q_aA)
 
+
             # Solve its Poisson equation
             wauxt_g = gd.zeros()
             poisson.solve(wauxt_g, auxt_g, charge=None)
@@ -352,6 +386,67 @@ def reference_W_AA(density, poisson, auxt_aj, spos_ac):
                 W_M = W_aM[a2]
                 W_AA[Aglob, A2start:A2end] = W_aM[a2]
     return W_AA
+
+r"""
+
+    A reference implementation of screened integral of auxiliary functions
+
+            /    /             erf(w|r-r'|)    
+     W    = | dr | dr' phi (r) ------------  phi (r').
+      AA    /    /        A      | r-r' |       A'
+
+    This function separately places each phi (r),
+                                            A
+    to grid and evaluates it's screened Coulomb solution, utilizing plane waves
+    and then integrates using LocaliedFunctions object.
+    Only to be used for testing.
+    
+"""
+
+def reference_W_AA_screened(density, poisson, auxt_aj, spos_ac, omega):
+    # Obtain local (per atom) coordinates for auxiliary functions,
+    # and allocate the W_AA array.
+    A_a = get_A_a(auxt_aj)
+    Atot = A_a[-1]
+    W_AA = np.zeros( (Atot, Atot) )
+
+    gd = density.finegd
+    aux_lfc = LFC(gd, auxt_aj)
+    aux_lfc.set_positions(spos_ac)
+
+    from gpaw.hybrids.coulomb import ShortRangeCoulomb
+    src = ShortRangeCoulomb(omega)
+
+    q_c = np.array([0.0, 0.0, 0.001])
+    qd = KPointDescriptor([-q_c])
+    pd = PWDescriptor(40, gd, np.float, kd=qd)
+    v_G = src.get_potential(pd)
+    
+    for a, (Astart, Aend) in enumerate(zip(A_a[:-1], A_a[1:])):
+        Aloctot = Aend - Astart
+        for Aloc, Aglob in enumerate(range(Astart, Aend)):
+            print(a,Aloc)
+            # Add a single function to the grid
+            Q_aA = aux_lfc.dict(zero=True)
+            Q_aA[a][Aloc] = 1.0
+            auxt_g = gd.zeros()
+            aux_lfc.add(auxt_g, Q_aA)
+
+            rho_G = pd.fft(auxt_g)
+            vrho_G = v_G * rho_G
+            wauxt_g = pd.ifft(vrho_G).real.copy()
+
+            # Integrate wrt. all other auxiliary functions
+            W_aM = aux_lfc.dict(zero=True)
+            aux_lfc.integrate(wauxt_g, W_aM)
+
+            # Fill a single row of the matrix
+            for a2, (A2start, A2end) in enumerate(zip(A_a[:-1], A_a[1:])):
+                W_M = W_aM[a2]
+                W_AA[Aglob, A2start:A2end] = W_aM[a2]
+    return W_AA
+
+
 
 
 

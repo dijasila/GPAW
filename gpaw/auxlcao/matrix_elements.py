@@ -45,7 +45,12 @@ class MatrixElements:
                 setup.screened_coulomb = ScreenedCoulombKernel(setup.rgd, self.screening_omega)
 
                 # Compensation charges
-                setup.gaux_l, setup.wgaux_l = get_compensation_charge_splines_screened(setup, self.lmax, rcmax)
+                setup.gaux_l, setup.wgaux_l, W_LL = get_compensation_charge_splines_screened(setup, self.lmax, rcmax)
+
+                print('new W_LL', W_LL)
+                print('setup.W_LL', setup.W_LL)
+                setup.W_LL[:] = W_LL
+                #print('Not overriding W_LL at matrix_elements.py')
 
                 # Auxiliary basis functions
                 setup.auxt_j, setup.wauxt_j, setup.sauxt_j, setup.wsauxt_j, setup.M_j = get_auxiliary_splines_screened(setup, self.lmax, rcmax)
@@ -59,8 +64,6 @@ class MatrixElements:
 
             # Single center Hartree of compensation charges * one phit_j
             setup.wgauxphit_x = get_wgauxphit_product_splines(setup, setup.wgaux_l, setup.phit_j, rcmax)
-
-
 
             setup.Naux = sum([ 2*spline.l+1 for spline in setup.auxt_j])
 
@@ -236,6 +239,7 @@ class MatrixElements:
       where double bar stands for Coulomb integral.
 
       a1 is always either a2 or a3.
+
       a2 and a3 are overlapping centers.
 
     """
@@ -243,13 +247,14 @@ class MatrixElements:
     def evaluate_3ci_AMM(self, a1, a2, a3):
         if a1 != a2:
             if a1 != a3:
-                raise NotImplementedError('Only 3-center integrals spanning 2 centers are supported. Got: (%d, %d, %d).' % (a1,a2,a3))
+                raise NotImplementedError('Only 3-center integrals spanning up to 2 centers are supported. Got atom indices: (%d, %d, %d).' % (a1,a2,a3))
+            # The first and third atom are the same. Swap second and third atom, so that first and second are same.
             locI_AMM = self.evaluate_3ci_AMM(a1, a3, a2)
             if locI_AMM is None:
                 return None
             return np.transpose(locI_AMM, axes=(0,2,1))
 
-        #print('Calling 3ci_AMM', a1,a2,a3)
+        # From here on, it is quaranteed, that a1 and a2 are the same
 
         R_c_and_offset_a = self.apr.get(a2, a3)
         if R_c_and_offset_a is None:

@@ -36,9 +36,9 @@ def get_lvalues(f_Ij):
 
 
 class AtomPairRegistry:
-    def __init__(self, cutoff_a, pbc_c, cell_cv, spos_ac):
+    def __init__(self, cutoff_a, pbc_c, cell_cv, spos_ac, self_interaction=True):
         nl = PrimitiveNeighborList(cutoff_a, skin=0, sorted=True,
-                                   self_interaction=True,
+                                   self_interaction=self_interaction,
                                    use_scaled_positions=True)
 
         nl.update(pbc=pbc_c, cell=cell_cv, coordinates=spos_ac)

@@ -28,6 +28,7 @@ class ShortRangeCoulomb:
         with np.errstate(invalid='ignore'):
             v_G = 4 * pi * x_G / G2_G
         G0 = G2_G.argmin()
+
         if G2_G[G0] < 1e-11:
             v_G[G0] = pi / self.omega**2
         return v_G

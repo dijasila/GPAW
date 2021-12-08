@@ -1,8 +1,7 @@
 import numpy as np
 from typing import Tuple, Dict
-from gpaw.auxlcao.procedures import calculate_W_LL_offdiagonals_multipole,\
-                                    calculate_W_LL_offdiagonals_multipole_screened,\
-                                    get_W_LL_diagonals_from_setups,\
+from gpaw.auxlcao.procedures import calculate_W_LL_multipole,\
+                                    calculate_W_LL_multipole_screened,\
                                     calculate_local_I_LMM,\
                                     grab_local_W_LL,\
                                     add_to_global_P_LMM,\
@@ -14,12 +13,12 @@ from gpaw.auxlcao.procedures import calculate_W_LL_offdiagonals_multipole,\
                                     calculate_P_AMM,\
                                     calculate_P_LMM,\
                                     reference_I_AMM,\
-                                    reference_W_AA
-   
+                                    reference_W_AA,\
+                                    reference_W_AA_screened
+
 from gpaw.auxlcao.utilities import safe_inv
 from gpaw.utilities import (pack_atomic_matrices, unpack_atomic_matrices,
                             unpack2, unpack, packed_index, pack, pack2)
-
 
 from gpaw.auxlcao.matrix_elements import MatrixElements
 
@@ -38,9 +37,9 @@ class RIMPV(RIAlgorithm):
         self.matrix_elements = MatrixElements(self.lmax, screening_omega)
 
         if self.screening_omega == 0.0:
-            self.calculate_W_LL_offdiagonals = calculate_W_LL_offdiagonals_multipole
+            self.calculate_W_LL = calculate_W_LL_multipole
         else:
-            self.calculate_W_LL_offdiagonals = calculate_W_LL_offdiagonals_multipole_screened
+            self.calculate_W_LL = calculate_W_LL_multipole_screened
 
     def initialize(self, density, hamiltonian, wfs):
         self.density = density
@@ -54,7 +53,7 @@ class RIMPV(RIAlgorithm):
         self.spos_ac = spos_ac
         print('W_LL')
         with self.timer('RI-V: calculate W_LL'):
-            self.W_LL = self.calculate_W_LL_offdiagonals(\
+            self.W_LL = self.calculate_W_LL(self.density.setups,\
                                self.hamiltonian.gd.cell_cv, 
                                spos_ac,
                                self.hamiltonian.gd.pbc_c,
@@ -62,7 +61,11 @@ class RIMPV(RIAlgorithm):
                                self.wfs.dtype,
                                self.lmax, omega=self.screening_omega)
                 
-            get_W_LL_diagonals_from_setups(self.W_LL, self.lmax, self.density.setups)
+            #get_W_LL_diagonals_from_setups(self.W_LL, self.lmax, self.density.setups)
+
+            with open('RIMPV-W_LL_%.5f.npy' % self.screening_omega, 'wb') as f:
+                np.save(f, self.W_LL)
+
             assert not np.isnan(self.W_LL).any()
 
         auxt_aj = [ setup.auxt_j for setup in self.wfs.setups ]
@@ -86,16 +89,28 @@ class RIMPV(RIAlgorithm):
             self.V_AA = calculate_V_AA(auxt_aj, M_aj, self.W_LL, self.lmax)
             assert not np.isnan(self.V_AA).any()
 
+        with open('RIMPV-V_AA_%.5f.npy' % self.screening_omega, 'wb') as f:
+            np.save(f, self.V_AA)
+
+
         print('S_AA')
         with self.timer('RI-V: calculate S_AA'):
             self.S_AA = calculate_S_AA(self.matrix_elements)
             assert not np.isnan(self.S_AA).any()
 
+        with open('RIMPV-S_AA_%.5f.npy' % self.screening_omega, 'wb') as f:
+            np.save(f, self.S_AA)
+
         print('M_AA')
         with self.timer('RI-V: calculate M_AA'):
             self.M_AA = calculate_M_AA(self.matrix_elements, auxt_aj, M_aj, self.lmax)
             self.W_AA = self.V_AA + self.S_AA + self.M_AA + self.M_AA.T
+            print(self.W_AA)
             assert not np.isnan(self.M_AA).any()
+
+        with open('RIMPV-M_AA_%.5f.npy' % self.screening_omega, 'wb') as f:
+            np.save(f, self.M_AA)
+
 
         print('P_AMM')
         with self.timer('RI-V: Calculate P_AMM'):
@@ -164,6 +179,17 @@ class RIMPV(RIAlgorithm):
         """
 
         if debug['ref']:
+
+            with self.timer('calculate reference W_AA'):
+                self.Wref_AA = reference_W_AA_screened(self.density, self.hamiltonian.poisson, auxt_aj, spos_ac, self.screening_omega)
+
+            with open('RIMPV-Wref_AA.npy', 'wb') as f:
+                np.save(f, self.Wref_AA)
+            with open('RIMPV-W_AA.npy', 'wb') as f:
+                np.save(f, self.W_AA)
+
+            xxx
+
             with self.timer('Calculate reference I_AMM'):
                 self.Iref_AMM = reference_I_AMM(self.wfs, self.density, self.hamiltonian, self.hamiltonian.poisson, auxt_aj, spos_ac)
 
@@ -194,10 +220,6 @@ class RIMPV(RIAlgorithm):
                 self.Wref_AA = reference_W_AA(self.density, self.hamiltonian.poisson, auxt_aj, spos_ac)
 
 
-            with open('RIMPV-Wref_AA.npy', 'wb') as f:
-                np.save(f, self.Wref_AA)
-            with open('RIMPV-W_AA.npy', 'wb') as f:
-                np.save(f, self.W_AA)
 
 
     def cube_debug(self, atoms):

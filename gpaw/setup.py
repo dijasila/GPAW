@@ -1022,6 +1022,7 @@ class Setup(BaseSetup):
             for m in range(2*l+1):
                 self.W_LL[L,L] = integral
                 L += 1
+        print('At setup. W_LL = ', self.W_LL)
 
     def create_projectors(self, pt_jg, rcut):
         pt_j = []

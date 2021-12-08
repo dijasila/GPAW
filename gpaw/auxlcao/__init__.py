@@ -43,7 +43,7 @@ class LCAOHybrid:
     orbital_dependent_lcao = True
     type = 'auxhybrid'
 
-    def __init__(self, xcname:str, algorithm=None,
+    def __init__(self, xcname:str, algorithm=None, omega = None, 
                                    debug={'cube':False,'ref':False}):
  
         self.screening_omega = 0.0
@@ -58,8 +58,16 @@ class LCAOHybrid:
             self.exx_fraction = 0.25
             self.screening_omega = 0.11
             self.localxc = XC('HYB_GGA_XC_HSE06')
+        elif xcname == 'HSEFAST':
+            self.exx_fraction = 0.25
+            self.screening_omega = 0.11
+            self.localxc = XC('HYB_GGA_XC_PBEH')
         else:
             raise ValueError('Functional %s not supported by aux-lcao backend' % xcname)
+
+        if omega is not None:
+            print('Overriding omega from %.2f according to parameters to %.2f Bohr^-1' % (self.screening_omega, omega))
+            self.screening_omega = omega
 
         self.debug = debug
 
@@ -76,7 +84,7 @@ class LCAOHybrid:
             self.ri_algorithm = RIVRestrictedBasisDebug(self.exx_fraction)
         if algorithm == 'RIVFullBasisDebug':
             assert self.screening_omega == 0.0
-            self.ri_algorithm = RIVFullBasisDebug(self.exx_fraction)
+            self.ri_algorithm = RIVFullBasisDebug(self.exx_fraction, screening_omega = self.screening_omega)
         elif algorithm == 'RI-MPV':
             self.ri_algorithm = RIMPV(exx_fraction = self.exx_fraction, screening_omega = self.screening_omega)
         else:
