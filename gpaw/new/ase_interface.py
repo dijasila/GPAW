@@ -12,6 +12,7 @@ from gpaw.new.calculation import DFTCalculation
 from gpaw.new.input_parameters import InputParameters
 from gpaw.new.logger import Logger
 from gpaw.new.old import OldStuff, read_gpw
+from gpaw.typing import Array1D, Array2D
 
 
 def GPAW(filename: Union[str, Path, IO[str]] = None,
@@ -68,6 +69,9 @@ class ASECalculator(OldStuff):
             elif prop == 'forces':
                 with self.timer('Forces'):
                     self.calculation.forces(log)
+            elif prop == 'stress':
+                with self.timer('Stress'):
+                    self.calculation.stress(log)
             else:
                 raise ValueError('Unknown property:', prop)
 
@@ -99,8 +103,11 @@ class ASECalculator(OldStuff):
                                        'free_energy' if force_consistent else
                                        'energy') * Ha
 
-    def get_forces(self, atoms: Atoms) -> float:
-        return self.calculate_property(atoms, 'forces') * Ha / Bohr
+    def get_forces(self, atoms: Atoms) -> Array2D:
+        return self.calculate_property(atoms, 'forces') * (Ha / Bohr)
+
+    def get_stress(self, atoms: Atoms) -> Array1D:
+        return self.calculate_property(atoms, 'stress') * (Ha / Bohr**3)
 
 
 def write_header(log, world, kwargs):
@@ -111,7 +118,7 @@ def write_header(log, world, kwargs):
     log(',\n    '.join(f'{k!r}: {v!r}' for k, v in kwargs.items()) + '}')
 
 
-def compare_atoms(a1, a2):
+def compare_atoms(a1: Atoms, a2: Atoms) -> set[str]:
     if len(a1.numbers) != len(a2.numbers) or (a1.numbers != a2.numbers).any():
         return {'atomic_numbers'}
     if (a1.pbc != a2.pbc).any():

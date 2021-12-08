@@ -35,7 +35,7 @@ def write_gpw(filename: str,
               calculation: DFTCalculation,
               skip_wfs: bool = True) -> None:
 
-    world = calculation.communicators['w']
+    world = params.parallel['world']
 
     if world.rank == 0:
         writer = ulm.Writer(filename, tag='gpaw')
@@ -52,7 +52,7 @@ def write_gpw(filename: str,
         writer.child('results').write(**calculation.results)
         writer.child('parameters').write(**params.params)
 
-        density = calculation.density
+        density = calculation.state.density
         dms = density.density_matrices.collect()
 
         N = sum(i1 * (i1 + 1) // 2 for i1, i2 in dms.layout.shapes)
@@ -70,8 +70,9 @@ def write_gpw(filename: str,
             density=density.nt_s.collect().data * Bohr**-3,
             atomic_density_matrices=D)
 
-        calculation.potential.write(writer.child('hamiltonian'))
-        calculation.ibzwfs.write(writer.child('wave_functions'), skip_wfs)
+        calculation.state.potential.write(writer.child('hamiltonian'))
+        calculation.state.ibzwfs.write(writer.child('wave_functions'),
+                                       skip_wfs)
 
     world.barrier()
 
