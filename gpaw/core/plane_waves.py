@@ -286,20 +286,20 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
     def norm2(self, kind: str = 'normal') -> np.ndarray:
         a_xG = self._arrays().view(float)
         if kind == 'normal':
-            result = np.einsum('xG, xG -> G', a_xG, a_xG)
+            result_x = np.einsum('xG, xG -> x', a_xG, a_xG)
         elif kind == 'kinetic':
             a_xG.shape = (len(a_xG), -1, 2)
-            result = np.einsum('xGi, xGi, G -> x',
-                               a_xG, a_xG, self.desc.ekin_G)
+            result_x = np.einsum('xGi, xGi, G -> x',
+                                 a_xG, a_xG, self.desc.ekin_G)
         else:
             1 / 0
         if self.desc.dtype == float:
-            result *= 2
+            result_x *= 2
             if self.desc.comm.rank == 0 and kind == 'normal':
-                result -= a_xG[:, 0] * a_xG[:, 0]
-        self.desc.comm.sum(result)
-        result.shape = self.myshape/dims
-        return result * self.dv
+                result_x -= a_xG[:, 0]**2
+        self.desc.comm.sum(result_x)
+        result_x.shape = self.mydims
+        return result_x * self.dv
 
     def abs_square(self,
                    weights: Array1D,
@@ -308,7 +308,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
         for f, psit in zip(weights, self):
             # Same as (but much faster):
             # out.data += f * abs(psit.ifft().data)**2
-            _gpaw.add_to_density(f, psit.ifft().data, out.data)
+            _gpaw.add_to_density(f, psit.ifft(grid=out.desc).data, out.data)
 
 
 class Empty:
