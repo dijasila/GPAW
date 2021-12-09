@@ -274,7 +274,7 @@ class LCAOTDDFT(GPAW):
                 S_MM_old_full = MM_descriptor.empty(dtype=kpt.S_MM_old.dtype)
                 mm2MM.redistribute(kpt.S_MM_old, S_MM_old_full)
 
-    #            if self.world.rank == 0:                
+                #if self.world.rank == 0:                
                 if self.density.gd.comm.rank == 0:
                     T1, Seig_v = schur(S_MM_full, output='real')
                     Seig=eigvals(T1)
@@ -289,13 +289,13 @@ class LCAOTDDFT(GPAW):
                     # OLD OVERLAP S^-1/2 
                     T2_o, Seig_v_o = schur(S_MM_old_full, output='real')
                     Seig_o=eigvals(T2_o)
-        
+
                     Seig_dm12_o=np.diag(Seig_o**-0.5)
                     Seig_dp12_o=np.diag(Seig_o**0.5)
                     Sm12_o=np.matmul(Seig_v_o,np.matmul(Seig_dm12_o,np.conj(Seig_v_o).T))
                     Sp12_o=np.matmul(Seig_v_o,np.matmul(Seig_dp12_o,np.conj(Seig_v_o).T)) 
                     C_nM_temp=kpt.C_nM.copy()
-        
+
                     # propagate PSI(R+dr) = S(R+dR)^(-1/2)S(R)^(1/2) PSI(R))            
                     Sp12xC_nM=np.matmul(Sp12_o,np.transpose(C_nM_temp))
                     Sm12xSp12xC_nM=np.matmul(Sm12,Sp12xC_nM)
@@ -307,11 +307,10 @@ class LCAOTDDFT(GPAW):
         #            self.call_observers(self.niter)
         else:
             for kpt in self.wfs.kpt_u:
-                S_MM=np.real(kpt.S_MM.copy())
-               
+                S_MM=(kpt.S_MM.copy())
                 T1, Seig_v = schur(S_MM, output='real')
                 Seig=eigvals(T1)
-    
+
                 Seig_dm12=np.diag(1/np.sqrt(Seig))
                 Seig_dp12=np.diag(Seig**0.5)
     
@@ -322,13 +321,13 @@ class LCAOTDDFT(GPAW):
                 # OLD OVERLAP S^-1/2 
                 T2_o, Seig_v_o = schur(kpt.S_MM_old, output='real')
                 Seig_o=eigvals(T2_o)
-    
+
                 Seig_dm12_o=np.diag(Seig_o**-0.5)
                 Seig_dp12_o=np.diag(Seig_o**0.5)
                 Sm12_o=np.matmul(Seig_v_o,np.matmul(Seig_dm12_o,np.conj(Seig_v_o).T))
                 Sp12_o=np.matmul(Seig_v_o,np.matmul(Seig_dp12_o,np.conj(Seig_v_o).T)) 
                 C_nM_temp=kpt.C_nM.copy()
-    
+
                 # propagate PSI(R+dr) = S(R+dR)^(-1/2)S(R)^(1/2) PSI(R))            
                 Sp12xC_nM=np.matmul(Sp12_o,np.transpose(C_nM_temp))
                 Sm12xSp12xC_nM=np.matmul(Sm12,Sp12xC_nM)
@@ -336,7 +335,7 @@ class LCAOTDDFT(GPAW):
                 kpt.C_nM=t_Sm12xSp12xC_nM.copy()
 
     #            kpt.C_nM[:,:]=t_Sm12xSp12xC_nM[:,:]
-    
+
                 self.td_hamiltonian.update()
     #            self.call_observers(self.niter)
 

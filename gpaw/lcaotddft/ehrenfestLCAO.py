@@ -2,6 +2,9 @@ from ase.units import Bohr, AUT, _me, _amu
 from gpaw.tddft.units import attosec_to_autime
 from gpaw.forces import calculate_forces
 import numpy as np
+from gpaw.utilities.scalapack import (pblas_simple_hemm, pblas_simple_gemm,
+                                      scalapack_inverse, scalapack_solve,
+                                      scalapack_tri2full)
 
 ###############################################################################
 # EHRENFEST DYNAMICS WITHIN THE PAW METHOD
@@ -105,6 +108,17 @@ class EhrenfestVelocityVerletLCAO:
         self.v = self.calc.atoms.get_velocities() / (Bohr / AUT)
 
         dt = dt * attosec_to_autime
+        #BEGIN This needs to be done better
+        ksl = self.calc.wfs.ksl
+        using_blacs = ksl.using_blacs
+        if using_blacs:
+            self.mm_block_descriptor = ksl.mmdescriptor
+            using_blacs = ksl.using_blacs
+            for kpt in self.calc.wfs.kpt_u:
+               if using_blacs:
+                   scalapack_tri2full(self.mm_block_descriptor, kpt.S_MM)
+                   scalapack_tri2full(self.mm_block_descriptor, kpt.T_MM)
+        #END
         self.calc.save_old_S_MM()
         # m a(t+dt)   = F[psi(t),x(t)]
         self.calc.atoms.positions = self.x * Bohr
@@ -176,6 +190,16 @@ class EhrenfestVelocityVerletLCAO:
 
         self.calc.timer.start('PROPAGATE WF S1/2')
         if self.calc.S_flag == True:
+            #BEGIN This needs to be done better
+            if using_blacs:
+                ksl = self.calc.wfs.ksl
+                self.mm_block_descriptor = ksl.mmdescriptor
+                using_blacs = ksl.using_blacs
+                for kpt in self.calc.wfs.kpt_u:
+                   if using_blacs:
+                       scalapack_tri2full(self.mm_block_descriptor, kpt.S_MM)
+                       scalapack_tri2full(self.mm_block_descriptor, kpt.T_MM)
+            #END
             # propagate LCAO C using overlap matrix
             self.calc.propagate_using_S12(self.time, dt)
         self.calc.timer.stop('PROPAGATE WF S1/2')

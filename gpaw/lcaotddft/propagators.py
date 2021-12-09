@@ -399,10 +399,13 @@ class EDSICNPropagator(ECNPropagator):
         # Predictor step
         # --------------
         # 1. Store current C_nM
+        ksl = self.wfs.ksl
+        using_blacs = ksl.using_blacs
         self.save_wfs()  # kpt.C2_nM = kpt.C_nM
         for kpt in self.wfs.kpt_u:
-            scalapack_tri2full(self.mm_block_descriptor, kpt.S_MM)
-            scalapack_tri2full(self.mm_block_descriptor, kpt.T_MM)
+            if using_blacs:
+                scalapack_tri2full(self.mm_block_descriptor, kpt.S_MM)
+                scalapack_tri2full(self.mm_block_descriptor, kpt.T_MM)
             # H_MM(t) = <M|H(t)|M>
             kpt.H0_MM = get_H_MM(kpt, time)
             # Add P term in case we performe Ehrenfest dynamics
