@@ -131,8 +131,9 @@ class NonLocalFunctional(XCFunctional):
     def summary(self, log):
         if self.response is not None:
             source_s = self.response.coefficients.reference_energy_source_s
-            log('{} response reference energy source: {}\n'
-                .format(self.name, ', '.join(source_s)))
+            if source_s is not None:
+                log('{} response reference energy source: {}\n'
+                    .format(self.name, ', '.join(source_s)))
 
     def read(self, reader):
         for contribution in self.contributions:
