@@ -385,15 +385,6 @@ class GPAW(Calculator):
             self.log('\nConverged after {} iterations.\n'
                      .format(self.scf.niter))
 
-            # XXX Log GLLBSC response reference energy source
-            xc = self.hamiltonian.xc
-            if xc.type == 'GLLB':
-                response = xc.response
-                if response is not None:
-                    source_s = response.coefficients.reference_energy_source_s
-                    self.log('{} response reference energy source: {}\n'
-                             .format(xc.name, ', '.join(source_s)))
-
             e_free = self.hamiltonian.e_total_free
             e_extrapolated = self.hamiltonian.e_total_extrapolated
             self.results['energy'] = e_extrapolated * Ha
