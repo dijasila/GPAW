@@ -40,6 +40,9 @@ class Coefficients:
             self.eps = None  # Make sure that eps is not used with width
         self.width = width
 
+        # XXX For logging reference energy source
+        self.reference_energy_source_s = None
+
     def initialize(self, wfs):
         self.wfs = wfs
 
@@ -114,6 +117,7 @@ class Coefficients:
     def get_reference_energies(self, homolumo=None):
         eref_s = []
         eref_lumo_s = []
+        self.reference_energy_source_s = []
         if self.metallic:
             # Use Fermi level as reference levels
             assert homolumo is None
@@ -121,6 +125,7 @@ class Coefficients:
             assert isinstance(fermilevel, float), \
                 'GLLBSCM supports only a single Fermi level'
             for s in range(self.wfs.nspins):
+                self.reference_energy_source_s.append('Fermi level')
                 eref_s.append(fermilevel)
                 eref_lumo_s.append(fermilevel)
         elif homolumo is None:
@@ -131,9 +136,11 @@ class Coefficients:
                 if homo > lumo:
                     # HOMO higher than LUMO; set Fermi level as reference
                     fermilevel = self.wfs.fermi_level
+                    self.reference_energy_source_s.append('Fermi level')
                     eref_s.append(fermilevel)
                     eref_lumo_s.append(fermilevel)
                 else:
+                    self.reference_energy_source_s.append('HOMO LUMO')
                     eref_s.append(homo)
                     eref_lumo_s.append(lumo)
         else:
