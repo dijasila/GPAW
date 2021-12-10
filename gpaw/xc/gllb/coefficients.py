@@ -8,18 +8,18 @@ K_G = 8 * np.sqrt(2) / (3 * np.pi**2)  # 0.382106112167171
 
 
 class Coefficients:
-    r"""Coefficient calculator for GLLB functionals.
+    """Coefficient calculator for GLLB functionals.
 
     This class implements the calculation of sqrt(E) coefficients as given by
     Eq. (16) of https://doi.org/10.1103/PhysRevB.82.115106.
 
-    Parameters:
-
-    eps (in eV):
+    Parameters
+    ----------
+    eps (in eV)
         This parameter cuts sqrt(E) to zero for E < eps.
         The cut is supposed to help convergence with degenerate systems.
         This parameter should be small.
-    width (in eV):
+    width (in eV)
         If this parameter is set, then a smoothed variant of the sqrt(E)
         expression is used. This parameter sets the energy width of
         the smoothing.

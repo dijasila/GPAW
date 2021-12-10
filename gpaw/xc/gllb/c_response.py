@@ -59,16 +59,26 @@ class ResponsePotential:
 
 
 class C_Response(Contribution):
-    r"""Response contribution for GLLB functionals.
+    """Response contribution for GLLB functionals.
 
     Parameters
     ----------
+    weight
+        Weight of the contribution
+    coefficients
+        Coefficient calculator object
     metallic
-        If this parameter is set, then Fermi level is used as the reference
+        If True, then Fermi level is used as the reference
         energy for coefficients instead of the HOMO energy.
         This is necessary to get sensible results in metallic systems.
+    damp
+        Small value to damp divisions by zero
     """
-    def __init__(self, weight, coefficients, *, metallic=False, damp=1e-10):
+    def __init__(self,
+                 weight: float,
+                 coefficients, *,
+                 metallic: bool = False,
+                 damp: float = 1e-10):
         Contribution.__init__(self, weight)
         d('In c_Response __init__', self)
         self.coefficients = coefficients
