@@ -24,24 +24,15 @@ class Coefficients:
         expression is used. This parameter sets the energy width of
         the smoothing.
         The eps parameter is ignored when the width parameter is set.
-    metallic:
-        If this parameter is set, then Fermi level is used as the reference
-        energy in the sqrt(E) expression instead of the HOMO energy.
-        This is necessary to get sensible results in metallic systems.
     """
     def __init__(self,
                  eps: float = 0.05,
-                 width: float = None,
-                 metallic: bool = False):
+                 width: float = None):
         self.eps = eps / Ha
-        self.metallic = metallic
         if width is not None:
             width = width / Ha
             self.eps = None  # Make sure that eps is not used with width
         self.width = width
-
-        # XXX For logging reference energy source
-        self.reference_energy_source_s = None
 
     def initialize(self, wfs):
         self.wfs = wfs
@@ -53,8 +44,6 @@ class Coefficients:
         desc = []
         if self.eps is not None:
             desc += ['eps={:.4f} eV'.format(self.eps * Ha)]
-        if self.metallic:
-            desc += ['metallic']
         if self.width is not None:
             desc += ['width={:.4f} eV'.format(self.width * Ha)]
         return ', '.join(desc)
@@ -114,44 +103,7 @@ class Coefficients:
         f_j = np.asarray(self.ae.f_j)
         return f_j * K_G * (self.f(lumo - e_j) - self.f(homo - e_j))
 
-    def get_reference_energies(self, homolumo=None):
-        eref_s = []
-        eref_lumo_s = []
-        self.reference_energy_source_s = []
-        if self.metallic:
-            # Use Fermi level as reference levels
-            assert homolumo is None
-            fermilevel = self.wfs.fermi_level
-            assert isinstance(fermilevel, float), \
-                'GLLBSCM supports only a single Fermi level'
-            for s in range(self.wfs.nspins):
-                self.reference_energy_source_s.append('Fermi level')
-                eref_s.append(fermilevel)
-                eref_lumo_s.append(fermilevel)
-        elif homolumo is None:
-            # Find homo and lumo levels for each spin
-            for s in range(self.wfs.nspins):
-                homo, lumo = self.wfs.get_homo_lumo(s)
-                # Check that homo and lumo are reasonable
-                if homo > lumo:
-                    # HOMO higher than LUMO; set Fermi level as reference
-                    fermilevel = self.wfs.fermi_level
-                    self.reference_energy_source_s.append('Fermi level')
-                    eref_s.append(fermilevel)
-                    eref_lumo_s.append(fermilevel)
-                else:
-                    self.reference_energy_source_s.append('HOMO LUMO')
-                    eref_s.append(homo)
-                    eref_lumo_s.append(lumo)
-        else:
-            eref_s, eref_lumo_s = homolumo
-            if not isinstance(eref_s, (list, tuple, np.ndarray)):
-                eref_s = [eref_s]
-                eref_lumo_s = [eref_lumo_s]
-        return eref_s, eref_lumo_s
-
-    def get_coefficients(self, kpt_u, homolumo=None):
-        eref_s, eref_lumo_s = self.get_reference_energies(homolumo=homolumo)
+    def get_coefficients(self, kpt_u, eref_s):
         w_kn = []
         for kpt in kpt_u:
             w_n = self.f(eref_s[kpt.s] - kpt.eps_n)
@@ -159,8 +111,8 @@ class Coefficients:
             w_kn.append(w_n)
         return w_kn
 
-    def get_coefficients_for_lumo_perturbation(self, kpt_u, homolumo=None):
-        eref_s, eref_lumo_s = self.get_reference_energies(homolumo=homolumo)
+    def get_coefficients_for_lumo_perturbation(self, kpt_u, eref_s,
+                                               eref_lumo_s):
         w_kn = []
         for kpt in kpt_u:
             w_n = (self.f(eref_lumo_s[kpt.s] - kpt.eps_n)

@@ -96,8 +96,8 @@ def get_nonlocal_functional(name: str,
         scr = C_GLLBScr(1.0, functional=func_name_to_dict(scr_functional))
         functional.add_contribution(scr)
     if response:
-        coef = Coefficients(eps=eps, width=width, metallic=metallic)
-        resp = C_Response(1.0, coef)
+        coef = Coefficients(eps=eps, width=width)
+        resp = C_Response(1.0, coef, metallic=metallic)
         functional.add_contribution(resp)
     if xc_functional is not None:
         xc = C_XC(1.0, functional=func_name_to_dict(xc_functional))
