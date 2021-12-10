@@ -18,9 +18,11 @@ from gpaw.gaunt import gaunt
 G_LLL = gaunt(3) # XXX
 
 class MatrixElements:
-    def __init__(self, lmax=2, screening_omega=0.0):
+    def __init__(self, lmax=2, screening_omega=0.0, threshold=None):
+        assert threshold is not None
         self.lmax = lmax
         self.screening_omega = screening_omega
+        self.threshold = threshold
 
     def initialize(self, density, ham, wfs):
         self.setups = setups = wfs.setups
@@ -53,14 +55,16 @@ class MatrixElements:
                 #print('Not overriding W_LL at matrix_elements.py')
 
                 # Auxiliary basis functions
-                setup.auxt_j, setup.wauxt_j, setup.sauxt_j, setup.wsauxt_j, setup.M_j = get_auxiliary_splines_screened(setup, self.lmax, rcmax)
+                setup.auxt_j, setup.wauxt_j, setup.sauxt_j, setup.wsauxt_j, setup.M_j = \
+                   get_auxiliary_splines_screened(setup, self.lmax, rcmax, threshold=self.threshold)
 
             else:
                 # Compensation charges
                 setup.gaux_l, setup.wgaux_l = get_compensation_charge_splines(setup, self.lmax, rcmax)
 
                 # Auxiliary basis functions
-                setup.auxt_j, setup.wauxt_j, setup.sauxt_j, setup.wsauxt_j, setup.M_j = get_auxiliary_splines(setup, self.lmax, rcmax)
+                setup.auxt_j, setup.wauxt_j, setup.sauxt_j, setup.wsauxt_j, setup.M_j = \
+                     get_auxiliary_splines(setup, self.lmax, rcmax, threshold=self.threshold)
 
             # Single center Hartree of compensation charges * one phit_j
             setup.wgauxphit_x = get_wgauxphit_product_splines(setup, setup.wgaux_l, setup.phit_j, rcmax)

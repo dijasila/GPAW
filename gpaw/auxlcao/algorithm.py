@@ -28,13 +28,15 @@ class RIAlgorithm:
         self.screening_omega = screening_omega
 
 
-class RIMPV(RIAlgorithm):
-    def __init__(self, exx_fraction=None, screening_omega=None):
+class RILVL(RIAlgorithm):
+    def __init__(self, exx_fraction=None, screening_omega=None, threshold=None):
         RIAlgorithm.__init__(self, exx_fraction, screening_omega)
         self.lmax = 2
         assert exx_fraction is not None
         assert screening_omega is not None
-        self.matrix_elements = MatrixElements(self.lmax, screening_omega)
+        assert threshold is not None
+
+        self.matrix_elements = MatrixElements(self.lmax, screening_omega, threshold=threshold)
 
         if self.screening_omega == 0.0:
             self.calculate_W_LL = calculate_W_LL_multipole

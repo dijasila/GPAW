@@ -35,7 +35,7 @@ for hybrid functionals.
 
 from gpaw.xc import XC
 import numpy as np
-from gpaw.auxlcao.algorithm import RIMPV
+from gpaw.auxlcao.algorithm import RILVL
 from gpaw.auxlcao.reference_algorithm import RIVFullBasisDebug, RIVRestrictedBasisDebug
 
 class LCAOHybrid:
@@ -43,10 +43,11 @@ class LCAOHybrid:
     orbital_dependent_lcao = True
     type = 'auxhybrid'
 
-    def __init__(self, xcname:str, algorithm=None, omega = None, 
+    def __init__(self, xcname:str, algorithm=None, omega = None, threshold=1e-2,
                                    debug={'cube':False,'ref':False}):
  
         self.screening_omega = 0.0
+        self.threshold = threshold
         self.name = xcname
         if xcname == 'EXX':
             self.exx_fraction = 1.0
@@ -82,11 +83,13 @@ class LCAOHybrid:
         if algorithm == 'RIVRestrictedDebug':
             assert self.screening_omega == 0.0
             self.ri_algorithm = RIVRestrictedBasisDebug(self.exx_fraction)
+            print('Threshold ignored?')
         if algorithm == 'RIVFullBasisDebug':
             assert self.screening_omega == 0.0
             self.ri_algorithm = RIVFullBasisDebug(self.exx_fraction, screening_omega = self.screening_omega)
-        elif algorithm == 'RI-MPV':
-            self.ri_algorithm = RIMPV(exx_fraction = self.exx_fraction, screening_omega = self.screening_omega)
+            print('Threshold ignored?')
+        elif algorithm == 'RI-LVL':
+            self.ri_algorithm = RILVL(exx_fraction = self.exx_fraction, screening_omega = self.screening_omega, threshold=self.threshold)
         else:
             if algorithm is None:
                 s = 'Please spesify the algorithm variable i.e. xc=''%s:backend=aux-lcao:algorithm=ALG''\n'
@@ -95,7 +98,7 @@ class LCAOHybrid:
             s += 'Available algorithms are:\n'
             s += '    RIVRestrictedDebug\n'
             s += '    RIVFullBasisDebug\n'
-            s += '    RI-MPV\n'
+            s += '    RI-LVL\n'
             raise ValueError(s)
 
     def set_grid_descriptor(self, gd):
@@ -130,7 +133,7 @@ class LCAOHybrid:
         return self.ekin
 
     def get_setup_name(self):
-        return 'GLLBSC'
+        return 'PBE'
 
     def calculate_paw_correction(self, setup, D_sp, dH_sp=None, a=None):
         return self.localxc.calculate_paw_correction(setup, D_sp, dH_sp, a=a)

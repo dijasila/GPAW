@@ -57,9 +57,9 @@ def get_compensation_charge_splines_screened(setup, lmax, cutoff):
         wghat_l.append(rgd.spline(v_g, cutoff, l, 500))
     return ghat_l, wghat_l, W_LL
 
-def _get_auxiliary_splines(setup, lmax, cutoff, poisson):
+def _get_auxiliary_splines(setup, lmax, cutoff, poisson, threshold=1e-2):
     rgd = setup.rgd
-
+    print('Threshold: %.10f' % threshold)
     auxt_lng = defaultdict(lambda: [])
     wauxt_lng = defaultdict(lambda: [])
     for j1, spline1 in enumerate(setup.phit_j):
@@ -100,7 +100,7 @@ def _get_auxiliary_splines(setup, lmax, cutoff, poisson):
         print('l=%d' % l, S_nn)
         eps_i, v_ni = eigh(S_nn)
         assert np.all(eps_i>0)
-        nbasis = int((eps_i > 1e-2).sum())
+        nbasis = int((eps_i > threshold).sum())
         q_ni = np.dot(v_ni[:, -nbasis:],
                       np.diag(eps_i[-nbasis:]**-0.5))
 
@@ -129,18 +129,17 @@ def _get_auxiliary_splines(setup, lmax, cutoff, poisson):
             wsauxt_j.append(rgd.spline(v_g, cutoff, l, 500))
             print('Last potential element', v_g[-1])
             assert(np.abs(v_g[-1])<1e-6)
-
-
+        print('l=%d %d -> %d' % (l, len(auxt_ng), len(auxt_ig)))
     return auxt_j, wauxt_j, sauxt_j, wsauxt_j, M_j
 
-def get_auxiliary_splines(setup, lmax, cutoff):
+def get_auxiliary_splines(setup, lmax, cutoff, threshold=1e-2):
     def poisson(n_g,l):
         return Hartree(setup.rgd, n_g, l)
 
-    return _get_auxiliary_splines(setup, lmax, cutoff, poisson)
+    return _get_auxiliary_splines(setup, lmax, cutoff, poisson, threshold=threshold)
 
-def get_auxiliary_splines_screened(setup, lmax, cutoff):
-    return _get_auxiliary_splines(setup, lmax, cutoff, setup.screened_coulomb.screened_coulomb)
+def get_auxiliary_splines_screened(setup, lmax, cutoff, threshold=1e-2):
+    return _get_auxiliary_splines(setup, lmax, cutoff, setup.screened_coulomb.screened_coulomb, threshold=threshold)
 
 
 def get_wgauxphit_product_splines(setup, wgaux_j, phit_j, cutoff):
@@ -155,7 +154,6 @@ def get_wgauxphit_product_splines(setup, wgaux_j, phit_j, cutoff):
                 wgauxphit_g = spline_to_rgd(rgd, wgaux, spline1)
                 wgauxphit_x.append(rgd.spline(wgauxphit_g, cutoff, l))
     return wgauxphit_x
-
 
 def safe_inv(W_AA):
     eigs = np.linalg.eigvalsh(W_AA)
