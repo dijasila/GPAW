@@ -51,6 +51,7 @@ def test_restart_eigenvalues(xc, in_tmp_dir):
     atoms.calc = calc
     atoms.get_potential_energy()
 
+    eref_s = calc.hamiltonian.xc.response.eref_s
     eref_source_s = calc.hamiltonian.xc.response.eref_source_s
 
     kpt_i = [0, 3]
@@ -81,4 +82,5 @@ def test_restart_eigenvalues(xc, in_tmp_dir):
         "{} restart error = {}".format(xc, np.max(np.abs(eig_in - eig2_in)))
 
     # Check that reference energy source information is restored
+    assert eref_s == calc.hamiltonian.xc.response.eref_s
     assert eref_source_s == calc.hamiltonian.xc.response.eref_source_s

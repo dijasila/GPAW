@@ -92,7 +92,8 @@ class C_Response(Contribution):
         self.fix_potential = False
         self.metallic = metallic
 
-        # For logging reference energy source
+        # For logging reference energy
+        self.eref_s = None
         self.eref_source_s = None
 
     def set_damp(self, damp):
@@ -140,6 +141,7 @@ class C_Response(Contribution):
         self.Dresp_asp = pot.Dresp_asp
         self.Ddist_asp = self.distribute_D_asp(pot.D_asp)
         self.Drespdist_asp = self.distribute_D_asp(pot.Dresp_asp)
+        self.eref_s = response.eref_s
         self.eref_source_s = response.eref_source_s
 
     # Calcualte the GLLB potential and energy 1d
@@ -168,7 +170,7 @@ class C_Response(Contribution):
             return
 
         # Calculate reference energy
-        eref_s = []
+        self.eref_s = []
         self.eref_source_s = []
         if self.metallic:
             # Use Fermi level as reference levels
@@ -177,7 +179,7 @@ class C_Response(Contribution):
                 'GLLBSCM supports only a single Fermi level'
             for s in range(self.wfs.nspins):
                 self.eref_source_s.append('Fermi level')
-                eref_s.append(fermilevel)
+                self.eref_s.append(fermilevel)
         else:
             # Find homo and lumo levels for each spin
             for s in range(self.wfs.nspins):
@@ -187,13 +189,13 @@ class C_Response(Contribution):
                     # HOMO higher than LUMO; set Fermi level as reference
                     fermilevel = self.wfs.fermi_level
                     self.eref_source_s.append('Fermi level')
-                    eref_s.append(fermilevel)
+                    self.eref_s.append(fermilevel)
                 else:
                     self.eref_source_s.append('HOMO')
-                    eref_s.append(homo)
+                    self.eref_s.append(homo)
 
         w_kn = self.coefficients.get_coefficients(self.wfs.kpt_u,
-                                                  eref_s=eref_s)
+                                                  eref_s=self.eref_s)
         f_kn = [kpt.f_n for kpt in self.wfs.kpt_u]
         if w_kn is not None:
             self.vt_sG[:] = 0.0
@@ -631,6 +633,7 @@ class C_Response(Contribution):
         writer.write(gllb_atomic_density_matrices=pack(self.D_asp))
         writer.write(gllb_atomic_response_matrices=pack(self.Dresp_asp))
 
+        writer.write(eref_s=self.eref_s)
         writer.write(eref_source_s=self.eref_source_s)
 
     def empty_atomic_matrix(self):
@@ -667,7 +670,8 @@ class C_Response(Contribution):
         self.Ddist_asp = self.distribute_D_asp(self.D_asp)
         self.Drespdist_asp = self.distribute_D_asp(self.Dresp_asp)
 
-        if 'eref_source_s' in r:
+        if 'eref_s' in r:
+            self.eref_s = r.eref_s
             self.eref_source_s = r.eref_source_s
 
     def heeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeelp(self, olddens):
