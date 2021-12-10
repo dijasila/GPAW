@@ -140,6 +140,7 @@ class C_Response(Contribution):
         self.Dresp_asp = pot.Dresp_asp
         self.Ddist_asp = self.distribute_D_asp(pot.D_asp)
         self.Drespdist_asp = self.distribute_D_asp(pot.Dresp_asp)
+        self.eref_source_s = response.eref_source_s
 
     # Calcualte the GLLB potential and energy 1d
     def add_xc_potential_and_energy_1d(self, v_g):
@@ -630,6 +631,8 @@ class C_Response(Contribution):
         writer.write(gllb_atomic_density_matrices=pack(self.D_asp))
         writer.write(gllb_atomic_response_matrices=pack(self.Dresp_asp))
 
+        writer.write(eref_source_s=self.eref_source_s)
+
     def empty_atomic_matrix(self):
         assert self.wfs.atom_partition is self.density.atom_partition
         return self.wfs.setups.empty_atomic_matrix(self.wfs.nspins,
@@ -663,6 +666,9 @@ class C_Response(Contribution):
         # Further distributes the density matricies for xc-corrections
         self.Ddist_asp = self.distribute_D_asp(self.D_asp)
         self.Drespdist_asp = self.distribute_D_asp(self.Dresp_asp)
+
+        if 'eref_source_s' in r:
+            self.eref_source_s = r.eref_source_s
 
     def heeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeelp(self, olddens):
         # XXX This function should be removed once the deprecated
