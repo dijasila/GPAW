@@ -108,7 +108,6 @@ def calculate_W_LL_multipole_screened(setups, cell_cv, spos_ac, pbc_c, ibzk_qc, 
                 R_c_and_offset_a = a1a2.get(a1, a2)
                 ND = len(R_c_and_offset_a)
                 R_dc = np.array( [ R_c for R_c, offset_c in R_c_and_offset_a ] )
-
                 dx = -R_dc[:,0].reshape( ( R_dc.shape[0], 1) )
                 dy = -R_dc[:,1].reshape( ( R_dc.shape[0], 1) )
                 dz = -R_dc[:,2].reshape( ( R_dc.shape[0], 1) )

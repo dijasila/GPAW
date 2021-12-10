@@ -188,8 +188,6 @@ class RIMPV(RIAlgorithm):
             with open('RIMPV-W_AA.npy', 'wb') as f:
                 np.save(f, self.W_AA)
 
-            xxx
-
             with self.timer('Calculate reference I_AMM'):
                 self.Iref_AMM = reference_I_AMM(self.wfs, self.density, self.hamiltonian, self.hamiltonian.poisson, auxt_aj, spos_ac)
 
@@ -216,11 +214,10 @@ class RIMPV(RIAlgorithm):
             with open('RIMPV-I_AMM.npy', 'wb') as f:
                 np.save(f, self.I_AMM)
 
+            xxx
+
             with self.timer('calculate reference W_AA'):
                 self.Wref_AA = reference_W_AA(self.density, self.hamiltonian.poisson, auxt_aj, spos_ac)
-
-
-
 
     def cube_debug(self, atoms):
         from ase.io.cube import write_cube

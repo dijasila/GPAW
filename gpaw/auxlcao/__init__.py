@@ -112,7 +112,12 @@ class LCAOHybrid:
         return energy
 
     def initialize(self, density, hamiltonian, wfs):
-        self.ecc = sum(setup.ExxC for setup in wfs.setups) * self.exx_fraction
+        self.ecc = 0
+        for setup in wfs.setups:
+            if setup.ExxC is not None:        
+                self.ecc += setup.ExxC * self.exx_fraction
+            else:
+                print('Warning, setup does not have core exchange')
         self.ri_algorithm.initialize(density, hamiltonian, wfs)
 
     def set_positions(self, spos_ac):
@@ -125,7 +130,7 @@ class LCAOHybrid:
         return self.ekin
 
     def get_setup_name(self):
-        return 'PBE'
+        return 'GLLBSC'
 
     def calculate_paw_correction(self, setup, D_sp, dH_sp=None, a=None):
         return self.localxc.calculate_paw_correction(setup, D_sp, dH_sp, a=a)
@@ -146,7 +151,7 @@ class LCAOHybrid:
             return
 
         if self.debug['cube']:
-            self.ri_algorithm.cube_debug(self.cubedebug)
+            self.ri_algorithm.cube_debug(self.debug['cube'])
 
         self.evv, self.evc, self.ekin = self.ri_algorithm.nlxc(H_MM, dH_asp, wfs, kpt)
 

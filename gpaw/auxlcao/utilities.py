@@ -1,5 +1,5 @@
 import numpy as np
-
+from numpy.linalg import eigh
 from collections import defaultdict
 
 r""" The rgd.poisson returns the radial Poisson solution multiplied with r.
@@ -59,9 +59,9 @@ def get_compensation_charge_splines_screened(setup, lmax, cutoff):
 
 def _get_auxiliary_splines(setup, lmax, cutoff, poisson):
     rgd = setup.rgd
+
     auxt_lng = defaultdict(lambda: [])
     wauxt_lng = defaultdict(lambda: [])
-
     for j1, spline1 in enumerate(setup.phit_j):
         l1 = spline1.get_angular_momentum_number()
         for j2, spline2 in enumerate(setup.phit_j):
@@ -77,70 +77,60 @@ def _get_auxiliary_splines(setup, lmax, cutoff, poisson):
                 v_g = poisson(aux_g, l)
                 wauxt_lng[l].append(v_g) #  #rgd.spline(v_g, cutoff, l, 500))
 
+    # Splines
+    auxt_j = []
+    wauxt_j = []
+    sauxt_j = []
+    wsauxt_j = []
+    M_j = []
+
     for l, auxt_ng in auxt_lng.items():
         auxt_ng = np.array(auxt_ng)
         wauxt_ng = np.array(wauxt_lng[l])
         N = len(auxt_ng)
         S_nn = np.zeros( (N, N) )
-        import matplotlib.pyplot as plt
+        #import matplotlib.pyplot as plt
         for n1, auxt_g in enumerate(auxt_ng):
-            plt.plot(rgd.r_g, auxt_g)
-            plt.plot(rgd.r_g, wauxt_ng[n1],'x')
+            #plt.plot(rgd.r_g, auxt_g)
+            #plt.plot(rgd.r_g, wauxt_ng[n1],'x')
             for n2, wauxt_g in enumerate(wauxt_ng):
                 S_nn[n1, n2] = rgd.integrate(auxt_g * wauxt_g)
         S_nn = (S_nn + S_nn.T) / 2
 
         print('l=%d' % l, S_nn)
-        from numpy.linalg import eigh
         eps_i, v_ni = eigh(S_nn)
         assert np.all(eps_i>0)
         nbasis = int((eps_i > 1e-2).sum())
-        print(nbasis)
-        print(eps_i)
-        print(v_ni)
         q_ni = np.dot(v_ni[:, -nbasis:],
                       np.diag(eps_i[-nbasis:]**-0.5))
 
-        plt.show()
+        #plt.show()
 
         auxt_ig =  q_ni.T @ auxt_ng
         wauxt_ig = q_ni.T @ wauxt_ng
-        for i1, auxt_g in enumerate(auxt_ig):
-            plt.plot(rgd.r_g, auxt_g)
 
-        S_ii = np.zeros((len(auxt_ig), len(auxt_ig)))
-        for i1, auxt_g in enumerate(auxt_ig):
-            for i2, wauxt_g in enumerate(wauxt_ig):
-                S_ii[i1, i2] = rgd.integrate(auxt_g * wauxt_g)
-        S_ii = (S_ii + S_ii.T) / 2
+        # Evaluate reference multipole momement
+        g_g = spline_to_rgd(rgd, setup.ghat_l[l])
+        Mref = rgd.integrate(g_g * rgd.r_g**l) / (4*np.pi)
 
-        print('l=%d' % l, S_ii)
+        for i in range(len(auxt_ig)):
+            aux_g = auxt_ig[i]
+            auxt_j.append(rgd.spline(aux_g, cutoff, l, 500))
+            wauxt_j.append(rgd.spline(wauxt_ig[i], cutoff, l, 500))
+            
+            # Evaluate multipole moment
+            M = rgd.integrate(auxt_g * rgd.r_g**l) / (4*np.pi)
+            M_j.append(M)
+
+            sauxt_g = auxt_g - M / Mref * g_g
+            sauxt_j.append(rgd.spline(sauxt_g, cutoff, l, 500))
+
+            v_g = poisson(sauxt_g, l)
+            wsauxt_j.append(rgd.spline(v_g, cutoff, l, 500))
+            print('Last potential element', v_g[-1])
+            assert(np.abs(v_g[-1])<1e-6)
 
 
-        plt.show()
-
-    xxx
-
-    """
-    sauxt_ln = []
-    wsauxt_ln = []
-    M_j = []
-
-                # Evaluate multipole moment
-                M = rgd.integrate(aux_g * rgd.r_g**l) / (4*np.pi)
-                M_j.append(M)
-
-                g_g = spline_to_rgd(rgd, setup.ghat_l[l])
-                Mref = rgd.integrate(g_g * rgd.r_g**l) / (4*np.pi)
-                saux_g = aux_g - M / Mref * g_g
-                sauxt_j.append(rgd.spline(saux_g, cutoff, l, 500))
-
-                v_g = poisson(saux_g, l)
-                wsauxt_j.append(rgd.spline(v_g, cutoff, l, 500))
-                print('Last potential element', v_g[-1])
-                #assert(np.abs(v_g[-1])<1e-6)
-
-    """
     return auxt_j, wauxt_j, sauxt_j, wsauxt_j, M_j
 
 def get_auxiliary_splines(setup, lmax, cutoff):
