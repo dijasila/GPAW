@@ -23,6 +23,133 @@ c = 2 * units._hplanck / (units._mu0 * units._c * units._e**2)
 # Colors for s, p, d, f, g:
 colors = 'krgbycmmmmm'
 
+class GaussianMatrixElements:
+    def __init__(self, l, alpha_B):
+        self.l = l
+        alpha_B = np.array(alpha_B)
+        self.A_BB = np.add.outer(alpha_B, alpha_B)
+        self.M_BB = np.multiply.outer(alpha_B, alpha_B)
+        self.alpha_B = alpha_B
+
+    def T_BB(self):
+       """ Kinetic energy matrix:
+       """
+       l, M_BB, A_BB = self.l, self.M_BB, self.A_BB
+       return 2**(l + 2.5) * M_BB**(0.5 * l + 0.75) / gamma(l + 1.5) * (
+              gamma(l + 2.5) * M_BB / A_BB**(l + 2.5) -
+              0.5 * (l + 1) * gamma(l + 1.5) / A_BB**(l + 0.5) +
+              0.25 * (l + 1) * (2 * l + 1) * gamma(l + 0.5) / A_BB**(l + 0.5))
+
+    def S_BB(self):
+        """ Overlap matrix
+        """
+        l, M_BB, A_BB = self.l, self.M_BB, self.A_BB
+        return (2 * M_BB**0.5 / A_BB)**(l + 1.5)
+
+    def D_BB(self):
+        """ Derivative matrix
+        """
+        l, M_BB, A_BB = self.l, self.M_BB, self.A_BB
+        return 2**(l + 2.5) * M_BB**(0.5 * l + 0.75) / gamma(l + 1.5) * (
+               0.5 * (l + 1) * gamma(l + 1) / A_BB**(l + 1) -
+               gamma(l + 2) * self.alpha_B / A_BB**(l + 2))
+
+    def K_BB(self):
+        """ 1/r matrix
+        """
+        l, M_BB, A_BB = self.l, self.M_BB, self.A_BB
+        return 2**(l + 2.5) * M_BB**(0.5 * l + 0.75) / gamma(l + 1.5) * (
+               0.5 * gamma(l + 1) / A_BB**(l + 1))
+
+
+class CustomBasis:
+    def __init__(self, l, basisfunctions, rgd):
+        """ Basis function is a list of all contracted basis functions for angularmomentum channel l,
+            which is a list of all primitives,
+            and a primitive is a tuple with two values (alpha and weight coefficient)
+
+            Example
+
+            Helium DZP, which is defined in turbomole format as follows
+                    3  s
+                 38.354936737	   .23814288905E-01
+                 5.7689081479	   .15490906777
+                 1.2399407035	   .46998096633
+                    1  s
+                 .29757815953	   1.0000000000
+                    1  p
+                  1.000             1.000
+
+            will be defined as
+            basisfunctions_l = [ [ [ (38.354936737, .23814288905E-01),
+                                   (5.7689081479, .15490906777),
+                                   (1.2399407035, .46998096633) ],
+                                   [ (.29757815953, 1.0000000000) ] ],
+                                 [ [ (1.000, 1.000) ] ] ],
+            so TurboMoleBasis will be instantiated as
+                basis = TurbomoleBasis(l, basisfunctions_l[l], rgd)
+
+        """
+        self.l = l
+        self.rgd = rgd
+
+        # Collect all the uncontracted exponents
+        alpha_B = []
+        b_B = []
+        weight_B = []
+
+        for b, contractedbf in enumerate(basisfunctions):
+            for (alpha, weight) in contractedbf:
+                alpha_B.append(alpha)
+                b_B.append(b)
+                weight_B.append(weight)
+
+        alpha_B = np.array(alpha_B)
+        gaussian = GaussianMatrixElements(l, alpha_B)
+
+        self.nbasis = len(basisfunctions)
+
+        # Construct the contraction matrix
+        C_Bb = np.zeros((len(weight_B), self.nbasis))
+        for B, (b, weight) in enumerate(zip(b_B, weight_B)):
+            C_Bb[B,b] = weight
+
+        # From uncontracted overlap matrix S_BB, to contracted overlap matrix S_bb
+        self.S_bb = np.dot(C_Bb.T, np.dot(gaussian.S_BB(), C_Bb))
+
+        # Generate orthonormalization transformation by utilizing inverse square root of overlap matrix
+        s_b, U_bb = eigh(self.S_bb)
+        Q_bb = np.dot(U_bb, np.diag(s_b**-0.5))
+
+        def rotate(E_BB):
+            return Q_bb.T @ C_Bb.T @ E_BB @ C_Bb @ Q_bb
+
+        # Kinetic, derivative, and nuclear potential matrices
+        self.T_bb = rotate(gaussian.T_BB())
+        self.D_bb = rotate(gaussian.D_BB())
+        self.K_bb = rotate(gaussian.K_BB())
+
+        # Put basis functions to radial grid
+        r_g = rgd.r_g
+        with seterr(divide='ignore'):
+            # Avoid errors in debug mode from division by zero:
+            gaussians_Bg = np.exp(-np.outer(alpha_B, r_g**2)) * r_g**l
+        prefactors_B = (2 * (2 * alpha_B)**(l + 1.5) / gamma(l + 1.5))**0.5
+        self.basis_bg = np.dot(Q_bb.T @ C_Bb.T, prefactors_B[:, None] * gaussians_Bg)
+
+    def __len__(self):
+        return self.nbasis
+
+    def calculate_potential_matrix(self, vr_g):
+        vr2dr_g = vr_g * self.rgd.r_g * self.rgd.dr_g
+        V_bb = np.inner(self.basis_bg[:, 1:],
+                        self.basis_bg[:, 1:] * vr2dr_g[1:])
+        return V_bb
+
+    def expand(self, C_xb):
+        return np.dot(C_xb, self.basis_bg)
+
+
 
 class GaussianBasis:
     def __init__(self, l, alpha_B, rgd, eps=1.0e-7):
@@ -484,7 +611,7 @@ class AllElectronAtom:
 
     def initialize(self, ngpts=2000, rcut=50.0,
                    alpha1=0.01, alpha2=None, ngauss=50,
-                   eps=1.0e-7):
+                   eps=1.0e-7, override_basis_l=None):
         """Initialize basis sets and radial grid.
 
         ngpts: int
@@ -522,19 +649,26 @@ class AllElectronAtom:
         self.log('Grid points:     %d (%.5f, %.5f, %.5f, ..., %.3f, %.3f)' %
                  ((self.rgd.N,) + tuple(self.rgd.r_g[[0, 1, 2, -2, -1]])))
 
-        # Distribute exponents between alpha1 and alpha2:
-        alpha_B = alpha1 * (alpha2 / alpha1)**np.linspace(0, 1, ngauss)
-        self.log('Exponents:       %d (%.3f, %.3f, ..., %.3f, %.3f)' %
-                 ((ngauss,) + tuple(alpha_B[[0, 1, -2, -1]])))
 
-        # Maximum l value:
-        lmax = max(self.f_lsn.keys())
+        if override_basis_l is None:
+            # Distribute exponents between alpha1 and alpha2:
+            alpha_B = alpha1 * (alpha2 / alpha1)**np.linspace(0, 1, ngauss)
+            self.log('Exponents:       %d (%.3f, %.3f, ..., %.3f, %.3f)' %
+                     ((ngauss,) + tuple(alpha_B[[0, 1, -2, -1]])))
+
+            # Maximum l value:
+            lmax = max(self.f_lsn.keys())
+        else:
+            lmax = len(override_basis_l) - 1
 
         self.channels = []
         nb_l = []
         if not self.dirac:
             for l in range(lmax + 1):
-                basis = GaussianBasis(l, alpha_B, self.rgd, eps)
+                if override_basis_l is None:
+                    basis = GaussianBasis(l, alpha_B, self.rgd, eps)
+                else:
+                    basis = CustomBasis(l, override_basis_l[l], self.rgd)
                 nb_l.append(len(basis))
                 for s in range(self.nspins):
                     self.channels.append(Channel(l, s, self.f_lsn[l][s],
@@ -598,7 +732,7 @@ class AllElectronAtom:
         self.calculate_electrostatic_potential()
         self.calculate_xc_potential()
         self.vr_sg = self.vxc_sg * self.rgd.r_g
-        self.vr_sg += self.vHr_g
+        self.vr_sg += self.vHr_g * 0 # XXX
         self.vr_sg -= self.Z
         self.ekin = (self.eeig -
                      self.rgd.integrate((self.vr_sg * self.n_sg).sum(0), -1))
@@ -675,12 +809,12 @@ class AllElectronAtom:
     def write_energies(self):
         self.log('\nEnergies:          [Hartree]           [eV]')
         self.log('--------------------------------------------')
+        self.etot = self.ekin + self.eH + self.eZ + self.exc
         for text, e in [('kinetic      ', self.ekin),
                         ('coulomb (e-e)', self.eH),
                         ('coulomb (e-n)', self.eZ),
                         ('xc           ', self.exc),
-                        ('total        ',
-                         self.ekin + self.eH + self.eZ + self.exc)]:
+                        ('total        ', self.etot)]:
             self.log(' %s %+13.6f  %+13.5f' % (text, e, units.Hartree * e))
 
         self.calculate_exx()
