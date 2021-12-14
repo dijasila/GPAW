@@ -173,6 +173,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
             nt_R.fft_interpolate(nt_r, self.fftplan, self.ifftplan2)
             if spin < density.ndensities:
                 nt_g.data += self.fftplan.out_R.ravel()[indices]
+        nt_g.data *= 1 / self.fftplan.in_R.size
 
         e_zero = self.vbar_g.integrate(nt_g)
 
@@ -182,15 +183,14 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         charge_h = vHt_h.desc.zeros()
         coef_aL = density.calculate_compensation_charge_coefficients()
         self.ghat_aLh.add_to(charge_h, coef_aL)
-        scale = 8
-        charge_h.data[self.h_g] += nt_g.data * scale
+        charge_h.data[self.h_g] += nt_g.data
         # background charge ???
 
         self.poisson_solver.solve(vHt_h, charge_h)
         e_coulomb = 0.5 * vHt_h.integrate(charge_h)
 
         vt_g = self.vbar_g.copy()
-        vt_g.data += vHt_h.data[self.h_g] * scale**-1
+        vt_g.data += vHt_h.data[self.h_g]
 
         vt_sR = density.nt_sR.new()
         vt_sR.data[:] = vt_g.ifft(self.ifftplan, grid=vt_sR.desc).data
