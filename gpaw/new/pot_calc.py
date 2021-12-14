@@ -51,7 +51,7 @@ class PotentialCalculator:
     def move(self, fracpos_ac):
         self.nct_aR.move(fracpos_ac)
         self.vbar_ar.move(fracpos_ac)
-        self.ghat_ar.move(fracpos_ac)
+        self.ghat_aLr.move(fracpos_ac)
         self.vbar_ar.to_uniform_grid(out=self.vbar_r)
 
 
@@ -94,7 +94,7 @@ class UniformGridPotentialCalculator(PotentialCalculator):
         e_zero = self.vbar_r.integrate(charge_r)
 
         ccc_aL = density.calculate_compensation_charge_coefficients()
-        self.ghat_ar.add_to(charge_r, ccc_aL)
+        self.ghat_aLr.add_to(charge_r, ccc_aL)
         if vHt_r is None:
             vHt_r = grid2.zeros()
         self.poisson_solver.solve(vHt_r, charge_r)
@@ -132,7 +132,7 @@ class UniformGridPotentialCalculator(PotentialCalculator):
 
         nt_r = self.interpolate(nt_R, preserve_integral=True)
 
-        return (self.ghat_ar.derivative(state.vHt_x),
+        return (self.ghat_aLr.derivative(state.vHt_x),
                 self.nct_aR.derivative(vt_R),
                 self.vbar_ar.derivative(nt_r))
 
