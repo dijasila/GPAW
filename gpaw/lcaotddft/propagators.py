@@ -330,6 +330,7 @@ class ECNPropagator(LCAOPropagator):
     def todict(self):
         return {'name': 'ecn'}
 
+
 class SICNPropagator(ECNPropagator):
 
     def __init__(self):
@@ -382,6 +383,7 @@ class SICNPropagator(ECNPropagator):
     def todict(self):
         return {'name': 'sicn'}
 
+
 class EDSICNPropagator(ECNPropagator):
     # This could be merge with SICN (above)
     def __init__(self):
@@ -409,7 +411,7 @@ class EDSICNPropagator(ECNPropagator):
             # H_MM(t) = <M|H(t)|M>
             kpt.H0_MM = get_H_MM(kpt, time)
             # Add P term in case we performe Ehrenfest dynamics
-            if self.hamiltonian.P_flag == True:
+            if self.hamiltonian.P_flag is True:
                 kpt.H0_MM += self.hamiltonian.PPP.calc_P(v)[0]
             # 2. Solve Psi(t+dt) from
             #    (S_MM - 0.5j*H_MM(t)*dt) Psi(t+dt)
@@ -423,9 +425,10 @@ class EDSICNPropagator(ECNPropagator):
         self.hamiltonian.update()
         for kpt in self.wfs.kpt_u:
             # 2. Estimate H(t+0.5*dt) ~ 0.5 * [ H(t) + H(t+dt) ]
-            if self.hamiltonian.P_flag == True:
+            if self.hamiltonian.P_flag is True:
                 # Add P term in case we performe Ehrenfest dynamics
-                kpt.H0_MM += get_H_MM(kpt, time + time_step) + self.hamiltonian.PPP.calc_P(v)[0]
+                kpt.H0_MM += get_H_MM(kpt, time + time_step) +\
+                    self.hamiltonian.PPP.calc_P(v)[0]
             else:
                 kpt.H0_MM += get_H_MM(kpt, time + time_step)
 
@@ -446,6 +449,7 @@ class EDSICNPropagator(ECNPropagator):
 
     def todict(self):
         return {'name': 'edsicn'}
+
 
 class TaylorPropagator(Propagator):
 

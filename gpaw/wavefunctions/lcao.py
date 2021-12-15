@@ -1,6 +1,5 @@
 import numpy as np
-from ase.units import Bohr, Hartree
-
+from ase.units import Bohr
 from gpaw.lfc import BasisFunctions
 from gpaw.utilities import unpack
 from gpaw.utilities.tools import tri2full
@@ -13,6 +12,7 @@ from gpaw.lcao.atomic_correction import (DenseAtomicCorrection,
                                          SparseAtomicCorrection)
 from gpaw.wavefunctions.mode import Mode
 from numpy.linalg import inv
+
 
 class LCAO(Mode):
     name = 'lcao'
@@ -448,9 +448,9 @@ class LCAOWaveFunctions(WaveFunctions):
 
         F_av[:, :] = self.forcecalc.get_forces_sum_GS()
         # Calculate EH_D contribution eq. 4.81
-        if self.ED_F == True:
+        if self.ED_F is True:
             F_EH = self.forcecalc.get_EH_F(self)
-            F_av[:,:] += F_EH[:,:]
+            F_av[:, :] += F_EH[:, :]
         
         self.timer.stop('LCAO forces')
 
@@ -514,11 +514,13 @@ class LCAOWaveFunctions(WaveFunctions):
         self.basis_functions.estimate_memory(mem.subnode('BasisFunctions'))
         self.eigensolver.estimate_memory(mem.subnode('Eigensolver'),
                                          self.dtype)
+
     def _get_overlap_derivatives(self, ignore_upper=False):
         dThetadR_qvMM, dTdR_qvMM = self.manytci.O_qMM_T_qMM(
-        self.gd.comm, self.ksl.Mstart, self.ksl.Mstop,
-        ignore_upper, derivative=True)
+            self.gd.comm, self.ksl.Mstart, self.ksl.Mstop,
+            ignore_upper, derivative=True)
         return dThetadR_qvMM, dTdR_qvMM
+
 
 class LCAOforces:
 
@@ -526,7 +528,7 @@ class LCAOforces:
                  P_aqMi, setups, manytci, hamiltonian, spos_ac,
                  timer, Fref_av, WF, ED_F):
         """ Object which calculates LCAO forces """
-        self.WF=WF
+        self.WF = WF
         self.ED_F = ED_F
         self.ksl = ksl
         self.nao = ksl.nao
@@ -565,86 +567,89 @@ class LCAOforces:
             self.gd.comm.sum(self.dThetadR_qvMM)
             self.gd.comm.sum(self.dTdR_qvMM)
             self.timer.stop('TCI derivative')
-            if self.ED_F == True:
+            if self.ED_F is True:
                 self.rhoT_uMM, self.ET_uMM = self.get_den_mat_and_E_ED()
             else:
                 self.rhoT_uMM, self.ET_uMM = self.get_den_mat_and_E()
 
-    def get_EH_F(self,WF):
+    def get_EH_F(self, WF):
 
         # Calculate Ehrenfest dyn contribution to Forces 4.83
-        #     F^{a}= { partial E_{el}} over {partial bold R_{a}} 
+        #     F^{a}= { partial E_{el}} over {partial bold R_{a}}
         #     + sum from{n} f_{n} [ 2 Re ( c_n^{*} [B_{a}^{+} +
         #     + C_{a}^{+}] S^{-1} (H+P)c_n ) +
         #     + ic_n^{*}[G_a+G_a^{+} ] ] c_n
-        #     F^{a}= - { partial E_{el}} over {partial bold R_{a}} 
+        #     F^{a}= - { partial E_{el}} over {partial bold R_{a}}
         #     + sum from{n} f_{n} [ 2 Re ( c_n^{*} [D_{a}{+}] eps c_n ) ]
-        #######     
+        #
         #       S^-1 * H * c
-        #######
-        if self.ED_F == True:
-            H_MM = WF.eigensolver.calculate_hamiltonian_matrix(self.hamiltonian, \
-            WF, self.kpt_u[0])
-            vel=WF.v
-            F=np.zeros_like(vel)
+        #
+        if self.ED_F is True:
+            H_MM = WF.eigensolver.calculate_hamiltonian_matrix(
+                self.hamiltonian, WF, self.kpt_u[0])
+            vel = WF.v
+            F = np.zeros_like(vel)
             S_MM = WF.kpt_u[0].S_MM
-            S_inv_MM=inv(S_MM) 
-            
+            S_inv_MM = inv(S_MM)
+
             for u, kpt in enumerate(WF.kpt_u):
                 aux1 = S_inv_MM @ H_MM @ kpt.C_nM
                 for a, M1, M2 in self.my_slices():
                     for v in range(3):
-                        F[a, v] +=-2.0 * (aux1[:,M1:M2].sum(-1).sum(-1)).real
+                        F[a, v] += -2.0 * (aux1[:, M1:M2].sum(-1).sum(-1)).real
 
         #    sum from{n} f_{n} [ 2 Re ( c_n^{*} [B_{a}^{+} +
         #    + C_{a}^{+}] S^{-1} (H+P)c_n )
-        '''
-        if self.ED_F == True:
-            vel=WF.v
-            vel[:,:]=1.0
-            #calculate_P = get_P(WF, self.v)
-            #P_MM, D_sum_aqvMM = calculate_P.calc_P()
-            #P_MM, D_sum_aqvMM = WF.calculatePD(W.v)
-            P_MM, D_sum_aqvMM = WF.calculatePD(vel)
-
-            H_MM = WF.eigensolver.calculate_hamiltonian_matrix(self.hamiltonian, \
-            WF, self.kpt_u[0])
-
-            M=len(H_MM[:,0])
-            S_MM = WF.kpt_u[0].S_MM
-            print('Cnm \n',WF.kpt_u[0].C_nM)
-            
-            #HP_MM=H_MM+P_MM
-            #S_inv_MM=inv(S_MM)
-            #F=np.zeros_like(vel)
-            #S_invHP_MM= (S_inv_MM @ HP_MM) 
-            
-            S_invHP_MM = np.eye(M,M) 
-            S_inv_MM = np.eye(M,M)
-            #S_inv_MM=inv(S_MM) 
-            #print('kpt.f_n *',WF.kpt_u[0].f_n.shape,WF.kpt_u[0].f_n)
-            HP_MM = np.eye(M,M)
-            F=np.zeros_like(vel)
-            
-            #for u, kpt in enumerate(WF.kpt_u):
-            #    for a, M1, M2 in my_slices(calc.wfs):
-            ##        F[a, :] +=-2.0 * dThetadRE_vMM[:, M1:M2].sum(-1).sum(-1)
-            #        F[a, :] +=-2.0 * D_sum_aqvMM[a,kpt.q,:, M1:M2].sum(-1).sum(-1)
-            ##        print('kpt.q,a',kpt.q,a)
-            ##        print('WF',D_sum_aqvMM[a,kpt.q,:,:,:].shape,A.shape)
-            ##        F[a, :] +=-2.0 * A[:, M1:M2].sum(-1).sum(-1)
-            #print('===F \n',F)
-            
-            for u, kpt in enumerate(WF.kpt_u):
-                for a, M1, M2 in self.my_slices():
-                    for v in range(3):
-                #        F[a, :] +=-2.0 * dThetadRE_vMM[:, M1:M2].sum(-1).sum(-1)
-                        aux1 = D_sum_aqvMM[a,kpt.q,v] @ S_inv_MM
-                        #print('aux1 \n',aux1)
-                        aux2 = kpt.C_nM.conj() @ aux1 @ kpt.C_nM.T
-                        F[a, v] +=-2.0 * (aux2[:,M1:M2].sum(-1).sum(-1)).real
-            #            F[a, v] +=-2.0 * D_sum_aqvMM[a,kpt.q,v,:,M1:M2].sum(-1).sum(-1)
-        '''
+        # if self.ED_F == True:
+        #     vel=WF.v
+        #     vel[:,:]=1.0
+        #     #calculate_P = get_P(WF, self.v)
+        #     #P_MM, D_sum_aqvMM = calculate_P.calc_P()
+        #     #P_MM, D_sum_aqvMM = WF.calculatePD(W.v)
+        #     P_MM, D_sum_aqvMM = WF.calculatePD(vel)
+        #
+        #     H_MM = WF.eigensolver.calculate_hamiltonian_matrix(
+        #         self.hamiltonian, \
+        #     WF, self.kpt_u[0])
+        #
+        #     M=len(H_MM[:,0])
+        #     S_MM = WF.kpt_u[0].S_MM
+        #     print('Cnm \n',WF.kpt_u[0].C_nM)
+        #
+        #     #HP_MM=H_MM+P_MM
+        #     #S_inv_MM=inv(S_MM)
+        #     #F=np.zeros_like(vel)
+        #     #S_invHP_MM= (S_inv_MM @ HP_MM)
+        #
+        #     S_invHP_MM = np.eye(M,M)
+        #     S_inv_MM = np.eye(M,M)
+        #     #S_inv_MM=inv(S_MM)
+        #     #print('kpt.f_n *',WF.kpt_u[0].f_n.shape,WF.kpt_u[0].f_n)
+        #     HP_MM = np.eye(M,M)
+        #     F=np.zeros_like(vel)
+        #
+        #     #for u, kpt in enumerate(WF.kpt_u):
+        #     #    for a, M1, M2 in my_slices(calc.wfs):
+        #     ##        F[a, :] +=-2.0 *
+        #                   dThetadRE_vMM[:, M1:M2].sum(-1).sum(-1)
+        #     #        F[a, :] +=-2.0 *
+        #                  D_sum_aqvMM[a,kpt.q,:, M1:M2].sum(-1).sum(-1)
+        #     ##        print('kpt.q,a',kpt.q,a)
+        #     ##        print('WF',D_sum_aqvMM[a,kpt.q,:,:,:].shape,A.shape)
+        #     ##        F[a, :] +=-2.0 * A[:, M1:M2].sum(-1).sum(-1)
+        #     #print('===F \n',F)
+        #
+        #     for u, kpt in enumerate(WF.kpt_u):
+        #         for a, M1, M2 in self.my_slices():
+        #             for v in range(3):
+        #         #        F[a, :] +=-2.0 *
+        #                     dThetadRE_vMM[:, M1:M2].sum(-1).sum(-1)
+        #                 aux1 = D_sum_aqvMM[a,kpt.q,v] @ S_inv_MM
+        #                 #print('aux1 \n',aux1)
+        #                 aux2 = kpt.C_nM.conj() @ aux1 @ kpt.C_nM.T
+        #                 F[a, v] +=-2.0 * (aux2[:,M1:M2].sum(-1).sum(-1)).real
+        #     #            F[a, v] +=-2.0 *
+        #                     D_sum_aqvMM[a,kpt.q,v,:,M1:M2].sum(-1).sum(-1)
 
         return F
             
@@ -749,15 +754,15 @@ class LCAOforces:
         ET_uMM = []
         self.timer.start('Get E_uMM=S^(-1)*H*rho')
         for kpt in self.kpt_u:
-            H_MM = self.WF.eigensolver.calculate_hamiltonian_matrix(self.hamiltonian, \
-                                                               self.WF, kpt)
+            H_MM = self.WF.eigensolver.calculate_hamiltonian_matrix(
+                self.hamiltonian, self.WF, kpt)
             rhoT_MM = self.ksl.get_transposed_density_matrix(kpt.f_n,
                                                              kpt.C_nM)
             rhoT_uMM.append(rhoT_MM)
 
             S_MM = kpt.S_MM.copy()
-            S_inv_MM=inv(S_MM)
-            ET_MM= (S_inv_MM @ H_MM @ rhoT_MM)
+            S_inv_MM = inv(S_MM)
+            ET_MM = (S_inv_MM @ H_MM @ rhoT_MM)
             ET_uMM.append(ET_MM)
 
         self.timer.stop('Get E_uMM=S^(-1)*H*rho')
