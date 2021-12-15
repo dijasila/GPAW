@@ -248,11 +248,12 @@ class LCAOTDDFT(GPAW):
         self.Etot = self.Ekin + self.e_coulomb + self.Ebar + self.Exc
 
     def save_old_S_MM(self):
+        """Save overlap function from previous MD step"""
         for kpt in self.wfs.kpt_u:
             kpt.S_MM_old=kpt.S_MM.copy()
 
     def propagate_using_S12(self, time, time_step):
-#       PROPAGATE C USING S : S(R+dR)^(1/2) PSI(R+dr) = S(R)^(1/2) PSI(R) 
+        """PROPAGATE C USING S : S(R+dR)^(1/2) PSI(R+dr) = S(R)^(1/2) PSI(R)""" 
         using_blacs = self.wfs.ksl.using_blacs
 
         if using_blacs == True:

@@ -88,6 +88,7 @@ class EhrenfestVelocityVerletLCAO:
             self.a[i] = self.F[i] / self.M[i]
 
     def get_forces(self):
+        """Calculate forces"""
         return calculate_forces(self.calc.wfs,
                                 self.calc.td_density.get_density(),
                                 self.calc.td_hamiltonian.hamiltonian,
@@ -208,6 +209,7 @@ class EhrenfestVelocityVerletLCAO:
         self.calc.get_td_energy()
 
     def propagate_single(self, dt):
+        """Propagate wf coefficints for one el. time step"""
 
         if self.setups == 'paw':
             self.calc.propagator.propagate(self.time, dt, self.vh)
