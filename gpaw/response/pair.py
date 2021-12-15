@@ -12,7 +12,8 @@ from ase.utils import IOContext
 from ase.utils.timing import timer, Timer
 
 import gpaw.mpi as mpi
-from gpaw import GPAW, disable_dry_run
+from gpaw.calculator import GPAW
+from gpaw import disable_dry_run
 from gpaw.fd_operators import Gradient
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.response.math_func import (two_phi_planewave_integrals,

@@ -19,7 +19,7 @@ from gpaw.utilities.partition import AtomPartition
 from gpaw.utilities.ibz2bz import construct_symmetry_operators
 from gpaw.typing import Array1D, Array2D, Array3D, Array4D, ArrayND
 if TYPE_CHECKING:
-    from gpaw import GPAW  # noqa
+    from gpaw.calculator import GPAW  # noqa
 
 _L_vlmm: List[List[np.ndarray]] = []  # see get_L_vlmm() below
 
@@ -474,7 +474,7 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
     Returns a BZWaveFunctions object covering the whole BZ.
     """
 
-    from gpaw import GPAW  # noqa
+    from gpaw.calculator import GPAW  # noqa
 
     if isinstance(calc, (str, Path)):
         calc = GPAW(calc)

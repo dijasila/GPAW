@@ -74,55 +74,7 @@ class SCFLoop:
 
     def log(self, log, converged_items, entries, context):
         """Output from each iteration."""
-        custom = (set(self.criteria) -
-                  {'energy', 'eigenstates', 'density'})
-        if self.niter == 1:
-            header1 = ('{:<4s} {:>8s} {:>12s}  '
-                       .format('iter', 'time', 'total'))
-            header2 = ('{:>4s} {:>8s} {:>12s}  '
-                       .format('', '', 'energy'))
-            header1 += 'log10-change:'
-            for title in ('eigst', 'dens'):
-                header2 += '{:>5s}  '.format(title)
-            for name in custom:
-                criterion = self.criteria[name]
-                header1 += ' ' * 7
-                header2 += '{:>5s}  '.format(criterion.tablename)
-            if context.wfs.nspins == 2:
-                header1 += '{:>8s} '.format('magmom')
-                header2 += '{:>8s} '.format('')
-            log(header1)
-            log(header2)
-
-        c = {k: 'c' if v else ' ' for k, v in converged_items.items()}
-
-        # Iterations and time.
-        now = time.localtime()
-        line = ('{:4d} {:02d}:{:02d}:{:02d} '
-                .format(self.niter, *now[3:6]))
-
-        # Energy.
-        line += '{:>12s}{:1s} '.format(entries['energy'], c['energy'])
-
-        # Eigenstates.
-        line += '{:>5s}{:1s} '.format(entries['eigenstates'], c['eigenstates'])
-
-        # Density.
-        line += '{:>5s}{:1s} '.format(entries['density'], c['density'])
-
-        # Custom criteria (optional).
-        for name in custom:
-            line += '{:>5s}{:s} '.format(entries[name], c[name])
-
-        # Magnetic moment (optional).
-        if context.wfs.nspins == 2 or not context.wfs.collinear:
-            totmom_v, _ = context.dens.estimate_magnetic_moments()
-            if context.wfs.collinear:
-                line += f'  {totmom_v[2]:+.4f}'
-            else:
-                line += ' {:+.1f},{:+.1f},{:+.1f}'.format(*totmom_v)
-
-        log(line, flush=True)
+        write_iteration(self.criteria, converged_items, entries, context, log)
 
     def prepare_convergence_criteria(self):
         cheap = {k: c for k, c in self.criteria.items() if not c.calc_last}
@@ -226,6 +178,58 @@ class SCFLoop:
             ham.update(dens)
 
 
+def write_iteration(criteria, converged_items, entries, ctx, log):
+    custom = (set(criteria) -
+              {'energy', 'eigenstates', 'density'})
+    if ctx.niter == 1:
+        header1 = ('{:<4s} {:>8s} {:>12s}  '
+                   .format('iter', 'time', 'total'))
+        header2 = ('{:>4s} {:>8s} {:>12s}  '
+                   .format('', '', 'energy'))
+        header1 += 'log10-change:'
+        for title in ('eigst', 'dens'):
+            header2 += '{:>5s}  '.format(title)
+        for name in custom:
+            criterion = criteria[name]
+            header1 += ' ' * 7
+            header2 += '{:>5s}  '.format(criterion.tablename)
+        if ctx.wfs.nspins == 2:
+            header1 += '{:>8s} '.format('magmom')
+            header2 += '{:>8s} '.format('')
+        log(header1)
+        log(header2)
+
+    c = {k: 'c' if v else ' ' for k, v in converged_items.items()}
+
+    # Iterations and time.
+    now = time.localtime()
+    line = ('{:4d} {:02d}:{:02d}:{:02d} '
+            .format(ctx.niter, *now[3:6]))
+
+    # Energy.
+    line += '{:>12s}{:1s} '.format(entries['energy'], c['energy'])
+
+    # Eigenstates.
+    line += '{:>5s}{:1s} '.format(entries['eigenstates'], c['eigenstates'])
+
+    # Density.
+    line += '{:>5s}{:1s} '.format(entries['density'], c['density'])
+
+    # Custom criteria (optional).
+    for name in custom:
+        line += '{:>5s}{:s} '.format(entries[name], c[name])
+
+    # Magnetic moment (optional).
+    if ctx.wfs.nspins == 2 or not ctx.wfs.collinear:
+        totmom_v, _ = ctx.dens.estimate_magnetic_moments()
+        if ctx.wfs.collinear:
+            line += f'  {totmom_v[2]:+.4f}'
+        else:
+            line += ' {:+.1f},{:+.1f},{:+.1f}'.format(*totmom_v)
+
+    log(line, flush=True)
+
+
 class SCFEvent:
     """Object to pass the state of the SCF cycle to a convergence-checking
     function."""
@@ -293,7 +297,7 @@ class Criterion:
 
     def __repr__(self):
         parameters = signature(self.__class__).parameters
-        s = ','.join([str(getattr(self, p)) for p in parameters])
+        s = ', '.join([str(getattr(self, p)) for p in parameters])
         return self.__class__.__name__ + '(' + s + ')'
 
     def todict(self):

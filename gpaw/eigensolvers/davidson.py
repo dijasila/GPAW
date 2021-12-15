@@ -190,7 +190,6 @@ class Davidson(Eigensolver):
                 self.diagonalizer_backend.diagonalize(
                     H_NN, S_NN, eps_N, is_master=is_gridband_master,
                     debug=debug)
-
             if comm.rank == 0:
                 bd.distribute(eps_N[:B], kpt.eps_n)
             comm.broadcast(kpt.eps_n, 0)

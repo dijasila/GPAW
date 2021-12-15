@@ -227,7 +227,7 @@ class FFTDistribution:
         self.aux_rank_to_parpos = aux_rank_to_parpos
         self.local_output_size_c = tuple(self.domains_out.get_box(parpos_c)[1])
 
-    def block_zeros(self, shape=(),):
+    def block_zeros(self, shape=()):
         return np.zeros(shape + self.local_output_size_c)
 
     def gd2block(self, a_xg, b_xg):

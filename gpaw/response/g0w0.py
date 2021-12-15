@@ -13,7 +13,8 @@ from ase.utils import opencew, pickleload
 from ase.utils.timing import timer
 
 import gpaw.mpi as mpi
-from gpaw import GPAW, debug
+from gpaw import debug
+from gpaw.calculator import GPAW
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.response.chi0 import Chi0, HilbertTransform
 from gpaw.response.fxckernel_calc import calculate_kernel
