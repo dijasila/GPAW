@@ -16,8 +16,7 @@ extensions = ['images',
               'sphinx.ext.viewcode',
               'sphinx.ext.napoleon',
               'sphinx.ext.mathjax',
-              'sphinx.ext.intersphinx',
-              'sphinx.ext.inheritance_diagram']
+              'sphinx.ext.intersphinx']
 extlinks = {'doi': ('https://doi.org/%s', 'doi:'),
             'arxiv': ('https://arxiv.org/abs/%s', 'arXiv:'),
             'xkcd': ('https://xkcd.com/%s', 'XKCD:')}

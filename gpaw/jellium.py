@@ -83,16 +83,3 @@ class JelliumSlab(Jellium):
         # positions of the grid points in Bohr units.
         return np.logical_and(r_gv[:, :, :, 2] > self.z1,
                               r_gv[:, :, :, 2] < self.z2)
-
-
-class JelliumSphere(Jellium):
-    def __init__(self, charge, rcut):  # Angstrom
-        Jellium.__init__(self, charge)
-        self.rcut = rcut / Bohr
-
-    def get_mask(self):
-        r_gv = self.gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
-        # r_gv: 4-dimensional ndarray
-        # positions of the grid points in Bohr units.
-        center = self.gd.cell_cv.sum(axis=1) / 2
-        return ((r_gv - center)**2).sum(axis=3) < self.rcut**2
