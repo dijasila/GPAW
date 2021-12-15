@@ -29,7 +29,7 @@ Doing a PAW calculation
 -----------------------
 
 To do a PAW calculation with the GPAW code, you need an ASE
-:class:`~ase.Atoms` object and a :class:`~gpaw.GPAW`
+:class:`~ase.Atoms` object and a :class:`~gpaw.calculator.GPAW`
 calculator::
 
    _____________          ____________
@@ -194,7 +194,7 @@ given in the following sections.
 .. note::
 
    Parameters can be changed after the calculator has been constructed
-   by using the :meth:`~gpaw.GPAW.set` method:
+   by using the :meth:`~gpaw.calculator.GPAW.set` method:
 
    >>> calc.set(txt='H2.txt', charge=1)
 
@@ -712,7 +712,7 @@ Fixed density calculation
 When calculating band structures or when adding unoccupied states to
 calculation (and wanting to converge them) it is often useful to use existing
 density without updating it. This can be done using the
-:meth:`gpaw.GPAW.fixed_density` method.  This will use the density
+:meth:`gpaw.calculator.GPAW.fixed_density` method.  This will use the density
 (e.g. one read from .gpw or existing from previous calculation)
 throughout the SCF-cycles (so called Harris calculation).
 
@@ -1113,7 +1113,7 @@ example saves a differently named restart file every 5 iterations::
 
   calc.attach(OccasionalWriter().write, occasionally)
 
-See also :meth:`~gpaw.GPAW.attach`.
+See also :meth:`~gpaw.calculator.GPAW.attach`.
 
 
 .. _command line options:

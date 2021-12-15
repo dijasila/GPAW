@@ -335,7 +335,6 @@ class Hamiltonian:
             e_xc += self.xc.calculate_paw_correction(self.setups[a], D_sp,
                                                      dH_asp[a], a=a)
         self.timer.stop('XC Correction')
-
         for a, D_sp in D_asp.items():
             e_kinetic -= (D_sp * dH_asp[a]).sum().real
 
@@ -356,6 +355,14 @@ class Hamiltonian:
         else:
             self.e_kinetic = self.e_kinetic0
         self.e_entropy = e_entropy
+        if 0:
+            print(self.e_kinetic0,
+                  self.e_band,
+                  self.e_coulomb,
+                  self.e_external,
+                  self.e_zero,
+                  self.e_xc,
+                  self.e_entropy)
 
         self.e_total_free = (self.e_kinetic + self.e_coulomb +
                              self.e_external + self.e_zero + self.e_xc +

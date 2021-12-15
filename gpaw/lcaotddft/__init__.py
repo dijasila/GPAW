@@ -4,7 +4,7 @@ from gpaw.typing import ArrayLike
 
 from ase.units import Bohr, Hartree
 
-from gpaw import GPAW
+from gpaw.calculator import GPAW
 from gpaw.external import ExternalPotential, ConstantElectricField
 from gpaw.lcaotddft.hamiltonian import TimeDependentHamiltonian
 from gpaw.lcaotddft.logger import TDDFTLogger

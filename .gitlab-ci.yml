@@ -23,7 +23,7 @@ master:
     - su user -c 'OMP_NUM_THREADS=2 pytest -v -m ci -We'
     - mypy -p gpaw
     - >
-      interrogate -m -i -f 35.2
+      interrogate -m -i -f 34.1
       -e gpaw/test
       -e gpaw/point_groups/groups.py
       gpaw
@@ -79,7 +79,7 @@ docs:
     - pip install sphinx-rtd-theme pytest
     - echo "noblas = True; nolibxc = True" > siteconfig.py
     - pip install -e .
-    - tools/gpaw-setup H C O
+    - tools/gpaw-setup H C O Li
     - export GPAW_SETUP_PATH=$PWD
     - cd doc
     - make
