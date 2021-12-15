@@ -660,6 +660,8 @@ class Davidson(object):
                 temp = 'internal' if np.dot(
                     eigvec[: half].conj(), eigvec[half:].T).real > 0 \
                     else 'external'
+                self.logger(np.dot(
+                    eigvec[: half].conj(), eigvec[half:].T).real)
                 res.append(temp)
         if len(res) == 0:
             self.logger('No instabilities detected.\n\n')
