@@ -688,6 +688,7 @@ class SerialCommunicator:
         if isinstance(other, SerialCommunicator):
             assert all(rank == 0 for rank in ranks) or gpaw.dry_run
             return np.zeros(len(ranks), dtype=int)
+        return np.array([other.rank for rank in ranks])
         raise NotImplementedError(
             'Translate non-trivial ranks with serial comm')
 

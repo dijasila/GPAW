@@ -143,7 +143,8 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
         return a
 
     def _arrays(self):
-        return self.data.reshape((-1,) + self.data.shape[-1:])
+        shape = self.data.shape
+        return self.data.reshape((np.prod(shape[:-1], dtype=int), shape[-1]))
 
     @property
     def matrix(self) -> Matrix:

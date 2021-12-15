@@ -7,7 +7,7 @@ from math import pi
 
 
 @pytest.mark.ci
-def test_redist():
+def test_pw_redist():
     a = 2.5
     pw = PlaneWaves(ecut=10, cell=[a, a, a], comm=world)
     f1 = pw.empty()
