@@ -300,23 +300,21 @@ class PWLFC(BaseLFC):
         return c_axi
 
     def derivative(self, a_xG, c_axiv=None, q=-1):
-        c_vxI = np.zeros((3,) + a_xG.shape[:-1] + (self.nI,), self.pd.dtype)
+        c_vxI = np.zeros((3,) + a_xG.shape[:-1] + (self.nI,), self.dtype)
         nx = np.prod(c_vxI.shape[1:-1], dtype=int)
         b_vxI = c_vxI.reshape((3, nx, self.nI))
-        a_xG = a_xG.reshape((nx, a_xG.shape[-1])).view(self.pd.dtype)
+        a_xG = a_xG.reshape((nx, a_xG.shape[-1])).view(self.dtype)
 
-        alpha = 1.0 / self.pd.gd.N_c.prod()
+        alpha = 1.0
 
         if c_axiv is None:
             c_axiv = self.dict(a_xG.shape[:-1], derivative=True)
 
-        K_v = self.pd.K_qv[q]
-
         x = 0.0
         for G1, G2 in self.block(q):
-            f_GI = self.expand(q, G1, G2, cc=True)
-            G_Gv = self.pd.G_Qv[self.pd.myQ_qG[q][G1:G2]]
-            if self.pd.dtype == float:
+            f_GI = self.expand(G1, G2, cc=True)
+            G_Gv = self.pw.G_plus_k_Gv
+            if self.dtype == float:
                 d_GI = np.empty_like(f_GI)
                 for v in range(3):
                     d_GI[::2] = f_GI[1::2] * G_Gv[:, v, np.newaxis]
@@ -329,14 +327,14 @@ class PWLFC(BaseLFC):
                 for v in range(3):
                     mmm(-alpha,
                         a_xG[:, G1:G2], 'N',
-                        f_GI * (G_Gv[:, v] + K_v[v])[:, np.newaxis], 'N',
+                        f_GI * G_Gv[:, v, np.newaxis], 'N',
                         x, b_vxI[v])
             x = 1.0
 
         self.comm.sum(c_vxI)
 
         for v in range(3):
-            if self.pd.dtype == float:
+            if self.dtype == float:
                 for a, I1, I2 in self.my_indices:
                     c_axiv[a][..., v] = c_vxI[v, ..., I1:I2]
             else:

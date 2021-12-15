@@ -148,6 +148,7 @@ class IBZWaveFunctions:
             if i == 3:
                 break
 
+
 @frozen
 class WaveFunctions:
     def __init__(self,

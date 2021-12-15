@@ -40,7 +40,7 @@ class PlaneWaves(Domain):
         self.ekin_G = ekin_G[ng1:ng2].copy()
         self.ekin_G.flags.writeable = False
         # self.myindices_cG = self.indices_cG[:, ng1:ng2]
-        self.G_plus_k_Gv = G_plus_k_Gv[ng1:ng2]
+        self.G_plus_k_Gv = G_plus_k_Gv[ng1:ng2].copy()
 
         self.shape = (ng,)
         self.myshape = (len(self.ekin_G),)

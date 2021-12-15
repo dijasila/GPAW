@@ -4,9 +4,6 @@ from functools import partial
 from math import inf
 from types import SimpleNamespace
 
-from gpaw.new.density import Density
-from gpaw.new.potential import Potential
-from gpaw.new.wave_functions import IBZWaveFunctions
 from gpaw.scf import dict2criterion, write_iteration
 
 
