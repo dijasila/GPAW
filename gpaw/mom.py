@@ -48,7 +48,7 @@ def prepare_mom_calculation(calc,
         of the previous geometry corresponding to the user-supplied
         'numbers'.
     use_fixed_occupations: bool
-        If True (default), the MOM algorithm is used. If False,
+        If False (default), the MOM algorithm is used. If True,
         fixed occupations will be used.
     width: float
         Width of Gaussian function in eV for smearing of holes
