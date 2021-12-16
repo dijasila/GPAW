@@ -67,7 +67,7 @@ class IBZ:
         self.ibz2bz_k = ibz2bz
         self.bz2ibz_K = bz2ibz
 
-        self.bz2bz_Ks = []  # later ...
+        # self.bz2bz_Ks = []  # later ...
 
     def __len__(self):
         """Number of k-points in the IBZ."""
@@ -78,8 +78,8 @@ class IBZ:
 
     def __str__(self):
         s = ''
-        if -1 in self.bz2bz_Ks:
-            s += 'Note: your k-points are not as symmetric as your crystal!\n'
+        # if -1 in self.bz2bz_Ks:
+        #    s += 'Note: your k-points are not as symmetric as your crystal!\n'
         N = len(self)
         s += str(self.bz)
         nk = plural(N, 'k-point')

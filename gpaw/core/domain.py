@@ -54,7 +54,7 @@ class Domain:
         self.kpt_c = np.array(kpt, float)
 
         if self.kpt_c.any():
-            for p, k in zip(pbc, kpt):
+            for p, k in zip(pbc, self.kpt_c):
                 if not p and k != 0:
                     raise ValueError(f'Bad k-point {kpt} for pbc={pbc}')
 
