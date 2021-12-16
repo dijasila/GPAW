@@ -335,3 +335,21 @@ def real_to_complex(x):
     y = np.zeros(length, dtype=complex)
     y = array[: length] + 1.0j * array[length:]
     return y
+
+def rotate_orbitals(wfs, orbitals, angle, channel):
+    """
+    Applies a single rotation between two orbitals.
+
+    :param wfs:
+    :param orbitals: List of two orbital indices
+    :param angle: Rotation angle (deg.)
+    :param channel: Spin channel of the orbitals
+    """
+
+    a = angle / 180.0 * np.pi
+    i = channel
+    c = wfs.kpt_u[i].C_nM.copy()
+    wfs.kpt_u[i].C_nM[i] = \
+        np.cos(a) * c[orbitals[i][0]] + np.sin(a) * c[orbitals[i][1]]
+    wfs.kpt_u[i].C_nM[i] = \
+        np.cos(a) * c[orbitals[i][1]] - np.sin(a) * c[orbitals[i][0]]
