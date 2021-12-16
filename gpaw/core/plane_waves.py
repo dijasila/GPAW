@@ -20,7 +20,7 @@ class PlaneWaves(Domain):
                  *,
                  ecut: float,
                  cell: ArrayLike1D | ArrayLike2D,
-                 kpt: ArrayLike1D = (0.0, 0.0, 0.0),
+                 kpt: ArrayLike1D = None,
                  comm: MPIComm = serial_comm,
                  dtype=None):
         self.ecut = ecut

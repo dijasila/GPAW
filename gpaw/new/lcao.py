@@ -1,16 +1,16 @@
-import numpy as np
-from gpaw.utilities import pack2
-from gpaw.band_descriptor import BandDescriptor
-from gpaw.kohnsham_layouts import get_KohnSham_layouts
-from gpaw.new.wave_functions import IBZWaveFunctions, WaveFunctions
-from gpaw.wavefunctions.lcao import LCAOWaveFunctions
 from types import SimpleNamespace
-from gpaw.utilities.timing import nulltimer
-from gpaw.kpt_descriptor import KPointDescriptor
+
+import numpy as np
+from gpaw.band_descriptor import BandDescriptor
+from gpaw.core import PlaneWaves
+from gpaw.kohnsham_layouts import get_KohnSham_layouts
 from gpaw.lcao.eigensolver import DirectLCAO
 from gpaw.new.potential import Potential
+from gpaw.new.wave_functions import IBZWaveFunctions, WaveFunctions
+from gpaw.utilities import pack2
 from gpaw.utilities.partition import AtomPartition
-from gpaw.core import PlaneWaves
+from gpaw.utilities.timing import nulltimer
+from gpaw.wavefunctions.lcao import LCAOWaveFunctions
 
 
 def create_lcao_ibz_wave_functions(setups,
@@ -34,17 +34,11 @@ def create_lcao_ibz_wave_functions(setups,
     world = communicators['w']
     lcaonbands = min(nbands, setups.nao)
     gd = grid._gd
-    ibz = ibz
 
     lcaobd = BandDescriptor(lcaonbands, band_comm)
     lcaoksl = get_KohnSham_layouts(sl_lcao, 'lcao',
                                    gd, lcaobd, domainband_comm,
                                    dtype, nao=setups.nao)
-
-    kd = KPointDescriptor(ibz.bz.points, ncomponents % 3)
-    kd.set_symmetry(SimpleNamespace(pbc=grid.pbc),
-                    ibz.symmetry.symmetry,
-                    comm=world)
 
     atom_partition = AtomPartition(
         domain_comm,
@@ -52,7 +46,7 @@ def create_lcao_ibz_wave_functions(setups,
 
     lcaowfs = LCAOWaveFunctions(lcaoksl, gd, nelectrons,
                                 setups, lcaobd, dtype,
-                                world, kd, kptband_comm,
+                                world, basis_set.kd, kptband_comm,
                                 nulltimer)
     lcaowfs.basis_functions = basis_set
     lcaowfs.set_positions(fracpos_ac, atom_partition)
@@ -73,23 +67,22 @@ def create_lcao_ibz_wave_functions(setups,
                           dH_asp=dH_asp)
     eigensolver.iterate(ham, lcaowfs)
 
-    assert len(ibz) == 1
-    ranks = [0]
+    rank_k = ibz.ranks(kpt_comm)
 
     u = 0
     mykpts = []
-    for kpt, weight, rank in zip(ibz.points, ibz.weights, ranks):
+    for kpt_c, weight, rank in zip(ibz.kpt_kc, ibz.weight_k, rank_k):
         if rank != kpt_comm.rank:
             continue
-        gridk = grid.new(kpt=kpt)  # dtype?
+        gridk = grid.new(kpt=kpt_c, dtype=dtype)
         lcaokpt = lcaowfs.kpt_u[u]
-        assert (ibz.bz.points[lcaokpt.k] == kpt).all()
+        assert (ibz.kpt_kc[lcaokpt.k] == kpt_c).all()
         psit_nR = gridk.zeros(nbands, band_comm)
         mynbands = len(lcaokpt.C_nM)
         basis_set.lcao_to_grid(lcaokpt.C_nM,
                                psit_nR.data[:mynbands], lcaokpt.q)
         if isinstance(wf_desc, PlaneWaves):
-            pw = wf_desc.new(kpt=kpt)
+            pw = wf_desc.new(kpt=kpt_c)
             psit_nG = pw.empty(nbands, band_comm)
             for psit_R, psit_G in zip(psit_nR, psit_nG):
                 psit_R.fft(out=psit_G)
@@ -100,5 +93,5 @@ def create_lcao_ibz_wave_functions(setups,
                                     fracpos_ac))
         assert mynbands == nbands
 
-    ibzwfs = IBZWaveFunctions(ibz, ranks, kpt_comm, mykpts, nelectrons)
+    ibzwfs = IBZWaveFunctions(ibz, rank_k, kpt_comm, mykpts, nelectrons)
     return ibzwfs

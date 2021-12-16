@@ -11,12 +11,12 @@ if TYPE_CHECKING:
 
 class BZPoints:
     def __init__(self, points):
-        self.kpt_kc = points
-        self.gamma_only = len(self.kpt_kc) == 1 and not self.kpt_kc.any()
+        self.kpt_Kc = points
+        self.gamma_only = len(self.kpt_Kc) == 1 and not self.kpt_Kc.any()
 
     def __len__(self):
         """Number of k-points in the IBZ."""
-        return len(self.kpt_kc)
+        return len(self.kpt_Kc)
 
     def __repr__(self):
         return f'BZPoints([<{len(self)} points>])'
@@ -62,23 +62,23 @@ class IBZ:
                  ibz2bz, bz2ibz, weights):
         self.symmetries = symmetries
         self.bz = bz
-        self.weight_i = weights
-        self.kpt_ic = bz.kpt_kc[ibz2bz]
-        self.ibz2bz_i = ibz2bz
-        self.bz2ibz_k = bz2ibz
+        self.weight_k = weights
+        self.kpt_kc = bz.kpt_Kc[ibz2bz]
+        self.ibz2bz_k = ibz2bz
+        self.bz2ibz_K = bz2ibz
 
-        self.bz2bz_ks = []  # later ...
+        self.bz2bz_Ks = []  # later ...
 
     def __len__(self):
         """Number of k-points in the IBZ."""
-        return len(self.kpt_ic)
+        return len(self.kpt_kc)
 
     def __repr__(self):
         return f'IBZ(<{plural(len(self), "point")}>)'
 
     def __str__(self):
         s = ''
-        if -1 in self.bz2bz_ks:
+        if -1 in self.bz2bz_Ks:
             s += 'Note: your k-points are not as symmetric as your crystal!\n'
         N = len(self)
         s += str(self.bz)
@@ -86,36 +86,38 @@ class IBZ:
         s += f'\n{nk} in the irreducible part of the Brillouin zone\n'
 
         if isinstance(self.bz, MonkhorstPackKPoints):
-            w_i = (self.weight_i * len(self.bz)).round().astype(int)
+            w_k = (self.weight_k * len(self.bz)).round().astype(int)
 
-        s += '          k-points in crystal coordinates           weights\n'
-        for i, (a, b, c) in enumerate(self.kpt_ic):
-            if i >= 10 and i < N - 1:
+        s += '          k-point in crystal coordinates           weight\n'
+        for k, (a, b, c) in enumerate(self.kpt_kc):
+            if k >= 10 and k < N - 1:
                 continue
-            elif i == 10:
+            elif k == 10:
                 s += '          ...\n'
-            s += f'{i:4}:   {a:12.8f}  {b:12.8f}  {c:12.8f}     '
+            s += f'{k:4}:   {a:12.8f}  {b:12.8f}  {c:12.8f}     '
             if isinstance(self.bz, MonkhorstPackKPoints):
-                s += f'{w_i[i]}/{N}\n'
+                s += f'{w_k[k]}/{len(self.bz)}\n'
             else:
-                s += f'{self.weight_i[i]:.8f}\n'
+                s += f'{self.weight_k[k]:.8f}\n'
         return s
 
     def ranks(self, comm: MPIComm) -> Array1D:
-        """Distribute k-points over MPI-communicator.
+        """Distribute k-points over MPI-communicator."""
+        return ranks(comm.size, len(self))
 
-        Example (6 k-points and 4 cores)::
 
-            [0, 0, 1, 1, 2, 3]
-        """
-        nibzk = len(self)
-        n = nibzk // comm.size
-        x = nibzk - comm.size * n
-        assert x * (n + 1) + (comm.size - x) * n == nibzk
+def ranks(N, K) -> Array1D:
+    """Distribute k-points over MPI-communicator.
 
-        rnks = np.empty(nibzk, int)
-        for k in range(x * (n + 1)):
-            rnks[k] = k // (n + 1)
-        for k in range(x * (n + 1), nibzk):
-            rnks[k] = (k - x * (n + 1)) // n + x
-        return rnks
+    >>> ranks(4, 6)
+    array([0, 1, 2, 2, 3, 3])
+    """
+    n, x = divmod(K, N)
+
+    rnks = np.empty(K, int)
+    k0 = K - x * (n + 1)
+    for k in range(k0):
+        rnks[k] = k // n
+    for k in range(k0, K):
+        rnks[k] = (k - k0) // (n + 1) + x
+    return rnks

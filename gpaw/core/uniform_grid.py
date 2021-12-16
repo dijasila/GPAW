@@ -21,7 +21,7 @@ class UniformGrid(Domain):
                  cell: ArrayLike1D | ArrayLike2D,
                  size: ArrayLike1D,
                  pbc=(True, True, True),
-                 kpt: ArrayLike1D = (0.0, 0.0, 0.0),
+                 kpt: ArrayLike1D = None,
                  comm: MPIComm = serial_comm,
                  decomp: Sequence[Sequence[int]] = None,
                  dtype=None):
@@ -85,7 +85,8 @@ class UniformGrid(Domain):
         return UniformGrid(cell=self.cell_cv,
                            size=self.size_c if size is None else size,
                            pbc=self.pbc_c if pbc is None else pbc,
-                           kpt=self.kpt_c if kpt is None else kpt,
+                           kpt=(self.kpt_c if self.kpt_c.any() else None)
+                           if kpt is None else kpt,
                            comm=comm or serial_comm,
                            decomp=decomp,
                            dtype=self.dtype if dtype is None else dtype)

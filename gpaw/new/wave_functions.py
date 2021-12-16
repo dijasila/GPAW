@@ -1,16 +1,18 @@
 from __future__ import annotations
-import numpy as np
+
 from functools import partial
+from typing import Sequence
+
+import numpy as np
+from ase.units import Ha
 from gpaw.core.arrays import DistributedArrays as DA
+from gpaw.core.atom_arrays import AtomArrays
+from gpaw.mpi import MPIComm
+from gpaw.new.brillouin import IBZ
+from gpaw.new.density import Density
 from gpaw.setup import Setups
 from gpaw.typing import Array1D, Array2D, ArrayND
-from gpaw.new.brillouin import IBZ
-from gpaw.mpi import MPIComm
-from ase.units import Ha
-from gpaw.new.density import Density
-from gpaw.core.atom_arrays import AtomArrays
 from gpaw.utilities.debug import frozen
-from typing import Sequence
 
 
 @frozen
@@ -19,25 +21,27 @@ class IBZWaveFunctions:
                  ibz: IBZ,
                  rank_k: Sequence[int],
                  kpt_comm: MPIComm,
-                 mykpts: list[WaveFunctions],
+                 wfs_q: list[WaveFunctions],
                  nelectrons: float):
         self.ibz = ibz
         self.rank_k = rank_k
         self.kpt_comm = kpt_comm
-        self.mykpts = mykpts
+        self.wfs_q = wfs_q
         self.nelectrons = nelectrons
         self.fermi_levels = None
         self.collinear = False
         self.spin_degeneracy = 2
 
-        # ibz index to local index:
-        self.q_k = {}
+        self.q_k = {}  # ibz index to local index
         q = 0
         for k, rank in enumerate(rank_k):
             if rank == kpt_comm.rank:
                 self.q_k[k] = q
                 q += 1
         self.energies: dict[str, float] = {}
+
+    def __str__(self):
+        return str(self.ibz)
 
     @classmethod
     def from_random_numbers(cls,
@@ -50,10 +54,10 @@ class IBZWaveFunctions:
                             nbands: int,
                             nelectrons: float,
                             dtype=None) -> IBZWaveFunctions:
-        rank_i = ibz.ranks(kpt_comm)
+        rank_k = ibz.ranks(kpt_comm)
 
-        mykpts = []
-        for kpt_c, weight, rank in zip(ibz.kpt_ic, ibz.weight_i, rank_i):
+        wfs_q = []
+        for kpt_c, weight, rank in zip(ibz.kpt_kc, ibz.weight_k, rank_k):
             if rank != kpt_comm.rank:
                 continue
             desck = desc.new(kpt=kpt_c, dtype=dtype)
@@ -61,14 +65,14 @@ class IBZWaveFunctions:
                                                     nbands, band_comm,
                                                     setups,
                                                     fracpos_ac)
-            mykpts.append(wfs)
+            wfs_q.append(wfs)
 
-        return cls(ibz, rank_i, kpt_comm, mykpts, nelectrons)
+        return cls(ibz, rank_k, kpt_comm, wfs_q, nelectrons)
 
     def move(self, fracpos_ac):
         self.ibz.symmetry.check_positions(fracpos_ac)
         self.energies.clear()
-        for wfs in self.mykpts:
+        for wfs in self.wfs_q:
             wfs._P_ain = None
             wfs.orthonormalized = False
             wfs.pt_aiX.move(fracpos_ac)
@@ -76,7 +80,7 @@ class IBZWaveFunctions:
             wfs._occ_n = None
 
     def orthonormalize(self, work_array_nX: ArrayND = None):
-        for wfs in self.mykpts:
+        for wfs in self.wfs_q:
             wfs.orthonormalize(work_array_nX)
 
     def calculate_occs(self, occ_calc, fixed_fermi_level=False):
@@ -84,8 +88,8 @@ class IBZWaveFunctions:
 
         occ_kn, fermi_levels, e_entropy = occ_calc.calculate(
             nelectrons=self.nelectrons / degeneracy,
-            eigenvalues=[wfs.eig_n * Ha for wfs in self.mykpts],
-            weights=[wfs.weight for wfs in self.mykpts],
+            eigenvalues=[wfs.eig_n * Ha for wfs in self.wfs_q],
+            weights=[wfs.weight for wfs in self.wfs_q],
             fermi_levels_guess=(None
                                 if self.fermi_levels is None else
                                 self.fermi_levels * Ha))
@@ -93,12 +97,12 @@ class IBZWaveFunctions:
         if not fixed_fermi_level or self.fermi_levels is None:
             self.fermi_levels = np.array(fermi_levels) / Ha
 
-        for occ_n, wfs in zip(occ_kn, self.mykpts):
+        for occ_n, wfs in zip(occ_kn, self.wfs_q):
             wfs._occ_n = occ_n
 
         e_entropy *= degeneracy / Ha
         e_band = 0.0
-        for wfs in self.mykpts:
+        for wfs in self.wfs_q:
             e_band += wfs.occ_n @ wfs.eig_n * wfs.weight * degeneracy
         e_band = self.kpt_comm.sum(e_band)
         self.energies = {
@@ -110,19 +114,19 @@ class IBZWaveFunctions:
         density = out
         density.nt_sR.data[:] = density.nct_R.data
         density.D_asii.data[:] = 0.0
-        for wfs in self.mykpts:
+        for wfs in self.wfs_q:
             wfs.add_to_density(density.nt_sR, density.D_asii)
         self.kpt_comm.sum(density.nt_sR.data)
         self.kpt_comm.sum(density.D_asii.data)
 
     def get_eigs_and_occs(self, k):
         assert self.rank_k[k] == self.kpt_comm.rank
-        wfs = self.mykpts[self.q_k[k]]
+        wfs = self.wfs_q[self.q_k[k]]
         return wfs.eig_n, wfs.occ_n
 
     def forces(self, dH_asii: AtomArrays):
         F_av = np.zeros((dH_asii.natoms, 3))
-        for wfs in self.mykpts:
+        for wfs in self.wfs_q:
             wfs.force_contribution(dH_asii, F_av)
         return F_av
 
@@ -135,16 +139,16 @@ class IBZWaveFunctions:
         log(f'\nFermi level: {fl[0]:.3f}')
 
         ibz = self.ibz
-        for i, (x, y, z) in enumerate(ibz.points):
+        for k, (x, y, z) in enumerate(ibz.kpt_kc):
             log(f'\nkpt = [{x:.3f}, {y:.3f}, {z:.3f}], '
-                f'weight = {ibz.weights[i]:.3f}:')
+                f'weight = {ibz.weight_k[k]:.3f}:')
             log('  Band    eigenvalue   occupation')
-            eigs, occs = self.get_eigs_and_occs(i)
+            eigs, occs = self.get_eigs_and_occs(k)
             eigs = eigs * Ha
             occs = occs * self.spin_degeneracy
             for n, (e, f) in enumerate(zip(eigs, occs)):
                 log(f'    {n:4} {e:10.3f}   {f:.3f}')
-            if i == 3:
+            if k == 3:
                 break
 
 

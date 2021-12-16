@@ -12,10 +12,10 @@ class Symmetries:
     def reduce(self,
                bz: BZPoints,
                comm: MPIComm = None) -> IBZ:
-        (_, weight_i, sym_i, time_reversal_i, bz2ibz_k, ibz2bz_i,
-         bz2bz_ks) = self.symmetry.reduce(bz.kpt_kc, comm)
+        (_, weight_k, sym_k, time_reversal_k, bz2ibz_K, ibz2bz_k,
+         bz2bz_Ks) = self.symmetry.reduce(bz.kpt_Kc, comm)
 
-        return IBZ(self, bz, ibz2bz_i, bz2ibz_k, weight_i)
+        return IBZ(self, bz, ibz2bz_k, bz2ibz_K, weight_k)
 
     def check_positions(self, fracpos_ac):
         self.symmetry.check(fracpos_ac)

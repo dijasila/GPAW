@@ -31,25 +31,33 @@ class Domain:
     def __init__(self,
                  cell: ArrayLike1D | ArrayLike2D,
                  pbc=(True, True, True),
-                 kpt: ArrayLike1D = (0.0, 0.0, 0.0),
+                 kpt: ArrayLike1D = None,
                  comm: MPIComm = serial_comm,
                  dtype: DTypeLike = None):
         """"""
         self.cell_cv = normalize_cell(cell)
         self.pbc_c = np.array(pbc, bool)
-        self.kpt_c = np.array(kpt, float)
         self.comm = comm
 
         assert dtype in [None, float, complex]
-        if self.kpt_c.any():
+
+        if kpt is not None:
+            if dtype is None:
+                dtype = complex
             if dtype == float:
                 raise ValueError(f'dtype must be complex for kpt={kpt}')
+        else:
+            if dtype is None:
+                dtype = float
+            kpt = (0.0, 0.0, 0.0)
+
+        self.kpt_c = np.array(kpt, float)
+
+        if self.kpt_c.any():
             for p, k in zip(pbc, kpt):
                 if not p and k != 0:
                     raise ValueError(f'Bad k-point {kpt} for pbc={pbc}')
-            dtype = complex
-        else:
-            dtype = dtype or float
+
         self.dtype = np.dtype(dtype)
 
     @property

@@ -138,9 +138,11 @@ def setups(value='paw'):
 
 
 @input_parameter
-def symmetry(value=None):
+def symmetry(value='undefined'):
     """Use of symmetry."""
-    if value in {None, 'off'}:
+    if value == 'undefined':
+        value = {}
+    elif value in {None, 'off'}:
         value = {'point_group': False, 'time_reversal': False}
     return value
 

@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
 from typing import Any, Union
 
 import numpy as np
 from ase import Atoms
+from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.lfc import BasisFunctions
 from gpaw.mixer import MixerWrapper, get_mixer_from_keywords
 from gpaw.mpi import MPIComm, Parallelization, world
@@ -59,7 +61,6 @@ class DFTComponentsBuilder:
                                           params.symmetry)
         bz = create_kpts(params.kpts, atoms)
         self.ibz = symmetry.reduce(bz)
-        print(bz, self.ibz)
 
         d = parallel.get('domain', None)
         k = parallel.get('kpt', None)
@@ -158,8 +159,16 @@ class DFTComponentsBuilder:
             self.dtype)
 
     def create_basis_set(self):
+        kd = KPointDescriptor(self.ibz.bz.kpt_Kc, self.ncomponents % 3)
+        kd.set_symmetry(SimpleNamespace(pbc=self.grid.pbc),
+                        self.ibz.symmetries.symmetry,
+                        comm=self.communicators['w'])
+        kd.set_communicator(self.communicators['k'])
+
         basis_set = BasisFunctions(self.grid._gd,
                                    [setup.phit_j for setup in self.setups],
+                                   kd,
+                                   dtype=self.dtype,
                                    cut=True)
         basis_set.set_positions(self.fracpos_ac)
         return basis_set

@@ -67,6 +67,7 @@ class DFTCalculation:
 
         write_atoms(atoms, builder.grid, builder.initial_magmoms, log)
 
+        log(ibzwfs.ibz.symmetries)
         log(ibzwfs)
 
         return cls(DFTState(ibzwfs, density, potential, vHt_x),

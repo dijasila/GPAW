@@ -225,6 +225,7 @@ class LocalizedFunctionsCollection(BaseLFC):
     def __init__(self, gd, spline_aj, kd=None, cut=False, dtype=float,
                  integral=None, forces=None):
         self.gd = gd
+        self.kd = kd
         self.sphere_a = [Sphere(spline_j) for spline_j in spline_aj]
         self.cut = cut
         self.dtype = dtype
