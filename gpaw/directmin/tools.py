@@ -350,6 +350,6 @@ def rotate_orbitals(wfs, orbitals, angle, channel):
     i = channel
     c = wfs.kpt_u[i].C_nM.copy()
     wfs.kpt_u[i].C_nM[i] = \
-        np.cos(a) * c[orbitals[i][0]] + np.sin(a) * c[orbitals[i][1]]
+        np.cos(a) * c[orbitals[0]] + np.sin(a) * c[orbitals[1]]
     wfs.kpt_u[i].C_nM[i] = \
-        np.cos(a) * c[orbitals[i][1]] - np.sin(a) * c[orbitals[i][0]]
+        np.cos(a) * c[orbitals[1]] - np.sin(a) * c[orbitals[0]]
