@@ -157,7 +157,7 @@ def magmoms(value=None):
 
 
 @input_parameter
-def kpts(value=None):
+def kpts(value=None) -> dict[str, Any]:
     """Brillouin-zone sampling."""
     if value is None:
         value = {'size': (1, 1, 1)}

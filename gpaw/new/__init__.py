@@ -17,9 +17,11 @@ class Timer:
     @contextmanager
     def __call__(self, name):
         t1 = time()
-        yield
-        t2 = time()
-        self.times[name] += t2 - t1
+        try:
+            yield
+        finally:
+            t2 = time()
+            self.times[name] += t2 - t1
 
     def write(self, log):
         self.times['Total'] += time()

@@ -1,20 +1,21 @@
-from gpaw.new.brillouin import IBZ
+from gpaw.new.brillouin import IBZ, BZPoints
+from gpaw.mpi import MPIComm
 
 
-class Symmetry:
+class Symmetries:
     def __init__(self, symmetry):
         self.symmetry = symmetry
 
-    def reduce(self, bz):
-        return IBZ(self, bz, [0], [0], [1.0])
+    def __str__(self):
+        return str(self.symmetry)
+
+    def reduce(self,
+               bz: BZPoints,
+               comm: MPIComm = None) -> IBZ:
+        (_, weight_i, sym_i, time_reversal_i, bz2ibz_k, ibz2bz_i,
+         bz2bz_ks) = self.symmetry.reduce(bz.kpt_kc, comm)
+
+        return IBZ(self, bz, ibz2bz_i, bz2ibz_k, weight_i)
 
     def check_positions(self, fracpos_ac):
         self.symmetry.check(fracpos_ac)
-
-    def _____eq__(self, other):
-        s1 = self.symmetry
-        s2 = other.symmetry
-        return (len(s1.op_scc) == len(s2.op_scc) and
-                (s1.op_scc == s2.op_scc).all() and
-                (s1.ft_sc == s2.ft_sc).all() and
-                (s1.a_sa == s2.a_sa).all())

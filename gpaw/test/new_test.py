@@ -4,9 +4,13 @@ from ase import Atoms
 
 
 def new():
-    params = {'mode': {'name': 'pw'}}
+    params = {'mode': {'name': 'fd'},
+              'random': True,
+              'kpts': (2, 1, 1)}
+
     R = []
-    for GPAW in [NewGPAW, OldGPAW]:
+    # for GPAW in [NewGPAW, OldGPAW]:
+    for GPAW in [OldGPAW, NewGPAW]:
         atoms = Atoms('H2', cell=[2, 2, 3], pbc=True)
         atoms.positions[1, 2] = 0.8
         atoms.calc = GPAW(**params,

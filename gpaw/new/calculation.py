@@ -67,6 +67,8 @@ class DFTCalculation:
 
         write_atoms(atoms, builder.grid, builder.initial_magmoms, log)
 
+        log(ibzwfs)
+
         return cls(DFTState(ibzwfs, density, potential, vHt_x),
                    builder.setups,
                    builder.create_scf_loop(pot_calc),

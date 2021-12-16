@@ -43,7 +43,10 @@ class Domain:
         assert dtype in [None, float, complex]
         if self.kpt_c.any():
             if dtype == float:
-                raise ValueError
+                raise ValueError(f'dtype must be complex for kpt={kpt}')
+            for p, k in zip(pbc, kpt):
+                if not p and k != 0:
+                    raise ValueError(f'Bad k-point {kpt} for pbc={pbc}')
             dtype = complex
         else:
             dtype = dtype or float

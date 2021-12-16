@@ -8,14 +8,14 @@ from gpaw.lfc import BasisFunctions
 from gpaw.mixer import MixerWrapper, get_mixer_from_keywords
 from gpaw.mpi import MPIComm, Parallelization, world
 from gpaw.new import cached_property
-from gpaw.new.brillouin import BZ, MonkhorstPackKPoints
+from gpaw.new.brillouin import BZPoints, MonkhorstPackKPoints
 from gpaw.new.davidson import Davidson
 from gpaw.new.density import Density
 from gpaw.new.input_parameters import InputParameters
 from gpaw.new.modes import FDMode, PWMode
 from gpaw.new.scf import SCFLoop
 from gpaw.new.smearing import OccupationNumberCalculator
-from gpaw.new.symmetry import Symmetry
+from gpaw.new.symmetry import Symmetries
 from gpaw.new.wave_functions import IBZWaveFunctions
 from gpaw.new.xc import XCFunctional
 from gpaw.setup import Setups
@@ -59,6 +59,7 @@ class DFTComponentsBuilder:
                                           params.symmetry)
         bz = create_kpts(params.kpts, atoms)
         self.ibz = symmetry.reduce(bz)
+        print(bz, self.ibz)
 
         d = parallel.get('domain', None)
         k = parallel.get('kpt', None)
@@ -74,9 +75,9 @@ class DFTComponentsBuilder:
             symmetry,
             comm=self.communicators['d'])
 
-        self.wf_desc = self.mode.create_wf_description(self.grid)
+        self.wf_desc = self.mode.create_wf_description(self.grid, self.dtype)
         self.nct = self.mode.create_pseudo_core_densities(
-            self.setups, self.wf_desc, self.fracpos_ac)
+            self.setups, self.grid, self.fracpos_ac)
 
         if self.mode.name == 'fd':
             pass  # filter = create_fourier_filter(grid)
@@ -103,8 +104,9 @@ class DFTComponentsBuilder:
 
     @cached_property
     def dtype(self):
-        bz = self.ibz.bz
-        if len(bz.points) == 1 and not bz.points[0].any():
+        if self.mode.force_complex_dtype:
+            return complex
+        if self.ibz.bz.gamma_only:
             return float
         return complex
 
@@ -148,11 +150,12 @@ class DFTComponentsBuilder:
             self.ibz,
             self.communicators['b'],
             self.communicators['k'],
-            self.wf_grid,
+            self.wf_desc,
             self.setups,
             self.fracpos_ac,
             self.nbands,
-            self.nelectrons)
+            self.nelectrons,
+            self.dtype)
 
     def create_basis_set(self):
         basis_set = BasisFunctions(self.grid._gd,
@@ -252,7 +255,7 @@ def create_symmetry_object(atoms, ids=None, magmoms=None, parameters=None):
         ids = [id + tuple(m) for id, m in zip(ids, magmoms)]
     symmetry = OldSymmetry(ids, atoms.cell, atoms.pbc, **(parameters or {}))
     symmetry.analyze(atoms.get_scaled_positions())
-    return Symmetry(symmetry)
+    return Symmetries(symmetry)
 
 
 def create_mode(name, **kwargs):
@@ -263,9 +266,11 @@ def create_mode(name, **kwargs):
     1 / 0
 
 
-def create_kpts(kpts, atoms):
+def create_kpts(kpts: dict[str, Any], atoms: Atoms) -> BZPoints:
     if 'points' in kpts:
-        return BZ(kpts['points'])
+        assert len(kpts) == 1, kpts
+        return BZPoints(kpts['points'])
+    assert len(kpts) == 1
     return MonkhorstPackKPoints(kpts['size'])
 
 

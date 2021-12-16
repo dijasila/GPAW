@@ -44,27 +44,26 @@ class IBZWaveFunctions:
                             ibz,
                             band_comm,
                             kpt_comm,
-                            grid,
+                            desc,
                             setups,
                             fracpos_ac,
                             nbands: int,
                             nelectrons: float,
                             dtype=None) -> IBZWaveFunctions:
-        assert len(ibz) == 1
-        ranks = [0]
+        rank_i = ibz.ranks(kpt_comm)
 
         mykpts = []
-        for kpt, weight, rank in zip(ibz.points, ibz.weights, ranks):
+        for kpt_c, weight, rank in zip(ibz.kpt_ic, ibz.weight_i, rank_i):
             if rank != kpt_comm.rank:
                 continue
-            basis = grid.new(kpt=kpt, dtype=dtype)
-            wfs = WaveFunctions.from_random_numbers(basis, weight,
+            desck = desc.new(kpt=kpt_c, dtype=dtype)
+            wfs = WaveFunctions.from_random_numbers(desck, weight,
                                                     nbands, band_comm,
                                                     setups,
                                                     fracpos_ac)
             mykpts.append(wfs)
 
-        return cls(ibz, ranks, kpt_comm, mykpts, nelectrons)
+        return cls(ibz, rank_i, kpt_comm, mykpts, nelectrons)
 
     def move(self, fracpos_ac):
         self.ibz.symmetry.check_positions(fracpos_ac)
@@ -72,7 +71,7 @@ class IBZWaveFunctions:
         for wfs in self.mykpts:
             wfs._P_ain = None
             wfs.orthonormalized = False
-            wfs.pt_acf.move(fracpos_ac)
+            wfs.pt_aiX.move(fracpos_ac)
             wfs._eig_n = None
             wfs._occ_n = None
 
@@ -217,7 +216,7 @@ class WaveFunctions:
 
         for D_sii, P_in in zip(D_asii.values(), self.P_ain.values()):
             D_sii[self.spin] += np.einsum('in, n, jn -> ij',
-                                          P_in.conj(), occ_n, P_in)
+                                          P_in.conj(), occ_n, P_in).real
 
     def orthonormalize(self, work_array_nX: ArrayND = None):
         if self.orthonormalized:
@@ -305,7 +304,7 @@ class WaveFunctions:
         P_ain.data[:] = P2_ain.data
 
     def force_contribution(self, dH_asii: AtomArrays, F_av: Array2D):
-        F_ainv = self.pt_acf.derivative(self.psit_nX)
+        F_ainv = self.pt_aiX.derivative(self.psit_nX)
         myocc_n = self.weight * self.spin_degeneracy * self.myocc_n
         for a, F_inv in F_ainv.items():
             F_inv = F_inv.conj()
