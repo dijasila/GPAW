@@ -165,7 +165,7 @@ class WaveFunctions:
         self.spin_degeneracy = spin_degeneracy
 
         self._P_ain = None
-        self.pt_acf = setups.create_projectors(self.psit_nX.desc,
+        self.pt_aiX = setups.create_projectors(self.psit_nX.desc,
                                                fracpos_ac)
         self.orthonormalized = False
 
@@ -197,16 +197,16 @@ class WaveFunctions:
     @property
     def P_ain(self):
         if self._P_ain is None:
-            self._P_ain = self.pt_acf.empty(self.psit_nX.dims,
+            self._P_ain = self.pt_aiX.empty(self.psit_nX.dims,
                                             self.psit_nX.comm,
                                             transposed=True)
-            self.pt_acf.integrate(self.psit_nX, self._P_ain)
+            self.pt_aiX.integrate(self.psit_nX, self._P_ain)
         return self._P_ain
 
     @classmethod
-    def from_random_numbers(cls, basis, weight, nbands, band_comm, setups,
+    def from_random_numbers(cls, desc, weight, nbands, band_comm, setups,
                             positions):
-        wfs = basis.random(nbands, band_comm)
+        wfs = desc.random(nbands, band_comm)
         return cls(wfs, 0, setups, positions)
 
     def add_to_density(self,

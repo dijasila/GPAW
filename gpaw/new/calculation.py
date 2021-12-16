@@ -112,11 +112,13 @@ class DFTCalculation:
         energies1['entropy'] = energies2['entropy']
         free_energy = sum(energies1.values())
         extrapolated_energy = free_energy + energies2['extrapolation']
+
         log('\nEnergies (eV):')
         for name, e in energies1.items():
             log(f'    {name + ":":10}   {e * Ha:14.6f}')
         log(f'    Total:       {free_energy * Ha:14.6f}')
         log(f'    Extrapolated:{extrapolated_energy * Ha:14.6f}')
+
         self.results['free_energy'] = free_energy
         self.results['energy'] = extrapolated_energy
 
