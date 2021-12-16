@@ -346,10 +346,10 @@ def rotate_orbitals(wfs, orbitals, angle, channel):
     :param channel: Spin channel of the orbitals
     """
 
-    a = angle / 180.0 * np.pi
+    a = angle * np.pi / 180.0
     i = channel
     c = wfs.kpt_u[i].C_nM.copy()
-    wfs.kpt_u[i].C_nM[i] = \
+    wfs.kpt_u[i].C_nM[orbitals[0]] = \
         np.cos(a) * c[orbitals[0]] + np.sin(a) * c[orbitals[1]]
-    wfs.kpt_u[i].C_nM[i] = \
+    wfs.kpt_u[i].C_nM[orbitals[1]] = \
         np.cos(a) * c[orbitals[1]] - np.sin(a) * c[orbitals[0]]
