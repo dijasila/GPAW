@@ -13,6 +13,7 @@ from gpaw.grid_descriptor import GridDescriptor
 from gpaw.mpi import MPIComm, serial_comm
 from gpaw.typing import Array1D, Array4D, ArrayLike1D, ArrayLike2D
 from gpaw.utilities.grid import GridRedistributor
+from gpaw.new import cached_property
 
 
 class UniformGrid(Domain):
@@ -49,21 +50,13 @@ class UniformGrid(Domain):
 
         self.dv = abs(np.linalg.det(self.cell_cv)) / self.size_c.prod()
 
-        self._phase_factors_cd = None
-
-    def __eqqqqqqq__(self, other):
-        return ((self.size_c == other.size_c).all() and
-                (self.pbc_c == other.pbc_c).all())
-
-    # @cached_property
+    @cached_property
     def phase_factors_cd(self):
-        if self._phase_factors_cd is None:
-            assert self.comm.size == 1
-            disp_cd = np.array([[1.0, -1.0], [1.0, -1.0], [1.0, -1.0]])
-            self._phase_factors_cd = np.exp(2j * np.pi *
-                                            disp_cd *
-                                            self.kpt_c[:, np.newaxis])
-        return self._phase_factors_cd
+        assert self.comm.size == 1
+        disp_cd = np.array([[1.0, -1.0], [1.0, -1.0], [1.0, -1.0]])
+        return np.exp(2j * np.pi *
+                      disp_cd *
+                      self.kpt_c[:, np.newaxis])
 
     def __repr__(self):
         a, b, c = self.size_c
