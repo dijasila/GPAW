@@ -9,14 +9,14 @@ def new(x):
     else:
         GPAW = OldGPAW
 
-    params = {'mode': {'name': 'fd'},
+    params = {'mode': {'name': 'fd', 'force_complex_dtype': 0},
               'random': not True,
               'kpts': (2, 1, 1)}
 
     atoms = Atoms('H2', cell=[2, 2, 3], pbc=True)
     atoms.positions[1, 2] = 0.8
     atoms.calc = GPAW(**params,
-                      txt=f'{x}.txt')
+                      txt=f'{x}C.txt')
     f = atoms.get_forces()
     e = atoms.get_potential_energy()
     print(e)

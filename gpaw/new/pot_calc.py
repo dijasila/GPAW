@@ -44,6 +44,7 @@ class PotentialCalculator:
             self.setups, density, self.xc, Q_aL)
 
         for key, e in corrections.items():
+            print(key, e, energies[key])
             energies[key] += e
 
         return Potential(vt_sR, dH_asii, energies), vHt_x
@@ -83,7 +84,7 @@ class UniformGridPotentialCalculator(PotentialCalculator):
     def _calculate(self, density, vHt_r):
         nt_sR = density.nt_sR
         nt_sr = self.interpolate(nt_sR, preserve_integral=True)
-
+        print(nt_sR.data[0,0,0])
         grid2 = nt_sr.desc
 
         vxct_sr = grid2.zeros(nt_sr.dims)
