@@ -48,11 +48,9 @@ class PlaneWaves(Domain):
         self.dv = abs(np.linalg.det(self.cell_cv))
 
     def __repr__(self) -> str:
-        comm = self.comm
-        txt = f'PlaneWaves(ecut={self.ecut}, cell={self.cell_cv.tolist()}'
-        if comm.size > 1:
-            txt += f', comm={comm.rank}/{comm.size}'
-        return txt + ')'
+        return Domain.__repr__(self).replace(
+            'Domain(',
+            f'PlaneWaves(ecut={self.ecut}, ')
 
     def reciprocal_vectors(self) -> Array2D:
         """Returns reciprocal lattice vectors, G + k,

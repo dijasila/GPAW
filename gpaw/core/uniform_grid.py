@@ -50,6 +50,11 @@ class UniformGrid(Domain):
 
         self.dv = abs(np.linalg.det(self.cell_cv)) / self.size_c.prod()
 
+    def __repr__(self):
+        return Domain.__repr__(self).replace(
+            'Domain(',
+            f'UniformGrid(size={self.size_c.tolist()}, ')
+
     @cached_property
     def phase_factors_cd(self):
         assert self.comm.size == 1
@@ -57,12 +62,6 @@ class UniformGrid(Domain):
         return np.exp(2j * np.pi *
                       disp_cd *
                       self.kpt_c[:, np.newaxis])
-
-    def __repr__(self):
-        a, b, c = self.size_c
-        comm = self.comm
-        return (f'UniformGrid(size={a}*{b}*{c}, pbc={self.pbc_c}, '
-                f'comm={comm.rank}/{comm.size}, dtype={self.dtype})')
 
     def new(self,
             size=None,

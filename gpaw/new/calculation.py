@@ -155,7 +155,7 @@ class DFTCalculation:
         domain_comm = ccc_aL.layout.atomdist.comm
         domain_comm.sum(F_av)
 
-        F_av = self.state.ibzwfs.ibz.symmetry.symmetry.symmetrize_forces(F_av)
+        F_av = self.state.ibzwfs.ibz.symmetries.symmetrize_forces(F_av)
 
         log('\nForces in eV/Ang:')
         c = Ha / Bohr

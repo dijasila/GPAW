@@ -19,3 +19,6 @@ class Symmetries:
 
     def check_positions(self, fracpos_ac):
         self.symmetry.check(fracpos_ac)
+
+    def symmetrize_forces(self, F_av):
+        return self.symmetry.symmetrize_forces(F_av)

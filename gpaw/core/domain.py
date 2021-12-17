@@ -44,8 +44,6 @@ class Domain:
         if kpt is not None:
             if dtype is None:
                 dtype = complex
-            if dtype == float:
-                raise ValueError(f'dtype must be complex for kpt={kpt}')
         else:
             if dtype is None:
                 dtype = float
@@ -54,11 +52,24 @@ class Domain:
         self.kpt_c = np.array(kpt, float)
 
         if self.kpt_c.any():
+            if dtype == float:
+                raise ValueError(f'dtype must be complex for kpt={kpt}')
             for p, k in zip(pbc, self.kpt_c):
                 if not p and k != 0:
                     raise ValueError(f'Bad k-point {kpt} for pbc={pbc}')
 
         self.dtype = np.dtype(dtype)
+
+    def __repr__(self):
+        comm = self.comm
+        if self.kpt_c.any():
+            k = f', kpt={self.kpt_c.tolist()}'
+        else:
+            k = ''
+        return (f'Domain(cell={self.cell_cv.tolist()}, '
+                f'pbc={self.pbc_c.tolist()}, '
+                f'comm={comm.rank}/{comm.size}, '
+                f'dtype={self.dtype}{k})')
 
     @property
     def cell(self):
