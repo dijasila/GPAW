@@ -57,7 +57,6 @@ class ExcitedState(GPAW, Calculator):
         self.atoms = self.calculator.atoms
 
         self.d = d
-        self.name = self.__class__.__name__
 
         self.results = {}
         self.parameters = {'d': d, 'index': self.index}
