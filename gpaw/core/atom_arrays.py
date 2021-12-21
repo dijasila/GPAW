@@ -101,8 +101,12 @@ class AtomArrays(DistributedArrays):
     def values(self):
         return self._arrays.values()
 
-    def collect(self):
+    def collect(self, broadcast=False, copy=False):
         assert self.layout.atomdist.comm.size == 1
+        if copy:
+            a = self.new()
+            a.data[:] = self.data
+            return a
         return self
 
     def _dict_view(self):

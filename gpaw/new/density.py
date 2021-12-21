@@ -29,6 +29,7 @@ class Density:
                  delta_aiiL,
                  delta0_a,
                  N0_aii,
+                 l_aj,
                  charge=0.0):
         self.nt_sR = nt_sR
         self.nct_R = nct_R
@@ -36,6 +37,7 @@ class Density:
         self.delta_aiiL = delta_aiiL
         self.delta0_a = delta0_a
         self.N0_aii = N0_aii
+        self.l_aj = l_aj
         self.charge = charge
 
         self.ncomponents = nt_sR.dims[0]
@@ -70,6 +72,19 @@ class Density:
         pseudo_charge = self.nt_sR.integrate().sum()
         x = -charge / pseudo_charge
         self.nt_sR.data *= x
+
+    def symmetrize(self, symmetries):
+        self.nt_sR.symmetrize(symmetries.rotation_scc,
+                              symmetries.translation_sc)
+
+        D_asii = self.D_asii.collect(broadcast=True, copy=True)
+        for a1, D_sii in self.D_asii.items():
+            D_sii[:] = 0.0
+            for a2, rotation_ii in zip(symmetries.a_sa[:, a1],
+                                       symmetries.rotations(self.l_aj[a1])):
+                D_sii += np.einsum('ij, sjk, lk -> sil',
+                                   rotation_ii, D_asii[a2], rotation_ii)
+        self.D_asii.data *= 1.0 / len(symmetries)
 
     def overlap_correction(self,
                            P_ain: AtomArrays,
@@ -126,6 +141,7 @@ class Density:
                    [setup.Delta_iiL for setup in setups],
                    [setup.Delta0 for setup in setups],
                    [unpack(setup.N0_p) for setup in setups],
+                   [setup.l_j for setup in setups],
                    charge)
 
     def calculate_magnetic_moments(self):

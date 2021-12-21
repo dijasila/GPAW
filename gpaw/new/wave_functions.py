@@ -118,6 +118,7 @@ class IBZWaveFunctions:
             wfs.add_to_density(density.nt_sR, density.D_asii)
         self.kpt_comm.sum(density.nt_sR.data)
         self.kpt_comm.sum(density.D_asii.data)
+        out.symmetrize(self.ibz.symmetries)
 
     def get_eigs_and_occs(self, k):
         assert self.rank_k[k] == self.kpt_comm.rank

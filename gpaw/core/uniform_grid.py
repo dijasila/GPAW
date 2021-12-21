@@ -408,3 +408,18 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         for f, psit_R in zip(weights, self.data):
             # Same as out.data += f * abs(psit_R)**2, but much faster:
             _gpaw.add_to_density(f, psit_R, out.data)
+
+    def symmetrize(self, rotation_scc, translation_sc):
+        if len(rotation_scc) == 1:
+            return
+        a_xR = self.collect()
+        b_xR = a_xR.new()
+        if self.desc.comm.rank == 0:
+            t_sc = (translation_sc * self.desc.size_c).round().astype(int)
+            offset_c = 1 - self.desc.pbc_c
+            for a_R, b_R in zip(a_xR._arrays(), b_xR._arrays()):
+                b_R[:] = 0.0
+                for r_cc, t_c in zip(rotation_scc, t_sc):
+                    _gpaw.symmetrize_ft(a_R, b_R, r_cc, t_c, offset_c)
+        b_xR.distribute(out=self)
+        self.data *= 1.0 / len(rotation_scc)
