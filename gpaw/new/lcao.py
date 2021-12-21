@@ -76,7 +76,9 @@ def create_lcao_ibz_wave_functions(setups,
             continue
         gridk = grid.new(kpt=kpt_c, dtype=dtype)
         lcaokpt = lcaowfs.kpt_u[u]
-        assert (ibz.kpt_kc[lcaokpt.k] == kpt_c).all()
+        assert (ibz.kpt_kc[lcaokpt.k] == kpt_c).all(), (ibz.kpt_kc,
+                                                        lcaokpt.k,
+                                                        kpt_c)
         psit_nR = gridk.zeros(nbands, band_comm)
         mynbands = len(lcaokpt.C_nM)
         basis_set.lcao_to_grid(lcaokpt.C_nM,
@@ -90,8 +92,9 @@ def create_lcao_ibz_wave_functions(setups,
         else:
             psit_nX = psit_nR
         mykpts.append(WaveFunctions(psit_nX, lcaokpt.s, setups,
-                                    fracpos_ac))
+                                    fracpos_ac, weight))
         assert mynbands == nbands
+        u += 1
 
     ibzwfs = IBZWaveFunctions(ibz, rank_k, kpt_comm, mykpts, nelectrons)
     return ibzwfs

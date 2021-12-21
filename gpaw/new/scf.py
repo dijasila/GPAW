@@ -46,7 +46,8 @@ class SCFLoop:
         self.mixer.reset()
 
         dens_error = inf
-        # dens_error = self.mixer.mix(density)
+        dens_error = self.mixer.mix(state.density)
+
         for niter in itertools.count(1):
             dH = state.potential.dH
             Ht = partial(self.hamiltonian.apply, state.potential.vt_sR)

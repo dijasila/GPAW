@@ -99,17 +99,16 @@ class UniformGrid(Domain):
         return UniformGridAtomCenteredFunctions(functions, positions, self,
                                                 integral=integral, cut=cut)
 
-    def transformer(self, other):
+    def transformer(self, other: UniformGrid):
         from gpaw.transformers import Transformer
 
-        apply = Transformer(self._gd, other._gd, 3).apply
+        apply = Transformer(self._gd, other._gd, nn=3).apply
 
-        def transform(functions, out=None, preserve_integral=False):
+        def transform(functions, out=None):
             if out is None:
                 out = other.empty(functions.dims, functions.comm)
-            apply(functions.data, out.data)
-            if preserve_integral and not self.pbc_c.all():
-                out.data *= functions.integrate() / out.integrate()
+            for input, output in zip(functions._arrays(), out._arrays()):
+                apply(input, output)
             return out
 
         return transform
@@ -407,5 +406,5 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
                    out: UniformGridFunctions = None) -> None:
         assert out is not None
         for f, psit_R in zip(weights, self.data):
-            # Same as density.data += f * abs(psit_R)**2, but much faster:
+            # Same as out.data += f * abs(psit_R)**2, but much faster:
             _gpaw.add_to_density(f, psit_R, out.data)
