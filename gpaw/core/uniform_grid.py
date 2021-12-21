@@ -51,10 +51,6 @@ class UniformGrid(Domain):
 
         self._phase_factors_cd = None
 
-    def __eqqqqqqq__(self, other):
-        return ((self.size_c == other.size_c).all() and
-                (self.pbc_c == other.pbc_c).all())
-
     # @cached_property
     def phase_factors_cd(self):
         if self._phase_factors_cd is None:
@@ -79,7 +75,7 @@ class UniformGrid(Domain):
             decomp=None,
             dtype=None) -> UniformGrid:
         if decomp is None and comm == 'inherit':
-            if (size == self.size_c).all() and (pbc == self.pbc_c).all():
+            if size is None and pbc is None:
                 decomp = self.decomp_cp
         comm = self.comm if comm == 'inherit' else comm
         return UniformGrid(cell=self.cell_cv,
