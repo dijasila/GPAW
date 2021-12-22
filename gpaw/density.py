@@ -690,7 +690,6 @@ class RealSpaceDensity(Density):
         if comp_charge is None:
             comp_charge, _Q_aL = self.calculate_multipole_moments()
 
-        print(self.nt_sG[0,0,0])
         self.nt_sg = self.distribute_and_interpolate(self.nt_sG, self.nt_sg)
 
         # With periodic boundary conditions, the interpolation will
