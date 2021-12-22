@@ -42,11 +42,11 @@ master:
     - mq config --in-place
     - mq init
     - mq workflow -p agts.py -zT | tail -1 | tee count
-    - python -c "assert int(open('count').read().split()[0]) >= 387"
+    - python -c "assert int(open('count').read().split()[0]) >= 422"
     - python -c "import pathlib; assert len(list(pathlib.Path().glob('**/*.png'))) <= 6"
 
 libxc:
-  image: python:3.6
+  image: python:3.7
   script:
     - git clone https://gitlab.com/libxc/libxc.git
     - cd libxc
