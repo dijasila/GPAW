@@ -20,7 +20,7 @@ class PlaneWaves(Domain):
                  *,
                  ecut: float,
                  cell: ArrayLike1D | ArrayLike2D,
-                 kpt: ArrayLike1D = (0.0, 0.0, 0.0),
+                 kpt: ArrayLike1D = None,
                  comm: MPIComm = serial_comm,
                  dtype=None):
         self.ecut = ecut
@@ -48,11 +48,9 @@ class PlaneWaves(Domain):
         self.dv = abs(np.linalg.det(self.cell_cv))
 
     def __repr__(self) -> str:
-        comm = self.comm
-        txt = f'PlaneWaves(ecut={self.ecut}, cell={self.cell_cv.tolist()}'
-        if comm.size > 1:
-            txt += f', comm={comm.rank}/{comm.size}'
-        return txt + ')'
+        return Domain.__repr__(self).replace(
+            'Domain(',
+            f'PlaneWaves(ecut={self.ecut}, ')
 
     def reciprocal_vectors(self) -> Array2D:
         """Returns reciprocal lattice vectors, G + k,

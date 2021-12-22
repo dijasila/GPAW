@@ -247,6 +247,14 @@ class Hamiltonian:
         finegrid_energies *= self.finegd.comm.size / self.world.size
         coarsegrid_e_kinetic *= self.gd.comm.size / self.world.size
         # (careful with array orderings/contents)
+
+        if 0:
+            print('kinetic', atomic_energies[0], coarsegrid_e_kinetic)
+            print('coulomb', atomic_energies[1], finegrid_energies[0])
+            print('zero', atomic_energies[2], finegrid_energies[1])
+            print('xc', atomic_energies[4], finegrid_energies[3])
+            print('external', atomic_energies[3], finegrid_energies[2])
+
         energies = atomic_energies  # kinetic, coulomb, zero, external, xc
         energies[1:] += finegrid_energies  # coulomb, zero, external, xc
         energies[0] += coarsegrid_e_kinetic  # kinetic

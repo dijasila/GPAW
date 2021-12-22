@@ -75,7 +75,7 @@ class AtomCenteredFunctions:
             assert out.transposed
         coef_axiv = {a: np.moveaxis(array_ixv, 0, -2)
                      for a, array_ixv in out._arrays.items()}
-        self._lfc.derivative(functions.data, coef_axiv, q=-1)
+        self._lfc.derivative(functions.data, coef_axiv, q=0)
         return out
 
 

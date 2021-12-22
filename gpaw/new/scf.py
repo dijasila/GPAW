@@ -1,10 +1,14 @@
+from __future__ import annotations
 import itertools
 import warnings
 from functools import partial
 from math import inf
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 
 from gpaw.scf import dict2criterion, write_iteration
+if TYPE_CHECKING:
+    from gpaw.new.calculation import DFTState
 
 
 class SCFConvergenceError(Exception):
@@ -34,7 +38,7 @@ class SCFLoop:
         return str(self.pot_calc)
 
     def iterate(self,
-                state,
+                state: DFTState,
                 convergence=None,
                 maxiter=None,
                 log=None):
@@ -46,7 +50,8 @@ class SCFLoop:
         self.mixer.reset()
 
         dens_error = inf
-        # dens_error = self.mixer.mix(density)
+        dens_error = self.mixer.mix(state.density)
+
         for niter in itertools.count(1):
             dH = state.potential.dH
             Ht = partial(self.hamiltonian.apply, state.potential.vt_sR)
@@ -75,7 +80,8 @@ class SCFLoop:
 
 
 class SCFContext:
-    def __init__(self, state,
+    def __init__(self,
+                 state: DFTState,
                  niter: int,
                  wfs_error: float,
                  dens_error: float,
@@ -91,7 +97,11 @@ class SCFContext:
                                        error=wfs_error),
                                    nspins=state.density.ndensities,
                                    collinear=state.density.collinear)
-        self.dens = SimpleNamespace(fixed=False, error=dens_error)
+        self.dens = SimpleNamespace(
+            calculate_magnetic_moments=state.density
+            .calculate_magnetic_moments,
+            fixed=False,
+            error=dens_error)
 
 
 def check_convergence(ctx, criteria):

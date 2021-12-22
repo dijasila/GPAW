@@ -41,6 +41,7 @@ class InputParameters:
     gpts: None | Sequence[int]
     charge: float
     nbands: None | int | float
+    spinpol: bool
 
     def __init__(self, params: dict[str, Any]):
         """Accuracy of the self-consistency cycle."""
@@ -59,7 +60,8 @@ class InputParameters:
             self.__dict__[key] = value
 
     def __repr__(self) -> str:
-        p = ', '.join(f'{key}={value!r}' for key, value in self.params.items())
+        p = ', '.join(f'{key}={value!r}'
+                      for key, value in self.params.items())
         return f'InputParameters({p})'
 
 
@@ -138,9 +140,11 @@ def setups(value='paw'):
 
 
 @input_parameter
-def symmetry(value=None):
+def symmetry(value='undefined'):
     """Use of symmetry."""
-    if value in {None, 'off'}:
+    if value == 'undefined':
+        value = {}
+    elif value in {None, 'off'}:
         value = {'point_group': False, 'time_reversal': False}
     return value
 
@@ -157,7 +161,7 @@ def magmoms(value=None):
 
 
 @input_parameter
-def kpts(value=None):
+def kpts(value=None) -> dict[str, Any]:
     """Brillouin-zone sampling."""
     if value is None:
         value = {'size': (1, 1, 1)}
@@ -190,6 +194,11 @@ def txt(value: str | Path | IO[str] | None = '?'
 
 @input_parameter
 def random(value=False):
+    return value
+
+
+@input_parameter
+def spinpol(value=False):
     return value
 
 
