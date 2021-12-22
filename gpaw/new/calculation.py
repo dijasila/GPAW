@@ -177,5 +177,9 @@ def write_atoms(atoms, grid, magmoms, log):
     from gpaw.output import print_cell, print_positions
     if magmoms is None:
         magmoms = np.zeros((len(atoms), 3))
+    elif magmoms.ndim == 1:
+        m1 = magmoms
+        magmoms = np.zeros((len(atoms), 3))
+        magmoms[:, 2] = m1
     print_positions(atoms, log, magmoms)
     print_cell(grid._gd, atoms.pbc, log)

@@ -132,7 +132,7 @@ class Davidson:
 
     def iterate(self, ibzwfs, Ht, dH, dS) -> float:
         error = 0.0
-        for wfs in ibzwfs.wfs_q:
+        for wfs in ibzwfs:
             e = self.iterate1(wfs, Ht, dH, dS)
             error += wfs.weight * e
         return error * ibzwfs.spin_degeneracy

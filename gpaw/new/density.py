@@ -154,7 +154,7 @@ class Density:
                 M_ii = D_sii[0] - D_sii[1]
                 magmom_av[a, 2] = np.einsum('ij, ij ->', M_ii, self.N0_aii[a])
                 magmom_v[2] += (np.einsum('ij, ij ->', M_ii,
-                                          self.Delta_aiiL[a][:, :, 0]) *
+                                          self.delta_aiiL[a][:, :, 0]) *
                                 sqrt(4 * pi))
             domain_comm.sum(magmom_av)
             domain_comm.sum(magmom_v)
@@ -168,7 +168,7 @@ class Density:
                 magmom_av[a] = np.einsum('vij, ij -> v',
                                          M_vii, self.N0_aii[a])
                 magmom_v += (np.einsum('vij, ij ->', M_vii,
-                                       self.Delta_aiiL[a][:, :, 0]) *
+                                       self.delta_aiiL[a][:, :, 0]) *
                              sqrt(4 * pi))
             domain_comm.sum(magmom_av)
             domain_comm.sum(magmom_v)

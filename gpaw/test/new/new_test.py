@@ -3,6 +3,10 @@ from gpaw.new.ase_interface import GPAW as NewGPAW
 from ase import Atoms
 
 
+def test_refactored_code():
+    new('n')
+
+
 def new(x):
     params = {'mode': {'name': 'fd', 'force_complex_dtype': 0},
               'random': not True,
@@ -17,7 +21,7 @@ def new(x):
     atoms = Atoms('H2', cell=[2, 2, 3], pbc=True)
     atoms.positions[1, 2] = 0.8
     atoms.calc = GPAW(**params,
-                      txt=f'{x}C.txt')
+                      txt=f'{x}s.txt')
     f = atoms.get_forces()
     e = atoms.get_potential_energy()
     print(e)

@@ -71,13 +71,13 @@ def create_lcao_ibz_wave_functions(setups,
 
     nspins = ncomponents % 3
     u = 0
-    mykpts = []
+    wfs_qs = []
     for kpt_c, weight, rank in zip(ibz.kpt_kc, ibz.weight_k, rank_k):
         if rank != kpt_comm.rank:
             continue
         gridk = grid.new(kpt=kpt_c, dtype=dtype)
+        wfs_s = []
         for s in range(nspins):
-            print(u, kpt_c, s)
             lcaokpt = lcaowfs.kpt_u[u]
             assert (ibz.kpt_kc[lcaokpt.k] == kpt_c).all(), (ibz.kpt_kc,
                                                             lcaokpt.k,
@@ -95,12 +95,13 @@ def create_lcao_ibz_wave_functions(setups,
                 psit_nX = psit_nG
             else:
                 psit_nX = psit_nR
-            mykpts.append(WaveFunctions(psit_nX, s, setups,
-                                        fracpos_ac, weight,
-                                        spin_degeneracy=2 // nspins))
+            wfs_s.append(WaveFunctions(psit_nX, s, setups,
+                                       fracpos_ac, weight,
+                                       spin_degeneracy=2 // nspins))
             assert mynbands == nbands
             u += 1
+        wfs_qs.append(wfs_s)
 
-    ibzwfs = IBZWaveFunctions(ibz, rank_k, kpt_comm, mykpts, nelectrons,
+    ibzwfs = IBZWaveFunctions(ibz, rank_k, kpt_comm, wfs_qs, nelectrons,
                               2 // nspins)
     return ibzwfs
