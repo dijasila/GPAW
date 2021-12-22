@@ -22,7 +22,8 @@ class IBZWaveFunctions:
                  rank_k: Sequence[int],
                  kpt_comm: MPIComm,
                  wfs_q: list[WaveFunctions],
-                 nelectrons: float):
+                 nelectrons: float,
+                 spin_degeneracy: int = 2):
         self.ibz = ibz
         self.rank_k = rank_k
         self.kpt_comm = kpt_comm
@@ -30,7 +31,7 @@ class IBZWaveFunctions:
         self.nelectrons = nelectrons
         self.fermi_levels = None
         self.collinear = False
-        self.spin_degeneracy = 2
+        self.spin_degeneracy = spin_degeneracy
 
         self.q_k = {}  # ibz index to local index
         q = 0

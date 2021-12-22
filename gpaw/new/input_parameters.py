@@ -41,6 +41,7 @@ class InputParameters:
     gpts: None | Sequence[int]
     charge: float
     nbands: None | int | float
+    spinpol: bool
 
     def __init__(self, params: dict[str, Any]):
         """Accuracy of the self-consistency cycle."""
@@ -59,7 +60,8 @@ class InputParameters:
             self.__dict__[key] = value
 
     def __repr__(self) -> str:
-        p = ', '.join(f'{key}={value!r}' for key, value in self.params.items())
+        p = ', '.join(f'{key}={value!r}'
+                      for key, value in self.params.items())
         return f'InputParameters({p})'
 
 
@@ -192,6 +194,11 @@ def txt(value: str | Path | IO[str] | None = '?'
 
 @input_parameter
 def random(value=False):
+    return value
+
+
+@input_parameter
+def spinpol(value=False):
     return value
 
 

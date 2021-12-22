@@ -8,7 +8,7 @@ from typing import Union
 from gpaw.core.atom_arrays import AtomArrays
 
 
-def magmoms2dims(magmoms):
+def magmoms2dims(magmoms: np.ndarray | None) -> tuple[int, int]:
     """Convert magmoms input to number of density and magnetization components.
 
     >>> magmoms2dims(None)
@@ -16,7 +16,7 @@ def magmoms2dims(magmoms):
     """
     if magmoms is None:
         return 1, 0
-    if magmoms.shape[1] == 1:
+    if magmoms.ndim == 1:
         return 2, 0
     return 1, 3
 

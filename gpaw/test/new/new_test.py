@@ -4,14 +4,15 @@ from ase import Atoms
 
 
 def new(x):
+    params = {'mode': {'name': 'fd', 'force_complex_dtype': 0},
+              'random': not True,
+              'kpts': (4, 1, 1),
+              'spinpol': True}
+
     if x == 'n':
         GPAW = NewGPAW
     else:
         GPAW = OldGPAW
-
-    params = {'mode': {'name': 'fd', 'force_complex_dtype': 0},
-              'random': not True,
-              'kpts': (4, 1, 1)}
 
     atoms = Atoms('H2', cell=[2, 2, 3], pbc=True)
     atoms.positions[1, 2] = 0.8

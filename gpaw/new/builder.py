@@ -53,7 +53,7 @@ class DFTComponentsBuilder:
                              self.xc.setup_name,
                              world)
         self.initial_magmoms = normalize_initial_magnetic_moments(
-            params.magmoms, atoms)
+            params.magmoms, atoms, params.spinpol)
 
         symmetry = create_symmetry_object(atoms,
                                           self.setups.id_a,
@@ -239,7 +239,9 @@ def create_fourier_filter(grid):
     return filter
 
 
-def normalize_initial_magnetic_moments(magmoms, atoms):
+def normalize_initial_magnetic_moments(magmoms,
+                                       atoms,
+                                       force_spinpol_calculation=False):
     if magmoms is None:
         magmoms = atoms.get_initial_magnetic_moments()
     elif isinstance(magmoms, float):
@@ -250,6 +252,9 @@ def normalize_initial_magnetic_moments(magmoms, atoms):
     collinear = magmoms.ndim == 1
     if collinear and not magmoms.any():
         magmoms = None
+
+    if force_spinpol_calculation and magmoms is None:
+        magmoms = np.zeros(len(atoms))
 
     return magmoms
 

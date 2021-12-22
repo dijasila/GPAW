@@ -69,32 +69,38 @@ def create_lcao_ibz_wave_functions(setups,
 
     rank_k = ibz.ranks(kpt_comm)
 
+    nspins = ncomponents % 3
     u = 0
     mykpts = []
     for kpt_c, weight, rank in zip(ibz.kpt_kc, ibz.weight_k, rank_k):
         if rank != kpt_comm.rank:
             continue
         gridk = grid.new(kpt=kpt_c, dtype=dtype)
-        lcaokpt = lcaowfs.kpt_u[u]
-        assert (ibz.kpt_kc[lcaokpt.k] == kpt_c).all(), (ibz.kpt_kc,
-                                                        lcaokpt.k,
-                                                        kpt_c)
-        psit_nR = gridk.zeros(nbands, band_comm)
-        mynbands = len(lcaokpt.C_nM)
-        basis_set.lcao_to_grid(lcaokpt.C_nM,
-                               psit_nR.data[:mynbands], lcaokpt.q)
-        if isinstance(wf_desc, PlaneWaves):
-            pw = wf_desc.new(kpt=kpt_c)
-            psit_nG = pw.empty(nbands, band_comm)
-            for psit_R, psit_G in zip(psit_nR, psit_nG):
-                psit_R.fft(out=psit_G)
-            psit_nX = psit_nG
-        else:
-            psit_nX = psit_nR
-        mykpts.append(WaveFunctions(psit_nX, lcaokpt.s, setups,
-                                    fracpos_ac, weight))
-        assert mynbands == nbands
-        u += 1
+        for s in range(nspins):
+            print(u, kpt_c, s)
+            lcaokpt = lcaowfs.kpt_u[u]
+            assert (ibz.kpt_kc[lcaokpt.k] == kpt_c).all(), (ibz.kpt_kc,
+                                                            lcaokpt.k,
+                                                            kpt_c)
+            assert lcaokpt.s == s
+            psit_nR = gridk.zeros(nbands, band_comm)
+            mynbands = len(lcaokpt.C_nM)
+            basis_set.lcao_to_grid(lcaokpt.C_nM,
+                                   psit_nR.data[:mynbands], lcaokpt.q)
+            if isinstance(wf_desc, PlaneWaves):
+                pw = wf_desc.new(kpt=kpt_c)
+                psit_nG = pw.empty(nbands, band_comm)
+                for psit_R, psit_G in zip(psit_nR, psit_nG):
+                    psit_R.fft(out=psit_G)
+                psit_nX = psit_nG
+            else:
+                psit_nX = psit_nR
+            mykpts.append(WaveFunctions(psit_nX, s, setups,
+                                        fracpos_ac, weight,
+                                        spin_degeneracy=2 // nspins))
+            assert mynbands == nbands
+            u += 1
 
-    ibzwfs = IBZWaveFunctions(ibz, rank_k, kpt_comm, mykpts, nelectrons)
+    ibzwfs = IBZWaveFunctions(ibz, rank_k, kpt_comm, mykpts, nelectrons,
+                              2 // nspins)
     return ibzwfs
