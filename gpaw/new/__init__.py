@@ -17,12 +17,20 @@ class Timer:
     @contextmanager
     def __call__(self, name):
         t1 = time()
-        yield
-        t2 = time()
-        self.times[name] += t2 - t1
+        try:
+            yield
+        finally:
+            t2 = time()
+            self.times[name] += t2 - t1
 
     def write(self, log):
         self.times['Total'] += time()
-        log('\n' +
-            '\n'.join(f'Time ({name + "):":12}{t:10.3f} seconds'
-                      for name, t in self.times.items()))
+        total = self.times['Total']
+        log()
+        for name, t in self.times.items():
+            n = int(round(40 * t / total))
+            if n == 0:
+                bar = '|'
+            else:
+                bar = '|' + (n - 1) * '-' + '|'
+            log(f'Time ({name + "):":12}{t:10.3f} seconds', bar)

@@ -7,13 +7,14 @@ from ase.units import Bohr, Ha
 from gpaw.new.builder import DFTComponentsBuilder
 from gpaw.new.input_parameters import InputParameters
 from gpaw.new.wave_functions import IBZWaveFunctions
+from gpaw.new.potential import Potential
 
 
 class DFTState:
     def __init__(self,
                  ibzwfs: IBZWaveFunctions,
                  density,
-                 potential,
+                 potential: Potential,
                  vHt_x=None):
         self.ibzwfs = ibzwfs
         self.density = density
@@ -67,6 +68,9 @@ class DFTCalculation:
 
         write_atoms(atoms, builder.grid, builder.initial_magmoms, log)
 
+        log(ibzwfs.ibz.symmetries)
+        log(ibzwfs)
+
         return cls(DFTState(ibzwfs, density, potential, vHt_x),
                    builder.setups,
                    builder.create_scf_loop(pot_calc),
@@ -112,11 +116,13 @@ class DFTCalculation:
         energies1['entropy'] = energies2['entropy']
         free_energy = sum(energies1.values())
         extrapolated_energy = free_energy + energies2['extrapolation']
+
         log('\nEnergies (eV):')
         for name, e in energies1.items():
             log(f'    {name + ":":10}   {e * Ha:14.6f}')
         log(f'    Total:       {free_energy * Ha:14.6f}')
         log(f'    Extrapolated:{extrapolated_energy * Ha:14.6f}')
+
         self.results['free_energy'] = free_energy
         self.results['energy'] = extrapolated_energy
 
@@ -150,7 +156,7 @@ class DFTCalculation:
         domain_comm = ccc_aL.layout.atomdist.comm
         domain_comm.sum(F_av)
 
-        F_av = self.state.ibzwfs.ibz.symmetry.symmetry.symmetrize_forces(F_av)
+        F_av = self.state.ibzwfs.ibz.symmetries.symmetrize_forces(F_av)
 
         log('\nForces in eV/Ang:')
         c = Ha / Bohr
@@ -172,5 +178,9 @@ def write_atoms(atoms, grid, magmoms, log):
     from gpaw.output import print_cell, print_positions
     if magmoms is None:
         magmoms = np.zeros((len(atoms), 3))
+    elif magmoms.ndim == 1:
+        m1 = magmoms
+        magmoms = np.zeros((len(atoms), 3))
+        magmoms[:, 2] = m1
     print_positions(atoms, log, magmoms)
     print_cell(grid._gd, atoms.pbc, log)
