@@ -7,13 +7,14 @@ from ase.units import Bohr, Ha
 from gpaw.new.builder import DFTComponentsBuilder
 from gpaw.new.input_parameters import InputParameters
 from gpaw.new.wave_functions import IBZWaveFunctions
+from gpaw.new.potential import Potential
 
 
 class DFTState:
     def __init__(self,
                  ibzwfs: IBZWaveFunctions,
                  density,
-                 potential,
+                 potential: Potential,
                  vHt_x=None):
         self.ibzwfs = ibzwfs
         self.density = density
