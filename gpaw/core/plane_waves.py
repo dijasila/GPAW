@@ -241,6 +241,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
 
     def integrate(self, other: PlaneWaveExpansions = None) -> np.ndarray:
         if other is not None:
+            assert self.comm.size == 1
             assert self.desc.dtype == other.desc.dtype
             a = self._arrays()
             b = other._arrays()
@@ -256,10 +257,11 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
             result.shape = self.dims + other.dims
         else:
             dv = self.dv
-            result = self.data[..., 0]
-            if self.desc.comm.rank > 0:
-                result = np.empty_like(result)
-            self.desc.comm.broadcast(result[np.newaxis], 0)
+            if self.desc.comm.rank == 0:
+                result = self.data[..., 0]
+            else:
+                result = np.empty(self.mydims, complex)
+            self.desc.comm.broadcast(result, 0)
 
         if self.desc.dtype == float:
             result = result.real

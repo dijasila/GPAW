@@ -11,4 +11,4 @@ def test_fft_interpolation():
     assert (b.data[::2, ::2, ::2] == a.data).all()
 
     b.fft_restrict(out=a)
-    assert a.integrate() == b.integrate()
+    assert a.integrate() == pytest.approx(b.integrate(), abs=1e-12)

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import numpy as np
-from numpy.typing import DTypeLike
+# from numpy.typing import DTypeLike
 
 from gpaw.mpi import MPIComm, serial_comm
 from gpaw.typing import ArrayLike1D, ArrayLike2D, ArrayLike, Array2D
@@ -33,7 +33,7 @@ class Domain:
                  pbc=(True, True, True),
                  kpt: ArrayLike1D = None,
                  comm: MPIComm = serial_comm,
-                 dtype: DTypeLike = None):
+                 dtype=None):
         """"""
         self.cell_cv = normalize_cell(cell)
         self.pbc_c = np.array(pbc, bool)

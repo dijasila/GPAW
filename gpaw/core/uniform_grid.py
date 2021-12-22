@@ -71,7 +71,7 @@ class UniformGrid(Domain):
             decomp=None,
             dtype=None) -> UniformGrid:
         if decomp is None and comm == 'inherit':
-            if (size == self.size_c).all() and (pbc == self.pbc_c).all():
+            if size is None and pbc is None:
                 decomp = self.decomp_cp
         comm = self.comm if comm == 'inherit' else comm
         return UniformGrid(cell=self.cell_cv,

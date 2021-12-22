@@ -20,7 +20,12 @@ def test_pw_redist():
 
 def test_pw_integrate():
     a = 1.0
-    grid = UniformGrid(cell=[a, a, a], size=(4, 4, 4), comm=world)
+    decomp = {1: [[0, 4], [0, 4], [0, 4]],
+              2: [[0, 2, 4], [0, 4], [0, 4]],
+              4: [[0, 2, 4], [0, 2, 4], [0, 4]],
+              8: [[0, 1, 2, 3, 4], [0, 2, 4], [0, 4]]}[world.size]
+    grid = UniformGrid(cell=[a, a, a], size=(4, 4, 4), comm=world,
+                       decomp=decomp)
     gridc = grid.new(dtype=complex)
 
     g1 = grid.empty()
