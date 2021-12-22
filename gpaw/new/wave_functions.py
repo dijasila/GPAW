@@ -152,6 +152,7 @@ class IBZWaveFunctions:
         F_av = np.zeros((dH_asii.natoms, 3))
         for wfs in self:
             wfs.force_contribution(dH_asii, F_av)
+        self.kpt_comm.sum(F_av)
         return F_av
 
     def write(self, writer, skip_wfs):

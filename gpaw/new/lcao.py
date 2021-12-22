@@ -49,7 +49,7 @@ def create_lcao_ibz_wave_functions(setups,
                                 world, basis_set.kd, kptband_comm,
                                 nulltimer)
     lcaowfs.basis_functions = basis_set
-    lcaowfs.set_positions(fracpos_ac, atom_partition)
+    lcaowfs.set_positions(fracpos_ac, atom_partition)#??????
 
     if ncomponents != 4:
         eigensolver = DirectLCAO()

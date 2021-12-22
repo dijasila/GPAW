@@ -12,8 +12,8 @@ def test_refactored_code():
 def new(x):
     params = {'mode': {'name': 'fd', 'force_complex_dtype': 0},
               'random': not True,
-              'kpts': (4, 1, 1),
-              'spinpol': True}
+              #'kpts': (4, 1, 1),
+              'spinpol': not True}
 
     if x == 'n':
         GPAW = NewGPAW

@@ -67,7 +67,6 @@ class DFTComponentsBuilder:
         b = parallel.get('band', None)
         self.communicators = create_communicators(world, len(self.ibz),
                                                   d, k, b)
-
         self.grid = self.mode.create_uniform_grid(
             params.h,
             params.gpts,
