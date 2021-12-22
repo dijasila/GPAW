@@ -1,8 +1,10 @@
+import pytest
+from ase import Atoms
 from gpaw.calculator import GPAW as OldGPAW
 from gpaw.new.ase_interface import GPAW as NewGPAW
-from ase import Atoms
 
 
+@pytest.mark.serial
 def test_refactored_code():
     new('n')
 

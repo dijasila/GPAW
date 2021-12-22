@@ -98,10 +98,10 @@ class SCFContext:
                                    nspins=state.density.ndensities,
                                    collinear=state.density.collinear)
         self.dens = SimpleNamespace(
+            calculate_magnetic_moments=state.density
+            .calculate_magnetic_moments,
             fixed=False,
-            error=dens_error,
-            calculate_magnetic_moments=
-            state.density.calculate_magnetic_moments)
+            error=dens_error)
 
 
 def check_convergence(ctx, criteria):

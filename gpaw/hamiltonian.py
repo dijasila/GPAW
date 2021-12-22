@@ -248,7 +248,7 @@ class Hamiltonian:
         coarsegrid_e_kinetic *= self.gd.comm.size / self.world.size
         # (careful with array orderings/contents)
 
-        if 1:
+        if 0:
             print('kinetic', atomic_energies[0], coarsegrid_e_kinetic)
             print('coulomb', atomic_energies[1], finegrid_energies[0])
             print('zero', atomic_energies[2], finegrid_energies[1])
