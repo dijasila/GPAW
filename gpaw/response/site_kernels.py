@@ -198,3 +198,70 @@ def calc_K_cylinder(pd, sitePos_v, rc=1.0, zc='unit cell'):
     K_GG *= np.sqrt(2) / Omega_cell ** (3 / 2)  # Real-valued prefactor
 
     return K_GG
+
+
+def calc_K_mixed_shapes(pd, sitePos_mv, shapes_m='sphere',
+                        rc_m=1.0, zc_m='diameter'):
+    """Compute site kernels using an arbitrary combination of shapes for the
+        integration region at different magnetic sites.
+        Accepts spheres, cylinders and unit cell.
+
+    :param pd : Planewave Descriptor. Contains mixed information about
+                plane-wave basis
+    :param sitePos_mv : Array with positions of magnetic sites within unit cell
+    :param shapes_m : List of str or str. Which shapes to use for the
+                    different integration regions.
+                    Options are 'sphere', 'cylinder', 'unit cell'.
+                    If 'unit cell' then rc_rm, zc_rm do nothing
+    :param rc_m : Radius of integration region
+    :param zc_m : Height of integration cylinders (if any)
+                If 'diameter' then zc=2*rc
+                If 'unit cell' then use height of unit cell (makes sense in 2D)
+    """
+
+    # Get number of reciprocal lattice vectors
+    G_Gc = get_pw_coordinates(pd)
+    NG = len(G_Gc)
+
+    # Number of sites
+    if shapes_m == 'unit cell':
+        N_sites = 1
+    else:
+        N_sites = len(sitePos_mv)
+
+    # Reformat shape parameters
+    if type(shapes_m) is str:
+        shapes_m = np.array([shapes_m]*N_sites)
+    if type(rc_m) in {int, float}:
+        rc_m = np.array([rc_m]*N_sites)
+    if type(zc_m) in {int, float, str}:
+        zc_m = np.array([zc_m]*N_sites)
+
+    # Array to fill
+    K_GGm = np.zeros([NG, NG, N_sites], dtype=np.complex128)
+
+    # --- The Calculation itself --- #
+
+    # Loop through magnetic sites
+    for m in range(N_sites):
+        # Get site specific values
+        shape, rc, zc, sitePos_v = shapes_m[m], rc_m[m], zc_m[m], \
+                                   sitePos_mv[m, :]
+
+        # Do computation for relevant shape
+        if shape == 'sphere':
+            K_GG = calc_K_sphere(pd, sitePos_v=sitePos_v, rc=rc)
+
+        elif shape == 'cylinder':
+            K_GG = calc_K_cylinder(pd, sitePos_v=sitePos_v, rc=rc, zc=zc)
+
+        elif shape == 'unit cell':
+            K_GG = calc_K_unit_cell(pd, sitePos_v=sitePos_v)
+
+        else:
+            print('Not a recognised shape')
+
+        # Update data
+        K_GGm[:, :, m] = K_GG
+
+    return K_GGm
