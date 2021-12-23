@@ -19,17 +19,20 @@ def site_kernel_interface(pd, sitePos_mv, shapes_m='sphere',
         integration region at different magnetic sites.
         Accepts spheres, cylinders and unit cell.
 
-    :param pd : Planewave Descriptor. Contains mixed information about
-                plane-wave basis
-    :param sitePos_mv : Array with positions of magnetic sites within unit cell
-    :param shapes_m : List of str or str. Which shapes to use for the
-                    different integration regions.
-                    Options are 'sphere', 'cylinder', 'unit cell'.
-                    If 'unit cell' then rc_rm, zc_rm do nothing
-    :param rc_m : Radius of integration region
-    :param zc_m : Height of integration cylinders (if any)
-                If 'diameter' then zc=2*rc
-                If 'unit cell' then use height of unit cell (makes sense in 2D)
+    Parameters
+    ----------
+    pd : Planewave Descriptor. Contains mixed information about
+            plane-wave basis
+    sitePos_mv : Array with positions of magnetic sites within unit cell
+    shapes_m : List of str or str. Which shapes to use for the
+            different integration regions.
+            Options are 'sphere', 'cylinder', 'unit cell'.
+            If 'unit cell' then rc_rm, zc_rm, sitePos_mv do nothing and
+                a single site in the middle of the unit cell is used.
+    rc_m : Radius of integration region
+    zc_m : Height of integration cylinders (if any)
+            If 'diameter' then zc=2*rc
+            If 'unit cell' then use height of unit cell (makes sense in 2D)
     """
 
     # Get number of reciprocal lattice vectors
@@ -81,16 +84,7 @@ def site_kernel_interface(pd, sitePos_mv, shapes_m='sphere',
 
 
 def K_sphere(pd, sitePos_v, rc=1.0):
-    """
-    Compute site-kernel for a spherical integration region
-
-    :param pd: Planewave Descriptor. Contains mixed information about
-               planewave basis.
-    :param sitePos_v : Position of magnetic site within unit cell.
-    :param rc: Radius of integration sphere.
-
-    :return: NG X NG matrix
-    """
+    """Compute site-kernel for a spherical integration region """
 
     # Get reciprocal lattice vectors and q-vector from pd
     q_qc = pd.kd.bzk_kc
@@ -149,17 +143,7 @@ def K_sphere(pd, sitePos_v, rc=1.0):
 
 
 def K_cylinder(pd, sitePos_v, rc=1.0, zc='unit cell'):
-    """
-    Compute site-kernel for a cylindrical integration region
-
-    :param pd: Planewave Descriptor. Contains mixed information
-               about planewave basis.
-    :param sitePos_v : Position of magnetic site within unit cell.
-    :param rc: Radius of integration cylinder
-    :param zc: Height of integration cylinder
-
-    :return: NG X NG matrix
-    """
+    """Compute site-kernel for a cylindrical integration region"""
 
     # Get reciprocal lattice vectors and q-vector from pd
     q_qc = pd.kd.bzk_kc
@@ -220,16 +204,7 @@ def K_cylinder(pd, sitePos_v, rc=1.0, zc='unit cell'):
 
 
 def K_unit_cell(pd, sitePos_v=None):
-    """
-    Compute site-kernel for a spherical integration region
-
-    :param pd: Planewave Descriptor. Contains mixed information about
-               planewave basis.
-    :param sitePos_v: nd.array
-                    Position of site in unit cell
-
-    :return: NG X NG matrix
-    """
+    """Compute site-kernel for a spherical integration region"""
 
     # Get reciprocal lattice vectors and q-vector from pd
     q_qc = pd.kd.bzk_kc
