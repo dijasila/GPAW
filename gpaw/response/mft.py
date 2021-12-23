@@ -215,3 +215,31 @@ class StaticChiKSFactory(FourComponentSusceptibilityTensor):
                                                    nblocks=nblocks,
                                                    world=world,
                                                    txt=txt, **fixed_kwargs)
+
+    def __call__(self, spincomponent, q_c, txt=None):
+        """Calculate a given component of chiKS.
+        Substitutes calculate_component_array and returns zero frequency."""
+
+        # Only compute static susceptibility
+        frequencies = [0]
+
+        # Perform calculation
+        ecut = self.ecut * Hartree  # eV -> Hartree
+        (_, G_Gc,
+         chiks_wGG, _) = self.calculate_component_array(spincomponent, q_c,
+                                                        frequencies,
+                                                        array_ecut=ecut,
+                                                        txt=txt)
+
+        # Parallelisation : ensure only the root processor stores data,
+        # then broadcasts to the rest
+        NG = G_Gc.shape[0]
+        chiks_GG = np.empty((NG, NG), dtype=complex)
+        if self.chiks.world.rank == 0:  # Check if at root
+            # Remove frequency axis
+            chiks_GG[:, :] = chiks_wGG[0, :, :]
+
+        # Broadcast data to all ranks
+        self.chiks.world.broadcast(chiks_GG, 0)
+
+        return G_Gc, chiks_GG
