@@ -100,3 +100,72 @@ class IsotropicExchangeCalculator():
 
         # Make empty object for Bxc field
         self.Bxc_G = None
+
+    def __call__(self, q_c, rc_rm=1, zc_rm='diameter', txt=sys.stdout):
+        """Calculate the isotropic exchange between all magnetic sites
+        for a given wavevector.
+
+        Parameters
+        ----------
+        q_c : nd.array
+            Components of wavevector in relative coordinates
+        rc_rm : nd.array or number
+            Characteristic size (radius) of integration region.
+            If number, use same value for all sites
+        zc_rm : nd.array, str, number of list of str
+            Height of integration cylinder.
+            Options are 'diameter', 'unit cell' or specifying directly
+            as with rc_rm
+        txt : str
+            Where to save log-files
+
+        Returns
+        -------
+        J_rmn : nd.array (dtype=complex)
+            Exchange between magnetic sites (m,n) for different
+            parameters of the integration regions (r).
+        """
+
+        # Get Bxc_G
+        if self.Bxc_G is None:
+            self._computeBxc()
+        Bxc_G = self.Bxc_G
+
+        # Compute transverse susceptibility
+        _, chiks_GG = self.chiksf('-+', q_c, txt=txt)
+
+        # Get plane-wave descriptor
+        pd = self.chiksf.get_PWDescriptor(q_c)
+
+        # Reformat rc_rm and get number of different radii
+        N_sites = self.N_sites
+        if type(rc_rm) in {int, float}:
+            rc_rm = np.tile(rc_rm, [1, N_sites])
+        Nr = len(rc_rm)     # Number of radii
+
+        # Reformat zc_rm
+        if type(zc_rm) in {int, float, str}:
+            zc_rm = np.tile(zc_rm, [Nr, N_sites])
+
+        # Loop through rc values
+        J_rmn = np.zeros([Nr, N_sites, N_sites], dtype=np.complex128)
+        for r in range(Nr):
+            rc_m, zc_m = rc_rm[r], zc_rm[r]
+
+            # Compute site-kernel
+            K_GGm = calc_K_mixed_shapes(pd, self.sitePos_mv,
+                                        shapes_m=self.shapes_m,
+                                        rc_m=rc_m, zc_m=zc_m)
+
+            # Compute exchange coupling
+            J_mn = np.zeros([N_sites, N_sites], dtype=np.complex128)
+            for m in range(N_sites):
+                for n in range(N_sites):
+                    Km_GG = K_GGm[:, :, m]
+                    Kn_GG = K_GGm[:, :, n]
+                    J = Bxc_G @ Kn_GG @ chiks_GG @ np.conj(Km_GG) \
+                        @ np.conj(Bxc_G)
+                    J_mn[m, n] = J
+            J_rmn[r, :, :] = J_mn
+
+        return J_rmn
