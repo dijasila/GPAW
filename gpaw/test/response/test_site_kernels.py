@@ -41,3 +41,25 @@ def test_Co_hcp():
     assert Kuc_GGm.shape == (NG, NG, 1)
     assert Ksph_GGm.shape == (NG, NG, 2)
     assert Kcyl_GGm.shape == (NG, NG, 2)
+
+    # Remove constant prefactor (atomic units)
+    prefactor = np.sqrt(2 / (Omega_cell / Bohr**3)**3)
+    Kuc_GGm, Ksph_GGm, Kcyl_GGm = (x / prefactor
+                                   for x in [Kuc_GGm, Ksph_GGm, Kcyl_GGm])
+
+    # Convert to SI units
+    Kuc_GGm, Ksph_GGm, Kcyl_GGm = (x*Bohr**3
+                                   for x in [Kuc_GGm, Ksph_GGm, Kcyl_GGm])
+
+    # Check K_00(q=0) is proportional to the volume of the integration region
+    tol = 1e-6
+    equal(Kuc_GGm[0, 0, 0], Omega_cell, tolerance=tol)  # Unit cell volume
+    Vsph1 = 4/3*np.pi*rc_m[0]**3  # Volume of sphere on first site
+    equal(Ksph_GGm[0, 0, 0], Vsph1, tolerance=tol)
+    Vsph2 = 4/3*np.pi*rc_m[1]**3  # Volume of sphere on second site
+    equal(Ksph_GGm[0, 0, 1], Vsph2, tolerance=tol)
+    Vcyl1 = np.pi*rc_m[0]**2*(2*rc_m[0])  # Volume of cylinder on first site
+    equal(Kcyl_GGm[0, 0, 0], Vcyl1, tolerance=tol)
+    height = np.sum(atoms.cell[:, -1])   # Height of unit cell
+    Vcyl2 = np.pi*rc_m[1]**2*height     # Volume of cylinder on second site
+    equal(Kcyl_GGm[0, 0, 1], Vcyl2, tolerance=tol)
