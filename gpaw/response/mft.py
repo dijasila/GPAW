@@ -187,7 +187,10 @@ class IsotropicExchangeCalculator():
 
 class StaticChiKSFactory(FourComponentSusceptibilityTensor):
     """Class calculating components of the static Kohn-Sham
-    susceptibility tensor
+    susceptibility tensor.
+
+    Note : Temporary hack. Refactor later.
+    Calls FourComponentSusceptibilityTensor in an akward way.
     """
 
     def __init__(self, gs, eta=0.0, ecut=50, nbands=None,
@@ -257,7 +260,11 @@ class StaticChiKSFactory(FourComponentSusceptibilityTensor):
 
 class AdiabaticBXC(PlaneWaveAdiabaticFXC):
     """Exchange-correlation magnetic field under the adiabatic assumption
-    in the plane wave mode"""
+    in the plane wave mode
+
+    Note : Temporary hack. Refactor later. Computes full Bxc_GG-matrix, 
+    where only diagonal, Bxc_G, is needed.
+    """
 
     def __init__(self, gs,
                  world=mpi.world, txt='-', timer=None,
