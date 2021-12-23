@@ -243,3 +243,13 @@ class StaticChiKSFactory(FourComponentSusceptibilityTensor):
         self.chiks.world.broadcast(chiks_GG, 0)
 
         return G_Gc, chiks_GG
+
+    def _calculate_component(self, spincomponent, pd, wd):
+        """Hack to return chiKS twice instead of chiks, chi."""
+        chiks_wGG = self.calculate_ks_component(spincomponent, pd,
+                                                wd, txt=self.cfd)
+
+        print('\nFinished calculating component', file=self.cfd)
+        print('---------------', flush=True, file=self.cfd)
+
+        return pd, wd, chiks_wGG, chiks_wGG
