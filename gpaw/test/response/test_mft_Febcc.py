@@ -66,7 +66,7 @@ def test_Fe_bcc():
     # Compare with expected result (previous calculation with working code)
     Jexp_q = np.array([0.06138644+0.0j, 0.03409565+0.0j,
                        0.04244621+0.0j, 0.04533697+0.0j])
-    equal(J_q, Jexp_q, 1e-6)
+    equal(J_q, Jexp_q, 1e-5)
 
     # Test Bxc and chiks calculators individually
     Bxc_G = exchCalc.Bxc_G
@@ -76,13 +76,13 @@ def test_Fe_bcc():
         chiks_GGq += [chiks_GG]
     chiks_GGq = np.dstack(chiks_GGq)
     chiksexp_q = np.array([0.36527329, 0.21086173, 0.2479018, 0.26542496])
-    equal(chiksexp_q, chiks_GGq[0, 0, :], 1e-6)
+    equal(chiksexp_q, chiks_GGq[0, 0, :], 1e-4)
     Bxcexp_G = np.array([-0.82801687, -0.28927704, -0.28927704, -0.28927704])
-    equal(Bxcexp_G, Bxc_G[:4], 1e-6)
+    equal(Bxcexp_G, Bxc_G[:4], 1e-4)
 
     # Test computation of magnon energies
     Efm_mq = compute_magnon_energy_FM(J_rmnq[0, :, :, :], q_qc, mm)
     Esimple_q = compute_magnon_energy_simple(J_q, q_qc, mm)
     equal(Efm_mq[0, :], Esimple_q, 1e-10)
     Eexp_q = np.array([0., 0.02469755, 0.01714048, 0.01452441])
-    equal(Eexp_q, Efm_mq[0, :], 1e-6)
+    equal(Eexp_q, Efm_mq[0, :], 1e-5)
