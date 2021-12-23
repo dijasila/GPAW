@@ -7,7 +7,7 @@ import sys
 import gpaw.mpi as mpi
 from gpaw.response.susceptibility import FourComponentSusceptibilityTensor
 from gpaw.response.kxc import PlaneWaveAdiabaticFXC
-from gpaw.response.site_kernels import calc_K_mixed_shapes
+from gpaw.response.site_kernels import site_kernel_interface
 from gpaw.xc import XC
 
 # ASE modules
@@ -153,9 +153,9 @@ class IsotropicExchangeCalculator():
             rc_m, zc_m = rc_rm[r], zc_rm[r]
 
             # Compute site-kernel
-            K_GGm = calc_K_mixed_shapes(pd, self.sitePos_mv,
-                                        shapes_m=self.shapes_m,
-                                        rc_m=rc_m, zc_m=zc_m)
+            K_GGm = site_kernel_interface(pd, self.sitePos_mv,
+                                          shapes_m=self.shapes_m,
+                                          rc_m=rc_m, zc_m=zc_m)
 
             # Compute exchange coupling
             J_mn = np.zeros([N_sites, N_sites], dtype=np.complex128)

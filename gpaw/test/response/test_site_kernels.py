@@ -5,7 +5,7 @@
 from gpaw import GPAW, PW
 from ase.units import Bohr
 from gpaw.response.mft import StaticChiKSFactory
-from gpaw.response.site_kernels import calc_K_mixed_shapes
+from gpaw.response.site_kernels import site_kernel_interface
 from gpaw.response.susceptibility import get_pw_coordinates
 from gpaw.test import equal
 from ase.build import bulk
@@ -35,11 +35,11 @@ def test_Co_hcp():
     zc_m = ['diameter', 'unit cell']
 
     # Compute site-kernels
-    Kuc_GGm = calc_K_mixed_shapes(pd0, sitePos_mv, shapes_m='unit cell')
-    Ksph_GGm = calc_K_mixed_shapes(pd0, sitePos_mv, shapes_m='sphere',
-                                   rc_m=rc_m)
-    Kcyl_GGm = calc_K_mixed_shapes(pd0, sitePos_mv, shapes_m='cylinder',
-                                   rc_m=rc_m, zc_m=zc_m)
+    Kuc_GGm = site_kernel_interface(pd0, sitePos_mv, shapes_m='unit cell')
+    Ksph_GGm = site_kernel_interface(pd0, sitePos_mv, shapes_m='sphere',
+                                     rc_m=rc_m)
+    Kcyl_GGm = site_kernel_interface(pd0, sitePos_mv, shapes_m='cylinder',
+                                     rc_m=rc_m, zc_m=zc_m)
 
     # Check shape of K-arrays
     assert Kuc_GGm.shape == (NG, NG, 1)
