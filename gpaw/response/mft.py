@@ -271,3 +271,8 @@ class AdiabaticBXC(PlaneWaveAdiabaticFXC):
                                        world=world, txt=txt, timer=timer,
                                        rshelmax=rshelmax, rshewmin=rshewmin,
                                        filename=filename)
+
+    def _add_fxc(self, gd, n_sG, fxc_G):
+        """Calculate fxc in real-space grid"""
+
+        fxc_G += self._calculate_fxc(gd, n_sG)
