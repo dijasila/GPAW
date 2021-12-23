@@ -284,3 +284,24 @@ class AdiabaticBXC(PlaneWaveAdiabaticFXC):
         xc.calculate(gd, n_sG, v_sg=v_sG)
 
         return (v_sG[0] - v_sG[1])/2    # Definition of Bxc
+
+
+def compute_magnon_energy_simple(J_q, q_qc, mm):
+    """Compute magnon energy with single atom in magnetic unit cell"""
+    # Check if J_mnq was passed instead of J_q
+    if len(J_q.shape) == 3:
+        J_q = J_q[0, 0, :]
+
+    # Find index of Gamma point (q=0), i.e. row with all zeros
+    zeroIndex = np.argwhere(np.all(q_qc == 0, axis=1))
+    zeroIndex = int(zeroIndex[0])
+
+    # Compute energies
+    J0 = J_q[zeroIndex]
+    E_q = 2 / mm * (J0 - J_q)
+
+    # Imaginary part should be zero
+    assert np.all(np.isclose(np.imag(E_q), 0))
+    E_q = np.real(E_q)
+
+    return E_q
