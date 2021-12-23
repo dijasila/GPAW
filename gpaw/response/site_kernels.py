@@ -13,55 +13,71 @@ def sinc(x):
     return np.sinc(x / np.pi)
 
 
-def K_unit_cell(pd, sitePos_v=None):
+def site_kernel_interface(pd, sitePos_mv, shapes_m='sphere',
+                        rc_m=1.0, zc_m='diameter'):
+    """Compute site kernels using an arbitrary combination of shapes for the
+        integration region at different magnetic sites.
+        Accepts spheres, cylinders and unit cell.
+
+    :param pd : Planewave Descriptor. Contains mixed information about
+                plane-wave basis
+    :param sitePos_mv : Array with positions of magnetic sites within unit cell
+    :param shapes_m : List of str or str. Which shapes to use for the
+                    different integration regions.
+                    Options are 'sphere', 'cylinder', 'unit cell'.
+                    If 'unit cell' then rc_rm, zc_rm do nothing
+    :param rc_m : Radius of integration region
+    :param zc_m : Height of integration cylinders (if any)
+                If 'diameter' then zc=2*rc
+                If 'unit cell' then use height of unit cell (makes sense in 2D)
     """
-    Compute site-kernel for a spherical integration region
 
-    :param pd: Planewave Descriptor. Contains mixed information about
-               planewave basis.
-    :param sitePos_v: nd.array
-                    Position of site in unit cell
-
-    :return: NG X NG matrix
-    """
-
-    # Get reciprocal lattice vectors and q-vector from pd
-    q_qc = pd.kd.bzk_kc
-    assert len(q_qc) == 1
-    q_c = q_qc[0, :]     # Assume single q
+    # Get number of reciprocal lattice vectors
     G_Gc = get_pw_coordinates(pd)
     NG = len(G_Gc)
 
-    # Convert to cartesian coordinates
-    B_cv = 2.0 * np.pi * pd.gd.icell_cv  # Coordinate transform matrix
-    q_v = np.dot(q_c, B_cv)  # Unit = Bohr^(-1)
-    G_Gv = np.dot(G_Gc, B_cv)
+    # Number of sites
+    if shapes_m == 'unit cell':
+        N_sites = 1
+    else:
+        N_sites = len(sitePos_mv)
 
-    # Get unit cell vectors and volume in Bohr
-    Omega_cell = pd.gd.volume
-    a1, a2, a3 = pd.gd.cell_cv
+    # Reformat shape parameters
+    if type(shapes_m) is str:
+        shapes_m = np.array([shapes_m]*N_sites)
+    if type(rc_m) in {int, float}:
+        rc_m = np.array([rc_m]*N_sites)
+    if type(zc_m) in {int, float, str}:
+        zc_m = np.array([zc_m]*N_sites)
 
-    # Default is center of unit cell
-    if sitePos_v is None:
-        sitePos_v = 1/2 * (a1 + a2 + a3)
+    # Array to fill
+    K_GGm = np.zeros([NG, NG, N_sites], dtype=np.complex128)
 
-    # Construct arrays
-    G1_GGv = np.tile(G_Gv[:, np.newaxis, :], [1, NG, 1])
-    G2_GGv = np.tile(G_Gv[np.newaxis, :, :], [NG, 1, 1])
-    q_GGv = np.tile(q_v[np.newaxis, np.newaxis, :], [NG, NG, 1])
+    # --- The Calculation itself --- #
 
-    # Combine arrays
-    sum_GGv = G1_GGv + G2_GGv + q_GGv  # G_1 + G_2 + q
+    # Loop through magnetic sites
+    for m in range(N_sites):
+        # Get site specific values
+        shape, rc, zc, sitePos_v = shapes_m[m], rc_m[m], zc_m[m], \
+                                   sitePos_mv[m, :]
 
-    # Compute site-kernel
-    K_GG = sinc(sum_GGv@a1 / 2) * sinc(sum_GGv@a2 / 2) * sinc(sum_GGv@a3 / 2)
+        # Do computation for relevant shape
+        if shape == 'sphere':
+            K_GG = K_sphere(pd, sitePos_v=sitePos_v, rc=rc)
 
-    # Multiply by prefactor
-    # e^{i (G_1 + G_2 + q) . (a_1 + a_2 + a_3)/2}
-    phase_factor_GG = np.exp(1j * sum_GGv @ sitePos_v)
-    K_GG = K_GG * np.sqrt(2/Omega_cell) * phase_factor_GG
+        elif shape == 'cylinder':
+            K_GG = K_cylinder(pd, sitePos_v=sitePos_v, rc=rc, zc=zc)
 
-    return K_GG
+        elif shape == 'unit cell':
+            K_GG = K_unit_cell(pd, sitePos_v=sitePos_v)
+
+        else:
+            print('Not a recognised shape')
+
+        # Update data
+        K_GGm[:, :, m] = K_GG
+
+    return K_GGm
 
 
 def K_sphere(pd, sitePos_v, rc=1.0):
@@ -203,71 +219,55 @@ def K_cylinder(pd, sitePos_v, rc=1.0, zc='unit cell'):
     return K_GG
 
 
-def site_kernel_interface(pd, sitePos_mv, shapes_m='sphere',
-                        rc_m=1.0, zc_m='diameter'):
-    """Compute site kernels using an arbitrary combination of shapes for the
-        integration region at different magnetic sites.
-        Accepts spheres, cylinders and unit cell.
+def K_unit_cell(pd, sitePos_v=None):
+    """
+    Compute site-kernel for a spherical integration region
 
-    :param pd : Planewave Descriptor. Contains mixed information about
-                plane-wave basis
-    :param sitePos_mv : Array with positions of magnetic sites within unit cell
-    :param shapes_m : List of str or str. Which shapes to use for the
-                    different integration regions.
-                    Options are 'sphere', 'cylinder', 'unit cell'.
-                    If 'unit cell' then rc_rm, zc_rm do nothing
-    :param rc_m : Radius of integration region
-    :param zc_m : Height of integration cylinders (if any)
-                If 'diameter' then zc=2*rc
-                If 'unit cell' then use height of unit cell (makes sense in 2D)
+    :param pd: Planewave Descriptor. Contains mixed information about
+               planewave basis.
+    :param sitePos_v: nd.array
+                    Position of site in unit cell
+
+    :return: NG X NG matrix
     """
 
-    # Get number of reciprocal lattice vectors
+    # Get reciprocal lattice vectors and q-vector from pd
+    q_qc = pd.kd.bzk_kc
+    assert len(q_qc) == 1
+    q_c = q_qc[0, :]     # Assume single q
     G_Gc = get_pw_coordinates(pd)
     NG = len(G_Gc)
 
-    # Number of sites
-    if shapes_m == 'unit cell':
-        N_sites = 1
-    else:
-        N_sites = len(sitePos_mv)
+    # Convert to cartesian coordinates
+    B_cv = 2.0 * np.pi * pd.gd.icell_cv  # Coordinate transform matrix
+    q_v = np.dot(q_c, B_cv)  # Unit = Bohr^(-1)
+    G_Gv = np.dot(G_Gc, B_cv)
 
-    # Reformat shape parameters
-    if type(shapes_m) is str:
-        shapes_m = np.array([shapes_m]*N_sites)
-    if type(rc_m) in {int, float}:
-        rc_m = np.array([rc_m]*N_sites)
-    if type(zc_m) in {int, float, str}:
-        zc_m = np.array([zc_m]*N_sites)
+    # Get unit cell vectors and volume in Bohr
+    Omega_cell = pd.gd.volume
+    a1, a2, a3 = pd.gd.cell_cv
 
-    # Array to fill
-    K_GGm = np.zeros([NG, NG, N_sites], dtype=np.complex128)
+    # Default is center of unit cell
+    if sitePos_v is None:
+        sitePos_v = 1/2 * (a1 + a2 + a3)
 
-    # --- The Calculation itself --- #
+    # Construct arrays
+    G1_GGv = np.tile(G_Gv[:, np.newaxis, :], [1, NG, 1])
+    G2_GGv = np.tile(G_Gv[np.newaxis, :, :], [NG, 1, 1])
+    q_GGv = np.tile(q_v[np.newaxis, np.newaxis, :], [NG, NG, 1])
 
-    # Loop through magnetic sites
-    for m in range(N_sites):
-        # Get site specific values
-        shape, rc, zc, sitePos_v = shapes_m[m], rc_m[m], zc_m[m], \
-                                   sitePos_mv[m, :]
+    # Combine arrays
+    sum_GGv = G1_GGv + G2_GGv + q_GGv  # G_1 + G_2 + q
 
-        # Do computation for relevant shape
-        if shape == 'sphere':
-            K_GG = K_sphere(pd, sitePos_v=sitePos_v, rc=rc)
+    # Compute site-kernel
+    K_GG = sinc(sum_GGv@a1 / 2) * sinc(sum_GGv@a2 / 2) * sinc(sum_GGv@a3 / 2)
 
-        elif shape == 'cylinder':
-            K_GG = K_cylinder(pd, sitePos_v=sitePos_v, rc=rc, zc=zc)
+    # Multiply by prefactor
+    # e^{i (G_1 + G_2 + q) . (a_1 + a_2 + a_3)/2}
+    phase_factor_GG = np.exp(1j * sum_GGv @ sitePos_v)
+    K_GG = K_GG * np.sqrt(2/Omega_cell) * phase_factor_GG
 
-        elif shape == 'unit cell':
-            K_GG = K_unit_cell(pd, sitePos_v=sitePos_v)
-
-        else:
-            print('Not a recognised shape')
-
-        # Update data
-        K_GGm[:, :, m] = K_GG
-
-    return K_GGm
+    return K_GG
 
 
 def _makePrefactor(sitePos_v, sum_GGv, Omega_cell):
