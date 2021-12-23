@@ -27,7 +27,7 @@ def test_Co_hcp():
 
     pd0 = chiksf.get_PWDescriptor([0, 0, 0])
     Omega_cell = atoms.get_volume()     # Volume of unit cell in Bohr^3
-    sitePose_mv = atoms.positions
+    sitePos_mv = atoms.get_positions()
     NG = len(get_pw_coordinates(pd0))
 
     # Shape parameters
@@ -35,10 +35,10 @@ def test_Co_hcp():
     zc_m = ['diameter', 'unit cell']
 
     # Compute site-kernels
-    Kuc_GGm = calc_K_mixed_shapes(pd0, sitePose_mv, shapes_m='unit cell')
-    Ksph_GGm = calc_K_mixed_shapes(pd0, sitePose_mv, shapes_m='sphere',
+    Kuc_GGm = calc_K_mixed_shapes(pd0, sitePos_mv, shapes_m='unit cell')
+    Ksph_GGm = calc_K_mixed_shapes(pd0, sitePos_mv, shapes_m='sphere',
                                    rc_m=rc_m)
-    Kcyl_GGm = calc_K_mixed_shapes(pd0, sitePose_mv, shapes_m='cylinder',
+    Kcyl_GGm = calc_K_mixed_shapes(pd0, sitePos_mv, shapes_m='cylinder',
                                    rc_m=rc_m, zc_m=zc_m)
 
     # Check shape of K-arrays
