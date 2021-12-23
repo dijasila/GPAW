@@ -3,6 +3,9 @@ Specifically, one maps DFT calculations onto a Heisenberg lattice model,
 where the site-kernels define the lattice sites and magnetic moments."""
 
 import numpy as np
+from scipy.special import jv
+from gpaw.response.susceptibility import get_pw_coordinates
+from ase.units import Bohr
 
 
 def sinc(x):
