@@ -169,3 +169,17 @@ class IsotropicExchangeCalculator():
             J_rmn[r, :, :] = J_mn
 
         return J_rmn
+
+    def _computeBxc(self):
+        # Compute xc magnetic field
+        # Note : Bxc is calculated from the xc-kernel, which is a 2-point
+        # function, while B_xc is 1-point Because of how the different
+        # Fourier transforms are defined, this gives an extra volume factor
+        # See eq. 50 of Phys. Rev. B 103, 245110 (2021)
+        print('Computing Bxc')
+        # Plane-wave descriptor (input is arbitrary)
+        self.pd0 = self.chiksf.get_PWDescriptor([0, 0, 0])
+        Omega_cell = self.pd0.gd.volume
+        Bxc_GG = self.Bxc_calc(self.pd0)
+        self.Bxc_G = Omega_cell * Bxc_GG[:, 0]
+        print('Done computing Bxc')
