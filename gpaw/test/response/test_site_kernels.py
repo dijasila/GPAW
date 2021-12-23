@@ -29,3 +29,10 @@ def test_Co_hcp():
     Omega_cell = atoms.get_volume()     # Volume of unit cell in Bohr^3
     sitePose_mv = atoms.positions
     NG = len(get_pw_coordinates(pd0))
+
+    # Compute site-kernels
+    Kuc_GGm = calc_K_mixed_shapes(pd0, sitePose_mv, shapes_m='unit cell')
+    Ksph_GGm = calc_K_mixed_shapes(pd0, sitePose_mv, shapes_m='sphere',
+                                   rc_m=rc_m)
+    Kcyl_GGm = calc_K_mixed_shapes(pd0, sitePose_mv, shapes_m='cylinder',
+                                   rc_m=rc_m, zc_m=zc_m)
