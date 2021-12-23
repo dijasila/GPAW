@@ -184,7 +184,8 @@ def K_unit_cell(pd, sitePos_v=None):
     G1_GGv, G2_GGv, q_GGv, sum_GGv = _constructArrays(G_Gv, q_v)
 
     # Compute site-kernel
-    K_GG = sinc(sum_GGv@a1 / 2) * sinc(sum_GGv@a2 / 2) * sinc(sum_GGv@a3 / 2)
+    K_GG = Omega_cell * sinc(sum_GGv@a1 / 2) * sinc(sum_GGv@a2 / 2) * \
+           sinc(sum_GGv@a3 / 2)
 
     # Compute complex prefactor
     prefactor = _makePrefactor(sitePos_v, sum_GGv, Omega_cell)
