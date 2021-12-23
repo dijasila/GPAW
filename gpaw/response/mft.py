@@ -253,3 +253,21 @@ class StaticChiKSFactory(FourComponentSusceptibilityTensor):
         print('---------------', flush=True, file=self.cfd)
 
         return pd, wd, chiks_wGG, chiks_wGG
+
+
+class AdiabaticBXC(PlaneWaveAdiabaticFXC):
+    """Exchange-correlation magnetic field under the adiabatic assumption
+    in the plane wave mode"""
+
+    def __init__(self, gs,
+                 world=mpi.world, txt='-', timer=None,
+                 rshelmax=-1, rshewmin=1.e-8, filename=None):
+        """
+        gs, world, txt, timer : see PlaneWaveAdiabaticFXC, FXC
+        rshelmax, rshewmin, filename : see PlaneWaveAdiabaticFXC
+        """
+
+        PlaneWaveAdiabaticFXC.__init__(self, gs, '',
+                                       world=world, txt=txt, timer=timer,
+                                       rshelmax=rshelmax, rshewmin=rshewmin,
+                                       filename=filename)
