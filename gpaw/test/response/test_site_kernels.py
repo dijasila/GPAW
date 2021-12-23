@@ -36,3 +36,8 @@ def test_Co_hcp():
                                    rc_m=rc_m)
     Kcyl_GGm = calc_K_mixed_shapes(pd0, sitePose_mv, shapes_m='cylinder',
                                    rc_m=rc_m, zc_m=zc_m)
+
+    # Check shape of K-arrays
+    assert Kuc_GGm.shape == (NG, NG, 1)
+    assert Ksph_GGm.shape == (NG, NG, 2)
+    assert Kcyl_GGm.shape == (NG, NG, 2)
