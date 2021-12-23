@@ -183,3 +183,35 @@ class IsotropicExchangeCalculator():
         Bxc_GG = self.Bxc_calc(self.pd0)
         self.Bxc_G = Omega_cell * Bxc_GG[:, 0]
         print('Done computing Bxc')
+
+
+class StaticChiKSFactory(FourComponentSusceptibilityTensor):
+    """Class calculating components of the static Kohn-Sham
+    susceptibility tensor
+    """
+
+    def __init__(self, gs, eta=0.0, ecut=50, nbands=None,
+                 world=mpi.world, nblocks=1, txt=sys.stdout):
+
+        """
+        Currently, everything is in plane wave mode.
+        If additional modes are implemented, maybe look to fxc to see how
+        multiple modes can be supported.
+
+        Parameters
+        ----------
+        gs : see gpaw.response.chiks, gpaw.response.kslrf
+        eta, ecut, nbands, world, nblocks, txt : see gpaw.response.chiks,
+            gpaw.response.kslrf
+        """
+
+        # Remove user access
+        fixed_kwargs = {'gammacentered': True, 'disable_point_group': True,
+                        'disable_time_reversal': True,
+                        'bundle_integrals': True, 'bundle_kptpairs': False}
+
+        FourComponentSusceptibilityTensor.__init__(self, gs, eta=eta,
+                                                   ecut=ecut, nbands=nbands,
+                                                   nblocks=nblocks,
+                                                   world=world,
+                                                   txt=txt, **fixed_kwargs)
