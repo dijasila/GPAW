@@ -120,7 +120,7 @@ def K_sphere(pd, sitePos_v, rc=1.0):
 
     # Compute complex prefactor
     prefactor = _makePrefactor(sitePos_v, sum_GGv, Omega_cell)
-    K_GG *= prefactor
+    K_GG = K_GG * prefactor
     
     return K_GG
 
@@ -128,26 +128,14 @@ def K_sphere(pd, sitePos_v, rc=1.0):
 def K_cylinder(pd, sitePos_v, rc=1.0, zc='unit cell'):
     """Compute site-kernel for a cylindrical integration region"""
 
-    # Get reciprocal lattice vectors and q-vector from pd
-    q_qc = pd.kd.bzk_kc
-    assert len(q_qc) == 1
-    q_c = q_qc[0, :]     # Assume single q
-    G_Gc = get_pw_coordinates(pd)
-    NG = len(G_Gc)
-
-    # Convert to cartesian coordinates
-    B_cv = 2.0 * np.pi * pd.gd.icell_cv  # Coordinate transform matrix
-    q_v = np.dot(q_c, B_cv)  # Unit = Bohr^(-1)
-    G_Gv = np.dot(G_Gc, B_cv)
-
-    # Set height to that of unit cell (only makes sense in 2D)
+    # Reformat zc if needed
     if zc == 'unit cell':
         zc = np.sum(pd.gd.cell_cv[:, -1]) * Bohr   # Units of Å.
     elif zc == 'diameter':
         zc = 2*rc
 
-    # Get unit cell volume in bohr^3
-    Omega_cell = pd.gd.volume
+    # Get relevant quantities from pd object
+    G_Gv, q_v, Omega_cell = _extract_pd_info(pd)
 
     # Convert from Å to Bohr
     rc = rc / Bohr
@@ -155,12 +143,9 @@ def K_cylinder(pd, sitePos_v, rc=1.0, zc='unit cell'):
     sitePos_v = sitePos_v / Bohr
 
     # Construct arrays
-    G1_GGv = np.tile(G_Gv[:, np.newaxis, :], [1, NG, 1])
-    G2_GGv = np.tile(G_Gv[np.newaxis, :, :], [NG, 1, 1])
-    q_GGv = np.tile(q_v[np.newaxis, np.newaxis, :], [NG, NG, 1])
+    G1_GGv, G2_GGv, q_GGv, sum_GGv = _constructArrays(G_Gv, q_v)
 
     # Combine arrays
-    sum_GGv = G1_GGv + G2_GGv + q_GGv  # G_1 + G_2 + q
     # sqrt([G1_x + G2_x + q_x]^2 + [G1_y + G2_y + q_y]^2)
     Qrho_GG = np.sqrt(sum_GGv[:, :, 0]**2 + sum_GGv[:, :, 1]**2)
     Qz_GG = sum_GGv[:, :, 2]  # G1_z + G2_z + q_z
@@ -176,12 +161,8 @@ def K_cylinder(pd, sitePos_v, rc=1.0, zc='unit cell'):
     K_GG = 2*np.pi*zc*rc**2 * sinc(Qz_GG*zc/2) * jv(1, rc*Qrho_GG)/(rc*Qrho_GG)
 
     # Compute complex prefactor
-    tau_GGv = np.tile(sitePos_v[np.newaxis, np.newaxis, :], [NG, NG, 1])
-    # e^{i tau_mu . (G_1 + G_2 + q)}
-    phaseFactor_GG = np.exp(1j * np.sum(tau_GGv * sum_GGv, axis=-1))
-    K_GG = K_GG.astype(np.complex128)
-    K_GG *= phaseFactor_GG  # Phase factor
-    K_GG *= np.sqrt(2) / Omega_cell ** (3 / 2)  # Real-valued prefactor
+    prefactor = _makePrefactor(sitePos_v, sum_GGv, Omega_cell)
+    K_GG = K_GG * prefactor
 
     return K_GG
 
@@ -189,41 +170,25 @@ def K_cylinder(pd, sitePos_v, rc=1.0, zc='unit cell'):
 def K_unit_cell(pd, sitePos_v=None):
     """Compute site-kernel for a spherical integration region"""
 
-    # Get reciprocal lattice vectors and q-vector from pd
-    q_qc = pd.kd.bzk_kc
-    assert len(q_qc) == 1
-    q_c = q_qc[0, :]     # Assume single q
-    G_Gc = get_pw_coordinates(pd)
-    NG = len(G_Gc)
+    # Get relevant quantities from pd object
+    G_Gv, q_v, Omega_cell = _extract_pd_info(pd)
 
-    # Convert to cartesian coordinates
-    B_cv = 2.0 * np.pi * pd.gd.icell_cv  # Coordinate transform matrix
-    q_v = np.dot(q_c, B_cv)  # Unit = Bohr^(-1)
-    G_Gv = np.dot(G_Gc, B_cv)
-
-    # Get unit cell vectors and volume in Bohr
-    Omega_cell = pd.gd.volume
+    # Get real-space basis vectors
     a1, a2, a3 = pd.gd.cell_cv
 
-    # Default is center of unit cell
+    # Default site position is center of unit cell
     if sitePos_v is None:
         sitePos_v = 1/2 * (a1 + a2 + a3)
 
     # Construct arrays
-    G1_GGv = np.tile(G_Gv[:, np.newaxis, :], [1, NG, 1])
-    G2_GGv = np.tile(G_Gv[np.newaxis, :, :], [NG, 1, 1])
-    q_GGv = np.tile(q_v[np.newaxis, np.newaxis, :], [NG, NG, 1])
-
-    # Combine arrays
-    sum_GGv = G1_GGv + G2_GGv + q_GGv  # G_1 + G_2 + q
+    G1_GGv, G2_GGv, q_GGv, sum_GGv = _constructArrays(G_Gv, q_v)
 
     # Compute site-kernel
     K_GG = sinc(sum_GGv@a1 / 2) * sinc(sum_GGv@a2 / 2) * sinc(sum_GGv@a3 / 2)
 
-    # Multiply by prefactor
-    # e^{i (G_1 + G_2 + q) . (a_1 + a_2 + a_3)/2}
-    phase_factor_GG = np.exp(1j * sum_GGv @ sitePos_v)
-    K_GG = K_GG * np.sqrt(2/Omega_cell) * phase_factor_GG
+    # Compute complex prefactor
+    prefactor = _makePrefactor(sitePos_v, sum_GGv, Omega_cell)
+    K_GG = K_GG * prefactor
 
     return K_GG
 
