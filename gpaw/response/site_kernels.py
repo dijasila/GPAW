@@ -86,32 +86,18 @@ def site_kernel_interface(pd, sitePos_mv, shapes_m='sphere',
 def K_sphere(pd, sitePos_v, rc=1.0):
     """Compute site-kernel for a spherical integration region """
 
-    # Get reciprocal lattice vectors and q-vector from pd
-    q_qc = pd.kd.bzk_kc
-    assert len(q_qc) == 1
-    q_c = q_qc[0, :]     # Assume single q
-    G_Gc = get_pw_coordinates(pd)
-    NG = len(G_Gc)
-
-    # Convert to cartesian coordinates
-    B_cv = 2.0 * np.pi * pd.gd.icell_cv  # Coordinate transform matrix
-    q_v = np.dot(q_c, B_cv)  # Unit = Bohr^(-1)
-    G_Gv = np.dot(G_Gc, B_cv)
-
-    # Get unit cell volume in bohr^3
-    Omega_cell = pd.gd.volume
+    # Get relevant quantities from pd object
+    G_Gv, q_v, Omega_cell = _extract_pd_info(pd)
+    NG = len(G_Gv)
 
     # Convert from Å to Bohr
     rc = rc / Bohr
     sitePos_v = sitePos_v / Bohr
 
     # Construct arrays
-    G1_GGv = np.tile(G_Gv[:, np.newaxis, :], [1, NG, 1])
-    G2_GGv = np.tile(G_Gv[np.newaxis, :, :], [NG, 1, 1])
-    q_GGv = np.tile(q_v[np.newaxis, np.newaxis, :], [NG, NG, 1])
+    G1_GGv, G2_GGv, q_GGv, sum_GGv = _constructArrays(G_Gv, q_v)
 
     # Combine arrays
-    sum_GGv = G1_GGv + G2_GGv + q_GGv  # G_1 + G_2 + q
     magsq_GG = np.sum(sum_GGv ** 2, axis=-1)  # |G_1 + G_2 + q|^2
     mag_GG = np.sqrt(magsq_GG)  # |G_1 + G_2 + q|
 
@@ -132,13 +118,10 @@ def K_sphere(pd, sitePos_v, rc=1.0):
     # Taylor expansion around singularity
     K_GG[is_sing] = 4*np.pi*rc**3/3 - 2*np.pi/15 * magSing_GG**2 * rc**5
 
-    # Compute prefactors
-    tau_GGv = np.tile(sitePos_v[np.newaxis, np.newaxis, :], [NG, NG, 1])
-    # e^{i tau_mu . (G_1 + G_2 + q)}
-    phaseFactor_GG = np.exp(1j * np.sum(tau_GGv * sum_GGv, axis=-1))
-    K_GG *= phaseFactor_GG  # Phase factor
-    K_GG *= np.sqrt(2) / Omega_cell ** (3 / 2)  # Real-valued prefactor
-
+    # Compute complex prefactor
+    prefactor = _makePrefactor(sitePos_v, sum_GGv, Omega_cell)
+    K_GG *= prefactor
+    
     return K_GG
 
 
