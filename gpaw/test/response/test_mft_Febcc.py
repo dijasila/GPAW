@@ -26,6 +26,7 @@ def test_Fe_bcc():
     ecut = 50
     sitePos_mv = atoms.positions
     shapes_m = 'sphere'
+    rc_rm = np.array([[1.0], [1.5], [2.0]])
     # All high symmetry points of the bcc lattice
     q_qc = np.array([[0, 0, 0],           # Gamma
                      [0.5, -0.5, 0.5],    # H
@@ -58,9 +59,9 @@ def test_Fe_bcc():
                                            nbands=nbands_response)
 
     # Do calculation for each q-point
-    J_rmnq = np.zeros([1, 1, 1, 4], dtype=np.complex128)
+    J_rmnq = np.zeros([len(rc_rm), 1, 1, len(q_qc)], dtype=np.complex128)
     for q, q_c in enumerate(q_qc):
-        J_rmnq[:, :, :, q] = exchCalc(q_c, rc_rm=1)
+        J_rmnq[:, :, :, q] = exchCalc(q_c, rc_rm=rc_rm)
     J_q = J_rmnq[0, 0, 0, :]
 
     # Compare with expected result (previous calculation with working code)
