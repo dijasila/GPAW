@@ -268,3 +268,46 @@ def calc_K_mixed_shapes(pd, sitePos_mv, shapes_m='sphere',
         K_GGm[:, :, m] = K_GG
 
     return K_GGm
+
+
+def _makePrefactor(sitePos_v, sum_GGv, Omega_cell):
+    """Make the complex prefactor which occurs for all site-kernels,
+    irrespective of shape of integration region"""
+    # Phase factor
+    phaseFactor_GG = np.exp(1j * sum_GGv @ sitePos_v)
+
+    # Scale factor
+    scaleFactor = np.sqrt(2) / Omega_cell ** (3 / 2)
+
+    return scaleFactor * phaseFactor_GG
+
+
+def _extract_pd_info(pd):
+    """Get relevant quantities from pd object (plane-wave descriptor)
+    In particular reciprocal space vectors and unit cell volume
+    Note : all in Bohr and absolute coordinates."""
+    q_qc = pd.kd.bzk_kc
+    assert len(q_qc) == 1
+    q_c = q_qc[0, :]  # Assume single q
+    G_Gc = get_pw_coordinates(pd)
+
+    # Convert to cartesian coordinates
+    B_cv = 2.0 * np.pi * pd.gd.icell_cv  # Coordinate transform matrix
+    q_v = np.dot(q_c, B_cv)  # Unit = Bohr^(-1)
+    G_Gv = np.dot(G_Gc, B_cv)
+
+    # Get unit cell volume in bohr^3
+    Omega_cell = pd.gd.volume
+
+    return G_Gv, q_v, Omega_cell
+
+
+def _constructArrays(G_Gv, q_v):
+    """Construct arrays with shape (NG, NG, 3)"""
+    NG = len(G_Gv)
+    G1_GGv = np.tile(G_Gv[:, np.newaxis, :], [1, NG, 1])
+    G2_GGv = np.tile(G_Gv[np.newaxis, :, :], [NG, 1, 1])
+    q_GGv = np.tile(q_v[np.newaxis, np.newaxis, :], [NG, NG, 1])
+    sum_GGv = G1_GGv + G2_GGv + q_GGv  # G_1 + G_2 + q
+
+    return G1_GGv, G2_GGv, q_GGv, sum_GGv
