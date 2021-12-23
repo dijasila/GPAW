@@ -276,3 +276,11 @@ class AdiabaticBXC(PlaneWaveAdiabaticFXC):
         """Calculate fxc in real-space grid"""
 
         fxc_G += self._calculate_fxc(gd, n_sG)
+
+    def _calculate_fxc(self, gd, n_sG):
+        """Calculate polarized fxc of spincomponents '+-', '-+'."""
+        v_sG = np.zeros(np.shape(n_sG))     # Potential
+        xc = XC('LDA')
+        xc.calculate(gd, n_sG, v_sg=v_sG)
+
+        return (v_sG[0] - v_sG[1])/2    # Definition of Bxc
