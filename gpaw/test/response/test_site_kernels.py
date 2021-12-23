@@ -30,6 +30,10 @@ def test_Co_hcp():
     sitePose_mv = atoms.positions
     NG = len(get_pw_coordinates(pd0))
 
+    # Shape parameters
+    rc_m = np.array([2.0, 3.0])
+    zc_m = ['diameter', 'unit cell']
+
     # Compute site-kernels
     Kuc_GGm = calc_K_mixed_shapes(pd0, sitePose_mv, shapes_m='unit cell')
     Ksph_GGm = calc_K_mixed_shapes(pd0, sitePose_mv, shapes_m='sphere',
