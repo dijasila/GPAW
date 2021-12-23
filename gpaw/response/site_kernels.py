@@ -13,7 +13,7 @@ def sinc(x):
     return np.sinc(x / np.pi)
 
 
-def calc_K_unit_cell(pd, sitePos_v=None):
+def K_unit_cell(pd, sitePos_v=None):
     """
     Compute site-kernel for a spherical integration region
 
@@ -64,7 +64,7 @@ def calc_K_unit_cell(pd, sitePos_v=None):
     return K_GG
 
 
-def calc_K_sphere(pd, sitePos_v, rc=1.0):
+def K_sphere(pd, sitePos_v, rc=1.0):
     """
     Compute site-kernel for a spherical integration region
 
@@ -132,7 +132,7 @@ def calc_K_sphere(pd, sitePos_v, rc=1.0):
     return K_GG
 
 
-def calc_K_cylinder(pd, sitePos_v, rc=1.0, zc='unit cell'):
+def K_cylinder(pd, sitePos_v, rc=1.0, zc='unit cell'):
     """
     Compute site-kernel for a cylindrical integration region
 
@@ -203,7 +203,7 @@ def calc_K_cylinder(pd, sitePos_v, rc=1.0, zc='unit cell'):
     return K_GG
 
 
-def calc_K_mixed_shapes(pd, sitePos_mv, shapes_m='sphere',
+def site_kernel_interface(pd, sitePos_mv, shapes_m='sphere',
                         rc_m=1.0, zc_m='diameter'):
     """Compute site kernels using an arbitrary combination of shapes for the
         integration region at different magnetic sites.
@@ -253,13 +253,13 @@ def calc_K_mixed_shapes(pd, sitePos_mv, shapes_m='sphere',
 
         # Do computation for relevant shape
         if shape == 'sphere':
-            K_GG = calc_K_sphere(pd, sitePos_v=sitePos_v, rc=rc)
+            K_GG = K_sphere(pd, sitePos_v=sitePos_v, rc=rc)
 
         elif shape == 'cylinder':
-            K_GG = calc_K_cylinder(pd, sitePos_v=sitePos_v, rc=rc, zc=zc)
+            K_GG = K_cylinder(pd, sitePos_v=sitePos_v, rc=rc, zc=zc)
 
         elif shape == 'unit cell':
-            K_GG = calc_K_unit_cell(pd, sitePos_v=sitePos_v)
+            K_GG = K_unit_cell(pd, sitePos_v=sitePos_v)
 
         else:
             print('Not a recognised shape')
