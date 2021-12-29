@@ -65,8 +65,8 @@ def test_Fe_bcc():
     J_q = J_rmnq[0, 0, 0, :]
 
     # Compare with expected result (previous calculation with working code)
-    Jexp_q = np.array([0.06138644+0.0j, 0.03409565+0.0j,
-                       0.04244621+0.0j, 0.04533697+0.0j])
+    Jexp_q = np.array([1.67041012+0.0j, 0.92778989+0.0j,
+                       1.15502021+0.0j, 1.23368179+0.0j])
     equal(J_q, Jexp_q, 1e-5)
 
     # Test Bxc and chiks calculators individually
@@ -85,5 +85,5 @@ def test_Fe_bcc():
     Efm_mq = compute_magnon_energy_FM(J_rmnq[0, :, :, :], q_qc, mm)
     Esimple_q = compute_magnon_energy_simple(J_q, q_qc, mm)
     equal(Efm_mq[0, :], Esimple_q, 1e-10)
-    Eexp_q = np.array([0., 0.02469755, 0.01714048, 0.01452441])
+    Eexp_q = np.array([0., 0.67205457, 0.46641622, 0.39522933])
     equal(Eexp_q, Efm_mq[0, :], 1e-5)
