@@ -168,6 +168,9 @@ class IsotropicExchangeCalculator():
                     J_mn[m, n] = J
             J_rmn[r, :, :] = J_mn
 
+        # Convert from Hartree to eV
+        J_rmn = J_rmn * Hartree
+
         return J_rmn
 
     def _computeBxc(self):
