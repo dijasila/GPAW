@@ -1,5 +1,9 @@
 from __future__ import annotations
+
+from collections import defaultdict
+
 import numpy as np
+
 from gpaw.core.arrays import DistributedArrays
 from gpaw.mpi import MPIComm, serial_comm
 
@@ -30,6 +34,10 @@ class AtomArraysLayout:
     def __repr__(self):
         return (f'AtomArraysLayout({self.shape_a}, {self.atomdist}, '
                 f'{self.dtype})')
+
+    def new(self, atomdist=None):
+        return AtomArraysLayout(self.shape_a, atomdist or self.atomdist,
+                                self.dtype)
 
     def empty(self,
               dims: int | tuple[int, ...] = (),
@@ -76,8 +84,8 @@ class AtomArrays(DistributedArrays):
     def __repr__(self):
         return f'AtomArrays({self.layout})'
 
-    def new(self):
-        return AtomArrays(self.layout, self.dims, self.comm,
+    def new(self, layout=None):
+        return AtomArrays(layout or self.layout, self.dims, self.comm,
                           transposed=self.transposed)
 
     def __getitem__(self, a):
@@ -102,12 +110,44 @@ class AtomArrays(DistributedArrays):
         return self._arrays.values()
 
     def collect(self, broadcast=False, copy=False):
-        assert self.layout.atomdist.comm.size == 1
-        if copy:
-            a = self.new()
-            a.data[:] = self.data
-            return a
-        return self
+        comm = self.layout.atomdist.comm
+        if comm.size == 1:
+            if copy:
+                aa = self.new()
+                aa.data[:] = self.data
+                return aa
+            return self
+
+        if comm.rank == 0:
+            size_ra = defaultdict(dict)
+            size_r = defaultdict(int)
+            for a, (rank, shape) in enumerate(zip(self.layout.atomdist.rank_a,
+                                                  self.layout.shape_a)):
+                size = np.prod(shape)
+                size_ra[rank][a] = size
+                size_r[rank] += size
+
+            aa = self.new(layout=self.layout.new(atomdist=serial_comm))
+            buffer = np.empty(max(size_r.values()), self.layout.dtype)
+            for rank in range(1, comm.size):
+                buf = buffer[:size_r[rank]]
+                comm.receive(buf, rank)
+                b1 = 0
+                for a, size in size_ra[rank].items():
+                    b2 = b1 + size
+                    aa[a] = buf[b1:b2].reshape(self.layout.shape_a[a])
+            for a, array in self._arrays.items():
+                aa[a] = array
+        else:
+            comm.send(self.data.reshape((-1,)), 0)
+            aa = None
+
+        if broadcast:
+            if comm.rank > 0:
+                aa = self.new(layout=self.layout.new(atomdist=serial_comm))
+            comm.broadcast(aa.data, 0)
+
+        return aa
 
     def _dict_view(self):
         if self.transposed:
