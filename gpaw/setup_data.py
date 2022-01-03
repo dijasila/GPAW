@@ -2,7 +2,6 @@ import hashlib
 import os
 import re
 import xml.sax
-from distutils.version import LooseVersion
 from glob import glob
 from math import pi, sqrt
 from pathlib import Path
@@ -453,7 +452,7 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
         setup = self.setup
         if name == 'paw_setup' or name == 'paw_dataset':
             setup.version = attrs['version']
-            assert LooseVersion(setup.version) >= '0.4'
+            assert [int(v) for v in setup.version.split('.')] >= [0, 4]
         if name == 'atom':
             Z = float(attrs['Z'])
             setup.Z = Z
@@ -486,7 +485,8 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
             setup.rcut_j.append(float(attrs.get('rc', -1)))
             setup.id_j.append(attrs['id'])
             # Compatibility with old setups:
-            if LooseVersion(setup.version) < '0.6' and setup.f_j[-1] == 0:
+            version = [int(v) for v in setup.version.split('.')]
+            if version < [0, 6] and setup.f_j[-1] == 0:
                 setup.n_j[-1] = -1
         elif name == 'radial_grid':
             if attrs['eq'] == 'r=a*i/(n-i)':
