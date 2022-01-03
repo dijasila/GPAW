@@ -243,10 +243,14 @@ def calculate_non_local_potential(setups,
             energy_corrections[key] += e
 
     # Sum over domain:
-    energies = np.array(list(energy_corrections.values()))
+    names = ['kinetic',
+             'coulomb',
+             'zero',
+             'xc',
+             'external']
+    energies = np.array([energy_corrections[name] for name in names])
     density.D_asii.layout.atomdist.comm.sum(energies)
-    energy_corrections = {name: e for name, e in zip(energy_corrections,
-                                                     energies)}
+    energy_corrections = {name: e for name, e in zip(names, energies)}
     return dH_asii, energy_corrections
 
 
