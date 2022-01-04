@@ -56,3 +56,35 @@ def magnon_dispersion_plot(ax, q_qc, E_mq, spts=None):
     ax.set_xticklabels(labels=x_ticks_vals)
     for x in x_ticks_pos:
         ax.axvline(x=x, color='steelblue')
+
+def get_tickmarks(q_qc, pathq, spts):
+    """Get tickmark positions and values (point names)
+    Determines if any of the simulated points are identical to a special named
+    point. If yes, use name as tick value.
+
+    Parameters
+    ----------
+    q_qc : nd.array
+        simulated points
+    pathq : iterable
+        positions of simulated points along path
+    spts : dict
+        name (key) and coordinates (value) of special, named q-points
+        e.g. high-symmetry points
+    """
+
+    qnames = list(spts.keys())
+    qspc_qc = np.vstack([spts[key] for key in qnames])
+
+    # Find if any simulated q-points match the special points
+    x_ticks_vals, x_ticks_pos = [], []
+    for q, q_c in enumerate(q_qc):
+        # Compare q_c with all special points
+        is_close = np.all(np.isclose(q_c, qspc_qc), axis=-1)
+        # If single match; find name of matching point and position along path
+        if np.sum(is_close) == 1:
+            qind = np.argwhere(is_close)[0, 0]  # Index of special point
+            x_ticks_pos += [pathq[q]]
+            x_ticks_vals += [qnames[qind]]
+
+    return x_ticks_vals, x_ticks_pos
