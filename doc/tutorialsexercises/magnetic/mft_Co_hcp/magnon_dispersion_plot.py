@@ -88,3 +88,19 @@ def get_tickmarks(q_qc, pathq, spts):
             x_ticks_vals += [qnames[qind]]
 
     return x_ticks_vals, x_ticks_pos
+
+# ----- Load results ----- #
+
+# From 'high_sym_path.py'
+q_qc = np.load('q_qc.npy')
+E_mq = np.load('high_sym_path_E_mq.npy')
+
+# From 'high_sym_pts.py'
+with open('spts.json') as file:
+    spts = json.load(file)
+# Turn lists back into arrays
+for key in spts.keys():
+    spts[key] = np.array(spts[key])
+
+# Get info
+N_sites, Nq = E_mq.shape
