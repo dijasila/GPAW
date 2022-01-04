@@ -1,16 +1,16 @@
 .. _mft:
 
-===================
+=========================================
 Magnon energies by magnetic force theorem
-===================
+=========================================
 
 A magnon is a quantum of a spin-wave in a magnetic material, the same way
 phonons are quanta of lattice vibrations. Here we show how to compute
 magnon energies in GPAW by way of the magnetic force theorem.
 
-===================
+=================
 Background theory
-===================
+=================
 
 Using a classical, isotropic Heisenberg model, the magnon energy for a given
 wavevector, `\mathbf{q}`, can be computed from the Heisenberg exchange
@@ -52,9 +52,9 @@ adiabatic spectrum of non-interacting magnons. Also, the algorithm really
 outputs `J^{\mu\nu}(\mathbf{q})` plus the Brillouin zone average of `J^{\mu\mu}
 (\mathbf{q})`.
 
-===================
+==============
 GPAW algorithm
-===================
+==============
 
 `B^{xc}` and `\chi^{-+}_{KS}` can be computed ab-initio with a
 converged ground state as input. This is implemented in GPAW in a
@@ -78,9 +78,9 @@ The interface to all these calculations is the class
 
 .. autoclass:: gpaw.response.mft
 
-===================
+==========================
 Example : Co(hcp) spectrum
-===================
+==========================
 
 In the remainder of this tutorial, the magnon spectrum of Co in the hcp
 crystal structure is computed as an example. The example scripts (in the
