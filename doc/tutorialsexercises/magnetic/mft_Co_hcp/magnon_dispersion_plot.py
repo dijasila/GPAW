@@ -104,3 +104,20 @@ for key in spts.keys():
 
 # Get info
 N_sites, Nq = E_mq.shape
+
+# ----- Plot results ----- #
+
+# Increase font size in plots
+plt.rcParams['font.size'] = 16
+
+# Convert from eV to meV
+E_mq = E_mq * 1000
+
+# Plot dispersion relation
+fig, ax = plt.subplots()
+magnon_dispersion_plot(ax, q_qc, E_mq, spts=spts)
+ax.set_ylabel(f'Energy [meV]')
+ax.set_title(f'Magnon dispersion for Co(hcp)')
+savename = 'Magnon_dispersion_Co_hcp.png'
+plt.savefig(savename, bbox_inches='tight')
+print(f'Magnon dispersion plot saved in {savename}')
