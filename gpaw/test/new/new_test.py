@@ -12,7 +12,7 @@ def test_refactored_code():
 def new(x):
     params = {'mode': {'name': 'fd', 'force_complex_dtype': 0},
               'random': not True,
-              #'kpts': (4, 1, 1),
+              'kpts': (4, 1, 1),
               'spinpol': not True}
 
     if x == 'n':
@@ -28,7 +28,7 @@ def new(x):
     e = atoms.get_potential_energy()
     print(e)
     print(f)
-    if 0:
+    if 1:
         atoms.positions[1, 2] = 0.75
         f2 = atoms.get_forces()
         e2 = atoms.get_potential_energy()

@@ -80,7 +80,7 @@ class IBZWaveFunctions:
         return cls(ibz, rank_k, kpt_comm, wfs_q, nelectrons)
 
     def move(self, fracpos_ac):
-        self.ibz.symmetry.check_positions(fracpos_ac)
+        self.ibz.symmetries.check_positions(fracpos_ac)
         self.energies.clear()
         for wfs in self:
             wfs._P_ain = None
