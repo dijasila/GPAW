@@ -49,10 +49,10 @@ class SCFLoop:
 
         self.mixer.reset()
 
-        dens_error = inf
+        dens_error = inf  # ???
         dens_error = self.mixer.mix(state.density)
 
-        for niter in itertools.count(1):
+        for niter in itertools.count(start=1):
             dH = state.potential.dH
             Ht = partial(self.hamiltonian.apply, state.potential.vt_sR)
             wfs_error = self.eigensolver.iterate(state.ibzwfs, Ht, dH, dS)

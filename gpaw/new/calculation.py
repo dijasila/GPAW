@@ -108,6 +108,8 @@ class DFTCalculation:
                                  start=1):
             if step == steps:
                 break
+        else:  # no break
+            log(f'Converged in {step} steps')
 
     def energies(self, log):
         energies1 = self.state.potential.energies.copy()
