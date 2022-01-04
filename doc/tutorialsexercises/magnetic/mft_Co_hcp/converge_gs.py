@@ -26,3 +26,30 @@ nbands_response = 18    # Bands for response calculation
 conv = {'density': 1.e-8,
         'forces': 1.e-8,
         'bands': nbands_response}  # Converge bands used in response calc
+
+# ----- Ground state simulation ----- #
+
+# Setup material
+Co = bulk('Co','hcp',a=2.5071, c=4.0695)
+mm = np.array([1.67, 1.67])
+Co.set_initial_magnetic_moments(magmoms=mm)
+
+# Prepare ground state calculator
+kpts = {'size': (k, k, k), 'gamma': True}
+calc = GPAW(xc='LDA',
+            mode=PW(pw),
+            kpts=kpts,
+            nbands=nbands_gs,
+            convergence=conv,
+            occupations=FermiDirac(0.01),
+            symmetry={'point_group': False},
+            parallel={'domain': 1},
+            spinpol=True,
+            )
+
+# Converge ground state
+Co.set_calculator(calc)
+Co.get_potential_energy()
+
+# Save converged ground state with all plane-wave components
+calc.write(f'converged_gs_calc.gpw', mode='all')
