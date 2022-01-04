@@ -5,7 +5,7 @@ master:
     - >
       apt-get install -qy
       libopenblas-dev libscalapack-mpi-dev libxc-dev > apt-get.output
-    - pip install flake8 mypy pytest interrogate "numpy<1.22"
+    - pip install flake8 mypy pytest interrogate
     - pip -q install git+https://gitlab.com/ase/ase.git@master
     - pip -q install git+https://gitlab.com/myqueue/myqueue.git@master
     - mkdir ~/.gpaw
