@@ -76,7 +76,7 @@ class DFTComponentsBuilder:
             comm=self.communicators['d'])
 
         self.wf_desc = self.mode.create_wf_description(self.grid, self.dtype)
-        self.nct = self.mode.create_pseudo_core_densities(
+        self.nct_aX = self.mode.create_pseudo_core_densities(
             self.setups, self.grid, self.fracpos_ac)
 
         if self.mode.name == 'fd':
@@ -114,6 +114,13 @@ class DFTComponentsBuilder:
     def fracpos_ac(self):
         return self.atoms.get_scaled_positions()
 
+    @cached_property
+    def nct_R(self):
+        out = self.grid.empty()
+        self.nct_aX.to_uniform_grid(out=out,
+                                    scale=1.0 / self.ncomponents % 3)
+        return out
+
     def create_potential_calculator(self):
         return self.mode.create_potential_calculator(
             self.grid,
@@ -121,7 +128,7 @@ class DFTComponentsBuilder:
             self.setups,
             self.xc,
             self.params.poissonsolver,
-            self.nct)
+            self.nct_aX, self.nct_R)
 
     def __repr__(self):
         return f'DFTComponentsBuilder({self.atoms}, {self.params})'
@@ -174,7 +181,8 @@ class DFTComponentsBuilder:
 
     def density_from_superposition(self, basis_set):
         return Density.from_superposition(self.grid,
-                                          self.nct,
+                                          self.nct_R,
+                                          self.nct_aX.layout.atomdist,
                                           self.setups,
                                           basis_set,
                                           self.initial_magmoms,

@@ -17,6 +17,7 @@ from collections import defaultdict
 import numpy as np
 
 from gpaw.core import PlaneWaves, UniformGrid
+from gpaw.core.uniform_grid import UniformGridFunctions
 from gpaw.new.potential import Potential
 from gpaw.new.xc import XCFunctional
 from gpaw.setup import Setup
@@ -26,12 +27,14 @@ from gpaw.utilities import pack, unpack
 
 class PotentialCalculator:
     def __init__(self,
-                 xc,
+                 xc: XCFunctional,
                  poisson_solver,
-                 setups):
+                 setups: list[Setup],
+                 nct_R: UniformGridFunctions):
         self.poisson_solver = poisson_solver
         self.xc = xc
         self.setups = setups
+        self.nct_R = nct_R
 
     def __str__(self):
         return f'\n{self.poisson_solver}\n{self.xc}'
@@ -49,11 +52,12 @@ class PotentialCalculator:
 
         return Potential(vt_sR, dH_asii, energies), vHt_x
 
-    def move(self, fracpos_ac):
-        self.nct_aR.move(fracpos_ac)
-        self.vbar_ar.move(fracpos_ac)
-        self.ghat_aLr.move(fracpos_ac)
-        self.vbar_ar.to_uniform_grid(out=self.vbar_r)
+    def move(self, fracpos_ac, ndensities):
+        delta_nct_R = self.nct_R.new()
+        delta_nct_R.data = -self.nct_R.data
+        self._move(fracpos_ac, ndensities)
+        delta_nct_R.data += self.nct_R.data
+        return delta_nct_R
 
 
 class UniformGridPotentialCalculator(PotentialCalculator):
@@ -63,9 +67,11 @@ class UniformGridPotentialCalculator(PotentialCalculator):
                  setups,
                  xc,
                  poisson_solver,
-                 nct_aR):
+                 nct_aR, nct_R):
         self.nct_aR = nct_aR
+
         fracpos_ac = nct_aR.fracpos_ac
+
         self.vbar_ar = setups.create_local_potentials(fine_grid, fracpos_ac)
         self.ghat_aLr = setups.create_compensation_charges(fine_grid,
                                                            fracpos_ac)
@@ -76,7 +82,7 @@ class UniformGridPotentialCalculator(PotentialCalculator):
         self.interpolate = wf_grid.transformer(fine_grid)
         self.restrict = fine_grid.transformer(wf_grid)
 
-        super().__init__(xc, poisson_solver, setups)
+        super().__init__(xc, poisson_solver, setups, nct_R)
 
     def calculate_charges(self, vHt_r):
         return self.ghat_aLr.integrate(vHt_r)
@@ -121,6 +127,13 @@ class UniformGridPotentialCalculator(PotentialCalculator):
                 'xc': e_xc,
                 'external': e_external}, vt_sR, vHt_r
 
+    def _move(self, fracpos_ac, ndensities):
+        self.ghat_aLr.move(fracpos_ac)
+        self.vbar_ar.move(fracpos_ac)
+        self.vbar_ar.to_uniform_grid(out=self.vbar_r)
+        self.nct_aR.move(fracpos_ac)
+        self.nct_aR.to_uniform_grid(out=self.nct_R, scale=1.0 / ndensities)
+
     def force_contributions(self, state):
         density = state.density
         potential = state.potential
@@ -153,8 +166,9 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
                  setups,
                  xc,
                  poisson_solver,
-                 nct_ag):
-        super().__init__(xc, poisson_solver, setups)
+                 nct_ag,
+                 nct_R):
+        super().__init__(xc, poisson_solver, setups, nct_R)
 
         fracpos_ac = nct_ag.fracpos_ac
         self.nct_ag = nct_ag
@@ -220,6 +234,13 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
                 'zero': e_zero,
                 'xc': e_xc,
                 'external': e_external}, vt_sR, vHt_h
+
+    def _move_nct(self, fracpos_ac, ndensities):
+        self.ghat_aLr.move(fracpos_ac)
+        self.vbar_ar.move(fracpos_ac)
+        self.vbar_ar.to_uniform_grid(out=self.vbar_r)
+        self.nct_aR.move(fracpos_ac)
+        self.nct_aR.to_uniform_grid(out=self.nct_R, scale=1.0 / ndensities)
 
     def forces(self, nct_ag):
         return (self.ghat_ah.derivative(self.vHt_h),

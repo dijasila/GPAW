@@ -26,9 +26,9 @@ def GPAW(filename: Union[str, Path, IO[str]] = None,
     log = Logger(txt, world)
 
     if filename is not None:
-        kwargs.pop('txt')
+        kwargs.pop('txt', None)
         assert len(kwargs) == 0
-        calculation = read_gpw(filename, log)
+        calculation = read_gpw(filename, log, params.parallel)
         return calculation.ase_interface()
 
     write_header(log, world, kwargs)

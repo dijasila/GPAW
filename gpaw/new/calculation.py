@@ -15,16 +15,17 @@ class DFTState:
                  ibzwfs: IBZWaveFunctions,
                  density,
                  potential: Potential,
-                 vHt_x=None):
+                 vHt_x=None,
+                 nct_R=None):
         self.ibzwfs = ibzwfs
         self.density = density
         self.potential = potential
         self.vHt_x = vHt_x  # initial guess for Hartree potential
 
-    def move(self, fracpos_ac, nct_aR):
+    def move(self, fracpos_ac, delta_nct_R):
         self.ibzwfs.move(fracpos_ac)
-        self.density.move(fracpos_ac, nct_aR)
         self.potential.energies.clear()
+        self.density.move(delta_nct_R)
 
 
 class DFTCalculation:
@@ -79,8 +80,9 @@ class DFTCalculation:
     def move_atoms(self, atoms, log) -> DFTCalculation:
         self.fracpos_ac = atoms.get_scaled_positions()
 
-        self.pot_calc.move(self.fracpos_ac)
-        self.state.move(self.fracpos_ac, self.pot_calc.nct_aR)
+        delta_nct_R = self.pot_calc.move(self.fracpos_ac,
+                                         self.state.density.ndensities)
+        self.state.move(self.fracpos_ac, delta_nct_R)
         self.results = {}
 
         _, magmom_av = self.state.density.calculate_magnetic_moments()
@@ -160,7 +162,7 @@ class DFTCalculation:
 
         F_av = self.state.ibzwfs.ibz.symmetries.symmetrize_forces(F_av)
 
-        log('\nForces in eV/Ang:')
+        log('\nForces [eV/Ang]:')
         c = Ha / Bohr
         for a, setup in enumerate(self.setups):
             x, y, z = F_av[a] * c

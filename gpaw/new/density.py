@@ -24,7 +24,6 @@ def magmoms2dims(magmoms: np.ndarray | None) -> tuple[int, int]:
 class Density:
     def __init__(self,
                  nt_sR,
-                 nct_R,
                  D_asii,
                  delta_aiiL,
                  delta0_a,
@@ -32,7 +31,6 @@ class Density:
                  l_aj,
                  charge=0.0):
         self.nt_sR = nt_sR
-        self.nct_R = nct_R
         self.D_asii = D_asii
         self.delta_aiiL = delta_aiiL
         self.delta0_a = delta0_a
@@ -96,16 +94,14 @@ class Density:
             out.data[I1:I2] = ds @ P_ain.data[I1:I2]
         return out
 
-    def move(self, fracpos_ac, nct_aR):
-        self.nt_sR.data[:self.ndensities] -= self.nct_R.data
-        nct_aR.to_uniform_grid(out=self.nct_R,
-                               scale=1.0 / self.ndensities)
-        self.nt_sR.data[:self.ndensities] += self.nct_R.data
+    def move(self, delta_nct_R):
+        self.nt_sR.data[:self.ndensities] += delta_nct_R.data
 
     @classmethod
     def from_superposition(cls,
                            grid,
-                           nct,
+                           nct_R,
+                           atomdist,
                            setups,
                            basis_set,
                            magmoms=None,
@@ -113,9 +109,6 @@ class Density:
                            hund=False):
         # density and magnitization components:
         ndens, nmag = magmoms2dims(magmoms)
-
-        nct_R = grid.empty()
-        nct.to_uniform_grid(out=nct_R, scale=1.0 / ndens)
 
         if magmoms is None:
             magmoms = [None] * len(setups)
@@ -130,13 +123,12 @@ class Density:
 
         atom_array_layout = AtomArraysLayout([(setup.ni, setup.ni)
                                               for setup in setups],
-                                             atomdist=nct.layout.atomdist)
+                                             atomdist=atomdist)
         D_asii = atom_array_layout.empty(ndens + nmag)
         for a, D_sii in D_asii.items():
             D_sii[:] = unpack2(setups[a].initialize_density_matrix(f_asi[a]))
 
         return cls(nt_sR,
-                   nct_R,
                    D_asii,
                    [setup.Delta_iiL for setup in setups],
                    [setup.Delta0 for setup in setups],

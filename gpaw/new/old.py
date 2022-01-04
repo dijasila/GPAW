@@ -1,10 +1,14 @@
-import numpy as np
 import ase.io.ulm as ulm
 import gpaw
-from ase.io.trajectory import write_atoms, read_atoms
+import numpy as np
+from ase.io.trajectory import read_atoms, write_atoms
 from ase.units import Bohr, Ha
-from gpaw.new.calculation import DFTCalculation
+from gpaw.new.builder import DFTComponentsBuilder
+from gpaw.new.calculation import DFTCalculation, DFTState
 from gpaw.new.density import Density
+from gpaw.new.input_parameters import InputParameters
+from gpaw.new.potential import Potential
+# from gpaw.new.wave_functions import IBZWaveFunctions
 from gpaw.utilities import pack
 
 
@@ -77,23 +81,39 @@ def write_gpw(filename: str,
     world.barrier()
 
 
-def read_gpw(filename, log):
+def read_gpw(filename, log, parallel):
     log(f'Reading from {filename}')
     reader = ulm.Reader(filename)
     atoms = read_atoms(reader.atoms)
 
-    builder = atoms, ...
+    kwargs = reader.parameters.asdict()
+    kwargs['parallel'] = parallel
+    params = InputParameters(kwargs)
+    print(params)
+    builder = DFTComponentsBuilder(atoms, params)
 
-    grid = builder, ...
+        nt_sR = nct_R.desc.zeros(ndens + nmag)
+        basis_set.add_to_density(nt_sR.data, f_asi)
+        nt_sR.data[:ndens] += nct_R.data
 
-    results = reader.results.asdict()
-    if results:
-        log('Read {}'.format(', '.join(sorted(results))))
+        atom_array_layout = AtomArraysLayout([(setup.ni, setup.ni)
+                                              for setup in setups],
+                                             atomdist=atomdist)
+        D_asii = atom_array_layout.empty(ndens + nmag)
+        for a, D_sii in D_asii.items():
+            D_sii[:] = unpack2(setups[a].initialize_density_matrix(f_asi[a]))
 
-    density = Density.read(reader, grid)
-    potential = ...
+    density = Density.from_data_and_setups(nt_sR, D_asii, setups, charge)
+    potential = Potential(...)
     ibzwfs = ...
 
-    calculation = DFTCalculation(ibzwfs, density, potential)
-    # calculation.results = results
-    return calculation
+    calculation = DFTCalculation(DFTState(ibzwfs, density, potential),
+                                 builder.setups,
+                                 builder.create_scf_loop(pot_calc),
+                                 pot_calc)
+    results = reader.results.asdict()
+    if results:
+        log(f'Read {", ".join(sorted(results))}')
+
+    calculation.results = results
+    return calculation, params
