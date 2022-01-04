@@ -19,3 +19,31 @@ from gpaw import GPAW
 from gpaw.response.mft import IsotropicExchangeCalculator, \
     compute_magnon_energy_FM
 from ase.dft.kpoints import get_special_points
+
+# ----- Setup exchange calculator ----- #
+
+# Settings specific to exchange calculator
+ecut = 400  # Energy cutoff in eV for response calc (number of G-vectors)
+# How to map onto discrete lattice of magnetic moments
+sitePos_mv = 'atoms'  # Magnetic sites at all atoms
+shapes_m = ['sphere', 'sphere']  # Use spheres to define magnetic sites
+
+
+# Pick radii of integration spheres to test (rc values)
+rc_r = np.linspace(0.4, 1.9, 31)
+rc_rm = np.array([rc_r, rc_r]).T
+
+# Load converged ground state
+calc = GPAW(f'converged_gs_calc.gpw', parallel={'domain': 1})
+Co = calc.get_atoms()
+mm = calc.get_magnetic_moments()
+
+# Get number of converged bands
+nbands_response = calc.parameters['convergence']['bands']
+
+# Setup exchange calculator
+exchCalc = IsotropicExchangeCalculator(calc,
+                                       sitePos_mv,
+                                       shapes_m=shapes_m,
+                                       ecut=ecut,
+                                       nbands=nbands_response)
