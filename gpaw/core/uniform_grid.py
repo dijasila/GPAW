@@ -34,9 +34,9 @@ class UniformGrid(Domain):
             decomp = gd.n_cp
         self.decomp_cp = decomp
 
-        self.mypos_c = np.unravel_index(comm.rank,
-                                        [len(d_p) - 1
-                                         for d_p in self.decomp_cp])
+        self.parsize_c = np.array([len(d_p) - 1 for d_p in self.decomp_cp])
+        self.mypos_c = np.unravel_index(comm.rank, self.parsize_c)
+
         self.start_c = np.array([d_p[p]
                                  for d_p, p
                                  in zip(self.decomp_cp, self.mypos_c)])
@@ -57,8 +57,11 @@ class UniformGrid(Domain):
 
     @cached_property
     def phase_factors_cd(self):
-        assert self.comm.size == 1
-        disp_cd = np.array([[1.0, -1.0], [1.0, -1.0], [1.0, -1.0]])
+        delta_d = np.array([1, -1])
+        disp_cd = np.empty((3, 2))
+        for pos, pbc, size, disp_d in zip(self.mypos_c, self.pbc_c,
+                                          self.parsize_c, disp_cd):
+            disp_d[:] = (pos + delta_d) // size
         return np.exp(2j * np.pi *
                       disp_cd *
                       self.kpt_c[:, np.newaxis])

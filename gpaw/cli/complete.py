@@ -55,7 +55,8 @@ commands = {
         ['--version', '--tarball', '--list-all', '--gpaw', '--sg15',
          '--basis', '--test', '--register', '--no-register'],
     'python':
-        ['--dry-run', '-z', '--command', '-c', '--module', '-m'],
+        ['--dry-run', '-z', '-d', '--debug', '--command', '-c',
+         '--module', '-m'],
     'rpa':
         ['-e', '--cut-off', '-b', '--blocks'],
     'run':

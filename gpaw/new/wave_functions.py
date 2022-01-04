@@ -33,6 +33,11 @@ class IBZWaveFunctions:
         self.collinear = False
         self.spin_degeneracy = spin_degeneracy
 
+        self.band_comm = wfs_qs[0][0].psit_nX.comm
+        self.domain_comm = wfs_qs[0][0].psit_nX.desc.comm
+
+        self.nbands = wfs_qs[0][0].psit_nX.dims[0]
+
         self.q_k = {}  # ibz index to local index
         q = 0
         for k, rank in enumerate(rank_k):
@@ -75,7 +80,7 @@ class IBZWaveFunctions:
         return cls(ibz, rank_k, kpt_comm, wfs_q, nelectrons)
 
     def move(self, fracpos_ac):
-        self.ibz.symmetry.check_positions(fracpos_ac)
+        self.ibz.symmetries.check_positions(fracpos_ac)
         self.energies.clear()
         for wfs in self:
             wfs._P_ain = None
@@ -127,14 +132,27 @@ class IBZWaveFunctions:
         out.symmetrize(self.ibz.symmetries)
 
     def get_eigs_and_occs(self, k=0, s=0):
-        assert self.rank_k[k] == self.kpt_comm.rank
-        wfs = self.wfs_qs[self.q_k[k]][s]
-        return wfs.eig_n, wfs.occ_n
+        if self.domain_comm.rank == 0 and self.band_comm.rank == 0:
+            rank = self.rank_k[k]
+            if rank == self.kpt_comm.rank:
+                wfs = self.wfs_qs[self.q_k[k]][s]
+                if rank == 0:
+                    return wfs._eig_n, wfs._occ_n
+                self.kpt_comm.send(wfs._eig_n, 0)
+                self.kpt_comm.send(wfs._occ_n, 0)
+            elif self.kpt_comm.rank == 0:
+                eig_n = np.empty(self.nbands)
+                occ_n = np.empty(self.nbands)
+                self.kpt_comm.receive(eig_n, rank)
+                self.kpt_comm.receive(occ_n, rank)
+                return eig_n, occ_n
+        return np.zeros(0), np.zeros(0)
 
     def forces(self, dH_asii: AtomArrays):
         F_av = np.zeros((dH_asii.natoms, 3))
         for wfs in self:
             wfs.force_contribution(dH_asii, F_av)
+        self.kpt_comm.sum(F_av)
         return F_av
 
     def write(self, writer, skip_wfs):
