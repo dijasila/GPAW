@@ -51,3 +51,29 @@ approximation) and magnon-magnon scattering, so the output is the
 adiabatic spectrum of non-interacting magnons. Also, the algorithm really
 outputs `J^{\mu\nu}(\mathbf{q})` plus the Brillouin zone average of `J^{\mu\mu}
 (\mathbf{q})`.
+
+===================
+GPAW algorithm
+===================
+
+`B^{xc}` and `\chi^{-+}_{KS}` can be computed ab-initio with a
+converged ground state as input. This is implemented in GPAW in a
+plane-wave basis. Once ground state and `B^{xc}` have been computed once for
+a given Monkhorst-Pack grid, `\chi^{-+}_{KS}(\mathbf{q})` and `K^{\mu}
+(\mathbf{q})` can be computed `\mathbf{q}`-point by `\mathbf{q}`-point,
+see flowchart.
+However, `\chi^{-+}_{KS}(\mathbf{q})` is only computable at
+wavevectors (`\mathbf{q}`-points) included in the Monkhorst-Pack grid.
+
+.. image:: Flowchart_for_algorithm.pdf
+    :width: 800 px
+
+In addition to the standard ground state convergence parameters, there is an
+energy cutoff, ``ecut``, for the number of `G`-vector components, plus the
+shape and positions of the integration regions specifying magnetic sites.
+Also, for the response calculation it is necessary to
+converge a number of unoccupied bands.
+
+The interface to all these calculations is the class
+
+.. autoclass:: gpaw.response.mft
