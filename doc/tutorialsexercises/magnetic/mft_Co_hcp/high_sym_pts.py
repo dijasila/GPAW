@@ -47,3 +47,35 @@ exchCalc = IsotropicExchangeCalculator(calc,
                                        shapes_m=shapes_m,
                                        ecut=ecut,
                                        nbands=nbands_response)
+
+# ----- Compute magnon energies at high-symmetry points ----- #
+
+# Get high-symmetry points of lattice
+cell_cv = Co.get_cell()
+lattice = 'hcp'
+spts = get_special_points(cell_cv, lattice=lattice)  # High symmetry points
+q_qc = np.vstack([q_c for q_c in spts.values()])
+
+# Compute exchange coupling for different rc
+Nr, N_sites = rc_rm.shape
+Nq = len(q_qc)
+J_rmnq = np.empty([Nr, N_sites, N_sites, Nq], dtype=complex)
+for q, q_c in enumerate(q_qc):    # Loop over high symmetry points
+    J_rmn = exchCalc(q_c, rc_rm=rc_rm)
+    J_rmnq[:, :, :, q] = J_rmn
+
+# Compute magnon energies
+E_rmq = np.empty([Nr, N_sites, Nq])
+for r in range(Nr):
+    J_mnq = J_rmnq[r, :, :, :]
+    E_mq = compute_magnon_energy_FM(J_mnq, q_qc, mm)
+    E_rmq[r, :, :] = E_mq
+
+# Save results
+np.save('rc_r.npy', rc_r)
+np.save('high_sym_pts_E_rmq.npy', E_rmq)
+with open('spts.json', 'w') as file:
+    # Make dictionary json compatible
+    for key in spts.keys():
+        spts[key] = spts[key].tolist()
+    json.dump(spts, file)
