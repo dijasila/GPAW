@@ -13,10 +13,11 @@ master:
     - pip -q install git+https://gitlab.com/myqueue/myqueue.git@master
     - >
       echo "
-      scalapack = True
-      libraries += ['scalapack-openmpi']
-      extra_compile_args += ['-Werror', '-fopenmp']
-      extra_link_args += ['-fopenmp']" > siteconfig.py
+      scalapack = True;
+      libraries += ['scalapack-openmpi'];
+      extra_compile_args += ['-Werror', '-fopenmp'];
+      extra_link_args += ['-fopenmp']
+      " > siteconfig.py
     - pip install .
     - gpaw install-data --register pawdata
     - gpaw test
