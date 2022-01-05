@@ -17,7 +17,7 @@ master:
       extra_compile_args += ['-Werror', '-fopenmp'];
       extra_link_args += ['-fopenmp']
       " > siteconfig.py
-    - pip install .
+    - pip install -e .
     - gpaw install-data --register pawdata
     - gpaw test
     - OMP_NUM_THREADS=2 pytest -v -m ci -We
