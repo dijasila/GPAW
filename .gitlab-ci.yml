@@ -20,7 +20,7 @@ master:
     - pip install -e .
     - gpaw install-data --register pawdata
     - gpaw test
-    - OMP_NUM_THREADS=2 pytest -v -m ci -We
+    - OMP_NUM_THREADS=2 python -m pytest -v -m ci -We
     - mypy -p gpaw
     - >
       interrogate -m -i -f 34.1
