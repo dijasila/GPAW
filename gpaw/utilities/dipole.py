@@ -10,7 +10,7 @@ from gpaw.calculator import GPAW
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.setup import Setup
 from gpaw.mpi import serial_comm
-from gpaw.typing import Array2D, Array3D, Array4D, ArrayLike1D
+from gpaw.typing import Array2D, Array3D, Array4D, Vector
 
 
 def dipole_matrix_elements(gd: GridDescriptor,
@@ -18,7 +18,7 @@ def dipole_matrix_elements(gd: GridDescriptor,
                            P_nI: Array2D,
                            position_av: Array2D,
                            setups: List[Setup],
-                           center: ArrayLike1D) -> Array3D:
+                           center: Vector) -> Array3D:
     """Calculate dipole matrix-elements.
 
     gd:
