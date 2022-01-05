@@ -11,12 +11,14 @@ master:
     - pip install flake8 mypy pytest interrogate
     - pip -q install git+https://gitlab.com/ase/ase.git@master
     - pip -q install git+https://gitlab.com/myqueue/myqueue.git@master
-    - echo "scalapack = True" > siteconfig.py
-    - echo "libraries += ['scalapack-openmpi']" >> siteconfig.py
-    - echo "extra_compile_args += ['-Werror', '-fopenmp']" >> siteconfig.py
-    - echo "extra_link_args += ['-fopenmp']" >> siteconfig.py
+    - >
+      echo "
+      scalapack = True
+      libraries += ['scalapack-openmpi']
+      extra_compile_args += ['-Werror', '-fopenmp']
+      extra_link_args += ['-fopenmp']" > siteconfig.py
     - pip install .
-    - gpaw install-data pawdata
+    - gpaw install-data --register pawdata
     - gpaw test
     - OMP_NUM_THREADS=2 pytest -v -m ci -We
     - mypy -p gpaw
