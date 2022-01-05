@@ -92,16 +92,19 @@ def read_gpw(filename, log, parallel):
     print(params)
     builder = DFTComponentsBuilder(atoms, params)
 
-        nt_sR = nct_R.desc.zeros(ndens + nmag)
-        basis_set.add_to_density(nt_sR.data, f_asi)
-        nt_sR.data[:ndens] += nct_R.data
+    array_sR = reader.density.density
+    grid = builder.grid.new(comm=None)
+    nt_sR = grid.empty(len(array_sR))
+    nt_sR.data[:] = array_sR
+    nt_sR = nt_sR.distribute(grid=builder.grid)
 
-        atom_array_layout = AtomArraysLayout([(setup.ni, setup.ni)
-                                              for setup in setups],
-                                             atomdist=atomdist)
-        D_asii = atom_array_layout.empty(ndens + nmag)
-        for a, D_sii in D_asii.items():
-            D_sii[:] = unpack2(setups[a].initialize_density_matrix(f_asi[a]))
+    array_sx = reader.density.atomic_density_matrices
+    atom_array_layout = AtomArraysLayout([(setup.ni, setup.ni)
+                                          for setup in setups],
+                                         atomdist=atomdist)
+    D_asii = atom_array_layout.empty(ndens + nmag)
+    for a, D_sii in D_asii.items():
+        D_sii[:] = unpack2(setups[a].initialize_density_matrix(f_asi[a]))
 
     density = Density.from_data_and_setups(nt_sR, D_asii, setups, charge)
     potential = Potential(...)
