@@ -5,8 +5,8 @@ master:
     - >
       apt-get install -qy
       libopenblas-dev libscalapack-mpi-dev libxc-dev > apt-get.output
-    - python -m venv venv
-    - source venv/bin/activate
+    - python -m venv ../venv
+    - source ../venv/bin/activate
     - pip install -U pip
     - pip install flake8 mypy pytest interrogate
     - pip -q install git+https://gitlab.com/ase/ase.git@master
@@ -20,8 +20,7 @@ master:
     - pip install -e .
     - gpaw install-data --register pawdata
     - gpaw test
-    # - OMP_NUM_THREADS=2 python -m
-    - pytest -v -m ci -We
+    - OMP_NUM_THREADS=2 pytest -v -m ci -We
     - mypy -p gpaw
     - >
       interrogate -m -i -f 34.1
