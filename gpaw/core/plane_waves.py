@@ -11,7 +11,7 @@ from gpaw.core.matrix import Matrix
 from gpaw.core.uniform_grid import UniformGridFunctions
 from gpaw.mpi import MPIComm, serial_comm
 from gpaw.pw.descriptor import pad
-from gpaw.typing import Array1D, Array2D, ArrayLike1D, ArrayLike2D
+from gpaw.typing import Array1D, Array2D, ArrayLike1D, ArrayLike2D, Vector
 from gpaw.core.domain import Domain
 
 
@@ -20,7 +20,7 @@ class PlaneWaves(Domain):
                  *,
                  ecut: float,
                  cell: ArrayLike1D | ArrayLike2D,
-                 kpt: ArrayLike1D = None,
+                 kpt: Vector = None,
                  comm: MPIComm = serial_comm,
                  dtype=None):
         self.ecut = ecut

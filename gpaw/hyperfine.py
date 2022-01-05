@@ -375,7 +375,7 @@ def main(argv: List[str] = None) -> None:
         used[symbol] = g_factor
         A_vv *= g_factor * scale
         if args.diagonalize:
-            numbers = np.linalg.eigvalsh(A_vv)
+            numbers = np.linalg.eigvalsh(A_vv).tolist()
         else:
             numbers = [A_vv[0, 0], A_vv[1, 1], A_vv[2, 2],
                        A_vv[1, 2], A_vv[0, 2], A_vv[0, 1]]
