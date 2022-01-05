@@ -141,3 +141,12 @@ The endpoints were also degenerate in the previous calculation.
 Also, there are parabolic dispersions around the A and Gamma points. The
 fact that all magnon energies are positive indicates that Co(hcp) is stable
 in the ferromagnetic state, at least against spin-rotations.
+
+References
+==========
+
+.. [#Durhuus] F. L. Durhuus, T. Skovhus, T. Olsen,
+           *Phys. Rev. B* **??**, ????? (2022)
+
+.. [#Skovhus] T. Skovhus and T. Olsen,
+           *Phys. Rev. B* **103**, 245110 (2021)
