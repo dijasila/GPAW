@@ -4,7 +4,7 @@ import numpy as np
 # from numpy.typing import DTypeLike
 
 from gpaw.mpi import MPIComm, serial_comm
-from gpaw.typing import ArrayLike1D, ArrayLike2D, ArrayLike, Array2D
+from gpaw.typing import ArrayLike1D, ArrayLike2D, ArrayLike, Array2D, Vector
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -31,7 +31,7 @@ class Domain:
     def __init__(self,
                  cell: ArrayLike1D | ArrayLike2D,
                  pbc=(True, True, True),
-                 kpt: ArrayLike1D = None,
+                 kpt: Vector = None,
                  comm: MPIComm = serial_comm,
                  dtype=None):
         """"""

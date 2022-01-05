@@ -181,7 +181,7 @@ def atomic_occupation_numbers(setup,
         M = abs(magmom)
         nspins = 2
     else:
-        M = np.linalg.norm(magmom)
+        M = np.linalg.norm(magmom)  # type: ignore
         nspins = 2
 
     f_si = setup.calculate_initial_occupation_numbers(

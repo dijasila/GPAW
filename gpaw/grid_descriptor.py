@@ -10,7 +10,7 @@ For radial grid descriptors, look atom/radialgd.py.
 
 import numbers
 from math import pi
-from typing import Iterable, Sequence
+from typing import Sequence
 
 import numpy as np
 from scipy.ndimage import map_coordinates
@@ -18,7 +18,7 @@ from scipy.ndimage import map_coordinates
 import _gpaw
 import gpaw.mpi as mpi
 from gpaw.domain import Domain
-from gpaw.typing import Array1D, Array3D
+from gpaw.typing import Array1D, Array3D, Vector
 from gpaw.utilities.blas import gemm, r2k, rk
 
 NONBLOCKING = False
@@ -589,7 +589,7 @@ class GridDescriptor(Domain):
 
     def dipole_moment(self,
                       rho_R: Array3D,
-                      center_v: Iterable[float] = None) -> Array1D:
+                      center_v: Vector = None) -> Array1D:
         """Calculate dipole moment of density.
 
         Integration region will be centered on center_v.  Default center
