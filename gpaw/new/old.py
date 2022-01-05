@@ -83,26 +83,43 @@ def write_gpw(filename: str,
 
 def read_gpw(filename, log, parallel):
     log(f'Reading from {filename}')
+
+    world = parallel['world']
+
     reader = ulm.Reader(filename)
     atoms = read_atoms(reader.atoms)
 
     kwargs = reader.parameters.asdict()
     kwargs['parallel'] = parallel
     params = InputParameters(kwargs)
-    print(params)
+
     builder = DFTComponentsBuilder(atoms, params)
+    kpt_band_comm = builder.communicators['D']
 
-    array_sR = reader.density.density
-    grid = builder.grid.new(comm=None)
-    nt_sR = grid.empty(len(array_sR))
-    nt_sR.data[:] = array_sR
-    nt_sR = nt_sR.distribute(grid=builder.grid)
+    if world.rank == 0:
+        nt_sR_array = reader.density.density
+        vt_sR_array = reader.hamiltonian.potential
+        D_array = reader.density.atomic_density_matrices
+    else:
+        nt_sR_array = None
+        vt_sR_array = None
+        D_array = None
 
-    array_sx = reader.density.atomic_density_matrices
+    nt_sR = builder.grid.empty(builder.ncomponents)
+    vt_sR = builder.grid.empty(builder.ncomponents)
+
     atom_array_layout = AtomArraysLayout([(setup.ni, setup.ni)
                                           for setup in setups],
                                          atomdist=atomdist)
     D_asii = atom_array_layout.empty(ndens + nmag)
+
+    if kpt_band_comm.rank == 0:
+        nt_sR.scatter_from(nt_sR_array)
+        vt_sR.scatter_from(vt_sR_array)
+
+    kpt_band_comm.broadcast(nt_sR.data, 0)
+    kpt_band_comm.broadcast(vt_sR.data, 0)
+
     for a, D_sii in D_asii.items():
         D_sii[:] = unpack2(setups[a].initialize_density_matrix(f_asi[a]))
 
