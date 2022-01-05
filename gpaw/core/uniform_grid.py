@@ -11,7 +11,7 @@ from gpaw.core.atom_centered_functions import UniformGridAtomCenteredFunctions
 from gpaw.core.domain import Domain
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.mpi import MPIComm, serial_comm
-from gpaw.typing import Array1D, Array4D, ArrayLike1D, ArrayLike2D
+from gpaw.typing import Array1D, Array4D, ArrayLike1D, ArrayLike2D, Vector
 from gpaw.utilities.grid import GridRedistributor
 from gpaw.new import cached_property
 
@@ -22,7 +22,7 @@ class UniformGrid(Domain):
                  cell: ArrayLike1D | ArrayLike2D,
                  size: ArrayLike1D,
                  pbc=(True, True, True),
-                 kpt: ArrayLike1D = None,
+                 kpt: Vector = None,
                  comm: MPIComm = serial_comm,
                  decomp: Sequence[Sequence[int]] = None,
                  dtype=None):

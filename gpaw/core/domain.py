@@ -5,7 +5,7 @@ import numpy as np
 
 from gpaw.mpi import MPIComm, serial_comm
 from gpaw.typing import ArrayLike1D, ArrayLike2D, ArrayLike, Array2D
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Union
 
 if TYPE_CHECKING:
     from gpaw.core.arrays import DistributedArrays
@@ -27,11 +27,14 @@ def normalize_cell(cell: ArrayLike) -> Array2D:
     raise ValueError
 
 
+FloatVector = Union[tuple[float, float, float], Array2D]
+
+
 class Domain:
     def __init__(self,
                  cell: ArrayLike1D | ArrayLike2D,
                  pbc=(True, True, True),
-                 kpt: ArrayLike1D = None,
+                 kpt: FloatVector = None,
                  comm: MPIComm = serial_comm,
                  dtype=None):
         """"""
