@@ -60,13 +60,10 @@ GPAW algorithm
 converged ground state as input. This is implemented in GPAW in a
 plane-wave basis. Once ground state and `B^{xc}` have been computed once for
 a given Monkhorst-Pack grid, `\chi^{-+}_{KS}(\mathbf{q})` and `K^{\mu}
-(\mathbf{q})` can be computed `\mathbf{q}`-point by `\mathbf{q}`-point,
-see flowchart.
+(\mathbf{q})` can be computed `\mathbf{q}`-point by `\mathbf{q}`-point
+(flowchart in [#Durhuus]_).
 However, `\chi^{-+}_{KS}(\mathbf{q})` is only computable at
 wavevectors (`\mathbf{q}`-points) included in the Monkhorst-Pack grid.
-
-.. image:: Flowchart_for_algorithm.pdf
-    :width: 800 px
 
 In addition to the standard ground state convergence parameters, there is an
 energy cutoff, ``ecut``, for the number of `G`-vector components, plus the
