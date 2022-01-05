@@ -12,8 +12,7 @@ master:
     - pip -q install git+https://gitlab.com/ase/ase.git@master
     - pip -q install git+https://gitlab.com/myqueue/myqueue.git@master
     - >
-      echo "
-      scalapack = True;
+      echo "scalapack = True;
       libraries += ['scalapack-openmpi'];
       extra_compile_args += ['-Werror', '-fopenmp'];
       extra_link_args += ['-fopenmp']
