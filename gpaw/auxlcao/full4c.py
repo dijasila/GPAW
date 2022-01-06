@@ -1,3 +1,4 @@
+from typing import Tuple, Dict
 import numpy as np
 from gpaw.auxlcao.algorithm import RIAlgorithm
 

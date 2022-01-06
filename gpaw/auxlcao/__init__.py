@@ -76,7 +76,7 @@ class LCAOHybrid:
         self.ri_algorithm.initialize(density, hamiltonian, wfs)
 
     def set_positions(self, spos_ac):
-        self.ri_algorithm.set_positions(spos_ac, self.debug)
+        self.ri_algorithm.set_positions(spos_ac)
 
     def get_description(self):
         return 'Experimental aux-lcao' + self.name + ' with algorithm' + self.ri_algorithm.name
