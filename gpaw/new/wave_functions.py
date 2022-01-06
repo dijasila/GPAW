@@ -121,15 +121,11 @@ class IBZWaveFunctions:
             'entropy': e_entropy,
             'extrapolation': e_entropy * occ_calc.extrapolate_factor}
 
-    def calculate_density(self, out: Density) -> None:
-        density = out
-        density.nt_sR.data[:] = density.nct_R.data
-        density.D_asii.data[:] = 0.0
+    def add_to_density(self, nt_sR, D_asii) -> None:
         for wfs in self:
-            wfs.add_to_density(density.nt_sR, density.D_asii)
-        self.kpt_comm.sum(density.nt_sR.data)
-        self.kpt_comm.sum(density.D_asii.data)
-        out.symmetrize(self.ibz.symmetries)
+            wfs.add_to_density(nt_sR, D_asii)
+        self.kpt_comm.sum(nt_sR.data)
+        self.kpt_comm.sum(D_asii.data)
 
     def get_eigs_and_occs(self, k=0, s=0):
         if self.domain_comm.rank == 0 and self.band_comm.rank == 0:

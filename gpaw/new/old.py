@@ -9,7 +9,8 @@ from gpaw.new.density import Density
 from gpaw.new.input_parameters import InputParameters
 from gpaw.new.potential import Potential
 # from gpaw.new.wave_functions import IBZWaveFunctions
-from gpaw.utilities import pack
+from gpaw.utilities import pack, unpack2
+from gpaw.core.atom_arrays import AtomArraysLayout
 
 
 class OldStuff:
@@ -99,41 +100,64 @@ def read_gpw(filename, log, parallel):
     if world.rank == 0:
         nt_sR_array = reader.density.density
         vt_sR_array = reader.hamiltonian.potential
-        D_array = reader.density.atomic_density_matrices
+        D_sap_array = reader.density.atomic_density_matrices
+        D_saii_array = unpack_d(D_sap_array, builder.setups)
+        dH_sap_array = reader.hamiltonian.atomic_hamiltonian_matrices
+        dH_saii_array = unpack_d(dH_sap_array, builder.setups)
     else:
         nt_sR_array = None
         vt_sR_array = None
-        D_array = None
+        D_saii_array = None
+        dH_saii_array = None
 
     nt_sR = builder.grid.empty(builder.ncomponents)
     vt_sR = builder.grid.empty(builder.ncomponents)
 
     atom_array_layout = AtomArraysLayout([(setup.ni, setup.ni)
-                                          for setup in setups],
-                                         atomdist=atomdist)
-    D_asii = atom_array_layout.empty(ndens + nmag)
+                                          for setup in builder.setups],
+                                         atomdist=builder.atomdist)
+    D_asii = atom_array_layout.empty(builder.ncomponents)
+    dH_asii = atom_array_layout.empty(builder.ncomponents)
 
     if kpt_band_comm.rank == 0:
         nt_sR.scatter_from(nt_sR_array)
         vt_sR.scatter_from(vt_sR_array)
+        D_asii.scatter_from(D_saii_array)
+        dH_asii.scatter_from(dH_saii_array)
 
     kpt_band_comm.broadcast(nt_sR.data, 0)
     kpt_band_comm.broadcast(vt_sR.data, 0)
+    kpt_band_comm.broadcast(D_asii.data, 0)
+    kpt_band_comm.broadcast(dH_asii.data, 0)
 
-    for a, D_sii in D_asii.items():
-        D_sii[:] = unpack2(setups[a].initialize_density_matrix(f_asi[a]))
-
-    density = Density.from_data_and_setups(nt_sR, D_asii, setups, charge)
-    potential = Potential(...)
+    density = Density.from_data_and_setups(nt_sR, D_asii,
+                                           builder.params.charge,
+                                           builder.setups)
+    potential = Potential(vt_sR, dH_asii, {})
     ibzwfs = ...
 
     calculation = DFTCalculation(DFTState(ibzwfs, density, potential),
-                                 builder.setups,
-                                 builder.create_scf_loop(pot_calc),
-                                 pot_calc)
+                                 builder.setups)
+
     results = reader.results.asdict()
     if results:
         log(f'Read {", ".join(sorted(results))}')
 
     calculation.results = results
     return calculation, params
+
+
+def unpack_d(D_sap_array, setups):
+    ns = len(D_sap_array)
+    naii = sum(setup.ni**2 for setup in setups)
+    D_saii_array = np.empty((ns, naii))
+    nap1 = 0
+    naii1 = 0
+    for setup in setups:
+        nap2 = nap1 + (setup.ni * (setup.ni + 1)) // 2
+        naii2 = naii1 + setup.ni**2
+        D_saii_array[:, naii1:naii2] = unpack2(
+            D_sap_array[:, nap1:nap2]).ravel()
+        nap1 = nap2
+        naii1 = naii2
+    return D_saii_array

@@ -115,10 +115,14 @@ class DFTComponentsBuilder:
         return self.atoms.get_scaled_positions()
 
     @cached_property
+    def atomdist(self):
+        return self.nct_aX.layout.atomdist
+
+    @cached_property
     def nct_R(self):
         out = self.grid.empty()
         self.nct_aX.to_uniform_grid(out=out,
-                                    scale=1.0 / self.ncomponents % 3)
+                                    scale=1.0 / (self.ncomponents % 3))
         return out
 
     def create_potential_calculator(self):
@@ -182,7 +186,7 @@ class DFTComponentsBuilder:
     def density_from_superposition(self, basis_set):
         return Density.from_superposition(self.grid,
                                           self.nct_R,
-                                          self.nct_aX.layout.atomdist,
+                                          self.atomdist,
                                           self.setups,
                                           basis_set,
                                           self.initial_magmoms,

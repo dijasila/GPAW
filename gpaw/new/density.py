@@ -25,11 +25,11 @@ class Density:
     def __init__(self,
                  nt_sR,
                  D_asii,
+                 charge,
                  delta_aiiL,
                  delta0_a,
                  N0_aii,
-                 l_aj,
-                 charge=0.0):
+                 l_aj):
         self.nt_sR = nt_sR
         self.D_asii = D_asii
         self.delta_aiiL = delta_aiiL
@@ -71,11 +71,18 @@ class Density:
         x = -charge / pseudo_charge
         self.nt_sR.data *= x
 
+    def update(self, nct_R, ibzwfs):
+        self.nt_sR.data[:] = 0.0
+        self.D_asii.data[:] = 0.0
+        ibzwfs.add_to_density(self.nt_sR, self.D_asii)
+        self.nt_sR.data[:] += nct_R.data
+        self.symmetrize(ibzwfs.ibz.symmetries)
+
     def symmetrize(self, symmetries):
         self.nt_sR.symmetrize(symmetries.rotation_scc,
                               symmetries.translation_sc)
 
-        D_asii = self.D_asii.collect(broadcast=True, copy=True)
+        D_asii = self.D_asii.gather(broadcast=True, copy=True)
         for a1, D_sii in self.D_asii.items():
             D_sii[:] = 0.0
             for a2, rotation_ii in zip(symmetries.a_sa[:, a1],
@@ -128,13 +135,24 @@ class Density:
         for a, D_sii in D_asii.items():
             D_sii[:] = unpack2(setups[a].initialize_density_matrix(f_asi[a]))
 
+        return cls.from_data_and_setups(nt_sR,
+                                        D_asii,
+                                        charge,
+                                        setups)
+
+    @classmethod
+    def from_data_and_setups(cls,
+                             nt_sR,
+                             D_asii,
+                             charge,
+                             setups):
         return cls(nt_sR,
                    D_asii,
+                   charge,
                    [setup.Delta_iiL for setup in setups],
                    [setup.Delta0 for setup in setups],
                    [unpack(setup.N0_p) for setup in setups],
-                   [setup.l_j for setup in setups],
-                   charge)
+                   [setup.l_j for setup in setups])
 
     def calculate_magnetic_moments(self):
         magmom_av = np.zeros((self.natoms, 3))

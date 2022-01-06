@@ -55,6 +55,11 @@ class ASECalculator(OldStuff):
             changes = compare_atoms(self.atoms, atoms)
             if changes & {'number', 'pbc', 'cell'}:
                 self.calculation = None
+                if 'number' not in changes:
+                    magmom_a = self.calculation.results.get('magmoms')
+                    if magmom_a is not None:
+                        atoms = atoms.copy()
+                        atoms.set_initial_magnetic_moments(magmom_a)
 
         if self.calculation is None:
             self.calculation = self.create_new_calculation(atoms)

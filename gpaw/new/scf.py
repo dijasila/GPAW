@@ -73,7 +73,7 @@ class SCFLoop:
             if niter == maxiter:
                 raise SCFConvergenceError
 
-            state.ibzwfs.calculate_density(out=state.density)
+            state.density.update(self.pot_calc.nct_R, state.ibzwfs)
             dens_error = self.mixer.mix(state.density)
             state.potential, state.vHt_x = self.pot_calc.calculate(
                 state.density, state.vHt_x)

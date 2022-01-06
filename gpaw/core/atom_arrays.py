@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from collections import defaultdict
-
 import numpy as np
 
 from gpaw.core.arrays import DistributedArrays
 from gpaw.mpi import MPIComm, serial_comm
+from gpaw.typing import Array1D
 
 
 class AtomArraysLayout:
@@ -109,7 +108,8 @@ class AtomArrays(DistributedArrays):
     def values(self):
         return self._arrays.values()
 
-    def collect(self, broadcast=False, copy=False):
+    def gather(self, broadcast=False, copy=False) -> AtomArrays | None:
+        assert not self.transposed
         comm = self.layout.atomdist.comm
         if comm.size == 1:
             if copy:
@@ -118,39 +118,80 @@ class AtomArrays(DistributedArrays):
                 return aa
             return self
 
-        if comm.rank == 0:
-            size_ra = defaultdict(dict)
-            size_r = defaultdict(int)
-            for a, (rank, shape) in enumerate(zip(self.layout.atomdist.rank_a,
-                                                  self.layout.shape_a)):
-                size = np.prod(shape)
-                size_ra[rank][a] = size
-                size_r[rank] += size
-
+        if comm.rank == 0 or broadcast:
             aa = self.new(layout=self.layout.new(atomdist=serial_comm))
-            buffer = np.empty(max(size_r.values()), self.layout.dtype)
+        else:
+            aa = None
+
+        if comm.rank == 0:
+            size_ra, size_r = self.sizes()
+            shape = self.mydims + (max(size_r.values()),)
+            buffer = np.empty(shape, self.layout.dtype)
             for rank in range(1, comm.size):
-                buf = buffer[:size_r[rank]]
+                buf = buffer[..., :size_r[rank]]
                 comm.receive(buf, rank)
                 b1 = 0
                 for a, size in size_ra[rank].items():
                     b2 = b1 + size
-                    aa[a] = buf[b1:b2].reshape(self.layout.shape_a[a])
+                    aa[a] = buf[..., b1:b2].reshape(self.myshape +
+                                                    self.layout.shape_a[a])
             for a, array in self._arrays.items():
                 aa[a] = array
         else:
-            comm.send(self.data.reshape((-1,)), 0)
-            aa = None
+            comm.send(self.data, 0)
 
         if broadcast:
-            if comm.rank > 0:
-                aa = self.new(layout=self.layout.new(atomdist=serial_comm))
             comm.broadcast(aa.data, 0)
 
         return aa
+
+    def sizes(self) -> tuple[list[dict[int, int]], Array1D]:
+        comm = self.layout.atomdist.comm
+        size_ra = [{} for _ in range(comm.size)]
+        size_r = np.zeros(comm.size, int)
+        for a, (rank, shape) in enumerate(zip(self.layout.atomdist.rank_a,
+                                              self.layout.shape_a)):
+            size = np.prod(shape)
+            size_ra[rank][a] = size
+            size_r[rank] += size
+        return size_ra, size_r
 
     def _dict_view(self):
         if self.transposed:
             return {a: np.moveaxis(array, 0, -1)
                     for a, array in self._arrays.items()}
         return self
+
+    def scatter_from(self, data: np.ndarray = None) -> None:
+        assert not self.transposed
+        comm = self.layout.atomdist.comm
+        if comm.size == 1:
+            self.data[:] = data
+            return
+
+        if comm.rank != 0:
+            comm.receive(self.data, 0, 42)
+            return
+
+        size_ra, size_r = self.sizes()
+        aa = self.new(layout=self.layout.new(atomdist=serial_comm),
+                      data=data)
+        requests = []
+        for rank, (totsize, size_a) in enumerate(zip(size_r, size_ra)):
+            if rank != 0:
+                buf = np.empty(self.mydims + (totsize,), self.layout.dtype)
+                b1 = 0
+                for a, size in size_a.items():
+                    b2 = b1 + size
+                    buf[..., b1:b2] = aa[a].reshape(self.mydims + (size,))
+                request = comm.send(buf, rank, 42, False)
+                # Remember to store a reference to the
+                # send buffer (buf) so that is isn't
+                # deallocated
+                requests.append((request, buf))
+            else:
+                for a in size_a:
+                    self[a] = aa[a]
+
+        for request, _ in requests:
+            comm.wait(request)

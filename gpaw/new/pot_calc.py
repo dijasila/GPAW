@@ -117,7 +117,7 @@ class UniformGridPotentialCalculator(PotentialCalculator):
         for spin, (vt_R, nt_R) in enumerate(zip(vt_sR, nt_sR)):
             e_kinetic -= vt_R.integrate(nt_R)
             if spin < density.ndensities:
-                e_kinetic += vt_R.integrate(density.nct_R)
+                e_kinetic += vt_R.integrate(self.nct_R)
 
         e_external = 0.0
 
@@ -225,7 +225,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
             vt_R.data += vtmp_R.data
             e_kinetic -= vt_R.integrate(density.nt_sR[spin])
             if spin < density.ndensities:
-                e_kinetic += vt_R.integrate(density.nct_R)
+                e_kinetic += vt_R.integrate(self.nct_R)
 
         e_external = 0.0
 
