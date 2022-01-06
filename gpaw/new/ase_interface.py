@@ -28,8 +28,8 @@ def GPAW(filename: Union[str, Path, IO[str]] = None,
     if filename is not None:
         kwargs.pop('txt', None)
         assert len(kwargs) == 0
-        calculation = read_gpw(filename, log, params.parallel)
-        return calculation.ase_interface()
+        calculation, params = read_gpw(filename, log, params.parallel)
+        return ASECalculator(params, log, calculation)
 
     write_header(log, world, kwargs)
     return ASECalculator(params, log)
@@ -53,13 +53,13 @@ class ASECalculator(OldStuff):
 
         if self.calculation is not None:
             changes = compare_atoms(self.atoms, atoms)
-            if changes & {'number', 'pbc', 'cell'}:
-                self.calculation = None
-                if 'number' not in changes:
+            if changes & {'numbers', 'pbc', 'cell'}:
+                if 'numbers' not in changes:
                     magmom_a = self.calculation.results.get('magmoms')
                     if magmom_a is not None:
                         atoms = atoms.copy()
                         atoms.set_initial_magnetic_moments(magmom_a)
+                self.calculation = None
 
         if self.calculation is None:
             self.calculation = self.create_new_calculation(atoms)
@@ -125,7 +125,7 @@ def write_header(log, world, kwargs):
 
 def compare_atoms(a1: Atoms, a2: Atoms) -> set[str]:
     if len(a1.numbers) != len(a2.numbers) or (a1.numbers != a2.numbers).any():
-        return {'atomic_numbers'}
+        return {'numbers'}
     if (a1.pbc != a2.pbc).any():
         return {'pbc'}
     if abs(a1.cell - a2.cell).max() > 0.0:

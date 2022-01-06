@@ -137,7 +137,7 @@ def read_gpw(filename, log, parallel):
     ibzwfs = ...
 
     calculation = DFTCalculation(DFTState(ibzwfs, density, potential),
-                                 builder.setups)
+                                 builder.setups, None, None)
 
     results = reader.results.asdict()
     if results:
@@ -161,3 +161,9 @@ def unpack_d(D_sap_array, setups):
         nap1 = nap2
         naii1 = naii2
     return D_saii_array
+
+
+if __name__ == '__main__':
+    import sys
+    from gpaw.mpi import world
+    read_gpw(sys.argv[1], print, {'world': world})

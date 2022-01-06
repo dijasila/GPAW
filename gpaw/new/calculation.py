@@ -173,10 +173,6 @@ class DFTCalculation:
     def write_converged(self, log):
         self.state.ibzwfs.write_summary(log)
 
-    def ase_interface(self, log):
-        from gpaw.new.ase_interface import ASECalculator
-        return ASECalculator(self.builder.params, log, self)
-
 
 def write_atoms(atoms, grid, magmoms, log):
     from gpaw.output import print_cell, print_positions
