@@ -60,10 +60,14 @@ class LCAOHybrid:
 
     """
     def calculate(self, gd, nt_sr, vt_sr):
+        print(nt_sr.shape)
         if self.use_lda:
+            self.use_lda = False
             return self.ldaxc.calculate(gd, nt_sr, vt_sr)
+        self.evv, self.evc, self.ekin = self.ri_algorithm.calculate_non_local()
         energy = self.ecc + self.evv + self.evc
         energy += self.localxc.calculate(gd, nt_sr, vt_sr)
+        print('returning ', energy)
         return energy
 
     def initialize(self, density, hamiltonian, wfs):
