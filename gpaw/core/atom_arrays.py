@@ -52,7 +52,7 @@ class AtomDistribution:
         self.indices = np.where(ranks == comm.rank)[0]
 
     def __repr__(self):
-        return (f'AtomDistribution(ranks={self.ranks}, '
+        return (f'AtomDistribution(ranks={self.rank_a}, '
                 f'comm={self.comm.rank}/{self.comm.size})')
 
 

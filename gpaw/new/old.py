@@ -17,6 +17,12 @@ class OldStuff:
     def get_pseudo_wave_function(self, n):
         return self.calculation.ibzwfs[0].wave_functions.data[n]
 
+    def get_atomic_electrostatic_potentials(self):
+        _, _, Q_aL = self.calculation.pot_calc.calculate(
+            self.calculation.state.density)
+        Q_aL = Q_aL.gather()
+        return Q_aL.data[::9] * (Ha / (4 * np.pi)**0.5)
+
     def write(self, filename, mode=''):
         """Write calculator object to a file.
 
@@ -136,8 +142,11 @@ def read_gpw(filename, log, parallel):
     potential = Potential(vt_sR, dH_asii, {})
     ibzwfs = ...
 
-    calculation = DFTCalculation(DFTState(ibzwfs, density, potential),
-                                 builder.setups, None, None)
+    calculation = DFTCalculation(
+        DFTState(ibzwfs, density, potential),
+        builder.setups,
+        None,
+        pot_calc=builder.create_potential_calculator())
 
     results = reader.results.asdict()
     if results:

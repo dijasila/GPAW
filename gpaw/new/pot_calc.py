@@ -50,7 +50,7 @@ class PotentialCalculator:
             # print(key, e, energies[key])
             energies[key] += e
 
-        return Potential(vt_sR, dH_asii, energies), vHt_x
+        return Potential(vt_sR, dH_asii, energies), vHt_x, Q_aL
 
     def move(self, fracpos_ac, ndensities):
         delta_nct_R = self.nct_R.new()
