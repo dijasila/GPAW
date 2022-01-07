@@ -17,6 +17,7 @@ class DFTState:
                  potential: Potential,
                  vHt_x=None,
                  nct_R=None):
+        """State of a Kohn-Sham calculation."""
         self.ibzwfs = ibzwfs
         self.density = density
         self.potential = potential
@@ -107,6 +108,7 @@ class DFTCalculation:
                  convergence=None,
                  maxiter=None,
                  steps=99999999999999999):
+        """Converge to self-consistent solution of KS-equation."""
         for step, _ in enumerate(self.iconverge(log, convergence, maxiter),
                                  start=1):
             if step == steps:

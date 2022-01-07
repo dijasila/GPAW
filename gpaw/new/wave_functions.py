@@ -23,6 +23,7 @@ class IBZWaveFunctions:
                  wfs_qs: list[list[WaveFunctions]],
                  nelectrons: float,
                  spin_degeneracy: int = 2):
+        """Collection of wave function objects for k-points in the IBZ."""
         self.ibz = ibz
         self.rank_k = rank_k
         self.kpt_comm = kpt_comm

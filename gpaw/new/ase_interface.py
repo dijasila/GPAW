@@ -17,7 +17,7 @@ from gpaw.typing import Array1D, Array2D
 
 def GPAW(filename: Union[str, Path, IO[str]] = None,
          **kwargs) -> ASECalculator:
-    """"""
+    """Create ASE-compatible GPAW calculator."""
     params = InputParameters(kwargs)
     txt = params.txt
     if txt == '?':
@@ -49,6 +49,17 @@ class ASECalculator(OldStuff):
         self.timer = Timer()
 
     def calculate_property(self, atoms: Atoms, prop: str) -> Any:
+        """Calculate (if not already calculated) a property.
+
+        Must be one of
+
+        * energy
+        * forces
+        * stress
+        * magmom
+        * magmoms
+        * dipole
+        """
         log = self.log
 
         if self.calculation is not None:
