@@ -83,8 +83,11 @@ class AtomArrays(DistributedArrays):
     def __repr__(self):
         return f'AtomArrays({self.layout})'
 
-    def new(self, layout=None):
-        return AtomArrays(layout or self.layout, self.dims, self.comm,
+    def new(self, layout=None, data=None):
+        return AtomArrays(layout or self.layout,
+                          self.dims,
+                          self.comm,
+                          data=data,
                           transposed=self.transposed)
 
     def __getitem__(self, a):
@@ -125,7 +128,7 @@ class AtomArrays(DistributedArrays):
 
         if comm.rank == 0:
             size_ra, size_r = self.sizes()
-            shape = self.mydims + (max(size_r.values()),)
+            shape = self.mydims + (size_r.max(),)
             buffer = np.empty(shape, self.layout.dtype)
             for rank in range(1, comm.size):
                 buf = buffer[..., :size_r[rank]]
@@ -147,7 +150,7 @@ class AtomArrays(DistributedArrays):
 
     def sizes(self) -> tuple[list[dict[int, int]], Array1D]:
         comm = self.layout.atomdist.comm
-        size_ra = [{} for _ in range(comm.size)]
+        size_ra: list[dict[int, int]] = [{} for _ in range(comm.size)]
         size_r = np.zeros(comm.size, int)
         for a, (rank, shape) in enumerate(zip(self.layout.atomdist.rank_a,
                                               self.layout.shape_a)):

@@ -9,7 +9,6 @@ from gpaw.core.arrays import DistributedArrays as DA
 from gpaw.core.atom_arrays import AtomArrays
 from gpaw.mpi import MPIComm
 from gpaw.new.brillouin import IBZ
-from gpaw.new.density import Density
 from gpaw.setup import Setups
 from gpaw.typing import Array1D, Array2D, ArrayND
 from gpaw.utilities.debug import frozen
