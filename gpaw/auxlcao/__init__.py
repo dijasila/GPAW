@@ -12,6 +12,7 @@ class LCAOHybrid:
         self.screening_omega = 0.0
         self.name = xcname
         if xcname == 'EXX':
+            self.screening_omega = 0.05
             self.exx_fraction = 1.0
             self.localxc = XC('null')
         elif xcname == 'PBE0':
@@ -101,15 +102,12 @@ class LCAOHybrid:
 
         log(self.get_description())
 
-    def add_nlxc_matrix(self, H_MM, dH_asp, wfs, kpt):
-        self.evv = 0.0
-        self.evc = 0.0
-        self.ekin = 0.0
+    def add_nlxc_matrix(self, H_MM, dH_asp, wfs, kpt, yy):
         if self.use_lda:
             self.use_lda = False
             return
 
-        self.evv, self.evc, self.ekin = self.ri_algorithm.nlxc(H_MM, dH_asp, wfs, kpt)
+        self.ri_algorithm.nlxc(H_MM, dH_asp, wfs, kpt, yy)
 
     def write(self, *args):
         print('Warning: XC not writing to file')
