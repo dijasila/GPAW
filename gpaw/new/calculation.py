@@ -83,14 +83,15 @@ class DFTCalculation:
         delta_nct_R = self.pot_calc.move(self.fracpos_ac,
                                          self.state.density.ndensities)
         self.state.move(self.fracpos_ac, delta_nct_R)
-        self.results = {}
 
-        _, magmom_av = self.state.density.calculate_magnetic_moments()
-
+        magmoms = self.results.get('magmoms')
         write_atoms(atoms,
                     self.state.density.nt_sR.desc,
-                    magmom_av,
+                    magmoms,
                     log)
+
+        self.results = {}
+
         return self
 
     def iconverge(self, log, convergence=None, maxiter=None):
@@ -129,6 +130,26 @@ class DFTCalculation:
 
         self.results['free_energy'] = free_energy
         self.results['energy'] = extrapolated_energy
+
+    def dipole(self, log):
+        dipole_v = self.density.calculate_dipole_moment() * Bohr
+        self.log('Dipole moment: ({:.6f}, {:.6f}, {:.6f}) |e|*Ang\n'
+                 .format(*dipole_v))
+        self.results['dipole'] = dipole_v
+
+    def magmoms(self, log):
+        mm_v, mm_av = self.state.density.calculate_magnetic_moments()
+        self.results['magmom'] = mm_v[2]
+        self.results['magmoms'] = mm_av[:, 2].copy()
+
+        if self.state.density.ncomponents > 1:
+            x, y, z = mm_v
+            log(f'Total magnetic moment: ({x:.6f}, {y:.6f}, {z:.6f})')
+            log('Local magnetic moments:')
+            for a, (setup, m_v) in enumerate(zip(self.setups, mm_av)):
+                x, y, z = m_v
+                log(f'{a:4} {setup.symbol:2} ({x:9.6f}, {y:9.6f}, {z:9.6f})')
+            log()
 
     def forces(self, log):
         """Return atomic force contributions."""

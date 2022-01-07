@@ -69,9 +69,7 @@ class ASECalculator(OldStuff):
             self.converge(atoms)
 
         if prop not in self.calculation.results:
-            if prop.endswith('energy'):
-                self.calculation.energies(log)
-            elif prop == 'forces':
+            if prop == 'forces':
                 with self.timer('Forces'):
                     self.calculation.forces(log)
             elif prop == 'stress':
@@ -93,8 +91,16 @@ class ASECalculator(OldStuff):
             self.calculation = self.calculation.move_atoms(atoms, self.log)
 
     def converge(self, atoms):
+        """Iterate to self-consistent solution.
+
+        Will also calculate "cheap" properties: energy, magnetic moments
+        and dipole moment.
+        """
         with self.timer('SCF'):
             self.calculation.converge(self.log)
+        self.calculation.energies(self.log)
+        # self.calculation.dipole(self.log)
+        self.calculation.magmoms(self.log)
         self.atoms = atoms.copy()
         self.calculation.write_converged(self.log)
 
