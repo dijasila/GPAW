@@ -534,6 +534,9 @@ class BaseSetup:
                                np.dot(A_lqq[l], self.local_corr.T_Lqp[L]))
                 L += 1
 
+        #print('Hacking M_pp[0,0] to x10')
+        #M_pp[0,0]*=10
+        #print('After',M_pp[0,0])
         return M_p, M_pp
 
     def calculate_integral_potentials(self, func):
@@ -569,6 +572,32 @@ class BaseSetup:
         self._Mg_pp = self.calculate_coulomb_corrections(
             wn_lqg, wnt_lqg, wg_lg, wnc_g, wmct_g)[1]
         return self._Mg_pp
+
+    def calculate_screened_M_pp(self, omega):
+        """Calculate and return the Yukawa based interaction."""
+        if not hasattr(self, '_Mw_pp'):
+            self._Mw_pp = None
+        if self._Mw_pp is not None and omega == self._omega:
+            return self._Mw_pp  # Cached
+
+        from gpaw.auxlcao.screenedcoulombkernel import ScreenedCoulombKernel
+        kernel = ScreenedCoulombKernel(self.local_corr.rgd2, omega)
+
+        def screened(self, n_g, l):
+            if l > 2:
+                print('Dont have l>2, returning poisson')
+                return self.local_corr.rgd2.poisson(n_g, l) * self.local_corr.rgd2.r_g * self.local_corr.rgd2.dr_g
+
+            """Solve radial screened poisson for density n_g."""
+            return kernel.screened_coulomb(n_g, l) * \
+                self.local_corr.rgd2.r_g**2 * self.local_corr.rgd2.dr_g
+
+        self._omega = omega
+        (wg_lg, wn_lqg, wnt_lqg, wnc_g, wnct_g, wmct_g) = \
+            self.calculate_integral_potentials(screened)
+        self._Mw_pp = self.calculate_coulomb_corrections(
+            wn_lqg, wnt_lqg, wg_lg, wnc_g, wmct_g)[1]
+        return self._Mw_pp
 
 
 class LeanSetup(BaseSetup):

@@ -2,6 +2,7 @@ from gpaw.xc import XC
 import numpy as np
 
 from gpaw.auxlcao.full4c import Full4C
+from gpaw.auxlcao.rilvl import RILVL
 
 class LCAOHybrid:
     orbital_dependent = True
@@ -42,13 +43,16 @@ class LCAOHybrid:
 
         if algorithm == '4C':
             self.ri_algorithm = Full4C(exx_fraction = self.exx_fraction, screening_omega = self.screening_omega)
+        elif algorithm == 'RI-LVL':
+            self.ri_algorithm = RILVL(exx_fraction = self.exx_fraction, screening_omega = self.screening_omega)
         else:
             if algorithm is None:
                 s = 'Please spesify the algorithm variable i.e. xc=''%s:backend=aux-lcao:algorithm=ALG''\n'
             else:
                 s = 'Unknown algorithm.'
             s += 'Available algorithms are:\n'
-            s += '    4C   Full four center integrals evaluated by projecting basis function products to plane wave expansions. For debugging purposes only.\n'
+            s += '    4C       Full four center integrals evaluated by projecting basis function products to plane wave expansions. For debugging purposes only.\n'
+            s += '    RI-LVL   Resolution of identity 2 atomic sphere local Coulomb potential fit'
             raise ValueError(s)
 
     def set_grid_descriptor(self, gd):

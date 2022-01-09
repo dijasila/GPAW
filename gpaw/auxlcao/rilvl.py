@@ -14,9 +14,9 @@ from gpaw.response.wstc import WignerSeitzTruncatedCoulomb as WSTC
 import matplotlib.pyplot as plt
 from numpy.matlib import repmat
 
-class Full4C(RIAlgorithm):
+class RILVL(RIAlgorithm):
     def __init__(self, exx_fraction=None, screening_omega=None):
-        RIAlgorithm.__init__(self, 'Full4C debug', exx_fraction, screening_omega)
+        RIAlgorithm.__init__(self, 'RI-LVL', exx_fraction, screening_omega)
         self.K_kkMMMM = {}
 
     def set_positions(self, spos_ac):
@@ -27,13 +27,9 @@ class Full4C(RIAlgorithm):
         K_MMMM = self.get_K_MMMM(kpt1, k_c, kpt2, krho_c)
         V_MM = -0.5*self.exx_fraction * np.einsum('ikjl,kl', K_MMMM, rho2_MM)
         E = 0.5 * np.einsum('ij,ij', rho1_MM, V_MM)
-        #print(kpt2.q, kpt2.f_n, kpt2.eps_n)
         return E.real, V_MM
 
     def get_K_MMMM(self, kpt1, k1_c, kpt2, k2_c):
-        first = True
-        # Caching for precalculated results
-        #print('Requesting K_MMMM for kpt pair ', k1_c, k2_c)
         k12_c = str((k1_c, k2_c))
         if k12_c in self.K_kkMMMM:
             return self.K_kkMMMM[k12_c]
@@ -111,11 +107,6 @@ class Full4C(RIAlgorithm):
 
             slice_G = rhot_xG[0,0,0,:]
             slice_G = np.concatenate((slice_G, slice_G))
-            #if first:
-            #    first = False
-            #    plt.plot(slice_G.real, label=str(kpt1.q)+'r')
-            #    plt.plot(slice_G.imag)
-            #    plt.show()
 
             rhot_xg = finegd.zeros((1,), dtype=complex)
             interpolator.apply(rhot_xG, rhot_xg, np.ones((3, 2), complex))
@@ -230,4 +221,4 @@ class Full4C(RIAlgorithm):
         return K_MMMM
 
     def get_description(self):
-        return 'Debug evaluation of full 4 center matrix elements'
+        return 'RI-LVL'
