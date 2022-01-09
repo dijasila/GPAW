@@ -1,6 +1,6 @@
 import numpy as np
 from typing import Tuple, Dict
-from gpaw.utilities import unpack2, packed_index, pack2
+from gpaw.utilities import unpack2, packed_index, pack2, pack
 
 def rotate_density_matrix(rho_MM, symmetry, pointgroup_symmetry, time_reversal_symmetry):
     assert pointgroup_symmetry == 0
@@ -21,26 +21,31 @@ class RIAlgorithm:
         self.timer = hamiltonian.timer
         for kpt in self.wfs.kpt_u:
             kpt.exx_V_MM = 0.0
-        self.dH_asp = None
+
+        if self.screening_omega != 0.0:
+            for setup in self.density.setups:
+                setup.ri_M_pp = setup.calculate_screened_M_pp(self.screening_omega)
+        else:
+            setup.ri_M_pp = setup.M_pp
 
     def nlxc(self,
-             H_MM:np.ndarray,
+            H_MM:np.ndarray,
              dH_asp:Dict[int,np.ndarray],
              wfs,
              kpt, yy) -> Tuple[float, float, float]:
 
-        #print(H_MM)
         H_MM += kpt.exx_V_MM * yy
-        if self.dH_asp is None:
-            print('Skipping dH_asp for first time')
-        else:
-            for a in self.dH_asp:
-                #print('dH before ', dH_asp[a])
-                print('Not adding dH_asp')
-                #dH_asp[a] += self.dH_asp[a]
-                #print('Added correction', self.dH_asp[a])
-                #print('dH ', dH_asp[a])
-        #print('Adding nlxc', kpt.exx_V_MM, H_MM)
+
+        #if self.dH_asp is None:
+        #    print('Skipping dH_asp for first time')
+        #else:
+        #    for a in self.dH_asp:
+        #        #print('dH before ', dH_asp[a])
+        #        print('Not adding dH_asp')
+        #        #dH_asp[a] += self.dH_asp[a]
+        #        #print('Added correction', self.dH_asp[a])
+        #        #print('dH ', dH_asp[a])
+        ##print('Adding nlxc', kpt.exx_V_MM, H_MM)
 
     def set_positions(self, spos_ac):
         self.spos_ac = spos_ac
@@ -69,34 +74,32 @@ class RIAlgorithm:
                     kpt.exx_V_MM += V_MM
                     evv += E
 
-        evc = 0.0
+        evc = 0.0 # XXX
+        ekin = -2*evv #-evc
+        return evv, ekin
 
-        dH_asp = self.density.setups.empty_atomic_matrix(1, self.density.D_asp.partition, self.density.D_asp.dtype)
+
+    def calculate_paw_correction(self, setup, D_sp, dH_sp=None, a=None):
         with self.timer('RI Local atomic corrections'):
-            for a in self.density.D_asp.keys():
-                D_ii = unpack2(self.density.D_asp[a][0]) / 2 # Check 1 or 2
-                # Copy-pasted from hybrids/pw.py
-                ni = len(D_ii)
-                V_ii = np.empty((ni, ni))
-                for i1 in range(ni):
-                    for i2 in range(ni):
-                        V = 0.0
-                        for i3 in range(ni):
-                            p13 = packed_index(i1, i3, ni)
-                            for i4 in range(ni):
-                                p24 = packed_index(i2, i4, ni)
-                                V += self.density.setups[a].M_pp[p13, p24] * D_ii[i3, i4]
-                        V_ii[i1, i2] = +V
-                V_p = pack2(V_ii)
-                dH_asp[a][0][:] = (-V_p - self.density.setups[a].X_p) * self.exx_fraction
+            D_ii = unpack2(D_sp[0]) / 2 # Check 1 or 2
+            ni = len(D_ii)
+            V_ii = np.empty((ni, ni))
+            for i1 in range(ni):
+                for i2 in range(ni):
+                    V = 0.0
+                    for i3 in range(ni):
+                        p13 = packed_index(i1, i3, ni)
+                        for i4 in range(ni):
+                            p24 = packed_index(i2, i4, ni)
+                            V += setup.ri_M_pp[p13, p24] * D_ii[i3, i4]
+                    V_ii[i1, i2] = +V*2 #XXX
+            V_p = pack2(V_ii)
+            dH_sp[0][:] += (-V_p - self.density.setups[a].X_p) * self.exx_fraction
 
-                evv -= self.exx_fraction * np.dot(V_p, self.density.D_asp[a][0]) / 2
-                #print('EVV Correction', self.exx_fraction * np.dot(V_p, self.density.D_asp[a][0]) / 2)
-                evc -= self.exx_fraction * np.dot(self.density.D_asp[a][0], self.density.setups[a].X_p)
-
-   
-        ekin = -2*evv -evc
-        #print(evv,evc,ekin)
-        self.dH_asp = dH_asp
-        return evv, evc, ekin
+            evv = -self.exx_fraction * np.dot(V_p, self.density.D_asp[a][0]) / 2
+            print('Exc vv corr:', evv)
+            evc = -self.exx_fraction * np.dot(self.density.D_asp[a][0], self.density.setups[a].X_p)
+            print('Exc vc corr:', evc)
+            print('Ekin from setup ', -2*evv - evc)
+            return evv + evc, 0.0 #-2*evv - evc
 

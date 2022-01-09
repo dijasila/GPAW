@@ -12,7 +12,6 @@ class LCAOHybrid:
         self.screening_omega = 0.0
         self.name = xcname
         if xcname == 'EXX':
-            self.screening_omega = 0.05
             self.exx_fraction = 1.0
             self.localxc = XC('null')
         elif xcname == 'PBE0':
@@ -55,6 +54,8 @@ class LCAOHybrid:
     def set_grid_descriptor(self, gd):
         pass
 
+
+
     """ 
 
          Calculate the semi-local part of the hybrid energy
@@ -65,14 +66,13 @@ class LCAOHybrid:
         if self.use_lda:
             self.use_lda = False
             return self.ldaxc.calculate(gd, nt_sr, vt_sr)
-        self.evv, self.evc, self.ekin = self.ri_algorithm.calculate_non_local()
-        energy = self.ecc + self.evv + self.evc
-        energy += self.localxc.calculate(gd, nt_sr, vt_sr)
-        print('returning ', energy)
+        evv, self.ekin = self.ri_algorithm.calculate_non_local()
+        energy = evv + self.ecc + self.localxc.calculate(gd, nt_sr, vt_sr)
+        print('returning ', energy, 'self.ekin is', self.ekin)
         return energy
 
     def initialize(self, density, hamiltonian, wfs):
-        self.ecc = 0
+        self.ecc = 0.0
         for setup in wfs.setups:
             if setup.ExxC is not None:        
                 self.ecc += setup.ExxC * self.exx_fraction
@@ -87,13 +87,17 @@ class LCAOHybrid:
         return 'Experimental aux-lcao' + self.name + ' with algorithm' + self.ri_algorithm.name
 
     def get_kinetic_energy_correction(self):
+        print('Ekin corr', self.ekin)
         return self.ekin
 
     def get_setup_name(self):
         return 'PBE'
 
     def calculate_paw_correction(self, setup, D_sp, dH_sp=None, a=None):
-        return self.localxc.calculate_paw_correction(setup, D_sp, dH_sp, a=a)
+        evv, ekin = self.ri_algorithm.calculate_paw_correction(setup, D_sp, dH_sp, a)
+        evv += self.localxc.calculate_paw_correction(setup, D_sp, dH_sp, a=a)
+        self.ekin += ekin
+        return evv
 
     def summary(self, log):
         # Take no changes

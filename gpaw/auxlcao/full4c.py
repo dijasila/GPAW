@@ -31,7 +31,7 @@ def charge_density(wfs, density, rho_MM):
     wfs.basis_functions.construct_density(rho_MM, rho_G, q)
     rho_g = density.finegd.zeros()
     density.interpolator.apply(rho_G, rho_g)
-    print(Q_aL)
+    #print(Q_aL)
     density.ghat.add(rho_g, Q_aL)
     return rho_g, D_ap
 
@@ -48,22 +48,33 @@ class Full4C(RIAlgorithm):
         K_MMMM = self.get_K_MMMM(kpt1, k_c, kpt2, krho_c)
         V_MM = -0.5*self.exx_fraction * np.einsum('ikjl,kl', K_MMMM, rho2_MM)
         E = 0.5 * np.einsum('ij,ij', rho1_MM, V_MM)
-        print(kpt2.q, kpt2.f_n, kpt2.eps_n)
+        #print(kpt2.q, kpt2.f_n, kpt2.eps_n)
         return E.real, V_MM
 
     def get_K_MMMM(self, kpt1, k1_c, kpt2, k2_c):
         first = True
         # Caching for precalculated results
-        print('Requesting K_MMMM for kpt pair ', k1_c, k2_c)
+        #print('Requesting K_MMMM for kpt pair ', k1_c, k2_c)
         k12_c = str((k1_c, k2_c))
         if k12_c in self.K_kkMMMM:
             return self.K_kkMMMM[k12_c]
 
+        if self.screening_omega != 0.0 or np.all(self.density.gd.pbc_c):
+            K_MMMM = self.get_K_MMMM_pbc(kpt1, k1_c, kpt2, k2_c)
+        elif self.screening_omega == 0.0 and not np.any(self.density.gd.pbc_c):
+            K_MMMM = self.get_K_MMMM_finite(kpt1, k1_c, kpt2, k2_c)
+        else:
+            raise NotImplementedError    
+
+        self.K_kkMMMM[k12_c] = K_MMMM
+        return K_MMMM
+
+    def get_K_MMMM_pbc(self, kpt1, k1_c, kpt2, k2_c):
         wfs = self.wfs
         density = self.density
 
         q_c = (k1_c - k2_c)
-        print(q_c,'q_c')
+        print(q_c,'q_c',k1_c,k2_c)
 
         finegd = GridDescriptor(self.density.finegd.N_c, 
                                 self.density.finegd.cell_cv,
@@ -73,8 +84,7 @@ class Full4C(RIAlgorithm):
         if self.screening_omega != 0.0:
             coulomb = ShortRangeCoulomb(self.screening_omega)
         else:
-            xxx
-            coulomb = WSTC(finegd.cell_cv, finegd.N_c)
+            coulomb = WSTC(finegd.cell_cv, np.array([3,3,3]))
 
 
         gd = self.density.gd
@@ -83,7 +93,7 @@ class Full4C(RIAlgorithm):
         
         #qd = KPointDescriptor([0*q_c])
         qd = KPointDescriptor([-q_c])
-        pd12 = PWDescriptor(None, finegd, complex, kd=qd)
+        pd12 = PWDescriptor(10.0, finegd, complex, kd=qd) #10 Ha =  270 eV cutoff
         v_G = coulomb.get_potential(pd12)
 
         # Exchange compensation charges
@@ -92,7 +102,7 @@ class Full4C(RIAlgorithm):
 
         nao = self.wfs.setups.nao
         K_MMMM = np.zeros( (nao, nao, nao, nao ), dtype=complex )
-        print('Allocating ', K_MMMM.itemsize / 1024.0**2,' MB')
+        #print('Allocating ', K_MMMM.itemsize / 1024.0**2,' MB')
 
         #gd = self.density.gd
 
@@ -104,7 +114,7 @@ class Full4C(RIAlgorithm):
         # Since this is debug, do not care about memory use
         rho_pG = pd12.zeros( len(pairs_p), dtype=complex, q=0)
         V_pG = pd12.zeros( len(pairs_p), dtype=complex, q=0 )
-        print('Allocating ', 2*rho_pG.itemsize / 1024.0**2,' MB')
+        #print('Allocating ', 2*rho_pG.itemsize / 1024.0**2,' MB')
 
         # Put wave functions of the two basis functions to the grid
         phit1_MG = gd.zeros(nao, dtype=complex)
@@ -114,7 +124,8 @@ class Full4C(RIAlgorithm):
         self.wfs.basis_functions.lcao_to_grid(np.eye(nao, dtype=complex), phit2_MG, kpt2.q)
 
         for p1, (M1, M2) in enumerate(pairs_p):
-            print('Potentials for pair %d/%d' % (p1, len(pairs_p)))
+            if p1 % 100 == 0:
+                print('Potentials for pair %d/%d' % (p1, len(pairs_p)))
             rhot_xG = self.density.gd.zeros((1,), dtype=complex) 
             # Construct the product of two basis functions
             rhot_xG[0][:] = phit1_MG[M1].conjugate() * phit2_MG[M2] * density.gd.plane_wave(q_c)
@@ -130,10 +141,10 @@ class Full4C(RIAlgorithm):
             rhot_xg = finegd.zeros((1,), dtype=complex)
             interpolator.apply(rhot_xG, rhot_xg, np.ones((3, 2), complex))
 
-            if 1:
-                N = np.linalg.norm(rhot_xg - ghat.pd.ifft(ghat.pd.fft(rhot_xg)))
-                print('Norms', N)
-                assert N<1e-7
+            #if 1:
+            #    N = np.linalg.norm(rhot_xg - ghat.pd.ifft(ghat.pd.fft(rhot_xg)))
+            #    print('Norms', N)
+            #    assert N<1e-7
 
             #print(self.density.gd.integrate(rhot_xG),'Real space norm')
 
@@ -165,18 +176,102 @@ class Full4C(RIAlgorithm):
         print('Norms',  pd12.integrate(rho_pG, ones_G))
         """
 
-        K_pp = pd12.integrate(rho_pG, V_pG.conjugate())
-        print('K_pp*',K_pp)
+        #K_pp = pd12.integrate(rho_pG, V_pG.conjugate())
+        #print('K_pp*',K_pp)
         K_pp = pd12.integrate(rho_pG, V_pG)
-        print('K_pp',K_pp)
+        #print('K_pp',K_pp)
         for p1, (M1, M2) in enumerate(pairs_p):
             for p2, (M3, M4) in enumerate(pairs_p):
                 K = K_pp[p1, p2]
                 K_MMMM[M1,M2,M3,M4] = K
 
-        self.K_kkMMMM[k12_c] = K_MMMM
-        with open('K_MMMM.txt','a') as f:
-            print(k12_c, K_MMMM, file=f)
+        #print('Calculated K', K_MMMM)
+        #with open('K_MMMM.txt','a') as f:
+        #    print(k12_c, K_MMMM, file=f)
+        return K_MMMM
+
+    def get_K_MMMM_finite(self, kpt1, k1_c, kpt2, k2_c):
+        assert kpt1.q == 0
+        assert kpt2.q == 0
+        wfs = self.wfs
+        density = self.density
+
+        q_c = (k1_c - k2_c)
+        assert np.all(q_c == 0.0)
+
+        finegd = self.density.finegd 
+
+        # Create descriptors for the charge density (with symmetry q_c)
+        if self.screening_omega != 0.0:
+            raise NotImplementedError
+
+        gd = self.density.gd
+        interpolator = self.density.interpolator
+        restrictor = self.hamiltonian.restrictor
+        
+        nao = self.wfs.setups.nao
+        K_MMMM = np.zeros( (nao, nao, nao, nao )  )
+
+        pairs_p = []
+        for M1 in range(nao):
+            for M2 in range(nao):
+                pairs_p.append((M1,M2))
+
+        # Since this is debug, do not care about memory use
+        rho_pg = finegd.zeros( len(pairs_p) )
+        V_pg = finegd.zeros( len(pairs_p) )
+        print('Allocating ', 2*rho_pg.itemsize / 1024.0**2,' MB')
+
+        # Put wave functions of the two basis functions to the grid
+        phit1_MG = gd.zeros(nao)
+        self.wfs.basis_functions.lcao_to_grid(np.eye(nao), phit1_MG, kpt1.q)
+
+        for p1, (M1, M2) in enumerate(pairs_p):
+            if p1 % 100 == 0:
+                print('Potentials for pair %d/%d' % (p1, len(pairs_p)))
+            # Construct the product of two basis functions
+            rhot_G = phit1_MG[M1] * phit1_MG[M2]
+
+            rhot_g = finegd.zeros()
+            interpolator.apply(rhot_G, rhot_g)
+
+            # Add compensation charges in reciprocal space
+            Q_aL = {}
+            D_ap = {}
+            for a in self.wfs.P_aqMi:
+                P1_i = self.wfs.P_aqMi[a][kpt1.q][M1]
+                P2_i = self.wfs.P_aqMi[a][kpt2.q][M2]
+                D_ii = np.outer(P1_i, P2_i.conjugate())
+                D_p = pack(D_ii)
+                D_ap[a] = D_p
+                Q_aL[a] = np.dot(D_p, self.density.setups[a].Delta_pL)
+
+            self.density.ghat.add(rhot_g, Q_aL)
+
+            V_g = finegd.zeros()
+            self.hamiltonian.poisson.solve(V_g, rhot_g, charge=None)
+
+            rho_pg[p1][:] = rhot_g
+            V_pg[p1][:] = V_g
+
+        """ones_g = finegd.zeros(1, dtype=complex)
+        ones_g[:] = 1.0
+        ones_G = ghat.pd.fft(ones_g)
+        """
+        print('Norms',  finegd.integrate(rho_pg))
+
+        #K_pp = pd12.integrate(rho_pG, V_pG.conjugate())
+        #print('K_pp*',K_pp)
+        K_pp = finegd.integrate(rho_pg, V_pg)
+        #print('K_pp',K_pp)
+        for p1, (M1, M2) in enumerate(pairs_p):
+            for p2, (M3, M4) in enumerate(pairs_p):
+                K = K_pp[p1, p2]
+                K_MMMM[M1,M2,M3,M4] = K
+
+        print('Calculated K', K_MMMM)
+        #with open('K_MMMM.txt','a') as f:
+        #    print(k12_c, K_MMMM, file=f)
         return K_MMMM
 
     def get_description(self):
