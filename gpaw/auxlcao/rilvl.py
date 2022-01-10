@@ -11,9 +11,15 @@ from gpaw.transformers import Transformer
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb as WSTC
 
 from gpaw.auxlcao.multipole import calculate_W_qLL
+from gpaw.auxlcao.procedures import calculate_V_qAA
 
 import matplotlib.pyplot as plt
 from numpy.matlib import repmat
+
+class RIBasisMaker:
+    def __init__(self, setup):
+        self.setup = setup
+
 
 class RILVL(RIAlgorithm):
     def __init__(self, exx_fraction=None, screening_omega=None, lcomp=2):
@@ -22,23 +28,92 @@ class RILVL(RIAlgorithm):
         assert self.lcomp == 2
         self.K_kkMMMM={}
 
+    def prepare_setups(self):
+        RIAlgorithm.prepare_setups(self)
+
     def set_positions(self, spos_ac):
         RIAlgorithm.set_positions(self, spos_ac)
+
+        kd = self.wfs.kd
+        self.bzq_qc = bzq_qc = kd.get_bz_q_points()
+        print('Number of q-points: ', len(bzq_qc))
+
         with self.timer('RI-V: calculate W_qLL'):
              self.W_qLL = calculate_W_qLL(self.density.setups,\
                                           self.hamiltonian.gd.cell_cv,
                                           spos_ac,
                                           self.hamiltonian.gd.pbc_c,
-                                          self.wfs.kd,
+                                          bzq_qc,
                                           self.wfs.dtype,
                                           self.lcomp, omega=self.screening_omega)
-        self.spos_ac = spos_ac
+
+       
+        for q, bzq_c in enumerate(bzq_qc):
+            with self.timer('RI-V: calculate V_AA'):
+                self.V_qAA = calculate_V_qAA(auxt_aj, M_aj, self.W_LL, self.lmaxcomp)
+                assert not np.isnan(self.V_qAA).any()
+
+            with self.timer('RI-V: calculate S_AA'):
+                self.S_qAA = calculate_S_qAA(self.matrix_elements)
+                assert not np.isnan(self.S_qAA).any()
+
+            with self.timer('RI-V: calculate M_AA'):
+                self.M_qAA = calculate_M_AA(self.matrix_elements, auxt_aj, M_aj, self.lmaxcomp)
+                self.W_qAA = self.V_qAA + self.S_qAA + self.M_qAA + self.M_qAA.T
+                assert not np.isnan(self.M_qAA).any()
+
+        for pair in self.kpt_pairs:
+            with self.timer('RI-V: Calculate P_AMM'):
+                self.P_kAMM[pair] = calculate_P_AMM(self.matrix_elements, self.W_AA)
+                assert not np.isnan(self.P_AMM).any()
+
+        with self.timer('RI-V: Calculate P_LMM'):
+            self.P_LMM = calculate_P_LMM(self.matrix_elements, self.wfs.setups, self.wfs.atomic_correction)
+            assert not np.isnan(self.P_LMM).any()
+
+        with self.timer('RI-V: Calculate W_AL'):
+            self.W_AL = calculate_W_AL(self.matrix_elements, auxt_aj, M_aj, self.W_LL)
+            assert not np.isnan(self.W_AL).any()
+
+        with self.timer('RI-V: Calculate WP_AMM'):
+
+            self.WP_AMM = np.einsum('AB,Bij',self.W_AA, self.P_AMM, optimize=True)
+            self.WP_AMM += np.einsum('AB,Bij',self.W_AL, self.P_LMM, optimize=True)
+
+        with self.timer('RI-V: Calculate WP_LMM'):
+            self.WP_LMM = np.einsum('BA,Bij',self.W_AL, self.P_AMM, optimize=True)
+            self.WP_LMM += np.einsum('AB,Bij',self.W_LL, self.P_LMM, optimize=True)
+
 
     def calculate_exchange_per_kpt_pair(self, kpt1, k_c, rho1_MM, kpt2, krho_c, rho2_MM):
-        K_MMMM = self.get_K_MMMM(kpt1, k_c, kpt2, krho_c)
-        V_MM = -0.5*self.exx_fraction * np.einsum('ikjl,kl', K_MMMM, rho2_MM)
-        E = 0.5 * np.einsum('ij,ij', rho1_MM, V_MM)
-        return E.real, V_MM
+        kpt_pair = (kpt1.q, kpt2.q)
+        with self.timer('RI-V: 1st contraction AMM MM'):
+            WP_AMM_RHO_MM = np.einsum('Ajl,kl',
+                                        self.WP_kkAMM[kpt_pair],
+                                        rho2_MM, optimize=True)
+
+        with self.timer('RI-V: 2nd contraction AMM AMM'):
+            F_MM = np.einsum('Aik,Ajk',
+                              self.P_kkAMM[kpt_pair],
+                              WP_AMM_RHO_MM,
+                              optimize=True)
+            WP_AMM_RHO_MM = None
+
+        with self.timer('RI-V: 1st contraction LMM MM'):
+            WP_LMM_RHO_MM = np.einsum('Ajl,kl',
+                                       self.WP_kkLMM[kpt_pair],
+                                       rho2_MM, optimize=True)
+
+        with self.timer('RI-V: 2nd contraction LMM LMM'):
+            F_MM += np.einsum('Aik,Ajk',
+                              self.P_kkLMM[kpt_pair],
+                              WP_LMM_RHO_MM,
+                              optimize=True)
+            WP_LMM_RHO_MM = None
+
+        F_MM *= -0.5*self.exx_fraction
+        evv = -0.5 * 0.5 * self.exx_fraction * np.einsum('ij,ij', F_MM, rho1_MM, optimize=True)
+        return evv.real, F_MM
 
     def get_K_MMMM(self, kpt1, k1_c, kpt2, k2_c):
         k12_c = str((k1_c, k2_c))
