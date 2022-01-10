@@ -24,15 +24,13 @@ def magmoms2dims(magmoms: np.ndarray | None) -> tuple[int, int]:
 class Density:
     def __init__(self,
                  nt_sR,
-                 nct_R,
                  D_asii,
+                 charge,
                  delta_aiiL,
                  delta0_a,
                  N0_aii,
-                 l_aj,
-                 charge=0.0):
+                 l_aj):
         self.nt_sR = nt_sR
-        self.nct_R = nct_R
         self.D_asii = D_asii
         self.delta_aiiL = delta_aiiL
         self.delta0_a = delta0_a
@@ -73,11 +71,18 @@ class Density:
         x = -charge / pseudo_charge
         self.nt_sR.data *= x
 
+    def update(self, nct_R, ibzwfs):
+        self.nt_sR.data[:] = 0.0
+        self.D_asii.data[:] = 0.0
+        ibzwfs.add_to_density(self.nt_sR, self.D_asii)
+        self.nt_sR.data[:] += nct_R.data
+        self.symmetrize(ibzwfs.ibz.symmetries)
+
     def symmetrize(self, symmetries):
         self.nt_sR.symmetrize(symmetries.rotation_scc,
                               symmetries.translation_sc)
 
-        D_asii = self.D_asii.collect(broadcast=True, copy=True)
+        D_asii = self.D_asii.gather(broadcast=True, copy=True)
         for a1, D_sii in self.D_asii.items():
             D_sii[:] = 0.0
             for a2, rotation_ii in zip(symmetries.a_sa[:, a1],
@@ -96,16 +101,14 @@ class Density:
             out.data[I1:I2] = ds @ P_ain.data[I1:I2]
         return out
 
-    def move(self, fracpos_ac, nct_aR):
-        self.nt_sR.data[:self.ndensities] -= self.nct_R.data
-        nct_aR.to_uniform_grid(out=self.nct_R,
-                               scale=1.0 / self.ndensities)
-        self.nt_sR.data[:self.ndensities] += self.nct_R.data
+    def move(self, delta_nct_R):
+        self.nt_sR.data[:self.ndensities] += delta_nct_R.data
 
     @classmethod
     def from_superposition(cls,
                            grid,
-                           nct,
+                           nct_R,
+                           atomdist,
                            setups,
                            basis_set,
                            magmoms=None,
@@ -113,9 +116,6 @@ class Density:
                            hund=False):
         # density and magnitization components:
         ndens, nmag = magmoms2dims(magmoms)
-
-        nct_R = grid.empty()
-        nct.to_uniform_grid(out=nct_R, scale=1.0 / ndens)
 
         if magmoms is None:
             magmoms = [None] * len(setups)
@@ -130,19 +130,29 @@ class Density:
 
         atom_array_layout = AtomArraysLayout([(setup.ni, setup.ni)
                                               for setup in setups],
-                                             atomdist=nct.layout.atomdist)
+                                             atomdist=atomdist)
         D_asii = atom_array_layout.empty(ndens + nmag)
         for a, D_sii in D_asii.items():
             D_sii[:] = unpack2(setups[a].initialize_density_matrix(f_asi[a]))
 
+        return cls.from_data_and_setups(nt_sR,
+                                        D_asii,
+                                        charge,
+                                        setups)
+
+    @classmethod
+    def from_data_and_setups(cls,
+                             nt_sR,
+                             D_asii,
+                             charge,
+                             setups):
         return cls(nt_sR,
-                   nct_R,
                    D_asii,
+                   charge,
                    [setup.Delta_iiL for setup in setups],
                    [setup.Delta0 for setup in setups],
                    [unpack(setup.N0_p) for setup in setups],
-                   [setup.l_j for setup in setups],
-                   charge)
+                   [setup.l_j for setup in setups])
 
     def calculate_magnetic_moments(self):
         magmom_av = np.zeros((self.natoms, 3))

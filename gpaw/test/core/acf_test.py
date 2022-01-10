@@ -34,7 +34,7 @@ def test_acf():
     I = np.pi / 2 / alpha**1.5
     assert f1.integrate() == pytest.approx(I)
 
-    f2 = f1.collect(broadcast=True)
+    f2 = f1.gather(broadcast=True)
     x, y = f2.xy(10, 10, ...)
     y0 = np.exp(-alpha * (x - a / 2)**2) / (4 * np.pi)**0.5
     assert abs(y - y0).max() == pytest.approx(0.0, abs=0.001)

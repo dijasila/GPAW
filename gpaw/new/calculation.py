@@ -15,16 +15,18 @@ class DFTState:
                  ibzwfs: IBZWaveFunctions,
                  density,
                  potential: Potential,
-                 vHt_x=None):
+                 vHt_x=None,
+                 nct_R=None):
+        """State of a Kohn-Sham calculation."""
         self.ibzwfs = ibzwfs
         self.density = density
         self.potential = potential
         self.vHt_x = vHt_x  # initial guess for Hartree potential
 
-    def move(self, fracpos_ac, nct_aR):
+    def move(self, fracpos_ac, delta_nct_R):
         self.ibzwfs.move(fracpos_ac)
-        self.density.move(fracpos_ac, nct_aR)
         self.potential.energies.clear()
+        self.density.move(delta_nct_R)
 
 
 class DFTCalculation:
@@ -58,7 +60,7 @@ class DFTCalculation:
         density.normalize()
 
         pot_calc = builder.create_potential_calculator()
-        potential, vHt_x = pot_calc.calculate(density)
+        potential, vHt_x, _ = pot_calc.calculate(density)
 
         if params.random:
             log('Initializing wave functions with random numbers')
@@ -79,16 +81,18 @@ class DFTCalculation:
     def move_atoms(self, atoms, log) -> DFTCalculation:
         self.fracpos_ac = atoms.get_scaled_positions()
 
-        self.pot_calc.move(self.fracpos_ac)
-        self.state.move(self.fracpos_ac, self.pot_calc.nct_aR)
-        self.results = {}
+        delta_nct_R = self.pot_calc.move(self.fracpos_ac,
+                                         self.state.density.ndensities)
+        self.state.move(self.fracpos_ac, delta_nct_R)
 
-        _, magmom_av = self.state.density.calculate_magnetic_moments()
-
+        magmoms = self.results.get('magmoms')
         write_atoms(atoms,
                     self.state.density.nt_sR.desc,
-                    magmom_av,
+                    magmoms,
                     log)
+
+        self.results = {}
+
         return self
 
     def iconverge(self, log, convergence=None, maxiter=None):
@@ -104,6 +108,7 @@ class DFTCalculation:
                  convergence=None,
                  maxiter=None,
                  steps=99999999999999999):
+        """Converge to self-consistent solution of KS-equation."""
         for step, _ in enumerate(self.iconverge(log, convergence, maxiter),
                                  start=1):
             if step == steps:
@@ -127,6 +132,26 @@ class DFTCalculation:
 
         self.results['free_energy'] = free_energy
         self.results['energy'] = extrapolated_energy
+
+    def dipole(self, log):
+        dipole_v = self.density.calculate_dipole_moment() * Bohr
+        self.log('Dipole moment: ({:.6f}, {:.6f}, {:.6f}) |e|*Ang\n'
+                 .format(*dipole_v))
+        self.results['dipole'] = dipole_v
+
+    def magmoms(self, log):
+        mm_v, mm_av = self.state.density.calculate_magnetic_moments()
+        self.results['magmom'] = mm_v[2]
+        self.results['magmoms'] = mm_av[:, 2].copy()
+
+        if self.state.density.ncomponents > 1:
+            x, y, z = mm_v
+            log(f'Total magnetic moment: ({x:.6f}, {y:.6f}, {z:.6f})')
+            log('Local magnetic moments:')
+            for a, (setup, m_v) in enumerate(zip(self.setups, mm_av)):
+                x, y, z = m_v
+                log(f'{a:4} {setup.symbol:2} ({x:9.6f}, {y:9.6f}, {z:9.6f})')
+            log()
 
     def forces(self, log):
         """Return atomic force contributions."""
@@ -160,7 +185,7 @@ class DFTCalculation:
 
         F_av = self.state.ibzwfs.ibz.symmetries.symmetrize_forces(F_av)
 
-        log('\nForces in eV/Ang:')
+        log('\nForces [eV/Ang]:')
         c = Ha / Bohr
         for a, setup in enumerate(self.setups):
             x, y, z = F_av[a] * c
@@ -170,10 +195,6 @@ class DFTCalculation:
 
     def write_converged(self, log):
         self.state.ibzwfs.write_summary(log)
-
-    def ase_interface(self, log):
-        from gpaw.new.ase_interface import ASECalculator
-        return ASECalculator(self.builder.params, log, self)
 
 
 def write_atoms(atoms, grid, magmoms, log):
