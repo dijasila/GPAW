@@ -1,6 +1,5 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
-
 """Main gpaw module."""
 import os
 import sys
@@ -41,15 +40,6 @@ def disable_dry_run():
 if 'OMP_NUM_THREADS' not in os.environ:
     os.environ['OMP_NUM_THREADS'] = '1'
 
-# Symbol look may fail if library linked agains _gpaw.so tries internally
-# dlopen another .so. (MKL is one particular example)
-# Thus, expose symbols from libraries used by _gpaw
-old_dlflags = sys.getdlopenflags()
-sys.setdlopenflags(old_dlflags | os.RTLD_GLOBAL)
-try:
-    import _gpaw
-finally:
-    sys.setdlopenflags(old_dlflags)
 
 from gpaw.broadcast_imports import broadcast_imports  # noqa
 
@@ -60,6 +50,7 @@ with broadcast_imports:
     from argparse import ArgumentParser, REMAINDER, RawDescriptionHelpFormatter
 
     import numpy as np
+    import _gpaw
 
 
 class ConvergenceError(Exception):

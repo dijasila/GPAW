@@ -28,7 +28,7 @@ def calculate_residuals(residuals_nX: DA,
     P2_ain.data[:] = wfs.P_ain.data * wfs.myeig_n
     dS(P2_ain, P2_ain)
     P1_ain.data -= P2_ain.data
-    wfs.pt_acf.add_to(residuals_nX, P1_ain)
+    wfs.pt_aiX.add_to(residuals_nX, P1_ain)
 
 
 def calculate_weights(converge: int | str, wfs: WaveFunctions) -> Array1D:
@@ -132,10 +132,10 @@ class Davidson:
 
     def iterate(self, ibzwfs, Ht, dH, dS) -> float:
         error = 0.0
-        for wfs in ibzwfs.mykpts:
+        for wfs in ibzwfs:
             e = self.iterate1(wfs, Ht, dH, dS)
             error += wfs.weight * e
-        return error * ibzwfs.spin_degeneracy
+        return ibzwfs.kpt_comm.sum(error) * ibzwfs.spin_degeneracy
 
     def iterate1(self, wfs, Ht, dH, dS):
         H_NN = self.H_NN
@@ -193,7 +193,7 @@ class Davidson:
             self.preconditioner(psit_nX, residual_nX, out=psit2_nX)
 
             # Calculate projections
-            wfs.pt_acf.integrate(psit2_nX, out=P2_ain)
+            wfs.pt_aiX.integrate(psit2_nX, out=P2_ain)
 
             # <psi2 | H | psi2>
             me(psit2_nX, psit2_nX, function=Ht)

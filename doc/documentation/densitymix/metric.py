@@ -1,10 +1,8 @@
 # creates: metric.png
 
 import numpy as np
-import matplotlib
-import pylab as plt
+import matplotlib.pyplot as plt
 from math import pi, cos
-from distutils.version import LooseVersion
 
 
 # Special points in the BZ of a simple cubic cell
@@ -45,11 +43,7 @@ plt.xticks(lines, textpath)
 plt.yticks([0, 1], [r'$1$', r'$w+1$'])
 plt.axis(lim)
 
-# The pad keyword to legend was deprecated in MPL v. 0.98.4
-if LooseVersion(matplotlib.__version__) < '0.98.4':
-    kwpad = {'pad': 0.1, 'axespad': 0.06}
-else:
-    kwpad = {'borderpad': 0.2, 'borderaxespad': 0.06}
+kwpad = {'borderpad': 0.2, 'borderaxespad': 0.06}
 
 plt.legend(loc='upper right', **kwpad)
 plt.title('Special metric for density changes')

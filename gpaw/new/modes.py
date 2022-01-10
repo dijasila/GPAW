@@ -20,8 +20,8 @@ class Mode:
     name: str
     interpolation: str
 
-    def __init__(self, dtype=None):
-        self.dtype = dtype
+    def __init__(self, force_complex_dtype=False):
+        self.force_complex_dtype = force_complex_dtype
 
     def create_uniform_grid(self,
                             h: float | None,
@@ -51,17 +51,20 @@ class Mode:
 class PWMode(Mode):
     name = 'pw'
 
-    def __init__(self, ecut: float = 340.0, dtype=None):
-        Mode.__init__(self, dtype)
+    def __init__(self, ecut: float = 340.0):
+        Mode.__init__(self)
         if ecut is not None:
             ecut /= Ha
         self.ecut = ecut
 
-    def create_wf_description(self, grid: UniformGrid) -> PlaneWaves:
-        return PlaneWaves(ecut=self.ecut, cell=grid.cell)
+    def create_wf_description(self,
+                              grid: UniformGrid,
+                              dtype) -> PlaneWaves:
 
-    def create_pseudo_core_densities(self, setups, wf_pw, fracpos_ac):
-        pw = wf_pw.new(ecut=2 * self.ecut)
+        return PlaneWaves(ecut=self.ecut, cell=grid.cell, dtype=dtype)
+
+    def create_pseudo_core_densities(self, setups, grid, fracpos_ac):
+        pw = PlaneWaves(ecut=2 * self.ecut, cell=grid.cell)
         return setups.create_pseudo_core_densities(pw, fracpos_ac)
 
     def create_poisson_solver(self, fine_grid_pw, params):
@@ -118,11 +121,13 @@ class FDMode(Mode):
     stencil = 3
     interpolation = 'not fft'
 
-    def create_wf_description(self, grid: UniformGrid) -> UniformGrid:
-        return grid
+    def create_wf_description(self,
+                              grid: UniformGrid,
+                              dtype) -> UniformGrid:
+        return grid.new(dtype=dtype)
 
-    def create_pseudo_core_densities(self, setups, wf_desc, fracpos_ac):
-        return setups.create_pseudo_core_densities(wf_desc, fracpos_ac)
+    def create_pseudo_core_densities(self, setups, grid, fracpos_ac):
+        return setups.create_pseudo_core_densities(grid, fracpos_ac)
 
     def create_poisson_solver(self,
                               grid: UniformGrid,

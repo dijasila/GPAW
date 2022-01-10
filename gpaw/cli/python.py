@@ -10,6 +10,8 @@ class CLICommand:
         parser.add_argument('--dry-run', '-z', type=int, default=0,
                             metavar='NCPUS',
                             help='Dry run on NCPUS cpus.')
+        parser.add_argument('-d', '--debug', action='store_true',
+                            help='Run in debug-mode.')
         group = parser.add_mutually_exclusive_group()
         group.add_argument('--command', '-c', dest='cmd',
                            help='Program passed in as string.')

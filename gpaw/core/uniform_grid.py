@@ -11,8 +11,9 @@ from gpaw.core.atom_centered_functions import UniformGridAtomCenteredFunctions
 from gpaw.core.domain import Domain
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.mpi import MPIComm, serial_comm
-from gpaw.typing import Array1D, Array4D, ArrayLike1D, ArrayLike2D
+from gpaw.typing import Array1D, Array4D, ArrayLike1D, ArrayLike2D, Vector
 from gpaw.utilities.grid import GridRedistributor
+from gpaw.new import cached_property
 
 
 class UniformGrid(Domain):
@@ -21,7 +22,7 @@ class UniformGrid(Domain):
                  cell: ArrayLike1D | ArrayLike2D,
                  size: ArrayLike1D,
                  pbc=(True, True, True),
-                 kpt: ArrayLike1D = (0.0, 0.0, 0.0),
+                 kpt: Vector = None,
                  comm: MPIComm = serial_comm,
                  decomp: Sequence[Sequence[int]] = None,
                  dtype=None):
@@ -33,9 +34,9 @@ class UniformGrid(Domain):
             decomp = gd.n_cp
         self.decomp_cp = decomp
 
-        self.mypos_c = np.unravel_index(comm.rank,
-                                        [len(d_p) - 1
-                                         for d_p in self.decomp_cp])
+        self.parsize_c = np.array([len(d_p) - 1 for d_p in self.decomp_cp])
+        self.mypos_c = np.unravel_index(comm.rank, self.parsize_c)
+
         self.start_c = np.array([d_p[p]
                                  for d_p, p
                                  in zip(self.decomp_cp, self.mypos_c)])
@@ -49,27 +50,21 @@ class UniformGrid(Domain):
 
         self.dv = abs(np.linalg.det(self.cell_cv)) / self.size_c.prod()
 
-        self._phase_factors_cd = None
-
-    def __eqqqqqqq__(self, other):
-        return ((self.size_c == other.size_c).all() and
-                (self.pbc_c == other.pbc_c).all())
-
-    # @cached_property
-    def phase_factors_cd(self):
-        if self._phase_factors_cd is None:
-            assert self.comm.size == 1
-            disp_cd = np.array([[1.0, -1.0], [1.0, -1.0], [1.0, -1.0]])
-            self._phase_factors_cd = np.exp(2j * np.pi *
-                                            disp_cd *
-                                            self.kpt_c[:, np.newaxis])
-        return self._phase_factors_cd
-
     def __repr__(self):
-        a, b, c = self.size_c
-        comm = self.comm
-        return (f'UniformGrid(size={a}*{b}*{c}, pbc={self.pbc_c}, '
-                f'comm={comm.rank}/{comm.size}, dtype={self.dtype})')
+        return Domain.__repr__(self).replace(
+            'Domain(',
+            f'UniformGrid(size={self.size_c.tolist()}, ')
+
+    @cached_property
+    def phase_factors_cd(self):
+        delta_d = np.array([1, -1])
+        disp_cd = np.empty((3, 2))
+        for pos, pbc, size, disp_d in zip(self.mypos_c, self.pbc_c,
+                                          self.parsize_c, disp_cd):
+            disp_d[:] = (pos + delta_d) // size
+        return np.exp(2j * np.pi *
+                      disp_cd *
+                      self.kpt_c[:, np.newaxis])
 
     def new(self,
             size=None,
@@ -79,13 +74,14 @@ class UniformGrid(Domain):
             decomp=None,
             dtype=None) -> UniformGrid:
         if decomp is None and comm == 'inherit':
-            if (size == self.size_c).all() and (pbc == self.pbc_c).all():
+            if size is None and pbc is None:
                 decomp = self.decomp_cp
         comm = self.comm if comm == 'inherit' else comm
         return UniformGrid(cell=self.cell_cv,
                            size=self.size_c if size is None else size,
                            pbc=self.pbc_c if pbc is None else pbc,
-                           kpt=self.kpt_c if kpt is None else kpt,
+                           kpt=(self.kpt_c if self.kpt_c.any() else None)
+                           if kpt is None else kpt,
                            comm=comm or serial_comm,
                            decomp=decomp,
                            dtype=self.dtype if dtype is None else dtype)
@@ -106,17 +102,16 @@ class UniformGrid(Domain):
         return UniformGridAtomCenteredFunctions(functions, positions, self,
                                                 integral=integral, cut=cut)
 
-    def transformer(self, other):
+    def transformer(self, other: UniformGrid):
         from gpaw.transformers import Transformer
 
-        apply = Transformer(self._gd, other._gd, 3).apply
+        apply = Transformer(self._gd, other._gd, nn=3).apply
 
-        def transform(functions, out=None, preserve_integral=False):
+        def transform(functions, out=None):
             if out is None:
                 out = other.empty(functions.dims, functions.comm)
-            apply(functions.data, out.data)
-            if preserve_integral and not self.pbc_c.all():
-                out.data *= functions.integrate() / out.integrate()
+            for input, output in zip(functions._arrays(), out._arrays()):
+                apply(input, output)
             return out
 
         return transform
@@ -414,5 +409,20 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
                    out: UniformGridFunctions = None) -> None:
         assert out is not None
         for f, psit_R in zip(weights, self.data):
-            # Same as density.data += f * abs(psit_R)**2, but much faster:
+            # Same as out.data += f * abs(psit_R)**2, but much faster:
             _gpaw.add_to_density(f, psit_R, out.data)
+
+    def symmetrize(self, rotation_scc, translation_sc):
+        if len(rotation_scc) == 1:
+            return
+        a_xR = self.collect()
+        b_xR = a_xR.new()
+        if self.desc.comm.rank == 0:
+            t_sc = (translation_sc * self.desc.size_c).round().astype(int)
+            offset_c = 1 - self.desc.pbc_c
+            for a_R, b_R in zip(a_xR._arrays(), b_xR._arrays()):
+                b_R[:] = 0.0
+                for r_cc, t_c in zip(rotation_scc, t_sc):
+                    _gpaw.symmetrize_ft(a_R, b_R, r_cc, t_c, offset_c)
+        b_xR.distribute(out=self)
+        self.data *= 1.0 / len(rotation_scc)

@@ -11,7 +11,7 @@ from gpaw.core.matrix import Matrix
 from gpaw.core.uniform_grid import UniformGridFunctions
 from gpaw.mpi import MPIComm, serial_comm
 from gpaw.pw.descriptor import pad
-from gpaw.typing import Array1D, Array2D, ArrayLike1D, ArrayLike2D
+from gpaw.typing import Array1D, Array2D, ArrayLike1D, ArrayLike2D, Vector
 from gpaw.core.domain import Domain
 
 
@@ -20,7 +20,7 @@ class PlaneWaves(Domain):
                  *,
                  ecut: float,
                  cell: ArrayLike1D | ArrayLike2D,
-                 kpt: ArrayLike1D = (0.0, 0.0, 0.0),
+                 kpt: Vector = None,
                  comm: MPIComm = serial_comm,
                  dtype=None):
         self.ecut = ecut
@@ -48,11 +48,9 @@ class PlaneWaves(Domain):
         self.dv = abs(np.linalg.det(self.cell_cv))
 
     def __repr__(self) -> str:
-        comm = self.comm
-        txt = f'PlaneWaves(ecut={self.ecut}, cell={self.cell_cv.tolist()}'
-        if comm.size > 1:
-            txt += f', comm={comm.rank}/{comm.size}'
-        return txt + ')'
+        return Domain.__repr__(self).replace(
+            'Domain(',
+            f'PlaneWaves(ecut={self.ecut}, ')
 
     def reciprocal_vectors(self) -> Array2D:
         """Returns reciprocal lattice vectors, G + k,
@@ -243,6 +241,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
 
     def integrate(self, other: PlaneWaveExpansions = None) -> np.ndarray:
         if other is not None:
+            assert self.comm.size == 1
             assert self.desc.dtype == other.desc.dtype
             a = self._arrays()
             b = other._arrays()
@@ -258,10 +257,11 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
             result.shape = self.dims + other.dims
         else:
             dv = self.dv
-            result = self.data[..., 0]
-            if self.desc.comm.rank > 0:
-                result = np.empty_like(result)
-            self.desc.comm.broadcast(result[np.newaxis], 0)
+            if self.desc.comm.rank == 0:
+                result = self.data[..., 0]
+            else:
+                result = np.empty(self.mydims, complex)
+            self.desc.comm.broadcast(result, 0)
 
         if self.desc.dtype == float:
             result = result.real
