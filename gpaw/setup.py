@@ -595,6 +595,17 @@ class BaseSetup:
         self._omega = omega
         (wg_lg, wn_lqg, wnt_lqg, wnc_g, wnct_g, wmct_g) = \
             self.calculate_integral_potentials(screened)
+
+        # Also evaluate the compensation charge integrals at this stage
+        Lmax = len(self.g_lg)**2
+        self.W_LL = np.zeros((Lmax, Lmax))
+        L = 0
+        for l, (g_l, wg_l) in enumerate(zip(self.g_lg, wg_lg)):
+            integral = np.dot(g_l, wg_l)
+            for m in range(2*l+1):
+                self.W_LL[L,L] = integral
+                L += 1
+
         self._Mw_pp = self.calculate_coulomb_corrections(
             wn_lqg, wnt_lqg, wg_lg, wnc_g, wmct_g)[1]
         return self._Mw_pp

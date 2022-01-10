@@ -4,6 +4,11 @@ import numpy as np
 from gpaw.auxlcao.generatedcode import generated_W_LL,\
                                        generated_W_LL_screening
 
+def get_W_LL_diagonals_from_setups(W_LL, lmax, setups):
+    S = (lmax+1)**2
+    for a, setup in enumerate(setups):
+        W_LL[a*S:(a+1)*S:,a*S:(a+1)*S] = setup.W_LL[:S, :S]
+
 
 def calculate_W_qLL(setups, cell_cv, spos_ac, pbc_c, kd, dtype, lcomp, coeff = 4*np.pi, omega=None):
     assert lcomp == 2
