@@ -10,17 +10,28 @@ from gpaw.pw.lfc import PWLFC
 from gpaw.transformers import Transformer
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb as WSTC
 
+from gpaw.auxlcao.multipole import calculate_W_qLL
 
 import matplotlib.pyplot as plt
 from numpy.matlib import repmat
 
 class RILVL(RIAlgorithm):
-    def __init__(self, exx_fraction=None, screening_omega=None):
+    def __init__(self, exx_fraction=None, screening_omega=None, lcomp=2):
         RIAlgorithm.__init__(self, 'RI-LVL', exx_fraction, screening_omega)
-        self.K_kkMMMM = {}
+        self.lcomp = lcomp
+        assert self.lcomp == 2
 
     def set_positions(self, spos_ac):
         RIAlgorithm.set_positions(self, spos_ac)
+        with self.timer('RI-V: calculate W_qLL'):
+             self.W_qLL = calculate_W_qLL(self.density.setups,\
+                                          self.hamiltonian.gd.cell_cv,
+                                          spos_ac,
+                                          self.hamiltonian.gd.pbc_c,
+                                          self.wfs.kd,
+                                          self.wfs.dtype,
+                                          self.lcomp, omega=self.screening_omega)
+
         self.spos_ac = spos_ac
 
     def calculate_exchange_per_kpt_pair(self, kpt1, k_c, rho1_MM, kpt2, krho_c, rho2_MM):

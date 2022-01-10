@@ -1,6 +1,10 @@
 from ase.neighborlist import PrimitiveNeighborList
 import numpy as np
 
+from gpaw.auxlcao.generatedcode import generated_W_LL,\
+                                       generated_W_LL_screening
+
+
 def calculate_W_qLL(setups, cell_cv, spos_ac, pbc_c, kd, dtype, lcomp, coeff = 4*np.pi, omega=None):
     assert lcomp == 2
 
@@ -9,7 +13,7 @@ def calculate_W_qLL(setups, cell_cv, spos_ac, pbc_c, kd, dtype, lcomp, coeff = 4
     W_LL = np.zeros((Na*S, Na*S))
     bzq_qc = kd.get_bz_q_points()
     nq = len(bzq_qc)
-    Wq_LL = np.zeros( (nq, Na*S, Na*S) )
+    Wq_LL = np.zeros( (nq, Na*S, Na*S), dtype=complex )
 
     # Calculate displacement vectors
     R_av = np.dot(spos_ac, cell_cv)
@@ -52,6 +56,8 @@ def calculate_W_qLL(setups, cell_cv, spos_ac, pbc_c, kd, dtype, lcomp, coeff = 4
         phase_q = np.exp(2j*np.pi*np.dot(bzq_qc, offset_c))
         W_qLL += phase_q[:, None, None] * W_LL[None, :, :]
 
+    print(W_qLL)
+    xxx
     return W_qLL
 
 
