@@ -17,7 +17,7 @@ from gpaw.typing import Array1D, Array2D
 
 def GPAW(filename: Union[str, Path, IO[str]] = None,
          **kwargs) -> ASECalculator:
-    """"""
+    """Create ASE-compatible GPAW calculator."""
     params = InputParameters(kwargs)
     txt = params.txt
     if txt == '?':
@@ -26,10 +26,10 @@ def GPAW(filename: Union[str, Path, IO[str]] = None,
     log = Logger(txt, world)
 
     if filename is not None:
-        kwargs.pop('txt')
+        kwargs.pop('txt', None)
         assert len(kwargs) == 0
-        calculation = read_gpw(filename, log)
-        return calculation.ase_interface()
+        calculation, params = read_gpw(filename, log, params.parallel)
+        return ASECalculator(params, log, calculation)
 
     write_header(log, world, kwargs)
     return ASECalculator(params, log)
@@ -49,11 +49,27 @@ class ASECalculator(OldStuff):
         self.timer = Timer()
 
     def calculate_property(self, atoms: Atoms, prop: str) -> Any:
+        """Calculate (if not already calculated) a property.
+
+        Must be one of
+
+        * energy
+        * forces
+        * stress
+        * magmom
+        * magmoms
+        * dipole
+        """
         log = self.log
 
         if self.calculation is not None:
             changes = compare_atoms(self.atoms, atoms)
-            if changes & {'number', 'pbc', 'cell'}:
+            if changes & {'numbers', 'pbc', 'cell'}:
+                if 'numbers' not in changes:
+                    magmom_a = self.calculation.results.get('magmoms')
+                    if magmom_a is not None:
+                        atoms = atoms.copy()
+                        atoms.set_initial_magnetic_moments(magmom_a)
                 self.calculation = None
 
         if self.calculation is None:
@@ -64,9 +80,7 @@ class ASECalculator(OldStuff):
             self.converge(atoms)
 
         if prop not in self.calculation.results:
-            if prop.endswith('energy'):
-                self.calculation.energies(log)
-            elif prop == 'forces':
+            if prop == 'forces':
                 with self.timer('Forces'):
                     self.calculation.forces(log)
             elif prop == 'stress':
@@ -88,8 +102,16 @@ class ASECalculator(OldStuff):
             self.calculation = self.calculation.move_atoms(atoms, self.log)
 
     def converge(self, atoms):
+        """Iterate to self-consistent solution.
+
+        Will also calculate "cheap" properties: energy, magnetic moments
+        and dipole moment.
+        """
         with self.timer('SCF'):
             self.calculation.converge(self.log)
+        self.calculation.energies(self.log)
+        # self.calculation.dipole(self.log)
+        self.calculation.magmoms(self.log)
         self.atoms = atoms.copy()
         self.calculation.write_converged(self.log)
 
@@ -120,7 +142,7 @@ def write_header(log, world, kwargs):
 
 def compare_atoms(a1: Atoms, a2: Atoms) -> set[str]:
     if len(a1.numbers) != len(a2.numbers) or (a1.numbers != a2.numbers).any():
-        return {'atomic_numbers'}
+        return {'numbers'}
     if (a1.pbc != a2.pbc).any():
         return {'pbc'}
     if abs(a1.cell - a2.cell).max() > 0.0:

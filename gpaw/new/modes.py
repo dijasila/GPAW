@@ -76,7 +76,7 @@ class PWMode(Mode):
                                     setups,
                                     xc,
                                     poisson_solver_params,
-                                    nct_ag):
+                                    nct_ag, nct_R):
         pw = nct_ag.pw
         fine_pw = pw.new(ecut=8 * self.ecut)
         poisson_solver = self.create_poisson_solver(fine_pw,
@@ -88,7 +88,7 @@ class PWMode(Mode):
                                             setups,
                                             xc,
                                             poisson_solver,
-                                            nct_ag)
+                                            nct_ag, nct_R)
 
     def create_hamiltonian_operator(self, grid, blocksize=10):
         return PWHamiltonian()
@@ -140,13 +140,14 @@ class FDMode(Mode):
                                     setups,
                                     xc,
                                     poisson_solver_params,
-                                    nct_ax):
+                                    nct_aR, nct_R):
         poisson_solver = self.create_poisson_solver(fine_grid,
                                                     poisson_solver_params)
         return UniformGridPotentialCalculator(grid,
                                               fine_grid,
                                               setups,
-                                              xc, poisson_solver, nct_ax)
+                                              xc, poisson_solver,
+                                              nct_aR, nct_R)
 
     def create_hamiltonian_operator(self, grid, blocksize=10):
         return FDHamiltonian(grid, self.stencil, blocksize)

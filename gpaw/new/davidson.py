@@ -173,9 +173,10 @@ class Davidson:
             return a.matrix_elements(b, domain_sum=False, out=M_nn,
                                      function=function)
 
-        calculate_residuals(residual_nX, dH, dS, wfs, P2_ain, P3_ain)
+        Ht = partial(Ht, out=residual_nX, spin=wfs.spin)
+        dH = partial(dH, spin=wfs.spin)
 
-        Ht = partial(Ht, out=residual_nX, spin=0)
+        calculate_residuals(residual_nX, dH, dS, wfs, P2_ain, P3_ain)
 
         def copy(C_nn: Array2D) -> None:
             domain_comm.sum(M_nn.data, 0)

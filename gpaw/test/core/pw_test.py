@@ -53,9 +53,9 @@ def test_pw_integrate():
         f = g.fft(pw=pw)
         print(f.data)
 
-        gg = (f.collect(broadcast=True)
-              .ifft(grid=g.desc.new(comm=None))
-              .distribute(grid=g.desc))
+        gg = g.new()
+        gg.scatter_from(f.collect(broadcast=True)
+                        .ifft(grid=g.desc.new(comm=None)))
         assert (g.data == gg.data).all()
 
         i1 = g.integrate()

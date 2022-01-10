@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from types import SimpleNamespace
 from typing import Sequence
 
 import _gpaw
@@ -12,7 +11,6 @@ from gpaw.core.domain import Domain
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.mpi import MPIComm, serial_comm
 from gpaw.typing import Array1D, Array4D, ArrayLike1D, ArrayLike2D, Vector
-from gpaw.utilities.grid import GridRedistributor
 from gpaw.new import cached_property
 
 
@@ -32,7 +30,7 @@ class UniformGrid(Domain):
         if decomp is None:
             gd = GridDescriptor(size, pbc_c=pbc, comm=comm)
             decomp = gd.n_cp
-        self.decomp_cp = decomp
+        self.decomp_cp = [np.asarray(d) for d in decomp]
 
         self.parsize_c = np.array([len(d_p) - 1 for d_p in self.decomp_cp])
         self.mypos_c = np.unravel_index(comm.rank, self.parsize_c)
@@ -90,6 +88,17 @@ class UniformGrid(Domain):
               shape: int | tuple[int, ...] = (),
               comm: MPIComm = serial_comm) -> UniformGridFunctions:
         return UniformGridFunctions(self, shape, comm)
+
+    def blocks(self, data):
+        s0, s1, s2 = self.parsize_c
+        d0_p, d1_p, d2_p = (d_p - d_p[0] for d_p in self.decomp_cp)
+        for p0 in range(s0):
+            b0, e0 = d0_p[p0:p0 + 2]
+            for p1 in range(s1):
+                b1, e1 = d1_p[p1:p1 + 2]
+                for p2 in range(s2):
+                    b2, e2 = d2_p[p2:p2 + 2]
+                    yield data[..., b0:e0, b1:e1, b2:e2]
 
     def xyz(self) -> Array4D:
         indices_Rc = np.indices(self.mysize_c).transpose((1, 2, 3, 0))
@@ -201,48 +210,65 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         x = np.arange(grid.start_c[c], grid.end_c[c]) * dx
         return x, y
 
-    def distribute(self, grid=None, out=None):
-        if out is self:
-            return out
-        if out is None:
-            if grid is None:
-                raise ValueError('You must spicify grid or out!')
-            out = grid.empty(self.dims, self.comm)
-        if grid is None:
-            grid = out.desc
-        if self.desc.comm.size == 1 and grid.comm.size == 1:
-            out.data[:] = self.data
-            return out
+    def scatter_from(self, data=None):
+        if isinstance(data, UniformGridFunctions):
+            data = data.data
 
-        bcast_comm = SimpleNamespace(
-            size=grid.comm.size // self.desc.comm.size)
-        redistributor = GridRedistributor(grid.comm, bcast_comm,
-                                          self.desc._gd, grid._gd)
-        redistributor.distribute(self.data, out.data)
-        return out
+        comm = self.desc.comm
+        if comm.size == 1:
+            self.data[:] = data
+            return
 
-    def collect(self, grid=None, out=None, broadcast=False):
-        if out is self:
-            return out
-        if out is None and grid is None:
+        if comm.rank != 0:
+            comm.receive(self.data, 0, 42)
+            return
+
+        requests = []
+        for rank, block in enumerate(self.desc.blocks(data)):
+            if rank != 0:
+                block = block.copy()
+                request = comm.send(block, rank, 42, False)
+                # Remember to store a reference to the
+                # send buffer (block) so that is isn't
+                # deallocated:
+                requests.append((request, block))
+            else:
+                self.data[:] = block
+
+        for request, _ in requests:
+            comm.wait(request)
+
+    def gather(self, broadcast=False):
+        comm = self.desc.comm
+        if comm.size == 1:
+            return self
+
+        if broadcast or comm.rank == 0:
             grid = self.desc.new(comm=serial_comm)
-        if out is None:
-            out = grid.empty(self.dims, self.comm)
-        if grid is None:
-            grid = out.desc
-        if self.desc.comm.size == 1 and grid.comm.size == 1:
-            out.data[:] = self.data
-            return out
+            out = grid.empty(self.dims)
 
-        bcast_comm = SimpleNamespace(
-            size=self.desc.comm.size // grid.comm.size,
-            broadcast=lambda array, rank: None)
-        redistributor = GridRedistributor(self.desc.comm,
-                                          bcast_comm,
-                                          grid._gd, self.desc._gd)
-        redistributor.collect(self.data, out.data)
+        if comm.rank != 0:
+            # There can be several sends before the corresponding receives
+            # are posted, so use syncronous send here
+            comm.ssend(self.data, 0, 301)
+            if broadcast:
+                comm.broadcast(out.data, 0)
+                return out
+            return
+
+        # Put the subdomains from the slaves into the big array
+        # for the whole domain:
+        for rank, block in enumerate(self.desc.blocks(out.data)):
+            if rank != 0:
+                buf = np.empty_like(block)
+                comm.receive(buf, rank, 301)
+                block[:] = buf
+            else:
+                block[:] = self.data
+
         if broadcast:
-            self.desc.comm.broadcast(out.data, 0)
+            comm.broadcast(out.data, 0)
+
         return out
 
     def fft(self, plan=None, pw=None, out=None):
@@ -254,7 +280,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
             pw = out.desc
         input = self
         if self.desc.comm.size > 1:
-            input = input.collect()
+            input = input.gather()
         if self.desc.comm.rank == 0:
             plan = plan or self.desc.fft_plans()[0]
             plan.in_R[:] = input.data
@@ -415,14 +441,20 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
     def symmetrize(self, rotation_scc, translation_sc):
         if len(rotation_scc) == 1:
             return
-        a_xR = self.collect()
-        b_xR = a_xR.new()
-        if self.desc.comm.rank == 0:
+
+        a_xR = self.gather()
+
+        if a_xR is None:
+            b_xR = None
+        else:
+            b_xR = a_xR.new()
             t_sc = (translation_sc * self.desc.size_c).round().astype(int)
             offset_c = 1 - self.desc.pbc_c
             for a_R, b_R in zip(a_xR._arrays(), b_xR._arrays()):
                 b_R[:] = 0.0
                 for r_cc, t_c in zip(rotation_scc, t_sc):
                     _gpaw.symmetrize_ft(a_R, b_R, r_cc, t_c, offset_c)
-        b_xR.distribute(out=self)
+
+        self.scatter_from(b_xR)
+
         self.data *= 1.0 / len(rotation_scc)

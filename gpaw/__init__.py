@@ -170,11 +170,11 @@ with broadcast_imports:
     from gpaw.wavefunctions.lcao import LCAO
     from gpaw.wavefunctions.pw import PW
     from gpaw.wavefunctions.fd import FD
-    from gpaw.new.ase_interface import GPAW as NewGPAW
 
 
 def GPAW(*args, **kwargs) -> Any:
     if os.environ.get('GPAW_NEW'):
+        from gpaw.new.ase_interface import GPAW as NewGPAW
         return NewGPAW(*args, **kwargs)
     return OldGPAW(*args, **kwargs)
 
