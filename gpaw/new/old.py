@@ -1,16 +1,27 @@
-import numpy as np
 import ase.io.ulm as ulm
 import gpaw
-from ase.io.trajectory import write_atoms, read_atoms
+import numpy as np
+from ase.io.trajectory import read_atoms, write_atoms
 from ase.units import Bohr, Ha
-from gpaw.new.calculation import DFTCalculation
+from gpaw.new.builder import DFTComponentsBuilder
+from gpaw.new.calculation import DFTCalculation, DFTState
 from gpaw.new.density import Density
-from gpaw.utilities import pack
+from gpaw.new.input_parameters import InputParameters
+from gpaw.new.potential import Potential
+# from gpaw.new.wave_functions import IBZWaveFunctions
+from gpaw.utilities import pack, unpack2
+from gpaw.core.atom_arrays import AtomArraysLayout
 
 
 class OldStuff:
     def get_pseudo_wave_function(self, n):
         return self.calculation.ibzwfs[0].wave_functions.data[n]
+
+    def get_atomic_electrostatic_potentials(self):
+        _, _, Q_aL = self.calculation.pot_calc.calculate(
+            self.calculation.state.density)
+        Q_aL = Q_aL.gather()
+        return Q_aL.data[::9] * (Ha / (4 * np.pi)**0.5)
 
     def write(self, filename, mode=''):
         """Write calculator object to a file.
@@ -77,23 +88,91 @@ def write_gpw(filename: str,
     world.barrier()
 
 
-def read_gpw(filename, log):
+def read_gpw(filename, log, parallel):
     log(f'Reading from {filename}')
+
+    world = parallel['world']
+
     reader = ulm.Reader(filename)
     atoms = read_atoms(reader.atoms)
 
-    builder = atoms, ...
+    kwargs = reader.parameters.asdict()
+    kwargs['parallel'] = parallel
+    params = InputParameters(kwargs)
 
-    grid = builder, ...
+    builder = DFTComponentsBuilder(atoms, params)
+    kpt_band_comm = builder.communicators['D']
+
+    if world.rank == 0:
+        nt_sR_array = reader.density.density
+        vt_sR_array = reader.hamiltonian.potential
+        D_sap_array = reader.density.atomic_density_matrices
+        D_saii_array = unpack_d(D_sap_array, builder.setups)
+        dH_sap_array = reader.hamiltonian.atomic_hamiltonian_matrices
+        dH_saii_array = unpack_d(dH_sap_array, builder.setups)
+    else:
+        nt_sR_array = None
+        vt_sR_array = None
+        D_saii_array = None
+        dH_saii_array = None
+
+    nt_sR = builder.grid.empty(builder.ncomponents)
+    vt_sR = builder.grid.empty(builder.ncomponents)
+
+    atom_array_layout = AtomArraysLayout([(setup.ni, setup.ni)
+                                          for setup in builder.setups],
+                                         atomdist=builder.atomdist)
+    D_asii = atom_array_layout.empty(builder.ncomponents)
+    dH_asii = atom_array_layout.empty(builder.ncomponents)
+
+    if kpt_band_comm.rank == 0:
+        nt_sR.scatter_from(nt_sR_array)
+        vt_sR.scatter_from(vt_sR_array)
+        D_asii.scatter_from(D_saii_array)
+        dH_asii.scatter_from(dH_saii_array)
+
+    kpt_band_comm.broadcast(nt_sR.data, 0)
+    kpt_band_comm.broadcast(vt_sR.data, 0)
+    kpt_band_comm.broadcast(D_asii.data, 0)
+    kpt_band_comm.broadcast(dH_asii.data, 0)
+
+    density = Density.from_data_and_setups(nt_sR, D_asii,
+                                           builder.params.charge,
+                                           builder.setups)
+    potential = Potential(vt_sR, dH_asii, {})
+    ibzwfs = ...
+
+    calculation = DFTCalculation(
+        DFTState(ibzwfs, density, potential),
+        builder.setups,
+        None,
+        pot_calc=builder.create_potential_calculator())
 
     results = reader.results.asdict()
     if results:
-        log('Read {}'.format(', '.join(sorted(results))))
+        log(f'Read {", ".join(sorted(results))}')
 
-    density = Density.read(reader, grid)
-    potential = ...
-    ibzwfs = ...
+    calculation.results = results
+    return calculation, params
 
-    calculation = DFTCalculation(ibzwfs, density, potential)
-    # calculation.results = results
-    return calculation
+
+def unpack_d(D_sap_array, setups):
+    ns = len(D_sap_array)
+    naii = sum(setup.ni**2 for setup in setups)
+    D_saii_array = np.empty((ns, naii))
+    nap1 = 0
+    naii1 = 0
+    for setup in setups:
+        nap2 = nap1 + (setup.ni * (setup.ni + 1)) // 2
+        naii2 = naii1 + setup.ni**2
+        D_saii_array[:, naii1:naii2] = unpack2(
+            D_sap_array[:, nap1:nap2]).ravel()
+        nap1 = nap2
+        naii1 = naii2
+    return D_saii_array
+
+
+if __name__ == '__main__':
+    import sys
+    from gpaw.mpi import world
+    read_gpw(sys.argv[1], print, {'world': world})

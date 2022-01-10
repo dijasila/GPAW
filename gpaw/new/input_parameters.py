@@ -22,7 +22,7 @@ def input_parameter(func):
 def update_dict(default, value) -> dict[str, Any]:
     dct = default.copy()
     if value is not None:
-        assert value.keys() < default.keys()
+        assert value.keys() <= default.keys(), (value, default)
         dct.update(value)
     return dct
 

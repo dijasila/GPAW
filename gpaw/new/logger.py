@@ -27,7 +27,7 @@ class Logger:
     def __del__(self) -> None:
         try:
             mib = maxrss() / 1024**2
-        except NameError:
+        except (NameError, LookupError):
             pass
         else:
             self.fd.write(f'\nMax RSS: {mib:.3f} MiB\n')

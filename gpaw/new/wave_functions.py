@@ -9,7 +9,6 @@ from gpaw.core.arrays import DistributedArrays as DA
 from gpaw.core.atom_arrays import AtomArrays
 from gpaw.mpi import MPIComm
 from gpaw.new.brillouin import IBZ
-from gpaw.new.density import Density
 from gpaw.setup import Setups
 from gpaw.typing import Array1D, Array2D, ArrayND
 from gpaw.utilities.debug import frozen
@@ -24,6 +23,7 @@ class IBZWaveFunctions:
                  wfs_qs: list[list[WaveFunctions]],
                  nelectrons: float,
                  spin_degeneracy: int = 2):
+        """Collection of wave function objects for k-points in the IBZ."""
         self.ibz = ibz
         self.rank_k = rank_k
         self.kpt_comm = kpt_comm
@@ -121,15 +121,11 @@ class IBZWaveFunctions:
             'entropy': e_entropy,
             'extrapolation': e_entropy * occ_calc.extrapolate_factor}
 
-    def calculate_density(self, out: Density) -> None:
-        density = out
-        density.nt_sR.data[:] = density.nct_R.data
-        density.D_asii.data[:] = 0.0
+    def add_to_density(self, nt_sR, D_asii) -> None:
         for wfs in self:
-            wfs.add_to_density(density.nt_sR, density.D_asii)
-        self.kpt_comm.sum(density.nt_sR.data)
-        self.kpt_comm.sum(density.D_asii.data)
-        out.symmetrize(self.ibz.symmetries)
+            wfs.add_to_density(nt_sR, D_asii)
+        self.kpt_comm.sum(nt_sR.data)
+        self.kpt_comm.sum(D_asii.data)
 
     def get_eigs_and_occs(self, k=0, s=0):
         if self.domain_comm.rank == 0 and self.band_comm.rank == 0:
