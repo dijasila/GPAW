@@ -5,22 +5,22 @@ master:
     - >
       apt-get install -qy
       libopenblas-dev libscalapack-mpi-dev libxc-dev > apt-get.output
+    - python -m venv ../venv
+    - source ../venv/bin/activate
+    - pip install -U pip
     - pip install flake8 mypy pytest interrogate
     - pip -q install git+https://gitlab.com/ase/ase.git@master
     - pip -q install git+https://gitlab.com/myqueue/myqueue.git@master
-    - mkdir ~/.gpaw
-    - echo "scalapack = True" > ~/.gpaw/siteconfig.py
-    - echo "libraries += ['scalapack-openmpi']" >> ~/.gpaw/siteconfig.py
     - >
-      echo "extra_compile_args += ['-Werror', '-fopenmp']"
-      >> ~/.gpaw/siteconfig.py
-    - echo "extra_link_args += ['-fopenmp']" >> ~/.gpaw/siteconfig.py
-    - python setup.py install > gpaw-install.output
-    - useradd -m user
-    - su user -c 'gpaw install-data --register gpaw-datasets'
-    - su user -c 'gpaw -P 1 info'
-    - su user -c 'gpaw test'
-    - su user -c 'OMP_NUM_THREADS=2 pytest -v -m ci -We'
+      echo "scalapack = True;
+      libraries += ['scalapack-openmpi'];
+      extra_compile_args += ['-Werror', '-fopenmp'];
+      extra_link_args += ['-fopenmp']
+      " > siteconfig.py
+    - pip install -e .
+    - gpaw install-data --register pawdata
+    - gpaw test
+    - OMP_NUM_THREADS=2 pytest -v -m ci -We
     - mypy -p gpaw
     - >
       interrogate -m -i -f 34.1
