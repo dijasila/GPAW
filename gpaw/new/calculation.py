@@ -60,7 +60,7 @@ class DFTCalculation:
         density.normalize()
 
         pot_calc = builder.create_potential_calculator()
-        potential, vHt_x = pot_calc.calculate(density)
+        potential, vHt_x, _ = pot_calc.calculate(density)
 
         if params.random:
             log('Initializing wave functions with random numbers')
