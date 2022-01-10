@@ -20,6 +20,7 @@ class RILVL(RIAlgorithm):
         RIAlgorithm.__init__(self, 'RI-LVL', exx_fraction, screening_omega)
         self.lcomp = lcomp
         assert self.lcomp == 2
+        self.K_kkMMMM={}
 
     def set_positions(self, spos_ac):
         RIAlgorithm.set_positions(self, spos_ac)
@@ -31,7 +32,6 @@ class RILVL(RIAlgorithm):
                                           self.wfs.kd,
                                           self.wfs.dtype,
                                           self.lcomp, omega=self.screening_omega)
-
         self.spos_ac = spos_ac
 
     def calculate_exchange_per_kpt_pair(self, kpt1, k_c, rho1_MM, kpt2, krho_c, rho2_MM):

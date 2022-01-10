@@ -615,9 +615,6 @@ def generated_W_LL_screening(W_LL, d, dx, dy, dz, omega):
     x_385=x_325*x_34
     x_386=-x_324*x_385 + x_342*x_384
     x_387=x_371*x_385 - x_374*x_384
-    print(x_1.shape, d.shape, W_LL.shape,'asd')
-    # (321,) (321,) (2889, 9) asd
-    print((x_1 / d).shape, W_LL[0::9, 0::9].shape, 'more')
     W_LL[0::9, 0::9] += x_1/d
     W_LL[0::9, 1::9] += x_19*(x_17 + x_4)
     W_LL[0::9, 2::9] += x_19*(x_20 + x_21)
