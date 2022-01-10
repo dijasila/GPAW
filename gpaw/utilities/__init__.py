@@ -8,17 +8,19 @@ import os
 import re
 import sys
 import time
-from math import sqrt
 from contextlib import contextmanager
-from typing import Union
+from math import sqrt
 from pathlib import Path
+from typing import Union
 
 import numpy as np
+from ase import Atoms
+from ase.data import covalent_radii
+from ase.neighborlist import neighbor_list
 
 import _gpaw
 import gpaw.mpi as mpi
 from gpaw import debug
-
 
 # Code will crash for setups without any projectors.  Setups that have
 # no projectors therefore receive a dummy projector as a hacky
@@ -33,21 +35,11 @@ class AtomsTooClose(RuntimeError):
     pass
 
 
-def check_atoms_too_close(atoms):
-    # (Empty atoms with neighbor_list is buggy in ASE-3.16.0)
-    if not len(atoms):
-        return
-
-    # Skip test for numpy < 1.13.0 due to absence np.divmod:
-    if not hasattr(np, 'divmod'):
-        return
-
-    from ase.neighborlist import neighbor_list
-    from ase.data import covalent_radii
+def check_atoms_too_close(atoms: Atoms) -> None:
     radii = covalent_radii[atoms.numbers] * 0.01
     dists = neighbor_list('d', atoms, radii)
     if len(dists):
-        raise AtomsTooClose('Atoms are too close, e.g. {} Å'.format(dists[0]))
+        raise AtomsTooClose(f'Atoms are too close, e.g. {dists[0]} Å')
 
 
 def unpack_atomic_matrices(M_sP, setups):

@@ -8,6 +8,7 @@ from gpaw.new.builder import DFTComponentsBuilder
 from gpaw.new.input_parameters import InputParameters
 from gpaw.new.wave_functions import IBZWaveFunctions
 from gpaw.new.potential import Potential
+from gpaw.utilities import check_atoms_too_close
 
 
 class DFTState:
@@ -48,6 +49,9 @@ class DFTCalculation:
                         params=None,
                         log=None,
                         builder=None) -> DFTCalculation:
+        """Create DFTCalculation object from parameters and atoms."""
+
+        check_atoms_too_close(atoms)
 
         if isinstance(params, dict):
             params = InputParameters(params)
@@ -79,6 +83,8 @@ class DFTCalculation:
                    pot_calc)
 
     def move_atoms(self, atoms, log) -> DFTCalculation:
+        check_atoms_too_close(atoms)
+
         self.fracpos_ac = atoms.get_scaled_positions()
 
         delta_nct_R = self.pot_calc.move(self.fracpos_ac,
