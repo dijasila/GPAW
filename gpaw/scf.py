@@ -181,10 +181,11 @@ class SCFLoop:
 def write_iteration(criteria, converged_items, entries, ctx, log):
     custom = (set(criteria) -
               {'energy', 'eigenstates', 'density'})
+
     if ctx.niter == 1:
-        header1 = ('{:<4s} {:>8s} {:>12s}  '
+        header1 = ('     {:<4s} {:>8s} {:>12s}  '
                    .format('iter', 'time', 'total'))
-        header2 = ('{:>4s} {:>8s} {:>12s}  '
+        header2 = ('     {:>4s} {:>8s} {:>12s}  '
                    .format('', '', 'energy'))
         header1 += 'log10-change:'
         for title in ('eigst', 'dens'):
@@ -196,14 +197,14 @@ def write_iteration(criteria, converged_items, entries, ctx, log):
         if ctx.wfs.nspins == 2:
             header1 += '{:>8s} '.format('magmom')
             header2 += '{:>8s} '.format('')
-        log(header1)
-        log(header2)
+        log(header1.rstrip())
+        log(header2.rstrip())
 
     c = {k: 'c' if v else ' ' for k, v in converged_items.items()}
 
     # Iterations and time.
     now = time.localtime()
-    line = ('{:4d} {:02d}:{:02d}:{:02d} '
+    line = ('iter:{:4d} {:02d}:{:02d}:{:02d} '
             .format(ctx.niter, *now[3:6]))
 
     # Energy.
@@ -227,7 +228,7 @@ def write_iteration(criteria, converged_items, entries, ctx, log):
         else:
             line += ' {:+.1f},{:+.1f},{:+.1f}'.format(*totmom_v)
 
-    log(line, flush=True)
+    log(line.rstrip(), flush=True)
 
 
 class SCFEvent:
