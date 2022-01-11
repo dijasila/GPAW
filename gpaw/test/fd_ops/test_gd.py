@@ -30,6 +30,7 @@ def test_fd_ops_gd():
         np.dot(gd.h_cv, gd.beg_c) - r_v, pbc_c), 1e-15)
 
 
+@pytest.mark.serial
 def test_nonorthogonal_distances():
     """test distance vectors in non-orthogonal cells"""
     cell_cv = np.eye(3)
