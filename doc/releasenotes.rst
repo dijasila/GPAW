@@ -16,7 +16,7 @@ Git master branch
 Version 22.1.0
 ==============
 
-Jan 11, 2022: :git:`22.1.0 <../22.1.0>`
+Jan 12, 2022: :git:`22.1.0 <../22.1.0>`
 
 .. important::
 
