@@ -122,10 +122,7 @@ def main(argv: List[str] = None) -> None:
         help='Center of charge distribution.  Default is middle of unit '
         'cell.')
 
-    if hasattr(parser, 'parse_intermixed_args'):
-        args = parser.parse_intermixed_args(argv)
-    else:
-        args = parser.parse_args(argv)
+    args = parser.parse_intermixed_args(argv)
 
     calc = GPAW(args.file)
 

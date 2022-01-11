@@ -53,7 +53,7 @@ There are several ways to install GPAW:
 Requirements
 ============
 
-* Python_ 3.6 or later
+* Python_ 3.7 or later
 * NumPy_ 1.9 or later (base N-dimensional array package)
 * SciPy_ 0.14 or later (library for scientific computing)
 * ASE_ 3.18.0 or later (atomic simulation environment)
