@@ -22,7 +22,7 @@ def aual100(site, height, calc=None):
     qn = QuasiNewton(slab, trajectory=site + calc.name + '.traj')
     qn.run(fmax=0.05)
 
-    if isinstance(calc, GPAW):
+    if calc.name == 'gpaw':
         calc.write(site + '.gpw')
 
     return slab.get_potential_energy()
