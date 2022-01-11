@@ -977,14 +977,12 @@ between 1 and 4 (linear, cubic, quintic, heptic).
 Using Hund's rule for guessing initial magnetic moments
 -------------------------------------------------------
 
-The ``hund`` keyword can be used for single atoms only. If set to
-``True``, the calculation will become spinpolarized, and the initial
-ocupations, and magnetic moment of the atom will be set to the value
+With ``hund=True``, the calculation will become spinpolarized, and the initial
+ocupations, and magnetic moments of all atoms will be set to the values
 required by Hund's rule.  You may further wish to specify that the
-total magnetic moment be fixed, by passing e.g.
-``occupations=FermiDirac(0.0, fixmagmom=True)``.
-Any user specified magnetic moment is
-ignored. Default is False.
+total magnetic moment be fixed, by passing e.g. ``occupations={'name': ...,
+'fixmagmom': True}``. Any user specified magnetic moment is ignored. Default
+is False.
 
 
 .. _manual_external:
