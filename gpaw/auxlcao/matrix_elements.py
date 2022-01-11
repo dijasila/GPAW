@@ -483,7 +483,7 @@ class MatrixElements:
                 Mloc_qAL = self.evaluate_2ci_M_qAL(a1, a2)
                 if Mloc_qAL is None:
                     continue
-                print('M_qaL contribution to W_AL', Mloc_qAL)
+                #print('M_qaL contribution to W_AL', Mloc_qAL)
                 W_AL += (a1, a2), Mloc_qAL[0]
 
         for a2 in self.my_a:
@@ -497,16 +497,22 @@ class MatrixElements:
                 Aloc += S
             mul_AL += (a2,a2), loc_AL
 
-        mul_AL.show()
-        W_LL.show()
+        #mul_AL.show()
+        #W_LL.show()
         # Long range part of W_AL
         tmp= mul_AL.meinsum('mul_AL*W_LL', 'AL,LK->AK', mul_AL, W_LL)
-        tmp.show()
+        #tmp.show()
         W_AL += tmp
 
     def calculate_sparse_W_AA(self, W_AA, W_AL, W_LL):
-        print('W_AA hack')
-        W_AA += (0,0), self.setups[0].W_AA
+        #print('W_AA hack')
+
+        for a1 in self.my_a:
+            for a2 in self.my_a:
+                if a1 == a2:
+                    W_AA += (a1,a2), self.setups[0].W_AA
+                else:
+                    raise ValueError('Two atoms not yet supported')
         return
         A_a = self.A_a
         for a1 in self.my_a:
@@ -561,25 +567,25 @@ class MatrixElements:
         def log(name, quantity):
             print('%-70s %-5d' % (name, quantity))
 
-        log('Number of atoms', len(self.rcmax_a))
-        log('Atom pairs with overlapping basis functions', len(self.a1a2_p))
+        #log('Number of atoms', len(self.rcmax_a))
+        #log('Atom pairs with overlapping basis functions', len(self.a1a2_p))
         self.a1a2_p = [ (a1,a2) for a1,a2 in self.apr.get_atompairs() if a1<=a2 ]
 
         #for a1, a2 in self.a1a2_p:
         #    for R_c in self.apr.get(a1,a2):
         #        print(a1,a2,np.linalg.norm(R_c), R_c)
 
-        def a1a2a3a4_q():
-            for p1, (a1,a2) in enumerate(self.a1a2_p):
-                for a3, a4 in self.a1a2_p[p1:]:
-                    yield a1,a2,a3,a4
+        #def a1a2a3a4_q():
+        #    for p1, (a1,a2) in enumerate(self.a1a2_p):
+        #        for a3, a4 in self.a1a2_p[p1:]:
+        #            yield a1,a2,a3,a4
  
-        self.a1a2a3a4_q = a1a2a3a4_q
+        #self.a1a2a3a4_q = a1a2a3a4_q
 
         # Even this takes minutes on large systems
         # log('Atom quadtuples with exchange of pairs', len([ aaaa for aaaa in self.a1a2a3a4_q() ]))
 
-        log('Atom quadtuples with exchange of pairs', len(self.a1a2_p)*(len(self.a1a2_p)+1)/2)
+        #log('Atom quadtuples with exchange of pairs', len(self.a1a2_p)*(len(self.a1a2_p)+1)/2)
 
     def set_parameters(self, parameters):
         self.parameters = parameters

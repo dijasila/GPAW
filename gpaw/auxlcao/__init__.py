@@ -70,13 +70,12 @@ class LCAOHybrid:
 
     """
     def calculate(self, gd, nt_sr, vt_sr):
-        print(nt_sr.shape)
         if self.use_lda:
             self.use_lda = False
             return self.ldaxc.calculate(gd, nt_sr, vt_sr)
         evv, self.ekin = self.ri_algorithm.calculate_non_local()
         energy = evv + self.ecc + self.localxc.calculate(gd, nt_sr, vt_sr)
-        print('returning ', energy, 'self.ekin is', self.ekin)
+        #print('returning ', energy, 'self.ekin is', self.ekin)
         return energy
 
     def initialize(self, density, hamiltonian, wfs):
@@ -95,7 +94,7 @@ class LCAOHybrid:
         return 'Experimental aux-lcao' + self.name + ' with algorithm' + self.ri_algorithm.name
 
     def get_kinetic_energy_correction(self):
-        print('Ekin corr', self.ekin)
+        #print('Ekin corr', self.ekin)
         return self.ekin
 
     def get_setup_name(self):

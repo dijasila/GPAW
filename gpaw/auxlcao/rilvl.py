@@ -58,7 +58,7 @@ def meinsum(output_name, index_str, T1, T2):
 
     T3 = SparseTensor(output_name, output_index_types)
 
-    print('%s[%s] = %s[%s] * %s[%s] ' % (T3.get_name(), output_index_str, T1.get_name(), index1, T2.get_name(), index2))
+    #print('%s[%s] = %s[%s] * %s[%s] ' % (T3.get_name(), output_index_str, T1.get_name(), index1, T2.get_name(), index2))
 
     T1_i = tuple([ index1.find(idx) for idx in contraction_indices ])
     T2_i = tuple([ index2.find(idx) for idx in contraction_indices ])
@@ -81,10 +81,10 @@ def meinsum(output_name, index_str, T1, T2):
             if fail:
                 continue
             out_indices = get_out(i1, i2)
-            print('Einsum', i1, i2, index_str, block1.shape, block2.shape)
-            print('in',block1, 'in2', block2)
+            #print('Einsum', i1, i2, index_str, block1.shape, block2.shape)
+            #print('in',block1, 'in2', block2)
             value = np.einsum(index_str, block1, block2)
-            print('out', value)
+            #print('out', value)
             T3 += out_indices, value
     return T3
 
@@ -210,8 +210,8 @@ class RIR(RIBase):
                                        P_LMM = self.P_LMM, only_ghat=self.only_ghat, no_ghat=self.no_ghat,
                                        only_ghat_aux_interaction=self.only_ghat_aux_interaction)
 
-        for tensor in [self.W_AA, self.W_AL, self.W_LL,  self.P_AMM, self.P_LMM]:
-            tensor.show()
+        #for tensor in [self.W_AA, self.W_AL, self.W_LL,  self.P_AMM, self.P_LMM]:
+        #    tensor.show()
 
         self.WP_AMM = meinsum('WP', 'AB,Bij->Aij', self.W_AA, self.P_AMM)
         self.WP_AMM += meinsum('WP', 'AB,Bij->Aij', self.W_AL, self.P_LMM)
@@ -301,7 +301,7 @@ class RILVL(RIAlgorithm):
 
         kd = self.wfs.kd
         self.bzq_qc = bzq_qc = kd.get_bz_q_points()
-        print('Number of q-points: ', len(bzq_qc))
+        #print('Number of q-points: ', len(bzq_qc))
 
         with self.timer('RI-V: calculate W_qLL'):
              self.W_qLL = calculate_W_qLL(self.density.setups,\
@@ -311,7 +311,7 @@ class RILVL(RIAlgorithm):
                                           bzq_qc,
                                           self.wfs.dtype,
                                           self.lcomp, omega=self.screening_omega)
-             print(self.W_qLL,'W_qLL')
+             #print(self.W_qLL,'W_qLL')
         gd = self.hamiltonian.gd
         ibzq_qc = np.array([[0.0, 0.0, 0.0]])
         dtype = self.wfs.dtype
