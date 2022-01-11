@@ -692,8 +692,7 @@ class GridDescriptor(Domain):
         Non-Cubic MD cells' March 29, 1989
         """
         s_Gc = (np.indices(self.n_c, dtype).T + self.beg_c) / self.N_c
-        cell_cv = self.N_c * self.h_cv
-        r_c = np.linalg.solve(cell_cv.T, r_v)
+        r_c = np.linalg.solve(self.cell_cv.T, r_v)
         # do the correction twice works better because of rounding errors
         # e.g.: -1.56250000e-25 % 1.0 = 1.0,
         #      but (-1.56250000e-25 % 1.0) % 1.0 = 0.0
@@ -706,7 +705,7 @@ class GridDescriptor(Domain):
             assert((s_Gc * self.pbc_c >= -0.5).all())
             assert((s_Gc * self.pbc_c <= 0.5).all())
 
-        return np.dot(s_Gc, cell_cv).T.copy()
+        return np.dot(s_Gc, self.cell_cv).T.copy()
 
     def interpolate_grid_points(self, spos_nc, vt_g):
         """Return interpolated values.
