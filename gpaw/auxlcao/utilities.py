@@ -2,6 +2,7 @@ import numpy as np
 from numpy.linalg import eigh
 from collections import defaultdict
 from gpaw.atom.shapefunc import shape_functions
+import scipy
 
 r""" The rgd.poisson returns the radial Poisson solution multiplied with r.
 
@@ -31,29 +32,32 @@ def spline_to_rgd(rgd, spline, spline2=None):
 def get_compensation_charge_splines(setup, lmax, cutoff):
     rgd = setup.rgd
     wghat_l = []
-    #ghat_l = setup.get_ghat_splines(lmax) 
     ghat_l = []
+
+    W_LL = np.zeros( ( (lmax+1)**2, (lmax+1)**2 ) )
+    L=0
+
     for l in range(lmax+1):
         #spline = ghat_l[l]
         spline = setup.ghat_l[l]
         ghat_l.append(spline)
         g_g = spline_to_rgd(rgd, spline)
         v_g = Hartree(rgd, g_g, l)
+        integral = rgd.integrate(g_g*v_g)
+        for m in range(2*l+1):
+            W_LL[L,L] = integral / (np.pi*4)
+            L += 1
         wghat_l.append(rgd.spline(v_g, cutoff, l, 500))
-    return ghat_l, wghat_l
+    return ghat_l, wghat_l, W_LL
 
 def get_compensation_charge_splines_screened(setup, lmax, cutoff):
-    rgd = setup.rgd
+    rgd = setup.rgd # local_corr.rgd2
     wghat_l = []
-    ghat_l = []
+    ghat_l = setup.ghat_l
     W_LL = np.zeros( ( (lmax+1)**2, (lmax+1)**2 ) )
     L=0
-
-    g_lg = shape_functions(setup.rgd, 'gauss',  0.38 , lmax) # XXX Hard coded
-
     for l in range(lmax+1):
-        g_g = g_lg[l]
-        ghat_l.append(rgd.spline(g_g, cutoff, l, 500))
+        g_g = spline_to_rgd(rgd, ghat_l[l])
         v_g = setup.screened_coulomb.screened_coulomb(g_g, l)
         integral = rgd.integrate(g_g*v_g)
         for m in range(2*l+1):
@@ -98,11 +102,14 @@ def _get_auxiliary_splines(setup, lmax, cutoff, poisson, threshold=1e-2):
     wsauxt_j = []
     M_j = []
 
-    g_lg = shape_functions(rgd, 'gauss',  0.38 , lmax) # XXX Hard coded
+    ghat_l = setup.ghat_l
 
+    Atot = 0
+    integrals_lAA = []
     for l, auxt_ng in auxt_lng.items():
         auxt_ng = np.array(auxt_ng)
         wauxt_ng = np.array(wauxt_lng[l])
+
         N = len(auxt_ng)
         S_nn = np.zeros( (N, N) )
         #import matplotlib.pyplot as plt
@@ -126,10 +133,20 @@ def _get_auxiliary_splines(setup, lmax, cutoff, poisson, threshold=1e-2):
         auxt_ig =  q_ni.T @ auxt_ng
         wauxt_ig = q_ni.T @ wauxt_ng
 
+        g_g = spline_to_rgd(rgd, ghat_l[l])
         # Evaluate reference multipole momement
-        Mref = rgd.integrate(g_lg[l] * rgd.r_g**l) / (4*np.pi)
+        Mref = rgd.integrate(g_g * rgd.r_g**l) / (4*np.pi)
+
+        L = 2*l+1
+        I_AA = np.zeros( (L*len(auxt_ig), L*len(auxt_ig)))
+
+        for n1, auxt_g in enumerate(auxt_ig):
+            for n2, wauxt_g in enumerate(wauxt_ig):
+                I_AA[n1*L : (n1+1)*L, n2*L : (n2+1)*L ] = np.eye(L) * rgd.integrate(auxt_g*wauxt_g) / (np.pi*4)
+        integrals_lAA.append(I_AA)
 
         for i in range(len(auxt_ig)):
+            Atot += 2*l+1
             auxt_g = auxt_ig[i]
             auxt_j.append(rgd.spline(auxt_g, cutoff, l, 500))
             wauxt_j.append(rgd.spline(wauxt_ig[i], cutoff, l, 500))
@@ -138,18 +155,25 @@ def _get_auxiliary_splines(setup, lmax, cutoff, poisson, threshold=1e-2):
             if l <= 2:
                 M = rgd.integrate(auxt_g * rgd.r_g**l) / (4*np.pi)
                 M_j.append(M)
-                sauxt_g = auxt_g - M / Mref * g_lg[l]
+                sauxt_g = auxt_g - M / Mref * g_g
+                print('Should be 0', rgd.integrate(sauxt_g * rgd.r_g**l) / (4*np.pi))
             else:
                 M_j.append(0.0)
+                sauxt_g = auxt_g
 
             sauxt_j.append(rgd.spline(sauxt_g, cutoff, l, 500))
 
             v_g = poisson(sauxt_g, l)
             wsauxt_j.append(rgd.spline(v_g, cutoff, l, 500))
-            print('Last potential element', v_g[-1])
+            #print('Last potential element', v_g[-1])
             assert(np.abs(v_g[-1])<1e-6)
         print('l=%d %d -> %d' % (l, len(auxt_ng), len(auxt_ig)))
-    return auxt_j, wauxt_j, sauxt_j, wsauxt_j, M_j
+
+    W_AA = scipy.linalg.block_diag(*integrals_lAA)
+    print(W_AA,'W_AA')
+    print(W_AA.shape)
+    print(integrals_lAA)
+    return auxt_j, wauxt_j, sauxt_j, wsauxt_j, M_j, W_AA
 
 def get_auxiliary_splines(setup, lmax, cutoff, threshold=1e-2):
     def poisson(n_g,l):
@@ -176,10 +200,12 @@ def get_wgauxphit_product_splines(setup, wgaux_j, phit_j, cutoff):
 
 def safe_inv(W_AA):
     eigs = np.linalg.eigvalsh(W_AA)
-    if np.any(eigs < 1e-8):
-        print('Warning. Nearly singular matrix.')
     for x in eigs:
         print(x,end=' ')
+    if np.any(np.abs(eigs) < 1e-8):
+        print('Warning. Nearly singular matrix.')
+        print(W_AA)
+        xxx
     iW_AA = np.linalg.pinv(W_AA, hermitian=True, rcond=1e-10)
     #iW_AA = np.linalg.inv(W_AA)
     iW_AA = (iW_AA + iW_AA.T)/2

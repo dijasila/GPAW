@@ -1,3 +1,5 @@
+
+
 from typing import Tuple, Dict
 import numpy as np
 from gpaw.auxlcao.algorithm import RIAlgorithm
@@ -11,28 +13,294 @@ from gpaw.transformers import Transformer
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb as WSTC
 
 from gpaw.auxlcao.multipole import calculate_W_qLL
-from gpaw.auxlcao.procedures import calculate_V_qAA
+from gpaw.auxlcao.procedures import calculate_V_qAA,\
+                                    calculate_S_qAA,\
+                                    calculate_M_qAA,\
+                                    calculate_P_kkAMM,\
+                                    calculate_P_kkLMM,\
+                                    calculate_W_qAL
+
+from gpaw.auxlcao.matrix_elements import MatrixElements
+
+from collections import defaultdict
 
 import matplotlib.pyplot as plt
 from numpy.matlib import repmat
+
+
+"""
+
+      W_LL W_LA     [ 
+      W_AL W_AA
+
+"""
+
+
+flops = 0
+
+class SparseTensor:
+    def __init__(self, name, indextypes):
+        self.name = name
+        self.indextypes = indextypes
+        
+        self.block_i = defaultdict(float)
+
+    def __iadd__(self, index_and_block):
+        if isinstance(index_and_block, SparseTensor):
+            for index, block_xx in index_and_block.block_i.items():
+                self.block_i[index] += block_xx.copy()
+        else:
+            index, block_xx = index_and_block
+            self.block_i[index] += block_xx.copy() #xxx
+
+        return self
+
+    def get_name(self):
+        return '%s_%s' % (self.name, self.indextypes)
+
+    def show(self):
+        s = self.get_name() + ' {\n'
+        for i, block in self.block_i.items():
+            s += '   ' + repr(i) + ' : ' + repr(block.shape) + ' ' + repr(block.dtype) + ' ' + repr(block) +'\n'
+        s += '}\n'
+        print(s)
+       
+
+    def __repr__(self):
+        s = self.get_name() + ' {\n'
+        for i, block in self.block_i.items():
+            s += '   ' + repr(i) + ' : ' + repr(block.shape) + ' ' + repr(block.dtype) + '\n'
+        s += '}\n'
+        return s        
+
+def meinsum(output_name, index_str, T1, T2):
+
+    input_index_str, output_index_str = index_str.split('->')
+    index1, index2 = input_index_str.split(',') 
+    contraction_indices = list(set(index1)&set(index2))
+
+    outref = []
+    output_index_types = ''
+    for idx in output_index_str:
+        t1_idx = index1.find(idx)
+        if t1_idx>=0:
+            outref.append( (1, t1_idx) )
+            output_index_types += T1.indextypes[t1_idx]
+        else:
+            t2_idx = index2.find(idx)
+            outref.append( (2, t2_idx) )
+            output_index_types += T2.indextypes[t2_idx]
+
+    T3 = SparseTensor(output_name, output_index_types)
+
+    print('%s[%s] = %s[%s] * %s[%s] ' % (T3.get_name(), output_index_str, T1.get_name(), index1, T2.get_name(), index2))
+
+    T1_i = tuple([ index1.find(idx) for idx in contraction_indices ])
+    T2_i = tuple([ index2.find(idx) for idx in contraction_indices ])
+
+    def get_out(indices1, indices2):
+        s = []
+        for id, index in outref:
+            if id == 1:
+                s.append(indices1[index])
+            else:
+                s.append(indices2[index])
+        return tuple(s)
+
+    for i1, block1 in T1.block_i.items():
+        for i2, block2 in T2.block_i.items():
+            for ii1, ii2 in zip(T1_i, T2_i):
+                if i1[ii1] != i2[ii2]:
+                    continue
+            out_indices = get_out(i1, i2)
+            #print(index_str, block1, block2)
+            value = np.einsum(index_str, block1, block2)
+            #print(value,'out')
+            T3 += out_indices, value
+    return T3
+    
+
+"""
+    def get(self, index):
+        if self.cache_i.haskey(index):
+            return self.cache_i[index]
+        else:
+            value = self.evaluate(index)
+            self.cache[index] = value
+            return value
+
+    def lazy_evaluate(self, index):
+        raise NotImplementedError
+
+    def get_index_list(self):
+        raise NotImplementedError
+"""
 
 class RIBasisMaker:
     def __init__(self, setup):
         self.setup = setup
 
+class RIBase(RIAlgorithm):
+    def __init__(self, name, exx_fraction=None, screening_omega=None, lcomp=2, laux=2, threshold=1e-2):
+        RIAlgorithm.__init__(self, name, exx_fraction, screening_omega)
 
-class RILVL(RIAlgorithm):
-    def __init__(self, exx_fraction=None, screening_omega=None, lcomp=2):
-        RIAlgorithm.__init__(self, 'RI-LVL', exx_fraction, screening_omega)
         self.lcomp = lcomp
         assert self.lcomp == 2
-        self.K_kkMMMM={}
 
-    def prepare_setups(self):
-        RIAlgorithm.prepare_setups(self)
+        self.laux = laux 
+        assert self.laux == 2
+
+        self.threshold = threshold
+
+        self.matrix_elements = MatrixElements(self.laux, screening_omega, threshold=threshold)
+
+
+class RIR(RIBase):
+    def __init__(self, exx_fraction=None, screening_omega=None, lcomp=2, laux=2, threshold=1e-2):
+        RIBase.__init__(self, 'RI-R', exx_fraction, screening_omega, lcomp, laux, threshold)
+
+    def prepare_setups(self, setups):
+        RIAlgorithm.prepare_setups(self, setups)
+        self.M_a = setups.M_a.copy()
+        self.M_a.append(setups.nao)
 
     def set_positions(self, spos_ac):
         RIAlgorithm.set_positions(self, spos_ac)
+
+        Na = len(spos_ac)
+
+        with self.timer('RI-V: Auxiliary Fourier-Bessel initialization'):
+            self.matrix_elements.initialize(self.density, self.hamiltonian, self.wfs)
+
+        gd = self.hamiltonian.gd
+        ibzq_qc = np.array([[0.0, 0.0, 0.0]])
+        bzq_qc = np.array([[0.0, 0.0, 0.0]])
+        dtype = self.wfs.dtype
+        self.matrix_elements.set_positions_and_cell(spos_ac,
+                                                    gd.cell_cv,
+                                                    gd.pbc_c,
+                                                    ibzq_qc,
+                                                    bzq_qc, # q-points
+                                                    dtype)
+
+        self.P_AMM = SparseTensor('P', 'AMM')
+        self.P_LMM = SparseTensor('P', 'LMM')
+        #self.S_LMM = SparseTensor('S', 'LMM')
+        self.W_AA = SparseTensor('W', 'AA')
+        self.W_AL = SparseTensor('W', 'AL')
+        self.W_LL = SparseTensor('W', 'LL')
+
+        # Order does not matter, the data is deduces from the name
+        self.matrix_elements.calculate(W_AA = self.W_AA,
+                                       W_AL = self.W_AL, 
+                                       W_LL = self.W_LL,
+                                       P_AMM = self.P_AMM,
+                                       P_LMM = self.P_LMM)
+
+        for tensor in [self.W_AA, self.W_AL, self.W_LL,  self.P_AMM, self.P_LMM]:
+            tensor.show()
+
+        self.WP_AMM = meinsum('WP', 'AB,Bij->Aij', self.W_AA, self.P_AMM)
+        self.WP_AMM += meinsum('WP', 'AB,Bij->Aij', self.W_AL, self.P_LMM)
+
+        self.WP_LMM = meinsum('WP', 'BA,Bij->Aij', self.W_AL, self.P_AMM)
+        self.WP_LMM += meinsum('WP', 'AB,Bij->Aij', self.W_LL, self.P_LMM)
+
+        #self.WL_LMM = meinsum('WLL_LMM', 'BA,Bij->Aij', self.W_LL, self.S_LMM)
+
+        K_MMMM = meinsum('K', 'Aij,Akl->ijkl', self.WP_AMM, self.P_AMM)
+        K_MMMM.show()
+        K_MMMM = meinsum('K', 'Aij,Akl->ijkl', self.WP_LMM, self.P_LMM)
+        K_MMMM.show()
+        #K_MMMM = meinsum('K', 'Aij,Akl->ijkl', self.WL_LMM, self.S_LMM)
+        #K_MMMM.show()
+
+        K_MMMM = meinsum('K', 'Aij,Akl->ijkl', self.WP_AMM, self.P_AMM)
+        K_MMMM += meinsum('K', 'Aij,Akl->ijkl', self.WP_LMM, self.P_LMM)
+        #K_MMMM += meinsum('K', 'Aij,Akl->ijkl', self.WP_LMM, self.S_LMM)
+        #K_MMMM += meinsum('K', 'Aij,Akl->ijkl', self.WL_LMM, self.P_LMM)
+        K_MMMM.show()
+
+    def calculate_exchange_per_kpt_pair(self, kpt1, k_c, rho1_MM, kpt2, krho_c, rho2_MM):
+
+        rho_MM = SparseTensor('rho', 'MM')
+        for a1, (M1start, M1end) in enumerate(zip(self.M_a[:-1], self.M_a[1:])):
+            for a2, (M2start, M2end) in enumerate(zip(self.M_a[:-1], self.M_a[1:])):
+                rho_MM += ( (a1, a2), rho2_MM[M1start:M1end, M2start:M2end] )
+        print('rho:', rho2_MM)
+        rho_MM.show()
+        with self.timer('RI-V: 1st contraction AMM MM'):
+            WP_AMM_RHO_MM = meinsum('WP_RHO', 'Ajl,kl->Ajk',
+                                       self.WP_AMM,
+                                       rho_MM)
+        with self.timer('RI-V: 2nd contraction AMM AMM'):
+            F_MM = meinsum('initialF_MM', 'Aik,Ajk->ij',
+                              self.P_AMM,
+                              WP_AMM_RHO_MM)
+            #self.P_AMM.show()
+            #WP_AMM_RHO_MM.show()
+            #F_MM.show()
+            WP_AMM_RHO_MM = None
+
+        with self.timer('RI-V: 1st contraction LMM MM'):
+            WP_LMM_RHO_MM = meinsum('WP_RHO', 'Ajl,kl->Ajk',
+                                       self.WP_LMM,
+                                       rho_MM)
+
+        with self.timer('RI-V: 2nd contraction LMM LMM'):
+            F_MM += meinsum('F_MM', 'Aik,Ajk->ij',
+                             self.P_LMM,
+                             WP_LMM_RHO_MM)
+            WP_LMM_RHO_MM = None
+
+        #with self.timer('RI-V: 1st contraction (lr-lr) LMM MM'):
+        #    WL_LMM_RHO_MM = meinsum('WLRHO', 'Ajl,kl->Ajk',
+        #                             self.WL_LMM,
+        #                             rho_MM)
+        #with self.timer('RI-V: 2nd contraction (lr-lr) LMM LMM'):
+        #    F_MM += meinsum('F_MM', 'Aik,Ajk->ij',
+        #                      self.S_LMM,
+        #                      WL_LMM_RHO_MM)
+        #    WL_LMM_RHO_MM = None
+
+        fock_MM = np.zeros_like(rho2_MM)
+        for index, block_xx in F_MM.block_i.items():
+            a1, a2 = index
+            M1start, M1end = self.M_a[a1], self.M_a[a1+1]
+            M2start, M2end = self.M_a[a2], self.M_a[a2+1]
+            fock_MM[M1start:M1end, M2start:M2end] += -0.5*self.exx_fraction*block_xx
+
+        evv = 0.5 * np.einsum('ij,ij', fock_MM, rho1_MM, optimize=True)
+        return evv, fock_MM
+
+class RILVL(RIAlgorithm):
+    def __init__(self, exx_fraction=None, screening_omega=None, lcomp=2, laux=2, threshold=1e-2):
+        RIAlgorithm.__init__(self, 'RI-LVL', exx_fraction, screening_omega)
+
+        self.lcomp = lcomp
+        assert self.lcomp == 2
+
+        self.laux = laux 
+        assert self.laux == 2
+
+        self.threshold = threshold
+
+        self.matrix_elements = MatrixElements(self.laux, screening_omega, threshold=threshold)
+
+        self.K_kkMMMM={}
+
+    def prepare_setups(self, setups):
+        RIAlgorithm.prepare_setups(self, setups)
+
+
+    def set_positions(self, spos_ac):
+        RIAlgorithm.set_positions(self, spos_ac)
+
+        with self.timer('RI-V: Auxiliary Fourier-Bessel initialization'):
+            self.matrix_elements.initialize(self.density, self.hamiltonian, self.wfs)
+
+        auxt_aj = [ setup.auxt_j for setup in self.wfs.setups ]
+        M_aj = [ setup.M_j for setup in self.wfs.setups ]
 
         kd = self.wfs.kd
         self.bzq_qc = bzq_qc = kd.get_bz_q_points()
@@ -46,47 +314,75 @@ class RILVL(RIAlgorithm):
                                           bzq_qc,
                                           self.wfs.dtype,
                                           self.lcomp, omega=self.screening_omega)
+             print(self.W_qLL,'W_qLL')
+        gd = self.hamiltonian.gd
+        ibzq_qc = np.array([[0.0, 0.0, 0.0]])
+        dtype = self.wfs.dtype
+        self.matrix_elements.set_positions_and_cell(spos_ac,
+                                                    gd.cell_cv,
+                                                    gd.pbc_c,
+                                                    ibzq_qc,
+                                                    self.bzq_qc, # q-points
+                                                    dtype)
+
 
        
         for q, bzq_c in enumerate(bzq_qc):
-            with self.timer('RI-V: calculate V_AA'):
-                self.V_qAA = calculate_V_qAA(auxt_aj, M_aj, self.W_LL, self.lmaxcomp)
+            with self.timer('RI-V: calculate V_qAA'):
+                self.V_qAA = calculate_V_qAA(auxt_aj, M_aj, self.W_qLL, self.lcomp)
                 assert not np.isnan(self.V_qAA).any()
+                print(self.V_qAA,'V_AA')
 
             with self.timer('RI-V: calculate S_AA'):
                 self.S_qAA = calculate_S_qAA(self.matrix_elements)
+                print(self.S_qAA,'S_AA')
                 assert not np.isnan(self.S_qAA).any()
 
             with self.timer('RI-V: calculate M_AA'):
-                self.M_qAA = calculate_M_AA(self.matrix_elements, auxt_aj, M_aj, self.lmaxcomp)
+                self.M_qAA = calculate_M_qAA(self.matrix_elements, auxt_aj, M_aj, self.lcomp)
+                print(self.M_qAA,'M_qAA')
                 self.W_qAA = self.V_qAA + self.S_qAA + self.M_qAA + self.M_qAA.T
+                print(self.W_qAA,'W_qAA')
                 assert not np.isnan(self.M_qAA).any()
 
-        for pair in self.kpt_pairs:
-            with self.timer('RI-V: Calculate P_AMM'):
-                self.P_kAMM[pair] = calculate_P_AMM(self.matrix_elements, self.W_AA)
-                assert not np.isnan(self.P_AMM).any()
+        self.kpt_pairs = []
+        self.q_p = []
+        for kpt1 in self.wfs.kpt_u:
+            for kpt2 in self.wfs.kpt_u:
+                self.kpt_pairs.append((kpt1.q, kpt2.q))
+                self.q_p.append(0) # XXX
 
-        with self.timer('RI-V: Calculate P_LMM'):
-            self.P_LMM = calculate_P_LMM(self.matrix_elements, self.wfs.setups, self.wfs.atomic_correction)
-            assert not np.isnan(self.P_LMM).any()
+        assert(len(self.q_p)==1)
 
-        with self.timer('RI-V: Calculate W_AL'):
-            self.W_AL = calculate_W_AL(self.matrix_elements, auxt_aj, M_aj, self.W_LL)
-            assert not np.isnan(self.W_AL).any()
+        with self.timer('RI-V: Calculate P_kkAMM'):
+            self.P_kkAMM = calculate_P_kkAMM(self.matrix_elements, self.W_qAA)
+            print('P_kkAMM', self.P_kkAMM)
+
+        with self.timer('RI-V: Calculate P_kkLMM'):
+            self.P_kkLMM = calculate_P_kkLMM(self.matrix_elements, self.wfs.setups, self.wfs.atomic_correction)
+
+        with self.timer('RI-V: Calculate W_qAL'):
+            self.W_qAL = calculate_W_qAL(self.matrix_elements, auxt_aj, M_aj, self.W_qLL)
+
 
         with self.timer('RI-V: Calculate WP_AMM'):
-
-            self.WP_AMM = np.einsum('AB,Bij',self.W_AA, self.P_AMM, optimize=True)
-            self.WP_AMM += np.einsum('AB,Bij',self.W_AL, self.P_LMM, optimize=True)
+            self.WP_kkAMM = {}
+            for pair, q in zip(self.kpt_pairs, self.q_p):
+                self.WP_kkAMM[pair] = np.einsum('AB,Bij',self.W_qAA[q], self.P_kkAMM[pair], optimize=True)
+                self.WP_kkAMM[pair] += np.einsum('AB,Bij',self.W_qAL[q], self.P_kkLMM[pair], optimize=True)
 
         with self.timer('RI-V: Calculate WP_LMM'):
-            self.WP_LMM = np.einsum('BA,Bij',self.W_AL, self.P_AMM, optimize=True)
-            self.WP_LMM += np.einsum('AB,Bij',self.W_LL, self.P_LMM, optimize=True)
+            self.WP_kkLMM = {}
+            for pair, q in zip(self.kpt_pairs, self.q_p):
+                self.WP_kkLMM[pair] = np.einsum('BA,Bij',self.W_qAL[q], self.P_kkAMM[pair], optimize=True)
+                self.WP_kkLMM[pair] += np.einsum('AB,Bij',self.W_qLL[q], self.P_kkLMM[pair], optimize=True)
 
 
     def calculate_exchange_per_kpt_pair(self, kpt1, k_c, rho1_MM, kpt2, krho_c, rho2_MM):
         kpt_pair = (kpt1.q, kpt2.q)
+
+        K_MMMM = np.einsum('Aij,AB,Bkl', self.P_kkAMM[kpt_pair], self.W_qAA[0], self.P_kkAMM[kpt_pair])
+        print('My K_MMMM wo comp', K_MMMM)
         with self.timer('RI-V: 1st contraction AMM MM'):
             WP_AMM_RHO_MM = np.einsum('Ajl,kl',
                                         self.WP_kkAMM[kpt_pair],
@@ -111,8 +407,12 @@ class RILVL(RIAlgorithm):
                               optimize=True)
             WP_LMM_RHO_MM = None
 
+        print(self.P_kkAMM[kpt_pair],'P_AMM')
+
         F_MM *= -0.5*self.exx_fraction
-        evv = -0.5 * 0.5 * self.exx_fraction * np.einsum('ij,ij', F_MM, rho1_MM, optimize=True)
+        evv = 0.5 * np.einsum('ij,ij', F_MM, rho1_MM, optimize=True)
+        print('F_MM', F_MM)
+        print('rho_MM', rho2_MM)
         return evv.real, F_MM
 
     def get_K_MMMM(self, kpt1, k1_c, kpt2, k2_c):

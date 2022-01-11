@@ -1,3 +1,4 @@
+
 from typing import Tuple, Dict
 import numpy as np
 from gpaw.auxlcao.algorithm import RIAlgorithm
@@ -72,7 +73,7 @@ class Full4C(RIAlgorithm):
         
         #qd = KPointDescriptor([0*q_c])
         qd = KPointDescriptor([-q_c])
-        pd12 = PWDescriptor(10.0, finegd, complex, kd=qd) #10 Ha =  270 eV cutoff
+        pd12 = PWDescriptor(None, finegd, complex, kd=qd) #10 Ha =  270 eV cutoff
         v_G = coulomb.get_potential(pd12)
 
         # Exchange compensation charges
@@ -140,6 +141,8 @@ class Full4C(RIAlgorithm):
                 D_ap[a] = D_p
                 tmp = np.dot(D_p, self.density.setups[a].Delta_pL)
                 Q_aL[a] = tmp.reshape((1,) + tmp.shape)
+            #rho_xG[:] = 0.0
+            #print('No compesation charges')
             ghat.add(rho_xG, Q_aL)
 
             Vrho_G = rho_xG[0] * v_G
@@ -154,7 +157,7 @@ class Full4C(RIAlgorithm):
             for p2, (M3, M4) in enumerate(pairs_p):
                 K = K_pp[p1, p2]
                 K_MMMM[M1,M2,M3,M4] = K
-
+        print(K_MMMM,'K_MMMM')
         return K_MMMM
 
     def get_K_MMMM_finite(self, kpt1, k1_c, kpt2, k2_c):
@@ -212,9 +215,10 @@ class Full4C(RIAlgorithm):
                 D_p = pack(D_ii)
                 D_ap[a] = D_p
                 Q_aL[a] = np.dot(D_p, self.density.setups[a].Delta_pL)
-
+            
+            #rhot_g[:] = 0.0
             self.density.ghat.add(rhot_g, Q_aL)
-
+            #print('Only compensation charges')
             V_g = finegd.zeros()
             self.hamiltonian.poisson.solve(V_g, rhot_g, charge=None)
 

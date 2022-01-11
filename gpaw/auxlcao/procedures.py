@@ -1,7 +1,183 @@
 import numpy as np
+from gpaw.auxlcao.utilities import safe_inv
+
+def get_A_a(auxt_aj):
+    A_a = []
+    A = 0
+    for a, auxt_j in enumerate(auxt_aj):
+        A_a.append(A)
+        A += sum([ 2*auxt.l+1 for auxt in auxt_j ])
+    A_a.append(A)
+    return A_a
+
+
+
+def calculate_V_qAA(auxt_aj, M_aj, W_qLL, lmax):
+    Lmax = (lmax+1)**2
+    A_a = get_A_a(auxt_aj)
+    Atot = A_a[-1]
+    V_qAA = np.zeros( (len(W_qLL), Atot, Atot), dtype=W_qLL.dtype )
+    A1 = 0
+    for a1, (A1start, A1end) in enumerate(zip(A_a[:-1], A_a[1:])):
+        for M1, auxt1 in zip(M_aj[a1], auxt_aj[a1]):
+            for m1 in range(2*auxt1.l+1):
+                L1 = auxt1.l**2 + m1
+                A2 = 0
+                for a2, (A2start, A2end) in enumerate(zip(A_a[:-1], A_a[1:])):
+                    for M2, auxt2 in zip(M_aj[a2], auxt_aj[a2]):
+                        for m2 in range(2*auxt2.l+1):
+                            L2 = auxt2.l**2 + m2
+                            if L1 < Lmax and L2 < Lmax:
+                                V_qAA[:, A1, A2] = M1*M2*W_qLL[:, a1*Lmax + L1, a2*Lmax + L2]
+                            A2 += 1
+                A1 += 1
+
+    return V_qAA
+
+
+def calculate_S_qAA(matrix_elements):
+    A_a = matrix_elements.A_a
+    Atot = A_a[-1]
+    S_qAA = np.zeros( (len(matrix_elements.bzq_qc), Atot, Atot) )
+    
+    for a1, (A1start, A1end) in enumerate(zip(A_a[:-1], A_a[1:])):
+        for a2, (A2start, A2end) in enumerate(zip(A_a[:-1], A_a[1:])):
+            loc_S_qAA = matrix_elements.evaluate_2ci_S_qAA(a1, a2)
+            if loc_S_qAA is None:
+                continue
+            S_qAA[:, A1start:A1end, A2start:A2end] = loc_S_qAA
+    return S_qAA
+
+
+
+def calculate_M_qAA(matrix_elements, auxt_aj, M_aj, lmax):
+    A_a = matrix_elements.A_a
+    Atot = A_a[-1]
+    M_qAA = np.zeros( (len(matrix_elements.bzq_qc), Atot, Atot) )
+    Lmax = (lmax+1)**2
+    
+    for a1, (A1start, A1end) in enumerate(zip(A_a[:-1], A_a[1:])):
+        A2 = 0
+        for a2, (A2start, A2end) in enumerate(zip(A_a[:-1], A_a[1:])):
+            M_qAL = matrix_elements.evaluate_2ci_M_qAL(a1, a2)
+            if M_qAL is None:
+                continue
+            for M2, auxt2 in zip(M_aj[a2], auxt_aj[a2]):
+                for m2 in range(2*auxt2.l+1):
+                    L2 = auxt2.l**2 + m2
+                    if L2 < Lmax:
+                        M_qAA[:, A1start:A1end, A2] = M2*M_qAL[:, :, L2]
+                    A2 += 1
+
+    return M_qAA
+
+
+r"""
+ Production implementation of two center auxiliary RI-V projection.
+
+                             -1
+           /       ||       \  /       ||             \
+ P       = | φ (r) || φ (r) |  | φ (r) || φ (r) φ (r) |
+  AM1M2    \  A    ||  A'   /  \  A'   ||  M1    M2   /
+
+ Where A and A' ∈  a(M1) ∪ a(M2).
+
+
+"""
+
+def calculate_P_kkAMM(matrix_elements, W_qAA):
+    assert not np.any(matrix_elements.ibz_qc)
+    W_AA = W_qAA[0]
+
+    A_a = matrix_elements.A_a
+    M_a = matrix_elements.M_a
+    Atot = A_a[-1]
+    nao = M_a[-1]
+
+    nk = len(matrix_elements.ibz_qc)
+
+    P_kkAMM = {}
+
+    P_AMM = np.zeros( (Atot, nao, nao) )
+
+    # Single center projections
+    for a, (Astart, Aend, Mstart, Mend) in enumerate(zip(A_a[:-1], A_a[1:], M_a[:-1], M_a[1:])):
+        iW_AA = safe_inv(matrix_elements.setups[a].W_AA) #[Astart:Aend, Astart:Aend])
+        #iW_AA = safe_inv(W_qAA[0, Astart:Aend, Astart:Aend])
+        print('Got inv', iW_AA)
+        # Fake real space evaluation using setup W_AA
+        I_AMM = matrix_elements.evaluate_3ci_AMM(a, a, a)
+        P_AMM[Astart:Aend, Mstart:Mend, Mstart:Mend] += \
+           np.einsum('AB,Bij->Aij', iW_AA, I_AMM)
+
+    # Two center projections
+    for a1, (A1start, A1end, M1start, M1end) in enumerate(zip(A_a[:-1], A_a[1:], M_a[:-1], M_a[1:])):
+        for a2, (A2start, A2end, M2start, M2end) in enumerate(zip(A_a[:-1], A_a[1:], M_a[:-1], M_a[1:])):
+            if a1 == a2:
+                continue
+            locW_AA = np.block( [ [ W_AA[A1start:A1end, A1start:A1end], W_AA[A1start:A1end, A2start:A2end] ],
+                                  [ W_AA[A2start:A2end, A1start:A1end], W_AA[A2start:A2end, A2start:A2end] ] ] )
+            iW_AA = safe_inv(locW_AA)
+            I_AMM = [matrix_elements.evaluate_3ci_AMM(a1, a1, a2),
+                     matrix_elements.evaluate_3ci_AMM(a2, a1, a2) ]
+            if I_AMM[0] is None or I_AMM[1] is None:
+                continue
+            I_AMM = np.vstack(I_AMM)
+            Ploc_AMM = np.einsum('AB,Bij', iW_AA, I_AMM, optimize=True)
+            P_AMM[A1start:A1end, M1start:M1end, M2start:M2end] += Ploc_AMM[:A1end-A1start]
+            P_AMM[A2start:A2end, M1start:M1end, M2start:M2end] += Ploc_AMM[A1end-A1start:]
+
+    P_kkAMM[(0,0)] = P_AMM 
+    return P_kkAMM
+
+
+r"""
+ Production implementation of compensation charge projection
+
+                              
+               __   a      /  a    |       \  /  a  |       \
+ P           = \   Δ       | p (r) | φ (r) |  | p   | φ (r) |
+  (L,a)M1M2    /_   Li1i2  \  i1   |  M1   /  \  i2 |  M2   /
+               ai1i2
+
+
+"""
+
+def calculate_P_kkLMM(matrix_elements, setups, atomic_correction):
+    L_a = matrix_elements.L_a
+    M_a = matrix_elements.M_a
+    Ltot = L_a[-1]
+    nao = M_a[-1]
+    P_LMM = np.zeros( (Ltot, nao, nao)  )
+
+    for a, (setup, Lstart, Lend) in enumerate(zip(setups, L_a[:-1], L_a[1:])):
+        P_Mi = atomic_correction.P_aqMi[a][0]
+        P_LMM[Lstart:Lend, :, :] = np.einsum('ijL,Mi,Nj->LMN', setup.Delta_iiL, P_Mi, P_Mi, optimize=True)
+    P_kkLMM = { (0,0):P_LMM }
+    return P_kkLMM 
+
+
+def calculate_W_qAL(matrix_elements, auxt_aj, M_aj, W_qLL):
+    W_qAL = calculate_M_qAL(matrix_elements)
+    A_a = matrix_elements.A_a
+    L_a = matrix_elements.L_a
+    Atot = A_a[-1]
+    
+    A = 0
+    for a1, (A1start, A1end) in enumerate(zip(A_a[:-1], A_a[1:])):
+        for auxt, M in zip(auxt_aj[a1], M_aj[a1]):
+            for m in range(2*auxt.l+1):
+                locL = auxt.l**2 + m
+                W_qAL[:, A, :] += M*W_qLL[:, L_a[a1]+locL, :]
+                A += 1
+    return W_qAL
+
+
+
+"""
+
 from gpaw.lfc import LFC
 from gpaw.utilities.tools import tri2full
-from gpaw.auxlcao.utilities import safe_inv
 from gpaw.lcao.tci import AtomPairRegistry
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.pw.descriptor import PWDescriptor
@@ -12,10 +188,6 @@ from gpaw.auxlcao.generatedcode import generated_W_LL,\
 sqrt3 = 3**0.5
 sqrt5 = 5**0.5
 sqrt15 = 15**0.5
-
-"""
-
-    Methods helping with slicing of local arrays
 
 """
 
@@ -32,15 +204,6 @@ def grab_local_W_LL(W_LL, alst, lmax):
     S = (lmax+1)**2
     Lslices = get_L_slices(reduce_list(alst),S)
     return np.block( [ [ W_LL[slice1, slice2] for slice2 in Lslices ] for slice1 in Lslices ] ), Lslices
-
-def get_A_a(auxt_aj):
-    A_a = []
-    A = 0
-    for a, auxt_j in enumerate(auxt_aj):
-        A_a.append(A)
-        A += sum([ 2*auxt.l+1 for auxt in auxt_j ])
-    A_a.append(A)
-    return A_a
 
 def create_local_M_a(alst, M_a):
     M = 0
@@ -532,75 +695,6 @@ def reference_I_AMM(wfs, density, hamiltonian, poisson, auxt_aj, spos_ac):
     return I_AMM
 
 
-r"""
- Production implementation of compensation charge projection
-
-                              
-               __   a      /  a    |       \  /  a  |       \
- P           = \   Δ       | p (r) | φ (r) |  | p   | φ (r) |
-  (L,a)M1M2    /_   Li1i2  \  i1   |  M1   /  \  i2 |  M2   /
-               ai1i2
-
-
-"""
-
-def calculate_P_LMM(matrix_elements, setups, atomic_correction):
-    L_a = matrix_elements.L_a
-    M_a = matrix_elements.M_a
-    Ltot = L_a[-1]
-    nao = M_a[-1]
-    P_LMM = np.zeros( (Ltot, nao, nao) )
-
-    for a, (setup, Lstart, Lend) in enumerate(zip(setups, L_a[:-1], L_a[1:])):
-        P_Mi = atomic_correction.P_aqMi[a][0]
-        P_LMM[Lstart:Lend, :, :] = np.einsum('ijL,Mi,Nj->LMN', setup.Delta_iiL, P_Mi, P_Mi, optimize=True)
-    return P_LMM 
-
-r"""
- Production implementation of two center auxiliary RI-V projection.
-
-                             -1
-           /       ||       \  /       ||             \
- P       = | φ (r) || φ (r) |  | φ (r) || φ (r) φ (r) |
-  AM1M2    \  A    ||  A'   /  \  A'   ||  M1    M2   /
-
- Where A and A' ∈  a(M1) ∪ a(M2).
-
-
-"""
-
-def calculate_P_AMM(matrix_elements, W_AA):
-    A_a = matrix_elements.A_a
-    M_a = matrix_elements.M_a
-    Atot = A_a[-1]
-    nao = M_a[-1]
-    P_AMM = np.zeros( (Atot, nao, nao) )
-
-    # Single center projections
-    for a, (Astart, Aend, Mstart, Mend) in enumerate(zip(A_a[:-1], A_a[1:], M_a[:-1], M_a[1:])):
-        iW_AA = safe_inv(W_AA[Astart:Aend, Astart:Aend])
-        I_AMM = matrix_elements.evaluate_3ci_AMM(a, a, a)
-        P_AMM[Astart:Aend, Mstart:Mend, Mstart:Mend] += \
-           np.einsum('AB,Bij->Aij', iW_AA, I_AMM)
-
-    # Two center projections
-    for a1, (A1start, A1end, M1start, M1end) in enumerate(zip(A_a[:-1], A_a[1:], M_a[:-1], M_a[1:])):
-        for a2, (A2start, A2end, M2start, M2end) in enumerate(zip(A_a[:-1], A_a[1:], M_a[:-1], M_a[1:])):
-            if a1 == a2:
-                continue
-            locW_AA = np.block( [ [ W_AA[A1start:A1end, A1start:A1end], W_AA[A1start:A1end, A2start:A2end] ],
-                                  [ W_AA[A2start:A2end, A1start:A1end], W_AA[A2start:A2end, A2start:A2end] ] ] )
-            iW_AA = safe_inv(locW_AA)
-            I_AMM = [matrix_elements.evaluate_3ci_AMM(a1, a1, a2),
-                     matrix_elements.evaluate_3ci_AMM(a2, a1, a2) ]
-            if I_AMM[0] is None or I_AMM[1] is None:
-                continue
-            I_AMM = np.vstack(I_AMM)
-            Ploc_AMM = np.einsum('AB,Bij', iW_AA, I_AMM, optimize=True)
-            P_AMM[A1start:A1end, M1start:M1end, M2start:M2end] += Ploc_AMM[:A1end-A1start]
-            P_AMM[A2start:A2end, M1start:M1end, M2start:M2end] += Ploc_AMM[A1end-A1start:]
-
-    return P_AMM
 
 r"""
 
@@ -668,93 +762,21 @@ r"""
 
 """
 
-def calculate_M_AL(matrix_elements):
+def calculate_M_qAL(matrix_elements):
     A_a = matrix_elements.A_a
     L_a = matrix_elements.L_a
     Atot = A_a[-1]
     Ltot = L_a[-1]
-    M_AL = np.zeros( (Atot, Ltot) )
+    nq = len(matrix_elements.bzq_qc)
+    M_qAL = np.zeros( (nq, Atot, Ltot) )
     for a1, (Astart, Aend) in enumerate(zip(A_a[:-1], A_a[1:])):
         A2 = 0
         for a2, (Lstart, Lend) in enumerate(zip(L_a[:-1], L_a[1:])):
-            Mloc_AL = matrix_elements.evaluate_2ci_M_AL(a1, a2)
-            if Mloc_AL is None:
+            Mloc_qAL = matrix_elements.evaluate_2ci_M_qAL(a1, a2)
+            if Mloc_qAL is None:
                 continue
-            M_AL[Astart:Aend, Lstart:Lend] = Mloc_AL
-    return M_AL
-
-def calculate_W_AL(matrix_elements, auxt_aj, M_aj, W_LL):
-    W_AL = calculate_M_AL(matrix_elements)
-    A_a = matrix_elements.A_a
-    L_a = matrix_elements.L_a
-    Atot = A_a[-1]
-    M_AA = np.zeros( (Atot, Atot) )
-    
-    A = 0
-    for a1, (A1start, A1end) in enumerate(zip(A_a[:-1], A_a[1:])):
-        for auxt, M in zip(auxt_aj[a1], M_aj[a1]):
-            for m in range(2*auxt.l+1):
-                locL = auxt.l**2 + m
-                W_AL[A, :] += M*W_LL[L_a[a1]+locL, :]
-                A += 1
-    return W_AL
+            M_qAL[:, Astart:Aend, Lstart:Lend] = Mloc_qAL
+    return M_qAL
 
 
-def calculate_V_qAA(auxt_aj, M_aj, W_qLL, lmax):
-    Lmax = (lmax+1)**2
 
-    # Obtain local (per atom) coordinates for auxiliary functions,
-    # and allocate the W_AA array.
-    A_a = get_A_a(auxt_aj)
-    Atot = A_a[-1]
-    W_AA = np.zeros( (Atot, Atot) )
-    A1 = 0
-    for a1, (A1start, A1end) in enumerate(zip(A_a[:-1], A_a[1:])):
-        for M1, auxt1 in zip(M_aj[a1], auxt_aj[a1]):
-            for m1 in range(2*auxt1.l+1):
-                L1 = auxt1.l**2 + m1
-                A2 = 0
-                for a2, (A2start, A2end) in enumerate(zip(A_a[:-1], A_a[1:])):
-                    for M2, auxt2 in zip(M_aj[a2], auxt_aj[a2]):
-                        for m2 in range(2*auxt2.l+1):
-                            L2 = auxt2.l**2 + m2
-                            if L1 < Lmax and L2 < Lmax:
-                                W_AA[A1, A2] = M1*M2*W_LL[a1*Lmax + L1, a2*Lmax + L2]
-                            A2 += 1
-                A1 += 1
-
-    return W_AA
-
-def calculate_S_AA(matrix_elements):
-    A_a = matrix_elements.A_a
-    Atot = A_a[-1]
-    S_AA = np.zeros( (Atot, Atot) )
-    
-    for a1, (A1start, A1end) in enumerate(zip(A_a[:-1], A_a[1:])):
-        for a2, (A2start, A2end) in enumerate(zip(A_a[:-1], A_a[1:])):
-            loc_S_AA = matrix_elements.evaluate_2ci_S_AA(a1, a2)
-            if loc_S_AA is None:
-                continue
-            S_AA[A1start:A1end, A2start:A2end] = loc_S_AA
-    return S_AA
-
-def calculate_M_AA(matrix_elements, auxt_aj, M_aj, lmax):
-    A_a = matrix_elements.A_a
-    Atot = A_a[-1]
-    M_AA = np.zeros( (Atot, Atot) )
-    Lmax = (lmax+1)**2
-    
-    for a1, (A1start, A1end) in enumerate(zip(A_a[:-1], A_a[1:])):
-        A2 = 0
-        for a2, (A2start, A2end) in enumerate(zip(A_a[:-1], A_a[1:])):
-            M_AL = matrix_elements.evaluate_2ci_M_AL(a1, a2)
-            if M_AL is None:
-                continue
-            for M2, auxt2 in zip(M_aj[a2], auxt_aj[a2]):
-                for m2 in range(2*auxt2.l+1):
-                    L2 = auxt2.l**2 + m2
-                    if L2 < Lmax:
-                        M_AA[A1start:A1end, A2] = M2*M_AL[:, L2]
-                    A2 += 1
-
-    return M_AA

@@ -22,11 +22,16 @@ class RIAlgorithm:
         for kpt in self.wfs.kpt_u:
             kpt.exx_V_MM = 0.0
 
+        self.prepare_setups(density.setups)
+
+    def prepare_setups(self, setups):
         if self.screening_omega != 0.0:
-            for setup in self.density.setups:
+            for setup in setups:
                 setup.ri_M_pp = setup.calculate_screened_M_pp(self.screening_omega)
         else:
-            setup.ri_M_pp = setup.M_pp
+            for setup in setups:
+                setup.ri_M_pp = setup.M_pp
+
 
     def nlxc(self,
             H_MM:np.ndarray,
@@ -35,17 +40,6 @@ class RIAlgorithm:
              kpt, yy) -> Tuple[float, float, float]:
 
         H_MM += kpt.exx_V_MM * yy
-
-        #if self.dH_asp is None:
-        #    print('Skipping dH_asp for first time')
-        #else:
-        #    for a in self.dH_asp:
-        #        #print('dH before ', dH_asp[a])
-        #        print('Not adding dH_asp')
-        #        #dH_asp[a] += self.dH_asp[a]
-        #        #print('Added correction', self.dH_asp[a])
-        #        #print('dH ', dH_asp[a])
-        ##print('Adding nlxc', kpt.exx_V_MM, H_MM)
 
     def set_positions(self, spos_ac):
         self.spos_ac = spos_ac
@@ -71,11 +65,11 @@ class RIAlgorithm:
                     assert kpt2.q == kibz
                     kpt2_rho_MM = rotate_density_matrix(kpt2.exx_rho_MM, kd.symmetry, pointgroup_symmetry, time_reversal_symmetry)
                     E, V_MM = self.calculate_exchange_per_kpt_pair(kpt, kd.ibzk_qc[kpt.q], kpt.exx_rho_MM, kpt2, kd.bzk_kc[kbz], kpt2_rho_MM)
+                    print('Got V_MM', V_MM)
                     kpt.exx_V_MM += V_MM
                     evv += E
 
-        evc = 0.0 # XXX
-        ekin = -2*evv #-evc
+        ekin = -2*evv
         return evv, ekin
 
 
@@ -97,9 +91,6 @@ class RIAlgorithm:
             dH_sp[0][:] += (-V_p - self.density.setups[a].X_p) * self.exx_fraction
 
             evv = -self.exx_fraction * np.dot(V_p, self.density.D_asp[a][0]) / 2
-            print('Exc vv corr:', evv)
             evc = -self.exx_fraction * np.dot(self.density.D_asp[a][0], self.density.setups[a].X_p)
-            print('Exc vc corr:', evc)
-            print('Ekin from setup ', -2*evv - evc)
-            return evv + evc, 0.0 #-2*evv - evc
+            return evv + evc, 0.0
 

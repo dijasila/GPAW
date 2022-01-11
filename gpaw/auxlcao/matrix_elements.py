@@ -6,26 +6,249 @@ from gpaw.auxlcao.utilities import get_compensation_charge_splines,\
                                    get_compensation_charge_splines_screened,\
                                    get_wgauxphit_product_splines,\
                                    get_auxiliary_splines,\
-                                   get_auxiliary_splines_screened
+                                   get_auxiliary_splines_screened,\
+                                   safe_inv
 from gpaw.auxlcao.procedures import get_A_a
 from gpaw.lcao.overlap import (FourierTransformer, TwoSiteOverlapCalculator,
                                ManySiteOverlapCalculator,
-                               AtomicDisplacement, NullPhases)
+                               AtomicDisplacement, NullPhases, BlochPhases)
 from gpaw.auxlcao.screenedcoulombkernel import ScreenedCoulombKernel
 
 from gpaw.gaunt import gaunt
 
 G_LLL = gaunt(3) # XXX
 
+
+r"""
+
+                 sr.       lr.    
+     φ (r)    = φ (r)  +  φ (r)  
+       A         A         A      
+
+
+      sr.                 
+     φ (r) =  φ (r) - M  g (r)
+      A        A       A  L_A    
+
+
+      lr.         
+     φ (r) =  M  g (r)
+      A        A  L_A    
+
+
+            /  lr   ||  lr    \
+     W   =  | φ (r) || φ (r') |
+      LL'   \  L    ||  L'    /
+
+             /   sr.   ||  lr.    \
+     M    =  |  φ (r)  || g (r')  |
+      AL     \   A     ||  L      /
+
+
+             /   sr.   ||  sr.    \
+     S    =  |  φ (r)  || φ (r')  |
+      AA'    \   A     ||  A'     /
+
+
+       S    P_AMM
+        AA
+------------------------------------------------
+
+             SS    SL    LS    LL
+ P_AMM   (  W   + W   + W   + W   )  P_AMM 
+             AA    AA    AA    AA
+
+ W_AL
+
+             SL    LL
+ P_AMM   (  W   + W   )  P_LMM 
+             AL    AL     
+
+             LS    LL
+ P_LMM   (  W   + W   )  P_AMM 
+             LA    LL     
+
+                               LL      
+ P_LMM   (                    W   )  P_LMM
+                               LL
+
+
+           '
+  What if P     = P    + M   P
+           LMM     LMM    LA  AMM
+
+
+and
+          SS
+ P_AMM ( W   ) P_AMM
+          AA
+
+          SL
+ P_AMM ( W   ) P'_LMM
+          AL
+
+  '       LS
+ P_LMM ( W   ) P_AMM
+          LA
+
+
+           LL                   LL                     LL                        LL               LL
+ P'_LMM ( W   ) P'_LMM =  P    W    P      + P    M   W    M    P    + P    M   W   P     + P    W   M   P
+           LL              LMM  LL   LMM      AMM  AL  LL   LA   AMM    AMM  AL  LL  LMM     LMM  LL  LA  AMM
+
+
+--------------------------------------
+             LL        LL
+            W   = M   W   M_LA
+             AA    AL  LL
+
+             LL
+            W   = M   W
+             AL    AL  LL
+
+             LS        LS
+            W   = M   W
+             AA    AL  LA
+
+             SL     SL
+            W   =  W   M
+             AA     LA  LA
+-----------------------------------------------
+
+             SS       LS    SL            LL
+ P_AMM   (  W   + M  W   + W   M   + M   W   M   )  P_AMM 
+             AA    AL LA    LA  LA    AL  LL  LA
+
+             SL       LL
+ P_AMM   (  W   + M  W    )  P_LMM 
+             AL    AL LL     
+
+             LS      LL
+ P_LMM   (  W    +  W   M   )  P_AMM 
+             LA      LL  AL   
+
+                               LL      
+ P_LMM   (                    W   )  P_LMM 
+                               LL
+----------------------------------
+
+ 
+NO!
+
+
+Only viable option is
+-----------------------------------------------
+      P_LMM 
+     PS_LMM = M_LA P_AMM
+      P_AMM
+
+
+-------------------------
+-------------------------
+          SS    SL    LS
+ P_AMM ( W   + W   + W    ) P_AMM
+          AA    AA    AA
+
+             SL  
+ P_AMM   (  W    )  P_LMM 
+             AL       
+
+             LS  
+ P_LMM   (  W    )  P_AMM 
+             LA
+
+                     LL
+ ( PS_LMM + P_LMM ) W   ( PS_LMM + P_LMM)
+                     LL
+
+
+-------------------------
+-------------------------
+          SS  
+ P_AMM ( W    ) P_AMM
+          AA   
+
+           SL    
+ P_AMM (  W   PS_LMM ) 
+           AL    
+
+            LS    
+ PS_LMM (  W    P_AMM ) 
+            LA    
+ 
+        SL
+ P_AMM W   P_LMM
+        AL
+
+
+        LS
+ P_LMM W   P_AMM
+        LA
+
+
+----------------------
+         LL
+ PS_LMM W    PS_LMM
+         LL
+
+         LL
+ PS_LMM W    P_LMM
+         LL
+
+         LL
+ PC_LMM W   PC_LMM
+         LL
+
+         LL
+ PS_LMM W   PS_LMM 
+         LL
+-------------------
+------------------
+
+
+
+             SS    SL    LS    LL
+ P_AMM   (  W   + W   + W   + W   )  P_AMM 
+             AA    AA    AA    AA
+
+             SL    LL
+ P_AMM   (  W   + W   )  P_LMM 
+             AL    AL     
+
+
+             LS    LL
+ P_LMM   (  W   + W   )  P_AMM 
+             LA    LA     
+
+                               LL      
+ P_LMM   (                    W   )  P_LMM 
+                               LL
+
+
+---------------------------------------------
+      P_LMM
+
+
+      W_AA P_AMM
+
+    """
+
+
+
+
 class MatrixElements:
-    def __init__(self, lmax=2, screening_omega=0.0, threshold=None):
+    def __init__(self, lmax=2, lcomp=2, screening_omega=0.0, threshold=None):
         assert threshold is not None
         self.lmax = lmax
+        self.lcomp = lcomp
         self.screening_omega = screening_omega
         self.threshold = threshold
 
     def initialize(self, density, ham, wfs):
         self.setups = setups = wfs.setups
+        self.wfs = wfs
+
+        self.my_a = range(len(setups.M_a))
 
         self.M_a = setups.M_a.copy()
         self.M_a.append(setups.nao)
@@ -47,20 +270,18 @@ class MatrixElements:
                 setup.screened_coulomb = ScreenedCoulombKernel(setup.rgd, self.screening_omega)
 
                 # Compensation charges
-                setup.gaux_l, setup.wgaux_l, W_LL = get_compensation_charge_splines_screened(setup, self.lmax, rcmax)
-
-                setup.W_LL = W_LL
+                setup.gaux_l, setup.wgaux_l, setup.W_LL = get_compensation_charge_splines_screened(setup, self.lmax, rcmax)
 
                 # Auxiliary basis functions
-                setup.auxt_j, setup.wauxt_j, setup.sauxt_j, setup.wsauxt_j, setup.M_j = \
+                setup.auxt_j, setup.wauxt_j, setup.sauxt_j, setup.wsauxt_j, setup.M_j, setup.W_AA = \
                    get_auxiliary_splines_screened(setup, self.lmax, rcmax, threshold=self.threshold)
 
             else:
                 # Compensation charges
-                setup.gaux_l, setup.wgaux_l = get_compensation_charge_splines(setup, self.lmax, rcmax)
+                setup.gaux_l, setup.wgaux_l, setup.W_LL = get_compensation_charge_splines(setup, self.lmax, rcmax)
 
                 # Auxiliary basis functions
-                setup.auxt_j, setup.wauxt_j, setup.sauxt_j, setup.wsauxt_j, setup.M_j = \
+                setup.auxt_j, setup.wauxt_j, setup.sauxt_j, setup.wsauxt_j, setup.M_j, setup.W_AA = \
                      get_auxiliary_splines(setup, self.lmax, rcmax, threshold=self.threshold)
 
             # Single center Hartree of compensation charges * one phit_j
@@ -130,13 +351,148 @@ class MatrixElements:
         Lsize = (self.lmax+1)**2
         self.L_a = np.arange(0, len(self.A_a)*Lsize, Lsize)
 
+    def calculate(self, W_LL=None, W_AA=None, P_AMM=None, P_LMM=None, W_AL=None):
+        self.calculate_sparse_W_LL(W_LL) 
+        self.calculate_sparse_P_AMM(P_AMM)
+        self.calculate_sparse_P_LMM(P_LMM, P_AMM)
+        self.calculate_sparse_W_AL(W_AL)
+        self.calculate_sparse_W_AA(W_AA, W_AL, W_LL)
 
-    def set_positions_and_cell(self, spos_ac, cell_cv, pbc_c, ibzq_qc, dtype):
+
+    def calculate_sparse_W_LL(self, W_LL):
+        for a, setup in enumerate(self.setups):
+            W_LL += (a,a), setup.W_LL
+    
+
+    r"""
+     Production implementation of two center auxiliary RI-V projection.
+
+                                -1
+               /       ||       \  /       ||             \
+      P	     = | φ (r) || φ (r) |  | φ (r) || φ (r) φ (r) |
+       AM1M2   \  A    ||  A'   /  \  A'   ||  M1    M2   /
+
+       Where A and A' ∈  a(M1) ∪ a(M2).
+    """
+    def calculate_sparse_P_AMM(self, P_AMM):
+
+        # Single center projections
+        for a in self.my_a:
+            iW_AA = safe_inv(self.setups[a].W_AA)
+            Iloc_AMM = self.evaluate_3ci_AMM(a, a, a)
+            print(iW_AA.shape, Iloc_AMM.shape, 'shapesxxx')
+            P_AMM += (a,a,a), np.einsum('AB,Bij->Aij', iW_AA, Iloc_AMM)
+
+        print('TODO: Two center projections')
+
+        return
+
+        # Two center projections
+        for a1, (A1start, A1end, M1start, M1end) in enumerate(zip(A_a[:-1], A_a[1:], M_a[:-1], M_a[1:])):
+            for a2, (A2start, A2end, M2start, M2end) in enumerate(zip(A_a[:-1], A_a[1:], M_a[:-1], M_a[1:])):
+                if a1 == a2:
+                    continue
+                locW_AA = np.block( [ [ W_AA[A1start:A1end, A1start:A1end], W_AA[A1start:A1end, A2start:A2end] ],
+                                      [ W_AA[A2start:A2end, A1start:A1end], W_AA[A2start:A2end, A2start:A2end] ] ] )
+                iW_AA = safe_inv(locW_AA)
+                I_AMM = [matrix_elements.evaluate_3ci_AMM(a1, a1, a2),
+                         matrix_elements.evaluate_3ci_AMM(a2, a1, a2) ]
+                if I_AMM[0] is None or I_AMM[1] is None:
+                    continue
+                I_AMM = np.vstack(I_AMM)
+                Ploc_AMM = np.einsum('AB,Bij', iW_AA, I_AMM, optimize=True)
+                P_AMM[A1start:A1end, M1start:M1end, M2start:M2end] += Ploc_AMM[:A1end-A1start]
+                P_AMM[A2start:A2end, M1start:M1end, M2start:M2end] += Ploc_AMM[A1end-A1start:]
+
+        P_kkAMM[(0,0)] = P_AMM
+        return P_kkAMM
+
+    r"""
+     Production implementation of compensation charge projection
+    
+    
+                   __     a      /  a    |       \  /  a  |       \
+     P           = \     D      | p (r) | φ (r) |  | p   | φ (r) |
+      (L,a)M1M2    /_     Li1i2  \  i1   |  M1   /  \  i2 |  M2   /
+                   ai1i2
+
+
+    """
+    def calculate_sparse_P_LMM(self, P_LMM, P_AMM):
+        for a, setup in enumerate(self.setups):
+            P_Mi = self.wfs.atomic_correction.P_aqMi[a][0]
+            Ploc_LMM = np.einsum('ijL,Mi,Nj->LMN', setup.Delta_iiL, P_Mi, P_Mi, optimize=True)
+
+            for a1, (M1start, M1end) in enumerate(zip(self.M_a[:-1], self.M_a[1:])):
+                for a2, (M2start, M2end) in enumerate(zip(self.M_a[:-1], self.M_a[1:])): 
+                    P_LMM += (a, a1, a2), Ploc_LMM[:, M1start:M1end, M2start:M2end]
+            #print('Modified compensation charges')
+
+        for i, block_xx in P_AMM.block_i.items():
+            a1, a2, a3 = i
+            Ploc_LMM = np.zeros( (9,) + block_xx.shape[1:] )
+            Aloc = 0
+            setup = self.setups[a1]
+            for auxt, M in zip(self.setups[a1].auxt_j, setup.M_j):
+                S = 2*auxt.l+1
+                L = (auxt.l)**2
+                Ploc_LMM[L:L+S, :, :] = M * block_xx[Aloc:Aloc+S, :, :]
+                Aloc += S
+            P_LMM += (a1, a2, a3), Ploc_LMM
+
+    def calculate_sparse_W_AL(self, W_AL):
+        for a1 in self.my_a:
+            for a2 in self.my_a:
+                Mloc_qAL = self.evaluate_2ci_M_qAL(a1, a2)
+                if Mloc_qAL is None:
+                    continue
+                W_AL += (a1, a2), Mloc_qAL[0]
+
+    def calculate_sparse_W_AA(self, W_AA, W_AL, W_LL):
+        A_a = self.A_a
+        for a1 in self.my_a:
+            NA1 = A_a[a1+1] - A_a[a1]
+            for a2 in self.my_a:
+                NA2 = A_a[a2+1] - A_a[a2]
+                Mloc_qAA = self.evaluate_2ci_S_qAA(a1, a2)
+                if Mloc_qAA is not None:
+                    W_AA += (a1, a2), Mloc_qAA[0]
+
+                """                
+                Mloc_AL = self.evaluate_2ci_M_qAL(a1, a2)[0]
+                if Mloc_AL is not None:
+                    Mloc_AA = np.zeros( (NA1, NA2) )
+                    setup = self.setups[a2]
+                    A2 = 0
+                    for M, auxt in zip(setup.M_j, setup.auxt_j):
+                        for m2 in range(2*auxt.l+1):
+                            L = auxt.l**2 + m2
+                            if L < (self.lcomp+1)**2:
+                                Mloc_AA[:, A2] = M*Mloc_AL[:, L]
+                            A2 += 1
+                    W_AA += (a1, a2), Mloc_AA[0]
+
+                Mloc_LA = self.evaluate_2ci_M_qAL(a2, a1)[0].T
+                if Mloc_LA is not None:
+                    Mloc_AA = np.zeros( (NA1, NA2) )
+                    setup = self.setups[a1]
+                    A2 = 0
+                    for M, auxt in zip(setup.M_j, setup.auxt_j):
+                        for m2 in range(2*auxt.l+1):
+                            L = auxt.l**2 + m2
+                            if L < (self.lcomp+1)**2:
+                                Mloc_AA[A2, :] = M*Mloc_LA[L, :]
+                            A2 += 1
+                """
+
+    def set_positions_and_cell(self, spos_ac, cell_cv, pbc_c, ibz_qc, bzq_qc, dtype):
         self.spos_ac = spos_ac
         self.cell_cv = cell_cv
         self.pbc_c = pbc_c
-        self.ibzq_qc = ibzq_qc
+        self.ibz_qc = ibz_qc
         self.dtype = dtype
+
+        self.bzq_qc = bzq_qc # q-points
       
         # Build an atom pair registry for basis function overlap
         self.apr = AtomPairRegistry(self.rcmax_a, pbc_c, cell_cv, spos_ac)
@@ -178,26 +534,29 @@ class MatrixElements:
 
     """
 
-    def evaluate_2ci_S_AA(self, a1, a2):
+    def evaluate_2ci_S_qAA(self, a1, a2):
         R_c_and_offset_a = self.apr.get(a1, a2)
         if R_c_and_offset_a is None:
             return None
 
         # We do not support q-points yet
-        nq = len(self.ibzq_qc)
+        nq = len(self.bzq_qc)
 
         S_AA_expansion = self.S_AA_expansions.get(a1, a2)
         obj = S_qAA = S_AA_expansion.zeros((nq,), dtype=self.dtype)
 
+        if self.bzq_qc.any():
+            get_phases = BlochPhases
+        else:
+            get_phases = NullPhases
+
         for R_c, offset in R_c_and_offset_a:
             norm = np.linalg.norm(R_c)
-            phases = NullPhases(self.ibzq_qc, offset)
+            phases = get_phases(self.bzq_qc, offset)
             disp = AtomicDisplacement(None, a1, a2, R_c, offset, phases)
             disp.evaluate_overlap(S_AA_expansion, S_qAA)
 
-        S_AA = S_qAA[0]
-
-        return S_AA
+        return S_qAA
 
 
     r"""
@@ -208,26 +567,29 @@ class MatrixElements:
 
     """
 
-    def evaluate_2ci_M_AL(self, a1, a2):
+    def evaluate_2ci_M_qAL(self, a1, a2):
         R_c_and_offset_a = self.apr.get(a1, a2)
         if R_c_and_offset_a is None:
             return None
 
-        # We do not support q-points yet
-        nq = len(self.ibzq_qc)
+        nq = len(self.bzq_qc)
 
         M_AL_expansion = self.M_AL_expansions.get(a1, a2)
         obj = M_qAL = M_AL_expansion.zeros((nq,), dtype=self.dtype)
 
+        if self.bzq_qc.any():
+            get_phases = BlochPhases
+        else:
+            get_phases = NullPhases
+
+
         for R_c, offset in R_c_and_offset_a:
             norm = np.linalg.norm(R_c)
-            phases = NullPhases(self.ibzq_qc, offset)
+            phases = get_phases(self.bzq_qc, offset)
             disp = AtomicDisplacement(None, a1, a2, R_c, offset, phases)
             disp.evaluate_overlap(M_AL_expansion, M_qAL)
 
-        M_AL = M_qAL[0]
-
-        return M_AL
+        return M_qAL
 
 
     r"""
@@ -261,16 +623,18 @@ class MatrixElements:
             return None
 
         # We do not support q-points yet
-        nq = len(self.ibzq_qc)
+        nq = len(self.ibz_qc)
 
         W_YM_expansion = self.W_YM_expansions.get(a2, a3)
         obj = W_qYM = W_YM_expansion.zeros((nq,), dtype=self.dtype)
 
         for R_c, offset in R_c_and_offset_a:
             norm = np.linalg.norm(R_c)
-            phases = NullPhases(self.ibzq_qc, offset)
+            phases = NullPhases(self.bzq_qc, offset)
             disp = AtomicDisplacement(None, a2, a3, R_c, offset, phases)
+            #print(disp.overlap_without_phases(W_YM_expansion))
             disp.evaluate_overlap(W_YM_expansion, W_qYM)
+
 
         setup1 = self.setups[a1]
 
@@ -319,14 +683,14 @@ class MatrixElements:
             return None
 
         # We do not support q-points yet
-        nq = len(self.ibzq_qc)
+        nq = len(self.bzq_qc)
 
         W_XM_expansion = self.W_XM_expansions.get(a1, a2)
         obj = W_qXM = W_XM_expansion.zeros((nq,), dtype=self.dtype)
 
         for R_c, offset in R_c_and_offset_a:
             norm = np.linalg.norm(R_c)
-            phases = NullPhases(self.ibzq_qc, offset)
+            phases = NullPhases(self.bzq_qc, offset)
             disp = AtomicDisplacement(None, a1, a3, R_c, offset, phases)
             disp.evaluate_overlap(W_XM_expansion, W_qXM)
 
