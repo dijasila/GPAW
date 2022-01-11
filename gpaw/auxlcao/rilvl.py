@@ -561,7 +561,7 @@ class RILVL(RIAlgorithm):
         # Since this is debug, do not care about memory use
         rho_pg = finegd.zeros( len(pairs_p) )
         V_pg = finegd.zeros( len(pairs_p) )
-        print('Allocating ', 2*rho_pg.itemsize / 1024.0**2,' MB')
+        #print('Allocating ', 2*rho_pg.itemsize / 1024.0**2,' MB')
 
         # Put wave functions of the two basis functions to the grid
         phit1_MG = gd.zeros(nao)

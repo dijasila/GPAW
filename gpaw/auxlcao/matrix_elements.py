@@ -411,10 +411,12 @@ class MatrixElements:
         for a in self.my_a:
             iW_AA = safe_inv(self.setups[a].W_AA)
             Iloc_AMM = self.evaluate_3ci_AMM(a, a, a)
-            print(iW_AA.shape, Iloc_AMM.shape, 'shapesxxx')
             P_AMM += (a,a,a), np.einsum('AB,Bij->Aij', iW_AA, Iloc_AMM)
 
-        print('TODO: Two center projections')
+            for a2 in self.my_a:
+                if a == a2:
+                    continue
+                raise NotImplementedError('TODO: Two center projections')
 
         return
 
@@ -457,7 +459,6 @@ class MatrixElements:
             for a1, (M1start, M1end) in enumerate(zip(self.M_a[:-1], self.M_a[1:])):
                 for a2, (M2start, M2end) in enumerate(zip(self.M_a[:-1], self.M_a[1:])): 
                     P_LMM += (a, a1, a2), Ploc_LMM[:, M1start:M1end, M2start:M2end]
-            print('Modified compensation charges')
 
         return
         for i, block_xx in P_AMM.block_i.items():
