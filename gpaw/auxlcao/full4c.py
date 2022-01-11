@@ -19,6 +19,9 @@ class Full4C(RIAlgorithm):
     def __init__(self, exx_fraction=None, screening_omega=None):
         RIAlgorithm.__init__(self, 'Full4C debug', exx_fraction, screening_omega)
         self.K_kkMMMM = {}
+        self.only_ghat = False
+        self.no_ghat = False
+        self.only_ghat_aux_interaction = False
 
     def set_positions(self, spos_ac):
         RIAlgorithm.set_positions(self, spos_ac)
@@ -141,9 +144,11 @@ class Full4C(RIAlgorithm):
                 D_ap[a] = D_p
                 tmp = np.dot(D_p, self.density.setups[a].Delta_pL)
                 Q_aL[a] = tmp.reshape((1,) + tmp.shape)
-            #rho_xG[:] = 0.0
-            #print('No compesation charges')
-            ghat.add(rho_xG, Q_aL)
+            if self.only_ghat:
+                print('Only compesation charges')
+                rho_xG[:] = 0.0
+            if not self.no_ghat:
+                ghat.add(rho_xG, Q_aL)
 
             Vrho_G = rho_xG[0] * v_G
 
@@ -216,13 +221,25 @@ class Full4C(RIAlgorithm):
                 D_ap[a] = D_p
                 Q_aL[a] = np.dot(D_p, self.density.setups[a].Delta_pL)
             
-            #rhot_g[:] = 0.0
-            self.density.ghat.add(rhot_g, Q_aL)
-            #print('Only compensation charges')
+            if self.only_ghat:
+                print('Only compesation charges')
+                rhot_g[:] = 0.0
+
+            if self.only_ghat_aux_interaction:
+                print('only ghat_aux_interaction')
+                rhot2_g = np.zeros_like(rhot_g)
+                self.density.ghat.add(rhot2_g, Q_aL)
+
+            elif not self.no_ghat:
+                self.density.ghat.add(rhot_g, Q_aL)
+
             V_g = finegd.zeros()
             self.hamiltonian.poisson.solve(V_g, rhot_g, charge=None)
 
-            rho_pg[p1][:] = rhot_g
+            if self.only_ghat_aux_interaction:
+                rho_pg[p1][:] = 2*rhot2_g
+            else:
+                rho_pg[p1][:] = rhot_g
             V_pg[p1][:] = V_g
 
         K_pp = finegd.integrate(rho_pg, V_pg)

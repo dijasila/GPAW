@@ -13,6 +13,7 @@ class RIAlgorithm:
         self.name = name
         self.exx_fraction = exx_fraction
         self.screening_omega = screening_omega
+        self.fix_rho = False # Debugging hack to fix all density matrices (to arbitrary number)
 
     def initialize(self, density, hamiltonian, wfs):
         self.density = density
@@ -52,7 +53,10 @@ class RIAlgorithm:
         with self.timer('Calculate rho_MM'):
             for k, kpt in enumerate(self.wfs.kpt_u):
                 kpt.exx_rho_MM = self.wfs.ksl.calculate_density_matrix(kpt.f_n, kpt.C_nM)
-
+                if self.fix_rho:
+                    kpt.exx_rho_MM[:] = 0.0
+                    kpt.exx_rho_MM[0,0] = 2.0
+                    print('Fixed rho')
         kpt_u = self.wfs.kpt_u
         kd = self.wfs.kd
         evv = 0.0
@@ -65,7 +69,7 @@ class RIAlgorithm:
                     assert kpt2.q == kibz
                     kpt2_rho_MM = rotate_density_matrix(kpt2.exx_rho_MM, kd.symmetry, pointgroup_symmetry, time_reversal_symmetry)
                     E, V_MM = self.calculate_exchange_per_kpt_pair(kpt, kd.ibzk_qc[kpt.q], kpt.exx_rho_MM, kpt2, kd.bzk_kc[kbz], kpt2_rho_MM)
-                    #print('Got V_MM', V_MM)
+                    print('Got V_MM', V_MM)
                     kpt.exx_V_MM += V_MM
                     evv += E
 

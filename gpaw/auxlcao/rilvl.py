@@ -38,41 +38,6 @@ from numpy.matlib import repmat
 
 flops = 0
 
-class SparseTensor:
-    def __init__(self, name, indextypes):
-        self.name = name
-        self.indextypes = indextypes
-        
-        self.block_i = defaultdict(float)
-
-    def __iadd__(self, index_and_block):
-        if isinstance(index_and_block, SparseTensor):
-            for index, block_xx in index_and_block.block_i.items():
-                self.block_i[index] += block_xx.copy()
-        else:
-            index, block_xx = index_and_block
-            self.block_i[index] += block_xx.copy() #xxx
-
-        return self
-
-    def get_name(self):
-        return '%s_%s' % (self.name, self.indextypes)
-
-    def show(self):
-        s = self.get_name() + ' {\n'
-        for i, block in self.block_i.items():
-            s += '   ' + repr(i) + ' : ' + repr(block.shape) + ' ' + repr(block.dtype) + ' ' + repr(block) +'\n'
-        s += '}\n'
-        print(s)
-       
-
-    def __repr__(self):
-        s = self.get_name() + ' {\n'
-        for i, block in self.block_i.items():
-            s += '   ' + repr(i) + ' : ' + repr(block.shape) + ' ' + repr(block.dtype) + '\n'
-        s += '}\n'
-        return s        
-
 def meinsum(output_name, index_str, T1, T2):
 
     input_index_str, output_index_str = index_str.split('->')
@@ -116,10 +81,52 @@ def meinsum(output_name, index_str, T1, T2):
             if fail:
                 continue
             out_indices = get_out(i1, i2)
-            #print('Einsum', i1, i2, index_str, block1.shape, block2.shape)
+            print('Einsum', i1, i2, index_str, block1.shape, block2.shape)
+            print('in',block1, 'in2', block2)
             value = np.einsum(index_str, block1, block2)
+            print('out', value)
             T3 += out_indices, value
     return T3
+
+
+class SparseTensor:
+    def __init__(self, name, indextypes):
+        self.name = name
+        self.indextypes = indextypes
+        self.zero()
+        self.meinsum = meinsum
+
+    def zero(self):
+        self.block_i = defaultdict(float)        
+
+    def __iadd__(self, index_and_block):
+        if isinstance(index_and_block, SparseTensor):
+            for index, block_xx in index_and_block.block_i.items():
+                self.block_i[index] += block_xx.copy()
+        else:
+            index, block_xx = index_and_block
+            self.block_i[index] += block_xx.copy() #xxx
+
+        return self
+
+    def get_name(self):
+        return '%s_%s' % (self.name, self.indextypes)
+
+    def show(self):
+        s = self.get_name() + ' {\n'
+        for i, block in self.block_i.items():
+            s += '   ' + repr(i) + ' : ' + repr(block.shape) + ' ' + repr(block.dtype) + ' ' + repr(block) +'\n'
+        s += '}\n'
+        print(s)
+       
+
+    def __repr__(self):
+        s = self.get_name() + ' {\n'
+        for i, block in self.block_i.items():
+            s += '   ' + repr(i) + ' : ' + repr(block.shape) + ' ' + repr(block.dtype) + '\n'
+        s += '}\n'
+        return s        
+
     
 
 """
@@ -143,7 +150,7 @@ class RIBasisMaker:
         self.setup = setup
 
 class RIBase(RIAlgorithm):
-    def __init__(self, name, exx_fraction=None, screening_omega=None, lcomp=2, laux=2, threshold=1e-2):
+    def __init__(self, name, exx_fraction=None, screening_omega=None, lcomp=2, laux=2, threshold=1e-5):
         RIAlgorithm.__init__(self, name, exx_fraction, screening_omega)
 
         self.lcomp = lcomp
@@ -158,8 +165,11 @@ class RIBase(RIAlgorithm):
 
 
 class RIR(RIBase):
-    def __init__(self, exx_fraction=None, screening_omega=None, lcomp=2, laux=2, threshold=1e-2):
+    def __init__(self, exx_fraction=None, screening_omega=None, lcomp=2, laux=2, threshold=1e-5):
         RIBase.__init__(self, 'RI-R', exx_fraction, screening_omega, lcomp, laux, threshold)
+        self.only_ghat = False
+        self.no_ghat = False
+        self.only_ghat_aux_interaction = False
 
     def prepare_setups(self, setups):
         RIAlgorithm.prepare_setups(self, setups)
@@ -197,10 +207,11 @@ class RIR(RIBase):
                                        W_AL = self.W_AL, 
                                        W_LL = self.W_LL,
                                        P_AMM = self.P_AMM,
-                                       P_LMM = self.P_LMM)
+                                       P_LMM = self.P_LMM, only_ghat=self.only_ghat, no_ghat=self.no_ghat,
+                                       only_ghat_aux_interaction=self.only_ghat_aux_interaction)
 
-        #for tensor in [self.W_AA, self.W_AL, self.W_LL,  self.P_AMM, self.P_LMM]:
-        #    tensor.show()
+        for tensor in [self.W_AA, self.W_AL, self.W_LL,  self.P_AMM, self.P_LMM]:
+            tensor.show()
 
         self.WP_AMM = meinsum('WP', 'AB,Bij->Aij', self.W_AA, self.P_AMM)
         self.WP_AMM += meinsum('WP', 'AB,Bij->Aij', self.W_AL, self.P_LMM)
@@ -213,7 +224,8 @@ class RIR(RIBase):
         rho_MM = SparseTensor('rho', 'MM')
         for a1, (M1start, M1end) in enumerate(zip(self.M_a[:-1], self.M_a[1:])):
             for a2, (M2start, M2end) in enumerate(zip(self.M_a[:-1], self.M_a[1:])):
-                rho_MM += ( (a1, a2), rho2_MM[M1start:M1end, M2start:M2end] )
+                block = rho2_MM[M1start:M1end, M2start:M2end]
+                rho_MM += ( (a1, a2), block )
         with self.timer('RI-V: 1st contraction AMM MM'):
             WP_AMM_RHO_MM = meinsum('WP_RHO', 'Ajl,kl->Ajk',
                                        self.WP_AMM,

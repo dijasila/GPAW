@@ -351,7 +351,38 @@ class MatrixElements:
         Lsize = (self.lmax+1)**2
         self.L_a = np.arange(0, len(self.A_a)*Lsize, Lsize)
 
-    def calculate(self, W_LL=None, W_AA=None, P_AMM=None, P_LMM=None, W_AL=None):
+    def calculate(self, W_LL=None, W_AA=None, P_AMM=None, P_LMM=None, W_AL=None, only_ghat=False, no_ghat=False,
+                        only_ghat_aux_interaction=False):
+        if only_ghat_aux_interaction:
+            self.calculate_sparse_P_AMM(P_AMM)
+            self.calculate_sparse_P_LMM(P_LMM, P_AMM)
+            self.calculate_sparse_W_LL(W_LL) 
+            self.calculate_sparse_W_AL(W_AL, W_LL)
+            W_LL.zero()
+            #self.calculate_sparse_W_AA(W_AA, W_AL, W_LL)
+            return
+        if no_ghat:
+            #self.calculate_sparse_W_LL(W_LL) 
+            self.calculate_sparse_P_AMM(P_AMM)
+            #self.calculate_sparse_P_LMM(P_LMM, P_AMM)
+            #self.calculate_sparse_W_AL(W_AL)
+            self.calculate_sparse_W_AA(W_AA, W_AL, W_LL)
+            return
+        if only_ghat:
+            self.calculate_sparse_W_LL(W_LL) 
+            self.calculate_sparse_P_LMM(P_LMM, P_AMM)
+            return
+
+        self.calculate_sparse_W_LL(W_LL) 
+        self.calculate_sparse_P_AMM(P_AMM)
+        self.calculate_sparse_P_LMM(P_LMM, P_AMM)
+        self.calculate_sparse_W_AL(W_AL, W_LL)
+        self.calculate_sparse_W_AA(W_AA, W_AL, W_LL)
+
+        return
+
+
+
         self.calculate_sparse_W_LL(W_LL) 
         self.calculate_sparse_P_AMM(P_AMM)
         self.calculate_sparse_P_LMM(P_LMM, P_AMM)
@@ -426,8 +457,9 @@ class MatrixElements:
             for a1, (M1start, M1end) in enumerate(zip(self.M_a[:-1], self.M_a[1:])):
                 for a2, (M2start, M2end) in enumerate(zip(self.M_a[:-1], self.M_a[1:])): 
                     P_LMM += (a, a1, a2), Ploc_LMM[:, M1start:M1end, M2start:M2end]
-            #print('Modified compensation charges')
+            print('Modified compensation charges')
 
+        return
         for i, block_xx in P_AMM.block_i.items():
             a1, a2, a3 = i
             Ploc_LMM = np.zeros( (9,) + block_xx.shape[1:] )
@@ -440,15 +472,42 @@ class MatrixElements:
                 Aloc += S
             P_LMM += (a1, a2, a3), Ploc_LMM
 
-    def calculate_sparse_W_AL(self, W_AL):
+        if no_ghat:
+            return
+
+    def calculate_sparse_W_AL(self, W_AL, W_LL):
+        mul_AL = W_AL.__class__('mul','AL')
+
         for a1 in self.my_a:
             for a2 in self.my_a:
                 Mloc_qAL = self.evaluate_2ci_M_qAL(a1, a2)
                 if Mloc_qAL is None:
                     continue
+                print('M_qaL contribution to W_AL', Mloc_qAL)
                 W_AL += (a1, a2), Mloc_qAL[0]
 
+        for a2 in self.my_a:
+            setup = self.setups[a2]
+            loc_AL = np.zeros( (setup.Naux, 9) )
+            Aloc = 0
+            for auxt, M in zip(setup.auxt_j, setup.M_j):
+                S = 2*auxt.l+1
+                L = (auxt.l)**2
+                loc_AL[Aloc:Aloc+S, L:L+S] = np.eye(S) * M
+                Aloc += S
+            mul_AL += (a2,a2), loc_AL
+
+        mul_AL.show()
+        W_LL.show()
+        # Long range part of W_AL
+        tmp= mul_AL.meinsum('mul_AL*W_LL', 'AL,LK->AK', mul_AL, W_LL)
+        tmp.show()
+        W_AL += tmp
+
     def calculate_sparse_W_AA(self, W_AA, W_AL, W_LL):
+        print('W_AA hack')
+        W_AA += (0,0), self.setups[0].W_AA
+        return
         A_a = self.A_a
         for a1 in self.my_a:
             NA1 = A_a[a1+1] - A_a[a1]
