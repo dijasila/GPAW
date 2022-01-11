@@ -12,6 +12,11 @@ Git master branch
 
 * Corresponding ASE release: ASE-3.23.0b1
 
+* One can now apply Hund's rule (``hund=True``) to systems containing
+  more than one atom.  This is useful for finding ferro-magnetic states
+  and often works better that using ``magmoms=[1, 1, ...]`` fort the
+  initial magnetic moments.
+
 * :ref:`polarizability` tutorial.
 
 * Variational calculations of molecules and periodic systems in LCAO mode can
