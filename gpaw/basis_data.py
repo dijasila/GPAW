@@ -69,7 +69,7 @@ class Basis:
         return self.rgd
 
     def tosplines(self):
-        return [self.rgd.spline(bf.phit_g, bf.rc, bf.l, points=400)
+        return [self.rgd.spline(bf.phit_g, bf.rc, bf.l, points=1000)
                 for bf in self.bf_j]
 
     def read_xml(self, filename=None, world=None):

@@ -47,7 +47,7 @@ def get_compensation_charge_splines(setup, lmax, cutoff):
         for m in range(2*l+1):
             W_LL[L,L] = integral / (np.pi*4)
             L += 1
-        wghat_l.append(rgd.spline(v_g, cutoff, l, 500))
+        wghat_l.append(rgd.spline(v_g, cutoff, l, 2000))
     return ghat_l, wghat_l, W_LL
 
 def get_compensation_charge_splines_screened(setup, lmax, cutoff):
@@ -63,7 +63,7 @@ def get_compensation_charge_splines_screened(setup, lmax, cutoff):
         for m in range(2*l+1):
             W_LL[L,L] = integral / (np.pi*4)
             L += 1
-        wghat_l.append(rgd.spline(v_g, cutoff, l, 500))
+        wghat_l.append(rgd.spline(v_g, cutoff, l, 2000))
     return ghat_l, wghat_l, W_LL
 
 def _get_auxiliary_splines(setup, lmax, cutoff, poisson, threshold=1e-2):
@@ -160,8 +160,8 @@ def _get_auxiliary_splines(setup, lmax, cutoff, poisson, threshold=1e-2):
         for i in range(len(auxt_ig)):
             Atot += 2*l+1
             auxt_g = auxt_ig[i]
-            auxt_j.append(rgd.spline(auxt_g, cutoff, l, 500))
-            wauxt_j.append(rgd.spline(wauxt_ig[i], cutoff, l, 500))
+            auxt_j.append(rgd.spline(auxt_g, cutoff, l, 2000))
+            wauxt_j.append(rgd.spline(wauxt_ig[i], cutoff, l, 2000))
             
             # Evaluate multipole moment
             if l <= 2: # XXX Not screening at all2:
@@ -172,10 +172,10 @@ def _get_auxiliary_splines(setup, lmax, cutoff, poisson, threshold=1e-2):
                 M_j.append(0.0)
                 sauxt_g = auxt_g
 
-            sauxt_j.append(rgd.spline(sauxt_g, cutoff, l, 500))
+            sauxt_j.append(rgd.spline(sauxt_g, cutoff, l, 2000))
 
             v_g = poisson(sauxt_g, l)
-            wsauxt_j.append(rgd.spline(v_g, cutoff, l, 500))
+            wsauxt_j.append(rgd.spline(v_g, cutoff, l, 2000))
             #print('Last potential element', v_g[-1])
             assert(np.abs(v_g[-1])<1e-6)
         print('l=%d %d -> %d' % (l, len(auxt_ng), len(auxt_ig)))
@@ -206,18 +206,17 @@ def get_wgauxphit_product_splines(setup, wgaux_j, phit_j, cutoff):
             l1 = spline1.l
             for l in range((l1 + lg) % 2, l1 + lg + 1, 2):
                 wgauxphit_g = spline_to_rgd(rgd, wgaux, spline1)
-                wgauxphit_x.append(rgd.spline(wgauxphit_g, cutoff, l))
+                wgauxphit_x.append(rgd.spline(wgauxphit_g, cutoff, l, 2000))
     return wgauxphit_x
 
 def safe_inv(W_AA):
     eigs = np.linalg.eigvalsh(W_AA)
-    if np.any(np.abs(eigs) < 1e-8):
+    if np.any(np.abs(eigs) < 1e-9):
         print('Safeinv eigs')
         for x in eigs:
             print(x,end=' ')
         print('Warning. Nearly singular matrix.')
         print(W_AA)
-        xxx
     iW_AA = np.linalg.pinv(W_AA, hermitian=True, rcond=1e-10)
     #iW_AA = np.linalg.inv(W_AA)
     iW_AA = (iW_AA + iW_AA.T)/2

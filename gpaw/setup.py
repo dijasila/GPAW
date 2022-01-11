@@ -373,8 +373,8 @@ class BaseSetup:
             phi_g = phi_g.copy()
             phit_g = phit_g.copy()
             phi_g[gcut2:] = phit_g[gcut2:] = 0.0
-            phi_j.append(self.rgd.spline(phi_g, rcut2, l, points=100))
-            phit_j.append(self.rgd.spline(phit_g, rcut2, l, points=100))
+            phi_j.append(self.rgd.spline(phi_g, rcut2, l, points=2000))
+            phit_j.append(self.rgd.spline(phit_g, rcut2, l, points=2000))
         return phi_j, phit_j, nc, nct, tauc, tauct
 
     def set_hubbard_u(self, U, l, scale=1, store=0, LinRes=0):
@@ -1042,7 +1042,7 @@ class Setup(BaseSetup):
         self.Nct = data.get_smooth_core_density_integral(self.Delta0)
         self.K_p = data.get_linear_kinetic_correction(self.local_corr.T_Lqp[0])
 
-        self.ghat_l = [rgd2.spline(g_g, rcut2, l, 50)
+        self.ghat_l = [rgd2.spline(g_g, rcut2, l, 1000)
                        for l, g_g in enumerate(self.g_lg)]
 
         self.xc_correction = data.get_xc_correction(rgd2, xc, gcut2, lcut)

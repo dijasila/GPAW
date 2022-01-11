@@ -509,7 +509,7 @@ class BasisMaker:
         rcmax = max([bf.rc for bf in bf_j])
 
         # The non-equidistant grids are really only suited for AE WFs
-        d = 1.0 / 64
+        d = 1.0 / 256
         equidistant_grid = np.arange(0.0, rcmax + d, d)
         ng = len(equidistant_grid)
 

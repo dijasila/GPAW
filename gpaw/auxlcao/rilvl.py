@@ -160,7 +160,7 @@ class RIBase(RIAlgorithm):
         assert self.laux == 2
 
         self.threshold = threshold
-
+        print('ribase', self.threshold)
         self.matrix_elements = MatrixElements(self.laux, screening_omega, threshold=threshold)
 
 

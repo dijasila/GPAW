@@ -10,9 +10,10 @@ class LCAOHybrid:
     orbital_dependent_lcao = True
     type = 'auxhybrid'
 
-    def __init__(self, xcname:str, algorithm=None, omega=None):
+    def __init__(self, xcname:str, algorithm=None, omega=None, threshold=None):
         self.screening_omega = 0.0
         self.name = xcname
+        print('Tlcaohybrid init threshold', threshold)
         if xcname == 'EXX':
             self.exx_fraction = 1.0
             self.localxc = XC('null')
@@ -47,7 +48,7 @@ class LCAOHybrid:
         elif algorithm == 'RI-LVL':
             self.ri_algorithm = RILVL(exx_fraction = self.exx_fraction, screening_omega = self.screening_omega)
         elif algorithm == 'RI-R':
-            self.ri_algorithm = RIR(exx_fraction = self.exx_fraction, screening_omega = self.screening_omega)
+            self.ri_algorithm = RIR(exx_fraction = self.exx_fraction, screening_omega = self.screening_omega, threshold=threshold)
         else:
             if algorithm is None:
                 s = 'Please spesify the algorithm variable i.e. xc=''%s:backend=aux-lcao:algorithm=ALG''\n'
