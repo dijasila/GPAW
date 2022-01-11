@@ -109,13 +109,15 @@ def meinsum(output_name, index_str, T1, T2):
 
     for i1, block1 in T1.block_i.items():
         for i2, block2 in T2.block_i.items():
+            fail = False
             for ii1, ii2 in zip(T1_i, T2_i):
                 if i1[ii1] != i2[ii2]:
-                    continue
+                    fail = True
+            if fail:
+                continue
             out_indices = get_out(i1, i2)
-            #print(index_str, block1, block2)
+            #print('Einsum', i1, i2, index_str, block1.shape, block2.shape)
             value = np.einsum(index_str, block1, block2)
-            #print(value,'out')
             T3 += out_indices, value
     return T3
     
@@ -197,8 +199,8 @@ class RIR(RIBase):
                                        P_AMM = self.P_AMM,
                                        P_LMM = self.P_LMM)
 
-        for tensor in [self.W_AA, self.W_AL, self.W_LL,  self.P_AMM, self.P_LMM]:
-            tensor.show()
+        #for tensor in [self.W_AA, self.W_AL, self.W_LL,  self.P_AMM, self.P_LMM]:
+        #    tensor.show()
 
         self.WP_AMM = meinsum('WP', 'AB,Bij->Aij', self.W_AA, self.P_AMM)
         self.WP_AMM += meinsum('WP', 'AB,Bij->Aij', self.W_AL, self.P_LMM)
@@ -206,29 +208,12 @@ class RIR(RIBase):
         self.WP_LMM = meinsum('WP', 'BA,Bij->Aij', self.W_AL, self.P_AMM)
         self.WP_LMM += meinsum('WP', 'AB,Bij->Aij', self.W_LL, self.P_LMM)
 
-        #self.WL_LMM = meinsum('WLL_LMM', 'BA,Bij->Aij', self.W_LL, self.S_LMM)
-
-        K_MMMM = meinsum('K', 'Aij,Akl->ijkl', self.WP_AMM, self.P_AMM)
-        K_MMMM.show()
-        K_MMMM = meinsum('K', 'Aij,Akl->ijkl', self.WP_LMM, self.P_LMM)
-        K_MMMM.show()
-        #K_MMMM = meinsum('K', 'Aij,Akl->ijkl', self.WL_LMM, self.S_LMM)
-        #K_MMMM.show()
-
-        K_MMMM = meinsum('K', 'Aij,Akl->ijkl', self.WP_AMM, self.P_AMM)
-        K_MMMM += meinsum('K', 'Aij,Akl->ijkl', self.WP_LMM, self.P_LMM)
-        #K_MMMM += meinsum('K', 'Aij,Akl->ijkl', self.WP_LMM, self.S_LMM)
-        #K_MMMM += meinsum('K', 'Aij,Akl->ijkl', self.WL_LMM, self.P_LMM)
-        K_MMMM.show()
-
     def calculate_exchange_per_kpt_pair(self, kpt1, k_c, rho1_MM, kpt2, krho_c, rho2_MM):
 
         rho_MM = SparseTensor('rho', 'MM')
         for a1, (M1start, M1end) in enumerate(zip(self.M_a[:-1], self.M_a[1:])):
             for a2, (M2start, M2end) in enumerate(zip(self.M_a[:-1], self.M_a[1:])):
                 rho_MM += ( (a1, a2), rho2_MM[M1start:M1end, M2start:M2end] )
-        print('rho:', rho2_MM)
-        rho_MM.show()
         with self.timer('RI-V: 1st contraction AMM MM'):
             WP_AMM_RHO_MM = meinsum('WP_RHO', 'Ajl,kl->Ajk',
                                        self.WP_AMM,
@@ -331,18 +316,18 @@ class RILVL(RIAlgorithm):
             with self.timer('RI-V: calculate V_qAA'):
                 self.V_qAA = calculate_V_qAA(auxt_aj, M_aj, self.W_qLL, self.lcomp)
                 assert not np.isnan(self.V_qAA).any()
-                print(self.V_qAA,'V_AA')
+                #print(self.V_qAA,'V_AA')
 
             with self.timer('RI-V: calculate S_AA'):
                 self.S_qAA = calculate_S_qAA(self.matrix_elements)
-                print(self.S_qAA,'S_AA')
+                #print(self.S_qAA,'S_AA')
                 assert not np.isnan(self.S_qAA).any()
 
             with self.timer('RI-V: calculate M_AA'):
                 self.M_qAA = calculate_M_qAA(self.matrix_elements, auxt_aj, M_aj, self.lcomp)
-                print(self.M_qAA,'M_qAA')
+                #print(self.M_qAA,'M_qAA')
                 self.W_qAA = self.V_qAA + self.S_qAA + self.M_qAA + self.M_qAA.T
-                print(self.W_qAA,'W_qAA')
+                #print(self.W_qAA,'W_qAA')
                 assert not np.isnan(self.M_qAA).any()
 
         self.kpt_pairs = []
@@ -356,7 +341,7 @@ class RILVL(RIAlgorithm):
 
         with self.timer('RI-V: Calculate P_kkAMM'):
             self.P_kkAMM = calculate_P_kkAMM(self.matrix_elements, self.W_qAA)
-            print('P_kkAMM', self.P_kkAMM)
+            #print('P_kkAMM', self.P_kkAMM)
 
         with self.timer('RI-V: Calculate P_kkLMM'):
             self.P_kkLMM = calculate_P_kkLMM(self.matrix_elements, self.wfs.setups, self.wfs.atomic_correction)
@@ -382,7 +367,7 @@ class RILVL(RIAlgorithm):
         kpt_pair = (kpt1.q, kpt2.q)
 
         K_MMMM = np.einsum('Aij,AB,Bkl', self.P_kkAMM[kpt_pair], self.W_qAA[0], self.P_kkAMM[kpt_pair])
-        print('My K_MMMM wo comp', K_MMMM)
+        #print('My K_MMMM wo comp', K_MMMM)
         with self.timer('RI-V: 1st contraction AMM MM'):
             WP_AMM_RHO_MM = np.einsum('Ajl,kl',
                                         self.WP_kkAMM[kpt_pair],
@@ -407,12 +392,12 @@ class RILVL(RIAlgorithm):
                               optimize=True)
             WP_LMM_RHO_MM = None
 
-        print(self.P_kkAMM[kpt_pair],'P_AMM')
+        #print(self.P_kkAMM[kpt_pair],'P_AMM')
 
         F_MM *= -0.5*self.exx_fraction
         evv = 0.5 * np.einsum('ij,ij', F_MM, rho1_MM, optimize=True)
-        print('F_MM', F_MM)
-        print('rho_MM', rho2_MM)
+        #print('F_MM', F_MM)
+        #print('rho_MM', rho2_MM)
         return evv.real, F_MM
 
     def get_K_MMMM(self, kpt1, k1_c, kpt2, k2_c):
@@ -435,7 +420,7 @@ class RILVL(RIAlgorithm):
         density = self.density
 
         q_c = (k1_c - k2_c)
-        print(q_c,'q_c',k1_c,k2_c)
+        #print(q_c,'q_c',k1_c,k2_c)
 
         finegd = GridDescriptor(self.density.finegd.N_c, 
                                 self.density.finegd.cell_cv,

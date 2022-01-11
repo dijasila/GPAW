@@ -120,9 +120,9 @@ def _get_auxiliary_splines(setup, lmax, cutoff, poisson, threshold=1e-2):
                 S_nn[n1, n2] = rgd.integrate(auxt_g * wauxt_g)
         S_nn = (S_nn + S_nn.T) / 2
 
-        print('l=%d' % l, S_nn)
+        #print('l=%d' % l, S_nn)
         eps_i, v_ni = eigh(S_nn)
-        print(eps_i)
+        #print(eps_i)
         assert np.all(eps_i>-1e-10)
         nbasis = int((eps_i > threshold).sum())
         q_ni = np.dot(v_ni[:, -nbasis:],
@@ -156,7 +156,7 @@ def _get_auxiliary_splines(setup, lmax, cutoff, poisson, threshold=1e-2):
                 M = rgd.integrate(auxt_g * rgd.r_g**l) / (4*np.pi)
                 M_j.append(M)
                 sauxt_g = auxt_g - M / Mref * g_g
-                print('Should be 0', rgd.integrate(sauxt_g * rgd.r_g**l) / (4*np.pi))
+                #print('Should be 0', rgd.integrate(sauxt_g * rgd.r_g**l) / (4*np.pi))
             else:
                 M_j.append(0.0)
                 sauxt_g = auxt_g
@@ -170,9 +170,9 @@ def _get_auxiliary_splines(setup, lmax, cutoff, poisson, threshold=1e-2):
         print('l=%d %d -> %d' % (l, len(auxt_ng), len(auxt_ig)))
 
     W_AA = scipy.linalg.block_diag(*integrals_lAA)
-    print(W_AA,'W_AA')
-    print(W_AA.shape)
-    print(integrals_lAA)
+    #print(W_AA,'W_AA')
+    #print(W_AA.shape)
+    #print(integrals_lAA)
     return auxt_j, wauxt_j, sauxt_j, wsauxt_j, M_j, W_AA
 
 def get_auxiliary_splines(setup, lmax, cutoff, threshold=1e-2):
