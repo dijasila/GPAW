@@ -25,10 +25,10 @@ Jan 12, 2022: :git:`22.1.0 <../22.1.0>`
    * Spin-polarized GW-calculations:  The bug was introduced in
      version 20.10.0 and also present in versions 21.1.0 and 21.6.0.
 
-   * Bug in non-selfconsisten eigenvalues for hybrid functionals
+   * Bug in non-selfconsistent eigenvalues for hybrid functionals
      and spin-polarized systems.
 
-   * Errorneous Hirshfeld-effective volumes for non-orthogonal cells.
+   * Erroneous Hirshfeld-effective volumes for non-orthogonal cells.
 
    * Fix for latest numpy-1.22.0.
 
