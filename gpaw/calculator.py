@@ -471,6 +471,10 @@ class GPAW(Calculator):
                                         '"{}".  Must be one of: {}'
                                         .format(subkey, key, allowed))
 
+        # We need to handle txt early in order to get logging up and running:
+        if 'txt' in kwargs:
+            self.log.fd = kwargs.pop('txt')
+
         changed_parameters = Calculator.set(self, **kwargs)
 
         for key in ['setups', 'basis']:
@@ -480,10 +484,6 @@ class GPAW(Calculator):
                     dct['default'] = dct.pop(None)
                     warnings.warn('Please use {key}={dct}'
                                   .format(key=key, dct=dct))
-
-        # We need to handle txt early in order to get logging up and running:
-        if 'txt' in changed_parameters:
-            self.log.fd = changed_parameters.pop('txt')
 
         if not changed_parameters:
             return {}
