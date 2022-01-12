@@ -241,6 +241,7 @@ class MatrixElements:
         assert threshold is not None
         self.lmax = lmax
         self.lcomp = lcomp
+        print('Matrix elements. screening omega:', screening_omega)
         self.screening_omega = screening_omega
         self.threshold = threshold
         print('me', threshold)
@@ -293,7 +294,7 @@ class MatrixElements:
             # Single center Hartree of auxiliary basis function * one phit_j
             setup.wauxtphit_x = get_wgauxphit_product_splines(setup, setup.wauxt_j, setup.phit_j, rcmax)
 
-        transformer = FourierTransformer(rcmax=max(phit_rcmax_I)+1e-3, ng=2**14)
+        transformer = FourierTransformer(rcmax=max(phit_rcmax_I)+1e-3, ng=2**11)
         tsoc = TwoSiteOverlapCalculator(transformer)
         msoc = ManySiteOverlapCalculator(tsoc, I_a, I_a)
 

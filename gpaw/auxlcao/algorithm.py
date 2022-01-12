@@ -27,6 +27,7 @@ class RIAlgorithm:
 
     def prepare_setups(self, setups):
         if self.screening_omega != 0.0:
+            print('Screening omega for setups')
             for setup in setups:
                 setup.ri_M_pp = setup.calculate_screened_M_pp(self.screening_omega)
         else:

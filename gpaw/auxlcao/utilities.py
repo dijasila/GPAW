@@ -120,9 +120,10 @@ def _get_auxiliary_splines(setup, lmax, cutoff, poisson, threshold=1e-2):
                 S_nn[n1, n2] = rgd.integrate(auxt_g * wauxt_g)
         S_nn = (S_nn + S_nn.T) / 2
 
-        #print('l=%d' % l, S_nn)
+        print('l=%d' % l, S_nn)
         eps_i, v_ni = eigh(S_nn)
-        #print(eps_i)
+        print(eps_i)
+        
         assert np.all(eps_i>-1e-10)
         nbasis = int((eps_i > threshold).sum())
         #q_ni = np.dot(v_ni[:, -nbasis:],
@@ -153,10 +154,11 @@ def _get_auxiliary_splines(setup, lmax, cutoff, poisson, threshold=1e-2):
         I_AA = np.zeros( (L*len(auxt_ig), L*len(auxt_ig)))
 
         for n1, auxt_g in enumerate(auxt_ig):
+            print(n1, auxt_g, wauxt_ig[n1])
             for n2, wauxt_g in enumerate(wauxt_ig):
                 I_AA[n1*L : (n1+1)*L, n2*L : (n2+1)*L ] = np.eye(L) * rgd.integrate(auxt_g*wauxt_g) / (np.pi*4)
         integrals_lAA.append(I_AA)
-        #print(I_AA,'Integrals')
+        print(I_AA,'Integrals')
         for i in range(len(auxt_ig)):
             Atot += 2*l+1
             auxt_g = auxt_ig[i]
@@ -181,8 +183,6 @@ def _get_auxiliary_splines(setup, lmax, cutoff, poisson, threshold=1e-2):
         print('l=%d %d -> %d' % (l, len(auxt_ng), len(auxt_ig)))
 
     W_AA = scipy.linalg.block_diag(*integrals_lAA)
-    #print(W_AA,'W_AA')
-    #print(W_AA.shape)
     #print(integrals_lAA)
     return auxt_j, wauxt_j, sauxt_j, wsauxt_j, M_j, W_AA
 
@@ -217,6 +217,7 @@ def safe_inv(W_AA):
             print(x,end=' ')
         print('Warning. Nearly singular matrix.')
         print(W_AA)
+        
     iW_AA = np.linalg.pinv(W_AA, hermitian=True, rcond=1e-10)
     #iW_AA = np.linalg.inv(W_AA)
     iW_AA = (iW_AA + iW_AA.T)/2

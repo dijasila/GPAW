@@ -161,7 +161,8 @@ class RIBase(RIAlgorithm):
 
         self.threshold = threshold
         print('ribase', self.threshold)
-        self.matrix_elements = MatrixElements(self.laux, screening_omega, threshold=threshold)
+        print('RI base screening omega', screening_omega)
+        self.matrix_elements = MatrixElements(self.laux, screening_omega = screening_omega, threshold=threshold)
 
 
 class RIR(RIBase):
