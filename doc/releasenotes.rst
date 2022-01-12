@@ -12,9 +12,33 @@ Git master branch
 
 * Corresponding ASE release: ASE-3.23.0b1
 
+
+Version 22.1.0
+==============
+
+Jan 12, 2022: :git:`22.1.0 <../22.1.0>`
+
+.. important::
+
+   This release contains some important bugfixes:
+
+   * Spin-polarized GW-calculations:  The bug was introduced in
+     version 20.10.0 and also present in versions 21.1.0 and 21.6.0.
+
+   * Bug in non-selfconsisten eigenvalues for hybrid functionals
+     and spin-polarized systems.
+
+   * Errorneous Hirshfeld-effective volumes for non-orthogonal cells.
+
+   * Fix for latest numpy-1.22.0.
+
+* Corresponding ASE release: ASE-3.22.1.
+
+* Python 3.7 or later is required now.
+
 * One can now apply Hund's rule (``hund=True``) to systems containing
   more than one atom.  This is useful for finding ferro-magnetic states
-  and often works better that using ``magmoms=[1, 1, ...]`` fort the
+  and often works better that using ``magmoms=[1, 1, ...]`` for the
   initial magnetic moments.
 
 * :ref:`polarizability` tutorial.
@@ -82,7 +106,7 @@ Git master branch
 
 
 Version 21.6.0
-===============
+==============
 
 Jun 24, 2021: :git:`21.6.0 <../21.6.0>`
 

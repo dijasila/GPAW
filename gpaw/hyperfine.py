@@ -329,10 +329,7 @@ def main(argv: List[str] = None) -> None:
     add('-d', '--diagonalize', action='store_true',
         help='Show eigenvalues of tensor.')
 
-    if hasattr(parser, 'parse_intermixed_args'):
-        args = parser.parse_intermixed_args(argv)
-    else:
-        args = parser.parse_args(argv)
+    args = parser.parse_intermixed_args(argv)
 
     calc = GPAW(args.file)
     atoms = calc.get_atoms()

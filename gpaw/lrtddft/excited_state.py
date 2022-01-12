@@ -4,7 +4,6 @@ from typing import Dict, Any
 
 from ase.units import Hartree
 from ase.utils.timing import Timer
-from ase.calculators.calculator import Calculator
 
 import gpaw.mpi as mpi
 from gpaw.calculator import GPAW
@@ -17,7 +16,7 @@ from gpaw.utilities.blas import axpy
 from gpaw.wavefunctions.lcao import LCAOWaveFunctions
 
 
-class ExcitedState(GPAW, Calculator):
+class ExcitedState(GPAW):
     nparts = 1
     implemented_properties = ['energy', 'forces']
     default_parameters: Dict[str, Any] = {}
@@ -74,6 +73,10 @@ class ExcitedState(GPAW, Calculator):
         self.log
 
         self.split(parallel)
+
+    @property
+    def name(self):
+        return 'excitedstate'
 
     def __del__(self):
         self.timer.write(self.log.fd)
