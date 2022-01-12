@@ -7,8 +7,8 @@ import contextlib
 from pathlib import Path
 from typing import List, Dict, Union, Any
 
-__version__ = '22.1.0'
-__ase_version_required__ = '3.22.1'
+__version__ = '22.1.1b1'
+__ase_version_required__ = '3.23.0b1'
 __all__ = ['GPAW',
            'Mixer', 'MixerSum', 'MixerDif', 'MixerSum2',
            'CG', 'Davidson', 'RMMDIIS', 'DirectLCAO',
