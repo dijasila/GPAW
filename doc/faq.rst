@@ -24,7 +24,11 @@ and the major GPAW review:
    | :doi:`Electronic structure calculations with GPAW: a real-space implementation of the projector augmented-wave method <10.1088/0953-8984/22/25/253202>`
    | J. Phys.: Condens. Matter **22**, 253202 (2010)
 
-together with ASE citation (see :ref:`ase:cite`).
+together with ASE citation (see :ref:`ase:cite`). As GPAW relies on `Libxc <http://libxc.gitlab.io>`_ to enable density functional calculations, Libxc should also be cited alongside GPAW and ASE in all scientific publications:
+
+   | S. Lehtola, C. Steigemann, M. J. T. Oliveira and M. A. L. Marques.
+   | :doi:`Recent developments in LIBXC — a comprehensive library of functionals for density functional theory <10.1016/j.softx.2017.11.002>`
+   | SoftwareX **7**, 1 (2018)
 
 If you use the :ref:`timepropagation` or :ref:`lrtddft`, please cite also:
 
