@@ -1,7 +1,6 @@
+"""Ensure that all effective volumes are the same in graphene"""
 import numpy as np
-import pytest
 from ase import Atoms
-from ase.parallel import parprint
 
 from gpaw.analyse.hirshfeld import HirshfeldPartitioning
 from gpaw import GPAW, FermiDirac
@@ -18,13 +17,12 @@ atoms.set_cell(
     scale_atoms=True)
 graphene = atoms.repeat([1, 2, 1])
 
-"""Ensure that all effective volumes are the same in graphene"""
 h = 0.25
 calc = GPAW(
     h=h,
-    occupations=FermiDirac(0.1), txt=None)
+    occupations=FermiDirac(0.1))
 graphene.calc = calc
 graphene.get_potential_energy()
 vol_a = HirshfeldPartitioning(calc).get_effective_volume_ratios()
-parprint(vol_a)
-assert vol_a[1:] == pytest.approx(vol_a[0], 1e-2)
+print(vol_a)
+assert vol_a.ptp() < 1e-2
