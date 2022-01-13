@@ -55,7 +55,8 @@ class LCAOTDDFT(GPAW):
                  txt: str = '-',
                  PP_flag: bool = False,
                  ED_F: bool = False,
-                 S_flag: bool = False):
+                 S_flag: bool = False,
+                 calculate_energy: bool = True):
         """"""
         assert filename is not None
         self.time = 0.0
@@ -76,12 +77,6 @@ class LCAOTDDFT(GPAW):
         GPAW.__init__(self, filename, parallel=parallel,
                       communicator=communicator, txt=txt)
         self.set_positions()
-
-    def write(self, filename, mode=''):
-        # This function is included here in order to generate
-        # documentation for LCAOTDDFT.write() with autoclass in sphinx
-        GPAW.write(self, filename, mode=mode)
-
         self.td_density = TimeDependentDensity(self)
         self.calculate_energy = calculate_energy
         self.PP_flag = PP_flag
@@ -90,6 +85,12 @@ class LCAOTDDFT(GPAW):
         # Save old overlap S_MM_old which is necessary for propagating C_MM
         for kpt in self.wfs.kpt_u:
             kpt.S_MM_old = kpt.S_MM.copy()
+
+
+    def write(self, filename, mode=''):
+        # This function is included here in order to generate
+        # documentation for LCAOTDDFT.write() with autoclass in sphinx
+        GPAW.write(self, filename, mode=mode)
 
     def _write(self, writer, mode):
         GPAW._write(self, writer, mode)
@@ -262,7 +263,7 @@ class LCAOTDDFT(GPAW):
             H_MM = eig.calculate_hamiltonian_matrix(self.hamiltonian,
                                                     self.wfs, kpt)
             C_nM = kpt.C_nM.copy()
-            eig.iterate_one_k_point(self.hamiltonian, self.wfs, kpt, C_nM)
+            eig.iterate_one_k_point(self.hamiltonian, self.wfs, kpt, C_nM=C_nM)
             kpt.C_nM = C_nM.copy()
 
         # Calculate eigenvalue by rho_uMM * H_MM

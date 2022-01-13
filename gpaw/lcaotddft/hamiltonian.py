@@ -295,9 +295,11 @@ class get_P:
         self.P_aqMi = self.manytci.P_aqMi(self.my_atom_indices)
 
     def D1_1(self):
-        # This function calculate the first term
-        # in square bracket in eq. 4.66 pp.49
-        # D1_1_aqvMM = <Phi_nu|pt^a_i>O^a_ii<grad pt^a_i|Phi_mu>
+        """
+        This function calculate the first term
+        in square bracket in eq. 4.66 pp.49
+        D1_1_aqvMM = <Phi_nu|pt^a_i>O^a_ii<grad pt^a_i|Phi_mu> 
+        """
         dPdR_aqvMi = self.manytci.P_aqMi(self.my_atom_indices, True)
         self.D1_1_aqvMM = np.zeros((len(self.my_atom_indices),
                                    len(self.wfs.kpt_u), 3,
@@ -319,9 +321,11 @@ class get_P:
         return self.D1_1_aqvMM
 
     def D1_2(self):
-        # This function calculate the second term
-        # in square bracket in eq. 4.66 pp.49
-        # D1_2_aqvMM = <Phi_nu|pt^a_i>nabla^a_ii<pt^a_i|Phi_mu>
+        """
+        This function calculate the second term
+        in square bracket in eq. 4.66 pp.49
+        D1_2_aqvMM = <Phi_nu|pt^a_i>nabla^a_ii<pt^a_i|Phi_mu>
+        """
         self.D1_2_aqvMM = np.zeros((len(self.my_atom_indices),
                                     len(self.wfs.kpt_u), 3,
                                     self.mynao, self.nao), self.dtype)
@@ -342,9 +346,11 @@ class get_P:
         return self.D1_2_aqvMM
 
     def D2_1(self):
-        # This function calculate the first term
-        # in square bracket in eq. 4.67 pp.49
-        # D2_1_qvMM = <Phi_nu|dPhi_mu/dR_amu>
+        """
+        This function calculate the first term
+        in square bracket in eq. 4.67 pp.49
+        D2_1_qvMM = <Phi_nu|dPhi_mu/dR_amu>
+        """
         self.D2_1_qvMM, self.dTdR_qvMM = \
             self._get_overlap_derivatives(self.wfs.ksl.using_blacs)
         return self.D2_1_qvMM, self.dTdR_qvMM

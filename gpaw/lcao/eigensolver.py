@@ -96,12 +96,13 @@ class DirectLCAO(object):
                 Vt_xMM = wfs.basis_functions.calculate_potential_matrices(
                     hamiltonian.vt_sG[s])
                 wfs.timer.stop('Potential matrix')
-            self.iterate_one_k_point(hamiltonian, wfs, kpt, Vt_xMM)
+            self.iterate_one_k_point(hamiltonian, wfs, kpt, Vt_xMM=Vt_xMM)
         wfs.set_orthonormalized(True)
         wfs.timer.stop('LCAO eigensolver')
 
 #    def iterate_one_k_point(self, hamiltonian, wfs, kpt, Vt_xMM):
-    def iterate_one_k_point(self, hamiltonian, wfs, kpt, C_nM, Vt_xMM=None):
+    def iterate_one_k_point(self, hamiltonian, wfs, kpt, C_nM=None,
+                            Vt_xMM=None):
         if wfs.bd.comm.size > 1 and wfs.bd.strided:
             raise NotImplementedError
 
