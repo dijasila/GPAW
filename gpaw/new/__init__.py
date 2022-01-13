@@ -1,12 +1,18 @@
 from collections import defaultdict
 from contextlib import contextmanager
-from functools import lru_cache
 from time import time
 
 
 def cached_property(method):
     """Quick'n'dirty implementation of cached_property coming in Python 3.8."""
-    return property(lru_cache(maxsize=None)(method))
+    name = f'__{method.__name__}'
+
+    def new_method(self):
+        if not hasattr(self, name):
+            setattr(self, name, method(self))
+        return getattr(self, name)
+
+    return property(new_method)
 
 
 class Timer:
