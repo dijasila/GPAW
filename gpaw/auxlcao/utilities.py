@@ -104,9 +104,9 @@ def _get_auxiliary_splines(setup, lmax, cutoff, poisson, threshold=1e-2):
 
     if setup.Z == 1:
         add(np.exp(-1.2621205398*rgd.r_g**2),1)
-        add(np.exp(-0.50199775874*rgd.r_g**2),1)
-        add(np.exp(-0.71290724024*rgd.r_g**2),2)
-        # add(np.exp(-1.6565726132*rgd.r_g**2),3)
+    #    add(np.exp(-0.50199775874*rgd.r_g**2),1)
+    #    add(np.exp(-0.71290724024*rgd.r_g**2),2)
+    #    # add(np.exp(-1.6565726132*rgd.r_g**2),3)
 
     # Splines
     auxt_j = []
@@ -138,6 +138,7 @@ def _get_auxiliary_splines(setup, lmax, cutoff, poisson, threshold=1e-2):
         for n1, auxt_g in enumerate(auxt_ng):
             #plt.plot(rgd.r_g, auxt_g)
             #plt.plot(rgd.r_g, wauxt_ng[n1],'x')
+            #plt.show()
             for n2, wauxt_g in enumerate(wauxt_ng):
                 S_nn[n1, n2] = rgd.integrate(auxt_g * wauxt_g)
         S_nn = (S_nn + S_nn.T) / 2
@@ -153,7 +154,7 @@ def _get_auxiliary_splines(setup, lmax, cutoff, poisson, threshold=1e-2):
 
         #plt.show()
 
-        if 0:
+        if 1:
             #print('Skipping transformation with ', q_ni.T)
             auxt_ig =  auxt_ng.copy()
             wauxt_ig = wauxt_ng.copy()
@@ -220,6 +221,7 @@ def _get_auxiliary_splines(setup, lmax, cutoff, poisson, threshold=1e-2):
 
             print('auxt_g * wsauxt radial integral', rgd.integrate(auxt_g * v_g / (4*np.pi)))
             print('sauxt_g * wauxt radial integral', rgd.integrate(sauxt_g * wauxt_ig[i] / (4*np.pi)))
+            print('sauxt_g * wsauxt radial integral', rgd.integrate(sauxt_g * v_g / (4*np.pi)))
             wsauxt_j.append(rgd.spline(v_g, cutoff, l, 2000))
             #print('Last potential element', v_g[-1])
             assert(np.abs(v_g[-1])<1e-6)
@@ -228,11 +230,13 @@ def _get_auxiliary_splines(setup, lmax, cutoff, poisson, threshold=1e-2):
     W_AA = scipy.linalg.block_diag(*integrals_lAA)
     print(W_AA,'FULL W_AA')
 
+    return auxt_j, wauxt_j, sauxt_j, wsauxt_j, M_j, W_AA
+    
     n = 200
     a = 12.0
     gd = GridDescriptor((n, n, n), (a, a, a))
-    wauxtlfc = LFC(gd, [wauxt_j])
-    auxtlfc = LFC(gd, [auxt_j])
+    wauxtlfc = LFC(gd, [wsauxt_j])
+    auxtlfc = LFC(gd, [sauxt_j])
     ghatlfc = LFC(gd, [ghat_l])
     auxtlfc.set_positions([(0.5, 0.5, 0.5)])
     wauxtlfc.set_positions([(0.5, 0.5, 0.5)])
@@ -247,11 +251,10 @@ def _get_auxiliary_splines(setup, lmax, cutoff, poisson, threshold=1e-2):
     x = gd.integrate(rho)
     print('Real space 1s norm',x)
     print('Real space comp norm',gd.integrate(comp))
-    print('Real space W_AA',gd.integrate(rho*V))
+    print('Real space S_AA',gd.integrate(rho*V))
     print('Real space M_AL',gd.integrate(comp*V))
     print('Cutoff',cutoff)
     
-    return auxt_j, wauxt_j, sauxt_j, wsauxt_j, M_j, W_AA
 
 def get_auxiliary_splines(setup, lmax, cutoff, threshold=1e-2):
     def poisson(n_g,l):

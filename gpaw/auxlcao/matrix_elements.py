@@ -39,8 +39,7 @@ class MatrixElements:
             generated_W_LL_screening(locV_LL, d, R_v[0], R_v[1], R_v[2], self.screening_omega)
         else:
             generated_W_LL(locV_LL, d, R_v[0], R_v[1], R_v[2])
-        return 4 * np.pi * locV_LL 
-
+        return locV_LL
 
     def direct_W_AA(self, a1, a2, disp_c):
         # Multipole reduced auxiliary   x    multipole reduced auxiliary
@@ -63,7 +62,10 @@ class MatrixElements:
         print(P2,'m_AL V_LL m_LA')
         print(P3,'m_AL @ M_LA')
         print(P4,'M_AL @ m_LA')
+        print('V_LL',V_LL)
         print('tot', P1+P2+P3+P4)
+        print(a1,a2, P1.shape)
+        #input('W_LL')
         return P1+P2+P3+P4
 
     def direct_W_AL(self, a1, a2, disp_c):
@@ -88,6 +90,7 @@ class MatrixElements:
             S = 2*auxt.l+1
             L = (auxt.l)**2
             m_AL[Aloc:Aloc+S, L:L+S] = np.eye(S) * M
+            Aloc += S
         return m_AL
 
 
@@ -284,6 +287,30 @@ class MatrixElements:
             for a2 in self.my_a:
                 if a == a2:
                     continue
+
+                locW_AA = np.block( [ [ self.setups[a].W_AA,      self.direct_W_AA(a, a2, [0,0,0]) ],
+                                      [ self.direct_W_AA(a2, a, [0,0,0]), self.setups[a2].W_AA     ] ] )
+                print(locW_AA, locW_AA.shape)
+                
+                iW_AA = safe_inv(locW_AA)
+                I_AMM = [self.evaluate_3ci_AMM(a, a, a2),
+                         self.evaluate_3ci_AMM(a2, a, a2) ]
+                print(I_AMM, 'I_AMM')
+                if I_AMM[0] is None or I_AMM[1] is None:
+                    continue
+                I_AMM = np.vstack(I_AMM)
+                print(I_AMM, 'I_AMM stacked')
+                Ploc_AMM = np.einsum('AB,Bij', iW_AA, I_AMM, optimize=True)
+                NA1 = len(self.setups[a].W_AA)
+                NA2 = len(self.setups[a2].W_AA)
+                M1 = self.M_a[a+1]-self.M_a[a]
+                P_AMM += (a, a, a2),   Ploc_AMM[:NA1, :, :]
+                P_AMM += (a2, a, a2),  Ploc_AMM[NA1:, :, :]
+                #print(a, a2, Ploc_AMM.shape, 'Ploc_AMM')
+                #print(a,a,a2, Ploc_AMM[:NA1, :, :].shape)
+                #print(a2,a,a2, Ploc_AMM[NA1:, :, :].shape)
+                #input("Press Enter to continue...")
+
         """
         for a1, (A1start, A1end, M1start, M1end) in enumerate(zip(A_a[:-1], A_a[1:], M_a[:-1], M_a[1:])):
             for a2, (A2start, A2end, M2start, M2end) in enumerate(zip(A_a[:-1], A_a[1:], M_a[:-1], M_a[1:])):
@@ -381,7 +408,7 @@ class MatrixElements:
 
     def direct_matrix_element(self, expansions, a1, a2, disp_c):
         expansion = expansions.get(a1, a2)
-        R_c = self.spos_ac[a2, :] - self.spos_ac[a1, :] + disp_c
+        R_c = np.dot(self.spos_ac[a2, :] - self.spos_ac[a1, :] + disp_c, self.cell_cv)
         disp = AtomicDisplacement(None, a1, a2, R_c, None, None)
         return disp.evaluate_direct_without_phases(expansion)
 
@@ -468,7 +495,7 @@ class MatrixElements:
             for a1 in self.my_a:
                 for a2 in self.my_a:
                     if a1 == a2:
-                        W_AA += (a1, a2), self.setups[0].W_AA
+                        W_AA += (a1, a2), self.setups[a1].W_AA
                     else:
                         W_AA += (a1, a2), self.direct_W_AA(a1, a2, [0,0,0])
         """

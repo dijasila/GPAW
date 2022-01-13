@@ -81,7 +81,7 @@ def meinsum(output_name, index_str, T1, T2):
             if fail:
                 continue
             out_indices = get_out(i1, i2)
-            #print('Einsum', i1, i2, index_str, block1.shape, block2.shape)
+            print('Einsum', i1, i2, index_str, block1.shape, block2.shape)
             #print('in',block1, 'in2', block2)
             value = np.einsum(index_str, block1, block2)
             #print('out', value)
