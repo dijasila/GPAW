@@ -43,8 +43,6 @@ class MatrixElements:
 
 
     def direct_W_AA(self, a1, a2, disp_c):
-        a1 = 0
-        a2 = 0
         # Multipole reduced auxiliary   x    multipole reduced auxiliary
         S_AA = self.direct_S_AA(a1, a2, disp_c)
         V_LL = self.direct_V_LL(a1, a2, disp_c)
@@ -66,8 +64,6 @@ class MatrixElements:
         print(P3,'m_AL @ M_LA')
         print(P4,'M_AL @ m_LA')
         print('tot', P1+P2+P3+P4)
-        if a1 == 0 and a2 == 0:
-            xxx
         return P1+P2+P3+P4
 
     def direct_W_AL(self, a1, a2, disp_c):

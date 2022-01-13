@@ -212,7 +212,6 @@ class Full4C(RIAlgorithm):
             interpolator.apply(rhot_G, rhot_g)
 
             print('real space norm', finegd.integrate(rhot_g))
-            xxx
 
             # Add compensation charges in reciprocal space
             Q_aL = {}
