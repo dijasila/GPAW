@@ -94,6 +94,9 @@ def read_gpw(filename, log, parallel):
     world = parallel['world']
 
     reader = ulm.Reader(filename)
+    bohr = reader.bohr
+    ha = reader.ha
+
     atoms = read_atoms(reader.atoms)
 
     kwargs = reader.parameters.asdict()
@@ -104,11 +107,11 @@ def read_gpw(filename, log, parallel):
     kpt_band_comm = builder.communicators['D']
 
     if world.rank == 0:
-        nt_sR_array = reader.density.density
-        vt_sR_array = reader.hamiltonian.potential
+        nt_sR_array = reader.density.density * bohr**3
+        vt_sR_array = reader.hamiltonian.potential / ha
         D_sap_array = reader.density.atomic_density_matrices
         D_saii_array = unpack_d(D_sap_array, builder.setups)
-        dH_sap_array = reader.hamiltonian.atomic_hamiltonian_matrices
+        dH_sap_array = reader.hamiltonian.atomic_hamiltonian_matrices / ha
         dH_saii_array = unpack_d(dH_sap_array, builder.setups)
     else:
         nt_sR_array = None
