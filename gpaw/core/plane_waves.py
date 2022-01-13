@@ -47,10 +47,8 @@ class PlaneWaves(Domain):
 
         self.dv = abs(np.linalg.det(self.cell_cv))
 
+        # One should not lru_cache methods, so we do this instead:
         self.indices = functools.lru_cache()(self._indices)
-
-    def __del__(self):
-        print('done')
 
     def __repr__(self) -> str:
         return Domain.__repr__(self).replace(
