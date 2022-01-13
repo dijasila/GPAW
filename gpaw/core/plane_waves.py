@@ -47,6 +47,11 @@ class PlaneWaves(Domain):
 
         self.dv = abs(np.linalg.det(self.cell_cv))
 
+        self.indices = functools.lru_cache()(self._indices)
+
+    def __del__(self):
+        print('done')
+
     def __repr__(self) -> str:
         return Domain.__repr__(self).replace(
             'Domain(',
@@ -76,8 +81,7 @@ class PlaneWaves(Domain):
                           dtype=self.dtype,
                           comm=comm or serial_comm)
 
-    @functools.lru_cache()
-    def indices(self, shape):
+    def _indices(self, shape):
         return np.ravel_multi_index(self.indices_cG, shape,
                                     mode='wrap').astype(np.int32)
 
