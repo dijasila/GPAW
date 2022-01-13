@@ -217,6 +217,9 @@ class GPAW(Calculator):
         return calc
 
     def __del__(self):
+        self.close()
+
+    def close(self):
         # Write timings and close reader if necessary.
         # If we crashed in the constructor (e.g. a bad keyword), we may not
         # have the normally expected attributes:
@@ -1279,7 +1282,7 @@ class GPAW(Calculator):
         self.log.fd.flush()
 
         # Write timing info now before the interpreter shuts down:
-        self.__del__()
+        self.close()
 
         # Disable timing output during shut-down:
         del self.timer
