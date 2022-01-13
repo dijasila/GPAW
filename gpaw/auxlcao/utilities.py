@@ -4,6 +4,14 @@ from collections import defaultdict
 from gpaw.atom.shapefunc import shape_functions
 import scipy
 
+from gpaw.grid_descriptor import GridDescriptor
+from gpaw.lfc import LocalizedFunctionsCollection as LFC
+
+from gpaw.gaunt import gaunt
+
+G_LLL = gaunt(3) # XXX
+
+
 r""" The rgd.poisson returns the radial Poisson solution multiplied with r.
 
                /        n(r')
@@ -40,8 +48,9 @@ def get_compensation_charge_splines(setup, lmax, cutoff):
     for l in range(lmax+1):
         #spline = ghat_l[l]
         spline = setup.ghat_l[l]
+        g_g = spline_to_rgd(rgd, spline) / (4*np.pi)**0.5
+        spline = rgd.spline(g_g, cutoff, l, 2000)
         ghat_l.append(spline)
-        g_g = spline_to_rgd(rgd, spline)
         v_g = Hartree(rgd, g_g, l)
         integral = rgd.integrate(g_g*v_g)
         for m in range(2*l+1):
@@ -53,11 +62,13 @@ def get_compensation_charge_splines(setup, lmax, cutoff):
 def get_compensation_charge_splines_screened(setup, lmax, cutoff):
     rgd = setup.rgd # local_corr.rgd2
     wghat_l = []
-    ghat_l = setup.ghat_l
+    ghat_l = []
     W_LL = np.zeros( ( (lmax+1)**2, (lmax+1)**2 ) )
     L=0
     for l in range(lmax+1):
-        g_g = spline_to_rgd(rgd, ghat_l[l])
+        g_g = spline_to_rgd(rgd, setup.ghat_l[l]) / (4*np.pi)**0.5
+        ghat_l.append(spline)
+
         v_g = setup.screened_coulomb.screened_coulomb(g_g, l)
         integral = rgd.integrate(g_g*v_g)
         for m in range(2*l+1):
@@ -69,6 +80,7 @@ def get_compensation_charge_splines_screened(setup, lmax, cutoff):
 def _get_auxiliary_splines(setup, lmax, cutoff, poisson, threshold=1e-2):
     rgd = setup.rgd
     print('Threshold: %.10f' % threshold)
+    print('Auxiliary splines cutoff', cutoff,'bohr')
     auxt_lng = defaultdict(lambda: [])
     wauxt_lng = defaultdict(lambda: [])
 
@@ -86,7 +98,8 @@ def _get_auxiliary_splines(setup, lmax, cutoff, poisson, threshold=1e-2):
             for l in range((l1 + l2) % 2, l1 + l2 + 1, 2):
                 if l > 2:
                     continue
-                aux_g = spline_to_rgd(rgd, spline1, spline2)
+                aux_g = spline_to_rgd(rgd, spline1, spline2) * G_LLL[l1**2,l2**2, l**3]
+                print('1s norm', rgd.integrate(aux_g / (4*np.pi)**0.5))
                 add(aux_g, l)
 
     if setup.Z == 1:
@@ -102,24 +115,32 @@ def _get_auxiliary_splines(setup, lmax, cutoff, poisson, threshold=1e-2):
     wsauxt_j = []
     M_j = []
 
-    ghat_l = setup.ghat_l
+    ghat_l = [] 
 
     Atot = 0
     integrals_lAA = []
+
+    C = [ 1.0/ (4*np.pi)**0.5 ]
+
+    import matplotlib.pyplot as plt
+
+    #for ghat, C in zip(setup.ghat_l, C):
+    #    g_g = spline_to_rgd(rgd, ghat) * C 
+    #    ghat_l.append(rgd.spline(g_g, cutoff, l, 2000))
+    ghat_l = setup.gaux_l
+
     for l, auxt_ng in auxt_lng.items():
         auxt_ng = np.array(auxt_ng)
         wauxt_ng = np.array(wauxt_lng[l])
 
         N = len(auxt_ng)
         S_nn = np.zeros( (N, N) )
-        #import matplotlib.pyplot as plt
         for n1, auxt_g in enumerate(auxt_ng):
             #plt.plot(rgd.r_g, auxt_g)
             #plt.plot(rgd.r_g, wauxt_ng[n1],'x')
             for n2, wauxt_g in enumerate(wauxt_ng):
                 S_nn[n1, n2] = rgd.integrate(auxt_g * wauxt_g)
         S_nn = (S_nn + S_nn.T) / 2
-
         print('l=%d' % l, S_nn)
         eps_i, v_ni = eigh(S_nn)
         print(eps_i)
@@ -139,6 +160,7 @@ def _get_auxiliary_splines(setup, lmax, cutoff, poisson, threshold=1e-2):
             #auxt_ig[0] += auxt_ig[1]
             #wauxt_ig[0] += wauxt_ig[1]
         else:
+            print('Transform', q_ni)
             auxt_ig =  q_ni.T @ auxt_ng
             wauxt_ig = q_ni.T @ wauxt_ng
             #wauxtnew_ig = np.zeros_like(auxt_ig)
@@ -148,16 +170,26 @@ def _get_auxiliary_splines(setup, lmax, cutoff, poisson, threshold=1e-2):
             #    #print(wauxt_ig[i, ::15],'vs',wauxtnew_ig[i,::15])
         g_g = spline_to_rgd(rgd, ghat_l[l])
         # Evaluate reference multipole momement
-        Mref = rgd.integrate(g_g * rgd.r_g**l)
+        if 0:
+            g2_g = spline_to_rgd(rgd, rgd.spline(g_g, cutoff, l, 2000))
+            print(g2_g)
+            print(g_g)
+        print('Compensation charge integral', rgd.integrate(g_g) / (4*np.pi)**0.5) 
 
+        Mref = rgd.integrate(G_LLL[l,l,0] * g_g * rgd.r_g**l * (4*np.pi)**0.5) / (4*np.pi)**0.5
+        print('Comp Multipole', Mref)
         L = 2*l+1
         I_AA = np.zeros( (L*len(auxt_ig), L*len(auxt_ig)))
 
         for n1, auxt_g in enumerate(auxt_ig):
-            print(n1, auxt_g, wauxt_ig[n1])
             for n2, wauxt_g in enumerate(wauxt_ig):
-                I_AA[n1*L : (n1+1)*L, n2*L : (n2+1)*L ] = np.eye(L) * rgd.integrate(auxt_g*wauxt_g) / (np.pi*4)
+                #print(n1, n2, auxt_g, wauxt_g, rgd.integrate(auxt_g*wauxt_g / 4*np.pi))
+                #print(n1, n2, auxt_g, wauxt_g, rgd.integrate(auxt_g*wauxt_ig[n2] / 4*np.pi),'pass2')
+                #plt.plot(rgd.r_g, auxt_g)
+                #plt.plot(rgd.r_g, wauxt_g)
+                I_AA[n1*L : (n1+1)*L, n2*L : (n2+1)*L ] = np.eye(L) * rgd.integrate(auxt_g*wauxt_g) / (4*np.pi)
         integrals_lAA.append(I_AA)
+
         print(I_AA,'Integrals')
         for i in range(len(auxt_ig)):
             Atot += 2*l+1
@@ -167,23 +199,58 @@ def _get_auxiliary_splines(setup, lmax, cutoff, poisson, threshold=1e-2):
             
             # Evaluate multipole moment
             if l <= 2: # XXX Not screening at all2:
-                M = rgd.integrate(auxt_g * rgd.r_g**l)
-                M_j.append(M / (np.pi*4))
+                M = rgd.integrate(auxt_g * rgd.r_g**l) / (4*np.pi)**0.5
+                M_j.append(M)
+                print('Compensation M', M)
                 sauxt_g = auxt_g - M / Mref * g_g
+                assert np.abs(rgd.integrate(sauxt_g * rgd.r_g**l))<1e-10
             else:
                 M_j.append(0.0)
                 sauxt_g = auxt_g
 
             sauxt_j.append(rgd.spline(sauxt_g, cutoff, l, 2000))
-
             v_g = poisson(sauxt_g, l)
+            #print('sauxt_g * wsauxt radial integral', rgd.integrate(sauxt_g * v_g / (4*np.pi)))
+            #print('auxt_g before', auxt_g, wauxt_ig[i], rgd.integrate(auxt_g * wauxt_ig[i] / (4*np.pi)))
+            print('auxt_g * wauxt radial integral', rgd.integrate(auxt_g * wauxt_ig[i] / (4*np.pi)))
+            #plt.plot(rgd.r_g, auxt_g+0.5,'--')
+            #print('auxt_g after', auxt_g)
+            #plt.plot(rgd.r_g, wauxt_ig[i]+0.5,'--')
+            #plt.show()
+
+            print('auxt_g * wsauxt radial integral', rgd.integrate(auxt_g * v_g / (4*np.pi)))
+            print('sauxt_g * wauxt radial integral', rgd.integrate(sauxt_g * wauxt_ig[i] / (4*np.pi)))
             wsauxt_j.append(rgd.spline(v_g, cutoff, l, 2000))
             #print('Last potential element', v_g[-1])
             assert(np.abs(v_g[-1])<1e-6)
         print('l=%d %d -> %d' % (l, len(auxt_ng), len(auxt_ig)))
 
     W_AA = scipy.linalg.block_diag(*integrals_lAA)
-    #print(integrals_lAA)
+    print(W_AA,'FULL W_AA')
+
+    n = 200
+    a = 12.0
+    gd = GridDescriptor((n, n, n), (a, a, a))
+    wauxtlfc = LFC(gd, [wauxt_j])
+    auxtlfc = LFC(gd, [auxt_j])
+    ghatlfc = LFC(gd, [ghat_l])
+    auxtlfc.set_positions([(0.5, 0.5, 0.5)])
+    wauxtlfc.set_positions([(0.5, 0.5, 0.5)])
+    ghatlfc.set_positions([(0.5, 0.5, 0.5)])
+    comp = gd.zeros()
+    rho = gd.zeros()
+    V = gd.zeros()
+    auxtlfc.add(rho)
+    wauxtlfc.add(V)
+    ghatlfc.add(comp)
+    print(V[:,40,40])
+    x = gd.integrate(rho)
+    print('Real space 1s norm',x)
+    print('Real space comp norm',gd.integrate(comp))
+    print('Real space W_AA',gd.integrate(rho*V))
+    print('Real space M_AL',gd.integrate(comp*V))
+    print('Cutoff',cutoff)
+    
     return auxt_j, wauxt_j, sauxt_j, wsauxt_j, M_j, W_AA
 
 def get_auxiliary_splines(setup, lmax, cutoff, threshold=1e-2):

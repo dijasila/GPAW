@@ -50,6 +50,7 @@ class Full4C(RIAlgorithm):
             raise NotImplementedError    
 
         self.K_kkMMMM[k12_c] = K_MMMM
+        print(K_MMMM,'K_MMMM')
         return K_MMMM
 
     def get_K_MMMM_pbc(self, kpt1, k1_c, kpt2, k2_c):
@@ -209,6 +210,9 @@ class Full4C(RIAlgorithm):
 
             rhot_g = finegd.zeros()
             interpolator.apply(rhot_G, rhot_g)
+
+            print('real space norm', finegd.integrate(rhot_g))
+            xxx
 
             # Add compensation charges in reciprocal space
             Q_aL = {}

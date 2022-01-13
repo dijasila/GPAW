@@ -127,6 +127,16 @@ class SparseTensor:
         s += '}\n'
         return s        
 
+"""
+Phase 1: Generate all displacements
+"""
+
+class P_AMM_generator:
+    def __init__(self, P_AMM):
+        self.matrix_elements = matrix_elements
+
+    #def select_by_M2(self, M2set):
+        
     
 
 """
@@ -211,8 +221,8 @@ class RIR(RIBase):
                                        P_LMM = self.P_LMM, only_ghat=self.only_ghat, no_ghat=self.no_ghat,
                                        only_ghat_aux_interaction=self.only_ghat_aux_interaction)
 
-        #for tensor in [self.W_AA, self.W_AL, self.W_LL,  self.P_AMM, self.P_LMM]:
-        #    tensor.show()
+        for tensor in [self.W_AA, self.W_AL, self.P_AMM, self.P_LMM, self.W_LL]:
+            tensor.show()
 
         self.WP_AMM = meinsum('WP', 'AB,Bij->Aij', self.W_AA, self.P_AMM)
         self.WP_AMM += meinsum('WP', 'AB,Bij->Aij', self.W_AL, self.P_LMM)
@@ -226,7 +236,10 @@ class RIR(RIBase):
         for a1, (M1start, M1end) in enumerate(zip(self.M_a[:-1], self.M_a[1:])):
             for a2, (M2start, M2end) in enumerate(zip(self.M_a[:-1], self.M_a[1:])):
                 block = rho2_MM[M1start:M1end, M2start:M2end]
-                rho_MM += ( (a1, a2), block )
+                if self.matrix_elements.sparse_periodic:
+                    rho_MM += ( ((a1,(0,0,0)), (a2,(0,0,0))), block )
+                else:
+                    rho_MM += ( (a1, a2), block )
         with self.timer('RI-V: 1st contraction AMM MM'):
             WP_AMM_RHO_MM = meinsum('WP_RHO', 'Ajl,kl->Ajk',
                                        self.WP_AMM,
@@ -262,12 +275,26 @@ class RIR(RIBase):
         #    WL_LMM_RHO_MM = None
 
         fock_MM = np.zeros_like(rho2_MM)
-        for index, block_xx in F_MM.block_i.items():
-            a1, a2 = index
-            M1start, M1end = self.M_a[a1], self.M_a[a1+1]
-            M2start, M2end = self.M_a[a2], self.M_a[a2+1]
-            fock_MM[M1start:M1end, M2start:M2end] += -0.5*self.exx_fraction*block_xx
-
+        F_MM.show()
+        if self.matrix_elements.sparse_periodic:
+            for index, block_xx in F_MM.block_i.items():
+                (a1,disp1_c), (a2,disp2_c) = index
+                if np.any(disp1_c):
+                    continue
+                if np.any(disp1_c):
+                    continue # Emulate non-periodic system
+                #a1, a2 = index
+                M1start, M1end = self.M_a[a1], self.M_a[a1+1]
+                M2start, M2end = self.M_a[a2], self.M_a[a2+1]
+                fock_MM[M1start:M1end, M2start:M2end] += -0.5*self.exx_fraction*block_xx
+                print('Implicit gamma', a1, disp1_c, a2, disp2_c)
+        else:
+            for index, block_xx in F_MM.block_i.items():
+                a1, a2 = index
+                M1start, M1end = self.M_a[a1], self.M_a[a1+1]
+                M2start, M2end = self.M_a[a2], self.M_a[a2+1]
+                fock_MM[M1start:M1end, M2start:M2end] += -0.5*self.exx_fraction*block_xx
+   
         evv = 0.5 * np.einsum('ij,ij', fock_MM, rho1_MM, optimize=True)
         return evv, fock_MM
 
@@ -289,7 +316,6 @@ class RILVL(RIAlgorithm):
 
     def prepare_setups(self, setups):
         RIAlgorithm.prepare_setups(self, setups)
-
 
     def set_positions(self, spos_ac):
         RIAlgorithm.set_positions(self, spos_ac)

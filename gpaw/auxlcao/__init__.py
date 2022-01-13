@@ -99,7 +99,7 @@ class LCAOHybrid:
         return self.ekin
 
     def get_setup_name(self):
-        return 'PBE'
+        return 'GLLB'
 
     def calculate_paw_correction(self, setup, D_sp, dH_sp=None, a=None):
         evv, ekin = self.ri_algorithm.calculate_paw_correction(setup, D_sp, dH_sp, a)
