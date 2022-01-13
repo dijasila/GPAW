@@ -4,6 +4,9 @@
 Frequently Asked Questions
 ==========================
 
+.. contents::
+
+
 General
 =======
 
@@ -24,53 +27,72 @@ and the major GPAW review:
    | :doi:`Electronic structure calculations with GPAW: a real-space implementation of the projector augmented-wave method <10.1088/0953-8984/22/25/253202>`
    | J. Phys.: Condens. Matter **22**, 253202 (2010)
 
-together with ASE citation (see :ref:`ase:cite`). As GPAW relies on `Libxc <http://libxc.gitlab.io>`_ to enable density functional calculations, Libxc should also be cited alongside GPAW and ASE in all scientific publications:
+together with the ASE review (see :ref:`ase:cite`).
 
-   | S. Lehtola, C. Steigemann, M. J. T. Oliveira and M. A. L. Marques.
-   | :doi:`Recent developments in LIBXC — a comprehensive library of functionals for density functional theory <10.1016/j.softx.2017.11.002>`
-   | SoftwareX **7**, 1 (2018)
+Please also cite those of the following that are relevant to you work:
 
-If you use the :ref:`timepropagation` or :ref:`lrtddft`, please cite also:
+* `Libxc <http://libxc.gitlab.io>`_ for XC-functionals other
+  than LDA, PBE, revPBE, RPBE and PW91:
 
-   | M. Walter, H. Häkkinen, L. Lehtovaara, M. Puska, J. Enkovaara, C. Rostgaard and J. J. Mortensen
-   | :doi:`Time-dependent density-functional theory in the projector augmented-wave method <10.1063/1.2943138>`
-   | J. Chem. Phys. **128**, 244101 (2008)
+    *S. Lehtola, C. Steigemann, M. J. T. Oliveira and M. A. L. Marques.*,
+    :doi:`Recent developments in LIBXC — a comprehensive library of functionals
+    for density functional theory <10.1016/j.softx.2017.11.002>`,
+    SoftwareX **7**, 1 (2018)
 
-If you use the :ref:`localized basis set <lcao>`, please cite also:
+* :ref:`timepropagation` or :ref:`lrtddft`:
 
-   | A. H. Larsen, M. Vanin, J. J. Mortensen, K. S. Thygesen, and K. W. Jacobsen
-   | :doi:`Localized atomic basis set in the projector augmented wave method <10.1103/PhysRevB.80.195112>`
-   | Phys. Rev. B **80**, 195112 (2009)
+    *M. Walter, H. Häkkinen, L. Lehtovaara, M. Puska, J. Enkovaara,
+    C. Rostgaard and J. J. Mortensen*,
+    :doi:`Time-dependent density-functional theory in the
+    projector augmented-wave method <10.1063/1.2943138>`,
+    J. Chem. Phys. **128**, 244101 (2008)
 
-If you use the :ref:`df_tutorial`, please cite also:
+* :ref:`Localized basis set calculations <lcao>` (LCAO):
 
-   | J. Yan, J. J. Mortensen, K. W. Jacobsen, and K. S. Thygesen
-   | :doi:`Linear density response function in the projector augmented wave method: Applications to solids, surfaces, and interfaces <10.1103/PhysRevB.83.245122>`
-   | Phys. Rev. B **83**, 245122 (2011)
+    *A. H. Larsen, M. Vanin, J. J. Mortensen, K. S. Thygesen, and
+    K. W. Jacobsen*,
+    :doi:`Localized atomic basis set in the projector augmented wave
+    method <10.1103/PhysRevB.80.195112>`,
+    Phys. Rev. B **80**, 195112 (2009)
 
-If you use the :ref:`gw tutorial`, please cite also:
+* :ref:`Linear dielectric response of an extended systems <df_tutorial>`:
 
-   | F. Hüser, T. Olsen, and K. S. Thygesen
-   | :doi:`Quasiparticle GW calculations for solids, molecules, and two-dimensional materials <10.1103/PhysRevB.87.235132>`
-   | Phys. Rev. B **87**, 235132 (2013)
+    *J. Yan, J. J. Mortensen, K. W. Jacobsen, and K. S. Thygesen*,
+    :doi:`Linear density response function in the
+    projector augmented wave method: Applications to solids, surfaces,
+    and interfaces <10.1103/PhysRevB.83.245122>`,
+    Phys. Rev. B **83**, 245122 (2011)
 
-If you use the :ref:`continuum_solvent_model`, please cite also:
+* :ref:`Quasi-particle spectrum in the GW approximation <gw tutorial>`:
 
-   | A. Held and M. Walter
-   | :doi:`Simplified continuum solvent model with a smooth cavity based on volumetric data <10.1063/1.4900838>`
-   | J. Chem. Phys. **141**, 174108 (2014)
+    *F. Hüser, T. Olsen, and K. S. Thygesen*,
+    :doi:`Quasiparticle GW calculations for solids, molecules,
+    and two-dimensional materials <10.1103/PhysRevB.87.235132>`,
+    Phys. Rev. B **87**, 235132 (2013)
 
-If you use the :ref:`lcaotddft`, please cite also:
+* :ref:`continuum_solvent_model`:
 
-   | M. Kuisma, A. Sakko, T. P. Rossi, A. H. Larsen, J. Enkovaara, L. Lehtovaara, and T. T. Rantala,
-   | :doi:`Localized surface plasmon resonance in silver nanoparticles: Atomistic first-principles time-dependent density functional theory calculations <10.1103/PhysRevB.91.115431>`
-   | Phys. Rev. B **91**, 115431 (2015)
+    *A. Held and M. Walter*,
+    :doi:`Simplified continuum solvent model with a smooth cavity based
+    on volumetric data <10.1063/1.4900838>`,
+    J. Chem. Phys. **141**, 174108 (2014)
 
-If you use the :ref:`ksdecomposition` in the :ref:`lcaotddft`, please cite also:
+* :ref:`lcaotddft`:
 
-   | T. P. Rossi, M. Kuisma, M. J. Puska, R. M. Nieminen, and P. Erhart,
-   | :doi:`Kohn--Sham Decomposition in Real-Time Time-Dependent Density-Functional Theory: An Efficient Tool for Analyzing Plasmonic Excitations <10.1021/acs.jctc.7b00589>`
-   | J. Chem. Theory Comput. **13**, 4779 (2017)
+    *M. Kuisma, A. Sakko, T. P. Rossi, A. H. Larsen, J. Enkovaara,
+    L. Lehtovaara, and T. T. Rantala*,
+    :doi:`Localized surface plasmon resonance in silver nanoparticles:
+    Atomistic first-principles time-dependent density functional theory
+    calculations <10.1103/PhysRevB.91.115431>`,
+    Phys. Rev. B **91**, 115431 (2015)
+
+* :ref:`ksdecomposition` and :ref:`lcaotddft`:
+
+    *T. P. Rossi, M. Kuisma, M. J. Puska, R. M. Nieminen, and P. Erhart*,
+    :doi:`Kohn--Sham Decomposition in Real-Time Time-Dependent
+    Density-Functional Theory: An Efficient Tool for Analyzing
+    Plasmonic Excitations <10.1021/acs.jctc.7b00589>`,
+    J. Chem. Theory Comput. **13**, 4779 (2017)
 
 
 Citations of the GPAW method papers
