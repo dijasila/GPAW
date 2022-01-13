@@ -7,6 +7,7 @@ from gpaw.lcaotddft.utilities import read_wuMM
 from gpaw.lcaotddft.utilities import write_uMM
 from gpaw.lcaotddft.utilities import write_wuMM
 from gpaw.utilities.blas import gemm, gemmdot
+import numpy as np
 
 
 class TimeDependentPotential(object):
