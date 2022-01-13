@@ -288,6 +288,7 @@ class BaseSetup:
         # print('fsi=', f_si)
         return f_si
 
+    @functools.lru_cache()
     def get_hunds_rule_moment(self, charge=0):
         for M in range(10):
             try:
@@ -1441,6 +1442,38 @@ class Setups(list):
 
     def projector_indices(self):
         return FunctionIndices([setup.pt_j for setup in self])
+
+    def create_pseudo_core_densities(self, layout, positions):
+        spline_aj = []
+        for setup in self:
+            if setup.nct is None:
+                spline_aj.append([])
+            else:
+                spline_aj.append([setup.nct])
+        return layout.atom_centered_functions(
+            spline_aj, positions,
+            integral=[setup.Nct for setup in self],
+            cut=True)
+
+    def create_local_potentials(self, layout, positions):
+        return layout.atom_centered_functions(
+            [[setup.vbar] for setup in self], positions)
+
+    def create_compensation_charges(self, layout, positions):
+        return layout.atom_centered_functions(
+            [setup.ghat_l for setup in self], positions,
+            integral=sqrt(4 * pi))
+
+    def create_projectors(self, desc, positions):
+        return desc.atom_centered_functions(
+            [setup.pt_j for setup in self], positions)
+
+    def overlap_correction(self, projections, out):
+        for a, I1, I2 in projections.layout.myindices:
+            ds = self[a].dO_ii
+            # use mmm ?????
+            out.data[I1:I2] = ds @ projections.data[I1:I2]
+        return out
 
 
 class FunctionIndices:

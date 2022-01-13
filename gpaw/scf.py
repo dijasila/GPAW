@@ -1,4 +1,5 @@
 import time
+import warnings
 from collections import deque
 from inspect import signature
 
@@ -17,9 +18,10 @@ class SCFLoop:
         self.criteria = criteria
         self.maxiter = maxiter
         self.niter_fixdensity = niter_fixdensity
-
         self.niter = None
         self.reset()
+        self.converged = False
+        self.eigensolver_used = None
 
     def __str__(self):
         s = 'Convergence criteria:\n'
@@ -41,121 +43,192 @@ class SCFLoop:
         for criterion in self.criteria.values():
             criterion.reset()
         self.converged = False
+        self.eigensolver_used = None
 
     def irun(self, wfs, ham, dens, log, callback):
+
+        self.eigensolver_used = getattr(wfs.eigensolver, "name", None)
+        self.check_eigensolver_state(wfs, ham, dens)
         self.niter = 1
-        cheap = {k: c for k, c in self.criteria.items() if not c.calc_last}
-        expensive = {k: c for k, c in self.criteria.items() if c.calc_last}
-        calculate_expensive = False  # switches to True when cheap converge
+        cheap, expensive = self.prepare_convergence_criteria()
+
         while self.niter <= self.maxiter:
-            wfs.eigensolver.iterate(ham, wfs)
-            e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
-            ham.get_energy(e_entropy, wfs)
+            self.iterate_eigensolver(wfs, ham, dens)
 
-            entries = {}  # for log file, per criteria
-            converged_items = {}  # True/False, per criteria
-            context = SCFEvent(dens=dens, ham=ham, wfs=wfs, niter=self.niter,
-                               log=log)
-
-            for name, criterion in cheap.items():
-                converged, entry = criterion(context)
-                converged_items[name] = converged
-                entries[name] = entry
-
-            if all(converged_items.values()):
-                # Stays on rest of cycle even if a cheap one slips back out.
-                calculate_expensive = True
-
-            for name, criterion in expensive.items():
-                converged, entry = False, ''
-                if calculate_expensive:
-                    converged, entry = criterion(context)
-                converged_items[name] = converged
-                entries[name] = entry
-
-            # Converged?
-            self.converged = all(converged_items.values())
-
-            callback(self.niter)
-            self.log(log, converged_items, entries, context)
+            self.check_convergence(
+                dens, ham, wfs, log, cheap, expensive, callback)
             yield
 
             if self.converged and self.niter >= self.niter_fixdensity:
+                self.do_if_converged(wfs, ham, dens, log)
                 break
 
-            if self.niter > self.niter_fixdensity and not dens.fixed:
-                dens.update(wfs)
-                ham.update(dens)
-            else:
-                ham.npoisson = 0
+            self.update_ham_and_dens(wfs, ham, dens)
             self.niter += 1
 
         # Don't fix the density in the next step.
         self.niter_fixdensity = 0
 
         if not self.converged:
-            context = SCFEvent(dens=dens, ham=ham, wfs=wfs, niter=self.niter,
-                               log=log)
-            eigerr = self.criteria['eigenstates'].get_error(context)
-            if not np.isfinite(eigerr):
-                msg = 'Not enough bands for ' + wfs.eigensolver.nbands_converge
-                log(msg, flush=True)
-                raise KohnShamConvergenceError(msg)
-            log(oops, flush=True)
-            raise KohnShamConvergenceError(
-                'Did not converge!  See text output for help.')
+            self.not_converged(dens, ham, wfs, log)
 
     def log(self, log, converged_items, entries, context):
         """Output from each iteration."""
-        custom = (set(self.criteria) -
-                  {'energy', 'eigenstates', 'density'})
-        if self.niter == 1:
-            header1 = ('{:<4s} {:>8s} {:>12s}  '
-                       .format('iter', 'time', 'total'))
-            header2 = ('{:>4s} {:>8s} {:>12s}  '
-                       .format('', '', 'energy'))
-            header1 += 'log10-change:'
-            for title in ('eigst', 'dens'):
-                header2 += '{:>5s}  '.format(title)
-            for name in custom:
-                criterion = self.criteria[name]
-                header1 += ' ' * 7
-                header2 += '{:>5s}  '.format(criterion.tablename)
-            if context.wfs.nspins == 2:
-                header1 += '{:>8s} '.format('magmom')
-                header2 += '{:>8s} '.format('')
-            log(header1)
-            log(header2)
+        write_iteration(self.criteria, converged_items, entries, context, log)
 
-        c = {k: 'c' if v else ' ' for k, v in converged_items.items()}
+    def prepare_convergence_criteria(self):
+        cheap = {k: c for k, c in self.criteria.items() if not c.calc_last}
+        expensive = {k: c for k, c in self.criteria.items() if c.calc_last}
+        return cheap, expensive
 
-        # Iterations and time.
-        now = time.localtime()
-        line = ('{:4d} {:02d}:{:02d}:{:02d} '
-                .format(self.niter, *now[3:6]))
+    def check_convergence(self, dens, ham, wfs, log, cheap, expensive,
+                          callback):
 
-        # Energy.
-        line += '{:>12s}{:1s} '.format(entries['energy'], c['energy'])
+        entries = {}  # for log file, per criteria
+        converged_items = {}  # True/False, per criteria
+        context = SCFEvent(dens=dens, ham=ham, wfs=wfs, niter=self.niter,
+                           log=log)
 
-        # Eigenstates.
-        line += '{:>5s}{:1s} '.format(entries['eigenstates'], c['eigenstates'])
+        for name, criterion in cheap.items():
+            converged, entry = criterion(context)
+            converged_items[name] = converged
+            entries[name] = entry
 
-        # Density.
-        line += '{:>5s}{:1s} '.format(entries['density'], c['density'])
+        calculate_expensive = False
+        if all(converged_items.values()):
+            # Stays on rest of cycle even if a cheap one slips back out.
+            calculate_expensive = True
 
-        # Custom criteria (optional).
+        for name, criterion in expensive.items():
+            converged, entry = False, ''
+            if calculate_expensive:
+                converged, entry = criterion(context)
+            converged_items[name] = converged
+            entries[name] = entry
+
+        # Converged?
+        self.converged = all(converged_items.values())
+
+        callback(self.niter)
+        self.log(log, converged_items, entries, context)
+
+    def not_converged(self, dens, ham, wfs, log):
+
+        context = SCFEvent(dens=dens, ham=ham, wfs=wfs, niter=self.niter,
+                           log=log)
+        eigerr = self.criteria['eigenstates'].get_error(context)
+        if not np.isfinite(eigerr):
+            msg = 'Not enough bands for ' + wfs.eigensolver.nbands_converge
+            log(msg, flush=True)
+            raise KohnShamConvergenceError(msg)
+        log(oops, flush=True)
+        raise KohnShamConvergenceError(
+            'Did not converge!  See text output for help.')
+
+    def check_eigensolver_state(self, wfs, ham, dens):
+
+        if self.eigensolver_used == 'etdm':
+            wfs.eigensolver.eg_count = 0
+            wfs.eigensolver.globaliters = 0
+            wfs.eigensolver.check_assertions(wfs, dens)
+            if wfs.eigensolver.dm_helper is None:
+                wfs.eigensolver.initialize_dm_helper(wfs, ham, dens)
+
+    def iterate_eigensolver(self, wfs, ham, dens):
+
+        if self.eigensolver_used == 'etdm':
+            wfs.eigensolver.iterate(ham, wfs, dens)
+            wfs.eigensolver.check_mom(wfs, dens)
+            e_entropy = 0.0
+            kin_en_using_band = False
+        else:
+            wfs.eigensolver.iterate(ham, wfs)
+            e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
+            kin_en_using_band = True
+
+        ham.get_energy(e_entropy, wfs, kin_en_using_band=kin_en_using_band)
+
+    def do_if_converged(self, wfs, ham, dens, log):
+
+        if self.eigensolver_used == 'etdm':
+            energy = ham.get_energy(0.0, wfs, kin_en_using_band=False)
+            wfs.calculate_occupation_numbers(dens.fixed)
+            wfs.eigensolver.get_canonical_representation(
+                ham, wfs, dens, sort_eigenvalues=True)
+            energy_converged = wfs.eigensolver.update_ks_energy(ham, wfs, dens)
+            energy_diff_after_scf = abs(energy - energy_converged) * Ha
+            if energy_diff_after_scf > 1.0e-6:
+                warnings.warn('Jump in energy of %f eV detected at the end of '
+                              'SCF after getting canonical orbitals, SCF '
+                              'might have converged to the wrong solution '
+                              'or achieved energy convergence to the correct '
+                              'solution above 1.0e-6 eV'
+                              % (energy_diff_after_scf))
+
+            log('\nOccupied states converged after'
+                ' {:d} e/g evaluations'.format(wfs.eigensolver.eg_count))
+
+    def update_ham_and_dens(self, wfs, ham, dens):
+
+        to_update = self.niter > self.niter_fixdensity and not dens.fixed
+        if self.eigensolver_used == 'etdm' or not to_update:
+            ham.npoisson = 0
+        else:
+            dens.update(wfs)
+            ham.update(dens)
+
+
+def write_iteration(criteria, converged_items, entries, ctx, log):
+    custom = (set(criteria) -
+              {'energy', 'eigenstates', 'density'})
+
+    if ctx.niter == 1:
+        header1 = ('     {:<4s} {:>8s} {:>12s}  '
+                   .format('iter', 'time', 'total'))
+        header2 = ('     {:>4s} {:>8s} {:>12s}  '
+                   .format('', '', 'energy'))
+        header1 += 'log10-change:'
+        for title in ('eigst', 'dens'):
+            header2 += '{:>5s}  '.format(title)
         for name in custom:
-            line += '{:>5s}{:s} '.format(entries[name], c[name])
+            criterion = criteria[name]
+            header1 += ' ' * 7
+            header2 += '{:>5s}  '.format(criterion.tablename)
+        if ctx.wfs.nspins == 2:
+            header1 += '{:>8s} '.format('magmom')
+            header2 += '{:>8s} '.format('')
+        log(header1.rstrip())
+        log(header2.rstrip())
 
-        # Magnetic moment (optional).
-        if context.wfs.nspins == 2 or not context.wfs.collinear:
-            totmom_v, _ = context.dens.estimate_magnetic_moments()
-            if context.wfs.collinear:
-                line += f'  {totmom_v[2]:+.4f}'
-            else:
-                line += ' {:+.1f},{:+.1f},{:+.1f}'.format(*totmom_v)
+    c = {k: 'c' if v else ' ' for k, v in converged_items.items()}
 
-        log(line, flush=True)
+    # Iterations and time.
+    now = time.localtime()
+    line = ('iter:{:4d} {:02d}:{:02d}:{:02d} '
+            .format(ctx.niter, *now[3:6]))
+
+    # Energy.
+    line += '{:>12s}{:1s} '.format(entries['energy'], c['energy'])
+
+    # Eigenstates.
+    line += '{:>5s}{:1s} '.format(entries['eigenstates'], c['eigenstates'])
+
+    # Density.
+    line += '{:>5s}{:1s} '.format(entries['density'], c['density'])
+
+    # Custom criteria (optional).
+    for name in custom:
+        line += '{:>5s}{:s} '.format(entries[name], c[name])
+
+    # Magnetic moment (optional).
+    if ctx.wfs.nspins == 2 or not ctx.wfs.collinear:
+        totmom_v, _ = ctx.dens.calculate_magnetic_moments()
+        if ctx.wfs.collinear:
+            line += f'  {totmom_v[2]:+.4f}'
+        else:
+            line += ' {:+.1f},{:+.1f},{:+.1f}'.format(*totmom_v)
+
+    log(line.rstrip(), flush=True)
 
 
 class SCFEvent:
@@ -225,7 +298,7 @@ class Criterion:
 
     def __repr__(self):
         parameters = signature(self.__class__).parameters
-        s = ','.join([str(getattr(self, p)) for p in parameters])
+        s = ', '.join([str(getattr(self, p)) for p in parameters])
         return self.__class__.__name__ + '(' + s + ')'
 
     def todict(self):

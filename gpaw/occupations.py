@@ -129,8 +129,7 @@ class OccupationNumberCalculator:
 
     def copy(self,
              parallel_layout: ParallelLayout = None,
-             bz2ibzmap: List[int] = None
-             ) -> 'OccupationNumberCalculator':
+             bz2ibzmap: List[int] = None) -> 'OccupationNumberCalculator':
         return create_occ_calc(
             self.todict(),
             parallel_layout=parallel_layout or self.parallel_layout)
@@ -139,10 +138,9 @@ class OccupationNumberCalculator:
                   nelectrons: float,
                   eigenvalues: List[List[float]],
                   weights: List[float],
-                  fermi_levels_guess: List[float] = None
-                  ) -> Tuple[Array2D,
-                             List[float],
-                             float]:
+                  fermi_levels_guess: List[float] = None) -> Tuple[Array2D,
+                                                                   List[float],
+                                                                   float]:
         """Calculate occupation numbers and fermi level(s) from eigenvalues.
 
         nelectrons:
@@ -586,18 +584,121 @@ class FixedOccupationNumbers(OccupationNumberCalculator):
                    weight_q,
                    f_qn,
                    fermi_level_guess=nan):
-        if self.bd.nbands == self.f_sn.shape[1]:
-            for q, f_n in enumerate(f_qn):
-                s = q % len(self.f_sn)
-                self.bd.distribute(self.f_sn[s], f_n)
-        else:
-            # Non-collinear calculation:
-            self.bd.distribute(self.f_sn.T.flatten().copy(), f_qn[0])
+
+        calc_fixed(self.bd, self.f_sn, f_qn)
 
         return inf, 0.0
 
     def todict(self):
         return {'name': 'fixed', 'numbers': self.f_sn}
+
+
+class FixedOccupationNumbersUniform(OccupationNumberCalculator):
+
+    extrapolate_factor = 0.0
+    name = 'fixed-uniform'
+
+    def __init__(self, nelectrons, nspins, magmom, nkpts, nbands,
+                 parallel_layout: ParallelLayout = None):
+        """
+        Uniform distribution of occupation numbers: each
+        k-point per spin has the same number of occupied states
+        Magnetic moment defines difference between two spins occ. numb.
+        """
+        OccupationNumberCalculator.__init__(self, parallel_layout)
+
+        def get_f(nelectrons, magmom, nkpts, nbands, spin):
+            """
+            :param nelectrons:
+            :param magmom:
+            :param nkpts:
+            :param nbands:
+            :param spin: +1 or -1
+            :return: occupation numbers per spin channel
+            """
+
+            f_qn = np.zeros(shape=(nkpts, nbands))
+            nelecps = (nelectrons + spin * magmom) / 2
+            assert int(nelecps) < nbands, 'need more bands!'
+
+            f_qn[:, : int(nelecps)] = 1.0
+            f_qn[:, int(nelecps)] = nelecps - int(nelecps)
+
+            return f_qn
+
+        if nspins == 2:
+            f1_qn = get_f(nelectrons, magmom, nkpts, nbands, 1)
+            f2_qn = get_f(nelectrons, magmom, nkpts, nbands, -1)
+            f_qn = []
+            for f1_n, f2_n in zip(f1_qn, f2_qn):
+                f_qn += [f1_n, f2_n]
+        else:
+            f_qn = get_f(nelectrons, magmom, nkpts, nbands, 0)
+
+        self.f_sn = np.array(f_qn)
+        self.nspins = nspins
+        self.magmom = magmom
+
+    def _calculate(self,
+                   nelectrons,
+                   eig_qn,
+                   weight_q,
+                   f_qn,
+                   fermi_level_guess=nan):
+
+        calc_fixed(self.bd, self.f_sn, f_qn)
+
+        eig_kn, weight_k, nkpts_r = collect_eigelvalues(
+            eig_qn, weight_q, self.bd, self.kpt_comm)
+
+        def get_homo(eig_kn, nelectrons, deg, magmom, spin):
+            nelecps = int((nelectrons * deg + spin * magmom) / 2)
+            return np.max(eig_kn[:, np.maximum(nelecps - 1, 0)])
+
+        def get_lumo(eig_kn, nelectrons, deg, magmom, spin):
+            nelecps = int((nelectrons * deg + spin * magmom) / 2)
+            return np.min(eig_kn[:, nelecps])
+
+        deg = 3 - self.nspins
+        mm = self.magmom
+        if eig_kn.size != 0:
+            if self.nspins == 2:
+                hup = get_homo(eig_kn[::2], nelectrons, deg, mm, 1)
+                hdown = get_homo(eig_kn[1::2], nelectrons, deg, mm, -1)
+                homo = np.maximum(hup, hdown)
+
+                lup = get_lumo(eig_kn[::2], nelectrons, deg, mm, 1)
+                ldown = get_lumo(eig_kn[1::2], nelectrons, deg, mm, -1)
+                lumo = np.maximum(lup, ldown)
+
+            else:
+                homo = get_homo(eig_kn, nelectrons, deg, mm, 0)
+                lumo = get_lumo(eig_kn, nelectrons, deg, mm, 0)
+            fermi_level = (homo + lumo) / 2
+        else:
+            fermi_level = nan
+
+        if self.kpt_comm.rank == 0:
+            fermi_level = broadcast_float(fermi_level, self.bd.comm)
+        fermi_level = broadcast_float(fermi_level, self.kpt_comm)
+
+        return fermi_level, 0.0
+
+    def todict(self):
+        return {'name': 'fixed-uniform'}
+
+    def __str__(self):
+        return "Uniform distribution of occupation numbers"
+
+
+def calc_fixed(bd, f_sn, f_qn):
+    if bd.nbands == f_sn.shape[1]:
+        for q, f_n in enumerate(f_qn):
+            s = q % len(f_sn)
+            bd.distribute(f_sn[s], f_n)
+    else:
+        # Non-collinear calculation:
+        bd.distribute(f_sn.T.flatten().copy(), f_qn[0])
 
 
 def FixedOccupations(f_sn):
@@ -630,6 +731,10 @@ def create_occ_calc(dct: Dict[str, Any],
                     rcell=None,
                     monkhorst_pack_size=None,
                     bz2ibzmap=None,
+                    nspins=None,
+                    nelectrons=None,
+                    nkpts=None,
+                    nbands=None
                     ) -> OccupationNumberCalculator:
     """Surprise: Create occupation-number object.
 
@@ -680,6 +785,10 @@ def create_occ_calc(dct: Dict[str, Any],
         return ThomasFermiOccupations(**kwargs)
     elif name == 'fixed':
         return FixedOccupationNumbers(**kwargs)
+    elif name == 'fixed-uniform':
+        return FixedOccupationNumbersUniform(
+            nelectrons, nspins, fixed_magmom_value,
+            nkpts, nbands, **kwargs)
     else:
         raise ValueError(f'Unknown occupation number object name: {name}')
 

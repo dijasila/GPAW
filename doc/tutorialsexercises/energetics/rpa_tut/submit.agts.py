@@ -15,3 +15,7 @@ def workflow():
 
     with r1, r2, r3:
         run(shell='rm', args=['N.gpw', 'N2.gpw'])  # clean up
+
+    with run(script='gs_graph_Co.py', cores=16):
+        with run(script='rpa_graph_Co.py', cores=16, tmax='10h'):
+            run(shell='rm', args=['gs_*.gpw'])  # clean up

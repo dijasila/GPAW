@@ -32,6 +32,7 @@ help:
 	@echo "  linkcheck  to check all external links for integrity"
 	@echo "  clean      to clean up"
 	@echo "  browse     to open browser"
+	@echo "  doctest    to run doctest"
 
 clean:
 	rm -rf $(BUILDDIR)/*
@@ -45,3 +46,6 @@ linkcheck:
 
 browse:
 	firefox build/html/index.html
+
+doctest:
+	$(SPHINXBUILD) -b doctest $(ALLSPHINXOPTS) $(BUILDDIR)/doctest tutorialsexercises/structureoptimization/gettingstarted/gettingstarted.rst documentation/core.rst

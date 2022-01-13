@@ -160,6 +160,8 @@ corrections to the Hamiltonian, are constructed according to pack2 / unpack.
 
 def unpack(M):
     """Unpack 1D array to 2D, assuming a packing as in ``pack2``."""
+    if M.ndim == 2:
+        return np.array([unpack(m) for m in M])
     assert is_contiguous(M)
     assert M.ndim == 1
     n = int(sqrt(0.25 + 2.0 * len(M)))
@@ -194,8 +196,6 @@ def pack(A: np.ndarray) -> np.ndarray:
 
       (a00, a01 + a10, a02 + a20, a11, a12 + a21, a22)
     """
-    if A.ndim == 3:
-        return np.array([pack(a) for a in A])
     assert A.ndim == 2
     assert A.shape[0] == A.shape[1]
     assert A.dtype in [float, complex]
