@@ -14,7 +14,7 @@ from gpaw.new.brillouin import BZPoints, MonkhorstPackKPoints
 from gpaw.new.davidson import Davidson
 from gpaw.new.density import Density
 from gpaw.new.input_parameters import InputParameters
-from gpaw.new.modes import FDMode, PWMode
+from gpaw.new.modes import FDMode, PWMode, LCAOMode
 from gpaw.new.scf import SCFLoop
 from gpaw.new.smearing import OccupationNumberCalculator
 from gpaw.new.symmetry import Symmetries
@@ -75,7 +75,6 @@ class DFTComponentsBuilder:
             symmetry,
             comm=self.communicators['d'])
 
-        self.wf_desc = self.mode.create_wf_description(self.grid, self.dtype)
         self.nct_aX = self.mode.create_pseudo_core_densities(
             self.setups, self.grid, self.fracpos_ac)
 
@@ -124,6 +123,10 @@ class DFTComponentsBuilder:
         self.nct_aX.to_uniform_grid(out=out,
                                     scale=1.0 / (self.ncomponents % 3))
         return out
+
+    @cached_property
+    def wf_desc(self):
+        return self.mode.create_wf_description(self.grid, self.dtype)
 
     def create_potential_calculator(self):
         return self.mode.create_potential_calculator(
@@ -288,6 +291,8 @@ def create_mode(name, **kwargs):
         return PWMode(**kwargs)
     if name == 'fd':
         return FDMode(**kwargs)
+    if name == 'lcao':
+        return LCAOMode(**kwargs)
     1 / 0
 
 
