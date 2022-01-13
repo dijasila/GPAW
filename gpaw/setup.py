@@ -288,7 +288,6 @@ class BaseSetup:
         # print('fsi=', f_si)
         return f_si
 
-    @functools.lru_cache()
     def get_hunds_rule_moment(self, charge=0):
         for M in range(10):
             try:
