@@ -299,7 +299,7 @@ class get_P:
         """
         This function calculate the first term
         in square bracket in eq. 4.66 pp.49
-        D1_1_aqvMM = <Phi_nu|pt^a_i>O^a_ii<grad pt^a_i|Phi_mu> 
+        D1_1_aqvMM = <Phi_nu|pt^a_i>O^a_ii<grad pt^a_i|Phi_mu>
         """
         dPdR_aqvMi = self.manytci.P_aqMi(self.my_atom_indices, True)
         self.D1_1_aqvMM = np.zeros((len(self.my_atom_indices),

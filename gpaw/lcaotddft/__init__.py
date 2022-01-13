@@ -86,7 +86,6 @@ class LCAOTDDFT(GPAW):
         for kpt in self.wfs.kpt_u:
             kpt.S_MM_old = kpt.S_MM.copy()
 
-
     def write(self, filename, mode=''):
         # This function is included here in order to generate
         # documentation for LCAOTDDFT.write() with autoclass in sphinx
