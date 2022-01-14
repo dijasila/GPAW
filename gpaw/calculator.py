@@ -656,15 +656,16 @@ class GPAW(Calculator):
         if not realspace:
             pbc_c = np.ones(3, bool)
 
+        magnetic = magmom_av.any()
+
         if par.hund:
             spinpol = True
+            magnetic = True
             c = par.charge / natoms
             for a, setup in enumerate(self.setups):
                 magmom_av[a, 2] = setup.get_hunds_rule_moment(c)
 
         if collinear:
-            magnetic = magmom_av.any()
-
             spinpol = par.spinpol
             if spinpol is None:
                 spinpol = magnetic
