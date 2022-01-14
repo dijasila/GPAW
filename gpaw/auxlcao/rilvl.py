@@ -218,7 +218,7 @@ class RIR(RIBase):
         phit1_MG = gd.zeros(nao)
         self.wfs.basis_functions.lcao_to_grid(np.eye(nao), phit1_MG, 0)
 
-        def pair_density_and_potential(Ma, Mb):
+        def pair_density_and_potential(Ma, Mb, include_pseudo=True, include_comp=True):
             # Construct the product of two basis functions
             rhot_G = phit1_MG[Ma] * phit1_MG[Mb]
 
@@ -237,19 +237,34 @@ class RIR(RIBase):
                 D_ap[a] = D_p
                 Q_aL[a] = np.dot(D_p, self.density.setups[a].Delta_pL)
 
-            self.density.ghat.add(rhot_g, Q_aL)
+
+            if not include_pseudo:
+                rhot_g[:] = 0.0
+
+            if include_comp:
+                self.density.ghat.add(rhot_g, Q_aL)
 
             V_g = finegd.zeros()
             self.hamiltonian.poisson.solve(V_g, rhot_g, charge=None)
             return rhot_g, V_g
 
+        if self.only_ghat_aux_interaction:
+            rhot12_g, V12_g = pair_density_and_potential(M1, M2, include_pseudo=False)
+            rhot34_g, V34_g = pair_density_and_potential(M3, M4, include_comp=False)
+            K = finegd.integrate(rhot12_g*V34_g)
+            rhot12_g, V12_g = pair_density_and_potential(M1, M2, include_comp=False)
+            rhot34_g, V34_g = pair_density_and_potential(M3, M4, include_pseudo=False)
+            K += finegd.integrate(rhot12_g*V34_g)
+        elif self.only_ghat:
+            rhot12_g, V12_g = pair_density_and_potential(M1, M2, include_pseudo=False)
+            rhot34_g, V34_g = pair_density_and_potential(M3, M4, include_comp=False)
+        else:
+            rhot12_g, V12_g = pair_density_and_potential(M1, M2)
+            rhot34_g, V34_g = pair_density_and_potential(M3, M4)
+            K = finegd.integrate(rhot12_g*V34_g)
 
-        rhot12_g, V12_g = pair_density_and_potential(M1, M2)
-        rhot34_g, V34_g = pair_density_and_potential(M3, M4)
-
-        K = finegd.integrate(rhot12_g*V34_g)
         altK = finegd.integrate(rhot34_g*V12_g)
-        if abs(K-altK)>1e-7:
+        if abs(K-altK)>1e-5:
             print('Warning ', K, altK)
         return K
 
@@ -292,8 +307,8 @@ class RIR(RIBase):
                                        P_LMM = self.P_LMM, only_ghat=self.only_ghat, no_ghat=self.no_ghat,
                                        only_ghat_aux_interaction=self.only_ghat_aux_interaction)
 
-        for tensor in [self.W_AA, self.W_AL, self.P_AMM, self.P_LMM, self.W_LL]:
-            tensor.show()
+        #for tensor in [self.W_AA, self.W_AL, self.P_AMM, self.P_LMM, self.W_LL]:
+        #    tensor.show()
 
         self.WP_AMM = meinsum('WP', 'AB,Bij->Aij', self.W_AA, self.P_AMM)
         self.WP_AMM += meinsum('WP', 'AB,Bij->Aij', self.W_AL, self.P_LMM)
@@ -336,9 +351,9 @@ class RIR(RIBase):
                 fock_MM[M1start:M1end, M2start:M2end] += -0.5*self.exx_fraction*block_xx
    
         evv = 0.5 * np.einsum('ij,ij', fock_MM, rho1_MM, optimize=True)
-        print(fock_MM)
-        print('fock eig', scipy.linalg.eigh(fock_MM, kpt2.S_MM))
-        print('diagonal density matrix', kpt2.C_nM @ kpt2.S_MM @ rho2_MM @ kpt2.S_MM @ kpt2.C_nM.T )
+        #print(fock_MM)
+        #print('fock eig', scipy.linalg.eigh(fock_MM, kpt2.S_MM))
+        #print('diagonal density matrix', kpt2.C_nM @ kpt2.S_MM @ rho2_MM @ kpt2.S_MM @ kpt2.C_nM.T )
         return evv, fock_MM
 
     def contractions(self, rho_MM):

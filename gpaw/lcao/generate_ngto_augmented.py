@@ -146,13 +146,14 @@ def create_ngto(rgd, l, alpha, rmax, tol):
     psi_g = get_ngto(rgd, l, alpha, rcut)
 
     # Change norm (maybe unnecessary)
-    psi_g = psi_g[:(i + 1)] * 0.5
+    psi_g = psi_g[:(i + 1)]
 
     return psi_g
 
 
-def add_ngto(basis, l, coeff_j, alpha_j, tol, label):
+def add_ngto(basis, l, coeff_j, alpha_j, tol, label, smoothify=None, rcut=None):
     rgd = basis.get_grid_descriptor()
+
     rmax = rgd.r_g[-1]
 
     # Create linear combination of NGTO's
@@ -164,12 +165,28 @@ def add_ngto(basis, l, coeff_j, alpha_j, tol, label):
         i_max = max(i, i_max)
         psi_g[0:i] += contrib
 
-    psi_g = psi_g[0:i_max]
-    rcut = rgd.r_g[i_max]
-
     # Create associated basis function
-    bf = BasisFunction(None, l, rcut, psi_g, label)
-    basis.bf_j.append(bf)
+    if smoothify:
+        from gpaw.atom.generator import construct_smooth_wavefunction
+        #psi_g = smoothify.smoothify(psi_g, l)
+        print(psi_g[::15])
+        psi_g *= rgd.r_g
+        construct_smooth_wavefunction(psi_g, l, int(np.round(rcut)*256), rgd.r_g, psi_g)
+        psi_g[1:] /= rgd.r_g[1:]
+        psi_g[0] = psi_g[1]
+        print(psi_g[::15])
+        #psi_g = rgd.interpolate(psi_g, basis.get_grid_descriptor().r_g)
+        rcut = 12
+    else:
+        psi_g = psi_g[0:i_max]
+        rcut = rgd.r_g[i_max]
+
+    norm = np.dot(rgd.dr_g, psi_g**2)
+    if norm>0.1:
+        bf = BasisFunction(None, l, rcut, psi_g, label)
+        basis.bf_j.append(bf)
+    else:
+        print('Not adding, probably core orbital', norm)
 
 
 def generate_nao_ngto_basis(atom, *, xc, nao, name,

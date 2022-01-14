@@ -36,13 +36,14 @@ class MatrixElements:
         d = (R_v[0]**2 + R_v[1]**2 + R_v[2]**2)**0.5
         locV_LL = np.zeros((9,9))
         if self.screening_omega != 0.0:
+
             generated_W_LL_screening(locV_LL, d, R_v[0], R_v[1], R_v[2], self.screening_omega)
         else:
             generated_W_LL(locV_LL, d, R_v[0], R_v[1], R_v[2])
         if np.any(np.isnan(locV_LL)):
             print(a1,a2,locV_LL)
             xxx
-        print(a1, a2, locV_LL)
+        #print(a1, a2, locV_LL)
         return locV_LL
 
     def direct_W_AA(self, a1, a2, disp_c):
@@ -94,6 +95,7 @@ class MatrixElements:
             L = (auxt.l)**2
             m_AL[Aloc:Aloc+S, L:L+S] = np.eye(S) * M
             Aloc += S
+        print('multipole_AL returning', m_AL)
         return m_AL
 
 
@@ -217,12 +219,13 @@ class MatrixElements:
     def calculate(self, W_LL=None, W_AA=None, P_AMM=None, P_LMM=None, W_AL=None, only_ghat=False, no_ghat=False,
                         only_ghat_aux_interaction=False):
         if only_ghat_aux_interaction:
-            self.calculate_sparse_P_AMM(P_AMM)
-            self.calculate_sparse_P_LMM(P_LMM, P_AMM)
             self.calculate_sparse_W_LL(W_LL) 
             self.calculate_sparse_W_AL(W_AL, W_LL)
+            self.calculate_sparse_W_AA(W_AA, W_AL, W_LL)
+            self.calculate_sparse_P_AMM(P_AMM, W_AA)
+            self.calculate_sparse_P_LMM(P_LMM, P_AMM)
             W_LL.zero()
-            #self.calculate_sparse_W_AA(W_AA, W_AL, W_LL)
+            W_AA.zero()
             return
         if no_ghat:
             #self.calculate_sparse_W_LL(W_LL) 
@@ -232,7 +235,7 @@ class MatrixElements:
             self.calculate_sparse_W_AA(W_AA, W_AL, W_LL)
             return
         if only_ghat:
-            self.calculate_sparse_W_LL(W_LL) 
+            self.calculate_sparse_W_LL(W_LL)
             self.calculate_sparse_P_LMM(P_LMM, P_AMM)
             return
 
@@ -241,7 +244,7 @@ class MatrixElements:
         self.calculate_sparse_W_AA(W_AA, W_AL, W_LL)
         self.calculate_sparse_P_AMM(P_AMM, W_AA)
         self.calculate_sparse_P_LMM(P_LMM, P_AMM)
-        print('disabled P_LMM?')
+        #print('disabled P_LMM?')
         return
 
     def calculate_sparse_W_LL(self, W_LL):
@@ -254,6 +257,7 @@ class MatrixElements:
                     if a2 == a1 and not np.any(disp_c):
                         continue
                     W_LL += ( (a1, (0,0,0) ), (a2, tuple(disp_c)) ), self.direct_V_LL(a1, a2, disp_c)
+                    W_LL += ( (a2, (0,0,0) ), (a1, tuple(disp_c)) ), self.direct_V_LL(a2, a1, disp_c)
         else:
             for a1, setup in enumerate(self.setups):
                 W_LL += (a1,a1), setup.W_LL
@@ -263,6 +267,7 @@ class MatrixElements:
                         continue
                     assert not np.any(disp_c) # This is a non periodic system
                     W_LL += (a1, a2), self.direct_V_LL(a1, a2, disp_c)
+                    W_LL += (a2, a1), self.direct_V_LL(a2, a1, disp_c)
 
 
     r"""
@@ -299,11 +304,11 @@ class MatrixElements:
                 iW_AA = safe_inv(locW_AA)
                 I_AMM = [self.evaluate_3ci_AMM(a, a, a2),
                          self.evaluate_3ci_AMM(a2, a, a2) ]
-                print(I_AMM, 'I_AMM')
+                #print(I_AMM, 'I_AMM')
                 if I_AMM[0] is None or I_AMM[1] is None:
                     continue
                 I_AMM = np.vstack(I_AMM)
-                print(I_AMM, 'I_AMM stacked')
+                #print(I_AMM, 'I_AMM stacked')
                 Ploc_AMM = np.einsum('AB,Bij', iW_AA, I_AMM, optimize=True)
                 NA1 = len(self.setups[a].W_AA)
                 NA2 = len(self.setups[a2].W_AA)
@@ -437,14 +442,14 @@ class MatrixElements:
                     for a3, disp3_c in self.fix_broken_ase_neighborlist(a1):
                         P3_iM = self.direct_P_iM(a1, a3, disp3_c) # XXX Too much calculation
                         Ploc_LMM = np.einsum('ijL,Mi,Nj->LMN', setup.Delta_iiL, P2_iM.T, P3_iM.T, optimize=True)
-                        P_LMM += ( (a1, (0, 0, 0)), (a2, tuple(disp2_c)), (a3, tuple(disp3_c)) ), Ploc_LMM
+                        P_LMM += ( (a1, (0, 0, 0)), (a2, tuple(disp2_c)), (a3, tuple(disp3_c)) ), Ploc_LMM * (4*np.pi)**0.5
         else:
             for a, setup in enumerate(self.setups):
                 P_Mi = self.wfs.atomic_correction.P_aqMi[a][0]
                 Ploc_LMM = np.einsum('ijL,Mi,Nj->LMN', setup.Delta_iiL, P_Mi, P_Mi, optimize=True)
                 for a1, (M1start, M1end) in enumerate(zip(self.M_a[:-1], self.M_a[1:])):
                     for a2, (M2start, M2end) in enumerate(zip(self.M_a[:-1], self.M_a[1:])):
-                        P_LMM += (a, a1, a2), Ploc_LMM[:, M1start:M1end, M2start:M2end]
+                        P_LMM += (a, a1, a2), Ploc_LMM[:, M1start:M1end, M2start:M2end] * (4*np.pi)**0.5
 
         """
         return
@@ -463,17 +468,25 @@ class MatrixElements:
         if no_ghat:
             return
     """
-    def calculate_sparse_W_AL(self, W_AL, W_LL):
-        mul_AL = W_AL.__class__('mul','AL')
 
+    def calculate_sparse_W_AL(self, W_AL, W_LL):
+        W_LL.show()    
+        
         for a1 in self.my_a:
             for a2 in self.my_a:
                 Mloc_qAL = self.evaluate_2ci_M_qAL(a1, a2)
-                if Mloc_qAL is None:
-                    continue
-                #print('M_qaL contribution to W_AL', Mloc_qAL)
-                W_AL += (a1, a2), Mloc_qAL[0]
+                if Mloc_qAL is not None:
+                    W_AL += (a1, a2), Mloc_qAL[0]
+    
+                locW_LL = W_LL.get( (a1, a2) )
+                print(a1, locW_LL)
+                print(self.multipole_AL(a1).shape)
+                print(locW_LL.shape,'s')
 
+                W_AL += (a1, a2), ( self.multipole_AL(a1) @ locW_LL )
+
+        """      
+        mul_AL = W_AL.__class__('mul','AL')
         for a2 in self.my_a:
             setup = self.setups[a2]
             loc_AL = np.zeros( (setup.Naux, 9) )
@@ -481,9 +494,9 @@ class MatrixElements:
             for auxt, M in zip(setup.auxt_j, setup.M_j):
                 S = 2*auxt.l+1
                 L = (auxt.l)**2
-                loc_AL[Aloc:Aloc+S, L:L+S] = np.eye(S) * M
+                loc_AL[Aloc:Aloc+S, L:L+S] = np.eye(S) * M #/ (4*np.pi)**0.5
                 Aloc += S
-            mul_AL += (a2,a2), loc_AL
+            mul_AL += (a2,a2), loc_AL 
 
         #mul_AL.show()
         #W_LL.show()
@@ -491,7 +504,7 @@ class MatrixElements:
         tmp= mul_AL.meinsum('mul_AL*W_LL', 'AL,LK->AK', mul_AL, W_LL)
         #tmp.show()
         W_AL += tmp
-
+        """
     def calculate_sparse_W_AA(self, W_AA, W_AL, W_LL):
         if self.sparse_periodic:
             raise NotImplementedError
