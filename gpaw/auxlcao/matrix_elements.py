@@ -33,12 +33,16 @@ class MatrixElements:
 
     def direct_V_LL(self, a1, a2, disp_c):
         R_v = np.dot(self.spos_ac[a1, :] - self.spos_ac[a2, :] + disp_c, self.cell_cv)
-        d = (R_v[0]**2 + R_v[1] + R_v[2]**2)**0.5
+        d = (R_v[0]**2 + R_v[1]**2 + R_v[2]**2)**0.5
         locV_LL = np.zeros((9,9))
         if self.screening_omega != 0.0:
             generated_W_LL_screening(locV_LL, d, R_v[0], R_v[1], R_v[2], self.screening_omega)
         else:
             generated_W_LL(locV_LL, d, R_v[0], R_v[1], R_v[2])
+        if np.any(np.isnan(locV_LL)):
+            print(a1,a2,locV_LL)
+            xxx
+        print(a1, a2, locV_LL)
         return locV_LL
 
     def direct_W_AA(self, a1, a2, disp_c):
@@ -49,23 +53,22 @@ class MatrixElements:
         M_LA = self.direct_M_AL(a2, a1, disp_c).T    
         m_AL = self.multipole_AL(a1)
         m_LA = self.multipole_AL(a2).T
-        print(m_AL,'m_AL')
-        print(m_LA,'m_LA')
-        print(M_AL,'M_AL')
-        print(M_LA,'M_LA')
+        #print(m_AL,'m_AL')
+        #print(m_LA,'m_LA')
+        #print(M_AL,'M_AL')
+        #print(M_LA,'M_LA')
         P1 = S_AA
         P2 = m_AL @ V_LL @ m_LA
         P3 = m_AL @ M_LA
         P4 = M_AL @ m_LA
-        print(a1,a2)
-        print(P1,'S_AA')
-        print(P2,'m_AL V_LL m_LA')
-        print(P3,'m_AL @ M_LA')
-        print(P4,'M_AL @ m_LA')
-        print('V_LL',V_LL)
-        print('tot', P1+P2+P3+P4)
-        print(a1,a2, P1.shape)
-        #input('W_LL')
+        #print(a1,a2)
+        #print(P1,'S_AA')
+        #print(P2,'m_AL V_LL m_LA')
+        #print(P3,'m_AL @ M_LA')
+        #print(P4,'M_AL @ m_LA')
+        #print('V_LL',V_LL)
+        #print('tot', P1+P2+P3+P4)
+        #print(a1,a2, P1.shape)
         return P1+P2+P3+P4
 
     def direct_W_AL(self, a1, a2, disp_c):
@@ -238,7 +241,7 @@ class MatrixElements:
         self.calculate_sparse_W_AA(W_AA, W_AL, W_LL)
         self.calculate_sparse_P_AMM(P_AMM, W_AA)
         self.calculate_sparse_P_LMM(P_LMM, P_AMM)
-
+        print('disabled P_LMM?')
         return
 
     def calculate_sparse_W_LL(self, W_LL):
@@ -290,7 +293,8 @@ class MatrixElements:
 
                 locW_AA = np.block( [ [ self.setups[a].W_AA,      self.direct_W_AA(a, a2, [0,0,0]) ],
                                       [ self.direct_W_AA(a2, a, [0,0,0]), self.setups[a2].W_AA     ] ] )
-                print(locW_AA, locW_AA.shape)
+
+                #print(locW_AA, locW_AA.shape)
                 
                 iW_AA = safe_inv(locW_AA)
                 I_AMM = [self.evaluate_3ci_AMM(a, a, a2),

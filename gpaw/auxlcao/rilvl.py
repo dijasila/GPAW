@@ -11,7 +11,7 @@ from gpaw.utilities import pack, unpack2
 from gpaw.pw.lfc import PWLFC
 from gpaw.transformers import Transformer
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb as WSTC
-
+import scipy
 from gpaw.auxlcao.multipole import calculate_W_qLL
 from gpaw.auxlcao.procedures import calculate_V_qAA,\
                                     calculate_S_qAA,\
@@ -81,10 +81,11 @@ def meinsum(output_name, index_str, T1, T2):
             if fail:
                 continue
             out_indices = get_out(i1, i2)
-            print('Einsum', i1, i2, index_str, block1.shape, block2.shape)
+            #print('Einsum', i1, i2, index_str, block1.shape, block2.shape)
             #print('in',block1, 'in2', block2)
             value = np.einsum(index_str, block1, block2)
-            #print('out', value)
+            #print('out', np.max(np.abs(value)))
+            #input('prod')
             T3 += out_indices, value
     return T3
 
@@ -108,6 +109,9 @@ class SparseTensor:
             self.block_i[index] += block_xx.copy() #xxx
 
         return self
+
+    def get(self, index):
+        return self.block_i[index]
 
     def get_name(self):
         return '%s_%s' % (self.name, self.indextypes)
@@ -182,6 +186,73 @@ class RIR(RIBase):
         self.no_ghat = False
         self.only_ghat_aux_interaction = False
 
+    def local_K_MMMM(self, a1, i1, a2, i2, a3, i3, a4, i4):
+        M2start, M2end = self.M_a[a2], self.M_a[a2+1]
+        M4start, M4end = self.M_a[a4], self.M_a[a4+1]
+        rho_MM = SparseTensor('rho', 'MM')
+        locrho_MM = np.zeros( (M2end-M2start, M4end-M4start) )
+        locrho_MM[i2, i4] = 1.0
+        rho_MM += (a2, a4), locrho_MM
+        F_MM = self.contractions(rho_MM)
+        return F_MM.get( (a1, a3) )[i1, i3]
+
+    def ref_local_K_MMMM(self, a1, i1, a2, i2, a3, i3, a4, i4):
+        setups = self.wfs.setups
+        M1 = setups.M_a[a1] + i1
+        M2 = setups.M_a[a2] + i2
+        M3 = setups.M_a[a3] + i3
+        M4 = setups.M_a[a4] + i4
+
+        wfs = self.wfs
+        density = self.density
+        gd = self.density.gd
+        finegd = self.density.finegd
+        if self.screening_omega != 0.0:
+            raise NotImplementedError
+        interpolator = self.density.interpolator
+        restrictor = self.hamiltonian.restrictor
+
+        nao = self.wfs.setups.nao
+
+        # Put wave functions to grid
+        phit1_MG = gd.zeros(nao)
+        self.wfs.basis_functions.lcao_to_grid(np.eye(nao), phit1_MG, 0)
+
+        def pair_density_and_potential(Ma, Mb):
+            # Construct the product of two basis functions
+            rhot_G = phit1_MG[Ma] * phit1_MG[Mb]
+
+            rhot_g = finegd.zeros()
+            interpolator.apply(rhot_G, rhot_g)
+
+            #print('real space norm', finegd.integrate(rhot_g))
+
+            Q_aL = {}
+            D_ap = {}
+            for a in self.wfs.P_aqMi:
+                P1_i = self.wfs.P_aqMi[a][0][Ma]
+                P2_i = self.wfs.P_aqMi[a][0][Mb]
+                D_ii = np.outer(P1_i, P2_i.conjugate())
+                D_p = pack(D_ii)
+                D_ap[a] = D_p
+                Q_aL[a] = np.dot(D_p, self.density.setups[a].Delta_pL)
+
+            self.density.ghat.add(rhot_g, Q_aL)
+
+            V_g = finegd.zeros()
+            self.hamiltonian.poisson.solve(V_g, rhot_g, charge=None)
+            return rhot_g, V_g
+
+
+        rhot12_g, V12_g = pair_density_and_potential(M1, M2)
+        rhot34_g, V34_g = pair_density_and_potential(M3, M4)
+
+        K = finegd.integrate(rhot12_g*V34_g)
+        altK = finegd.integrate(rhot34_g*V12_g)
+        if abs(K-altK)>1e-7:
+            print('Warning ', K, altK)
+        return K
+
     def prepare_setups(self, setups):
         RIAlgorithm.prepare_setups(self, setups)
         self.M_a = setups.M_a.copy()
@@ -231,51 +302,20 @@ class RIR(RIBase):
         self.WP_LMM += meinsum('WP', 'AB,Bij->Aij', self.W_LL, self.P_LMM)
 
     def calculate_exchange_per_kpt_pair(self, kpt1, k_c, rho1_MM, kpt2, krho_c, rho2_MM):
-
         rho_MM = SparseTensor('rho', 'MM')
         for a1, (M1start, M1end) in enumerate(zip(self.M_a[:-1], self.M_a[1:])):
             for a2, (M2start, M2end) in enumerate(zip(self.M_a[:-1], self.M_a[1:])):
                 block = rho2_MM[M1start:M1end, M2start:M2end]
                 if self.matrix_elements.sparse_periodic:
-                    rho_MM += ( ((a1,(0,0,0)), (a2,(0,0,0))), block )
+                    rho_MM += ( ((a1,(0,0,0)), (a2,(0,0,0))), block.copy() )
                 else:
                     rho_MM += ( (a1, a2), block )
-        with self.timer('RI-V: 1st contraction AMM MM'):
-            WP_AMM_RHO_MM = meinsum('WP_RHO', 'Ajl,kl->Ajk',
-                                       self.WP_AMM,
-                                       rho_MM)
-        with self.timer('RI-V: 2nd contraction AMM AMM'):
-            F_MM = meinsum('initialF_MM', 'Aik,Ajk->ij',
-                              self.P_AMM,
-                              WP_AMM_RHO_MM)
-            #self.P_AMM.show()
-            #WP_AMM_RHO_MM.show()
-            #F_MM.show()
-            WP_AMM_RHO_MM = None
 
-        with self.timer('RI-V: 1st contraction LMM MM'):
-            WP_LMM_RHO_MM = meinsum('WP_RHO', 'Ajl,kl->Ajk',
-                                       self.WP_LMM,
-                                       rho_MM)
-
-        with self.timer('RI-V: 2nd contraction LMM LMM'):
-            F_MM += meinsum('F_MM', 'Aik,Ajk->ij',
-                             self.P_LMM,
-                             WP_LMM_RHO_MM)
-            WP_LMM_RHO_MM = None
-
-        #with self.timer('RI-V: 1st contraction (lr-lr) LMM MM'):
-        #    WL_LMM_RHO_MM = meinsum('WLRHO', 'Ajl,kl->Ajk',
-        #                             self.WL_LMM,
-        #                             rho_MM)
-        #with self.timer('RI-V: 2nd contraction (lr-lr) LMM LMM'):
-        #    F_MM += meinsum('F_MM', 'Aik,Ajk->ij',
-        #                      self.S_LMM,
-        #                      WL_LMM_RHO_MM)
-        #    WL_LMM_RHO_MM = None
+        with self.timer('Contractions'):
+            F_MM = self.contractions(rho_MM)
 
         fock_MM = np.zeros_like(rho2_MM)
-        F_MM.show()
+
         if self.matrix_elements.sparse_periodic:
             for index, block_xx in F_MM.block_i.items():
                 (a1,disp1_c), (a2,disp2_c) = index
@@ -296,7 +336,45 @@ class RIR(RIBase):
                 fock_MM[M1start:M1end, M2start:M2end] += -0.5*self.exx_fraction*block_xx
    
         evv = 0.5 * np.einsum('ij,ij', fock_MM, rho1_MM, optimize=True)
+        print(fock_MM)
+        print('fock eig', scipy.linalg.eigh(fock_MM, kpt2.S_MM))
+        print('diagonal density matrix', kpt2.C_nM @ kpt2.S_MM @ rho2_MM @ kpt2.S_MM @ kpt2.C_nM.T )
         return evv, fock_MM
+
+    def contractions(self, rho_MM):
+        with self.timer('RI-V: 1st contraction AMM MM'):
+            WP_AMM_RHO_MM = meinsum('WP_RHO', 'Ajl,kl->Ajk',
+                                       self.WP_AMM,
+                                       rho_MM)
+        with self.timer('RI-V: 2nd contraction AMM AMM'):
+            F_MM = meinsum('initialF_MM', 'Aik,Ajk->ij',
+                              self.P_AMM,
+                              WP_AMM_RHO_MM)
+            WP_AMM_RHO_MM = None
+
+        with self.timer('RI-V: 1st contraction LMM MM'):
+            WP_LMM_RHO_MM = meinsum('WP_RHO', 'Ajl,kl->Ajk',
+                                    self.WP_LMM,
+                                    rho_MM)
+
+        with self.timer('RI-V: 2nd contraction LMM LMM'):
+            F_MM += meinsum('F_MM', 'Aik,Ajk->ij',
+                             self.P_LMM,
+                             WP_LMM_RHO_MM)
+            WP_LMM_RHO_MM = None
+
+        return F_MM
+
+        #with self.timer('RI-V: 1st contraction (lr-lr) LMM MM'):
+        #    WL_LMM_RHO_MM = meinsum('WLRHO', 'Ajl,kl->Ajk',
+        #                             self.WL_LMM,
+        #                             rho_MM)
+        #with self.timer('RI-V: 2nd contraction (lr-lr) LMM LMM'):
+        #    F_MM += meinsum('F_MM', 'Aik,Ajk->ij',
+        #                      self.S_LMM,
+        #                      WL_LMM_RHO_MM)
+        #    WL_LMM_RHO_MM = None
+
 
 class RILVL(RIAlgorithm):
     def __init__(self, exx_fraction=None, screening_omega=None, lcomp=2, laux=2, threshold=1e-2):
@@ -313,6 +391,7 @@ class RILVL(RIAlgorithm):
         self.matrix_elements = MatrixElements(self.laux, screening_omega, threshold=threshold)
 
         self.K_kkMMMM={}
+
 
     def prepare_setups(self, setups):
         RIAlgorithm.prepare_setups(self, setups)
@@ -434,6 +513,7 @@ class RILVL(RIAlgorithm):
         #print(self.P_kkAMM[kpt_pair],'P_AMM')
 
         F_MM *= -0.5*self.exx_fraction
+        print('Not adding F_MM')
         evv = 0.5 * np.einsum('ij,ij', F_MM, rho1_MM, optimize=True)
         #print('F_MM', F_MM)
         #print('rho_MM', rho2_MM)

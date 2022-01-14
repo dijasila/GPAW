@@ -102,8 +102,8 @@ def _get_auxiliary_splines(setup, lmax, cutoff, poisson, threshold=1e-2):
                 print('1s norm', rgd.integrate(aux_g / (4*np.pi)**0.5))
                 add(aux_g, l)
 
-    if setup.Z == 1:
-        add(np.exp(-1.2621205398*rgd.r_g**2),1)
+    #if setup.Z == 1:
+    #    add(np.exp(-1.2621205398*rgd.r_g**2),1)
     #    add(np.exp(-0.50199775874*rgd.r_g**2),1)
     #    add(np.exp(-0.71290724024*rgd.r_g**2),2)
     #    # add(np.exp(-1.6565726132*rgd.r_g**2),3)
@@ -154,7 +154,7 @@ def _get_auxiliary_splines(setup, lmax, cutoff, poisson, threshold=1e-2):
 
         #plt.show()
 
-        if 1:
+        if 0:
             #print('Skipping transformation with ', q_ni.T)
             auxt_ig =  auxt_ng.copy()
             wauxt_ig = wauxt_ng.copy()
@@ -223,8 +223,8 @@ def _get_auxiliary_splines(setup, lmax, cutoff, poisson, threshold=1e-2):
             print('sauxt_g * wauxt radial integral', rgd.integrate(sauxt_g * wauxt_ig[i] / (4*np.pi)))
             print('sauxt_g * wsauxt radial integral', rgd.integrate(sauxt_g * v_g / (4*np.pi)))
             wsauxt_j.append(rgd.spline(v_g, cutoff, l, 2000))
-            #print('Last potential element', v_g[-1])
-            assert(np.abs(v_g[-1])<1e-6)
+            print('Last potential element', v_g[-1])
+            #assert(np.abs(v_g[-1])<1e-6)
         print('l=%d %d -> %d' % (l, len(auxt_ng), len(auxt_ig)))
 
     W_AA = scipy.linalg.block_diag(*integrals_lAA)
