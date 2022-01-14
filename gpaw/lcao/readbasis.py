@@ -42,6 +42,8 @@ class BasisSetLibrary:
     def get(self, basisname):
         basis = self.resolve(basisname)
         if len(basis) == 0:
+            for b in self.library:
+                print(b, end=' ')
             raise ValueError('Basis not found %s' % basisname)
         return group_by_l(basis)
 
