@@ -18,7 +18,7 @@ from gpaw.new.modes import FDMode, PWMode, LCAOMode
 from gpaw.new.scf import SCFLoop
 from gpaw.new.smearing import OccupationNumberCalculator
 from gpaw.new.symmetry import Symmetries
-from gpaw.new.wave_functions import IBZWaveFunctions
+from gpaw.new.ibzwfs import IBZWaveFunctions
 from gpaw.new.xc import XCFunctional
 from gpaw.setup import Setups
 from gpaw.symmetry import Symmetry as OldSymmetry

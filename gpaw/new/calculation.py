@@ -6,7 +6,7 @@ import numpy as np
 from ase.units import Bohr, Ha
 from gpaw.new.builder import DFTComponentsBuilder
 from gpaw.new.input_parameters import InputParameters
-from gpaw.new.wave_functions import IBZWaveFunctions
+from gpaw.new.ibzwfs import IBZWaveFunctions
 from gpaw.new.potential import Potential
 from gpaw.utilities import check_atoms_too_close
 

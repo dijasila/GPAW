@@ -177,3 +177,12 @@ class FDHamiltonian:
             pc(residuals.data, kpt, out=out.data)
 
         return apply
+
+
+class LCAOMode(FDMode):
+    name = 'lcao'
+
+    def create_wf_description(self,
+                              grid: UniformGrid,
+                              dtype) -> UniformGrid:
+        raise NotImplementedError
