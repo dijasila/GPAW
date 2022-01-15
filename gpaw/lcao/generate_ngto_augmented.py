@@ -177,14 +177,16 @@ def add_ngto(basis, l, coeff_j, alpha_j, tol, label, smoothify=None, rcut=None):
         print(psi_g[::15])
         #psi_g = rgd.interpolate(psi_g, basis.get_grid_descriptor().r_g)
         rcut = 12
+        norm = np.dot(rgd.dr_g, psi_g**2)
     else:
         psi_g = psi_g[0:i_max]
         rcut = rgd.r_g[i_max]
+        norm = 1.0
 
-    norm = np.dot(rgd.dr_g, psi_g**2)
-    if norm>0.1:
+    if norm>0.0:
         bf = BasisFunction(None, l, rcut, psi_g, label)
         basis.bf_j.append(bf)
+        print(norm,'norm')
     else:
         print('Not adding, probably core orbital', norm)
 
