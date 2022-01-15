@@ -30,9 +30,11 @@ class RIAlgorithm:
             print('Screening omega for setups')
             for setup in setups:
                 setup.ri_M_pp = setup.calculate_screened_M_pp(self.screening_omega)
+                setup.ri_X_p = setup.HSEX_p
         else:
             for setup in setups:
                 setup.ri_M_pp = setup.M_pp
+                setup.ri_X_p = setup.X_p
 
 
     def nlxc(self,
@@ -93,9 +95,9 @@ class RIAlgorithm:
                             V += setup.ri_M_pp[p13, p24] * D_ii[i3, i4]
                     V_ii[i1, i2] = +V*2 #XXX
             V_p = pack2(V_ii)
-            dH_sp[0][:] += (-V_p - self.density.setups[a].X_p) * self.exx_fraction
+            dH_sp[0][:] += (-V_p - self.density.setups[a].ri_X_p) * self.exx_fraction
 
             evv = -self.exx_fraction * np.dot(V_p, self.density.D_asp[a][0]) / 2
-            evc = -self.exx_fraction * np.dot(self.density.D_asp[a][0], self.density.setups[a].X_p)
+            evc = -self.exx_fraction * np.dot(self.density.D_asp[a][0], self.density.setups[a].ri_X_p)
             return evv + evc, 0.0
 
