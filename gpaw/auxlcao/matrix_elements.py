@@ -36,7 +36,6 @@ class MatrixElements:
         d = (R_v[0]**2 + R_v[1]**2 + R_v[2]**2)**0.5
         locV_LL = np.zeros((9,9))
         if self.screening_omega != 0.0:
-
             generated_W_LL_screening(locV_LL, d, R_v[0], R_v[1], R_v[2], self.screening_omega)
         else:
             generated_W_LL(locV_LL, d, R_v[0], R_v[1], R_v[2])
@@ -95,7 +94,6 @@ class MatrixElements:
             L = (auxt.l)**2
             m_AL[Aloc:Aloc+S, L:L+S] = np.eye(S) * M
             Aloc += S
-        print('multipole_AL returning', m_AL)
         return m_AL
 
 
@@ -147,7 +145,7 @@ class MatrixElements:
             # Single center Hartree of auxiliary basis function * one phit_j
             setup.wauxtphit_x = get_wgauxphit_product_splines(setup, setup.wauxt_j, setup.phit_j, rcmax)
 
-        transformer = FourierTransformer(rcmax=max(phit_rcmax_I)+1e-3, ng=2**11)
+        transformer = FourierTransformer(rcmax=max(phit_rcmax_I)+1e-3, ng=2**10)
         tsoc = TwoSiteOverlapCalculator(transformer)
         msoc = ManySiteOverlapCalculator(tsoc, I_a, I_a)
 
@@ -432,9 +430,9 @@ class MatrixElements:
         if self.sparse_periodic:
             P_LMM.show()
             for a1, setup in enumerate(self.setups):
-                print('corrections for atom', a1,'Note: Using too large neighbourlist')
+                #print('corrections for atom', a1,'Note: Using too large neighbourlist')
                 a2_a, disp_xc = self.nl.get_neighbors(a1)
-                print(a2_a, disp_xc,' Neighbourlist of', a1)
+                #print(a2_a, disp_xc,' Neighbourlist of', a1)
 
                 P_aiM = {}
                 for a2, disp2_c in self.fix_broken_ase_neighborlist(a1):
@@ -479,9 +477,9 @@ class MatrixElements:
                     W_AL += (a1, a2), Mloc_qAL[0]
     
                 locW_LL = W_LL.get( (a1, a2) )
-                print(a1, locW_LL)
-                print(self.multipole_AL(a1).shape)
-                print(locW_LL.shape,'s')
+                #print(a1, locW_LL)
+                #print(self.multipole_AL(a1).shape)
+                #print(locW_LL.shape,'s')
 
                 W_AL += (a1, a2), ( self.multipole_AL(a1) @ locW_LL )
 

@@ -352,7 +352,7 @@ class RIR(RIBase):
    
         evv = 0.5 * np.einsum('ij,ij', fock_MM, rho1_MM, optimize=True)
         #print(fock_MM)
-        #print('fock eig', scipy.linalg.eigh(fock_MM, kpt2.S_MM))
+        print('Overlap eig', scipy.linalg.eigh(kpt2.S_MM))
         #print('diagonal density matrix', kpt2.C_nM @ kpt2.S_MM @ rho2_MM @ kpt2.S_MM @ kpt2.C_nM.T )
         return evv, fock_MM
 
@@ -528,7 +528,7 @@ class RILVL(RIAlgorithm):
         #print(self.P_kkAMM[kpt_pair],'P_AMM')
 
         F_MM *= -0.5*self.exx_fraction
-        print('Not adding F_MM')
+        #print('Not adding F_MM')
         evv = 0.5 * np.einsum('ij,ij', F_MM, rho1_MM, optimize=True)
         #print('F_MM', F_MM)
         #print('rho_MM', rho2_MM)
