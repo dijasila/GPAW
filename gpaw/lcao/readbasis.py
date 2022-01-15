@@ -9,7 +9,7 @@ def strip_comment(line):
     return line.split('#')[0].strip()
 
 def group_by_l(basis):
-    print('group_by_l', basis)
+    #print('group_by_l', basis)
     basis_l = defaultdict(list)
     for l, contraction in basis:
         basis_l[l].append(contraction)
@@ -29,7 +29,7 @@ class BasisSetLibrary:
 
     def resolve(self, basisname):
         basis = self.library[basisname]
-        print('Resolve start', basis)        
+        #print('Resolve start', basis)        
         resolved = []
         for l, r in basis:
             if isinstance(l, str):
@@ -48,7 +48,7 @@ class BasisSetLibrary:
         return group_by_l(basis)
 
 class LibraryBuilder:
-    def __init__(self, debug = True):
+    def __init__(self, debug = False):
         self.library = defaultdict(list)
         self.current_bases = []
         self.debug = debug
@@ -66,7 +66,7 @@ class LibraryBuilder:
         return BasisSetLibrary(self.library)
 
     def end_input(self):
-        print(self.current_basis, self.current_bases, self.current_references,'xxx')
+        #print(self.current_basis, self.current_bases, self.current_references,'xxx')
         for basename in self.current_bases:
             self.library[basename].extend(self.current_basis)
             self.library[basename].extend(self.current_references)
