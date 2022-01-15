@@ -708,6 +708,8 @@ class LeanSetup(BaseSetup):
 
         # Required by exx
         self.X_p = s.X_p
+        self.HSEX_p = s.HSEX_p
+        print(self.HSEX_p, self.X_p)
         self.ExxC = s.ExxC
 
         # Required by yukawa rsf
@@ -823,7 +825,7 @@ class Setup(BaseSetup):
 
         self.ExxC = data.ExxC
         self.X_p = data.X_p
-
+        self.HSEX_p = data.HSEX_p
         self.X_gamma = data.X_gamma
         self.X_pg = data.X_pg
 
