@@ -802,7 +802,6 @@ class Setup(BaseSetup):
     """
     def __init__(self, data, xc, lmax=0, basis=None, filter=None):
         self.type = data.name
-
         self.HubU = None
 
         if not data.is_compatible(xc):
@@ -1408,7 +1407,8 @@ class Setups(list):
                 # pre-created Basis object (meaning we just pass it along)
                 if isinstance(basis, str):
                     basis = Basis(symbol, basis, world=world)
-                setup = create_setup(symbol, xc, 2, type,
+                lmax = 4
+                setup = create_setup(symbol, xc, lmax, type,
                                      basis, setupdata=setupdata,
                                      filter=filter, world=world)
                 self.setups[id] = setup
