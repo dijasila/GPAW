@@ -151,8 +151,13 @@ def create_ngto(rgd, l, alpha, rmax, tol):
     return psi_g
 
 
-def add_ngto(basis, l, coeff_j, alpha_j, tol, label, smoothify=None, rcut=None):
-    rgd = basis.get_grid_descriptor()
+def add_ngto(basis, l, coeff_j, alpha_j, tol, label, smoothify=None, rcut=None, smoothify2=None, nodamp=False):
+    assert not (smoothify and smoothify2)
+
+    if smoothify2:
+        rgd = smoothify2.rgd
+    else:
+        rgd = basis.get_grid_descriptor()
 
     rmax = rgd.r_g[-1]
 
@@ -165,8 +170,17 @@ def add_ngto(basis, l, coeff_j, alpha_j, tol, label, smoothify=None, rcut=None):
         i_max = max(i, i_max)
         psi_g[0:i] += contrib
 
-    # Create associated basis function
-    if smoothify:
+    if smoothify2:
+        print(nodamp,'nodamp')
+        psi_g = smoothify2.smoothify(psi_g * rgd.r_g, l, nodamp=nodamp)
+        psi_g[1:] /= rgd.r_g[1:]
+        psi_g[0] = psi_g[1]
+        print(psi_g)
+        norm = np.dot(rgd.dr_g, psi_g**2)
+        psi_g = rgd.interpolate(psi_g, basis.get_grid_descriptor().r_g)
+
+        print('smootify2 norm', norm)
+    elif smoothify:
         from gpaw.atom.generator import construct_smooth_wavefunction
         #psi_g = smoothify.smoothify(psi_g, l)
         print(psi_g[::15])
@@ -175,13 +189,15 @@ def add_ngto(basis, l, coeff_j, alpha_j, tol, label, smoothify=None, rcut=None):
         psi_g[1:] /= rgd.r_g[1:]
         psi_g[0] = psi_g[1]
         print(psi_g[::15])
-        #psi_g = rgd.interpolate(psi_g, basis.get_grid_descriptor().r_g)
         rcut = 12
         norm = np.dot(rgd.dr_g, psi_g**2)
+        print('smootify norm', norm)
     else:
         psi_g = psi_g[0:i_max]
         rcut = rgd.r_g[i_max]
         norm = 1.0
+
+    rcut = 12.0 # XXX
 
     if norm>0.0:
         bf = BasisFunction(None, l, rcut, psi_g, label)
