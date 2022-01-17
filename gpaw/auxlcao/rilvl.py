@@ -7,6 +7,7 @@ from gpaw.hybrids.coulomb import ShortRangeCoulomb
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.pw.descriptor import PWDescriptor
+from gpaw.lfc import LFC
 from gpaw.utilities import pack, unpack2
 from gpaw.pw.lfc import PWLFC
 from gpaw.transformers import Transformer
@@ -31,7 +32,7 @@ from numpy.matlib import repmat
 """
 
       W_LL W_LA     [ 
-      W_AL W_AA
+      _AL W_AA
 
 """
 
@@ -111,7 +112,8 @@ class SparseTensor:
         return self
 
     def get(self, index):
-        return self.block_i[index]
+        if index in self.block_i:
+            return self.block_i[index]
 
     def get_name(self):
         return '%s_%s' % (self.name, self.indextypes)
@@ -163,20 +165,20 @@ class RIBasisMaker:
     def __init__(self, setup):
         self.setup = setup
 
+class Struct:
+    pass
+
 class RIBase(RIAlgorithm):
     def __init__(self, name, exx_fraction=None, screening_omega=None, lcomp=2, laux=2, threshold=1e-5):
         RIAlgorithm.__init__(self, name, exx_fraction, screening_omega)
 
         self.lcomp = lcomp
-        assert self.lcomp == 2
-
         self.laux = laux 
-        assert self.laux == 2
 
         self.threshold = threshold
-        print('ribase', self.threshold)
-        print('RI base screening omega', screening_omega)
-        self.matrix_elements = MatrixElements(self.laux, screening_omega = screening_omega, threshold=threshold)
+        #print('ribase', self.threshold)
+        #print('RI base screening omega', screening_omega)
+        self.matrix_elements = MatrixElements(laux = self.laux, lcomp=self.lcomp, screening_omega = screening_omega, threshold=threshold)
 
 
 class RIR(RIBase):
@@ -185,6 +187,39 @@ class RIR(RIBase):
         self.only_ghat = False
         self.no_ghat = False
         self.only_ghat_aux_interaction = False
+
+    def cube_debug(self, atoms, a1, M1, a2, M2):
+        from ase.io.cube import write_cube
+        from gpaw.lfc import LFC
+        auxt_lfc_coarse = LFC(self.density.gd, [setup.auxt_j for setup in self.wfs.setups])
+        auxt_lfc_coarse.set_positions(self.spos_ac)
+        Q_aA = auxt_lfc_coarse.dict(zero=True)
+        for a, setup in enumerate(self.wfs.setups):
+            locP_AMM = self.P_AMM.get( (a, a1, a2) )
+            if locP_AMM is None:
+                print(a,a1,a2,'none')
+                continue
+            Aloc = 0
+            for j, aux in enumerate(setup.auxt_j):
+                for m in range(2*aux.l+1):
+                    print(locP_AMM.shape,'pamm shape')
+                    print(Q_aA,'Q_aA')
+                    Q_aA[a][Aloc] = locP_AMM[Aloc, M1, M2]
+                    Aloc += 1
+        fit_G = self.density.gd.zeros()
+        auxt_lfc_coarse.add(fit_G, Q_aA)
+        write_cube(open('fit_a%03d_%03d_a%03d_%03d.cube' % (a1,M1, a2,M2),'w'), atoms, data=fit_G, comment='')
+
+        wfs = self.wfs
+        density = self.density
+        nao = self.wfs.setups.nao
+        # Put wave functions to grid
+        phit1_MG = density.gd.zeros(nao)
+        self.wfs.basis_functions.lcao_to_grid(np.eye(nao), phit1_MG, 0)
+       
+        write_cube(open('ref_a%03d_%03d_a%03d_%03d.cube' % (a1, M1, a2, M2),'w'), atoms, data=phit1_MG[self.M_a[a1]+M1] * phit1_MG[self.M_a[a2]+M2], comment='')
+
+
 
     def local_K_MMMM(self, a1, i1, a2, i2, a3, i3, a4, i4):
         M2start, M2end = self.M_a[a2], self.M_a[a2+1]
@@ -196,6 +231,40 @@ class RIR(RIBase):
         F_MM = self.contractions(rho_MM)
         return F_MM.get( (a1, a3) )[i1, i3]
 
+    def ref_V_LL(self, a1, L1, a2, L2):
+        finegd = self.density.finegd
+        ghat = self.density.ghat
+        Q1_aM = ghat.dict(zero=True)
+        Q1_aM[a1][L1] = 1.0 / (4*np.pi)**0.5
+        Q2_aM = ghat.dict(zero=True)
+        Q2_aM[a2][L2] = 1.0 / (4*np.pi)**0.5
+
+        g1_g = finegd.zeros()
+        g2_g = finegd.zeros()
+        ghat.add(g1_g, Q1_aM)
+        ghat.add(g2_g, Q2_aM)
+        v_g = finegd.zeros()
+        self.hamiltonian.poisson.solve(v_g, g1_g, charge=None)
+        return finegd.integrate(g2_g*v_g)
+
+    def ref_W_AA(self, a1, L1, a2, L2):
+        finegd = self.density.finegd
+
+        Alfc = LFC(finegd, [setup.auxt_j for setup in self.density.setups])
+        Alfc.set_positions(self.spos_ac)
+        A1_aM = Alfc.dict(zero=True)
+        A1_aM[a1][L1] = 1.0
+        A2_aM = Alfc.dict(zero=True)
+        A2_aM[a2][L2] = 1.0
+
+        g1_g = finegd.zeros()
+        g2_g = finegd.zeros()
+        Alfc.add(g1_g, A1_aM)
+        Alfc.add(g2_g, A2_aM)
+        v_g = finegd.zeros()
+        self.hamiltonian.poisson.solve(v_g, g1_g, charge=None)
+        return finegd.integrate(g2_g*v_g)
+
     def ref_local_K_MMMM(self, a1, i1, a2, i2, a3, i3, a4, i4):
         setups = self.wfs.setups
         M1 = setups.M_a[a1] + i1
@@ -205,18 +274,25 @@ class RIR(RIBase):
 
         wfs = self.wfs
         density = self.density
+
+        nao = self.wfs.setups.nao
+        # Put wave functions to grid
+        phit1_MG = density.gd.zeros(nao)
+        self.wfs.basis_functions.lcao_to_grid(np.eye(nao), phit1_MG, 0)
+
         gd = self.density.gd
         finegd = self.density.finegd
-        if self.screening_omega != 0.0:
-            raise NotImplementedError
         interpolator = self.density.interpolator
         restrictor = self.hamiltonian.restrictor
 
-        nao = self.wfs.setups.nao
-
-        # Put wave functions to grid
-        phit1_MG = gd.zeros(nao)
-        self.wfs.basis_functions.lcao_to_grid(np.eye(nao), phit1_MG, 0)
+        if self.screening_omega != 0.0:
+            pbcfinegd = GridDescriptor(self.density.finegd.N_c,
+                                       self.density.finegd.cell_cv,
+                                       pbc_c=True)
+            coulomb = ShortRangeCoulomb(self.screening_omega)
+            qd = KPointDescriptor([np.array([0.0,0.0,0.0])])
+            pd12 = PWDescriptor(None, pbcfinegd, float, kd=qd) #10 Ha =  270 eV cutoff
+            coulomb_G = coulomb.get_potential(pd12)
 
         def pair_density_and_potential(Ma, Mb, include_pseudo=True, include_comp=True):
             # Construct the product of two basis functions
@@ -245,7 +321,15 @@ class RIR(RIBase):
                 self.density.ghat.add(rhot_g, Q_aL)
 
             V_g = finegd.zeros()
-            self.hamiltonian.poisson.solve(V_g, rhot_g, charge=None)
+            if self.screening_omega == 0.0:
+                self.hamiltonian.poisson.solve(V_g, rhot_g, charge=None)
+            else:
+                pbcrhot_g = pbcfinegd.zeros()
+                pbcrhot_g[:-1,:-1,:-1] = rhot_g
+                rhot_G = pd12.fft(pbcrhot_g)
+                Vrho_G = rhot_G * coulomb_G
+                V_g[:] = pd12.ifft(Vrho_G)[:-1,:-1,:-1]
+
             return rhot_g, V_g
 
         if self.only_ghat_aux_interaction:
@@ -257,7 +341,12 @@ class RIR(RIBase):
             K += finegd.integrate(rhot12_g*V34_g)
         elif self.only_ghat:
             rhot12_g, V12_g = pair_density_and_potential(M1, M2, include_pseudo=False)
+            rhot34_g, V34_g = pair_density_and_potential(M3, M4, include_pseudo=False)
+            K = finegd.integrate(rhot12_g*V34_g)
+        elif self.no_ghat:
+            rhot12_g, V12_g = pair_density_and_potential(M1, M2, include_comp=False)
             rhot34_g, V34_g = pair_density_and_potential(M3, M4, include_comp=False)
+            K = finegd.integrate(rhot12_g*V34_g)
         else:
             rhot12_g, V12_g = pair_density_and_potential(M1, M2)
             rhot34_g, V34_g = pair_density_and_potential(M3, M4)
@@ -304,11 +393,11 @@ class RIR(RIBase):
                                        W_AL = self.W_AL, 
                                        W_LL = self.W_LL,
                                        P_AMM = self.P_AMM,
-                                       P_LMM = self.P_LMM, only_ghat=self.only_ghat, no_ghat=self.no_ghat,
+                                       P_LMM = self.P_LMM, only_ghat=self.only_ghat, 
                                        only_ghat_aux_interaction=self.only_ghat_aux_interaction)
 
-        #for tensor in [self.W_AA, self.W_AL, self.P_AMM, self.P_LMM, self.W_LL]:
-        #    tensor.show()
+        if self.no_ghat:
+            self.P_LMM.zero()
 
         self.WP_AMM = meinsum('WP', 'AB,Bij->Aij', self.W_AA, self.P_AMM)
         self.WP_AMM += meinsum('WP', 'AB,Bij->Aij', self.W_AL, self.P_LMM)
@@ -352,8 +441,14 @@ class RIR(RIBase):
    
         evv = 0.5 * np.einsum('ij,ij', fock_MM, rho1_MM, optimize=True)
         #print(fock_MM)
-        print('Overlap eig', scipy.linalg.eigh(kpt2.S_MM))
+        #print('Overlap eig', scipy.linalg.eigh(kpt2.S_MM))
         #print('diagonal density matrix', kpt2.C_nM @ kpt2.S_MM @ rho2_MM @ kpt2.S_MM @ kpt2.C_nM.T )
+        #print(np.linalg.norm(fock_MM-fock_MM.T),'Fock non-symmetric')
+        #print(np.linalg.norm(rho2_MM-rho2_MM.T),'rho non-symmetric')
+        #with open('fock.txt','a') as f:
+        #    np.savetxt(f,fock_MM)
+        #fock_MM = (fock_MM + fock_MM.T) /2
+
         return evv, fock_MM
 
     def contractions(self, rho_MM):

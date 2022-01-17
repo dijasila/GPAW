@@ -10,7 +10,7 @@ class LCAOHybrid:
     orbital_dependent_lcao = True
     type = 'auxhybrid'
 
-    def __init__(self, xcname:str, algorithm=None, omega=None, threshold=None):
+    def __init__(self, xcname:str, algorithm=None, omega=None, threshold=None, lcomp=2, laux=2):
         self.screening_omega = 0.0
         self.name = xcname
         print('Tlcaohybrid init threshold', threshold)
@@ -25,9 +25,9 @@ class LCAOHybrid:
             self.screening_omega = 0.11
             self.localxc = XC('HYB_GGA_XC_HSE06')
         elif xcname == 'HSEFAST':
-            self.exx_fraction = 0.25
-            self.screening_omega = 0.11
-            self.localxc = XC('HYB_GGA_XC_PBEH')
+            self.exx_fraction = 1.0
+            self.screening_omega = 0.50
+            self.localxc = XC('PBE')
         else:
             raise ValueError('Functional %s not supported by aux-lcao backend' % xcname)
 
@@ -48,7 +48,7 @@ class LCAOHybrid:
         elif algorithm == 'RI-LVL':
             self.ri_algorithm = RILVL(exx_fraction = self.exx_fraction, screening_omega = self.screening_omega)
         elif algorithm == 'RI-R':
-            self.ri_algorithm = RIR(exx_fraction = self.exx_fraction, screening_omega = self.screening_omega, threshold=threshold)
+            self.ri_algorithm = RIR(exx_fraction = self.exx_fraction, screening_omega = self.screening_omega, threshold=threshold, laux=laux, lcomp=lcomp)
         else:
             if algorithm is None:
                 s = 'Please spesify the algorithm variable i.e. xc=''%s:backend=aux-lcao:algorithm=ALG''\n'
@@ -99,7 +99,7 @@ class LCAOHybrid:
         return self.ekin
 
     def get_setup_name(self):
-        return 'GLLB'
+        return 'PBE'
 
     def calculate_paw_correction(self, setup, D_sp, dH_sp=None, a=None):
         evv, ekin = self.ri_algorithm.calculate_paw_correction(setup, D_sp, dH_sp, a)

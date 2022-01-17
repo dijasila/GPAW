@@ -54,7 +54,11 @@ class ScreenedCoulombKernel:
         for l in range(3):
             kernel_gg = F_l[l](rmax_gg, rmin_gg, omega) / (2*l+1)
             self.V_lgg.append(d_gg * kernel_gg)
+        for l in range(3, 5):
+            kernel_gg = rmax_gg**(-l-1)*rmin_gg**l / (2*l+1)
+            self.V_lgg.append(d_gg * kernel_gg)
 
+        
         Rdir_v = np.mean(R_nv[[23,31,16],:],axis=0)
         Q_vv, _ = np.linalg.qr(np.array([ Rdir_v]).T,'complete')
         R2_nv = R_nv @ Q_vv

@@ -1,6 +1,7 @@
 import numpy as np
 from gpaw.lcao.tci import get_cutoffs, split_setups_to_types, AtomPairRegistry,\
                           get_lvalues
+from gpaw.lfc import LFC
 from ase.neighborlist import PrimitiveNeighborList
 from gpaw.auxlcao.generatedcode import generated_W_LL,\
                                        generated_W_LL_screening
@@ -19,22 +20,25 @@ from gpaw.auxlcao.screenedcoulombkernel import ScreenedCoulombKernel
 
 from gpaw.gaunt import gaunt
 
-G_LLL = gaunt(3) # XXX
+G_LLL = gaunt(4) # XXX
 
 class MatrixElements:
-    def __init__(self, lmax=2, lcomp=2, screening_omega=0.0, threshold=None):
+    def __init__(self, laux=2, lcomp=2, screening_omega=0.0, threshold=None):
         assert threshold is not None
-        self.lmax = lmax
+        self.laux = laux
         self.lcomp = lcomp
         print('Matrix elements. screening omega:', screening_omega)
         self.screening_omega = screening_omega
         self.threshold = threshold
         print('me', threshold)
 
+    
+
     def direct_V_LL(self, a1, a2, disp_c):
         R_v = np.dot(self.spos_ac[a1, :] - self.spos_ac[a2, :] + disp_c, self.cell_cv)
         d = (R_v[0]**2 + R_v[1]**2 + R_v[2]**2)**0.5
-        locV_LL = np.zeros((9,9))
+        Lmax = (self.lcomp+1)**2
+        locV_LL = np.zeros((Lmax,Lmax))
         if self.screening_omega != 0.0:
             generated_W_LL_screening(locV_LL, d, R_v[0], R_v[1], R_v[2], self.screening_omega)
         else:
@@ -45,8 +49,9 @@ class MatrixElements:
         #print(a1, a2, locV_LL)
         return locV_LL
 
-    def direct_W_AA(self, a1, a2, disp_c):
+    def direct_W_AA(self, a1, a2, disp_c, return_parts=False):
         # Multipole reduced auxiliary   x    multipole reduced auxiliary
+        disp_c = np.array(disp_c)
         S_AA = self.direct_S_AA(a1, a2, disp_c)
         V_LL = self.direct_V_LL(a1, a2, disp_c)
         M_AL = self.direct_M_AL(a1, a2, disp_c)
@@ -69,6 +74,36 @@ class MatrixElements:
         #print('V_LL',V_LL)
         #print('tot', P1+P2+P3+P4)
         #print(a1,a2, P1.shape)
+        if 0: #not return_parts:
+            X1,X2,X3,X4 = self.direct_W_AA(a2, a1, -disp_c, return_parts=True)
+            #print('P1',np.linalg.norm(X1-P1.T))
+            #print(np.linalg.norm(X2-P2.T))
+            #print(np.linalg.norm(X3-P3.T))
+            #print(np.linalg.norm(X2-P3.T),'ow')
+            #print(np.linalg.norm(X3-P2.T),'ow')
+            #print('P4',np.linalg.norm(X4-P4.T))
+            tot = P1+P2+P3+P4
+            tot2 = X1+X2+X3+X4
+            #print(np.linalg.norm(tot-tot2.T),'tot norm')
+            with open('status.txt','a') as f:
+                print('P1', file=f)
+                np.savetxt(f, P1)
+                print('X1', file=f)
+                np.savetxt(f, X1)
+                print('P2', file=f)
+                np.savetxt(f, P2)
+                print('X2', file=f)
+                np.savetxt(f, X2)
+                print('P3', file=f)
+                np.savetxt(f, P1)
+                print('X3', file=f)
+                np.savetxt(f, X3)
+                print('P4', file=f)
+                np.savetxt(f, P4)
+                print('X4', file=f)
+                np.savetxt(f, X4)
+            #input('asd')
+            
         return P1+P2+P3+P4
 
     def direct_W_AL(self, a1, a2, disp_c):
@@ -87,11 +122,16 @@ class MatrixElements:
 
     def multipole_AL(self, a):
         setup = self.setups[a]
-        m_AL = np.zeros( (setup.Naux, 9) )
+        Lmax = (self.lcomp+1)**2
+        #print(Lmax,'Lmax')
+        m_AL = np.zeros( (setup.Naux, Lmax) )
         Aloc = 0
         for auxt, M in zip(setup.auxt_j, setup.M_j):
+            if auxt.l > self.lcomp:
+                continue
             S = 2*auxt.l+1
             L = (auxt.l)**2
+            #print(S, M,'S M')
             m_AL[Aloc:Aloc+S, L:L+S] = np.eye(S) * M
             Aloc += S
         return m_AL
@@ -123,19 +163,19 @@ class MatrixElements:
                 setup.screened_coulomb = ScreenedCoulombKernel(setup.rgd, self.screening_omega)
 
                 # Compensation charges
-                setup.gaux_l, setup.wgaux_l, setup.W_LL = get_compensation_charge_splines_screened(setup, self.lmax, rcmax)
+                setup.gaux_l, setup.wgaux_l, setup.W_LL = get_compensation_charge_splines_screened(setup, self.lcomp, rcmax)
 
                 # Auxiliary basis functions
                 setup.auxt_j, setup.wauxt_j, setup.sauxt_j, setup.wsauxt_j, setup.M_j, setup.W_AA = \
-                   get_auxiliary_splines_screened(setup, self.lmax, rcmax, threshold=self.threshold)
+                   get_auxiliary_splines_screened(setup, self.lcomp, self.laux, rcmax, threshold=self.threshold)
 
             else:
                 # Compensation charges
-                setup.gaux_l, setup.wgaux_l, setup.W_LL = get_compensation_charge_splines(setup, self.lmax, rcmax)
+                setup.gaux_l, setup.wgaux_l, setup.W_LL = get_compensation_charge_splines(setup, self.lcomp, rcmax)
 
                 # Auxiliary basis functions
                 setup.auxt_j, setup.wauxt_j, setup.sauxt_j, setup.wsauxt_j, setup.M_j, setup.W_AA = \
-                     get_auxiliary_splines(setup, self.lmax, rcmax, threshold=self.threshold)
+                     get_auxiliary_splines(setup, self.lcomp, self.laux, rcmax, threshold=self.threshold)
 
             # Single center Hartree of compensation charges * one phit_j
             setup.wgauxphit_x = get_wgauxphit_product_splines(setup, setup.wgaux_l, setup.phit_j, rcmax)
@@ -210,7 +250,7 @@ class MatrixElements:
                                                          phit_l_Ij, phit_Ijq)
 
         self.A_a = get_A_a( [ setup.auxt_j for setup in setups ] )
-        Lsize = (self.lmax+1)**2
+        Lsize = (self.lcomp+1)**2
         self.L_a = np.arange(0, len(self.A_a)*Lsize, Lsize)
 
 
@@ -284,6 +324,7 @@ class MatrixElements:
             iW_AA = safe_inv(self.setups[a].W_AA)
             Iloc_AMM = self.evaluate_3ci_AMM(a, a, a)
             locP_AMM = np.einsum('AB,Bij->Aij', iW_AA, Iloc_AMM)
+            print(np.max(locP_AMM.ravel()),'loc P_AMM')
             if self.sparse_periodic:
                 aR = (a, (0, 0, 0))
                 P_AMM += (aR, aR, aR), locP_AMM
@@ -293,29 +334,45 @@ class MatrixElements:
             for a2 in self.my_a:
                 if a == a2:
                     continue
-
+                f = open('asd.txt','a')
+                #print('Not doing two center projections')
+                             
                 locW_AA = np.block( [ [ self.setups[a].W_AA,      self.direct_W_AA(a, a2, [0,0,0]) ],
                                       [ self.direct_W_AA(a2, a, [0,0,0]), self.setups[a2].W_AA     ] ] )
-
+                np.savetxt(f, locW_AA)
+                f.write('^locW_AA\n')
                 #print(locW_AA, locW_AA.shape)
                 
                 iW_AA = safe_inv(locW_AA)
+                np.savetxt(f, iW_AA)
+                f.write('^iW_AA\n')
+
                 I_AMM = [self.evaluate_3ci_AMM(a, a, a2),
                          self.evaluate_3ci_AMM(a2, a, a2) ]
-                #print(I_AMM, 'I_AMM')
+                for A in range(I_AMM[0].shape[0]):
+                    f.write('%d' % A)
+                    np.savetxt(f, I_AMM[0][A])
+                f.write('^I_AMM[0]\n')
+                for A in range(I_AMM[1].shape[0]):
+                    f.write('%d' % A)
+                    np.savetxt(f, I_AMM[1][A])
+                f.write('^I_AMM[1]\n')
+
+                print(I_AMM, 'I_AMM')
                 if I_AMM[0] is None or I_AMM[1] is None:
                     continue
                 I_AMM = np.vstack(I_AMM)
                 #print(I_AMM, 'I_AMM stacked')
-                Ploc_AMM = np.einsum('AB,Bij', iW_AA, I_AMM, optimize=True)
+                locP_AMM = np.einsum('AB,Bij', iW_AA, I_AMM, optimize=True)
+                print(iW_AA,'iW_AA')
+                print(locP_AMM,'locP_AMM')
                 NA1 = len(self.setups[a].W_AA)
                 NA2 = len(self.setups[a2].W_AA)
                 M1 = self.M_a[a+1]-self.M_a[a]
-                P_AMM += (a, a, a2),   Ploc_AMM[:NA1, :, :]
-                P_AMM += (a2, a, a2),  Ploc_AMM[NA1:, :, :]
-                #print(a, a2, Ploc_AMM.shape, 'Ploc_AMM')
-                #print(a,a,a2, Ploc_AMM[:NA1, :, :].shape)
-                #print(a2,a,a2, Ploc_AMM[NA1:, :, :].shape)
+                print(np.max(locP_AMM.ravel()),'2sit P_AMM')
+                f.close()
+                P_AMM += (a, a, a2),   locP_AMM[:NA1, :, :]
+                P_AMM += (a2, a, a2),  locP_AMM[NA1:, :, :]
                 #input("Press Enter to continue...")
 
         """
@@ -427,8 +484,9 @@ class MatrixElements:
             yield a2, -disp_c
 
     def calculate_sparse_P_LMM(self, P_LMM, P_AMM):
+        Lmax = (self.lcomp+1)**2
         if self.sparse_periodic:
-            P_LMM.show()
+            #P_LMM.show()
             for a1, setup in enumerate(self.setups):
                 #print('corrections for atom', a1,'Note: Using too large neighbourlist')
                 a2_a, disp_xc = self.nl.get_neighbors(a1)
@@ -439,12 +497,12 @@ class MatrixElements:
                     P2_iM = self.direct_P_iM(a1, a2, disp2_c)
                     for a3, disp3_c in self.fix_broken_ase_neighborlist(a1):
                         P3_iM = self.direct_P_iM(a1, a3, disp3_c) # XXX Too much calculation
-                        Ploc_LMM = np.einsum('ijL,Mi,Nj->LMN', setup.Delta_iiL, P2_iM.T, P3_iM.T, optimize=True)
+                        Ploc_LMM = np.einsum('ijL,Mi,Nj->LMN', setup.Delta_iiL[:,:,:Lmax], P2_iM.T, P3_iM.T, optimize=True)
                         P_LMM += ( (a1, (0, 0, 0)), (a2, tuple(disp2_c)), (a3, tuple(disp3_c)) ), Ploc_LMM * (4*np.pi)**0.5
         else:
             for a, setup in enumerate(self.setups):
                 P_Mi = self.wfs.atomic_correction.P_aqMi[a][0]
-                Ploc_LMM = np.einsum('ijL,Mi,Nj->LMN', setup.Delta_iiL, P_Mi, P_Mi, optimize=True)
+                Ploc_LMM = np.einsum('ijL,Mi,Nj->LMN', setup.Delta_iiL[:,:,:Lmax], P_Mi, P_Mi, optimize=True)
                 for a1, (M1start, M1end) in enumerate(zip(self.M_a[:-1], self.M_a[1:])):
                     for a2, (M2start, M2end) in enumerate(zip(self.M_a[:-1], self.M_a[1:])):
                         P_LMM += (a, a1, a2), Ploc_LMM[:, M1start:M1end, M2start:M2end] * (4*np.pi)**0.5
@@ -453,7 +511,8 @@ class MatrixElements:
         return
         for i, block_xx in P_AMM.block_i.items():
             a1, a2, a3 = i
-            Ploc_LMM = np.zeros( (9,) + block_xx.shape[1:] )
+            Lmax = (self.lcomp+1)**2
+            Ploc_LMM = np.zeros( (Lmax,) + block_xx.shape[1:] )
             Aloc = 0
             setup = self.setups[a1]
             for auxt, M in zip(self.setups[a1].auxt_j, setup.M_j):
@@ -468,7 +527,7 @@ class MatrixElements:
     """
 
     def calculate_sparse_W_AL(self, W_AL, W_LL):
-        W_LL.show()    
+        #W_LL.show()    
         
         for a1 in self.my_a:
             for a2 in self.my_a:
@@ -487,7 +546,8 @@ class MatrixElements:
         mul_AL = W_AL.__class__('mul','AL')
         for a2 in self.my_a:
             setup = self.setups[a2]
-            loc_AL = np.zeros( (setup.Naux, 9) )
+            Lmax = (self.lcomp+1)**2
+            loc_AL = np.zeros( (setup.Naux, Lmax) )
             Aloc = 0
             for auxt, M in zip(setup.auxt_j, setup.M_j):
                 S = 2*auxt.l+1
@@ -513,6 +573,11 @@ class MatrixElements:
                         W_AA += (a1, a2), self.setups[a1].W_AA
                     else:
                         W_AA += (a1, a2), self.direct_W_AA(a1, a2, [0,0,0])
+                        #temp = self.direct_W_AA(a1, a2, [0,0,0])
+                        #temp2 = self.direct_W_AA(a2, a1, [0,0,0]).T
+                        #print(temp, temp2, temp-temp2)
+                        #print(a1,a2)
+                        #input('wait')
         """
         return S_qAA
 
