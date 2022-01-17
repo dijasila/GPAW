@@ -1,12 +1,6 @@
+from gpaw.more_harm import YL
 
-"""
-
-
- M_L =   n(r) Y_Ln(r)    Y_Lc(r) r^l
-
-"""
-
-def generate():
+def generate(lmax=3):
     from sympy import symbols, sqrt, diff, sqrt, pi, Matrix, diag, erfc, cse, pprint, numbered_symbols
     from sympy.codegen.pyutils import PythonCodePrinter
     from math import factorial, prod
@@ -20,7 +14,22 @@ def generate():
     # Q = simple monimial multipole index
     # L = spherical harmonic index
     # Mapping below
+
+
+    def shell(lmax):
+        for n1 in range(lmax+1):    
+            for n2 in range(lmax+1):    
+                for n3 in range(lmax+1):
+                    if n1+n2+3 == lmax:
+                        yield (n1, n2, n3)
     
+    def shells(lmax):
+        for l in range(lmax+1):
+            yield from shell(lmax)
+
+    M_Qc = [ x for x in shells(lmax) ]
+    print(M_qc)
+
     M_Qc =  [ [ 0, 0, 0 ],   # Monopole
               [ 1, 0, 0 ],   # x dipole
               [ 0, 1, 0 ],   # y dipole
@@ -41,6 +50,9 @@ def generate():
               [ 1, 0, 2 ],   # x z^2
               [ 0, 1, 2 ],   # y z^2
               [ 1, 1, 1 ] ]  # xyz
+
+    print(M_Qc)
+    xxx
     
     N_L = [ 1,            # 1
             1/sqrt(3),    # y
@@ -50,23 +62,8 @@ def generate():
             1/sqrt(15),   # yz
             1/sqrt(3*15), # 2z2-z2-y2
             1/sqrt(15),   # zx
-xx1	            1/sqrt(15)  ] # z2-y2
+            1/sqrt(15)  ] # z2-y2
 
-    [(0.4886025119029199, (0, 1, 0))],
-    [(0.4886025119029199, (0, 0, 1))],
-    [(0.4886025119029199, (1, 0, 0))],
-
-
-    [(1.0925484305920792, (1, 1, 0))],
-    [(1.0925484305920792, (0, 1, 1))],
-    [(-0.31539156525252, (2, 0, 0)),
-     (-0.31539156525252, (0, 2, 0)),
-     (0.63078313050504, (0, 0, 2))],
-    [(1.0925484305920792, (1, 0, 1))],
-    [(-0.5462742152960396, (0, 2, 0)),
-     (0.5462742152960396, (2, 0, 0))],
-
-    
     
     #                                            Q-index
     #                   1     x     y     z     x^2   y^2   z^2   xy    xz    yz

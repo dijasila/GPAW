@@ -113,7 +113,7 @@ def _get_auxiliary_splines(setup, lcomp, laux, cutoff, poisson, threshold=1e-2):
                 #aux_g = spline_to_rgd(rgd, spline1, spline2) * np.max(G_LLL[l1**2,l2**2, l**2])
                 #assert rgd.integrate(np.abs(aux_g))>1e-10
 
-    for l in range(4):
+    for l in range(3):
         add(np.exp(-2*rgd.r_g**2), l) 
         add(np.exp(-1.3*rgd.r_g**2), l) 
         add(np.exp(-0.8*rgd.r_g**2), l) 

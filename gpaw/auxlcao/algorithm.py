@@ -72,7 +72,7 @@ class RIAlgorithm:
                     assert kpt2.q == kibz
                     kpt2_rho_MM = rotate_density_matrix(kpt2.exx_rho_MM, kd.symmetry, pointgroup_symmetry, time_reversal_symmetry)
                     E, V_MM = self.calculate_exchange_per_kpt_pair(kpt, kd.ibzk_qc[kpt.q], kpt.exx_rho_MM, kpt2, kd.bzk_kc[kbz], kpt2_rho_MM)
-                    print('Got F_MM', np.trace(V_MM))
+                    #print('Got F_MM', np.trace(V_MM))
                     kpt.exx_V_MM += V_MM
                     evv += E
 

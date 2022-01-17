@@ -3,8 +3,8 @@ from gpaw.lcao.tci import get_cutoffs, split_setups_to_types, AtomPairRegistry,\
                           get_lvalues
 from gpaw.lfc import LFC
 from ase.neighborlist import PrimitiveNeighborList
-from gpaw.auxlcao.generatedcode import generated_W_LL,\
-                                       generated_W_LL_screening
+from gpaw.auxlcao.generatedcode import generated_W_LL_screening
+from gpaw.auxlcao.generatedcode2 import generated_W_LL
 
 from gpaw.auxlcao.utilities import get_compensation_charge_splines,\
                                    get_compensation_charge_splines_screened,\
@@ -42,7 +42,7 @@ class MatrixElements:
         if self.screening_omega != 0.0:
             generated_W_LL_screening(locV_LL, d, R_v[0], R_v[1], R_v[2], self.screening_omega)
         else:
-            generated_W_LL(locV_LL, d, R_v[0], R_v[1], R_v[2])
+            generated_W_LL(self.lcomp, locV_LL, d, R_v[0], R_v[1], R_v[2])
         if np.any(np.isnan(locV_LL)):
             print(a1,a2,locV_LL)
             xxx
@@ -324,7 +324,7 @@ class MatrixElements:
             iW_AA = safe_inv(self.setups[a].W_AA)
             Iloc_AMM = self.evaluate_3ci_AMM(a, a, a)
             locP_AMM = np.einsum('AB,Bij->Aij', iW_AA, Iloc_AMM)
-            print(np.max(locP_AMM.ravel()),'loc P_AMM')
+            #print(np.max(locP_AMM.ravel()),'loc P_AMM')
             if self.sparse_periodic:
                 aR = (a, (0, 0, 0))
                 P_AMM += (aR, aR, aR), locP_AMM
@@ -334,43 +334,43 @@ class MatrixElements:
             for a2 in self.my_a:
                 if a == a2:
                     continue
-                f = open('asd.txt','a')
+                #f = open('asd.txt','a')
                 #print('Not doing two center projections')
                              
                 locW_AA = np.block( [ [ self.setups[a].W_AA,      self.direct_W_AA(a, a2, [0,0,0]) ],
                                       [ self.direct_W_AA(a2, a, [0,0,0]), self.setups[a2].W_AA     ] ] )
-                np.savetxt(f, locW_AA)
-                f.write('^locW_AA\n')
+                #np.savetxt(f, locW_AA)
+                #f.write('^locW_AA\n')
                 #print(locW_AA, locW_AA.shape)
                 
                 iW_AA = safe_inv(locW_AA)
-                np.savetxt(f, iW_AA)
-                f.write('^iW_AA\n')
+                #np.savetxt(f, iW_AA)
+                #f.write('^iW_AA\n')
 
                 I_AMM = [self.evaluate_3ci_AMM(a, a, a2),
                          self.evaluate_3ci_AMM(a2, a, a2) ]
-                for A in range(I_AMM[0].shape[0]):
-                    f.write('%d' % A)
-                    np.savetxt(f, I_AMM[0][A])
-                f.write('^I_AMM[0]\n')
-                for A in range(I_AMM[1].shape[0]):
-                    f.write('%d' % A)
-                    np.savetxt(f, I_AMM[1][A])
-                f.write('^I_AMM[1]\n')
+                #for A in range(I_AMM[0].shape[0]):
+                #    f.write('%d' % A)
+                #    np.savetxt(f, I_AMM[0][A])
+                #f.write('^I_AMM[0]\n')
+                #for A in range(I_AMM[1].shape[0]):
+                #    f.write('%d' % A)
+                #    np.savetxt(f, I_AMM[1][A])
+                #f.write('^I_AMM[1]\n')
 
-                print(I_AMM, 'I_AMM')
+                #print(I_AMM, 'I_AMM')
                 if I_AMM[0] is None or I_AMM[1] is None:
                     continue
                 I_AMM = np.vstack(I_AMM)
                 #print(I_AMM, 'I_AMM stacked')
                 locP_AMM = np.einsum('AB,Bij', iW_AA, I_AMM, optimize=True)
-                print(iW_AA,'iW_AA')
-                print(locP_AMM,'locP_AMM')
+                #print(iW_AA,'iW_AA')
+                #print(locP_AMM,'locP_AMM')
                 NA1 = len(self.setups[a].W_AA)
                 NA2 = len(self.setups[a2].W_AA)
                 M1 = self.M_a[a+1]-self.M_a[a]
-                print(np.max(locP_AMM.ravel()),'2sit P_AMM')
-                f.close()
+                #print(np.max(locP_AMM.ravel()),'2sit P_AMM')
+                #f.close()
                 P_AMM += (a, a, a2),   locP_AMM[:NA1, :, :]
                 P_AMM += (a2, a, a2),  locP_AMM[NA1:, :, :]
                 #input("Press Enter to continue...")
