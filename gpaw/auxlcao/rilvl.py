@@ -39,7 +39,7 @@ from numpy.matlib import repmat
 
 flops = 0
 
-def meinsum(output_name, index_str, T1, T2):
+def meinsum(output_name, index_str, T1, T2, timer=None):
 
     input_index_str, output_index_str = index_str.split('->')
     index1, index2 = input_index_str.split(',') 
@@ -84,7 +84,11 @@ def meinsum(output_name, index_str, T1, T2):
             out_indices = get_out(i1, i2)
             #print('Einsum', i1, i2, index_str, block1.shape, block2.shape)
             #print('in',block1, 'in2', block2)
-            value = np.einsum(index_str, block1, block2)
+            if timer:
+                with timer('einsum'):
+                    value = np.einsum(index_str, block1, block2)
+            else:
+                value = np.einsum(index_str, block1, block2)
             #print('out', np.max(np.abs(value)))
             #input('prod')
             T3 += out_indices, value
@@ -100,6 +104,20 @@ class SparseTensor:
 
     def zero(self):
         self.block_i = defaultdict(float)        
+
+    def to_full2d(self, M1_a, M2_a):
+        T_MM = np.zeros( (M1_a[-1], M2_a[-1]) )
+        for index, block_xx in self.block_i.items():
+            a1, a2 = index
+            T_MM[ M1_a[a1]:M1_a[a1+1], M2_a[a2]:M2_a[a2+1] ] += block_xx
+        return T_MM
+
+    def to_full3d(self, M1_a, M2_a, M3_a):
+        T_MMM = np.zeros( (M1_a[-1], M2_a[-1], M3_a[-1]) )
+        for index, block_xx in self.block_i.items():
+            a1, a2,a3 = index
+            T_MMM[ M1_a[a1]:M1_a[a1+1], M2_a[a2]:M2_a[a2+1], M3_a[a3]:M3_a[a3+1] ] += block_xx
+        return T_MMM
 
     def __iadd__(self, index_and_block):
         if isinstance(index_and_block, SparseTensor):
@@ -218,8 +236,6 @@ class RIR(RIBase):
         self.wfs.basis_functions.lcao_to_grid(np.eye(nao), phit1_MG, 0)
        
         write_cube(open('ref_a%03d_%03d_a%03d_%03d.cube' % (a1, M1, a2, M2),'w'), atoms, data=phit1_MG[self.M_a[a1]+M1] * phit1_MG[self.M_a[a2]+M2], comment='')
-
-
 
     def local_K_MMMM(self, a1, i1, a2, i2, a3, i3, a4, i4):
         M2start, M2end = self.M_a[a2], self.M_a[a2+1]
@@ -374,12 +390,13 @@ class RIR(RIBase):
         ibzq_qc = np.array([[0.0, 0.0, 0.0]])
         bzq_qc = np.array([[0.0, 0.0, 0.0]])
         dtype = self.wfs.dtype
-        self.matrix_elements.set_positions_and_cell(spos_ac,
-                                                    gd.cell_cv,
-                                                    gd.pbc_c,
-                                                    ibzq_qc,
-                                                    bzq_qc, # q-points
-                                                    dtype)
+        with self.timer('RI Matrix elements set positions'):
+            self.matrix_elements.set_positions_and_cell(spos_ac,
+                                                        gd.cell_cv,
+                                                        gd.pbc_c,
+                                                        ibzq_qc,
+                                                        bzq_qc, # q-points
+                                                        dtype)
 
         self.P_AMM = SparseTensor('P', 'AMM')
         self.P_LMM = SparseTensor('P', 'LMM')
@@ -388,56 +405,69 @@ class RIR(RIBase):
         self.W_AL = SparseTensor('W', 'AL')
         self.W_LL = SparseTensor('W', 'LL')
 
-        # Order does not matter, the data is deduces from the name
-        self.matrix_elements.calculate(W_AA = self.W_AA,
-                                       W_AL = self.W_AL, 
-                                       W_LL = self.W_LL,
-                                       P_AMM = self.P_AMM,
-                                       P_LMM = self.P_LMM, only_ghat=self.only_ghat, 
-                                       only_ghat_aux_interaction=self.only_ghat_aux_interaction)
+        with self.timer('Calculate matrix elements'):
+            # Order does not matter, the data is deduces from the name
+            self.matrix_elements.calculate(W_AA = self.W_AA,
+                                           W_AL = self.W_AL, 
+                                           W_LL = self.W_LL,
+                                           P_AMM = self.P_AMM,
+                                           P_LMM = self.P_LMM, only_ghat=self.only_ghat, 
+                                           only_ghat_aux_interaction=self.only_ghat_aux_interaction)
 
         if self.no_ghat:
             self.P_LMM.zero()
 
-        self.WP_AMM = meinsum('WP', 'AB,Bij->Aij', self.W_AA, self.P_AMM)
-        self.WP_AMM += meinsum('WP', 'AB,Bij->Aij', self.W_AL, self.P_LMM)
+        with self.timer('Pre contractions'):
+            self.WP_AMM = meinsum('WP', 'AB,Bij->Aij', self.W_AA, self.P_AMM, self.timer)
+            self.WP_AMM += meinsum('WP', 'AB,Bij->Aij', self.W_AL, self.P_LMM, self.timer)
 
-        self.WP_LMM = meinsum('WP', 'BA,Bij->Aij', self.W_AL, self.P_AMM)
-        self.WP_LMM += meinsum('WP', 'AB,Bij->Aij', self.W_LL, self.P_LMM)
+            self.WP_LMM = meinsum('WP', 'BA,Bij->Aij', self.W_AL, self.P_AMM, self.timer)
+            self.WP_LMM += meinsum('WP', 'AB,Bij->Aij', self.W_LL, self.P_LMM, self.timer)
+
+            A_a = self.matrix_elements.A_a
+            M_a = self.matrix_elements.M_a
+            L_a = self.matrix_elements.L_a
+            self.WP_AMM = self.WP_AMM.to_full3d(A_a, M_a, M_a)
+            self.WP_LMM = self.WP_LMM.to_full3d(L_a, M_a, M_a)
+            self.P_AMM = self.P_AMM.to_full3d(A_a, M_a, M_a)
+            self.P_LMM = self.P_LMM.to_full3d(L_a, M_a, M_a)
 
     def calculate_exchange_per_kpt_pair(self, kpt1, k_c, rho1_MM, kpt2, krho_c, rho2_MM):
-        rho_MM = SparseTensor('rho', 'MM')
-        for a1, (M1start, M1end) in enumerate(zip(self.M_a[:-1], self.M_a[1:])):
-            for a2, (M2start, M2end) in enumerate(zip(self.M_a[:-1], self.M_a[1:])):
-                block = rho2_MM[M1start:M1end, M2start:M2end]
-                if self.matrix_elements.sparse_periodic:
-                    rho_MM += ( ((a1,(0,0,0)), (a2,(0,0,0))), block.copy() )
-                else:
-                    rho_MM += ( (a1, a2), block )
+
+        if 0:
+            rho_MM = SparseTensor('rho', 'MM')
+            for a1, (M1start, M1end) in enumerate(zip(self.M_a[:-1], self.M_a[1:])):
+                for a2, (M2start, M2end) in enumerate(zip(self.M_a[:-1], self.M_a[1:])):
+                    block = rho2_MM[M1start:M1end, M2start:M2end]
+                    if self.matrix_elements.sparse_periodic:
+                        rho_MM += ( ((a1,(0,0,0)), (a2,(0,0,0))), block.copy() )
+                    else:
+                        rho_MM += ( (a1, a2), block )
 
         with self.timer('Contractions'):
-            F_MM = self.contractions(rho_MM)
+            #F_MM = self.contractions(rho_MM)
+            fock_MM = -0.5*self.exx_fraction*self.fullcontractions(rho2_MM)
 
-        fock_MM = np.zeros_like(rho2_MM)
-
-        if self.matrix_elements.sparse_periodic:
-            for index, block_xx in F_MM.block_i.items():
-                (a1,disp1_c), (a2,disp2_c) = index
-                if np.any(disp1_c):
-                    continue
-                if np.any(disp1_c):
-                    continue # Emulate non-periodic system
-                #a1, a2 = index
-                M1start, M1end = self.M_a[a1], self.M_a[a1+1]
-                M2start, M2end = self.M_a[a2], self.M_a[a2+1]
-                fock_MM[M1start:M1end, M2start:M2end] += -0.5*self.exx_fraction*block_xx
-                print('Implicit gamma', a1, disp1_c, a2, disp2_c)
-        else:
-            for index, block_xx in F_MM.block_i.items():
-                a1, a2 = index
-                M1start, M1end = self.M_a[a1], self.M_a[a1+1]
-                M2start, M2end = self.M_a[a2], self.M_a[a2+1]
-                fock_MM[M1start:M1end, M2start:M2end] += -0.5*self.exx_fraction*block_xx
+        if 0:
+            fock_MM = np.zeros_like(rho2_MM)
+            if self.matrix_elements.sparse_periodic:
+                for index, block_xx in F_MM.block_i.items():
+                    (a1,disp1_c), (a2,disp2_c) = index
+                    if np.any(disp1_c):
+                        continue
+                    if np.any(disp1_c):
+                        continue # Emulate non-periodic system
+                    #a1, a2 = index
+                    M1start, M1end = self.M_a[a1], self.M_a[a1+1]
+                    M2start, M2end = self.M_a[a2], self.M_a[a2+1]
+                    fock_MM[M1start:M1end, M2start:M2end] += -0.5*self.exx_fraction*block_xx
+                    print('Implicit gamma', a1, disp1_c, a2, disp2_c)
+            else:
+                for index, block_xx in F_MM.block_i.items():
+                    a1, a2 = index
+                    M1start, M1end = self.M_a[a1], self.M_a[a1+1]
+                    M2start, M2end = self.M_a[a2], self.M_a[a2+1]
+                    fock_MM[M1start:M1end, M2start:M2end] += -0.5*self.exx_fraction*block_xx
    
         evv = 0.5 * np.einsum('ij,ij', fock_MM, rho1_MM, optimize=True)
         #print(fock_MM)
@@ -451,26 +481,50 @@ class RIR(RIBase):
 
         return evv, fock_MM
 
-    def contractions(self, rho_MM):
+    def fullcontractions(self, rho_MM):
         with self.timer('RI-V: 1st contraction AMM MM'):
-            WP_AMM_RHO_MM = meinsum('WP_RHO', 'Ajl,kl->Ajk',
+            WP_AMM_RHO_MM = np.einsum('Ajl,kl->Ajk',
                                        self.WP_AMM,
                                        rho_MM)
         with self.timer('RI-V: 2nd contraction AMM AMM'):
-            F_MM = meinsum('initialF_MM', 'Aik,Ajk->ij',
+            F_MM = np.einsum('Aik,Ajk->ij',
                               self.P_AMM,
                               WP_AMM_RHO_MM)
             WP_AMM_RHO_MM = None
 
         with self.timer('RI-V: 1st contraction LMM MM'):
-            WP_LMM_RHO_MM = meinsum('WP_RHO', 'Ajl,kl->Ajk',
+            WP_LMM_RHO_MM = np.einsum('Ajl,kl->Ajk',
                                     self.WP_LMM,
                                     rho_MM)
 
         with self.timer('RI-V: 2nd contraction LMM LMM'):
-            F_MM += meinsum('F_MM', 'Aik,Ajk->ij',
+            F_MM += np.einsum('Aik,Ajk->ij',
                              self.P_LMM,
                              WP_LMM_RHO_MM)
+            WP_LMM_RHO_MM = None
+
+        return F_MM
+
+    def contractions(self, rho_MM):
+        with self.timer('RI-V: 1st contraction AMM MM'):
+            WP_AMM_RHO_MM = meinsum('WP_RHO', 'Ajl,kl->Ajk',
+                                       self.WP_AMM,
+                                       rho_MM, self.timer)
+        with self.timer('RI-V: 2nd contraction AMM AMM'):
+            F_MM = meinsum('initialF_MM', 'Aik,Ajk->ij',
+                              self.P_AMM,
+                              WP_AMM_RHO_MM, self.timer)
+            WP_AMM_RHO_MM = None
+
+        with self.timer('RI-V: 1st contraction LMM MM'):
+            WP_LMM_RHO_MM = meinsum('WP_RHO', 'Ajl,kl->Ajk',
+                                    self.WP_LMM,
+                                    rho_MM, self.timer)
+
+        with self.timer('RI-V: 2nd contraction LMM LMM'):
+            F_MM += meinsum('F_MM', 'Aik,Ajk->ij',
+                             self.P_LMM,
+                             WP_LMM_RHO_MM, self.timer)
             WP_LMM_RHO_MM = None
 
         return F_MM

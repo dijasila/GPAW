@@ -107,7 +107,7 @@ def _get_auxiliary_splines(setup, lcomp, laux, cutoff, poisson, threshold=1e-2):
                 #print('abs norm', l1, l2, l, rgd.integrate(np.abs(aux_g)))
                 #print(C)
                 if C:
-                    print('adding',C,l1,l2,l)
+                    #print('adding',C,l1,l2,l)
                     add(aux_g, l)
                     
                 #aux_g = spline_to_rgd(rgd, spline1, spline2) * np.max(G_LLL[l1**2,l2**2, l**2])

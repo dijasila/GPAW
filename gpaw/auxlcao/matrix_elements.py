@@ -27,13 +27,9 @@ class MatrixElements:
         assert threshold is not None
         self.laux = laux
         self.lcomp = lcomp
-        print('Matrix elements. screening omega:', screening_omega)
         self.screening_omega = screening_omega
         self.threshold = threshold
-        print('me', threshold)
-
     
-
     def direct_V_LL(self, a1, a2, disp_c):
         R_v = np.dot(self.spos_ac[a1, :] - self.spos_ac[a2, :] + disp_c, self.cell_cv)
         d = (R_v[0]**2 + R_v[1]**2 + R_v[2]**2)**0.5
@@ -643,7 +639,7 @@ class MatrixElements:
                                         self_interaction=False, bothways=False,
                                         use_scaled_positions=True)
 
-        print('Updating neighbourlist with', spos_ac)
+        #print('Updating neighbourlist with', spos_ac)
         self.nl.update(pbc=pbc_c, cell=cell_cv, coordinates=spos_ac)
 
         self.sparse_periodic = np.any(pbc_c)
