@@ -1,3 +1,7 @@
+from gpaw.new.pot_calc import PotentialCalculator
+from gpaw.core import PlaneWaves
+
+
 class PlaneWavePotentialCalculator(PotentialCalculator):
     def __init__(self,
                  grid,

@@ -13,6 +13,13 @@ class Mode:
     def __init__(self, force_complex_dtype=False):
         self.force_complex_dtype = force_complex_dtype
 
+    def check_cell(self, cell):
+        number_of_lattice_vectors = cell.rank
+        if number_of_lattice_vectors < 3:
+            raise ValueError(
+                'GPAW requires 3 lattice vectors.  '
+                f'Your system has {number_of_lattice_vectors}.')
+
     def create_uniform_grid(self,
                             h: float | None,
                             gpts,

@@ -16,7 +16,6 @@ from collections import defaultdict
 
 import numpy as np
 
-from gpaw.core import PlaneWaves, UniformGrid
 from gpaw.core.uniform_grid import UniformGridFunctions
 from gpaw.new.potential import Potential
 from gpaw.new.xc import XCFunctional
@@ -58,10 +57,6 @@ class PotentialCalculator:
         self._move(fracpos_ac, ndensities)
         delta_nct_R.data += self.nct_R.data
         return delta_nct_R
-
-
-
-
 
 
 def calculate_non_local_potential(setups,

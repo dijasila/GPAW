@@ -14,7 +14,10 @@ from gpaw.new.brillouin import BZPoints, MonkhorstPackKPoints
 from gpaw.new.davidson import Davidson
 from gpaw.new.density import Density
 from gpaw.new.input_parameters import InputParameters
-from gpaw.new.modes import FDMode, PWMode, LCAOMode
+from gpaw.new.fd.mode import FDMode
+from gpaw.new.pw.mode import PWMode
+from gpaw.new.lcao.mode import LCAOMode
+from gpaw.new.test.mode import TestMode
 from gpaw.new.scf import SCFLoop
 from gpaw.new.smearing import OccupationNumberCalculator
 from gpaw.new.symmetry import Symmetries
@@ -32,12 +35,6 @@ class DFTComponentsBuilder:
 
         self.atoms = atoms.copy()
 
-        number_of_lattice_vectors = atoms.cell.rank
-        if number_of_lattice_vectors < 3:
-            raise ValueError(
-                'GPAW requires 3 lattice vectors.  '
-                f'Your system has {number_of_lattice_vectors}.')
-
         if isinstance(params, dict):
             params = InputParameters(params)
         self.params = params
@@ -46,6 +43,8 @@ class DFTComponentsBuilder:
         world = parallel['world']
 
         self.mode = create_mode(**params.mode)
+        self.mode.check_cell(atoms.cell)
+
         self.xc = XCFunctional(XC(params.xc))  # mode?
         self.setups = Setups(atoms.numbers,
                              params.setups,
@@ -55,29 +54,18 @@ class DFTComponentsBuilder:
         self.initial_magmoms = normalize_initial_magnetic_moments(
             params.magmoms, atoms, params.spinpol)
 
-        symmetry = create_symmetry_object(atoms,
-                                          self.setups.id_a,
-                                          self.initial_magmoms,
-                                          params.symmetry)
+        symmetries = create_symmetries_object(atoms,
+                                              self.setups.id_a,
+                                              self.initial_magmoms,
+                                              params.symmetry)
         bz = create_kpts(params.kpts, atoms)
-        self.ibz = symmetry.reduce(bz)
+        self.ibz = symmetries.reduce(bz)
 
         d = parallel.get('domain', None)
         k = parallel.get('kpt', None)
         b = parallel.get('band', None)
         self.communicators = create_communicators(world, len(self.ibz),
                                                   d, k, b)
-        self.grid = self.mode.create_uniform_grid(
-            params.h,
-            params.gpts,
-            atoms.cell,
-            atoms.pbc,
-            symmetry,
-            comm=self.communicators['d'])
-
-        self.nct_aX = self.mode.create_pseudo_core_densities(
-            self.setups, self.grid, self.fracpos_ac)
-
         if self.mode.name == 'fd':
             pass  # filter = create_fourier_filter(grid)
             # setups = stups.filter(filter)
@@ -116,6 +104,22 @@ class DFTComponentsBuilder:
     @cached_property
     def atomdist(self):
         return self.nct_aX.layout.atomdist
+
+    @cached_property
+    def grid(self):
+        params = self.params
+        return self.mode.create_uniform_grid(
+            params.h,
+            params.gpts,
+            self.atoms.cell,
+            self.atoms.pbc,
+            self.ibz.symmetries,
+            comm=self.communicators['d'])
+
+    @cached_property
+    def nct_aX(self):
+        return self.mode.create_pseudo_core_densities(
+            self.setups, self.grid, self.fracpos_ac)
 
     @cached_property
     def nct_R(self):
@@ -273,7 +277,7 @@ def normalize_initial_magnetic_moments(magmoms,
     return magmoms
 
 
-def create_symmetry_object(atoms, ids=None, magmoms=None, parameters=None):
+def create_symmetries_object(atoms, ids=None, magmoms=None, parameters=None):
     ids = ids or [()] * len(atoms)
     if magmoms is None:
         pass
@@ -293,6 +297,8 @@ def create_mode(name, **kwargs):
         return FDMode(**kwargs)
     if name == 'lcao':
         return LCAOMode(**kwargs)
+    if name == 'test':
+        return TestMode(**kwargs)
     1 / 0
 
 

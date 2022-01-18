@@ -11,16 +11,6 @@ from gpaw.utilities import pack2
 from gpaw.utilities.partition import AtomPartition
 from gpaw.utilities.timing import nulltimer
 from gpaw.wavefunctions.lcao import LCAOWaveFunctions
-from gpaw.new.modes import Mode
-
-
-class LCAOMode(Mode):
-    name = 'lcao'
-
-    def create_wf_description(self,
-                              grid: UniformGrid,
-                              dtype) -> UniformGrid:
-        raise NotImplementedError
 
 
 def create_lcao_ibz_wave_functions(setups,

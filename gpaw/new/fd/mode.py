@@ -1,10 +1,11 @@
-import _gpaw
-import numpy as np
-from ase.units import Ha
-from gpaw.core import PlaneWaves, UniformGrid
+from __future__ import annotations
+from gpaw.core import UniformGrid
 from gpaw.new.modes import Mode
-from gpaw.new.poisson import ReciprocalSpacePoissonSolver
-from gpaw.new.fd.pot_calc import PlaneWavePotentialCalculator
+from gpaw.new.poisson import PoissonSolverWrapper, PoissonSolver
+from typing import Any
+from gpaw.poisson import PoissonSolver as make_poisson_solver
+from gpaw.fd_operators import Laplace
+from gpaw.new.fd.pot_calc import UniformGridPotentialCalculator
 
 
 class FDMode(Mode):

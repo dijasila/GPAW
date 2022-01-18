@@ -3,8 +3,8 @@ import numpy as np
 from ase.units import Ha
 from gpaw.core import PlaneWaves, UniformGrid
 from gpaw.new.modes import Mode
-from gpaw.new.poisson import ReciprocalSpacePoissonSolver
-from gpaw.new.pot_calc import PlaneWavePotentialCalculator
+from gpaw.new.pw.poisson import ReciprocalSpacePoissonSolver
+from gpaw.new.pw.pot_calc import PlaneWavePotentialCalculator
 
 
 class PWMode(Mode):

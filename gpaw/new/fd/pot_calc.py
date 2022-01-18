@@ -1,3 +1,7 @@
+from gpaw.new.pot_calc import PotentialCalculator
+from gpaw.core import UniformGrid
+
+
 class UniformGridPotentialCalculator(PotentialCalculator):
     def __init__(self,
                  wf_grid: UniformGrid,
