@@ -33,7 +33,7 @@ def create_symmetry_map(kd: KPointDescriptor):  # -> List[List[int]]
     return map_ss
 
 
-class Symmetry:
+class BaseSymmetry:
     def __init__(self, kd: KPointDescriptor):
         self.kd = kd
         self.symmetry_map_ss = create_symmetry_map(kd)
@@ -42,6 +42,8 @@ class Symmetry:
         is_identity_s = (U_scc == np.eye(3, dtype=int)).all(2).all(1)
         self.s0 = is_identity_s.nonzero()[0][0]
         self.inverse_s = self.symmetry_map_ss[:, self.s0]
+
+class Symmetry(BaseSymmetry):
 
     def symmetry_operation(self, s: int, wfs, inverse=False):
         if inverse:

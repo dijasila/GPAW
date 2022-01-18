@@ -76,7 +76,7 @@ class TCIExpansions:
         rcmax_I = [max(rc1, rc2) for rc1, rc2
                    in zip(pt_rcmax_I, phit_rcmax_I)]
 
-        transformer = FourierTransformer(rcmax=max(rcmax_I + [1e-3]), ng=2**14)
+        transformer = FourierTransformer(rcmax=max(rcmax_I + [1e-3]), ng=2**10)
         tsoc = TwoSiteOverlapCalculator(transformer)
         msoc = ManySiteOverlapCalculator(tsoc, I_a, I_a)
         phit_Ijq = msoc.transform(phit_Ij)

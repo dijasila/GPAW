@@ -79,6 +79,7 @@ def get_compensation_charge_splines_screened(setup, lmax, cutoff):
     return ghat_l, wghat_l, W_LL
 
 def _get_auxiliary_splines(setup, lcomp, laux, cutoff, poisson, threshold=1e-2):
+    print('   Auxiliary basis setup for ',setup.symbol)
     rgd = setup.rgd
     print('Threshold: %.10f' % threshold)
     print('Auxiliary splines cutoff', cutoff,'bohr')
@@ -114,8 +115,12 @@ def _get_auxiliary_splines(setup, lcomp, laux, cutoff, poisson, threshold=1e-2):
                 #assert rgd.integrate(np.abs(aux_g))>1e-10
 
     for l in range(3):
-        add(np.exp(-2*rgd.r_g**2), l) 
+        add(np.exp(-2*rgd.r_g**2), l)
+        if l==2:
+            continue
         add(np.exp(-1.3*rgd.r_g**2), l) 
+        if l==1:
+            continue
         add(np.exp(-0.8*rgd.r_g**2), l) 
         add(np.exp(-0.6*rgd.r_g**2), l) 
         add(np.exp(-0.3*rgd.r_g**2), l) 
@@ -247,12 +252,13 @@ def _get_auxiliary_splines(setup, lcomp, laux, cutoff, poisson, threshold=1e-2):
             wsauxt_j.append(rgd.spline(v_g, cutoff, l, 2000))
             #print('Last potential element', v_g[-1])
             #assert(np.abs(v_g[-1])<1e-6)
-        print('l=%d %d -> %d' % (l, len(auxt_ng), len(auxt_ig)))
+        print('l=%d %d (radial) auxiliary functions to %d (radial), %d (full) functions' % (l, len(auxt_ng), len(auxt_ig), (2*l+1)*len(auxt_ig)))
 
     W_AA = scipy.linalg.block_diag(*integrals_lAA)
 
     #print(W_AA,'FULL W_AA')
 
+    print()
     return auxt_j, wauxt_j, sauxt_j, wsauxt_j, M_j, W_AA
     
     n = 200

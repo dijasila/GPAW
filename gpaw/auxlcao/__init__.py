@@ -4,6 +4,8 @@ import numpy as np
 from gpaw.auxlcao.full4c import Full4C
 from gpaw.auxlcao.rilvl import RILVL
 from gpaw.auxlcao.rilvl import RIR
+from gpaw.auxlcao.ripbc import RIPBC
+
 
 class LCAOHybrid:
     orbital_dependent = True
@@ -49,6 +51,8 @@ class LCAOHybrid:
             self.ri_algorithm = RILVL(exx_fraction = self.exx_fraction, screening_omega = self.screening_omega)
         elif algorithm == 'RI-R':
             self.ri_algorithm = RIR(exx_fraction = self.exx_fraction, screening_omega = self.screening_omega, threshold=threshold, laux=laux, lcomp=lcomp)
+        elif algorithm == 'RI-PBC':
+            self.ri_algorithm = RIPBC(exx_fraction = self.exx_fraction, screening_omega = self.screening_omega, threshold=threshold, laux=laux, lcomp=lcomp)
         else:
             if algorithm is None:
                 s = 'Please spesify the algorithm variable i.e. xc=''%s:backend=aux-lcao:algorithm=ALG''\n'

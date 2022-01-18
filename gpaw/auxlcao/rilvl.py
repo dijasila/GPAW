@@ -40,7 +40,6 @@ from numpy.matlib import repmat
 flops = 0
 
 def meinsum(output_name, index_str, T1, T2, timer=None):
-
     input_index_str, output_index_str = index_str.split('->')
     index1, index2 = input_index_str.split(',') 
     contraction_indices = list(set(index1)&set(index2))
@@ -119,12 +118,21 @@ class SparseTensor:
             T_MMM[ M1_a[a1]:M1_a[a1+1], M2_a[a2]:M2_a[a2+1], M3_a[a3]:M3_a[a3+1] ] += block_xx
         return T_MMM
 
+    def to_full3d_R(self, M1_a, M2_a, M3_a):
+        T_MMM = np.zeros( (M1_a[-1], M2_a[-1], M3_a[-1]) )
+        for index, block_xx in self.block_i.items():
+            print(index)
+            (a1, R1), (a2, R2),(a3, R3) = index
+            T_MMM[ M1_a[a1]:M1_a[a1+1], M2_a[a2]:M2_a[a2+1], M3_a[a3]:M3_a[a3+1] ] += block_xx
+        return T_MMM
+
     def __iadd__(self, index_and_block):
         if isinstance(index_and_block, SparseTensor):
             for index, block_xx in index_and_block.block_i.items():
                 self.block_i[index] += block_xx.copy()
         else:
             index, block_xx = index_and_block
+            print('added', index, block_xx, self.name)
             self.block_i[index] += block_xx.copy() #xxx
 
         return self
@@ -197,7 +205,6 @@ class RIBase(RIAlgorithm):
         #print('ribase', self.threshold)
         #print('RI base screening omega', screening_omega)
         self.matrix_elements = MatrixElements(laux = self.laux, lcomp=self.lcomp, screening_omega = screening_omega, threshold=threshold)
-
 
 class RIR(RIBase):
     def __init__(self, exx_fraction=None, screening_omega=None, lcomp=2, laux=2, threshold=1e-5):
@@ -411,7 +418,7 @@ class RIR(RIBase):
                                            W_AL = self.W_AL, 
                                            W_LL = self.W_LL,
                                            P_AMM = self.P_AMM,
-                                           P_LMM = self.P_LMM, only_ghat=self.only_ghat, 
+                                           P_LMM = self.P_LMM, only_ghat=self.only_ghat, no_ghat=self.no_ghat,
                                            only_ghat_aux_interaction=self.only_ghat_aux_interaction)
 
         if self.no_ghat:
@@ -427,13 +434,19 @@ class RIR(RIBase):
             A_a = self.matrix_elements.A_a
             M_a = self.matrix_elements.M_a
             L_a = self.matrix_elements.L_a
-            self.WP_AMM = self.WP_AMM.to_full3d(A_a, M_a, M_a)
-            self.WP_LMM = self.WP_LMM.to_full3d(L_a, M_a, M_a)
-            self.P_AMM = self.P_AMM.to_full3d(A_a, M_a, M_a)
-            self.P_LMM = self.P_LMM.to_full3d(L_a, M_a, M_a)
+            if not self.matrix_elements.sparse_periodic:
+                self.WP_AMM = self.WP_AMM.to_full3d(A_a, M_a, M_a)
+                self.WP_LMM = self.WP_LMM.to_full3d(L_a, M_a, M_a)
+                self.P_AMM = self.P_AMM.to_full3d(A_a, M_a, M_a)
+                self.P_LMM = self.P_LMM.to_full3d(L_a, M_a, M_a)
+            else:
+                self.WP_AMM = self.WP_AMM.to_full3d_R(A_a, M_a, M_a)
+                self.WP_LMM = self.WP_LMM.to_full3d_R(L_a, M_a, M_a)
+                self.P_AMM = self.P_AMM.to_full3d_R(A_a, M_a, M_a)
+                self.P_LMM = self.P_LMM.to_full3d_R(L_a, M_a, M_a)
+ 
 
     def calculate_exchange_per_kpt_pair(self, kpt1, k_c, rho1_MM, kpt2, krho_c, rho2_MM):
-
         if 0:
             rho_MM = SparseTensor('rho', 'MM')
             for a1, (M1start, M1end) in enumerate(zip(self.M_a[:-1], self.M_a[1:])):

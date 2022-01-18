@@ -255,7 +255,7 @@ class MatrixElements:
         if only_ghat_aux_interaction:
             self.calculate_sparse_W_LL(W_LL) 
             self.calculate_sparse_W_AL(W_AL, W_LL)
-            self.calculate_sparse_W_AA(W_AA, W_AL, W_LL)
+            self.calculate_sparse_W_AA(W_AA)
             self.calculate_sparse_P_AMM(P_AMM, W_AA)
             self.calculate_sparse_P_LMM(P_LMM, P_AMM)
             W_LL.zero()
@@ -263,10 +263,10 @@ class MatrixElements:
             return
         if no_ghat:
             #self.calculate_sparse_W_LL(W_LL) 
-            self.calculate_sparse_P_AMM(P_AMM)
+            self.calculate_sparse_P_AMM(P_AMM, W_AA)
             #self.calculate_sparse_P_LMM(P_LMM, P_AMM)
             #self.calculate_sparse_W_AL(W_AL)
-            self.calculate_sparse_W_AA(W_AA, W_AL, W_LL)
+            self.calculate_sparse_W_AA(W_AA)
             return
         if only_ghat:
             self.calculate_sparse_W_LL(W_LL)
@@ -275,7 +275,7 @@ class MatrixElements:
 
         self.calculate_sparse_W_LL(W_LL) 
         self.calculate_sparse_W_AL(W_AL, W_LL)
-        self.calculate_sparse_W_AA(W_AA, W_AL, W_LL)
+        self.calculate_sparse_W_AA(W_AA)
         self.calculate_sparse_P_AMM(P_AMM, W_AA)
         self.calculate_sparse_P_LMM(P_LMM, P_AMM)
         #print('disabled P_LMM?')
@@ -367,8 +367,13 @@ class MatrixElements:
                 M1 = self.M_a[a+1]-self.M_a[a]
                 #print(np.max(locP_AMM.ravel()),'2sit P_AMM')
                 #f.close()
-                P_AMM += (a, a, a2),   locP_AMM[:NA1, :, :]
-                P_AMM += (a2, a, a2),  locP_AMM[NA1:, :, :]
+                if not self.sparse_periodic:
+                    P_AMM += (a, a, a2),   locP_AMM[:NA1, :, :]
+                    P_AMM += (a2, a, a2),  locP_AMM[NA1:, :, :]
+                else:
+                    R0 = (0,0,0)
+                    P_AMM += ((a,R0), (a,R0), (a2,R0)),   locP_AMM[:NA1, :, :]
+                    P_AMM += ((a2,R0), (a,R0), (a2,R0)),  locP_AMM[NA1:, :, :]
                 #input("Press Enter to continue...")
 
         """
@@ -522,8 +527,11 @@ class MatrixElements:
             return
     """
 
-    def calculate_sparse_W_AL(self, W_AL, W_LL):
-        #W_LL.show()    
+    def calculate_sparse_W_AL(self, W_AL, W_LL, no_ghat = False):
+        if self.sparse_periodic:
+            if no_ghat:
+                return
+            raise NotImplementedError
         
         for a1 in self.my_a:
             for a2 in self.my_a:
@@ -559,9 +567,15 @@ class MatrixElements:
         #tmp.show()
         W_AL += tmp
         """
-    def calculate_sparse_W_AA(self, W_AA, W_AL, W_LL):
+    def calculate_sparse_W_AA(self, W_AA):
         if self.sparse_periodic:
-            raise NotImplementedError
+            print('Fake non periodic W_AA data')
+            for a1 in self.my_a:
+                for a2 in self.my_a:
+                    if a1 == a2:
+                        W_AA += ( (a1,(0,0,0)), (a2,(0,0,0))), self.setups[a1].W_AA
+                    else:
+                        W_AA += ( (a1,(0,0,0)), (a2,(0,0,0))), self.direct_W_AA(a1, a2, [0,0,0])
         else:
             for a1 in self.my_a:
                 for a2 in self.my_a:
@@ -633,7 +647,7 @@ class MatrixElements:
         if self.screening_omega != 0.0:
             cutoff = 2.5 / self.screening_omega
         else:
-            cutoff = np.max(np.sum(cell_cv**2, axis=1))
+            cutoff = np.max(np.sum(cell_cv**2, axis=1)**0.5)
 
         self.nl = PrimitiveNeighborList([ cutoff ] * len(spos_ac), skin=0,
                                         self_interaction=False, bothways=False,
@@ -643,6 +657,8 @@ class MatrixElements:
         self.nl.update(pbc=pbc_c, cell=cell_cv, coordinates=spos_ac)
 
         self.sparse_periodic = np.any(pbc_c)
+        if self.sparse_periodic:
+            print('Initializing periodic implementation of RI')
 
     def set_parameters(self, parameters):
         self.parameters = parameters
