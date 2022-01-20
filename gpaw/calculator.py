@@ -216,6 +216,12 @@ class GPAW(Calculator):
         calc.calculate(system_changes=[])
         return calc
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        self.close()
+
     def __del__(self):
         self.close()
 
