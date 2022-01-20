@@ -7,9 +7,14 @@ from gpaw.core.arrays import DistributedArrays as DA
 from gpaw.core.atom_arrays import AtomArrays
 from gpaw.setup import Setups
 from gpaw.typing import Array1D, Array2D, ArrayND
+from gpaw.mpi import MPIComm
 
 
 class WaveFunctions:
+    domain_comm: MPIComm
+    band_comm: MPIComm
+    nbands: int
+
     def __init__(self,
                  spin: int | None,
                  setups: Setups,
@@ -71,6 +76,9 @@ class PWFDWaveFunctions(WaveFunctions):
         self.pt_aiX = setups.create_projectors(self.psit_nX.desc,
                                                fracpos_ac)
         self.orthonormalized = False
+        self.domain_comm = psit_nX.desc.comm
+        self.band_comm = psit_nX.comm
+        self.nbands = psit_nX.dims[0]
 
     @property
     def P_ain(self):

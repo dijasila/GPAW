@@ -1,8 +1,7 @@
 from gpaw.core import UniformGrid
-from gpaw.new.modes import Mode
 
 
-class LCAOMode(Mode):
+class LCAOMode:
     name = 'lcao'
 
     def create_wf_description(self,

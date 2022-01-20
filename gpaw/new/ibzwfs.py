@@ -6,7 +6,7 @@ import numpy as np
 from ase.units import Ha
 from gpaw.mpi import MPIComm
 from gpaw.new.brillouin import IBZ
-from gpaw.new.wave_functions import WaveFunctions
+from gpaw.new.wave_functions import WaveFunctions, PWFDWaveFunctions
 from gpaw.core.atom_arrays import AtomArrays
 
 
@@ -28,10 +28,10 @@ class IBZWaveFunctions:
         self.collinear = False
         self.spin_degeneracy = spin_degeneracy
 
-        self.band_comm = wfs_qs[0][0].psit_nX.comm
-        self.domain_comm = wfs_qs[0][0].psit_nX.desc.comm
+        self.band_comm = wfs_qs[0][0].band_comm
+        self.domain_comm = wfs_qs[0][0].domain_comm
 
-        self.nbands = wfs_qs[0][0].psit_nX.dims[0]
+        self.nbands = wfs_qs[0][0].nbands
 
         self.q_k = {}  # ibz index to local index
         q = 0
@@ -66,10 +66,10 @@ class IBZWaveFunctions:
             if rank != kpt_comm.rank:
                 continue
             desck = desc.new(kpt=kpt_c, dtype=dtype)
-            wfs = WaveFunctions.from_random_numbers(desck, weight,
-                                                    nbands, band_comm,
-                                                    setups,
-                                                    fracpos_ac)
+            wfs = PWFDWaveFunctions.from_random_numbers(desck, weight,
+                                                        nbands, band_comm,
+                                                        setups,
+                                                        fracpos_ac)
             wfs_q.append(wfs)
 
         return cls(ibz, rank_k, kpt_comm, wfs_q, nelectrons)

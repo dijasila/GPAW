@@ -5,9 +5,9 @@ from gpaw.band_descriptor import BandDescriptor
 from gpaw.core import PlaneWaves
 from gpaw.kohnsham_layouts import get_KohnSham_layouts
 from gpaw.lcao.eigensolver import DirectLCAO
+from gpaw.new.ibzwfs import IBZWaveFunctions
 from gpaw.new.potential import Potential
 from gpaw.new.wave_functions import PWFDWaveFunctions
-from gpaw.new.ibzwfs import IBZWaveFunctions
 from gpaw.utilities import pack2
 from gpaw.utilities.partition import AtomPartition
 from gpaw.utilities.timing import nulltimer
