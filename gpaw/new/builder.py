@@ -1,48 +1,58 @@
 from __future__ import annotations
 
+import importlib
+import sys
 from types import SimpleNamespace
 from typing import Any, Union
 
 import numpy as np
 from ase import Atoms
+from ase.units import Bohr
+from gpaw.core import UniformGrid
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.lfc import BasisFunctions
 from gpaw.mixer import MixerWrapper, get_mixer_from_keywords
-from gpaw.mpi import MPIComm, Parallelization, world
+from gpaw.mpi import MPIComm, Parallelization, serial_comm, world
 from gpaw.new import cached_property
 from gpaw.new.brillouin import BZPoints, MonkhorstPackKPoints
 from gpaw.new.davidson import Davidson
 from gpaw.new.density import Density
+from gpaw.new.ibzwfs import IBZWaveFunctions
 from gpaw.new.input_parameters import InputParameters
-from gpaw.new.fd.mode import FDMode
-from gpaw.new.pw.mode import PWMode
-from gpaw.new.lcao.mode import LCAOMode
-from gpaw.new.test.mode import TestMode
 from gpaw.new.scf import SCFLoop
 from gpaw.new.smearing import OccupationNumberCalculator
 from gpaw.new.symmetry import create_symmetries_object
-from gpaw.new.ibzwfs import IBZWaveFunctions
 from gpaw.new.xc import XCFunctional
 from gpaw.setup import Setups
+from gpaw.utilities.gpts import get_number_of_grid_points
 from gpaw.xc import XC
+
+
+def builder(atoms: Atoms,
+            params: dict[str, Any] | InputParameters) -> DFTComponentsBuilder:
+    if isinstance(params, dict):
+        params = InputParameters(params)
+
+    mode = params.mode['name']
+    assert mode in {'pw', 'lcao', 'fd', 'tb', 'atom', 'test'}
+    mod = importlib.import_module(f'gpaw.new.{mode}.builder')
+    name = mode.title() if mode in {'atom', 'test'} else mode.upper()
+    return getattr(mod, f'{name}DFTComponentsBuilder')(atoms, params)
 
 
 class DFTComponentsBuilder:
     def __init__(self,
                  atoms: Atoms,
-                 params: dict[str, Any] | InputParameters):
+                 params: InputParameters):
 
         self.atoms = atoms.copy()
-
-        if isinstance(params, dict):
-            params = InputParameters(params)
+        self.mode = params.mode['name']
         self.params = params
 
         parallel = params.parallel
         world = parallel['world']
 
-        self.mode = create_mode(**params.mode)
-        self.mode.check_cell(atoms.cell)
+        self.check_cell(atoms.cell)
 
         self.xc = XCFunctional(XC(params.xc))  # mode?
         self.setups = Setups(atoms.numbers,
@@ -65,7 +75,7 @@ class DFTComponentsBuilder:
         b = parallel.get('band', None)
         self.communicators = create_communicators(world, len(self.ibz),
                                                   d, k, b)
-        if self.mode.name == 'fd':
+        if self.mode == 'fd':
             pass  # filter = create_fourier_filter(grid)
             # setups = stups.filter(filter)
 
@@ -75,7 +85,14 @@ class DFTComponentsBuilder:
                                                 self.setups,
                                                 params.charge,
                                                 self.initial_magmoms,
-                                                self.mode.name == 'lcao')
+                                                self.mode == 'lcao')
+
+    def check_cell(self, cell):
+        number_of_lattice_vectors = cell.rank
+        if number_of_lattice_vectors < 3:
+            raise ValueError(
+                'GPAW requires 3 lattice vectors.  '
+                f'Your system has {number_of_lattice_vectors}.')
 
     @cached_property
     def ncomponents(self):
@@ -87,7 +104,7 @@ class DFTComponentsBuilder:
 
     @cached_property
     def dtype(self):
-        if self.mode.force_complex_dtype:
+        if sys._xoptions.get('force_complex_dtype'):
             return complex
         if self.ibz.bz.gamma_only:
             return float
@@ -102,25 +119,8 @@ class DFTComponentsBuilder:
         return self.nct_aX.layout.atomdist
 
     @cached_property
-    def grid(self):
-        params = self.params
-        return self.mode.create_uniform_grid(
-            params.h,
-            params.gpts,
-            self.atoms.cell,
-            self.atoms.pbc,
-            self.ibz.symmetries,
-            comm=self.communicators['d'])
-
-    @cached_property
-    def fine_grid(self):
-        return self.grid.new(size=self.grid.size_c * 2)
-        # decomposition=[2 * d for d in grid.decomposition]
-
-    @cached_property
     def nct_aX(self):
-        return self.mode.create_pseudo_core_densities(
-            self.setups, self.grid, self.fracpos_ac)
+        return self.create_pseudo_core_densities()
 
     @cached_property
     def nct_R(self):
@@ -131,22 +131,13 @@ class DFTComponentsBuilder:
 
     @cached_property
     def wf_desc(self):
-        return self.mode.create_wf_description(self.grid, self.dtype)
-
-    def create_potential_calculator(self):
-        return self.mode.create_potential_calculator(
-            self.grid,
-            self.fine_grid,
-            self.setups,
-            self.xc,
-            self.params.poissonsolver,
-            self.nct_aX, self.nct_R)
+        return self.create_wf_description()
 
     def __repr__(self):
         return f'DFTComponentsBuilder({self.atoms}, {self.params})'
 
     def lcao_ibz_wave_functions(self, basis_set, potential):
-        from gpaw.new.lcao import create_lcao_ibz_wave_functions
+        from gpaw.new.lcao.lcao import create_lcao_ibz_wave_functions
         sl_default = self.params.parallel['sl_default']
         sl_lcao = self.params.parallel['sl_lcao'] or sl_default
         return create_lcao_ibz_wave_functions(
@@ -202,7 +193,7 @@ class DFTComponentsBuilder:
                                           self.params.hund)
 
     def create_scf_loop(self, pot_calc):
-        hamiltonian = self.mode.create_hamiltonian_operator(self.wf_desc)
+        hamiltonian = self.create_hamiltonian_operator()
         eigensolver = Davidson(self.nbands,
                                self.wf_desc,
                                self.communicators['b'],
@@ -278,18 +269,6 @@ def normalize_initial_magnetic_moments(magmoms,
     return magmoms
 
 
-def create_mode(name, **kwargs):
-    if name == 'pw':
-        return PWMode(**kwargs)
-    if name == 'fd':
-        return FDMode(**kwargs)
-    if name == 'lcao':
-        return LCAOMode(**kwargs)
-    if name == 'test':
-        return TestMode(**kwargs)
-    1 / 0
-
-
 def create_kpts(kpts: dict[str, Any], atoms: Atoms) -> BZPoints:
     if 'points' in kpts:
         assert len(kpts) == 1, kpts
@@ -331,16 +310,42 @@ def calculate_number_of_bands(nbands, setups, charge, magmoms, is_lcao):
 
     if nbands > nao and is_lcao:
         raise ValueError('Too many bands for LCAO calculation: '
-                         '%d bands and only %d atomic orbitals!' %
-                         (nbands, nao))
+                         f'{nbands}%d bands and only {nao} atomic orbitals!')
 
     if nvalence < 0:
         raise ValueError(
-            'Charge %f is not possible - not enough valence electrons' %
-            charge)
+            f'Charge {charge} is not possible - not enough valence electrons')
 
     if nvalence > 2 * nbands and not orbital_free:
-        raise ValueError('Too few bands!  Electrons: %f, bands: %d'
-                         % (nvalence, nbands))
+        raise ValueError(
+            f'Too few bands!  Electrons: {nvalence}, bands: {nbands}')
 
     return nbands
+
+
+def create_uniform_grid(mode: str,
+                        gpts,
+                        cell,
+                        pbc,
+                        symmetry,
+                        h: float = None,
+                        interpolation: str = None,
+                        ecut: float = None,
+                        comm: MPIComm = serial_comm) -> UniformGrid:
+    cell = cell / Bohr
+    if h is not None:
+        h /= Bohr
+
+    realspace = (mode != 'pw' and interpolation != 'fft')
+    if not realspace:
+        pbc = (True, True, True)
+
+    if gpts is not None:
+        if h is not None:
+            raise ValueError("""You can't use both "gpts" and "h"!""")
+        size = gpts
+    else:
+        modeobj = SimpleNamespace(name=mode, ecut=ecut)
+        size = get_number_of_grid_points(cell, h, modeobj, realspace,
+                                         symmetry.symmetry)
+    return UniformGrid(cell=cell, pbc=pbc, size=size, comm=comm)

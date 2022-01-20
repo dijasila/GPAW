@@ -33,9 +33,11 @@ class UniformGridPotentialCalculator(PotentialCalculator):
         nt_sR = density.nt_sR
         nt_sr = self.interpolate(nt_sR)
         if not nt_sR.desc.pbc_c.all():
-            scale_s = nt_sR.integrate() / nt_sr.integrate()
-            for scale, nt_r in zip(scale_s, nt_sr):
-                nt_r.data *= scale
+            Nt1_s = nt_sR.integrate()
+            Nt2_s = nt_sr.integrate()
+            for Nt1, Nt2, nt_r in zip(Nt1_s, Nt2_s, nt_sr):
+                if Nt2 > 1e-14:
+                    nt_r.data *= Nt1 / Nt2
         grid2 = nt_sr.desc
 
         vxct_sr = grid2.zeros(nt_sr.dims)

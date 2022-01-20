@@ -4,7 +4,7 @@ from typing import Any
 
 import numpy as np
 from ase.units import Bohr, Ha
-from gpaw.new.builder import DFTComponentsBuilder
+from gpaw.new.builder import builder as create_builder
 from gpaw.new.input_parameters import InputParameters
 from gpaw.new.ibzwfs import IBZWaveFunctions
 from gpaw.new.potential import Potential
@@ -56,7 +56,7 @@ class DFTCalculation:
         if isinstance(params, dict):
             params = InputParameters(params)
 
-        builder = builder or DFTComponentsBuilder(atoms, params)
+        builder = builder or create_builder(atoms, params)
 
         basis_set = builder.create_basis_set()
 

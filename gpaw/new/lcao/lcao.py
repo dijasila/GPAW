@@ -6,7 +6,8 @@ from gpaw.core import PlaneWaves
 from gpaw.kohnsham_layouts import get_KohnSham_layouts
 from gpaw.lcao.eigensolver import DirectLCAO
 from gpaw.new.potential import Potential
-from gpaw.new.wave_functions import IBZWaveFunctions, WaveFunctions
+from gpaw.new.wave_functions import PWFDWaveFunctions
+from gpaw.new.ibzwfs import IBZWaveFunctions
 from gpaw.utilities import pack2
 from gpaw.utilities.partition import AtomPartition
 from gpaw.utilities.timing import nulltimer
@@ -95,9 +96,9 @@ def create_lcao_ibz_wave_functions(setups,
                 psit_nX = psit_nG
             else:
                 psit_nX = psit_nR
-            wfs_s.append(WaveFunctions(psit_nX, s, setups,
-                                       fracpos_ac, weight,
-                                       spin_degeneracy=2 // nspins))
+            wfs_s.append(PWFDWaveFunctions(psit_nX, s, setups,
+                                           fracpos_ac, weight,
+                                           spin_degeneracy=2 // nspins))
             assert mynbands == nbands
             u += 1
         wfs_qs.append(wfs_s)
