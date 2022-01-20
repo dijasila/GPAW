@@ -15,7 +15,7 @@ class IBZWaveFunctions:
                  ibz: IBZ,
                  rank_k: Sequence[int],
                  kpt_comm: MPIComm,
-                 wfs_qs: list[list[WaveFunctions]],
+                 wfs_qs: Sequence[Sequence[WaveFunctions]],
                  nelectrons: float,
                  spin_degeneracy: int = 2):
         """Collection of wave function objects for k-points in the IBZ."""
