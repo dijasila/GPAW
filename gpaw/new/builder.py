@@ -20,11 +20,10 @@ from gpaw.new.lcao.mode import LCAOMode
 from gpaw.new.test.mode import TestMode
 from gpaw.new.scf import SCFLoop
 from gpaw.new.smearing import OccupationNumberCalculator
-from gpaw.new.symmetry import Symmetries
+from gpaw.new.symmetry import create_symmetries_object
 from gpaw.new.ibzwfs import IBZWaveFunctions
 from gpaw.new.xc import XCFunctional
 from gpaw.setup import Setups
-from gpaw.symmetry import Symmetry as OldSymmetry
 from gpaw.xc import XC
 
 
@@ -78,9 +77,6 @@ class DFTComponentsBuilder:
                                                 self.initial_magmoms,
                                                 self.mode.name == 'lcao')
 
-        self.fine_grid = self.grid.new(size=self.grid.size_c * 2)
-        # decomposition=[2 * d for d in grid.decomposition]
-
     @cached_property
     def ncomponents(self):
         if self.initial_magmoms is None:
@@ -115,6 +111,11 @@ class DFTComponentsBuilder:
             self.atoms.pbc,
             self.ibz.symmetries,
             comm=self.communicators['d'])
+
+    @cached_property
+    def fine_grid(self):
+        return self.grid.new(size=self.grid.size_c * 2)
+        # decomposition=[2 * d for d in grid.decomposition]
 
     @cached_property
     def nct_aX(self):
@@ -275,19 +276,6 @@ def normalize_initial_magnetic_moments(magmoms,
         magmoms = np.zeros(len(atoms))
 
     return magmoms
-
-
-def create_symmetries_object(atoms, ids=None, magmoms=None, parameters=None):
-    ids = ids or [()] * len(atoms)
-    if magmoms is None:
-        pass
-    elif magmoms.ndim == 1:
-        ids = [id + (m,) for id, m in zip(ids, magmoms)]
-    else:
-        ids = [id + tuple(m) for id, m in zip(ids, magmoms)]
-    symmetry = OldSymmetry(ids, atoms.cell, atoms.pbc, **(parameters or {}))
-    symmetry.analyze(atoms.get_scaled_positions())
-    return Symmetries(symmetry)
 
 
 def create_mode(name, **kwargs):
