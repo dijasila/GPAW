@@ -27,12 +27,16 @@ class FDDFTComponentsBuilder(DFTComponentsBuilder):
         self.fine_grid = self.grid.new(size=self.grid.size_c * 2)
         # decomposition=[2 * d for d in grid.decomposition]
 
+        self._nct_aR = None
+
     def create_wf_description(self) -> UniformGrid:
         return self.grid.new(dtype=self.dtype)
 
-    def create_pseudo_core_densities(self):
-        return self.setups.create_pseudo_core_densities(self.grid,
-                                                        self.fracpos_ac)
+    def get_pseudo_core_densities(self):
+        if self._nct_aR is None:
+            self._nct_aR = self.setups.create_pseudo_core_densities(
+                self.grid, self.fracpos_ac)
+        return self._nct_aR
 
     def create_poisson_solver(self) -> PoissonSolver:
         solver = make_poisson_solver(**self.params.poissonsolver)
@@ -41,11 +45,12 @@ class FDDFTComponentsBuilder(DFTComponentsBuilder):
 
     def create_potential_calculator(self):
         poisson_solver = self.create_poisson_solver()
+        nct_aR = self.get_pseudo_core_densities()
         return UniformGridPotentialCalculator(self.grid,
                                               self.fine_grid,
                                               self.setups,
                                               self.xc, poisson_solver,
-                                              self.nct_aX, self.nct_R)
+                                              nct_aR, self.nct_R)
 
     def create_hamiltonian_operator(self, blocksize=10):
         return FDHamiltonian(self.wf_desc, self.stencil, blocksize)

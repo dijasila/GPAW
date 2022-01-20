@@ -116,25 +116,22 @@ class DFTComponentsBuilder:
 
     @cached_property
     def atomdist(self):
-        return self.nct_aX.layout.atomdist
-
-    @cached_property
-    def nct_aX(self):
-        return self.create_pseudo_core_densities()
-
-    @cached_property
-    def nct_R(self):
-        out = self.grid.empty()
-        self.nct_aX.to_uniform_grid(out=out,
-                                    scale=1.0 / (self.ncomponents % 3))
-        return out
+        return self.get_pseudo_core_densities().layout.atomdist
 
     @cached_property
     def wf_desc(self):
         return self.create_wf_description()
 
     def __repr__(self):
-        return f'DFTComponentsBuilder({self.atoms}, {self.params})'
+        return f'{self.__class__.__name__}({self.atoms}, {self.params})'
+
+    @cached_property
+    def nct_R(self):
+        out = self.grid.empty()
+        nct_aX = self.get_pseudo_core_densities()
+        nct_aX.to_uniform_grid(out=out,
+                               scale=1.0 / (self.ncomponents % 3))
+        return out
 
     def lcao_ibz_wave_functions(self, basis_set, potential):
         from gpaw.new.lcao.lcao import create_lcao_ibz_wave_functions

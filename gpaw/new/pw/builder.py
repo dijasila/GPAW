@@ -1,55 +1,64 @@
 import _gpaw
 import numpy as np
 from ase.units import Ha
-from gpaw.core import PlaneWaves, UniformGrid
-from gpaw.new.modes import Mode
+from gpaw.core import PlaneWaves
 from gpaw.new.pw.poisson import ReciprocalSpacePoissonSolver
 from gpaw.new.pw.pot_calc import PlaneWavePotentialCalculator
+from gpaw.new.builder import DFTComponentsBuilder, create_uniform_grid
 
 
-class PWMode(Mode):
-    name = 'pw'
+class PWDFTComponentsBuilder(DFTComponentsBuilder):
+    def __init__(self, atoms, params):
+        super().__init__(atoms, params)
+        self.ecut = params.mode.get('ecut', 340) / Ha
+        self.grid = create_uniform_grid(
+            'pw',
+            params.gpts,
+            self.atoms.cell,
+            self.atoms.pbc,
+            self.ibz.symmetries,
+            ecut=self.ecut,
+            interpolation='fft',
+            comm=self.communicators['d'])
 
-    def __init__(self, ecut: float = 340.0):
-        Mode.__init__(self)
-        if ecut is not None:
-            ecut /= Ha
-        self.ecut = ecut
+        self.fine_grid = self.grid.new(size=self.grid.size_c * 2)
+        # decomposition=[2 * d for d in grid.decomposition]
 
-    def create_wf_description(self,
-                              grid: UniformGrid,
-                              dtype) -> PlaneWaves:
+        self._nct_ag = None
 
-        return PlaneWaves(ecut=self.ecut, cell=grid.cell, dtype=dtype)
+    def create_wf_description(self) -> PlaneWaves:
+        assert self.grid.comm.size == 1
+        return PlaneWaves(ecut=self.ecut,
+                          cell=self.grid.cell,
+                          dtype=self.dtype)
 
-    def create_pseudo_core_densities(self, setups, grid, fracpos_ac):
-        pw = PlaneWaves(ecut=2 * self.ecut, cell=grid.cell)
-        return setups.create_pseudo_core_densities(pw, fracpos_ac)
+    def get_pseudo_core_densities(self):
+        if self._nct_ag is None:
+            pw = PlaneWaves(ecut=2 * self.ecut, cell=self.grid.cell)
+            self._nct_ag = self.setups.create_pseudo_core_densities(
+                pw, self.fracpos_ac)
+        return self._nct_ag
 
     def create_poisson_solver(self, fine_grid_pw, params):
         return ReciprocalSpacePoissonSolver(fine_grid_pw)
 
-    def create_potential_calculator(self,
-                                    grid,
-                                    fine_grid,
-                                    setups,
-                                    xc,
-                                    poisson_solver_params,
-                                    nct_ag, nct_R):
+    def create_potential_calculator(self):
+        nct_ag = self.get_pseudo_core_densities()
         pw = nct_ag.pw
         fine_pw = pw.new(ecut=8 * self.ecut)
-        poisson_solver = self.create_poisson_solver(fine_pw,
-                                                    poisson_solver_params)
-        return PlaneWavePotentialCalculator(grid,
-                                            fine_grid,
+        poisson_solver = self.create_poisson_solver(
+            fine_pw,
+            self.params.poissonsolver)
+        return PlaneWavePotentialCalculator(self.grid,
+                                            self.fine_grid,
                                             pw,
                                             fine_pw,
-                                            setups,
-                                            xc,
+                                            self.setups,
+                                            self.xc,
                                             poisson_solver,
-                                            nct_ag, nct_R)
+                                            nct_ag, self.nct_R)
 
-    def create_hamiltonian_operator(self, grid, blocksize=10):
+    def create_hamiltonian_operator(self, blocksize=10):
         return PWHamiltonian()
 
 
