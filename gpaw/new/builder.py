@@ -208,6 +208,16 @@ class DFTComponentsBuilder:
                                           self.params.charge,
                                           self.params.hund)
 
+    def create_occupation_number_calculator(self):
+        return OccupationNumberCalculator(
+            self.params.occupations,
+            self.atoms.pbc,
+            self.ibz,
+            self.nbands,
+            self.communicators,
+            self.initial_magmoms,
+            self.grid.icell)
+
     def create_scf_loop(self, pot_calc):
         hamiltonian = self.create_hamiltonian_operator()
         eigensolver = Davidson(self.nbands,
@@ -221,14 +231,7 @@ class DFTComponentsBuilder:
                                     self.ncomponents, **self.params.mixer),
             self.ncomponents, self.grid._gd)
 
-        occ_calc = OccupationNumberCalculator(
-            self.params.occupations,
-            self.atoms.pbc,
-            self.ibz,
-            self.nbands,
-            self.communicators,
-            self.initial_magmoms,
-            self.grid.icell)
+        occ_calc = self.create_occupation_number_calculator()
 
         return SCFLoop(hamiltonian, pot_calc, occ_calc,
                        eigensolver, mixer, self.communicators['w'],

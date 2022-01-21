@@ -1,4 +1,5 @@
 from __future__ import annotations
+from types import SimpleNamespace
 
 import numpy as np
 from gpaw.core.arrays import DistributedArrays
@@ -12,6 +13,14 @@ from gpaw.new.ibzwfs import IBZWaveFunctions
 
 
 class NoGrid(Domain):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._gd = SimpleNamespace(
+            get_grid_spacings=lambda: [0, 0, 0],
+            cell_cv=self.cell_cv,
+            N_c=[0, 0, 0],
+            dv=0.0)
+
     def empty(self, shape=(), comm=serial_comm):
         return DummyFunctions(self, shape, comm)
 
@@ -85,6 +94,21 @@ class DummyWaveFunctions(WaveFunctions):
         self.nbands = nbands
 
 
+class DummySCFLoop:
+    def __init__(self, occ_calc):
+        self.occ_calc = occ_calc
+
+    def iterate(self,
+                state,
+                convergence=None,
+                maxiter=None,
+                log=None):
+        for wfs in state.ibzwfs:
+            wfs._eig_n = np.arange(wfs.nbands)
+        state.ibzwfs.calculate_occs(self.occ_calc)
+        yield
+
+
 class TestDFTComponentsBuilder(DFTComponentsBuilder):
     name = 'test'
     interpolation = ''
@@ -137,3 +161,7 @@ class TestDFTComponentsBuilder(DFTComponentsBuilder):
                                   self.nelectrons,
                                   spin_degeneracy)
         return ibzwfs
+
+    def create_scf_loop(self, pot_calc):
+        occ_calc = self.create_occupation_number_calculator()
+        return DummySCFLoop(occ_calc)
