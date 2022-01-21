@@ -4,6 +4,7 @@ from typing import Dict, Any
 
 from ase.units import Hartree
 from ase.utils.timing import Timer
+from ase.calculators.calculator import Calculator
 
 import gpaw.mpi as mpi
 from gpaw.calculator import GPAW
@@ -16,7 +17,7 @@ from gpaw.utilities.blas import axpy
 from gpaw.wavefunctions.lcao import LCAOWaveFunctions
 
 
-class ExcitedState(GPAW):
+class ExcitedState(GPAW, Calculator):
     nparts = 1
     implemented_properties = ['energy', 'forces']
     default_parameters: Dict[str, Any] = {}
@@ -36,7 +37,6 @@ class ExcitedState(GPAW):
           Defaults to 1 (i.e. use all cores).
         over images.
         """
-
         self.timer = Timer()
         if isinstance(index, int):
             self.index = UnconstraintIndex(index)
@@ -52,6 +52,9 @@ class ExcitedState(GPAW):
 
         self.lrtddft = lrtddft
         self.calculator = self.lrtddft.calculator
+
+        Calculator.__init__(self)
+
         self.log = self.calculator.log
         self.atoms = self.calculator.atoms
 
