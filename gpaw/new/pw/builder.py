@@ -8,23 +8,28 @@ from gpaw.new.builder import DFTComponentsBuilder, create_uniform_grid
 
 
 class PWDFTComponentsBuilder(DFTComponentsBuilder):
+    interpolation = 'fft'
+
     def __init__(self, atoms, params):
-        super().__init__(atoms, params)
         self.ecut = params.mode.get('ecut', 340) / Ha
-        self.grid = create_uniform_grid(
+        super().__init__(atoms, params)
+
+        self._nct_ag = None
+
+    def create_uniform_grid(self):
+        grid = create_uniform_grid(
             'pw',
-            params.gpts,
+            self.params.gpts,
             self.atoms.cell,
             self.atoms.pbc,
             self.ibz.symmetries,
-            ecut=self.ecut,
+            h=self.params.h,
             interpolation='fft',
+            ecut=self.ecut,
             comm=self.communicators['d'])
-
-        self.fine_grid = self.grid.new(size=self.grid.size_c * 2)
+        fine_grid = grid.new(size=grid.size_c * 2)
         # decomposition=[2 * d for d in grid.decomposition]
-
-        self._nct_ag = None
+        return grid, fine_grid
 
     def create_wf_description(self) -> PlaneWaves:
         assert self.grid.comm.size == 1
@@ -82,5 +87,3 @@ def precondition(psit, residuals, out):
     G2 = psit.desc.ekin_G * 2
     for r, o, ekin in zip(residuals.data, out.data, psit.norm2('kinetic')):
         _gpaw.pw_precond(G2, r, ekin, o)
-
-

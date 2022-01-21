@@ -96,6 +96,8 @@ class DFTComponentsBuilder:
                                                 self.initial_magmoms,
                                                 self.mode == 'lcao')
 
+        self.grid, self.fine_grid = self.create_uniform_grids()
+
     def check_cell(self, cell):
         number_of_lattice_vectors = cell.rank
         if number_of_lattice_vectors < 3:
@@ -141,6 +143,14 @@ class DFTComponentsBuilder:
         nct_aX.to_uniform_grid(out=out,
                                scale=1.0 / (self.ncomponents % 3))
         return out
+
+    def create_ibz_wave_functions(self, basis_set, potential):
+        if self.params.random:
+            self.log('Initializing wave functions with random numbers')
+            ibzwfs = builder.random_ibz_wave_functions()
+        else:
+            ibzwfs = builder.lcao_ibz_wave_functions(basis_set, potential)
+        return ibzwfs
 
     def lcao_ibz_wave_functions(self, basis_set, potential):
         from gpaw.new.lcao.lcao import create_lcao_ibz_wave_functions

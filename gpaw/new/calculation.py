@@ -66,11 +66,7 @@ class DFTCalculation:
         pot_calc = builder.create_potential_calculator()
         potential, vHt_x, _ = pot_calc.calculate(density)
 
-        if params.random:
-            log('Initializing wave functions with random numbers')
-            ibzwfs = builder.random_ibz_wave_functions()
-        else:
-            ibzwfs = builder.lcao_ibz_wave_functions(basis_set, potential)
+        ibzwfs = builder.create_ibz_wave_functions(basis_set, potential)
 
         write_atoms(atoms, builder.grid, builder.initial_magmoms, log)
 

@@ -1,12 +1,5 @@
 from math import nan
 
-# import numpy as np
-# from ase.utils import seterr
-# from scipy.special import erf
-
-# from gpaw.typing import Array1D
-from gpaw.core import PlaneWaves
-
 
 class PoissonSolver:
     def solve(self,

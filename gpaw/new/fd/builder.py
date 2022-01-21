@@ -14,20 +14,21 @@ class FDDFTComponentsBuilder(DFTComponentsBuilder):
     def __init__(self, atoms, params):
         super().__init__(atoms, params)
 
-        self.grid = create_uniform_grid(
-            'fd',
-            params.gpts,
+        self._nct_aR = None
+
+    def create_uniform_grids(self):
+        grid = create_uniform_grid(
+            self.mode,
+            self.params.gpts,
             self.atoms.cell,
             self.atoms.pbc,
             self.ibz.symmetries,
-            h=params.h,
+            h=self.params.h,
             interpolation='not fft',
             comm=self.communicators['d'])
-
-        self.fine_grid = self.grid.new(size=self.grid.size_c * 2)
+        fine_grid = grid.new(size=grid.size_c * 2)
         # decomposition=[2 * d for d in grid.decomposition]
-
-        self._nct_aR = None
+        return grid, fine_grid
 
     def create_wf_description(self) -> UniformGrid:
         return self.grid.new(dtype=self.dtype)
