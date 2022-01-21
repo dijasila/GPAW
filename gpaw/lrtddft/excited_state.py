@@ -17,7 +17,7 @@ from gpaw.utilities.blas import axpy
 from gpaw.wavefunctions.lcao import LCAOWaveFunctions
 
 
-class ExcitedState(GPAW, Calculator):
+class ExcitedState(GPAW):
     nparts = 1
     implemented_properties = ['energy', 'forces']
     default_parameters: Dict[str, Any] = {}
