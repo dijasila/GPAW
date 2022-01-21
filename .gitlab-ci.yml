@@ -22,11 +22,6 @@ master:
     - gpaw test
     - OMP_NUM_THREADS=2 pytest -v -m ci -We
     - mypy -p gpaw
-    - >
-      interrogate -m -i -f 34.1
-      -e gpaw/test
-      -e gpaw/point_groups/groups.py
-      gpaw
     - flake8 --doctests gpaw
     - >
       flake8
@@ -44,6 +39,11 @@ master:
     - mq workflow -p agts.py -zT | tail -1 | tee count
     - python -c "assert int(open('count').read().split()[0]) >= 422"
     - python -c "import pathlib; assert len(list(pathlib.Path().glob('**/*.png'))) <= 6"
+    - >
+      interrogate -m -i -f 33.1
+      -e gpaw/test
+      -e gpaw/point_groups/groups.py
+      gpaw
 
 libxc:
   image: python:3.7

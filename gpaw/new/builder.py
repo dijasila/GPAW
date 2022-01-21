@@ -30,6 +30,15 @@ from gpaw.xc import XC
 
 def builder(atoms: Atoms,
             params: dict[str, Any] | InputParameters) -> DFTComponentsBuilder:
+    """Create DFT-components builder.
+
+    * pw
+    * lcao
+    * fd
+    * tb
+    * atom
+    * test
+    """
     if isinstance(params, dict):
         params = InputParameters(params)
 
@@ -329,6 +338,7 @@ def create_uniform_grid(mode: str,
                         interpolation: str = None,
                         ecut: float = None,
                         comm: MPIComm = serial_comm) -> UniformGrid:
+    """Create grid in a backwards compatible way."""
     cell = cell / Bohr
     if h is not None:
         h /= Bohr

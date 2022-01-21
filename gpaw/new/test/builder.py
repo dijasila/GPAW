@@ -7,3 +7,7 @@ class TestDFTComponentsBuilder(DFTComponentsBuilder):
 
     def check_cell(self, cell):
         pass
+
+    def create_basis_set(self):
+        return None
+        
