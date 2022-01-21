@@ -86,6 +86,9 @@ class GPAWLogger:
 
     def __del__(self):
         """Destructor:  Write timing output before closing."""
+        self.close()
+
+    def close(self):
         if gpaw.dry_run or self._fd.closed:
             return
 
