@@ -484,6 +484,7 @@ class TDDFT(GPAW):
     def update_eigenvalues(self):
 
         kpt_u = self.wfs.kpt_u
+        self.e_band = 0.0
         if self.hpsit is None:
             self.hpsit = self.wfs.gd.zeros(len(kpt_u[0].psit_nG),
                                            dtype=complex)
@@ -506,8 +507,8 @@ class TDDFT(GPAW):
         self.Enlkin = H.xc.get_kinetic_energy_correction()
 
         # PAW
-        e_band = self.wfs.calculate_band_energy()
-        self.Ekin = H.e_kinetic0 + e_band + self.Enlkin
+        self.e_band = self.wfs.calculate_band_energy()
+        self.Ekin = H.e_kinetic0 + self.e_band + self.Enlkin
         self.e_coulomb = H.e_coulomb
         self.Eext = H.e_external
         self.Ebar = H.e_zero

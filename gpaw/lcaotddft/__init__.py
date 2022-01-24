@@ -256,6 +256,7 @@ class LCAOTDDFT(GPAW):
         return self.Etot
 
     def update_eigenvalues(self):
+        np.set_printoptions(precision=4, suppress=1, linewidth=180)
         # Calculate eigenvalue by non scf hamiltonian diagonalization
         for kpt in self.wfs.kpt_u:
             eig = self.wfs.eigensolver
@@ -281,19 +282,27 @@ class LCAOTDDFT(GPAW):
 
             if ksl.using_blacs:
                 # rhoH_MM = (rho_MM * H_MM).real  # General case
-                rhoH_MM = rho_MM.real * H_MM.real  # Hamiltonian is real
+                # rhoH_MM = rho_MM.real * H_MM.real  # Hamiltonian is real
+                rhoH_MM = rho_MM.real * H_MM.real + rho_MM.imag * H_MM.imag
                 # Hamiltonian has correct values only in lower half, so
                 # 1. Add lower half and diagonal twice
                 scalapack_zero(ksl.mmdescriptor, rhoH_MM, 'U')
                 e = 2 * np.sum(rhoH_MM)
-                # 2. Reduce the extra diagonal
+                # 2. Reduce the extra diagonal)
                 scalapack_zero(ksl.mmdescriptor, rhoH_MM, 'L')
                 e -= np.sum(rhoH_MM)
                 # Sum over all ranks
                 e = ksl.block_comm.sum(e)
+                # self.e_band_rhoH += e
+
             else:
-                e = np.sum(rho_MM * H_MM).real
-            self.e_band_rhoH += e
+                e = np.sum(rho_MM.real * H_MM.real) + \
+                    np.sum(rho_MM.imag * H_MM.imag)
+                self.e_band_rhoH += e
+
+        if ksl.using_blacs:
+            e = self.wfs.kd.comm.sum(e)
+            self.e_band_rhoH = e
 
         H = self.td_hamiltonian.hamiltonian
 
