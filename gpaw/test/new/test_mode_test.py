@@ -6,7 +6,7 @@ from ase.constraints import ExpCellFilter
 from gpaw.new.ase_interface import GPAW
 
 
-def test_test_mode():
+def test_fake_mode():
     atoms = Atoms('LiH',
                   [[0, 0.1, 0.2],
                    [0, 0, 1.4]])
@@ -18,7 +18,7 @@ def test_test_mode():
     assert abs(f1 - f2).max() < 0.0005
 
 
-def test_test_mode_bulk():
+def test_fake_mode_bulk():
     a = 2.0
     atoms = Atoms('Li',
                   cell=[a, a, a],
