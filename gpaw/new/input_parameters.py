@@ -42,6 +42,7 @@ class InputParameters:
     charge: float
     nbands: None | int | float
     spinpol: bool
+    poissonsolver: dict[str, Any]
 
     def __init__(self, params: dict[str, Any]):
         """Accuracy of the self-consistency cycle."""
