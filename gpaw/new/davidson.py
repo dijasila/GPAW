@@ -7,7 +7,7 @@ from gpaw import debug
 from gpaw.core.matrix import Matrix
 from gpaw.utilities.blas import axpy
 from scipy.linalg import eigh
-from gpaw.new.wave_functions import WaveFunctions
+from gpaw.new.wave_functions import PWFDWaveFunctions
 from gpaw.typing import Array1D, Array2D
 from gpaw.core.arrays import DistributedArrays as DA
 from gpaw.core.atom_centered_functions import AtomArrays as AA
@@ -18,7 +18,7 @@ AAFunc = Callable[[AA, AA], AA]
 def calculate_residuals(residuals_nX: DA,
                         dH: AAFunc,
                         dS: AAFunc,
-                        wfs: WaveFunctions,
+                        wfs: PWFDWaveFunctions,
                         P1_ain: AA,
                         P2_ain: AA) -> None:
     for r, e, p in zip(residuals_nX.data, wfs.myeig_n, wfs.psit_nX.data):
@@ -31,7 +31,7 @@ def calculate_residuals(residuals_nX: DA,
     wfs.pt_aiX.add_to(residuals_nX, P1_ain)
 
 
-def calculate_weights(converge: int | str, wfs: WaveFunctions) -> Array1D:
+def calculate_weights(converge: int | str, wfs: PWFDWaveFunctions) -> Array1D:
     """Calculate convergence weights for all eigenstates."""
     if converge == 'occupied':
         # Converge occupied bands:
