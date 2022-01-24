@@ -79,11 +79,7 @@ class IBZWaveFunctions:
         self.ibz.symmetries.check_positions(fracpos_ac)
         self.energies.clear()
         for wfs in self:
-            wfs._P_ain = None
-            wfs.orthonormalized = False
-            wfs.pt_aiX.move(fracpos_ac)
-            wfs._eig_n = None
-            wfs._occ_n = None
+            wfs.move(fracpos_ac)
 
     def orthonormalize(self, work_array_nX: np.ndarray = None):
         for wfs in self:

@@ -37,13 +37,13 @@ def builder(atoms: Atoms,
     * fd
     * tb
     * atom
-    * test
+    * fake
     """
     if isinstance(params, dict):
         params = InputParameters(params)
 
     mode = params.mode['name']
-    assert mode in {'pw', 'lcao', 'fd', 'tb', 'atom', 'test'}
+    assert mode in {'pw', 'lcao', 'fd', 'tb', 'atom', 'fake'}
     mod = importlib.import_module(f'gpaw.new.{mode}.builder')
     name = mode.title() if mode in {'atom', 'test'} else mode.upper()
     return getattr(mod, f'{name}DFTComponentsBuilder')(atoms, params)
@@ -98,6 +98,9 @@ class DFTComponentsBuilder:
 
         self.grid, self.fine_grid = self.create_uniform_grids()
 
+    def create_uniform_grids(self):
+        raise NotImplementedError
+
     def check_cell(self, cell):
         number_of_lattice_vectors = cell.rank
         if number_of_lattice_vectors < 3:
@@ -147,9 +150,9 @@ class DFTComponentsBuilder:
     def create_ibz_wave_functions(self, basis_set, potential):
         if self.params.random:
             self.log('Initializing wave functions with random numbers')
-            ibzwfs = builder.random_ibz_wave_functions()
+            ibzwfs = self.random_ibz_wave_functions()
         else:
-            ibzwfs = builder.lcao_ibz_wave_functions(basis_set, potential)
+            ibzwfs = self.lcao_ibz_wave_functions(basis_set, potential)
         return ibzwfs
 
     def lcao_ibz_wave_functions(self, basis_set, potential):
@@ -216,7 +219,7 @@ class DFTComponentsBuilder:
             self.nbands,
             self.communicators,
             self.initial_magmoms,
-            self.grid.icell)
+            np.linalg.inv(self.atoms.cell.complete()).T)
 
     def create_scf_loop(self, pot_calc):
         hamiltonian = self.create_hamiltonian_operator()

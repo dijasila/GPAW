@@ -1002,7 +1002,7 @@ class Setup(BaseSetup):
         self.Nct = data.get_smooth_core_density_integral(self.Delta0)
         self.K_p = data.get_linear_kinetic_correction(self.local_corr.T_Lqp[0])
 
-        self.ghat_l = [rgd2.spline(g_g, rcut2, l, 1000)
+        self.ghat_l = [rgd2.spline(g_g, rcut2, l, 50)
                        for l, g_g in enumerate(self.g_lg)]
 
         self.xc_correction = data.get_xc_correction(rgd2, xc, gcut2, lcut)

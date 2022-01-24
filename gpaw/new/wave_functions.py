@@ -89,6 +89,13 @@ class PWFDWaveFunctions(WaveFunctions):
             self.pt_aiX.integrate(self.psit_nX, self._P_ain)
         return self._P_ain
 
+    def move(self, fracpos_ac):
+        self._P_ain = None
+        self.orthonormalized = False
+        self.pt_aiX.move(fracpos_ac)
+        self._eig_n = None
+        self._occ_n = None
+
     @classmethod
     def from_random_numbers(cls, desc, weight, nbands, band_comm, setups,
                             fracpos_ac):

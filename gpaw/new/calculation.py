@@ -136,9 +136,9 @@ class DFTCalculation:
         self.results['energy'] = extrapolated_energy
 
     def dipole(self, log):
-        dipole_v = self.density.calculate_dipole_moment() * Bohr
-        self.log('Dipole moment: ({:.6f}, {:.6f}, {:.6f}) |e|*Ang\n'
-                 .format(*dipole_v))
+        dipole_v = self.density.calculate_dipole_moment()
+        x, y, z = dipole_v * Bohr
+        self.log(f'Dipole moment: ({x:.6f}, {y:.6f}, {z:.6f}) |e|*Ang\n')
         self.results['dipole'] = dipole_v
 
     def magmoms(self, log):
@@ -194,6 +194,13 @@ class DFTCalculation:
             log(f'{a:4} {setup.symbol:2} {x:10.3f} {y:10.3f} {z:10.3f}')
 
         self.results['forces'] = F_av
+
+    def stress(self, log):
+        stress_vv = self.pot_calc.stress_contribution(self.state)
+        log('\nStress tensor [eV/Ang^3]:')
+        for x, y, z in stress_vv * (Ha / Bohr**3):
+            log(f'{x:13.6f}{y:13.6f}{z:13.6f}')
+        self.results['stress'] = stress_vv.flat[[0, 4, 8, 5, 2, 1]]
 
     def write_converged(self, log):
         self.state.ibzwfs.write_summary(log)

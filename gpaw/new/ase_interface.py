@@ -65,7 +65,9 @@ class ASECalculator(OldStuff):
         if self.calculation is not None:
             changes = compare_atoms(self.atoms, atoms)
             if changes & {'numbers', 'pbc', 'cell'}:
+                # Start from scratch:
                 if 'numbers' not in changes:
+                    # Remember magmoms if there are any:
                     magmom_a = self.calculation.results.get('magmoms')
                     if magmom_a is not None:
                         atoms = atoms.copy()
@@ -86,6 +88,8 @@ class ASECalculator(OldStuff):
             elif prop == 'stress':
                 with self.timer('Stress'):
                     self.calculation.stress(log)
+            elif prop == 'dipole':
+                self.calculation.dipole(log)
             else:
                 raise ValueError('Unknown property:', prop)
 
@@ -130,6 +134,15 @@ class ASECalculator(OldStuff):
 
     def get_stress(self, atoms: Atoms) -> Array1D:
         return self.calculate_property(atoms, 'stress') * (Ha / Bohr**3)
+
+    def get_dipole_moment(self, atoms: Atoms) -> Array1D:
+        return self.calculate_property(atoms, 'dipole') * Bohr
+
+    def get_magnetic_moment(self, atoms: Atoms) -> float:
+        return self.calculate_property(atoms, 'magmom')
+
+    def get_magnetic_moments(self, atoms: Atoms) -> Array1D:
+        return self.calculate_property(atoms, 'magmoms')
 
 
 def write_header(log, world, kwargs):
