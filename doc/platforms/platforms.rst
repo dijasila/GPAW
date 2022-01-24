@@ -48,13 +48,14 @@ Linux:
    Linux/vsc.univie
    Linux/odyssey
 
-MacOSX:
+macOS:
 
 .. toctree::
    :maxdepth: 1
 
-   MacOSX/homebrew
-   MacOSX/anaconda
+   macOS/homebrew
+   macOS/miniconda
+   macOS/conda-forge
 
 AIX:
 
