@@ -58,7 +58,7 @@ Requirements
 * SciPy_ 0.14 or later (library for scientific computing)
 * ASE_ 3.18.0 or later (atomic simulation environment)
 * a C-compiler
-* LibXC_ 3.x or 4.x
+* LibXC_ 3.x, 4.x or 5.1+
 * BLAS_ library
 
 Optional, but highly recommended:
@@ -271,27 +271,27 @@ A few extra tips:
 * Typically when building GPAW one has to modify ``siteconfig.py`` in a manner
   similar to the following::
 
-    library_dirs += ['/my/path/to/libxc/4.2.3/install/lib']
-    include_dirs += ['/my/path/to/libxc/4.2.3/install/include']
+    library_dirs += ['/my/path/to/libxc/5.2.0/install/lib']
+    include_dirs += ['/my/path/to/libxc/5.2.0/install/include']
 
   or if you don't want to modify your ``siteconfig.py``, you can add these
   lines to your .bashrc::
 
-    export C_INCLUDE_PATH=/my/path/to/libxc/4.2.3/install/include
-    export LIBRARY_PATH=/my/path/to/libxc/4.2.3/install/lib
-    export LD_LIBRARY_PATH=/my/path/to/libxc/4.2.3/install/lib
+    export C_INCLUDE_PATH=/my/path/to/libxc/5.2.0/install/include
+    export LIBRARY_PATH=/my/path/to/libxc/5.2.0/install/lib
+    export LD_LIBRARY_PATH=/my/path/to/libxc/5.2.0/install/lib
 
 Example::
 
-    wget http://www.tddft.org/programs/octopus/down.php?file=libxc/4.2.3/libxc-4.2.3.tar.gz -O libxc-4.2.3.tar.gz
-    tar -xf libxc-4.2.3.tar.gz
-    cd libxc-4.2.3
-    ./configure --enable-shared --disable-fortran --prefix=$HOME/libxc-4.2.3
+    wget http://www.tddft.org/programs/octopus/down.php?file=libxc/5.2.0/libxc-5.2.0.tar.gz -O libxc-5.2.0.tar.gz
+    tar -xf libxc-5.2.0.tar.gz
+    cd libxc-5.2.0
+    ./configure --enable-shared --disable-fortran --prefix=$HOME/libxc-5.2.0
     make
     make install
 
     # add these to your .bashrc:
-    XC=~/libxc-4.2.3
+    XC=~/libxc-5.2.0
     export C_INCLUDE_PATH=$XC/include
     export LIBRARY_PATH=$XC/lib
     export LD_LIBRARY_PATH=$XC/lib
