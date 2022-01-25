@@ -102,7 +102,7 @@ the following attributes:
   * - ``density``
     - :class:`gpaw.new.density.Density`
   * - ``ibzwfs``
-    - :class:`gpaw.new.wave_functions.IBZWaveFunctions`
+    - :class:`gpaw.new.ibzwfs.IBZWaveFunctions`
   * - ``potential``
     - :class:`gpaw.new.potential.Potential`
   * - ``scf_loop``
@@ -175,7 +175,7 @@ DFT
 .. autoclass:: gpaw.new.builder.DFTComponentsBuilder
     :members:
     :undoc-members:
-.. autoclass:: gpaw.new.wave_functions.IBZWaveFunctions
+.. autoclass:: gpaw.new.ibzwfs.IBZWaveFunctions
     :members:
     :undoc-members:
 .. autoclass:: gpaw.new.potential.Potential
