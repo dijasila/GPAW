@@ -100,26 +100,27 @@ class SparseTensor:
         self.indextypes = indextypes
         self.zero()
         self.meinsum = meinsum
+        self.dtype = None
 
     def zero(self):
         self.block_i = defaultdict(float)        
 
     def to_full2d(self, M1_a, M2_a):
-        T_MM = np.zeros( (M1_a[-1], M2_a[-1]) )
+        T_MM = np.zeros( (M1_a[-1], M2_a[-1]), dtype=self.dtype )
         for index, block_xx in self.block_i.items():
             a1, a2 = index
             T_MM[ M1_a[a1]:M1_a[a1+1], M2_a[a2]:M2_a[a2+1] ] += block_xx
         return T_MM
 
     def to_full3d(self, M1_a, M2_a, M3_a):
-        T_MMM = np.zeros( (M1_a[-1], M2_a[-1], M3_a[-1]) )
+        T_MMM = np.zeros( (M1_a[-1], M2_a[-1], M3_a[-1]), dtype=self.dtype )
         for index, block_xx in self.block_i.items():
             a1, a2,a3 = index
             T_MMM[ M1_a[a1]:M1_a[a1+1], M2_a[a2]:M2_a[a2+1], M3_a[a3]:M3_a[a3+1] ] += block_xx
         return T_MMM
 
     def to_full3d_R(self, M1_a, M2_a, M3_a):
-        T_MMM = np.zeros( (M1_a[-1], M2_a[-1], M3_a[-1]) )
+        T_MMM = np.zeros( (M1_a[-1], M2_a[-1], M3_a[-1]), dtype=self.dtype )
         for index, block_xx in self.block_i.items():
             print(index)
             (a1, R1), (a2, R2),(a3, R3) = index
@@ -129,10 +130,14 @@ class SparseTensor:
     def __iadd__(self, index_and_block):
         if isinstance(index_and_block, SparseTensor):
             for index, block_xx in index_and_block.block_i.items():
+                if self.dtype is None:
+                    self.dtype = block_xx.dtype
                 self.block_i[index] += block_xx.copy()
         else:
             index, block_xx = index_and_block
-            print('added', index, block_xx, self.name)
+            if self.dtype is None:
+                self.dtype = block_xx.dtype
+            #print('added', index, block_xx, self.name)
             self.block_i[index] += block_xx.copy() #xxx
 
         return self
@@ -459,7 +464,7 @@ class RIR(RIBase):
 
         with self.timer('Contractions'):
             #F_MM = self.contractions(rho_MM)
-            fock_MM = -0.5*self.exx_fraction*self.fullcontractions(rho2_MM)
+            fock_MM = -(self.nspins/2.)*self.exx_fraction*self.fullcontractions(rho2_MM)
 
         if 0:
             fock_MM = np.zeros_like(rho2_MM)

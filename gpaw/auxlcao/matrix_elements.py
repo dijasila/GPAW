@@ -134,6 +134,7 @@ class MatrixElements:
 
 
     def initialize(self, density, ham, wfs):
+        self.timer = ham.timer
         self.setups = setups = wfs.setups
         self.wfs = wfs
 
@@ -153,33 +154,33 @@ class MatrixElements:
         # Obtain the maximum cutoff on per atom basis
         self.rcmax_a = [phit_rcmax_I[I] for I in I_a]
 
-        for I, (setup, rcmax) in enumerate(zip(setups_I, phit_rcmax_I)):
+        with self.timer('Construct RI-bases'):
+            for I, (setup, rcmax) in enumerate(zip(setups_I, phit_rcmax_I)):
+                if self.screening_omega != 0.0:
+                    setup.screened_coulomb = ScreenedCoulombKernel(setup.rgd, self.screening_omega)
 
-            if self.screening_omega != 0.0:
-                setup.screened_coulomb = ScreenedCoulombKernel(setup.rgd, self.screening_omega)
+                    # Compensation charges
+                    setup.gaux_l, setup.wgaux_l, setup.W_LL = get_compensation_charge_splines_screened(setup, self.lcomp, rcmax)
 
-                # Compensation charges
-                setup.gaux_l, setup.wgaux_l, setup.W_LL = get_compensation_charge_splines_screened(setup, self.lcomp, rcmax)
+                    # Auxiliary basis functions
+                    setup.auxt_j, setup.wauxt_j, setup.sauxt_j, setup.wsauxt_j, setup.M_j, setup.W_AA = \
+                        get_auxiliary_splines_screened(setup, self.lcomp, self.laux, rcmax, threshold=self.threshold)
 
-                # Auxiliary basis functions
-                setup.auxt_j, setup.wauxt_j, setup.sauxt_j, setup.wsauxt_j, setup.M_j, setup.W_AA = \
-                   get_auxiliary_splines_screened(setup, self.lcomp, self.laux, rcmax, threshold=self.threshold)
+                else:
+                    # Compensation charges
+                    setup.gaux_l, setup.wgaux_l, setup.W_LL = get_compensation_charge_splines(setup, self.lcomp, rcmax)
 
-            else:
-                # Compensation charges
-                setup.gaux_l, setup.wgaux_l, setup.W_LL = get_compensation_charge_splines(setup, self.lcomp, rcmax)
+                    # Auxiliary basis functions
+                    setup.auxt_j, setup.wauxt_j, setup.sauxt_j, setup.wsauxt_j, setup.M_j, setup.W_AA = \
+                        get_auxiliary_splines(setup, self.lcomp, self.laux, rcmax, threshold=self.threshold)
 
-                # Auxiliary basis functions
-                setup.auxt_j, setup.wauxt_j, setup.sauxt_j, setup.wsauxt_j, setup.M_j, setup.W_AA = \
-                     get_auxiliary_splines(setup, self.lcomp, self.laux, rcmax, threshold=self.threshold)
+                # Single center Hartree of compensation charges * one phit_j
+                setup.wgauxphit_x = get_wgauxphit_product_splines(setup, setup.wgaux_l, setup.phit_j, rcmax)
 
-            # Single center Hartree of compensation charges * one phit_j
-            setup.wgauxphit_x = get_wgauxphit_product_splines(setup, setup.wgaux_l, setup.phit_j, rcmax)
+                setup.Naux = sum([ 2*spline.l+1 for spline in setup.auxt_j])
 
-            setup.Naux = sum([ 2*spline.l+1 for spline in setup.auxt_j])
-
-            # Single center Hartree of auxiliary basis function * one phit_j
-            setup.wauxtphit_x = get_wgauxphit_product_splines(setup, setup.wauxt_j, setup.phit_j, rcmax)
+                # Single center Hartree of auxiliary basis function * one phit_j
+                setup.wauxtphit_x = get_wgauxphit_product_splines(setup, setup.wauxt_j, setup.phit_j, rcmax)
 
         transformer = FourierTransformer(rcmax=max(phit_rcmax_I)+1e-3, ng=2**10)
         tsoc = TwoSiteOverlapCalculator(transformer)
@@ -225,25 +226,26 @@ class MatrixElements:
         pt_Ijq = msoc.transform(pt_Ij)
         pt_l_Ij = get_lvalues(pt_Ij)
 
-        # Projectors to pseudo basis functions
-        self.P_iM_expansions = msoc.calculate_expansions(pt_l_Ij, pt_Ijq,
-                                                         phit_l_Ij, phit_Ijq)
+        with self.timer('Calcualte expansions'):
+            # Projectors to pseudo basis functions
+            self.P_iM_expansions = msoc.calculate_expansions(pt_l_Ij, pt_Ijq,
+                                                             phit_l_Ij, phit_Ijq)
 
-        # Screened Coulomb integrals between auxiliary functions
-        self.S_AA_expansions = msoc.calculate_expansions(wsauxt_l_Ij, wsauxt_Ijq,
-                                                         sauxt_l_Ij, sauxt_Ijq)
+            # Screened Coulomb integrals between auxiliary functions
+            self.S_AA_expansions = msoc.calculate_expansions(wsauxt_l_Ij, wsauxt_Ijq,
+                                                             sauxt_l_Ij, sauxt_Ijq)
+ 
+            # Overlap between Poisson solution of screened auxiliary functions and gaussians
+            self.M_AL_expansions = msoc.calculate_expansions(wsauxt_l_Ij, wsauxt_Ijq,
+                                                             ghat_l_Il, ghat_Ilq)
 
-        # Overlap between Poisson solution of screened auxiliary functions and gaussians
-        self.M_AL_expansions = msoc.calculate_expansions(wsauxt_l_Ij, wsauxt_Ijq,
-                                                         ghat_l_Il, ghat_Ilq)
+            # X = Combined index of compensation l, phit j, selected gaunt expansion l channels, gaunt expansion m of those chanels
+            self.W_XM_expansions = msoc.calculate_expansions(wgauxphit_l_Ix, wgauxphit_Ixq,
+                                                             phit_l_Ij, phit_Ijq)
 
-        # X = Combined index of compensation l, phit j, selected gaunt expansion l channels, gaunt expansion m of those chanels
-        self.W_XM_expansions = msoc.calculate_expansions(wgauxphit_l_Ix, wgauxphit_Ixq,
-                                                         phit_l_Ij, phit_Ijq)
-
-        # Y = Combined index of auxiliary j, phit j, selected gaunt expansion l channels, gaunt expansion m of those channels
-        self.W_YM_expansions = msoc.calculate_expansions(wauxtphit_l_Ix, wauxtphit_Ixq,
-                                                         phit_l_Ij, phit_Ijq)
+            # Y = Combined index of auxiliary j, phit j, selected gaunt expansion l channels, gaunt expansion m of those channels
+            self.W_YM_expansions = msoc.calculate_expansions(wauxtphit_l_Ix, wauxtphit_Ixq,
+                                                             phit_l_Ij, phit_Ijq)
 
         self.A_a = get_A_a( [ setup.auxt_j for setup in setups ] )
         Lsize = (self.lcomp+1)**2
@@ -273,11 +275,16 @@ class MatrixElements:
             self.calculate_sparse_P_LMM(P_LMM, P_AMM)
             return
 
-        self.calculate_sparse_W_LL(W_LL) 
-        self.calculate_sparse_W_AL(W_AL, W_LL)
-        self.calculate_sparse_W_AA(W_AA)
-        self.calculate_sparse_P_AMM(P_AMM, W_AA)
-        self.calculate_sparse_P_LMM(P_LMM, P_AMM)
+        with self.timer('W_LL'):
+            self.calculate_sparse_W_LL(W_LL) 
+        with self.timer('W_AL'):
+            self.calculate_sparse_W_AL(W_AL, W_LL)
+        with self.timer('W_AA'):
+            self.calculate_sparse_W_AA(W_AA)
+        with self.timer('P_AMM'):
+            self.calculate_sparse_P_AMM(P_AMM, W_AA)
+        with self.timer('P_LMM'):
+            self.calculate_sparse_P_LMM(P_LMM, P_AMM)
         #print('disabled P_LMM?')
         return
 
@@ -783,7 +790,7 @@ d      where double bar stands for Coulomb integral.
         #print("W_XM", a1,a2,a3,W_YM)
 
 
-        local_I_AMM = np.zeros( (A_a[a1+1]-A_a[a1], M_a[a2+1]-M_a[a2], M_a[a3+1]-M_a[a3]) )
+        local_I_AMM = np.zeros( (A_a[a1+1]-A_a[a1], M_a[a2+1]-M_a[a2], M_a[a3+1]-M_a[a3]), dtype=W_YM.dtype )
         A = 0
         X = 0
         Astart = 0

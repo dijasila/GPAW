@@ -198,16 +198,20 @@ class Full4C(RIAlgorithm):
         V_pg = finegd.zeros( len(pairs_p) )
         #print('Allocating ', 2*rho_pg.itemsize / 1024.0**2,' MB')
 
+        dtype = self.wfs.basis_functions.dtype
         # Put wave functions of the two basis functions to the grid
-        phit1_MG = gd.zeros(nao)
-        self.wfs.basis_functions.lcao_to_grid(np.eye(nao), phit1_MG, kpt1.q)
+        phit1_MG = gd.zeros(nao, dtype=dtype)
+        self.wfs.basis_functions.lcao_to_grid(np.eye(nao, dtype=dtype), phit1_MG, kpt1.q)
+       
+        assert np.linalg.norm(phit1_MG.ravel().imag)<1e-10
+        phit1_MG = phit1_MG.real.copy()
 
         for p1, (M1, M2) in enumerate(pairs_p):
             if p1 % 100 == 0:
                 print('Potentials for pair %d/%d' % (p1, len(pairs_p)))
             # Construct the product of two basis functions
+            
             rhot_G = phit1_MG[M1] * phit1_MG[M2]
-
             rhot_g = finegd.zeros()
             interpolator.apply(rhot_G, rhot_g)
 
@@ -222,7 +226,9 @@ class Full4C(RIAlgorithm):
                 D_ii = np.outer(P1_i, P2_i.conjugate())
                 D_p = pack(D_ii)
                 D_ap[a] = D_p
-                Q_aL[a] = np.dot(D_p, self.density.setups[a].Delta_pL)
+                Q_L = np.dot(D_p, self.density.setups[a].Delta_pL)
+                assert np.linalg.norm(Q_L.imag)<1e-10
+                Q_aL[a] = Q_L.real.copy()
             
             if self.only_ghat:
                 print('Only compesation charges')
@@ -245,7 +251,7 @@ class Full4C(RIAlgorithm):
                 rho_pg[p1][:] = rhot_g
             V_pg[p1][:] = V_g
 
-        K_pp = finegd.integrate(rho_pg, V_pg)
+        K_pp = ( finegd.integrate(rho_pg, V_pg) + finegd.integrate(V_pg, rho_pg) ) / 2
         for p1, (M1, M2) in enumerate(pairs_p):
             for p2, (M3, M4) in enumerate(pairs_p):
                 K = K_pp[p1, p2]
