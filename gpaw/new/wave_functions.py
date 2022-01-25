@@ -210,15 +210,3 @@ class PWFDWaveFunctions(WaveFunctions):
             dO_ii = self.setups[a].dO_ii
             F_vii -= np.einsum('inv, jn, jk -> vik', F_inv, P_in, dO_ii)
             F_av[a] += 2 * F_vii.real.trace(0, 1, 2)
-
-
-class LCAOWaveFunctions(WaveFunctions):
-    def __init__(self,
-                 coef_nM: DA,
-                 spin: int | None,
-                 setups: Setups,
-                 fracpos_ac: Array2D,
-                 weight: float = 1.0,
-                 spin_degeneracy: int = 2):
-        self.coef_nM = coef_nM
-        super().__init__(spin, setups, fracpos_ac, weight, spin_degeneracy)
