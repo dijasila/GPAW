@@ -3,7 +3,11 @@ from itertools import product
 
 import numpy as np
 from ase.dft.kpoints import monkhorst_pack
-from scipy.spatial import ConvexHull, Delaunay, QhullError, Voronoi
+from scipy.spatial import ConvexHull, Delaunay, Voronoi
+try:
+    from scipy.spatial import QhullError
+except ImportError:  # scipy < 1.8
+    from scipy.spatial.qhull import QhullError
 
 import gpaw.mpi as mpi
 from gpaw import GPAW, restart
