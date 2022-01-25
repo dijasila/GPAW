@@ -58,4 +58,4 @@ class LCAODFTComponentsBuilder(FDDFTComponentsBuilder):
 
 
 class DummyHamiltonian:
-    apply = None
+    apply = lambda: None
