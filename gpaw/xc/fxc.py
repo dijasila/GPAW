@@ -2,19 +2,18 @@ import os
 import sys
 from time import time
 
-import numpy as np
-from scipy.special import sici
-from scipy.special.orthogonal import p_roots
 import ase.io.ulm as ulm
-from ase.units import Ha, Bohr
+import numpy as np
+from ase.units import Bohr, Ha
 from ase.utils.timing import timer
+from scipy.special import p_roots, sici
 
 import gpaw.mpi as mpi
 from gpaw.blacs import BlacsGrid, Redistributor
 from gpaw.fd_operators import Gradient
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.utilities.blas import gemmdot, axpy
 from gpaw.pw.descriptor import PWDescriptor
+from gpaw.utilities.blas import axpy, gemmdot
 from gpaw.xc.rpa import RPACorrelation
 
 
