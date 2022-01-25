@@ -97,9 +97,8 @@ class FakePotentialCalculator(PotentialCalculator):
         self.stress_vv = None
 
     def force_contributions(self, state):
-        return {}, {}, {a: force_v[np.newaxis]
-                        for a, force_v
-                        in enumerate(self.force_av)}
+        return {}, {}, {a: self.force_av[a:a + 1]
+                        for a in state.density.D_asii.keys()}
 
     def stress_contribution(self, state):
         return self.stress_vv

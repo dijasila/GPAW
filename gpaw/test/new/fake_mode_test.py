@@ -6,13 +6,14 @@ from ase.constraints import ExpCellFilter
 from gpaw.new.ase_interface import GPAW
 
 
-def test_fake_mode():
+def test_fake_mode_molecule():
     atoms = Atoms('LiH',
                   [[0, 0.1, 0.2],
                    [0, 0, 1.4]])
     atoms.calc = GPAW(
         mode='fake',
-        symmetry='off')
+        symmetry='off',
+        txt=None)
     f1 = atoms.get_forces()
     f2 = numeric_forces(atoms)
     assert abs(f1 - f2).max() < 0.0005
