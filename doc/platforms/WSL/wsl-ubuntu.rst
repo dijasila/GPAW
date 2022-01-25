@@ -76,10 +76,9 @@ Now, we can create an environment (here 'gpaw-env' name is used. You can use any
     $ conda create --name gpaw-env 
     $ conda activate gpaw-env 
 
-Lastly, you can install GPAW and a needed Python module called 'requests'::
+Lastly, you can install GPAW::
 
     $ conda install -c conda-forge gpaw
-    $ pip install requests
 
 .. _Ubuntu: http://www.ubuntu.com/
 .. _ASE: https://wiki.fysik.dtu.dk/ase/
