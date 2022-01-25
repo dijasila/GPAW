@@ -1,15 +1,14 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
-
 """Main gpaw module."""
 import os
 import sys
 import contextlib
 from pathlib import Path
-from typing import List, Dict, Union
+from typing import List, Dict, Union, Any
 
-__version__ = '21.6.1b1'
-__ase_version_required__ = '3.22.0'
+__version__ = '22.1.1b1'
+__ase_version_required__ = '3.23.0b1'
 __all__ = ['GPAW',
            'Mixer', 'MixerSum', 'MixerDif', 'MixerSum2',
            'CG', 'Davidson', 'RMMDIIS', 'DirectLCAO',
@@ -41,15 +40,6 @@ def disable_dry_run():
 if 'OMP_NUM_THREADS' not in os.environ:
     os.environ['OMP_NUM_THREADS'] = '1'
 
-# Symbol look may fail if library linked agains _gpaw.so tries internally
-# dlopen another .so. (MKL is one particular example)
-# Thus, expose symbols from libraries used by _gpaw
-old_dlflags = sys.getdlopenflags()
-sys.setdlopenflags(old_dlflags | os.RTLD_GLOBAL)
-try:
-    import _gpaw
-finally:
-    sys.setdlopenflags(old_dlflags)
 
 from gpaw.broadcast_imports import broadcast_imports  # noqa
 
@@ -60,6 +50,7 @@ with broadcast_imports:
     from argparse import ArgumentParser, REMAINDER, RawDescriptionHelpFormatter
 
     import numpy as np
+    import _gpaw
 
 
 class ConvergenceError(Exception):
@@ -170,7 +161,7 @@ if debug:
 
 
 with broadcast_imports:
-    from gpaw.calculator import GPAW
+    from gpaw.calculator import GPAW as OldGPAW
     from gpaw.mixer import Mixer, MixerSum, MixerDif, MixerSum2
     from gpaw.eigensolvers import Davidson, RMMDIIS, CG, DirectLCAO
     from gpaw.poisson import PoissonSolver
@@ -179,6 +170,13 @@ with broadcast_imports:
     from gpaw.wavefunctions.lcao import LCAO
     from gpaw.wavefunctions.pw import PW
     from gpaw.wavefunctions.fd import FD
+
+
+def GPAW(*args, **kwargs) -> Any:
+    if os.environ.get('GPAW_NEW'):
+        from gpaw.new.ase_interface import GPAW as NewGPAW
+        return NewGPAW(*args, **kwargs)
+    return OldGPAW(*args, **kwargs)
 
 
 def restart(filename, Class=GPAW, **kwargs):

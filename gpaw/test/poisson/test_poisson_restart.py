@@ -7,6 +7,7 @@ from gpaw import GPAW
 from gpaw.tddft import TDDFT as GRIDTDDFT
 from gpaw.lcaotddft import LCAOTDDFT
 from gpaw.poisson import PoissonSolver as PS
+from gpaw.poisson_moment import MomentCorrectionPoissonSolver
 from gpaw.poisson_extravacuum import ExtraVacuumPoissonSolver
 
 pytestmark = pytest.mark.skipif(world.size > 2,
@@ -24,7 +25,24 @@ def test_poisson_poisson_restart(in_tmp_dir):
     ps = PS()
     poissonsolver_i.append(ps)
 
-    ps = PS(remove_moment=4)
+    ps = MomentCorrectionPoissonSolver(poissonsolver=PS(),
+                                       moment_corrections=4)
+    poissonsolver_i.append(ps)
+
+    mom_corr_i = [{'moms': range(4), 'center': [16, 16, 4]},
+                  {'moms': range(4), 'center': [16, 16, 20]}]
+    ps = MomentCorrectionPoissonSolver(poissonsolver=PS(),
+                                       moment_corrections=4)
+    poissonsolver_i.append(ps)
+
+    ps = MomentCorrectionPoissonSolver(poissonsolver=PS(),
+                                       moment_corrections=mom_corr_i)
+    poissonsolver_i.append(ps)
+
+    ps1 = MomentCorrectionPoissonSolver(poissonsolver=PS(),
+                                        moment_corrections=mom_corr_i[0:1])
+    ps = MomentCorrectionPoissonSolver(poissonsolver=ps1,
+                                       moment_corrections=mom_corr_i[1:2])
     poissonsolver_i.append(ps)
 
     ps = ExtraVacuumPoissonSolver(gpts * 2, PS())

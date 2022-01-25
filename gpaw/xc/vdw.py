@@ -202,6 +202,10 @@ class VDWFunctionalBase:
     def get_Ecnl(self):
         return self.Ecnl
 
+    def stress_tensor_contribution(self, n_sg):
+        raise NotImplementedError('Calculation of stress tensor is not ' +
+                                  f'implemented for {self.name}')
+
     def calculate_impl(self, gd, n_sg, v_sg, e_g):
         sigma_xg, dedsigma_xg, gradn_svg = gga_vars(gd, self.grad_v, n_sg)
         self.calculate_exchange(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)

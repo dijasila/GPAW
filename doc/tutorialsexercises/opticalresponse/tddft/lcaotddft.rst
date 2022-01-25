@@ -68,7 +68,7 @@ Example usage
 First we do a standard ground-state calculation with the ``GPAW`` calculator:
 
 .. literalinclude:: lcaotddft.py
-   :lines: 3-20
+   :lines: 3-22
 
 Some important points are:
 
@@ -93,12 +93,12 @@ Some important points are:
 Next we kick the system in the z direction and propagate 3000 steps of 10 as:
 
 .. literalinclude:: lcaotddft.py
-   :lines: 22-34
+   :lines: 24-36
 
 After the time propagation, the spectrum can be calculated:
 
 .. literalinclude:: lcaotddft.py
-   :lines: 36-38
+   :lines: 38-40
 
 This example input script can be downloaded :download:`here <lcaotddft.py>`.
 
@@ -149,7 +149,7 @@ significantly improve density of states of unoccupied states.
 The p-valence basis sets can be easily obtained for the appropriate elements
 with the :command:`gpaw install-data` tool using the following options::
 
-    $ gpaw install-data {<directory>} --basis --version=pvalence
+    $ gpaw install-data {<directory>} --basis --version=pvalence-0.9.20000
 
 See :ref:`installation of paw datasets` for more information on basis set
 installation. It is again reminded that these basis sets are not thoroughly
@@ -528,3 +528,18 @@ References
    | T. P. Rossi, M. Kuisma, M. J. Puska, R. M. Nieminen, and P. Erhart,
    | :doi:`Kohn--Sham Decomposition in Real-Time Time-Dependent Density-Functional Theory: An Efficient Tool for Analyzing Plasmonic Excitations <10.1021/acs.jctc.7b00589>`
    | J. Chem. Theory Comput. **13**, 4779 (2017)
+
+
+Code documentation
+==================
+
+.. autoclass:: gpaw.lcaotddft.LCAOTDDFT
+   :members:
+   :exclude-members: read
+
+
+Observers
+---------
+
+.. autoclass:: gpaw.lcaotddft.dipolemomentwriter.DipoleMomentWriter
+   :members:

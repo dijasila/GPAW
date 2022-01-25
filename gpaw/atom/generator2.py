@@ -1289,7 +1289,6 @@ def get_parameters(symbol, args):
                 r0=r0, v0=None, nderiv0=nderiv0,
                 pseudize=pseudize, rcore=rcore,
                 core_hole=args.core_hole,
-                output=args.output,
                 yukawa_gamma=args.gamma)
 
 
@@ -1390,7 +1389,6 @@ class CLICommand:
             '(for vdW-DF functionals).')
         add('--core-hole')
         add('-e', '--electrons', type=int)
-        add('-o', '--output')
 
     @staticmethod
     def run(args):

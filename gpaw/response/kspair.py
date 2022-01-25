@@ -6,7 +6,8 @@ from scipy.spatial import cKDTree
 from gpaw.utilities import convert_string_to_fd
 from ase.utils.timing import Timer, timer
 
-from gpaw import GPAW, disable_dry_run
+from gpaw import disable_dry_run
+from gpaw.calculator import GPAW
 import gpaw.mpi as mpi
 from gpaw.response.math_func import two_phi_planewave_integrals
 

@@ -12,6 +12,51 @@ Git master branch
 
 * Corresponding ASE release: ASE-3.23.0b1
 
+
+Version 22.1.0
+==============
+
+Jan 12, 2022: :git:`22.1.0 <../22.1.0>`
+
+.. important::
+
+   This release contains some important bugfixes:
+
+   * Spin-polarized GW-calculations:  The bug was introduced in
+     version 20.10.0 and also present in versions 21.1.0 and 21.6.0.
+
+   * Bug in non-selfconsistent eigenvalues for hybrid functionals
+     and spin-polarized systems.
+
+   * Erroneous Hirshfeld-effective volumes for non-orthogonal cells.
+
+   * Fix for latest numpy-1.22.0.
+
+* Corresponding ASE release: ASE-3.22.1.
+
+* Python 3.7 or later is required now.
+
+* One can now apply Hund's rule (``hund=True``) to systems containing
+  more than one atom.  This is useful for finding ferro-magnetic states
+  and often works better that using ``magmoms=[1, 1, ...]`` for the
+  initial magnetic moments.
+
+* :ref:`polarizability` tutorial.
+
+* Variational calculations of molecules and periodic systems in LCAO mode can
+  now be done using the :ref:`exponential transformation direct minimization
+  (ETDM) <directmin>`::
+
+      from gpaw import GPAW
+      calc = GPAW(eigensolver='etdm',
+                  occupations={'name': 'fixed-uniform'},
+                  mixer={'backend': 'no-mixing'},
+                  nbands='nao',
+                  ...)
+
+  The use of ETDM is particularly recommended in
+  excited-state calculations using MOM (see :ref:`mom`).
+
 * Constant magnetic field calculations can now be done:
   See :class:`gpaw.bfield.BField` and this example:
   :git:`gpaw/test/ext_potential/test_b_field.py`.
@@ -44,9 +89,24 @@ Git master branch
 * The hyperfine tensor CLI-tool no longer divides by total magnetic moment:
   :ref:`hyperfine`.
 
+* The solvated jellium method (:class:`~gpaw.solvation.sjm.SJM`)---for
+  constant-potential calculations in simulating
+  electrochemical/electrified interfaces---has been thoroughly
+  updated, and more thorough :ref:`documentation<sjm>` and
+  :ref:`tutorials<solvated_jellium_method>` are now available. Al keywords
+  now enter the :class:`~gpaw.solvation.sjm.SJM` calculator through the
+  :literal:`sj` dictionary.
+
+* Radiative emission (lifetimes, ...) are obtainable from
+  real-time LCAO-TDDFT via the radiation-reaction potential.
+  See the tutorial: :ref:`radiation_reaction_rttddft`.
+
+* Input parameters are now written to the log file in such a way that it
+  can be copy-pasted directly into a Python script.
+
 
 Version 21.6.0
-===============
+==============
 
 Jun 24, 2021: :git:`21.6.0 <../21.6.0>`
 
@@ -76,10 +136,10 @@ Jun 24, 2021: :git:`21.6.0 <../21.6.0>`
   Kohn–Sham states.  Previously, the printed occupation numbers were
   scaled by **k**-point weight.
 
-* Calculations of excited states can now be performed with the :ref:`mom`
-  (MOM). Since calculations using MOM are variational, they provide atomic
-  forces and can be used for excited-state geometry optimization and molecular
-  dynamics.
+* Calculations of excited states can now be performed with the :ref:`Maximum
+  Overlap Method (MOM) <mom>`. Since calculations using MOM are variational,
+  they provide atomic forces and can be used for excited-state geometry
+  optimization and molecular dynamics.
 
 * The Davidson eigensolver now uses ScaLAPACK for the
   `(2 N_{\text{bands}}) \times (2 N_{\text{bands}})` diagonalization step
@@ -198,7 +258,7 @@ Oct 19, 2020: :git:`20.10.0 <../20.10.0>`
 
   * Code improvements.
 
-* New :meth:`~gpaw.GPAW.get_atomic_electrostatic_potentials`
+* New :meth:`~gpaw.calculator.GPAW.get_atomic_electrostatic_potentials`
   method.  Useful for aligning eigenvalues from different calculations.
   See :ref:`this example <potential>`.
 
@@ -222,7 +282,7 @@ Oct 19, 2020: :git:`20.10.0 <../20.10.0>`
 
 * The ``fixdensity`` keyword has been deprecated.
 
-* New :meth:`gpaw.GPAW.fixed_density` method added to replace use
+* New :meth:`gpaw.calculator.GPAW.fixed_density` method added to replace use
   of the deprecated ``fixdensity`` keyword.
 
 * New configuration option (``nolibxc = True``) for compiling GPAW
@@ -542,7 +602,7 @@ May 29, 2018: :git:`1.4.0 <../1.4.0>`
   to fit parallelization.
 
 * Major code refactoring to facilitate work with parallel arrays.  See new
-  module: :mod:`gpaw.matrix`.
+  module: ``gpaw.matrix``.
 
 * Better reuse of wavefunctions when atoms are displaced.  This can
   improve performance of optimizations and dynamics in FD and PW mode.
@@ -681,7 +741,7 @@ Feb 7, 2017: :git:`1.2.0 <../1.2.0>`.
 * Dipole-layer corrections for slab calculations can now be done in PW-mode
   also.  See :ref:`dipole`.
 
-* New :meth:`~gpaw.GPAW.get_electrostatic_potential` method.
+* New :meth:`~gpaw.calculator.GPAW.get_electrostatic_potential` method.
 
 * When setting the default PAW-datasets or basis-sets using a dict, we
   must now use ``'default'`` as the key instead of ``None``:
@@ -730,7 +790,7 @@ June 22, 2016: :git:`1.1.0 <../1.1.0>`.
 
 * New band structure unfolding tool and :ref:`tutorial <unfolding tutorial>`.
 
-* The :meth:`~gpaw.GPAW.get_pseudo_wave_function` method
+* The :meth:`~gpaw.calculator.GPAW.get_pseudo_wave_function` method
   has a new keyword:  Use ``periodic=True`` to get the periodic part of the
   wave function.
 

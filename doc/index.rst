@@ -44,6 +44,8 @@ array([[  9.37566400e-14,   4.40256983e-14,  -6.44750360e-01],
 News
 ====
 
+* :ref:`GPAW version 22.1.0 <releasenotes>` released (Jan 12, 2022).
+
 * :ref:`GPAW version 21.6.0 <releasenotes>` released (Jun 24, 2021).
 
 * Slides from the "GPAW 2021 Users and developers meeting" are

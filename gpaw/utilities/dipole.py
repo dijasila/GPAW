@@ -6,11 +6,11 @@ from typing import List, Iterable
 from ase.units import Bohr
 import numpy as np
 
-from gpaw import GPAW
+from gpaw.calculator import GPAW
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.setup import Setup
 from gpaw.mpi import serial_comm
-from gpaw.typing import Array2D, Array3D, Array4D
+from gpaw.typing import Array2D, Array3D, Array4D, Vector
 
 
 def dipole_matrix_elements(gd: GridDescriptor,
@@ -18,7 +18,7 @@ def dipole_matrix_elements(gd: GridDescriptor,
                            P_nI: Array2D,
                            position_av: Array2D,
                            setups: List[Setup],
-                           center: Iterable[float]) -> Array3D:
+                           center: Vector) -> Array3D:
     """Calculate dipole matrix-elements.
 
     gd:
@@ -122,10 +122,7 @@ def main(argv: List[str] = None) -> None:
         help='Center of charge distribution.  Default is middle of unit '
         'cell.')
 
-    if hasattr(parser, 'parse_intermixed_args'):
-        args = parser.parse_intermixed_args(argv)
-    else:
-        args = parser.parse_args(argv)
+    args = parser.parse_intermixed_args(argv)
 
     calc = GPAW(args.file)
 

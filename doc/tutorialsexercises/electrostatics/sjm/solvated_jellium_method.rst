@@ -1,144 +1,158 @@
-.. module:: gpaw.solvation.sjm
 .. _solvated_jellium_method:
 
 =============================
 Solvated Jellium Method (SJM)
 =============================
 
-Theoretical Background
-======================
+Please familiarize yourself with the theory of the SJM approach before starting this tutorial, by reading the :ref:`SJM documentation page<sjm>`.
 
-The Solvated Jellium method (SJM) is a simple method for the simulation
-of electrochemical interfaces in DFT. A full description of the model
-can be found in [#SJM18]_. It can be used like the standard GPAW calculator,
-meaning stable intermediates and reaction barriers can be calculated at
-defined electrode potential via e.g. the Nudged Elastic Band method (NEB)
-[#NEB00]_.
+A simple Au(111) slab
+=====================
 
-The basis of the model is keeping control of the electrode potential
-by charging the electrodes interface, while keeping the periodic
-unit cell charge neutral. This is done by adding a JelliumSlab in
-the region above the electrode surface. Doing so both electrons/holes
-in the SCF cycle and spatially constant counter charge are introduced,
-therefore keeping the unit cell charge neutral.
+As a simple example, we'll examine the calculation of a Au slab with a water overlayer calculated at a potential of -0.2 V versus SHE.
+To speed the computation, we'll use a tiny slab with a single water molecule over the top.
 
-Additionally, an implicit solvent [#HW14]_ is introduced above the slab,
-which screens the electric field created by dipole consisting of electrode
-and counter charge.
+To use the solvated jellium approach, instead of importing GPAW as our calculator object, we import :class:`~gpaw.solvation.sjm.SJM`.
+All of the SJM-specific parameters are fed to the calculator as a single dictionary called :literal:`sj`.
+In our example script, the :literal:`sj` dictionary contains only a single parameter: the target potential; the rest of the SJM parameters are kept at their default values.
+Keep in mind that the *absolute* potential has to be provided, where the value of the SHE potential on an absolute scale is approximately 4.4 V.
 
-The electrode potential is then defined as the Fermi Level (`\mu`) referenced
-to the electrostatic potential deep in the solvent, where the whole
-charge on the electrode has been screened and no electric field is present.
+Since SJM utilizes an implicit solvent to screen the field, we will need to specify some solvent parameters as well.
+SJM relies on GPAW's :ref:`continuum_solvent_model` to provide this screening, and any solvation parameters should be fed directly to the calculator, *outside* of the :literal:`sj` dictionary.
+(The SJM calculator is a subclass of the :class:`~gpaw.solvation.calculator.SolvationGPAW` calculator, so any solvation parameters will be passed straight through to SolvationGPAW.)
+Reasonable values to simulate room-temperature water are used in the script below.
+In practice, since the purpose of the implicit solvent is just to screen the field, the net results---such as binding energies and barrier heights---will be relatively insensitive to the choice of implicit solvent parameters, so long as they are kept consistent.
+Try running the script below to find the number of electrons necessary to equilibrate the work function to 4.2 eV:
 
-.. math:: \Phi_e = \Phi_w - \mu.
+.. literalinclude:: run-Au111.py
 
-The energy used in the analysis of electrode reactions is the Grand Potential
-Energy
+If you examine the output in 'Au111.txt', you'll see that the code varies the number of excess electrons until the target potential is within a tolerance of 4.2 V; the default tolerance is 0.01 V.
+This process usually takes a few steps on the first image, but is faster on subsequent images of a trajectory, since the changes are less dramatic and the potential--vs--charge slope is retained from previous steps.
+You should see that in net the routine removed only about 0.007 electrons from the simulation, as compared to a charge-neutral simulation, in order to achieve the desired work function.
 
-.. math:: \Omega = E_{tot} + \Phi_e N_e
+You'll notice that the output in 'Au.txt' contains additional information, as compared to a charge-neutral simulation::
 
-Usage Example: A simple Au(111) slab
-====================================
+    Legendre-transformed energies (Omega = E - N mu)
+      (grand-potential energies)
+      N (excess electrons):   +0.006663
+      mu (workfunction, eV):   +4.194593
+    --------------------------
+    Free energy:    -23.630651
+    Extrapolated:   -23.608083
 
-As a usage example, given here is the calculation of a simple Au slab
-at a potential of -1 V versus SHE. Keep in mind that the absolute
-potential has to be provided, where the value of the SHE potential on
-an absolute scale is approx. 4.4V.
+These Legendre-transformed energies, `\Omega = E - N \mu`, are written into any ASE trajectories created, and are the quantity returned by :literal:`calc.get_potential_energy()` (and therefore :literal:`atoms.get_potential_energy()`).
+As discussed in :ref:`grand-potential-energy`, these grand-potential energies are consistent with the forces in the grand-canonical scheme, and are thus compatible with methods such as saddle-point searches (*e.g.*, NEB) and energy optimizations (*e.g.*, BFGSLineSearch).
+If you'd rather have it output the traditional canonical energies to the :literal:`get_potential_energy` methods, you can use the :literal:`sj['grand_output']` keyword.
 
-.. literalinclude:: Au111.py
+In the last line of the script above, we wrote out some additional information in the form of 'sjm traces'.
+These are traces of the electrostatic potential, the background charge, and the solvent cavity across the `z` axis (that is, `xy`-averaged).
+It's a good idea to take a look at these, and perhaps make a plot for each, when running a simulation with a new system so you can be sure it is behaving as you expect.
+The three files that are created are:
 
-The output in 'Au_pot_3.4.txt' is extended by the grand canonical energy
-and contains the new part::
+potential.txt:
+ Electrostatic potential averaged over `xy` and referenced to the system's Fermi Level.
+ The outer parts should correspond to the respective work functions and the potential at the top boundary should correspond to the potential set in the input.
 
- ----------------------------------------------------------
- Grand Potential Energy (E_tot + E_solv - mu*ne):
- Extrpol:    -9.004478833351179
- Free:    -9.025229571371211
- -----------------------------------------------------------
+cavity.txt:
+ The shape of the implicit solvent cavity averaged over `xy`.
+ Multiplying the cavity function with epsinf corresponds to the `xy`-averaged dielectric constant distribution in the unit cell.
 
-These energies are written e.g. into trajectory files if
-:literal:`write_grandcanonical_energy = True`.
+background_charge.txt:
+ The shape of the jellium background charge averaged over `xy` and normalized.
+
+.. Note:: Alternatively, :literal:`calc.write_sjm_traces(style='cube')`
+          can be used to write cube files on the 3-D grid, instead of traces.
+
+Our traces showing the solvent region and the jellium region are plotted below.
+The black dots indiate the atom's `z` positions.
+We see that both the solvent and the jellium are starting above the highest atom, so all is good.
+If you do see solvent appearing in a region where you do not want it, you can block it with ghost atoms or a boundary plane, as described in the :class:`~gpaw.solvation.sjm.SJMPower12Potential` docstring.
+If you see solvent in the metal region, you could increase the atomic radii as described in the same docstring.
+
+.. image:: traces-Au111.png
+           :width: 600 px
+           :align: center
+
+Relaxing the slab and adsorbate
+===============================
+
+Next, let's perform a structural optimization at a constant potential.
+Use the same system as the previous example, but add an H atom to the surface as an adsorbate.
+
+.. literalinclude:: run-Au111-H-seq.py
+
+If you examine the output, you should see this behaves the same as any other relaxation job, except the potential is constant, rather than the number of electrons.
+
+A faster route: simultaneous potential and structure optimization
+=================================================================
+
+It is often faster to optimize the structure and the potential simultaneously.
+That is, instead of waiting until the potential is perfectly equilibrated before taking an ionic step, you can take an ionic step and adjust the number of electrons simultaneously.
+To do this, set a loose potential tolerance and turn the :literal:`always_adjust` keyword to :literal:`True`.
+An example follows.
+
+.. literalinclude:: run-Au111-H-sim.py
+
+Some things to note:
+
+* At the end of the script, we tightened the criteria back up, in order to guarantee precise results consistent with a normal, sequential calculation (assuming it found the same local minimum).
+
+* It's a good idea to use the BFGS, and not the BFGSLineSearch, algorithm for structural optimization. This is because the forces and energy are not necessarily consistent until the optimization finishes, and that might confuse an optimizer that uses the energy. BFGSLineSearch may in general have trouble with SJM, since the tolerance set on the desired potential can lead to small inconsistencies between the forces and energy. When in doubt, use the traditional BFGS optimizer.
+
+The plot below compares the "sequential" and "simultaneuous" optimization approaches.
+The open circles are potential-equilibration steps, while the filled circles represent ionic steps (in which the atoms are moved).
+In sequential mode, it always makes sure the potential is within tolerance before taking an ionic step, and you can see that it typically takes an extra DFT calculation (or two) before moving the atoms.
+In simultaneous mode, it moves the atoms with much higher frequency, and only when the potential gets very far from the target does it pause to equilibrate.
+Generally, this results in faster total convergence.
+At the end of the sequential mode, we switched back to simultaneous mode to ensure that the final result was at the expected potential; this adds a few extra steps, but overall the computational savings are typically worth it.
+
+.. image:: simultaneous.png
+           :width: 600 px
+           :align: center
+
+Finding a barrier (NEB/DyNEB)
+=============================
+
+Perhaps the most-desired use of constant-potential calculations is to find barriers at a specified potential.
+This avoids a well-known problem in canonical electronic structure calculations, where the work function (that is, the electrical potential) can change by 1--2 V over the course of an elementary step.
+Such a potential change is obviously much greater than the experimental situation, where potentiostats hold the potential to a tolerance many orders of magnitude smaller.
+The SJM method allows one to calculate a reaction barrier in a manner where all images in the trajectory have identical work functions, down to a user-specified tolerance.
+
+The discrepancy between a canonical and grand-canonical simulation is most pronounced in reactions involving the creation or destruction of an ion, as the ion collides with the constant-potential surface.
+Unfortunately, simulating even a simple reaction like the Volmer reaction---where a proton in the solution reacts to form an adsorbed hydrogen atom---is not possible in this tutorial, as a relatively large water layer---that is, larger than the one molecule we are using!---is needed in order to stabilize the solvated proton in the initial state.
+Therefore, in this tutorial, we'll do a much simpler reaction: the diffusion of our adsorbed H atom from one type of surface site to another.
+Note that we should expect very little difference in the number of excess electrons in order to equilibrate the initial, transition, and final state; nevertheless, it allows us to demonstrate the use of the NEB method with SJM.
+
+.. literalinclude:: run-neb.py
+
+After a few iterations, the band completes and we can make a plot of the barrier, using :literal:`NEBTools`.
+
+.. image:: band.png
+           :width: 600 px
+           :align: center
+
+Although the reaction modeled here is very simple and doesn't involve much need for a constant-potential method, it nonetheless allows us to demonstrate that SJM plays well with standard barrier-search methods, like the NEB.
+
+You'll note that we used :literal:`DyNEB` instead of the regular :literal:`NEB`.
+Although :literal:`NEB` will also work fine, :literal:`DyNEB` is more efficient as it skips re-calculating individual images whose maximum force is already below the cutoff (of :literal:`fmax=0.05`).
+Note also that parallelizing a NEB over images is in general not a great strategy when using a grand-canonical method, because typically only one of the images might need potential equilibration on any individual force call of the NEB---and in parallel-image mode all of the images would need to wait for that individual image.
+However, running in serial allows us to take advantage of the computational efficiency of the :literal:`DyNEB` method, which is not possible when parallelizing over images.
+
+Constant-charge mode
+====================
+
+The SJM code can also run in constant-charge mode, where the user specifiies the total number of electrons in the simulation.
+This can be a fast way to calculate a system at several potentials---that is, if one does not care about the specific potentials, but just wants to span a range of potentials.
+To use constant-charge mode, just specify the number of :literal:`excess_electrons` in your :literal:`sj` dict and calculate as normal::
+
+    sj = {'excess_electrons': 0.5}
+    calc = GPAW(sj=sj, ...)
 
 
-Since we set :literal:`verbose = True`, the code produced three
-files:
+If your intent is to run in the constant-charge ensemble---like in the use of the charge-extrapolation scheme---you may want to output the canonical, rather than the grand-potential energies.
+The canonical energies are consistent with the forces in constant-charge mode.
+To accomplish this, set :literal:`sj['grand_output'] = False`, like::
 
-elstat_potential.out:
- Electrostatic potential averaged over xy and referenced to the systems
- Fermi Level. The outer parts should correspond to the respective work
- functions.
-
-cavity.out:
- The shape of the implicit solvent cavity averaged over xy.
-
-background_charge.out:
- The shape of the jellium background charge averaged over x and y.
-
-.. Note:: Alternatively, :literal:`verbose = 'cube'` corresponds to :literal:`True`
-          plus creation of a cube file including the dielectric function
-          (cavity) on the 3-D grid.
-
-Structure optimization
-======================
-
-Any kind of constant potential structure optimization can be performed by
-applying ase's built-in optimizers. Two options are given for the potential
-equilibration during structure optimization:
-
-potential_equilibration_mode = 'seq':
- Sequential mode. This is the default optimization mode, which fully
- equilibrates the potential after each ionic step, if the current
- potential differs from the target by more
- than :literal:`dpot`. This mode is generally slower (up to 1.5 time CPU hours
- compared to constant charge GPAW), but very reliable.
-
-potential_equilibration_mode = 'sim':
- Simultaneous mode. In this mode :literal:`ne` is constantly optimized together
- with the geometry. It is generally reliable (with few exceptions) and does not
- lead to a significant performance penalty compared to constant charge
- relaxations. However, after convergence it is adviced to check the final
- potential, since there is no guarantee for it to be within :literal:`dpot`.
- During the optimization the
- potential can oscillate, which mostly calms down close to convergence. One
- can, however, control the oscillation via :literal:`max_pot_deviation`. This
- keyword automatically triggers a tight and complete potential equilibration
- to the target, if the current potential is outside the given threshold.
-
-Usage Example: Running a constant potential NEB calculation
-===========================================================
-
-A complete automatized script for performing a NEB calculation can be downloaded here:
-:download:`run_SJM_NEB.py<run_SJM_NEB.py>`. It can, of course, be substituted
-by a simpler, more manual script as can be found in
-:ref:`the NEB tutorial<neb>`
-
-
-.. Note:: In this example the keyword 'H2O_layer = True' in the 'SJM_Power12Potential'
-    class has been used. This keyword frees the interface between the electrode
-    and a water layer from the implicit solvent. It is needed since the rather
-    high distance between the two subsystems would lead to partial solvation
-    of the interface region, therefore screening the electric field in the
-    most interesting area.
-.. Note:: For paralle NEB runs :literal:`potential_equilibration_mode = 'sim'`
-          should be used for efficiency, since not every image triggers
-          a potential equilibration step in sequential mode. Such a run would
-          lead to unnecessary idle time on some cores.
-.. Note:: For CI-NEBs (with :literal:`climb = True`), we advice to either set
-         :literal:`max_pot_deviation` to a tighter value (e.g. 0.05) in
-         simultaneous mode or use the sequential mode.
-
-.. autoclass:: gpaw.solvation.sjm.SJM
-
-
-References
-==========
-
-.. [#SJM18] G. Kastlunger, P. Lindgren, A. A. Peterson,
-            :doi:`Controlled-Potential Simulation of Elementary Electrochemical Reactions: Proton Discharge on Metal Surfaces <10.1021/acs.jpcc.8b02465>`,
-            *J. Phys. Chem. C* **122** (24), 12771 (2018)
-.. [#NEB00] G. Henkelman and H. Jonsson,
-            :doi:`Improved Tangent Estimate in the NEB method for Finding Minimum Energy Paths and Saddle Points <10.1063/1.1323224>`,
-            *J. Chem. Phys.* **113**, 9978 (2000)
-.. [#HW14] A. Held and M. Walter,
-           :doi:`Simplified continuum solvent model with a smooth cavity based on volumetric data <10.1063/1.4900838>`,
-           *J. Chem. Phys.* **141**, 174108 (2014).
+    sj = {'excess_electrons': ...,
+          'grand_output': False} :
+    calc = GPAW(sj=sj, ...)

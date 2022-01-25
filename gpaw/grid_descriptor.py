@@ -10,7 +10,7 @@ For radial grid descriptors, look atom/radialgd.py.
 
 import numbers
 from math import pi
-from typing import Iterable, Sequence
+from typing import Sequence
 
 import numpy as np
 from scipy.ndimage import map_coordinates
@@ -18,7 +18,7 @@ from scipy.ndimage import map_coordinates
 import _gpaw
 import gpaw.mpi as mpi
 from gpaw.domain import Domain
-from gpaw.typing import Array1D, Array3D
+from gpaw.typing import Array1D, Array3D, Vector
 from gpaw.utilities.blas import gemm, r2k, rk
 
 NONBLOCKING = False
@@ -589,7 +589,7 @@ class GridDescriptor(Domain):
 
     def dipole_moment(self,
                       rho_R: Array3D,
-                      center_v: Iterable[float] = None) -> Array1D:
+                      center_v: Vector = None) -> Array1D:
         """Calculate dipole moment of density.
 
         Integration region will be centered on center_v.  Default center
@@ -692,8 +692,7 @@ class GridDescriptor(Domain):
         Non-Cubic MD cells' March 29, 1989
         """
         s_Gc = (np.indices(self.n_c, dtype).T + self.beg_c) / self.N_c
-        cell_cv = self.N_c * self.h_cv
-        r_c = np.linalg.solve(cell_cv.T, r_v)
+        r_c = np.linalg.solve(self.cell_cv.T, r_v)
         # do the correction twice works better because of rounding errors
         # e.g.: -1.56250000e-25 % 1.0 = 1.0,
         #      but (-1.56250000e-25 % 1.0) % 1.0 = 0.0
@@ -706,7 +705,7 @@ class GridDescriptor(Domain):
             assert((s_Gc * self.pbc_c >= -0.5).all())
             assert((s_Gc * self.pbc_c <= 0.5).all())
 
-        return np.dot(s_Gc, cell_cv).T.copy()
+        return np.dot(s_Gc, self.cell_cv).T.copy()
 
     def interpolate_grid_points(self, spos_nc, vt_g):
         """Return interpolated values.

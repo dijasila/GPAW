@@ -555,10 +555,11 @@ class CLICommand:
 
     @staticmethod
     def add_arguments(parser):
+        parser.add_argument('--tolerance', type=float, default=1e-7)
         parser.add_argument('filename')
 
     @staticmethod
     def run(args):
         atoms = read(args.filename)
-        symmetry = atoms2symmetry(atoms)
+        symmetry = atoms2symmetry(atoms, tolerance=args.tolerance)
         print(symmetry)

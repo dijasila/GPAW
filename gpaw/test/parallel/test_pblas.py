@@ -27,7 +27,7 @@ pytestmark = pytest.mark.skipif(not compiled_with_sl(),
 
 # may need to be be increased if the mprocs-by-nprocs
 # BLACS grid becomes larger
-tol = 4.0e-13
+tol = 5.0e-13
 
 mnprocs_i = [(1, 1)]
 if world.size >= 2:

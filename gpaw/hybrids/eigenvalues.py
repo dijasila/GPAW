@@ -7,7 +7,7 @@ from typing import List, Union, Tuple, Generator, Optional
 import numpy as np
 from ase.units import Ha
 
-from gpaw import GPAW
+from gpaw.calculator import GPAW
 from gpaw.mpi import serial_comm
 from gpaw.xc import XC
 from gpaw.xc.tools import vxc
@@ -60,13 +60,15 @@ def non_self_consistent_eigenvalues(calc: Union[GPAW, str, Path],
         n2 += wfs.bd.nbands
 
     if kpt_indices is None:
-        kpt_indices = np.arange(wfs.kd.nibzkpts)
+        kpt_indices = np.arange(wfs.kd.nibzkpts).tolist()
 
     path = Path(snapshot) if snapshot is not None else None
 
-    e_dft_sin = np.array([[[]]])
-    v_dft_sin = np.array([[[]]])
-    v_hyb_sl_sin = np.array([[[]]])
+    e_dft_sin = np.zeros(0)
+    v_dft_sin = np.zeros(0)
+
+    # sl=semilocal, nl=nonlocal
+    v_hyb_sl_sin = np.zeros(0)
     v_hyb_nl_sin: Optional[List[List[np.ndarray]]] = None
 
     if path:
@@ -83,7 +85,7 @@ def non_self_consistent_eigenvalues(calc: Union[GPAW, str, Path],
 
     # Non-local hybrid contribution
     if v_hyb_nl_sin is None:
-        v_hyb_nl_sin = [[] * wfs.nspins]
+        v_hyb_nl_sin = [[] for s in range(wfs.nspins)]
 
     # Find missing indices:
     kpt_indices_s = [kpt_indices[len(v_hyb_nl_in):]

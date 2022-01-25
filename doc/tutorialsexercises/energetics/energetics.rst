@@ -8,7 +8,6 @@ Energetics
    :maxdepth: 2
 
    ../H2/atomization
-   ../H2/ensembles
    hubbardu/hubbardu
    defects/defects
    rpa_tut/rpa_tut
