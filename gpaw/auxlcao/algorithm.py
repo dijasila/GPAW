@@ -22,6 +22,7 @@ class RIAlgorithm:
         for kpt in self.wfs.kpt_u:
             kpt.exx_V_MM = 0.0
         self.nspins = wfs.nspins
+        print('Nspins', self.nspins)
         self.prepare_setups(density.setups)
 
     def prepare_setups(self, setups):
@@ -70,10 +71,16 @@ class RIAlgorithm:
                         continue
                     kpt.exx_V_MM = 0.0
                     for kbz, (kibz, pointgroup_symmetry, time_reversal_symmetry) in enumerate(zip(kd.bz2ibz_k, kd.sym_k, kd.time_reversal_k)):
-                        kpt2 = kpt_u[kibz]
+                        kpt2 = None
+                        for searchkpt in kpt_u:
+                            if searchkpt.s == spin and searchkpt.k == kibz:
+                                kpt2 = searchkpt
+                        if kpt2 is None:
+                            raise NotImplementedError
                         assert kpt2.q == kibz
                         kpt2_rho_MM = rotate_density_matrix(kpt2.exx_rho_MM, kd.symmetry, pointgroup_symmetry, time_reversal_symmetry)
                         E, V_MM = self.calculate_exchange_per_kpt_pair(kpt, kd.ibzk_qc[kpt.q], kpt.exx_rho_MM, kpt2, kd.bzk_kc[kbz], kpt2_rho_MM)
+                        print('Exchange ', spin, E)
                         #print('Got F_MM', np.trace(V_MM))
                         kpt.exx_V_MM += V_MM
                         evv += E
@@ -102,9 +109,11 @@ class RIAlgorithm:
                         V_ii[i1, i2] = +V*2
                 V_p = pack2(V_ii)
                 dH_sp[s][:] += (-V_p - self.density.setups[a].ri_X_p) * self.exx_fraction
- 
-                evv += -self.exx_fraction * np.dot(V_p, self.density.D_asp[a][s]) / 2
-                evc += -self.exx_fraction * np.dot(self.density.D_asp[a][s], self.density.setups[a].ri_X_p)
+
+                print('vv spin', s, -self.exx_fraction * np.dot(V_p, D_sp[s]) / 2) 
+                print('vc spin', s, -self.exx_fraction * np.dot(self.density.D_asp[a][s], self.density.setups[a].ri_X_p))
+                evv += -self.exx_fraction * np.dot(V_p, D_sp[s]) / 2
+                evc += -self.exx_fraction * np.dot(D_sp[s], self.density.setups[a].ri_X_p)
     
         return evv + evc, 0.0
 

@@ -341,7 +341,6 @@ class RIR(RIBase):
                 D_ap[a] = D_p
                 Q_aL[a] = np.dot(D_p, self.density.setups[a].Delta_pL)
 
-
             if not include_pseudo:
                 rhot_g[:] = 0.0
 
@@ -392,7 +391,6 @@ class RIR(RIBase):
 
     def set_positions(self, spos_ac):
         RIAlgorithm.set_positions(self, spos_ac)
-
         Na = len(spos_ac)
 
         with self.timer('RI-V: Auxiliary Fourier-Bessel initialization'):
@@ -465,7 +463,7 @@ class RIR(RIBase):
         with self.timer('Contractions'):
             #F_MM = self.contractions(rho_MM)
             fock_MM = -(self.nspins/2.)*self.exx_fraction*self.fullcontractions(rho2_MM)
-
+            print('Fock_MM', fock_MM)
         if 0:
             fock_MM = np.zeros_like(rho2_MM)
             if self.matrix_elements.sparse_periodic:

@@ -29,7 +29,7 @@ class Full4C(RIAlgorithm):
 
     def calculate_exchange_per_kpt_pair(self, kpt1, k_c, rho1_MM, kpt2, krho_c, rho2_MM):
         K_MMMM = self.get_K_MMMM(kpt1, k_c, kpt2, krho_c)
-        V_MM = -0.5*self.exx_fraction * np.einsum('ikjl,kl', K_MMMM, rho2_MM)
+        V_MM = -(self.nspins/2.)*self.exx_fraction * np.einsum('ikjl,kl', K_MMMM, rho2_MM)
         E = 0.5 * np.einsum('ij,ij', rho1_MM, V_MM)
         #print(kpt2.q, kpt2.f_n, kpt2.eps_n)
         return E.real, V_MM
