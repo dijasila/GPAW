@@ -1073,7 +1073,7 @@ class CouplingParameters:
             # normal
             kappa = 2. * P_lz / (1 + P_lz)
         else:
-            kappa = 2 * P_lz / (1 - P_lz)
+            kappa = 2 * P_lz * (1 - P_lz)
         rate = kappa * self.freq * np.exp(-E_tst / (kb * self.temp))
 
         return rate
@@ -1093,7 +1093,7 @@ class CouplingParameters:
             correction = (
                 np.abs(self.ct) +
                 (self.reorg + dE) / 2. -
-                np.sqrt((1. / 4. * (self.reorg + self.reorg))**2 +
+                0.25*np.sqrt(((self.reorg + self.dE))**2 +
                         (np.abs(self.ct))**2))
 
             return barrier - correction
