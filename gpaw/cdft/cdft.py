@@ -442,7 +442,7 @@ class CDFT(Calculator):
             # forces scipy opt to converge when gtol is reached
             return np.zeros(len(self.v_i))
         else:
-            return -self.dn_i 
+            return -self.dn_i
     
     def cdft_free_energy(self):
         return self.Ecdft
