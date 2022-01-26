@@ -45,7 +45,8 @@ class CDFT(Calculator):
                  compute_forces=True,
                  maxstep=100,
                  tol=1e-3,
-                 bounds=None):
+                 bounds=None,
+                 restart=False):
         """Constrained DFT calculator.
 
         calc: GPAW instance
@@ -91,12 +92,14 @@ class CDFT(Calculator):
             charge constraint
         compute_forces: bool
             Should the forces be computed?
+        restart: bool
+            starting from an old calculation from gpw
         """
 
         Calculator.__init__(self)
 
         self.calc = calc
-
+        self.restart = restart
         self.iocontext = IOContext()
         self.log = self.iocontext.openfile(txt, calc.world)
         self.method = method
@@ -187,7 +190,8 @@ class CDFT(Calculator):
 
         # initialise without v_ext
         atoms.calc = self.calc
-        atoms.get_potential_energy()
+        if self.restart is False:
+            atoms.get_potential_energy()
 
         assert atoms.calc.wfs.nspins == 2
 
@@ -247,6 +251,8 @@ class CDFT(Calculator):
         # check we're dealing with same atoms
         if atoms != self.atoms:
             self.atoms = atoms
+        if self.restart is False:
+            Calculator.calculate(self, self.atoms)
 
         Calculator.calculate(self, self.atoms)
 
