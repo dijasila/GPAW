@@ -549,7 +549,7 @@ def atomic_exact_exchange(atom, type='all'):
     if type == 'all':
         nstates = mstates = range(Nj)
     else:
-        Njcore = core_states(atom.symbol)  # The number of core orbitals
+        Njcore = atom.njcore # core_states(atom.symbol)  # The number of core orbitals
         if type == 'val-val':
             nstates = mstates = range(Njcore, Nj)
         elif type == 'core-core':
