@@ -28,7 +28,7 @@ can be made with the :func:`~gpaw.new.builder.builder` function, and ASE
 >>> from ase import Atoms
 >>> atoms = Atoms('Li', cell=[2, 2, 2], pbc=True)
 >>> from gpaw.new.builder import builder
->>> params = {'mode': 'pw', 'kpts': (5, 5, 5)}
+>>> params = {'mode': 'pw', 'kpts': (5, 5, 5), 'txt': None}
 >>> b = builder(atoms, params)
 
 .. image:: builder.svg
@@ -70,6 +70,42 @@ the following attributes:
   * - ``pot_calc``
     - :class:`gpaw.new.pot_calc.PotentialCalculator`
 
+
+Naming convention for arrays
+============================
+
+Commonly used indices:
+
+ =======  ==================================================
+ index    description
+ =======  ==================================================
+ ``a``    Atom number
+ ``c``    Unit cell axis-index (0, 1, 2)
+ ``v``    *xyz*-index (0, 1, 2)
+ ``K``    **k**-point index
+ ``k``    **k**-point index
+ ``q``    **k**-point index (local, i.e. it starts at 0 on each processor)
+ ``s``    Spin index (`\sigma`)
+ ``u``    Combined spin and **k**-point index (local)
+ ``R``    Three indices into the coarse 3D grid
+ ``r``    Three indices into the fine 3D grid
+ ``G``    Index of plane-wave coefficient (wave function expansion, ``ecut``)
+ ``g``    Index of plane-wave coefficient (densities, ``2 * ecut``)
+ ``h``    Index of plane-wave coefficient (compensation charges, ``8 * ecut``)
+ ``M``    LCAO orbital index (`\mu`)
+ ``n``    Band number
+ ``n``    Principal quantum number
+ ``l``    Angular momentum quantum number (s, p, d, ...)
+ ``m``    Magnetic quantum number (0, 1, ..., 2*l - 1)
+ ``L``    ``l`` and ``m`` (``L = l**2 + m``)
+ ``j``    Valence orbital number (``n`` and ``l``)
+ ``i``    Valence orbital number (``n``, ``l`` and ``m``)
+ ``q``    ``j1`` and ``j2`` pair
+ ``p``    ``i1`` and ``i2`` pair
+ ``r``    CPU-rank
+ =======  ==================================================
+
+Examples:
 
 .. list-table::
 

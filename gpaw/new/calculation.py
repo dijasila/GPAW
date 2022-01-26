@@ -68,10 +68,10 @@ class DFTCalculation:
 
         ibzwfs = builder.create_ibz_wave_functions(basis_set, potential)
 
-        write_atoms(atoms, builder.grid, builder.initial_magmoms, log)
-
-        log(ibzwfs.ibz.symmetries)
-        log(ibzwfs)
+        if log is not None:
+            write_atoms(atoms, builder.grid, builder.initial_magmoms, log)
+            log(ibzwfs.ibz.symmetries)
+            log(ibzwfs)
 
         return cls(DFTState(ibzwfs, density, potential, vHt_x),
                    builder.setups,
