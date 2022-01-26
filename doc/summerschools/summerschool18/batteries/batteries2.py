@@ -226,7 +226,7 @@ Uncomment the `%%writefile` line and execute the cell again and submit the calcu
 """
 
 # %%
-# magic: !qsub.py -p 8 -t 1 fepo4.py  # submits the calculation to 8 cores, 1 hour
+# magic: !mq submit fepo4.py -R 8:1h  # submits the calculation to 8 cores, 1 hour
 
 # %%
 """
@@ -234,7 +234,7 @@ Run the below cell to examine the status of your calculation. If no output is re
 """
 
 # %%
-# magic: !qstat -u $USER
+# magic: !mq ls
 
 # %%
 """
@@ -414,7 +414,7 @@ If the code runs, submit to the HPC cluster as you did above. The calculation ta
 """
 
 # %%
-# magic: !qsub.py -p 8 -t 1 lifepo4.py  # submits the calculation to 8 cores, 1 hour
+# magic: !mq submit lifepo4.py -R 8:1h  # submits the calculation to 8 cores, 1 hour
 
 # %%
 """
@@ -422,7 +422,7 @@ Run the below cell to examine the status of your calculation. If no output is re
 """
 
 # %%
-# magic: !qstat -u $USER
+# magic: !mq ls
 
 # %%
 """

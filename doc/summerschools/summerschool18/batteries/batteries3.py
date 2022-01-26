@@ -199,7 +199,7 @@ You can use the cell below to submit the calculation in the same way as on earli
 """
 
 # %%
-# magic: !qsub.py -p 8 -t 1 NEB.py  # submits the calculation to 8 cores, 1 hour
+# magic: !mq submit NEB.py -R 8:1h  # submits the calculation to 8 cores, 1 hour
 
 # %%
 """
@@ -207,7 +207,7 @@ Run the below cell to examine the status of your calculation. If no output is re
 """
 
 # %%
-# magic: !qstat -u $USER
+# magic: !mq ls
 
 # %%
 """
@@ -539,7 +539,7 @@ Submit this calculation to the HPC cluster as you did on exercise day 3.
 """
 
 # %%
-# magic: !qsub.py -p 8 -t 1 fepo4_1li.py  # submits the calculation to 8 cores, 1 hour
+# magic: !mq submit fepo4_1li.py -R 8:1h # submits the calculation to 8 cores, 1 hour
 
 # %%
 """
@@ -547,7 +547,7 @@ Run the below cell to examine the status of your calculation. If no output is re
 """
 
 # %%
-# magic: !qstat -u $USER
+# magic: !mq ls
 
 # %%
 """
@@ -738,7 +738,7 @@ Once you have made sure the cell runs, submit it to the HPC cluster.
 """
 
 # %%
-# magic: !qsub.py -p 8 -t 1 lifepo4_vac.py  # submits the calculation to 8 cores, 1 hour
+# magic: !mq submit lifepo4_vac.py -R 8:1h  # submits the calculation to 8 cores, 1 hour
 
 # %%
 """
