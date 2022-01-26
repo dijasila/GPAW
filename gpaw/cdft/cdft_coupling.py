@@ -1093,8 +1093,8 @@ class CouplingParameters:
             correction = (
                 np.abs(self.ct) +
                 (self.reorg + dE) / 2. -
-                0.25*np.sqrt(((self.reorg + self.dE))**2 +
-                        (np.abs(self.ct))**2))
+                0.25 * np.sqrt(((self.reorg + self.dE))**2 +
+                (np.abs(self.ct))**2))
 
             return barrier - correction
         else:

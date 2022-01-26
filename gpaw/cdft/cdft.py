@@ -95,7 +95,7 @@ class CDFT(Calculator):
             Should the forces be computed?
         restart: bool
             starting from an old calculation from gpw
-        hess: '2-point', '3-point', 'cs',  
+        hess: '2-point', '3-point', 'cs'
             scipy hessian approximation
         """
 
@@ -372,7 +372,6 @@ class CDFT(Calculator):
 
             self.old_v_i = self.v_i.copy()
             return np.max(np.abs(self.dn_i))
-
 
         m = minimize(f,
                      self.v_i,
