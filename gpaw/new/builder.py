@@ -221,7 +221,7 @@ class DFTComponentsBuilder:
             self.initial_magmoms,
             np.linalg.inv(self.atoms.cell.complete()).T)
 
-    def create_scf_loop(self, pot_calc):
+    def create_scf_loop(self):
         hamiltonian = self.create_hamiltonian_operator()
         eigensolver = Davidson(self.nbands,
                                self.wf_desc,
@@ -236,7 +236,7 @@ class DFTComponentsBuilder:
 
         occ_calc = self.create_occupation_number_calculator()
 
-        return SCFLoop(hamiltonian, pot_calc, occ_calc,
+        return SCFLoop(hamiltonian, occ_calc,
                        eigensolver, mixer, self.communicators['w'],
                        self.params.convergence,
                        self.params.maxiter)

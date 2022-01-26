@@ -75,7 +75,7 @@ class DFTCalculation:
 
         return cls(DFTState(ibzwfs, density, potential, vHt_x),
                    builder.setups,
-                   builder.create_scf_loop(pot_calc),
+                   builder.create_scf_loop(),
                    pot_calc)
 
     def move_atoms(self, atoms, log) -> DFTCalculation:
@@ -100,6 +100,7 @@ class DFTCalculation:
     def iconverge(self, log, convergence=None, maxiter=None):
         log(self.scf_loop)
         for ctx in self.scf_loop.iterate(self.state,
+                                         self.pot_calc,
                                          convergence,
                                          maxiter,
                                          log=log):
