@@ -232,7 +232,7 @@ def pairpot(atoms):
     for s1, r1 in radii.items():
         for s2, r2 in radii.items():
             r0[(s1, s2)] = r1 + r2
-    rcutmax = 2 * max(r0.values())
+    rcutmax = 2 * max(r0.values(), default=1.0)
     energy = 0.0
     force_av = np.zeros((len(atoms), 3))
     stress_vv = np.zeros((3, 3))
