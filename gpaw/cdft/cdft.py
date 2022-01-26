@@ -376,8 +376,7 @@ class CDFT(Calculator):
 
         m = minimize(f,
                      self.v_i,
-                     jac=True,
-                     jac=self.jacobian
+                     jac=self.jacobian,
                      hess=self.hess,
                      bounds=self.bounds,
                      tol=self.tol,
