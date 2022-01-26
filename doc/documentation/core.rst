@@ -52,6 +52,8 @@ Full picture
 DFT-calculation object
 ======================
 
+.. module:: gpaw.core
+
 An instance of the :class:`gpaw.new.calculation.DFTCalculation` class has
 the following attributes:
 
@@ -92,12 +94,10 @@ the following attributes:
 Domain descriptors
 ==================
 
-.. module:: gpaw.core
-
 GPAW has two differenmt container types for storing one or more functions
 in a unit cell (wave functions, electron densities, ...):
 
-* :class:`PlaneWaveExpansions`
+* :class:`~plane_waves.PlaneWaveExpansions`
 * :class:`UniformGridFunctions`
 
 .. image:: da.svg
@@ -231,9 +231,7 @@ DFT
 .. autoclass:: gpaw.new.density.Density
     :members:
     :undoc-members:
-.. autoclass:: gpaw.new.builder.DFTComponentsBuilder
-    :members:
-    :undoc-members:
+.. autofunction:: gpaw.new.builder.builder
 .. autoclass:: gpaw.new.ibzwfs.IBZWaveFunctions
     :members:
     :undoc-members:
