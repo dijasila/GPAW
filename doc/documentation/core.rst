@@ -1,11 +1,109 @@
-====================
-Core data structures
-====================
+==============================
+Introduction to GPAW internals
+==============================
+
+This guide will contain graphs showing the relationship between opjects
+that build up a DFT calculation engine.
+
+.. hint::
+
+   Here is a simple graph showing the relations between the classes ``A``,
+   ``B`` and ``C``:
+
+   .. image:: abc.svg
+
+   Here, the object of type ``A`` has an attribute ``a`` of type ``int`` and an
+   attribute ``b`` of type ``B`` or ``C``, where ``C`` inherits from ``B``.
+
+.. contents::
+
+
+DFT components
+==============
+
+The components needed for a DFT calculation are created by a "builder" that
+can be made with the :func:`~gpaw.new.builder.builder` function, and ASE
+:class:`ase.Atoms` object and some input parameters:
+
+>>> from ase import Atoms
+>>> atoms = Atoms('Li', cell=[2, 2, 2], pbc=True)
+>>> from gpaw.new.builder import builder
+>>> params = {'mode': 'pw', 'kpts': (5, 5, 5)}
+>>> b = builder(atoms, params)
+
+.. image:: builder.svg
+
+Normally, you will not need to create a DFT-component builder youself.  It will happen automatically when you create a DFT-calculation object like this:
+
+>>> from gpaw.new.calculation import DFTCalculation
+>>> calculation = DFTCalculation.from_parameters(atoms, params)
+
+or when you create an ASE-calculator interface:
+
+>>> from gpaw.new.ase_interface import GPAW
+>>> atoms.calc = GPAW(**params)
+
+Full picture
+============
+
+.. image:: code.svg
+
+
+DFT-calculation object
+======================
+
+An instance of the :class:`gpaw.new.calculation.DFTCalculation` class has
+the following attributes:
+
+.. list-table::
+
+  * - ``density``
+    - :class:`gpaw.new.density.Density`
+  * - ``ibzwfs``
+    - :class:`gpaw.new.ibzwfs.IBZWaveFunctions`
+  * - ``potential``
+    - :class:`gpaw.new.potential.Potential`
+  * - ``scf_loop``
+    - :class:`gpaw.new.scf.SCFLoop`
+  * - ``pot_calc``
+    - :class:`gpaw.new.pot_calc.PotentialCalculator`
+
+
+.. list-table::
+
+  * - ``density.D_asii``
+    - `D_{\sigma,i_1,i_2}^a`
+    - :class:`~atom_arrays.AtomArrays`
+  * - ``density.nt_sR``
+    - `\tilde{n}_\sigma`
+    - :class:`~uniform_grid.UniformGridFunctions`
+  * - ``ibzwfs.wfs_qs[q][s].P_ain``
+    - `P_{\sigma \mathbf{k} in}^a`
+    - :class:`~atom_arrays.AtomArrays`
+  * - ``ibzwfs.wfs_qs[q][s].psit_nX``
+    - `\tilde{\psi}_{\sigma \mathbf{k} n}(\mathbf{r})`
+    - :class:`~uniform_grid.UniformGridFunctions` |
+      :class:`~plane_waves.PlaneWaveExpansions`
+  * - ``ibzwfs.wfs_qs[q][s].pt_aX``
+    - `\tilde{p}_{\sigma \mathbf{k} i}^a(\mathbf{r}-\mathbf{R}^a)`
+    - :class:`~atom_centered_functions.AtomCenteredFunctions`
+
+
+Domain descriptors
+==================
 
 .. module:: gpaw.core
 
+GPAW has two differenmt container types for storing one or more functions
+in a unit cell (wave functions, electron densities, ...):
+
+* :class:`PlaneWaveExpansions`
+* :class:`UniformGridFunctions`
+
+.. image:: da.svg
+
 Uniform grids
-=============
+-------------
 
 A uniform grid can be created with the :class:`UniformGrid` class:
 
@@ -28,7 +126,7 @@ Given a :class:`UniformGrid` object, one can create
 
 
 Plane waves
-===========
+-----------
 
 A set of plane-waves are characterized by a cutoff energy and a uniform
 grid:
@@ -50,11 +148,10 @@ UniformGridFunctions(grid=UniformGrid(size=[20, 20, 20], cell=[[4.0, 0.0, 0.0], 
 >>> round(func_R.data[0, 0, 0], 15)
 1.0
 
+Atoms-arrays
+============
 
-Distributed arrays
-==================
-
-...
+.. image:: aa.svg
 
 
 Block boundary conditions
@@ -86,49 +183,11 @@ but faster.
 Atom-centered functions
 =======================
 
+.. image:: acf.svg
+
 .. literalinclude:: acf_example.py
 
 .. figure:: acf_example.png
-
-
-Examples
-========
-
-An instance of the :class:`gpaw.new.calculation.DFTCalculation` class has
-the following attributes:
-
-.. list-table::
-
-  * - ``density``
-    - :class:`gpaw.new.density.Density`
-  * - ``ibzwfs``
-    - :class:`gpaw.new.ibzwfs.IBZWaveFunctions`
-  * - ``potential``
-    - :class:`gpaw.new.potential.Potential`
-  * - ``scf_loop``
-    - :class:`gpaw.new.scf.SCFLoop`
-  * - ``pot_calc``
-    - :class:`gpaw.new.pot_calc.PotentialCalculator`
-
-
-.. list-table::
-
-  * - ``density.D_asii``
-    - `D_{\sigma,i_1,i_2}^a`
-    - :class:`~atom_arrays.AtomArrays`
-  * - ``density.nt_sR``
-    - `\tilde{n}_\sigma`
-    - :class:`~uniform_grid.UniformGridFunctions`
-  * - ``ibzwfs.mykpt_qs[q][s].P_ain``
-    - `P_{\sigma \mathbf{k} in}^a`
-    - :class:`~atom_arrays.AtomArrays`
-  * - ``ibzwfs.mykpt_qs[q][s].psit_nX``
-    - `\tilde{\psi}_{\sigma \mathbf{k} n}(\mathbf{r})`
-    - :class:`~uniform_grid.UniformGridFunctions` |
-      :class:`~plane_waves.PlaneWaveExpansions`
-  * - ``ibzwfs.mykpt_qs[q][s].pt_aX``
-    - `\tilde{p}_{\sigma \mathbf{k} i}^a(\mathbf{r}-\mathbf{R}^a)`
-    - :class:`~atom_centered_functions.AtomCenteredFunctions`
 
 
 API

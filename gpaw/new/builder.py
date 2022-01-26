@@ -98,6 +98,22 @@ class DFTComponentsBuilder:
 
         self.grid, self.fine_grid = self.create_uniform_grids()
 
+        if self.initial_magmoms is None:
+            self.ncomponents = 1
+        elif self.initial_magmoms.ndim == 1:
+            self.ncomponents = 2
+        else:
+            self.ncomponents = 4
+
+        if sys._xoptions.get('force_complex_dtype'):
+            self.dtype = complex
+        elif self.ibz.bz.gamma_only:
+            self.dtype = float
+        else:
+            self.dtype = complex
+
+        self.fracpos_ac = self.atoms.get_scaled_positions()
+
     def create_uniform_grids(self):
         raise NotImplementedError
 
@@ -107,26 +123,6 @@ class DFTComponentsBuilder:
             raise ValueError(
                 'GPAW requires 3 lattice vectors.  '
                 f'Your system has {number_of_lattice_vectors}.')
-
-    @cached_property
-    def ncomponents(self):
-        if self.initial_magmoms is None:
-            return 1
-        if self.initial_magmoms.ndim == 1:
-            return 2
-        return 4
-
-    @cached_property
-    def dtype(self):
-        if sys._xoptions.get('force_complex_dtype'):
-            return complex
-        if self.ibz.bz.gamma_only:
-            return float
-        return complex
-
-    @cached_property
-    def fracpos_ac(self):
-        return self.atoms.get_scaled_positions()
 
     @cached_property
     def atomdist(self):
