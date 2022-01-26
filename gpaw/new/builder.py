@@ -26,6 +26,7 @@ from gpaw.new.xc import XCFunctional
 from gpaw.setup import Setups
 from gpaw.utilities.gpts import get_number_of_grid_points
 from gpaw.xc import XC
+from gpaw.typing import DTypeLike
 
 
 def builder(atoms: Atoms,
@@ -105,6 +106,7 @@ class DFTComponentsBuilder:
         else:
             self.ncomponents = 4
 
+        self.dtype: DTypeLike
         if sys._xoptions.get('force_complex_dtype'):
             self.dtype = complex
         elif self.ibz.bz.gamma_only:

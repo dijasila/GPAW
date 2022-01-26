@@ -1,5 +1,4 @@
 import ase
-import graphviz
 import numpy as np
 from gpaw.core import PlaneWaves, UniformGrid
 from gpaw.core.atom_arrays import (AtomArrays, AtomArraysLayout,
@@ -43,6 +42,7 @@ subclasses = {}
 
 
 def make_graph(obj, skip_first=False):
+    import graphviz
     g = graphviz.Digraph(node_attr={'shape': 'record'})
     graph(g, obj, skip_first=skip_first)
     return g
