@@ -371,19 +371,13 @@ class CDFT(Calculator):
             self.iteration += 1
 
             self.old_v_i = self.v_i.copy()
-            # Force scipy optimizer to converge when gtol is reached
-            if np.all((np.abs(self.dn_i) < self.gtol)):
-                return np.zeros(len(self.v_i)), np.zeros(len(self.v_i))
-
-            else:
-                return np.abs(
-                    self.dn_i
-                ), -self.dn_i  # return negative because maximising wrt v_i
+            return np.max(np.abs(self.dn_i))
 
 
         m = minimize(f,
                      self.v_i,
                      jac=True,
+                     jac=self.jacobian
                      hess=self.hess,
                      bounds=self.bounds,
                      tol=self.tol,
@@ -445,6 +439,13 @@ class CDFT(Calculator):
                 np.save('coarse_weight', w_s)
         return w_g
 
+    def jacobian(self, v_i):
+        if np.all((np.abs(self.dn_i) < self.gtol)):
+            # forces scipy opt to converge when gtol is reached
+            return np.zeros(len(self.v_i))
+        else:
+            return -self.dn_i 
+    
     def cdft_free_energy(self):
         return self.Ecdft
 
