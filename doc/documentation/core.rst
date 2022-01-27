@@ -2,7 +2,7 @@
 Introduction to GPAW internals
 ==============================
 
-This guide will contain graphs showing the relationship between opjects
+This guide will contain graphs showing the relationship between objects
 that build up a DFT calculation engine.
 
 .. hint::
@@ -34,7 +34,7 @@ can be made with the :func:`~gpaw.new.builder.builder` function, an ASE
 
 .. image:: builder.svg
 
-Normally, you will not need to create a DFT-component builder youself.  It will happen automatically when you create a DFT-calculation object like this:
+Normally, you will not need to create a DFT-component builder yourself.  It will happen automatically when you create a DFT-calculation object like this:
 
 >>> from gpaw.new.calculation import DFTCalculation
 >>> calculation = DFTCalculation.from_parameters(atoms, params)
@@ -95,7 +95,7 @@ Commonly used indices:
  ``h``    Index of plane-wave coefficient (compensation charges, ``8 * ecut``)
  ``X``    ``R`` or ``G``
  ``x``    ``r``, ``g`` or ``h``
- ``x``    zeros or more extra dimentions
+ ``x``    zeros or more extra dimensions
  ``M``    LCAO orbital index (`\mu`)
  ``n``    Band number
  ``n``    Principal quantum number
@@ -134,7 +134,7 @@ Examples:
 Domain descriptors
 ==================
 
-GPAW has two differenmt container types for storing one or more functions
+GPAW has two different container types for storing one or more functions
 in a unit cell (wave functions, electron densities, ...):
 
 * :class:`~plane_waves.PlaneWaveExpansions`
