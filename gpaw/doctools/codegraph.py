@@ -48,23 +48,21 @@ def make_graph(obj, skip_first=False):
     return g
 
 
-def graph(g, obj=None, name=None, dct=None, skip_first=False):
+def graph(g, obj=None, name=None, dct=None, skip_first=False, color=None):
     global n
     id = str(n)
     n += 1
     name = name or obj.__class__.__name__
     dct = dct if dct is not None else obj.__dict__
-    print(name, list(dct))
+    print(name)
     attrs = []
     for x, o in dct.items():
         if x[0] != '_':
             a = o.__class__.__name__
-            print('hmmm', x, a)
             if a in ok:
                 x = x.replace('wfs_qs', 'wfs_qs[q][s]')
                 if a in subclasses:
                     s, oo = subclasses[a]
-                    print(x, s, oo)
                     at = {k for k in o.__dict__ if k[0] != '_'}
                     at0 = at.copy()
                     for o1 in oo:
@@ -81,7 +79,8 @@ def graph(g, obj=None, name=None, dct=None, skip_first=False):
                                        name=o1.__class__.__name__,
                                        dct={k: v
                                             for k, v in o1.__dict__.items()
-                                            if k not in at0})
+                                            if k not in at0},
+                                       color='#ddffdd')
                             g.edge(y1, y, arrowhead='onormal')
                 else:
                     y = graph(g, o)
@@ -123,17 +122,21 @@ def graph(g, obj=None, name=None, dct=None, skip_first=False):
                 attrs.append(f'{x}: {h}')
     if skip_first:
         return id
+    if color:
+        kwargs = {'style': 'filled', 'fillcolor': color}
+    else:
+        kwargs = {}
     if attrs:
         s = r'\n'.join(attrs)
-        g.node(id, f'{{{name} | {s}}}')
+        g.node(id, f'{{{name} | {s}}}', **kwargs)
     else:
-        g.node(id, name)
+        g.node(id, name, **kwargs)
     return id
 
 
 def make_figures():
-    fd = GPAW(mode='fd')
-    pw = GPAW(mode='pw')
+    fd = GPAW(mode='fd', txt=None)
+    pw = GPAW(mode='pw', txt=None)
     a = ase.Atoms('H', cell=[2, 2, 2], pbc=1)
 
     class Atoms:

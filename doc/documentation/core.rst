@@ -14,6 +14,7 @@ that build up a DFT calculation engine.
 
    Here, the object of type ``A`` has an attribute ``a`` of type ``int`` and an
    attribute ``b`` of type ``B`` or ``C``, where ``C`` inherits from ``B``.
+   Specialized subclasses are colored light green.
 
 .. contents::
 
