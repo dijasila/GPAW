@@ -391,8 +391,8 @@ class KPointDescriptor:
         In case that k+q is outside the BZ, the k-point inside the BZ
         corresponding to k+q is given.
 
-        Parameters:
-
+        Parameters
+        ----------
         q_c: ndarray
             Coordinates for the q-vector in units of the reciprocal
             lattice vectors.

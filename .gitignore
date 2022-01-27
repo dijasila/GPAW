@@ -71,3 +71,4 @@ doc/setups/[A-Z]*.rst
 !requirements.txt
 !mypy.ini
 !pytest.ini
+!doc/words.txt

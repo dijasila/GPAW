@@ -215,7 +215,7 @@ Parallel installation
 
 By default, setup looks if :program:`mpicc` is available, and if setup
 finds one, a parallel version is build. If the setup does not find
-mpicc, a user can specify one in the ``siteconfig.py`` file.
+:program:`mpicc`, a user can specify one in the ``siteconfig.py`` file.
 
 Additionally a user may want to enable ScaLAPACK, setting in
 ``siteconfig.py``::
@@ -259,9 +259,9 @@ If you OS does not have a LibXC package you can use then you can download
 and install LibXC as described `here <http://www.tddft.org/programs/libxc/>`_.
 A few extra tips:
 
-* Libxc installation requires both a C compiler and a fortran compiler.
+* Libxc installation requires both a C compiler and a Fortran compiler.
 
-* We've tried intel and gnu compilers and haven't noticed much of a
+* We've tried Intel and gnu compilers and haven't noticed much of a
   performance difference.  Use whatever is easiest.
 
 * Libxc shared libraries can be built with the "--enable-shared" option
@@ -275,7 +275,7 @@ A few extra tips:
     include_dirs += ['/my/path/to/libxc/5.2.0/install/include']
 
   or if you don't want to modify your ``siteconfig.py``, you can add these
-  lines to your .bashrc::
+  lines to your ``.bashrc``::
 
     export C_INCLUDE_PATH=/my/path/to/libxc/5.2.0/install/include
     export LIBRARY_PATH=/my/path/to/libxc/5.2.0/install/lib
