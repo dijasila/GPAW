@@ -1,6 +1,5 @@
 from __future__ import annotations
 from gpaw.new.wave_functions import WaveFunctions
-from gpaw.core.atom_arrays import AtomArrays
 from gpaw.setup import Setups
 from gpaw.typing import Array2D
 

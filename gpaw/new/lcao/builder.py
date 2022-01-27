@@ -58,4 +58,5 @@ class LCAODFTComponentsBuilder(FDDFTComponentsBuilder):
 
 
 class DummyHamiltonian:
-    apply = lambda: None
+    def apply():
+        pass
