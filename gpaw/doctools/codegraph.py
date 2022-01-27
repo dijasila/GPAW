@@ -119,7 +119,10 @@ def graph(g, obj=None, name=None, dct=None, skip_first=False, color=None):
                     h = 'dtype'
                 else:
                     h = '?'
-                attrs.append(f'{x}: {h}')
+                if h == '?':
+                    attrs.append(x)
+                else:
+                    attrs.append(f'{x}: {h}')
     if skip_first:
         return id
     if color:

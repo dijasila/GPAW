@@ -23,7 +23,7 @@ DFT components
 ==============
 
 The components needed for a DFT calculation are created by a "builder" that
-can be made with the :func:`~gpaw.new.builder.builder` function, and ASE
+can be made with the :func:`~gpaw.new.builder.builder` function, an ASE
 :class:`ase.Atoms` object and some input parameters:
 
 >>> from ase import Atoms
@@ -77,15 +77,15 @@ Naming convention for arrays
 
 Commonly used indices:
 
- =======  ==================================================
+ =======  ====================================================================
  index    description
- =======  ==================================================
+ =======  ====================================================================
  ``a``    Atom number
  ``c``    Unit cell axis-index (0, 1, 2)
  ``v``    *xyz*-index (0, 1, 2)
- ``K``    **k**-point index
- ``k``    **k**-point index
- ``q``    **k**-point index (local, i.e. it starts at 0 on each processor)
+ ``K``    BZ **k**-point index
+ ``k``    IBZ **k**-point index
+ ``q``    IBZ **k**-point index (local, i.e. it starts at 0 on each processor)
  ``s``    Spin index (`\sigma`)
  ``u``    Combined spin and **k**-point index (local)
  ``R``    Three indices into the coarse 3D grid
@@ -93,6 +93,9 @@ Commonly used indices:
  ``G``    Index of plane-wave coefficient (wave function expansion, ``ecut``)
  ``g``    Index of plane-wave coefficient (densities, ``2 * ecut``)
  ``h``    Index of plane-wave coefficient (compensation charges, ``8 * ecut``)
+ ``X``    ``R`` or ``G``
+ ``x``    ``r``, ``g`` or ``h``
+ ``x``    zeros or more extra dimentions
  ``M``    LCAO orbital index (`\mu`)
  ``n``    Band number
  ``n``    Principal quantum number
@@ -104,7 +107,7 @@ Commonly used indices:
  ``q``    ``j1`` and ``j2`` pair
  ``p``    ``i1`` and ``i2`` pair
  ``r``    CPU-rank
- =======  ==================================================
+ =======  ====================================================================
 
 Examples:
 
@@ -114,7 +117,7 @@ Examples:
     - `D_{\sigma,i_1,i_2}^a`
     - :class:`~atom_arrays.AtomArrays`
   * - ``density.nt_sR``
-    - `\tilde{n}_\sigma`
+    - `\tilde{n}_\sigma(\mathbf{r})`
     - :class:`~uniform_grid.UniformGridFunctions`
   * - ``ibzwfs.wfs_qs[q][s].P_ain``
     - `P_{\sigma \mathbf{k} in}^a`
