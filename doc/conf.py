@@ -16,10 +16,13 @@ extensions = ['images',
               'sphinx.ext.viewcode',
               'sphinx.ext.napoleon',
               'sphinx.ext.mathjax',
-              'sphinx.ext.intersphinx']
+              'sphinx.ext.intersphinx',
+              'sphinxcontrib.spelling']
 extlinks = {'doi': ('https://doi.org/%s', 'doi:'),
             'arxiv': ('https://arxiv.org/abs/%s', 'arXiv:'),
             'xkcd': ('https://xkcd.com/%s', 'XKCD:')}
+spelling_word_list_filename = 'words.txt'
+spelling_show_suggestions = True
 templates_path = ['templates']
 source_suffix = '.rst'
 master_doc = 'index'
@@ -32,7 +35,7 @@ pygments_style = 'sphinx'
 autoclass_content = 'both'
 modindex_common_prefix = ['gpaw.']
 intersphinx_mapping = {
-    'python': ('https://docs.python.org/3.9', None),
+    'python': ('https://docs.python.org/3.10', None),
     'ase': ('https://wiki.fysik.dtu.dk/ase', None),
     'numpy': ('https://docs.scipy.org/doc/numpy', None),
     'scipy': ('https://docs.scipy.org/doc/scipy/reference', None),

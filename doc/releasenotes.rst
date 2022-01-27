@@ -12,6 +12,8 @@ Git master branch
 
 * Corresponding ASE release: ASE-3.23.0b1
 
+* Updated :ref:`WSL installation instructions <wsl>`.
+
 
 Version 22.1.0
 ==============

@@ -68,14 +68,14 @@ class DFTCalculation:
 
         ibzwfs = builder.create_ibz_wave_functions(basis_set, potential)
 
-        write_atoms(atoms, builder.grid, builder.initial_magmoms, log)
-
-        log(ibzwfs.ibz.symmetries)
-        log(ibzwfs)
+        if log is not None:
+            write_atoms(atoms, builder.grid, builder.initial_magmoms, log)
+            log(ibzwfs.ibz.symmetries)
+            log(ibzwfs)
 
         return cls(DFTState(ibzwfs, density, potential, vHt_x),
                    builder.setups,
-                   builder.create_scf_loop(pot_calc),
+                   builder.create_scf_loop(),
                    pot_calc)
 
     def move_atoms(self, atoms, log) -> DFTCalculation:
@@ -100,6 +100,7 @@ class DFTCalculation:
     def iconverge(self, log, convergence=None, maxiter=None):
         log(self.scf_loop)
         for ctx in self.scf_loop.iterate(self.state,
+                                         self.pot_calc,
                                          convergence,
                                          maxiter,
                                          log=log):

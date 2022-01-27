@@ -16,7 +16,7 @@ class PWDFTComponentsBuilder(DFTComponentsBuilder):
 
         self._nct_ag = None
 
-    def create_uniform_grid(self):
+    def create_uniform_grids(self):
         grid = create_uniform_grid(
             'pw',
             self.params.gpts,

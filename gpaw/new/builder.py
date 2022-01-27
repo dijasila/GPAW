@@ -26,6 +26,7 @@ from gpaw.new.xc import XCFunctional
 from gpaw.setup import Setups
 from gpaw.utilities.gpts import get_number_of_grid_points
 from gpaw.xc import XC
+from gpaw.typing import DTypeLike
 
 
 def builder(atoms: Atoms,
@@ -96,7 +97,24 @@ class DFTComponentsBuilder:
                                                 self.initial_magmoms,
                                                 self.mode == 'lcao')
 
+        self.dtype: DTypeLike
+        if sys._xoptions.get('force_complex_dtype'):
+            self.dtype = complex
+        elif self.ibz.bz.gamma_only:
+            self.dtype = float
+        else:
+            self.dtype = complex
+
         self.grid, self.fine_grid = self.create_uniform_grids()
+
+        if self.initial_magmoms is None:
+            self.ncomponents = 1
+        elif self.initial_magmoms.ndim == 1:
+            self.ncomponents = 2
+        else:
+            self.ncomponents = 4
+
+        self.fracpos_ac = self.atoms.get_scaled_positions()
 
     def create_uniform_grids(self):
         raise NotImplementedError
@@ -107,26 +125,6 @@ class DFTComponentsBuilder:
             raise ValueError(
                 'GPAW requires 3 lattice vectors.  '
                 f'Your system has {number_of_lattice_vectors}.')
-
-    @cached_property
-    def ncomponents(self):
-        if self.initial_magmoms is None:
-            return 1
-        if self.initial_magmoms.ndim == 1:
-            return 2
-        return 4
-
-    @cached_property
-    def dtype(self):
-        if sys._xoptions.get('force_complex_dtype'):
-            return complex
-        if self.ibz.bz.gamma_only:
-            return float
-        return complex
-
-    @cached_property
-    def fracpos_ac(self):
-        return self.atoms.get_scaled_positions()
 
     @cached_property
     def atomdist(self):
@@ -228,7 +226,7 @@ class DFTComponentsBuilder:
                         hamiltonian.create_preconditioner,
                         **self.params.eigensolver)
 
-    def create_scf_loop(self, pot_calc):
+    def create_scf_loop(self):
         hamiltonian = self.create_hamiltonian_operator()
         eigensolver = self.create_eigensolver(hamiltonian)
 
@@ -239,7 +237,7 @@ class DFTComponentsBuilder:
 
         occ_calc = self.create_occupation_number_calculator()
 
-        return SCFLoop(hamiltonian, pot_calc, occ_calc,
+        return SCFLoop(hamiltonian, occ_calc,
                        eigensolver, mixer, self.communicators['w'],
                        self.params.convergence,
                        self.params.maxiter)
