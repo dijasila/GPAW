@@ -585,7 +585,10 @@ class FixedOccupationNumbers(OccupationNumberCalculator):
                    f_qn,
                    fermi_level_guess=nan):
 
-        calc_fixed(self.bd, self.f_sn, f_qn)
+        eig_kn, weight_k, nkpts_r = collect_eigelvalues(
+            eig_qn, weight_q, self.bd, self.kpt_comm)
+
+        calc_fixed(self.bd, self.f_sn, f_qn, self.kpt_comm, nkpts_r)
 
         return inf, 0.0
 
@@ -691,14 +694,14 @@ class FixedOccupationNumbersUniform(OccupationNumberCalculator):
         return "Uniform distribution of occupation numbers"
 
 
-def calc_fixed(bd, f_sn, f_qn):
+def calc_fixed(bd, f_sn, f_qn, kpt_comm, nkpts_r):
     if bd.nbands == f_sn.shape[1]:
-        for q, f_n in enumerate(f_qn):
-            s = q % len(f_sn)
-            bd.distribute(f_sn[s], f_n)
+        distribute_occupation_numbers(f_sn, f_qn, nkpts_r,
+                                      bd, kpt_comm)
     else:
         # Non-collinear calculation:
-        bd.distribute(f_sn.T.flatten().copy(), f_qn[0])
+        distribute_occupation_numbers(f_sn.T.flatten().copy(), f_qn[0],
+                                      nkpts_r, bd, kpt_comm)
 
 
 def FixedOccupations(f_sn):
