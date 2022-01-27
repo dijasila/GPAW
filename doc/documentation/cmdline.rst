@@ -28,6 +28,10 @@ symmetry        Analyse symmetry
 install-data    Install PAW datasets, pseudopotential or basis sets
 ==============  =====================================================
 
+Example::
+
+    $ gpaw info
+
 
 Help
 ====

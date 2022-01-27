@@ -18,7 +18,6 @@ class SCFConvergenceError(Exception):
 class SCFLoop:
     def __init__(self,
                  hamiltonian,
-                 pot_calc,
                  occ_calc,
                  eigensolver,
                  mixer,
@@ -26,7 +25,6 @@ class SCFLoop:
                  convergence,
                  maxiter):
         self.hamiltonian = hamiltonian
-        self.pot_calc = pot_calc
         self.eigensolver = eigensolver
         self.mixer = mixer
         self.occ_calc = occ_calc
@@ -35,10 +33,11 @@ class SCFLoop:
         self.maxiter = maxiter
 
     def __str__(self):
-        return str(self.pot_calc)
+        return 'SCF'
 
     def iterate(self,
                 state: DFTState,
+                pot_calc,
                 convergence=None,
                 maxiter=None,
                 log=None):
@@ -73,9 +72,9 @@ class SCFLoop:
             if niter == maxiter:
                 raise SCFConvergenceError
 
-            state.density.update(self.pot_calc.nct_R, state.ibzwfs)
+            state.density.update(pot_calc.nct_R, state.ibzwfs)
             dens_error = self.mixer.mix(state.density)
-            state.potential, state.vHt_x, _ = self.pot_calc.calculate(
+            state.potential, state.vHt_x, _ = pot_calc.calculate(
                 state.density, state.vHt_x)
 
 

@@ -561,5 +561,5 @@ class CLICommand:
     @staticmethod
     def run(args):
         atoms = read(args.filename)
-        symmetry = atoms2symmetry(atoms, toletance=args.tolerance)
+        symmetry = atoms2symmetry(atoms, tolerance=args.tolerance)
         print(symmetry)

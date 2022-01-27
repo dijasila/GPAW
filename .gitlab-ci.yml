@@ -22,11 +22,6 @@ master:
     - gpaw test
     - OMP_NUM_THREADS=2 pytest -v -m ci -We
     - mypy -p gpaw
-    - >
-      interrogate -m -i -f 34.1
-      -e gpaw/test
-      -e gpaw/point_groups/groups.py
-      gpaw
     - flake8 --doctests gpaw
     - >
       flake8
@@ -44,19 +39,25 @@ master:
     - mq workflow -p agts.py -zT | tail -1 | tee count
     - python -c "assert int(open('count').read().split()[0]) >= 422"
     - python -c "import pathlib; assert len(list(pathlib.Path().glob('**/*.png'))) <= 6"
+    - >
+      interrogate -m -i -f 33.1
+      -e gpaw/test
+      -e gpaw/point_groups/groups.py
+      gpaw
 
 libxc:
   image: python:3.7
   script:
     - git clone https://gitlab.com/libxc/libxc.git
     - cd libxc
-    - git checkout 5.1.7
+    - git checkout 5.2.0
     - autoreconf -i
     - ./configure --enable-shared --disable-fortran --prefix=$HOME/libxc
     - make > libxc-install.out
     - make install
     - cd ..
-    - pip install pytest ase
+    - pip -q install git+https://gitlab.com/ase/ase.git@master
+    - pip install pytest
     - >
       echo "noblas = True;
       libraries = ['xc'];
@@ -74,9 +75,12 @@ libxc:
 docs:
   image: python:3.9
   script:
+    - apt-get update -qy
+    - apt-get install -qy graphviz
     - python3 -m venv venv
     - source venv/bin/activate
-    - pip install sphinx-rtd-theme pytest
+    - pip -q install git+https://gitlab.com/ase/ase.git@master
+    - pip install sphinx-rtd-theme pytest graphviz
     - echo "noblas = True; nolibxc = True" > siteconfig.py
     - pip install -e .
     - tools/gpaw-setup H C O Li

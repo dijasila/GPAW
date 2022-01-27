@@ -48,6 +48,14 @@ Linux:
    Linux/vsc.univie
    Linux/odyssey
 
+WSL:
+
+.. toctree::
+   :maxdepth: 1
+
+   wsl-ubuntu
+
+
 MacOSX:
 
 .. toctree::
