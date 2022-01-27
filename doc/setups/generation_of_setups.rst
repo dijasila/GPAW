@@ -17,7 +17,7 @@ all-electron calculation with spherical symmetry.
    (`\phi_{n\ell}(r)`) construct pseudo partial waves
    (`\tilde\phi_{n\ell}(r)`).
 
-This is done by the :ref:`cli` toll ``gpaw dataset``::
+This is done by the :ref:`cli` tool ``gpaw dataset``::
 
     usage: gpaw dataset [-h] [-f <XC>] [-C CONFIGURATION]
                         [-P PROJECTORS] [-r RADIUS]
@@ -31,6 +31,7 @@ This is done by the :ref:`cli` toll ``gpaw dataset``::
 
 Type ``gpaw dataset --help`` to get started.
 
+
 Example
 =======
 
@@ -38,14 +39,46 @@ Generate dataset for nitrogen and check logarithmic derivatives::
 
     $ gpaw dataset N -fPBE -s -P 2s,s,2p,p,d,F -r 1.3 -l spdfg -p
 
-We have
-:ref:`pawxml`
+.. image:: nitrogen-log-derivs.png
+
+When things look OK, you can write it to a :ref:`PAW-XML <pawxml>` file::
+
+    $ gpaw dataset N -fPBE -s -P 2s,s,2p,p,d,F -r 1.3 -t new -w
+
+and use it in you calculations with ``setups={'N': 'new'}``.
+
+.. seealso::
+
+   * :ref:`using_your_own_setups`
+   * :ref:`Using the setups parameter <manual_setups>`
+   * The ``gpaw atom`` command-line tool for doing an all-electron calculation
+     for an atom
+
+What an OK dataset looks like will depend on what you want:
+
+* If you want a very accurate dataset then you will want to include semi-core
+  states and reduce the cutoff radii.  Also, you should try to get get
+  correct scattering properties at high energies (check this by looking at
+  the logarithmic derivatives).
+
+* If you want something that is computationally efficient then you will want
+  as few valence electrons as possible and as large cutoff radii as
+  possible.
+
+Always do test calculations to compare the performance of your dataset
+against accurate all-electron reference calculations.
 
 .. warning::
 
-   old
-   hold on to your
-   :ref:`setup releases`
+   The ``gpaw dataset`` generator (:git:`~gpaw/atom/generator2.py`)
+   is work in progress and does not have a stable API.  If you manage to
+   generate a dataset with is that you want to use then hold on to that
+   file because we can not guarantee that future versions of GPAW will be
+   able to generate it again.
+
+   The :ref:`setup releases` that we distribute are all generated with the
+   old ``gpaw-setup`` generator (see more :ref:`below <generator1>`).
+
 
 .. _using_your_own_setups:
 
@@ -73,6 +106,8 @@ GPAW::
 
     setenv GPAW_SETUP_PATH .:$GPAW_SETUP_PATH&& python3 script.py
 
+
+.. _generator1:
 
 Old generator
 =============
