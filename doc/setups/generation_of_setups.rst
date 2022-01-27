@@ -7,63 +7,45 @@ Setup generation
 The generation of setups, starts from a spin-paired atomic
 all-electron calculation with spherical symmetry.
 
+1) Select the states to include as valence.
 
-.. module:: gpaw.atom
+2) Add extra unbound states for extra flexibility.
 
-All-electron calculations for spherical atoms
-=============================================
+3) Select cutoff radius (may be `\ell`-dependent).
 
-This is done by the :class:`gpaw.atom.all_electron.AllElectron` class.  The
-all-electron wave functions are defined as:
+4) From the set of bound and unbound all-electron partial waves
+   (`\phi_{n\ell}(r)`) construct pseudo partial waves
+   (`\tilde\phi_{n\ell}(r)`).
 
-.. math::
+This is done by the :ref:`cli` toll ``gpaw dataset``::
 
-  \phi_{n\ell m}(\mathbf{r}) =
-  \frac{u_{n\ell}(r)}{r} Y_{\ell m}(\hat{\mathbf{r}}),
+    usage: gpaw dataset [-h] [-f <XC>] [-C CONFIGURATION]
+                        [-P PROJECTORS] [-r RADIUS]
+                        [-0 nderivs,radius] [-c radius]
+                        [-z type,nderivs] [-p]
+                        [-l spdfg,e1:e2:de,radius] [-w] [-s] [-n]
+                        [-t TAG] [-a ALPHA] [-g GAMMA] [-b]
+                        [--nlcc] [--core-hole CORE_HOLE]
+                        [-e ELECTRONS]
+                        symbol
 
-The `u_{n\ell}(r)` functions are stored in an attribute ``u_j`` of the
-:class:`~gpaw.atom.all_electron.AllElectron` object.  The ``u_j``
-member/attribute is an ``ndarray`` with shape ``(nj, N)``, where
-``nj`` is the number of states (1s, 2s, 2p, ...) and ``N`` is the
-number of radial grid points.
+Type ``gpaw dataset --help`` to get started.
 
-.. tip::
+Example
+=======
 
-  All-electron calculations can be done with the ``gpaw-setup``
-  program like this::
+Generate dataset for nitrogen and check logarithmic derivatives::
 
-    $ gpaw-setup -a Cu
+    $ gpaw dataset N -fPBE -s -P 2s,s,2p,p,d,F -r 1.3 -l spdfg -p
 
-  Try ``gpaw-setup -h`` for more options.
+We have
+:ref:`pawxml`
 
-.. autoclass:: gpaw.atom.all_electron.AllElectron
+.. warning::
 
-
-Generation of setups
-====================
-
-The following parameters define a setup:
-
-=================  =======================  =================
-name               description              example
-=================  =======================  =================
-``core``           Froze core               ``'[Ne]'``
-``rcut``           Cutoff radius/radii for  ``1.9``
-                   projector functions
-``extra``          Extra non-bound          ``{0: [0.5]}``
-                   projectors
-``vbar``           Zero-potential           ``('poly', 1.7)``
-``filter``         Fourier-filtering        ``(0.4, 1.75)``
-                   parameters
-``rcutcomp``       Cutoff radius for        ``1.8``
-                   compensation charges
-=================  =======================  =================
-
-The default (LDA) sodium setup can be generated with the command ``gpaw-setup Na``,
-which will use default parameters from the file
-``gpaw/atom/generator.py``.
-See :ref:`manual_xc` for other functionals.
-
+   old
+   hold on to your
+   :ref:`setup releases`
 
 .. _using_your_own_setups:
 
@@ -91,3 +73,27 @@ GPAW::
 
     setenv GPAW_SETUP_PATH .:$GPAW_SETUP_PATH&& python3 script.py
 
+
+Old generator
+=============
+
+The following parameters define a setup:
+
+=================  =======================  =================
+name               description              example
+=================  =======================  =================
+``core``           Froze core               ``'[Ne]'``
+``rcut``           Cutoff radius/radii for  ``1.9``
+                   projector functions
+``extra``          Extra non-bound          ``{0: [0.5]}``
+                   projectors
+``vbar``           Zero-potential           ``('poly', 1.7)``
+``filter``         Fourier-filtering        ``(0.4, 1.75)``
+                   parameters
+``rcutcomp``       Cutoff radius for        ``1.8``
+                   compensation charges
+=================  =======================  =================
+
+The default (LDA) sodium setup can be generated with the command ``gpaw-setup
+Na``, which will use default parameters from the file
+``gpaw/atom/generator.py``. See :ref:`manual_xc` for other functionals.
