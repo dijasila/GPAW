@@ -135,12 +135,12 @@ class DummyWaveFunctions(WaveFunctions):
 
 
 class DummySCFLoop:
-    def __init__(self, occ_calc, pot_calc):
+    def __init__(self, occ_calc):
         self.occ_calc = occ_calc
-        self.pot_calc = pot_calc
 
     def iterate(self,
                 state,
+                pot_calc,
                 convergence=None,
                 maxiter=None,
                 log=None):
@@ -148,7 +148,7 @@ class DummySCFLoop:
             wfs._eig_n = np.arange(wfs.nbands)
         state.ibzwfs.calculate_occs(self.occ_calc)
         yield
-        state.potential, state.vHt_x, _ = self.pot_calc.calculate(
+        state.potential, state.vHt_x, _ = pot_calc.calculate(
             state.density, state.vHt_x)
 
 
@@ -205,9 +205,9 @@ class FakeDFTComponentsBuilder(DFTComponentsBuilder):
                                   spin_degeneracy)
         return ibzwfs
 
-    def create_scf_loop(self, pot_calc):
+    def create_scf_loop(self):
         occ_calc = self.create_occupation_number_calculator()
-        return DummySCFLoop(occ_calc, pot_calc)
+        return DummySCFLoop(occ_calc)
 
 
 def pairpot(atoms):

@@ -97,6 +97,14 @@ class DFTComponentsBuilder:
                                                 self.initial_magmoms,
                                                 self.mode == 'lcao')
 
+        self.dtype: DTypeLike
+        if sys._xoptions.get('force_complex_dtype'):
+            self.dtype = complex
+        elif self.ibz.bz.gamma_only:
+            self.dtype = float
+        else:
+            self.dtype = complex
+
         self.grid, self.fine_grid = self.create_uniform_grids()
 
         if self.initial_magmoms is None:
@@ -105,14 +113,6 @@ class DFTComponentsBuilder:
             self.ncomponents = 2
         else:
             self.ncomponents = 4
-
-        self.dtype: DTypeLike
-        if sys._xoptions.get('force_complex_dtype'):
-            self.dtype = complex
-        elif self.ibz.bz.gamma_only:
-            self.dtype = float
-        else:
-            self.dtype = complex
 
         self.fracpos_ac = self.atoms.get_scaled_positions()
 
