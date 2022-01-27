@@ -649,10 +649,10 @@ class FixedOccupationNumbersUniform(OccupationNumberCalculator):
                    f_qn,
                    fermi_level_guess=nan):
 
-        calc_fixed(self.bd, self.f_sn, f_qn)
-
         eig_kn, weight_k, nkpts_r = collect_eigelvalues(
             eig_qn, weight_q, self.bd, self.kpt_comm)
+
+        calc_fixed(self.bd, self.f_sn, f_qn, self.kpt_comm, nkpts_r)
 
         def get_homo(eig_kn, nelectrons, deg, magmom, spin):
             nelecps = int((nelectrons * deg + spin * magmom) / 2)
