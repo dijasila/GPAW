@@ -17,6 +17,7 @@ reuse_wfs_method
 
 def input_parameter(func):
     parameter_functions[func.__name__] = func
+    return func
 
 
 def update_dict(default, value) -> dict[str, Any]:

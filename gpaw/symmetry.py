@@ -555,11 +555,26 @@ class CLICommand:
 
     @staticmethod
     def add_arguments(parser):
-        parser.add_argument('--tolerance', type=float, default=1e-7)
+        parser.add_argument('-t', '--tolerance', type=float, default=1e-7)
+        parser.add_argument('-k', '--k-points')
+        parser.add_argument('--non-symmorphic', action='store_true')
         parser.add_argument('filename')
 
     @staticmethod
     def run(args):
+        from gpaw.new.symmetry import create_symmetries_object
+        from gpaw.new.builder import create_kpts
+        from gpaw.new.input_parameters import kpts
+        from ase.cli.run import str2dict
+
         atoms = read(args.filename)
-        symmetry = atoms2symmetry(atoms, tolerance=args.tolerance)
-        print(symmetry)
+        symmetries = create_symmetries_object(
+            atoms,
+            parameters={'tolerance': args.tolerance,
+                        'symmorphic': not args.non_symmorphic})
+        print(symmetries)
+        if args.k_points:
+            k = str2dict('kpts=' + args.k_points)['kpts']
+            bz = create_kpts(kpts(k), atoms)
+            ibz = symmetries.reduce(bz)
+            print(ibz)
