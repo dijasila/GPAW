@@ -194,7 +194,7 @@ class CDFT(Calculator):
 
         # initialise without v_ext
         atoms.calc = self.calc
-        if self.restart is False:
+        if not self.restart:
             atoms.get_potential_energy()
 
         assert atoms.calc.wfs.nspins == 2
@@ -255,7 +255,7 @@ class CDFT(Calculator):
         # check we're dealing with same atoms
         if atoms != self.atoms:
             self.atoms = atoms
-        if self.restart is False:
+        if not self.restart:
             Calculator.calculate(self, self.atoms)
 
         Calculator.calculate(self, self.atoms)
