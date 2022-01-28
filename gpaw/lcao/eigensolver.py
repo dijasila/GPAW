@@ -64,6 +64,9 @@ class DirectLCAO(object):
                               optimize=True)
             wfs.timer.stop('Sum over cells')
 
+        if hamiltonian.xc.type == 'auxhybrid':
+             hamiltonian.xc.add_nlxc_matrix(H_MM, dH_asp, wfs, kpt, yy)
+
         # Add atomic contribution
         #
         #           --   a     a  a*
@@ -76,6 +79,7 @@ class DirectLCAO(object):
         wfs.atomic_correction.calculate_hamiltonian(kpt, dH_asp, H_MM, yy)
         wfs.timer.stop(name)
 
+
         wfs.timer.start('Distribute overlap matrix')
         H_MM = wfs.ksl.distribute_overlap_matrix(
             H_MM, root, add_hermitian_conjugate=(yy == 0.5))
@@ -83,6 +87,7 @@ class DirectLCAO(object):
 
         if add_kinetic:
             H_MM += wfs.T_qMM[kpt.q]
+
         return H_MM
 
     def iterate(self, hamiltonian, wfs, occ=None):

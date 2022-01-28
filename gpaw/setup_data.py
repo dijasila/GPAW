@@ -361,6 +361,14 @@ class SetupData:
 
             print(f'  <exact_exchange core-core="{self.ExxC!r}"/>', file=xml)
 
+        if self.HSEX_p is not None:
+            print('  <HSE_X_matrix>\n    ', end=' ', file=xml)
+            for x in self.HSEX_p:
+                print(f'{x!r}', end=' ', file=xml)
+            print('\n  </HSE_X_matrix>', file=xml)
+
+            print(f'  <exact_exchange core-core="{self.ExxC!r}"/>', file=xml)
+
         if self.X_pg is not None:
             print('  <yukawa_exchange_X_matrix>\n    ', end=' ', file=xml)
             for x in self.X_pg:
@@ -514,7 +522,7 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
         elif name in ['ae_core_density', 'pseudo_core_density',
                       'localized_potential', 'yukawa_exchange_X_matrix',
                       'kinetic_energy_differences', 'exact_exchange_X_matrix',
-                      'ae_core_kinetic_energy_density',
+                      'ae_core_kinetic_energy_density', 'HSE_X_matrix',
                       'pseudo_core_kinetic_energy_density']:
             self.data = []
         elif name.startswith('GLLB_'):
@@ -594,6 +602,8 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
             setup.pt_jg.append(x_g)
         elif name == 'exact_exchange_X_matrix':
             setup.X_p = x_g
+        elif name == 'HSE_X_matrix':
+            setup.HSEX_p = x_g
         elif name == 'yukawa_exchange_X_matrix':
             setup.X_pg = x_g
         elif name == 'core_hole_state':

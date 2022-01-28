@@ -409,8 +409,10 @@ class Generator(AllElectron):
 
         # Calculate smooth charge density:
         Nt = np.dot(nt, dv)
+        print('Smooth charge density', Nt*4*pi)
         rhot = nt - (Nt + charge / (4 * pi)) * gt
         t('Pseudo-electron charge', 4 * pi * Nt)
+
 
         vHt = np.zeros(N)
         hartree(0, rhot * r * dr, r, vHt)
@@ -430,6 +432,15 @@ class Generator(AllElectron):
 
             # Calculate extra-stuff for non-local functionals
             self.xc.get_extra_setup_data(extra_xc_data)
+
+        if 0:
+            vXCt[:] = 0.0
+            hartree(0, -(nt/2) * r * dr, r, vXCt)
+            vXCt[1:] /= r[1:]
+            vXCt[0] = vXCt[1]
+
+            Exc = 4 * pi * np.dot(4 * nt * r * (vXCt), dr)
+            print('Exc element', Exc)
 
         vt = vHt + vXCt
 
@@ -698,6 +709,9 @@ class Generator(AllElectron):
         X_gamma = yukawa_gamma
         if exx:
             X_p = constructX(self)
+            HSEX_p = constructX(self, omega=0.11)
+            print(X_p, HSEX_p)
+            
             if yukawa_gamma is not None and yukawa_gamma > 0:
                 X_pg = constructX(self, yukawa_gamma)
             else:
@@ -760,6 +774,7 @@ class Generator(AllElectron):
         setup.phit_jg = divide_all_by_r(vs_j)
         setup.pt_jg = divide_all_by_r(vq_j)
         setup.X_p = X_p
+        setup.HSEX_p = HSEX_p
         setup.X_pg = X_pg
         setup.X_gamma = X_gamma
 

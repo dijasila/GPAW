@@ -21,6 +21,7 @@ from gpaw.xc import XC
 from gpaw.xc.functional import XCFunctional
 from gpaw.xc.kernel import XCNull
 
+from gpaw.auxlcao.screenedcoulombkernel import ScreenedCoulombKernel
 
 class HybridXCBase(XCFunctional):
     orbital_dependent = True
@@ -548,7 +549,7 @@ def atomic_exact_exchange(atom, type='all'):
     if type == 'all':
         nstates = mstates = range(Nj)
     else:
-        Njcore = core_states(atom.symbol)  # The number of core orbitals
+        Njcore = atom.njcore # core_states(atom.symbol)  # The number of core orbitals
         if type == 'val-val':
             nstates = mstates = range(Njcore, Nj)
         elif type == 'core-core':
@@ -609,7 +610,7 @@ def atomic_exact_exchange(atom, type='all'):
     return Exx
 
 
-def constructX(gen, gamma=0):
+def constructX(gen, gamma=0, omega=0):
     """Construct the X_p^a matrix for the given atom.
 
     The X_p^a matrix describes the valence-core interactions of the
@@ -641,6 +642,10 @@ def constructX(gen, gamma=0):
     lmax = max(gen.l_j[:Njcore] + gen.vl_j)
     G_LLL = gaunt(lmax=lmax)
 
+    if omega != 0:
+        kernel = ScreenedCoulombKernel(gen.rgd, omega)
+
+
     # sum over core states
     for jc in range(Njcore):
         lc = gen.l_j[jc]
@@ -667,7 +672,12 @@ def constructX(gen, gamma=0):
                 for l in range(min(lv1, lv2) + lc + 1):
                     # Int density * potential * r^2 * dr:
                     if gamma == 0:
-                        vr = gen.rgd.poisson(n2c, l)
+                        if omega == 0:
+                            #print(n2c.shape)
+                            vr = gen.rgd.poisson(n2c, l)
+                            #print(vr.shape,'vr orig')
+                        else:
+                            vr = kernel.screened_coulomb(n2c, l) * r
                     else:
                         vr = gen.rgd.yukawa(n2c, l, gamma)
                     nv = np.dot(n1c, vr)

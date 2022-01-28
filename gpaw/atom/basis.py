@@ -134,7 +134,7 @@ class BasisMaker:
                                  'was already generated before basis '
                                  'generation.')
 
-    def smoothify(self, psi_mg, l):
+    def smoothify(self, psi_mg, l, nodamp=False):
         r"""Generate pseudo wave functions from all-electron ones.
 
         The pseudo wave function is::
@@ -167,15 +167,16 @@ class BasisMaker:
         which is exact if the projectors/pseudo partial waves are complete.
         """
         if psi_mg.ndim == 1:
-            return self.smoothify(psi_mg[None], l)[0]
+            return self.smoothify(psi_mg[None], l, nodamp=nodamp)[0]
 
+        print('Smoothifying', psi_mg)
         g = self.generator
         u_ng = g.u_ln[l]
         q_ng = g.q_ln[l]
         s_ng = g.s_ln[l]
 
-        Pi_nn = np.dot(g.r * q_ng, u_ng.T)
-        Q_nm = np.dot(g.r * q_ng, psi_mg.T)
+        Pi_nn = np.dot(q_ng *g.r, u_ng.T)
+        Q_nm = np.dot(q_ng *g.r, psi_mg.T)
         Qt_nm = np.linalg.solve(Pi_nn, Q_nm)
 
         # Weight-function for truncating all-electron parts smoothly near core
@@ -184,7 +185,14 @@ class BasisMaker:
         w_g[0:gmerge] = (g.r[0:gmerge] / g.r[gmerge])**2.
         w_g = w_g[None]
 
+        if nodamp:
+            print('No damping, setting w_g=1.0')
+            w_g[:] = 1.0
+        else:
+            print('Using w',w_g)
+
         psit_mg = psi_mg * w_g + np.dot(Qt_nm.T, s_ng - u_ng * w_g)
+        print('Returning psit_mg', psit_mg)
         return psit_mg
 
     def make_orbital_vector(self, j, rcut, vconf=None):
@@ -509,7 +517,7 @@ class BasisMaker:
         rcmax = max([bf.rc for bf in bf_j])
 
         # The non-equidistant grids are really only suited for AE WFs
-        d = 1.0 / 64
+        d = 1.0 / 256
         equidistant_grid = np.arange(0.0, rcmax + d, d)
         ng = len(equidistant_grid)
 
@@ -530,7 +538,7 @@ class BasisMaker:
 
             # Quick hack to change to equidistant coordinates
             spline = rgd.spline(bf.phit_g, rgd.r_g[rgd.floor(bf.rc)], bf.l,
-                                points=100)
+                                points=1000)
             bf.phit_g = np.array([spline(r) * r**bf.l
                                   for r in equidistant_grid[:bf.ng]])
             bf.phit_g[-1] = 0.

@@ -373,8 +373,8 @@ class BaseSetup:
             phi_g = phi_g.copy()
             phit_g = phit_g.copy()
             phi_g[gcut2:] = phit_g[gcut2:] = 0.0
-            phi_j.append(self.rgd.spline(phi_g, rcut2, l, points=100))
-            phit_j.append(self.rgd.spline(phit_g, rcut2, l, points=100))
+            phi_j.append(self.rgd.spline(phi_g, rcut2, l, points=2000))
+            phit_j.append(self.rgd.spline(phit_g, rcut2, l, points=2000))
         return phi_j, phit_j, nc, nct, tauc, tauct
 
     def set_hubbard_u(self, U, l, scale=1, store=0, LinRes=0):
@@ -534,6 +534,9 @@ class BaseSetup:
                                np.dot(A_lqq[l], self.local_corr.T_Lqp[L]))
                 L += 1
 
+        #print('Hacking M_pp[0,0] to x10')
+        #M_pp[0,0]*=10
+        #print('After',M_pp[0,0])
         return M_p, M_pp
 
     def calculate_integral_potentials(self, func):
@@ -569,6 +572,43 @@ class BaseSetup:
         self._Mg_pp = self.calculate_coulomb_corrections(
             wn_lqg, wnt_lqg, wg_lg, wnc_g, wmct_g)[1]
         return self._Mg_pp
+
+    def calculate_screened_M_pp(self, omega):
+        """Calculate and return the Yukawa based interaction."""
+        if not hasattr(self, '_Mw_pp'):
+            self._Mw_pp = None
+        if self._Mw_pp is not None and omega == self._omega:
+            return self._Mw_pp  # Cached
+
+        from gpaw.auxlcao.screenedcoulombkernel import ScreenedCoulombKernel
+        kernel = ScreenedCoulombKernel(self.local_corr.rgd2, omega)
+
+        def screened(self, n_g, l):
+            if l > 2:
+                print('Dont have l>2, returning poisson')
+                return self.local_corr.rgd2.poisson(n_g, l) * self.local_corr.rgd2.r_g * self.local_corr.rgd2.dr_g
+
+            """Solve radial screened poisson for density n_g."""
+            return kernel.screened_coulomb(n_g, l) * \
+                self.local_corr.rgd2.r_g**2 * self.local_corr.rgd2.dr_g
+
+        self._omega = omega
+        (wg_lg, wn_lqg, wnt_lqg, wnc_g, wnct_g, wmct_g) = \
+            self.calculate_integral_potentials(screened)
+
+        # Also evaluate the compensation charge integrals at this stage
+        Lmax = len(self.g_lg)**2
+        self.W_LL = np.zeros((Lmax, Lmax))
+        L = 0
+        for l, (g_l, wg_l) in enumerate(zip(self.g_lg, wg_lg)):
+            integral = np.dot(g_l, wg_l)
+            for m in range(2*l+1):
+                self.W_LL[L,L] = integral
+                L += 1
+
+        self._Mw_pp = self.calculate_coulomb_corrections(
+            wn_lqg, wnt_lqg, wg_lg, wnc_g, wmct_g)[1]
+        return self._Mw_pp
 
 
 class LeanSetup(BaseSetup):
@@ -668,6 +708,8 @@ class LeanSetup(BaseSetup):
 
         # Required by exx
         self.X_p = s.X_p
+        self.HSEX_p = s.HSEX_p
+        print(self.HSEX_p, self.X_p)
         self.ExxC = s.ExxC
 
         # Required by yukawa rsf
@@ -760,7 +802,6 @@ class Setup(BaseSetup):
     """
     def __init__(self, data, xc, lmax=0, basis=None, filter=None):
         self.type = data.name
-
         self.HubU = None
 
         if not data.is_compatible(xc):
@@ -783,7 +824,7 @@ class Setup(BaseSetup):
 
         self.ExxC = data.ExxC
         self.X_p = data.X_p
-
+        self.HSEX_p = data.HSEX_p
         self.X_gamma = data.X_gamma
         self.X_pg = data.X_pg
 
@@ -1002,7 +1043,7 @@ class Setup(BaseSetup):
         self.Nct = data.get_smooth_core_density_integral(self.Delta0)
         self.K_p = data.get_linear_kinetic_correction(self.local_corr.T_Lqp[0])
 
-        self.ghat_l = [rgd2.spline(g_g, rcut2, l, 50)
+        self.ghat_l = [rgd2.spline(g_g, rcut2, l, 1000)
                        for l, g_g in enumerate(self.g_lg)]
 
         self.xc_correction = data.get_xc_correction(rgd2, xc, gcut2, lcut)
@@ -1366,7 +1407,8 @@ class Setups(list):
                 # pre-created Basis object (meaning we just pass it along)
                 if isinstance(basis, str):
                     basis = Basis(symbol, basis, world=world)
-                setup = create_setup(symbol, xc, 2, type,
+                lmax = 4
+                setup = create_setup(symbol, xc, lmax, type,
                                      basis, setupdata=setupdata,
                                      filter=filter, world=world)
                 self.setups[id] = setup
