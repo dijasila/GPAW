@@ -3,6 +3,7 @@ from gpaw.core.atom_centered_functions import UniformGridAtomCenteredFunctions
 from gpaw.new.ibzwfs import IBZWaveFunctions
 from gpaw.new.lcao.wave_functions import LCAOWaveFunctions
 from gpaw.new.lcao.eigensolver import LCAOEigensolver
+from gpaw.new.lcao.hamiltonian import LCAOHamiltonian
 
 
 class LCAODFTComponentsBuilder(FDDFTComponentsBuilder):
@@ -12,8 +13,12 @@ class LCAODFTComponentsBuilder(FDDFTComponentsBuilder):
     def create_wf_description(self):
         raise NotImplementedError
 
+    def create_basis_set(self):
+        self.basis = FDDFTComponentsBuilder.create_basis_set(self)
+        return self.basis
+
     def create_hamiltonian_operator(self):
-        return DummyHamiltonian()
+        return LCAOHamiltonian(self.basis)
 
     def create_eigensolver(self, hamiltonian):
         return LCAOEigensolver()
@@ -55,8 +60,3 @@ class LCAODFTComponentsBuilder(FDDFTComponentsBuilder):
                                   self.nelectrons,
                                   2 // nspins)
         return ibzwfs
-
-
-class DummyHamiltonian:
-    def apply():
-        pass

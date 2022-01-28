@@ -130,7 +130,11 @@ class Davidson:
 
         self.preconditioner = preconditioner_factory(blocksize)
 
-    def iterate(self, ibzwfs, Ht, dH, dS) -> float:
+    def iterate(self, state, hamiltonian) -> float:
+        dS = state.density.overlap_correction
+        dH = state.potential.dH
+        Ht = partial(hamiltonian.apply, state.potential.vt_sR)
+        ibzwfs = state.ibzwfs
         error = 0.0
         for wfs in ibzwfs:
             e = self.iterate1(wfs, Ht, dH, dS)

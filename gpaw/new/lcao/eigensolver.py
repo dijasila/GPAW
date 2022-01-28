@@ -1,10 +1,9 @@
 class LCAOEigensolver:
 
-    def iterate(self, ibzwfs, Ht, dH, dS) -> float:
-
-        for wfs in ibzwfs:
-            self.iterate1(wfs, dH, dS)
+    def iterate(self, state, hamiltonian) -> float:
+        for wfs in state.ibzwfs:
+            self.iterate1(wfs)
         return 0.0
 
-    def iterate1(self, wfs, dH, dS):
+    def iterate1(self, wfs):
         pass

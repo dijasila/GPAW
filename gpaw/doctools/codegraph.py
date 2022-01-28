@@ -1,6 +1,7 @@
 import ase
 import numpy as np
 from gpaw.core import PlaneWaves, UniformGrid
+from gpaw.core.matrix import Matrix
 from gpaw.core.atom_arrays import (AtomArrays, AtomArraysLayout,
                                    DistributedArrays)
 from gpaw.core.atom_centered_functions import AtomCenteredFunctions
@@ -9,6 +10,11 @@ from gpaw.new.brillouin import BZPoints
 from gpaw.new.builder import builder
 from gpaw.new.wave_functions import WaveFunctions
 
+classes = [bool, str, float, dict, list, tuple,
+           np.ndarray,
+           PlaneWaves,
+           UniformGrid,
+           Matrix]
 n = 0
 ok = set("""\
 Atoms
@@ -87,38 +93,25 @@ def graph(g, obj=None, name=None, dct=None, skip_first=False, color=None):
                     if not skip_first:
                         g.edge(id, y, label=x)
             elif name not in skip:
-                if isinstance(o, bool):
-                    h = 'bool'
-                elif isinstance(o, (int, np.int64)):
-                    h = 'int'
-                elif isinstance(o, str):
-                    h = 'str'
-                elif isinstance(o, float):
-                    h = 'float'
-                elif isinstance(o, dict):
-                    h = 'dict'
-                elif isinstance(o, list):
-                    h = 'list'
-                elif isinstance(o, tuple):
-                    h = 'tuple'
-                elif isinstance(o, np.ndarray):
-                    h = 'ndarray'
-                elif isinstance(o, AtomCenteredFunctions):
-                    h = 'ACF'
-                elif isinstance(o, AtomArrays):
-                    h = 'AA'
-                elif isinstance(o, DistributedArrays):
-                    h = 'DA'
-                elif isinstance(o, PlaneWaves):
-                    h = 'PlaneWaves'
-                elif isinstance(o, UniformGrid):
-                    h = 'UniformGrid'
-                elif hasattr(o, 'broadcast'):
-                    h = 'MPIComm'
-                elif o == float:
-                    h = 'dtype'
-                else:
-                    h = '?'
+                for cls in classes:
+                    if isinstance(o, cls):
+                        h = cls.__name__
+                        break
+                else:  # no break
+                    if isinstance(o, (int, np.int64)):
+                        h = 'int'
+                    elif isinstance(o, AtomCenteredFunctions):
+                        h = 'ACF'
+                    elif isinstance(o, AtomArrays):
+                        h = 'AA'
+                    elif isinstance(o, DistributedArrays):
+                        h = 'DA'
+                    elif hasattr(o, 'broadcast'):
+                        h = 'MPIComm'
+                    elif o == float:
+                        h = 'dtype'
+                    else:
+                        h = '?'
                 if h == '?':
                     attrs.append(x)
                 else:
