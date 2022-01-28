@@ -1,8 +1,9 @@
 import numpy as np
 from scipy.linalg import eigh
+from gpaw.new.eigensolver import Eigensolver
 
 
-class LCAOEigensolver:
+class LCAOEigensolver(Eigensolver):
     def __init__(self, basis):
         self.basis = basis
 
@@ -43,4 +44,3 @@ class LCAOEigensolver:
         wfs._P_ain = None
         if dtype == complex:
             wfs.C_nM.complex_conjugate()
-    

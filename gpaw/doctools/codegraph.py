@@ -143,6 +143,7 @@ def make_figures():
     a0 = Atoms(fd)
     fd.get_potential_energy(a)
     pw.get_potential_energy(a)
+    lcao.get_potential_energy(a)
     ibzwfs = fd.calculation.state.ibzwfs
     ibzwfs.wfs_qs = ibzwfs.wfs_qs[0][0]
 
@@ -154,6 +155,8 @@ def make_figures():
         'WaveFunctions', [
             WaveFunctions(0, pw.calculation.setups, np.zeros((1, 3))),
             lcao.calculation.state.ibzwfs.wfs_qs[0][0]])
+    subclasses['Davidson'] = ('Eigensolver',
+                              [lcao.calculation.scf_loop.eigensolver])
     obj = a0
 
     g = make_graph(obj)

@@ -14,6 +14,7 @@ class WaveFunctions:
     domain_comm: MPIComm
     band_comm: MPIComm
     nbands: int
+    P_ain: AtomArrays
 
     def __init__(self,
                  spin: int | None,

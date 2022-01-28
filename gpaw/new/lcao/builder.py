@@ -51,7 +51,6 @@ class LCAODFTComponentsBuilder(FDDFTComponentsBuilder):
         S_qMM, T_qMM = manytci.O_qMM_T_qMM(domain_comm,
                                            0, self.setups.nao,
                                            False)
-        P_qIM = manytci.P_qIM(my_atom_indices)
         P_aqMi = manytci.P_aqMi(my_atom_indices)
         P_qaMi = [{a: P_aqMi[a][q] for a in my_atom_indices}
                   for q in range(len(S_qMM))]
