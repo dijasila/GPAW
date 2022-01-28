@@ -48,7 +48,6 @@ class SCFLoop:
 
         self.mixer.reset()
 
-        dens_error = inf  # ???
         dens_error = self.mixer.mix(state.density)
 
         for niter in itertools.count(start=1):
