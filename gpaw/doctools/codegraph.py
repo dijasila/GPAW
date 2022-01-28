@@ -1,6 +1,7 @@
 import ase
 import numpy as np
 from gpaw.core import PlaneWaves, UniformGrid
+from gpaw.core.matrix import Matrix
 from gpaw.core.atom_arrays import (AtomArrays, AtomArraysLayout,
                                    DistributedArrays)
 from gpaw.core.atom_centered_functions import AtomCenteredFunctions
@@ -9,6 +10,11 @@ from gpaw.new.brillouin import BZPoints
 from gpaw.new.builder import builder
 from gpaw.new.wave_functions import WaveFunctions
 
+classes = [bool, str, float, dict, list, tuple,
+           np.ndarray,
+           PlaneWaves,
+           UniformGrid,
+           Matrix]
 n = 0
 ok = set("""\
 Atoms
@@ -87,38 +93,25 @@ def graph(g, obj=None, name=None, dct=None, skip_first=False, color=None):
                     if not skip_first:
                         g.edge(id, y, label=x)
             elif name not in skip:
-                if isinstance(o, bool):
-                    h = 'bool'
-                elif isinstance(o, (int, np.int64)):
-                    h = 'int'
-                elif isinstance(o, str):
-                    h = 'str'
-                elif isinstance(o, float):
-                    h = 'float'
-                elif isinstance(o, dict):
-                    h = 'dict'
-                elif isinstance(o, list):
-                    h = 'list'
-                elif isinstance(o, tuple):
-                    h = 'tuple'
-                elif isinstance(o, np.ndarray):
-                    h = 'ndarray'
-                elif isinstance(o, AtomCenteredFunctions):
-                    h = 'ACF'
-                elif isinstance(o, AtomArrays):
-                    h = 'AA'
-                elif isinstance(o, DistributedArrays):
-                    h = 'DA'
-                elif isinstance(o, PlaneWaves):
-                    h = 'PlaneWaves'
-                elif isinstance(o, UniformGrid):
-                    h = 'UniformGrid'
-                elif hasattr(o, 'broadcast'):
-                    h = 'MPIComm'
-                elif o == float:
-                    h = 'dtype'
-                else:
-                    h = '?'
+                for cls in classes:
+                    if isinstance(o, cls):
+                        h = cls.__name__
+                        break
+                else:  # no break
+                    if isinstance(o, (int, np.int64)):
+                        h = 'int'
+                    elif isinstance(o, AtomCenteredFunctions):
+                        h = 'ACF'
+                    elif isinstance(o, AtomArrays):
+                        h = 'AA'
+                    elif isinstance(o, DistributedArrays):
+                        h = 'DA'
+                    elif hasattr(o, 'broadcast'):
+                        h = 'MPIComm'
+                    elif o == float:
+                        h = 'dtype'
+                    else:
+                        h = '?'
                 if h == '?':
                     attrs.append(x)
                 else:
@@ -140,6 +133,7 @@ def graph(g, obj=None, name=None, dct=None, skip_first=False, color=None):
 def make_figures():
     fd = GPAW(mode='fd', txt=None)
     pw = GPAW(mode='pw', txt=None)
+    lcao = GPAW(mode='lcao', txt=None)
     a = ase.Atoms('H', cell=[2, 2, 2], pbc=1)
 
     class Atoms:
@@ -149,6 +143,7 @@ def make_figures():
     a0 = Atoms(fd)
     fd.get_potential_energy(a)
     pw.get_potential_energy(a)
+    lcao.get_potential_energy(a)
     ibzwfs = fd.calculation.state.ibzwfs
     ibzwfs.wfs_qs = ibzwfs.wfs_qs[0][0]
 
@@ -158,7 +153,10 @@ def make_figures():
         'PotentialCalculator', [pw.calculation.pot_calc])
     subclasses['PWFDWaveFunctions'] = (
         'WaveFunctions', [
-            WaveFunctions(0, pw.calculation.setups, np.zeros((1, 3)))])
+            WaveFunctions(0, pw.calculation.setups, np.zeros((1, 3))),
+            lcao.calculation.state.ibzwfs.wfs_qs[0][0]])
+    subclasses['Davidson'] = ('Eigensolver',
+                              [lcao.calculation.scf_loop.eigensolver])
     obj = a0
 
     g = make_graph(obj)

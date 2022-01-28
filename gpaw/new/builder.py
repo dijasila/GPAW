@@ -219,13 +219,16 @@ class DFTComponentsBuilder:
             self.initial_magmoms,
             np.linalg.inv(self.atoms.cell.complete()).T)
 
+    def create_eigensolver(self, hamiltonian):
+        return Davidson(self.nbands,
+                        self.wf_desc,
+                        self.communicators['b'],
+                        hamiltonian.create_preconditioner,
+                        **self.params.eigensolver)
+
     def create_scf_loop(self):
         hamiltonian = self.create_hamiltonian_operator()
-        eigensolver = Davidson(self.nbands,
-                               self.wf_desc,
-                               self.communicators['b'],
-                               hamiltonian.create_preconditioner,
-                               **self.params.eigensolver)
+        eigensolver = self.create_eigensolver(hamiltonian)
 
         mixer = MixerWrapper(
             get_mixer_from_keywords(self.atoms.pbc.any(),
