@@ -14,6 +14,7 @@ class WaveFunctions:
     domain_comm: MPIComm
     band_comm: MPIComm
     nbands: int
+    P_ain: AtomArrays
 
     def __init__(self,
                  spin: int | None,
@@ -45,22 +46,20 @@ class WaveFunctions:
 
     @property
     def myeig_n(self):
-        assert self.psit_nX.comm.size == 1
+        assert self.band_comm.size == 1
         return self.eig_n
 
     @property
     def myocc_n(self):
-        assert self.psit_nX.comm.size == 1
+        assert self.band_comm.size == 1
         return self.occ_n
 
-    @property
-    def P_ain(self):
-        if self._P_ain is None:
-            self._P_ain = self.pt_aiX.empty(self.psit_nX.dims,
-                                            self.psit_nX.comm,
-                                            transposed=True)
-            self.pt_aiX.integrate(self.psit_nX, self._P_ain)
-        return self._P_ain
+    def add_to_atomic_density_matrices(self,
+                                       occ_n,
+                                       D_asii: AtomArrays) -> None:
+        for D_sii, P_in in zip(D_asii.values(), self.P_ain.values()):
+            D_sii[self.spin] += np.einsum('in, n, jn -> ij',
+                                          P_in.conj(), occ_n, P_in).real
 
 
 class PWFDWaveFunctions(WaveFunctions):
@@ -107,10 +106,7 @@ class PWFDWaveFunctions(WaveFunctions):
                        D_asii: AtomArrays) -> None:
         occ_n = self.weight * self.spin_degeneracy * self.myocc_n
         self.psit_nX.abs_square(weights=occ_n, out=nt_sR[self.spin])
-
-        for D_sii, P_in in zip(D_asii.values(), self.P_ain.values()):
-            D_sii[self.spin] += np.einsum('in, n, jn -> ij',
-                                          P_in.conj(), occ_n, P_in).real
+        self.add_to_atomic_density_matrices(occ_n, D_asii)
 
     def orthonormalize(self, work_array_nX: ArrayND = None):
         if self.orthonormalized:
@@ -210,15 +206,3 @@ class PWFDWaveFunctions(WaveFunctions):
             dO_ii = self.setups[a].dO_ii
             F_vii -= np.einsum('inv, jn, jk -> vik', F_inv, P_in, dO_ii)
             F_av[a] += 2 * F_vii.real.trace(0, 1, 2)
-
-
-class LCAOWaveFunctions(WaveFunctions):
-    def __init__(self,
-                 coef_nM: DA,
-                 spin: int | None,
-                 setups: Setups,
-                 fracpos_ac: Array2D,
-                 weight: float = 1.0,
-                 spin_degeneracy: int = 2):
-        self.coef_nM = coef_nM
-        super().__init__(spin, setups, fracpos_ac, weight, spin_degeneracy)

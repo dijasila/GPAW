@@ -1,8 +1,6 @@
 from __future__ import annotations
 import itertools
 import warnings
-from functools import partial
-from math import inf
 from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
@@ -33,7 +31,7 @@ class SCFLoop:
         self.maxiter = maxiter
 
     def __str__(self):
-        return 'SCF'
+        return 'SCF ...'
 
     def iterate(self,
                 state: DFTState,
@@ -44,17 +42,12 @@ class SCFLoop:
         cc = create_convergence_criteria(convergence or self.convergence)
         maxiter = maxiter or self.maxiter
 
-        dS = state.density.overlap_correction
-
         self.mixer.reset()
 
-        dens_error = inf  # ???
         dens_error = self.mixer.mix(state.density)
 
         for niter in itertools.count(start=1):
-            dH = state.potential.dH
-            Ht = partial(self.hamiltonian.apply, state.potential.vt_sR)
-            wfs_error = self.eigensolver.iterate(state.ibzwfs, Ht, dH, dS)
+            wfs_error = self.eigensolver.iterate(state, self.hamiltonian)
             state.ibzwfs.calculate_occs(self.occ_calc)
 
             ctx = SCFContext(
