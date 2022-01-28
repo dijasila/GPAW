@@ -1,3 +1,4 @@
+from functools import partial
 from gpaw.core.matrix import Matrix
 from gpaw.new.fd.builder import FDDFTComponentsBuilder
 from gpaw.new.ibzwfs import IBZWaveFunctions
@@ -63,26 +64,29 @@ class LCAODFTComponentsBuilder(FDDFTComponentsBuilder):
         # self.atomic_correction.add_overlap_correction(newS_qMM)
 
         wfs_qs = []
-        for kpt_c, weight, S_MM, T_MM, P_aMi in zip(kpt_qc,
-                                                    ibz.weight_k[here_k],
-                                                    S_qMM,
-                                                    T_qMM,
-                                                    P_qaMi):
+        for q, (kpt_c,
+                weight,
+                S_MM,
+                T_MM,
+                P_aMi) in enumerate(zip(kpt_qc, ibz.weight_k[here_k],
+                                        S_qMM, T_qMM, P_qaMi)):
             wfs_s = []
             for s in range(nspins):
                 C_nM = Matrix(self.nbands, self.setups.nao, self.dtype,
                               dist=(band_comm, band_comm.size, 1))
-                wfs = LCAOWaveFunctions(kpt_c,
-                                        C_nM,
-                                        S_MM,
-                                        T_MM,
-                                        P_aMi,
-                                        domain_comm,
-                                        s,
-                                        self.setups,
-                                        self.fracpos_ac,
-                                        weight,
-                                        spin_degeneracy=2 // nspins)
+                wfs = LCAOWaveFunctions(
+                    kpt_c,
+                    partial(basis.construct_density, q=q),
+                    C_nM,
+                    S_MM,
+                    T_MM,
+                    P_aMi,
+                    domain_comm,
+                    s,
+                    self.setups,
+                    self.fracpos_ac,
+                    weight,
+                    spin_degeneracy=2 // nspins)
                 wfs_s.append(wfs)
             wfs_qs.append(wfs_s)
 

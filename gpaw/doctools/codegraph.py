@@ -133,6 +133,7 @@ def graph(g, obj=None, name=None, dct=None, skip_first=False, color=None):
 def make_figures():
     fd = GPAW(mode='fd', txt=None)
     pw = GPAW(mode='pw', txt=None)
+    lcao = GPAW(mode='lcao', txt=None)
     a = ase.Atoms('H', cell=[2, 2, 2], pbc=1)
 
     class Atoms:
@@ -151,7 +152,8 @@ def make_figures():
         'PotentialCalculator', [pw.calculation.pot_calc])
     subclasses['PWFDWaveFunctions'] = (
         'WaveFunctions', [
-            WaveFunctions(0, pw.calculation.setups, np.zeros((1, 3)))])
+            WaveFunctions(0, pw.calculation.setups, np.zeros((1, 3))),
+            lcao.calculation.state.ibzwfs.wfs_qs[0][0]])
     obj = a0
 
     g = make_graph(obj)
