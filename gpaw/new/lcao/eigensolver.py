@@ -18,21 +18,24 @@ class LCAOEigensolver(Eigensolver):
             self.iterate1(wfs, V_sxMM[wfs.spin], dH_saii[wfs.spin])
         return 0.0
 
-    def iterate1(self, wfs, V_xMM, dH_aii):
-        dtype = V_xMM.dtype
-        H_MM = V_xMM[0]
-        if dtype == complex:
+    def calculate_potential_matrix(self, wfs, V_xMM):
+        V_MM = V_xMM[0]
+        if wfs.dtype == complex:
             phase_x = np.exp(2j * np.pi *
                              self.basis.sdisp_xc[1:] @ wfs.kpt_c)
-            H_MM += np.einsum('x, xMN -> MN',
+            V_MM += np.einsum('x, xMN -> MN',
                               2 * phase_x, V_xMM[1:],
                               optimize=True)
+        return V_MM
+
+    def iterate1(self, wfs, V_xMM, dH_aii):
+        H_MM = self.calculate_potential_matrix(wfs, V_xMM)
 
         for a, dH_ii in dH_aii.items():
             P_Mi = wfs.P_aMi[a]
             H_MM += P_Mi.conj() @ dH_ii @ P_Mi.T
 
-        if dtype == complex:
+        if wfs.dtype == complex:
             H_MM *= 0.5
             H_MM += H_MM.conj().T
 
@@ -41,6 +44,9 @@ class LCAOEigensolver(Eigensolver):
         eig_M, C_MM = eigh(H_MM, wfs.S_MM, overwrite_a=True, driver='gvd')
         wfs._eig_n = eig_M[:wfs.nbands]
         wfs.C_nM.data[:] = C_MM.T[:wfs.nbands]
-        wfs._P_ain = None
-        if dtype == complex:
+
+        if wfs.dtype == complex:
             wfs.C_nM.complex_conjugate()
+
+        # Make sure wfs.C_nM and (lacy) wfs.P_ain are in sync:
+        wfs._P_ain = None
