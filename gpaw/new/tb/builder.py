@@ -114,8 +114,9 @@ class DummyXC:
 
 
 class TBSCFLoop:
-    def __init__(self, occ_calc):
+    def __init__(self, occ_calc, eigensolver):
         self.occ_calc = occ_calc
+        self.eigensolver = eigensolver
 
     def iterate(self,
                 state,
@@ -123,8 +124,7 @@ class TBSCFLoop:
                 convergence=None,
                 maxiter=None,
                 log=None):
-        for wfs in state.ibzwfs:
-            wfs._eig_n = np.arange(wfs.nbands)
+        self.eigensolver.iterate(state)
         state.ibzwfs.calculate_occs(self.occ_calc)
         yield
         state.potential, state.vHt_x, _ = pot_calc.calculate(
@@ -132,7 +132,7 @@ class TBSCFLoop:
 
 
 class TBEigensolver(LCAOEigensolver):
-    def iterate(self, state, hamiltonian) -> float:
+    def iterate(self, state) -> float:
         dH_saii = [{a: dH_sii[s]
                     for a, dH_sii in state.potential.dH_asii.items()}
                    for s in range(state.density.ncomponents)]
@@ -142,7 +142,10 @@ class TBEigensolver(LCAOEigensolver):
         return 0.0
 
     def calculate_potential_matrix(self, wfs, V_xMM):
+        print(wfs.V_MM)
         return wfs.V_MM
+
+
 
 
 class DummyBasis:
@@ -179,20 +182,25 @@ class TBDFTComponentsBuilder(LCAODFTComponentsBuilder):
         xc = DummyXC()
         return TBPotentialCalculator(xc, self.setups, self.nct_R, self.atoms)
 
-    def create_eigensolver(self, hamiltonian):
-        return TBEigensolver(self.basis)
-
     def create_scf_loop(self):
         occ_calc = self.create_occupation_number_calculator()
-        return TBSCFLoop(occ_calc)
+        eigensolver = TBEigensolver(self.basis)
+        return TBSCFLoop(occ_calc, eigensolver)
 
     def create_ibz_wave_functions(self, basis, potential):
         assert self.communicators['w'].size == 1
         ibzwfs = super().create_ibz_wave_functions(basis, potential)
 
         vtphit: dict[Setup, list[Spline]] = {}
+
         for setup in self.setups.setups.values():
-            vt = setup.rgd.spline(setup.vt_g, points=300)
+            try:
+                vt_r = setup.vt_g
+            except AttributeError:
+                vt_r = calculate_pseudo_potential(setup, self.xc.xc)[0]
+
+            vt_r[-1] = 0.0  # ???
+            vt = setup.rgd.spline(vt_r, points=300)
             vtphit_j = []
             for phit in setup.phit_j:
                 rc = phit.get_cutoff()
@@ -222,8 +230,9 @@ class TBDFTComponentsBuilder(LCAODFTComponentsBuilder):
                 M2 = M1 + m
                 V_MM[M1:M2, M1:M2] *= 0.5
                 M1 = M2
-            print(V_MM)
             wfs.V_MM = V_MM
+
+        return ibzwfs
 
 
 def pairpot(atoms):
@@ -267,6 +276,38 @@ def pairpot(atoms):
             stress_vv += np.outer(F_v, D_v)
 
     return energy, force_av, stress_vv
+
+
+def calculate_pseudo_potential(setup: Setup, xc):
+    phit_jg = np.array(setup.data.phit_jg)
+    rgd = setup.rgd
+
+    # Density:
+    nt_g = np.einsum('jg, j, jg -> g',
+                     phit_jg, setup.f_j, phit_jg) / (4 * pi)
+    nt_g += setup.data.nct_g * (1 / (4 * pi)**0.5)
+
+    # XC:
+    vt_g = rgd.zeros()
+    xc.calculate_spherical(rgd, nt_g[np.newaxis], vt_g[np.newaxis])
+
+    # Zero-potential:
+    vt_g += setup.data.vbar_g / (4 * pi)**0.5
+
+    # Coulomb:
+    g_g = setup.ghat_l[0].map(rgd.r_g)
+    Q = -rgd.integrate(nt_g) / rgd.integrate(g_g)
+    rhot_g = nt_g + Q * g_g
+    vHtr_g = rgd.poisson(rhot_g)
+
+    W = rgd.integrate(g_g * vHtr_g, n=-1) / (4 * pi)**0.5
+
+    vtr_g = vt_g * rgd.r_g + vHtr_g
+
+    vtr_g[1:] /= rgd.r_g[1:]
+    vtr_g[0] = vtr_g[1]
+
+    return vtr_g * (4 * pi)**0.5, W
 
 
 def poly():

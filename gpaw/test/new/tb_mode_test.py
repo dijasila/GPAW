@@ -6,12 +6,12 @@ from ase.constraints import ExpCellFilter
 from gpaw.new.ase_interface import GPAW
 
 
-def test_fake_mode_molecule():
+def test_tb_mode_molecule():
     atoms = Atoms('LiH',
                   [[0, 0.1, 0.2],
                    [0, 0, 1.4]])
     atoms.calc = GPAW(
-        mode='fake',
+        mode='tb',
         symmetry='off',
         txt=None)
     f1 = atoms.get_forces()
@@ -19,13 +19,13 @@ def test_fake_mode_molecule():
     assert abs(f1 - f2).max() < 0.0005
 
 
-def test_fake_mode_bulk():
+def test_tb_mode_bulk():
     a = 2.0
     atoms = Atoms('Li',
                   cell=[a, a, a],
                   pbc=True)
     atoms.calc = GPAW(
-        mode='fake',
+        mode='tb',
         kpts=(2, 2, 2))
     f = atoms.get_forces()
     assert abs(f).max() < 0.0001
