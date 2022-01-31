@@ -557,24 +557,38 @@ class CLICommand:
     def add_arguments(parser):
         parser.add_argument('-t', '--tolerance', type=float, default=1e-7)
         parser.add_argument('-k', '--k-points')
+        parser.add_argument('-v', '--verbose', action='store_true')
         parser.add_argument('--non-symmorphic', action='store_true')
-        parser.add_argument('filename')
+        parser.add_argument('filename', default='-',
+                            help='... read from stdin')
 
     @staticmethod
     def run(args):
+        import sys
         from gpaw.new.symmetry import create_symmetries_object
         from gpaw.new.builder import create_kpts
         from gpaw.new.input_parameters import kpts
         from ase.cli.run import str2dict
+        from ase.db import connect
 
-        atoms = read(args.filename)
+        if args.filename == '-':
+            atoms = next(connect(sys.stdin).select()).toatoms()
+        else:
+            atoms = read(args.filename)
         symmetries = create_symmetries_object(
             atoms,
             parameters={'tolerance': args.tolerance,
                         'symmorphic': not args.non_symmorphic})
-        print(symmetries)
+        txt = str(symmetries)
+        if not args.verbose:
+            txt = txt.split('\n\n', 1)[0]
+        print(txt)
         if args.k_points:
             k = str2dict('kpts=' + args.k_points)['kpts']
+            print(k)
             bz = create_kpts(kpts(k), atoms)
             ibz = symmetries.reduce(bz)
-            print(ibz)
+            txt = str(ibz)
+            if not args.verbose:
+                txt = txt.split('     ', 1)[0]
+            print(txt)
