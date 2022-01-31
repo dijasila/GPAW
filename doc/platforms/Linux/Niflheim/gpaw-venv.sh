@@ -95,16 +95,16 @@ do
   echo $CMD
   ssh $HOST $CMD
 done
-(cd build && ln -sf lib.linux-x86_64-{sandybridge,ivybridge}-3.8)
+(cd build && ln -sf lib.linux-x86_64-{sandybridge,ivybridge}-3.9)
 rm -r build/temp.linux-x86_64-*
 rm _gpaw.*.so
 
 # Create .pth file to load correct .so file:
 pth='import sys, os; '
 pth+='arch = os.environ["CPU_ARCH"]; '
-pth+="path = f'$VENV/gpaw/build/lib.linux-x86_64-{arch}-3.8'; "
+pth+="path = f'$VENV/gpaw/build/lib.linux-x86_64-{arch}-3.9'; "
 pth+='sys.path.append(path)'
-echo $pth > $VENV/lib/python3.8/site-packages/niflheim.pth
+echo $pth > $VENV/lib/python3.9/site-packages/niflheim.pth
 
 # Install extra basis-functions:
 cd $VENV
