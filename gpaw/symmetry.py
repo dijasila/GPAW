@@ -551,16 +551,34 @@ def atoms2symmetry(atoms, id_a=None, tolerance=1e-7):
 
 
 class CLICommand:
-    """Analyse symmetry."""
+    """Analyse symmetry (and k-point sampling).
+
+    Example:
+
+        $ ase build -x bcc -a 3.5 Li | gpaw symmetry -k "{density:3,gamma:1}"
+        Symmetries present (total): 48
+        Symmetries with fractional translations: 0
+        1000 k-points: 10 x 10 x 10 Monkhorst-Pack grid + [1/20,1/20,1/20]
+        47 k-points in the irreducible part of the Brillouin zone
+
+    """
 
     @staticmethod
     def add_arguments(parser):
-        parser.add_argument('-t', '--tolerance', type=float, default=1e-7)
-        parser.add_argument('-k', '--k-points')
-        parser.add_argument('-v', '--verbose', action='store_true')
-        parser.add_argument('--non-symmorphic', action='store_true')
-        parser.add_argument('filename', default='-',
-                            help='... read from stdin')
+        parser.add_argument('-t', '--tolerance', type=float, default=1e-7,
+                            help='Tolerance used for idintifying symmetries.')
+        parser.add_argument(
+            '-k', '--k-points',
+            help='Use symmetries to reduce number of k-points.  '
+            'Exapmples: "4,4,4", "{density:3.5,gamma:True}".')
+        parser.add_argument('-v', '--verbose', action='store_true',
+                            help='Show symmetry operations (and k-points).')
+        parser.add_argument('-s', '--symmorphic', action='store_true',
+                            help='Only find symmorphic symmetries.')
+        parser.add_argument('filename', nargs='?', default='-',
+                            help='Filename to read structure from.  '
+                            'Use "-" for reading from stdin.  '
+                            'Default is "-".')
 
     @staticmethod
     def run(args):
@@ -578,17 +596,16 @@ class CLICommand:
         symmetries = create_symmetries_object(
             atoms,
             parameters={'tolerance': args.tolerance,
-                        'symmorphic': not args.non_symmorphic})
+                        'symmorphic': args.symmorphic})
         txt = str(symmetries)
         if not args.verbose:
             txt = txt.split('\n\n', 1)[0]
         print(txt)
         if args.k_points:
             k = str2dict('kpts=' + args.k_points)['kpts']
-            print(k)
             bz = create_kpts(kpts(k), atoms)
             ibz = symmetries.reduce(bz)
             txt = str(ibz)
             if not args.verbose:
                 txt = txt.split('     ', 1)[0]
-            print(txt)
+            print(txt.rstrip())
