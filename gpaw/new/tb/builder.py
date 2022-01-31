@@ -27,6 +27,7 @@ class NoGrid(Domain):
         self._gd = SimpleNamespace(
             get_grid_spacings=lambda: [0, 0, 0],
             cell_cv=self.cell_cv,
+            pbc_c=self.pbc_c,
             N_c=[0, 0, 0],
             dv=0.0)
 
@@ -144,6 +145,17 @@ class TBEigensolver(LCAOEigensolver):
         return wfs.V_MM
 
 
+class DummyBasis:
+    def __init__(self, natoms):
+        self.my_atom_indices = np.arange(natoms)
+
+    def add_to_density(self, nt_sR, f_asi):
+        pass
+
+    def construct_density(self, rho_MM, nt_G, q):
+        pass
+
+
 class TBDFTComponentsBuilder(LCAODFTComponentsBuilder):
     def check_cell(self, cell):
         pass
@@ -159,6 +171,10 @@ class TBDFTComponentsBuilder(LCAODFTComponentsBuilder):
     def get_pseudo_core_densities(self):
         return PSCoreDensities(self.grid, self.fracpos_ac)
 
+    def create_basis_set(self):
+        self.basis = DummyBasis(len(self.atoms))
+        return self.basis
+
     def create_potential_calculator(self):
         xc = DummyXC()
         return TBPotentialCalculator(xc, self.setups, self.nct_R, self.atoms)
@@ -171,6 +187,7 @@ class TBDFTComponentsBuilder(LCAODFTComponentsBuilder):
         return TBSCFLoop(occ_calc)
 
     def create_ibz_wave_functions(self, basis, potential):
+        assert self.communicators['w'].size == 1
         ibzwfs = super().create_ibz_wave_functions(basis, potential)
 
         vtphit: dict[Setup, list[Spline]] = {}
@@ -195,7 +212,7 @@ class TBDFTComponentsBuilder(LCAODFTComponentsBuilder):
             kpt_qc, self.dtype, NullTimer())
 
         manytci.Pindices = manytci.Mindices
-        my_atom_indices = self.basis_functions.my_atom_indices
+        my_atom_indices = basis.my_atom_indices
 
         for wfs, V_MM in zip_strict(ibzwfs, manytci.P_qIM(my_atom_indices)):
             V_MM = V_MM.toarray()
