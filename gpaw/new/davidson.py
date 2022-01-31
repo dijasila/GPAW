@@ -41,12 +41,16 @@ class Davidson(Eigensolver):
         self.M_nn = Matrix(B, B, wf_grid.dtype,
                            dist=(band_comm, band_comm.size))
 
-        self.work_array1 = wf_grid.empty(B, band_comm).data
-        self.work_array2 = wf_grid.empty(B, band_comm).data
+        self.work_arrays: np.ndarray | None = None
 
         self.preconditioner = preconditioner_factory(blocksize)
 
     def iterate(self, state, hamiltonian) -> float:
+        if self.work_arrays is None:
+            # Find the largest number of plane waves:
+            shape = max(wfs.psit_nX.data.shape for wfs in state.ibzwfs)
+            self.work_arrays = np.empty((2,) + shape, state.ibzwfs.dtype)
+
         dS = state.density.overlap_correction
         dH = state.potential.dH
         Ht = partial(hamiltonian.apply, state.potential.vt_sR)
@@ -63,8 +67,8 @@ class Davidson(Eigensolver):
         M_nn = self.M_nn
 
         psit_nX = wfs.psit_nX
-        psit2_nX = psit_nX.new(data=self.work_array1)
-        psit3_nX = psit_nX.new(data=self.work_array2)
+        psit2_nX = psit_nX.new(data=self.work_arrays[0])
+        psit3_nX = psit_nX.new(data=self.work_arrays[1])
 
         B = psit_nX.dims[0]  # number of bands
         eig_N = np.empty(2 * B)
