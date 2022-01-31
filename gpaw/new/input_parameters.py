@@ -16,6 +16,7 @@ reuse_wfs_method
 
 
 def input_parameter(func):
+    """Decorator for input-parameter normalization functions."""
     parameter_functions[func.__name__] = func
     return func
 
@@ -46,7 +47,6 @@ class InputParameters:
     poissonsolver: dict[str, Any]
 
     def __init__(self, params: dict[str, Any]):
-        """Accuracy of the self-consistency cycle."""
         self.params = params
 
         for key in params:
@@ -228,6 +228,7 @@ def soc(value=False):
 
 @input_parameter
 def convergence(value=None):
+    """Accuracy of the self-consistency cycle."""
     return update_dict({'energy': 0.0005,  # eV / electron
                         'density': 1.0e-4,  # electrons / electron
                         'eigenstates': 4.0e-8,  # eV^2 / electron

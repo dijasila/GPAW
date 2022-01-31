@@ -551,7 +551,7 @@ def atoms2symmetry(atoms, id_a=None, tolerance=1e-7):
 
 
 class CLICommand:
-    """Analyse symmetry (and k-point sampling).
+    """Analyse symmetry (and show IBZ k-points).
 
     Example:
 
