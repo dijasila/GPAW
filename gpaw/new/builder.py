@@ -39,7 +39,6 @@ def builder(atoms: Atoms,
     * fd
     * tb
     * atom
-    * fake
     """
     if isinstance(params, dict):
         params = InputParameters(params)
@@ -47,7 +46,7 @@ def builder(atoms: Atoms,
     mode = params.mode['name']
     assert mode in {'pw', 'lcao', 'fd', 'tb', 'atom', 'fake'}
     mod = importlib.import_module(f'gpaw.new.{mode}.builder')
-    name = mode.title() if mode in {'atom', 'fake'} else mode.upper()
+    name = mode.title() if mode == 'atom' else mode.upper()
     return getattr(mod, f'{name}DFTComponentsBuilder')(atoms, params)
 
 
