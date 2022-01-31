@@ -7,6 +7,7 @@ from typing import Any, Union
 
 import numpy as np
 from ase import Atoms
+from ase.calculators.calculator import kpts2sizeandoffsets
 from ase.units import Bohr
 from gpaw.core import UniformGrid
 from gpaw.kpt_descriptor import KPointDescriptor
@@ -296,8 +297,8 @@ def create_kpts(kpts: dict[str, Any], atoms: Atoms) -> BZPoints:
     if 'points' in kpts:
         assert len(kpts) == 1, kpts
         return BZPoints(kpts['points'])
-    assert len(kpts) == 1
-    return MonkhorstPackKPoints(kpts['size'])
+    size, offset = kpts2sizeandoffsets(**kpts, atoms=atoms)
+    return MonkhorstPackKPoints(size, offset)
 
 
 def calculate_number_of_bands(nbands, setups, charge, magmoms, is_lcao):
