@@ -137,6 +137,10 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
     def new(self, data=None):
         if data is None:
             data = np.empty_like(self.data)
+        else:
+            # Number of plane-waves depends on the k-point.  We therfore
+            # allow for data to be bigger than needed:
+            data = data.ravel()[:self.data.size].reshape(self.data.shape)
         return PlaneWaveExpansions(self.desc, self.dims, self.comm, data)
 
     def copy(self):
