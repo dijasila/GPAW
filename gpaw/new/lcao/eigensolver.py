@@ -21,6 +21,7 @@ class LCAOEigensolver(Eigensolver):
     def calculate_potential_matrix(self, wfs, V_xMM):
         V_MM = V_xMM[0]
         if wfs.dtype == complex:
+            V_MM = V_MM.astype(complex)
             phase_x = np.exp(2j * np.pi *
                              self.basis.sdisp_xc[1:] @ wfs.kpt_c)
             V_MM += np.einsum('x, xMN -> MN',
@@ -30,23 +31,18 @@ class LCAOEigensolver(Eigensolver):
 
     def iterate1(self, wfs, V_xMM, dH_aii):
         H_MM = self.calculate_potential_matrix(wfs, V_xMM)
-        print(H_MM)
         for a, dH_ii in dH_aii.items():
             P_Mi = wfs.P_aMi[a]
             H_MM += P_Mi.conj() @ dH_ii @ P_Mi.T
-        print(H_MM)
 
         if wfs.dtype == complex:
             H_MM *= 0.5
             H_MM += H_MM.conj().T
-        print(H_MM)
 
         H_MM += wfs.T_MM
-        print(H_MM)
-        print(wfs.S_MM)
 
         eig_M, C_MM = eigh(H_MM, wfs.S_MM, overwrite_a=True, driver='gvd')
-        print(eig_M, C_MM)
+
         wfs._eig_n = eig_M[:wfs.nbands]
         wfs.C_nM.data[:] = C_MM.T[:wfs.nbands]
 

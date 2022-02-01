@@ -132,7 +132,7 @@ class TBSCFLoop:
 
 
 class TBEigensolver(LCAOEigensolver):
-    def iterate(self, state) -> float:
+    def iterate(self, state, hamiltonian=None) -> float:
         dH_saii = [{a: dH_sii[s]
                     for a, dH_sii in state.potential.dH_asii.items()}
                    for s in range(state.density.ncomponents)]
@@ -142,10 +142,8 @@ class TBEigensolver(LCAOEigensolver):
         return 0.0
 
     def calculate_potential_matrix(self, wfs, V_xMM):
-        print(wfs.V_MM)
+        print('V', wfs.V_MM)
         return wfs.V_MM
-
-
 
 
 class DummyBasis:
