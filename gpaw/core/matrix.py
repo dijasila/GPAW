@@ -222,7 +222,7 @@ class Matrix:
         if S is not self:
             S.redist(self)
 
-    def eigh(self, cc=False, scalapack=(None, 1, 1, None)):
+    def eigh(self, cc=False, scalapack=(None, 1, 1, None), b=None):
         """Calculate eigenvectors and eigenvalues.
 
         Matrix must be symmetric/hermitian and stored in lower half.
@@ -266,8 +266,15 @@ class Matrix:
             if slcomm.rank < rows * columns:
                 assert cc
                 array = H.data.copy()
-                info = _gpaw.scalapack_diagonalize_dc(array, H.dist.desc, 'U',
-                                                      H.data, eps)
+                if b is None:
+                    info = _gpaw.scalapack_diagonalize_dc(array, H.dist.desc,
+                                                          'U',
+                                                          H.data, eps)
+                else:
+                    info = _gpaw.scalapack_general_diagonalize_dc(
+                        array, H.dist.desc,
+                        'U',
+                        b.data, H.data, eps)
                 assert info == 0, info
 
             # necessary to broadcast eps when some ranks are not used
