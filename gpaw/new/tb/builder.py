@@ -251,15 +251,17 @@ def pairpot(atoms):
     symbol_a = atoms.symbols
     for symbol in symbol_a:
         radii[symbol] = covalent_radii[atomic_numbers[symbol]]
+
     r0 = {}
     for s1, r1 in radii.items():
         for s2, r2 in radii.items():
             r0[(s1, s2)] = r1 + r2
     rcutmax = 2 * max(r0.values(), default=1.0)
+
     energy = 0.0
     force_av = np.zeros((len(atoms), 3))
     stress_vv = np.zeros((3, 3))
-    return energy, force_av, stress_vv
+
     for i, j, d, D_v in zip(*neighbor_list('ijdD', atoms, rcutmax)):
         d0 = r0[(symbol_a[i], symbol_a[j])]
         e0 = 6.0 / d0
