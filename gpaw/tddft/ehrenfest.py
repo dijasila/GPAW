@@ -1,6 +1,7 @@
 from ase.units import Bohr, AUT, _me, _amu
 from gpaw.tddft.units import attosec_to_autime
 from gpaw.forces import calculate_forces
+from gpaw.utilities.scalapack import scalapack_tri2full
 
 ###############################################################################
 # EHRENFEST DYNAMICS WITHIN THE PAW METHOD
@@ -35,7 +36,7 @@ class EhrenfestVelocityVerlet:
         Parameters
         ----------
 
-        calc: TDDFT Object
+        calc: TDDFT or LCAOTDDFT Object
 
         mass_scale: 1.0
             Scaling coefficient for atomic masses
@@ -48,7 +49,7 @@ class EhrenfestVelocityVerlet:
 
         Use propagator = 'EFSICN' for when creating the TDDFT object from a
         PAW ground state calculator and propagator = 'EFSICN_HGH' for HGH
-        pseudopotentials
+        pseudopotentials and propagator = 'edsicn' for LCAOTDDFT object.
         
         """
         self.calc = calc
@@ -79,6 +80,11 @@ class EhrenfestVelocityVerlet:
 
         for i in range(len(self.F)):
             self.a[i] = self.F[i] / self.M[i]
+        if self.calc.wfs.mode == 'lcao':
+            self.calc.wfs.ED_F = calc.ED_F
+            self.calc.td_hamiltonian.P_flag = calc.PP_flag
+            self.calc.wfs.calculatePD = self.calc.td_hamiltonian.PPP.calc_P
+            self.v = self.x.copy()
 
     def get_forces(self):
         return calculate_forces(self.calc.wfs,
@@ -100,6 +106,13 @@ class EhrenfestVelocityVerlet:
         self.v = self.calc.atoms.get_velocities() / (Bohr / AUT)
 
         dt = dt * attosec_to_autime
+        # save S
+        if self.calc.wfs.mode == 'lcao':
+            ksl = self.calc.wfs.ksl
+            using_blacs = ksl.using_blacs
+            if using_blacs:
+                self.tri3full_S_T()
+            self.calc.save_old_S_MM()
 
         # m a(t+dt)   = F[psi(t),x(t)]
         self.calc.atoms.positions = self.x * Bohr
@@ -163,9 +176,25 @@ class EhrenfestVelocityVerlet:
         self.v[:] = self.vn
         self.a[:] = self.an
 
+        if self.calc.wfs.mode == 'lcao':
+            self.calc.timer.start('BASIS CHANGE')
+            if self.calc.S_flag is True:
+                if using_blacs:
+                    self.tri3full_S_T()
+                # Change basis when atoms move
+                self.calc.basis_change(self.time, dt)
+            self.calc.timer.stop('BASIS CHANGE')
+
         # update atoms
         self.calc.atoms.set_positions(self.x * Bohr)
         self.calc.atoms.set_velocities(self.v * Bohr / AUT)
+
+    def tri3full_S_T(self):
+        ksl = self.calc.wfs.ksl
+        self.mm_block_descriptor = ksl.mmdescriptor
+        for kpt in self.calc.wfs.kpt_u:
+            scalapack_tri2full(self.mm_block_descriptor, kpt.S_MM)
+            scalapack_tri2full(self.mm_block_descriptor, kpt.T_MM)
 
     def propagate_single(self, dt):
         if self.setups == 'paw':

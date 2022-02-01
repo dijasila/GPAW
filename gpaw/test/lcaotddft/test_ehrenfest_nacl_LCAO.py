@@ -1,6 +1,6 @@
 from ase import Atoms
 from gpaw import GPAW
-from gpaw.lcaotddft.ehrenfestLCAO import EhrenfestVelocityVerletLCAO
+from gpaw.tddft.ehrenfest import EhrenfestVelocityVerlet
 from gpaw.lcaotddft import LCAOTDDFT
 from gpaw.test import equal
 
@@ -22,7 +22,7 @@ def test_tddft_ehrenfest_nacl_LCAO(in_tmp_dir):
     td_calc = LCAOTDDFT('nacl_gs.gpw', propagator='edsicn', txt='out_td.txt',
                         PP_flag=False, ED_F=False, S_flag=True)
     td_calc.tddft_init()
-    evv = EhrenfestVelocityVerletLCAO(td_calc)
+    evv = EhrenfestVelocityVerlet(td_calc)
 
     i = 0
     evv.get_energy()
