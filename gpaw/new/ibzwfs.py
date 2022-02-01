@@ -30,6 +30,7 @@ class IBZWaveFunctions:
 
         self.band_comm = wfs_qs[0][0].band_comm
         self.domain_comm = wfs_qs[0][0].domain_comm
+        self.dtype = wfs_qs[0][0].dtype
 
         self.nbands = wfs_qs[0][0].nbands
 

@@ -1070,6 +1070,9 @@ class PAWSetupGenerator:
         setup.vbar_g = self.v0r_g * sqrt(4 * pi)
         setup.vbar_g[1:] /= self.rgd.r_g[1:]
         setup.vbar_g[0] = setup.vbar_g[1]
+        setup.vt_g = self.vtr_g * sqrt(4 * pi)
+        setup.vt_g[1:] /= self.rgd.r_g[1:]
+        setup.vt_g[0] = setup.vt_g[1]
         setup.Z = aea.Z
         setup.Nc = self.ncore
         setup.Nv = self.nvalence
@@ -1100,7 +1103,7 @@ class PAWSetupGenerator:
         else:
             reltype = 'non-relativistic'
         attrs = [('type', reltype),
-                 ('version', 2),
+                 ('version', 3),
                  ('name', 'gpaw-%s' % version)]
         setup.generatorattrs = attrs
         setup.version = '0.7'
