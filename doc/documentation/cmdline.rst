@@ -24,7 +24,7 @@ atom            Solve radial equation for an atom
 python          Run GPAW's parallel Python interpreter
 sbatch          Submit a GPAW Python script via sbatch
 dataset         Calculate density of states from gpw-file
-symmetry        Analyse symmetry
+symmetry        Analyse symmetry (and show IBZ **k**-points)
 install-data    Install PAW datasets, pseudopotential or basis sets
 ==============  =====================================================
 
