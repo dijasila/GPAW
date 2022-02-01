@@ -41,9 +41,9 @@ class LCAODFTComponentsBuilder(FDDFTComponentsBuilder):
 
         nspins = self.ncomponents % 3
 
-        tciexpansions = TCIExpansions.new_from_setups(self.setups)
+        self.tciexpansions = TCIExpansions.new_from_setups(self.setups)
         # basis.set_matrix_distribution(self.ksl.Mstart, self.ksl.Mstop)
-        manytci = tciexpansions.get_manytci_calculator(
+        manytci = self.tciexpansions.get_manytci_calculator(
             self.setups, self.grid._gd, self.fracpos_ac,
             kpt_qc, self.dtype, NullTimer())
 

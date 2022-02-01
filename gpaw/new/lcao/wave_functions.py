@@ -19,7 +19,8 @@ class LCAOWaveFunctions(WaveFunctions):
                  fracpos_ac: Array2D,
                  weight: float = 1.0,
                  spin_degeneracy: int = 2):
-        super().__init__(spin, setups, fracpos_ac, weight, spin_degeneracy)
+        super().__init__(spin, setups, fracpos_ac, weight, spin_degeneracy,
+                         dtype=C_nM.dtype)
         self.kpt_c = kpt_c
         self.density_adder = density_adder
         self.C_nM = C_nM
@@ -29,7 +30,6 @@ class LCAOWaveFunctions(WaveFunctions):
         self.domain_comm = domain_comm
         self.band_comm = C_nM.dist.comm
         self.nbands = C_nM.shape[0]
-        self.dtype = C_nM.dtype
 
     @property
     def P_ain(self):

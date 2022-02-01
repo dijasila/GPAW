@@ -1,19 +1,24 @@
 from __future__ import annotations
 
+from math import pi
 from types import SimpleNamespace
 
 import numpy as np
-from ase.data import covalent_radii, atomic_numbers
+from ase.data import atomic_numbers, covalent_radii
 from ase.neighborlist import neighbor_list
 from ase.units import Bohr, Ha
 from gpaw.core.arrays import DistributedArrays
 from gpaw.core.atom_arrays import AtomArraysLayout
 from gpaw.core.domain import Domain
+from gpaw.lcao.tci import TCIExpansions
 from gpaw.mpi import MPIComm, serial_comm
-from gpaw.new.builder import DFTComponentsBuilder
-from gpaw.new.ibzwfs import IBZWaveFunctions
+from gpaw.new import zip_strict
+from gpaw.new.lcao.builder import LCAODFTComponentsBuilder
+from gpaw.new.lcao.eigensolver import LCAOEigensolver
 from gpaw.new.pot_calc import PotentialCalculator
-from gpaw.new.wave_functions import WaveFunctions
+from gpaw.setup import Setup
+from gpaw.spline import Spline
+from gpaw.utilities.timing import NullTimer
 
 
 class NoGrid(Domain):
@@ -22,6 +27,7 @@ class NoGrid(Domain):
         self._gd = SimpleNamespace(
             get_grid_spacings=lambda: [0, 0, 0],
             cell_cv=self.cell_cv,
+            pbc_c=self.pbc_c,
             N_c=[0, 0, 0],
             dv=0.0)
 
@@ -55,12 +61,7 @@ class PSCoreDensities:
         pass
 
 
-class DummyBasisSet:
-    def add_to_density(self, data, f_asi):
-        pass
-
-
-class FakePotentialCalculator(PotentialCalculator):
+class TBPotentialCalculator(PotentialCalculator):
     def __init__(self,
                  xc,
                  setups,
@@ -112,31 +113,10 @@ class DummyXC:
         return 0.0
 
 
-class DummyWaveFunctions(WaveFunctions):
-    def __init__(self,
-                 domain_comm,
-                 band_comm,
-                 nbands,
-                 spin: int | None,
-                 setups,
-                 fracpos_ac,
-                 weight: float = 1.0,
-                 spin_degeneracy: int = 2):
-        super().__init__(spin, setups, fracpos_ac, weight, spin_degeneracy)
-        self.domain_comm = domain_comm
-        self.band_comm = band_comm
-        self.nbands = nbands
-
-    def force_contribution(self, dH_asii, F_av):
-        pass
-
-    def move(self, fracpos_ac):
-        pass
-
-
-class DummySCFLoop:
-    def __init__(self, occ_calc):
+class TBSCFLoop:
+    def __init__(self, occ_calc, eigensolver):
         self.occ_calc = occ_calc
+        self.eigensolver = eigensolver
 
     def iterate(self,
                 state,
@@ -144,23 +124,42 @@ class DummySCFLoop:
                 convergence=None,
                 maxiter=None,
                 log=None):
-        for wfs in state.ibzwfs:
-            wfs._eig_n = np.arange(wfs.nbands)
+        self.eigensolver.iterate(state)
         state.ibzwfs.calculate_occs(self.occ_calc)
         yield
         state.potential, state.vHt_x, _ = pot_calc.calculate(
             state.density, state.vHt_x)
 
 
-class FakeDFTComponentsBuilder(DFTComponentsBuilder):
-    name = 'test'
-    interpolation = ''
+class TBEigensolver(LCAOEigensolver):
+    def iterate(self, state, hamiltonian=None) -> float:
+        dH_saii = [{a: dH_sii[s]
+                    for a, dH_sii in state.potential.dH_asii.items()}
+                   for s in range(state.density.ncomponents)]
 
-    def check_cell(self, cell):
+        for wfs in state.ibzwfs:
+            self.iterate1(wfs, None, dH_saii[wfs.spin])
+        return 0.0
+
+    def calculate_potential_matrix(self, wfs, V_xMM):
+        print('V', wfs.V_MM)
+        return wfs.V_MM
+
+
+class DummyBasis:
+    def __init__(self, natoms):
+        self.my_atom_indices = np.arange(natoms)
+
+    def add_to_density(self, nt_sR, f_asi):
         pass
 
-    def create_basis_set(self):
-        return DummyBasisSet()
+    def construct_density(self, rho_MM, nt_G, q):
+        pass
+
+
+class TBDFTComponentsBuilder(LCAODFTComponentsBuilder):
+    def check_cell(self, cell):
+        pass
 
     def create_uniform_grids(self):
         grid = NoGrid(
@@ -173,41 +172,65 @@ class FakeDFTComponentsBuilder(DFTComponentsBuilder):
     def get_pseudo_core_densities(self):
         return PSCoreDensities(self.grid, self.fracpos_ac)
 
+    def create_basis_set(self):
+        self.basis = DummyBasis(len(self.atoms))
+        return self.basis
+
     def create_potential_calculator(self):
         xc = DummyXC()
-        return FakePotentialCalculator(xc, self.setups, self.nct_R, self.atoms)
-
-    def create_ibz_wave_functions(self, basis_set, potential):
-        ibz = self.ibz
-        kpt_comm = self.communicators['k']
-        band_comm = self.communicators['b']
-        domain_comm = self.communicators['d']
-        spin_degeneracy = 2 if self.ncomponents == 1 else 1
-        rank_k = ibz.ranks(kpt_comm)
-        wfs_qs = []
-        for kpt_c, weight, rank in zip(ibz.kpt_kc, ibz.weight_k, rank_k):
-            if rank != kpt_comm.rank:
-                continue
-            wfs_s = []
-            for s in range(self.ncomponents):
-                wfs_s.append(
-                    DummyWaveFunctions(
-                        domain_comm,
-                        band_comm,
-                        self.nbands,
-                        s, self.setups,
-                        self.fracpos_ac, weight,
-                        spin_degeneracy=spin_degeneracy))
-            wfs_qs.append(wfs_s)
-
-        ibzwfs = IBZWaveFunctions(ibz, rank_k, kpt_comm, wfs_qs,
-                                  self.nelectrons,
-                                  spin_degeneracy)
-        return ibzwfs
+        return TBPotentialCalculator(xc, self.setups, self.nct_R, self.atoms)
 
     def create_scf_loop(self):
         occ_calc = self.create_occupation_number_calculator()
-        return DummySCFLoop(occ_calc)
+        eigensolver = TBEigensolver(self.basis)
+        return TBSCFLoop(occ_calc, eigensolver)
+
+    def create_ibz_wave_functions(self, basis, potential):
+        assert self.communicators['w'].size == 1
+        ibzwfs = super().create_ibz_wave_functions(basis, potential)
+
+        vtphit: dict[Setup, list[Spline]] = {}
+
+        for setup in self.setups.setups.values():
+            try:
+                vt_r = setup.vt_g
+            except AttributeError:
+                vt_r = calculate_pseudo_potential(setup, self.xc.xc)[0]
+
+            vt_r[-1] = 0.0  # ???
+            vt = setup.rgd.spline(vt_r, points=300)
+            vtphit_j = []
+            for phit in setup.phit_j:
+                rc = phit.get_cutoff()
+                r_g = np.linspace(0, rc, 150)
+                vt_g = vt.map(r_g) / (4 * pi)**0.5
+                phit_g = phit.map(r_g)
+                vtphit_j.append(Spline(phit.l, rc, vt_g * phit_g))
+            vtphit[setup] = vtphit_j
+
+        vtciexpansions = TCIExpansions([s.phit_j for s in self.setups],
+                                       [vtphit[s] for s in self.setups],
+                                       self.tciexpansions.I_a)
+
+        kpt_qc = np.array([wfs.kpt_c for wfs in ibzwfs])
+        manytci = vtciexpansions.get_manytci_calculator(
+            self.setups, self.grid._gd, self.fracpos_ac,
+            kpt_qc, self.dtype, NullTimer())
+
+        manytci.Pindices = manytci.Mindices
+        my_atom_indices = basis.my_atom_indices
+
+        for wfs, V_MM in zip_strict(ibzwfs, manytci.P_qIM(my_atom_indices)):
+            V_MM = V_MM.toarray()
+            V_MM += V_MM.T.conj().copy()
+            M1 = 0
+            for m in manytci.Mindices.nm_a:
+                M2 = M1 + m
+                V_MM[M1:M2, M1:M2] *= 0.5
+                M1 = M2
+            wfs.V_MM = V_MM
+
+        return ibzwfs
 
 
 def pairpot(atoms):
@@ -228,14 +251,17 @@ def pairpot(atoms):
     symbol_a = atoms.symbols
     for symbol in symbol_a:
         radii[symbol] = covalent_radii[atomic_numbers[symbol]]
+
     r0 = {}
     for s1, r1 in radii.items():
         for s2, r2 in radii.items():
             r0[(s1, s2)] = r1 + r2
     rcutmax = 2 * max(r0.values(), default=1.0)
+
     energy = 0.0
     force_av = np.zeros((len(atoms), 3))
     stress_vv = np.zeros((3, 3))
+
     for i, j, d, D_v in zip(*neighbor_list('ijdD', atoms, rcutmax)):
         d0 = r0[(symbol_a[i], symbol_a[j])]
         e0 = 6.0 / d0
@@ -250,6 +276,38 @@ def pairpot(atoms):
             stress_vv += np.outer(F_v, D_v)
 
     return energy, force_av, stress_vv
+
+
+def calculate_pseudo_potential(setup: Setup, xc):
+    phit_jg = np.array(setup.data.phit_jg)
+    rgd = setup.rgd
+
+    # Density:
+    nt_g = np.einsum('jg, j, jg -> g',
+                     phit_jg, setup.f_j, phit_jg) / (4 * pi)
+    nt_g += setup.data.nct_g * (1 / (4 * pi)**0.5)
+
+    # XC:
+    vt_g = rgd.zeros()
+    xc.calculate_spherical(rgd, nt_g[np.newaxis], vt_g[np.newaxis])
+
+    # Zero-potential:
+    vt_g += setup.data.vbar_g / (4 * pi)**0.5
+
+    # Coulomb:
+    g_g = setup.ghat_l[0].map(rgd.r_g)
+    Q = -rgd.integrate(nt_g) / rgd.integrate(g_g)
+    rhot_g = nt_g + Q * g_g
+    vHtr_g = rgd.poisson(rhot_g)
+
+    W = rgd.integrate(g_g * vHtr_g, n=-1) / (4 * pi)**0.5
+
+    vtr_g = vt_g * rgd.r_g + vHtr_g
+
+    vtr_g[1:] /= rgd.r_g[1:]
+    vtr_g[0] = vtr_g[1]
+
+    return vtr_g * (4 * pi)**0.5, W
 
 
 def poly():

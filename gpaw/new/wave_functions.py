@@ -21,11 +21,13 @@ class WaveFunctions:
                  setups: Setups,
                  fracpos_ac: Array2D,
                  weight: float = 1.0,
-                 spin_degeneracy: int = 2):
+                 spin_degeneracy: int = 2,
+                 dtype=float):
         self.spin = spin
         self.setups = setups
         self.weight = weight
         self.spin_degeneracy = spin_degeneracy
+        self.dtype = dtype
 
         self._P_ain = None
 
@@ -71,7 +73,8 @@ class PWFDWaveFunctions(WaveFunctions):
                  weight: float = 1.0,
                  spin_degeneracy: int = 2):
         self.psit_nX = psit_nX
-        super().__init__(spin, setups, fracpos_ac, weight, spin_degeneracy)
+        super().__init__(spin, setups, fracpos_ac, weight, spin_degeneracy,
+                         dtype=psit_nX.desc.dtype)
         self.pt_aiX = setups.create_projectors(self.psit_nX.desc,
                                                fracpos_ac)
         self.orthonormalized = False
@@ -166,7 +169,6 @@ class PWFDWaveFunctions(WaveFunctions):
         domain_comm = psit_nX.desc.comm
 
         Ht = partial(Ht, out=psit2_nX, spin=self.spin)
-
         H = psit_nX.matrix_elements(psit_nX, function=Ht, domain_sum=False)
         dH(P_ain, out=P2_ain, spin=self.spin)
         P_ain.matrix.multiply(P2_ain, opa='C', symmetric=True,
