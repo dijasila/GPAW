@@ -3,6 +3,10 @@ import sys
 
 import sphinx_rtd_theme
 from gpaw import __version__
+try:
+    import sphinxcontrib.spelling
+except ImportError:
+    sphinxcontrib = None
 
 assert sys.version_info >= (3, 6)
 
@@ -16,8 +20,10 @@ extensions = ['images',
               'sphinx.ext.viewcode',
               'sphinx.ext.napoleon',
               'sphinx.ext.mathjax',
-              'sphinx.ext.intersphinx',
-              'sphinxcontrib.spelling']
+              'sphinx.ext.intersphinx']
+
+if sphinxcontrib:
+    extensions.append('sphinxcontrib.spelling')
 extlinks = {'doi': ('https://doi.org/%s', 'doi:'),
             'arxiv': ('https://arxiv.org/abs/%s', 'arXiv:'),
             'xkcd': ('https://xkcd.com/%s', 'XKCD:')}
