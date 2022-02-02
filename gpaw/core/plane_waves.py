@@ -315,7 +315,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
                    weights: Array1D,
                    out: UniformGridFunctions = None) -> None:
         assert out is not None
-        tmp_R = out.desc.new(dtype=complex).empty()
+        tmp_R = out.desc.new(dtype=self.desc.dtype).empty()
         for f, psit_G in zip(weights, self):
             # Same as (but much faster):
             # out.data += f * abs(psit.ifft().data)**2
