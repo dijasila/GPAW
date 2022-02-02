@@ -68,7 +68,7 @@ def graph(g, obj=None, name=None, dct=None, skip_first=False, color=None):
             if a in ok:
                 x = x.replace('wfs_qs', 'wfs_qs[q][s]')
                 if a in subclasses:
-                    s, oo = subclasses[a]
+                    s, oo, clr = subclasses[a]
                     at = {k for k in o.__dict__ if k[0] != '_'}
                     at0 = at.copy()
                     for o1 in oo:
@@ -76,7 +76,8 @@ def graph(g, obj=None, name=None, dct=None, skip_first=False, color=None):
                     y = graph(g,
                               name=s,
                               dct={k: v for k, v in o.__dict__.items()
-                                   if k in at0})
+                                   if k in at0},
+                              color=clr)
                     if not skip_first:
                         g.edge(id, y, label=x)
                     for o1 in oo + [o]:
@@ -86,7 +87,7 @@ def graph(g, obj=None, name=None, dct=None, skip_first=False, color=None):
                                        dct={k: v
                                             for k, v in o1.__dict__.items()
                                             if k not in at0},
-                                       color='#ddffdd')
+                                       color=clr)
                             g.edge(y1, y, arrowhead='onormal')
                 else:
                     y = graph(g, o)
@@ -130,7 +131,7 @@ def graph(g, obj=None, name=None, dct=None, skip_first=False, color=None):
     return id
 
 
-def make_figures():
+def make_figures(render=True):
     fd = GPAW(mode='fd', txt=None)
     pw = GPAW(mode='pw', txt=None)
     lcao = GPAW(mode='lcao', txt=None)
@@ -148,19 +149,21 @@ def make_figures():
     ibzwfs.wfs_qs = ibzwfs.wfs_qs[0][0]
 
     subclasses['MonkhorstPackKPoints'] = (
-        'BZPoints', [BZPoints(np.zeros((1, 3)))])
+        'BZPoints', [BZPoints(np.zeros((1, 3)))], '#ddffdd')
     subclasses['UniformGridPotentialCalculator'] = (
-        'PotentialCalculator', [pw.calculation.pot_calc])
+        'PotentialCalculator', [pw.calculation.pot_calc], '#ffdddd')
     subclasses['PWFDWaveFunctions'] = (
         'WaveFunctions', [
             WaveFunctions(0, pw.calculation.setups, np.zeros((1, 3))),
-            lcao.calculation.state.ibzwfs.wfs_qs[0][0]])
+            lcao.calculation.state.ibzwfs.wfs_qs[0][0]], '#ddddff')
     subclasses['Davidson'] = ('Eigensolver',
-                              [lcao.calculation.scf_loop.eigensolver])
+                              [lcao.calculation.scf_loop.eigensolver],
+                              '#ffffdd')
     obj = a0
 
     g = make_graph(obj)
-    g.render('code', format='svg')
+    if render:
+        g.render('code', format='svg')
 
     class A:
         def __init__(self, b):
@@ -176,31 +179,34 @@ def make_figures():
     class C(B):
         pass
 
-    subclasses['C'] = ('B', [B()])
+    subclasses['C'] = ('B', [B()], '#ffddff')
     g = make_graph(A(C()))
-    g.render('abc', format='svg')
+    if render:
+        g.render('abc', format='svg')
 
     ok.add('UniformGridAtomCenteredFunctions')
     subclasses['UniformGridAtomCenteredFunctions'] = (
         'AtomCenteredFunctions (ACF)',
-        [pw.calculation.pot_calc.nct_ag])
+        [pw.calculation.pot_calc.nct_ag], '#ddffff')
     obj = A(1)
     obj.a = fd.calculation.pot_calc.nct_aR
     g = make_graph(obj, skip_first=True)
-    g.render('acf', format='svg')
+    if render:
+        g.render('acf', format='svg')
 
     ok.add('UniformGridFunctions')
     ok.add('UniformGrid')
     subclasses['UniformGridFunctions'] = (
         'DistributedArrays (DA)',
-        [pw.calculation.state.ibzwfs.wfs_qs[0][0].psit_nX])
+        [pw.calculation.state.ibzwfs.wfs_qs[0][0].psit_nX], '#eeeeee')
     subclasses['UniformGrid'] = (
         'Domain',
-        [pw.calculation.state.ibzwfs.wfs_qs[0][0].psit_nX.desc])
+        [pw.calculation.state.ibzwfs.wfs_qs[0][0].psit_nX.desc], '#ddeeff')
     obj = A(1)
     obj.a = fd.calculation.state.ibzwfs.wfs_qs.psit_nX
     g = make_graph(obj, skip_first=True)
-    g.render('da', format='svg')
+    if render:
+        g.render('da', format='svg')
 
     b = []
     for mode in ['fd', 'pw']:
@@ -215,11 +221,12 @@ def make_figures():
     ok.add('MonkhorstPackKPoints')
     subclasses['FDDFTComponentsBuilder'] = (
         'DFTComponentsBuilder',
-        [b[1]])
+        [b[1]], '#ffeedd')
     obj = A(1)
     obj.a = b[0]
     g = make_graph(obj, skip_first=True)
-    g.render('builder', format='svg')
+    if render:
+        g.render('builder', format='svg')
 
     ok.add('AtomArrays')
     ok.add('AtomArraysLayout')
@@ -227,7 +234,9 @@ def make_figures():
     obj = A(1)
     obj.a = AtomArraysLayout([1]).empty()
     g = make_graph(obj, skip_first=True)
-    g.render('aa', format='svg')
+    if render:
+        g.render('aa', format='svg')
+    return n
 
 
 if __name__ == '__main__':

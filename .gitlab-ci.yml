@@ -8,7 +8,7 @@ master:
     - python -m venv ../venv
     - source ../venv/bin/activate
     - pip install -U pip
-    - pip install flake8 mypy pytest interrogate
+    - pip install flake8 mypy pytest interrogate graphviz
     - pip -q install git+https://gitlab.com/ase/ase.git@master
     - pip -q install git+https://gitlab.com/myqueue/myqueue.git@master
     - >
