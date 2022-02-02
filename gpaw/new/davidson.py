@@ -47,9 +47,8 @@ class Davidson(Eigensolver):
 
     def iterate(self, state, hamiltonian) -> float:
         if self.work_arrays is None:
-            # Find the largest number of plane waves:
-            shape = max(wfs.psit_nX.data.shape for wfs in state.ibzwfs)
-            self.work_arrays = np.empty((2,) + shape, state.ibzwfs.dtype)
+            self.work_arrays = state.ibzwfs.create_work_arrays(
+                dims=(2, state.ibzwfs.nbands))
 
         dS = state.density.overlap_correction
         dH = state.potential.dH

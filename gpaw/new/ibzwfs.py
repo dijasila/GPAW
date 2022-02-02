@@ -176,3 +176,13 @@ class IBZWaveFunctions:
                         f'    {e2:10.3f}   {f2:9.3f}')
             if k == 3:
                 break
+
+    def create_work_arrays(self, dims: tuple[int]) -> np.ndarray:
+        """Create buffer ndarray large enough for any k-point.
+
+        The number of plane-waves will depend on the k-point!
+        """
+        # Find the largest number of plane-waves or grid-points:
+        desc = max((wfs.psit_nX.desc for wfs in self),
+                   key=lambda desc: desc.myshape)
+        return desc.empty(dims).data
