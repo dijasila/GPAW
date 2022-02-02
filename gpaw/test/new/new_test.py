@@ -1,4 +1,3 @@
-import pytest
 from ase import Atoms
 from gpaw.calculator import GPAW as OldGPAW
 from gpaw.new.ase_interface import GPAW as NewGPAW
