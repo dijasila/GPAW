@@ -160,7 +160,7 @@ For MRs with code changes:
   ``"""Add numbers."""`` docstring).
 
 For MRs with documentation changes,
-build the html-pages and make sure everything looks OK::
+build the HTML-pages and make sure everything looks OK::
 
  $ pip install sphinx-rtd-theme
  $ cd gpaw/doc
