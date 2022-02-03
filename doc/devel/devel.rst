@@ -47,7 +47,6 @@ version to become the next release.
    bugs
    newrelease
    technology
-   benchmarks
 
 * Details about supported :ref:`platforms and architectures`.
 

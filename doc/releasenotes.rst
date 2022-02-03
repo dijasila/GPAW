@@ -14,7 +14,7 @@ Git master branch
 
 * Updated :ref:`WSL installation instructions <wsl>`.
 
-* New feature for the `gpaw symmetry <cli>` command:  Will show number of
+* New feature for the :ref:`gpaw symmetry <cli>` command:  Will show number of
   **k**-points in the IBZ.
 
 
