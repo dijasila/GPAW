@@ -43,11 +43,12 @@ def builder(atoms: Atoms,
     if isinstance(params, dict):
         params = InputParameters(params)
 
-    mode = params.mode['name']
-    assert mode in {'pw', 'lcao', 'fd', 'tb', 'atom'}
-    mod = importlib.import_module(f'gpaw.new.{mode}.builder')
-    name = mode.title() if mode == 'atom' else mode.upper()
-    return getattr(mod, f'{name}DFTComponentsBuilder')(atoms, params)
+    mode = params.mode.copy()
+    name = mode.pop('name')
+    assert name in {'pw', 'lcao', 'fd', 'tb', 'atom'}
+    mod = importlib.import_module(f'gpaw.new.{name}.builder')
+    name = name.title() if name == 'atom' else name.upper()
+    return getattr(mod, f'{name}DFTComponentsBuilder')(atoms, params, **mode)
 
 
 class DFTComponentsBuilder:
@@ -186,7 +187,7 @@ class DFTComponentsBuilder:
 
     def create_basis_set(self):
         kd = KPointDescriptor(self.ibz.bz.kpt_Kc, self.ncomponents % 3)
-        kd.set_symmetry(SimpleNamespace(pbc=self.grid.pbc),
+        kd.set_symmetry(SimpleNamespace(pbc=self.atoms.pbc),
                         self.ibz.symmetries.symmetry,
                         comm=self.communicators['w'])
         kd.set_communicator(self.communicators['k'])

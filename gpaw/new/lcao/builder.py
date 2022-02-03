@@ -57,7 +57,7 @@ class LCAODFTComponentsBuilder(FDDFTComponentsBuilder):
 
         for a, setup in enumerate(self.setups):
             for P_Mi, S_MM in zip(P_aqMi[a], S_qMM):
-                S_MM += P_Mi.conj() @ setup.dO_ii @ P_Mi.T
+                S_MM += P_Mi @ setup.dO_ii @ P_Mi.T.conj()
 
         # self.atomic_correction= self.atomic_correction_cls.new_from_wfs(self)
         # self.atomic_correction.add_overlap_correction(newS_qMM)

@@ -74,10 +74,11 @@ class IBZ:
         return len(self.kpt_kc)
 
     def __repr__(self):
-        return f'IBZ(<{plural(len(self), "point")}>)'
+        return (f'IBZ(<points: {len(self)}, '
+                f'symmetries: {len(self.symmetries)}>)')
 
     def __str__(self):
-        s = ''
+        s = str(self.symmetries)
         # if -1 in self.bz2bz_Ks:
         #    s += 'Note: your k-points are not as symmetric as your crystal!\n'
         N = len(self)

@@ -87,6 +87,7 @@ Commonly used indices:
  ``k``    IBZ **k**-point index
  ``q``    IBZ **k**-point index (local, i.e. it starts at 0 on each processor)
  ``s``    Spin index (`\sigma`)
+ ``s``    Symmetry index
  ``u``    Combined spin and **k**-point index (local)
  ``R``    Three indices into the coarse 3D grid
  ``r``    Three indices into the fine 3D grid
@@ -95,12 +96,12 @@ Commonly used indices:
  ``h``    Index of plane-wave coefficient (compensation charges, ``8 * ecut``)
  ``X``    ``R`` or ``G``
  ``x``    ``r``, ``g`` or ``h``
- ``x``    zeros or more extra dimensions
+ ``x``    Zero or more extra dimensions
  ``M``    LCAO orbital index (`\mu`)
  ``n``    Band number
  ``n``    Principal quantum number
  ``l``    Angular momentum quantum number (s, p, d, ...)
- ``m``    Magnetic quantum number (0, 1, ..., 2*l - 1)
+ ``m``    Magnetic quantum number (0, 1, ..., 2*`ell` - 1)
  ``L``    ``l`` and ``m`` (``L = l**2 + m``)
  ``j``    Valence orbital number (``n`` and ``l``)
  ``i``    Valence orbital number (``n``, ``l`` and ``m``)

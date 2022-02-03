@@ -47,6 +47,6 @@ class LCAOWaveFunctions(WaveFunctions):
                        D_asii: AtomArrays) -> None:
         occ_n = self.weight * self.spin_degeneracy * self.myocc_n
         C_nM = self.C_nM.data
-        rho_MM = (C_nM.T * occ_n) @ C_nM.conj()
+        rho_MM = (C_nM.T.conj() * occ_n) @ C_nM
         self.density_adder(rho_MM, nt_sR.data[self.spin])
         self.add_to_atomic_density_matrices(occ_n, D_asii)

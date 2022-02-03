@@ -4,6 +4,7 @@ from typing import Sequence
 
 import numpy as np
 from ase.units import Ha
+from ase.dft.bandgap import bandgap
 from gpaw.mpi import MPIComm
 from gpaw.new.brillouin import IBZ
 from gpaw.new.wave_functions import WaveFunctions, PWFDWaveFunctions
@@ -43,7 +44,9 @@ class IBZWaveFunctions:
         self.energies: dict[str, float] = {}
 
     def __str__(self):
-        return str(self.ibz)
+        return (f'{self.ibz}\n'
+                f'Valence electrons: {self.nelectrons}\n'
+                f'Spin-degeneracy: {self.spin_degeneracy}')
 
     def __iter__(self):
         for wfs_s in self.wfs_qs:
@@ -154,25 +157,38 @@ class IBZWaveFunctions:
 
         ibz = self.ibz
 
+        nspins = 2 // self.spin_degeneracy
+        nkpts = len(ibz)
+        eig_skn = np.empty((nspins, nkpts, self.nbands))
+        occ_skn = np.empty((nspins, nkpts, self.nbands))
+        for k in range(nkpts):
+            for s in range(nspins):
+                (eig_skn[s, k, :],
+                 occ_skn[s, k, :]) = self.get_eigs_and_occs(k, s)
+
         for k, (x, y, z) in enumerate(ibz.kpt_kc):
             log(f'\nkpt = [{x:.3f}, {y:.3f}, {z:.3f}], '
                 f'weight = {ibz.weight_k[k]:.3f}:')
 
             if self.spin_degeneracy == 2:
                 log('  Band      eig [eV]   occ [0-2]')
-                eigs, occs = self.get_eigs_and_occs(k)
-                for n, (e, f) in enumerate(zip(eigs * Ha, occs)):
+                for n, (e, f) in enumerate(zip(eig_skn[0, k] * Ha,
+                                               occ_skn[0, k])):
                     log(f'  {n:4} {e:13.3f}   {2 * f:9.3f}')
             else:
                 log('  Band      eig [eV]   occ [0-1]'
                     '      eig [eV]   occ [0-1]')
-                eigs1, occs1 = self.get_eigs_and_occs(k, 0)
-                eigs2, occs2 = self.get_eigs_and_occs(k, 1)
-                for n, (e1, f1, e2, f2) in enumerate(zip(eigs1 * Ha,
-                                                         occs1,
-                                                         eigs2 * Ha,
-                                                         occs2)):
+                for n, (e1, f1, e2, f2) in enumerate(zip(eig_skn[0, k] * Ha,
+                                                         occ_skn[0, k],
+                                                         eig_skn[1, k] * Ha,
+                                                         occ_skn[1, k])):
                     log(f'  {n:4} {e1:13.3f}   {f1:9.3f}'
                         f'    {e2:10.3f}   {f2:9.3f}')
             if k == 3:
                 break
+
+        bandgap(eigenvalues=eig_skn * Ha,
+                efermi=fl[0],
+                output=log.fd,
+                kpts=ibz.kpt_kc)
+        
