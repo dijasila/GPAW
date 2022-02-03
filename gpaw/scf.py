@@ -52,14 +52,17 @@ class SCFLoop:
         self.niter = 1
         cheap, expensive = self.prepare_convergence_criteria()
 
-        while self.niter <= self.maxiter:
+        while self.niter <= abs(self.maxiter):
             self.iterate_eigensolver(wfs, ham, dens)
 
             self.check_convergence(
                 dens, ham, wfs, log, cheap, expensive, callback)
             yield
 
-            if self.converged and self.niter >= self.niter_fixdensity:
+            converged = ((self.converged and
+                          self.niter >= self.niter_fixdensity) or
+                         (self.maxiter < 0 and self.niter == -self.maxiter))
+            if converged:
                 self.do_if_converged(wfs, ham, dens, log)
                 break
 
@@ -69,7 +72,7 @@ class SCFLoop:
         # Don't fix the density in the next step.
         self.niter_fixdensity = 0
 
-        if not self.converged:
+        if not converged:
             self.not_converged(dens, ham, wfs, log)
 
     def log(self, log, converged_items, entries, context):
