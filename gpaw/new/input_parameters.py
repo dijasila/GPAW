@@ -82,7 +82,8 @@ class InputParameters:
         bands = self.convergence.pop('bands')
         if bands is not None:
             self.eigensolver['converge_bands'] = bands
-            warnings.warn(f'Please use eigensolver={self.eigensolver!r}')
+            warnings.warn(f'Please use eigensolver={self.eigensolver!r}',
+                          stacklevel=4)
 
     def __repr__(self) -> str:
         p = ', '.join(f'{key}={value!r}'
