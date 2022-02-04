@@ -453,17 +453,15 @@ except FileNotFoundError:
 """
 ### Li metal
 
-We use a Li metal reference to calculate the equilibrium potential. On exercise day 2 you used a Li metal reference to calculate the intercalation energy in the graphite anode. The approach is similar here. You should be able to keep these calculations in the notebook. Although you already did something very similar on day 2, the fastest will be to run the cell below rather than attempting to reuse your prior result. If you get a warning - ignore it.
+We use a Li metal reference to calculate the equilibrium potential. On exercise day 2 you used a Li metal reference to calculate the intercalation energy in the graphite anode. The approach is similar here. Just read in the result of the calculation with DFTD3 and attach a new calulator to it.
 """
 
 # %%
 from ase import Atoms
 from gpaw import GPAW, FermiDirac, PW
-from ase.optimize import BFGS
-from ase.build import bulk
-from ase.constraints import StrainFilter
+from ase.io import read
 
-li_metal = bulk('Li', 'bcc', a=3.3)
+li_metal = read('Li-metal-DFTD3.traj')  # Change file name accordingly
 
 calc = GPAW(mode=PW(500),
             kpts=(8, 8, 8),
@@ -473,10 +471,7 @@ calc = GPAW(mode=PW(500),
             xc='BEEF-vdW')
 
 li_metal.calc = calc
-
-sf = StrainFilter(li_metal, mask=[1, 1, 1, 0, 0, 0])
-opt = BFGS(sf, trajectory='li_metal.traj')
-opt.run(fmax=0.01)
+li_metal.get_potential_energy()
 
 # %%
 """
