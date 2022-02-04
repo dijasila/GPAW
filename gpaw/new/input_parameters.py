@@ -26,12 +26,19 @@ def update_dict(default: dict, value: dict | None) -> dict[str, Any]:
     """Create dict with defaults + updates.
 
     >>> update_dict({'a': 1, 'b': 'hello'}, {'a': 2})
+    {'a': 2, 'b': 'hello'}
     >>> update_dict({'a': 1, 'b': 'hello'}, None)
+    {'a': 1, 'b': 'hello'}
     >>> update_dict({'a': 1, 'b': 'hello'}, {'c': 2})
+    Traceback (most recent call last):
+    ValueError: Unknown key: 'c'. Must be one of a, b
     """
     dct = default.copy()
     if value is not None:
-        assert value.keys() <= default.keys(), (value, default)
+        if not (value.keys() <= default.keys()):
+            key = (value.keys() - default.keys()).pop()
+            raise ValueError(
+                f'Unknown key: {key!r}. Must be one of {", ".join(default)}')
         dct.update(value)
     return dct
 
@@ -74,7 +81,7 @@ class InputParameters:
 
         bands = self.convergence.pop('bands')
         if bands is not None:
-            self.eigensolver['converge'] = bands
+            self.eigensolver['converge_bands'] = bands
             warnings.warn(f'Please use eigensolver={self.eigensolver!r}')
 
     def __repr__(self) -> str:
@@ -124,7 +131,7 @@ def parallel(value: dict[str, Any] = None) -> dict[str, Any]:
 @input_parameter
 def eigensolver(value=None):
     """Eigensolver."""
-    return value or {'converge': 'occupied'}
+    return value or {'converge_bands': 'occupied'}
 
 
 @input_parameter

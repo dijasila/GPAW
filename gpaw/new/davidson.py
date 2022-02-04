@@ -25,10 +25,10 @@ class Davidson(Eigensolver):
                  preconditioner_factory,
                  niter=2,
                  blocksize=10,
-                 converge='occupied',
+                 converge_bands='occupied',
                  scalapack_parameters=None):
         self.niter = niter
-        self.converge = converge
+        self.converge_bands = converge_bands
 
         B = nbands
         domain_comm = wf_grid.comm
@@ -112,7 +112,7 @@ class Davidson(Eigensolver):
         for i in range(self.niter):
             if i == self.niter - 1:
                 # Calulate error before we destroy residuals:
-                weights_n = calculate_weights(self.converge, wfs)
+                weights_n = calculate_weights(self.converge_bands, wfs)
                 error = weights_n @ residual_nX.norm2()
 
             self.preconditioner(psit_nX, residual_nX, out=psit2_nX)
@@ -205,9 +205,10 @@ def calculate_residuals(residuals_nX: DA,
     wfs.pt_aiX.add_to(residuals_nX, P1_ain)
 
 
-def calculate_weights(converge: int | str, wfs: PWFDWaveFunctions) -> Array1D:
+def calculate_weights(converge_bands: int | str,
+                      wfs: PWFDWaveFunctions) -> Array1D:
     """Calculate convergence weights for all eigenstates."""
-    if converge == 'occupied':
+    if converge_bands == 'occupied':
         # Converge occupied bands:
         try:
             # Methfessel-Paxton distribution can give negative
@@ -217,16 +218,21 @@ def calculate_weights(converge: int | str, wfs: PWFDWaveFunctions) -> Array1D:
             # No eigenvalues yet:
             return np.zeros(wfs.psit_nX.mydims) + np.inf
 
+    if isinstance(converge_bands, int):
+        # Converge fixed number of bands:
+        n = converge_bands
+        if wfs.psit_nX.comm.size > 1:
+            raise NotImplementedError
+            n -= 117
+        if n > 0:
+            weight_n = np.zeros(wfs.psit_nX.mydims)
+            weight_n[:n] = 1.0
+            return weight_n
+
     1 / 0
     return np.zeros(42)
 
     """
-    if isinstance(converge, int):
-        # Converge fixed number of bands:
-        n = self.nbands_converge - self.bd.beg
-        if n > 0:
-            for weight_n, kpt in zip(weight_un, wfs.kpt_u):
-                weight_n[:n] = kpt.weight
     else:
         # Converge state with energy up to CBM + delta:
         assert self.nbands_converge.startswith('CBM+')

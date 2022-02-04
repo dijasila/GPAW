@@ -148,6 +148,7 @@ class DFTComponentsBuilder:
 
     def create_ibz_wave_functions(self, basis_set, potential):
         if self.params.random:
+            raise NotImplementedError
             self.log('Initializing wave functions with random numbers')
             ibzwfs = self.random_ibz_wave_functions()
         else:

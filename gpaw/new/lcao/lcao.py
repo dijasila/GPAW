@@ -86,6 +86,7 @@ def create_lcao_ibz_wave_functions(setups,
             assert lcaokpt.s == s
             psit_nR = gridk.zeros(nbands, band_comm)
             mynbands = len(lcaokpt.C_nM)
+            assert mynbands == lcaonbands
             basis_set.lcao_to_grid(lcaokpt.C_nM,
                                    psit_nR.data[:mynbands], lcaokpt.q)
             if isinstance(wf_desc, PlaneWaves):
@@ -96,10 +97,12 @@ def create_lcao_ibz_wave_functions(setups,
                 psit_nX = psit_nG
             else:
                 psit_nX = psit_nR
+            if lcaonbands < nbands:
+                psit_nX[lcaonbands:].randomize()
+
             wfs_s.append(PWFDWaveFunctions(psit_nX, s, setups,
                                            fracpos_ac, weight,
                                            spin_degeneracy=2 // nspins))
-            assert mynbands == nbands
             u += 1
         wfs_qs.append(wfs_s)
 

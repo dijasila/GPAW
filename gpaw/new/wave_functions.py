@@ -98,12 +98,6 @@ class PWFDWaveFunctions(WaveFunctions):
         self._eig_n = None
         self._occ_n = None
 
-    @classmethod
-    def from_random_numbers(cls, desc, weight, nbands, band_comm, setups,
-                            fracpos_ac):
-        wfs = desc.random(nbands, band_comm)
-        return cls(wfs, 0, setups, fracpos_ac, weight)
-
     def add_to_density(self,
                        nt_sR,
                        D_asii: AtomArrays) -> None:

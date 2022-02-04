@@ -288,7 +288,7 @@ def pytest_configure(config):
                  'elph: Electron-phonon',
                  'intel: fails on INTEL toolchain',
                  'serial: run in serial only',
-                 'skip_for_new_gpaw: know to fail for new refactored GPAW']:
+                 'skip_for_new_gpaw: know failure for new refactored GPAW']:
         config.addinivalue_line('markers', line)
 
 

@@ -195,3 +195,19 @@ class IBZWaveFunctions:
         except ValueError:
             # Maybe we only have the occupied bands and no empty bands
             pass
+
+    def get_homo_lumo(self, spin=None):
+        """Return HOMO and LUMO eigenvalues."""
+        if spin is None:
+            if self.spin_degeneracy == 2:
+                return self.get_homo_lumo(0)
+            h0, l0 = self.get_homo_lumo(0)
+            h1, l1 = self.get_homo_lumo(1)
+            return np.array([max(h0, h1), min(l0, l1)])
+
+        n = int(round(self.nelectrons)) // 2
+        assert 2 * n == self.nelectrons
+        homo = self.kpt_comm.max(max(wfs._eig_n[n - 1] for wfs in self))
+        lumo = self.kpt_comm.min(min(wfs._eig_n[n] for wfs in self))
+
+        return np.array([homo, lumo])

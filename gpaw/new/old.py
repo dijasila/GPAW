@@ -11,16 +11,20 @@ from gpaw.new.potential import Potential
 # from gpaw.new.wave_functions import IBZWaveFunctions
 from gpaw.utilities import pack, unpack2
 from gpaw.core.atom_arrays import AtomArraysLayout
+from gpaw.typing import Array1D
 
 
 class OldStuff:
     def get_pseudo_wave_function(self, n):
         return self.calculation.ibzwfs[0].wave_functions.data[n]
 
-    def get_fermi_level(self):
+    def get_fermi_level(self) -> float:
         fl = self.calculation.state.ibzwfs.fermi_levels * Ha
         assert len(fl) == 1
         return fl[0]
+
+    def get_homo_lumo(self, spin: int = None) -> Array1D:
+        return self.calculation.state.ibzwfs.get_homo_lumo(spin) * Ha
 
     def get_atomic_electrostatic_potentials(self):
         _, _, Q_aL = self.calculation.pot_calc.calculate(

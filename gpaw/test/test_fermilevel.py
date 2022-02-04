@@ -21,11 +21,11 @@ def test_fermilevel(in_tmp_dir):
     atoms.calc = GPAW(**params)
     atoms.get_potential_energy()
     homo, lumo = atoms.calc.get_homo_lumo()
-    assert homo == pytest.apprrox(-15.4473, abs=0.01)
-    equal(lumo, -0.2566, 0.01)
+    assert homo == pytest.approx(-15.4473, abs=0.01)
+    assert lumo == pytest.approx(-0.2566, abs=0.01)
 
-    calc.write('test.gpw')
-    assert np.all(GPAW('test').get_homo_lumo() == (homo, lumo))
+    atoms.calc.write('test.gpw')
+    assert np.all(GPAW('test.gpw').get_homo_lumo() == (homo, lumo))
     ef = calc.get_fermi_level()
     equal(ef, -7.85196, 0.01)
 
