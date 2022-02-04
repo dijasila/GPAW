@@ -1,13 +1,14 @@
 from __future__ import annotations
 from gpaw.core import UniformGrid
-from gpaw.new.builder import DFTComponentsBuilder, create_uniform_grid
+from gpaw.new.builder import create_uniform_grid
+from gpaw.new.pwfd.builder import PWFDDFTComponentsBuilder
 from gpaw.new.poisson import PoissonSolverWrapper, PoissonSolver
 from gpaw.poisson import PoissonSolver as make_poisson_solver
 from gpaw.fd_operators import Laplace
 from gpaw.new.fd.pot_calc import UniformGridPotentialCalculator
 
 
-class FDDFTComponentsBuilder(DFTComponentsBuilder):
+class FDDFTComponentsBuilder(PWFDDFTComponentsBuilder):
     stencil = 3
     interpolation = 'not fft'
 
@@ -55,6 +56,9 @@ class FDDFTComponentsBuilder(DFTComponentsBuilder):
 
     def create_hamiltonian_operator(self, blocksize=10):
         return FDHamiltonian(self.wf_desc, self.stencil, blocksize)
+
+    def convert_wave_functions_from_uniform_grid(self, psit_nR):
+        return psit_nR
 
 
 class FDHamiltonian:

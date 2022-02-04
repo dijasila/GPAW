@@ -147,44 +147,15 @@ class DFTComponentsBuilder:
         return out
 
     def create_ibz_wave_functions(self, basis_set, potential):
-        if self.params.random:
-            raise NotImplementedError
-            self.log('Initializing wave functions with random numbers')
-            ibzwfs = self.random_ibz_wave_functions()
-        else:
-            ibzwfs = self.lcao_ibz_wave_functions(basis_set, potential)
-        return ibzwfs
-
-    def lcao_ibz_wave_functions(self, basis_set, potential):
-        from gpaw.new.lcao.lcao import create_lcao_ibz_wave_functions
-        sl_default = self.params.parallel['sl_default']
-        sl_lcao = self.params.parallel['sl_lcao'] or sl_default
-        return create_lcao_ibz_wave_functions(
+        return IBZWaveFunctions(
+            self.ibz,
             self.setups,
-            self.communicators,
-            self.nbands,
-            self.ncomponents,
             self.nelectrons,
-            self.fracpos_ac,
+            self.spin_degeneracy,
             self.dtype,
-            self.grid,
-            self.wf_desc,
-            self.ibz,
-            sl_lcao,
-            basis_set,
-            potential)
-
-    def random_ibz_wave_functions(self):
-        return IBZWaveFunctions.from_random_numbers(
-            self.ibz,
+            self.communicators['d'],
             self.communicators['b'],
-            self.communicators['k'],
-            self.wf_desc,
-            self.setups,
-            self.fracpos_ac,
-            self.nbands,
-            self.nelectrons,
-            self.dtype)
+            self.communicators['k'])
 
     def create_basis_set(self):
         kd = KPointDescriptor(self.ibz.bz.kpt_Kc, self.ncomponents % 3)

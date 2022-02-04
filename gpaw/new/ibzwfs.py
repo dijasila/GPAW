@@ -5,9 +5,9 @@ from typing import Sequence
 import numpy as np
 from ase.units import Ha
 from ase.dft.bandgap import bandgap
-from gpaw.mpi import MPIComm
+from gpaw.mpi import MPIComm, serial_comm
 from gpaw.new.brillouin import IBZ
-from gpaw.new.wave_functions import WaveFunctions, PWFDWaveFunctions
+from gpaw.new.wave_functions import WaveFunctions
 from gpaw.core.atom_arrays import AtomArrays
 
 
@@ -53,31 +53,33 @@ class IBZWaveFunctions:
             yield from wfs_s
 
     @classmethod
-    def from_random_numbers(cls,
-                            ibz,
-                            band_comm,
-                            kpt_comm,
-                            desc,
-                            setups,
-                            fracpos_ac,
-                            nbands: int,
-                            nelectrons: float,
-                            dtype=None) -> IBZWaveFunctions:
-        """Needs fixing!!!!!!!!!!"""
+    def from_ibz(cls,
+                 ibz,
+                 setups,
+                 spin: int | None,
+                 nelectrons: float,
+                 spin_degeneracy: int = 2,
+                 dtype=float,
+                 domain_comm: MPIComm = serial_comm,
+                 band_comm: MPIComm = serial_comm,
+                 kpt_comm: MPIComm = serial_comm) -> IBZWaveFunctions:
         rank_k = ibz.ranks(kpt_comm)
-
-        wfs_q = []
-        for kpt_c, weight, rank in zip(ibz.kpt_kc, ibz.weight_k, rank_k):
-            if rank != kpt_comm.rank:
-                continue
-            desck = desc.new(kpt=kpt_c, dtype=dtype)
-            wfs = PWFDWaveFunctions.from_random_numbers(desck, weight,
-                                                        nbands, band_comm,
-                                                        setups,
-                                                        fracpos_ac)
-            wfs_q.append(wfs)
-
-        return cls(ibz, rank_k, kpt_comm, wfs_q, nelectrons)
+        here_k = rank_k == kpt_comm.rank
+        kpt_qc = ibz.kpt_kc[here_k]
+        nspins = 2 // spin_degeneracy
+        wfs_qs = []
+        for q, (kpt_c, weight) in enumerate(zip(kpt_qc, ibz.weight_k[here_k])):
+            wfs_s = []
+            for s in range(nspins):
+                wfs = WaveFunctions(
+                    domain_comm=domain_comm,
+                    spin=s,
+                    setups=setups,
+                    weight=weight,
+                    spin_degeneracy=spin_degeneracy)
+                wfs_s.append(wfs)
+            wfs_qs.append(wfs_s)
+        return cls(ibz, rank_k, kpt_comm, wfs_qs, nelectrons, spin_degeneracy)
 
     def move(self, fracpos_ac):
         self.ibz.symmetries.check_positions(fracpos_ac)

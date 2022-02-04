@@ -4,10 +4,11 @@ from ase.units import Ha
 from gpaw.core import PlaneWaves
 from gpaw.new.pw.poisson import ReciprocalSpacePoissonSolver
 from gpaw.new.pw.pot_calc import PlaneWavePotentialCalculator
-from gpaw.new.builder import DFTComponentsBuilder, create_uniform_grid
+from gpaw.new.builder import create_uniform_grid
+from gpaw.new.pwfd.builder import PWFDDFTComponentsBuilder
 
 
-class PWDFTComponentsBuilder(DFTComponentsBuilder):
+class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
     interpolation = 'fft'
 
     def __init__(self, atoms, params):
@@ -65,6 +66,13 @@ class PWDFTComponentsBuilder(DFTComponentsBuilder):
 
     def create_hamiltonian_operator(self, blocksize=10):
         return PWHamiltonian()
+
+    def convert_wave_functions_from_uniform_grid(self, psit_nR):
+        pw = self.wf_desc.new(kpt=psit_nR.desc.kpt_c)
+        psit_nG = pw.empty(psit_nR.dims, psit_nR.comm)
+        for psit_R, psit_G in zip(psit_nR, psit_nG):
+            psit_R.fft(out=psit_G)
+        return psit_nG
 
 
 class PWHamiltonian:
