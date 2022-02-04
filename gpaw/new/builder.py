@@ -221,11 +221,14 @@ class DFTComponentsBuilder:
             np.linalg.inv(self.atoms.cell.complete()).T)
 
     def create_eigensolver(self, hamiltonian):
+        eigsolv_params = self.params.eigensolver
+        name = eigsolv_params.pop('name', 'dav')
+        assert name == 'dav'
         return Davidson(self.nbands,
                         self.wf_desc,
                         self.communicators['b'],
                         hamiltonian.create_preconditioner,
-                        **self.params.eigensolver)
+                        **eigsolv_params)
 
     def create_scf_loop(self):
         hamiltonian = self.create_hamiltonian_operator()

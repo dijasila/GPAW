@@ -187,8 +187,11 @@ class IBZWaveFunctions:
             if k == 3:
                 break
 
-        bandgap(eigenvalues=eig_skn * Ha,
-                efermi=fl[0],
-                output=log.fd,
-                kpts=ibz.kpt_kc)
-        
+        try:
+            bandgap(eigenvalues=eig_skn * Ha,
+                    efermi=fl[0],
+                    output=log.fd,
+                    kpts=ibz.kpt_kc)
+        except ValueError:
+            # Maybe we only have the occupied bands and no empty bands
+            pass

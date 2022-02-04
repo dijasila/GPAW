@@ -17,6 +17,11 @@ class OldStuff:
     def get_pseudo_wave_function(self, n):
         return self.calculation.ibzwfs[0].wave_functions.data[n]
 
+    def get_fermi_level(self):
+        fl = self.calculation.state.ibzwfs.fermi_levels * Ha
+        assert len(fl) == 1
+        return fl[0]
+
     def get_atomic_electrostatic_potentials(self):
         _, _, Q_aL = self.calculation.pot_calc.calculate(
             self.calculation.state.density)
