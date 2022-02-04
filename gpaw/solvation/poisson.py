@@ -3,10 +3,11 @@ import warnings
 import numpy as np
 from scipy.special import erf
 
-from gpaw.poisson import FDPoissonSolver
+from gpaw.poisson import FDPoissonSolver, FastPoissonSolver
 from gpaw.fd_operators import Laplace, Gradient
 from gpaw.wfd_operators import WeightedFDOperator
 from gpaw.utilities.gauss import Gaussian
+from gpaw import PoissonConvergenceError
 
 
 class SolvationPoissonSolver(FDPoissonSolver):
@@ -123,9 +124,6 @@ class PolarizationPoissonSolver(SolvationPoissonSolver):
     Calculates the polarization charges first using only the
     vacuum poisson equation, then solves the vacuum equation
     with polarization charges.
-
-    Warning: Not intended for production use, as it is not exact enough,
-             since the electric field is not exact enough!
     """
 
     def __init__(self, nn=3, relax='J', eps=2e-10, maxiter=1000,
@@ -138,6 +136,8 @@ class PolarizationPoissonSolver(SolvationPoissonSolver):
             self, nn, relax, eps, maxiter, remove_moment,
             use_charge_center=use_charge_center)
         self.phi_tilde = None
+
+        self.gas_phase_poisson = FastPoissonSolver
 
     def get_description(self):
         if len(self.operators) == 0:
@@ -152,35 +152,49 @@ class PolarizationPoissonSolver(SolvationPoissonSolver):
               maxcharge=1e-6,
               zero_initial_phi=False, timer=None):
         self._init()
-        if self.phi_tilde is None:
-            self.phi_tilde = self.gd.zeros()
-        phi_tilde = self.phi_tilde
-        niter_tilde = FDPoissonSolver.solve(
-            self, phi_tilde, rho, None, maxcharge, False)
+        # get initial meaningful phi -> only do this if necessary
+        if zero_initial_phi:
+            niter = self.gas_phase_poisson.solve(
+                self, phi, rho, charge=None, maxcharge=maxcharge,
+                zero_initial_phi=zero_initial_phi, timer=timer)
+        else:
+            niter = 0
+        
+        phi_old = phi.copy()
+        while niter < self.maxiter:
+            rho_mod = self.rho_with_polarization_charge(phi, rho)
+            niter += self.gas_phase_poisson.solve(
+                self, phi, rho_mod, charge=None, maxcharge=maxcharge,
+                zero_initial_phi=zero_initial_phi, timer=timer)
+            residual = phi - phi_old
+            error = self.gd.comm.sum(np.dot(residual.ravel(),
+                                            residual.ravel())) * self.gd.dv
+            if error < self.eps:
+                return niter
+            phi_old = phi.copy()
+            
+        raise PoissonConvergenceError(
+            'PolarizationPoisson solver did not converge in '
+            + f'{niter} iterations!')
 
+    def rho_with_polarization_charge(self, phi, rho):
         epsr, dx_epsr, dy_epsr, dz_epsr = self.dielectric.eps_gradeps
-        dx_phi_tilde = self.gd.empty()
-        dy_phi_tilde = self.gd.empty()
-        dz_phi_tilde = self.gd.empty()
-        Gradient(self.gd, 0, 1.0, self.nn).apply(phi_tilde, dx_phi_tilde)
-        Gradient(self.gd, 1, 1.0, self.nn).apply(phi_tilde, dy_phi_tilde)
-        Gradient(self.gd, 2, 1.0, self.nn).apply(phi_tilde, dz_phi_tilde)
+        dx_phi = self.gd.empty()
+        dy_phi = self.gd.empty()
+        dz_phi = self.gd.empty()
+        Gradient(self.gd, 0, 1.0, self.nn).apply(phi, dx_phi)
+        Gradient(self.gd, 1, 1.0, self.nn).apply(phi, dy_phi)
+        Gradient(self.gd, 2, 1.0, self.nn).apply(phi, dz_phi)
 
         scalar_product = (
-            dx_epsr * dx_phi_tilde +
-            dy_epsr * dy_phi_tilde +
-            dz_epsr * dz_phi_tilde)
+            dx_epsr * dx_phi +
+            dy_epsr * dy_phi +
+            dz_epsr * dz_phi)
 
-        rho_and_pol = (
-            rho / epsr + scalar_product / (4. * np.pi * epsr ** 2))
-
-        niter = FDPoissonSolver.solve(
-            self, phi, rho_and_pol, None,
-            maxcharge, zero_initial_phi, timer=timer)
-        return niter_tilde + niter
+        return (rho + scalar_product / (4. * np.pi)) / epsr
 
     def load_gauss(self, center=None):
-        return FDPoissonSolver.load_gauss(self, center=center)
+        return self.gas_phase_poisson.load_gauss(self, center=center)
 
 
 class ADM12PoissonSolver(SolvationPoissonSolver):
