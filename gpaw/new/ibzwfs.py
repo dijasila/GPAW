@@ -56,7 +56,7 @@ class IBZWaveFunctions:
     def from_ibz(cls,
                  ibz,
                  setups,
-                 spin: int | None,
+                 nbands: int,
                  nelectrons: float,
                  spin_degeneracy: int = 2,
                  dtype=float,
@@ -73,7 +73,9 @@ class IBZWaveFunctions:
             for s in range(nspins):
                 wfs = WaveFunctions(
                     domain_comm=domain_comm,
+                    band_comm=band_comm,
                     spin=s,
+                    nbands=nbands,
                     setups=setups,
                     weight=weight,
                     spin_degeneracy=spin_degeneracy)

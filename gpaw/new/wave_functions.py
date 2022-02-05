@@ -15,6 +15,7 @@ class WaveFunctions:
                  weight: float = 1.0,
                  spin_degeneracy: int = 2,
                  dtype=float,
+                 kpt_c=(0, 0, 0),
                  domain_comm: MPIComm = serial_comm,
                  band_comm: MPIComm = serial_comm):
         self.spin = spin
@@ -22,8 +23,10 @@ class WaveFunctions:
         self.weight = weight
         self.spin_degeneracy = spin_degeneracy
         self.dtype = dtype
+        self.kpt_c = kpt_c
         self.domain_comm = domain_comm
         self.band_comm = band_comm
+        self.nbands = nbands
 
         self._P_ain: AtomArrays | None = None
 

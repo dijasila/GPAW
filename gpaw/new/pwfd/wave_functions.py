@@ -19,14 +19,27 @@ class PWFDWaveFunctions(WaveFunctions):
                  weight: float = 1.0,
                  spin_degeneracy: int = 2):
         self.psit_nX = psit_nX
-        super().__init__(spin, setups, fracpos_ac, weight, spin_degeneracy,
+        super().__init__(spin,
+                         setups,
+                         weight=weight,
+                         spin_degeneracy=spin_degeneracy,
                          dtype=psit_nX.desc.dtype,
                          domain_comm=psit_nX.desc.comm,
                          band_comm=psit_nX.comm,
-                         nbands=psit_nX.dims[0])
+                         nbands=psit_nX.dims[0],
+                         kpt_c=psit_nX.desc.kpt_c)
         self.pt_aiX = setups.create_projectors(self.psit_nX.desc,
                                                fracpos_ac)
         self.orthonormalized = False
+
+    @classmethod
+    def from_wfs(cls, wfs: WaveFunctions, psit_nX, fracpos_ac):
+        return cls(psit_nX,
+                   wfs.spin,
+                   wfs.setups,
+                   fracpos_ac,
+                   wfs.weight,
+                   wfs.spin_degeneracy)
 
     @property
     def P_ain(self):
