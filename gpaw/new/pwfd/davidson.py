@@ -9,7 +9,7 @@ from gpaw.core.arrays import DistributedArrays as DA
 from gpaw.core.atom_centered_functions import AtomArrays as AA
 from gpaw.core.matrix import Matrix
 from gpaw.new.eigensolver import Eigensolver
-from gpaw.new.wave_functions import PWFDWaveFunctions
+from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 from gpaw.typing import Array1D, Array2D
 from gpaw.utilities.blas import axpy
 from scipy.linalg import eigh

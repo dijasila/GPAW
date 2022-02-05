@@ -16,7 +16,6 @@ from gpaw.mixer import MixerWrapper, get_mixer_from_keywords
 from gpaw.mpi import MPIComm, Parallelization, serial_comm, world
 from gpaw.new import cached_property
 from gpaw.new.brillouin import BZPoints, MonkhorstPackKPoints
-from gpaw.new.davidson import Davidson
 from gpaw.new.density import Density
 from gpaw.new.ibzwfs import IBZWaveFunctions
 from gpaw.new.input_parameters import InputParameters
@@ -110,10 +109,16 @@ class DFTComponentsBuilder:
 
         if self.initial_magmoms is None:
             self.ncomponents = 1
+            self.nspins = 1
+            self.spin_degeneracy = 2
         elif self.initial_magmoms.ndim == 1:
             self.ncomponents = 2
+            self.nspins = 2
+            self.spin_degeneracy = 1
         else:
             self.ncomponents = 4
+            self.nspins = 1
+            self.spin_degeneracy = 1
 
         self.fracpos_ac = self.atoms.get_scaled_positions()
 
@@ -147,9 +152,10 @@ class DFTComponentsBuilder:
         return out
 
     def create_ibz_wave_functions(self, basis_set, potential):
-        return IBZWaveFunctions(
+        return IBZWaveFunctions.from_ibz(
             self.ibz,
             self.setups,
+            self.nbands,
             self.nelectrons,
             self.spin_degeneracy,
             self.dtype,
@@ -191,16 +197,6 @@ class DFTComponentsBuilder:
             self.communicators,
             self.initial_magmoms,
             np.linalg.inv(self.atoms.cell.complete()).T)
-
-    def create_eigensolver(self, hamiltonian):
-        eigsolv_params = self.params.eigensolver
-        name = eigsolv_params.pop('name', 'dav')
-        assert name == 'dav'
-        return Davidson(self.nbands,
-                        self.wf_desc,
-                        self.communicators['b'],
-                        hamiltonian.create_preconditioner,
-                        **eigsolv_params)
 
     def create_scf_loop(self):
         hamiltonian = self.create_hamiltonian_operator()

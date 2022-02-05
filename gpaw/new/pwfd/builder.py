@@ -12,9 +12,20 @@ from gpaw.utilities import pack2
 from gpaw.utilities.partition import AtomPartition
 from gpaw.utilities.timing import nulltimer
 from gpaw.wavefunctions.lcao import LCAOWaveFunctions
+from gpaw.new.pwfd.davidson import Davidson
 
 
 class PWFDDFTComponentsBuilder(DFTComponentsBuilder):
+    def create_eigensolver(self, hamiltonian):
+        eigsolv_params = self.params.eigensolver
+        name = eigsolv_params.pop('name', 'dav')
+        assert name == 'dav'
+        return Davidson(self.nbands,
+                        self.wf_desc,
+                        self.communicators['b'],
+                        hamiltonian.create_preconditioner,
+                        **eigsolv_params)
+
     def create_ibz_wave_functions(self, basis_set, potential):
         ibzwfs = super().create_ibz_wave_functions(basis_set, potential)
         if self.params.random:
@@ -63,6 +74,7 @@ def initialize_from_lcao(ibzwfs: IBZWaveFunctions,
     world = communicators['w']
     lcaonbands = min(nbands, setups.nao)
     gd = grid._gd
+    nspins = ncomponents % 3
 
     lcaobd = BandDescriptor(lcaonbands, band_comm)
     lcaoksl = get_KohnSham_layouts(sl_lcao, 'lcao',
@@ -96,7 +108,7 @@ def initialize_from_lcao(ibzwfs: IBZWaveFunctions,
                           dH_asp=dH_asp)
     eigensolver.iterate(ham, lcaowfs)
 
-    for wfs, lcaokpt in zip(ibzwfs, lcaowfs.kpt_u):
+    for u, (wfs, lcaokpt) in enumerate(zip(ibzwfs, lcaowfs.kpt_u)):
         gridk = grid.new(kpt=wfs.kpt_c, dtype=dtype)
         assert lcaokpt.s == wfs.spin
         psit_nR = gridk.zeros(nbands, band_comm)
@@ -111,5 +123,5 @@ def initialize_from_lcao(ibzwfs: IBZWaveFunctions,
         psit_nX = convert_wfs(psit_nR)
 
         newwfs = PWFDWaveFunctions.from_wfs(wfs, psit_nX, fracpos_ac)
-        ibzwfs.wfs_qs[wfs.q][wfs.spin] = newwfs
-        
+        q = u // nspins
+        ibzwfs.wfs_qs[q][wfs.spin] = newwfs
