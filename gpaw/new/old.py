@@ -14,6 +14,8 @@ from gpaw.typing import Array1D
 
 
 class OldStuff:
+    calculation: DFTCalculation
+
     def get_pseudo_wave_function(self, n):
         return self.calculation.ibzwfs[0].wave_functions.data[n]
 

@@ -60,6 +60,7 @@ class InputParameters:
     spinpol: bool
     poissonsolver: dict[str, Any]
     convergence: dict[str, Any]
+    eigensolver: dict[str, Any]
 
     def __init__(self, params: dict[str, Any]):
         self.keys = set(params)

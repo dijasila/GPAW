@@ -25,7 +25,7 @@ class WaveFunctions:
         self.domain_comm = domain_comm
         self.band_comm = band_comm
 
-        self._P_ain = None
+        self._P_ain: AtomArrays | None = None
 
         self._eig_n: Array1D | None = None
         self._occ_n: Array1D | None = None
@@ -54,6 +54,7 @@ class WaveFunctions:
 
     @property
     def P_ain(self) -> AtomArrays:
+        assert self._P_ain is not None
         return self._P_ain
 
     def add_to_atomic_density_matrices(self,
