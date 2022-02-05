@@ -55,13 +55,9 @@ class IBZWaveFunctions:
     @classmethod
     def from_ibz(cls,
                  ibz,
-                 setups,
-                 nbands: int,
                  nelectrons: float,
+                 create_wfs,
                  spin_degeneracy: int = 2,
-                 dtype=float,
-                 domain_comm: MPIComm = serial_comm,
-                 band_comm: MPIComm = serial_comm,
                  kpt_comm: MPIComm = serial_comm) -> IBZWaveFunctions:
         rank_k = ibz.ranks(kpt_comm)
         here_k = rank_k == kpt_comm.rank
@@ -71,14 +67,7 @@ class IBZWaveFunctions:
         for q, (kpt_c, weight) in enumerate(zip(kpt_qc, ibz.weight_k[here_k])):
             wfs_s = []
             for s in range(nspins):
-                wfs = WaveFunctions(
-                    domain_comm=domain_comm,
-                    band_comm=band_comm,
-                    spin=s,
-                    nbands=nbands,
-                    setups=setups,
-                    weight=weight,
-                    spin_degeneracy=spin_degeneracy)
+                wfs = create_wfs(q, s, kpt_c, weight)
                 wfs_s.append(wfs)
             wfs_qs.append(wfs_s)
         return cls(ibz, rank_k, kpt_comm, wfs_qs, nelectrons, spin_degeneracy)

@@ -1,3 +1,4 @@
+from __future__ import annotations
 import ase.io.ulm as ulm
 import gpaw
 import numpy as np
@@ -13,19 +14,28 @@ from gpaw.core.atom_arrays import AtomArraysLayout
 from gpaw.typing import Array1D
 
 
+def state(method):
+    def new_method(self, *args, **kwargs):
+        assert self.calculation is not None
+        return method(self, self.calculation.state, *args, **kwargs)
+    return new_method
+
+
 class OldStuff:
-    calculation: DFTCalculation
+    calculation: DFTCalculation | None
 
     def get_pseudo_wave_function(self, n):
         return self.calculation.ibzwfs[0].wave_functions.data[n]
 
-    def get_fermi_level(self) -> float:
-        fl = self.calculation.state.ibzwfs.fermi_levels * Ha
+    @state
+    def get_fermi_level(self, state) -> float:
+        fl = state.ibzwfs.fermi_levels * Ha
         assert len(fl) == 1
         return fl[0]
 
-    def get_homo_lumo(self, spin: int = None) -> Array1D:
-        return self.calculation.state.ibzwfs.get_homo_lumo(spin) * Ha
+    @state
+    def get_homo_lumo(self, state, spin: int = None) -> Array1D:
+        return state.ibzwfs.get_homo_lumo(spin) * Ha
 
     def get_atomic_electrostatic_potentials(self):
         _, _, Q_aL = self.calculation.pot_calc.calculate(
@@ -135,7 +145,18 @@ def read_gpw(filename, log, parallel):
                                            builder.params.charge,
                                            builder.setups)
     potential = Potential(vt_sR, dH_asp.to_full(), {})
-    ibzwfs = ...
+
+    def create_wfs(q, s, kpt_c, weight):
+        return WaveFunctions(
+            domain_comm=domain_comm,
+            band_comm=band_comm,
+            spin=s,
+            nbands=nbands,
+            setups=setups,
+            weight=weight,
+            spin_degeneracy=spin_degeneracy)
+
+    ibzwfs = IBZWaveFunctions.from_ibz(create_wfs)
 
     calculation = DFTCalculation(
         DFTState(ibzwfs, density, potential),
