@@ -269,8 +269,6 @@ class ElectronPhononMatrix:
             g_xNkMn = self._precalculate_ket(c_knM, kd, s)
 
             for q, q_c in enumerate(k_qc):
-                if q == 20:
-                    exit()
                 # Find indices of k+q for the k-points
                 kplusq_k = kd.find_k_plus_q(q_c)  # works on FBZ
                 # Note: calculations require use of FULL BZ,

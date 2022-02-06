@@ -21,8 +21,6 @@ class Selfenergy(Observable):
         eta: float
             Broadening for self-energy in eV
         """
-        ieta = 1j * eta
-
         nspin = self.g_sqklnn.shape[0]
         nk = self.g_sqklnn.shape[2]
         nbands = self.g_sqklnn.shape[4]
@@ -38,23 +36,32 @@ class Selfenergy(Observable):
             for q, q_c in enumerate(k_qc):
                 # Find indices of k+q for the k-points
                 kplusq_k = kd.find_k_plus_q(q_c)
-                for k in enumerate(kd.nbzkpts):
+                for k in range(kd.nbzkpts):
                     k_c = kd.bzk_kc[k]
                     kplusq_c = k_c + q_c
                     kplusq_c -= kplusq_c.round()  # 1BZ
                     assert np.allclose(kplusq_c, kd.bzk_kc[kplusq_k[k]])
                     # k+q occupation numbers
-                    f_n = self.calc.get_occupation_numbers(kplusq_k[k], s)
-                    f_n /= kd.weight_k(kplusq_k[k])
+                    f_n = self.calc.get_occupation_numbers(kplusq_k[k], s) * \
+                        kd.nspins / 2 / kd.weight_k[kplusq_k[k]]
+                    # print(s, q, k, f_n)
                     assert np.isclose(max(f_n), 1.0, atol=0.1)
 
-                    ek_n = self.calc.get_eigenvalues(k, s)  # k
+                    # according to QE ieta < 0 if E_kn < Ef
+                    _f = self.calc.get_occupation_numbers(k, s) * \
+                        kd.nspins / 2 / kd.weight_k[k]
+                    mask = np.where(_f > 0.5)[0]
+                    ieta = 1j * eta * np.ones_like(_f, dtype=complex)
+                    ieta[mask] *= -1.
+
+                    # Get eigenvalues returns eV (internal GPAW is Ha)
+                    ek_n = self.calc.get_eigenvalues(k, s) + ieta  # k
                     eq_n = self.calc.get_eigenvalues(kplusq_k[k], s)  # k+q
-                    deltae_mn = ek_n[None, :] - eq_n[:, None] + ieta
+                    deltae_mn = ek_n[None, :] - eq_n[:, None]
+
                     for l, (fw, w) in enumerate(zip(fw_ql[q], self.w_ql[q])):
                         ff_mn = (fw + f_n[:, None]) / (deltae_mn + w) + \
                                 (fw + 1. - f_n[:, None]) / (deltae_mn - w)
-
                         g_nn = self.g_sqklnn[s, q, k, l]
 
                         # n^prime = p
