@@ -24,6 +24,13 @@ class DFTState:
         self.potential = potential
         self.vHt_x = vHt_x  # initial guess for Hartree potential
 
+    def __repr__(self):
+        return (f'DFTState({self.ibzwfs!r}, '
+                f'{self.density!r}, {self.potential!r})')
+
+    def __str__(self):
+        return f'{self.ibzwfs}\n{self.density}\n{self.potential}'
+
     def move(self, fracpos_ac, delta_nct_R):
         self.ibzwfs.move(fracpos_ac)
         self.potential.energies.clear()
@@ -65,17 +72,20 @@ class DFTCalculation:
 
         pot_calc = builder.create_potential_calculator()
         potential, vHt_x, _ = pot_calc.calculate(density)
-
         ibzwfs = builder.create_ibz_wave_functions(basis_set, potential)
+        state = DFTState(ibzwfs, density, potential, vHt_x)
+        scf_loop = builder.create_scf_loop()
 
         if log is not None:
             write_atoms(atoms, builder.grid, builder.initial_magmoms, log)
-            log(ibzwfs.ibz.symmetries)
-            log(ibzwfs)
+            log(state)
+            log(builder.setups)
+            log(scf_loop)
+            log(pot_calc)
 
-        return cls(DFTState(ibzwfs, density, potential, vHt_x),
+        return cls(state,
                    builder.setups,
-                   builder.create_scf_loop(),
+                   scf_loop,
                    pot_calc)
 
     def move_atoms(self, atoms, log) -> DFTCalculation:
@@ -98,7 +108,6 @@ class DFTCalculation:
         return self
 
     def iconverge(self, log, convergence=None, maxiter=None):
-        log(self.scf_loop)
         for ctx in self.scf_loop.iterate(self.state,
                                          self.pot_calc,
                                          convergence,

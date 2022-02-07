@@ -144,17 +144,6 @@ class UniformGrid(Domain):
                            kpt=kpt,
                            decomp=gd.n_cp)
 
-    def random(self,
-               shape: int | tuple[int, ...] = (),
-               comm: MPIComm = serial_comm) -> UniformGridFunctions:
-        functions = self.empty(shape, comm)
-        seed = [functions.comm.rank, functions.desc.comm.rank]
-        rng = np.random.default_rng(seed)
-        a = functions.data.view(float)
-        rng.random(a.shape, out=a)
-        a -= 0.5
-        return functions
-
     def fft_plans(self, flags: int = fftw.MEASURE) -> tuple[fftw.FFTPlan,
                                                             fftw.FFTPlan]:
         size = tuple(self.size_c)
@@ -194,7 +183,10 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         return UniformGridFunctions(self.desc, self.dims, self.comm, data)
 
     def __getitem__(self, index):
-        return UniformGridFunctions(data=self.data[index], grid=self.desc)
+        data = self.data[index]
+        return UniformGridFunctions(data=data,
+                                    dims=data.shape[:-3],
+                                    grid=self.desc)
 
     def _arrays(self):
         return self.data.reshape((-1,) + self.data.shape[-3:])
@@ -458,3 +450,10 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         self.scatter_from(b_xR)
 
         self.data *= 1.0 / len(rotation_scc)
+
+    def randomize(self) -> None:
+        seed = [self.comm.rank, self.desc.comm.rank]
+        rng = np.random.default_rng(seed)
+        a = self.data.view(float)
+        rng.random(a.shape, out=a)
+        a -= 0.5

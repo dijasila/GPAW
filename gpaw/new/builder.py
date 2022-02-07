@@ -16,7 +16,6 @@ from gpaw.mixer import MixerWrapper, get_mixer_from_keywords
 from gpaw.mpi import MPIComm, Parallelization, serial_comm, world
 from gpaw.new import cached_property
 from gpaw.new.brillouin import BZPoints, MonkhorstPackKPoints
-from gpaw.new.davidson import Davidson
 from gpaw.new.density import Density
 from gpaw.new.ibzwfs import IBZWaveFunctions
 from gpaw.new.input_parameters import InputParameters
@@ -43,11 +42,12 @@ def builder(atoms: Atoms,
     if isinstance(params, dict):
         params = InputParameters(params)
 
-    mode = params.mode['name']
-    assert mode in {'pw', 'lcao', 'fd', 'tb', 'atom'}
-    mod = importlib.import_module(f'gpaw.new.{mode}.builder')
-    name = mode.title() if mode == 'atom' else mode.upper()
-    return getattr(mod, f'{name}DFTComponentsBuilder')(atoms, params)
+    mode = params.mode.copy()
+    name = mode.pop('name')
+    assert name in {'pw', 'lcao', 'fd', 'tb', 'atom'}
+    mod = importlib.import_module(f'gpaw.new.{name}.builder')
+    name = name.title() if name == 'atom' else name.upper()
+    return getattr(mod, f'{name}DFTComponentsBuilder')(atoms, params, **mode)
 
 
 class DFTComponentsBuilder:
@@ -114,6 +114,9 @@ class DFTComponentsBuilder:
         else:
             self.ncomponents = 4
 
+        self.nspins = self.ncomponents % 3
+        self.spin_degeneracy = self.ncomponents % 2 + 1
+
         self.fracpos_ac = self.atoms.get_scaled_positions()
 
     def create_uniform_grids(self):
@@ -145,48 +148,21 @@ class DFTComponentsBuilder:
                                scale=1.0 / (self.ncomponents % 3))
         return out
 
-    def create_ibz_wave_functions(self, basis_set, potential):
-        if self.params.random:
-            self.log('Initializing wave functions with random numbers')
-            ibzwfs = self.random_ibz_wave_functions()
-        else:
-            ibzwfs = self.lcao_ibz_wave_functions(basis_set, potential)
-        return ibzwfs
-
-    def lcao_ibz_wave_functions(self, basis_set, potential):
-        from gpaw.new.lcao.lcao import create_lcao_ibz_wave_functions
-        sl_default = self.params.parallel['sl_default']
-        sl_lcao = self.params.parallel['sl_lcao'] or sl_default
-        return create_lcao_ibz_wave_functions(
-            self.setups,
-            self.communicators,
-            self.nbands,
+    def ccccccreate_ibz_wave_functions(self, basis_set, potential):
+        return IBZWaveFunctions(
+            self.ibz,
+            self.nelectrons,
             self.ncomponents,
-            self.nelectrons,
-            self.fracpos_ac,
-            self.dtype,
-            self.grid,
-            self.wf_desc,
-            self.ibz,
-            sl_lcao,
-            basis_set,
-            potential)
-
-    def random_ibz_wave_functions(self):
-        return IBZWaveFunctions.from_random_numbers(
-            self.ibz,
-            self.communicators['b'],
-            self.communicators['k'],
-            self.wf_desc,
             self.setups,
-            self.fracpos_ac,
             self.nbands,
-            self.nelectrons,
-            self.dtype)
+            self.dtype,
+            self.communicators['d'],
+            self.communicators['b'],
+            self.communicators['k'])
 
     def create_basis_set(self):
         kd = KPointDescriptor(self.ibz.bz.kpt_Kc, self.ncomponents % 3)
-        kd.set_symmetry(SimpleNamespace(pbc=self.grid.pbc),
+        kd.set_symmetry(SimpleNamespace(pbc=self.atoms.pbc),
                         self.ibz.symmetries.symmetry,
                         comm=self.communicators['w'])
         kd.set_communicator(self.communicators['k'])
@@ -218,13 +194,6 @@ class DFTComponentsBuilder:
             self.communicators,
             self.initial_magmoms,
             np.linalg.inv(self.atoms.cell.complete()).T)
-
-    def create_eigensolver(self, hamiltonian):
-        return Davidson(self.nbands,
-                        self.wf_desc,
-                        self.communicators['b'],
-                        hamiltonian.create_preconditioner,
-                        **self.params.eigensolver)
 
     def create_scf_loop(self):
         hamiltonian = self.create_hamiltonian_operator()

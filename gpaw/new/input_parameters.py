@@ -1,10 +1,12 @@
 from __future__ import annotations
 from pathlib import Path
+import warnings
 
 from typing import Any, IO, Sequence
 
 import numpy as np
 from gpaw.mpi import world
+from gpaw.typing import DTypeLike
 
 parameter_functions = {}
 
@@ -21,10 +23,23 @@ def input_parameter(func):
     return func
 
 
-def update_dict(default, value) -> dict[str, Any]:
+def update_dict(default: dict, value: dict | None) -> dict[str, Any]:
+    """Create dict with defaults + updates.
+
+    >>> update_dict({'a': 1, 'b': 'hello'}, {'a': 2})
+    {'a': 2, 'b': 'hello'}
+    >>> update_dict({'a': 1, 'b': 'hello'}, None)
+    {'a': 1, 'b': 'hello'}
+    >>> update_dict({'a': 1, 'b': 'hello'}, {'c': 2})
+    Traceback (most recent call last):
+    ValueError: Unknown key: 'c'. Must be one of a, b
+    """
     dct = default.copy()
     if value is not None:
-        assert value.keys() <= default.keys(), (value, default)
+        if not (value.keys() <= default.keys()):
+            key = (value.keys() - default.keys()).pop()
+            raise ValueError(
+                f'Unknown key: {key!r}. Must be one of {", ".join(default)}')
         dct.update(value)
     return dct
 
@@ -45,9 +60,12 @@ class InputParameters:
     nbands: None | int | float
     spinpol: bool
     poissonsolver: dict[str, Any]
+    convergence: dict[str, Any]
+    eigensolver: dict[str, Any]
+    dtype: DTypeLike
 
     def __init__(self, params: dict[str, Any]):
-        self.params = params
+        self.keys = set(params)
 
         for key in params:
             if key not in parameter_functions:
@@ -56,15 +74,40 @@ class InputParameters:
                     ', '.join(parameter_functions))
         for key, func in parameter_functions.items():
             if key in params:
-                value = func(params[key])
+                param = params[key]
+                if hasattr(param, 'todict'):
+                    param = param.todict()
+                value = func(param)
             else:
                 value = func()
             self.__dict__[key] = value
 
+        bands = self.convergence.pop('bands')
+        if bands is not None:
+            self.eigensolver['converge_bands'] = bands
+            warnings.warn(f'Please use eigensolver={self.eigensolver!r}',
+                          stacklevel=4)
+
+        force_complex_dtype = self.mode.pop('force_complex_dtype', None)
+        if force_complex_dtype is not None:
+            warnings.warn(
+                f'Please use GPAW(dtype={bool(force_complex_dtype)}, ...)',
+                stacklevel=3)
+            self.dtype = force_complex_dtype
+
     def __repr__(self) -> str:
         p = ', '.join(f'{key}={value!r}'
-                      for key, value in self.params.items())
+                      for key, value in self.items())
         return f'InputParameters({p})'
+
+    def items(self):
+        for key in self.keys:
+            yield key, getattr(self, key)
+
+
+@input_parameter
+def dtype(value=None):
+    return value
 
 
 @input_parameter
@@ -104,7 +147,7 @@ def parallel(value: dict[str, Any] = None) -> dict[str, Any]:
 @input_parameter
 def eigensolver(value=None):
     """Eigensolver."""
-    return value or {'converge': 'occupied'}
+    return value or {'converge_bands': 'occupied'}
 
 
 @input_parameter
@@ -232,5 +275,6 @@ def convergence(value=None):
     return update_dict({'energy': 0.0005,  # eV / electron
                         'density': 1.0e-4,  # electrons / electron
                         'eigenstates': 4.0e-8,  # eV^2 / electron
-                        'forces': np.inf},
+                        'forces': np.inf,
+                        'bands': None},
                        value)

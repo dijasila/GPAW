@@ -119,6 +119,7 @@ def write_header(log, world):
     log('Date:  ', time.asctime())
     log('Arch:  ', machine)
     log('Pid:   ', os.getpid())
+    log('CWD:   ', os.getcwd())
     log('Python: {0}.{1}.{2}'.format(*sys.version_info[:3]))
     # GPAW
     line = os.path.dirname(gpaw.__file__)

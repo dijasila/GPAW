@@ -39,8 +39,6 @@ class LCAODFTComponentsBuilder(FDDFTComponentsBuilder):
         here_k = rank_k == kpt_comm.rank
         kpt_qc = ibz.kpt_kc[here_k]
 
-        nspins = self.ncomponents % 3
-
         self.tciexpansions = TCIExpansions.new_from_setups(self.setups)
         # basis.set_matrix_distribution(self.ksl.Mstart, self.ksl.Mstop)
         manytci = self.tciexpansions.get_manytci_calculator(
@@ -57,39 +55,32 @@ class LCAODFTComponentsBuilder(FDDFTComponentsBuilder):
 
         for a, setup in enumerate(self.setups):
             for P_Mi, S_MM in zip(P_aqMi[a], S_qMM):
-                S_MM += P_Mi.conj() @ setup.dO_ii @ P_Mi.T
+                S_MM += P_Mi @ setup.dO_ii @ P_Mi.T.conj()
 
         # self.atomic_correction= self.atomic_correction_cls.new_from_wfs(self)
         # self.atomic_correction.add_overlap_correction(newS_qMM)
 
-        wfs_qs = []
-        for q, (kpt_c,
-                weight,
-                S_MM,
-                T_MM,
-                P_aMi) in enumerate(zip(kpt_qc, ibz.weight_k[here_k],
-                                        S_qMM, T_qMM, P_qaMi)):
-            wfs_s = []
-            for s in range(nspins):
-                C_nM = Matrix(self.nbands, self.setups.nao, self.dtype,
-                              dist=(band_comm, band_comm.size, 1))
-                wfs = LCAOWaveFunctions(
-                    kpt_c,
-                    partial(basis.construct_density, q=q),
-                    C_nM,
-                    S_MM,
-                    T_MM,
-                    P_aMi,
-                    domain_comm,
-                    s,
-                    self.setups,
-                    self.fracpos_ac,
-                    weight,
-                    spin_degeneracy=2 // nspins)
-                wfs_s.append(wfs)
-            wfs_qs.append(wfs_s)
+        def create_wfs(spin, q, k, kpt_c, weight):
+            C_nM = Matrix(self.nbands, self.setups.nao, self.dtype,
+                          dist=(band_comm, band_comm.size, 1))
+            return LCAOWaveFunctions(
+                setups=self.setups,
+                density_adder=partial(basis.construct_density, q=q),
+                C_nM=C_nM,
+                S_MM=S_qMM[q],
+                T_MM=T_qMM[q],
+                P_aMi=P_qaMi[q],
+                kpt_c=kpt_c,
+                domain_comm=domain_comm,
+                spin=spin,
+                q=q,
+                k=k,
+                weight=weight,
+                ncomponents=self.ncomponents)
 
-        ibzwfs = IBZWaveFunctions(ibz, rank_k, kpt_comm, wfs_qs,
+        ibzwfs = IBZWaveFunctions(ibz,
                                   self.nelectrons,
-                                  2 // nspins)
+                                  self.ncomponents,
+                                  create_wfs,
+                                  kpt_comm)
         return ibzwfs

@@ -1,4 +1,6 @@
 from __future__ import annotations
+
+from ase.units import Ha
 from gpaw.core.arrays import DistributedArrays
 from gpaw.core.atom_arrays import AtomArrays
 
@@ -19,4 +21,8 @@ class Potential:
         return out
 
     def write(self, writer):
-        writer.write(vt=self.vt.collect().data)
+        dH_asp = self.dH_asii.to_lower_triangle().gather()
+        writer.write(
+            potential=self.vt_sR.gather().data * Ha,
+            atomic_hamiltonian_matrices=dH_asp.data,
+            energies={name: val * Ha for name, val in self.energies.items()})

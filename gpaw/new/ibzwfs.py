@@ -1,80 +1,63 @@
 from __future__ import annotations
 
-from typing import Sequence
-
 import numpy as np
+from ase.dft.bandgap import bandgap
 from ase.units import Ha
-from gpaw.mpi import MPIComm
-from gpaw.new.brillouin import IBZ
-from gpaw.new.wave_functions import WaveFunctions, PWFDWaveFunctions
 from gpaw.core.atom_arrays import AtomArrays
+from gpaw.mpi import MPIComm, serial_comm
+from gpaw.new.brillouin import IBZ
+from gpaw.new.wave_functions import WaveFunctions
 
 
 class IBZWaveFunctions:
     def __init__(self,
                  ibz: IBZ,
-                 rank_k: Sequence[int],
-                 kpt_comm: MPIComm,
-                 wfs_qs: Sequence[Sequence[WaveFunctions]],
                  nelectrons: float,
-                 spin_degeneracy: int = 2):
+                 ncomponents: int,
+                 create_wfs_func,
+                 kpt_comm: MPIComm = serial_comm):
         """Collection of wave function objects for k-points in the IBZ."""
         self.ibz = ibz
-        self.rank_k = rank_k
         self.kpt_comm = kpt_comm
-        self.wfs_qs = wfs_qs
         self.nelectrons = nelectrons
+
+        self.ncomponents = ncomponents
+        self.collinear = (ncomponents == 4)
+        self.spin_degeneracy = ncomponents % 2 + 1
+        self.nspins = ncomponents % 3
+
+        self.rank_k = ibz.ranks(kpt_comm)
+        mask_k = (self.rank_k == kpt_comm.rank)
+        k_q = np.arange(len(ibz))[mask_k]
+
+        self.q_k = {}  # IBZ-index to local index
+        self.wfs_qs: list[list[WaveFunctions]] = []
+        for q, k in enumerate(k_q):
+            self.q_k[k] = q
+            wfs_s = []
+            for spin in range(self.nspins):
+                wfs = create_wfs_func(spin, q, k,
+                                      ibz.kpt_kc[k], ibz.weight_k[k])
+                wfs_s.append(wfs)
+            self.wfs_qs.append(wfs_s)
+
+        self.band_comm = wfs.band_comm
+        self.domain_comm = wfs.domain_comm
+        self.dtype = wfs.dtype
+        self.nbands = wfs.nbands
+
         self.fermi_levels = None
-        self.collinear = False
-        self.spin_degeneracy = spin_degeneracy
 
-        self.band_comm = wfs_qs[0][0].band_comm
-        self.domain_comm = wfs_qs[0][0].domain_comm
-        self.dtype = wfs_qs[0][0].dtype
-
-        self.nbands = wfs_qs[0][0].nbands
-
-        self.q_k = {}  # ibz index to local index
-        q = 0
-        for k, rank in enumerate(rank_k):
-            if rank == kpt_comm.rank:
-                self.q_k[k] = q
-                q += 1
         self.energies: dict[str, float] = {}
 
     def __str__(self):
-        return str(self.ibz)
+        return (f'{self.ibz}\n'
+                f'Valence electrons: {self.nelectrons}\n'
+                f'Spin-degeneracy: {self.spin_degeneracy}')
 
     def __iter__(self):
         for wfs_s in self.wfs_qs:
             yield from wfs_s
-
-    @classmethod
-    def from_random_numbers(cls,
-                            ibz,
-                            band_comm,
-                            kpt_comm,
-                            desc,
-                            setups,
-                            fracpos_ac,
-                            nbands: int,
-                            nelectrons: float,
-                            dtype=None) -> IBZWaveFunctions:
-        """Needs fixing!!!!!!!!!!"""
-        rank_k = ibz.ranks(kpt_comm)
-
-        wfs_q = []
-        for kpt_c, weight, rank in zip(ibz.kpt_kc, ibz.weight_k, rank_k):
-            if rank != kpt_comm.rank:
-                continue
-            desck = desc.new(kpt=kpt_c, dtype=dtype)
-            wfs = PWFDWaveFunctions.from_random_numbers(desck, weight,
-                                                        nbands, band_comm,
-                                                        setups,
-                                                        fracpos_ac)
-            wfs_q.append(wfs)
-
-        return cls(ibz, rank_k, kpt_comm, wfs_q, nelectrons)
 
     def move(self, fracpos_ac):
         self.ibz.symmetries.check_positions(fracpos_ac)
@@ -137,6 +120,17 @@ class IBZWaveFunctions:
                 return eig_n, occ_n
         return np.zeros(0), np.zeros(0)
 
+    def get_all_eigs_and_occs(self):
+        nspins = 2 // self.spin_degeneracy
+        nkpts = len(self.ibz)
+        eig_skn = np.empty((nspins, nkpts, self.nbands))
+        occ_skn = np.empty((nspins, nkpts, self.nbands))
+        for k in range(nkpts):
+            for s in range(nspins):
+                (eig_skn[s, k, :],
+                 occ_skn[s, k, :]) = self.get_eigs_and_occs(k, s)
+        return eig_skn, occ_skn
+
     def forces(self, dH_asii: AtomArrays):
         F_av = np.zeros((dH_asii.natoms, 3))
         for wfs in self:
@@ -145,7 +139,10 @@ class IBZWaveFunctions:
         return F_av
 
     def write(self, writer, skip_wfs):
-        writer.write(fermi_levels=self.fermi_levels)
+        eig_skn, occ_skn = self.get_all_eigs_and_occs()
+        writer.write(fermi_levels=self.fermi_levels * Ha,
+                     eigenvalues=eig_skn * Ha,
+                     occupations=occ_skn)
 
     def write_summary(self, log):
         fl = self.fermi_levels * Ha
@@ -154,28 +151,53 @@ class IBZWaveFunctions:
 
         ibz = self.ibz
 
+        eig_skn, occ_skn = self.get_all_eigs_and_occs()
+
         for k, (x, y, z) in enumerate(ibz.kpt_kc):
             log(f'\nkpt = [{x:.3f}, {y:.3f}, {z:.3f}], '
                 f'weight = {ibz.weight_k[k]:.3f}:')
 
             if self.spin_degeneracy == 2:
                 log('  Band      eig [eV]   occ [0-2]')
-                eigs, occs = self.get_eigs_and_occs(k)
-                for n, (e, f) in enumerate(zip(eigs * Ha, occs)):
+                for n, (e, f) in enumerate(zip(eig_skn[0, k] * Ha,
+                                               occ_skn[0, k])):
                     log(f'  {n:4} {e:13.3f}   {2 * f:9.3f}')
             else:
                 log('  Band      eig [eV]   occ [0-1]'
                     '      eig [eV]   occ [0-1]')
-                eigs1, occs1 = self.get_eigs_and_occs(k, 0)
-                eigs2, occs2 = self.get_eigs_and_occs(k, 1)
-                for n, (e1, f1, e2, f2) in enumerate(zip(eigs1 * Ha,
-                                                         occs1,
-                                                         eigs2 * Ha,
-                                                         occs2)):
+                for n, (e1, f1, e2, f2) in enumerate(zip(eig_skn[0, k] * Ha,
+                                                         occ_skn[0, k],
+                                                         eig_skn[1, k] * Ha,
+                                                         occ_skn[1, k])):
                     log(f'  {n:4} {e1:13.3f}   {f1:9.3f}'
                         f'    {e2:10.3f}   {f2:9.3f}')
             if k == 3:
                 break
+
+        try:
+            bandgap(eigenvalues=eig_skn * Ha,
+                    efermi=fl[0],
+                    output=log.fd,
+                    kpts=ibz.kpt_kc)
+        except ValueError:
+            # Maybe we only have the occupied bands and no empty bands
+            pass
+
+    def get_homo_lumo(self, spin=None):
+        """Return HOMO and LUMO eigenvalues."""
+        if spin is None:
+            if self.spin_degeneracy == 2:
+                return self.get_homo_lumo(0)
+            h0, l0 = self.get_homo_lumo(0)
+            h1, l1 = self.get_homo_lumo(1)
+            return np.array([max(h0, h1), min(l0, l1)])
+
+        n = int(round(self.nelectrons)) // 2
+        assert 2 * n == self.nelectrons
+        homo = self.kpt_comm.max(max(wfs._eig_n[n - 1] for wfs in self))
+        lumo = self.kpt_comm.min(min(wfs._eig_n[n] for wfs in self))
+
+        return np.array([homo, lumo])
 
     def create_work_arrays(self, dims: tuple[int]) -> np.ndarray:
         """Create buffer ndarray large enough for any k-point.

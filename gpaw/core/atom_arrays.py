@@ -198,3 +198,32 @@ class AtomArrays(DistributedArrays):
 
         for request, _ in requests:
             comm.wait(request)
+
+    def to_lower_triangle(self):
+        shape_a = []
+        for i1, i2 in self.layout.shape_a:
+            assert i1 == i2
+            shape_a.append((i1 * (i1 + 1) // 2,))
+        layout = AtomArraysLayout(shape_a, self.layout.atomdist.comm)
+        a_axp = layout.empty(self.dims)
+        for a_xii, a_xp in zip(self.values(), a_axp.values()):
+            i = a_xii.shape[-1]
+            L = np.tril_indices(i)
+            for a_p, a_ii in zip(a_xp.reshape((-1, i * (i + 1) // 2)),
+                                 a_xii.reshape((-1, i, i))):
+                a_p[:] = a_ii[L]
+        return a_axp
+
+    def to_full(self):
+        shape_a = []
+        for (p,) in self.layout.shape_a:
+            i = int((2 * p + 0.25)**0.5)
+            shape_a.append((i, i))
+        layout = AtomArraysLayout(shape_a, self.layout.atomdist.comm)
+        a_axii = layout.empty(self.dims)
+        for a_xp, a_xii in zip(self.values(), a_axii.values()):
+            i = a_xii.shape[-1]
+            a_xii[..., np.tril_indices(i)] = a_xp
+            u = np.triu_indices(i, 1)
+            a_xii[..., u] = np.swapaxes(a_xii, -1, -2)[..., u]
+        return a_axii
