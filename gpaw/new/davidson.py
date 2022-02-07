@@ -1,107 +1,23 @@
 from __future__ import annotations
+
 from functools import partial
 from typing import Callable
 
 import numpy as np
 from gpaw import debug
-from gpaw.core.matrix import Matrix
-from gpaw.utilities.blas import axpy
-from scipy.linalg import eigh
-from gpaw.new.wave_functions import WaveFunctions
-from gpaw.typing import Array1D, Array2D
 from gpaw.core.arrays import DistributedArrays as DA
 from gpaw.core.atom_centered_functions import AtomArrays as AA
+from gpaw.core.matrix import Matrix
+from gpaw.new.eigensolver import Eigensolver
+from gpaw.new.wave_functions import PWFDWaveFunctions
+from gpaw.typing import Array1D, Array2D
+from gpaw.utilities.blas import axpy
+from scipy.linalg import eigh
 
 AAFunc = Callable[[AA, AA], AA]
 
 
-def calculate_residuals(residuals_nX: DA,
-                        dH: AAFunc,
-                        dS: AAFunc,
-                        wfs: WaveFunctions,
-                        P1_ain: AA,
-                        P2_ain: AA) -> None:
-    for r, e, p in zip(residuals_nX.data, wfs.myeig_n, wfs.psit_nX.data):
-        axpy(-e, p, r)
-
-    dH(wfs.P_ain, P1_ain)
-    P2_ain.data[:] = wfs.P_ain.data * wfs.myeig_n
-    dS(P2_ain, P2_ain)
-    P1_ain.data -= P2_ain.data
-    wfs.pt_aiX.add_to(residuals_nX, P1_ain)
-
-
-def calculate_weights(converge: int | str, wfs: WaveFunctions) -> Array1D:
-    """Calculate convergence weights for all eigenstates."""
-    if converge == 'occupied':
-        # Converge occupied bands:
-        try:
-            # Methfessel-Paxton distribution can give negative
-            # occupation numbers - so we take the absolute value:
-            return np.abs(wfs.occ_n)
-        except ValueError:
-            # No eigenvalues yet:
-            return np.zeros(wfs.psit_nX.mydims) + np.inf
-
-    1 / 0
-    return np.zeros(42)
-
-    """
-    if isinstance(converge, int):
-        # Converge fixed number of bands:
-        n = self.nbands_converge - self.bd.beg
-        if n > 0:
-            for weight_n, kpt in zip(weight_un, wfs.kpt_u):
-                weight_n[:n] = kpt.weight
-    else:
-        # Converge state with energy up to CBM + delta:
-        assert self.nbands_converge.startswith('CBM+')
-        delta = float(self.nbands_converge[4:]) / Ha
-
-        if wfs.kpt_u[0].f_n is None:
-            weight_un[:] = np.inf  # no eigenvalues yet
-        else:
-            # Collect all eigenvalues and calculate band gap:
-            efermi = np.mean(wfs.fermi_levels)
-            eps_skn = np.array(
-                [[wfs.collect_eigenvalues(k, spin) - efermi
-                  for k in range(wfs.kd.nibzkpts)]
-                 for spin in range(wfs.nspins)])
-            if wfs.world.rank > 0:
-                eps_skn = np.empty((wfs.nspins,
-                                    wfs.kd.nibzkpts,
-                                    wfs.bd.nbands))
-            wfs.world.broadcast(eps_skn, 0)
-            try:
-                # Find bandgap + positions of CBM:
-                gap, _, (s, k, n) = _bandgap(eps_skn,
-                                             spin=None, direct=False)
-            except ValueError:
-                gap = 0.0
-
-            if gap == 0.0:
-                cbm = efermi
-            else:
-                cbm = efermi + eps_skn[s, k, n]
-
-            ecut = cbm + delta
-
-            for weight_n, kpt in zip(weight_un, wfs.kpt_u):
-                weight_n[kpt.eps_n < ecut] = kpt.weight
-
-            if (eps_skn[:, :, -1] < ecut - efermi).any():
-                # We don't have enough bands!
-                weight_un[:] = np.inf
-
-    return weight_un
-    """
-
-
-class EmptyMatrix:
-    data = np.empty((0, 0))
-
-
-class Davidson:
+class Davidson(Eigensolver):
     def __init__(self,
                  nbands,
                  wf_grid,
@@ -125,12 +41,19 @@ class Davidson:
         self.M_nn = Matrix(B, B, wf_grid.dtype,
                            dist=(band_comm, band_comm.size))
 
-        self.work_array1 = wf_grid.empty(B, band_comm).data
-        self.work_array2 = wf_grid.empty(B, band_comm).data
+        self.work_arrays: np.ndarray | None = None
 
         self.preconditioner = preconditioner_factory(blocksize)
 
-    def iterate(self, ibzwfs, Ht, dH, dS) -> float:
+    def iterate(self, state, hamiltonian) -> float:
+        if self.work_arrays is None:
+            self.work_arrays = state.ibzwfs.create_work_arrays(
+                dims=(2, state.ibzwfs.nbands))
+
+        dS = state.density.overlap_correction
+        dH = state.potential.dH
+        Ht = partial(hamiltonian.apply, state.potential.vt_sR)
+        ibzwfs = state.ibzwfs
         error = 0.0
         for wfs in ibzwfs:
             e = self.iterate1(wfs, Ht, dH, dS)
@@ -143,8 +66,8 @@ class Davidson:
         M_nn = self.M_nn
 
         psit_nX = wfs.psit_nX
-        psit2_nX = psit_nX.new(data=self.work_array1)
-        psit3_nX = psit_nX.new(data=self.work_array2)
+        psit2_nX = psit_nX.new(data=self.work_arrays[0])
+        psit3_nX = psit_nX.new(data=self.work_arrays[1])
 
         B = psit_nX.dims[0]  # number of bands
         eig_N = np.empty(2 * B)
@@ -263,3 +186,89 @@ class Davidson:
                 calculate_residuals(residual_nX, dH, dS, wfs, P2_ain, P3_ain)
 
         return error
+
+
+def calculate_residuals(residuals_nX: DA,
+                        dH: AAFunc,
+                        dS: AAFunc,
+                        wfs: PWFDWaveFunctions,
+                        P1_ain: AA,
+                        P2_ain: AA) -> None:
+    for r, e, p in zip(residuals_nX.data, wfs.myeig_n, wfs.psit_nX.data):
+        axpy(-e, p, r)
+
+    dH(wfs.P_ain, P1_ain)
+    P2_ain.data[:] = wfs.P_ain.data * wfs.myeig_n
+    dS(P2_ain, P2_ain)
+    P1_ain.data -= P2_ain.data
+    wfs.pt_aiX.add_to(residuals_nX, P1_ain)
+
+
+def calculate_weights(converge: int | str, wfs: PWFDWaveFunctions) -> Array1D:
+    """Calculate convergence weights for all eigenstates."""
+    if converge == 'occupied':
+        # Converge occupied bands:
+        try:
+            # Methfessel-Paxton distribution can give negative
+            # occupation numbers - so we take the absolute value:
+            return np.abs(wfs.occ_n)
+        except ValueError:
+            # No eigenvalues yet:
+            return np.zeros(wfs.psit_nX.mydims) + np.inf
+
+    1 / 0
+    return np.zeros(42)
+
+    """
+    if isinstance(converge, int):
+        # Converge fixed number of bands:
+        n = self.nbands_converge - self.bd.beg
+        if n > 0:
+            for weight_n, kpt in zip(weight_un, wfs.kpt_u):
+                weight_n[:n] = kpt.weight
+    else:
+        # Converge state with energy up to CBM + delta:
+        assert self.nbands_converge.startswith('CBM+')
+        delta = float(self.nbands_converge[4:]) / Ha
+
+        if wfs.kpt_u[0].f_n is None:
+            weight_un[:] = np.inf  # no eigenvalues yet
+        else:
+            # Collect all eigenvalues and calculate band gap:
+            efermi = np.mean(wfs.fermi_levels)
+            eps_skn = np.array(
+                [[wfs.collect_eigenvalues(k, spin) - efermi
+                  for k in range(wfs.kd.nibzkpts)]
+                 for spin in range(wfs.nspins)])
+            if wfs.world.rank > 0:
+                eps_skn = np.empty((wfs.nspins,
+                                    wfs.kd.nibzkpts,
+                                    wfs.bd.nbands))
+            wfs.world.broadcast(eps_skn, 0)
+            try:
+                # Find bandgap + positions of CBM:
+                gap, _, (s, k, n) = _bandgap(eps_skn,
+                                             spin=None, direct=False)
+            except ValueError:
+                gap = 0.0
+
+            if gap == 0.0:
+                cbm = efermi
+            else:
+                cbm = efermi + eps_skn[s, k, n]
+
+            ecut = cbm + delta
+
+            for weight_n, kpt in zip(weight_un, wfs.kpt_u):
+                weight_n[kpt.eps_n < ecut] = kpt.weight
+
+            if (eps_skn[:, :, -1] < ecut - efermi).any():
+                # We don't have enough bands!
+                weight_un[:] = np.inf
+
+    return weight_un
+    """
+
+
+class EmptyMatrix:
+    data = np.empty((0, 0))

@@ -49,3 +49,6 @@ browse:
 
 doctest:
 	$(SPHINXBUILD) -b doctest $(ALLSPHINXOPTS) $(BUILDDIR)/doctest tutorialsexercises/structureoptimization/gettingstarted/gettingstarted.rst documentation/core.rst
+
+spelling:
+	$(SPHINXBUILD) -b spelling $(ALLSPHINXOPTS) $(BUILDDIR)/spelling

@@ -216,7 +216,16 @@ class GPAW(Calculator):
         calc.calculate(system_changes=[])
         return calc
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        self.close()
+
     def __del__(self):
+        self.close()
+
+    def close(self):
         # Write timings and close reader if necessary.
         # If we crashed in the constructor (e.g. a bad keyword), we may not
         # have the normally expected attributes:
@@ -656,15 +665,16 @@ class GPAW(Calculator):
         if not realspace:
             pbc_c = np.ones(3, bool)
 
+        magnetic = magmom_av.any()
+
         if par.hund:
             spinpol = True
+            magnetic = True
             c = par.charge / natoms
             for a, setup in enumerate(self.setups):
                 magmom_av[a, 2] = setup.get_hunds_rule_moment(c)
 
         if collinear:
-            magnetic = magmom_av.any()
-
             spinpol = par.spinpol
             if spinpol is None:
                 spinpol = magnetic
@@ -1279,7 +1289,7 @@ class GPAW(Calculator):
         self.log.fd.flush()
 
         # Write timing info now before the interpreter shuts down:
-        self.__del__()
+        self.close()
 
         # Disable timing output during shut-down:
         del self.timer

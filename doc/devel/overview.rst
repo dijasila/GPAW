@@ -82,7 +82,7 @@ method with the correct arguments.  This will trigger:
 2) A call to the :meth:`~gpaw.calculator.GPAW.set_positions` method, which will
    initialize everything that depends on the atomic positions:
 
-   a) Pass on the atomic positions to the wave functions, hamiltonian
+   a) Pass on the atomic positions to the wave functions, Hamiltonian
       and density objects (call their ``set_positions()`` methods).
 
    b) Make sure the wave functions are initialized.
@@ -100,7 +100,7 @@ When a GPAW instance is created like this::
 the :meth:`~gpaw.calculator.GPAW.initialize` method is called first, so that
 the parts read from the file can be placed inside the objects where they
 belong: the effective pseudo potential and the total energy are put in the
-hamiltonian, the pseudo density is put in the density object and so on.
+Hamiltonian, the pseudo density is put in the density object and so on.
 
 After a restart, everything *should* be as before the restart file was
 written.  However, there are a few exceptions:
@@ -288,7 +288,7 @@ Array names and their definition
      - `\langle\tilde{p}_i^a|\tilde{\psi}_{\sigma\mathbf{k}n} \rangle`
    * - density.D_asp
      - `D_{s i_1i_2}^a`
-   * - hamiltonian.dH_sp
+   * - ``hamiltonian.dH_sp``
      - `\Delta H_{s i_1i_2}^a`
    * - setup.Delta_pL
      - `\Delta_{Li_1i_2}^a`
@@ -303,7 +303,7 @@ Array names and their definition
 
 The :class:`~gpaw.setup.Setup` instances are stored in the
 :class:`~gpaw.setup.Setups` list, shared by the wfs, density, and
-hamiltonian instances. E.g. paw.wfs.setups, paw.density.setups, or
+Hamiltonian instances. E.g. paw.wfs.setups, paw.density.setups, or
 paw.hamiltonian.setups.
 
 

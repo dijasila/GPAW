@@ -288,7 +288,6 @@ class BaseSetup:
         # print('fsi=', f_si)
         return f_si
 
-    @functools.lru_cache()
     def get_hunds_rule_moment(self, charge=0):
         for M in range(10):
             try:
@@ -1259,6 +1258,7 @@ class Setup(BaseSetup):
         for j, phit_g in enumerate(phit_jg):
             if self.n_j[j] > 0:
                 l = self.l_j[j]
+                phit_g = phit_g.copy()
                 phit = phit_g[gcut3]
                 dphitdr = ((phit - phit_g[gcut3 - 1]) /
                            (r_g[gcut3] - r_g[gcut3 - 1]))

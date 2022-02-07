@@ -171,9 +171,9 @@ News
 
 * The `code sprint 2007`_ was successfully finished (Nov 16, 2007)
 
-* The source code is now in the hands of SVN and Trac (Okt 22, 2007)
+* The source code is now in the hands of SVN and Trac (Oct 22, 2007)
 
-* A GPAW Sprint will be held on November 16 in Lyngby (Okt 18, 2007)
+* A GPAW Sprint will be held on November 16 in Lyngby (Oct 18, 2007)
 
 * Work on atomic basis-sets begun (Sep 25, 2007)
 

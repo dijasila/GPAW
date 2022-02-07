@@ -1,8 +1,6 @@
 from __future__ import annotations
 import itertools
 import warnings
-from functools import partial
-from math import inf
 from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
@@ -18,7 +16,6 @@ class SCFConvergenceError(Exception):
 class SCFLoop:
     def __init__(self,
                  hamiltonian,
-                 pot_calc,
                  occ_calc,
                  eigensolver,
                  mixer,
@@ -26,7 +23,6 @@ class SCFLoop:
                  convergence,
                  maxiter):
         self.hamiltonian = hamiltonian
-        self.pot_calc = pot_calc
         self.eigensolver = eigensolver
         self.mixer = mixer
         self.occ_calc = occ_calc
@@ -35,27 +31,23 @@ class SCFLoop:
         self.maxiter = maxiter
 
     def __str__(self):
-        return str(self.pot_calc)
+        return 'SCF ...'
 
     def iterate(self,
                 state: DFTState,
+                pot_calc,
                 convergence=None,
                 maxiter=None,
                 log=None):
         cc = create_convergence_criteria(convergence or self.convergence)
         maxiter = maxiter or self.maxiter
 
-        dS = state.density.overlap_correction
-
         self.mixer.reset()
 
-        dens_error = inf  # ???
         dens_error = self.mixer.mix(state.density)
 
         for niter in itertools.count(start=1):
-            dH = state.potential.dH
-            Ht = partial(self.hamiltonian.apply, state.potential.vt_sR)
-            wfs_error = self.eigensolver.iterate(state.ibzwfs, Ht, dH, dS)
+            wfs_error = self.eigensolver.iterate(state, self.hamiltonian)
             state.ibzwfs.calculate_occs(self.occ_calc)
 
             ctx = SCFContext(
@@ -73,9 +65,9 @@ class SCFLoop:
             if niter == maxiter:
                 raise SCFConvergenceError
 
-            state.density.update(self.pot_calc.nct_R, state.ibzwfs)
+            state.density.update(pot_calc.nct_R, state.ibzwfs)
             dens_error = self.mixer.mix(state.density)
-            state.potential, state.vHt_x, _ = self.pot_calc.calculate(
+            state.potential, state.vHt_x, _ = pot_calc.calculate(
                 state.density, state.vHt_x)
 
 
