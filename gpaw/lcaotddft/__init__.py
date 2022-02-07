@@ -53,8 +53,8 @@ class LCAOTDDFT(GPAW):
                  parallel: dict = None,
                  communicator: object = None,
                  txt: str = '-',
-                 PP_flag: bool = False,
-                 ED_F: bool = False,
+                 PLCAO_flag: bool = False,
+                 Ehrenfest_force_flag: bool = False,
                  S_flag: bool = False,
                  calculate_energy: bool = True):
         """"""
@@ -79,8 +79,8 @@ class LCAOTDDFT(GPAW):
         self.set_positions()
         self.td_density = TimeDependentDensity(self)
         self.calculate_energy = calculate_energy
-        self.PP_flag = PP_flag
-        self.ED_F = ED_F
+        self.PLCAO_flag = PLCAO_flag
+        self.Ehrenfest_force_flag = Ehrenfest_force_flag
         self.S_flag = S_flag
         # Save old overlap S_MM_old which is necessary for propagating C_MM
         for kpt in self.wfs.kpt_u:
@@ -263,7 +263,7 @@ class LCAOTDDFT(GPAW):
             H_MM = eig.calculate_hamiltonian_matrix(self.hamiltonian,
                                                     self.wfs, kpt)
             C_nM = kpt.C_nM.copy()
-            eig.iterate_one_k_point(self.hamiltonian, self.wfs, kpt, C_nM=C_nM)
+            eig.iterate_one_k_point(self.hamiltonian, self.wfs, kpt)
             kpt.C_nM = C_nM.copy()
 
         # Calculate eigenvalue by rho_uMM * H_MM
@@ -333,88 +333,58 @@ class LCAOTDDFT(GPAW):
             mm2MM = Redistributor(self.wfs.ksl.block_comm,
                                   mm_block_descriptor,
                                   MM_descriptor)
-            # MM2mm = Redistributor(self.wfs.ksl.block_comm,
-            #                       MM_descriptor,
-            #                       mm_block_descriptor)
 
             for kpt in self.wfs.kpt_u:
-                S_MM = (kpt.S_MM.copy())
+                S_MM = kpt.S_MM.copy()
                 S_MM_full = MM_descriptor.empty(dtype=S_MM.dtype)
                 mm2MM.redistribute(S_MM, S_MM_full)
 
                 S_MM_old_full = MM_descriptor.empty(dtype=kpt.S_MM_old.dtype)
                 mm2MM.redistribute(kpt.S_MM_old, S_MM_old_full)
 
-                # if self.world.rank == 0:
                 if self.density.gd.comm.rank == 0:
                     T1, Seig_v = schur(S_MM_full, output='real')
                     Seig = eigvals(T1)
-        
                     Seig_dm12 = np.diag(1 / np.sqrt(Seig))
-                    # Seig_dp12 = np.diag(Seig**0.5)
-        
-                    # S^1/2
-                    Sm12 = np.matmul(Seig_v, np.matmul((Seig_dm12),
-                                     np.conj(Seig_v).T))
-                    # Sp12 = np.matmul(Seig_v, np.matmul((Seig_dp12),
-                    #                 np.conj(Seig_v).T))
 
-                    # OLD OVERLAP S^-1/2
+                    # S^1/2
+                    Sm12 = Seig_v @ Seig_dm12 @ np.conj(Seig_v).T
+
+                    # Old overlap S^-1/2
                     T2_o, Seig_v_o = schur(S_MM_old_full, output='real')
                     Seig_o = eigvals(T2_o)
-
-                    # Seig_dm12_o = np.diag(Seig_o**-0.5)
                     Seig_dp12_o = np.diag(Seig_o**0.5)
-                    # Sm12_o = np.matmul(Seig_v_o, np.matmul(Seig_dm12_o,
-                    #                    np.conj(Seig_v_o).T))
-                    Sp12_o = np.matmul(Seig_v_o, np.matmul(Seig_dp12_o,
-                                       np.conj(Seig_v_o).T))
+                    Sp12_o = Seig_v_o @ Seig_dp12_o @ np.conj(Seig_v_o).T
                     C_nM_temp = kpt.C_nM.copy()
 
-                    # propagate PSI(R+dr) = S(R+dR)^(-1/2)S(R)^(1/2) PSI(R))
-                    Sp12xC_nM = np.matmul(Sp12_o, np.transpose(C_nM_temp))
-                    Sm12xSp12xC_nM = np.matmul(Sm12, Sp12xC_nM)
+                    # Cange basis PSI(R+dr) = S(R+dR)^(-1/2)S(R)^(1/2) PSI(R))
+                    Sp12xC_nM = Sp12_o @ np.transpose(C_nM_temp)
+                    Sm12xSp12xC_nM = Sm12 @ Sp12xC_nM
                     t_Sm12xSp12xC_nM = np.transpose(Sm12xSp12xC_nM)
                     kpt.C_nM = t_Sm12xSp12xC_nM.copy()
-        #            kpt.C_nM[:,:]=t_Sm12xSp12xC_nM[:,:]
                 self.density.gd.comm.broadcast(kpt.C_nM, 0)
                 self.td_hamiltonian.update()
-        #            self.call_observers(self.niter)
         else:
             for kpt in self.wfs.kpt_u:
-                S_MM = (kpt.S_MM.copy())
+                S_MM = kpt.S_MM.copy()
                 T1, Seig_v = schur(S_MM, output='real')
                 Seig = eigvals(T1)
-
                 Seig_dm12 = np.diag(1 / np.sqrt(Seig))
-                # Seig_dp12 = np.diag(Seig**0.5)
-    
-                # S^1/2
-                Sm12 = np.matmul(Seig_v, np.matmul((Seig_dm12),
-                                 np.conj(Seig_v).T))
-                # Sp12 = np.matmul(Seig_v, np.matmul((Seig_dp12),
-                #                  np.conj(Seig_v).T))
-     
-                # OLD OVERLAP S^-1/2
+
+                # Calculate S^1/2
+                Sm12 = Seig_v @ Seig_dm12 @ np.conj(Seig_v).T
+
+                # Old overlap S^-1/2
                 T2_o, Seig_v_o = schur(kpt.S_MM_old, output='real')
                 Seig_o = eigvals(T2_o)
-
-                # Seig_dm12_o = np.diag(Seig_o**-0.5)
                 Seig_dp12_o = np.diag(Seig_o**0.5)
-                # Sm12_o = np.matmul(Seig_v_o, np.matmul(Seig_dm12_o,
-                #                    np.conj(Seig_v_o).T))
-                Sp12_o = np.matmul(Seig_v_o, np.matmul(Seig_dp12_o,
-                                   np.conj(Seig_v_o).T))
+                Sp12_o = Seig_v_o @ Seig_dp12_o @ np.conj(Seig_v_o).T
                 C_nM_temp = kpt.C_nM.copy()
 
-                # propagate PSI(R+dr) = S(R+dR)^(-1/2)S(R)^(1/2) PSI(R))
-                Sp12xC_nM = np.matmul(Sp12_o, np.transpose(C_nM_temp))
-                Sm12xSp12xC_nM = np.matmul(Sm12, Sp12xC_nM)
+                # Change basis PSI(R+dr) = S(R+dR)^(-1/2)S(R)^(1/2) PSI(R))
+                Sp12xC_nM = Sp12_o @ np.transpose(C_nM_temp)
+                Sm12xSp12xC_nM = Sm12 @ Sp12xC_nM
                 t_Sm12xSp12xC_nM = np.transpose(Sm12xSp12xC_nM)
                 kpt.C_nM = t_Sm12xSp12xC_nM.copy()
-
-    #            kpt.C_nM[:,:]=t_Sm12xSp12xC_nM[:,:]
-
                 self.td_hamiltonian.update()
-    #            self.call_observers(self.niter)
         return time + time_step

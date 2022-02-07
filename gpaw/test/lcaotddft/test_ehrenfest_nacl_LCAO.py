@@ -20,19 +20,19 @@ def test_tddft_ehrenfest_nacl_LCAO(in_tmp_dir):
     gs_calc.write('nacl_gs.gpw', 'all')
 
     td_calc = LCAOTDDFT('nacl_gs.gpw', propagator='edsicn', txt='out_td.txt',
-                        PP_flag=False, ED_F=False, S_flag=True)
+                        PLCAO_flag=False, Ehrenfest_force_flag=False, S_flag=True)
     td_calc.tddft_init()
     evv = EhrenfestVelocityVerlet(td_calc)
 
     i = 0
     evv.get_energy()
-    r = evv.x[1][2] - evv.x[0][2]
+    r = evv.positions[1][2] - evv.positions[0][2]
     print('E = ', i, r, evv.Etot, evv.Ekin, evv.e_coulomb)
 
     for i in range(5):
         evv.propagate(1.0)
         evv.get_energy()
-        r = evv.x[1][2] - evv.x[0][2]
+        r = evv.positions[1][2] - evv.positions[0][2]
         print('E = ', i + 1, r, evv.Etot, evv.Ekin, evv.e_coulomb)
 
     equal(r, 7.558904486952679, 1e-8)

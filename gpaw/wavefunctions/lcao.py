@@ -102,7 +102,8 @@ class LCAOWaveFunctions(WaveFunctions):
         self.T_qMM = None
         self.P_aqMi = None
         self.debug_tci = False
-        self.ED_F = None
+        self.Ehrenfest_force_flag = False
+        self.S_flag = False
 
         if atomic_correction is None:
             atomic_correction = 'sparse' if ksl.using_blacs else 'dense'
@@ -464,19 +465,20 @@ class LCAOWaveFunctions(WaveFunctions):
         self.timer.start('LCAO forces')
 
         Fref_av = np.zeros_like(F_av)
-        self.forcecalc = LCAOforces(self.ksl, self.dtype, self.gd,
+        self.forcecalc = LCAOForces(self.ksl, self.dtype, self.gd,
                                     self.bd, self.kd, self.kpt_u, self.nspins,
                                     self.basis_functions, self.newtci,
                                     self.P_aqMi, self.setups,
                                     self.manytci, hamiltonian,
                                     self.spos_ac, self.timer,
-                                    Fref_av, self, self.ED_F)
+                                    Fref_av, self.Ehrenfest_force_flag, self.S_flag,
+                                    self.eigensolver, self.get_H_MM)
 
         F_av[:, :] = self.forcecalc.get_forces_sum_GS()
-        # Calculate EH_D contribution eq. 4.81
-        if self.ED_F is True:
-            F_EH = self.forcecalc.get_EH_F(self)
-            F_av[:, :] += F_EH[:, :]
+        # Calculate LCAO PAW Ehrenfest force contribution (eq. 4.81)
+        if self.Ehrenfest_force_flag is True:
+            FEhrenfest_av = self.forcecalc.get_Ehrenfest_force_contribution()
+            F_av[:, :] += FEhrenfest_av[:, :]
         
         self.timer.stop('LCAO forces')
 
@@ -549,15 +551,22 @@ class LCAOWaveFunctions(WaveFunctions):
             ignore_upper, derivative=True)
         return dThetadR_qvMM, dTdR_qvMM
 
+    def get_H_MM(self, hamiltonian, kpt):
+        H_MM = self.eigensolver.calculate_hamiltonian_matrix(
+            hamiltonian, self, kpt)
+        return H_MM
 
-class LCAOforces:
+
+class LCAOForces:
 
     def __init__(self, ksl, dtype, gd, bd, kd, kpt_u, nspins, bfs, newtci,
                  P_aqMi, setups, manytci, hamiltonian, spos_ac,
-                 timer, Fref_av, WF, ED_F):
+                 timer, Fref_av, Ehrenfest_force_flag, S_flag, eigensolver, get_H_MM):
         """ Object which calculates LCAO forces """
-        self.WF = WF
-        self.ED_F = ED_F
+        self.eigensolver = eigensolver
+        self.get_H_MM = get_H_MM
+        self.Ehrenfest_force_flag = Ehrenfest_force_flag
+        self.S_flag = S_flag
         self.ksl = ksl
         self.nao = ksl.nao
         self.mynao = ksl.mynao
@@ -591,96 +600,22 @@ class LCAOforces:
                 self.gd.comm, self.Mstart, self.Mstop, False, derivative=True)
             self.dPdR_aqvMi = self.manytci.P_aqMi(self.bfs.my_atom_indices,
                                                   derivative=True)
-    
             self.gd.comm.sum(self.dThetadR_qvMM)
             self.gd.comm.sum(self.dTdR_qvMM)
             self.timer.stop('TCI derivative')
-            if self.ED_F is True:
-                self.rhoT_uMM, self.ET_uMM = self.get_den_mat_and_E_ED()
+
+            self.timer.start('Initial')
+            if ((self.kpt_u[0].rho_MM is None) and (self.S_flag is False)):
+                self.rhoT_uMM, self.ET_uMM = self.get_ET_rhoT_1()
             else:
-                self.rhoT_uMM, self.ET_uMM = self.get_den_mat_and_E()
+                self.rhoT_uMM, self.ET_uMM = self.get_ET_rhoT_2()
+            self.timer.stop('Initial')
 
-    def get_EH_F(self, WF):
+    def get_Ehrenfest_force_contribution(self):
+        # Calculate LCAO PAW Ehrenfest force contribution (eq. 4.81)
+        # TO DO
+        pass
 
-        # Calculate Ehrenfest dyn contribution to Forces 4.83
-        #     F^{a}= { partial E_{el}} over {partial bold R_{a}}
-        #     + sum from{n} f_{n} [ 2 Re ( c_n^{*} [B_{a}^{+} +
-        #     + C_{a}^{+}] S^{-1} (H+P)c_n ) +
-        #     + ic_n^{*}[G_a+G_a^{+} ] ] c_n
-        #     F^{a}= - { partial E_{el}} over {partial bold R_{a}}
-        #     + sum from{n} f_{n} [ 2 Re ( c_n^{*} [D_{a}{+}] eps c_n ) ]
-        #
-        #       S^-1 * H * c
-        #
-        if self.ED_F is True:
-            H_MM = WF.eigensolver.calculate_hamiltonian_matrix(
-                self.hamiltonian, WF, self.kpt_u[0])
-            vel = WF.v
-            F = np.zeros_like(vel)
-            S_MM = WF.kpt_u[0].S_MM
-            S_inv_MM = inv(S_MM)
-
-            for u, kpt in enumerate(WF.kpt_u):
-                aux1 = S_inv_MM @ H_MM @ kpt.C_nM
-                for a, M1, M2 in self.my_slices():
-                    for v in range(3):
-                        F[a, v] += -2.0 * (aux1[:, M1:M2].sum(-1).sum(-1)).real
-
-        #    sum from{n} f_{n} [ 2 Re ( c_n^{*} [B_{a}^{+} +
-        #    + C_{a}^{+}] S^{-1} (H+P)c_n )
-        # if self.ED_F == True:
-        #     vel=WF.v
-        #     vel[:,:]=1.0
-        #     #calculate_P = get_P(WF, self.v)
-        #     #P_MM, D_sum_aqvMM = calculate_P.calc_P()
-        #     #P_MM, D_sum_aqvMM = WF.calculatePD(W.v)
-        #     P_MM, D_sum_aqvMM = WF.calculatePD(vel)
-        #
-        #     H_MM = WF.eigensolver.calculate_hamiltonian_matrix(
-        #         self.hamiltonian, \
-        #     WF, self.kpt_u[0])
-        #
-        #     M=len(H_MM[:,0])
-        #     S_MM = WF.kpt_u[0].S_MM
-        #     print('Cnm \n',WF.kpt_u[0].C_nM)
-        #
-        #     #HP_MM=H_MM+P_MM
-        #     #S_inv_MM=inv(S_MM)
-        #     #F=np.zeros_like(vel)
-        #     #S_invHP_MM= (S_inv_MM @ HP_MM)
-        #
-        #     S_invHP_MM = np.eye(M,M)
-        #     S_inv_MM = np.eye(M,M)
-        #     #S_inv_MM=inv(S_MM)
-        #     #print('kpt.f_n *',WF.kpt_u[0].f_n.shape,WF.kpt_u[0].f_n)
-        #     HP_MM = np.eye(M,M)
-        #     F=np.zeros_like(vel)
-        #
-        #     #for u, kpt in enumerate(WF.kpt_u):
-        #     #    for a, M1, M2 in my_slices(calc.wfs):
-        #     ##        F[a, :] +=-2.0 *
-        #                   dThetadRE_vMM[:, M1:M2].sum(-1).sum(-1)
-        #     #        F[a, :] +=-2.0 *
-        #                  D_sum_aqvMM[a,kpt.q,:, M1:M2].sum(-1).sum(-1)
-        #     ##        print('kpt.q,a',kpt.q,a)
-        #     ##        print('WF',D_sum_aqvMM[a,kpt.q,:,:,:].shape,A.shape)
-        #     ##        F[a, :] +=-2.0 * A[:, M1:M2].sum(-1).sum(-1)
-        #     #print('===F \n',F)
-        #
-        #     for u, kpt in enumerate(WF.kpt_u):
-        #         for a, M1, M2 in self.my_slices():
-        #             for v in range(3):
-        #         #        F[a, :] +=-2.0 *
-        #                     dThetadRE_vMM[:, M1:M2].sum(-1).sum(-1)
-        #                 aux1 = D_sum_aqvMM[a,kpt.q,v] @ S_inv_MM
-        #                 #print('aux1 \n',aux1)
-        #                 aux2 = kpt.C_nM.conj() @ aux1 @ kpt.C_nM.T
-        #                 F[a, v] +=-2.0 * (aux2[:,M1:M2].sum(-1).sum(-1)).real
-        #     #            F[a, v] +=-2.0 *
-        #                     D_sum_aqvMM[a,kpt.q,v,:,M1:M2].sum(-1).sum(-1)
-
-        return F
-            
     def get_forces_sum_GS(self):
         """ This function calculates ground state forces in LCAO mode """
         if not self.isblacs:
@@ -722,78 +657,77 @@ class LCAOforces:
     def my_slices(self):
         return self._slices(self.my_atom_indices)
 
-    def get_den_mat_and_E(self):
+    def get_ET_rhoT_1(self):
         #
-        #         -----                    -----
-        #          \    -1                  \    *
-        # E      =  )  S     H    rho     =  )  c     eps  f  c
-        #  mu nu   /    mu x  x z    z nu   /    n mu    n  n  n nu
-        #         -----                    -----
-        #          x z                       n
+        #          -----
+        #           \    *
+        # E      =   )  c     eps  f  c
+        #  mu nu    /    n mu    n  n  n nu
+        #          -----
+        #            n
         #
-        # We use the transpose of that matrix.  The first form is used
-        # if rho is given, otherwise the coefficients are used.
-        self.timer.start('Initial')
-        if self.kpt_u[0].rho_MM is None:
-            rhoT_uMM = []
-            ET_uMM = []
-            self.timer.start('Get density matrix')
-            for kpt in self.kpt_u:
-                rhoT_MM = self.ksl.get_transposed_density_matrix(kpt.f_n,
-                                                                 kpt.C_nM)
-                rhoT_uMM.append(rhoT_MM)
-                ET_MM = self.ksl.get_transposed_density_matrix(kpt.f_n *
-                                                               kpt.eps_n,
-                                                               kpt.C_nM)
-                ET_uMM.append(ET_MM)
-                if hasattr(kpt, 'c_on'):
-                    # XXX does this work with BLACS/non-BLACS/etc.?
-                    assert self.bd.comm.size == 1
-                    d_nn = np.zeros((self.bd.mynbands, self.bd.mynbands),
-                                    dtype=kpt.C_nM.dtype)
-                    for ne, c_n in zip(kpt.ne_o, kpt.c_on):
-                        d_nn += ne * np.outer(c_n.conj(), c_n)
-                    rhoT_MM += self.ksl.get_transposed_density_matrix_delta(
-                        d_nn, kpt.C_nM)
-                    ET_MM += self.ksl.get_transposed_density_matrix_delta(
-                        d_nn * kpt.eps_n, kpt.C_nM)
-            self.timer.stop('Get density matrix')
-        else:
-            rhoT_uMM = []
-            ET_uMM = []
-            for kpt in self.kpt_u:
-                H_MM = self.eigensolver.calculate_hamiltonian_matrix(
-                    self.hamiltonian, self, kpt)
-                tri2full(H_MM)
-                S_MM = kpt.S_MM.copy()
-                tri2full(S_MM)
-                ET_MM = np.linalg.solve(S_MM, gemmdot(H_MM,
-                                                      kpt.rho_MM)).T.copy()
-                del S_MM, H_MM
-                rhoT_MM = kpt.rho_MM.T.copy()
-                rhoT_uMM.append(rhoT_MM)
-                ET_uMM.append(ET_MM)
-        self.timer.stop('Initial')
-        return rhoT_uMM, ET_uMM
-
-    def get_den_mat_and_E_ED(self):
-
+        # We use the transpose of that matrix. In this case
+        # the coefficients are used to calculate ET_MM
         rhoT_uMM = []
         ET_uMM = []
-        self.timer.start('Get E_uMM=S^(-1)*H*rho')
+        self.timer.start('Get density matrix')
         for kpt in self.kpt_u:
-            H_MM = self.WF.eigensolver.calculate_hamiltonian_matrix(
-                self.hamiltonian, self.WF, kpt)
             rhoT_MM = self.ksl.get_transposed_density_matrix(kpt.f_n,
                                                              kpt.C_nM)
             rhoT_uMM.append(rhoT_MM)
-
-            S_MM = kpt.S_MM.copy()
-            S_inv_MM = inv(S_MM)
-            ET_MM = (S_inv_MM @ H_MM @ rhoT_MM)
+            ET_MM = self.ksl.get_transposed_density_matrix(kpt.f_n *
+                                                           kpt.eps_n,
+                                                           kpt.C_nM)
             ET_uMM.append(ET_MM)
+            if hasattr(kpt, 'c_on'):
+                # XXX does this work with BLACS/non-BLACS/etc.?
+                assert self.bd.comm.size == 1
+                d_nn = np.zeros((self.bd.mynbands, self.bd.mynbands),
+                                dtype=kpt.C_nM.dtype)
+                for ne, c_n in zip(kpt.ne_o, kpt.c_on):
+                    d_nn += ne * np.outer(c_n.conj(), c_n)
+                rhoT_MM += self.ksl.get_transposed_density_matrix_delta(
+                    d_nn, kpt.C_nM)
+                ET_MM += self.ksl.get_transposed_density_matrix_delta(
+                    d_nn * kpt.eps_n, kpt.C_nM)
+        self.timer.stop('Get density matrix')
 
-        self.timer.stop('Get E_uMM=S^(-1)*H*rho')
+        return rhoT_uMM, ET_uMM
+
+    def get_ET_rhoT_2(self):
+        #
+        #         -----
+        #          \    -1
+        # E      =  )  S     H    rho
+        #  mu nu   /    mu x  x z    z nu
+        #         -----
+        #          x z
+        #
+        # We use the transpose of that matrix. This form is used
+        # if rho is given, or Ehrenfest dynaics is used. In this case
+        # we have to use S^-1 and calculate rho again from time
+        # dependent LCAO coeficients C_nM
+        rhoT_uMM = []
+        ET_uMM = []
+        self.timer.start('CALCULATE E_uMM=S^(-1)*H*rho')
+        for kpt in self.kpt_u:
+            # eigen_s.initialize(self.gd, self.dtype, self.setups.nao, lcaoksl)
+            H_MM = self.get_H_MM(self.hamiltonian, kpt)
+            tri2full(H_MM)
+            S_MM = kpt.S_MM.copy()
+            tri2full(S_MM)
+            S_inv_MM = inv(S_MM)
+            if self.S_flag is True:
+                rhoT_MM = self.ksl.get_transposed_density_matrix(kpt.f_n,
+                                                                 kpt.C_nM)
+            else:
+                rhoT_MM = kpt.rho_MM.copy()
+            ET_MM = (S_inv_MM @ H_MM @ rhoT_MM)
+            del S_MM, H_MM
+            rhoT_uMM.append(rhoT_MM)
+            ET_uMM.append(ET_MM)
+        self.timer.stop('CALCULATE E_uMM=S^(-1)*H*rho')
+
         return rhoT_uMM, ET_uMM
 
     def get_kinetic_term(self):

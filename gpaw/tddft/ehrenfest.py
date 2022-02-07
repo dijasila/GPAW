@@ -54,37 +54,37 @@ class EhrenfestVelocityVerlet:
         """
         self.calc = calc
         self.setups = setups
-        self.x = self.calc.atoms.positions.copy() / Bohr
-        self.xn = self.x.copy()
-        self.v = self.x.copy()
+        self.positions = self.calc.atoms.positions.copy() / Bohr
+        self.positions_new = self.positions.copy()
+        self.velocities = self.positions.copy()
         amu_to_aumass = _amu / _me
         if self.calc.atoms.get_velocities() is not None:
-            self.v = self.calc.atoms.get_velocities() / (Bohr / AUT)
+            self.velocities = self.calc.atoms.get_velocities() / (Bohr / AUT)
         else:
-            self.v[:] = 0.0
-            self.calc.atoms.set_velocities(self.v)
+            self.velocities[:] = 0.0
+            self.calc.atoms.set_velocities(self.velocities)
         
-        self.vt = self.v.copy()
-        self.vh = self.v.copy()
+        self.vt = self.velocities.copy()
+        self.velocities_half = self.velocities.copy()
         self.time = 0.0
         
         self.M = calc.atoms.get_masses() * amu_to_aumass * mass_scale
 
-        self.a = self.v.copy()
-        self.ah = self.a.copy()
-        self.an = self.a.copy()
-        self.F = self.a.copy()
+        self.accelerations = self.velocities.copy()
+        self.accelerations_half = self.accelerations.copy()
+        self.accel_new = self.accelerations.copy()
+        self.Forces = self.accelerations.copy()
 
         self.calc.get_td_energy()
-        self.F = self.get_forces()
+        self.Forces = self.get_forces()
 
-        for i in range(len(self.F)):
-            self.a[i] = self.F[i] / self.M[i]
+        for i in range(len(self.Forces)):
+            self.accelerations[i] = self.Forces[i] / self.M[i]
         if self.calc.wfs.mode == 'lcao':
-            self.calc.wfs.ED_F = calc.ED_F
-            self.calc.td_hamiltonian.P_flag = calc.PP_flag
-            self.calc.wfs.calculatePD = self.calc.td_hamiltonian.PPP.calc_P
-            self.v = self.x.copy()
+            self.calc.wfs.Ehrenfest_force_flag = calc.Ehrenfest_force_flag
+            self.calc.wfs.S_flag = calc.S_flag
+            self.calc.td_hamiltonian.PLCAO_flag = calc.PLCAO_flag
+            self.velocities = self.positions.copy()
 
     def get_forces(self):
         return calculate_forces(self.calc.wfs,
@@ -102,8 +102,8 @@ class EhrenfestVelocityVerlet:
             Time step (in attoseconds) used for the Ehrenfest MD step
 
         """
-        self.x = self.calc.atoms.positions.copy() / Bohr
-        self.v = self.calc.atoms.get_velocities() / (Bohr / AUT)
+        self.positions = self.calc.atoms.positions.copy() / Bohr
+        self.velocities = self.calc.atoms.get_velocities() / (Bohr / AUT)
 
         dt = dt * attosec_to_autime
         # save S
@@ -111,85 +111,88 @@ class EhrenfestVelocityVerlet:
             ksl = self.calc.wfs.ksl
             using_blacs = ksl.using_blacs
             if using_blacs:
-                self.tri3full_S_T()
+                self.get_full_overlap()
             self.calc.save_old_S_MM()
 
         # m a(t+dt)   = F[psi(t),x(t)]
-        self.calc.atoms.positions = self.x * Bohr
+        self.calc.atoms.positions = self.positions * Bohr
         self.calc.set_positions(self.calc.atoms)
         self.calc.get_td_energy()
-        self.F = self.get_forces()
+        self.Forces = self.get_forces()
 
-        for i in range(len(self.F)):
-            self.a[i] = self.F[i] / self.M[i]
+        for i in range(len(self.Forces)):
+            self.accelerations[i] = self.Forces[i] / self.M[i]
 
         # x(t+dt/2)   = x(t) + v(t) dt/2 + .5 a(t) (dt/2)^2
         # vh(t+dt/2)  = v(t) + .5 a(t) dt/2
-        self.xh = self.x + self.v * dt / 2 + .5 * self.a * dt / 2 * dt / 2
-        self.vhh = self.v + .5 * self.a * dt / 2
+        self.positions_half = self.positions + self.velocities * \
+            dt / 2 + .5 * self.accelerations * dt / 2 * dt / 2
+        self.vhh = self.velocities + .5 * self.accelerations * dt / 2
 
         # m a(t+dt/2) = F[psi(t),x(t+dt/2)a]
-        self.calc.atoms.positions = self.xh * Bohr
+        self.calc.atoms.positions = self.positions_half * Bohr
         self.calc.set_positions(self.calc.atoms)
         self.calc.get_td_energy()
-        self.F = self.get_forces()
+        self.Forces = self.get_forces()
 
-        for i in range(len(self.F)):
-            self.ah[i] = self.F[i] / self.M[i]
+        for i in range(len(self.Forces)):
+            self.accelerations_half[i] = self.Forces[i] / self.M[i]
 
         # v(t+dt/2)   = vh(t+dt/2) + .5 a(t+dt/2) dt/2
-        self.vh = self.vhh + 0.5 * self.ah * dt / 2
+        self.velocities_half = self.vhh + 0.5 * \
+            self.accelerations_half * dt / 2
 
         # Propagate wf
         # psi(t+dt)   = U(t,t+dt) psi(t)
         self.propagate_single(dt)
 
         # m a(t+dt/2) = F[psi(t+dt),x(t+dt/2)]
-        self.calc.atoms.positions = self.xh * Bohr
+        self.calc.atoms.positions = self.positions_half * Bohr
         self.calc.set_positions(self.calc.atoms)
         self.calc.get_td_energy()
-        self.F = self.get_forces()
+        self.Forces = self.get_forces()
 
-        for i in range(len(self.F)):
-            self.ah[i] = self.F[i] / self.M[i]
+        for i in range(len(self.Forces)):
+            self.accelerations_half[i] = self.Forces[i] / self.M[i]
 
         # x(t+dt)     = x(t+dt/2) + v(t+dt/2) dt/2 + .5 a(t+dt/2) (dt/2)^2
         # vh(t+dt)    = v(t+dt/2) + .5 a(t+dt/2) dt/2
-        self.xn = self.xh + self.vh * dt / 2 + 0.5 * self.ah * dt / 2 * dt / 2
-        self.vhh = self.vh + .5 * self.ah * dt / 2
+        self.positions_new = self.positions_half + self.velocities_half * \
+            dt / 2 + 0.5 * self.accelerations_half * dt / 2 * dt / 2
+        self.vhh = self.velocities_half + .5 * self.accelerations_half * dt / 2
 
         # m a(t+dt)   = F[psi(t+dt),x(t+dt)]
-        self.calc.atoms.positions = self.xn * Bohr
+        self.calc.atoms.positions = self.positions_new * Bohr
         self.calc.set_positions(self.calc.atoms)
         self.calc.get_td_energy()
         self.calc.update_eigenvalues()
-        self.F = self.get_forces()
+        self.Forces = self.get_forces()
 
-        for i in range(len(self.F)):
-            self.an[i] = self.F[i] / self.M[i]
+        for i in range(len(self.Forces)):
+            self.accelerations_new[i] = self.Forces[i] / self.M[i]
 
         # v(t+dt)     = vh(t+dt/2) + .5 a(t+dt/2) dt/2
-        self.vn = self.vhh + .5 * self.an * dt / 2
+        self.velocities_new = self.vhh + .5 * self.accelerations_new * dt / 2
 
         # update
-        self.x[:] = self.xn
-        self.v[:] = self.vn
-        self.a[:] = self.an
+        self.positions[:] = self.positions_new
+        self.velocities[:] = self.velocities_new
+        self.accelerations[:] = self.accelerations_new
 
         if self.calc.wfs.mode == 'lcao':
             self.calc.timer.start('BASIS CHANGE')
             if self.calc.S_flag is True:
                 if using_blacs:
-                    self.tri3full_S_T()
+                    self.get_full_overlap()
                 # Change basis when atoms move
                 self.calc.basis_change(self.time, dt)
             self.calc.timer.stop('BASIS CHANGE')
 
         # update atoms
-        self.calc.atoms.set_positions(self.x * Bohr)
-        self.calc.atoms.set_velocities(self.v * Bohr / AUT)
+        self.calc.atoms.set_positions(self.positions * Bohr)
+        self.calc.atoms.set_velocities(self.velocities * Bohr / AUT)
 
-    def tri3full_S_T(self):
+    def get_full_overlap(self):
         ksl = self.calc.wfs.ksl
         self.mm_block_descriptor = ksl.mmdescriptor
         for kpt in self.calc.wfs.kpt_u:
@@ -198,21 +201,21 @@ class EhrenfestVelocityVerlet:
 
     def propagate_single(self, dt):
         if self.setups == 'paw':
-            self.calc.propagator.propagate(self.time, dt, self.vh)
+            self.calc.propagator.propagate(self.time, dt, self.velocities_half)
         else:
             self.calc.propagator.propagate(self.time, dt)
 
     def get_energy(self):
         """Updates kinetic, electronic and total energies"""
 
-        self.Ekin = 0.5 * (self.M * (self.v**2).sum(axis=1)).sum()
+        self.Ekin = 0.5 * (self.M * (self.velocities**2).sum(axis=1)).sum()
         self.e_coulomb = self.calc.get_td_energy()
         self.Etot = self.Ekin + self.e_coulomb
         return self.Etot
         
     def get_velocities_in_au(self):
-        return self.v
+        return self.velocities
 
     def set_velocities_in_au(self, v):
-        self.v[:] = v
+        self.velocities[:] = v
         self.calc.atoms.set_velocities(v * Bohr / AUT)
