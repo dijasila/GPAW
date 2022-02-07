@@ -116,3 +116,8 @@ xyz
 Ångström
 docstring
 docstrings
+BCC
+parametrized
+Niflheim
+CSV
+SVG

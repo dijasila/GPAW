@@ -14,7 +14,8 @@ The primary source of information is still the :ref:`basic` and
 information which can be found here. For example the :ref:`code_overview`.
 
 As a developer, you should subscribe to the GPAW :ref:`mail list`.
-We would also like to encourage you to join our #gpaw channel for :ref:`chat`.
+We would also like to encourage you to join our ``#gpaw`` channel
+for :ref:`chat`.
 
 .. _issue tracker: https://gitlab.com/gpaw/gpaw/issues/
 
@@ -59,11 +60,6 @@ version to become the next release.
 Code Overview
 =============
 
-Keep this :download:`picture <bigpicture.svg>` under your pillow:
-
-.. image:: bigpicture.png
-   :target: ../_downloads/bigpicture.svg
-
 The developer guide provides an overview of the PAW quantities and how
 the corresponding objects are defined in the code:
 
@@ -85,7 +81,7 @@ the corresponding objects are defined in the code:
 The GPAW logo
 =============
 
-The GPAW-logo is available as an svg-file: :download:`gpaw-logo.svg`.
+The GPAW-logo is available as an SVG-file: :download:`gpaw-logo.svg`.
 
 .. image:: gpaw-logo.svg
 
