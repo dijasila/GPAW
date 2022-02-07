@@ -11,7 +11,7 @@ def test_fermilevel(in_tmp_dir):
     params = dict(nbands=1,
                   eigensolver=Davidson(6),
                   occupations=FermiDirac(0.0),
-                  txt='-')#None)
+                  txt=None)
 
     atoms.calc = GPAW(**params)
     atoms.get_potential_energy()
@@ -30,12 +30,3 @@ def test_fermilevel(in_tmp_dir):
     assert np.all(GPAW('test.gpw').get_homo_lumo() == (homo, lumo))
     ef = atoms.calc.get_fermi_level()
     assert ef == pytest.approx(-7.85196, abs=0.01)
-
-    params['occupations'] = FermiDirac(0.1)
-    atoms.calc = GPAW(**params)
-    atoms.get_potential_energy()
-    atoms.get_potential_energy()
-    ef = atoms.calc.get_fermi_level()
-    # assert ef == pytest.approx(-7.85196, abs=0.01)
-    atoms.calc.write('test2.gpw')
-    assert GPAW('test2.gpw').get_fermi_level() == pytest.approx(ef, abs=1e-8)

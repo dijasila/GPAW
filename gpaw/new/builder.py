@@ -109,16 +109,13 @@ class DFTComponentsBuilder:
 
         if self.initial_magmoms is None:
             self.ncomponents = 1
-            self.nspins = 1
-            self.spin_degeneracy = 2
         elif self.initial_magmoms.ndim == 1:
             self.ncomponents = 2
-            self.nspins = 2
-            self.spin_degeneracy = 1
         else:
             self.ncomponents = 4
-            self.nspins = 1
-            self.spin_degeneracy = 1
+
+        self.nspins = self.ncomponents % 3
+        self.spin_degeneracy = self.ncomponents % 2 + 1
 
         self.fracpos_ac = self.atoms.get_scaled_positions()
 

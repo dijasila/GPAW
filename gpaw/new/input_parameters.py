@@ -6,6 +6,7 @@ from typing import Any, IO, Sequence
 
 import numpy as np
 from gpaw.mpi import world
+from gpaw.typing import DTypeLike
 
 parameter_functions = {}
 
@@ -61,6 +62,7 @@ class InputParameters:
     poissonsolver: dict[str, Any]
     convergence: dict[str, Any]
     eigensolver: dict[str, Any]
+    dtype: DTypeLike
 
     def __init__(self, params: dict[str, Any]):
         self.keys = set(params)
@@ -86,6 +88,13 @@ class InputParameters:
             warnings.warn(f'Please use eigensolver={self.eigensolver!r}',
                           stacklevel=4)
 
+        force_complex_dtype = self.mode.pop('force_complex_dtype', None)
+        if force_complex_dtype is not None:
+            warnings.warn(
+                f'Please use GPAW(dtype={bool(force_complex_dtype)}, ...)',
+                stacklevel=3)
+            self.dtype = force_complex_dtype
+
     def __repr__(self) -> str:
         p = ', '.join(f'{key}={value!r}'
                       for key, value in self.items())
@@ -94,6 +103,11 @@ class InputParameters:
     def items(self):
         for key in self.keys:
             yield key, getattr(self, key)
+
+
+@input_parameter
+def dtype(value=None):
+    return value
 
 
 @input_parameter

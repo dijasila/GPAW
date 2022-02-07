@@ -60,21 +60,23 @@ class LCAODFTComponentsBuilder(FDDFTComponentsBuilder):
         # self.atomic_correction= self.atomic_correction_cls.new_from_wfs(self)
         # self.atomic_correction.add_overlap_correction(newS_qMM)
 
-        def create_wfs(spin, q, weight):
+        def create_wfs(spin, q, k, kpt_c, weight):
             C_nM = Matrix(self.nbands, self.setups.nao, self.dtype,
                           dist=(band_comm, band_comm.size, 1))
             return LCAOWaveFunctions(
-                self.setups,
-                partial(basis.construct_density, q=q),
-                C_nM,
-                S_qMM[q],
-                T_qMM[q],
-                P_qaMi[q],
-                kpt_qc[q],
-                domain_comm,
-                spin,
-                weight,
-                self.ncomponents)
+                setups=self.setups,
+                density_adder=partial(basis.construct_density, q=q),
+                C_nM=C_nM,
+                S_MM=S_qMM[q],
+                T_MM=T_qMM[q],
+                P_aMi=P_qaMi[q],
+                kpt_c=kpt_c,
+                domain_comm=domain_comm,
+                spin=spin,
+                q=q,
+                k=k,
+                weight=weight,
+                ncomponents=self.ncomponents)
 
         ibzwfs = IBZWaveFunctions(ibz,
                                   self.nelectrons,

@@ -7,6 +7,7 @@ from gpaw.mpi import MPIComm, serial_comm
 
 class LCAOWaveFunctions(WaveFunctions):
     def __init__(self,
+                 *,
                  setups: Setups,
                  density_adder,
                  C_nM,
@@ -16,11 +17,15 @@ class LCAOWaveFunctions(WaveFunctions):
                  kpt_c=(0.0, 0.0, 0.0),
                  domain_comm: MPIComm = serial_comm,
                  spin: int = 0,
+                 q=0,
+                 k=0,
                  weight: float = 1.0,
                  ncomponents: int = 1):
         super().__init__(setups,
                          nbands=C_nM.shape[0],
                          spin=spin,
+                         q=q,
+                         k=k,
                          kpt_c=kpt_c,
                          weight=weight,
                          ncomponents=ncomponents,
