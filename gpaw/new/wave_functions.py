@@ -12,6 +12,8 @@ class WaveFunctions:
                  setups: Setups,
                  nbands: int,
                  spin: int = 0,
+                 q: int = 0,
+                 k: int = 0,
                  kpt_c=(0.0, 0.0, 0.0),
                  weight: float = 1.0,
                  ncomponents: int = 1,
@@ -22,6 +24,8 @@ class WaveFunctions:
         assert spin < ncomponents
 
         self.spin = spin
+        self.q = q
+        self.k = k
         self.setups = setups
         self.weight = weight
         self.ncomponents = ncomponents

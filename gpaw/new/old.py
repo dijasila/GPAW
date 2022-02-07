@@ -149,9 +149,13 @@ def read_gpw(filename, log, parallel):
                                            builder.setups)
     potential = Potential(vt_sR, dH_asp.to_full(), {})
 
-    def create_wfs(spin: int, q: int, kpt_c, weight: float):
-        return WaveFunctions(
+    eig_skn = reader.wave_functions.eigenvalues
+
+    def create_wfs(spin: int, q: int, k: int, kpt_c, weight: float):
+        wfs = WaveFunctions(
             spin=spin,
+            q=q,
+            k=k,
             kpt_c=kpt_c,
             weight=weight,
             setups=builder.setups,
@@ -160,12 +164,16 @@ def read_gpw(filename, log, parallel):
             ncomponents=builder.ncomponents,
             domain_comm=domain_comm,
             band_comm=band_comm)
+        wfs._eig_n = eig_skn[spin, k] / Ha
+        return wfs
 
     ibzwfs = IBZWaveFunctions(builder.ibz,
                               builder.nelectrons,
                               builder.ncomponents,
                               create_wfs,
                               kpt_comm)
+
+    ibzwfs.fermi_levels = reader.wave_functions.fermi_levels / Ha
 
     calculation = DFTCalculation(
         DFTState(ibzwfs, density, potential),

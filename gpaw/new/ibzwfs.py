@@ -28,14 +28,16 @@ class IBZWaveFunctions:
 
         self.rank_k = ibz.ranks(kpt_comm)
         mask_k = (self.rank_k == kpt_comm.rank)
-        kpt_qc = ibz.kpt_kc[mask_k]
-        weight_q = ibz.weight_k[mask_k]
+        k_q = np.arange(len(ibz))[mask_k]
 
+        self.q_k = {}  # IBZ-index to local index
         self.wfs_qs: list[list[WaveFunctions]] = []
-        for q, (kpt_c, weight) in enumerate(zip(kpt_qc, weight_q)):
+        for q, k in enumerate(k_q):
+            self.q_k[k] = q
             wfs_s = []
             for spin in range(self.nspins):
-                wfs = create_wfs_func(spin, q, kpt_c, weight)
+                wfs = create_wfs_func(spin, q, k,
+                                      ibz.kpt_kc[k], ibz.weight_k[k])
                 wfs_s.append(wfs)
             self.wfs_qs.append(wfs_s)
 
@@ -45,9 +47,6 @@ class IBZWaveFunctions:
         self.nbands = wfs.nbands
 
         self.fermi_levels = None
-
-        # IBZ-index to local index:
-        self.q_k = {k: q for q, k in enumerate(np.arange(len(ibz))[mask_k])}
 
         self.energies: dict[str, float] = {}
 
@@ -121,6 +120,17 @@ class IBZWaveFunctions:
                 return eig_n, occ_n
         return np.zeros(0), np.zeros(0)
 
+    def get_all_eigs_and_occs(self):
+        nspins = 2 // self.spin_degeneracy
+        nkpts = len(self.ibz)
+        eig_skn = np.empty((nspins, nkpts, self.nbands))
+        occ_skn = np.empty((nspins, nkpts, self.nbands))
+        for k in range(nkpts):
+            for s in range(nspins):
+                (eig_skn[s, k, :],
+                 occ_skn[s, k, :]) = self.get_eigs_and_occs(k, s)
+        return eig_skn, occ_skn
+
     def forces(self, dH_asii: AtomArrays):
         F_av = np.zeros((dH_asii.natoms, 3))
         for wfs in self:
@@ -129,7 +139,10 @@ class IBZWaveFunctions:
         return F_av
 
     def write(self, writer, skip_wfs):
-        writer.write(fermi_levels=self.fermi_levels)
+        eig_skn, occ_skn = self.get_all_eigs_and_occs()
+        writer.write(fermi_levels=self.fermi_levels * Ha,
+                     eigenvalues=eig_skn * Ha,
+                     occupations=occ_skn)
 
     def write_summary(self, log):
         fl = self.fermi_levels * Ha
@@ -138,14 +151,7 @@ class IBZWaveFunctions:
 
         ibz = self.ibz
 
-        nspins = 2 // self.spin_degeneracy
-        nkpts = len(ibz)
-        eig_skn = np.empty((nspins, nkpts, self.nbands))
-        occ_skn = np.empty((nspins, nkpts, self.nbands))
-        for k in range(nkpts):
-            for s in range(nspins):
-                (eig_skn[s, k, :],
-                 occ_skn[s, k, :]) = self.get_eigs_and_occs(k, s)
+        eig_skn, occ_skn = self.get_all_eigs_and_occs()
 
         for k, (x, y, z) in enumerate(ibz.kpt_kc):
             log(f'\nkpt = [{x:.3f}, {y:.3f}, {z:.3f}], '

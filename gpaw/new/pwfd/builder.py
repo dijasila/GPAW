@@ -103,7 +103,7 @@ def initialize_from_lcao(setups,
                           dH_asp=dH_asp)
     eigensolver.iterate(ham, lcaowfs)
 
-    def create_wfs(spin, q, kpt_c, weight):
+    def create_wfs(spin, q, k, kpt_c, weight):
         gridk = grid.new(kpt=kpt_c, dtype=dtype)
         u = spin + nspins * q
         lcaokpt = lcaowfs.kpt_u[u]
@@ -122,6 +122,8 @@ def initialize_from_lcao(setups,
 
         return PWFDWaveFunctions(psit_nX=psit_nX,
                                  spin=spin,
+                                 q=q,
+                                 k=k,
                                  weight=weight,
                                  setups=setups,
                                  fracpos_ac=fracpos_ac,
