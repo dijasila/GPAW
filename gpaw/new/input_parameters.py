@@ -62,7 +62,7 @@ class InputParameters:
     poissonsolver: dict[str, Any]
     convergence: dict[str, Any]
     eigensolver: dict[str, Any]
-    dtype: DTypeLike
+    force_complex_dtype: bool
 
     def __init__(self, params: dict[str, Any]):
         self.keys = set(params)
@@ -91,9 +91,10 @@ class InputParameters:
         force_complex_dtype = self.mode.pop('force_complex_dtype', None)
         if force_complex_dtype is not None:
             warnings.warn(
-                f'Please use GPAW(dtype={bool(force_complex_dtype)}, ...)',
+                'Please use '
+                f'GPAW(force_complex_dtype={bool(force_complex_dtype)}, ...)',
                 stacklevel=3)
-            self.dtype = force_complex_dtype
+            self.force_complex_dtype = force_complex_dtype
 
     def __repr__(self) -> str:
         p = ', '.join(f'{key}={value!r}'
@@ -106,7 +107,7 @@ class InputParameters:
 
 
 @input_parameter
-def dtype(value=None):
+def force_complex_dtype(value: bool = False):
     return value
 
 
