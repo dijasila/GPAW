@@ -33,7 +33,7 @@ master:
     - echo "parallel_python_interpreter = True" >> ~/.gpaw/siteconfig.py
     - echo "libraries += ['openblas']" >> ~/.gpaw/siteconfig.py
     - python setup.py install > gpaw-python-install.output
-    - su user -c 'gpaw-python -m gpaw info'
+    - gpaw-python -m gpaw info
     - mq config --in-place
     - mq init
     - mq workflow -p agts.py -zT | tail -1 | tee count
