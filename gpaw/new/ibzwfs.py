@@ -198,3 +198,13 @@ class IBZWaveFunctions:
         lumo = self.kpt_comm.min(min(wfs._eig_n[n] for wfs in self))
 
         return np.array([homo, lumo])
+
+    def create_work_arrays(self, dims: tuple[int]) -> np.ndarray:
+        """Create buffer ndarray large enough for any k-point.
+
+        The number of plane-waves will depend on the k-point!
+        """
+        # Find the largest number of plane-waves or grid-points:
+        desc = max((wfs.psit_nX.desc for wfs in self),
+                   key=lambda desc: desc.myshape)
+        return desc.empty(dims).data

@@ -163,7 +163,7 @@ class TBDFTComponentsBuilder(LCAODFTComponentsBuilder):
 
     def create_uniform_grids(self):
         grid = NoGrid(
-            self.atoms.cell,
+            self.atoms.cell.complete() / Bohr,
             self.atoms.pbc,
             dtype=self.dtype,
             comm=self.communicators['d'])

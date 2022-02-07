@@ -12,7 +12,6 @@ def test_tb_mode_molecule():
     atoms = Atoms('LiH',
                   [[0, 0.1, 0.2],
                    [0, 0, 1.4]])
-    atoms.center(vacuum=4)  # ??? should not be needed
     atoms.calc = GPAW(
         mode='tb',
         symmetry='off',  # ??? should not be needed
@@ -24,7 +23,8 @@ def test_tb_mode_molecule():
         assert abs(f1 - f2).max() < 0.0005
 
 
-def skip_for_now_test_tb_mode_bulk():
+@pytest.mark.serial
+def test_tb_mode_bulk():
     a = 2.0
     atoms = Atoms('Li',
                   cell=[a, a, a],
@@ -32,6 +32,8 @@ def skip_for_now_test_tb_mode_bulk():
     atoms.calc = GPAW(
         mode='tb',
         kpts=(2, 2, 2))
+    atoms.get_potential_energy()
+    return
     f = atoms.get_forces()
     assert abs(f).max() < 0.0001
     e = atoms.get_potential_energy()
