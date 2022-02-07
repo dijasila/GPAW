@@ -154,7 +154,7 @@ def make_figures(render=True):
         'PotentialCalculator', [pw.calculation.pot_calc], '#ffdddd')
     subclasses['PWFDWaveFunctions'] = (
         'WaveFunctions', [
-            WaveFunctions(0, pw.calculation.setups, np.zeros((1, 3))),
+            WaveFunctions(pw.calculation.setups, 0),
             lcao.calculation.state.ibzwfs.wfs_qs[0][0]], '#ddddff')
     subclasses['Davidson'] = ('Eigensolver',
                               [lcao.calculation.scf_loop.eigensolver],
