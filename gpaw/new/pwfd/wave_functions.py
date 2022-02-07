@@ -13,21 +13,21 @@ from gpaw.typing import Array2D, ArrayND
 class PWFDWaveFunctions(WaveFunctions):
     def __init__(self,
                  psit_nX: DA,
-                 spin: int | None,
+                 spin: int,
                  setups: Setups,
                  fracpos_ac: Array2D,
                  weight: float = 1.0,
-                 spin_degeneracy: int = 2):
+                 ncomponents: int = 1):
         self.psit_nX = psit_nX
-        super().__init__(spin,
-                         setups,
+        super().__init__(setups=setups,
+                         nbands=psit_nX.dims[0],
+                         spin=spin,
+                         kpt_c=psit_nX.desc.kpt_c,
                          weight=weight,
-                         spin_degeneracy=spin_degeneracy,
+                         ncomponents=ncomponents,
                          dtype=psit_nX.desc.dtype,
                          domain_comm=psit_nX.desc.comm,
-                         band_comm=psit_nX.comm,
-                         nbands=psit_nX.dims[0],
-                         kpt_c=psit_nX.desc.kpt_c)
+                         band_comm=psit_nX.comm)
         self.pt_aiX = setups.create_projectors(self.psit_nX.desc,
                                                fracpos_ac)
         self.orthonormalized = False

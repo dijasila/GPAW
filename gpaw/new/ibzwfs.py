@@ -1,46 +1,54 @@
 from __future__ import annotations
 
-from typing import Sequence
-
 import numpy as np
-from ase.units import Ha
 from ase.dft.bandgap import bandgap
+from ase.units import Ha
+from gpaw.core.atom_arrays import AtomArrays
 from gpaw.mpi import MPIComm, serial_comm
 from gpaw.new.brillouin import IBZ
 from gpaw.new.wave_functions import WaveFunctions
-from gpaw.core.atom_arrays import AtomArrays
 
 
 class IBZWaveFunctions:
     def __init__(self,
                  ibz: IBZ,
-                 rank_k: Sequence[int],
-                 kpt_comm: MPIComm,
-                 wfs_qs: Sequence[Sequence[WaveFunctions]],
                  nelectrons: float,
-                 spin_degeneracy: int = 2):
+                 ncomponents: int,
+                 create_wfs_func,
+                 kpt_comm: MPIComm = serial_comm):
         """Collection of wave function objects for k-points in the IBZ."""
         self.ibz = ibz
-        self.rank_k = rank_k
         self.kpt_comm = kpt_comm
-        self.wfs_qs = wfs_qs
         self.nelectrons = nelectrons
+
+        self.ncomponents = ncomponents
+        self.collinear = (ncomponents == 4)
+        self.spin_degeneracy = ncomponents % 2 + 1
+        self.nspins = ncomponents % 3
+
+        self.rank_k = ibz.ranks(kpt_comm)
+        mask_k = (self.rank_k == kpt_comm.rank)
+        kpt_qc = ibz.kpt_kc[mask_k]
+        weight_q = ibz.weight_k[mask_k]
+
+        self.wfs_qs: list[list[WaveFunctions]] = []
+        for q, (kpt_c, weight) in enumerate(zip(kpt_qc, weight_q)):
+            wfs_s = []
+            for spin in range(self.nspins):
+                wfs = create_wfs_func(spin, q, kpt_c, weight)
+                wfs_s.append(wfs)
+            self.wfs_qs.append(wfs_s)
+
+        self.band_comm = wfs.band_comm
+        self.domain_comm = wfs.domain_comm
+        self.dtype = wfs.dtype
+        self.nbands = wfs.nbands
+
         self.fermi_levels = None
-        self.collinear = False
-        self.spin_degeneracy = spin_degeneracy
 
-        self.band_comm = wfs_qs[0][0].band_comm
-        self.domain_comm = wfs_qs[0][0].domain_comm
-        self.dtype = wfs_qs[0][0].dtype
+        # IBZ-index to local index:
+        self.q_k = {k: q for q, k in enumerate(np.arange(len(ibz))[mask_k])}
 
-        self.nbands = wfs_qs[0][0].nbands
-
-        self.q_k = {}  # ibz index to local index
-        q = 0
-        for k, rank in enumerate(rank_k):
-            if rank == kpt_comm.rank:
-                self.q_k[k] = q
-                q += 1
         self.energies: dict[str, float] = {}
 
     def __str__(self):
@@ -51,26 +59,6 @@ class IBZWaveFunctions:
     def __iter__(self):
         for wfs_s in self.wfs_qs:
             yield from wfs_s
-
-    @classmethod
-    def from_ibz(cls,
-                 ibz,
-                 nelectrons: float,
-                 create_wfs,
-                 spin_degeneracy: int = 2,
-                 kpt_comm: MPIComm = serial_comm) -> IBZWaveFunctions:
-        rank_k = ibz.ranks(kpt_comm)
-        here_k = rank_k == kpt_comm.rank
-        kpt_qc = ibz.kpt_kc[here_k]
-        nspins = 2 // spin_degeneracy
-        wfs_qs = []
-        for q, (kpt_c, weight) in enumerate(zip(kpt_qc, ibz.weight_k[here_k])):
-            wfs_s = []
-            for s in range(nspins):
-                wfs = create_wfs(q, s, kpt_c, weight)
-                wfs_s.append(wfs)
-            wfs_qs.append(wfs_s)
-        return cls(ibz, rank_k, kpt_comm, wfs_qs, nelectrons, spin_degeneracy)
 
     def move(self, fracpos_ac):
         self.ibz.symmetries.check_positions(fracpos_ac)

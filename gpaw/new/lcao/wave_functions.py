@@ -2,29 +2,31 @@ from __future__ import annotations
 from gpaw.new.wave_functions import WaveFunctions
 from gpaw.setup import Setups
 from gpaw.core.atom_arrays import AtomArrays, AtomArraysLayout
+from gpaw.mpi import MPIComm, serial_comm
 
 
 class LCAOWaveFunctions(WaveFunctions):
     def __init__(self,
-                 kpt_c,
+                 setups: Setups,
                  density_adder,
                  C_nM,
                  S_MM,
                  T_MM,
                  P_aMi,
-                 domain_comm,
-                 spin: int | None,
-                 setups: Setups,
+                 kpt_c=(0.0, 0.0, 0.0),
+                 domain_comm: MPIComm = serial_comm,
+                 spin: int = 0,
                  weight: float = 1.0,
-                 spin_degeneracy: int = 2):
-        super().__init__(spin, setups,
+                 ncomponents: int = 1):
+        super().__init__(setups,
+                         nbands=C_nM.shape[0],
+                         spin=spin,
+                         kpt_c=kpt_c,
                          weight=weight,
-                         spin_degeneracy=spin_degeneracy,
+                         ncomponents=ncomponents,
                          dtype=C_nM.dtype,
                          domain_comm=domain_comm,
-                         band_comm=C_nM.dist.comm,
-                         nbands=C_nM.shape[0],
-                         kpt_c=kpt_c)
+                         band_comm=C_nM.dist.comm)
         self.density_adder = density_adder
         self.C_nM = C_nM
         self.T_MM = T_MM

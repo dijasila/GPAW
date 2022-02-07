@@ -9,9 +9,10 @@ from gpaw.new.calculation import DFTCalculation, DFTState
 from gpaw.new.density import Density
 from gpaw.new.input_parameters import InputParameters
 from gpaw.new.potential import Potential
-# from gpaw.new.wave_functions import IBZWaveFunctions
+from gpaw.new.wave_functions import WaveFunctions
 from gpaw.core.atom_arrays import AtomArraysLayout
 from gpaw.typing import Array1D
+from gpaw.new.ibzwfs import IBZWaveFunctions
 
 
 def state(method):
@@ -106,7 +107,9 @@ def read_gpw(filename, log, parallel):
     params = InputParameters(kwargs)
 
     builder = create_builder(atoms, params)
-    kpt_band_comm = builder.communicators['D']
+
+    (kpt_comm, band_comm, domain_comm,
+     kpt_band_comm) = (builder.communicators[x] for x in 'kbdD')
 
     assert reader.version >= 4
 
@@ -146,17 +149,23 @@ def read_gpw(filename, log, parallel):
                                            builder.setups)
     potential = Potential(vt_sR, dH_asp.to_full(), {})
 
-    def create_wfs(q, s, kpt_c, weight):
+    def create_wfs(spin: int, q: int, kpt_c, weight: float):
         return WaveFunctions(
-            domain_comm=domain_comm,
-            band_comm=band_comm,
-            spin=s,
-            nbands=nbands,
-            setups=setups,
+            spin=spin,
+            kpt_c=kpt_c,
             weight=weight,
-            spin_degeneracy=spin_degeneracy)
+            setups=builder.setups,
+            nbands=builder.nbands,
+            dtype=builder.dtype,
+            ncomponents=builder.ncomponents,
+            domain_comm=domain_comm,
+            band_comm=band_comm)
 
-    ibzwfs = IBZWaveFunctions.from_ibz(create_wfs)
+    ibzwfs = IBZWaveFunctions(builder.ibz,
+                              builder.nelectrons,
+                              builder.ncomponents,
+                              create_wfs,
+                              kpt_comm)
 
     calculation = DFTCalculation(
         DFTState(ibzwfs, density, potential),

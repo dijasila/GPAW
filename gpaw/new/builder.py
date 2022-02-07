@@ -151,13 +151,13 @@ class DFTComponentsBuilder:
                                scale=1.0 / (self.ncomponents % 3))
         return out
 
-    def create_ibz_wave_functions(self, basis_set, potential):
-        return IBZWaveFunctions.from_ibz(
+    def ccccccreate_ibz_wave_functions(self, basis_set, potential):
+        return IBZWaveFunctions(
             self.ibz,
+            self.nelectrons,
+            self.ncomponents,
             self.setups,
             self.nbands,
-            self.nelectrons,
-            self.spin_degeneracy,
             self.dtype,
             self.communicators['d'],
             self.communicators['b'],

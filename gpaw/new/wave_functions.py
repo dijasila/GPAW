@@ -9,24 +9,30 @@ from gpaw.mpi import MPIComm, serial_comm
 
 class WaveFunctions:
     def __init__(self,
-                 spin: int | None,
                  setups: Setups,
                  nbands: int,
+                 spin: int = 0,
+                 kpt_c=(0.0, 0.0, 0.0),
                  weight: float = 1.0,
-                 spin_degeneracy: int = 2,
+                 ncomponents: int = 1,
                  dtype=float,
-                 kpt_c=(0, 0, 0),
                  domain_comm: MPIComm = serial_comm,
                  band_comm: MPIComm = serial_comm):
+        """"""
+        assert spin < ncomponents
+
         self.spin = spin
         self.setups = setups
         self.weight = weight
-        self.spin_degeneracy = spin_degeneracy
+        self.ncomponents = ncomponents
         self.dtype = dtype
         self.kpt_c = kpt_c
         self.domain_comm = domain_comm
         self.band_comm = band_comm
         self.nbands = nbands
+
+        self.nspins = ncomponents % 3
+        self.spin_degeneracy = ncomponents % 2 + 1
 
         self._P_ain: AtomArrays | None = None
 

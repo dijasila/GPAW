@@ -27,33 +27,30 @@ class PWFDDFTComponentsBuilder(DFTComponentsBuilder):
                         **eigsolv_params)
 
     def create_ibz_wave_functions(self, basis_set, potential):
-        ibzwfs = super().create_ibz_wave_functions(basis_set, potential)
         if self.params.random:
-            raise NotImplementedError
             self.log('Initializing wave functions with random numbers')
-        else:
-            sl_default = self.params.parallel['sl_default']
-            sl_lcao = self.params.parallel['sl_lcao'] or sl_default
-            initialize_from_lcao(
-                ibzwfs,
-                self.setups,
-                self.communicators,
-                self.nbands,
-                self.ncomponents,
-                self.nelectrons,
-                self.fracpos_ac,
-                self.dtype,
-                self.grid,
-                self.wf_desc,
-                self.ibz,
-                sl_lcao,
-                basis_set,
-                potential,
-                self.convert_wave_functions_from_uniform_grid)
+            raise NotImplementedError
+
+        sl_default = self.params.parallel['sl_default']
+        sl_lcao = self.params.parallel['sl_lcao'] or sl_default
+        return initialize_from_lcao(
+            self.setups,
+            self.communicators,
+            self.nbands,
+            self.ncomponents,
+            self.nelectrons,
+            self.fracpos_ac,
+            self.dtype,
+            self.grid,
+            self.wf_desc,
+            self.ibz,
+            sl_lcao,
+            basis_set,
+            potential,
+            self.convert_wave_functions_from_uniform_grid)
 
 
-def initialize_from_lcao(ibzwfs: IBZWaveFunctions,
-                         setups,
+def initialize_from_lcao(setups,
                          communicators,
                          nbands,
                          ncomponents,
@@ -67,11 +64,9 @@ def initialize_from_lcao(ibzwfs: IBZWaveFunctions,
                          basis_set,
                          potential: Potential,
                          convert_wfs) -> None:
-    band_comm = communicators['b']
-    domain_comm = communicators['d']
-    domainband_comm = communicators['K']
-    kptband_comm = communicators['D']
-    world = communicators['w']
+    (band_comm, domain_comm, kpt_comm, world,
+     domainband_comm, kptband_comm) = (communicators[x] for x in 'bdkwKD')
+
     lcaonbands = min(nbands, setups.nao)
     gd = grid._gd
     nspins = ncomponents % 3
@@ -108,9 +103,11 @@ def initialize_from_lcao(ibzwfs: IBZWaveFunctions,
                           dH_asp=dH_asp)
     eigensolver.iterate(ham, lcaowfs)
 
-    for u, (wfs, lcaokpt) in enumerate(zip(ibzwfs, lcaowfs.kpt_u)):
-        gridk = grid.new(kpt=wfs.kpt_c, dtype=dtype)
-        assert lcaokpt.s == wfs.spin
+    def create_wfs(spin, q, kpt_c, weight):
+        gridk = grid.new(kpt=kpt_c, dtype=dtype)
+        u = spin + nspins * q
+        lcaokpt = lcaowfs.kpt_u[u]
+        assert lcaokpt.s == spin
         psit_nR = gridk.zeros(nbands, band_comm)
         mynbands = len(lcaokpt.C_nM)
         assert mynbands == lcaonbands
@@ -120,8 +117,14 @@ def initialize_from_lcao(ibzwfs: IBZWaveFunctions,
         if lcaonbands < nbands:
             psit_nR[lcaonbands:].randomize()
 
+        # Convert to PW-coefs in PW-mode:
         psit_nX = convert_wfs(psit_nR)
 
-        newwfs = PWFDWaveFunctions.from_wfs(wfs, psit_nX, fracpos_ac)
-        q = u // nspins
-        ibzwfs.wfs_qs[q][wfs.spin] = newwfs
+        return PWFDWaveFunctions(psit_nX=psit_nX,
+                                 spin=spin,
+                                 weight=weight,
+                                 setups=setups,
+                                 fracpos_ac=fracpos_ac,
+                                 ncomponents=ncomponents)
+
+    return IBZWaveFunctions(ibz, nelectrons, ncomponents, create_wfs, kpt_comm)
