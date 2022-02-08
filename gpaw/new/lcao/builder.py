@@ -17,6 +17,11 @@ class LCAODFTComponentsBuilder(FDDFTComponentsBuilder):
     def create_wf_description(self):
         raise NotImplementedError
 
+    def create_xc_functional(self):
+        if self.parmas.xc['name'] in ['HSE06', 'PBE0', 'EXX']:
+            return ...
+        return super().create_xc_functional()
+
     def create_basis_set(self):
         self.basis = FDDFTComponentsBuilder.create_basis_set(self)
         return self.basis
@@ -25,6 +30,8 @@ class LCAODFTComponentsBuilder(FDDFTComponentsBuilder):
         return LCAOHamiltonian(self.basis)
 
     def create_eigensolver(self, hamiltonian):
+        if self.parmas.xc['name'] in ['HSE06', 'PBE0', 'EXX']:
+            return ...
         return LCAOEigensolver(self.basis)
 
     def create_ibz_wave_functions(self, basis, potential):

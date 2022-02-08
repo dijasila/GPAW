@@ -62,7 +62,8 @@ class DFTComponentsBuilder:
 
         self.check_cell(atoms.cell)
 
-        self.xc = XCFunctional(params.xc, self.mode)
+        self.xc = self.create_xc_functional()
+
         self.setups = Setups(atoms.numbers,
                              params.setups,
                              params.basis,
@@ -119,6 +120,9 @@ class DFTComponentsBuilder:
 
     def create_uniform_grids(self):
         raise NotImplementedError
+
+    def create_xc_functional(self):
+        self.xc = XCFunctional(self.params.xc)
 
     def check_cell(self, cell):
         number_of_lattice_vectors = cell.rank
