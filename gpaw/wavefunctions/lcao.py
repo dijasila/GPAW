@@ -471,8 +471,9 @@ class LCAOWaveFunctions(WaveFunctions):
                                     self.P_aqMi, self.setups,
                                     self.manytci, hamiltonian,
                                     self.spos_ac, self.timer,
-                                    Fref_av, self.Ehrenfest_force_flag, self.S_flag,
-                                    self.eigensolver, self.get_H_MM)
+                                    Fref_av, self.Ehrenfest_force_flag,
+                                    self.S_flag, self.eigensolver,
+                                    self.get_H_MM)
 
         F_av[:, :] = self.forcecalc.get_forces_sum_GS()
         # Calculate LCAO PAW Ehrenfest force contribution (eq. 4.81)
@@ -561,7 +562,8 @@ class LCAOForces:
 
     def __init__(self, ksl, dtype, gd, bd, kd, kpt_u, nspins, bfs, newtci,
                  P_aqMi, setups, manytci, hamiltonian, spos_ac,
-                 timer, Fref_av, Ehrenfest_force_flag, S_flag, eigensolver, get_H_MM):
+                 timer, Fref_av, Ehrenfest_force_flag, S_flag,
+                 eigensolver, get_H_MM):
         """ Object which calculates LCAO forces """
         self.eigensolver = eigensolver
         self.get_H_MM = get_H_MM
@@ -606,9 +608,11 @@ class LCAOForces:
 
             self.timer.start('Initial')
             if ((self.kpt_u[0].rho_MM is None) and (self.S_flag is False)):
-                self.rhoT_uMM, self.ET_uMM = self.get_ET_rhoT_1()
+                self.rhoT_uMM, self.ET_uMM = \
+                    self.get_ET_rhoT_from_coefficients()
             else:
-                self.rhoT_uMM, self.ET_uMM = self.get_ET_rhoT_2()
+                self.rhoT_uMM, self.ET_uMM = \
+                    self.get_ET_rhoT_from_density_matrix()
             self.timer.stop('Initial')
 
     def get_Ehrenfest_force_contribution(self):
@@ -657,7 +661,7 @@ class LCAOForces:
     def my_slices(self):
         return self._slices(self.my_atom_indices)
 
-    def get_ET_rhoT_1(self):
+    def get_ET_rhoT_from_coefficients(self):
         #
         #          -----
         #           \    *
@@ -694,7 +698,7 @@ class LCAOForces:
 
         return rhoT_uMM, ET_uMM
 
-    def get_ET_rhoT_2(self):
+    def get_ET_rhoT_from_density_matrix(self):
         #
         #         -----
         #          \    -1
@@ -711,7 +715,6 @@ class LCAOForces:
         ET_uMM = []
         self.timer.start('CALCULATE E_uMM=S^(-1)*H*rho')
         for kpt in self.kpt_u:
-            # eigen_s.initialize(self.gd, self.dtype, self.setups.nao, lcaoksl)
             H_MM = self.get_H_MM(self.hamiltonian, kpt)
             tri2full(H_MM)
             S_MM = kpt.S_MM.copy()
@@ -721,7 +724,8 @@ class LCAOForces:
                 rhoT_MM = self.ksl.get_transposed_density_matrix(kpt.f_n,
                                                                  kpt.C_nM)
             else:
-                rhoT_MM = kpt.rho_MM.copy()
+                rhoT_MM = kpt.rho_MM.T.copy()
+
             ET_MM = (S_inv_MM @ H_MM @ rhoT_MM)
             del S_MM, H_MM
             rhoT_uMM.append(rhoT_MM)

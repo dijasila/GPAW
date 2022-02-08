@@ -163,7 +163,7 @@ class TimeDependentHamiltonian(object):
         self.density = paw.density
         self.hamiltonian = paw.hamiltonian
         niter = paw.niter
-        self.PLCAO = PAW_correctionLCAO(self.wfs)
+        self.PLCAO = PawCorrectionLCAO(self.wfs)
         if self.rremission is not None:
             self.rremission.initialize(paw)
         # Reset the density mixer
@@ -278,7 +278,7 @@ class TimeDependentHamiltonian(object):
         self.timer.stop('Update TDDFT Hamiltonian')
 
 
-class PAW_correctionLCAO:
+class PawCorrectionLCAO:
     def __init__(self, wfs):
         # self.v = wfs.v
         self.wfs = wfs
@@ -356,7 +356,7 @@ class PAW_correctionLCAO:
             self._get_overlap_derivatives(self.wfs.ksl.using_blacs)
         return self.D2_1_qvMM, self.dTdR_qvMM
 
-    def calculate_PAW_correctionLCAO(self, v):
+    def calculate_paw_correction_lcao(self, v):
         self.v = v
         # Calculate P1_MM = i sum ((V_a) . (D1_1 + D1_2))   eq. 4.66 p.49
         P_MM = np.zeros((self.mynao, self.nao), self.dtype)

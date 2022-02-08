@@ -1,3 +1,4 @@
+import numpy as np
 from ase.units import Bohr, AUT, _me, _amu
 from gpaw.tddft.units import attosec_to_autime
 from gpaw.forces import calculate_forces
@@ -55,8 +56,8 @@ class EhrenfestVelocityVerlet:
         self.calc = calc
         self.setups = setups
         self.positions = self.calc.atoms.positions.copy() / Bohr
-        self.positions_new = self.positions.copy()
-        self.velocities = self.positions.copy()
+        self.positions_new = np.empty_like(self.positions)
+        self.velocities = np.empty_like(self.positions)
         amu_to_aumass = _amu / _me
         if self.calc.atoms.get_velocities() is not None:
             self.velocities = self.calc.atoms.get_velocities() / (Bohr / AUT)
@@ -64,16 +65,15 @@ class EhrenfestVelocityVerlet:
             self.velocities[:] = 0.0
             self.calc.atoms.set_velocities(self.velocities)
         
-        self.vt = self.velocities.copy()
-        self.velocities_half = self.velocities.copy()
+        self.velocities_half = np.empty_like(self.velocities)
         self.time = 0.0
         
         self.M = calc.atoms.get_masses() * amu_to_aumass * mass_scale
 
-        self.accelerations = self.velocities.copy()
-        self.accelerations_half = self.accelerations.copy()
-        self.accel_new = self.accelerations.copy()
-        self.Forces = self.accelerations.copy()
+        self.accelerations = np.empty_like(self.velocities)
+        self.accelerations_half = np.empty_like(self.accelerations)
+        self.accelerations_new = np.empty_like(self.accelerations)
+        self.Forces = np.empty_like(self.accelerations)
 
         self.calc.get_td_energy()
         self.Forces = self.get_forces()
@@ -84,7 +84,7 @@ class EhrenfestVelocityVerlet:
             self.calc.wfs.Ehrenfest_force_flag = calc.Ehrenfest_force_flag
             self.calc.wfs.S_flag = calc.S_flag
             self.calc.td_hamiltonian.PLCAO_flag = calc.PLCAO_flag
-            self.velocities = self.positions.copy()
+            self.velocities = np.empty_like(self.positions)
 
     def get_forces(self):
         return calculate_forces(self.calc.wfs,
@@ -127,8 +127,9 @@ class EhrenfestVelocityVerlet:
         # vh(t+dt/2)  = v(t) + .5 a(t) dt/2
         self.positions_half = self.positions + self.velocities * \
             dt / 2 + .5 * self.accelerations * dt / 2 * dt / 2
-        self.vhh = self.velocities + .5 * self.accelerations * dt / 2
-
+        self.velocities_quarter = self.velocities + .5 * \
+            self.accelerations * dt / 2
+  
         # m a(t+dt/2) = F[psi(t),x(t+dt/2)a]
         self.calc.atoms.positions = self.positions_half * Bohr
         self.calc.set_positions(self.calc.atoms)
@@ -139,7 +140,7 @@ class EhrenfestVelocityVerlet:
             self.accelerations_half[i] = self.Forces[i] / self.M[i]
 
         # v(t+dt/2)   = vh(t+dt/2) + .5 a(t+dt/2) dt/2
-        self.velocities_half = self.vhh + 0.5 * \
+        self.velocities_half = self.velocities_quarter + 0.5 * \
             self.accelerations_half * dt / 2
 
         # Propagate wf
@@ -159,7 +160,8 @@ class EhrenfestVelocityVerlet:
         # vh(t+dt)    = v(t+dt/2) + .5 a(t+dt/2) dt/2
         self.positions_new = self.positions_half + self.velocities_half * \
             dt / 2 + 0.5 * self.accelerations_half * dt / 2 * dt / 2
-        self.vhh = self.velocities_half + .5 * self.accelerations_half * dt / 2
+        self.velocities_quarter = self.velocities_half + .5 * \
+            self.accelerations_half * dt / 2
 
         # m a(t+dt)   = F[psi(t+dt),x(t+dt)]
         self.calc.atoms.positions = self.positions_new * Bohr
@@ -172,7 +174,8 @@ class EhrenfestVelocityVerlet:
             self.accelerations_new[i] = self.Forces[i] / self.M[i]
 
         # v(t+dt)     = vh(t+dt/2) + .5 a(t+dt/2) dt/2
-        self.velocities_new = self.vhh + .5 * self.accelerations_new * dt / 2
+        self.velocities_new = self.velocities_quarter + .5 * \
+            self.accelerations_new * dt / 2
 
         # update
         self.positions[:] = self.positions_new

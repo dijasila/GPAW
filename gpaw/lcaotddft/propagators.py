@@ -413,7 +413,7 @@ class EDSICNPropagator(ECNPropagator):
             # Add P term in case we performe Ehrenfest dynamics
             if self.hamiltonian.PLCAO_flag is True:
                 kpt.H0_MM += \
-                    self.hamiltonian.PLCAO.calculate_PAW_correctionLCAO(v)[0]
+                    self.hamiltonian.PLCAO.calculate_paw_correction_lcao(v)[0]
             # 2. Solve Psi(t+dt) from
             #    (S_MM - 0.5j*H_MM(t)*dt) Psi(t+dt)
             #       = (S_MM + 0.5j*H_MM(t)*dt) Psi(t)
@@ -429,7 +429,7 @@ class EDSICNPropagator(ECNPropagator):
             if self.hamiltonian.PLCAO_flag is True:
                 # Add P term in case we performe Ehrenfest dynamics
                 kpt.H0_MM += get_H_MM(kpt, time + time_step) +\
-                    self.hamiltonian.PLCAO.calculate_PAW_correctionLCAO(v)[0]
+                    self.hamiltonian.PLCAO.calculate_paw_correction_lcao(v)[0]
             else:
                 kpt.H0_MM += get_H_MM(kpt, time + time_step)
 

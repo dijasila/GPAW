@@ -357,7 +357,7 @@ class LCAOTDDFT(GPAW):
                     Sp12_o = Seig_v_o @ Seig_dp12_o @ np.conj(Seig_v_o).T
                     C_nM_temp = kpt.C_nM.copy()
 
-                    # Cange basis PSI(R+dr) = S(R+dR)^(-1/2)S(R)^(1/2) PSI(R))
+                    # Change basis PSI(R+dr) = S(R+dR)^(-1/2)S(R)^(1/2) PSI(R))
                     Sp12xC_nM = Sp12_o @ np.transpose(C_nM_temp)
                     Sm12xSp12xC_nM = Sm12 @ Sp12xC_nM
                     t_Sm12xSp12xC_nM = np.transpose(Sm12xSp12xC_nM)
