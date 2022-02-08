@@ -122,7 +122,7 @@ class DFTComponentsBuilder:
         raise NotImplementedError
 
     def create_xc_functional(self):
-        self.xc = XCFunctional(self.params.xc)
+        return XCFunctional(self.params.xc)
 
     def check_cell(self, cell):
         number_of_lattice_vectors = cell.rank

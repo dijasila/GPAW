@@ -50,3 +50,9 @@ class LCAOEigensolver(Eigensolver):
 
         # Make sure wfs.C_nM and (lacy) wfs.P_ain are in sync:
         wfs._P_ain = None
+
+
+class HybridLCAOEigensolver(LCAOEigensolver):
+    def __init__(self, basis):
+        super().__init__(basis)
+        1 / 0

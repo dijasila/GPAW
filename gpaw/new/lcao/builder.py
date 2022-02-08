@@ -2,7 +2,7 @@ from functools import partial
 from gpaw.core.matrix import Matrix
 from gpaw.new.fd.builder import FDDFTComponentsBuilder
 from gpaw.new.ibzwfs import IBZWaveFunctions
-from gpaw.new.lcao.eigensolver import LCAOEigensolver
+from gpaw.new.lcao.eigensolver import LCAOEigensolver, HybridLCAOEigensolver
 from gpaw.new.lcao.hamiltonian import LCAOHamiltonian
 from gpaw.new.lcao.wave_functions import LCAOWaveFunctions
 from gpaw.lcao.tci import TCIExpansions
@@ -18,7 +18,7 @@ class LCAODFTComponentsBuilder(FDDFTComponentsBuilder):
         raise NotImplementedError
 
     def create_xc_functional(self):
-        if self.parmas.xc['name'] in ['HSE06', 'PBE0', 'EXX']:
+        if self.params.xc['name'] in ['HSE06', 'PBE0', 'EXX']:
             return ...
         return super().create_xc_functional()
 
@@ -31,7 +31,7 @@ class LCAODFTComponentsBuilder(FDDFTComponentsBuilder):
 
     def create_eigensolver(self, hamiltonian):
         if self.parmas.xc['name'] in ['HSE06', 'PBE0', 'EXX']:
-            return ...
+            return HybridLCAOEigensolver(self.basis)
         return LCAOEigensolver(self.basis)
 
     def create_ibz_wave_functions(self, basis, potential):
