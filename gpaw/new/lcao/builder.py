@@ -2,11 +2,12 @@ from functools import partial
 from gpaw.core.matrix import Matrix
 from gpaw.new.fd.builder import FDDFTComponentsBuilder
 from gpaw.new.ibzwfs import IBZWaveFunctions
-from gpaw.new.lcao.eigensolver import LCAOEigensolver, HybridLCAOEigensolver
+from gpaw.new.lcao.eigensolver import LCAOEigensolver
 from gpaw.new.lcao.hamiltonian import LCAOHamiltonian
 from gpaw.new.lcao.wave_functions import LCAOWaveFunctions
 from gpaw.lcao.tci import TCIExpansions
 from gpaw.utilities.timing import NullTimer
+from gpaw.new.lcao.hybrids import HybridXCFunctional, HybridLCAOEigensolver
 
 
 class LCAODFTComponentsBuilder(FDDFTComponentsBuilder):
@@ -19,7 +20,7 @@ class LCAODFTComponentsBuilder(FDDFTComponentsBuilder):
 
     def create_xc_functional(self):
         if self.params.xc['name'] in ['HSE06', 'PBE0', 'EXX']:
-            return ...
+            return HybridXCFunctional(self.params.xc)
         return super().create_xc_functional()
 
     def create_basis_set(self):
@@ -30,8 +31,10 @@ class LCAODFTComponentsBuilder(FDDFTComponentsBuilder):
         return LCAOHamiltonian(self.basis)
 
     def create_eigensolver(self, hamiltonian):
-        if self.parmas.xc['name'] in ['HSE06', 'PBE0', 'EXX']:
-            return HybridLCAOEigensolver(self.basis)
+        if self.params.xc['name'] in ['HSE06', 'PBE0', 'EXX']:
+            return HybridLCAOEigensolver(self.basis,
+                                         self.fracpos_ac,
+                                         self.grid.cell_cv)
         return LCAOEigensolver(self.basis)
 
     def create_ibz_wave_functions(self, basis, potential):

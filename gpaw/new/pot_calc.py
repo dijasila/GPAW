@@ -36,7 +36,7 @@ class PotentialCalculator:
         self.nct_R = nct_R
 
     def __str__(self):
-        return f'\n{self.poisson_solver}\n{self.xc.xc}'
+        return f'\n{self.poisson_solver}\n{self.xc}'
 
     def calculate(self, density, vHt_x=None):
         energies, vt_sR, vHt_x = self._calculate(density, vHt_x)

@@ -39,7 +39,7 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
                           dtype=self.dtype)
 
     def create_xc_functional(self):
-        if self.parmas.xc['name'] in ['HSE06', 'PBE0', 'EXX']:
+        if self.params.xc['name'] in ['HSE06', 'PBE0', 'EXX']:
             return ...
         return super().create_xc_functional()
 

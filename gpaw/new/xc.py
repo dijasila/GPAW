@@ -8,6 +8,9 @@ class XCFunctional:
         self.name = self.xc.name
         self.no_forces = self.name.startswith('GLLB')
 
+    def __str__(self):
+        return str(self.xc)
+
     def calculate(self, density, out) -> float:
         return self.xc.calculate(density.desc._gd, density.data, out.data)
 
