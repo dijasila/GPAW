@@ -6,7 +6,6 @@ from typing import Any, IO, Sequence
 
 import numpy as np
 from gpaw.mpi import world
-from gpaw.typing import DTypeLike
 
 parameter_functions = {}
 
