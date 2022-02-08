@@ -103,6 +103,16 @@ class IBZWaveFunctions:
         self.kpt_comm.sum(nt_sR.data)
         self.kpt_comm.sum(D_asii.data)
 
+    def get_wfs(self,
+                band: int,
+                kpt: int = 0,
+                spin: int = 0):  # -> tuple[UGF, AA]:
+        assert self.kpt_comm.size == 1
+        assert self.band_comm.size == 1
+        assert self.domain_comm.size == 1
+        wfs = self.wfs_qs[self.q_k[kpt]][spin]
+        return wfs.get_single_state_projections(band), wfs.psit_nX[band]
+
     def get_eigs_and_occs(self, k=0, s=0):
         if self.domain_comm.rank == 0 and self.band_comm.rank == 0:
             rank = self.rank_k[k]
@@ -211,3 +221,30 @@ class IBZWaveFunctions:
         desc = max((wfs.psit_nX.desc for wfs in self),
                    key=lambda desc: desc.myshape)
         return desc.empty(dims).data
+
+    def dphi(self) -> LFC:
+        if self._dphi is not None:
+            return self._dphi
+
+        splines: Dict[Setup, List[Spline]] = {}
+        dphi_aj = []
+        for setup in self.calc.wfs.setups:
+            dphi_j = splines.get(setup)
+            if dphi_j is None:
+                rcut = max(setup.rcut_j) * 1.1
+                gcut = setup.rgd.ceil(rcut)
+                dphi_j = []
+                for l, phi_g, phit_g in zip(setup.l_j,
+                                            setup.data.phi_jg,
+                                            setup.data.phit_jg):
+                    dphi_g = (phi_g - phit_g)[:gcut]
+                    dphi_j.append(setup.rgd.spline(dphi_g, rcut, l,
+                                                   points=200))
+                splines[setup] = dphi_j
+            dphi_aj.append(dphi_j)
+
+        self._dphi = LFC(self.gd, dphi_aj, kd=self.calc.wfs.kd.copy(),
+                         dtype=self.calc.wfs.dtype)
+        self._dphi.set_positions(self.calc.spos_ac)
+
+        return self._dphi
