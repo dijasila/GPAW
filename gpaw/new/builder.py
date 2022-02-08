@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import importlib
-import sys
 from types import SimpleNamespace
 from typing import Any, Union
 
@@ -25,7 +24,6 @@ from gpaw.new.symmetry import create_symmetries_object
 from gpaw.new.xc import XCFunctional
 from gpaw.setup import Setups
 from gpaw.utilities.gpts import get_number_of_grid_points
-from gpaw.xc import XC
 from gpaw.typing import DTypeLike
 
 
@@ -64,7 +62,8 @@ class DFTComponentsBuilder:
 
         self.check_cell(atoms.cell)
 
-        self.xc = XCFunctional(XC(params.xc))  # mode?
+        self.xc = self.create_xc_functional()
+
         self.setups = Setups(atoms.numbers,
                              params.setups,
                              params.basis,
@@ -98,7 +97,7 @@ class DFTComponentsBuilder:
                                                 self.mode == 'lcao')
 
         self.dtype: DTypeLike
-        if sys._xoptions.get('force_complex_dtype'):
+        if params.force_complex_dtype:
             self.dtype = complex
         elif self.ibz.bz.gamma_only:
             self.dtype = float
@@ -121,6 +120,9 @@ class DFTComponentsBuilder:
 
     def create_uniform_grids(self):
         raise NotImplementedError
+
+    def create_xc_functional(self):
+        return XCFunctional(self.params.xc)
 
     def check_cell(self, cell):
         number_of_lattice_vectors = cell.rank

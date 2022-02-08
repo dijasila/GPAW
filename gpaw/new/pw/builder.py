@@ -38,6 +38,11 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
                           cell=self.grid.cell,
                           dtype=self.dtype)
 
+    def create_xc_functional(self):
+        if self.params.xc['name'] in ['HSE06', 'PBE0', 'EXX']:
+            return ...
+        return super().create_xc_functional()
+
     def get_pseudo_core_densities(self):
         if self._nct_ag is None:
             pw = PlaneWaves(ecut=2 * self.ecut, cell=self.grid.cell)
