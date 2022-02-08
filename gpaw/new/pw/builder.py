@@ -11,8 +11,8 @@ from gpaw.new.pwfd.builder import PWFDDFTComponentsBuilder
 class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
     interpolation = 'fft'
 
-    def __init__(self, atoms, params):
-        self.ecut = params.mode.get('ecut', 340) / Ha
+    def __init__(self, atoms, params, ecut=340):
+        self.ecut = ecut / Ha
         super().__init__(atoms, params)
 
         self._nct_ag = None

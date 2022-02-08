@@ -111,10 +111,10 @@ class UniformGrid(Domain):
         return UniformGridAtomCenteredFunctions(functions, positions, self,
                                                 integral=integral, cut=cut)
 
-    def transformer(self, other: UniformGrid):
+    def transformer(self, other: UniformGrid, stencil_range=3):
         from gpaw.transformers import Transformer
 
-        apply = Transformer(self._gd, other._gd, nn=3).apply
+        apply = Transformer(self._gd, other._gd, nn=stencil_range).apply
 
         def transform(functions, out=None):
             if out is None:

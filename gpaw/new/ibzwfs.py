@@ -146,8 +146,10 @@ class IBZWaveFunctions:
 
     def write_summary(self, log):
         fl = self.fermi_levels * Ha
-        assert len(fl) == 1
-        log(f'\nFermi level: {fl[0]:.3f}')
+        if len(fl) == 1:
+            log(f'\nFermi level: {fl[0]:.3f} eV')
+        else:
+            log(f'\nFermi levels: {fl[0]:.3f}, {fl[1]:.3f} eV')
 
         ibz = self.ibz
 
@@ -174,14 +176,15 @@ class IBZWaveFunctions:
             if k == 3:
                 break
 
-        try:
-            bandgap(eigenvalues=eig_skn * Ha,
-                    efermi=fl[0],
-                    output=log.fd,
-                    kpts=ibz.kpt_kc)
-        except ValueError:
-            # Maybe we only have the occupied bands and no empty bands
-            pass
+        if len(fl) == 1:
+            try:
+                bandgap(eigenvalues=eig_skn * Ha,
+                        efermi=fl[0],
+                        output=log.fd,
+                        kpts=ibz.kpt_kc)
+            except ValueError:
+                # Maybe we only have the occupied bands and no empty bands
+                pass
 
     def get_homo_lumo(self, spin=None):
         """Return HOMO and LUMO eigenvalues."""

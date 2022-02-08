@@ -9,7 +9,8 @@ class UniformGridPotentialCalculator(PotentialCalculator):
                  setups,
                  xc,
                  poisson_solver,
-                 nct_aR, nct_R):
+                 nct_aR, nct_R,
+                 interpolation_stencil_range=3):
         self.nct_aR = nct_aR
 
         fracpos_ac = nct_aR.fracpos_ac
@@ -21,8 +22,9 @@ class UniformGridPotentialCalculator(PotentialCalculator):
         self.vbar_r = fine_grid.empty()
         self.vbar_ar.to_uniform_grid(out=self.vbar_r)
 
-        self.interpolate = wf_grid.transformer(fine_grid)
-        self.restrict = fine_grid.transformer(wf_grid)
+        n = interpolation_stencil_range
+        self.interpolate = wf_grid.transformer(fine_grid, n)
+        self.restrict = fine_grid.transformer(wf_grid, n)
 
         super().__init__(xc, poisson_solver, setups, nct_R)
 
