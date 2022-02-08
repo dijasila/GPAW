@@ -28,3 +28,4 @@ class HybridLCAOEigensolver(LCAOEigensolver):
         for wfs in state.ibzwfs:
             rho_MM = wfs.calculate_density_matrix()
             print(rho_MM)
+        return -1.0
