@@ -81,7 +81,7 @@ def gpw_files(request, tmp_path_factory):
 
     * Bulk TiO2 with 4x4x4 k-points: ``ti2o4_pw`` and ``ti2o4_pw_nosym``.
 
-    Files with wave functions are also availabel (add ``_wfs`` to the names).
+    Files with wave functions are also availabe (add ``_wfs`` to the names).
     """
     path = os.environ.get('GPW_TEST_FILES')
     if path is None:
@@ -279,7 +279,7 @@ def pytest_configure(config):
     for line in ['soc: Spin-orbit coupling',
                  'slow: slow test',
                  'fast: fast test',
-                 'ci: test for CI',
+                 'ci: test included in CI',
                  'libxc: LibXC requirered',
                  'mgga: MGGA test',
                  'dscf: Delta-SCF',
@@ -287,7 +287,8 @@ def pytest_configure(config):
                  'gllb: GLLBSC tests',
                  'elph: Electron-phonon',
                  'intel: fails on INTEL toolchain',
-                 'serial: run in serial only']:
+                 'serial: run in serial only',
+                 'skip_for_new_gpaw: know failure for new refactored GPAW']:
         config.addinivalue_line('markers', line)
 
 

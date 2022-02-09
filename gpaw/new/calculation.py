@@ -4,10 +4,11 @@ from typing import Any
 
 import numpy as np
 from ase.units import Bohr, Ha
-from gpaw.new.builder import DFTComponentsBuilder
+from gpaw.new.builder import builder as create_builder
 from gpaw.new.input_parameters import InputParameters
-from gpaw.new.wave_functions import IBZWaveFunctions
+from gpaw.new.ibzwfs import IBZWaveFunctions
 from gpaw.new.potential import Potential
+from gpaw.utilities import check_atoms_too_close
 
 
 class DFTState:
@@ -22,6 +23,13 @@ class DFTState:
         self.density = density
         self.potential = potential
         self.vHt_x = vHt_x  # initial guess for Hartree potential
+
+    def __repr__(self):
+        return (f'DFTState({self.ibzwfs!r}, '
+                f'{self.density!r}, {self.potential!r})')
+
+    def __str__(self):
+        return f'{self.ibzwfs}\n{self.density}\n{self.potential}'
 
     def move(self, fracpos_ac, delta_nct_R):
         self.ibzwfs.move(fracpos_ac)
@@ -48,11 +56,14 @@ class DFTCalculation:
                         params=None,
                         log=None,
                         builder=None) -> DFTCalculation:
+        """Create DFTCalculation object from parameters and atoms."""
+
+        check_atoms_too_close(atoms)
 
         if isinstance(params, dict):
             params = InputParameters(params)
 
-        builder = builder or DFTComponentsBuilder(atoms, params)
+        builder = builder or create_builder(atoms, params)
 
         basis_set = builder.create_basis_set()
 
@@ -61,24 +72,25 @@ class DFTCalculation:
 
         pot_calc = builder.create_potential_calculator()
         potential, vHt_x, _ = pot_calc.calculate(density)
+        ibzwfs = builder.create_ibz_wave_functions(basis_set, potential)
+        state = DFTState(ibzwfs, density, potential, vHt_x)
+        scf_loop = builder.create_scf_loop()
 
-        if params.random:
-            log('Initializing wave functions with random numbers')
-            ibzwfs = builder.random_ibz_wave_functions()
-        else:
-            ibzwfs = builder.lcao_ibz_wave_functions(basis_set, potential)
+        if log is not None:
+            write_atoms(atoms, builder.grid, builder.initial_magmoms, log)
+            log(state)
+            log(builder.setups)
+            log(scf_loop)
+            log(pot_calc)
 
-        write_atoms(atoms, builder.grid, builder.initial_magmoms, log)
-
-        log(ibzwfs.ibz.symmetries)
-        log(ibzwfs)
-
-        return cls(DFTState(ibzwfs, density, potential, vHt_x),
+        return cls(state,
                    builder.setups,
-                   builder.create_scf_loop(pot_calc),
+                   scf_loop,
                    pot_calc)
 
     def move_atoms(self, atoms, log) -> DFTCalculation:
+        check_atoms_too_close(atoms)
+
         self.fracpos_ac = atoms.get_scaled_positions()
 
         delta_nct_R = self.pot_calc.move(self.fracpos_ac,
@@ -96,8 +108,8 @@ class DFTCalculation:
         return self
 
     def iconverge(self, log, convergence=None, maxiter=None):
-        log(self.scf_loop)
         for ctx in self.scf_loop.iterate(self.state,
+                                         self.pot_calc,
                                          convergence,
                                          maxiter,
                                          log=log):
@@ -134,9 +146,9 @@ class DFTCalculation:
         self.results['energy'] = extrapolated_energy
 
     def dipole(self, log):
-        dipole_v = self.density.calculate_dipole_moment() * Bohr
-        self.log('Dipole moment: ({:.6f}, {:.6f}, {:.6f}) |e|*Ang\n'
-                 .format(*dipole_v))
+        dipole_v = self.density.calculate_dipole_moment()
+        x, y, z = dipole_v * Bohr
+        self.log(f'Dipole moment: ({x:.6f}, {y:.6f}, {z:.6f}) |e|*Ang\n')
         self.results['dipole'] = dipole_v
 
     def magmoms(self, log):
@@ -192,6 +204,13 @@ class DFTCalculation:
             log(f'{a:4} {setup.symbol:2} {x:10.3f} {y:10.3f} {z:10.3f}')
 
         self.results['forces'] = F_av
+
+    def stress(self, log):
+        stress_vv = self.pot_calc.stress_contribution(self.state)
+        log('\nStress tensor [eV/Ang^3]:')
+        for x, y, z in stress_vv * (Ha / Bohr**3):
+            log(f'{x:13.6f}{y:13.6f}{z:13.6f}')
+        self.results['stress'] = stress_vv.flat[[0, 4, 8, 5, 2, 1]]
 
     def write_converged(self, log):
         self.state.ibzwfs.write_summary(log)

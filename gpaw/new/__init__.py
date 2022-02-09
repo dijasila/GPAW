@@ -1,12 +1,44 @@
 from collections import defaultdict
 from contextlib import contextmanager
-from functools import lru_cache
 from time import time
 
 
 def cached_property(method):
     """Quick'n'dirty implementation of cached_property coming in Python 3.8."""
-    return property(lru_cache(maxsize=None)(method))
+    name = f'__{method.__name__}'
+
+    def new_method(self):
+        if not hasattr(self, name):
+            setattr(self, name, method(self))
+        return getattr(self, name)
+
+    return property(new_method)
+
+
+def zip_strict(*iterables):
+    """From PEP 618."""
+    if not iterables:
+        return
+    iterators = tuple(iter(iterable) for iterable in iterables)
+    try:
+        while True:
+            items = []
+            for iterator in iterators:
+                items.append(next(iterator))
+            yield tuple(items)
+    except StopIteration:
+        pass
+    if items:
+        i = len(items)
+        plural = " " if i == 1 else "s 1-"
+        msg = f"zip() argument {i+1} is shorter than argument{plural}{i}"
+        raise ValueError(msg)
+    sentinel = object()
+    for i, iterator in enumerate(iterators[1:], 1):
+        if next(iterator, sentinel) is not sentinel:
+            plural = " " if i == 1 else "s 1-"
+            msg = f"zip() argument {i+1} is longer than argument{plural}{i}"
+            raise ValueError(msg)
 
 
 class Timer:

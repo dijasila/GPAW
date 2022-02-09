@@ -3,6 +3,23 @@ import numpy as np
 from gpaw.mpi import MPIComm
 from gpaw.new.brillouin import IBZ, BZPoints
 from gpaw.rotation import rotation
+from gpaw.symmetry import Symmetry as OldSymmetry
+
+
+def create_symmetries_object(atoms, ids=None, magmoms=None, parameters=None):
+    ids = ids or [()] * len(atoms)
+    if magmoms is None:
+        pass
+    elif magmoms.ndim == 1:
+        ids = [id + (m,) for id, m in zip(ids, magmoms)]
+    else:
+        ids = [id + tuple(m) for id, m in zip(ids, magmoms)]
+    symmetry = OldSymmetry(ids,
+                           atoms.cell.complete(),
+                           atoms.pbc,
+                           **(parameters or {}))
+    symmetry.analyze(atoms.get_scaled_positions())
+    return Symmetries(symmetry)
 
 
 class Symmetries:

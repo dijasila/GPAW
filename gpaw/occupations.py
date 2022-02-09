@@ -51,7 +51,7 @@ def marzari_vanderbilt(eig: np.ndarray,
                                               np.ndarray]:
     """Marzari-Vanderbilt distribution (cold smearing).
 
-    See: https://doi.org/10.1103/PhysRevLett.82.3296
+    See: :doi:`10.1103/PhysRevLett.82.3296`
     """
     x = (eig - fermi_level) / width
     expterm = np.exp(-(x + (1 / np.sqrt(2)))**2)

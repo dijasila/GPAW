@@ -47,6 +47,9 @@ class PlaneWaves(Domain):
 
         self.dv = abs(np.linalg.det(self.cell_cv))
 
+        # One should not lru_cache methods, so we do this instead:
+        self.indices = functools.lru_cache()(self._indices)
+
     def __repr__(self) -> str:
         return Domain.__repr__(self).replace(
             'Domain(',
@@ -76,17 +79,18 @@ class PlaneWaves(Domain):
                           dtype=self.dtype,
                           comm=comm or serial_comm)
 
-    @functools.lru_cache()
-    def indices(self, shape):
+    def _indices(self, shape):
         return np.ravel_multi_index(self.indices_cG, shape,
                                     mode='wrap').astype(np.int32)
 
     def cut(self, array_R):
         return array_R.ravel()[self.indices(array_R.shape)]
 
-    def paste(self, coefs_G, array_Q):
+    def paste(self, coef_G, array_Q):
         Q_G = self.indices(array_Q.shape)
-        _gpaw.pw_insert(coefs_G, Q_G, 1.0, array_Q)
+        # array_Q[:] = 0.0
+        # array_Q.ravel()[Q_G] = coef_G
+        _gpaw.pw_insert(coef_G, Q_G, 1.0, array_Q)
 
     def map_indices(self, other):
         size_c = tuple(self.indices_cG.ptp(axis=1) + 1)
@@ -133,6 +137,10 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
     def new(self, data=None):
         if data is None:
             data = np.empty_like(self.data)
+        else:
+            # Number of plane-waves depends on the k-point.  We therfore
+            # allow for data to be bigger than needed:
+            data = data.ravel()[:self.data.size].reshape(self.data.shape)
         return PlaneWaveExpansions(self.desc, self.dims, self.comm, data)
 
     def copy(self):
@@ -164,6 +172,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
     def ifft(self, plan=None, grid=None, out=None):
         if out is None:
             out = grid.empty()
+        assert self.desc.dtype == out.desc.dtype
         assert out.desc.pbc_c.all()
         plan = plan or out.desc.fft_plans()[1]
         for input, output in zip(self._arrays(), out._arrays()):
@@ -306,10 +315,12 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
                    weights: Array1D,
                    out: UniformGridFunctions = None) -> None:
         assert out is not None
-        for f, psit in zip(weights, self):
+        tmp_R = out.desc.new(dtype=self.desc.dtype).empty()
+        for f, psit_G in zip(weights, self):
             # Same as (but much faster):
             # out.data += f * abs(psit.ifft().data)**2
-            _gpaw.add_to_density(f, psit.ifft(grid=out.desc).data, out.data)
+            psit_G.ifft(out=tmp_R)
+            _gpaw.add_to_density(f, tmp_R.data, out.data)
 
 
 class Empty:

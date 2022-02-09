@@ -68,7 +68,8 @@ commands = {
     'sbatch':
         ['-0', '--test'],
     'symmetry':
-        ['--tolerance'],
+        ['-t', '--tolerance', '-k', '--k-points', '-v', '--verbose', '-s',
+         '--symmorphic'],
     'test':
         []}
 # End of computer generated data

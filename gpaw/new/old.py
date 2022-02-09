@@ -1,21 +1,42 @@
+from __future__ import annotations
 import ase.io.ulm as ulm
 import gpaw
 import numpy as np
 from ase.io.trajectory import read_atoms, write_atoms
 from ase.units import Bohr, Ha
-from gpaw.new.builder import DFTComponentsBuilder
+from gpaw.new.builder import builder as create_builder
 from gpaw.new.calculation import DFTCalculation, DFTState
 from gpaw.new.density import Density
 from gpaw.new.input_parameters import InputParameters
 from gpaw.new.potential import Potential
-# from gpaw.new.wave_functions import IBZWaveFunctions
-from gpaw.utilities import pack, unpack2
+from gpaw.new.wave_functions import WaveFunctions
 from gpaw.core.atom_arrays import AtomArraysLayout
+from gpaw.typing import Array1D
+from gpaw.new.ibzwfs import IBZWaveFunctions
+
+
+def state(method):
+    def new_method(self, *args, **kwargs):
+        assert self.calculation is not None
+        return method(self, self.calculation.state, *args, **kwargs)
+    return new_method
 
 
 class OldStuff:
+    calculation: DFTCalculation | None
+
     def get_pseudo_wave_function(self, n):
         return self.calculation.ibzwfs[0].wave_functions.data[n]
+
+    @state
+    def get_fermi_level(self, state) -> float:
+        fl = state.ibzwfs.fermi_levels * Ha
+        assert len(fl) == 1
+        return fl[0]
+
+    @state
+    def get_homo_lumo(self, state, spin: int = None) -> Array1D:
+        return state.ibzwfs.get_homo_lumo(spin) * Ha
 
     def get_atomic_electrostatic_potentials(self):
         _, _, Q_aL = self.calculation.pot_calc.calculate(
@@ -61,26 +82,8 @@ def write_gpw(filename: str,
 
         write_atoms(writer.child('atoms'), atoms)
         writer.child('results').write(**calculation.results)
-        writer.child('parameters').write(**params.params)
-
-        density = calculation.state.density
-        dms = density.density_matrices.collect()
-
-        N = sum(i1 * (i1 + 1) // 2 for i1, i2 in dms.layout.shapes)
-        D = np.zeros((density.ncomponents, N))
-
-        n1 = 0
-        for D_iis in dms.values():
-            i1 = len(D_iis)
-            n2 = n1 + i1 * (i1 + 1) // 2
-            for s, D_ii in enumerate(D_iis.T):
-                D[s, n1:n2] = pack(D_ii)
-            n1 = n2
-
-        writer.child('density').write(
-            density=density.nt_s.collect().data * Bohr**-3,
-            atomic_density_matrices=D)
-
+        writer.child('parameters').write(**dict(params.items()))
+        calculation.state.density.write(writer.child('density'))
         calculation.state.potential.write(writer.child('hamiltonian'))
         calculation.state.ibzwfs.write(writer.child('wave_functions'),
                                        skip_wfs)
@@ -94,53 +97,83 @@ def read_gpw(filename, log, parallel):
     world = parallel['world']
 
     reader = ulm.Reader(filename)
+    bohr = reader.bohr
+    ha = reader.ha
+
     atoms = read_atoms(reader.atoms)
 
     kwargs = reader.parameters.asdict()
     kwargs['parallel'] = parallel
     params = InputParameters(kwargs)
 
-    builder = DFTComponentsBuilder(atoms, params)
-    kpt_band_comm = builder.communicators['D']
+    builder = create_builder(atoms, params)
+
+    (kpt_comm, band_comm, domain_comm,
+     kpt_band_comm) = (builder.communicators[x] for x in 'kbdD')
+
+    assert reader.version >= 4
 
     if world.rank == 0:
-        nt_sR_array = reader.density.density
-        vt_sR_array = reader.hamiltonian.potential
+        nt_sR_array = reader.density.density * bohr**3
+        vt_sR_array = reader.hamiltonian.potential / ha
         D_sap_array = reader.density.atomic_density_matrices
-        D_saii_array = unpack_d(D_sap_array, builder.setups)
-        dH_sap_array = reader.hamiltonian.atomic_hamiltonian_matrices
-        dH_saii_array = unpack_d(dH_sap_array, builder.setups)
+        dH_sap_array = reader.hamiltonian.atomic_hamiltonian_matrices / ha
     else:
         nt_sR_array = None
         vt_sR_array = None
-        D_saii_array = None
-        dH_saii_array = None
+        D_sap_array = None
+        dH_sap_array = None
 
     nt_sR = builder.grid.empty(builder.ncomponents)
     vt_sR = builder.grid.empty(builder.ncomponents)
 
-    atom_array_layout = AtomArraysLayout([(setup.ni, setup.ni)
+    atom_array_layout = AtomArraysLayout([(setup.ni * (setup.ni + 1) // 2)
                                           for setup in builder.setups],
                                          atomdist=builder.atomdist)
-    D_asii = atom_array_layout.empty(builder.ncomponents)
-    dH_asii = atom_array_layout.empty(builder.ncomponents)
+    D_asp = atom_array_layout.empty(builder.ncomponents)
+    dH_asp = atom_array_layout.empty(builder.ncomponents)
 
     if kpt_band_comm.rank == 0:
         nt_sR.scatter_from(nt_sR_array)
         vt_sR.scatter_from(vt_sR_array)
-        D_asii.scatter_from(D_saii_array)
-        dH_asii.scatter_from(dH_saii_array)
+        D_asp.scatter_from(D_sap_array)
+        dH_asp.scatter_from(dH_sap_array)
 
     kpt_band_comm.broadcast(nt_sR.data, 0)
     kpt_band_comm.broadcast(vt_sR.data, 0)
-    kpt_band_comm.broadcast(D_asii.data, 0)
-    kpt_band_comm.broadcast(dH_asii.data, 0)
+    kpt_band_comm.broadcast(D_asp.data, 0)
+    kpt_band_comm.broadcast(dH_asp.data, 0)
 
-    density = Density.from_data_and_setups(nt_sR, D_asii,
+    density = Density.from_data_and_setups(nt_sR, D_asp.to_full(),
                                            builder.params.charge,
                                            builder.setups)
-    potential = Potential(vt_sR, dH_asii, {})
-    ibzwfs = ...
+    potential = Potential(vt_sR, dH_asp.to_full(), {})
+
+    eig_skn = reader.wave_functions.eigenvalues
+
+    def create_wfs(spin: int, q: int, k: int, kpt_c, weight: float):
+        wfs = WaveFunctions(
+            spin=spin,
+            q=q,
+            k=k,
+            kpt_c=kpt_c,
+            weight=weight,
+            setups=builder.setups,
+            nbands=builder.nbands,
+            dtype=builder.dtype,
+            ncomponents=builder.ncomponents,
+            domain_comm=domain_comm,
+            band_comm=band_comm)
+        wfs._eig_n = eig_skn[spin, k] / Ha
+        return wfs
+
+    ibzwfs = IBZWaveFunctions(builder.ibz,
+                              builder.nelectrons,
+                              builder.ncomponents,
+                              create_wfs,
+                              kpt_comm)
+
+    ibzwfs.fermi_levels = reader.wave_functions.fermi_levels / Ha
 
     calculation = DFTCalculation(
         DFTState(ibzwfs, density, potential),
@@ -154,22 +187,6 @@ def read_gpw(filename, log, parallel):
 
     calculation.results = results
     return calculation, params
-
-
-def unpack_d(D_sap_array, setups):
-    ns = len(D_sap_array)
-    naii = sum(setup.ni**2 for setup in setups)
-    D_saii_array = np.empty((ns, naii))
-    nap1 = 0
-    naii1 = 0
-    for setup in setups:
-        nap2 = nap1 + (setup.ni * (setup.ni + 1)) // 2
-        naii2 = naii1 + setup.ni**2
-        D_saii_array[:, naii1:naii2] = unpack2(
-            D_sap_array[:, nap1:nap2]).ravel()
-        nap1 = nap2
-        naii1 = naii2
-    return D_saii_array
 
 
 if __name__ == '__main__':

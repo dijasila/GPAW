@@ -269,6 +269,8 @@ if not hasattr(_gpaw, 'mmm'):
             c[:] = 0.0
         else:
             c *= beta
+        if a.size == 0:
+            return
         if transa == 'n':
             c += alpha * b.dot(a.reshape((len(a), -1))).reshape(c.shape)
         elif transa == 't':

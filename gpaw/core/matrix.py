@@ -60,10 +60,11 @@ class Matrix:
         dtype: type
             Data type (float or complex).
         dist: tuple or None
-            BLACS distribution given as (communicator, rows, colums, blocksize)
+            BLACS distribution given as
+            (communicator, rows, columns, blocksize)
             tuple.  Default is None meaning no distribution.
         data: ndarray or None.
-            Numpy ndarray to use for starage.  By default, a new ndarray
+            Numpy ndarray to use for storage.  By default, a new ndarray
             will be allocated.
             """
         self.shape = (M, N)

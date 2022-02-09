@@ -31,7 +31,7 @@ def GPAW(filename: Union[str, Path, IO[str]] = None,
         calculation, params = read_gpw(filename, log, params.parallel)
         return ASECalculator(params, log, calculation)
 
-    write_header(log, world, kwargs)
+    write_header(log, world, params)
     return ASECalculator(params, log)
 
 
@@ -65,7 +65,9 @@ class ASECalculator(OldStuff):
         if self.calculation is not None:
             changes = compare_atoms(self.atoms, atoms)
             if changes & {'numbers', 'pbc', 'cell'}:
+                # Start from scratch:
                 if 'numbers' not in changes:
+                    # Remember magmoms if there are any:
                     magmom_a = self.calculation.results.get('magmoms')
                     if magmom_a is not None:
                         atoms = atoms.copy()
@@ -86,6 +88,8 @@ class ASECalculator(OldStuff):
             elif prop == 'stress':
                 with self.timer('Stress'):
                     self.calculation.stress(log)
+            elif prop == 'dipole':
+                self.calculation.dipole(log)
             else:
                 raise ValueError('Unknown property:', prop)
 
@@ -131,13 +135,22 @@ class ASECalculator(OldStuff):
     def get_stress(self, atoms: Atoms) -> Array1D:
         return self.calculate_property(atoms, 'stress') * (Ha / Bohr**3)
 
+    def get_dipole_moment(self, atoms: Atoms) -> Array1D:
+        return self.calculate_property(atoms, 'dipole') * Bohr
 
-def write_header(log, world, kwargs):
+    def get_magnetic_moment(self, atoms: Atoms) -> float:
+        return self.calculate_property(atoms, 'magmom')
+
+    def get_magnetic_moments(self, atoms: Atoms) -> Array1D:
+        return self.calculate_property(atoms, 'magmoms')
+
+
+def write_header(log, world, params):
     from gpaw.io.logger import write_header as header
     log(f' __  _  _\n| _ |_)|_||  |\n|__||  | ||/\\| - {__version__}\n')
     header(log, world)
     log('Input parameters = {\n    ', end='')
-    log(',\n    '.join(f'{k!r}: {v!r}' for k, v in kwargs.items()) + '}')
+    log(',\n    '.join(f'{k!r}: {v!r}' for k, v in params.items()) + '}')
 
 
 def compare_atoms(a1: Atoms, a2: Atoms) -> set[str]:
