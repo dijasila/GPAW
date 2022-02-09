@@ -91,7 +91,13 @@ class AtomArrays(DistributedArrays):
                           transposed=self.transposed)
 
     def __getitem__(self, a):
-        return self._arrays[a]
+        if isinstance(a, int):
+            return self._arrays[a]
+        print(a)
+        if self.transposed and len(self.dims) == 1:
+            a_ai = AtomArrays(self.layout, data=self.data[:, a[1]].copy())
+            return a_ai
+        1 / 0
 
     def get(self, a):
         return self._arrays.get(a)
