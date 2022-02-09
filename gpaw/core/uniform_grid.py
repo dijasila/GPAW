@@ -334,8 +334,10 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
                     fftplan: fftw.FFTPlan = None,
                     ifftplan: fftw.FFTPlan = None,
                     grid: UniformGrid = None,
-                    out: UniformGridFunctions = None) -> None:
+                    out: UniformGridFunctions = None) -> UniformGridFunctions:
         if out is None:
+            if grid is None:
+                raise ValueError('Please specify "grid" or "out".')
             out = grid.empty()
 
         if not out.desc.pbc_c.all():

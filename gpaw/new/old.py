@@ -115,8 +115,6 @@ def read_gpw(filename, log, parallel):
     (kpt_comm, band_comm, domain_comm, kpt_band_comm) = (
         builder.communicators[x] for x in 'kbdD')
 
-    assert reader.version >= 4
-
     if world.rank == 0:
         nt_sR_array = reader.density.density * bohr**3
         vt_sR_array = reader.hamiltonian.potential / ha
@@ -170,6 +168,41 @@ def read_gpw(filename, log, parallel):
             band_comm=band_comm)
         wfs._eig_n = eig_skn[spin, k] / ha
         return wfs
+        if 'coefficients' not in reader.wave_functions:
+            return
+
+        Q_kG = reader.wave_functions.indices
+        for kpt in self.kpt_u:
+            if kpt.s == 0:
+                Q_G = Q_kG[kpt.k]
+                ng = self.ng_k[kpt.k]
+                assert (Q_G[:ng] == self.pd.Q_qG[kpt.q]).all()
+                assert (Q_G[ng:] == -1).all()
+
+        c = reader.bohr**1.5
+        if reader.version < 0:
+            c = 1  # old gpw file
+        for kpt in self.kpt_u:
+            ng = self.ng_k[kpt.k]
+            index = (kpt.s, kpt.k) if self.collinear else (kpt.k,)
+            psit_nG = reader.wave_functions.proxy('coefficients', *index)
+            psit_nG.scale = c
+            psit_nG.length_of_last_dimension = ng
+
+            kpt.psit = PlaneWaveExpansionWaveFunctions(
+                self.bd.nbands, self.pd, self.dtype, psit_nG,
+                kpt=kpt.q, dist=(self.bd.comm, self.bd.comm.size),
+                spin=kpt.s, collinear=self.collinear)
+class PWFDWaveFunctions(WaveFunctions):
+    def __init__(self,
+                 psit_nX: DA,
+                 spin: int,
+                 q: int,
+                 k: int,
+                 setups: Setups,
+                 fracpos_ac: Array2D,
+                 weight: float = 1.0,
+                 ncomponents: int = 1):
 
     ibzwfs = IBZWaveFunctions(builder.ibz,
                               builder.nelectrons,
