@@ -1477,7 +1477,7 @@ class Setups(list):
             out.data[I1:I2] = ds @ projections.data[I1:I2]
         return out
 
-    def partial_wave_corrections(self) -> list[list[Setup]]:
+    def partial_wave_corrections(self) -> list[list[Spline]]:
         splines: dict[Setup, list[Spline]] = {}
         dphi_aj = []
         for setup in self:
