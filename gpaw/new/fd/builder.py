@@ -9,11 +9,10 @@ from gpaw.new.fd.pot_calc import UniformGridPotentialCalculator
 
 
 class FDDFTComponentsBuilder(PWFDDFTComponentsBuilder):
-    stencil = 3
-    interpolation = 'not fft'
-
-    def __init__(self, atoms, params):
+    def __init__(self, atoms, params, nn=3, interpolation=3):
         super().__init__(atoms, params)
+        self.kin_stencil_range = nn
+        self.interpolation_stencil_range = interpolation
 
         self._nct_aR = None
 
@@ -52,21 +51,23 @@ class FDDFTComponentsBuilder(PWFDDFTComponentsBuilder):
                                               self.fine_grid,
                                               self.setups,
                                               self.xc, poisson_solver,
-                                              nct_aR, self.nct_R)
+                                              nct_aR, self.nct_R,
+                                              self.interpolation_stencil_range)
 
     def create_hamiltonian_operator(self, blocksize=10):
-        return FDHamiltonian(self.wf_desc, self.stencil, blocksize)
+        return FDHamiltonian(self.wf_desc, self.kin_stencil_range, blocksize)
 
     def convert_wave_functions_from_uniform_grid(self, psit_nR):
+        # No convertion needed (used for PW-mode)
         return psit_nR
 
 
 class FDHamiltonian:
-    def __init__(self, grid, stencil=3, blocksize=10):
+    def __init__(self, grid, kin_stencil=3, blocksize=10):
         self.grid = grid
         self.blocksize = blocksize
         self.gd = grid._gd
-        self.kin = Laplace(self.gd, -0.5, stencil, grid.dtype)
+        self.kin = Laplace(self.gd, -0.5, kin_stencil, grid.dtype)
 
     def apply(self, vt_sR, psit_nR, out, spin):
         self.kin.apply(psit_nR.data, out.data, psit_nR.desc.phase_factors_cd)

@@ -7,6 +7,7 @@ from gpaw.core.atom_arrays import AtomArrays
 from gpaw.mpi import MPIComm, serial_comm
 from gpaw.new.brillouin import IBZ
 from gpaw.new.wave_functions import WaveFunctions
+from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 
 
 class IBZWaveFunctions:
@@ -49,6 +50,11 @@ class IBZWaveFunctions:
         self.fermi_levels = None
 
         self.energies: dict[str, float] = {}
+
+    def is_master(self):
+        return (self.domain_comm.rank == 0 and
+                self.band_comm.rank == 0 and
+                self.kpt_comm.rank == 0)
 
     def __str__(self):
         return (f'{self.ibz}\n'
@@ -103,6 +109,17 @@ class IBZWaveFunctions:
         self.kpt_comm.sum(nt_sR.data)
         self.kpt_comm.sum(D_asii.data)
 
+    def get_wfs(self,
+                band: int,
+                kpt: int = 0,
+                spin: int = 0):  # -> tuple[UGF, AA]:
+        assert self.kpt_comm.size == 1
+        assert self.band_comm.size == 1
+        assert self.domain_comm.size == 1
+        wfs = self.wfs_qs[self.q_k[kpt]][spin]
+        assert isinstance(wfs, PWFDWaveFunctions)
+        return wfs.get_single_state_projections(band), wfs.psit_nX[band]
+
     def get_eigs_and_occs(self, k=0, s=0):
         if self.domain_comm.rank == 0 and self.band_comm.rank == 0:
             rank = self.rank_k[k]
@@ -123,12 +140,18 @@ class IBZWaveFunctions:
     def get_all_eigs_and_occs(self):
         nspins = 2 // self.spin_degeneracy
         nkpts = len(self.ibz)
-        eig_skn = np.empty((nspins, nkpts, self.nbands))
-        occ_skn = np.empty((nspins, nkpts, self.nbands))
+        if self.is_master():
+            eig_skn = np.empty((nspins, nkpts, self.nbands))
+            occ_skn = np.empty((nspins, nkpts, self.nbands))
+        else:
+            eig_skn = np.empty((0, 0, 0))
+            occ_skn = np.empty((0, 0, 0))
         for k in range(nkpts):
             for s in range(nspins):
-                (eig_skn[s, k, :],
-                 occ_skn[s, k, :]) = self.get_eigs_and_occs(k, s)
+                eig_n, occ_n = self.get_eigs_and_occs(k, s)
+                if self.is_master():
+                    eig_skn[s, k, :] = eig_n
+                    occ_skn[s, k, :] = occ_n
         return eig_skn, occ_skn
 
     def forces(self, dH_asii: AtomArrays):
@@ -146,12 +169,19 @@ class IBZWaveFunctions:
 
     def write_summary(self, log):
         fl = self.fermi_levels * Ha
-        assert len(fl) == 1
-        log(f'\nFermi level: {fl[0]:.3f}')
+        if len(fl) == 1:
+            log(f'\nFermi level: {fl[0]:.3f} eV')
+        else:
+            log(f'\nFermi levels: {fl[0]:.3f}, {fl[1]:.3f} eV')
 
         ibz = self.ibz
 
         eig_skn, occ_skn = self.get_all_eigs_and_occs()
+
+        if not self.is_master():
+            return
+
+        eig_skn *= Ha
 
         for k, (x, y, z) in enumerate(ibz.kpt_kc):
             log(f'\nkpt = [{x:.3f}, {y:.3f}, {z:.3f}], '
@@ -159,15 +189,15 @@ class IBZWaveFunctions:
 
             if self.spin_degeneracy == 2:
                 log('  Band      eig [eV]   occ [0-2]')
-                for n, (e, f) in enumerate(zip(eig_skn[0, k] * Ha,
+                for n, (e, f) in enumerate(zip(eig_skn[0, k],
                                                occ_skn[0, k])):
                     log(f'  {n:4} {e:13.3f}   {2 * f:9.3f}')
             else:
                 log('  Band      eig [eV]   occ [0-1]'
                     '      eig [eV]   occ [0-1]')
-                for n, (e1, f1, e2, f2) in enumerate(zip(eig_skn[0, k] * Ha,
+                for n, (e1, f1, e2, f2) in enumerate(zip(eig_skn[0, k],
                                                          occ_skn[0, k],
-                                                         eig_skn[1, k] * Ha,
+                                                         eig_skn[1, k],
                                                          occ_skn[1, k])):
                     log(f'  {n:4} {e1:13.3f}   {f1:9.3f}'
                         f'    {e2:10.3f}   {f2:9.3f}')
@@ -175,7 +205,7 @@ class IBZWaveFunctions:
                 break
 
         try:
-            bandgap(eigenvalues=eig_skn * Ha,
+            bandgap(eigenvalues=eig_skn,
                     efermi=fl[0],
                     output=log.fd,
                     kpts=ibz.kpt_kc)

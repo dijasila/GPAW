@@ -38,6 +38,10 @@ class OldStuff:
     def get_homo_lumo(self, state, spin: int = None) -> Array1D:
         return state.ibzwfs.get_homo_lumo(spin) * Ha
 
+    @state
+    def get_number_of_electrons(self, state):
+        return state.ibzwfs.nelectrons
+
     def get_atomic_electrostatic_potentials(self):
         _, _, Q_aL = self.calculation.pot_calc.calculate(
             self.calculation.state.density)
@@ -82,7 +86,8 @@ def write_gpw(filename: str,
 
         write_atoms(writer.child('atoms'), atoms)
         writer.child('results').write(**calculation.results)
-        writer.child('parameters').write(**dict(params.items()))
+        writer.child('parameters').write(
+            **{k: v for k, v in params.items() if k != 'txt'})
         calculation.state.density.write(writer.child('density'))
         calculation.state.potential.write(writer.child('hamiltonian'))
         calculation.state.ibzwfs.write(writer.child('wave_functions'),
@@ -105,11 +110,10 @@ def read_gpw(filename, log, parallel):
     kwargs = reader.parameters.asdict()
     kwargs['parallel'] = parallel
     params = InputParameters(kwargs)
-
     builder = create_builder(atoms, params)
 
-    (kpt_comm, band_comm, domain_comm,
-     kpt_band_comm) = (builder.communicators[x] for x in 'kbdD')
+    (kpt_comm, band_comm, domain_comm, kpt_band_comm) = (
+        builder.communicators[x] for x in 'kbdD')
 
     assert reader.version >= 4
 
@@ -164,7 +168,7 @@ def read_gpw(filename, log, parallel):
             ncomponents=builder.ncomponents,
             domain_comm=domain_comm,
             band_comm=band_comm)
-        wfs._eig_n = eig_skn[spin, k] / Ha
+        wfs._eig_n = eig_skn[spin, k] / ha
         return wfs
 
     ibzwfs = IBZWaveFunctions(builder.ibz,
@@ -173,7 +177,7 @@ def read_gpw(filename, log, parallel):
                               create_wfs,
                               kpt_comm)
 
-    ibzwfs.fermi_levels = reader.wave_functions.fermi_levels / Ha
+    ibzwfs.fermi_levels = reader.wave_functions.fermi_levels / ha
 
     calculation = DFTCalculation(
         DFTState(ibzwfs, density, potential),
