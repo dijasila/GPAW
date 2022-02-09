@@ -331,10 +331,10 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         return new
 
     def interpolate(self,
-                    grid: UniformGrid = None,
-                    out: UniformGridFunctions = None,
                     fftplan: fftw.FFTPlan = None,
-                    ifftplan: fftw.FFTPlan = None) -> None:
+                    ifftplan: fftw.FFTPlan = None,
+                    grid: UniformGrid = None,
+                    out: UniformGridFunctions = None) -> None:
         if out is None:
             out = grid.empty()
 
