@@ -94,9 +94,8 @@ class AtomArrays(DistributedArrays):
     def __getitem__(self, a):
         if isinstance(a, numbers.Integral):
             return self._arrays[a]
-        print(a)
         if self.transposed and len(self.dims) == 1:
-            a_ai = AtomArrays(self.layout, data=self.data[:, a[1]].copy())
+            a_ai = AtomArrays(self.layout, data=self.data[:, a[2]].copy())
             return a_ai
         1 / 0
 

@@ -48,6 +48,10 @@ class UniformGrid(Domain):
 
         self.dv = abs(np.linalg.det(self.cell_cv)) / self.size_c.prod()
 
+    @property
+    def size(self):
+        return self.size_c.copy()
+
     def __repr__(self):
         return Domain.__repr__(self).replace(
             'Domain(',
@@ -316,10 +320,27 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
 
         return result * self.desc.dv
 
-    def fft_interpolate(self,
-                        out: UniformGridFunctions,
-                        fftplan: fftw.FFTPlan = None,
-                        ifftplan: fftw.FFTPlan = None) -> None:
+    def to_pbc_grid(self):
+        if self.desc.pbc_c.all():
+            return self
+        grid = self.desc.new(pbc=True)
+        new = grid.empty(self.dims)
+        new.data[:] = 0.0
+        i, j, k = self.desc.start_c
+        new.data[..., i:, j:, k:] = self.data
+        return new
+
+    def interpolate(self,
+                    grid: UniformGrid = None,
+                    out: UniformGridFunctions = None,
+                    fftplan: fftw.FFTPlan = None,
+                    ifftplan: fftw.FFTPlan = None) -> None:
+        if out is None:
+            out = grid.empty()
+
+        if not out.desc.pbc_c.all():
+            raise ValueError('Gid must have pbc=True!')
+
         size1_c = self.desc.size_c
         size2_c = out.desc.size_c
         if (size2_c <= size1_c).any():
@@ -368,6 +389,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         ifftplan.execute()
         out.data[:] = ifftplan.out_R
         out.data *= (1.0 / self.data.size)
+        return out
 
     def fft_restrict(self,
                      out: UniformGridFunctions,

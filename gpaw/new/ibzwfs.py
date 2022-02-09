@@ -116,11 +116,11 @@ class IBZWaveFunctions:
                                        grid_spacing=0.05):
         wfs = self.wfs_qs[self.q_k[kpt]][spin]
         assert isinstance(wfs, PWFDWaveFunctions)
-        psit_X = wfs.psit_nX[band]
+        psit_X = wfs.psit_nX[band].to_pbc()
         grid = psit_X.desc.uniform_grid_with_grid_spacing(grid_spacing)
-        psi_r = psit_X.interpolate_to_uniform_grid(grid)
-        dphi_aj = wfs.setups.get_partial_wave_corrections()
-        dphi_air = grid.atom_centered_functions(dphi_aj)
+        psi_r = psit_X.interpolate(grid)
+        dphi_aj = wfs.setups.partial_wave_corrections()
+        dphi_air = grid.atom_centered_functions(dphi_aj, wfs.pt_aiX.fracpos_ac)
         dphi_air.add_to(psi_r, wfs.P_ain[:, :, band])
         return psi_r
 
