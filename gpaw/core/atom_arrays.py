@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-import numpy as np
+import numbers
 
+import numpy as np
 from gpaw.core.arrays import DistributedArrays
 from gpaw.mpi import MPIComm, serial_comm
 from gpaw.typing import Array1D
@@ -91,7 +92,7 @@ class AtomArrays(DistributedArrays):
                           transposed=self.transposed)
 
     def __getitem__(self, a):
-        if isinstance(a, int):
+        if isinstance(a, numbers.Integral):
             return self._arrays[a]
         print(a)
         if self.transposed and len(self.dims) == 1:
