@@ -7,6 +7,7 @@ from gpaw.core.atom_arrays import AtomArrays
 from gpaw.mpi import MPIComm, serial_comm
 from gpaw.new.brillouin import IBZ
 from gpaw.new.wave_functions import WaveFunctions
+from gpaw.new.pwfdwave_functions import PWFDWaveFunctions
 
 
 class IBZWaveFunctions:
@@ -49,6 +50,11 @@ class IBZWaveFunctions:
         self.fermi_levels = None
 
         self.energies: dict[str, float] = {}
+
+    def is_master(self):
+        return (self.domain_comm.rank == 0 and
+                self.band_comm.rank == 0 and
+                self.kpt_comm.rank == 0)
 
     def __str__(self):
         return (f'{self.ibz}\n'
@@ -111,6 +117,7 @@ class IBZWaveFunctions:
         assert self.band_comm.size == 1
         assert self.domain_comm.size == 1
         wfs = self.wfs_qs[self.q_k[kpt]][spin]
+        assert isinstance(wfs, PWFDWaveFunctions)
         return wfs.get_single_state_projections(band), wfs.psit_nX[band]
 
     def get_eigs_and_occs(self, k=0, s=0):
@@ -133,12 +140,18 @@ class IBZWaveFunctions:
     def get_all_eigs_and_occs(self):
         nspins = 2 // self.spin_degeneracy
         nkpts = len(self.ibz)
-        eig_skn = np.empty((nspins, nkpts, self.nbands))
-        occ_skn = np.empty((nspins, nkpts, self.nbands))
+        if self.is_master():
+            eig_skn = np.empty((nspins, nkpts, self.nbands))
+            occ_skn = np.empty((nspins, nkpts, self.nbands))
+        else:
+            eig_skn = np.empty((0, 0, 0))
+            occ_skn = np.empty((0, 0, 0))
         for k in range(nkpts):
             for s in range(nspins):
-                (eig_skn[s, k, :],
-                 occ_skn[s, k, :]) = self.get_eigs_and_occs(k, s)
+                eig_n, occ_n = self.get_eigs_and_occs(k, s)
+                if self.is_master():
+                    eig_skn[s, k, :] = eig_n
+                    occ_skn[s, k, :] = occ_n
         return eig_skn, occ_skn
 
     def forces(self, dH_asii: AtomArrays):
@@ -165,36 +178,40 @@ class IBZWaveFunctions:
 
         eig_skn, occ_skn = self.get_all_eigs_and_occs()
 
+        if not self.is_master():
+            return
+
+        eig_skn *= Ha
+
         for k, (x, y, z) in enumerate(ibz.kpt_kc):
             log(f'\nkpt = [{x:.3f}, {y:.3f}, {z:.3f}], '
                 f'weight = {ibz.weight_k[k]:.3f}:')
 
             if self.spin_degeneracy == 2:
                 log('  Band      eig [eV]   occ [0-2]')
-                for n, (e, f) in enumerate(zip(eig_skn[0, k] * Ha,
+                for n, (e, f) in enumerate(zip(eig_skn[0, k],
                                                occ_skn[0, k])):
                     log(f'  {n:4} {e:13.3f}   {2 * f:9.3f}')
             else:
                 log('  Band      eig [eV]   occ [0-1]'
                     '      eig [eV]   occ [0-1]')
-                for n, (e1, f1, e2, f2) in enumerate(zip(eig_skn[0, k] * Ha,
+                for n, (e1, f1, e2, f2) in enumerate(zip(eig_skn[0, k],
                                                          occ_skn[0, k],
-                                                         eig_skn[1, k] * Ha,
+                                                         eig_skn[1, k],
                                                          occ_skn[1, k])):
                     log(f'  {n:4} {e1:13.3f}   {f1:9.3f}'
                         f'    {e2:10.3f}   {f2:9.3f}')
             if k == 3:
                 break
 
-        if len(fl) == 1:
-            try:
-                bandgap(eigenvalues=eig_skn * Ha,
-                        efermi=fl[0],
-                        output=log.fd,
-                        kpts=ibz.kpt_kc)
-            except ValueError:
-                # Maybe we only have the occupied bands and no empty bands
-                pass
+        try:
+            bandgap(eigenvalues=eig_skn,
+                    efermi=fl[0],
+                    output=log.fd,
+                    kpts=ibz.kpt_kc)
+        except ValueError:
+            # Maybe we only have the occupied bands and no empty bands
+            pass
 
     def get_homo_lumo(self, spin=None):
         """Return HOMO and LUMO eigenvalues."""
@@ -221,30 +238,3 @@ class IBZWaveFunctions:
         desc = max((wfs.psit_nX.desc for wfs in self),
                    key=lambda desc: desc.myshape)
         return desc.empty(dims).data
-
-    def dphi(self) -> LFC:
-        if self._dphi is not None:
-            return self._dphi
-
-        splines: Dict[Setup, List[Spline]] = {}
-        dphi_aj = []
-        for setup in self.calc.wfs.setups:
-            dphi_j = splines.get(setup)
-            if dphi_j is None:
-                rcut = max(setup.rcut_j) * 1.1
-                gcut = setup.rgd.ceil(rcut)
-                dphi_j = []
-                for l, phi_g, phit_g in zip(setup.l_j,
-                                            setup.data.phi_jg,
-                                            setup.data.phit_jg):
-                    dphi_g = (phi_g - phit_g)[:gcut]
-                    dphi_j.append(setup.rgd.spline(dphi_g, rcut, l,
-                                                   points=200))
-                splines[setup] = dphi_j
-            dphi_aj.append(dphi_j)
-
-        self._dphi = LFC(self.gd, dphi_aj, kd=self.calc.wfs.kd.copy(),
-                         dtype=self.calc.wfs.dtype)
-        self._dphi.set_positions(self.calc.spos_ac)
-
-        return self._dphi

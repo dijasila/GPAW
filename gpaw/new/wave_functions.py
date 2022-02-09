@@ -81,4 +81,3 @@ class WaveFunctions:
         P_ai = self.P_ain.layout.empty()
         for P_i, P_in in zip(P_ai, self.P_ain):
             P_i[:] = P_in[:, band]
-            

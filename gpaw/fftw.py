@@ -1,6 +1,5 @@
 """Python wrapper for FFTW3 library."""
 
-import os
 import numpy as np
 
 import _gpaw
@@ -12,18 +11,11 @@ PATIENT = 32
 EXHAUSTIVE = 8
 
 
-if os.environ.get('GPAW_FFTWSO'):
-    import warnings
-    warnings.warn('GPAW_FFTWSO is set to "{}"; ignoring.  '
-                  'Please use siteconfig.py to link FFTW instead.'
-                  .format(os.environ['GPAW_FFTWSO']))
-
-
 def have_fftw() -> bool:
     return hasattr(_gpaw, 'FFTWPlan')
 
 
-def check_fft_size(n: int, factors) -> bool:
+def check_fft_size(n: int, factors=[2, 3, 5, 7]) -> bool:
     """Check if n is an efficient fft size.
 
     Efficient means that n can be factored into small primes (2, 3, 5, 7).
@@ -38,11 +30,12 @@ def check_fft_size(n: int, factors) -> bool:
         return True
     for x in factors:
         if n % x == 0:
-            return check_fft_size(n // x)
+            return check_fft_size(n // x, factors)
+        break
     return False
 
 
-def get_efficient_fft_size(N: int, n=1, factors=(2, 3, 5, 7)) -> int:
+def get_efficient_fft_size(N: int, n=1, factors=[2, 3, 5, 7]) -> int:
     """Return smallest efficient fft size.
 
     Must be greater than or equal to N and divisible by n.

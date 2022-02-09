@@ -7,10 +7,10 @@ from gpaw.mpi import MPIComm, serial_comm
 from gpaw.typing import ArrayLike1D, ArrayLike2D, ArrayLike, Array2D, Vector
 from typing import TYPE_CHECKING, Sequence
 from gpaw.fftw import get_efficient_fft_size
-from gpaw.core import UniformGrid
 
 if TYPE_CHECKING:
     from gpaw.core.arrays import DistributedArrays
+    from gpaw.core import UniformGrid
 
 
 def normalize_cell(cell: ArrayLike) -> Array2D:
@@ -106,6 +106,8 @@ class Domain:
                                        n: int = 1,
                                        factors: Sequence[int] = (2, 3, 5, 7)
                                        ) -> UniformGrid:
+        from gpaw.core import UniformGrid
+
         L_c = (np.linalg.inv(self.cell_cv)**2).sum(0)**-0.5
         size_c = np.maximum(n, (L_c / grid_spacing / n + 0.5).astype(int) * n)
         if factors:
