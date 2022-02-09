@@ -145,9 +145,11 @@ def parallel(value: dict[str, Any] = None) -> dict[str, Any]:
 
 
 @input_parameter
-def eigensolver(value=None):
+def eigensolver(value=None) -> dict:
     """Eigensolver."""
-    return value or {'converge_bands': 'occupied'}
+    if isinstance(value, str):
+        return {'name': value}
+    return value or {}
 
 
 @input_parameter
@@ -171,6 +173,7 @@ def xc(value='LDA'):
     """Exchange-Correlation functional."""
     if isinstance(value, str):
         return {'name': value}
+    return value
 
 
 @input_parameter

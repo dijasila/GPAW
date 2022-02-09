@@ -76,3 +76,8 @@ class WaveFunctions:
         for D_sii, P_in in zip(D_asii.values(), self.P_ain.values()):
             D_sii[self.spin] += np.einsum('in, n, jn -> ij',
                                           P_in.conj(), occ_n, P_in).real
+
+    def get_single_state_projections(self, band):
+        P_ai = self.P_ain.layout.empty()
+        for P_i, P_in in zip(P_ai, self.P_ain):
+            P_i[:] = P_in[:, band]

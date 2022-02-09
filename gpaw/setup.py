@@ -1,3 +1,4 @@
+from __future__ import annotations
 import functools
 from io import StringIO
 from math import pi, sqrt
@@ -13,6 +14,7 @@ from gpaw.gaunt import gaunt, nabla
 from gpaw.overlap import OverlapCorrections
 from gpaw.rotation import rotation
 from gpaw.setup_data import SetupData, search_for_file
+from gpaw.spline import Spline
 from gpaw.utilities import pack, unpack
 from gpaw.xc import XC
 
@@ -1474,6 +1476,26 @@ class Setups(list):
             # use mmm ?????
             out.data[I1:I2] = ds @ projections.data[I1:I2]
         return out
+
+    def partial_wave_corrections(self) -> list[list[Spline]]:
+        splines: dict[Setup, list[Spline]] = {}
+        dphi_aj = []
+        for setup in self:
+            dphi_j = splines.get(setup)
+            if dphi_j is None:
+                rcut = max(setup.rcut_j) * 1.1
+                gcut = setup.rgd.ceil(rcut)
+                dphi_j = []
+                for l, phi_g, phit_g in zip(setup.l_j,
+                                            setup.data.phi_jg,
+                                            setup.data.phit_jg):
+                    dphi_g = (phi_g - phit_g)[:gcut]
+                    dphi_j.append(setup.rgd.spline(dphi_g, rcut, l,
+                                                   points=200))
+                splines[setup] = dphi_j
+            dphi_aj.append(dphi_j)
+
+        return dphi_aj
 
 
 class FunctionIndices:
