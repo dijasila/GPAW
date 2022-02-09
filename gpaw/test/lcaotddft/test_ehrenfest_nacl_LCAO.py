@@ -20,7 +20,8 @@ def test_tddft_ehrenfest_nacl_LCAO(in_tmp_dir):
     gs_calc.write('nacl_gs.gpw', 'all')
 
     td_calc = LCAOTDDFT('nacl_gs.gpw', propagator='edsicn', txt='out_td.txt',
-                        PLCAO_flag=False, Ehrenfest_force_flag=False, S_flag=True)
+                        PLCAO_flag=False, Ehrenfest_force_flag=False,
+                        S_flag=True)
     td_calc.tddft_init()
     evv = EhrenfestVelocityVerlet(td_calc)
 
