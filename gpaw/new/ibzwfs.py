@@ -7,7 +7,7 @@ from gpaw.core.atom_arrays import AtomArrays
 from gpaw.mpi import MPIComm, serial_comm
 from gpaw.new.brillouin import IBZ
 from gpaw.new.wave_functions import WaveFunctions
-from gpaw.new.pwfdwave_functions import PWFDWaveFunctions
+from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 
 
 class IBZWaveFunctions:
