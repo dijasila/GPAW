@@ -31,7 +31,6 @@ def check_fft_size(n: int, factors=[2, 3, 5, 7]) -> bool:
     for x in factors:
         if n % x == 0:
             return check_fft_size(n // x, factors)
-        break
     return False
 
 
