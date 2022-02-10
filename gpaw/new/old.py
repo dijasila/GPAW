@@ -168,6 +168,8 @@ def read_gpw(filename, log, parallel):
             band_comm=band_comm)
         wfs._eig_n = eig_skn[spin, k] / ha
         return wfs
+
+    """
         if 'coefficients' not in reader.wave_functions:
             return
 
@@ -203,7 +205,7 @@ class PWFDWaveFunctions(WaveFunctions):
                  fracpos_ac: Array2D,
                  weight: float = 1.0,
                  ncomponents: int = 1):
-
+        """
     ibzwfs = IBZWaveFunctions(builder.ibz,
                               builder.nelectrons,
                               builder.ncomponents,
