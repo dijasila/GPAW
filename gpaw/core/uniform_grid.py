@@ -340,8 +340,11 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
                 raise ValueError('Please specify "grid" or "out".')
             out = grid.empty()
 
-        if not out.desc.pbc_c.all():
-            raise ValueError('Gid must have pbc=True!')
+        if not out.desc.pbc_c.all() or not self.desc.pbc_c.all():
+            raise ValueError('Grids must have pbc=True!')
+
+        if out.desc.kpt_c.any() or self.desc.kpt_c.any():
+            raise ValueError('Grids must have kpt=(0, 0, 0)')
 
         size1_c = self.desc.size_c
         size2_c = out.desc.size_c

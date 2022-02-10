@@ -38,4 +38,5 @@ class Logger:
             self.fd.close()
 
     def __call__(self, *args, **kwargs) -> None:
-        print(*args, **kwargs, file=self.fd)
+        if not self.fd.closed:
+            print(*args, **kwargs, file=self.fd)

@@ -81,6 +81,9 @@ class InputParameters:
                 value = func()
             self.__dict__[key] = value
 
+        if self.h is not None and self.gpts is not None:
+            raise ValueError("""You can't use both "gpts" and "h"!""")
+
         bands = self.convergence.pop('bands')
         if bands is not None:
             self.eigensolver['converge_bands'] = bands

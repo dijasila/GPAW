@@ -189,6 +189,8 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
 
         return out
 
+    interpolate = ifft
+
     def collect(self, out=None, broadcast=False):
         """Gather coefficients on master."""
         comm = self.desc.comm
@@ -321,6 +323,9 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
             # out.data += f * abs(psit.ifft().data)**2
             psit_G.ifft(out=tmp_R)
             _gpaw.add_to_density(f, tmp_R.data, out.data)
+
+    def to_pbc_grid(self):
+        return self
 
 
 class Empty:

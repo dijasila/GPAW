@@ -6,6 +6,7 @@ from gpaw.new.poisson import PoissonSolverWrapper, PoissonSolver
 from gpaw.poisson import PoissonSolver as make_poisson_solver
 from gpaw.fd_operators import Laplace
 from gpaw.new.fd.pot_calc import UniformGridPotentialCalculator
+from gpaw.core.uniform_grid import UniformGridFunctions
 
 
 class FDDFTComponentsBuilder(PWFDDFTComponentsBuilder):
@@ -60,6 +61,26 @@ class FDDFTComponentsBuilder(PWFDDFTComponentsBuilder):
     def convert_wave_functions_from_uniform_grid(self, psit_nR):
         # No convertion needed (used for PW-mode)
         return psit_nR
+
+    def read_ibz_wave_functions(self, reader):
+        ibzwfs = super().read_ibz_wave_functions(reader)
+
+        if 'values' not in reader.wave_functions:
+            return ibzwfs
+
+        c = reader.bohr**1.5
+        if reader.version < 0:
+            c = 1  # old gpw file
+
+        for wfs in ibzwfs:
+            grid = self.wf_desc.new(kpt=wfs.kpt_c)
+            index = (wfs.spin, wfs.k)
+            data = reader.wave_functions.proxy('values', *index)
+            data.scale = c
+            wfs.psit_nX = UniformGridFunctions(grid, self.nbands,
+                                               data=data)
+
+        return ibzwfs
 
 
 class FDHamiltonian:

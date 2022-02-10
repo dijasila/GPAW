@@ -32,8 +32,8 @@ class PWFDWaveFunctions(WaveFunctions):
                          dtype=psit_nX.desc.dtype,
                          domain_comm=psit_nX.desc.comm,
                          band_comm=psit_nX.comm)
-        self.pt_aiX = setups.create_projectors(self.psit_nX.desc,
-                                               fracpos_ac)
+        self.fracpos_ac = fracpos_ac
+        self.pt_aiX = None
         self.orthonormalized = False
 
     @classmethod
@@ -48,6 +48,9 @@ class PWFDWaveFunctions(WaveFunctions):
     @property
     def P_ain(self):
         if self._P_ain is None:
+            if self.pt_aiX is None:
+                self.pt_aiX = self.setups.create_projectors(self.psit_nX.desc,
+                                                            self.fracpos_ac)
             self._P_ain = self.pt_aiX.empty(self.psit_nX.dims,
                                             self.psit_nX.comm,
                                             transposed=True)
