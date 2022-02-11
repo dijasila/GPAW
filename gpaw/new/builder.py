@@ -16,7 +16,6 @@ from gpaw.mpi import MPIComm, Parallelization, serial_comm, world
 from gpaw.new import cached_property
 from gpaw.new.brillouin import BZPoints, MonkhorstPackKPoints
 from gpaw.new.density import Density
-from gpaw.new.ibzwfs import IBZWaveFunctions
 from gpaw.new.input_parameters import InputParameters
 from gpaw.new.scf import SCFLoop
 from gpaw.new.smearing import OccupationNumberCalculator
