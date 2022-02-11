@@ -33,6 +33,15 @@ can be made with the :func:`~gpaw.new.builder.builder` function, an ASE
 
 .. image:: builder.svg
 
+As seen in the figure above, there are builders for each of the modes: PW, FD and LCAO (builders for TB and ATOM modes are not shown).
+
+The :class:`~gpaw.new.input_parameters.InputParameters` object takse care of
+user parameters:
+
+* checks for errors
+* does normalization
+* handles backwards compatibility and depreaction warnings
+
 Normally, you will not need to create a DFT-components builder yourself.  It
 will happen automatically when you create a DFT-calculation object like this:
 
@@ -47,6 +56,34 @@ or when you create an ASE-calculator interface:
 Full picture
 ============
 
+The :class:`ase.Atoms` object has an
+:class:`gpaw.new.ase_interface.ASECalculatorInterface` object attached
+created with the :func:`gpaw.new.ase_interface.GPAW` function:
+
+>>> atoms = Atoms('H2',
+...               positions=[(0, 0, 0), (0, 0, 0.75)],
+...               cell=[2, 2, 3],
+...               pbc=True)
+>>> atoms.calc = GPAW(mode='pw')
+>>> atoms.calc
+bla-bla
+
+The ``atoms.calc`` object manages a
+:class:`gpaw.new.calculation.DFTCalculation` object that does the actual work.
+When we do this:
+
+>>> e = atoms.get_potential_energy()
+
+the :meth:`gpaw.new.ase_interface.ASECalculatorInterface.get_potential_energy`
+method gets called (``atoms.calc.get_potential_energy(atoms)``)
+and the following will happen:
+
+* create :class:`gpaw.new.calculation.DFTCalculation` object if not alread done
+* update positions/unit cell if they have changed
+* start SCF loop and converge if needed
+* calculate energy
+* store a copy of the atoms
+
 .. image:: code.svg
 
 
@@ -56,6 +93,11 @@ Do-it-yourself example
 Let's try to build a DFT calculation without any of the shortcuts
 (:func:`gpaw.new.builder.builder`, :func:`gpaw.new.ase_interface.GPAW`
 or :meth:`gpaw.new.calculation.DFTCalculation.from_parameters`).
+
+So, instead of simple three-line example above where we calculate the energy
+of an :mol:`H2` molecule, we do it the hard way:
+
+.. literalinclude:: diy.py
 
 
 DFT-calculation object
@@ -68,16 +110,23 @@ the following attributes:
 
 .. list-table::
 
+  * - ``state``
+    - :class:`gpaw.new.calculation.DFTState`
+  * - ``scf_loop``
+    - :class:`gpaw.new.scf.SCFLoop`
+  * - ``pot_calc``
+    - :class:`gpaw.new.pot_calc.PotentialCalculator`
+
+and a the :class:`gpaw.new.calculation.DFTState` object has these attributes:
+
+.. list-table::
+
   * - ``density``
     - :class:`gpaw.new.density.Density`
   * - ``ibzwfs``
     - :class:`gpaw.new.ibzwfs.IBZWaveFunctions`
   * - ``potential``
     - :class:`gpaw.new.potential.Potential`
-  * - ``scf_loop``
-    - :class:`gpaw.new.scf.SCFLoop`
-  * - ``pot_calc``
-    - :class:`gpaw.new.pot_calc.PotentialCalculator`
 
 
 Naming convention for arrays
