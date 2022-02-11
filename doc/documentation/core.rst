@@ -33,7 +33,8 @@ can be made with the :func:`~gpaw.new.builder.builder` function, an ASE
 
 .. image:: builder.svg
 
-Normally, you will not need to create a DFT-component builder yourself.  It will happen automatically when you create a DFT-calculation object like this:
+Normally, you will not need to create a DFT-components builder yourself.  It
+will happen automatically when you create a DFT-calculation object like this:
 
 >>> from gpaw.new.calculation import DFTCalculation
 >>> calculation = DFTCalculation.from_parameters(atoms, params)
@@ -47,6 +48,14 @@ Full picture
 ============
 
 .. image:: code.svg
+
+
+Do-it-yourself example
+======================
+
+Let's try to build a DFT calculation without any of the shortcuts
+(:func:`gpaw.new.builder.builder`, :func:`gpaw.new.ase_interface.GPAW`
+or :meth:`gpaw.new.calculation.DFTCalculation.from_parameters`).
 
 
 DFT-calculation object

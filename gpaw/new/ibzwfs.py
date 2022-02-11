@@ -10,37 +10,54 @@ from gpaw.new.wave_functions import WaveFunctions
 from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 
 
+def create_ibz_wave_functions(ibz: IBZ,
+                              nelectrons: float,
+                              ncomponents: int,
+                              create_wfs_func,
+                              kpt_comm: MPIComm = serial_comm
+                              ) -> IBZWaveFunctions:
+    """Collection of wave function objects for k-points in the IBZ."""
+    rank_k = ibz.ranks(kpt_comm)
+    mask_k = (rank_k == kpt_comm.rank)
+    k_q = np.arange(len(ibz))[mask_k]
+
+    nspins = ncomponents % 3
+
+    wfs_qs: list[list[WaveFunctions]] = []
+    for q, k in enumerate(k_q):
+        wfs_s = []
+        for spin in range(nspins):
+            wfs = create_wfs_func(spin, q, k,
+                                  ibz.kpt_kc[k], ibz.weight_k[k])
+            wfs_s.append(wfs)
+        wfs_qs.append(wfs_s)
+    return IBZWaveFunctions(ibz,
+                            nelectrons,
+                            ncomponents,
+                            wfs_qs)
+
+
 class IBZWaveFunctions:
     def __init__(self,
                  ibz: IBZ,
                  nelectrons: float,
                  ncomponents: int,
-                 create_wfs_func,
+                 wfs_qs: list[list[WaveFunctions]],
                  kpt_comm: MPIComm = serial_comm):
         """Collection of wave function objects for k-points in the IBZ."""
         self.ibz = ibz
         self.kpt_comm = kpt_comm
         self.nelectrons = nelectrons
-
         self.ncomponents = ncomponents
         self.collinear = (ncomponents == 4)
         self.spin_degeneracy = ncomponents % 2 + 1
         self.nspins = ncomponents % 3
 
         self.rank_k = ibz.ranks(kpt_comm)
-        mask_k = (self.rank_k == kpt_comm.rank)
-        k_q = np.arange(len(ibz))[mask_k]
 
         self.q_k = {}  # IBZ-index to local index
-        self.wfs_qs: list[list[WaveFunctions]] = []
-        for q, k in enumerate(k_q):
-            self.q_k[k] = q
-            wfs_s = []
-            for spin in range(self.nspins):
-                wfs = create_wfs_func(spin, q, k,
-                                      ibz.kpt_kc[k], ibz.weight_k[k])
-                wfs_s.append(wfs)
-            self.wfs_qs.append(wfs_s)
+        for wfs in self:
+            self.q_k[wfs.k] = wfs.q
 
         self.band_comm = wfs.band_comm
         self.domain_comm = wfs.domain_comm
