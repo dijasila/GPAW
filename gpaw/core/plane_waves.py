@@ -154,6 +154,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
 
     @property
     def matrix(self) -> Matrix:
+        """Matrix view of data."""
         if self._matrix is not None:
             return self._matrix
 
@@ -187,7 +188,11 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
             plan.execute()
             output[:] = plan.out_R
 
+        out.multiply_by_eikr()
+
         return out
+
+    interpolate = ifft
 
     def collect(self, out=None, broadcast=False):
         """Gather coefficients on master."""
@@ -321,6 +326,9 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
             # out.data += f * abs(psit.ifft().data)**2
             psit_G.ifft(out=tmp_R)
             _gpaw.add_to_density(f, tmp_R.data, out.data)
+
+    def to_pbc_grid(self):
+        return self
 
 
 class Empty:

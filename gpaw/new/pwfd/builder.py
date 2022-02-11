@@ -2,17 +2,18 @@ from types import SimpleNamespace
 
 import numpy as np
 from gpaw.band_descriptor import BandDescriptor
+from gpaw.core.atom_arrays import AtomArrays, AtomArraysLayout
 from gpaw.kohnsham_layouts import get_KohnSham_layouts
 from gpaw.lcao.eigensolver import DirectLCAO
 from gpaw.new.builder import DFTComponentsBuilder
 from gpaw.new.ibzwfs import IBZWaveFunctions
 from gpaw.new.potential import Potential
+from gpaw.new.pwfd.davidson import Davidson
 from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 from gpaw.utilities import pack2
 from gpaw.utilities.partition import AtomPartition
 from gpaw.utilities.timing import nulltimer
 from gpaw.wavefunctions.lcao import LCAOWaveFunctions
-from gpaw.new.pwfd.davidson import Davidson
 
 
 class PWFDDFTComponentsBuilder(DFTComponentsBuilder):
@@ -25,6 +26,51 @@ class PWFDDFTComponentsBuilder(DFTComponentsBuilder):
                         self.communicators['b'],
                         hamiltonian.create_preconditioner,
                         **eigsolv_params)
+
+    def read_ibz_wave_functions(self, reader):
+        ha = reader.ha
+
+        kpt_comm, band_comm, domain_comm = (self.communicators[x]
+                                            for x in 'kbd')
+
+        eig_skn = reader.wave_functions.eigenvalues
+        P_sknI = reader.wave_functions.projections
+
+        def create_wfs(spin: int, q: int, k: int, kpt_c, weight: float):
+            psit_nG = SimpleNamespace(
+                comm=domain_comm,
+                dims=(self.nbands,),
+                desc=SimpleNamespace(comm=domain_comm,
+                                     kpt_c=kpt_c,
+                                     dtype=self.dtype))
+            wfs = PWFDWaveFunctions(
+                spin=spin,
+                q=q,
+                k=k,
+                weight=weight,
+                psit_nX=psit_nG,
+                setups=self.setups,
+                fracpos_ac=self.fracpos_ac,
+                ncomponents=self.ncomponents)
+
+            wfs._eig_n = eig_skn[spin, k] / ha
+            layout = AtomArraysLayout([(setup.ni,) for setup in self.setups],
+                                      dtype=self.dtype)
+            wfs._P_ain = AtomArrays(layout,
+                                    dims=(self.nbands,),
+                                    data=P_sknI[spin, k].T,
+                                    transposed=True)
+            return wfs
+
+        ibzwfs = IBZWaveFunctions(self.ibz,
+                                  self.nelectrons,
+                                  self.ncomponents,
+                                  create_wfs,
+                                  self.communicators['k'])
+
+        ibzwfs.fermi_levels = reader.wave_functions.fermi_levels / ha
+
+        return ibzwfs
 
     def create_ibz_wave_functions(self, basis_set, potential):
         if self.params.random:

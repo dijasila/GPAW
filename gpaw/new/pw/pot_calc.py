@@ -36,7 +36,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         nt_g = self.vbar_g.desc.zeros()
         indices = nt_g.desc.indices(self.fftplan.out_R.shape)
         for spin, (nt_R, nt_r) in enumerate(zip(density.nt_sR, nt_sr)):
-            nt_R.fft_interpolate(nt_r, self.fftplan, self.ifftplan2)
+            nt_R.interpolate(self.fftplan, self.ifftplan2, out=nt_r)
             if spin < density.ndensities:
                 nt_g.data += self.fftplan.out_R.ravel()[indices]
         nt_g.data *= 1 / self.fftplan.in_R.size

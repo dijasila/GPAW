@@ -5,13 +5,13 @@ from typing import IO, Any, Union
 
 from ase import Atoms
 from ase.units import Bohr, Ha
-
 from gpaw import __version__
 from gpaw.new import Timer
 from gpaw.new.calculation import DFTCalculation
+from gpaw.new.gpw import read_gpw
 from gpaw.new.input_parameters import InputParameters
 from gpaw.new.logger import Logger
-from gpaw.new.old import OldStuff, read_gpw
+from gpaw.new.old import OldStuff
 from gpaw.typing import Array1D, Array2D
 
 

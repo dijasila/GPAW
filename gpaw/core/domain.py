@@ -37,6 +37,8 @@ class Domain:
                  comm: MPIComm = serial_comm,
                  dtype=None):
         """"""
+        if isinstance(pbc, int):
+            pbc = (pbc,) * 3
         self.cell_cv = normalize_cell(cell)
         self.pbc_c = np.array(pbc, bool)
         self.comm = comm

@@ -44,8 +44,12 @@ class DistributedArrays(Generic[DomainType]):
             fullshape = self.mydims + self.myshape
 
         if data is not None:
-            assert data.shape == fullshape
-            assert data.dtype == dtype
+            if data.shape != fullshape:
+                raise ValueError(
+                    f'Bad shape for data: {data.shape} != {fullshape}')
+            if data.dtype != dtype:
+                raise ValueError(
+                    f'Bad dtype for data: {data.dtype} != {dtype}')
         else:
             data = np.empty(fullshape, dtype)
 

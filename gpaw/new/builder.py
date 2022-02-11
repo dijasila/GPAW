@@ -16,7 +16,6 @@ from gpaw.mpi import MPIComm, Parallelization, serial_comm, world
 from gpaw.new import cached_property
 from gpaw.new.brillouin import BZPoints, MonkhorstPackKPoints
 from gpaw.new.density import Density
-from gpaw.new.ibzwfs import IBZWaveFunctions
 from gpaw.new.input_parameters import InputParameters
 from gpaw.new.scf import SCFLoop
 from gpaw.new.smearing import OccupationNumberCalculator
@@ -149,18 +148,6 @@ class DFTComponentsBuilder:
         nct_aX.to_uniform_grid(out=out,
                                scale=1.0 / (self.ncomponents % 3))
         return out
-
-    def ccccccreate_ibz_wave_functions(self, basis_set, potential):
-        return IBZWaveFunctions(
-            self.ibz,
-            self.nelectrons,
-            self.ncomponents,
-            self.setups,
-            self.nbands,
-            self.dtype,
-            self.communicators['d'],
-            self.communicators['b'],
-            self.communicators['k'])
 
     def create_basis_set(self):
         kd = KPointDescriptor(self.ibz.bz.kpt_Kc, self.ncomponents % 3)
@@ -336,8 +323,6 @@ def create_uniform_grid(mode: str,
         pbc = (True, True, True)
 
     if gpts is not None:
-        if h is not None:
-            raise ValueError("""You can't use both "gpts" and "h"!""")
         size = gpts
     else:
         modeobj = SimpleNamespace(name=mode, ecut=ecut)
