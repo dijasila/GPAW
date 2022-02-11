@@ -89,6 +89,8 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
         c = reader.bohr**1.5
         if reader.version < 0:
             c = 1  # old gpw file
+        elif reader.version < 4:
+            c /= self.grid.size_c.prod()
 
         index_kG = reader.wave_functions.indices
 

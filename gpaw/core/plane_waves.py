@@ -154,6 +154,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
 
     @property
     def matrix(self) -> Matrix:
+        """Matrix view of data."""
         if self._matrix is not None:
             return self._matrix
 
@@ -186,6 +187,8 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
                 t[-n:, 0] = t[n:0:-1, 0].conj()
             plan.execute()
             output[:] = plan.out_R
+
+        out.multiply_by_eikr()
 
         return out
 

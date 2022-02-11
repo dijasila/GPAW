@@ -113,16 +113,19 @@ class IBZWaveFunctions:
                                        band,
                                        kpt=0,
                                        spin=0,
-                                       grid_spacing=0.05):
-        wfs = self.wfs_qs[self.q_k[kpt]][spin]
+                                       grid_spacing=0.05,
+                                       skip_paw_correction=False):
+        wfs = self.get_wfs(kpt, spin)
         assert isinstance(wfs, PWFDWaveFunctions)
         psit_X = wfs.psit_nX[band].to_pbc_grid()
         grid = psit_X.desc.uniform_grid_with_grid_spacing(grid_spacing)
         psi_r = psit_X.interpolate(grid=grid)
-        if 0:
+
+        if not skip_paw_correction:
             dphi_aj = wfs.setups.partial_wave_corrections()
             dphi_air = grid.atom_centered_functions(dphi_aj, wfs.fracpos_ac)
             dphi_air.add_to(psi_r, wfs.P_ain[:, :, band])
+
         return psi_r
 
     def get_wfs(self,

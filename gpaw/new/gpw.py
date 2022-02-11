@@ -8,9 +8,7 @@ from gpaw.new.calculation import DFTCalculation, DFTState
 from gpaw.new.density import Density
 from gpaw.new.input_parameters import InputParameters
 from gpaw.new.potential import Potential
-from gpaw.new.wave_functions import WaveFunctions
 from gpaw.core.atom_arrays import AtomArraysLayout
-from gpaw.new.ibzwfs import IBZWaveFunctions
 
 
 def write_gpw(filename: str,
