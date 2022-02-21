@@ -37,7 +37,10 @@ class SCFLoop:
         writer.write(converged=self.converged)
 
     def read(self, reader):
-        self.converged = reader.scf.converged
+        if reader.version < 4:
+            self.converged = reader.scf.converged
+        else:
+            self.converged = True
 
     def reset(self):
         for criterion in self.criteria.values():

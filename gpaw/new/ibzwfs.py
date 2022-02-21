@@ -23,7 +23,7 @@ class IBZWaveFunctions:
         self.nelectrons = nelectrons
 
         self.ncomponents = ncomponents
-        self.collinear = (ncomponents == 4)
+        self.collinear = (ncomponents != 4)
         self.spin_degeneracy = ncomponents % 2 + 1
         self.nspins = ncomponents % 3
 
@@ -182,6 +182,35 @@ class IBZWaveFunctions:
         writer.write(fermi_levels=self.fermi_levels * Ha,
                      eigenvalues=eig_skn * Ha,
                      occupations=occ_skn)
+        ibz = self.ibz
+        writer.child('kpts').write(
+            atommap=ibz.symmetries.a_sa,
+            bz2ibz=ibz.bz2ibz_K,
+            bzkpts=ibz.bz.kpt_Kc,
+            ibzkpts=ibz.kpt_kc,
+            rotations=ibz.symmetries.rotation_svv,
+            translations=ibz.symmetries.translation_sc,
+            weights=ibz.weight_k)
+
+        for wfs in self:
+            nproj = wfs._P_ain.layout.size
+            break
+
+        if self.collinear:
+            shape = (self.ncomponents, len(ibz), self.nbands, nproj)
+        else:
+            shape = (len(ibz), self.nbands, 2, nproj)
+            1 / 0
+
+        writer.add_array('projections', shape, self.dtype)
+
+        for spin in range(self.nspins):
+            for wfs in self:
+                if wfs.spin != spin:
+                    continue
+                P_ain = wfs._P_ain.gather()
+                assert P_ain.comm.size == 1
+                writer.fill(P_ain.data.T)
 
     def write_summary(self, log):
         fl = self.fermi_levels * Ha
