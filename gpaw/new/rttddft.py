@@ -49,11 +49,14 @@ class RTTDDFT:
 
     @classmethod
     def from_dft_calculation(cls,
-                             calculation: ASECalculator | DFTCalculation,
+                             calc: ASECalculator | DFTCalculation,
                              propagator: TDAlgorithm | None = None):
 
-        if isinstance(calculation, ASECalculator):
-            calculation = calculation.calculation
+        if isinstance(calc, DFTCalculation):
+            calculation = calc
+        else:
+            assert calc.calculation is not None
+            calculation = calc.calculation
 
         state = calculation.state
         pot_calc = calculation.pot_calc
