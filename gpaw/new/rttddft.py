@@ -43,6 +43,10 @@ class RTTDDFT:
         if propagator is None:
             propagator = SICNAlgorithm()
 
+        self.state = state
+        self.pot_calc = pot_calc
+        self.propagator = propagator
+
     @classmethod
     def from_dft_calculation(cls,
                              calculation: ASECalculator | DFTCalculation,
@@ -74,5 +78,5 @@ class RTTDDFT:
             self.propagator.propagate(time_step, self.state, self.pot_calc)
             time = self.time + time_step
             self.time = time
-            result = RTTDDFTResult()
+            result = RTTDDFTResult(time=time)
             yield result
