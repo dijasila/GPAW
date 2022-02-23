@@ -55,6 +55,8 @@ class IBZWaveFunctions:
 
         self.rank_k = ibz.ranks(kpt_comm)
 
+        self.wfs_qs = wfs_qs
+
         self.q_k = {}  # IBZ-index to local index
         for wfs in self:
             self.q_k[wfs.k] = wfs.q
