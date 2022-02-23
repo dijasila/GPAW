@@ -59,6 +59,13 @@ class DistributedArrays(Generic[DomainType]):
     def new(self, data=None) -> DistributedArrays:
         raise NotImplementedError
 
+    def __getitem__(self, index):
+        raise NotImplementedError
+
+    def __iter__(self):
+        for index in range(self.dims[0]):
+            yield self[index]
+
     @property
     def matrix(self) -> Matrix:
         if self._matrix is not None:
