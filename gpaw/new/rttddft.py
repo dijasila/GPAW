@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from typing import Generator, NamedTuple
 
+import numpy as np
+from numpy.linalg import solve
+
+from gpaw.typing import Vector
 from gpaw.new.ase_interface import ASECalculator
 from gpaw.new.calculation import DFTState, DFTCalculation
 from gpaw.new.pot_calc import PotentialCalculator
@@ -12,40 +16,69 @@ class TDAlgorithm:
     def propagate(self,
                   time_step: float,
                   state: DFTState,
-                  pot_calc: PotentialCalculator):
+                  pot_calc: PotentialCalculator,
+                  hamiltonian):
         raise NotImplementedError()
 
     def get_description(self):
         return '%s' % self.__class__.__name__
 
 
-class SICNAlgorithm(TDAlgorithm):
+def propagate_wave_functions_numpy(source_C_nM: np.ndarray,
+                                   target_C_nM: np.ndarray,
+                                   S_MM: np.ndarray,
+                                   H_MM: np.ndarray,
+                                   dt: float):
+    SjH_MM = S_MM + (0.5j * dt) * H_MM
+    target_C_nM[:] = source_C_nM @ SjH_MM.conj().T
+    target_C_nM[:] = solve(SjH_MM.T, target_C_nM.T).T
+
+
+class ECNAlgorithm(TDAlgorithm):
 
     def propagate(self,
                   time_step: float,
                   state: DFTState,
-                  pot_calc: PotentialCalculator):
-        pass
+                  pot_calc: PotentialCalculator,
+                  hamiltonian):
+        matrix_calculator = hamiltonian.create_hamiltonian_matrix_calculator(
+            state)
+        for wfs in state.ibzwfs:
+            H_MM = matrix_calculator.calculate_hamiltonian_matrix(wfs)
+
+            # Phi_n <- U[H(t)] Phi_n
+            propagate_wave_functions_numpy(wfs.C_nM.data, wfs.C_nM.data,
+                                           wfs.S_MM,
+                                           H_MM, time_step)
+        # Update density
+        state.density.update(pot_calc.nct_R, state.ibzwfs)
+
+        # Calculate Hamiltonian H(t+dt) = H[n[Phi_n]]
+        state.potential, state.vHt_x, _ = pot_calc.calculate(
+            state.density, state.vHt_x)
 
 
 class RTTDDFTResult(NamedTuple):
 
     time: float
+    dipolemoment: Vector
 
 
 class RTTDDFT:
     def __init__(self,
                  state: DFTState,
                  pot_calc: PotentialCalculator,
+                 hamiltonian,
                  propagator: TDAlgorithm | None = None):
         self.time = 0.0
 
         if propagator is None:
-            propagator = SICNAlgorithm()
+            propagator = ECNAlgorithm()
 
         self.state = state
         self.pot_calc = pot_calc
         self.propagator = propagator
+        self.hamiltonian = hamiltonian
 
     @classmethod
     def from_dft_calculation(cls,
@@ -60,8 +93,9 @@ class RTTDDFT:
 
         state = calculation.state
         pot_calc = calculation.pot_calc
+        hamiltonian = calculation.scf_loop.hamiltonian
 
-        return cls(state, pot_calc, propagator=propagator)
+        return cls(state, pot_calc, hamiltonian, propagator=propagator)
 
     def ipropagate(self,
                    time_step: float = 10.0,
@@ -72,14 +106,18 @@ class RTTDDFT:
         Parameters
         ----------
         time_step
-            Time step in attoseconds
+            Time step in atomic units
         iterations
             Number of propagation steps
         """
 
         for iteration in range(maxiter):
-            self.propagator.propagate(time_step, self.state, self.pot_calc)
+            self.propagator.propagate(time_step,
+                                      state=self.state,
+                                      pot_calc=self.pot_calc,
+                                      hamiltonian=self.hamiltonian)
             time = self.time + time_step
             self.time = time
-            result = RTTDDFTResult(time=time)
+            dipolemoment = np.array([0.0, 0.0, 0.0])
+            result = RTTDDFTResult(time=time, dipolemoment=dipolemoment)
             yield result
