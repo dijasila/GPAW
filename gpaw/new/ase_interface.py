@@ -28,8 +28,8 @@ def GPAW(filename: Union[str, Path, IO[str]] = None,
     if filename is not None:
         kwargs.pop('txt', None)
         assert len(kwargs) == 0
-        calculation, params = read_gpw(filename, log, params.parallel)
-        return ASECalculator(params, log, calculation)
+        atoms, calculation, params = read_gpw(filename, log, params.parallel)
+        return ASECalculator(params, log, calculation, atoms)
 
     write_header(log, world, params)
     return ASECalculator(params, log)
@@ -40,12 +40,13 @@ class ASECalculator(OldStuff):
     def __init__(self,
                  params: InputParameters,
                  log: Logger,
-                 calculation=None):
+                 calculation=None,
+                 atoms=None):
         self.params = params
         self.log = log
         self.calculation = calculation
 
-        self.atoms = None
+        self.atoms = atoms
         self.timer = Timer()
 
     def calculate_property(self, atoms: Atoms, prop: str) -> Any:
@@ -113,9 +114,12 @@ class ASECalculator(OldStuff):
         """
         with self.timer('SCF'):
             self.calculation.converge(self.log)
+
+        # Calculate all the cheap things:
         self.calculation.energies(self.log)
-        # self.calculation.dipole(self.log)
+        self.calculation.dipole(self.log)
         self.calculation.magmoms(self.log)
+
         self.atoms = atoms.copy()
         self.calculation.write_converged(self.log)
 

@@ -1,16 +1,17 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Sequence
+
 import numpy as np
 # from numpy.typing import DTypeLike
-
-from gpaw.mpi import MPIComm, serial_comm
-from gpaw.typing import ArrayLike1D, ArrayLike2D, ArrayLike, Array2D, Vector
-from typing import TYPE_CHECKING, Sequence
+from ase.geometry.cell import cellpar_to_cell
 from gpaw.fftw import get_efficient_fft_size
+from gpaw.mpi import MPIComm, serial_comm
+from gpaw.typing import Array2D, ArrayLike, ArrayLike1D, ArrayLike2D, Vector
 
 if TYPE_CHECKING:
-    from gpaw.core.arrays import DistributedArrays
     from gpaw.core import UniformGrid
+    from gpaw.core.arrays import DistributedArrays
 
 
 def normalize_cell(cell: ArrayLike) -> Array2D:
@@ -26,7 +27,7 @@ def normalize_cell(cell: ArrayLike) -> Array2D:
         return cell
     if len(cell) == 3:
         return np.diag(cell)
-    raise ValueError
+    return cellpar_to_cell(cell)
 
 
 class Domain:

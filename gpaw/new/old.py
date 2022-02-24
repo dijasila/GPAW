@@ -16,6 +16,11 @@ def state(method):
 class OldStuff:
     calculation: DFTCalculation | None
 
+    def get_atoms(self):
+        atoms = self.atoms.copy()
+        atoms.calc = self
+        return atoms
+
     def get_pseudo_wave_function(self, n):
         return self.calculation.ibzwfs[0].wave_functions.data[n]
 
