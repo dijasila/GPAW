@@ -14,13 +14,13 @@ from gpaw.new.eigensolver import Eigensolver
 from gpaw.new.old import OldStuff
 
 
-def create_nodes(obj, objects, include):
+def create_nodes(obj, *objects, include):
     node1 = create_node(obj, include)
     nodes = {node.name: node for node in node1.nodes()}
     for obj in objects:
-        node = create_node(obj, include=lambda obj: False)
-        assert node.name not in nodes
-        nodes[node.name] = node
+        for node in create_node(obj, include).nodes():
+            if node.name not in nodes:
+                nodes[node.name] = node
 
     for name, node in nodes.items():
         node.subclasses = []
@@ -33,15 +33,30 @@ def create_nodes(obj, objects, include):
         bases = node.obj.__class__.__bases__
         (cls,) = bases
         if cls is not object:
-            base = nodes.get(cls.__name__)
-            base = base or new.get(cls.__name__)
-            if not base:
-                base = Node(node.obj, node.attrs, list(node.has),
-                            lambda obj: False)
+            base = new.get(cls.__name__)
+            if base is None:
+                base = Node(node.obj, node.attrs, [], None)
                 base.name = cls.__name__
+                base.has = node.has.copy()
                 new[cls.__name__] = base
-            if node not in base.subclasses:
-                base.subclasses.append(node)
+            base.subclasses.append(node)
+            node.base = base
+
+    for name, node in new.items():
+        nodes[name] = node
+
+    new = {}
+    for name, node in nodes.items():
+        bases = node.obj.__class__.__bases__
+        (cls,) = bases
+        if cls is not object:
+            base = new.get(cls.__name__)
+            if base is None:
+                base = Node(node.obj, node.attrs, [], None)
+                base.name = cls.__name__
+                base.has = node.has.copy()
+                new[cls.__name__] = base
+            base.subclasses.append(node)
             node.base = base
 
     for name, node in new.items():
@@ -56,7 +71,6 @@ def create_nodes(obj, objects, include):
 def create_node(obj, include):
     attrs = []
     arrows = []
-    print(obj, obj.__class__)
     for key, value in obj.__dict__.items():
         if key[0] != '_':
             if not include(value):
@@ -94,19 +108,17 @@ class Node:
         return self if self.base is None else self.base.superclass()
 
     def fix(self):
-        keys = self.keys()
-        print('FIX', self.name, keys)
-        for obj in self.subclasses:
-            print(obj)
-            keys -= obj.keys()
-        print('FIX', self.name, keys)
-        self.attrs = [attr for attr in self.attrs if attr in keys]
-        self.has = {key: value for key, value in self.has.items()
-                    if key in keys}
-        for obj in self.subclasses:
-            obj.attrs = [attr for attr in obj.attrs if attr not in keys]
-            obj.has = {key: value for key, value in obj.has.items()
-                       if key not in keys}
+        if self.subclasses:
+            keys = self.subclasses[0].keys()
+            for node in self.subclasses[1:]:
+                keys &= node.keys()
+            self.attrs = [attr for attr in self.attrs if attr in keys]
+            self.has = {key: value for key, value in self.has.items()
+                        if key in keys}
+            for obj in self.subclasses:
+                obj.attrs = [attr for attr in obj.attrs if attr not in keys]
+                obj.has = {key: value for key, value in obj.has.items()
+                           if key not in keys}
 
     def color(self, rgb):
         self.rgb = rgb
@@ -124,7 +136,7 @@ class Node:
         g.node(self.name, txt, **kwargs)
 
 
-def plot_graph(figname, nodes, colors={}):
+def plot_graph(figname, nodes, colors={}, replace={}):
     import graphviz
     g = graphviz.Digraph(node_attr={'shape': 'record'})
 
@@ -133,9 +145,9 @@ def plot_graph(figname, nodes, colors={}):
             node.color(colors[node.name])
 
     for node in nodes:
-        print(node)
         node.plot(g)
         for key, value in node.has.items():
+            key = replace.get(key, key)
             g.edge(node.superclass().name, value.superclass().name, label=key)
         if node.base:
             g.edge(node.base.name, node.name, arrowhead='onormal')
@@ -194,9 +206,11 @@ def make_figures(render=True):
 
         return mod.startswith('gpaw.new')
 
-    nodes = create_nodes(a0, [pw.calculation.pot_calc], include)
-    print(nodes)
-    plot_graph('code', nodes, colors)
+    things = [pw, lcao]
+    # BZPoints(np.zeros((5, 3)))
+    nodes = create_nodes(a0, *things, include=include)
+    plot_graph('code', nodes, colors,
+               replace={'wfs_qs': 'wfs_qs[q][s]'})
 
 
 """
