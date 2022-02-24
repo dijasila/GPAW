@@ -26,7 +26,8 @@ if run_old_gs:
 
 
 if run_new_gs:
-    calc = new_GPAW(mode='lcao', basis='sz(dzp)', xc='LDA', txt='new.out')
+    calc = new_GPAW(mode='lcao', basis='sz(dzp)', xc='LDA', txt='new.out',
+                    force_complex_dtype=True)
     atoms.calc = calc
     E = atoms.get_potential_energy()
     new_C_nM = calc.calculation.state.ibzwfs.wfs_qs[0][0].C_nM
