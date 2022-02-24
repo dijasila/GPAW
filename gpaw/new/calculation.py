@@ -146,9 +146,9 @@ class DFTCalculation:
         self.results['energy'] = extrapolated_energy
 
     def dipole(self, log):
-        dipole_v = self.density.calculate_dipole_moment()
+        dipole_v = self.state.density.calculate_dipole_moment()
         x, y, z = dipole_v * Bohr
-        self.log(f'Dipole moment: ({x:.6f}, {y:.6f}, {z:.6f}) |e|*Ang\n')
+        log(f'Dipole moment: ({x:.6f}, {y:.6f}, {z:.6f}) |e|*Ang\n')
         self.results['dipole'] = dipole_v
 
     def magmoms(self, log):

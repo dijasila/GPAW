@@ -508,3 +508,20 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         a = self.data.view(float)
         rng.random(a.shape, out=a)
         a -= 0.5
+
+    def moment(self):
+        """Calculate moment."""
+        assert self.dims == ()
+        ug = self.desc
+        index_cr = [np.arange(ug.start_c[c], ug.end_c[c], dtype=float)
+                    for c in range(3)]
+
+        rho_ijk = self.data
+        rho_ij = rho_ijk.sum(axis=2)
+        rho_ik = rho_ijk.sum(axis=1)
+        rho_cr = [rho_ij.sum(axis=1), rho_ij.sum(axis=0), rho_ik.sum(axis=0)]
+
+        d_c = [np.dot(index_cr[c], rho_cr[c]) for c in range(3)]
+        d_v = -(d_c / ug.size_c) @ ug.cell_cv * self.dv
+        self.desc.comm.sum(d_v)
+        return d_v
