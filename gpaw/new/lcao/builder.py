@@ -116,10 +116,12 @@ class LCAODFTComponentsBuilder(FDDFTComponentsBuilder):
         ibzwfs = self.create_ibz_wave_functions(basis, potential, coefficients)
 
         eig_skn = reader.wave_functions.eigenvalues
+        occ_skn = reader.wave_functions.occupations
         P_sknI = reader.wave_functions.projections
 
         for wfs in ibzwfs:
             wfs._eig_n = eig_skn[wfs.spin, wfs.k] / ha
+            wfs._occ_n = occ_skn[wfs.spin, wfs.k]
             layout = AtomArraysLayout([(setup.ni,) for setup in self.setups],
                                       dtype=self.dtype)
             wfs._P_ain = AtomArrays(layout,
