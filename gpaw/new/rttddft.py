@@ -69,12 +69,12 @@ class RTTDDFTResult(NamedTuple):
     dipolemoment: Vector  # Dipole moment in atomic units
 
     def __repr__(self):
-        timestr = f'{self.time*autime_to_asetime:.3f}Å√(u/eV)'
+        timestr = f'{self.time*autime_to_asetime:.3f} Å√(u/eV)'
         dmstr = ', '.join([f'{dm*au_to_eA:.3f}' for dm in self.dipolemoment])
         dmstr = f'[{dmstr}]'
 
         return (f'{self.__class__.__name__}: '
-                f'(time: {timestr}, dipolemoment: {dmstr}eÅ)')
+                f'(time: {timestr}, dipolemoment: {dmstr} eÅ)')
 
 
 class RTTDDFT:
