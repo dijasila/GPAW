@@ -1,8 +1,10 @@
 from __future__ import annotations
-from gpaw.new.wave_functions import WaveFunctions
-from gpaw.setup import Setups
+
+import numpy as np
 from gpaw.core.atom_arrays import AtomArrays, AtomArraysLayout
 from gpaw.mpi import MPIComm, serial_comm
+from gpaw.new.wave_functions import WaveFunctions
+from gpaw.setup import Setups
 
 
 class LCAOWaveFunctions(WaveFunctions):
@@ -37,6 +39,9 @@ class LCAOWaveFunctions(WaveFunctions):
         self.T_MM = T_MM
         self.S_MM = S_MM
         self.P_aMi = P_aMi
+
+        # This is for TB-mode (and MYPY):
+        self.V_MM: np.ndarray
 
     @property
     def P_ain(self):
