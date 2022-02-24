@@ -4,7 +4,7 @@ from gpaw.new.ase_interface import GPAW as new_GPAW
 from gpaw.new.rttddft import RTTDDFT
 from gpaw.lcaotddft import LCAOTDDFT
 from gpaw.lcaotddft.dipolemomentwriter import DipoleMomentWriter
-from gpaw.tddft.units import as_to_au
+from gpaw.tddft.units import as_to_au, autime_to_asetime
 
 from ase.build import molecule
 
@@ -12,9 +12,9 @@ atoms = molecule('H2')
 atoms.center(vacuum=5)
 atoms.pbc = False
 
-run_old_gs = True
+run_old_gs = False
 run_new_gs = True
-run_old_td = True
+run_old_td = False
 run_new_td = True
 
 if run_old_gs:
@@ -47,7 +47,7 @@ if run_old_td:
 if run_new_td:
     new_tddft = RTTDDFT.from_dft_calculation(new_calc)
 
-    dt = 10 * as_to_au
+    dt = 10 * as_to_au * autime_to_asetime
     for result in new_tddft.ipropagate(dt, 10):
         print(result)
     wfs = new_calc.calculation.state.ibzwfs.wfs_qs[0][0]

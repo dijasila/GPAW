@@ -9,6 +9,7 @@ from gpaw.typing import Vector
 from gpaw.new.ase_interface import ASECalculator
 from gpaw.new.calculation import DFTState, DFTCalculation
 from gpaw.new.pot_calc import PotentialCalculator
+from gpaw.tddft.units import asetime_to_autime, autime_to_asetime, au_to_eA
 
 
 class TDAlgorithm:
@@ -60,8 +61,20 @@ class ECNAlgorithm(TDAlgorithm):
 
 class RTTDDFTResult(NamedTuple):
 
-    time: float
-    dipolemoment: Vector
+    """ Results are stored in atomic units, but displayed to the user in
+    ASE units
+    """
+
+    time: float  # Time in atomic units
+    dipolemoment: Vector  # Dipole moment in atomic units
+
+    def __repr__(self):
+        timestr = f'{self.time*autime_to_asetime:.3f}Å√(u/eV)'
+        dmstr = ', '.join([f'{dm*au_to_eA:.3f}' for dm in self.dipolemoment])
+        dmstr = f'[{dmstr}]'
+
+        return (f'{self.__class__.__name__}: '
+                f'(time: {timestr}, dipolemoment: {dmstr}eÅ)')
 
 
 class RTTDDFT:
@@ -106,10 +119,12 @@ class RTTDDFT:
         Parameters
         ----------
         time_step
-            Time step in atomic units
+            Time step in ASE time units Å√(u/eV)
         iterations
             Number of propagation steps
         """
+
+        time_step = time_step * asetime_to_autime
 
         for iteration in range(maxiter):
             self.propagator.propagate(time_step,
@@ -118,6 +133,6 @@ class RTTDDFT:
                                       hamiltonian=self.hamiltonian)
             time = self.time + time_step
             self.time = time
-            dipolemoment = np.array([0.0, 0.0, 0.0])
+            dipolemoment = self.state.density.calculate_dipole_moment()
             result = RTTDDFTResult(time=time, dipolemoment=dipolemoment)
             yield result
