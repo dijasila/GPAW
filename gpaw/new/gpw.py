@@ -42,7 +42,19 @@ def write_gpw(filename: str,
     world.barrier()
 
 
-def read_gpw(filename, log, parallel):
+def read_gpw(filename, log, parallel, return_builder=False):
+    """
+    Read gpw file and return a DFTCalculation object,
+    params dictionary, and optionally the builder
+
+    Returns
+    -------
+    atoms, calculation, params
+
+    or
+
+    atoms, calculation, params, builder
+    """
     log(f'Reading from {filename}')
 
     world = parallel['world']
@@ -110,7 +122,10 @@ def read_gpw(filename, log, parallel):
         log(f'Read {", ".join(sorted(results))}')
 
     calculation.results = results
-    return atoms, calculation, params
+    if return_builder:
+        return atoms, calculation, params, builder
+    else:
+        return atoms, calculation, params
 
 
 if __name__ == '__main__':

@@ -6,8 +6,10 @@ import numpy as np
 from numpy.linalg import solve
 
 from gpaw.typing import Vector
+from gpaw.mpi import world
 from gpaw.new.ase_interface import ASECalculator
 from gpaw.new.calculation import DFTState, DFTCalculation
+from gpaw.new.gpw import read_gpw
 from gpaw.new.pot_calc import PotentialCalculator
 from gpaw.tddft.units import asetime_to_autime, autime_to_asetime, au_to_eA
 
@@ -110,6 +112,20 @@ class RTTDDFT:
 
         return cls(state, pot_calc, hamiltonian, propagator=propagator)
 
+    @classmethod
+    def from_dft_file(cls,
+                      filepath: str,
+                      propagator: TDAlgorithm | None = None):
+        _, calculation, params, builder = read_gpw(filepath, print,
+                                                   {'world': world},
+                                                   return_builder=True)
+
+        state = calculation.state
+        pot_calc = calculation.pot_calc
+        hamiltonian = builder.create_hamiltonian_operator()
+
+        return cls(state, pot_calc, hamiltonian, propagator=propagator)
+
     def ipropagate(self,
                    time_step: float = 10.0,
                    maxiter: int = 2000,
@@ -133,6 +149,7 @@ class RTTDDFT:
                                       hamiltonian=self.hamiltonian)
             time = self.time + time_step
             self.time = time
-            dipolemoment = self.state.density.calculate_dipole_moment()
+            dipolemoment = self.state.density.calculate_dipole_moment(
+                self.pot_calc.fracpos_ac)
             result = RTTDDFTResult(time=time, dipolemoment=dipolemoment)
             yield result
