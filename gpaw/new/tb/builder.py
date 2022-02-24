@@ -11,14 +11,47 @@ from gpaw.core.arrays import DistributedArrays
 from gpaw.core.atom_arrays import AtomArraysLayout
 from gpaw.core.domain import Domain
 from gpaw.lcao.tci import TCIExpansions
+from gpaw.lfc import BasisFunctions
 from gpaw.mpi import MPIComm, serial_comm
 from gpaw.new import zip_strict
+from gpaw.new.calculation import DFTState
 from gpaw.new.lcao.builder import LCAODFTComponentsBuilder
-from gpaw.new.lcao.eigensolver import LCAOEigensolver
+from gpaw.new.lcao.hamiltonian import HamiltonianMatrixCalculator
+from gpaw.new.lcao.wave_functions import LCAOWaveFunctions
 from gpaw.new.pot_calc import PotentialCalculator
 from gpaw.setup import Setup
 from gpaw.spline import Spline
 from gpaw.utilities.timing import NullTimer
+
+
+class TBHamiltonianMatrixCalculator(HamiltonianMatrixCalculator):
+    def __init__(self,
+                 dH_saii: list[dict[int, np.ndarray]],
+                 basis: BasisFunctions):
+        self.dH_saii = dH_saii
+        self.basis = basis
+
+    def calculate_potential_matrix(self,
+                                   wfs: LCAOWaveFunctions) -> np.ndarray:
+        return wfs.V_MM
+
+
+class TBHamiltonian:
+    def __init__(self,
+                 basis: BasisFunctions):
+        self.basis = basis
+
+    def apply(self):
+        raise NotImplementedError
+
+    def create_hamiltonian_matrix_calculator(self,
+                                             state: DFTState
+                                             ) -> HamiltonianMatrixCalculator:
+        dH_saii = [{a: dH_sii[s]
+                    for a, dH_sii in state.potential.dH_asii.items()}
+                   for s in range(state.density.ncomponents)]
+
+        return TBHamiltonianMatrixCalculator(dH_saii, self.basis)
 
 
 class NoGrid(Domain):
@@ -131,21 +164,6 @@ class TBSCFLoop:
             state.density, state.vHt_x)
 
 
-class TBEigensolver(LCAOEigensolver):
-    def iterate(self, state, hamiltonian=None) -> float:
-        dH_saii = [{a: dH_sii[s]
-                    for a, dH_sii in state.potential.dH_asii.items()}
-                   for s in range(state.density.ncomponents)]
-
-        for wfs in state.ibzwfs:
-            self.iterate1(wfs, None, dH_saii[wfs.spin])
-        return 0.0
-
-    def calculate_potential_matrix(self, wfs, V_xMM):
-        print('V', wfs.V_MM)
-        return wfs.V_MM
-
-
 class DummyBasis:
     def __init__(self, natoms):
         self.my_atom_indices = np.arange(natoms)
@@ -176,13 +194,17 @@ class TBDFTComponentsBuilder(LCAODFTComponentsBuilder):
         self.basis = DummyBasis(len(self.atoms))
         return self.basis
 
+    def create_hamiltonian_operator(self):
+        return TBHamiltonian(self.basis)
+
     def create_potential_calculator(self):
         xc = DummyXC()
         return TBPotentialCalculator(xc, self.setups, self.nct_R, self.atoms)
 
     def create_scf_loop(self):
         occ_calc = self.create_occupation_number_calculator()
-        eigensolver = TBEigensolver(self.basis)
+        hamiltonian = self.create_hamiltonian_operator()
+        eigensolver = self.create_eigensolver(hamiltonian)
         return TBSCFLoop(occ_calc, eigensolver)
 
     def create_ibz_wave_functions(self, basis, potential):
