@@ -13,9 +13,9 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
                  poisson_solver,
                  nct_ag,
                  nct_R):
-        super().__init__(xc, poisson_solver, setups, nct_R)
-
         fracpos_ac = nct_ag.fracpos_ac
+        super().__init__(xc, poisson_solver, setups, nct_R, fracpos_ac)
+
         self.nct_ag = nct_ag
         self.vbar_ag = setups.create_local_potentials(pw, fracpos_ac)
         self.ghat_aLh = setups.create_compensation_charges(fine_pw, fracpos_ac)

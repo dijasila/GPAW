@@ -20,7 +20,7 @@ from gpaw.core.uniform_grid import UniformGridFunctions
 from gpaw.new.potential import Potential
 from gpaw.new.xc import XCFunctional
 from gpaw.setup import Setup
-from gpaw.typing import Array1D, Array3D
+from gpaw.typing import Array1D, Array2D, Array3D
 from gpaw.utilities import pack, unpack
 
 
@@ -29,11 +29,13 @@ class PotentialCalculator:
                  xc: XCFunctional,
                  poisson_solver,
                  setups: list[Setup],
-                 nct_R: UniformGridFunctions):
+                 nct_R: UniformGridFunctions,
+                 fracpos_ac: Array2D):
         self.poisson_solver = poisson_solver
         self.xc = xc
         self.setups = setups
         self.nct_R = nct_R
+        self.fracpos_ac = fracpos_ac
 
     def __str__(self):
         return f'\n{self.poisson_solver}\n{self.xc}'
