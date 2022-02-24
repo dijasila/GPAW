@@ -155,6 +155,10 @@ class Density:
                    [unpack(setup.N0_p) for setup in setups],
                    [setup.l_j for setup in setups])
 
+    def calculate_dipole_moment(self):
+        dip_v = sum(nt_R.moment() for nt_R in self.nt_sR)
+        return dip_v
+
     def calculate_magnetic_moments(self):
         magmom_av = np.zeros((self.natoms, 3))
         magmom_v = np.zeros(3)
