@@ -22,28 +22,28 @@ def main():
         calc = old_GPAW(mode=LCAO(), basis='sz(dzp)', xc='LDA', txt='old.out',
                         convergence={'density': 1e-12})
         atoms.calc = calc
-        E = atoms.get_potential_energy()
+        atoms.get_potential_energy()
         calc.write('gs.gpw', mode='all')
         old_C_nM = calc.wfs.kpt_u[0].C_nM
         old_calc = calc
-
 
     if run_new_gs:
         calc = new_GPAW(mode='lcao', basis='sz(dzp)', xc='LDA', txt='new.out',
                         force_complex_dtype=True,
                         convergence={'density': 1e-12})
         atoms.calc = calc
-        E = atoms.get_potential_energy()
+        atoms.get_potential_energy()
         new_C_nM = calc.calculation.state.ibzwfs.wfs_qs[0][0].C_nM
         new_calc = calc
 
     if run_old_td:
         old_tddft = LCAOTDDFT('gs.gpw', propagator='ecn')
-        dm = DipoleMomentWriter(old_tddft, 'dm.out')
+        DipoleMomentWriter(old_tddft, 'dm.out')
         old_tddft.propagate(10, 10)
         old_C_nM = old_tddft.wfs.kpt_u[0].C_nM
         old_f_n = old_calc.get_occupation_numbers()
         old_rho_MM = old_C_nM.T.conj() @ (old_f_n[:, None] * old_C_nM)
+        print(old_rho_MM)
 
     if run_new_td:
         new_tddft = RTTDDFT.from_dft_calculation(new_calc)
@@ -55,6 +55,7 @@ def main():
         new_f_n = wfs.weight * wfs.spin_degeneracy * wfs.myocc_n
         new_C_nM = wfs.C_nM.data
         new_rho_MM = (new_C_nM.T.conj() * new_f_n) @ new_C_nM
+        print(new_rho_MM)
 
 
 if __name__ == '__main__':
