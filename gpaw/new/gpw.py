@@ -110,7 +110,7 @@ def read_gpw(filename, log, parallel):
         log(f'Read {", ".join(sorted(results))}')
 
     calculation.results = results
-    return calculation, params
+    return atoms, calculation, params
 
 
 if __name__ == '__main__':

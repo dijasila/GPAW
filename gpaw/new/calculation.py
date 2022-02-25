@@ -49,6 +49,7 @@ class DFTCalculation:
         self.pot_calc = pot_calc
 
         self.results: dict[str, Any] = {}
+        self.fracpos_ac = self.pot_calc.fracpos_ac
 
     @classmethod
     def from_parameters(cls,
@@ -146,7 +147,7 @@ class DFTCalculation:
         self.results['energy'] = extrapolated_energy
 
     def dipole(self, log):
-        dipole_v = self.state.density.calculate_dipole_moment()
+        dipole_v = self.state.density.calculate_dipole_moment(self.fracpos_ac)
         x, y, z = dipole_v * Bohr
         log(f'Dipole moment: ({x:.6f}, {y:.6f}, {z:.6f}) |e|*Ang\n')
         self.results['dipole'] = dipole_v
