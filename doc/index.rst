@@ -30,7 +30,7 @@ Energy: -6.631 eV
 >>> forces = h2.get_forces()
 >>> with np.printoptions(suppress=True, precision=3):
 ...    print(forces)
-[[-0.     0.    -0.639]
+[[ 0.     0.    -0.639]
  [ 0.     0.     0.639]]
 
 

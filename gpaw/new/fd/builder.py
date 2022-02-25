@@ -7,6 +7,7 @@ from gpaw.poisson import PoissonSolver as make_poisson_solver
 from gpaw.fd_operators import Laplace
 from gpaw.new.fd.pot_calc import UniformGridPotentialCalculator
 from gpaw.core.uniform_grid import UniformGridFunctions
+from gpaw.new.hamiltonian import Hamiltonian
 
 
 class FDDFTComponentsBuilder(PWFDDFTComponentsBuilder):
@@ -83,12 +84,12 @@ class FDDFTComponentsBuilder(PWFDDFTComponentsBuilder):
         return ibzwfs
 
 
-class FDHamiltonian:
+class FDHamiltonian(Hamiltonian):
     def __init__(self, grid, kin_stencil=3, blocksize=10):
         self.grid = grid
         self.blocksize = blocksize
-        self.gd = grid._gd
-        self.kin = Laplace(self.gd, -0.5, kin_stencil, grid.dtype)
+        self._gd = grid._gd
+        self.kin = Laplace(self._gd, -0.5, kin_stencil, grid.dtype)
 
     def apply(self, vt_sR, psit_nR, out, spin):
         self.kin.apply(psit_nR.data, out.data, psit_nR.desc.phase_factors_cd)
@@ -100,7 +101,7 @@ class FDHamiltonian:
         from types import SimpleNamespace
 
         from gpaw.preconditioner import Preconditioner as PC
-        pc = PC(self.gd, self.kin, self.grid.dtype, self.blocksize)
+        pc = PC(self._gd, self.kin, self.grid.dtype, self.blocksize)
 
         def apply(psit, residuals, out):
             kpt = SimpleNamespace(phase_cd=psit.desc.phase_factors_cd)

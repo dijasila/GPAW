@@ -133,6 +133,9 @@ class UniformGrid(Domain):
 
     def eikr(self, kpt_c=None) -> Array3D:
         """Plane wave.
+
+        ::
+
                _ _
               ik.r
              e
@@ -355,11 +358,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         return new
 
     def multiply_by_eikr(self, kpt_c=None):
-        """Multiply by exp(ik.r).
-               _ _
-              ik.r
-             e
-        """
+        """Multiply by exp(ik.r)."""
         if kpt_c is None:
             kpt_c = self.desc.kpt_c
         if kpt_c.any():
