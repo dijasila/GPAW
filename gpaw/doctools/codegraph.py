@@ -1,17 +1,9 @@
-import ase
 import numpy as np
-from gpaw.core import PlaneWaves, UniformGrid
-from gpaw.core.matrix import Matrix
-from gpaw.core.atom_arrays import (AtomArrays, AtomArraysLayout,
-                                   DistributedArrays)
-from gpaw.core.atom_centered_functions import AtomCenteredFunctions
+import ase
 from gpaw.new.ase_interface import GPAW
 from gpaw.new.brillouin import BZPoints
 from gpaw.new.builder import builder
-from gpaw.new.wave_functions import WaveFunctions
-from gpaw.fd_operators import FDOperator
-from gpaw.new.eigensolver import Eigensolver
-from gpaw.new.old import OldStuff
+from gpaw.core.atom_arrays import AtomArraysLayout
 
 
 def create_nodes(obj, *objects, include):
@@ -28,39 +20,27 @@ def create_nodes(obj, *objects, include):
             if cls.__name__ in nodes:
                 node.subclasses.append(nodes[cls.__name__])
 
-    new = {}
-    for name, node in nodes.items():
-        bases = node.obj.__class__.__bases__
-        (cls,) = bases
-        if cls is not object:
-            base = new.get(cls.__name__)
-            if base is None:
-                base = Node(node.obj, node.attrs, [], None)
-                base.name = cls.__name__
-                base.has = node.has.copy()
-                new[cls.__name__] = base
-            base.subclasses.append(node)
-            node.base = base
+    for _ in range(1):
+        new = {}
+        for name, node in nodes.items():
+            bases = node.obj.__class__.__bases__
+            (cls,) = bases
+            if cls is not object:
+                base = nodes.get(cls.__name__)
+                base = base or new.get(cls.__name__)
+                if base is None:
+                    base = Node(node.obj, node.attrs, [], None)
+                    base.name = cls.__name__
+                    base.has = node.has.copy()
+                    new[cls.__name__] = base
+                if node not in base.subclasses:
+                    base.subclasses.append(node)
+                if node is not base:
+                    node.base = base
 
-    for name, node in new.items():
-        nodes[name] = node
-
-    new = {}
-    for name, node in nodes.items():
-        bases = node.obj.__class__.__bases__
-        (cls,) = bases
-        if cls is not object:
-            base = new.get(cls.__name__)
-            if base is None:
-                base = Node(node.obj, node.attrs, [], None)
-                base.name = cls.__name__
-                base.has = node.has.copy()
-                new[cls.__name__] = base
-            base.subclasses.append(node)
-            node.base = base
-
-    for name, node in new.items():
-        nodes[name] = node
+        print(new)
+        for name, node in new.items():
+            nodes[name] = node
 
     for node in nodes.values():
         node.fix()
@@ -109,9 +89,14 @@ class Node:
 
     def fix(self):
         if self.subclasses:
-            keys = self.subclasses[0].keys()
-            for node in self.subclasses[1:]:
-                keys &= node.keys()
+            print('FIX', self)
+            if len(self.subclasses) > 1:
+                keys = self.subclasses[0].keys()
+                for node in self.subclasses[1:]:
+                    keys &= node.keys()
+            else:
+                keys = self.keys()
+            print(keys)
             self.attrs = [attr for attr in self.attrs if attr in keys]
             self.has = {key: value for key, value in self.has.items()
                         if key in keys}
@@ -148,14 +133,14 @@ def plot_graph(figname, nodes, colors={}, replace={}):
         node.plot(g)
         for key, value in node.has.items():
             key = replace.get(key, key)
-            g.edge(node.superclass().name, value.superclass().name, label=key)
+            g.edge(node.name, value.superclass().name, label=key)
         if node.base:
             g.edge(node.base.name, node.name, arrowhead='onormal')
 
     g.render(figname, format='svg')
 
 
-def make_figures(render=True):
+def abc():
     class A:
         def __init__(self, b):
             self.a = 1
@@ -170,13 +155,13 @@ def make_figures(render=True):
     class C(B):
         pass
 
-    if 0:
-        nodes = create_nodes(A(C()), [B()],
-                             lambda obj: obj.__class__.__name__ in 'ABC')
-        print(nodes)
-        plot_graph('abc', nodes, {'B': '#ffddff'})
-        return
+    nodes = create_nodes(
+        A(C()), B(),
+        include=lambda obj: obj.__class__.__name__ in 'ABC')
+    plot_graph('abc', nodes, {'B': '#ffddff'})
 
+
+def code():
     fd = GPAW(mode='fd', txt=None)
     pw = GPAW(mode='pw', txt=None)
     lcao = GPAW(mode='lcao', txt=None)
@@ -206,55 +191,52 @@ def make_figures(render=True):
 
         return mod.startswith('gpaw.new')
 
-    things = [pw, lcao]
-    # BZPoints(np.zeros((5, 3)))
+    things = [pw, lcao,
+              lcao.calculation.state.ibzwfs.wfs_qs[0][0],
+              BZPoints(np.zeros((5, 3)))]
     nodes = create_nodes(a0, *things, include=include)
     plot_graph('code', nodes, colors,
                replace={'wfs_qs': 'wfs_qs[q][s]'})
 
+    # scf.svg:
+    nodes = create_nodes(
+        fd.calculation.pot_calc.nct_aR,
+        pw.calculation.pot_calc.nct_ag,
+        include=lambda obj: obj.__class__.__name__.startswith('Atom'))
+    plot_graph('acf', nodes, {'AtomCenteredFunctions': '#ddffff'})
 
-"""
-    ok.add('UniformGridAtomCenteredFunctions')
-    subclasses['UniformGridAtomCenteredFunctions'] = (
-        'AtomCenteredFunctions (ACF)',
-        [pw.calculation.pot_calc.nct_ag], '#ddffff')
-    obj = A(1)
-    obj.a = fd.calculation.pot_calc.nct_aR
-    g = make_graph(obj, skip_first=True)
-    if render:
-        g.render('acf', format='svg')
+    # da.svg:
+    nodes = create_nodes(
+        fd.calculation.state.ibzwfs.wfs_qs.psit_nX,
+        pw.calculation.state.ibzwfs.wfs_qs[0][0].psit_nX,
+        include=lambda obj:
+            getattr(obj, '__module__', '').startswith('gpaw.core') and
+            obj.__class__.__name__ != '_lru_cache_wrapper')
+    plot_graph('da', nodes, {'DistributedArrays': '#eeeeee',
+                             'Domain': '#dddddd'})
 
-    subclasses['UniformGridFunctions'] = (
-        'DistributedArrays (DA)',
-        [pw.calculation.state.ibzwfs.wfs_qs[0][0].psit_nX], '#eeeeee')
-    subclasses['UniformGrid'] = (
-        'Domain',
-        [pw.calculation.state.ibzwfs.wfs_qs[0][0].psit_nX.desc], '#ddeeff')
-    obj = A(1)
-    obj.a = fd.calculation.state.ibzwfs.wfs_qs.psit_nX
-    g = make_graph(obj, skip_first=True)
-    if render:
-        g.render('da', format='svg')
 
+def builders():
     b = []
-    for mode in ['fd', 'pw']:
+    a = ase.Atoms('H', cell=[2, 2, 2], pbc=1)
+    for mode in ['fd', 'pw', 'lcao']:
         b.append(builder(a, {'mode': mode}))
-    subclasses['FDDFTComponentsBuilder'] = (
-        'DFTComponentsBuilder',
-        [b[1]], '#ffeedd')
-    obj = A(1)
-    obj.a = b[0]
-    g = make_graph(obj, skip_first=True)
-    if render:
-        g.render('builder', format='svg')
+    nodes = create_nodes(
+        *b,
+        BZPoints(np.zeros((5, 3))),
+        include=lambda obj: obj.__class__.__name__.endswith('Builder'))
+    plot_graph('builder', nodes, {'DFTComponentsBuilder': '#ffeedd'})
 
-    ok.add('AtomArrays')
-    ok.add('AtomArraysLayout')
-    ok.add('AtomDistribution')
-    obj = A(1)
-    obj.a = AtomArraysLayout([1]).empty()
-    g = make_graph(obj, skip_first=True)
-"""
+
+def aa():
+    nodes = create_nodes(
+        AtomArraysLayout([1]).empty(),
+        include=lambda obj: obj.__class__.__name__.startswith('Atom'))
+    plot_graph('aa', nodes)
+
 
 if __name__ == '__main__':
-    make_figures()
+    #abc()
+    #code()
+    #builders()
+    aa()
