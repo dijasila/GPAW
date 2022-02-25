@@ -118,7 +118,8 @@ class RTTDDFT:
                       propagator: TDAlgorithm | None = None):
         _, calculation, params, builder = read_gpw(filepath, print,
                                                    {'world': world},
-                                                   return_builder=True)
+                                                   return_builder=True,
+                                                   force_complex_dtype=True)
 
         state = calculation.state
         pot_calc = calculation.pot_calc

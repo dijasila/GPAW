@@ -1,4 +1,6 @@
 from __future__ import annotations
+from pathlib import Path
+from typing import Any, Callable, IO, Union
 import ase.io.ulm as ulm
 import gpaw
 from ase.io.trajectory import read_atoms, write_atoms
@@ -42,7 +44,11 @@ def write_gpw(filename: str,
     world.barrier()
 
 
-def read_gpw(filename, log, parallel, return_builder=False):
+def read_gpw(filename: Union[str, Path, IO[str]],
+             log: Callable,
+             parallel: dict[str, Any],
+             force_complex_dtype: bool = False,
+             return_builder: bool = False):
     """
     Read gpw file and return a DFTCalculation object,
     params dictionary, and optionally the builder
@@ -67,6 +73,9 @@ def read_gpw(filename, log, parallel, return_builder=False):
 
     kwargs = reader.parameters.asdict()
     kwargs['parallel'] = parallel
+    if force_complex_dtype:
+        kwargs['force_complex_dtype'] = True
+
     params = InputParameters(kwargs)
     builder = create_builder(atoms, params)
 
