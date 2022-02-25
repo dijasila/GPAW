@@ -56,7 +56,9 @@ nitpick_ignore = [('py:class', 'gpaw.calculator.GPAW'),
                   ('py:class', 'ase.atoms.Atoms'),
                   ('py:class', 'gpaw.point_groups.group.PointGroup'),
                   ('py:class', 'UniformGridFunctions'),
-                  ('py:class', 'DomainType')]
+                  ('py:class', 'DomainType'),
+                  ('py:class', 'Path'),
+                  ('py:class', 'IO')]
 
 html_theme = 'sphinx_rtd_theme'
 html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
