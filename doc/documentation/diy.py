@@ -14,9 +14,6 @@ atoms = Atoms('H2',
               positions=[(0, 0, 0), (0, 0, 0.75)],
               cell=[2, 2, 3],
               pbc=True)
-if 0:
-    atoms.calc = GPAW(mode='pw')
-    e1 = atoms.get_potential_energy()
 
 xc = XCFunctional('LDA')
 setups = Setups([1, 1], {}, {}, xc)
@@ -42,7 +39,5 @@ wfs = ...
 ibzwfs = ...
 state = ...
 scf_loop = ...
-for ctx in scf_loop.iterate(state, pot_calc):
-    print(ctx)
-e2 = ...
-assert abs(e2 - e1) < 1e-6
+for _ in scf_loop.iterate(state, pot_calc):
+    ...
