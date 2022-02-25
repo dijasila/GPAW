@@ -38,7 +38,6 @@ def create_nodes(obj, *objects, include):
                 if node is not base:
                     node.base = base
 
-        print(new)
         for name, node in new.items():
             nodes[name] = node
 
@@ -89,14 +88,12 @@ class Node:
 
     def fix(self):
         if self.subclasses:
-            print('FIX', self)
             if len(self.subclasses) > 1:
                 keys = self.subclasses[0].keys()
                 for node in self.subclasses[1:]:
                     keys &= node.keys()
             else:
                 keys = self.keys()
-            print(keys)
             self.attrs = [attr for attr in self.attrs if attr in keys]
             self.has = {key: value for key, value in self.has.items()
                         if key in keys}
@@ -232,11 +229,23 @@ def aa():
     nodes = create_nodes(
         AtomArraysLayout([1]).empty(),
         include=lambda obj: obj.__class__.__name__.startswith('Atom'))
-    plot_graph('aa', nodes)
+    nodes = [node for node in nodes if node.name != 'AtomArrays']
+    for node in nodes:
+        print(node)
+        print(node.has)
+        if node.name == 'DistributedArrays':
+            node.name = 'AtomArrays'
+            node.attrs.remove('dv')
+            break
+    plot_graph('aa', [node for node in nodes if node.name[0] == 'A'])
+
+
+def main():
+    abc()
+    code()
+    builders()
+    aa()
 
 
 if __name__ == '__main__':
-    #abc()
-    #code()
-    #builders()
-    aa()
+    main()
