@@ -86,9 +86,6 @@ class Matrix:
         else:
             self.data = data.reshape(dist.shape)
 
-    def __len__(self):
-        return self.shape[0]
-
     def __repr__(self):
         dist = str(self.dist).split('(')[1]
         return 'Matrix({}: {}'.format(self.dtype.name, dist)
@@ -206,7 +203,7 @@ class Matrix:
     def gather(self, root=0):
         """ Gather the Matrix on the root rank
 
-        Returns a new Matrix distributed so that all data is one the root rank
+        Returns a new Matrix distributed so that all data is on the root rank
         """
         if self.dist.comm.size > 1:
             S = self.new(dist=(self.dist.comm, 1, 1))
