@@ -133,9 +133,6 @@ class UniformGrid(Domain):
 
     def eikr(self, kpt_c=None) -> Array3D:
         """Plane wave.
-
-        ::
-
                _ _
               ik.r
              e
@@ -163,6 +160,17 @@ class UniformGrid(Domain):
                            dtype=dtype,
                            kpt=kpt,
                            decomp=gd.n_cp)
+
+    @classmethod
+    def from_cell_and_grid_spacing(cls,
+                                   cell: ArrayLike1D | ArrayLike2D,
+                                   grid_spacing: float,
+                                   pbc=(True, True, True),
+                                   kpt: Vector = None,
+                                   comm: MPIComm = serial_comm,
+                                   dtype=None):
+        domain = Domain(cell, pbc, kpt, comm, dtype)
+        return domain.uniform_grid_with_grid_spacing(grid_spacing)
 
     def fft_plans(self, flags: int = fftw.MEASURE) -> tuple[fftw.FFTPlan,
                                                             fftw.FFTPlan]:
@@ -347,7 +355,11 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         return new
 
     def multiply_by_eikr(self, kpt_c=None):
-        """Multiply by exp(ik.r)."""
+        """Multiply by exp(ik.r).
+               _ _
+              ik.r
+             e
+        """
         if kpt_c is None:
             kpt_c = self.desc.kpt_c
         if kpt_c.any():
@@ -508,3 +520,20 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         a = self.data.view(float)
         rng.random(a.shape, out=a)
         a -= 0.5
+
+    def moment(self):
+        """Calculate moment."""
+        assert self.dims == ()
+        ug = self.desc
+        index_cr = [np.arange(ug.start_c[c], ug.end_c[c], dtype=float)
+                    for c in range(3)]
+
+        rho_ijk = self.data
+        rho_ij = rho_ijk.sum(axis=2)
+        rho_ik = rho_ijk.sum(axis=1)
+        rho_cr = [rho_ij.sum(axis=1), rho_ij.sum(axis=0), rho_ik.sum(axis=0)]
+
+        d_c = [np.dot(index_cr[c], rho_cr[c]) for c in range(3)]
+        d_v = (d_c / ug.size_c) @ ug.cell_cv * self.dv
+        self.desc.comm.sum(d_v)
+        return d_v
