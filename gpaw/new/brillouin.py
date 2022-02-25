@@ -11,7 +11,9 @@ if TYPE_CHECKING:
 
 class BZPoints:
     def __init__(self, points):
-        self.kpt_Kc = points
+        self.kpt_Kc = np.array(points)
+        assert self.kpt_Kc.ndim == 2
+        assert self.kpt_Kc.shape[1] == 3
         self.gamma_only = len(self.kpt_Kc) == 1 and not self.kpt_Kc.any()
 
     def __len__(self):

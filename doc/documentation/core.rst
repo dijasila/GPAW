@@ -53,6 +53,7 @@ or when you create an ASE-calculator interface:
 >>> from gpaw.new.ase_interface import GPAW
 >>> atoms.calc = GPAW(**params)
 
+
 Full picture
 ============
 
@@ -64,9 +65,9 @@ created with the :func:`gpaw.new.ase_interface.GPAW` function:
 ...               positions=[(0, 0, 0), (0, 0, 0.75)],
 ...               cell=[2, 2, 3],
 ...               pbc=True)
->>> atoms.calc = GPAW(mode='pw')
+>>> atoms.calc = GPAW(mode='pw', txt='h2.txt')
 >>> atoms.calc
-bla-bla
+ASECalculator(txt: 'h2.txt', mode: {'name': 'pw'})
 
 The ``atoms.calc`` object manages a
 :class:`gpaw.new.calculation.DFTCalculation` object that does the actual work.

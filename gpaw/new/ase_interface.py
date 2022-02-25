@@ -49,6 +49,16 @@ class ASECalculator:
         self.atoms = atoms
         self.timer = Timer()
 
+    def __repr__(self):
+        params = []
+        for key, value in self.params.items():
+            val = repr(value)
+            if len(val) > 40:
+                val = '...'
+            params.append((key, val))
+        p = ', '.join(f'{key}: {val}' for key, val in params)
+        return f'ASECalculator({p})'
+
     def calculate_property(self, atoms: Atoms, prop: str) -> Any:
         """Calculate (if not already calculated) a property.
 
