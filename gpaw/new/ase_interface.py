@@ -171,4 +171,3 @@ def compare_atoms(a1: Atoms, a2: Atoms) -> set[str]:
     if abs(a1.positions - a2.positions).max() > 0.0:
         return {'positions'}
     return set()
-

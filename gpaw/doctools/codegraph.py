@@ -4,6 +4,7 @@ from gpaw.new.ase_interface import GPAW
 from gpaw.new.brillouin import BZPoints
 from gpaw.new.builder import builder
 from gpaw.core.atom_arrays import AtomArraysLayout
+from typing import Any
 
 
 def create_nodes(obj, *objects, include):
@@ -111,11 +112,17 @@ class Node:
         kwargs = {'style': 'filled',
                   'fillcolor': self.rgb} if self.rgb else {}
         if self.attrs:
-            a = r'\n'.join(self.attrs)
+            a = r'\n'.join(add_type(attr, getattr(self.obj, attr))
+                           for attr in self.attrs)
             txt = f'{{{self.name} | {a}}}'
         else:
             txt = self.name
         g.node(self.name, txt, **kwargs)
+
+
+def add_type(name: str, obj: Any) -> str:
+    type = obj.__class__.__name__
+    return f'{name}: {type}'
 
 
 def plot_graph(figname, nodes, colors={}, replace={}):
@@ -178,7 +185,9 @@ def code():
     colors = {'BZPoints': '#ddffdd',
               'PotentialCalculator': '#ffdddd',
               'WaveFunctions': '#ddddff',
-              'Eigensolver': '#ffffdd'}
+              'Eigensolver': '#ffffdd',
+              'PoissonSolver': '#ffeedd',
+              'Hamiltonian': '#eeeeee'}
 
     def include(obj):
         try:
@@ -220,8 +229,9 @@ def builders():
         b.append(builder(a, {'mode': mode}))
     nodes = create_nodes(
         *b,
-        BZPoints(np.zeros((5, 3))),
-        include=lambda obj: obj.__class__.__name__.endswith('Builder'))
+        include=lambda obj:
+            obj.__class__.__name__.endswith('Builder') or
+            obj.__class__.__name__ == 'InputParameters')
     plot_graph('builder', nodes, {'DFTComponentsBuilder': '#ffeedd'})
 
 

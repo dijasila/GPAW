@@ -7,6 +7,7 @@ from gpaw.poisson import PoissonSolver as make_poisson_solver
 from gpaw.fd_operators import Laplace
 from gpaw.new.fd.pot_calc import UniformGridPotentialCalculator
 from gpaw.core.uniform_grid import UniformGridFunctions
+from gpaw.new.hamiltonian import Hamiltonian
 
 
 class FDDFTComponentsBuilder(PWFDDFTComponentsBuilder):
@@ -83,7 +84,7 @@ class FDDFTComponentsBuilder(PWFDDFTComponentsBuilder):
         return ibzwfs
 
 
-class FDHamiltonian:
+class FDHamiltonian(Hamiltonian):
     def __init__(self, grid, kin_stencil=3, blocksize=10):
         self.grid = grid
         self.blocksize = blocksize
