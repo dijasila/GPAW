@@ -99,8 +99,6 @@ class LCAODFTComponentsBuilder(FDDFTComponentsBuilder):
         return ibzwfs
 
     def read_ibz_wave_functions(self, reader):
-        ha = reader.ha
-
         c = reader.bohr**1.5
         if reader.version < 0:
             c = 1  # old gpw file
@@ -115,20 +113,7 @@ class LCAODFTComponentsBuilder(FDDFTComponentsBuilder):
 
         ibzwfs = self.create_ibz_wave_functions(basis, potential, coefficients)
 
-        eig_skn = reader.wave_functions.eigenvalues
-        occ_skn = reader.wave_functions.occupations
-        P_sknI = reader.wave_functions.projections
-
-        for wfs in ibzwfs:
-            wfs._eig_n = eig_skn[wfs.spin, wfs.k] / ha
-            wfs._occ_n = occ_skn[wfs.spin, wfs.k]
-            layout = AtomArraysLayout([(setup.ni,) for setup in self.setups],
-                                      dtype=self.dtype)
-            wfs._P_ain = AtomArrays(layout,
-                                    dims=(self.nbands,),
-                                    data=P_sknI[wfs.spin, wfs.k].T,
-                                    transposed=True)
-
-            ibzwfs.fermi_levels = reader.wave_functions.fermi_levels / ha
+        # Set eigenvalues, occupations, etc..
+        self.read_wavefunction_values(reader, ibzwfs)
 
         return ibzwfs
