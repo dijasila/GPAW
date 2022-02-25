@@ -82,6 +82,7 @@ class DFTComponentsBuilder:
         b = parallel.get('band', None)
         self.communicators = create_communicators(world, len(self.ibz),
                                                   d, k, b)
+
         if self.mode == 'fd':
             pass  # filter = create_fourier_filter(grid)
             # setups = stups.filter(filter)

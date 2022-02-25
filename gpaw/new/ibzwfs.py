@@ -34,7 +34,8 @@ def create_ibz_wave_functions(ibz: IBZ,
     return IBZWaveFunctions(ibz,
                             nelectrons,
                             ncomponents,
-                            wfs_qs)
+                            wfs_qs,
+                            kpt_comm)
 
 
 class IBZWaveFunctions:
