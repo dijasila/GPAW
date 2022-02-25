@@ -166,12 +166,21 @@ class GPWFiles:
 
     def o2_pw(self):
         d = 1.1
-        h = Atoms('O2', positions=[[0, 0, 0], [d, 0, 0]], magmoms=[1, 1])
-        h.center(vacuum=4.0)
-        h.calc = GPAW(mode={'name': 'pw', 'ecut': 800},
+        a = Atoms('O2', positions=[[0, 0, 0], [d, 0, 0]], magmoms=[1, 1])
+        a.center(vacuum=4.0)
+        a.calc = GPAW(mode={'name': 'pw', 'ecut': 800},
                       txt=self.path / 'o2_pw.txt')
-        h.get_potential_energy()
-        return h.calc
+        a.get_potential_energy()
+        return a.calc
+
+    def co_lcao(self):
+        d = 1.1
+        co = Atoms('CO', positions=[[0, 0, 0], [d, 0, 0]])
+        co.center(vacuum=4.0)
+        co.calc = GPAW(mode='lcao',
+                       txt=self.path / 'co_lcao.txt')
+        co.get_potential_energy()
+        return co.calc
 
     def c2h4_pw_nosym(self):
         d = 1.54

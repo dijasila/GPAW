@@ -8,7 +8,8 @@ def test_refactored_code():
 
 
 def new(x):
-    params = {'mode': {'name': 'fd', 'force_complex_dtype': 0},
+    params = {'mode': {'name': 'fd'},
+              'force_complex_dtype': 0,
               'random': not True,
               'kpts': (4, 1, 1),
               'spinpol': not True}
@@ -24,6 +25,7 @@ def new(x):
                       txt=f'{x}s.txt')
     f = atoms.get_forces()
     e = atoms.get_potential_energy()
+    atoms.get_dipole_moment()
     print(e)
     print(f)
     if 1:

@@ -118,7 +118,6 @@ class AtomArrays(DistributedArrays):
         return self._arrays.values()
 
     def gather(self, broadcast=False, copy=False) -> AtomArrays | None:
-        assert not self.transposed
         comm = self.layout.atomdist.comm
         if comm.size == 1:
             if copy:
@@ -126,6 +125,8 @@ class AtomArrays(DistributedArrays):
                 aa.data[:] = self.data
                 return aa
             return self
+
+        assert not self.transposed
 
         if comm.rank == 0 or broadcast:
             aa = self.new(layout=self.layout.new(atomdist=serial_comm))

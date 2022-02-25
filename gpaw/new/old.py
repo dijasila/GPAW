@@ -19,6 +19,13 @@ def get_pseudo_wave_function(self, n):
 
 
 @add_method
+def get_atoms(self):
+    atoms = self.atoms.copy()
+    atoms.calc = self
+    return atoms
+
+
+@add_method
 def get_fermi_level(self) -> float:
     state = self.calculation.state
     fl = state.ibzwfs.fermi_levels * Ha

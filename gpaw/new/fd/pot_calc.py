@@ -26,7 +26,7 @@ class UniformGridPotentialCalculator(PotentialCalculator):
         self.interpolate = wf_grid.transformer(fine_grid, n)
         self.restrict = fine_grid.transformer(wf_grid, n)
 
-        super().__init__(xc, poisson_solver, setups, nct_R)
+        super().__init__(xc, poisson_solver, setups, nct_R, fracpos_ac)
 
     def calculate_charges(self, vHt_r):
         return self.ghat_aLr.integrate(vHt_r)
