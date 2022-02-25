@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import numpy as np
+from ase.io.ulm import Writer
 from gpaw.core.atom_arrays import AtomArrays
 from gpaw.setup import Setups
 from gpaw.typing import Array1D
@@ -76,3 +77,28 @@ class WaveFunctions:
         for D_sii, P_in in zip(D_asii.values(), self.P_ain.values()):
             D_sii[self.spin] += np.einsum('in, n, jn -> ij',
                                           P_in.conj(), occ_n, P_in).real
+
+    def add_wave_functions_array(self,
+                                 writer: Writer,
+                                 spin_k_shape: tuple[int, int]):
+        """ Write the array header for the wave functions
+
+        Parameters
+        ----------
+        writer:
+            Ulm writer
+
+        spin_k_shape:
+            Shape of the spin and k-point dimensions
+        """
+        raise NotImplementedError()
+
+    def fill_wave_functions(self, writer: Writer):
+        """ Fill the wave function array using this wave function
+
+        Parameters
+        ----------
+        writer:
+            Ulm writer
+        """
+        raise NotImplementedError()

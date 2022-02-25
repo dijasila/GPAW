@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 from ase.dft.bandgap import bandgap
-from ase.units import Ha, Bohr
+from ase.units import Ha
 from gpaw.core.atom_arrays import AtomArrays
 from gpaw.mpi import MPIComm, serial_comm
 from gpaw.new.brillouin import IBZ
@@ -194,12 +194,11 @@ class IBZWaveFunctions:
 
         for wfs in self:
             nproj = wfs.P_ain.layout.size
-            nao = wfs.setups.nao
             break
 
         if self.collinear:
-            proj_shape = (self.ncomponents, len(ibz), self.nbands, nproj)
-            coeff_shape = (self.ncomponents, len(ibz), self.nbands, nao)
+            spin_k_shape = (self.ncomponents, len(ibz))
+            proj_shape = spin_k_shape + (self.nbands, nproj)
         else:
             proj_shape = (len(ibz), self.nbands, 2, nproj)
             1 / 0
@@ -215,14 +214,17 @@ class IBZWaveFunctions:
                 writer.fill(P_ain.data.T)
 
         if not skip_wfs:
-            writer.add_array('coefficients', coeff_shape, dtype=self.dtype)
+            if self.domain_comm.rank != 0 or self.band_comm.rank != 0:
+                return
+
+            # Write header for wave functions
+            self.wfs_qs[0][0].add_wave_functions_array(writer, spin_k_shape)
+
             for spin in range(self.nspins):
                 for wfs in self:
                     if wfs.spin != spin:
                         continue
-                    C_nM = wfs.C_nM.gather()
-                    if self.domain_comm.rank == 0 and self.band_comm.rank == 0:
-                        writer.fill(C_nM.data * Bohr**-1.5)
+                    wfs.fill_wave_functions(writer)
 
     def write_summary(self, log):
         fl = self.fermi_levels * Ha

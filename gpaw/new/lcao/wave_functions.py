@@ -1,4 +1,6 @@
 from __future__ import annotations
+from ase.io.ulm import Writer
+from ase.units import Bohr
 from gpaw.new.wave_functions import WaveFunctions
 from gpaw.setup import Setups
 from gpaw.core.atom_arrays import AtomArrays, AtomArraysLayout
@@ -57,3 +59,15 @@ class LCAOWaveFunctions(WaveFunctions):
         rho_MM = (C_nM.T.conj() * occ_n) @ C_nM
         self.density_adder(rho_MM, nt_sR.data[self.spin])
         self.add_to_atomic_density_matrices(occ_n, D_asii)
+
+    def add_wave_functions_array(self,
+                                 writer: Writer,
+                                 spin_k_shape: tuple[int, int]):
+        shape = spin_k_shape + self.C_nM.shape
+        if self.domain_comm.rank == 0 and self.band_comm.rank == 0:
+            writer.add_array('coefficients', shape, dtype=self.dtype)
+
+    def fill_wave_functions(self, writer: Writer):
+        C_nM = self.C_nM.gather()
+        if self.domain_comm.rank == 0 and self.band_comm.rank == 0:
+            writer.fill(C_nM.data * Bohr**-1.5)
