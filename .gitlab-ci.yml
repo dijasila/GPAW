@@ -84,6 +84,7 @@ docs:
     - echo "noblas = True; nolibxc = True" > siteconfig.py
     - pip install -e .
     - tools/gpaw-setup H C O Li
+    - tools/gpaw-setup H -f PBE
     - export GPAW_SETUP_PATH=$PWD
     - cd doc
     - make
