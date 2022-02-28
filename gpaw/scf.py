@@ -301,6 +301,7 @@ class Criterion:
     # If calc_last is True, will only be checked after all other (non-last)
     # criteria have been met.
     calc_last = False
+    override_others = False
 
     def __repr__(self):
         parameters = signature(self.__class__).parameters
@@ -561,7 +562,31 @@ class MinIter(Criterion):
 
     def __init__(self, n):
         self.n = n
-        self.description = f'Minimum number of iterations [minit]: {n:d}'
+        self.description = f'Minimum number of iterations [minit]: {n}'
+
+    def __call__(self, context):
+        converged = context.niter >= self.n
+        entry = '{:d}'.format(context.niter)
+        return converged, entry
+
+
+class MaxIter(Criterion):
+    """A convergence criterion that enforces a minimum number of iterations.
+
+    Parameters:
+
+    n : int
+        Minimum number of iterations that must be complete before
+        the SCF cycle exits.
+    """
+    calc_last = False
+    name = 'maximum iterations'
+    tablename = 'maxit'
+    override_others = True
+
+    def __init__(self, n):
+        self.n = n
+        self.description = f'Maximum number of iterations [minit]: {n}'
 
     def __call__(self, context):
         converged = context.niter >= self.n
