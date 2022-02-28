@@ -282,5 +282,6 @@ def convergence(value=None):
                         'density': 1.0e-4,  # electrons / electron
                         'eigenstates': 4.0e-8,  # eV^2 / electron
                         'forces': np.inf,
-                        'bands': None},
+                        'bands': None,
+                        'maxiter': None},
                        value)
