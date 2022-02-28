@@ -3,9 +3,10 @@ import numpy as np
 from ase.units import Ha
 from gpaw.core import PlaneWaves
 from gpaw.core.plane_waves import PlaneWaveExpansions
+from gpaw.new.builder import create_uniform_grid
+from gpaw.new.hamiltonian import Hamiltonian
 from gpaw.new.pw.poisson import ReciprocalSpacePoissonSolver
 from gpaw.new.pw.pot_calc import PlaneWavePotentialCalculator
-from gpaw.new.builder import create_uniform_grid
 from gpaw.new.pwfd.builder import PWFDDFTComponentsBuilder
 
 
@@ -115,7 +116,7 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
         return ibzwfs
 
 
-class PWHamiltonian:
+class PWHamiltonian(Hamiltonian):
     def apply(self, vt_sR, psit_nG, out, spin):
         out_nG = out
         vt_R = vt_sR.data[spin]

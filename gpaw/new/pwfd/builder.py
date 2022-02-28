@@ -2,11 +2,10 @@ from types import SimpleNamespace
 
 import numpy as np
 from gpaw.band_descriptor import BandDescriptor
-from gpaw.core.atom_arrays import AtomArrays, AtomArraysLayout
 from gpaw.kohnsham_layouts import get_KohnSham_layouts
 from gpaw.lcao.eigensolver import DirectLCAO
 from gpaw.new.builder import DFTComponentsBuilder
-from gpaw.new.ibzwfs import IBZWaveFunctions
+from gpaw.new.ibzwfs import create_ibz_wave_functions
 from gpaw.new.potential import Potential
 from gpaw.new.pwfd.davidson import Davidson
 from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
@@ -50,11 +49,11 @@ class PWFDDFTComponentsBuilder(DFTComponentsBuilder):
 
             return wfs
 
-        ibzwfs = IBZWaveFunctions(self.ibz,
-                                  self.nelectrons,
-                                  self.ncomponents,
-                                  create_wfs,
-                                  self.communicators['k'])
+        ibzwfs = create_ibz_wave_functions(self.ibz,
+                                           self.nelectrons,
+                                           self.ncomponents,
+                                           create_wfs,
+                                           self.communicators['k'])
 
         # Set eigenvalues, occupations, etc..
         self.read_wavefunction_values(reader, ibzwfs)
@@ -164,4 +163,5 @@ def initialize_from_lcao(setups,
                                  fracpos_ac=fracpos_ac,
                                  ncomponents=ncomponents)
 
-    return IBZWaveFunctions(ibz, nelectrons, ncomponents, create_wfs, kpt_comm)
+    return create_ibz_wave_functions(
+        ibz, nelectrons, ncomponents, create_wfs, kpt_comm)

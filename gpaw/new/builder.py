@@ -10,8 +10,6 @@ from ase.calculators.calculator import kpts2sizeandoffsets
 from ase.units import Bohr
 from gpaw.core import UniformGrid
 from gpaw.core.atom_arrays import AtomArrays, AtomArraysLayout
-from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.lfc import BasisFunctions
 from gpaw.mixer import MixerWrapper, get_mixer_from_keywords
 from gpaw.mpi import MPIComm, Parallelization, serial_comm, world
 from gpaw.new import cached_property
@@ -25,6 +23,7 @@ from gpaw.new.xc import XCFunctional
 from gpaw.setup import Setups
 from gpaw.utilities.gpts import get_number_of_grid_points
 from gpaw.typing import DTypeLike
+from gpaw.new.basis import create_basis
 
 
 def builder(atoms: Atoms,
@@ -84,6 +83,7 @@ class DFTComponentsBuilder:
         b = parallel.get('band', None)
         self.communicators = create_communicators(world, len(self.ibz),
                                                   d, k, b)
+
         if self.mode == 'fd':
             pass  # filter = create_fourier_filter(grid)
             # setups = stups.filter(filter)
@@ -151,19 +151,15 @@ class DFTComponentsBuilder:
         return out
 
     def create_basis_set(self):
-        kd = KPointDescriptor(self.ibz.bz.kpt_Kc, self.ncomponents % 3)
-        kd.set_symmetry(SimpleNamespace(pbc=self.atoms.pbc),
-                        self.ibz.symmetries.symmetry,
-                        comm=self.communicators['w'])
-        kd.set_communicator(self.communicators['k'])
-
-        basis_set = BasisFunctions(self.grid._gd,
-                                   [setup.phit_j for setup in self.setups],
-                                   kd,
-                                   dtype=self.dtype,
-                                   cut=True)
-        basis_set.set_positions(self.fracpos_ac)
-        return basis_set
+        return create_basis(self.ibz,
+                            self.ncomponents % 3,
+                            self.atoms.pbc,
+                            self.grid,
+                            self.setups,
+                            self.dtype,
+                            self.fracpos_ac,
+                            self.communicators['w'],
+                            self.communicators['k'])
 
     def density_from_superposition(self, basis_set):
         return Density.from_superposition(self.grid,

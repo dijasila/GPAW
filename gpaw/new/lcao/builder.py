@@ -1,8 +1,7 @@
 from functools import partial
-from gpaw.core.atom_arrays import AtomArrays, AtomArraysLayout
 from gpaw.core.matrix import Matrix
 from gpaw.new.fd.builder import FDDFTComponentsBuilder
-from gpaw.new.ibzwfs import IBZWaveFunctions
+from gpaw.new.ibzwfs import create_ibz_wave_functions as create_ibzwfs
 from gpaw.new.lcao.eigensolver import LCAOEigensolver
 from gpaw.new.lcao.hamiltonian import LCAOHamiltonian
 from gpaw.new.lcao.wave_functions import LCAOWaveFunctions
@@ -91,11 +90,11 @@ class LCAODFTComponentsBuilder(FDDFTComponentsBuilder):
                 weight=weight,
                 ncomponents=self.ncomponents)
 
-        ibzwfs = IBZWaveFunctions(ibz,
-                                  self.nelectrons,
-                                  self.ncomponents,
-                                  create_wfs,
-                                  kpt_comm)
+        ibzwfs = create_ibzwfs(ibz,
+                               self.nelectrons,
+                               self.ncomponents,
+                               create_wfs,
+                               kpt_comm)
         return ibzwfs
 
     def read_ibz_wave_functions(self, reader):

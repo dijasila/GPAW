@@ -11,8 +11,8 @@ from gpaw.new.calculation import DFTCalculation
 from gpaw.new.gpw import read_gpw
 from gpaw.new.input_parameters import InputParameters
 from gpaw.new.logger import Logger
-from gpaw.new.old import OldStuff
 from gpaw.typing import Array1D, Array2D
+from gpaw.new.old import methods
 
 
 def GPAW(filename: Union[str, Path, IO[str]] = None,
@@ -35,7 +35,7 @@ def GPAW(filename: Union[str, Path, IO[str]] = None,
     return ASECalculator(params, log)
 
 
-class ASECalculator(OldStuff):
+class ASECalculator:
     """This is the ASE-calculator frontend for doing a GPAW calculation."""
     def __init__(self,
                  params: InputParameters,
@@ -48,6 +48,16 @@ class ASECalculator(OldStuff):
 
         self.atoms = atoms
         self.timer = Timer()
+
+    def __repr__(self):
+        params = []
+        for key, value in self.params.items():
+            val = repr(value)
+            if len(val) > 40:
+                val = '...'
+            params.append((key, val))
+        p = ', '.join(f'{key}: {val}' for key, val in params)
+        return f'ASECalculator({p})'
 
     def calculate_property(self, atoms: Atoms, prop: str) -> Any:
         """Calculate (if not already calculated) a property.
@@ -147,6 +157,10 @@ class ASECalculator(OldStuff):
 
     def get_magnetic_moments(self, atoms: Atoms) -> Array1D:
         return self.calculate_property(atoms, 'magmoms')
+
+
+for name, method in methods:
+    setattr(ASECalculator, name, method)
 
 
 def write_header(log, world, params):
