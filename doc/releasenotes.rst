@@ -18,7 +18,7 @@ Git master branch
   **k**-points in the IBZ.
 
 * New :class:`~gpaw.convergence_criteria.MaxIter` convergence criterium:
-  `convergence={'maximum iterations': 200}`.  This will let a calculation
+  ``convergence={'maximum iterations': 200}``.  This will let a calculation
   converge after 200 steps unless it already converged before that.  This is
   useful for structure optimizations that start far from the minimum.
 
