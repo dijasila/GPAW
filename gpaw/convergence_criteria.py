@@ -51,27 +51,31 @@ def dict2criterion(dictionary):
 def check_convergence(criteria, ctx):
     entries = {}  # for log file, per criteria
     converged_items = {}  # True/False, per criteria
-    converged = False
+    override_others = False
 
     for name, criterion in criteria.items():
         if not criterion.calc_last:
             ok, entry = criterion(ctx)
-            if criterion.override_others:
-                converged = ok
+            if criterion.override_others and ok:
+                override_others = True
             converged_items[name] = ok
             entries[name] = entry
 
-    converged = converged or all(converged_items.values())
+    converged = all(converged_items.values())
 
     for name, criterion in criteria.items():
         if criterion.calc_last:
-            if converged:
-                converged_items[name], entries[name] = criterion(ctx)
+            if converged and not override_others:
+                ok, entry = criterion(ctx)
+                converged &= ok
+                converged_items[name] = ok
+                entries[name] = entry
             else:
-                converged_items[name], entries[name] = False, ''
+                converged_items[name] = False
+                entries[name] = ''
 
     # Converged?
-    return converged, converged_items, entries
+    return converged or override_others, converged_items, entries
 
 
 class Criterion:
@@ -344,7 +348,7 @@ class MinIter(Criterion):
         the SCF cycle exits.
     """
     calc_last = False
-    name = 'miniter'
+    name = 'minimum iterations'
     tablename = 'minit'
 
     def __init__(self, n):
@@ -367,7 +371,7 @@ class MaxIter(Criterion):
         the SCF cycle exits.
     """
     calc_last = False
-    name = 'maxiter'
+    name = 'maximum iterations'
     tablename = 'maxit'
     override_others = True
 

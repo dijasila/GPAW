@@ -30,7 +30,7 @@ You can change things about how some convergence criteria work through an altern
 For example, the default syntax of :code:`convergence={'energy': 0.0005}` ensures that the last three values of the energy change by no more than 5 meV.
 If you'd rather have it examine changes in the last *four* values of the energy, you can set your convergence dictionary to::
 
-  from gpaw.scf import Energy
+  from gpaw.convergence_criteria import Energy
 
   convergence = {'energy': Energy(tol=0.0005, n_old=4)}
 
@@ -47,7 +47,7 @@ This requires that the maximum change in the magnitude of the vector representin
 Since calculating the atomic forces takes computational time and memory, by default this waits until all other convergence criteria are met before beginning to check the forces.
 If you'd rather have it check the forces at every SCF iteration you can instead do::
 
-  from gpaw.scf import Forces
+  from gpaw.convergence_criteria import Forces
 
   convergence = {'forces': Forces(0.01, calc_last=False)}
 
@@ -56,20 +56,20 @@ Example: fixed iterations
 
 You can use this approach to tell the SCF cycle to run for a fixed number of
 iterations. To do this, set all the default criteria to :code:`np.inf` to
-turn them off, then use the :class:`~gpaw.scf.MinIter` class to set a minimum
-number of iterations. (Also be sure your :ref:`maxiter <manual_convergence>`
-keyword is set higher than this value!) For example, to run for exactly 10
-iterations::
+turn them off, then use the :class:`~gpaw.convergence_criteria.MinIter` class
+to set a minimum number of iterations. (Also be sure your :ref:`maxiter
+<manual_convergence>` keyword is set higher than this value!) For example, to
+run for exactly 10 iterations::
 
   convergence = {'energy': np.inf,
                  'eigenstates': np.inf,
                  'density': np.inf,
                  'minimum iterations': 10}
 
-The :class:`~gpaw.scf.MinIter` class can work in concert with other
-convergence criteria as well; that is, it can act simply to define a minimum
-number of iterations that must be run, even if all other criteria have been
-met.
+The :class:`~gpaw.convergence_criteria.MinIter` class can work in concert
+with other convergence criteria as well; that is, it can act simply to define
+a minimum number of iterations that must be run, even if all other criteria
+have been met.
 
 
 Writing your own criteria
@@ -77,7 +77,7 @@ Writing your own criteria
 
 You can write your own custom convergence criteria if you structure them like this::
 
-  from gpaw.scf import Criterion
+  from gpaw.convergence_criteria import Criterion
 
 
   class MyCriterion(Criterion):
@@ -131,44 +131,44 @@ The criteria marked as defaults are present in the default convergence dictionar
 
 .. list-table::
     :header-rows: 1
-    :widths: 1 1 1 1
+    :widths: 1 1 1 1 1
 
     * - class
       - name attribute
       - default?
       - calc_last?
       - override_others?
-    * - :class:`~gpaw.scf.Energy`
+    * - :class:`~gpaw.convergence_criteria.Energy`
       - ``energy``
       - Yes
       - No
       - No
-    * - :class:`~gpaw.scf.Density`
+    * - :class:`~gpaw.convergence_criteria.Density`
       - ``density``
       - Yes
       - No
       - No
-    * - :class:`~gpaw.scf.Eigenstates`
+    * - :class:`~gpaw.convergence_criteria.Eigenstates`
       - ``eigenstates``
       - Yes
       - No
       - No
-    * - :class:`~gpaw.scf.Forces`
+    * - :class:`~gpaw.convergence_criteria.Forces`
       - ``forces``
       - No
       - Yes
       - No
-    * - :class:`~gpaw.scf.WorkFunction`
+    * - :class:`~gpaw.convergence_criteria.WorkFunction`
       - ``work function``
       - No
       - No
       - No
-    * - :class:`~gpaw.scf.MinIter`
+    * - :class:`~gpaw.convergence_criteria.MinIter`
       - ``minimum iterations``
       - No
       - No
       - No
-    * - :class:`~gpaw.scf.MaxIter`
+    * - :class:`~gpaw.convergence_criteria.MaxIter`
       - ``maximum iterations``
       - No
       - No
@@ -177,10 +177,10 @@ The criteria marked as defaults are present in the default convergence dictionar
 
 Full descriptions for the built-in criteria follow.
 
-.. autoclass:: gpaw.scf.Energy
-.. autoclass:: gpaw.scf.Density
-.. autoclass:: gpaw.scf.Eigenstates
-.. autoclass:: gpaw.scf.Forces
-.. autoclass:: gpaw.scf.WorkFunction
-.. autoclass:: gpaw.scf.MinIter
-.. autoclass:: gpaw.scf.MaxIter
+.. autoclass:: gpaw.convergence_criteria.Energy
+.. autoclass:: gpaw.convergence_criteria.Density
+.. autoclass:: gpaw.convergence_criteria.Eigenstates
+.. autoclass:: gpaw.convergence_criteria.Forces
+.. autoclass:: gpaw.convergence_criteria.WorkFunction
+.. autoclass:: gpaw.convergence_criteria.MinIter
+.. autoclass:: gpaw.convergence_criteria.MaxIter

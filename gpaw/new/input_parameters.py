@@ -84,7 +84,7 @@ class InputParameters:
         if self.h is not None and self.gpts is not None:
             raise ValueError("""You can't use both "gpts" and "h"!""")
 
-        bands = self.convergence.pop('bands')
+        bands = self.convergence.pop('bands', None)
         if bands is not None:
             self.eigensolver['converge_bands'] = bands
             warnings.warn(f'Please use eigensolver={self.eigensolver!r}',
@@ -127,7 +127,7 @@ def convergence(value=None):
                        'eigenstates': 4.0e-8,  # eV^2 / electron
                        'forces': np.inf,
                        'bands': None,
-                       'maxiter': None},
+                       'maximum iterations': None},
                       value)
     return {k: v for k, v in dct.items() if v is not None}
 

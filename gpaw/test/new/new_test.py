@@ -12,7 +12,7 @@ def new(x):
               'random': not True,
               'kpts': (4, 1, 1),
               'spinpol': not True,
-              'convergence': {'maxiter': 5}}
+              'convergence': {'maximum iterations': 200}}
 
     if x == 'n':
         GPAW = NewGPAW
