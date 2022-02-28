@@ -30,8 +30,16 @@ class SCFLoop:
         self.convergence = convergence
         self.maxiter = maxiter
 
+    def __repr__(self):
+        return 'SCFLoop(...)'
+
     def __str__(self):
-        return 'SCF ...'
+        return (f'{self.hamiltonian}\n'
+                f'{self.eigensolver}\n'
+                f'{self.mixer}\n'
+                f'{self.occ_calc}\n'
+                f'{self.convergence}\n'
+                f'Maximum number of iterations: {self.maxiter}')
 
     def iterate(self,
                 state: DFTState,

@@ -11,11 +11,13 @@ if TYPE_CHECKING:
 
 class BZPoints:
     def __init__(self, points):
-        self.kpt_Kc = points
+        self.kpt_Kc = np.array(points)
+        assert self.kpt_Kc.ndim == 2
+        assert self.kpt_Kc.shape[1] == 3
         self.gamma_only = len(self.kpt_Kc) == 1 and not self.kpt_Kc.any()
 
     def __len__(self):
-        """Number of k-points in the IBZ."""
+        """Number of k-points in the BZ."""
         return len(self.kpt_Kc)
 
     def __repr__(self):
@@ -74,16 +76,22 @@ class IBZ:
         return len(self.kpt_kc)
 
     def __repr__(self):
-        return f'IBZ(<{plural(len(self), "point")}>)'
+        return (f'IBZ(<points: {len(self)}, '
+                f'symmetries: {len(self.symmetries)}>)')
 
     def __str__(self):
-        s = ''
+        return str(self.symmetries) + self.description(verbose=True)
+
+    def description(self, verbose=False):
         # if -1 in self.bz2bz_Ks:
         #    s += 'Note: your k-points are not as symmetric as your crystal!\n'
         N = len(self)
-        s += str(self.bz)
+        s = str(self.bz)
         nk = plural(N, 'k-point')
         s += f'\n{nk} in the irreducible part of the Brillouin zone\n'
+
+        if not verbose:
+            return s
 
         if isinstance(self.bz, MonkhorstPackKPoints):
             w_k = (self.weight_k * len(self.bz)).round().astype(int)

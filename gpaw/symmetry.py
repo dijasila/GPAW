@@ -605,7 +605,5 @@ class CLICommand:
             k = str2dict('kpts=' + args.k_points)['kpts']
             bz = create_kpts(kpts(k), atoms)
             ibz = symmetries.reduce(bz)
-            txt = str(ibz)
-            if not args.verbose:
-                txt = txt.split('     ', 1)[0]
+            txt = ibz.description(args.verbose)
             print(txt.rstrip())

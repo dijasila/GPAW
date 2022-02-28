@@ -2,16 +2,19 @@ import _gpaw
 import numpy as np
 from ase.units import Ha
 from gpaw.core import PlaneWaves
+from gpaw.core.plane_waves import PlaneWaveExpansions
+from gpaw.new.builder import create_uniform_grid
+from gpaw.new.hamiltonian import Hamiltonian
 from gpaw.new.pw.poisson import ReciprocalSpacePoissonSolver
 from gpaw.new.pw.pot_calc import PlaneWavePotentialCalculator
-from gpaw.new.builder import DFTComponentsBuilder, create_uniform_grid
+from gpaw.new.pwfd.builder import PWFDDFTComponentsBuilder
 
 
-class PWDFTComponentsBuilder(DFTComponentsBuilder):
+class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
     interpolation = 'fft'
 
-    def __init__(self, atoms, params):
-        self.ecut = params.mode.get('ecut', 340) / Ha
+    def __init__(self, atoms, params, ecut=340):
+        self.ecut = ecut / Ha
         super().__init__(atoms, params)
 
         self._nct_ag = None
@@ -36,6 +39,11 @@ class PWDFTComponentsBuilder(DFTComponentsBuilder):
         return PlaneWaves(ecut=self.ecut,
                           cell=self.grid.cell,
                           dtype=self.dtype)
+
+    def create_xc_functional(self):
+        if self.params.xc['name'] in ['HSE06', 'PBE0', 'EXX']:
+            return ...
+        return super().create_xc_functional()
 
     def get_pseudo_core_densities(self):
         if self._nct_ag is None:
@@ -66,8 +74,49 @@ class PWDFTComponentsBuilder(DFTComponentsBuilder):
     def create_hamiltonian_operator(self, blocksize=10):
         return PWHamiltonian()
 
+    def convert_wave_functions_from_uniform_grid(self, psit_nR):
+        pw = self.wf_desc.new(kpt=psit_nR.desc.kpt_c)
+        psit_nG = pw.empty(psit_nR.dims, psit_nR.comm)
+        for psit_R, psit_G in zip(psit_nR, psit_nG):
+            psit_R.fft(out=psit_G)
+        return psit_nG
 
-class PWHamiltonian:
+    def read_ibz_wave_functions(self, reader):
+        ibzwfs = super().read_ibz_wave_functions(reader)
+
+        if 'coefficients' not in reader.wave_functions:
+            return ibzwfs
+
+        c = reader.bohr**1.5
+        if reader.version < 0:
+            c = 1  # old gpw file
+        elif reader.version < 4:
+            c /= self.grid.size_c.prod()
+
+        index_kG = reader.wave_functions.indices
+
+        for wfs in ibzwfs:
+            pw = self.wf_desc.new(kpt=wfs.kpt_c)
+            if wfs.spin == 0:
+                index_G = pw.indices(tuple(self.grid.size))
+                nG = len(index_G)
+                assert (index_G == index_kG[wfs.k, :nG]).all()
+                assert (index_kG[wfs.k, nG:] == -1).all()
+
+            index = (wfs.spin, wfs.k) if self.ncomponents != 4 else (wfs.k,)
+            data = reader.wave_functions.proxy('coefficients', *index)
+            data.scale = c
+            data.length_of_last_dimension = pw.shape[0]
+            orig_shape = data.shape
+            data.shape = (self.nbands, ) + pw.shape
+            wfs.psit_nX = PlaneWaveExpansions(pw, self.nbands,
+                                              data=data)
+            data.shape = orig_shape
+
+        return ibzwfs
+
+
+class PWHamiltonian(Hamiltonian):
     def apply(self, vt_sR, psit_nG, out, spin):
         out_nG = out
         vt_R = vt_sR.data[spin]

@@ -1,18 +1,17 @@
-import pytest
 from ase import Atoms
 from gpaw.calculator import GPAW as OldGPAW
 from gpaw.new.ase_interface import GPAW as NewGPAW
 
 
-@pytest.mark.serial
 def test_refactored_code():
     new('n')
 
 
 def new(x):
-    params = {'mode': {'name': 'fd', 'force_complex_dtype': 0},
+    params = {'mode': {'name': 'fd'},
+              'force_complex_dtype': 0,
               'random': not True,
-              # 'kpts': (4, 1, 1),
+              'kpts': (4, 1, 1),
               'spinpol': not True}
 
     if x == 'n':
@@ -26,6 +25,7 @@ def new(x):
                       txt=f'{x}s.txt')
     f = atoms.get_forces()
     e = atoms.get_potential_energy()
+    atoms.get_dipole_moment()
     print(e)
     print(f)
     if 1:

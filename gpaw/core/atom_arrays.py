@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-import numpy as np
+import numbers
 
+import numpy as np
 from gpaw.core.arrays import DistributedArrays
 from gpaw.mpi import MPIComm, serial_comm
 from gpaw.typing import Array1D
@@ -91,7 +92,12 @@ class AtomArrays(DistributedArrays):
                           transposed=self.transposed)
 
     def __getitem__(self, a):
-        return self._arrays[a]
+        if isinstance(a, numbers.Integral):
+            return self._arrays[a]
+        if self.transposed and len(self.dims) == 1:
+            a_ai = AtomArrays(self.layout, data=self.data[:, a[2]].copy())
+            return a_ai
+        1 / 0
 
     def get(self, a):
         return self._arrays.get(a)
@@ -112,7 +118,6 @@ class AtomArrays(DistributedArrays):
         return self._arrays.values()
 
     def gather(self, broadcast=False, copy=False) -> AtomArrays | None:
-        assert not self.transposed
         comm = self.layout.atomdist.comm
         if comm.size == 1:
             if copy:
@@ -120,6 +125,8 @@ class AtomArrays(DistributedArrays):
                 aa.data[:] = self.data
                 return aa
             return self
+
+        assert not self.transposed
 
         if comm.rank == 0 or broadcast:
             aa = self.new(layout=self.layout.new(atomdist=serial_comm))
@@ -198,3 +205,32 @@ class AtomArrays(DistributedArrays):
 
         for request, _ in requests:
             comm.wait(request)
+
+    def to_lower_triangle(self):
+        shape_a = []
+        for i1, i2 in self.layout.shape_a:
+            assert i1 == i2
+            shape_a.append((i1 * (i1 + 1) // 2,))
+        layout = AtomArraysLayout(shape_a, self.layout.atomdist.comm)
+        a_axp = layout.empty(self.dims)
+        for a_xii, a_xp in zip(self.values(), a_axp.values()):
+            i = a_xii.shape[-1]
+            L = np.tril_indices(i)
+            for a_p, a_ii in zip(a_xp.reshape((-1, i * (i + 1) // 2)),
+                                 a_xii.reshape((-1, i, i))):
+                a_p[:] = a_ii[L]
+        return a_axp
+
+    def to_full(self):
+        shape_a = []
+        for (p,) in self.layout.shape_a:
+            i = int((2 * p + 0.25)**0.5)
+            shape_a.append((i, i))
+        layout = AtomArraysLayout(shape_a, self.layout.atomdist.comm)
+        a_axii = layout.empty(self.dims)
+        for a_xp, a_xii in zip(self.values(), a_axii.values()):
+            i = a_xii.shape[-1]
+            a_xii[..., np.tril_indices(i)] = a_xp
+            u = np.triu_indices(i, 1)
+            a_xii[..., u] = np.swapaxes(a_xii, -1, -2)[..., u]
+        return a_axii

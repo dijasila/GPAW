@@ -3,6 +3,10 @@ import sys
 
 import sphinx_rtd_theme
 from gpaw import __version__
+try:
+    import sphinxcontrib.spelling
+except ImportError:
+    sphinxcontrib = None
 
 assert sys.version_info >= (3, 6)
 
@@ -16,8 +20,10 @@ extensions = ['images',
               'sphinx.ext.viewcode',
               'sphinx.ext.napoleon',
               'sphinx.ext.mathjax',
-              'sphinx.ext.intersphinx',
-              'sphinxcontrib.spelling']
+              'sphinx.ext.intersphinx']
+
+if sphinxcontrib:
+    extensions.append('sphinxcontrib.spelling')
 extlinks = {'doi': ('https://doi.org/%s', 'doi:'),
             'arxiv': ('https://arxiv.org/abs/%s', 'arXiv:'),
             'xkcd': ('https://xkcd.com/%s', 'XKCD:')}
@@ -50,7 +56,9 @@ nitpick_ignore = [('py:class', 'gpaw.calculator.GPAW'),
                   ('py:class', 'ase.atoms.Atoms'),
                   ('py:class', 'gpaw.point_groups.group.PointGroup'),
                   ('py:class', 'UniformGridFunctions'),
-                  ('py:class', 'DomainType')]
+                  ('py:class', 'DomainType'),
+                  ('py:class', 'Path'),
+                  ('py:class', 'IO')]
 
 html_theme = 'sphinx_rtd_theme'
 html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]

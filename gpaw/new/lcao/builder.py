@@ -1,12 +1,13 @@
 from functools import partial
 from gpaw.core.matrix import Matrix
 from gpaw.new.fd.builder import FDDFTComponentsBuilder
-from gpaw.new.ibzwfs import IBZWaveFunctions
+from gpaw.new.ibzwfs import create_ibz_wave_functions as create_ibzwfs
 from gpaw.new.lcao.eigensolver import LCAOEigensolver
 from gpaw.new.lcao.hamiltonian import LCAOHamiltonian
 from gpaw.new.lcao.wave_functions import LCAOWaveFunctions
 from gpaw.lcao.tci import TCIExpansions
 from gpaw.utilities.timing import NullTimer
+from gpaw.new.lcao.hybrids import HybridXCFunctional, HybridLCAOEigensolver
 
 
 class LCAODFTComponentsBuilder(FDDFTComponentsBuilder):
@@ -17,6 +18,11 @@ class LCAODFTComponentsBuilder(FDDFTComponentsBuilder):
     def create_wf_description(self):
         raise NotImplementedError
 
+    def create_xc_functional(self):
+        if self.params.xc['name'] in ['HSE06', 'PBE0', 'EXX']:
+            return HybridXCFunctional(self.params.xc)
+        return super().create_xc_functional()
+
     def create_basis_set(self):
         self.basis = FDDFTComponentsBuilder.create_basis_set(self)
         return self.basis
@@ -25,6 +31,10 @@ class LCAODFTComponentsBuilder(FDDFTComponentsBuilder):
         return LCAOHamiltonian(self.basis)
 
     def create_eigensolver(self, hamiltonian):
+        if self.params.xc['name'] in ['HSE06', 'PBE0', 'EXX']:
+            return HybridLCAOEigensolver(self.basis,
+                                         self.fracpos_ac,
+                                         self.grid.cell_cv)
         return LCAOEigensolver(self.basis)
 
     def create_ibz_wave_functions(self, basis, potential):
@@ -38,8 +48,6 @@ class LCAODFTComponentsBuilder(FDDFTComponentsBuilder):
         rank_k = ibz.ranks(kpt_comm)
         here_k = rank_k == kpt_comm.rank
         kpt_qc = ibz.kpt_kc[here_k]
-
-        nspins = self.ncomponents % 3
 
         self.tciexpansions = TCIExpansions.new_from_setups(self.setups)
         # basis.set_matrix_distribution(self.ksl.Mstart, self.ksl.Mstop)
@@ -57,39 +65,32 @@ class LCAODFTComponentsBuilder(FDDFTComponentsBuilder):
 
         for a, setup in enumerate(self.setups):
             for P_Mi, S_MM in zip(P_aqMi[a], S_qMM):
-                S_MM += P_Mi.conj() @ setup.dO_ii @ P_Mi.T
+                S_MM += P_Mi @ setup.dO_ii @ P_Mi.T.conj()
 
         # self.atomic_correction= self.atomic_correction_cls.new_from_wfs(self)
         # self.atomic_correction.add_overlap_correction(newS_qMM)
 
-        wfs_qs = []
-        for q, (kpt_c,
-                weight,
-                S_MM,
-                T_MM,
-                P_aMi) in enumerate(zip(kpt_qc, ibz.weight_k[here_k],
-                                        S_qMM, T_qMM, P_qaMi)):
-            wfs_s = []
-            for s in range(nspins):
-                C_nM = Matrix(self.nbands, self.setups.nao, self.dtype,
-                              dist=(band_comm, band_comm.size, 1))
-                wfs = LCAOWaveFunctions(
-                    kpt_c,
-                    partial(basis.construct_density, q=q),
-                    C_nM,
-                    S_MM,
-                    T_MM,
-                    P_aMi,
-                    domain_comm,
-                    s,
-                    self.setups,
-                    self.fracpos_ac,
-                    weight,
-                    spin_degeneracy=2 // nspins)
-                wfs_s.append(wfs)
-            wfs_qs.append(wfs_s)
+        def create_wfs(spin, q, k, kpt_c, weight):
+            C_nM = Matrix(self.nbands, self.setups.nao, self.dtype,
+                          dist=(band_comm, band_comm.size, 1))
+            return LCAOWaveFunctions(
+                setups=self.setups,
+                density_adder=partial(basis.construct_density, q=q),
+                C_nM=C_nM,
+                S_MM=S_qMM[q],
+                T_MM=T_qMM[q],
+                P_aMi=P_qaMi[q],
+                kpt_c=kpt_c,
+                domain_comm=domain_comm,
+                spin=spin,
+                q=q,
+                k=k,
+                weight=weight,
+                ncomponents=self.ncomponents)
 
-        ibzwfs = IBZWaveFunctions(ibz, rank_k, kpt_comm, wfs_qs,
-                                  self.nelectrons,
-                                  2 // nspins)
+        ibzwfs = create_ibzwfs(ibz,
+                               self.nelectrons,
+                               self.ncomponents,
+                               create_wfs,
+                               kpt_comm)
         return ibzwfs

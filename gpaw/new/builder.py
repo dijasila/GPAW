@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import importlib
-import sys
 from types import SimpleNamespace
 from typing import Any, Union
 
@@ -10,15 +9,11 @@ from ase import Atoms
 from ase.calculators.calculator import kpts2sizeandoffsets
 from ase.units import Bohr
 from gpaw.core import UniformGrid
-from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.lfc import BasisFunctions
 from gpaw.mixer import MixerWrapper, get_mixer_from_keywords
 from gpaw.mpi import MPIComm, Parallelization, serial_comm, world
 from gpaw.new import cached_property
 from gpaw.new.brillouin import BZPoints, MonkhorstPackKPoints
-from gpaw.new.davidson import Davidson
 from gpaw.new.density import Density
-from gpaw.new.ibzwfs import IBZWaveFunctions
 from gpaw.new.input_parameters import InputParameters
 from gpaw.new.scf import SCFLoop
 from gpaw.new.smearing import OccupationNumberCalculator
@@ -26,8 +21,8 @@ from gpaw.new.symmetry import create_symmetries_object
 from gpaw.new.xc import XCFunctional
 from gpaw.setup import Setups
 from gpaw.utilities.gpts import get_number_of_grid_points
-from gpaw.xc import XC
 from gpaw.typing import DTypeLike
+from gpaw.new.basis import create_basis
 
 
 def builder(atoms: Atoms,
@@ -43,11 +38,12 @@ def builder(atoms: Atoms,
     if isinstance(params, dict):
         params = InputParameters(params)
 
-    mode = params.mode['name']
-    assert mode in {'pw', 'lcao', 'fd', 'tb', 'atom'}
-    mod = importlib.import_module(f'gpaw.new.{mode}.builder')
-    name = mode.title() if mode == 'atom' else mode.upper()
-    return getattr(mod, f'{name}DFTComponentsBuilder')(atoms, params)
+    mode = params.mode.copy()
+    name = mode.pop('name')
+    assert name in {'pw', 'lcao', 'fd', 'tb', 'atom'}
+    mod = importlib.import_module(f'gpaw.new.{name}.builder')
+    name = name.title() if name == 'atom' else name.upper()
+    return getattr(mod, f'{name}DFTComponentsBuilder')(atoms, params, **mode)
 
 
 class DFTComponentsBuilder:
@@ -64,7 +60,8 @@ class DFTComponentsBuilder:
 
         self.check_cell(atoms.cell)
 
-        self.xc = XCFunctional(XC(params.xc))  # mode?
+        self.xc = self.create_xc_functional()
+
         self.setups = Setups(atoms.numbers,
                              params.setups,
                              params.basis,
@@ -85,6 +82,7 @@ class DFTComponentsBuilder:
         b = parallel.get('band', None)
         self.communicators = create_communicators(world, len(self.ibz),
                                                   d, k, b)
+
         if self.mode == 'fd':
             pass  # filter = create_fourier_filter(grid)
             # setups = stups.filter(filter)
@@ -98,7 +96,7 @@ class DFTComponentsBuilder:
                                                 self.mode == 'lcao')
 
         self.dtype: DTypeLike
-        if sys._xoptions.get('force_complex_dtype'):
+        if params.force_complex_dtype:
             self.dtype = complex
         elif self.ibz.bz.gamma_only:
             self.dtype = float
@@ -114,10 +112,16 @@ class DFTComponentsBuilder:
         else:
             self.ncomponents = 4
 
+        self.nspins = self.ncomponents % 3
+        self.spin_degeneracy = self.ncomponents % 2 + 1
+
         self.fracpos_ac = self.atoms.get_scaled_positions()
 
     def create_uniform_grids(self):
         raise NotImplementedError
+
+    def create_xc_functional(self):
+        return XCFunctional(self.params.xc)
 
     def check_cell(self, cell):
         number_of_lattice_vectors = cell.rank
@@ -145,59 +149,16 @@ class DFTComponentsBuilder:
                                scale=1.0 / (self.ncomponents % 3))
         return out
 
-    def create_ibz_wave_functions(self, basis_set, potential):
-        if self.params.random:
-            self.log('Initializing wave functions with random numbers')
-            ibzwfs = self.random_ibz_wave_functions()
-        else:
-            ibzwfs = self.lcao_ibz_wave_functions(basis_set, potential)
-        return ibzwfs
-
-    def lcao_ibz_wave_functions(self, basis_set, potential):
-        from gpaw.new.lcao.lcao import create_lcao_ibz_wave_functions
-        sl_default = self.params.parallel['sl_default']
-        sl_lcao = self.params.parallel['sl_lcao'] or sl_default
-        return create_lcao_ibz_wave_functions(
-            self.setups,
-            self.communicators,
-            self.nbands,
-            self.ncomponents,
-            self.nelectrons,
-            self.fracpos_ac,
-            self.dtype,
-            self.grid,
-            self.wf_desc,
-            self.ibz,
-            sl_lcao,
-            basis_set,
-            potential)
-
-    def random_ibz_wave_functions(self):
-        return IBZWaveFunctions.from_random_numbers(
-            self.ibz,
-            self.communicators['b'],
-            self.communicators['k'],
-            self.wf_desc,
-            self.setups,
-            self.fracpos_ac,
-            self.nbands,
-            self.nelectrons,
-            self.dtype)
-
     def create_basis_set(self):
-        kd = KPointDescriptor(self.ibz.bz.kpt_Kc, self.ncomponents % 3)
-        kd.set_symmetry(SimpleNamespace(pbc=self.grid.pbc),
-                        self.ibz.symmetries.symmetry,
-                        comm=self.communicators['w'])
-        kd.set_communicator(self.communicators['k'])
-
-        basis_set = BasisFunctions(self.grid._gd,
-                                   [setup.phit_j for setup in self.setups],
-                                   kd,
-                                   dtype=self.dtype,
-                                   cut=True)
-        basis_set.set_positions(self.fracpos_ac)
-        return basis_set
+        return create_basis(self.ibz,
+                            self.ncomponents % 3,
+                            self.atoms.pbc,
+                            self.grid,
+                            self.setups,
+                            self.dtype,
+                            self.fracpos_ac,
+                            self.communicators['w'],
+                            self.communicators['k'])
 
     def density_from_superposition(self, basis_set):
         return Density.from_superposition(self.grid,
@@ -218,13 +179,6 @@ class DFTComponentsBuilder:
             self.communicators,
             self.initial_magmoms,
             np.linalg.inv(self.atoms.cell.complete()).T)
-
-    def create_eigensolver(self, hamiltonian):
-        return Davidson(self.nbands,
-                        self.wf_desc,
-                        self.communicators['b'],
-                        hamiltonian.create_preconditioner,
-                        **self.params.eigensolver)
 
     def create_scf_loop(self):
         hamiltonian = self.create_hamiltonian_operator()
@@ -365,8 +319,6 @@ def create_uniform_grid(mode: str,
         pbc = (True, True, True)
 
     if gpts is not None:
-        if h is not None:
-            raise ValueError("""You can't use both "gpts" and "h"!""")
         size = gpts
     else:
         modeobj = SimpleNamespace(name=mode, ecut=ecut)

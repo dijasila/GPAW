@@ -13,9 +13,9 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
                  poisson_solver,
                  nct_ag,
                  nct_R):
-        super().__init__(xc, poisson_solver, setups, nct_R)
-
         fracpos_ac = nct_ag.fracpos_ac
+        super().__init__(xc, poisson_solver, setups, nct_R, fracpos_ac)
+
         self.nct_ag = nct_ag
         self.vbar_ag = setups.create_local_potentials(pw, fracpos_ac)
         self.ghat_aLh = setups.create_compensation_charges(fine_pw, fracpos_ac)
@@ -36,7 +36,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         nt_g = self.vbar_g.desc.zeros()
         indices = nt_g.desc.indices(self.fftplan.out_R.shape)
         for spin, (nt_R, nt_r) in enumerate(zip(density.nt_sR, nt_sr)):
-            nt_R.fft_interpolate(nt_r, self.fftplan, self.ifftplan2)
+            nt_R.interpolate(self.fftplan, self.ifftplan2, out=nt_r)
             if spin < density.ndensities:
                 nt_g.data += self.fftplan.out_R.ravel()[indices]
         nt_g.data *= 1 / self.fftplan.in_R.size

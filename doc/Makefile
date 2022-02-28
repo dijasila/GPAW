@@ -48,4 +48,7 @@ browse:
 	firefox build/html/index.html
 
 doctest:
-	$(SPHINXBUILD) -b doctest $(ALLSPHINXOPTS) $(BUILDDIR)/doctest tutorialsexercises/structureoptimization/gettingstarted/gettingstarted.rst documentation/core.rst
+	$(SPHINXBUILD) -b doctest $(ALLSPHINXOPTS) $(BUILDDIR)/doctest tutorialsexercises/structureoptimization/gettingstarted/gettingstarted.rst documentation/core.rst index.rst
+
+spelling:
+	$(SPHINXBUILD) -b spelling $(ALLSPHINXOPTS) $(BUILDDIR)/spelling

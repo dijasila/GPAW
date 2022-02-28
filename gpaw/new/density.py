@@ -1,9 +1,10 @@
 from __future__ import annotations
 from math import sqrt, pi
 import numpy as np
+from ase.units import Bohr
 from gpaw.typing import ArrayLike1D
 from gpaw.core.atom_centered_functions import AtomArraysLayout
-from gpaw.utilities import unpack2, unpack
+from gpaw.utilities import unpack2, unpack, pack
 from typing import Union
 from gpaw.core.atom_arrays import AtomArrays
 
@@ -154,6 +155,19 @@ class Density:
                    [unpack(setup.N0_p) for setup in setups],
                    [setup.l_j for setup in setups])
 
+    def calculate_dipole_moment(self, fracpos_ac):
+        dip_v = np.zeros(3)
+        ccc_aL = self.calculate_compensation_charge_coefficients()
+        pos_av = fracpos_ac @ self.nt_sR.desc.cell_cv
+        for a, ccc_L in ccc_aL.items():
+            c, y, z, x = ccc_L[:4]
+            dip_v -= c * (4 * pi)**0.5 * pos_av[a]
+            dip_v -= np.array([x, y, z]) * (4 * pi / 3)**0.5
+        self.nt_sR.desc.comm.sum(dip_v)
+        for nt_R in self.nt_sR:
+            dip_v -= nt_R.moment()
+        return dip_v
+
     def calculate_magnetic_moments(self):
         magmom_av = np.zeros((self.natoms, 3))
         magmom_v = np.zeros(3)
@@ -186,6 +200,24 @@ class Density:
             magmom_v += self.nt_sR.integrate()[1:]
 
         return magmom_v, magmom_av
+
+    def write(self, writer):
+        D_asii = self.D_asii.gather()
+
+        # Pack matrices:
+        N = sum(i1 * (i1 + 1) // 2 for i1, i2 in D_asii.layout.shape_a)
+        D = np.zeros((self.ncomponents, N))
+        n1 = 0
+        for D_sii in D_asii.values():
+            i1 = D_sii.shape[1]
+            n2 = n1 + i1 * (i1 + 1) // 2
+            for s, D_ii in enumerate(D_sii):
+                D[s, n1:n2] = pack(D_ii)
+            n1 = n2
+
+        writer.write(
+            density=self.nt_sR.gather().data * Bohr**-3,
+            atomic_density_matrices=D)
 
 
 def atomic_occupation_numbers(setup,

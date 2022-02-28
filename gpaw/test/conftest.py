@@ -81,7 +81,7 @@ def gpw_files(request, tmp_path_factory):
 
     * Bulk TiO2 with 4x4x4 k-points: ``ti2o4_pw`` and ``ti2o4_pw_nosym``.
 
-    Files with wave functions are also availabel (add ``_wfs`` to the names).
+    Files with wave functions are also availabe (add ``_wfs`` to the names).
     """
     path = os.environ.get('GPW_TEST_FILES')
     if path is None:
@@ -166,12 +166,21 @@ class GPWFiles:
 
     def o2_pw(self):
         d = 1.1
-        h = Atoms('O2', positions=[[0, 0, 0], [d, 0, 0]], magmoms=[1, 1])
-        h.center(vacuum=4.0)
-        h.calc = GPAW(mode={'name': 'pw', 'ecut': 800},
+        a = Atoms('O2', positions=[[0, 0, 0], [d, 0, 0]], magmoms=[1, 1])
+        a.center(vacuum=4.0)
+        a.calc = GPAW(mode={'name': 'pw', 'ecut': 800},
                       txt=self.path / 'o2_pw.txt')
-        h.get_potential_energy()
-        return h.calc
+        a.get_potential_energy()
+        return a.calc
+
+    def co_lcao(self):
+        d = 1.1
+        co = Atoms('CO', positions=[[0, 0, 0], [d, 0, 0]])
+        co.center(vacuum=4.0)
+        co.calc = GPAW(mode='lcao',
+                       txt=self.path / 'co_lcao.txt')
+        co.get_potential_energy()
+        return co.calc
 
     def c2h4_pw_nosym(self):
         d = 1.54
@@ -279,7 +288,7 @@ def pytest_configure(config):
     for line in ['soc: Spin-orbit coupling',
                  'slow: slow test',
                  'fast: fast test',
-                 'ci: test for CI',
+                 'ci: test included in CI',
                  'libxc: LibXC requirered',
                  'mgga: MGGA test',
                  'dscf: Delta-SCF',
@@ -287,7 +296,8 @@ def pytest_configure(config):
                  'gllb: GLLBSC tests',
                  'elph: Electron-phonon',
                  'intel: fails on INTEL toolchain',
-                 'serial: run in serial only']:
+                 'serial: run in serial only',
+                 'skip_for_new_gpaw: know failure for new refactored GPAW']:
         config.addinivalue_line('markers', line)
 
 

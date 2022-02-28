@@ -44,8 +44,12 @@ class DistributedArrays(Generic[DomainType]):
             fullshape = self.mydims + self.myshape
 
         if data is not None:
-            assert data.shape == fullshape
-            assert data.dtype == dtype
+            if data.shape != fullshape:
+                raise ValueError(
+                    f'Bad shape for data: {data.shape} != {fullshape}')
+            if data.dtype != dtype:
+                raise ValueError(
+                    f'Bad dtype for data: {data.dtype} != {dtype}')
         else:
             data = np.empty(fullshape, dtype)
 
@@ -54,6 +58,13 @@ class DistributedArrays(Generic[DomainType]):
 
     def new(self, data=None) -> DistributedArrays:
         raise NotImplementedError
+
+    def __getitem__(self, index):
+        raise NotImplementedError
+
+    def __iter__(self):
+        for index in range(self.dims[0]):
+            yield self[index]
 
     @property
     def matrix(self) -> Matrix:

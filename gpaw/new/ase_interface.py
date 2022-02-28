@@ -5,14 +5,14 @@ from typing import IO, Any, Union
 
 from ase import Atoms
 from ase.units import Bohr, Ha
-
 from gpaw import __version__
 from gpaw.new import Timer
 from gpaw.new.calculation import DFTCalculation
+from gpaw.new.gpw import read_gpw
 from gpaw.new.input_parameters import InputParameters
 from gpaw.new.logger import Logger
-from gpaw.new.old import OldStuff, read_gpw
 from gpaw.typing import Array1D, Array2D
+from gpaw.new.old import methods
 
 
 def GPAW(filename: Union[str, Path, IO[str]] = None,
@@ -28,25 +28,36 @@ def GPAW(filename: Union[str, Path, IO[str]] = None,
     if filename is not None:
         kwargs.pop('txt', None)
         assert len(kwargs) == 0
-        calculation, params = read_gpw(filename, log, params.parallel)
-        return ASECalculator(params, log, calculation)
+        atoms, calculation, params = read_gpw(filename, log, params.parallel)
+        return ASECalculator(params, log, calculation, atoms)
 
-    write_header(log, world, kwargs)
+    write_header(log, world, params)
     return ASECalculator(params, log)
 
 
-class ASECalculator(OldStuff):
+class ASECalculator:
     """This is the ASE-calculator frontend for doing a GPAW calculation."""
     def __init__(self,
                  params: InputParameters,
                  log: Logger,
-                 calculation=None):
+                 calculation=None,
+                 atoms=None):
         self.params = params
         self.log = log
         self.calculation = calculation
 
-        self.atoms = None
+        self.atoms = atoms
         self.timer = Timer()
+
+    def __repr__(self):
+        params = []
+        for key, value in self.params.items():
+            val = repr(value)
+            if len(val) > 40:
+                val = '...'
+            params.append((key, val))
+        p = ', '.join(f'{key}: {val}' for key, val in params)
+        return f'ASECalculator({p})'
 
     def calculate_property(self, atoms: Atoms, prop: str) -> Any:
         """Calculate (if not already calculated) a property.
@@ -113,9 +124,12 @@ class ASECalculator(OldStuff):
         """
         with self.timer('SCF'):
             self.calculation.converge(self.log)
+
+        # Calculate all the cheap things:
         self.calculation.energies(self.log)
-        # self.calculation.dipole(self.log)
+        self.calculation.dipole(self.log)
         self.calculation.magmoms(self.log)
+
         self.atoms = atoms.copy()
         self.calculation.write_converged(self.log)
 
@@ -145,12 +159,16 @@ class ASECalculator(OldStuff):
         return self.calculate_property(atoms, 'magmoms')
 
 
-def write_header(log, world, kwargs):
+for name, method in methods:
+    setattr(ASECalculator, name, method)
+
+
+def write_header(log, world, params):
     from gpaw.io.logger import write_header as header
     log(f' __  _  _\n| _ |_)|_||  |\n|__||  | ||/\\| - {__version__}\n')
     header(log, world)
     log('Input parameters = {\n    ', end='')
-    log(',\n    '.join(f'{k!r}: {v!r}' for k, v in kwargs.items()) + '}')
+    log(',\n    '.join(f'{k!r}: {v!r}' for k, v in params.items()) + '}')
 
 
 def compare_atoms(a1: Atoms, a2: Atoms) -> set[str]:
