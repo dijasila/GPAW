@@ -2,7 +2,6 @@ from types import SimpleNamespace
 
 import numpy as np
 from gpaw.band_descriptor import BandDescriptor
-from gpaw.core.atom_arrays import AtomArrays, AtomArraysLayout
 from gpaw.kohnsham_layouts import get_KohnSham_layouts
 from gpaw.lcao.eigensolver import DirectLCAO
 from gpaw.new.builder import DFTComponentsBuilder
@@ -28,13 +27,8 @@ class PWFDDFTComponentsBuilder(DFTComponentsBuilder):
                         **eigsolv_params)
 
     def read_ibz_wave_functions(self, reader):
-        ha = reader.ha
-
         kpt_comm, band_comm, domain_comm = (self.communicators[x]
                                             for x in 'kbd')
-
-        eig_skn = reader.wave_functions.eigenvalues
-        P_sknI = reader.wave_functions.projections
 
         def create_wfs(spin: int, q: int, k: int, kpt_c, weight: float):
             psit_nG = SimpleNamespace(
@@ -53,13 +47,6 @@ class PWFDDFTComponentsBuilder(DFTComponentsBuilder):
                 fracpos_ac=self.fracpos_ac,
                 ncomponents=self.ncomponents)
 
-            wfs._eig_n = eig_skn[spin, k] / ha
-            layout = AtomArraysLayout([(setup.ni,) for setup in self.setups],
-                                      dtype=self.dtype)
-            wfs._P_ain = AtomArrays(layout,
-                                    dims=(self.nbands,),
-                                    data=P_sknI[spin, k].T,
-                                    transposed=True)
             return wfs
 
         ibzwfs = create_ibz_wave_functions(self.ibz,
@@ -68,7 +55,8 @@ class PWFDDFTComponentsBuilder(DFTComponentsBuilder):
                                            create_wfs,
                                            self.communicators['k'])
 
-        ibzwfs.fermi_levels = reader.wave_functions.fermi_levels / ha
+        # Set eigenvalues, occupations, etc..
+        self.read_wavefunction_values(reader, ibzwfs)
 
         return ibzwfs
 

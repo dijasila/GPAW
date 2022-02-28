@@ -9,6 +9,7 @@ from ase import Atoms
 from ase.calculators.calculator import kpts2sizeandoffsets
 from ase.units import Bohr
 from gpaw.core import UniformGrid
+from gpaw.core.atom_arrays import AtomArrays, AtomArraysLayout
 from gpaw.mixer import MixerWrapper, get_mixer_from_keywords
 from gpaw.mpi import MPIComm, Parallelization, serial_comm, world
 from gpaw.new import cached_property
@@ -195,6 +196,30 @@ class DFTComponentsBuilder:
                        eigensolver, mixer, self.communicators['w'],
                        self.params.convergence,
                        self.params.maxiter)
+
+    def read_wavefunction_values(self, reader, ibzwfs):
+        """ Read eigenvalues, occuptions and projections and fermi levels
+
+        The values are read using reader and set as the appropriate properties
+        of (the already instantiated) wavefunctions contained in ibzwfs
+        """
+        ha = reader.ha
+
+        eig_skn = reader.wave_functions.eigenvalues
+        occ_skn = reader.wave_functions.occupations
+        P_sknI = reader.wave_functions.projections
+
+        for wfs in ibzwfs:
+            wfs._eig_n = eig_skn[wfs.spin, wfs.k] / ha
+            wfs._occ_n = occ_skn[wfs.spin, wfs.k]
+            layout = AtomArraysLayout([(setup.ni,) for setup in self.setups],
+                                      dtype=self.dtype)
+            wfs._P_ain = AtomArrays(layout,
+                                    dims=(self.nbands,),
+                                    data=P_sknI[wfs.spin, wfs.k].T,
+                                    transposed=True)
+
+        ibzwfs.fermi_levels = reader.wave_functions.fermi_levels / ha
 
 
 def create_communicators(comm: MPIComm = None,
