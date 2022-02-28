@@ -37,7 +37,7 @@ class LCAODFTComponentsBuilder(FDDFTComponentsBuilder):
                                          self.grid.cell_cv)
         return LCAOEigensolver(self.basis)
 
-    def create_ibz_wave_functions(self, basis, potential):
+    def create_ibz_wave_functions(self, basis, potential, coefficients=None):
         assert self.communicators['w'].size == 1
 
         ibz = self.ibz
@@ -73,6 +73,8 @@ class LCAODFTComponentsBuilder(FDDFTComponentsBuilder):
         def create_wfs(spin, q, k, kpt_c, weight):
             C_nM = Matrix(self.nbands, self.setups.nao, self.dtype,
                           dist=(band_comm, band_comm.size, 1))
+            if coefficients is not None:
+                C_nM.data[:] = coefficients.proxy(spin, k)
             return LCAOWaveFunctions(
                 setups=self.setups,
                 density_adder=partial(basis.construct_density, q=q),
@@ -93,4 +95,24 @@ class LCAODFTComponentsBuilder(FDDFTComponentsBuilder):
                                self.ncomponents,
                                create_wfs,
                                kpt_comm)
+        return ibzwfs
+
+    def read_ibz_wave_functions(self, reader):
+        c = reader.bohr**1.5
+        if reader.version < 0:
+            c = 1  # old gpw file
+
+        basis = self.create_basis_set()
+        potential = self.create_potential_calculator()
+        if 'coefficients' in reader.wave_functions:
+            coefficients = reader.wave_functions.proxy('coefficients')
+            coefficients.scale = c
+        else:
+            coefficients = None
+
+        ibzwfs = self.create_ibz_wave_functions(basis, potential, coefficients)
+
+        # Set eigenvalues, occupations, etc..
+        self.read_wavefunction_values(reader, ibzwfs)
+
         return ibzwfs

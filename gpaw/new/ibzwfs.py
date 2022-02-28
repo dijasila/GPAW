@@ -213,24 +213,38 @@ class IBZWaveFunctions:
             weights=ibz.weight_k)
 
         for wfs in self:
-            nproj = wfs._P_ain.layout.size
+            nproj = wfs.P_ain.layout.size
             break
 
         if self.collinear:
-            shape = (self.ncomponents, len(ibz), self.nbands, nproj)
+            spin_k_shape = (self.ncomponents, len(ibz))
+            proj_shape = spin_k_shape + (self.nbands, nproj)
         else:
-            shape = (len(ibz), self.nbands, 2, nproj)
+            proj_shape = (len(ibz), self.nbands, 2, nproj)
             1 / 0
 
-        writer.add_array('projections', shape, self.dtype)
+        writer.add_array('projections', proj_shape, self.dtype)
 
         for spin in range(self.nspins):
             for wfs in self:
                 if wfs.spin != spin:
                     continue
-                P_ain = wfs._P_ain.gather()
+                P_ain = wfs.P_ain.gather()
                 assert P_ain.comm.size == 1
                 writer.fill(P_ain.data.T)
+
+        if not skip_wfs:
+            if self.domain_comm.rank != 0 or self.band_comm.rank != 0:
+                return
+
+            # Write header for wave functions
+            self.wfs_qs[0][0].add_wave_functions_array(writer, spin_k_shape)
+
+            for spin in range(self.nspins):
+                for wfs in self:
+                    if wfs.spin != spin:
+                        continue
+                    wfs.fill_wave_functions(writer)
 
     def write_summary(self, log):
         fl = self.fermi_levels * Ha
