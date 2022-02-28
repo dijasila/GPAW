@@ -24,7 +24,7 @@ class SCFLoop:
         for criterion in self.criteria.values():
             if criterion.description is not None:
                 s += ' ' + criterion.description + '\n'
-        s += ' Maximum number of scf [iter]ations: {:d}'.format(self.maxiter)
+        s += f' Maximum number of scf [iter]ations: {self.maxiter}'
         s += ("\n (Square brackets indicate name in SCF output, whereas a 'c'"
               " in\n the SCF output indicates the quantity has converged.)\n")
         return s
@@ -50,16 +50,15 @@ class SCFLoop:
         self.check_eigensolver_state(wfs, ham, dens)
         self.niter = 1
 
-        while self.niter <= abs(self.maxiter):
+        while self.niter <= self.maxiter:
             self.iterate_eigensolver(wfs, ham, dens)
 
             self.check_convergence(
                 dens, ham, wfs, log, callback)
             yield
 
-            converged = ((self.converged and
-                          self.niter >= self.niter_fixdensity) or
-                         (self.maxiter < 0 and self.niter == -self.maxiter))
+            converged = (self.converged and
+                         self.niter >= self.niter_fixdensity)
             if converged:
                 self.do_if_converged(wfs, ham, dens, log)
                 break
