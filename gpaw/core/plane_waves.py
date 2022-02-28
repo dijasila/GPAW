@@ -83,8 +83,8 @@ class PlaneWaves(Domain):
         return np.ravel_multi_index(self.indices_cG, shape,
                                     mode='wrap').astype(np.int32)
 
-    def cut(self, array_R):
-        return array_R.ravel()[self.indices(array_R.shape)]
+    def cut(self, array_G):
+        return array_G.ravel()[self.indices(array_G.shape)]
 
     def paste(self, coef_G, array_Q):
         Q_G = self.indices(array_Q.shape)

@@ -1,3 +1,4 @@
+import os
 from ase.units import Bohr
 from gpaw.utilities.ps2ae import PS2AE
 from gpaw import GPAW
@@ -9,10 +10,18 @@ def test_dipole_me(gpw_files):
     calc = GPAW(gpw_files['h2_pw_wfs'])
 
     # Method 1: evaluate all-electron wave functions on fine grid:
-    t = PS2AE(calc, grid_spacing=0.05)
-    psi0 = t.get_wave_function(0) * Bohr**1.5
-    psi1 = t.get_wave_function(1) * Bohr**1.5
-    d1_v = -t.gd.calculate_dipole_moment(psi0 * psi1) * Bohr
+    if os.environ.get('GPAW_NEW'):
+        psi0, psi1 = (
+            calc.calculation.state.ibzwfs.
+            get_all_electron_wave_function(n)
+            for n in [0, 1])
+        psi0.data *= psi1.data
+        d1_v = psi0.moment()
+    else:
+        t = PS2AE(calc, grid_spacing=0.05)
+        psi0 = t.get_wave_function(0) * Bohr**1.5
+        psi1 = t.get_wave_function(1) * Bohr**1.5
+        d1_v = -t.gd.calculate_dipole_moment(psi0 * psi1) * Bohr
 
     # Method 2: use pseudo wave function + PAW corrections:
     d2_nnv = dipole_matrix_elements_from_calc(calc, n1=0, n2=2)[0]

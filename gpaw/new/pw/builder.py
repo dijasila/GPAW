@@ -98,7 +98,10 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
         for wfs in ibzwfs:
             pw = self.wf_desc.new(kpt=wfs.kpt_c)
             if wfs.spin == 0:
-                index_G = pw.indices(tuple(self.grid.size))
+                size = tuple(self.grid.size)
+                if pw.dtype == float:
+                    size = (size[0], size[1], size[2] // 2 + 1)
+                index_G = pw.indices(size)
                 nG = len(index_G)
                 assert (index_G == index_kG[wfs.k, :nG]).all()
                 assert (index_kG[wfs.k, nG:] == -1).all()

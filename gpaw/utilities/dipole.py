@@ -13,9 +13,7 @@ from gpaw.mpi import serial_comm
 from gpaw.typing import Array2D, Array3D, Array4D, Vector
 
 
-def dipole_matrix_elements(gd: GridDescriptor,
-                           psit_nR: List[Array3D],
-                           P_nI: Array2D,
+def dipole_matrix_elements(wfs,
                            position_av: Array2D,
                            setups: List[Setup],
                            center: Vector) -> Array3D:
@@ -32,8 +30,8 @@ def dipole_matrix_elements(gd: GridDescriptor,
 
     Returns matrix elements in atomic units.
     """
-    assert gd.comm.size == 1
-    dipole_nnv = np.empty((len(psit_nR), len(psit_nR), 3))
+    return wfs.dip_me()
+    dipole_nnv = np.empty((len(wfs), len(psit_nR), 3))
 
     for na, psita_R in enumerate(psit_nR):
         for nb, psitb_R in enumerate(psit_nR[:na + 1]):
