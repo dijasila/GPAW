@@ -54,17 +54,23 @@ If you'd rather have it check the forces at every SCF iteration you can instead 
 Example: fixed iterations
 -------------------------
 
-You can use this approach to tell the SCF cycle to run for a fixed number of iterations.
-To do this, set all the default criteria to :code:`np.inf` to turn them off, then use the :class:`~gpaw.scf.MinIter` class to set a minimum number of iterations.
-(Also be sure your :ref:`maxiter <manual_convergence>` keyword is set higher than this value!)
-For example, to run for exactly 10 iterations::
+You can use this approach to tell the SCF cycle to run for a fixed number of
+iterations. To do this, set all the default criteria to :code:`np.inf` to
+turn them off, then use the :class:`~gpaw.scf.MinIter` class to set a minimum
+number of iterations. (Also be sure your :ref:`maxiter <manual_convergence>`
+keyword is set higher than this value!) For example, to run for exactly 10
+iterations::
 
   convergence = {'energy': np.inf,
                  'eigenstates': np.inf,
                  'density': np.inf,
                  'minimum iterations': 10}
 
-The :class:`~gpaw.scf.MinIter` class can work in concert with other convergence criteria as well; that is, it can act simply to define a minimum number of iterations that must be run, even if all other criteria have been met.
+The :class:`~gpaw.scf.MinIter` class can work in concert with other
+convergence criteria as well; that is, it can act simply to define a minimum
+number of iterations that must be run, even if all other criteria have been
+met.
+
 
 Writing your own criteria
 -------------------------
@@ -131,30 +137,42 @@ The criteria marked as defaults are present in the default convergence dictionar
       - name attribute
       - default?
       - calc_last?
+      - override_others?
     * - :class:`~gpaw.scf.Energy`
       - ``energy``
       - Yes
+      - No
       - No
     * - :class:`~gpaw.scf.Density`
       - ``density``
       - Yes
       - No
+      - No
     * - :class:`~gpaw.scf.Eigenstates`
       - ``eigenstates``
       - Yes
+      - No
       - No
     * - :class:`~gpaw.scf.Forces`
       - ``forces``
       - No
       - Yes
+      - No
     * - :class:`~gpaw.scf.WorkFunction`
       - ``work function``
+      - No
       - No
       - No
     * - :class:`~gpaw.scf.MinIter`
       - ``minimum iterations``
       - No
       - No
+      - No
+    * - :class:`~gpaw.scf.MaxIter`
+      - ``maximum iterations``
+      - No
+      - No
+      - Yes
 
 
 Full descriptions for the built-in criteria follow.
@@ -165,3 +183,4 @@ Full descriptions for the built-in criteria follow.
 .. autoclass:: gpaw.scf.Forces
 .. autoclass:: gpaw.scf.WorkFunction
 .. autoclass:: gpaw.scf.MinIter
+.. autoclass:: gpaw.scf.MaxIter

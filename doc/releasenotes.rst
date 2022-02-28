@@ -17,6 +17,9 @@ Git master branch
 * New feature for the :ref:`gpaw symmetry <cli>` command:  Will show number of
   **k**-points in the IBZ.
 
+* New :class:`~gpaw.convergence_criteria.MaxIter` convergence criterium:
+  `convergence={'maximum iterations': 200}`.  This will ...
+
 
 Version 22.1.0
 ==============
