@@ -46,6 +46,12 @@ def get_number_of_electrons(self):
 
 
 @add_method
+def get_number_of_bands(self):
+    state = self.calculation.state
+    return state.ibzwfs.nbands
+
+
+@add_method
 def get_atomic_electrostatic_potentials(self):
     _, _, Q_aL = self.calculation.pot_calc.calculate(
         self.calculation.state.density)

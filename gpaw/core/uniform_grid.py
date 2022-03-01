@@ -219,6 +219,20 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
                                     dims=data.shape[:-3],
                                     grid=self.desc)
 
+    def __imul__(self, other: float | np.ndarray | UniformGridFunctions):
+        if isinstance(other, float):
+            self.data *= other
+            return
+        if isinstance(other, UniformGridFunctions):
+            other = other.data
+        self.data *= other
+        return self
+
+    def __mul__(self, other: float | np.ndarray | UniformGrid):
+        result = self.new(data=self.data.copy())
+        result *= other
+        return result
+
     def _arrays(self):
         return self.data.reshape((-1,) + self.data.shape[-3:])
 
@@ -520,7 +534,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         rng.random(a.shape, out=a)
         a -= 0.5
 
-    def moment(self):
+    def moment(self, center_v=None):
         """Calculate moment."""
         assert self.dims == ()
         ug = self.desc

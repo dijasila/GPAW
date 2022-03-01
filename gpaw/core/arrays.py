@@ -34,6 +34,9 @@ class DistributedArrays(Generic[DomainType]):
 
         if self.dims:
             mydims0 = (self.dims[0] + comm.size - 1) // comm.size
+            d1 = min(comm.rank * mydims0, self.dims[0])
+            d2 = min((comm.rank + 1) * mydims0, self.dims[0])
+            mydims0 = d2 - d1
             self.mydims = (mydims0,) + self.dims[1:]
         else:
             self.mydims = ()
