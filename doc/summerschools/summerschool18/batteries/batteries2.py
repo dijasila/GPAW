@@ -243,11 +243,11 @@ Once the calculation begins, you can run the cells below to open the error log a
 
 # %%
 # Error log
-# magic: !gedit "$(ls -t fepo4.py.e* | head -1)"
+# magic: !cat "$(ls -t fepo4.py.*err | head -1)"
 
 # %%
 # Output
-# magic: !gedit "$(ls -t fepo4.py.o* | head -1)"
+# magic: !cat "$(ls -t fepo4.py.*out | head -1)"
 
 # %%
 """
@@ -431,11 +431,11 @@ Once the calculation begins, you can run the cells below to open the error log a
 
 # %%
 # Error log
-# magic: !gedit "$(ls -t lifepo4.py.e* | head -1)"
+# magic: !cat "$(ls -t lifepo4.py.*err | head -1)"
 
 # %%
 # Output
-# magic: !gedit "$(ls -t lifepo4.py.o* | head -1)"
+# magic: !cat "$(ls -t lifepo4.py.*out | head -1)"
 
 # %%
 """

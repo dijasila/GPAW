@@ -203,7 +203,7 @@ You can use the cell below to submit the calculation in the same way as on earli
 
 # %%
 """
-Run the below cell to examine the status of your calculation. If no output is returned, the calculation has either finished or failed.
+Run the below cell to examine the status of your calculation.
 """
 
 # %%
@@ -215,10 +215,10 @@ You can run the cells below to open the error log and output of the calculation 
 """
 
 # %%
-# magic: !gedit "$(ls -t NEB.py.e* | head -1)"
+# magic: !cat "$(ls -t NEB.py.*err | head -1)"
 
 # %%
-# magic: !gedit "$(ls -t NEB.py.o* | head -1)"
+# magic: !cat "$(ls -t NEB.py.*out | head -1)"
 
 # %%
 """
@@ -226,7 +226,7 @@ The optimiziation progress can be seen by running the below cell.
 """
 
 # %%
-# magic: !gedit neb.log
+# magic: !cat neb.log
 
 # %%
 """
@@ -543,7 +543,7 @@ Submit this calculation to the HPC cluster as you did on exercise day 3.
 
 # %%
 """
-Run the below cell to examine the status of your calculation. If no output is returned, the calculation has either finished or failed.
+Run the below cell to examine the status of your calculation.
 """
 
 # %%
@@ -555,10 +555,10 @@ You can run the cells below to open the error log and output of the calculation 
 """
 
 # %%
-# magic: !gedit "$(ls -t fepo4_1li.py.e* | head -1)"
+# magic: !cat "$(ls -t fepo4_1li.py.*err | head -1)"
 
 # %%
-# magic: !gedit "$(ls -t fepo4_1li.py.o* | head -1)"
+# magic: !cat "$(ls -t fepo4_1li.py.*out | head -1)"
 
 # %%
 """
