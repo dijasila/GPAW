@@ -472,6 +472,7 @@ calc = GPAW(mode=PW(500),
 
 li_metal.calc = calc
 li_metal.get_potential_energy()
+li_metal.write('li_metal.traj')
 
 # %%
 """
