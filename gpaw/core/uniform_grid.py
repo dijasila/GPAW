@@ -203,7 +203,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         self.desc = grid
 
     def __repr__(self):
-        txt = f'UniformGridFunctions(grid={self.desc}, shape={self.dims}'
+        txt = f'UniformGridFunctions(grid={self.desc}, dims={self.dims}'
         if self.comm.size > 1:
             txt += f', comm={self.comm.rank}/{self.comm.size}'
         return txt + ')'

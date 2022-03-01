@@ -266,7 +266,8 @@ class PWFDWaveFunctions(WaveFunctions):
 
         self.psit_nX.desc.comm.sum(dipole_nnv)
 
-        psit_nR = self.psit_nX#.to_uniform_grid()
+        psit_nR = self.psit_nX.to_uniform_grid()
+
         for na, psita_R in enumerate(psit_nR):
             for nb, psitb_R in enumerate(psit_nR[:na + 1]):
                 d_v = (psita_R * psitb_R).moment(center_v)

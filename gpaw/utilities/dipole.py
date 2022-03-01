@@ -1,27 +1,20 @@
 """Calculate dipole matrix elements."""
-
-from math import pi
-from typing import List, Iterable
-
-from ase.units import Bohr
+from __future__ import annotations
 import numpy as np
-
+from ase.units import Bohr
 from gpaw import GPAW
-from gpaw.grid_descriptor import GridDescriptor
-from gpaw.setup import Setup
-from gpaw.mpi import serial_comm
-from gpaw.typing import Array2D, Array3D, Array4D, Vector
+from gpaw.new.ase_interface import ASECalculator
+from gpaw.typing import Array3D, Vector
 
 
-def dipole_matrix_elements_from_calc(calc: GPAW,
+def dipole_matrix_elements_from_calc(calc: ASECalculator,
                                      n1: int,
                                      n2: int,
                                      center_v: Vector = None
-                                     ) -> List[Array4D]:
+                                     ) -> list[Array3D]:
     """Calculate dipole matrix-elements (units: Å)."""
     ibzwfs = calc.calculation.state.ibzwfs
     assert ibzwfs.ibz.bz.gamma_only
-    assert ibzwfs.band_comm.size == 1
 
     wfs_s = ibzwfs.wfs_qs[0]
     d_snnv = []
@@ -37,7 +30,7 @@ def dipole_matrix_elements_from_calc(calc: GPAW,
     return d_snnv
 
 
-def main(argv: List[str] = None) -> None:
+def main(argv: list[str] = None) -> None:
     import argparse
 
     parser = argparse.ArgumentParser(
@@ -67,7 +60,7 @@ def main(argv: List[str] = None) -> None:
     else:
         center = calc.atoms.cell.sum(axis=0) / 2  # center of cell
 
-    d_snnv = dipole_matrix_elements_from_calc(calc, n1, n2, center)
+        d_snnv = dipole_matrix_elements_from_calc(calc, n1, n2, center)
 
     if calc.params.parallel['world'].rank > 0:
         return

@@ -1,18 +1,19 @@
 from __future__ import annotations
 
-from math import pi
 import functools
+from math import pi
 
 import _gpaw
 import numpy as np
 from gpaw.core.arrays import DistributedArrays
-from gpaw.core.pwacf import PlaneWaveAtomCenteredFunctions
+from gpaw.core.domain import Domain
 from gpaw.core.matrix import Matrix
+from gpaw.core.pwacf import PlaneWaveAtomCenteredFunctions
 from gpaw.core.uniform_grid import UniformGridFunctions
 from gpaw.mpi import MPIComm, serial_comm
+from gpaw.new import zip_strict as zip
 from gpaw.pw.descriptor import pad
 from gpaw.typing import Array1D, Array2D, ArrayLike1D, ArrayLike2D, Vector
-from gpaw.core.domain import Domain
 
 
 class PlaneWaves(Domain):
@@ -128,7 +129,8 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
         return txt + ')'
 
     def __getitem__(self, index: int) -> PlaneWaveExpansions:
-        return PlaneWaveExpansions(self.desc, data=self.data[index])
+        data = self.data[index]
+        return PlaneWaveExpansions(self.desc, data.shape[:-1], data=data)
 
     def __iter__(self):
         for data in self.data:
@@ -172,7 +174,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
 
     def ifft(self, plan=None, grid=None, out=None):
         if out is None:
-            out = grid.empty()
+            out = grid.empty(self.dims)
         assert self.desc.dtype == out.desc.dtype
         assert out.desc.pbc_c.all()
         plan = plan or out.desc.fft_plans()[1]
@@ -194,7 +196,15 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
 
     interpolate = ifft
 
-    def collect(self, out=None, broadcast=False):
+    def to_uniform_grid(self):
+        from gpaw.core import UniformGrid
+        size_c = self.desc.indices_cG.ptp(axis=1) + 1
+        if self.desc.dtype == float:
+            size_c[2] = size_c[2] * 2 - 1
+        grid = UniformGrid(cell=self.desc.cell_cv, size=size_c)
+        return self.ifft(grid=grid)
+
+    def gather(self, out=None, broadcast=False):
         """Gather coefficients on master."""
         comm = self.desc.comm
 

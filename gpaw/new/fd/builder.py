@@ -78,8 +78,22 @@ class FDDFTComponentsBuilder(PWFDDFTComponentsBuilder):
             index = (wfs.spin, wfs.k)
             data = reader.wave_functions.proxy('values', *index)
             data.scale = c
-            wfs.psit_nX = UniformGridFunctions(grid, self.nbands,
-                                               data=data)
+            if self.communicators['w'].size == 1:
+                wfs.psit_nX = UniformGridFunctions(grid, self.nbands,
+                                                   data=data)
+            else:
+                band_comm = self.communicators['b']
+                wfs.psit_nX = UniformGridFunctions(
+                    grid, self.nbands,
+                    comm=band_comm)
+                if grid.comm.rank == 0:
+                    mynbands = (self.nbands +
+                                band_comm.size - 1) // band_comm.size
+                    n1 = min(band_comm.rank * mynbands, self.nbands)
+                    n2 = min((band_comm.rank + 1) * mynbands, self.nbands)
+                    assert wfs.psit_nX.mydims[0] == n2 - n1
+                    data = data[n1:n2]  # read from file
+                wfs.psit_nX.scatter_from(data)
 
         return ibzwfs
 
