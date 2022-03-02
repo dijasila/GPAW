@@ -649,35 +649,6 @@ class Davidson(object):
         else:
             return np.asarray(hessi)
 
-    def check_instability_types(self):
-        res = []
-        for i in range(self.l):
-            if self.lambda_[i] < 0:
-                eigvec = self.x[i]
-                if self.etdm.dtype == complex:
-                    eigvec = r2c(eigvec)
-                half = int(len(eigvec) / 2)
-                temp = 'internal' if np.dot(
-                    eigvec[: half].conj(), eigvec[half:].T).real > 0 \
-                    else 'external'
-                self.logger(np.dot(
-                    eigvec[: half].conj(), eigvec[half:].T).real)
-                res.append(temp)
-        if len(res) == 0:
-            self.logger('No instabilities detected.\n\n')
-            return
-        self.logger('Instability types:\n\n', flush=True)
-        text = ''
-        for i in range(len(res)):
-            text += '%10d '
-        indices = text % tuple(range(1, len(res) + 1))
-        self.logger(indices, flush=True)
-        text = ''
-        for i in range(len(res)):
-            text += '%10s '
-        self.logger(text % tuple(res), flush=True)
-        self.logger('\n\n', flush=True)
-
     def break_instability(self, wfs, n_dim, c_ref, number,
                           initial_guess = 'displace', ham=None, dens=None):
         """
