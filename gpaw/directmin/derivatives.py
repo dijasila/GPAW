@@ -678,6 +678,68 @@ class Davidson(object):
         self.logger(text % tuple(res), flush=True)
         self.logger('\n\n', flush=True)
 
+    def break_instability(self, wfs, n_dim, c_ref, number,
+                          initial_guess = 'displace', ham=None, dens=None):
+        """
+        Displaces orbital rotation coordinates in the direction of an
+        instability. Uses a fixed displacement or performs a line search.
+
+        :param wfs:
+        :param n_dim:
+        :param c_ref:
+        :param number: Instability index
+        :param initial_guess: How to displace. Can be one of the following:
+        displace: Use a fixed displacement; line_search: Performs a
+        backtracking line search.
+        :param ham:
+        :param dens:
+        """
+
+        assert self.converged, 'Davidson cannot break instabilities since' \
+            + ' the partial eigendecomposition has not been converged.'
+        assert len(self.lambda_) >= number, 'Davidson cannot break' \
+            + ' instability no. ' + str(number) + ' since this eigenpair was' \
+            + 'not converged.'
+        assert self.lambda_[number] < 0.0, 'Eigenvector no. ' + str(number) \
+            + ' does not represent an instability.'
+
+        a_vec_u = {}
+        for k in self.etdm.a_vec_u.keys():
+            a_vec_u[k] = np.zeros(self.dim[k])
+        step = self.etdm.line_search.max_step
+        instability = step * self.x[number]
+        if initial_guess == 'displace':
+            start = 0
+            stop = 0
+            for k in a_vec_u.keys():
+                stop += self.dim[k]
+                a_vec_u[k] = instability[start: stop]
+                start += self.dim[k]
+        elif initial_guess == 'line_search':
+            assert ham is not None and dens is not None, 'Value error.'
+            p_vec_u = {}
+            start = 0
+            stop = 0
+            for k in a_vec_u.keys():
+                stop += self.dim[k]
+                p_vec_u[k] = instability[start: stop]
+                start += self.dim[k]
+            phi, g_vec_u = self.etdm.get_energy_and_gradients(
+                a_vec_u, n_dim, ham, wfs, dens, c_ref)
+            der_phi = 0.0
+            for k in g_vec_u:
+                der_phi += g_vec_u[k].conj() @ p_vec_u[k]
+            der_phi = der_phi.real
+            der_phi = wfs.kd.comm.sum(der_phi)
+            alpha = self.etdm.line_search.step_length_update(
+                a_vec_u, p_vec_u, n_dim, ham, wfs, dens, c_ref,
+                phi_0=phi, der_phi_0=der_phi, phi_old=None,
+                der_phi_old=None, alpha_max=5.0, alpha_old=None,
+                kpdescr=wfs.kd)[0]
+            for k in a_vec_u.keys():
+                a_vec_u[k] = alpha * p_vec_u[k]
+        self.etdm.rotate_wavefunctions(wfs, a_vec_u, n_dim, c_ref)
+
 
 def mgs(vin):
     """
