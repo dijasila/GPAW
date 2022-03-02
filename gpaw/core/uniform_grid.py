@@ -131,14 +131,18 @@ class UniformGrid(Domain):
 
         return transform
 
-    def eikr(self, kpt_c=None) -> Array3D:
+    def eikr(self, kpt_c: Vector = None) -> Array3D:
         """Plane wave.
 
-        ::
-
+        :::
                _ _
               ik.r
              e
+
+        Parameters
+        ----------
+        kpt_c:
+            k-point.
         """
         if kpt_c is None:
             kpt_c = self.kpt_c
