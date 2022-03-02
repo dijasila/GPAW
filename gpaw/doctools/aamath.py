@@ -36,7 +36,7 @@ def block(lines: list[str]) -> dict[int, str]:
 
     >>> block([' 2  _ ',
     ...        '    k '])
-    {0: '2', 3: '\\mathbf{k} '}
+    {0: '2', 3: '\\mathbf{k}'}
     """
     if not lines:
         return {}
@@ -61,11 +61,11 @@ def parse(lines: str | list[str], n: int = None) -> str:
     >>> parse([' /   ~      ',
     ...        ' |dx p  (x) ',
     ...        ' /    ai    '])
-    ' \\int dx \\tilde{p}_{ai}  (x) '
+    '\\int dx \\tilde{p}_{ai}  (x)'
     >>> parse(['   _ _ ',
     ...        '  ik.r ',
     ...        ' e     '])
-    'e^{i\\mathbf{k}.\\mathbf{r}}     '
+    'e^{i\\mathbf{k}.\\mathbf{r}}'
     """
     if isinstance(lines, str):
         lines = lines.splitlines()
@@ -91,13 +91,23 @@ def parse(lines: str | list[str], n: int = None) -> str:
         p2 = parse(cut(lines[:n], i1, i2))
         p3 = parse(cut(lines[n + 1:], i1, i2))
         p4 = parse(cut(lines, i2 + 1))
-        return rf'{p1} \frac{{{p2}}}{{{p3}}} {p4}'
+        return rf'{p1} \frac{{{p2}}}{{{p3}}} {p4}'.strip()
 
     i = line.find('|')
-    if i != -1 and n > 0 and lines[n - 1][i] == '/':
-        p1 = parse(cut(lines, 0, i))
-        p2 = parse(cut(lines, i + 1))
-        return rf'{p1} \int {p2}'
+    if i != -1:
+        if n > 0 and lines[n - 1][i] == '/':
+            p1 = parse(cut(lines, 0, i))
+            p2 = parse(cut(lines, i + 1))
+            return rf'{p1} \int {p2}'.strip()
+        i1 = line.find('<')
+        i2 = line.find('>')
+        if i1 == -1 or i1 > i or i2 == -1 or i2 < i:
+            raise ParseError
+        p1 = parse(cut(lines, 0, i1))
+        p2 = parse(cut(lines, i1 + 1, i))
+        p3 = parse(cut(lines, i + 1, i2))
+        p4 = parse(cut(lines, i2 + 1))
+        return rf'{p1} \langle {p2}|{p3} \rangle {p4}'.strip()
 
     hats = {}
     if n > 0:
@@ -129,11 +139,11 @@ def parse(lines: str | list[str], n: int = None) -> str:
     if superscripts or subscripts:
         raise ParseError
 
-    return ''.join(latex)
+    return ''.join(latex).strip()
 
 
 def autodoc_process_docstring(lines):
-    """Hook function for Sphinx."""
+    """Hook-function for Sphinx."""
     for i1, line in enumerate(lines):
         if line.endswith(':::'):
             for i2, line in enumerate(lines[i1 + 2:], i1 + 2):
@@ -144,6 +154,24 @@ def autodoc_process_docstring(lines):
             latex = parse(lines[i1 + 1:i2])
             lines[i1:i2] = [f'.. math:: {latex}']
             return
+
+
+examples = r"""
+1+2
+---
+ 3
+\frac{1+2}{3}
+
+<a|b>
+\langle a|b \rangle
+"""
+
+
+def test_examples():
+    for example in examples[1:].split('\n\n'):
+        lines = example.splitlines()
+        print(lines)
+        assert parse(lines[:-1]) == lines[-1]
 
 
 def main():

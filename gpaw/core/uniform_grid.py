@@ -142,7 +142,8 @@ class UniformGrid(Domain):
         Parameters
         ----------
         kpt_c:
-            k-point.
+            k-point in units of the reciprocal cell.  Defaults to the
+            UniformGrid objects own k-point.
         """
         if kpt_c is None:
             kpt_c = self.kpt_c
@@ -223,16 +224,21 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
                                     dims=data.shape[:-3],
                                     grid=self.desc)
 
-    def __imul__(self, other: float | np.ndarray | UniformGridFunctions):
+    def __imul__(self,
+                 other: float | np.ndarray | UniformGridFunctions
+                 ) -> UniformGridFunctions:
         if isinstance(other, float):
             self.data *= other
-            return
+            return self
         if isinstance(other, UniformGridFunctions):
             other = other.data
+        assert other.shape[-3:] == self.data.shape[-3:]
         self.data *= other
         return self
 
-    def __mul__(self, other: float | np.ndarray | UniformGrid):
+    def __mul__(self,
+                other: float | np.ndarray | UniformGridFunctions
+                ) -> UniformGridFunctions:
         result = self.new(data=self.data.copy())
         result *= other
         return result

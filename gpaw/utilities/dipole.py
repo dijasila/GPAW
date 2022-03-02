@@ -2,8 +2,7 @@
 from __future__ import annotations
 import numpy as np
 from ase.units import Bohr
-from gpaw import GPAW
-from gpaw.new.ase_interface import ASECalculator
+from gpaw.new.ase_interface import ASECalculator, GPAW
 from gpaw.typing import Array3D, Vector
 
 

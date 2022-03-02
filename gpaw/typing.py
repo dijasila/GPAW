@@ -1,4 +1,4 @@
-from typing import Any, TYPE_CHECKING, Union, Tuple
+from typing import Any, TYPE_CHECKING, Union, Tuple, Sequence
 import numpy as np
 
 if TYPE_CHECKING:
@@ -16,4 +16,5 @@ Array2D = ArrayND
 Array3D = ArrayND
 Array4D = ArrayND
 
-Vector = Union[Tuple[float, float, float], Array1D]
+# Vector = Union[Tuple[float, float, float], Array1D]
+Vector = Union[Sequence[float], Array1D]
