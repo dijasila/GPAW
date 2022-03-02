@@ -225,11 +225,11 @@ class PWFDWaveFunctions(WaveFunctions):
                                center_v: Vector | None) -> Array3D:
         """Calculate dipole matrix-elements.
 
-        ::
+        :::
 
-             /  _ ~ ~ _   --  a  a _a
-             | dr 𝜓 𝜓 r + )  P  P  D
-             /     m n    --  i  j  ij
+             /  _ ~ ~ _   ---  a  a _a
+             | dr 𝜓 𝜓 r + >   P  P  D
+             /     m n    ---  i  j  ij
                           aij
 
         Parameters
@@ -272,6 +272,21 @@ class PWFDWaveFunctions(WaveFunctions):
             for nb, psitb_R in enumerate(psit_nR[:na + 1]):
                 d_v = (psita_R * psitb_R).moment(center_v)
                 dipole_nnv[na, nb] += d_v
-                dipole_nnv[nb, na] += d_v
+                if na != nb:
+                    dipole_nnv[nb, na] += d_v
 
         return dipole_nnv
+
+"""
+    def add_wave_functions_array(self,
+                                 writer: Writer,
+                                 spin_k_shape: tuple[int, int]):
+        shape = spin_k_shape + self.C_nM.shape
+        if self.domain_comm.rank == 0 and self.band_comm.rank == 0:
+            writer.add_array('coefficients', shape, dtype=self.dtype)
+
+    def fill_wave_functions(self, writer: Writer):
+        C_nM = self.C_nM.gather()
+        if self.domain_comm.rank == 0 and self.band_comm.rank == 0:
+            writer.fill(C_nM.data * Bohr**-1.5)
+"""

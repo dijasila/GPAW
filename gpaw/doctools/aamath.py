@@ -65,7 +65,7 @@ def parse(lines: str | list[str], n: int = None) -> str:
     >>> parse(['   _ _ ',
     ...        '  ik.r ',
     ...        ' e     '])
-    'e^{i\\mathbf{k}.\\mathbf{r}}'
+    'e^{i\\mathbf{k}\cdot \\mathbf{r}}'
     """
     if isinstance(lines, str):
         lines = lines.splitlines()
@@ -86,12 +86,22 @@ def parse(lines: str | list[str], n: int = None) -> str:
     line = lines[n]
     i1 = line.find('--')
     if i1 != -1:
-        i2 = len(line) - i1 - len(line[i1:].lstrip('-'))
+        i2 = len(line) - len(line[i1:].lstrip('-'))
         p1 = parse(cut(lines, 0, i1))
         p2 = parse(cut(lines[:n], i1, i2))
         p3 = parse(cut(lines[n + 1:], i1, i2))
         p4 = parse(cut(lines, i2 + 1))
         return rf'{p1} \frac{{{p2}}}{{{p3}}} {p4}'.strip()
+
+    i = line.find('>')
+    if i != -1 and n > 0 and lines[n - 1][i] == '-':
+        line1 = lines[n - 1]
+        i2 = len(line1) - len(line1[i:].lstrip('-'))
+        p1 = parse(cut(lines, 0, i))
+        p2 = parse(cut(lines[:n - 1], i, i2))
+        p3 = parse(cut(lines[n + 2:], i, i2))
+        p4 = parse(cut(lines, i2))
+        return rf'{p1} \sum^{{{p2}}}_{{{p3}}} {p4}'.strip()
 
     i = line.find('|')
     if i != -1:
@@ -134,6 +144,8 @@ def parse(lines: str | list[str], n: int = None) -> str:
             sub = subscripts.pop(i, None)
             if sub:
                 c = rf'{c}_{{{sub}}}'
+        else:
+            c = {'.': r'\cdot '}.get(c, c)
         latex.append(c)
 
     if superscripts or subscripts:
@@ -164,6 +176,12 @@ examples = r"""
 
 <a|b>
 \langle a|b \rangle
+
+/  _ ~ ~    --- a
+| dr 𝜓 𝜓  + >  S
+/     m n   --- ij
+            aij
+\int d\mathbf{r} \tilde{𝜓}_{m} \tilde{𝜓}_{n}  + \sum^{}_{aij} S^{a}_{ij}
 """
 
 

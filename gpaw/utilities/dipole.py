@@ -11,11 +11,24 @@ def dipole_matrix_elements_from_calc(calc: ASECalculator,
                                      n2: int,
                                      center_v: Vector = None
                                      ) -> list[Array3D]:
-    """Calculate dipole matrix-elements (units: Å)."""
+    """Calculate dipole matrix-elements (units: eÅ).
+
+    Parameters
+    ----------
+    n1, n2:
+        Band range.
+    center_v:
+        Center of molecule in Å.  Defaults to center of cell.
+    """
     ibzwfs = calc.calculation.state.ibzwfs
+
     assert ibzwfs.ibz.bz.gamma_only
 
+    if center_v is not None:
+        center_v = np.asarray(center_v) / Bohr
+
     wfs_s = ibzwfs.wfs_qs[0]
+
     d_snnv = []
     for wfs in wfs_s:
         wfs = wfs.collect(n1, n2)
@@ -57,7 +70,7 @@ def main(argv: list[str] = None) -> None:
     if args.center:
         center = [float(x) for x in args.center.split(',')]
     else:
-        center = calc.atoms.cell.sum(axis=0) / 2  # center of cell
+        center = None  # center of cell
 
         d_snnv = dipole_matrix_elements_from_calc(calc, n1, n2, center)
 
@@ -66,6 +79,7 @@ def main(argv: list[str] = None) -> None:
 
     print('Number of bands:', nbands)
     print('Number of valence electrons:', calc.get_number_of_electrons())
+    print('Units: eÅ')
     print()
 
     for spin, d_nnv in enumerate(d_snnv):
