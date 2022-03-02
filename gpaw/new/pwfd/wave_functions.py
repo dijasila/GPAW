@@ -36,6 +36,7 @@ class PWFDWaveFunctions(WaveFunctions):
         self.fracpos_ac = fracpos_ac
         self.pt_aiX = None
         self.orthonormalized = False
+        self.array_shape = psit_nX.desc.myshape
 
     def __len__(self):
         return self.psit_nX.dims[0]
@@ -277,16 +278,7 @@ class PWFDWaveFunctions(WaveFunctions):
 
         return dipole_nnv
 
-"""
-    def add_wave_functions_array(self,
-                                 writer: Writer,
-                                 spin_k_shape: tuple[int, int]):
-        shape = spin_k_shape + self.C_nM.shape
-        if self.domain_comm.rank == 0 and self.band_comm.rank == 0:
-            writer.add_array('coefficients', shape, dtype=self.dtype)
-
     def fill_wave_functions(self, writer: Writer):
         C_nM = self.C_nM.gather()
         if self.domain_comm.rank == 0 and self.band_comm.rank == 0:
             writer.fill(C_nM.data * Bohr**-1.5)
-"""

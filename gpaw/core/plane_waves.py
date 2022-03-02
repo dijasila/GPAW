@@ -123,7 +123,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
         self._matrix: Matrix | None
 
     def __repr__(self):
-        txt = f'PlaneWaveExpansions(pw={self.desc}, shape={self.dims}'
+        txt = f'PlaneWaveExpansions(pw={self.desc}, dims={self.dims}'
         if self.comm.size > 1:
             txt += f', comm={self.comm.rank}/{self.comm.size}'
         return txt + ')'

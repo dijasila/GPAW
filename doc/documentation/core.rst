@@ -67,7 +67,7 @@ created with the :func:`gpaw.new.ase_interface.GPAW` function:
 ...               pbc=True)
 >>> atoms.calc = GPAW(mode='pw', txt='h2.txt')
 >>> atoms.calc
-ASECalculator(txt: 'h2.txt', mode: {'name': 'pw'})
+ASECalculator(mode: {'name': 'pw'}, txt: 'h2.txt')
 
 The ``atoms.calc`` object manages a
 :class:`gpaw.new.calculation.DFTCalculation` object that does the actual work.
@@ -244,7 +244,7 @@ grid:
 >>> pw = PlaneWaves(ecut=100, cell=grid.cell)
 >>> func_G = pw.empty()
 >>> func_R.fft(out=func_G)
-PlaneWaveExpansions(pw=PlaneWaves(ecut=100, cell=[[4.0, 0.0, 0.0], [0.0, 4.0, 0.0], [0.0, 0.0, 4.0]], pbc=[True, True, True], comm=0/1, dtype=float64), shape=())
+PlaneWaveExpansions(pw=PlaneWaves(ecut=100, cell=[[4.0, 0.0, 0.0], [0.0, 4.0, 0.0], [0.0, 0.0, 4.0]], pbc=[True, True, True], comm=0/1, dtype=float64), dims=())
 >>> G = pw.reciprocal_vectors()
 >>> G.shape
 (1536, 3)
@@ -253,7 +253,7 @@ array([0., 0., 0.])
 >>> func_G.data[0]
 (1+0j)
 >>> func_G.ifft(out=func_R)
-UniformGridFunctions(grid=UniformGrid(size=[20, 20, 20], cell=[[4.0, 0.0, 0.0], [0.0, 4.0, 0.0], [0.0, 0.0, 4.0]], pbc=[True, True, True], comm=0/1, dtype=float64), shape=())
+UniformGridFunctions(grid=UniformGrid(size=[20, 20, 20], cell=[[4.0, 0.0, 0.0], [0.0, 4.0, 0.0], [0.0, 0.0, 4.0]], pbc=[True, True, True], comm=0/1, dtype=float64), dims=())
 >>> round(func_R.data[0, 0, 0], 15)
 1.0
 

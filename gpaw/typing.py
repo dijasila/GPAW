@@ -1,7 +1,7 @@
 from typing import Any, TYPE_CHECKING, Union, Sequence
 import numpy as np
 
-if TYPE_CHECKING:
+if [int(x) for x in np.__version__.split('.')] >= (1, 20):  # TYPE_CHECKING:
     from numpy.typing import ArrayLike, DTypeLike
 else:
     ArrayLike = Any  # type: ignore

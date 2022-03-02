@@ -65,7 +65,7 @@ def parse(lines: str | list[str], n: int = None) -> str:
     >>> parse(['   _ _ ',
     ...        '  ik.r ',
     ...        ' e     '])
-    'e^{i\\mathbf{k}\cdot \\mathbf{r}}'
+    'e^{i\\mathbf{k}\\cdot \\mathbf{r}}'
     """
     if isinstance(lines, str):
         lines = lines.splitlines()

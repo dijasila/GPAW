@@ -71,6 +71,12 @@ class IBZWaveFunctions:
 
         self.energies: dict[str, float] = {}
 
+        # Find the largest number of plane-waves or grid-points or basis
+        # functions:
+        shape = np.array(max(wfs.array_shape for wfs in self))
+        kpt_comm.max(shape)
+        self.max_shape = tuple(shape)
+
     def is_master(self):
         return (self.domain_comm.rank == 0 and
                 self.band_comm.rank == 0 and
@@ -226,10 +232,23 @@ class IBZWaveFunctions:
         writer.add_array('projections', proj_shape, self.dtype)
 
         for spin in range(self.nspins):
-            for wfs in self:
-                if wfs.spin != spin:
-                    continue
-                P_ain = wfs.P_ain.gather()
+            for k in range(len(ibz)):
+                rank = self.rank_k[k]
+                if rank == self.kpt_comm.rank:
+                    wfs = self.wfs_qs[self.q_k[k]][spin]
+                    P_ain = wfs.P_ain.gather()
+                    if P_ain is not None:
+                        P_In = P_ain.matrix.gather() ...
+                    if rank == 0:
+                        writer.fill(P_ain.data.T)
+                    else:
+                        self.kpt_comm.send(P_, 0)
+                elif self.kpt_comm.rank == 0:
+                    eig_n = np.empty(self.nbands)
+                    occ_n = np.empty(self.nbands)
+                    self.kpt_comm.receive(eig_n, rank)
+                    self.kpt_comm.receive(occ_n, rank)
+                    return eig_n, occ_n
                 assert P_ain.comm.size == 1
                 writer.fill(P_ain.data.T)
 
@@ -238,6 +257,10 @@ class IBZWaveFunctions:
                 return
 
             # Write header for wave functions
+        shape = spin_k_shape + self.psit_nX.data.shape
+        if self.domain_comm.rank == 0 and self.band_comm.rank == 0:
+            writer.add_array('coefficients', shape, dtype=self.dtype)
+
             self.wfs_qs[0][0].add_wave_functions_array(writer, spin_k_shape)
 
             for spin in range(self.nspins):
@@ -307,13 +330,3 @@ class IBZWaveFunctions:
         lumo = self.kpt_comm.min(min(wfs._eig_n[n] for wfs in self))
 
         return np.array([homo, lumo])
-
-    def create_work_arrays(self, dims: tuple[int]) -> np.ndarray:
-        """Create buffer ndarray large enough for any k-point.
-
-        The number of plane-waves will depend on the k-point!
-        """
-        # Find the largest number of plane-waves or grid-points:
-        desc = max((wfs.psit_nX.desc for wfs in self),
-                   key=lambda desc: desc.myshape)
-        return desc.empty(dims).data
