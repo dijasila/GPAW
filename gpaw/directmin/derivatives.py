@@ -559,9 +559,11 @@ class Davidson(object):
         self.V = np.asarray(self.V)
         if self.cap_krylov:
             if len(self.V) > self.m:
-                self.logger('Krylov space exceeded maximum size. Partial '
-                            'diagonalization is not fully converged.',
-                            flush=True)
+                self.logger(
+                    'Krylov space exceeded maximum size. Partial '
+                    'diagonalization is not fully converged. Current size '
+                    'is ' + str(len(self.V) - len(self.t)) + '. Size at next '
+                    'step would be ' + str(len(self.V)) + '.', flush=True)
                 self.all_converged = True
         wfs.timer.start('Modified Gram-Schmidt')
         self.V = mgs(self.V)
