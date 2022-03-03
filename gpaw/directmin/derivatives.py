@@ -474,6 +474,7 @@ class Davidson(object):
         self.logger(text, flush=True)
 
     def iterate(self, wfs, ham, dens):
+        self.t = []
         wfs.timer.start('FD Hessian vector product')
         if self.W is None:
             self.W = []
@@ -540,7 +541,6 @@ class Davidson(object):
         wfs.timer.stop('Preconditioner calculation')
         wfs.timer.start('Krylov space augmentation')
         wfs.timer.start('New directions')
-        self.t = []
         for i in range(self.l):
             if not self.converged[i]:
                 self.t.append(self.C[i] * self.r[i])
