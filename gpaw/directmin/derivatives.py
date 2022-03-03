@@ -214,10 +214,12 @@ class Davidson(object):
         self.y = None
         self.x = None
         self.r = None
+        self.t = None
         self.l = None
         self.h = h
         self.m = m
         self.converged = None
+        self.all_converged = None
         self.error = None
         self.n_iter = None
         self.eigenvalues = None
@@ -322,7 +324,7 @@ class Davidson(object):
                 a_vec_u[k] = np.zeros_like(self.etdm.a_vec_u[k])
             self.grad = self.etdm.get_energy_and_gradients(
                 a_vec_u, n_dim, ham, wfs, dens, self.c_nm_ref)[1]
-        while not self.converged:
+        while not self.all_converged:
             self.iterate(wfs, ham, dens)
         if self.remember_sp_order:
             if self.sp_order is None:
@@ -366,7 +368,7 @@ class Davidson(object):
         dimz = 2 if self.etdm.dtype == complex else 1
         self.introduce()
         self.reset = False
-        self.converged = False
+        self.all_converged = False
         self.l = 0
         self.V = None
         appr_sp_order = 0
@@ -404,6 +406,7 @@ class Davidson(object):
             self.l = self.dimtot * dimz
         self.W = None
         self.error = [np.inf for x in range(self.l)]
+        self.converged = [False for x in range(self.l)]
         rng = np.random.default_rng(self.seed)
         reps = 1e-4
         wfs.timer.start('Initial Krylov space')
@@ -517,14 +520,14 @@ class Davidson(object):
         wfs.timer.stop('Residual calculation')
         for i in range(self.l):
             self.error[i] = np.abs(self.r[i]).max()
-        converged = True
+        self.all_converged = True
         for i in range(self.l):
-            converged = converged and self.error[i] < self.eps
-        self.converged = deepcopy(converged)
-        if converged:
+            self.converged[i] = self.error[i] < self.eps
+            self.all_converged = self.all_converged and self.converged[i]
+        if self.all_converged:
             self.eigenvalues = deepcopy(self.lambda_)
             self.eigenvectors = deepcopy(self.x)
-            self.log(0)
+            self.log()
             return
         n_dim = len(self.V)
         wfs.timer.start('Preconditioner calculation')
@@ -537,39 +540,39 @@ class Davidson(object):
         wfs.timer.stop('Preconditioner calculation')
         wfs.timer.start('Krylov space augmentation')
         wfs.timer.start('New directions')
-        t = []
+        self.t = []
         for i in range(self.l):
-            t.append(self.C[i] * self.r[i])
-        t = np.asarray(t)
-        if len(self.V[0]) <= self.l + self.m:
+            if not self.converged[i]:
+                self.t.append(self.C[i] * self.r[i])
+        self.t = np.asarray(self.t)
+        if len(self.V[0]) <= self.m:
             self.V = self.V.T.tolist()
-            for i in range(self.l):
-                self.V.append(t[i])
+            for i in range(len(self.t)):
+                self.V.append(self.t[i])
         elif not self.cap_krylov:
             self.reset = True
             self.V = deepcopy(self.x.tolist())
-            for i in range(len(t)):
-                self.V.append(t[i])
+            for i in range(len(self.t)):
+                self.V.append(self.t[i])
             self.W = None
         wfs.timer.stop('New directions')
         self.V = np.asarray(self.V)
         if self.cap_krylov:
-            if len(self.V) > self.l + self.m:
+            if len(self.V) > self.m:
                 self.logger('Krylov space exceeded maximum size. Partial '
                             'diagonalization is not fully converged.',
                             flush=True)
-                self.converged = True
+                self.all_converged = True
         wfs.timer.start('Modified Gram-Schmidt')
         self.V = mgs(self.V)
         wfs.timer.stop('Modified Gram-Schmidt')
         self.V = self.V.T
         wfs.timer.stop('Krylov space augmentation')
-        self.log(self.l)
+        self.log()
 
-    def log(self, l):
-        self.logger(
-            'Dimensionality of Krylov space: ' + str(len(self.V[0]) - l),
-            flush=True)
+    def log(self):
+        self.logger('Dimensionality of Krylov space: ' \
+            + str(len(self.V[0]) - len(self.t)), flush=True)
         if self.reset:
             self.logger('Reset Krylov space', flush=True)
         self.logger('\nEigenvalues:\n', flush=True)
