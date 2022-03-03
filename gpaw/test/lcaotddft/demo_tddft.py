@@ -12,13 +12,15 @@ from gpaw.tddft.units import as_to_au, autime_to_asetime
 
 
 def main():
-    atoms = molecule('H2')
+    atoms = molecule('H2', positions=[(0, 0, 0), (1, 0, 0)])
     atoms.center(vacuum=5)
     atoms.pbc = False
 
+    kick_v = [1e-5, 0, 0]
+
     run_old_gs = False
     run_new_gs = False
-    run_old_td = False
+    run_old_td = True
     run_new_td = True
 
     def assert_equal(a, b):
@@ -64,26 +66,33 @@ def main():
             new_restart_calc.calculation.state.ibzwfs.wfs_qs[0][0].C_nM)
 
     if run_old_td:
-        old_tddft = LCAOTDDFT('gs.gpw', propagator='ecn')
-        DipoleMomentWriter(old_tddft, 'dm.out')
+        old_tddft = LCAOTDDFT('old_gs.gpw', propagator='ecn', txt='/dev/null')
+        DipoleMomentWriter(old_tddft, 'old_dm.out')
+        old_tddft.absorption_kick(kick_v)
         old_tddft.propagate(10, 10)
         old_C_nM = old_tddft.wfs.kpt_u[0].C_nM
-        old_f_n = old_calc.get_occupation_numbers()
+        old_f_n = old_tddft.get_occupation_numbers()
         old_rho_MM = old_C_nM.T.conj() @ (old_f_n[:, None] * old_C_nM)
-        print(old_rho_MM)
+        print('rho_MM', old_rho_MM)
 
     if run_new_td:
         #  new_tddft = RTTDDFT.from_dft_calculation(new_calc)
         new_tddft = RTTDDFT.from_dft_file('new_gs.gpw')
 
+        new_tddft.absorption_kick(kick_v)
         dt = 10 * as_to_au * autime_to_asetime
-        for result in new_tddft.ipropagate(dt, 10):
-            print(result)
+        with open('new_dm.out', 'w') as fp:
+            for result in new_tddft.ipropagate(dt, 10):
+                print(result)
+                dm = result.dipolemoment
+                norm = np.linalg.norm(dm)
+                fp.write('%20.8lf %20.8le %22.12le %22.12le %22.12le\n' %
+                         (result.time, norm, dm[0], dm[1], dm[2]))
         wfs = new_tddft.state.ibzwfs.wfs_qs[0][0]
         new_f_n = wfs.weight * wfs.spin_degeneracy * wfs.myocc_n
         new_C_nM = wfs.C_nM.data
         new_rho_MM = (new_C_nM.T.conj() * new_f_n) @ new_C_nM
-        print(new_rho_MM)
+        print('rho_MM', new_rho_MM)
 
 
 if __name__ == '__main__':
