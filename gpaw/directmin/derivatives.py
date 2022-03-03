@@ -588,9 +588,13 @@ class Davidson(object):
         self.logger('\nResidual maximum components:\n', flush=True)
         self.logger(indices, flush=True)
         text = ''
+        temp = list(np.round_(deepcopy(self.error), 6))
         for i in range(self.l):
-            text += '%10.6f '
-        self.logger(text % tuple(self.error), flush=True)
+            text += '%10s '
+            temp[i] = str(temp[i])
+            if self.converged[i]:
+                temp[i] += 'c'
+        self.logger(text % tuple(temp), flush=True)
 
     def get_fd_hessian(self, vin, wfs, ham, dens):
         """
