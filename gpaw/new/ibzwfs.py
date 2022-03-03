@@ -71,11 +71,16 @@ class IBZWaveFunctions:
 
         self.energies: dict[str, float] = {}
 
-        # Find the largest number of plane-waves or grid-points or basis
-        # functions:
-        shape = np.array(max(wfs.array_shape for wfs in self))
-        kpt_comm.max(shape)
-        self.max_shape = tuple(shape)
+    def get_max_shape(self, global_shape: bool = False) -> tuple[int, ...]:
+        """Find the largest wave function array shape.
+
+        For a PW-calcuation, this shape could depend on k-point.
+        """
+        if global_shape:
+            shape = np.array(max(wfs.array_global_shape for wfs in self))
+            self.kpt_comm.max(shape)
+            return tuple(shape)
+        return max(wfs.array_shape for wfs in self)
 
     def is_master(self):
         return (self.domain_comm.rank == 0 and
@@ -238,28 +243,41 @@ class IBZWaveFunctions:
                     wfs = self.wfs_qs[self.q_k[k]][spin]
                     P_ain = wfs.P_ain.gather()
                     if P_ain is not None:
-                        P_In = P_ain.matrix.gather() ...
-                    if rank == 0:
-                        writer.fill(P_ain.data.T)
-                    else:
-                        self.kpt_comm.send(P_, 0)
+                        P_In = P_ain.matrix.gather()
+                        if self.domain_comm.rank == 0:
+                            if rank == 0:
+                                writer.fill(P_In.data.T)
+                            else:
+                                self.kpt_comm.send(P_In.data, 0)
                 elif self.kpt_comm.rank == 0:
-                    eig_n = np.empty(self.nbands)
-                    occ_n = np.empty(self.nbands)
-                    self.kpt_comm.receive(eig_n, rank)
-                    self.kpt_comm.receive(occ_n, rank)
-                    return eig_n, occ_n
-                assert P_ain.comm.size == 1
-                writer.fill(P_ain.data.T)
+                    data = np.empty((nproj, self.nbands), self.dtype)
+                    self.kpt_comm.receive(data, rank)
+                    writer.fill(data.T)
 
-        if not skip_wfs:
-            if self.domain_comm.rank != 0 or self.band_comm.rank != 0:
-                return
+        if skip_wfs:
+            return
 
-            # Write header for wave functions
-        shape = spin_k_shape + self.psit_nX.data.shape
-        if self.domain_comm.rank == 0 and self.band_comm.rank == 0:
-            writer.add_array('coefficients', shape, dtype=self.dtype)
+        # Write header for wave functions
+        shape = spin_k_shape + (self.nbands,
+                                self.get_max_shape(global_shape=True))
+        writer.add_array('coefficients', shape, dtype=self.dtype)
+        for spin in range(self.nspins):
+            for k in range(len(ibz)):
+                rank = self.rank_k[k]
+                if rank == self.kpt_comm.rank:
+                    wfs = self.wfs_qs[self.q_k[k]][spin]
+                    P_ain = wfs.P_ain.gather()
+                    if P_ain is not None:
+                        P_In = P_ain.matrix.gather()
+                        if self.domain_comm.rank == 0:
+                            if rank == 0:
+                                writer.fill(P_In.data.T)
+                            else:
+                                self.kpt_comm.send(P_In.data, 0)
+                elif self.kpt_comm.rank == 0:
+                    data = np.empty((nproj, self.nbands), self.dtype)
+                    self.kpt_comm.receive(data, rank)
+                    writer.fill(data.T)
 
             self.wfs_qs[0][0].add_wave_functions_array(writer, spin_k_shape)
 

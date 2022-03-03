@@ -47,7 +47,8 @@ class Davidson(Eigensolver):
 
     def iterate(self, state, hamiltonian) -> float:
         if self.work_arrays is None:
-            shape = (2, state.ibzwfs.nbands) + state.ibzwfs.max_shape
+            shape = state.ibzwfs.get_max_shape()
+            shape = (2, state.ibzwfs.nbands) + shape
             dtype = next(state.ibzwfs).psit_nX.data.dtype
             self.work_arrays = np.empty(shape, dtype)
 

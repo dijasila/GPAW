@@ -37,6 +37,7 @@ class PWFDWaveFunctions(WaveFunctions):
         self.pt_aiX = None
         self.orthonormalized = False
         self.array_shape = psit_nX.desc.myshape
+        self.array_global_shape = psit_nX.desc.shape
 
     def __len__(self):
         return self.psit_nX.dims[0]
