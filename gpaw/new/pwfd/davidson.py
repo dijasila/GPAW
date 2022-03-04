@@ -49,7 +49,7 @@ class Davidson(Eigensolver):
         if self.work_arrays is None:
             shape = state.ibzwfs.get_max_shape()
             shape = (2, state.ibzwfs.nbands) + shape
-            dtype = next(state.ibzwfs).psit_nX.data.dtype
+            dtype = state.ibzwfs.wfs_qs[0][0].psit_nX.data.dtype
             self.work_arrays = np.empty(shape, dtype)
 
         dS = state.density.overlap_correction

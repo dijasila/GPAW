@@ -54,6 +54,9 @@ class UniformGrid(Domain):
     def size(self):
         return self.size_c.copy()
 
+    def global_shape(self) -> tuple[int, ...]:
+        return tuple(self.size_c - 1 + self.pbc_c)
+
     def __repr__(self):
         return Domain.__repr__(self).replace(
             'Domain(',

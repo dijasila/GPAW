@@ -74,7 +74,19 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
     def create_hamiltonian_operator(self, blocksize=10):
         return PWHamiltonian()
 
-    def convert_wave_functions_from_uniform_grid(self, psit_nR):
+    def convert_wave_functions_from_uniform_grid(self,
+                                                 C_nM,
+                                                 basis_set,
+                                                 kpt_c,
+                                                 q):
+        # Replace this with code that goes directly from C_nM to
+        # psit_nG via PWAtomCenteredFunctions.
+        # XXX
+        grid = self.grid.new(kpt=kpt_c, dtype=self.dtype)
+        psit_nR = grid.zeros(self.nbands, self.communicators['b'])
+        mynbands = len(C_nM)
+        basis_set.lcao_to_grid(C_nM, psit_nR.data[:mynbands], q)
+
         pw = self.wf_desc.new(kpt=psit_nR.desc.kpt_c)
         psit_nG = pw.empty(psit_nR.dims, psit_nR.comm)
         for psit_R, psit_G in zip(psit_nR, psit_nG):

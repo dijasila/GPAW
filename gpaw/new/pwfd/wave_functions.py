@@ -37,7 +37,7 @@ class PWFDWaveFunctions(WaveFunctions):
         self.pt_aiX = None
         self.orthonormalized = False
         self.array_shape = psit_nX.desc.myshape
-        self.array_global_shape = psit_nX.desc.shape
+        self.array_global_shape = psit_nX.desc.global_shape()
 
     def __len__(self):
         return self.psit_nX.dims[0]
@@ -116,12 +116,12 @@ class PWFDWaveFunctions(WaveFunctions):
                              scalapack_parameters=(None, 1, 1, -1)):
         """
 
-        Ht(in, out)::
+        Ht(in, out):::
 
            ~   ^   ~
            H = T + v
 
-        dH::
+        dH:::
 
            ~ ~    a    ~  ~
           <𝜓|p> dH    <p |𝜓>
@@ -279,7 +279,10 @@ class PWFDWaveFunctions(WaveFunctions):
 
         return dipole_nnv
 
-    def fill_wave_functions(self, writer: Writer):
-        C_nM = self.C_nM.gather()
-        if self.domain_comm.rank == 0 and self.band_comm.rank == 0:
-            writer.fill(C_nM.data * Bohr**-1.5)
+    def gather_wave_function_coefficients(self) -> np.ndarray:
+        psit_nX = self.psit_nX.gather()
+        if psit_nX is not None:
+            data_nX = psit_nX.matrix.gather()
+            if data_nX.dist.comm.rank == 0:
+                return data_nX.data
+        return None

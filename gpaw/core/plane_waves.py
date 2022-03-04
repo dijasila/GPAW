@@ -56,6 +56,9 @@ class PlaneWaves(Domain):
             'Domain(',
             f'PlaneWaves(ecut={self.ecut}, ')
 
+    def global_shape(self) -> tuple[int, ...]:
+        return self.shape
+
     def reciprocal_vectors(self) -> Array2D:
         """Returns reciprocal lattice vectors, G + k,
         in xyz coordinates."""

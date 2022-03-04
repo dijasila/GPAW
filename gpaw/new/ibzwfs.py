@@ -258,34 +258,26 @@ class IBZWaveFunctions:
             return
 
         # Write header for wave functions
-        shape = spin_k_shape + (self.nbands,
-                                self.get_max_shape(global_shape=True))
-        writer.add_array('coefficients', shape, dtype=self.dtype)
+        xshape = self.get_max_shape(global_shape=True)
+        shape = spin_k_shape + (self.nbands,) + xshape
+
         for spin in range(self.nspins):
             for k in range(len(ibz)):
                 rank = self.rank_k[k]
                 if rank == self.kpt_comm.rank:
-                    wfs = self.wfs_qs[self.q_k[k]][spin]
-                    P_ain = wfs.P_ain.gather()
-                    if P_ain is not None:
-                        P_In = P_ain.matrix.gather()
-                        if self.domain_comm.rank == 0:
-                            if rank == 0:
-                                writer.fill(P_In.data.T)
-                            else:
-                                self.kpt_comm.send(P_In.data, 0)
+                    coef_nX = wfs.gather_wave_function_coefficients()
+                    if coef_nX is not None:
+                        if rank == 0:
+                            if spin == 0 and k == 0:
+                                writer.add_array('coefficients',
+                                                 shape, dtype=coef_nX.dtype)
+                            writer.fill(coef_nX)
+                        else:
+                            self.kpt_comm.send(coef_nX, 0)
                 elif self.kpt_comm.rank == 0:
-                    data = np.empty((nproj, self.nbands), self.dtype)
-                    self.kpt_comm.receive(data, rank)
-                    writer.fill(data.T)
-
-            self.wfs_qs[0][0].add_wave_functions_array(writer, spin_k_shape)
-
-            for spin in range(self.nspins):
-                for wfs in self:
-                    if wfs.spin != spin:
-                        continue
-                    wfs.fill_wave_functions(writer)
+                    if coef_nX is not None:
+                        self.kpt_comm.receive(coef_nX, rank)
+                        writer.fill(coef_nX)
 
     def write_summary(self, log):
         fl = self.fermi_levels * Ha
