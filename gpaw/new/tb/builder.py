@@ -84,6 +84,12 @@ class DummyFunctions(DistributedArrays[NoGrid]):
     def new(self):
         return self
 
+    def __getitem__(self, index):
+        return DummyFunctions(self.desc, comm=self.comm)
+
+    def moment(self):
+        return np.zeros(3)
+
 
 class PSCoreDensities:
     def __init__(self, grid, fracpos_ac):
@@ -100,7 +106,8 @@ class TBPotentialCalculator(PotentialCalculator):
                  setups,
                  nct_R,
                  atoms):
-        super().__init__(xc, None, setups, nct_R)
+        super().__init__(xc, None, setups, nct_R,
+                         atoms.get_scaled_positions())
         self.atoms = atoms.copy()
         self.force_av = None
         self.stress_vv = None
@@ -147,7 +154,8 @@ class DummyXC:
 
 
 class TBSCFLoop:
-    def __init__(self, occ_calc, eigensolver):
+    def __init__(self, hamiltonian, occ_calc, eigensolver):
+        self.hamiltonian = hamiltonian
         self.occ_calc = occ_calc
         self.eigensolver = eigensolver
 
@@ -157,7 +165,7 @@ class TBSCFLoop:
                 convergence=None,
                 maxiter=None,
                 log=None):
-        self.eigensolver.iterate(state)
+        self.eigensolver.iterate(state, self.hamiltonian)
         state.ibzwfs.calculate_occs(self.occ_calc)
         yield
         state.potential, state.vHt_x, _ = pot_calc.calculate(
@@ -205,7 +213,7 @@ class TBDFTComponentsBuilder(LCAODFTComponentsBuilder):
         occ_calc = self.create_occupation_number_calculator()
         hamiltonian = self.create_hamiltonian_operator()
         eigensolver = self.create_eigensolver(hamiltonian)
-        return TBSCFLoop(occ_calc, eigensolver)
+        return TBSCFLoop(hamiltonian, occ_calc, eigensolver)
 
     def create_ibz_wave_functions(self, basis, potential):
         assert self.communicators['w'].size == 1

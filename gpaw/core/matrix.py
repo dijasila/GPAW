@@ -200,16 +200,25 @@ class Matrix:
                 ctx = d2.desc[1]
             redist(d1, self.data, d2, other.data, ctx)
 
-    def invcholesky(self):
-        """Inverse of Cholesky decomposition.
+    def gather(self, root=0):
+        """ Gather the Matrix on the root rank
 
-        Only the lower part is used.
+        Returns a new Matrix distributed so that all data is on the root rank
         """
         if self.dist.comm.size > 1:
             S = self.new(dist=(self.dist.comm, 1, 1))
             self.redist(S)
         else:
             S = self
+
+        return S
+
+    def invcholesky(self):
+        """Inverse of Cholesky decomposition.
+
+        Only the lower part is used.
+        """
+        S = self.gather()
         if self.dist.comm.rank == 0:
             if debug:
                 S.data[np.triu_indices(S.shape[0], 1)] = 42.0

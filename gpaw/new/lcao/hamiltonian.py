@@ -5,6 +5,7 @@ import numpy as np
 from gpaw.lfc import BasisFunctions
 from gpaw.new.calculation import DFTState
 from gpaw.new.lcao.wave_functions import LCAOWaveFunctions
+from gpaw.new.hamiltonian import Hamiltonian
 
 
 class HamiltonianMatrixCalculator:
@@ -46,13 +47,10 @@ class HamiltonianMatrixCalculator:
         return H_MM
 
 
-class LCAOHamiltonian:
+class LCAOHamiltonian(Hamiltonian):
     def __init__(self,
                  basis: BasisFunctions):
         self.basis = basis
-
-    def apply(self):
-        raise NotImplementedError
 
     def create_hamiltonian_matrix_calculator(self,
                                              state: DFTState
