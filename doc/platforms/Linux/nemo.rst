@@ -79,7 +79,8 @@ and edit the module file  :file:`5.2.2` that should read::
   #%Module1.0
 
   #                                    change this to your path
-  set             libxchome            /home/fr/fr_fr/fr_mw767/source/libxc/libxc-5.2.2/install
+  set             source               $::env(HOME)/source
+  set             libxchome            $source/libxc/libxc-5.2.2/install
   prepend-path    C_INCLUDE_PATH       $libxchome/include
   prepend-path    LIBRARY_PATH         $libxchome/lib
   prepend-path    LD_LIBRARY_PATH      $libxchome/lib
@@ -108,7 +109,8 @@ Edit the module file  :file:`3.18.1` that should read::
   devel/python/3.7.10
 
   #           change this to your path
-  set asehome /home/fr/fr_fr/fr_mw767/source/ase/3.18.1
+  set source $::env(HOME)/source
+  set asehome $source/ase/3.18.1
   prepend-path       PYTHONPATH    $asehome
   prepend-path       PATH          $asehome/tools
 
@@ -141,7 +143,8 @@ and edit the module file  :file:`origin` that should read::
   devel/python/3.7.10
 
   #           change this to your path
-  set asehome /home/fr/fr_fr/fr_mw767/source/ase/origin
+  set source $::env(HOME)/source
+  set asehome $source/ase/origin
   prepend-path       PYTHONPATH    $asehome
   prepend-path       PATH          $asehome/tools
 
@@ -201,12 +204,12 @@ The file  :file:`origin` that should read::
  if {![is-loaded ase]} {module load ase}
  if {![is-loaded libxc]} {module load libxc}
  if {![is-loaded mpi]}  {module load mpi/impi}
- if {![is-loaded numlib/mkl]}  {module load numlib/mkl}
  if {![is-loaded gpaw-setups]}  {module load gpaw-setups}
 
  # change the following directory definition to your needs
- set gpawhome /home/fr/fr_fr/fr_mw767/source/gpaw/origin
- # this can stay as is
+ set source $::env(HOME)/source
+ set gpawhome $source/gpaw/origin
+  # this can stay as is
  prepend-path    PATH                 $gpawhome/tools:$gpawhome/build/scripts-3.7
  prepend-path    PYTHONPATH           $gpawhome:$gpawhome/build/lib.linux-x86_64-3.7
 
