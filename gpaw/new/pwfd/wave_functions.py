@@ -36,8 +36,11 @@ class PWFDWaveFunctions(WaveFunctions):
         self.fracpos_ac = fracpos_ac
         self.pt_aiX = None
         self.orthonormalized = False
-        self.array_shape = psit_nX.desc.myshape
-        self.array_global_shape = psit_nX.desc.global_shape()
+
+    def array_shape(self, global_shape=False):
+        if global_shape:
+            return self.psit_nX.desc.myshape
+        return self.psit_nX.desc.global_shape()
 
     def __len__(self):
         return self.psit_nX.dims[0]
@@ -284,5 +287,6 @@ class PWFDWaveFunctions(WaveFunctions):
         if psit_nX is not None:
             data_nX = psit_nX.matrix.gather()
             if data_nX.dist.comm.rank == 0:
-                return data_nX.data
+                # XXX PW-gamma-point mode: float or complex matrix.dtype?
+                return data_nX.data.view(psit_nX.data.dtype)
         return None

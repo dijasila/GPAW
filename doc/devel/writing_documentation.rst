@@ -74,3 +74,6 @@ more expensive scripts you can use :ref:`AGTS <agts>` for running long jobs
 that create figures or table data for this web-page.  For an example, look at
 the source code :git:`here <doc/tutorialsexercises/electronic/stm>` which will
 produce this: :ref:`stm tutorial`.
+
+
+.. automodule:: gpaw.doctools.aamath

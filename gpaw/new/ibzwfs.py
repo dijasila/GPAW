@@ -77,10 +77,11 @@ class IBZWaveFunctions:
         For a PW-calcuation, this shape could depend on k-point.
         """
         if global_shape:
-            shape = np.array(max(wfs.array_global_shape for wfs in self))
+            shape = np.array(max(wfs.array_shape(global_shape=True)
+                                 for wfs in self))
             self.kpt_comm.max(shape)
             return tuple(shape)
-        return max(wfs.array_shape for wfs in self)
+        return max(wfs.array_shape() for wfs in self)
 
     def is_master(self):
         return (self.domain_comm.rank == 0 and
@@ -237,8 +238,7 @@ class IBZWaveFunctions:
         writer.add_array('projections', proj_shape, self.dtype)
 
         for spin in range(self.nspins):
-            for k in range(len(ibz)):
-                rank = self.rank_k[k]
+            for k, rank in enumerate(self.rank_k):
                 if rank == self.kpt_comm.rank:
                     wfs = self.wfs_qs[self.q_k[k]][spin]
                     P_ain = wfs.P_ain.gather()
@@ -257,14 +257,13 @@ class IBZWaveFunctions:
         if skip_wfs:
             return
 
-        # Write header for wave functions
         xshape = self.get_max_shape(global_shape=True)
         shape = spin_k_shape + (self.nbands,) + xshape
 
         for spin in range(self.nspins):
-            for k in range(len(ibz)):
-                rank = self.rank_k[k]
+            for k, rank in enumerate(self.rank_k):
                 if rank == self.kpt_comm.rank:
+                    wfs = self.wfs_qs[self.q_k[k]][spin]
                     coef_nX = wfs.gather_wave_function_coefficients()
                     if coef_nX is not None:
                         if rank == 0:

@@ -1,3 +1,37 @@
+r"""Ascii-art math to LaTeX converter.
+
+Examples:
+
+::
+
+ 1+2
+ ---
+  3
+
+.. math::
+
+  \frac{1+2}{3}
+
+::
+
+ <a|b>
+
+.. math::
+
+  \langle a|b \rangle
+
+::
+
+ /  _ ~ ~    --- a
+ | dr 𝜓 𝜓  + >  S
+ /     m n   --- ij
+             aij
+
+.. math::
+
+  \int d\mathbf{r} \tilde{𝜓}_{m} \tilde{𝜓}_{n}  + \sum^{}_{aij} S^{a}_{ij}
+"""
+
 from __future__ import annotations
 
 
@@ -156,6 +190,7 @@ def parse(lines: str | list[str], n: int = None) -> str:
 
 def autodoc_process_docstring(lines):
     """Hook-function for Sphinx."""
+    blocks = []
     for i1, line in enumerate(lines):
         if line.endswith(':::'):
             for i2, line in enumerate(lines[i1 + 2:], i1 + 2):
@@ -163,33 +198,21 @@ def autodoc_process_docstring(lines):
                     break
             else:
                 i2 += 1
-            latex = parse(lines[i1 + 1:i2])
-            lines[i1:i2] = [f'.. math:: {latex}']
-            return
-
-
-examples = r"""
-1+2
----
- 3
-\frac{1+2}{3}
-
-<a|b>
-\langle a|b \rangle
-
-/  _ ~ ~    --- a
-| dr 𝜓 𝜓  + >  S
-/     m n   --- ij
-            aij
-\int d\mathbf{r} \tilde{𝜓}_{m} \tilde{𝜓}_{n}  + \sum^{}_{aij} S^{a}_{ij}
-"""
+            blocks.append((i1, i2))
+    for i1, i2 in reversed(blocks):
+        latex = parse(lines[i1 + 1:i2])
+        lines[i1:i2] = [f'.. math:: {latex}']
 
 
 def test_examples():
-    for example in examples[1:].split('\n\n'):
-        lines = example.splitlines()
-        print(lines)
-        assert parse(lines[:-1]) == lines[-1]
+    """Test examples from module docstring."""
+    lines = __doc__.replace('\n::', '\n:::').splitlines()
+    autodoc_process_docstring(lines)
+    for example in '\n'.join(lines).split('.. math:: ')[1:]:
+        line1, *lines = example.splitlines()
+        print(line1)
+        line2 = lines[3].strip()
+        assert line1 == line2
 
 
 def main():

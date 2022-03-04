@@ -1,14 +1,16 @@
 from __future__ import annotations
+
 import ase.io.ulm as ulm
 import gpaw
+import numpy as np
 from ase.io.trajectory import read_atoms, write_atoms
 from ase.units import Bohr, Ha
+from gpaw.core.atom_arrays import AtomArraysLayout
 from gpaw.new.builder import builder as create_builder
 from gpaw.new.calculation import DFTCalculation, DFTState
 from gpaw.new.density import Density
 from gpaw.new.input_parameters import InputParameters
 from gpaw.new.potential import Potential
-from gpaw.core.atom_arrays import AtomArraysLayout
 
 
 def write_gpw(filename: str,
@@ -34,12 +36,51 @@ def write_gpw(filename: str,
         writer.child('results').write(**calculation.results)
         writer.child('parameters').write(
             **{k: v for k, v in params.items() if k != 'txt'})
-        calculation.state.density.write(writer.child('density'))
-        calculation.state.potential.write(writer.child('hamiltonian'))
-        calculation.state.ibzwfs.write(writer.child('wave_functions'),
-                                       skip_wfs)
+
+        state = calculation.state
+        state.density.write(writer.child('density'))
+        state.potential.write(writer.child('hamiltonian'))
+        wf_writer = writer.child('wave_functions')
+        state.ibzwfs.write(wf_writer, skip_wfs)
+
+        if not skip_wfs and params.mode['name'] == 'pw':
+            write_wave_function_indices(wf_writer,
+                                        state.ibzwfs,
+                                        state.density.nt_sR.desc)
 
     world.barrier()
+
+
+def write_wave_function_indices(writer, ibzwfs, grid):
+    if ibzwfs.band_comm.rank != 0:
+        return
+    if ibzwfs.domain_comm.rank != 0:
+        return
+
+    kpt_comm = ibzwfs.kpt_comm
+    ibz = ibzwfs.ibz
+    (nG,) = ibzwfs.get_max_shape(global_shape=True)
+
+    writer.add_array('indices', (len(ibz), nG), np.int32)
+
+    index_G = np.zeros(nG, np.int32)
+    size = tuple(grid.size)
+    if ibzwfs.dtype == float:
+        size = (size[0], size[1], size[2] // 2 + 1)
+
+    for k, rank in enumerate(ibzwfs.rank_k):
+        if rank == kpt_comm.rank:
+            wfs = ibzwfs.wfs_qs[ibzwfs.q_k[k]][0]
+            i_G = wfs.psit_nX.desc.indices(size)
+            index_G[:len(i_G)] = i_G
+            index_G[len(i_G):] = -1
+            if rank == 0:
+                writer.fill(index_G)
+            else:
+                kpt_comm.send(index_G, 0)
+        elif kpt_comm.rank == 0:
+            kpt_comm.receive(index_G, rank)
+            writer.fill(index_G)
 
 
 def read_gpw(filename, log, parallel):
@@ -105,7 +146,7 @@ def read_gpw(filename, log, parallel):
         None,
         pot_calc=builder.create_potential_calculator())
 
-    results = reader.results.asdict()
+    results = reader.results.asdict()#units
     if results:
         log(f'Read {", ".join(sorted(results))}')
 
@@ -115,5 +156,6 @@ def read_gpw(filename, log, parallel):
 
 if __name__ == '__main__':
     import sys
+
     from gpaw.mpi import world
     read_gpw(sys.argv[1], print, {'world': world})
