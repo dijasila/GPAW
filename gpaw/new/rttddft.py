@@ -12,6 +12,8 @@ from gpaw.typing import Vector
 from gpaw.mpi import world
 from gpaw.new.ase_interface import ASECalculator
 from gpaw.new.calculation import DFTState, DFTCalculation
+from gpaw.new.lcao.hamiltonian import HamiltonianMatrixCalculator
+from gpaw.new.lcao.wave_functions import LCAOWaveFunctions
 from gpaw.new.gpw import read_gpw
 from gpaw.new.pot_calc import PotentialCalculator
 from gpaw.tddft.units import asetime_to_autime, autime_to_asetime, au_to_eA
@@ -23,15 +25,14 @@ class TDAlgorithm:
     def kick(self,
              state: DFTState,
              pot_calc: PotentialCalculator,
-             ext: ExternalPotential,
-             hamiltonian):
+             dm_calc: HamiltonianMatrixCalculator):
         raise NotImplementedError()
 
     def propagate(self,
                   time_step: float,
                   state: DFTState,
                   pot_calc: PotentialCalculator,
-                  hamiltonian):
+                  ham_calc: HamiltonianMatrixCalculator):
         raise NotImplementedError()
 
     def get_description(self):
@@ -53,8 +54,7 @@ class ECNAlgorithm(TDAlgorithm):
     def kick(self,
              state: DFTState,
              pot_calc: PotentialCalculator,
-             ext: ExternalPotential,
-             hamiltonian):
+             dm_calc: HamiltonianMatrixCalculator):
         """ Propagate wavefunctions by delta-kick, i.e. propagate using
 
                    ^        -1  0+             ^        -1
@@ -67,19 +67,25 @@ class ECNAlgorithm(TDAlgorithm):
         (2) Update wavefunctions ψ_n(t+dt) ← U[H(t)] ψ_n(t)
         (3) Update density and hamiltonian H(t+dt)
 
-        The external potential ext contains the shape of the kick
+        Parameters
+        ----------
+        state
+            Current state of the wave functions, that is to be updated
+        pot_calc
+            The potential calculator
+        dm_calc
+            Dipole moment operator calculator, which contains the dipole moment
+            operator
         """
-        matrix_calculator = hamiltonian.create_kick_matrix_calculator(
-            state, ext, pot_calc)
         for wfs in state.ibzwfs:
-            H_MM = matrix_calculator.calculate_potential_matrix(wfs)
+            V_MM = dm_calc.calculate_potential_matrix(wfs)
 
             # Phi_n <- U[H(t)] Phi_n
             nkicks = 10
             for i in range(nkicks):
                 propagate_wave_functions_numpy(wfs.C_nM.data, wfs.C_nM.data,
                                                wfs.S_MM,
-                                               H_MM, 1 / nkicks)
+                                               V_MM, 1 / nkicks)
         # Update density
         state.density.update(pot_calc.nct_R, state.ibzwfs)
 
@@ -91,17 +97,15 @@ class ECNAlgorithm(TDAlgorithm):
                   time_step: float,
                   state: DFTState,
                   pot_calc: PotentialCalculator,
-                  hamiltonian):
+                  ham_calc: HamiltonianMatrixCalculator):
         """ One explicit Crank-Nicolson propagation step, i.e.
 
         (1) Calculate propagator U[H(t)]
         (2) Update wavefunctions ψ_n(t+dt) ← U[H(t)] ψ_n(t)
         (3) Update density and hamiltonian H(t+dt)
         """
-        matrix_calculator = hamiltonian.create_hamiltonian_matrix_calculator(
-            state)
         for wfs in state.ibzwfs:
-            H_MM = matrix_calculator.calculate_hamiltonian_matrix(wfs)
+            H_MM = ham_calc.calculate_hamiltonian_matrix(wfs)
 
             # Phi_n <- U[H(t)] Phi_n
             propagate_wave_functions_numpy(wfs.C_nM.data, wfs.C_nM.data,
@@ -131,7 +135,7 @@ class RTTDDFTResult(NamedTuple):
 
     def __repr__(self):
         timestr = f'{self.time*autime_to_asetime:.3f} Å√(u/eV)'
-        dmstr = ', '.join([f'{dm*au_to_eA:.3f}' for dm in self.dipolemoment])
+        dmstr = ', '.join([f'{dm*au_to_eA:10.4g}' for dm in self.dipolemoment])
         dmstr = f'[{dmstr}]'
 
         return (f'{self.__class__.__name__}: '
@@ -154,8 +158,15 @@ class RTTDDFT:
         self.propagator = propagator
         self.hamiltonian = hamiltonian
 
+        self.kick_ext: ExternalPotential | None = None
+
+        # Dipole moment operators in each Cartesian direction
+        self.dm_operator_c: list[HamiltonianMatrixCalculator] | None = None
+
         self.timer = nulltimer
         self.log = print
+
+        self.ham_calc = hamiltonian.create_hamiltonian_matrix_calculator(state)
 
     @classmethod
     def from_dft_calculation(cls,
@@ -227,13 +238,15 @@ class RTTDDFT:
             self.log('----  Applying kick')
             self.log(f'----  {ext}')
 
+            dm_operator_calc = self.hamiltonian.create_kick_matrix_calculator(
+                self.state, ext, self.pot_calc)
+
             self.kick_ext = ext
 
             # Propagate kick
             self.propagator.kick(state=self.state,
                                  pot_calc=self.pot_calc,
-                                 ext=ext,
-                                 hamiltonian=self.hamiltonian)
+                                 dm_calc=dm_operator_calc)
 
     def ipropagate(self,
                    time_step: float = 10.0,
@@ -255,10 +268,45 @@ class RTTDDFT:
             self.propagator.propagate(time_step,
                                       state=self.state,
                                       pot_calc=self.pot_calc,
-                                      hamiltonian=self.hamiltonian)
+                                      ham_calc=self.ham_calc)
             time = self.time + time_step
             self.time = time
-            dipolemoment = self.state.density.calculate_dipole_moment(
-                self.pot_calc.fracpos_ac)
-            result = RTTDDFTResult(time=time, dipolemoment=dipolemoment)
+            # TODO This seems to be broken
+            # dipolemoment = self.state.density.calculate_dipole_moment(
+            #     self.pot_calc.fracpos_ac)
+            dipolemoment_xv = [self.calculate_dipole_moment(wfs)
+                               for wfs in self.state.ibzwfs]
+            dipolemoment_v = np.sum(dipolemoment_xv, axis=0)
+            result = RTTDDFTResult(time=time, dipolemoment=dipolemoment_v)
             yield result
+
+    def calculate_dipole_moment(self,
+                                wfs: LCAOWaveFunctions) -> Vector:
+        """ Calculates the dipole moment
+
+        The dipole moment is calculated as the expectation value of the
+        dipole moment operator, i.e. the trace of it times the density matrix
+
+        d = - Σ  ρ   d
+              μν  μν  νμ
+
+        """
+        if self.dm_operator_c is None:
+            self.dm_operator_c = []
+
+            # Create external potentials in each direction
+            ext_c = [ConstantElectricField(Hartree / Bohr, dir)
+                     for dir in np.eye(3)]
+            dm_operator_c = [self.hamiltonian.create_kick_matrix_calculator(
+                self.state, ext, self.pot_calc) for ext in ext_c]
+            self.dm_operator_c = dm_operator_c
+
+        dm_v = np.zeros(3)
+        for c, dm_operator in enumerate(self.dm_operator_c):
+            rho_MM = wfs.calculate_density_matrix()
+            dm_MM = dm_operator.calculate_potential_matrix(wfs)
+            dm = - np.einsum('MN,NM->', rho_MM, dm_MM)
+            assert np.abs(dm.imag) < 1e-20
+            dm_v[c] = dm.real
+
+        return dm_v

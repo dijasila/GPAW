@@ -58,6 +58,7 @@ class LCAOWaveFunctions(WaveFunctions):
     def add_to_density(self,
                        nt_sR,
                        D_asii: AtomArrays) -> None:
+        """ Compute density from wave functions and add to nt_sR and D_asii """
         occ_n = self.weight * self.spin_degeneracy * self.myocc_n
         C_nM = self.C_nM.data
         rho_MM = (C_nM.T.conj() * occ_n) @ C_nM
@@ -75,3 +76,22 @@ class LCAOWaveFunctions(WaveFunctions):
         C_nM = self.C_nM.gather()
         if self.domain_comm.rank == 0 and self.band_comm.rank == 0:
             writer.fill(C_nM.data * Bohr**-1.5)
+
+    def calculate_density_matrix(self) -> np.ndarray:
+        """ Calculate the density matrix
+
+        The density matrix is
+
+                 *
+        ρ   = Σ C  C   f
+         μν   n  nμ nν  n
+
+        Returns
+        -------
+        The density matrix in the LCAO basis
+        """
+        f_n = self.weight * self.spin_degeneracy * self.myocc_n
+        C_nM = self.C_nM.data
+        rho_MM = (C_nM.T.conj() * f_n) @ C_nM
+
+        return rho_MM
