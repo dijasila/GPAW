@@ -119,16 +119,70 @@ class ECNAlgorithm(TDAlgorithm):
             state.density, state.vHt_x)
 
 
+class RTTDDFTHistory:
+
+    kick_strength: Vector | None  # Kick strength in atomic units
+    niter: int  # Number of propagation steps
+    time: float  # Simulation time in atomic units
+
+    def __init__(self):
+        """Object that keeps track of the RT-TDDFT history, that is
+
+        - Has a kick been performed?
+        - The number of propagation states performed
+        """
+        self.kick_strength = None
+        self.niter = 0
+        self.time = 0.0
+
+    def absorption_kick(self,
+                        kick_strength: Vector):
+        """ Store the kick strength in history
+
+        At most one kick can be done, and it must happen before any
+        propagation steps
+
+        Parameters
+        ----------
+        kick_strength
+            Strength of the kick in atomic units
+        """
+        assert self.niter == 0, 'Cannot kick if already propagated'
+        assert self.kick_strength is None, 'Cannot kick if already kicked'
+        self.kick_strength = np.array(kick_strength, dtype=float)
+
+    def propagate(self,
+                  time_step: float) -> float:
+        """ Increment the number of propagation steps and simulation time
+        in history
+
+        Parameters
+        ----------
+        time_step
+            Time step in atomic units
+
+        Returns
+        -------
+        The new simulation time in atomic units
+        """
+        self.niter += 1
+        self.time += time_step
+
+        return self.time
+
+    def todict(self):
+        absorption_kick = self.absorption_kick
+        if absorption_kick is not None:
+            absorption_kick = absorption_kick.tolist()
+        return {'niter': self.niter, 'time': self.time,
+                'absorption_kick': absorption_kick}
+
+
 class RTTDDFTResult(NamedTuple):
 
     """ Results are stored in atomic units, but displayed to the user in
     ASE units
     """
-
-    # TODO this could keep track of whether kick or propagation performed
-    # Should the RTTDDFT object keep track of previous kicks?
-    # I suggest not -> If that is wished for then we can have a RTTDDFTHistory
-    # object
 
     time: float  # Time in atomic units
     dipolemoment: Vector  # Dipole moment in atomic units
@@ -147,9 +201,8 @@ class RTTDDFT:
                  state: DFTState,
                  pot_calc: PotentialCalculator,
                  hamiltonian,
+                 history: RTTDDFTHistory,
                  propagator: TDAlgorithm | None = None):
-        self.time = 0.0
-
         if propagator is None:
             propagator = ECNAlgorithm()
 
@@ -157,6 +210,7 @@ class RTTDDFT:
         self.pot_calc = pot_calc
         self.propagator = propagator
         self.hamiltonian = hamiltonian
+        self.history = history
 
         self.kick_ext: ExternalPotential | None = None
 
@@ -182,8 +236,10 @@ class RTTDDFT:
         state = calculation.state
         pot_calc = calculation.pot_calc
         hamiltonian = calculation.scf_loop.hamiltonian
+        history = RTTDDFTHistory()
 
-        return cls(state, pot_calc, hamiltonian, propagator=propagator)
+        return cls(state, pot_calc, hamiltonian, propagator=propagator,
+                   history=history)
 
     @classmethod
     def from_dft_file(cls,
@@ -197,8 +253,10 @@ class RTTDDFT:
         state = calculation.state
         pot_calc = calculation.pot_calc
         hamiltonian = builder.create_hamiltonian_operator()
+        history = RTTDDFTHistory()
 
-        return cls(state, pot_calc, hamiltonian, propagator=propagator)
+        return cls(state, pot_calc, hamiltonian, propagator=propagator,
+                   history=history)
 
     def absorption_kick(self,
                         kick_strength: Vector):
@@ -210,9 +268,11 @@ class RTTDDFT:
             Strength of the kick in atomic units
         """
         with self.timer('Kick'):
-            self.kick_strength = np.array(kick_strength, dtype=float)
-            magnitude = np.sqrt(np.sum(self.kick_strength**2))
-            direction = self.kick_strength / magnitude
+            kick_strength = np.array(kick_strength, dtype=float)
+            self.history.absorption_kick(kick_strength)
+
+            magnitude = np.sqrt(np.sum(kick_strength**2))
+            direction = kick_strength / magnitude
             dirstr = [f'{d:.4f}' for d in direction]
 
             self.log('----  Applying absorption kick')
@@ -228,6 +288,9 @@ class RTTDDFT:
     def kick(self,
              ext: ExternalPotential):
         """Kick with any external potential.
+
+        Note that unless this function is called by absorption_kick, the kick
+        is not logged in history
 
         Parameters
         ----------
@@ -269,8 +332,7 @@ class RTTDDFT:
                                       state=self.state,
                                       pot_calc=self.pot_calc,
                                       ham_calc=self.ham_calc)
-            time = self.time + time_step
-            self.time = time
+            time = self.history.propagate(time_step)
             # TODO This seems to be broken
             # dipolemoment = self.state.density.calculate_dipole_moment(
             #     self.pot_calc.fracpos_ac)
@@ -281,7 +343,7 @@ class RTTDDFT:
             yield result
 
     def calculate_dipole_moment(self,
-                                wfs: LCAOWaveFunctions) -> Vector:
+                                wfs: LCAOWaveFunctions) -> np.ndarray:
         """ Calculates the dipole moment
 
         The dipole moment is calculated as the expectation value of the
