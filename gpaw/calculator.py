@@ -17,6 +17,7 @@ from ase.utils.timing import Timer
 import gpaw
 import gpaw.mpi as mpi
 from gpaw.band_descriptor import BandDescriptor
+from gpaw.convergence_criteria import dict2criterion
 from gpaw.density import RealSpaceDensity
 from gpaw.dos import DOSCalculator
 from gpaw.eigensolvers import get_eigensolver
@@ -37,7 +38,7 @@ from gpaw.output import (print_cell, print_parallelization_details,
                          print_positions)
 from gpaw.pw.density import ReciprocalSpaceDensity
 from gpaw.pw.hamiltonian import ReciprocalSpaceHamiltonian
-from gpaw.scf import SCFLoop, dict2criterion
+from gpaw.scf import SCFLoop
 from gpaw.setup import Setups
 from gpaw.stress import calculate_stress
 from gpaw.symmetry import Symmetry
