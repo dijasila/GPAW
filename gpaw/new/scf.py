@@ -4,7 +4,8 @@ import warnings
 from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
-from gpaw.scf import dict2criterion, write_iteration
+from gpaw.convergence_criteria import dict2criterion, check_convergence
+from gpaw.scf import write_iteration
 if TYPE_CHECKING:
     from gpaw.new.calculation import DFTState
 
@@ -65,10 +66,10 @@ class SCFLoop:
 
             yield ctx
 
-            entries, converged = check_convergence(ctx, cc)
+            converged, converged_items, entries = check_convergence(cc, ctx)
             if log:
-                write_iteration(cc, converged, entries, ctx, log)
-            if all(converged.values()):
+                write_iteration(cc, converged_items, entries, ctx, log)
+            if converged:
                 break
             if niter == maxiter:
                 raise SCFConvergenceError
@@ -102,27 +103,6 @@ class SCFContext:
             .calculate_magnetic_moments,
             fixed=False,
             error=dens_error)
-
-
-def check_convergence(ctx, criteria):
-    entries = {}  # for log file, per criteria
-    converged_items = {}  # True/False, per criteria
-
-    for name, criterion in criteria.items():
-        if not criterion.calc_last:
-            converged_items[name], entries[name] = criterion(ctx)
-
-    converged = all(converged_items.values())
-
-    for name, criterion in criteria.items():
-        if criterion.calc_last:
-            if converged:
-                converged_items[name], entries[name] = criterion(ctx)
-            else:
-                converged_items[name], entries[name] = False, ''
-
-    # Converged?
-    return entries, converged_items
 
 
 def create_convergence_criteria(criteria):
