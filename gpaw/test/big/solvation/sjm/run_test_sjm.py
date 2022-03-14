@@ -65,7 +65,8 @@ calc = SJM(sj=sj,
                surface_calculator=GradientSurface()),
            dielectric=LinearDielectric(epsinf=epsinf),
            interactions=[SurfaceInteraction(surface_tension=gamma)],
-           txt='sjm.txt')
+           txt='sjm.txt',
+           convergence={'energy': 0.000005})
 
 atoms.calc = calc
 E = []
