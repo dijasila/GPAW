@@ -268,6 +268,7 @@ class Forces(Criterion):
         self.description = ('Maximum change in the atomic [forces] across '
                             'last 2 cycles: {:g} eV/Ang'.format(self.tol))
         self.calc_last = calc_last
+        self.override_others = not calc_last
         self.reset()
 
     def __call__(self, context):
@@ -283,7 +284,8 @@ class Forces(Criterion):
         if self.old_F_av is not None:
             error = ((F_av - self.old_F_av)**2).sum(1).max()**0.5
         self.old_F_av = F_av
-        converged = (error < self.tol)
+        fmax = (F_av**2).sum(1).max()**0.5
+        converged = (error < self.tol * fmax)
         entry = ''
         if np.isfinite(error):
             entry = '{:+5.2f}'.format(np.log10(error))
