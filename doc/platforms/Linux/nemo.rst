@@ -23,7 +23,7 @@ The setups of your choice must be installed
   tar xzf gpaw-setups-0.9.11271.tar.gz
 
 Let gpaw know about the setups::
-  
+
   export GPAW_SETUP_PATH=$GPAW_SETUP_SOURCE/gpaw-setups-0.9.11271
 
 Using the module environment
@@ -35,7 +35,7 @@ It is very handy to add our installation to the module environment::
   mkdir -p modulefiles/gpaw-setups
   cd modulefiles/gpaw-setups
   echo -e "#%Module1.0\nprepend-path       GPAW_SETUP_PATH    $GPAW_SETUP_SOURCE/gpaw-setups-0.9.11271" > 0.9.11271
-  
+
 We need to let the system know about our modules
 (add this command to ``~/.profile`` or ``~/.bashrc`` to execute automatically)::
 
@@ -48,9 +48,9 @@ such that we also see them with::
 libxc
 -----
 
-GPAW relies on libxc (see the `libxc web site <http://www.tddft.org/programs/octopus/wiki/index.php/Libxc:download>`__). 
-To install libxc we assume that ``MYLIBXCDIR`` is set to 
-the directory where you want to install 
+GPAW relies on libxc (see the `libxc web site <http://www.tddft.org/programs/octopus/wiki/index.php/Libxc:download>`__).
+To install libxc we assume that ``MYLIBXCDIR`` is set to
+the directory where you want to install
 (e.g. ``MYLIBXCDIR=$HOME/source/libxc``)::
 
  mkdir -p $MYLIBXCDIR
@@ -65,12 +65,12 @@ the directory where you want to install
  make |tee make.log
  make install
 
-This will have installed the libs ``$MYLIBXCDIR/libxc-5.2.2/install/lib`` 
+This will have installed the libs ``$MYLIBXCDIR/libxc-5.2.2/install/lib``
 and the C header
 files to ``$MYLIBXCDIR/libxc-5.2.2/install/include``.
 We create a module for libxc::
 
-  cd	
+  cd
   mkdir modulefiles/libxc
   cd modulefiles/libxc
 
@@ -101,7 +101,7 @@ We add our installation to the module environment::
   cd
   mkdir -p modulefiles/ase
   cd modulefiles/ase
-  
+
 Edit the module file  :file:`3.18.1` that should read::
 
   #%Module1.0
@@ -115,7 +115,7 @@ Edit the module file  :file:`3.18.1` that should read::
   prepend-path       PATH          $asehome/tools
 
 ASE origin
----------
+----------
 
 We get ASE origin::
 
