@@ -9,6 +9,17 @@ _nabla: Dict[int, np.ndarray] = {}
 
 
 def gaunt(lmax=2):
+    r"""Gaunt coefficients
+
+    :::
+
+                      __
+      ^      ^       \   L      ^
+      Y (r)  Y (r) =  ) G    Y (r)
+       L      L      /__ L L  L
+        1      2      L   1 2
+    """
+
     if lmax in _gaunt:
         return _gaunt[lmax]
 
@@ -36,7 +47,7 @@ def gaunt(lmax=2):
 def nabla(lmax=2):
     """Create the array of derivative intergrals.
 
-    ::
+    :::
 
       /  ^     1-l' d   l'
       | dr Y  r    ---(r Y  )
