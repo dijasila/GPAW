@@ -1,4 +1,6 @@
-r"""Ascii-art math to LaTeX converter.
+r"""
+Ascii-art math to LaTeX converter
+=================================
 
 Examples:
 
@@ -47,7 +49,7 @@ def prep(lines: list[str]) -> list[str]:
         return []
     n = min(len(line) - len(line.lstrip()) for line in lines)
     lines = [line[n:] for line in lines]
-    n = max(len(lines) for line in lines)
+    n = max(len(line) for line in lines)
     return [line.ljust(n) for line in lines]
 
 
@@ -124,7 +126,7 @@ def parse(lines: str | list[str], n: int = None) -> str:
         p1 = parse(cut(lines, 0, i1))
         p2 = parse(cut(lines[:n], i1, i2))
         p3 = parse(cut(lines[n + 1:], i1, i2))
-        p4 = parse(cut(lines, i2 + 1))
+        p4 = parse(cut(lines, i2))
         return rf'{p1} \frac{{{p2}}}{{{p3}}} {p4}'.strip()
 
     i = line.find('>')
@@ -210,7 +212,6 @@ def test_examples():
     autodoc_process_docstring(lines)
     for example in '\n'.join(lines).split('.. math:: ')[1:]:
         line1, *lines = example.splitlines()
-        print(line1)
         line2 = lines[3].strip()
         assert line1 == line2
 
