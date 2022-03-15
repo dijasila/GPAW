@@ -617,16 +617,16 @@ The default value is this dictionary::
 In words:
 
 * The energy change (last 3 iterations) should be less than 0.5 meV
-  per valence electron. (See :class:`~gpaw.scf.Energy`.)
+  per valence electron. (See :class:`~gpaw.convergence_criteria.Energy`.)
 
 * The change in density (integrated absolute value of density change)
   should be less than 0.0001 electrons per valence electron. (See
-  :class:`~gpaw.scf.Density`.)
+  :class:`~gpaw.convergence_criteria.Density`.)
 
 * The integrated value of the square of the residuals of the Kohn-Sham
   equations should be less than 4.0 `\times` 10\ :sup:`-8` eV\ :sup:`2`
   per valence electron. This criterion does not affect LCAO
-  calculations.  (See :class:`~gpaw.scf.Eigenstates`.)
+  calculations.  (See :class:`~gpaw.convergence_criteria.Eigenstates`.)
 
 * Only the bands that are occupied with electrons are converged.
 

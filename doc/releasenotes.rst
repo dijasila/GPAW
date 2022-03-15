@@ -17,6 +17,11 @@ Git master branch
 * New feature for the :ref:`gpaw symmetry <cli>` command:  Will show number of
   **k**-points in the IBZ.
 
+* New :class:`~gpaw.convergence_criteria.MaxIter` convergence criterium:
+  ``convergence={'maximum iterations': 200}``.  This will let a calculation
+  converge after 200 steps unless it already converged before that.  This is
+  useful for structure optimizations that start far from the minimum.
+
 
 Version 22.1.0
 ==============

@@ -199,10 +199,10 @@ print(layerdist)
 """
 Now both the optimal C-C distance and the interlayer distance is evaluated with EMT. Try to compare with the experimental numbers provided below.
 
-|                         | Experimental values | EMT | LDA | PBE | BEEF-vdW |
-|-------------------------|---------------------|-----|-----|-----|----------|
-| C-C  distance / Å       |               1.420 |     |     |     |          |
-| Interlayer distance / Å |                3.35 |     |     |     |          |
+|                         | Experimental values | EMT | LDA | PBE | PBE+DFTD3 |
+|-------------------------|---------------------|-----|-----|-----|-----------|
+| C-C  distance / Å       |               1.420 |     |     |     |           |
+| Interlayer distance / Å |                3.35 |     |     |     |           |
 
 """
 
@@ -266,9 +266,9 @@ from ase.optimize.bfgs import BFGS
 from ase.io import Trajectory
 
 sf = StrainFilter(gra, mask=[1, 1, 1, 0, 0, 0])
-opt = BFGS(sf)
-traj = Trajectory(calcname + '.traj', 'w', gra)
-opt.attach(traj)
+opt = BFGS(sf, trajectory=calcname + '.traj')
+# traj = Trajectory(calcname + '.traj', 'w', gra)
+# opt.attach(traj)
 opt.run(fmax=0.01)
 
 
@@ -290,14 +290,14 @@ print(h / 2)
 
 # %%
 """
-Now we need to try a GGA type functional (e.g. PBE) and a functional taking into account van der Waals forces (e.g. BEEF-vdW). These functionals will require more computational time, thus the following might be beneficial to read.
+Now we need to try a GGA type functional (e.g. PBE) and also try to add van der Waals forces on top of PBE (i.e. PBE+DFTD3). These functionals will require more computational time, thus the following might be beneficial to read.
 """
 
 # %%
 """
 If the relaxation takes too long time, we can submit it to be run in parallel on the computer cluster. Remember we can then run different calculations simultaneously. There are two ways to achieve this:
 
-A. Log in to the gbar terminal, save a full script in a file (e.g. `calc.py`) and submit that file to be calculated in parallel (e.g. `qsub.py -p 8 -t 5 calc.py` (5 hours on 8 cores)).
+A. Log in to the gbar terminal, save a full script in a file (e.g. `calc.py`) and submit that file to be calculated in parallel (e.g. `mq submit calc.py -R 8:5h` (5 hours on 8 cores)).
 
 or
 
@@ -318,6 +318,10 @@ You need to make a full working script in a cell that does not depend on variabl
 # Teacher
 import numpy as np
 from ase.lattice.hexagonal import Graphite
+from ase.calculators.dftd3 import DFTD3
+from ase.constraints import StrainFilter
+from ase.optimize.bfgs import BFGS
+from ase.io import Trajectory
 
 ccdist = 1.41
 layerdist = 3.21
@@ -327,31 +331,33 @@ gra = Graphite('C', latticeconstant={'a': a, 'c': c})
 
 from gpaw import GPAW, PW
 
-xc = 'LDA'
-calc = GPAW(mode=PW(500), kpts=(10, 10, 6), xc=xc,
-            txt=f'graphite-{xc}.log')
+for xc in ['LDA', 'PBE', 'DFTD3']:
+    if xc == 'DFTD3':
+        dft = GPAW(mode=PW(500), kpts=(10, 10, 6), xc='PBE',
+                   txt=f'graphite-{xc}.log')
+        calc = DFTD3(dft=dft, xc='PBE')
+    else:
+        calc = GPAW(mode=PW(500), kpts=(10, 10, 6), xc=xc,
+                    txt=f'graphite-{xc}.log')
 
-gra.calc = calc  # Connect system and calculator
-from ase.constraints import StrainFilter
-from ase.optimize.bfgs import BFGS
-from ase.io import Trajectory
+    gra.calc = calc  # Connect system and calculator
 
-sf = StrainFilter(gra, mask=[1, 1, 1, 0, 0, 0])
-opt = BFGS(sf)
-traj = Trajectory(f'graphite-{xc}.traj', 'w', gra)
-opt.attach(traj)
-opt.run(fmax=0.01)
+    sf = StrainFilter(gra, mask=[1, 1, 1, 0, 0, 0])
+    opt = BFGS(sf, trajectory=f'graphite-{xc}.traj')
+    # traj = Trajectory(f'graphite-{xc}.traj', 'w', gra)
+    # opt.attach(traj)
+    opt.run(fmax=0.01)
 
 
 # %%
 """
-The following cell submits a calculation.
+The following cell submits a calculation using [`myqueue`](https://myqueue.readthedocs.io/en/latest/).
 
 Note the line `#%%writefile graphite_LDA.py` in the previous cell.  Remove the `#` symbol and execute the cell again.  This will write the cell to a file that you can use submit to the queue:
 """
 
 # %%
-# magic: !qsub.py -p 8 -t 1 graphite_LDA.py # submits the calculation to 8 cores, 1 hour
+# magic: !mq submit graphite_LDA.py -R 8:1h  # submits the calculation to 8 cores, 1 hour
 
 
 # %%
@@ -360,7 +366,7 @@ Check the status of the calculation by running the cell below. The column with `
 """
 
 # %%
-# magic: !qstat -u $USER
+# magic: !mq ls
 
 
 # %%
@@ -404,13 +410,14 @@ Now we need to calculate the energy of Li metal. We will use the same strategy a
 Some hints:
 1. The crystal structure of Li metal is shown in the image above. That structure is easily created with one of the functions in the [ase.build](https://wiki.fysik.dtu.dk/ase/ase/build/build.html) module
 2. A k-point density of approximately 2.4 points / Angstrom will be sufficient
-3. See also the [equation of state module](https://wiki.fysik.dtu.dk/ase/ase/eos.html)
+3. The DFTD3 correction is done _a posteriori_, this means the calculator should be created a little differently, see [the second example here](https://wiki.fysik.dtu.dk/ase/ase/calculators/dftd3.html#examples)
+4. See also the [equation of state module](https://wiki.fysik.dtu.dk/ase/ase/eos.html)
 
 In the end try to compare the different functionals with experimental values:
 
-|       | Experimental values | LDA | PBE | BEEF-vdW |
-|-------|---------------------|-----|-----|----------|
-| a / Å |                3.51 |     |     |          |
+|       | Experimental values | LDA | PBE | PBE+DFTD3 |
+|-------|---------------------|-----|-----|-----------|
+| a / Å |                3.51 |     |     |           |
 
 
 """
@@ -422,24 +429,33 @@ from ase import Atoms
 from gpaw import GPAW, FermiDirac, PW
 from ase.optimize import QuasiNewton
 from ase.build import bulk
+from ase.calculators.dftd3 import DFTD3
 from ase.constraints import StrainFilter
 from ase.optimize.bfgs import BFGS
 
 # This script will optimize lattice constant of metallic lithium
-xc = 'BEEF-vdW'  # xc-functional. Change to 'PBE' or 'BEEF-vdW' to run with other functionals
-Li_metal = bulk('Li', crystalstructure='bcc', a=3.3)
+for xc in ['LDA', 'PBE', 'DFTD3']:
+    Li_metal = bulk('Li', crystalstructure='bcc', a=3.3)
 
-calc = GPAW(mode=PW(500),
-            kpts=(8, 8, 8),
-            nbands=-10,
-            txt=f'Li-metal-{xc}.log',
-            xc=xc)
+    if xc == 'DFTD3':
+        dft = GPAW(mode=PW(500),
+                   kpts=(8, 8, 8),
+                   nbands=-10,
+                   txt=f'Li-metal-{xc}.log',
+                   xc='PBE')
+        calc = DFTD3(dft=dft, xc='PBE')
+    else:
+        calc = GPAW(mode=PW(500),
+                    kpts=(8, 8, 8),
+                    nbands=-10,
+                    txt=f'Li-metal-{xc}.log',
+                    xc=xc)
 
-Li_metal.calc = calc
+    Li_metal.calc = calc
 
-sf = StrainFilter(Li_metal, mask=[1, 1, 1, 0, 0, 0])
-opt = BFGS(sf)
-opt.run(fmax=0.01)
+    sf = StrainFilter(Li_metal, mask=[1, 1, 1, 0, 0, 0])
+    opt = BFGS(sf, trajectory=f'Li-metal-{xc}.traj')
+    opt.run(fmax=0.01)
 
 
 
@@ -464,10 +480,10 @@ a = Li_metal.get_cell()[0][0]  # student: a =
 
 Now we will calculate the intercalation of Li in graphite. For simplicity we will represent the graphite with only one layer. Also try and compare the C-C and interlayer distances to experimental values.
 
-|                         | Experimental values | LDA | PBE | BEEF-vdW |
-|-------------------------|---------------------|-----|-----|----------|
-| C-C distance / Å        |               1.441 |     |     |          |
-| Interlayer distance / Å |               3.706 |     |     |          |
+|                         | Experimental values | LDA | PBE | PBE+DFTD3 |
+|-------------------------|---------------------|-----|-----|-----------|
+| C-C distance / Å        |               1.441 |     |     |           |
+| Interlayer distance / Å |               3.706 |     |     |           |
 
 """
 
@@ -499,24 +515,29 @@ import numpy as np
 from ase.lattice.hexagonal import Graphene
 from ase.constraints import StrainFilter
 
-xc = 'LDA'
-ccdist = 1.40
-layerdist = 3.7
+for xc in ['LDA', 'PBE', 'DFTD3']:
+    ccdist = 1.40
+    layerdist = 3.7
 
-a = ccdist * np.sqrt(3)
-c = layerdist
+    a = ccdist * np.sqrt(3)
+    c = layerdist
 
-# We will require a larger cell, to accomodate the Li
-Li_gra = Graphene('C', size=(2, 2, 1), latticeconstant={'a': a, 'c': c})
-Li_gra.append(Atom('Li', (a / 2, ccdist / 2, layerdist / 2)))
+    calcname = f'Li-C8-{xc}'
+    # We will require a larger cell, to accomodate the Li
+    Li_gra = Graphene('C', size=(2, 2, 1), latticeconstant={'a': a, 'c': c})
+    Li_gra.append(Atom('Li', (a / 2, ccdist / 2, layerdist / 2)))
 
-calc = GPAW(mode=PW(500), kpts=(5, 5, 6), xc=xc, txt='Li-gra.txt')
+    if xc == 'DFTD3':
+        dft = GPAW(mode=PW(500), kpts=(5, 5, 6), xc='PBE', txt=calcname + '.log')
+        calc = DFTD3(dft=dft, xc='PBE')
+    else:
+        calc = GPAW(mode=PW(500), kpts=(5, 5, 6), xc=xc, txt=calcname + '.log')
 
-Li_gra.calc = calc  # Connect system and calculator
+    Li_gra.calc = calc  # Connect system and calculator
 
-sf = StrainFilter(Li_gra, mask=[1, 1, 1, 0, 0, 0])
-opt = BFGS(sf)
-opt.run(fmax=0.01)
+    sf = StrainFilter(Li_gra, mask=[1, 1, 1, 0, 0, 0])
+    opt = BFGS(sf, trajectory=calcname + '.traj')
+    opt.run(fmax=0.01)
 
 
 # %%
@@ -539,8 +560,8 @@ In the end try to compare the different functionals with experimental values:
 # Teacher
 e_Li_gra = Li_gra.get_potential_energy()
 e_Li = Li_metal.get_potential_energy() / len(Li_metal)
-e_C6 = 6 * gra.get_potential_energy() / len(gra)
-intercalation_energy = e_Li_gra - (e_Li + e_C6)
+e_C8 = 8 * gra.get_potential_energy() / len(gra)
+intercalation_energy = e_Li_gra - (e_Li + e_C8)
 print(f'Intercalation energy: {intercalation_energy:.2f}eV')
 
 # %%
@@ -571,13 +592,28 @@ c = layerdist
 Li_gra = Atoms('CCCCCCLi')  # Fill out the positions and cell vectors
 
 # Teacher
-Li_gra = Atoms('CCCCCCLi', positions=[(0, 0, 0), (0, ccdist, 0), (a, 0, 0),
-                                      (-a, 0, 0), (-a / 2, -ccdist / 2, 0),
-                                      (a / 2, -ccdist / 2, 0), (0, -ccdist, c / 2)],
-               cell=([1.5 * a, -1.5 * ccdist, 0],
-                     [1.5 * a, 1.5 * ccdist, 0],
-                     [0, 0, c]),
-               pbc=(1, 1, 1))
+for xc in ['LDA', 'PBE', 'DFTD3']:
+    calcname = f'Li-C6-{xc}'
+    Li_gra = Atoms('CCCCCCLi', positions=[(0, 0, 0), (0, ccdist, 0), (a, 0, 0),
+                                          (-a, 0, 0), (-a / 2, -ccdist / 2, 0),
+                                          (a / 2, -ccdist / 2, 0), (0, -ccdist, c / 2)],
+                   cell=([1.5 * a, -1.5 * ccdist, 0],
+                         [1.5 * a, 1.5 * ccdist, 0],
+                         [0, 0, c]),
+                   pbc=(1, 1, 1))
 
+    if xc == 'DFTD3':
+        dft = GPAW(mode=PW(500), kpts=(5, 5, 6), xc='PBE', txt=calcname + '.log')
+        calc = DFTD3(dft=dft, xc='PBE')
+    else:
+        calc = GPAW(mode=PW(500), kpts=(5, 5, 6), xc=xc, txt=calcname + '.log')
+
+    Li_gra.calc = calc  # Connect system and calculator
+
+    sf = StrainFilter(Li_gra, mask=[1, 1, 1, 0, 0, 0])
+    # traj = Trajectory(calcname + '.traj', 'w', Li_gra)
+    opt = BFGS(sf, trajectory=calcname + '.traj')
+    # opt.attach(traj)
+    opt.run(fmax=0.01)
 
 # %%
