@@ -6,6 +6,14 @@ from gpaw.new.ase_interface import ASECalculator, GPAW
 from gpaw.typing import Array3D, Vector
 
 
+def dipole_matrix_elements(*args, **kwargs):
+    """Deprecated.
+
+    Use :meth:`gpaw.new.pwfd.wavefunctions.dipole_matrix_elements` instead.
+    """
+    raise DeprecationWarning
+
+
 def dipole_matrix_elements_from_calc(calc: ASECalculator,
                                      n1: int,
                                      n2: int,

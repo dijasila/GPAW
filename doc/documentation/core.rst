@@ -418,6 +418,9 @@ DFT
 .. autoclass:: gpaw.new.input_parameters.InputParameters
     :members:
     :undoc-members:
+.. autoclass:: gpaw.new.pwfd.wave_functions.PWFDWaveFunctions
+    :members:
+    :undoc-members:
 .. autoclass:: gpaw.new.ase_interface.ASECalculator
     :members:
     :undoc-members:
