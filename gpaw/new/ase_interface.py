@@ -15,6 +15,14 @@ from gpaw.new.logger import Logger
 from gpaw.typing import Array1D, Array2D
 
 
+units = {'energy': Ha,
+         'forces': Ha / Bohr,
+         'stress': Ha / Bohr**3,
+         'dipole': Bohr,
+         'magmom': 1.0,
+         'magmoms': 1.0}
+
+
 def GPAW(filename: Union[str, Path, IO[str]] = None,
          **kwargs) -> ASECalculator:
     """Create ASE-compatible GPAW calculator."""
@@ -104,7 +112,7 @@ class ASECalculator:
             else:
                 raise ValueError('Unknown property:', prop)
 
-        return self.calculation.results[prop]
+        return self.calculation.results[prop] * units[prop]
 
     def create_new_calculation(self, atoms: Atoms) -> DFTCalculation:
         with self.timer('init'):
@@ -141,16 +149,16 @@ class ASECalculator:
                              force_consistent: bool = False) -> float:
         return self.calculate_property(atoms,
                                        'free_energy' if force_consistent else
-                                       'energy') * Ha
+                                       'energy')
 
     def get_forces(self, atoms: Atoms) -> Array2D:
-        return self.calculate_property(atoms, 'forces') * (Ha / Bohr)
+        return self.calculate_property(atoms, 'forces')
 
     def get_stress(self, atoms: Atoms) -> Array1D:
-        return self.calculate_property(atoms, 'stress') * (Ha / Bohr**3)
+        return self.calculate_property(atoms, 'stress')
 
     def get_dipole_moment(self, atoms: Atoms) -> Array1D:
-        return self.calculate_property(atoms, 'dipole') * Bohr
+        return self.calculate_property(atoms, 'dipole')
 
     def get_magnetic_moment(self, atoms: Atoms) -> float:
         return self.calculate_property(atoms, 'magmom')

@@ -146,7 +146,17 @@ def read_gpw(filename, log, parallel):
         None,
         pot_calc=builder.create_potential_calculator())
 
-    results = reader.results.asdict()#units
+    units = {'energy': 1 / ha,
+             'free_energy': 1 / ha,
+             'forces': bohr / ha,
+             'stress': bohr**3 / ha,
+             'dipole': 1 / bohr,
+             'magmom': 1.0,
+             'magmoms': 1.0}
+
+
+    results = {key: value * units[key]
+               for key, value in reader.results.asdict().items()}
     if results:
         log(f'Read {", ".join(sorted(results))}')
 
