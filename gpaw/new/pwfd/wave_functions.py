@@ -41,8 +41,8 @@ class PWFDWaveFunctions(WaveFunctions):
 
     def array_shape(self, global_shape=False):
         if global_shape:
-            return self.psit_nX.desc.myshape
-        return self.psit_nX.desc.global_shape()
+            return self.psit_nX.desc.global_shape()
+        return self.psit_nX.desc.myshape
 
     def __len__(self):
         return self.psit_nX.dims[0]

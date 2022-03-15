@@ -69,9 +69,6 @@ class DistributedArrays(Generic[DomainType]):
         for index in range(self.dims[0]):
             yield self[index]
 
-    def to_uniform_grid(self):
-        return self
-
     @property
     def matrix(self) -> Matrix:
         if self._matrix is not None:

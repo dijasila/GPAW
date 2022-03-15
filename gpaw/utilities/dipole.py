@@ -9,7 +9,8 @@ from gpaw.typing import Array3D, Vector
 def dipole_matrix_elements(*args, **kwargs):
     """Deprecated.
 
-    Use :meth:`gpaw.new.pwfd.wave_functions.PWFDWaveFunctions.dipole_matrix_elements` instead.
+    Use `gpaw.new.pwfd.wave_functions.PWFDWaveFunctions.dipole_matrix_elements`
+    instead.
     """
     raise DeprecationWarning
 

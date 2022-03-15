@@ -35,9 +35,9 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
         return grid, fine_grid
 
     def create_wf_description(self) -> PlaneWaves:
-        assert self.grid.comm.size == 1
         return PlaneWaves(ecut=self.ecut,
                           cell=self.grid.cell,
+                          comm=self.grid.comm,
                           dtype=self.dtype)
 
     def create_xc_functional(self):
@@ -110,6 +110,7 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
         for wfs in ibzwfs:
             pw = self.wf_desc.new(kpt=wfs.kpt_c)
             if wfs.spin == 0:
+                # Check ordering of G-vectors:
                 size = tuple(self.grid.size)
                 if pw.dtype == float:
                     size = (size[0], size[1], size[2] // 2 + 1)
@@ -119,14 +120,33 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
                 assert (index_kG[wfs.k, nG:] == -1).all()
 
             index = (wfs.spin, wfs.k) if self.ncomponents != 4 else (wfs.k,)
-            data = reader.wave_functions.proxy('coefficients', *index)
-            data.scale = c
-            data.length_of_last_dimension = pw.shape[0]
-            orig_shape = data.shape
-            data.shape = (self.nbands, ) + pw.shape
+            if pw.comm.rank == 0:
+                data = reader.wave_functions.proxy('coefficients', *index)
+                data.scale = c
+                data.length_of_last_dimension = pw.shape[0]
+                orig_shape = data.shape
+                data.shape = (self.nbands, ) + pw.shape
+            if pw.comm.size > 1:
+
             wfs.psit_nX = PlaneWaveExpansions(pw, self.nbands,
                                               data=data)
             data.shape = orig_shape
+            if self.communicators['w'].size == 1:
+                wfs.psit_nX = UniformGridFunctions(grid, self.nbands,
+                                                   data=data)
+            else:
+                band_comm = self.communicators['b']
+                wfs.psit_nX = UniformGridFunctions(
+                    grid, self.nbands,
+                    comm=band_comm)
+                if grid.comm.rank == 0:
+                    mynbands = (self.nbands +
+                                band_comm.size - 1) // band_comm.size
+                    n1 = min(band_comm.rank * mynbands, self.nbands)
+                    n2 = min((band_comm.rank + 1) * mynbands, self.nbands)
+                    assert wfs.psit_nX.mydims[0] == n2 - n1
+                    data = data[n1:n2]  # read from file
+                wfs.psit_nX.scatter_from(data)
 
         return ibzwfs
 

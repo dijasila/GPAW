@@ -11,7 +11,7 @@ from gpaw.core.matrix import Matrix
 from gpaw.core.pwacf import PlaneWaveAtomCenteredFunctions
 from gpaw.core.uniform_grid import UniformGridFunctions
 from gpaw.mpi import MPIComm, serial_comm
-from gpaw.new import zip_strict as zip
+from gpaw.new import zip_strict as zip, prod
 from gpaw.pw.descriptor import pad
 from gpaw.typing import Array1D, Array2D, ArrayLike1D, ArrayLike2D, Vector
 
@@ -214,7 +214,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
                 pw = self.desc.new(comm=serial_comm)
                 out = pw.empty(self.dims)
             else:
-                out = Empty()
+                out = Empty(self.dims)
 
         if comm.rank == 0:
             data = np.empty(self.desc.maxmysize * comm.size, complex)
@@ -232,30 +232,24 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
 
         return out if not isinstance(out, Empty) else None
 
-    def distribute(self, pw=None, out=None):
-        assert self.dims == ()
-        assert self.desc.comm.size == 1
-        if out is self:
-            return out
-        if out is None:
-            if pw is None:
-                raise ValueError('You must specify "pw" or "out"!')
-            out = pw.empty(self.dims, self.comm)
-        if pw is None:
-            pw = out.desc
-        comm = pw.comm
+    def scatter_from(self, data):
+        comm = self.desc.comm
         if comm.size == 1:
-            out.data[:] = self.data
-            return out
+            self.data[:] = data
+            return
 
-        mycoefs = np.empty(pw.maxmysize, complex)
+        if comm.rank != 0:
+            comm.receive(self.data, 0, 42)
+            return
+
+        mycoefs = np.empty(self.desc.maxmysize, complex)
         if comm.rank == 0:
             coefs = np.empty(pw.maxmysize * comm.size, complex)
             coefs[:len(self.data)] = self.data
         else:
             coefs = None
         comm.scatter(coefs, mycoefs, 0)
-        out.data[:] = mycoefs[:len(out.data)]
+        self.data[:] = mydata[:len(out.data)]
         return out
 
     def integrate(self, other: PlaneWaveExpansions = None) -> np.ndarray:
@@ -337,8 +331,11 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
 
 
 class Empty:
+    def __init__(self, dims):
+        self.dims = dims
+
     def _arrays(self):
-        while True:
+        for _ in range(prod(self.dims)):
             yield
 
 

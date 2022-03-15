@@ -67,7 +67,7 @@ created with the :func:`gpaw.new.ase_interface.GPAW` function:
 ...               pbc=True)
 >>> atoms.calc = GPAW(mode='pw', txt='h2.txt')
 >>> atoms.calc
-ASECalculator(mode: {'name': 'pw'}, txt: 'h2.txt')
+ASECalculator(txt: 'h2.txt', mode: {'name': 'pw'})
 
 The ``atoms.calc`` object manages a
 :class:`gpaw.new.calculation.DFTCalculation` object that does the actual work.
