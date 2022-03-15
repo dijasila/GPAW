@@ -123,36 +123,36 @@ def parse(lines: str | list[str], n: int = None) -> str:
     i1 = line.find('--')
     if i1 != -1:
         i2 = len(line) - len(line[i1:].lstrip('-'))
-        p1 = parse(cut(lines, 0, i1))
+        p1 = parse(cut(lines, 0, i1), n)
         p2 = parse(cut(lines[:n], i1, i2))
         p3 = parse(cut(lines[n + 1:], i1, i2))
-        p4 = parse(cut(lines, i2))
+        p4 = parse(cut(lines, i2), n)
         return rf'{p1} \frac{{{p2}}}{{{p3}}} {p4}'.strip()
 
     i = line.find('>')
     if i != -1 and n > 0 and lines[n - 1][i] == '-':
         line1 = lines[n - 1]
         i2 = len(line1) - len(line1[i:].lstrip('-'))
-        p1 = parse(cut(lines, 0, i))
+        p1 = parse(cut(lines, 0, i), n)
         p2 = parse(cut(lines[:n - 1], i, i2))
         p3 = parse(cut(lines[n + 2:], i, i2))
-        p4 = parse(cut(lines, i2))
+        p4 = parse(cut(lines, i2), n)
         return rf'{p1} \sum^{{{p2}}}_{{{p3}}} {p4}'.strip()
 
     i = line.find('|')
     if i != -1:
         if n > 0 and lines[n - 1][i] == '/':
-            p1 = parse(cut(lines, 0, i))
-            p2 = parse(cut(lines, i + 1))
+            p1 = parse(cut(lines, 0, i), n)
+            p2 = parse(cut(lines, i + 1), n)
             return rf'{p1} \int {p2}'.strip()
         i1 = line.find('<')
         i2 = line.find('>')
         if i1 == -1 or i1 > i or i2 == -1 or i2 < i:
             raise ParseError
-        p1 = parse(cut(lines, 0, i1))
-        p2 = parse(cut(lines, i1 + 1, i))
-        p3 = parse(cut(lines, i + 1, i2))
-        p4 = parse(cut(lines, i2 + 1))
+        p1 = parse(cut(lines, 0, i1), n)
+        p2 = parse(cut(lines, i1 + 1, i), n)
+        p3 = parse(cut(lines, i + 1, i2), n)
+        p4 = parse(cut(lines, i2 + 1), n)
         return rf'{p1} \langle {p2}|{p3} \rangle {p4}'.strip()
 
     hats = {}

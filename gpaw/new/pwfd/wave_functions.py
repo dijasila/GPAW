@@ -244,7 +244,10 @@ class PWFDWaveFunctions(WaveFunctions):
         center_v:
             Center of molecule.  Defaults to center of cell.
 
-        Returns matrix elements in atomic units.
+        Returns
+        -------
+        Array3D:
+            matrix elements in atomic units.
         """
         cell_cv = self.psit_nX.desc.cell_cv
 
