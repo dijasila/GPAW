@@ -154,7 +154,6 @@ def read_gpw(filename, log, parallel):
              'magmom': 1.0,
              'magmoms': 1.0}
 
-
     results = {key: value * units[key]
                for key, value in reader.results.asdict().items()}
     if results:
