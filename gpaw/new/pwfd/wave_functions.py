@@ -6,9 +6,11 @@ from math import pi
 import numpy as np
 from gpaw.core.arrays import DistributedArrays
 from gpaw.core.atom_arrays import AtomArrays
+from gpaw.core.uniform_grid import UniformGrid, UniformGridFunctions
 from gpaw.new.wave_functions import WaveFunctions
 from gpaw.setup import Setups
 from gpaw.typing import Array2D, Array3D, ArrayND, Vector
+from gpaw.fftw import get_efficient_fft_size
 
 
 class PWFDWaveFunctions(WaveFunctions):
@@ -271,7 +273,20 @@ class PWFDWaveFunctions(WaveFunctions):
 
         self.psit_nX.desc.comm.sum(dipole_nnv)
 
-        psit_nR = self.psit_nX.to_uniform_grid()
+        if isinstance(self.psit_nX, UniformGridFunctions):
+            psit_nR = self.psit_nX
+        else:
+            # Find size of fft grid large enough to store square of wfs.
+            pw = self.psit_nX.desc
+            s1, s2, s3 = pw.indices_cG.ptp(axis=1)
+            assert pw.dtype == float
+            # Last dimension is special because dtype=float:
+            size_c = [2 * s1 + 2,
+                      2 * s2 + 2,
+                      4 * s3 + 2]
+            size_c = [get_efficient_fft_size(N, 2) for N in size_c]
+            grid = UniformGrid(cell=pw.cell_cv, size=size_c)
+            psit_nR = self.psit_nX.ifft(grid=grid)
 
         for na, psita_R in enumerate(psit_nR):
             for nb, psitb_R in enumerate(psit_nR[:na + 1]):

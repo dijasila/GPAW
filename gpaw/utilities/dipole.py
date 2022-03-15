@@ -17,7 +17,7 @@ def dipole_matrix_elements(*args, **kwargs):
 def dipole_matrix_elements_from_calc(calc: ASECalculator,
                                      n1: int,
                                      n2: int,
-                                     center_v: Vector = None
+                                     center: Vector = None
                                      ) -> list[Array3D]:
     """Calculate dipole matrix-elements (units: eÅ).
 
@@ -32,8 +32,8 @@ def dipole_matrix_elements_from_calc(calc: ASECalculator,
 
     assert ibzwfs.ibz.bz.gamma_only
 
-    if center_v is not None:
-        center_v = np.asarray(center_v) / Bohr
+    if center is not None:
+        center = np.asarray(center) / Bohr
 
     wfs_s = ibzwfs.wfs_qs[0]
 
@@ -41,7 +41,7 @@ def dipole_matrix_elements_from_calc(calc: ASECalculator,
     for wfs in wfs_s:
         wfs = wfs.collect(n1, n2)
         if wfs is not None:
-            d_nnv = wfs.dipole_matrix_elements(center_v) * Bohr
+            d_nnv = wfs.dipole_matrix_elements(center) * Bohr
         else:
             d_nnv = np.empty((n2 - n1, n2 - n1, 3))
         calc.params.parallel['world'].broadcast(d_nnv, 0)
@@ -55,7 +55,7 @@ def main(argv: list[str] = None) -> None:
 
     parser = argparse.ArgumentParser(
         prog='python3 -m gpaw.utilities.dipole',
-        description='Calculate dipole matrix elements.  Units: Å.')
+        description='Calculate dipole matrix elements.  Units: eÅ.')
 
     add = parser.add_argument
 

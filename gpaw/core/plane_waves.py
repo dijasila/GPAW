@@ -199,14 +199,6 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
 
     interpolate = ifft
 
-    def to_uniform_grid(self):
-        from gpaw.core import UniformGrid
-        size_c = self.desc.indices_cG.ptp(axis=1) + 1
-        if self.desc.dtype == float:
-            size_c[2] = size_c[2] * 2 - 1
-        grid = UniformGrid(cell=self.desc.cell_cv, size=size_c)
-        return self.ifft(grid=grid)
-
     def gather(self, out=None, broadcast=False):
         """Gather coefficients on master."""
         comm = self.desc.comm

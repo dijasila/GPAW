@@ -551,15 +551,24 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         """Calculate moment."""
         assert self.dims == ()
         ug = self.desc
+
         index_cr = [np.arange(ug.start_c[c], ug.end_c[c], dtype=float)
                     for c in range(3)]
+
+        if center_v is not None:
+            frac_c = np.linalg.solve(ug.cell_cv.T, center_v)
+            corner_c = (frac_c % 1 - 0.5) * ug.size_c
+            for index_r, corner, size in zip(index_cr, corner_c, ug.size_c):
+                index_r -= corner
+                index_r %= size
+                index_r += corner
 
         rho_ijk = self.data
         rho_ij = rho_ijk.sum(axis=2)
         rho_ik = rho_ijk.sum(axis=1)
         rho_cr = [rho_ij.sum(axis=1), rho_ij.sum(axis=0), rho_ik.sum(axis=0)]
 
-        d_c = [np.dot(index_cr[c], rho_cr[c]) for c in range(3)]
+        d_c = [index_r @ rho_r for index_r, rho_r in zip(index_cr, rho_cr)]
         d_v = (d_c / ug.size_c) @ ug.cell_cv * self.dv
         self.desc.comm.sum(d_v)
         return d_v
