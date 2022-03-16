@@ -175,23 +175,33 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
         self._matrix = Matrix(*shape, data=data, dist=dist)
         return self._matrix
 
-    def ifft(self, plan=None, grid=None, out=None):
+    def ifft(self, *, plan=None, grid=None, out=None):
         if out is None:
             out = grid.empty(self.dims)
         assert self.desc.dtype == out.desc.dtype
         assert out.desc.pbc_c.all()
-        plan = plan or out.desc.fft_plans()[1]
-        for input, output in zip(self._arrays(), out._arrays()):
-            self.desc.paste(input, plan.in_R)
-            if self.desc.dtype == float:
-                t = plan.in_R[:, :, 0]
-                n, m = (s // 2 - 1 for s in out.desc.size_c[:2])
-                t[0, -m:] = t[0, m:0:-1].conj()
-                t[n:0:-1, -m:] = t[-n:, m:0:-1].conj()
-                t[-n:, -m:] = t[n:0:-1, m:0:-1].conj()
-                t[-n:, 0] = t[n:0:-1, 0].conj()
-            plan.execute()
-            output[:] = plan.out_R
+
+        comm = self.desc.comm
+
+        this = self.gather()
+        if this is not None:
+            arrays_iG = this._arrays()
+            plan = plan or out.desc.fft_plans()[1]
+        for i, out1 in enumerate(out.flat()):
+            if comm.rank == 0:
+                coef_G = arrays_iG[i]
+                self.desc.paste(coef_G, plan.in_R)
+                if self.desc.dtype == float:
+                    t = plan.in_R[:, :, 0]
+                    n, m = (s // 2 - 1 for s in out.desc.size_c[:2])
+                    t[0, -m:] = t[0, m:0:-1].conj()
+                    t[n:0:-1, -m:] = t[-n:, m:0:-1].conj()
+                    t[-n:, -m:] = t[n:0:-1, m:0:-1].conj()
+                    t[-n:, 0] = t[n:0:-1, 0].conj()
+                plan.execute()
+                out1.scatter_from(plan.out_R)
+            else:
+                out1.scatter_from(None)
 
         out.multiply_by_eikr()
 

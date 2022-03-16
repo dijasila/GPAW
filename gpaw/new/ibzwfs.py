@@ -4,7 +4,7 @@ import numpy as np
 from ase.dft.bandgap import bandgap
 from ase.units import Bohr, Ha
 from gpaw.core.atom_arrays import AtomArrays
-from gpaw.mpi import MPIComm, serial_comm
+from gpaw.mpi import MPIComm, serial_comm, broadcast
 from gpaw.new.brillouin import IBZ
 from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 from gpaw.new.wave_functions import WaveFunctions
@@ -162,11 +162,19 @@ class IBZWaveFunctions:
 
     def get_wfs(self,
                 kpt: int = 0,
-                spin: int = 0):
-        assert self.kpt_comm.size == 1
-        assert self.band_comm.size == 1
-        assert self.domain_comm.size == 1
-        return self.wfs_qs[self.q_k[kpt]][spin]
+                spin: int = 0,
+                n1=0,
+                n2=0):
+        rank = self.rank_k[kpt]
+        if rank == self.kpt_comm.rank:
+            wfs = self.wfs_qs[self.q_k[kpt]][spin]
+            wfs.collect(n1, n2)
+            if rank == 0:
+                return wfs
+            broadcast(wfs, 0hmmmmm)
+            return
+        return broadcast(None, 0)
+
 
     def get_eigs_and_occs(self, k=0, s=0):
         if self.domain_comm.rank == 0 and self.band_comm.rank == 0:

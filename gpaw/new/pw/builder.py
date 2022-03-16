@@ -48,7 +48,9 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
 
     def get_pseudo_core_densities(self):
         if self._nct_ag is None:
-            pw = PlaneWaves(ecut=2 * self.ecut, cell=self.grid.cell)
+            pw = PlaneWaves(ecut=2 * self.ecut,
+                            cell=self.grid.cell,
+                            comm=self.grid.comm)
             self._nct_ag = self.setups.create_pseudo_core_densities(
                 pw, self.fracpos_ac)
         return self._nct_ag

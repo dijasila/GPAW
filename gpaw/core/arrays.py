@@ -69,6 +69,13 @@ class DistributedArrays(Generic[DomainType]):
         for index in range(self.dims[0]):
             yield self[index]
 
+    def flat(self):
+        if self.dims == ():
+            yield self
+        else:
+            for index in np.indices(self.dims).reshape((len(self.dims), -1)).T:
+                yield self[tuple(index)]
+
     @property
     def matrix(self) -> Matrix:
         if self._matrix is not None:
