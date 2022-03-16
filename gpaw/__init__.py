@@ -49,7 +49,15 @@ with broadcast_imports:
     import warnings
     from argparse import ArgumentParser, REMAINDER, RawDescriptionHelpFormatter
 
+    # With gpaw-python BLAS symbols are in global scope and we need to
+    # ensure that NumPy and SciPy use symbols from their own dependencies
+    if is_gpaw_python:
+        old_dlopen_flags = sys.getdlopenflags()
+        sys.setdlopenflags(old_dlopen_flags | os.RTLD_DEEPBIND)
     import numpy as np
+    import scipy.linalg  # noqa: F401
+    if is_gpaw_python:
+        sys.setdlopenflags(old_dlopen_flags)
     import _gpaw
 
 
