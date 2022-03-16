@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import numpy as np
 from ase.dft.bandgap import bandgap
-from ase.units import Ha
+from ase.units import Bohr, Ha
 from gpaw.core.atom_arrays import AtomArrays
 from gpaw.mpi import MPIComm, serial_comm
 from gpaw.new.brillouin import IBZ
-from gpaw.new.wave_functions import WaveFunctions
 from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
+from gpaw.new.wave_functions import WaveFunctions
 
 
 def create_ibz_wave_functions(ibz: IBZ,
@@ -260,6 +260,8 @@ class IBZWaveFunctions:
         xshape = self.get_max_shape(global_shape=True)
         shape = spin_k_shape + (self.nbands,) + xshape
 
+        c = Bohr**-1.5
+
         for spin in range(self.nspins):
             for k, rank in enumerate(self.rank_k):
                 if rank == self.kpt_comm.rank:
@@ -270,13 +272,13 @@ class IBZWaveFunctions:
                             if spin == 0 and k == 0:
                                 writer.add_array('coefficients',
                                                  shape, dtype=coef_nX.dtype)
-                            writer.fill(coef_nX)
+                            writer.fill(coef_nX * c)
                         else:
                             self.kpt_comm.send(coef_nX, 0)
                 elif self.kpt_comm.rank == 0:
                     if coef_nX is not None:
                         self.kpt_comm.receive(coef_nX, rank)
-                        writer.fill(coef_nX)
+                        writer.fill(coef_nX * c)
 
     def write_summary(self, log):
         fl = self.fermi_levels * Ha

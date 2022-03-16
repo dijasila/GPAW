@@ -1,13 +1,14 @@
 import _gpaw
 import numpy as np
 from ase.units import Ha
-from gpaw.core import PlaneWaves
+from gpaw.core import PlaneWaves, UniformGrid
 from gpaw.core.plane_waves import PlaneWaveExpansions
 from gpaw.new.builder import create_uniform_grid
 from gpaw.new.hamiltonian import Hamiltonian
 from gpaw.new.pw.poisson import ReciprocalSpacePoissonSolver
 from gpaw.new.pw.pot_calc import PlaneWavePotentialCalculator
 from gpaw.new.pwfd.builder import PWFDDFTComponentsBuilder
+from gpaw.typing import Array1D
 
 
 class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
@@ -140,8 +141,9 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
         return ibzwfs
 
 
-def check_g_vector_ordering(grid, pw, index_G):
-    # Check ordering of G-vectors:
+def check_g_vector_ordering(grid: UniformGrid,
+                            pw: PlaneWaves,
+                            index_G: Array1D) -> None:
     size = tuple(grid.size)
     if pw.dtype == float:
         size = (size[0], size[1], size[2] // 2 + 1)
