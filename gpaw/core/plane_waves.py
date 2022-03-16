@@ -232,25 +232,21 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
 
         return out if not isinstance(out, Empty) else None
 
-    def scatter_from(self, data):
+    def scatter_from(self, data: Array1D) -> None:
         comm = self.desc.comm
         if comm.size == 1:
             self.data[:] = data
             return
 
-        if comm.rank != 0:
-            comm.receive(self.data, 0, 42)
-            return
+        assert self.dims == ()
 
-        mycoefs = np.empty(self.desc.maxmysize, complex)
         if comm.rank == 0:
-            coefs = np.empty(pw.maxmysize * comm.size, complex)
-            coefs[:len(self.data)] = self.data
+            data = pad(data, comm.size * self.desc.maxmysize)
+            comm.scatter(data, self.data, 0)
         else:
-            coefs = None
-        comm.scatter(coefs, mycoefs, 0)
-        self.data[:] = mydata[:len(out.data)]
-        return out
+            buf = np.empty(self.desc.maxmysize, complex)
+            comm.scatter(None, buf, 0)
+            self.data[:] = buf[:len(self.data)]
 
     def integrate(self, other: PlaneWaveExpansions = None) -> np.ndarray:
         if other is not None:

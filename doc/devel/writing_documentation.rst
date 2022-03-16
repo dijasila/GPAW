@@ -77,3 +77,5 @@ produce this: :ref:`stm tutorial`.
 
 
 .. automodule:: gpaw.doctools.aamath
+
+.. autoclass:: gpaw.typing.Vector

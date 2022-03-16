@@ -336,14 +336,10 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
             plan.in_R[:] = input.data
             plan.execute()
             coefs = pw.cut(plan.out_R) * (1 / plan.in_R.size)
-
-        if pw.comm.size > 1:
-            out1 = pw.new(comm=serial_comm).empty()
-            if pw.comm.rank == 0:
-                out1.data[:] = coefs
-            out1.distribute(out=out)
         else:
-            out.data[:] = coefs
+            coefs = None
+
+        out.scatter_from(coefs)
 
         return out
 
