@@ -8,17 +8,19 @@ import os
 import re
 import sys
 import time
-from math import sqrt
 from contextlib import contextmanager
-from typing import Union
+from math import sqrt
 from pathlib import Path
+from typing import Union
 
 import numpy as np
+from ase import Atoms
+from ase.data import covalent_radii
+from ase.neighborlist import neighbor_list
 
 import _gpaw
 import gpaw.mpi as mpi
 from gpaw import debug
-
 
 # Code will crash for setups without any projectors.  Setups that have
 # no projectors therefore receive a dummy projector as a hacky
@@ -33,21 +35,11 @@ class AtomsTooClose(RuntimeError):
     pass
 
 
-def check_atoms_too_close(atoms):
-    # (Empty atoms with neighbor_list is buggy in ASE-3.16.0)
-    if not len(atoms):
-        return
-
-    # Skip test for numpy < 1.13.0 due to absence np.divmod:
-    if not hasattr(np, 'divmod'):
-        return
-
-    from ase.neighborlist import neighbor_list
-    from ase.data import covalent_radii
+def check_atoms_too_close(atoms: Atoms) -> None:
     radii = covalent_radii[atoms.numbers] * 0.01
     dists = neighbor_list('d', atoms, radii)
     if len(dists):
-        raise AtomsTooClose('Atoms are too close, e.g. {} Å'.format(dists[0]))
+        raise AtomsTooClose(f'Atoms are too close, e.g. {dists[0]} Å')
 
 
 def unpack_atomic_matrices(M_sP, setups):
@@ -160,6 +152,8 @@ corrections to the Hamiltonian, are constructed according to pack2 / unpack.
 
 def unpack(M):
     """Unpack 1D array to 2D, assuming a packing as in ``pack2``."""
+    if M.ndim == 2:
+        return np.array([unpack(m) for m in M])
     assert is_contiguous(M)
     assert M.ndim == 1
     n = int(sqrt(0.25 + 2.0 * len(M)))
@@ -194,8 +188,6 @@ def pack(A: np.ndarray) -> np.ndarray:
 
       (a00, a01 + a10, a02 + a20, a11, a12 + a21, a22)
     """
-    if A.ndim == 3:
-        return np.array([pack(a) for a in A])
     assert A.ndim == 2
     assert A.shape[0] == A.shape[1]
     assert A.dtype in [float, complex]

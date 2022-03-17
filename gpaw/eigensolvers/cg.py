@@ -56,6 +56,9 @@ class CG(Eigensolver):
             raise ValueError('CG eigensolver does not support band '
                              'parallelization.  This calculation parallelizes '
                              'over %d band groups.' % wfs.bd.comm.size)
+        if wfs.mode == 'pw' and wfs.gd.comm.size > 1:
+            raise ValueError('CG eigensolver does not support domain '
+                             'parallelization in PW-mode.')
         Eigensolver.initialize(self, wfs)
 
     def iterate_one_k_point(self, ham, wfs, kpt, weights):

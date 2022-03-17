@@ -1,15 +1,11 @@
 import time
 import warnings
-from collections import deque
-from inspect import signature
 
 import numpy as np
-from ase.units import Ha, Bohr
-from ase.calculators.calculator import InputError
+from ase.units import Ha
 
 from gpaw import KohnShamConvergenceError
-from gpaw.forces import calculate_forces
-from gpaw.mpi import broadcast_float
+from gpaw.convergence_criteria import check_convergence
 
 
 class SCFLoop:
@@ -28,7 +24,7 @@ class SCFLoop:
         for criterion in self.criteria.values():
             if criterion.description is not None:
                 s += ' ' + criterion.description + '\n'
-        s += ' Maximum number of scf [iter]ations: {:d}'.format(self.maxiter)
+        s += f' Maximum number of scf [iter]ations: {self.maxiter}'
         s += ("\n (Square brackets indicate name in SCF output, whereas a 'c'"
               " in\n the SCF output indicates the quantity has converged.)\n")
         return s
@@ -37,7 +33,10 @@ class SCFLoop:
         writer.write(converged=self.converged)
 
     def read(self, reader):
-        self.converged = reader.scf.converged
+        if reader.version < 4:
+            self.converged = reader.scf.converged
+        else:
+            self.converged = True
 
     def reset(self):
         for criterion in self.criteria.values():
@@ -50,16 +49,17 @@ class SCFLoop:
         self.eigensolver_used = getattr(wfs.eigensolver, "name", None)
         self.check_eigensolver_state(wfs, ham, dens)
         self.niter = 1
-        cheap, expensive = self.prepare_convergence_criteria()
 
         while self.niter <= self.maxiter:
             self.iterate_eigensolver(wfs, ham, dens)
 
             self.check_convergence(
-                dens, ham, wfs, log, cheap, expensive, callback)
+                dens, ham, wfs, log, callback)
             yield
 
-            if self.converged and self.niter >= self.niter_fixdensity:
+            converged = (self.converged and
+                         self.niter >= self.niter_fixdensity)
+            if converged:
                 self.do_if_converged(wfs, ham, dens, log)
                 break
 
@@ -69,93 +69,23 @@ class SCFLoop:
         # Don't fix the density in the next step.
         self.niter_fixdensity = 0
 
-        if not self.converged:
+        if not converged:
             self.not_converged(dens, ham, wfs, log)
 
     def log(self, log, converged_items, entries, context):
         """Output from each iteration."""
-        custom = (set(self.criteria) -
-                  {'energy', 'eigenstates', 'density'})
-        if self.niter == 1:
-            header1 = ('{:<4s} {:>8s} {:>12s}  '
-                       .format('iter', 'time', 'total'))
-            header2 = ('{:>4s} {:>8s} {:>12s}  '
-                       .format('', '', 'energy'))
-            header1 += 'log10-change:'
-            for title in ('eigst', 'dens'):
-                header2 += '{:>5s}  '.format(title)
-            for name in custom:
-                criterion = self.criteria[name]
-                header1 += ' ' * 7
-                header2 += '{:>5s}  '.format(criterion.tablename)
-            if context.wfs.nspins == 2:
-                header1 += '{:>8s} '.format('magmom')
-                header2 += '{:>8s} '.format('')
-            log(header1)
-            log(header2)
+        write_iteration(self.criteria, converged_items, entries, context, log)
 
-        c = {k: 'c' if v else ' ' for k, v in converged_items.items()}
+    def check_convergence(self, dens, ham, wfs, log, callback):
 
-        # Iterations and time.
-        now = time.localtime()
-        line = ('{:4d} {:02d}:{:02d}:{:02d} '
-                .format(self.niter, *now[3:6]))
-
-        # Energy.
-        line += '{:>12s}{:1s} '.format(entries['energy'], c['energy'])
-
-        # Eigenstates.
-        line += '{:>5s}{:1s} '.format(entries['eigenstates'], c['eigenstates'])
-
-        # Density.
-        line += '{:>5s}{:1s} '.format(entries['density'], c['density'])
-
-        # Custom criteria (optional).
-        for name in custom:
-            line += '{:>5s}{:s} '.format(entries[name], c[name])
-
-        # Magnetic moment (optional).
-        if context.wfs.nspins == 2 or not context.wfs.collinear:
-            totmom_v, _ = context.dens.estimate_magnetic_moments()
-            if context.wfs.collinear:
-                line += f'  {totmom_v[2]:+.4f}'
-            else:
-                line += ' {:+.1f},{:+.1f},{:+.1f}'.format(*totmom_v)
-
-        log(line, flush=True)
-
-    def prepare_convergence_criteria(self):
-        cheap = {k: c for k, c in self.criteria.items() if not c.calc_last}
-        expensive = {k: c for k, c in self.criteria.items() if c.calc_last}
-        return cheap, expensive
-
-    def check_convergence(self, dens, ham, wfs, log, cheap, expensive,
-                          callback):
-
-        entries = {}  # for log file, per criteria
-        converged_items = {}  # True/False, per criteria
         context = SCFEvent(dens=dens, ham=ham, wfs=wfs, niter=self.niter,
                            log=log)
 
-        for name, criterion in cheap.items():
-            converged, entry = criterion(context)
-            converged_items[name] = converged
-            entries[name] = entry
-
-        calculate_expensive = False
-        if all(converged_items.values()):
-            # Stays on rest of cycle even if a cheap one slips back out.
-            calculate_expensive = True
-
-        for name, criterion in expensive.items():
-            converged, entry = False, ''
-            if calculate_expensive:
-                converged, entry = criterion(context)
-            converged_items[name] = converged
-            entries[name] = entry
-
         # Converged?
-        self.converged = all(converged_items.values())
+        # entries: for log file, per criteria
+        # converged_items: True/False, per criteria
+        self.converged, converged_items, entries = check_convergence(
+            self.criteria, context)
 
         callback(self.niter)
         self.log(log, converged_items, entries, context)
@@ -226,6 +156,59 @@ class SCFLoop:
             ham.update(dens)
 
 
+def write_iteration(criteria, converged_items, entries, ctx, log):
+    custom = (set(criteria) -
+              {'energy', 'eigenstates', 'density'})
+
+    if ctx.niter == 1:
+        header1 = ('     {:<4s} {:>8s} {:>12s}  '
+                   .format('iter', 'time', 'total'))
+        header2 = ('     {:>4s} {:>8s} {:>12s}  '
+                   .format('', '', 'energy'))
+        header1 += 'log10-change:'
+        for title in ('eigst', 'dens'):
+            header2 += '{:>5s}  '.format(title)
+        for name in custom:
+            criterion = criteria[name]
+            header1 += ' ' * 7
+            header2 += '{:>5s}  '.format(criterion.tablename)
+        if ctx.wfs.nspins == 2:
+            header1 += '{:>8s} '.format('magmom')
+            header2 += '{:>8s} '.format('')
+        log(header1.rstrip())
+        log(header2.rstrip())
+
+    c = {k: 'c' if v else ' ' for k, v in converged_items.items()}
+
+    # Iterations and time.
+    now = time.localtime()
+    line = ('iter:{:4d} {:02d}:{:02d}:{:02d} '
+            .format(ctx.niter, *now[3:6]))
+
+    # Energy.
+    line += '{:>12s}{:1s} '.format(entries['energy'], c['energy'])
+
+    # Eigenstates.
+    line += '{:>5s}{:1s} '.format(entries['eigenstates'], c['eigenstates'])
+
+    # Density.
+    line += '{:>5s}{:1s} '.format(entries['density'], c['density'])
+
+    # Custom criteria (optional).
+    for name in custom:
+        line += '{:>5s}{:s} '.format(entries[name], c[name])
+
+    # Magnetic moment (optional).
+    if ctx.wfs.nspins == 2 or not ctx.wfs.collinear:
+        totmom_v, _ = ctx.dens.calculate_magnetic_moments()
+        if ctx.wfs.collinear:
+            line += f'  {totmom_v[2]:+.4f}'
+        else:
+            line += ' {:+.1f},{:+.1f},{:+.1f}'.format(*totmom_v)
+
+    log(line.rstrip(), flush=True)
+
+
 class SCFEvent:
     """Object to pass the state of the SCF cycle to a convergence-checking
     function."""
@@ -236,326 +219,6 @@ class SCFEvent:
         self.wfs = wfs
         self.niter = niter
         self.log = log
-
-
-def get_criterion(name):
-    """Returns one of the pre-specified criteria by it's .name attribute,
-    and raises sensible error if missing."""
-    # All built-in criteria should be in this list.
-    criteria = [Energy, Density, Eigenstates, Forces, WorkFunction, MinIter]
-    criteria = {c.name: c for c in criteria}
-    try:
-        return criteria[name]
-    except KeyError:
-        msg = ('The convergence keyword "{:s}" was supplied, which we do not '
-               'know how to handle. If this is a typo, please correct. If this'
-               ' is a user-written convergence criterion, it cannot be '
-               'imported with this function; please see the GPAW manual for '
-               'details.'.format(name))
-        raise InputError(msg)
-
-
-def dict2criterion(dictionary):
-    """Converts a dictionary to a convergence criterion.
-
-    The dictionary can either be that generated from 'todict'; that is like
-    {'name': 'energy', 'tol': 0.005, 'n_old': 3}. Or from user-specified
-    shortcut like {'energy': 0.005} or {'energy': (0.005, 3)}, or a
-    combination like {'energy': {'name': 'energy', 'tol': 0.005, 'n_old': 3}.
-    """
-    d = dictionary.copy()
-    if 'name' in d:  # from 'todict'
-        name = d.pop('name')
-        ThisCriterion = get_criterion(name)
-        return ThisCriterion(**d)
-    assert len(d) == 1
-    name = list(d.keys())[0]
-    if isinstance(d[name], dict) and 'name' in d[name]:
-        return dict2criterion(d[name])
-    ThisCriterion = get_criterion(name)
-    return ThisCriterion(*[d[name]])
-
-
-class Criterion:
-    """Base class for convergence criteria.
-
-    Automates the creation of the __repr__ and todict methods for generic
-    classes. This will work for classes that save all arguments directly,
-    like __init__(self, a, b):  --> self.a = a, self.b = b. The todict
-    method requires the class have a self.name attribute. All criteria
-    (subclasses of Criterion) must define self.name, self.tablename,
-    self.description, self.__init__, and self.__call___. See the online
-    documentation for details.
-    """
-    # If calc_last is True, will only be checked after all other (non-last)
-    # criteria have been met.
-    calc_last = False
-
-    def __repr__(self):
-        parameters = signature(self.__class__).parameters
-        s = ','.join([str(getattr(self, p)) for p in parameters])
-        return self.__class__.__name__ + '(' + s + ')'
-
-    def todict(self):
-        d = {'name': self.name}
-        parameters = signature(self.__class__).parameters
-        for parameter in parameters:
-            d[parameter] = getattr(self, parameter)
-        return d
-
-    def reset(self):
-        pass
-
-
-# Built-in criteria follow. Make sure that any new criteria added below
-# are also added to to the list in get_criterion() so that it can import
-# them correctly by name.
-
-
-class Energy(Criterion):
-    """A convergence criterion for the total energy.
-
-    Parameters:
-
-    tol : float
-        Tolerance for conversion; that is the maximum variation among the
-        last n_old values of the (extrapolated) total energy, normalized per
-        valence electron. [eV/(valence electron)]
-    n_old : int
-        Number of energy values to compare. I.e., if n_old is 3, then this
-        compares the peak-to-peak difference among the current total energy
-        and the two previous.
-    """
-    name = 'energy'
-    tablename = 'energy'
-
-    def __init__(self, tol, n_old=3):
-        self.tol = tol
-        self.n_old = n_old
-        self.description = ('Maximum [total energy] change in last {:d} cyles:'
-                            ' {:g} eV / electron'
-                            .format(self.n_old, self.tol))
-
-    def reset(self):
-        self._old = deque(maxlen=self.n_old)
-
-    def __call__(self, context):
-        """Should return (bool, entry), where bool is True if converged and
-        False if not, and entry is a <=5 character string to be printed in
-        the user log file."""
-        # Note the previous code was calculating the peak-to-
-        # peak energy difference on e_total_free, while reporting
-        # e_total_extrapolated in the SCF table (logfile). I changed it to
-        # use e_total_extrapolated for both. (Should be a miniscule
-        # difference, but more consistent.)
-        total_energy = context.ham.e_total_extrapolated * Ha
-        if context.wfs.nvalence == 0:
-            energy = total_energy
-        else:
-            energy = total_energy / context.wfs.nvalence
-        self._old.append(energy)  # Pops off >3!
-        error = np.inf
-        if len(self._old) == self._old.maxlen:
-            error = np.ptp(self._old)
-        converged = error < self.tol
-        entry = ''
-        if np.isfinite(energy):
-            entry = '{:11.6f}'.format(total_energy)
-        return converged, entry
-
-
-class Density(Criterion):
-    """A convergence criterion for the electron density.
-
-    Parameters:
-
-    tol : float
-        Tolerance for conversion; that is the maximum change in the electron
-        density, calculated as the integrated absolute value of the density
-        change, normalized per valence electron. [electrons/(valence electron)]
-    """
-    name = 'density'
-    tablename = 'dens'
-
-    def __init__(self, tol):
-        self.tol = tol
-        self.description = ('Maximum integral of absolute [dens]ity change: '
-                            '{:g} electrons / valence electron'
-                            .format(self.tol))
-
-    def __call__(self, context):
-        """Should return (bool, entry), where bool is True if converged and
-        False if not, and entry is a <=5 character string to be printed in
-        the user log file."""
-        if context.dens.fixed:
-            return True, ''
-        nv = context.wfs.nvalence
-        if nv == 0:
-            return True, ''
-        # Make sure all agree on the density error.
-        error = broadcast_float(context.dens.error, context.wfs.world) / nv
-        converged = (error < self.tol)
-        if (error is None or np.isinf(error) or error == 0):
-            entry = ''
-        else:
-            entry = '{:+5.2f}'.format(np.log10(error))
-        return converged, entry
-
-
-class Eigenstates(Criterion):
-    """A convergence criterion for the eigenstates.
-
-    Parameters:
-
-    tol : float
-        Tolerance for conversion; that is the maximum change in the
-        eigenstates, calculated as the integration of the square of the
-        residuals of the Kohn--Sham equations, normalized per valence
-        electron. [eV^2/(valence electron)]
-    """
-    name = 'eigenstates'
-    tablename = 'eigst'
-
-    def __init__(self, tol):
-        self.tol = tol
-        self.description = ('Maximum integral of absolute [eigenst]ate '
-                            'change: {:g} eV^2 / valence electron'
-                            .format(self.tol))
-
-    def __call__(self, context):
-        """Should return (bool, entry), where bool is True if converged and
-        False if not, and entry is a <=5 character string to be printed in
-        the user log file."""
-        if context.wfs.nvalence == 0:
-            return True, ''
-        error = self.get_error(context)
-        converged = (error < self.tol)
-        if (context.wfs.nvalence == 0 or error == 0 or np.isinf(error)):
-            entry = ''
-        else:
-            entry = '{:+5.2f}'.format(np.log10(error))
-        return converged, entry
-
-    def get_error(self, context):
-        """Returns the raw error."""
-        return context.wfs.eigensolver.error * Ha**2 / context.wfs.nvalence
-
-
-class Forces(Criterion):
-    """A convergence criterion for the forces.
-
-    Parameters:
-
-    tol : float
-        Tolerance for conversion; that is, the force on each atom is compared
-        with its force from the previous iteration, and the change in each
-        atom's force is calculated as an l2-norm (Euclidean distance). The
-        atom with the largest norm must be less than tol. [eV/Angstrom]
-    calc_last : bool
-        If True, calculates forces last; that is, it waits until all other
-        convergence criteria are satisfied before checking to see if the
-        forces have converged. (This is more computationally efficient.)
-        If False, checks forces at each SCF step.
-    """
-    name = 'forces'
-    tablename = 'force'
-
-    def __init__(self, tol, calc_last=True):
-        self.tol = tol
-        self.description = ('Maximum change in the atomic [forces] across '
-                            'last 2 cycles: {:g} eV/Ang'.format(self.tol))
-        self.calc_last = calc_last
-        self.reset()
-
-    def __call__(self, context):
-        """Should return (bool, entry), where bool is True if converged and
-        False if not, and entry is a <=5 character string to be printed in
-        the user log file."""
-        if np.isinf(self.tol):  # criterion is off; backwards compatibility
-            return True, ''
-        with context.wfs.timer('Forces'):
-            F_av = calculate_forces(context.wfs, context.dens, context.ham)
-            F_av *= Ha / Bohr
-        error = np.inf
-        if self.old_F_av is not None:
-            error = ((F_av - self.old_F_av)**2).sum(1).max()**0.5
-        self.old_F_av = F_av
-        converged = (error < self.tol)
-        entry = ''
-        if np.isfinite(error):
-            entry = '{:+5.2f}'.format(np.log10(error))
-        return converged, entry
-
-    def reset(self):
-        self.old_F_av = None
-
-
-class WorkFunction(Criterion):
-    """A convergence criterion for the work function.
-
-    Parameters:
-
-    tol : float
-        Tolerance for conversion; that is the maximum variation among the
-        last n_old values of either work function. [eV]
-    n_old : int
-        Number of work functions to compare. I.e., if n_old is 3, then this
-        compares the peak-to-peak difference among the current work
-        function and the two previous.
-    """
-    name = 'work function'
-    tablename = 'wkfxn'
-
-    def __init__(self, tol=0.005, n_old=3):
-        self.tol = tol
-        self.n_old = n_old
-        self.description = ('Maximum change in the last {:d} '
-                            'work functions [wkfxn]: {:g} eV'
-                            .format(n_old, tol))
-
-    def reset(self):
-        self._old = deque(maxlen=self.n_old)
-
-    def __call__(self, context):
-        """Should return (bool, entry), where bool is True if converged and
-        False if not, and entry is a <=5 character string to be printed in
-        the user log file."""
-        workfunctions = context.ham.get_workfunctions(context.wfs)
-        workfunctions = Ha * np.array(workfunctions)
-        self._old.append(workfunctions)  # Pops off >3!
-        if len(self._old) == self._old.maxlen:
-            error = max(np.ptp(self._old, axis=0))
-        else:
-            error = np.inf
-        converged = (error < self.tol)
-        if error < np.inf:
-            entry = '{:+5.2f}'.format(np.log10(error))
-        else:
-            entry = ''
-        return converged, entry
-
-
-class MinIter(Criterion):
-    """A convergence criterion that enforces a minimum number of iterations.
-
-    Parameters:
-
-    n : int
-        Minimum number of iterations that must be complete before
-        the SCF cycle exits.
-    """
-    calc_last = False
-    name = 'minimum iterations'
-    tablename = 'minit'
-
-    def __init__(self, n):
-        self.n = n
-        self.description = f'Minimum number of iterations [minit]: {n:d}'
-
-    def __call__(self, context):
-        converged = context.niter >= self.n
-        entry = '{:d}'.format(context.niter)
-        return converged, entry
 
 
 oops = """

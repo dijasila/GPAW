@@ -3,6 +3,10 @@ import sys
 
 import sphinx_rtd_theme
 from gpaw import __version__
+try:
+    import sphinxcontrib.spelling
+except ImportError:
+    sphinxcontrib = None
 
 assert sys.version_info >= (3, 6)
 
@@ -17,9 +21,14 @@ extensions = ['images',
               'sphinx.ext.napoleon',
               'sphinx.ext.mathjax',
               'sphinx.ext.intersphinx']
+
+if sphinxcontrib:
+    extensions.append('sphinxcontrib.spelling')
 extlinks = {'doi': ('https://doi.org/%s', 'doi:'),
             'arxiv': ('https://arxiv.org/abs/%s', 'arXiv:'),
             'xkcd': ('https://xkcd.com/%s', 'XKCD:')}
+spelling_word_list_filename = 'words.txt'
+spelling_show_suggestions = True
 templates_path = ['templates']
 source_suffix = '.rst'
 master_doc = 'index'
@@ -32,7 +41,7 @@ pygments_style = 'sphinx'
 autoclass_content = 'both'
 modindex_common_prefix = ['gpaw.']
 intersphinx_mapping = {
-    'python': ('https://docs.python.org/3.9', None),
+    'python': ('https://docs.python.org/3.10', None),
     'ase': ('https://wiki.fysik.dtu.dk/ase', None),
     'numpy': ('https://docs.scipy.org/doc/numpy', None),
     'scipy': ('https://docs.scipy.org/doc/scipy/reference', None),
@@ -45,7 +54,11 @@ nitpick_ignore = [('py:class', 'gpaw.calculator.GPAW'),
                   ('py:class', 'ndarray'),
                   ('py:class', 'ase.spectrum.dosdata.GridDOSData'),
                   ('py:class', 'ase.atoms.Atoms'),
-                  ('py:class', 'gpaw.point_groups.group.PointGroup')]
+                  ('py:class', 'gpaw.point_groups.group.PointGroup'),
+                  ('py:class', 'UniformGridFunctions'),
+                  ('py:class', 'DomainType'),
+                  ('py:class', 'Path'),
+                  ('py:class', 'IO')]
 
 html_theme = 'sphinx_rtd_theme'
 html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
@@ -61,3 +74,6 @@ mathjax3_config = {
             'br': '{\\mathbf r}',
             'bk': '{\\mathbf k}',
             'bG': '{\\mathbf G}'}}}
+
+autodoc_typehints = 'description'
+autodoc_typehints_description_target = 'documented'

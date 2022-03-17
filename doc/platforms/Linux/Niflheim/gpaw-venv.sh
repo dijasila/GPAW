@@ -73,6 +73,16 @@ $PIP install -e ase/
 
 $PIP install myqueue graphviz qeh
 
+if [[ "yes" == "no" ]]; then
+  mkdir DFTD3
+  cd DFTD3
+  wget chemie.uni-bonn.de/pctc/mulliken-center/software/dft-d3/dftd3.tgz
+  tar -xf dftd3.tgz
+  ssh thul "cd $VENV/DFTD3 && make"
+  cd ..
+echo 'export ASE_DFTD3_COMMAND=$VENV/DFTD3/dftd3' >> bin/activate
+fi
+
 # Compile ase-exc C-extension of old thul so that it works on
 # newer architectures
 CMD="cd $VENV &&

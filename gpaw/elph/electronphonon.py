@@ -65,7 +65,7 @@ from ase.parallel import parprint
 from ase.phonons import Displacement
 from ase.utils.filecache import MultiFileJSONCache
 
-from gpaw import GPAW
+from gpaw.calculator import GPAW
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.lcao.tightbinding import TightBinding
 from gpaw.utilities import unpack2

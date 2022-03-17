@@ -5,28 +5,23 @@ master:
     - >
       apt-get install -qy
       libopenblas-dev libscalapack-mpi-dev libxc-dev > apt-get.output
-    - pip install flake8 mypy pytest interrogate
+    - python -m venv ../venv
+    - source ../venv/bin/activate
+    - pip install -U pip
+    - pip install flake8 mypy pytest interrogate graphviz
     - pip -q install git+https://gitlab.com/ase/ase.git@master
     - pip -q install git+https://gitlab.com/myqueue/myqueue.git@master
-    - mkdir ~/.gpaw
-    - echo "scalapack = True" > ~/.gpaw/siteconfig.py
-    - echo "libraries += ['scalapack-openmpi']" >> ~/.gpaw/siteconfig.py
     - >
-      echo "extra_compile_args += ['-Werror', '-fopenmp']"
-      >> ~/.gpaw/siteconfig.py
-    - echo "extra_link_args += ['-fopenmp']" >> ~/.gpaw/siteconfig.py
-    - python setup.py install > gpaw-install.output
-    - useradd -m user
-    - su user -c 'gpaw install-data --register gpaw-datasets'
-    - su user -c 'gpaw -P 1 info'
-    - su user -c 'gpaw test'
-    - su user -c 'OMP_NUM_THREADS=2 pytest -v -m ci -We'
+      echo "scalapack = True;
+      libraries += ['scalapack-openmpi'];
+      extra_compile_args += ['-Werror', '-fopenmp'];
+      extra_link_args += ['-fopenmp']
+      " > siteconfig.py
+    - pip install -e .
+    - gpaw install-data --register pawdata
+    - gpaw test
+    - OMP_NUM_THREADS=2 pytest -v -m ci -We
     - mypy -p gpaw
-    - >
-      interrogate -m -i -f 35.2
-      -e gpaw/test
-      -e gpaw/point_groups/groups.py
-      gpaw
     - flake8 --doctests gpaw
     - >
       flake8
@@ -35,28 +30,34 @@ master:
       --extend-ignore E402
       doc
     - python -We:invalid -m compileall -f -q gpaw/
-    - echo "parallel_python_interpreter = True" >> ~/.gpaw/siteconfig.py
-    - echo "libraries += ['blas']" >> ~/.gpaw/siteconfig.py
+    - echo "parallel_python_interpreter = True" >> siteconfig.py
+    - echo "libraries += ['openblas']" >> siteconfig.py
     - python setup.py install > gpaw-python-install.output
-    - su user -c 'gpaw-python -m gpaw info'
+    - gpaw-python -m gpaw info
     - mq config --in-place
     - mq init
     - mq workflow -p agts.py -zT | tail -1 | tee count
-    - python -c "assert int(open('count').read().split()[0]) >= 387"
+    - python -c "assert int(open('count').read().split()[0]) >= 422"
     - python -c "import pathlib; assert len(list(pathlib.Path().glob('**/*.png'))) <= 6"
+    - >
+      interrogate -m -i -f 33.1
+      -e gpaw/test
+      -e gpaw/point_groups/groups.py
+      gpaw
 
 libxc:
-  image: python:3.6
+  image: python:3.7
   script:
     - git clone https://gitlab.com/libxc/libxc.git
     - cd libxc
-    - git checkout 5.1.7
+    - git checkout 5.2.2
     - autoreconf -i
     - ./configure --enable-shared --disable-fortran --prefix=$HOME/libxc
     - make > libxc-install.out
     - make install
     - cd ..
-    - pip install pytest ase
+    - pip -q install git+https://gitlab.com/ase/ase.git@master
+    - pip install pytest
     - >
       echo "noblas = True;
       libraries = ['xc'];
@@ -74,12 +75,16 @@ libxc:
 docs:
   image: python:3.9
   script:
+    - apt-get update -qy
+    - apt-get install -qy graphviz
     - python3 -m venv venv
     - source venv/bin/activate
-    - pip install sphinx-rtd-theme pytest
+    - pip -q install git+https://gitlab.com/ase/ase.git@master
+    - pip install sphinx-rtd-theme pytest graphviz
     - echo "noblas = True; nolibxc = True" > siteconfig.py
     - pip install -e .
-    - tools/gpaw-setup H C O
+    - tools/gpaw-setup H C O Li
+    - tools/gpaw-setup H -f PBE
     - export GPAW_SETUP_PATH=$PWD
     - cd doc
     - make

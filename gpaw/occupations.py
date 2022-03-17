@@ -51,7 +51,7 @@ def marzari_vanderbilt(eig: np.ndarray,
                                               np.ndarray]:
     """Marzari-Vanderbilt distribution (cold smearing).
 
-    See: https://doi.org/10.1103/PhysRevLett.82.3296
+    See: :doi:`10.1103/PhysRevLett.82.3296`
     """
     x = (eig - fermi_level) / width
     expterm = np.exp(-(x + (1 / np.sqrt(2)))**2)
@@ -129,8 +129,7 @@ class OccupationNumberCalculator:
 
     def copy(self,
              parallel_layout: ParallelLayout = None,
-             bz2ibzmap: List[int] = None
-             ) -> 'OccupationNumberCalculator':
+             bz2ibzmap: List[int] = None) -> 'OccupationNumberCalculator':
         return create_occ_calc(
             self.todict(),
             parallel_layout=parallel_layout or self.parallel_layout)
@@ -139,10 +138,9 @@ class OccupationNumberCalculator:
                   nelectrons: float,
                   eigenvalues: List[List[float]],
                   weights: List[float],
-                  fermi_levels_guess: List[float] = None
-                  ) -> Tuple[Array2D,
-                             List[float],
-                             float]:
+                  fermi_levels_guess: List[float] = None) -> Tuple[Array2D,
+                                                                   List[float],
+                                                                   float]:
         """Calculate occupation numbers and fermi level(s) from eigenvalues.
 
         nelectrons:

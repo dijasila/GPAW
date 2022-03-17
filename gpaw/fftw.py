@@ -1,11 +1,9 @@
 """Python wrapper for FFTW3 library."""
 
-import os
-from typing import Union, Type
 import numpy as np
 
 import _gpaw
-
+from gpaw.typing import Array3D
 
 ESTIMATE = 64
 MEASURE = 0
@@ -13,37 +11,39 @@ PATIENT = 32
 EXHAUSTIVE = 8
 
 
-if os.environ.get('GPAW_FFTWSO'):
-    import warnings
-    warnings.warn('GPAW_FFTWSO is set to "{}"; ignoring.  '
-                  'Please use siteconf.py to link FFTW instead.'
-                  .format(os.environ['GPAW_FFTWSO']))
-
-
 def have_fftw() -> bool:
     return hasattr(_gpaw, 'FFTWPlan')
 
 
-def check_fft_size(n: int) -> bool:
+def check_fft_size(n: int, factors=[2, 3, 5, 7]) -> bool:
     """Check if n is an efficient fft size.
 
-    Efficient means that n can be factored into small primes (2, 3, 5, 7)."""
+    Efficient means that n can be factored into small primes (2, 3, 5, 7).
+
+    >>> check_fft_size(17)
+    False
+    >>> check_fft_size(18)
+    True
+    """
 
     if n == 1:
         return True
-    for x in [2, 3, 5, 7]:
+    for x in factors:
         if n % x == 0:
-            return check_fft_size(n // x)
+            return check_fft_size(n // x, factors)
     return False
 
 
-def get_efficient_fft_size(N: int, n=1) -> int:
+def get_efficient_fft_size(N: int, n=1, factors=[2, 3, 5, 7]) -> int:
     """Return smallest efficient fft size.
 
     Must be greater than or equal to N and divisible by n.
+
+    >>> get_efficient_fft_size(17)
+    18
     """
     N = -(-N // n) * n
-    while not check_fft_size(N):
+    while not check_fft_size(N, factors):
         N += n
     return N
 
@@ -64,19 +64,30 @@ def check_fftw_inputs(in_R, out_R):
         assert C.shape[2] == 1 + R.shape[2] // 2
 
 
-class FFTWPlan:
-    """FFTW3 3d transform."""
-    def __init__(self, in_R, out_R, sign, flags=MEASURE):
-        if not have_fftw():
-            raise ImportError('Not compiled with FFTW.')
-
+class FFTPlan:
+    """FFT 3d transform."""
+    def __init__(self,
+                 in_R: Array3D,
+                 out_R: Array3D,
+                 sign: int,
+                 flags: int = MEASURE):
         check_fftw_inputs(in_R, out_R)
-
-        self._ptr = _gpaw.FFTWPlan(in_R, out_R, sign, flags)
         self.in_R = in_R
         self.out_R = out_R
         self.sign = sign
         self.flags = flags
+
+    def execute(self) -> None:
+        raise NotImplementedError
+
+
+class FFTWPlan(FFTPlan):
+    """FFTW3 3d transform."""
+    def __init__(self, in_R, out_R, sign, flags=MEASURE):
+        if not have_fftw():
+            raise ImportError('Not compiled with FFTW.')
+        self._ptr = _gpaw.FFTWPlan(in_R, out_R, sign, flags)
+        FFTPlan.__init__(self, in_R, out_R, sign, flags)
 
     def execute(self):
         _gpaw.FFTWExecute(self._ptr)
@@ -87,14 +98,8 @@ class FFTWPlan:
         self._ptr = None
 
 
-class NumpyFFTPlan:
+class NumpyFFTPlan(FFTPlan):
     """Numpy fallback."""
-    def __init__(self, in_R, out_R, sign, flags=None):
-        check_fftw_inputs(in_R, out_R)
-        self.in_R = in_R
-        self.out_R = out_R
-        self.sign = sign
-
     def execute(self):
         if self.in_R.dtype == float:
             self.out_R[:] = np.fft.rfftn(self.in_R)
@@ -119,9 +124,10 @@ def empty(shape, dtype=float):
     return a
 
 
-FFTPlan: Union[Type[FFTWPlan], Type[NumpyFFTPlan]]
-
-if have_fftw():
-    FFTPlan = FFTWPlan
-else:
-    FFTPlan = NumpyFFTPlan
+def create_plan(in_R: Array3D,
+                out_R: Array3D,
+                sign: int,
+                flags: int = MEASURE) -> FFTPlan:
+    if have_fftw():
+        return FFTWPlan(in_R, out_R, sign, flags)
+    return NumpyFFTPlan(in_R, out_R, sign, flags)

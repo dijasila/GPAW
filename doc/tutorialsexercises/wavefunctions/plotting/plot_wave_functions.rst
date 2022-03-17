@@ -29,10 +29,9 @@ Plotting wave functions with jmol
 See http://jmol.sourceforge.net/docs/surface/
 
 You can visualize an isosurface from a cube file by creating the
-myscript.spt script::
+`myscript.spt` script:
   
-   #isosurface name cutoff "cubefile"
-   isosurface pos 0.05 "CO_1.cube"
+.. literalinclude:: myscript.spt
 
 and executing it with jmol::
 

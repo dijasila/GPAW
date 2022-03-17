@@ -180,29 +180,41 @@ PyObject* rk(PyObject *self, PyObject *args)
 
 PyObject* r2k(PyObject *self, PyObject *args)
 {
-  Py_complex alpha;
-  PyArrayObject* a;
-  PyArrayObject* b;
-  double beta;
-  PyArrayObject* c;
-  if (!PyArg_ParseTuple(args, "DOOdO", &alpha, &a, &b, &beta, &c))
-    return NULL;
-  int n = PyArray_DIMS(a)[0];
-  int k = PyArray_DIMS(a)[1];
-  for (int d = 2; d < PyArray_NDIM(a); d++)
-    k *= PyArray_DIMS(a)[d];
-  int lda = MAX(k, 1);
+    Py_complex alpha;
+    PyArrayObject* a;
+    PyArrayObject* b;
+    double beta;
+    PyArrayObject* c;
+    char t = 'c';
+    char* trans = &t;
+
+    if (!PyArg_ParseTuple(args, "DOOdO|s", &alpha, &a, &b, &beta, &c, &trans))
+        return NULL;
+
+    int n = PyArray_DIMS(c)[0];
+    int k, lda;
+    if (*trans == 'c') {
+        k = PyArray_DIMS(a)[1];
+        for (int d = 2; d < PyArray_NDIM(a); d++)
+            k *= PyArray_DIMS(a)[d];
+        lda = MAX(k, 1);
+    } else {
+        k = PyArray_DIMS(a)[0];
+        lda = MAX(n, 1);
+    }
   int ldc = PyArray_STRIDES(c)[0] / PyArray_STRIDES(c)[1];
+
   if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
-    dsyr2k_("u", "t", &n, &k,
+    dsyr2k_("u", trans, &n, &k,
             (double*)(&alpha), DOUBLEP(a), &lda,
             DOUBLEP(b), &lda, &beta,
             DOUBLEP(c), &ldc);
   else
-    zher2k_("u", "c", &n, &k,
+    zher2k_("u", trans, &n, &k,
             (void*)(&alpha), (void*)COMPLEXP(a), &lda,
             (void*)COMPLEXP(b), &lda, &beta,
             (void*)COMPLEXP(c), &ldc);
+
   Py_RETURN_NONE;
 }
 #endif

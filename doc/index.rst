@@ -13,23 +13,25 @@ with:
 * Atom-centered basis-functions (:ref:`lcao <lcao>`)
 
 >>> # H2-molecule example:
+>>> import numpy as np
 >>> from ase import Atoms
 >>> from gpaw import GPAW, PW
 >>> h2 = Atoms('H2', [(0, 0, 0), (0, 0, 0.74)])
 >>> h2.center(vacuum=2.5)
 >>> h2.cell
-array([[ 5.  ,  0.  ,  0.  ],
-       [ 0.  ,  5.  ,  0.  ],
-       [ 0.  ,  0.  ,  5.74]])
+Cell([5.0, 5.0, 5.74])
 >>> h2.positions
-array([[ 2.5 ,  2.5 ,  2.5 ],
-       [ 2.5 ,  2.5 ,  3.24]])
+array([[2.5 , 2.5 , 2.5 ],
+       [2.5 , 2.5 , 3.24]])
 >>> h2.calc = GPAW(xc='PBE', mode=PW(300), txt='h2.txt')
->>> h2.get_potential_energy()
--6.6237575005960494
->>> h2.get_forces()
-array([[  9.37566400e-14,   4.40256983e-14,  -6.44750360e-01],
-       [ -9.98454736e-14,   4.37862132e-14,   6.44750360e-01]])
+>>> energy = h2.get_potential_energy()
+>>> print(f'Energy: {energy:.3f} eV')
+Energy: -6.631 eV
+>>> forces = h2.get_forces()
+>>> with np.printoptions(suppress=True, precision=3):
+...    print(forces)
+[[ 0.     0.    -0.639]
+ [ 0.     0.     0.639]]
 
 
 .. image:: https://badge.fury.io/py/gpaw.svg
@@ -43,6 +45,8 @@ array([[  9.37566400e-14,   4.40256983e-14,  -6.44750360e-01],
 
 News
 ====
+
+* :ref:`GPAW version 22.1.0 <releasenotes>` released (Jan 12, 2022).
 
 * :ref:`GPAW version 21.6.0 <releasenotes>` released (Jun 24, 2021).
 
@@ -169,9 +173,9 @@ News
 
 * The `code sprint 2007`_ was successfully finished (Nov 16, 2007)
 
-* The source code is now in the hands of SVN and Trac (Okt 22, 2007)
+* The source code is now in the hands of SVN and Trac (Oct 22, 2007)
 
-* A GPAW Sprint will be held on November 16 in Lyngby (Okt 18, 2007)
+* A GPAW Sprint will be held on November 16 in Lyngby (Oct 18, 2007)
 
 * Work on atomic basis-sets begun (Sep 25, 2007)
 

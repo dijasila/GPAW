@@ -55,7 +55,7 @@ def test_solvation_water_water(H2O, parameters):
     equal(DGSol, -6.3, 2.)
     equal(Ewater, Eelwater + Esurfwater, 1e-14)
 
-    
+
 def test_read(H2O, in_tmp_dir):
     """Read and check some basic properties"""
     fname = 'solvation.gpw'
@@ -68,9 +68,8 @@ def test_read(H2O, in_tmp_dir):
             getattr(H2O.calc, method)())
 
     calc.calculate(atoms)
-    
+
     for method in ['get_potential_energy',
                    'get_eigenvalues', 'get_occupation_numbers']:
         assert getattr(calc, method)() == pytest.approx(
             getattr(H2O.calc, method)())
-    
