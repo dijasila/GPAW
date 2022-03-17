@@ -47,8 +47,10 @@ class Davidson(Eigensolver):
 
     def iterate(self, state, hamiltonian) -> float:
         if self.work_arrays is None:
-            self.work_arrays = state.ibzwfs.create_work_arrays(
-                dims=(2, state.ibzwfs.nbands))
+            shape = state.ibzwfs.get_max_shape()
+            shape = (2, state.ibzwfs.nbands) + shape
+            dtype = state.ibzwfs.wfs_qs[0][0].psit_nX.data.dtype
+            self.work_arrays = np.empty(shape, dtype)
 
         dS = state.density.overlap_correction
         dH = state.potential.dH

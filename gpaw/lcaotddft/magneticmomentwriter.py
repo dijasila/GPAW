@@ -3,15 +3,14 @@ import re
 from typing import Tuple
 
 import numpy as np
-
 from ase import Atoms
 from ase.units import Bohr
 from ase.utils import IOContext
 from gpaw.fd_operators import Gradient
-from gpaw.typing import ArrayLike
-from gpaw.utilities.tools import coordinates
-from gpaw.lcaotddft.observer import TDDFTObserver
 from gpaw.lcaotddft.densitymatrix import DensityMatrix
+from gpaw.lcaotddft.observer import TDDFTObserver
+from gpaw.typing import Vector
+from gpaw.utilities.tools import coordinates
 
 
 def calculate_magnetic_moment_on_grid(wfs, grad_v, r_vG, dM_vaii, *,
@@ -212,7 +211,7 @@ def calculate_magnetic_moment_in_lcao(ksl, rho_mm, M_vmm):
 
 def get_origin_coordinates(atoms: Atoms,
                            origin: str,
-                           origin_shift: ArrayLike) -> np.ndarray:
+                           origin_shift: Vector) -> np.ndarray:
     """Get origin coordinates.
 
     Parameters
@@ -321,7 +320,7 @@ class MagneticMomentWriter(TDDFTObserver):
 
     def __init__(self, paw, filename: str, *,
                  origin: str = None,
-                 origin_shift: ArrayLike = None,
+                 origin_shift: Vector = None,
                  dmat: DensityMatrix = None,
                  calculate_on_grid: bool = None,
                  only_pseudo: bool = None,

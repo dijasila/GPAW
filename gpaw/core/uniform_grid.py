@@ -54,6 +54,9 @@ class UniformGrid(Domain):
     def size(self):
         return self.size_c.copy()
 
+    def global_shape(self) -> tuple[int, ...]:
+        return tuple(self.size_c - 1 + self.pbc_c)
+
     def __repr__(self):
         return Domain.__repr__(self).replace(
             'Domain(',
@@ -131,14 +134,19 @@ class UniformGrid(Domain):
 
         return transform
 
-    def eikr(self, kpt_c=None) -> Array3D:
+    def eikr(self, kpt_c: Vector = None) -> Array3D:
         """Plane wave.
 
-        ::
-
+        :::
                _ _
               ik.r
              e
+
+        Parameters
+        ----------
+        kpt_c:
+            k-point in units of the reciprocal cell.  Defaults to the
+            UniformGrid objects own k-point.
         """
         if kpt_c is None:
             kpt_c = self.kpt_c
@@ -203,7 +211,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         self.desc = grid
 
     def __repr__(self):
-        txt = f'UniformGridFunctions(grid={self.desc}, shape={self.dims}'
+        txt = f'UniformGridFunctions(grid={self.desc}, dims={self.dims}'
         if self.comm.size > 1:
             txt += f', comm={self.comm.rank}/{self.comm.size}'
         return txt + ')'
@@ -218,6 +226,25 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         return UniformGridFunctions(data=data,
                                     dims=data.shape[:-3],
                                     grid=self.desc)
+
+    def __imul__(self,
+                 other: float | np.ndarray | UniformGridFunctions
+                 ) -> UniformGridFunctions:
+        if isinstance(other, float):
+            self.data *= other
+            return self
+        if isinstance(other, UniformGridFunctions):
+            other = other.data
+        assert other.shape[-3:] == self.data.shape[-3:]
+        self.data *= other
+        return self
+
+    def __mul__(self,
+                other: float | np.ndarray | UniformGridFunctions
+                ) -> UniformGridFunctions:
+        result = self.new(data=self.data.copy())
+        result *= other
+        return result
 
     def _arrays(self):
         return self.data.reshape((-1,) + self.data.shape[-3:])
@@ -309,14 +336,10 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
             plan.in_R[:] = input.data
             plan.execute()
             coefs = pw.cut(plan.out_R) * (1 / plan.in_R.size)
-
-        if pw.comm.size > 1:
-            out1 = pw.new(comm=serial_comm).empty()
-            if pw.comm.rank == 0:
-                out1.data[:] = coefs
-            out1.distribute(out=out)
         else:
-            out.data[:] = coefs
+            coefs = None
+
+        out.scatter_from(coefs)
 
         return out
 
@@ -520,19 +543,28 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         rng.random(a.shape, out=a)
         a -= 0.5
 
-    def moment(self):
+    def moment(self, center_v=None):
         """Calculate moment."""
         assert self.dims == ()
         ug = self.desc
+
         index_cr = [np.arange(ug.start_c[c], ug.end_c[c], dtype=float)
                     for c in range(3)]
+
+        if center_v is not None:
+            frac_c = np.linalg.solve(ug.cell_cv.T, center_v)
+            corner_c = (frac_c % 1 - 0.5) * ug.size_c
+            for index_r, corner, size in zip(index_cr, corner_c, ug.size_c):
+                index_r -= corner
+                index_r %= size
+                index_r += corner
 
         rho_ijk = self.data
         rho_ij = rho_ijk.sum(axis=2)
         rho_ik = rho_ijk.sum(axis=1)
         rho_cr = [rho_ij.sum(axis=1), rho_ij.sum(axis=0), rho_ik.sum(axis=0)]
 
-        d_c = [np.dot(index_cr[c], rho_cr[c]) for c in range(3)]
+        d_c = [index_r @ rho_r for index_r, rho_r in zip(index_cr, rho_cr)]
         d_v = (d_c / ug.size_c) @ ug.cell_cv * self.dv
         self.desc.comm.sum(d_v)
         return d_v
