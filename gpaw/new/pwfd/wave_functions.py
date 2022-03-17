@@ -229,7 +229,7 @@ class PWFDWaveFunctions(WaveFunctions):
                 band_comm.send(self.psit_nX.data[ba:bb])
 
     def dipole_matrix_elements(self,
-                               center_v: Vector | None) -> Array3D:
+                               center_v: Vector = None) -> Array3D:
         """Calculate dipole matrix-elements.
 
         :::
@@ -321,4 +321,3 @@ class PWFDWaveFunctions(WaveFunctions):
                  ncomponents: int = 1):
         """
         return 42
-    
