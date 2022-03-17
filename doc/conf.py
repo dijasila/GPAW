@@ -3,6 +3,7 @@ import sys
 
 import sphinx_rtd_theme
 from gpaw import __version__
+from gpaw.doctools.aamath import autodoc_process_docstring
 try:
     import sphinxcontrib.spelling
 except ImportError:
@@ -58,6 +59,8 @@ nitpick_ignore = [('py:class', 'gpaw.calculator.GPAW'),
                   ('py:class', 'UniformGridFunctions'),
                   ('py:class', 'DomainType'),
                   ('py:class', 'Path'),
+                  ('py:class', 'Vector'),
+                  ('py:class', 'Array3D'),
                   ('py:class', 'IO')]
 
 html_theme = 'sphinx_rtd_theme'
@@ -77,3 +80,9 @@ mathjax3_config = {
 
 autodoc_typehints = 'description'
 autodoc_typehints_description_target = 'documented'
+
+
+def setup(app):
+    app.connect('autodoc-process-docstring',
+                lambda app, what, name, obj, options, lines:
+                    autodoc_process_docstring(lines))
