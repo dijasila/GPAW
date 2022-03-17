@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import numpy as np
 from ase.dft.bandgap import bandgap
-from ase.units import Ha
+from ase.units import Bohr, Ha
 from gpaw.core.atom_arrays import AtomArrays
 from gpaw.mpi import MPIComm, serial_comm
 from gpaw.new.brillouin import IBZ
-from gpaw.new.wave_functions import WaveFunctions
 from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
+from gpaw.new.wave_functions import WaveFunctions
 
 
 def create_ibz_wave_functions(ibz: IBZ,
@@ -70,6 +70,18 @@ class IBZWaveFunctions:
         self.fermi_levels = None
 
         self.energies: dict[str, float] = {}
+
+    def get_max_shape(self, global_shape: bool = False) -> tuple[int, ...]:
+        """Find the largest wave function array shape.
+
+        For a PW-calcuation, this shape could depend on k-point.
+        """
+        if global_shape:
+            shape = np.array(max(wfs.array_shape(global_shape=True)
+                                 for wfs in self))
+            self.kpt_comm.max(shape)
+            return tuple(shape)
+        return max(wfs.array_shape() for wfs in self)
 
     def is_master(self):
         return (self.domain_comm.rank == 0 and
@@ -135,26 +147,40 @@ class IBZWaveFunctions:
                                        spin=0,
                                        grid_spacing=0.05,
                                        skip_paw_correction=False):
-        wfs = self.get_wfs(kpt, spin)
+        wfs = self.get_wfs(kpt, spin, band, band + 1)
+        if wfs is None:
+            return None
         assert isinstance(wfs, PWFDWaveFunctions)
-        psit_X = wfs.psit_nX[band].to_pbc_grid()
+        psit_X = wfs.psit_nX[0].to_pbc_grid()
         grid = psit_X.desc.uniform_grid_with_grid_spacing(grid_spacing)
         psi_r = psit_X.interpolate(grid=grid)
 
         if not skip_paw_correction:
             dphi_aj = wfs.setups.partial_wave_corrections()
             dphi_air = grid.atom_centered_functions(dphi_aj, wfs.fracpos_ac)
-            dphi_air.add_to(psi_r, wfs.P_ain[:, :, band])
+            dphi_air.add_to(psi_r, wfs.P_ain[:, :, 0])
 
         return psi_r
 
     def get_wfs(self,
                 kpt: int = 0,
-                spin: int = 0):
-        assert self.kpt_comm.size == 1
-        assert self.band_comm.size == 1
-        assert self.domain_comm.size == 1
-        return self.wfs_qs[self.q_k[kpt]][spin]
+                spin: int = 0,
+                n1=0,
+                n2=0):
+        rank = self.rank_k[kpt]
+        if rank == self.kpt_comm.rank:
+            wfs = self.wfs_qs[self.q_k[kpt]][spin]
+            wfs = wfs.collect(n1, n2)
+            if rank == 0:
+                return wfs
+            if wfs is not None:
+                wfs.send(self.kpt_comm, 0)
+            return
+        master = (self.kpt_comm.rank == 0 and
+                  self.domain_comm.rank == 0 and
+                  self.band_comm.rank == 0)
+        if master:
+            return self.wfs_qs[0][0].receive(self.kpt_comm, rank)
 
     def get_eigs_and_occs(self, k=0, s=0):
         if self.domain_comm.rank == 0 and self.band_comm.rank == 0:
@@ -226,25 +252,47 @@ class IBZWaveFunctions:
         writer.add_array('projections', proj_shape, self.dtype)
 
         for spin in range(self.nspins):
-            for wfs in self:
-                if wfs.spin != spin:
-                    continue
-                P_ain = wfs.P_ain.gather()
-                assert P_ain.comm.size == 1
-                writer.fill(P_ain.data.T)
+            for k, rank in enumerate(self.rank_k):
+                if rank == self.kpt_comm.rank:
+                    wfs = self.wfs_qs[self.q_k[k]][spin]
+                    P_ain = wfs.P_ain.gather()
+                    if P_ain is not None:
+                        P_In = P_ain.matrix.gather()
+                        if self.domain_comm.rank == 0:
+                            if rank == 0:
+                                writer.fill(P_In.data.T)
+                            else:
+                                self.kpt_comm.send(P_In.data, 0)
+                elif self.kpt_comm.rank == 0:
+                    data = np.empty((nproj, self.nbands), self.dtype)
+                    self.kpt_comm.receive(data, rank)
+                    writer.fill(data.T)
 
-        if not skip_wfs:
-            if self.domain_comm.rank != 0 or self.band_comm.rank != 0:
-                return
+        if skip_wfs:
+            return
 
-            # Write header for wave functions
-            self.wfs_qs[0][0].add_wave_functions_array(writer, spin_k_shape)
+        xshape = self.get_max_shape(global_shape=True)
+        shape = spin_k_shape + (self.nbands,) + xshape
 
-            for spin in range(self.nspins):
-                for wfs in self:
-                    if wfs.spin != spin:
-                        continue
-                    wfs.fill_wave_functions(writer)
+        c = Bohr**-1.5
+
+        for spin in range(self.nspins):
+            for k, rank in enumerate(self.rank_k):
+                if rank == self.kpt_comm.rank:
+                    wfs = self.wfs_qs[self.q_k[k]][spin]
+                    coef_nX = wfs.gather_wave_function_coefficients()
+                    if coef_nX is not None:
+                        if rank == 0:
+                            if spin == 0 and k == 0:
+                                writer.add_array('coefficients',
+                                                 shape, dtype=coef_nX.dtype)
+                            writer.fill(coef_nX * c)
+                        else:
+                            self.kpt_comm.send(coef_nX, 0)
+                elif self.kpt_comm.rank == 0:
+                    if coef_nX is not None:
+                        self.kpt_comm.receive(coef_nX, rank)
+                        writer.fill(coef_nX * c)
 
     def write_summary(self, log):
         fl = self.fermi_levels * Ha
@@ -307,13 +355,3 @@ class IBZWaveFunctions:
         lumo = self.kpt_comm.min(min(wfs._eig_n[n] for wfs in self))
 
         return np.array([homo, lumo])
-
-    def create_work_arrays(self, dims: tuple[int]) -> np.ndarray:
-        """Create buffer ndarray large enough for any k-point.
-
-        The number of plane-waves will depend on the k-point!
-        """
-        # Find the largest number of plane-waves or grid-points:
-        desc = max((wfs.psit_nX.desc for wfs in self),
-                   key=lambda desc: desc.myshape)
-        return desc.empty(dims).data
