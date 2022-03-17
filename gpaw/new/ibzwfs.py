@@ -4,7 +4,7 @@ import numpy as np
 from ase.dft.bandgap import bandgap
 from ase.units import Bohr, Ha
 from gpaw.core.atom_arrays import AtomArrays
-from gpaw.mpi import MPIComm, serial_comm, broadcast
+from gpaw.mpi import MPIComm, serial_comm
 from gpaw.new.brillouin import IBZ
 from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 from gpaw.new.wave_functions import WaveFunctions
@@ -147,16 +147,18 @@ class IBZWaveFunctions:
                                        spin=0,
                                        grid_spacing=0.05,
                                        skip_paw_correction=False):
-        wfs = self.get_wfs(kpt, spin)
+        wfs = self.get_wfs(kpt, spin, band, band + 1)
+        if wfs is None:
+            return None
         assert isinstance(wfs, PWFDWaveFunctions)
-        psit_X = wfs.psit_nX[band].to_pbc_grid()
+        psit_X = wfs.psit_nX[0].to_pbc_grid()
         grid = psit_X.desc.uniform_grid_with_grid_spacing(grid_spacing)
         psi_r = psit_X.interpolate(grid=grid)
 
         if not skip_paw_correction:
             dphi_aj = wfs.setups.partial_wave_corrections()
             dphi_air = grid.atom_centered_functions(dphi_aj, wfs.fracpos_ac)
-            dphi_air.add_to(psi_r, wfs.P_ain[:, :, band])
+            dphi_air.add_to(psi_r, wfs.P_ain[:, :, 0])
 
         return psi_r
 
@@ -168,13 +170,17 @@ class IBZWaveFunctions:
         rank = self.rank_k[kpt]
         if rank == self.kpt_comm.rank:
             wfs = self.wfs_qs[self.q_k[kpt]][spin]
-            wfs.collect(n1, n2)
+            wfs = wfs.collect(n1, n2)
             if rank == 0:
                 return wfs
-            broadcast(wfs, 0hmmmmm)
+            if wfs is not None:
+                wfs.send(self.kpt_comm, 0)
             return
-        return broadcast(None, 0)
-
+        master = (self.kpt_comm.rank == 0 and
+                  self.domain_comm.rank == 0 and
+                  self.band_comm.rank == 0)
+        if master:
+            return self.wfs_qs[0][0].receive(self.kpt_comm, rank)
 
     def get_eigs_and_occs(self, k=0, s=0):
         if self.domain_comm.rank == 0 and self.band_comm.rank == 0:
