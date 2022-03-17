@@ -3,6 +3,9 @@
 This packages extends GPAW to be used with different
 continuum solvent models.
 """
+import numpy as np
+from ase.data.vdw import vdw_radii
+from ase.data.vdw_alvarez import vdw_radii as vdw_radii_alvarez
 
 from gpaw.solvation.calculator import SolvationGPAW
 from gpaw.solvation.cavity import (EffectivePotentialCavity,
@@ -20,6 +23,19 @@ from gpaw.solvation.interactions import (SurfaceInteraction,
                                          LeakedDensityInteraction)
 
 
+def default_vdw_radii(atoms):
+    mod_radii = vdw_radii.copy()
+    mod_radii[1] = 1.09
+
+    radii = []
+    for n in atoms.numbers:
+        if np.isfinite(mod_radii[n]):
+            radii.append(mod_radii[n])
+        else:
+            radii.append(vdw_radii_alvarez[n])
+    return radii
+
+
 def get_HW14_water_kwargs():
     """Return kwargs for initializing a SolvationGPAW instance.
 
@@ -27,20 +43,14 @@ def get_HW14_water_kwargs():
     A. Held and M. Walter, J. Chem. Phys. 141, 174108 (2014).
     """
     from ase.units import Pascal, m
-    from ase.data.vdw import vdw_radii
     u0 = 0.180
     epsinf = 78.36
     st = 18.4 * 1e-3 * Pascal * m
     T = 298.15
-    vdw_radii = vdw_radii.copy()
-    vdw_radii[1] = 1.09
-
-    def atomic_radii(atoms):
-        return [vdw_radii[n] for n in atoms.numbers]
 
     kwargs = {
         'cavity': EffectivePotentialCavity(
-            effective_potential=Power12Potential(atomic_radii, u0),
+            effective_potential=Power12Potential(default_vdw_radii, u0),
             temperature=T,
             surface_calculator=GradientSurface()
         ),
