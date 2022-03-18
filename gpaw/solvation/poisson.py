@@ -128,14 +128,15 @@ class PolarizationPoissonSolver(FastPoissonSolver, SolvationPoissonSolver):
     """
 
     def __init__(self, nn=3, relax='J', eps=2e-10, maxiter=1000,
-                 remove_moment=None, use_charge_center=False):
+                 remove_moment=None, use_charge_center=False,
+                 gas_phase_poisson=FastPoissonSolver):
         SolvationPoissonSolver.__init__(
             self, nn, relax, eps, maxiter, remove_moment,
             use_charge_center=use_charge_center)
         self.phi_tilde = None
 
-        self.gas_phase_poisson = FastPoissonSolver
-        FastPoissonSolver.__init__(
+        self.gas_phase_poisson = gas_phase_poisson
+        self.gas_phase_poisson.__init__(
             self, nn, eps=eps, remove_moment=remove_moment,
             use_charge_center=use_charge_center)
 
