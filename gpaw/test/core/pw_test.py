@@ -12,7 +12,7 @@ def test_pw_redist():
     pw = PlaneWaves(ecut=10, cell=[a, a, a], comm=world)
     f1 = pw.empty()
     f1.data[:] = 1.0
-    f2 = f1.collect()
+    f2 = f1.gather()
     if f2 is not None:
         assert (f2.data == 1.0).all()
         assert f2.desc.comm.size == 1
@@ -54,7 +54,7 @@ def test_pw_integrate():
         print(f.data)
 
         gg = g.new()
-        gg.scatter_from(f.collect(broadcast=True)
+        gg.scatter_from(f.gather(broadcast=True)
                         .ifft(grid=g.desc.new(comm=None)))
         assert (g.data == gg.data).all()
 

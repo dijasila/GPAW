@@ -91,7 +91,7 @@ class WaveFunctions:
         spin_k_shape:
             Shape of the spin and k-point dimensions
         """
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def fill_wave_functions(self, writer: Writer):
         """ Fill the wave function array using this wave function
@@ -101,4 +101,7 @@ class WaveFunctions:
         writer:
             Ulm writer
         """
-        raise NotImplementedError()
+        raise NotImplementedError
+
+    def receive(self, kpt_comm, rank):
+        raise NotImplementedError

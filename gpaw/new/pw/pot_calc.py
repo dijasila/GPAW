@@ -59,7 +59,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         vt_g.data += vHt_h.data[self.h_g]
 
         vt_sR = density.nt_sR.new()
-        vt_sR.data[:] = vt_g.ifft(self.ifftplan, grid=vt_sR.desc).data
+        vt_sR.data[:] = vt_g.ifft(plan=self.ifftplan, grid=vt_sR.desc).data
         vxct_sr = nt_sr.desc.zeros(density.nt_sR.dims)
         e_xc = self.xc.calculate(nt_sr, vxct_sr)
 

@@ -34,6 +34,9 @@ class DistributedArrays(Generic[DomainType]):
 
         if self.dims:
             mydims0 = (self.dims[0] + comm.size - 1) // comm.size
+            d1 = min(comm.rank * mydims0, self.dims[0])
+            d2 = min((comm.rank + 1) * mydims0, self.dims[0])
+            mydims0 = d2 - d1
             self.mydims = (mydims0,) + self.dims[1:]
         else:
             self.mydims = ()
@@ -65,6 +68,13 @@ class DistributedArrays(Generic[DomainType]):
     def __iter__(self):
         for index in range(self.dims[0]):
             yield self[index]
+
+    def flat(self):
+        if self.dims == ():
+            yield self
+        else:
+            for index in np.indices(self.dims).reshape((len(self.dims), -1)).T:
+                yield self[tuple(index)]
 
     @property
     def matrix(self) -> Matrix:
