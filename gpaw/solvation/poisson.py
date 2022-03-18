@@ -8,6 +8,7 @@ from gpaw.fd_operators import Laplace, Gradient
 from gpaw.wfd_operators import WeightedFDOperator
 from gpaw.utilities.gauss import Gaussian
 from gpaw import PoissonConvergenceError
+from gpaw.utilities.timing import NullTimer
 
 
 class SolvationPoissonSolver(FDPoissonSolver):
@@ -118,7 +119,7 @@ class WeightedFDPoissonSolver(SolvationPoissonSolver):
         return SolvationPoissonSolver._init(self)
 
 
-class PolarizationPoissonSolver(SolvationPoissonSolver):
+class PolarizationPoissonSolver(FastPoissonSolver, SolvationPoissonSolver):
     """Poisson solver with dielectric.
 
     Calculates the polarization charges first using only the
@@ -128,16 +129,15 @@ class PolarizationPoissonSolver(SolvationPoissonSolver):
 
     def __init__(self, nn=3, relax='J', eps=2e-10, maxiter=1000,
                  remove_moment=None, use_charge_center=False):
-        polarization_warning = UserWarning(
-            'PolarizationPoissonSolver is not accurate enough'
-            ' and therefore not recommended for production code!')
-        warnings.warn(polarization_warning)
         SolvationPoissonSolver.__init__(
             self, nn, relax, eps, maxiter, remove_moment,
             use_charge_center=use_charge_center)
         self.phi_tilde = None
 
         self.gas_phase_poisson = FastPoissonSolver
+        FastPoissonSolver.__init__(
+            self, nn, eps=eps, remove_moment=remove_moment,
+            use_charge_center=use_charge_center)
 
     def get_description(self):
         if len(self.operators) == 0:
@@ -150,7 +150,7 @@ class PolarizationPoissonSolver(SolvationPoissonSolver):
 
     def solve(self, phi, rho, charge=None,
               maxcharge=1e-6,
-              zero_initial_phi=False, timer=None):
+              zero_initial_phi=False, timer=NullTimer()):
         self._init()
         # get initial meaningful phi -> only do this if necessary
         if zero_initial_phi:
