@@ -143,7 +143,7 @@ def read_gpw(filename, log, parallel):
     calculation = DFTCalculation(
         DFTState(ibzwfs, density, potential),
         builder.setups,
-        None,
+        builder.create_scf_loop(),
         pot_calc=builder.create_potential_calculator())
 
     units = {'energy': 1 / ha,
