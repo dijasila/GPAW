@@ -27,7 +27,7 @@ def dipole_matrix_elements_from_calc(calc: ASECalculator,
     ----------
     n1, n2:
         Band range.
-    center_v:
+    center:
         Center of molecule in Å.  Defaults to center of cell.
     """
     ibzwfs = calc.calculation.state.ibzwfs
@@ -41,6 +41,11 @@ def dipole_matrix_elements_from_calc(calc: ASECalculator,
 
     d_snnv = []
     for wfs in wfs_s:
+        if calc.params.mode['name'] == 'lcao':
+            basis = calc.calculation.scf_loop.hamiltonian.basis
+            grid = calc.calculation.state.density.nt_sR.desc
+            fracpos_ac = calc.calculation.fracpos_ac
+            wfs = wfs.to_uniform_grid_wave_functions(grid, basis, fracpos_ac)
         wfs = wfs.collect(n1, n2)
         if wfs is not None:
             d_nnv = wfs.dipole_matrix_elements(center) * Bohr

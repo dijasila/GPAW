@@ -6,6 +6,7 @@ from gpaw.core.atom_arrays import AtomArrays, AtomArraysLayout
 from gpaw.mpi import MPIComm, serial_comm
 from gpaw.new.wave_functions import WaveFunctions
 from gpaw.setup import Setups
+from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 
 
 class LCAOWaveFunctions(WaveFunctions):
@@ -75,3 +76,19 @@ class LCAOWaveFunctions(WaveFunctions):
         C_nM = self.C_nM.gather()
         if self.domain_comm.rank == 0 and self.band_comm.rank == 0:
             writer.fill(C_nM.data * Bohr**-1.5)
+
+    def to_uniform_grid_wave_functions(self, grid, basis, fracpos_ac):
+        grid = grid.new(kpt=self.kpt_c, dtype=self.dtype)
+        psit_nR = grid.zeros(self.nbands, self.band_comm)
+        basis.lcao_to_grid(self.C_nM.data, psit_nR.data, self.q)
+
+        return PWFDWaveFunctions(
+            psit_nR,
+            self.spin,
+            self.q,
+            self.k,
+            self.setups,
+            fracpos_ac,
+            self.weight,
+            self.ncomponents)
+        
