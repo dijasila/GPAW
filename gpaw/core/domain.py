@@ -76,6 +76,9 @@ class Domain:
                 f'comm={comm.rank}/{comm.size}, '
                 f'dtype={self.dtype}{k})')
 
+    def global_shape(self) -> tuple[int, ...]:
+        raise NotImplementedError
+
     @property
     def cell(self):
         return self.cell_cv.copy()

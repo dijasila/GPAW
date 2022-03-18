@@ -1,10 +1,13 @@
-import numpy as np
+"""Tool for generating graps of objects."""
+from pathlib import Path
+from typing import Any
+
 import ase
+import numpy as np
+from gpaw.core.atom_arrays import AtomArraysLayout
 from gpaw.new.ase_interface import GPAW
 from gpaw.new.brillouin import BZPoints
 from gpaw.new.builder import builder
-from gpaw.core.atom_arrays import AtomArraysLayout
-from typing import Any
 
 
 def create_nodes(obj, *objects, include):
@@ -142,6 +145,11 @@ def plot_graph(figname, nodes, colors={}, replace={}):
             g.edge(node.base.name, node.name, arrowhead='onormal')
 
     g.render(figname, format='svg')
+
+    try:
+        Path(figname).unlink()  # remove "dot" file
+    except FileNotFoundError:
+        pass
 
 
 def abc():

@@ -142,7 +142,7 @@ class Matrix:
         dist.multiply(alpha, A, opa, B, opb, beta, out, symmetric)
         return out
 
-    def redist(self, other):
+    def redist(self, other: Matrix) -> None:
         """Redistribute to other BLACS layout."""
         if self is other:
             return
@@ -156,9 +156,10 @@ class Matrix:
 
         if n2 == 1 and d1.blocksize is None:
             assert d2.blocksize is None
+            assert d1.columns == 1
             comm = d1.comm
             if comm.rank == 0:
-                M = len(self)
+                M = self.shape[0]
                 m = (M + comm.size - 1) // comm.size
                 other.data[:m] = self.data
                 for r in range(1, comm.size):
@@ -171,9 +172,10 @@ class Matrix:
 
         if n1 == 1 and d2.blocksize is None:
             assert d1.blocksize is None
+            assert d1.columns == 1
             comm = d1.comm
             if comm.rank == 0:
-                M = len(self)
+                M = self.shape[0]
                 m = (M + comm.size - 1) // comm.size
                 other.data[:] = self.data[:m]
                 for r in range(1, comm.size):
@@ -200,11 +202,12 @@ class Matrix:
                 ctx = d2.desc[1]
             redist(d1, self.data, d2, other.data, ctx)
 
-    def gather(self, root=0):
+    def gather(self, root: int = 0) -> Matrix:
         """ Gather the Matrix on the root rank
 
         Returns a new Matrix distributed so that all data is on the root rank
         """
+        assert root == 0
         if self.dist.comm.size > 1:
             S = self.new(dist=(self.dist.comm, 1, 1))
             self.redist(S)

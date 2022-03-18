@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from math import pi
 from pathlib import Path
 from typing import IO, Any, Union
 
@@ -8,11 +9,18 @@ from ase.units import Bohr, Ha
 from gpaw import __version__
 from gpaw.new import Timer
 from gpaw.new.calculation import DFTCalculation
-from gpaw.new.gpw import read_gpw
+from gpaw.new.gpw import read_gpw, write_gpw
 from gpaw.new.input_parameters import InputParameters
 from gpaw.new.logger import Logger
 from gpaw.typing import Array1D, Array2D
-from gpaw.new.old import methods
+
+
+units = {'energy': Ha,
+         'forces': Ha / Bohr,
+         'stress': Ha / Bohr**3,
+         'dipole': Bohr,
+         'magmom': 1.0,
+         'magmoms': 1.0}
 
 
 def GPAW(filename: Union[str, Path, IO[str]] = None,
@@ -27,6 +35,7 @@ def GPAW(filename: Union[str, Path, IO[str]] = None,
 
     if filename is not None:
         kwargs.pop('txt', None)
+        kwargs.pop('parallel', None)
         assert len(kwargs) == 0
         atoms, calculation, params = read_gpw(filename, log, params.parallel)
         return ASECalculator(params, log, calculation, atoms)
@@ -104,7 +113,7 @@ class ASECalculator:
             else:
                 raise ValueError('Unknown property:', prop)
 
-        return self.calculation.results[prop]
+        return self.calculation.results[prop] * units[prop]
 
     def create_new_calculation(self, atoms: Atoms) -> DFTCalculation:
         with self.timer('init'):
@@ -141,16 +150,16 @@ class ASECalculator:
                              force_consistent: bool = False) -> float:
         return self.calculate_property(atoms,
                                        'free_energy' if force_consistent else
-                                       'energy') * Ha
+                                       'energy')
 
     def get_forces(self, atoms: Atoms) -> Array2D:
-        return self.calculate_property(atoms, 'forces') * (Ha / Bohr)
+        return self.calculate_property(atoms, 'forces')
 
     def get_stress(self, atoms: Atoms) -> Array1D:
-        return self.calculate_property(atoms, 'stress') * (Ha / Bohr**3)
+        return self.calculate_property(atoms, 'stress')
 
     def get_dipole_moment(self, atoms: Atoms) -> Array1D:
-        return self.calculate_property(atoms, 'dipole') * Bohr
+        return self.calculate_property(atoms, 'dipole')
 
     def get_magnetic_moment(self, atoms: Atoms) -> float:
         return self.calculate_property(atoms, 'magmom')
@@ -158,9 +167,54 @@ class ASECalculator:
     def get_magnetic_moments(self, atoms: Atoms) -> Array1D:
         return self.calculate_property(atoms, 'magmoms')
 
+    def get_pseudo_wave_function(self, n):
+        state = self.calculation.state
+        return state.ibzwfs[0].wave_functions.data[n]
 
-for name, method in methods:
-    setattr(ASECalculator, name, method)
+    def get_atoms(self):
+        atoms = self.atoms.copy()
+        atoms.calc = self
+        return atoms
+
+    def get_fermi_level(self) -> float:
+        state = self.calculation.state
+        fl = state.ibzwfs.fermi_levels * Ha
+        assert len(fl) == 1
+        return fl[0]
+
+    def get_homo_lumo(self, spin: int = None) -> Array1D:
+        state = self.calculation.state
+        return state.ibzwfs.get_homo_lumo(spin) * Ha
+
+    def get_number_of_electrons(self):
+        state = self.calculation.state
+        return state.ibzwfs.nelectrons
+
+    def get_number_of_bands(self):
+        state = self.calculation.state
+        return state.ibzwfs.nbands
+
+    def get_atomic_electrostatic_potentials(self):
+        _, _, Q_aL = self.calculation.pot_calc.calculate(
+            self.calculation.state.density)
+        Q_aL = Q_aL.gather()
+        return Q_aL.data[::9] * (Ha / (4 * pi)**0.5)
+
+    def write(self, filename, mode=''):
+        """Write calculator object to a file.
+
+        Parameters
+        ----------
+        filename
+            File to be written
+        mode
+            Write mode. Use ``mode='all'``
+            to include wave functions in the file.
+        """
+        self.log(f'Writing to {filename} (mode={mode!r})\n')
+
+        write_gpw(filename, self.atoms, self.params,
+                  self.calculation, skip_wfs=mode != 'all')
 
 
 def write_header(log, world, params):
