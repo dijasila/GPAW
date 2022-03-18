@@ -138,21 +138,17 @@ def initialize_from_lcao(setups,
     eigensolver.iterate(ham, lcaowfs)
 
     def create_wfs(spin, q, k, kpt_c, weight):
-        gridk = grid.new(kpt=kpt_c, dtype=dtype)
         u = spin + nspins * q
         lcaokpt = lcaowfs.kpt_u[u]
         assert lcaokpt.s == spin
-        psit_nR = gridk.zeros(nbands, band_comm)
         mynbands = len(lcaokpt.C_nM)
         assert mynbands == lcaonbands
-        basis_set.lcao_to_grid(lcaokpt.C_nM,
-                               psit_nR.data[:mynbands], lcaokpt.q)
-
-        if lcaonbands < nbands:
-            psit_nR[lcaonbands:].randomize()
 
         # Convert to PW-coefs in PW-mode:
-        psit_nX = convert_wfs(psit_nR)
+        psit_nX = convert_wfs(lcaokpt.C_nM, basis_set, kpt_c, q)
+
+        if lcaonbands < nbands:
+            psit_nX[lcaonbands:].randomize()
 
         return PWFDWaveFunctions(psit_nX=psit_nX,
                                  spin=spin,

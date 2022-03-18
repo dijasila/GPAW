@@ -64,7 +64,7 @@ class InputParameters:
     xc: dict[str, Any]
 
     def __init__(self, params: dict[str, Any]):
-        self.keys = set(params)
+        self.keys = set(sorted(params))
 
         for key in params:
             if key not in parameter_functions:

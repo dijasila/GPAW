@@ -54,7 +54,7 @@ def test_acf():
     f1 = pw.zeros()
     basis.add_to(f1, coefs)
     assert f1.integrate() == pytest.approx(I)
-    f2 = f1.collect(broadcast=True)
+    f2 = f1.gather(broadcast=True)
     r2 = f2.ifft(grid=grid.new(comm=None))
     x, y = r2.xy(10, 10, ...)
     assert abs(y - y0).max() == pytest.approx(0.0, abs=0.002)
