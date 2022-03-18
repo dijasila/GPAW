@@ -91,4 +91,3 @@ class LCAOWaveFunctions(WaveFunctions):
             fracpos_ac,
             self.weight,
             self.ncomponents)
-        
