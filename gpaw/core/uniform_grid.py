@@ -311,7 +311,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
     def _arrays(self):
         return self.data.reshape((-1,) + self.data.shape[-3:])
 
-    def xy(self, *axes: int | Ellipsis) -> tuple[Array1D, Array1D]:
+    def xy(self, *axes: int | None) -> tuple[Array1D, Array1D]:
         """Extraxt x, y values along line.
 
         Useful for plotting::
@@ -320,9 +320,9 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
           plt.plot(x, y)
         """
         assert len(axes) == 3 + len(self.dims)
-        index = tuple([slice(0, None) if axis is ... else axis
+        index = tuple([slice(0, None) if axis is None else axis
                        for axis in axes])
-        y = self.data[index]
+        y = self.data[index]  # type: ignore
         c = axes[-3:].index(...)
         grid = self.desc
         dx = (grid.cell_cv[c]**2).sum()**0.5 / grid.size_c[c]
