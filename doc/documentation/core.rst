@@ -425,3 +425,9 @@ DFT
     :members:
     :undoc-members:
 .. autofunction:: gpaw.new.ase_interface.GPAW
+
+
+FFTW
+----
+
+.. automodule:: gpaw.fftw

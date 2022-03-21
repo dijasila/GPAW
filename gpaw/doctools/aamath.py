@@ -106,6 +106,7 @@ def parse(lines: str | list[str], n: int = None) -> str:
     if isinstance(lines, str):
         lines = lines.splitlines()
     lines = prep(lines)
+
     if not lines:
         return ''
     if n is None:
@@ -117,7 +118,7 @@ def parse(lines: str | list[str], n: int = None) -> str:
             except ParseError:
                 continue
             return latex
-        raise ParseError
+        raise ParseError('Could not parse\n\n' + '    \n'.join(lines))
 
     line = lines[n]
     i1 = line.find('--')
@@ -147,13 +148,12 @@ def parse(lines: str | list[str], n: int = None) -> str:
             return rf'{p1} \int {p2}'.strip()
         i1 = line.find('<')
         i2 = line.find('>')
-        if i1 == -1 or i1 > i or i2 == -1 or i2 < i:
-            raise ParseError
-        p1 = parse(cut(lines, 0, i1), n)
-        p2 = parse(cut(lines, i1 + 1, i), n)
-        p3 = parse(cut(lines, i + 1, i2), n)
-        p4 = parse(cut(lines, i2 + 1), n)
-        return rf'{p1} \langle {p2}|{p3} \rangle {p4}'.strip()
+        if i1 != -1 and i1 <= i and i2 != -1 and i2 >= i:
+            p1 = parse(cut(lines, 0, i1), n)
+            p2 = parse(cut(lines, i1 + 1, i), n)
+            p3 = parse(cut(lines, i + 1, i2), n)
+            p4 = parse(cut(lines, i2 + 1), n)
+            return rf'{p1} \langle {p2}|{p3} \rangle {p4}'.strip()
 
     hats = {}
     if n > 0:
@@ -170,22 +170,21 @@ def parse(lines: str | list[str], n: int = None) -> str:
 
     latex = []
     for i, c in enumerate(line):
-        if c.isalpha():
-            if i in hats:
-                hat = {'^': 'hat', '~': 'tilde', '_': 'mathbf'}[hats[i]]
-                c = rf'\{hat}{{{c}}}'
-            sup = superscripts.pop(i, None)
-            if sup:
-                c = rf'{c}^{{{sup}}}'
-            sub = subscripts.pop(i, None)
-            if sub:
-                c = rf'{c}_{{{sub}}}'
-        else:
-            c = {'.': r'\cdot '}.get(c, c)
+
+        if i in hats:
+            hat = {'^': 'hat', '~': 'tilde', '_': 'mathbf'}[hats[i]]
+            c = rf'\{hat}{{{c}}}'
+        sup = superscripts.pop(i, None)
+        if sup:
+            c = rf'{c}^{{{sup}}}'
+        sub = subscripts.pop(i, None)
+        if sub:
+            c = rf'{c}_{{{sub}}}'
+        c = {'.': r'\cdot '}.get(c, c)
         latex.append(c)
 
     if superscripts or subscripts:
-        raise ParseError
+        raise ParseError(f'{superscripts=}, {subscripts=}')
 
     return ''.join(latex).strip()
 
