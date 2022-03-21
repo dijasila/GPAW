@@ -152,7 +152,7 @@ class UniformGrid(Domain):
     def atom_centered_functions(self, functions, positions,
                                 integral=None,
                                 cut=False):
-        """Create  UniformGridAtomCenteredFunctions object."""
+        """Create UniformGridAtomCenteredFunctions object."""
         return UniformGridAtomCenteredFunctions(functions, positions, self,
                                                 integral=integral, cut=cut)
 
@@ -247,12 +247,12 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
                  dims: int | tuple[int, ...] = (),
                  comm: MPIComm = serial_comm,
                  data: np.ndarray = None):
-        """Object for storing function(s) on a unifor grid.
+        """Object for storing function(s) on a uniform grid.
 
         parameters
         ----------
         grid:
-            Description of unifor grid.
+            Description of uniform grid.
         dims:
             Extra dimensions.
         comm:
@@ -416,7 +416,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         return out
 
     def norm2(self):
-        """Calculate integral over cell of absolute vale squared.
+        """Calculate integral over cell of absolute value squared.
 
         :::
 
@@ -433,9 +433,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         return result
 
     def integrate(self, other=None):
-        """Integral of self or self time cc(other).
-
-        """
+        """Integral of self or self time cc(other)."""
         if other is not None:
             assert self.desc.dtype == other.desc.dtype
             a_xR = self._arrays()

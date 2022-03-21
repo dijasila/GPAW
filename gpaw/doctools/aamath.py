@@ -107,6 +107,11 @@ def parse(lines: str | list[str], n: int = None) -> str:
         lines = lines.splitlines()
     lines = prep(lines)
 
+    if False:
+        print()
+        print(n)
+        print('\n'.join(lines))
+
     if not lines:
         return ''
     if n is None:
@@ -202,7 +207,11 @@ def autodoc_process_docstring(lines):
             blocks.append((i1, i2))
     for i1, i2 in reversed(blocks):
         latex = parse(lines[i1 + 1:i2])
-        lines[i1:i2] = [f'.. math:: {latex}']
+        line = f'.. math:: {latex}'
+        if lines[i1].strip() == ':::':
+            lines[i1:i2] = [line]
+        else:
+            lines[i1:i2] = [lines[i1][:-2], line]
 
 
 def test_examples():
