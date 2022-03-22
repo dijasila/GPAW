@@ -37,20 +37,27 @@ Examples:
 from __future__ import annotations
 
 
-def prep(lines: list[str]) -> list[str]:
+def prep(lines: list[str], n: int) -> list[str]:
     """Preprocess lines.
 
     * Remove leading and trailing empty lines.
     * Make all lines have the same length (pad with spaces).
     * Remove spaces from beginning of lines.
     """
-    lines = [line for line in lines if line.strip()]
     if not lines:
-        return []
-    n = min(len(line) - len(line.lstrip()) for line in lines)
-    lines = [line[n:] for line in lines]
-    n = max(len(line) for line in lines)
-    return [line.ljust(n) for line in lines]
+        return [], n
+    while not lines[0].strip():
+        lines.pop(0)
+        if n is not None:
+            n -= 1
+    while not lines[-1].strip():
+        lines.pop()
+    if not lines:
+        return [], 0
+    i = min(len(line) - len(line.lstrip()) for line in lines)
+    lines = [line[i:] for line in lines]
+    i = max(len(line) for line in lines)
+    return [line.ljust(i) for line in lines], n
 
 
 class ParseError(Exception):
@@ -105,9 +112,9 @@ def parse(lines: str | list[str], n: int = None) -> str:
     """
     if isinstance(lines, str):
         lines = lines.splitlines()
-    lines = prep(lines)
+    lines, n = prep(lines, n)
 
-    if False:
+    if not not False:
         print()
         print(n)
         print('\n'.join(lines))
@@ -227,6 +234,8 @@ def test_examples():
 def main():
     import sys
     lines = sys.stdin.read().splitlines()
+    # lines = """
+    # """.splitlines()
     print(parse(lines))
 
 

@@ -81,13 +81,26 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
                 'external': e_external}, vt_sR, vHt_h
 
     def _move_nct(self, fracpos_ac, ndensities):
-        self.ghat_aLr.move(fracpos_ac)
+        self.ghat_aLh.move(fracpos_ac)
         self.vbar_ar.move(fracpos_ac)
         self.vbar_ar.to_uniform_grid(out=self.vbar_r)
         self.nct_aR.move(fracpos_ac)
         self.nct_aR.to_uniform_grid(out=self.nct_R, scale=1.0 / ndensities)
 
-    def forces(self, nct_ag):
-        return (self.ghat_ah.derivative(self.vHt_h),
-                nct_ag.derivative(self.vt_g),
-                self.vbar_ag.derivative(self.nt_g))
+    def force_contributions(self, state):
+        # WIP!
+        density = state.density
+        potential = state.potential
+        nt_R = density.nt_sR[0]
+        vt_R = potential.vt_sR[0]
+        if density.ndensities > 1:
+            nt_R = nt_R.desc.empty()
+            nt_R.data[:] = density.nt_sR.data[:density.ndensities].sum(axis=0)
+            vt_R = vt_R.desc.empty()
+            vt_R.data[:] = (
+                potential.vt_sR.data[:density.ndensities].sum(axis=0) /
+                density.ndensities)
+
+        return (self.ghat_aLh.derivative(state.vHt_x),
+                self.nct_ag.derivative(vt_R),
+                self.vbar_ag.derivative(nt_r))
