@@ -211,7 +211,7 @@ def autodoc_process_docstring(lines):
         if lines[i1].strip() == ':::':
             lines[i1:i2] = [line]
         else:
-            lines[i1:i2] = [lines[i1][:-2], line]
+            lines[i1:i2] = [lines[i1][:-2], '', line]
 
 
 def test_examples():
