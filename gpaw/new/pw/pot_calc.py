@@ -103,4 +103,4 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
 
         return (self.ghat_aLh.derivative(state.vHt_x),
                 self.nct_ag.derivative(vt_R),
-                self.vbar_ag.derivative(nt_r))
+                self.vbar_ag.derivative(nt_R))

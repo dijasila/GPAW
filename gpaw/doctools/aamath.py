@@ -46,11 +46,11 @@ def prep(lines: list[str], n: int) -> list[str]:
     """
     if not lines:
         return [], n
-    while not lines[0].strip():
+    while lines and not lines[0].strip():
         lines.pop(0)
         if n is not None:
             n -= 1
-    while not lines[-1].strip():
+    while lines and not lines[-1].strip():
         lines.pop()
     if not lines:
         return [], 0
@@ -115,7 +115,7 @@ def parse(lines: str | list[str], n: int = None) -> str:
     lines, n = prep(lines, n)
 
     if not not False:
-        print()
+        print('*********************************************')
         print(n)
         print('\n'.join(lines))
 
