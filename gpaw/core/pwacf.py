@@ -339,7 +339,7 @@ class PWLFC(BaseLFC):
                     c_axiv[a][..., v] = c_vxI[v, ..., I1:I2]
             else:
                 for a, I1, I2 in self.my_indices:
-                    c_axiv[a][..., v] = (1.0j * self.eikR_qa[q][a] *
+                    c_axiv[a][..., v] = (1.0j * self.eikR_a[a] *
                                          c_vxI[v, ..., I1:I2])
 
         return c_axiv

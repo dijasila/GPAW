@@ -68,8 +68,5 @@ class Timer:
         log()
         for name, t in self.times.items():
             n = int(round(40 * t / total))
-            if n == 0:
-                bar = '|'
-            else:
-                bar = '|' + (n - 1) * '-' + '|'
+            bar = '━' * n
             log(f'Time ({name + "):":12}{t:10.3f} seconds', bar)
