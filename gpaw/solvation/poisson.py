@@ -149,13 +149,8 @@ class PolarizationPoissonSolver(BasePoissonSolver):
         self.dielectric = dielectric
 
     def get_description(self):
-        if len(self.operators) == 0:
-            return 'uninitialized PolarizationPoissonSolver'
-        else:
-            description = SolvationPoissonSolver.get_description(self)
-            return description.replace(
-                'solver with',
-                'polarization solver with dielectric and')
+        return ('PolarizationPoissonSolver based on '
+                + self.gas_phase_poisson.get_description())
 
     def set_grid_descriptor(self, gd):
         self.gd = gd
@@ -205,6 +200,10 @@ class PolarizationPoissonSolver(BasePoissonSolver):
 
         return (rho + scalar_product / (4. * np.pi)) / epsr
 
+    def estimate_memory(self, mem):
+        # XXX estimate your own contribution
+        return self.gas_phase_poisson.estimate_memory(mem)
+        
 
 class ADM12PoissonSolver(SolvationPoissonSolver):
     """Poisson solver with dielectric.
