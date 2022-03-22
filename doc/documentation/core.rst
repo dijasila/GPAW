@@ -382,6 +382,9 @@ Core
 .. autoclass:: gpaw.core.atom_arrays.AtomArrays
     :members:
     :undoc-members:
+.. autoclass:: gpaw.core.atom_arrays.AtomArraysLayout
+    :members:
+    :undoc-members:
 .. autoclass:: gpaw.core.plane_waves.PlaneWaveExpansions
     :members:
     :undoc-members:
