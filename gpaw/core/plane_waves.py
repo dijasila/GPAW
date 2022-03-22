@@ -30,17 +30,17 @@ class PlaneWaves(Domain):
         parameters
         ----------
         ecut:
-            Cutoff energy for linetic energy of plane waves.
+            Cutoff energy for kinetic energy of plane waves.
         cell:
             Unit cell given as three floats (orthorhombic grid), six floats
-            (three lenghts and the angles in degrees) or a 3x3 matrix.
+            (three lengths and the angles in degrees) or a 3x3 matrix.
         comm:
             Communicator for distribution of plane-waves.
         kpt:
             K-point for Block-boundary conditions specified in units of the
             reciprocal cell.
         dtype:
-            Datatype (float or complex).
+            Data-type (float or complex).
         """
         self.ecut = ecut
         Domain.__init__(self, cell, (True, True, True), kpt, comm, dtype)
@@ -242,7 +242,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
         return self._matrix
 
     def ifft(self, *, plan=None, grid=None, out=None):
-        """Do inverse FFT to unifor grid.
+        """Do inverse FFT to uniform grid.
 
         Parameters
         ----------

@@ -74,7 +74,7 @@ class IBZWaveFunctions:
     def get_max_shape(self, global_shape: bool = False) -> tuple[int, ...]:
         """Find the largest wave function array shape.
 
-        For a PW-calcuation, this shape could depend on k-point.
+        For a PW-calculation, this shape could depend on k-point.
         """
         if global_shape:
             shape = np.array(max(wfs.array_shape(global_shape=True)

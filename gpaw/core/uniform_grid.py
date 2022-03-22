@@ -32,7 +32,7 @@ class UniformGrid(Domain):
         ----------
         cell:
             Unit cell given as three floats (orthorhombic grid), six floats
-            (three lenghts and the angles in degrees) or a 3x3 matrix.
+            (three lengths and the angles in degrees) or a 3x3 matrix.
         size:
             Number of grid points along axes.
         pbc:
@@ -45,7 +45,7 @@ class UniformGrid(Domain):
         decomp:
             Decomposition of the domain.
         dtype:
-            Datatype (float or complex).
+            Data-type (float or complex).
         """
         self.size_c = np.array(size, int)
 
@@ -144,7 +144,7 @@ class UniformGrid(Domain):
                     yield data[..., b0:e0, b1:e1, b2:e2]
 
     def xyz(self) -> Array4D:
-        """Create array of (x, y, z) coordiantes."""
+        """Create array of (x, y, z) coordinates."""
         indices_Rc = np.indices(self.mysize_c).transpose((1, 2, 3, 0))
         indices_Rc += self.start_c
         return indices_Rc @ (self.cell_cv.T / self.size_c).T
@@ -312,7 +312,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         return self.data.reshape((-1,) + self.data.shape[-3:])
 
     def xy(self, *axes: int | None) -> tuple[Array1D, Array1D]:
-        """Extraxt x, y values along line.
+        """Extract x, y values along line.
 
         Useful for plotting::
 
@@ -452,7 +452,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         return result * self.desc.dv
 
     def to_pbc_grid(self):
-        """Convert to UniformGrud with pbc=(True, True, True)."""
+        """Convert to UniformGrud with ``pbc=(True, True, True)``."""
         if self.desc.pbc_c.all():
             return self
         grid = self.desc.new(pbc=True)
@@ -463,7 +463,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         return new
 
     def multiply_by_eikr(self, kpt_c=None):
-        """Multiply by exp(ik.r)."""
+        """Multiply by `exp(ik.r)`."""
         if kpt_c is None:
             kpt_c = self.desc.kpt_c
         if kpt_c.any():

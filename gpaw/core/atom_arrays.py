@@ -22,7 +22,7 @@ class AtomArraysLayout:
         atomdist:
             Distribution of atoms.
         dtype:
-            Datatype (float or complex).
+            Data-type (float or complex).
         """
         self.shape_a = [shape if isinstance(shape, tuple) else (shape,)
                         for shape in shapes]
@@ -263,7 +263,7 @@ class AtomArrays(DistributedArrays):
             comm.wait(request)
 
     def to_lower_triangle(self):
-        """Convert NxN matrices to N*(N+1)/2 vectors."""
+        """Convert `N*N` matrices to `N*(N+1)/2` vectors."""
         shape_a = []
         for i1, i2 in self.layout.shape_a:
             assert i1 == i2
@@ -279,7 +279,7 @@ class AtomArrays(DistributedArrays):
         return a_axp
 
     def to_full(self):
-        """Convert N*(N+1)/2 vectors to NxN matrices."""
+        r"""Convert `N(N+1)/2` vectors to `N\times N` matrices."""
         shape_a = []
         for (p,) in self.layout.shape_a:
             i = int((2 * p + 0.25)**0.5)
