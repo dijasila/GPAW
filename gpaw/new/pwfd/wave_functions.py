@@ -234,10 +234,10 @@ class PWFDWaveFunctions(WaveFunctions):
 
         :::
 
-             /  _ ~ ~ _   ---  a  a _a
-             | dr 𝜓 𝜓 r + >   P  P  D
-             /     m n    ---  i  j  ij
-                          aij
+           _    /  _ ~ ~ _   ---  a  a  _a
+           μ  = | dr 𝜓 𝜓 r + >   P  P  Δμ
+            mn  /     m n    ---  im jn  ij
+                             aij
 
         Parameters
         ----------
