@@ -13,6 +13,17 @@ class AtomArraysLayout:
                  shapes: list[int | tuple[int, ...]],
                  atomdist: AtomDistribution | MPIComm = serial_comm,
                  dtype=float):
+        """Description of layour of atom arrays.
+
+        Parameters
+        ----------
+        shapes:
+            Shapse of arrays - one for each atom.
+        atomdist:
+            Distribution of atoms.
+        dtype:
+            Data-type (float or complex).
+        """
         self.shape_a = [shape if isinstance(shape, tuple) else (shape,)
                         for shape in shapes]
         if not isinstance(atomdist, AtomDistribution):
@@ -36,6 +47,7 @@ class AtomArraysLayout:
                 f'{self.dtype})')
 
     def new(self, atomdist=None):
+        """Create new AtomsArrayLayout object with new atomdist."""
         return AtomArraysLayout(self.shape_a, atomdist or self.atomdist,
                                 self.dtype)
 
@@ -43,11 +55,31 @@ class AtomArraysLayout:
               dims: int | tuple[int, ...] = (),
               comm: MPIComm = serial_comm,
               transposed=False) -> AtomArrays:
+        """Create new AtomArrays object.
+
+        parameters
+        ----------
+        dims:
+            Extra dimensions.
+        comm:
+            Distribute dimensions along this communicator.
+        transposed:
+            Default is False: prepend dims.  True: append dims.
+        """
         return AtomArrays(self, dims, comm, transposed=transposed)
 
 
 class AtomDistribution:
     def __init__(self, ranks, comm):
+        """Atom-distribution.
+
+        Parameters
+        ----------
+        ranks:
+            Which rank has which atom?  One rank per atom.
+        comm:
+            MPI-communicator.
+        """
         self.comm = comm
         self.rank_a = ranks
         self.indices = np.where(ranks == comm.rank)[0]
@@ -64,6 +96,21 @@ class AtomArrays(DistributedArrays):
                  comm: MPIComm = serial_comm,
                  data: np.ndarray = None,
                  transposed=False):
+        """AtomArrays object.
+
+        parameters
+        ----------
+        layout:
+            Layout-description.
+        dims:
+            Extra dimensions.
+        comm:
+            Distribute dimensions along this communicator.
+        transposed:
+            Default is False: prepend dims.  True: append dims.
+        data:
+            Data array for storage.
+        """
         DistributedArrays. __init__(self, dims, (layout.mysize,),
                                     comm, layout.atomdist.comm,
                                     dtype=layout.dtype,
@@ -85,6 +132,15 @@ class AtomArrays(DistributedArrays):
         return f'AtomArrays({self.layout})'
 
     def new(self, layout=None, data=None):
+        """Create new AtomArrays object of same kind.
+
+        Parameters
+        ----------
+        layout:
+            Layout-description.
+        data:
+            Array to use for storage.
+        """
         return AtomArrays(layout or self.layout,
                           self.dims,
                           self.comm,
@@ -207,6 +263,7 @@ class AtomArrays(DistributedArrays):
             comm.wait(request)
 
     def to_lower_triangle(self):
+        """Convert `N*N` matrices to `N*(N+1)/2` vectors."""
         shape_a = []
         for i1, i2 in self.layout.shape_a:
             assert i1 == i2
@@ -222,6 +279,7 @@ class AtomArrays(DistributedArrays):
         return a_axp
 
     def to_full(self):
+        r"""Convert `N(N+1)/2` vectors to `N\times N` matrices."""
         shape_a = []
         for (p,) in self.layout.shape_a:
             i = int((2 * p + 0.25)**0.5)

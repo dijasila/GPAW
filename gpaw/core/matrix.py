@@ -14,7 +14,7 @@ _global_blacs_context_store: Dict[Tuple[_Communicator, int, int], int] = {}
 
 
 def suggest_blocking(N, ncpus):
-    """Suggest blocking of NxN matrix.
+    """Suggest blocking of ``NxN`` matrix.
 
     Returns rows, columns, blocksize tuple.
 

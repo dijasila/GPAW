@@ -1,4 +1,10 @@
-"""Python wrapper for FFTW3 library."""
+"""
+Python wrapper for FFTW3 library
+================================
+
+.. autoclass:: FFTPlan
+
+"""
 
 import numpy as np
 

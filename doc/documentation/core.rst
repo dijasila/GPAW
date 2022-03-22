@@ -35,12 +35,12 @@ can be made with the :func:`~gpaw.new.builder.builder` function, an ASE
 
 As seen in the figure above, there are builders for each of the modes: PW, FD and LCAO (builders for TB and ATOM modes are not shown).
 
-The :class:`~gpaw.new.input_parameters.InputParameters` object takse care of
+The :class:`~gpaw.new.input_parameters.InputParameters` object takes care of
 user parameters:
 
 * checks for errors
 * does normalization
-* handles backwards compatibility and depreaction warnings
+* handles backwards compatibility and deprecation warnings
 
 Normally, you will not need to create a DFT-components builder yourself.  It
 will happen automatically when you create a DFT-calculation object like this:
@@ -79,7 +79,7 @@ the :meth:`gpaw.new.ase_interface.ASECalculator.get_potential_energy`
 method gets called (``atoms.calc.get_potential_energy(atoms)``)
 and the following will happen:
 
-* create :class:`gpaw.new.calculation.DFTCalculation` object if not alread done
+* create :class:`gpaw.new.calculation.DFTCalculation` object if not already done
 * update positions/unit cell if they have changed
 * start SCF loop and converge if needed
 * calculate energy
@@ -425,3 +425,9 @@ DFT
     :members:
     :undoc-members:
 .. autofunction:: gpaw.new.ase_interface.GPAW
+
+
+FFTW
+----
+
+.. automodule:: gpaw.fftw

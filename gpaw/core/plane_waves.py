@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import functools
 from math import pi
 
 import _gpaw
@@ -11,9 +10,11 @@ from gpaw.core.matrix import Matrix
 from gpaw.core.pwacf import PlaneWaveAtomCenteredFunctions
 from gpaw.core.uniform_grid import UniformGridFunctions
 from gpaw.mpi import MPIComm, serial_comm
-from gpaw.new import zip_strict as zip, prod
+from gpaw.new import prod
+from gpaw.new import zip_strict as zip
 from gpaw.pw.descriptor import pad
-from gpaw.typing import Array1D, Array2D, ArrayLike1D, ArrayLike2D, Vector
+from gpaw.typing import (Array1D, Array2D, Array3D, ArrayLike1D, ArrayLike2D,
+                         Vector)
 
 
 class PlaneWaves(Domain):
@@ -24,6 +25,23 @@ class PlaneWaves(Domain):
                  kpt: Vector = None,
                  comm: MPIComm = serial_comm,
                  dtype=None):
+        """Description of 3-D plane-wave expansion.
+
+        parameters
+        ----------
+        ecut:
+            Cutoff energy for kinetic energy of plane waves.
+        cell:
+            Unit cell given as three floats (orthorhombic grid), six floats
+            (three lengths and the angles in degrees) or a 3x3 matrix.
+        comm:
+            Communicator for distribution of plane-waves.
+        kpt:
+            K-point for Block-boundary conditions specified in units of the
+            reciprocal cell.
+        dtype:
+            Data-type (float or complex).
+        """
         self.ecut = ecut
         Domain.__init__(self, cell, (True, True, True), kpt, comm, dtype)
 
@@ -48,8 +66,7 @@ class PlaneWaves(Domain):
 
         self.dv = abs(np.linalg.det(self.cell_cv))
 
-        # One should not lru_cache methods, so we do this instead:
-        self.indices = functools.lru_cache()(self._indices)
+        self._indices_cache: dict[tuple[int, ...], Array1D] = {}
 
     def __repr__(self) -> str:
         return Domain.__repr__(self).replace(
@@ -57,25 +74,43 @@ class PlaneWaves(Domain):
             f'PlaneWaves(ecut={self.ecut}, ')
 
     def global_shape(self) -> tuple[int, ...]:
+        """Tuple with one element: number of plane waves."""
         return self.shape
 
     def reciprocal_vectors(self) -> Array2D:
-        """Returns reciprocal lattice vectors, G + k,
-        in xyz coordinates."""
+        """Returns reciprocal lattice vectors, G + k, in xyz coordinates."""
         return self.G_plus_k_Gv
 
     def kinetic_energies(self) -> Array1D:
+        """Kinetic energy of plane waves.
+
+        :::
+
+             _ _ 2
+            |G+k| / 2
+
+        """
         return self.ekin_G
 
     def empty(self,
-              shape: int | tuple[int, ...] = (),
+              dims: int | tuple[int, ...] = (),
               comm: MPIComm = serial_comm) -> PlaneWaveExpansions:
-        return PlaneWaveExpansions(self, shape, comm)
+        """Create new PlaneWaveExpanions object.
+
+        parameters
+        ----------
+        dims:
+            Extra dimensions.
+        comm:
+            Distribute dimensions along this communicator.
+        """
+        return PlaneWaveExpansions(self, dims, comm)
 
     def new(self,
             ecut: float = None,
             kpt=None,
             comm: MPIComm | str = 'inherit') -> PlaneWaves:
+        """Create new plane-wave expansion description."""
         comm = self.comm if comm == 'inherit' else comm
         return PlaneWaves(ecut=ecut or self.ecut,
                           cell=self.cell_cv,
@@ -83,20 +118,29 @@ class PlaneWaves(Domain):
                           dtype=self.dtype,
                           comm=comm or serial_comm)
 
-    def _indices(self, shape):
-        return np.ravel_multi_index(self.indices_cG, shape,
-                                    mode='wrap').astype(np.int32)
+    def indices(self, shape: tuple[int, ...]) -> Array1D:
+        """Return indices into FFT-grid."""
+        Q_G = self._indices_cache.get(shape)
+        if Q_G is None:
+            Q_G = np.ravel_multi_index(self.indices_cG, shape,  # type: ignore
+                                       mode='wrap').astype(np.int32)
+            self._indices_cache[shape] = Q_G
+        return Q_G
 
-    def cut(self, array_G):
-        return array_G.ravel()[self.indices(array_G.shape)]
+    def cut(self, array_Q: Array3D) -> Array1D:
+        """Cut out G-vectors with (G+k)^2/2<E_kin."""
+        return array_Q.ravel()[self.indices(array_Q.shape)]
 
-    def paste(self, coef_G, array_Q):
+    def paste(self, coef_G: Array1D, array_Q: Array3D) -> None:
+        """Paste G-vectors with (G+k)^2/2<E_kin into 3-D FFT grid and
+        zero-pad."""
         Q_G = self.indices(array_Q.shape)
         # array_Q[:] = 0.0
         # array_Q.ravel()[Q_G] = coef_G
         _gpaw.pw_insert(coef_G, Q_G, 1.0, array_Q)
 
     def map_indices(self, other):
+        """Map from one set of plane waves to another."""
         size_c = tuple(self.indices_cG.ptp(axis=1) + 1)
         Q_G = self.indices(size_c)
         i_Q = np.empty(np.prod(size_c), int)
@@ -109,6 +153,7 @@ class PlaneWaves(Domain):
                                 atomdist=None,
                                 integral=None,
                                 cut=False):
+        """Create PlaneWaveAtomCenteredFunctions object."""
         return PlaneWaveAtomCenteredFunctions(functions, positions, self)
 
 
@@ -118,6 +163,19 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
                  dims: int | tuple[int, ...] = (),
                  comm: MPIComm = serial_comm,
                  data: np.ndarray = None):
+        """Object for storing function(s) as a plane-wave expansions.
+
+        parameters
+        ----------
+        pw:
+            Description of plane-waves.
+        dims:
+            Extra dimensions.
+        comm:
+            Distribute plane-waves along this communicator.
+        data:
+            Data array for storage.
+        """
         DistributedArrays. __init__(self, dims, pw.myshape,
                                     comm, pw.comm,
                                     data, pw.dv, complex,
@@ -140,6 +198,13 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
             yield PlaneWaveExpansions(self.desc, data=data)
 
     def new(self, data=None):
+        """Create new PlaneWaveExpansions object of same kind.
+
+        Parameters
+        ----------
+        data:
+            Array to use for storage.
+        """
         if data is None:
             data = np.empty_like(self.data)
         else:
@@ -149,6 +214,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
         return PlaneWaveExpansions(self.desc, self.dims, self.comm, data)
 
     def copy(self):
+        """Create a copy (surprise!)."""
         a = self.new()
         a.data[:] = self.data
         return a
@@ -176,6 +242,17 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
         return self._matrix
 
     def ifft(self, *, plan=None, grid=None, out=None):
+        """Do inverse FFT to uniform grid.
+
+        Parameters
+        ----------
+        plan:
+            Plan for inverse FFT.
+        grid:
+            Target grid.
+        out:
+            Target UniformGridFunctions object.
+        """
         if out is None:
             out = grid.empty(self.dims)
         assert self.desc.dtype == out.desc.dtype
@@ -243,6 +320,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
         return out if not isinstance(out, Empty) else None
 
     def scatter_from(self, data: Array1D) -> None:
+        """Scatter data from rank-0 to all ranks."""
         comm = self.desc.comm
         if comm.size == 1:
             self.data[:] = data
@@ -259,6 +337,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
             self.data[:] = buf[:len(self.data)]
 
     def integrate(self, other: PlaneWaveExpansions = None) -> np.ndarray:
+        """Integral of self or self time cc(other)."""
         if other is not None:
             assert self.comm.size == 1
             assert self.desc.dtype == other.desc.dtype
@@ -304,6 +383,25 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
                     out.data -= correction
 
     def norm2(self, kind: str = 'normal') -> np.ndarray:
+        r"""Calculate integral over cell.
+
+        For kind='normal' we calculate:::
+
+          /   _  2 _   --    2
+          ||a(r)| dr = > |c | V,
+          /            --  G
+                        G
+
+        where V is the volume of the unit cell.
+
+        And for kind='kinetic':::
+
+           1  --    2  2
+          --- > |c |  G V,
+           2  --  G
+               G
+
+        """
         a_xG = self._arrays().view(float)
         if kind == 'normal':
             result_x = np.einsum('xG, xG -> x', a_xG, a_xG)
@@ -324,6 +422,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
     def abs_square(self,
                    weights: Array1D,
                    out: UniformGridFunctions = None) -> None:
+        """Add weighted absolute square of data to output array."""
         assert out is not None
         tmp_R = out.desc.new(dtype=self.desc.dtype).empty()
         for f, psit_G in zip(weights, self):
