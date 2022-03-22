@@ -3,7 +3,7 @@ import warnings
 import numpy as np
 from scipy.special import erf
 
-from gpaw.poisson import FDPoissonSolver, FastPoissonSolver
+from gpaw.poisson import BasePoissonSolver, PoissonSolver, FDPoissonSolver
 from gpaw.fd_operators import Laplace, Gradient
 from gpaw.wfd_operators import WeightedFDOperator
 from gpaw.utilities.gauss import Gaussian
@@ -119,7 +119,7 @@ class WeightedFDPoissonSolver(SolvationPoissonSolver):
         return SolvationPoissonSolver._init(self)
 
 
-class PolarizationPoissonSolver(FastPoissonSolver, SolvationPoissonSolver):
+class PolarizationPoissonSolver(BasePoissonSolver):
     """Poisson solver with dielectric.
 
     Calculates the polarization charges first using only the
@@ -129,15 +129,24 @@ class PolarizationPoissonSolver(FastPoissonSolver, SolvationPoissonSolver):
 
     def __init__(self, nn=3, relax='J', eps=2e-10, maxiter=1000,
                  remove_moment=None, use_charge_center=False,
-                 gas_phase_poisson=FastPoissonSolver):
+                 gas_phase_poisson='fast'):
+        self.nn = nn
         self.eps = eps
         self.maxiter = maxiter
         self.phi_tilde = None
 
-        self.gas_phase_poisson = gas_phase_poisson
-        self.gas_phase_poisson.__init__(
-            self, nn, eps=eps, remove_moment=remove_moment,
+        self.gas_phase_poisson = PoissonSolver(
+            name=gas_phase_poisson, nn=nn, eps=eps,
+            remove_moment=remove_moment,
             use_charge_center=use_charge_center)
+
+    def set_dielectric(self, dielectric):
+        """Set the dielectric.
+
+        Arguments:
+        dielectric -- A Dielectric instance.
+        """
+        self.dielectric = dielectric
 
     def get_description(self):
         if len(self.operators) == 0:
@@ -148,14 +157,17 @@ class PolarizationPoissonSolver(FastPoissonSolver, SolvationPoissonSolver):
                 'solver with',
                 'polarization solver with dielectric and')
 
+    def set_grid_descriptor(self, gd):
+        self.gd = gd
+        self.gas_phase_poisson.set_grid_descriptor(gd)
+
     def solve(self, phi, rho, charge=None,
               maxcharge=1e-6,
               zero_initial_phi=False, timer=NullTimer()):
-        self._init()
         # get initial meaningful phi -> only do this if necessary
         if zero_initial_phi:
             niter = self.gas_phase_poisson.solve(
-                self, phi, rho, charge=None, maxcharge=maxcharge,
+                phi, rho, charge=None, maxcharge=maxcharge,
                 zero_initial_phi=zero_initial_phi, timer=timer)
         else:
             niter = 0
@@ -164,7 +176,7 @@ class PolarizationPoissonSolver(FastPoissonSolver, SolvationPoissonSolver):
         while niter < self.maxiter:
             rho_mod = self.rho_with_polarization_charge(phi, rho)
             niter += self.gas_phase_poisson.solve(
-                self, phi, rho_mod, charge=None, maxcharge=maxcharge,
+                phi, rho_mod, charge=None, maxcharge=maxcharge,
                 zero_initial_phi=zero_initial_phi, timer=timer)
             residual = phi - phi_old
             error = self.gd.comm.sum(np.dot(residual.ravel(),
@@ -192,9 +204,6 @@ class PolarizationPoissonSolver(FastPoissonSolver, SolvationPoissonSolver):
             dz_epsr * dz_phi)
 
         return (rho + scalar_product / (4. * np.pi)) / epsr
-
-    def load_gauss(self, center=None):
-        return self.gas_phase_poisson.load_gauss(self, center=center)
 
 
 class ADM12PoissonSolver(SolvationPoissonSolver):
