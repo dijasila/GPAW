@@ -15,7 +15,9 @@ def check():
         dct = read_wout_all(fd)
     x, y, z = dct['centers'].sum(axis=0)
     w = dct['spreads'].sum()
-    assert abs(np.array([x, y, z, w]) - [0, 0, 0, 14.49]).max() < 0.01
+    print(x, y, z, w)
+    assert abs(np.array([x, y, z,
+                         w / 10]) - [0, 0, 0, 1.449]).max() < 0.01
 
 
 def workflow():
