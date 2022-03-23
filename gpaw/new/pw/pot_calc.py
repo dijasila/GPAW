@@ -23,6 +23,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         self.h_g = fine_pw.map_indices(pw)
         self.fftplan, self.ifftplan = grid.fft_plans()
         self.fftplan2, self.ifftplan2 = fine_grid.fft_plans()
+        print(self.fftplan.in_R.shape)
         self.fine_grid = fine_grid
 
         self.vbar_g = pw.zeros()
@@ -33,12 +34,17 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
 
     def _calculate(self, density, vHt_h):
         nt_sr = self.fine_grid.empty(density.nt_sR.dims)
-        nt_g = self.vbar_g.desc.zeros()
+        pw = self.vbar_g.desc
+        nt_g = pw.zeros()
+        if pw.comm.rank == 0:
+            nt0_g = pw.new(comm=None).zeros()
         indices = nt_g.desc.indices(self.fftplan.out_R.shape)
         for spin, (nt_R, nt_r) in enumerate(zip(density.nt_sR, nt_sr)):
             nt_R.interpolate(self.fftplan, self.ifftplan2, out=nt_r)
-            if spin < density.ndensities:
-                nt_g.data += self.fftplan.out_R.ravel()[indices]
+            if spin < density.ndensities and pw.comm.rank == 0:
+                nt0_g.data += self.fftplan.out_R.ravel()[indices]
+
+        nt_g.scatter_from(nt0_g.data if pw.comm.rank == 0 else None)
         nt_g.data *= 1 / self.fftplan.in_R.size
 
         e_zero = self.vbar_g.integrate(nt_g)

@@ -495,6 +495,16 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         if not out.desc.pbc_c.all() or not self.desc.pbc_c.all():
             raise ValueError('Grids must have pbc=True!')
 
+        if self.desc.comm.size > 1:
+            input = self.gather()
+            if input:
+                output = input.interpolate(fftplan, ifftplan,
+                                           out.desc.new(comm=None))
+                out.scatter_from(output.data)
+            else:
+                out.scatter_from()
+            return out
+
         size1_c = self.desc.size_c
         size2_c = out.desc.size_c
         if (size2_c <= size1_c).any():

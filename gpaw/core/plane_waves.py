@@ -319,7 +319,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
 
         return out if not isinstance(out, Empty) else None
 
-    def scatter_from(self, data: Array1D) -> None:
+    def scatter_from(self, data: Array1D = None) -> None:
         """Scatter data from rank-0 to all ranks."""
         comm = self.desc.comm
         if comm.size == 1:
