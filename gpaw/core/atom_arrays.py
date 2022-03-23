@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import numbers
+from typing import Sequence
 
 import numpy as np
 from gpaw.core.arrays import DistributedArrays
@@ -85,8 +86,13 @@ class AtomDistribution:
         self.indices = np.where(ranks == comm.rank)[0]
 
     @classmethod
-    def from_atom_indices(cls, atom_indices, comm, *, natoms=None):
-        assert natoms is not None
+    def from_atom_indices(cls,
+                          atom_indices: Sequence[int],
+                          comm: MPIComm,
+                          *,
+                          natoms: int = None) -> AtomDistribution:
+        if natoms is not None:
+            natoms = comm.max(max(atom_indices)) + 1
         rank_a = np.zeros(natoms, int)
         rank_a[atom_indices] = comm.rank
         comm.sum(rank_a)
@@ -207,8 +213,8 @@ class AtomArrays(DistributedArrays):
                 b1 = 0
                 for a, size in size_ra[rank].items():
                     b2 = b1 + size
-                    aa[a] = buf[..., b1:b2].reshape(self.myshape +
-                                                    self.layout.shape_a[a])
+                    A = aa[a]
+                    A[:] = buf[..., b1:b2].reshape(A.shape)
             for a, array in self._arrays.items():
                 aa[a] = array
         else:
