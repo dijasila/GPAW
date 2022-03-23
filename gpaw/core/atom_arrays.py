@@ -76,13 +76,21 @@ class AtomDistribution:
         Parameters
         ----------
         ranks:
-            Which rank has which atom?  One rank per atom.
+            List of ranks, one rank per atom.
         comm:
             MPI-communicator.
         """
         self.comm = comm
         self.rank_a = ranks
         self.indices = np.where(ranks == comm.rank)[0]
+
+    @classmethod
+    def from_atom_indices(cls, atom_indices, comm, *, natoms=None):
+        assert natoms is not None
+        rank_a = np.zeros(natoms, int)
+        rank_a[atom_indices] = comm.rank
+        comm.sum(rank_a)
+        return cls(rank_a, comm)
 
     def __repr__(self):
         return (f'AtomDistribution(ranks={self.rank_a}, '

@@ -38,8 +38,6 @@ class LCAODFTComponentsBuilder(FDDFTComponentsBuilder):
         return LCAOEigensolver(self.basis)
 
     def create_ibz_wave_functions(self, basis, potential, coefficients=None):
-        assert self.communicators['w'].size == 1
-
         ibz = self.ibz
         kpt_comm = self.communicators['k']
         band_comm = self.communicators['b']
@@ -63,9 +61,11 @@ class LCAODFTComponentsBuilder(FDDFTComponentsBuilder):
         P_qaMi = [{a: P_aqMi[a][q] for a in my_atom_indices}
                   for q in range(len(S_qMM))]
 
-        for a, setup in enumerate(self.setups):
-            for P_Mi, S_MM in zip(P_aqMi[a], S_qMM):
-                S_MM += P_Mi @ setup.dO_ii @ P_Mi.T.conj()
+        for a, P_qMi in P_aqMi.items():
+            dO_ii = self.setups[a].dO_ii
+            for P_Mi, S_MM in zip(P_qMi, S_qMM):
+                S_MM += P_Mi @ dO_ii @ P_Mi.T.conj()
+        domain_comm.sum(S_MM)
 
         # self.atomic_correction= self.atomic_correction_cls.new_from_wfs(self)
         # self.atomic_correction.add_overlap_correction(newS_qMM)

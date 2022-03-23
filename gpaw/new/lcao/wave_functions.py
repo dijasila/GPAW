@@ -1,12 +1,16 @@
 from __future__ import annotations
+
 import numpy as np
 from ase.io.ulm import Writer
 from ase.units import Bohr
-from gpaw.core.atom_arrays import AtomArrays, AtomArraysLayout
+from gpaw.core.atom_arrays import (AtomArrays, AtomArraysLayout,
+                                   AtomDistribution)
+from gpaw.core.matrix import Matrix
 from gpaw.mpi import MPIComm, serial_comm
+from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 from gpaw.new.wave_functions import WaveFunctions
 from gpaw.setup import Setups
-from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
+from gpaw.typing import Array2D
 
 
 class LCAOWaveFunctions(WaveFunctions):
@@ -14,8 +18,8 @@ class LCAOWaveFunctions(WaveFunctions):
                  *,
                  setups: Setups,
                  density_adder,
-                 C_nM,
-                 S_MM,
+                 C_nM: Matrix,
+                 S_MM: Array2D,
                  T_MM,
                  P_aMi,
                  kpt_c=(0.0, 0.0, 0.0),
@@ -48,10 +52,16 @@ class LCAOWaveFunctions(WaveFunctions):
     @property
     def P_ain(self):
         if self._P_ain is None:
-            layout = AtomArraysLayout([P_Mi.shape[1]
-                                       for P_Mi in self.P_aMi.values()],
+            atomdist = AtomDistribution.from_atom_indices(
+                list(self.P_aMi),
+                self.domain_comm,
+                natoms=len(self.setups))
+            layout = AtomArraysLayout([setup.ni for setup in self.setups],
+                                      atomdist=atomdist,
                                       dtype=self.dtype)
-            self._P_ain = layout.empty(self.nbands, transposed=True)
+            self._P_ain = layout.empty(self.nbands,
+                                       comm=self.C_nM.dist.comm,
+                                       transposed=True)
             for a, P_Mi in self.P_aMi.items():
                 self._P_ain[a][:] = (self.C_nM.data @ P_Mi).T
         return self._P_ain
