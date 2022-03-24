@@ -59,7 +59,7 @@ def create_plans(size_c: Vector,
                  flags=MEASURE) -> FFTPlans:
     if have_fftw():
         return FFTWPlans(size_c, dtype, flags)
-    return NumpyFFTPlan(size_c, dtype)
+    return NumpyFFTPlans(size_c, dtype)
 
 
 class FFTPlans:

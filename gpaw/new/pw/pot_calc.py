@@ -1,5 +1,6 @@
-from gpaw.new.pot_calc import PotentialCalculator
+import numpy as np
 from gpaw.core import PlaneWaves
+from gpaw.new.pot_calc import PotentialCalculator
 
 
 class PlaneWavePotentialCalculator(PotentialCalculator):
@@ -21,9 +22,8 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         self.ghat_aLh = setups.create_compensation_charges(fine_pw, fracpos_ac)
 
         self.h_g = fine_pw.map_indices(pw)
-        self.fftplan, self.ifftplan = grid.fft_plans()
-        self.fftplan2, self.ifftplan2 = fine_grid.fft_plans()
-        print(self.fftplan.in_R.shape)
+        self.fftplan = grid.fft_plans()
+        self.fftplan2 = fine_grid.fft_plans()
         self.fine_grid = fine_grid
 
         self.vbar_g = pw.zeros()
@@ -38,14 +38,15 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         nt_g = pw.zeros()
         if pw.comm.rank == 0:
             nt0_g = pw.new(comm=None).zeros()
-        indices = nt_g.desc.indices(self.fftplan.out_R.shape)
+            indices = nt_g.desc.indices(self.fftplan.tmp_Q.shape)
+
         for spin, (nt_R, nt_r) in enumerate(zip(density.nt_sR, nt_sr)):
-            nt_R.interpolate(self.fftplan, self.ifftplan2, out=nt_r)
+            nt_R.interpolate(self.fftplan, self.fftplan2, out=nt_r)
             if spin < density.ndensities and pw.comm.rank == 0:
-                nt0_g.data += self.fftplan.out_R.ravel()[indices]
+                nt0_g.data += self.fftplan.tmp_Q.ravel()[indices]
 
         nt_g.scatter_from(nt0_g.data if pw.comm.rank == 0 else None)
-        nt_g.data *= 1 / self.fftplan.in_R.size
+        nt_g.data *= 1 / np.prod(density.nt_sR.desc.size_c)
 
         e_zero = self.vbar_g.integrate(nt_g)
 
@@ -65,14 +66,14 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         vt_g.data += vHt_h.data[self.h_g]
 
         vt_sR = density.nt_sR.new()
-        vt_sR.data[:] = vt_g.ifft(plan=self.ifftplan, grid=vt_sR.desc).data
+        vt_sR.data[:] = vt_g.ifft(plan=self.fftplan, grid=vt_sR.desc).data
         vxct_sr = nt_sr.desc.zeros(density.nt_sR.dims)
         e_xc = self.xc.calculate(nt_sr, vxct_sr)
 
         vtmp_R = vt_sR.desc.empty()
         e_kinetic = 0.0
         for spin, (vt_R, vxct_r) in enumerate(zip(vt_sR, vxct_sr)):
-            vxct_r.fft_restrict(vtmp_R, self.fftplan2, self.ifftplan)
+            vxct_r.fft_restrict(vtmp_R, self.fftplan2, self.fftplan)
             vt_R.data += vtmp_R.data
             e_kinetic -= vt_R.integrate(density.nt_sR[spin])
             if spin < density.ndensities:
