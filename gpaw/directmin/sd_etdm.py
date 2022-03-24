@@ -118,9 +118,11 @@ class ModeFollowingBase(object):
                 grad_mod = grad - 2.0 * grad_par
             else:
                 grad_mod = -0.25 * grad_par / np.linalg.norm(grad_par)
+                self.partial_diagonalizer.etdm.searchdir_algo.reset()
         elif get_dots == 0:
             #elif False:
             grad_mod = -0.25 * grad_par / np.linalg.norm(grad_par)
+            self.partial_diagonalizer.etdm.searchdir_algo.reset()
         else:
             grad_mod = grad - 2.0 * grad_par
         return array_to_dict(grad_mod, dim)
