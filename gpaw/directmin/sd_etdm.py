@@ -52,6 +52,7 @@ class ModeFollowingBase(object):
         self.eigvec_old = None
         self.partial_diagonalizer = partial_diagonalizer
         self.fixed_sp_order = None
+        self.was_concave = False
 
     def update_eigenpairs(self, g_k1, wfs, ham, dens):
         """
@@ -116,15 +117,23 @@ class ModeFollowingBase(object):
             if neg_temp >= self.fixed_sp_order:
                 #if True:
                 grad_mod = grad - 2.0 * grad_par
+                if self.was_concave:
+                    self.partial_diagonalizer.etdm.searchdir_algo.reset()
+                    self.was_concave = False
             else:
                 grad_mod = -0.25 * grad_par / np.linalg.norm(grad_par)
                 self.partial_diagonalizer.etdm.searchdir_algo.reset()
+                self.was_concave = True
         elif get_dots == 0:
             #elif False:
             grad_mod = -0.25 * grad_par / np.linalg.norm(grad_par)
             self.partial_diagonalizer.etdm.searchdir_algo.reset()
+            self.was_concave = True
         else:
             grad_mod = grad - 2.0 * grad_par
+            if self.was_concave:
+                self.partial_diagonalizer.etdm.searchdir_algo.reset()
+                self.was_concave = False
         return array_to_dict(grad_mod, dim)
 
 
