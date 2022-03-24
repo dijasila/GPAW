@@ -10,6 +10,7 @@ https://pubs.acs.org/doi/10.1021/acs.jctc.0c00597
 import numpy as np
 import copy
 from gpaw.directmin.tools import array_to_dict, dict_to_array
+from ase.parallel import parprint
 
 
 class SearchDirectionBase(object):
@@ -65,7 +66,7 @@ class ModeFollowingBase(object):
         """
 
         self.partial_diagonalizer.grad = g_k1
-        use_prev = False if self.eigv is None else True
+        use_prev = False if self.eigv is None else False
         self.partial_diagonalizer.run(wfs, ham, dens, use_prev)
         self.eigv = copy.deepcopy(self.partial_diagonalizer.lambda_all)
         self.eigvec_old = copy.deepcopy(self.eigvec)
@@ -79,6 +80,8 @@ class ModeFollowingBase(object):
                     + 1.0j * self.eigvec[i][dimtot:]
             self.eigvec = eigvec
         self.fixed_sp_order = self.partial_diagonalizer.sp_order
+        #parprint('Eigenvalues:')
+        #parprint(self.eigv)
 
     def negate_parallel_grad(self, g_k1):
         """
@@ -111,11 +114,13 @@ class ModeFollowingBase(object):
                 * np.dot(self.eigvec[i].conj(), grad.T).real
         if self.fixed_sp_order is not None:
             if neg_temp >= self.fixed_sp_order:
+                #if True:
                 grad_mod = grad - 2.0 * grad_par
             else:
-                grad_mod = -grad_par
+                grad_mod = -0.25 * grad_par / np.linalg.norm(grad_par)
         elif get_dots == 0:
-            grad_mod = -grad_par
+            #elif False:
+            grad_mod = -0.25 * grad_par / np.linalg.norm(grad_par)
         else:
             grad_mod = grad - 2.0 * grad_par
         return array_to_dict(grad_mod, dim)
