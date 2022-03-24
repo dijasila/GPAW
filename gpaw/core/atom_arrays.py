@@ -93,7 +93,7 @@ class AtomDistribution:
                           natoms: int = None) -> AtomDistribution:
         if natoms is not None:
             natoms = comm.max(max(atom_indices)) + 1
-        rank_a = np.zeros(natoms, int)
+        rank_a = np.zeros(natoms, int)  # type: ignore
         rank_a[atom_indices] = comm.rank
         comm.sum(rank_a)
         return cls(rank_a, comm)

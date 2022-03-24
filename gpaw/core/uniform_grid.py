@@ -224,21 +224,10 @@ class UniformGrid(Domain):
         domain = Domain(cell, pbc, kpt, comm, dtype)
         return domain.uniform_grid_with_grid_spacing(grid_spacing)
 
-    def fft_plans(self, flags: int = fftw.MEASURE) -> tuple[fftw.FFTPlan,
-                                                            fftw.FFTPlan]:
+    def fft_plans(self, flags: int = fftw.MEASURE) -> fftw.FFTPlans:
         """Create FFTW-plans."""
-        size = tuple(self.size_c)
-        if self.dtype == float:
-            rsize = size[:2] + (size[2] // 2 + 1,)
-            tmp1 = fftw.empty(rsize, complex)
-            tmp2 = tmp1.view(float)[:, :, :size[2]]
-        else:
-            tmp1 = fftw.empty(size, complex)
-            tmp2 = tmp1
-
-        fftplan = fftw.create_plan(tmp2, tmp1, -1, flags)
-        ifftplan = fftw.create_plan(tmp1, tmp2, 1, flags)
-        return fftplan, ifftplan
+        if self.comm.rank == 0:
+            return fftw.create_plans(self.size_c, self.dtype, flags)
 
 
 class UniformGridFunctions(DistributedArrays[UniformGrid]):
@@ -404,10 +393,10 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         if self.desc.comm.size > 1:
             input = input.gather()
         if self.desc.comm.rank == 0:
-            plan = plan or self.desc.fft_plans()[0]
-            plan.in_R[:] = input.data
-            plan.execute()
-            coefs = pw.cut(plan.out_R) * (1 / plan.in_R.size)
+            plan = plan or self.desc.fft_plans()
+            plan.tmp_R[:] = input.data
+            plan.fft()
+            coefs = pw.cut(plan.tmp_Q) * (1 / plan.tmp_R.size)
         else:
             coefs = None
 
@@ -470,18 +459,18 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
             self.data *= self.desc.eikr(kpt_c)
 
     def interpolate(self,
-                    fftplan: fftw.FFTPlan = None,
-                    ifftplan: fftw.FFTPlan = None,
+                    plan1: fftw.FFTPlans = None,
+                    plan2: fftw.FFTPlans = None,
                     grid: UniformGrid = None,
                     out: UniformGridFunctions = None) -> UniformGridFunctions:
         """Interpolate to finer grid.
 
         Parameters
         ----------
-        fftplan:
-            Plan for FFT.
-        ifftplan:
-            Plan for inverse FFT.
+        plan1:
+            Plan for FFT (course grid).
+        plan2:
+            Plan for inverse FFT (fine grid).
         grid:
             Target grid.
         out:
@@ -498,7 +487,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         if self.desc.comm.size > 1:
             input = self.gather()
             if input:
-                output = input.interpolate(fftplan, ifftplan,
+                output = input.interpolate(plan1, plan2,
                                            out.desc.new(comm=None))
                 out.scatter_from(output.data)
             else:
@@ -510,17 +499,17 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         if (size2_c <= size1_c).any():
             raise ValueError('Too few points in target grid!')
 
-        fftplan = fftplan or self.desc.fft_plans()[0]
-        ifftplan = ifftplan or out.desc.fft_plans()[1]
+        plan1 = plan1 or self.desc.fft_plans()
+        plan2 = plan2 or out.desc.fft_plans()
 
-        fftplan.in_R[:] = self.data
+        plan1.tmp_R[:] = self.data
         kpt_c = self.desc.kpt_c
         if kpt_c.any():
-            fftplan.in_R *= self.desc.eikr(-kpt_c)
-        fftplan.execute()
+            plan1.tmp_R *= self.desc.eikr(-kpt_c)
+        plan1.fft()
 
-        a_Q = fftplan.out_R
-        b_Q = ifftplan.in_R
+        a_Q = plan1.tmp_Q
+        b_Q = plan2.tmp_Q
 
         e0, e1, e2 = 1 - size1_c % 2  # even or odd size
         a0, a1, a2 = size2_c // 2 - size1_c // 2
@@ -553,16 +542,16 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
                 b_Q[a0:b0, a1:b1, b2 - 1] *= 0.5
 
         b_Q[:] = np.fft.ifftshift(b_Q, axes=axes)
-        ifftplan.execute()
-        out.data[:] = ifftplan.out_R
+        plan2.ifft()
+        out.data[:] = plan2.tmp_R
         out.data *= (1.0 / self.data.size)
         out.multiply_by_eikr()
         return out
 
     def fft_restrict(self,
                      out: UniformGridFunctions,
-                     fftplan: fftw.FFTPlan = None,
-                     ifftplan: fftw.FFTPlan = None,
+                     plan1: fftw.FFTPlan = None,
+                     plan2: fftw.FFTPlan = None,
                      indices=None) -> None:
         """Restrict to coarser grid.
 
@@ -570,9 +559,9 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         ----------
         out:
             Target UniformGridFunctions object.
-        fftplan:
+        plan1:
             Plan for FFT.
-        ifftplan:
+        plan2:
             Plan for inverse FFT.
         indices:
             ???
@@ -580,12 +569,12 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         size1_c = self.desc.size_c
         size2_c = out.desc.size_c
 
-        fftplan = fftplan or self.desc.fft_plans()[0]
-        ifftplan = ifftplan or out.desc.fft_plans()[1]
+        plan1 = plan1 or self.desc.fft_plans()
+        plan2 = plan2 or out.desc.fft_plans()
 
-        fftplan.in_R[:] = self.data
-        a_Q = ifftplan.in_R
-        b_Q = fftplan.out_R
+        plan1.tmp_R[:] = self.data
+        a_Q = plan2.tmp_Q
+        b_Q = plan1.tmp_Q
 
         e0, e1, e2 = 1 - size2_c % 2  # even or odd size
         a0, a1, a2 = size1_c // 2 - size2_c // 2
@@ -598,7 +587,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         else:
             axes = [0, 1, 2]
 
-        fftplan.execute()
+        plan1.fft()
         b_Q[:] = np.fft.fftshift(b_Q, axes=axes)
 
         if e0:
@@ -620,8 +609,8 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
             coefs = a_Q.ravel()[indices]
         else:
             coefs = None
-        ifftplan.execute()
-        out.data[:] = ifftplan.out_R
+        plan2.ifft()
+        out.data[:] = plan2.tmp_R
         out.data *= (1.0 / self.data.size)
         return coefs
 

@@ -5,11 +5,11 @@ Python wrapper for FFTW3 library
 .. autoclass:: FFTPlan
 
 """
-
+from __future__ import annotations
 import numpy as np
 
 import _gpaw
-from gpaw.typing import Array3D
+from gpaw.typing import Array3D, Vector
 
 ESTIMATE = 64
 MEASURE = 0
@@ -52,6 +52,67 @@ def get_efficient_fft_size(N: int, n=1, factors=[2, 3, 5, 7]) -> int:
     while not check_fft_size(N, factors):
         N += n
     return N
+
+
+def create_plans(size_c: Vector,
+                 dtype,
+                 flags=MEASURE) -> FFTPlans:
+    if have_fftw():
+        return FFTWPlans(size_c, dtype, flags)
+    return NumpyFFTPlan(size_c, dtype)
+
+
+class FFTPlans:
+    def __init__(self, size_c, dtype):
+        if dtype == float:
+            rsize_c = (size_c[0], size_c[1], size_c[2] // 2 + 1)
+            self.tmp_Q = empty(rsize_c, complex)
+            self.tmp_R = self.tmp_Q.view(float)[:, :, :size_c[2]]
+        else:
+            self.tmp_Q = empty(size_c, complex)
+            self.tmp_R = self.tmp_Q
+
+    def fft(self) -> None:
+        raise NotImplementedError
+
+    def ifft(self) -> None:
+        raise NotImplementedError
+
+
+class FFTWPlans(FFTPlans):
+    """FFTW3 3d transform."""
+    def __init__(self, size_c, dtype, flags=MEASURE):
+        if not have_fftw():
+            raise ImportError('Not compiled with FFTW.')
+        super().__init__(size_c, dtype)
+        self._fftplan = _gpaw.FFTWPlan(self.tmp_R, self.tmp_Q, -1, flags)
+        self._ifftplan = _gpaw.FFTWPlan(self.tmp_Q, self.tmp_R, 1, flags)
+
+    def fft(self):
+        _gpaw.FFTWExecute(self._fftplan)
+
+    def ifft(self):
+        _gpaw.FFTWExecute(self._ifftplan)
+
+    def __del__(self):
+        _gpaw.FFTWDestroy(self._fftplan)
+        _gpaw.FFTWDestroy(self._ifftplan)
+
+
+class NumpyFFTPlans(FFTPlans):
+    """Numpy fallback."""
+    def fft(self):
+        if self.tmp_R.dtype == float:
+            self.tmp_Q[:] = np.fft.rfftn(self.tmp_R)
+        else:
+            self.tmp_Q[:] = np.fft.fftn(self.tmp_R)
+
+    def ifft(self):
+        if self.tmp_R.dtype == float:
+            self.tmp_R[:] = np.fft.irfftn(self.tmp_R, self.tmp_R.shape)
+        else:
+            self.tmp_R[:] = np.fft.ifftn(self.tmp_R, self.tmp_R.shape)
+        self.tmp_R *= self.tmp_R.size
 
 
 def check_fftw_inputs(in_R, out_R):

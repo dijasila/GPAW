@@ -263,20 +263,20 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
         this = self.gather()
         if this is not None:
             arrays_iG = this._arrays()
-            plan = plan or out.desc.fft_plans()[1]
+            plan = plan or out.desc.fft_plans()
         for i, out1 in enumerate(out.flat()):
             if comm.rank == 0:
                 coef_G = arrays_iG[i]
-                self.desc.paste(coef_G, plan.in_R)
+                self.desc.paste(coef_G, plan.tmp_Q)
                 if self.desc.dtype == float:
-                    t = plan.in_R[:, :, 0]
+                    t = plan.tmp_Q[:, :, 0]
                     n, m = (s // 2 - 1 for s in out.desc.size_c[:2])
                     t[0, -m:] = t[0, m:0:-1].conj()
                     t[n:0:-1, -m:] = t[-n:, m:0:-1].conj()
                     t[-n:, -m:] = t[n:0:-1, m:0:-1].conj()
                     t[-n:, 0] = t[n:0:-1, 0].conj()
-                plan.execute()
-                out1.scatter_from(plan.out_R)
+                plan.ifft()
+                out1.scatter_from(plan.tmp_R)
             else:
                 out1.scatter_from(None)
 

@@ -1,7 +1,7 @@
 """BLACS distributed matrix object."""
 from __future__ import annotations
 
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Union
 
 import _gpaw
 import gpaw.utilities.blas as blas
@@ -9,7 +9,7 @@ import numpy as np
 import scipy.linalg as linalg
 from gpaw import debug
 from gpaw.mpi import MPIComm, _Communicator, serial_comm
-from gpaw.typing import Array2D
+from gpaw.typing import Array1D, Array2D
 
 _global_blacs_context_store: Dict[Tuple[_Communicator, int, int], int] = {}
 
@@ -56,7 +56,7 @@ class Matrix:
                  N: int,
                  dtype=None,
                  data: Array2D = None,
-                 dist: MatrixDistribution | tuple[int, ...] = None):
+                 dist: Union[MatrixDistribution, tuple[int, ...]] = None):
         """Matrix object.
 
         Parameters
@@ -320,9 +320,14 @@ class MatrixDistribution:
     rows: int
     columns: int
     blocksize: int | None  # None means everything on rank=0
+    shape: tuple[int, int]
+    desc: Array1D
 
     def matrix(self, dtype=None, data=None):
         return Matrix(*self.full_shape, dtype=dtype, data=data, dist=self)
+
+    def multiply(self, alpha, a, opa, b, opb, beta, c, symmetric):
+        raise NotImplementedError
 
 
 class NoDistribution(MatrixDistribution):
