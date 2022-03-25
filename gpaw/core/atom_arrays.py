@@ -6,7 +6,7 @@ from typing import Sequence
 import numpy as np
 from gpaw.core.arrays import DistributedArrays
 from gpaw.mpi import MPIComm, serial_comm
-from gpaw.typing import Array1D
+from gpaw.typing import Array1D, ArrayLike1D
 
 
 class AtomArraysLayout:
@@ -71,7 +71,7 @@ class AtomArraysLayout:
 
 
 class AtomDistribution:
-    def __init__(self, ranks, comm):
+    def __init__(self, ranks: ArrayLike1D, comm: MPIComm = serial_comm):
         """Atom-distribution.
 
         Parameters
@@ -86,9 +86,29 @@ class AtomDistribution:
         self.indices = np.where(ranks == comm.rank)[0]
 
     @classmethod
+    def from_number_of_atoms(cls,
+                             natoms: int,
+                             comm: MPIComm = serial_comm) -> AtomDistribution:
+        """Distribute atoms evenly.
+
+        >>> AtomDistribution.from_number_of_atoms(3).rank_a
+        []
+        """
+        blocksize = (natoms + comm.size - 1) // comm.size
+        rank_a = np.empty(natoms, int)
+        a1 = 0
+        for rank in range(comm.size):
+            a2 = a1 + blocksize
+            rank_a[a1:a2] = rank
+            if a2 >= natoms:
+                break
+            a1 = a2
+        return cls(rank_a, comm)
+
+    @classmethod
     def from_atom_indices(cls,
                           atom_indices: Sequence[int],
-                          comm: MPIComm,
+                          comm: MPIComm = serial_comm,
                           *,
                           natoms: int = None) -> AtomDistribution:
         if natoms is not None:
