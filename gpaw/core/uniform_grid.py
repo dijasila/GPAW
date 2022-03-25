@@ -322,7 +322,6 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         """Scatter data from rank-0 to all ranks."""
         if isinstance(data, UniformGridFunctions):
             data = data.data
-
         comm = self.desc.comm
         if comm.size == 1:
             self.data[:] = data
@@ -382,7 +381,15 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         return out
 
     def fft(self, plan=None, pw=None, out=None):
-        """Do FFT."""
+        """Do FFT.
+
+        :::
+
+                _ _
+          / _  iG.r  _
+          |dr e    f(r)
+          /
+        """
         assert self.dims == ()
         if out is None:
             assert pw is not None
@@ -549,23 +556,41 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         return out
 
     def fft_restrict(self,
-                     out: UniformGridFunctions,
                      plan1: fftw.FFTPlan = None,
                      plan2: fftw.FFTPlan = None,
-                     indices=None) -> None:
+                     grid: UniformGrid = None,
+                     out: UniformGridFunctions = None) -> UniformGridFunctions:
         """Restrict to coarser grid.
 
         Parameters
         ----------
-        out:
-            Target UniformGridFunctions object.
         plan1:
             Plan for FFT.
         plan2:
             Plan for inverse FFT.
-        indices:
-            ???
+        grid:
+            Target grid.
+        out:
+            Target UniformGridFunctions object.
         """
+        if out is None:
+            if grid is None:
+                raise ValueError('Please specify "grid" or "out".')
+            out = grid.empty()
+
+        if not out.desc.pbc_c.all() or not self.desc.pbc_c.all():
+            raise ValueError('Grids must have pbc=True!')
+
+        if self.desc.comm.size > 1:
+            input = self.gather()
+            if input:
+                output = input.fft_restrict(plan1, plan2,
+                                            out.desc.new(comm=None))
+                out.scatter_from(output.data)
+            else:
+                out.scatter_from()
+            return out
+
         size1_c = self.desc.size_c
         size2_c = out.desc.size_c
 
@@ -605,14 +630,10 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
 
         a_Q[:] = b_Q[a0:b0, a1:b1, a2:b2]
         a_Q[:] = np.fft.ifftshift(a_Q, axes=axes)
-        if indices is not None:
-            coefs = a_Q.ravel()[indices]
-        else:
-            coefs = None
         plan2.ifft()
         out.data[:] = plan2.tmp_R
         out.data *= (1.0 / self.data.size)
-        return coefs
+        return out
 
     def abs_square(self,
                    weights: Array1D,

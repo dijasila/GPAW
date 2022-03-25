@@ -53,7 +53,9 @@ class PlaneWaves(Domain):
         ng = len(ekin_G)
         self.maxmysize = (ng + S - 1) // S
         ng1 = comm.rank * self.maxmysize
-        ng2 = ng1 + self.maxmysize
+        ng2 = min(ng1 + self.maxmysize, ng)
+        self.ng1 = ng1
+        self.ng2 = ng2
 
         # Distribute things:
         self.ekin_G = ekin_G[ng1:ng2].copy()
@@ -69,9 +71,11 @@ class PlaneWaves(Domain):
         self._indices_cache: dict[tuple[int, ...], Array1D] = {}
 
     def __repr__(self) -> str:
+        m = self.myshape[0]
+        n = self.shape[0]
         return Domain.__repr__(self).replace(
             'Domain(',
-            f'PlaneWaves(ecut={self.ecut}, ')
+            f'PlaneWaves(ecut={self.ecut} <{m}/{n}>, ')
 
     def global_shape(self) -> tuple[int, ...]:
         """Tuple with one element: number of plane waves."""
@@ -139,13 +143,44 @@ class PlaneWaves(Domain):
         # array_Q.ravel()[Q_G] = coef_G
         _gpaw.pw_insert(coef_G, Q_G, 1.0, array_Q)
 
-    def map_indices(self, other):
-        """Map from one set of plane waves to another."""
+    def map_indices(self, other: PlaneWaves) -> tuple[Array1D, list[Array1D]]:
+        """Map from one (distributed) set of plane waves to smaller global set.
+
+        Say we have 9 G-vector on two cores::
+
+           5 3 4          . 3 4          0 . .
+           2 0 1  rank=0: 2 0 1  rank=1: . . .
+           8 6 7          . . .          3 1 2
+
+        and we want a mapping to these 5 G-vectors::
+
+             3
+           2 0 1
+             4
+
+        On rank=0: the return values are::
+
+           [0, 1, 2, 3], [[0, 1, 2, 3], [4]]
+
+        and for rank=1::
+
+           [1], [[0, 1, 2, 3], [4]]
+        """
         size_c = tuple(self.indices_cG.ptp(axis=1) + 1)
         Q_G = self.indices(size_c)
-        i_Q = np.empty(np.prod(size_c), int)
-        i_Q[Q_G] = np.arange(len(Q_G))
-        return i_Q[other.indices(size_c)]
+        G_Q = np.empty(np.prod(size_c), int)
+        G_Q[Q_G] = np.arange(len(Q_G))
+        G_g = G_Q[other.indices(size_c)]
+        ng1 = 0
+        g_r = []
+        for rank in range(self.comm.size):
+            ng2 = min(ng1 + self.maxmysize, self.shape[0])
+            myg = (ng1 <= G_g) & (G_g < ng2)
+            g_r.append(np.nonzero(myg)[0])
+            if rank == self.comm.rank:
+                my_G_g = G_g[myg] - ng1
+            ng1 = ng2
+        return my_G_g, g_r
 
     def atom_centered_functions(self,
                                 functions,
@@ -257,6 +292,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
             out = grid.empty(self.dims)
         assert self.desc.dtype == out.desc.dtype
         assert out.desc.pbc_c.all()
+        assert self.desc.comm is out.desc.comm
 
         comm = self.desc.comm
 
