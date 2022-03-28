@@ -19,11 +19,14 @@ def get_criterion(name):
     try:
         return criteria[name]
     except KeyError:
-        msg = ('The convergence keyword "{:s}" was supplied, which we do not '
-               'know how to handle. If this is a typo, please correct. If this'
-               ' is a user-written convergence criterion, it cannot be '
-               'imported with this function; please see the GPAW manual for '
-               'details.'.format(name))
+        known = ', '.join(f'{key!r}' for key in criteria)
+        msg = (
+            f'The convergence keyword "{name}" was supplied, which we do not '
+            'know how to handle. If this is a typo, please correct '
+            f'(known keywords are {known}). If this'
+            ' is a user-written convergence criterion, it cannot be '
+            'imported with this function; please see the GPAW manual for '
+            'details.')
         raise InputError(msg)
 
 
