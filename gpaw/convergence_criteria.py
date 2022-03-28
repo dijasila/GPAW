@@ -55,20 +55,21 @@ def check_convergence(criteria, ctx):
     entries = {}  # for log file, per criteria
     converged_items = {}  # True/False, per criteria
     override_others = False
-
+    converged = True
     for name, criterion in criteria.items():
         if not criterion.calc_last:
             ok, entry = criterion(ctx)
-            if criterion.override_others and ok:
-                override_others = True
+            if criterion.override_others:
+                if ok:
+                    override_others = True
+            else:
+                converged = converged and ok
             converged_items[name] = ok
             entries[name] = entry
 
-    converged = all(converged_items.values())
-
     for name, criterion in criteria.items():
         if criterion.calc_last:
-            if converged and not override_others:
+            if converged:
                 ok, entry = criterion(ctx)
                 converged &= ok
                 converged_items[name] = ok
