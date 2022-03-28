@@ -15,6 +15,9 @@ def search_direction(method, etdm=None, pd=None):
     if isinstance(method, dict):
         kwargs = method.copy()
         names = kwargs.pop('name').replace('-', '').lower().split('_')
+        convex_step_length = 0.1
+        if 'convex_step_length' in kwargs.keys():
+            convex_step_length = kwargs['convex_step_length']
 
         searchdir = {'sd': SteepestDescent,
                      'frcg': FRcg,
@@ -27,8 +30,8 @@ def search_direction(method, etdm=None, pd=None):
         if len(names) == 2:
             if names[1] == 'mmf':
                 pd['mmf'] = True
-                searchdir = ModeFollowing(
-                    partial_diagonalizer(pd, etdm), searchdir)
+                searchdir = ModeFollowing(partial_diagonalizer(pd, etdm),
+                                          searchdir, convex_step_length)
 
         return searchdir
     else:
