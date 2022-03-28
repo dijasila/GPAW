@@ -38,7 +38,7 @@ class AtomCenteredFunctions:
 
     @property
     def layout(self):
-        self._lacy_init()
+        self._lazy_init()
         return self._layout
 
     def empty(self,
@@ -55,7 +55,7 @@ class AtomCenteredFunctions:
 
     def add_to(self, functions, coefs=1.0):
         """Add atom-centered functions multiplied by *coefs* to *functions*."""
-        self._lacy_init()
+        self._lazy_init()
 
         if isinstance(coefs, float):
             self._lfc.add(functions.data, coefs)
@@ -67,7 +67,7 @@ class AtomCenteredFunctions:
         """Calculate integrals of atom-centered functions multiplied by
         *functions*.
         """
-        self._lacy_init()
+        self._lazy_init()
         if out is None:
             out = self.layout.empty(functions.dims, functions.comm)
         self._lfc.integrate(functions.data, out._dict_view(), q=0)
@@ -77,7 +77,7 @@ class AtomCenteredFunctions:
         """Calculate derivatives of integrals with respect to atom
         positions.
         """
-        self._lacy_init()
+        self._lazy_init()
         if out is None:
             out = self.layout.empty(functions.dims + (3,), functions.comm,
                                     transposed=True)
@@ -96,7 +96,7 @@ class UniformGridAtomCenteredFunctions(AtomCenteredFunctions):
         self.integral = integral
         self.cut = cut
 
-    def _lacy_init(self):
+    def _lazy_init(self):
         if self._lfc is not None:
             return
         gd = self.grid._gd

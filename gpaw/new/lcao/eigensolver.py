@@ -29,5 +29,5 @@ class LCAOEigensolver(Eigensolver):
         if wfs.dtype == complex:
             wfs.C_nM.complex_conjugate()
 
-        # Make sure wfs.C_nM and (lacy) wfs.P_ain are in sync:
+        # Make sure wfs.C_nM and (lazy) wfs.P_ain are in sync:
         wfs._P_ain = None

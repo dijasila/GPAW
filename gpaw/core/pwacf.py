@@ -16,7 +16,7 @@ class PlaneWaveAtomCenteredFunctions(AtomCenteredFunctions):
         AtomCenteredFunctions.__init__(self, functions, fracpos)
         self.pw = pw
 
-    def _lacy_init(self):
+    def _lazy_init(self):
         if self._lfc is not None:
             return
 
