@@ -46,13 +46,14 @@ class ModeFollowingBase(object):
     following
     """
 
-    def __init__(self, partial_diagonalizer):
+    def __init__(self, partial_diagonalizer, convex_step_length = 0.1):
         self.eigv = None
         self.eigvec = None
         self.eigvec_old = None
         self.partial_diagonalizer = partial_diagonalizer
         self.fixed_sp_order = None
         self.was_concave = False
+        self.convex_step_length = convex_step_length
 
     def update_eigenpairs(self, g_k1, wfs, ham, dens):
         """
@@ -66,8 +67,9 @@ class ModeFollowingBase(object):
         :return:
         """
 
+
         self.partial_diagonalizer.grad = g_k1
-        use_prev = False if self.eigv is None else False
+        use_prev = False if self.eigv is None or self.was_concave else True
         self.partial_diagonalizer.run(wfs, ham, dens, use_prev)
         self.eigv = copy.deepcopy(self.partial_diagonalizer.lambda_all)
         self.eigvec_old = copy.deepcopy(self.eigvec)
@@ -81,8 +83,17 @@ class ModeFollowingBase(object):
                     + 1.0j * self.eigvec[i][dimtot:]
             self.eigvec = eigvec
         self.fixed_sp_order = self.partial_diagonalizer.sp_order
-        #parprint('Eigenvalues:')
-        #parprint(self.eigv)
+        parprint('Eigenvalues:')
+        parprint(self.eigv)
+        if self.eigvec_old is not None:
+            dot1 = np.dot(self.eigvec[0], self.eigvec_old[0].T)
+            dot2 = np.dot(self.eigvec[1], self.eigvec_old[1].T)
+            if abs(dot1) < 0.9:
+                parprint('Dot1 is small:')
+                parprint(dot1)
+            if abs(dot2) < 0.9:
+                parprint('Dot2 is small:')
+                parprint(dot2)
 
     def negate_parallel_grad(self, g_k1):
         """
@@ -110,30 +121,40 @@ class ModeFollowingBase(object):
                     break
             get_dots = self.fixed_sp_order
         grad_par = np.zeros_like(grad)
-        for i in range(get_dots):
-            grad_par += self.eigvec[i] \
-                * np.dot(self.eigvec[i].conj(), grad.T).real
         if self.fixed_sp_order is not None:
             if neg_temp >= self.fixed_sp_order:
+                for i in range(get_dots):
+                    grad_par += self.eigvec[i] \
+                        * np.dot(self.eigvec[i].conj(), grad.T).real
                 #if True:
                 grad_mod = grad - 2.0 * grad_par
                 if self.was_concave:
                     self.partial_diagonalizer.etdm.searchdir_algo.reset()
                     self.was_concave = False
             else:
-                grad_mod = -0.25 * grad_par / np.linalg.norm(grad_par)
+                for i in range(get_dots):
+                    if i >= neg_temp:
+                        grad_par += self.eigvec[i] \
+                            * np.dot(self.eigvec[i].conj(), grad.T).real
+                grad_mod = -self.convex_step_length * grad_par \
+                    / np.linalg.norm(grad_par)
                 self.partial_diagonalizer.etdm.searchdir_algo.reset()
                 self.was_concave = True
-        elif get_dots == 0:
-            #elif False:
-            grad_mod = -0.25 * grad_par / np.linalg.norm(grad_par)
-            self.partial_diagonalizer.etdm.searchdir_algo.reset()
-            self.was_concave = True
         else:
-            grad_mod = grad - 2.0 * grad_par
-            if self.was_concave:
+            for i in range(get_dots):
+                grad_par += self.eigvec[i] \
+                    * np.dot(self.eigvec[i].conj(), grad.T).real
+            if get_dots == 0:
+                #elif False:
+                grad_mod = -self.convex_step_length * grad_par \
+                           / np.linalg.norm(grad_par)
                 self.partial_diagonalizer.etdm.searchdir_algo.reset()
-                self.was_concave = False
+                self.was_concave = True
+            else:
+                grad_mod = grad - 2.0 * grad_par
+                if self.was_concave:
+                    self.partial_diagonalizer.etdm.searchdir_algo.reset()
+                    self.was_concave = False
         return array_to_dict(grad_mod, dim)
 
 
@@ -143,11 +164,13 @@ class ModeFollowing(ModeFollowingBase, SearchDirectionBase):
     class for ETDM and negation of the gradient projection.
     """
 
-    def __init__(self, partial_diagonalizer, search_direction):
+    def __init__(self, partial_diagonalizer, search_direction,
+                 convex_step_length = 0.1):
         self.sd = search_direction
         self.name = self.sd.name + '_mmf'
         self.type = self.sd.type + '_mmf'
-        super(ModeFollowing, self).__init__(partial_diagonalizer)
+        super(ModeFollowing, self).__init__(partial_diagonalizer,
+                                            convex_step_length)
 
     @property
     def beta_0(self):
