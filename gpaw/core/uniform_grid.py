@@ -149,11 +149,16 @@ class UniformGrid(Domain):
         indices_Rc += self.start_c
         return indices_Rc @ (self.cell_cv.T / self.size_c).T
 
-    def atom_centered_functions(self, functions, positions,
+    def atom_centered_functions(self,
+                                functions,
+                                positions,
+                                *,
+                                atomdist=None,
                                 integral=None,
                                 cut=False):
         """Create UniformGridAtomCenteredFunctions object."""
         return UniformGridAtomCenteredFunctions(functions, positions, self,
+                                                atomdist=atomdist,
                                                 integral=integral, cut=cut)
 
     def transformer(self, other: UniformGrid, stencil_range=3):

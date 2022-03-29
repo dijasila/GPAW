@@ -31,10 +31,10 @@ class DFTState:
     def __str__(self):
         return f'{self.ibzwfs}\n{self.density}\n{self.potential}'
 
-    def move(self, fracpos_ac, delta_nct_R):
-        self.ibzwfs.move(fracpos_ac)
+    def move(self, fracpos_ac, atomdist, delta_nct_R):
+        self.ibzwfs.move(fracpos_ac, atomdist)
         self.potential.energies.clear()
-        self.density.move(delta_nct_R)
+        self.density.move(delta_nct_R)  # , atomdist) XXX
 
 
 class DFTCalculation:
@@ -94,9 +94,12 @@ class DFTCalculation:
 
         self.fracpos_ac = atoms.get_scaled_positions()
 
+        atomdist = ...
+
         delta_nct_R = self.pot_calc.move(self.fracpos_ac,
+                                         atomdist,
                                          self.state.density.ndensities)
-        self.state.move(self.fracpos_ac, delta_nct_R)
+        self.state.move(self.fracpos_ac, atomdist, delta_nct_R)
 
         magmoms = self.results.get('magmoms')
         write_atoms(atoms,

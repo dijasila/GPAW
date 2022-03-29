@@ -38,7 +38,7 @@ class FDDFTComponentsBuilder(PWFDDFTComponentsBuilder):
     def get_pseudo_core_densities(self):
         if self._nct_aR is None:
             self._nct_aR = self.setups.create_pseudo_core_densities(
-                self.grid, self.fracpos_ac)
+                self.grid, self.fracpos_ac, atomdist=self.atomdist)
         return self._nct_aR
 
     def create_poisson_solver(self) -> PoissonSolver:

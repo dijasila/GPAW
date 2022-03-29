@@ -45,6 +45,11 @@ class AtomCenteredFunctions:
         self._lazy_init()
         return self._layout
 
+    @property
+    def atomdist(self):
+        self._lazy_init()
+        return self._atomdist
+
     def empty(self,
               dims: int | tuple[int, ...] = (),
               comm: MPIComm = serial_comm,
@@ -98,6 +103,7 @@ class UniformGridAtomCenteredFunctions(AtomCenteredFunctions):
                  functions,
                  fracpos_ac,
                  grid,
+                 *,
                  atomdist=None,
                  integral=None,
                  cut=False):

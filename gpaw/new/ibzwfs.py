@@ -97,11 +97,11 @@ class IBZWaveFunctions:
         for wfs_s in self.wfs_qs:
             yield from wfs_s
 
-    def move(self, fracpos_ac):
+    def move(self, fracpos_ac, atomdist):
         self.ibz.symmetries.check_positions(fracpos_ac)
         self.energies.clear()
         for wfs in self:
-            wfs.move(fracpos_ac)
+            wfs.move(fracpos_ac, atomdist)
 
     def orthonormalize(self, work_array_nX: np.ndarray = None):
         for wfs in self:

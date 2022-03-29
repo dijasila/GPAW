@@ -15,11 +15,13 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
                  nct_ag,
                  nct_R):
         fracpos_ac = nct_ag.fracpos_ac
+        atomdist = nct_ag.atomdist
         super().__init__(xc, poisson_solver, setups, nct_R, fracpos_ac)
 
         self.nct_ag = nct_ag
-        self.vbar_ag = setups.create_local_potentials(pw, fracpos_ac)
-        self.ghat_aLh = setups.create_compensation_charges(fine_pw, fracpos_ac)
+        self.vbar_ag = setups.create_local_potentials(pw, fracpos_ac, atomdist)
+        self.ghat_aLh = setups.create_compensation_charges(
+            fine_pw, fracpos_ac, atomdist)
 
         self.pw0 = pw.new(comm=None)  # not distributed
         self.h_g, self.g_r = fine_pw.map_indices(self.pw0)

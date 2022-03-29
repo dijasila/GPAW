@@ -185,11 +185,13 @@ class PlaneWaves(Domain):
     def atom_centered_functions(self,
                                 functions,
                                 positions,
+                                *,
                                 atomdist=None,
                                 integral=None,
                                 cut=False):
         """Create PlaneWaveAtomCenteredFunctions object."""
-        return PlaneWaveAtomCenteredFunctions(functions, positions, self)
+        return PlaneWaveAtomCenteredFunctions(functions, positions, self,
+                                              atomdist=atomdist)
 
 
 class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):

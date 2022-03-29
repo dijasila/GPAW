@@ -70,7 +70,7 @@ class PWFDWaveFunctions(WaveFunctions):
                 self.pt_aiX = self.psit_nX.desc.atom_centered_functions(
                     [setup.pt_j for setup in self.setups],
                     self.fracpos_ac,
-                    self.atomdist)
+                    atomdist=self.atomdist)
             self._P_ain = self.pt_aiX.empty(self.psit_nX.dims,
                                             self.psit_nX.comm,
                                             transposed=True)

@@ -53,10 +53,10 @@ class PotentialCalculator:
 
         return Potential(vt_sR, dH_asii, energies), vHt_x, Q_aL
 
-    def move(self, fracpos_ac, ndensities):
+    def move(self, fracpos_ac, atomdist, ndensities):
         delta_nct_R = self.nct_R.new()
         delta_nct_R.data = -self.nct_R.data
-        self._move(fracpos_ac, ndensities)
+        self._move(fracpos_ac, atomdist, ndensities)
         delta_nct_R.data += self.nct_R.data
         return delta_nct_R
 
