@@ -2,7 +2,7 @@ import numpy as np
 from ase.dft.kpoints import monkhorst_pack
 from ase.parallel import paropen
 from ase.build import hcp0001, add_adsorbate
-from gpaw import GPAW, PW, FermiDirac, MixerSum
+from gpaw import GPAW, PW, FermiDirac
 from gpaw.hybrids.energy import non_self_consistent_energy as nsc_energy
 
 kpts = monkhorst_pack((16, 16, 1))
@@ -25,16 +25,10 @@ for d in ds:
                                           cell[0, 1] / 3 + cell[1, 1] / 3))
     # view(slab)
     calc = GPAW(xc='PBE',
-                eigensolver='cg',
                 mode=PW(600),
                 kpts=kpts,
                 occupations=FermiDirac(width=0.01),
-                mixer=MixerSum(beta=0.1, nmaxold=5, weight=50.0),
-                convergence={'density': 1.e-6},
-                maxiter=300,
-                parallel={'domain': 1,
-                          'band': 1},
-                txt=f'gs_{d}.txt')
+                txt=f'hmm2_gs_{d}.txt')
     slab.calc = calc
     E = slab.get_potential_energy()
     E_hf = nsc_energy(calc, 'EXX')
