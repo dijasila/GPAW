@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 import numpy as np
 from gpaw.core.atom_arrays import (AtomArrays, AtomArraysLayout,
                                    AtomDistribution)
@@ -7,12 +7,13 @@ from gpaw.mpi import serial_comm, MPIComm
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
 from gpaw.spline import Spline
-from gpaw.typing import ArrayLike2D
+from gpaw.typing import ArrayLike2D, Array1D
 if TYPE_CHECKING:
     from gpaw.core.uniform_grid import UniformGridFunctions
 
 
-def to_spline(l, rcut, f):
+def to_spline(l: int, rcut: float, f: Callable[[Array1D], Array1D]) -> Spline:
+    """Convert to GPAW's Spline object."""
     r = np.linspace(0, rcut, 100)
     return Spline(l, rcut, f(r))
 
@@ -44,13 +45,16 @@ class AtomCenteredFunctions:
               dims: int | tuple[int, ...] = (),
               comm: MPIComm = serial_comm,
               transposed=False) -> AtomArrays:
+        """Create AtomsArray for coefficients."""
         return self.layout.empty(dims, comm, transposed=transposed)
 
     def move(self, fracpos_ac):
+        """Move atoms to new positions."""
         self.fracpos_ac = np.array(fracpos_ac)
         self._lfc.set_positions(fracpos_ac)
 
     def add_to(self, functions, coefs=1.0):
+        """Add atom-centered functions multiplied by *coefs* to *functions*."""
         self._lacy_init()
 
         if isinstance(coefs, float):
@@ -60,6 +64,9 @@ class AtomCenteredFunctions:
         self._lfc.add(functions.data, coefs._dict_view(), q=0)
 
     def integrate(self, functions, out=None):
+        """Calculate integrals of atom-centered functions multiplied by
+        *functions*.
+        """
         self._lacy_init()
         if out is None:
             out = self.layout.empty(functions.dims, functions.comm)
@@ -67,6 +74,9 @@ class AtomCenteredFunctions:
         return out
 
     def derivative(self, functions, out=None):
+        """Calculate derivatives of integrals with respect to atom
+        positions.
+        """
         self._lacy_init()
         if out is None:
             out = self.layout.empty(functions.dims + (3,), functions.comm,

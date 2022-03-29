@@ -10,6 +10,8 @@ from gpaw.core.atom_centered_functions import AtomArrays as AA
 from gpaw.core.matrix import Matrix
 from gpaw.new.eigensolver import Eigensolver
 from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
+from gpaw.new.calculation import DFTState
+from gpaw.new.hamiltonian import Hamiltonian
 from gpaw.typing import Array1D, Array2D
 from gpaw.utilities.blas import axpy
 from scipy.linalg import eigh
@@ -45,8 +47,20 @@ class Davidson(Eigensolver):
 
         self.preconditioner = preconditioner_factory(blocksize)
 
-    def iterate(self, state, hamiltonian) -> float:
+    def iterate(self, state: DFTState, hamiltonian: Hamiltonian) -> float:
+        """Iterate on state given fixed hamiltonian.
+
+        Returns
+        -------
+        float:
+            Weighted error of residuals:::
+
+                   ~     ~ ~
+              R = (H - ε S)ψ
+               n        n   n
+        """
         if self.work_arrays is None:
+            # First time: allocate work-arrays
             shape = state.ibzwfs.get_max_shape()
             shape = (2, state.ibzwfs.nbands) + shape
             dtype = state.ibzwfs.wfs_qs[0][0].psit_nX.data.dtype

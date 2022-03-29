@@ -87,7 +87,7 @@ intermediate states during the charge/discharge process. This will allow some
 basic discussion of the voltage profile of the battery. The notebook is
 ``batteries3.ipynb``.
 
-* Create intial and final structures for a NEB calculation, that will
+* Create initial and final structures for a NEB calculation, that will
   determine the transition state
 
   - If time permits you can study the influence of changing the interlayer
