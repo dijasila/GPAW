@@ -12,8 +12,8 @@ from gpaw.core.domain import Domain
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.mpi import MPIComm, serial_comm
 from gpaw.new import cached_property
-from gpaw.typing import (Array1D, Array3D, Array4D, ArrayLike1D, ArrayLike2D,
-                         Vector)
+from gpaw.typing import (Array1D, Array2D, Array3D, Array4D, ArrayLike1D,
+                         ArrayLike2D, Vector)
 
 
 class UniformGrid(Domain):
@@ -228,6 +228,15 @@ class UniformGrid(Domain):
         """Create FFTW-plans."""
         if self.comm.rank == 0:
             return fftw.create_plans(self.size_c, self.dtype, flags)
+        else:
+            return fftw.FFTPlans([0, 0, 0], self.dtype)
+
+    def ranks_from_fractional_positions(self,
+                                        fracpos_ac: Array2D) -> Array1D:
+        rank_ac = np.floor(fracpos_ac * self.parsize_c).astype(int)
+        if (rank_ac < 0).any() or (rank_ac >= self.parsize_c).any():
+            raise ValueError('Positions outside cell!')
+        return np.ravel_multi_index(rank_ac.T, self.parsize_c)  # type: ignore
 
 
 class UniformGridFunctions(DistributedArrays[UniformGrid]):
@@ -346,8 +355,9 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         for request, _ in requests:
             comm.wait(request)
 
-    def gather(self, broadcast=False):
+    def gather(self, out=None, broadcast=False):
         """Gather data from all ranks to rank-0."""
+        assert out is None
         comm = self.desc.comm
         if comm.size == 1:
             return self
@@ -556,8 +566,8 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         return out
 
     def fft_restrict(self,
-                     plan1: fftw.FFTPlan = None,
-                     plan2: fftw.FFTPlan = None,
+                     plan1: fftw.FFTPlans = None,
+                     plan2: fftw.FFTPlans = None,
                      grid: UniformGrid = None,
                      out: UniformGridFunctions = None) -> UniformGridFunctions:
         """Restrict to coarser grid.

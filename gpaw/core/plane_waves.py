@@ -288,13 +288,12 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
         out:
             Target UniformGridFunctions object.
         """
+        comm = self.desc.comm
         if out is None:
             out = grid.empty(self.dims)
         assert self.desc.dtype == out.desc.dtype
         assert out.desc.pbc_c.all()
-        assert self.desc.comm is out.desc.comm
-
-        comm = self.desc.comm
+        assert comm.size == out.desc.comm.size
 
         this = self.gather()
         if this is not None:

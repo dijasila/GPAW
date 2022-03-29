@@ -1466,10 +1466,6 @@ class Setups(list):
             [setup.ghat_l for setup in self], positions,
             integral=sqrt(4 * pi))
 
-    def create_projectors(self, desc, positions):
-        return desc.atom_centered_functions(
-            [setup.pt_j for setup in self], positions)
-
     def overlap_correction(self, projections, out):
         for a, I1, I2 in projections.layout.myindices:
             ds = self[a].dO_ii

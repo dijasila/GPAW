@@ -4,9 +4,9 @@ import numbers
 from typing import Sequence
 
 import numpy as np
-from gpaw.core.arrays import DistributedArrays
 from gpaw.mpi import MPIComm, serial_comm
 from gpaw.typing import Array1D, ArrayLike1D
+from gpaw.core.matrix import Matrix
 
 
 class AtomArraysLayout:
@@ -123,7 +123,7 @@ class AtomDistribution:
                 f'comm={self.comm.rank}/{self.comm.size})')
 
 
-class AtomArrays(DistributedArrays):
+class AtomArrays:
     def __init__(self,
                  layout: AtomArraysLayout,
                  dims: int | tuple[int, ...] = (),
@@ -145,12 +145,45 @@ class AtomArrays(DistributedArrays):
         data:
             Data array for storage.
         """
-        DistributedArrays. __init__(self, dims, (layout.mysize,),
-                                    comm, layout.atomdist.comm,
-                                    dtype=layout.dtype,
-                                    data=data,
-                                    dv=np.nan,
-                                    transposed=transposed)
+        myshape = (layout.mysize,)
+        domain_comm = layout.atomdist.comm
+        dtype = layout.dtype
+
+        self.myshape = myshape
+        self.comm = comm
+        self.domain_comm = domain_comm
+        self.transposed = transposed
+
+        # convert int to tuple:
+        self.dims = dims if isinstance(dims, tuple) else (dims,)
+
+        if self.dims:
+            mydims0 = (self.dims[0] + comm.size - 1) // comm.size
+            d1 = min(comm.rank * mydims0, self.dims[0])
+            d2 = min((comm.rank + 1) * mydims0, self.dims[0])
+            mydims0 = d2 - d1
+            self.mydims = (mydims0,) + self.dims[1:]
+        else:
+            self.mydims = ()
+
+        if transposed:
+            fullshape = self.myshape + self.mydims
+        else:
+            fullshape = self.mydims + self.myshape
+
+        if data is not None:
+            if data.shape != fullshape:
+                raise ValueError(
+                    f'Bad shape for data: {data.shape} != {fullshape}')
+            if data.dtype != dtype:
+                raise ValueError(
+                    f'Bad dtype for data: {data.dtype} != {dtype}')
+        else:
+            data = np.empty(fullshape, dtype)
+
+        self.data = data
+        self._matrix: Matrix | None = None
+
         self.layout = layout
         self._arrays = {}
         for a, I1, I2 in layout.myindices:
@@ -164,6 +197,25 @@ class AtomArrays(DistributedArrays):
 
     def __repr__(self):
         return f'AtomArrays({self.layout})'
+
+    @property
+    def matrix(self) -> Matrix:
+        if self._matrix is not None:
+            return self._matrix
+
+        if self.transposed:
+            shape = (np.prod(self.myshape), np.prod(self.dims))
+            myshape = (np.prod(self.myshape), np.prod(self.mydims))
+            dist = (self.comm, 1, -1)
+        else:
+            shape = (np.prod(self.dims), np.prod(self.myshape))
+            myshape = (np.prod(self.mydims), np.prod(self.myshape))
+            dist = (self.comm, -1, 1)
+
+        data = self.data.reshape(myshape)
+        self._matrix = Matrix(*shape, data=data, dist=dist)
+
+        return self._matrix
 
     def new(self, layout=None, data=None):
         """Create new AtomArrays object of same kind.

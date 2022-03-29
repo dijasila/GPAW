@@ -12,8 +12,12 @@ from gpaw.core.uniform_grid import UniformGridFunctions
 
 
 class PlaneWaveAtomCenteredFunctions(AtomCenteredFunctions):
-    def __init__(self, functions, fracpos, pw):
-        AtomCenteredFunctions.__init__(self, functions, fracpos)
+    def __init__(self,
+                 functions,
+                 fracpos,
+                 pw,
+                 atomdist=None):
+        AtomCenteredFunctions.__init__(self, functions, fracpos, atomdist)
         self.pw = pw
 
     def _lazy_init(self):
@@ -21,12 +25,15 @@ class PlaneWaveAtomCenteredFunctions(AtomCenteredFunctions):
             return
 
         self._lfc = PWLFC(self.functions, self.pw)
-        atomdist = AtomDistribution.from_number_of_atoms(len(self.fracpos_ac),
-                                                         self.pw.comm)
-        self._lfc.set_positions(self.fracpos_ac, atomdist)
+
+        if self._atomdist is None:
+            self._atomdist = AtomDistribution.from_number_of_atoms(
+                len(self.fracpos_ac), self.pw.comm)
+
+        self._lfc.set_positions(self.fracpos_ac, self._atomdist)
         self._layout = AtomArraysLayout([sum(2 * f.l + 1 for f in funcs)
                                          for funcs in self.functions],
-                                        atomdist,
+                                        self._atomdist,
                                         self.pw.dtype)
 
     def to_uniform_grid(self,

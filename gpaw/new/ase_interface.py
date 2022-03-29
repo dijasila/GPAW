@@ -116,13 +116,13 @@ class ASECalculator:
         return self.calculation.results[prop] * units[prop]
 
     def create_new_calculation(self, atoms: Atoms) -> DFTCalculation:
-        with self.timer('init'):
+        with self.timer('Init'):
             calculation = DFTCalculation.from_parameters(atoms, self.params,
                                                          self.log)
         return calculation
 
     def move_atoms(self, atoms):
-        with self.timer('move'):
+        with self.timer('Move'):
             self.calculation = self.calculation.move_atoms(atoms, self.log)
 
     def converge(self, atoms):

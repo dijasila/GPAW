@@ -12,7 +12,9 @@ if TYPE_CHECKING:
     from gpaw.core.uniform_grid import UniformGridFunctions
 
 
-def to_spline(l: int, rcut: float, f: Callable[[Array1D], Array1D]) -> Spline:
+def to_spline(l: int,
+              rcut: float,
+              f: Callable[[Array1D], Array1D]) -> Spline:
     """Convert to GPAW's Spline object."""
     r = np.linspace(0, rcut, 100)
     return Spline(l, rcut, f(r))
@@ -21,11 +23,13 @@ def to_spline(l: int, rcut: float, f: Callable[[Array1D], Array1D]) -> Spline:
 class AtomCenteredFunctions:
     def __init__(self,
                  functions,
-                 fracpos_ac: ArrayLike2D):
+                 fracpos_ac: ArrayLike2D,
+                 atomdist: AtomDistribution = None):
         self.functions = [[to_spline(*f) if isinstance(f, tuple) else f
                            for f in funcs]
                           for funcs in functions]
         self.fracpos_ac = np.array(fracpos_ac)
+        self._atomdist = atomdist
 
         self._layout = None
         self._lfc = None
@@ -48,10 +52,10 @@ class AtomCenteredFunctions:
         """Create AtomsArray for coefficients."""
         return self.layout.empty(dims, comm, transposed=transposed)
 
-    def move(self, fracpos_ac):
+    def move(self, fracpos_ac, atomdist):
         """Move atoms to new positions."""
         self.fracpos_ac = np.array(fracpos_ac)
-        self._lfc.set_positions(fracpos_ac)
+        self._lfc.set_positions(fracpos_ac, atomdist)
 
     def add_to(self, functions, coefs=1.0):
         """Add atom-centered functions multiplied by *coefs* to *functions*."""
@@ -90,8 +94,17 @@ class AtomCenteredFunctions:
 
 
 class UniformGridAtomCenteredFunctions(AtomCenteredFunctions):
-    def __init__(self, functions, fracpos_ac, grid, integral=None, cut=False):
-        AtomCenteredFunctions.__init__(self, functions, fracpos_ac)
+    def __init__(self,
+                 functions,
+                 fracpos_ac,
+                 grid,
+                 atomdist=None,
+                 integral=None,
+                 cut=False):
+        AtomCenteredFunctions.__init__(self,
+                                       functions,
+                                       fracpos_ac,
+                                       atomdist)
         self.grid = grid
         self.integral = integral
         self.cut = cut
@@ -107,12 +120,17 @@ class UniformGridAtomCenteredFunctions(AtomCenteredFunctions):
                         forces=True,
                         cut=self.cut)
         self._lfc.set_positions(self.fracpos_ac)
-        atomdist = AtomDistribution(
-            ranks=np.array([sphere.rank for sphere in self._lfc.sphere_a]),
-            comm=self.grid.comm)
+
+        if self._atomdist is None:
+            self._atomdist = AtomDistribution(
+                ranks=np.array([sphere.rank for sphere in self._lfc.sphere_a]),
+                comm=self.grid.comm)
+        else:
+            for sphere, rank in zip(self._lfc.sphere_a, self._atomdist.rank_a):
+                assert sphere.rank == rank
         self._layout = AtomArraysLayout([sum(2 * f.l + 1 for f in funcs)
                                          for funcs in self.functions],
-                                        atomdist,
+                                        self._atomdist,
                                         self.grid.dtype)
 
     def to_uniform_grid(self,
