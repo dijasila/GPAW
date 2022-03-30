@@ -92,7 +92,7 @@ class AtomDistribution:
         """Distribute atoms evenly.
 
         >>> AtomDistribution.from_number_of_atoms(3).rank_a
-        []
+        array([0, 0, 0])
         """
         blocksize = (natoms + comm.size - 1) // comm.size
         rank_a = np.empty(natoms, int)
@@ -111,7 +111,12 @@ class AtomDistribution:
                           comm: MPIComm = serial_comm,
                           *,
                           natoms: int = None) -> AtomDistribution:
-        if natoms is not None:
+        """Create distribution from atom indices.
+
+        >>> AtomDistribution.from_atom_indices([0, 1, 2]).rank_a
+        array([0, 0, 0])
+        """
+        if natoms is None:
             natoms = comm.max(max(atom_indices)) + 1
         rank_a = np.zeros(natoms, int)  # type: ignore
         rank_a[atom_indices] = comm.rank
@@ -349,7 +354,15 @@ class AtomArrays:
             comm.wait(request)
 
     def to_lower_triangle(self):
-        """Convert `N*N` matrices to `N*(N+1)/2` vectors."""
+        """Convert `N*N` matrices to `N*(N+1)/2` vectors.
+
+        >>> a = AtomArraysLayout([(3, 3)]).empty()
+        >>> a[0][:] = [[11, 12, 13],
+        ...            [12, 22, 23],
+        ...            [13, 23, 33]]
+        >>> a.to_lower_triangle()[0]
+        array([11., 12., 22., 13., 23., 33.])
+        """
         shape_a = []
         for i1, i2 in self.layout.shape_a:
             assert i1 == i2
@@ -365,7 +378,15 @@ class AtomArrays:
         return a_axp
 
     def to_full(self):
-        r"""Convert `N(N+1)/2` vectors to `N\times N` matrices."""
+        r"""Convert `N(N+1)/2` vectors to `N\times N` matrices.
+
+        >>> a = AtomArraysLayout([6]).empty()
+        >>> a[0][:] = [1, 2, 3, 4, 5, 6]
+        >>> a.to_full()[0]
+        array([[1., 2., 4.],
+               [2., 3., 5.],
+               [4., 5., 6.]])
+        """
         shape_a = []
         for (p,) in self.layout.shape_a:
             i = int((2 * p + 0.25)**0.5)
@@ -374,7 +395,7 @@ class AtomArrays:
         a_axii = layout.empty(self.dims)
         for a_xp, a_xii in zip(self.values(), a_axii.values()):
             i = a_xii.shape[-1]
-            a_xii[..., np.tril_indices(i)] = a_xp
-            u = np.triu_indices(i, 1)
-            a_xii[..., u] = np.swapaxes(a_xii, -1, -2)[..., u]
+            a_xii[(...,) + np.tril_indices(i)] = a_xp
+            u = (...,) + np.triu_indices(i, 1)
+            a_xii[u] = np.swapaxes(a_xii, -1, -2)[u]
         return a_axii

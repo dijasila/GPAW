@@ -32,13 +32,13 @@ class PWFDWaveFunctions(WaveFunctions):
                          q=q,
                          k=k,
                          kpt_c=psit_nX.desc.kpt_c,
+                         fracpos_ac=fracpos_ac,
+                         atomdist=atomdist,
                          weight=weight,
                          ncomponents=ncomponents,
                          dtype=psit_nX.desc.dtype,
                          domain_comm=psit_nX.desc.comm,
                          band_comm=psit_nX.comm)
-        self.fracpos_ac = fracpos_ac
-        self.atomdist = atomdist
         self.pt_aiX = None
         self.orthonormalized = False
 

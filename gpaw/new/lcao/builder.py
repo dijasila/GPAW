@@ -83,6 +83,8 @@ class LCAODFTComponentsBuilder(FDDFTComponentsBuilder):
                 T_MM=T_qMM[q],
                 P_aMi=P_qaMi[q],
                 kpt_c=kpt_c,
+                fracpos_ac=self.fracpos_ac,
+                atomdist=self.atomdist,
                 domain_comm=domain_comm,
                 spin=spin,
                 q=q,

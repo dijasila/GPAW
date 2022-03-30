@@ -22,6 +22,8 @@ class LCAOWaveFunctions(WaveFunctions):
                  S_MM: Array2D,
                  T_MM,
                  P_aMi,
+                 fracpos_ac,
+                 atomdist,
                  kpt_c=(0.0, 0.0, 0.0),
                  domain_comm: MPIComm = serial_comm,
                  spin: int = 0,
@@ -29,13 +31,15 @@ class LCAOWaveFunctions(WaveFunctions):
                  k=0,
                  weight: float = 1.0,
                  ncomponents: int = 1):
-        super().__init__(setups,
+        super().__init__(setups=setups,
                          nbands=C_nM.shape[0],
                          spin=spin,
                          q=q,
                          k=k,
                          kpt_c=kpt_c,
                          weight=weight,
+                         fracpos_ac=fracpos_ac,
+                         atomdist=atomdist,
                          ncomponents=ncomponents,
                          dtype=C_nM.dtype,
                          domain_comm=domain_comm,
@@ -89,8 +93,7 @@ class LCAOWaveFunctions(WaveFunctions):
 
     def to_uniform_grid_wave_functions(self,
                                        grid,
-                                       basis,
-                                       fracpos_ac, atomdist):
+                                       basis):
         grid = grid.new(kpt=self.kpt_c, dtype=self.dtype)
         psit_nR = grid.zeros(self.nbands, self.band_comm)
         basis.lcao_to_grid(self.C_nM.data, psit_nR.data, self.q)
@@ -101,7 +104,7 @@ class LCAOWaveFunctions(WaveFunctions):
             self.q,
             self.k,
             self.setups,
-            fracpos_ac,
-            atomdist,
+            self.fracpos_ac,
+            self.atomdist,
             self.weight,
             self.ncomponents)

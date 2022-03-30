@@ -118,6 +118,8 @@ class DFTComponentsBuilder:
         self.spin_degeneracy = self.ncomponents % 2 + 1
 
         self.fracpos_ac = self.atoms.get_scaled_positions()
+        self.fracpos_ac %= 1
+        self.fracpos_ac %= 1
 
     def create_uniform_grids(self):
         raise NotImplementedError
