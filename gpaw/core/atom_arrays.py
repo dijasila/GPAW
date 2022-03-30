@@ -69,6 +69,22 @@ class AtomArraysLayout:
         """
         return AtomArrays(self, dims, comm, transposed=transposed)
 
+    def sizes(self) -> tuple[list[dict[int, int]], Array1D]:
+        """Compute array sizes for all ranks.
+
+        >>> AtomArraysLayout([3, 4]).sizes()
+        ([{0: 3, 1: 4}], array([7]))
+        """
+        comm = self.atomdist.comm
+        size_ra: list[dict[int, int]] = [{} for _ in range(comm.size)]
+        size_r = np.zeros(comm.size, int)
+        for a, (rank, shape) in enumerate(zip(self.atomdist.rank_a,
+                                              self.shape_a)):
+            size = np.prod(shape)
+            size_ra[rank][a] = size
+            size_r[rank] += size
+        return size_ra, size_r
+
 
 class AtomDistribution:
     def __init__(self, ranks: ArrayLike1D, comm: MPIComm = serial_comm):
@@ -281,7 +297,7 @@ class AtomArrays:
             aa = None
 
         if comm.rank == 0:
-            size_ra, size_r = self.sizes()
+            size_ra, size_r = self.layout.sizes()
             shape = self.mydims + (size_r.max(),)
             buffer = np.empty(shape, self.layout.dtype)
             for rank in range(1, comm.size):
@@ -302,17 +318,6 @@ class AtomArrays:
 
         return aa
 
-    def sizes(self) -> tuple[list[dict[int, int]], Array1D]:
-        comm = self.layout.atomdist.comm
-        size_ra: list[dict[int, int]] = [{} for _ in range(comm.size)]
-        size_r = np.zeros(comm.size, int)
-        for a, (rank, shape) in enumerate(zip(self.layout.atomdist.rank_a,
-                                              self.layout.shape_a)):
-            size = np.prod(shape)
-            size_ra[rank][a] = size
-            size_r[rank] += size
-        return size_ra, size_r
-
     def _dict_view(self):
         if self.transposed:
             return {a: np.moveaxis(array, 0, -1)
@@ -330,7 +335,7 @@ class AtomArrays:
             comm.receive(self.data, 0, 42)
             return
 
-        size_ra, size_r = self.sizes()
+        size_ra, size_r = self.layout.sizes()
         aa = self.new(layout=self.layout.new(atomdist=serial_comm),
                       data=data)
         requests = []
