@@ -9,7 +9,7 @@ from __future__ import annotations
 import numpy as np
 
 import _gpaw
-from gpaw.typing import Array3D, Vector, DTypeLike
+from gpaw.typing import Array3D, IntVector, DTypeLike
 
 ESTIMATE = 64
 MEASURE = 0
@@ -55,7 +55,7 @@ def get_efficient_fft_size(N: int, n=1, factors=[2, 3, 5, 7]) -> int:
     return N
 
 
-def create_plans(size_c: Vector,
+def create_plans(size_c: IntVector,
                  dtype: DTypeLike,
                  flags: int = MEASURE) -> FFTPlans:
     """Create plan-objects for fft and ifft."""
@@ -66,7 +66,7 @@ def create_plans(size_c: Vector,
 
 class FFTPlans:
     def __init__(self,
-                 size_c: Vector,
+                 size_c: IntVector,
                  dtype: DTypeLike):
         if dtype == float:
             rsize_c = (size_c[0], size_c[1], size_c[2] // 2 + 1)
