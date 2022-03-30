@@ -9,7 +9,7 @@ from __future__ import annotations
 import numpy as np
 
 import _gpaw
-from gpaw.typing import Array3D, Vector
+from gpaw.typing import Array3D, Vector, DTypeLike
 
 ESTIMATE = 64
 MEASURE = 0
@@ -18,6 +18,7 @@ EXHAUSTIVE = 8
 
 
 def have_fftw() -> bool:
+    """Did we compile with FFTW?"""
     return hasattr(_gpaw, 'FFTWPlan')
 
 
@@ -55,15 +56,18 @@ def get_efficient_fft_size(N: int, n=1, factors=[2, 3, 5, 7]) -> int:
 
 
 def create_plans(size_c: Vector,
-                 dtype,
-                 flags=MEASURE) -> FFTPlans:
+                 dtype: DTypeLike,
+                 flags: int = MEASURE) -> FFTPlans:
+    """Create plan-objects for fft and ifft."""
     if have_fftw():
         return FFTWPlans(size_c, dtype, flags)
     return NumpyFFTPlans(size_c, dtype)
 
 
 class FFTPlans:
-    def __init__(self, size_c, dtype):
+    def __init__(self,
+                 size_c: Vector,
+                 dtype: DTypeLike):
         if dtype == float:
             rsize_c = (size_c[0], size_c[1], size_c[2] // 2 + 1)
             self.tmp_Q = empty(rsize_c, complex)
@@ -73,9 +77,25 @@ class FFTPlans:
             self.tmp_R = self.tmp_Q
 
     def fft(self) -> None:
+        """Do FFT from tmp_R to tmp_Q.
+
+        >>> plans = create_plans([4, 1, 1], float)
+        >>> plans.tmp_R[:, 0, 0] = [1, 0, 1, 0]
+        >>> plans.fft()
+        >>> plans.tmp_Q[:, 0, 0]
+        array([2.+0.j, 0.+0.j, 2.+0.j, 0.+0.j])
+        """
         raise NotImplementedError
 
     def ifft(self) -> None:
+        """Do iFFT from tmp_Q to tmp_R.
+
+        >>> plans = create_plans([4, 1, 1], complex)
+        >>> plans.tmp_Q[:, 0, 0] = [0, 1j, 0, 0]
+        >>> plans.ifft()
+        >>> plans.tmp_R[:, 0, 0]
+        array([ 0.+1.j, -1.+0.j,  0.-1.j,  1.+0.j])
+        """
         raise NotImplementedError
 
 
@@ -109,10 +129,11 @@ class NumpyFFTPlans(FFTPlans):
 
     def ifft(self):
         if self.tmp_R.dtype == float:
-            self.tmp_R[:] = np.fft.irfftn(self.tmp_R, self.tmp_R.shape)
+            self.tmp_R[:] = np.fft.irfftn(self.tmp_Q, self.tmp_R.shape,
+                                          norm='forward')
         else:
-            self.tmp_R[:] = np.fft.ifftn(self.tmp_R, self.tmp_R.shape)
-        self.tmp_R *= self.tmp_R.size
+            self.tmp_R[:] = np.fft.ifftn(self.tmp_Q, self.tmp_R.shape,
+                                         norm='forward')
 
 
 def check_fftw_inputs(in_R, out_R):
