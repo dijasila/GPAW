@@ -16,4 +16,6 @@ Array2D = ArrayND
 Array3D = ArrayND
 Array4D = ArrayND
 
+# Used for sequences of three numbers:
 Vector = Union[Sequence[float], Array1D]
+IntVector = Union[Sequence[int], Array1D]

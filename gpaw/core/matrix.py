@@ -1,19 +1,20 @@
 """BLACS distributed matrix object."""
 from __future__ import annotations
-from typing import Dict, Tuple
-import numpy as np
-import scipy.linalg as linalg
+
+from typing import Dict, Tuple, Union
 
 import _gpaw
-from gpaw import debug
-from gpaw.mpi import serial_comm, _Communicator
 import gpaw.utilities.blas as blas
-
+import numpy as np
+import scipy.linalg as linalg
+from gpaw import debug
+from gpaw.mpi import MPIComm, _Communicator, serial_comm
+from gpaw.typing import Array1D, Array2D
 
 _global_blacs_context_store: Dict[Tuple[_Communicator, int, int], int] = {}
 
 
-def suggest_blocking(N, ncpus):
+def suggest_blocking(N: int, ncpus: int) -> tuple[int, int, int]:
     """Suggest blocking of ``NxN`` matrix.
 
     Returns rows, columns, blocksize tuple.
@@ -50,20 +51,27 @@ def suggest_blocking(N, ncpus):
 
 
 class Matrix:
-    def __init__(self, M, N, dtype=None, data=None, dist=None):
+    def __init__(self,
+                 M: int,
+                 N: int,
+                 dtype=None,
+                 data: Array2D = None,
+                 dist: Union[MatrixDistribution, tuple[int, ...]] = None):
         """Matrix object.
 
-        M: int
+        Parameters
+        ----------
+        M:
             Rows.
-        N: int
+        N:
             Columns.
-        dtype: type
+        dtype:
             Data type (float or complex).
-        dist: tuple or None
+        dist:
             BLACS distribution given as
             (communicator, rows, columns, blocksize)
             tuple.  Default is None meaning no distribution.
-        data: ndarray or None.
+        data:
             Numpy ndarray to use for storage.  By default, a new ndarray
             will be allocated.
             """
@@ -308,8 +316,18 @@ def _matrix(M):
 
 
 class MatrixDistribution:
+    comm: MPIComm
+    rows: int
+    columns: int
+    blocksize: int | None  # None means everything on rank=0
+    shape: tuple[int, int]
+    desc: Array1D
+
     def matrix(self, dtype=None, data=None):
         return Matrix(*self.full_shape, dtype=dtype, data=data, dist=self)
+
+    def multiply(self, alpha, a, opa, b, opb, beta, c, symmetric):
+        raise NotImplementedError
 
 
 class NoDistribution(MatrixDistribution):
@@ -441,7 +459,12 @@ def redist(dist1, M1, dist2, M2, context):
                            context, 'G')
 
 
-def create_distribution(M, N, comm=None, r=1, c=1, b=None):
+def create_distribution(M: int,
+                        N: int,
+                        comm: MPIComm = None,
+                        r: int = 1,
+                        c: int = 1,
+                        b: int = None) -> MatrixDistribution:
     if comm is None or comm.size == 1:
         assert r == 1 and abs(c) == 1 or c == 1 and abs(r) == 1
         return NoDistribution(M, N)

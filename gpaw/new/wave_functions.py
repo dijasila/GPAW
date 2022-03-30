@@ -10,8 +10,11 @@ from gpaw.mpi import MPIComm, serial_comm
 
 class WaveFunctions:
     def __init__(self,
+                 *,
                  setups: Setups,
                  nbands: int,
+                 fracpos_ac,
+                 atomdist,
                  spin: int = 0,
                  q: int = 0,
                  k: int = 0,
@@ -32,6 +35,8 @@ class WaveFunctions:
         self.ncomponents = ncomponents
         self.dtype = dtype
         self.kpt_c = kpt_c
+        self.fracpos_ac = fracpos_ac
+        self.atomdist = atomdist
         self.domain_comm = domain_comm
         self.band_comm = band_comm
         self.nbands = nbands

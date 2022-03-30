@@ -138,6 +138,9 @@ class DistributedArrays(Generic[DomainType]):
         """
         raise NotImplementedError
 
+    def gather(self, out=None, broadcast=False):
+        raise NotImplementedError
+
 
 def operate_and_multiply(psit1, dv, out, operator, psit2):
     if psit1.comm:

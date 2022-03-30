@@ -1,6 +1,5 @@
 from types import SimpleNamespace
 
-import numpy as np
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.kohnsham_layouts import get_KohnSham_layouts
 from gpaw.lcao.eigensolver import DirectLCAO
@@ -45,6 +44,7 @@ class PWFDDFTComponentsBuilder(DFTComponentsBuilder):
                 psit_nX=psit_nG,
                 setups=self.setups,
                 fracpos_ac=self.fracpos_ac,
+                atomdist=self.atomdist,
                 ncomponents=self.ncomponents)
 
             return wfs
@@ -74,6 +74,7 @@ class PWFDDFTComponentsBuilder(DFTComponentsBuilder):
             self.ncomponents,
             self.nelectrons,
             self.fracpos_ac,
+            self.atomdist,
             self.dtype,
             self.grid,
             self.wf_desc,
@@ -90,6 +91,7 @@ def initialize_from_lcao(setups,
                          ncomponents,
                          nelectrons,
                          fracpos_ac,
+                         atomdist,
                          dtype,
                          grid,
                          wf_desc,
@@ -110,9 +112,7 @@ def initialize_from_lcao(setups,
                                    gd, lcaobd, domainband_comm,
                                    dtype, nao=setups.nao)
 
-    atom_partition = AtomPartition(
-        domain_comm,
-        np.array([sphere.rank for sphere in basis_set.sphere_a]))
+    atom_partition = AtomPartition(domain_comm, atomdist.rank_a)
 
     lcaowfs = LCAOWaveFunctions(lcaoksl, gd, nelectrons,
                                 setups, lcaobd, dtype,
@@ -129,7 +129,8 @@ def initialize_from_lcao(setups,
 
     eigensolver.initialize(gd, dtype, setups.nao, lcaoksl)
 
-    dH_asp = setups.empty_atomic_matrix(ncomponents, atom_partition,
+    dH_asp = setups.empty_atomic_matrix(ncomponents,
+                                        atom_partition,
                                         dtype=dtype)
     for a, dH_sii in potential.dH_asii.items():
         dH_asp[a][:] = [pack2(dH_ii) for dH_ii in dH_sii]
@@ -157,6 +158,7 @@ def initialize_from_lcao(setups,
                                  weight=weight,
                                  setups=setups,
                                  fracpos_ac=fracpos_ac,
+                                 atomdist=atomdist,
                                  ncomponents=ncomponents)
 
     return create_ibz_wave_functions(

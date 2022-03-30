@@ -9,10 +9,12 @@ from ase import Atoms
 from ase.calculators.calculator import kpts2sizeandoffsets
 from ase.units import Bohr
 from gpaw.core import UniformGrid
-from gpaw.core.atom_arrays import AtomArrays, AtomArraysLayout
+from gpaw.core.atom_arrays import (AtomArrays, AtomArraysLayout,
+                                   AtomDistribution)
 from gpaw.mixer import MixerWrapper, get_mixer_from_keywords
 from gpaw.mpi import MPIComm, Parallelization, serial_comm, world
 from gpaw.new import cached_property
+from gpaw.new.basis import create_basis
 from gpaw.new.brillouin import BZPoints, MonkhorstPackKPoints
 from gpaw.new.density import Density
 from gpaw.new.input_parameters import InputParameters
@@ -21,9 +23,8 @@ from gpaw.new.smearing import OccupationNumberCalculator
 from gpaw.new.symmetry import create_symmetries_object
 from gpaw.new.xc import XCFunctional
 from gpaw.setup import Setups
-from gpaw.utilities.gpts import get_number_of_grid_points
 from gpaw.typing import DTypeLike
-from gpaw.new.basis import create_basis
+from gpaw.utilities.gpts import get_number_of_grid_points
 
 
 def builder(atoms: Atoms,
@@ -117,6 +118,8 @@ class DFTComponentsBuilder:
         self.spin_degeneracy = self.ncomponents % 2 + 1
 
         self.fracpos_ac = self.atoms.get_scaled_positions()
+        self.fracpos_ac %= 1
+        self.fracpos_ac %= 1
 
     def create_uniform_grids(self):
         raise NotImplementedError
@@ -132,8 +135,10 @@ class DFTComponentsBuilder:
                 f'Your system has {number_of_lattice_vectors}.')
 
     @cached_property
-    def atomdist(self):
-        return self.get_pseudo_core_densities().layout.atomdist
+    def atomdist(self) -> AtomDistribution:
+        return AtomDistribution(
+            self.grid.ranks_from_fractional_positions(self.fracpos_ac),
+            self.grid.comm)
 
     @cached_property
     def wf_desc(self):

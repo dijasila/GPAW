@@ -44,8 +44,7 @@ def dipole_matrix_elements_from_calc(calc: ASECalculator,
         if calc.params.mode['name'] == 'lcao':
             basis = calc.calculation.scf_loop.hamiltonian.basis
             grid = calc.calculation.state.density.nt_sR.desc
-            fracpos_ac = calc.calculation.fracpos_ac
-            wfs = wfs.to_uniform_grid_wave_functions(grid, basis, fracpos_ac)
+            wfs = wfs.to_uniform_grid_wave_functions(grid, basis)
         wfs = wfs.collect(n1, n2)
         if wfs is not None:
             d_nnv = wfs.dipole_matrix_elements(center) * Bohr

@@ -67,6 +67,9 @@ class NoGrid(Domain):
     def empty(self, shape=(), comm=serial_comm):
         return DummyFunctions(self, shape, comm)
 
+    def ranks_from_fractional_positions(self, fracpos_ac):
+        return np.zeros(len(fracpos_ac), int)
+
 
 class DummyFunctions(DistributedArrays[NoGrid]):
     def __init__(self,
