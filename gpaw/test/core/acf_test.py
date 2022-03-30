@@ -43,8 +43,7 @@ def test_acf():
 
     basis = pw.atom_centered_functions(
         [[s]],
-        positions=[[0.5, 0.5, 0.5]],
-        atomdist=world)
+        positions=[[0.5, 0.5, 0.5]])
 
     coefs = basis.layout.empty(transposed=True)
     if 0 in coefs:

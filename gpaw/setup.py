@@ -1445,7 +1445,7 @@ class Setups(list):
     def projector_indices(self):
         return FunctionIndices([setup.pt_j for setup in self])
 
-    def create_pseudo_core_densities(self, layout, positions):
+    def create_pseudo_core_densities(self, layout, positions, atomdist):
         spline_aj = []
         for setup in self:
             if setup.nct is None:
@@ -1454,21 +1454,19 @@ class Setups(list):
                 spline_aj.append([setup.nct])
         return layout.atom_centered_functions(
             spline_aj, positions,
+            atomdist=atomdist,
             integral=[setup.Nct for setup in self],
             cut=True)
 
-    def create_local_potentials(self, layout, positions):
+    def create_local_potentials(self, layout, positions, atomdist):
         return layout.atom_centered_functions(
-            [[setup.vbar] for setup in self], positions)
+            [[setup.vbar] for setup in self], positions, atomdist=atomdist)
 
-    def create_compensation_charges(self, layout, positions):
+    def create_compensation_charges(self, layout, positions, atomdist):
         return layout.atom_centered_functions(
             [setup.ghat_l for setup in self], positions,
+            atomdist=atomdist,
             integral=sqrt(4 * pi))
-
-    def create_projectors(self, desc, positions):
-        return desc.atom_centered_functions(
-            [setup.pt_j for setup in self], positions)
 
     def overlap_correction(self, projections, out):
         for a, I1, I2 in projections.layout.myindices:

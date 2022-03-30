@@ -18,6 +18,32 @@ def test_pw_redist():
         assert f2.desc.comm.size == 1
 
 
+@pytest.mark.ci
+def test_pw_map():
+    """Test mapping from 5 to 9 G-vectors."""
+    pw5 = PlaneWaves(ecut=0.51 * (2 * pi)**2,
+                     cell=[1, 1, 0.1],
+                     dtype=complex)
+    pw9 = PlaneWaves(ecut=1.01 * (2 * pi)**2,
+                     cell=[1, 1, 0.1],
+                     dtype=complex,
+                     comm=world)
+    my_G_g, g_r = pw9.map_indices(pw5)
+    print(world.rank, my_G_g, g_r)
+    expected = {
+        1: ([[0, 1, 2, 3, 6]],
+            [[0, 1, 2, 3, 4]]),
+        2: ([[0, 1, 2, 3], [1]],
+            [[0, 1, 2, 3], [4]]),
+        4: ([[0, 1, 2], [0], [0], []],
+            [[0, 1, 2], [3], [4], []]),
+        8: ([[0, 1], [0, 1], [], [0], [], [], [], []],
+            [[0, 1], [2, 3], [], [4], [], [], [], []])}
+    assert not (my_G_g - expected[world.size][0][world.rank]).any()
+    for g, g0 in zip(g_r, expected[world.size][1]):
+        assert not (np.array(g) - g0).any()
+
+
 def test_pw_integrate():
     a = 1.0
     decomp = {1: [[0, 4], [0, 4], [0, 4]],

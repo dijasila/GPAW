@@ -14,10 +14,13 @@ class UniformGridPotentialCalculator(PotentialCalculator):
         self.nct_aR = nct_aR
 
         fracpos_ac = nct_aR.fracpos_ac
+        atomdist = nct_aR.atomdist
 
-        self.vbar_ar = setups.create_local_potentials(fine_grid, fracpos_ac)
+        self.vbar_ar = setups.create_local_potentials(fine_grid, fracpos_ac,
+                                                      atomdist)
         self.ghat_aLr = setups.create_compensation_charges(fine_grid,
-                                                           fracpos_ac)
+                                                           fracpos_ac,
+                                                           atomdist)
 
         self.vbar_r = fine_grid.empty()
         self.vbar_ar.to_uniform_grid(out=self.vbar_r)
@@ -73,11 +76,11 @@ class UniformGridPotentialCalculator(PotentialCalculator):
                 'xc': e_xc,
                 'external': e_external}, vt_sR, vHt_r
 
-    def _move(self, fracpos_ac, ndensities):
-        self.ghat_aLr.move(fracpos_ac)
-        self.vbar_ar.move(fracpos_ac)
+    def _move(self, fracpos_ac, atomdist, ndensities):
+        self.ghat_aLr.move(fracpos_ac, atomdist)
+        self.vbar_ar.move(fracpos_ac, atomdist)
         self.vbar_ar.to_uniform_grid(out=self.vbar_r)
-        self.nct_aR.move(fracpos_ac)
+        self.nct_aR.move(fracpos_ac, atomdist)
         self.nct_aR.to_uniform_grid(out=self.nct_R, scale=1.0 / ndensities)
 
     def force_contributions(self, state):

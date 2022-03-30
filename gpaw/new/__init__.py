@@ -66,7 +66,10 @@ class Timer:
         self.times['Total'] += time()
         total = self.times['Total']
         log()
+        n = max(len(name) for name in self.times) + 2
+        w = len(f'{total:.3f}')
+        N = 71 - n - w
         for name, t in self.times.items():
-            n = int(round(40 * t / total))
-            bar = '━' * n
-            log(f'Time ({name + "):":12}{t:10.3f} seconds', bar)
+            m = int(round(2 * N * t / total))
+            bar = '━' * (m // 2) + '╸' * (m % 2)
+            log(f'{name + ":":{n}}{t:{w}.3f} seconds', bar)

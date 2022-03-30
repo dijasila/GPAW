@@ -261,7 +261,7 @@ class LocalizedFunctionsCollection(BaseLFC):
             try:
                 movement |= sphere.set_position(spos_c, self.gd, self.cut)
             except GridBoundsError as e:
-                e.args = ['Atom %d too close to edge: %s' % (a, str(e))]
+                e.args = [f'Atom {a} too close to edge: {e}']
                 raise
 
         if movement or self.my_atom_indices is None:
