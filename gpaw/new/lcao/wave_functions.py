@@ -87,7 +87,10 @@ class LCAOWaveFunctions(WaveFunctions):
         if self.domain_comm.rank == 0 and self.band_comm.rank == 0:
             writer.fill(C_nM.data * Bohr**-1.5)
 
-    def to_uniform_grid_wave_functions(self, grid, basis, fracpos_ac):
+    def to_uniform_grid_wave_functions(self,
+                                       grid,
+                                       basis,
+                                       fracpos_ac, atomdist):
         grid = grid.new(kpt=self.kpt_c, dtype=self.dtype)
         psit_nR = grid.zeros(self.nbands, self.band_comm)
         basis.lcao_to_grid(self.C_nM.data, psit_nR.data, self.q)
@@ -99,5 +102,6 @@ class LCAOWaveFunctions(WaveFunctions):
             self.k,
             self.setups,
             fracpos_ac,
+            atomdist,
             self.weight,
             self.ncomponents)

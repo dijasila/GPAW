@@ -57,6 +57,17 @@ def get_efficient_fft_size(N: int, n=1, factors=[2, 3, 5, 7]) -> int:
     return N
 
 
+def empty(shape, dtype=float):
+    """numpy.empty() equivalent with 16 byte alignment."""
+    assert dtype == complex
+    N = np.prod(shape)
+    a = np.empty(2 * N + 1)
+    offset = (a.ctypes.data % 16) // 8
+    a = a[offset:2 * N + offset].view(complex)
+    a.shape = shape
+    return a
+
+
 def create_plans(size_c: IntVector,
                  dtype: DTypeLike,
                  flags: int = MEASURE) -> FFTPlans:
@@ -102,7 +113,7 @@ class FFTPlans:
 
 
 class FFTWPlans(FFTPlans):
-    """FFTW3 3d transform."""
+    """FFTW3 3d transforms."""
     def __init__(self, size_c, dtype, flags=MEASURE):
         if not have_fftw():
             raise ImportError('Not compiled with FFTW.')
@@ -137,6 +148,8 @@ class NumpyFFTPlans(FFTPlans):
             self.tmp_R[:] = ifftn(self.tmp_Q, self.tmp_R.shape,
                                   norm='forward', overwrite_x=True)
 
+
+# The rest of this file will be removed in the future ...
 
 def check_fftw_inputs(in_R, out_R):
     for arr in in_R, out_R:
@@ -201,17 +214,6 @@ class NumpyFFTPlan(FFTPlan):
             self.out_R *= self.out_R.size
         else:
             self.out_R[:] = np.fft.fftn(self.in_R)
-
-
-def empty(shape, dtype=float):
-    """numpy.empty() equivalent with 16 byte alignment."""
-    assert dtype == complex
-    N = np.prod(shape)
-    a = np.empty(2 * N + 1)
-    offset = (a.ctypes.data % 16) // 8
-    a = a[offset:2 * N + offset].view(complex)
-    a.shape = shape
-    return a
 
 
 def create_plan(in_R: Array3D,

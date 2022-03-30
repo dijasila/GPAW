@@ -24,6 +24,7 @@ class PWFDWaveFunctions(WaveFunctions):
                  atomdist: AtomDistribution,
                  weight: float = 1.0,
                  ncomponents: int = 1):
+        assert isinstance(atomdist, AtomDistribution)
         self.psit_nX = psit_nX
         super().__init__(setups=setups,
                          nbands=psit_nX.dims[0],

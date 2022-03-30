@@ -135,8 +135,7 @@ class DFTComponentsBuilder:
     @cached_property
     def atomdist(self) -> AtomDistribution:
         return AtomDistribution(
-            self.grid.ranks_from_fractional_positions(
-                self.fracpos_ac),
+            self.grid.ranks_from_fractional_positions(self.fracpos_ac),
             self.grid.comm)
 
     @cached_property

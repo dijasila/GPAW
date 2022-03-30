@@ -1454,6 +1454,7 @@ class Setups(list):
                 spline_aj.append([setup.nct])
         return layout.atom_centered_functions(
             spline_aj, positions,
+            atomdist=atomdist,
             integral=[setup.Nct for setup in self],
             cut=True)
 
