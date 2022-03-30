@@ -6,10 +6,12 @@ Python wrapper for FFTW3 library
 
 """
 from __future__ import annotations
+
 import numpy as np
+from scipy.fft import fftn, ifftn, irfftn, rfftn
 
 import _gpaw
-from gpaw.typing import Array3D, IntVector, DTypeLike
+from gpaw.typing import Array3D, DTypeLike, IntVector
 
 ESTIMATE = 64
 MEASURE = 0
@@ -123,17 +125,17 @@ class NumpyFFTPlans(FFTPlans):
     """Numpy fallback."""
     def fft(self):
         if self.tmp_R.dtype == float:
-            self.tmp_Q[:] = np.fft.rfftn(self.tmp_R)
+            self.tmp_Q[:] = rfftn(self.tmp_R, overwrite_x=True)
         else:
-            self.tmp_Q[:] = np.fft.fftn(self.tmp_R)
+            self.tmp_Q[:] = fftn(self.tmp_R, overwrite_x=True)
 
     def ifft(self):
         if self.tmp_R.dtype == float:
-            self.tmp_R[:] = np.fft.irfftn(self.tmp_Q, self.tmp_R.shape,
-                                          norm='forward')
+            self.tmp_R[:] = irfftn(self.tmp_Q, self.tmp_R.shape,
+                                   norm='forward', overwrite_x=True)
         else:
-            self.tmp_R[:] = np.fft.ifftn(self.tmp_Q, self.tmp_R.shape,
-                                         norm='forward')
+            self.tmp_R[:] = ifftn(self.tmp_Q, self.tmp_R.shape,
+                                  norm='forward', overwrite_x=True)
 
 
 def check_fftw_inputs(in_R, out_R):
