@@ -201,7 +201,11 @@ class PWFDWaveFunctions(WaveFunctions):
             F_vii -= np.einsum('inv, jn, jk -> vik', F_inv, P_in, dO_ii)
             F_av[a] += 2 * F_vii.real.trace(0, 1, 2)
 
-    def collect(self, n1=0, n2=0):
+    def collect(self,
+                n1: int = 0,
+                n2: int = 0) -> PWFDWaveFunctions:
+        """Collect range of bands to master of band- and domain-comms."""
+        # Also collect projections instead of recomputing XXX
         n2 = n2 or len(self) + n2
         band_comm = self.psit_nX.comm
         domain_comm = self.psit_nX.desc.comm
@@ -239,7 +243,7 @@ class PWFDWaveFunctions(WaveFunctions):
                                          self.k,
                                          self.setups,
                                          self.fracpos_ac,
-                                         self.atomdist,
+                                         self.atomdist.gather(),
                                          self.weight,
                                          self.ncomponents)
         else:

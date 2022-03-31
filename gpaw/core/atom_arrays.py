@@ -143,6 +143,9 @@ class AtomDistribution:
         return (f'AtomDistribution(ranks={self.rank_a}, '
                 f'comm={self.comm.rank}/{self.comm.size})')
 
+    def gather(self):
+        return AtomDistribution(np.zeros(len(self.rank_a), int))
+
 
 class AtomArrays:
     def __init__(self,

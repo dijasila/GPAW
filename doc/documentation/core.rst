@@ -437,3 +437,4 @@ FFTW
 ----
 
 .. automodule:: gpaw.fftw
+   :members:

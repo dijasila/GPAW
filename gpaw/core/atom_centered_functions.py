@@ -38,7 +38,8 @@ class AtomCenteredFunctions:
         funcs = [['spdfgh'[f.l] for f in ff] for ff in self.functions[:4]]
         if len(self.functions) > 4:
             funcs.append(...)
-        return f'{self.__class__.__name__}(functions={funcs})'
+        return (f'{self.__class__.__name__}'
+                f'(functions={funcs}, atomdist={self.atomdist})')
 
     @property
     def layout(self):
@@ -134,6 +135,8 @@ class UniformGridAtomCenteredFunctions(AtomCenteredFunctions):
         else:
             for sphere, rank in zip(self._lfc.sphere_a, self._atomdist.rank_a):
                 assert sphere.rank == rank
+            assert self.grid.comm is self._atomdist.comm
+
         self._layout = AtomArraysLayout([sum(2 * f.l + 1 for f in funcs)
                                          for funcs in self.functions],
                                         self._atomdist,

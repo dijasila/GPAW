@@ -29,6 +29,8 @@ class PlaneWaveAtomCenteredFunctions(AtomCenteredFunctions):
         if self._atomdist is None:
             self._atomdist = AtomDistribution.from_number_of_atoms(
                 len(self.fracpos_ac), self.pw.comm)
+        else:
+            assert self.pw.comm is self._atomdist.comm
 
         self._lfc.set_positions(self.fracpos_ac, self._atomdist)
         self._layout = AtomArraysLayout([sum(2 * f.l + 1 for f in funcs)

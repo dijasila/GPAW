@@ -2,8 +2,6 @@
 Python wrapper for FFTW3 library
 ================================
 
-.. autoclass:: FFTPlan
-
 """
 from __future__ import annotations
 

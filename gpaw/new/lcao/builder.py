@@ -65,7 +65,7 @@ class LCAODFTComponentsBuilder(FDDFTComponentsBuilder):
             dO_ii = self.setups[a].dO_ii
             for P_Mi, S_MM in zip(P_qMi, S_qMM):
                 S_MM += P_Mi @ dO_ii @ P_Mi.T.conj()
-        domain_comm.sum(S_MM)
+        domain_comm.sum(S_qMM)
 
         # self.atomic_correction= self.atomic_correction_cls.new_from_wfs(self)
         # self.atomic_correction.add_overlap_correction(newS_qMM)
