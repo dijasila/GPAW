@@ -70,6 +70,20 @@ def main():
             calculations.append(result)
             print(hash, result['energy'])
 
+    e0 = None
+    f0 = None
+    for result in calculations:
+        e = result['energy']
+        f = np.array(result['forces'])
+        if e0 is None:
+            e0 = e
+            f0 = f
+        de = result['energy'] - e0
+        df = abs(result['forces'] - f0).max()
+        cores = 'x'.join(f'{c}' for c in result['cores'])
+        code = result['code']
+        print(f'{cores:6} {code} {de:10.6f} {df:10.6f}')
+
     # 'force_complex_dtype': True,
     # kwargs['symmetry'] = {'point_group': False}
     return 0
@@ -78,7 +92,11 @@ def main():
 def run(input):
     ncores = np.prod(input['cores'])
     if ncores == world.size:
-        run_system(**input)
+        result = run_system(**input)
+        result = {**result, **input}
+        if world.rank == 0:
+            result_file = Path(f'{input["system"]}/{input["hash"]}.json')
+            result_file.write_text(json.dumps(result, indent=2))
     else:
         hex = json.dumps(input).encode().hex()
         subprocess.run(
@@ -138,9 +156,6 @@ def run_system(system: str,
 
     # ibz_index = atoms.calc.wfs.kd.bz2ibz_k[p.kpt]
     # eigs = atoms.calc.get_eigenvalues(ibz_index, p.spin)
-
-    if world.rank == 0:
-        Path(f'{tag}.json').write_text(json.dumps(result, indent=2))
 
     return result
 
