@@ -289,7 +289,7 @@ def plot_elph_nesting(atoms,results_file):
     # ax[0].set_ylim(-0.5,0.5)
     ax[2].set_xlabel('$q_x$')
     ax[2].set_ylabel('$q_y$')
-    ax[2].set_title('$E_{\Sigma}(q)$')
+    ax[2].set_title(r'$E_{\Sigma}(q)$')
 
     Q = np.array(elph2_nesting_q, float).reshape(int(sqrt(nq)),int(sqrt(nq)))
     im = ax[3].imshow(Q, origin='lower', vmax=np.max(Q), vmin=np.min(Q), #interpolation='gaussian',
@@ -299,7 +299,7 @@ def plot_elph_nesting(atoms,results_file):
     # ax[0].set_ylim(-0.5,0.5)
     ax[3].set_xlabel('$q_x$')
     ax[3].set_ylabel('$q_y$')
-    ax[3].set_title('$D_{\Sigma}(q)$')
+    ax[3].set_title(r'$D_{\Sigma}(q)$')
 
     Q = np.array(eigs_q[:,0], float).reshape(int(sqrt(nq)),int(sqrt(nq)))
     im = ax[4].imshow(Q, origin='lower', vmax=np.max(Q), vmin=np.min(Q), #interpolation='gaussian',
@@ -309,7 +309,7 @@ def plot_elph_nesting(atoms,results_file):
     # ax[0].set_ylim(-0.5,0.5)
     ax[4].set_xlabel('$q_x$')
     ax[4].set_ylabel('$q_y$')
-    ax[4].set_title('$E_{\lambda^*}(q)$')
+    ax[4].set_title(r'$E_{\lambda^*}(q)$')
 
     Q = np.array(eigs_nesting_q[:,0], float).reshape(int(sqrt(nq)),int(sqrt(nq)))
     im = ax[5].imshow(Q, origin='lower', vmax=np.max(Q), vmin=np.min(Q), #interpolation='gaussian',
@@ -319,7 +319,7 @@ def plot_elph_nesting(atoms,results_file):
     # ax[0].set_ylim(-0.5,0.5)
     ax[5].set_xlabel('$q_x$')
     ax[5].set_ylabel('$q_y$')
-    ax[5].set_title('$D_{\lambda^*}(q)$')
+    ax[5].set_title(r'$D_{\lambda^*}(q)$')
 
     special_points = {'G':[0.0,0.0,0.0], 'X':[0.0,0.5,0.0], 'M':[0.5,0.5,0.0], 'K':[1/3,1/3,0.0]}
     q_idx = []
@@ -353,33 +353,33 @@ def plot_elph_nesting(atoms,results_file):
 if __name__ == '__main__':
     # Unstable materials:
 
-    # calc = GPAW('tree-c2db/AB2/GaF2/GaF2-1e195eaaf561/gs.gpw')
+    calc = GPAW('tree-c2db/AB2/GaF2/GaF2-1e195eaaf561/gs.gpw')
     # get_elph_nesting(calc,results_file='elph_GaF2')#,bands=5.0)#,q_qc=[[0.0,0.0,0.0],[0.0,0.5,0.0],[0.5,0.5,0.0],[1/3,1/3,0.0]])
-    # plot_elph_nesting(calc.atoms,results_file='elph_GaF2')
+    plot_elph_nesting(calc.atoms,results_file='elph_GaF2')
 
-    calc = GPAW('tree-c2db/AB2/GeCl2/GeCl2-8b0f0207ae45/gs.gpw')
-    get_elph_nesting(calc,results_file='elph_GeCl2')#,bands=5.0)#,q_qc=[[0.0,0.0,0.0],[0.0,0.5,0.0],[0.5,0.5,0.0],[1/3,1/3,0.0]])
-    plot_elph_nesting(calc.atoms,results_file='elph_GeCl2')
+    # calc = GPAW('tree-c2db/AB2/GeCl2/GeCl2-8b0f0207ae45/gs.gpw')
+    # get_elph_nesting(calc,results_file='elph_GeCl2')#,bands=5.0)#,q_qc=[[0.0,0.0,0.0],[0.0,0.5,0.0],[0.5,0.5,0.0],[1/3,1/3,0.0]])
+    # plot_elph_nesting(calc.atoms,results_file='elph_GeCl2')
 
-    calc = GPAW('tree-c2db/AB2/TaI2/TaI2-b2b688fff665/gs.gpw')
-    get_elph_nesting(calc,results_file='elph_TaI2')#,bands=5.0)#,q_qc=[[0.0,0.0,0.0],[0.0,0.5,0.0],[0.5,0.5,0.0],[1/3,1/3,0.0]])
-    plot_elph_nesting(calc.atoms,results_file='elph_TaI2')
+    # calc = GPAW('tree-c2db/AB2/TaI2/TaI2-b2b688fff665/gs.gpw')
+    # get_elph_nesting(calc,results_file='elph_TaI2')#,bands=5.0)#,q_qc=[[0.0,0.0,0.0],[0.0,0.5,0.0],[0.5,0.5,0.0],[1/3,1/3,0.0]])
+    # plot_elph_nesting(calc.atoms,results_file='elph_TaI2')
 
 
-    # # Stable materials:
+    # # # Stable materials:
 
     
     
-    calc = GPAW('tree-c2db/AB2/MoS2/MoS2-b3b4685fb6e1/gs.gpw')
-    get_elph_nesting(calc,results_file='elph_MoS2')#,bands=5.0)#,q_qc=[[0.0,0.0,0.0],[0.0,0.5,0.0],[0.5,0.5,0.0],[1/3,1/3,0.0]])
-    plot_elph_nesting(calc.atoms,results_file='elph_MoS2')
+    # calc = GPAW('tree-c2db/AB2/MoS2/MoS2-b3b4685fb6e1/gs.gpw')
+    # get_elph_nesting(calc,results_file='elph_MoS2')#,bands=5.0)#,q_qc=[[0.0,0.0,0.0],[0.0,0.5,0.0],[0.5,0.5,0.0],[1/3,1/3,0.0]])
+    # plot_elph_nesting(calc.atoms,results_file='elph_MoS2')
 
-    calc = GPAW('tree-c2db/AB2/AlI2/AlI2-ed00aecbc014/gs.gpw')
-    get_elph_nesting(calc,results_file='elph_AlI2')#,bands=5.0)#,q_qc=[[0.0,0.0,0.0],[0.0,0.5,0.0],[0.5,0.5,0.0],[1/3,1/3,0.0]])
-    plot_elph_nesting(calc.atoms,results_file='elph_AlI2')
+    # calc = GPAW('tree-c2db/AB2/AlI2/AlI2-ed00aecbc014/gs.gpw')
+    # get_elph_nesting(calc,results_file='elph_AlI2')#,bands=5.0)#,q_qc=[[0.0,0.0,0.0],[0.0,0.5,0.0],[0.5,0.5,0.0],[1/3,1/3,0.0]])
+    # plot_elph_nesting(calc.atoms,results_file='elph_AlI2')
 
-    calc = GPAW('tree-c2db/AB2/CrO2/CrO2-aa2856f95afa/gs.gpw')
-    get_elph_nesting(calc,results_file='elph_CrO2')#,bands=5.0)#,q_qc=[[0.0,0.0,0.0],[0.0,0.5,0.0],[0.5,0.5,0.0],[1/3,1/3,0.0]])
-    plot_elph_nesting(calc.atoms,results_file='elph_CrO2')
+    # calc = GPAW('tree-c2db/AB2/CrO2/CrO2-aa2856f95afa/gs.gpw')
+    # get_elph_nesting(calc,results_file='elph_CrO2')#,bands=5.0)#,q_qc=[[0.0,0.0,0.0],[0.0,0.5,0.0],[0.5,0.5,0.0],[1/3,1/3,0.0]])
+    # plot_elph_nesting(calc.atoms,results_file='elph_CrO2')
 
     
