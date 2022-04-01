@@ -204,7 +204,8 @@ class PWFDWaveFunctions(WaveFunctions):
     def collect(self,
                 n1: int = 0,
                 n2: int = 0) -> PWFDWaveFunctions:
-        """Collect range of bands to master of band- and domain-comms."""
+        """Collect range of bands to master of band and domain
+        communicators."""
         # Also collect projections instead of recomputing XXX
         n2 = n2 or len(self) + n2
         band_comm = self.psit_nX.comm
