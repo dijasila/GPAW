@@ -286,6 +286,7 @@ class IBZWaveFunctions:
                             if spin == 0 and k == 0:
                                 writer.add_array('coefficients',
                                                  shape, dtype=coef_nX.dtype)
+                            coef_nX.shape = shape[2:]
                             writer.fill(coef_nX * c)
                         else:
                             self.kpt_comm.send(coef_nX, 0)

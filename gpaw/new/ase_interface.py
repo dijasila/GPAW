@@ -8,19 +8,11 @@ from ase import Atoms
 from ase.units import Bohr, Ha
 from gpaw import __version__
 from gpaw.new import Timer
-from gpaw.new.calculation import DFTCalculation
+from gpaw.new.calculation import DFTCalculation, units
 from gpaw.new.gpw import read_gpw, write_gpw
 from gpaw.new.input_parameters import InputParameters
 from gpaw.new.logger import Logger
 from gpaw.typing import Array1D, Array2D
-
-
-units = {'energy': Ha,
-         'forces': Ha / Bohr,
-         'stress': Ha / Bohr**3,
-         'dipole': Bohr,
-         'magmom': 1.0,
-         'magmoms': 1.0}
 
 
 def GPAW(filename: Union[str, Path, IO[str]] = None,

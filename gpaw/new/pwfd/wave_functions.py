@@ -328,9 +328,9 @@ class PWFDWaveFunctions(WaveFunctions):
         return dipole_nnv
 
     def gather_wave_function_coefficients(self) -> np.ndarray:
-        psit_nX = self.psit_nX.gather()
+        psit_nX = self.psit_nX.gather()  # gather X
         if psit_nX is not None:
-            data_nX = psit_nX.matrix.gather()
+            data_nX = psit_nX.matrix.gather()  # gather n
             if data_nX.dist.comm.rank == 0:
                 # XXX PW-gamma-point mode: float or complex matrix.dtype?
                 return data_nX.data.view(psit_nX.data.dtype)

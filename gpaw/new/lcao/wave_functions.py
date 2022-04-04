@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import numpy as np
-from ase.io.ulm import Writer
-from ase.units import Bohr
 from gpaw.core.atom_arrays import (AtomArrays, AtomArraysLayout,
                                    AtomDistribution)
 from gpaw.core.matrix import Matrix
@@ -53,6 +51,11 @@ class LCAOWaveFunctions(WaveFunctions):
         # This is for TB-mode (and MYPY):
         self.V_MM: np.ndarray
 
+    def array_shape(self, global_shape=False):
+        if global_shape:
+            return self.C_nM.shape[1:]
+        1 / 0
+
     @property
     def P_ain(self):
         if self._P_ain is None:
@@ -79,17 +82,11 @@ class LCAOWaveFunctions(WaveFunctions):
         self.density_adder(rho_MM, nt_sR.data[self.spin])
         self.add_to_atomic_density_matrices(occ_n, D_asii)
 
-    def add_wave_functions_array(self,
-                                 writer: Writer,
-                                 spin_k_shape: tuple[int, int]):
-        shape = spin_k_shape + self.C_nM.shape
-        if self.domain_comm.rank == 0 and self.band_comm.rank == 0:
-            writer.add_array('coefficients', shape, dtype=self.dtype)
-
-    def fill_wave_functions(self, writer: Writer):
+    def gather_wave_function_coefficients(self) -> np.ndarray:
         C_nM = self.C_nM.gather()
-        if self.domain_comm.rank == 0 and self.band_comm.rank == 0:
-            writer.fill(C_nM.data * Bohr**-1.5)
+        if C_nM is not None:
+            return C_nM.data
+        return None
 
     def to_uniform_grid_wave_functions(self,
                                        grid,

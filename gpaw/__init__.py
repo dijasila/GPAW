@@ -23,7 +23,7 @@ is_gpaw_python = '_gpaw' in sys.builtin_module_names
 dry_run = 0
 
 # When type-checking, we want the debug-wrappers enabled:
-debug: bool = TYPE_CHECKING or bool(sys.flags.debug)
+debug=1#: bool = TYPE_CHECKING or bool(sys.flags.debug)
 
 
 @contextlib.contextmanager

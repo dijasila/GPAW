@@ -13,6 +13,7 @@ from typing import Any, Sequence
 import numpy as np
 from ase import Atoms
 from ase.build import bulk
+from ase.units import Ha, Bohr
 from gpaw.calculator import GPAW as OldGPAW
 from gpaw.mpi import world
 from gpaw.new.ase_interface import GPAW as NewGPAW
@@ -73,15 +74,20 @@ def main():
     f0 = None
     for result in calculations:
         e = result['energy']
-        f = np.array(result['forces'])
+        f = result['forces']
         if e0 is None:
             e0 = e
-            f0 = f
+        if f0 is None and f is not None:
+            f0 = np.array(f)
         de = result['energy'] - e0
-        df = abs(result['forces'] - f0).max()
+        if f is None or f0 is None:
+            df = '?'
+        else:
+            error = abs(result['forces'] - f0).max()
+            df = f'{error:10.6f}'
         cores = 'x'.join(f'{c}' for c in result['cores'])
         code = result['code']
-        print(f'{cores:6} {code} {de:10.6f} {df:10.6f}')
+        print(f'{cores:6} {code} {de:10.6f} {df}')
 
     # 'force_complex_dtype': True,
     # kwargs['symmetry'] = {'point_group': False}
@@ -126,7 +132,7 @@ def run_system(system: str,
     if pbc is not None:
         atoms.pbc = pbc
     if vacuum:
-        atoms.center(vacuum=vacuum, axes=[a
+        atoms.center(vacuum=vacuum, axis=[a
                                           for a, p in enumerate(atoms.pbc)
                                           if not p])
     if magmoms is not None:
@@ -146,14 +152,27 @@ def run_system(system: str,
 
     t1 = time()
     energy = atoms.get_potential_energy()
-    forces = atoms.get_forces()
+    try:
+        forces = atoms.get_forces()
+    except NotImplementedError:
+        forces = None
+
     t2 = time()
 
     result = {'time': t2 - t1,
               'energy': energy,
-              'forces': forces.tolist()}
+              'forces': None if forces is None else forces.tolist()}
 
     calc.write(f'{tag}.gpw', mode='all')
+
+    calculation = NewGPAW(f'{tag}.gpw').calculation
+
+    energy2 = calculation.results['energy'] * Ha
+    assert abs(energy2 - energy) < 1e-14, (energy2, energy)
+
+    if forces is not None:
+        forces2 = calculation.results['forces'] * Ha / Bohr
+        assert abs(forces2 - forces).max() < 1e-14
 
     # ibz_index = atoms.calc.wfs.kd.bz2ibz_k[p.kpt]
     # eigs = atoms.calc.get_eigenvalues(ibz_index, p.spin)
