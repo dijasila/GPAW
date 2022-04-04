@@ -139,9 +139,11 @@ def run_system(system: str,
                       'density': kpts},
                   'txt': f'{tag}.txt'}
     if code == 'new':
-        atoms.calc = NewGPAW(**parameters)
+        calc = NewGPAW(**parameters)
     else:
-        atoms.calc = OldGPAW(**parameters)
+        calc = OldGPAW(**parameters)
+
+    atoms.calc = calc
 
     t1 = time()
     energy = atoms.get_potential_energy()
@@ -152,7 +154,7 @@ def run_system(system: str,
               'energy': energy,
               'forces': forces.tolist()}
 
-    atoms.calc.write(f'{tag}.gpw', mode='all')
+    calc.write(f'{tag}.gpw', mode='all')
 
     # ibz_index = atoms.calc.wfs.kd.bz2ibz_k[p.kpt]
     # eigs = atoms.calc.get_eigenvalues(ibz_index, p.spin)
