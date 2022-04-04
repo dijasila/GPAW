@@ -291,7 +291,7 @@ class PWLFC(BaseLFC):
             c_axi = self.dict(a_xG.shape[:-1])
 
         x = 0.0
-        for G1, G2 in self.block(q):
+        for G1, G2 in self.block():
             f_GI = self.expand(G1, G2, cc=self.dtype == complex)
             if self.dtype == float:
                 if G1 == 0 and self.comm.rank == 0:
@@ -319,9 +319,9 @@ class PWLFC(BaseLFC):
             c_axiv = self.dict(a_xG.shape[:-1], derivative=True)
 
         x = 0.0
-        for G1, G2 in self.block(q):
+        for G1, G2 in self.block():
             f_GI = self.expand(G1, G2, cc=True)
-            G_Gv = self.pw.G_plus_k_Gv
+            G_Gv = self.pw.G_plus_k_Gv[G1:G2]
             if self.dtype == float:
                 d_GI = np.empty_like(f_GI)
                 for v in range(3):
@@ -387,7 +387,7 @@ class PWLFC(BaseLFC):
         G0_Gv = self.pd.get_reciprocal_vectors(q=q)
 
         stress_vv = np.zeros((3, 3))
-        for G1, G2 in self.block(q, ensure_same_number_of_blocks=True):
+        for G1, G2 in self.block(ensure_same_number_of_blocks=True):
             G_Gv = G0_Gv[G1:G2]
             Z_LvG = np.array([nablarlYL(L, G_Gv.T)
                               for L in range((lmax + 1)**2)])

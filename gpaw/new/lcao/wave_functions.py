@@ -9,6 +9,7 @@ from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 from gpaw.new.wave_functions import WaveFunctions
 from gpaw.setup import Setups
 from gpaw.typing import Array2D
+from gpaw.new import cached_property
 
 
 class LCAOWaveFunctions(WaveFunctions):
@@ -17,7 +18,7 @@ class LCAOWaveFunctions(WaveFunctions):
                  setups: Setups,
                  density_adder,
                  C_nM: Matrix,
-                 S_MM: Array2D,
+                 S_MM: Matrix,
                  T_MM,
                  P_aMi,
                  fracpos_ac,
@@ -50,6 +51,12 @@ class LCAOWaveFunctions(WaveFunctions):
 
         # This is for TB-mode (and MYPY):
         self.V_MM: np.ndarray
+
+    @cached_property
+    def L_MM(self):
+        S_MM = self.S_MM.copy()
+        S_MM.invcholesky()
+        return S_MM
 
     def array_shape(self, global_shape=False):
         if global_shape:

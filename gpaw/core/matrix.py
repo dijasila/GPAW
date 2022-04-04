@@ -109,6 +109,11 @@ class Matrix:
                       dist=self.dist if dist == 'inherit' else dist,
                       data=data)
 
+    def copy(self):
+        M = self.new()
+        M.data[:] = self.data
+        return M
+
     def __setitem__(self, item, value):
         assert item == slice(None)
         assert isinstance(value, Matrix)
@@ -227,7 +232,18 @@ class Matrix:
     def invcholesky(self):
         """Inverse of Cholesky decomposition.
 
-        Only the lower part is used.
+        Returns a lower triangle matrix `L` where:::
+
+             H
+          LSL = 1
+
+        Only the lower part of `S` is used.
+
+        >>> S = Matrix(2, 2, data=np.array([[1.0, np.nan], [0.1, 1.0]]))
+        >>> S.invcholesky()
+        >>> S.data
+        array([[ 1.        , -0.        ],
+               [-0.10050378,  1.00503782]])
         """
         S = self.gather()
         if self.dist.comm.rank == 0:
@@ -281,6 +297,7 @@ class Matrix:
                 eps[:], H.data.T[:] = linalg.eigh(H.data,
                                                   lower=True,  # ???
                                                   overwrite_a=True,
+                                                  driver='evd',
                                                   check_finite=debug)
             self.dist.comm.broadcast(eps, 0)
         else:
@@ -302,10 +319,38 @@ class Matrix:
 
         return eps
 
+    def eighg(self, L_MM):
+        """Solve generalized eigenvalue problem.
+
+        :::
+
+                     H
+          HC=SCΛ, LSL = 1
+
+        :::
+
+           ~~ ~   ~    H     ~
+           HC=CΛ, H=LHL,  C=LC
+        """
+        L = L_MM.data
+        H_MM = L @ self.data @ L.conj().T
+        eig_M, C_MM = linalg.eigh(H_MM, overwrite_a=True, driver='evd')
+        self.data[:] = L @ self.data
+        return eig_M
+
     def complex_conjugate(self):
         """Inplace complex conjugation."""
         if self.dtype == complex:
             np.negative(self.data.imag, self.data.imag)
+
+    def add_hermetian_conjugate(self, scale=1.0):
+        if self.dist.comm.size == 1:
+            self.data *= 0.5
+            self.data += self.data.conj().T
+            return
+        tmp = self.copy()
+        _gpaw.pblas_tran(*self.shape, scale, tmp.data, scale, self.data,
+                         self.dist.desc, self.dist.desc, True)
 
 
 def _matrix(M):
@@ -328,6 +373,16 @@ class MatrixDistribution:
 
     def multiply(self, alpha, a, opa, b, opb, beta, c, symmetric):
         raise NotImplementedError
+
+    def myslice(self):
+        assert self.rows == self.comm.size
+        assert self.columns == 1
+        assert self.blocksize is None
+        M = self.shape[0]
+        b = (M + self.rows - 1) // self.rows
+        n1 = self.comm.rank * b
+        n2 = min(n1 + b, M)
+        return slice(n1, n2)
 
 
 class NoDistribution(MatrixDistribution):

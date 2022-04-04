@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import IO, Any, Union
 
 from ase import Atoms
-from ase.units import Bohr, Ha
+from ase.units import Ha
 from gpaw import __version__
 from gpaw.new import Timer
 from gpaw.new.calculation import DFTCalculation, units

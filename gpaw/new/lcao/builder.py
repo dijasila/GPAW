@@ -11,8 +11,12 @@ from gpaw.new.lcao.hybrids import HybridXCFunctional, HybridLCAOEigensolver
 
 
 class LCAODFTComponentsBuilder(FDDFTComponentsBuilder):
-    def __init__(self, atoms, params):
+    def __init__(self,
+                 atoms,
+                 params,
+                 distribution=None):
         super().__init__(atoms, params)
+        self.distribution = distribution
         self.basis = None
 
     def create_wf_description(self):
@@ -71,7 +75,8 @@ class LCAODFTComponentsBuilder(FDDFTComponentsBuilder):
         # self.atomic_correction.add_overlap_correction(newS_qMM)
 
         def create_wfs(spin, q, k, kpt_c, weight):
-            C_nM = Matrix(self.nbands, self.setups.nao, self.dtype,
+            nao = self.setups.nao
+            C_nM = Matrix(self.nbands, nao, self.dtype,
                           dist=(band_comm, band_comm.size, 1))
             if coefficients is not None:
                 C_nM.data[:] = coefficients.proxy(spin, k)
@@ -79,7 +84,8 @@ class LCAODFTComponentsBuilder(FDDFTComponentsBuilder):
                 setups=self.setups,
                 density_adder=partial(basis.construct_density, q=q),
                 C_nM=C_nM,
-                S_MM=S_qMM[q],
+                S_MM=Matrix(nao, nao, data=S_qMM[q],
+                            dist=(band_comm, band_comm.size, 1)),
                 T_MM=T_qMM[q],
                 P_aMi=P_qaMi[q],
                 kpt_c=kpt_c,
