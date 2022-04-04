@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-import binascii
 import hashlib
 import json
 import os
@@ -34,7 +33,7 @@ def main():
     args = parser.parse_intermixed_args()
 
     if args.hex:
-        run(json.loads(binascii.unhexlify(args.system)))
+        run(json.loads(bytes.fromhex(args.system)))
         return 0
 
     params = {
