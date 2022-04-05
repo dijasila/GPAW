@@ -99,7 +99,7 @@ class Matrix:
         dist = str(self.dist).split('(')[1]
         return 'Matrix({}: {}'.format(self.dtype.name, dist)
 
-    def new(self, dist='inherit', data=None):
+    def new(self, dist='inherit', data=None) -> Matrix:
         """Create new matrix of same shape and dtype.
 
         Default is to use same BLACS distribution.  Use dist to use another
@@ -110,7 +110,8 @@ class Matrix:
                       dist=self.dist if dist == 'inherit' else dist,
                       data=data)
 
-    def copy(self):
+    def copy(self) -> Matrix:
+        """Create a copy."""
         M = self.new()
         M.data[:] = self.data
         return M
@@ -128,6 +129,7 @@ class Matrix:
                  out=None,
                  beta=0.0,
                  symmetric=False) -> Matrix:
+        """BLAS matrix-multiplication with other matrix."""
         if not isinstance(other, Matrix):
             other = other.matrix
         A = self
@@ -349,6 +351,7 @@ class Matrix:
             np.negative(self.data.imag, self.data.imag)
 
     def add_hermitian_conjugate(self, scale: float = 1.0) -> None:
+        """Add heritian conjugates to myself."""
         if self.dist.comm.size == 1:
             self.data *= 0.5
             self.data += self.data.conj().T
@@ -377,7 +380,14 @@ class Matrix:
             self.data[u] = self.data.T[u].conj()
             return
 
-        scalapack_tri2full(self.dist.desc, self.data)
+        desc = self.dist.desc
+        _gpaw.scalapack_set(self.data, desc, 0.0, 0.0, 'L', M - 1, M - 1, 2, 1)
+        buf = self.data.copy()
+        # Set diagonal to zero in the copy:
+        _gpaw.scalapack_set(buf, desc, 0.0, 0.0, 'L', M, M, 1, 1)
+        # Now transpose tmp_mm adding the result to the original matrix:
+        _gpaw.pblas_tran(*self.shape, 1.0, buf, 1.0, self.data,
+                         desc, desc, True)
 
 
 def _matrix(M):
@@ -569,7 +579,7 @@ def fastmmm(m1, m2, m3, beta):
 
     buf1 = m2.data
 
-    N = len(m1)
+    N = m1.shape[0]
     n = (N + comm.size - 1) // comm.size
 
     for r in range(comm.size):
