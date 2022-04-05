@@ -10,7 +10,6 @@ import scipy.linalg as linalg
 from gpaw import debug
 from gpaw.mpi import MPIComm, _Communicator, serial_comm
 from gpaw.typing import Array1D, Array2D
-from gpaw.utilities.scalapack import scalapack_tri2full
 
 _global_blacs_context_store: Dict[Tuple[_Communicator, int, int], int] = {}
 
