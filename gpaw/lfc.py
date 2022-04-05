@@ -974,12 +974,13 @@ class BasisFunctions(LocalizedFunctionsCollection):
     def add_to_density(self, nt_sG, f_asi):
         r"""Add linear combination of squared localized functions to density.
 
-        ::
+        :::
 
-          ~        --   a  /    a    \2
-          n (r) += >   f   | Phi (r) |
-            s      --   si \    i    /
+          ~        ---   a    a   2
+          n (r) += >    f   [Φ(r)]
+           s       ---   si   i
                    a,i
+
         """
         assert np.all(self.gd.n_c == nt_sG.shape[1:])
         nspins = len(nt_sG)

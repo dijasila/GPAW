@@ -284,6 +284,7 @@ class AtomArrays:
         return self._arrays.values()
 
     def gather(self, broadcast=False, copy=False) -> AtomArrays | None:
+        """Gather all atoms on master."""
         comm = self.layout.atomdist.comm
         if comm.size == 1:
             if copy:
@@ -292,8 +293,6 @@ class AtomArrays:
                 return aa
             return self
 
-        assert not self.transposed
-
         if comm.rank == 0 or broadcast:
             aa = self.new(layout=self.layout.new(atomdist=serial_comm))
         else:
@@ -301,16 +300,29 @@ class AtomArrays:
 
         if comm.rank == 0:
             size_ra, size_r = self.layout.sizes()
-            shape = self.mydims + (size_r.max(),)
-            buffer = np.empty(shape, self.layout.dtype)
-            for rank in range(1, comm.size):
-                buf = buffer[..., :size_r[rank]]
-                comm.receive(buf, rank)
-                b1 = 0
-                for a, size in size_ra[rank].items():
-                    b2 = b1 + size
-                    A = aa[a]
-                    A[:] = buf[..., b1:b2].reshape(A.shape)
+            if self.transposed:
+                n = np.prod(self.mydims)
+                buffer = np.empty(n * size_r.max(), self.layout.dtype)
+                for rank in range(1, comm.size):
+                    buf = buffer[:n * size_r[rank]].reshape(
+                        (size_r[rank],) + self.mydims)
+                    comm.receive(buf, rank)
+                    b1 = 0
+                    for a, size in size_ra[rank].items():
+                        b2 = b1 + size
+                        A = aa[a]
+                        A[:] = buf[b1:b2].reshape(A.shape)
+            else:
+                shape = self.mydims + (size_r.max(),)
+                buffer = np.empty(shape, self.layout.dtype)
+                for rank in range(1, comm.size):
+                    buf = buffer[..., :size_r[rank]]
+                    comm.receive(buf, rank)
+                    b1 = 0
+                    for a, size in size_ra[rank].items():
+                        b2 = b1 + size
+                        A = aa[a]
+                        A[:] = buf[..., b1:b2].reshape(A.shape)
             for a, array in self._arrays.items():
                 aa[a] = array
         else:

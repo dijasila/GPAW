@@ -121,3 +121,6 @@ class WaveFunctions:
 
     def receive(self, kpt_comm, rank):
         raise NotImplementedError
+
+    def force_contribution(self, dH_asii: AtomArrays, F_av: Array2D):
+        raise NotImplementedError

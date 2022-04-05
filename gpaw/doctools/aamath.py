@@ -233,10 +233,40 @@ def test_examples():
 
 def main():
     import sys
-    lines = sys.stdin.read().splitlines()
-    # lines = """
-    # """.splitlines()
-    print(parse(lines))
+    import argparse
+    import importlib
+    parser = argparse.ArgumentParser(
+        description='Parse docstring with ascii-art math.')
+    parser.add_argument(
+        'thing',
+        nargs='?',
+        help='Name of module, class, method or '
+        'function.  Examples: "module.submodule", '
+        '"module.Class", "module.Class.method", '
+        '"module.function".  Will read from stdin if not given.')
+    args = parser.parse_args()
+    if args.thing is None:
+        lines = sys.stdin.read().splitlines()
+        print(parse(lines))
+    else:
+        parts = args.thing.split('.')
+        for i, part in enumerate(parts):
+            if not part.islower():
+                mod = importlib.import_module('.'.join(parts[:i]))
+                break
+        else:
+            # no break
+            try:
+                mod = importlib.import_module('.'.join(parts))
+                i += 1
+            except ImportError:
+                mod = importlib.import_module('.'.join(parts[:-1]))
+        thing = mod
+        for part in parts[i:]:
+            thing = getattr(thing, part)
+        lines = thing.__doc__.splitlines()
+        autodoc_process_docstring(lines)
+        print('\n'.join(lines))
 
 
 if __name__ == '__main__':

@@ -69,7 +69,7 @@ def empty(shape, dtype=float):
 def create_plans(size_c: IntVector,
                  dtype: DTypeLike,
                  flags: int = MEASURE) -> FFTPlans:
-    """Create plan-objects for fft and ifft."""
+    """Create plan-objects for FFT and inverse FFT."""
     if have_fftw():
         return FFTWPlans(size_c, dtype, flags)
     return NumpyFFTPlans(size_c, dtype)
@@ -88,7 +88,7 @@ class FFTPlans:
             self.tmp_R = self.tmp_Q
 
     def fft(self) -> None:
-        """Do FFT from tmp_R to tmp_Q.
+        """Do FFT from ``tmp_R`` to ``tmp_Q``.
 
         >>> plans = create_plans([4, 1, 1], float)
         >>> plans.tmp_R[:, 0, 0] = [1, 0, 1, 0]
@@ -99,7 +99,7 @@ class FFTPlans:
         raise NotImplementedError
 
     def ifft(self) -> None:
-        """Do iFFT from tmp_Q to tmp_R.
+        """Do inverse FFT from ``tmp_Q`` to ``tmp_R``.
 
         >>> plans = create_plans([4, 1, 1], complex)
         >>> plans.tmp_Q[:, 0, 0] = [0, 1j, 0, 0]

@@ -314,13 +314,15 @@ Matrix object
 =============
 
 .. module:: gpaw.core.matrix
-.. autoclass:: Matrix
-   :members:
-   :undoc-members:
+
+Here are the methods of the :class:`~Matrix` class:
+
+.. csv-table::
+   :file: m.csv
 
 A simple example that we can run with MPI on 4 cores::
 
-    from gpaw.matrix import Matrix
+    from gpaw.core.matrix import Matrix
     from gpaw.mpi import world
     a = Matrix(5, 5, dist=(world, 2, 2, 2))
     a.data[:] = world.rank
@@ -394,6 +396,10 @@ Core
 .. autoclass:: gpaw.core.plane_waves.Empty
     :members:
     :undoc-members:
+
+.. autoclass:: Matrix
+   :members:
+   :undoc-members:
 
 
 DFT
