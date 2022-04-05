@@ -129,6 +129,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         self.nct_aR.to_uniform_grid(out=self.nct_R, scale=1.0 / ndensities)
 
     def force_contributions(self, state):
+        raise NotImplementedError
         # WIP!
         density = state.density
         potential = state.potential

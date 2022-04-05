@@ -11,6 +11,15 @@ from gpaw.new.potential import Potential
 from gpaw.utilities import check_atoms_too_close
 
 
+units = {'energy': Ha,
+         'free_energy': Ha,
+         'forces': Ha / Bohr,
+         'stress': Ha / Bohr**3,
+         'dipole': Bohr,
+         'magmom': 1.0,
+         'magmoms': 1.0}
+
+
 class DFTState:
     def __init__(self,
                  ibzwfs: IBZWaveFunctions,

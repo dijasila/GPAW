@@ -1,13 +1,15 @@
-# creates: ug.csv, ugf.csv, pw.csv, pwe.csv
+# creates: ug.csv, ugf.csv, pw.csv, pwe.csv, m.csv
 from gpaw.core import UniformGrid, PlaneWaves
 from gpaw.core.plane_waves import PlaneWaveExpansions
 from gpaw.core.uniform_grid import UniformGridFunctions
+from gpaw.core.matrix import Matrix
 
 
 for cls in [UniformGrid,
             PlaneWaves,
             UniformGridFunctions,
-            PlaneWaveExpansions]:
+            PlaneWaveExpansions,
+            Matrix]:
     name = ''.join(x for x in cls.__name__ if x.isupper()).lower()
     mod = cls.__module__
     if name == 'ug':

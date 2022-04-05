@@ -203,6 +203,9 @@ class Density:
 
     def write(self, writer):
         D_asii = self.D_asii.gather()
+        nt_sR = self.nt_sR.gather()
+        if D_asii is None:
+            return
 
         # Pack matrices:
         N = sum(i1 * (i1 + 1) // 2 for i1, i2 in D_asii.layout.shape_a)
@@ -216,7 +219,7 @@ class Density:
             n1 = n2
 
         writer.write(
-            density=self.nt_sR.gather().data * Bohr**-3,
+            density=nt_sR.data * Bohr**-3,
             atomic_density_matrices=D)
 
 
