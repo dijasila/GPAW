@@ -976,9 +976,9 @@ class BasisFunctions(LocalizedFunctionsCollection):
 
         :::
 
-          ~        --   a    a   2
-          n (r) += >   f   [Φ(r)]
-           s       --   si   i
+          ~        ---   a    a   2
+          n (r) += >    f   [Φ(r)]
+           s       ---   si   i
                    a,i
 
         """
