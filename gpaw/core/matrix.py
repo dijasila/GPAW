@@ -295,11 +295,12 @@ class Matrix:
                     np.negative(H.data.imag, H.data.imag)
                 if debug:
                     H.data[np.triu_indices(H.shape[0], 1)] = 42.0
-                eps[:], H.data.T[:] = linalg.eigh(H.data,
-                                                  lower=True,  # ???
-                                                  overwrite_a=True,
-                                                  driver='evd',
-                                                  check_finite=debug)
+                eps[:], H.data.T[:] = linalg.eigh(
+                    H.data,
+                    lower=True,
+                    overwrite_a=True,
+                    check_finite=debug,
+                    driver='evx' if H.data.size == 1 else 'evd')
             self.dist.comm.broadcast(eps, 0)
         else:
             if slcomm.rank < rows * columns:
@@ -335,7 +336,10 @@ class Matrix:
         """
         L_MM = L.data
         Ht_MM = L_MM @ self.data @ L_MM.conj().T
-        eig_n, Ct_Mn = linalg.eigh(Ht_MM, overwrite_a=True, driver='evd')
+        eig_n, Ct_Mn = linalg.eigh(Ht_MM,
+                                   overwrite_a=True,
+                                   check_finite=debug,
+                                   driver='evx' if Ht_MM.size == 1 else 'evd')
         self.data[:] = L_MM.T @ Ct_Mn
         return eig_n
 
@@ -363,7 +367,7 @@ class Matrix:
           d e f    d e f
 
         For a complex matrix, the complex conjugate of the lower part will
-        be inserted in to the upper part.
+        be inserted into the upper part.
         """
         M, N = self.shape
         assert M == N
@@ -397,10 +401,17 @@ class MatrixDistribution:
     def multiply(self, alpha, a, opa, b, opb, beta, c, symmetric):
         raise NotImplementedError
 
-    def myslice(self):
-        assert self.rows == self.comm.size
-        assert self.columns == 1
-        assert self.blocksize is None
+    def myslice(self) -> slice:
+        """Create slice object for my rows.
+
+        >>> Matrix(2, 2).dist.myslice()
+        slice(0, 2, None)
+        """
+        ok = (self.rows == self.comm.size and
+              self.columns == 1 and
+              self.blocksize is None)
+        if not ok:
+            raise ValueError(f'Can not create slice of distribution: {self}')
         M = self.shape[0]
         b = (M + self.rows - 1) // self.rows
         n1 = self.comm.rank * b
