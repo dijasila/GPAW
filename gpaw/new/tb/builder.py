@@ -7,9 +7,11 @@ import numpy as np
 from ase.data import atomic_numbers, covalent_radii
 from ase.neighborlist import neighbor_list
 from ase.units import Bohr, Ha
+
 from gpaw.core.arrays import DistributedArrays
 from gpaw.core.atom_arrays import AtomArraysLayout
 from gpaw.core.domain import Domain
+from gpaw.core.matrix import Matrix
 from gpaw.lcao.tci import TCIExpansions
 from gpaw.lfc import BasisFunctions
 from gpaw.mpi import MPIComm, serial_comm
@@ -32,7 +34,7 @@ class TBHamiltonianMatrixCalculator(HamiltonianMatrixCalculator):
         self.basis = basis
 
     def calculate_potential_matrix(self,
-                                   wfs: LCAOWaveFunctions) -> np.ndarray:
+                                   wfs: LCAOWaveFunctions) -> Matrix:
         return wfs.V_MM
 
 
@@ -261,7 +263,7 @@ class TBDFTComponentsBuilder(LCAODFTComponentsBuilder):
                 M2 = M1 + m
                 V_MM[M1:M2, M1:M2] *= 0.5
                 M1 = M2
-            wfs.V_MM = V_MM
+            wfs.V_MM = Matrix(M2, M2, data=V_MM)
 
         return ibzwfs
 

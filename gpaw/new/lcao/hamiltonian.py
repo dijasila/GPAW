@@ -20,7 +20,7 @@ class HamiltonianMatrixCalculator:
         self.basis = basis
 
     def calculate_potential_matrix(self,
-                                   wfs: LCAOWaveFunctions) -> np.ndarray:
+                                   wfs: LCAOWaveFunctions) -> Matrix:
         V_xMM = self.V_sxMM[wfs.spin]
         V_MM = V_xMM[0]
         if wfs.dtype == complex:
@@ -34,7 +34,7 @@ class HamiltonianMatrixCalculator:
         return Matrix(M, M, data=V_MM, dist=(wfs.band_comm,))
 
     def calculate_hamiltonian_matrix(self,
-                                     wfs: LCAOWaveFunctions) -> np.ndarray:
+                                     wfs: LCAOWaveFunctions) -> Matrix:
         H_MM = self.calculate_potential_matrix(wfs)
         M = H_MM.dist.myslice()
         for a, dH_ii in self.dH_saii[wfs.spin].items():
@@ -44,6 +44,8 @@ class HamiltonianMatrixCalculator:
 
         if wfs.dtype == complex:
             H_MM.add_hermitian_conjugate(scale=0.5)
+        else:
+            H_MM.tril2full()
 
         H_MM.data += wfs.T_MM
 
@@ -60,11 +62,9 @@ class LCAOHamiltonian(Hamiltonian):
                                              ) -> HamiltonianMatrixCalculator:
         V_sxMM = [self.basis.calculate_potential_matrices(vt_R.data)
                   for vt_R in state.potential.vt_sR]
-        print(V_sxMM[0])
 
         dH_saii = [{a: dH_sii[s]
                     for a, dH_sii in state.potential.dH_asii.items()}
                    for s in range(len(V_sxMM))]
-        print(dH_saii[0])
 
         return HamiltonianMatrixCalculator(V_sxMM, dH_saii, self.basis)

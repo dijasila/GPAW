@@ -23,11 +23,8 @@ class LCAOEigensolver(Eigensolver):
 
         eig_M = H_MM.eighg(wfs.L_MM)
         wfs._eig_n = eig_M[:wfs.nbands]
-        wfs.C_Mn = H_MM
+        # wfs.C_Mn = H_MM
         wfs.C_nM.data[:] = H_MM.data.T[:wfs.nbands]
-
-        # if wfs.dtype == complex:
-        #    wfs.C_nM.complex_conjugate()
 
         # Make sure wfs.C_nM and (lazy) wfs.P_ain are in sync:
         wfs._P_ain = None

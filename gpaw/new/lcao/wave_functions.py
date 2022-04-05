@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 import numpy as np
+
 from gpaw.core.atom_arrays import (AtomArrays, AtomArraysLayout,
                                    AtomDistribution)
 from gpaw.core.matrix import Matrix
 from gpaw.mpi import MPIComm, serial_comm
+from gpaw.new import cached_property
 from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 from gpaw.new.wave_functions import WaveFunctions
 from gpaw.setup import Setups
-from gpaw.typing import Array2D
-from gpaw.new import cached_property
 
 
 class LCAOWaveFunctions(WaveFunctions):
@@ -50,7 +50,7 @@ class LCAOWaveFunctions(WaveFunctions):
         self.P_aMi = P_aMi
 
         # This is for TB-mode (and MYPY):
-        self.V_MM: np.ndarray
+        self.V_MM: Matrix
 
     @cached_property
     def L_MM(self):

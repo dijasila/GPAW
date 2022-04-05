@@ -10,6 +10,7 @@ import scipy.linalg as linalg
 from gpaw import debug
 from gpaw.mpi import MPIComm, _Communicator, serial_comm
 from gpaw.typing import Array1D, Array2D
+from gpaw.utilities.scalapack import scalapack_tri2full
 
 _global_blacs_context_store: Dict[Tuple[_Communicator, int, int], int] = {}
 
@@ -234,7 +235,7 @@ class Matrix:
 
         Returns a lower triangle matrix `L` where:::
 
-             H
+             †
           LSL = 1
 
         Only the lower part of `S` is used.
@@ -319,31 +320,31 @@ class Matrix:
 
         return eps
 
-    def eighg(self, L_MM):
+    def eighg(self, L: Matrix) -> Array1D:
         """Solve generalized eigenvalue problem.
 
         :::
 
-                     H
+                     †
           HC=SCΛ, LSL = 1
 
         :::
 
-           ~~ ~   ~    H     ~
-           HC=CΛ, H=LHL,  C=LC
+           ~~ ~   ~    †     †~
+           HC=CΛ, H=LHL , C=L C
         """
-        L = L_MM.data
-        H_MM = L @ self.data @ L.conj().T
-        eig_M, C_MM = linalg.eigh(H_MM, overwrite_a=True, driver='evd')
-        self.data[:] = L @ self.data
-        return eig_M
+        L_MM = L.data
+        Ht_MM = L_MM @ self.data @ L_MM.conj().T
+        eig_n, Ct_Mn = linalg.eigh(Ht_MM, overwrite_a=True, driver='evd')
+        self.data[:] = L_MM.T @ Ct_Mn
+        return eig_n
 
-    def complex_conjugate(self):
+    def complex_conjugate(self) -> None:
         """Inplace complex conjugation."""
         if self.dtype == complex:
             np.negative(self.data.imag, self.data.imag)
 
-    def add_hermetian_conjugate(self, scale=1.0):
+    def add_hermitian_conjugate(self, scale: float = 1.0) -> None:
         if self.dist.comm.size == 1:
             self.data *= 0.5
             self.data += self.data.conj().T
@@ -351,6 +352,28 @@ class Matrix:
         tmp = self.copy()
         _gpaw.pblas_tran(*self.shape, scale, tmp.data, scale, self.data,
                          self.dist.desc, self.dist.desc, True)
+
+    def tril2full(self) -> None:
+        """Fill in upper triangle from lower triangle.
+
+        For a real matrix::
+
+          a ? ?    a b d
+          b c ? -> b c e
+          d e f    d e f
+
+        For a complex matrix, the complex conjugate of the lower part will
+        be inserted in to the upper part.
+        """
+        M, N = self.shape
+        assert M == N
+
+        if self.dist.comm.size == 1:
+            u = np.triu_indices(M, 1)
+            self.data[u] = self.data.T[u].conj()
+            return
+
+        scalapack_tri2full(self.dist.desc, self.data)
 
 
 def _matrix(M):
