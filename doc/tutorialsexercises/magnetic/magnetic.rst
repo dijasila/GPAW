@@ -9,3 +9,4 @@ Magnetic properties
 
    zfs/zfs
    iron/iron
+   mft_Co_hcp/mft
