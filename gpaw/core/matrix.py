@@ -218,7 +218,7 @@ class Matrix:
             redist(d1, self.data, d2, other.data, ctx)
 
     def gather(self, root: int = 0) -> Matrix:
-        """ Gather the Matrix on the root rank
+        """Gather the Matrix on the root rank.
 
         Returns a new Matrix distributed so that all data is on the root rank
         """
@@ -231,7 +231,7 @@ class Matrix:
 
         return S
 
-    def invcholesky(self):
+    def invcholesky(self) -> None:
         """Inverse of Cholesky decomposition.
 
         Returns a lower triangle matrix `L` where:::
@@ -261,7 +261,7 @@ class Matrix:
         if S is not self:
             S.redist(self)
 
-    def eigh(self, cc=False, scalapack=(None, 1, 1, None)):
+    def eigh(self, cc=False, scalapack=(None, 1, 1, None)) -> Array1D:
         """Calculate eigenvectors and eigenvalues.
 
         Matrix must be symmetric/hermitian and stored in lower half.

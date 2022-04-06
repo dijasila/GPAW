@@ -93,16 +93,22 @@ class PWFDWaveFunctions(WaveFunctions):
         self.add_to_atomic_density_matrices(occ_n, D_asii)
 
     def orthonormalize(self, work_array_nX: ArrayND = None):
-        """Orthonormalize wave functions.
+        r"""Orthonormalize wave functions.
 
-        :::
+        Computest the overlap matrix:::
 
                /~ _ *~ _   _   ---  a  * a   a
           S  = |ψ(r) ψ(r) dr + >  (P  ) P  ΔS
-           mn  / m    n        ---  mi   nj  ij
+           mn  / m    n        ---  im   jn  ij
                                aij
 
-        ...
+        With `LSL^\dagger=1`:::
+
+                  --        a    --    a
+            Ψ  <- > L  Ψ,  P  <- > L  P
+             m    -- nm n   im   -- nm in
+                  n
+
         """
         if self.orthonormalized:
             return

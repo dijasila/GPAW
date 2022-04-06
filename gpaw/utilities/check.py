@@ -46,7 +46,7 @@ def main():
         'magmoms': None if args.magmoms is None else [
             float(m) for m in args.magmoms.split(',')],
         'mode': args.mode,
-        'kpts': ([int(k) for k in args.kpts.split(args.kpts)]
+        'kpts': ([int(k) for k in args.kpts.split(',')]
                  if ',' in args.kpts else float(args.kpts))}
 
     folder = Path(args.system)
