@@ -31,7 +31,7 @@ def calculate_raman(calc, w_ph, w_in, d_i, d_o, resonant_only=False,
     ----------
     calc: GPAW
         Converged ground state calculation
-    w_ph: ndarray, str
+    w_ph: np.ndarray, str
         Array of phonon frequencies in eV, or name of file with them
     w_in: float
         Laser energy in eV
@@ -285,7 +285,7 @@ def calculate_raman_intensity(w_ph, d_i, d_o, suffix, T=300):
 
     Parameters
     ----------
-    w_ph: ndarray, str
+    w_ph: np.ndarray, str
         Array of phonon frequencies in eV, or name of file with them
     d_i: int
         Incoming polarization

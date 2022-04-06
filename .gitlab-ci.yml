@@ -73,14 +73,14 @@ libxc:
   when: manual
 
 docs:
-  image: python:3.9
+  image: python:3.10
   script:
     - apt-get update -qy
     - apt-get install -qy graphviz
     - python3 -m venv venv
     - source venv/bin/activate
     - pip -q install git+https://gitlab.com/ase/ase.git@master
-    - pip install sphinx-rtd-theme pytest graphviz
+    - pip install sphinx-rtd-theme graphviz pytest
     - echo "noblas = True; nolibxc = True" > siteconfig.py
     - pip install -e .
     - tools/gpaw-setup H C O Li

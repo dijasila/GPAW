@@ -2,6 +2,12 @@
 Introduction to GPAW internals
 ==============================
 
+.. testsetup::
+
+    from gpaw.fftw import *
+    from gpaw.core.matrix import *
+    from gpaw.core.atom_arrays import *
+
 This guide will contain graphs showing the relationship between objects
 that build up a DFT calculation engine.
 
@@ -244,7 +250,7 @@ grid:
 >>> pw = PlaneWaves(ecut=100, cell=grid.cell)
 >>> func_G = pw.empty()
 >>> func_R.fft(out=func_G)
-PlaneWaveExpansions(pw=PlaneWaves(ecut=100, cell=[[4.0, 0.0, 0.0], [0.0, 4.0, 0.0], [0.0, 0.0, 4.0]], pbc=[True, True, True], comm=0/1, dtype=float64), dims=())
+PlaneWaveExpansions(pw=PlaneWaves(ecut=100 <1536/1536>, cell=[4.0, 4.0, 4.0], pbc=[True, True, True], comm=0/1, dtype=float64), dims=())
 >>> G = pw.reciprocal_vectors()
 >>> G.shape
 (1536, 3)
@@ -253,7 +259,7 @@ array([0., 0., 0.])
 >>> func_G.data[0]
 (1+0j)
 >>> func_G.ifft(out=func_R)
-UniformGridFunctions(grid=UniformGrid(size=[20, 20, 20], cell=[[4.0, 0.0, 0.0], [0.0, 4.0, 0.0], [0.0, 0.0, 4.0]], pbc=[True, True, True], comm=0/1, dtype=float64), dims=())
+UniformGridFunctions(grid=UniformGrid(size=[20, 20, 20], cell=[4.0, 4.0, 4.0], pbc=[True, True, True], comm=0/1, dtype=float64), dims=())
 >>> round(func_R.data[0, 0, 0], 15)
 1.0
 
@@ -398,6 +404,9 @@ Core
     :undoc-members:
 
 .. autoclass:: Matrix
+   :members:
+   :undoc-members:
+.. autoclass:: MatrixDistribution
    :members:
    :undoc-members:
 
