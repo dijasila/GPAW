@@ -4,9 +4,9 @@ Introduction to GPAW internals
 
 .. testsetup::
 
-    from gpaw.fftw import get_efficient_fft_size, check_fft_size, create_plans
-    from gpaw.core.matrix import Matrix
-    from gpaw.core.atom_arrays import AtomDistribution
+    from gpaw.fftw import *
+    from gpaw.core.matrix import *
+    from gpaw.core.atom_arrays import *
 
 This guide will contain graphs showing the relationship between objects
 that build up a DFT calculation engine.
