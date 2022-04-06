@@ -1,5 +1,5 @@
 master:
-  image: python:3.10
+  image: python:3.9
   script:
     - apt-get update -qy
     - >
@@ -80,7 +80,7 @@ docs:
     - python3 -m venv venv
     - source venv/bin/activate
     - pip -q install git+https://gitlab.com/ase/ase.git@master
-    - pip install sphinx-rtd-theme graphviz
+    - pip install sphinx-rtd-theme graphviz pytest
     - echo "noblas = True; nolibxc = True" > siteconfig.py
     - pip install -e .
     - tools/gpaw-setup H C O Li
