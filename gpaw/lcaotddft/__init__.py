@@ -1,6 +1,6 @@
 import numpy as np
 from typing import Optional
-from gpaw.typing import ArrayLike
+from gpaw.typing import Vector
 
 from ase.units import Bohr, Hartree
 
@@ -130,7 +130,7 @@ class LCAOTDDFT(GPAW):
         self.tddft_initialized = True
         self.timer.stop('Initialize TDDFT')
 
-    def absorption_kick(self, kick_strength: ArrayLike):
+    def absorption_kick(self, kick_strength: Vector):
         """Kick with a weak electric field.
 
         Parameters

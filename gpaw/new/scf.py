@@ -1,12 +1,11 @@
 from __future__ import annotations
 import itertools
 import warnings
-from functools import partial
-from math import inf
 from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
-from gpaw.scf import dict2criterion, write_iteration
+from gpaw.convergence_criteria import dict2criterion, check_convergence
+from gpaw.scf import write_iteration
 if TYPE_CHECKING:
     from gpaw.new.calculation import DFTState
 
@@ -18,7 +17,6 @@ class SCFConvergenceError(Exception):
 class SCFLoop:
     def __init__(self,
                  hamiltonian,
-                 pot_calc,
                  occ_calc,
                  eigensolver,
                  mixer,
@@ -26,7 +24,6 @@ class SCFLoop:
                  convergence,
                  maxiter):
         self.hamiltonian = hamiltonian
-        self.pot_calc = pot_calc
         self.eigensolver = eigensolver
         self.mixer = mixer
         self.occ_calc = occ_calc
@@ -34,28 +31,32 @@ class SCFLoop:
         self.convergence = convergence
         self.maxiter = maxiter
 
+    def __repr__(self):
+        return 'SCFLoop(...)'
+
     def __str__(self):
-        return str(self.pot_calc)
+        return (f'{self.hamiltonian}\n'
+                f'{self.eigensolver}\n'
+                f'{self.mixer}\n'
+                f'{self.occ_calc}\n'
+                f'{self.convergence}\n'
+                f'Maximum number of iterations: {self.maxiter}')
 
     def iterate(self,
                 state: DFTState,
+                pot_calc,
                 convergence=None,
                 maxiter=None,
                 log=None):
         cc = create_convergence_criteria(convergence or self.convergence)
         maxiter = maxiter or self.maxiter
 
-        dS = state.density.overlap_correction
-
         self.mixer.reset()
 
-        dens_error = inf
         dens_error = self.mixer.mix(state.density)
 
-        for niter in itertools.count(1):
-            dH = state.potential.dH
-            Ht = partial(self.hamiltonian.apply, state.potential.vt_sR)
-            wfs_error = self.eigensolver.iterate(state.ibzwfs, Ht, dH, dS)
+        for niter in itertools.count(start=1):
+            wfs_error = self.eigensolver.iterate(state, self.hamiltonian)
             state.ibzwfs.calculate_occs(self.occ_calc)
 
             ctx = SCFContext(
@@ -65,17 +66,17 @@ class SCFLoop:
 
             yield ctx
 
-            entries, converged = check_convergence(ctx, cc)
+            converged, converged_items, entries = check_convergence(cc, ctx)
             if log:
-                write_iteration(cc, converged, entries, ctx, log)
-            if all(converged.values()):
+                write_iteration(cc, converged_items, entries, ctx, log)
+            if converged:
                 break
             if niter == maxiter:
                 raise SCFConvergenceError
 
-            state.ibzwfs.calculate_density(out=state.density)
+            state.density.update(pot_calc.nct_R, state.ibzwfs)
             dens_error = self.mixer.mix(state.density)
-            state.potential, state.vHt_x = self.pot_calc.calculate(
+            state.potential, state.vHt_x, _ = pot_calc.calculate(
                 state.density, state.vHt_x)
 
 
@@ -102,27 +103,6 @@ class SCFContext:
             .calculate_magnetic_moments,
             fixed=False,
             error=dens_error)
-
-
-def check_convergence(ctx, criteria):
-    entries = {}  # for log file, per criteria
-    converged_items = {}  # True/False, per criteria
-
-    for name, criterion in criteria.items():
-        if not criterion.calc_last:
-            converged_items[name], entries[name] = criterion(ctx)
-
-    converged = all(converged_items.values())
-
-    for name, criterion in criteria.items():
-        if criterion.calc_last:
-            if converged:
-                converged_items[name], entries[name] = criterion(ctx)
-            else:
-                converged_items[name], entries[name] = False, ''
-
-    # Converged?
-    return entries, converged_items
 
 
 def create_convergence_criteria(criteria):

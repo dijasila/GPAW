@@ -156,7 +156,7 @@ class LCAOWaveFunctions(WaveFunctions):
         s += '  Diagonalizer: %s\n' % self.ksl.get_description()
         s += ('  Atomic Correction: %s\n'
               % self.atomic_correction_cls.description)
-        s += '  Datatype: %s\n' % self.dtype.__name__
+        s += '  Data-type: %s\n' % self.dtype.__name__
         return s
 
     def set_eigensolver(self, eigensolver):
@@ -578,7 +578,7 @@ class LCAOforces:
                 self.gd.comm, self.Mstart, self.Mstop, False, derivative=True)
             self.dPdR_aqvMi = self.manytci.P_aqMi(self.bfs.my_atom_indices,
                                                   derivative=True)
-    
+
             self.gd.comm.sum(self.dThetadR_qvMM)
             self.gd.comm.sum(self.dTdR_qvMM)
             self.timer.stop('TCI derivative')
@@ -601,7 +601,7 @@ class LCAOforces:
             Fpot_av = self.get_pot_term_blacs()
             Fkin_av, Ftheta_av = self.get_kin_and_den_term_blacs()
             Fatom_av, Frho_av = self.get_at_den_and_den_paw_blacs()
-             
+
             F_av += Fkin_av + Fpot_av + Ftheta_av + Frho_av + Fatom_av
 
         self.timer.start('Wait for sum')

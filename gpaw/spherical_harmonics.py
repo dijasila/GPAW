@@ -20,16 +20,6 @@ Real-valued spherical harmonics
 === === === =======
 
 For a more complete list, see c/bmgs/sharmonic.py
-
-
-Gaunt coefficients::
-
-                  __
-     ^      ^    \   L      ^
-  Y (r)  Y (r) =  ) G    Y (r)
-   L      L      /__ L L  L
-    1      2      L   1 2
-
 """
 
 import numpy as np

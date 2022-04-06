@@ -34,6 +34,9 @@ class DistributedArrays(Generic[DomainType]):
 
         if self.dims:
             mydims0 = (self.dims[0] + comm.size - 1) // comm.size
+            d1 = min(comm.rank * mydims0, self.dims[0])
+            d2 = min((comm.rank + 1) * mydims0, self.dims[0])
+            mydims0 = d2 - d1
             self.mydims = (mydims0,) + self.dims[1:]
         else:
             self.mydims = ()
@@ -44,8 +47,12 @@ class DistributedArrays(Generic[DomainType]):
             fullshape = self.mydims + self.myshape
 
         if data is not None:
-            assert data.shape == fullshape
-            assert data.dtype == dtype
+            if data.shape != fullshape:
+                raise ValueError(
+                    f'Bad shape for data: {data.shape} != {fullshape}')
+            if data.dtype != dtype:
+                raise ValueError(
+                    f'Bad dtype for data: {data.dtype} != {dtype}')
         else:
             data = np.empty(fullshape, dtype)
 
@@ -54,6 +61,20 @@ class DistributedArrays(Generic[DomainType]):
 
     def new(self, data=None) -> DistributedArrays:
         raise NotImplementedError
+
+    def __getitem__(self, index):
+        raise NotImplementedError
+
+    def __iter__(self):
+        for index in range(self.dims[0]):
+            yield self[index]
+
+    def flat(self):
+        if self.dims == ():
+            yield self
+        else:
+            for index in np.indices(self.dims).reshape((len(self.dims), -1)).T:
+                yield self[tuple(index)]
 
     @property
     def matrix(self) -> Matrix:
@@ -111,6 +132,13 @@ class DistributedArrays(Generic[DomainType]):
     def abs_square(self,
                    weights: Array1D,
                    out: UniformGridFunctions = None) -> None:
+        """Add weighted absolute square of data to output array.
+
+        See also :xkcd:`849`.
+        """
+        raise NotImplementedError
+
+    def gather(self, out=None, broadcast=False):
         raise NotImplementedError
 
 

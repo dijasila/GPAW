@@ -222,7 +222,7 @@ file directly, but:
 Directory
 ---------
 
-A bit like an extraxted tarfile.  Different cpu's could write
+A bit like an extracted tarfile.  Different cpu's could write
 different states.  When the writing is done, one can tar the directory
 to get a standard gpw file.  The tarfile format would have to be
 modifyed so that one can read pseudo wave functions from several

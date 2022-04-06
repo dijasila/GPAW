@@ -1,15 +1,14 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
-
 """Main gpaw module."""
 import os
 import sys
 import contextlib
 from pathlib import Path
-from typing import List, Dict, Union, Any
+from typing import List, Dict, Union, Any, TYPE_CHECKING
 
-__version__ = '21.6.1b1'
-__ase_version_required__ = '3.22.0'
+__version__ = '22.1.1b1'
+__ase_version_required__ = '3.23.0b1'
 __all__ = ['GPAW',
            'Mixer', 'MixerSum', 'MixerDif', 'MixerSum2',
            'CG', 'Davidson', 'RMMDIIS', 'DirectLCAO',
@@ -22,7 +21,9 @@ __all__ = ['GPAW',
 setup_paths: List[Union[str, Path]] = []
 is_gpaw_python = '_gpaw' in sys.builtin_module_names
 dry_run = 0
-debug: bool = bool(sys.flags.debug)
+
+# When type-checking, we want the debug-wrappers enabled:
+debug: bool = TYPE_CHECKING or bool(sys.flags.debug)
 
 
 @contextlib.contextmanager
@@ -41,15 +42,6 @@ def disable_dry_run():
 if 'OMP_NUM_THREADS' not in os.environ:
     os.environ['OMP_NUM_THREADS'] = '1'
 
-# Symbol look may fail if library linked agains _gpaw.so tries internally
-# dlopen another .so. (MKL is one particular example)
-# Thus, expose symbols from libraries used by _gpaw
-old_dlflags = sys.getdlopenflags()
-sys.setdlopenflags(old_dlflags | os.RTLD_GLOBAL)
-try:
-    import _gpaw
-finally:
-    sys.setdlopenflags(old_dlflags)
 
 from gpaw.broadcast_imports import broadcast_imports  # noqa
 
@@ -59,7 +51,16 @@ with broadcast_imports:
     import warnings
     from argparse import ArgumentParser, REMAINDER, RawDescriptionHelpFormatter
 
+    # With gpaw-python BLAS symbols are in global scope and we need to
+    # ensure that NumPy and SciPy use symbols from their own dependencies
+    if is_gpaw_python:
+        old_dlopen_flags = sys.getdlopenflags()
+        sys.setdlopenflags(old_dlopen_flags | os.RTLD_DEEPBIND)
     import numpy as np
+    import scipy.linalg  # noqa: F401
+    if is_gpaw_python:
+        sys.setdlopenflags(old_dlopen_flags)
+    import _gpaw
 
 
 class ConvergenceError(Exception):
@@ -179,11 +180,11 @@ with broadcast_imports:
     from gpaw.wavefunctions.lcao import LCAO
     from gpaw.wavefunctions.pw import PW
     from gpaw.wavefunctions.fd import FD
-    from gpaw.new.ase_interface import GPAW as NewGPAW
 
 
 def GPAW(*args, **kwargs) -> Any:
     if os.environ.get('GPAW_NEW'):
+        from gpaw.new.ase_interface import GPAW as NewGPAW
         return NewGPAW(*args, **kwargs)
     return OldGPAW(*args, **kwargs)
 

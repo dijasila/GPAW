@@ -79,9 +79,9 @@ PyObject* symmetrize_ft(PyObject *self, PyObject *args)
 
     const double* a_g = (const double*)PyArray_DATA(a_g_obj);
     double* b_g = (double*)PyArray_DATA(b_g_obj);
-    for (int g0 = 0; g0 < ng0; g0++)
-        for (int g1 = 0; g1 < ng1; g1++)
-            for (int g2 = 0; g2 < ng2; g2++) {
+    for (int g0 = o_c[0]; g0 < Ng0; g0++)
+        for (int g1 = o_c[1]; g1 < Ng1; g1++)
+            for (int g2 = o_c[2]; g2 < Ng2; g2++) {
                 int p0 = ((C[0] * g0 + C[3] * g1 + C[6] * g2 - t_c[0]) %
                           Ng0 + Ng0) % Ng0;
                 int p1 = ((C[1] * g0 + C[4] * g1 + C[7] * g2 - t_c[1]) %

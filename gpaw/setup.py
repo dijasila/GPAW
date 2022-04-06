@@ -1,3 +1,4 @@
+from __future__ import annotations
 import functools
 from io import StringIO
 from math import pi, sqrt
@@ -13,6 +14,7 @@ from gpaw.gaunt import gaunt, nabla
 from gpaw.overlap import OverlapCorrections
 from gpaw.rotation import rotation
 from gpaw.setup_data import SetupData, search_for_file
+from gpaw.spline import Spline
 from gpaw.utilities import pack, unpack
 from gpaw.xc import XC
 
@@ -1258,6 +1260,7 @@ class Setup(BaseSetup):
         for j, phit_g in enumerate(phit_jg):
             if self.n_j[j] > 0:
                 l = self.l_j[j]
+                phit_g = phit_g.copy()
                 phit = phit_g[gcut3]
                 dphitdr = ((phit - phit_g[gcut3 - 1]) /
                            (r_g[gcut3] - r_g[gcut3 - 1]))
@@ -1442,7 +1445,7 @@ class Setups(list):
     def projector_indices(self):
         return FunctionIndices([setup.pt_j for setup in self])
 
-    def create_pseudo_core_densities(self, layout, positions):
+    def create_pseudo_core_densities(self, layout, positions, atomdist):
         spline_aj = []
         for setup in self:
             if setup.nct is None:
@@ -1451,21 +1454,19 @@ class Setups(list):
                 spline_aj.append([setup.nct])
         return layout.atom_centered_functions(
             spline_aj, positions,
+            atomdist=atomdist,
             integral=[setup.Nct for setup in self],
             cut=True)
 
-    def create_local_potentials(self, layout, positions):
+    def create_local_potentials(self, layout, positions, atomdist):
         return layout.atom_centered_functions(
-            [[setup.vbar] for setup in self], positions)
+            [[setup.vbar] for setup in self], positions, atomdist=atomdist)
 
-    def create_compensation_charges(self, layout, positions):
+    def create_compensation_charges(self, layout, positions, atomdist):
         return layout.atom_centered_functions(
             [setup.ghat_l for setup in self], positions,
+            atomdist=atomdist,
             integral=sqrt(4 * pi))
-
-    def create_projectors(self, desc, positions):
-        return desc.atom_centered_functions(
-            [setup.pt_j for setup in self], positions)
 
     def overlap_correction(self, projections, out):
         for a, I1, I2 in projections.layout.myindices:
@@ -1473,6 +1474,26 @@ class Setups(list):
             # use mmm ?????
             out.data[I1:I2] = ds @ projections.data[I1:I2]
         return out
+
+    def partial_wave_corrections(self) -> list[list[Spline]]:
+        splines: dict[Setup, list[Spline]] = {}
+        dphi_aj = []
+        for setup in self:
+            dphi_j = splines.get(setup)
+            if dphi_j is None:
+                rcut = max(setup.rcut_j) * 1.1
+                gcut = setup.rgd.ceil(rcut)
+                dphi_j = []
+                for l, phi_g, phit_g in zip(setup.l_j,
+                                            setup.data.phi_jg,
+                                            setup.data.phit_jg):
+                    dphi_g = (phi_g - phit_g)[:gcut]
+                    dphi_j.append(setup.rgd.spline(dphi_g, rcut, l,
+                                                   points=200))
+                splines[setup] = dphi_j
+            dphi_aj.append(dphi_j)
+
+        return dphi_aj
 
 
 class FunctionIndices:

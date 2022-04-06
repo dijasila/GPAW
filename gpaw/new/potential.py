@@ -1,4 +1,6 @@
 from __future__ import annotations
+
+from ase.units import Ha
 from gpaw.core.arrays import DistributedArrays
 from gpaw.core.atom_arrays import AtomArrays
 
@@ -12,11 +14,18 @@ class Potential:
         self.dH_asii = dH_asii
         self.energies = energies
 
-    def dH(self, P_ain, out, spin=0):
+    def dH(self, P_ain, out, spin):
         for a, I1, I2 in P_ain.layout.myindices:
             dH_ii = self.dH_asii[a][spin]
             out.data[I1:I2] = dH_ii @ P_ain.data[I1:I2]
         return out
 
     def write(self, writer):
-        writer.write(vt=self.vt.collect().data)
+        dH_asp = self.dH_asii.to_lower_triangle().gather()
+        vt_sR = self.vt_sR.gather()
+        if dH_asp is None:
+            return
+        writer.write(
+            potential=vt_sR.data * Ha,
+            atomic_hamiltonian_matrices=dH_asp.data,
+            energies={name: val * Ha for name, val in self.energies.items()})

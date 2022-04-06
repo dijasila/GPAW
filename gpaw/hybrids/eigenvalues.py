@@ -60,13 +60,15 @@ def non_self_consistent_eigenvalues(calc: Union[GPAW, str, Path],
         n2 += wfs.bd.nbands
 
     if kpt_indices is None:
-        kpt_indices = np.arange(wfs.kd.nibzkpts)
+        kpt_indices = np.arange(wfs.kd.nibzkpts).tolist()
 
     path = Path(snapshot) if snapshot is not None else None
 
-    e_dft_sin = np.array([[[]]])
-    v_dft_sin = np.array([[[]]])
-    v_hyb_sl_sin = np.array([[[]]])
+    e_dft_sin = np.zeros(0)
+    v_dft_sin = np.zeros(0)
+
+    # sl=semilocal, nl=nonlocal
+    v_hyb_sl_sin = np.zeros(0)
     v_hyb_nl_sin: Optional[List[List[np.ndarray]]] = None
 
     if path:
