@@ -1,6 +1,6 @@
 import numpy as np
 
-from ase.build import molecule
+from ase import Atoms
 
 from gpaw import LCAO
 from gpaw.calculator import GPAW as old_GPAW
@@ -12,7 +12,7 @@ from gpaw.tddft.units import as_to_au, autime_to_asetime
 
 
 def main():
-    atoms = molecule('H2', positions=[(0, 0, 0), (1, 0, 0)])
+    atoms = Atoms('H2', positions=[(0, 0, 0), (1, 0, 0)])
     atoms.center(vacuum=5)
     atoms.pbc = False
 

@@ -198,10 +198,10 @@ class DFTComponentsBuilder:
                        self.params.maxiter)
 
     def read_ibz_wave_functions(self, reader):
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def create_potential_calculator(self):
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def read_wavefunction_values(self, reader, ibzwfs):
         """ Read eigenvalues, occuptions and projections and fermi levels

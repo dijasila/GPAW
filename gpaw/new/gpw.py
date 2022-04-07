@@ -47,11 +47,10 @@ def write_gpw(filename: str,
 def read_gpw(filename: Union[str, Path, IO[str]],
              log: Callable,
              parallel: dict[str, Any],
-             force_complex_dtype: bool = False,
-             return_builder: bool = False):
+             force_complex_dtype: bool = False):
     """
     Read gpw file and return a DFTCalculation object,
-    params dictionary, and optionally the builder
+    params dictionary, and the builder
 
     Returns
     -------
@@ -131,10 +130,8 @@ def read_gpw(filename: Union[str, Path, IO[str]],
         log(f'Read {", ".join(sorted(results))}')
 
     calculation.results = results
-    if return_builder:
-        return atoms, calculation, params, builder
-    else:
-        return atoms, calculation, params
+
+    return atoms, calculation, params, builder
 
 
 if __name__ == '__main__':

@@ -84,14 +84,13 @@ class LCAOHamiltonian(Hamiltonian):
         V_MM = self.basis.calculate_potential_matrices(vext_R.data)
         V_sxMM = [V_MM for s in range(nspins)]
 
-        Ns = len(V_sxMM)
-
         W_aL = pot_calc.ghat_aLr.integrate(vext_r)
 
-        setups_sa = [state.ibzwfs.wfs_qs[0][s].setups for s in range(Ns)]
+        assert state.ibzwfs.ibz.bz.gamma_only
+        setups_a = state.ibzwfs.wfs_qs[0][0].setups
 
-        dH_saii = [{a: unpack(setups_sa[s][a].Delta_pL @ W_L)
+        dH_saii = [{a: unpack(setups_a[a].Delta_pL @ W_L)
                     for (a, W_L) in W_aL.items()}
-                   for s in range(Ns)]
+                   for s in range(nspins)]
 
         return HamiltonianMatrixCalculator(V_sxMM, dH_saii, self.basis)

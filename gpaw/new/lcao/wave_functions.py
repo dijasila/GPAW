@@ -59,11 +59,9 @@ class LCAOWaveFunctions(WaveFunctions):
                        nt_sR,
                        D_asii: AtomArrays) -> None:
         """ Compute density from wave functions and add to nt_sR and D_asii """
-        occ_n = self.weight * self.spin_degeneracy * self.myocc_n
-        C_nM = self.C_nM.data
-        rho_MM = (C_nM.T.conj() * occ_n) @ C_nM
+        rho_MM = self.calculate_density_matrix()
         self.density_adder(rho_MM, nt_sR.data[self.spin])
-        self.add_to_atomic_density_matrices(occ_n, D_asii)
+        self.add_to_atomic_density_matrices(self.myocc_n, D_asii)
 
     def add_wave_functions_array(self,
                                  writer: Writer,

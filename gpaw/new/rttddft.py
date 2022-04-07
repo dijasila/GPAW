@@ -55,11 +55,11 @@ class ECNAlgorithm(TDAlgorithm):
              state: DFTState,
              pot_calc: PotentialCalculator,
              dm_calc: HamiltonianMatrixCalculator):
-        """ Propagate wavefunctions by delta-kick, i.e. propagate using
+        """ Propagate wavefunctions by delta-kick, i.e. propagate using::
 
-                   ^        -1  0+             ^        -1
-        U(0+, 0) = T exp[-iS   ∫   H(τ) dτ ] = T exp[-iS  H(0)]
-                                0
+                     ^        -1  0+             ^        -1
+          U(0+, 0) = T exp[-iS   ∫   H(τ) dτ ] = T exp[-iS  H(0)]
+                                  0
 
         where H(t) = δ(t) V_ext(r)
 
@@ -188,8 +188,9 @@ class RTTDDFTResult(NamedTuple):
     dipolemoment: Vector  # Dipole moment in atomic units
 
     def __repr__(self):
-        timestr = f'{self.time*autime_to_asetime:.3f} Å√(u/eV)'
-        dmstr = ', '.join([f'{dm*au_to_eA:10.4g}' for dm in self.dipolemoment])
+        timestr = f'{self.time * autime_to_asetime:.3f} Å√(u/eV)'
+        dmstr = ', '.join([f'{dm * au_to_eA:10.4g}'
+                           for dm in self.dipolemoment])
         dmstr = f'[{dmstr}]'
 
         return (f'{self.__class__.__name__}: '
@@ -247,7 +248,6 @@ class RTTDDFT:
                       propagator: TDAlgorithm | None = None):
         _, calculation, params, builder = read_gpw(filepath, print,
                                                    {'world': world},
-                                                   return_builder=True,
                                                    force_complex_dtype=True)
 
         state = calculation.state
@@ -347,10 +347,10 @@ class RTTDDFT:
         """ Calculates the dipole moment
 
         The dipole moment is calculated as the expectation value of the
-        dipole moment operator, i.e. the trace of it times the density matrix
+        dipole moment operator, i.e. the trace of it times the density matrix::
 
-        d = - Σ  ρ   d
-              μν  μν  νμ
+          d = - Σ  ρ   d
+                μν  μν  νμ
 
         """
         if self.dm_operator_c is None:
