@@ -394,7 +394,7 @@ class KPointDescriptor:
 
         Parameters
         ----------
-        q_c: ndarray
+        q_c: np.ndarray
             Coordinates for the q-vector in units of the reciprocal
             lattice vectors.
         kpts_k:

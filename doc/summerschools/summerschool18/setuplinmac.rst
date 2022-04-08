@@ -5,7 +5,7 @@ Setting up the first time (Linux / macOS)
 =========================================
 
 You will be using the command line in a Terminal to access the DTU
-cental computers, and to set up the connections you need to display
+central computers, and to set up the connections you need to display
 the output on your laptop.
 
 
@@ -13,7 +13,7 @@ Mac users: Install XQuartz
 ==========================
 
 Linux users should skip this step as an X11 server is part of all
-nornal Linux distributions.
+normal Linux distributions.
 
 As a Mac user, you should install an X11 server, it is needed to
 display the ASE Graphical User Interface on your laptop.  If you do
@@ -115,7 +115,7 @@ of your DTU password is critical!*
 The script will also copy a selection of draft notebooks to a folder
 called CAMD2018 in your DTU databar account.
 
-	   
+
 Carrying on
 ===========
 

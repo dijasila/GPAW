@@ -74,7 +74,7 @@ class IBZWaveFunctions:
     def get_max_shape(self, global_shape: bool = False) -> tuple[int, ...]:
         """Find the largest wave function array shape.
 
-        For a PW-calcuation, this shape could depend on k-point.
+        For a PW-calculation, this shape could depend on k-point.
         """
         if global_shape:
             shape = np.array(max(wfs.array_shape(global_shape=True)
@@ -97,11 +97,11 @@ class IBZWaveFunctions:
         for wfs_s in self.wfs_qs:
             yield from wfs_s
 
-    def move(self, fracpos_ac):
+    def move(self, fracpos_ac, atomdist):
         self.ibz.symmetries.check_positions(fracpos_ac)
         self.energies.clear()
         for wfs in self:
-            wfs.move(fracpos_ac)
+            wfs.move(fracpos_ac, atomdist)
 
     def orthonormalize(self, work_array_nX: np.ndarray = None):
         for wfs in self:
@@ -286,6 +286,7 @@ class IBZWaveFunctions:
                             if spin == 0 and k == 0:
                                 writer.add_array('coefficients',
                                                  shape, dtype=coef_nX.dtype)
+                            coef_nX.shape = shape[2:]
                             writer.fill(coef_nX * c)
                         else:
                             self.kpt_comm.send(coef_nX, 0)

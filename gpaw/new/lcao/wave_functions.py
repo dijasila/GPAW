@@ -1,12 +1,15 @@
 from __future__ import annotations
+
 import numpy as np
-from ase.io.ulm import Writer
-from ase.units import Bohr
-from gpaw.core.atom_arrays import AtomArrays, AtomArraysLayout
+
+from gpaw.core.atom_arrays import (AtomArrays, AtomArraysLayout,
+                                   AtomDistribution)
+from gpaw.core.matrix import Matrix
 from gpaw.mpi import MPIComm, serial_comm
+from gpaw.new import cached_property
+from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 from gpaw.new.wave_functions import WaveFunctions
 from gpaw.setup import Setups
-from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 
 
 class LCAOWaveFunctions(WaveFunctions):
@@ -14,10 +17,12 @@ class LCAOWaveFunctions(WaveFunctions):
                  *,
                  setups: Setups,
                  density_adder,
-                 C_nM,
-                 S_MM,
+                 C_nM: Matrix,
+                 S_MM: Matrix,
                  T_MM,
                  P_aMi,
+                 fracpos_ac,
+                 atomdist,
                  kpt_c=(0.0, 0.0, 0.0),
                  domain_comm: MPIComm = serial_comm,
                  spin: int = 0,
@@ -25,13 +30,15 @@ class LCAOWaveFunctions(WaveFunctions):
                  k=0,
                  weight: float = 1.0,
                  ncomponents: int = 1):
-        super().__init__(setups,
+        super().__init__(setups=setups,
                          nbands=C_nM.shape[0],
                          spin=spin,
                          q=q,
                          k=k,
                          kpt_c=kpt_c,
                          weight=weight,
+                         fracpos_ac=fracpos_ac,
+                         atomdist=atomdist,
                          ncomponents=ncomponents,
                          dtype=C_nM.dtype,
                          domain_comm=domain_comm,
@@ -43,15 +50,32 @@ class LCAOWaveFunctions(WaveFunctions):
         self.P_aMi = P_aMi
 
         # This is for TB-mode (and MYPY):
-        self.V_MM: np.ndarray
+        self.V_MM: Matrix
+
+    @cached_property
+    def L_MM(self):
+        S_MM = self.S_MM.copy()
+        S_MM.invcholesky()
+        return S_MM
+
+    def array_shape(self, global_shape=False):
+        if global_shape:
+            return self.C_nM.shape[1:]
+        1 / 0
 
     @property
     def P_ain(self):
         if self._P_ain is None:
-            layout = AtomArraysLayout([P_Mi.shape[1]
-                                       for P_Mi in self.P_aMi.values()],
+            atomdist = AtomDistribution.from_atom_indices(
+                list(self.P_aMi),
+                self.domain_comm,
+                natoms=len(self.setups))
+            layout = AtomArraysLayout([setup.ni for setup in self.setups],
+                                      atomdist=atomdist,
                                       dtype=self.dtype)
-            self._P_ain = layout.empty(self.nbands, transposed=True)
+            self._P_ain = layout.empty(self.nbands,
+                                       comm=self.C_nM.dist.comm,
+                                       transposed=True)
             for a, P_Mi in self.P_aMi.items():
                 self._P_ain[a][:] = (self.C_nM.data @ P_Mi).T
         return self._P_ain
@@ -65,19 +89,15 @@ class LCAOWaveFunctions(WaveFunctions):
         self.density_adder(rho_MM, nt_sR.data[self.spin])
         self.add_to_atomic_density_matrices(occ_n, D_asii)
 
-    def add_wave_functions_array(self,
-                                 writer: Writer,
-                                 spin_k_shape: tuple[int, int]):
-        shape = spin_k_shape + self.C_nM.shape
-        if self.domain_comm.rank == 0 and self.band_comm.rank == 0:
-            writer.add_array('coefficients', shape, dtype=self.dtype)
-
-    def fill_wave_functions(self, writer: Writer):
+    def gather_wave_function_coefficients(self) -> np.ndarray:
         C_nM = self.C_nM.gather()
-        if self.domain_comm.rank == 0 and self.band_comm.rank == 0:
-            writer.fill(C_nM.data * Bohr**-1.5)
+        if C_nM is not None:
+            return C_nM.data
+        return None
 
-    def to_uniform_grid_wave_functions(self, grid, basis, fracpos_ac):
+    def to_uniform_grid_wave_functions(self,
+                                       grid,
+                                       basis):
         grid = grid.new(kpt=self.kpt_c, dtype=self.dtype)
         psit_nR = grid.zeros(self.nbands, self.band_comm)
         basis.lcao_to_grid(self.C_nM.data, psit_nR.data, self.q)
@@ -88,6 +108,7 @@ class LCAOWaveFunctions(WaveFunctions):
             self.q,
             self.k,
             self.setups,
-            fracpos_ac,
+            self.fracpos_ac,
+            self.atomdist,
             self.weight,
             self.ncomponents)

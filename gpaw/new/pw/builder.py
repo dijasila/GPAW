@@ -52,7 +52,7 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
                             cell=self.grid.cell,
                             comm=self.grid.comm)
             self._nct_ag = self.setups.create_pseudo_core_densities(
-                pw, self.fracpos_ac)
+                pw, self.fracpos_ac, self.atomdist)
         return self._nct_ag
 
     def create_poisson_solver(self, fine_grid_pw, params):
@@ -92,8 +92,15 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
 
         pw = self.wf_desc.new(kpt=psit_nR.desc.kpt_c)
         psit_nG = pw.empty(psit_nR.dims, psit_nR.comm)
+
+        if self.dtype == complex:
+            emikr_R = grid.eikr(-grid.kpt_c)
+
         for psit_R, psit_G in zip(psit_nR, psit_nG):
+            if self.dtype == complex:
+                psit_R.data *= emikr_R
             psit_R.fft(out=psit_G)
+
         return psit_nG
 
     def read_ibz_wave_functions(self, reader):

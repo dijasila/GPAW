@@ -132,6 +132,13 @@ class DistributedArrays(Generic[DomainType]):
     def abs_square(self,
                    weights: Array1D,
                    out: UniformGridFunctions = None) -> None:
+        """Add weighted absolute square of data to output array.
+
+        See also :xkcd:`849`.
+        """
+        raise NotImplementedError
+
+    def gather(self, out=None, broadcast=False):
         raise NotImplementedError
 
 

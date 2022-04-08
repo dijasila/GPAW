@@ -156,7 +156,7 @@ class LCAOWaveFunctions(WaveFunctions):
         s += '  Diagonalizer: %s\n' % self.ksl.get_description()
         s += ('  Atomic Correction: %s\n'
               % self.atomic_correction_cls.description)
-        s += '  Datatype: %s\n' % self.dtype.__name__
+        s += '  Data-type: %s\n' % self.dtype.__name__
         return s
 
     def set_eigensolver(self, eigensolver):

@@ -7,7 +7,7 @@ from ase.io.trajectory import read_atoms, write_atoms
 from ase.units import Bohr, Ha
 from gpaw.core.atom_arrays import AtomArraysLayout
 from gpaw.new.builder import builder as create_builder
-from gpaw.new.calculation import DFTCalculation, DFTState
+from gpaw.new.calculation import DFTCalculation, DFTState, units
 from gpaw.new.density import Density
 from gpaw.new.input_parameters import InputParameters
 from gpaw.new.potential import Potential
@@ -33,7 +33,9 @@ def write_gpw(filename: str,
                      bohr=Bohr)
 
         write_atoms(writer.child('atoms'), atoms)
-        writer.child('results').write(**calculation.results)
+        results = {key: value * units[key]
+                   for key, value in calculation.results.items()}
+        writer.child('results').write(**results)
         writer.child('parameters').write(
             **{k: v for k, v in params.items() if k != 'txt'})
 
@@ -146,15 +148,7 @@ def read_gpw(filename, log, parallel):
         builder.create_scf_loop(),
         pot_calc=builder.create_potential_calculator())
 
-    units = {'energy': 1 / ha,
-             'free_energy': 1 / ha,
-             'forces': bohr / ha,
-             'stress': bohr**3 / ha,
-             'dipole': 1 / bohr,
-             'magmom': 1.0,
-             'magmoms': 1.0}
-
-    results = {key: value * units[key]
+    results = {key: value / units[key]
                for key, value in reader.results.asdict().items()}
     if results:
         log(f'Read {", ".join(sorted(results))}')

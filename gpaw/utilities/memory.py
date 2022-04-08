@@ -124,7 +124,7 @@ class MemNode:
         self.totalsize = self.basesize
         for node in self.nodes:
             self.totalsize += node.calculate_size()
-        # Datatype must not be fixed-size np integer
+        # Data-type must not be fixed-size np integer
         return self.totalsize
 
     def subnode(self, name, basesize=0):

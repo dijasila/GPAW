@@ -5,22 +5,14 @@ from pathlib import Path
 from typing import IO, Any, Union
 
 from ase import Atoms
-from ase.units import Bohr, Ha
+from ase.units import Ha
 from gpaw import __version__
 from gpaw.new import Timer
-from gpaw.new.calculation import DFTCalculation
+from gpaw.new.calculation import DFTCalculation, units
 from gpaw.new.gpw import read_gpw, write_gpw
 from gpaw.new.input_parameters import InputParameters
 from gpaw.new.logger import Logger
 from gpaw.typing import Array1D, Array2D
-
-
-units = {'energy': Ha,
-         'forces': Ha / Bohr,
-         'stress': Ha / Bohr**3,
-         'dipole': Bohr,
-         'magmom': 1.0,
-         'magmoms': 1.0}
 
 
 def GPAW(filename: Union[str, Path, IO[str]] = None,
@@ -116,13 +108,13 @@ class ASECalculator:
         return self.calculation.results[prop] * units[prop]
 
     def create_new_calculation(self, atoms: Atoms) -> DFTCalculation:
-        with self.timer('init'):
+        with self.timer('Init'):
             calculation = DFTCalculation.from_parameters(atoms, self.params,
                                                          self.log)
         return calculation
 
     def move_atoms(self, atoms):
-        with self.timer('move'):
+        with self.timer('Move'):
             self.calculation = self.calculation.move_atoms(atoms, self.log)
 
     def converge(self, atoms):

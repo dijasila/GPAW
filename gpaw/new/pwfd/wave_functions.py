@@ -5,7 +5,7 @@ from math import pi
 
 import numpy as np
 from gpaw.core.arrays import DistributedArrays
-from gpaw.core.atom_arrays import AtomArrays
+from gpaw.core.atom_arrays import AtomArrays, AtomDistribution
 from gpaw.core.uniform_grid import UniformGrid, UniformGridFunctions
 from gpaw.new.wave_functions import WaveFunctions
 from gpaw.setup import Setups
@@ -21,8 +21,10 @@ class PWFDWaveFunctions(WaveFunctions):
                  k: int,
                  setups: Setups,
                  fracpos_ac: Array2D,
+                 atomdist: AtomDistribution,
                  weight: float = 1.0,
                  ncomponents: int = 1):
+        assert isinstance(atomdist, AtomDistribution)
         self.psit_nX = psit_nX
         super().__init__(setups=setups,
                          nbands=psit_nX.dims[0],
@@ -30,12 +32,13 @@ class PWFDWaveFunctions(WaveFunctions):
                          q=q,
                          k=k,
                          kpt_c=psit_nX.desc.kpt_c,
+                         fracpos_ac=fracpos_ac,
+                         atomdist=atomdist,
                          weight=weight,
                          ncomponents=ncomponents,
                          dtype=psit_nX.desc.dtype,
                          domain_comm=psit_nX.desc.comm,
                          band_comm=psit_nX.comm)
-        self.fracpos_ac = fracpos_ac
         self.pt_aiX = None
         self.orthonormalized = False
 
@@ -48,11 +51,16 @@ class PWFDWaveFunctions(WaveFunctions):
         return self.psit_nX.dims[0]
 
     @classmethod
-    def from_wfs(cls, wfs: WaveFunctions, psit_nX, fracpos_ac):
+    def from_wfs(cls,
+                 wfs: WaveFunctions,
+                 psit_nX,
+                 fracpos_ac,
+                 atomdist):
         return cls(psit_nX,
                    wfs.spin,
                    wfs.setups,
                    fracpos_ac,
+                   atomdist,
                    wfs.weight,
                    wfs.spin_degeneracy)
 
@@ -60,18 +68,20 @@ class PWFDWaveFunctions(WaveFunctions):
     def P_ain(self):
         if self._P_ain is None:
             if self.pt_aiX is None:
-                self.pt_aiX = self.setups.create_projectors(self.psit_nX.desc,
-                                                            self.fracpos_ac)
+                self.pt_aiX = self.psit_nX.desc.atom_centered_functions(
+                    [setup.pt_j for setup in self.setups],
+                    self.fracpos_ac,
+                    atomdist=self.atomdist)
             self._P_ain = self.pt_aiX.empty(self.psit_nX.dims,
                                             self.psit_nX.comm,
                                             transposed=True)
             self.pt_aiX.integrate(self.psit_nX, self._P_ain)
         return self._P_ain
 
-    def move(self, fracpos_ac):
+    def move(self, fracpos_ac, atomdist):
         self._P_ain = None
         self.orthonormalized = False
-        self.pt_aiX.move(fracpos_ac)
+        self.pt_aiX.move(fracpos_ac, atomdist)
         self._eig_n = None
         self._occ_n = None
 
@@ -83,6 +93,17 @@ class PWFDWaveFunctions(WaveFunctions):
         self.add_to_atomic_density_matrices(occ_n, D_asii)
 
     def orthonormalize(self, work_array_nX: ArrayND = None):
+        """Orthonormalize wave functions.
+
+        :::
+
+               /~ _ *~ _   _   ---  a  * a   a
+          S  = |ψ(r) ψ(r) dr + >  (P  ) P  ΔS
+           mn  / m    n        ---  mi   nj  ij
+                               aij
+
+        ...
+        """
         if self.orthonormalized:
             return
         psit_nX = self.psit_nX
@@ -128,9 +149,9 @@ class PWFDWaveFunctions(WaveFunctions):
 
         dH:::
 
-           ~ ~    a    ~  ~
-          <𝜓|p> dH    <p |𝜓>
-            m i   ij    j  n
+           ~ ~    a  ~  ~
+          <𝜓|p> ΔH  <p |𝜓>
+            m i   ij  j  n
         """
         self.orthonormalize(work_array)
         psit_nX = self.psit_nX
@@ -180,7 +201,12 @@ class PWFDWaveFunctions(WaveFunctions):
             F_vii -= np.einsum('inv, jn, jk -> vik', F_inv, P_in, dO_ii)
             F_av[a] += 2 * F_vii.real.trace(0, 1, 2)
 
-    def collect(self, n1=0, n2=0):
+    def collect(self,
+                n1: int = 0,
+                n2: int = 0) -> PWFDWaveFunctions:
+        """Collect range of bands to master of band and domain
+        communicators."""
+        # Also collect projections instead of recomputing XXX
         n2 = n2 or len(self) + n2
         band_comm = self.psit_nX.comm
         domain_comm = self.psit_nX.desc.comm
@@ -218,6 +244,7 @@ class PWFDWaveFunctions(WaveFunctions):
                                          self.k,
                                          self.setups,
                                          self.fracpos_ac,
+                                         self.atomdist.gather(),
                                          self.weight,
                                          self.ncomponents)
         else:
@@ -301,9 +328,9 @@ class PWFDWaveFunctions(WaveFunctions):
         return dipole_nnv
 
     def gather_wave_function_coefficients(self) -> np.ndarray:
-        psit_nX = self.psit_nX.gather()
+        psit_nX = self.psit_nX.gather()  # gather X
         if psit_nX is not None:
-            data_nX = psit_nX.matrix.gather()
+            data_nX = psit_nX.matrix.gather()  # gather n
             if data_nX.dist.comm.rank == 0:
                 # XXX PW-gamma-point mode: float or complex matrix.dtype?
                 return data_nX.data.view(psit_nX.data.dtype)
