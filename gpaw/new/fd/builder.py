@@ -38,7 +38,7 @@ class FDDFTComponentsBuilder(PWFDDFTComponentsBuilder):
     def get_pseudo_core_densities(self):
         if self._nct_aR is None:
             self._nct_aR = self.setups.create_pseudo_core_densities(
-                self.grid, self.fracpos_ac)
+                self.grid, self.fracpos_ac, atomdist=self.atomdist)
         return self._nct_aR
 
     def create_poisson_solver(self) -> PoissonSolver:
@@ -59,8 +59,15 @@ class FDDFTComponentsBuilder(PWFDDFTComponentsBuilder):
     def create_hamiltonian_operator(self, blocksize=10):
         return FDHamiltonian(self.wf_desc, self.kin_stencil_range, blocksize)
 
-    def convert_wave_functions_from_uniform_grid(self, psit_nR):
-        # No convertion needed (used for PW-mode)
+    def convert_wave_functions_from_uniform_grid(self,
+                                                 C_nM,
+                                                 basis_set,
+                                                 kpt_c,
+                                                 q):
+        grid = self.grid.new(kpt=kpt_c, dtype=self.dtype)
+        psit_nR = grid.zeros(self.nbands, self.communicators['b'])
+        mynbands = len(C_nM)
+        basis_set.lcao_to_grid(C_nM, psit_nR.data[:mynbands], q)
         return psit_nR
 
     def read_ibz_wave_functions(self, reader):
@@ -78,8 +85,22 @@ class FDDFTComponentsBuilder(PWFDDFTComponentsBuilder):
             index = (wfs.spin, wfs.k)
             data = reader.wave_functions.proxy('values', *index)
             data.scale = c
-            wfs.psit_nX = UniformGridFunctions(grid, self.nbands,
-                                               data=data)
+            if self.communicators['w'].size == 1:
+                wfs.psit_nX = UniformGridFunctions(grid, self.nbands,
+                                                   data=data)
+            else:
+                band_comm = self.communicators['b']
+                wfs.psit_nX = UniformGridFunctions(
+                    grid, self.nbands,
+                    comm=band_comm)
+                if grid.comm.rank == 0:
+                    mynbands = (self.nbands +
+                                band_comm.size - 1) // band_comm.size
+                    n1 = min(band_comm.rank * mynbands, self.nbands)
+                    n2 = min((band_comm.rank + 1) * mynbands, self.nbands)
+                    assert wfs.psit_nX.mydims[0] == n2 - n1
+                    data = data[n1:n2]  # read from file
+                wfs.psit_nX.scatter_from(data)
 
         return ibzwfs
 

@@ -3,6 +3,13 @@ from contextlib import contextmanager
 from time import time
 
 
+def prod(iterable):
+    result = 1
+    for x in iterable:
+        result *= x
+    return result
+
+
 def cached_property(method):
     """Quick'n'dirty implementation of cached_property coming in Python 3.8."""
     name = f'__{method.__name__}'
@@ -59,10 +66,10 @@ class Timer:
         self.times['Total'] += time()
         total = self.times['Total']
         log()
+        n = max(len(name) for name in self.times) + 2
+        w = len(f'{total:.3f}')
+        N = 71 - n - w
         for name, t in self.times.items():
-            n = int(round(40 * t / total))
-            if n == 0:
-                bar = '|'
-            else:
-                bar = '|' + (n - 1) * '-' + '|'
-            log(f'Time ({name + "):":12}{t:10.3f} seconds', bar)
+            m = int(round(2 * N * t / total))
+            bar = '━' * (m // 2) + '╸' * (m % 2)
+            log(f'{name + ":":{n}}{t:{w}.3f} seconds', bar)

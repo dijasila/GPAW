@@ -22,7 +22,10 @@ class Potential:
 
     def write(self, writer):
         dH_asp = self.dH_asii.to_lower_triangle().gather()
+        vt_sR = self.vt_sR.gather()
+        if dH_asp is None:
+            return
         writer.write(
-            potential=self.vt_sR.gather().data * Ha,
+            potential=vt_sR.data * Ha,
             atomic_hamiltonian_matrices=dH_asp.data,
             energies={name: val * Ha for name, val in self.energies.items()})

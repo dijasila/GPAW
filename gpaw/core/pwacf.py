@@ -12,22 +12,30 @@ from gpaw.core.uniform_grid import UniformGridFunctions
 
 
 class PlaneWaveAtomCenteredFunctions(AtomCenteredFunctions):
-    def __init__(self, functions, fracpos, pw):
-        AtomCenteredFunctions.__init__(self, functions, fracpos)
+    def __init__(self,
+                 functions,
+                 fracpos,
+                 pw,
+                 atomdist=None):
+        AtomCenteredFunctions.__init__(self, functions, fracpos, atomdist)
         self.pw = pw
 
-    def _lacy_init(self):
+    def _lazy_init(self):
         if self._lfc is not None:
             return
 
         self._lfc = PWLFC(self.functions, self.pw)
-        atomdist = AtomDistribution(
-            ranks=np.zeros(len(self.fracpos_ac), int),
-            comm=self.pw.comm)
-        self._lfc.set_positions(self.fracpos_ac, atomdist)
+
+        if self._atomdist is None:
+            self._atomdist = AtomDistribution.from_number_of_atoms(
+                len(self.fracpos_ac), self.pw.comm)
+        else:
+            assert self.pw.comm is self._atomdist.comm
+
+        self._lfc.set_positions(self.fracpos_ac, self._atomdist)
         self._layout = AtomArraysLayout([sum(2 * f.l + 1 for f in funcs)
                                          for funcs in self.functions],
-                                        atomdist,
+                                        self._atomdist,
                                         self.pw.dtype)
 
     def to_uniform_grid(self,
@@ -283,7 +291,7 @@ class PWLFC(BaseLFC):
             c_axi = self.dict(a_xG.shape[:-1])
 
         x = 0.0
-        for G1, G2 in self.block(q):
+        for G1, G2 in self.block():
             f_GI = self.expand(G1, G2, cc=self.dtype == complex)
             if self.dtype == float:
                 if G1 == 0 and self.comm.rank == 0:
@@ -311,9 +319,9 @@ class PWLFC(BaseLFC):
             c_axiv = self.dict(a_xG.shape[:-1], derivative=True)
 
         x = 0.0
-        for G1, G2 in self.block(q):
+        for G1, G2 in self.block():
             f_GI = self.expand(G1, G2, cc=True)
-            G_Gv = self.pw.G_plus_k_Gv
+            G_Gv = self.pw.G_plus_k_Gv[G1:G2]
             if self.dtype == float:
                 d_GI = np.empty_like(f_GI)
                 for v in range(3):
@@ -339,7 +347,7 @@ class PWLFC(BaseLFC):
                     c_axiv[a][..., v] = c_vxI[v, ..., I1:I2]
             else:
                 for a, I1, I2 in self.my_indices:
-                    c_axiv[a][..., v] = (1.0j * self.eikR_qa[q][a] *
+                    c_axiv[a][..., v] = (1.0j * self.eikR_a[a] *
                                          c_vxI[v, ..., I1:I2])
 
         return c_axiv
@@ -379,7 +387,7 @@ class PWLFC(BaseLFC):
         G0_Gv = self.pd.get_reciprocal_vectors(q=q)
 
         stress_vv = np.zeros((3, 3))
-        for G1, G2 in self.block(q, ensure_same_number_of_blocks=True):
+        for G1, G2 in self.block(ensure_same_number_of_blocks=True):
             G_Gv = G0_Gv[G1:G2]
             Z_LvG = np.array([nablarlYL(L, G_Gv.T)
                               for L in range((lmax + 1)**2)])

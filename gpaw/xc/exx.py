@@ -61,7 +61,7 @@ class EXX(PairDensity):
         kpts: list of in or list of list of int
             List of indices of the IBZ k-points to calculate the quasi particle
             energies for.  Default is all k-points.  One can also specify the
-            coordiantes of the k-point.  As an example, Gamma and X for an
+            coordinates of the k-point.  As an example, Gamma and X for an
             FCC crystal would be: kpts=[[0, 0, 0], [1 / 2, 1 / 2, 0]].
         bands: tuple of two ints
             Range of band indices, like (n1, n2), to calculate the quasi

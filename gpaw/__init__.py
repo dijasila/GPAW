@@ -5,7 +5,7 @@ import os
 import sys
 import contextlib
 from pathlib import Path
-from typing import List, Dict, Union, Any
+from typing import List, Dict, Union, Any, TYPE_CHECKING
 
 __version__ = '22.1.1b1'
 __ase_version_required__ = '3.23.0b1'
@@ -21,7 +21,9 @@ __all__ = ['GPAW',
 setup_paths: List[Union[str, Path]] = []
 is_gpaw_python = '_gpaw' in sys.builtin_module_names
 dry_run = 0
-debug: bool = bool(sys.flags.debug)
+
+# When type-checking, we want the debug-wrappers enabled:
+debug: bool = TYPE_CHECKING or bool(sys.flags.debug)
 
 
 @contextlib.contextmanager
@@ -49,7 +51,15 @@ with broadcast_imports:
     import warnings
     from argparse import ArgumentParser, REMAINDER, RawDescriptionHelpFormatter
 
+    # With gpaw-python BLAS symbols are in global scope and we need to
+    # ensure that NumPy and SciPy use symbols from their own dependencies
+    if is_gpaw_python:
+        old_dlopen_flags = sys.getdlopenflags()
+        sys.setdlopenflags(old_dlopen_flags | os.RTLD_DEEPBIND)
     import numpy as np
+    import scipy.linalg  # noqa: F401
+    if is_gpaw_python:
+        sys.setdlopenflags(old_dlopen_flags)
     import _gpaw
 
 

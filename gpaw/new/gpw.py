@@ -3,14 +3,15 @@ from pathlib import Path
 from typing import Any, Callable, IO, Union
 import ase.io.ulm as ulm
 import gpaw
+import numpy as np
 from ase.io.trajectory import read_atoms, write_atoms
 from ase.units import Bohr, Ha
+from gpaw.core.atom_arrays import AtomArraysLayout
 from gpaw.new.builder import builder as create_builder
-from gpaw.new.calculation import DFTCalculation, DFTState
+from gpaw.new.calculation import DFTCalculation, DFTState, units
 from gpaw.new.density import Density
 from gpaw.new.input_parameters import InputParameters
 from gpaw.new.potential import Potential
-from gpaw.core.atom_arrays import AtomArraysLayout
 
 
 def write_gpw(filename: str,
@@ -33,15 +34,56 @@ def write_gpw(filename: str,
                      bohr=Bohr)
 
         write_atoms(writer.child('atoms'), atoms)
-        writer.child('results').write(**calculation.results)
+        results = {key: value * units[key]
+                   for key, value in calculation.results.items()}
+        writer.child('results').write(**results)
         writer.child('parameters').write(
             **{k: v for k, v in params.items() if k != 'txt'})
-        calculation.state.density.write(writer.child('density'))
-        calculation.state.potential.write(writer.child('hamiltonian'))
-        calculation.state.ibzwfs.write(writer.child('wave_functions'),
-                                       skip_wfs)
+
+        state = calculation.state
+        state.density.write(writer.child('density'))
+        state.potential.write(writer.child('hamiltonian'))
+        wf_writer = writer.child('wave_functions')
+        state.ibzwfs.write(wf_writer, skip_wfs)
+
+        if not skip_wfs and params.mode['name'] == 'pw':
+            write_wave_function_indices(wf_writer,
+                                        state.ibzwfs,
+                                        state.density.nt_sR.desc)
 
     world.barrier()
+
+
+def write_wave_function_indices(writer, ibzwfs, grid):
+    if ibzwfs.band_comm.rank != 0:
+        return
+    if ibzwfs.domain_comm.rank != 0:
+        return
+
+    kpt_comm = ibzwfs.kpt_comm
+    ibz = ibzwfs.ibz
+    (nG,) = ibzwfs.get_max_shape(global_shape=True)
+
+    writer.add_array('indices', (len(ibz), nG), np.int32)
+
+    index_G = np.zeros(nG, np.int32)
+    size = tuple(grid.size)
+    if ibzwfs.dtype == float:
+        size = (size[0], size[1], size[2] // 2 + 1)
+
+    for k, rank in enumerate(ibzwfs.rank_k):
+        if rank == kpt_comm.rank:
+            wfs = ibzwfs.wfs_qs[ibzwfs.q_k[k]][0]
+            i_G = wfs.psit_nX.desc.indices(size)
+            index_G[:len(i_G)] = i_G
+            index_G[len(i_G):] = -1
+            if rank == 0:
+                writer.fill(index_G)
+            else:
+                kpt_comm.send(index_G, 0)
+        elif kpt_comm.rank == 0:
+            kpt_comm.receive(index_G, rank)
+            writer.fill(index_G)
 
 
 def read_gpw(filename: Union[str, Path, IO[str]],
@@ -49,15 +91,10 @@ def read_gpw(filename: Union[str, Path, IO[str]],
              parallel: dict[str, Any],
              force_complex_dtype: bool = False):
     """
-    Read gpw file and return a DFTCalculation object,
-    params dictionary, and the builder
+    Read gpw file
 
     Returns
     -------
-    atoms, calculation, params
-
-    or
-
     atoms, calculation, params, builder
     """
     log(f'Reading from {filename}')
@@ -122,10 +159,11 @@ def read_gpw(filename: Union[str, Path, IO[str]],
     calculation = DFTCalculation(
         DFTState(ibzwfs, density, potential),
         builder.setups,
-        None,
+        builder.create_scf_loop(),
         pot_calc=builder.create_potential_calculator())
 
-    results = reader.results.asdict()
+    results = {key: value / units[key]
+               for key, value in reader.results.asdict().items()}
     if results:
         log(f'Read {", ".join(sorted(results))}')
 
@@ -136,5 +174,6 @@ def read_gpw(filename: Union[str, Path, IO[str]],
 
 if __name__ == '__main__':
     import sys
+
     from gpaw.mpi import world
     read_gpw(sys.argv[1], print, {'world': world})

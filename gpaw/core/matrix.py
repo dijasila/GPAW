@@ -1,20 +1,21 @@
 """BLACS distributed matrix object."""
 from __future__ import annotations
-from typing import Dict, Tuple
-import numpy as np
-import scipy.linalg as linalg
+
+from typing import Dict, Tuple, Union
 
 import _gpaw
-from gpaw import debug
-from gpaw.mpi import serial_comm, _Communicator
 import gpaw.utilities.blas as blas
-
+import numpy as np
+import scipy.linalg as linalg
+from gpaw import debug
+from gpaw.mpi import MPIComm, _Communicator, serial_comm
+from gpaw.typing import Array1D, Array2D
 
 _global_blacs_context_store: Dict[Tuple[_Communicator, int, int], int] = {}
 
 
-def suggest_blocking(N, ncpus):
-    """Suggest blocking of NxN matrix.
+def suggest_blocking(N: int, ncpus: int) -> tuple[int, int, int]:
+    """Suggest blocking of ``NxN`` matrix.
 
     Returns rows, columns, blocksize tuple.
 
@@ -50,20 +51,27 @@ def suggest_blocking(N, ncpus):
 
 
 class Matrix:
-    def __init__(self, M, N, dtype=None, data=None, dist=None):
+    def __init__(self,
+                 M: int,
+                 N: int,
+                 dtype=None,
+                 data: Array2D = None,
+                 dist: Union[MatrixDistribution, tuple[int, ...]] = None):
         """Matrix object.
 
-        M: int
+        Parameters
+        ----------
+        M:
             Rows.
-        N: int
+        N:
             Columns.
-        dtype: type
+        dtype:
             Data type (float or complex).
-        dist: tuple or None
+        dist:
             BLACS distribution given as
             (communicator, rows, columns, blocksize)
             tuple.  Default is None meaning no distribution.
-        data: ndarray or None.
+        data:
             Numpy ndarray to use for storage.  By default, a new ndarray
             will be allocated.
             """
@@ -90,7 +98,7 @@ class Matrix:
         dist = str(self.dist).split('(')[1]
         return 'Matrix({}: {}'.format(self.dtype.name, dist)
 
-    def new(self, dist='inherit', data=None):
+    def new(self, dist='inherit', data=None) -> Matrix:
         """Create new matrix of same shape and dtype.
 
         Default is to use same BLACS distribution.  Use dist to use another
@@ -100,6 +108,12 @@ class Matrix:
                       dtype=self.dtype,
                       dist=self.dist if dist == 'inherit' else dist,
                       data=data)
+
+    def copy(self) -> Matrix:
+        """Create a copy."""
+        M = self.new()
+        M.data[:] = self.data
+        return M
 
     def __setitem__(self, item, value):
         assert item == slice(None)
@@ -114,6 +128,7 @@ class Matrix:
                  out=None,
                  beta=0.0,
                  symmetric=False) -> Matrix:
+        """BLAS matrix-multiplication with other matrix."""
         if not isinstance(other, Matrix):
             other = other.matrix
         A = self
@@ -142,7 +157,7 @@ class Matrix:
         dist.multiply(alpha, A, opa, B, opb, beta, out, symmetric)
         return out
 
-    def redist(self, other):
+    def redist(self, other: Matrix) -> None:
         """Redistribute to other BLACS layout."""
         if self is other:
             return
@@ -156,9 +171,10 @@ class Matrix:
 
         if n2 == 1 and d1.blocksize is None:
             assert d2.blocksize is None
+            assert d1.columns == 1
             comm = d1.comm
             if comm.rank == 0:
-                M = len(self)
+                M = self.shape[0]
                 m = (M + comm.size - 1) // comm.size
                 other.data[:m] = self.data
                 for r in range(1, comm.size):
@@ -171,9 +187,10 @@ class Matrix:
 
         if n1 == 1 and d2.blocksize is None:
             assert d1.blocksize is None
+            assert d1.columns == 1
             comm = d1.comm
             if comm.rank == 0:
-                M = len(self)
+                M = self.shape[0]
                 m = (M + comm.size - 1) // comm.size
                 other.data[:] = self.data[:m]
                 for r in range(1, comm.size):
@@ -200,11 +217,12 @@ class Matrix:
                 ctx = d2.desc[1]
             redist(d1, self.data, d2, other.data, ctx)
 
-    def gather(self, root=0):
+    def gather(self, root: int = 0) -> Matrix:
         """ Gather the Matrix on the root rank
 
         Returns a new Matrix distributed so that all data is on the root rank
         """
+        assert root == 0
         if self.dist.comm.size > 1:
             S = self.new(dist=(self.dist.comm, 1, 1))
             self.redist(S)
@@ -216,7 +234,18 @@ class Matrix:
     def invcholesky(self):
         """Inverse of Cholesky decomposition.
 
-        Only the lower part is used.
+        Returns a lower triangle matrix `L` where:::
+
+             †
+          LSL = 1
+
+        Only the lower part of `S` is used.
+
+        >>> S = Matrix(2, 2, data=np.array([[1.0, np.nan], [0.1, 1.0]]))
+        >>> S.invcholesky()
+        >>> S.data
+        array([[ 1.        , -0.        ],
+               [-0.10050378,  1.00503782]])
         """
         S = self.gather()
         if self.dist.comm.rank == 0:
@@ -267,10 +296,12 @@ class Matrix:
                     np.negative(H.data.imag, H.data.imag)
                 if debug:
                     H.data[np.triu_indices(H.shape[0], 1)] = 42.0
-                eps[:], H.data.T[:] = linalg.eigh(H.data,
-                                                  lower=True,  # ???
-                                                  overwrite_a=True,
-                                                  check_finite=debug)
+                eps[:], H.data.T[:] = linalg.eigh(
+                    H.data,
+                    lower=True,
+                    overwrite_a=True,
+                    check_finite=debug,
+                    driver='evx' if H.data.size == 1 else 'evd')
             self.dist.comm.broadcast(eps, 0)
         else:
             if slcomm.rank < rows * columns:
@@ -291,10 +322,71 @@ class Matrix:
 
         return eps
 
-    def complex_conjugate(self):
+    def eighg(self, L: Matrix) -> Array1D:
+        """Solve generalized eigenvalue problem.
+
+        :::
+
+                     †
+          HC=SCΛ, LSL = 1
+
+        :::
+
+           ~~ ~   ~    †     †~
+           HC=CΛ, H=LHL , C=L C
+        """
+        L_MM = L.data
+        Ht_MM = L_MM @ self.data @ L_MM.conj().T
+        eig_n, Ct_Mn = linalg.eigh(Ht_MM,
+                                   overwrite_a=True,
+                                   check_finite=debug,
+                                   driver='evx' if Ht_MM.size == 1 else 'evd')
+        self.data[:] = L_MM.T @ Ct_Mn
+        return eig_n
+
+    def complex_conjugate(self) -> None:
         """Inplace complex conjugation."""
         if self.dtype == complex:
             np.negative(self.data.imag, self.data.imag)
+
+    def add_hermitian_conjugate(self, scale: float = 1.0) -> None:
+        """Add heritian conjugates to myself."""
+        if self.dist.comm.size == 1:
+            self.data *= 0.5
+            self.data += self.data.conj().T
+            return
+        tmp = self.copy()
+        _gpaw.pblas_tran(*self.shape, scale, tmp.data, scale, self.data,
+                         self.dist.desc, self.dist.desc, True)
+
+    def tril2full(self) -> None:
+        """Fill in upper triangle from lower triangle.
+
+        For a real matrix::
+
+          a ? ?    a b d
+          b c ? -> b c e
+          d e f    d e f
+
+        For a complex matrix, the complex conjugate of the lower part will
+        be inserted into the upper part.
+        """
+        M, N = self.shape
+        assert M == N
+
+        if self.dist.comm.size == 1:
+            u = np.triu_indices(M, 1)
+            self.data[u] = self.data.T[u].conj()
+            return
+
+        desc = self.dist.desc
+        _gpaw.scalapack_set(self.data, desc, 0.0, 0.0, 'L', M - 1, M - 1, 2, 1)
+        buf = self.data.copy()
+        # Set diagonal to zero in the copy:
+        _gpaw.scalapack_set(buf, desc, 0.0, 0.0, 'L', M, M, 1, 1)
+        # Now transpose tmp_mm adding the result to the original matrix:
+        _gpaw.pblas_tran(*self.shape, 1.0, buf, 1.0, self.data,
+                         desc, desc, True)
 
 
 def _matrix(M):
@@ -305,8 +397,35 @@ def _matrix(M):
 
 
 class MatrixDistribution:
+    comm: MPIComm
+    rows: int
+    columns: int
+    blocksize: int | None  # None means everything on rank=0
+    shape: tuple[int, int]
+    desc: Array1D
+
     def matrix(self, dtype=None, data=None):
         return Matrix(*self.full_shape, dtype=dtype, data=data, dist=self)
+
+    def multiply(self, alpha, a, opa, b, opb, beta, c, symmetric):
+        raise NotImplementedError
+
+    def myslice(self) -> slice:
+        """Create slice object for my rows.
+
+        >>> Matrix(2, 2).dist.myslice()
+        slice(0, 2, None)
+        """
+        ok = (self.rows == self.comm.size and
+              self.columns == 1 and
+              self.blocksize is None)
+        if not ok:
+            raise ValueError(f'Can not create slice of distribution: {self}')
+        M = self.shape[0]
+        b = (M + self.rows - 1) // self.rows
+        n1 = self.comm.rank * b
+        n2 = min(n1 + b, M)
+        return slice(n1, n2)
 
 
 class NoDistribution(MatrixDistribution):
@@ -438,7 +557,12 @@ def redist(dist1, M1, dist2, M2, context):
                            context, 'G')
 
 
-def create_distribution(M, N, comm=None, r=1, c=1, b=None):
+def create_distribution(M: int,
+                        N: int,
+                        comm: MPIComm = None,
+                        r: int = 1,
+                        c: int = 1,
+                        b: int = None) -> MatrixDistribution:
     if comm is None or comm.size == 1:
         assert r == 1 and abs(c) == 1 or c == 1 and abs(r) == 1
         return NoDistribution(M, N)
@@ -454,7 +578,7 @@ def fastmmm(m1, m2, m3, beta):
 
     buf1 = m2.data
 
-    N = len(m1)
+    N = m1.shape[0]
     n = (N + comm.size - 1) // comm.size
 
     for r in range(comm.size):

@@ -503,10 +503,10 @@ class ElectronPhononCoupling(Displacement):
 
         Parameters
         ----------
-        u_l: ndarray
+        u_l: np.ndarray
             Mass-scaled polarization vectors (in units of 1 / sqrt(amu)) of the
             phonons.
-        omega_l: ndarray
+        omega_l: np.ndarray
             Vibrational frequencies in eV.
         """
 
@@ -556,20 +556,20 @@ class ElectronPhononCoupling(Displacement):
 
         Parameters
         ----------
-        kpts: ndarray or tuple
+        kpts: np.ndarray or tuple
             k-vectors of the Bloch states. When a tuple of integers is given, a
             Monkhorst-Pack grid with the specified number of k-points along the
             directions of the reciprocal lattice vectors is generated.
-        qpts: ndarray or tuple
+        qpts: np.ndarray or tuple
             q-vectors of the phonons.
-        c_kn: ndarray
+        c_kn: np.ndarray
             Expansion coefficients for the Bloch states. The ordering must be
             the same as in the ``kpts`` argument.
-        u_ql: ndarray
+        u_ql: np.ndarray
             Mass-scaled polarization vectors (in units of 1 / sqrt(amu)) of the
             phonons. Again, the ordering must be the same as in the
             corresponding ``qpts`` argument.
-        omega_ql: ndarray
+        omega_ql: np.ndarray
             Vibrational frequencies in eV.
         kpts_from: list[int] or int
             Calculate only the matrix element for the k-vectors specified by
@@ -706,7 +706,7 @@ class ElectronPhononCoupling(Displacement):
 
         Parameters
         ----------
-        V1t_xG: ndarray
+        V1t_xG: np.ndarray
             Array representation of atomic gradients of the effective potential
             in the supercell grid.
         components: str

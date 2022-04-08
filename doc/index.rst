@@ -23,16 +23,17 @@ Cell([5.0, 5.0, 5.74])
 >>> h2.positions
 array([[2.5 , 2.5 , 2.5 ],
        [2.5 , 2.5 , 3.24]])
->>> h2.calc = GPAW(xc='PBE', mode=PW(300), txt='h2.txt')
+>>> h2.calc = GPAW(xc='PBE',
+...                mode=PW(300),
+...                txt='h2.txt')
 >>> energy = h2.get_potential_energy()
 >>> print(f'Energy: {energy:.3f} eV')
 Energy: -6.631 eV
 >>> forces = h2.get_forces()
->>> with np.printoptions(suppress=True, precision=3):
-...    print(forces)
-[[ 0.     0.    -0.639]
- [ 0.     0.     0.639]]
-
+>>> forces.shape
+(2, 3)
+>>> print(f'Force: {forces[0, 2]:.3f} eV/Å')
+Force: -0.639 eV/Å
 
 .. image:: https://badge.fury.io/py/gpaw.svg
     :target: https://pypi.org/project/gpaw/

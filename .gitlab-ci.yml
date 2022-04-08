@@ -30,10 +30,10 @@ master:
       --extend-ignore E402
       doc
     - python -We:invalid -m compileall -f -q gpaw/
-    # - echo "parallel_python_interpreter = True" >> ~/.gpaw/siteconfig.py
-    # - echo "libraries += ['blas']" >> ~/.gpaw/siteconfig.py
-    # - python setup.py install > gpaw-python-install.output
-    # - su user -c 'gpaw-python -m gpaw info'
+    - echo "parallel_python_interpreter = True" >> siteconfig.py
+    - echo "libraries += ['openblas']" >> siteconfig.py
+    - python setup.py install > gpaw-python-install.output
+    - gpaw-python -m gpaw info
     - mq config --in-place
     - mq init
     - mq workflow -p agts.py -zT | tail -1 | tee count
@@ -73,14 +73,14 @@ libxc:
   when: manual
 
 docs:
-  image: python:3.9
+  image: python:3.10
   script:
     - apt-get update -qy
     - apt-get install -qy graphviz
     - python3 -m venv venv
     - source venv/bin/activate
     - pip -q install git+https://gitlab.com/ase/ase.git@master
-    - pip install sphinx-rtd-theme pytest graphviz
+    - pip install sphinx-rtd-theme graphviz pytest
     - echo "noblas = True; nolibxc = True" > siteconfig.py
     - pip install -e .
     - tools/gpaw-setup H C O Li

@@ -44,27 +44,27 @@ def update_dict(default: dict, value: dict | None) -> dict[str, Any]:
 
 
 class InputParameters:
-    h: float | None
-    parallel: dict[str, Any]
-    txt: str | Path | IO[str] | None
-    mode: dict[str, Any]
-    xc: dict[str, Any]
-    symmetry: dict[str, Any]
-    kpts: dict[str, Any]
-    setups: Any
     basis: Any
-    magmoms: Any
-    gpts: None | Sequence[int]
     charge: float
-    nbands: None | int | float
-    spinpol: bool
-    poissonsolver: dict[str, Any]
     convergence: dict[str, Any]
     eigensolver: dict[str, Any]
     force_complex_dtype: bool
+    gpts: None | Sequence[int]
+    h: float | None
+    kpts: dict[str, Any]
+    magmoms: Any
+    mode: dict[str, Any]
+    nbands: None | int | float
+    parallel: dict[str, Any]
+    poissonsolver: dict[str, Any]
+    setups: Any
+    spinpol: bool
+    symmetry: dict[str, Any]
+    txt: str | Path | IO[str] | None
+    xc: dict[str, Any]
 
     def __init__(self, params: dict[str, Any]):
-        self.keys = set(params)
+        self.keys = sorted(params)
 
         for key in params:
             if key not in parameter_functions:
@@ -84,7 +84,7 @@ class InputParameters:
         if self.h is not None and self.gpts is not None:
             raise ValueError("""You can't use both "gpts" and "h"!""")
 
-        bands = self.convergence.pop('bands')
+        bands = self.convergence.pop('bands', None)
         if bands is not None:
             self.eigensolver['converge_bands'] = bands
             warnings.warn(f'Please use eigensolver={self.eigensolver!r}',
@@ -109,19 +109,108 @@ class InputParameters:
 
 
 @input_parameter
+def basis(value=None):
+    """Atomic basis set."""
+    return value or {}
+
+
+@input_parameter
+def charge(value=0.0):
+    return value
+
+
+@input_parameter
+def convergence(value=None):
+    """Accuracy of the self-consistency cycle."""
+    dct = update_dict({'energy': 0.0005,  # eV / electron
+                       'density': 1.0e-4,  # electrons / electron
+                       'eigenstates': 4.0e-8,  # eV^2 / electron
+                       'forces': np.inf,
+                       'bands': None,
+                       'maximum iterations': None},
+                      value)
+    return {k: v for k, v in dct.items() if v is not None}
+
+
+@input_parameter
+def eigensolver(value=None) -> dict:
+    """Eigensolver."""
+    if isinstance(value, str):
+        return {'name': value}
+    return value or {}
+
+
+@input_parameter
 def force_complex_dtype(value: bool = False):
     return value
 
 
 @input_parameter
-def occupations(value=None):
+def gpts(value=None):
+    """Number of grid points."""
     return value
 
 
 @input_parameter
-def poissonsolver(value=None):
-    """Poisson solver."""
+def h(value=None):
+    """Grid spacing."""
+    return value
+
+
+@input_parameter
+def hund(value=False):
+    """Using Hund's rule for guessing initial magnetic moments."""
+    return value
+
+
+@input_parameter
+def kpts(value=None) -> dict[str, Any]:
+    """Brillouin-zone sampling."""
+    if value is None:
+        value = {'size': (1, 1, 1)}
+    elif not isinstance(value, dict):
+        if len(value) == 3 and isinstance(value[0], int):
+            value = {'size': value}
+        else:
+            value = {'points': np.array(value)}
+    return value
+
+
+@input_parameter
+def magmoms(value=None):
+    return value
+
+
+@input_parameter
+def maxiter(value=333):
+    """Maximum number of SCF-iterations."""
+    return value
+
+
+@input_parameter
+def mixer(value=None):
     return value or {}
+
+
+@input_parameter
+def mode(value='fd'):
+    return {'name': value} if isinstance(value, str) else value
+
+
+@input_parameter
+def nbands(value: str | int | None = None) -> int | float | None:
+    """Number of electronic bands."""
+    if isinstance(value, int) or value is None:
+        return value
+    if nbands[-1] == '%':
+        return float(value[:-1]) / 100
+    raise ValueError('Integer expected: Only use a string '
+                     'if giving a percentage of occupied bands')
+
+
+@input_parameter
+def occupations(value=None):
+    return value
 
 
 @input_parameter
@@ -148,46 +237,30 @@ def parallel(value: dict[str, Any] = None) -> dict[str, Any]:
 
 
 @input_parameter
-def eigensolver(value=None) -> dict:
-    """Eigensolver."""
-    if isinstance(value, str):
-        return {'name': value}
+def poissonsolver(value=None):
+    """Poisson solver."""
     return value or {}
 
 
 @input_parameter
-def charge(value=0.0):
+def random(value=False):
     return value
-
-
-@input_parameter
-def mixer(value=None):
-    return value or {}
-
-
-@input_parameter
-def hund(value=False):
-    """Using Hund's rule for guessing initial magnetic moments."""
-    return value
-
-
-@input_parameter
-def xc(value='LDA'):
-    """Exchange-Correlation functional."""
-    if isinstance(value, str):
-        return {'name': value}
-    return value
-
-
-@input_parameter
-def mode(value='fd'):
-    return {'name': value} if isinstance(value, str) else value
 
 
 @input_parameter
 def setups(value='paw'):
     """PAW datasets or pseudopotentials."""
     return value if isinstance(value, dict) else {None: value}
+
+
+@input_parameter
+def soc(value=False):
+    return value
+
+
+@input_parameter
+def spinpol(value=False):
+    return value
 
 
 @input_parameter
@@ -201,42 +274,6 @@ def symmetry(value='undefined'):
 
 
 @input_parameter
-def basis(value=None):
-    """Atomic basis set."""
-    return value or {}
-
-
-@input_parameter
-def magmoms(value=None):
-    return value
-
-
-@input_parameter
-def kpts(value=None) -> dict[str, Any]:
-    """Brillouin-zone sampling."""
-    if value is None:
-        value = {'size': (1, 1, 1)}
-    elif not isinstance(value, dict):
-        if len(value) == 3 and isinstance(value[0], int):
-            value = {'size': value}
-        else:
-            value = {'points': np.array(value)}
-    return value
-
-
-@input_parameter
-def maxiter(value=333):
-    """Maximum number of SCF-iterations."""
-    return value
-
-
-@input_parameter
-def h(value=None):
-    """Grid spacing."""
-    return value
-
-
-@input_parameter
 def txt(value: str | Path | IO[str] | None = '?'
         ) -> str | Path | IO[str] | None:
     """Log file."""
@@ -244,43 +281,8 @@ def txt(value: str | Path | IO[str] | None = '?'
 
 
 @input_parameter
-def random(value=False):
+def xc(value='LDA'):
+    """Exchange-Correlation functional."""
+    if isinstance(value, str):
+        return {'name': value}
     return value
-
-
-@input_parameter
-def spinpol(value=False):
-    return value
-
-
-@input_parameter
-def gpts(value=None):
-    """Number of grid points."""
-    return value
-
-
-@input_parameter
-def nbands(value: str | int | None = None) -> int | float | None:
-    """Number of electronic bands."""
-    if isinstance(value, int) or value is None:
-        return value
-    if nbands[-1] == '%':
-        return float(value[:-1]) / 100
-    raise ValueError('Integer expected: Only use a string '
-                     'if giving a percentage of occupied bands')
-
-
-@input_parameter
-def soc(value=False):
-    return value
-
-
-@input_parameter
-def convergence(value=None):
-    """Accuracy of the self-consistency cycle."""
-    return update_dict({'energy': 0.0005,  # eV / electron
-                        'density': 1.0e-4,  # electrons / electron
-                        'eigenstates': 4.0e-8,  # eV^2 / electron
-                        'forces': np.inf,
-                        'bands': None},
-                       value)

@@ -1,15 +1,21 @@
-from gpaw.mpi import MPIComm, world
-import sys
+from __future__ import annotations
+
 import os
+import sys
 from pathlib import Path
+from typing import IO
+
+from gpaw.mpi import MPIComm, world
 from gpaw.utilities.memory import maxrss
 
 
 class Logger:
     def __init__(self,
-                 filename='-',
+                 filename: str | Path | IO[str] | None = '-',
                  comm: MPIComm = None):
         comm = comm or world
+
+        self.fd: IO[str]
 
         if comm.rank > 0 or filename is None:
             self.fd = open(os.devnull, 'w')

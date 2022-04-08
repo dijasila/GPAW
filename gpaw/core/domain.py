@@ -71,10 +71,17 @@ class Domain:
             k = f', kpt={self.kpt_c.tolist()}'
         else:
             k = ''
-        return (f'Domain(cell={self.cell_cv.tolist()}, '
+        if (self.cell_cv == np.diag(self.cell_cv.diagonal())).all():
+            cell = self.cell_cv.diagonal().tolist()
+        else:
+            cell = self.cell_cv.tolist()
+        return (f'Domain(cell={cell}, '
                 f'pbc={self.pbc_c.tolist()}, '
                 f'comm={comm.rank}/{comm.size}, '
                 f'dtype={self.dtype}{k})')
+
+    def global_shape(self) -> tuple[int, ...]:
+        raise NotImplementedError
 
     @property
     def cell(self):

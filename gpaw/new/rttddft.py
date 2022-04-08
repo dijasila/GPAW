@@ -57,15 +57,13 @@ class ECNAlgorithm(TDAlgorithm):
              dm_calc: HamiltonianMatrixCalculator):
         """ Propagate wavefunctions by delta-kick, i.e. propagate using::
 
-                     ^        -1  0+             ^        -1
-          U(0+, 0) = T exp[-iS   ∫   H(τ) dτ ] = T exp[-iS  H(0)]
+                     ^        -1  0+                      ^        -1
+          U(0+, 0) = T exp[-iS   ∫   δ(τ) V_ext(r) dτ ] = T exp[-iS  V_ext(r)]
                                   0
 
-        where H(t) = δ(t) V_ext(r)
-
-        (1) Calculate propagator U[H(t)]
-        (2) Update wavefunctions ψ_n(t+dt) ← U[H(t)] ψ_n(t)
-        (3) Update density and hamiltonian H(t+dt)
+        (1) Calculate propagator U(0+, 0)
+        (2) Update wavefunctions ψ_n(0+) ← U(0+, 0) ψ_n(0)
+        (3) Update density and hamiltonian H(0+)
 
         Parameters
         ----------
@@ -80,12 +78,12 @@ class ECNAlgorithm(TDAlgorithm):
         for wfs in state.ibzwfs:
             V_MM = dm_calc.calculate_potential_matrix(wfs)
 
-            # Phi_n <- U[H(t)] Phi_n
+            # Phi_n <- U(0+, 0) Phi_n
             nkicks = 10
             for i in range(nkicks):
                 propagate_wave_functions_numpy(wfs.C_nM.data, wfs.C_nM.data,
-                                               wfs.S_MM,
-                                               V_MM, 1 / nkicks)
+                                               wfs.S_MM.data,
+                                               V_MM.data, 1 / nkicks)
         # Update density
         state.density.update(pot_calc.nct_R, state.ibzwfs)
 
@@ -109,8 +107,8 @@ class ECNAlgorithm(TDAlgorithm):
 
             # Phi_n <- U[H(t)] Phi_n
             propagate_wave_functions_numpy(wfs.C_nM.data, wfs.C_nM.data,
-                                           wfs.S_MM,
-                                           H_MM, time_step)
+                                           wfs.S_MM.data,
+                                           H_MM.data, time_step)
         # Update density
         state.density.update(pot_calc.nct_R, state.ibzwfs)
 
@@ -367,7 +365,7 @@ class RTTDDFT:
         for c, dm_operator in enumerate(self.dm_operator_c):
             rho_MM = wfs.calculate_density_matrix()
             dm_MM = dm_operator.calculate_potential_matrix(wfs)
-            dm = - np.einsum('MN,NM->', rho_MM, dm_MM)
+            dm = - np.einsum('MN,NM->', rho_MM, dm_MM.data)
             assert np.abs(dm.imag) < 1e-20
             dm_v[c] = dm.real
 

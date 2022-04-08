@@ -2,16 +2,19 @@ from __future__ import annotations
 
 import numpy as np
 from ase.io.ulm import Writer
-from gpaw.core.atom_arrays import AtomArrays
+from gpaw.core.atom_arrays import AtomArrays, AtomDistribution
 from gpaw.setup import Setups
-from gpaw.typing import Array1D
+from gpaw.typing import Array1D, Array2D
 from gpaw.mpi import MPIComm, serial_comm
 
 
 class WaveFunctions:
     def __init__(self,
+                 *,
                  setups: Setups,
                  nbands: int,
+                 fracpos_ac: Array2D,
+                 atomdist: AtomDistribution,
                  spin: int = 0,
                  q: int = 0,
                  k: int = 0,
@@ -32,9 +35,13 @@ class WaveFunctions:
         self.ncomponents = ncomponents
         self.dtype = dtype
         self.kpt_c = kpt_c
+        self.fracpos_ac = fracpos_ac
+        self.atomdist = atomdist
         self.domain_comm = domain_comm
         self.band_comm = band_comm
         self.nbands = nbands
+
+        assert domain_comm is atomdist.comm
 
         self.nspins = ncomponents % 3
         self.spin_degeneracy = ncomponents % 2 + 1
@@ -43,6 +50,15 @@ class WaveFunctions:
 
         self._eig_n: Array1D | None = None
         self._occ_n: Array1D | None = None
+
+    def __repr__(self):
+        dc = f'{self.domain_comm.rank}/{self.domain_comm.size}'
+        bc = f'{self.band_comm.rank}/{self.band_comm.size}'
+        return (f'{self.__class__.__name__}(nbands={self.nbands}, '
+                f'spin={self.spin}, q={self.q}, k={self.k}, '
+                f'weight={self.weight}, kpt_c={self.kpt_c}, '
+                f'ncomponents={self.ncomponents}, dtype={self.dtype} '
+                f'domain_comm={dc}, band_comm={bc})')
 
     @property
     def eig_n(self) -> Array1D:
@@ -91,7 +107,7 @@ class WaveFunctions:
         spin_k_shape:
             Shape of the spin and k-point dimensions
         """
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def fill_wave_functions(self, writer: Writer):
         """ Fill the wave function array using this wave function
@@ -101,4 +117,10 @@ class WaveFunctions:
         writer:
             Ulm writer
         """
-        raise NotImplementedError()
+        raise NotImplementedError
+
+    def receive(self, kpt_comm, rank):
+        raise NotImplementedError
+
+    def force_contribution(self, dH_asii: AtomArrays, F_av: Array2D):
+        raise NotImplementedError
