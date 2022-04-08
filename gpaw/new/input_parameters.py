@@ -97,6 +97,8 @@ class InputParameters:
                 f'GPAW(force_complex_dtype={bool(force_complex_dtype)}, ...)',
                 stacklevel=3)
             self.force_complex_dtype = force_complex_dtype
+            self.keys.append('force_complex_dtype')
+            self.keys.sort()
 
     def __repr__(self) -> str:
         p = ', '.join(f'{key}={value!r}'

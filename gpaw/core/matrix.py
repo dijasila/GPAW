@@ -241,7 +241,8 @@ class Matrix:
 
         Only the lower part of `S` is used.
 
-        >>> S = Matrix(2, 2, data=np.array([[1.0, np.nan], [0.1, 1.0]]))
+        >>> S = Matrix(2, 2, data=[[1.0, np.nan],
+        ...                        [0.1, 1.0]]))
         >>> S.invcholesky()
         >>> S.data
         array([[ 1.        , -0.        ],
