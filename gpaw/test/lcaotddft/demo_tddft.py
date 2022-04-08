@@ -18,9 +18,9 @@ def main():
 
     kick_v = [1e-5, 0, 0]
 
-    run_old_gs = False
-    run_new_gs = False
-    run_old_td = False
+    run_old_gs = True
+    run_new_gs = True
+    run_old_td = True
     run_new_td = True
 
     def assert_equal(a, b):

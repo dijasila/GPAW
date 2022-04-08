@@ -107,7 +107,7 @@ class LCAODFTComponentsBuilder(FDDFTComponentsBuilder):
 
     def read_ibz_wave_functions(self, reader):
         c = reader.bohr**1.5
-        if reader.version < 0 or reader.version >= 4:
+        if reader.version < 0:
             c = 1  # old gpw file
 
         basis = self.create_basis_set()
