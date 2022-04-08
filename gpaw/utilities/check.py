@@ -31,6 +31,7 @@ def main():
     parser.add_argument('-c', '--cores', default='1')
     parser.add_argument('-s', '--symmetry', default='all')
     parser.add_argument('-f', '--complex', action='store_true')
+    parser.add_argument('-i', '--ignore-cache', action='store_true')
     parser.add_argument('--hex', action='store_true')
     parser.add_argument('system')
     args = parser.parse_intermixed_args()
@@ -38,11 +39,6 @@ def main():
     if args.hex:
         run(json.loads(bytes.fromhex(args.system)))
         return 0
-
-    if args.symmetry != 'all':
-        extra = {'symmetry': 'off'}
-    else:
-        extra = {}
 
     params = {
         'system': args.system,
@@ -55,8 +51,7 @@ def main():
         'mode': {'name': args.mode,
                  'force_complex_dtype': args.complex},
         'kpts': ([int(k) for k in args.kpts.split(',')]
-                 if ',' in args.kpts else float(args.kpts)),
-        'extra': extra}
+                 if ',' in args.kpts else float(args.kpts))}
 
     folder = Path(args.system)
     if not folder.is_dir():
@@ -65,19 +60,21 @@ def main():
     calculations = []
     for code in args.code.split(','):
         for cores in args.cores.split(','):
-            input = {**params,
-                     'cores': [int(c) for c in cores.split(',')],
-                     'code': code}
-            hash = hashlib.md5(json.dumps(input).encode()).hexdigest()[:8]
-            result_file = folder / f'{hash}.json'
-            if not result_file.is_file():
-                input['hash'] = hash
-                result = run(input)
+            for symmetry in args.symmetry.split(','):
+                input = {**params,
+                         'cores': [int(c) for c in cores.split(',')],
+                         'code': code,
+                         'symmetry': symmetry}
+                hash = hashlib.md5(json.dumps(input).encode()).hexdigest()[:8]
+                result_file = folder / f'{hash}.json'
+                if not result_file.is_file() or args.ignore_cache:
+                    input['hash'] = hash
+                    result = run(input)
 
-            result = json.loads(result_file.read_text())
+                result = json.loads(result_file.read_text())
 
-            calculations.append(result)
-            print(hash, result['energy'])
+                calculations.append(result)
+                print(hash, result['energy'])
 
     e0 = None
     f0 = None
@@ -98,7 +95,6 @@ def main():
         code = result['code']
         print(f'{cores:6} {code} {de:10.6f} {df}')
 
-    # kwargs['symmetry'] = {'point_group': False}
     return 0
 
 
@@ -129,7 +125,7 @@ def run_system(system: str,
                kpts: Sequence[int] | float = 2.0,
                code: str = 'new',
                cores: Sequence[int] = None,
-               extra: dict[str, Any] = None,
+               symmetry: str = 'all',
                hash='42') -> dict[str, Any]:
     atoms = systems[system]()
     tag = f'{system}/{hash}'
@@ -137,21 +133,23 @@ def run_system(system: str,
     atoms = atoms.copy()
     if sum(repeat) > 3:
         atoms = atoms.repeat()
-    if pbc is not None:
-        atoms.pbc = pbc
     if vacuum:
         atoms.center(vacuum=vacuum, axis=[a
                                           for a, p in enumerate(atoms.pbc)
                                           if not p])
+    if pbc is not None:
+        atoms.pbc = pbc
     if magmoms is not None:
         atoms.set_initial_magnetic_moments(
             magmoms * (len(atoms) // len(magmoms)))
 
-    parameters = {**(extra or {}),
-                  'mode': mode,
+    parameters = {'mode': mode,
                   'kpts': kpts if not isinstance(kpts, float) else {
                       'density': kpts},
                   'txt': f'{tag}.txt'}
+    if symmetry != 'all':
+        parameters['symmetry'] = 'off'
+
     if code == 'new':
         calc = NewGPAW(**parameters)
     else:

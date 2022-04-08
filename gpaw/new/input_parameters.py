@@ -270,7 +270,7 @@ def symmetry(value='undefined'):
     """Use of symmetry."""
     if value == 'undefined':
         value = {}
-    elif value in {None, 'off'}:
+    elif value is None or value == 'off':
         value = {'point_group': False, 'time_reversal': False}
     return value
 
