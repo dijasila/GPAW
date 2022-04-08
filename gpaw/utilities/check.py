@@ -19,7 +19,7 @@ from gpaw.mpi import world
 from gpaw.new.ase_interface import GPAW as NewGPAW
 
 
-def main():
+def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument('-r', '--repeat', default='1,1,1')
     parser.add_argument('-p', '--pbc')
@@ -143,10 +143,11 @@ def run_system(system: str,
         atoms.set_initial_magnetic_moments(
             magmoms * (len(atoms) // len(magmoms)))
 
-    parameters = {'mode': mode,
-                  'kpts': kpts if not isinstance(kpts, float) else {
-                      'density': kpts},
-                  'txt': f'{tag}.txt'}
+    parameters: dict[str, Any] = {
+        'mode': mode,
+        'kpts': kpts if not isinstance(kpts, float) else {
+            'density': kpts},
+        'txt': f'{tag}.txt'}
     if symmetry != 'all':
         parameters['symmetry'] = 'off'
 
