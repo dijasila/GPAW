@@ -33,6 +33,7 @@ def main() -> int:
     parser.add_argument('-f', '--complex', action='store_true')
     parser.add_argument('-i', '--ignore-cache', action='store_true')
     parser.add_argument('--hex', action='store_true')
+    parser.add_argument('--fuzz', action='store_true')
     parser.add_argument('system')
     args = parser.parse_intermixed_args()
 
@@ -231,5 +232,26 @@ def li():
     return atoms
 
 
-if __name__ == '__main__':
+if __name__ == 'XXXX__main__':
     raise SystemExit(main())
+
+
+def fuzz(names, select=lambda choises: choises):
+    for name in select(names):
+        atoms = systems[name]()
+        repeat = []
+        for p in atoms.pbc:
+            r = 1
+            if p:
+                for r in [1, 2]:
+                    repeat.append(r)
+            atoms *= repeat
+    return atoms
+
+
+f = fuzz(['h', 'li'])
+x = next(f)
+print(x)
+y = f.send(x[0])
+print(y)
+
