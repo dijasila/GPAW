@@ -198,7 +198,14 @@ def parse(lines: str | list[str], n: int = None) -> str:
     if superscripts or subscripts:
         raise ParseError(f'{superscripts=}, {subscripts=}')
 
-    return ''.join(latex).strip()
+    result = ''.join(latex).strip()
+
+    for sequence, replacement in [
+        ('->', r'\rarrow'),
+        ('<-', r'\larrow')]:
+        result = result.replace(sequence, replacement)
+
+    return result
 
 
 def autodoc_process_docstring(lines):

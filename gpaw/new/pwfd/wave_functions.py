@@ -95,14 +95,14 @@ class PWFDWaveFunctions(WaveFunctions):
     def orthonormalize(self, work_array_nX: ArrayND = None):
         r"""Orthonormalize wave functions.
 
-        Computest the overlap matrix:::
+        Computes the overlap matrix:::
 
                /~ _ *~ _   _   ---  a  * a   a
           S  = |ψ(r) ψ(r) dr + >  (P  ) P  ΔS
            mn  / m    n        ---  im   jn  ij
                                aij
 
-        With `LSL^\dagger=1`, we update the wave functions and projection
+        With `LSL^\dagger=1`, we update the wave functions and projections
         inplace like this:::
 
                   -- *      a    -- *  a

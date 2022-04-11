@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import random
 import argparse
 import hashlib
 import json
@@ -30,49 +31,99 @@ def main() -> int:
     parser.add_argument('-C', '--code', default='new')
     parser.add_argument('-c', '--cores', default='1')
     parser.add_argument('-s', '--symmetry', default='all')
-    parser.add_argument('-f', '--complex', action='store_true')
+    parser.add_argument('-f', '--complex')
     parser.add_argument('-i', '--ignore-cache', action='store_true')
     parser.add_argument('--hex', action='store_true')
+    parser.add_argument('--all', action='store_true')
     parser.add_argument('--fuzz', action='store_true')
-    parser.add_argument('system')
+    parser.add_argument('--count', action='store_true')
+    parser.add_argument('system', nargs='*')
     args = parser.parse_intermixed_args()
 
     if args.hex:
         run(json.loads(bytes.fromhex(args.system)))
         return 0
 
-    params = {
-        'system': args.system,
-        'repeat': [int(r) for r in args.repeat.split(',')],
-        'pbc': None if args.pbc is None else [
-            bool(int(p)) for p in args.pbc.split(',')],
-        'vacuum': args.vacuum,
-        'magmoms': None if args.magmoms is None else [
-            float(m) for m in args.magmoms.split(',')],
-        'mode': {'name': args.mode,
-                 'force_complex_dtype': args.complex},
-        'kpts': ([int(k) for k in args.kpts.split(',')]
-                 if ',' in args.kpts else float(args.kpts))}
+    many = args.all or args.fuzz
 
-    folder = Path(args.system)
-    if not folder.is_dir():
-        folder.mkdir()
+    if many:
+        system_names = args.system or list(systems)
+        args.repeats = args.repeat or '1x1x1,2x1x1'
+        args.vacuums = args.vacuum or '0.0,2.0,3.0'
+        args.pbc = args.pbc or '0x0x0,1x1x1'
+        args.mode = args.mode or 'pw,lcao,fd'
+        args.code = args.code or 'new,old'
+        args.core = args.core or '1,2,3,4'
+        args.kpts = args.kpts or '2.0,3.0'
+    else:
+        system_names = args.system
+        args.repeats = args.repeat or '1x1x1'
+        args.vacuums = args.vacuum or '0.0'
+        args.pbc = args.pbc or '0x0x0'
+        args.mode = args.mode or 'pw'
+        args.code = args.code or 'new'
+        args.core = args.core or '1'
+        args.kpts = args.kpts or '2.0'
 
-    calculations = []
-    for code in args.code.split(','):
-        for cores in args.cores.split(','):
-            for symmetry in args.symmetry.split(','):
-                input = {**params,
-                         'cores': [int(c) for c in cores.split(',')],
-                         'code': code,
-                         'symmetry': symmetry}
+    repeats = [[int(r) for r in rrr.split('x')]
+               for rrr in repeats.split(',')]
+    vacuums = [float(v) for v in vacuums.split(',')]
+    pbcs = [[bool(int(p)) for p in ppp.split('x')]
+            for ppp in pbc.split(',')]
+
+    magmoms = None if args.magmoms is None else [
+        float(m) for m in args.magmoms.split(',')]
+
+    modes = args.modes.splir(',')
+    codes = args.codes.split(',')
+    cores = [int(c) for c in args.codes.split(',')]
+    kpts = [[int(k) for k in args.kpts.split(',')]
+            if ',' in args.kpts else float(args.kpts)]
+
+    # 'force_complex_dtype': args.complex},
+
+    if args.fuzz:
+        def pick(choises):
+            return [random.choice(choises)]
+    else:
+        def pick(choises):
+            return choises
+
+    count = 0
+    calculations = {}
+    while True:
+        for atoms, dct in create_systems(system_names,
+                                         repeats,
+                                         vacuums,
+                                         pbcs,
+                                         magmoms,
+                                         pick):
+            for params in create_parameters(atoms,
+                                            modes,
+                                            kpts,
+                                            codes,
+                                            pick):
+                input = [dct, params]
                 hash = hashlib.md5(json.dumps(input).encode()).hexdigest()[:8]
-                result_file = folder / f'{hash}.json'
-                if not result_file.is_file() or args.ignore_cache:
-                    input['hash'] = hash
-                    result = run(input)
 
-                result = json.loads(result_file.read_text())
+                for extra in create_extra_parematers(atoms,
+                                                     cores,
+                                                     pick):
+                    cores = extra['cores']
+                    tag = f'{hash}-{cores}'
+                    params.update(extra)
+
+                    if not args.count:
+                        continue
+
+                    run(atoms, **params, tag=tag)
+
+                    count += 1
+
+        if not args.fuzz:
+            break
+
+
 
                 calculations.append(result)
                 print(hash, result['energy'])
@@ -115,34 +166,57 @@ def run(input):
             shell=True,
             check=True,
             env=os.environ)
+    folder = Path(args.system)
+    if not folder.is_dir():
+        folder.mkdir()
+
+                result_file = folder / f'{hash}.json'
+                if not result_file.is_file() or args.ignore_cache:
+                    input['hash'] = hash
+                    result = run(input)
+
+                result = json.loads(result_file.read_text())
 
 
-def run_system(system: str,
-               repeat: Sequence[int] = (1, 1, 1),
-               pbc: Sequence[bool] = None,
-               vacuum: float = 0.0,
-               magmoms: list[float] = None,
-               mode: str = 'pw',
-               kpts: Sequence[int] | float = 2.0,
-               code: str = 'new',
-               cores: Sequence[int] = None,
-               symmetry: str = 'all',
-               hash='42') -> dict[str, Any]:
-    atoms = systems[system]()
-    tag = f'{system}/{hash}'
+def create_systems(system_names,
+                   repeats,
+                   vacuums,
+                   pbcs,
+                   magmoms: list[float] = None,
+                   pick=pick_all) -> tuple[Atoms, dict[str, Any]]:
+    for name in pick(system_names):
+        atoms = systems[name]()
+        for repeat in pick(repeats):
+            if sum(repeat) > 3:
+                atoms = atoms.repeat()
+            for vacuum in pick(vacuums):
+                if vacuum:
+                    atoms = atoms.copy()
+                    atoms.center(vacuum=vacuum,
+                                 axis=[a
+                                       for a, p in enumerate(atoms.pbc)
+                                       if not p])
+                for pbc in pick(pbcs):
+                    if pbc:
+                        atoms = atoms.copy()
+                        atoms.pbc = pbc
+                    if magmoms is not None:
+                        atoms.set_initial_magnetic_moments(
+                            magmoms * (len(atoms) // len(magmoms)))
+                    dct = {'name': name,
+                           'repeat': repeat,
+                           'vacuum': vacuum,
+                           'pbc': pbc}
+                    yield atoms, dct
 
-    atoms = atoms.copy()
-    if sum(repeat) > 3:
-        atoms = atoms.repeat()
-    if vacuum:
-        atoms.center(vacuum=vacuum, axis=[a
-                                          for a, p in enumerate(atoms.pbc)
-                                          if not p])
-    if pbc is not None:
-        atoms.pbc = pbc
-    if magmoms is not None:
-        atoms.set_initial_magnetic_moments(
-            magmoms * (len(atoms) // len(magmoms)))
+
+def create_parameters(atoms: Atoms,
+                      mode: str = 'pw',
+                      kpts: Sequence[int] | float = 2.0,
+                      code: str = 'new',
+                      cores: Sequence[int] = None,
+                      symmetry: str = 'all',
+                      pick_random: bool = False) -> dct[str, Any]:
 
     parameters: dict[str, Any] = {
         'mode': mode,
@@ -152,6 +226,8 @@ def run_system(system: str,
     if symmetry != 'all':
         parameters['symmetry'] = 'off'
 
+
+def run(atoms, paramaters):
     if code == 'new':
         calc = NewGPAW(**parameters)
     else:
