@@ -9,7 +9,7 @@ import numpy as np
 import scipy.linalg as linalg
 from gpaw import debug
 from gpaw.mpi import MPIComm, _Communicator, serial_comm
-from gpaw.typing import Array1D, Array2D
+from gpaw.typing import Array1D, ArrayLike2D
 
 _global_blacs_context_store: Dict[Tuple[_Communicator, int, int], int] = {}
 
@@ -55,7 +55,7 @@ class Matrix:
                  M: int,
                  N: int,
                  dtype=None,
-                 data: Array2D = None,
+                 data: ArrayLike2D = None,
                  dist: Union[MatrixDistribution, tuple[int, ...]] = None):
         """Matrix object.
 
@@ -77,12 +77,16 @@ class Matrix:
             """
         self.shape = (M, N)
 
+        if data is not None:
+            data = np.asarray(data)
+
         if dtype is None:
             if data is None:
                 dtype = float
             else:
                 dtype = data.dtype
         self.dtype = np.dtype(dtype)
+        assert dtype == float or dtype == complex, dtype
 
         dist = dist or ()
         if isinstance(dist, tuple):
@@ -218,7 +222,7 @@ class Matrix:
             redist(d1, self.data, d2, other.data, ctx)
 
     def gather(self, root: int = 0) -> Matrix:
-        """ Gather the Matrix on the root rank
+        """Gather the Matrix on the root rank.
 
         Returns a new Matrix distributed so that all data is on the root rank
         """
@@ -231,7 +235,7 @@ class Matrix:
 
         return S
 
-    def invcholesky(self):
+    def invcholesky(self) -> None:
         """Inverse of Cholesky decomposition.
 
         Returns a lower triangle matrix `L` where:::
@@ -241,7 +245,8 @@ class Matrix:
 
         Only the lower part of `S` is used.
 
-        >>> S = Matrix(2, 2, data=np.array([[1.0, np.nan], [0.1, 1.0]]))
+        >>> S = Matrix(2, 2, data=[[1.0, np.nan],
+        ...                        [0.1, 1.0]])
         >>> S.invcholesky()
         >>> S.data
         array([[ 1.        , -0.        ],
@@ -261,7 +266,7 @@ class Matrix:
         if S is not self:
             S.redist(self)
 
-    def eigh(self, cc=False, scalapack=(None, 1, 1, None)):
+    def eigh(self, cc=False, scalapack=(None, 1, 1, None)) -> Array1D:
         """Calculate eigenvectors and eigenvalues.
 
         Matrix must be symmetric/hermitian and stored in lower half.
@@ -327,13 +332,13 @@ class Matrix:
 
         :::
 
-                     †
-          HC=SCΛ, LSL = 1
+                       †
+          HC = SCΛ, LSL = 1
 
         :::
 
-           ~~ ~   ~    †     †~
-           HC=CΛ, H=LHL , C=L C
+           ~~   ~   ~      †       †~
+           HC = CΛ, H = LHL , C = L C
         """
         L_MM = L.data
         Ht_MM = L_MM @ self.data @ L_MM.conj().T
@@ -341,7 +346,7 @@ class Matrix:
                                    overwrite_a=True,
                                    check_finite=debug,
                                    driver='evx' if Ht_MM.size == 1 else 'evd')
-        self.data[:] = L_MM.T @ Ct_Mn
+        self.data[:] = L_MM.T.conj() @ Ct_Mn
         return eig_n
 
     def complex_conjugate(self) -> None:
@@ -410,11 +415,11 @@ class MatrixDistribution:
     def multiply(self, alpha, a, opa, b, opb, beta, c, symmetric):
         raise NotImplementedError
 
-    def myslice(self) -> slice:
-        """Create slice object for my rows.
+    def my_row_range(self) -> tuple[int, int]:
+        """Return indices for range of my rows.
 
-        >>> Matrix(2, 2).dist.myslice()
-        slice(0, 2, None)
+        >>> Matrix(2, 2).dist.my_row_range()
+        (0, 2)
         """
         ok = (self.rows == self.comm.size and
               self.columns == 1 and
@@ -425,7 +430,7 @@ class MatrixDistribution:
         b = (M + self.rows - 1) // self.rows
         n1 = self.comm.rank * b
         n2 = min(n1 + b, M)
-        return slice(n1, n2)
+        return n1, n2
 
 
 class NoDistribution(MatrixDistribution):

@@ -1,5 +1,6 @@
-import numpy as np
+import warnings
 
+import numpy as np
 from gpaw.mpi import MPIComm
 from gpaw.new.brillouin import IBZ, BZPoints
 from gpaw.rotation import rotation
@@ -46,9 +47,16 @@ class Symmetries:
 
     def reduce(self,
                bz: BZPoints,
-               comm: MPIComm = None) -> IBZ:
+               comm: MPIComm = None,
+               strict: bool = True) -> IBZ:
         (_, weight_k, sym_k, time_reversal_k, bz2ibz_K, ibz2bz_k,
          bz2bz_Ks) = self.symmetry.reduce(bz.kpt_Kc, comm)
+
+        if -1 in bz2bz_Ks:
+            msg = 'Note: your k-points are not as symmetric as your crystal!'
+            if strict:
+                raise ValueError(msg)
+            warnings.warn(msg)
 
         return IBZ(self, bz, ibz2bz_k, bz2ibz_K, weight_k)
 

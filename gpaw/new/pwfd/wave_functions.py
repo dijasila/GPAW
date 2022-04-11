@@ -93,16 +93,23 @@ class PWFDWaveFunctions(WaveFunctions):
         self.add_to_atomic_density_matrices(occ_n, D_asii)
 
     def orthonormalize(self, work_array_nX: ArrayND = None):
-        """Orthonormalize wave functions.
+        r"""Orthonormalize wave functions.
 
-        :::
+        Computest the overlap matrix:::
 
                /~ _ *~ _   _   ---  a  * a   a
           S  = |ψ(r) ψ(r) dr + >  (P  ) P  ΔS
-           mn  / m    n        ---  mi   nj  ij
+           mn  / m    n        ---  im   jn  ij
                                aij
 
-        ...
+        With `LSL^\dagger=1`, we update the wave functions and projection
+        inplace like this:::
+
+                  -- *      a    -- *  a
+            Ψ  <- > L  Ψ,  P  <- > L  P
+             m    -- mn n   in   -- mn in
+                  n
+
         """
         if self.orthonormalized:
             return
@@ -123,7 +130,8 @@ class PWFDWaveFunctions(WaveFunctions):
 
         if domain_comm.rank == 0:
             S.invcholesky()
-        # S now contains the inverse of the Cholesky factorization
+            S.complex_conjugate()
+
         domain_comm.broadcast(S.data, 0)
         # cc ??????
 
@@ -333,7 +341,8 @@ class PWFDWaveFunctions(WaveFunctions):
             data_nX = psit_nX.matrix.gather()  # gather n
             if data_nX.dist.comm.rank == 0:
                 # XXX PW-gamma-point mode: float or complex matrix.dtype?
-                return data_nX.data.view(psit_nX.data.dtype)
+                return data_nX.data.reshape(psit_nX.data.shape).view(
+                    psit_nX.data.dtype)
         return None
 
     def receive(self, kpt_comm, rank):
