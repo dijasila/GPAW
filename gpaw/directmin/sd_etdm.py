@@ -85,15 +85,15 @@ class ModeFollowingBase(object):
         self.fixed_sp_order = self.partial_diagonalizer.sp_order
         #parprint('Eigenvalues:')
         #parprint(self.eigv)
-        if self.eigvec_old is not None:
-            dot1 = np.dot(self.eigvec[0], self.eigvec_old[0].T)
-            dot2 = np.dot(self.eigvec[1], self.eigvec_old[1].T)
-            #if abs(dot1) < 0.9:
-            #    parprint('Dot1 is small:')
-            #    parprint(dot1)
-            #if abs(dot2) < 0.9:
-            #    parprint('Dot2 is small:')
-            #    parprint(dot2)
+        #if self.eigvec_old is not None:
+        #    dot1 = np.dot(self.eigvec[0], self.eigvec_old[0].T)
+        #    dot2 = np.dot(self.eigvec[1], self.eigvec_old[1].T)
+        #    if abs(dot1) < 0.9:
+        #        parprint('Dot1 is small:')
+        #        parprint(dot1)
+        #    if abs(dot2) < 0.9:
+        #        parprint('Dot2 is small:')
+        #        parprint(dot2)
 
     def negate_parallel_grad(self, g_k1):
         """
