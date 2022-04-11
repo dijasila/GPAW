@@ -16,13 +16,18 @@ class HamiltonianMatrixCalculator:
     def __init__(self,
                  V_sxMM: list[np.ndarray],
                  dH_saii: list[dict[int, np.ndarray]],
-                 basis: BasisFunctions):
+                 basis: BasisFunctions,
+                 include_kinetic: bool):
         self.V_sxMM = V_sxMM
         self.dH_saii = dH_saii
         self.basis = basis
+        if include_kinetic:
+            self.calculate_matrix = self._calculate_matrix_with_kinetic
+        else:
+            self.calculate_matrix = self._calculate_matrix_without_kinetic
 
-    def calculate_potential_matrix(self,
-                                   wfs: LCAOWaveFunctions) -> Matrix:
+    def _calculate_matrix_without_kinetic(self,
+                                          wfs: LCAOWaveFunctions) -> Matrix:
         V_xMM = self.V_sxMM[wfs.spin]
         data = V_xMM[0]
         _, M = data.shape
@@ -44,9 +49,9 @@ class HamiltonianMatrixCalculator:
 
         return V_MM
 
-    def calculate_hamiltonian_matrix(self,
-                                     wfs: LCAOWaveFunctions) -> Matrix:
-        H_MM = self.calculate_potential_matrix(wfs)
+    def _calculate_matrix_with_kinetic(self,
+                                       wfs: LCAOWaveFunctions) -> Matrix:
+        H_MM = self._calculate_matrix_without_kinetic(wfs)
         if wfs.dtype == complex:
             H_MM.add_hermitian_conjugate(scale=0.5)
         else:
@@ -71,7 +76,8 @@ class LCAOHamiltonian(Hamiltonian):
                     for a, dH_sii in state.potential.dH_asii.items()}
                    for s in range(len(V_sxMM))]
 
-        return HamiltonianMatrixCalculator(V_sxMM, dH_saii, self.basis)
+        return HamiltonianMatrixCalculator(V_sxMM, dH_saii, self.basis,
+                                           include_kinetic=True)
 
     def create_kick_matrix_calculator(self,
                                       state: DFTState,
@@ -99,4 +105,5 @@ class LCAOHamiltonian(Hamiltonian):
                     for (a, W_L) in W_aL.items()}
                    for s in range(nspins)]
 
-        return HamiltonianMatrixCalculator(V_sxMM, dH_saii, self.basis)
+        return HamiltonianMatrixCalculator(V_sxMM, dH_saii, self.basis,
+                                           include_kinetic=False)

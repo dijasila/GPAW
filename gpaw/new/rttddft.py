@@ -76,7 +76,7 @@ class ECNAlgorithm(TDAlgorithm):
             operator
         """
         for wfs in state.ibzwfs:
-            V_MM = dm_calc.calculate_potential_matrix(wfs)
+            V_MM = dm_calc.calculate_matrix(wfs)
 
             # Phi_n <- U(0+, 0) Phi_n
             nkicks = 10
@@ -103,7 +103,7 @@ class ECNAlgorithm(TDAlgorithm):
         (3) Update density and hamiltonian H(t+dt)
         """
         for wfs in state.ibzwfs:
-            H_MM = ham_calc.calculate_hamiltonian_matrix(wfs)
+            H_MM = ham_calc.calculate_matrix(wfs)
 
             # Phi_n <- U[H(t)] Phi_n
             propagate_wave_functions_numpy(wfs.C_nM.data, wfs.C_nM.data,
@@ -364,7 +364,7 @@ class RTTDDFT:
         dm_v = np.zeros(3)
         for c, dm_operator in enumerate(self.dm_operator_c):
             rho_MM = wfs.calculate_density_matrix()
-            dm_MM = dm_operator.calculate_potential_matrix(wfs)
+            dm_MM = dm_operator.calculate_matrix(wfs)
             dm = - np.einsum('MN,NM->', rho_MM, dm_MM.data)
             assert np.abs(dm.imag) < 1e-20
             dm_v[c] = dm.real
