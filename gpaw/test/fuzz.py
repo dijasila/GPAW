@@ -232,26 +232,5 @@ def li():
     return atoms
 
 
-if __name__ == 'XXXX__main__':
+if __name__ == '__main__':
     raise SystemExit(main())
-
-
-def fuzz(names, select=lambda choises: choises):
-    for name in select(names):
-        atoms = systems[name]()
-        repeat = []
-        for p in atoms.pbc:
-            r = 1
-            if p:
-                for r in [1, 2]:
-                    repeat.append(r)
-            atoms *= repeat
-    return atoms
-
-
-f = fuzz(['h', 'li'])
-x = next(f)
-print(x)
-y = f.send(x[0])
-print(y)
-

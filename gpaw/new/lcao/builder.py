@@ -64,10 +64,8 @@ class LCAODFTComponentsBuilder(FDDFTComponentsBuilder):
                                            0, self.setups.nao,
                                            False)
         if self.dtype == complex:
-            for S_MM in S_qMM:
-                np.negative(S_MM.imag, S_MM.imag)
-            for T_MM in T_qMM:
-                np.negative(T_MM.imag, T_MM.imag)
+            np.negative(S_qMM.imag, S_qMM.imag)
+            np.negative(T_qMM.imag, T_qMM.imag)
 
         P_aqMi = manytci.P_aqMi(my_atom_indices)
         P_qaMi = [{a: P_aqMi[a][q] for a in my_atom_indices}
