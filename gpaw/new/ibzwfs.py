@@ -8,6 +8,7 @@ from gpaw.mpi import MPIComm, serial_comm
 from gpaw.new.brillouin import IBZ
 from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 from gpaw.new.wave_functions import WaveFunctions
+from ase.io.ulm import Writer
 
 
 def create_ibz_wave_functions(ibz: IBZ,
@@ -224,7 +225,14 @@ class IBZWaveFunctions:
         self.kpt_comm.sum(F_av)
         return F_av
 
-    def write(self, writer, skip_wfs):
+    def write(self,
+              writer: Writer,
+              skip_wfs: bool) -> None:
+        """Write fermi-level(s), eigenvalues, occupation numbers, ...
+
+        ... k-points, symmetry information, projections and possibly
+        also the wave functions.
+        """
         eig_skn, occ_skn = self.get_all_eigs_and_occs()
         writer.write(fermi_levels=self.fermi_levels * Ha,
                      eigenvalues=eig_skn * Ha,
@@ -287,7 +295,12 @@ class IBZWaveFunctions:
                             if spin == 0 and k == 0:
                                 writer.add_array('coefficients',
                                                  shape, dtype=coef_nX.dtype)
-                            coef_nX.shape = shape[2:]
+                            # For PW-mode, we may need to zero-padd the
+                            # plane-wave coefficient up to the maximum
+                            # for all k-points:
+                            n = shape[-1] - coef_nX.shape[-1]
+                            if n != 0:
+                                coef_nX = np.pad(coef_nX, ((0, 0), (0, n)))
                             writer.fill(coef_nX * c)
                         else:
                             self.kpt_comm.send(coef_nX, 0)

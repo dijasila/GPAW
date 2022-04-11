@@ -1,13 +1,15 @@
 from functools import partial
+
+import numpy as np
 from gpaw.core.matrix import Matrix
+from gpaw.lcao.tci import TCIExpansions
 from gpaw.new.fd.builder import FDDFTComponentsBuilder
 from gpaw.new.ibzwfs import create_ibz_wave_functions as create_ibzwfs
 from gpaw.new.lcao.eigensolver import LCAOEigensolver
 from gpaw.new.lcao.hamiltonian import LCAOHamiltonian
+from gpaw.new.lcao.hybrids import HybridLCAOEigensolver, HybridXCFunctional
 from gpaw.new.lcao.wave_functions import LCAOWaveFunctions
-from gpaw.lcao.tci import TCIExpansions
 from gpaw.utilities.timing import NullTimer
-from gpaw.new.lcao.hybrids import HybridXCFunctional, HybridLCAOEigensolver
 
 
 class LCAODFTComponentsBuilder(FDDFTComponentsBuilder):
@@ -61,6 +63,10 @@ class LCAODFTComponentsBuilder(FDDFTComponentsBuilder):
         S_qMM, T_qMM = manytci.O_qMM_T_qMM(domain_comm,
                                            0, self.setups.nao,
                                            False)
+        if self.dtype == complex:
+            np.negative(S_qMM.imag, S_qMM.imag)
+            np.negative(T_qMM.imag, T_qMM.imag)
+
         P_aqMi = manytci.P_aqMi(my_atom_indices)
         P_qaMi = [{a: P_aqMi[a][q] for a in my_atom_indices}
                   for q in range(len(S_qMM))]
@@ -68,7 +74,7 @@ class LCAODFTComponentsBuilder(FDDFTComponentsBuilder):
         for a, P_qMi in P_aqMi.items():
             dO_ii = self.setups[a].dO_ii
             for P_Mi, S_MM in zip(P_qMi, S_qMM):
-                S_MM += P_Mi @ dO_ii @ P_Mi.T.conj()
+                S_MM += P_Mi.conj() @ dO_ii @ P_Mi.T
         domain_comm.sum(S_qMM)
 
         # self.atomic_correction= self.atomic_correction_cls.new_from_wfs(self)

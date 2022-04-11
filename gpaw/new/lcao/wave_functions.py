@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-import numpy as np
+from typing import Callable
 
+import numpy as np
 from gpaw.core.atom_arrays import (AtomArrays, AtomArraysLayout,
                                    AtomDistribution)
 from gpaw.core.matrix import Matrix
@@ -10,24 +11,25 @@ from gpaw.new import cached_property
 from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 from gpaw.new.wave_functions import WaveFunctions
 from gpaw.setup import Setups
+from gpaw.typing import Array2D, Array3D
 
 
 class LCAOWaveFunctions(WaveFunctions):
     def __init__(self,
                  *,
                  setups: Setups,
-                 density_adder,
+                 density_adder: Callable[[Array2D, Array3D], None],
                  C_nM: Matrix,
                  S_MM: Matrix,
-                 T_MM,
+                 T_MM: Array2D,
                  P_aMi,
-                 fracpos_ac,
-                 atomdist,
+                 fracpos_ac: Array2D,
+                 atomdist: AtomDistribution,
                  kpt_c=(0.0, 0.0, 0.0),
                  domain_comm: MPIComm = serial_comm,
                  spin: int = 0,
-                 q=0,
-                 k=0,
+                 q: int = 0,
+                 k: int = 0,
                  weight: float = 1.0,
                  ncomponents: int = 1):
         super().__init__(setups=setups,

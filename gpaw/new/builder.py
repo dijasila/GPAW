@@ -77,7 +77,7 @@ class DFTComponentsBuilder:
                                               self.initial_magmoms,
                                               params.symmetry)
         bz = create_kpts(params.kpts, atoms)
-        self.ibz = symmetries.reduce(bz)
+        self.ibz = symmetries.reduce(bz, strict=False)
 
         d = parallel.get('domain', None)
         k = parallel.get('kpt', None)

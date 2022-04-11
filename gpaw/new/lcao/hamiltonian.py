@@ -24,25 +24,25 @@ class HamiltonianMatrixCalculator:
     def calculate_potential_matrix(self,
                                    wfs: LCAOWaveFunctions) -> Matrix:
         V_xMM = self.V_sxMM[wfs.spin]
-        V_MM = V_xMM[0]
+        data = V_xMM[0]
+        _, M = data.shape
         if wfs.dtype == complex:
-            V_MM = V_MM.astype(complex)
-            phase_x = np.exp(2j * np.pi *
+            data = data.astype(complex)
+        V_MM = Matrix(M, M, data=data, dist=(wfs.band_comm,))
+        if wfs.dtype == complex:
+            phase_x = np.exp(-2j * np.pi *
                              self.basis.sdisp_xc[1:] @ wfs.kpt_c)
-            V_MM += np.einsum('x, xMN -> MN',
-                              2 * phase_x, V_xMM[1:],
-                              optimize=True)
+            V_MM.data += np.einsum('x, xMN -> MN',
+                                   2 * phase_x, V_xMM[1:],
+                                   optimize=True)
 
-        _, M = V_MM.shape
-        matrix_V_MM = Matrix(M, M, data=V_MM, dist=(wfs.band_comm,))
-
-        M = matrix_V_MM.dist.myslice()
+        M1, M2 = V_MM.dist.my_row_range()
         for a, dH_ii in self.dH_saii[wfs.spin].items():
             P_Mi = wfs.P_aMi[a]
-            matrix_V_MM.data += P_Mi[M] @ dH_ii @ P_Mi.T.conj()
-        wfs.domain_comm.sum(matrix_V_MM.data)
+            V_MM.data += P_Mi[M1:M2].conj() @ dH_ii @ P_Mi.T  # XXX use gemm
+        wfs.domain_comm.sum(V_MM.data)
 
-        return matrix_V_MM
+        return V_MM
 
     def calculate_hamiltonian_matrix(self,
                                      wfs: LCAOWaveFunctions) -> Matrix:
@@ -53,7 +53,6 @@ class HamiltonianMatrixCalculator:
             H_MM.tril2full()
 
         H_MM.data += wfs.T_MM
-
         return H_MM
 
 
