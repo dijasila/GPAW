@@ -25,7 +25,7 @@ class HamiltonianMatrixCalculator:
         V_MM = V_xMM[0]
         if wfs.dtype == complex:
             V_MM = V_MM.astype(complex)
-            phase_x = np.exp(2j * np.pi *
+            phase_x = np.exp(-2j * np.pi *
                              self.basis.sdisp_xc[1:] @ wfs.kpt_c)
             V_MM += np.einsum('x, xMN -> MN',
                               2 * phase_x, V_xMM[1:],
@@ -36,10 +36,11 @@ class HamiltonianMatrixCalculator:
     def calculate_hamiltonian_matrix(self,
                                      wfs: LCAOWaveFunctions) -> Matrix:
         H_MM = self.calculate_potential_matrix(wfs)
-        M = H_MM.dist.myslice()
+
+        M1, M2 = H_MM.dist.my_row_range()
         for a, dH_ii in self.dH_saii[wfs.spin].items():
             P_Mi = wfs.P_aMi[a]
-            H_MM.data += P_Mi[M] @ dH_ii @ P_Mi.T.conj()
+            H_MM.data += P_Mi[M1:M2].conj() @ dH_ii @ P_Mi.T  # XXX use gemm
         wfs.domain_comm.sum(H_MM.data)
 
         if wfs.dtype == complex:
@@ -48,7 +49,6 @@ class HamiltonianMatrixCalculator:
             H_MM.tril2full()
 
         H_MM.data += wfs.T_MM
-
         return H_MM
 
 
