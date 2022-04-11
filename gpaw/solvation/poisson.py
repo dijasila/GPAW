@@ -203,7 +203,12 @@ class PolarizationPoissonSolver(BasePoissonSolver):
     def estimate_memory(self, mem):
         # XXX estimate your own contribution
         return self.gas_phase_poisson.estimate_memory(mem)
-        
+
+    def todict(self):
+        my_dict = self.gas_phase_poisson.todict()
+        my_dict['name'] = f"polarization-{my_dict['name']}"
+        return my_dict
+
 
 class ADM12PoissonSolver(SolvationPoissonSolver):
     """Poisson solver with dielectric.
