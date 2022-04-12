@@ -202,6 +202,12 @@ class DFTComponentsBuilder:
                        self.params.convergence,
                        self.params.maxiter)
 
+    def read_ibz_wave_functions(self, reader):
+        raise NotImplementedError
+
+    def create_potential_calculator(self):
+        raise NotImplementedError
+
     def read_wavefunction_values(self, reader, ibzwfs):
         """ Read eigenvalues, occuptions and projections and fermi levels
 
@@ -213,6 +219,9 @@ class DFTComponentsBuilder:
         eig_skn = reader.wave_functions.eigenvalues
         occ_skn = reader.wave_functions.occupations
         P_sknI = reader.wave_functions.projections
+
+        if self.params.force_complex_dtype:
+            P_sknI = P_sknI.astype(complex)
 
         for wfs in ibzwfs:
             wfs._eig_n = eig_skn[wfs.spin, wfs.k] / ha

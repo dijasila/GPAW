@@ -19,7 +19,7 @@ class LCAOEigensolver(Eigensolver):
     def iterate1(self,
                  wfs: LCAOWaveFunctions,
                  matrix_calculator: HamiltonianMatrixCalculator):
-        H_MM = matrix_calculator.calculate_hamiltonian_matrix(wfs)
+        H_MM = matrix_calculator.calculate_matrix(wfs)
 
         eig_M = H_MM.eighg(wfs.L_MM)
         wfs._eig_n = eig_M[:wfs.nbands]

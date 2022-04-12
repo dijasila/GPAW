@@ -6,6 +6,7 @@ from ase.units import Bohr, Ha
 from gpaw.core.atom_arrays import AtomArrays
 from gpaw.mpi import MPIComm, serial_comm
 from gpaw.new.brillouin import IBZ
+from gpaw.new.lcao.wave_functions import LCAOWaveFunctions
 from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 from gpaw.new.wave_functions import WaveFunctions
 from ase.io.ulm import Writer
@@ -137,6 +138,7 @@ class IBZWaveFunctions:
             'extrapolation': e_entropy * occ_calc.extrapolate_factor}
 
     def add_to_density(self, nt_sR, D_asii) -> None:
+        """ Compute density from wave functions and add to nt_sR and D_asii """
         for wfs in self:
             wfs.add_to_density(nt_sR, D_asii)
         self.kpt_comm.sum(nt_sR.data)
@@ -283,6 +285,8 @@ class IBZWaveFunctions:
         shape = spin_k_shape + (self.nbands,) + xshape
 
         c = Bohr**-1.5
+        if isinstance(wfs, LCAOWaveFunctions):
+            c = 1
 
         for spin in range(self.nspins):
             for k, rank in enumerate(self.rank_k):
