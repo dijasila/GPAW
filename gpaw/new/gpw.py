@@ -98,7 +98,7 @@ def read_gpw(filename, log, parallel):
 
     kwargs = reader.parameters.asdict()
     kwargs['parallel'] = parallel
-    params = InputParameters(kwargs)
+    params = InputParameters(kwargs, warn=False)
     builder = create_builder(atoms, params)
 
     (kpt_comm, band_comm, domain_comm, kpt_band_comm) = (

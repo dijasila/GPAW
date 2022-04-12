@@ -24,7 +24,10 @@ if TYPE_CHECKING:
     PickFunc = Callable[[list[T]], list[T]]
 
 
-def main() -> int:
+def main(args: str | list[str] = None) -> int:
+    if isinstance(args, str):
+        args = args.split()
+
     parser = argparse.ArgumentParser()
     parser.add_argument('-r', '--repeat')
     parser.add_argument('-p', '--pbc')
@@ -34,16 +37,16 @@ def main() -> int:
     parser.add_argument('-m', '--mode')
     parser.add_argument('-c', '--code')
     parser.add_argument('-n', '--ncores')
-    parser.add_argument('-s', '--symmetry')
+    parser.add_argument('-s', '--use-symmetry')
     parser.add_argument('-S', '--spin-polarized')
-    parser.add_argument('-f', '--complex')
+    parser.add_argument('-x', '--complex')
     parser.add_argument('-i', '--ignore-cache', action='store_true')
     parser.add_argument('-o', '--stdout', action='store_true')
     parser.add_argument('--pickle')
     parser.add_argument('--all', action='store_true')
     parser.add_argument('--fuzz', action='store_true')
     parser.add_argument('system', nargs='*')
-    args = parser.parse_intermixed_args()
+    args = parser.parse_intermixed_args(args)
 
     if args.pickle:
         pckl_file = Path(args.pickle)
@@ -62,6 +65,8 @@ def main() -> int:
         args.code = args.code or 'new,old'
         args.ncores = args.ncores or '1,2,3,4'
         args.kpts = args.kpts or '2.0,3.0'
+        args.use_symmetry = args.use_symmetry or '1,0'
+        args.complex = args.complex or '0,1'
     else:
         system_names = args.system
         args.repeat = args.repeat or '1x1x1'
@@ -71,6 +76,8 @@ def main() -> int:
         args.code = args.code or 'new'
         args.ncores = args.ncores or '1'
         args.kpts = args.kpts or '2.0'
+        args.use_symmetry = args.use_symmetry or '1'
+        args.complex = args.complex or '0'
 
     repeat_all = [[int(r) for r in rrr.split('x')]
                   for rrr in args.repeat.split(',')]
@@ -81,13 +88,15 @@ def main() -> int:
         float(m) for m in args.magmoms.split(',')]
 
     mode_all = args.mode.split(',')
-    code_all = args.code.split(',')
-    ncores_all = [int(c) for c in args.ncores.split(',')]
     kpts_all = [[int(k) for k in kpt.split(',')] if ',' in kpt else
                 float(kpt)
                 for kpt in args.kpts.split(',')]
 
-    # 'force_complex_dtype': args.complex},
+    code_all = args.code.split(',')
+    ncores_all = [int(c) for c in args.ncores.split(',')]
+    use_symmetry_all = [bool(int(s)) for s in args.use_symmetry.split(',')]
+    complex_all = [bool(int(s)) for s in args.complex.split(',')]
+
     # spinpol
 
     if args.fuzz:
@@ -99,7 +108,9 @@ def main() -> int:
 
     count = 0
     calculations = {}
-    while True:
+    ok = True
+
+    while ok:
         for atoms, atag in create_systems(system_names,
                                           repeat_all,
                                           vacuum_all,
@@ -113,21 +124,28 @@ def main() -> int:
 
                 for extra, xtag in create_extra_parameters(code_all,
                                                            ncores_all,
+                                                           use_symmetry_all,
+                                                           complex_all,
                                                            pick):
-                    params.update(extra)
-
+                    params2 = {**params, **extra}
                     result = run(atoms,
-                                 params,
+                                 params2,
                                  tag + ' ' + xtag,
                                  args.ignore_cache,
                                  args.stdout)
-                    check(tag, result, calculations)
-
+                    ok = check(tag, result, calculations)
                     count += 1
+                    if not ok:
+                        break
+                if not ok:
+                    break
+            if not ok:
+                break
 
         if not args.fuzz:
             break
-    return 0
+
+    return int(not ok)
 
 
 def run(atoms: Atoms,
@@ -136,8 +154,8 @@ def run(atoms: Atoms,
         ignore_cache: bool = False,
         use_stdout: bool = False) -> dict[str, Any]:
     params = params.copy()
-    name, things = tag.split(' -', 1)
-    print(f'{name:3} {things}:', end='', flush=True)
+    name, things = tag.split(' ', 1)
+    print(f'{name:3} {things}:', end='')
     tag = tag.replace(' ', '')
     folder = Path('fuzz')
     if not folder.is_dir():
@@ -146,7 +164,7 @@ def run(atoms: Atoms,
     if not use_stdout:
         params['txt'] = str(result_file.with_suffix('.txt'))
     if not result_file.is_file() or ignore_cache:
-        print(' ...', end='')
+        print(' ...', end='', flush=True)
         ncores = params.pop('ncores')
         if ncores == world.size:
             result = run2(atoms, params, result_file)
@@ -172,10 +190,14 @@ def run2(atoms: Atoms,
          params: dict[str, Any],
          result_file: Path) -> dict[str, Any]:
     params = params.copy()
+
     code = params.pop('code')
     if code == 'new':
         calc = NewGPAW(**params)
     else:
+        params['mode'] = {
+            'name': params['mode'],
+            'force_complex_dtype': params.pop('force_complex_dtype')}
         calc = OldGPAW(**params)
 
     atoms.calc = calc
@@ -216,10 +238,10 @@ def run2(atoms: Atoms,
 
 def check(tag: str,
           result: dict[str, Any],
-          calculations: dict[str, dict[str, Any]]) -> None:
+          calculations: dict[str, dict[str, Any]]) -> bool:
     if tag not in calculations:
         calculations[tag] = result
-        return
+        return True
 
     result0 = calculations[tag]
     e0 = result0['energy']
@@ -229,15 +251,17 @@ def check(tag: str,
     error = e - e0
     if abs(error) > 0.0005:
         print('Energy error:', e, e0, error)
-        return
+        return False
     if f0 is None:
         if f is not None:
             calculations[tag]['forces'] = f
-        return
+        return True
     if f is not None:
         error = abs(np.array(f) - f0).max()
         if error > 0.0005:
             print('Force error:', error)
+            return False
+    return True
 
 
 def create_systems(system_names: list[str],
@@ -264,12 +288,12 @@ def create_systems(system_names: list[str],
                     vatoms = atoms
                 for pbc in pick(pbcs):
                     if pbc:
-                        if atoms.pbc.all():
+                        if vatoms.pbc.all():
                             continue
-                        patoms = atoms.copy()
+                        patoms = vatoms.copy()
                         patoms.pbc = pbc
                     else:
-                        patoms = atoms
+                        patoms = vatoms
 
                     if magmoms is not None:
                         patoms.set_initial_magnetic_moments(
@@ -299,15 +323,23 @@ def create_parameters(modes: list[str],
 
 def create_extra_parameters(codes: list[str],
                             ncores_all: list[int],
-                            # symmetries,
+                            symmetry_all: list[bool],
+                            complex_all: list[bool],
                             pick: PickFunc) -> dict[str, Any]:
     for code in pick(codes):
         for ncores in pick(ncores_all):
-            yield {'code': code,
-                   'ncores': ncores}, f'-c{code} -n{ncores}'
-
-    # if symmetry != 'all':
-    #    parameters['symmetry'] = 'off'
+            params = {'code': code,
+                      'ncores': ncores}
+            for use_symm in pick(symmetry_all):
+                if not use_symm:
+                    sparams = {**params, 'symmetry': 'off'}
+                else:
+                    sparams = params
+                for for_complex_dtype in pick(complex_all):
+                    sparams['force_complex_dtype'] = for_complex_dtype
+                    yield (sparams,
+                           (f'-c{code} -n{ncores} -s{int(use_symm)} '
+                            f'-x{int(for_complex_dtype)}'))
 
 
 systems = {}
