@@ -9,7 +9,7 @@ import subprocess
 import sys
 from pathlib import Path
 from time import time
-from typing import Any
+from typing import Any, TypeVar, Callable
 
 import numpy as np
 from ase import Atoms
@@ -18,6 +18,10 @@ from ase.units import Bohr, Ha
 from gpaw.calculator import GPAW as OldGPAW
 from gpaw.mpi import world
 from gpaw.new.ase_interface import GPAW as NewGPAW
+
+
+T = TypeVar('T')
+PickFunc = Callable[[list[T]], list[T]]
 
 
 def main() -> int:
@@ -31,12 +35,13 @@ def main() -> int:
     parser.add_argument('-c', '--code')
     parser.add_argument('-n', '--ncores')
     parser.add_argument('-s', '--symmetry')
+    parser.add_argument('-S', '--spin-polarized')
     parser.add_argument('-f', '--complex')
     parser.add_argument('-i', '--ignore-cache', action='store_true')
+    parser.add_argument('-o', '--stdout', action='store_true')
     parser.add_argument('--pickle')
     parser.add_argument('--all', action='store_true')
     parser.add_argument('--fuzz', action='store_true')
-    parser.add_argument('--count', action='store_true')
     parser.add_argument('system', nargs='*')
     args = parser.parse_intermixed_args()
 
@@ -67,20 +72,20 @@ def main() -> int:
         args.ncores = args.ncores or '1'
         args.kpts = args.kpts or '2.0'
 
-    repeats = [[int(r) for r in rrr.split('x')]
-               for rrr in args.repeat.split(',')]
-    vacuums = [float(v) for v in args.vacuum.split(',')]
-    pbcs = [bool(int(p)) for p in args.pbc.split(',')]
+    repeat_all = [[int(r) for r in rrr.split('x')]
+                  for rrr in args.repeat.split(',')]
+    vacuum_all = [float(v) for v in args.vacuum.split(',')]
+    pbc_all = [bool(int(p)) for p in args.pbc.split(',')]
 
     magmoms = None if args.magmoms is None else [
         float(m) for m in args.magmoms.split(',')]
 
-    modes = args.mode.split(',')
-    codes = args.code.split(',')
+    mode_all = args.mode.split(',')
+    code_all = args.code.split(',')
     ncores_all = [int(c) for c in args.ncores.split(',')]
-    kpts = [[int(k) for k in kpt.split(',')] if ',' in kpt else
-            float(kpt)
-            for kpt in args.kpts.split(',')]
+    kpts_all = [[int(k) for k in kpt.split(',')] if ',' in kpt else
+                float(kpt)
+                for kpt in args.kpts.split(',')]
 
     # 'force_complex_dtype': args.complex},
     # spinpol
@@ -96,35 +101,38 @@ def main() -> int:
     calculations = {}
     while True:
         for atoms, atag in create_systems(system_names,
-                                          repeats,
-                                          vacuums,
-                                          pbcs,
+                                          repeat_all,
+                                          vacuum_all,
+                                          pbc_all,
                                           magmoms,
                                           pick):
-            for params, ptag in create_parameters(modes,
-                                                  kpts,
+            for params, ptag in create_parameters(mode_all,
+                                                  kpts_all,
                                                   pick):
                 tag = atag + ' ' + ptag
 
-                for extra, xtag in create_extra_parameters(codes,
+                for extra, xtag in create_extra_parameters(code_all,
                                                            ncores_all,
                                                            pick):
                     params.update(extra)
 
-                    if not args.count:
-                        result = run(atoms,
-                                     params,
-                                     tag + ' ' + xtag,
-                                     args.ignore_cache)
-                        check(tag, result, calculations)
+                    result = run(atoms,
+                                 params,
+                                 tag + ' ' + xtag,
+                                 args.ignore_cache)
+                    check(tag, result, calculations)
 
                     count += 1
 
         if not args.fuzz:
             break
+    return 0
 
 
-def run(atoms, params, tag, ignore_cache=False):
+def run(atoms: Atoms,
+        params: dict[str, Any],
+        tag: str,
+        ignore_cache: bool = False) -> dict[str, Any]:
     params = params.copy()
     name, tag = tag.split(' -', 1)
     print(f'{name:3} {tag}:', end='', flush=True)
@@ -155,7 +163,9 @@ def run(atoms, params, tag, ignore_cache=False):
     return result
 
 
-def run2(atoms, params, result_file):
+def run2(atoms: Atoms,
+         params: dict[str, Any],
+         result_file: Path) -> dict[str, Any]:
     params = params.copy()
     params['txt'] = str(result_file.with_suffix('.txt'))
     code = params.pop('code')
@@ -200,7 +210,9 @@ def run2(atoms, params, result_file):
     return result
 
 
-def check(tag, result, calculations):
+def check(tag: str,
+          result: dict[str, Any],
+          calculations: dict[str, dict[str, Any]]) -> None:
     if tag not in calculations:
         calculations[tag] = result
         return
@@ -224,14 +236,14 @@ def check(tag, result, calculations):
             print('Force error:', error)
 
 
-def create_systems(system_names,
-                   repeats,
-                   vacuums,
-                   pbcs,
-                   magmoms,
-                   pick) -> tuple[Atoms, dict[str, Any]]:
+def create_systems(system_names: list[str],
+                   repeats: list[list[int]],
+                   vacuums: list[float],
+                   pbcs: list[bool],
+                   magmoms: list[float] | None,
+                   pick: PickFunc) -> tuple[Atoms, str]:
     for name in pick(system_names):
-        atoms = systems[name]()
+        atoms = systems[name]
         for repeat in pick(repeats):
             if any(not p and r > 1 for p, r in zip(atoms.pbc, repeat)):
                 continue
@@ -266,9 +278,9 @@ def create_systems(system_names,
                     yield patoms, tag
 
 
-def create_parameters(modes,
-                      kpts_all,
-                      pick) -> tuple[dict[str, Any], str]:
+def create_parameters(modes: list[str],
+                      kpts_all: list[float | list[int]],
+                      pick: PickFunc) -> tuple[dict[str, Any], str]:
     for mode in pick(modes):
         for kpt in pick(kpts_all):
             if isinstance(kpt, float):
@@ -281,10 +293,10 @@ def create_parameters(modes,
                    'kpts': kpts}, f'-m{mode} {ktag}'
 
 
-def create_extra_parameters(codes,
-                            ncores_all,
+def create_extra_parameters(codes: list[str],
+                            ncores_all: list[int],
                             # symmetries,
-                            pick) -> dict[str, Any]:
+                            pick: PickFunc) -> dict[str, Any]:
     for code in pick(codes):
         for ncores in pick(ncores_all):
             yield {'code': code,
@@ -298,7 +310,7 @@ systems = {}
 
 
 def system(func):
-    systems[func.__name__] = func
+    systems[func.__name__] = func()
     return func
 
 
