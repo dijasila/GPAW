@@ -329,8 +329,8 @@ class Davidson(object):
         if self.remember_sp_order:
             if self.sp_order is None:
                 sp_order = 0
-                for i in range(len(self.lambda_)):
-                    if self.lambda_[i] < 1e-8:
+                for i in range(len(self.lambda_all)):
+                    if self.lambda_all[i] < 1e-8:
                         sp_order += 1
                     else:
                         break
