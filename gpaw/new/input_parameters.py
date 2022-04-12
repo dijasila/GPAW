@@ -63,7 +63,7 @@ class InputParameters:
     txt: str | Path | IO[str] | None
     xc: dict[str, Any]
 
-    def __init__(self, params: dict[str, Any]):
+    def __init__(self, params: dict[str, Any], warn: bool = True):
         self.keys = sorted(params)
 
         for key in params:
@@ -87,15 +87,18 @@ class InputParameters:
         bands = self.convergence.pop('bands', None)
         if bands is not None:
             self.eigensolver['converge_bands'] = bands
-            warnings.warn(f'Please use eigensolver={self.eigensolver!r}',
-                          stacklevel=4)
+            if warn:
+                warnings.warn(f'Please use eigensolver={self.eigensolver!r}',
+                              stacklevel=4)
 
         force_complex_dtype = self.mode.pop('force_complex_dtype', None)
         if force_complex_dtype is not None:
-            warnings.warn(
-                'Please use '
-                f'GPAW(force_complex_dtype={bool(force_complex_dtype)}, ...)',
-                stacklevel=3)
+            if warn:
+                warnings.warn(
+                    'Please use '
+                    f'GPAW(force_complex_dtype={bool(force_complex_dtype)}, '
+                    '...)',
+                    stacklevel=3)
             self.force_complex_dtype = force_complex_dtype
             self.keys.append('force_complex_dtype')
             self.keys.sort()

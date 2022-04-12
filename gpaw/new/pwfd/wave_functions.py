@@ -42,6 +42,11 @@ class PWFDWaveFunctions(WaveFunctions):
         self.pt_aiX = None
         self.orthonormalized = False
 
+    def __del__(self):
+        data = self.psit_nX.data
+        if not isinstance(data, np.ndarray):
+            data.fd.close()
+
     def array_shape(self, global_shape=False):
         if global_shape:
             return self.psit_nX.desc.global_shape()
@@ -95,14 +100,14 @@ class PWFDWaveFunctions(WaveFunctions):
     def orthonormalize(self, work_array_nX: ArrayND = None):
         r"""Orthonormalize wave functions.
 
-        Computest the overlap matrix:::
+        Computes the overlap matrix:::
 
                /~ _ *~ _   _   ---  a  * a   a
           S  = |ψ(r) ψ(r) dr + >  (P  ) P  ΔS
            mn  / m    n        ---  im   jn  ij
                                aij
 
-        With `LSL^\dagger=1`, we update the wave functions and projection
+        With `LSL^\dagger=1`, we update the wave functions and projections
         inplace like this:::
 
                   -- *      a    -- *  a
@@ -341,8 +346,8 @@ class PWFDWaveFunctions(WaveFunctions):
             data_nX = psit_nX.matrix.gather()  # gather n
             if data_nX.dist.comm.rank == 0:
                 # XXX PW-gamma-point mode: float or complex matrix.dtype?
-                return data_nX.data.reshape(psit_nX.data.shape).view(
-                    psit_nX.data.dtype)
+                return data_nX.data.view(
+                    psit_nX.data.dtype).reshape(psit_nX.data.shape)
         return None
 
     def receive(self, kpt_comm, rank):

@@ -27,14 +27,8 @@ from gpaw.utilities.timing import NullTimer
 
 
 class TBHamiltonianMatrixCalculator(HamiltonianMatrixCalculator):
-    def __init__(self,
-                 dH_saii: list[dict[int, np.ndarray]],
-                 basis: BasisFunctions):
-        self.dH_saii = dH_saii
-        self.basis = basis
-
-    def calculate_potential_matrix(self,
-                                   wfs: LCAOWaveFunctions) -> Matrix:
+    def _calculate_potential_matrix(self,
+                                    wfs: LCAOWaveFunctions) -> Matrix:
         return wfs.V_MM
 
 
@@ -53,7 +47,7 @@ class TBHamiltonian:
                     for a, dH_sii in state.potential.dH_asii.items()}
                    for s in range(state.density.ncomponents)]
 
-        return TBHamiltonianMatrixCalculator(dH_saii, self.basis)
+        return TBHamiltonianMatrixCalculator([], dH_saii, self.basis)
 
 
 class NoGrid(Domain):
