@@ -42,6 +42,11 @@ class PWFDWaveFunctions(WaveFunctions):
         self.pt_aiX = None
         self.orthonormalized = False
 
+    def __del__(self):
+        data = self.psit_nX.data
+        if not isinstance(data, np.ndarray):
+            data.fd.close()
+
     def array_shape(self, global_shape=False):
         if global_shape:
             return self.psit_nX.desc.global_shape()

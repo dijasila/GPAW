@@ -54,6 +54,11 @@ class LCAOWaveFunctions(WaveFunctions):
         # This is for TB-mode (and MYPY):
         self.V_MM: Matrix
 
+    def __del__(self):
+        data = self.C_nM.data
+        if not isinstance(data, np.ndarray):
+            data.fd.close()
+
     @cached_property
     def L_MM(self):
         S_MM = self.S_MM.copy()

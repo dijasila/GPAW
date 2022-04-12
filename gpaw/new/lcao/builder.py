@@ -128,5 +128,5 @@ class LCAODFTComponentsBuilder(FDDFTComponentsBuilder):
 
         # Set eigenvalues, occupations, etc..
         self.read_wavefunction_values(reader, ibzwfs)
-
+        reader.close()
         return ibzwfs
