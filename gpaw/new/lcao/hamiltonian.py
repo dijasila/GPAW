@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import numpy as np
 
+from gpaw.external import ExternalPotential
 from gpaw.lfc import BasisFunctions
 from gpaw.new.calculation import DFTState
+from gpaw.new.fd.pot_calc import UniformGridPotentialCalculator
 from gpaw.new.lcao.wave_functions import LCAOWaveFunctions
 from gpaw.new.hamiltonian import Hamiltonian
 from gpaw.core.matrix import Matrix
@@ -14,35 +16,42 @@ class HamiltonianMatrixCalculator:
     def __init__(self,
                  V_sxMM: list[np.ndarray],
                  dH_saii: list[dict[int, np.ndarray]],
-                 basis: BasisFunctions):
+                 basis: BasisFunctions,
+                 include_kinetic: bool):
         self.V_sxMM = V_sxMM
         self.dH_saii = dH_saii
         self.basis = basis
+        if include_kinetic:
+            self.calculate_matrix = self._calculate_matrix_with_kinetic
+        else:
+            self.calculate_matrix = self._calculate_matrix_without_kinetic
 
-    def calculate_potential_matrix(self,
-                                   wfs: LCAOWaveFunctions) -> Matrix:
+    def _calculate_matrix_without_kinetic(self,
+                                          wfs: LCAOWaveFunctions) -> Matrix:
         V_xMM = self.V_sxMM[wfs.spin]
-        V_MM = V_xMM[0]
+        data = V_xMM[0]
+        _, M = data.shape
         if wfs.dtype == complex:
-            V_MM = V_MM.astype(complex)
+            data = data.astype(complex)
+        V_MM = Matrix(M, M, data=data, dist=(wfs.band_comm,))
+        if wfs.dtype == complex:
             phase_x = np.exp(-2j * np.pi *
                              self.basis.sdisp_xc[1:] @ wfs.kpt_c)
-            V_MM += np.einsum('x, xMN -> MN',
-                              2 * phase_x, V_xMM[1:],
-                              optimize=True)
-        _, M = V_MM.shape
-        return Matrix(M, M, data=V_MM, dist=(wfs.band_comm,))
+            V_MM.data += np.einsum('x, xMN -> MN',
+                                   2 * phase_x, V_xMM[1:],
+                                   optimize=True)
 
-    def calculate_hamiltonian_matrix(self,
-                                     wfs: LCAOWaveFunctions) -> Matrix:
-        H_MM = self.calculate_potential_matrix(wfs)
-
-        M1, M2 = H_MM.dist.my_row_range()
+        M1, M2 = V_MM.dist.my_row_range()
         for a, dH_ii in self.dH_saii[wfs.spin].items():
             P_Mi = wfs.P_aMi[a]
-            H_MM.data += P_Mi[M1:M2].conj() @ dH_ii @ P_Mi.T  # XXX use gemm
-        wfs.domain_comm.sum(H_MM.data)
+            V_MM.data += P_Mi[M1:M2].conj() @ dH_ii @ P_Mi.T  # XXX use gemm
+        wfs.domain_comm.sum(V_MM.data)
 
+        return V_MM
+
+    def _calculate_matrix_with_kinetic(self,
+                                       wfs: LCAOWaveFunctions) -> Matrix:
+        H_MM = self._calculate_matrix_without_kinetic(wfs)
         if wfs.dtype == complex:
             H_MM.add_hermitian_conjugate(scale=0.5)
         else:
@@ -67,4 +76,34 @@ class LCAOHamiltonian(Hamiltonian):
                     for a, dH_sii in state.potential.dH_asii.items()}
                    for s in range(len(V_sxMM))]
 
-        return HamiltonianMatrixCalculator(V_sxMM, dH_saii, self.basis)
+        return HamiltonianMatrixCalculator(V_sxMM, dH_saii, self.basis,
+                                           include_kinetic=True)
+
+    def create_kick_matrix_calculator(self,
+                                      state: DFTState,
+                                      ext: ExternalPotential,
+                                      pot_calc: UniformGridPotentialCalculator
+                                      ) -> HamiltonianMatrixCalculator:
+        from gpaw.utilities import unpack
+        vext_r = pot_calc.vbar_r.new()
+        finegd = vext_r.desc._gd
+
+        vext_r.data = ext.get_potential(finegd)
+        vext_R = pot_calc.restrict(vext_r)
+
+        nspins = state.ibzwfs.nspins
+
+        V_MM = self.basis.calculate_potential_matrices(vext_R.data)
+        V_sxMM = [V_MM for s in range(nspins)]
+
+        W_aL = pot_calc.ghat_aLr.integrate(vext_r)
+
+        assert state.ibzwfs.ibz.bz.gamma_only
+        setups_a = state.ibzwfs.wfs_qs[0][0].setups
+
+        dH_saii = [{a: unpack(setups_a[a].Delta_pL @ W_L)
+                    for (a, W_L) in W_aL.items()}
+                   for s in range(nspins)]
+
+        return HamiltonianMatrixCalculator(V_sxMM, dH_saii, self.basis,
+                                           include_kinetic=False)

@@ -29,7 +29,8 @@ def GPAW(filename: Union[str, Path, IO[str]] = None,
         kwargs.pop('txt', None)
         kwargs.pop('parallel', None)
         assert len(kwargs) == 0
-        atoms, calculation, params = read_gpw(filename, log, params.parallel)
+        atoms, calculation, params, _ = read_gpw(filename, log,
+                                                 params.parallel)
         return ASECalculator(params, log, calculation, atoms)
 
     write_header(log, world, params)
