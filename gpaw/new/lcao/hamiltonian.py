@@ -17,7 +17,7 @@ class HamiltonianMatrixCalculator:
                  V_sxMM: list[np.ndarray],
                  dH_saii: list[dict[int, np.ndarray]],
                  basis: BasisFunctions,
-                 include_kinetic: bool):
+                 include_kinetic: bool = True):
         self.V_sxMM = V_sxMM
         self.dH_saii = dH_saii
         self.basis = basis
@@ -26,8 +26,8 @@ class HamiltonianMatrixCalculator:
         else:
             self.calculate_matrix = self._calculate_matrix_without_kinetic
 
-    def _calculate_matrix_without_kinetic(self,
-                                          wfs: LCAOWaveFunctions) -> Matrix:
+    def _calculate_potential_matrix(self,
+                                    wfs: LCAOWaveFunctions) -> Matrix:
         V_xMM = self.V_sxMM[wfs.spin]
         data = V_xMM[0]
         _, M = data.shape
@@ -40,6 +40,11 @@ class HamiltonianMatrixCalculator:
             V_MM.data += np.einsum('x, xMN -> MN',
                                    2 * phase_x, V_xMM[1:],
                                    optimize=True)
+        return V_MM
+
+    def _calculate_matrix_without_kinetic(self,
+                                          wfs: LCAOWaveFunctions) -> Matrix:
+        V_MM = self._calculate_potential_matrix(wfs)
 
         M1, M2 = V_MM.dist.my_row_range()
         for a, dH_ii in self.dH_saii[wfs.spin].items():

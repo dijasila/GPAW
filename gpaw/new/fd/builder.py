@@ -73,7 +73,11 @@ class FDDFTComponentsBuilder(PWFDDFTComponentsBuilder):
     def read_ibz_wave_functions(self, reader):
         ibzwfs = super().read_ibz_wave_functions(reader)
 
-        if 'values' not in reader.wave_functions:
+        if 'coefficients' in reader.wave_functions:
+            name = 'coefficients'
+        elif 'values' in reader.wave_functions:
+            name = 'values'
+        else:
             return ibzwfs
 
         c = reader.bohr**1.5
@@ -83,7 +87,7 @@ class FDDFTComponentsBuilder(PWFDDFTComponentsBuilder):
         for wfs in ibzwfs:
             grid = self.wf_desc.new(kpt=wfs.kpt_c)
             index = (wfs.spin, wfs.k)
-            data = reader.wave_functions.proxy('values', *index)
+            data = reader.wave_functions.proxy(name, *index)
             data.scale = c
             if self.communicators['w'].size == 1:
                 wfs.psit_nX = UniformGridFunctions(grid, self.nbands,

@@ -109,10 +109,11 @@ def read_gpw(filename: Union[str, Path, IO[str]],
 
     kwargs = reader.parameters.asdict()
     kwargs['parallel'] = parallel
+
     if force_complex_dtype:
         kwargs['force_complex_dtype'] = True
 
-    params = InputParameters(kwargs)
+    params = InputParameters(kwargs, warn=False)
     builder = create_builder(atoms, params)
 
     (kpt_comm, band_comm, domain_comm, kpt_band_comm) = (
@@ -154,6 +155,9 @@ def read_gpw(filename: Union[str, Path, IO[str]],
                                            builder.setups)
     potential = Potential(vt_sR, dH_asp.to_full(), {})
 
+    results = {key: value / units[key]
+               for key, value in reader.results.asdict().items()}
+
     ibzwfs = builder.read_ibz_wave_functions(reader)
 
     calculation = DFTCalculation(
@@ -162,8 +166,6 @@ def read_gpw(filename: Union[str, Path, IO[str]],
         builder.create_scf_loop(),
         pot_calc=builder.create_potential_calculator())
 
-    results = {key: value / units[key]
-               for key, value in reader.results.asdict().items()}
     if results:
         log(f'Read {", ".join(sorted(results))}')
 

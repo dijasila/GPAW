@@ -332,13 +332,17 @@ class Matrix:
 
         :::
 
-                       †
-          HC = SCΛ, LSL = 1
+          HC = SCΛ,
 
-        :::
+        where `L` is a lower triangle matrix such that:::
 
-           ~~   ~   ~      †       †~
-           HC = CΛ, H = LHL , C = L C
+             †
+          LSL = 1.
+
+        The solution has these three steps:::
+
+           ~      †   ~~   ~         †~
+           H = LHL ,  HC = CΛ,  C = L C.
         """
         L_MM = L.data
         Ht_MM = L_MM @ self.data @ L_MM.conj().T
