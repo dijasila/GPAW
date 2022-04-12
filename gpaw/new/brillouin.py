@@ -96,15 +96,15 @@ class IBZ:
         if isinstance(self.bz, MonkhorstPackKPoints):
             w_k = (self.weight_k * len(self.bz)).round().astype(int)
 
-        s += '          k-point in crystal coordinates           weight\n'
+        s += '          k-point in crystal coordinates            weight\n'
         for k, (a, b, c) in enumerate(self.kpt_kc):
             if k >= 10 and k < N - 1:
+                if k == 10:
+                    s += '          ...\n'
                 continue
-            elif k == 10:
-                s += '          ...\n'
-            s += f'{k:4}:   {a:12.8f}  {b:12.8f}  {c:12.8f}     '
+            s += f'{k:4}:   {a:12.8f}  {b:12.8f}  {c:12.8f}   '
             if isinstance(self.bz, MonkhorstPackKPoints):
-                s += f'{w_k[k]}/{len(self.bz)}\n'
+                s += f'{w_k[k]:>4}/{len(self.bz)}\n'
             else:
                 s += f'{self.weight_k[k]:.8f}\n'
         return s

@@ -9,7 +9,7 @@ import subprocess
 import sys
 from pathlib import Path
 from time import time
-from typing import Any, TypeVar, Callable
+from typing import Any, TypeVar, Callable, TYPE_CHECKING
 
 import numpy as np
 from ase import Atoms
@@ -19,9 +19,9 @@ from gpaw.calculator import GPAW as OldGPAW
 from gpaw.mpi import world
 from gpaw.new.ase_interface import GPAW as NewGPAW
 
-
-T = TypeVar('T')
-PickFunc = Callable[[list[T]], list[T]]
+if TYPE_CHECKING:
+    T = TypeVar('T')
+    PickFunc = Callable[[list[T]], list[T]]
 
 
 def main() -> int:
@@ -119,7 +119,8 @@ def main() -> int:
                     result = run(atoms,
                                  params,
                                  tag + ' ' + xtag,
-                                 args.ignore_cache)
+                                 args.ignore_cache,
+                                 args.stdout)
                     check(tag, result, calculations)
 
                     count += 1
@@ -132,15 +133,18 @@ def main() -> int:
 def run(atoms: Atoms,
         params: dict[str, Any],
         tag: str,
-        ignore_cache: bool = False) -> dict[str, Any]:
+        ignore_cache: bool = False,
+        use_stdout: bool = False) -> dict[str, Any]:
     params = params.copy()
-    name, tag = tag.split(' -', 1)
-    print(f'{name:3} {tag}:', end='', flush=True)
+    name, things = tag.split(' -', 1)
+    print(f'{name:3} {things}:', end='', flush=True)
     tag = tag.replace(' ', '')
-    folder = Path(name)
+    folder = Path('fuzz')
     if not folder.is_dir():
         folder.mkdir()
     result_file = folder / f'{tag}.json'
+    if not use_stdout:
+        params['txt'] = str(result_file.with_suffix('.txt'))
     if not result_file.is_file() or ignore_cache:
         print(' ...', end='')
         ncores = params.pop('ncores')
@@ -156,6 +160,7 @@ def run(atoms: Atoms,
                 check=True,
                 env=os.environ)
             result, _ = json.loads(result_file.read_text())
+            pckl_file.unlink()
     else:
         print('    ', end='')
         result, _ = json.loads(result_file.read_text())
@@ -167,7 +172,6 @@ def run2(atoms: Atoms,
          params: dict[str, Any],
          result_file: Path) -> dict[str, Any]:
     params = params.copy()
-    params['txt'] = str(result_file.with_suffix('.txt'))
     code = params.pop('code')
     if code == 'new':
         calc = NewGPAW(**params)
