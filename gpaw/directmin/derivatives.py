@@ -411,7 +411,7 @@ class Davidson(object):
         reps = 1e-4
         wfs.timer.start('Initial Krylov space')
         if use_prev:
-            self.V = deepcopy(self.x_all[: self.l])
+            self.V = deepcopy(self.x_all.T[: self.l])
             for i in range(self.l):
                 for k in range(self.dimtot):
                     for l in range(dimz):

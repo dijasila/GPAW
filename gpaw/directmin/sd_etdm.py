@@ -83,8 +83,8 @@ class ModeFollowingBase(object):
                     + 1.0j * self.eigvec[i][dimtot:]
             self.eigvec = eigvec
         self.fixed_sp_order = self.partial_diagonalizer.sp_order
-        #parprint('Eigenvalues:')
-        #parprint(self.eigv)
+        parprint('Eigenvalues:')
+        parprint(self.eigv)
         #if self.eigvec_old is not None:
         #    dot1 = np.dot(self.eigvec[0], self.eigvec_old[0].T)
         #    dot2 = np.dot(self.eigvec[1], self.eigvec_old[1].T)
