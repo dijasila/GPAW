@@ -79,6 +79,9 @@ def main(args: str | list[str] = None) -> int:
         args.use_symmetry = args.use_symmetry or '1'
         args.complex = args.complex or '0'
 
+    if world.size > 1:
+        args.ncores = str(world.size)
+
     repeat_all = [[int(r) for r in rrr.split('x')]
                   for rrr in args.repeat.split(',')]
     vacuum_all = [float(v) for v in args.vacuum.split(',')]
