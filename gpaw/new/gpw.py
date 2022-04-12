@@ -1,5 +1,6 @@
 from __future__ import annotations
-
+from pathlib import Path
+from typing import Any, Callable, IO, Union
 import ase.io.ulm as ulm
 import gpaw
 import numpy as np
@@ -85,7 +86,17 @@ def write_wave_function_indices(writer, ibzwfs, grid):
             writer.fill(index_G)
 
 
-def read_gpw(filename, log, parallel):
+def read_gpw(filename: Union[str, Path, IO[str]],
+             log: Callable,
+             parallel: dict[str, Any],
+             force_complex_dtype: bool = False):
+    """
+    Read gpw file
+
+    Returns
+    -------
+    atoms, calculation, params, builder
+    """
     log(f'Reading from {filename}')
 
     world = parallel['world']
@@ -98,6 +109,10 @@ def read_gpw(filename, log, parallel):
 
     kwargs = reader.parameters.asdict()
     kwargs['parallel'] = parallel
+
+    if force_complex_dtype:
+        kwargs['force_complex_dtype'] = True
+
     params = InputParameters(kwargs, warn=False)
     builder = create_builder(atoms, params)
 
@@ -154,7 +169,8 @@ def read_gpw(filename, log, parallel):
         log(f'Read {", ".join(sorted(results))}')
 
     calculation.results = results
-    return atoms, calculation, params
+
+    return atoms, calculation, params, builder
 
 
 if __name__ == '__main__':
