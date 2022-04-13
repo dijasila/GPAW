@@ -23,9 +23,9 @@ class LCAOEigensolver(Eigensolver):
 
         eig_M = H_MM.eighg(wfs.L_MM)
         wfs._eig_n = eig_M[:wfs.nbands]
-
+        print(eig_M)
         # wfs.C_Mn = H_MM
         wfs.C_nM.data[:] = H_MM.data.T[:wfs.nbands]
-
+        print(wfs.C_nM.data);asd
         # Make sure wfs.C_nM and (lazy) wfs.P_ain are in sync:
         wfs._P_ain = None
