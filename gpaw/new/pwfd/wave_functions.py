@@ -44,7 +44,7 @@ class PWFDWaveFunctions(WaveFunctions):
 
     def __del__(self):
         data = self.psit_nX.data
-        if not isinstance(data, np.ndarray):
+        if hasattr(data, 'fd'):
             data.fd.close()
 
     def array_shape(self, global_shape=False):

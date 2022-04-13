@@ -155,9 +155,6 @@ def read_gpw(filename: Union[str, Path, IO[str]],
                                            builder.setups)
     potential = Potential(vt_sR, dH_asp.to_full(), {})
 
-    results = {key: value / units[key]
-               for key, value in reader.results.asdict().items()}
-
     ibzwfs = builder.read_ibz_wave_functions(reader)
 
     calculation = DFTCalculation(
@@ -166,10 +163,20 @@ def read_gpw(filename: Union[str, Path, IO[str]],
         builder.create_scf_loop(),
         pot_calc=builder.create_potential_calculator())
 
+    results = {key: value / units[key]
+               for key, value in reader.results.asdict().items()}
+
     if results:
         log(f'Read {", ".join(sorted(results))}')
 
     calculation.results = results
+
+    if builder.mode in ['pw', 'fd']:
+        data = ibzwfs.wfs_qs[0][0].psit_nX.data
+        if not hasattr(data, 'fd'):
+            reader.close()
+    else:
+        reader.close()
 
     return atoms, calculation, params, builder
 
