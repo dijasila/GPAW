@@ -50,19 +50,22 @@ class HamiltonianMatrixCalculator:
         for a, dH_ii in self.dH_saii[wfs.spin].items():
             P_Mi = wfs.P_aMi[a]
             V_MM.data += P_Mi[M1:M2].conj() @ dH_ii @ P_Mi.T  # XXX use gemm
-        wfs.domain_comm.sum(V_MM.data)
 
         return V_MM
 
     def _calculate_matrix_with_kinetic(self,
                                        wfs: LCAOWaveFunctions) -> Matrix:
         H_MM = self._calculate_matrix_without_kinetic(wfs)
-        if wfs.dtype == complex:
-            H_MM.add_hermitian_conjugate(scale=0.5)
-        else:
-            H_MM.tril2full()
-
         H_MM.data += wfs.T_MM
+
+        wfs.domain_comm.sum(H_MM.data, 0)
+
+        if wfs.domain_comm.rank == 0:
+            if wfs.dtype == complex:
+                H_MM.add_hermitian_conjugate(scale=0.5)
+            else:
+                H_MM.tril2full()
+
         return H_MM
 
 

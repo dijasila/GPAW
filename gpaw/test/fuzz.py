@@ -236,6 +236,8 @@ def run2(atoms: Atoms,
     if world.rank == 0:
         result_file.write_text(json.dumps([result, params], indent=2))
 
+    atoms.calc = None
+
     return result
 
 
