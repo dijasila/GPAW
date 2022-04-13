@@ -4,15 +4,14 @@ from gpaw.band_descriptor import BandDescriptor
 from gpaw.kohnsham_layouts import get_KohnSham_layouts
 from gpaw.lcao.eigensolver import DirectLCAO
 from gpaw.new.builder import DFTComponentsBuilder
+from gpaw.new.calculation import DFTState
 from gpaw.new.ibzwfs import create_ibz_wave_functions as create_ibzwfs
+from gpaw.new.lcao.eigensolver import LCAOEigensolver
+from gpaw.new.lcao.hamiltonian import LCAOHamiltonian
 from gpaw.new.potential import Potential
 from gpaw.new.pwfd.davidson import Davidson
 from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 from gpaw.wavefunctions.lcao import LCAOWaveFunctions
-from gpaw.new.lcao.builder import create_lcao_ibzwfs
-from gpaw.new.lcao.hamiltonian import Hamiltonian
-from gpaw.new.lcao.eigensolver import LCAOEigensolver
-from gpaw.new.calculation import DFTState
 
 
 class PWFDDFTComponentsBuilder(DFTComponentsBuilder):
@@ -62,6 +61,8 @@ class PWFDDFTComponentsBuilder(DFTComponentsBuilder):
         return ibzwfs
 
     def create_ibz_wave_functions(self, basis, potential):
+        from gpaw.new.lcao.builder import create_lcao_ibzwfs
+
         if self.params.random:
             self.log('Initializing wave functions with random numbers')
             raise NotImplementedError
@@ -70,7 +71,7 @@ class PWFDDFTComponentsBuilder(DFTComponentsBuilder):
         sl_lcao = self.params.parallel['sl_lcao'] or sl_default
 
         if 0:
-            return initialize_from_lcao(
+            return initialize_from_lcao_old(
                 self.setups,
                 self.communicators,
                 self.nbands,
@@ -93,19 +94,19 @@ class PWFDDFTComponentsBuilder(DFTComponentsBuilder):
             self.fracpos_ac, self.grid, self.dtype,
             self.nbands, self.ncomponents, self.atomdist, self.nelectrons)
 
-        state = DFTState(lcaoibzwfs, potential)
-        hamiltonian = Hamiltonian(basis)
+        state = DFTState(lcaoibzwfs, None, potential)
+        hamiltonian = LCAOHamiltonian(basis)
         LCAOEigensolver(basis).iterate(state, hamiltonian)
 
         def create_wfs(spin, q, k, kpt_c, weight):
-            print(spin, q, k, kpt_c, weight, self.nspins)
+            # print(spin, q, k, kpt_c, weight, self.nspins)
             wfs = lcaoibzwfs.wfs_qs[q][spin]
             assert wfs.spin == spin
-            mynbands = len(wfs.C_nM)
+            mynbands = len(wfs.C_nM.data)
 
             # Convert to PW-coefs in PW-mode:
             psit_nX = self.convert_wave_functions_from_uniform_grid(
-                wfs.C_nM, basis, kpt_c, q)
+                wfs.C_nM.data, basis, kpt_c, q)
 
             if mynbands < self.nbands:
                 psit_nX[mynbands:].randomize()
@@ -124,21 +125,21 @@ class PWFDDFTComponentsBuilder(DFTComponentsBuilder):
                              create_wfs, self.communicators['k'])
 
 
-def initialize_from_lcao(setups,
-                         communicators,
-                         nbands,
-                         ncomponents,
-                         nelectrons,
-                         fracpos_ac,
-                         atomdist,
-                         dtype,
-                         grid,
-                         wf_desc,
-                         ibz,
-                         sl_lcao,
-                         basis_set,
-                         potential: Potential,
-                         convert_wfs) -> None:
+def initialize_from_lcao_old(setups,
+                             communicators,
+                             nbands,
+                             ncomponents,
+                             nelectrons,
+                             fracpos_ac,
+                             atomdist,
+                             dtype,
+                             grid,
+                             wf_desc,
+                             ibz,
+                             sl_lcao,
+                             basis_set,
+                             potential: Potential,
+                             convert_wfs):
     from gpaw.utilities import pack2
     from gpaw.utilities.partition import AtomPartition
     from gpaw.utilities.timing import nulltimer
@@ -183,7 +184,6 @@ def initialize_from_lcao(setups,
     eigensolver.iterate(ham, lcaowfs)
 
     def create_wfs(spin, q, k, kpt_c, weight):
-        print(spin, q, k, kpt_c, weight, nspins)
         u = spin + nspins * q
         lcaokpt = lcaowfs.kpt_u[u]
         assert lcaokpt.s == spin
