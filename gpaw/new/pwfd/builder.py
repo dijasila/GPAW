@@ -135,6 +135,7 @@ def initialize_from_lcao(setups,
     for a, dH_sii in potential.dH_asii.items():
         dH_asp[a][:] = [pack2(dH_ii) for dH_ii in dH_sii]
     ham = SimpleNamespace(vt_sG=potential.vt_sR.data,
+                          vt_xG=potential.vt_sR.data,
                           dH_asp=dH_asp)
     eigensolver.iterate(ham, lcaowfs)
 
