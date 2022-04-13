@@ -201,8 +201,8 @@ def parse(lines: str | list[str], n: int = None) -> str:
     result = ''.join(latex).strip()
 
     for sequence, replacement in [
-        ('->', r'\rarrow'),
-        ('<-', r'\larrow')]:
+        ('->', r'\rightarrow'),
+        ('<-', r'\leftarrow')]:
         result = result.replace(sequence, replacement)
 
     return result
