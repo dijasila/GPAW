@@ -6,7 +6,7 @@ import scipy.linalg as linalg
 
 
 @pytest.mark.parametrize('dtype', [float, complex])
-@pytest.mark.skipif(world.size > 1, reason='size>1')
+@pytest.mark.skipif(world.size > 2, reason='size>2')
 def test_eighg(dtype):
     n = 5
     S0 = Matrix(n, n, dist=(world, 1, 1), dtype=dtype)
