@@ -6,7 +6,6 @@ import scipy.linalg as linalg
 
 
 @pytest.mark.parametrize('dtype', [float, complex])
-@pytest.mark.skipif(world.size > 1, reason='size>1')
 def test_eighg(dtype):
     n = 5
     S0 = Matrix(n, n, dist=(world, 1, 1), dtype=dtype)
@@ -31,12 +30,15 @@ def test_eighg(dtype):
     L = S.copy()
     L.invcholesky()
     if world.rank == 0:
-        eigs0, C0 = linalg.eigh(H.data, S.data)
+        eigs0, C0 = linalg.eigh(H0.data, S0.data)
         print(eigs0)
         print(C0)
-        error = H.data @ C0 - S.data @ C0 @ np.diag(eigs0)
+        error = H0.data @ C0 - S0.data @ C0 @ np.diag(eigs0)
         print(error)
-    eigs = H.eighg(L)
+
+    L0 = S0.new()
+    L.redist(L0)
+    eigs = H.eighg(L0)
     H.redist(H0)
     print(eigs)
     print(H0.data)

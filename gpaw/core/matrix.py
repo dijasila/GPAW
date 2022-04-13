@@ -327,7 +327,7 @@ class Matrix:
 
         return eps
 
-    def eighg(self, L: Matrix) -> Array1D:
+    def eighg(self, L: Matrix, comm2: MPIComm = serial_comm) -> Array1D:
         """Solve generalized eigenvalue problem.
 
         :::
@@ -344,13 +344,42 @@ class Matrix:
            ~      †   ~~   ~         †~
            H = LHL ,  HC = CΛ,  C = L C.
         """
-        L_MM = L.data
-        Ht_MM = L_MM @ self.data @ L_MM.conj().T
-        eig_n, Ct_Mn = linalg.eigh(Ht_MM,
-                                   overwrite_a=True,
-                                   check_finite=debug,
-                                   driver='evx' if Ht_MM.size == 1 else 'evd')
-        self.data[:] = L_MM.T.conj() @ Ct_Mn
+        M, N = self.shape
+        assert M == N
+        comm = self.dist.comm
+
+        if comm2.rank == 0:
+            if comm.size == 1:
+                H = self
+            else:
+                H = self.new(dist=(comm,))
+                self.redist(H)
+            if comm.rank == 0:
+                tmp_MM = np.empty_like(H.data)
+                L_MM = L.data
+                blas.mmm(1.0, L_MM, 'N', H.data, 'N', 0.0, tmp_MM)
+                blas.r2k(0.5, tmp_MM, L_MM, 0.0, H.data)
+                # Ht_MM = L_MM @ self.data @ L_MM.conj().T
+                eig_n, Ct_Mn = linalg.eigh(
+                    H.data,
+                    overwrite_a=True,
+                    check_finite=debug,
+                    driver='evx' if M == 1 else 'evd')
+                assert Ct_Mn.flags.f_contiguous
+                blas.mmm(1.0, L_MM, 'C', Ct_Mn.T, 'T', 0.0, H.data)
+                # self.data[:] = L_MM.T.conj() @ Ct_Mn
+            else:
+                eig_n = np.empty(M)
+
+            if comm.size > 1:
+                H.redist(self)
+                comm.broadcast(eig_n, 0)
+
+        if comm2.rank > 0:
+            eig_n = np.empty(M)
+        comm2.broadcast(eig_n, 0)
+        comm2.broadcast(self.data, 0)
+
         return eig_n
 
     def complex_conjugate(self) -> None:
@@ -383,19 +412,21 @@ class Matrix:
         M, N = self.shape
         assert M == N
 
-        if self.dist.comm.size == 1:
-            u = np.triu_indices(M, 1)
-            self.data[u] = self.data.T[u].conj()
+        dist = self.dist
+
+        if dist.comm.size == 1 or dist.rows == 1 and dist.columns == 1:
+            if dist.comm.rank == 0:
+                u = np.triu_indices(M, 1)
+                self.data[u] = self.data.T[u].conj()
             return
 
-        desc = self.dist.desc
+        desc = dist.desc
         _gpaw.scalapack_set(self.data, desc, 0.0, 0.0, 'L', M - 1, M - 1, 2, 1)
         buf = self.data.copy()
         # Set diagonal to zero in the copy:
         _gpaw.scalapack_set(buf, desc, 0.0, 0.0, 'L', M, M, 1, 1)
         # Now transpose tmp_mm adding the result to the original matrix:
-        _gpaw.pblas_tran(*self.shape, 1.0, buf, 1.0, self.data,
-                         desc, desc, True)
+        _gpaw.pblas_tran(M, M, 1.0, buf, 1.0, self.data, desc, desc, True)
 
 
 def _matrix(M):

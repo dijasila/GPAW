@@ -21,10 +21,8 @@ class LCAOEigensolver(Eigensolver):
                  matrix_calculator: HamiltonianMatrixCalculator):
         H_MM = matrix_calculator.calculate_matrix(wfs)
 
-        eig_M = H_MM.eighg(wfs.L_MM)
+        eig_M = H_MM.eighg(wfs.L_MM, wfs.domain_comm)
         wfs._eig_n = eig_M[:wfs.nbands]
-
-        # wfs.C_Mn = H_MM
         wfs.C_nM.data[:] = H_MM.data.T[:wfs.nbands]
 
         # Make sure wfs.C_nM and (lazy) wfs.P_ain are in sync:
