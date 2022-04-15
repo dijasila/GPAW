@@ -257,34 +257,104 @@ class PointIntegrator(Integrator):
 
         Updates spectral function A_wGG and saves it to chi0_wGG for
         later hilbert-transform."""
+        self.timer.start('full function')
+        chi0_wGG_copy = chi0_wGG.copy()
 
-        self.timer.start('prep')
+        self.timer.start('new way')
         omega_w = wd.get_data()
         deps_m += self.eshift * np.sign(deps_m)
         o_m = abs(deps_m)
         w_m = wd.get_closest_index(o_m)
+
+        # Sort frequencies 
+        argsw_m = np.argsort(w_m)
+        sortedo_m = o_m[argsw_m]
+        sortedw_m = w_m[argsw_m]
+        sortedn_mG = n_mG[argsw_m]
+        index = 0
+        while 1:
+            w = sortedw_m[index]
+            startindex = index
+            while 1:
+                index += 1
+                if index == len(sortedw_m):
+                    break
+                if w != sortedw_m[index]:
+                    break
+
+            endindex = index
+            # Here, we have same frequency range w, for set of electron-hole excitations from startindex to endindex 
+            o1 = omega_w[w]
+            o2 = omega_w[w + 1]
+            p = np.abs(1 / (o2 - o1)**2)
+            p1_m = np.array(p * (o2 - sortedo_m[startindex:endindex]))
+            p2_m = np.array(p * (sortedo_m[startindex:endindex] - o1))
+            #self.timer.stop('prep')
+
+
+            # chi0_wGG[w] += p1_m * n_mG[:, None] * n_mG[None, :].conj() 
+            if self.blockcomm.size > 1:
+                if w + 1 < wd.wmax:  # The last frequency is not reliable
+                    left = (p1_m[:, None]*sortedn_mG[startindex:endindex]).T.copy()
+                    right = sortedn_mG[startindex:endindex,self.Ga:self.Gb].T.copy()
+                    gemm(1.0, left,  right, 1.0, chi0_wGG[w], 'c')
+                    left = (p2_m[:, None]*sortedn_mG[startindex:endindex]).T.copy()
+                    gemm(1.0, left,  right, 1.0, chi0_wGG[w+1], 'c')
+            else:
+                if w + 1 < wd.wmax:  # The last frequency is not reliable
+                    left = (p1_m[:, None]*sortedn_mG[startindex:endindex]).T.copy()
+                    right = sortedn_mG[startindex:endindex].T.copy()
+                    gemm(1.0, left,  right, 1.0, chi0_wGG[w], 'c')
+                    left = (p2_m[:, None]*sortedn_mG[startindex:endindex]).T.copy()
+                    gemm(1.0, left,  right, 1.0, chi0_wGG[w+1], 'c')
+
+            assert np.allclose(sortedw_m[startindex:endindex], sortedw_m[startindex])
+            #print('these all should be same', sortedw_m[startindex:endindex])
+
+            if index == len(sortedw_m):
+                break
+        self.timer.stop('new way')
+        self.timer.start('old way')
         o1_m = omega_w[w_m]
         o2_m = omega_w[w_m + 1]
         p_m = np.abs(1 / (o2_m - o1_m)**2)
         p1_m = p_m * (o2_m - o_m)
         p2_m = p_m * (o_m - o1_m)
-        self.timer.stop('prep')
 
         if self.blockcomm.size > 1:
             for p1, p2, n_G, w in zip(p1_m, p2_m, n_mG, w_m):
                 if w + 1 < wd.wmax:  # The last frequency is not reliable
                     myn_G = n_G[self.Ga:self.Gb].reshape((-1, 1))
                     gemm(p1, n_G.reshape((-1, 1)), myn_G,
-                         1.0, chi0_wGG[w], 'c')
+                         1.0, chi0_wGG_copy[w], 'c')
                     gemm(p2, n_G.reshape((-1, 1)), myn_G,
-                         1.0, chi0_wGG[w + 1], 'c')
-            return
-
-        for p1, p2, n_G, w in zip(p1_m, p2_m, n_mG, w_m):
-            if w + 1 < wd.wmax:  # The last frequency is not reliable
-                czher(p1, n_G.conj(), chi0_wGG[w])
-                czher(p2, n_G.conj(), chi0_wGG[w + 1])
-
+                         1.0, chi0_wGG_copy[w + 1], 'c')
+        else:
+            for p1, p2, n_G, w in zip(p1_m, p2_m, n_mG, w_m):
+                if w + 1 < wd.wmax:  # The last frequency is not reliable
+                    czher(p1, n_G.conj(), chi0_wGG_copy[w])
+                    czher(p2, n_G.conj(), chi0_wGG_copy[w + 1])
+        #print('reference chi0', chi0_wGG_copy[21,:4,:4].real)
+        #print('new fast chi0', chi0_wGG[21,:4,:4].real)
+        #print('omega is now', w)
+        ##print( (chi0_wGG-chi0_wGG_copy)[21,:4,:4].real )
+        #print(f'Checking all {len(chi0_wGG)} frequencies')
+        self.timer.stop('old way')
+        self.timer.start('compare')
+        for w in range(len(chi0_wGG)):
+            A = np.triu(chi0_wGG_copy[w])
+            B = np.triu(chi0_wGG[w])
+            if not np.allclose(A.real,B.real):
+                print(A[:5,:5].real,'real reference')
+                print(B[:5,:5].real,'real new')
+                xxx
+            if not np.allclose(A.imag,B.imag):
+                print(A[:5,:5].imag,'imag reference')
+                print(B[:5,:5].imag,'imag new')
+                xxx
+            
+        self.timer.stop('compare')
+        self.timer.stop('full function')
     @timer('CHI_0 intraband update')
     def update_intraband(self, vel_mv, chi0_wvv):
         """Add intraband contributions"""
