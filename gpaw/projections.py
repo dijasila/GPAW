@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any, Optional, Dict
 
 import numpy as np
 
@@ -170,3 +170,14 @@ class Projections:
             for a, I1, I2 in self.indices:
                 self.atom_partition.comm.send(P.array[:, I1:I2].T.copy(), 0)
             return None
+
+    def as_dict_on_master(self, n1: int, n2: int) -> Dict[int, Array2D]:
+        P_nI = self.collect()
+        if P_nI is None:
+            return {}
+        I1 = 0
+        P_ani = {}
+        for a, ni in enumerate(self.nproj_a):
+            I2 = I1 + ni
+            P_ani[a] = P_nI[n1:n2, I1:I2]
+        return P_ani

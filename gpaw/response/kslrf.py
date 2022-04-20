@@ -568,7 +568,7 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
 
     def get_PWDescriptor(self, q_c):
         """Get the planewave descriptor for a certain momentum transfer q_c."""
-        from gpaw.wavefunctions.pw import PWDescriptor
+        from gpaw.pw.descriptor import PWDescriptor
         if isinstance(q_c, PWDescriptor):
             return q_c
         else:

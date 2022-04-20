@@ -59,7 +59,7 @@ More information on PAW
 =======================
 
 You can find additional information on the
-:ref:`literature <literature_reports_presentations_and_theses>` page, or
+:ref:`reports presentations and theses <reports_presentations_and_theses>` page, or
 by reading the :download:`paw note <paw_note.pdf>`.
 
 
@@ -67,3 +67,4 @@ Script
 ======
 
 .. literalinclude:: co_wavefunctions.py
+

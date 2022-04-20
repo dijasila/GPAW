@@ -199,15 +199,15 @@ You can use the cell below to submit the calculation in the same way as on earli
 """
 
 # %%
-# magic: !qsub.py -p 8 -t 1 NEB.py  # submits the calculation to 8 cores, 1 hour
+# magic: !mq submit NEB.py -R 8:1h  # submits the calculation to 8 cores, 1 hour
 
 # %%
 """
-Run the below cell to examine the status of your calculation. If no output is returned, the calculation has either finished or failed.
+Run the below cell to examine the status of your calculation.
 """
 
 # %%
-# magic: !qstat -u $USER
+# magic: !mq ls
 
 # %%
 """
@@ -215,10 +215,10 @@ You can run the cells below to open the error log and output of the calculation 
 """
 
 # %%
-# magic: !gedit "$(ls -t NEB.py.e* | head -1)"
+# magic: !cat "$(ls -t NEB.py.*err | head -1)"
 
 # %%
-# magic: !gedit "$(ls -t NEB.py.o* | head -1)"
+# magic: !cat "$(ls -t NEB.py.*out | head -1)"
 
 # %%
 """
@@ -226,7 +226,7 @@ The optimiziation progress can be seen by running the below cell.
 """
 
 # %%
-# magic: !gedit neb.log
+# magic: !cat neb.log
 
 # %%
 """
@@ -539,15 +539,15 @@ Submit this calculation to the HPC cluster as you did on exercise day 3.
 """
 
 # %%
-# magic: !qsub.py -p 8 -t 1 fepo4_1li.py  # submits the calculation to 8 cores, 1 hour
+# magic: !mq submit fepo4_1li.py -R 8:1h # submits the calculation to 8 cores, 1 hour
 
 # %%
 """
-Run the below cell to examine the status of your calculation. If no output is returned, the calculation has either finished or failed.
+Run the below cell to examine the status of your calculation.
 """
 
 # %%
-# magic: !qstat -u $USER
+# magic: !mq ls
 
 # %%
 """
@@ -555,10 +555,10 @@ You can run the cells below to open the error log and output of the calculation 
 """
 
 # %%
-# magic: !gedit "$(ls -t fepo4_1li.py.e* | head -1)"
+# magic: !cat "$(ls -t fepo4_1li.py.*err | head -1)"
 
 # %%
-# magic: !gedit "$(ls -t fepo4_1li.py.o* | head -1)"
+# magic: !cat "$(ls -t fepo4_1li.py.*out | head -1)"
 
 # %%
 """
@@ -738,7 +738,7 @@ Once you have made sure the cell runs, submit it to the HPC cluster.
 """
 
 # %%
-# magic: !qsub.py -p 8 -t 1 lifepo4_vac.py  # submits the calculation to 8 cores, 1 hour
+# magic: !mq submit lifepo4_vac.py -R 8:1h  # submits the calculation to 8 cores, 1 hour
 
 # %%
 """

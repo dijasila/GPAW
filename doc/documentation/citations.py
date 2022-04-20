@@ -83,13 +83,12 @@ for bib in ['gpaw1', 'gpaw2']:
     papers = sorted((papers[doi][0], doi, papers[doi][1]) for doi in papers)
     plt.plot([paper[0] for paper in papers], range(1, len(papers) + 1),
              '-o', label=label_bib[bib])
-    fd = open(bib + '.txt', 'w')
-    for date, doi, title in papers:
-        fd.write('%d-%02d-%02d %s %s\n' % (date.year, date.month, date.day,
-                                           doi, title))
-        # assert '"' not in title, title
-        total[doi] = (date, title)
-    fd.close()
+    with open(bib + '.txt', 'w') as fd:
+        for date, doi, title in papers:
+            fd.write('%d-%02d-%02d %s %s\n' % (date.year, date.month, date.day,
+                                               doi, title))
+            # assert '"' not in title, title
+            total[doi] = (date, title)
     x = dict([(p[1], 0) for p in papers])
     print((bib, len(papers), len(x), len(total)))
 
@@ -99,12 +98,11 @@ plt.plot([paper[0] for paper in allpapers], range(1, len(allpapers) + 1),
          '-o', label='Total')
 
 if 0:
-    fd = open('citations.csv', 'w')
-    n = len(allpapers)
-    for date, doi, title in allpapers[::-1]:
-        fd.write('%d,":doi:`%s <%s>`"\n' % (n, title, doi))
-        n -= 1
-    fd.close()
+    with open('citations.csv', 'w') as fd:
+        n = len(allpapers)
+        for date, doi, title in allpapers[::-1]:
+            fd.write('%d,":doi:`%s <%s>`"\n' % (n, title, doi))
+            n -= 1
 
 plt.xlabel('date')
 plt.ylabel('number of citations')

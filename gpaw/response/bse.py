@@ -5,13 +5,13 @@ import sys
 
 import numpy as np
 from ase.units import Hartree, Bohr
-from gpaw.utilities import devnull
+from ase.utils import IOContext
 from ase.dft import monkhorst_pack
 from scipy.linalg import eigh
 
 from gpaw import GPAW
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.wavefunctions.pw import PWDescriptor
+from gpaw.pw.descriptor import PWDescriptor
 from gpaw.spinorbit import soc_eigenstates
 from gpaw.blacs import BlacsGrid, Redistributor
 from gpaw.mpi import world, serial_comm, broadcast
@@ -83,7 +83,7 @@ class BSE:
 
         # Calculator
         if isinstance(calc, str):
-            calc = GPAW(calc, txt=None, communicator=serial_comm)
+            calc = GPAW(calc, communicator=serial_comm)
         self.calc = calc
         self.spinors = spinors
         self.scale = scale
@@ -91,12 +91,8 @@ class BSE:
         assert mode in ['RPA', 'TDHF', 'BSE']
         # assert calc.wfs.kd.nbzkpts % world.size == 0
 
-        # txt file
-        if world.rank != 0:
-            txt = devnull
-        elif isinstance(txt, str):
-            txt = open(txt, 'w', 1)
-        self.fd = txt
+        self.iocontext = IOContext()
+        self.fd = self.iocontext.openfile(txt)
 
         self.ecut = ecut / Hartree
         self.nbands = nbands
@@ -183,6 +179,9 @@ class BSE:
             self.wstc = None
 
         self.print_initialization(self.td, self.eshift, self.gw_skn)
+
+    def __del__(self):
+        self.iocontext.close()
 
     def calculate(self, optical=True, ac=1.0):
 

@@ -1,6 +1,5 @@
 import pytest
 from ase.build import molecule
-from ase.parallel import paropen
 from gpaw import GPAW, Davidson, Mixer, PoissonSolver
 from gpaw.utilities.tools import split_formula
 from gpaw.test import equal
@@ -9,7 +8,6 @@ from gpaw.test import equal
 @pytest.mark.mgga
 def test_tpss(in_tmp_dir):
     cell = [6., 6., 7.]
-    data = paropen('data.txt', 'w')
 
     # Reference from J. Chem. Phys. Vol 120 No. 15, 15 April 2004, page 6898
     tpss_de = {
@@ -56,12 +54,10 @@ def test_tpss(in_tmp_dir):
         niters[formula] = calc.get_number_of_iterations()
         diff = calc.get_xc_difference('TPSS')
         energies[formula] = (energy, energy + diff)
-        print(formula, energy, energy + diff, file=data)
-        data.flush()
+        print(formula, energy, energy + diff)
 
     # calculate atomization energies
-    file = paropen('tpss.txt', 'w')
-    print('formula\tGPAW\tRef\tGPAW-Ref\tGPAW-exp', file=file)
+    print('formula\tGPAW\tRef\tGPAW-Ref\tGPAW-exp')
     mae_ref, mae_exp, mae_pbe, count = 0.0, 0.0, 0.0, 0
     for formula in tpss_de.keys():
         atoms_formula = split_formula(formula)
@@ -81,8 +77,7 @@ def test_tpss(in_tmp_dir):
                (formula, de_tpss, tpss_de[formula],
                 de_tpss - tpss_de[formula],
                 de_tpss - exp_bonds_dE[formula][1]))
-        print(out, file=file)
-        file.flush()
+        print(out)
 
         # comparison to gpaw revision 5450 version value
         # in kcal/mol (note the grid:0.3 Ang)

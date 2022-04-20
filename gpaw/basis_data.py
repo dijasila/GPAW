@@ -214,7 +214,8 @@ class BasisSetXMLParser(xml.sax.handler.ContentHandler):
             basis.filename, source = search_for_file(fullname, world=world)
         else:
             basis.filename = filename
-            source = open(filename, 'rb').read()
+            with open(filename, 'rb') as fd:
+                source = fd.read()
 
         self.data = None
         xml.sax.parseString(source, self)

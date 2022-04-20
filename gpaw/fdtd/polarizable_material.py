@@ -516,9 +516,8 @@ class Permittivity:
 
         # Input as filename
         if fname != None: # read permittivity from a 3-column file
-            fp = open(fname, 'r')
-            lines = fp.readlines()
-            fp.close()
+            with open(fname, 'r') as fp:
+                lines = fp.readlines()
 
             self.Nj = len(lines)
 

@@ -4,7 +4,7 @@ from typing import List, Union
 from ase import Atoms
 import numpy as np
 
-from gpaw import GPAW
+from gpaw.calculator import GPAW
 from gpaw.point_groups import SymmetryChecker, point_group_names
 from gpaw.typing import Array1D, Array3D
 
@@ -46,10 +46,7 @@ def main(argv: List[str] = None) -> None:
         help='Band range.')
     add('-a', '--axes', default='',
         help='Example: "-a z=x,x=-y".')
-    if hasattr(parser, 'parse_intermixed_args'):
-        args = parser.parse_intermixed_args(argv)  # needs Python 3.7
-    else:
-        args = parser.parse_args(argv)
+    args = parser.parse_intermixed_args(argv)
 
     calc: Union[None, GPAW, CubeCalc]
 

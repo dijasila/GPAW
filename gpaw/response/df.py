@@ -208,6 +208,8 @@ class DielectricFunction:
             chi0_wxvG = chi0_wxvG[wmin:wmin + nw]
             chi0_wvv = chi0_wvv[wmin:wmin + nw]
 
+        fd.close()
+
         return pd, chi0_wGG, chi0_wxvG, chi0_wvv
 
     def collect(self, a_w):
@@ -808,13 +810,15 @@ class DielectricFunction:
         # sorted eigenvalues, zero-crossing frequencies + eigenvalues,
         # induced potential + density in real space.
         if eigenvalue_only:
-            pickle.dump((r * Bohr, w_w, eig),
-                        open(name, 'wb'), pickle.HIGHEST_PROTOCOL)
+            with open(name, 'wb') as fd:
+                pickle.dump((r * Bohr, w_w, eig),
+                            fd, pickle.HIGHEST_PROTOCOL)
             return r * Bohr, w_w, eig
         else:
-            pickle.dump((r * Bohr, w_w, eig, omega0, eigen0,
-                         v_ind, n_ind), open(name, 'wb'),
-                        pickle.HIGHEST_PROTOCOL)
+            with open(name, 'wb') as fd:
+                pickle.dump((r * Bohr, w_w, eig, omega0, eigen0,
+                             v_ind, n_ind), fd,
+                            pickle.HIGHEST_PROTOCOL)
             return r * Bohr, w_w, eig, omega0, eigen0, v_ind, n_ind
 
     def get_spatial_eels(self, q_c=[0, 0, 0], direction='x',
@@ -901,7 +905,8 @@ class DielectricFunction:
             E_wr[i] = np.diagonal(E_wrr[i])
             Ec_wr[i] = np.diagonal(np.dot(np.dot(phase, Vchi_GG *
                                                  np.diag(qG_G)), phase2.T))
-        pickle.dump((r * Bohr, w_w, E_wr), open('%s.pickle' % filename, 'wb'),
-                    pickle.HIGHEST_PROTOCOL)
+        with open('%s.pickle' % filename, 'wb') as fd:
+            pickle.dump((r * Bohr, w_w, E_wr), fd,
+                        pickle.HIGHEST_PROTOCOL)
 
         return r * Bohr, w_w, E_wr, Ec_wr, Eavg_w

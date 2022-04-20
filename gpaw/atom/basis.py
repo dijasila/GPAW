@@ -122,7 +122,7 @@ class BasisMaker:
                 ae0.run()
                 # Now files will be stored such that they can
                 # automagically be used by the next run()
-            setup = generator.run(write_xml=False, use_restart_file=False,
+            setup = generator.run(write_xml=False,
                                   name=name,
                                   **parameters[generator.symbol])
 

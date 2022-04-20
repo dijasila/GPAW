@@ -22,4 +22,4 @@ New release
 
 * Send announcement email to the ``gpaw-users`` mailing list::
 
-    $ git shortlog -s -n 21.6.0..
+    $ git shortlog -s -n 22.1.0.. | python3 -c "import sys; print(', '.join(line.split(maxsplit=1)[1].strip() for line in sys.stdin))"

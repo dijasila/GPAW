@@ -4,7 +4,7 @@ from ase import Atoms
 
 from gpaw import GPAW, FermiDirac
 from gpaw.utilities import compiled_with_sl
-from gpaw.wavefunctions.pw import PW
+from gpaw import PW
 from gpaw.response.df import DielectricFunction
 from gpaw.mpi import world
 

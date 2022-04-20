@@ -572,9 +572,8 @@ class OmegaMatrix:
 
     def diagonalize(self, restrict={}):
         """Evaluate Eigenvectors and Eigenvalues:"""
-
         map, kss = self.get_map(restrict)
-        
+
         nij = len(kss)
         if map is None:
             evec = self.full.copy()
@@ -621,7 +620,6 @@ class OmegaMatrix:
 
     def write(self, filename=None, fh=None):
         """Write current state to a file."""
-
         try:
             rank = self.paw.wfs.world.rank
         except AttributeError:

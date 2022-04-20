@@ -87,6 +87,9 @@ class ExternalPotential:
 class NoExternalPotential(ExternalPotential):
     vext_g = np.zeros((0, 0, 0))
 
+    def __str__(self):
+        return 'NoExternalPotential'
+
     def update_potential_pw(self, ham, dens) -> float:
         ham.vt_sG[:] = ham.pd2.ifft(ham.vt_Q)
         if not ham.collinear:
@@ -356,3 +359,32 @@ class PotentialCollection(ExternalPotential):
     def todict(self):
         return {'name': 'PotentialCollection',
                 'potentials': [pot.todict() for pot in self.potentials]}
+
+
+def static_polarizability(atoms, strength=0.01):
+    """Calculate polarizability tensor
+
+    atoms: Atoms object
+    strength: field strength in V/Ang
+
+    Returns
+    -------
+    polarizability tensor:
+        Unit (e^2 Angstrom^2 / eV).
+        Multiply with Bohr * Ha to get (Angstrom^3)
+    """
+    atoms.get_potential_energy()
+    calc = atoms.calc
+    assert calc.parameters.external is None
+    dipole_gs = calc.get_dipole_moment()
+    
+    alpha = np.zeros((3, 3))
+    for c in range(3):
+        axes = np.zeros(3)
+        axes[c] = 1
+        calc.set(external=ConstantElectricField(strength, axes))
+        calc.get_potential_energy()
+        alpha[c] = (calc.get_dipole_moment() - dipole_gs) / strength
+    calc.set(external=None)
+
+    return alpha.T

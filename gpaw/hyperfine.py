@@ -19,7 +19,7 @@ import ase.units as units
 import numpy as np
 from scipy.integrate import simps
 
-from gpaw import GPAW
+from gpaw.calculator import GPAW
 from gpaw.atom.aeatom import Channel
 from gpaw.atom.configurations import configurations
 from gpaw.atom.radialgd import RadialGridDescriptor
@@ -28,7 +28,7 @@ from gpaw.grid_descriptor import GridDescriptor
 from gpaw.setup import Setup
 from gpaw.typing import Array1D, Array2D, Array3D
 from gpaw.utilities import unpack2
-from gpaw.wavefunctions.pw import PWDescriptor
+from gpaw.pw.descriptor import PWDescriptor
 from gpaw.xc.functional import XCFunctional
 
 # Fine-structure constant: (~1/137)
@@ -58,8 +58,7 @@ def hyperfine_parameters(calc: GPAW,
         \int \frac{3 r_i r_j - \delta_{ij} r^2}{r^5}
         \rho_s(\mathbf{r}) d\mathbf{r}.
 
-    Remember to multiply each tensor by the g-factors of the nuclei
-    and divide by the total electron spin.
+    Remember to multiply each tensor by the g-factors of the nuclei.
 
     Use ``exclude_core=True`` to exclude contribution from "frozen" core.
     """
@@ -330,10 +329,7 @@ def main(argv: List[str] = None) -> None:
     add('-d', '--diagonalize', action='store_true',
         help='Show eigenvalues of tensor.')
 
-    if hasattr(parser, 'parse_intermixed_args'):
-        args = parser.parse_intermixed_args(argv)
-    else:
-        args = parser.parse_args(argv)
+    args = parser.parse_intermixed_args(argv)
 
     calc = GPAW(args.file)
     atoms = calc.get_atoms()
@@ -341,7 +337,6 @@ def main(argv: List[str] = None) -> None:
     symbols = atoms.symbols
     magmoms = atoms.get_magnetic_moments()
     total_magmom = atoms.get_magnetic_moment()
-    assert total_magmom != 0.0
 
     g_factors = {symbol: ratio * 1e6 * 4 * pi * units._mp / units._e
                  for symbol, (n, ratio) in gyromagnetic_ratios.items()}
@@ -375,9 +370,9 @@ def main(argv: List[str] = None) -> None:
         magmom = magmoms[a]
         g_factor = g_factors.get(symbol, 1.0)
         used[symbol] = g_factor
-        A_vv *= g_factor / total_magmom * scale
+        A_vv *= g_factor * scale
         if args.diagonalize:
-            numbers = np.linalg.eigvalsh(A_vv)
+            numbers = np.linalg.eigvalsh(A_vv).tolist()
         else:
             numbers = [A_vv[0, 0], A_vv[1, 1], A_vv[2, 2],
                        A_vv[1, 2], A_vv[0, 2], A_vv[0, 1]]

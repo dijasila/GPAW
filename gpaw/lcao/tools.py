@@ -4,7 +4,7 @@ import pickle
 import numpy as np
 from ase.units import Ha
 from ase.calculators.singlepoint import SinglePointCalculator
-
+from ase.utils import IOContext
 
 from gpaw.utilities import pack
 from gpaw.utilities.tools import tri2full
@@ -123,6 +123,7 @@ def get_realspace_hs(h_skmm, s_kmm, bzk_kc, weight_k,
     else:
         ibzk_kc = bzk_kc.copy()
         ibzk_t_kc = bzk_t_kc
+        ibzk_t_kc = ibzk_t_kc[:, :2]
         nkpts_t = len(bzk_t_kc)
         weights_t_k = [1. / nkpts_t for k in range(nkpts_t)]
 
@@ -202,28 +203,30 @@ def dump_hamiltonian(filename, atoms, direction=None, Ef=None):
                     remove_pbc(atoms, h_skmm[s, k], None, d)
 
     if atoms.calc.master:
-        fd = open(filename, 'wb')
-        pickle.dump((h_skmm, s_kmm), fd, 2)
-        atoms_data = {'cell': atoms.cell, 'positions': atoms.positions,
-                      'numbers': atoms.numbers, 'pbc': atoms.pbc}
+        with open(filename, 'wb') as fd:
+            pickle.dump((h_skmm, s_kmm), fd, 2)
+            atoms_data = {'cell': atoms.cell, 'positions': atoms.positions,
+                          'numbers': atoms.numbers, 'pbc': atoms.pbc}
 
-        pickle.dump(atoms_data, fd, 2)
-        calc_data = {'weight_k': atoms.calc.weight_k,
-                     'ibzk_kc': atoms.calc.ibzk_kc}
+            pickle.dump(atoms_data, fd, 2)
+            calc_data = {'weight_k': atoms.calc.weight_k,
+                         'ibzk_kc': atoms.calc.ibzk_kc}
 
-        pickle.dump(calc_data, fd, 2)
-        fd.close()
+            pickle.dump(calc_data, fd, 2)
 
     world.barrier()
 
 
 def dump_hamiltonian_parallel(filename, atoms, direction=None, Ef=None):
+    raise DeprecationWarning(
+        'Please use dump_hamiltonian_and_overlap() instead.')
+
+
+def dump_hamiltonian_and_overlap(filename, atoms, direction=None):
     """
         Dump the lcao representation of H and S to file(s) beginning
         with filename. If direction is x, y or z, the periodic boundary
         conditions will be removed in the specified direction.
-        If the Fermi temperature is different from zero,  the
-        energy zero-point is taken as the Fermi level.
 
         Note:
         H and S are parallized over spin and k-points and
@@ -233,9 +236,6 @@ def dump_hamiltonian_parallel(filename, atoms, direction=None, Ef=None):
     """
     if direction is not None:
         d = 'xyz'.index(direction)
-
-    if Ef is not None:
-        Ef = Ef / Ha
 
     calc = atoms.calc
     wfs = calc.wfs
@@ -266,18 +266,12 @@ def dump_hamiltonian_parallel(filename, atoms, direction=None, Ef=None):
         else:
             if direction is not None:
                 remove_pbc(atoms, H_qMM[kpt.s, kpt.q], None, d)
-        if calc.occupations.width > 0:
-            if Ef is None:
-                Ef = calc.occupations.get_fermi_level()
-
-            H_qMM[kpt.s, kpt.q] -= S_qMM[kpt.q] * Ef
 
     if wfs.gd.comm.rank == 0:
-        fd = open(filename + '%i.pckl' % wfs.kd.comm.rank, 'wb')
-        H_qMM *= Ha
-        pickle.dump((H_qMM, S_qMM), fd, 2)
-        pickle.dump(calc_data, fd, 2)
-        fd.close()
+        with open(filename + '%i.pckl' % wfs.kd.comm.rank, 'wb') as fd:
+            H_qMM *= Ha
+            pickle.dump((H_qMM, S_qMM), fd, 2)
+            pickle.dump(calc_data, fd, 2)
 
 
 def get_lcao_hamiltonian(calc):
@@ -459,7 +453,8 @@ def makeU(gpwfile='grid.gpw', orbitalfile='w_wG__P_awi.pckl',
 
     # Load orbitals on master and distribute to slaves
     if world.rank == 0:
-        wglobal_wG, P_awi = pickle.load(open(orbitalfile, 'rb'))
+        with open(orbitalfile, 'rb') as fd:
+            wglobal_wG, P_awi = pickle.load(fd)
         Nw = len(wglobal_wG)
         print('Estimated total (serial) mem usage: %0.3f GB' % (
             np.prod(gd.N_c) * Nw**2 * 8 / 1024.**3))
@@ -521,7 +516,8 @@ def makeU(gpwfile='grid.gpw', orbitalfile='w_wG__P_awi.pckl',
         eps_q = np.ascontiguousarray(eps_q[indices])
 
         # Dump to file
-        pickle.dump((eps_q, U_pq), open(rotationfile, 'wb'), 2)
+        with open(rotationfile, 'wb') as fd:
+            pickle.dump((eps_q, U_pq), fd, 2)
 
     if writeoptimizedpairs is not False:
         assert world.size == 1  # works in parallel if U and eps are broadcast
@@ -536,21 +532,29 @@ def makeU(gpwfile='grid.gpw', orbitalfile='w_wG__P_awi.pckl',
                           for a, P_wi in P_awi.items()])
             P_aqp = dict([(a, np.dot(Uisq_qp, Px_pp))
                           for a, Px_pp in P_app.items()])
-            pickle.dump((g_qG, P_aqp), open(writeoptimizedpairs, 'wb'), 2)
+            with open(writeoptimizedpairs, 'wb') as fd:
+                pickle.dump((g_qG, P_aqp), fd, 2)
 
 
 def makeV(gpwfile='grid.gpw', orbitalfile='w_wG__P_awi.pckl',
           rotationfile='eps_q__U_pq.pckl', coulombfile='V_qq.pckl',
           log='V_qq.log', fft=False):
 
-    if isinstance(log, str) and world.rank == 0:
-        log = open(log, 'w')
+    with IOContext() as io:
+        log = io.openfile(log)
+        _makeV(gpwfile=gpwfile, orbitalfile=orbitalfile,
+               rotationfile=rotationfile, coulombfile=coulombfile,
+               log=log, fft=fft)
 
+
+def _makeV(gpwfile, orbitalfile, rotationfile, coulombfile, log, fft):
     # Extract data from files
     calc = GPAW(gpwfile, txt=None, communicator=serial_comm)
     coulomb = Coulomb(calc.wfs.gd, calc.wfs.setups, calc.spos_ac, fft)
-    w_wG, P_awi = pickle.load(open(orbitalfile, 'rb'))
-    eps_q, U_pq = pickle.load(open(rotationfile, 'rb'))
+    with open(orbitalfile, 'rb') as fd:
+        w_wG, P_awi = pickle.load(fd)
+    with open(rotationfile, 'rb') as fd:
+        eps_q, U_pq = pickle.load(fd)
     del calc
 
     # Make rotation matrix divided by sqrt of norm

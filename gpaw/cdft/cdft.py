@@ -1,20 +1,22 @@
-import functools
+"""Module for constrained DFT
 
-from ase.calculators.calculator import Calculator
-from ase.data import covalent_radii, atomic_numbers
-from ase.units import Bohr, Hartree
-from gpaw.utilities import convert_string_to_fd
-import numpy as np
-from math import pi
-from scipy.optimize import minimize
-from gpaw.external import ExternalPotential
-import copy
-'''
-Module for constrained DFT
 for review see Chem. Rev., 2012, 112 (1), pp 321-370
 article on GPAW implementation:
 J. Chem. Theory Comput., 2016, 12 (11), pp 5367-5378
-'''
+"""
+
+import copy
+import functools
+from math import pi
+
+import numpy as np
+from ase.calculators.calculator import Calculator
+from ase.data import atomic_numbers, covalent_radii
+from ase.units import Bohr, Hartree
+from ase.utils import IOContext
+from scipy.optimize import minimize
+
+from gpaw.external import ExternalPotential
 
 
 class CDFT(Calculator):
@@ -33,19 +35,19 @@ class CDFT(Calculator):
                  txt='-',
                  minimizer_options={'gtol': 0.01},
                  Rc={},
-                 mu={
-                     'Li': 0.5,
+                 mu={'Li': 0.5,
                      'F': 0.7,
                      'O': 0.7,
-                     'V': 0.5
-                 },
+                     'V': 0.5},
                  method='BFGS',
                  forces='analytical',
                  use_charge_difference=False,
                  compute_forces=True,
                  maxstep=100,
                  tol=1e-3,
-                 bounds=None):
+                 bounds=None,
+                 restart=False,
+                 hess=None):
         """Constrained DFT calculator.
 
         calc: GPAW instance
@@ -91,13 +93,18 @@ class CDFT(Calculator):
             charge constraint
         compute_forces: bool
             Should the forces be computed?
+        restart: bool
+            starting from an old calculation from gpw
+        hess: '2-point', '3-point', 'cs'
+            scipy hessian approximation
         """
 
         Calculator.__init__(self)
 
         self.calc = calc
-
-        self.log = convert_string_to_fd(txt)
+        self.restart = restart
+        self.iocontext = IOContext()
+        self.log = self.iocontext.openfile(txt, calc.world)
         self.method = method
         self.forces = forces
         self.options = minimizer_options
@@ -123,6 +130,7 @@ class CDFT(Calculator):
 
         if self.bounds is not None:
             self.bounds = np.asarray(self.bounds) / Hartree
+        self.hess = hess
 
         if self.difference:
             # difference calculation only for 2 charge regions
@@ -186,7 +194,8 @@ class CDFT(Calculator):
 
         # initialise without v_ext
         atoms.calc = self.calc
-        atoms.get_potential_energy()
+        if not self.restart:
+            atoms.get_potential_energy()
 
         assert atoms.calc.wfs.nspins == 2
 
@@ -239,10 +248,15 @@ class CDFT(Calculator):
 
         self.w = self.ext.w_ig
 
+    def __del__(self):
+        self.iocontext.close()
+
     def calculate(self, atoms, properties, system_changes):
         # check we're dealing with same atoms
         if atoms != self.atoms:
             self.atoms = atoms
+        if not self.restart:
+            Calculator.calculate(self, self.atoms)
 
         Calculator.calculate(self, self.atoms)
 
@@ -357,24 +371,12 @@ class CDFT(Calculator):
             self.iteration += 1
 
             self.old_v_i = self.v_i.copy()
-            # Force scipy optimizer to converge when gtol is reached
-            if np.all((np.abs(self.dn_i) < self.gtol)):
-                return np.zeros(len(self.v_i)), np.zeros(len(self.v_i))
-
-            else:
-                return np.abs(
-                    self.dn_i
-                ), -self.dn_i  # return negative because maximising wrt v_i
-
-
-#        def hessian(v_i):
-#            # Hessian approximated with BFGS
-#            self.hess = self.update_hessian(v_i)
-#            return self.hess
+            return np.max(np.abs(self.dn_i))
 
         m = minimize(f,
                      self.v_i,
-                     jac=True,
+                     jac=self.jacobian,
+                     hess=self.hess,
                      bounds=self.bounds,
                      tol=self.tol,
                      method=self.method,
@@ -435,6 +437,13 @@ class CDFT(Calculator):
                 np.save('coarse_weight', w_s)
         return w_g
 
+    def jacobian(self, v_i):
+        if np.all((np.abs(self.dn_i) < self.gtol)):
+            # forces scipy opt to converge when gtol is reached
+            return np.zeros(len(self.v_i))
+        else:
+            return -self.dn_i
+    
     def cdft_free_energy(self):
         return self.Ecdft
 
@@ -453,54 +462,6 @@ class CDFT(Calculator):
     def get_all_electron_density(self, gridrefinement=2, spin=None):
         return self.calc.get_all_electron_density(
             gridrefinement=gridrefinement, spin=spin)
-
-    def update_hessian(self, v_i):
-        '''Computation of a BFGS Hessian
-        returns a pos.def. hessian
-        '''
-        iteration = self.iteration - 1
-        if not self.difference:
-            n_regions = len(self.regions)
-        else:
-            n_regions = 1
-        if iteration == 0:
-            # Initialize Hessian as identity
-            # scaled with gradients
-            Hk = np.abs(self.dn_i) * np.identity(n_regions)
-
-        else:
-            Hk0 = self.hess
-            # Form new Hessian using BFGS
-            s = v_i - self.old_v_i
-            # difference of gradients = y
-            y = self.dn_i - self.old_gradient
-            # BFGS step
-            # Hk = Hk0 + y*yT/(yT*s) - Hk0*s*sT*Hk0/(sT*Hk0*s)
-            # form each term
-            first_num = np.dot(y, np.transpose(y))
-            first_den = np.dot(np.transpose(y), s)
-
-            second_num = np.dot(Hk0, np.dot(s, np.dot(np.transpose(s), Hk0)))
-            second_den = (np.dot(np.transpose(s), np.dot(Hk0, s)))
-
-            Hk = Hk0 + first_num / first_den - second_num / second_den
-
-        # make sure Hk is pos. def.eigs = np.linalg.eigvals(self.Hk)
-        hess = Hk.copy()
-        eigs = np.linalg.eigvals(hess)
-        if any(eigs <= 0.):
-            hess = Hk.copy()
-            while not all(eig > 0. for eig in eigs):
-                # round down smallest eigenvalue with 2 decimals
-                mineig = np.floor(min(eigs) * 100.) / 100.
-                hess = hess - mineig * np.identity(n_regions)
-                eigs = np.linalg.eigvals(hess)
-
-        self.old_gradient = self.dn_i
-        self.old_v_i = v_i
-        self.old_hessian = hess
-
-        return hess
 
     def get_atomic_density_correction(self, return_els=False):
         # eq. 20 of the paper
@@ -684,7 +645,8 @@ class CDFTPotential(ExternalPotential):
 
         self.indices_i = regions
         self.gd = gd
-        self.log = convert_string_to_fd(txt)
+        self.iocontext = IOContext()
+        self.log = self.iocontext.openfile(txt)
         self.atoms = atoms
         self.pos_av = None
         self.Z_a = None
@@ -696,6 +658,9 @@ class CDFTPotential(ExternalPotential):
         self.Rc = Rc
         self.mu = mu
         self.name = 'CDFTPotential'
+
+    def __del__(self):
+        self.iocontext.close()
 
     def __str__(self):
         self.name = 'CDFTPotential'
@@ -998,7 +963,7 @@ class WeightFunc:
 
     def get_cdft_forces2(self, dens, v_i, n_charge_regions, n_spin_regions,
                          w_ig, method, difference):
-        ''' Calculate cDFT force as a sum
+        """ Calculate cDFT force as a sum
         dF/dRi = Fi(inside) + Fs(surf)
         due to cutoff (Rc) in gauss
                   / dw(r)
@@ -1014,7 +979,7 @@ class WeightFunc:
         method = 'fd' or 'analytical' for
               finite difference or analytical
               dw/dR
-        '''
+        """
 
         cdft_forces = np.zeros((len(self.atoms), 3))
 
@@ -1077,10 +1042,10 @@ class WeightFunc:
 
     def get_derivative_prefactor(self, n_charge_regions, n_spin_regions, w_ig,
                                  v_i, difference, atom, rho_kd):
-        '''Computes the dw/dRa array needed for derivatives/forces
+        """Computes the dw/dRa array needed for derivatives/forces
         eq 31
         needed for lfc-derivative/integrals
-        '''
+        """
         wc = self.gd.zeros()
         ws = self.gd.zeros()
 
@@ -1191,14 +1156,14 @@ def get_promolecular_constraints(calc_a,
                                  restart=False,
                                  Rc={},
                                  mu={}):
-    '''
+    """
     - calc_a is for the region you're interested in. Its charge
         should correspond to the "free charge" of the promolecule
     - atoms_a: atoms object for the region of interest
     - calc_b is for the other region
     - atoms_b: atoms object for the other region
     - restart: bool. If true, atoms_a have used calc_a and atoms_b calc_b
-    '''
+    """
 
     constraints = []
     atoms = atoms_a + atoms_b

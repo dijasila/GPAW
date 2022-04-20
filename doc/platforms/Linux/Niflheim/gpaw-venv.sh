@@ -4,6 +4,9 @@
 set -e  # stop if there are errors
 
 NAME=$1
+ASE_REPO=https://gitlab.com/ase/ase.git
+GPAW_REPO=https://gitlab.com/gpaw/gpaw.git
+
 USAGE="Usage: $0 foldername [intel]"
 
 if [[ $# -ne 2 && $# -ne 1 ]]; then
@@ -60,27 +63,40 @@ $PIP install --upgrade pip -qq
 
 # Load modules in activate script:
 mv bin/activate old
-mv ../modules.sh bin/activate
+mv $FOLDER/modules.sh bin/activate
 cat old >> bin/activate
 rm old
 
 # Install ASE from git:
-git clone https://gitlab.com/ase/ase.git
+git clone $ASE_REPO
 $PIP install -e ase/
 
 $PIP install myqueue graphviz qeh
 
+if [[ "yes" == "no" ]]; then
+  mkdir DFTD3
+  cd DFTD3
+  wget chemie.uni-bonn.de/pctc/mulliken-center/software/dft-d3/dftd3.tgz
+  tar -xf dftd3.tgz
+  ssh thul "cd $VENV/DFTD3 && make"
+  cd ..
+echo 'export ASE_DFTD3_COMMAND=$VENV/DFTD3/dftd3' >> bin/activate
+fi
+
+# Compile ase-exc C-extension of old thul so that it works on
+# newer architectures
 CMD="cd $VENV &&
      . bin/activate &&
      pip install ase-ext"
 echo $CMD
-ssh fjorm $CMD
+ssh thul $CMD
 
 # Install GPAW:
-git clone https://gitlab.com/gpaw/gpaw.git
+git clone $GPAW_REPO
 cd gpaw
 cp doc/platforms/Linux/Niflheim/siteconfig-${TCHAIN}.py siteconfig.py
-for HOST in fjorm svol thul slid
+# xeon16, xeon24, xeon40:
+for HOST in thul sylg svol surt
 do
   CMD="cd $VENV &&
        . bin/activate &&
@@ -93,6 +109,7 @@ done
 rm -r build/temp.linux-x86_64-*
 rm _gpaw.*.so
 
+# Create .pth file to load correct .so file:
 pth='import sys, os; '
 pth+='arch = os.environ["CPU_ARCH"]; '
 pth+="path = f'$VENV/gpaw/build/lib.linux-x86_64-{arch}-3.8'; "
@@ -120,6 +137,6 @@ else
 fi' >> bin/activate
 
 # Run tests:
-mq --version
+mq info
 ase info
 gpaw test

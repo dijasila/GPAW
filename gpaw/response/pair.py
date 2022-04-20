@@ -8,18 +8,19 @@ import numpy as np
 from scipy.spatial import Delaunay, cKDTree
 
 from ase.units import Ha
-from gpaw.utilities import convert_string_to_fd
+from ase.utils import IOContext
 from ase.utils.timing import timer, Timer
 
 import gpaw.mpi as mpi
-from gpaw import GPAW, disable_dry_run
+from gpaw.calculator import GPAW
+from gpaw import disable_dry_run
 from gpaw.fd_operators import Gradient
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.response.math_func import (two_phi_planewave_integrals,
                                      two_phi_nabla_planewave_integrals)
 from gpaw.utilities.blas import gemm
 from gpaw.utilities.progressbar import ProgressBar
-from gpaw.wavefunctions.pw import PWLFC
+from gpaw.pw.lfc import PWLFC
 from gpaw.bztools import get_reduced_bz, unique_rows
 
 
@@ -655,7 +656,8 @@ class PairDensity:
             Shift the fermi level by gate_voltage [Hartree].
         """
         self.world = world
-        self.fd = convert_string_to_fd(txt, world)
+        self.iocontext = IOContext()
+        self.fd = self.iocontext.openfile(txt, world)
         self.timer = timer or Timer()
 
         with self.timer('Read ground state'):
@@ -715,6 +717,9 @@ class PairDensity:
         print('Number of blocks:', nblocks, file=self.fd)
 
         self.paw_correction = paw_correction
+
+    def __del__(self):
+        self.iocontext.close()
 
     def find_kpoint(self, k_c):
         return self.KDTree.query(np.mod(np.mod(k_c, 1).round(6), 1))[1]

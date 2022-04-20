@@ -577,3 +577,7 @@ class KohnShamDecomposition(object):
         flta_p = self.filter_by_x_a(x_n, energy_u, buf)
         flt_p = np.logical_and(flti_p, flta_p)
         return flt_p
+
+    def __del__(self):
+        if self.reader is not None:
+            self.reader.close()

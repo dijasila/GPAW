@@ -3,6 +3,14 @@ from gpaw.utilities.blas import gemm, axpy, r2k, rk, gemmdot
 from gpaw.utilities.tools import tri2full
 
 
+def test_gemm_size_zero():
+    c = np.ones((3, 3))
+    a = np.zeros((0, 3))
+    b = np.zeros((3, 0))
+    gemm(1.0, a, b, 0.0, c, 'n')
+    assert (c == 0.0).all()
+
+
 def test_linalg_blas():
     a = np.arange(5 * 7).reshape(5, 7) + 4.
     a2 = np.arange(3 * 7).reshape(3, 7) + 3.

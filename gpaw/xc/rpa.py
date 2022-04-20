@@ -4,17 +4,17 @@ from time import ctime
 
 import numpy as np
 from ase.units import Hartree
-from gpaw.utilities import convert_string_to_fd
-from ase.utils.timing import timer, Timer
-from scipy.special.orthogonal import p_roots
+from ase.utils import IOContext
+from ase.utils.timing import Timer, timer
+from scipy.special import p_roots
 
 import gpaw.mpi as mpi
 from gpaw import GPAW
 from gpaw.kpt_descriptor import KPointDescriptor
+from gpaw.pw.descriptor import PWDescriptor, count_reciprocal_vectors
 from gpaw.response.chi0 import Chi0
 from gpaw.response.kernels import get_coulomb_kernel
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
-from gpaw.wavefunctions.pw import PWDescriptor, count_reciprocal_vectors
 
 
 def rpa(filename, ecut=200.0, blocks=1, extrapolate=4):
@@ -91,7 +91,8 @@ class RPACorrelation:
             calc = GPAW(calc, txt=None, communicator=mpi.serial_comm)
         self.calc = calc
 
-        self.fd = convert_string_to_fd(txt, world)
+        self.iocontext = IOContext()
+        self.fd = self.iocontext.openfile(txt, world)
 
         self.timer = Timer()
 
@@ -125,6 +126,9 @@ class RPACorrelation:
         self.filename = filename
 
         self.print_initialization(xc, frequency_scale, nlambda, user_spec)
+
+    def __del__(self):
+        self.iocontext.close()
 
     def initialize_q_points(self, qsym):
         kd = self.calc.wfs.kd

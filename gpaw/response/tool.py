@@ -3,7 +3,7 @@ import sys
 import numpy as np
 from scipy.optimize import leastsq
 
-from gpaw.wavefunctions.pw import PWDescriptor
+from gpaw.pw.descriptor import PWDescriptor
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.response.pair import PairDensity
 

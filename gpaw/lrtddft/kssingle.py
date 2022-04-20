@@ -106,8 +106,8 @@ class KSSingles(ExcitationList):
             # throw away all not needed entries
             for i, ks in reversed(list(enumerate(self))):
                 if ((ks.fij / ks.weight) <= eps or
-                    ks.i < istart or ks.j > jend or
-                    ks.energy < emin or ks.energy > emax):
+                   ks.i < istart or ks.j > jend or
+                   ks.energy < emin or ks.energy > emax):
                     del(self[i])
             return None
 

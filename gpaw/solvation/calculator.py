@@ -1,6 +1,8 @@
-from gpaw import GPAW
+from ase.units import Bohr, Hartree
+
+from gpaw.calculator import GPAW
+from gpaw.io import Reader
 from gpaw.solvation.hamiltonian import SolvationRealSpaceHamiltonian
-from ase.units import Hartree, Bohr
 
 
 class SolvationGPAW(GPAW):
@@ -10,8 +12,8 @@ class SolvationGPAW(GPAW):
     A. Held and M. Walter, J. Chem. Phys. 141, 174108 (2014).
     """
 
-    def __init__(self, cavity, dielectric, interactions=None,
-                 **gpaw_kwargs):
+    def __init__(self, restart=None, cavity=None, dielectric=None,
+                 interactions=None, **gpaw_kwargs):
         """Constructor for SolvationGPAW class.
 
         Additional arguments not present in GPAW class:
@@ -22,9 +24,79 @@ class SolvationGPAW(GPAW):
         if interactions is None:
             interactions = []
 
+        # if not all([cavity, dielectric]):
+        #    raise IOError('Cavity and dielectric modules need to be '
+        #                  'defined in the calculator')
+
         self.stuff_for_hamiltonian = (cavity, dielectric, interactions)
 
-        GPAW.__init__(self, **gpaw_kwargs)
+        GPAW.__init__(self, restart, **gpaw_kwargs)
+
+    def read(self, filename):
+        """Read yourself from a file"""
+        self.reader = reader = Reader(filename)
+        if 'implicit_solvent' in reader:
+            impl_in = reader.implicit_solvent
+            if 'name' in impl_in.cavity.effective_potential:
+                efpot = impl_in.cavity.effective_potential
+
+                def atomic_radii(atoms):
+                    return efpot.atomic_radii
+
+                if efpot.name == 'SJMPower12Potential':
+                    from gpaw.solvation.sjm import SJMPower12Potential
+
+                    effective_potential = SJMPower12Potential(
+                        atomic_radii=atomic_radii,
+                        u0=efpot.u0,
+                        H2O_layer=efpot.H2O_layer,
+                        unsolv_backside=efpot.unsolv_backside)
+                elif efpot.name == 'Power12Potential':
+                    from gpaw.solvation.sjm import Power12Potential
+                    effective_potential = Power12Potential(
+                        atomic_radii=atomic_radii,
+                        u0=efpot.u0)
+                else:
+                    raise IOError('Reading the given effective potential'
+                                  'is not implemented yet')
+
+            if 'name' in impl_in.cavity.surface_calculator:
+                suca = impl_in.cavity.surface_calculator
+                if suca.name == 'GradientSurface':
+                    from gpaw.solvation.cavity import GradientSurface
+                    surface_calculator = GradientSurface(suca.nn)
+                else:
+                    raise IOError('Reading in the given used surface '
+                                  'calculator is not implemented')
+
+            T = impl_in.cavity.temperature
+
+            from gpaw.solvation.cavity import EffectivePotentialCavity
+            cavity = EffectivePotentialCavity(
+                effective_potential=effective_potential,
+                temperature=T,
+                surface_calculator=surface_calculator)
+
+            if impl_in.dielectric.name == 'LinearDielectric':
+                from gpaw.solvation.dielectric import LinearDielectric
+                dielectric = LinearDielectric(epsinf=impl_in.dielectric.epsinf)
+
+            if impl_in.interactions.name == 'SurfaceInteraction':
+                suin = impl_in.interactions
+                from gpaw.solvation.interactions import SurfaceInteraction
+                interactions = [SurfaceInteraction(suin.surface_tension)]
+
+            self.stuff_for_hamiltonian = (cavity, dielectric, interactions)
+
+        reader = GPAW.read(self, filename)
+        return reader
+
+    def _write(self, writer, mode):
+        GPAW._write(self, writer, mode)
+        stuff = self.stuff_for_hamiltonian
+        writer.child('implicit_solvent').write(cavity=stuff[0],
+                                               dielectric=stuff[1],
+                                               interactions=stuff[2][0])
 
     def create_hamiltonian(self, realspace, mode, xc):
         if not realspace:
@@ -33,7 +105,6 @@ class SolvationGPAW(GPAW):
                 'calculations in reciprocal space yet.')
 
         dens = self.density
-
         self.hamiltonian = SolvationRealSpaceHamiltonian(
             *self.stuff_for_hamiltonian,
             gd=dens.gd, finegd=dens.finegd,
@@ -73,7 +144,6 @@ class SolvationGPAW(GPAW):
         It has to match the value of a subscript attribute of one of
         the interactions in the interactions list.
         """
-        # self.calculate(atoms, converge=True)
         return Hartree * getattr(self.hamiltonian, 'e_' + subscript)
 
     def get_cavity_volume(self, atoms=None):
@@ -82,7 +152,6 @@ class SolvationGPAW(GPAW):
         In case no volume calculator has been set for the cavity, None
         is returned.
         """
-        # self.calculate(atoms, converge=True)
         V = self.hamiltonian.cavity.V
         return V and V * Bohr ** 3
 
@@ -92,10 +161,5 @@ class SolvationGPAW(GPAW):
         In case no surface calculator has been set for the cavity,
         None is returned.
         """
-        # self.calculate(atoms, converge=True)
         A = self.hamiltonian.cavity.A
         return A and A * Bohr ** 2
-
-    def write(self, *args, **kwargs):
-        raise NotImplementedError(
-            'IO is not implemented yet for SolvationGPAW!')

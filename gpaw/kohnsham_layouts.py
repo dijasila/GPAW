@@ -479,10 +479,14 @@ class OrbitalLayouts(KohnShamLayouts):
         # XXX Should not conjugate, but call gemm(..., 'c')
         # Although that requires knowing C_Mn and not C_nM.
         # that also conforms better to the usual conventions in literature
+
+        # Use only occupied bands to construct density matrix
+        occupied = abs(f_n) > 1.0e-10
         if C2_nM is None:
             C2_nM = C_nM
-        Cf_Mn = np.ascontiguousarray(C2_nM.T.conj() * f_n)
-        gemm(1.0, C_nM, Cf_Mn, 0.0, rho_MM, 'n')
+        Cf_Mn = \
+            np.ascontiguousarray(C2_nM[occupied].T.conj() * f_n[occupied])
+        gemm(1.0, C_nM[occupied], Cf_Mn, 0.0, rho_MM, 'n')
         return rho_MM
 
     def get_transposed_density_matrix(self, f_n, C_nM, rho_MM=None):

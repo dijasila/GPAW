@@ -3,7 +3,7 @@ from gpaw.mpi import world
 from gpaw.utilities import compiled_with_sl
 from ase import Atoms
 from gpaw import GPAW
-from gpaw.wavefunctions.pw import PW
+from gpaw import PW
 from gpaw.xc.fxc import FXCCorrelation
 from gpaw.test import equal
 
