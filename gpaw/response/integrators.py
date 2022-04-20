@@ -285,7 +285,7 @@ class PointIntegrator(Integrator):
 
 
     @timer('CHI_0 spectral function update (new)')
-    def update_hilbert_new(self, n_mG, deps_m, wd, chi0_wGG):
+    def update_hilbert(self, n_mG, deps_m, wd, chi0_wGG):
         """Update spectral function.
 
         Updates spectral function A_wGG and saves it to chi0_wGG for
