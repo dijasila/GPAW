@@ -220,7 +220,10 @@ class AtomArrays:
         self.natoms: int = len(layout.shape_a)
 
     def __repr__(self):
-        return f'AtomArrays({self.layout})'
+        txt = f'AtomArrays({self.layout}, dims={self.dims}'
+        if self.comm.size > 1:
+            txt += f', comm={self.comm.rank}/{self.comm.size}'
+        return txt + f', transposed={self.transposed})'
 
     @property
     def matrix(self) -> Matrix:

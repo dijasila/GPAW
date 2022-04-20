@@ -46,6 +46,9 @@ class Density:
         self.collinear = self.ncomponents != 4
         self.natoms = len(delta0_a)
 
+    def __repr__(self):
+        return f'Density({self.nt_sR}, {self.D_asii}, charge={self.charge})'
+
     def calculate_compensation_charge_coefficients(self) -> AtomArrays:
         ccc_aL = AtomArraysLayout(
             [delta_iiL.shape[2] for delta_iiL in self.delta_aiiL],
