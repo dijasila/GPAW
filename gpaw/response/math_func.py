@@ -1,4 +1,9 @@
+
 from math import pi
+from scipy.interpolate import InterpolatedUnivariateSpline
+from gpaw.pw.lfc import ft
+from gpaw.spline import Spline
+
 
 import numpy as np
 try:
@@ -17,8 +22,37 @@ except ImportError:
 from gpaw.gaunt import nabla, gaunt
 from gpaw.spherical_harmonics import Y
 
+def verify_wrt(f2):
+    import time
+    def run_both(f):
+        def main(*args,**kwargs):
+            time1 = time.time()
+            A = f(*args, **kwargs)
+            time2 = time.time() 
+            B = f2(*args, **kwargs)
+            time3 = time.time()
+            print(f'New implementation took {time2-time1} s. Old implementation took {time3-time2} s. Speedup {(time3-time2)/(time2-time1)}x.')
+            print('MAXIMUM ERROR', np.max(np.abs(A-B)))
+            if not np.allclose(A, B, rtol=1e-03, atol=1e-04):
+                #import matplotlib.pyplot as plt
+                for i in range(A.shape[1]):
+                    print('A', A[:,i])
+                    print('B',B[:,i])
+                    print('/',A[:,i]/B[:,i])
+                    k_Gv = args[0]
+                    k_G = np.sqrt(np.sum(k_Gv**2, axis=1))  # calculate length of q+G
+                    #plt.plot(A[:,i].real,'x')
+                    #plt.plot(B[:,i].real,'o')
+                    #plt.plot(A[:,i].imag,'.r')
+                    #plt.plot(B[:,i].imag,'.b')
+                    #plt.show()
+               
+                xxx
+            return A
+        return main
+    return run_both
 
-def two_phi_planewave_integrals(k_Gv, setup=None, Gstart=0, Gend=None,
+def two_phi_planewave_integrals_slow(k_Gv, setup=None, Gstart=0, Gend=None,
                                 rgd=None, phi_jg=None,
                                 phit_jg=None, l_j=None):
     r"""Calculate PAW-correction matrix elements with planewaves.
@@ -26,6 +60,7 @@ def two_phi_planewave_integrals(k_Gv, setup=None, Gstart=0, Gend=None,
     ::
 
       /  _       _   ik.r     _     ~   _   ik.r ~   _
+
       | dr [phi (r) e    phi (r) - phi (r) e    phi (r)]
       /        1            2         1            2
 
@@ -131,6 +166,94 @@ def two_phi_planewave_integrals(k_Gv, setup=None, Gstart=0, Gend=None,
     phi_Gii *= 4 * pi
 
     return phi_Gii.reshape(npw, ni * ni)
+
+
+# @verify_wrt(two_phi_planewave_integrals_slow)  # Uncomment this line to verify the faster implementation
+def two_phi_planewave_integrals(k_Gv, setup=None, Gstart=0, Gend=None,
+                                rgd=None, phi_jg=None,
+                                phit_jg=None, l_j=None):
+
+    if Gend is None:
+        Gend = len(k_Gv)
+
+    if setup is not None:
+        rgd = setup.rgd
+        l_j = setup.l_j
+        # Obtain the phi_j and phit_j
+        phi_jg = []
+        phit_jg = []
+        rcut2 = 2 * max(setup.rcut_j)
+        gcut2 = rgd.ceil(rcut2)
+        for phi_g, phit_g in zip(setup.data.phi_jg, setup.data.phit_jg):
+            phi_g = phi_g.copy()
+            phit_g = phit_g.copy()
+            phi_g[gcut2:] = phit_g[gcut2:] = 0.
+            phi_jg.append(phi_g)
+            phit_jg.append(phit_g)
+    else:
+        assert rgd is not None
+        assert phi_jg is not None
+        assert l_j is not None
+
+    ng = rgd.N
+    r_g = rgd.r_g
+    dr_g = rgd.dr_g
+
+    # Construct L (l**2 + m) and j (nl) index
+    L_i = []
+    j_i = []
+    for j, l in enumerate(l_j):
+        for m in range(2 * l + 1):
+            L_i.append(l**2 + m)
+            j_i.append(j)
+    ni = len(L_i)
+    nj = len(l_j)
+    lmax = max(l_j) * 2 + 1
+
+    if setup is not None:
+        assert ni == setup.ni and nj == setup.nj
+
+    if setup is not None:
+	    assert ni == setup.ni and nj == setup.nj
+
+    # Initialize
+    npw = k_Gv.shape[0]
+    phi_Gii = np.zeros((npw, ni, ni), dtype=complex)
+
+    j_lg = np.zeros((lmax, ng))
+
+    G_LLL = gaunt(max(l_j))
+    k_G = np.sum(k_Gv**2, axis=1)**0.5
+
+    i1_start = 0
+
+    for j1, l1 in enumerate(l_j):
+        i2_start = 0
+        for j2, l2 in enumerate(l_j):
+            # Calculate the radial part of the product density
+            rhot_g = phi_jg[j1] * phi_jg[j2] - phit_jg[j1] * phit_jg[j2]
+            
+            norm = np.dot(r_g**2 * dr_g, rhot_g)
+            for l in range((l1 + l2) % 2, l1 + l2 + 1, 2):
+                spline = rgd.spline(rhot_g, l=l, points=2**10)
+                splineG = ft(spline, N=2**12)
+                f_G = splineG.map(k_G)
+
+                for m1 in range(2*l1+1):
+                    for m2 in range(2*l2+1):
+                        i1 = i1_start + m1
+                        i2 = i2_start + m2
+                        for m, G in enumerate(G_LLL[l1**2+m1, l2**2+m2, l**2:(l+1)**2]):
+                            if G == 0:
+                                continue
+                            x_G = Y(l**2+m, k_Gv[:,0], k_Gv[:,1], k_Gv[:,2]) * f_G * (-1j)**l
+                            phi_Gii[:, i1, i2] += G * x_G 
+
+            i2_start += 2*l2 + 1
+        i1_start += 2*l1 + 1
+    return phi_Gii.reshape(npw, ni * ni)
+
+
 
 
 def two_phi_nabla_planewave_integrals(k_Gv, setup=None, Gstart=0, Gend=None,
