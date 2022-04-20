@@ -336,6 +336,9 @@ def calculate_number_of_bands(nbands, setups, charge, magmoms, is_lcao):
         raise ValueError(
             f'Too few bands!  Electrons: {nvalence}, bands: {nbands}')
 
+    if magmoms is not None and magmoms.ndim == 2:
+        nbands *= 2
+
     return nbands
 
 

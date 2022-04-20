@@ -83,8 +83,6 @@ class DFTCalculation:
         density.normalize()
 
         pot_calc = builder.create_potential_calculator()
-        print(density.D_asii[0][:, :2, :2])
-        print(density.D_asii[1][:, :2, :2])
         potential, vHt_x, _ = pot_calc.calculate(density)
         ibzwfs = builder.create_ibz_wave_functions(basis_set, potential)
         state = DFTState(ibzwfs, density, potential, vHt_x)

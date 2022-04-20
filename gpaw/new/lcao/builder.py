@@ -111,9 +111,11 @@ def create_lcao_ibzwfs(basis, potential,
     # self.atomic_correction= self.atomic_correction_cls.new_from_wfs(self)
     # self.atomic_correction.add_overlap_correction(newS_qMM)
 
+    nao = setups.nao
+
     def create_wfs(spin, q, k, kpt_c, weight):
-        nao = setups.nao
-        C_nM = Matrix(nbands, nao, dtype,
+        C_nM = Matrix(nbands, 2 * nao if ncomponents == 4 else nao,
+                      dtype,
                       dist=(band_comm, band_comm.size, 1))
         if coefficients is not None:
             C_nM.data[:] = coefficients.proxy(spin, k)

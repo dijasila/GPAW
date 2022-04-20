@@ -103,7 +103,7 @@ class NonCollinearHamiltonianMatrixCalculator:
 
         _, M = V_MM.shape
         V_MM, X_MM, Y_MM, Z_MM = (V_MM.data for V_MM in V_sMM)
-        H_sMsM = Matrix(2 * M, 2 * M, dist=(wfs.band_comm,))
+        H_sMsM = Matrix(2 * M, 2 * M, dtype=complex, dist=(wfs.band_comm,))
         H_sMsM.data[:M, :M] = V_MM + Z_MM
         H_sMsM.data[:M, M:] = X_MM + 1j * Y_MM
         H_sMsM.data[M:, :M] = X_MM - 1j * Y_MM
