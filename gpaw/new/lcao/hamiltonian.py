@@ -9,10 +9,11 @@ from gpaw.new.fd.pot_calc import UniformGridPotentialCalculator
 from gpaw.new.lcao.wave_functions import LCAOWaveFunctions
 from gpaw.new.hamiltonian import Hamiltonian
 from gpaw.core.matrix import Matrix
+from gpaw.typing import Array3D
+from gpaw.core.atom_arrays import AtomArrays
 
 
 class HamiltonianMatrixCalculator:
-
     def __init__(self,
                  V_sxMM: list[np.ndarray],
                  dH_saii: list[dict[int, np.ndarray]],
@@ -27,8 +28,8 @@ class HamiltonianMatrixCalculator:
             self.calculate_matrix = self._calculate_matrix_without_kinetic
 
     def _calculate_potential_matrix(self,
-                                    wfs: LCAOWaveFunctions) -> Matrix:
-        V_xMM = self.V_sxMM[wfs.spin]
+                                    wfs: LCAOWaveFunctions,
+                                    V_xMM: Array3D) -> Matrix:
         data = V_xMM[0]
         _, M = data.shape
         if wfs.dtype == complex:
@@ -43,11 +44,18 @@ class HamiltonianMatrixCalculator:
         return V_MM
 
     def _calculate_matrix_without_kinetic(self,
-                                          wfs: LCAOWaveFunctions) -> Matrix:
-        V_MM = self._calculate_potential_matrix(wfs)
+                                          wfs: LCAOWaveFunctions,
+                                          V_xMM: Array3D = None,
+                                          dH_aii: AtomArrays = None) -> Matrix:
+        if V_xMM is None:
+            V_xMM = self.V_sxMM[wfs.spin]
+        if dH_aii is None:
+            dH_aii = self.dH_saii[wfs.spin]
+
+        V_MM = self._calculate_potential_matrix(wfs, V_xMM)
 
         M1, M2 = V_MM.dist.my_row_range()
-        for a, dH_ii in self.dH_saii[wfs.spin].items():
+        for a, dH_ii in dH_aii.items():
             P_Mi = wfs.P_aMi[a]
             V_MM.data += P_Mi[M1:M2].conj() @ dH_ii @ P_Mi.T  # XXX use gemm
 
@@ -69,6 +77,40 @@ class HamiltonianMatrixCalculator:
         return H_MM
 
 
+class NonCollinearHamiltonianMatrixCalculator:
+    def __init__(self, matcalc: HamiltonianMatrixCalculator):
+        self.matcalc = matcalc
+
+    def calculate_matrix(self,
+                         wfs: LCAOWaveFunctions) -> Matrix:
+        V_sMM = [
+            self.matcalc._calculate_matrix_without_kinetic(wfs, V_xMM, dH_aii)
+            for V_xMM, dH_aii in zip(self.matcalc.V_sxMM,
+                                     self.matcalc.dH_saii)]
+
+        V_sMM[0] += wfs.T_MM
+
+        assert wfs.domain_comm.size == 1
+
+        for V_MM in V_sMM:
+            wfs.domain_comm.sum(V_MM.data, 0)
+
+            if wfs.domain_comm.rank == 0:
+                if wfs.dtype == complex:
+                    V_MM.add_hermitian_conjugate(scale=0.5)
+                else:
+                    V_MM.tril2full()
+
+        _, M = V_MM.shape
+        V_MM, X_MM, Y_MM, Z_MM = (V_MM.data for V_MM in V_sMM)
+        H_sMsM = Matrix(2 * M, 2 * M, dist=(wfs.band_comm,))
+        H_sMsM.data[:M, :M] = V_MM + Z_MM
+        H_sMsM.data[:M, M:] = X_MM + 1j * Y_MM
+        H_sMsM.data[M:, :M] = X_MM - 1j * Y_MM
+        H_sMsM.data[M:, M:] = V_MM - Z_MM
+        return H_sMsM
+
+
 class LCAOHamiltonian(Hamiltonian):
     def __init__(self,
                  basis: BasisFunctions):
@@ -84,8 +126,12 @@ class LCAOHamiltonian(Hamiltonian):
                     for a, dH_sii in state.potential.dH_asii.items()}
                    for s in range(len(V_sxMM))]
 
-        return HamiltonianMatrixCalculator(V_sxMM, dH_saii, self.basis,
-                                           include_kinetic=True)
+        matcalc = HamiltonianMatrixCalculator(V_sxMM, dH_saii, self.basis,
+                                              include_kinetic=True)
+        if len(V_sxMM) < 4:
+            return matcalc
+
+        return NonCollinearHamiltonianMatrixCalculator(matcalc)
 
     def create_kick_matrix_calculator(self,
                                       state: DFTState,
