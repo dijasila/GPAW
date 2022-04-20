@@ -251,20 +251,18 @@ class PointIntegrator(Integrator):
                 mynx_mG = n_mG[:, self.Ga:self.Gb] * x_m[:, np.newaxis]
                 mmm(1.0, mynx_mG, 'C', n_mG, 'N', 1.0, chi0_wGG[w])
 
-    @timer('CHI_0 spectral function update')
+    @timer('CHI_0 spectral function update (old)')
     def update_hilbert_old(self, n_mG, deps_m, wd, chi0_wGG): # Old version
         """Update spectral function.
 
         Updates spectral function A_wGG and saves it to chi0_wGG for
         later hilbert-transform."""
-        self.timer.start('full function')
 
         omega_w = wd.get_data()
         deps_m += self.eshift * np.sign(deps_m)
         o_m = abs(deps_m)
         w_m = wd.get_closest_index(o_m)
 
-        self.timer.start('old way')
         o1_m = omega_w[w_m]
         o2_m = omega_w[w_m + 1]
         p_m = np.abs(1 / (o2_m - o1_m)**2)
@@ -285,19 +283,14 @@ class PointIntegrator(Integrator):
                     czher(p1, n_G.conj(), chi0_wGG[w])
                     czher(p2, n_G.conj(), chi0_wGG[w + 1])
 
-        self.timer.stop('old way')
-        self.timer.stop('full function')
 
-    @timer('CHI_0 spectral function update')
-    def update_hilbert(self, n_mG, deps_m, wd, chi0_wGG):
+    @timer('CHI_0 spectral function update (new)')
+    def update_hilbert_new(self, n_mG, deps_m, wd, chi0_wGG):
         """Update spectral function.
 
         Updates spectral function A_wGG and saves it to chi0_wGG for
         later hilbert-transform."""
-        self.timer.start('full function')
-        # chi0_wGG_copy = chi0_wGG.copy()
 
-        self.timer.start('new way')
         omega_w = wd.get_data()
         deps_m += self.eshift * np.sign(deps_m)
         o_m = abs(deps_m)
@@ -311,7 +304,7 @@ class PointIntegrator(Integrator):
         NG = chi0_wGG.shape[2]
         myNG = self.Gb-self.Ga
         index = 0
-        while 1: # XXX
+        while 1:
             w = sortedw_m[index]
             startindex = index
             while 1:
@@ -322,6 +315,7 @@ class PointIntegrator(Integrator):
                     break
 
             endindex = index
+
             # Here, we have same frequency range w, for set of electron-hole excitations from startindex to endindex 
             o1 = omega_w[w]
             o2 = omega_w[w + 1]
@@ -346,58 +340,10 @@ class PointIntegrator(Integrator):
                     left = (p2_m[:, None]*sortedn_mG[startindex:endindex]).T.copy()
                     gemm(1.0, left,  right, 1.0, chi0_wGG[w+1], 'c')
 
-            assert np.allclose(sortedw_m[startindex:endindex], sortedw_m[startindex])
+            #assert np.allclose(sortedw_m[startindex:endindex], sortedw_m[startindex])
 
             if index == len(sortedw_m):
                 break
-        self.timer.stop('new way')
-        self.timer.stop('full function')
-
-        return
-
-        self.timer.start('old way')
-        o1_m = omega_w[w_m]
-        o2_m = omega_w[w_m + 1]
-        p_m = np.abs(1 / (o2_m - o1_m)**2)
-        p1_m = p_m * (o2_m - o_m)
-        p2_m = p_m * (o_m - o1_m)
-
-        if self.blockcomm.size > 1:
-            for p1, p2, n_G, w in zip(p1_m, p2_m, n_mG, w_m):
-                if w + 1 < wd.wmax:  # The last frequency is not reliable
-                    myn_G = n_G[self.Ga:self.Gb].reshape((-1, 1))
-                    gemm(p1, n_G.reshape((-1, 1)), myn_G,
-                         1.0, chi0_wGG_copy[w], 'c')
-                    gemm(p2, n_G.reshape((-1, 1)), myn_G,
-                         1.0, chi0_wGG_copy[w + 1], 'c')
-        else:
-            for p1, p2, n_G, w in zip(p1_m, p2_m, n_mG, w_m):
-                if w + 1 < wd.wmax:  # The last frequency is not reliable
-                    czher(p1, n_G.conj(), chi0_wGG_copy[w])
-                    czher(p2, n_G.conj(), chi0_wGG_copy[w + 1])
-        #print('reference chi0', chi0_wGG_copy[21,:4,:4].real)
-        #print('new fast chi0', chi0_wGG[21,:4,:4].real)
-        #print('omega is now', w)
-        ##print( (chi0_wGG-chi0_wGG_copy)[21,:4,:4].real )
-        #print(f'Checking all {len(chi0_wGG)} frequencies')
-        self.timer.stop('old way')
-        self.timer.start('compare')
-        for w in range(len(chi0_wGG)):
-            A = np.triu(chi0_wGG_copy[w])
-            B = np.triu(chi0_wGG[w])
-            if not np.allclose(A.real,B.real):
-                print(A[:5,:5].real,'real reference')
-                print(B[:5,:5].real,'real new')
-                xxx
-            if not np.allclose(A.imag,B.imag):
-                print(A[:5,:5].imag,'imag reference')
-                print(B[:5,:5].imag,'imag new')
-                xxx
-            
-        self.timer.stop('compare')
-        self.timer.stop('full function')
-        with open(f'timer{mpi.world.rank}.txt','a') as f:
-            self.timer.write(f)
 
     @timer('CHI_0 intraband update')
     def update_intraband(self, vel_mv, chi0_wvv):
