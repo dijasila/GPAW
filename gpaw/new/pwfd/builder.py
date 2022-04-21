@@ -88,25 +88,24 @@ class PWFDDFTComponentsBuilder(DFTComponentsBuilder):
                 potential,
                 self.convert_wave_functions_from_uniform_grid)
 
-        lcaoibzwfs = create_lcao_ibzwfs(
+        lcao_ibzwfs = create_lcao_ibzwfs(
             basis, potential,
             self.ibz, self.communicators, self.setups,
             self.fracpos_ac, self.grid, self.dtype,
             self.nbands, self.ncomponents, self.atomdist, self.nelectrons)
 
-        state = DFTState(lcaoibzwfs, None, potential)
+        state = DFTState(lcao_ibzwfs, None, potential)
         hamiltonian = LCAOHamiltonian(basis)
         LCAOEigensolver(basis).iterate(state, hamiltonian)
 
         def create_wfs(spin, q, k, kpt_c, weight):
-            # print(spin, q, k, kpt_c, weight, self.nspins)
-            wfs = lcaoibzwfs.wfs_qs[q][spin]
+            wfs = lcao_ibzwfs.wfs_qs[q][spin]
             assert wfs.spin == spin
             mynbands = len(wfs.C_nM.data)
 
             # Convert to PW-coefs in PW-mode:
             psit_nX = self.convert_wave_functions_from_uniform_grid(
-                wfs.C_nM.data, basis, kpt_c, q)
+                wfs.C_nM, basis, kpt_c, q)
 
             if mynbands < self.nbands:
                 psit_nX[mynbands:].randomize()

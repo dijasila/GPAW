@@ -43,6 +43,7 @@ class PWFDWaveFunctions(WaveFunctions):
         self.orthonormalized = False
 
     def __del__(self):
+        # We could be reading from a gpw-file
         data = self.psit_nX.data
         if hasattr(data, 'fd'):
             data.fd.close()
@@ -102,18 +103,18 @@ class PWFDWaveFunctions(WaveFunctions):
 
         Computes the overlap matrix:::
 
-               /~ _ *~ _   _   ---  a  * a   a
-          S  = |ψ(r) ψ(r) dr + >  (P  ) P  ΔS
-           mn  / m    n        ---  im   jn  ij
-                               aij
+               / ~ _ *~ _   _   ---  a  * a   a
+          S  = | ψ(r) ψ(r) dr + >  (P  ) P  ΔS
+           mn  /  m    n        ---  im   jn  ij
+                                aij
 
         With `LSL^\dagger=1`, we update the wave functions and projections
         inplace like this:::
 
-                  -- *      a    -- *  a
-            Ψ  <- > L  Ψ,  P  <- > L  P
-             m    -- mn n   in   -- mn in
-                  n
+                  --  *      a    --  *  a
+            Ψ  <- >  L  Ψ,  P  <- >  L  P
+             m    --  mn n   im   --  mn in
+                  n               n
 
         """
         if self.orthonormalized:

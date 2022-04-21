@@ -78,28 +78,30 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
         return PWHamiltonian()
 
     def convert_wave_functions_from_uniform_grid(self,
-                                                 C_nM,
+                                                 C_nM: Matrix,
                                                  basis_set,
                                                  kpt_c,
                                                  q):
         # Replace this with code that goes directly from C_nM to
         # psit_nG via PWAtomCenteredFunctions.
         # XXX
-        grid = self.grid.new(kpt=kpt_c, dtype=self.dtype)
-        psit_nR = grid.zeros(self.nbands, self.communicators['b'])
-        mynbands = len(C_nM)
-        basis_set.lcao_to_grid(C_nM, psit_nR.data[:mynbands], q)
 
-        pw = self.wf_desc.new(kpt=psit_nR.desc.kpt_c)
-        psit_nG = pw.empty(psit_nR.dims, psit_nR.comm)
+        grid = self.grid.new(kpt=kpt_c, dtype=self.dtype)
+        pw = self.wf_desc.new(kpt=kpt_c)
+        psit_nG = pw.empty(self.nbands, self.communicators['b'])
 
         if self.dtype == complex:
-            emikr_R = grid.eikr(-grid.kpt_c)
+            emikr_R = grid.eikr(-kpt_c)
 
-        for psit_R, psit_G in zip(psit_nR, psit_nG):
-            if self.dtype == complex:
-                psit_R.data *= emikr_R
-            psit_R.fft(out=psit_G)
+        if self.ncomponents < 4:
+            psit_nR = grid.zeros(self.nbands, ...)
+            mynbands = len(C_nM)
+            basis_set.lcao_to_grid(C_nM, psit_nR.data[:mynbands], q)
+
+            for psit_R, psit_G in zip(psit_nR, psit_nG):
+                if self.dtype == complex:
+                    psit_R.data *= emikr_R
+                psit_R.fft(out=psit_G)
 
         return psit_nG
 
