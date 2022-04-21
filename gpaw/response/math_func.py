@@ -242,7 +242,7 @@ def two_phi_planewave_integrals(k_Gv, setup=None, Gstart=0, Gend=None,
                     for m2 in range(2*l2+1):
                         i1 = i1_start + m1
                         i2 = i2_start + m2
-                        G_m = G_LLL[l1**2 + m1, l2**2 + m2, l**2:(l + 1)**2])
+                        G_m = G_LLL[l1**2 + m1, l2**2 + m2, l**2:(l + 1)**2]
                         for m, G in enumerate(G_m):
                             if G == 0:
                                 continue
