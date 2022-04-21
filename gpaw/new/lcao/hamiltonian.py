@@ -1,31 +1,39 @@
 from __future__ import annotations
 
 import numpy as np
-
+from gpaw.core.matrix import Matrix
 from gpaw.external import ExternalPotential
 from gpaw.lfc import BasisFunctions
 from gpaw.new.calculation import DFTState
 from gpaw.new.fd.pot_calc import UniformGridPotentialCalculator
-from gpaw.new.lcao.wave_functions import LCAOWaveFunctions
 from gpaw.new.hamiltonian import Hamiltonian
-from gpaw.core.matrix import Matrix
-from gpaw.typing import Array3D
-from gpaw.core.atom_arrays import AtomArrays
+from gpaw.new.lcao.wave_functions import LCAOWaveFunctions
+from gpaw.typing import Array2D, Array3D
 
 
 class HamiltonianMatrixCalculator:
+    def calculate_matrix(self,
+                         wfs: LCAOWaveFunctions) -> Matrix:
+        raise NotImplementedError
+
+
+class CollinearHamiltonianMatrixCalculator(HamiltonianMatrixCalculator):
     def __init__(self,
                  V_sxMM: list[np.ndarray],
-                 dH_saii: list[dict[int, np.ndarray]],
+                 dH_saii: list[dict[int, Array2D]],
                  basis: BasisFunctions,
                  include_kinetic: bool = True):
         self.V_sxMM = V_sxMM
         self.dH_saii = dH_saii
         self.basis = basis
-        if include_kinetic:
-            self.calculate_matrix = self._calculate_matrix_with_kinetic
+        self.include_kinetic = include_kinetic
+
+    def calculate_matrix(self,
+                         wfs: LCAOWaveFunctions) -> Matrix:
+        if self.include_kinetic:
+            return self._calculate_matrix_with_kinetic(wfs)
         else:
-            self.calculate_matrix = self._calculate_matrix_without_kinetic
+            return self._calculate_matrix_without_kinetic(wfs)
 
     def _calculate_potential_matrix(self,
                                     wfs: LCAOWaveFunctions,
@@ -46,7 +54,8 @@ class HamiltonianMatrixCalculator:
     def _calculate_matrix_without_kinetic(self,
                                           wfs: LCAOWaveFunctions,
                                           V_xMM: Array3D = None,
-                                          dH_aii: AtomArrays = None) -> Matrix:
+                                          dH_aii: dict[int, Array2D] = None
+                                          ) -> Matrix:
         if V_xMM is None:
             V_xMM = self.V_sxMM[wfs.spin]
         if dH_aii is None:
@@ -77,8 +86,8 @@ class HamiltonianMatrixCalculator:
         return H_MM
 
 
-class NonCollinearHamiltonianMatrixCalculator:
-    def __init__(self, matcalc: HamiltonianMatrixCalculator):
+class NonCollinearHamiltonianMatrixCalculator(HamiltonianMatrixCalculator):
+    def __init__(self, matcalc: CollinearHamiltonianMatrixCalculator):
         self.matcalc = matcalc
 
     def calculate_matrix(self,
@@ -102,12 +111,12 @@ class NonCollinearHamiltonianMatrixCalculator:
                     V_MM.tril2full()
 
         _, M = V_MM.shape
-        V_MM, X_MM, Y_MM, Z_MM = (V_MM.data for V_MM in V_sMM)
+        v_MM, x_MM, y_MM, z_MM = (V_MM.data for V_MM in V_sMM)
         H_sMsM = Matrix(2 * M, 2 * M, dtype=complex, dist=(wfs.band_comm,))
-        H_sMsM.data[:M, :M] = V_MM + Z_MM
-        H_sMsM.data[:M, M:] = X_MM + 1j * Y_MM
-        H_sMsM.data[M:, :M] = X_MM - 1j * Y_MM
-        H_sMsM.data[M:, M:] = V_MM - Z_MM
+        H_sMsM.data[:M, :M] = v_MM + z_MM
+        H_sMsM.data[:M, M:] = x_MM + 1j * y_MM
+        H_sMsM.data[M:, :M] = x_MM - 1j * y_MM
+        H_sMsM.data[M:, M:] = v_MM - z_MM
         return H_sMsM
 
 
@@ -126,8 +135,9 @@ class LCAOHamiltonian(Hamiltonian):
                     for a, dH_sii in state.potential.dH_asii.items()}
                    for s in range(len(V_sxMM))]
 
-        matcalc = HamiltonianMatrixCalculator(V_sxMM, dH_saii, self.basis,
-                                              include_kinetic=True)
+        matcalc = CollinearHamiltonianMatrixCalculator(V_sxMM, dH_saii,
+                                                       self.basis,
+                                                       include_kinetic=True)
         if len(V_sxMM) < 4:
             return matcalc
 
@@ -159,5 +169,6 @@ class LCAOHamiltonian(Hamiltonian):
                     for (a, W_L) in W_aL.items()}
                    for s in range(nspins)]
 
-        return HamiltonianMatrixCalculator(V_sxMM, dH_saii, self.basis,
-                                           include_kinetic=False)
+        return CollinearHamiltonianMatrixCalculator(V_sxMM, dH_saii,
+                                                    self.basis,
+                                                    include_kinetic=False)

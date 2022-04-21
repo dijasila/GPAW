@@ -143,4 +143,3 @@ def create_lcao_ibzwfs(basis, potential,
                            create_wfs,
                            kpt_comm)
     return ibzwfs
-

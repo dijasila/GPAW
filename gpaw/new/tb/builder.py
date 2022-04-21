@@ -18,17 +18,19 @@ from gpaw.mpi import MPIComm, serial_comm
 from gpaw.new import zip_strict
 from gpaw.new.calculation import DFTState
 from gpaw.new.lcao.builder import LCAODFTComponentsBuilder
-from gpaw.new.lcao.hamiltonian import HamiltonianMatrixCalculator
+from gpaw.new.lcao.hamiltonian import CollinearHamiltonianMatrixCalculator
 from gpaw.new.lcao.wave_functions import LCAOWaveFunctions
 from gpaw.new.pot_calc import PotentialCalculator
 from gpaw.setup import Setup
 from gpaw.spline import Spline
 from gpaw.utilities.timing import NullTimer
+from gpaw.typing import Array3D
 
 
-class TBHamiltonianMatrixCalculator(HamiltonianMatrixCalculator):
+class TBHamiltonianMatrixCalculator(CollinearHamiltonianMatrixCalculator):
     def _calculate_potential_matrix(self,
-                                    wfs: LCAOWaveFunctions) -> Matrix:
+                                    wfs: LCAOWaveFunctions,
+                                    V_xMM: Array3D = None) -> Matrix:
         return wfs.V_MM
 
 
@@ -40,9 +42,9 @@ class TBHamiltonian:
     def apply(self):
         raise NotImplementedError
 
-    def create_hamiltonian_matrix_calculator(self,
-                                             state: DFTState
-                                             ) -> HamiltonianMatrixCalculator:
+    def create_hamiltonian_matrix_calculator(
+            self,
+            state: DFTState) -> TBHamiltonianMatrixCalculator:
         dH_saii = [{a: dH_sii[s]
                     for a, dH_sii in state.potential.dH_asii.items()}
                    for s in range(state.density.ncomponents)]
