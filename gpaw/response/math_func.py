@@ -1,11 +1,7 @@
-
 from math import pi
-from scipy.interpolate import InterpolatedUnivariateSpline
 from gpaw.pw.lfc import ft
-from gpaw.spline import Spline
-
-
 import numpy as np
+
 try:
     from scipy.special import spherical_jn
 
@@ -22,9 +18,12 @@ except ImportError:
 from gpaw.gaunt import nabla, gaunt
 from gpaw.spherical_harmonics import Y
 
+
 def verify_wrt(f2):
     import time
+
     def run_both(f):
+
         def main(*args,**kwargs):
             time1 = time.time()
             A = f(*args, **kwargs)
@@ -39,17 +38,17 @@ def verify_wrt(f2):
                     print('A', A[:,i])
                     print('B',B[:,i])
                     print('/',A[:,i]/B[:,i])
-                    k_Gv = args[0]
-                    k_G = np.sqrt(np.sum(k_Gv**2, axis=1))  # calculate length of q+G
-                    #plt.plot(A[:,i].real,'x')
-                    #plt.plot(B[:,i].real,'o')
-                    #plt.plot(A[:,i].imag,'.r')
-                    #plt.plot(B[:,i].imag,'.b')
-                    #plt.show()
+                    # plt.plot(A[:,i].real,'x')
+                    # plt.plot(B[:,i].real,'o')
+                    # plt.plot(A[:,i].imag,'.r')
+                    # plt.plot(B[:,i].imag,'.b')
+                    # plt.show()
                
                 xxx
             return A
+
         return main
+
     return run_both
 
 def two_phi_planewave_integrals_slow(k_Gv, setup=None, Gstart=0, Gend=None,
@@ -243,10 +242,11 @@ def two_phi_planewave_integrals(k_Gv, setup=None, Gstart=0, Gend=None,
                     for m2 in range(2*l2+1):
                         i1 = i1_start + m1
                         i2 = i2_start + m2
-                        for m, G in enumerate(G_LLL[l1**2+m1, l2**2+m2, l**2:(l+1)**2]):
+                        G_m = G_LLL[l1**2 + m1, l2**2 + m2, l**2:(l + 1)**2])
+                        for m, G in enumerate(G_m):
                             if G == 0:
                                 continue
-                            x_G = Y(l**2+m, k_Gv[:,0], k_Gv[:,1], k_Gv[:,2]) * f_G * (-1j)**l
+                            x_G = Y(l**2+m, *k_Gv.T) * f_G * (-1j)**l
                             phi_Gii[:, i1, i2] += G * x_G 
 
             i2_start += 2*l2 + 1
