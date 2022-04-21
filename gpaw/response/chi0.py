@@ -1020,7 +1020,7 @@ class Chi0:
         nG = in_wGG.shape[2]
         mynw = (nw + comm.size - 1) // comm.size
         mynG = (nG + comm.size - 1) // comm.size
-
+        
         bg1 = BlacsGrid(comm, comm.size, 1)
         bg2 = BlacsGrid(comm, 1, comm.size)
         md1 = BlacsDescriptor(bg1, nw, nG**2, mynw, nG**2)
@@ -1123,6 +1123,9 @@ class Chi0:
         p('Called response.chi0.calculate with')
         p('    q_c: [%f, %f, %f]' % (q_c[0], q_c[1], q_c[2]))
         p('    Number of frequency points: %d' % nw)
+        if bsize > nw:
+            p('WARNING! Your nblocks is larger than number of frequency points.'
+              ' Errors might occur, if your submodule don''t know how to handle this.')
         p('    Planewave cutoff: %f' % ecut)
         p('    Number of spins: %d' % ns)
         p('    Number of bands: %d' % nbands)
