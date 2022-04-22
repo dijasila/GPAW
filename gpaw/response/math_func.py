@@ -245,8 +245,8 @@ def two_phi_planewave_integrals(k_Gv, setup=None, Gstart=0, Gend=None,
                             x_G = Y(l**2 + m, *k_Gv.T) * f_G * (-1j)**l
                             phi_Gii[:, i1, i2] += G * x_G
 
-            i2_start += 2*l2 + 1
-        i1_start += 2*l1 + 1
+            i2_start += 2 * l2 + 1
+        i1_start += 2 * l1 + 1
     return phi_Gii.reshape(npw, ni * ni)
 
 
