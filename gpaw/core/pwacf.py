@@ -242,7 +242,7 @@ class PWLFC(BaseLFC):
         else:
             yield 0, nG
 
-    def add(self, a_xG, c_axi=1.0):
+    def add(self, a_xG, c_axi=1.0, q=None):
         c_xI = np.empty(a_xG.shape[:-1] + (self.nI,), self.dtype)
 
         if isinstance(c_axi, float):

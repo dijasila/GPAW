@@ -50,8 +50,12 @@ class PWFDWaveFunctions(WaveFunctions):
 
     def array_shape(self, global_shape=False):
         if global_shape:
-            return self.psit_nX.desc.global_shape()
-        return self.psit_nX.desc.myshape
+            shape = self.psit_nX.desc.global_shape()
+        else:
+            shape = self.psit_nX.desc.myshape
+        if self.ncomponents == 4:
+            shape = (2,) + shape
+        return shape
 
     def __len__(self):
         return self.psit_nX.dims[0]
@@ -111,10 +115,17 @@ class PWFDWaveFunctions(WaveFunctions):
         With `LSL^\dagger=1`, we update the wave functions and projections
         inplace like this:::
 
-                  --  *      a    --  *  a
-            Ψ  <- >  L  Ψ,  P  <- >  L  P
-             m    --  mn n   im   --  mn in
-                  n               n
+                --  *
+          Ψ  <- >  L  Ψ ,
+           m    --  mn n
+                n
+
+        and:::
+
+           a    --  *  a
+          P  <- >  L  P  .
+           im   --  mn in
+                n
 
         """
         if self.orthonormalized:
@@ -130,9 +141,7 @@ class PWFDWaveFunctions(WaveFunctions):
         dS = self.setups.overlap_correction
 
         S = psit_nX.matrix_elements(psit_nX, domain_sum=False)
-        print(S, dS)
-        #O_ij * P_jsn -> P_jsn
-        dS(P_ain, out=P2_ain)
+        dS(P_ain, out_ain=P2_ain)
         P_ain.matrix.multiply(P2_ain, opa='C', symmetric=True, out=S, beta=1.0)
         domain_comm.sum(S.data, 0)
 

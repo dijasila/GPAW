@@ -267,8 +267,8 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
         if self._matrix is not None:
             return self._matrix
 
-        shape = (np.prod(self.dims), self.myshape[0])
-        myshape = (np.prod(self.mydims), self.myshape[0])
+        shape = (self.dims[0], np.prod(self.dims[1:]) * self.myshape[0])
+        myshape = (self.mydims[0], np.prod(self.mydims[1:]) * self.myshape[0])
         dist = (self.comm, -1, 1)
         data = self.data.reshape(myshape)
 
