@@ -797,7 +797,7 @@ class G0W0(PairDensity):
             thisqd = KPointDescriptor([q_c])
             pd = PWDescriptor(self.ecut, self.calc.wfs.gd, complex, thisqd)
             nG = pd.ngmax
-            from gpaw.response.hacks import GaGb
+
             chi0.GaGb = GaGb(self.blockcomm, nG)
 
             if len(self.ecut_e) > 1:

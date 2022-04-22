@@ -628,7 +628,6 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         nG = self.pd.ngmax
         nw = len(self.omega_w)
 
-
         GaGb = self._GaGb(nG)
         nGlocal = GaGb.nGlocal
         localsize = nw * nGlocal * nG

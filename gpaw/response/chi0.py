@@ -575,7 +575,7 @@ class Chi0:
         # Integrate response function
         print('Integrating response function.', file=self.fd)
         # Define band summation
-        bandsum = {'n1': 0, 'n2': self.nocc2 if self.response == 'density' 
+        bandsum = {'n1': 0, 'n2': self.nocc2 if self.response == 'density'
                    else self.nbands, 'm1': m1, 'm2': m2}
         mat_kwargs.update(bandsum)
         eig_kwargs.update(bandsum)

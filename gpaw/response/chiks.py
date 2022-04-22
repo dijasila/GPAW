@@ -7,7 +7,6 @@ from ase.utils.timing import timer
 from gpaw.utilities.blas import gemm
 from gpaw.response.kslrf import PlaneWaveKSLRF
 from gpaw.response.kspair import PlaneWavePairDensity
-from gpaw.response.hacks import GaGb
 
 
 class ChiKS(PlaneWaveKSLRF):
