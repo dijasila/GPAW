@@ -530,8 +530,6 @@ class BSE:
 
             from gpaw.response.hacks import GaGb
             chi0.GaGb = GaGb(self.blockcomm, nG)
-            #chi0.Ga = self.blockcomm.rank * nG
-            #chi0.Gb = min(chi0.Ga + nG, nG)
             chi0_wGG = np.zeros((1, nG, nG), complex)
             if np.allclose(q_c, 0.0):
                 chi0_wxvG = np.zeros((1, 2, 3, nG), complex)

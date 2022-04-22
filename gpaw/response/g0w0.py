@@ -797,14 +797,11 @@ class G0W0(PairDensity):
             thisqd = KPointDescriptor([q_c])
             pd = PWDescriptor(self.ecut, self.calc.wfs.gd, complex, thisqd)
             nG = pd.ngmax
-            #mynG = (nG + self.blockcomm.size - 1) // self.blockcomm.size
-            # chi0.Ga = self.blockcomm.rank * mynG  # XXX bug
-            # chi0.Gb = min(chi0.Ga + mynG, nG)
             from gpaw.response.hacks import GaGb
             chi0.GaGb = GaGb(self.blockcomm, nG)
 
             if len(self.ecut_e) > 1:
-                shape = (nw, chi0.Gb - chi0.Ga, nG)
+                shape = (nw, chi0.GaGb.nGlocal, nG)
                 chi0bands_wGG = A1_x[:np.prod(shape)].reshape(shape).copy()
                 chi0bands_wGG[:] = 0.0
 
