@@ -31,15 +31,15 @@ def verify_wrt(f2):
             B = f2(*args, **kwargs)
             time3 = time.time()
             print(f'New implementation took {time2-time1} s. '
-                   'Old implementation took {time3-time2} s. '
-                   'Speedup {(time3-time2)/(time2-time1)}x.')
-            print('MAXIMUM ERROR', np.max(np.abs(A-B)))
+                  f'Old implementation took {time3-time2} s. '
+                  f'Speedup {(time3-time2)/(time2-time1)}x.')
+            print('MAXIMUM ERROR', np.max(np.abs(A - B)))
             if not np.allclose(A, B, rtol=1e-03, atol=1e-04):
                 # import matplotlib.pyplot as plt
                 for i in range(A.shape[1]):
-                    print('A', A[:,i])
-                    print('B', B[:,i])
-                    print('/', A[:,i] / B[:,i])
+                    print('A', A[:, i])
+                    print('B', B[:, i])
+                    print('/', A[:, i] / B[:, i])
                     # plt.plot(A[:,i].real,'x')
                     # plt.plot(B[:,i].real,'o')
                     # plt.plot(A[:,i].imag,'.r')
@@ -170,7 +170,8 @@ def two_phi_planewave_integrals_slow(k_Gv, setup=None, Gstart=0, Gend=None,
     return phi_Gii.reshape(npw, ni * ni)
 
 
-# @verify_wrt(two_phi_planewave_integrals_slow)  # Uncomment this line to verify the faster implementation
+# Uncomment this line below to verify the faster implementation
+# @verify_wrt(two_phi_planewave_integrals_slow)
 def two_phi_planewave_integrals(k_Gv, setup=None, Gstart=0, Gend=None,
                                 rgd=None, phi_jg=None,
                                 phit_jg=None, l_j=None):
@@ -216,13 +217,11 @@ def two_phi_planewave_integrals(k_Gv, setup=None, Gstart=0, Gend=None,
         assert ni == setup.ni and nj == setup.nj
 
     if setup is not None:
-	    assert ni == setup.ni and nj == setup.nj
+        assert ni == setup.ni and nj == setup.nj
 
     # Initialize
     npw = k_Gv.shape[0]
     phi_Gii = np.zeros((npw, ni, ni), dtype=complex)
-
-    j_lg = np.zeros((lmax, ng))
 
     G_LLL = gaunt(max(l_j))
     k_G = np.sum(k_Gv**2, axis=1)**0.5
@@ -235,14 +234,13 @@ def two_phi_planewave_integrals(k_Gv, setup=None, Gstart=0, Gend=None,
             # Calculate the radial part of the product density
             rhot_g = phi_jg[j1] * phi_jg[j2] - phit_jg[j1] * phit_jg[j2]
             
-            norm = np.dot(r_g**2 * dr_g, rhot_g)
             for l in range((l1 + l2) % 2, l1 + l2 + 1, 2):
                 spline = rgd.spline(rhot_g, l=l, points=2**10)
                 splineG = ft(spline, N=2**12)
                 f_G = splineG.map(k_G)
 
-                for m1 in range(2*l1 + 1):
-                    for m2 in range(2*l2 + 1):
+                for m1 in range(2 * l1 + 1):
+                    for m2 in range(2 * l2 + 1):
                         i1 = i1_start + m1
                         i2 = i2_start + m2
                         G_m = G_LLL[l1**2 + m1, l2**2 + m2, l**2:(l + 1)**2]
