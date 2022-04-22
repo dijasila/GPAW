@@ -237,7 +237,7 @@ class Chi0:
 
         from gpaw.response.hacks import block_partition
 
-        self.blockcomm, self.kncomm = self.block_partition(world, nblocks)
+        self.blockcomm, self.kncomm = block_partition(world, nblocks)
 
         self.nblocks = nblocks
 

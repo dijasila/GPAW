@@ -10,7 +10,7 @@ import _gpaw
 import gpaw.mpi as mpi
 from gpaw.utilities.blas import gemm, rk, mmm
 from gpaw.utilities.progressbar import ProgressBar
-from gpaw.response.hacks import GaGb
+from gpaw.response.hacks import GaGb, block_partition
 
 
 def czher(alpha: float, x, A) -> None:
@@ -41,16 +41,8 @@ class Integrator:
         self.eshift = eshift
         self.nblocks = nblocks
         self.vol = abs(np.linalg.det(cell_cv))
-        if nblocks == 1:
-            self.blockcomm = self.comm.new_communicator([comm.rank])
-            self.kncomm = comm
-        else:
-            assert comm.size % nblocks == 0, comm.size
-            rank1 = comm.rank // nblocks * nblocks
-            rank2 = rank1 + nblocks
-            self.blockcomm = self.comm.new_communicator(range(rank1, rank2))
-            ranks = range(comm.rank % nblocks, comm.size, nblocks)
-            self.kncomm = self.comm.new_communicator(ranks)
+
+        self.blockcomm, self.kncomm = block_partition(comm, nblocks)
 
         self.fd = convert_string_to_fd(txt, comm)
 

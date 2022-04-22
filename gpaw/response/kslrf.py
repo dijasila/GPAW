@@ -179,12 +179,6 @@ class KohnShamLinearResponseFunction:
         self.interblockcomm, self.intrablockcomm = block_partition(
             world, nblocks)
 
-        if nblocks == 1:
-            interblockcomm = world.new_communicator([world.rank])
-            intrablockcomm = world
-            assert interblockcomm.rank == self.interblockcomm.rank
-            assert intrablockcomm.rank == self.intrablockcomm.rank
-
         print('Number of blocks:', nblocks, file=self.fd)
 
     @timer('Calculate Kohn-Sham linear response function')
