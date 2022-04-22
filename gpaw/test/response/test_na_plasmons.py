@@ -24,9 +24,8 @@ def test_response_na_plasmons(in_tmp_dir):
                cell=(a, a, a),
                pbc=True)
 
-    a1.calc = GPAW(gpts=(10, 10, 10),
-                   mode=PW(300),
-                   kpts={'size': (30, 30, 30), 'gamma': True},
+    a1.calc = GPAW(mode=PW(300),
+                   kpts={'size': (10, 10, 10), 'gamma': True},
                    parallel={'band': 1},
                    txt='small.txt')
 
@@ -37,7 +36,7 @@ def test_response_na_plasmons(in_tmp_dir):
     # Calculate the dielectric functions
     df1 = DielectricFunction('gs_Na.gpw',
                              nblocks=1,
-                             ecut=400,
+                             ecut=40,
                              txt='1block.txt')
 
     df1NLFCx, df1LFCx = df1.get_dielectric_function(direction='x')
@@ -46,7 +45,7 @@ def test_response_na_plasmons(in_tmp_dir):
 
     df2 = DielectricFunction('gs_Na.gpw',
                              nblocks=4,
-                             ecut=400,
+                             ecut=40,
                              txt='4block.txt')
 
     df2NLFCx, df2LFCx = df2.get_dielectric_function(direction='x')
