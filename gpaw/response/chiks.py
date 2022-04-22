@@ -7,6 +7,7 @@ from ase.utils.timing import timer
 from gpaw.utilities.blas import gemm
 from gpaw.response.kslrf import PlaneWaveKSLRF
 from gpaw.response.kspair import PlaneWavePairDensity
+from gpaw.response.hacks import GaGb
 
 
 class ChiKS(PlaneWaveKSLRF):
@@ -101,6 +102,9 @@ class ChiKS(PlaneWaveKSLRF):
         x_wt = weight * self.get_temporal_part(n1_t, n2_t,
                                                s1_t, s2_t, df_t, deps_t)
 
+        layout = self._GaGb(n_tG.shape[1])
+        myslice = layout.myslice
+
         if self.bundle_integrals:
             # Specify notation
             A_GwmyG = A_x
@@ -110,9 +114,9 @@ class ChiKS(PlaneWaveKSLRF):
 
             with self.timer('Set up ncc and nx'):
                 ncc_Gt = n_Gt.conj()
-                n_tmyG = n_tG[:, self.Ga:self.Gb]
+                n_tmyG = n_tG[:, myslice]
                 nx_twmyG = x_tw[:, :, np.newaxis] * n_tmyG[:, np.newaxis, :]
-                    
+
             with self.timer('Perform sum over t-transitions of ncc * nx'):
                 gemm(1.0, nx_twmyG, ncc_Gt, 1.0, A_GwmyG)  # slow step
         else:
@@ -121,7 +125,7 @@ class ChiKS(PlaneWaveKSLRF):
 
             with self.timer('Set up ncc and nx'):
                 ncc_tG = n_tG.conj()
-                n_myGt = np.ascontiguousarray(n_tG[:, self.Ga:self.Gb].T)
+                n_myGt = np.ascontiguousarray(n_tG[:, myslice].T)
                 nx_wmyGt = x_wt[:, np.newaxis, :] * n_myGt[np.newaxis, :, :]
 
             with self.timer('Perform sum over t-transitions of ncc * nx'):

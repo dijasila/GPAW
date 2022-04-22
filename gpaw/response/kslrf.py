@@ -624,15 +624,18 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
                                                                   1024**2))
         p('')
 
+    def _GaGb(self, nG):
+        from gpaw.response.hacks import GaGb
+        return GaGb(self.interblockcomm, nG)
+
     def setup_output_array(self, A_x=None):
         """Initialize the output array in blocks"""
         # Could use some more documentation XXX
         nG = self.pd.ngmax
         nw = len(self.omega_w)
 
-        from gpaw.response.hacks import GaGb
 
-        GaGb = GaGb(self.interblockcomm, nG)
+        GaGb = self._GaGb(nG)
         nGlocal = GaGb.nGlocal
         localsize = nw * nGlocal * nG
         # if self.interblockcomm.rank == 0:
