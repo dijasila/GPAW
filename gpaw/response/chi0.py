@@ -15,6 +15,7 @@ from gpaw.response.pair import PairDensity, PWSymmetryAnalyzer
 from gpaw.utilities.blas import gemm
 from gpaw.utilities.memory import maxrss
 from gpaw.pw.descriptor import PWDescriptor
+from gpaw.response.hacks import GaGb
 
 
 class ArrayDescriptor:
@@ -378,18 +379,18 @@ class Chi0:
 
         nG = pd.ngmax + 2 * optical_limit
         nw = len(self.omega_w)
-        mynG = (nG + self.blockcomm.size - 1) // self.blockcomm.size
-        self.Ga = min(self.blockcomm.rank * mynG, nG)
-        self.Gb = min(self.Ga + mynG, nG)
+
+        self.GaGb = GaGb(self.blockcomm, nG)
+        wGG_shape = (nw, self.GaGb.nGlocal, nG)
         # if self.blockcomm.rank == 0:
         #     assert self.Gb - self.Ga >= 3
         # assert mynG * (self.blockcomm.size - 1) < nG
         if A_x is not None:
-            nx = nw * (self.Gb - self.Ga) * nG
-            chi0_wGG = A_x[:nx].reshape((nw, self.Gb - self.Ga, nG))
+            nx = np.prod(wGG_shape)
+            chi0_wGG = A_x[:nx].reshape(wGG_shape)
             chi0_wGG[:] = 0.0
         else:
-            chi0_wGG = np.zeros((nw, self.Gb - self.Ga, nG), complex)
+            chi0_wGG = np.zeros(wGG_shape, complex)
 
         if optical_limit:
             chi0_wxvG = np.zeros((len(self.omega_w), 2, 3, nG), complex)
@@ -415,6 +416,14 @@ class Chi0:
                                                             m1, m2, spins)
 
         return pd, chi0_wGG, chi0_wxvG, chi0_wvv
+
+    @property
+    def Ga(self):
+        return self.GaGb.Ga
+
+    @property
+    def Gb(self):
+        return self.GaGb.Gb
 
     @timer('Calculate CHI_0')
     def _calculate(self, pd, chi0_wGG, chi0_wxvG, chi0_wvv, m1, m2, spins,
