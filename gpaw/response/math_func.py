@@ -198,10 +198,6 @@ def two_phi_planewave_integrals(k_Gv, setup=None, Gstart=0, Gend=None,
         assert phi_jg is not None
         assert l_j is not None
 
-    ng = rgd.N
-    r_g = rgd.r_g
-    dr_g = rgd.dr_g
-
     # Construct L (l**2 + m) and j (nl) index
     L_i = []
     j_i = []
@@ -211,7 +207,6 @@ def two_phi_planewave_integrals(k_Gv, setup=None, Gstart=0, Gend=None,
             j_i.append(j)
     ni = len(L_i)
     nj = len(l_j)
-    lmax = max(l_j) * 2 + 1
 
     if setup is not None:
         assert ni == setup.ni and nj == setup.nj
@@ -247,14 +242,12 @@ def two_phi_planewave_integrals(k_Gv, setup=None, Gstart=0, Gend=None,
                         for m, G in enumerate(G_m):
                             if G == 0:
                                 continue
-                            x_G = Y(l**2+m, *k_Gv.T) * f_G * (-1j)**l
+                            x_G = Y(l**2 + m, *k_Gv.T) * f_G * (-1j)**l
                             phi_Gii[:, i1, i2] += G * x_G
 
             i2_start += 2*l2 + 1
         i1_start += 2*l1 + 1
     return phi_Gii.reshape(npw, ni * ni)
-
-
 
 
 def two_phi_nabla_planewave_integrals(k_Gv, setup=None, Gstart=0, Gend=None,

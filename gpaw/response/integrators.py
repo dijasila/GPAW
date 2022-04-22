@@ -315,7 +315,7 @@ class PointIntegrator(Integrator):
 
             endindex = index
 
-            # Here, we have same frequency range w, for set of 
+            # Here, we have same frequency range w, for set of
             # electron-hole excitations from startindex to endindex.
             o1 = omega_w[w]
             o2 = omega_w[w + 1]
@@ -325,11 +325,12 @@ class PointIntegrator(Integrator):
 
             if self.blockcomm.size > 1:
                 if w + 1 >= wd.wmax:  # The last frequency is not reliable
-                    continue
+                    continue 
+                x_mG = sortedn_mG[startindex:endindex, self.Ga:self.Gb]
                 gemm(1.0,
-                     sortedn_mG[startindex:endindex].T.copy(),
-                     np.concatenate((p1_m[:, None] * sortedn_mG[startindex:endindex,self.Ga:self.Gb],
-                                     p2_m[:, None] * sortedn_mG[startindex:endindex,self.Ga:self.Gb]),
+                     x_mG.T.copy(),
+                     np.concatenate((p1_m[:, None] * x_mG,
+                                     p2_m[:, None] * x_mG),
                                     axis=1).T.copy(),
                      1.0,
                      chi0_wGG[w:w+2].reshape((2 * myNG, NG)), 
@@ -337,10 +338,10 @@ class PointIntegrator(Integrator):
             else:
                 if w + 1 >= wd.wmax:  # The last frequency is not reliable
                     continue
-                left = (p1_m[:, None]*sortedn_mG[startindex:endindex]).T.copy()
+                left = (p1_m[:, None] * sortedn_mG[startindex:endindex]).T.copy()
                 right = sortedn_mG[startindex:endindex].T.copy()
                 gemm(1.0, left, right, 1.0, chi0_wGG[w], 'c')
-                left = (p2_m[:, None]*sortedn_mG[startindex:endindex]).T.copy()
+                left = (p2_m[:, None] * sortedn_mG[startindex:endindex]).T.copy()
                 gemm(1.0, left, right, 1.0, chi0_wGG[w + 1], 'c')
 
             if index == len(sortedw_m):
