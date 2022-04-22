@@ -326,7 +326,7 @@ class PointIntegrator(Integrator):
             if self.blockcomm.size > 1 and w + 1 < wd.wmax:
                 x_mG = sortedn_mG[startindex:endindex, self.Ga:self.Gb]
                 gemm(1.0,
-                     x_mG.T.copy(),
+                     sortedn_mG[startindex:endindex].T.copy(),
                      np.concatenate((p1_m[:, None] * x_mG,
                                      p2_m[:, None] * x_mG),
                                     axis=1).T.copy(),
