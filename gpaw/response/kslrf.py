@@ -175,16 +175,16 @@ class KohnShamLinearResponseFunction:
             There will be size // nblocks processes per memory block.
         """
         world = self.world
+        from gpaw.response.hacks import block_partition
+        self.interblockcomm, self.intrablockcomm = block_partition(
+            world, nblocks)
+
         if nblocks == 1:
-            self.interblockcomm = world.new_communicator([world.rank])
-            self.intrablockcomm = world
-        else:
-            assert world.size % nblocks == 0, world.size
-            rank1 = world.rank // nblocks * nblocks
-            rank2 = rank1 + nblocks
-            self.interblockcomm = world.new_communicator(range(rank1, rank2))
-            ranks = range(world.rank % nblocks, world.size, nblocks)
-            self.intrablockcomm = world.new_communicator(ranks)
+            interblockcomm = world.new_communicator([world.rank])
+            intrablockcomm = world
+            assert interblockcomm.rank == self.interblockcomm.rank
+            assert intrablockcomm.rank == self.intrablockcomm.rank
+
         print('Number of blocks:', nblocks, file=self.fd)
 
     @timer('Calculate Kohn-Sham linear response function')

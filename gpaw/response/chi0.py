@@ -235,16 +235,9 @@ class Chi0:
 
         self.world = world
 
-        if nblocks == 1:
-            self.blockcomm = self.world.new_communicator([world.rank])
-            self.kncomm = world
-        else:
-            assert world.size % nblocks == 0, world.size
-            rank1 = world.rank // nblocks * nblocks
-            rank2 = rank1 + nblocks
-            self.blockcomm = self.world.new_communicator(range(rank1, rank2))
-            ranks = range(world.rank % nblocks, world.size, nblocks)
-            self.kncomm = self.world.new_communicator(ranks)
+        from gpaw.response.hacks import block_partition
+
+        self.blockcomm, self.kncomm = self.block_partition(world, nblocks)
 
         self.nblocks = nblocks
 
