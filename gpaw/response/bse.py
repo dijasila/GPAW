@@ -890,7 +890,7 @@ class BSE:
 
     def get_polarizability(self, w_w=None, eta=0.1,
                            q_c=[0.0, 0.0, 0.0], direction=0,
-                           filename='pol_bse.csv', readfile=None, pbc=None,
+                           filename='pol_bse.csv', readfile=None,
                            write_eig='eig.dat'):
         r"""Calculate the polarizability alpha.
         In 3D the imaginary part of the polarizability is related to the
@@ -907,10 +907,8 @@ class BSE:
         """
 
         cell_cv = self.calc.wfs.gd.cell_cv
-        if not pbc:
-            pbc_c = self.calc.atoms.pbc
-        else:
-            pbc_c = np.array(pbc)
+        pbc_c = self.calc.atoms.pbc
+
         if pbc_c.all():
             V = 1.0
         else:
@@ -941,7 +939,7 @@ class BSE:
 
     def get_2d_absorption(self, w_w=None, eta=0.1,
                           q_c=[0.0, 0.0, 0.0], direction=0,
-                          filename='abs_bse.csv', readfile=None, pbc=None,
+                          filename='abs_bse.csv', readfile=None,
                           write_eig='eig.dat'):
         r"""Calculate the dimensionless absorption for 2d materials.
         It is essentially related to the 2D polarizability \alpha_2d as
@@ -955,10 +953,7 @@ class BSE:
         c = 1.0 / alpha
 
         cell_cv = self.calc.wfs.gd.cell_cv
-        if not pbc:
-            pbc_c = self.calc.atoms.pbc
-        else:
-            pbc_c = np.array(pbc)
+        pbc_c = self.calc.atoms.pbc
 
         assert np.sum(pbc_c) == 2
         V = np.abs(np.linalg.det(cell_cv[~pbc_c][:, ~pbc_c]))

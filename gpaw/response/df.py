@@ -604,7 +604,7 @@ class DielectricFunction:
         return eels_NLFC_w, eels_LFC_w
 
     def get_polarizability(self, xc='RPA', direction='x', q_c=[0, 0, 0],
-                           filename='polarizability.csv', pbc=None):
+                           filename='polarizability.csv'):
         r"""Calculate the polarizability alpha.
         In 3D the imaginary part of the polarizability is related to the
         dielectric function by Im(eps_M) = 4 pi * Im(alpha). In systems
@@ -620,10 +620,8 @@ class DielectricFunction:
         """
 
         cell_cv = self.chi0.calc.wfs.gd.cell_cv
-        if not pbc:
-            pbc_c = self.chi0.calc.atoms.pbc
-        else:
-            pbc_c = np.array(pbc)
+        pbc_c = self.chi0.calc.atoms.pbc
+
         if pbc_c.all():
             V = 1.0
         else:
