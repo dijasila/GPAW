@@ -323,9 +323,7 @@ class PointIntegrator(Integrator):
             p1_m = np.array(p * (o2 - sortedo_m[startindex:endindex]))
             p2_m = np.array(p * (sortedo_m[startindex:endindex] - o1))
 
-            if self.blockcomm.size > 1:
-                if w + 1 >= wd.wmax:  # The last frequency is not reliable
-                    continue
+            if self.blockcomm.size > 1 and w + 1 < wd.wmax:
                 x_mG = sortedn_mG[startindex:endindex, self.Ga:self.Gb]
                 gemm(1.0,
                      x_mG.T.copy(),
@@ -335,14 +333,13 @@ class PointIntegrator(Integrator):
                      1.0,
                      chi0_wGG[w:w + 2].reshape((2 * myNG, NG)),
                      'c')
-            else:
-                if w + 1 >= wd.wmax:  # The last frequency is not reliable
-                    continue
+
+            if self.blockcomm.size <= 1 and w + 1 < wd.wmax:
                 x_mG = sortedn_mG[startindex:endindex]
                 l_Gm = (p1_m[:, None] * x_mG).T.copy()
                 r_Gm = x_mG.T.copy()
                 gemm(1.0, l_Gm, r_Gm, 1.0, chi0_wGG[w], 'c')
-                left = (p2_m[:, None] * x_mG).T.copy()
+                l_Gm = (p2_m[:, None] * x_mG).T.copy()
                 gemm(1.0, l_Gm, r_Gm, 1.0, chi0_wGG[w + 1], 'c')
 
             if index == len(sortedw_m):
