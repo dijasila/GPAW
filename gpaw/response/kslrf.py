@@ -629,30 +629,33 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         # Could use some more documentation XXX
         nG = self.pd.ngmax
         nw = len(self.omega_w)
-        mynG = (nG + self.interblockcomm.size - 1) // self.interblockcomm.size
-        self.Ga = min(self.interblockcomm.rank * mynG, nG)
-        self.Gb = min(self.Ga + mynG, nG)
+
+        from gpaw.response.hacks import GaGb
+
+        GaGb = GaGb(self.interblockcomm, nG)
+        nGlocal = GaGb.nGlocal
+        localsize = nw * nGlocal * nG
         # if self.interblockcomm.rank == 0:
         #     assert self.Gb - self.Ga >= 3
         # assert mynG * (self.interblockcomm.size - 1) < nG
         if self.bundle_integrals:
             # Setup A_GwG
+            shape = (nG, nw, nGlocal)
             if A_x is not None:
-                nx = nw * (self.Gb - self.Ga) * nG
-                A_GwG = A_x[:nx].reshape((nG, nw, self.Gb - self.Ga))
+                A_GwG = A_x[:localsize].reshape(shape)
                 A_GwG[:] = 0.0
             else:
-                A_GwG = np.zeros((nG, nw, self.Gb - self.Ga), complex)
+                A_GwG = np.zeros(shape, complex)
 
             return A_GwG
         else:
             # Setup A_wGG
+            shape = (nw, nGlocal, nG)
             if A_x is not None:
-                nx = nw * (self.Gb - self.Ga) * nG
-                A_wGG = A_x[:nx].reshape((nw, self.Gb - self.Ga, nG))
+                A_wGG = A_x[:localsize].reshape(shape)
                 A_wGG[:] = 0.0
             else:
-                A_wGG = np.zeros((nw, self.Gb - self.Ga, nG), complex)
+                A_wGG = np.zeros(shape, complex)
 
             return A_wGG
 
