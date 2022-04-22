@@ -24,9 +24,7 @@ def test_response_na_plasmons(in_tmp_dir):
                cell=(a, a, a),
                pbc=True)
 
-    a1.calc = GPAW(
-                # gpts=(10, 10, 10),
-                   mode=PW(300),
+    a1.calc = GPAW(mode=PW(300),
                    kpts={'size': (10, 10, 10), 'gamma': True},
                    parallel={'band': 1},
                    txt='small.txt')
