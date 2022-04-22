@@ -324,22 +324,24 @@ class PointIntegrator(Integrator):
             p2_m = np.array(p * (sortedo_m[startindex:endindex] - o1))
 
             if self.blockcomm.size > 1:
-                if w + 1 < wd.wmax:  # The last frequency is not reliable
-                    gemm(1.0,
-                         sortedn_mG[startindex:endindex].T.copy(),
-                         np.concatenate((p1_m[:, None]*sortedn_mG[startindex:endindex,self.Ga:self.Gb],
-                                         p2_m[:, None]*sortedn_mG[startindex:endindex,self.Ga:self.Gb]),
-                                        axis=1).T.copy(),
-                         1.0,
-                         chi0_wGG[w:w+2].reshape((2*myNG, NG)), 
-                         'c')
+                if w + 1 >= wd.wmax:  # The last frequency is not reliable
+                    continue
+                gemm(1.0,
+                     sortedn_mG[startindex:endindex].T.copy(),
+                     np.concatenate((p1_m[:, None] * sortedn_mG[startindex:endindex,self.Ga:self.Gb],
+                                     p2_m[:, None] * sortedn_mG[startindex:endindex,self.Ga:self.Gb]),
+                                    axis=1).T.copy(),
+                     1.0,
+                     chi0_wGG[w:w+2].reshape((2 * myNG, NG)), 
+                     'c')
             else:
-                if w + 1 < wd.wmax:  # The last frequency is not reliable
-                    left = (p1_m[:, None]*sortedn_mG[startindex:endindex]).T.copy()
-                    right = sortedn_mG[startindex:endindex].T.copy()
-                    gemm(1.0, left,  right, 1.0, chi0_wGG[w], 'c')
-                    left = (p2_m[:, None]*sortedn_mG[startindex:endindex]).T.copy()
-                    gemm(1.0, left,  right, 1.0, chi0_wGG[w+1], 'c')
+                if w + 1 >= wd.wmax:  # The last frequency is not reliable
+                    continue
+                left = (p1_m[:, None]*sortedn_mG[startindex:endindex]).T.copy()
+                right = sortedn_mG[startindex:endindex].T.copy()
+                gemm(1.0, left, right, 1.0, chi0_wGG[w], 'c')
+                left = (p2_m[:, None]*sortedn_mG[startindex:endindex]).T.copy()
+                gemm(1.0, left, right, 1.0, chi0_wGG[w + 1], 'c')
 
             if index == len(sortedw_m):
                 break
