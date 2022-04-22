@@ -581,7 +581,8 @@ class Chi0:
         # Integrate response function
         print('Integrating response function.', file=self.fd)
         # Define band summation
-        bandsum = {'n1': 0, 'n2': self.nocc2 if self.response == 'density' else self.nbands, 'm1': m1, 'm2': m2}
+        bandsum = {'n1': 0, 'n2': self.nocc2 if self.response == 'density' 
+                   else self.nbands, 'm1': m1, 'm2': m2}
         mat_kwargs.update(bandsum)
         eig_kwargs.update(bandsum)
 
@@ -1120,7 +1121,7 @@ class Chi0:
         p('    Number of frequency points: %d' % nw)
         if bsize > nw:
             p('WARNING! Your nblocks is larger than number of frequency'
-               ' points. Errors might occur, if your submodule don'''
+              ' points. Errors might occur, if your submodule don'''
               't know how to handle this.')
         p('    Planewave cutoff: %f' % ecut)
         p('    Number of spins: %d' % ns)
