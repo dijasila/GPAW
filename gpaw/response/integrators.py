@@ -338,7 +338,7 @@ class PointIntegrator(Integrator):
             else:
                 if w + 1 >= wd.wmax:  # The last frequency is not reliable
                     continue
-                x_mG = sorted_mG[startindex:endindex]
+                x_mG = sortedn_mG[startindex:endindex]
                 l_Gm = (p1_m[:, None] * x_mG).T.copy()
                 r_Gm = x_mG.T.copy()
                 gemm(1.0, l_Gm, r_Gm, 1.0, chi0_wGG[w], 'c')
