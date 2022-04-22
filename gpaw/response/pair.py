@@ -2,7 +2,6 @@
 import functools
 import numbers
 import sys
-from math import pi
 
 import numpy as np
 from scipy.spatial import Delaunay, cKDTree
