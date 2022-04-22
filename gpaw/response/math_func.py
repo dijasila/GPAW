@@ -24,36 +24,39 @@ def verify_wrt(f2):
 
     def run_both(f):
 
-        def main(*args,**kwargs):
+        def main(*args, **kwargs):
             time1 = time.time()
             A = f(*args, **kwargs)
-            time2 = time.time() 
+            time2 = time.time()
             B = f2(*args, **kwargs)
             time3 = time.time()
-            print(f'New implementation took {time2-time1} s. Old implementation took {time3-time2} s. Speedup {(time3-time2)/(time2-time1)}x.')
+            print(f'New implementation took {time2-time1} s. '
+                   'Old implementation took {time3-time2} s. '
+                   'Speedup {(time3-time2)/(time2-time1)}x.')
             print('MAXIMUM ERROR', np.max(np.abs(A-B)))
             if not np.allclose(A, B, rtol=1e-03, atol=1e-04):
-                #import matplotlib.pyplot as plt
+                # import matplotlib.pyplot as plt
                 for i in range(A.shape[1]):
                     print('A', A[:,i])
-                    print('B',B[:,i])
-                    print('/',A[:,i]/B[:,i])
+                    print('B', B[:,i])
+                    print('/', A[:,i] / B[:,i])
                     # plt.plot(A[:,i].real,'x')
                     # plt.plot(B[:,i].real,'o')
                     # plt.plot(A[:,i].imag,'.r')
                     # plt.plot(B[:,i].imag,'.b')
                     # plt.show()
                
-                xxx
+                assert False
             return A
 
         return main
 
     return run_both
 
+
 def two_phi_planewave_integrals_slow(k_Gv, setup=None, Gstart=0, Gend=None,
-                                rgd=None, phi_jg=None,
-                                phit_jg=None, l_j=None):
+                                     rgd=None, phi_jg=None,
+                                     phit_jg=None, l_j=None):
     r"""Calculate PAW-correction matrix elements with planewaves.
 
     ::
@@ -238,8 +241,8 @@ def two_phi_planewave_integrals(k_Gv, setup=None, Gstart=0, Gend=None,
                 splineG = ft(spline, N=2**12)
                 f_G = splineG.map(k_G)
 
-                for m1 in range(2*l1+1):
-                    for m2 in range(2*l2+1):
+                for m1 in range(2*l1 + 1):
+                    for m2 in range(2*l2 + 1):
                         i1 = i1_start + m1
                         i2 = i2_start + m2
                         G_m = G_LLL[l1**2 + m1, l2**2 + m2, l**2:(l + 1)**2]
@@ -247,7 +250,7 @@ def two_phi_planewave_integrals(k_Gv, setup=None, Gstart=0, Gend=None,
                             if G == 0:
                                 continue
                             x_G = Y(l**2+m, *k_Gv.T) * f_G * (-1j)**l
-                            phi_Gii[:, i1, i2] += G * x_G 
+                            phi_Gii[:, i1, i2] += G * x_G
 
             i2_start += 2*l2 + 1
         i1_start += 2*l1 + 1

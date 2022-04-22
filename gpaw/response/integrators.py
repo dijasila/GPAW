@@ -252,7 +252,7 @@ class PointIntegrator(Integrator):
                 mmm(1.0, mynx_mG, 'C', n_mG, 'N', 1.0, chi0_wGG[w])
 
     @timer('CHI_0 spectral function update (old)')
-    def update_hilbert_old(self, n_mG, deps_m, wd, chi0_wGG): # Old version
+    def update_hilbert_old(self, n_mG, deps_m, wd, chi0_wGG):
         """Update spectral function.
 
         Updates spectral function A_wGG and saves it to chi0_wGG for
@@ -283,7 +283,6 @@ class PointIntegrator(Integrator):
                     czher(p1, n_G.conj(), chi0_wGG[w])
                     czher(p2, n_G.conj(), chi0_wGG[w + 1])
 
-
     @timer('CHI_0 spectral function update (new)')
     def update_hilbert(self, n_mG, deps_m, wd, chi0_wGG):
         """Update spectral function.
@@ -296,13 +295,13 @@ class PointIntegrator(Integrator):
         o_m = abs(deps_m)
         w_m = wd.get_closest_index(o_m)
 
-        # Sort frequencies 
+        # Sort frequencies
         argsw_m = np.argsort(w_m)
         sortedo_m = o_m[argsw_m]
         sortedw_m = w_m[argsw_m]
         sortedn_mG = n_mG[argsw_m]
         NG = chi0_wGG.shape[2]
-        myNG = self.Gb-self.Ga
+        myNG = self.Gb - self.Ga
         index = 0
         while 1:
             w = sortedw_m[index]
@@ -316,7 +315,8 @@ class PointIntegrator(Integrator):
 
             endindex = index
 
-            # Here, we have same frequency range w, for set of electron-hole excitations from startindex to endindex 
+            # Here, we have same frequency range w, for set of 
+            # electron-hole excitations from startindex to endindex.
             o1 = omega_w[w]
             o2 = omega_w[w + 1]
             p = np.abs(1 / (o2 - o1)**2)
@@ -325,10 +325,11 @@ class PointIntegrator(Integrator):
 
             if self.blockcomm.size > 1:
                 if w + 1 < wd.wmax:  # The last frequency is not reliable
-                    gemm(1.0, 
+                    gemm(1.0,
                          sortedn_mG[startindex:endindex].T.copy(),
-                         np.concatenate( (p1_m[:, None]*sortedn_mG[startindex:endindex,self.Ga:self.Gb],
-                                          p2_m[:, None]*sortedn_mG[startindex:endindex,self.Ga:self.Gb]), axis=1).T.copy(),
+                         np.concatenate((p1_m[:, None]*sortedn_mG[startindex:endindex,self.Ga:self.Gb],
+                                         p2_m[:, None]*sortedn_mG[startindex:endindex,self.Ga:self.Gb]),
+                                        axis=1).T.copy(),
                          1.0,
                          chi0_wGG[w:w+2].reshape((2*myNG, NG)), 
                          'c')
@@ -339,8 +340,6 @@ class PointIntegrator(Integrator):
                     gemm(1.0, left,  right, 1.0, chi0_wGG[w], 'c')
                     left = (p2_m[:, None]*sortedn_mG[startindex:endindex]).T.copy()
                     gemm(1.0, left,  right, 1.0, chi0_wGG[w+1], 'c')
-
-            #assert np.allclose(sortedw_m[startindex:endindex], sortedw_m[startindex])
 
             if index == len(sortedw_m):
                 break
