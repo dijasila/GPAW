@@ -25,6 +25,7 @@ from gpaw.new.xc import XCFunctional
 from gpaw.setup import Setups
 from gpaw.typing import DTypeLike
 from gpaw.utilities.gpts import get_number_of_grid_points
+from gpaw.new.noncollinear import SpinorWaveFunctionDescriptor
 
 
 def builder(atoms: Atoms,
@@ -142,7 +143,10 @@ class DFTComponentsBuilder:
 
     @cached_property
     def wf_desc(self):
-        return self.create_wf_description()
+        desc = self.create_wf_description()
+        if self.ncomponents == 4:
+            desc = SpinorWaveFunctionDescriptor(desc)
+        return desc
 
     def __repr__(self):
         return f'{self.__class__.__name__}({self.atoms}, {self.params})'

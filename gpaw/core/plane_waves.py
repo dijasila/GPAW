@@ -111,6 +111,7 @@ class PlaneWaves(Domain):
         return PlaneWaveExpansions(self, dims, comm)
 
     def new(self,
+            *,
             ecut: float = None,
             kpt=None,
             comm: MPIComm | str = 'inherit') -> PlaneWaves:

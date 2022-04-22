@@ -9,6 +9,7 @@ from gpaw.new.pw.poisson import ReciprocalSpacePoissonSolver
 from gpaw.new.pw.pot_calc import PlaneWavePotentialCalculator
 from gpaw.new.pwfd.builder import PWFDDFTComponentsBuilder
 from gpaw.typing import Array1D
+from gpaw.core.matrix import Matrix
 
 
 class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):

@@ -242,7 +242,7 @@ class PWLFC(BaseLFC):
         else:
             yield 0, nG
 
-    def add(self, a_xG, c_axi=1.0, f0_IG=None, q='asdf'):
+    def add(self, a_xG, c_axi=1.0):
         c_xI = np.empty(a_xG.shape[:-1] + (self.nI,), self.dtype)
 
         if isinstance(c_axi, float):
@@ -261,11 +261,7 @@ class PWLFC(BaseLFC):
         a_xG = a_xG.reshape((nx, a_xG.shape[-1])).view(self.dtype)
 
         for G1, G2 in self.block():
-            if f0_IG is None:
-                f_GI = self.expand(G1, G2, cc=False)
-            else:
-                1 / 0
-                # f_IG = f0_IG
+            f_GI = self.expand(G1, G2, cc=False)
 
             if self.dtype == float:
                 # f_IG = f_IG.view(float)

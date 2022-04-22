@@ -130,6 +130,8 @@ class PWFDWaveFunctions(WaveFunctions):
         dS = self.setups.overlap_correction
 
         S = psit_nX.matrix_elements(psit_nX, domain_sum=False)
+        print(S, dS)
+        #O_ij * P_jsn -> P_jsn
         dS(P_ain, out=P2_ain)
         P_ain.matrix.multiply(P2_ain, opa='C', symmetric=True, out=S, beta=1.0)
         domain_comm.sum(S.data, 0)

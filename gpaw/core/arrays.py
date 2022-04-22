@@ -81,13 +81,14 @@ class DistributedArrays(Generic[DomainType]):
         if self._matrix is not None:
             return self._matrix
 
+        nx = np.prod(self.myshape)
         if self.transposed:
-            shape = (np.prod(self.myshape), np.prod(self.dims))
-            myshape = (np.prod(self.myshape), np.prod(self.mydims))
+            shape = (nx * np.prod(self.dims[:-1]), self.dims[-1])
+            myshape = (nx * np.prod(self.mydims[:-1]), self.mydims[-1])
             dist = (self.comm, 1, -1)
         else:
-            shape = (np.prod(self.dims), np.prod(self.myshape))
-            myshape = (np.prod(self.mydims), np.prod(self.myshape))
+            shape = (self.dims[0], np.prod(self.dims[1:]) * nx)
+            myshape = (self.mydims[0], np.prod(self.mydims[1:]) * nx)
             dist = (self.comm, -1, 1)
 
         data = self.data.reshape(myshape)
