@@ -40,17 +40,13 @@ def test_response_na_plasmons(in_tmp_dir):
                              txt='1block.txt')
 
     df1NLFCx, df1LFCx = df1.get_dielectric_function(direction='x')
-    df1NLFCy, df1LFCy = df1.get_dielectric_function(direction='y')
-    df1NLFCz, df1LFCz = df1.get_dielectric_function(direction='z')
-
+    
     df2 = DielectricFunction('gs_Na.gpw',
                              nblocks=4,
                              ecut=40,
                              txt='4block.txt')
 
     df2NLFCx, df2LFCx = df2.get_dielectric_function(direction='x')
-    df2NLFCy, df2LFCy = df2.get_dielectric_function(direction='y')
-    df2NLFCz, df2LFCz = df2.get_dielectric_function(direction='z')
 
     # Compare plasmon frequencies and intensities
     w_w = df1.chi0.omega_w
