@@ -93,9 +93,9 @@ class Davidson(Eigensolver):
                                  Htpsit_nX=psit3_nX)
         residual_nX = psit3_nX  # will become (H-e*S)|psit> later
 
-        P_ain = wfs.P_ain
-        P2_ain = P_ain.new()
-        P3_ain = P_ain.new()
+        P_ani = wfs.P_ani
+        P2_ain = P_ani.new()
+        P3_ain = P_ani.new()
 
         domain_comm = psit_nX.desc.comm
         band_comm = psit_nX.comm
@@ -144,7 +144,7 @@ class Davidson(Eigensolver):
 
             # <psi2 | H | psi>
             me(residual_nX, psit_nX)
-            P3_ain.matrix.multiply(P_ain, opa='C', beta=1.0, out=M_nn)
+            P3_ain.matrix.multiply(P_ani, opa='C', beta=1.0, out=M_nn)
             copy(H_NN.data[B:, :B])
 
             # <psi2 | S | psi2>
@@ -156,7 +156,7 @@ class Davidson(Eigensolver):
 
             # <psi2 | S | psi>
             me(psit2_nX, psit_nX)
-            P3_ain.matrix.multiply(P_ain, opa='C', beta=1.0, out=M_nn)
+            P3_ain.matrix.multiply(P_ani, opa='C', beta=1.0, out=M_nn)
             copy(S_NN.data[B:, :B])
 
             if is_domain_band_master:
@@ -183,7 +183,7 @@ class Davidson(Eigensolver):
             domain_comm.broadcast(M_nn.data, 0)
 
             M_nn.multiply(psit_nX, out=residual_nX)
-            P_ain.matrix.multiply(M_nn, opb='T', out=P3_ain)
+            P_ani.matrix.multiply(M_nn, opb='T', out=P3_ain)
 
             if domain_comm.rank == 0:
                 if band_comm.rank == 0:
@@ -194,8 +194,8 @@ class Davidson(Eigensolver):
             M_nn.multiply(psit2_nX, beta=1.0, out=residual_nX)
             P2_ain.matrix.multiply(M_nn, opb='T', beta=1.0, out=P3_ain)
             psit_nX.data[:] = residual_nX.data
-            P_ain, P3_ain = P3_ain, P_ain
-            wfs._P_ain = P_ain
+            P_ani, P3_ain = P3_ain, P_ani
+            wfs._P_ani = P_ani
 
             if i < self.niter - 1:
                 Ht(psit_nX)
@@ -213,8 +213,8 @@ def calculate_residuals(residuals_nX: DA,
     for r, e, p in zip(residuals_nX.data, wfs.myeig_n, wfs.psit_nX.data):
         axpy(-e, p, r)
 
-    dH(wfs.P_ain, P1_ain)
-    P2_ain.data[:] = wfs.P_ain.data * wfs.myeig_n
+    dH(wfs.P_ani, P1_ain)
+    P2_ain.data[:] = wfs.P_ani.data * wfs.myeig_n
     dS(P2_ain, P2_ain)
     P1_ain.data -= P2_ain.data
     wfs.pt_aiX.add_to(residuals_nX, P1_ain)

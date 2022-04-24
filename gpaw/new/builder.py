@@ -228,7 +228,7 @@ class DFTComponentsBuilder:
             wfs._occ_n = occ_skn[wfs.spin, wfs.k]
             layout = AtomArraysLayout([(setup.ni,) for setup in self.setups],
                                       dtype=self.dtype)
-            wfs._P_ain = AtomArrays(layout,
+            wfs._P_ani = AtomArrays(layout,
                                     dims=(self.nbands,),
                                     data=P_sknI[wfs.spin, wfs.k].T,
                                     transposed=True)

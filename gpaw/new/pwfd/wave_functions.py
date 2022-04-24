@@ -70,21 +70,21 @@ class PWFDWaveFunctions(WaveFunctions):
                    wfs.spin_degeneracy)
 
     @property
-    def P_ain(self):
-        if self._P_ain is None:
+    def P_ani(self):
+        if self._P_ani is None:
             if self.pt_aiX is None:
                 self.pt_aiX = self.psit_nX.desc.atom_centered_functions(
                     [setup.pt_j for setup in self.setups],
                     self.fracpos_ac,
                     atomdist=self.atomdist)
-            self._P_ain = self.pt_aiX.empty(self.psit_nX.dims,
+            self._P_ani = self.pt_aiX.empty(self.psit_nX.dims,
                                             self.psit_nX.comm,
                                             transposed=True)
-            self.pt_aiX.integrate(self.psit_nX, self._P_ain)
-        return self._P_ain
+            self.pt_aiX.integrate(self.psit_nX, self._P_ani)
+        return self._P_ani
 
     def move(self, fracpos_ac, atomdist):
-        self._P_ain = None
+        self._P_ani = None
         self.orthonormalized = False
         self.pt_aiX.move(fracpos_ac, atomdist)
         self._eig_n = None
@@ -121,16 +121,16 @@ class PWFDWaveFunctions(WaveFunctions):
         psit_nX = self.psit_nX
         domain_comm = psit_nX.desc.comm
 
-        P_ain = self.P_ain
+        P_ani = self.P_ani
 
-        P2_ain = P_ain.new()
+        P2_ain = P_ani.new()
         psit2_nX = psit_nX.new(data=work_array_nX)
 
         dS = self.setups.overlap_correction
 
         S = psit_nX.matrix_elements(psit_nX, domain_sum=False)
-        dS(P_ain, out=P2_ain)
-        P_ain.matrix.multiply(P2_ain, opa='C', symmetric=True, out=S, beta=1.0)
+        dS(P_ani, out=P2_ain)
+        P_ani.matrix.multiply(P2_ain, opa='C', symmetric=True, out=S, beta=1.0)
         domain_comm.sum(S.data, 0)
 
         if domain_comm.rank == 0:
@@ -141,9 +141,9 @@ class PWFDWaveFunctions(WaveFunctions):
         # cc ??????
 
         S.multiply(psit_nX, out=psit2_nX)
-        P_ain.matrix.multiply(S, opb='T', out=P2_ain)
+        P_ani.matrix.multiply(S, opb='T', out=P2_ain)
         psit_nX.data[:] = psit2_nX.data
-        P_ain.data[:] = P2_ain.data
+        P_ani.data[:] = P2_ain.data
 
         self.orthonormalized = True
 
@@ -168,15 +168,15 @@ class PWFDWaveFunctions(WaveFunctions):
         """
         self.orthonormalize(work_array)
         psit_nX = self.psit_nX
-        P_ain = self.P_ain
+        P_ani = self.P_ani
         psit2_nX = psit_nX.new(data=work_array)
-        P2_ain = P_ain.new()
+        P2_ain = P_ani.new()
         domain_comm = psit_nX.desc.comm
 
         Ht = partial(Ht, out=psit2_nX, spin=self.spin)
         H = psit_nX.matrix_elements(psit_nX, function=Ht, domain_sum=False)
-        dH(P_ain, out=P2_ain, spin=self.spin)
-        P_ain.matrix.multiply(P2_ain, opa='C', symmetric=True,
+        dH(P_ani, out=P2_ain, spin=self.spin)
+        P_ani.matrix.multiply(P2_ain, opa='C', symmetric=True,
                               out=H, beta=1.0)
         domain_comm.sum(H.data, 0)
 
@@ -197,8 +197,8 @@ class PWFDWaveFunctions(WaveFunctions):
 
         H.multiply(psit_nX, out=psit2_nX)
         psit_nX.data[:] = psit2_nX.data
-        P_ain.matrix.multiply(H, opb='T', out=P2_ain)
-        P_ain.data[:] = P2_ain.data
+        P_ani.matrix.multiply(H, opb='T', out=P2_ain)
+        P_ani.data[:] = P2_ain.data
 
     def force_contribution(self, dH_asii: AtomArrays, F_av: Array2D):
         F_ainv = self.pt_aiX.derivative(self.psit_nX)
@@ -207,7 +207,7 @@ class PWFDWaveFunctions(WaveFunctions):
             F_inv = F_inv.conj()
             F_inv *= myocc_n[:, np.newaxis]
             dH_ii = dH_asii[a][self.spin]
-            P_in = self.P_ain[a]
+            P_in = self.P_ani[a]
             F_vii = np.einsum('inv, jn, jk -> vik', F_inv, P_in, dH_ii)
             F_inv *= self.myeig_n[:, np.newaxis]
             dO_ii = self.setups[a].dO_ii
@@ -310,7 +310,7 @@ class PWFDWaveFunctions(WaveFunctions):
             R_iiv += position_v * setup.Delta_iiL[:, :, :1] * (4 * pi)**0.5
             R_aiiv.append(R_iiv)
 
-        for a, P_in in self.P_ain.items():
+        for a, P_in in self.P_ani.items():
             dipole_nnv += np.einsum('im, ijv, jn -> mnv',
                                     P_in, R_aiiv[a], P_in)
 

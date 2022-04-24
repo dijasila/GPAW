@@ -14,10 +14,10 @@ class Potential:
         self.dH_asii = dH_asii
         self.energies = energies
 
-    def dH(self, P_ain, out, spin):
-        for a, I1, I2 in P_ain.layout.myindices:
+    def dH(self, P_ani, out, spin):
+        for a, I1, I2 in P_ani.layout.myindices:
             dH_ii = self.dH_asii[a][spin]
-            out.data[I1:I2] = dH_ii @ P_ain.data[I1:I2]
+            out.data[I1:I2] = dH_ii @ P_ani.data[I1:I2]
         return out
 
     def write(self, writer):
