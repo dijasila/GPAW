@@ -95,8 +95,8 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
             emikr_R = grid.eikr(-kpt_c)
 
         if self.ncomponents < 4:
-            psit_nR = grid.zeros(self.nbands, ...)
-            mynbands = len(C_nM)
+            psit_nR = grid.zeros(mynbands, ...)
+            mynbands, M = C_nM.myshape
             basis_set.lcao_to_grid(C_nM, psit_nR.data[:mynbands], q)
 
             for psit_R, psit_G in zip(psit_nR, psit_nG):
