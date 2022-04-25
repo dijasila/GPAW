@@ -66,8 +66,8 @@ class FDDFTComponentsBuilder(PWFDDFTComponentsBuilder):
                                                  q):
         grid = self.grid.new(kpt=kpt_c, dtype=self.dtype)
         psit_nR = grid.zeros(self.nbands, self.communicators['b'])
-        mynbands = len(C_nM)
-        basis_set.lcao_to_grid(C_nM, psit_nR.data[:mynbands], q)
+        mynbands = len(C_nM.data)
+        basis_set.lcao_to_grid(C_nM.data, psit_nR.data[:mynbands], q)
         return psit_nR
 
     def read_ibz_wave_functions(self, reader):

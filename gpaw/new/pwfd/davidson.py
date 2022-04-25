@@ -140,7 +140,7 @@ class Davidson(Eigensolver):
 
             # <psi2 | H | psi2>
             me(psit2_nX, psit2_nX, function=Ht)
-            dH(P2_ani, out=P3_ani)
+            dH(P2_ani, out_ani=P3_ani)
             P2_ani.matrix.multiply(P3_ani, opb='C', symmetric=True, beta=1,
                                    out=M_nn)
             copy(H_NN.data[B:, B:])

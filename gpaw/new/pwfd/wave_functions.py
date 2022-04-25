@@ -189,7 +189,7 @@ class PWFDWaveFunctions(WaveFunctions):
                                     function=Ht,
                                     domain_sum=False,
                                     cc=True)
-        dH(P_ani, out=P2_ani, spin=self.spin)
+        dH(P_ani, out_ani=P2_ani, spin=self.spin)
         P_ani.matrix.multiply(P2_ani, opb='C', symmetric=True,
                               out=H, beta=1.0)
         domain_comm.sum(H.data, 0)
