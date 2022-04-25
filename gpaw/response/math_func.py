@@ -62,7 +62,6 @@ def two_phi_planewave_integrals_slow(k_Gv, setup=None, Gstart=0, Gend=None,
     ::
 
       /  _       _   ik.r     _     ~   _   ik.r ~   _
-
       | dr [phi (r) e    phi (r) - phi (r) e    phi (r)]
       /        1            2         1            2
 
