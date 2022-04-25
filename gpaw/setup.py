@@ -17,7 +17,7 @@ from gpaw.setup_data import SetupData, search_for_file
 from gpaw.spline import Spline
 from gpaw.utilities import pack, unpack
 from gpaw.xc import XC
-from gpaw.utilities.blas import mmm
+from gpaw.new import zip_strict as zip
 
 
 def parse_hubbard_string(type: str) -> Tuple[str,
@@ -1469,20 +1469,15 @@ class Setups(list):
             atomdist=atomdist,
             integral=sqrt(4 * pi))
 
-    def overlap_correction(self, P_ain, out_ain):
-        P_In = P_ain.data
-        out_In = out_ain.data
-        if P_In.dtype == complex:
-            if P_In.ndim == 3:
-                shape = (len(P_In), -1)
-                P_In.shape = shape
-                out_In.shape = shape
-            P_In = P_In.astype(float)
-            out_In = out_In.astype(float)
-        for a, I1, I2 in P_ain.layout.myindices:
+    def overlap_correction(self, P_ani, out_ani):
+        if len(P_ani.dims) == 2:  # (band, spinor)
+            subscripts = 'nsi, ij -> nsj'
+        else:
+            subscripts = 'ni, ij -> nj'
+        for (a, P_ni), out_ni in zip(P_ani.items(), out_ani.values()):
             dS_ii = self[a].dO_ii
-            mmm(1.0, dS_ii, 'N', P_In[I1:I2], 'N', 0.0, out_In[I1:I2])
-        return out_ain
+            np.einsum(subscripts, P_ni, dS_ii, out=out_ni)
+        return out_ani
 
     def partial_wave_corrections(self) -> list[list[Spline]]:
         splines: dict[Setup, list[Spline]] = {}

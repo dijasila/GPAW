@@ -102,7 +102,8 @@ class DistributedArrays(Generic[DomainType]):
                         out: Matrix = None,
                         symmetric: bool = None,
                         function=None,
-                        domain_sum=True) -> Matrix:
+                        domain_sum=True,
+                        cc: bool = False) -> Matrix:
         if symmetric is None:
             symmetric = self is other
         if function:
@@ -112,7 +113,8 @@ class DistributedArrays(Generic[DomainType]):
         assert not self.transposed and not other.transposed
         out = M1.multiply(M2, opb='C', alpha=self.dv,
                           symmetric=symmetric, out=out)
-        out.complex_conjugate()
+        if not cc:
+            out.complex_conjugate()
         # operate_and_multiply(self, self.layout.dv, out, function, ...)
 
         self._matrix_elements_correction(M1, M2, out, symmetric)

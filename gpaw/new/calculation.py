@@ -190,22 +190,22 @@ class DFTCalculation:
         F_av = self.state.ibzwfs.forces(self.state.potential.dH_asii)
 
         pot_calc = self.pot_calc
-        Fcc_aLv, Fnct_av, Fvbar_av = pot_calc.force_contributions(
+        Fcc_avL, Fnct_av, Fvbar_av = pot_calc.force_contributions(
             self.state)
 
         # Force from compensation charges:
         ccc_aL = \
             self.state.density.calculate_compensation_charge_coefficients()
-        for a, dF_Lv in Fcc_aLv.items():
-            F_av[a] += ccc_aL[a] @ dF_Lv
+        for a, dF_vL in Fcc_avL.items():
+            F_av[a] += dF_vL @ ccc_aL[a]
 
         # Force from smooth core charge:
         for a, dF_v in Fnct_av.items():
-            F_av[a] += dF_v[0]
+            F_av[a] += dF_v[:, 0]
 
         # Force from zero potential:
         for a, dF_v in Fvbar_av.items():
-            F_av[a] += dF_v[0]
+            F_av[a] += dF_v[:, 0]
 
         domain_comm = ccc_aL.layout.atomdist.comm
         domain_comm.sum(F_av)

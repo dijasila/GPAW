@@ -3,6 +3,7 @@ from __future__ import annotations
 from ase.units import Ha
 from gpaw.core.arrays import DistributedArrays
 from gpaw.core.atom_arrays import AtomArrays
+from gpaw.new import zip_strict as zip
 
 
 class Potential:
@@ -17,11 +18,11 @@ class Potential:
     def __repr__(self):
         return f'Potential({self.vt_sR}, {self.dH_asii}, {self.energies})'
 
-    def dH(self, P_ain, out, spin):
-        for a, I1, I2 in P_ain.layout.myindices:
+    def dH(self, P_ani, out_ani, spin):
+        for (a, P_ni), out_ni in zip(P_ani.items(), out_ani.values()):
             dH_ii = self.dH_asii[a][spin]
-            out.data[I1:I2] = dH_ii @ P_ain.data[I1:I2]
-        return out
+            out_ni[:] = P_ni @ dH_ii
+        return out_ani
 
     def write(self, writer):
         dH_asp = self.dH_asii.to_lower_triangle().gather()
