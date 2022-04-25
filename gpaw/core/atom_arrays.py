@@ -7,6 +7,7 @@ import numpy as np
 from gpaw.mpi import MPIComm, serial_comm
 from gpaw.typing import Array1D, ArrayLike1D
 from gpaw.core.matrix import Matrix
+from gpaw.new import prod
 
 
 class AtomArraysLayout:
@@ -32,13 +33,13 @@ class AtomArraysLayout:
         self.atomdist = atomdist
         self.dtype = np.dtype(dtype)
 
-        self.size = sum(np.prod(shape) for shape in self.shape_a)
+        self.size = sum(prod(shape) for shape in self.shape_a)
 
         self.myindices = []
         self.mysize = 0
         I1 = 0
         for a in atomdist.indices:
-            I2 = I1 + np.prod(self.shape_a[a])
+            I2 = I1 + prod(self.shape_a[a])
             self.myindices.append((a, I1, I2))
             self.mysize += I2 - I1
             I1 = I2
@@ -77,7 +78,7 @@ class AtomArraysLayout:
         size_r = np.zeros(comm.size, int)
         for a, (rank, shape) in enumerate(zip(self.atomdist.rank_a,
                                               self.shape_a)):
-            size = np.prod(shape)
+            size = prod(shape)
             size_ra[rank][a] = size
             size_r[rank] += size
         return size_ra, size_r
@@ -216,8 +217,8 @@ class AtomArrays:
         if self._matrix is not None:
             return self._matrix
 
-        shape = (self.dims[0], np.prod(self.dims[1:]) * np.prod(self.myshape))
-        myshape = (self.mydims[0], np.prod(self.mydims[1:]) * np.prod(self.myshape))
+        shape = (self.dims[0], prod(self.dims[1:]) * prod(self.myshape))
+        myshape = (self.mydims[0], prod(self.mydims[1:]) * prod(self.myshape))
         dist = (self.comm, -1, 1)
 
         data = self.data.reshape(myshape)

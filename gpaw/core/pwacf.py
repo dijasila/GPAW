@@ -9,6 +9,7 @@ from gpaw.pw.lfc import ft
 from gpaw.spherical_harmonics import Y, nablarlYL
 from gpaw.utilities.blas import mmm
 from gpaw.core.uniform_grid import UniformGridFunctions
+from gpaw.new import prod
 
 
 class PlaneWaveAtomCenteredFunctions(AtomCenteredFunctions):
@@ -256,7 +257,7 @@ class PWLFC(BaseLFC):
             if self.comm.size != 1:
                 self.comm.sum(c_xI)
 
-        nx = np.prod(c_xI.shape[:-1], dtype=int)
+        nx = prod(c_xI.shape[:-1])
         c_xI = c_xI.reshape((nx, self.nI))
         a_xG = a_xG.reshape((nx, a_xG.shape[-1])).view(self.dtype)
 
@@ -274,7 +275,7 @@ class PWLFC(BaseLFC):
     def integrate(self, a_xG, c_axi=None, q=-1):
         c_xI = np.zeros(a_xG.shape[:-1] + (self.nI,), self.dtype)
 
-        nx = np.prod(c_xI.shape[:-1], dtype=int)
+        nx = prod(c_xI.shape[:-1])
         b_xI = c_xI.reshape((nx, self.nI))
         a_xG = a_xG.reshape((nx, a_xG.shape[-1]))
 
@@ -305,7 +306,7 @@ class PWLFC(BaseLFC):
 
     def derivative(self, a_xG, c_axiv=None, q=-1):
         c_vxI = np.zeros((3,) + a_xG.shape[:-1] + (self.nI,), self.dtype)
-        nx = np.prod(c_vxI.shape[1:-1], dtype=int)
+        nx = prod(c_vxI.shape[1:-1])
         b_vxI = c_vxI.reshape((3, nx, self.nI))
         a_xG = a_xG.reshape((nx, a_xG.shape[-1])).view(self.dtype)
 
@@ -412,7 +413,7 @@ class PWLFC(BaseLFC):
 
         c_xI = np.zeros(a_xG.shape[:-1] + (self.nI,), self.pd.dtype)
 
-        x = np.prod(c_xI.shape[:-1], dtype=int)
+        x = prod(c_xI.shape[:-1])
         b_xI = c_xI.reshape((x, self.nI))
         a_xG = a_xG.reshape((x, a_xG.shape[-1]))
 

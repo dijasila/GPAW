@@ -4,6 +4,13 @@ from time import time
 
 
 def prod(iterable):
+    """Simple int product.
+
+    >>> prod([])
+    1
+    >>> prod([2, 3])
+    6
+    """
     result = 1
     for x in iterable:
         result *= x

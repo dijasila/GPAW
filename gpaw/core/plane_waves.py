@@ -169,7 +169,7 @@ class PlaneWaves(Domain):
         """
         size_c = tuple(self.indices_cG.ptp(axis=1) + 1)
         Q_G = self.indices(size_c)
-        G_Q = np.empty(np.prod(size_c), int)
+        G_Q = np.empty(prod(size_c), int)
         G_Q[Q_G] = np.arange(len(Q_G))
         G_g = G_Q[other.indices(size_c)]
         ng1 = 0
@@ -216,8 +216,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
         """
         DistributedArrays. __init__(self, dims, pw.myshape,
                                     comm, pw.comm,
-                                    data, pw.dv, complex,
-                                    transposed=False)
+                                    data, pw.dv, complex)
         self.desc = pw
         self._matrix: Matrix | None
 
@@ -259,7 +258,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
 
     def _arrays(self):
         shape = self.data.shape
-        return self.data.reshape((np.prod(shape[:-1], dtype=int), shape[-1]))
+        return self.data.reshape((prod(shape[:-1]), shape[-1]))
 
     @property
     def matrix(self) -> Matrix:
@@ -267,8 +266,8 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
         if self._matrix is not None:
             return self._matrix
 
-        shape = (self.dims[0], np.prod(self.dims[1:]) * self.myshape[0])
-        myshape = (self.mydims[0], np.prod(self.mydims[1:]) * self.myshape[0])
+        shape = (self.dims[0], prod(self.dims[1:]) * self.myshape[0])
+        myshape = (self.mydims[0], prod(self.mydims[1:]) * self.myshape[0])
         dist = (self.comm, -1, 1)
         data = self.data.reshape(myshape)
 
