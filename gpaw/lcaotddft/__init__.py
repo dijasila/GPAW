@@ -220,6 +220,9 @@ class OldLCAOTDDFT(GPAW):
 
         time_step *= attosec_to_autime
         self.maxiter = self.niter + iterations
+        if self.td_hamiltonian.rremission is not None:
+            self.td_hamiltonian.rremission.deltat = time_step
+            self.td_hamiltonian.rremission.maxtimesteps = self.maxiter
 
         self.log('----  About to do %d propagation steps' % iterations)
 

@@ -51,8 +51,10 @@ class RRemission(object):
           self.cavity_resonance = np.arange(environmentcavity_in[0], environmentcavity_in[1] + 1e-8, environmentcavity_in[0]) / Hartree
           self.cavity_volume = self.rr_quantization_plane * (np.pi / (alpha * self.cavity_resonance[0])) # 1 / S(x0)S(x0)
           self.cavity_loss = environmentcavity_in[2] * self.cavity_resonance[0]
-          self.deltat = environmentcavity_in[3] * attosec_to_autime
-          self.maxtimesteps = environmentcavity_in[4] + 1 # the +1 is because time 0 is not included in the time-steps
+          self.deltat = None
+          self.maxtimesteps = None
+          #self.deltat = environmentcavity_in[3] * attosec_to_autime
+          #self.maxtimesteps = environmentcavity_in[4] + 1 # the +1 is because time 0 is not included in the time-steps
           self.frequ_resolution_ampl = environmentcavity_in[5]
           if environmentensemble_in is not None:
               self.ensemble_number = environmentensemble_in[0]
@@ -72,30 +74,37 @@ class RRemission(object):
     def initialize(self, paw):
         self.iterpredcop = 0
         self.time_previous = paw.time
+        #self.deltat = paw.rremissiontimestep
+        #self.maxtimesteps = paw.maxiter
         if self.dipolexyz is None: 
             self.dipolexyz = [0, 0, 0]
         self.density = paw.density
         self.wfs = paw.wfs
         self.hamiltonian = paw.hamiltonian
         self.dipolexyz_previous = self.density.calculate_dipole_moment()
-        self.timestep = 0
+        self.itert = 0
         if self.environment  == 1:
-            self.dipole_projected = np.zeros(self.maxtimesteps)
-            self.dyadic = self.dyadicGt(self.maxtimesteps)
+            #self.dipole_projected = np.zeros(self.maxtimesteps)
+            self.dyadic = None
+            #self.dyadic = self.dyadicGt(self.maxtimesteps)
             self.frequ_resolution_ampl = 1.
 
     def vradiationreaction(self, kpt, time):
+        if self.dyadic is None:
+            self.dyadic = self.dyadicGt(self.deltat, self.maxtimesteps)
+            self.dipole_projected = np.zeros(self.maxtimesteps)
         if self.iterpredcop == 0:
             self.iterpredcop += 1
             self.dipolexyz_previous = self.density.calculate_dipole_moment()
             self.time_previous = time
-            deltat = 1
-            self.timestep += 1
+            #deltat = 1
+            self.itert += 1
         else:
             self.iterpredcop = 0
-            deltat = time - self.time_previous
+            #assert self.deltat == (time - self.time_previous) # not a good idea as small numerical roundings seem to upset this
+            #deltat = time - self.time_previous
             self.dipolexyz = (self.density.calculate_dipole_moment()
-                              - self.dipolexyz_previous) / deltat
+                              - self.dipolexyz_previous) / self.deltat
 
         if self.environment  == 0 and self.polarization_cavity == [1,1,1]:
             # 3D emission (factor 2 for correct WW-emission included)
@@ -134,7 +143,7 @@ class RRemission(object):
             rr_argument = 1.
         elif self.environment == 1:
             if time > 0:
-                rr_argument = self.selffield()
+                rr_argument = self.selffield(self.deltat)
             else:
                 rr_argument = 0
 
@@ -143,21 +152,41 @@ class RRemission(object):
             Vrr_MM += rr_argument * self.V_iuMM[i][uvalue]
         return Vrr_MM
 
-    def dyadicGt(self, maxtimesteps):
+    def dyadicGt(self, deltat, maxtimesteps):
         loadedG = 0
         loadedD = 0
         printGD = 0
+
+        # PROBLEM: looking at /home/schaferc/codes/gpaw_runs/testing/smarterdyadic seems to
+        # provide a contradiction
+
+        #from gpaw.tddft.folding import FoldedFrequencies
+        #from gpaw.tddft.folding import Folding
+        #from gpaw.tddft.spectrum import calculate_fourier_transform
+        #omegares = 5
+        #timeg = np.arange(0, deltat*(maxtimesteps*self.frequ_resolution_ampl+1), deltat)
+        #test_data = np.exp(-self.cavity_loss*timeg)*np.sin(omegares*timeg)/omegares
+        #omegafft = 2*np.pi*np.fft.fftfreq(len(timeg),deltat)
+        #ref_fft = np.fft.fft( test_data )
+        #omegatest = np.linspace(0, 100, 100000)
+        #ff = FoldedFrequencies(omegatest, {'folding':None, 'width':0}, 'au')
+        #test_fft = calculate_fourier_transform(timeg, test_data[:,None], ff)
+
+        # For the loading of the dipoles or the calculation of the polarizability, I could just look into
+        # tddft/spectrum.py for the function calculate_polarizability
+        # They use the discrete internal GPAW fouriertrafo, I should check their norm and if the factor 2pi appears somewhere maybe in that way
+
         # This version to load the dyadics directly leads to dumping huge files and loading them is not really faster than creating them.
         # It might be better to save/load only an energy-window and grep from the meta-data the full size. Then patch the rest with zeros.
         if self.ensemble_number is not None:
-            safenamefiwG = str('dyadicfiwG_'+str(self.deltat*(maxtimesteps*self.frequ_resolution_ampl+1))+'_'+str(self.deltat)+'_'+str(self.cavity_resonance[0])+'_'+str(self.cavity_volume)+'_'+str(self.cavity_loss)+'_'+str(self.frequ_resolution_ampl)+'_'+str(self.ensemble_number)+'_'+str(self.ensemble_occupation_ratio)+'.dat' )
+            safenamefiwG = str('dyadicfiwG_'+str(deltat*(maxtimesteps*self.frequ_resolution_ampl+1))+'_'+str(deltat)+'_'+str(self.cavity_resonance[0])+'_'+str(self.cavity_volume)+'_'+str(self.cavity_loss)+'_'+str(self.frequ_resolution_ampl)+'_'+str(self.ensemble_number)+'_'+str(self.ensemble_occupation_ratio)+'.dat' )
         else:
-            safenamefiwG = str('dyadicfiwG_'+str(self.deltat*(maxtimesteps*self.frequ_resolution_ampl+1))+'_'+str(self.deltat)+'_'+str(self.cavity_resonance[0])+'_'+str(self.cavity_volume)+'_'+str(self.cavity_loss)+'_'+str(self.frequ_resolution_ampl)+'.dat' )
+            safenamefiwG = str('dyadicfiwG_'+str(deltat*(maxtimesteps*self.frequ_resolution_ampl+1))+'_'+str(deltat)+'_'+str(self.cavity_resonance[0])+'_'+str(self.cavity_volume)+'_'+str(self.cavity_loss)+'_'+str(self.frequ_resolution_ampl)+'.dat' )
         if self.ensemble_number!=0 and os.path.exists(safenamefiwG):
             dyadic = np.loadtxt(safenamefiwG, dtype=np.complex_)
             loadedD = 1
             print('Restart with existing FFT(iwG)(t)')
-        safenameGw = str('dyadicGw_'+str(self.deltat*(maxtimesteps*self.frequ_resolution_ampl+1))+'_'+str(self.deltat)+'_'+str(self.cavity_resonance[0])+'_'+str(self.cavity_volume)+'_'+str(self.cavity_loss)+'_'+str(self.frequ_resolution_ampl)+'.dat' )
+        safenameGw = str('dyadicGw_'+str(deltat*(maxtimesteps*self.frequ_resolution_ampl+1))+'_'+str(deltat)+'_'+str(self.cavity_resonance[0])+'_'+str(self.cavity_volume)+'_'+str(self.cavity_loss)+'_'+str(self.frequ_resolution_ampl)+'.dat' )
         if loadedD == 0 and os.path.exists(safenameGw):
             inputG = np.loadtxt(safenameGw, dtype=np.complex_) 
             omegafft = inputG[:,0]
@@ -165,23 +194,23 @@ class RRemission(object):
             loadedG = 1
             print('Restart with existing G(omega)')
         if loadedD == 0 and loadedG == 0:
-            timeg = np.arange(0, self.deltat*(maxtimesteps*self.frequ_resolution_ampl+1), self.deltat)
-            omegafft = 2*np.pi*np.fft.fftfreq(len(timeg),self.deltat)
+            timeg = np.arange(0, deltat*(maxtimesteps*self.frequ_resolution_ampl+1), deltat)
+            omegafft = 2*np.pi*np.fft.fftfreq(len(timeg),deltat)
             g_omega = 0
             for omegares in self.cavity_resonance:
                 g_omega += 2. / self.cavity_volume / alpha**2 * np.fft.fft( np.exp(-self.cavity_loss*timeg)*np.sin(omegares*timeg)/omegares )
             if printGD:
                 np.savetxt(safenameGw, np.column_stack((omegafft, g_omega)))
-            #safenameGw = str('dyadicGw_'+str(self.deltat*(maxtimesteps*self.frequ_resolution_ampl+1))+'_'+str(self.deltat)+'_'+str(self.cavity_resonance[0])+'_'+str(self.cavity_volume)+'_'+str(self.cavity_loss)+'_'+str(self.frequ_resolution_ampl)+'.dat' )
-            #safeobject = np.array([self.deltat*(maxtimesteps*self.frequ_resolution_ampl+1), self.deltat, self.cavity_resonance[0],self.cavity_volume,self.cavity_loss,self.frequ_resolution_ampl])
+            #safenameGw = str('dyadicGw_'+str(deltat*(maxtimesteps*self.frequ_resolution_ampl+1))+'_'+str(deltat)+'_'+str(self.cavity_resonance[0])+'_'+str(self.cavity_volume)+'_'+str(self.cavity_loss)+'_'+str(self.frequ_resolution_ampl)+'.dat' )
+            #safeobject = np.array([deltat*(maxtimesteps*self.frequ_resolution_ampl+1), deltat, self.cavity_resonance[0],self.cavity_volume,self.cavity_loss,self.frequ_resolution_ampl])
             #with ase.parallel.paropen('dyadicGw.dat', 'ab') as dyadicGw:
             #    np.savetxt(dyadicGw, np.real(g_omega))
             #    np.savetxt(dyadicGw, np.imag(g_omega))
             #dyadicGw = ase.parallel.paropen('dyadicGw.dat', 'w+')
-            #ase.parallel.parprint([self.deltat*(maxtimesteps*self.frequ_resolution_ampl+1), self.deltat, self.cavity_resonance[0],self.cavity_volume,self.cavity_loss,self.frequ_resolution_ampl], file=dyadicGw)
+            #ase.parallel.parprint([deltat*(maxtimesteps*self.frequ_resolution_ampl+1), deltat, self.cavity_resonance[0],self.cavity_volume,self.cavity_loss,self.frequ_resolution_ampl], file=dyadicGw)
             #ase.parallel.parprint(np.real(g_omega), file=dyadicGw)
             #ase.parallel.parprint(np.imag(g_omega), file=dyadicGw)
-            #np.savetxt('dyadicGw.dat', np.vstack(( np.array([self.deltat*(maxtimesteps*self.frequ_resolution_ampl+1), self.deltat, self.cavity_resonance,self.cavity_volume,self.cavity_loss,self.frequ_resolution_ampl]), g_omega )) )
+            #np.savetxt('dyadicGw.dat', np.vstack(( np.array([deltat*(maxtimesteps*self.frequ_resolution_ampl+1), deltat, self.cavity_resonance,self.cavity_volume,self.cavity_loss,self.frequ_resolution_ampl]), g_omega )) )
         if loadedD == 0:
             if self.ensemble_number is not None:
                 if self.ensemble_loss == 0 or self.ensemble_plasmafrequency == 0 or self.ensemble_resonance == 0:
@@ -211,7 +240,7 @@ class RRemission(object):
                     polarizablity_interp = scipy.interpolate.interp1d(omegafftdm, polarizablity, kind="cubic", fill_value="extrapolate")
                     polarizablity_stretched = polarizablity_interp(omegafft)
                     ensemble_volume_factor = 1./(2.*np.pi) # This factor should be 1 if my derivations are correct but 1/2pi is much better. Maybe the FT of the kick is defined with 2pi somewhere internally
-                    chi_omega = 4. * np.pi * ensemble_volume_factor * polarizablity_stretched * self.deltat / (timedm[1]-timedm[0])
+                    chi_omega = 4. * np.pi * ensemble_volume_factor * polarizablity_stretched * deltat / (timedm[1]-timedm[0])
                     if ensemble_volume_factor != 1.:
                         print('CAREFUL: Using an artificial ensemble-volume-factor of '+str(ensemble_volume_factor)+' for the zz-polarization embedding.')
                 else:
@@ -222,7 +251,7 @@ class RRemission(object):
             else:
                 G_omega = g_omega
             #dyadicdummy = np.fft.ifft( 1j * omegafft * G_omega ) # at t=0 unstable, leading to strong overtones, derivative version below is preferential
-            dyadic = -np.gradient(np.fft.ifft(G_omega),self.deltat)
+            dyadic = -np.gradient(np.fft.ifft(G_omega),deltat)
             if printGD:
                 np.savetxt(safenamefiwG, dyadic)
         #plt.plot(np.real(omegafft)*Hartree,np.imag(g_omega),label='Im(g(w))')
@@ -237,14 +266,14 @@ class RRemission(object):
         #stop
         return dyadic[:maxtimesteps]
 
-    def selffield(self):
+    def selffield(self, deltat):
         # While this is not the most efficient way to write the convolution, it is not the bottleneck of the calculation
         # If the number of time-steps is largely increased it would be reasonable to use advanced integration
         # strategies in order to shorten the time for convolutions
-        dyadic_t = self.dyadic[:self.timestep]
-        self.dipole_projected[self.timestep] = np.dot(self.polarization_cavity, self.dipolexyz)
-        electric_rr_field = ( 4. * np.pi * alpha**2 * self.deltat *
-                             (np.dot(dyadic_t[::-1], self.dipole_projected[:self.timestep])
+        dyadic_t = self.dyadic[:self.itert]
+        self.dipole_projected[self.itert] = np.dot(self.polarization_cavity, self.dipolexyz)
+        electric_rr_field = ( 4. * np.pi * alpha**2 * deltat *
+                             (np.dot(dyadic_t[::-1], self.dipole_projected[:self.itert])
                               - 0.5 * dyadic_t[-1] * self.dipole_projected[0]
-                              - 0.5 * dyadic_t[0] * self.dipole_projected[self.timestep]) )
+                              - 0.5 * dyadic_t[0] * self.dipole_projected[self.itert]) )
         return electric_rr_field
