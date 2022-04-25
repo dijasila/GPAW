@@ -920,6 +920,47 @@ class G0W0(PairDensity):
 
         self.Q_aGii = chi0.Q_aGii
 
+        """
+           ####################################################
+           # At this point, chi0_wGG is in decomposition WGg  #
+           ####################################################
+
+           1. Comminicate from WGg to w(gg)
+           2. Calculate W
+           3. Communicate from w(gg) to WGg
+           4. Bussiness as usual (Hilbert transform)
+        """
+
+        # Old way
+        pdi, Wm_wGG, Wp_wGG = self.Wcalculate_old(wstc, iq, q_c, chi0, chi0_wvv, chi0_wxvG, chi0_wGG, A1_x, A2_x, pd, ecut)
+        pdi, Wm2_wGG = self.Wcalculate(wstc, iq, q_c, chi0, chi0_wvv, chi0_wxvG, chi0_wGG, A1_x, A2_x, pd, ecut)
+
+        ###############################################################################
+        # At this stage, we have Wp_wGG, distributed over frequencies, and full G G   #
+        ###############################################################################
+
+        if self.do_GW_too:
+            if self.blockcomm.size > 1:
+                Wm_GW_wGG = chi0.redistribute(chi0_GW_wGG, A1_GW_x)
+            else:
+                Wm_GW_wGG = chi0_GW_wGG
+
+            Wp_GW_wGG = A2_GW_x[:Wm_GW_wGG.size].reshape(Wm_GW_wGG.shape)
+            Wp_GW_wGG[:] = Wm_GW_wGG
+
+            htp(Wp_GW_wGG)
+            htm(Wm_GW_wGG)
+            GW_return = [Wp_GW_wGG, Wm_GW_wGG]
+        else:
+            GW_return = None
+
+        return pdi, [Wp_wGG, Wm_wGG], GW_return
+
+    
+    def Wcalculate_old(self, wstc, iq, q_c, chi0, chi0_wvv, chi0_wxvG, chi0_wGG, A1_x, A2_x, pd, ecut):
+        nw = len(self.omega_w)
+        nG = pd.ngmax
+
         mynw = (nw + self.blockcomm.size - 1) // self.blockcomm.size
         if self.blockcomm.size > 1:
             chi0_wGG = chi0.redistribute(chi0_wGG, A2_x)
@@ -1159,6 +1200,7 @@ class G0W0(PairDensity):
                 W_GG[1:, 0] = pi * R_GG[1:, 0] * sqrV0 * sqrV_G[1:]
 
             self.timer.stop('Dyson eq.')
+            xxx
             return pdi, [W_GG, omegat_GG], None
 
         if self.do_GW_too:
@@ -1177,23 +1219,7 @@ class G0W0(PairDensity):
             htp(Wp_wGG)
             htm(Wm_wGG)
         self.timer.stop('Dyson eq.')
-
-        if self.do_GW_too:
-            if self.blockcomm.size > 1:
-                Wm_GW_wGG = chi0.redistribute(chi0_GW_wGG, A1_GW_x)
-            else:
-                Wm_GW_wGG = chi0_GW_wGG
-
-            Wp_GW_wGG = A2_GW_x[:Wm_GW_wGG.size].reshape(Wm_GW_wGG.shape)
-            Wp_GW_wGG[:] = Wm_GW_wGG
-
-            htp(Wp_GW_wGG)
-            htm(Wm_GW_wGG)
-            GW_return = [Wp_GW_wGG, Wm_GW_wGG]
-        else:
-            GW_return = None
-
-        return pdi, [Wp_wGG, Wm_wGG], GW_return
+        return pdi, Wm_wGG
 
     @timer('Kohn-Sham XC-contribution')
     def calculate_ks_xc_contribution(self):
