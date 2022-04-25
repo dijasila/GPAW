@@ -14,7 +14,7 @@ for name in ['H2', 'N2', 'O2', 'NO']:
     if name == 'NO':
         mol.translate((0, 0.1, 0))
         calc.set(mixer=MixerDif(0.05, 5))
-    mol.set_calculator(calc)
+    mol.calc = calc
 
     opt = BFGS(mol, logfile=name + '.log', trajectory=name + '.traj')
     opt.run(fmax=0.05)

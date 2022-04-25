@@ -104,7 +104,7 @@ class WaveFunctions:
                 psit_nG = gd.empty(nbands, dtype=self.dtype)
 
                 for n, psit_G in enumerate(psit_nG):
-                    #XXX Seems to corrupt my memory somehow ???
+                    # XXX Seems to corrupt my memory somehow ???
                     psit_G[:] = kd.symmetry.symmetrize_wavefunction(
                         kpt_.psit_nG[n], ik_c, k_c, op_cc, time_reversal)
                     # Choose gauge
@@ -180,7 +180,7 @@ class WaveFunctions:
             psit_nG = kpt.psit_nG
 
             # Integration dicts
-            P_ani   = self.pt.dict(shape=n)
+            P_ani = self.pt.dict(shape=n)
             dP_aniv = self.pt.dict(shape=n, derivative=True)
 
             # 1) Integrate with projectors

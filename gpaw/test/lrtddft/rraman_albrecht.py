@@ -1,3 +1,4 @@
+import pytest
 from ase import Atoms, Atom
 from ase.vibrations.resonant_raman import ResonantRaman
 from ase.vibrations.albrecht import Albrecht
@@ -8,63 +9,65 @@ from gpaw.lrtddft.kssingle import KSSingles
 from gpaw.analyse.overlap import Overlap
 from gpaw.test import equal
 
-txt = '-'
-txt = None
-load = True
-load = False
-xc = 'LDA'
 
-R = 0.7  # approx. experimental bond length
-a = 4.0
-c = 5.0
-H2 = Atoms([Atom('H', (a / 2, a / 2, (c - R) / 2)),
-            Atom('H', (a / 2, a / 2, (c + R) / 2))],
-           cell=(a, a, c))
+@pytest.mark.skip(reason='TODO')
+def test_rraman_albrecht():
+    txt = '-'
+    txt = None
+    xc = 'LDA'
 
-calc = GPAW(xc=xc, nbands=3, spinpol=False, eigensolver='rmm-diis', txt=txt)
-H2.set_calculator(calc)
-H2.get_potential_energy()
+    R = 0.7  # approx. experimental bond length
+    a = 4.0
+    c = 5.0
+    H2 = Atoms([Atom('H', (a / 2, a / 2, (c - R) / 2)),
+                Atom('H', (a / 2, a / 2, (c + R) / 2))],
+               cell=(a, a, c))
 
-gsname = exname = 'rraman'
-exkwargs={'eps':0.0, 'jend':1}
-pz = ResonantRaman(H2, KSSingles, gsname=gsname, exname=exname,
-                    exkwargs=exkwargs,
-                   overlap=lambda x, y: Overlap(x).pseudo(y))
-pz.run()
+    calc = GPAW(xc=xc, nbands=3, spinpol=False, eigensolver='rmm-diis',
+                txt=txt)
+    H2.calc = calc
+    H2.get_potential_energy()
 
-# check size
-kss = KSSingles('rraman-d0.010.eq.ex.gz')
-assert(len(kss) == 1)
+    gsname = exname = 'rraman'
+    exkwargs = {'eps': 0.0, 'jend': 1}
+    pz = ResonantRaman(H2, KSSingles, gsname=gsname, exname=exname,
+                       exkwargs=exkwargs,
+                       overlap=lambda x, y: Overlap(x).pseudo(y))
+    pz.run()
 
-om = 5
+    # check size
+    kss = KSSingles('rraman-d0.010.eq.ex.gz')
+    assert(len(kss) == 1)
 
-# Does Albrecht A work at all ?
-# -----------------------------
+    om = 5
 
-al = Albrecht(H2, KSSingles, gsname=gsname, exname=exname,
-              verbose=True, overlap=True)
-ai = al.absolute_intensity(omega=om)[-1]
-i = al.intensity(omega=om)[-1]
+    # Does Albrecht A work at all ?
+    # -----------------------------
 
-# parallel
+    al = Albrecht(H2, KSSingles, gsname=gsname, exname=exname,
+                  verbose=True, overlap=True)
+    _ = al.absolute_intensity(omega=om)[-1]
+    i = al.intensity(omega=om)[-1]
 
-if world.size > 1 and world.rank == 0:
-    # single core
-    comm = DummyMPI()
-    pzsi = Albrecht(H2, KSSingles, gsname=gsname, exname=exname,
-                   comm=comm, overlap=True, verbose=True)
-    isi = pzsi.intensity(omega=om)[-1]
-    equal(isi, i, 1e-11)
+    # parallel
 
-# Compare singles and multiples in Albrecht A
-# -------------------------------------------
+    if world.size > 1 and world.rank == 0:
+        # single core
+        comm = DummyMPI()
+        pzsi = Albrecht(H2, KSSingles, gsname=gsname, exname=exname,
+                        comm=comm, overlap=True, verbose=True)
+        isi = pzsi.intensity(omega=om)[-1]
+        equal(isi, i, 1e-11)
 
-alas = Albrecht(H2, KSSingles, gsname=gsname, exname=exname,
-              approximation='Albrecht A')
-ints = alas.intensity(omega=om)[-1]
-alam = Albrecht(H2, KSSingles, gsname=gsname, exname=exname,
-                approximation='Albrecht A',
-                skip=5, combinations=2)
-# single excitation energies should agree
-equal(ints, alam.intensity(omega=om)[0] , 1e-11)
-alam.summary(omega=5, method='frederiksen')
+    # Compare singles and multiples in Albrecht A
+    # -------------------------------------------
+
+    alas = Albrecht(H2, KSSingles, gsname=gsname, exname=exname,
+                    approximation='Albrecht A')
+    ints = alas.intensity(omega=om)[-1]
+    alam = Albrecht(H2, KSSingles, gsname=gsname, exname=exname,
+                    approximation='Albrecht A',
+                    skip=5, combinations=2)
+    # single excitation energies should agree
+    equal(ints, alam.intensity(omega=om)[0], 1e-11)
+    alam.summary(omega=5, method='frederiksen')

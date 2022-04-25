@@ -1,10 +1,12 @@
+import warnings
+
+import numpy as np
+from scipy.special import erf
+
 from gpaw.poisson import FDPoissonSolver
 from gpaw.fd_operators import Laplace, Gradient
 from gpaw.wfd_operators import WeightedFDOperator
 from gpaw.utilities.gauss import Gaussian
-from gpaw.utilities import erf
-import warnings
-import numpy as np
 
 
 class SolvationPoissonSolver(FDPoissonSolver):
@@ -74,7 +76,7 @@ class WeightedFDPoissonSolver(SolvationPoissonSolver):
         operators += [Gradient(gd, j, scale, n, dtype) for j in (0, 1, 2)]
         return WeightedFDOperator(operators)
 
-    def solve(self, phi, rho, charge=None, eps=None,
+    def solve(self, phi, rho, charge=None,
               maxcharge=1e-6,
               zero_initial_phi=False, timer=None):
         self._init()
@@ -84,7 +86,7 @@ class WeightedFDPoissonSolver(SolvationPoissonSolver):
                 raise NotImplementedError(
                     'charged periodic systems are not implemented')
         self.restrict_op_weights()
-        ret = FDPoissonSolver.solve(self, phi, rho, charge, eps, maxcharge,
+        ret = FDPoissonSolver.solve(self, phi, rho, charge, maxcharge,
                                     zero_initial_phi)
         return ret
 
@@ -146,7 +148,7 @@ class PolarizationPoissonSolver(SolvationPoissonSolver):
                 'solver with',
                 'polarization solver with dielectric and')
 
-    def solve(self, phi, rho, charge=None, eps=None,
+    def solve(self, phi, rho, charge=None,
               maxcharge=1e-6,
               zero_initial_phi=False, timer=None):
         self._init()
@@ -154,8 +156,7 @@ class PolarizationPoissonSolver(SolvationPoissonSolver):
             self.phi_tilde = self.gd.zeros()
         phi_tilde = self.phi_tilde
         niter_tilde = FDPoissonSolver.solve(
-            self, phi_tilde, rho, None, self.eps,
-            maxcharge, False)
+            self, phi_tilde, rho, None, maxcharge, False)
 
         epsr, dx_epsr, dy_epsr, dz_epsr = self.dielectric.eps_gradeps
         dx_phi_tilde = self.gd.empty()
@@ -174,7 +175,7 @@ class PolarizationPoissonSolver(SolvationPoissonSolver):
             rho / epsr + scalar_product / (4. * np.pi * epsr ** 2))
 
         niter = FDPoissonSolver.solve(
-            self, phi, rho_and_pol, None, eps,
+            self, phi, rho_and_pol, None,
             maxcharge, zero_initial_phi, timer=timer)
         return niter_tilde + niter
 
@@ -236,7 +237,7 @@ class ADM12PoissonSolver(SolvationPoissonSolver):
         self.d_phi = self.gd.empty()
         return SolvationPoissonSolver._init(self)
 
-    def solve(self, phi, rho, charge=None, eps=None,
+    def solve(self, phi, rho, charge=None,
               maxcharge=1e-6,
               zero_initial_phi=False, timer=None):
         self._init()
@@ -246,13 +247,13 @@ class ADM12PoissonSolver(SolvationPoissonSolver):
                 raise NotImplementedError(
                     'charged periodic systems are not implemented')
         return FDPoissonSolver.solve(
-            self, phi, rho, charge, eps, maxcharge, zero_initial_phi,
+            self, phi, rho, charge, maxcharge, zero_initial_phi,
             timer=timer)
 
-    def solve_neutral(self, phi, rho, eps=2e-10, timer=None):
+    def solve_neutral(self, phi, rho, timer=None):
         self._init()
         self.rho = rho
-        return SolvationPoissonSolver.solve_neutral(self, phi, rho, eps)
+        return SolvationPoissonSolver.solve_neutral(self, phi, rho)
 
     def iterate2(self, step, level=0):
         self._init()

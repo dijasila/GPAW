@@ -41,7 +41,7 @@ class BasePES:
                         comment=None):
 
         ew = self.get_energies_and_weights()
-        if mpi.rank == mpi.MASTER:
+        if mpi.rank == 0:
             sp = PESpectrum(ew, folding, width)
             sp.write(filename, emin, emax, de, comment)
 

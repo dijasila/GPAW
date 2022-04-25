@@ -378,7 +378,7 @@ class Density:
             raise ValueError('Not a mixer: %s' % mixer)
         self.mixer = MixerWrapper(mixer, self.ncomponents, self.gd)
 
-    def estimate_magnetic_moments(self):
+    def calculate_magnetic_moments(self):
         magmom_av = np.zeros_like(self.magmom_av)
         magmom_v = np.zeros(3)
         if self.nspins == 2:
@@ -401,6 +401,8 @@ class Density:
             magmom_v += self.gd.integrate(self.nt_vG)
 
         return magmom_v, magmom_av
+
+    estimate_magnetic_moments = calculate_magnetic_moments
 
     def get_correction(self, a, spin):
         """Integrated atomic density correction.
@@ -638,12 +640,15 @@ class Density:
 
         new_nt_sG = redistribute_array(dens.nt_sG, dens.gd, self.gd,
                                        self.nspins, kptband_comm)
-
-        self.atom_partition, self.atomdist, D_asp = \
+        self.atom_partition, self.atomdist = \
+            create_atom_partition_and_distibutions(self.gd, self.nspins,
+                                                   self.setups,
+                                                   self.redistributor,
+                                                   kptband_comm)
+        D_asp = \
             redistribute_atomic_matrices(dens.D_asp, self.gd, self.nspins,
-                                         self.setups, self.redistributor,
+                                         self.setups, self.atom_partition,
                                          kptband_comm)
-
         self.initialize_directly_from_arrays(new_nt_sG, None, D_asp)
 
 
@@ -754,16 +759,20 @@ def redistribute_array(nt_sG, gd1, gd2, nspins, kptband_comm):
     return new_nt_sG
 
 
-def redistribute_atomic_matrices(D_asp, gd2, nspins, setups, redistributor,
-                                 kptband_comm):
-    D_sP = pack_atomic_matrices(D_asp)
+def create_atom_partition_and_distibutions(gd2, nspins, setups, redistributor,
+                                           kptband_comm):
     natoms = len(setups)
     atom_partition = AtomPartition(gd2.comm, np.zeros(natoms, int),
                                    'density-gd')
-    D_asp = setups.empty_atomic_matrix(nspins, atom_partition)
     spos_ac = np.zeros((natoms, 3))  # XXXX
     atomdist = redistributor.get_atom_distributions(spos_ac)
+    return atom_partition, atomdist
 
+
+def redistribute_atomic_matrices(D_asp, gd2, nspins, setups, atom_partition,
+                                 kptband_comm):
+    D_sP = pack_atomic_matrices(D_asp)
+    D_asp = setups.empty_atomic_matrix(nspins, atom_partition)
     if gd2.comm.rank == 0:
         if kptband_comm.rank > 0:
             nP = sum(setup.ni * (setup.ni + 1) // 2
@@ -772,4 +781,4 @@ def redistribute_atomic_matrices(D_asp, gd2, nspins, setups, redistributor,
         kptband_comm.broadcast(D_sP, 0)
         D_asp.update(unpack_atomic_matrices(D_sP, setups))
         D_asp.check_consistency()
-    return atom_partition, atomdist, D_asp
+    return D_asp

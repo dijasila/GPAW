@@ -1,4 +1,3 @@
-from __future__ import print_function
 
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
@@ -110,77 +109,6 @@ class ParallelTimer(DebugTimer):
             for itsranks in allranks.reshape(-1, 4):
                 fd.write('r=%d k=%d b=%d d=%d\n' % tuple(itsranks))
         fd.close()
-
-
-class StepTimer(Timer):
-    """Step timer to print out timing used in computation steps.
-
-    Use it like this::
-
-      from gpaw.utilities.timing import StepTimer
-      st = StepTimer()
-      ...
-      st.write_now('step 1')
-      ...
-      st.write_now('step 2')
-
-    The parameter write_as_master_only can be used to force the timer to
-    print from processess that are not the mpi master process.
-    """
-
-    def __init__(self, out=sys.stdout, name=None, write_as_master_only=True):
-        Timer.__init__(self)
-        if name is None:
-            name = '<%s>' % sys._getframe(1).f_code.co_name
-        self.name = name
-        self.out = out
-        self.alwaysprint = not write_as_master_only
-        self.now = 'temporary now'
-        self.start(self.now)
-
-    def write_now(self, mark=''):
-        self.stop(self.now)
-        if self.alwaysprint or mpi.rank == 0:
-            print(self.name, mark, self.get_time(self.now), file=self.out)
-        self.out.flush()
-        del self.timers[self.now]
-        self.start(self.now)
-
-
-class TAUTimer(Timer):
-    """TAUTimer requires installation of the TAU Performance System
-    http://www.cs.uoregon.edu/research/tau/home.php
-
-    The TAU Python API will not output any data if there are any
-    unmatched starts/stops in the code."""
-
-    top_level = 'GPAW.calculator'  # TAU needs top level timer
-    merge = True  # Requires TAU 2.19.2 or later
-
-    def __init__(self):
-        Timer.__init__(self)
-        import pytau
-        self.pytau = pytau
-        self.tau_timers = {}
-        pytau.setNode(mpi.rank)
-        self.tau_timers[self.top_level] = pytau.profileTimer(self.top_level)
-        pytau.start(self.tau_timers[self.top_level])
-
-    def start(self, name):
-        Timer.start(self, name)
-        self.tau_timers[name] = self.pytau.profileTimer(name)
-        self.pytau.start(self.tau_timers[name])
-
-    def stop(self, name=None):
-        Timer.stop(self, name)
-        self.pytau.stop(self.tau_timers[name])
-
-    def write(self, out=sys.stdout):
-        Timer.write(self, out)
-        if self.merge:
-            self.pytau.dbMergeDump()
-        else:
-            self.pytau.stop(self.tau_timers[self.top_level])
 
 
 class HPMTimer(Timer):

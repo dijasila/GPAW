@@ -16,6 +16,10 @@
 #include <malloc/malloc.h>
 #endif
 
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+
 #ifdef GPAW_HPM
 void HPM_Start(char *);
 void HPM_Stop(char *);
@@ -76,6 +80,18 @@ PyObject* craypat_region_end(PyObject *self, PyObject *args)
   Py_RETURN_NONE;
 }
 #endif
+
+PyObject* get_num_threads(PyObject *self, PyObject *args)
+{
+  int nthreads = 1;
+#ifdef _OPENMP
+  #pragma omp parallel
+  {
+    nthreads = omp_get_num_threads();
+  }
+#endif
+  return Py_BuildValue("i", nthreads);
+}
 
 #ifdef PARALLEL
 #include <mpi.h>
@@ -414,64 +430,6 @@ PyObject* utilities_gaussian_wave(PyObject *self, PyObject *args)
     }
 
   Py_RETURN_NONE;
-}
-
-
-/* vdot
- *
- * If a and b are input vectors,
- * a[0]*b[0] + a[1]*b[1] + a[2]*b[2] + ...
- * is returned.
- */
-PyObject* utilities_vdot(PyObject *self, PyObject *args)
-{
-  PyArrayObject* aa;
-  PyArrayObject* bb;
-  if (!PyArg_ParseTuple(args, "OO", &aa, &bb))
-    return NULL;
-  const double* const a = DOUBLEP(aa);
-  const double* const b = DOUBLEP(bb);
-  double sum = 0.0;
-  int n = 1;
-  for (int d = 0; d < PyArray_NDIM(aa); d++)
-    n *= PyArray_DIMS(aa)[d];
-  for (int i = 0; i < n; i++)
-    {
-      sum += a[i] * b[i];
-    }
-  return PyFloat_FromDouble(sum);
-}
-
-/* vdot
- *
- * If a is the input vector,
- * a[0]*a[0] + a[1]*a[1] + a[2]*a[2] + ...
- * is returned.
- */
-PyObject* utilities_vdot_self(PyObject *self, PyObject *args)
-{
-  PyArrayObject* aa;
-  if (!PyArg_ParseTuple(args, "O", &aa))
-    return NULL;
-  const double* const a = DOUBLEP(aa);
-  double sum = 0.0;
-  int n = 1;
-  for (int d = 0; d < PyArray_NDIM(aa); d++)
-    n *= PyArray_DIMS(aa)[d];
-  for (int i = 0; i < n; i++)
-    {
-      sum += a[i] * a[i];
-    }
-  return PyFloat_FromDouble(sum);
-}
-
-PyObject* errorfunction(PyObject *self, PyObject *args)
-{
-  double x;
-  if (!PyArg_ParseTuple(args, "d", &x))
-    return NULL;
-
-  return Py_BuildValue("d", erf(x));
 }
 
 

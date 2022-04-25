@@ -1,4 +1,3 @@
-from __future__ import print_function
 from functools import partial
 
 import numpy as np
@@ -123,27 +122,16 @@ class AtomDistributions:
         return self.work_dist.collect(arraydict)
 
 
-def grid2grid(comm, gd1, gd2, src_g, dst_g, offset1_c=None, offset2_c=None):
-    assert np.all(src_g.shape == gd1.n_c)
-    assert np.all(dst_g.shape == gd2.n_c)
+def get_domains_from_gd(comm, gd, offset_c=None):
+    ranks = gd.comm.translate_ranks(comm, np.arange(gd.comm.size))
+    assert (ranks >= 0).all(), 'comm not parent of gd.comm'
 
-    #master1_rank = gd1.comm.translate_ranks(comm, [0])[0]
-    #master2_rank = gd2.comm.translate_ranks(comm, [0])[0]
-
-    ranks1 = gd1.comm.translate_ranks(comm, np.arange(gd1.comm.size))
-    ranks2 = gd2.comm.translate_ranks(comm, np.arange(gd2.comm.size))
-    assert (ranks1 >= 0).all(), 'comm not parent of gd1.comm'
-    assert (ranks2 >= 0).all(), 'comm not parent of gd2.comm'
-
-    def rank2parpos(gd, rank):
+    def rank2parpos(rank):
         gdrank = comm.translate_ranks(gd.comm, np.array([rank]))[0]
         # XXXXXXXXXXXXX segfault when not passing array!!
         if gdrank == -1:
             return None
         return gd.get_processor_position_from_rank(gdrank)
-    rank2parpos1 = partial(rank2parpos, gd1)
-    rank2parpos2 = partial(rank2parpos, gd2)
-
 
     def add_offset(n_cp, offset_c):
         n_cp = [n_p.copy() for n_p in n_cp]
@@ -151,18 +139,25 @@ def grid2grid(comm, gd1, gd2, src_g, dst_g, offset1_c=None, offset2_c=None):
             n_cp[c] += offset_c[c]
         return n_cp
 
-    n1_cp = gd1.n_cp
-    if offset1_c is not None:
-        n1_cp = add_offset(n1_cp, offset1_c)
+    n_cp = gd.n_cp
+    if offset_c is not None:
+        n_cp = add_offset(n_cp, offset_c)
 
-    n2_cp = gd2.n_cp
-    if offset2_c is not None:
-        n2_cp = add_offset(n2_cp, offset2_c)
+    return n_cp, rank2parpos
+
+
+def grid2grid(comm, gd1, gd2, src_g, dst_g, offset1_c=None, offset2_c=None):
+    assert np.all(src_g.shape == gd1.n_c)
+    assert np.all(dst_g.shape == gd2.n_c)
+
+    n1_cp, rank2parpos1 = get_domains_from_gd(comm, gd1, offset_c=offset1_c)
+    n2_cp, rank2parpos2 = get_domains_from_gd(comm, gd2, offset_c=offset2_c)
 
     general_redistribute(comm,
                          n1_cp, n2_cp,
                          rank2parpos1, rank2parpos2,
                          src_g, dst_g)
+
 
 def main():
     from gpaw.grid_descriptor import GridDescriptor
@@ -206,18 +201,13 @@ def main():
         print(world.rank, 'a2 distributed', a2.ravel())
         world.barrier()
 
-        #grid2grid(world, gd2, gd2_serial
-
         gd1 = GridDescriptor(N1_c, N1_c * 0.2)
-        #serialgd = gd2.new_descriptor(
 
         a1 = gd1.empty()
         a1.flat[:] = gen.rand(a1.size)
 
-        #print a1
         grid2grid(world, gd1, gd2, a1, a2)
 
-        #print a2
 
 if __name__ == '__main__':
     main()

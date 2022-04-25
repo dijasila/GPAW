@@ -1,11 +1,10 @@
-from __future__ import print_function
 from math import pi, acos, sqrt
 
 import numpy as np
 from ase.atoms import string2vector
 from ase.units import Bohr, Hartree
+from ase.utils import IOContext
 
-import gpaw.mpi as mpi
 from gpaw.spherical_harmonics import Y
 from gpaw.utilities.tools import coordinates
 
@@ -179,69 +178,66 @@ class ExpandYl(AngularIntegral):
                 ):
         """Expand a range of wave functions and write the result
         to a file"""
-        if mpi.rank == 0:
-            f = open(filename, 'w')
-        else:
-            f = open('/dev/null', 'w')
+        with IOContext() as io:
+            fd = io.openfile(filename)
 
-        if not spins:
-            srange = range(calculator.wfs.nspins)
-        else:
-            srange = spins
-        if not kpoints:
-            krange = range(len(calculator.wfs.kd.ibzk_kc))
-        else:
-            krange = kpoints
-        if not bands:
-            nrange = range(calculator.wfs.bd.nbands)
-        else:
-            nrange = bands
+            if not spins:
+                srange = range(calculator.wfs.nspins)
+            else:
+                srange = spins
+            if not kpoints:
+                krange = range(len(calculator.wfs.kd.ibzk_kc))
+            else:
+                krange = kpoints
+            if not bands:
+                nrange = range(calculator.wfs.bd.nbands)
+            else:
+                nrange = bands
 
-        print('# Yl expansion', 'of smooth wave functions', file=f)
-        lu = 'Angstrom'
-        print('# center =', self.center * Bohr, lu, file=f)
-        print('# Rmax =', self.Rmax * Bohr, lu, file=f)
-        print('# dR =', self.dR * Bohr, lu, file=f)
-        print('# lmax =', self.lmax, file=f)
-        print('# s    k     n', end=' ', file=f)
-        print('kpt-wght    e[eV]      occ', end=' ', file=f)
-        print('    norm      sum   weight', end=' ', file=f)
-        spdfghi = 's p d f g h i'.split()
-        for l in range(self.lmax + 1):
-            print('      %' + spdfghi[l], end=' ', file=f)
-        print(file=f)
+            print('# Yl expansion', 'of smooth wave functions', file=fd)
+            lu = 'Angstrom'
+            print('# center =', self.center * Bohr, lu, file=fd)
+            print('# Rmax =', self.Rmax * Bohr, lu, file=fd)
+            print('# dR =', self.dR * Bohr, lu, file=fd)
+            print('# lmax =', self.lmax, file=fd)
+            print('# s    k     n', end=' ', file=fd)
+            print('kpt-wght    e[eV]      occ', end=' ', file=fd)
+            print('    norm      sum   weight', end=' ', file=fd)
+            spdfghi = 's p d f g h i'.split()
+            for l in range(self.lmax + 1):
+                print('      %' + spdfghi[l], end=' ', file=fd)
+            print(file=fd)
 
-        for s in srange:
-            for k in krange:
-                u = k * calculator.wfs.nspins + s
-                for n in nrange:
-                    kpt = calculator.wfs.kpt_u[u]
-                    psit_G = kpt.psit_nG[n]
-                    norm = self.gd.integrate((psit_G * psit_G.conj()).real)
+            for s in srange:
+                for k in krange:
+                    u = k * calculator.wfs.nspins + s
+                    for n in nrange:
+                        kpt = calculator.wfs.kpt_u[u]
+                        psit_G = kpt.psit_nG[n]
+                        norm = self.gd.integrate((psit_G * psit_G.conj()).real)
 
-                    gl, weight = self.expand(psit_G)
-                    gsum = np.sum(gl)
-                    gl = 100 * gl / gsum
+                        gl, weight = self.expand(psit_G)
+                        gsum = np.sum(gl)
+                        gl = 100 * gl / gsum
 
-                    print('%2d %5d %5d' % (s, k, n), end=' ', file=f)
-                    print('%6.4f %10.4f %8.4f' % (kpt.weight,
-                                                  kpt.eps_n[n] * Hartree,
-                                                  kpt.f_n[n]),
-                          end=' ', file=f)
-                    print('%8.4f %8.4f %8.4f' %
-                          (norm, gsum, weight), end=' ', file=f)
+                        print('%2d %5d %5d' % (s, k, n), end=' ', file=fd)
+                        print('%6.4f %10.4f %8.4f' % (kpt.weight,
+                                                      kpt.eps_n[n] * Hartree,
+                                                      kpt.f_n[n]),
+                              end=' ', file=fd)
+                        print('%8.4f %8.4f %8.4f' %
+                              (norm, gsum, weight), end=' ', file=fd)
 
-                    for g in gl:
-                        print('%8.2f' % g, end=' ', file=f)
-                    print(file=f)
-                    f.flush()
-        f.close()
+                        for g in gl:
+                            print('%8.2f' % g, end=' ', file=fd)
+                        print(file=fd)
+                        fd.flush()
 
 
 class Vector3d(list):
-    def __init__(self,vector=None):
+    def __init__(self, vector=None):
         if vector is None:
-            vector = [0,0,0]
+            vector = [0, 0, 0]
         vector = string2vector(vector)
         list.__init__(self)
         for c in range(3):
@@ -254,26 +250,26 @@ class Vector3d(list):
             result[c] += other[c]
         return result
 
-    def __truediv__(self,other):
+    def __truediv__(self, other):
         return Vector3d(np.array(self) / other)
 
     __div__ = __truediv__
-    
+
     def __mul__(self, x):
         if isinstance(x, type(self)):
-            return np.dot( self, x )
+            return np.dot(self, x)
         else:
             return Vector3d(x * np.array(self))
-        
+
     def __rmul__(self, x):
         return self.__mul__(x)
-        
+
     def __lmul__(self, x):
         return self.__mul__(x)
 
     def __neg__(self):
         return -1 * self
-        
+
     def __str__(self):
         return "(%g,%g,%g)" % tuple(self)
 
@@ -291,16 +287,16 @@ class Vector3d(list):
         if not ll > 0:
             return None
         return acos((self * other) / ll)
-        
+
     def copy(self):
         return Vector3d(self)
 
-    def distance(self,vector):
+    def distance(self, vector):
         if not isinstance(vector, type(self)):
-            vector=Vector3d(vector)
+            vector = Vector3d(vector)
         return (self - vector).length()
 
-    def length(self,value=None):
+    def length(self, value=None):
         if value:
             fac = value / self.length()
             for c in range(3):
@@ -311,9 +307,9 @@ class Vector3d(list):
         return self.l
 
     def norm(self):
-        #return np.sum( self*self )
-        return self*self  #  XXX drop this class and use numpy arrays ...
-                         
+        # return np.sum( self*self )
+        return self * self  # XXX drop this class and use numpy arrays ...
+
     def x(self):
         return self[0]
 

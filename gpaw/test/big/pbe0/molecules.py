@@ -14,7 +14,7 @@ def run(symbol, d0, M, ecut, L):
     for d in D:
         a.set_distance(0, 1, d)
         a.calc = GPAW(
-            mode=PW(ecut, force_complex_dtype=True),
+            mode=PW(ecut),
             xc=HybridXC('PBE0'),
             nbands=0,
             # eigensolver='rmm-diis',
@@ -31,8 +31,8 @@ def run(symbol, d0, M, ecut, L):
     a = Atoms(symbol, cell=[L, L, L], magmoms=[M])
     a.center()
     a.calc = GPAW(
-        mode=PW(ecut, force_complex_dtype=True),
-        xc=HybridXC('PBE0', mix_all=False),
+        mode=PW(ecut),
+        xc=HybridXC('PBE0'),
         eigensolver=RMMDIIS(niter=1),
         parallel={'band': 1, 'kpt': 1},
         txt=f'{symbol}-{ecut}-{L}.txt')

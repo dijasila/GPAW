@@ -1,5 +1,5 @@
-from myqueue.task import task
+from myqueue.workflow import run
 
 
-def create_tasks():
-    return [task('na2o4.py@4:2h')]
+def workflow():
+    run(script='na2o4.py', cores=4, tmax='2h')

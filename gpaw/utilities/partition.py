@@ -192,10 +192,10 @@ def general_redistribute(comm, src_rank_a, dst_rank_a, redistributable):
     # But how is this done best?
     requests = []
     flags = (src_rank_a != dst_rank_a)
-    my_incoming_atom_indices = np.argwhere(np.bitwise_and(flags, \
-        dst_rank_a == comm.rank)).ravel()
-    my_outgoing_atom_indices = np.argwhere(np.bitwise_and(flags, \
-        src_rank_a == comm.rank)).ravel()
+    my_incoming_atom_indices = np.argwhere(
+        np.bitwise_and(flags, dst_rank_a == comm.rank)).ravel()
+    my_outgoing_atom_indices = np.argwhere(
+        np.bitwise_and(flags, src_rank_a == comm.rank)).ravel()
 
     for a in my_incoming_atom_indices:
         # Get matrix from old domain:
@@ -224,14 +224,11 @@ class AtomPartition:
         self.natoms = len(rank_a)
         self.name = name
 
-    def __eq__(self, other):
-        try:
-            comm = other.comm
-            rank_a = other.rank_a
-        except AttributeError:
-            return False
-        return (self.comm.compare(comm) in ['ident', 'congruent']
-                and np.array_equal(self.rank_a, rank_a))
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, AtomPartition):
+            return NotImplemented
+        return (self.comm.compare(other.comm) in ['ident', 'congruent']
+                and np.array_equal(self.rank_a, other.rank_a))
 
     def __ne__(self, other):
         return not self == other
@@ -292,7 +289,7 @@ class AtomPartition:
             raise ValueError('redistribute %s --> %s: %s'
                              % (self, new_partition, err))
         if isinstance(atomdict_ax, ArrayDict):
-            atomdict_ax.partition = new_partition # XXX
+            atomdict_ax.partition = new_partition  # XXX
             atomdict_ax.check_consistency()
 
     def __repr__(self):

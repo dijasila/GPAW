@@ -1,55 +1,67 @@
-"""ASE-calculator interface."""
+"""This module defines an ASE-calculator interface to GPAW.
+
+The central object that glues everything together.
+"""
+
 import warnings
+from typing import Any, Dict
 
 import numpy as np
 from ase import Atoms
-from ase.units import Bohr, Ha
 from ase.calculators.calculator import Calculator, kpts2ndarray
+from ase.dft.bandgap import bandgap
+from ase.units import Bohr, Ha
 from ase.utils import plural
 from ase.utils.timing import Timer
-from ase.dft.bandgap import bandgap
 
 import gpaw
 import gpaw.mpi as mpi
-import gpaw.wavefunctions.pw as pw
-from gpaw import memory_estimate_depth
 from gpaw.band_descriptor import BandDescriptor
+from gpaw.convergence_criteria import dict2criterion
 from gpaw.density import RealSpaceDensity
+from gpaw.dos import DOSCalculator
 from gpaw.eigensolvers import get_eigensolver
+from gpaw.external import PointChargePotential
 from gpaw.forces import calculate_forces
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.hamiltonian import RealSpaceHamiltonian
-from gpaw.io.logger import GPAWLogger
+from gpaw.hybrids import HybridXC
 from gpaw.io import Reader, Writer
+from gpaw.io.logger import GPAWLogger
 from gpaw.jellium import create_background_charge
+from gpaw.kohnsham_layouts import get_KohnSham_layouts
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.kpt_refine import create_kpoint_descriptor_with_refinement
-from gpaw.kohnsham_layouts import get_KohnSham_layouts
 from gpaw.matrix import suggest_blocking
-from gpaw.occupations import create_occupation_number_object
-from gpaw.output import (print_cell, print_positions,
-                         print_parallelization_details)
-from gpaw.paw import PAW
+from gpaw.occupations import ParallelLayout, create_occ_calc
+from gpaw.output import (print_cell, print_parallelization_details,
+                         print_positions)
+from gpaw.pw.density import ReciprocalSpaceDensity
+from gpaw.pw.hamiltonian import ReciprocalSpaceHamiltonian
 from gpaw.scf import SCFLoop
 from gpaw.setup import Setups
-from gpaw.symmetry import Symmetry
 from gpaw.stress import calculate_stress
-from gpaw.utilities import check_atoms_too_close
+from gpaw.symmetry import Symmetry
+from gpaw.typing import Array1D
+from gpaw.utilities import check_atoms_too_close, compiled_with_sl
 from gpaw.utilities.gpts import get_number_of_grid_points
 from gpaw.utilities.grid import GridRedistributor
+from gpaw.utilities.memory import MemNode, maxrss
 from gpaw.utilities.partition import AtomPartition
 from gpaw.wavefunctions.mode import create_wave_function_mode
 from gpaw.xc import XC
+from gpaw.xc.kernel import XCKernel
 from gpaw.xc.sic import SIC
 
 
-class GPAW(PAW, Calculator):
-    """This is the ASE-calculator frontend for doing a PAW calculation."""
+class GPAW(Calculator):
+    """This is the ASE-calculator frontend for doing a GPAW calculation."""
 
-    implemented_properties = ['energy', 'forces', 'stress', 'dipole',
-                              'magmom', 'magmoms']
+    implemented_properties = ['energy', 'free_energy',
+                              'forces', 'stress',
+                              'dipole', 'magmom', 'magmoms']
 
-    default_parameters = {
+    default_parameters: Dict[str, Any] = {
         'mode': 'fd',
         'xc': 'LDA',
         'occupations': None,
@@ -62,7 +74,6 @@ class GPAW(PAW, Calculator):
         'setups': {},
         'basis': {},
         'spinpol': None,
-        'fixdensity': False,
         'filter': None,
         'mixer': None,
         'eigensolver': None,
@@ -83,34 +94,42 @@ class GPAW(PAW, Calculator):
                      'tolerance': 1e-7,
                      'do_not_symmetrize_the_density': None},  # deprecated
         'convergence': {'energy': 0.0005,  # eV / electron
-                        'density': 1.0e-4,
-                        'eigenstates': 4.0e-8,  # eV^2
-                        'bands': 'occupied',
-                        'forces': np.inf},  # eV / Ang
-        'dtype': None,  # deprecated
-        'width': None,  # deprecated
-        'verbose': 0}
+                        'density': 1.0e-4,  # electrons / electron
+                        'eigenstates': 4.0e-8,  # eV^2 / electron
+                        'bands': 'occupied'},
+        'verbose': 0,
+        'fixdensity': False,  # deprecated
+        'dtype': None}  # deprecated
 
-    default_parallel = {
+    default_parallel: Dict[str, Any] = {
         'kpt': None,
-        'domain': gpaw.parsize_domain,
-        'band': gpaw.parsize_bands,
+        'domain': None,
+        'band': None,
         'order': 'kdb',
         'stridebands': False,
-        'augment_grids': gpaw.augment_grids,
+        'augment_grids': False,
         'sl_auto': False,
-        'sl_default': gpaw.sl_default,
-        'sl_diagonalize': gpaw.sl_diagonalize,
-        'sl_inverse_cholesky': gpaw.sl_inverse_cholesky,
-        'sl_lcao': gpaw.sl_lcao,
-        'sl_lrtddft': gpaw.sl_lrtddft,
+        'sl_default': None,
+        'sl_diagonalize': None,
+        'sl_inverse_cholesky': None,
+        'sl_lcao': None,
+        'sl_lrtddft': None,
         'use_elpa': False,
         'elpasolver': '2stage',
-        'buffer_size': gpaw.buffer_size}
+        'buffer_size': None}
 
-    def __init__(self, restart=None, ignore_bad_restart_file=False, label=None,
-                 atoms=None, timer=None,
-                 communicator=None, txt='-', parallel=None, **kwargs):
+    def __init__(self,
+                 restart=None,
+                 *,
+                 label=None,
+                 timer=None,
+                 communicator=None,
+                 txt='?',
+                 parallel=None,
+                 **kwargs):
+
+        if txt == '?':
+            txt = '-' if restart is None else None
 
         self.parallel = dict(self.default_parallel)
         if parallel:
@@ -129,7 +148,6 @@ class GPAW(PAW, Calculator):
 
         self.scf = None
         self.wfs = None
-        self.occupations = None
         self.density = None
         self.hamiltonian = None
         self.spos_ac = None  # XXX store this in some better way.
@@ -148,22 +166,88 @@ class GPAW(PAW, Calculator):
 
         self.reader = None
 
-        Calculator.__init__(self, restart, ignore_bad_restart_file, label,
-                            atoms, **kwargs)
+        Calculator.__init__(self, restart, label=label, **kwargs)
+
+    def fixed_density(self, *,
+                      update_fermi_level: bool = False,
+                      communicator=None,
+                      txt='-',
+                      parallel: Dict[str, Any] = None,
+                      **kwargs) -> 'GPAW':
+        """Create new calculator and do SCF calculation with fixed density.
+
+        Returns a new GPAW object fully converged.
+
+        Useful for band-structure calculations.  Given a ground-state
+        calculation, ``gs_calc``, one can do::
+
+            bs_calc = gs_calc.fixed_density(kpts=<path>,
+                                            symmetry='off')
+            bs = bs_calc.get_band_structure()
+        """
+        assert not update_fermi_level  # for now ...
+
+        for key in kwargs:
+            if key not in {'nbands', 'occupations', 'poissonsolver', 'kpts',
+                           'eigensolver', 'random', 'maxiter', 'basis',
+                           'symmetry', 'convergence', 'verbose'}:
+                raise TypeError(f'{key:!r} is an invalid keyword argument')
+
+        params = self.parameters.copy()
+        params.update(kwargs)
+
+        if params['h'] is None:
+            # Backwards compatibility
+            params['gpts'] = self.density.gd.N_c
+
+        calc = GPAW(communicator=communicator,
+                    txt=txt,
+                    parallel=parallel,
+                    **params)
+        calc.initialize(self.atoms)
+        calc.density.initialize_from_other_density(self.density,
+                                                   calc.wfs.kptband_comm)
+        calc.density.fixed = True
+        calc.wfs.fermi_levels = self.wfs.fermi_levels
+        if calc.hamiltonian.xc.type == 'GLLB':
+            new_response = calc.hamiltonian.xc.response
+            old_response = self.hamiltonian.xc.response
+            new_response.initialize_from_other_response(old_response)
+            new_response.fix_potential = True
+        calc.calculate(system_changes=[])
+        return calc
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        self.close()
 
     def __del__(self):
-        # Write timings and close reader if necessary.
+        self.close()
 
+    def close(self):
+        # Write timings and close reader if necessary.
         # If we crashed in the constructor (e.g. a bad keyword), we may not
         # have the normally expected attributes:
-        if hasattr(self, 'timer'):
+        if hasattr(self, 'timer') and not self.log.fd.closed:
             self.timer.write(self.log.fd)
 
         if hasattr(self, 'reader') and self.reader is not None:
             self.reader.close()
 
     def write(self, filename, mode=''):
-        self.log('Writing to {} (mode={!r})\n'.format(filename, mode))
+        """Write calculator object to a file.
+
+        Parameters
+        ----------
+        filename
+            File to be written
+        mode
+            Write mode. Use ``mode='all'``
+            to include wave functions in the file.
+        """
+        self.log(f'Writing to {filename} (mode={mode!r})\n')
         writer = Writer(filename, self.world)
         self._write(writer, mode)
         writer.close()
@@ -171,7 +255,7 @@ class GPAW(PAW, Calculator):
 
     def _write(self, writer, mode):
         from ase.io.trajectory import write_atoms
-        writer.write(version=1, gpaw_version=gpaw.__version__,
+        writer.write(version=3, gpaw_version=gpaw.__version__,
                      ha=Ha, bohr=Bohr)
 
         write_atoms(writer.child('atoms'), self.atoms)
@@ -180,7 +264,7 @@ class GPAW(PAW, Calculator):
 
         self.density.write(writer.child('density'))
         self.hamiltonian.write(writer.child('hamiltonian'))
-        self.occupations.write(writer.child('occupations'))
+        # self.occupations.write(writer.child('occupations'))
         self.scf.write(writer.child('scf'))
         self.wfs.write(writer.child('wave_functions'), mode == 'all')
 
@@ -214,6 +298,8 @@ class GPAW(PAW, Calculator):
         self.parameters = self.get_default_parameters()
         dct = {}
         for key, value in reader.parameters.asdict().items():
+            if key in {'txt', 'fixdensity'}:
+                continue  # old gpw-files may have these
             if (isinstance(value, dict) and
                 isinstance(self.parameters[key], dict)):
                 self.parameters[key].update(value)
@@ -228,7 +314,6 @@ class GPAW(PAW, Calculator):
 
         self.density.read(reader)
         self.hamiltonian.read(reader)
-        self.occupations.read(reader)
         self.scf.read(reader)
         self.wfs.read(reader)
 
@@ -236,7 +321,6 @@ class GPAW(PAW, Calculator):
         from gpaw.utilities.partition import AtomPartition
         atom_partition = AtomPartition(self.wfs.gd.comm,
                                        np.zeros(len(self.atoms), dtype=int))
-        self.wfs.atom_partition = atom_partition
         self.density.atom_partition = atom_partition
         self.hamiltonian.atom_partition = atom_partition
         rank_a = self.density.gd.get_ranks_from_positions(self.spos_ac)
@@ -244,16 +328,16 @@ class GPAW(PAW, Calculator):
         for obj in [self.density, self.hamiltonian]:
             obj.set_positions_without_ruining_everything(self.spos_ac,
                                                          new_atom_partition)
+        if new_atom_partition != atom_partition:
+            for kpt in self.wfs.kpt_u:
+                kpt.projections = kpt.projections.redist(new_atom_partition)
+        self.wfs.atom_partition = new_atom_partition
 
         self.hamiltonian.xc.read(reader)
 
-        if self.hamiltonian.xc.name == 'GLLBSC':
-            # XXX GLLB: See test/lcaotddft/gllbsc.py
-            self.occupations.calculate(self.wfs)
-
         return reader
 
-    def check_state(self, atoms, tol=1e-15):
+    def check_state(self, atoms, tol=1e-12):
         system_changes = Calculator.check_state(self, atoms, tol)
         if 'positions' not in system_changes:
             if self.hamiltonian:
@@ -265,6 +349,11 @@ class GPAW(PAW, Calculator):
 
     def calculate(self, atoms=None, properties=['energy'],
                   system_changes=['cell']):
+        for _ in self.icalculate(atoms, properties, system_changes):
+            pass
+
+    def icalculate(self, atoms=None, properties=['energy'],
+                   system_changes=['cell']):
         """Calculate things."""
 
         Calculator.calculate(self, atoms)
@@ -278,7 +367,6 @@ class GPAW(PAW, Calculator):
             else:
                 # Drastic changes:
                 self.wfs = None
-                self.occupations = None
                 self.density = None
                 self.hamiltonian = None
                 self.scf = None
@@ -293,13 +381,16 @@ class GPAW(PAW, Calculator):
         if not (self.wfs.positions_set and self.hamiltonian.positions_set):
             self.set_positions(atoms)
 
+        yield
+
         if not self.scf.converged:
             print_cell(self.wfs.gd, self.atoms.pbc, self.log)
 
             with self.timer('SCF-cycle'):
-                self.scf.run(self.wfs, self.hamiltonian,
-                             self.density, self.occupations,
-                             self.log, self.call_observers)
+                yield from self.scf.irun(
+                    self.wfs, self.hamiltonian,
+                    self.density,
+                    self.log, self.call_observers)
 
             self.log('\nConverged after {} iterations.\n'
                      .format(self.scf.niter))
@@ -324,8 +415,11 @@ class GPAW(PAW, Calculator):
                     self.log('{:4} {:2} ({:9.6f}, {:9.6f}, {:9.6f})'
                              .format(a, symbols[a], *mom_v))
                 self.log()
-                self.results['magmom'] = self.occupations.magmom
+                self.results['magmom'] = totmom_v[2]
                 self.results['magmoms'] = magmom_av[:, 2].copy()
+            else:
+                self.results['magmom'] = 0.0
+                self.results['magmoms'] = np.zeros(len(self.atoms))
 
             self.summary()
 
@@ -349,15 +443,17 @@ class GPAW(PAW, Calculator):
                     self.results['stress'] = stress * (Ha / Bohr**3)
 
     def summary(self):
-        efermi = self.occupations.fermilevel
-        self.hamiltonian.summary(efermi, self.log)
-        self.density.summary(self.atoms, self.occupations.magmom, self.log)
-        self.occupations.summary(self.log)
+        self.hamiltonian.summary(self.wfs, self.log)
+        self.density.summary(self.atoms, self.results.get('magmom', 0.0),
+                             self.log)
         self.wfs.summary(self.log)
-        try:
-            bandgap(self, output=self.log.fd, efermi=efermi * Ha)
-        except ValueError:
-            pass
+        if len(self.wfs.fermi_levels) == 1:
+            try:
+                bandgap(self,
+                        output=self.log.fd,
+                        efermi=self.wfs.fermi_level * Ha)
+            except ValueError:
+                pass
         self.log.fd.flush()
 
     def set(self, **kwargs):
@@ -374,7 +470,7 @@ class GPAW(PAW, Calculator):
             if key != 'txt' and key not in self.default_parameters:
                 raise TypeError('Unknown GPAW parameter: {}'.format(key))
 
-            if key in ['convergence', 'symmetry',
+            if key in ['symmetry',
                        'experimental'] and isinstance(kwargs[key], dict):
                 # For values that are dictionaries, verify subkeys, too.
                 default_dict = self.default_parameters[key]
@@ -385,6 +481,10 @@ class GPAW(PAW, Calculator):
                                         '"{}".  Must be one of: {}'
                                         .format(subkey, key, allowed))
 
+        # We need to handle txt early in order to get logging up and running:
+        if 'txt' in kwargs:
+            self.log.fd = kwargs.pop('txt')
+
         changed_parameters = Calculator.set(self, **kwargs)
 
         for key in ['setups', 'basis']:
@@ -394,10 +494,6 @@ class GPAW(PAW, Calculator):
                     dct['default'] = dct.pop(None)
                     warnings.warn('Please use {key}={dct}'
                                   .format(key=key, dct=dct))
-
-        # We need to handle txt early in order to get logging up and running:
-        if 'txt' in changed_parameters:
-            self.log.fd = changed_parameters.pop('txt')
 
         if not changed_parameters:
             return {}
@@ -488,6 +584,10 @@ class GPAW(PAW, Calculator):
 
         self.wfs.eigensolver.reset()
         self.scf.reset()
+        occ_name = getattr(self.wfs.occupations, "name", None)
+        if occ_name == 'mom':
+            # Initialize MOM reference orbitals
+            self.wfs.occupations.initialize_reference_orbitals()
         print_positions(self.atoms, self.log, self.density.magmom_av)
 
     def initialize(self, atoms=None, reading=False):
@@ -529,12 +629,18 @@ class GPAW(PAW, Calculator):
         # Generate new xc functional only when it is reset by set
         # XXX sounds like this should use the _changed_keywords dictionary.
         if self.hamiltonian is None or self.hamiltonian.xc is None:
-            if isinstance(par.xc, (str, dict)):
+            if isinstance(par.xc, (str, dict, XCKernel)):
                 xc = XC(par.xc, collinear=collinear, atoms=atoms)
             else:
                 xc = par.xc
         else:
             xc = self.hamiltonian.xc
+
+        if par.fixdensity:
+            warnings.warn(
+                'The fixdensity keyword has been deprecated. '
+                'Please use the GPAW.fixed_density() method instead.',
+                DeprecationWarning)
 
         mode = par.mode
         if isinstance(mode, str):
@@ -560,15 +666,16 @@ class GPAW(PAW, Calculator):
         if not realspace:
             pbc_c = np.ones(3, bool)
 
+        magnetic = magmom_av.any()
+
         if par.hund:
-            if natoms != 1:
-                raise ValueError('hund=True arg only valid for single atoms!')
             spinpol = True
-            magmom_av[0, 2] = self.setups[0].get_hunds_rule_moment(par.charge)
+            magnetic = True
+            c = par.charge / natoms
+            for a, setup in enumerate(self.setups):
+                magmom_av[a, 2] = setup.get_hunds_rule_moment(c)
 
         if collinear:
-            magnetic = magmom_av.any()
-
             spinpol = par.spinpol
             if spinpol is None:
                 spinpol = magnetic
@@ -664,10 +771,40 @@ class GPAW(PAW, Calculator):
             raise ValueError('Too few bands!  Electrons: %f, bands: %d'
                              % (nvalence, nbands))
 
-        self.create_occupations(magmom_av[:, 2].sum(), orbital_free)
+        # Gather convergence criteria for SCF loop.
+        criteria = self.default_parameters['convergence'].copy()  # keep order
+        criteria.update(par.convergence)
+        custom = criteria.pop('custom', [])
+        del criteria['bands']
+        for name, criterion in criteria.items():
+            if hasattr(criterion, 'todict'):
+                # 'Copy' so no two calculators share an instance.
+                criteria[name] = dict2criterion(criterion.todict())
+            else:
+                criteria[name] = dict2criterion({name: criterion})
+
+        if not isinstance(custom, (list, tuple)):
+            custom = [custom]
+        for criterion in custom:
+            if isinstance(criterion, dict):  # from .gpw file
+                msg = ('Custom convergence criterion "{:s}" encountered, '
+                       'which GPAW does not know how to load. This '
+                       'criterion is NOT enabled; you may want to manually'
+                       ' set it.'.format(criterion['name']))
+                warnings.warn(msg)
+                continue
+
+            criteria[criterion.name] = criterion
+            msg = ('Custom convergence criterion {:s} encountered. '
+                   'Please be sure that each calculator is fed a '
+                   'unique instance of this criterion. '
+                   'Note that if you save the calculator instance to '
+                   'a .gpw file you may not be able to re-open it. '
+                   .format(criterion.name))
+            warnings.warn(msg)
 
         if self.scf is None:
-            self.create_scf(nvalence, mode)
+            self.create_scf(criteria, mode)
 
         if not collinear:
             nbands *= 2
@@ -676,9 +813,14 @@ class GPAW(PAW, Calculator):
             self.create_wave_functions(mode, realspace,
                                        nspins, collinear, nbands, nao,
                                        nvalence, self.setups,
-                                       cell_cv, pbc_c, N_c)
+                                       cell_cv, pbc_c, N_c,
+                                       xc)
         else:
             self.wfs.set_setups(self.setups)
+
+        occ = self.create_occupations(cell_cv, magmom_av[:, 2].sum(),
+                                      orbital_free, nvalence)
+        self.wfs.occupations = occ
 
         if not self.wfs.eigensolver:
             self.create_eigensolver(xc, nbands, mode)
@@ -720,17 +862,17 @@ class GPAW(PAW, Calculator):
         if self.hamiltonian is None:
             self.create_hamiltonian(realspace, mode, xc)
 
-        xc.initialize(self.density, self.hamiltonian, self.wfs,
-                      self.occupations)
+        xc.initialize(self.density, self.hamiltonian, self.wfs)
+
         description = xc.get_description()
         if description is not None:
             self.log('XC parameters: {}\n'
                      .format('\n  '.join(description.splitlines())))
 
-        if xc.name == 'GLLBSC' and olddens is not None:
+        if xc.type == 'GLLB' and olddens is not None:
             xc.heeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeelp(olddens)
 
-        self.print_memory_estimate(maxdepth=memory_estimate_depth + 1)
+        self.print_memory_estimate(maxdepth=3)
 
         print_parallelization_details(self.wfs, self.hamiltonian, self.log)
 
@@ -788,62 +930,65 @@ class GPAW(PAW, Calculator):
         return GridDescriptor(N_c, cell_cv, pbc_c, domain_comm,
                               parsize_domain)
 
-    def create_occupations(self, magmom, orbital_free):
-        occ = self.parameters.occupations
+    def create_occupations(self, cell_cv, magmom, orbital_free, nvalence):
+        dct = self.parameters.occupations
 
-        if occ is None:
+        if dct is None:
             if orbital_free:
-                occ = {'name': 'orbital-free'}
+                dct = {'name': 'orbital-free'}
             else:
-                width = self.parameters.width
-                if width is not None:
-                    warnings.warn('Please use occupations=FermiDirac({})'
-                                  .format(width))
-                elif self.atoms.pbc.any():
-                    width = 0.1  # eV
+                if self.atoms.pbc.any():
+                    dct = {'name': 'fermi-dirac',
+                           'width': 0.1}  # eV
                 else:
-                    width = 0.0
-                occ = {'name': 'fermi-dirac', 'width': width}
+                    dct = {'width': 0.0}
+        elif not isinstance(dct, dict):
+            return dct
 
-        if isinstance(occ, dict):
-            occ = create_occupation_number_object(**occ)
+        if self.wfs.nspins == 1:
+            dct.pop('fixmagmom', None)
 
-        if self.parameters.fixdensity:
-            occ.fixed_fermilevel = True
-            if self.occupations:
-                occ.fermilevel = self.occupations.fermilevel
+        kwargs = dct.copy()
+        name = kwargs.pop('name', '')
+        if name == 'mom':
+            from gpaw.mom import OccupationsMOM
+            occ = OccupationsMOM(self.wfs, **kwargs)
 
-        self.occupations = occ
+            self.log(occ)
+            return occ
 
-        # If occupation numbers are changed, and we have wave functions,
-        # recalculate the occupation numbers
-        if self.wfs is not None:
-            self.occupations.calculate(self.wfs)
+        occ = create_occ_calc(
+            dct,
+            parallel_layout=ParallelLayout(self.wfs.bd,
+                                           self.wfs.kd.comm,
+                                           self.wfs.gd.comm),
+            fixed_magmom_value=magmom,
+            rcell=np.linalg.inv(cell_cv).T,
+            monkhorst_pack_size=self.wfs.kd.N_c,
+            bz2ibzmap=self.wfs.kd.bz2ibz_k,
+            nspins=self.wfs.nspins,
+            nelectrons=nvalence,
+            nkpts=self.wfs.kd.nibzkpts,
+            nbands=self.wfs.bd.nbands
+        )
 
-        self.occupations.magmom = magmom
+        self.log('Occupation numbers:', occ, '\n')
+        return occ
 
-        self.log(self.occupations)
-
-    def create_scf(self, nvalence, mode):
+    def create_scf(self, criteria, mode):
         # if mode.name == 'lcao':
         #     niter_fixdensity = 0
         # else:
         #     niter_fixdensity = 2
 
-        nv = max(nvalence, 1)
-        cc = self.parameters.convergence
         self.scf = SCFLoop(
-            cc.get('eigenstates', 4.0e-8) / Ha**2 * nv,
-            cc.get('energy', 0.0005) / Ha * nv,
-            cc.get('density', 1.0e-4) * nv,
-            cc.get('forces', np.inf) / (Ha / Bohr),
+            criteria,
             self.parameters.maxiter,
             # XXX make sure niter_fixdensity value is *always* set from default
             # Subdictionary defaults seem to not be set when user provides
             # e.g. {}.  We should change that so it works like the ordinary
             # parameters.
-            self.parameters.experimental.get('niter_fixdensity', 0),
-            nv)
+            self.parameters.experimental.get('niter_fixdensity', 0))
         self.log(self.scf)
 
     def create_symmetry(self, magmom_av, cell_cv, reading):
@@ -864,6 +1009,9 @@ class GPAW(PAW, Calculator):
         if self.parameters.external is not None:
             symm = symm.copy()
             symm['point_group'] = False
+
+        if reading and self.reader.version <= 1:
+            symm['allow_invert_aperiodic_axes'] = False
 
         m_av = magmom_av.round(decimals=3)  # round off
         id_a = [id + tuple(m_v) for id, m_v in zip(self.setups.id_a, m_av)]
@@ -929,8 +1077,7 @@ class GPAW(PAW, Calculator):
                 ecut = 2 * self.wfs.pd.ecut
             else:
                 ecut = 0.5 * (np.pi / h)**2
-            self.density = pw.ReciprocalSpaceDensity(ecut=ecut,
-                                                     **kwargs)
+            self.density = ReciprocalSpaceDensity(ecut=ecut, **kwargs)
 
         self.log(self.density, '\n')
 
@@ -946,7 +1093,8 @@ class GPAW(PAW, Calculator):
             world=self.world,
             redistributor=dens.redistributor,
             vext=self.parameters.external,
-            psolver=self.parameters.poissonsolver)
+            psolver=self.parameters.poissonsolver,
+            charge=dens.charge)
         if realspace:
             self.hamiltonian = RealSpaceHamiltonian(stencil=mode.interpolation,
                                                     **kwargs)
@@ -970,7 +1118,7 @@ class GPAW(PAW, Calculator):
                     xc_redist = GridRedistributor(self.world, bcast_comm,
                                                   gd, aux_gd)
 
-            self.hamiltonian = pw.ReciprocalSpaceHamiltonian(
+            self.hamiltonian = ReciprocalSpaceHamiltonian(
                 pd2=dens.pd2, pd3=dens.pd3, realpbc_c=self.atoms.pbc,
                 xc_redistributor=xc_redist,
                 **kwargs)
@@ -1015,17 +1163,22 @@ class GPAW(PAW, Calculator):
 
     def create_wave_functions(self, mode, realspace,
                               nspins, collinear, nbands, nao, nvalence,
-                              setups, cell_cv, pbc_c, N_c):
+                              setups, cell_cv, pbc_c, N_c, xc):
         par = self.parameters
 
         kd = self.create_kpoint_descriptor(nspins)
 
         parallelization = mpi.Parallelization(self.world,
-                                              nspins * kd.nibzkpts)
+                                              kd.nibzkpts)
 
         parsize_kpt = self.parallel['kpt']
         parsize_domain = self.parallel['domain']
         parsize_bands = self.parallel['band']
+
+        if isinstance(xc, HybridXC):
+            parsize_kpt = 1
+            parsize_domain = self.world.size
+            parsize_bands = 1
 
         ndomains = None
         if parsize_domain is not None:
@@ -1045,6 +1198,8 @@ class GPAW(PAW, Calculator):
         kd.set_communicator(kpt_comm)
 
         parstride_bands = self.parallel['stridebands']
+        if parstride_bands:
+            raise RuntimeError('stridebands is unreliable')
 
         bd = BandDescriptor(nbands, band_comm, parstride_bands)
 
@@ -1064,7 +1219,7 @@ class GPAW(PAW, Calculator):
                           bd=bd, dtype=dtype, world=self.world, kd=kd,
                           kptband_comm=kptband_comm, timer=self.timer)
 
-        if self.parallel['sl_auto']:
+        if self.parallel['sl_auto'] and compiled_with_sl():
             # Choose scalapack parallelization automatically
 
             for key, val in self.parallel.items():
@@ -1135,9 +1290,786 @@ class GPAW(PAW, Calculator):
         self.log.fd.flush()
 
         # Write timing info now before the interpreter shuts down:
-        self.__del__()
+        self.close()
 
         # Disable timing output during shut-down:
         del self.timer
 
         raise SystemExit
+
+    def get_atomic_electrostatic_potentials(self) -> Array1D:
+        r"""Return the electrostatic potential at the atomic sites.
+
+        Return list of energies in eV, one for each atom:
+
+        .. math::
+
+            Y_{00}
+            \int d\mathbf{r}
+            \tilde{v}_H(\mathbf{r})
+            \hat{g}_{00}^a(\mathbf{r} - \mathbf{R}^a)
+
+        """
+        ham = self.hamiltonian
+        dens = self.density
+        self.initialize_positions()
+        dens.interpolate_pseudo_density()
+        dens.calculate_pseudo_charge()
+        ham.update(dens)
+        W_aL = ham.calculate_atomic_hamiltonians(dens)
+        W_a = np.zeros(len(self.atoms))
+        for a, W_L in W_aL.items():
+            W_a[a] = W_L[0] / (4 * np.pi)**0.5 * Ha
+        W_aL.partition.comm.sum(W_a)
+        return W_a
+
+    def linearize_to_xc(self, newxc):
+        """Linearize Hamiltonian to difference XC functional.
+
+        Used in real time TDDFT to perform calculations with various kernels.
+        """
+        if isinstance(newxc, str):
+            newxc = XC(newxc)
+        self.log('Linearizing xc-hamiltonian to ' + str(newxc))
+        newxc.initialize(self.density, self.hamiltonian, self.wfs)
+        self.hamiltonian.linearize_to_xc(newxc, self.density)
+
+    def attach(self, function, n=1, *args, **kwargs):
+        """Register observer function to run during the SCF cycle.
+
+        Call *function* using *args* and
+        *kwargs* as arguments.
+
+        If *n* is positive, then
+        *function* will be called every *n* SCF iterations + the
+        final iteration if it would not be otherwise
+
+        If *n* is negative, then *function* will only be
+        called on iteration *abs(n)*.
+
+        If *n* is 0, then *function* will only be called
+        on convergence"""
+
+        try:
+            slf = function.__self__
+        except AttributeError:
+            pass
+        else:
+            if slf is self:
+                # function is a bound method of self.  Store the name
+                # of the method and avoid circular reference:
+                function = function.__func__.__name__
+
+        # Replace self in args with another unique reference
+        # to avoid circular reference
+        if not hasattr(self, 'self_ref'):
+            self.self_ref = object()
+        self_ = self.self_ref
+        args = tuple([self_ if arg is self else arg for arg in args])
+
+        self.observers.append((function, n, args, kwargs))
+
+    def call_observers(self, iter, final=False):
+        """Call all registered callback functions."""
+        for function, n, args, kwargs in self.observers:
+            call = False
+            # Call every n iterations, including the last
+            if n > 0:
+                if ((iter % n) == 0) != final:
+                    call = True
+            # Call only on iteration n
+            elif n < 0 and not final:
+                if iter == abs(n):
+                    call = True
+            # Call only on convergence
+            elif n == 0 and final:
+                call = True
+            if call:
+                if isinstance(function, str):
+                    function = getattr(self, function)
+                # Replace self reference with self
+                self_ = self.self_ref
+                args = tuple([self if arg is self_ else arg for arg in args])
+                function(*args, **kwargs)
+
+    def get_reference_energy(self):
+        return self.wfs.setups.Eref * Ha
+
+    def get_homo_lumo(self, spin=None):
+        """Return HOMO and LUMO eigenvalues.
+
+        By default, return the true HOMO-LUMO eigenvalues (spin=None).
+
+        If spin is 0 or 1, return HOMO-LUMO eigenvalues taken among
+        only those states with the given spin."""
+        return self.wfs.get_homo_lumo(spin) * Ha
+
+    def estimate_memory(self, mem):
+        """Estimate memory use of this object."""
+        for name, obj in [('Density', self.density),
+                          ('Hamiltonian', self.hamiltonian),
+                          ('Wavefunctions', self.wfs)]:
+            obj.estimate_memory(mem.subnode(name))
+
+    def print_memory_estimate(self, log=None, maxdepth=-1):
+        """Print estimated memory usage for PAW object and components.
+
+        maxdepth is the maximum nesting level of displayed components.
+
+        The PAW object must be initialize()'d, but needs not have large
+        arrays allocated."""
+        # NOTE.  This should work with "--dry-run=N"
+        #
+        # However, the initial overhead estimate is wrong if this method
+        # is called within a real mpirun/gpaw-python context.
+        if log is None:
+            log = self.log
+        log('Memory estimate:')
+
+        mem_init = maxrss()  # initial overhead includes part of Hamiltonian!
+        log('  Process memory now: %.2f MiB' % (mem_init / 1024.0**2))
+
+        mem = MemNode('Calculator', 0)
+        mem.indent = '  '
+        try:
+            self.estimate_memory(mem)
+        except AttributeError as m:
+            log('Attribute error: %r' % m)
+            log('Some object probably lacks estimate_memory() method')
+            log('Memory breakdown may be incomplete')
+        mem.calculate_size()
+        mem.write(log.fd, maxdepth=maxdepth, depth=1)
+        log()
+
+    def converge_wave_functions(self):
+        """Converge the wave-functions if not present."""
+
+        if self.scf and self.scf.converged:
+            if isinstance(self.wfs.kpt_u[0].psit_nG, np.ndarray):
+                return
+            if self.wfs.kpt_u[0].psit_nG is not None:
+                self.wfs.initialize_wave_functions_from_restart_file()
+                return
+
+        if not self.initialized:
+            self.initialize()
+
+        self.set_positions()
+
+        self.scf.converged = False
+        fixed = self.density.fixed
+        self.density.fixed = True
+        self.calculate(system_changes=[])
+        self.density.fixed = fixed
+
+    def diagonalize_full_hamiltonian(self, nbands=None, ecut=None,
+                                     scalapack=None,
+                                     expert=False):
+        if not self.initialized:
+            self.initialize()
+        nbands = self.wfs.diagonalize_full_hamiltonian(
+            self.hamiltonian, self.atoms, self.log,
+            nbands, ecut, scalapack, expert)
+        self.parameters.nbands = nbands
+
+    def get_number_of_bands(self) -> int:
+        """Return the number of bands."""
+        return self.wfs.bd.nbands
+
+    def get_xc_functional(self) -> str:
+        """Return the XC-functional identifier.
+
+        'LDA', 'PBE', ..."""
+
+        xc = self.parameters.get('xc', 'LDA')
+        if isinstance(xc, dict):
+            xc = xc['name']
+        return xc
+
+    def get_number_of_spins(self):
+        return self.wfs.nspins
+
+    def get_spin_polarized(self):
+        """Is it a spin-polarized calculation?"""
+        return self.wfs.nspins == 2
+
+    def get_bz_k_points(self):
+        """Return the k-points."""
+        return self.wfs.kd.bzk_kc.copy()
+
+    def get_ibz_k_points(self):
+        """Return k-points in the irreducible part of the Brillouin zone."""
+        return self.wfs.kd.ibzk_kc.copy()
+
+    def get_bz_to_ibz_map(self):
+        """Return indices from BZ to IBZ."""
+        return self.wfs.kd.bz2ibz_k.copy()
+
+    def get_k_point_weights(self):
+        """Weights of the k-points.
+
+        The sum of all weights is one."""
+
+        return self.wfs.kd.weight_k
+
+    def get_pseudo_density(self, spin=None, gridrefinement=1,
+                           pad=True, broadcast=True):
+        """Return pseudo-density array.
+
+        If *spin* is not given, then the total density is returned.
+        Otherwise, the spin up or down density is returned (spin=0 or
+        1)."""
+
+        if gridrefinement == 1:
+            nt_sG = self.density.nt_sG
+            gd = self.density.gd
+        elif gridrefinement == 2:
+            if self.density.nt_sg is None:
+                self.density.interpolate_pseudo_density()
+            nt_sG = self.density.nt_sg
+            gd = self.density.finegd
+        else:
+            raise NotImplementedError
+
+        if spin is None:
+            if self.density.nspins == 1:
+                nt_G = nt_sG[0]
+            else:
+                nt_G = nt_sG.sum(axis=0)
+        else:
+            if self.density.nspins == 1:
+                nt_G = 0.5 * nt_sG[0]
+            else:
+                nt_G = nt_sG[spin]
+
+        nt_G = gd.collect(nt_G, broadcast=broadcast)
+
+        if nt_G is None:
+            return None
+
+        if pad:
+            nt_G = gd.zero_pad(nt_G)
+
+        return nt_G / Bohr**3
+
+    get_pseudo_valence_density = get_pseudo_density  # Don't use this one!
+
+    def get_effective_potential(self, spin=0, pad=True, broadcast=True):
+        """Return pseudo effective-potential."""
+        vt_G = self.hamiltonian.gd.collect(self.hamiltonian.vt_sG[spin],
+                                           broadcast=broadcast)
+        if vt_G is None:
+            return None
+
+        if pad:
+            vt_G = self.hamiltonian.gd.zero_pad(vt_G)
+        return vt_G * Ha
+
+    def get_electrostatic_potential(self):
+        """Return the electrostatic potential.
+
+        This is the potential from the pseudo electron density and the
+        PAW-compensation charges.  So, the electrostatic potential will
+        only be correct outside the PAW augmentation spheres.
+        """
+
+        ham = self.hamiltonian
+        dens = self.density
+        self.initialize_positions()
+        dens.interpolate_pseudo_density()
+        dens.calculate_pseudo_charge()
+        return ham.get_electrostatic_potential(dens) * Ha
+
+    def get_pseudo_density_corrections(self):
+        """Integrated density corrections.
+
+        Returns the integrated value of the difference between the pseudo-
+        and the all-electron densities at each atom.  These are the numbers
+        you should add to the result of doing e.g. Bader analysis on the
+        pseudo density."""
+        if self.wfs.nspins == 1:
+            return np.array([self.density.get_correction(a, 0)
+                             for a in range(len(self.atoms))])
+        else:
+            return np.array([[self.density.get_correction(a, spin)
+                              for a in range(len(self.atoms))]
+                             for spin in range(2)])
+
+    def get_all_electron_density(self, spin=None, gridrefinement=2,
+                                 pad=True, broadcast=True, collect=True,
+                                 skip_core=False):
+        """Return reconstructed all-electron density array."""
+        n_sG, gd = self.density.get_all_electron_density(
+            self.atoms, gridrefinement=gridrefinement, skip_core=skip_core)
+        if spin is None:
+            if self.density.nspins == 1:
+                n_G = n_sG[0]
+            else:
+                n_G = n_sG.sum(axis=0)
+        else:
+            if self.density.nspins == 1:
+                n_G = 0.5 * n_sG[0]
+            else:
+                n_G = n_sG[spin]
+
+        if collect:
+            n_G = gd.collect(n_G, broadcast=broadcast)
+
+        if n_G is None:
+            return None
+
+        if pad:
+            n_G = gd.zero_pad(n_G)
+
+        return n_G / Bohr**3
+
+    def get_fermi_level(self):
+        """Return the Fermi-level."""
+        assert self.wfs.fermi_levels is not None
+        if len(self.wfs.fermi_levels) != 1:
+            raise ValueError('There are two Fermi-levels!')
+        return self.wfs.fermi_levels[0] * Ha
+
+    def get_fermi_levels(self):
+        """Return the Fermi-levels in case of fixed-magmom."""
+        assert self.wfs.fermi_levels is not None
+        if len(self.wfs.fermi_levels) != 2:
+            raise ValueError('There is only one Fermi-level!')
+        return self.wfs.fermi_levels * Ha
+
+    def get_wigner_seitz_densities(self, spin):
+        """Get the weight of the spin-density in Wigner-Seitz cells
+        around each atom.
+
+        The density assigned to each atom is relative to the neutral atom,
+        i.e. the density sums to zero.
+        """
+        from gpaw.analyse.wignerseitz import wignerseitz
+        atom_index = wignerseitz(self.wfs.gd, self.atoms)
+
+        nt_G = self.density.nt_sG[spin]
+        weight_a = np.empty(len(self.atoms))
+        for a in range(len(self.atoms)):
+            # XXX Optimize! No need to integrate in zero-region
+            smooth = self.wfs.gd.integrate(np.where(atom_index == a,
+                                                    nt_G, 0.0))
+            correction = self.density.get_correction(a, spin)
+            weight_a[a] = smooth + correction
+
+        return weight_a
+
+    def get_dos(self, spin=0, npts=201, width=None):
+        """The total DOS.
+
+        Fold eigenvalues with Gaussians, and put on an energy grid.
+
+        returns an (energies, dos) tuple, where energies are relative to the
+        vacuum level for non-periodic systems, and the average potential for
+        periodic systems.
+        """
+        if width is None:
+            width = 0.1
+
+        w_k = self.wfs.kd.weight_k
+        Nb = self.wfs.bd.nbands
+        energies = np.empty(len(w_k) * Nb)
+        weights = np.empty(len(w_k) * Nb)
+        x = 0
+        for k, w in enumerate(w_k):
+            energies[x:x + Nb] = self.get_eigenvalues(k, spin)
+            weights[x:x + Nb] = w
+            x += Nb
+
+        from gpaw.utilities.dos import fold
+        return fold(energies, weights, npts, width)
+
+    def get_wigner_seitz_ldos(self, a, spin=0, npts=201, width=None):
+        """The Local Density of States, using a Wigner-Seitz basis function.
+
+        Project wave functions onto a Wigner-Seitz box at atom ``a``, and
+        use this as weight when summing the eigenvalues."""
+        if width is None:
+            width = 0.1
+
+        from gpaw.utilities.dos import fold, raw_wignerseitz_LDOS
+        energies, weights = raw_wignerseitz_LDOS(self, a, spin)
+        return fold(energies * Ha, weights, npts, width)
+
+    def get_orbital_ldos(self, a,
+                         spin=0, angular='spdf', npts=201, width=None,
+                         nbands=None, spinorbit=False):
+        """The Local Density of States, using atomic orbital basis functions.
+
+        Project wave functions onto an atom orbital at atom ``a``, and
+        use this as weight when summing the eigenvalues.
+
+        The atomic orbital has angular momentum ``angular``, which can be
+        's', 'p', 'd', 'f', or any combination (e.g. 'sdf').
+
+        An integer value for ``angular`` can also be used to specify a specific
+        projector function to project onto.
+
+        Setting nbands limits the number of bands included. This speeds up the
+        calculation if one has many bands in the calculator but is only
+        interested in the DOS at low energies.
+        """
+        from gpaw.utilities.dos import fold, raw_orbital_LDOS
+        if width is None:
+            width = 0.1
+
+        if not spinorbit:
+            energies, weights = raw_orbital_LDOS(self, a, spin, angular,
+                                                 nbands)
+        else:
+            raise DeprecationWarning(
+                'Please use GPAW.dos(soc=True, ...).raw_pdos(...)')
+
+        return fold(energies * Ha, weights, npts, width)
+
+    def get_lcao_dos(self, atom_indices=None, basis_indices=None,
+                     npts=201, width=None):
+        """Get density of states projected onto orbitals in LCAO mode.
+
+        basis_indices is a list of indices of basis functions on which
+        to project.  To specify all basis functions on a set of atoms,
+        you can supply atom_indices instead.  Both cannot be given
+        simultaneously."""
+
+        both_none = atom_indices is None and basis_indices is None
+        neither_none = atom_indices is not None and basis_indices is not None
+        if both_none or neither_none:
+            raise ValueError('Please give either atom_indices or '
+                             'basis_indices but not both')
+
+        if width is None:
+            width = 0.1
+
+        if self.wfs.S_qMM is None:
+            from gpaw.utilities.dos import RestartLCAODOS
+            lcaodos = RestartLCAODOS(self)
+        else:
+            from gpaw.utilities.dos import LCAODOS
+            lcaodos = LCAODOS(self)
+
+        if atom_indices is not None:
+            basis_indices = lcaodos.get_atom_indices(atom_indices)
+
+        eps_n, w_n = lcaodos.get_subspace_pdos(basis_indices)
+        from gpaw.utilities.dos import fold
+        return fold(eps_n * Ha, w_n, npts, width)
+
+    def get_all_electron_ldos(self, mol, spin=0, npts=201, width=None,
+                              wf_k=None, P_aui=None, lc=None, raw=False):
+        """The Projected Density of States, using all-electron wavefunctions.
+
+        Projects onto a pseudo_wavefunctions (wf_k) corresponding to some band
+        n and uses P_aui ([paw.nuclei[a].P_uni[:,n,:] for a in atoms]) to
+        obtain the all-electron overlaps.
+        Instead of projecting onto a wavefunction, a molecular orbital can
+        be specified by a linear combination of weights (lc)
+        """
+        from gpaw.utilities.dos import all_electron_LDOS, fold
+
+        if raw:
+            return all_electron_LDOS(self, mol, spin, lc=lc,
+                                     wf_k=wf_k, P_aui=P_aui)
+        if width is None:
+            width = 0.1
+
+        energies, weights = all_electron_LDOS(self, mol, spin,
+                                              lc=lc, wf_k=wf_k, P_aui=P_aui)
+        return fold(energies * Ha, weights, npts, width)
+
+    def get_pseudo_wave_function(self, band=0, kpt=0, spin=0, broadcast=True,
+                                 pad=True, periodic=False):
+        """Return pseudo-wave-function array.
+
+        Units: 1/Angstrom^(3/2)
+        """
+        if self.wfs.mode == 'lcao' and not self.wfs.positions_set:
+            self.initialize_positions()
+
+        if pad:
+            psit_G = self.get_pseudo_wave_function(band, kpt, spin, broadcast,
+                                                   pad=False,
+                                                   periodic=periodic)
+            if psit_G is None:
+                return
+            else:
+                return self.wfs.gd.zero_pad(psit_G)
+
+        psit_G = self.wfs.get_wave_function_array(band, kpt, spin,
+                                                  periodic=periodic)
+        if broadcast:
+            if self.wfs.world.rank != 0:
+                psit_G = self.wfs.gd.empty(dtype=self.wfs.dtype,
+                                           global_array=True)
+            psit_G = np.ascontiguousarray(psit_G)
+            self.wfs.world.broadcast(psit_G, 0)
+            return psit_G / Bohr**1.5
+        elif self.wfs.world.rank == 0:
+            return psit_G / Bohr**1.5
+
+    def get_eigenvalues(self, kpt=0, spin=0, broadcast=True):
+        """Return eigenvalue array."""
+        assert 0 <= kpt < self.wfs.kd.nibzkpts, kpt
+        eps_n = self.wfs.collect_eigenvalues(kpt, spin)
+        if broadcast:
+            if self.wfs.world.rank != 0:
+                eps_n = np.empty(self.wfs.bd.nbands)
+            self.wfs.world.broadcast(eps_n, 0)
+        return eps_n * Ha
+
+    def get_occupation_numbers(self, kpt=0, spin=0, broadcast=True):
+        """Return occupation array."""
+        f_n = self.wfs.collect_occupations(kpt, spin)
+        if broadcast:
+            if self.wfs.world.rank != 0:
+                f_n = np.empty(self.wfs.bd.nbands)
+            self.wfs.world.broadcast(f_n, 0)
+        return f_n
+
+    def get_xc_difference(self, xc):
+        if isinstance(xc, (str, dict)):
+            xc = XC(xc)
+        xc.set_grid_descriptor(self.density.finegd)
+        xc.initialize(self.density, self.hamiltonian, self.wfs)
+        xc.set_positions(self.spos_ac)
+        if xc.orbital_dependent:
+            self.converge_wave_functions()
+        return self.hamiltonian.get_xc_difference(xc, self.density) * Ha
+
+    def initial_wannier(self, initialwannier, kpointgrid, fixedstates,
+                        edf, spin, nbands):
+        """Initial guess for the shape of wannier functions.
+
+        Use initial guess for wannier orbitals to determine rotation
+        matrices U and C.
+        """
+        from ase.dft.wannier import rotation_from_projection
+        proj_knw = self.get_projections(initialwannier, spin)
+        U_kww = []
+        C_kul = []
+        for fixed, proj_nw in zip(fixedstates, proj_knw):
+            U_ww, C_ul = rotation_from_projection(proj_nw[:nbands],
+                                                  fixed,
+                                                  ortho=True)
+            U_kww.append(U_ww)
+            C_kul.append(C_ul)
+
+        U_kww = np.asarray(U_kww)
+        return C_kul, U_kww
+
+    def get_wannier_localization_matrix(self, nbands, dirG, kpoint,
+                                        nextkpoint, G_I, spin):
+        """Calculate integrals for maximally localized Wannier functions."""
+
+        # Due to orthorhombic cells, only one component of dirG is non-zero.
+        k_kc = self.wfs.kd.bzk_kc
+        G_c = k_kc[nextkpoint] - k_kc[kpoint] - G_I
+
+        return self.get_wannier_integrals(spin, kpoint,
+                                          nextkpoint, G_c, nbands)
+
+    def get_wannier_integrals(self, s, k, k1, G_c, nbands=None):
+        """Calculate integrals for maximally localized Wannier functions."""
+
+        assert s <= self.wfs.nspins
+        kpt_rank, u = divmod(k + len(self.wfs.kd.ibzk_kc) * s,
+                             len(self.wfs.kpt_u))
+        kpt_rank1, u1 = divmod(k1 + len(self.wfs.kd.ibzk_kc) * s,
+                               len(self.wfs.kpt_u))
+        kpt_u = self.wfs.kpt_u
+
+        # XXX not for the kpoint/spin parallel case
+        assert self.wfs.kd.comm.size == 1
+
+        # If calc is a save file, read in tar references to memory
+        # For lcao mode just initialize the wavefunctions from the
+        # calculated lcao coefficients
+        if self.wfs.mode == 'lcao':
+            self.wfs.initialize_wave_functions_from_lcao()
+        else:
+            self.wfs.initialize_wave_functions_from_restart_file()
+
+        # Get pseudo part
+        Z_nn = self.wfs.gd.wannier_matrix(kpt_u[u].psit_nG,
+                                          kpt_u[u1].psit_nG, G_c, nbands)
+
+        # Add corrections
+        self.add_wannier_correction(Z_nn, G_c, u, u1, nbands)
+
+        self.wfs.gd.comm.sum(Z_nn)
+
+        return Z_nn
+
+    def add_wannier_correction(self, Z_nn, G_c, u, u1, nbands=None):
+        r"""Calculate the correction to the wannier integrals.
+
+        See: (Eq. 27 ref1)::
+
+                          -i G.r
+            Z   = <psi | e      |psi >
+             nm       n             m
+
+                           __                __
+                   ~      \              a  \     a*   a    a
+            Z    = Z    +  ) exp[-i G . R ]  )   P   dO    P
+             nmx    nmx   /__            x  /__   ni   ii'  mi'
+
+                           a                 ii'
+
+        Note that this correction is an approximation that assumes the
+        exponential varies slowly over the extent of the augmentation sphere.
+
+        ref1: Thygesen et al, Phys. Rev. B 72, 125119 (2005)
+        """
+
+        if nbands is None:
+            nbands = self.wfs.bd.nbands
+
+        P_ani = self.wfs.kpt_u[u].P_ani
+        P1_ani = self.wfs.kpt_u[u1].P_ani
+        for a, P_ni in P_ani.items():
+            P_ni = P_ani[a][:nbands]
+            P1_ni = P1_ani[a][:nbands]
+            dO_ii = self.wfs.setups[a].dO_ii
+            e = np.exp(-2.j * np.pi * np.dot(G_c, self.spos_ac[a]))
+            Z_nn += e * np.dot(np.dot(P_ni.conj(), dO_ii), P1_ni.T)
+
+    def get_projections(self, locfun, spin=0):
+        """Project wave functions onto localized functions
+
+        Determine the projections of the Kohn-Sham eigenstates
+        onto specified localized functions of the format::
+
+          locfun = [[spos_c, l, sigma], [...]]
+
+        spos_c can be an atom index, or a scaled position vector. l is
+        the angular momentum, and sigma is the (half-) width of the
+        radial gaussian.
+
+        Return format is::
+
+          f_kni = <psi_kn | f_i>
+
+        where psi_kn are the wave functions, and f_i are the specified
+        localized functions.
+
+        As a special case, locfun can be the string 'projectors', in which
+        case the bound state projectors are used as localized functions.
+        """
+
+        wfs = self.wfs
+
+        if locfun == 'projectors':
+            f_kin = []
+            for kpt in wfs.kpt_u:
+                if kpt.s == spin:
+                    f_in = []
+                    for a, P_ni in kpt.P_ani.items():
+                        i = 0
+                        setup = wfs.setups[a]
+                        for l, n in zip(setup.l_j, setup.n_j):
+                            if n >= 0:
+                                for j in range(i, i + 2 * l + 1):
+                                    f_in.append(P_ni[:, j])
+                            i += 2 * l + 1
+                    f_kin.append(f_in)
+            f_kni = np.array(f_kin).transpose(0, 2, 1)
+            return f_kni.conj()
+
+        from math import factorial as fac
+
+        from gpaw.lfc import LocalizedFunctionsCollection as LFC
+        from gpaw.spline import Spline
+
+        nkpts = len(wfs.kd.ibzk_kc)
+        nbf = np.sum([2 * l + 1 for pos, l, a in locfun])
+        f_kni = np.zeros((nkpts, wfs.bd.nbands, nbf), wfs.dtype)
+
+        spos_xc = []
+        splines_x = []
+        for spos_c, l, sigma in locfun:
+            if isinstance(spos_c, int):
+                spos_c = self.spos_ac[spos_c]
+            spos_xc.append(spos_c)
+            alpha = .5 * Bohr**2 / sigma**2
+            r = np.linspace(0, 10. * sigma, 500)
+            f_g = (fac(l) * (4 * alpha)**(l + 3 / 2.) *
+                   np.exp(-alpha * r**2) /
+                   (np.sqrt(4 * np.pi) * fac(2 * l + 1)))
+            splines_x.append([Spline(l, rmax=r[-1], f_g=f_g)])
+
+        lf = LFC(wfs.gd, splines_x, wfs.kd, dtype=wfs.dtype)
+        lf.set_positions(spos_xc)
+
+        assert wfs.gd.comm.size == 1
+        k = 0
+        f_ani = lf.dict(wfs.bd.nbands)
+        for kpt in wfs.kpt_u:
+            if kpt.s != spin:
+                continue
+            lf.integrate(kpt.psit_nG[:], f_ani, kpt.q)
+            i1 = 0
+            for x, f_ni in f_ani.items():
+                i2 = i1 + f_ni.shape[1]
+                f_kni[k, :, i1:i2] = f_ni
+                i1 = i2
+            k += 1
+
+        return f_kni.conj()
+
+    def get_number_of_grid_points(self):
+        return self.wfs.gd.N_c
+
+    def get_number_of_iterations(self):
+        return self.scf.niter
+
+    def get_number_of_electrons(self):
+        return self.wfs.setups.nvalence - self.density.charge
+
+    def get_electrostatic_corrections(self):
+        """Calculate PAW correction to average electrostatic potential."""
+        dEH_a = np.zeros(len(self.atoms))
+        for a, D_sp in self.density.D_asp.items():
+            setup = self.wfs.setups[a]
+            dEH_a[a] = setup.dEH0 + np.dot(setup.dEH_p, D_sp.sum(0))
+        self.wfs.gd.comm.sum(dEH_a)
+        return dEH_a * Ha * Bohr**3
+
+    def get_nonselfconsistent_energies(self, type='beefvdw'):
+        from gpaw.xc.bee import BEEFEnsemble
+        if type not in ['beefvdw', 'mbeef', 'mbeefvdw']:
+            raise NotImplementedError('Not implemented for type = %s' % type)
+        assert self.scf.converged
+        bee = BEEFEnsemble(self)
+        x = bee.create_xc_contributions('exch')
+        c = bee.create_xc_contributions('corr')
+        if type == 'beefvdw':
+            return np.append(x, c)
+        elif type == 'mbeef':
+            return x.flatten()
+        elif type == 'mbeefvdw':
+            return np.append(x.flatten(), c)
+
+    def embed(self, q_p, rc=0.2, rc2=np.inf, width=1.0):
+        """Embed QM region in point-charges."""
+        pc = PointChargePotential(q_p, rc=rc, rc2=rc2, width=width)
+        self.set(external=pc)
+        return pc
+
+    def dos(self,
+            soc: bool = False,
+            theta: float = 0.0,
+            phi: float = 0.0,
+            shift_fermi_level: bool = True) -> DOSCalculator:
+        """Create DOS-calculator.
+
+        Default is to shift_fermi_level to 0.0 eV.  For soc=True, angles
+        can be given in degrees.
+        """
+        return DOSCalculator.from_calculator(
+            self, soc=soc,
+            theta=theta, phi=phi,
+            shift_fermi_level=shift_fermi_level)

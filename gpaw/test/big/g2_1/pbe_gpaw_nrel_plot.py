@@ -1,27 +1,22 @@
-from __future__ import print_function
+import matplotlib
+from matplotlib import pylab
+from gpaw.test.big.g2_1.pbe_gpaw_nrel_analyse import tag
+from gpaw.test.big.g2_1.pbe_gpaw_nrel_analyse import ref as calc
+from gpaw.test.big.g2_1.pbe_nwchem_def2_qzvppd_analyse import ref
+from ase.data.g2_1 import data
+from ase.build import molecule
+from ase.data import atomic_numbers
+import heapq
+import numpy as np
 import os
 import warnings
 # silence matplotlib.use() warning
 warnings.filterwarnings('ignore', r'.*This call to matplotlib\.use.*',)
 
-import numpy as np
-
-import heapq
-
-from ase.data.molecules import latex
 
 ann_fontsize = 'small'
 label_fontsize = 12
 
-from ase.data import atomic_numbers
-
-from ase.build import molecule
-from ase.data.g2_1 import data
-
-from gpaw.test.big.g2_1.pbe_nwchem_def2_qzvppd_analyse import ref
-
-from gpaw.test.big.g2_1.pbe_gpaw_nrel_analyse import ref as calc
-from gpaw.test.big.g2_1.pbe_gpaw_nrel_analyse import tag
 
 formulas = sorted(ref['ea'].keys())
 
@@ -96,6 +91,7 @@ def get_statistics(result, reference):
 
 # prepare plot
 
+
 vs = [
     (calc['ea'].copy(), ref['ea'].copy(), 'G2_1')]
 
@@ -131,11 +127,11 @@ for n, results in enumerate(vs):
     resrm.append(rs)
     refrm.append(rf)
     all.append(al)
-#print no
-#print average
-#print absaverage
-#print std
-#print largest
+# print no
+# print average
+# print absaverage
+# print std
+# print largest
 
 
 def plot(xdata, ydata, std,
@@ -146,7 +142,7 @@ def plot(xdata, ydata, std,
          num=1,
          ):
     import matplotlib
-    #matplotlib.use('Agg')
+    # matplotlib.use('Agg')
     import pylab
     import matplotlib.font_manager
 
@@ -155,10 +151,10 @@ def plot(xdata, ydata, std,
     pylab.gca().set_position([0.10, 0.20, 0.85, 0.60])
     # let the plot have fixed y-axis scale
     # ywindow = maxy - miny
-    #pylab.gca().set_ylim(miny, maxy+ywindow/5.0)
+    # pylab.gca().set_ylim(miny, maxy+ywindow/5.0)
     pylab.gca().set_ylim(miny, maxy)
-    #pylab.plot(xdata, ydata, 'b.', label=label, color=color)
-    #pylab.plot(xdata, ydata, 'b-', label='_nolegend_', color=color)
+    # pylab.plot(xdata, ydata, 'b.', label=label, color=color)
+    # pylab.plot(xdata, ydata, 'b-', label='_nolegend_', color=color)
     pylab.bar(xdata, ydata, 0.9, label=label, color=color, alpha=alpha)
     t = pylab.title(title)
     # http://old.nabble.com/More-space-between-title-and-secondary-x-axis-td31722298.html
@@ -169,20 +165,20 @@ def plot(xdata, ydata, std,
     leg = pylab.legend(loc='upper right', fancybox=True, prop=prop)
     leg.get_frame().set_alpha(0.5)
 
+
 def plot_save(directory_name, out_prefix):
     from os.path import exists
     assert exists(directory_name)
     import pylab
 
-    pylab.savefig(directory_name + os.path.sep + out_prefix +'.png',
+    pylab.savefig(directory_name + os.path.sep + out_prefix + '.png',
                   bbox_inches='tight')
 
-import matplotlib
+
 matplotlib.use('Agg')
-from matplotlib import pylab
 # print scaling results
 
-num=1
+num = 1
 miny = -0.3
 maxy = 0.3
 
@@ -208,7 +204,7 @@ plot(
     num=1)
 zero = [0.0 for i in range(len(no))]
 pylab.plot(no, zero, 'k-', label='_nolegend_')
-ay1=pylab.gca()
+ay1 = pylab.gca()
 ay1.xaxis.set_ticks([n + 0.5 for n in no])
 ay1.xaxis.set_ticklabels(labels)
 ay1.yaxis.set_minor_locator(matplotlib.ticker.AutoMinorLocator())
@@ -216,10 +212,14 @@ ay1.yaxis.set_minor_locator(matplotlib.ticker.AutoMinorLocator())
 for label in ay1.get_xticklabels() + ay1.get_yticklabels():
     label.set_fontsize(label_fontsize)
 
+
 def errorslocation(n, n1):
     return (n + 0.1, 0.25 - 0.05 * n1)
+
+
 def formulaslocation(n, n1):
     return (n + 0.3, - 0.10 - 0.05 * n1)
+
 
 for n in range(len(no)):
     label = ''
@@ -243,7 +243,7 @@ for n in range(len(no)):
 # plot compounds with largest errors
 for n, l in enumerate(largest):
     for n1, (c, e) in enumerate(l):
-        name = latex(c) + '\n'
+        name = c + '\n'
         # matplotlib.pyparsing.ParseFatalException: Expected end of math '$'
         # $\rm{SiH}2_\rm{s}3\rm{B}1\rm{d}$ (at char 0), (line:1, col:1)
         name = name.replace('\\rm', '')
@@ -255,6 +255,6 @@ for n, l in enumerate(largest):
                                        facecolor='black', shrink=1.00),
                        horizontalalignment='left', verticalalignment='center',
                        fontsize=ann_fontsize)
-#pylab.show()
+# pylab.show()
 plot_save(".", tag + '_ea_vs')
-#pylab.close(1)
+# pylab.close(1)

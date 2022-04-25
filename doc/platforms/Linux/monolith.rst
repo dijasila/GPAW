@@ -4,7 +4,7 @@
 monolith
 ========
 
-Here you find information about the the system
+Here you find information about the system
 `<http://www.nsc.liu.se/systems/retiredsystems/monolith/>`_.
 
 The Monolith machine is a cluster of 2.4Ghz Xeon processors with 2GB of

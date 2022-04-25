@@ -1,14 +1,14 @@
-from __future__ import division
 import numbers
 from math import pi, factorial as fac
 
 import numpy as np
+from scipy.interpolate import make_interp_spline, splder
 
 from gpaw.spline import Spline
 from gpaw.utilities import hartree, divrl
 
 
-def radial_grid_descriptor(eq, **kwargs):
+def radial_grid_descriptor(eq: str, **kwargs) -> 'RadialGridDescriptor':
     if eq == 'r=d*i':
         assert int(kwargs['istart']) == 0
         return EquidistantRadialGridDescriptor(float(kwargs['d']),
@@ -61,7 +61,7 @@ def fsbt(l, f_g, r_g, G_k):
 class RadialGridDescriptor:
     ndim = 1  # dimension of ndarrays
 
-    def __init__(self, r_g, dr_g, default_spline_points=25):
+    def __init__(self, r_g: np.ndarray, dr_g, default_spline_points=25):
         """Grid descriptor for radial grid."""
         self.r_g = r_g
         self.dr_g = dr_g
@@ -71,6 +71,12 @@ class RadialGridDescriptor:
 
     def __len__(self):
         return self.N
+
+    @classmethod
+    def new(cls, name, *args, **kwargs):
+        if name == 'equidistant':
+            return EquidistantRadialGridDescriptor(*args, **kwargs)
+        raise ValueError(f'Unknown grid-type: {name}')
 
     def zeros(self, x=()):
         a_xg = self.empty(x)
@@ -144,6 +150,23 @@ class RadialGridDescriptor:
         vr_g *= 4 * pi
         vr_g[:] *= self.r_g[:]**0.5
         return vr_g
+
+    def derivative_spline(self, n_g, dndr_g=None, *, degree=5):
+        """Spline-based derivative of radial function."""
+        if dndr_g is None:
+            dndr_g = self.empty()
+
+        # Boundary conditions
+        assert degree in [3, 5]
+        if degree == 5:
+            bc_type = ([(2, 0.0), (4, 0.0)], [(2, 0.0), (4, 0.0)])
+        elif degree == 3:
+            bc_type = ([(2, 0.0)], [(2, 0.0)])
+
+        s = make_interp_spline(self.r_g, n_g, k=degree, bc_type=bc_type)
+        s = splder(s)
+        dndr_g[:] = s(self.r_g)
+        return dndr_g
 
     def derivative(self, n_g, dndr_g=None):
         """Finite-difference derivative of radial function."""
@@ -459,7 +482,9 @@ class EquidistantRadialGridDescriptor(RadialGridDescriptor):
 
         The radial grid is r(g) = h0 + g*h,  g = 0, 1, ..., N - 1."""
 
-        RadialGridDescriptor.__init__(self, h * np.arange(N) + h0, h)
+        RadialGridDescriptor.__init__(self,
+                                      h * np.arange(N) + h0,
+                                      h + np.zeros(N))
 
     def r2g(self, r):
         return int(np.ceil((r - self.r_g[0]) / (self.r_g[1] - self.r_g[0])))
@@ -537,6 +562,9 @@ class AbinitRadialGridDescriptor(RadialGridDescriptor):
 
     def r2g(self, r):
         return np.log(r / self.a + 1) / self.d
+
+    def d2gdr2(self):
+        return -1 / (self.a**2 * self.d * (self.r_g / self.a + 1)**2)
 
     def new(self, N):
         return AbinitRadialGridDescriptor(self.a, self.d, N)

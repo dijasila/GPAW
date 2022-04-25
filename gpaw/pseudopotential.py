@@ -1,11 +1,12 @@
 import numpy as np
+from scipy.special import erf
 
 from gpaw.atom.atompaw import AtomPAW
 from gpaw.atom.radialgd import EquidistantRadialGridDescriptor
 from gpaw.basis_data import Basis, BasisFunction
 from gpaw.setup import BaseSetup, LocalCorrectionVar
 from gpaw.spline import Spline
-from gpaw.utilities import erf, divrl, hartree as hartree_solve
+from gpaw.utilities import divrl, hartree as hartree_solve
 
 
 null_spline = Spline(0, 1.0, [0., 0., 0.])
@@ -170,9 +171,9 @@ def generate_basis_functions(ppdata):
 
 
 def pseudoplot(pp, show=True):
-    import pylab as pl
+    import matplotlib.pyplot as plt
 
-    fig = pl.figure()
+    fig = plt.figure()
     wfsax = fig.add_subplot(221)
     ptax = fig.add_subplot(222)
     vax = fig.add_subplot(223)
@@ -207,7 +208,7 @@ def pseudoplot(pp, show=True):
         ax.legend()
 
     if show:
-        pl.show()
+        plt.show()
 
 
 class PseudoPotential(BaseSetup):
@@ -294,7 +295,6 @@ class PseudoPotential(BaseSetup):
 
         self.N0_p = np.zeros(_np)  # not really implemented
         self.nabla_iiv = None
-        self.rnabla_iiv = None
         self.rxnabla_iiv = None
         self.phicorehole_g = None
         self.rgd = data.rgd

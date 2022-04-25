@@ -11,17 +11,31 @@ Modules on Niflheim
 
 You can see which modules are available with the ``module avail [package]`` command, for example::
 
+
   $ module avail GPAW
 
-  --------------------------- /home/modules/modules/all ---------------------------
-     GPAW-setups/0.8.7929                         GPAW/1.5.1-foss-2018b-Python-3.6.6
-     GPAW-setups/0.9.9672                         GPAW/1.5.1-intel-2018b-Python-3.6.6
-     GPAW-setups/0.9.11271                        GPAW/1.5.2-foss-2018b-Python-3.6.6
-     GPAW-setups/0.9.20000               (D)      GPAW/1.5.2-intel-2018b-Python-3.6.6
-     GPAW/1.4.0-foss-2018a-Python-3.6.4  (D)      GPAW/19.8.1-foss-2018b-ASE-3.18.0-Python-3.6.6
-     GPAW/1.4.0-foss-2018b-Python-3.6.6           GPAW/19.8.1-intel-2018b-ASE-3.18.0-Python-3.6.6
+  -------------------------- /home/modules/modules/all --------------------------
+     GPAW-setups/0.8.7929
+     GPAW-setups/0.9.9672
+     GPAW-setups/0.9.11271
+     GPAW-setups/0.9.20000                            (D)
+     GPAW/1.4.0-foss-2018a-Python-3.6.4
+     GPAW/1.4.0-foss-2018b-Python-3.6.6
      GPAW/1.4.0-intel-2018b-Python-3.6.6
-
+     GPAW/1.5.1-foss-2018b-Python-3.6.6
+     GPAW/1.5.1-intel-2018b-Python-3.6.6
+     GPAW/1.5.2-foss-2018b-Python-3.6.6
+     GPAW/1.5.2-intel-2018b-Python-3.6.6
+     GPAW/19.8.1-foss-2018b-ASE-3.18.0-Python-3.6.6
+     GPAW/19.8.1-intel-2018b-ASE-3.18.0-Python-3.6.6
+     GPAW/20.1.0-foss-2019b-Python-3.7.4
+     GPAW/20.1.0-intel-2019b-Python-3.7.4
+     GPAW/20.10.0-foss-2019b-ASE-3.20.1-Python-3.7.4
+     GPAW/20.10.0-foss-2020b
+     GPAW/20.10.0-intel-2019b-ASE-3.20.1-Python-3.7.4
+     GPAW/20.10.0-intel-2020b 
+     GPAW/21.1.0-foss-2020b-ASE-3.21.1
+     GPAW/21.1.0-intel-2020b-ASE-3.21.1               (D)
     Where:
      D:  Default Module
 
@@ -33,27 +47,17 @@ Choose the right version of GPAW
 ================================
 
 This is a brief guide to which version of GPAW you should use. It
-reflects the situation in December 2018 and will soon be updated as
+reflects the situation in December 2020 and will be updated as
 the situation changes.
 
-I am very conservative
-  If you are currenlty using version 1.4.0 you can continue to do so
-  by loading ``GPAW/1.4.0-foss-2018a-Python-3.6.4`` or
-  ``GPAW/1.4.0-foss-2018b-Python-3.6.6``.
 
-  The first of these is the exact build that has been used in 2018,
-  loading it will break ``gedit``, ``emacs``, ``gnuplot`` and possibly
-  some other graphical programs.  The second option is a newer
-  (still 2018) build of the same version, it will not break anything.
-
-I am conservative
-  You should check what version you are using now
-  (probably 1.4.0 or 1.5.2), and check that it is hardcoded in your
-  ``.bashrc`` and/or your script files.  Be sure never to just load
-  the default version.
+I have an ongoing project
+  You should probably continue to use the version you are using in
+  that project, unless you want to change.  See the section below on
+  using different versions for different project.
 
 I am a normal user
-  You should load ``GPAW/19.8.1-intel-2018b-ASE-3.18.0-Python-3.6.6``
+  You should load ``GPAW/21.1.0-intel-2020b``.
 
   This will give the newest version of GPAW, as recommended by the
   developers.  It has new features and is significantly faster, in
@@ -63,16 +67,22 @@ I am a normal user
   the same version for ongoing projects.  See below for a description
   on how to do that.
 
-I am reckless
-  You can just load the default version with ``module load GPAW``.
-
-  You will have *no control* over when the default version change.
-  From Tuesday 3. September 2019 it will typically be the latest
-  version.  *We do not recommend being reckless!*
+I am sligtly conservative or need ``libvwdxc``.
+  The version of GPAW compiled with the FOSS toolchain is somewhat
+  slower in many situations, but is better tested and may use less
+  memory.  You may also have to use this version if you want the
+  functionality from ``libvwdxc`` library, but be aware that many vad
+  der Waals potentials do not use ``libvwdxc``.
+  
 
 **IMPORTANT:**  You do *not* need to load Python, ASE, matplotlib etc.
 Loading GPAW pulls all that stuff in, in versions consistent with the
 chosen GPAW version.
+
+If you want to generate Wannier functions with the Wannier90 module,
+you need to explicitly load ``Wannier90/3.1.0-foss-2020b`` or
+``Wannier90/3.1.0-intel-2020b``.
+
 
 Intel or foss versions?
 =======================
@@ -102,17 +112,60 @@ load should belong to the same toolchain.**
 
 Use ``module list`` to list your modules. Check for consistency:
 
-* If you use the ``foss-2018a`` toolchain, all modules should end in
-  ``foss-2018a``, ``foss-2018a-Python-3.6.4``, ``gompi-2018a`` or
-  ``GCCcore-6.4.0``.
+     
+==============   ==================================
+foss/2020b       foss-2020b
 
-* If you use the ``foss-2018b`` toolchain, all modules should end in
-  ``foss-2018b``, ``foss-2018b-Python-3.6.6``, ``gompi-2018b`` or
-  ``GCCcore-7.3.0``.
+                 gompi-2020b
+		 
+                 GCCcore-10.2.0
+--------------   ----------------------------------
+intel/2020b      intel-2020b
 
-* If you use the ``intel-2018b`` toolchain, all modules should end in
-  ``intel-2018b``, ``intel-2018b-Python-3.6.6``, ``gompi-2018b`` or
-  ``GCCcore-7.3.0``.
+                 iccifort-2020.4.304
+		 
+                 iimpi-2020b
+		 
+                 GCCcore-10.2.0
+--------------   ----------------------------------
+foss/2019b       foss-2019b
+
+                 foss-2019b-[ASE-3.20.1]Python-3.7.4
+		 
+		 gompi-2019b
+		 
+		 GCC-8.3.0
+--------------   ----------------------------------
+intel/2019b      intel-2019b
+
+                 intel-2019b-[ASE-3.20.1]Python-3.7.4
+		 
+		 iccifort-2019.5.281
+		 
+		 iimpi-2019b
+		 
+		 GCCcore-8.3.0
+--------------   ----------------------------------
+foss/2018b       foss-2018b
+
+                 foss-2018b-Python-3.6.6
+		 
+                 gompi-2018b
+		 
+                 GCCcore-7.3.0
+--------------   ----------------------------------
+intel/2018b      intel-2018b
+
+                 intel-2018b-Python-3.6.6
+		 
+                 iimpi-2018b
+		 
+		 iccifort-2018.3.222-GCC-7.3.0-2.30
+		 
+                 GCCcore-7.3.0
+		 
+		 *and a few variations thereof*
+==============   ==================================
 
 If your ``module load XXX`` commands give warnings about reloaded
 modules, you are almost certainly mixing incompatible toolchains.
@@ -132,8 +185,8 @@ you can put this in your .bashrc::
       module load GPAW/1.4.0-foss-2018a-Python-3.6.4
   else
       # Performance is important for everything else.
-      module load GPAW/19.8.1-intel-2018b-ASE-3.18.0-Python-3.6.6
-      module load scikit-learn/0.20.0-intel-2018b-Python-3.6.6.eb
+      module load GPAW/20.10.0-intel-2020b
+      module load scikit-learn/0.23.2-intel-2020b
   fi
 
 The ``module purge`` command in the special branch is because SLURM

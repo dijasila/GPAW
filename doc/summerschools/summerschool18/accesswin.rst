@@ -27,7 +27,7 @@ Once you are logged in on the front-end, get a session on an interactive compute
 
   linuxsh -X
 
-  
+
 Starting a Jupyter Notebook
 ===========================
 
@@ -108,12 +108,12 @@ in the address bar::
 
   http://localhost:8080
 
-Your browser is now aking for your *Jupyter password* (the one you
+Your browser is now asking for your *Jupyter password* (the one you
 created when setting up your account).  You are now ready to open one
 of the notebooks, and run the exercises.
 
-Loggin out
-==========
+Logging out
+===========
 
 When you are done for the day, please
 
@@ -128,4 +128,4 @@ When you are done for the day, please
 
 
 
-	   
+

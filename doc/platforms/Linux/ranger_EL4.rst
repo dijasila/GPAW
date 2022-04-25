@@ -4,7 +4,7 @@
 ranger.tacc.utexas.edu
 ======================
 
-Here you find information about the the system
+Here you find information about the system
 http://services.tacc.utexas.edu/index.php/ranger-user-guide.
 
 The installation of user's packages on ranger EL4, 64-bit described below uses
@@ -62,7 +62,7 @@ The installation of user's packages on ranger EL4, 64-bit described below uses
 
   using the following :file:`submit.sh`::
 
-   #!/bin/bash      
+   #!/bin/bash
 
    #$ -V   # Inherit the submission environment
    #$ -cwd         # Start job in submission directory

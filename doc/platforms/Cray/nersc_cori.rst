@@ -5,7 +5,7 @@ cori.nersc.gov (XC40)
 =====================
 
 .. note::
-   These instructions are up-to-date as of August 2019.
+   These instructions are up-to-date as of April 2021.
 
 GPAW
 ====
@@ -14,7 +14,7 @@ At NERSC it is recommened to install GPAW on Cori with Anaconda python. For
 massivly parallel applications it is recommened to use `Shifter
 <http://www.nersc.gov/research-and-development/user-defined-images/>`_.
 
-GPAW can be built with a minimal ``customize.py``
+GPAW can be built with a minimal ``siteconfig.py``
 
 .. literalinclude:: customize_nersc_cori.py
 
@@ -27,7 +27,7 @@ linking::
 
 Create a conda environment for gpaw::
 
-  conda create --name gpaw python=3.6 pip numpy scipy matplotlib
+  conda create --name gpaw python=3.8 pip numpy scipy matplotlib
 
 Install ASE with pip while the Anaconda python module is loaded::
 
@@ -54,3 +54,7 @@ Then the test suite can be run from a batch script or interactive session with::
 .. note::
    For all tests to pass enable MKL's conditional Numerical
    Reproducibility mode with the `MKL_CBWR` environment variable.
+
+.. note::
+    To run the test suite you will first need the GPAW setups 
+    installed, as described at :ref:`installation of paw datasets`.

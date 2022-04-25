@@ -112,16 +112,6 @@ class LDA(XCFunctional):
         v_sg[:] = dedn_sg
         return rgd.integrate(e_g)
 
-    def calculate_fxc(self, gd, n_sg, f_sg):
-        if gd is not self.gd:
-            self.set_grid_descriptor(gd)
-
-        assert len(n_sg) == 1
-        assert n_sg.shape == f_sg.shape
-        assert n_sg.flags.contiguous and n_sg.dtype == float
-        assert f_sg.flags.contiguous and f_sg.dtype == float
-        self.kernel.xc.calculate_fxc_spinpaired(n_sg.ravel(), f_sg)
-
     def stress_tensor_contribution(self, n_sg):
         nspins = len(n_sg)
         v_sg = self.gd.zeros(nspins)

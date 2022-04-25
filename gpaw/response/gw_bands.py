@@ -6,7 +6,7 @@ from ase.units import Ha
 from scipy.interpolate import InterpolatedUnivariateSpline
 
 from gpaw import GPAW
-from gpaw.spinorbit import get_spinorbit_eigenvalues
+from gpaw.spinorbit import soc_eigenstates
 from gpaw.kpt_descriptor import to1bz
 
 
@@ -22,7 +22,7 @@ class GWBands:
 
         self.calc = GPAW(calc, communicator=comm, txt=None)
         if gw_file is not None:
-            self.gw_file = pickle.load(open(gw_file, 'rb'),encoding='bytes')
+            self.gw_file = pickle.load(open(gw_file, 'rb'), encoding='bytes')
         self.kpoints = kpoints
         if bandrange is None:
             self.bandrange = np.arange(self.calc.get_number_of_bands())
@@ -131,31 +131,33 @@ class GWBands:
         if not dft:
             try:
                 e_kn = self.gw_file['qp'][0]
-            except:
+            except KeyError:
                 e_kn = self.gw_file[b'qp'][0]
         else:
             if eig_file is not None:
                 e_kn = pickle.load(open(eig_file))[0]
             else:
-                e_kn = self.get_dft_eigenvalues()[:,bandrange[0]:bandrange[-1]]
+                e_kn = self.get_dft_eigenvalues()[
+                    :, bandrange[0]:bandrange[-1] + 1]
 
-        eSO_nk, s_nk, v_knm = get_spinorbit_eigenvalues(
+        # this will fail - please write a test!
+        soc = soc_eigenstates(
             calc,
-            return_spin=return_spin, return_wfs=return_wfs,
-            bands=range(bandrange[0], bandrange[-1]+1),
-            gw_kn=e_kn)
-
+            n1=bandrange[0],
+            n2=bandrange[-1] + 1,
+            eigenvalues=e_kn[np.newaxis])
+        eSO_nk = soc.eigenvalues().T
         e_kn = eSO_nk.T
-        return e_kn, v_knm
+        return e_kn
 
     def get_gw_bands(self, nk_Int=50, interpolate=False, SO=False,
                      gwqeh_file=None, dft=False, eig_file=None, vac=False):
         """Getting Eigenvalues along the path"""
         kd = self.kd
         if SO:
-            e_kn, v_knm = self.get_spinorbit_corrections(return_wfs=True,
-                                                         dft=dft,
-                                                         eig_file=eig_file)
+            e_kn = self.get_spinorbit_corrections(return_wfs=True,
+                                                  dft=dft,
+                                                  eig_file=eig_file)
             if gwqeh_file is not None:
                 gwqeh_file = pickle.load(open(gwqeh_file))
                 eqeh_noSO_kn = gwqeh_file['qp_sin'][0] * Ha
@@ -174,7 +176,7 @@ class GWBands:
             if not dft:
                 try:
                     e_kn = self.gw_file['qp'][0]
-                except:
+                except KeyError:
                     e_kn = self.gw_file[b'qp'][0]
             else:
                 e_kn = self.get_dft_eigenvalues()
@@ -201,7 +203,7 @@ class GWBands:
         # N_occ = int(self.calc.get_number_of_electrons()/2)
         print(' ')
         if SO:
-            print('The number of Occupied bands is:', N_occ + 2.*bandrange[0])
+            print('The number of Occupied bands is:', N_occ + 2 * bandrange[0])
         else:
             print('The number of Occupied bands is:', N_occ + bandrange[0])
         gap = (eGW_kn[:, N_occ].min() - eGW_kn[:, N_occ - 1].max())

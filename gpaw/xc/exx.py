@@ -2,35 +2,21 @@ import json
 import sys
 from math import pi
 from pathlib import Path
+from typing import Union
 
 import numpy as np
 from ase.units import Hartree
 
 import gpaw.mpi as mpi
+from gpaw.hybrids.paw import pawexxvv
 from gpaw.xc import XC
 from gpaw.xc.tools import vxc
 from gpaw.xc.kernel import XCNull
 from gpaw.response.pair import PairDensity
-from gpaw.wavefunctions.pw import PWDescriptor
+from gpaw.pw.descriptor import PWDescriptor
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.utilities import unpack, unpack2, packed_index
+from gpaw.utilities import unpack, unpack2
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
-
-
-def pawexxvv(atomdata, D_ii):
-    """PAW correction for valence-valence EXX energy."""
-    ni = len(D_ii)
-    V_ii = np.empty((ni, ni))
-    for i1 in range(ni):
-        for i2 in range(ni):
-            V = 0.0
-            for i3 in range(ni):
-                p13 = packed_index(i1, i3, ni)
-                for i4 in range(ni):
-                    p24 = packed_index(i2, i4, ni)
-                    V += atomdata.M_pp[p13, p24] * D_ii[i3, i4]
-            V_ii[i1, i2] = V
-    return V_ii
 
 
 def select_kpts(kpts, calc):
@@ -75,7 +61,7 @@ class EXX(PairDensity):
         kpts: list of in or list of list of int
             List of indices of the IBZ k-points to calculate the quasi particle
             energies for.  Default is all k-points.  One can also specify the
-            coordiantes of the k-point.  As an example, Gamma and X for an
+            coordinates of the k-point.  As an example, Gamma and X for an
             FCC crystal would be: kpts=[[0, 0, 0], [1 / 2, 1 / 2, 0]].
         bands: tuple of two ints
             Range of band indices, like (n1, n2), to calculate the quasi
@@ -165,7 +151,7 @@ class EXX(PairDensity):
         self.C_aii = []   # valence-core correction
         self.initialize_paw_exx_corrections()
 
-    def calculate(self, restart: str = None) -> None:
+    def calculate(self, restart: Union[Path, str] = None):
         """Do the calculation.
 
         restart_filename: str or Path
@@ -218,6 +204,7 @@ class EXX(PairDensity):
                                  for x_n in [self.f_sin[s, i],
                                              self.exxvc_sin[s, i],
                                              self.exxvv_sin[s, i]]])
+                    assert isinstance(restart, Path)  # for mypy
                     tmp = restart.with_name(restart.name + '.tmp')
                     tmp.write_text(json.dumps(data))
                     # Overwrite restart-file in in almost atomic step that

@@ -4,7 +4,7 @@
 seaborg.nersc.gov
 =================
 
-Here you find information about the the system
+Here you find information about the system
 `<http://www.nersc.gov/nusers/systems/SP/>`_.
 
 We need to use the mpi-enabled compiler ``mpcc`` and we should link to

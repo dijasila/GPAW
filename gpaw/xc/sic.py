@@ -187,14 +187,14 @@ class SIC(XCFunctional):
             'finegrid': self.finegrid,
             'parameters': dict(self.parameters)}
 
-    def initialize(self, density, hamiltonian, wfs, occ=None):
+    def initialize(self, density, hamiltonian, wfs):
         assert wfs.kd.gamma
         assert not wfs.gd.pbc_c.any()
         assert wfs.bd.comm.size == 1  # band parallelization unsupported
 
         self.wfs = wfs
         self.dtype = float
-        self.xc.initialize(density, hamiltonian, wfs, occ)
+        self.xc.initialize(density, hamiltonian, wfs)
         self.kpt_comm = wfs.kd.comm
         self.nspins = wfs.nspins
         self.nbands = wfs.bd.nbands
@@ -205,7 +205,8 @@ class SIC(XCFunctional):
                         integral=np.sqrt(4 * np.pi),
                         forces=True)
 
-        poissonsolver = PoissonSolver(eps=1e-14)
+        # XXX Use hamiltonian.poisson instead?
+        poissonsolver = PoissonSolver()
         poissonsolver.set_grid_descriptor(self.finegd)
 
         self.spin_s = {}

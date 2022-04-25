@@ -3,10 +3,10 @@ from functools import partial
 from time import ctime
 
 from ase.units import Hartree
-from ase.utils import convert_string_to_fd
+from gpaw.utilities import convert_string_to_fd
 from ase.utils.timing import Timer, timer
 
-from gpaw import extra_parameters
+import gpaw
 import gpaw.mpi as mpi
 from gpaw.blacs import (BlacsGrid, BlacsDescriptor, Redistributor)
 from gpaw.utilities.memory import maxrss
@@ -38,7 +38,7 @@ class KohnShamLinearResponseFunction:
     handled together:
 
     t (composit transition index): (n, s) -> (n', s')
-    
+
     __               __   __               __
     \      //        \    \      //        \
     /   =  ||dk dk'  /    /   =  ||dk dk'  /
@@ -209,7 +209,7 @@ class KohnShamLinearResponseFunction:
 
         # Print information about the prepared calculation
         self.print_information(len(n1_t))
-        if extra_parameters.get('df_dry_run'):  # Exit after setting up
+        if gpaw.dry_run:  # Exit after setting up
             print('    Dry run exit', file=self.fd)
             raise SystemExit
 
@@ -228,7 +228,7 @@ class KohnShamLinearResponseFunction:
 
     def get_band_spin_transitions_domain(self):
         """Generate all allowed band and spin transitions.
-        
+
         If only a subset of possible spin rotations are considered
         (examples: s1 = s2 or s2 = 1 - s1), do not include others
         in the sum over transitions.
@@ -274,9 +274,9 @@ class KohnShamLinearResponseFunction:
         nk = self.calc.wfs.kd.nbzkpts
         nik = self.calc.wfs.kd.nibzkpts
 
-        if extra_parameters.get('df_dry_run'):
+        if gpaw.dry_run:
             from gpaw.mpi import DryRunCommunicator
-            size = extra_parameters['df_dry_run']
+            size = gpaw.dry_run
             world = DryRunCommunicator(size)
         else:
             world = self.world
@@ -333,7 +333,7 @@ def get_band_transitions_domain(bandsummation, nbands, nocc1=None, nocc2=None):
     _get_band_transitions_domain =\
         create_get_band_transitions_domain(bandsummation)
     n1_M, n2_M = _get_band_transitions_domain(nbands)
-    
+
     return remove_null_transitions(n1_M, n2_M, nocc1=nocc1, nocc2=nocc2)
 
 
@@ -568,7 +568,7 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
 
     def get_PWDescriptor(self, q_c):
         """Get the planewave descriptor for a certain momentum transfer q_c."""
-        from gpaw.wavefunctions.pw import PWDescriptor
+        from gpaw.pw.descriptor import PWDescriptor
         if isinstance(q_c, PWDescriptor):
             return q_c
         else:
@@ -582,7 +582,7 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
     @timer('Get PW symmetry analyser')
     def get_PWSymmetryAnalyzer(self, pd):
         from gpaw.response.pair import PWSymmetryAnalyzer as PWSA
-        
+
         return PWSA(self.calc.wfs.kd, pd,
                     timer=self.timer, txt=self.fd,
                     disable_point_group=self.disable_point_group,
@@ -806,7 +806,7 @@ class Integrator:
         self._integrate(bzk_kv, weight_k,
                         n1_t, n2_t, s1_t, s2_t, out_x, **kwargs)
         out_x *= prefactor
-        
+
         return out_x
 
     def get_kpoint_domain(self):
@@ -845,7 +845,7 @@ class PWPointIntegrator(Integrator):
         else:
             nbzkpts = self.kslrf.calc.wfs.kd.nbzkpts
         frac = len(bzk_kv) / nbzkpts
-        
+
         return (2 * frac * self.kslrf.pwsa.how_many_symmetries() /
                 (self.kslrf.calc.wfs.nspins * (2 * np.pi)**3))
 

@@ -1,16 +1,23 @@
 import pickle
 import numpy as np
 from os.path import isfile
+
+from ase.parallel import parprint
+from ase.units import Bohr, Ha
+
 from gpaw.mpi import world
 from gpaw.utilities import unpack2
 from gpaw.lcao.projected_wannier import dots
 from gpaw.utilities.tools import tri2full
-from gpaw.lfc import NewLocalizedFunctionsCollection as LFC
-from ase.units import Bohr, Ha
-from gpaw.utilities.timing import StepTimer, nulltimer
+from gpaw.lfc import LocalizedFunctionsCollection as LFC
+
 
 """This module is used to calculate the electron-phonon coupling matrix,
-    expressed in terms of GPAW LCAO orbitals."""
+    expressed in terms of GPAW LCAO orbitals.
+
+    This module is not maintained and possibly broken.
+    Use gpaw/elph/electronphonon instead.
+    """
 
 
 class ElectronPhononCouplingMatrix:
@@ -41,7 +48,7 @@ class ElectronPhononCouplingMatrix:
 
         if indices is None:
             indices = range(len(self.atoms))
-        self.calc = atoms.get_calculator()
+        self.calc = atoms.calc
         self.atoms = atoms
         self.indices = np.asarray(indices)
         self.name = name
@@ -172,7 +179,7 @@ class ElectronPhononCouplingMatrix:
                 x += 1
         return dvt_Gx, ddH_aspx
 
-    def get_M(self, modes, log=None, q=0):
+    def get_M(self, modes, q=0):
         r"""Calculate el-ph coupling matrix for given modes(s).
 
         XXX:
@@ -209,12 +216,6 @@ class ElectronPhononCouplingMatrix:
                               a,ij
 
         """
-        if log is None:
-            timer = nulltimer
-        elif log == '-':
-            timer = StepTimer(name='EPCM')
-        else:
-            timer = StepTimer(name='EPCM', out=open(log, 'w'))
 
         modes1 = modes.copy()
         # convert to atomic units
@@ -239,7 +240,7 @@ class ElectronPhononCouplingMatrix:
         spin = 0  # XXX
 
         M_lii = {}
-        timer.write_now('Starting gradient of pseudo part')
+        parprint('Starting gradient of pseudo part')
         for f, mode in modes.items():
             mo = []
             M_ii = np.zeros((nao, nao), dtype)
@@ -250,7 +251,7 @@ class ElectronPhononCouplingMatrix:
             bfs.calculate_potential_matrix(dvtdP_G, M_ii, q=q)
             tri2full(M_ii, 'L')
             M_lii[f] = M_ii
-        timer.write_now('Finished gradient of pseudo part')
+        parprint('Finished gradient of pseudo part')
 
         P_aqMi = calc.wfs.P_aqMi
         # Add the term
@@ -264,7 +265,7 @@ class ElectronPhononCouplingMatrix:
         for f, mode in modes.items():
             Ma_lii[f] = np.zeros_like(M_lii.values()[0])
 
-        timer.write_now('Starting gradient of dH^a part')
+        parprint('Starting gradient of dH^a part')
         for f, mode in modes.items():
             mo = []
             for a in self.indices:
@@ -275,11 +276,11 @@ class ElectronPhononCouplingMatrix:
                 ddHdP_sp = np.dot(ddH_spx, mode)
                 ddHdP_ii = unpack2(ddHdP_sp[spin])
                 Ma_lii[f] += dots(P_aqMi[a][q], ddHdP_ii, P_aqMi[a][q].T)
-        timer.write_now('Finished gradient of dH^a part')
+        parprint('Finished gradient of dH^a part')
 
-        timer.write_now('Starting gradient of projectors part')
-        dP_aMix = self.get_dP_aMix(calc.spos_ac, wfs, q, timer)
-        timer.write_now('Finished gradient of projectors part')
+        parprint('Starting gradient of projectors part')
+        dP_aMix = self.get_dP_aMix(calc.spos_ac, wfs, q)
+        parprint('Finished gradient of projectors part')
 
         dH_asp = pickle.load(open('v.eq.pckl', 'rb'))[1]
 
@@ -318,7 +319,7 @@ class ElectronPhononCouplingMatrix:
 # XXX sometimes even nan!
 #####################################################
 
-def get_grid_dP_aMix(spos_ac, wfs, q, timer=nulltimer):  # XXXXXX q
+def get_grid_dP_aMix(spos_ac, wfs, q):  # XXXXXX q
     nao = wfs.setups.nao
     C_MM = np.identity(nao, dtype=wfs.dtype)
     # XXX In the future use the New Two-Center integrals
@@ -341,8 +342,7 @@ def get_grid_dP_aMix(spos_ac, wfs, q, timer=nulltimer):  # XXXXXX q
             pt.derivative(phi_MG, dP_bMix, q=q)
             dP_Mix[ni:ni + nao] = dP_bMix[0]
             ni += nao
-            timer.write_now('projector grad. doing atoms (%s, %s) ' %
-                            (a, b))
+            parprint('projector grad. doing atoms (%s, %s) ' % (a, b))
 
         dP_aMix[a] = dP_Mix
     return dP_aMix

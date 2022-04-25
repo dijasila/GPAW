@@ -3,10 +3,9 @@
 
 # flake8: noqa
 # Computer generated code:
-# format:
+# format: (energy in Hartrees)
 #    'element': (atomic number, [(n, l, occ, energy), ...])
-from __future__ import print_function
-
+from typing import Dict, Any
 import copy
 
 configurations = {
@@ -1045,7 +1044,7 @@ configurations['No'][1][15] = (5, 3, 14, -0.36654300000000001)
 configurations['No'][1][16] = (6, 2, 0, -0.14319000000000001)
 
 
-parameters = {
+parameters: Dict[str, Dict[str, Any]] = {
  'H' : {'rcut': 0.9},
  'He': {'rcut': 1.5},
  'Li': {'core': '[He]',       'rcut': 2.0},
@@ -1309,19 +1308,20 @@ if __name__ == '__main__':
     # http://www.physics.nist.gov/PhysRefData/DFTdata/
     path = '/scratch/jensj/dftdata/'
     Ztable = {}
-    configurations = [['X', '']]
+    confs = [['X', '']]
     Z = 1
-    for line in open(path + 'configurations'):
-        if len(line) > 1 and line[1].isdigit():
-            line = line[:44].split()
-            symbol = line[1]
-            Ztable[symbol] = Z
-            configurations.append(line[2:])
-            Z += 1
+    with open(path + 'configurations') as fd:
+        for line in fd:
+            if len(line) > 1 and line[1].isdigit():
+                words = line[:44].split()
+                symbol = words[1]
+                Ztable[symbol] = Z
+                confs.append(words[2:])
+                Z += 1
 
     def get_occupations(symbol):
         Z = Ztable[symbol]
-        configuration = configurations[Z]
+        configuration = confs[Z]
         if configuration[0][0] == '[':
             occupations = get_occupations(configuration[0][1:-1])
             configuration = configuration[1:]
@@ -1335,19 +1335,19 @@ if __name__ == '__main__':
     spdf = {'s': 0, 'p': 1, 'd': 2, 'f': 3}
     for symbol, Z in Ztable.items():
         occupations = get_occupations(symbol)
-        f = open(path + 'LDA/neutrals/%02d%s' % (Z, symbol), 'r')
-        for n in range(5):
-            f.readline()
-        epsilons = {}
-        for line in f:
-            state, eps = line.split()
-            epsilons[state] = float(eps)
+        with open(path + 'LDA/neutrals/%02d%s' % (Z, symbol), 'r') as fd:
+            for n in range(5):
+                fd.readline()
+            epsilons = {}
+            for line in fd:
+                state, eps = line.split()
+                epsilons[state] = float(eps)
         nloe = []
         for state, occ in occupations:
             n = int(state[0])
             l = spdf[state[1]]
-            eps = epsilons[state]
-            nloe.append((n, l, occ, eps))
+            e = epsilons[state]
+            nloe.append((n, l, occ, e))
         dftdata[symbol] = (Z, nloe)
     print('# Computer generated code:')
     print()

@@ -1,5 +1,6 @@
-import pylab as plt
+import matplotlib.pyplot as plt
 import numpy as np
+
 
 def analyse(generator, show=False):
     gen = generator
@@ -88,7 +89,7 @@ def analyse(generator, show=False):
     plt.ylabel(r'density [Bohr$^{-3}$]')
 
     plt.subplot(324)
-    plt.plot(r_g[1:], gen.vr[1:] / r_g[1:] , label=r'$v$')
+    plt.plot(r_g[1:], gen.vr[1:] / r_g[1:], label=r'$v$')
     plt.plot(r_g, gen.vt, label=r'$\tilde{v}$')
     plt.plot(r_g, gen.vt - gen.vbar, label=r'$\tilde{v}-\bar{v}$')
     plt.axis('tight')
@@ -119,6 +120,6 @@ def analyse(generator, show=False):
     plt.xlabel('Energy [Hartree]')
 
     plt.savefig('%s-setup.png' % symbol, dpi=dpi)
-    
+
     if show:
         plt.show()

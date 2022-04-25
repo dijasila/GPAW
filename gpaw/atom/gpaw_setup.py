@@ -1,4 +1,3 @@
-from __future__ import print_function
 from optparse import OptionParser
 
 
@@ -53,10 +52,6 @@ def build_parser():
     parser.add_option('--name', type='string', metavar='<id>',
                       help='Name to use for setup file: <symbol>.<id>.<xc>.  '
                       'Default name is <symbol>.<xc>.')
-    parser.add_option('--use-restart-file', action='store_true',
-                      default=False,
-                      help='Use restart file (should be avoided: '
-                      'introduces dependency on the restart).')
     parser.add_option('-w', '--write-files', action='store_true',
                       help='Write wave functions and other things to files.')
     parser.add_option('-p', '--plot', action='store_true',
@@ -166,7 +161,6 @@ def main():
         try:
             g.run(logderiv=opt.logarithmic_derivatives,
                   exx=opt.exact_exchange, name=opt.name,
-                  use_restart_file=opt.use_restart_file,
                   **p)
         except ConvergenceError:
             print(bad_density_warning, file=sys.stderr)

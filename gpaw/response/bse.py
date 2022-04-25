@@ -1,23 +1,20 @@
 import functools
 from time import time, ctime
 from datetime import timedelta
-
 import sys
-from os import path as op
 
 import numpy as np
 from ase.units import Hartree, Bohr
-from ase.utils import devnull
+from ase.utils import IOContext
 from ase.dft import monkhorst_pack
 from scipy.linalg import eigh
 
 from gpaw import GPAW
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.wavefunctions.pw import PWDescriptor
-from gpaw.spinorbit import get_spinorbit_eigenvalues
-from gpaw.utilities import file_barrier
+from gpaw.pw.descriptor import PWDescriptor
+from gpaw.spinorbit import soc_eigenstates
 from gpaw.blacs import BlacsGrid, Redistributor
-from gpaw.mpi import world, serial_comm
+from gpaw.mpi import world, serial_comm, broadcast
 from gpaw.response.chi0 import Chi0
 from gpaw.response.kernels import get_coulomb_kernel
 from gpaw.response.kernels import get_integrated_kernel
@@ -86,7 +83,7 @@ class BSE:
 
         # Calculator
         if isinstance(calc, str):
-            calc = GPAW(calc, txt=None, communicator=serial_comm)
+            calc = GPAW(calc, communicator=serial_comm)
         self.calc = calc
         self.spinors = spinors
         self.scale = scale
@@ -94,12 +91,8 @@ class BSE:
         assert mode in ['RPA', 'TDHF', 'BSE']
         # assert calc.wfs.kd.nbzkpts % world.size == 0
 
-        # txt file
-        if world.rank != 0:
-            txt = devnull
-        elif isinstance(txt, str):
-            txt = open(txt, 'w', 1)
-        self.fd = txt
+        self.iocontext = IOContext()
+        self.fd = self.iocontext.openfile(txt)
 
         self.ecut = ecut / Hartree
         self.nbands = nbands
@@ -187,41 +180,28 @@ class BSE:
 
         self.print_initialization(self.td, self.eshift, self.gw_skn)
 
+    def __del__(self):
+        self.iocontext.close()
+
     def calculate(self, optical=True, ac=1.0):
 
         if self.spinors:
-            """Calculate spinors. Here m is index of eigenvalues with SOC
-            and n is the basis of eigenstates withour SOC. Below m is used
-            for unoccupied states and n is used for occupied states so be
-            careful!"""
+            # Calculate spinors. Here m is index of eigenvalues with SOC
+            # and n is the basis of eigenstates without SOC. Below m is used
+            # for unoccupied states and n is used for occupied states so be
+            # careful!
 
             print('Diagonalizing spin-orbit Hamiltonian', file=self.fd)
-            param = self.calc.parameters
-            if not param['symmetry'] == 'off':
-                print('Calculating KS wavefunctions without symmetry ' +
-                      'for spin-orbit', file=self.fd)
-                if not op.isfile('gs_nosym.gpw'):
-                    calc_so = GPAW(**param)
-                    calc_so.set(symmetry='off',
-                                fixdensity=True,
-                                txt='gs_nosym.txt')
-                    calc_so.atoms = self.calc.atoms
-                    calc_so.density = self.calc.density
-                    calc_so.get_potential_energy()
-                    with file_barrier('gs_nosym.gpw'):
-                        calc_so.write('gs_nosym.gpw')
-
-                calc_so = GPAW('gs_nosym.gpw', txt=None,
-                               communicator=serial_comm)
-                e_mk, v_knm = get_spinorbit_eigenvalues(calc_so,
-                                                        return_wfs=True,
-                                                        scale=self.scale)
-                del calc_so
+            if world.rank == 0:
+                soc = soc_eigenstates(self.calc,
+                                      scale=self.scale)
+                e_mk = soc.eigenvalues().T
+                v_kmsn = soc.eigenvectors()
+                e_mk /= Hartree
+                data = (e_mk, v_kmsn)
             else:
-                e_mk, v_knm = get_spinorbit_eigenvalues(self.calc,
-                                                        return_wfs=True,
-                                                        scale=self.scale)
-            e_mk /= Hartree
+                data = None
+            e_mk, v_kmsn = broadcast(data, 0, world)
 
         # Parallelization stuff
         nK = self.kd.nbzkpts
@@ -316,14 +296,14 @@ class BSE:
                     df_Ksmn[iK, s, ::2, 1::2] = df_mn
                     df_Ksmn[iK, s, 1::2, ::2] = df_mn
                     df_Ksmn[iK, s, 1::2, 1::2] = df_mn
-                    vecv0_nm = v_knm[iK][::2][ni:nf, mvi:mvf]
-                    vecc0_nm = v_knm[iKq][::2][ni:nf, mci:mcf]
-                    rho_0mnG = np.dot(vecv0_nm.T.conj(),
-                                      np.dot(vecc0_nm.T, rho_mnG))
-                    vecv1_nm = v_knm[iK][1::2][ni:nf, mvi:mvf]
-                    vecc1_nm = v_knm[iKq][1::2][ni:nf, mci:mcf]
-                    rho_1mnG = np.dot(vecv1_nm.T.conj(),
-                                      np.dot(vecc1_nm.T, rho_mnG))
+                    vecv0_mn = v_kmsn[iK, mvi:mvf, 0, ni:nf]
+                    vecc0_mn = v_kmsn[iKq, mci:mcf, 0, ni:nf]
+                    rho_0mnG = np.dot(vecv0_mn.conj(),
+                                      np.dot(vecc0_mn, rho_mnG))
+                    vecv1_mn = v_kmsn[iK, mvi:mvf, 1, ni:nf]
+                    vecc1_mn = v_kmsn[iKq, mci:mcf, 1, ni:nf]
+                    rho_1mnG = np.dot(vecv1_mn.conj(),
+                                      np.dot(vecc1_mn, rho_mnG))
                     rhoex_KsmnG[iK, s] = rho_0mnG + rho_1mnG
                     if optical_limit:
                         rhoex_KsmnG[iK, s, :, :, 0] /= deps_ksmn[ik, s]
@@ -361,9 +341,11 @@ class BSE:
                     for Q_c in self.qd.bzk_kc:
                         iK2 = self.kd.find_k_plus_q(Q_c, [kptv1.K])[0]
                         rho2_mnG = rhoex_KsmnG[iK2, s2]
-                        rho2_mGn = np.swapaxes(rho2_mnG, 1, 2)
-                        H_ksmnKsmn[ik1, s1, :, :, iK2, s2, :, :] += (
-                            np.dot(rho1ccV_mnG, rho2_mGn))
+
+                        H_ksmnKsmn[ik1, s1, :, :, iK2, s2, :, :] += np.einsum(
+                            'ijk,mnk->ijmn', rho1ccV_mnG, rho2_mnG,
+                            optimize='optimal')
+
                         if not self.mode == 'RPA' and s1 == s2:
                             ikq = ikq_k[iK2]
                             kptv2 = self.pair.get_k_point(s1, iK2, vi_s[s1],
@@ -375,32 +357,31 @@ class BSE:
                             rho4_nnG, iq = self.get_density_matrix(kptc1,
                                                                    kptc2)
                             if self.spinors:
-                                vec0_nm = v_knm[iK1][::2][ni:nf, mvi:mvf]
-                                vec1_nm = v_knm[iK1][1::2][ni:nf, mvi:mvf]
-                                vec2_nm = v_knm[iK2][::2][ni:nf, mvi:mvf]
-                                vec3_nm = v_knm[iK2][1::2][ni:nf, mvi:mvf]
-                                rho_0mnG = np.dot(vec0_nm.T.conj(),
-                                                  np.dot(vec2_nm.T, rho3_mmG))
-                                rho_1mnG = np.dot(vec1_nm.T.conj(),
-                                                  np.dot(vec3_nm.T, rho3_mmG))
+                                vec0_mn = v_kmsn[iK1, mvi:mvf, 0, ni:nf]
+                                vec1_mn = v_kmsn[iK1, mvi:mvf, 1, ni:nf]
+                                vec2_mn = v_kmsn[iK2, mvi:mvf, 0, ni:nf]
+                                vec3_mn = v_kmsn[iK2, mvi:mvf, 1, ni:nf]
+                                rho_0mnG = np.dot(vec0_mn.conj(),
+                                                  np.dot(vec2_mn, rho3_mmG))
+                                rho_1mnG = np.dot(vec1_mn.conj(),
+                                                  np.dot(vec3_mn, rho3_mmG))
                                 rho3_mmG = rho_0mnG + rho_1mnG
-                                vec0_nm = v_knm[ikq_k[iK1]][::2][ni:nf,
-                                                                 mci:mcf]
-                                vec1_nm = v_knm[ikq_k[iK1]][1::2][ni:nf,
-                                                                  mci:mcf]
-                                vec2_nm = v_knm[ikq][::2][ni:nf, mci:mcf]
-                                vec3_nm = v_knm[ikq][1::2][ni:nf, mci:mcf]
-                                rho_0mnG = np.dot(vec0_nm.T.conj(),
-                                                  np.dot(vec2_nm.T, rho4_nnG))
-                                rho_1mnG = np.dot(vec1_nm.T.conj(),
-                                                  np.dot(vec3_nm.T, rho4_nnG))
+                                vec0_mn = v_kmsn[ikq_k[iK1], mci:mcf, 0, ni:nf]
+                                vec1_mn = v_kmsn[ikq_k[iK1], mci:mcf, 1, ni:nf]
+                                vec2_mn = v_kmsn[ikq, mci:mcf, 0, ni:nf]
+                                vec3_mn = v_kmsn[ikq, mci:mcf, 1, ni:nf]
+                                rho_0mnG = np.dot(vec0_mn.conj(),
+                                                  np.dot(vec2_mn, rho4_nnG))
+                                rho_1mnG = np.dot(vec1_mn.conj(),
+                                                  np.dot(vec3_mn, rho4_nnG))
                                 rho4_nnG = rho_0mnG + rho_1mnG
 
-                            rho3ccW_mmG = np.dot(rho3_mmG.conj(),
-                                                 self.W_qGG[iq])
-                            W_mmnn = np.dot(rho3ccW_mmG,
-                                            np.swapaxes(rho4_nnG, 1, 2))
-                            W_mnmn = np.swapaxes(W_mmnn, 1, 2) * Ns * so
+                            W_mnmn = np.einsum('ijk,km,pqm->ipjq',
+                                               rho3_mmG.conj(),
+                                               self.W_qGG[iq],
+                                               rho4_nnG,
+                                               optimize='optimal')
+                            W_mnmn *= Ns * so
                             H_ksmnKsmn[ik1, s1, :, :, iK2, s1] -= 0.5 * W_mnmn
             if iK1 % (myKsize // 5 + 1) == 0:
                 dt = time() - t0
@@ -475,8 +456,12 @@ class BSE:
             x_G = np.exp(1j * np.dot(G_Gv, (pos_av[a] -
                                             np.dot(M_vv, pos_av[a]))))
             U_ii = self.calc.wfs.setups[a].R_sii[sym]
-            Q_Gii = np.dot(np.dot(U_ii, Q_Gii * x_G[:, None, None]),
-                           U_ii.T).transpose(1, 0, 2)
+
+            Q_Gii = np.einsum('ij,kjl,ml->kim',
+                              U_ii,
+                              Q_Gii * x_G[:, None, None],
+                              U_ii,
+                              optimize='optimal')
             if sign == -1:
                 Q_Gii = Q_Gii.conj()
             Q_aGii.append(Q_Gii)

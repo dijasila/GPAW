@@ -26,7 +26,7 @@ from gpaw.xc.gga import GGA, gga_vars, add_gradient_correction
 from gpaw.xc.mgga import MGGA
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.utilities.tools import construct_reciprocal
-from gpaw import setup_paths, extra_parameters
+from gpaw import setup_paths
 import gpaw.mpi as mpi
 import _gpaw
 
@@ -202,6 +202,10 @@ class VDWFunctionalBase:
     def get_Ecnl(self):
         return self.Ecnl
 
+    def stress_tensor_contribution(self, n_sg):
+        raise NotImplementedError('Calculation of stress tensor is not ' +
+                                  f'implemented for {self.name}')
+
     def calculate_impl(self, gd, n_sg, v_sg, e_g):
         sigma_xg, dedsigma_xg, gradn_svg = gga_vars(gd, self.grad_v, n_sg)
         self.calculate_exchange(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
@@ -343,7 +347,7 @@ class VDWFunctionalBase:
             np.savetxt(name, self.phi_ij, header=header)
 
     def make_prl_plot(self, multiply_by_4_pi_D_squared=True):
-        import pylab as plt
+        import matplotlib.pyplot as plt
         x = np.linspace(0, 8.0, 100)
         for delta in [0, 0.5, 0.9]:
             y = [self.phi(D * (1.0 + delta), D * (1.0 - delta))
@@ -519,7 +523,7 @@ class FFTVDWFunctional(VDWFunctionalBase):
 
         self.get_alphas()
 
-    def initialize(self, density, hamiltonian, wfs, occupations):
+    def initialize(self, density, hamiltonian, wfs):
         self.timer = wfs.timer
         self.world = wfs.world
         self.get_alphas()
@@ -703,8 +707,6 @@ class FFTVDWFunctional(VDWFunctionalBase):
             del C_pg
             self.timer.start('FFT')
             theta_ak[a] = rfftn(n_g * pa_g, self.shape).copy()
-            if extra_parameters.get('vdw0'):
-                theta_ak[a][0, 0, 0] = 0.0
             self.timer.stop()
 
             if not self.energy_only:
@@ -849,7 +851,6 @@ class GGARealSpaceVDWFunctional(RealSpaceVDWFunctional, GGA):
 
     def set_grid_descriptor(self, gd):
         GGA.set_grid_descriptor(self, gd)
-        RealSpaceVDWFunctional.set_grid_descriptor(self, gd)
 
 
 class MGGAFFTVDWFunctional(FFTVDWFunctional, MGGA):

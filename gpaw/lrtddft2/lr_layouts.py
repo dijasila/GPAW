@@ -7,6 +7,7 @@ import _gpaw
 class LrDiagonalizeLayout:
     """BLACS layout for distributed Omega matrix in linear response
        time-dependet DFT calculations"""
+
     def __init__(self, sl_lrtddft, nrows, lr_comms):
         self.mprocs, self.nprocs, self.block_size = tuple(sl_lrtddft)
 
@@ -46,7 +47,8 @@ class LrDiagonalizeLayout:
         Parameters:
 
         eigenvectors
-          distributed Casida matrix on input, distributed eigenvectors on output
+          distributed Casida matrix on input, distributed eigenvectors on
+          output
 
         eigenvalues
           zero array on input, eigenvalues on output
@@ -59,7 +61,7 @@ class LrDiagonalizeLayout:
 
         self.diag_in_redist.redistribute(O_orig, O_diag)
 
-        #print O_diag
+        # print O_diag
 
         self.diag_descr.diagonalize_dc(O_diag.copy(), O_diag, eigenvalues, 'L')
 
@@ -70,6 +72,7 @@ class LrDiagonalizeLayout:
 
 class LrTDDFPTSolveLayout:
     """BLACS layouts for distributed TD-DFPT"""
+
     def __init__(self, sl_lrtddft, nrows, lr_comms):
         self.mprocs, self.nprocs, self.block_size = tuple(sl_lrtddft)
 
@@ -114,7 +117,6 @@ class LrTDDFPTSolveLayout:
             (self.lr_comms.dd_comm.size * self.lr_comms.eh_comm.size))
 
         # solve grid
-        #self.solve_vector_grid = BlacsGrid(self.lr_comms.parent_comm, self.mprocs, self.nprocs)
 
         # M = rows, N = cols
         M = nrows * 4
@@ -152,7 +154,7 @@ class LrTDDFPTSolveLayout:
 
         self.vector_in_redist.redistribute(b_orig, b_solve)
 
-        #if False:
+        # if False:
         #    np.set_printoptions(precision=5, suppress=True)
         #    for i in range(self.lr_comms.parent_comm.size):
         #        if ( self.lr_comms.parent_comm.rank == i ):
@@ -180,7 +182,7 @@ class LrTDDFPTSolveLayout:
 
         self.vector_out_redist.redistribute(b_solve, b_orig)
 
-        #if False:
+        # if False:
         #    for i in range(self.lr_comms.parent_comm.size):
         #        if ( self.lr_comms.parent_comm.rank == i ):
         #            print 'rank ', i
@@ -201,6 +203,7 @@ class LrTDDFPTSolveLayout:
 class LrTDDFTLayouts:
     """BLACS layout for distributed Omega matrix in linear response
        time-dependet DFT calculations"""
+
     def __init__(self, sl_lrtddft, nkq, dd_comm, eh_comm):
         mcpus, ncpus, blocksize = tuple(sl_lrtddft)
         self.world = eh_comm.parent
@@ -289,7 +292,7 @@ class LrTDDFTLayouts:
                                                  self.eh_descr2b)
 
     def solve(self, A, b):
-        #if 0:
+        # if 0:
         #    print 'edescr2a', rank, self.eh_descr2a.asarray()
         #    print 'edescr2b', rank, self.eh_descr2b.asarray()
         #
@@ -323,7 +326,7 @@ class LrTDDFTLayouts:
             b_N = np.empty((A_Nn.shape[0], 0), dtype=float)
         self.redist_solve_in_2b.redistribute(b_N, b_n)
 
-        #if 0:
+        # if 0:
         #    print 'A_Nn ', rank, A_Nn.shape
         #    print 'b_N  ', rank, b_N.shape
         #    sys.stdout.flush()
@@ -361,7 +364,7 @@ class LrTDDFTLayouts:
         else:
             b_N = b
 
-        #self.dd_comm.broadcast(b_N, 0)
+        # self.dd_comm.broadcast(b_N, 0)
 
         b[:] = b_N
 

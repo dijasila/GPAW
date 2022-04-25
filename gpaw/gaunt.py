@@ -1,13 +1,26 @@
-# Copyright (C) 2003  CAMP
-# Please see the accompanying LICENSE file for further information.
+from __future__ import annotations
+
+from typing import Dict
 
 import numpy as np
 
-_gaunt = {}
-_nabla = {}
+from gpaw.typing import Array3D
+
+_gaunt: Dict[int, np.ndarray] = {}
+_nabla: Dict[int, np.ndarray] = {}
 
 
-def gaunt(lmax=2):
+def gaunt(lmax: int = 2) -> Array3D:
+    r"""Gaunt coefficients
+
+    :::
+
+         ^      ^     -- L      ^
+      Y (r)  Y (r) =  > G    Y (r)
+       L      L       -- L L  L
+        1      2      L   1 2
+    """
+
     if lmax in _gaunt:
         return _gaunt[lmax]
 
@@ -31,21 +44,21 @@ def gaunt(lmax=2):
     _gaunt[lmax] = G_LLL
     return G_LLL
 
-    
-def nabla(lmax=2):
+
+def nabla(lmax: int = 2) -> Array3D:
     """Create the array of derivative intergrals.
 
-    ::
+    :::
 
-      /  ^     1-l' d   l'
-      | dr Y  r    ---(r Y  )
-      /     L      dr     L'
-                     v
+      /  ^    ^   1-l' d   l'    ^
+      | dr Y (r) r     --[r  Y  (r)]
+      /     L           _     L'
+                       dr
     """
 
     if lmax in _nabla:
         return _nabla[lmax]
-        
+
     Lmax = (lmax + 1)**2
     from gpaw.spherical_harmonics import YL, gam
     Y_LLv = np.zeros((Lmax, Lmax, 3))

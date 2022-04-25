@@ -1,4 +1,4 @@
-from __future__ import print_function
+import sys
 from ase import Atoms
 from ase.parallel import paropen
 from ase.data.s22 import data
@@ -7,9 +7,18 @@ from gpaw import GPAW, FermiDirac
 from gpaw.cluster import Cluster
 from gpaw.analyse.hirshfeld import HirshfeldPartitioning
 from gpaw.analyse.vdwradii import vdWradii
+try:
+    from dftd4 import D4_model
+except ModuleNotFoundError:
+    pass
+
 h = 0.18
 box = 4.
+
 xc = 'TS09'
+if len(sys.argv) > 1:
+    xc = sys.argv[1]
+
 f = paropen('energies_' + xc + '.dat', 'w')
 print('# h=', h, file=f)
 print('# box=', box, file=f)
@@ -22,19 +31,23 @@ for molecule in data:
     s1 = ss.find_connected(0)
     s2 = ss.find_connected(-1)
     assert(len(ss) == len(s1) + len(s2))
-    if xc == 'TS09' or xc == 'TPSS' or xc == 'M06-L':
+    if xc == 'TS09' or xc == 'TPSS' or xc == 'M06-L' or xc == 'dftd4':
         c = GPAW(xc='PBE', h=h, nbands=-6, occupations=FermiDirac(width=0.1))
     else:
         c = GPAW(xc=xc, h=h, nbands=-6, occupations=FermiDirac(width=0.1))
     E = []
     for s in [s1, s2, ss]:
-        s.set_calculator(c)
+        s.calc = c
         s.minimal_box(box, h=h)
         if xc == 'TS09':
             s.get_potential_energy()
             cc = vdWTkatchenko09prl(HirshfeldPartitioning(c),
                                     vdWradii(s.get_chemical_symbols(), 'PBE'))
-            s.set_calculator(cc)
+            s.calc = cc
+        elif xc == 'dftd4':
+            s.get_potential_energy()
+            cc = D4_model(xc='PBE', calc=c)
+            s.calc = cc
         if xc == 'TPSS' or xc == 'M06-L':
             ene = s.get_potential_energy()
             ene += c.get_xc_difference(xc)

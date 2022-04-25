@@ -6,7 +6,7 @@ import pickle
 import numpy as np
 
 from ase.units import Hartree
-from ase.utils import convert_string_to_fd
+from gpaw.utilities import convert_string_to_fd
 from ase.utils.timing import Timer, timer
 
 import gpaw.mpi as mpi
@@ -287,7 +287,7 @@ class FourComponentSusceptibilityTensor:
         """Get the planewave descriptor defining the plane wave basis for the
         given momentum transfer q_c."""
         from gpaw.kpt_descriptor import KPointDescriptor
-        from gpaw.wavefunctions.pw import PWDescriptor
+        from gpaw.pw.descriptor import PWDescriptor
         q_c = np.asarray(q_c, dtype=float)
         qd = KPointDescriptor([q_c])
         pd = PWDescriptor(self.ecut, self.calc.wfs.gd,

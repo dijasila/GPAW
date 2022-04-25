@@ -72,9 +72,11 @@ class LrResponse:
 
         Returns matrix where transitions are in rows and columns are
         occupied index, unoccupied index, occupied KS eigenvalue, unoccupied
-        KS eigenvalue, occupied occupation number, unoccupied occupation number,
+        KS eigenvalue, occupied occupation number, unoccupied occupation
+        number,
         real part of response coefficent, imaginary part of response
-        coefficient, dipole moment x, y, and z-components, magnetic moment x, y,
+        coefficient, dipole moment x, y, and z-components, magnetic
+        moment x, y,
         and z-components.
         """
 
@@ -119,7 +121,7 @@ class LrResponse:
 
             dm = np.vdot(kss_ip.dip_mom_r, self.field_vector)
             data[ip, 15] = 2. * self.omega * df * C_im_ip * dm
-            #data[ip,15] = 2. * (eps_p-eps_i) * df * C_im_ip * dm
+            # data[ip,15] = 2. * (eps_p-eps_i) * df * C_im_ip * dm
 
             # FIXME: IS THIS CORRECT ???
             # maybe answer is here
@@ -144,7 +146,8 @@ class LrResponse:
             data[:, 15] *= float('NaN')  # FIXME: units?
             data[:, 16] *= float('NaN')  # FIXME: units?
             raise RuntimeError(
-                'Error in get_response_data: Unit conversion from atomic units to eV ang cgs not implemented yet.'
+                'Error in get_response_data: Unit conversion from '
+                'atomic units to eV ang cgs not implemented yet.'
             )
         else:
             raise RuntimeError('Error in get_response_data: Invalid units.')
@@ -204,7 +207,8 @@ class LrResponse:
             pass
         elif units == 'eVangcgs':
             raise RuntimeError(
-                'Error in get_transition_contribution_maps: Unit conversion from atomic units to eV ang cgs not implemented yet.'
+                'Error in get_transition_contribution_maps: Unit conversion '
+                'from atomic units to eV ang cgs not implemented yet.'
             )
         else:
             raise RuntimeError(
@@ -227,7 +231,6 @@ class LrResponse:
         C_im = self.C_im
 
         maxC = np.max(abs(C_im))
-        #print >> self.txt, maxC
 
         for (ip, kss_ip) in enumerate(self.lrtddft2.ks_singles.kss_list):
             # distribute ips over eh comm
@@ -320,10 +323,6 @@ class LrResponse:
             # fe_n > 0
             drhot_ge += fe_n[k] * drhot_gip
 
-            #if self.parent_comm.rank == 0:
-            #    print '%03d => %03d : %03d=>%03d | %12.6lf  %12.6lf %12.6lf' % (kss_ip.occ_ind, kss_ip.unocc_ind, kss_ip.occ_ind, kss_ip.unocc_ind, C_im[ip], C_im[ip], C_im[ip] * C_im[ip])
-            #    sys.stdout.flush()
-
         # offdiagonal
         for (ip, kss_ip) in enumerate(self.lrtddft2.ks_singles.kss_list):
             if self.lrtddft2.lr_comms.get_local_eh_index(ip) is None:
@@ -385,11 +384,11 @@ class LrResponse:
 
         drhot_geh = drhot_ge + drhot_gh
 
-        #Ige  = self.lrtddft2.calc.density.finegd.integrate(drhot_ge)
-        #Igh  = self.lrtddft2.calc.density.finegd.integrate(drhot_gh)
-        #Igeh = self.lrtddft2.calc.density.finegd.integrate(drhot_geh)
+        # Ige  = self.lrtddft2.calc.density.finegd.integrate(drhot_ge)
+        # Igh  = self.lrtddft2.calc.density.finegd.integrate(drhot_gh)
+        # Igeh = self.lrtddft2.calc.density.finegd.integrate(drhot_geh)
 
-        #if self.lrtddft2.lr_comms.parent_comm.rank == 0:
+        # if self.lrtddft2.lr_comms.parent_comm.rank == 0:
         #    print 'drho_ge ', Ige
         #    print 'drho_gh ', Igh
         #    print 'drho_geh', Igeh
@@ -407,7 +406,8 @@ class LrResponse:
             drhot_ge *= 1. / ase.units.Bohr**3
         else:
             raise RuntimeError(
-                'Error in get_approximate_electron_and_hole_densities: Invalid units.'
+                'Error in get_approximate_electron_and_hole_densities: '
+                'Invalid units.'
             )
 
         return (drhot_ge, drhot_gh, drhot_geh)
@@ -427,23 +427,23 @@ class LrResponse:
                 if lip is None or ljq is None:
                     continue
 
-                A_matrix[ip * 4 + 0, jq * 4 +
-                         0] = K_matrix[lip, ljq] * kss_jq.pop_diff
-                A_matrix[ip * 4 + 0, jq * 4 +
-                         1] = K_matrix[lip, ljq] * kss_jq.pop_diff
-                A_matrix[ip * 4 + 1, jq * 4 +
-                         0] = K_matrix[lip, ljq] * kss_jq.pop_diff
-                A_matrix[ip * 4 + 1, jq * 4 +
-                         1] = K_matrix[lip, ljq] * kss_jq.pop_diff
+                A_matrix[ip * 4 + 0,
+                         jq * 4 + 0] = K_matrix[lip, ljq] * kss_jq.pop_diff
+                A_matrix[ip * 4 + 0,
+                         jq * 4 + 1] = K_matrix[lip, ljq] * kss_jq.pop_diff
+                A_matrix[ip * 4 + 1,
+                         jq * 4 + 0] = K_matrix[lip, ljq] * kss_jq.pop_diff
+                A_matrix[ip * 4 + 1,
+                         jq * 4 + 1] = K_matrix[lip, ljq] * kss_jq.pop_diff
 
-                A_matrix[ip * 4 + 2, jq * 4 +
-                         2] = K_matrix[lip, ljq] * kss_jq.pop_diff
-                A_matrix[ip * 4 + 2, jq * 4 +
-                         3] = -K_matrix[lip, ljq] * kss_jq.pop_diff
-                A_matrix[ip * 4 + 3, jq * 4 +
-                         2] = -K_matrix[lip, ljq] * kss_jq.pop_diff
-                A_matrix[ip * 4 + 3, jq * 4 +
-                         3] = K_matrix[lip, ljq] * kss_jq.pop_diff
+                A_matrix[ip * 4 + 2,
+                         jq * 4 + 2] = K_matrix[lip, ljq] * kss_jq.pop_diff
+                A_matrix[ip * 4 + 2,
+                         jq * 4 + 3] = -K_matrix[lip, ljq] * kss_jq.pop_diff
+                A_matrix[ip * 4 + 3,
+                         jq * 4 + 2] = -K_matrix[lip, ljq] * kss_jq.pop_diff
+                A_matrix[ip * 4 + 3,
+                         jq * 4 + 3] = K_matrix[lip, ljq] * kss_jq.pop_diff
 
         # diagonal stuff: E, w, and eta
         for (ip, kss_ip) in enumerate(self.lrtddft2.ks_singles.kss_list):
@@ -480,16 +480,16 @@ class LrResponse:
             V_rhs[jq * 4 + 3] = 0.
 
         # no transpose
-        #A_matrix[:] = A_matrix.transpose()
+        # A_matrix[:] = A_matrix.transpose()
 
         # solve A C = V
         self.lrtddft2.lr_comms.parent_comm.sum(A_matrix)
         self.lrtddft2.lr_comms.dd_comm.sum(V_rhs)
 
-        #np.set_printoptions(precision=5, suppress=True)
-        #print A_matrix
+        # np.set_printoptions(precision=5, suppress=True)
+        # print A_matrix
         C = np.linalg.solve(A_matrix, V_rhs)
-        #print C
+        # print C
 
         # response wavefunction
         #   perturbation was exp(iwt) + exp(-iwt) = 2 cos(wt)
@@ -545,7 +545,9 @@ class LrResponse:
         if (nrows <
                 np.max([layout.mprocs, layout.nprocs]) * layout.block_size):
             raise RuntimeError(
-                'Linear response matrix is not large enough for the given number of processes (or block size) in sl_lrtddft. Please, use less processes (or smaller block size).'
+                'Linear response matrix is not large enough for the given '
+                'number of processes (or block size) in sl_lrtddft. Please, '
+                'use less processes (or smaller block size).'
             )
 
         # build local part
@@ -593,14 +595,14 @@ class LrResponse:
                 continue
 
             # energy difference and excitation energy
-            A_matrix_T[ljq * 4 + 0, lip * 4 +
-                       0] += kss_ip.energy_diff + self.omega
-            A_matrix_T[ljq * 4 + 1, lip * 4 +
-                       1] += kss_ip.energy_diff - self.omega
-            A_matrix_T[ljq * 4 + 2, lip * 4 +
-                       2] += kss_ip.energy_diff + self.omega
-            A_matrix_T[ljq * 4 + 3, lip * 4 +
-                       3] += kss_ip.energy_diff - self.omega
+            A_matrix_T[ljq * 4 + 0,
+                       lip * 4 + 0] += kss_ip.energy_diff + self.omega
+            A_matrix_T[ljq * 4 + 1,
+                       lip * 4 + 1] += kss_ip.energy_diff - self.omega
+            A_matrix_T[ljq * 4 + 2,
+                       lip * 4 + 2] += kss_ip.energy_diff + self.omega
+            A_matrix_T[ljq * 4 + 3,
+                       lip * 4 + 3] += kss_ip.energy_diff - self.omega
 
             # life-time parameter, transposed again!
             A_matrix_T[ljq * 4 + 0, lip * 4 + 2] += self.eta
@@ -611,7 +613,8 @@ class LrResponse:
         # RHS
         V_rhs = []
         for (jq, kss_jq) in enumerate(self.lrtddft2.ks_singles.kss_list):
-            if jq % self.lrtddft2.lr_comms.parent_comm.size != self.lrtddft2.lr_comms.parent_comm.rank:
+            if (jq % self.lrtddft2.lr_comms.parent_comm.size !=
+                self.lrtddft2.lr_comms.parent_comm.rank):
                 continue
 
             # 2 cos(wt) = exp(+iwt) + exp(iwt)
@@ -622,48 +625,6 @@ class LrResponse:
             V_rhs.append(0.)
             V_rhs.append(0.)
 
-        # debug
-        #if False:
-        #    A_matrix_T[:,:] = 0.
-        #    for (ip, kss_ip) in enumerate(self.lrtddft2.ks_singles.kss_list):
-        #        for (jq, kss_jq) in enumerate(self.lrtddft2.ks_singles.kss_list):
-        #            lip = self.lrtddft2.lr_comms.get_local_eh_index(ip)
-        #            ljq = self.lrtddft2.lr_comms.get_local_dd_index(jq)
-        #            if lip is None or ljq is None:
-        #                continue
-        #
-        #            if ip == jq:
-        #                A_matrix_T[ljq*4+0,lip*4+0] += (ip+1)*100 + (jq+1)
-        #                A_matrix_T[ljq*4+1,lip*4+1] += (ip+1)*100 + (jq+1)
-        #                A_matrix_T[ljq*4+2,lip*4+2] += (ip+1)*100 + (jq+1)
-        #                A_matrix_T[ljq*4+3,lip*4+3] += (ip+1)*100 + (jq+1)
-        #            if ip == jq+1:
-        #                A_matrix_T[ljq*4+0,lip*4+0] += (ip+1)*100 + (jq+1)
-        #                A_matrix_T[ljq*4+1,lip*4+1] += (ip+1)*100 + (jq+1)
-        #                A_matrix_T[ljq*4+2,lip*4+2] += (ip+1)*100 + (jq+1)
-        #                A_matrix_T[ljq*4+3,lip*4+3] += (ip+1)*100 + (jq+1)
-        #
-        #    for i in range(self.lrtddft2.lr_comms.parent_comm.size):
-        #        if ( self.lrtddft2.lr_comms.parent_comm.rank == i and
-        #             len(A_matrix_T.ravel()) > 0 ):
-        #            print('%d / %d : %d / %d  = %lf => %lf' % (self.lrtddft2.lr_comms.eh_comm.rank,
-        #                                                       self.lrtddft2.lr_comms.eh_comm.size,
-        #                                                       self.lrtddft2.lr_comms.dd_comm.rank,
-        #                                                       self.lrtddft2.lr_comms.dd_comm.size,
-        #                                                       A_matrix_T[0,0], A_matrix_T[-1,-1] ) )
-        #        self.lrtddft2.lr_comms.parent_comm.barrier()
-        #
-        #    V_rhs = []
-        #    for (jq, kss_jq) in enumerate(self.lrtddft2.ks_singles.kss_list):
-        #        if jq % self.lrtddft2.lr_comms.parent_comm.size != self.lrtddft2.lr_comms.parent_comm.rank:
-        #            continue
-        #        V_rhs.append(1.*jq)
-        #        V_rhs.append(1.*jq)
-        #        V_rhs.append(1.*jq)
-        #        V_rhs.append(1.*jq)
-
-        # no transpose!
-        #A_matrix[:] = A_matrix.transpose()
         V_rhs_T = np.array([V_rhs])
 
         # solve A C = V
@@ -675,7 +636,8 @@ class LrResponse:
 
         l = 0
         for (jq, kss_jq) in enumerate(self.lrtddft2.ks_singles.kss_list):
-            if jq % self.lrtddft2.lr_comms.parent_comm.size != self.lrtddft2.lr_comms.parent_comm.rank:
+            if (jq % self.lrtddft2.lr_comms.parent_comm.size !=
+                self.lrtddft2.lr_comms.parent_comm.rank):
                 continue
             # Re[phi-**h + phi_+]
             self.C_re[jq] = C[l * 4 + 0] + C[l * 4 + 1]

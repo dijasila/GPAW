@@ -1,4 +1,5 @@
 import hashlib
+from typing import Dict
 
 import numpy as np
 from ase.data import atomic_numbers
@@ -9,8 +10,8 @@ from gpaw.atom.configurations import configurations
 from gpaw.pseudopotential import PseudoPotential, get_radial_hartree_energy
 
 
-setups = {}  # Filled out during parsing below
-sc_setups = {}  # Semicore
+setups: Dict[str, 'HGHParameterSet'] = {}  # Filled out during parsing below
+sc_setups: Dict[str, 'HGHParameterSet'] = {}  # Semicore
 
 
 # Tabulated values of Gamma(m + 1/2)
@@ -219,28 +220,29 @@ class HGHSetupData:
 
     def plot(self):
         """Plot localized functions of HGH setup."""
-        import pylab as pl
+        import matplotlib.pyplot as plt
         rgd = self.rgd
 
-        pl.subplot(211)  # vbar, compensation charge
+        plt.subplot(211)  # vbar, compensation charge
         gcutvbar = len(self.vbar_g)
-        pl.plot(rgd.r_g[:gcutvbar], self.vbar_g, 'r', label='vloc',
-                linewidth=3)
+        plt.plot(rgd.r_g[:gcutvbar], self.vbar_g, 'r', label='vloc',
+                 linewidth=3)
         rcc, gcc = self.get_compensation_charge_functions()
         gcc = gcc[0]
 
-        pl.plot(rcc, gcc * self.Delta0, 'b--', label='Comp charge [arb. unit]',
-                linewidth=3)
-        pl.legend(loc='best')
+        plt.plot(rcc, gcc * self.Delta0, 'b--',
+                 label='Comp charge [arb. unit]',
+                 linewidth=3)
+        plt.legend(loc='best')
 
-        pl.subplot(212)  # projectors
+        plt.subplot(212)  # projectors
         for j, (n, l, pt_g) in enumerate(zip(self.n_j, self.l_j, self.pt_jg)):
             label = 'n=%d, l=%d' % (n, l)
-            pl.ylabel('$p_n^l(r)$')
+            plt.ylabel('$p_n^l(r)$')
             ng = len(pt_g)
             r_g = rgd.r_g[:ng]
-            pl.plot(r_g, pt_g, label=label)
-        pl.legend()
+            plt.plot(r_g, pt_g, label=label)
+        plt.legend()
 
     def create_basis_functions(self):
         from gpaw.pseudopotential import generate_basis_functions
@@ -544,7 +546,7 @@ def parse_setups(lines):
 
 
 def plot(symbol, extension=None):
-    import pylab as pl
+    import matplotlib.pyplot as plt
     try:
         s = HGHSetupData(symbol)
     except IndexError:
@@ -552,17 +554,17 @@ def plot(symbol, extension=None):
         return
     s.plot()
     if extension is not None:
-        pl.savefig('hgh.%s.%s' % (symbol, extension))
+        plt.savefig('hgh.%s.%s' % (symbol, extension))
 
 
 def plot_many(*symbols):
-    import pylab as pl
+    import matplotlib.pyplot as plt
     if not symbols:
         symbols = setups.keys() + [key + '.sc' for key in sc_setups.keys()]
     for symbol in symbols:
-        pl.figure(1)
+        plt.figure(1)
         plot(symbol, extension='png')
-        pl.clf()
+        plt.clf()
 
 
 def parse_default_setups():

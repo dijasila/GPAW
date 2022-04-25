@@ -2,9 +2,11 @@ import numpy as np
 
 
 class LinearSolver:
-
-    def __init__(self, method=None, preconditioner=None, tolerance = 1e-10,
-                 max_iter = 10000):
+    def __init__(self,
+                 method=None,
+                 preconditioner=None,
+                 tolerance=1e-10,
+                 max_iter=10000):
         """Init method."""
 
         # self.solver = solvers[method]
@@ -15,7 +17,6 @@ class LinearSolver:
     def solve(self, A, x_G, b_G):
         """Solve linear system A * x = b."""
 
-
         ##########################################
         # Simple steepest descent implementation #
         ##########################################
@@ -23,14 +24,14 @@ class LinearSolver:
         # Residue: r = A*x - b
         r_G = np.zeros_like(x_G)
 
-        A.dot(x_G,r_G)
+        A.dot(x_G, r_G)
         # A.project(r_G)
         r_G -= b_G
 
         for iter in range(self.max_iter):
 
             x_G -= 0.01 * r_G
-            A.dot(x_G,r_G)
+            A.dot(x_G, r_G)
             # Try and project out the undersired components in the residue
             # A.project(r_G)
             r_G -= b_G
@@ -40,6 +41,7 @@ class LinearSolver:
                 break
 
         return iter
+
 
 '''
     def apply_preconditioner(self, x, b):

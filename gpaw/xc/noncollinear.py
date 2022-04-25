@@ -37,7 +37,7 @@ class NonCollinearLCAOEigensolver(DirectLCAO):
                    for vt_G in ham.vt_xG]
         wfs.timer.stop('Potential matrix')
 
-        for kpt in wfs.mykpts:
+        for kpt in wfs.kpt_u:
             self.iterate_one_k_point(ham, wfs, kpt, Vt_xdMM)
 
         wfs.timer.stop('LCAO eigensolver')

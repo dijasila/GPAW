@@ -1,10 +1,4 @@
-def create_tasks():
-    from myqueue.task import task
-    return [task('co.py@4:5h'),
-            task('co.agts.py', deps='co.py')]
-
-
-if __name__ == '__main__':
+def check():
     import numpy as np
     from ase.io import read
 
@@ -14,7 +8,6 @@ if __name__ == '__main__':
     c = np.array([config.cell[2, 2] for config in configs])
     f = np.array([a**0, a, c, 0.5 * a**2, a * c, 0.5 * c**2])
     p = np.linalg.lstsq(f.T, e, rcond=None)[0]
-    p0 = p[0]
     p1 = p[1:3]
     p2 = np.array([(p[3], p[4]),
                    (p[4], p[5])])
@@ -23,3 +16,9 @@ if __name__ == '__main__':
     assert abs(c0 - 4.0419) < 0.001
     assert abs(a[4] - a0) < 0.001
     assert abs(c[4] - c0) < 0.005
+
+
+def workflow():
+    from myqueue.workflow import run
+    with run(script='co.py', cores=4, tmax='5h'):
+        run(function=check)

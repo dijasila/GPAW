@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 # flake8: noqa
-from __future__ import print_function
 from optparse import OptionParser
 
 code_choices = ['gpaw', 'dacapo']
@@ -93,7 +92,7 @@ def memory_bandwidth(code='gpaw', runs=7):
                 nbands=nbands,
                 kpts=kpts,
                 **parameters)
-            slab.set_calculator(calc)
+            slab.calc = calc
             e = slab.get_potential_energy()
             del calc
             if exists('out.nc'): remove('out.nc')

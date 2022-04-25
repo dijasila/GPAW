@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-from __future__ import print_function
 import sys
 import xml.sax
 from optparse import OptionParser
@@ -17,10 +16,11 @@ class Reader(xml.sax.handler.ContentHandler):
     def read(self, filename):
         if filename.endswith('.gz'):
             import gzip
-            source = gzip.open(filename)
+            with gzip.open(filename) as source:
+                xml.sax.parse(source, self)
         else:
-            source = open(filename)
-        xml.sax.parse(source, self)
+            with open(filename) as source:
+                xml.sax.parse(source, self)
 
     def startElement(self, name, attrs):
         if name == 'state' and self.list:

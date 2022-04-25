@@ -1,23 +1,47 @@
-# -*- coding: utf-8 -*-
-# Copyright (C) 2003  CAMP
-# Please see the accompanying LICENSE file for further information.
-from __future__ import print_function, absolute_import
+from __future__ import annotations
 import functools
-from math import pi, sqrt
 from io import StringIO
+from math import pi, sqrt
+from typing import List, Tuple
 
-import numpy as np
 import ase.units as units
+import numpy as np
 from ase.data import chemical_symbols
 
-from gpaw.setup_data import SetupData, search_for_file
+from gpaw import debug
 from gpaw.basis_data import Basis
-from gpaw.overlap import OverlapCorrections
 from gpaw.gaunt import gaunt, nabla
-from gpaw.utilities import unpack, pack
-from gpaw.utilities.ekin import ekin, dekindecut
+from gpaw.overlap import OverlapCorrections
 from gpaw.rotation import rotation
+from gpaw.setup_data import SetupData, search_for_file
+from gpaw.spline import Spline
+from gpaw.utilities import pack, unpack
 from gpaw.xc import XC
+
+
+def parse_hubbard_string(type: str) -> Tuple[str,
+                                             List[int],
+                                             List[float],
+                                             List[bool]]:
+    # Parse DFT+U parameters from type-string:
+    # Examples: "type:l,U" or "type:l,U,scale"
+    type, lus = type.split(':')
+    if type == '':
+        type = 'paw'
+
+    l = []
+    U = []
+    scale = []
+
+    for lu in lus.split(';'):  # Multiple U corrections
+        l_, u_, scale_ = (lu + ',,').split(',')[:3]
+        l.append('spdf'.find(l_))
+        U.append(float(u_) / units.Hartree)
+        if scale_:
+            scale.append(bool(int(scale_)))
+        else:
+            scale.append(True)
+    return type, l, U, scale
 
 
 def create_setup(symbol, xc='LDA', lmax=0,
@@ -27,27 +51,14 @@ def create_setup(symbol, xc='LDA', lmax=0,
         xc = XC(xc)
 
     if isinstance(type, str) and ':' in type:
-        # Parse DFT+U parameters from type-string:
-        # Examples: "type:l,U" or "type:l,U,scale"
-        type, lu = type.split(':')
-        if type == '':
-            type = 'paw'
-        l = 'spdf'.find(lu[0])
-        assert lu[1] == ','
-        U = lu[2:]
-        if ',' in U:
-            U, scale = U.split(',')
-        else:
-            scale = True
-        U = float(U) / units.Hartree
-        scale = int(scale)
+        type, l, U, scale = parse_hubbard_string(type)
     else:
         U = None
 
     if setupdata is None:
         if type == 'hgh' or type == 'hgh.sc':
             lmax = 0
-            from gpaw.hgh import HGHSetupData, setups, sc_setups
+            from gpaw.hgh import HGHSetupData, sc_setups, setups
             if type == 'hgh.sc':
                 table = sc_setups
             else:
@@ -70,9 +81,10 @@ def create_setup(symbol, xc='LDA', lmax=0,
             setupdata = GhostSetupData(symbol)
         elif type == 'sg15':
             from gpaw.upf import read_sg15
-            upfname = '%s_ONCV_PBE-*.upf' % symbol
-            upfpath, source = search_for_file(upfname, world=world)
-            if source is None:
+            upfname = f'{symbol}_ONCV_PBE-*.upf'
+            try:
+                upfpath, source = search_for_file(upfname, world=world)
+            except RuntimeError:
                 raise IOError('Could not find pseudopotential file %s '
                               'in any GPAW search path.  '
                               'Please install the SG15 setups using, '
@@ -222,9 +234,9 @@ class BaseSetup:
         else:
             nval = f_j.sum() - charge
             if np.abs(magmom) > nval:
-                raise RuntimeError('Magnetic moment larger than number ' +
-                                   'of valence electrons (|%g| > %g)' %
-                                   (magmom, nval))
+                raise RuntimeError(
+                    'Magnetic moment larger than number ' +
+                    f'of valence electrons (|{magmom:g}| > {nval:g})')
             f_sj = 0.5 * np.array([f_j, f_j])
             nup = 0.5 * (nval + magmom)
             ndn = 0.5 * (nval - magmom)
@@ -271,8 +283,8 @@ class BaseSetup:
             j += 1
 
         if hund and magmom != 0:
-            raise ValueError('Bad magnetic moment %g for %s atom!'
-                             % (magmom, self.symbol))
+            raise ValueError(
+                f'Bad magnetic moment {magmom:g} for {self.symbol} atom!')
         assert i == nao
 
         # print('fsi=', f_si)
@@ -638,8 +650,7 @@ class LeanSetup(BaseSetup):
 
         self.N0_p = s.N0_p  # req. by estimate_magnetic_moments
         self.nabla_iiv = s.nabla_iiv  # req. by lrtddft
-        self.rnabla_iiv = s.rnabla_iiv  # req. by lrtddft
-        self.rxnabla_iiv = s.rxnabla_iiv  # req. by lrtddft2
+        self.rxnabla_iiv = s.rxnabla_iiv  # req. by lrtddft and lrtddft2
 
         # XAS stuff
         self.phicorehole_g = s.phicorehole_g  # should be optional
@@ -998,13 +1009,7 @@ class Setup(BaseSetup):
 
         self.xc_correction = data.get_xc_correction(rgd2, xc, gcut2, lcut)
         self.nabla_iiv = self.get_derivative_integrals(rgd2, phi_jg, phit_jg)
-        self.rnabla_iiv = self.get_magnetic_integrals(rgd2, phi_jg, phit_jg)
-        try:
-            from gpaw.lrtddft2.rxnabla import get_magnetic_integrals_new
-            self.rxnabla_iiv = get_magnetic_integrals_new(self, rgd2,
-                                                          phi_jg, phit_jg)
-        except NotImplementedError:
-            self.rxnabla_iiv = None
+        self.rxnabla_iiv = self.get_magnetic_integrals(rgd2, phi_jg, phit_jg)
 
     def create_projectors(self, pt_jg, rcut):
         pt_j = []
@@ -1019,8 +1024,9 @@ class Setup(BaseSetup):
         return -np.dot(dO_ii, np.linalg.inv(np.identity(ni) + xO_ii))
 
     def calculate_T_Lqp(self, lcut, _np, nj, jlL_i):
-        G_LLL = gaunt(max(self.l_j))
         Lcut = (2 * lcut + 1)**2
+        G_LLL = gaunt(max(self.l_j))[:, :, :Lcut]
+        LGcut = G_LLL.shape[2]
         T_Lqp = np.zeros((Lcut, self.local_corr.nq, _np))
         p = 0
         i1 = 0
@@ -1030,7 +1036,7 @@ class Setup(BaseSetup):
                     q = j2 + j1 * nj - j1 * (j1 + 1) // 2
                 else:
                     q = j1 + j2 * nj - j2 * (j2 + 1) // 2
-                T_Lqp[:, q, p] = G_LLL[L1, L2, :Lcut]
+                T_Lqp[:LGcut, q, p] = G_LLL[L1, L2]
                 p += 1
             i1 += 1
         return T_Lqp
@@ -1111,13 +1117,17 @@ class Setup(BaseSetup):
           /        1    dx    2         1    dx    2
 
         and similar for y and z."""
-
-        G_LLL = gaunt(max(1, max(self.l_j)))
-        Y_LLv = nabla(max(1, max(self.l_j)))
+        # lmax needs to be at least 1 for evaluating
+        # the Gaunt coefficients from derivatives
+        lmax = max(1, max(self.l_j))
+        G_LLL = gaunt(lmax)
+        Y_LLv = nabla(lmax)
 
         r_g = rgd.r_g
         dr_g = rgd.dr_g
         nabla_iiv = np.empty((self.ni, self.ni, 3))
+        if debug:
+            nabla_iiv[:] = np.nan
         i1 = 0
         for j1 in range(self.nj):
             l1 = self.l_j[j1]
@@ -1129,20 +1139,22 @@ class Setup(BaseSetup):
                 f1f2or = np.dot(phi_jg[j1] * phi_jg[j2] -
                                 phit_jg[j1] * phit_jg[j2], r_g * dr_g)
                 dphidr_g = np.empty_like(phi_jg[j2])
-                rgd.derivative(phi_jg[j2], dphidr_g)
+                rgd.derivative_spline(phi_jg[j2], dphidr_g)
                 dphitdr_g = np.empty_like(phit_jg[j2])
-                rgd.derivative(phit_jg[j2], dphitdr_g)
+                rgd.derivative_spline(phit_jg[j2], dphitdr_g)
                 f1df2dr = np.dot(phi_jg[j1] * dphidr_g -
                                  phit_jg[j1] * dphitdr_g, r_g**2 * dr_g)
                 for v in range(3):
                     Lv = 1 + (v + 2) % 3
+                    G_12 = G_LLL[Lv, l1**2:l1**2 + nm1, l2**2:l2**2 + nm2]
+                    Y_12 = Y_LLv[l1**2:l1**2 + nm1, l2**2:l2**2 + nm2, v]
                     nabla_iiv[i1:i1 + nm1, i2:i2 + nm2, v] = (
-                        (4 * pi / 3)**0.5 * (f1df2dr - l2 * f1f2or) *
-                        G_LLL[Lv, l2**2:l2**2 + nm2, l1**2:l1**2 + nm1].T +
-                        f1f2or *
-                        Y_LLv[l1**2:l1**2 + nm1, l2**2:l2**2 + nm2, v])
+                        sqrt(4 * pi / 3) * (f1df2dr - l2 * f1f2or) * G_12
+                        + f1f2or * Y_12)
                 i2 += nm2
             i1 += nm1
+        if debug:
+            assert not np.any(np.isnan(nabla_iiv))
         return nabla_iiv
 
     def get_magnetic_integrals(self, rgd, phi_jg, phit_jg):
@@ -1159,13 +1171,17 @@ class Setup(BaseSetup):
                  x     dz     dy
 
         and similar for y and z."""
-
-        G_LLL = gaunt(max(self.l_j))
-        Y_LLv = nabla(max(self.l_j))
+        # lmax needs to be at least 1 for evaluating
+        # the Gaunt coefficients from derivatives
+        lmax = max(1, max(self.l_j))
+        G_LLL = gaunt(lmax)
+        Y_LLv = nabla(2 * lmax)
 
         r_g = rgd.r_g
         dr_g = rgd.dr_g
-        rnabla_iiv = np.zeros((self.ni, self.ni, 3))
+        rxnabla_iiv = np.empty((self.ni, self.ni, 3))
+        if debug:
+            rxnabla_iiv[:] = np.nan
         i1 = 0
         for j1 in range(self.nj):
             l1 = self.l_j[j1]
@@ -1179,27 +1195,22 @@ class Setup(BaseSetup):
                 for v in range(3):
                     v1 = (v + 1) % 3
                     v2 = (v + 2) % 3
+                    Lv1 = 1 + (v1 + 2) % 3
+                    Lv2 = 1 + (v2 + 2) % 3
                     # term from radial wfs does not contribute
                     # term from spherical harmonics derivatives
-                    G = np.zeros((nm1, nm2))
-                    for l3 in range(abs(l1 - 1), l1 + 2):
-                        for m3 in range(0, (2 * l3 + 1)):
-                            L3 = l3**2 + m3
-                            try:
-                                G += np.outer(G_LLL[L3, l1**2:l1**2 + nm1,
-                                                    1 + v1],
-                                              Y_LLv[L3, l2**2:l2**2 + nm2,
-                                                    v2])
-                                G -= np.outer(G_LLL[L3, l1**2:l1**2 + nm1,
-                                                    1 + v2],
-                                              Y_LLv[L3, l2**2:l2**2 + nm2,
-                                                    v1])
-                            except IndexError:
-                                pass  # L3 might be too large, ignore
-                    rnabla_iiv[i1:i1 + nm1, i2:i2 + nm2, v] += f1f2or * G
+                    G_12 = np.zeros((nm1, nm2))
+                    G_12 += np.dot(G_LLL[Lv1, l1**2:l1**2 + nm1, :],
+                                   Y_LLv[:, l2**2:l2**2 + nm2, v2])
+                    G_12 -= np.dot(G_LLL[Lv2, l1**2:l1**2 + nm1, :],
+                                   Y_LLv[:, l2**2:l2**2 + nm2, v1])
+                    rxnabla_iiv[i1:i1 + nm1, i2:i2 + nm2, v] = (
+                        sqrt(4 * pi / 3) * f1f2or * G_12)
                 i2 += nm2
             i1 += nm1
-        return (4 * pi / 3) * rnabla_iiv
+        if debug:
+            assert not np.any(np.isnan(rxnabla_iiv))
+        return rxnabla_iiv
 
     def construct_core_densities(self, setupdata):
         rcore = self.data.find_core_density_cutoff(setupdata.nc_g)
@@ -1249,6 +1260,7 @@ class Setup(BaseSetup):
         for j, phit_g in enumerate(phit_jg):
             if self.n_j[j] > 0:
                 l = self.l_j[j]
+                phit_g = phit_g.copy()
                 phit = phit_g[gcut3]
                 dphitdr = ((phit - phit_g[gcut3 - 1]) /
                            (r_g[gcut3] - r_g[gcut3 - 1]))
@@ -1333,9 +1345,9 @@ class Setups(list):
                             reduced, name = basis.split('(')
                             assert name.endswith(')')
                             name = name[:-1]
-                            fullname = '%s(%s.%s)' % (reduced, setupname, name)
+                            fullname = f'{reduced}({setupname}.{name})'
                         else:
-                            fullname = '%s.%s' % (setupname, basis_a[a])
+                            fullname = f'{setupname}.{basis_a[a]}'
                         basis_a[a] = fullname
 
         # Construct necessary PAW-setup objects:
@@ -1397,7 +1409,7 @@ class Setups(list):
             basis_descr = basis_descr.replace('\n  ', '\n    ')
             s += txt + '  ' + basis_descr + '\n\n'
 
-        s += 'Reference energy: %.6f\n' % (self.Eref * units.Hartree)
+        s += f'Reference energy: {self.Eref * units.Hartree:.6f}\n'
         return s
 
     def set_symmetry(self, symmetry):
@@ -1417,6 +1429,7 @@ class Setups(list):
         return atom_partition.arraydict(Dshapes_a, dtype)
 
     def estimate_dedecut(self, ecut):
+        from gpaw.utilities.ekin import dekindecut, ekin
         dedecut = 0.0
         e = {}
         for id in self.id_a:
@@ -1431,6 +1444,56 @@ class Setups(list):
 
     def projector_indices(self):
         return FunctionIndices([setup.pt_j for setup in self])
+
+    def create_pseudo_core_densities(self, layout, positions, atomdist):
+        spline_aj = []
+        for setup in self:
+            if setup.nct is None:
+                spline_aj.append([])
+            else:
+                spline_aj.append([setup.nct])
+        return layout.atom_centered_functions(
+            spline_aj, positions,
+            atomdist=atomdist,
+            integral=[setup.Nct for setup in self],
+            cut=True)
+
+    def create_local_potentials(self, layout, positions, atomdist):
+        return layout.atom_centered_functions(
+            [[setup.vbar] for setup in self], positions, atomdist=atomdist)
+
+    def create_compensation_charges(self, layout, positions, atomdist):
+        return layout.atom_centered_functions(
+            [setup.ghat_l for setup in self], positions,
+            atomdist=atomdist,
+            integral=sqrt(4 * pi))
+
+    def overlap_correction(self, projections, out):
+        for a, I1, I2 in projections.layout.myindices:
+            ds = self[a].dO_ii
+            # use mmm ?????
+            out.data[:, I1:I2] = projections.data[:, I1:I2] @ ds
+        return out
+
+    def partial_wave_corrections(self) -> list[list[Spline]]:
+        splines: dict[Setup, list[Spline]] = {}
+        dphi_aj = []
+        for setup in self:
+            dphi_j = splines.get(setup)
+            if dphi_j is None:
+                rcut = max(setup.rcut_j) * 1.1
+                gcut = setup.rgd.ceil(rcut)
+                dphi_j = []
+                for l, phi_g, phit_g in zip(setup.l_j,
+                                            setup.data.phi_jg,
+                                            setup.data.phit_jg):
+                    dphi_g = (phi_g - phit_g)[:gcut]
+                    dphi_j.append(setup.rgd.spline(dphi_g, rcut, l,
+                                                   points=200))
+                splines[setup] = dphi_j
+            dphi_aj.append(dphi_j)
+
+        return dphi_aj
 
 
 class FunctionIndices:
@@ -1487,7 +1550,7 @@ def types2atomtypes(symbols, types, default):
 
 if __name__ == '__main__':
     print("""\
-You are using the wrong setup.py script!  This setup.py defines a
+This is not the setup.py you are looking for!  This setup.py defines a
 Setup class used to hold the atomic data needed for a specific atom.
 For building the GPAW code you must use the setup.py distutils script
 at the root of the code tree.  Just do "cd .." and you will be at the

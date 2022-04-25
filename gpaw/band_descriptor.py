@@ -40,18 +40,18 @@ class BandDescriptor:
      >>> a = np.zeros((3, 4))
      >>> a.ravel()[:] = range(12)
      >>> a
-     array([[ 0,  1,  2,  3],
-            [ 4,  5,  6,  7],
-            [ 8,  9, 10, 11]])
+     array([[ 0.,  1.,  2.,  3.],
+            [ 4.,  5.,  6.,  7.],
+            [ 8.,  9., 10., 11.]])
      >>> b = np.zeros((4, 3))
      >>> b.ravel()[:] = range(12)
      >>> b.T
-     array([[ 0,  3,  6,  9],
-            [ 1,  4,  7, 10],
-            [ 2,  5,  8, 11]])
+     array([[ 0.,  3.,  6.,  9.],
+            [ 1.,  4.,  7., 10.],
+            [ 2.,  5.,  8., 11.]])
      """
 
-    def __init__(self, nbands, comm=None, strided=False):
+    def __init__(self, nbands: int, comm=None, strided=False):
         """Construct band-descriptor object.
 
         Parameters:

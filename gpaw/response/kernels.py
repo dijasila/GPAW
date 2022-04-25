@@ -5,6 +5,7 @@
 import numpy as np
 from ase.dft import monkhorst_pack
 
+
 def get_coulomb_kernel(pd, N_c, truncation=None, q_v=None, wstc=None):
     """Factory function that calls the specified flavour
     of the Coulomb interaction"""
@@ -46,6 +47,7 @@ def get_coulomb_kernel(pd, N_c, truncation=None, q_v=None, wstc=None):
 
     return v_G.astype(complex)
 
+
 def calculate_2D_truncated_coulomb(pd, q_v=None, N_c=None):
     """ Simple 2D truncation of Coulomb kernel PRB 73, 205119.
     The non-periodic direction is determined from k-point grid.
@@ -55,7 +57,7 @@ def calculate_2D_truncated_coulomb(pd, q_v=None, N_c=None):
     if pd.kd.gamma:
         if q_v is not None:
             qG_Gv += q_v
-        else: # Only to avoid warning. Later set to zero in factory function
+        else:  # only to avoid warning. Later set to zero in factory function
             qG_Gv[0] = [1., 1., 1.]
 
     # The non-periodic direction is determined from k-point grid
@@ -63,8 +65,8 @@ def calculate_2D_truncated_coulomb(pd, q_v=None, N_c=None):
     Np_c = np.where(N_c != 1)[0]
     if len(Nn_c) != 1:
         # The k-point grid does not fit with boundary conditions
-        Nn_c = [2]    # Choose reduced cell vectors 0, 1
-        Np_c = [0, 1] # Choose reduced cell vector 2
+        Nn_c = [2]  # choose reduced cell vectors 0, 1
+        Np_c = [0, 1]  # choose reduced cell vector 2
     # Truncation length is half of cell vector in non-periodic direction
     R = pd.gd.cell_cv[Nn_c[0], Nn_c[0]] / 2.
 
@@ -81,6 +83,7 @@ def calculate_2D_truncated_coulomb(pd, q_v=None, N_c=None):
         v_G *= 1. + np.exp(-qGp_G * R) * a_G
 
     return v_G.astype(complex)
+
 
 def calculate_1D_truncated_coulomb(pd, q_v=None, N_c=None):
     """ Simple 1D truncation of Coulomb kernel PRB 73, 205119.
@@ -117,6 +120,7 @@ def calculate_1D_truncated_coulomb(pd, q_v=None, N_c=None):
 
     return v_G.astype(complex)
 
+
 def calculate_0D_truncated_coulomb(pd, q_v=None):
     """ Simple spherical truncation of the Coulomb interaction
     PRB 73, 205119
@@ -126,7 +130,7 @@ def calculate_0D_truncated_coulomb(pd, q_v=None):
     if pd.kd.gamma:
         if q_v is not None:
             qG_Gv += q_v
-        else: # Only to avoid warning. Later set to zero in factory function
+        else:  # Only to avoid warning. Later set to zero in factory function
             qG_Gv[0] = [1., 1., 1.]
     # The radius is determined from volume of cell
     R = (3 * np.linalg.det(pd.gd.cell_cv) / (4 * np.pi))**(1. / 3.)
@@ -137,6 +141,7 @@ def calculate_0D_truncated_coulomb(pd, q_v=None):
     v_G *= 1.0 - np.cos(qG2_G**0.5 * R)
 
     return v_G
+
 
 def get_integrated_kernel(pd, N_c, truncation=None, N=100, reduced=False):
     from scipy.special import j1, k0, j0, k1
@@ -158,8 +163,8 @@ def get_integrated_kernel(pd, N_c, truncation=None, N=100, reduced=False):
         Np_c = np.where(N_c != 1)[0]
         if len(Nn_c) != 1:
             # The k-point grid does not fit with boundary conditions
-            Nn_c = [2]    # Choose reduced cell vectors 0, 1
-            Np_c = [0, 1] # Choose reduced cell vector 2
+            Nn_c = [2]  # choose reduced cell vectors 0, 1
+            Np_c = [0, 1]  # choose reduced cell vector 2
         # Truncation length is half of cell vector in non-periodic direction
         R = pd.gd.cell_cv[Nn_c[0], Nn_c[0]] / 2.
 

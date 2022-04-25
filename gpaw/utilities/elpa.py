@@ -1,3 +1,4 @@
+import atexit
 import numpy as np
 import _gpaw
 
@@ -15,9 +16,18 @@ class LibElpa:
     def have_elpa():
         return hasattr(_gpaw, 'pyelpa_allocate')
 
+    _elpa_initialized = False
+
     @staticmethod
     def api_version():
         return _gpaw.pyelpa_version()
+
+    @classmethod
+    def ensure_elpa_initialized(cls):
+        if not cls._elpa_initialized:
+            _gpaw.pyelpa_init()
+            atexit.register(_gpaw.pyelpa_uninit)
+            cls._elpa_initialized = True
 
     def __init__(self, desc, nev=None, solver='1stage'):
         if nev is None:
@@ -33,6 +43,7 @@ class LibElpa:
             raise ValueError('Row and column block size must be '
                              'identical to support Elpa')
 
+        self.ensure_elpa_initialized()
         _gpaw.pyelpa_allocate(ptr)
         self._ptr = ptr
         _gpaw.pyelpa_set_comm(ptr,

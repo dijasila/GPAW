@@ -10,16 +10,26 @@ http://en.wikipedia.org/wiki/Basic_Linear_Algebra_Subprograms
 and
 http://www.netlib.org/lapack/lug/node145.html
 """
+from typing import TypeVar
 
 import numpy as np
 import scipy.linalg.blas as blas
 
-from gpaw.utilities import is_contiguous
 from gpaw import debug
 import _gpaw
 
+__all__ = ['mmm']
 
-def mmm(alpha, a, opa, b, opb, beta, c):
+T = TypeVar('T', float, complex)
+
+
+def mmm(alpha: T,
+        a: np.ndarray,
+        opa: str,
+        b: np.ndarray,
+        opb: str,
+        beta: T,
+        c: np.ndarray) -> None:
     """Matrix-matrix multiplication using dgemm or zgemm.
 
     For opa='n' and opb='n', we have::
@@ -90,7 +100,7 @@ def gemm(alpha, a, b, beta, c, transa='n'):
         assert a.size == 0 or a[0].flags.contiguous
         assert c.flags.contiguous or c.ndim == 2 and c.strides[1] == c.itemsize
         assert b.ndim == 2
-        assert b.strides[1] == b.itemsize
+        assert b.size == 0 or b.strides[1] == b.itemsize
         assert a.shape[0] == b.shape[1]
         assert c.shape == b.shape[0:1] + a.shape[1:]
     else:
@@ -119,27 +129,6 @@ def axpy(alpha, x, y):
     else:
         z = blas.zaxpy(x, y, a=alpha)
     assert z is y, (x, y, x.shape, y.shape)
-
-
-def czher(alpha, x, a):
-    """alpha x * x.conj() + a.
-
-    Performs the operation::
-
-      y <- alpha * x * x.conj() + a
-
-    where x is a N element vector and a is a N by N hermitian matrix, alpha
-    is a real scalar.
-    """
-
-    assert isinstance(alpha, float)
-    assert is_contiguous(x, complex) and is_contiguous(a, complex)
-    assert x.flags.contiguous and a.flags.contiguous
-    assert x.ndim == 1 and a.ndim == 2
-    assert x.shape[0] == a.shape[0]
-
-    # Use zherk instead?
-    _gpaw.czher(alpha, x, a)
 
 
 def rk(alpha, a, beta, c, trans='c'):
@@ -177,13 +166,17 @@ def rk(alpha, a, beta, c, trans='c'):
     _gpaw.rk(alpha, a, beta, c, trans)
 
 
-def r2k(alpha, a, b, beta, c):
+def r2k(alpha, a, b, beta, c, trans='c'):
     """Rank-2k update of a matrix.
 
     Performs the operation::
 
                         dag        cc       dag
       c <- alpha * a . b    + alpha  * b . a    + beta * c
+
+    or if trans='n'::
+                    dag           cc   dag
+      c <- alpha * a   . b + alpha  * b   . a + beta * c
 
     where ``a.b`` denotes the matrix multiplication defined by::
 
@@ -207,9 +200,12 @@ def r2k(alpha, a, b, beta, c):
     assert a.flags.contiguous and b.flags.contiguous
     assert a.ndim > 1
     assert a.shape == b.shape
-    assert c.shape == (a.shape[0], a.shape[0])
+    if trans == 'c':
+        assert c.shape == (a.shape[0], a.shape[0])
+    else:
+        assert c.shape == (a.shape[1], a.shape[1])
     assert c.strides[1] == c.itemsize
-    _gpaw.r2k(alpha, a, b, beta, c)
+    _gpaw.r2k(alpha, a, b, beta, c, trans)
 
 
 def _gemmdot(a, b, alpha=1.0, beta=1.0, out=None, trans='n'):
@@ -240,12 +236,6 @@ def _gemmdot(a, b, alpha=1.0, beta=1.0, out=None, trans='n'):
         else:
             return alpha * a.dot(b)
 
-#     # Use gemv if a or b is a vector, and the other is a matrix??
-#     if a.ndim == 1 and trans == 'n':
-#         gemv(alpha, b, a, beta, out, trans='n')
-#     if b.ndim == 1 and trans == 'n':
-#         gemv(alpha, a, b, beta, out, trans='t')
-
     # Map all arrays to 2D arrays
     a = a.reshape(-1, a.shape[-1])
     if trans == 'n':
@@ -271,13 +261,78 @@ def _gemmdot(a, b, alpha=1.0, beta=1.0, out=None, trans='n'):
     return out.reshape(outshape)
 
 
-if not debug:
+if not hasattr(_gpaw, 'mmm'):
+    def gemm(alpha, a, b, beta, c, transa='n'):  # noqa
+        if c.size == 0:
+            return
+        if beta == 0:
+            c[:] = 0.0
+        else:
+            c *= beta
+        if a.size == 0:
+            return
+        if transa == 'n':
+            c += alpha * b.dot(a.reshape((len(a), -1))).reshape(c.shape)
+        elif transa == 't':
+            c += alpha * b.reshape((len(b), -1)).dot(
+                a.reshape((len(a), -1)).T)
+        else:
+            c += alpha * b.reshape((len(b), -1)).dot(
+                a.reshape((len(a), -1)).T.conj())
+
+    def rk(alpha, a, beta, c, trans='c'):  # noqa
+        if c.size == 0:
+            return
+        if beta == 0:
+            c[:] = 0.0
+        else:
+            c *= beta
+        if trans == 'n':
+            c += alpha * a.conj().T.dot(a)
+        else:
+            a = a.reshape((len(a), -1))
+            c += alpha * a.dot(a.conj().T)
+
+    def r2k(alpha, a, b, beta, c, trans='c'):  # noqa
+        if c.size == 0:
+            return
+        if beta == 0.0:
+            c[:] = 0.0
+        else:
+            c *= beta
+        if trans == 'c':
+            c += (alpha * a.reshape((len(a), -1))
+                  .dot(b.reshape((len(b), -1)).conj().T) +
+                  alpha * b.reshape((len(b), -1))
+                  .dot(a.reshape((len(a), -1)).conj().T))
+        else:
+            c += alpha * (a.conj().T @ b + b.conj().T @ a)
+
+    def op(o, m):
+        if o == 'N':
+            return m
+        if o == 'T':
+            return m.T
+        return m.conj().T
+
+    def mmm(alpha: T, a: np.ndarray, opa: str,  # noqa
+            b: np.ndarray, opb: str,
+            beta: T, c: np.ndarray) -> None:
+        if beta == 0.0:
+            c[:] = 0.0
+        else:
+            c *= beta
+        c += alpha * op(opa, a).dot(op(opb, b))
+
+    gemmdot = _gemmdot
+
+elif not debug:
     mmm = _gpaw.mmm  # noqa
     gemm = _gpaw.gemm  # noqa
-    # axpy = _gpaw.axpy  # noqa
     rk = _gpaw.rk  # noqa
     r2k = _gpaw.r2k  # noqa
     gemmdot = _gemmdot
+
 else:
     def gemmdot(a, b, alpha=1.0, beta=1.0, out=None, trans='n'):
         assert a.flags.contiguous

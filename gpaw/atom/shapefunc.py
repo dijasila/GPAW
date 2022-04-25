@@ -61,8 +61,8 @@ if __name__ == '__main__':
     for l in range(3):
         rc = 0.3
         for type in ['gauss', 'sinc', 'bessel']:
-            g_lg = shape_functions(rgd, type, rc, l, 1)
-            plt.plot(rgd.r_g, g_lg[l], label=type)
+            g_lg = shape_functions(rgd, type, rc, l)
+            plt.plot(rgd.r_g, g_lg[l], label=type)  # type: ignore
             rc = 1.0
 
         plt.legend()

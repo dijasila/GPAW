@@ -1,10 +1,10 @@
 .. _louhi:
 
 ============================
-louhi.csc.fi  (Cray XT4/XT5) 
+louhi.csc.fi  (Cray XT4/XT5)
 ============================
 
-Here you find information about the the system
+Here you find information about the system
 `<http://www.csc.fi/english/research/Computing_services/computing/servers/louhi>`_.
 
 .. note::
@@ -13,7 +13,7 @@ Here you find information about the the system
 GPAW
 ====
 
-The recent operating system releases for Cray XT4/5 (CLE 2.2 UP01 and later) 
+The recent operating system releases for Cray XT4/5 (CLE 2.2 UP01 and later)
 supports dynamic libraries which simplifies GPAW installation significantly.
 
 These instructions for GPAW installation use Python 2.6.5 compiled

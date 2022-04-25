@@ -1,12 +1,15 @@
-from __future__ import print_function
-import sys
+"""CLI-code for dos-subcommand."""
+from pathlib import Path
+from typing import Union, List, Tuple, Optional
 
 import numpy as np
-from ase.dft.dos import DOS, linear_tetrahedron_integration as lti
-from ase.units import Ha
+from ase.spectrum.dosdata import GridDOSData
+from ase.spectrum.doscollection import GridDOSCollection
 
 from gpaw import GPAW
-from gpaw.utilities.dos import raw_orbital_LDOS, delta
+from gpaw.setup import Setup
+from gpaw.spherical_harmonics import names as ylmnames
+from gpaw.dos import DOSCalculator
 
 
 class CLICommand:
@@ -25,12 +28,17 @@ class CLICommand:
             help='Width of Gaussian.  Use 0.0 to use linear tetrahedron '
             'interpolation.')
         add('-a', '--atom', help='Project onto atoms: "Cu-spd,H-s" or use '
-            'atom indices "12-spdf".')
+            'atom indices "12-spdf".  Particular m-values can be obtained '
+            'like this: "N-p0,N-p1,N-p2. For p-orbitals, m=0,1,2 translates '
+            'to y, z and x. For d-orbitals, m=0,1,2,3,4 translates '
+            'to xy, yz, 3z2-r2, zx and x2-y2.')
         add('-t', '--total', action='store_true',
             help='Show both PDOS and total DOS.')
         add('-r', '--range', nargs=2, metavar=('emin', 'emax'),
             help='Energy range in eV relative to Fermi level.')
         add('-n', '--points', type=int, default=400, help='Number of points.')
+        add('--soc', action='store_true',
+            help='Include spin-orbit coupling.')
 
     @staticmethod
     def run(args):
@@ -40,11 +48,93 @@ class CLICommand:
         else:
             emin, emax = (float(e) for e in args.range)
         dos(args.gpw, args.plot, args.csv, args.width, args.integrated,
-            args.atom, emin, emax, args.points, args.total)
+            args.atom,
+            args.soc,
+            emin, emax, args.points, args.total)
 
 
-def dos(filename, plot=False, output='dos.csv', width=0.1, integrated=False,
-        projection=None, emin=None, emax=None, npoints=400, show_total=None):
+def parse_projection_string(projection: str,
+                            symbols: List[str],
+                            setups: List[Setup]
+                            ) -> List[Tuple[str,
+                                            List[Tuple[int,
+                                                       int,
+                                                       Union[None, int]]]]]:
+    """Create labels and lists of (a, l, m)-tuples.
+
+    Example:
+
+    >>> from gpaw.setup import create_setup
+    >>> setup = create_setup('Li')
+    >>> s, py = parse_projection_string('Li-sp0',
+    ...                                 ['Li', 'Li'],
+    ...                                 [setup, setup])
+    >>> s
+    ('Li-s', [(0, 0, None), (1, 0, None)])
+    >>> py
+    ('Li-p(y)', [(0, 1, 0), (1, 1, 0)])
+
+    * "Li-s" will have contributions from l=0 and atoms 0 and 1
+    * "Li-p(y)" will have contributions from l=1, m=0 and atoms 0 and 1
+
+    """
+    result: List[Tuple[str, List[Tuple[int, int, Union[None, int]]]]] = []
+    for proj in projection.split(','):
+        s, ll = proj.split('-')
+        if s.isdigit():
+            A = [int(s)]
+            s = '#' + s
+        else:
+            A = [a for a, symbol in
+                 enumerate(symbols)
+                 if symbol == s]
+            if not A:
+                raise ValueError('No such atom: ' + s)
+        for l, m in parse_lm_string(ll):
+            label = s + '-' + 'spdfg'[l]
+            if m is not None:
+                name = ylmnames[l][m]
+                label += f'({name})'
+            result.append((label, [(a, l, m) for a in A]))
+
+    return result
+
+
+def parse_lm_string(s: str) -> List[Tuple[int, Union[None, int]]]:
+    """Parse 'spdf' kind of string to numbers.
+
+    Return list of (l, m) tuples with m=None if not specified:
+
+    >>> parse_lm_string('sp')
+    [(0, None), (1, None)]
+    >>> parse_lm_string('p0p1p2')
+    [(1, 0), (1, 1), (1, 2)]
+    """
+    result = []
+    while s:
+        l = 'spdfg'.index(s[0])
+        m: Union[None, int]
+        if s[1:2].isnumeric():
+            m = int(s[1:2])
+            s = s[2:]
+        else:
+            m = None
+            s = s[1:]
+        result.append((l, m))
+    return result
+
+
+def dos(filename: Union[Path, str],
+        plot=False,
+        output='dos.json',
+        width=0.1,
+        integrated=False,
+        projection=None,
+        soc=False,
+        emin=None,
+        emax=None,
+        npoints=200,
+        show_total=None):
     """Calculate density of states.
 
     filename: str
@@ -59,78 +149,52 @@ def dos(filename, plot=False, output='dos.csv', width=0.1, integrated=False,
         Calculate integrated DOS.
 
     """
-    calc = GPAW(filename, txt=None)
-    dos = DOS(calc, width, (emin, emax), npoints)
+    calc = GPAW(filename)
 
-    nspins = calc.get_number_of_spins()
+    doscalc = DOSCalculator.from_calculator(calc, soc)
+    energies = doscalc.get_energies(emin, emax, npoints)
+    nspins = doscalc.nspins
     spinlabels = [''] if nspins == 1 else [' up', ' dn']
+    spins: List[Optional[int]] = [None] if nspins == 1 else [0, 1]
+
+    dosobjs = GridDOSCollection([], energies)
 
     if projection is None or show_total:
-        D = [dos.get_dos(spin) for spin in range(nspins)]
-        labels = ['DOS' + sl for sl in spinlabels]
-    else:
-        D = []
-        labels = []
+        for spin, label in zip(spins, spinlabels):
+            dos = doscalc.raw_dos(energies, spin=spin, width=width)
+            dosobjs += GridDOSData(energies, dos, {'label': 'DOS' + label})
+
     if projection is not None:
-        for p in projection.split(','):
-            s, ll = p.split('-')
-            if s.isdigit():
-                A = [int(s)]
-                s = '#' + s
-            else:
-                A = [a for a, symbol in
-                     enumerate(calc.atoms.get_chemical_symbols())
-                     if symbol == s]
-                if not A:
-                    raise ValueError('No such atom: ' + s)
-            for spin in range(nspins):
-                for l in ll:
-                    d = 0.0
-                    for a in A:
-                        d += ldos(calc, a, spin, l, width, dos.energies)
-                    labels.append(s + '-' + l + spinlabels[spin])
-                    D.append(d)
+        symbols = calc.atoms.get_chemical_symbols()
+        projs = parse_projection_string(
+            projection, symbols, calc.setups)
+        for label, contributions in projs:
+            for spin, spinlabel in zip(spins, spinlabels):
+                dos = np.zeros_like(energies)
+                for a, l, m in contributions:
+                    dos += doscalc.raw_pdos(energies,
+                                            a, l, m, spin=spin, width=width)
+                dosobjs += GridDOSData(energies, dos,
+                                       {'label': label + spinlabel})
 
     if integrated:
-        de = dos.energies[1] - dos.energies[0]
-        dos.energies += de / 2
-        D = [np.cumsum(d) * de for d in D]
+        de = energies[1] - energies[0]
+        energies = energies + de / 2
+        dosobjs = GridDOSCollection(
+            [GridDOSData(energies,
+                         np.cumsum(obj.get_weights()) * de,
+                         obj.info)
+             for obj in dosobjs])
         ylabel = 'iDOS [electrons]'
     else:
         ylabel = 'DOS [electrons/eV]'
 
     if output:
-        fd = sys.stdout if output == '-' else open(output, 'w')
-        for x in zip(dos.energies, *D):
-            print(*x, sep=', ', file=fd)
-        if output != '-':
-            fd.close()
+        dosobjs.write(output)
+
     if plot:
+        ax = dosobjs.plot()
+        ax.set_xlabel(r'$\epsilon-\epsilon_F$ [eV]')
+        ax.set_ylabel(ylabel)
         import matplotlib.pyplot as plt
-        for y, label in zip(D, labels):
-            plt.plot(dos.energies, y, label=label)
-        plt.legend()
-        plt.ylabel(ylabel)
-        plt.xlabel(r'$\epsilon-\epsilon_F$ [eV]')
         plt.show()
-
-
-def ldos(calc, a, spin, l, width, energies):
-    eigs, weights = raw_orbital_LDOS(calc, a, spin, l)
-    eigs *= Ha
-    eigs -= calc.get_fermi_level()
-    if width > 0.0:
-        dos = 0.0
-        for e, w in zip(eigs, weights):
-            dos += w * delta(energies, e, width)
-    else:
-        kd = calc.wfs.kd
-        eigs.shape = (kd.nibzkpts, -1)
-        eigs = eigs[kd.bz2ibz_k]
-        eigs.shape = tuple(kd.N_c) + (-1,)
-        weights.shape = (kd.nibzkpts, -1)
-        weights /= kd.weight_k[:, np.newaxis]
-        w = weights[kd.bz2ibz_k]
-        w.shape = tuple(kd.N_c) + (-1,)
-        dos = lti(calc.atoms.cell, eigs, energies, w)
-    return dos

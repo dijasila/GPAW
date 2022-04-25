@@ -29,7 +29,7 @@ class XCFunctional(object):
     def get_setup_name(self):
         return self.name
 
-    def initialize(self, density, hamiltonian, wfs, occupations):
+    def initialize(self, density, hamiltonian, wfs):
         pass
 
     def set_grid_descriptor(self, gd):

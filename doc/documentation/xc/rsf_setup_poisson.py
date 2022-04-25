@@ -24,5 +24,5 @@ calc = GPAW(txt='CO.txt', xc='LCY-PBE', convergence=c,
             eigensolver=RMMDIIS(), h=h,
             poissonsolver=PoissonSolver(use_charge_center=True),
             occupations=FermiDirac(width=0.0), spinpol=False)
-co.set_calculator(calc)
+co.calc = calc
 co.get_potential_energy()

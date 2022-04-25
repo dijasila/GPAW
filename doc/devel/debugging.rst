@@ -90,7 +90,7 @@ execution. Breakpoints can be set also on the source-code window.
 C debugging
 ===========
 
-First of all, the C-extension should be compiled with the *-g* flag in
+First, the C-extension should be compiled with the *-g* flag in
 order to get the debug information into the library. Also, the
 optimizations should be switched off which could be done in
 :ref:`siteconfig.py <siteconfig>` as::
@@ -230,15 +230,14 @@ This approach builds upon advice in Open MPI's FAQ `Debugging applications in pa
 <http://www.open-mpi.org/faq/?category=debugging#serial-debuggers>`_, but is adapted for use
 with Python on a GNU/Linux development platform. Prepend the following to your script::
 
-   import os, sys, time, math
-   from gpaw.mpi import world
-   from gpaw import get_gpaw_python_path
-   gpaw_python_path = os.path.join(get_gpaw_python_path(), 'gpaw-python')
-   ndigits = 1 + int(math.log10(world.size))
-   assert os.system('screen -S gdb.%0*d -dm gdb %s %d' \
-       % (ndigits, world.rank, gpaw_python_path, os.getpid())) == 0
-   time.sleep(ndigits)
-   world.barrier()
+    import os, sys, time, math
+    from gpaw.mpi import world
+    gpaw_python_path = '/your/path/to/gpaw-python'
+    ndigits = 1 + int(math.log10(world.size))
+    assert os.system('screen -S gdb.%0*d -dm gdb %s %d' \
+        % (ndigits, world.rank, gpaw_python_path, os.getpid())) == 0
+    time.sleep(ndigits)
+    world.barrier()
 
 This runs ``gdb /path/to/gpaw-python pid`` from within each instance of the custom Python
 interpreter and detaches it into a `screen <http://www.gnu.org/software/screen/>`_ session

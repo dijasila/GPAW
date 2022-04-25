@@ -9,7 +9,6 @@ helper functins for parallel domain decomposition.  """
 import numpy as np
 
 UNIFORM = False  # distribute grid points uniformly
-# XXX import this from gpaw.extra_parameters dict ?
 
 
 class Domain:
@@ -67,7 +66,7 @@ class Domain:
 
         if parsize_c is None:
             # XXX This should rather be:
-            #parsize_c = decompose_domain(N_c - not self.pbc_c, comm.size)
+            # parsize_c = decompose_domain(N_c - not self.pbc_c, comm.size)
             parsize_c = decompose_domain(N_c, comm.size)
         self.parsize_c = np.array(parsize_c)
 
@@ -199,6 +198,7 @@ def factorizations(f):
         for p1, p2, p3 in facs0:
             facs1 += [(p1 * q1, p2 * q2, p3 * q3) for q1, q2, q3 in facs]
         return facs1
+
 
 primes = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53,
           59, 61, 67, 71, 73, 79, 83, 89, 97, 101, 103, 107, 109, 113,

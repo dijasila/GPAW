@@ -7,7 +7,7 @@ Profiling
 profile
 =======
 
-Python has a ``profile`` module to help you find the places in the
+Python has a :mod:`cProfile` module to help you find the places in the
 code where the time is spent.
 
 Let's say you have a script ``script.py`` that you want to run through the
@@ -20,10 +20,20 @@ This will run your script and generate a profile in the file ``prof``.
 You can also generate the profile by inserting a line like this in
 your script::
 
-  ...
-  import profile
-  profile.run('atoms.get_potential_energy()', 'prof')
-  ...
+    ...
+    import cProfile
+    cProfile.run('atoms.get_potential_energy()', 'prof')
+    ...
+
+.. note::
+
+    Use::
+
+        import cProfile
+        from gpaw.mpi import rank
+        cProfile.run('atoms.get_potential_energy()', f'prof-{rank:04}')
+
+    if you want to run in parallel.
 
 To analyse the results, you do this::
 
@@ -48,14 +58,11 @@ To analyse the results, you do this::
       ...
 
 The list shows the 20 functions where the most time is spent.  Check
-the pstats_ documentation if you want to do more fancy things.
-
-.. _pstats: http://docs.python.org/library/profile.html
-
+the :mod:`pstats` documentation if you want to do more fancy things.
 
 .. tip::
 
-   Since the ``profile`` module does not time calls to C-code, it
+   Since the :mod:`cProfile` module does not time calls to C-code, it
    is a good idea to run the code in debug mode - this will wrap
    calls to C-code in Python functions::
 
@@ -65,14 +72,4 @@ the pstats_ documentation if you want to do more fancy things.
 
    There is also a quick and simple way to profile a script::
 
-     $ pyhton script.py --profile=prof
-
-   This will produce a file called ``prof.0000`` where ``0000`` is the
-   rank number (if your run the script in parallel, there will be one
-   file per rank).
-
-   Use::
-
-     $ python3 script.py --profile=-
-
-   to write the report directly to standard output.
+     $ pyhton3 -m cProfile script.py

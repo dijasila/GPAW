@@ -15,10 +15,10 @@ import sys
 import numpy as np
 
 from ase.parallel import paropen
-from ase.units import Hartree
-from ase.utils import devnull
+from gpaw.utilities import devnull
+from ase.units import Ha
 
-from gpaw.occupations import FermiDirac
+from gpaw.occupations import FermiDiracCalculator
 
 
 def dscf_calculation(paw, orbitals, atoms):
@@ -37,27 +37,29 @@ def dscf_calculation(paw, orbitals, atoms):
     Example
     =======
 
-    >>> atoms.set_calculator(calc)
-    >>> e_gs = atoms.get_potential_energy() #ground state energy
-    >>> sigma_star=MolecularOrbitals(calc, molecule=[0,1],
-    >>>                              w=[[1.,0.,0.,0.],[-1.,0.,0.,0.]])
-    >>> dscf_calculation(calc, [[1.0,sigma_star,1]], atoms)
-    >>> e_exc = atoms.get_potential_energy() #excitation energy
+    ::
+
+        atoms.calc = calc
+        e_gs = atoms.get_potential_energy() #ground state energy
+        sigma_star=MolecularOrbitals(calc, molecule=[0,1],
+                                     w=[[1.,0.,0.,0.],[-1.,0.,0.,0.]])
+        dscf_calculation(calc, [[1.0,sigma_star,1]], atoms)
+        e_exc = atoms.get_potential_energy() #excitation energy
 
     """
 
     # If the calculator has not been initialized the occupation object
     # is None
-    if paw.occupations is None:
+    if paw.wfs is None:
         paw.initialize(atoms)
-    occ = paw.occupations
-    if occ.width == 0:
-        occ.width = 1e-6
+    occ = paw.wfs.occupations
     if isinstance(occ, OccupationsDSCF):
-        paw.occupations.orbitals = orbitals
+        occ.orbitals = orbitals
     else:
-        new_occ = OccupationsDSCF(occ.width * Hartree, orbitals)
-        paw.occupations = new_occ
+        if occ.name == 'zero-width':
+            occ = FermiDiracCalculator(1e-4, occ.parallel_layout)
+        new_occ = OccupationsDSCF(occ, paw, orbitals)
+        paw.wfs.occupations = new_occ
     # If the calculator has already converged (for the ground state),
     # reset self-consistency and let the density be updated right away
     if paw.scf.converged:
@@ -65,7 +67,7 @@ def dscf_calculation(paw, orbitals, atoms):
         paw.scf.reset()
 
 
-class OccupationsDSCF(FermiDirac):
+class OccupationsDSCF:
     """Occupation class.
 
     Corresponds to the ordinary FermiDirac class in occupation.py. Only
@@ -73,8 +75,10 @@ class OccupationsDSCF(FermiDirac):
     in stead of placing all the electrons by a Fermi-Dirac distribution.
     """
 
-    def __init__(self, width, orbitals):
-        FermiDirac.__init__(self, width)
+    def __init__(self, occ, calc, orbitals):
+        self.occ = occ
+        self.extrapolate_factor = occ.extrapolate_factor
+        self.wfs = calc.wfs
         self.orbitals = orbitals
         self.norbitals = len(self.orbitals)
 
@@ -82,26 +86,29 @@ class OccupationsDSCF(FermiDirac):
         for orb in self.orbitals:
             self.cnoe += orb[0]
 
-    def set_number_of_electrons(self, wfs):
-        self.nvalence = wfs.nvalence - self.cnoe
-
-    def calculate(self, wfs):
-        FermiDirac.calculate(self, wfs)
+    def calculate(self,
+                  nelectrons,
+                  eigenvalues,
+                  weights,
+                  fermi_levels_guess):
+        f_qn, fermi_levels, e_entropy = self.occ.calculate(
+            nelectrons - self.cnoe,
+            eigenvalues,
+            weights,
+            fermi_levels_guess)
 
         # Get the expansion coefficients c_un for each dscf-orbital
         # and incorporate their respective occupations into kpt.ne_o
         c_oun = []
         for orb in self.orbitals:
-            ef = self.fermilevel
-            if self.fixmagmom:
-                fermilevels = [ef + 0.5 * self.split, ef - 0.5 * self.split]
-            else:
-                fermilevels = ef
-            c_oun.append(orb[1].expand(fermilevels, wfs, self.fixmagmom))
+            c_oun.append(orb[1].expand([e / Ha for e in fermi_levels],
+                                       self.wfs,
+                                       self.occ.todict().get('fixmagmom')))
 
-        for u, kpt in enumerate(wfs.kpt_u):
+        for u, kpt in enumerate(self.wfs.kpt_u):
             kpt.ne_o = np.zeros(self.norbitals, dtype=float)
-            kpt.c_on = np.zeros((self.norbitals, len(kpt.f_n)), dtype=complex)
+            kpt.c_on = np.zeros((self.norbitals, len(kpt.eps_n)),
+                                dtype=complex)
 
             for o, orb in enumerate(self.orbitals):
                 # TODO XXX false if orb[0]<0 since abs(c_n)**2>0
@@ -110,7 +117,7 @@ class OccupationsDSCF(FermiDirac):
                 kpt.ne_o[o] = orb[0]
                 kpt.c_on[o, :] = c_oun[o][u]
 
-                if wfs.nspins == 2:
+                if self.wfs.nspins == 2:
                     assert orb[2] in range(2), 'Invalid spin index'
 
                     if orb[2] == kpt.s:
@@ -120,22 +127,14 @@ class OccupationsDSCF(FermiDirac):
                 else:
                     kpt.ne_o[o] *= 0.5 * kpt.weight
 
-        # Correct the magnetic moment
-        for orb in self.orbitals:
-            if orb[2] == 0:
-                self.magmom += orb[0]
-            elif orb[2] == 1:
-                self.magmom -= orb[0]
+        return f_qn, fermi_levels, e_entropy
 
     def calculate_band_energy(self, wfs):
-        FermiDirac.calculate_band_energy(self, wfs)
-
         de_band = 0.0
         for kpt in wfs.kpt_u:
-            if hasattr(kpt, 'c_on'):
-                for ne, c_n in zip(kpt.ne_o, kpt.c_on):
-                    de_band += ne * np.dot(np.abs(c_n)**2, kpt.eps_n)
-        self.e_band += wfs.bd.comm.sum(wfs.kd.comm.sum(de_band))
+            for ne, c_n in zip(kpt.ne_o, kpt.c_on):
+                de_band += ne * np.dot(np.abs(c_n)**2, kpt.eps_n)
+        return de_band
 
 
 class MolecularOrbital:
@@ -186,10 +185,8 @@ class MolecularOrbital:
         self.nos = nos
 
     def expand(self, epsF, wfs, fixmom):
-        if wfs.nspins == 1:
-            epsF = [epsF]
-        elif not fixmom:
-            epsF = [epsF, epsF]
+        if wfs.nspins == 2 and not fixmom:
+            epsF = epsF * 2
 
         if self.nos is None:
             self.nos = wfs.bd.nbands
@@ -291,10 +288,8 @@ class AEOrbital:
 
         if wfs.mode == 'lcao':
             wfs.initialize_wave_functions_from_lcao()
-        if wfs.nspins == 1:
-            epsF = [epsF]
-        elif not fixmom:
-            epsF = [epsF, epsF]
+        if wfs.nspins == 2 and not fixmom:
+            epsF = epsF * 2
 
         if self.nos is None:
             self.nos = wfs.bd.nbands
@@ -313,7 +308,7 @@ class AEOrbital:
             # Inner product of pseudowavefunctions
             wf = np.reshape(wf_u[u], -1)
             Wf_n = kpt.psit_nG
-            Wf_n = np.reshape(Wf_n, (len(kpt.f_n), -1))
+            Wf_n = np.reshape(Wf_n, (len(Wf_n), -1))
             Porb_n = np.dot(Wf_n.conj(), wf) * wfs.gd.dv
 
             # Correction to obtain inner product of AE wavefunctions

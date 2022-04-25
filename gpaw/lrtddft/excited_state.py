@@ -1,81 +1,85 @@
-"""Excited state as calculator object."""
-
-from __future__ import print_function
-import os
-import errno
-
+from pathlib import Path
 import numpy as np
+from typing import Dict, Any
+
 from ase.units import Hartree
-from ase.utils import convert_string_to_fd
 from ase.utils.timing import Timer
+from ase.calculators.calculator import Calculator
 
 import gpaw.mpi as mpi
-from gpaw import GPAW, __version__, restart
+from gpaw.calculator import GPAW
+from gpaw import __version__, restart
 from gpaw.density import RealSpaceDensity
-from gpaw.io.logger import GPAWLogger
 from gpaw.lrtddft import LrTDDFT
 from gpaw.lrtddft.finite_differences import FiniteDifference
+from gpaw.lrtddft.excitation import ExcitationLogger
 from gpaw.utilities.blas import axpy
 from gpaw.wavefunctions.lcao import LCAOWaveFunctions
 
 
 class ExcitedState(GPAW):
+    nparts = 1
+    implemented_properties = ['energy', 'forces']
+    default_parameters: Dict[str, Any] = {}
 
-    def __init__(self, lrtddft=None, index=0, d=0.001, txt=None,
-                 parallel=0, communicator=None, name=None, restart=None):
+    def __init__(self, lrtddft, index, d=0.001, log=None, txt='-',
+                 parallel=1, communicator=None):
         """ExcitedState object.
-        parallel: Can be used to parallelize the numerical force calculation
+        lrtddft:
+          LrTDDFT object
+        index:
+          Excited state index
+        parallel: int
+          Can be used to parallelize the numerical force calculation
+          over images. Splits world into # parallel workers.
+          E. g. if world.size is 20 and parallel is 10, then 2 cores
+          are used per GPAW and LrTDDFT calculation.
+          Defaults to 1 (i.e. use all cores).
         over images.
         """
-
         self.timer = Timer()
-        self.atoms = None
         if isinstance(index, int):
             self.index = UnconstraintIndex(index)
         else:
             self.index = index
 
-        self.results = {}
-        self.results['forces'] = None
-        self.results['energy'] = None
         if communicator is None:
             try:
                 communicator = lrtddft.calculator.wfs.world
-            except:
+            except AttributeError:
                 communicator = mpi.world
         self.world = communicator
 
-        if restart is not None:
-            self.read(restart)
-            if txt is None:
-                self.txt = self.lrtddft.txt
-            else:
-                self.txt = convert_string_to_fd(txt, self.world)
+        self.lrtddft = lrtddft
+        self.calculator = self.lrtddft.calculator
 
-        if lrtddft is not None:
-            self.lrtddft = lrtddft
-            self.calculator = self.lrtddft.calculator
-            self.atoms = self.calculator.atoms
-            self.parameters = self.calculator.parameters
-            if txt is None:
-                self.txt = self.lrtddft.txt
-            else:
-                self.txt = convert_string_to_fd(txt, self.world)
+        Calculator.__init__(self)
+
+        self.log = self.calculator.log
+        self.atoms = self.calculator.atoms
 
         self.d = d
-        self.parallel = parallel
-        self.name = name
 
-        self.log = GPAWLogger(self.world)
-        self.log.fd = self.txt
-        self.reader = None
-        self.calculator.log.fd = self.txt
+        self.results = {}
+        self.parameters = {'d': d, 'index': self.index}
+
+        # set output
+        if log:
+            self.log = log
+        else:
+            self.log = ExcitationLogger(mpi.world)
+            self.log.fd = txt
+
         self.log('#', self.__class__.__name__, __version__)
         self.log('#', self.index)
-        if name:
-            self.log('name=' + name)
         self.log('# Force displacement:', self.d)
         self.log
+
+        self.split(parallel)
+
+    @property
+    def name(self):
+        return 'excitedstate'
 
     def __del__(self):
         self.timer.write(self.log.fd)
@@ -85,66 +89,78 @@ class ExcitedState(GPAW):
 
     def set_positions(self, atoms):
         """Update the positions of the atoms."""
-
         self.atoms = atoms.copy()
-        self.results['forces'] = None
-        self.results['energy'] = None
+        self.results = {}
 
-    def write(self, filename, mode=''):
+    def write(self, dirname, mode=''):
+        """Write yourself to a directory
 
-        try:
-            os.makedirs(filename)
-        except OSError as exception:
-            if exception.errno != errno.EEXIST:
-                raise
+        Paramaters
+        ----------
+        dirname: string or path
+          Write the files to the directory dirname. The directory
+          is created in case it does not exist.
+        mode: string
+          Mode for writing the calculator (GPAW object). Default ''.
+        """
+        directory = Path(dirname)
+        directory.mkdir(parents=True, exist_ok=True)
+        filename = str(directory / 'exst')
 
-        self.calculator.write(filename=filename + '/' + filename, mode=mode)
-        self.lrtddft.write(filename=filename + '/' + filename + '.lr.dat.gz',
-                           fh=None)
+        self.calculator.write(filename=filename, mode=mode)
+        self.lrtddft.write(filename=filename + '.lr.dat.gz')
 
-        f = open(filename + '/' + filename + '.exst', 'w')
-        f.write('# ' + self.__class__.__name__ + __version__ + '\n')
-        f.write('Displacement: {0}'.format(self.d) + '\n')
-        f.write('Index: ' + self.index.__class__.__name__ + '\n')
-        for k, v in self.index.__dict__.items():
-            f.write('{0}, {1}'.format(k, v) + '\n')
-        f.close()
+        if self.world.rank == 0:
+            with open(filename + '.exst', 'w') as f:
+                f.write('# ' + self.__class__.__name__ + __version__ + '\n')
+                f.write('Displacement: {0}'.format(self.d) + '\n')
+                f.write('Index: ' + self.index.__class__.__name__ + '\n')
+                for k, v in self.index.__dict__.items():
+                    f.write('{0}, {1}'.format(k, v) + '\n')
+        self.world.barrier()
 
-        mpi.world.barrier()
+    @classmethod
+    def read(cls, dirname, communicator=None, log=None, txt=None):
+        """Read ExcitedState from a directory"""
+        filename = str(Path(dirname) / 'exst')
+        atoms, calculator = restart(filename,
+                                    communicator=communicator, txt=txt)
+        if log is not None:
+            calculator.log = log
+        E0 = calculator.get_potential_energy()
+        lrtddft = LrTDDFT.read(filename + '.lr.dat.gz',
+                               log=calculator.log)
+        lrtddft.calculator = calculator
 
-    def read(self, filename):
-
-        self.lrtddft = LrTDDFT(filename + '/' + filename + '.lr.dat.gz')
-        self.atoms, self.calculator = restart(
-            filename + '/' + filename, communicator=self.world)
-        E0 = self.calculator.get_potential_energy()
-
-        f = open(filename + '/' + filename + '.exst', 'r')
-        f.readline()
-        self.d = f.readline().replace('\n', '').split()[1]
-        indextype = f.readline().replace('\n', '').split()[1]
-        if indextype == 'UnconstraintIndex':
-            iex = int(f.readline().replace('\n', '').split()[1])
-            self.index = UnconstraintIndex(iex)
-        else:
-            direction = f.readline().replace('\n', '').split()[1]
-            if direction in [str(0), str(1), str(2)]:
-                direction = int(direction)
+        with open(filename + '.exst', 'r') as f:
+            f.readline()
+            d = f.readline().replace('\n', '').split()[1]
+            indextype = f.readline().replace('\n', '').split()[1]
+            if indextype == 'UnconstraintIndex':
+                iex = int(f.readline().replace('\n', '').split()[1])
+                index = UnconstraintIndex(iex)
             else:
-                direction = None
+                direction = f.readline().replace('\n', '').split()[1]
+                if direction in [str(0), str(1), str(2)]:
+                    direction = int(direction)
+                else:
+                    direction = None
 
-            val = f.readline().replace('\n', '').split()
-            if indextype == 'MinimalOSIndex':
+                val = f.readline().replace('\n', '').split()
+                if indextype == 'MinimalOSIndex':
 
-                self.index = MinimalOSIndex(float(val[1]), direction)
-            else:
-                emin = float(val[2])
-                emax = float(val[3].replace(']', ''))
-                self.index = MaximalOSIndex([emin, emax], direction)
+                    index = MinimalOSIndex(float(val[1]), direction)
+                else:
+                    emin = float(val[2])
+                    emax = float(val[3].replace(']', ''))
+                    index = MaximalOSIndex([emin, emax], direction)
 
-        index = self.index.apply(self.lrtddft)
-        self.results['energy'] = E0 + self.lrtddft[index].energy * Hartree
-        self.lrtddft.set_calculator(self.calculator)
+            exst = cls(lrtddft, index, d, communicator=communicator,
+                       txt=calculator.log.oldfd)
+            index = exst.index.apply(lrtddft)
+            exst.results['energy'] = E0 + lrtddft[index].energy * Hartree
+
+        return exst
 
     def calculation_required(self, atoms, quantities):
         if len(quantities) == 0:
@@ -168,7 +184,7 @@ class ExcitedState(GPAW):
         for quantity in ['energy', 'forces']:
             if quantity in quantities:
                 quantities.remove(quantity)
-                if self.results[quantity] is None:
+                if quantity not in self.results:
                     return True
         return len(quantities) > 0
 
@@ -176,24 +192,14 @@ class ExcitedState(GPAW):
         system_changes = GPAW.check_state(self.calculator, atoms, tol)
         return system_changes
 
-    def get_potential_energy(self, atoms=None, force_consistent=None):
-        """Evaluate potential energy for the given excitation."""
-
-        if atoms is None:
-            atoms = self.atoms
-
-        if self.calculation_required(atoms, ['energy']):
-            self.results['energy'] = self.calculate(atoms)
-
-        return self.results['energy']
-
-    def calculate(self, atoms):
+    def calculate(self, atoms, properties=['energy'],
+                  system_changes=['cell']):
         """Evaluate your energy if needed."""
         self.set_positions(atoms)
 
         self.calculator.calculate(atoms)
         E0 = self.calculator.get_potential_energy()
-        atoms.set_calculator(self)
+        atoms.calc = self
 
         if hasattr(self, 'density'):
             del(self.density)
@@ -210,7 +216,34 @@ class ExcitedState(GPAW):
         self.log('Energy:   {0}'.format(energy))
         self.log()
 
-        return energy
+        self.results['energy'] = energy
+
+    def split(self, nparts):
+        """Split world into parts and allow log in masters' part"""
+        # only split once
+        assert self.nparts == 1
+
+        if self.world.size == 1 or nparts == 1:
+            return
+
+        assert self.world.size % nparts == 0
+        self.nparts = nparts
+        allranks = np.array(range(self.world.size), dtype=int)
+        allranks = allranks.reshape(nparts, self.world.size // nparts)
+
+        # force hard reset
+        self.calculator.reset()
+        self.calculator.set(
+            external=self.calculator.parameters['external'])
+
+        for ranks in allranks:
+            if self.world.rank in ranks:
+                self.world = self.world.new_communicator(ranks)
+                self.calculator.world = self.world
+                if 0 not in ranks:
+                    self.calculator.log.fd = None
+                    self.lrtddft.log.fd = None
+                return
 
     def get_forces(self, atoms=None, save=False):
         """Get finite-difference forces
@@ -220,30 +253,30 @@ class ExcitedState(GPAW):
             atoms = self.atoms
 
         if self.calculation_required(atoms, ['forces']):
-            atoms.set_calculator(self)
-
             # do the ground state calculation to set all
             # ranks to the same density to start with
-            E0 = self.calculate(atoms)
+            p0 = atoms.get_positions().copy()
+            atoms.calc = self
 
             finite = FiniteDifference(
                 atoms=atoms,
                 propertyfunction=atoms.get_potential_energy,
                 save=save,
                 name="excited_state", ending='.gpw',
-                d=self.d, parallel=self.parallel)
+                d=self.d, log=self.log, parallel=self.nparts)
             F_av = finite.run()
 
-            self.set_positions(atoms)
-            self.results['energy'] = E0
+            atoms.set_positions(p0)
+            self.calculate(atoms)
             self.results['forces'] = F_av
-            if self.txt:
-                self.log('Excited state forces in eV/Ang:')
-                symbols = self.atoms.get_chemical_symbols()
-                for a, symbol in enumerate(symbols):
-                    self.log(('%3d %-2s %10.5f %10.5f %10.5f' %
-                              ((a, symbol) +
-                               tuple(self.results['forces'][a]))))
+
+            self.log('Excited state forces in eV/Ang:')
+            symbols = self.atoms.get_chemical_symbols()
+            for a, symbol in enumerate(symbols):
+                self.log(('%3d %-2s %10.5f %10.5f %10.5f' %
+                          ((a, symbol) +
+                           tuple(self.results['forces'][a]))))
+
         return self.results['forces']
 
     def forces_indexn(self, index):
@@ -262,7 +295,7 @@ class ExcitedState(GPAW):
             propertyfunction=self.atoms.get_potential_energy,
             name="excited_state", ending='.gpw',
             d=self.d, parallel=0)
-        atoms.set_calculator(self)
+        atoms.calc = self
 
         return fd.restart(reforce)
 
@@ -308,6 +341,9 @@ class UnconstraintIndex:
 
     def __str__(self):
         return (self.__class__.__name__ + '(' + str(self.index) + ')')
+
+    def todict(self):
+        return {'class': self.__class__.__name__, 'index': self.index}
 
 
 class MinimalOSIndex:

@@ -318,7 +318,7 @@ class PWF2:
             return self.S_qww[q].take(indices, 0).take(indices, 1)
 
     def get_projections(self, q=0, indices=None):
-        kpt = self.calc.wfs.kpt_u[self.spin * self.nk + q]
+        kpt = self.calc.wfs.kpt_qs[q][self.spin]
         if not hasattr(self, 'P_awi'):
             if self.ibl:
                 M = self.M_k[q]
@@ -334,7 +334,7 @@ class PWF2:
 
     def get_orbitals(self, q=0, indices=None):
         self.calc.wfs.initialize_wave_functions_from_restart_file()
-        kpt = self.calc.wfs.kpt_u[self.spin * self.nk + q]
+        kpt = self.calc.wfs.kpt_qs[q][self.spin]
         if not hasattr(self, 'w_wG'):
             if self.ibl:
                 self.w_wG = self.pwf_q[q].rotate_function(

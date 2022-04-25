@@ -1,11 +1,11 @@
-from __future__ import print_function
-
+import warnings
 from math import sqrt, pi
-
 import numpy as np
-from ase.units import Hartree, Bohr
 
+from ase.units import Ha
+from gpaw import BadParallelization
 from gpaw.mpi import world
+from gpaw.density import redistribute_array, redistribute_atomic_matrices
 from gpaw.sphere.lebedev import weight_n
 from gpaw.utilities import pack, pack_atomic_matrices, unpack_atomic_matrices
 from gpaw.xc.gllb import safe_sqr
@@ -20,45 +20,99 @@ def d(*args):
         print(args)
 
 
+class ResponsePotential:
+    """Container for response potential"""
+    def __init__(self, response, vt_sG, vt_sg, D_asp, Dresp_asp):
+        self.response = response
+        self.vt_sG = vt_sG
+        self.vt_sg = vt_sg
+        self.D_asp = D_asp
+        self.Dresp_asp = Dresp_asp
+
+    def redistribute(self, new_response):
+        old_response = self.response
+        new_wfs = new_response.wfs
+        new_density = new_response.density
+        self.vt_sG = redistribute_array(self.vt_sG,
+                                        old_response.density.gd,
+                                        new_density.gd,
+                                        new_wfs.nspins,
+                                        new_wfs.kptband_comm)
+        if self.vt_sg is not None:
+            self.vt_sg = redistribute_array(self.vt_sg,
+                                            old_response.density.finegd,
+                                            new_density.finegd,
+                                            new_wfs.nspins,
+                                            new_wfs.kptband_comm)
+
+        def redist_asp(D_asp):
+            return redistribute_atomic_matrices(D_asp,
+                                                new_density.gd,
+                                                new_wfs.nspins,
+                                                new_density.setups,
+                                                new_density.atom_partition,
+                                                new_wfs.kptband_comm)
+
+        self.D_asp = redist_asp(self.D_asp)
+        self.Dresp_asp = redist_asp(self.Dresp_asp)
+        self.response = new_response
+
+
 class C_Response(Contribution):
-    def __init__(self, nlfunc, weight, coefficients):
-        Contribution.__init__(self, nlfunc, weight)
+    def __init__(self, weight, coefficients, damp=1e-10):
+        Contribution.__init__(self, weight)
         d('In c_Response __init__', self)
         self.coefficients = coefficients
         self.vt_sg = None
         self.vt_sG = None
-        self.nt_sG = None
         self.D_asp = None
         self.Dresp_asp = None
+        self.Ddist_asp = None
         self.Drespdist_asp = None
-        self.just_read = False
-        self.damp = 1e-10
+        self.damp = damp
+        self.fix_potential = False
+
+    def set_damp(self, damp):
+        self.damp = damp
 
     def get_name(self):
         return 'RESPONSE'
 
     def get_desc(self):
-        return ''
+        return self.coefficients.get_description()
 
-    def set_damp(self, damp):
-        self.damp = damp
+    def initialize(self, density, hamiltonian, wfs):
+        Contribution.initialize(self, density, hamiltonian, wfs)
+        self.coefficients.initialize(wfs)
+        if self.Dresp_asp is None:
+            assert self.density.D_asp is None
+        # XXX With the deprecated `fixdensity=True` option this
+        # initialize() function is called both before AND after read()!
+        # Thus, the second call of initialize() would discard the read
+        # potential unless we check if it was already allocated.
+        # Remove this if statement once `fixdensity=True` option has
+        # been removed from the calculator.
+        if self.vt_sg is None:
+            self.vt_sG = self.gd.empty(self.nspins)
+            self.vt_sg = self.finegd.empty(self.nspins)
 
-    def set_positions(self, atoms):
-        # d('Response::set_positions', len(self.Dresp_asp),
-        #   'not doing anything now')
-        return
+    def initialize_1d(self, ae):
+        Contribution.initialize_1d(self, ae)
+        self.coefficients.initialize_1d(ae)
 
-        def get_empty(a):
-            ni = self.setups[a].ni
-            return np.empty((self.ns, ni * (ni + 1) // 2))
-
-        # atom_partition.redistribute(atom_partition, self.Dresp_asp,
-        #                             get_empty)
-        # atom_partition.redistribute(atom_partition, self.D_asp, get_empty)
-
-    # Initialize Response functional
-    def initialize_1d(self):
-        self.ae = self.nlfunc.ae
+    def initialize_from_other_response(self, response):
+        pot = ResponsePotential(response,
+                                response.vt_sG,
+                                response.vt_sg,
+                                response.D_asp,
+                                response.Dresp_asp)
+        pot.redistribute(self)
+        self.vt_sG = pot.vt_sG
+        self.vt_sg = pot.vt_sg
+        self.D_asp = pot.D_asp
+        self.Dresp_asp = pot.Dresp_asp
+        self.Ddist_asp = self.distribute_D_asp(pot.D_asp)
+        self.Drespdist_asp = self.distribute_D_asp(pot.Dresp_asp)
 
     # Calcualte the GLLB potential and energy 1d
     def add_xc_potential_and_energy_1d(self, v_g):
@@ -68,119 +122,63 @@ class C_Response(Contribution):
             np.dot(self.ae.f_j, u2_j) + self.damp)
         return 0.0  # Response part does not contribute to energy
 
-    def initialize(self):
-        d('In C_response initialize')
-        self.gd = self.nlfunc.gd
-        self.finegd = self.nlfunc.finegd
-        self.wfs = self.nlfunc.wfs
-        self.kpt_u = self.wfs.kpt_u
-        self.setups = self.wfs.setups
-        self.density = self.nlfunc.density
-        self.symmetry = self.wfs.kd.symmetry
-        self.nspins = self.nlfunc.nspins
-        self.occupations = self.nlfunc.occupations
-        self.nvalence = self.nlfunc.nvalence
-        self.kpt_comm = self.wfs.kd.comm
-        self.band_comm = self.wfs.bd.comm
-        self.grid_comm = self.gd.comm
-        if self.Dresp_asp is None:
-            assert self.density.D_asp is None
-            # if self.density.D_asp is not None:
-            #     self.Dresp_asp = self.empty_atomic_matrix()
-            #     self.D_asp = self.empty_atomic_matrix()
-            #     for a in self.density.D_asp:
-            #         self.Dresp_asp[a][:] = 0.0
-            #         self.D_asp[a][:] = 0.0
-            # XXX Might as well not initialize, as it seems.
-            #     self.Drespdist_asp = self.distribute_Dresp_asp(
-            #         self.Dresp_asp)
-            #     self.Ddist_asp = self.distribute_Dresp_asp(self.D_asp)
-
-            # The response discontinuity is stored here
-            self.Dxc_vt_sG = None
-            self.Dxc_Dresp_asp = None
-            self.Dxc_D_asp = None
-
-    def update_potentials(self, nt_sg):
+    def update_potentials(self):
         d('In update response potential')
-        if self.just_read:
-            # This is very hackish.
-            # Reading GLLB-SC loads all density matrices to all cores.
-            # This code first removes them to match density.D_asp.
-            # and then further distributes the density matricies for
-            # xc-corrections.
-            d('Just read')
-
-            Dresp_asp = self.empty_atomic_matrix()
-            D_asp = self.empty_atomic_matrix()
-            for a in self.density.D_asp:
-                Dresp_asp[a][:] = self.Dresp_asp[a]
-                D_asp[a][:] = self.D_asp[a]
-            self.Dresp_asp = Dresp_asp
-            self.D_asp = D_asp
-
-            assert len(self.Dresp_asp) == len(self.density.D_asp)
-            self.just_read = False
-            self.Drespdist_asp = self.distribute_Dresp_asp(self.Dresp_asp)
-            d('Core ', world.rank, 'self.Dresp_asp', self.Dresp_asp.items(),
-              'self.Drespdist_asp', self.Drespdist_asp.items())
-            self.Ddist_asp = self.distribute_Dresp_asp(self.D_asp)
+        if self.fix_potential:
+            # Skip the evaluation of the potential so that
+            # the existing potential is used. This is relevant for
+            # band structure calculation so that the potential
+            # does not get updated with the other k-point sampling.
             return
 
-        if not self.occupations.ready:
-            d('No occupations calculated yet')
+        if self.wfs.kpt_u[0].eps_n is None:
+            # This skips the evaluation of the potential so that
+            # the existing one is used.
+            # This happens typically after reading when occupations
+            # haven't been calculated yet and the potential read earlier
+            # is used.
             return
 
-        nspins = len(nt_sg)
-        w_kn = self.coefficients.get_coefficients_by_kpt(self.kpt_u,
-                                                         nspins=nspins)
-        f_kn = [kpt.f_n for kpt in self.kpt_u]
+        w_kn = self.coefficients.get_coefficients(self.wfs.kpt_u)
+        f_kn = [kpt.f_n for kpt in self.wfs.kpt_u]
         if w_kn is not None:
-            self.vt_sG = self.gd.zeros(self.nspins)
-            self.nt_sG = self.gd.zeros(self.nspins)
+            self.vt_sG[:] = 0.0
+            nt_sG = self.gd.zeros(self.nspins)
 
-            for kpt, w_n in zip(self.kpt_u, w_kn):
+            for kpt, w_n in zip(self.wfs.kpt_u, w_kn):
                 self.wfs.add_to_density_from_k_point_with_occupation(
                     self.vt_sG, kpt, w_n)
-                self.wfs.add_to_density_from_k_point(self.nt_sG, kpt)
+                self.wfs.add_to_density_from_k_point(nt_sG, kpt)
 
-            self.wfs.kptband_comm.sum(self.nt_sG)
+            self.wfs.kptband_comm.sum(nt_sG)
             self.wfs.kptband_comm.sum(self.vt_sG)
 
             if self.wfs.kd.symmetry:
-                for nt_G, vt_G in zip(self.nt_sG, self.vt_sG):
-                    self.symmetry.symmetrize(nt_G, self.gd)
-                    self.symmetry.symmetrize(vt_G, self.gd)
+                for nt_G, vt_G in zip(nt_sG, self.vt_sG):
+                    self.wfs.kd.symmetry.symmetrize(nt_G, self.gd)
+                    self.wfs.kd.symmetry.symmetrize(vt_G, self.gd)
 
             d('response update D_asp', world.rank, self.Dresp_asp.keys(),
               self.D_asp.keys())
             self.wfs.calculate_atomic_density_matrices_with_occupation(
                 self.Dresp_asp, w_kn)
-            self.Drespdist_asp = self.distribute_Dresp_asp(self.Dresp_asp)
+            self.Drespdist_asp = self.distribute_D_asp(self.Dresp_asp)
             d('response update Drespdist_asp', world.rank,
               self.Dresp_asp.keys(), self.D_asp.keys())
             self.wfs.calculate_atomic_density_matrices_with_occupation(
                 self.D_asp, f_kn)
-            self.Ddist_asp = self.distribute_Dresp_asp(self.D_asp)
+            self.Ddist_asp = self.distribute_D_asp(self.D_asp)
 
-            self.vt_sG /= self.nt_sG + self.damp
+            self.vt_sG /= nt_sG + self.damp
 
-        self.vt_sg = self.finegd.zeros(nspins)
         self.density.distribute_and_interpolate(self.vt_sG, self.vt_sg)
 
-    def calculate_spinpaired(self, e_g, n_g, v_g):
-        self.update_potentials([n_g])
-        v_g[:] += self.weight * self.vt_sg[0]
-        return 0.0
-
-    def calculate_spinpolarized(self, e_g, n_sg, v_sg):
-        self.update_potentials(n_sg)
+    def calculate(self, e_g, n_sg, v_sg):
+        self.update_potentials()
         v_sg += self.weight * self.vt_sg
-        return 0.0
 
-    def distribute_Dresp_asp(self, Dresp_asp):
-        d('distribute_Dresp_asp')
-        return self.density.atomdist.to_work(Dresp_asp)
+    def distribute_D_asp(self, D_asp):
+        return self.density.atomdist.to_work(D_asp)
 
     def calculate_energy_and_derivatives(self, setup, D_sp, H_sp, a,
                                          addcoredensity=True):
@@ -223,7 +221,7 @@ class C_Response(Contribution):
         return 0.0
 
     def integrate_sphere(self, a, Dresp_sp, D_sp, Dwf_p, spin=0):
-        c = self.nlfunc.setups[a].xc_correction
+        c = self.wfs.setups[a].xc_correction
         Dresp_p, D_p = Dresp_sp[spin], D_sp[spin]
         D_Lq = np.dot(c.B_pqL.T, D_p)
         n_Lg = np.dot(D_Lq, c.n_qg)  # Construct density
@@ -262,9 +260,14 @@ class C_Response(Contribution):
         return 0.0  # Response part does not contribute to energy
 
     def calculate_delta_xc(self, homolumo=None):
+        warnings.warn(
+            'The function calculate_delta_xc() is deprecated. '
+            'Please use calculate_discontinuity_potential() instead. '
+            'See documentation on calculating band gap with GLLBSC.',
+            DeprecationWarning)
+
         if homolumo is None:
             # Calculate band gap
-            pass
 
             # This always happens, so we don't warn.
             # We should perhaps print it as an ordinary message,
@@ -272,162 +275,233 @@ class C_Response(Contribution):
             # import warnings
             # warnings.warn('Calculating KS-gap directly from the k-points, '
             #               'can be inaccurate.')
-            # homolumo = self.occupations.get_homo_lumo(self.wfs)
+            homolumo = self.wfs.get_homo_lumo()
+        homo, lumo = homolumo
+        dxc_pot = self.calculate_discontinuity_potential(homo * Ha, lumo * Ha)
+        self.Dxc_vt_sG = dxc_pot.vt_sG
+        self.Dxc_D_asp = dxc_pot.D_asp
+        self.Dxc_Dresp_asp = dxc_pot.Dresp_asp
 
-        self.Dxc_Dresp_asp = self.empty_atomic_matrix()
-        self.Dxc_D_asp = self.empty_atomic_matrix()
+    def calculate_discontinuity_potential(self, homo, lumo):
+        r"""Calculate the derivative discontinuity potential.
+
+        This function calculates $`\Delta_{xc}(r)`$ as given by
+        Eq. (24) of https://doi.org/10.1103/PhysRevB.82.115106
+
+        Parameters:
+
+        homo:
+            homo energy (or energies in spin-polarized case) in eV
+        lumo:
+            lumo energy (or energies in spin-polarized case) in eV
+
+        Returns:
+
+        dxc_pot: Discontinuity potential
+        """
+        homolumo = np.asarray((homo, lumo)) / Ha
+
+        dxc_Dresp_asp = self.empty_atomic_matrix()
+        dxc_D_asp = self.empty_atomic_matrix()
         for a in self.density.D_asp:
-            ni = self.setups[a].ni
-            self.Dxc_Dresp_asp[a] = np.zeros((self.nlfunc.nspins, ni *
-                                              (ni + 1) // 2))
-            self.Dxc_D_asp[a] = np.zeros((self.nlfunc.nspins, ni *
-                                          (ni + 1) // 2))
+            ni = self.wfs.setups[a].ni
+            dxc_Dresp_asp[a] = np.zeros((self.nspins, ni * (ni + 1) // 2))
+            dxc_D_asp[a] = np.zeros((self.nspins, ni * (ni + 1) // 2))
 
         # Calculate new response potential with LUMO reference
-        w_kn = self.coefficients.get_coefficients_by_kpt(
-            self.kpt_u,
-            lumo_perturbation=True,
-            homolumo=homolumo,
-            nspins=self.nspins)
-        f_kn = [kpt.f_n for kpt in self.kpt_u]
+        w_kn = self.coefficients.get_coefficients_for_lumo_perturbation(
+            self.wfs.kpt_u,
+            homolumo=homolumo)
+        f_kn = [kpt.f_n for kpt in self.wfs.kpt_u]
 
-        vt_sG = self.gd.zeros(self.nlfunc.nspins)
-        nt_sG = self.gd.zeros(self.nlfunc.nspins)
-        for kpt, w_n in zip(self.kpt_u, w_kn):
-            self.wfs.add_to_density_from_k_point_with_occupation(vt_sG, kpt,
-                                                                 w_n)
+        dxc_vt_sG = self.gd.zeros(self.nspins)
+        nt_sG = self.gd.zeros(self.nspins)
+        for kpt, w_n in zip(self.wfs.kpt_u, w_kn):
+            self.wfs.add_to_density_from_k_point_with_occupation(dxc_vt_sG,
+                                                                 kpt, w_n)
             self.wfs.add_to_density_from_k_point(nt_sG, kpt)
 
         self.wfs.kptband_comm.sum(nt_sG)
-        self.wfs.kptband_comm.sum(vt_sG)
+        self.wfs.kptband_comm.sum(dxc_vt_sG)
 
         if self.wfs.kd.symmetry:
-            for nt_G, vt_G in zip(nt_sG, vt_sG):
-                self.symmetry.symmetrize(nt_G, self.gd)
-                self.symmetry.symmetrize(vt_G, self.gd)
+            for nt_G, dxc_vt_G in zip(nt_sG, dxc_vt_sG):
+                self.wfs.kd.symmetry.symmetrize(nt_G, self.gd)
+                self.wfs.kd.symmetry.symmetrize(dxc_vt_G, self.gd)
 
-        vt_sG /= nt_sG + self.damp
-        self.Dxc_vt_sG = vt_sG.copy()
+        dxc_vt_sG /= nt_sG + self.damp
 
         self.wfs.calculate_atomic_density_matrices_with_occupation(
-            self.Dxc_Dresp_asp, w_kn)
+            dxc_Dresp_asp, w_kn)
         self.wfs.calculate_atomic_density_matrices_with_occupation(
-            self.Dxc_D_asp, f_kn)
+            dxc_D_asp, f_kn)
+        dxc_pot = ResponsePotential(self, dxc_vt_sG, None,
+                                    dxc_D_asp, dxc_Dresp_asp)
+        return dxc_pot
+
+    def calculate_delta_xc_perturbation(self):
+        warnings.warn(
+            'The function calculate_delta_xc_perturbation() is deprecated. '
+            'Please use calculate_discontinuity() instead. '
+            'See documentation on calculating band gap with GLLBSC.',
+            DeprecationWarning)
+        dxc_pot = ResponsePotential(self, self.Dxc_vt_sG, None, self.Dxc_D_asp,
+                                    self.Dxc_Dresp_asp)
+        if self.nspins != 1:
+            ret = []
+            for spin in range(self.nspins):
+                ret.append(self.calculate_discontinuity(dxc_pot, spin=spin))
+            return ret
+        return self.calculate_discontinuity(dxc_pot)
 
     def calculate_delta_xc_perturbation_spin(self, s=0):
-        homo, lumo = self.wfs.get_homo_lumo(s)
-        Ksgap = lumo - homo
+        warnings.warn(
+            'The function calculate_delta_xc_perturbation_spin() is '
+            'deprecated. Please use calculate_discontinuity_spin() instead. '
+            'See documentation on calculating band gap with GLLBSC.',
+            DeprecationWarning)
+        dxc_pot = ResponsePotential(self, self.Dxc_vt_sG, None, self.Dxc_D_asp,
+                                    self.Dxc_Dresp_asp)
+        return self.calculate_discontinuity(dxc_pot, spin=s)
 
-        # Calculate average of lumo reference response potential
-        method1_dxc = np.average(self.Dxc_vt_sG[s])
-        nt_G = self.gd.empty()
+    def calculate_discontinuity(self,
+                                dxc_pot: ResponsePotential,
+                                spin: int = None):
+        r"""Calculate the derivative discontinuity.
+
+        This function evaluates the perturbation theory expression
+        for the derivative discontinuity value as given by
+        Eq. (25) of https://doi.org/10.1103/PhysRevB.82.115106
+
+        Parameters:
+
+        dxc_pot:
+            Discontinuity potential.
+        spin:
+            Spin value.
+
+        Returns:
+
+        KSgap:
+            Kohn-Sham gap in eV
+        dxc:
+            Derivative discontinuity in eV
+        """
+        if spin is None:
+            if self.nspins != 1:
+                raise ValueError('Specify spin for the discontinuity.')
+            spin = 0
+
+        # Redistribute discontinuity potential
+        if dxc_pot.response is not self:
+            dxc_pot.redistribute(self)
+
+        homo, lumo = self.wfs.get_homo_lumo(spin)
+        KSgap = lumo - homo
 
         # Find the lumo-orbital of this spin
-        sign = 1 - s * 2
-        lumo_n = int((self.wfs.nvalence + sign * self.occupations.magmom) // 2)
-        gaps = [1000.0]
-        for u, kpt in enumerate(self.kpt_u):
-            if kpt.s == s:
+        if self.wfs.bd.comm.size != 1:
+            raise BadParallelization(
+                'Band parallelization is not supported by '
+                'calculate_discontinuity().')
+        eps_n = self.wfs.kpt_qs[0][spin].eps_n
+        lumo_n = (eps_n < self.wfs.fermi_level).sum()
+
+        # Calculate the expectation value for all k points, and keep
+        # the smallest energy value
+        nt_G = self.gd.empty()
+        min_energy = np.inf
+        for u, kpt in enumerate(self.wfs.kpt_u):
+            if kpt.s == spin:
                 nt_G[:] = 0.0
                 self.wfs.add_orbital_density(nt_G, kpt, lumo_n)
                 E = 0.0
-                for a in self.density.D_asp:
-                    D_sp = self.Dxc_D_asp[a]
-                    Dresp_sp = self.Dxc_Dresp_asp[a]
+                for a in dxc_pot.D_asp:
+                    D_sp = dxc_pot.D_asp[a]
+                    Dresp_sp = dxc_pot.Dresp_asp[a]
                     P_ni = kpt.P_ani[a]
                     Dwf_p = pack(np.outer(P_ni[lumo_n].T.conj(),
                                           P_ni[lumo_n]).real)
                     E += self.integrate_sphere(a, Dresp_sp, D_sp, Dwf_p,
-                                               spin=s)
-                E = self.grid_comm.sum(E)
-                E += self.gd.integrate(nt_G * self.Dxc_vt_sG[s])
-                E += kpt.eps_n[lumo_n]
-                gaps.append(E - lumo)
+                                               spin=spin)
+                E = self.gd.comm.sum(E)
+                E += self.gd.integrate(nt_G * dxc_pot.vt_sG[spin])
+                E += kpt.eps_n[lumo_n] - lumo
+                min_energy = min(min_energy, E)
 
-        method2_dxc = -self.kpt_comm.max(-min(gaps))
-        Ha = 27.2116
-        Ksgap *= Ha
-        method1_dxc *= Ha
-        method2_dxc *= Ha
-        if world.rank != 0:
-            return (Ksgap, method2_dxc)
+        # Take the smallest value over all distributed k points
+        dxc = self.wfs.kd.comm.min(min_energy)
+        return KSgap * Ha, dxc * Ha
 
-        if 0:  # TODO print properly, not to stdout!
-            print()
-            print('Delta XC calulation')
-            print('-----------------------------------------------')
-            print('| Method      |  KS-Gap |  Delta XC |  QP-Gap |')
-            print('-----------------------------------------------')
-            print('| Averaging   | %7.2f | %9.2f | %7.2f |' %
-                  (Ksgap, method1_dxc, Ksgap + method1_dxc))
-            print('| Lumo pert.  | %7.2f | %9.2f | %7.2f |' %
-                  (Ksgap, method2_dxc, Ksgap + method2_dxc))
-            print('-----------------------------------------------')
-            print()
-        return (Ksgap, method2_dxc)
-
-    def calculate_delta_xc_perturbation(self):
-        gaps = []
-        for s in range(0, self.nspins):
-            gaps.append(self.calculate_delta_xc_perturbation_spin(s))
-        if self.nspins == 1:
-            return gaps[0]
+    def calculate_discontinuity_from_average(self,
+                                             dxc_pot: ResponsePotential,
+                                             spin: int,
+                                             testing: bool = False):
+        msg = ('This function estimates discontinuity by calculating '
+               'the average of the discontinuity potential. '
+               'Use only for testing and debugging.')
+        if not testing:
+            raise RuntimeError(msg)
         else:
-            return gaps
+            warnings.warn(msg)
+        assert self.wfs.world.size == 1
+
+        # Calculate average of lumo reference response potential
+        dxc = np.average(dxc_pot.vt_sG[spin])
+        return dxc * Ha
 
     def initialize_from_atomic_orbitals(self, basis_functions):
         # Initialize 'response-density' and density-matrices
         # print('Initializing from atomic orbitals')
         self.Dresp_asp = self.empty_atomic_matrix()
+        setups = self.wfs.setups
 
         for a in self.density.D_asp.keys():
-            ni = self.setups[a].ni
-            self.Dresp_asp[a] = np.zeros((self.nlfunc.nspins, ni *
-                                          (ni + 1) // 2))
+            ni = setups[a].ni
+            self.Dresp_asp[a] = np.zeros((self.nspins, ni * (ni + 1) // 2))
 
         self.D_asp = self.empty_atomic_matrix()
         f_asi = {}
         w_asi = {}
 
         for a in basis_functions.atom_indices:
-            if self.setups[a].type == 'ghost':
+            if setups[a].type == 'ghost':
                 w_j = [0.0]
             else:
-                w_j = self.setups[a].extra_xc_data['w_j']
+                w_j = setups[a].extra_xc_data['w_j']
 
             # Basis function coefficients based of response weights
-            w_si = self.setups[a].calculate_initial_occupation_numbers(
+            w_si = setups[a].calculate_initial_occupation_numbers(
                 0, False,
                 charge=0,
                 nspins=self.nspins,
                 f_j=w_j)
             # Basis function coefficients based on density
-            f_si = self.setups[a].calculate_initial_occupation_numbers(
+            f_si = setups[a].calculate_initial_occupation_numbers(
                 0, False,
                 charge=0,
                 nspins=self.nspins)
 
             if a in basis_functions.my_atom_indices:
-                self.Dresp_asp[a] = self.setups[a].initialize_density_matrix(
-                    w_si)
-                self.D_asp[a] = self.setups[a].initialize_density_matrix(f_si)
+                self.Dresp_asp[a] = setups[a].initialize_density_matrix(w_si)
+                self.D_asp[a] = setups[a].initialize_density_matrix(f_si)
 
             f_asi[a] = f_si
             w_asi[a] = w_si
 
-        self.Drespdist_asp = self.distribute_Dresp_asp(self.Dresp_asp)
-        self.Ddist_asp = self.distribute_Dresp_asp(self.D_asp)
-        self.nt_sG = self.gd.zeros(self.nspins)
-        basis_functions.add_to_density(self.nt_sG, f_asi)
+        self.Drespdist_asp = self.distribute_D_asp(self.Dresp_asp)
+        self.Ddist_asp = self.distribute_D_asp(self.D_asp)
+        nt_sG = self.gd.zeros(self.nspins)
+        basis_functions.add_to_density(nt_sG, f_asi)
         self.vt_sG = self.gd.zeros(self.nspins)
         basis_functions.add_to_density(self.vt_sG, w_asi)
         # Update vt_sG to correspond atomic response potential. This will be
         # used until occupations and eigenvalues are available.
-        self.vt_sG /= self.nt_sG + self.damp
+        self.vt_sG /= nt_sG + self.damp
         self.vt_sg = self.finegd.zeros(self.nspins)
         self.density.distribute_and_interpolate(self.vt_sG, self.vt_sg)
 
-    def add_extra_setup_data(self, dict):
+    def get_extra_setup_data(self, extra_data):
         ae = self.ae
         njcore = ae.njcore
         w_ln = self.coefficients.get_coefficients_1d(smooth=True)
@@ -435,13 +509,13 @@ class C_Response(Contribution):
         for w_n in w_ln:
             for w in w_n:
                 w_j.append(w)
-        dict['w_j'] = w_j
+        extra_data['w_j'] = w_j
 
         w_j = self.coefficients.get_coefficients_1d()
         x_g = np.dot(w_j[:njcore], safe_sqr(ae.u_j[:njcore]))
         x_g[1:] /= ae.r[1:] ** 2 * 4 * np.pi
         x_g[0] = x_g[1]
-        dict['core_response'] = x_g
+        extra_data['core_response'] = x_g
 
         # For debugging purposes
         w_j = self.coefficients.get_coefficients_1d()
@@ -449,7 +523,7 @@ class C_Response(Contribution):
         v_g = self.weight * np.dot(w_j, u2_j) / (
             np.dot(self.ae.f_j, u2_j) + self.damp)
         v_g[0] = v_g[1]
-        dict['all_electron_response'] = v_g
+        extra_data['all_electron_response'] = v_g
 
         # Calculate Hardness of spherical atom, for debugging purposes
         l = [np.where(f < 1e-3, e, 1000)
@@ -459,7 +533,7 @@ class C_Response(Contribution):
         lumo_e = min(l)
         homo_e = max(h)
         if lumo_e < 999:  # If there is unoccpied orbital
-            w_j = self.coefficients.get_coefficients_1d(lumo_perturbation=True)
+            w_j = self.coefficients.get_coefficients_1d_for_lumo_perturbation()
             v_g = self.weight * np.dot(w_j, u2_j) / (
                 np.dot(self.ae.f_j, u2_j) + self.damp)
             e2 = [e + np.dot(u2 * v_g, self.ae.dr)
@@ -472,43 +546,21 @@ class C_Response(Contribution):
             #       (self.hardness * 27.2107))
 
     def write(self, writer):
-        """Writes response specific data to disc.
-
-        During the writing process, the DeltaXC is calculated
-        (if not yet calculated).
-        """
-
-        if self.Dxc_vt_sG is None:
-            self.calculate_delta_xc()
-
+        """Writes response specific data."""
         wfs = self.wfs
         kpt_comm = wfs.kd.comm
         gd = wfs.gd
 
-        nadm = 0
-        for setup in wfs.setups:
-            ni = setup.ni
-            nadm += ni * (ni + 1) // 2
-
-        # Not yet tested for parallerization
-        # assert world.size == 1
-
-        shape = (wfs.nspins,) + tuple(gd.get_size_of_global_array())
-
         # Write the pseudodensity on the coarse grid:
+        shape = (wfs.nspins,) + tuple(gd.get_size_of_global_array())
         writer.add_array('gllb_pseudo_response_potential', shape)
         if kpt_comm.rank == 0:
             for vt_G in self.vt_sG:
-                writer.fill(gd.collect(vt_G) * Hartree)
-
-        writer.add_array('gllb_dxc_pseudo_response_potential', shape)
-        if kpt_comm.rank == 0:
-            for Dxc_vt_G in self.Dxc_vt_sG:
-                writer.fill(gd.collect(Dxc_vt_G) * (Hartree / Bohr))
+                writer.fill(gd.collect(vt_G) * Ha)
 
         def pack(X0_asp):
-            X_asp = self.wfs.setups.empty_atomic_matrix(
-                self.wfs.nspins, self.wfs.atom_partition)
+            X_asp = wfs.setups.empty_atomic_matrix(
+                wfs.nspins, wfs.atom_partition)
             # XXX some of the provided X0_asp contain strangely duplicated
             # elements.  Take only the minimal set:
             for a in X_asp:
@@ -517,48 +569,44 @@ class C_Response(Contribution):
 
         writer.write(gllb_atomic_density_matrices=pack(self.D_asp))
         writer.write(gllb_atomic_response_matrices=pack(self.Dresp_asp))
-        writer.write(gllb_dxc_atomic_density_matrices=pack(self.Dxc_D_asp))
-        writer.write(
-            gllb_dxc_atomic_response_matrices=pack(self.Dxc_Dresp_asp))
 
     def empty_atomic_matrix(self):
-        return self.setups.empty_atomic_matrix(self.density.nspins,
-                                               self.density.atom_partition)
+        assert self.wfs.atom_partition is self.density.atom_partition
+        return self.wfs.setups.empty_atomic_matrix(self.wfs.nspins,
+                                                   self.wfs.atom_partition)
 
     def read(self, reader):
         r = reader.hamiltonian.xc
         wfs = self.wfs
-        domain_comm = wfs.gd.comm
 
-        self.vt_sG = wfs.gd.empty(wfs.nspins)
-        self.Dxc_vt_sG = wfs.gd.empty(wfs.nspins)
         d('Reading vt_sG')
         self.gd.distribute(r.gllb_pseudo_response_potential / reader.ha,
                            self.vt_sG)
-        d('Reading Dxc_vt_sG')
-        self.gd.distribute(r.gllb_dxc_pseudo_response_potential *
-                           (reader.bohr / reader.ha), self.Dxc_vt_sG)
-
-        d('Integration over vt_sG',
-          domain_comm.sum(np.sum(self.vt_sG.ravel())))
-        d('Integration over Dxc_vt_sG',
-          domain_comm.sum(np.sum(self.Dxc_vt_sG.ravel())))
-        self.vt_sg = self.density.finegd.zeros(wfs.nspins)
         self.density.distribute_and_interpolate(self.vt_sG, self.vt_sg)
 
         def unpack(D_sP):
             return unpack_atomic_matrices(D_sP, wfs.setups)
 
         # Read atomic density matrices and non-local part of hamiltonian:
-        self.D_asp = unpack(r.gllb_atomic_density_matrices)
-        self.Dresp_asp = unpack(r.gllb_atomic_response_matrices)
-        self.Dxc_D_asp = unpack(r.gllb_dxc_atomic_density_matrices)
-        self.Dxc_Dresp_asp = unpack(r.gllb_dxc_atomic_response_matrices)
+        D_asp = unpack(r.gllb_atomic_density_matrices)
+        Dresp_asp = unpack(r.gllb_atomic_response_matrices)
 
-        # Dsp and Dresp need to be redistributed
-        self.just_read = True
+        # All density matrices are loaded to all cores
+        # First distribute them to match density.D_asp
+        self.D_asp = self.empty_atomic_matrix()
+        self.Dresp_asp = self.empty_atomic_matrix()
+        for a in self.density.D_asp:
+            self.D_asp[a][:] = D_asp[a]
+            self.Dresp_asp[a][:] = Dresp_asp[a]
+        assert len(self.Dresp_asp) == len(self.density.D_asp)
+
+        # Further distributes the density matricies for xc-corrections
+        self.Ddist_asp = self.distribute_D_asp(self.D_asp)
+        self.Drespdist_asp = self.distribute_D_asp(self.Dresp_asp)
 
     def heeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeelp(self, olddens):
+        # XXX This function should be removed once the deprecated
+        # `fixdensity=True` option is removed.
         from gpaw.density import redistribute_array
         self.vt_sg = redistribute_array(self.vt_sg,
                                         olddens.finegd, self.finegd,
@@ -566,26 +614,3 @@ class C_Response(Contribution):
         self.vt_sG = redistribute_array(self.vt_sG,
                                         olddens.gd, self.gd,
                                         self.wfs.nspins, self.wfs.kptband_comm)
-        self.Dxc_vt_sG = redistribute_array(self.Dxc_vt_sG,
-                                            olddens.gd, self.gd,
-                                            self.wfs.nspins,
-                                            self.wfs.kptband_comm)
-
-
-if __name__ == '__main__':
-    from gpaw.xc_functional import XCFunctional
-    xc = XCFunctional('LDA')
-    dx = 1e-3
-    Ntot = 100000
-    x = np.array(range(1, Ntot + 1)) * dx
-    kf = (2 * x) ** (1. / 2)
-    n_g = kf ** 3 / (3 * pi ** 2)
-    v_g = np.zeros(Ntot)
-    e_g = np.zeros(Ntot)
-    xc.calculate_spinpaired(e_g, n_g, v_g)
-    vresp = v_g - 2 * e_g / n_g
-
-    f = open('response.dat', 'w')
-    for xx, v in zip(x, vresp):
-        print(xx, v, file=f)
-    f.close()

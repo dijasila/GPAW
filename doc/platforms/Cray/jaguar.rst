@@ -4,7 +4,7 @@
 jaguar  (Cray XT5)
 ==================
 
-Here you find information about the the system
+Here you find information about the system
 http://www.nccs.gov/computing-resources/jaguar/.
 
 The current operating system in Cray XT4/XT5 compute nodes, Compute Linux

@@ -1,4 +1,5 @@
 #ifdef GPAW_WITH_FFTW
+#define PY_SSIZE_T_CLEAN
 #include <Python.h>
 #define PY_ARRAY_UNIQUE_SYMBOL GPAW_ARRAY_API
 #define NO_IMPORT_ARRAY
@@ -13,7 +14,7 @@ PyObject * FFTWPlan(PyObject *self, PyObject *args)
     int sign;
     unsigned int flags;
     if (!PyArg_ParseTuple(args, "OOiI",
-			  &in, &out, &sign, &flags))
+                          &in, &out, &sign, &flags))
         return NULL;
 
     fftw_plan* plan = (fftw_plan*)malloc(sizeof(fftw_plan));
@@ -48,14 +49,14 @@ PyObject * FFTWPlan(PyObject *self, PyObject *args)
                               sign, flags);
     }
 
-    return Py_BuildValue("y#", plan, sizeof(fftw_plan*));
+    return Py_BuildValue("y#", plan, (Py_ssize_t)sizeof(fftw_plan*));
 }
 
 
 PyObject * FFTWExecute(PyObject *self, PyObject *args)
 {
     fftw_plan* plan;
-    int n;
+    Py_ssize_t n;
     if (!PyArg_ParseTuple(args, "y#", &plan, &n))
         return NULL;
     fftw_execute(*plan);
@@ -66,11 +67,10 @@ PyObject * FFTWExecute(PyObject *self, PyObject *args)
 PyObject * FFTWDestroy(PyObject *self, PyObject *args)
 {
     fftw_plan* plan;
-    int n;
+    Py_ssize_t n;
     if (!PyArg_ParseTuple(args, "y#", &plan, &n))
         return NULL;
     fftw_destroy_plan(*plan);
-    //free(plan);
     Py_RETURN_NONE;
 }
 

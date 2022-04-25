@@ -1,35 +1,24 @@
-# Copyright (C) 2003  CAMP
-# Please see the accompanying LICENSE file for further information.
-
 """
 Atomic Density Functional Theory
 """
 
-from __future__ import print_function
-from math import pi, sqrt, log
-import tempfile
-import pickle
-import sys
-import os
+from math import log, pi, sqrt
 
 import numpy as np
 from ase.data import atomic_names
-from ase.utils import devnull
+from ase.utils import IOContext
 
+from gpaw import ConvergenceError
 from gpaw.atom.configurations import configurations
 from gpaw.atom.radialgd import AERadialGridDescriptor
-from gpaw.xc import XC
 from gpaw.utilities import hartree
-from gpaw import ConvergenceError
-
-tempdir = tempfile.gettempdir()
-
+from gpaw.xc import XC
 
 # fine-structure constant
 alpha = 1 / 137.036
 
 
-class AllElectron:
+class AllElectron(IOContext):
     """Object for doing an atomic DFT calculation."""
 
     def __init__(self, symbol, xcname='LDA', scalarrel=True,
@@ -43,13 +32,7 @@ class AllElectron:
           a.run()
         """
 
-        if txt is None:
-            txt = devnull
-        elif txt == '-':
-            txt = sys.stdout
-        elif isinstance(txt, str):
-            txt = open(txt, 'w')
-        self.txt = txt
+        self.txt = self.openfile(txt)
 
         self.symbol = symbol
         self.xcname = xcname
@@ -149,7 +132,7 @@ class AllElectron:
             norm = np.dot(u**2, dr)
             u *= 1.0 / sqrt(norm)
 
-    def run(self, use_restart_file=True):
+    def run(self):
         #     beta g
         # r = ------, g = 0, 1, ..., N - 1
         #     N - g
@@ -185,8 +168,7 @@ class AllElectron:
 
         # Initialize for non-local functionals
         if self.xc.type == 'GLLB':
-            self.xc.pass_stuff_1d(self)
-            self.xc.initialize_1d()
+            self.xc.initialize_1d(self)
 
         n_j = self.n_j
         l_j = self.l_j
@@ -202,34 +184,8 @@ class AllElectron:
         vHr = np.zeros(self.N)
         self.vXC = np.zeros(self.N)
 
-        restartfile = '%s/%s.restart' % (tempdir, self.symbol)
-        if self.xc.type == 'GLLB' or not use_restart_file:
-            # Do not start from initial guess when doing
-            # non local XC!
-            # This is because we need wavefunctions as well
-            # on the first iteration.
-            fd = None
-        else:
-            try:
-                fd = open(restartfile, 'rb')
-            except IOError:
-                fd = None
-            else:
-                try:
-                    n[:] = pickle.load(fd)
-                except (ValueError, IndexError):
-                    fd = None
-                else:
-                    norm = np.dot(n * r**2, dr) * 4 * pi
-                    if abs(norm - sum(f_j)) > 0.01:
-                        fd = None
-                    else:
-                        t('Using old density for initial guess.')
-                        n *= sum(f_j) / norm
-
-        if fd is None:
-            self.initialize_wave_functions()
-            n[:] = self.calculate_density()
+        self.initialize_wave_functions()
+        n[:] = self.calculate_density()
 
         bar = '|------------------------------------------------|'
         t(bar)
@@ -313,17 +269,6 @@ class AllElectron:
 
         t()
         t('Converged in %d iteration%s.' % (niter, 's'[:niter != 1]))
-
-        try:
-            fd = open(restartfile, 'wb')
-        except IOError:
-            pass
-        else:
-            pickle.dump(n, fd)
-            try:
-                os.chmod(restartfile, 0o666)
-            except OSError:
-                pass
 
         Ekin = 0
 
@@ -694,6 +639,9 @@ class AllElectron:
 
         return alpha * potential
 
+    def __del__(self):
+        self.close()
+
 
 def shoot(u, l, vr, e, r2dvdr, r, dr, c10, c2, scalarrel, gmax=None):
     """n, A = shoot(u, l, vr, e, ...)
@@ -770,6 +718,8 @@ def shoot(u, l, vr, e, r2dvdr, r, dr, c10, c2, scalarrel, gmax=None):
         # at the turning point
         gtp = g + 1
         utp = u[gtp]
+        if gtp == len(u) - 1:
+            return 100, 0.0
         dudrplus = 0.5 * (u[gtp + 1] - u[gtp - 1]) / dr[gtp]
     else:
         gtp = gmax

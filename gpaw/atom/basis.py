@@ -1,14 +1,10 @@
 """This module is used to generate atomic orbital basis sets."""
-from __future__ import print_function
 import sys
-try:
-    from StringIO import StringIO  # Python 2
-except ImportError:
-    from io import StringIO
+from io import StringIO
 
 import numpy as np
 from ase.units import Hartree
-from ase.utils import devnull
+from gpaw.utilities import devnull
 
 from gpaw import __version__ as version
 from gpaw.utilities import divrl
@@ -126,7 +122,7 @@ class BasisMaker:
                 ae0.run()
                 # Now files will be stored such that they can
                 # automagically be used by the next run()
-            setup = generator.run(write_xml=False, use_restart_file=False,
+            setup = generator.run(write_xml=False,
                                   name=name,
                                   **parameters[generator.symbol])
 
@@ -556,46 +552,46 @@ class BasisMaker:
 
     def grplot(self, bf_j):
         """Plot basis functions on generator's radial grid."""
-        import pylab
+        import matplotlib.pyplot as plt
         rc = max([bf.rc for bf in bf_j])
         g = self.generator
         r = g.r
         for bf in bf_j:
             label = bf.type
             # XXX times g.r or not times g.r ?
-            pylab.plot(r, bf.phit_g / r, label=label[:12])
-        axis = pylab.axis()
+            plt.plot(r, bf.phit_g / r, label=label[:12])
+        axis = plt.axis()
         newaxis = [0., rc, axis[2], axis[3]]
-        pylab.axis(newaxis)
-        pylab.legend()
-        pylab.show()
+        plt.axis(newaxis)
+        plt.legend()
+        plt.show()
 
     def plot(self, basis, figure=None, title=None, filename=None):
-        """Plot basis functions using pylab."""
+        """Plot basis functions using MatPlotLib."""
         # XXX method should no longer belong to a basis maker
-        import pylab
+        import matplotlib.pyplot as plt
         rc = max([bf.rc for bf in basis.bf_j])
         r = np.linspace(0., basis.d * (basis.ng - 1), basis.ng)
         g = self.generator
         if figure is not None:
-            pylab.figure(figure)
+            plt.figure(figure)
         else:
-            pylab.figure()  # not very elegant
+            plt.figure()  # not very elegant
         if title is None:
             title = g.symbol
-        pylab.title(title)
+        plt.title(title)
         for bf in basis.bf_j:
             label = bf.type
             # XXX times g.r or not times g.r ?
             phit_g = np.zeros_like(r)
             phit_g[:len(bf.phit_g)] = bf.phit_g
-            pylab.plot(r, phit_g * r, label=label[:12])
-        axis = pylab.axis()
+            plt.plot(r, phit_g * r, label=label[:12])
+        axis = plt.axis()
         newaxis = [0., rc, axis[2], axis[3]]
-        pylab.axis(newaxis)
-        pylab.legend()
+        plt.axis(newaxis)
+        plt.legend()
         if filename is not None:
-            pylab.savefig(filename)
+            plt.savefig(filename)
 
 
 class QuasiGaussian:

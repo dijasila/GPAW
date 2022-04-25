@@ -4,7 +4,6 @@ import numpy as np
 import datetime
 
 
-################################################################################
 def write_parallel_cube(basename, data, gd, atoms, rank):
     hx = gd.h_cv[0, 0]
     hy = gd.h_cv[1, 1]
@@ -13,10 +12,12 @@ def write_parallel_cube(basename, data, gd, atoms, rank):
     f = open('%s_%06d.cube' % (basename, rank), 'w', 256 * 1024)
 
     f.write(
-        'GPAW Global (natom  nx ny nz  hx hy hz):  %6d  %6d %6d %6d  %12.6lf %12.6lf %12.6lf\n'
+        ('GPAW Global (natom  nx ny nz  hx hy hz):  '
+         '%6d  %6d %6d %6d  %12.6lf %12.6lf %12.6lf\n')
         % (len(atoms), gd.N_c[0], gd.N_c[1], gd.N_c[2], hx, hy, hz))
     f.write(
-        'GPAW Local (xbeg xend  ybeg yend  zbeg zend):  %6d %6d  %6d %6d  %6d %6d\n'
+        ('GPAW Local (xbeg xend  ybeg yend  zbeg zend):  '
+         '%6d %6d  %6d %6d  %6d %6d\n')
         % (gd.beg_c[0], gd.end_c[0], gd.beg_c[1], gd.end_c[1], gd.beg_c[2],
            gd.end_c[2]))
 
@@ -37,7 +38,6 @@ def write_parallel_cube(basename, data, gd, atoms, rank):
     f.close()
 
 
-################################################################################
 def cubify(out_filename, filenames):
     sys.stderr.write('Reading partial cube files...%s\n' %
                      datetime.datetime.now())
@@ -95,7 +95,6 @@ def cubify(out_filename, filenames):
     sys.stderr.write('Writing done. %s\n' % datetime.datetime.now())
 
 
-################################################################################
 def isocubes(filename, isoval, scale):
     """Requires PIL"""
     import Image
@@ -121,7 +120,7 @@ def isocubes(filename, isoval, scale):
     for i in range(natom):
         f.readline()
 
-    #data = np.zeros((nx,ny,nz))
+    # data = np.zeros((nx,ny,nz))
     dataxy = [[0.0, 0.0] for i in range(nx * ny)]
     dataxz = [[0.0, 0.0] for i in range(nx * nz)]
     datayz = [[0.0, 0.0] for i in range(ny * nz)]

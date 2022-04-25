@@ -12,7 +12,6 @@ the "typical" Unix-style command-line C compiler:
   * link static library handled by 'ar' command (possibly with 'ranlib')
   * link shared library handled by 'cc -shared'
 """
-from __future__ import print_function
 __revision__ = "$Id: unixccompiler.py 54954 2007-04-25 06:42:41Z neal.norwitz $"
 
 import os, sys
@@ -332,7 +331,7 @@ class UnixCCompiler(CCompiler):
             (output_dir, output_filename) = os.path.split(output_filename)
         output_fullname = os.path.join(output_dir, output_filename)
         output_fullname = os.path.abspath(output_fullname)
-        linkline = "%s %s" % (output_filename[:-2], output_fullname)
+        linkline = f"{output_filename[:-2]} {output_fullname}"
         for l in library_dirs:
             linkline += " -L" + l
         for l in libraries:

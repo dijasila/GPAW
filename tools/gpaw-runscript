@@ -23,33 +23,11 @@ defaults = { 'err'   : None,
              'smt'   : False,
              }
 
-hosts = { 'batman'                   : 'pbs_batman',
-          'c551'                     : 'murska',
-          'c552'                     : 'murska',
-          'c553'                     : 'murska',
-          'c554'                     : 'murska',
-          'louhi'                    : 'louhi',
-          'opaali.phys.jyu.fi'       : 'sge',
-          'sepeli.csc.fi'            : 'sepeli',
-          'bwui.bfg.uni-freiburg.de' : 'bwg',
-          'globus.bfg.uni-freiburg.de' : 'bwg',
-          'globus'                   : 'bwg',
-          'ui.bfg.uni'               : 'pbs_bfg',
-          r'xc2(.*)'                 : 'xc2',
-	  'jureca'                   : 'jureca',
-	  'juropatest'               : 'juropatest',
-          r'joe*'                    : 'joe',
-          r'uc1n99*'                 : 'bwUniCluster',
-          }
-
 platforms = { 'aix5' : 'loadleveler' }
 
-env = {'PATH'            : None,
-       'PYTHONPATH'      : None,
-       'GPAW_PYTHON'     : None,
-       'GPAW_SETUP_PATH' : None,
-       'GPAW_MAIL'       : None,
-       'LD_LIBRARY_PATH' : None,
+env = {'GPAW_MAIL'       : None,
+       'MODULEPATH'      : None,
+       'LOADEDMODULES'   : None,
        }
 
 set = defaults
@@ -162,18 +140,6 @@ except Exception as ex:
     sys.exit()
 
 print('using', cc.arch)
-
-# ............................................................
-# check necessary environment variable
-
-helptxt = {
-    'GPAW_PYTHON': 'to the parallel custom interpreter (gpaw-python)'
-    }
-
-for variable in list(helptxt.keys()):
-    if not (variable in os.environ):
-        raise RuntimeError('Please set the environment variable ' +
-                           variable + ' ' + helptxt[variable] + ' !')
 
 # ............................................................
 

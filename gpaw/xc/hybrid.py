@@ -89,14 +89,6 @@ class HybridXCBase(XCFunctional):
         elif name == 'B3LYP':
             hybrid = 0.2
             xc = XC(_xc('HYB_GGA_XC_B3LYP'))
-        elif name == 'HSE03':
-            hybrid = 0.25
-            omega = 0.106
-            xc = XC(_xc('HYB_GGA_XC_HSE03'))
-        elif name == 'HSE06':
-            hybrid = 0.25
-            omega = 0.11
-            xc = XC(_xc('HYB_GGA_XC_HSE06'))
         elif name in rsf_functionals:
             rsf_functional = rsf_functionals[name]
             self.cam_alpha = rsf_functional['alpha']
@@ -176,9 +168,9 @@ class HybridXC(HybridXCBase):
         return self.xc.calculate_paw_correction(setup, D_sp, dEdD_sp,
                                                 addcoredensity, a)
 
-    def initialize(self, density, hamiltonian, wfs, occupations):
+    def initialize(self, density, hamiltonian, wfs):
         assert wfs.kd.gamma
-        self.xc.initialize(density, hamiltonian, wfs, occupations)
+        self.xc.initialize(density, hamiltonian, wfs)
         self.kpt_comm = wfs.kd.comm
         self.nspins = wfs.nspins
         self.setups = wfs.setups
@@ -198,7 +190,7 @@ class HybridXC(HybridXCBase):
         # XXX One might consider using a charged centered compensation
         # charge for the PoissonSolver in the case of EXX as standard
         self.poissonsolver = PoissonSolver(
-            'fd', eps=1e-11, use_charge_center=use_charge_center)
+            'fd', eps=1e-12, use_charge_center=use_charge_center)
         # self.poissonsolver = hamiltonian.poisson
 
         if self.finegrid:
@@ -218,7 +210,7 @@ class HybridXC(HybridXCBase):
         if self.rsf == 'Yukawa':
             omega2 = self.omega**2
             self.screened_poissonsolver = HelmholtzSolver(
-                k2=-omega2, eps=1e-11, nn=3,
+                k2=-omega2, eps=1e-12, nn=3,
                 use_charge_center=use_charge_center)
             self.screened_poissonsolver.set_grid_descriptor(self.finegd)
 
@@ -309,14 +301,13 @@ class HybridXC(HybridXCBase):
 
                 self.poissonsolver.solve(vt_g, -rhot_g,
                                          charge=-float(n1 == n2),
-                                         eps=1e-12,
                                          zero_initial_phi=True)
                 vt_g *= hybrid
                 if self.rsf == 'Yukawa':
                     y_vt_g[:] = 0.0
                     self.screened_poissonsolver.solve(
                         y_vt_g, -rhot_g, charge=-float(n1 == n2),
-                        eps=1e-12, zero_initial_phi=True)
+                        zero_initial_phi=True)
                     if is_cam:  # Cam like correction
                         y_vt_g *= self.cam_beta
                     else:

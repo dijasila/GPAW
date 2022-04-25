@@ -5,13 +5,14 @@ from math import pi, exp, sqrt, log
 import numpy as np
 from scipy.optimize import fsolve
 from scipy.linalg import eigh
+from scipy.special import erf
 from ase.units import Hartree
-from ase.data import atomic_numbers
+from ase.data import atomic_numbers, chemical_symbols
 
 from gpaw import __version__ as version
 from gpaw.basis_data import Basis, BasisFunction, BasisPlotter
 from gpaw.gaunt import gaunt
-from gpaw.utilities import erf, pack2
+from gpaw.utilities import pack2
 from gpaw.atom.aeatom import (AllElectronAtom, Channel, parse_ld_str, colors,
                               GaussianBasis)
 
@@ -727,7 +728,7 @@ class PAWSetupGenerator:
         ekin = self.aea.ekin - self.ekincore - self.waves_l[0].dekin_nn[0, 0]
         evt = rgd.integrate(self.nt_g * self.vtr_g, -1)
 
-        import pylab as p
+        import matplotlib.pyplot as plt
 
         errors = 10.0**np.arange(-4, 0) / Hartree
         self.log('\nConvergence of energy:')
@@ -750,13 +751,13 @@ class PAWSetupGenerator:
                 ecut = 0.5 * G**2
                 h = pi / G
                 self.log(' %6.1f (%4.2f)' % (ecut * Hartree, h), end='')
-            p.semilogy(G_k, abs(e_k - e_k[-1]) * Hartree, label=label)
+            plt.semilogy(G_k, abs(e_k - e_k[-1]) * Hartree, label=label)
         self.log()
-        p.axis(xmax=20)
-        p.xlabel('G')
-        p.ylabel('[eV]')
-        p.legend()
-        p.show()
+        plt.axis(xmax=20)
+        plt.xlabel('G')
+        plt.ylabel('[eV]')
+        plt.legend()
+        plt.show()
 
     def plot(self):
         import matplotlib.pyplot as plt
@@ -1069,6 +1070,9 @@ class PAWSetupGenerator:
         setup.vbar_g = self.v0r_g * sqrt(4 * pi)
         setup.vbar_g[1:] /= self.rgd.r_g[1:]
         setup.vbar_g[0] = setup.vbar_g[1]
+        setup.vt_g = self.vtr_g * sqrt(4 * pi)
+        setup.vt_g[1:] /= self.rgd.r_g[1:]
+        setup.vt_g[0] = setup.vt_g[1]
         setup.Z = aea.Z
         setup.Nc = self.ncore
         setup.Nv = self.nvalence
@@ -1099,7 +1103,7 @@ class PAWSetupGenerator:
         else:
             reltype = 'non-relativistic'
         attrs = [('type', reltype),
-                 ('version', 2),
+                 ('version', 3),
                  ('name', 'gpaw-%s' % version)]
         setup.generatorattrs = attrs
         setup.version = '0.7'
@@ -1222,11 +1226,15 @@ class PAWSetupGenerator:
 
 
 def get_parameters(symbol, args):
+    Z = atomic_numbers.get(symbol)
+    if Z is None:
+        Z = float(symbol)
+        symbol = chemical_symbols[int(round(Z))]
+
     if args.electrons:
         par = parameters[symbol + str(args.electrons)]
     else:
-        Z = atomic_numbers[symbol]
-        par = parameters[symbol + str(default[Z])]
+        par = parameters[symbol + str(default[int(round(Z))])]
 
     projectors, radii = par[:2]
     if len(par) == 3:
@@ -1275,6 +1283,7 @@ def get_parameters(symbol, args):
         rcore *= -1
 
     return dict(symbol=symbol,
+                Z=Z,
                 xc=args.xc_functional,
                 configuration=configuration,
                 projectors=projectors,
@@ -1283,11 +1292,11 @@ def get_parameters(symbol, args):
                 r0=r0, v0=None, nderiv0=nderiv0,
                 pseudize=pseudize, rcore=rcore,
                 core_hole=args.core_hole,
-                output=args.output,
                 yukawa_gamma=args.gamma)
 
 
 def generate(symbol,
+             Z,
              projectors,
              radii,
              r0, v0,
@@ -1299,13 +1308,13 @@ def generate(symbol,
              alpha=None,
              rcore=None,
              core_hole=None,
-             output=None,
+             *,
              yukawa_gamma=0.0):
-    if isinstance(output, str):
-        output = open(output, 'w')
-    aea = AllElectronAtom(symbol, xc, configuration=configuration, log=output)
+
+    aea = AllElectronAtom(symbol, xc, Z=Z,
+                          configuration=configuration)
     gen = PAWSetupGenerator(aea, projectors, scalar_relativistic, core_hole,
-                            fd=output, yukawa_gamma=yukawa_gamma)
+                            yukawa_gamma=yukawa_gamma)
 
     gen.construct_shape_function(alpha, radii, eps=1e-10)
     gen.calculate_core_density()
@@ -1383,7 +1392,6 @@ class CLICommand:
             '(for vdW-DF functionals).')
         add('--core-hole')
         add('-e', '--electrons', type=int)
-        add('-o', '--output')
 
     @staticmethod
     def run(args):
@@ -1416,46 +1424,7 @@ def main(args):
         if args.plot:
             import matplotlib.pyplot as plt
         if args.logarithmic_derivatives:
-            r = 1.1 * gen.rcmax
-            emin = min(min(wave.e_n) for wave in gen.waves_l) - 0.8
-            emax = max(max(wave.e_n) for wave in gen.waves_l) + 0.8
-            lvalues, energies, r = parse_ld_str(
-                args.logarithmic_derivatives, (emin, emax, 0.05), r)
-            emin = energies[0]
-            de = energies[1] - emin
-
-            error = 0.0
-            for l in lvalues:
-                efix = []
-                # Fixed points:
-                if l < len(gen.waves_l):
-                    efix.extend(gen.waves_l[l].e_n)
-                if l == gen.l0:
-                    efix.append(0.0)
-
-                ld1 = gen.aea.logarithmic_derivative(l, energies, r)
-                ld2 = gen.logarithmic_derivative(l, energies, r)
-                for e in efix:
-                    i = int((e - emin) / de)
-                    if 0 <= i < len(energies):
-                        ld1 -= round(ld1[i] - ld2[i])
-                        if args.plot:
-                            ldfix = ld1[i]
-                            plt.plot([energies[i]], [ldfix],
-                                     'x' + colors[l])
-
-                if args.plot:
-                    plt.plot(energies, ld1, colors[l], label='spdfg'[l])
-                    plt.plot(energies, ld2, '--' + colors[l])
-
-                error = abs(ld1 - ld2).sum() * de
-                print('Logarithmic derivative error:', l, error)
-
-            if args.plot:
-                plt.xlabel('energy [Ha]')
-                plt.ylabel(r'$\arctan(d\log\phi_{\ell\epsilon}(r)/dr)/\pi'
-                           r'|_{r=r_c}$')
-                plt.legend(loc='best')
+            plot_log_derivs(gen, args.logarithmic_derivatives, args.plot)
 
         if args.plot:
             gen.plot()
@@ -1469,3 +1438,47 @@ def main(args):
                 plt.show()
             except KeyboardInterrupt:
                 pass
+
+
+def plot_log_derivs(gen, ld_str: str, plot: bool):
+    """Make nice log-derivs plot."""
+    import matplotlib.pyplot as plt
+    r = 1.1 * gen.rcmax
+    emin = min(min(wave.e_n) for wave in gen.waves_l) - 0.8
+    emax = max(max(wave.e_n) for wave in gen.waves_l) + 0.8
+    lvalues, energies, r = parse_ld_str(ld_str, (emin, emax, 0.05), r)
+    emin = energies[0]
+    de = energies[1] - emin
+
+    error = 0.0
+    for l in lvalues:
+        efix = []
+        # Fixed points:
+        if l < len(gen.waves_l):
+            efix.extend(gen.waves_l[l].e_n)
+        if l == gen.l0:
+            efix.append(0.0)
+
+        ld1 = gen.aea.logarithmic_derivative(l, energies, r)
+        ld2 = gen.logarithmic_derivative(l, energies, r)
+        for e in efix:
+            i = int((e - emin) / de)
+            if 0 <= i < len(energies):
+                ld1 -= round(ld1[i] - ld2[i])
+                if plot:
+                    ldfix = ld1[i]
+                    plt.plot([energies[i]], [ldfix],
+                             'x' + colors[l])
+
+        if plot:
+            plt.plot(energies, ld1, colors[l], label='spdfg'[l])
+            plt.plot(energies, ld2, '--' + colors[l])
+
+        error = abs(ld1 - ld2).sum() * de
+        print('Logarithmic derivative error:', l, error)
+
+    if plot:
+        plt.xlabel('energy [Ha]')
+        plt.ylabel(r'$\arctan(d\log\phi_{\ell\epsilon}(r)/dr)/\pi'
+                   r'|_{r=r_c}$')
+        plt.legend(loc='best')

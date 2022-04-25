@@ -35,7 +35,7 @@ calc = GPAW(nbands=nbands,
             eigensolver=es,
             txt=prefix + '.txt')
 
-atoms.set_calculator(calc)
+atoms.calc = calc
 try:
     pot = atoms.get_potential_energy()
 except ConvergenceError:

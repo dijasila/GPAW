@@ -1,9 +1,10 @@
 Miscellaneous objects and functions
 ===================================
 
-.. autofunction:: gpaw.occupations.occupation_numbers
+.. autoclass:: gpaw.lfc.LocalizedFunctionsCollection
+    :members:
 
-.. autoclass:: gpaw.lfc.NewLocalizedFunctionsCollection
+.. autoclass:: gpaw.lfc.BasisFunctions
     :members:
 
 .. autoclass:: gpaw.spline.Spline
@@ -24,4 +25,19 @@ Miscellaneous objects and functions
     :members:
 
 .. autoclass:: gpaw.scf.SCFLoop
+    :members:
+
+.. autoclass:: gpaw.band_descriptor.BandDescriptor
+    :members:
+
+.. autoclass:: gpaw.spinorbit.BZWaveFunctions
+    :members:
+
+.. autoclass:: gpaw.spinorbit.WaveFunction
+    :members:
+
+.. autoclass:: gpaw.kpt_descriptor.KPointDescriptor
+    :members:
+
+.. autoclass:: gpaw.projections.Projections
     :members:

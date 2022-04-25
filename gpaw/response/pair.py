@@ -1,4 +1,3 @@
-from __future__ import print_function, division
 
 import functools
 import numbers
@@ -8,20 +7,20 @@ from math import pi
 import numpy as np
 from scipy.spatial import Delaunay, cKDTree
 
-from ase.units import Hartree
-from ase.utils import convert_string_to_fd
+from ase.units import Ha
+from ase.utils import IOContext
 from ase.utils.timing import timer, Timer
 
 import gpaw.mpi as mpi
-from gpaw import GPAW
+from gpaw.calculator import GPAW
+from gpaw import disable_dry_run
 from gpaw.fd_operators import Gradient
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.occupations import FermiDirac
 from gpaw.response.math_func import (two_phi_planewave_integrals,
                                      two_phi_nabla_planewave_integrals)
 from gpaw.utilities.blas import gemm
 from gpaw.utilities.progressbar import ProgressBar
-from gpaw.wavefunctions.pw import PWLFC
+from gpaw.pw.lfc import PWLFC
 from gpaw.bztools import get_reduced_bz, unique_rows
 
 
@@ -638,7 +637,8 @@ class PairDensity:
                  ftol=1e-6, threshold=1,
                  real_space_derivatives=False,
                  world=mpi.world, txt='-', timer=None,
-                 nblocks=1, gate_voltage=None, **unused):
+                 nblocks=1, gate_voltage=None,
+                 paw_correction='brute-force', **unused):
         """Density matrix elements
 
         Parameters
@@ -656,26 +656,28 @@ class PairDensity:
             Shift the fermi level by gate_voltage [Hartree].
         """
         self.world = world
-        self.fd = convert_string_to_fd(txt, world)
+        self.iocontext = IOContext()
+        self.fd = self.iocontext.openfile(txt, world)
         self.timer = timer or Timer()
 
         with self.timer('Read ground state'):
-            if isinstance(gs, str):
+            if not isinstance(gs, GPAW):
                 print('Reading ground state calculation:\n  %s' % gs,
                       file=self.fd)
-                calc = GPAW(gs, txt=None, communicator=mpi.serial_comm)
+                with disable_dry_run():
+                    calc = GPAW(gs, communicator=mpi.serial_comm)
             else:
                 calc = gs
                 assert calc.wfs.world.size == 1
 
         assert calc.wfs.kd.symmetry.symmorphic
         self.calc = calc
-        
+
         if ecut is not None:
-            ecut /= Hartree
+            ecut /= Ha
 
         if gate_voltage is not None:
-            gate_voltage = gate_voltage / Hartree
+            gate_voltage = gate_voltage / Ha
 
         self.response = response
         self.ecut = ecut
@@ -695,12 +697,10 @@ class PairDensity:
             ranks = range(world.rank % nblocks, world.size, nblocks)
             self.kncomm = self.world.new_communicator(ranks)
 
-        self.fermi_level = self.calc.occupations.get_fermi_level()
+        self.fermi_level = self.calc.wfs.fermi_level
 
         if gate_voltage is not None:
             self.add_gate_voltage(gate_voltage)
-        else:
-            self.add_gate_voltage(gate_voltage=0)
 
         self.spos_ac = calc.spos_ac
 
@@ -716,13 +716,18 @@ class PairDensity:
         self.KDTree = cKDTree(np.mod(np.mod(kd.bzk_kc, 1).round(6), 1))
         print('Number of blocks:', nblocks, file=self.fd)
 
+        self.paw_correction = paw_correction
+
+    def __del__(self):
+        self.iocontext.close()
+
     def find_kpoint(self, k_c):
         return self.KDTree.query(np.mod(np.mod(k_c, 1).round(6), 1))[1]
 
     def add_gate_voltage(self, gate_voltage=0):
         """Shifts the Fermi-level by e * Vg. By definition e = 1."""
-        assert isinstance(self.calc.occupations, FermiDirac)
-        print('Shifting Fermi-level by %.2f eV' % (gate_voltage * Hartree),
+        assert self.calc.wfs.occupations.name in {'fermi-dirac', 'zero-width'}
+        print('Shifting Fermi-level by %.2f eV' % (gate_voltage * Ha),
               file=self.fd)
         self.fermi_level += gate_voltage
         for kpt in self.calc.wfs.kpt_u:
@@ -732,7 +737,7 @@ class PairDensity:
     def shift_occupations(self, eps_n, gate_voltage):
         """Shift fermilevel."""
         fermi = self.fermi_level
-        width = self.calc.occupations.width
+        width = getattr(self.calc.wfs.occupations, '_width', 0.0) / Ha
         if width < 1e-9:
             return (eps_n < fermi).astype(float)
         else:
@@ -837,7 +842,8 @@ class PairDensity:
 
         shift_c += -shift0_c
         ik = wfs.kd.bz2ibz_k[K]
-        kpt = wfs.kpt_u[s * wfs.kd.nibzkpts + ik]
+        assert wfs.kd.comm.size == 1
+        kpt = wfs.kpt_qs[ik][s]
 
         assert n2 <= len(kpt.eps_n), \
             'Increase GS-nbands or decrease chi0-nbands!'
@@ -1235,8 +1241,14 @@ class PairDensity:
 
         ut_vR = self.ut_sKnvR[kpt1.s][kpt1.K][n - kpt1.n1]
         atomdata_a = self.calc.wfs.setups
-        C_avi = [np.dot(atomdata.nabla_iiv.T, P_ni[n - kpt1.na])
-                 for atomdata, P_ni in zip(atomdata_a, kpt1.P_ani)]
+        if self.paw_correction == 'brute-force':
+            C_avi = [np.dot(atomdata.nabla_iiv.T, P_ni[n - kpt1.na])
+                     for atomdata, P_ni in zip(atomdata_a, kpt1.P_ani)]
+        elif self.paw_correction == 'skip':
+            C_avi = [np.zeros((3, P_ni.shape[1]), complex)
+                     for atomdata, P_ni in zip(atomdata_a, kpt1.P_ani)]
+        else:
+            1 / 0
 
         blockbands = kpt2.nb - kpt2.na
         n0_mv = np.empty((kpt2.blocksize, 3), dtype=complex)
@@ -1301,11 +1313,12 @@ class PairDensity:
         atomdata_a = self.calc.wfs.setups
         f_n = kpt.f_n
 
-        # No carriers when T=0
-        width = self.calc.occupations.width
-
         # Only works with Fermi-Dirac distribution
-        assert isinstance(self.calc.occupations, FermiDirac)
+        assert self.calc.wfs.occupations.name in {'fermi-dirac', 'zero-width'}
+
+        # No carriers when T=0
+        width = getattr(self.calc.wfs.occupations, '_width', 0.0) / Ha
+
         if width > 1e-15:
             dfde_n = -1 / width * (f_n - f_n**2.0)  # Analytical derivative
             partocc_n = np.abs(dfde_n) > 1e-5  # Is part. occupied?
@@ -1486,9 +1499,14 @@ class PairDensity:
                 else:
                     Q_Gii = np.dot(atomdata.Delta_iiL, Q_LG).T
             else:
-                Q_Gii = two_phi_planewave_integrals(G_Gv, atomdata)
                 ni = atomdata.ni
-                Q_Gii.shape = (-1, ni, ni)
+                if self.paw_correction == 'brute-force':
+                    Q_Gii = two_phi_planewave_integrals(G_Gv, atomdata)
+                    Q_Gii.shape = (-1, ni, ni)
+                elif self.paw_correction == 'skip':
+                    Q_Gii = np.zeros((len(G_Gv), ni, ni), complex)
+                else:
+                    1 / 0
 
             Q_xGii[id] = Q_Gii
 
@@ -1550,7 +1568,8 @@ class PairDensity:
         A_cv = wfs.gd.cell_cv
         M_vv = np.dot(np.dot(A_cv.T, U_cc.T), np.linalg.inv(A_cv).T)
         ik = wfs.kd.bz2ibz_k[K]
-        kpt = wfs.kpt_u[s * wfs.kd.nibzkpts + ik]
+        assert wfs.kd.comm.size == 1
+        kpt = wfs.kpt_qs[ik][s]
         psit_nG = kpt.psit_nG
         iG_Gv = 1j * wfs.pd.get_reciprocal_vectors(q=ik, add_q=False)
         ut_nvR = wfs.gd.zeros((n2 - n1, 3), complex)

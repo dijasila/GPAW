@@ -1,4 +1,6 @@
 from pylab import gcf, gca, draw_if_interactive
+
+
 def twiny(ay=None):
     """
     Make a second axes overlay ay (or the current axes if ay is None)
@@ -6,8 +8,7 @@ def twiny(ay=None):
     and the ay2 instance is returned.  See examples/two_scales.py
     """
     if ay is None:
-        ay=gca()
-
+        ay = gca()
 
     ay2 = gcf().add_axes(ay.get_position(), sharey=ay, frameon=False)
     ay2.xaxis.tick_top()

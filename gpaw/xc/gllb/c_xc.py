@@ -1,43 +1,34 @@
-from gpaw.xc.gllb.contribution import Contribution
-from gpaw.xc import XC
 import numpy as np
+from gpaw.xc import XC
+from gpaw.xc.gllb.contribution import Contribution
 
 
 class C_XC(Contribution):
-    def __init__(self, nlfunc, weight, functional='LDA'):
-        Contribution.__init__(self, nlfunc, weight)
-        self.functional = functional
+    def __init__(self, weight, functional):
+        Contribution.__init__(self, weight)
+        self.xc = XC(functional)
 
     def get_name(self):
         return 'XC'
 
     def get_desc(self):
-        return "(" + self.functional + ")"
-        
-    def initialize(self):
-        self.xc = XC(self.functional)
-        self.vt_sg = self.nlfunc.finegd.empty(self.nlfunc.nspins)
-        self.e_g = self.nlfunc.finegd.empty()
+        desc = self.xc.get_description()
+        return self.xc.name if desc is None else desc
 
-    def initialize_1d(self):
-        self.ae = self.nlfunc.ae
-        self.xc = XC(self.functional)
+    def initialize(self, density, hamiltonian, wfs):
+        Contribution.initialize(self, density, hamiltonian, wfs)
+        self.vt_sg = self.finegd.empty(self.nspins)
+        self.e_g = self.finegd.empty()
+
+    def initialize_1d(self, ae):
+        Contribution.initialize_1d(self, ae)
         self.v_g = np.zeros(self.ae.N)
 
-    def calculate_spinpaired(self, e_g, n_g, v_g):
+    def calculate(self, e_g, n_sg, v_sg):
         self.e_g[:] = 0.0
         self.vt_sg[:] = 0.0
-        self.xc.calculate(self.nlfunc.finegd, n_g[None, ...], self.vt_sg,
-                          self.e_g)
-        v_g += self.weight * self.vt_sg[0]
-        e_g += self.weight * self.e_g
-
-    def calculate_spinpolarized(self, e_g, n_sg, v_sg):
-        self.e_g[:] = 0.0
-        self.vt_sg[:] = 0.0
-        self.xc.calculate(self.nlfunc.finegd, n_sg, self.vt_sg, self.e_g)
-        v_sg[0] += self.weight * self.vt_sg[0]
-        v_sg[1] += self.weight * self.vt_sg[1]
+        self.xc.calculate(self.finegd, n_sg, self.vt_sg, self.e_g)
+        v_sg += self.weight * self.vt_sg
         e_g += self.weight * self.e_g
 
     def calculate_energy_and_derivatives(self, setup, D_sp, H_sp, a,
@@ -61,19 +52,3 @@ class C_XC(Contribution):
                                           self.v_g.reshape((1, -1)))
         vt_g += self.weight * self.v_g
         return self.weight * Exc
-
-    def initialize_from_atomic_orbitals(self, basis_functions):
-        # LDA needs only density, which is already initialized
-        pass
-
-    def add_extra_setup_data(self, dict):
-        # LDA has not any special data
-        pass
-
-    def write(self, writer):
-        # LDA has not any special data to be written
-        pass
-
-    def read(self, reader):
-        # LDA has not any special data to be read
-        pass

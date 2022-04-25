@@ -2,14 +2,15 @@
 import numpy as np
 import scipy.sparse as sparse
 from ase.neighborlist import PrimitiveNeighborList
-#from ase.utils.timing import timer
+# from ase.utils.timing import timer
 from gpaw.utilities.tools import tri2full
 
-#from gpaw import debug
+# from gpaw import debug
 from gpaw.lcao.overlap import (FourierTransformer, TwoSiteOverlapCalculator,
                                ManySiteOverlapCalculator,
                                AtomicDisplacement, NullPhases, BlochPhases,
                                DerivativeAtomicDisplacement)
+
 
 def get_cutoffs(f_Ij):
     rcutmax_I = []
@@ -241,15 +242,19 @@ class ManyTCICalculator:
         self.nao = self.Mindices.max
         self.timer = timer
 
-    #@timer('tci-projectors')
+    # @timer('tci-projectors')
     def P_aqMi(self, my_atom_indices, derivative=False):
         P_axMi = {}
         if derivative:
             P = self.tci.dPdR
-            empty = lambda nI: np.empty((self.nq, 3, self.nao, nI), self.dtype)
+
+            def empty(nI):
+                return np.empty((self.nq, 3, self.nao, nI), self.dtype)
         else:
             P = self.tci.P
-            empty = lambda nI: np.empty((self.nq, self.nao, nI), self.dtype)
+
+            def empty(nI):
+                return np.empty((self.nq, self.nao, nI), self.dtype)
 
         Mindices = self.Mindices
 
@@ -271,7 +276,7 @@ class ManyTCICalculator:
                 P_axMi[a] *= -1.0
         return P_axMi
 
-    #@timer('tci-sparseprojectors')
+    # @timer('tci-sparseprojectors')
     def P_qIM(self, my_atom_indices):
         nq = self.nq
         P = self.tci.P
@@ -293,7 +298,7 @@ class ManyTCICalculator:
         P_qIM = [P_IM.tocsr() for P_IM in P_qIM]
         return P_qIM
 
-    #@timer('tci-bfs')
+    # @timer('tci-bfs')
     def O_qMM_T_qMM(self, gdcomm, Mstart, Mstop, ignore_upper=False,
                     derivative=False):
         mynao = Mstop - Mstart
@@ -321,7 +326,7 @@ class ManyTCICalculator:
 
             assert nM > 0, nM
 
-            a2max = a1 + 1 #if not derivative else self.natoms
+            a2max = a1 + 1  # if not derivative else self.natoms
 
             for a2 in range(gdcomm.rank, a2max, gdcomm.size):
                 O_xmm, T_xmm = O_T(a1, a2)

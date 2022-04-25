@@ -4,7 +4,6 @@ from gpaw.fdtd import (FDTDPoissonSolver, PermittivityPlus,
                        PolarizableMaterial, PolarizableSphere)
 from gpaw.mpi import world
 from gpaw.tddft import TDDFT
-from gpaw.test import equal
 import numpy as np
 import sys
 
@@ -90,7 +89,7 @@ gs_calc = GPAW(gpts=gpts,
                eigensolver='cg',
                nbands=-2,
                poissonsolver=poissonsolver)
-atoms.set_calculator(gs_calc)
+atoms.calc = gs_calc
 
 # Ground state
 energy = atoms.get_potential_energy()
@@ -101,7 +100,6 @@ gs_calc.write('gs.%s.gpw' % tag, 'all')
 # Initialize TDDFT and FDTD
 td_calc = TDDFT('gs.%s.gpw' % tag)
 td_calc.absorption_kick(kick_strength=kick)
-td_calc.hamiltonian.poisson.set_kick(kick)
 
 # Propagate TDDFT and FDTD
 td_calc.propagate(time_step, 50, 'dm.%s.dat' % tag, 'td.%s.gpw' % tag)
@@ -111,6 +109,6 @@ ref_cl_dipole_moment = [2.72623607e-02, 1.98393701e-09, -1.98271199e-09]
 ref_qm_dipole_moment = [1.44266213e-02, 1.04985435e-09, -1.04920610e-09]
 
 tol = 0.0001
-equal(td_calc.get_dipole_moment(), ref_qm_dipole_moment, tol)
-equal(td_calc.hamiltonian.poisson.get_dipole_moment(), ref_cl_dipole_moment,
-      tol)
+assert abs(td_calc.get_dipole_moment() - ref_qm_dipole_moment) < tol
+assert abs(td_calc.hamiltonian.poisson.get_dipole_moment() -
+           ref_cl_dipole_moment) < tol

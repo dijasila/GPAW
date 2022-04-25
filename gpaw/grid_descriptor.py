@@ -10,6 +10,7 @@ For radial grid descriptors, look atom/radialgd.py.
 
 import numbers
 from math import pi
+from typing import Sequence
 
 import numpy as np
 from scipy.ndimage import map_coordinates
@@ -17,12 +18,8 @@ from scipy.ndimage import map_coordinates
 import _gpaw
 import gpaw.mpi as mpi
 from gpaw.domain import Domain
-from gpaw.utilities.blas import rk, r2k, gemm
-
-
-# Remove this:  XXX
-assert (-1) % 3 == 2
-assert (np.array([-1]) % 3)[0] == 2
+from gpaw.typing import Array1D, Array3D, Vector
+from gpaw.utilities.blas import gemm, r2k, rk
 
 NONBLOCKING = False
 
@@ -64,16 +61,17 @@ class GridDescriptor(Domain):
      >>> a = np.zeros((2, 2, 2))
      >>> a.ravel()[:] = range(8)
      >>> a
-     array([[[0, 1],
-             [2, 3]],
-            [[4, 5],
-             [6, 7]]])
+     array([[[0., 1.],
+             [2., 3.]],
+     <BLANKLINE>
+            [[4., 5.],
+             [6., 7.]]])
      """
 
     ndim = 3  # dimension of ndarrays
 
     def __init__(self, N_c, cell_cv=[1, 1, 1], pbc_c=True,
-                 comm=None, parsize_c=None):
+                 comm=None, parsize_c=None, allow_empty_domains=False):
         """Construct grid-descriptor object.
 
         parameters:
@@ -88,6 +86,8 @@ class GridDescriptor(Domain):
             Communicator for domain-decomposition.
         parsize_c: tuple of 3 ints, a single int or None
             Number of domains.
+        allow_empty_domains: bool
+            Allow parallelization that would generate empty domains.
 
         Note that if pbc_c[c] is False, then the actual number of gridpoints
         along axis c is one less than N_c[c].
@@ -131,11 +131,16 @@ class GridDescriptor(Domain):
             if not self.pbc_c[c]:
                 n_p[0] = 1
 
-            if not np.all(n_p[1:] - n_p[:-1] > 0):
-                raise BadGridError('Grid {0} too small for {1} cores!'
-                                   .format('x'.join(str(n) for n in self.N_c),
-                                           'x'.join(str(n) for n
-                                                    in self.parsize_c)))
+            if np.any(n_p[1:] == n_p[:-1]):
+                if allow_empty_domains:
+                    # If there are empty domains, sort them to the end
+                    n_p[:] = (np.arange(self.parsize_c[c] + 1) +
+                              1 - self.pbc_c[c]).clip(0, self.N_c[c])
+                else:
+                    msg = ('Grid {0} too small for {1} cores!'
+                           .format('x'.join(str(n) for n in self.N_c),
+                                   'x'.join(str(n) for n in self.parsize_c)))
+                    raise BadGridError(msg)
 
             self.beg_c[c] = n_p[self.parpos_c[c]]
             self.end_c[c] = n_p[self.parpos_c[c] + 1]
@@ -164,7 +169,7 @@ class GridDescriptor(Domain):
                    self.comm.size, pcoords, self.parsize_c.tolist()))
 
     def new_descriptor(self, N_c=None, cell_cv=None, pbc_c=None,
-                       comm=None, parsize_c=None):
+                       comm=None, parsize_c=None, allow_empty_domains=False):
         """Create new descriptor based on this one.
 
         The new descriptor will use the same class (possibly a subclass)
@@ -180,7 +185,8 @@ class GridDescriptor(Domain):
             comm = self.comm
         if parsize_c is None and comm.size == self.comm.size:
             parsize_c = self.parsize_c
-        return self.__class__(N_c, cell_cv, pbc_c, comm, parsize_c)
+        return self.__class__(N_c, cell_cv, pbc_c, comm, parsize_c,
+                              allow_empty_domains)
 
     def coords(self, c, pad=True):
         """Return coordinates along one of the three axes.
@@ -581,6 +587,35 @@ class GridDescriptor(Domain):
         b_xg[..., npbx:, npby:, npbz:] = a_xg
         return b_xg
 
+    def dipole_moment(self,
+                      rho_R: Array3D,
+                      center_v: Vector = None) -> Array1D:
+        """Calculate dipole moment of density.
+
+        Integration region will be centered on center_v.  Default center
+        is center of unit cell.
+        """
+        index_cr = [np.arange(self.beg_c[c], self.end_c[c], dtype=float)
+                    for c in range(3)]
+
+        if center_v is not None:
+            corner_c = (np.linalg.solve(self.h_cv.T,
+                                        center_v) % self.N_c) - self.N_c / 2
+            for corner, index_r, N in zip(corner_c, index_cr, self.N_c):
+                index_r -= corner
+                index_r %= N
+                index_r += corner
+
+        rho_ijk = rho_R
+        rho_ij = rho_ijk.sum(axis=2)
+        rho_ik = rho_ijk.sum(axis=1)
+        rho_cr = [rho_ij.sum(axis=1), rho_ij.sum(axis=0), rho_ik.sum(axis=0)]
+
+        d_c = [np.dot(index_cr[c], rho_cr[c]) for c in range(3)]
+        d_v = -np.dot(d_c, self.h_cv) * self.dv
+        self.comm.sum(d_v)
+        return d_v
+
     def calculate_dipole_moment(self, rho_g, center=False, origin_c=None):
         """Calculate dipole moment of density."""
         r_cz = [np.arange(self.beg_c[c], self.end_c[c]) for c in range(3)]
@@ -657,8 +692,7 @@ class GridDescriptor(Domain):
         Non-Cubic MD cells' March 29, 1989
         """
         s_Gc = (np.indices(self.n_c, dtype).T + self.beg_c) / self.N_c
-        cell_cv = self.N_c * self.h_cv
-        r_c = np.linalg.solve(cell_cv.T, r_v)
+        r_c = np.linalg.solve(self.cell_cv.T, r_v)
         # do the correction twice works better because of rounding errors
         # e.g.: -1.56250000e-25 % 1.0 = 1.0,
         #      but (-1.56250000e-25 % 1.0) % 1.0 = 0.0
@@ -671,7 +705,7 @@ class GridDescriptor(Domain):
             assert((s_Gc * self.pbc_c >= -0.5).all())
             assert((s_Gc * self.pbc_c <= 0.5).all())
 
-        return np.dot(s_Gc, cell_cv).T.copy()
+        return np.dot(s_Gc, self.cell_cv).T.copy()
 
     def interpolate_grid_points(self, spos_nc, vt_g):
         """Return interpolated values.
@@ -690,13 +724,6 @@ class GridDescriptor(Domain):
                                order=3,
                                mode='wrap')
 
-    def __eq__(self, other):
-        # XXX Wait, should this not check the global distribution?  This
-        # could return True on some nodes and False on others because the
-        # check does not verify self.n_cp.
-        return (self.dv == other.dv and
-                (self.h_cv == other.h_cv).all() and
-                (self.N_c == other.N_c).all() and
-                (self.n_c == other.n_c).all() and
-                (self.beg_c == other.beg_c).all() and
-                (self.end_c == other.end_c).all())
+    def is_my_grid_point(self, R_c: Sequence[int]) -> bool:
+        """Check if grid point belongs to this domain."""
+        return ((self.beg_c <= R_c) & (R_c < self.end_c)).all()

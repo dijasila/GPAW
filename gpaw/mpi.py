@@ -7,7 +7,9 @@ import traceback
 import atexit
 import pickle
 from contextlib import contextmanager
+from typing import Any
 
+from ase.parallel import world as aseworld
 import numpy as np
 
 import gpaw
@@ -15,6 +17,7 @@ from .broadcast_imports import world
 import _gpaw
 
 MASTER = 0
+MPIComm = Any  # for type hints
 
 
 def is_contiguous(*args, **kwargs):
@@ -287,7 +290,7 @@ class _Communicator:
         assert sbuffer.dtype == rbuffer.dtype
 
         for arr in [scounts, sdispls, rcounts, rdispls]:
-            assert arr.dtype == np.int, arr.dtype
+            assert arr.dtype == int, arr.dtype
             assert len(arr) == self.size
 
         assert np.all(0 <= sdispls)
@@ -572,16 +575,16 @@ class _Communicator:
 
         Example::
 
-          >>> world.rank, world.size
+          >>> world.rank, world.size  # doctest: +SKIP
           (3, 4)
-          >>> world.get_members()
+          >>> world.get_members()  # doctest: +SKIP
           array([0, 1, 2, 3])
-          >>> comm = world.new_communicator(array([2, 3]))
-          >>> comm.rank, comm.size
+          >>> comm = world.new_communicator(np.array([2, 3]))  # doctest: +SKIP
+          >>> comm.rank, comm.size  # doctest: +SKIP
           (1, 2)
-          >>> comm.get_members()
+          >>> comm.get_members()  # doctest: +SKIP
           array([2, 3])
-          >>> comm.get_members()[comm.rank] == world.rank
+          >>> comm.get_members()[comm.rank] == world.rank  # doctest: +SKIP
           True
 
         """
@@ -685,6 +688,7 @@ class SerialCommunicator:
         if isinstance(other, SerialCommunicator):
             assert all(rank == 0 for rank in ranks) or gpaw.dry_run
             return np.zeros(len(ranks), dtype=int)
+        return np.array([other.rank for rank in ranks])
         raise NotImplementedError(
             'Translate non-trivial ranks with serial comm')
 
@@ -702,31 +706,15 @@ if world is None:
     world = serial_comm
 
 if gpaw.debug:
-    serial_comm = _Communicator(serial_comm)
-    world = _Communicator(world)
+    serial_comm = _Communicator(serial_comm)  # type: ignore
+    world = _Communicator(world)  # type: ignore
 
 rank = world.rank
 size = world.size
 parallel = (size > 1)
 
-
-# XXXXXXXXXX for easier transition to Parallelization class
-def distribute_cpus(parsize_domain, parsize_bands,
-                    nspins, nibzkpts, comm=world,
-                    idiotproof=True, mode='fd'):
-    nsk = nspins * nibzkpts
-    if mode in ['fd', 'lcao']:
-        if parsize_bands is None:
-            parsize_bands = 1
-    else:
-        # Plane wave mode:
-        if parsize_bands is None:
-            from ase.utils import gcd
-            parsize_bands = comm.size // gcd(nsk, comm.size)
-
-    p = Parallelization(comm, nsk)
-    return p.build_communicators(domain=np.prod(parsize_domain),
-                                 band=parsize_bands)
+if world.size != aseworld.size:
+    raise RuntimeError('Please use "gpaw python" to run in parallel')
 
 
 def broadcast(obj, root=0, comm=world):
@@ -742,6 +730,12 @@ def broadcast(obj, root=0, comm=world):
         return obj
     else:
         return pickle.loads(b)
+
+
+def broadcast_float(x, comm):
+    array = np.array([x])
+    comm.broadcast(array, 0)
+    return array[0]
 
 
 def synchronize_atoms(atoms, comm, tolerance=1e-8):
@@ -822,6 +816,32 @@ def broadcast_bytes(b=None, root=0, comm=world):
     return b.tobytes()
 
 
+def broadcast_array(array: np.ndarray, *communicators) -> np.ndarray:
+    """Broadcast np.ndarray across sequence of MPI-communicators."""
+    comms = list(communicators)
+    while comms:
+        comm = comms.pop()
+        if all(comm.rank == 0 for comm in comms):
+            comm.broadcast(array, 0)
+    return array
+
+
+def send(obj, rank: int, comm) -> None:
+    """Send object to rank on the MPI communicator comm."""
+    b = pickle.dumps(obj, pickle.HIGHEST_PROTOCOL)
+    comm.send(np.array(len(b)), rank)
+    comm.send(np.frombuffer(b, np.int8).copy(), rank)
+
+
+def receive(rank: int, comm) -> Any:
+    """Receive object from rank on the MPI communicator comm."""
+    n = np.array(0)
+    comm.receive(n, rank)
+    buf = np.empty(int(n), np.int8)
+    comm.receive(buf, rank)
+    return pickle.loads(buf.tobytes())
+
+
 def send_string(string, rank, comm=world):
     b = string.encode()
     comm.send(np.array(len(b)), rank)
@@ -837,22 +857,22 @@ def receive_string(rank, comm=world):
 
 
 def alltoallv_string(send_dict, comm=world):
-    scounts = np.zeros(comm.size, dtype=np.int)
-    sdispls = np.zeros(comm.size, dtype=np.int)
+    scounts = np.zeros(comm.size, dtype=int)
+    sdispls = np.zeros(comm.size, dtype=int)
     stotal = 0
     for proc in range(comm.size):
         if proc in send_dict:
-            data = np.fromstring(send_dict[proc], np.int8)
+            data = np.frombuffer(send_dict[proc].encode(), np.int8)
             scounts[proc] = data.size
             sdispls[proc] = stotal
             stotal += scounts[proc]
 
-    rcounts = np.zeros(comm.size, dtype=np.int)
-    comm.alltoallv(scounts, np.ones(comm.size, dtype=np.int),
-                   np.arange(comm.size, dtype=np.int),
-                   rcounts, np.ones(comm.size, dtype=np.int),
-                   np.arange(comm.size, dtype=np.int))
-    rdispls = np.zeros(comm.size, dtype=np.int)
+    rcounts = np.zeros(comm.size, dtype=int)
+    comm.alltoallv(scounts, np.ones(comm.size, dtype=int),
+                   np.arange(comm.size, dtype=int),
+                   rcounts, np.ones(comm.size, dtype=int),
+                   np.arange(comm.size, dtype=int))
+    rdispls = np.zeros(comm.size, dtype=int)
     rtotal = 0
     for proc in range(comm.size):
         rdispls[proc] = rtotal
@@ -862,7 +882,7 @@ def alltoallv_string(send_dict, comm=world):
     sbuffer = np.zeros(stotal, dtype=np.int8)
     for proc in range(comm.size):
         sbuffer[sdispls[proc]:(sdispls[proc] + scounts[proc])] = (
-            np.fromstring(send_dict[proc], np.int8))
+            np.frombuffer(send_dict[proc].encode(), np.int8))
 
     rbuffer = np.zeros(rtotal, dtype=np.int8)
     comm.alltoallv(sbuffer, scounts, sdispls, rbuffer, rcounts, rdispls)
@@ -870,7 +890,7 @@ def alltoallv_string(send_dict, comm=world):
     rdict = {}
     for proc in range(comm.size):
         i = rdispls[proc]
-        rdict[proc] = rbuffer[i:i + rcounts[proc]].tostring().decode()
+        rdict[proc] = rbuffer[i:i + rcounts[proc]].tobytes().decode()
 
     return rdict
 
@@ -925,10 +945,10 @@ def run(iterators):
 
 
 class Parallelization:
-    def __init__(self, comm, nspinkpts):
+    def __init__(self, comm, nkpts):
         self.comm = comm
         self.size = comm.size
-        self.nspinkpts = nspinkpts
+        self.nkpts = nkpts
 
         self.kpt = None
         self.domain = None
@@ -1047,14 +1067,14 @@ class Parallelization:
             assignments = dict(kpt=self.kpt,
                                domain=self.domain,
                                band=self.band)
-            raise RuntimeError('All the CPUs must be used.  Have %s but '
-                               '%d times more are available'
-                               % (assignments, self.navail))
+            raise gpaw.BadParallelization(
+                f'All the CPUs must be used.  Have {assignments} but '
+                f'{self.navail} times more are available.')
 
     def get_optimal_kpt_parallelization(self, kptprioritypower=1.4):
         if self.domain and self.band:
             # Try to use all the CPUs for k-point parallelization
-            ncpus = min(self.nspinkpts, self.navail)
+            ncpus = min(self.nkpts, self.navail)
             return ncpus
         ncpuvalues, wastevalues = self.find_kpt_parallelizations()
         scores = ((self.navail // ncpuvalues) *
@@ -1064,16 +1084,16 @@ class Parallelization:
         return ncpus
 
     def find_kpt_parallelizations(self):
-        nspinkpts = self.nspinkpts
+        nkpts = self.nkpts
         ncpuvalues = []
         wastevalues = []
 
-        ncpus = nspinkpts
+        ncpus = nkpts
         while ncpus > 0:
             if self.navail % ncpus == 0:
-                nkptsmax = -(-nspinkpts // ncpus)
+                nkptsmax = -(-nkpts // ncpus)
                 effort = nkptsmax * ncpus
-                efficiency = nspinkpts / float(effort)
+                efficiency = nkpts / float(effort)
                 waste = 1.0 - efficiency
                 wastevalues.append(waste)
                 ncpuvalues.append(ncpus)

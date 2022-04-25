@@ -4,29 +4,23 @@
 
 """Utility functions and classes."""
 
+import os
 import re
 import sys
 import time
-from math import sqrt
 from contextlib import contextmanager
-from typing import Union
+from math import sqrt
 from pathlib import Path
+from typing import Union
 
-from ase.utils import devnull
 import numpy as np
+from ase import Atoms
+from ase.data import covalent_radii
+from ase.neighborlist import neighbor_list
 
 import _gpaw
 import gpaw.mpi as mpi
 from gpaw import debug
-
-
-utilities_vdot = _gpaw.utilities_vdot
-utilities_vdot_self = _gpaw.utilities_vdot_self
-
-
-erf = np.vectorize(_gpaw.erf, (float,), 'Error function')
-# XXX should we unify double and complex erf ???
-cerf = np.vectorize(_gpaw.cerf, (complex,), 'Complex error function')
 
 # Code will crash for setups without any projectors.  Setups that have
 # no projectors therefore receive a dummy projector as a hacky
@@ -41,21 +35,11 @@ class AtomsTooClose(RuntimeError):
     pass
 
 
-def check_atoms_too_close(atoms):
-    # (Empty atoms with neighbor_list is buggy in ASE-3.16.0)
-    if not len(atoms):
-        return
-
-    # Skip test for numpy < 1.13.0 due to absence np.divmod:
-    if not hasattr(np, 'divmod'):
-        return
-
-    from ase.neighborlist import neighbor_list
-    from ase.data import covalent_radii
+def check_atoms_too_close(atoms: Atoms) -> None:
     radii = covalent_radii[atoms.numbers] * 0.01
     dists = neighbor_list('d', atoms, radii)
     if len(dists):
-        raise AtomsTooClose('Atoms are too close, e.g. {} Å'.format(dists[0]))
+        raise AtomsTooClose(f'Atoms are too close, e.g. {dists[0]} Å')
 
 
 def unpack_atomic_matrices(M_sP, setups):
@@ -117,7 +101,7 @@ def is_contiguous(array, dtype=None):
 #   r = max(r, r')
 #    >
 #
-def hartree(l, nrdr, r, vr):
+def hartree(l: int, nrdr: np.ndarray, r: np.ndarray, vr: np.ndarray) -> None:
     """Calculates radial Coulomb integral.
 
     The following integral is calculated::
@@ -168,6 +152,8 @@ corrections to the Hamiltonian, are constructed according to pack2 / unpack.
 
 def unpack(M):
     """Unpack 1D array to 2D, assuming a packing as in ``pack2``."""
+    if M.ndim == 2:
+        return np.array([unpack(m) for m in M])
     assert is_contiguous(M)
     assert M.ndim == 1
     n = int(sqrt(0.25 + 2.0 * len(M)))
@@ -181,13 +167,15 @@ def unpack(M):
 
 def unpack2(M):
     """Unpack 1D array to 2D, assuming a packing as in ``pack``."""
+    if M.ndim == 2:
+        return np.array([unpack2(m) for m in M])
     M2 = unpack(M)
     M2 *= 0.5  # divide all by 2
     M2.flat[0::len(M2) + 1] *= 2  # rescale diagonal to original size
     return M2
 
 
-def pack(A):
+def pack(A: np.ndarray) -> np.ndarray:
     r"""Pack a 2D array to 1D, adding offdiagonal terms.
 
     The matrix::
@@ -200,8 +188,6 @@ def pack(A):
 
       (a00, a01 + a10, a02 + a20, a11, a12 + a21, a22)
     """
-    if A.ndim == 3:
-        return np.array([pack(a) for a in A])
     assert A.ndim == 2
     assert A.shape[0] == A.shape[1]
     assert A.dtype in [float, complex]
@@ -209,7 +195,18 @@ def pack(A):
 
 
 def pack2(M2, tolerance=1e-10):
-    """Pack a 2D array to 1D, averaging offdiagonal terms."""
+    r"""Pack a 2D array to 1D, averaging offdiagonal terms.
+
+    The matrix::
+
+           / a00 a01 a02 \
+       A = | a10 a11 a12 |
+           \ a20 a21 a22 /
+
+    is transformed to the vector::
+
+      (a00, [a01 + a10]/2, [a02 + a20]/2, a11, [a12 + a21]/2, a22)
+    """
     if M2.ndim == 3:
         return np.array([pack2(m2) for m2 in M2])
     n = len(M2)
@@ -228,7 +225,7 @@ def pack2(M2, tolerance=1e-10):
 
 
 for method in (unpack, unpack2, pack, pack2):
-    method.__doc__ += packing_conventions
+    method.__doc__ += packing_conventions  # type: ignore
 
 
 def element_from_packed(M, i, j):
@@ -344,8 +341,8 @@ def file_barrier(path: Union[str, Path], world=None):
     After the with-block all cores will be able to read the file.
 
     >>> with file_barrier('something.txt'):
-    ...     <write file>
-    ...
+    ...     result = 2 + 2
+    ...     Path('something.txt').write_text(f'{result}')  # doctest: +SKIP
 
     This will remove the file, write the file and wait for the file.
     """
@@ -364,3 +361,23 @@ def file_barrier(path: Union[str, Path], world=None):
     while not path.is_file():
         time.sleep(1.0)
     world.barrier()
+
+
+devnull = open(os.devnull, 'w')
+
+
+def convert_string_to_fd(name, world=None):
+    """Create a file-descriptor for text output.
+
+    Will open a file for writing with given name.  Use None for no output and
+    '-' for sys.stdout.
+    """
+    if world is None:
+        from ase.parallel import world
+    if name is None or world.rank != 0:
+        return open(os.devnull, 'w')
+    if name == '-':
+        return sys.stdout
+    if isinstance(name, (str, Path)):
+        return open(name, 'w')
+    return name  # we assume name is already a file-descriptor

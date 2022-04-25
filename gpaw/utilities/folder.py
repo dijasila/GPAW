@@ -2,6 +2,7 @@ import numpy as np
 
 from gpaw.gauss import Gauss
 
+
 class Lorentz:
     """Normalized Lorentzian distribution"""
     def __init__(self, width=0.08):
@@ -32,7 +33,7 @@ class Voigt:
     def __init__(self, width=0.08):
         self.dtype = float
         self.set_width(width)
-        
+
     def get(self, x, x0=0):
         from scipy.special import erfc
         argm = (-1j * (x - x0) + self.delta) * self.argpre
@@ -40,7 +41,7 @@ class Voigt:
         res = np.exp(argm**2) * erfc(argm)
         res += np.exp(argp**2) * erfc(argp)
         return res.real * self.prefactor
-        
+
     def set_width(self, width=0.08):
         """Width is interpreted as [delta, sigma]"""
         if not hasattr(width, '__iter__'):
@@ -73,7 +74,7 @@ class ComplexLorentz:
     def __init__(self, width=0.08):
         self.dtype = complex
         self.set_width(width)
-        
+
     def get(self, x, x0):
         return 0.5 / x0 * (((x + x0) / ((x + x0)**2 + self.width2) -
                             (x - x0) / ((x - x0)**2 + self.width2)) -
@@ -81,7 +82,7 @@ class ComplexLorentz:
                            (1 / ((x + x0)**2 + self.width2) -
                             1 / ((x - x0)**2 + self.width2))
                            )
-        
+
     def set_width(self, width=0.08):
         self.width = width
         self.width2 = width**2
@@ -91,7 +92,7 @@ class ComplexGauss:
     def __init__(self, width=0.08):
         self.dtype = complex
         self.set_width(width)
-        
+
     def get(self, x, x0):
         from scipy.special import dawsn
         return 0.5 / x0 * (2 * self.wm1 *
@@ -101,7 +102,7 @@ class ComplexGauss:
                            (np.exp(-((x + x0) * self.wm1)**2) -
                             np.exp(-((x - x0) * self.wm1)**2))
                            )
-    
+
     def set_width(self, width=0.08):
         self.norm = 1. / width * np.sqrt(np.pi / 2)
         self.wm1 = np.sqrt(.5) / width
@@ -119,31 +120,31 @@ class LorentzPole:
         else:
             self.get = self.get_real
         self.set_width(width)
-        
+
     def get_real(self, x, x0):
         return (x0**2 - x**2) / (
             (x0**2 - x**2)**2 + self.width**2 * x**2)
-    
+
     def get_imaginary(self, x, x0):
         return self.width * x / (
             (x0**2 - x**2)**2 + self.width**2 * x**2)
-    
+
     def set_width(self, width=0.08):
         self.width = width
-    
+
 
 class Folder:
     """Fold a function with normalised Gaussians or Lorentzians
 
     Example: fold a function y(x) by Lorentzians of 0.2 width
 
-    >>> xlist = ... # list of x-values
-    >>> ylist = ... # corresponding list of y(x)-values
-
+    >>> xlist = np.linspace(-1.0, 1.0, 101)  # list of x-values
+    >>> ylist = np.zeros_like(xlist)  # corresponding list of y(x)-values
+    >>> ylist[50] = 1.0
     >>> from gpaw.utilities.folder import Folder
     >>> fxlist, fylist = Folder(width=0.2, folding='Lorentz').fold(
-                     xlist, ylist, dx=0.1, xmin=-1, xmax=1)
-"""
+    ...     xlist, ylist, dx=0.1, xmin=-1, xmax=1)
+    """
     def __init__(self, width,
                  folding='Gauss'):
         self.width = width
@@ -181,7 +182,7 @@ class Folder:
                 dx = self.width / 4.
 
         xl = np.arange(xmin, xmax + 0.5 * dx, dx)
-        
+
         return self.fold_values(x, y, xl)
 
     def fold_values(self, x, y, xl=None):
@@ -195,7 +196,7 @@ class Folder:
         else:
             Xl = np.array(xl)
             assert len(Xl.shape) == 1
-            
+
         # weight matrix
         weightm = np.empty((Xl.shape[0], X.shape[0]),
                            dtype=self.func.dtype)

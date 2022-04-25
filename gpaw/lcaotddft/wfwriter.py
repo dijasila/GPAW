@@ -13,17 +13,21 @@ class WaveFunctionReader(object):
             if tag != WaveFunctionWriter.ulmtag:
                 raise RuntimeError('Unknown tag %s' % tag)
             self.filename = filename
+            self._is_main_reader = True
         else:
             self.index = index
             self.reader = wfreader.reader[index]
             self.version = wfreader.version
             self.split = wfreader.split
             self.filename = wfreader.filename
+            self._is_main_reader = False
 
     def __getattr__(self, attr):
         try:
             return getattr(self.reader, attr)
-        except KeyError:
+        except AttributeError:
+            pass
+        except KeyError:  # backwards compatibility with ase-3.19.0
             pass
 
         # Split reader handling
@@ -59,12 +63,11 @@ class WaveFunctionReader(object):
         if hasattr(self, 'splitreader'):
             self.splitreader.close()
             del self.splitreader
-        self.reader.close()
+        if self._is_main_reader:
+            self.reader.close()
 
     def __del__(self):
-        if hasattr(self, 'splitreader'):
-            self.splitreader.close()
-            del self.splitreader
+        self.close()
 
 
 class WaveFunctionWriter(TDDFTObserver):
@@ -123,4 +126,3 @@ class WaveFunctionWriter(TDDFTObserver):
 
     def __del__(self):
         self.writer.close()
-        TDDFTObserver.__del__(self)

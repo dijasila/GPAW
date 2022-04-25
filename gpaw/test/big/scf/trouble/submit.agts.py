@@ -1,10 +1,10 @@
-from myqueue.task import task
+from myqueue.workflow import run
 
 
-def create_tasks():
-    return [task('run.py+16@16:10h'),
-            task('run.py+8@8:12h'),
-            task('run.py+4@4:5h'),
-            task('run.py+1@1:1h'),
-            task('analyse.py@1:10m',
-                 deps=['run.py+16', 'run.py+8', 'run.py+4', 'run.py+1'])]
+def workflow():
+    runs = [run(script='run.py', args=[cores], cores=cores, tmax=tmax)
+            for cores, tmax in [(1, '1h'),
+                                (4, '5h'),
+                                (8, '12h'),
+                                (16, '10h')]]
+    run(script='analyse.py', deps=runs)

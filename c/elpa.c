@@ -57,6 +57,41 @@ PyObject* pyelpa_set(PyObject *self, PyObject *args)
     return checkerr(err);
 }
 
+PyObject* pyelpa_init(PyObject *self, PyObject *args)
+{
+    if (!PyArg_ParseTuple(args, ""))
+        return NULL;
+
+    // Globally initialize Elpa library if present:
+    if (elpa_init(20171201) != ELPA_OK) {
+        // What API versions do we support?
+        PyErr_SetString(PyExc_RuntimeError, "Elpa >= 20171201 required");
+        PyErr_Print();
+        return NULL;
+    }
+    Py_RETURN_NONE;
+}
+
+PyObject* pyelpa_uninit(PyObject *self, PyObject *args)
+{
+    if (!PyArg_ParseTuple(args, ""))
+        return NULL;
+
+#ifdef ELPA_API_VERSION
+    // Newer Elpas define their version but older ones don't.
+    int elpa_err;
+    elpa_uninit(&elpa_err);
+    if (elpa_err != ELPA_OK) {
+        PyErr_SetString(PyExc_RuntimeError,
+                        "elpa_uninit() failed");
+        return NULL;
+    }
+#else
+    elpa_uninit();  // 2018.05.001: no errcode
+#endif
+    Py_RETURN_NONE;
+}
+
 PyObject* pyelpa_allocate(PyObject *self, PyObject *args)
 {
     PyObject *handle_obj;

@@ -1,22 +1,29 @@
-from __future__ import print_function, division
-
-import numpy as np
-from scipy.spatial import Delaunay
-
-from ase.utils import devnull
-from ase.utils import convert_string_to_fd
-from ase.utils.timing import timer, Timer
-
-from _gpaw import tetrahedron_weight
-
-import gpaw.mpi as mpi
-from gpaw.utilities.blas import gemm, rk, czher, mmm
-from gpaw.utilities.progressbar import ProgressBar
 from functools import partial
 
+import numpy as np
+from gpaw.utilities import convert_string_to_fd
+from ase.utils.timing import timer, Timer
+from scipy.spatial import Delaunay
+from scipy.linalg.blas import zher
 
-class Integrator():
+import _gpaw
+import gpaw.mpi as mpi
+from gpaw.utilities.blas import gemm, rk, mmm
+from gpaw.utilities.progressbar import ProgressBar
 
+
+def czher(alpha: float, x, A) -> None:
+    """Hermetian rank-1 update of upper half of A.
+
+    A += alpha * np.outer(x.conj(), x)
+
+    """
+    AT = A.T
+    out = zher(alpha, x, 1, 1, 0, len(x), AT, 1)
+    assert out is AT
+
+
+class Integrator:
     def __init__(self, cell_cv, response='density', comm=mpi.world,
                  txt='-', timer=None, nblocks=1, eshift=0.0):
         """Baseclass for Brillouin zone integration and band summation.
@@ -27,7 +34,7 @@ class Integrator():
         comm: mpi.communicator
         nblocks: block parallelization
         """
-        
+
         self.response = response
         self.comm = comm
         self.eshift = eshift
@@ -44,8 +51,6 @@ class Integrator():
             ranks = range(comm.rank % nblocks, comm.size, nblocks)
             self.kncomm = self.comm.new_communicator(ranks)
 
-        if comm.rank != 0:
-            txt = devnull
         self.fd = convert_string_to_fd(txt, comm)
 
         self.timer = timer or Timer()
@@ -148,7 +153,7 @@ class PointIntegrator(Integrator):
         mydomain_t = self.distribute_domain(domain)
         nbz = len(domain[0])
         get_matrix_element, get_eigenvalues = integrand
-        
+
         prefactor = (2 * np.pi)**3 / self.vol / nbz
         out_wxx /= prefactor
 
@@ -201,13 +206,13 @@ class PointIntegrator(Integrator):
             else:
                 for out_xx in out_wxx:
                     out_xx[iu] = out_xx[il].conj()
-        
+
         out_wxx *= prefactor
 
     @timer('CHI_0 update')
     def update(self, n_mG, deps_m, wd, chi0_wGG, timeordered=False, eta=None):
         """Update chi."""
-        
+
         omega_w = wd.get_data()
         deps_m += self.eshift * np.sign(deps_m)
         if timeordered:
@@ -216,7 +221,7 @@ class PointIntegrator(Integrator):
         else:
             deps1_m = deps_m + 1j * eta
             deps2_m = deps_m - 1j * eta
-        
+
         for omega, chi0_GG in zip(omega_w, chi0_wGG):
             if self.response == 'density':
                 x_m = (1 / (omega + deps1_m) - 1 / (omega - deps2_m))
@@ -226,7 +231,7 @@ class PointIntegrator(Integrator):
                 nx_mG = n_mG[:, self.Ga:self.Gb] * x_m[:, np.newaxis]
             else:
                 nx_mG = n_mG * x_m[:, np.newaxis]
-             
+
             gemm(1.0, n_mG.conj(), np.ascontiguousarray(nx_mG.T),
                  1.0, chi0_GG)
 
@@ -512,8 +517,8 @@ class TetrahedronIntegrator(Integrator):
         W_w = np.zeros(len(omega_w), float)
         vol_s = self.get_simplex_volume(td, simplices_s)
         with self.timer('Tetrahedron weight'):
-            tetrahedron_weight(deps_k, td.simplices, K,
-                               simplices_s,
-                               W_w, omega_w, vol_s)
+            _gpaw.tetrahedron_weight(deps_k, td.simplices, K,
+                                     simplices_s,
+                                     W_w, omega_w, vol_s)
 
         return W_w

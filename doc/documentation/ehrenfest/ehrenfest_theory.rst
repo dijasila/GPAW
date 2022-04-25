@@ -176,7 +176,7 @@ scheme describes the propagation of electrons and nuclei in the GPAW implementat
 
 where `{\bf R}`, `M` and `{\bf F}` denote the positions of the nuclei, atomic masses and atomic forces, respectively, and `n` denotes the
 electron density. Calculation of the atomic forces is tricky in PAW-based Ehrenfest dynamics due to the atomic position-dependent
-PAW transformation. In the GPAW program the force is derived on the grounds the the total energy of the quantum-classical
+PAW transformation. In the GPAW program the force is derived on the grounds the total energy of the quantum-classical
 system is conserved.
 
 The atomic forces in Ehrenfest dynamics are thoroughly analysed and explained

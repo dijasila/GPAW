@@ -6,7 +6,7 @@ from gpaw.mpi import world
 mpi_debug = lambda x, ordered=True: None  # silenced
 from gpaw.overlap import Overlap
 from gpaw.utilities import unpack
-from gpaw.lfc import NewLocalizedFunctionsCollection as NewLFC
+from gpaw.lfc import LocalizedFunctionsCollection as LFC
 
 
 class PairOverlap:
@@ -41,10 +41,10 @@ class GridPairOverlap(PairOverlap):
         if lfc2 is None:
             lfc2 = lfc1
 
-        if isinstance(lfc1, NewLFC) and isinstance(lfc2, NewLFC):
+        if isinstance(lfc1, LFC) and isinstance(lfc2, LFC):
             return self.calculate_overlaps2(spos_ac, lfc1, lfc2)
 
-        assert not isinstance(lfc1, NewLFC) and not isinstance(lfc2, NewLFC)
+        assert not isinstance(lfc1, LFC) and not isinstance(lfc2, LFC)
 
         nproj = len(self)
         X_aa = np.zeros((nproj, nproj), dtype=float)  # XXX always float?
@@ -161,7 +161,7 @@ class GridPairOverlap(PairOverlap):
         if lfc2 is None:
             lfc2 = lfc1
 
-        assert isinstance(lfc1, NewLFC) and isinstance(lfc2, NewLFC)
+        assert isinstance(lfc1, LFC) and isinstance(lfc2, LFC)
 
         nproj = len(self)
         X_aa = np.zeros((nproj, nproj), dtype=float)  # XXX always float?

@@ -1,7 +1,5 @@
-from __future__ import print_function
 from math import pi, sqrt
 import numpy as np
-from ase.units import Hartree
 from ase.parallel import paropen
 from gpaw.utilities import pack
 from gpaw.analyse.wignerseitz import wignerseitz
@@ -78,7 +76,8 @@ def get_angular_projectors(setup, angular, type='bound'):
 
     # Choose the relevant projectors
     projectors = []
-    i = j = 0
+    i = 0
+    j = 0
     for j in range(nj):
         m = 2 * setup.l_j[j] + 1
         if 'spdf'[setup.l_j[j]] in angular:
@@ -169,51 +168,6 @@ def raw_orbital_LDOS(paw, a, spin, angular='spdf', nbands=None):
         return energies, weights
 
 
-def raw_spinorbit_orbital_LDOS(paw, a, spin, angular='spdf', theta=0, phi=0):
-    """Like former, but with spinorbit coupling."""
-
-    from gpaw.spinorbit import get_spinorbit_eigenvalues
-    from gpaw.spinorbit import get_spinorbit_projections
-
-    e_mk, v_knm = get_spinorbit_eigenvalues(paw, return_wfs=True,
-                                            theta=theta, phi=phi)
-    e_mk /= Hartree
-    ns = paw.wfs.nspins
-    w_k = paw.wfs.kd.weight_k
-    nk = len(w_k)
-    nb = len(e_mk)
-
-    if a < 0:
-        # Allow list-style negative indices; we'll need the positive a for the
-        # dictionary lookup later
-        a = len(paw.wfs.setups) + a
-
-    setup = paw.wfs.setups[a]
-    energies = np.empty(nb * nk)
-    weights_xi = np.empty((nb * nk, setup.ni))
-    x = 0
-    for k, w in enumerate(w_k):
-        energies[x:x + nb] = e_mk[:, k]
-        P_ami = get_spinorbit_projections(paw, k, v_knm[k])
-        if ns == 2:
-            weights_xi[x:x + nb, :] = w * np.absolute(P_ami[a][:, spin::2])**2
-        else:
-            weights_xi[x:x + nb, :] = w * np.absolute(P_ami[a][:, 0::2])**2 / 2
-            weights_xi[x:x + nb, :] += (w *
-                                        np.absolute(P_ami[a][:, 1::2])**2 / 2)
-        x += nb
-
-    if angular is None:
-        return energies, weights_xi
-    elif isinstance(angular, int):
-        return energies, weights_xi[:, angular]
-    else:
-        projectors = get_angular_projectors(setup, angular, type='bound')
-        weights = np.sum(np.take(weights_xi,
-                                 indices=projectors, axis=1), axis=1)
-        return energies, weights
-
-
 def all_electron_LDOS(paw, mol, spin, lc=None, wf_k=None, P_aui=None):
     """Returns a list of eigenvalues, and their weights on a given molecule
 
@@ -234,11 +188,11 @@ def all_electron_LDOS(paw, mol, spin, lc=None, wf_k=None, P_aui=None):
     nk = len(w_k)
     nb = paw.wfs.bd.nbands
 
-    P_kn = np.zeros((nk, nb), np.complex)
+    P_kn = np.zeros((nk, nb), complex)
     if wf_k is None:
         if lc is None:
             lc = [[1, 0, 0, 0] for a in mol]
-        for k, kpt in enumerate(paw.wfs.kpt_u[spin * nk:(spin + 1) * nk]):
+        for k, kpt in enumerate(kpt_s[spin] for kpt_s in paw.wfs.kpt_qs):
             N = 0
             for atom, w_a in zip(mol, lc):
                 i = 0
@@ -250,7 +204,7 @@ def all_electron_LDOS(paw, mol, spin, lc=None, wf_k=None, P_aui=None):
 
     else:
         P_aui = [np.array(P_ui).conj() for P_ui in P_aui]
-        for k, kpt in enumerate(paw.wfs.kpt_u[spin * nk:(spin + 1) * nk]):
+        for k, kpt in enumerate(kpt_s[spin] for kpt_s in paw.wfs.kpt_qs):
             for n in range(nb):
                 P_kn[k][n] = paw.wfs.integrate(wf_k[k], kpt.psit_nG[n])
                 for a, b in zip(mol, range(len(mol))):
@@ -326,7 +280,8 @@ def get_all_electron_IPR(paw):
 
 
 def raw_wignerseitz_LDOS(paw, a, spin):
-    """Return a list of eigenvalues, and their weight on the specified atom"""
+    """Return a list of eigenvalues, and their weight on the specified atom.
+       Only supports real (gamma-point only) wavefunctions."""
     wfs = paw.wfs
     assert wfs.dtype == float
     gd = wfs.gd
@@ -389,11 +344,23 @@ class RawLDOS:
         wfs.kd.comm.sum(spd)
         return spd
 
-    def by_element(self):
-        """Return a dict with elements as keys and LDOS as values."""
+    def by_element(self, indices=None):
+        """Return a dict with elements as keys and LDOS as values.
+
+        Parameter:
+        -----------
+        indices: list or None
+          Atom indices to consider, default None
+        """
+        atoms = self.paw.atoms
+        if indices is None:
+            selected = range(len(atoms))
+        else:
+            selected = indices
+
         elemi = {}
-        for i, a in enumerate(self.paw.atoms):
-            symbol = a.symbol
+        for i in selected:
+            symbol = atoms[i].symbol
             if symbol in elemi:
                 elemi[symbol].append(i)
             else:
@@ -404,19 +371,26 @@ class RawLDOS:
 
     def to_file(self,
                 ldbe,
-                filename=None,
+                filename,
                 width=None,
                 shift=True,
                 bound=False):
         """Write the LDOS to a file.
 
-        If a width is given, the LDOS will be Gaussian folded and shifted to
-        set Fermi energy to 0 eV. The latter can be avoided by setting
-        shift=False.
-
-        If you use fixmagmom=true, you will get two fermi-levels, one for each
-        spin-setting. Normaly these will shifted individually to 0 eV. If you
-        want to shift them as pair to the higher energy use bound=True.
+        Parameters:
+        -----------
+        ldbe: dict
+          weights
+        filename: string
+        width: float or None
+          If a width is given, the LDOS will be Gaussian folded
+        shift: bool
+          Set Fermi energy to 0 eV. Default True
+        bound: bool
+          If the calculation was performed spin-polarized with fixmagmom=True,
+          there are two Fermi-levels, one for each spin. False shifts
+          both spins by their own Fermi levels, True both
+          by the higher Fermi level. Default: False
         """
 
         f = paropen(filename, 'w')
@@ -496,21 +470,13 @@ class RawLDOS:
             emin -= 4 * width
             emax += 4 * width
 
-            # Fermi energy
-            try:
-                if self.paw.occupations.fixmagmom:
-                    efermi = self.paw.get_fermi_levels()
-                else:
-                    efermi = self.paw.get_fermi_level()
-            except:
-                # set Fermi level half way between HOMO and LUMO
-                hl = wfs.get_homo_lumo()
-                efermi = (hl[0] + hl[1]) * Hartree / 2
+            # Fermi energies
+            efermis = self.paw.wfs.fermi_levels
 
             eshift = 0.0
 
-            if shift and not self.paw.occupations.fixmagmom:
-                eshift = -efermi
+            if shift and len(efermis) == 1:
+                eshift = -efermis[0]
 
             # set de to sample 4 points in the width
             de = width / 4
@@ -519,11 +485,11 @@ class RawLDOS:
             string += append_weight_strings(ldbe, data)
 
             for s in range(wfs.nspins):
-                if self.paw.occupations.fixmagmom:
+                if len(efermis) == 2:
                     if not bound:
-                        eshift = - efermi[s]
+                        eshift = -efermis[s]
                     else:
-                        eshift = - efermi.max()
+                        eshift = -efermis.max()
 
                 print(fmf.data(data), end=' ', file=f)
 
@@ -533,7 +499,7 @@ class RawLDOS:
                     print('# Fermi energy was', end=' ', file=f)
                 else:
                     print('# Fermi energy', end=' ', file=f)
-                print(efermi, 'eV', file=f)
+                print(efermis, 'eV', file=f)
                 print(string, file=f)
 
                 # loop over energies
@@ -566,10 +532,17 @@ class RawLDOS:
                            filename='ldos_by_element.dat',
                            width=None,
                            shift=True,
-                           bound=False):
-        """Write the LDOS by element to a file.
+                           bound=False,
+                           indices=None):
         """
-        ldbe = self.by_element()
+        Write the LDOS by element to a file.
+
+        Parameters:
+        -----------
+        indices: list or None
+          Atom indices to consider, default None
+        """
+        ldbe = self.by_element(indices)
         self.to_file(ldbe, filename, width, shift, bound)
 
 
@@ -614,8 +587,8 @@ class LCAODOS:
         for kpt in wfs.kpt_u:
             assert not np.isnan(kpt.eps_n).any()
 
-        w_skn = np.zeros((kd.nspins, kd.nks, bd.nbands))
-        eps_skn = np.zeros((kd.nspins, kd.nks, bd.nbands))
+        w_skn = np.zeros((kd.nspins, kd.nibzkpts, bd.nbands))
+        eps_skn = np.zeros((kd.nspins, kd.nibzkpts, bd.nbands))
         for u, kpt in enumerate(wfs.kpt_u):
             C_nM = kpt.C_nM
             from gpaw.kohnsham_layouts import BlacsOrbitalLayouts

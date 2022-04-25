@@ -7,9 +7,9 @@ from ase import Atoms
 from ase.dft.kpoints import monkhorst_pack
 from ase.io.trajectory import write_atoms
 from ase.units import AUT, Bohr, Ha
-from ase.utils import devnull
+from gpaw.utilities import devnull
 
-from gpaw.wavefunctions.pw import PW
+from gpaw import PW
 from gpaw.occupations import FermiDirac
 from gpaw.io.tar import Reader
 

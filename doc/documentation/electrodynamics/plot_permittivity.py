@@ -1,4 +1,4 @@
-# Creates: Au.yml.png
+# web-page: Au.yml.png
 import numpy as np
 import matplotlib.pyplot as plt
 from ase.units import _hplanck, _c, _e, Hartree
@@ -48,7 +48,7 @@ def plot(fname, fiteps):
     plt.xlabel('Energy (eV)')
     plt.ylabel(r'Imaginary($\epsilon$)')
     plt.tight_layout()
-    plt.savefig('%s.png' % fname)
+    plt.savefig(f'{fname}.png')
 
 # Permittivity of Gold
 # Source:

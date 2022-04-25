@@ -1,6 +1,6 @@
 import numpy as np
 
-from gpaw.io import Reader
+from ase.io.ulm import Reader
 from gpaw.io import Writer
 
 from gpaw.tddft.folding import Frequency
@@ -10,6 +10,56 @@ from gpaw.lcaotddft.utilities import read_uMM
 from gpaw.lcaotddft.utilities import read_wuMM
 from gpaw.lcaotddft.utilities import write_uMM
 from gpaw.lcaotddft.utilities import write_wuMM
+
+
+def generate_freq_w(foldedfreqs_f):
+    freq_w = []
+    for ff in foldedfreqs_f:
+        for f in ff.frequencies:
+            freq_w.append(Frequency(f, ff.folding, 'au'))
+    return freq_w
+
+
+class FrequencyDensityMatrixReader(object):
+    def __init__(self, filename, ksl, kpt_u):
+        self.ksl = ksl
+        self.kpt_u = kpt_u
+        self.reader = Reader(filename)
+        tag = self.reader.get_tag()
+        if tag != FrequencyDensityMatrix.ulmtag:
+            raise RuntimeError('Unknown tag %s' % tag)
+        self.version = self.reader.version
+
+        # Read small vectors
+        self.time = self.reader.time
+        self.foldedfreqs_f = [FoldedFrequencies(**ff)
+                              for ff in self.reader.foldedfreqs_f]
+        self.freq_w = generate_freq_w(self.foldedfreqs_f)
+        self.Nw = len(self.freq_w)
+
+    def __getattr__(self, attr):
+        if attr in ['rho0_uMM']:
+            return read_uMM(self.kpt_u, self.ksl, self.reader, attr)
+        if attr in ['FReDrho_wuMM', 'FImDrho_wuMM']:
+            reim = attr[1:3]
+            wlist = range(self.Nw)
+            return self.read_FDrho(reim, wlist)
+
+        try:
+            return getattr(self.reader, attr)
+        except KeyError:
+            pass
+
+        raise AttributeError('Attribute %s not defined in version %s' %
+                             (repr(attr), repr(self.version)))
+
+    def read_FDrho(self, reim, wlist):
+        assert reim in ['Re', 'Im']
+        attr = 'F%sDrho_wuMM' % reim
+        return read_wuMM(self.kpt_u, self.ksl, self.reader, attr, wlist)
+
+    def close(self):
+        self.reader.close()
 
 
 class FrequencyDensityMatrix(TDDFTObserver):
@@ -29,15 +79,16 @@ class FrequencyDensityMatrix(TDDFTObserver):
         self.filename = filename
         self.restart_filename = restart_filename
         self.world = paw.world
-        self.wfs = paw.wfs
+        self.ksl = paw.wfs.ksl
+        self.kd = paw.wfs.kd
+        self.kpt_u = paw.wfs.kpt_u
         self.log = paw.log
-        self.using_blacs = self.wfs.ksl.using_blacs
-        if self.using_blacs:
-            ksl_comm = self.wfs.ksl.block_comm
-            kd_comm = self.wfs.kd.comm
+        if self.ksl.using_blacs:
+            ksl_comm = self.ksl.block_comm
+            kd_comm = self.kd.comm
             assert self.world.size == ksl_comm.size * kd_comm.size
 
-        assert self.world.rank == self.wfs.world.rank
+        assert self.world.rank == self.ksl.world.rank
 
         if filename is not None:
             self.read(filename)
@@ -47,36 +98,30 @@ class FrequencyDensityMatrix(TDDFTObserver):
         if isinstance(frequencies, FoldedFrequencies):
             frequencies = [frequencies]
         self.foldedfreqs_f = frequencies
-        self.__generate_freq_w()
+        self.freq_w = generate_freq_w(self.foldedfreqs_f)
         self.Nw = np.sum([len(ff.frequencies) for ff in self.foldedfreqs_f])
 
     def initialize(self):
         if self.has_initialized:
             return
 
-        if self.wfs.gd.pbc_c.any():
-            self.rho0_dtype = complex
-        else:
+        if self.kd.gamma:
             self.rho0_dtype = float
+        else:
+            self.rho0_dtype = complex
 
         self.rho0_uMM = []
-        for kpt in self.wfs.kpt_u:
+        for kpt in self.kpt_u:
             self.rho0_uMM.append(self.dmat.zeros(self.rho0_dtype))
         self.FReDrho_wuMM = []
         self.FImDrho_wuMM = []
         for w in range(self.Nw):
             self.FReDrho_wuMM.append([])
             self.FImDrho_wuMM.append([])
-            for kpt in self.wfs.kpt_u:
+            for kpt in self.kpt_u:
                 self.FReDrho_wuMM[-1].append(self.dmat.zeros(complex))
                 self.FImDrho_wuMM[-1].append(self.dmat.zeros(complex))
         self.has_initialized = True
-
-    def __generate_freq_w(self):
-        self.freq_w = []
-        for ff in self.foldedfreqs_f:
-            for f in ff.frequencies:
-                self.freq_w.append(Frequency(f, ff.folding, 'au'))
 
     def _update(self, paw):
         if paw.action == 'init':
@@ -86,7 +131,7 @@ class FrequencyDensityMatrix(TDDFTObserver):
             self.initialize()
             if paw.niter == 0:
                 rho_uMM = self.dmat.get_density_matrix(paw.niter)
-                for u, kpt in enumerate(self.wfs.kpt_u):
+                for u, kpt in enumerate(self.kpt_u):
                     rho_MM = rho_uMM[u]
                     if self.rho0_dtype == float:
                         assert np.max(np.absolute(rho_MM.imag)) == 0.0
@@ -110,7 +155,7 @@ class FrequencyDensityMatrix(TDDFTObserver):
             exp_w.extend(exp_i.tolist())
 
         rho_uMM = self.dmat.get_density_matrix((paw.niter, paw.action))
-        for u, kpt in enumerate(self.wfs.kpt_u):
+        for u, kpt in enumerate(self.kpt_u):
             Drho_MM = rho_uMM[u] - self.rho0_uMM[u]
             for w, exp in enumerate(exp_w):
                 # Update Fourier transforms
@@ -129,31 +174,23 @@ class FrequencyDensityMatrix(TDDFTObserver):
         writer.write(version=self.__class__.version)
         writer.write(time=self.time)
         writer.write(foldedfreqs_f=[ff.todict() for ff in self.foldedfreqs_f])
-        wfs = self.wfs
-        write_uMM(wfs, writer, 'rho0_uMM', self.rho0_uMM)
+        write_uMM(self.kd, self.ksl, writer, 'rho0_uMM', self.rho0_uMM)
         wlist = range(self.Nw)
-        write_wuMM(wfs, writer, 'FReDrho_wuMM', self.FReDrho_wuMM, wlist)
-        write_wuMM(wfs, writer, 'FImDrho_wuMM', self.FImDrho_wuMM, wlist)
+        write_wuMM(self.kd, self.ksl, writer, 'FReDrho_wuMM',
+                   self.FReDrho_wuMM, wlist)
+        write_wuMM(self.kd, self.ksl, writer, 'FImDrho_wuMM',
+                   self.FImDrho_wuMM, wlist)
         writer.close()
 
     def read(self, filename):
-        reader = Reader(filename)
-        tag = reader.get_tag()
-        if tag != self.__class__.ulmtag:
-            raise RuntimeError('Unknown tag %s' % tag)
-        version = reader.version
-        if version != self.__class__.version:
-            raise RuntimeError('Unknown version %s' % version)
+        reader = FrequencyDensityMatrixReader(filename, self.ksl, self.kpt_u)
         self.time = reader.time
-        self.foldedfreqs_f = [FoldedFrequencies(**ff)
-                              for ff in reader.foldedfreqs_f]
-        self.__generate_freq_w()
-        self.Nw = np.sum([len(ff.frequencies) for ff in self.foldedfreqs_f])
-        wfs = self.wfs
-        self.rho0_uMM = read_uMM(wfs, reader, 'rho0_uMM')
+        self.foldedfreqs_f = reader.foldedfreqs_f
+        self.freq_w = reader.freq_w
+        self.Nw = reader.Nw
+        self.rho0_uMM = reader.rho0_uMM
         self.rho0_dtype = self.rho0_uMM[0].dtype
-        wlist = range(self.Nw)
-        self.FReDrho_wuMM = read_wuMM(wfs, reader, 'FReDrho_wuMM', wlist)
-        self.FImDrho_wuMM = read_wuMM(wfs, reader, 'FImDrho_wuMM', wlist)
+        self.FReDrho_wuMM = reader.FReDrho_wuMM
+        self.FImDrho_wuMM = reader.FImDrho_wuMM
         reader.close()
         self.has_initialized = True

@@ -4,7 +4,7 @@ from gpaw.fdtd.poisson_fdtd import FDTDPoissonSolver
 from gpaw.fdtd.polarizable_material import (PermittivityPlus,
                                             PolarizableMaterial,
                                             PolarizableSphere)
-from gpaw.tddft import TDDFT, photoabsorption_spectrum
+from gpaw.tddft import TDDFT, DipoleMomentWriter, photoabsorption_spectrum
 from gpaw.inducedfield.inducedfield_fdtd import FDTDInducedField
 from gpaw.mpi import world
 import numpy as np
@@ -53,7 +53,7 @@ del atoms[:]  # Remove atoms, quantum system is empty
 gs_calc = GPAW(gpts=gpts,
                nbands=-1,
                poissonsolver=poissonsolver)
-atoms.set_calculator(gs_calc)
+atoms.calc = gs_calc
 
 # Ground state
 energy = atoms.get_potential_energy()
@@ -67,8 +67,7 @@ time_step = 10
 iterations = 1000
 
 td_calc = TDDFT('gs.gpw')
-td_calc.absorption_kick(kick_strength=kick)
-td_calc.hamiltonian.poisson.set_kick(kick)
+DipoleMomentWriter(td_calc, 'dm0.dat')
 
 # Attach InducedField to the calculation
 frequencies = [2.45]
@@ -76,9 +75,10 @@ width = 0.0
 ind = FDTDInducedField(paw=td_calc,
                        frequencies=frequencies,
                        width=width)
- 
+
 # Propagate TDDFT and FDTD
-td_calc.propagate(time_step, iterations, 'dm0.dat', 'td.gpw')
+td_calc.absorption_kick(kick_strength=kick)
+td_calc.propagate(time_step, iterations)
 
 # Save results
 td_calc.write('td.gpw', 'all')

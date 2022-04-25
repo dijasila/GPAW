@@ -13,11 +13,11 @@ import sys
 from math import pi
 
 import numpy as np
+from scipy.special import erf
 from ase.units import Bohr
 from ase.utils import seterr
 
 import gpaw.mpi as mpi
-from gpaw.utilities import erf
 from gpaw.fftw import get_efficient_fft_size
 from gpaw.grid_descriptor import GridDescriptor
 
@@ -68,11 +68,22 @@ class WignerSeitzTruncatedCoulomb:
         max_c = self.gd.N_c // 2
         K_G = pd.zeros()
         N_c = pd.gd.N_c
-        for G, Q in enumerate(pd.Q_qG[0]):
-            Q_c = (np.unravel_index(Q, N_c) + N_c // 2) % N_c - N_c // 2
-            Q_c = Q_c * self.nk_c + shift_c
-            if (abs(Q_c) < max_c).all():
-                K_G[G] = self.K_Q[tuple(Q_c)]
+        if pd.dtype == complex:
+            for G, Q in enumerate(pd.Q_qG[0]):
+                Q_c = (np.unravel_index(Q, N_c) + N_c // 2) % N_c - N_c // 2
+                Q_c = Q_c * self.nk_c + shift_c
+                if (abs(Q_c) < max_c).all():
+                    K_G[G] = self.K_Q[tuple(Q_c)]
+        else:
+            Nr_c = N_c.copy()
+            Nr_c[2] = N_c[2] // 2 + 1
+            for G, Q in enumerate(pd.Q_qG[0]):
+                Q_c = np.array(np.unravel_index(Q, Nr_c))
+                Q_c[:2] += N_c[:2] // 2
+                Q_c[:2] %= N_c[:2]
+                Q_c[:2] -= N_c[:2] // 2
+                if (abs(Q_c) < max_c).all():
+                    K_G[G] = self.K_Q[tuple(Q_c)]
 
         qG_Gv = pd.get_reciprocal_vectors(add_q=True)
         if q_v is not None:
@@ -80,10 +91,11 @@ class WignerSeitzTruncatedCoulomb:
         G2_G = np.sum(qG_Gv**2, axis=1)
         # G2_G = pd.G2_qG[0]
         a = self.a
-        if pd.kd.gamma:
-            K_G[0] += pi / a**2
-        else:
-            K_G[0] += 4 * pi * (1 - np.exp(-G2_G[0] / (4 * a**2))) / G2_G[0]
-        K_G[1:] += 4 * pi * (1 - np.exp(-G2_G[1:] / (4 * a**2))) / G2_G[1:]
-        assert pd.dtype == complex
+        G0 = G2_G.argmin()
+        if G2_G[G0] < 1e-11:
+            K0 = K_G[G0] + pi / a**2
+        with np.errstate(invalid='ignore'):
+            K_G += 4 * pi * (1 - np.exp(-G2_G / (4 * a**2))) / G2_G
+        if G2_G[G0] < 1e-11:
+            K_G[G0] = K0
         return K_G

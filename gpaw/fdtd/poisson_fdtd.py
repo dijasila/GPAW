@@ -13,7 +13,8 @@ from gpaw.fdtd.potential_couplers import (RefinerPotentialCoupler,
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.mpi import world, serial_comm
 from gpaw.poisson import PoissonSolver, FDPoissonSolver
-from gpaw.tddft import TDDFT
+from gpaw.poisson_moment import MomentCorrectionPoissonSolver
+from gpaw.tddft import TDDFT, DipoleMomentWriter, RestartFileWriter
 from gpaw.transformers import Transformer
 from gpaw.utilities.gpts import get_number_of_grid_points
 
@@ -109,7 +110,7 @@ class QSFDTD:
         self.gs_calc = GPAW(gpts=self.gpts,
                             poissonsolver=self.poissonsolver,
                             **kwargs)
-        self.atoms.set_calculator(self.gs_calc)
+        self.atoms.calc = self.gs_calc
         self.energy = self.atoms.get_potential_energy()
         self.write(filename, mode='all')
 
@@ -129,11 +130,15 @@ class QSFDTD:
                          dump_interval=100,
                          **kwargs):
         self.td_calc = TDDFT(filename, **kwargs)
+        if dipole_moment_file is not None:
+            DipoleMomentWriter(self.td_calc, dipole_moment_file)
+        if restart_file is not None:
+            RestartFileWriter(self.td_calc, restart_file, dump_interval)
         if kick_strength is not None:
             self.td_calc.absorption_kick(kick_strength)
-            self.td_calc.hamiltonian.poisson.set_kick(kick_strength)
-        self.td_calc.propagate(time_step, iterations, dipole_moment_file,
-                               restart_file, dump_interval)
+        self.td_calc.propagate(time_step, iterations)
+        if restart_file is not None:
+            self.td_calc.write(restart_file, 'all')
 
 
 # This helps in telling the classical quantities from the quantum ones
@@ -249,11 +254,11 @@ class FDTDPoissonSolver:
 
     def estimate_memory(self, mem):
         # self.cl.poisson_solver.estimate_memory(mem)
-        #print(self.qm.poisson_solver.estimate_memory.__code__.co_varnames)
+        # print(self.qm.poisson_solver.estimate_memory.__code__.co_varnames)
         # WTF?  How can this shabby method suddenly be unbound?
         # It needs both self and mem.
         # Ferchrissakes!
-        #self.qm.poisson_solver.estimate_memory(mem=mem)
+        # self.qm.poisson_solver.estimate_memory(mem=mem)
         pass
 
     # Return the TDDFT stencil by default
@@ -264,9 +269,9 @@ class FDTDPoissonSolver:
             return self.cl.poisson_solver.get_stencil()
 
     # Initialize both PoissonSolvers
-    #def initialize(self):
-    #    self.qm.poisson_solver._init()
-    #    self.cl.poisson_solver._init()
+    # def initialize(self):
+    #     self.qm.poisson_solver._init()
+    #     self.cl.poisson_solver._init()
 
     def set_grid_descriptor(self, qmgd):
         if not self.has_subsystems:
@@ -275,14 +280,13 @@ class FDTDPoissonSolver:
         self.qm.gd = qmgd
 
         # Create quantum Poisson solver
-        self.qm.poisson_solver = PoissonSolver(
-            name='fd',
-            nn=self.nn,
-            eps=self.eps,
-            relax=self.relax,
-            remove_moment=self.remove_moment_qm)
+        poisson_qm_kwargs = dict(name='fd', nn=self.nn,
+                                 eps=self.eps, relax=self.relax)
+        self.qm.poisson_solver = MomentCorrectionPoissonSolver(
+            poissonsolver=PoissonSolver(**poisson_qm_kwargs),
+            moment_corrections=self.remove_moment_qm)
         self.qm.poisson_solver.set_grid_descriptor(self.qm.gd)
-        #self.qm.poisson_solver.initialize()
+        # self.qm.poisson_solver.initialize()
         self.qm.phi = self.qm.gd.zeros()
         self.qm.rho = self.qm.gd.zeros()
 
@@ -290,14 +294,13 @@ class FDTDPoissonSolver:
         self.qm.poisson_solver.set_grid_descriptor(qmgd)
 
         # Create classical PoissonSolver
-        self.cl.poisson_solver = PoissonSolver(
-            name='fd',
-            nn=self.nn,
-            eps=self.eps,
-            relax=self.relax,
-            remove_moment=self.remove_moment_cl)
+        poisson_cl_kwargs = dict(name='fd', nn=self.nn,
+                                 eps=self.eps, relax=self.relax)
+        self.cl.poisson_solver = MomentCorrectionPoissonSolver(
+            poissonsolver=PoissonSolver(**poisson_cl_kwargs),
+            moment_corrections=self.remove_moment_cl)
         self.cl.poisson_solver.set_grid_descriptor(self.cl.gd)
-        #self.cl.poisson_solver.initialize()
+        # self.cl.poisson_solver.initialize()
 
         # Initialize classical material,
         # its Poisson solver was generated already
@@ -814,7 +817,7 @@ class FDTDPoissonSolver:
             # Mix potential
             try:
                 self.mix_phi
-            except:
+            except AttributeError:
                 self.mix_phi = SimpleMixer(0.10, self.qm.phi)
 
             self.qm.phi = self.mix_phi.mix(self.qm.phi)
@@ -873,7 +876,6 @@ class FDTDPoissonSolver:
               phi,
               rho,
               charge=None,
-              eps=None,
               maxcharge=1e-6,
               zero_initial_phi=False,
               calculation_mode=None,
@@ -891,21 +893,18 @@ class FDTDPoissonSolver:
         if (self.calculation_mode == 'solve'):
             # do not modify the polarizable material
             niter = self.solve_solve(charge=None,
-                                     eps=eps,
                                      maxcharge=maxcharge,
                                      zero_initial_phi=False)
 
         elif (self.calculation_mode == 'iterate'):
             # find self-consistent density
             niter = self.solve_iterate(charge=None,
-                                       eps=eps,
                                        maxcharge=maxcharge,
                                        zero_initial_phi=False)
 
         elif (self.calculation_mode == 'propagate'):
             # propagate one time step
             niter = self.solve_propagate(charge=None,
-                                         eps=eps,
                                          maxcharge=maxcharge,
                                          zero_initial_phi=False)
 

@@ -12,10 +12,10 @@ from gpaw import __version__
 commands = [
     ('run', 'gpaw.cli.run'),
     ('info', 'gpaw.cli.info'),
+    ('test', 'gpaw.cli.test'),
     ('dos', 'gpaw.cli.dos'),
     ('gpw', 'gpaw.cli.gpw'),
     ('completion', 'gpaw.cli.completion'),
-    ('test', 'gpaw.test.test'),
     ('atom', 'gpaw.atom.aeatom'),
     ('diag', 'gpaw.fulldiag'),
     # ('quick', 'gpaw.cli.quick'),
@@ -58,12 +58,11 @@ def hook(parser, args):
 
         if py:
             # Start again in parallel:
-            arguments = ['mpiexec',
-                         '-np',
-                         str(args.parallel),
-                         py,
-                         '-m',
-                         'gpaw'] + sys.argv[1:]
+            arguments = ['mpiexec', '-np', str(args.parallel), py]
+            if args.command == 'python' and args.debug:
+                arguments.append('-d')
+            arguments += ['-m', 'gpaw']
+            arguments += sys.argv[1:]
 
             extra = os.environ.get('GPAW_MPI_OPTIONS')
             if extra:
@@ -76,5 +75,6 @@ def hook(parser, args):
     return args
 
 
-def main():
-    ase_main('gpaw', 'GPAW command-line tool', __version__, commands, hook)
+def main(args=None):
+    ase_main('gpaw', 'GPAW command-line tool', __version__,
+             commands, hook, args)

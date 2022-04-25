@@ -2,31 +2,48 @@
 
 """
 from math import sqrt
-
 import numpy as np
 
+from ase.units import Ha
+
 import gpaw.mpi as mpi
-from ase.utils import convert_string_to_fd
+from gpaw.io.logger import GPAWLogger
+
+
+def get_filehandle(cls, filename, mode='r'):
+    cls.filename = filename
+    if filename.endswith('.gz'):
+        try:
+            import gzip
+            return gzip.open(filename, mode + 't')
+        except ModuleNotFoundError:
+            pass
+    return open(filename, mode)
+
+
+class ExcitationLogger(GPAWLogger):
+    def header(self):
+        pass
 
 
 class ExcitationList(list):
-
     """General Excitation List class.
-
     """
-
-    def __init__(self, calculator=None, txt=None):
-
+    def __init__(self, log=None, txt='-'):
         # initialise empty list
         list.__init__(self)
+        self.energy_to_eV_scale = Ha
 
-        self.calculator = calculator
-        if not txt and calculator:
-            txt = calculator.log.fd
-        self.txt = convert_string_to_fd(txt, mpi.world)
+        # set output
+        if log is not None:
+            self.log = log
+        else:
+            self.log = ExcitationLogger(world=mpi.world)
+            self.log.fd = txt
 
-    def get_calculator(self):
-        return self.calculator
+    @property
+    def calc(self):
+        1 / 0
 
     def get_energies(self):
         """Get excitation energies in Hartrees"""
@@ -53,9 +70,6 @@ class ExcitationList(list):
             for l in range(lmax + 1):
                 S[l] += e ** (-2 * l) * f
         return S
-
-    def set_calculator(self, calculator):
-        self.calculator = calculator
 
     def __truediv__(self, x):
         return self.__mul__(1. / x)
@@ -136,7 +150,7 @@ class Excitation:
             me = self.muv * np.sqrt(self.fij * self.energy)
         else:
             raise RuntimeError('Unknown form >' + form + '<')
-        
+
         return 2 * np.outer(me, me.conj())
 
     def get_oscillator_strength(self, form='r'):
@@ -172,7 +186,7 @@ class Excitation:
         else:
             raise RuntimeError('Unknown form >' + form + '<')
 
-        return pre * np.dot(mu, self.magn)
+        return -pre * np.dot(mu, self.magn)
 
     def set_energy(self, E):
         """Set the excitations energy relative to the ground state energy"""

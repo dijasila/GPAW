@@ -3,33 +3,67 @@ import numpy as np
 
 from ase.units import Hartree, Bohr
 
-from gpaw.io import Reader
+from ase.io.ulm import Reader
 from gpaw.io import Writer
 from gpaw.external import ConstantElectricField
 from gpaw.lcaotddft.hamiltonian import KickHamiltonian
+from gpaw.lcaotddft.utilities import collect_MM
+from gpaw.lcaotddft.utilities import distribute_nM
 from gpaw.lcaotddft.utilities import read_uMM
 from gpaw.lcaotddft.utilities import write_uMM
+from gpaw.lcaotddft.utilities import read_uX, write_uX
+from gpaw.utilities.scalapack import \
+    pblas_simple_gemm, pblas_simple_hemm, scalapack_tri2full
 from gpaw.utilities.tools import tri2full
+
+
+def gauss_ij(energy_i, energy_j, sigma):
+    denergy_ij = energy_i[:, np.newaxis] - energy_j[np.newaxis, :]
+    norm = 1.0 / (sigma * np.sqrt(2 * np.pi))
+    return norm * np.exp(-0.5 * denergy_ij**2 / sigma**2)
+
+
+def get_bfs_maps(calc):
+    # Construct maps
+    # a_M: M -> atom index a
+    # l_M: M -> angular momentum l
+    a_M = []
+    l_M = []
+    M = 0
+    for a, sphere in enumerate(calc.wfs.basis_functions.sphere_a):
+        for j, spline in enumerate(sphere.spline_j):
+            l = spline.get_angular_momentum_number()
+            for _ in range(2 * l + 1):
+                a_M.append(a)
+                l_M.append(l)
+                M += 1
+    a_M = np.array(a_M)
+    l_M = np.array(l_M)
+    return a_M, l_M
 
 
 class KohnShamDecomposition(object):
     version = 1
     ulmtag = 'KSD'
     readwrite_attrs = ['fermilevel', 'only_ia', 'w_p', 'f_p', 'ia_p',
-                       'P_p', 'dm_vp']
+                       'P_p', 'dm_vp', 'a_M', 'l_M']
 
     def __init__(self, paw=None, filename=None):
         self.filename = filename
         self.has_initialized = False
-        self.world = paw.world
-        self.log = paw.log
-        self.wfs = paw.wfs
-        self.density = paw.density
+        self.reader = None
+        if paw is not None:
+            self.world = paw.world
+            self.log = paw.log
+            self.ksl = paw.wfs.ksl
+            self.kd = paw.wfs.kd
+            self.bd = paw.wfs.bd
+            self.kpt_u = paw.wfs.kpt_u
+            self.density = paw.density
+            self.comm = paw.comms['K']
 
-        if self.wfs.bd.comm.size > 1:
-            raise RuntimeError('Band parallelization is not supported')
-        if len(self.wfs.kpt_u) > 1:
-            raise RuntimeError('K-points are not supported')
+            if len(paw.wfs.kpt_u) > 1:
+                raise RuntimeError('K-points are not fully supported')
 
         if filename is not None:
             self.read(filename)
@@ -41,180 +75,295 @@ class KohnShamDecomposition(object):
         paw.initialize_positions()
         # paw.set_positions()
 
-        if self.wfs.gd.pbc_c.any():
-            self.C0_dtype = complex
-        else:
+        assert self.bd.nbands == self.ksl.nao
+        self.only_ia = only_ia
+
+        if not self.ksl.using_blacs and self.bd.comm.size > 1:
+            raise RuntimeError('Band parallelization without scalapack '
+                               'is not supported')
+
+        if self.kd.gamma:
             self.C0_dtype = float
+        else:
+            self.C0_dtype = complex
 
         # Take quantities
-        self.fermilevel = paw.occupations.get_fermi_level()
+        self.fermilevel = paw.wfs.fermi_level
         self.S_uMM = []
         self.C0_unM = []
         self.eig_un = []
         self.occ_un = []
-        for kpt in self.wfs.kpt_u:
+        for kpt in paw.wfs.kpt_u:
             S_MM = kpt.S_MM
             assert np.max(np.absolute(S_MM.imag)) == 0.0
-            S_MM = S_MM.real
+            S_MM = np.ascontiguousarray(S_MM.real)
+            if self.ksl.using_blacs:
+                scalapack_tri2full(self.ksl.mmdescriptor, S_MM)
             self.S_uMM.append(S_MM)
 
             C_nM = kpt.C_nM
             if self.C0_dtype == float:
                 assert np.max(np.absolute(C_nM.imag)) == 0.0
-                C_nM = C_nM.real
+                C_nM = np.ascontiguousarray(C_nM.real)
+            C_nM = distribute_nM(self.ksl, C_nM)
             self.C0_unM.append(C_nM)
 
-            self.eig_un.append(kpt.eps_n)
-            self.occ_un.append(kpt.f_n)
+            eig_n = paw.wfs.collect_eigenvalues(kpt.k, kpt.s)
+            occ_n = paw.wfs.collect_occupations(kpt.k, kpt.s)
+            self.eig_un.append(eig_n)
+            self.occ_un.append(occ_n)
+
+        self.a_M, self.l_M = get_bfs_maps(paw)
+        self.atoms = paw.atoms
 
         # TODO: do the rest of the function with K-points
 
         # Construct p = (i, a) pairs
         u = 0
-        Nn = self.wfs.bd.nbands
         eig_n = self.eig_un[u]
         occ_n = self.occ_un[u]
+        C0_nM = self.C0_unM[u]
 
-        self.only_ia = only_ia
-        f_p = []
-        w_p = []
-        i_p = []
-        a_p = []
-        ia_p = []
-        i0 = 0
-        for i in range(i0, Nn):
-            if only_ia:
-                a0 = i + 1
-            else:
-                a0 = 0
-            for a in range(a0, Nn):
-                f = occ_n[i] - occ_n[a]
-                if only_ia and f < min_occdiff:
-                    continue
-                w = eig_n[a] - eig_n[i]
-                f_p.append(f)
-                w_p.append(w)
-                i_p.append(i)
-                a_p.append(a)
-                ia_p.append((i, a))
-        f_p = np.array(f_p)
-        w_p = np.array(w_p)
-        i_p = np.array(i_p, dtype=int)
-        a_p = np.array(a_p, dtype=int)
-        ia_p = np.array(ia_p, dtype=int)
+        if self.comm.rank == 0:
+            Nn = self.bd.nbands
 
-        # Sort according to energy difference
-        p_s = np.argsort(w_p)
-        f_p = f_p[p_s]
-        w_p = w_p[p_s]
-        i_p = i_p[p_s]
-        a_p = a_p[p_s]
-        ia_p = ia_p[p_s]
+            f_p = []
+            w_p = []
+            i_p = []
+            a_p = []
+            ia_p = []
+            i0 = 0
+            for i in range(i0, Nn):
+                if only_ia:
+                    a0 = i + 1
+                else:
+                    a0 = 0
+                for a in range(a0, Nn):
+                    f = occ_n[i] - occ_n[a]
+                    if only_ia and f < min_occdiff:
+                        continue
+                    w = eig_n[a] - eig_n[i]
+                    f_p.append(f)
+                    w_p.append(w)
+                    i_p.append(i)
+                    a_p.append(a)
+                    ia_p.append((i, a))
+            f_p = np.array(f_p)
+            w_p = np.array(w_p)
+            i_p = np.array(i_p, dtype=int)
+            a_p = np.array(a_p, dtype=int)
+            ia_p = np.array(ia_p, dtype=int)
 
-        Np = len(f_p)
-        P_p = []
-        for p in range(Np):
-            P = np.ravel_multi_index(ia_p[p], (Nn, Nn))
-            P_p.append(P)
-        P_p = np.array(P_p)
+            # Sort according to energy difference
+            p_s = np.argsort(w_p)
+            f_p = f_p[p_s]
+            w_p = w_p[p_s]
+            i_p = i_p[p_s]
+            a_p = a_p[p_s]
+            ia_p = ia_p[p_s]
 
-        dm_vMM = []
+            Np = len(f_p)
+            P_p = []
+            for p in range(Np):
+                P = np.ravel_multi_index(ia_p[p], (Nn, Nn))
+                P_p.append(P)
+            P_p = np.array(P_p)
+
+            dm_vp = np.empty((3, Np), dtype=float)
+
         for v in range(3):
             direction = np.zeros(3, dtype=float)
             direction[v] = 1.0
-            magnitude = 1.0
-            cef = ConstantElectricField(magnitude * Hartree / Bohr, direction)
-            kick_hamiltonian = KickHamiltonian(paw, cef)
-            dm_MM = self.wfs.eigensolver.calculate_hamiltonian_matrix(
-                kick_hamiltonian, paw.wfs, self.wfs.kpt_u[u],
+            cef = ConstantElectricField(Hartree / Bohr, direction)
+            kick_hamiltonian = KickHamiltonian(paw.hamiltonian, paw.density,
+                                               cef)
+            dm_MM = paw.wfs.eigensolver.calculate_hamiltonian_matrix(
+                kick_hamiltonian, paw.wfs, paw.wfs.kpt_u[u],
                 add_kinetic=False, root=-1)
-            tri2full(dm_MM)  # TODO: do not use this
-            dm_vMM.append(dm_MM)
 
-        C0_nM = self.C0_unM[u]
-        dm_vnn = []
-        for v in range(3):
-            dm_vnn.append(np.dot(C0_nM.conj(), np.dot(dm_vMM[v], C0_nM.T)))
-        dm_vnn = np.array(dm_vnn)
-        dm_vP = dm_vnn.reshape(3, -1)
+            if self.ksl.using_blacs:
+                tmp_nM = self.ksl.mmdescriptor.zeros(dtype=C0_nM.dtype)
+                pblas_simple_hemm(self.ksl.mmdescriptor,
+                                  self.ksl.mmdescriptor,
+                                  self.ksl.mmdescriptor,
+                                  dm_MM, C0_nM.conj(), tmp_nM,
+                                  side='R', uplo='L')
+                dm_nn = self.ksl.mmdescriptor.zeros(dtype=C0_nM.dtype)
+                pblas_simple_gemm(self.ksl.mmdescriptor,
+                                  self.ksl.mmdescriptor,
+                                  self.ksl.mmdescriptor,
+                                  tmp_nM, C0_nM, dm_nn, transb='T')
+            else:
+                tri2full(dm_MM)
+                dm_nn = np.dot(C0_nM.conj(), np.dot(dm_MM, C0_nM.T))
 
-        dm_vp = dm_vP[:, P_p]
+            dm_nn = collect_MM(self.ksl, dm_nn)
+            if self.comm.rank == 0:
+                dm_P = dm_nn.ravel()
+                dm_p = dm_P[P_p]
+                dm_vp[v] = dm_p
 
-        self.w_p = w_p
-        self.f_p = f_p
-        self.ia_p = ia_p
-        self.P_p = P_p
-        self.dm_vp = dm_vp
+        if self.comm.rank == 0:
+            self.w_p = w_p
+            self.f_p = f_p
+            self.ia_p = ia_p
+            self.P_p = P_p
+            self.dm_vp = dm_vp
 
         self.has_initialized = True
 
     def write(self, filename):
+        from ase.io.trajectory import write_atoms
+
         self.log('%s: Writing to %s' % (self.__class__.__name__, filename))
         writer = Writer(filename, self.world, mode='w',
                         tag=self.__class__.ulmtag)
         writer.write(version=self.__class__.version)
 
-        wfs = self.wfs
-        writer.write(ha=Hartree)
-        write_uMM(wfs, writer, 'S_uMM', self.S_uMM)
-        wfs.write_wave_functions(writer)
-        wfs.write_eigenvalues(writer)
-        wfs.write_occupations(writer)
-        # write_unM(wfs, writer, 'C0_unM', self.C0_unM)
-        # write_un(wfs, writer, 'eig_un', self.eig_un)
-        # write_un(wfs, writer, 'occ_un', self.occ_un)
+        write_atoms(writer.child('atoms'), self.atoms)
 
-        for arg in self.readwrite_attrs:
-            writer.write(arg, getattr(self, arg))
+        writer.write(ha=Hartree)
+        write_uMM(self.kd, self.ksl, writer, 'S_uMM', self.S_uMM)
+        write_uMM(self.kd, self.ksl, writer, 'C0_unM', self.C0_unM)
+        write_uX(self.kd, self.ksl.block_comm, writer, 'eig_un', self.eig_un)
+        write_uX(self.kd, self.ksl.block_comm, writer, 'occ_un', self.occ_un)
+
+        if self.comm.rank == 0:
+            for arg in self.readwrite_attrs:
+                writer.write(arg, getattr(self, arg))
 
         writer.close()
 
     def read(self, filename):
-        reader = Reader(filename)
-        tag = reader.get_tag()
+        self.reader = Reader(filename)
+        tag = self.reader.get_tag()
         if tag != self.__class__.ulmtag:
             raise RuntimeError('Unknown tag %s' % tag)
-        version = reader.version
-        if version != self.__class__.version:
-            raise RuntimeError('Unknown version %s' % version)
+        self.version = self.reader.version
 
-        wfs = self.wfs
-        self.S_uMM = read_uMM(wfs, reader, 'S_uMM')
-        wfs.read_wave_functions(reader)
-        wfs.read_eigenvalues(reader)
-        wfs.read_occupations(reader)
-
-        self.C0_unM = []
-        self.eig_un = []
-        self.occ_un = []
-        for kpt in self.wfs.kpt_u:
-            C_nM = kpt.C_nM
-            self.C0_unM.append(C_nM)
-            self.eig_un.append(kpt.eps_n)
-            self.occ_un.append(kpt.f_n)
-
-        for arg in self.readwrite_attrs:
-            setattr(self, arg, getattr(reader, arg))
-
-        reader.close()
+        # Do lazy reading in __getattr__ only if/when
+        # the variables are required
         self.has_initialized = True
 
-    def transform(self, rho_uMM):
+    def __getattr__(self, attr):
+        if attr in ['S_uMM', 'C0_unM']:
+            val = read_uMM(self.kpt_u, self.ksl, self.reader, attr)
+            setattr(self, attr, val)
+            return val
+        if attr in ['eig_un', 'occ_un']:
+            val = read_uX(self.kpt_u, self.reader, attr)
+            setattr(self, attr, val)
+            return val
+        if attr in ['C0S_unM']:
+            C0S_unM = []
+            for u, kpt in enumerate(self.kpt_u):
+                C0_nM = self.C0_unM[u]
+                S_MM = self.S_uMM[u]
+                if self.ksl.using_blacs:
+                    C0S_nM = self.ksl.mmdescriptor.zeros(dtype=C0_nM.dtype)
+                    pblas_simple_hemm(self.ksl.mmdescriptor,
+                                      self.ksl.mmdescriptor,
+                                      self.ksl.mmdescriptor,
+                                      S_MM, C0_nM, C0S_nM,
+                                      side='R', uplo='L')
+                else:
+                    C0S_nM = np.dot(C0_nM, S_MM)
+                C0S_unM.append(C0S_nM)
+            setattr(self, attr, C0S_unM)
+            return C0S_unM
+        if attr in ['weight_Mn']:
+            assert self.world.size == 1
+            C2_nM = np.absolute(self.C0_unM[0])**2
+            val = C2_nM.T / np.sum(C2_nM, axis=1)
+            setattr(self, attr, val)
+            return val
+
+        try:
+            val = getattr(self.reader, attr)
+            if attr == 'atoms':
+                from ase.io.trajectory import read_atoms
+                val = read_atoms(val)
+            setattr(self, attr, val)
+            return val
+        except (KeyError, AttributeError):
+            pass
+
+        raise AttributeError('Attribute %s not defined in version %s' %
+                             (repr(attr), repr(self.version)))
+
+    def distribute(self, comm):
+        self.comm = comm
+        N = comm.size
+        self.Np = len(self.P_p)
+        self.Nq = int(np.ceil(self.Np / float(N)))
+        self.NQ = self.Nq * N
+        self.w_q = self.distribute_p(self.w_p)
+        self.f_q = self.distribute_p(self.f_p)
+        self.dm_vq = self.distribute_xp(self.dm_vp)
+
+    def distribute_p(self, a_p, a_q=None, root=0):
+        if a_q is None:
+            a_q = np.zeros(self.Nq, dtype=a_p.dtype)
+        if self.comm.rank == root:
+            a_Q = np.append(a_p, np.zeros(self.NQ - self.Np, dtype=a_p.dtype))
+        else:
+            a_Q = None
+        self.comm.scatter(a_Q, a_q, root)
+        return a_q
+
+    def collect_q(self, a_q, root=0):
+        if self.comm.rank == root:
+            a_Q = np.zeros(self.NQ, dtype=a_q.dtype)
+        else:
+            a_Q = None
+        self.comm.gather(a_q, root, a_Q)
+        if self.comm.rank == root:
+            a_p = a_Q[:self.Np]
+        else:
+            a_p = None
+        return a_p
+
+    def distribute_xp(self, a_xp):
+        Nx = a_xp.shape[0]
+        a_xq = np.zeros((Nx, self.Nq), dtype=a_xp.dtype)
+        for x in range(Nx):
+            self.distribute_p(a_xp[x], a_xq[x])
+        return a_xq
+
+    def transform(self, rho_uMM, broadcast=False):
         assert len(rho_uMM) == 1, 'K-points not implemented'
         u = 0
-        C0_nM = self.C0_unM[u]
-        S_MM = self.S_uMM[u]
-        rho_MM = rho_uMM[u]
+        rho_MM = np.ascontiguousarray(rho_uMM[u])
+        C0S_nM = self.C0S_unM[u].astype(rho_MM.dtype, copy=True)
         # KS decomposition
-        C0S_nM = np.dot(C0_nM, S_MM)
-        rho_nn = np.dot(np.dot(C0S_nM, rho_MM), C0S_nM.T.conjugate())
-        rho_P = rho_nn.reshape(-1)
+        if self.ksl.using_blacs:
+            tmp_nM = self.ksl.mmdescriptor.zeros(dtype=rho_MM.dtype)
+            pblas_simple_gemm(self.ksl.mmdescriptor,
+                              self.ksl.mmdescriptor,
+                              self.ksl.mmdescriptor,
+                              C0S_nM, rho_MM, tmp_nM)
+            rho_nn = self.ksl.mmdescriptor.zeros(dtype=rho_MM.dtype)
+            pblas_simple_gemm(self.ksl.mmdescriptor,
+                              self.ksl.mmdescriptor,
+                              self.ksl.mmdescriptor,
+                              tmp_nM, C0S_nM, rho_nn, transb='C')
+        else:
+            rho_nn = np.dot(np.dot(C0S_nM, rho_MM), C0S_nM.T.conj())
 
-        # Remove de-excitation terms
-        rho_p = rho_P[self.P_p]
-        if self.only_ia:
-            rho_p *= 2
+        rho_nn = collect_MM(self.ksl, rho_nn)
+        if self.comm.rank == 0:
+            rho_P = rho_nn.ravel()
+            # Remove de-excitation terms
+            rho_p = rho_P[self.P_p]
+            if self.only_ia:
+                rho_p *= 2
+        else:
+            rho_p = None
 
+        if broadcast:
+            if self.comm.rank != 0:
+                rho_p = np.zeros_like(self.P_p, dtype=rho_MM.dtype)
+            self.comm.broadcast(rho_p, 0)
         rho_up = [rho_p]
         return rho_up
 
@@ -258,8 +407,11 @@ class KohnShamDecomposition(object):
         dm_v = - np.dot(self.dm_vp, rho_p)
         return dm_v
 
-    def get_density(self, rho_up, density='comp'):
+    def get_density(self, wfs, rho_up, density='comp'):
         from gpaw.lcaotddft.densitymatrix import get_density
+
+        if self.ksl.using_blacs:
+            raise NotImplementedError('Scalapack is not supported')
 
         density_type = density
         assert len(rho_up) == 1, 'K-points not implemented'
@@ -275,7 +427,7 @@ class KohnShamDecomposition(object):
         rho_MM = np.dot(C0_iM.T, np.dot(rho_ia, C0_aM.conj()))
         rho_MM = 0.5 * (rho_MM + rho_MM.T)
 
-        return get_density(rho_MM, self.wfs, self.density, density_type, u)
+        return get_density(rho_MM, wfs, self.density, density_type, u)
 
     def get_contributions_table(self, weight_p, minweight=0.01,
                                 zero_fermilevel=True):
@@ -284,193 +436,148 @@ class KohnShamDecomposition(object):
 
         absweight_p = np.absolute(weight_p)
         tot_weight = weight_p.sum()
+        propweight_p = weight_p / tot_weight * 100
+        tot_propweight = propweight_p.sum()
         rest_weight = tot_weight
+        rest_propweight = tot_propweight
         eig_n = self.eig_un[u].copy()
         if zero_fermilevel:
             eig_n -= self.fermilevel
 
         txt = ''
-        txt += ('# %6s %3s(%8s)    %3s(%8s)  %12s %14s\n' %
-                ('p', 'i', 'eV', 'a', 'eV', 'Ediff (eV)', 'weight'))
+        txt += ('# %6s %4s(%8s)    %4s(%8s)  %12s %14s %8s\n' %
+                ('p', 'i', 'eV', 'a', 'eV', 'Ediff (eV)', 'weight', '%'))
         p_s = np.argsort(absweight_p)[::-1]
         for s, p in enumerate(p_s):
             i, a = self.ia_p[p]
             if absweight_p[p] < minweight:
                 break
-            txt += ('  %6s %3d(%8.3f) -> %3d(%8.3f): %12.4f %+14.4f\n' %
+            txt += ('  %6s %4d(%8.3f) -> %4d(%8.3f): %12.4f %14.4f %8.1f\n' %
                     (p, i, eig_n[i] * Hartree, a, eig_n[a] * Hartree,
-                     self.w_p[p] * Hartree, weight_p[p]))
+                     self.w_p[p] * Hartree, weight_p[p], propweight_p[p]))
             rest_weight -= weight_p[p]
-        txt += ('  %37s: %12s %+14.4f\n' %
-                ('rest', '', rest_weight))
-        txt += ('  %37s: %12s %+14.4f\n' %
-                ('total', '', tot_weight))
+            rest_propweight -= propweight_p[p]
+        txt += ('  %39s: %12s %+14.4f %8.1f\n' %
+                ('rest', '', rest_weight, rest_propweight))
+        txt += ('  %39s: %12s %+14.4f %8.1f\n' %
+                ('total', '', tot_weight, tot_propweight))
         return txt
 
-    def plot_TCM(self, weight_p,
-                 occ_energy_min, occ_energy_max,
-                 unocc_energy_min, unocc_energy_max,
-                 delta_energy, sigma, zero_fermilevel=True,
-                 spectrum=False,
-                 vmax='80%'):
-        import matplotlib.pyplot as plt
-        from matplotlib.gridspec import GridSpec
+    def plot_TCM(self, weight_p, energy_o, energy_u, sigma,
+                 zero_fermilevel=True, vmax='80%'):
+        from gpaw.lcaotddft.tcm import TCMPlotter
+        plotter = TCMPlotter(self, energy_o, energy_u, sigma, zero_fermilevel)
+        ax_tcm = plotter.plot_TCM(weight_p, vmax)
+        ax_occ_dos, ax_unocc_dos = plotter.plot_DOS()
+        return ax_tcm, ax_occ_dos, ax_unocc_dos
 
-        # Calculate TCM
-        args = (weight_p,
-                occ_energy_min, occ_energy_max,
-                unocc_energy_min, unocc_energy_max,
-                delta_energy, sigma, zero_fermilevel)
-        r = self.get_TCM(*args)
-        energy_o, energy_u, dos_o, dos_u, tcm_ou, fermilevel = r
+    def get_TCM(self, weight_p, eig_n, energy_o, energy_u, sigma):
+        flt_p = self.filter_by_x_ia(eig_n, energy_o, energy_u, 8 * sigma)
+        weight_f = weight_p[flt_p]
+        G_fo = gauss_ij(eig_n[self.ia_p[flt_p, 0]], energy_o, sigma)
+        G_fu = gauss_ij(eig_n[self.ia_p[flt_p, 1]], energy_u, sigma)
+        tcm_ou = np.dot(G_fo.T * weight_f, G_fu)
+        return tcm_ou
 
-        # Start plotting
-        plt.figure(figsize=(8, 8))
-        linecolor = 'k'
+    def get_DOS(self, eig_n, energy_o, energy_u, sigma):
+        return self.get_weighted_DOS(1, eig_n, energy_o, energy_u, sigma)
 
-        # Generate axis
-        def get_gs(**kwargs):
-            width = 0.84
-            bottom = 0.12
-            left = 0.12
-            return GridSpec(2, 2, width_ratios=[3, 1], height_ratios=[1, 3],
-                            bottom=bottom, top=bottom + width,
-                            left=left, right=left + width,
-                            **kwargs)
-        gs = get_gs(hspace=0.05, wspace=0.05)
-        ax_occ_dos = plt.subplot(gs[0])
-        ax_unocc_dos = plt.subplot(gs[3])
-        ax_tcm = plt.subplot(gs[2])
-        if spectrum:
-            ax_spec = plt.subplot(get_gs(hspace=0.8, wspace=0.8)[1])
+    def get_weighted_DOS(self, weight_n, eig_n, energy_o, energy_u, sigma):
+        if not isinstance(weight_n, np.ndarray):
+            # Assume float
+            weight_n = weight_n * np.ones_like(eig_n)
+        G_on = gauss_ij(energy_o, eig_n, sigma)
+        G_un = gauss_ij(energy_u, eig_n, sigma)
+        dos_o = np.dot(G_on, weight_n)
+        dos_u = np.dot(G_un, weight_n)
+        return dos_o, dos_u
+
+    def get_weight_n_by_l(self, l):
+        if isinstance(l, int):
+            weight_n = np.sum(self.weight_Mn[self.l_M == l], axis=0)
         else:
-            ax_spec = None
+            weight_n = np.sum([self.get_weight_n_by_l(l_) for l_ in l],
+                              axis=0)
+        return weight_n
 
-        # Plot TCM
-        ax = ax_tcm
-        plt.sca(ax)
-        if isinstance(vmax, str):
-            assert vmax[-1] == '%'
-            tcmmax = max(np.max(tcm_ou), -np.min(tcm_ou))
-            vmax = tcmmax * float(vmax[:-1]) / 100.0
-        vmin = -vmax
-        cmap = 'seismic'
-        plt.pcolormesh(energy_o, energy_u, tcm_ou.T,
-                       cmap=cmap, rasterized=True, vmin=vmin, vmax=vmax)
-        plt.axhline(fermilevel, c=linecolor)
-        plt.axvline(fermilevel, c=linecolor)
+    def get_weight_n_by_a(self, a):
+        if isinstance(a, int):
+            weight_n = np.sum(self.weight_Mn[self.a_M == a], axis=0)
+        else:
+            weight_n = np.sum([self.get_weight_n_by_a(a_) for a_ in a],
+                              axis=0)
+        return weight_n
 
-        ax.tick_params(axis='both', which='major', pad=2)
-        plt.xlabel(r'Occ. energy $\varepsilon_{o}$ (eV)', labelpad=0)
-        plt.ylabel(r'Unocc. energy $\varepsilon_{u}$ (eV)', labelpad=0)
-        plt.xlim(occ_energy_min, occ_energy_max)
-        plt.ylim(unocc_energy_min, unocc_energy_max)
+    def get_distribution_i(self, weight_p, energy_e, sigma,
+                           zero_fermilevel=True):
+        eig_n, fermilevel = self.get_eig_n(zero_fermilevel)
+        flt_p = self.filter_by_x_i(eig_n, energy_e, 8 * sigma)
+        weight_f = weight_p[flt_p]
+        G_fe = gauss_ij(eig_n[self.ia_p[flt_p, 0]], energy_e, sigma)
+        dist_e = np.dot(G_fe.T, weight_f)
+        return dist_e
 
-        # Plot DOSes
-        def plot_DOS(ax, energy_e, dos_e,
-                     energy_min, energy_max,
-                     dos_min, dos_max,
-                     flip=False):
-            ax.xaxis.set_ticklabels([])
-            ax.yaxis.set_ticklabels([])
-            ax.spines['right'].set_visible(False)
-            ax.spines['top'].set_visible(False)
-            ax.yaxis.set_ticks_position('left')
-            ax.xaxis.set_ticks_position('bottom')
-            if flip:
-                set_label = ax.set_xlabel
-                fill_between = ax.fill_betweenx
-                set_energy_lim = ax.set_ylim
-                set_dos_lim = ax.set_xlim
+    def get_distribution_a(self, weight_p, energy_e, sigma,
+                           zero_fermilevel=True):
+        eig_n, fermilevel = self.get_eig_n(zero_fermilevel)
+        flt_p = self.filter_by_x_a(eig_n, energy_e, 8 * sigma)
+        weight_f = weight_p[flt_p]
+        G_fe = gauss_ij(eig_n[self.ia_p[flt_p, 1]], energy_e, sigma)
+        dist_e = np.dot(G_fe.T, weight_f)
+        return dist_e
 
-                def plot(x, y, *args, **kwargs):
-                    return ax.plot(y, x, *args, **kwargs)
-            else:
-                set_label = ax.set_ylabel
-                fill_between = ax.fill_between
-                set_energy_lim = ax.set_xlim
-                set_dos_lim = ax.set_ylim
+    def get_distribution_ia(self, weight_p, energy_o, energy_u, sigma,
+                            zero_fermilevel=True):
+        """
+        Filter both i and a spaces as in TCM.
 
-                def plot(x, y, *args, **kwargs):
-                    return ax.plot(x, y, *args, **kwargs)
-            fill_between(energy_e, 0, dos_e, color='0.8')
-            plot(energy_e, dos_e, 'k')
-            set_label('DOS', labelpad=0)
-            set_energy_lim(energy_min, energy_max)
-            set_dos_lim(dos_min, dos_max)
+        """
+        eig_n, fermilevel = self.get_eig_n(zero_fermilevel)
+        flt_p = self.filter_by_x_ia(eig_n, energy_o, energy_u, 8 * sigma)
+        weight_f = weight_p[flt_p]
+        G_fo = gauss_ij(eig_n[self.ia_p[flt_p, 0]], energy_o, sigma)
+        dist_o = np.dot(G_fo.T, weight_f)
+        G_fu = gauss_ij(eig_n[self.ia_p[flt_p, 1]], energy_u, sigma)
+        dist_u = np.dot(G_fu.T, weight_f)
+        return dist_o, dist_u
 
-        dos_min = 0.0
-        dos_max = max(np.max(dos_o), np.max(dos_u))
-        plot_DOS(ax_occ_dos, energy_o, dos_o,
-                 occ_energy_min, occ_energy_max,
-                 dos_min, dos_max,
-                 flip=False)
-        plot_DOS(ax_unocc_dos, energy_u, dos_u,
-                 unocc_energy_min, unocc_energy_max,
-                 dos_min, dos_max,
-                 flip=True)
+    def get_distribution(self, weight_p, energy_e, sigma):
+        w_p = self.w_p * Hartree
+        flt_p = self.filter_by_x_p(w_p, energy_e, 8 * sigma)
+        weight_f = weight_p[flt_p]
+        G_fe = gauss_ij(w_p[flt_p], energy_e, sigma)
+        dist_e = np.dot(G_fe.T, weight_f)
+        return dist_e
 
-        return ax_tcm, ax_occ_dos, ax_unocc_dos, ax_spec
-
-    def get_TCM(self, weight_p,
-                occ_energy_min, occ_energy_max,
-                unocc_energy_min, unocc_energy_max,
-                delta_energy, sigma, zero_fermilevel):
-        assert weight_p.dtype == float
+    def get_eig_n(self, zero_fermilevel=True):
         u = 0  # TODO
-
         eig_n = self.eig_un[u].copy()
         if zero_fermilevel:
             eig_n -= self.fermilevel
             fermilevel = 0.0
         else:
             fermilevel = self.fermilevel
-
         eig_n *= Hartree
         fermilevel *= Hartree
+        return eig_n, fermilevel
 
-        # Inclusive arange function
-        def arange(x0, x1, dx):
-            return np.arange(x0, x1 + 0.5 * dx, dx)
+    def filter_by_x_p(self, x_p, energy_e, buf):
+        flt_p = np.logical_and((energy_e[0] - buf) <= x_p,
+                               x_p <= (energy_e[-1] + buf))
+        return flt_p
 
-        energy_o = arange(occ_energy_min, occ_energy_max, delta_energy)
-        energy_u = arange(unocc_energy_min, unocc_energy_max, delta_energy)
+    def filter_by_x_i(self, x_n, energy_e, buf):
+        return self.filter_by_x_p(x_n[self.ia_p[:, 0]], energy_e, buf)
 
-        def gauss_ne(energy_e):
-            energy_ne = energy_e[np.newaxis, :]
-            eig_ne = eig_n[:, np.newaxis]
-            norm = 1.0 / (sigma * np.sqrt(2 * np.pi))
-            return norm * np.exp(-0.5 * (energy_ne - eig_ne)**2 / sigma**2)
+    def filter_by_x_a(self, x_n, energy_e, buf):
+        return self.filter_by_x_p(x_n[self.ia_p[:, 1]], energy_e, buf)
 
-        G_no = gauss_ne(energy_o)
-        G_nu = gauss_ne(energy_u)
+    def filter_by_x_ia(self, x_n, energy_o, energy_u, buf):
+        flti_p = self.filter_by_x_i(x_n, energy_o, buf)
+        flta_p = self.filter_by_x_a(x_n, energy_u, buf)
+        flt_p = np.logical_and(flti_p, flta_p)
+        return flt_p
 
-        # DOS
-        dos_o = 2.0 * np.sum(G_no, axis=0)
-        dos_u = 2.0 * np.sum(G_nu, axis=0)
-        dosmax = max(np.max(dos_o), np.max(dos_u))
-        dos_o /= dosmax
-        dos_u /= dosmax
-
-        def is_between(x, xmin, xmax):
-            return xmin <= x and x <= xmax
-
-        flt_p = []
-        buf = 4 * sigma
-        for p, weight in enumerate(weight_p):
-            i, a = self.ia_p[p]
-            if (is_between(eig_n[i],
-                           occ_energy_min - buf,
-                           occ_energy_max + buf) and
-                is_between(eig_n[a],
-                           unocc_energy_min - buf,
-                           unocc_energy_max + buf)):
-                flt_p.append(p)
-
-        weight_f = weight_p[flt_p]
-        G_fo = G_no[self.ia_p[flt_p, 0]]
-        G_fu = G_nu[self.ia_p[flt_p, 1]]
-        G_of = G_fo.T
-        tcm_ou = np.dot(G_of * weight_f, G_fu)
-
-        return energy_o, energy_u, dos_o, dos_u, tcm_ou, fermilevel
+    def __del__(self):
+        if self.reader is not None:
+            self.reader.close()

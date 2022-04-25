@@ -1,4 +1,3 @@
-from __future__ import print_function
 import pickle
 from math import log, pi
 
@@ -297,7 +296,8 @@ class RecursionMethod:
             self.initialize_start_vector(proj=proj, proj_xyz=proj_xyz)
 
     def read(self, filename):
-        data = pickle.load(open(filename, 'rb'))
+        with open(filename, 'rb') as fd:
+            data = pickle.load(fd)
         self.nkpts = data['nkpts']
         if 'swaps' in data:
             # This is an old file:
@@ -377,7 +377,8 @@ class RecursionMethod:
                     kpt_comm.gather(y0_ucG, 0)
 
         if self.wfs.world.rank == 0:
-            pickle.dump(data, open(filename, 'wb'))
+            with open(filename, 'wb') as fd:
+                pickle.dump(data, fd)
 
     def allocate_tmp_arrays(self):
 

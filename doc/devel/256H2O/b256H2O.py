@@ -62,11 +62,11 @@ calc = GPAW(nbands=nbands,
             # basis='sz',
             gpts=tuple(n),
             maxiter=5,
-            width=0.01,
+            occupations={'name': 'fermi-dirac', 'width': 0.01},
             eigensolver=es,
             txt=prefix + '.txt')
 
-atoms.set_calculator(calc)
+atoms.calc = calc
 try:
     pot = atoms.get_potential_energy()
 except ConvergenceError:

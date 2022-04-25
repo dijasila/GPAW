@@ -24,11 +24,12 @@
 //         d(|\/n| )
 //
 
+#ifndef GPAW_WITHOUT_LIBXC
 void init_mgga(void** params, int code, int nspin);
 void calc_mgga(void** params, int nspin, int ng,
                const double* n_g, const double* sigma_g, const double* tau_g,
                double *e_g, double *v_g, double *dedsigma_g, double *dedtau_g);
-
+#endif
 double pbe_exchange(const xc_parameters* par,
                     double n, double rs, double a2,
                     double* dedrs, double* deda2);
@@ -101,19 +102,19 @@ XCFunctional_calculate(XCFunctionalObject *self, PyObject *args)
       dedsigma_g = DOUBLEP(dedsigma_array);
     }
 
+#ifndef GPAW_WITHOUT_LIBXC
   const double* tau_g = 0;
   double* dedtau_g = 0;
   if (self->mgga)
     {
       tau_g = DOUBLEP(tau_array);
       dedtau_g = DOUBLEP(dedtau_array);
+      int nspin = PyArray_DIM(n_array, 0) == 1 ? 1 : 2;
+      calc_mgga(&self->mgga, nspin, ng, n_g, sigma_g, tau_g, e_g, v_g,
+                dedsigma_g, dedtau_g);
+      Py_RETURN_NONE;
     }
-
-  if (self->mgga) {
-    int nspin = PyArray_DIM(n_array, 0) == 1 ? 1 : 2;
-    calc_mgga(&self->mgga, nspin, ng, n_g, sigma_g, tau_g, e_g, v_g, dedsigma_g, dedtau_g);
-    Py_RETURN_NONE;
-  }
+#endif
 
   if (PyArray_DIM(n_array, 0) == 1)
     for (int g = 0; g < ng; g++)
@@ -282,11 +283,13 @@ PyObject * NewXCFunctionalObject(PyObject *obj, PyObject *args)
     // PW91
     self->exchange = pw91_exchange;
   }
+#ifndef GPAW_WITHOUT_LIBXC
   else if (code == 20 || code == 21 || code == 22) {
     // MGGA
     const int nspin = 1; // a guess, perhaps corrected later in calc_mgga
     init_mgga(&self->mgga,code,nspin);
   }
+#endif
   else {
     assert (code == 17);
     // BEEF-vdW

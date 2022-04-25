@@ -78,7 +78,7 @@ if not os.path.exists('%s_raw.csv' % tag):
                 b0 = task.data[n]['dcdft B0'] / (units.kJ * 1e-24)
                 b1 = task.data[n]['dcdft B1']
                 row.extend([v, b0, b1])
-            except KeyError: # completely failed to find eos minimum
+            except KeyError:  # completely failed to find eos minimum
                 row.extend(['N/A', 'N/A', 'N/A'])
         else:
             # element not calculated
@@ -102,7 +102,7 @@ csvwriter2.writerow(h2)
 
 refs = np.loadtxt(reffile,
                   dtype={'names': ('element', 'V0', 'B0', 'BP'),
-                         'formats': ('S2', np.float, np.float, np.float)})
+                         'formats': ('S2', float, float, float)})
 # convert into dict
 refsd = {}
 for e, v, b0, b1 in refs:
@@ -133,7 +133,7 @@ for n in task.collection.names:
         b0e = round((b0 - b00) / b00 * 100, 1)
         b1e = round((b1 - b10) / b10 * 100, 1)
         rows.append(row)
-        #print row + ref + [ve, b0e, b1e]
+        # print row + ref + [ve, b0e, b1e]
         csvwriter2.writerow(row + [ve, b0e, b1e])
 
 # calculate Delta

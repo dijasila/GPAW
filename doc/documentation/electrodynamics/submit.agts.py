@@ -1,6 +1,5 @@
-from myqueue.task import task
+from myqueue.workflow import run
 
 
-def create_tasks():
-    return [
-        task('plot_permittivity.py')]
+def workflow():
+    run(script='plot_permittivity.py')

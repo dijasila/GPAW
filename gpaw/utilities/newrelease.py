@@ -4,7 +4,6 @@ This script does not attempt to import ASE - then it would depend on
 which ASE is installed and how - but assumes that it is run from the
 ASE root directory."""
 
-import os
 import subprocess
 import re
 import argparse
@@ -43,7 +42,6 @@ def git(cmd, error_ok=False):
     return runcmd(cmd, output=True, error_ok=error_ok)
 
 
-cwd = os.getcwd()
 versionfile = 'gpaw/__init__.py'
 
 
@@ -262,4 +260,5 @@ News
     print('git push --force origin web-page')
 
 
-main()
+if __name__ == '__main__':
+    main()

@@ -5,8 +5,7 @@ import numpy as np
 
 from ase import Atoms
 from ase.io import read
-from ase.data import covalent_radii
-from ase.neighborlist import NeighborList
+from ase.build.connected import connected_indices
 
 
 class Cluster(Atoms):
@@ -39,46 +38,7 @@ class Cluster(Atoms):
 
     def find_connected(self, index, dmax=None, scale=1.5):
         """Find atoms connected to self[index] and return them."""
-        return self[self.connected_indices(index, dmax, scale)]
-
-    def connected_indices(self, index, dmax=None, scale=1.5):
-        """Find atoms connected to self[index] and return their indices.
-
-        If dmax is not None:
-        Atoms are defined to be connected if they are nearer than dmax
-        to each other.
-
-        If dmax is None:
-        Atoms are defined to be connected if they are nearer than the
-        sum of their covalent radii * scale to each other.
-
-        """
-        if index < 0:
-            index = len(self) + index
-
-        # set neighbor lists
-        if dmax is None:
-            # define neighbors according to covalent radii
-            radii = scale * covalent_radii[self.get_atomic_numbers()]
-        else:
-            # define neighbors according to distance
-            radii = [0.5 * dmax] * len(self)
-        nl = NeighborList(radii, skin=0, self_interaction=False, bothways=True)
-        nl.update(self)
-
-        connected = [index] + list(nl.get_neighbors(index)[0])
-        isolated = False
-        while not isolated:
-            isolated = True
-            for i in connected:
-                for j in nl.get_neighbors(i)[0]:
-                    if j in connected:
-                        pass
-                    else:
-                        connected.append(j)
-                        isolated = False
-
-        return connected
+        return self[connected_indices(self, index, dmax, scale)]
 
     def minimal_box(self, border=0, h=None, multiple=4):
         """The box needed to fit the structure in.
@@ -129,24 +89,6 @@ class Cluster(Atoms):
         self.set_cell(tuple(extr[1]))
 
         return shift
-
-    def get(self, name):
-        """General get"""
-        attr = 'get_' + name
-        if hasattr(self, attr):
-            getattr(self, attr)()
-        elif name in self.data:
-            return self.data[name]
-        else:
-            return None
-
-    def set(self, name, data):
-        """General set"""
-        attr = 'set_' + name
-        if hasattr(self, attr):
-            getattr(self, attr)(data)
-        else:
-            self.data[name] = data
 
     def read(self, filename, format=None):
         """Read the structure from some file. The type can be given

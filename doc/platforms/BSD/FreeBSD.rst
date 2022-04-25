@@ -4,13 +4,13 @@
 FreeBSD
 =======
 
-Here you find information about the the system
+Here you find information about the system
 `<http://freebsd.org/>`_.
 
 To build gpaw add to the ``gpaw/customize.py``::
 
   compiler='gcc44'
-  extra_compile_args += ['-Wall', '-std=c99'] 
+  extra_compile_args += ['-Wall', '-std=c99']
   library_dirs += ['/usr/local/lib']
   libraries += ['blas', 'lapack', 'gfortran']
 

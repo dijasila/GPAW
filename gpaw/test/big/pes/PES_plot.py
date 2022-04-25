@@ -1,8 +1,7 @@
-# Creates: PES_fig.png
+# web-page: PES_fig.png
 
 import numpy as np
 import matplotlib.pyplot as plt
-from gpaw.test import equal
 
 output = True
 
@@ -52,8 +51,8 @@ ube_t = np.unique(np.round(be_t, 1))[:len(peaks)]
 ube_d = np.unique(np.round(be_d, 1))[:len(peaks)]
 
 for t, d, ref in zip(ube_t, ube_d, peaks):
-    equal(t, ref, etol)
-    equal(t, d, etol)
+    assert abs(t - ref) < etol
+    assert abs(t - d) < etol
 
 # CO
 
@@ -98,8 +97,8 @@ ube_t = np.unique(np.round(be_t, 1))[:len(peaks)]
 ube_d = np.unique(np.round(be_d, 1))[:len(peaks)]
 
 for t, d, ref in zip(ube_t, ube_d, peaks):
-    equal(t, ref, etol)
-    equal(t, d, etol)
+    assert abs(t - ref) < etol
+    assert abs(t - d) < etol
 
 # NH3
 
@@ -148,5 +147,5 @@ ube_t = np.unique(np.round(be_t, 1))[:len(peaks)]
 ube_d = np.unique(np.round(be_d, 1))[:len(peaks)]
 
 for t, d, ref in zip(ube_t, ube_d, peaks):
-    equal(t, ref, etol)
-    equal(t, d, etol)
+    assert abs(t - ref) < etol
+    assert abs(t - d) < etol

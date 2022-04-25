@@ -72,6 +72,7 @@ int Csys2blacs_handle_(MPI_Comm SysCtxt);
 
 #define   pdtran_  pdtran
 #define   pztranc_ pztranc
+#define   pztranu_ pztranu
 #define   pdgemm_  pdgemm
 #define   pzgemm_  pzgemm
 #define   pdgemv_  pdgemv
@@ -84,6 +85,7 @@ int Csys2blacs_handle_(MPI_Comm SysCtxt);
 #define   pztrsm_  pztrsm
 
 #define   pzhemm_  pzhemm
+#define   pzsymm_  pzsymm
 #define   pdsymm_  pdsymm
 
 #endif
@@ -256,6 +258,12 @@ void pztranc_(int* m, int* n,
               void* beta,
               void* c, int* ic, int* jc, int* descc);
 
+void pztranu_(int* m, int* n,
+              void* alpha,
+              void* a, int* ia, int* ja, int* desca,
+              void* beta,
+              void* c, int* ic, int* jc, int* descc);
+
 void pdgemm_(char* transa, char* transb, int* m, int* n, int* k,
              double* alpha,
              double* a, int* ia, int* ja, int* desca,
@@ -271,6 +279,13 @@ void pzgemm_(char* transa, char* transb, int* m, int* n, int* k,
              void* c, int* ic, int* jc, int* descc);
 
 void pzhemm_(char* side, char* uplo, int* m, int* n,
+             void* alpha,
+             void* a, int* ia, int* ja, int* desca,
+             void* b, int* ib, int* jb, int* descb,
+             void* beta,
+             void* c, int* ic, int* jc, int* descc);
+
+void pzsymm_(char* side, char* uplo, int* m, int* n,
              void* alpha,
              void* a, int* ia, int* ja, int* desca,
              void* b, int* ib, int* jb, int* descb,
@@ -340,10 +355,12 @@ PyObject* pblas_tran(PyObject *self, PyObject *args)
     Py_complex beta;
     PyArrayObject *a, *c;
     PyArrayObject *desca, *descc;
+    int conj;
 
-    if (!PyArg_ParseTuple(args, "iiDODOOO", &m, &n, &alpha,
+    if (!PyArg_ParseTuple(args, "iiDODOOOi", &m, &n, &alpha,
                           &a, &beta, &c,
-                          &desca, &descc))
+                          &desca, &descc,
+                          &conj))
         return NULL;
 
     int one = 1;
@@ -353,8 +370,14 @@ PyObject* pblas_tran(PyObject *self, PyObject *args)
                 DOUBLEP(a), &one, &one, INTP(desca),
                 &(beta.real),
                 DOUBLEP(c), &one, &one, INTP(descc));
-    else
+    else if (conj)
         pztranc_(&m, &n,
+                 &alpha,
+                 (void*)PyArray_DATA(a), &one, &one, INTP(desca),
+                 &beta,
+                 (void*)PyArray_DATA(c), &one, &one, INTP(descc));
+    else
+        pztranu_(&m, &n,
                  &alpha,
                  (void*)PyArray_DATA(a), &one, &one, INTP(desca),
                  &beta,
@@ -405,7 +428,7 @@ PyObject* pblas_gemm(PyObject *self, PyObject *args)
 }
 
 
-PyObject* pblas_hemm(PyObject *self, PyObject *args)
+PyObject* pblas_hemm_symm(PyObject *self, PyObject *args)
 {
   char* side;
   char* uplo;
@@ -414,22 +437,30 @@ PyObject* pblas_hemm(PyObject *self, PyObject *args)
   Py_complex beta;
   PyArrayObject *a, *b, *c;
   PyArrayObject *desca, *descb, *descc;
+  int hemm;
   int one = 1;
-  if (!PyArg_ParseTuple(args, "ssiiDOOdOOOO",
+  if (!PyArg_ParseTuple(args, "ssiiDOODOOOOi",
                  &side, &uplo, &n, &m,
                  &alpha, &a, &b, &beta,
-                 &c, &desca, &descb, &descc)) {
+                 &c, &desca, &descb, &descc,
+                 &hemm)) {
     return NULL;
   }
 
   if (PyArray_DESCR(c)->type_num == NPY_DOUBLE) {
-     pdsymm_(side, uplo, &n, &m, &alpha,
+     pdsymm_(side, uplo, &n, &m, &(alpha.real),
              (void*)DOUBLEP(a), &one, &one, INTP(desca),
              (void*)DOUBLEP(b), &one, &one, INTP(descb),
-             &beta,
+             &(beta.real),
              (void*)DOUBLEP(c), &one, &one, INTP(descc));
-  } else {
+  } else if (hemm) {
      pzhemm_(side, uplo, &n, &m, &alpha,
+             (void*)COMPLEXP(a), &one, &one, INTP(desca),
+             (void*)COMPLEXP(b), &one, &one, INTP(descb),
+             &beta,
+             (void*)COMPLEXP(c), &one, &one, INTP(descc));
+  } else {
+     pzsymm_(side, uplo, &n, &m, &alpha,
              (void*)COMPLEXP(a), &one, &one, INTP(desca),
              (void*)COMPLEXP(b), &one, &one, INTP(descb),
              &beta,

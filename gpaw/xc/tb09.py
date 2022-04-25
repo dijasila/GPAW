@@ -1,4 +1,3 @@
-from __future__ import print_function
 """Tran-Blaha potential.
 
 From:
@@ -123,8 +122,8 @@ class TB09(MGGA):
     def get_setup_name(self):
         return 'LDA'
 
-    def initialize(self, dens, ham, wfs, occ):
-        MGGA.initialize(self, dens, ham, wfs, occ)
+    def initialize(self, dens, ham, wfs):
+        MGGA.initialize(self, dens, ham, wfs)
         self.kernel.world = wfs.world
         self.kernel.gd = dens.finegd
         self.kernel.lapl = Laplace(dens.finegd)

@@ -114,6 +114,6 @@ for name in names:
                 constant_basis=constant_basis,
                 x=x,
                 niter=atoms.calc.get_number_of_iterations(),
-                time=time.time()-t)
+                time=time.time() - t)
         traj.write(atoms)
         del c[id]

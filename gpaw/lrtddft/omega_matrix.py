@@ -1,13 +1,11 @@
-from math import sqrt
-
 import numpy as np
-from ase.units import Hartree
-from ase.utils import convert_string_to_fd
-from ase.utils.timing import Timer
 from scipy.linalg import eigh
 
+from ase.units import Hartree
+from ase.utils.timing import Timer
+
 import gpaw.mpi as mpi
-from gpaw.lrtddft.kssingle import KSSingles
+from gpaw.lrtddft.kssingle import KSSingles, KSSRestrictor
 from gpaw.transformers import Transformer
 from gpaw.utilities import pack
 from gpaw.xc import XC
@@ -40,13 +38,10 @@ class OmegaMatrix:
                  numscale=0.001,
                  poisson=None,
                  filehandle=None,
-                 txt=None,
+                 log=None,
                  finegrid=2,
                  eh_comm=None):
-
-        if not txt and calculator:
-            txt = calculator.log.fd
-        self.txt = convert_string_to_fd(txt, mpi.world)
+        self.log = log
 
         if eh_comm is None:
             eh_comm = mpi.serial_comm
@@ -92,8 +87,7 @@ class OmegaMatrix:
                 self.xc = XC(xc)
             else:
                 self.xc = xc
-            self.xc.initialize(self.paw.density, self.paw.hamiltonian,
-                               wfs, self.paw.occupations)
+            self.xc.initialize(self.paw.density, self.paw.hamiltonian, wfs)
 
             # check derivativeLevel
             if derivativeLevel is None:
@@ -115,8 +109,11 @@ class OmegaMatrix:
         self.get_full()
 
     def get_full(self):
-
+        """Evaluate full omega matrix"""
         self.paw.timer.start('Omega RPA')
+        self.log()
+        self.log('Linear response TDDFT calculation')
+        self.log()
         self.get_rpa()
         self.paw.timer.stop()
 
@@ -192,13 +189,11 @@ class OmegaMatrix:
         else:
             raise ValueError('derivativeLevel can only be 0,1,2')
 
-# self.paw.my_nuclei = []
-
         ns = self.numscale
         xc = self.xc
-        print('XC', nij, 'transitions', file=self.txt)
+        self.log('XC', nij, 'transitions')
         for ij in range(eh_comm.rank, nij, eh_comm.size):
-            print('XC kss[' + '%d' % ij + ']', file=self.txt)
+            self.log('XC kss[' + '%d' % ij + ']')
 
             timer = Timer()
             timer.start('init')
@@ -362,8 +357,8 @@ class OmegaMatrix:
             timer.stop()
 # timer2.write()
             if ij < (nij - 1):
-                print('XC estimated time left',
-                      self.time_left(timer, t0, ij, nij), file=self.txt)
+                self.log('XC estimated time left',
+                         self.time_left(timer, t0, ij, nij))
 
     def Coulomb_integral_kss(self, kss_ij, kss_kq, phit, rhot,
                              timer=None, yukawa=False):
@@ -416,12 +411,12 @@ class OmegaMatrix:
 
         # calculate omega matrix
         nij = len(kss)
-        print('RPA', nij, 'transitions', file=self.txt)
+        self.log('RPA', nij, 'transitions')
 
         Om = self.Om
 
         for ij in range(eh_comm.rank, nij, eh_comm.size):
-            print('RPA kss[' + '%d' % ij + ']=', kss[ij], file=self.txt)
+            self.log('RPA kss[' + '%d' % ij + ']=', kss[ij])
 
             timer = Timer()
             timer.start('init')
@@ -446,7 +441,6 @@ class OmegaMatrix:
             if finegrid == 1:
                 rhot = kss[ij].with_compensation_charges()
                 phit = self.gd.zeros()
-# print "shapes 0=",phit.shape,rhot.shape
                 self.restrict(phit_p, phit)
             else:
                 phit = phit_p
@@ -460,8 +454,10 @@ class OmegaMatrix:
                         finegrid == 2)
                     timer2.stop()
 
-                pre = 2 * sqrt(kss[ij].get_energy() * kss[kq].get_energy() *
-                               kss[ij].get_weight() * kss[kq].get_weight())
+                pre = 2 * np.sqrt(kss[ij].get_energy() *
+                                  kss[kq].get_energy() *
+                                  kss[ij].get_weight() *
+                                  kss[kq].get_weight())
                 I = self.Coulomb_integral_kss(kss[ij], kss[kq],
                                               rhot, phit, timer2)
                 Om[ij, kq] = pre * I
@@ -477,8 +473,8 @@ class OmegaMatrix:
                 t = timer.get_time(ij)  # time for nij-ij calculations
                 t = .5 * t * \
                     (nij - ij)  # estimated time for n*(n+1)/2, n=nij-(ij+1)
-                print('RPA estimated time left',
-                      self.timestring(t0 * (nij - ij - 1) + t), file=self.txt)
+                self.log('RPA estimated time left',
+                         self.timestring(t0 * (nij - ij - 1) + t))
 
     def singlets_triplets(self):
         """Split yourself into singlet and triplet transitions"""
@@ -488,21 +484,23 @@ class OmegaMatrix:
 
         # strip kss from down spins
         skss = KSSingles()
+        skss.dtype = self.fullkss.dtype
         tkss = KSSingles()
+        tkss.dtype = self.fullkss.dtype
         map = []
         for ij, ks in enumerate(self.fullkss):
             if ks.pspin == ks.spin:
-                skss.append((ks + ks) / sqrt(2))
-                tkss.append((ks - ks) / sqrt(2))
+                skss.append((ks + ks) / np.sqrt(2))
+                tkss.append((ks - ks) / np.sqrt(2))
                 map.append(ij)
-        skss.istart = tkss.istart = self.fullkss.istart
-        skss.jend = tkss.jend = self.fullkss.jend
+        skss.istart = tkss.istart = self.fullkss.restrict['istart']
+        skss.jend = tkss.jend = self.fullkss.restrict['jend']
         nkss = len(skss)
 
         # define the singlet and the triplet omega-matrices
-        sOm = OmegaMatrix(kss=skss)
+        sOm = OmegaMatrix(kss=skss, log=self.log)
         sOm.full = np.empty((nkss, nkss))
-        tOm = OmegaMatrix(kss=tkss)
+        tOm = OmegaMatrix(kss=tkss, log=self.log)
         tOm.full = np.empty((nkss, nkss))
         for ij in range(nkss):
             for kl in range(nkss):
@@ -535,7 +533,7 @@ class OmegaMatrix:
         t = .5 * t * (nij - ij)  # estimated time for n*(n+1)/2, n=nij-(ij+1)
         return self.timestring(t0 * (nij - ij - 1) + t)
 
-    def get_map(self, istart=None, jend=None, energy_range=None):
+    def get_map(self, restrict={}):
         """Return the reduction map for the given requirements
 
         Returns
@@ -543,57 +541,39 @@ class OmegaMatrix:
         map - list of original indices
         kss - reduced KSSingles object
         """
-
-        self.istart = istart
-        self.jend = jend
-        if istart is None and jend is None and energy_range is None:
+        rst = KSSRestrictor(restrict)
+        if rst >= self.fullkss.restrict:
             return None, self.fullkss
 
-        # reduce the matrix
-        print('# diagonalize: %d transitions original'
-              % len(self.fullkss), file=self.txt)
-
-        if energy_range is None:
-            if istart is None:
-                istart = self.kss.istart
-            if self.fullkss.istart > istart:
-                raise RuntimeError('istart=%d has to be >= %d' %
-                                   (istart, self.kss.istart))
-            if jend is None:
-                jend = self.kss.jend
-            if self.fullkss.jend < jend:
-                raise RuntimeError('jend=%d has to be <= %d' %
-                                   (jend, self.kss.jend))
-
-        else:
-            try:
-                emin, emax = energy_range
-            except TypeError:
-                emax = energy_range
-                emin = 0.
-            emin /= Hartree
-            emax /= Hartree
+        self.log('# diagonalize: %d transitions original'
+                 % len(self.fullkss))
 
         map = []
         kss = KSSingles()
+        kss.dtype = self.fullkss.dtype
+        energy_range = rst['energy_range']
+        emin, emax = rst.emin_emax()
+        istart = rst['istart']
+        jend = rst['jend']
+        eps = rst['eps']
         for ij, k in zip(range(len(self.fullkss)), self.fullkss):
             if energy_range is None:
-                if k.i >= istart and k.j <= jend:
+                if k.i >= istart and k.j <= jend and k.fij >= eps:
                     kss.append(k)
                     map.append(ij)
             else:
-                if k.energy >= emin and k.energy < emax:
+                if k.energy >= emin and k.energy < emax and k.fij >= eps:
                     kss.append(k)
                     map.append(ij)
         kss.update()
-        print('# diagonalize: %d transitions now' % len(kss), file=self.txt)
+        self.log('# diagonalize: %d transitions now' % len(kss))
 
         return map, kss
 
-    def diagonalize(self, istart=None, jend=None, energy_range=None):
+    def diagonalize(self, restrict={}):
         """Evaluate Eigenvectors and Eigenvalues:"""
+        map, kss = self.get_map(restrict)
 
-        map, kss = self.get_map(istart, jend, energy_range)
         nij = len(kss)
         if map is None:
             evec = self.full.copy()
@@ -640,7 +620,6 @@ class OmegaMatrix:
 
     def write(self, filename=None, fh=None):
         """Write current state to a file."""
-
         try:
             rank = self.paw.wfs.world.rank
         except AttributeError:
@@ -665,8 +644,10 @@ class OmegaMatrix:
     def weight_Kijkq(self, ij, kq):
         """weight for the coupling matrix terms"""
         kss = self.fullkss
-        return 2. * sqrt(kss[ij].get_energy() * kss[kq].get_energy() *
-                         kss[ij].get_weight() * kss[kq].get_weight())
+        return 2. * np.sqrt(kss[ij].get_energy() *
+                            kss[kq].get_energy() *
+                            kss[ij].get_weight() *
+                            kss[kq].get_weight())
 
     def __str__(self):
         str = '<OmegaMatrix> '
@@ -674,5 +655,5 @@ class OmegaMatrix:
             str += 'dimension ' + ('%d' % len(self.eigenvalues))
             str += '\neigenvalues: '
             for ev in self.eigenvalues:
-                str += ' ' + ('%f' % (sqrt(ev) * Hartree))
+                str += ' ' + ('%f' % (np.sqrt(ev) * Hartree))
         return str

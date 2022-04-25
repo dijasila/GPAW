@@ -6,7 +6,6 @@
 This file defines a series of finite difference operators used in grid mode.
 """
 
-from __future__ import division
 from math import pi, factorial as fact
 
 import numpy as np
@@ -46,6 +45,11 @@ class FDOperator:
                 cfd = False
 
         mp = np.abs(offset_pc).max()  # padding
+
+        # If stencil is strictly larger than any domain, some CPU will
+        # need data from the second-nearest-neighbour domain.
+        # We don't support that.  (Typically happens with 1D distributions)
+        assert (mp <= gd.n_c).all(), 'Stencil longer than domain'
         n_c = gd.n_c
         M_c = n_c + 2 * mp
         stride_c = np.array([M_c[1] * M_c[2], M_c[2], 1])
@@ -102,7 +106,7 @@ class FDOperator:
 if debug:
     _FDOperator = FDOperator
 
-    class FDOperator(_FDOperator):
+    class FDOperator(_FDOperator):  # type: ignore
         def apply(self, in_xg, out_xg, phase_cd=None):
             assert in_xg.shape == out_xg.shape
             assert in_xg.shape[-3:] == self.shape
@@ -144,7 +148,7 @@ class GUCLaplace(FDOperator):
         n: int
             Range of stencil.  Stencil has O(h^(2n)) error.
         dtype: float or complex
-            Datatype to work on.
+            Data-type to work on.
         """
 
         # Order the 26 neighbor grid points after length
@@ -203,14 +207,14 @@ class Gradient(FDOperator):
         n: int
             Range of stencil.  Stencil has O(h^(2n)) error.
         dtype: float or complex
-            Datatype to work on.
+            Data-type to work on.
         """
 
         from scipy.spatial import Voronoi
 
         # Find nearest neighbors.  If h is a vector pointing at a
         # neighbor grid-points then we don't also include -h in the list:
-        M_ic = np.indices((3, 3, 3)).reshape((3, -3)).T - 1
+        M_ic = np.indices((3, 3, 3)).reshape((3, -1)).T - 1
         h_iv = M_ic.dot(gd.h_cv)
         voro = Voronoi(h_iv)
         i_d = []  # List[int]

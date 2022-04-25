@@ -123,11 +123,11 @@ class Phonons(phonons.Phonons):
         self.C_q = []
         for q, C_aavv in enumerate(self.C_qaavv):
 
-            C_avav = np.zeros((3*N, 3*N), dtype=self.dtype)
+            C_avav = np.zeros((3 * N, 3 * N), dtype=self.dtype)
 
             for i, a in enumerate(self.indices):
                 for j, a_ in enumerate(self.indices):
-                    C_avav[3*i : 3*i + 3, 3*j : 3*j + 3] += C_aavv[a][a_]
+                    C_avav[3 * i: 3 * i + 3, 3 * j: 3 * j + 3] += C_aavv[a][a]
 
             self.C_q.append(C_avav)
 
@@ -148,14 +148,13 @@ class Phonons(phonons.Phonons):
             for C in self.C_q:
                 for a in range(N):
                     for a_ in range(N):
-                        C[3*a : 3*a + 3, 3*a : 3*a + 3] -= \
-                            C_gamma[3*a: 3*a+3, 3*a_: 3*a_+3]
+                        C[3 * a: 3 * a + 3, 3 * a: 3 * a + 3] -= \
+                            C_gamma[3 * a: 3 * a + 3, 3 * a_: 3 * a_ + 3]
 
             # Check sum-rule for Gamma-component in debug mode
             if debug:
                 C = self.C_q[self.gamma_index]
-                assert np.all(np.sum(C.reshape((3*N, N, 3)), axis=1) < 1e-15)
-
+                assert np.all(np.sum(C.reshape((3 * N, N, 3)), axis=1) < 1e-15)
 
         # Move this bit to an ``unfold`` member function
         # XXX Time-reversal symmetry

@@ -33,7 +33,7 @@ class MGGA(XCFunctional):
         return ('{} with {} nearest neighbor stencil'
                 .format(self.name, self.stencil))
 
-    def initialize(self, density, hamiltonian, wfs, occupations):
+    def initialize(self, density, hamiltonian, wfs):
         self.wfs = wfs
         self.tauct = density.get_pseudo_core_kinetic_energy_density_lfc()
         self.tauct_G = None

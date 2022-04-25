@@ -1,13 +1,10 @@
-from myqueue.task import task
+from myqueue.workflow import run
 
 
-def create_tasks():
-    return [
-        task('ruslab.py@8:10h'),
-        task('ruslab.py+H@8:10h'),
-        task('ruslab.py+N@8:10h'),
-        task('ruslab.py+O@16:15h'),
-        task('molecules.py@8:20m'),
-        task('results.py',
-             deps=['ruslab.py', 'ruslab.py+H', 'ruslab.py+N',
-                   'ruslab.py+O', 'molecules.py'])]
+def workflow():
+    runs = [run(script='ruslab.py', cores=8, tmax='10h'),
+            run(script='ruslab.py', args=['H'], cores=8, tmax='10h'),
+            run(script='ruslab.py', args=['N'], cores=8, tmax='10h'),
+            run(script='ruslab.py', args=['O'], cores=16, tmax='15h'),
+            run(script='molecules.py', cores=8, tmax='20m')]
+    run(script='results.py', deps=runs)

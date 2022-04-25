@@ -38,17 +38,16 @@ class ResponseCalculator:
 
     """
 
-    parameters = {'verbose':               False,
-                  'max_iter':              100,
-                  'max_iter_krylov':       1000,
-                  'krylov_solver':         'cg',
-                  'tolerance_sc':          1.0e-5,
+    parameters = {'verbose': False,
+                  'max_iter': 100,
+                  'max_iter_krylov': 1000,
+                  'krylov_solver': 'cg',
+                  'tolerance_sc': 1.0e-5,
                   'tolerance_sternheimer': 1.0e-4,
-                  'use_pc':                True,
-                  'beta':                  0.1,
-                  'nmaxold':               6,
-                  'weight':                50
-                  }
+                  'use_pc': True,
+                  'beta': 0.1,
+                  'nmaxold': 6,
+                  'weight': 50}
 
     def __init__(self, calc, wfs, poisson_solver=None, dtype=float, **kwargs):
         """Store calculator etc.
@@ -198,7 +197,7 @@ class ResponseCalculator:
 
             if iter == max_iter:
                 raise RuntimeError("self-consistent loop did not converge "
-                                     "in %i iterations" % iter)
+                                   "in %i iterations" % iter)
 
     def set(self, **kwargs):
         """Set parameters for calculation."""
@@ -250,7 +249,7 @@ class ResponseCalculator:
         else:
             pc = None
 
-        #XXX K-point of the pc must be set in the k-point loop -> store a ref.
+        # XXX K-point of the pc must be set in the k-point loop -> store a ref.
         self.pc = pc
         # Linear solver for the solution of Sternheimer equation
         self.linear_solver = ScipyLinearSolver(method=krylov_solver,

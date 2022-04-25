@@ -1,10 +1,18 @@
-from myqueue.task import task
+import os
+import shutil
+from pathlib import Path
+from myqueue.workflow import run
 
 
-def create_tasks():
-    nbrun = 'gpaw.utilities.nbrun'
-    t1 = task(nbrun, args=['batteries1.master.ipynb'], tmax='1h')
-    t2 = task(nbrun, args=['batteries2.master.ipynb'], tmax='3h')
-    t3 = task(nbrun, args=['batteries3.master.ipynb'], tmax='1h', cores=8,
-              deps=[t1, t2])
-    return [t1, t2, t3]
+def workflow():
+    if os.getenv('AGTS_FILES'):
+        dir = Path(os.getenv('AGTS_FILES'))
+        for file in [Path('lifepo4_wo_li.traj'),
+                     Path('NEB_init.traj')]:
+            if not file.is_file():
+                shutil.copyfile(dir / file, file)
+
+    r1 = run(script='batteries1.py', tmax='2h')
+    r2 = run(script='batteries2.py', tmax='3h')
+    with r1, r2:
+        run(script='batteries3.py', tmax='1h', cores=8)

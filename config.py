@@ -1,11 +1,9 @@
 # Copyright (C) 2006 CSC-Scientific Computing Ltd.
 # Please see the accompanying LICENSE file for further information.
-from __future__ import print_function
 import os
 import sys
 import re
-import distutils.util
-from distutils.sysconfig import get_config_vars
+from sysconfig import get_config_vars, get_platform
 from glob import glob
 from pathlib import Path
 from stat import ST_MTIME
@@ -39,7 +37,8 @@ def check_dependencies(sources):
     mtimes = {}  # modification times
 
     # Remove object files if any dependencies have changed:
-    plat = distutils.util.get_platform() + '-' + sys.version[0:3]
+    plat = get_platform() + '-{maj}.{min}'.format(maj=sys.version_info[0],
+                                                  min=sys.version_info[1])
     remove = False
     for source in sources:
         path, name = os.path.split(source)
@@ -50,7 +49,7 @@ def check_dependencies(sources):
             os.remove(o)
             remove = True
 
-    so = 'build/lib.%s/_gpaw.so' % plat
+    so = 'build/lib.{}/_gpaw.so'.format(plat)
     if os.path.exists(so) and remove:
         # Remove shared object C-extension:
         # print 'removing', so
@@ -100,7 +99,8 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
     # Build custom interpreter which is used for parallel calculations
 
     cfgDict = get_config_vars()
-    plat = distutils.util.get_platform() + '-' + sys.version[0:3]
+    plat = get_platform() + '-{maj}.{min}'.format(maj=sys.version_info[0],
+                                                  min=sys.version_info[1])
 
     cfiles = glob('c/[a-zA-Z_]*.c') + ['c/bmgs/bmgs.c']
     cfiles += glob('c/xc/*.c')
@@ -108,16 +108,16 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
     # XXX some of this is duplicated in setup.py!  Why do the same thing twice?
     cfiles.sort()
 
-    sources = ['c/bc.c', 'c/localized_functions.c', 'c/mpi.c', 'c/_gpaw.c',
+    sources = ['c/bc.c', 'c/mpi.c', 'c/_gpaw.c',
                'c/operators.c', 'c/woperators.c', 'c/transformers.c',
                'c/elpa.c',
                'c/blacs.c', 'c/utilities.c', 'c/xc/libvdwxc.c']
     objects = ' '.join(['build/temp.%s/' % plat + x[:-1] + 'o'
                         for x in cfiles])
 
-    if not os.path.isdir('build/bin.%s/' % plat):
-        os.makedirs('build/bin.%s/' % plat)
-    exefile = 'build/bin.%s/' % plat + '/gpaw-python'
+    if not os.path.isdir('build/bin.{}/'.format(plat)):
+        os.makedirs('build/bin.{}/'.format(plat))
+    exefile = 'build/bin.{}/gpaw-python'.format(plat)
 
     libraries += mpi_libraries
     library_dirs += mpi_library_dirs
@@ -144,7 +144,7 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
         libs += ' {}'.format(lib)
     else:
         libs += ' ' + cfgDict.get('BLDLIBRARY',
-                                  '-lpython%s' % cfgDict['VERSION'])
+                                  '-lpython{}'.format(cfgDict['VERSION']))
     libs = ' '.join([libs, cfgDict['LIBS'], cfgDict['LIBM']])
 
     # Hack taken from distutils to determine option for runtime_libary_dirs
@@ -180,9 +180,9 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
 
     # Compile the parallel sources
     for src in sources:
-        obj = 'build/temp.%s/' % plat + src[:-1] + 'o'
-        cmd = ('%s %s %s %s -o %s -c %s ') % \
-              (mpicompiler,
+        obj = 'build/temp.{}/'.format(plat) + src[:-1] + 'o'
+        cmd = ('{} {} {} {} -o {} -c {} ').format(
+               mpicompiler,
                macros,
                ' '.join(extra_compile_args),
                includes,
@@ -194,8 +194,8 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
             return error
 
     # Link the custom interpreter
-    cmd = ('%s -o %s %s %s %s %s %s %s') % \
-          (mpilinker,
+    cmd = ('{} -o {} {} {} {} {} {} {}').format(
+           mpilinker,
            exefile,
            objects,
            ' '.join(extra_objects),

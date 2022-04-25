@@ -19,20 +19,16 @@ class LrtddftTransitions:
         # only for pros
         self.custom_axes = None
 
-    ############################################################################
     def initialize(self):
         self.trans_prop_ready = False
 
-    ############################################################################
     def read(self):
         pass
 
-    ############################################################################
     def calculate(self):
         self.diagonalize()
         self.calculate_properties()
 
-    ############################################################################
     def diagonalize(self):
         if self.sl_lrtddft is None:
             self.diagonalize_serial()
@@ -56,15 +52,15 @@ class LrtddftTransitions:
                     continue
 
                 # K-matrix
-                #if self.K_matrix.file_format == 1:
+                # if self.K_matrix.file_format == 1:
                 omega_matrix[ip, jq] = 2. * np.sqrt(
                     kss_ip.energy_diff * kss_jq.energy_diff * kss_ip.pop_diff *
                     kss_jq.pop_diff) * self.K_matrix.values[lip, ljq]
                 # old Casida format ... doing this already in k_matrix.py
-                #elif self.K_matrix.file_format == 0:
+                # elif self.K_matrix.file_format == 0:
                 #    omega_matrix[ip,jq] = self.K_matrix.values[lip,ljq]
                 # invalid
-                #else:
+                # else:
                 #    raise RuntimeError('Invalid K-matrix file format')
 
                 if (ip == jq):
@@ -74,14 +70,14 @@ class LrtddftTransitions:
         # full omega matrix to each process
         self.lr_comms.parent_comm.sum(omega_matrix)
 
-        #if self.lr_comms.parent_comm.rank == 0:
+        # if self.lr_comms.parent_comm.rank == 0:
         #    print omega_matrix
 
         # solve eigensystem
 
         # debug
-        #omega_matrix[:] = 0
-        #for i in range(omega_matrix.shape[0]):
+        # omega_matrix[:] = 0
+        # for i in range(omega_matrix.shape[0]):
         #    for j in range(omega_matrix.shape[1]):
         #        if i == j: omega_matrix[i,j] = -2.
         #        if i+1 == j: omega_matrix[i,j] = omega_matrix[j,i] = 1.
@@ -106,19 +102,9 @@ class LrtddftTransitions:
                 ljq = self.lr_comms.get_local_dd_index(jq)
                 if lip is None or ljq is None:
                     continue
-                self.eigenvectors[lip, ljq] = omega_matrix[
-                    ip, jq]  # debug: ip*10 + jq
-
-        #debug
-        #if 0:
-        #    for p in range(self.lr_comms.parent_comm.size):
-        #        self.lr_comms.parent_comm.barrier()
-        #        if p == self.lr_comms.parent_comm.rank:
-        #            print self.lr_comms.parent_comm.rank, self.lr_comms.eh_comm.rank, self.lr_comms.dd_comm.rank
-        #            for i in range(self.eigenvectors.shape[0]):
-        #                for j in range(self.eigenvectors.shape[1]):
-        #                    print '%02d' % int(self.eigenvectors[i,j]),
-        #                print
+                self.eigenvectors[lip,
+                                  ljq] = omega_matrix[ip,
+                                                      jq]  # debug: ip*10 + jq
 
     def diagonalize_scalapack(self):
         # total rows
@@ -132,7 +118,9 @@ class LrtddftTransitions:
         if (nrows <
                 np.max([layout.mprocs, layout.nprocs]) * layout.block_size):
             raise RuntimeError(
-                'Linear response matrix is not large enough for the given number of processes (or block size) in sl_lrtddft. Please, use less processes (or smaller block size).'
+                'Linear response matrix is not large enough for the given '
+                'number of processes (or block size) in sl_lrtddft. Please, '
+                'use less processes (or smaller block size).'
             )
 
         # build local part
@@ -144,14 +132,14 @@ class LrtddftTransitions:
                 if lip is None or ljq is None:
                     continue
 
-                #if self.K_matrix.file_format == 1:
+                # if self.K_matrix.file_format == 1:
                 omega_matrix[lip, ljq] = 2. * np.sqrt(
                     kss_ip.energy_diff * kss_jq.energy_diff * kss_ip.pop_diff *
                     kss_jq.pop_diff) * self.K_matrix.values[lip, ljq]
                 # old Casida format ... doing this already in k_matrix.py
-                #elif self.K_matrix.file_format == 0:
+                # elif self.K_matrix.file_format == 0:
                 #    omega_matrix[lip,ljq] = self.K_matrix.values[lip,ljq]
-                #else:
+                # else:
                 #    raise RuntimeError('Invalid K-matrix file format')
 
                 if (ip == jq):
@@ -170,7 +158,7 @@ class LrtddftTransitions:
     def calculate_properties(self):
         if self.custom_axes is not None:
             self.custom_axes = np.array(self.custom_axes)
-        #else:
+        # else:
         #    self.custom_axes = np.array([[1.0,0.0,0.0],
         #                                 [0.0,1.0,0.0],
         #                                 [0.0,0.0,1.0]])
@@ -190,17 +178,18 @@ class LrtddftTransitions:
         cloc_dm = np.zeros(nleigs)
         cloc_magn = np.zeros(nleigs)
 
-        #print self.lr_comms.parent_comm.rank, self.lr_comms.eh_comm.rank, self.lr_comms.dd_comm.rank, nlrows, nlcols
-
         # see Autschbach et al., J. Chem. Phys., 116, 6930 (2002)
         # see also Varsano et al., Phys.Chem.Chem.Phys. 11, 4481 (2009)
         #
-        # mu_k = sum_jq sqrt(ediff_jq / omega_k)  sqrt(population_jq) * F^(k)_jq * mu_jq
-        # m_k  = sum_jq sqrt(omega_k  / ediff_jq) sqrt(population_jq) * F^(k)_jq * m_jq
+        # mu_k = sum_jq sqrt(ediff_jq / omega_k)
+        #        sqrt(population_jq) * F^(k)_jq * mu_jq
+        # m_k  = sum_jq sqrt(omega_k  / ediff_jq)
+        #        sqrt(population_jq) * F^(k)_jq * m_jq
         #
         # FIXME: check once more
         # mu_k = sum_jq c1_k * c2_k * mu_jq
-        #      = sum_jq sqrt(ediff_jq / omega_k) sqrt(fdiff_jq) * F^(k)_jq mu_jq
+        #      = sum_jq sqrt(ediff_jq / omega_k)
+        #        sqrt(fdiff_jq) * F^(k)_jq mu_jq
         # m_k  = sum_jq c2_k / c1_k * m_jq
         #      = sum_jq sqrt(fdiff_jq) sqrt(omega_k / ediff_jq) * F^(k)_jq m_jq
         #
@@ -208,20 +197,9 @@ class LrtddftTransitions:
         #    =  np.sqrt(kss_jq.energy_diff / self.get_excitation_energy(k))
         #
         # c2 = sqrt(fdiff_jq) * F^(k)_jq
-        #    = np.sqrt(kss_jq.pop_diff) * self.get_local_eig_coeff(k,self.index_map[(i,p)])
+        #    = np.sqrt(kss_jq.pop_diff) *
+        #      self.get_local_eig_coeff(k,self.index_map[(i,p)])
         #
-
-        # debug
-        #if 0:
-        #    for p in range(self.lr_comms.parent_comm.size):
-        #        self.lr_comms.parent_comm.barrier()
-        #        if p == self.lr_comms.parent_comm.rank:
-        #            print self.lr_comms.parent_comm.rank, self.lr_comms.eh_comm.rank, self.lr_comms.dd_comm.rank
-        #            for kloc in range(nleigs):
-        #                print self.lr_comms.get_global_dd_index(kloc),
-        #            print
-
-        #self.eigenvalues = np.array(range(len(self.eigenvalues)))**4
 
         # sqrt(omega_kloc)
         for kloc in range(nleigs):
@@ -229,14 +207,12 @@ class LrtddftTransitions:
                 np.sqrt(
                     self.eigenvalues[self.lr_comms.get_global_dd_index(kloc)]))
 
-        #print self.lr_comms.parent_comm.rank, self.lr_comms.eh_comm.rank, self.lr_comms.dd_comm.rank, nlrows, nleigs, sqrtwloc
-
         # loop over ks singles
         for (ip, kss_ip) in enumerate(self.ks_singles.kss_list):
 
             # local ip index
             lip = self.lr_comms.get_local_eh_index(ip)
-            #print self.lr_comms.parent_comm.rank, i,p,ip,lip
+            # print self.lr_comms.parent_comm.rank, i,p,ip,lip
             if lip is None:
                 continue
 
@@ -250,8 +226,6 @@ class LrtddftTransitions:
             # (NOT the "jq"th eigenvector)
             cloc_dm[:] = self.eigenvectors[lip, :]
             cloc_magn[:] = self.eigenvectors[lip, :]
-
-            #print self.lr_comms.parent_comm.rank, i,p, ip, lip, cloc_dm, sqrtwloc, cloc_dm * sqrtwloc
 
             # c1 * c2 * F = sqrt(fdiff_ip * ediff_ip) / sqrt(omega_k) F^(k)_ip
             cloc_dm *= np.sqrt(kss_ip.pop_diff * kss_ip.energy_diff)
@@ -310,14 +284,8 @@ class LrtddftTransitions:
         # sum over kloc dmx[...kloc...] to dmx[k]
         self.lr_comms.dd_comm.sum(self.transition_properties.ravel())
 
-        #print self.lr_comms.parent_comm.rank, self.transition_properties[:,1]
-        #return
-
-        #if self.lr_comms.parent_comm.rank == 0:
-        #    print self.transition_properties[:,0]*27.211
-        #    print self.transition_properties[:,1]**2 * 2 * self.transition_properties[:,0]
-        #    print self.transition_properties[:,2]**2 * 2 * self.transition_properties[:,0]
-        #    print self.transition_properties[:,3]**2 * 2 * self.transition_properties[:,0]
+        # print self.lr_comms.parent_comm.rank, self.transition_properties[:,1]
+        # return
 
         self.trans_prop_ready = True
 
@@ -417,7 +385,8 @@ class LrtddftTransitions:
                         units='eVcgs'):
         """Get transitions: energy, dipole strength and rotatory strength.
 
-        Returns transitions as (w,S,R, Sx,Sy,Sz) where w is an array of frequencies,
+        Returns transitions as (w,S,R, Sx,Sy,Sz) where w is an array of
+        frequencies,
         S is an array of corresponding dipole strengths, and R is an array of
         corresponding rotatory strengths.
 
@@ -469,7 +438,8 @@ class LrtddftTransitions:
                          'osc str y', 'osc str z', 'units: ' + units))
             for (ww, SS, RR, SSx, SSy, SSz) in zip(w, S, R, Sx, Sy, Sz):
                 sfile.write(
-                    "  %12.8lf  %12.8lf  %12.8lf     %12.8lf  %12.8lf  %12.8lf\n"
+                    ("  %12.8lf  %12.8lf  %12.8lf     "
+                     "%12.8lf  %12.8lf  %12.8lf\n")
                     % (ww, SS, RR, SSx, SSy, SSz))
             sfile.close()
 
@@ -552,7 +522,8 @@ class LrtddftTransitions:
                          'osc str y', 'osc str z', 'units: ' + units))
             for (ww, SS, RR, SSx, SSy, SSz) in zip(w, S, R, Sx, Sy, Sz):
                 sfile.write(
-                    "  %12.8lf  %12.8lf  %12.8lf     %12.8lf  %12.8lf  %12.8lf\n"
+                    ("  %12.8lf  %12.8lf  %12.8lf     "
+                     "%12.8lf  %12.8lf  %12.8lf\n")
                     % (ww, SS, RR, SSx, SSy, SSz))
             sfile.close()
 
@@ -579,7 +550,8 @@ class LrtddftTransitions:
                 'Error in get_transition_contributions: Index < zero.')
         if index_of_transition >= neigs:
             raise RuntimeError(
-                'Error in get_transition_contributions: Index >= number of transitions'
+                'Error in get_transition_contributions: '
+                'Index >= number of transitions'
             )
 
         k = index_of_transition

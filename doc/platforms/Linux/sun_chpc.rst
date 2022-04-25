@@ -4,7 +4,7 @@
 sun.chpc.ac.za
 ==============
 
-Here you find information about the the system http://www.chpc.ac.za/sun/.
+Here you find information about the system http://www.chpc.ac.za/sun/.
 
 The installation of user's packages on SUSE 10 **login01**,
 64-bit described below uses

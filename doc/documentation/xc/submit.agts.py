@@ -1,11 +1,11 @@
-from myqueue.task import task
+from myqueue.workflow import run
 from gpaw.utilities import compiled_with_libvdwxc
 from gpaw.xc.libvdwxc import libvdwxc_has_pfft
 
-def create_tasks():
-    jobs = []
+
+def workflow():
+    run(script='hydrogen_atom.py', cores=16)
     if compiled_with_libvdwxc():
-        jobs.append(task('libvdwxc-example.py'))
+        run(script='libvdwxc-example.py')
         if libvdwxc_has_pfft():
-            jobs.append(task('libvdwxc-pfft-example.py', cores=8))
-    return jobs
+            run(script='libvdwxc-pfft-example.py', cores=8)

@@ -1,14 +1,15 @@
 """BLACS distributed matrix object."""
+from typing import Dict, Tuple
 import numpy as np
 import scipy.linalg as linalg
 
 import _gpaw
 from gpaw import debug
-from gpaw.mpi import serial_comm
+from gpaw.mpi import serial_comm, _Communicator
 import gpaw.utilities.blas as blas
 
 
-_global_blacs_context_store = {}
+_global_blacs_context_store: Dict[Tuple[_Communicator, int, int], int] = {}
 
 
 def matrix_matrix_multiply(alpha, a, opa, b, opb, beta=0.0, c=None,
@@ -299,12 +300,19 @@ class Matrix:
                                                    overwrite_a=True,
                                                    check_finite=debug)
             self.dist.comm.broadcast(eps, 0)
-        elif slcomm.rank < rows * columns:
-            assert cc
-            array = H.array.copy()
-            info = _gpaw.scalapack_diagonalize_dc(array, H.dist.desc, 'U',
-                                                  H.array, eps)
-            assert info == 0, info
+        else:
+            if slcomm.rank < rows * columns:
+                assert cc
+                array = H.array.copy()
+                info = _gpaw.scalapack_diagonalize_dc(array, H.dist.desc, 'U',
+                                                      H.array, eps)
+                assert info == 0, info
+
+            # necessary to broadcast eps when some ranks are not used
+            # in current scalapack parameter set
+            # eg. (2, 1, 2) with 4 processes
+            if rows * columns < slcomm.size:
+                H.dist.comm.broadcast(eps, 0)
 
         if redist:
             H.redist(self)
@@ -546,13 +554,12 @@ def fastmmm2(a, b, out):
             m1 = min(((comm.rank - r) % comm.size) * m, M)
             m2 = min(m1 + m, M)
             if r == 0:
-                #symmmmmmmmmmmmmmmmmmmmmmetricccccccccccccccc
+                # symmmmmmmmmmmmmmmmmmmmmmetricccccccccccccccc
                 blas.mmm(1.0, aa, 'N', bb, 'C', 1.0, out.array[:, m1:m2])
             else:
                 beta = 1.0 if r <= comm.rank else 0.0
                 blas.mmm(1.0, aa, 'N', buf2[:m2 - m1], 'C',
                          beta, out.array[:, m1:m2])
-                #print(comm.rank, r, beta, out.array, m1, m2)
             # out.array[:, m1:m2] = m12.array[:, :m2 - m1]
 
         if rrequest:
@@ -623,7 +630,7 @@ def fastmmm2notsym(a, b, out):
 
         m1 = min(((comm.rank - r) % comm.size) * m, M)
         m2 = min(m1 + m, M)
-        #symmmmmmmmmmmmmmmmmmmmmmetricccccccccccccccc ??
+        # symmmmmmmmmmmmmmmmmmmmmmetricccccccccccccccc ??
         blas.mmm(1.0, aa, 'N', bb[:m2 - m1], 'C', 1.0, out.array[:, m1:m2])
 
         if rrequest:

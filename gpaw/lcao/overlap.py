@@ -56,7 +56,6 @@ from gpaw.gaunt import gaunt
 from gpaw.spherical_harmonics import Yl, nablarlYL
 from gpaw.spline import Spline
 from gpaw.utilities.tools import tri2full
-from gpaw import extra_parameters
 from gpaw.utilities.timing import nulltimer
 
 timer = nulltimer  # XXX global timer object, only for hacking
@@ -65,7 +64,7 @@ UL = 'L'
 
 # Generate the coefficients for the Fourier-Bessel transform
 C = []
-a = 0.0
+a = 0.0 + 0.0j
 LMAX = 7
 for n in range(LMAX):
     c = np.zeros(n + 1, complex)
@@ -395,9 +394,10 @@ class SimpleAtomIter:
 class NeighborPairs:
     """Class for looping over pairs of atoms using a neighbor list."""
     def __init__(self, cutoff_a, cell_cv, pbc_c, self_interaction):
-        self.neighbors = PrimitiveNeighborList(cutoff_a, skin=0, sorted=True,
-                                          self_interaction=self_interaction,
-                                          use_scaled_positions=True)
+        self.neighbors = PrimitiveNeighborList(
+            cutoff_a, skin=0, sorted=True,
+            self_interaction=self_interaction,
+            use_scaled_positions=True)
         self.cell_cv = cell_cv
         self.pbc_c = pbc_c
 
@@ -755,12 +755,13 @@ class NewTwoCenterIntegrals:
                                                                 True))
 
         scale = 0.01  # XXX minimal distance scale
-        cutoff_close_a = [covalent_radii[s.Z] / Bohr * scale for s in setups]
+        cutoff_close_a = [covalent_radii[int(s.Z)] / Bohr * scale
+                          for s in setups]
         self.atoms_close = NeighborPairs(cutoff_close_a, cell_cv, pbc_c, False)
 
         rcmax = max(cutoff_I + [0.001])
 
-        ng = 2**extra_parameters.get('log2ng', 10)
+        ng = 2**10
         transformer = FourierTransformer(rcmax, ng)
         tsoc = TwoSiteOverlapCalculator(transformer)
         self.msoc = ManySiteOverlapCalculator(tsoc, I_a, I_a)

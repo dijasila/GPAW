@@ -378,7 +378,7 @@ class GaussLegendre:
         try:
             ns = _nodes[ng - 1]
             ws = _weights[ng - 1]
-        except:
+        except Exception:
             raise RuntimeError('Gauss-Legendre only possible for n=' +
                                str(_NGMIN) + '-' + str(_NGMAX))
         dx = xmax - xmin

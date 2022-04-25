@@ -33,15 +33,15 @@ for molecule in ['Adenine-thymine_complex_stack']:
                txt=None)
 
     for s in [s1, s2, ss]:
-        s.set_calculator(c)
+        s.calc = c
         s.minimal_box(box, h=h)
         Energy['PBE'].append(s.get_potential_energy())
         cc = vdWTkatchenko09prl(HirshfeldPartitioning(c),
                                 vdWradii(s.get_chemical_symbols(), 'PBE'))
-        s.set_calculator(cc)
+        s.calc = cc
         Energy['TS09'].append(s.get_potential_energy())
 
-        s.set_calculator(cdf)
+        s.calc = cdf
         Energy['vdW-DF'].append(s.get_potential_energy())
 
     parprint('Coupled cluster binding energy',

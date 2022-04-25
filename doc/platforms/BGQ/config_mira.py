@@ -1,17 +1,16 @@
 # Copyright (C) 2006 CSC-Scientific Computing Ltd.
 
 # Please see the accompanying LICENSE file for further information.
-from __future__ import print_function
 import os
 import sys
 import re
 import distutils.util
-from distutils.version import LooseVersion
+from packaging.version import Version
 from distutils.sysconfig import get_config_var, get_config_vars
-from distutils.command.config import config
 from glob import glob
 from os.path import join
 from stat import ST_MTIME
+
 
 def check_packages(packages, msg, include_ase, import_numpy):
     """Check the python version and required extra packages
@@ -102,14 +101,14 @@ def get_system_config(define_macros, undef_macros,
         arch = re.findall('-xarch=(\S+)', stderr)
         os.remove('cc-test.c')
         if len(arch) > 0:
-            extra_compile_args += ['-xarch=%s' % arch[-1]]
+            extra_compile_args += [f'-xarch={arch[-1]}']
 
 
         # We need the -Bstatic before the -lsunperf and -lfsu:
         # http://forum.java.sun.com/thread.jspa?threadID=5072537&messageID=9265782
         extra_link_args += ['-Bstatic', '-lsunperf', '-lfsu', '-Bdynamic']
         cc_version = os.popen3('cc -V')[2].readline().split()[3]
-        if LooseVersion(cc_version) > '5.6':
+        if Version(cc_version) > '5.6':
             libraries.append('mtsk')
         else:
             extra_link_args.append('-lmtsk')
@@ -197,7 +196,7 @@ def get_system_config(define_macros, undef_macros,
             libraries += ['mkl_lapack',
                           'mkl_ia32', 'guide', 'pthread', 'mkl']#, 'mkl_def']
             library_dirs += libs
-            msg +=  ['* Using MKL library: %s' % library_dirs[-1]]
+            msg +=  [f'* Using MKL library: {library_dirs[-1]}']
             #extra_link_args += ['-Wl,-rpath=' + library_dirs[-1]]
         else:
             atlas = False
@@ -302,13 +301,13 @@ def check_dependencies(sources):
     for source in sources:
         path, name = os.path.split(source)
         t = mtime(path + '/', name, mtimes)
-        o = 'build/temp.%s/%s.o' % (plat, source[:-2])  # object file
+        o = f'build/temp.{plat}/{source[:-2]}.o'  # object file
         if os.path.exists(o) and t > os.stat(o)[ST_MTIME]:
             print('removing', o)
             os.remove(o)
             remove = True
 
-    so = 'build/lib.%s/_gpaw.so' % plat
+    so = f'build/lib.{plat}/_gpaw.so'
     if os.path.exists(so) and remove:
         # Remove shared object C-extension:
         # print 'removing', so
@@ -383,9 +382,9 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
     objects = ' '.join(['build/temp.%s/' % plat + x[:-1] + 'o'
                         for x in cfiles])
 
-    if not os.path.isdir('build/bin.%s/' % plat):
-        os.makedirs('build/bin.%s/' % plat)
-    exefile = 'build/bin.%s/' % plat + '/gpaw-python'
+    if not os.path.isdir(f'build/bin.{plat}/'):
+        os.makedirs(f'build/bin.{plat}/')
+    exefile = f'build/bin.{plat}/' + '/gpaw-python'
 
     # if you want static linked MPI libraries, uncomment the line below
     libraries += mpi_libraries
@@ -411,9 +410,9 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
     libs += ' -Wl,-dy'
     libpl = cfgDict['LIBPL']
     if glob(libpl + '/libpython*mpi*'):
-        libs += ' -lpython%s_mpi' % cfgDict['VERSION']
+        libs += f" -lpython{cfgDict['VERSION']}_mpi"
     else:
-        libs += ' -lpython%s' % cfgDict['VERSION']
+        libs += f" -lpython{cfgDict['VERSION']}"
     # libs += ' -lpython%s ' % cfgDict['VERSION']
     # if you want dynamic linked MPI libraries, uncomment the line below
     # only really needed for TAU profiling
@@ -478,7 +477,7 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
 
     # Compile the parallel sources
     for src in sources:
-        obj = 'build/temp.%s/' % plat + src[:-1] + 'o'
+        obj = f'build/temp.{plat}/' + src[:-1] + 'o'
         cmd = ('%s %s %s %s -o %s -c %s ' ) % \
               (mpicompiler,
                macros,

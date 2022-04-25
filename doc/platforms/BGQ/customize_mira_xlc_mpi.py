@@ -67,12 +67,12 @@ library_dirs = [
            '/soft/libraries/alcf/current/xl/LAPACK/lib',
            '/soft/libraries/alcf/current/xl/SCALAPACK/lib',
            '/soft/libraries/essl/5.1.1-0/lib64',
-           '%s/xlf/bg/14.1/bglib64' % ibmcmp_base,
-           '%s/xlsmp/bg/3.1/bglib64' % ibmcmp_base,
+           f'{ibmcmp_base}/xlf/bg/14.1/bglib64',
+           f'{ibmcmp_base}/xlsmp/bg/3.1/bglib64',
 # plain vanilla Python
 #           '/bgsys/tools/Python-2.6/lib64',
 # scalable Python 2.6.7
-           '%s' % python_base,
+           f'{python_base}',
            '/soft/libraries/unsupported/hdf5-1.8.8/lib/',
            ]
 
@@ -83,7 +83,7 @@ library_dirs = [
 
 # scalable Python 2.6.7
 include_dirs += [
-    '%s/lib/python2.6/site-packages/numpy/core/include' % python_base,
+    f'{python_base}/lib/python2.6/site-packages/numpy/core/include',
     '/soft/libraries/unsupported/hdf5-1.8.8/include/'
     ]
 

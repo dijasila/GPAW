@@ -1,48 +1,77 @@
-"""Extract code from ipynb file.
-
-Used for testing summerschool notebooks.
-"""
+"""Code for summerschool notebooks."""
 import json
+import sys
 from pathlib import Path
+from typing import Dict, Any
 
 
-def convert(path):
-    data = json.loads(path.read_text())
+def py2ipynb(path: Path) -> None:
+    """Convert Python script to ipynb file.
 
-    lines = ['# Converted from {path}\n'.format(path=path)]
-    n = 1
-    for cell in data['cells']:
-        if cell['cell_type'] == 'code':
-            lines.extend(['\n', '# In [{n}]:\n'.format(n=n)])
-            for line in cell['source']:
-                if line.startswith('%') or line.startswith('!'):
-                    line = '# ' + line
-                lines.append(line)
-            lines.append('\n')
-            n += 1
+    Hides cells marked with "# teacher" and replaces lines marked with
+    "# student: ..."::
 
-    code = ''.join(lines)
+        answer = 42  # student: answer = ...
 
-    path.with_suffix('.py').write_text(code)
+    gives::
 
-    return code
+        answer = ...
 
-
-def view(atoms, repeat=None):
-    pass
-
-
-def run(name):
-    """Execute ipynb file.
-
-    Run code with ase.visualize.view() disabled.
     """
-    import ase.visualize as visualize
-    visualize.view = view
-    code = convert(Path(name))
-    exec(code, {})
+    cells = []
+    text = path.read_text()
+    assert text.startswith('# %%\n')
+    chunks = text[5:].split('\n\n# %%\n')
+
+    for chunk in chunks:
+        cell_type = 'code'
+        if chunk.startswith(('"""', 'r"""')):
+            chunk = chunk.strip('r\n')
+            chunk = chunk.strip('"')
+            cell_type = 'markdown'
+
+        cell: Dict[str, Any] = {
+            'cell_type': cell_type,
+            'metadata': {},
+            'source': chunk.splitlines(True)}
+
+        if cell_type == 'code':
+            cell['outputs'] = []
+            cell['execution_count'] = None
+            lines = cell['source']
+            for i, line in enumerate(lines):
+                if ' # student:' in line:
+                    a, b = (x.strip() for x in line.split('# student:'))
+                    lines[i] = line.split(a)[0] + b + '\n'
+                elif line.startswith('# magic: '):
+                    lines[i] = line[9:]
+                elif line.lower().startswith('# teacher'):
+                    del lines[i:]
+                    break
+
+        cells.append(cell)
+
+    outpath = path.with_suffix('.ipynb')
+    outpath.write_text(
+        json.dumps(
+            {'cells': cells,
+             'metadata': {
+                 'kernelspec': {
+                     'display_name': 'Python 3',
+                     'language': 'python',
+                     'name': 'python3'},
+                 'language_info': {
+                     'codemirror_mode': {'name': 'ipython', 'version': 3},
+                     'file_extension': '.py',
+                     'mimetype': 'text/x-python',
+                     'name': 'python',
+                     'nbconvert_exporter': 'python',
+                     'pygments_lexer': 'ipython3',
+                     'version': '3.6.1'}},
+             'nbformat': 4,
+             'nbformat_minor': 1},
+            indent=2))
 
 
 if __name__ == '__main__':
-    import sys
-    run(sys.argv[1])
+    py2ipynb(Path(sys.argv[1]))

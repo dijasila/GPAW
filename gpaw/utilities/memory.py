@@ -1,5 +1,4 @@
 """Utilities to measure and estimate memory"""
-from __future__ import print_function
 
 # The functions  _VmB, memory, resident, and stacksize are based on
 # Python Cookbook, recipe number 286222
@@ -125,7 +124,7 @@ class MemNode:
         self.totalsize = self.basesize
         for node in self.nodes:
             self.totalsize += node.calculate_size()
-        # Datatype must not be fixed-size np integer
+        # Data-type must not be fixed-size np integer
         return self.totalsize
 
     def subnode(self, name, basesize=0):
@@ -139,37 +138,37 @@ class MemNode:
     def setsize(self, basesize):
         self.basesize = float(basesize)
 
-    
+
 def monkey_patch_timer():
     """Make the timer object write information about memory usage.
-    
+
     Call this function before the actual work is done.  Then do::
-        
+
         $ less mem.????
-        
+
     to see where the memory is allocated."""
 
     from ase.utils.timing import Timer
 
     from gpaw.mpi import rank
     from time import time
-    
+
     i = Timer.__init__
     st = Timer.start
     sp = Timer.stop
-    
+
     def init(self, print_levels=1000):
         i(self, print_levels)
         self.fd = open('mem.%04d' % rank, 'w')
         self.mem = []
         self.t0 = time()
-        
+
     def start(self, name):
-        st(self, name) 
+        st(self, name)
         print('start %14.6f %12d %s' % (time() - self.t0, maxrss(), name),
               file=self.fd)
         self.fd.flush()
-        
+
     def stop(self, name=None):
         names = sp(self, name)
         print('stop  %14.6f %12d %s' % (time() - self.t0, maxrss(),

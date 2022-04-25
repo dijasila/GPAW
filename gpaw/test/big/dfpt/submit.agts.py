@@ -1,5 +1,5 @@
-from myqueue.task import task
+from myqueue.workflow import run
 
 
-def create_tasks():
-    return [task('Si_AH.py@1:2h')]
+def workflow():
+    run(script='Si_AH.py', tmax='2h')

@@ -56,18 +56,17 @@ def run():
         n += 1
 
     # Write all 50 points to an xyz file as 50 hydrogen atoms:
-    f = open('50.xyz', 'w')
-    f.write('50\n\n')
-    for x, y, z in R_nv:
-        print('H', 4 * x, 4 * y, 4 * z, file=f)
-
-    #print np.dot(weights, Y_nL) * (4*pi)**.5
+    with open('50.xyz', 'w') as fd:
+        fd.write('50\n\n')
+        for x, y, z in R_nv:
+            print('H', 4 * x, 4 * y, 4 * z, file=fd)
 
     print('weight_n = np.array(%s)' % weight_n.tolist())
     print('Y_nL = np.array(%s)' % Y_nL.tolist())
     print('R_nv = np.array(%s)' % R_nv.tolist())
 
     return weight_n, Y_nL, R_nv
+
 
 if __name__ == '__main__':
     run()

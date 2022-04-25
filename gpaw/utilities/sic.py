@@ -33,9 +33,9 @@ class NSCFSIC:
                                   g.e_j[:njcore], g.u_j[:njcore]):
                 # Calculate orbital density
                 # NOTE: It's spherically symmetrized!
-                #n = np.dot(self.f_j,
+                # n = np.dot(self.f_j,
                 assert l == 0, ('Not tested for l>0 core states')
-                na = np.where(abs(u) < 1e-160, 0,u)**2 / (4 * pi)
+                na = np.where(abs(u) < 1e-160, 0, u)**2 / (4 * pi)
                 na[1:] /= g.r[1:]**2
                 na[0] = na[1]
                 nb = np.zeros(g.N)
@@ -43,20 +43,20 @@ class NSCFSIC:
                 vHr = np.zeros(g.N)
                 Exc = xc.calculate_spherical(g.rgd, np.array([na, nb]), v_sg)
                 hartree(0, na * g.r * g.dr, g.r, vHr)
-                EHa = 2*pi*np.dot(vHr*na*g.r , g.dr)
+                EHa = 2 * pi * np.dot(vHr * na * g.r, g.dr)
                 print(('%10.2f%10.2f%10.2f' % (Exc * Hartree, EHa * Hartree,
-                                               -f*(EHa+Exc) * Hartree)))
-                ESIC += -f*(EHa+Exc)
-                
+                                               -f * (EHa + Exc) * Hartree)))
+                ESIC += -f * (EHa + Exc)
+
         sic = SIC(finegrid=True, coulomb_factor=1, xc_factor=1)
         sic.initialize(self.paw.density, self.paw.hamiltonian, self.paw.wfs)
         sic.set_positions(self.paw.spos_ac)
-        
+
         print('Valence electron sic ')
         print('%10s%10s%10s%10s%10s%10s' % ('spin', 'k-point', 'band',
                                             'E_xc[n_i]', 'E_Ha[n_i]', 'E_SIC'))
-        assert len(self.paw.wfs.kpt_u)==1, ('Not tested for bulk calculations')
-        
+        assert len(self.paw.wfs.kpt_u) == 1, 'Not tested for bulk calculations'
+
         for s, spin in sic.spin_s.items():
             spin.initialize_orbitals()
             spin.update_optimal_states()
@@ -70,7 +70,7 @@ class NSCFSIC:
                 n += 1
 
             ESIC += spin.esic
-            
+
         print('Total correction for self-interaction energy:')
         print('%10.2f eV' % (ESIC * Hartree))
         print('New total energy:')

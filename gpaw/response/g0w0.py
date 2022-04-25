@@ -7,27 +7,26 @@ from math import pi
 
 import numpy as np
 from ase.dft.kpoints import monkhorst_pack
-from ase.units import Ha
-from ase.utils import opencew, devnull, pickleload
-from ase.utils.timing import timer
 from ase.parallel import paropen
+from ase.units import Ha
+from ase.utils import opencew, pickleload
+from ase.utils.timing import timer
 
-from gpaw import GPAW
 import gpaw.mpi as mpi
 from gpaw import debug
+from gpaw.calculator import GPAW
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.response.chi0 import Chi0, HilbertTransform
+from gpaw.response.fxckernel_calc import calculate_kernel
+from gpaw.response.kernels import get_coulomb_kernel, get_integrated_kernel
 from gpaw.response.pair import PairDensity
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
-from gpaw.response.kernels import get_coulomb_kernel
-from gpaw.response.kernels import get_integrated_kernel
-from gpaw.response.fxckernel_calc import calculate_kernel
-from gpaw.xc.fxc import set_flags
-from gpaw.wavefunctions.pw import (PWDescriptor, count_reciprocal_vectors,
-                                   PWMapping)
-from gpaw.xc.exx import EXX, select_kpts
-from gpaw.xc.tools import vxc
 from gpaw.utilities.progressbar import ProgressBar
+from gpaw.pw.descriptor import (PWDescriptor, PWMapping,
+                                count_reciprocal_vectors)
+from gpaw.xc.exx import EXX, select_kpts
+from gpaw.xc.fxc import set_flags
+from gpaw.xc.tools import vxc
 
 
 class G0W0(PairDensity):
@@ -42,7 +41,8 @@ class G0W0(PairDensity):
                  nblocks=1, savew=False, savepckl=True,
                  maxiter=1, method='G0W0', mixing=0.2,
                  world=mpi.world, ecut_extrapolation=False,
-                 nblocksmax=False, gate_voltage=None):
+                 nblocksmax=False, gate_voltage=None,
+                 paw_correction='brute-force'):
 
         """G0W0 calculator.
 
@@ -150,26 +150,11 @@ class G0W0(PairDensity):
             Carries out the extrapolation to infinite cutoff automatically.
         """
 
-        if world.rank != 0:
-            txt = devnull
-        else:
-            txt = open(filename + '.txt', 'w')
-
-        p = functools.partial(print, file=txt)
-        p('  ___  _ _ _ ')
-        p(' |   || | | |')
-        p(' | | || | | |')
-        p(' |__ ||_____|')
-        p(' |___|')
-        p()
-
         self.inputcalc = calc
 
         if ppa and (nblocks > 1 or nblocksmax):
-            p('PPA is currently not compatible with block parallellisation. '
-              'Setting nblocks=1 and continuing.')
-            nblocks = 1
-            nblocksmax = False
+            raise ValueError(
+                'PPA is currently not compatible with block parallellisation.')
 
         if ecut_extrapolation is True:
             pct = 0.8
@@ -194,7 +179,7 @@ class G0W0(PairDensity):
                                 'the moment, load from file!')
                 # nblocks_calc = calc
             else:
-                nblocks_calc = GPAW(calc, txt=None)
+                nblocks_calc = GPAW(calc)
             ngmax = []
             for q_c in nblocks_calc.wfs.kd.bzk_kc:
                 qd = KPointDescriptor([q_c])
@@ -212,7 +197,16 @@ class G0W0(PairDensity):
         self.ecut_e = ecut_e / Ha
 
         PairDensity.__init__(self, calc, ecut, world=world, nblocks=nblocks,
-                             gate_voltage=gate_voltage, txt=txt)
+                             gate_voltage=gate_voltage, txt=filename + '.txt',
+                             paw_correction=paw_correction)
+
+        p = functools.partial(print, file=self.fd)
+        p('  ___  _ _ _ ')
+        p(' |   || | | |')
+        p(' | | || | | |')
+        p(' |__ ||_____|')
+        p(' |___|')
+        p()
 
         self.gate_voltage = gate_voltage
         ecut /= Ha
@@ -352,7 +346,7 @@ class G0W0(PairDensity):
         self.qd = KPointDescriptor(bzq_qc)
         self.qd.set_symmetry(self.calc.atoms, kd.symmetry)
 
-        txt.flush()
+        self.fd.flush()
 
     @timer('G0W0')
     def calculate(self):
@@ -421,10 +415,9 @@ class G0W0(PairDensity):
             # Get KS eigenvalues and occupation numbers:
             if self.ite == 0:
                 b1, b2 = self.bands
-                nibzk = self.calc.wfs.kd.nibzkpts
                 for i, k in enumerate(self.kpts):
                     for s in range(self.nspins):
-                        u = s * nibzk + k
+                        u = s + k * self.nspins
                         kpt = self.calc.wfs.kpt_u[u]
                         self.eps_skn[s, i] = kpt.eps_n[b1:b2]
                         self.f_skn[s, i] = kpt.f_n[b1:b2] / kpt.weight
@@ -451,7 +444,8 @@ class G0W0(PairDensity):
                     print('Summing all q:', file=self.fd)
                     pb = ProgressBar(self.fd)
                 for u, kpt1 in enumerate(mykpts):
-                    pb.update((nQ + 1) * u / nkpt / len(self.qd))
+                    pb.update((nQ + 1) * u /
+                              (nkpt * self.qd.mynk * self.qd.nspins))
                     K2 = kd.find_k_plus_q(q_c, [kpt1.K])[0]
                     kpt2 = self.get_k_point(kpt1.s, K2, 0, m2,
                                             block=True)
@@ -751,6 +745,7 @@ class G0W0(PairDensity):
                     timer=self.timer,
                     nblocks=self.blockcomm.size,
                     gate_voltage=self.gate_voltage,
+                    paw_correction=self.paw_correction,
                     **parameters)
 
         if self.truncation == 'wigner-seitz':
@@ -864,7 +859,8 @@ class G0W0(PairDensity):
                             with open(thisfile, 'wb') as fd:
                                 pickle.dump((pdi, W), fd, 2)
                         else:
-                            pickle.dump((pdi, W), fd, 2)
+                            with fd:
+                                pickle.dump((pdi, W), fd, 2)
 
                 self.timer.stop('W')
                 # Loop over all k-points in the BZ and find those that are
@@ -1209,6 +1205,7 @@ class G0W0(PairDensity):
             n1, n2 = self.bands
             self.vxc_skn = vxc_skn[:, self.kpts, n1:n2]
             np.save(fd, self.vxc_skn)
+            fd.close()
 
     @timer('EXX')
     def calculate_exact_exchange(self):
@@ -1221,6 +1218,7 @@ class G0W0(PairDensity):
             exx.calculate()
             self.exx_skn = exx.get_eigenvalue_contributions() / Ha
             np.save(fd, self.exx_skn)
+            fd.close()
 
     def read_contribution(self, filename):
         fd = opencew(filename)  # create, exclusive, write

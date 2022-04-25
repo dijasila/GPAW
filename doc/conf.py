@@ -1,6 +1,13 @@
+import datetime
 import sys
+
 import sphinx_rtd_theme
 from gpaw import __version__
+from gpaw.doctools.aamath import autodoc_process_docstring
+try:
+    import sphinxcontrib.spelling
+except ImportError:
+    sphinxcontrib = None
 
 assert sys.version_info >= (3, 6)
 
@@ -9,25 +16,57 @@ sys.path.append('.')
 extensions = ['images',
               'ext',
               'sphinx.ext.autodoc',
+              'sphinx.ext.doctest',
+              'sphinx.ext.extlinks',
               'sphinx.ext.viewcode',
+              'sphinx.ext.napoleon',
               'sphinx.ext.mathjax',
               'sphinx.ext.intersphinx']
+
+if sphinxcontrib:
+    extensions.append('sphinxcontrib.spelling')
+extlinks = {'doi': ('https://doi.org/%s', 'doi:'),
+            'arxiv': ('https://arxiv.org/abs/%s', 'arXiv:'),
+            'xkcd': ('https://xkcd.com/%s', 'XKCD:')}
+spelling_word_list_filename = 'words.txt'
+spelling_show_suggestions = True
 templates_path = ['templates']
 source_suffix = '.rst'
 master_doc = 'index'
 project = 'GPAW'
-copyright = '2019, GPAW developers'
+copyright = f'{datetime.date.today().year}, GPAW developers'
+release = __version__
 exclude_patterns = ['build']
 default_role = 'math'
 pygments_style = 'sphinx'
 autoclass_content = 'both'
 modindex_common_prefix = ['gpaw.']
 intersphinx_mapping = {
-    'python': ('https://docs.python.org/3.7', None),
+    'python': ('https://docs.python.org/3.10', None),
     'ase': ('https://wiki.fysik.dtu.dk/ase', None),
-    'numpy': ('https://docs.scipy.org/doc/numpy', None),
-    'scipy': ('https://docs.scipy.org/doc/scipy/reference', None),
+    'numpy': ('https://numpy.org/doc/stable', None),
+    'scipy': ('https://docs.scipy.org/doc/scipy', None),
+    'pytest': ('https://docs.pytest.org/en/stable', None),
     'mayavi': ('http://docs.enthought.com/mayavi/mayavi', None)}
+nitpick_ignore = [('py:class', 'gpaw.calculator.GPAW'),
+                  ('py:class', 'gpaw.spinorbit.BZWaveFunctions'),
+                  ('py:class', 'GPAW'),
+                  ('py:class', 'Atoms'),
+                  ('py:class', 'np.ndarray'),
+                  ('py:class', 'ase.spectrum.dosdata.GridDOSData'),
+                  ('py:class', 'ase.atoms.Atoms'),
+                  ('py:class', 'gpaw.point_groups.group.PointGroup'),
+                  ('py:class', 'UniformGridFunctions'),
+                  ('py:class', 'DomainType'),
+                  ('py:class', 'Path'),
+                  ('py:class', 'Vector'),
+                  ('py:class', 'ArrayLike1D'),
+                  ('py:class', 'ArrayLike2D'),
+                  ('py:class', 'Array1D'),
+                  ('py:class', 'Array2D'),
+                  ('py:class', 'Array3D'),
+                  ('py:class', 'MPIComm'),
+                  ('py:class', 'IO')]
 
 html_theme = 'sphinx_rtd_theme'
 html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
@@ -36,18 +75,19 @@ html_title = 'GPAW'
 html_favicon = 'static/gpaw_favicon.ico'
 html_static_path = ['static']
 html_last_updated_fmt = '%a, %d %b %Y %H:%M:%S'
-dev_version = '19.8.2b1'  # This line auto-edited by newrelease script
-stable_version = '19.8.1'  # This line auto-edited by newrelease script
-html_context = {
-    'current_version': __version__,
-    'versions':
-        [('{} (development)'.format(dev_version),
-          'https://wiki.fysik.dtu.dk/gpaw/dev'),
-         ('{} (latest stable)'.format(stable_version),
-          'https://wiki.fysik.dtu.dk/gpaw')]}
-mathjax_config = {
-    'TeX': {
-        'Macros': {
+
+mathjax3_config = {
+    'tex': {
+        'macros': {
             'br': '{\\mathbf r}',
             'bk': '{\\mathbf k}',
             'bG': '{\\mathbf G}'}}}
+
+autodoc_typehints = 'description'
+autodoc_typehints_description_target = 'documented'
+
+
+def setup(app):
+    app.connect('autodoc-process-docstring',
+                lambda app, what, name, obj, options, lines:
+                    autodoc_process_docstring(lines))
