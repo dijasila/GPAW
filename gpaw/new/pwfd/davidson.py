@@ -94,8 +94,8 @@ class Davidson(Eigensolver):
         residual_nX = psit3_nX  # will become (H-e*S)|psit> later
 
         P_ani = wfs.P_ani
-        P2_ain = P_ani.new()
-        P3_ain = P_ani.new()
+        P2_ani = P_ani.new()
+        P3_ani = P_ani.new()
 
         domain_comm = psit_nX.desc.comm
         band_comm = psit_nX.comm
@@ -109,13 +109,16 @@ class Davidson(Eigensolver):
 
         def me(a, b, function=None):
             """Matrix elements"""
-            return a.matrix_elements(b, domain_sum=False, out=M_nn,
-                                     function=function)
+            return a.matrix_elements(b,
+                                     domain_sum=False,
+                                     out=M_nn,
+                                     function=function,
+                                     cc=True)
 
         Ht = partial(Ht, out=residual_nX, spin=wfs.spin)
         dH = partial(dH, spin=wfs.spin)
 
-        calculate_residuals(residual_nX, dH, dS, wfs, P2_ain, P3_ain)
+        calculate_residuals(residual_nX, dH, dS, wfs, P2_ani, P3_ani)
 
         def copy(C_nn: Array2D) -> None:
             domain_comm.sum(M_nn.data, 0)
@@ -133,30 +136,30 @@ class Davidson(Eigensolver):
             self.preconditioner(psit_nX, residual_nX, out=psit2_nX)
 
             # Calculate projections
-            wfs.pt_aiX.integrate(psit2_nX, out=P2_ain)
+            wfs.pt_aiX.integrate(psit2_nX, out=P2_ani)
 
             # <psi2 | H | psi2>
             me(psit2_nX, psit2_nX, function=Ht)
-            dH(P2_ain, out=P3_ain)
-            P2_ain.matrix.multiply(P3_ain, opa='C', symmetric=True, beta=1,
+            dH(P2_ani, out=P3_ani)
+            P2_ani.matrix.multiply(P3_ani, opb='C', symmetric=True, beta=1,
                                    out=M_nn)
             copy(H_NN.data[B:, B:])
 
             # <psi2 | H | psi>
             me(residual_nX, psit_nX)
-            P3_ain.matrix.multiply(P_ani, opa='C', beta=1.0, out=M_nn)
+            P3_ani.matrix.multiply(P_ani, opb='C', beta=1.0, out=M_nn)
             copy(H_NN.data[B:, :B])
 
             # <psi2 | S | psi2>
             me(psit2_nX, psit2_nX)
-            dS(P2_ain, out=P3_ain)
-            P2_ain.matrix.multiply(P3_ain, opa='C', symmetric=True, beta=1,
+            dS(P2_ani, out=P3_ani)
+            P2_ani.matrix.multiply(P3_ani, opb='C', symmetric=True, beta=1,
                                    out=M_nn)
             copy(S_NN.data[B:, B:])
 
             # <psi2 | S | psi>
             me(psit2_nX, psit_nX)
-            P3_ain.matrix.multiply(P_ani, opa='C', beta=1.0, out=M_nn)
+            P3_ani.matrix.multiply(P_ani, opb='C', beta=1.0, out=M_nn)
             copy(S_NN.data[B:, :B])
 
             if is_domain_band_master:
@@ -178,28 +181,28 @@ class Davidson(Eigensolver):
 
             if domain_comm.rank == 0:
                 if band_comm.rank == 0:
-                    M0_nn.data[:] = H_NN.data[:B, :B].T
+                    M0_nn.data[:] = H_NN.data[:B, :B]
                 M0_nn.redist(M_nn)
             domain_comm.broadcast(M_nn.data, 0)
 
-            M_nn.multiply(psit_nX, out=residual_nX)
-            P_ani.matrix.multiply(M_nn, opb='T', out=P3_ain)
+            M_nn.multiply(psit_nX, opa='C', out=residual_nX)
+            P_ani.matrix.multiply(M_nn, opb='C', out=P3_ani)
 
             if domain_comm.rank == 0:
                 if band_comm.rank == 0:
-                    M0_nn.data[:] = H_NN.data[B:, :B].T
+                    M0_nn.data[:] = H_NN.data[B:, :B]
                 M0_nn.redist(M_nn)
             domain_comm.broadcast(M_nn.data, 0)
 
-            M_nn.multiply(psit2_nX, beta=1.0, out=residual_nX)
-            P2_ain.matrix.multiply(M_nn, opb='T', beta=1.0, out=P3_ain)
+            M_nn.multiply(psit2_nX, opa='C', beta=1.0, out=residual_nX)
+            P2_ani.matrix.multiply(M_nn, opb='C', beta=1.0, out=P3_ani)
             psit_nX.data[:] = residual_nX.data
-            P_ani, P3_ain = P3_ain, P_ani
+            P_ani, P3_ani = P3_ani, P_ani
             wfs._P_ani = P_ani
 
             if i < self.niter - 1:
                 Ht(psit_nX)
-                calculate_residuals(residual_nX, dH, dS, wfs, P2_ain, P3_ain)
+                calculate_residuals(residual_nX, dH, dS, wfs, P2_ani, P3_ani)
 
         return error
 
@@ -208,16 +211,16 @@ def calculate_residuals(residuals_nX: DA,
                         dH: AAFunc,
                         dS: AAFunc,
                         wfs: PWFDWaveFunctions,
-                        P1_ain: AA,
-                        P2_ain: AA) -> None:
+                        P1_ani: AA,
+                        P2_ani: AA) -> None:
     for r, e, p in zip(residuals_nX.data, wfs.myeig_n, wfs.psit_nX.data):
         axpy(-e, p, r)
 
-    dH(wfs.P_ani, P1_ain)
-    P2_ain.data[:] = wfs.P_ani.data * wfs.myeig_n
-    dS(P2_ain, P2_ain)
-    P1_ain.data -= P2_ain.data
-    wfs.pt_aiX.add_to(residuals_nX, P1_ain)
+    dH(wfs.P_ani, P1_ani)
+    P2_ani.data[:] = wfs.P_ani.data * wfs.myeig_n[:, np.newaxis]
+    dS(P2_ani, P2_ani)
+    P1_ani.data -= P2_ani.data
+    wfs.pt_aiX.add_to(residuals_nX, P1_ani)
 
 
 def calculate_weights(converge_bands: int | str,

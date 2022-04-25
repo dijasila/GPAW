@@ -230,8 +230,7 @@ class DFTComponentsBuilder:
                                       dtype=self.dtype)
             wfs._P_ani = AtomArrays(layout,
                                     dims=(self.nbands,),
-                                    data=P_sknI[wfs.spin, wfs.k].T,
-                                    transposed=True)
+                                    data=P_sknI[wfs.spin, wfs.k])
 
         ibzwfs.fermi_levels = reader.wave_functions.fermi_levels / ha
 

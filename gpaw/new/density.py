@@ -99,7 +99,7 @@ class Density:
         for a, I1, I2 in P_ani.layout.myindices:
             ds = self.delta_aiiL[a][:, :, 0] * x
             # use mmm ?????
-            out.data[I1:I2] = ds @ P_ani.data[I1:I2]
+            out.data[:, I1:I2] = P_ani.data[:, I1:I2] @ ds
         return out
 
     def move(self, delta_nct_R):

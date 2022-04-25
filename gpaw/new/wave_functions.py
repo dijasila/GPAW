@@ -90,9 +90,9 @@ class WaveFunctions:
     def add_to_atomic_density_matrices(self,
                                        occ_n,
                                        D_asii: AtomArrays) -> None:
-        for D_sii, P_in in zip(D_asii.values(), self.P_ani.values()):
-            D_sii[self.spin] += np.einsum('in, n, jn -> ij',
-                                          P_in.conj(), occ_n, P_in).real
+        for D_sii, P_ni in zip(D_asii.values(), self.P_ani.values()):
+            D_sii[self.spin] += np.einsum('ni, n, nj -> ij',
+                                          P_ni.conj(), occ_n, P_ni).real
 
     def add_wave_functions_array(self,
                                  writer: Writer,

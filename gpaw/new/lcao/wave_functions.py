@@ -76,10 +76,9 @@ class LCAOWaveFunctions(WaveFunctions):
                                       atomdist=atomdist,
                                       dtype=self.dtype)
             self._P_ani = layout.empty(self.nbands,
-                                       comm=self.C_nM.dist.comm,
-                                       transposed=True)
+                                       comm=self.C_nM.dist.comm)
             for a, P_Mi in self.P_aMi.items():
-                self._P_ani[a][:] = (self.C_nM.data @ P_Mi).T
+                self._P_ani[a][:] = (self.C_nM.data @ P_Mi)
         return self._P_ani
 
     def add_to_density(self,
