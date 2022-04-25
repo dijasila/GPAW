@@ -22,9 +22,8 @@ def test_response_na_plasmons_tetrahedron(in_tmp_dir):
                cell=(a, a, a),
                pbc=True)
 
-    a1.calc = GPAW(gpts=(10, 10, 10),
-                   mode=PW(300),
-                   kpts={'size': (30, 30, 30), 'gamma': True},
+    a1.calc = GPAW(mode=PW(250),
+                   kpts={'size': (10, 10, 10), 'gamma': True},
                    parallel={'band': 1},
                    txt='small.txt')
 
@@ -33,7 +32,7 @@ def test_response_na_plasmons_tetrahedron(in_tmp_dir):
     a1.calc.write('gs_Na.gpw', 'all')
 
     kwargs = {'integrationmode': 'tetrahedron integration',
-              'ecut': 400}
+              'ecut': 40}
 
     # Calculate the dielectric functions
     df1 = DielectricFunction('gs_Na.gpw',
@@ -42,8 +41,8 @@ def test_response_na_plasmons_tetrahedron(in_tmp_dir):
                              **kwargs)
 
     df1NLFCx, df1LFCx = df1.get_dielectric_function(direction='x')
-    df1NLFCy, df1LFCy = df1.get_dielectric_function(direction='y')
-    df1NLFCz, df1LFCz = df1.get_dielectric_function(direction='z')
+    # df1NLFCy, df1LFCy = df1.get_dielectric_function(direction='y')
+    # df1NLFCz, df1LFCz = df1.get_dielectric_function(direction='z')
 
     df2 = DielectricFunction('gs_Na.gpw',
                              nblocks=4,
@@ -51,8 +50,8 @@ def test_response_na_plasmons_tetrahedron(in_tmp_dir):
                              **kwargs)
 
     df2NLFCx, df2LFCx = df2.get_dielectric_function(direction='x')
-    df2NLFCy, df2LFCy = df2.get_dielectric_function(direction='y')
-    df2NLFCz, df2LFCz = df2.get_dielectric_function(direction='z')
+    # df2NLFCy, df2LFCy = df2.get_dielectric_function(direction='y')
+    # df2NLFCz, df2LFCz = df2.get_dielectric_function(direction='z')
 
     # Compare plasmon frequencies and intensities
     w_w = df1.chi0.omega_w
