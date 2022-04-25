@@ -9,7 +9,7 @@ from ase import Atoms
 from ase.build import bulk
 from ase.io import read
 
-from gpaw import GPAW, PW, Davidson, FermiDirac
+from gpaw import GPAW, PW, Davidson, FermiDirac, setup_paths
 from gpaw.cli.info import info
 from gpaw.mpi import broadcast, world
 from gpaw.utilities import devnull
@@ -46,6 +46,16 @@ def module_tmp_path(request, tmp_path_factory):
     """Run test module in a temporary directory."""
     with execute_in_tmp_path(request, tmp_path_factory) as path:
         yield path
+
+
+@pytest.fixture
+def add_cwd_to_setup_paths():
+    """Temporarily add current working directory to setup_paths."""
+    try:
+        setup_paths[:0] = ['.']
+        yield
+    finally:
+        del setup_paths[:1]
 
 
 @pytest.fixture(scope='session')
