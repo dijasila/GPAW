@@ -186,7 +186,7 @@ class Davidson(Eigensolver):
             domain_comm.broadcast(M_nn.data, 0)
 
             M_nn.multiply(psit_nX, opa='C', out=residual_nX)
-            P_ani.matrix.multiply(M_nn, opb='C', out=P3_ani)
+            M_nn.multiply(P_ani, opa='C', out=P3_ani)
 
             if domain_comm.rank == 0:
                 if band_comm.rank == 0:
@@ -195,7 +195,7 @@ class Davidson(Eigensolver):
             domain_comm.broadcast(M_nn.data, 0)
 
             M_nn.multiply(psit2_nX, opa='C', beta=1.0, out=residual_nX)
-            P2_ani.matrix.multiply(M_nn, opb='C', beta=1.0, out=P3_ani)
+            M_nn.multiply(P2_ani, opa='C', beta=1.0, out=P3_ani)
             psit_nX.data[:] = residual_nX.data
             P_ani, P3_ani = P3_ani, P_ani
             wfs._P_ani = P_ani

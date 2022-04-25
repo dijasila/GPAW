@@ -140,7 +140,7 @@ class PWFDWaveFunctions(WaveFunctions):
         # S now contains L^*
 
         S.multiply(psit_nX, out=psit2_nX)
-        S.matrix.multiply(P_ani, out=P2_ani)
+        S.multiply(P_ani, out=P2_ani)
         psit_nX.data[:] = psit2_nX.data
         P_ani.data[:] = P2_ani.data
 
@@ -200,21 +200,21 @@ class PWFDWaveFunctions(WaveFunctions):
 
         H.multiply(psit_nX, out=psit2_nX)
         psit_nX.data[:] = psit2_nX.data
-        H.matrix.multiply(P_ani, out=P2_ani)
+        H.multiply(P_ani, out=P2_ani)
         P_ani.data[:] = P2_ani.data
 
     def force_contribution(self, dH_asii: AtomArrays, F_av: Array2D):
-        F_ainv = self.pt_aiX.derivative(self.psit_nX)
+        F_avni = self.pt_aiX.derivative(self.psit_nX)
         myocc_n = self.weight * self.spin_degeneracy * self.myocc_n
-        for a, F_inv in F_ainv.items():
-            F_inv = F_inv.conj()
-            F_inv *= myocc_n[:, np.newaxis]
+        for a, F_vni in F_avni.items():
+            F_vni = F_vni.conj()
+            F_vni *= myocc_n[:, np.newaxis]
             dH_ii = dH_asii[a][self.spin]
             P_ni = self.P_ani[a]
-            F_vii = np.einsum('inv, nj, jk -> vik', F_inv, P_ni, dH_ii)
-            F_inv *= self.myeig_n[:, np.newaxis]
+            F_vii = np.einsum('vni, nj, jk -> vik', F_vni, P_ni, dH_ii)
+            F_vni *= self.myeig_n[:, np.newaxis]
             dO_ii = self.setups[a].dO_ii
-            F_vii -= np.einsum('inv, nj, jk -> vik', F_inv, P_ni, dO_ii)
+            F_vii -= np.einsum('vni, nj, jk -> vik', F_vni, P_ni, dO_ii)
             F_av[a] += 2 * F_vii.real.trace(0, 1, 2)
 
     def collect(self,
