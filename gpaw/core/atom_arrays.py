@@ -169,6 +169,7 @@ class AtomArrays:
         data:
             Data array for storage.
         """
+        assert not transposed
         myshape = (layout.mysize,)
         domain_comm = layout.atomdist.comm
         dtype = layout.dtype
@@ -260,8 +261,8 @@ class AtomArrays:
     def __getitem__(self, a):
         if isinstance(a, numbers.Integral):
             return self._arrays[a]
-        if self.transposed and len(self.dims) == 1:
-            a_ai = AtomArrays(self.layout, data=self.data[:, a[2]].copy())
+        if len(self.dims) == 1:
+            a_ai = AtomArrays(self.layout, data=self.data[a[1]].copy())
             return a_ai
         1 / 0
 

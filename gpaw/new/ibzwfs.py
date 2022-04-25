@@ -161,7 +161,7 @@ class IBZWaveFunctions:
         if not skip_paw_correction:
             dphi_aj = wfs.setups.partial_wave_corrections()
             dphi_air = grid.atom_centered_functions(dphi_aj, wfs.fracpos_ac)
-            dphi_air.add_to(psi_r, wfs.P_ain[:, :, 0])
+            dphi_air.add_to(psi_r, wfs.P_ani[:, 0])
 
         return psi_r
 
@@ -249,7 +249,7 @@ class IBZWaveFunctions:
             weights=ibz.weight_k)
 
         for wfs in self:
-            nproj = wfs.P_ain.layout.size
+            nproj = wfs.P_ani.layout.size
             break
 
         if self.collinear:
@@ -265,18 +265,18 @@ class IBZWaveFunctions:
             for k, rank in enumerate(self.rank_k):
                 if rank == self.kpt_comm.rank:
                     wfs = self.wfs_qs[self.q_k[k]][spin]
-                    P_ain = wfs.P_ain.gather()
-                    if P_ain is not None:
-                        P_In = P_ain.matrix.gather()
+                    P_ani = wfs.P_ani.gather()  # gather atoms
+                    if P_ani is not None:
+                        P_nI = P_ani.matrix.gather()  # gather bands
                         if self.domain_comm.rank == 0:
                             if rank == 0:
-                                writer.fill(P_In.data.T)
+                                writer.fill(P_nI.data)
                             else:
-                                self.kpt_comm.send(P_In.data, 0)
+                                self.kpt_comm.send(P_nI.data, 0)
                 elif self.kpt_comm.rank == 0:
-                    data = np.empty((nproj, self.nbands), self.dtype)
+                    data = np.empty((self.nbands, nproj), self.dtype)
                     self.kpt_comm.receive(data, rank)
-                    writer.fill(data.T)
+                    writer.fill(data)
 
         if skip_wfs:
             return

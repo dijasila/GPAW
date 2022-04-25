@@ -1472,7 +1472,7 @@ class Setups(list):
         for a, I1, I2 in projections.layout.myindices:
             ds = self[a].dO_ii
             # use mmm ?????
-            out.data[I1:I2] = ds @ projections.data[I1:I2]
+            out.data[:, I1:I2] = projections.data[:, I1:I2] @ ds
         return out
 
     def partial_wave_corrections(self) -> list[list[Spline]]:
