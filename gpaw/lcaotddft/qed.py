@@ -43,6 +43,7 @@ class RRemission(object):
     def __init__(self, rr_quantization_plane_in, pol_cavity_in, environmentcavity_in=None, environmentensemble_in=None):
         self.rr_quantization_plane = rr_quantization_plane_in / Bohr**2
         self.polarization_cavity = pol_cavity_in
+        self.dipolexyz = None
         if environmentcavity_in is None:
           self.environment = 0
         else:
@@ -62,22 +63,17 @@ class RRemission(object):
           else:
               self.ensemble_number = environmentensemble_in
 
+    def write(self, writer):
+        writer.write(DelDipole=self.dipolexyz)
+
+    def read(self, reader):
+        self.dipolexyz = reader.DelDipole
+
     def initialize(self, paw):
         self.iterpredcop = 0
         self.time_previous = paw.time
-        self.dipolexyz = [0, 0, 0]
-        ################################################### BELOW ### dodgy hack to get the restart correct ### IMPROVE LATER! ###########################################
-        if paw.time > 0: 
-            dmmat = np.loadtxt('dm.dat',skiprows=5)
-            self.dipolexyz = (dmmat[-1,2:] - dmmat[-2,2:]) / (dmmat[-1,0] - dmmat[-2,0])
-            #self.dipolexyz = [1.58203723e-14, 1.30312800e-14, 1.03871954e-06]
-            #probably something like this would be better? Taken from dipolemomentwriter.py
-            #self.read_header(filename)
-            #self.fd = self.ioctx.openfile(filename, comm=paw.world, mode='a')
-            print('Read in Rdot')
-            print(self.dipolexyz)
-            print('RESTART CORRECTION HACK !')
-        ################################################### ABOVE ### dodgy hack to get the restart correct ### IMPROVE LATER! ###########################################
+        if self.dipolexyz is None: 
+            self.dipolexyz = [0, 0, 0]
         self.density = paw.density
         self.wfs = paw.wfs
         self.hamiltonian = paw.hamiltonian
@@ -100,7 +96,6 @@ class RRemission(object):
             deltat = time - self.time_previous
             self.dipolexyz = (self.density.calculate_dipole_moment()
                               - self.dipolexyz_previous) / deltat
-        print(self.dipolexyz) ################################################### FOR TESTING THE RESTART ### REMOVE LATER AGAIN ###########################################
 
         if self.environment  == 0 and self.polarization_cavity == [1,1,1]:
             # 3D emission (factor 2 for correct WW-emission included)
@@ -146,7 +141,6 @@ class RRemission(object):
         Vrr_MM = rr_argument * self.V_iuMM[0][uvalue]
         for i in range(1, self.Ni):
             Vrr_MM += rr_argument * self.V_iuMM[i][uvalue]
-        print(rr_argument) ################################################### FOR TESTING THE RESTART ### REMOVE LATER AGAIN ###########################################
         return Vrr_MM
 
     def dyadicGt(self, maxtimesteps):
