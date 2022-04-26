@@ -30,7 +30,7 @@ class DirectMinLCAO(DirectLCAO):
         self.nkpts = nkpts
         self.reference_orbitals = {}
         self.initialize_orbitals(wfs, ham)
-        self.constraints=constraints
+        self.constraints = constraints
 
     def __repr__(self):
         pass
