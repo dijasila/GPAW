@@ -17,7 +17,7 @@ class KSLCAO:
         return {'name': self.name}
 
     def get_gradients(self, h_mm, c_nm, f_n, evec, evals, kpt, wfs, timer,
-                      matrix_exp, representation, ind_up):
+                      matrix_exp, representation, ind_up, constraints):
 
         with timer('Construct Gradient Matrix'):
             use_egdecomp = matrix_exp == 'egdecomp'
@@ -27,7 +27,8 @@ class KSLCAO:
             
             with timer('Residual'):
                 error = self.get_residual_error(
-                    hc_mn, kpt.S_MM, c_nm, h_ij, f_n, wfs.nvalence)
+                    hc_mn, kpt.S_MM, c_nm, h_ij, f_n, wfs.nvalence,
+                    constraints)
 
             if not use_egdecomp:
                 if representation == 'u-invar':
@@ -60,6 +61,8 @@ class KSLCAO:
         if wfs.dtype == float:
             grad = grad.real
 
+        constrain_grad(grad, constraints, ind_up)
+
         return 2.0 * grad, error
 
     def get_ham_in_mol_orb_representation(self, h_mm, c_nm, f_n,
@@ -91,13 +94,18 @@ class KSLCAO:
 
         return hc_mn, h_ij, h_ia
     
-    def get_residual_error(self, hc_mn, S_MM, c_nm, h_ij, f_n, nvalence):
+    def get_residual_error(
+            self, hc_mn, S_MM, c_nm, h_ij, f_n, nvalence, constraints):
         """
         Calculate residual error of KS equations
         """
         occ = sum(f_n > 1.0e-10)
         hc_mn = hc_mn[:, :occ] - \
             S_MM.conj() @ c_nm[:occ].T @ h_ij[:occ, :occ]
+        for con in constraints:
+            con1 = con[0]
+            con2 = con[1]
+            hc_mn[con2][con1] = 0.0
         norm = sum(hc_mn.conj() * hc_mn * f_n[:occ])
         error = sum(norm.real) * Hartree ** 2 / nvalence
         
@@ -121,3 +129,13 @@ class KSLCAO:
             grad[i][i] *= 0.5
         
         return grad
+
+
+def constrain_grad(grad, constraints, ind_up):
+    for con in constraints:
+        num = -1
+        for ind1, ind2 in zip(ind_up[0], ind_up[1]):
+            num += 1
+            if con == [ind1, ind2]:
+                grad[num] = 0.0
+    return grad
