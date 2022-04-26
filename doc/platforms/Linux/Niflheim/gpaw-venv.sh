@@ -36,18 +36,18 @@ echo "
 module purge
 unset PYTHONPATH
 module load GPAW-setups/0.9.20000
-module load matplotlib/3.3.3-${TCHAIN}-2020b
-module load spglib-python/1.16.0-${TCHAIN}-2020b
-module load scikit-learn/0.23.2-${TCHAIN}-2020b
-module load pytest-xdist/2.1.0-GCCcore-10.2.0
-module load Wannier90/3.1.0-${TCHAIN}-2020b
+module load matplotlib/3.4.3-${TCHAIN}-2021b
+#module load spglib-python/1.16.0-${TCHAIN}-2020b
+#module load scikit-learn/0.23.2-${TCHAIN}-2020b
+#module load pytest-xdist/2.1.0-GCCcore-10.2.0
+#module load Wannier90/3.1.0-${TCHAIN}-2020b
 " > modules.sh
 
 if [[ "$TCHAIN" == "intel" ]]; then
 echo "module load libxc/4.3.4-iccifort-2020.4.304" >> modules.sh
 else
-echo "module load libxc/4.3.4-GCC-10.2.0" >> modules.sh
-echo "module load libvdwxc/0.4.0-foss-2020b" >> modules.sh
+echo "module load libxc/5.1.6-GCC-11.2.0" >> modules.sh
+# echo "module load libvdwxc/0.4.0-foss-2020b" >> modules.sh
 fi
 
 . modules.sh
@@ -105,16 +105,16 @@ do
   echo $CMD
   ssh $HOST $CMD
 done
-(cd build && ln -sf lib.linux-x86_64-{sandybridge,ivybridge}-3.8)
+(cd build && ln -sf lib.linux-x86_64-{sandybridge,ivybridge}-3.9)
 rm -r build/temp.linux-x86_64-*
 rm _gpaw.*.so
 
 # Create .pth file to load correct .so file:
 pth='import sys, os; '
 pth+='arch = os.environ["CPU_ARCH"]; '
-pth+="path = f'$VENV/gpaw/build/lib.linux-x86_64-{arch}-3.8'; "
+pth+="path = f'$VENV/gpaw/build/lib.linux-x86_64-{arch}-3.9'; "
 pth+='sys.path.append(path)'
-echo $pth > $VENV/lib/python3.8/site-packages/niflheim.pth
+echo $pth > $VENV/lib/python3.9/site-packages/niflheim.pth
 
 # Install extra basis-functions:
 cd $VENV
