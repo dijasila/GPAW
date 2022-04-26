@@ -424,7 +424,7 @@ class ETDM:
                 g_vec_u[k], error = self.dm_helper.calc_grad(
                     wfs, ham, kpt, self.func, self.evecs[k], self.evals[k],
                     self.matrix_exp, self.representation, self.ind_up[k],
-                    self.constraints)
+                    self.constraints[k])
 
                 self.error += error
             self.error = wfs.kd.comm.sum(self.error)
