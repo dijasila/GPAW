@@ -933,13 +933,17 @@ class G0W0(PairDensity):
            5. Output gw=True Hilbert transformed in WGg form
         """
 
+        chi02_wGG = chi0_wGG.copy()
+        A1_2_x = A1_x.copy()
+        A2_2_x = A2_x.copy()
+
         # Old way
         self.timer.start('old')
         pdi, Wm_wGG, Wp_wGG = self.Wcalculate_old(wstc, iq, q_c, chi0, chi0_wvv, chi0_wxvG, chi0_wGG, A1_x, A2_x, pd, ecut, htp, htm)
         self.timer.stop('old')
 
         self.timer.start('new')
-        pdi, Wm2_wGG, Wp2_wGG = self.Wcalculate(wstc, iq, q_c, chi0, chi0_wvv, chi0_wxvG, chi0_wGG, A1_x, A2_x, pd, ecut, htp, htm)
+        pdi, Wm2_wGG, Wp2_wGG = self.Wcalculate(wstc, iq, q_c, chi0, chi0_wvv, chi0_wxvG, chi02_wGG, A1_2_x, A2_2_x, pd, ecut, htp, htm)
         self.timer.stop('new')
 
         assert np.allclose(Wm_wGG, Wm2_wGG)
