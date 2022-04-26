@@ -676,7 +676,8 @@ class ETDM:
                 'matrix_exp': self.matrix_exp,
                 'representation': self.representation,
                 'functional': self.func.todict(),
-                'orthonormalization': self.orthonormalization
+                'orthonormalization': self.orthonormalization,
+                'constraints': self.constraints
                 }
 
     def rotate_wavefunctions(self, wfs, a_vec_u, n_dim, c_ref):
