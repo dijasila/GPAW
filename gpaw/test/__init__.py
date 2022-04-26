@@ -1,10 +1,8 @@
 from functools import wraps
 from typing import Tuple
 
-import numpy as np
-
 import gpaw.mpi as mpi
-from gpaw import setup_paths
+import numpy as np
 from gpaw.atom.configurations import parameters, tf_parameters
 from gpaw.atom.generator import Generator
 from gpaw.typing import Array1D
@@ -60,8 +58,6 @@ def gen(symbol, exx=False, name=None, yukawa_gamma=None,
                           write_xml=write_xml,
                           **parameters[symbol])
     setup = mpi.broadcast(setup, 0)
-    if setup_paths[0] != '.':
-        setup_paths.insert(0, '.')
     return setup
 
 
