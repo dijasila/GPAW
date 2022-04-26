@@ -10,6 +10,7 @@ https://doi.org/10.1016/j.cpc.2021.108047
 """
 
 import numpy as np
+from copy import deepcopy
 from gpaw.lcao.eigensolver import DirectLCAO
 from gpaw.utilities.tools import tri2full
 
@@ -18,7 +19,8 @@ class DirectMinLCAO(DirectLCAO):
 
     def __init__(self, wfs, ham, nkpts, diagonalizer=None,
                  orthonormalization='gramschmidt',
-                 need_init_orbs=True):
+                 need_init_orbs=True,
+                 constraints=[]):
 
         super(DirectMinLCAO, self).__init__(diagonalizer)
         super(DirectMinLCAO, self).initialize(wfs.gd, wfs.dtype,
@@ -28,6 +30,7 @@ class DirectMinLCAO(DirectLCAO):
         self.nkpts = nkpts
         self.reference_orbitals = {}
         self.initialize_orbitals(wfs, ham)
+        self.constraints=constraints
 
     def __repr__(self):
         pass
@@ -82,7 +85,7 @@ class DirectMinLCAO(DirectLCAO):
         self.need_init_orbs = False
 
     def calc_grad(self, wfs, ham, kpt, func, evecs, evals, matrix_exp,
-                  representation, ind_up):
+                  representation, ind_up, constraints):
 
         """
         Gradient w.r.t. skew-Hermitian matrices
@@ -95,7 +98,7 @@ class DirectMinLCAO(DirectLCAO):
         g_mat, error = func.get_gradients(
             h_mm, kpt.C_nM, kpt.f_n, evecs, evals,
             kpt, wfs, wfs.timer, matrix_exp,
-            representation, ind_up)
+            representation, ind_up, constraints)
 
         return g_mat, error
 
