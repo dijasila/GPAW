@@ -235,6 +235,26 @@ class Matrix:
 
         return S
 
+    def inv(self, uplo='L'):
+        """Inplace inversion."""
+        assert uplo == 'L'
+        M, N = self.shape
+        assert M == N
+        dist = self.dist
+        if dist.comm.size == 1:
+            print(self.data)
+            self.tril2full()
+            print(self.data)
+            self.data[:] = linalg.inv(self.data,
+                                      overwrite_a=True,
+                                      check_finite=debug)
+            return
+        print(self.data, dist.desc, 'U')
+        info = _gpaw.scalapack_inverse(self.data, dist.desc, 'U')
+        print(info);return
+        if info != 0:
+            raise ValueError(f'scalapack_inverse error: {info}')
+
     def invcholesky(self) -> None:
         """Inverse of Cholesky decomposition.
 
