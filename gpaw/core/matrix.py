@@ -241,14 +241,14 @@ class Matrix:
         M, N = self.shape
         assert M == N
         dist = self.dist
-        bc, br = dist.desc[4:6]
-        assert bc == br
         if dist.comm.size == 1:
             self.tril2full()
             self.data[:] = linalg.inv(self.data,
                                       overwrite_a=True,
                                       check_finite=debug)
             return
+        bc, br = dist.desc[4:6]
+        assert bc == br
         info = _gpaw.scalapack_inverse(self.data, dist.desc, 'U')
         if info != 0:
             raise ValueError(f'scalapack_inverse error: {info}')
