@@ -88,7 +88,7 @@ class PWFDDFTComponentsBuilder(DFTComponentsBuilder):
                 potential,
                 self.convert_wave_functions_from_uniform_grid)
 
-        lcao_ibzwfs = create_lcao_ibzwfs(
+        lcao_ibzwfs, _ = create_lcao_ibzwfs(
             basis, potential,
             self.ibz, self.communicators, self.setups,
             self.fracpos_ac, self.grid, self.dtype,
