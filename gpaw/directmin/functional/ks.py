@@ -61,7 +61,8 @@ class KSLCAO:
         if wfs.dtype == float:
             grad = grad.real
 
-        constrain_grad(grad, constraints, ind_up)
+        if constraints:
+            constrain_grad(grad, constraints, ind_up)
 
         return 2.0 * grad, error
 
@@ -95,17 +96,18 @@ class KSLCAO:
         return hc_mn, h_ij, h_ia
     
     def get_residual_error(
-            self, hc_mn, S_MM, c_nm, h_ij, f_n, nvalence, constraints):
+            self, hc_mn, S_MM, c_nm, h_ij, f_n, nvalence, constraints=None):
         """
         Calculate residual error of KS equations
         """
         occ = sum(f_n > 1.0e-10)
         hc_mn = hc_mn[:, :occ] - \
             S_MM.conj() @ c_nm[:occ].T @ h_ij[:occ, :occ]
-        for con in constraints:
-            con1 = con[0]
-            con2 = con[1]
-            hc_mn[con2][con1] = 0.0
+        if constraints:
+            for con in constraints:
+                con1 = con[0]
+                con2 = con[1]
+                hc_mn[con2][con1] = 0.0
         norm = sum(hc_mn.conj() * hc_mn * f_n[:occ])
         error = sum(norm.real) * Hartree ** 2 / nvalence
         
