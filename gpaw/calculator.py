@@ -191,7 +191,8 @@ class GPAW(Calculator):
             if key not in {'nbands', 'occupations', 'poissonsolver', 'kpts',
                            'eigensolver', 'random', 'maxiter', 'basis',
                            'symmetry', 'convergence', 'verbose'}:
-                raise TypeError(f'{key:!r} is an invalid keyword argument')
+                raise TypeError(f'''You cannot change {key:} in a
+                                    fixed_density calculation!''')
 
         params = self.parameters.copy()
         params.update(kwargs)
