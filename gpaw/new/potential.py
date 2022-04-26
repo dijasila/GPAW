@@ -3,7 +3,7 @@ from __future__ import annotations
 from ase.units import Ha
 from gpaw.core.arrays import DistributedArrays
 from gpaw.core.atom_arrays import AtomArrays
-from gpaw.new import zip_strict as zip
+from gpaw.new import zip
 
 
 class Potential:

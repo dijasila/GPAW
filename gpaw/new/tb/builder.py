@@ -15,7 +15,7 @@ from gpaw.core.matrix import Matrix
 from gpaw.lcao.tci import TCIExpansions
 from gpaw.lfc import BasisFunctions
 from gpaw.mpi import MPIComm, serial_comm
-from gpaw.new import zip_strict
+from gpaw.new import zip
 from gpaw.new.calculation import DFTState
 from gpaw.new.lcao.builder import LCAODFTComponentsBuilder, create_lcao_ibzwfs
 from gpaw.new.lcao.hamiltonian import CollinearHamiltonianMatrixCalculator
@@ -49,7 +49,9 @@ class TBHamiltonian:
                     for a, dH_sii in state.potential.dH_asii.items()}
                    for s in range(state.density.ncomponents)]
 
-        return TBHamiltonianMatrixCalculator([], dH_saii, self.basis)
+        V_sxMM = [np.zeros(0) for _ in range(state.density.ncomponents)]
+
+        return TBHamiltonianMatrixCalculator(V_sxMM, dH_saii, self.basis)
 
 
 class NoGrid(Domain):
@@ -256,7 +258,7 @@ class TBDFTComponentsBuilder(LCAODFTComponentsBuilder):
         manytci.Pindices = manytci.Mindices
         my_atom_indices = basis.my_atom_indices
 
-        for wfs, V_MM in zip_strict(ibzwfs, manytci.P_qIM(my_atom_indices)):
+        for wfs, V_MM in zip(ibzwfs, manytci.P_qIM(my_atom_indices)):
             V_MM = V_MM.toarray()
             V_MM += V_MM.T.conj().copy()
             M1 = 0

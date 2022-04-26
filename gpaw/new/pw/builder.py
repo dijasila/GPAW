@@ -94,8 +94,9 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
         if self.dtype == complex:
             emikr_R = grid.eikr(-kpt_c)
 
+        mynbands, M = C_nM.dist.shape
+
         if self.ncomponents < 4:
-            mynbands, M = C_nM.dist.shape
             psit_nR = grid.zeros(mynbands)
             basis_set.lcao_to_grid(C_nM.data, psit_nR.data, q)
 
@@ -103,6 +104,14 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
                 if self.dtype == complex:
                     psit_R.data *= emikr_R
                 psit_R.fft(out=psit_G)
+        else:
+            psit_sR = grid.zeros(2)
+            C_nsM = C_nM.data.reshape((mynbands, 2, M // 2))
+            for psit_sG, C_sM in zip(psit_nG, C_nsM):
+                basis_set.lcao_to_grid(C_sM, psit_sR.data, q)
+                psit_sR.data *= emikr_R
+                for psit_G, psit_R in zip(psit_sG, psit_sR):
+                    psit_R.fft(out=psit_G)
 
         return psit_nG
 

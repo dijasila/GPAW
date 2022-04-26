@@ -17,7 +17,7 @@ from gpaw.setup_data import SetupData, search_for_file
 from gpaw.spline import Spline
 from gpaw.utilities import pack, unpack
 from gpaw.xc import XC
-from gpaw.new import zip_strict as zip
+from gpaw.new import zip
 
 
 def parse_hubbard_string(type: str) -> Tuple[str,
@@ -176,7 +176,8 @@ class BaseSetup:
         # projectors.  This should be the correct behaviour for all the
         # currently supported PAW/pseudopotentials.
         phit_j = []
-        for n, phit in zip(self.n_j, self.pseudo_partial_waves_j):
+        for n, phit in zip(self.n_j, self.pseudo_partial_waves_j,
+                           strict=False):
             if n > 0:
                 phit_j.append(phit)
         return phit_j
@@ -214,7 +215,7 @@ class BaseSetup:
         # 3) eigenvalues (e)
 
         states = []
-        for j, (f, d, e) in enumerate(zip(f_j, deg_j, eps_j)):
+        for j, (f, d, e) in enumerate(zip(f_j, deg_j, eps_j, strict=False)):
             if e < 0.0:
                 states.append((f == 0, d - f, e, j))
         states.sort()
