@@ -847,7 +847,7 @@ def convert_constraints(constraints, n_dim, n_occ, representation):
         if type(con) == list:
             assert len(con) < 3, 'Check constraints.'
             if len(con) == 1:
-                con = int(con)
+                con = con[0]
             else:
                 if representation != 'full' and con[1] < con[0]:
                     temp = deepcopy(con[0])
