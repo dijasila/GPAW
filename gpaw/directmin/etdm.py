@@ -201,10 +201,6 @@ class ETDM:
             # dimensionality of the problem.
             # this implementation rotates among all bands
             self.n_dim[u] = self.nbands
-            if self.constraints:
-                self.constraints[u] = convert_constraints(
-                    self.constraints[u], self.n_dim[u], len(kpt.f_n > 1e-10),
-                    self.representation)
 
         self.initialized = True
 
@@ -312,6 +308,11 @@ class ETDM:
             self.g_vec_u[u] = np.zeros(shape=shape_of_arr, dtype=self.dtype)
             self.evecs[u] = None
             self.evals[u] = None
+
+            if self.constraints:
+                self.constraints[u] = convert_constraints(
+                    self.constraints[u], self.n_dim[u], len(kpt.f_n > 1e-10),
+                    self.representation)
 
         self.iters = 1
 
