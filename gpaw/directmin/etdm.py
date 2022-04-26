@@ -858,6 +858,15 @@ def convert_constraints(constraints, n_dim, n_occ, representation):
                 continue
         if type(con) == int:
             new += find_all_pairs(con, n_dim, n_occ, representation)
+
+    done = False
+    while not done:
+        done = True
+        for i in range(len(new)):
+            if len(new[i]) < 2:
+                del new[i]
+                done = False
+                break
     return new
 
 
