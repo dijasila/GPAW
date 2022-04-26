@@ -842,23 +842,22 @@ def vec2skewmat(a_vec, dim, ind_up, dtype):
 
 def convert_constraints(constraints, n_dim, n_occ, representation):
     new = constraints.copy()
-    for k in range(len(constraints)):
-        for con in constraints[k]:
-            assert type(con) == list or type(con) == int, 'Check constraints.'
-            if type(con) == list:
-                assert len(con) < 3, 'Check constraints.'
-                if len(con) == 1:
-                    con = int(con)
-                else:
-                    if representation != 'full' and con[1] < con[0]:
-                        temp = deepcopy(con[0])
-                        con[0] = deepcopy(con[1])
-                        con[1] = temp
-                    check_indices(
-                        con[0], con[1], n_dim[k], n_occ[k], representation)
-                    continue
-            if type(con) == int:
-                new += find_all_pairs(con, n_dim[k], n_occ[k], representation)
+    for con in constraints:
+        assert type(con) == list or type(con) == int, 'Check constraints.'
+        if type(con) == list:
+            assert len(con) < 3, 'Check constraints.'
+            if len(con) == 1:
+                con = int(con)
+            else:
+                if representation != 'full' and con[1] < con[0]:
+                    temp = deepcopy(con[0])
+                    con[0] = deepcopy(con[1])
+                    con[1] = temp
+                check_indices(
+                    con[0], con[1], n_dim, n_occ, representation)
+                continue
+        if type(con) == int:
+            new += find_all_pairs(con, n_dim, n_occ, representation)
     return new
 
 
