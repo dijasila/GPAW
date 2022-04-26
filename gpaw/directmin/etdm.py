@@ -311,8 +311,8 @@ class ETDM:
 
             if self.constraints:
                 self.constraints[u] = convert_constraints(
-                    self.constraints[u], self.n_dim[u], len(kpt.f_n > 1e-10),
-                    self.representation)
+                    self.constraints[u], self.n_dim[u],
+                    len(kpt.f_n[kpt.f_n > 1e-10]), self.representation)
 
         self.iters = 1
 
