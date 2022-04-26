@@ -36,7 +36,7 @@ class G0W0(PairDensity):
                  av_scheme=None, Eg=None,
                  truncation=None, integrate_gamma=0,
                  ecut=150.0, eta=0.1, E0=1.0 * Ha,
-                 domega0=0.025, omega2=10.0, q0_correction=False,
+                 domega0=0.025, omega2=10.0, omegamax=None, q0_correction=False,
                  anisotropy_correction=None,
                  nblocks=1, savew=False, savepckl=True,
                  maxiter=1, method='G0W0', mixing=0.2,
@@ -250,6 +250,10 @@ class G0W0(PairDensity):
         self.E0 = E0 / Ha
         self.domega0 = domega0 / Ha
         self.omega2 = omega2 / Ha
+        if omegamax is not None:
+            self.omegamax = omegamax / Ha
+        else:
+            self.omegamax = None
         if anisotropy_correction is not None:
             self.ac = anisotropy_correction
             warnings.warn('anisotropy_correction changed name to '
@@ -732,7 +736,9 @@ class G0W0(PairDensity):
                           'hilbert': True,
                           'timeordered': True,
                           'domega0': self.domega0 * Ha,
-                          'omega2': self.omega2 * Ha}
+                          'omega2': self.omega2 * Ha,
+                          'omegamax': self.omegamax * Ha if self.omegamax is not None else None}
+
 
         self.fd.flush()
 
@@ -757,7 +763,6 @@ class G0W0(PairDensity):
             wstc = None
 
         self.omega_w = chi0.omega_w
-        self.omegamax = chi0.omegamax
 
         htp = HilbertTransform(self.omega_w, self.eta, gw=True)
         htm = HilbertTransform(self.omega_w, -self.eta, gw=True)
@@ -896,15 +901,22 @@ class G0W0(PairDensity):
         self.Gb = chi0.Gb
         shape = (nw, chi0.Gb - chi0.Ga, nG)
         # construct empty matrix for chi
-        chi0_wGG = A1_x[:np.prod(shape)].reshape(shape).copy()
-        chi0_wGG[:] = 0.0
+        print('Number of frequencies', nw)
+        print('Frequencies', self.omega_w)
+        print('my shape', shape, self.world.rank)
+        chi0.fd = self.fd
+        chi0.print_chi(pd)
+
+        #chi0_wGG = A1_x[:np.prod(shape)].reshape(shape).copy()
+        #chi0_wGG[:] = 0.0
+        chi0_wGG = np.zeros(shape, dtype=complex)
         if np.allclose(q_c, 0.0):
             chi0_wxvG = np.zeros((nw, 2, 3, nG), complex)
             chi0_wvv = np.zeros((nw, 3, 3), complex)
         else:
             chi0_wxvG = None
             chi0_wvv = None
-
+        
         chi0._calculate(pd, chi0_wGG, chi0_wxvG, chi0_wvv, m1, m2,
                         range(self.nspins), extend_head=False)
 
@@ -933,21 +945,21 @@ class G0W0(PairDensity):
            5. Output gw=True Hilbert transformed in WGg form
         """
 
-        chi02_wGG = chi0_wGG.copy()
-        A1_2_x = A1_x.copy()
-        A2_2_x = A2_x.copy()
+        #chi02_wGG = chi0_wGG.copy()
+        #A1_2_x = A1_x.copy()
+        #A2_2_x = A2_x.copy()
 
         # Old way
         self.timer.start('old')
-        pdi, Wm_wGG, Wp_wGG = self.Wcalculate_old(wstc, iq, q_c, chi0, chi0_wvv, chi0_wxvG, chi0_wGG, A1_x, A2_x, pd, ecut, htp, htm)
+        pdi, Wm_wGG, Wp_wGG = self.dyson_and_W_old(wstc, iq, q_c, chi0, chi0_wvv, chi0_wxvG, chi0_wGG, A1_x, A2_x, pd, ecut, htp, htm)
         self.timer.stop('old')
 
-        self.timer.start('new')
-        pdi, Wm2_wGG, Wp2_wGG = self.Wcalculate(wstc, iq, q_c, chi0, chi0_wvv, chi0_wxvG, chi02_wGG, A1_2_x, A2_2_x, pd, ecut, htp, htm)
-        self.timer.stop('new')
+        #self.timer.start('new')
+        #pdi, Wm2_wGG, Wp2_wGG = self.dyson_and_W_new(wstc, iq, q_c, chi0, chi0_wvv, chi0_wxvG, chi02_wGG, A1_2_x, A2_2_x, pd, ecut, htp, htm)
+        #self.timer.stop('new')
 
-        assert np.allclose(Wm_wGG, Wm2_wGG)
-        assert np.allclose(Wp_wGG, Wp2_wGG)
+        #assert np.allclose(Wm_wGG, Wm2_wGG)
+        #assert np.allclose(Wp_wGG, Wp2_wGG)
 
         ###############################################################################
         # At this stage, we have Wp_wGG, distributed over frequencies, and full G G   #
@@ -974,7 +986,10 @@ class G0W0(PairDensity):
     #############
     #### NEW ####
     #############
-    def Wcalculate(self, wstc, iq, q_c, chi0, chi0_wvv, chi0_wxvG, chi0_wGG, A1_x, A2_x, pd, ecut, htp, htm):
+    def dyson_and_W_new(self, wstc, iq, q_c, chi0, chi0_wvv, chi0_wxvG, chi0_wGG, A1_x, A2_x, pd, ecut, htp, htm):
+        print(chi0_wGG.shape)
+        step1_matrix = Matrix(nw, nG*nG, dist=(self.blockcomm, 1, self.blockcomm.size))
+
         nw = len(self.omega_w)
         nG = pd.ngmax
 
@@ -1238,7 +1253,7 @@ class G0W0(PairDensity):
         self.timer.stop('Dyson eq.')
         return pdi, Wm_wGG, Wp_wGG
 
-    def Wcalculate_old(self, wstc, iq, q_c, chi0, chi0_wvv, chi0_wxvG, chi0_wGG, A1_x, A2_x, pd, ecut, htp, htm):
+    def dyson_and_W_old(self, wstc, iq, q_c, chi0, chi0_wvv, chi0_wxvG, chi0_wGG, A1_x, A2_x, pd, ecut, htp, htm):
         nw = len(self.omega_w)
         nG = pd.ngmax
 
