@@ -63,12 +63,13 @@ class LCAODFTComponentsBuilder(FDDFTComponentsBuilder):
         return ibzwfs
 
     def create_ibz_wave_functions(self, basis, potential, coefficients=None):
-        return create_lcao_ibzwfs(
+        ibzwfs, _ = create_lcao_ibzwfs(
             basis, potential,
             self.ibz, self.communicators, self.setups,
             self.fracpos_ac, self.grid, self.dtype,
             self.nbands, self.ncomponents, self.atomdist, self.nelectrons,
             coefficients)
+        return ibzwfs
 
 
 def create_lcao_ibzwfs(basis, potential,
@@ -142,4 +143,4 @@ def create_lcao_ibzwfs(basis, potential,
                            ncomponents,
                            create_wfs,
                            kpt_comm)
-    return ibzwfs
+    return ibzwfs, tciexpansions

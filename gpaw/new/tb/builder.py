@@ -17,7 +17,7 @@ from gpaw.lfc import BasisFunctions
 from gpaw.mpi import MPIComm, serial_comm
 from gpaw.new import zip_strict
 from gpaw.new.calculation import DFTState
-from gpaw.new.lcao.builder import LCAODFTComponentsBuilder
+from gpaw.new.lcao.builder import LCAODFTComponentsBuilder, create_lcao_ibzwfs
 from gpaw.new.lcao.hamiltonian import CollinearHamiltonianMatrixCalculator
 from gpaw.new.lcao.wave_functions import LCAOWaveFunctions
 from gpaw.new.pot_calc import PotentialCalculator
@@ -218,7 +218,12 @@ class TBDFTComponentsBuilder(LCAODFTComponentsBuilder):
 
     def create_ibz_wave_functions(self, basis, potential):
         assert self.communicators['w'].size == 1
-        ibzwfs = super().create_ibz_wave_functions(basis, potential)
+
+        ibzwfs, tciexpansions = create_lcao_ibzwfs(
+            basis, potential,
+            self.ibz, self.communicators, self.setups,
+            self.fracpos_ac, self.grid, self.dtype,
+            self.nbands, self.ncomponents, self.atomdist, self.nelectrons)
 
         vtphit: dict[Setup, list[Spline]] = {}
 
@@ -241,7 +246,7 @@ class TBDFTComponentsBuilder(LCAODFTComponentsBuilder):
 
         vtciexpansions = TCIExpansions([s.phit_j for s in self.setups],
                                        [vtphit[s] for s in self.setups],
-                                       self.tciexpansions.I_a)
+                                       tciexpansions.I_a)
 
         kpt_qc = np.array([wfs.kpt_c for wfs in ibzwfs])
         manytci = vtciexpansions.get_manytci_calculator(
