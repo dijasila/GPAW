@@ -11,6 +11,7 @@ https://doi.org/10.1016/j.cpc.2021.108047
 
 
 import numpy as np
+from copy import deepcopy
 from gpaw.directmin.tools import expm_ed, expm_ed_unit_inv
 from gpaw.directmin.lcao.directmin_lcao import DirectMinLCAO
 from scipy.linalg import expm
@@ -39,7 +40,8 @@ class ETDM:
                  checkgraderror=False,
                  localizationtype=None,
                  need_localization=True,
-                 need_init_orbs=True
+                 need_init_orbs=True,
+                 constraints=[]
                  ):
         """
         This class performs the exponential transformation
@@ -100,6 +102,7 @@ class ETDM:
         self.randomizeorbitals = randomizeorbitals
         self.representation = representation
         self.orthonormalization = orthonormalization
+        self.constraints = constraints
 
         self.searchdir_algo = search_direction(searchdir_algo)
         if self.searchdir_algo.name == 'l-bfgs-p' and not self.use_prec:
@@ -198,6 +201,9 @@ class ETDM:
             # dimensionality of the problem.
             # this implementation rotates among all bands
             self.n_dim[u] = self.nbands
+            self.constraints[u] = convert_constraints(
+                self.constraints[u], self.n_dim[u], len(kpt.f_n > 1e-10),
+                self.representation)
 
         self.initialized = True
 
@@ -210,7 +216,8 @@ class ETDM:
             wfs, ham, self.nkpts,
             diagonalizer=None,
             orthonormalization=self.orthonormalization,
-            need_init_orbs=self.need_init_orbs
+            need_init_orbs=self.need_init_orbs,
+            constraints=self.constraints
         )
         self.need_init_orbs = self.dm_helper.need_init_orbs
         # mom
@@ -414,7 +421,8 @@ class ETDM:
                     continue
                 g_vec_u[k], error = self.dm_helper.calc_grad(
                     wfs, ham, kpt, self.func, self.evecs[k], self.evals[k],
-                    self.matrix_exp, self.representation, self.ind_up[k])
+                    self.matrix_exp, self.representation, self.ind_up[k],
+                    self.constraints)
 
                 self.error += error
             self.error = wfs.kd.comm.sum(self.error)
@@ -827,3 +835,60 @@ def vec2skewmat(a_vec, dim, ind_up, dtype):
     a_mat -= a_mat.T.conj()
     np.fill_diagonal(a_mat, a_mat.diagonal() * 0.5)
     return a_mat
+
+
+def convert_constraints(constraints, n_dim, n_occ, representation):
+    new = constraints.copy()
+    for k in range(len(constraints)):
+        for con in constraints[k]:
+            assert type(con) == list or type(con) == int, 'Check constraints.'
+            if type(con) == list:
+                assert len(con) < 3, 'Check constraints.'
+                if len(con) == 1:
+                    con = int(con)
+                else:
+                    if representation != 'full' and con[1] < con[0]:
+                        temp = deepcopy(con[0])
+                        con[0] = deepcopy(con[1])
+                        con[1] = temp
+                    check_indices(
+                        con[0], con[1], n_dim[k], n_occ[k], representation)
+                    continue
+            if type(con) == int:
+                new += find_all_pairs(con, n_dim[k], n_occ[k], representation)
+    return new
+
+
+def check_indices(ind1, ind2, n_dim, n_occ, representation):
+    assert ind1 != ind2, 'Check constraints.'
+    if representation == 'full':
+        assert ind1 < n_dim and ind2 < n_dim, 'Check constraints.'
+    elif representation == 'sparse':
+        assert ind1 < n_occ and ind2 < n_dim, 'Check constraints.'
+    elif representation == 'u-invar':
+        assert ind1 < n_occ and ind2 >= n_occ and ind2 < n_dim, \
+            'Check constraints.'
+
+
+def find_all_pairs(ind, n_dim, n_occ, representation):
+    pairs = []
+    if representation == 'u-invar':
+        if ind < n_occ:
+            for i in range(n_occ, n_dim):
+                pairs.append([ind, i])
+        else:
+            for i in range(n_occ):
+                pairs.append([i, ind])
+    else:
+        if (ind < n_occ and representation == 'sparse') \
+            or representation == 'full':
+            for i in range(n_dim):
+                if i == ind:
+                    continue
+                pairs.append([i, ind] if i < ind else [ind, i])
+                if representation == 'full':
+                    pairs.append([ind, i] if i < ind else [i, ind])
+        else:
+            for i in range(n_occ):
+                pairs.append([i, ind])
+    return pairs
