@@ -147,7 +147,7 @@ class Matrix:
         elif not isinstance(out, Matrix):
             out = out.matrix
 
-        if dist.comm.size > 1:
+        if 0:  # dist.comm.size > 1:
             # Special cases that don't need scalapack - most likely also
             # faster:
             if alpha == 1.0 and opa == 'N' and opb == 'N':
@@ -242,16 +242,12 @@ class Matrix:
         assert M == N
         dist = self.dist
         if dist.comm.size == 1:
-            print(self.data)
             self.tril2full()
-            print(self.data)
             self.data[:] = linalg.inv(self.data,
                                       overwrite_a=True,
                                       check_finite=debug)
             return
-        print(self.data, dist.desc, 'U')
         info = _gpaw.scalapack_inverse(self.data, dist.desc, 'U')
-        print(info);return
         if info != 0:
             raise ValueError(f'scalapack_inverse error: {info}')
 
