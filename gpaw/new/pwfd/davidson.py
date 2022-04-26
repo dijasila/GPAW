@@ -130,8 +130,10 @@ class Davidson(Eigensolver):
         for i in range(self.niter):
             if i == self.niter - 1:
                 # Calulate error before we destroy residuals:
-                weights_n = calculate_weights(self.converge_bands, wfs)
-                error = weights_n @ residual_nX.norm2()
+                weight_n = calculate_weights(self.converge_bands, wfs)
+                error = weight_n @ residual_nX.norm2()
+                if wfs.ncomponents == 4:
+                    error = error.sum()
 
             self.preconditioner(psit_nX, residual_nX, out=psit2_nX)
 
@@ -217,7 +219,11 @@ def calculate_residuals(residuals_nX: DA,
         axpy(-e, p, r)
 
     dH(wfs.P_ani, P1_ani)
-    P2_ani.data[:] = wfs.P_ani.data * wfs.myeig_n[:, np.newaxis]
+    if wfs.ncomponents < 4:
+        subscripts = 'nI, n -> nI'
+    else:
+        subscripts = 'nsI, n -> nsI'
+    np.einsum(subscripts, wfs.P_ani.data, wfs.myeig_n, out=P2_ani.data)
     dS(P2_ani, P2_ani)
     P1_ani.data -= P2_ani.data
     wfs.pt_aiX.add_to(residuals_nX, P1_ani)
@@ -234,7 +240,7 @@ def calculate_weights(converge_bands: int | str,
             return np.abs(wfs.occ_n)
         except ValueError:
             # No eigenvalues yet:
-            return np.zeros(wfs.psit_nX.mydims) + np.inf
+            return np.zeros(wfs.psit_nX.mydims[0]) + np.inf
 
     if isinstance(converge_bands, int):
         # Converge fixed number of bands:

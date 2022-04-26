@@ -232,7 +232,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
 
     def __iter__(self):
         for data in self.data:
-            yield PlaneWaveExpansions(self.desc, data=data)
+            yield PlaneWaveExpansions(self.desc, data.shape[:-1], data=data)
 
     def new(self, data=None):
         """Create new PlaneWaveExpansions object of same kind.

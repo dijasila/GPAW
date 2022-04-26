@@ -76,7 +76,7 @@ class DummyFunctions(DistributedArrays[NoGrid]):
                  comm: MPIComm = serial_comm):
         DistributedArrays. __init__(self, dims, (),
                                     comm, grid.comm, None, np.nan,
-                                    grid.dtype, transposed=False)
+                                    grid.dtype)
         self.desc = grid
 
     def integrate(self):

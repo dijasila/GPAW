@@ -1,15 +1,13 @@
-import _gpaw
-import numpy as np
 from ase.units import Ha
 from gpaw.core import PlaneWaves, UniformGrid
 from gpaw.core.plane_waves import PlaneWaveExpansions
 from gpaw.new.builder import create_uniform_grid
-from gpaw.new.hamiltonian import Hamiltonian
 from gpaw.new.pw.poisson import ReciprocalSpacePoissonSolver
 from gpaw.new.pw.pot_calc import PlaneWavePotentialCalculator
 from gpaw.new.pwfd.builder import PWFDDFTComponentsBuilder
 from gpaw.typing import Array1D
 from gpaw.core.matrix import Matrix
+from gpaw.new.pw.hamiltonian import PWHamiltonian, SpinorPWHamiltonian
 
 
 class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
@@ -76,7 +74,9 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
                                             nct_ag, self.nct_R)
 
     def create_hamiltonian_operator(self, blocksize=10):
-        return PWHamiltonian()
+        if self.ncomponents < 4:
+            return PWHamiltonian()
+        return SpinorPWHamiltonian()
 
     def convert_wave_functions_from_uniform_grid(self,
                                                  C_nM: Matrix,
@@ -163,28 +163,3 @@ def check_g_vector_ordering(grid: UniformGrid,
     nG = len(index0_G)
     assert (index0_G == index_G[:nG]).all()
     assert (index_G[nG:] == -1).all()
-
-
-class PWHamiltonian(Hamiltonian):
-    def apply(self, vt_sR, psit_nG, out, spin):
-        out_nG = out
-        vt_R = vt_sR.data[spin]
-        np.multiply(psit_nG.desc.ekin_G, psit_nG.data, out_nG.data)
-        grid = vt_sR.desc
-        if psit_nG.desc.dtype == complex:
-            grid = grid.new(dtype=complex)
-        f_R = grid.empty()
-        for p_G, o_G in zip(psit_nG, out_nG):
-            f_R = p_G.ifft(out=f_R)
-            f_R.data *= vt_R
-            o_G.data += f_R.fft(pw=p_G.desc).data
-        return out_nG
-
-    def create_preconditioner(self, blocksize):
-        return precondition
-
-
-def precondition(psit, residuals, out):
-    G2 = psit.desc.ekin_G * 2
-    for r, o, ekin in zip(residuals.data, out.data, psit.norm2('kinetic')):
-        _gpaw.pw_precond(G2, r, ekin, o)

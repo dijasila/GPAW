@@ -65,6 +65,8 @@ class Domain:
 
         self.dtype = np.dtype(dtype)
 
+        self.myshape: tuple[int, ...]
+
     def __repr__(self):
         comm = self.comm
         if self.kpt_c.any():
