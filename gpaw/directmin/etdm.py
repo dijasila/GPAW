@@ -41,7 +41,7 @@ class ETDM:
                  localizationtype=None,
                  need_localization=True,
                  need_init_orbs=True,
-                 constraints=[]
+                 constraints=None
                  ):
         """
         This class performs the exponential transformation
@@ -201,9 +201,10 @@ class ETDM:
             # dimensionality of the problem.
             # this implementation rotates among all bands
             self.n_dim[u] = self.nbands
-            self.constraints[u] = convert_constraints(
-                self.constraints[u], self.n_dim[u], len(kpt.f_n > 1e-10),
-                self.representation)
+            if self.constraints:
+                self.constraints[u] = convert_constraints(
+                    self.constraints[u], self.n_dim[u], len(kpt.f_n > 1e-10),
+                    self.representation)
 
         self.initialized = True
 
