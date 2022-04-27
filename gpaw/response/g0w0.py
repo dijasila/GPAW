@@ -21,6 +21,7 @@ from gpaw.response.fxckernel_calc import calculate_kernel
 from gpaw.response.kernels import get_coulomb_kernel, get_integrated_kernel
 from gpaw.response.pair import PairDensity
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
+from gpaw.response.hacks import GaGb
 from gpaw.utilities.progressbar import ProgressBar
 from gpaw.pw.descriptor import (PWDescriptor, PWMapping,
                                 count_reciprocal_vectors)
@@ -686,7 +687,7 @@ class G0W0(PairDensity):
             C1_GG = C_swGG[s][w]
             C2_GG = C_swGG[s][w + 1]
             p = x * sgn
-            myn_G = n_G[self.Ga:self.Gb]
+            myn_G = n_G[self.GaGb.myslice]
 
             sigma1 = p * np.dot(np.dot(myn_G, C1_GG), n_G.conj()).imag
             sigma2 = p * np.dot(np.dot(myn_G, C2_GG), n_G.conj()).imag
@@ -801,11 +802,11 @@ class G0W0(PairDensity):
             thisqd = KPointDescriptor([q_c])
             pd = PWDescriptor(self.ecut, self.calc.wfs.gd, complex, thisqd)
             nG = pd.ngmax
-            mynG = (nG + self.blockcomm.size - 1) // self.blockcomm.size
-            chi0.Ga = self.blockcomm.rank * mynG
-            chi0.Gb = min(chi0.Ga + mynG, nG)
+
+            chi0.GaGb = GaGb(self.blockcomm, nG)
+
             if len(self.ecut_e) > 1:
-                shape = (nw, chi0.Gb - chi0.Ga, nG)
+                shape = (nw, chi0.GaGb.nGlocal, nG)
                 chi0bands_wGG = A1_x[:np.prod(shape)].reshape(shape).copy()
                 chi0bands_wGG[:] = 0.0
 
@@ -835,13 +836,8 @@ class G0W0(PairDensity):
                     # We also need to initialize the PAW corrections
                     self.Q_aGii = self.initialize_paw_corrections(pdi)
 
-                    nG = pdi.ngmax
                     nw = len(self.omega_w)
-                    mynG = (nG + self.blockcomm.size - 1) // \
-                        self.blockcomm.size
-                    self.Ga = self.blockcomm.rank * mynG
-                    self.Gb = min(self.Ga + mynG, nG)
-                    assert mynG * (self.blockcomm.size - 1) < nG
+                    self.GaGb = GaGb(self.blockcomm, pdi.ngmax)
                 else:
                     # First time calculation
                     if ecut == self.ecut:
@@ -896,10 +892,8 @@ class G0W0(PairDensity):
 
         nw = len(self.omega_w)
         nG = pd.ngmax
-        mynG = (nG + self.blockcomm.size - 1) // self.blockcomm.size
-        self.Ga = chi0.Ga
-        self.Gb = chi0.Gb
-        shape = (nw, chi0.Gb - chi0.Ga, nG)
+        self.GaGb = chi0.GaGb
+        shape = (nw, self.GaGb.nGlocal, nG)
         # construct empty matrix for chi
         print('Number of frequencies', nw)
         print('Frequencies', self.omega_w)
@@ -1011,9 +1005,7 @@ class G0W0(PairDensity):
             pdi = PWDescriptor(ecut, pd.gd, dtype=pd.dtype,
                                kd=pd.kd)
             nG = pdi.ngmax
-            mynG = (nG + self.blockcomm.size - 1) // self.blockcomm.size
-            self.Ga = self.blockcomm.rank * mynG
-            self.Gb = min(self.Ga + mynG, nG)
+            self.GaGb = GaGb(self.blockcomm, nG)
             nw = len(self.omega_w)
             mynw = (nw + self.blockcomm.size - 1) // self.blockcomm.size
 
