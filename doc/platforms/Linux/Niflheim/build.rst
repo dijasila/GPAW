@@ -85,6 +85,12 @@ submit to Niflheim.  Here are three ways to do it (pick one, and only one):
    in one of the parent folders and activate the venv automatically when
    your job starts running.
 
+   If you haven't configured MyQueue then you can do that with this command::
+
+       $ mq config slurm | grep -v sm3090 > ~/.myqueue/config.py
+
+   (skips the *sm3090* GPU-enabled nodes).
+
 
 Adding additional packages
 ==========================
