@@ -73,7 +73,7 @@ class Density:
         charge = comp_charge + self.charge
         pseudo_charge = self.nt_sR[:self.ndensities].integrate().sum()
         x = -charge / pseudo_charge
-        self.nt_sR.data[:self.ndensities] *= x
+        self.nt_sR.data *= x
 
     def update(self, nct_R, ibzwfs):
         self.nt_sR.data[:] = 0.0
