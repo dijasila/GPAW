@@ -175,16 +175,10 @@ class KohnShamLinearResponseFunction:
             There will be size // nblocks processes per memory block.
         """
         world = self.world
-        if nblocks == 1:
-            self.interblockcomm = world.new_communicator([world.rank])
-            self.intrablockcomm = world
-        else:
-            assert world.size % nblocks == 0, world.size
-            rank1 = world.rank // nblocks * nblocks
-            rank2 = rank1 + nblocks
-            self.interblockcomm = world.new_communicator(range(rank1, rank2))
-            ranks = range(world.rank % nblocks, world.size, nblocks)
-            self.intrablockcomm = world.new_communicator(ranks)
+        from gpaw.response.hacks import block_partition
+        self.interblockcomm, self.intrablockcomm = block_partition(
+            world, nblocks)
+
         print('Number of blocks:', nblocks, file=self.fd)
 
     @timer('Calculate Kohn-Sham linear response function')
@@ -624,35 +618,40 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
                                                                   1024**2))
         p('')
 
+    def _GaGb(self, nG):
+        from gpaw.response.hacks import GaGb
+        return GaGb(self.interblockcomm, nG)
+
     def setup_output_array(self, A_x=None):
         """Initialize the output array in blocks"""
         # Could use some more documentation XXX
         nG = self.pd.ngmax
         nw = len(self.omega_w)
-        mynG = (nG + self.interblockcomm.size - 1) // self.interblockcomm.size
-        self.Ga = min(self.interblockcomm.rank * mynG, nG)
-        self.Gb = min(self.Ga + mynG, nG)
+
+        GaGb = self._GaGb(nG)
+        nGlocal = GaGb.nGlocal
+        localsize = nw * nGlocal * nG
         # if self.interblockcomm.rank == 0:
         #     assert self.Gb - self.Ga >= 3
         # assert mynG * (self.interblockcomm.size - 1) < nG
         if self.bundle_integrals:
             # Setup A_GwG
+            shape = (nG, nw, nGlocal)
             if A_x is not None:
-                nx = nw * (self.Gb - self.Ga) * nG
-                A_GwG = A_x[:nx].reshape((nG, nw, self.Gb - self.Ga))
+                A_GwG = A_x[:localsize].reshape(shape)
                 A_GwG[:] = 0.0
             else:
-                A_GwG = np.zeros((nG, nw, self.Gb - self.Ga), complex)
+                A_GwG = np.zeros(shape, complex)
 
             return A_GwG
         else:
             # Setup A_wGG
+            shape = (nw, nGlocal, nG)
             if A_x is not None:
-                nx = nw * (self.Gb - self.Ga) * nG
-                A_wGG = A_x[:nx].reshape((nw, self.Gb - self.Ga, nG))
+                A_wGG = A_x[:localsize].reshape(shape)
                 A_wGG[:] = 0.0
             else:
-                A_wGG = np.zeros((nw, self.Gb - self.Ga, nG), complex)
+                A_wGG = np.zeros(shape, complex)
 
             return A_wGG
 
