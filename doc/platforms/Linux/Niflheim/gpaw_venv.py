@@ -38,14 +38,15 @@ if [[ $SLURM_SUBMIT_DIR ]]; then
     export MPLBACKEND=Agg
 else
     export MPLBACKEND=TkAgg
+fi
 """
 
 dftd3 = """\
 mkdir {venv}/DFTD3
 cd {venv}/DFTD3
-wget chemie.uni-bonn.de/pctc/mulliken-center/software/dft-d3/dftd3.tgz
+wget http://chemie.uni-bonn.de/pctc/mulliken-center/software/dft-d3/dftd3.tgz
 tar -xf dftd3.tgz
-ssh thul "cd {venv}/DFTD3 && make"
+ssh thul ". {venv}/bin/activate && cd {venv}/DFTD3 && make"
 ln -s {venv}/DFTD3/dftd3 {venv}/bin
 """
 
@@ -62,8 +63,8 @@ def compile_gpaw_c_code(gpaw: Path, activate: Path) -> None:
 
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('venv', description=__doc__)
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('venv', help='Name of venv.')
     parser.add_argument('--toolchain', default='foss',
                         choices=['foss', 'intel'],
                         help='Default is foss.')
@@ -71,7 +72,7 @@ def main():
                         help='Also build DFTD3.')
     parser.add_argument('--recompile', action='store_true',
                         help='Recompile the GPAW C-extensions in an '
-                        'exisint venv.')
+                        'exising venv.')
     args = parser.parse_args()
 
     venv = Path(args.venv).absolute()
@@ -102,7 +103,7 @@ def main():
     run(f'. {activate} && pip install -q ' + ' '.join(packages))
 
     for name in ['ase', 'gpaw']:
-        run(f'git clone -q https://gitlab.com/{name}/{name}')
+        run(f'git clone -q https://gitlab.com/{name}/{name}.git')
 
     run(f'. {activate} && pip install -q -e ase/')
 
@@ -144,14 +145,17 @@ def main():
         f'{venv} --no-register')
 
     extra = activate_extra.format(venv=venv)
+
     # Tab completion:
     for cmd in ['ase', 'gpaw', 'mq', 'pip']:
-        txt = run(f'{cmd} completion', capture_output=True).stdout
+        txt = run(f'. {activate} && {cmd} completion' +
+                  (' --bash' if cmd == 'pip' else ''),
+                  capture_output=True).stdout.decode()
         extra += txt
     activate.write_text(activate.read_text() + extra)
 
     # Run tests:
-    run('mq info && ase info && gpaw test')
+    run(f'. {activate} && mq info && ase info && gpaw test')
 
     return 0
 
