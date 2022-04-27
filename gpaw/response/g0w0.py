@@ -1259,7 +1259,7 @@ class G0W0(PairDensity):
             wb = nw
 
         if ecut == pd.ecut:
-            nG = len(chi0_wGG[0])
+            #nG = len(chi0_wGG[0])
             pdi = pd
             G2G = None
 
@@ -1309,7 +1309,7 @@ class G0W0(PairDensity):
         # Calculate kernel
         fv = calculate_kernel(self, nG, self.nspins, iq, G2G)[0:nG, 0:nG]
         # Generate fine grid in vicinity of gamma
-        if np.allclose(q_c, 0):
+        if np.allclose(q_c, 0) and len(chi0_wGG) > 0:
             kd = self.calc.wfs.kd
             N = 4
             N_c = np.array([N, N, N])
