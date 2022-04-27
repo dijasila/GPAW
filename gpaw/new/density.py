@@ -71,9 +71,9 @@ class Density:
             comp_charge += self.delta0_a[a]
         comp_charge = self.nt_sR.desc.comm.sum(comp_charge * sqrt(4 * pi))
         charge = comp_charge + self.charge
-        pseudo_charge = self.nt_sR.integrate().sum()
+        pseudo_charge = self.nt_sR[:self.ndensities].integrate().sum()
         x = -charge / pseudo_charge
-        self.nt_sR.data *= x
+        self.nt_sR.data[:self.ndensities] *= x
 
     def update(self, nct_R, ibzwfs):
         self.nt_sR.data[:] = 0.0

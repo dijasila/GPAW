@@ -121,10 +121,10 @@ class PWFDWaveFunctions(WaveFunctions):
 
         and:::
 
-           a    --  *  a
-          P  <- >  L  P  .
-           im   --  mn in
-                n
+           a     --  *  a
+          P   <- >  L  P  .
+           mi    --  mn ni
+                 n
 
         """
         if self.orthonormalized:
@@ -147,7 +147,6 @@ class PWFDWaveFunctions(WaveFunctions):
 
         if domain_comm.rank == 0:
             S.invcholesky()
-
         domain_comm.broadcast(S.data, 0)
         # S now contains L^*
 

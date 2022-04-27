@@ -63,6 +63,19 @@ class DFTComponentsBuilder:
 
         self.check_cell(atoms.cell)
 
+        self.initial_magmoms = normalize_initial_magnetic_moments(
+            params.magmoms, atoms, params.spinpol)
+
+        if self.initial_magmoms is None:
+            self.ncomponents = 1
+        elif self.initial_magmoms.ndim == 1:
+            self.ncomponents = 2
+        else:
+            self.ncomponents = 4
+
+        self.nspins = self.ncomponents % 3
+        self.spin_degeneracy = self.ncomponents % 2 + 1
+
         self.xc = self.create_xc_functional()
 
         self.setups = Setups(atoms.numbers,
@@ -70,9 +83,6 @@ class DFTComponentsBuilder:
                              params.basis,
                              self.xc.setup_name,
                              world)
-        self.initial_magmoms = normalize_initial_magnetic_moments(
-            params.magmoms, atoms, params.spinpol)
-
         symmetries = create_symmetries_object(atoms,
                                               self.setups.id_a,
                                               self.initial_magmoms,
@@ -108,16 +118,6 @@ class DFTComponentsBuilder:
 
         self.grid, self.fine_grid = self.create_uniform_grids()
 
-        if self.initial_magmoms is None:
-            self.ncomponents = 1
-        elif self.initial_magmoms.ndim == 1:
-            self.ncomponents = 2
-        else:
-            self.ncomponents = 4
-
-        self.nspins = self.ncomponents % 3
-        self.spin_degeneracy = self.ncomponents % 2 + 1
-
         self.fracpos_ac = self.atoms.get_scaled_positions()
         self.fracpos_ac %= 1
         self.fracpos_ac %= 1
@@ -126,7 +126,7 @@ class DFTComponentsBuilder:
         raise NotImplementedError
 
     def create_xc_functional(self):
-        return XCFunctional(self.params.xc)
+        return XCFunctional(self.params.xc, self.ncomponents)
 
     def check_cell(self, cell):
         number_of_lattice_vectors = cell.rank
