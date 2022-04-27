@@ -5,6 +5,22 @@ import pickle
 import warnings
 from math import pi
 
+
+class Dyson:
+    def __init__(self):
+        pass
+
+    def calculate(self, chi0_WgG, htm, htp):
+        # Task:
+        # 1. Have chi0_WgG
+        # 2. Redistribute to chi0_w(gg)
+        # 3. Per frequency
+        #    i) Calculate eps_(gg) = I_(gg) - vsqr_ chi0_GG vsqr_G
+        #   ii) Calculate epsinv_(gg) = eps_(gg)^-1
+        #   iii) Calcualte W_GG = vsqr_G (epsinv - I_GG) vsqr_G
+
+        return htm(W_WgG), htp(W_WgG)
+
 import numpy as np
 from ase.dft.kpoints import monkhorst_pack
 from ase.parallel import paropen
@@ -939,21 +955,32 @@ class G0W0(PairDensity):
            5. Output gw=True Hilbert transformed in WGg form
         """
 
-        #chi02_wGG = chi0_wGG.copy()
-        #A1_2_x = A1_x.copy()
-        #A2_2_x = A2_x.copy()
+        chi02_wGG = chi0_wGG.copy()
+        A1_2_x = A1_x.copy()
+        A2_2_x = A2_x.copy()
 
         # Old way
-        self.timer.start('old')
+        if not np.allclose(q_c, 0):
+            self.timer.start('old non gamma')
+        else:
+            self.timer.start('old gamma')
         pdi, Wm_wGG, Wp_wGG = self.dyson_and_W_old(wstc, iq, q_c, chi0, chi0_wvv, chi0_wxvG, chi0_wGG, A1_x, A2_x, pd, ecut, htp, htm)
-        self.timer.stop('old')
+        if not np.allclose(q_c, 0):
+            self.timer.stop('old non gamma')
+        else:
+            self.timer.stop('old gamma')
 
-        #self.timer.start('new')
-        #pdi, Wm2_wGG, Wp2_wGG = self.dyson_and_W_new(wstc, iq, q_c, chi0, chi0_wvv, chi0_wxvG, chi02_wGG, A1_2_x, A2_2_x, pd, ecut, htp, htm)
-        #self.timer.stop('new')
+        if not np.allclose(q_c, 0):
+            self.timer.start('new non gamma')
+            pdi, Wm2_wGG, Wp2_wGG = self.dyson_and_W_new(wstc, iq, q_c, chi0, chi0_wvv, chi0_wxvG, chi02_wGG, A1_2_x, A2_2_x, pd, ecut, htp, htm)
+            self.timer.stop('new non gamma')
 
-        #assert np.allclose(Wm_wGG, Wm2_wGG)
-        #assert np.allclose(Wp_wGG, Wp2_wGG)
+            assert np.allclose(Wm_wGG, Wm2_wGG)
+            assert np.allclose(Wp_wGG, Wp2_wGG)
+
+            # For further verification, use Wm2 and Wp2 values
+            Wm_wGG[:] = Wm2_wGG
+            Wp_wGG[:] = Wp2_wGG
 
         ###############################################################################
         # At this stage, we have Wp_wGG, distributed over frequencies, and full G G   #
@@ -981,8 +1008,15 @@ class G0W0(PairDensity):
     #### NEW ####
     #############
     def dyson_and_W_new(self, wstc, iq, q_c, chi0, chi0_wvv, chi0_wxvG, chi0_wGG, A1_x, A2_x, pd, ecut, htp, htm):
-        print(chi0_wGG.shape)
-        step1_matrix = Matrix(nw, nG*nG, dist=(self.blockcomm, 1, self.blockcomm.size))
+        assert self.ppa == False
+        assert self.do_GW_too == False
+        assert ecut == pd.ecut
+        assert self.fxc_mode == 'GW'
+        
+        assert not np.allclose(q_c, 0)
+
+        #print(chi0_wGG.shape)
+        #step1_matrix = Matrix(nw, nG*nG, dist=(self.blockcomm, 1, self.blockcomm.size))
 
         nw = len(self.omega_w)
         nG = pd.ngmax
@@ -997,27 +1031,9 @@ class G0W0(PairDensity):
             wb = nw
 
         if ecut == pd.ecut:
-            nG = len(chi0_wGG[0])
+            # nG = len(chi0_wGG[0])
             pdi = pd
             G2G = None
-
-        elif ecut < pd.ecut:  # construct subset chi0 matrix with lower ecut
-            pdi = PWDescriptor(ecut, pd.gd, dtype=pd.dtype,
-                               kd=pd.kd)
-            nG = pdi.ngmax
-            self.GaGb = GaGb(self.blockcomm, nG)
-            nw = len(self.omega_w)
-            mynw = (nw + self.blockcomm.size - 1) // self.blockcomm.size
-
-            G2G = PWMapping(pdi, pd).G2_G1
-            chi0_wGG = chi0_wGG.take(G2G, axis=1).take(G2G, axis=2)
-
-            if chi0_wxvG is not None:
-                chi0_wxvG = chi0_wxvG.take(G2G, axis=3)
-
-            if self.Q_aGii is not None:
-                for a, Q_Gii in enumerate(self.Q_aGii):
-                    self.Q_aGii[a] = Q_Gii.take(G2G, axis=0)
 
         if self.integrate_gamma != 0:
             if self.integrate_gamma == 2:
@@ -1037,199 +1053,18 @@ class G0W0(PairDensity):
         else:
             pass
 
-        delta_GG = np.eye(nG)
-
-        if self.ppa:
-            einv_wGG = []
-
-        # Calculate kernel
-        fv = calculate_kernel(self, nG, self.nspins, iq, G2G)[0:nG, 0:nG]
-        # Generate fine grid in vicinity of gamma
-        if np.allclose(q_c, 0):
-            kd = self.calc.wfs.kd
-            N = 4
-            N_c = np.array([N, N, N])
-            if self.truncation is not None:
-                # Only average periodic directions if trunction is used
-                N_c[np.where(kd.N_c == 1)[0]] = 1
-            qf_qc = monkhorst_pack(N_c) / kd.N_c
-            qf_qc *= 1.0e-6
-            U_scc = kd.symmetry.op_scc
-            qf_qc = kd.get_ibz_q_points(qf_qc, U_scc)[0]
-            weight_q = kd.q_weights
-            qf_qv = 2 * np.pi * np.dot(qf_qc, pd.gd.icell_cv)
-            a_wq = np.sum([chi0_vq * qf_qv.T
-                           for chi0_vq in
-                           np.dot(chi0_wvv[wa:wb], qf_qv.T)], axis=1)
-            a0_qwG = np.dot(qf_qv, chi0_wxvG[wa:wb, 0])
-            a1_qwG = np.dot(qf_qv, chi0_wxvG[wa:wb, 1])
 
         self.timer.start('Dyson eq.')
-        # Calculate W and store it in chi0_wGG ndarray:
-        if self.do_GW_too:
-            chi0_GW_wGG = chi0_wGG.copy()
-        else:
-            chi0_GW_wGG = [0]
-
-        for iw, [chi0_GG, chi0_GW_GG] in enumerate(
-            zip(chi0_wGG,
-                itertools.cycle(chi0_GW_wGG))):
-            if np.allclose(q_c, 0):
-                einv_GG = np.zeros((nG, nG), complex)
-                if self.do_GW_too:
-                    einv_GW_GG = np.zeros((nG, nG), complex)
-                for iqf in range(len(qf_qv)):
-                    chi0_GG[0] = a0_qwG[iqf, iw]
-                    chi0_GG[:, 0] = a1_qwG[iqf, iw]
-                    chi0_GG[0, 0] = a_wq[iw, iqf]
-                    if self.do_GW_too:
-                        chi0_GW_GG[0] = a0_qwG[iqf, iw]
-                        chi0_GW_GG[:, 0] = a1_qwG[iqf, iw]
-                        chi0_GW_GG[0, 0] = a_wq[iw, iqf]
-                    sqrV_G = get_coulomb_kernel(pdi,
-                                                kd.N_c,
-                                                truncation=self.truncation,
-                                                wstc=wstc,
-                                                q_v=qf_qv[iqf])**0.5
-
-#                    chi0v_GG = chi0_GG * sqrV_G * sqrV_G[:, np.newaxis]
-#                    if self.nspins == 2:
-#                        chi0v = np.zeros((2 * nG, 2 * nG), dtype=complex)
-#                        for s in range(self.nspins):
-#                            m = s * nG
-#                            n = (s + 1) * nG
-#                            chi0v[m:n, m:n] = chi0v_GG
-#                    else:
-#                    chi0v = chi0v_GG
-
-                    if self.fxc_mode == 'GWP':
-                        e_GG = (np.eye(nG) -
-                                np.dot(
-                                    np.linalg.inv(
-                                        np.eye(nG) -
-                                        np.dot(chi0_GG *
-                                               sqrV_G *
-                                               sqrV_G[:, np.newaxis], fv) +
-                                        chi0_GG * sqrV_G *
-                                        sqrV_G[:, np.newaxis]),
-                                    chi0_GG * sqrV_G *
-                                    sqrV_G[:, np.newaxis]))
-                    elif self.fxc_mode == 'GWS':
-                        e_GG = np.dot(
-                            np.linalg.inv(
-                                np.eye(nG) +
-                                np.dot(chi0_GG *
-                                       sqrV_G *
-                                       sqrV_G[:, np.newaxis], fv) -
-                                chi0_GG * sqrV_G *
-                                sqrV_G[:, np.newaxis]),
-                            np.eye(nG) -
-                            chi0_GG * sqrV_G *
-                            sqrV_G[:, np.newaxis])
-                    else:
-                        e_GG = np.eye(nG) - np.dot(chi0_GG * sqrV_G *
-                                                   sqrV_G[:, np.newaxis], fv)
-
-                    einv_GG += np.linalg.inv(e_GG) * weight_q[iqf]
-
-                    if self.do_GW_too:
-                        e_GW_GG = (np.eye(nG) -
-                                   chi0_GW_GG * sqrV_G *
-                                   sqrV_G[:, np.newaxis])
-                        einv_GW_GG += np.linalg.inv(e_GW_GG) * weight_q[iqf]
-
-            else:
-                sqrV_G = get_coulomb_kernel(pdi,
-                                            self.calc.wfs.kd.N_c,
-                                            truncation=self.truncation,
-                                            wstc=wstc)**0.5
-                if self.fxc_mode == 'GWP':
-                    e_GG = (np.eye(nG) -
-                            np.dot(
-                                np.linalg.inv(
-                                    np.eye(nG) -
-                                    np.dot(chi0_GG * sqrV_G *
-                                           sqrV_G[:, np.newaxis], fv) +
-                                    chi0_GG * sqrV_G *
-                                    sqrV_G[:, np.newaxis]),
-                                chi0_GG * sqrV_G * sqrV_G[:, np.newaxis]))
-                elif self.fxc_mode == 'GWS':
-                    e_GG = np.dot(
-                        np.linalg.inv(
-                            np.eye(nG) +
-                            np.dot(chi0_GG * sqrV_G *
-                                   sqrV_G[:, np.newaxis], fv) -
-                            chi0_GG * sqrV_G *
-                            sqrV_G[:, np.newaxis]),
-                        np.eye(nG) - chi0_GG *
-                        sqrV_G * sqrV_G[:, np.newaxis])
-                else:
-                    e_GG = (delta_GG -
-                            np.dot(chi0_GG * sqrV_G *
-                                   sqrV_G[:, np.newaxis], fv))
-
-                einv_GG = np.linalg.inv(e_GG)
-
-                if self.do_GW_too:
-                    e_GW_GG = (delta_GG -
-                               chi0_GW_GG * sqrV_G * sqrV_G[:, np.newaxis])
-                    einv_GW_GG = np.linalg.inv(e_GW_GG)
-
-            if self.ppa:
-                einv_wGG.append(einv_GG - delta_GG)
-            else:
-                W_GG = chi0_GG
-                W_GG[:] = (einv_GG - delta_GG) * sqrV_G * sqrV_G[:, np.newaxis]
-
-                if self.do_GW_too:
-                    W_GW_GG = chi0_GW_GG
-                    W_GW_GG[:] = ((einv_GW_GG - delta_GG) *
-                                  sqrV_G * sqrV_G[:, np.newaxis])
-
-                if self.ac and np.allclose(q_c, 0):
-                    if iw == 0:
-                        print_ac = True
-                    else:
-                        print_ac = False
-                    self.add_q0_correction(pdi, W_GG, einv_GG,
-                                           chi0_wxvG[wa + iw],
-                                           chi0_wvv[wa + iw],
-                                           sqrV_G,
-                                           print_ac=print_ac)
-                    if self.do_GW_too:
-                        self.add_q0_correction(pdi, W_GW_GG, einv_GW_GG,
-                                               chi0_wxvG[wa + iw],
-                                               chi0_wvv[wa + iw],
-                                               sqrV_G,
-                                               print_ac=print_ac)
-                elif np.allclose(q_c, 0) or self.integrate_gamma != 0:
-                    W_GG[0, 0] = (einv_GG[0, 0] - 1.0) * V0
-                    W_GG[0, 1:] = einv_GG[0, 1:] * sqrV_G[1:] * sqrV0
-                    W_GG[1:, 0] = einv_GG[1:, 0] * sqrV0 * sqrV_G[1:]
-                    if self.do_GW_too:
-                        W_GW_GG[0, 0] = (einv_GW_GG[0, 0] - 1.0) * V0
-                        W_GW_GG[0, 1:] = einv_GW_GG[0, 1:] * sqrV_G[1:] * sqrV0
-                        W_GW_GG[1:, 0] = einv_GW_GG[1:, 0] * sqrV0 * sqrV_G[1:]
-                else:
-                    pass
-
-        if self.ppa:
-            omegat_GG = self.E0 * np.sqrt(einv_wGG[1] /
-                                          (einv_wGG[0] - einv_wGG[1]))
-            R_GG = -0.5 * omegat_GG * einv_wGG[0]
-            W_GG = pi * R_GG * sqrV_G * sqrV_G[:, np.newaxis]
-            if np.allclose(q_c, 0) or self.integrate_gamma != 0:
-                W_GG[0, 0] = pi * R_GG[0, 0] * V0
-                W_GG[0, 1:] = pi * R_GG[0, 1:] * sqrV_G[1:] * sqrV0
-                W_GG[1:, 0] = pi * R_GG[1:, 0] * sqrV0 * sqrV_G[1:]
-
-            self.timer.stop('Dyson eq.')
-            xxx
-            return pdi, [W_GG, omegat_GG], None
-
-        if self.do_GW_too:
-            A1_GW_x = A1_x.copy()
-            A2_GW_x = A2_x.copy()
+        #W_wGG = redistribute_and_calculate_Dyson(sqrV_G, chi0_wGG, self.blockcomm)
+        for iw, chi0_GG in enumerate(chi0_wGG):
+            sqrV_G = get_coulomb_kernel(pdi,
+                                        self.calc.wfs.kd.N_c,
+                                        truncation=self.truncation,
+                                        wstc=wstc)**0.5
+            e_GG = np.eye(nG) - chi0_GG * sqrV_G * sqrV_G[:, np.newaxis]
+            einv_GG = np.linalg.inv(e_GG)
+            W_GG = chi0_GG
+            W_GG[:] = (einv_GG - np.eye(nG)) * sqrV_G * sqrV_G[:, np.newaxis]
 
         if self.blockcomm.size > 1:
             Wm_wGG = chi0.redistribute(chi0_wGG, A1_x)
