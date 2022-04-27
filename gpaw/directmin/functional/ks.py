@@ -107,8 +107,7 @@ class KSLCAO:
         if constraints:
             for con in constraints:
                 con1 = con[0]
-                con2 = con[1]
-                hc_mn[con2][con1] = 0.0
+                hc_mn[:, con1] = 0.0
         norm = sum(hc_mn.conj() * hc_mn * f_n[:occ])
         error = sum(norm.real) * Hartree ** 2 / nvalence
         
