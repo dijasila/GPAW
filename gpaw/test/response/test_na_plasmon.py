@@ -27,18 +27,14 @@ def test_response_na_plasmon(in_tmp_dir):
                cell=(2 * a, a, a),
                pbc=True)
 
-    a1.calc = GPAW(gpts=(10, 10, 10),
-                   experimental={'niter_fixdensity': 2},
-                   mode=PW(300),
+    a1.calc = GPAW(mode=PW(250),
                    kpts={'size': (8, 8, 8), 'gamma': True},
                    parallel={'band': 1},
                    # txt='small.txt',
                    )
 
     # Kpoint sampling should be halved in the expanded direction.
-    a2.calc = GPAW(gpts=(20, 10, 10),
-                   experimental={'niter_fixdensity': 2},
-                   mode=PW(300),
+    a2.calc = GPAW(mode=PW(250),
                    kpts={'size': (4, 8, 8), 'gamma': True},
                    parallel={'band': 1},
                    # txt='large.txt',
@@ -80,9 +76,9 @@ def test_response_na_plasmon(in_tmp_dir):
             pass
 
         df1 = DielectricFunction('gs_Na_small.gpw',
-                                 domega0=0.03,
+                                 domega0=0.1,
                                  omegamax=10,
-                                 ecut=150,
+                                 ecut=40,
                                  name='chi0',
                                  **kwargs)
 
@@ -96,9 +92,9 @@ def test_response_na_plasmon(in_tmp_dir):
             pass
 
         df2 = DielectricFunction('gs_Na_large.gpw',
-                                 domega0=0.03,
+                                 domega0=0.1,
                                  omegamax=10,
-                                 ecut=150,
+                                 ecut=40,
                                  name='chi1',
                                  **kwargs)
 

@@ -89,12 +89,9 @@ class AtomCenteredFunctions:
         """
         self._lazy_init()
         if out is None:
-            out = self.layout.empty(functions.dims + (3,), functions.comm,
-                                    transposed=True)
-        else:
-            assert out.transposed
-        coef_axiv = {a: np.moveaxis(array_ixv, 0, -2)
-                     for a, array_ixv in out._arrays.items()}
+            out = self.layout.empty((3,) + functions.dims, functions.comm)
+        coef_axiv = {a: np.moveaxis(array_vxi, 0, -1)
+                     for a, array_vxi in out._arrays.items()}
         self._lfc.derivative(functions.data, coef_axiv, q=0)
         return out
 

@@ -15,7 +15,7 @@ pytestmark = pytest.mark.skipif(world.size < 4,
 
 
 @pytest.mark.slow
-def test_exx_AA_enthalpy(in_tmp_dir):
+def test_exx_AA_enthalpy(in_tmp_dir, add_cwd_to_setup_paths):
     data = {}
 
     def _xc(name):

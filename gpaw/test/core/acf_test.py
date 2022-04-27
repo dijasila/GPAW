@@ -45,7 +45,7 @@ def test_acf():
         [[s]],
         positions=[[0.5, 0.5, 0.5]])
 
-    coefs = basis.layout.empty(transposed=True)
+    coefs = basis.layout.empty()
     if 0 in coefs:
         print(coefs[0])
         coefs[0] = [1.0]
