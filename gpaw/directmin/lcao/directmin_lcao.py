@@ -116,20 +116,11 @@ class DirectMinLCAO(DirectLCAO):
                 kpt.C_nM, kpt.eps_n = rotate_subspace(h_mm, kpt.C_nM)
         else:
             # Diagonalize equally occupied subspaces separately
-            n_init = 0
-            while True:
-                n_fin = \
-                    find_equally_occupied_subspace(kpt.f_n, n_init)
+            f_unique = np.unique(kpt.f_n)
+            for f in f_unique:
                 with wfs.timer('Diagonalize and rotate'):
-                    kpt.C_nM[n_init:n_init + n_fin, :], \
-                        kpt.eps_n[n_init:n_init + n_fin] = \
-                        rotate_subspace(
-                            h_mm, kpt.C_nM[n_init:n_init + n_fin, :])
-                n_init += n_fin
-                if n_init == len(kpt.f_n):
-                    break
-                elif n_init > len(kpt.f_n):
-                    raise RuntimeError('Bug is here!')
+                    kpt.C_nM[kpt.f_n == f, :], kpt.eps_n[kpt.f_n == f] = \
+                        rotate_subspace(h_mm, kpt.C_nM[kpt.f_n == f, :])
 
         with wfs.timer('Calculate projections'):
             self.update_projections(wfs, kpt)
@@ -169,11 +160,7 @@ def rotate_subspace(h_mm, c_nm):
     """
     choose canonical orbitals
     """
-    l_nn = (c_nm @ h_mm @ c_nm.conj().T).conj()
+    l_nn = c_nm @ h_mm @ c_nm.conj().T
     # check if diagonal then don't rotate? it could save a bit of time
     eps, w = np.linalg.eigh(l_nn)
     return w.T.conj() @ c_nm, eps
-
-
-def find_equally_occupied_subspace(f_n, index=0):
-    return np.searchsorted(f_n[index] - f_n[index:], 1.0e-10)

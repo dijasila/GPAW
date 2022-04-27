@@ -12,8 +12,9 @@ def workflow():
 
 
 def check_co():
-    co = read('co.txt')
-    assert abs(co.get_distance(0, 1) - 1.248) < 0.01
+    for tag in ['spinpol', 'spinpaired']:
+        co = read('co_' + tag + '.txt')
+        assert abs(co.get_distance(0, 1) - 1.248) < 0.01
 
 
 def check_h2o():

@@ -42,7 +42,7 @@ from gpaw.setup import Setups
 from gpaw.stress import calculate_stress
 from gpaw.symmetry import Symmetry
 from gpaw.typing import Array1D
-from gpaw.utilities import check_atoms_too_close
+from gpaw.utilities import check_atoms_too_close, compiled_with_sl
 from gpaw.utilities.gpts import get_number_of_grid_points
 from gpaw.utilities.grid import GridRedistributor
 from gpaw.utilities.memory import MemNode, maxrss
@@ -227,6 +227,16 @@ class GPAW(Calculator):
             self.reader.close()
 
     def write(self, filename, mode=''):
+        """Write calculator object to a file.
+
+        Parameters
+        ----------
+        filename
+            File to be written
+        mode
+            Write mode. Use ``mode='all'``
+            to include wave functions in the file.
+        """
         self.log(f'Writing to {filename} (mode={mode!r})\n')
         writer = Writer(filename, self.world)
         self._write(writer, mode)
@@ -1198,7 +1208,7 @@ class GPAW(Calculator):
                           bd=bd, dtype=dtype, world=self.world, kd=kd,
                           kptband_comm=kptband_comm, timer=self.timer)
 
-        if self.parallel['sl_auto']:
+        if self.parallel['sl_auto'] and compiled_with_sl():
             # Choose scalapack parallelization automatically
 
             for key, val in self.parallel.items():

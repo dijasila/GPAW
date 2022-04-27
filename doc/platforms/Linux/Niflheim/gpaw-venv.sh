@@ -86,7 +86,7 @@ git clone $GPAW_REPO
 cd gpaw
 cp doc/platforms/Linux/Niflheim/siteconfig-${TCHAIN}.py siteconfig.py
 # xeon16, xeon24, xeon40:
-for HOST in thul sylg svol
+for HOST in thul sylg svol surt
 do
   CMD="cd $VENV &&
        . bin/activate &&

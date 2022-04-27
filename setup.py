@@ -140,6 +140,9 @@ if nolibxc:
                  'tpss.c', 'revtpss.c', 'revtpss_c_pbe.c',
                  'xc_mgga.c']:
         sources.remove(Path(f'c/xc/{name}'))
+    if 'xc' in libraries:
+        libraries.remove('xc')
+
 # Make build process deterministic (for "reproducible build")
 sources = [str(source) for source in sources]
 sources.sort()

@@ -4,7 +4,6 @@ import time
 import numpy as np
 
 from gpaw.poisson import PoissonSolver
-from gpaw.poisson_extended import ExtendedPoissonSolver
 from gpaw.poisson_extravacuum import ExtraVacuumPoissonSolver
 from gpaw.grid_descriptor import GridDescriptor
 
@@ -117,14 +116,6 @@ def test_poisson_poisson_extravacuum():
     # print poisson.get_description()
     compare(phi_g, phiref_g, 2.6485385144e-02)
     phiref_g = phi_g
-
-    # Compare to ExtendedPoissonSolver
-    # TODO: remove this test when/if ExtendedPoissonSolver is deprecated
-    poisson = ExtendedPoissonSolver(eps=poissoneps,
-                                    extended={'gpts': gpts / 2,
-                                              'useprev': True})
-    phi_g, npoisson = poisson_init_solve(gd, rho_g, poisson)
-    compare(phi_g, phiref_g, 0.0, 1e-24)
 
     # Test with single coarsening
     poisson = ExtraVacuumPoissonSolver(

@@ -36,7 +36,7 @@ There are several ways to install GPAW:
   (named ``gpaw``).
 
 * If you are a developer that need to change the code you should look at this
-  description: :ref:`developer installation`.
+  description: :ref:`development workflow`.
 
 .. seealso::
 

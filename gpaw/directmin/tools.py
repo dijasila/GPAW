@@ -1,5 +1,5 @@
 """
-Tools for direcmin
+Tools for directmin
 """
 
 import numpy as np
@@ -264,3 +264,92 @@ def excite(calc, i, a, spin=(0, 0)):
     f_sn[spin[1]][lumo + a] += 1
 
     return f_sn
+
+
+def dict_to_array(x):
+    """
+    Converts dictionaries with integer keys to one long array by appending.
+
+    :param x: Dictionary
+    :return: Long array, dimensions of original dictionary parts, total
+             dimensions
+    """
+    y = []
+    dim = []
+    dimtot = 0
+    for k in x.keys():
+        assert type(k) == int, 'Cannot convert dict to array if keys are not '
+        'integer.'
+        y += list(x[k])
+        dim.append(len(x[k]))
+        dimtot += len(x[k])
+    return np.asarray(y), dim, dimtot
+
+
+def array_to_dict(x, dim):
+    """
+    Converts long array to dictionary with integer keys with values of
+    dimensionality specified in dim.
+
+    :param x: Array
+    :param dim: List with dimensionalities of parts of the dictionary
+    :return: Dictionary
+    """
+    y = {}
+    start = 0
+    stop = 0
+    for i in range(len(dim)):
+        stop += dim[i]
+        y[i] = x[start: stop]
+        start += dim[i]
+    return y
+
+
+def complex_to_real(x):
+    """
+    Converts complex array to twice as long real array of its real and
+    imaginary components.
+
+    :param x: Complex array
+    :return: Real array of complex components
+    """
+
+    length = len(x)
+    y = np.zeros(2 * length)
+    y[: length] = np.real(x)
+    y[length:] = np.imag(x)
+    return y
+
+
+def real_to_complex(x):
+    """
+    Converts real array to half as long complex array by assuming half of the
+    original array is the real and the other half the imaginary part
+
+    :param x: Real array
+    :return: Half as long complex array
+    """
+
+    length = int(len(x) / 2)
+    array = np.asarray(x)
+    y = np.zeros(length, dtype=complex)
+    y = array[: length] + 1.0j * array[length:]
+    return y
+
+def rotate_orbitals(wfs, orbitals, angle, channel):
+    """
+    Applies a single rotation between two orbitals.
+
+    :param wfs:
+    :param orbitals: List of two orbital indices
+    :param angle: Rotation angle (deg.)
+    :param channel: Spin channel of the orbitals
+    """
+
+    a = angle * np.pi / 180.0
+    i = channel
+    c = wfs.kpt_u[i].C_nM.copy()
+    wfs.kpt_u[i].C_nM[orbitals[0]] = \
+        np.cos(a) * c[orbitals[0]] + np.sin(a) * c[orbitals[1]]
+    wfs.kpt_u[i].C_nM[orbitals[1]] = \
+        np.cos(a) * c[orbitals[1]] - np.sin(a) * c[orbitals[0]]

@@ -1,4 +1,3 @@
-
 def test_ase_features_wannierk(in_tmp_dir):
     'Test ase.dft.wannier module with k-points.'
     from ase.build import bulk
@@ -30,7 +29,7 @@ def test_ase_features_wannierk(in_tmp_dir):
                    ([0.625, 0.125, 0.125], 0, 1.5)]
         w = Wannier(4, calc,
                     nbands=4,
-                    verbose=1,
+                    log=print,
                     initialwannier=centers)
         w.localize()
         x = w.get_functional_value()

@@ -7,51 +7,59 @@ from gpaw.directmin.tools import excite
 from gpaw.directmin.etdm import ETDM
 
 
-atoms = molecule('CO')
-atoms.center(vacuum=5)
+for spinpol in [True, False]:
+    if spinpol:
+        tag = 'spinpol'
+    else:
+        tag = 'spinpaired'
 
-calc = GPAW(xc='PBE',
-            mode=LCAO(force_complex_dtype=True),
-            h=0.2,
-            basis='dzp',
-            spinpol=True,
-            eigensolver='etdm',
-            occupations={'name': 'fixed-uniform'},
-            mixer={'backend': 'no-mixing'},
-            nbands='nao',
-            symmetry='off',
-            txt='co.txt')
-atoms.calc = calc
+    atoms = molecule('CO')
+    atoms.center(vacuum=5)
 
-# Ground-state calculation
-E_gs = atoms.get_potential_energy()
+    calc = GPAW(xc='PBE',
+                mode=LCAO(force_complex_dtype=True),
+                h=0.2,
+                basis='dzp',
+                spinpol=spinpol,
+                eigensolver='etdm',
+                occupations={'name': 'fixed-uniform'},
+                mixer={'backend': 'no-mixing'},
+                nbands='nao',
+                symmetry='off',
+                txt='co_' + tag + '.txt')
+    atoms.calc = calc
 
-# Prepare initial guess for complex pi* orbitals by taking
-# linear combination of real pi*x and pi*y orbitals
-lumo = 5  # lumo is pi*x or pi*y orbital
-for kpt in calc.wfs.kpt_u:
-    pp = kpt.C_nM[lumo] + 1.0j * kpt.C_nM[lumo + 1]
-    pm = kpt.C_nM[lumo] - 1.0j * kpt.C_nM[lumo + 1]
-    kpt.C_nM[lumo][:] = pm
-    kpt.C_nM[lumo + 1][:] = pp
+    # Ground-state calculation
+    E_gs = atoms.get_potential_energy()
 
-calc.set(eigensolver=ETDM(searchdir_algo={'name': 'l-sr1p'},
-                          linesearch_algo={'name': 'max-step'},
-                          need_init_orbs=False))
+    # Prepare initial guess for complex pi* orbitals by taking
+    # linear combination of real pi*x and pi*y orbitals
+    lumo = 5  # lumo is pi*x or pi*y orbital
+    for kpt in calc.wfs.kpt_u:
+        pp = kpt.C_nM[lumo] + 1.0j * kpt.C_nM[lumo + 1]
+        pm = kpt.C_nM[lumo] - 1.0j * kpt.C_nM[lumo + 1]
+        kpt.C_nM[lumo][:] = pm
+        kpt.C_nM[lumo + 1][:] = pp
 
-# Occupation numbers for sigma->pi* excited state:
-# Remove one electron from homo (sigma) and add one electron to lumo (pi*)
-f = excite(calc, 0, 0, spin=(0, 0))
+    calc.set(eigensolver=ETDM(searchdir_algo={'name': 'l-sr1p'},
+                              linesearch_algo={'name': 'max-step'},
+                              need_init_orbs=False))
 
-# Prepare excited-state DO-MOM calculation
-prepare_mom_calculation(calc, atoms, f)
+    # Occupation numbers for sigma->pi* excited state:
+    # Remove one electron from homo (sigma) and add one electron to lumo (pi*)
+    f = excite(calc, 0, 0, spin=(0, 0))
+    if not spinpol:
+        f[0] /= 2
 
-opt = BFGS(atoms, logfile='co.log', maxstep=0.05)
-opt.run(fmax=0.05)
+    # Prepare excited-state DO-MOM calculation
+    prepare_mom_calculation(calc, atoms, f)
 
-d = atoms.get_distance(0, 1)
+    opt = BFGS(atoms, logfile='co_' + tag + '.log', maxstep=0.05)
+    opt.run(fmax=0.05)
 
-with paropen('co.log', 'a') as fd:
-    print(f'Optimized C-O bond length of sigma->pi* state: {d:.2f} Å', file=fd)
-    # https://doi.org/10.1007/978-1-4757-0961-2
-    print('Experimental C-O bond length of sigma->pi* state: 1.24 Å', file=fd)
+    d = atoms.get_distance(0, 1)
+
+    with paropen('co_' + tag + '.log', 'a') as fd:
+        print(f'Optimized CO bond length sigma->pi* state: {d:.2f} Å', file=fd)
+        # https://doi.org/10.1007/978-1-4757-0961-2
+        print('Experimental CO bond length sigma->pi* state: 1.24 Å', file=fd)

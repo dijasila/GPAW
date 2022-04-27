@@ -9,6 +9,8 @@ https://pubs.acs.org/doi/10.1021/acs.jctc.0c00597
 
 import numpy as np
 import copy
+from gpaw.directmin.tools import array_to_dict, dict_to_array
+from ase.parallel import parprint
 
 
 class SearchDirectionBase(object):
@@ -21,17 +23,170 @@ class SearchDirectionBase(object):
 
     def __str__(self):
         raise NotImplementedError('Search direction class needs string '
-                                  'representation')
+                                  'representation.')
+
+    def todict(self):
+        raise NotImplementedError('Search direction class needs \'todict\' '
+                                  'method.')
 
     def update_data(self, wfs, x_k1, g_k1, precond=None):
         raise NotImplementedError('Search direction class needs '
-                                  '\'update_data\' method')
+                                  '\'update_data\' method.')
 
     def reset(self):
         self.iters = 0
         self.kp = {}
         self.p = 0
         self.k = 0
+
+
+class ModeFollowingBase(object):
+    """
+    Base gradient partitioning and negation implementation for minimum mode
+    following
+    """
+
+    def __init__(self, partial_diagonalizer, convex_step_length = 0.1):
+        self.eigv = None
+        self.eigvec = None
+        self.eigvec_old = None
+        self.partial_diagonalizer = partial_diagonalizer
+        self.fixed_sp_order = None
+        self.was_concave = False
+        self.convex_step_length = convex_step_length
+
+    def update_eigenpairs(self, g_k1, wfs, ham, dens):
+        """
+        Performs a partial Hessian diagonalization to obtain the eigenvectors
+        with negative eigenvalues.
+
+        :param g_k1: Gradient.
+        :param wfs:
+        :param ham:
+        :param dens:
+        :return:
+        """
+
+
+        self.partial_diagonalizer.grad = g_k1
+        use_prev = False if self.eigv is None or self.was_concave else True
+        self.partial_diagonalizer.run(wfs, ham, dens, use_prev)
+        self.eigv = copy.deepcopy(self.partial_diagonalizer.lambda_all)
+        self.eigvec_old = copy.deepcopy(self.eigvec)
+        self.eigvec = copy.deepcopy(self.partial_diagonalizer.x_all.T)
+        if wfs.dtype == complex:
+            dimtot = int(len(self.eigvec[0]) / 2)
+            eigvec = np.zeros(shape=(len(self.eigvec), dimtot),
+                              dtype=complex)
+            for i in range(len(self.eigvec)):
+                eigvec[i] += self.eigvec[i][: dimtot] \
+                    + 1.0j * self.eigvec[i][dimtot:]
+            self.eigvec = eigvec
+        self.fixed_sp_order = self.partial_diagonalizer.sp_order
+        parprint('Eigenvalues:')
+        parprint(self.eigv)
+        #if self.eigvec_old is not None:
+        #    dot1 = np.dot(self.eigvec[0], self.eigvec_old[0].T)
+        #    dot2 = np.dot(self.eigvec[1], self.eigvec_old[1].T)
+        #    if abs(dot1) < 0.9:
+        #        parprint('Dot1 is small:')
+        #        parprint(dot1)
+        #    if abs(dot2) < 0.9:
+        #        parprint('Dot2 is small:')
+        #        parprint(dot2)
+
+    def negate_parallel_grad(self, g_k1):
+        """
+        Uses the stored eigenpairs and negates the projections of the gradient
+        parallel to the eigenvectors with negative eigenvalues.
+
+        :param g_k1: Gradient.
+        :return: Modified gradient.
+        """
+
+        grad, dim, dimtot = dict_to_array(g_k1)
+        get_dots = 0
+        if self.fixed_sp_order is None:
+            for i in range(len(self.eigv)):
+                if self.eigv[i] <= -1e-4:
+                    get_dots += 1
+                else:
+                    break
+        else:
+            neg_temp = 0
+            for i in range(len(self.eigv)):
+                if self.eigv[i] <= -1e-4:
+                    neg_temp += 1
+                else:
+                    break
+            get_dots = self.fixed_sp_order
+        grad_par = np.zeros_like(grad)
+        if self.fixed_sp_order is not None:
+            if neg_temp >= self.fixed_sp_order:
+                for i in range(get_dots):
+                    grad_par += self.eigvec[i] \
+                        * np.dot(self.eigvec[i].conj(), grad.T).real
+                #if True:
+                grad_mod = grad - 2.0 * grad_par
+                if self.was_concave:
+                    self.partial_diagonalizer.etdm.searchdir_algo.reset()
+                    self.was_concave = False
+            else:
+                for i in range(get_dots):
+                    if i >= neg_temp:
+                        grad_par += self.eigvec[i] \
+                            * np.dot(self.eigvec[i].conj(), grad.T).real
+                grad_mod = -self.convex_step_length * grad_par \
+                    / np.linalg.norm(grad_par)
+                self.partial_diagonalizer.etdm.searchdir_algo.reset()
+                self.was_concave = True
+        else:
+            for i in range(get_dots):
+                grad_par += self.eigvec[i] \
+                    * np.dot(self.eigvec[i].conj(), grad.T).real
+            if get_dots == 0:
+                #elif False:
+                grad_mod = -self.convex_step_length * grad_par \
+                           / np.linalg.norm(grad_par)
+                self.partial_diagonalizer.etdm.searchdir_algo.reset()
+                self.was_concave = True
+            else:
+                grad_mod = grad - 2.0 * grad_par
+                if self.was_concave:
+                    self.partial_diagonalizer.etdm.searchdir_algo.reset()
+                    self.was_concave = False
+        return array_to_dict(grad_mod, dim)
+
+
+class ModeFollowing(ModeFollowingBase, SearchDirectionBase):
+    """
+    Minimum mode following class handling the MMF tag of the search direction
+    class for ETDM and negation of the gradient projection.
+    """
+
+    def __init__(self, partial_diagonalizer, search_direction,
+                 convex_step_length = 0.1):
+        self.sd = search_direction
+        self.name = self.sd.name + '_mmf'
+        self.type = self.sd.type + '_mmf'
+        super(ModeFollowing, self).__init__(partial_diagonalizer,
+                                            convex_step_length)
+
+    @property
+    def beta_0(self):
+        return self.sd.beta_0
+
+    def __str__(self):
+        return self.sd.__str__() + ' with minimum mode following'
+
+    def todict(self):
+        res = self.sd.todict()
+        res['name'] += '_mmf'                    # tag will be removed in etdm
+        return res
+
+    def update_data(self, wfs, x_k1, g_k1, precond=None):
+        g_k1 = self.negate_parallel_grad(g_k1)
+        return self.sd.update_data(wfs, x_k1, g_k1, precond=precond)
 
 
 class SteepestDescent(SearchDirectionBase):
@@ -288,7 +443,11 @@ class LBFGS_P(SearchDirectionBase):
                 'memory': self.memory,
                 'beta_0': self.beta_0}
 
-    def update_data(self, wfs, x_k1, g_k1, hess_1=None):
+    def update_data(self, wfs, x_k1, g_k1, precond=None):
+        # For L-BFGS-P, the preconditioner passed here has to be differentiated
+        # from the preconditioner passed in ETDM. To keep the UI of this member
+        # function consistent, the term precond is still used in the signature
+        hess_1 = precond
         self.iters += 1
         if self.k == 0:
             self.kp[self.k] = self.p

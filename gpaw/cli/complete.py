@@ -40,7 +40,7 @@ commands = {
          '--write', '-s', '--scalar-relativistic', '-n',
          '--no-check', '-t', '--tag', '-a', '--alpha', '-g',
          '--gamma', '-b', '--create-basis-set', '--nlcc',
-         '--core-hole', '-e', '--electrons', '-o', '--output'],
+         '--core-hole', '-e', '--electrons'],
     'diag':
         ['-b', '--bands', '-s', '--scalapack'],
     'dos':

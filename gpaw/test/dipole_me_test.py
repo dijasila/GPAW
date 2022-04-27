@@ -1,11 +1,9 @@
-import pytest
 from ase.units import Bohr
 from gpaw.utilities.ps2ae import PS2AE
 from gpaw import GPAW
 from gpaw.utilities.dipole import dipole_matrix_elements_from_calc
 
 
-@pytest.mark.serial
 def test_dipole_me(gpw_files):
     """Check dipole matrix-elements for H2 molecule."""
     calc = GPAW(gpw_files['h2_pw_wfs'])

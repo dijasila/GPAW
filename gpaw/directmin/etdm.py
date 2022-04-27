@@ -12,6 +12,7 @@ https://doi.org/10.1016/j.cpc.2021.108047
 
 import numpy as np
 from copy import deepcopy
+import warnings
 from gpaw.directmin.tools import expm_ed, expm_ed_unit_inv
 from gpaw.directmin.lcao.directmin_lcao import DirectMinLCAO
 from scipy.linalg import expm
@@ -29,6 +30,7 @@ class ETDM:
     def __init__(self,
                  searchdir_algo='l-bfgs-p',
                  linesearch_algo='swc-awc',
+                 partial_diagonalizer='Davidson',
                  update_ref_orbs_counter=20,
                  update_ref_orbs_canonical=False,
                  update_precond_counter=1000,
@@ -41,7 +43,8 @@ class ETDM:
                  localizationtype=None,
                  need_localization=True,
                  need_init_orbs=True,
-                 constraints=None
+                 constraints=None,
+                 mom_the_canonical_representation=True
                  ):
         """
         This class performs the exponential transformation
@@ -102,11 +105,22 @@ class ETDM:
         self.randomizeorbitals = randomizeorbitals
         self.representation = representation
         self.orthonormalization = orthonormalization
+        self.mom_the_canonical_representation \
+            = mom_the_canonical_representation
         self.constraints = constraints
 
-        self.searchdir_algo = search_direction(searchdir_algo)
-        if self.searchdir_algo.name == 'l-bfgs-p' and not self.use_prec:
+        self.mmf = False
+        self.searchdir_algo = search_direction(
+            searchdir_algo, self, partial_diagonalizer)
+        sd_name = self.searchdir_algo.name.replace('-', '').lower().split('_')
+        if sd_name[0] == 'lbfgsp' and not self.use_prec:
             raise ValueError('Use l-bfgs-p with use_prec=True')
+        if len(sd_name) == 2:
+            if sd_name[1] == 'mmf':
+                self.searchdir_algo.name = sd_name[0]
+                self.mmf = True
+                self.g_vec_u_original = None
+                self.pd = partial_diagonalizer
 
         self.line_search = line_search_algorithm(linesearch_algo,
                                                  self.evaluate_phi_and_der_phi,
@@ -145,27 +159,38 @@ class ETDM:
 
     def __repr__(self):
 
-        sda_name = self.searchdir_algo.name
-        lsa_name = self.line_search.name
+        sda_name = self.searchdir_algo.name.replace('-', '').lower()
+        lsa_name = self.line_search.name.replace('-', '').lower()
+
+        add = ''
+        pd_add = ''
+        if self.mmf:
+            add = ' with minimum mode following'
+            pardi = {'Davidson': 'Finite difference generalized Davidson '
+                     'algorithm'}
+            pd_add = '       ' \
+                     'Partial diagonalizer: {}\n'.format(
+                         pardi[self.pd['name']])
 
         sds = {'sd': 'Steepest Descent',
-               'fr-cg': 'Fletcher-Reeves conj. grad. method',
-               'quick-min': 'Molecular-dynamics based algorithm',
-               'l-bfgs': 'L-BFGS algorithm',
-               'l-bfgs-p': 'L-BFGS algorithm with preconditioning',
-               'l-sr1p': 'Limited-memory SR1P algorithm'}
+               'frcg': 'Fletcher-Reeves conj. grad. method',
+               'quickmin': 'Molecular-dynamics based algorithm',
+               'lbfgs': 'L-BFGS algorithm',
+               'lbfgsp': 'L-BFGS algorithm with preconditioning',
+               'lsr1p': 'Limited-memory SR1P algorithm'}
 
-        lss = {'max-step': 'step size equals one',
+        lss = {'maxstep': 'step size equals one',
                'parabola': 'Parabolic line search',
-               'swc-awc': 'Inexact line search based on cubic interpolation,\n'
+               'swcawc': 'Inexact line search based on cubic interpolation,\n'
                           '                    strong and approximate Wolfe '
                           'conditions'}
 
-        repr_string = 'Direct minimisation using exponential ' \
+        repr_string = 'Direct minimisation' + add + ' using exponential ' \
                       'transformation.\n'
         repr_string += '       ' \
                        'Search ' \
-                       'direction: {}\n'.format(sds[sda_name])
+                       'direction: {}\n'.format(sds[sda_name] + add)
+        repr_string += pd_add
         repr_string += '       ' \
                        'Line ' \
                        'search: {}\n'.format(lss[lsa_name])
@@ -223,6 +248,13 @@ class ETDM:
         if occ_name == 'mom':
             self.initial_occupation_numbers = wfs.occupations.numbers.copy()
             self.initialize_mom(wfs, dens)
+
+        for kpt in wfs.kpt_u:
+            f_unique = np.unique(kpt.f_n)
+            if len(f_unique) > 2 and self.representation == 'u-invar':
+                warnings.warn("Use representation == 'sparse' when "
+                              "there are unequally occupied orbitals "
+                              "as the functional is not unitary invariant")
 
         # randomize orbitals?
         if self.randomizeorbitals:
@@ -328,8 +360,6 @@ class ETDM:
         """
         with wfs.timer('Direct Minimisation step'):
             self.update_ref_orbitals(wfs, ham, dens)
-            with wfs.timer('Preconditioning:'):
-                precond = self.get_preconditioning(wfs, self.use_prec)
 
             a_vec_u = self.a_vec_u
             n_dim = self.n_dim
@@ -343,7 +373,19 @@ class ETDM:
                     self.get_energy_and_gradients(a_vec_u, n_dim, ham, wfs,
                                                   dens, c_ref)
             else:
-                g_vec_u = self.g_vec_u
+                g_vec_u = self.g_vec_u_original if self.mmf else self.g_vec_u
+
+            make_pd = False
+            if self.mmf:
+                with wfs.timer('Partial Hessian diagonalization'):
+                    self.searchdir_algo.update_eigenpairs(
+                        g_vec_u, wfs, ham, dens)
+                # The diagonal Hessian approximation must be
+                make_pd = True
+
+            with wfs.timer('Preconditioning:'):
+                precond = self.get_preconditioning(
+                    wfs, self.use_prec, make_pd=make_pd)
 
             with wfs.timer('Get Search Direction'):
                 # calculate search direction according to chosen
@@ -393,8 +435,7 @@ class ETDM:
             phi_2i[1], der_phi_2i[1] = phi_2i[0], der_phi_2i[0]
             phi_2i[0], der_phi_2i[0] = phi_alpha, der_phi_alpha,
 
-    def get_energy_and_gradients(self, a_vec_u, n_dim, ham, wfs, dens,
-                                 c_ref):
+    def get_energy_and_gradients(self, a_vec_u, n_dim, ham, wfs, dens, c_ref):
 
         """
         Energy E = E[C_ref exp(A)]. Gradients G_ij[C, A] = dE/dA_ij
@@ -475,6 +516,12 @@ class ETDM:
             phi, g_vec_u = self.get_energy_and_gradients(x_mat_u, n_dim,
                                                          ham, wfs, dens, c_ref)
 
+            # If MMF is used save the original gradient and negate the parallel
+            # projection onto the eigenvectors with negative eigenvalues
+            if self.mmf:
+                self.g_vec_u_original = deepcopy(g_vec_u)
+                g_vec_u = self.searchdir_algo.negate_parallel_grad(g_vec_u)
+
         der_phi = 0.0
         for k in p_mat_u:
             der_phi += g_vec_u[k].conj() @ p_mat_u[k]
@@ -490,6 +537,7 @@ class ETDM:
 
         :param wfs:
         :param ham:
+        :param dens:
         :return:
         """
 
@@ -513,12 +561,12 @@ class ETDM:
             # Erase memory of search direction algorithm
             self.searchdir_algo.reset()
 
-    def get_preconditioning(self, wfs, use_prec):
+    def get_preconditioning(self, wfs, use_prec, make_pd=False):
 
         if not use_prec:
             return None
 
-        if self.searchdir_algo.name == 'l-bfgs-p':
+        if self.searchdir_algo.name == 'lbfgsp':
             beta0 = self.searchdir_algo.beta_0
             gamma = 0.25
         else:
@@ -532,10 +580,16 @@ class ETDM:
             w = kpt.weight / (3.0 - wfs.nspins)
             if self.iters % counter == 0 or self.iters == 1:
                 self.hess[k] = self.get_hessian(kpt)
+                if make_pd:
+                    if self.dtype == float:
+                        self.hess[k] = np.abs(self.hess[k])
+                    else:
+                        self.hess[k] = np.abs(self.hess[k].real) \
+                            + 1.0j * np.abs(self.hess[k].imag)
             hess = self.hess[k]
             precond[k] = np.zeros_like(hess)
             correction = w * gamma * beta0 ** (-1)
-            if self.searchdir_algo.name != 'l-bfgs-p':
+            if self.searchdir_algo.name != 'lbfgsp':
                 correction = np.zeros_like(hess)
                 zeros = abs(hess) < 1.0e-4
                 correction[zeros] = 1.0
@@ -584,7 +638,8 @@ class ETDM:
                     wfs, ham, kpt, self.update_ref_orbs_canonical,
                     self.restart)
 
-            self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
+            if self.mom_the_canonical_representation:
+                self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
             occ_name = getattr(wfs.occupations, "name", None)
             if occ_name == 'mom':
                 if not sort_eigenvalues:
@@ -668,7 +723,7 @@ class ETDM:
 
     def todict(self):
 
-        return {'name': self.name,
+        ret = {'name': self.name,
                 'searchdir_algo': self.searchdir_algo.todict(),
                 'linesearch_algo': self.line_search.todict(),
                 'localizationtype': self.localizationtype,
@@ -681,6 +736,10 @@ class ETDM:
                 'orthonormalization': self.orthonormalization,
                 'constraints': self.constraints
                 }
+        if self.mmf:
+            ret['partial_diagonalizer'] = \
+                self.searchdir_algo.partial_diagonalizer.todict()
+        return ret
 
     def rotate_wavefunctions(self, wfs, a_vec_u, n_dim, c_ref):
 

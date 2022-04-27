@@ -6,20 +6,14 @@ from ase.build import fcc111
 from gpaw import GPAW
 from gpaw.mpi import world, serial_comm
 from gpaw.lcaotddft.wfwriter import WaveFunctionReader
-from gpaw.utilities import compiled_with_sl
 
-from .test_molecule import \
-    only_on_master, calculate_error, calculate_time_propagation, check_wfs
+from gpaw.test import only_on_master
+from . import (parallel_options, calculate_error, calculate_time_propagation,
+               check_wfs)
 
 pytestmark = pytest.mark.usefixtures('module_tmp_path')
 
-
-# Generate different parallelization options
-parallel_i = [{}]
-if compiled_with_sl():
-    parallel_i.append({'sl_auto': True})
-    if world.size > 1:
-        parallel_i.append({'sl_auto': True, 'band': 2})
+parallel_i = parallel_options(include_kpt=True)
 
 
 @pytest.fixture(scope='module')

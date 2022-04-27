@@ -62,6 +62,9 @@ def create_poisson_solver(name='fast', **kwargs):
     elif name == 'ExtraVacuumPoissonSolver':
         from gpaw.poisson_extravacuum import ExtraVacuumPoissonSolver
         return ExtraVacuumPoissonSolver(**kwargs)
+    elif name == 'MomentCorrectionPoissonSolver':
+        from gpaw.poisson_moment import MomentCorrectionPoissonSolver
+        return MomentCorrectionPoissonSolver(**kwargs)
     elif name == 'nointeraction':
         return NoInteractionPoissonSolver()
     else:
@@ -115,6 +118,16 @@ class BasePoissonSolver(_PoissonSolver):
                 f"for {self.__class__.__name__}. "
                 "The parameter doesn't do anything for this solver "
                 "and defining it will throw an error in the future.",
+                FutureWarning)
+
+        if remove_moment is not None:
+            warnings.warn(
+                "Please do not specify the remove_moment parameter "
+                f"for {self.__class__.__name__}. "
+                "The remove moment functionality is deprecated in this solver "
+                "and will throw an error in the future. Instead "
+                "use the MomentCorrectionPoissonSolver as a wrapper to "
+                f"{self.__class__.__name__}.",
                 FutureWarning)
 
         # metallic electrodes: mirror image method to allow calculation of

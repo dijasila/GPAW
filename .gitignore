@@ -39,6 +39,7 @@ theme.css
 *.svg
 *.json
 *.out
+*.cube
 doc/setups/[A-Z]*.rst
 *.ipynb
 !*.master.ipynb
@@ -67,3 +68,10 @@ doc/setups/[A-Z]*.rst
 !requirements.txt
 !mypy.ini
 !pytest.ini
+
+# Ignore PyCharm settings
+.idea/
+
+# Ignore VS Code settings
+.vscode/
+
