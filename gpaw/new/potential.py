@@ -19,9 +19,20 @@ class Potential:
         return f'Potential({self.vt_sR}, {self.dH_asii}, {self.energies})'
 
     def dH(self, P_ani, out_ani, spin):
+        print('dH', spin)
         for (a, P_ni), out_ni in zip(P_ani.items(), out_ani.values()):
             dH_ii = self.dH_asii[a][spin]
             out_ni[:] = P_ni @ dH_ii
+        return out_ani
+        .......
+        if len(P_ani.dims) == 2:  # (band, spinor)
+            subscripts = 'nsi, ij -> nsj'
+        else:
+            subscripts = 'ni, ij -> nj'
+        for (a, P_ni), out_ni in zip(P_ani.items(), out_ani.values()):
+            dH_ii = self.dH_asii[a][spin]
+            dS_ii = self[a].dO_ii
+            np.einsum(subscripts, P_ni, dS_ii, out=out_ni)
         return out_ani
 
     def write(self, writer):

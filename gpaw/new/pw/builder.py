@@ -105,9 +105,10 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
                     psit_R.data *= emikr_R
                 psit_R.fft(out=psit_G)
         else:
-            psit_sR = grid.zeros(2)
+            psit_sR = grid.empty(2)
             C_nsM = C_nM.data.reshape((mynbands, 2, M // 2))
             for psit_sG, C_sM in zip(psit_nG, C_nsM):
+                psit_sR.data[:] = 0.0
                 basis_set.lcao_to_grid(C_sM, psit_sR.data, q)
                 psit_sR.data *= emikr_R
                 for psit_G, psit_R in zip(psit_sG, psit_sR):

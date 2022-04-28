@@ -95,9 +95,9 @@ class Density:
                                    rotation_ii, D_asii[a2], rotation_ii)
         self.D_asii.data *= 1.0 / len(symmetries)
 
-    def overlap_correction(self,
-                           P_ani: AtomArrays,
-                           out: AtomArrays) -> AtomArrays:
+    def xxxxx_overlap_correction(self,
+                                 P_ani: AtomArrays,
+                                 out: AtomArrays) -> AtomArrays:
         x = (4 * np.pi)**0.5
         for a, I1, I2 in P_ani.layout.myindices:
             ds = self.delta_aiiL[a][:, :, 0] * x

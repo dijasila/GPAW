@@ -66,7 +66,7 @@ class Davidson(Eigensolver):
             dtype = state.ibzwfs.wfs_qs[0][0].psit_nX.data.dtype
             self.work_arrays = np.empty(shape, dtype)
 
-        dS = state.density.overlap_correction
+        dS = state.ibzwfs.wfs_qs[0][0].setups.overlap_correction
         dH = state.potential.dH
         Ht = partial(hamiltonian.apply, state.potential.vt_sR)
         ibzwfs = state.ibzwfs
