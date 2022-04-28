@@ -7,8 +7,9 @@ import argparse
 import os
 import shutil
 import subprocess
-import sys
 from pathlib import Path
+
+version = '3.9'  # Python version in the venv that we are creating
 
 module_cmds_all = """\
 module purge
@@ -121,7 +122,6 @@ def main():
 
     compile_gpaw_c_code(gpaw, activate)
 
-    version = f'{sys.version_info.major}.{sys.version_info.minor}'
     for fro, to in [('ivybridge', 'sandybridge'),
                     ('nahelem', 'icelake')]:
         f = gpaw / f'build/lib.linux-x86_64-{fro}-{version}'
