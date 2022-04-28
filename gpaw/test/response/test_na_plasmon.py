@@ -1,5 +1,6 @@
 import os
 
+import pytest
 import numpy as np
 
 from ase import Atoms
@@ -14,6 +15,7 @@ from gpaw.response.df import DielectricFunction
 # physical sodium cell.
 
 
+@pytest.mark.response
 def test_response_na_plasmon(in_tmp_dir):
     a = 4.23 / 2.0
     a1 = Atoms('Na',

@@ -1,5 +1,6 @@
-import numpy as np
 import time
+import pytest
+import numpy as np
 
 from ase.build import bulk
 from ase.parallel import parprint
@@ -10,6 +11,7 @@ from gpaw.response.df import DielectricFunction
 from gpaw.mpi import size, world
 
 
+@pytest.mark.response
 def test_response_aluminum_EELS_RPA(in_tmp_dir):
     assert size <= 4**3
 

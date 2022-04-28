@@ -12,6 +12,7 @@ pytestmark = pytest.mark.skipif(
     reason='world.size != 1 and not compiled_with_sl()')
 
 
+@pytest.mark.response
 @pytest.mark.slow
 def test_response_au02_absorption(in_tmp_dir):
     GS = 1
