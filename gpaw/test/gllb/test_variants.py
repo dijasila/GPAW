@@ -29,7 +29,7 @@ def run(xc):
 @pytest.mark.gllb
 @pytest.mark.libxc
 @pytest.mark.parametrize('xc', ['GLLBLDA', 'GLLBPBE'])
-def test_wrappers(xc, in_tmp_dir):
+def test_wrappers(xc, in_tmp_dir, add_cwd_to_setup_paths):
     eig_n = run(xc)
 
     # Check values against regular xc
@@ -67,7 +67,7 @@ refs = {'GLLB':
 @pytest.mark.parametrize('xc', ['GLLB', 'GLLBM', 'GLLBC',
                                 'GLLBCP86', 'GLLBNORESP',
                                 'GLLBSC', 'GLLBSCM'])
-def test_eigenvalues(xc, in_tmp_dir):
+def test_eigenvalues(xc, in_tmp_dir, add_cwd_to_setup_paths):
     eig_n = run(xc)
     ref_eig_n = refs[xc]
     assert np.allclose(eig_n, ref_eig_n, rtol=0, atol=5e-6), \

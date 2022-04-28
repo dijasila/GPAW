@@ -1,19 +1,17 @@
 import numpy as np
 from ase import Atoms
-from gpaw import GPAW, restart, setup_paths
+from gpaw import GPAW, restart
 from gpaw.lcao.tools import get_lcao_hamiltonian
 from gpaw.mpi import world
 from gpaw.atom.basis import BasisMaker
 from gpaw.test import equal
 
 
-def test_lcao_lcao_hamiltonian(in_tmp_dir):
+def test_lcao_lcao_hamiltonian(in_tmp_dir, add_cwd_to_setup_paths):
     if world.rank == 0:
         basis = BasisMaker('Li').generate(1, 1)
         basis.write_xml()
     world.barrier()
-    if setup_paths[0] != '.':
-        setup_paths.insert(0, '.')
 
     if 1:
         a = 2.7
