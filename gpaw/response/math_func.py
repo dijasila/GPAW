@@ -18,6 +18,7 @@ except ImportError:
 from gpaw.gaunt import nabla, gaunt
 from gpaw.spherical_harmonics import Y
 
+
 def two_phi_planewave_integrals(k_Gv, setup=None, Gstart=0, Gend=None,
                                 rgd=None, phi_jg=None,
                                 phit_jg=None, l_j=None):
