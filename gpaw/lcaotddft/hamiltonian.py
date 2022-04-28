@@ -143,7 +143,8 @@ class TimeDependentHamiltonian(object):
             self.td_potential.kpt_u = self.wfs.kpt_u
             self.td_potential.read(reader.td_potential)
         if 'rremission' in reader:
-            assert self.rremission is not None, 'Please specify the RRemission parameters for restarting.'
+            assert self.rremission is not None, (
+                   'Please specify the RRemission parameters for restarting.')
             self.rremission.read(reader.rremission)
 
     def read_fxc(self, reader):
