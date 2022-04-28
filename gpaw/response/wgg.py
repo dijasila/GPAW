@@ -76,15 +76,11 @@ def find_wgg_process_grid(size):
     return wsize, gsize1, gsize2
 
 
-def main():
+def main(comm=world):
     nW = 7
     nG = 30
 
     rng = np.random.RandomState(world.rank)
-
-    comm = world
-
-    gagb = GaGb(comm, nG)
 
     WGG = (nW, nG, nG)
 
@@ -93,13 +89,15 @@ def main():
     grid1 = Grid(comm, WGG, (1, comm.size, 1))
     grid2 = Grid(comm, WGG, cpugrid)
 
-    x_WgG = np.zeros(grid1.myshape, complex)
-    x1_WgG = np.zeros(grid1.myshape, complex)
+    x_WgG = np.zeros(grid1.myshape)
+    x_WgG.real.flat[:] = rng.random(x_WgG.size)
 
     print(comm.rank, grid1.myshape, grid2.myshape)
 
-    x_wgg = np.zeros(grid2.myshape, complex)
+    x_wgg = np.zeros(grid2.myshape)
     grid1.redistribute(grid2, x_WgG, x_wgg)
+
+    x1_WgG = np.zeros(grid1.myshape)
     grid2.redistribute(grid1, x_wgg, x1_WgG)
 
     assert np.allclose(x_WgG, x1_WgG)
