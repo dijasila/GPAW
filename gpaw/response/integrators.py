@@ -251,24 +251,23 @@ class PointIntegrator(Integrator):
                 mynx_mG = n_mG[:, self.Ga:self.Gb] * x_m[:, np.newaxis]
                 mmm(1.0, mynx_mG, 'C', n_mG, 'N', 1.0, chi0_wGG[w])
 
-    @timer('CHI_0 spectral function update')
-    def update_hilbert(self, n_mG, deps_m, wd, chi0_wGG):
+    @timer('CHI_0 spectral function update (old)')
+    def update_hilbert_old(self, n_mG, deps_m, wd, chi0_wGG): # Old version
         """Update spectral function.
 
         Updates spectral function A_wGG and saves it to chi0_wGG for
         later hilbert-transform."""
 
-        self.timer.start('prep')
         omega_w = wd.get_data()
         deps_m += self.eshift * np.sign(deps_m)
         o_m = abs(deps_m)
         w_m = wd.get_closest_index(o_m)
+
         o1_m = omega_w[w_m]
         o2_m = omega_w[w_m + 1]
         p_m = np.abs(1 / (o2_m - o1_m)**2)
         p1_m = p_m * (o2_m - o_m)
         p2_m = p_m * (o_m - o1_m)
-        self.timer.stop('prep')
 
         if self.blockcomm.size > 1:
             for p1, p2, n_G, w in zip(p1_m, p2_m, n_mG, w_m):
@@ -278,12 +277,73 @@ class PointIntegrator(Integrator):
                          1.0, chi0_wGG[w], 'c')
                     gemm(p2, n_G.reshape((-1, 1)), myn_G,
                          1.0, chi0_wGG[w + 1], 'c')
-            return
+        else:
+            for p1, p2, n_G, w in zip(p1_m, p2_m, n_mG, w_m):
+                if w + 1 < wd.wmax:  # The last frequency is not reliable
+                    czher(p1, n_G.conj(), chi0_wGG[w])
+                    czher(p2, n_G.conj(), chi0_wGG[w + 1])
 
-        for p1, p2, n_G, w in zip(p1_m, p2_m, n_mG, w_m):
-            if w + 1 < wd.wmax:  # The last frequency is not reliable
-                czher(p1, n_G.conj(), chi0_wGG[w])
-                czher(p2, n_G.conj(), chi0_wGG[w + 1])
+
+    @timer('CHI_0 spectral function update (new)')
+    def update_hilbert(self, n_mG, deps_m, wd, chi0_wGG):
+        """Update spectral function.
+
+        Updates spectral function A_wGG and saves it to chi0_wGG for
+        later hilbert-transform."""
+
+        omega_w = wd.get_data()
+        deps_m += self.eshift * np.sign(deps_m)
+        o_m = abs(deps_m)
+        w_m = wd.get_closest_index(o_m)
+
+        # Sort frequencies 
+        argsw_m = np.argsort(w_m)
+        sortedo_m = o_m[argsw_m]
+        sortedw_m = w_m[argsw_m]
+        sortedn_mG = n_mG[argsw_m]
+        NG = chi0_wGG.shape[2]
+        myNG = self.Gb-self.Ga
+        index = 0
+        while 1:
+            w = sortedw_m[index]
+            startindex = index
+            while 1:
+                index += 1
+                if index == len(sortedw_m):
+                    break
+                if w != sortedw_m[index]:
+                    break
+
+            endindex = index
+
+            # Here, we have same frequency range w, for set of electron-hole excitations from startindex to endindex 
+            o1 = omega_w[w]
+            o2 = omega_w[w + 1]
+            p = np.abs(1 / (o2 - o1)**2)
+            p1_m = np.array(p * (o2 - sortedo_m[startindex:endindex]))
+            p2_m = np.array(p * (sortedo_m[startindex:endindex] - o1))
+
+            if self.blockcomm.size > 1:
+                if w + 1 < wd.wmax:  # The last frequency is not reliable
+                    gemm(1.0, 
+                         sortedn_mG[startindex:endindex].T.copy(),
+                         np.concatenate( (p1_m[:, None]*sortedn_mG[startindex:endindex,self.Ga:self.Gb],
+                                          p2_m[:, None]*sortedn_mG[startindex:endindex,self.Ga:self.Gb]), axis=1).T.copy(),
+                         1.0,
+                         chi0_wGG[w:w+2].reshape((2*myNG, NG)), 
+                         'c')
+            else:
+                if w + 1 < wd.wmax:  # The last frequency is not reliable
+                    left = (p1_m[:, None]*sortedn_mG[startindex:endindex]).T.copy()
+                    right = sortedn_mG[startindex:endindex].T.copy()
+                    gemm(1.0, left,  right, 1.0, chi0_wGG[w], 'c')
+                    left = (p2_m[:, None]*sortedn_mG[startindex:endindex]).T.copy()
+                    gemm(1.0, left,  right, 1.0, chi0_wGG[w+1], 'c')
+
+            #assert np.allclose(sortedw_m[startindex:endindex], sortedw_m[startindex])
+
+            if index == len(sortedw_m):
+                break
 
     @timer('CHI_0 intraband update')
     def update_intraband(self, vel_mv, chi0_wvv):
