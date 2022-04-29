@@ -191,10 +191,8 @@ class PWFDWaveFunctions(WaveFunctions):
         dH(P_ani, out_ani=P2_ani, spin=self.spin)
         P_ani.matrix.multiply(P2_ani, opb='C', symmetric=True,
                               out=H, beta=1.0)
-        print(H.data[0,0]);asdfg
         domain_comm.sum(H.data, 0)
 
-        print(H.data[:2, :2])
         if domain_comm.rank == 0:
             slcomm, r, c, b = scalapack_parameters
             if r == c == 1:
@@ -206,7 +204,6 @@ class PWFDWaveFunctions(WaveFunctions):
         else:
             self._eig_n = np.empty(psit_nX.dims)
 
-        print(self._eig_n);asdf
         domain_comm.broadcast(H.data, 0)
         domain_comm.broadcast(self._eig_n, 0)
         if Htpsit_nX is not None:

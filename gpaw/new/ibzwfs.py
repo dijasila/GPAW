@@ -203,16 +203,15 @@ class IBZWaveFunctions:
         return np.zeros(0), np.zeros(0)
 
     def get_all_eigs_and_occs(self):
-        nspins = 2 // self.spin_degeneracy
         nkpts = len(self.ibz)
         if self.is_master():
-            eig_skn = np.empty((nspins, nkpts, self.nbands))
-            occ_skn = np.empty((nspins, nkpts, self.nbands))
+            eig_skn = np.empty((self.nspins, nkpts, self.nbands))
+            occ_skn = np.empty((self.nspins, nkpts, self.nbands))
         else:
             eig_skn = np.empty((0, 0, 0))
             occ_skn = np.empty((0, 0, 0))
         for k in range(nkpts):
-            for s in range(nspins):
+            for s in range(self.nspins):
                 eig_n, occ_n = self.get_eigs_and_occs(k, s)
                 if self.is_master():
                     eig_skn[s, k, :] = eig_n
@@ -328,15 +327,17 @@ class IBZWaveFunctions:
 
         eig_skn *= Ha
 
+        D = self.spin_degeneracy
+
         for k, (x, y, z) in enumerate(ibz.kpt_kc):
             log(f'\nkpt = [{x:.3f}, {y:.3f}, {z:.3f}], '
                 f'weight = {ibz.weight_k[k]:.3f}:')
 
-            if self.spin_degeneracy == 2:
-                log('  Band      eig [eV]   occ [0-2]')
+            if self.nspins == 1:
+                log(f'  Band      eig [eV]   occ [0-{D}]')
                 for n, (e, f) in enumerate(zip(eig_skn[0, k],
                                                occ_skn[0, k])):
-                    log(f'  {n:4} {e:13.3f}   {2 * f:9.3f}')
+                    log(f'  {n:4} {e:13.3f}   {D * f:9.3f}')
             else:
                 log('  Band      eig [eV]   occ [0-1]'
                     '      eig [eV]   occ [0-1]')

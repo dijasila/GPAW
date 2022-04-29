@@ -58,6 +58,7 @@ class InputParameters:
     parallel: dict[str, Any]
     poissonsolver: dict[str, Any]
     setups: Any
+    soc: bool
     spinpol: bool
     symmetry: dict[str, Any]
     txt: str | Path | IO[str] | None
