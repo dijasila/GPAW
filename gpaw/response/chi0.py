@@ -15,6 +15,7 @@ from gpaw.response.pair import PairDensity, PWSymmetryAnalyzer
 from gpaw.utilities.blas import gemm
 from gpaw.utilities.memory import maxrss
 from gpaw.pw.descriptor import PWDescriptor
+from gpaw.response.hacks import GaGb
 
 
 class ArrayDescriptor:
@@ -234,16 +235,9 @@ class Chi0:
 
         self.world = world
 
-        if nblocks == 1:
-            self.blockcomm = self.world.new_communicator([world.rank])
-            self.kncomm = world
-        else:
-            assert world.size % nblocks == 0, world.size
-            rank1 = world.rank // nblocks * nblocks
-            rank2 = rank1 + nblocks
-            self.blockcomm = self.world.new_communicator(range(rank1, rank2))
-            ranks = range(world.rank % nblocks, world.size, nblocks)
-            self.kncomm = self.world.new_communicator(ranks)
+        from gpaw.response.hacks import block_partition
+
+        self.blockcomm, self.kncomm = block_partition(world, nblocks)
 
         self.nblocks = nblocks
 
@@ -378,18 +372,18 @@ class Chi0:
 
         nG = pd.ngmax + 2 * optical_limit
         nw = len(self.omega_w)
-        mynG = (nG + self.blockcomm.size - 1) // self.blockcomm.size
-        self.Ga = min(self.blockcomm.rank * mynG, nG)
-        self.Gb = min(self.Ga + mynG, nG)
+
+        self.GaGb = GaGb(self.blockcomm, nG)
+        wGG_shape = (nw, self.GaGb.nGlocal, nG)
         # if self.blockcomm.rank == 0:
         #     assert self.Gb - self.Ga >= 3
         # assert mynG * (self.blockcomm.size - 1) < nG
         if A_x is not None:
-            nx = nw * (self.Gb - self.Ga) * nG
-            chi0_wGG = A_x[:nx].reshape((nw, self.Gb - self.Ga, nG))
+            nx = np.prod(wGG_shape)
+            chi0_wGG = A_x[:nx].reshape(wGG_shape)
             chi0_wGG[:] = 0.0
         else:
-            chi0_wGG = np.zeros((nw, self.Gb - self.Ga, nG), complex)
+            chi0_wGG = np.zeros(wGG_shape, complex)
 
         if optical_limit:
             chi0_wxvG = np.zeros((len(self.omega_w), 2, 3, nG), complex)
@@ -581,14 +575,10 @@ class Chi0:
         # Integrate response function
         print('Integrating response function.', file=self.fd)
         # Define band summation
-        if self.response == 'density':
-            bandsum = {'n1': 0, 'n2': self.nocc2, 'm1': m1, 'm2': m2}
-            mat_kwargs.update(bandsum)
-            eig_kwargs.update(bandsum)
-        else:
-            bandsum = {'n1': 0, 'n2': self.nbands, 'm1': m1, 'm2': m2}
-            mat_kwargs.update(bandsum)
-            eig_kwargs.update(bandsum)
+        bandsum = {'n1': 0, 'n2': self.nocc2 if self.response == 'density'
+                   else self.nbands, 'm1': m1, 'm2': m2}
+        mat_kwargs.update(bandsum)
+        eig_kwargs.update(bandsum)
 
         integrator.integrate(kind=kind,  # Kind of integral
                              domain=domain,  # Integration domain
@@ -680,10 +670,11 @@ class Chi0:
 
             # Again, not so pretty but that's how it is
             plasmafreq_vv = plasmafreq_wvv[0].copy()
+            GaGb = self.GaGb
             if self.include_intraband:
                 if extend_head:
-                    va = min(self.Ga, 3)
-                    vb = min(self.Gb, 3)
+                    va = min(GaGb.Ga, 3)
+                    vb = min(GaGb.Gb, 3)
                     A_wxx[:, :vb - va, :3] += (plasmafreq_vv[va:vb] /
                                                (self.omega_w[:, np.newaxis,
                                                              np.newaxis] +
@@ -740,12 +731,14 @@ class Chi0:
         # the chi0_wGG matrix is nw * (nG + 2)**2. Below we extract these
         # parameters.
 
+        GaGb = self.GaGb
+
         if optical_limit and extend_head:
             # The wings are extracted
-            chi0_wxvG[:, 1, :, self.Ga:self.Gb] = np.transpose(A_wxx[..., 0:3],
-                                                               (0, 2, 1))
-            va = min(self.Ga, 3)
-            vb = min(self.Gb, 3)
+            chi0_wxvG[:, 1, :, GaGb.myslice] = np.transpose(
+                A_wxx[..., 0:3], (0, 2, 1))
+            va = min(GaGb.Ga, 3)
+            vb = min(GaGb.Gb, 3)
             # print(self.world.rank, va, vb, chi0_wxvG[:, 0, va:vb].shape,
             #       A_wxx[:, va:vb].shape, A_wxx.shape)
             chi0_wxvG[:, 0, va:vb] = A_wxx[:, :vb - va]
@@ -770,7 +763,7 @@ class Chi0:
             # and wings we have to take care that
             # these are handled correctly. Note that
             # it is important that the wings are overwritten first.
-            chi0_wGG[:, :, 0] = chi0_wxvG[:, 1, 2, self.Ga:self.Gb]
+            chi0_wGG[:, :, 0] = chi0_wxvG[:, 1, 2, self.GaGb.myslice]
 
             if self.blockcomm.rank == 0:
                 chi0_wGG[:, 0, :] = chi0_wxvG[:, 0, 2, :]
@@ -1020,7 +1013,7 @@ class Chi0:
         nG = in_wGG.shape[2]
         mynw = (nw + comm.size - 1) // comm.size
         mynG = (nG + comm.size - 1) // comm.size
-
+        
         bg1 = BlacsGrid(comm, comm.size, 1)
         bg2 = BlacsGrid(comm, 1, comm.size)
         md1 = BlacsDescriptor(bg1, nw, nG**2, mynw, nG**2)
@@ -1123,6 +1116,10 @@ class Chi0:
         p('Called response.chi0.calculate with')
         p('    q_c: [%f, %f, %f]' % (q_c[0], q_c[1], q_c[2]))
         p('    Number of frequency points: %d' % nw)
+        if bsize > nw:
+            p('WARNING! Your nblocks is larger than number of frequency'
+              ' points. Errors might occur, if your submodule don'''
+              't know how to handle this.')
         p('    Planewave cutoff: %f' % ecut)
         p('    Number of spins: %d' % ns)
         p('    Number of bands: %d' % nbands)

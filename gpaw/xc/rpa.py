@@ -251,11 +251,11 @@ class RPACorrelation:
             thisqd = KPointDescriptor([q_c])
             pd = PWDescriptor(ecutmax, wfs.gd, complex, thisqd)
             nG = pd.ngmax
-            mynG = (nG + self.nblocks - 1) // self.nblocks
-            chi0.Ga = self.blockcomm.rank * mynG
-            chi0.Gb = min(chi0.Ga + mynG, nG)
 
-            shape = (1 + spin, nw, chi0.Gb - chi0.Ga, nG)
+            from gpaw.response.hacks import GaGb
+            blockdist = chi0.GaGb = GaGb(self.blockcomm, nG)
+
+            shape = (1 + spin, nw, blockdist.nGlocal, nG)
             chi0_swGG = A1_x[:np.prod(shape)].reshape(shape)
             chi0_swGG[:] = 0.0
 
