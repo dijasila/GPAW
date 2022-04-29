@@ -35,12 +35,18 @@ class Grid:
         n_cp = self.get_domains()
 
         shape = []
+        myslice_c = []
         for i in range(3):
             n_p = n_cp[i]
             parpos = self.myparpos[i]
-            size = n_p[parpos + 1] - n_p[parpos]
+            myend = n_p[parpos + 1]
+            mystart = n_p[parpos]
+            myslice_c.append(slice(mystart, myend))
+            size = myend - mystart
             shape.append(size)
+
         self.myshape = tuple(shape)
+        self.myslice = tuple(myslice_c)
 
     # TODO inherit these from array descriptor
     def zeros(self, dtype=float):
@@ -85,6 +91,51 @@ class Grid:
                              self.rank2parpos, dstgrid.rank2parpos,
                              srcarray, dstarray, behavior='overwrite')
 
+    def invert_inplace(self, x_wgg):
+        from gpaw.blacs import BlacsGrid
+        from gpaw.utilities.scalapack import scalapack_inverse
+
+        # Build wgg grid choosing scalapack
+        nscalapack_cores = np.prod(self.cpugrid[1:])
+        blacs_comm, wcomm = block_partition(self.comm, nscalapack_cores)
+        assert wcomm.size == self.cpugrid[0]
+        assert blacs_comm.size * wcomm.size == self.comm.size
+        for iw, x_gg in enumerate(x_wgg):
+            bg = BlacsGrid(blacs_comm, *self.cpugrid[1:][::-1])
+            desc = bg.new_descriptor(
+                *self.shape[1:],
+                *self.blocksize[1:])
+
+            xtmp_gg = desc.empty(dtype=x_wgg.dtype)
+            xtmp_gg[:] = x_gg.T
+            #print('XTMP')
+            #print(xtmp_gg)
+            #print('serial inv')
+            #print(np.linalg.inv(xtmp_gg))
+
+            #from gpaw.utilities.tools import tri2full
+            #tri2full(x_gg, 'L')
+
+
+            #print('err')
+            #print(xtmp_gg.T.conj() - xtmp_gg)
+            #assert np.allclose(xtmp_gg.T.conj(), xtmp_gg)
+            from gpaw.utilities.scalapack import scalapack_set, scalapack_solve
+
+            righthand = desc.zeros(dtype=complex)
+            scalapack_set(desc, righthand, alpha=0.0, beta=1.0, uplo='U')
+
+            scalapack_solve(desc, desc, xtmp_gg, righthand)
+
+            #scalapack_inverse(desc, xtmp_gg, 'U')
+            # x_gg[:] = xtmp_gg.T
+            x_gg[:] = righthand.T
+
+
+            #print(xtmp_gg)
+            #dkjfdskjf
+            #xtmp_gg[:] = np.linalg.inv(xtmp_gg)
+            #x_gg[:] = xtmp_gg
 
 def find_wgg_process_grid(commsize, nG):
     # Use sqrt(cores) for w parallelization and the remaining sqrt(cores)
@@ -107,6 +158,7 @@ def get_x_WGG(WGG_grid):
     rng = np.random.RandomState(42)
 
     x_WGG.flat[:] = rng.random(x_WGG.size)
+    x_WGG.flat[:] += rng.random(x_WGG.size) * 1j
     # XXX write also to imaginary parts
 
     nG = x_WGG.shape[1]
@@ -115,7 +167,7 @@ def get_x_WGG(WGG_grid):
     if WGG_grid.comm.rank == 0:
         assert x_WGG.shape == WGG_grid.myshape
         for iw, x_GG in enumerate(x_WGG):
-            x_GG += x_GG.T.copy()
+            x_GG += x_GG.T.conj().copy()
             x_GG += np.identity(nG) * 5
             eigs = np.linalg.eigvals(x_GG)
             assert all(eigs.real) > 0
@@ -131,6 +183,7 @@ def main(comm=world):
 
     #cpugrid = find_wgg_process_grid(comm.size, nG)
     cpugrid = (2, 3, 2)
+    #cpugrid = (1, 1, 1)
     WGG = (nW, nG, nG)
 
     dtype = complex
@@ -145,11 +198,6 @@ def main(comm=world):
     x_WgG = np.zeros(WgG_grid.myshape, dtype=dtype)
     WGG_grid.redistribute(WgG_grid, x_WGG, x_WgG)
 
-    # Build wgg grid choosing scalapack
-    nscalapack_cores = np.prod(cpugrid[1:])
-    blacs_comm, wcomm = block_partition(comm, nscalapack_cores)
-    assert wcomm.size == cpugrid[0]
-    assert blacs_comm.size * wcomm.size == comm.size
     wgg_grid = Grid(comm, WGG, cpugrid)
     print(f'cpugrid={cpugrid} blocksize={wgg_grid.blocksize} '
           f'shape={wgg_grid.shape} myshape={wgg_grid.myshape}')
@@ -163,16 +211,7 @@ def main(comm=world):
     wgg_grid.redistribute(WgG_grid, x_wgg, x1_WgG)
     assert np.allclose(x_WgG, x1_WgG)
 
-    from gpaw.blacs import BlacsGrid
-    from gpaw.utilities.scalapack import scalapack_inverse
-    for iw, x_gg in enumerate(x_wgg):
-        bg = BlacsGrid(blacs_comm, *cpugrid[1:][::-1])
-        desc = bg.new_descriptor(*wgg_grid.shape[1:], *wgg_grid.blocksize[1:])
-
-        xtmp_gg = desc.empty(dtype=dtype)
-        xtmp_gg[:] = x_gg.T
-        scalapack_inverse(desc, xtmp_gg, 'U')
-        x_gg[:] = xtmp_gg.T
+    wgg_grid.invert_inplace(x_wgg)
 
     # Distribute the inverse wgg back to WGG:
     inv_x_WGG = WGG_grid.zeros(dtype=dtype)
