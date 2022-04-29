@@ -3,6 +3,7 @@ from gpaw.mpi import world
 from gpaw.response.hacks import block_partition
 import numpy as np
 from gpaw.matrix import suggest_blocking
+from gpaw.utilities.scalapack import scalapack_set, scalapack_solve
 
 
 def get_blocksize(length, commsize):
@@ -108,34 +109,12 @@ class Grid:
 
             xtmp_gg = desc.empty(dtype=x_wgg.dtype)
             xtmp_gg[:] = x_gg.T
-            #print('XTMP')
-            #print(xtmp_gg)
-            #print('serial inv')
-            #print(np.linalg.inv(xtmp_gg))
-
-            #from gpaw.utilities.tools import tri2full
-            #tri2full(x_gg, 'L')
-
-
-            #print('err')
-            #print(xtmp_gg.T.conj() - xtmp_gg)
-            #assert np.allclose(xtmp_gg.T.conj(), xtmp_gg)
-            from gpaw.utilities.scalapack import scalapack_set, scalapack_solve
 
             righthand = desc.zeros(dtype=complex)
             scalapack_set(desc, righthand, alpha=0.0, beta=1.0, uplo='U')
 
             scalapack_solve(desc, desc, xtmp_gg, righthand)
-
-            #scalapack_inverse(desc, xtmp_gg, 'U')
-            # x_gg[:] = xtmp_gg.T
             x_gg[:] = righthand.T
-
-
-            #print(xtmp_gg)
-            #dkjfdskjf
-            #xtmp_gg[:] = np.linalg.inv(xtmp_gg)
-            #x_gg[:] = xtmp_gg
 
 def find_wgg_process_grid(commsize, nG):
     # Use sqrt(cores) for w parallelization and the remaining sqrt(cores)
