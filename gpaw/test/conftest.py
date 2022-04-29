@@ -306,6 +306,7 @@ def pytest_configure(config):
                  'gllb: GLLBSC tests',
                  'elph: Electron-phonon',
                  'intel: fails on INTEL toolchain',
+                 'response: tests of the response code',
                  'serial: run in serial only',
                  'skip_for_new_gpaw: know failure for new refactored GPAW']:
         config.addinivalue_line('markers', line)

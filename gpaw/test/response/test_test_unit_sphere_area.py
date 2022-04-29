@@ -1,5 +1,6 @@
 from itertools import product
 
+import pytest
 import numpy as np
 
 from gpaw.response.integrators import TetrahedronIntegrator
@@ -15,6 +16,7 @@ def unit_sphere(x_c):
     return np.array([(x_c**2).sum()**0.5], float)
 
 
+@pytest.mark.response
 def test_tetrahedron_integrator():
     cell_cv = np.eye(3)
     integrator = TetrahedronIntegrator(cell_cv)
