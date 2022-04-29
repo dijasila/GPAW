@@ -11,8 +11,14 @@ from ase.io import read
 
 from gpaw import GPAW, PW, Davidson, FermiDirac, setup_paths
 from gpaw.cli.info import info
-from gpaw.mpi import broadcast, world
+from gpaw.mpi import broadcast, world, broadcast_exception
 from gpaw.utilities import devnull
+
+
+@pytest.fixture(autouse=True)
+def fail_in_parallel():
+    with broadcast_exception(world):
+        yield
 
 
 @contextmanager
