@@ -76,6 +76,9 @@ def main():
                         'exising venv.')
     args = parser.parse_args()
 
+    if args.toolchain == 'intel':
+        raise ValueError('See: https://gitlab.com/gpaw/gpaw/-/issues/241')
+
     venv = Path(args.venv).absolute()
     activate = venv / 'bin/activate'
     gpaw = venv / 'gpaw'
