@@ -3,6 +3,7 @@ Calculate optical transition strengths.
 """
 
 # General modules
+import pytest
 import numpy as np
 
 # Script modules
@@ -16,6 +17,7 @@ from gpaw.response.tool import (get_bz_transitions,
 from gpaw.test import equal
 
 
+@pytest.mark.response
 def test_response_pdens_tool(in_tmp_dir):
     # ------------------- Inputs ------------------- #
 

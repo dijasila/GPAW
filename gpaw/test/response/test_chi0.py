@@ -9,6 +9,7 @@ from gpaw.response.chi0 import Chi0
 from gpaw.mpi import serial_comm
 
 
+@pytest.mark.response
 @pytest.mark.slow
 def test_response_chi0(in_tmp_dir):
     omega = np.array([0, 1.0, 2.0])
