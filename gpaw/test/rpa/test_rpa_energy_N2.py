@@ -12,6 +12,7 @@ pytestmark = pytest.mark.skipif(
     reason='world.size != 1 and not compiled_with_sl()')
 
 
+@pytest.mark.response
 def test_rpa_rpa_energy_N2(in_tmp_dir):
     ecut = 25
 

@@ -8,6 +8,7 @@ from gpaw.response.df import DielectricFunction
 from ase.units import Hartree
 
 
+@pytest.mark.response
 def test_response_graphene_refined_response(in_tmp_dir):
     system = Graphene(symbol='C',
                       latticeconstant={'a': 2.467710, 'c': 1.0},

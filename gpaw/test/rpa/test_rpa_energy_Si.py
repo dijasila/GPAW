@@ -1,3 +1,4 @@
+import pytest
 from ase.build import bulk
 from gpaw import GPAW, FermiDirac
 from gpaw.mpi import serial_comm
@@ -5,6 +6,7 @@ from gpaw.test import equal
 from gpaw.xc.rpa import RPACorrelation
 
 
+@pytest.mark.response
 def test_rpa_rpa_energy_Si(in_tmp_dir):
     a0 = 5.43
     Si = bulk('Si', a=a0)
