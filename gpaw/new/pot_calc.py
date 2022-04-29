@@ -48,7 +48,7 @@ class PotentialCalculator:
             self.setups, density, self.xc, Q_aL)
 
         for key, e in corrections.items():
-            # print(f'{key:10} {e:15.9f} {energies[key]:15.9f}')
+            print(f'{key:10} {e:15.9f} {energies[key]:15.9f}')
             energies[key] += e
 
         return Potential(vt_sR, dH_asii, energies), vHt_x, Q_aL
@@ -109,7 +109,6 @@ def calculate_non_local_potential1(setup: Setup,
     dH_sp[:ndensities] = dH_p
     e_xc = xc.calculate_paw_correction(setup, D_sp, dH_sp)
     e_kinetic -= (D_sp * dH_sp).sum().real
-
     e_external = 0.0
 
     dH_sii = unpack(dH_sp)

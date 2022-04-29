@@ -11,6 +11,7 @@ from gpaw.new.wave_functions import WaveFunctions
 from gpaw.setup import Setups
 from gpaw.typing import Array2D, Array3D, ArrayND, Vector
 from gpaw.fftw import get_efficient_fft_size
+from gpaw.core.plane_waves import PlaneWaveExpansions
 
 
 class PWFDWaveFunctions(WaveFunctions):
@@ -87,7 +88,9 @@ class PWFDWaveFunctions(WaveFunctions):
             self.pt_aiX.integrate(self.psit_nX, self._P_ani)
         return self._P_ani
 
-    def move(self, fracpos_ac, atomdist):
+    def move(self,
+             fracpos_ac: Array2D,
+             atomdist: AtomDistribution) -> None:
         self._P_ani = None
         self.orthonormalized = False
         self.pt_aiX.move(fracpos_ac, atomdist)
@@ -95,11 +98,32 @@ class PWFDWaveFunctions(WaveFunctions):
         self._occ_n = None
 
     def add_to_density(self,
-                       nt_sR,
+                       nt_sR: UniformGridFunctions,
                        D_asii: AtomArrays) -> None:
         occ_n = self.weight * self.spin_degeneracy * self.myocc_n
-        self.psit_nX.abs_square(weights=occ_n, out=nt_sR[self.spin])
+
         self.add_to_atomic_density_matrices(occ_n, D_asii)
+
+        if self.ncomponents < 4:
+            self.psit_nX.abs_square(weights=occ_n, out=nt_sR[self.spin])
+            return
+
+        psit_nsG = self.psit_nX
+        assert isinstance(psit_nsG, PlaneWaveExpansions)
+
+        tmp_sR = nt_sR.desc.new(dtype=complex).empty(2)
+        p1_R, p2_R = tmp_sR.data
+        nt_xR = nt_sR.data
+
+        for f, psit_sG in zip(occ_n, psit_nsG):
+            psit_nsG.ifft(out=tmp_sR)
+            p11_R = p1_R.real**2 + p1_R.imag**2
+            p22_R = p2_R.real**2 + p2_R.imag**2
+            p12_R = p1_R.conj() * p2_R
+            nt_xR[0] += f * (p11_R + p22_R)
+            nt_xR[1] += 2 * f * p12_R.real
+            nt_xR[2] += 2 * f * p12_R.imag
+            nt_xR[3] += f * (p11_R - p22_R)
 
     def orthonormalize(self, work_array_nX: ArrayND = None):
         r"""Orthonormalize wave functions.
