@@ -293,6 +293,8 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
         comm = self.desc.comm
         if out is None:
             out = grid.empty(self.dims)
+        else:
+            assert self.dims == out.dims
         assert self.desc.dtype == out.desc.dtype
         assert out.desc.pbc_c.all()
         assert comm.size == out.desc.comm.size

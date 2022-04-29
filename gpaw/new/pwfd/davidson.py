@@ -128,12 +128,15 @@ class Davidson(Eigensolver):
                     C_nn[:] = M0_nn.data
 
         for i in range(self.niter):
-            if i == self.niter - 1:
+            if i == self.niter - 1:  # last iteration
                 # Calulate error before we destroy residuals:
                 weight_n = calculate_weights(self.converge_bands, wfs)
-                error = weight_n @ residual_nX.norm2()
-                if wfs.ncomponents == 4:
-                    error = error.sum()
+                if weight_n is None:
+                    error = np.inf
+                else:
+                    error = weight_n @ residual_nX.norm2()
+                    if wfs.ncomponents == 4:
+                        error = error.sum()
 
             self.preconditioner(psit_nX, residual_nX, out=psit2_nX)
 
@@ -176,7 +179,6 @@ class Davidson(Eigensolver):
                                               check_finite=debug,
                                               overwrite_b=True)
                 wfs._eig_n = eig_N[:B]
-
             if domain_comm.rank == 0:
                 band_comm.broadcast(wfs.eig_n, 0)
             domain_comm.broadcast(wfs.eig_n, 0)
@@ -230,7 +232,7 @@ def calculate_residuals(residuals_nX: DA,
 
 
 def calculate_weights(converge_bands: int | str,
-                      wfs: PWFDWaveFunctions) -> Array1D:
+                      wfs: PWFDWaveFunctions) -> Array1D | None:
     """Calculate convergence weights for all eigenstates."""
     if converge_bands == 'occupied':
         # Converge occupied bands:
@@ -240,7 +242,7 @@ def calculate_weights(converge_bands: int | str,
             return np.abs(wfs.occ_n)
         except ValueError:
             # No eigenvalues yet:
-            return np.zeros(wfs.psit_nX.mydims[0]) + np.inf
+            return None
 
     if isinstance(converge_bands, int):
         # Converge fixed number of bands:

@@ -116,7 +116,7 @@ class PWFDWaveFunctions(WaveFunctions):
         nt_xR = nt_sR.data
 
         for f, psit_sG in zip(occ_n, psit_nsG):
-            psit_nsG.ifft(out=tmp_sR)
+            psit_sG.ifft(out=tmp_sR)
             p11_R = p1_R.real**2 + p1_R.imag**2
             p22_R = p2_R.real**2 + p2_R.imag**2
             p12_R = p1_R.conj() * p2_R
