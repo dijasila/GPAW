@@ -29,6 +29,7 @@ pytestmark = pytest.mark.skipif(
     reason='world.size < 4 or not compiled_with_sl()')
 
 
+@pytest.mark.response
 def test_response_iron_sf_ALDA(in_tmp_dir):
     # ------------------- Inputs ------------------- #
 

@@ -11,6 +11,7 @@ from ase.build import bulk
 from ase.units import Bohr, Hartree
 
 
+@pytest.mark.response
 @pytest.mark.slow
 def test_chi0_intraband(in_tmp_dir):
     """Comparing the plasmon peaks found in bulk sodium for two different
