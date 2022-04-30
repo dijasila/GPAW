@@ -6,22 +6,6 @@ import warnings
 from math import pi
 
 
-class Dyson:
-    def __init__(self):
-        pass
-
-    def calculate(self, chi0_WgG, htm, htp):
-        # Task:
-        # 1. Have chi0_WgG
-        # 2. Redistribute to chi0_w(gg)
-        # 3. Per frequency
-        #    i) Calculate eps_(gg) = I_(gg) - vsqr_ chi0_GG vsqr_G
-        #   ii) Calculate epsinv_(gg) = eps_(gg)^-1
-        #   iii) Calcualte W_GG = vsqr_G (epsinv - I_GG) vsqr_G
-
-        # return htm(W_WgG), htp(W_WgG)
-        pass
-
 import numpy as np
 from ase.dft.kpoints import monkhorst_pack
 from ase.parallel import paropen

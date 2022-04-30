@@ -314,8 +314,6 @@ class Chi0:
               file=self.fd)
         print('Maximum eigenvalue: %10.3f eV' % (self.epsmax * Ha),
               file=self.fd)
-        print('Minimum eigenvalue: %10.3f eV' % (self.epsmin * Ha), self.world.rank)
-        print('Maximum eigenvalue: %10.3f eV' % (self.epsmax * Ha), self.world.rank)
 
         return self.epsmax - self.epsmin
 
