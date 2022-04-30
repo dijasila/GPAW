@@ -5,7 +5,6 @@ import pickle
 import warnings
 from math import pi
 
-
 import numpy as np
 from ase.dft.kpoints import monkhorst_pack
 from ase.parallel import paropen
@@ -30,6 +29,7 @@ from gpaw.xc.exx import EXX, select_kpts
 from gpaw.xc.fxc import set_flags
 from gpaw.xc.tools import vxc
 from gpaw.core.matrix import Matrix
+
 
 class G0W0(PairDensity):
     def __init__(self, calc, filename='gw', restartfile=None,
