@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import importlib
 from types import SimpleNamespace
-from typing import Any, Union
+from typing import Any, Union, Literal
 
 import numpy as np
 from ase import Atoms
@@ -23,7 +23,6 @@ from gpaw.new.smearing import OccupationNumberCalculator
 from gpaw.new.symmetry import create_symmetries_object
 from gpaw.new.xc import XCFunctional
 from gpaw.setup import Setups
-from gpaw.typing import DTypeLike
 from gpaw.utilities.gpts import get_number_of_grid_points
 from gpaw.new.noncollinear import SpinorWaveFunctionDescriptor
 
@@ -108,7 +107,7 @@ class DFTComponentsBuilder:
                                                 self.initial_magmoms,
                                                 self.mode == 'lcao')
 
-        self.dtype: DTypeLike
+        self.dtype: Literal[float, complex]
         if params.force_complex_dtype:
             self.dtype = complex
         elif self.ibz.bz.gamma_only:
