@@ -195,11 +195,12 @@ class Chi0:
         self.nbands = nbands or self.calc.wfs.bd.nbands
         self.include_intraband = intraband
 
-        if isinstance(frequencies, dict) and frequencies.get('omegamax') is None:
+        if (isinstance(frequencies, dict) and
+            frequencies.get('omegamax') is None):
             omegamax = find_maximum_frequency(self.calc,
                                               nbands=self.nbands,
                                               fd=self.fd)
-            frequencies['omegamax'] = omegamax
+            frequencies['omegamax'] = omegamax * Ha
 
         self.wd = FrequencyDescriptor.from_array_or_dict(frequencies)
         print(self.wd, file=self.fd)

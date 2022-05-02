@@ -5,8 +5,13 @@ from ase.units import Ha
 
 
 class FrequencyDescriptor:
-    """Describes a single dimensional array."""
     def __init__(self, omega_w):
+        """Frequency grid descriptor.
+
+        Parameters
+        ----------
+        omega_w:
+            Frequency"""
         self.omega_w = np.asarray(omega_w).copy()
 
     def __len__(self):
