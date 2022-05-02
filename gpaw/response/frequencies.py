@@ -7,7 +7,7 @@ from ase.units import Ha
 class FrequencyDescriptor:
     """Describes a single dimensional array."""
     def __init__(self, omega_w):
-        self.omega_w = np.asarray(omega_w)
+        self.omega_w = np.asarray(omega_w).copy()
 
     def __len__(self):
         return len(self.omega_w)
@@ -22,10 +22,14 @@ class FrequencyDescriptor:
     def from_array_or_dict(input):
         if isinstance(input, dict):
             assert input['type'] == 'nonlinear'
-            return NonLinearFrequencyDescriptor(input['domega0'] * Ha,
-                                                input['omega2'] * Ha,
-                                                input['omegamax'] * Ha)
-        return LinearFrequencyDescriptor(np.asarray(input) * Ha)
+            domega0 = input.get('domega0')
+            omega2 = input.get('omega2')
+            omegamax = input.get('omegamax')
+            return NonLinearFrequencyDescriptor(
+                (0.1 if doemga0 is None else domega0) / Ha,
+                (10.0 if oemga2 is None else omega2) / Ha,
+                omegamax / Ha)
+        return LinearFrequencyDescriptor(np.asarray(input) / Ha)
 
 
 class LinearFrequencyDescriptor(FrequencyDescriptor):
@@ -54,8 +58,10 @@ class LinearFrequencyDescriptor(FrequencyDescriptor):
 
 
 class NonLinearFrequencyDescriptor(FrequencyDescriptor):
-
-    def __init__(self, domega0, omega2, omegamax):
+    def __init__(self,
+                 domega0: float,
+                 omega2: float,
+                 omegamax: float):
         beta = (2**0.5 - 1) * domega0 / omega2
         wmax = int(omegamax / (domega0 + beta * omegamax))
         w = np.arange(wmax + 2)  # + 2 is for buffer
@@ -97,11 +103,3 @@ class NonLinearFrequencyDescriptor(FrequencyDescriptor):
         w1_m[o1_m < omega1_m] += 1
         w2_m[o2_m < omega2_m] += 1
         return w1_m, w2_m
-
-
-def frequency_grid(domega0, omega2, omegamax):
-    beta = (2**0.5 - 1) * domega0 / omega2
-    wmax = int(omegamax / (domega0 + beta * omegamax)) + 2
-    w = np.arange(wmax)
-    omega_w = w * domega0 / (1 - beta * w)
-    return omega_w
