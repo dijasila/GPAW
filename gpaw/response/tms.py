@@ -93,7 +93,7 @@ class TransverseMagneticSusceptibility(FCST):
                     assert pd.kd.gamma
                     print('Finding rescaling of kernel to fulfill the '
                           'Goldstone theorem', file=self.fd)
-                    fxc_scaling[1] = find_goldstone_scaling(self.chiks.omega_w,
+                    fxc_scaling[1] = find_goldstone_scaling(self.chiks.wd.omega_w,
                                                             chiks_wGG, Kxc_GG,
                                                             world=self.world)
 
