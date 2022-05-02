@@ -270,14 +270,13 @@ class Chi0:
             self.wd = ArrayDescriptor(np.asarray(frequencies) / Ha)
             assert not hilbert
 
-        self.omega_w = self.wd.get_data()
         self.hilbert = hilbert
         self.timeordered = bool(timeordered)
 
         if self.eta == 0.0:
             assert not hilbert
             assert not timeordered
-            assert not self.omega_w.real.any()
+            assert not self.wd.get_data().real.any()
 
         self.nocc1 = self.pair.nocc1  # number of completely filled bands
         self.nocc2 = self.pair.nocc2  # number of non-empty bands
