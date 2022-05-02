@@ -11,7 +11,8 @@ from ase.dft.kpoints import monkhorst_pack
 
 import gpaw.mpi as mpi
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.response.chi0 import HilbertTransform, frequency_grid
+from gpaw.response.chi0 import (HilbertTransform, frequency_grid,
+                                find_maximum_frequency)
 from gpaw.response.pair import PairDensity
 from gpaw.pw.descriptor import PWDescriptor
 from gpaw.xc.exx import select_kpts
@@ -133,7 +134,8 @@ class GWQEHCorrection(PairDensity):
         self.qd.set_symmetry(self.calc.atoms, kd.symmetry)
 
         # frequency grid
-        omax = self.find_maximum_frequency()
+        omax = find_maximum_frequency(self.calc, nbands=self.nbands,
+                                      fd=self.fd)
         self.omega_w = frequency_grid(self.domega0, self.omega2, omax)
         self.nw = len(self.omega_w)
         self.wsize = 2 * self.nw
@@ -519,17 +521,3 @@ class GWQEHCorrection(PairDensity):
                      **data)
 
         return dW_qw
-
-    def find_maximum_frequency(self):
-        self.epsmin = 10000.0
-        self.epsmax = -10000.0
-        for kpt in self.calc.wfs.kpt_u:
-            self.epsmin = min(self.epsmin, kpt.eps_n[0])
-            self.epsmax = max(self.epsmax, kpt.eps_n[self.nbands - 1])
-
-        print('Minimum eigenvalue: %10.3f eV' % (self.epsmin * Hartree),
-              file=self.fd)
-        print('Maximum eigenvalue: %10.3f eV' % (self.epsmax * Hartree),
-              file=self.fd)
-
-        return self.epsmax - self.epsmin
