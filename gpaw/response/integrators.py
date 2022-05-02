@@ -250,13 +250,12 @@ class PointIntegrator(Integrator):
         Updates spectral function A_wGG and saves it to chi0_wGG for
         later hilbert-transform."""
 
-        omega_w = wd.get_data()
         deps_m += self.eshift * np.sign(deps_m)
         o_m = abs(deps_m)
         w_m = wd.get_closest_index(o_m)
 
-        o1_m = omega_w[w_m]
-        o2_m = omega_w[w_m + 1]
+        o1_m = wd.omega_w[w_m]
+        o2_m = wd.omega_w[w_m + 1]
         p_m = np.abs(1 / (o2_m - o1_m)**2)
         p1_m = p_m * (o2_m - o_m)
         p2_m = p_m * (o_m - o1_m)
@@ -284,7 +283,6 @@ class PointIntegrator(Integrator):
         Updates spectral function A_wGG and saves it to chi0_wGG for
         later hilbert-transform."""
 
-        omega_w = wd.get_data()
         deps_m += self.eshift * np.sign(deps_m)
         o_m = abs(deps_m)
         w_m = wd.get_closest_index(o_m)
@@ -312,8 +310,8 @@ class PointIntegrator(Integrator):
 
             # Here, we have same frequency range w, for set of
             # electron-hole excitations from startindex to endindex.
-            o1 = omega_w[w]
-            o2 = omega_w[w + 1]
+            o1 = wd.omega_w[w]
+            o2 = wd.omega_w[w + 1]
             p = np.abs(1 / (o2 - o1)**2)
             p1_m = np.array(p * (o2 - sortedo_m[startindex:endindex]))
             p2_m = np.array(p * (sortedo_m[startindex:endindex] - o1))
@@ -353,7 +351,6 @@ class PointIntegrator(Integrator):
                              timeordered=False, eta=None):
         """Optical limit update of chi."""
 
-        omega_w = wd.get_data()
         if timeordered:
             # avoid getting a zero from np.sign():
             deps1_m = deps_m + 1j * eta * np.sign(deps_m + 1e-20)
@@ -362,7 +359,7 @@ class PointIntegrator(Integrator):
             deps1_m = deps_m + 1j * eta
             deps2_m = deps_m - 1j * eta
 
-        for w, omega in enumerate(omega_w):
+        for w, omega in enumerate(wd.omega_w):
             x_m = (1 / (omega + deps1_m) - 1 / (omega - deps2_m))
             chi0_wxvG[w, 0] += np.dot(x_m * n_mG[:, :3].T, n_mG.conj())
             chi0_wxvG[w, 1] += np.dot(x_m * n_mG[:, :3].T.conj(), n_mG)
@@ -371,13 +368,12 @@ class PointIntegrator(Integrator):
     def update_hilbert_optical_limit(self, n_mG, deps_m, wd, chi0_wxvG):
         """Optical limit update of chi-head and -wings."""
 
-        omega_w = wd.get_data()
         for deps, n_G in zip(deps_m, n_mG):
             o = abs(deps)
             w = wd.get_closest_index(o)
-            if w + 2 > len(omega_w):
+            if w + 2 > len(wd):
                 break
-            o1, o2 = omega_w[w:w + 2]
+            o1, o2 = wd.omega_w[w:w + 2]
             if o > o2:
                 continue
             else:

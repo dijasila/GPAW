@@ -23,10 +23,10 @@ class FrequencyDescriptor:
         if isinstance(input, dict):
             assert input['type'] == 'nonlinear'
             return NonLinearFrequencyDescriptor(
-                input.get('domega0', 0.1) * Ha,
-                input.get('omega2', 10.0) * Ha,
-                input['omegamax'] * Ha)
-        return LinearFrequencyDescriptor(np.asarray(input) * Ha)
+                input.get('domega0', 0.1) / Ha,
+                input.get('omega2', 10.0) / Ha,
+                input['omegamax'] / Ha)
+        return LinearFrequencyDescriptor(np.asarray(input) / Ha)
 
 
 class LinearFrequencyDescriptor(FrequencyDescriptor):
