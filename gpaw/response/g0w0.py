@@ -1165,27 +1165,22 @@ class G0W0(PairDensity):
                                                 q_v=qf_qv[iqf])**0.5
 
                     chiVV_GG = chi0_GG * sqrV_G * sqrV_G[:, np.newaxis]
-                    if self.fxc_mode in ['GWP', 'GWS']:
-                        chiVVfv_GG = chiVV_GG @ fv
+                    chiVVfv_GG = chiVV_GG @ fv
+                    I_GG = np.eye(nG)
 
                     if self.fxc_mode == 'GWP':
-                        e_GG = (np.eye(nG) -
-                                np.dot(
-                                    np.linalg.inv(
-                                        np.eye(nG) - chiVVfv_GG +
-                                        chiVV_GG),
-                                    chiVV_GG))
+                        gwp_inverse_GG = np.linalg.inv(I_GG - chiVVfv_GG + chiVV_GG)
+                        e_GG = I_GG - gwp_inverse_GG @ chiVV_GG
                     elif self.fxc_mode == 'GWS':
-                        e_GG = np.dot(
-                            np.linalg.inv(np.eye(nG) + chiVVfv_GG - chiVV_GG),
-                            np.eye(nG) - chiVV_GG)
+                        gws_inverse_GG = np.linalg.inv(I_GG + chiVVfv_GG - chiVV_GG)
+                        e_GG = gws_inverse_GG @ (I_GG - chiVV_GG)
                     else:
-                        e_GG = np.eye(nG) - np.dot(chiVV_GG, fv)
+                        e_GG = I_GG - chiVVfv_GG
 
                     einv_GG += np.linalg.inv(e_GG) * weight_q[iqf]
 
                     if self.do_GW_too:
-                        e_GW_GG = (np.eye(nG) -
+                        e_GW_GG = (I_GG -
                                    chi0_GW_GG * sqrV_G *
                                    sqrV_G[:, np.newaxis])
                         einv_GW_GG += np.linalg.inv(e_GW_GG) * weight_q[iqf]
