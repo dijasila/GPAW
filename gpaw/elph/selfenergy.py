@@ -57,7 +57,7 @@ class Selfenergy(Observable):
                     # Get eigenvalues returns eV (internal GPAW is Ha)
                     ek_n = self.calc.get_eigenvalues(k, s) + ieta  # k
                     eq_n = self.calc.get_eigenvalues(kplusq_k[k], s)  # k+q
-                    deltae_mn = ek_n[None, :] - eq_n[:, None]
+                    deltae_mn = ek_n[None, :] - eq_n[:, None]  # E_n - E_m
 
                     for l, (fw, w) in enumerate(zip(fw_ql[q], self.w_ql[q])):
                         ff_mn = (fw + f_n[:, None]) / (deltae_mn + w) + \
