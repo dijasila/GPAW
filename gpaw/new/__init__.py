@@ -4,6 +4,13 @@ from time import time
 
 
 def prod(iterable):
+    """Simple int product.
+
+    >>> prod([])
+    1
+    >>> prod([2, 3])
+    6
+    """
     result = 1
     for x in iterable:
         result *= x
@@ -22,7 +29,7 @@ def cached_property(method):
     return property(new_method)
 
 
-def zip_strict(*iterables):
+def zip(*iterables, strict=True):
     """From PEP 618."""
     if not iterables:
         return
@@ -35,6 +42,8 @@ def zip_strict(*iterables):
             yield tuple(items)
     except StopIteration:
         pass
+    if not strict:
+        return
     if items:
         i = len(items)
         plural = " " if i == 1 else "s 1-"

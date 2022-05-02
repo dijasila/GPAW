@@ -3,11 +3,12 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Sequence
 
 import numpy as np
-# from numpy.typing import DTypeLike
 from ase.geometry.cell import cellpar_to_cell
+
 from gpaw.fftw import get_efficient_fft_size
 from gpaw.mpi import MPIComm, serial_comm
-from gpaw.typing import Array2D, ArrayLike, ArrayLike1D, ArrayLike2D, Vector
+from gpaw.typing import (Array2D, ArrayLike, ArrayLike1D, ArrayLike2D,
+                         DTypeLike, Vector)
 
 if TYPE_CHECKING:
     from gpaw.core import UniformGrid
@@ -36,7 +37,7 @@ class Domain:
                  pbc=(True, True, True),
                  kpt: Vector = None,
                  comm: MPIComm = serial_comm,
-                 dtype=None):
+                 dtype: DTypeLike = None):
         """"""
         if isinstance(pbc, int):
             pbc = (pbc,) * 3
@@ -64,6 +65,8 @@ class Domain:
                     raise ValueError(f'Bad k-point {kpt} for pbc={pbc}')
 
         self.dtype = np.dtype(dtype)
+
+        self.myshape: tuple[int, ...]
 
     def __repr__(self):
         comm = self.comm

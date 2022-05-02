@@ -66,7 +66,7 @@ class Davidson(Eigensolver):
             dtype = state.ibzwfs.wfs_qs[0][0].psit_nX.data.dtype
             self.work_arrays = np.empty(shape, dtype)
 
-        dS = state.density.overlap_correction
+        dS = state.ibzwfs.wfs_qs[0][0].setups.overlap_correction
         dH = state.potential.dH
         Ht = partial(hamiltonian.apply, state.potential.vt_sR)
         ibzwfs = state.ibzwfs
@@ -128,10 +128,15 @@ class Davidson(Eigensolver):
                     C_nn[:] = M0_nn.data
 
         for i in range(self.niter):
-            if i == self.niter - 1:
+            if i == self.niter - 1:  # last iteration
                 # Calulate error before we destroy residuals:
-                weights_n = calculate_weights(self.converge_bands, wfs)
-                error = weights_n @ residual_nX.norm2()
+                weight_n = calculate_weights(self.converge_bands, wfs)
+                if weight_n is None:
+                    error = np.inf
+                else:
+                    error = weight_n @ residual_nX.norm2()
+                    if wfs.ncomponents == 4:
+                        error = error.sum()
 
             self.preconditioner(psit_nX, residual_nX, out=psit2_nX)
 
@@ -140,7 +145,7 @@ class Davidson(Eigensolver):
 
             # <psi2 | H | psi2>
             me(psit2_nX, psit2_nX, function=Ht)
-            dH(P2_ani, out=P3_ani)
+            dH(P2_ani, out_ani=P3_ani)
             P2_ani.matrix.multiply(P3_ani, opb='C', symmetric=True, beta=1,
                                    out=M_nn)
             copy(H_NN.data[B:, B:])
@@ -152,7 +157,7 @@ class Davidson(Eigensolver):
 
             # <psi2 | S | psi2>
             me(psit2_nX, psit2_nX)
-            dS(P2_ani, out=P3_ani)
+            dS(P2_ani, out_ani=P3_ani)
             P2_ani.matrix.multiply(P3_ani, opb='C', symmetric=True, beta=1,
                                    out=M_nn)
             copy(S_NN.data[B:, B:])
@@ -174,7 +179,6 @@ class Davidson(Eigensolver):
                                               check_finite=debug,
                                               overwrite_b=True)
                 wfs._eig_n = eig_N[:B]
-
             if domain_comm.rank == 0:
                 band_comm.broadcast(wfs.eig_n, 0)
             domain_comm.broadcast(wfs.eig_n, 0)
@@ -217,14 +221,18 @@ def calculate_residuals(residuals_nX: DA,
         axpy(-e, p, r)
 
     dH(wfs.P_ani, P1_ani)
-    P2_ani.data[:] = wfs.P_ani.data * wfs.myeig_n[:, np.newaxis]
+    if wfs.ncomponents < 4:
+        subscripts = 'nI, n -> nI'
+    else:
+        subscripts = 'nsI, n -> nsI'
+    np.einsum(subscripts, wfs.P_ani.data, wfs.myeig_n, out=P2_ani.data)
     dS(P2_ani, P2_ani)
     P1_ani.data -= P2_ani.data
     wfs.pt_aiX.add_to(residuals_nX, P1_ani)
 
 
 def calculate_weights(converge_bands: int | str,
-                      wfs: PWFDWaveFunctions) -> Array1D:
+                      wfs: PWFDWaveFunctions) -> Array1D | None:
     """Calculate convergence weights for all eigenstates."""
     if converge_bands == 'occupied':
         # Converge occupied bands:
@@ -234,7 +242,7 @@ def calculate_weights(converge_bands: int | str,
             return np.abs(wfs.occ_n)
         except ValueError:
             # No eigenvalues yet:
-            return np.zeros(wfs.psit_nX.mydims) + np.inf
+            return None
 
     if isinstance(converge_bands, int):
         # Converge fixed number of bands:

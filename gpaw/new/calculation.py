@@ -9,7 +9,9 @@ from gpaw.new.input_parameters import InputParameters
 from gpaw.new.ibzwfs import IBZWaveFunctions
 from gpaw.new.potential import Potential
 from gpaw.utilities import check_atoms_too_close
-
+from gpaw.new.density import Density
+from gpaw.core.arrays import DistributedArrays
+from gpaw.core.uniform_grid import UniformGridFunctions
 
 units = {'energy': Ha,
          'free_energy': Ha,
@@ -23,10 +25,10 @@ units = {'energy': Ha,
 class DFTState:
     def __init__(self,
                  ibzwfs: IBZWaveFunctions,
-                 density,
+                 density: Density,
                  potential: Potential,
-                 vHt_x=None,
-                 nct_R=None):
+                 vHt_x: DistributedArrays = None,
+                 nct_R: UniformGridFunctions = None):
         """State of a Kohn-Sham calculation."""
         self.ibzwfs = ibzwfs
         self.density = density
