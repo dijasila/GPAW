@@ -1143,6 +1143,14 @@ class G0W0(PairDensity):
         else:
             chi0_GW_wGG = [0]
 
+        def get_sqrV_G(N_c, q_v=None):
+            return get_coulomb_kernel(
+                pdi,
+                N_c,
+                truncation=self.truncation,
+                wstc=wstc,
+                q_v=q_v)**0.5
+
         for iw, [chi0_GG, chi0_GW_GG] in enumerate(
             zip(chi0_wGG,
                 itertools.cycle(chi0_GW_wGG))):
@@ -1158,11 +1166,8 @@ class G0W0(PairDensity):
                         chi0_GW_GG[0] = a0_qwG[iqf, iw]
                         chi0_GW_GG[:, 0] = a1_qwG[iqf, iw]
                         chi0_GW_GG[0, 0] = a_wq[iw, iqf]
-                    sqrV_G = get_coulomb_kernel(pdi,
-                                                kd.N_c,
-                                                truncation=self.truncation,
-                                                wstc=wstc,
-                                                q_v=qf_qv[iqf])**0.5
+
+                    sqrV_G = get_sqrV_G(kd.N_c, q_v=qf_qv[iqf])
 
                     chiVV_GG = chi0_GG * sqrV_G * sqrV_G[:, np.newaxis]
                     chiVVfv_GG = chiVV_GG @ fv
@@ -1186,10 +1191,8 @@ class G0W0(PairDensity):
                         einv_GW_GG += np.linalg.inv(e_GW_GG) * weight_q[iqf]
 
             else:
-                sqrV_G = get_coulomb_kernel(pdi,
-                                            self.calc.wfs.kd.N_c,
-                                            truncation=self.truncation,
-                                            wstc=wstc)**0.5
+                sqrV_G = get_sqrV_G(self.calc.wfs.kd.N_c)
+
                 if self.fxc_mode == 'GWP':
                     e_GG = (np.eye(nG) -
                             np.dot(
