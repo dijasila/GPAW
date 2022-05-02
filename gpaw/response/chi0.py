@@ -313,7 +313,7 @@ class Chi0:
         if self.eta == 0.0:
             assert not hilbert
             assert not timeordered
-            assert not self.wd.get_data().real.any()
+            assert not self.wd.omega_w.real.any()
 
         self.nocc1 = self.pair.nocc1  # number of completely filled bands
         self.nocc2 = self.pair.nocc2  # number of non-empty bands
@@ -638,9 +638,8 @@ class Chi0:
             # transform is performed to return the real part of the density
             # response function.
             with self.timer('Hilbert transform'):
-                omega_w = self.wd.get_data()  # Get frequencies
                 # Make Hilbert transform
-                ht = HilbertTransform(np.array(omega_w), self.eta,
+                ht = HilbertTransform(np.array(self.wd.omega_w), self.eta,
                                       timeordered=self.timeordered)
                 ht(A_wxx)
                 if wings:
