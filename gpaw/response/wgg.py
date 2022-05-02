@@ -177,13 +177,12 @@ def choose_parallelization(nW, nG, commsize):
 
 
 def main(comm=world):
-    nW = 7
+    nW = 3
     nG = 31
 
-    cpugrid = (2, 3, 2)
-    #cpugrid = (1, 1, 1)
-    WGG = (nW, nG, nG)
+    cpugrid = choose_parallelization(nW, nG, comm.size)
 
+    WGG = (nW, nG, nG)
     dtype = complex
 
     # Build serial grid (data only on rank 0)
