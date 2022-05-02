@@ -26,8 +26,8 @@ class FrequencyDescriptor:
             omega2 = input.get('omega2')
             omegamax = input.get('omegamax')
             return NonLinearFrequencyDescriptor(
-                (0.1 if doemga0 is None else domega0) / Ha,
-                (10.0 if oemga2 is None else omega2) / Ha,
+                (0.1 if domega0 is None else domega0) / Ha,
+                (10.0 if omega2 is None else omega2) / Ha,
                 omegamax / Ha)
         return LinearFrequencyDescriptor(np.asarray(input) / Ha)
 
