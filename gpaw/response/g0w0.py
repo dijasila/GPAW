@@ -29,6 +29,7 @@ from gpaw.xc.exx import EXX, select_kpts
 from gpaw.xc.fxc import set_flags
 from gpaw.xc.tools import vxc
 from gpaw.core.matrix import Matrix
+from gpaw.response.temp import DielectricFunctionCalculator
 
 
 class G0W0(PairDensity):
@@ -1143,6 +1144,14 @@ class G0W0(PairDensity):
         else:
             chi0_GW_wGG = [0]
 
+        def get_sqrV_G(N_c, q_v=None):
+            return get_coulomb_kernel(
+                pdi,
+                N_c,
+                truncation=self.truncation,
+                wstc=wstc,
+                q_v=q_v)**0.5
+
         for iw, [chi0_GG, chi0_GW_GG] in enumerate(
             zip(chi0_wGG,
                 itertools.cycle(chi0_GW_wGG))):
@@ -1158,94 +1167,29 @@ class G0W0(PairDensity):
                         chi0_GW_GG[0] = a0_qwG[iqf, iw]
                         chi0_GW_GG[:, 0] = a1_qwG[iqf, iw]
                         chi0_GW_GG[0, 0] = a_wq[iw, iqf]
-                    sqrV_G = get_coulomb_kernel(pdi,
-                                                kd.N_c,
-                                                truncation=self.truncation,
-                                                wstc=wstc,
-                                                q_v=qf_qv[iqf])**0.5
 
-#                    chi0v_GG = chi0_GG * sqrV_G * sqrV_G[:, np.newaxis]
-#                    if self.nspins == 2:
-#                        chi0v = np.zeros((2 * nG, 2 * nG), dtype=complex)
-#                        for s in range(self.nspins):
-#                            m = s * nG
-#                            n = (s + 1) * nG
-#                            chi0v[m:n, m:n] = chi0v_GG
-#                    else:
-#                    chi0v = chi0v_GG
+                    sqrV_G = get_sqrV_G(kd.N_c, q_v=qf_qv[iqf])
 
-                    if self.fxc_mode == 'GWP':
-                        e_GG = (np.eye(nG) -
-                                np.dot(
-                                    np.linalg.inv(
-                                        np.eye(nG) -
-                                        np.dot(chi0_GG *
-                                               sqrV_G *
-                                               sqrV_G[:, np.newaxis], fv) +
-                                        chi0_GG * sqrV_G *
-                                        sqrV_G[:, np.newaxis]),
-                                    chi0_GG * sqrV_G *
-                                    sqrV_G[:, np.newaxis]))
-                    elif self.fxc_mode == 'GWS':
-                        e_GG = np.dot(
-                            np.linalg.inv(
-                                np.eye(nG) +
-                                np.dot(chi0_GG *
-                                       sqrV_G *
-                                       sqrV_G[:, np.newaxis], fv) -
-                                chi0_GG * sqrV_G *
-                                sqrV_G[:, np.newaxis]),
-                            np.eye(nG) -
-                            chi0_GG * sqrV_G *
-                            sqrV_G[:, np.newaxis])
-                    else:
-                        e_GG = np.eye(nG) - np.dot(chi0_GG * sqrV_G *
-                                                   sqrV_G[:, np.newaxis], fv)
-
-                    einv_GG += np.linalg.inv(e_GG) * weight_q[iqf]
+                    dfc = DielectricFunctionCalculator(sqrV_G, chi0_GG,
+                                                       mode=self.fxc_mode, fv_GG=fv)
+                    einv_GG += dfc.get_einv_GG() * weight_q[iqf]
 
                     if self.do_GW_too:
-                        e_GW_GG = (np.eye(nG) -
-                                   chi0_GW_GG * sqrV_G *
-                                   sqrV_G[:, np.newaxis])
-                        einv_GW_GG += np.linalg.inv(e_GW_GG) * weight_q[iqf]
+                        gw_dfc = DielectricFunctionCalculator(sqrtV_G, chi0_GW_GG,
+                                                              mode='GW')
+                        einv_GW_GG += gw_dfc.get_einv_GG() * weight_q[iqf]
 
             else:
-                sqrV_G = get_coulomb_kernel(pdi,
-                                            self.calc.wfs.kd.N_c,
-                                            truncation=self.truncation,
-                                            wstc=wstc)**0.5
-                if self.fxc_mode == 'GWP':
-                    e_GG = (np.eye(nG) -
-                            np.dot(
-                                np.linalg.inv(
-                                    np.eye(nG) -
-                                    np.dot(chi0_GG * sqrV_G *
-                                           sqrV_G[:, np.newaxis], fv) +
-                                    chi0_GG * sqrV_G *
-                                    sqrV_G[:, np.newaxis]),
-                                chi0_GG * sqrV_G * sqrV_G[:, np.newaxis]))
-                elif self.fxc_mode == 'GWS':
-                    e_GG = np.dot(
-                        np.linalg.inv(
-                            np.eye(nG) +
-                            np.dot(chi0_GG * sqrV_G *
-                                   sqrV_G[:, np.newaxis], fv) -
-                            chi0_GG * sqrV_G *
-                            sqrV_G[:, np.newaxis]),
-                        np.eye(nG) - chi0_GG *
-                        sqrV_G * sqrV_G[:, np.newaxis])
-                else:
-                    e_GG = (delta_GG -
-                            np.dot(chi0_GG * sqrV_G *
-                                   sqrV_G[:, np.newaxis], fv))
+                sqrV_G = get_sqrV_G(self.calc.wfs.kd.N_c)
 
-                einv_GG = np.linalg.inv(e_GG)
+                dfc = DielectricFunctionCalculator(sqrV_G, chi0_GG,
+                                                   mode=self.fxc_mode, fv_GG=fv)
+                einv_GG = dfc.get_einv_GG()
 
                 if self.do_GW_too:
-                    e_GW_GG = (delta_GG -
-                               chi0_GW_GG * sqrV_G * sqrV_G[:, np.newaxis])
-                    einv_GW_GG = np.linalg.inv(e_GW_GG)
+                    gw_dfc = DielectricFunctionCalculator(sqrtV_G, chi0_GW_GG,
+                                                          mode='GW')
+                    einv_GW_GG = gw_dfc.get_einv_GG()
 
             if self.ppa:
                 einv_wGG.append(einv_GG - delta_GG)
