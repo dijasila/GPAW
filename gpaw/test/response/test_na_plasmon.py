@@ -78,8 +78,6 @@ def test_response_na_plasmon(in_tmp_dir):
             pass
 
         df1 = DielectricFunction('gs_Na_small.gpw',
-                                 domega0=0.1,
-                                 omegamax=10,
                                  ecut=40,
                                  name='chi0',
                                  **kwargs)
@@ -94,8 +92,6 @@ def test_response_na_plasmon(in_tmp_dir):
             pass
 
         df2 = DielectricFunction('gs_Na_large.gpw',
-                                 domega0=0.1,
-                                 omegamax=10,
                                  ecut=40,
                                  name='chi1',
                                  **kwargs)

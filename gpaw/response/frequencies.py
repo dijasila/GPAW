@@ -35,7 +35,13 @@ class FrequencyDescriptor:
 
         In case *input* is a list on frequencies (in eV) a
         :class:`LinearFrequencyDescriptor` instance is returned.
-        Othervice
+        Othervise a :class:`NonLinearFrequencyDescriptor` instance is
+        returned.
+
+        >>> wd = FrequencyDescriptor.from_array_or_dict(domega0=0.1,
+        ...                                             omega2=10,
+        ...                                             omegamax=50)
+        >>> wd.omega_w[0:2]
         """
         if isinstance(input, dict):
             assert input['type'] == 'nonlinear'

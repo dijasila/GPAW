@@ -71,6 +71,11 @@ class G0W0(PairDensity):
             Same as *bands* except that the numbers are relative to the
             number of occupied bands.
             E.g. (-1, 1) will use HOMO+LUMO.
+        frequencies:
+            Input parameters for frequency_grid.
+            Can be array of frequencies to evaluate the response function at
+            or dictionary of paramaters for build-in nonlinear grid
+            (see :ref:`frequency grid`).
         ecut: float
             Plane wave cut-off energy in eV.
         ecut_extrapolation: bool or array
@@ -117,12 +122,6 @@ class G0W0(PairDensity):
             but the average is only carried out in the non-periodic directions.
         E0: float
             Energy (in eV) used for fitting in the plasmon-pole approximation.
-        domega0: float
-            Minimum frequency step (in eV) used in the generation of the non-
-            linear frequency grid.
-        omega2: float
-            Control parameter for the non-linear frequency grid, equal to the
-            frequency where the grid spacing has doubled in size.
         gate_voltage: float
             Shift Fermi level of ground state calculation by the
             specified amount.

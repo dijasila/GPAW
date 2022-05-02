@@ -46,7 +46,8 @@ def test_chi0_intraband(in_tmp_dir):
             pass
 
     df1 = DielectricFunction('intraband_spinpaired.gpw',
-                             domega0=0.03,
+                             frequencies={'type': 'nonlinear',
+                                          'domega0': 0.03},
                              ecut=10,
                              rate=0.1,
                              integrationmode='tetrahedron integration',
