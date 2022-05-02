@@ -988,7 +988,6 @@ class G0W0(PairDensity):
 
         return pdi, [Wp_wGG, Wm_wGG], GW_return
 
-    
     #############
     #### NEW ####
     #############
@@ -997,7 +996,7 @@ class G0W0(PairDensity):
         assert self.do_GW_too == False
         assert ecut == pd.ecut
         assert self.fxc_mode == 'GW'
-        
+
         assert not np.allclose(q_c, 0)
 
         #print(chi0_wGG.shape)
@@ -1046,29 +1045,12 @@ class G0W0(PairDensity):
         wgg_grid.redistribute(WgG_grid, dielectric_wgg, dielectric_WgG)
         inveps_WgG = dielectric_WgG
 
-        #mynw = (nw + self.blockcomm.size - 1) // self.blockcomm.size
-        #if self.blockcomm.size > 1:
-        #    chi0_wGG = chi0.redistribute(chi0_wGG, A2_x)
-        #    wa = min(self.blockcomm.rank * mynw, nw)
-        #    wb = min(wa + mynw, nw)
-        #else:
-        #    wa = 0
-        #    wb = nw
-
         self.timer.start('Dyson eq.')
-        #W_wGG = redistribute_and_calculate_Dyson(sqrV_G, chi0_wGG, self.blockcomm)
+
         for iw, inveps_gG in enumerate(inveps_WgG):
-            #sqrV_G = get_coulomb_kernel(pdi,
-            #                            self.calc.wfs.kd.N_c,
-            #                            truncation=self.truncation,
-            #                            wstc=wstc)**0.5
-            # e_GG = np.eye(nG) - chi0_GG * sqrV_G * sqrV_G[:, np.newaxis]
-            # einv_GG = np.linalg.inv(e_GG)
-            #W_GG = chi0_GG
             inveps_gG -= np.identity(nG)[my_gslice]
             thing_GG = sqrV_G * sqrV_G[:, np.newaxis]
             inveps_gG *= thing_GG[my_gslice]
-
 
         W_WgG = inveps_WgG
         Wp_wGG = W_WgG.copy()
