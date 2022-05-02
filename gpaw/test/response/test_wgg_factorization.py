@@ -1,36 +1,4 @@
-def factorize(N):
-    for n in range(1, N + 1):
-        if N % n == 0:
-            yield N // n, n
-
-
-def get_products(N):
-    for a1, a2 in factorize(N):
-        for a2p, a3 in factorize(a2):
-            yield a1, a2p, a3
-
-
-def choose_parallelization(nW, nG, commsize):
-    min_badness = 10000000
-
-    for wGG in get_products(commsize):
-        wsize, gsize1, gsize2 = wGG
-        nw = (nW + wsize - 1) // wsize
-
-        if nw > nW:
-            continue
-
-        number_of_cores_with_zeros = (wsize * nw - nW) // nw
-        scalapack_skew = (gsize1 - gsize2)**2
-        scalapack_size = gsize1 * gsize2
-        badness = (number_of_cores_with_zeros * 1000
-                   + 10 * scalapack_skew + scalapack_size)
-
-        # print(wsize, gsize1, gsize2, nw, number_of_cores_with_zeros, badness)
-        if badness < min_badness:
-            wGG_min = wGG
-            min_badness = badness
-    return wGG_min
+from gpaw.response.wgg import choose_parallelization
 
 
 def test_parallelizations():
