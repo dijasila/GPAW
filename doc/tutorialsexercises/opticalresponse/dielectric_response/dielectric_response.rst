@@ -55,6 +55,8 @@ Refer to :ref:`df_theory`  for detailed documentation on theoretical part.
 Frequency grid
 ==============
 
+.. module:: gpaw.response.frequencies
+
 The dielectric function is evaluted on a non-linear frequency grid according
 to the formula
 

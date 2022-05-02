@@ -38,10 +38,14 @@ class FrequencyDescriptor:
         Othervise a :class:`NonLinearFrequencyDescriptor` instance is
         returned.
 
-        >>> wd = FrequencyDescriptor.from_array_or_dict(domega0=0.1,
-        ...                                             omega2=10,
-        ...                                             omegamax=50)
-        >>> wd.omega_w[0:2]
+        >>> from ase.units import Ha
+        >>> params = dict(type='nonlinear',
+        ...               domega0=0.1,
+        ...               omega2=10,
+        ...               omegamax=50)
+        >>> wd = FrequencyDescriptor.from_array_or_dict(params)
+        >>> wd.omega_w[0:2] * Ha
+        array([0.        , 0.10041594])
         """
         if isinstance(input, dict):
             assert input['type'] == 'nonlinear'
