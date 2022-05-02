@@ -664,11 +664,11 @@ class G0W0(PairDensity):
 
         beta = (2**0.5 - 1) * self.domega0 / self.omega2
         w_m = (o_m / (self.domega0 + beta * o_m)).astype(int)
-        m_inb = np.where(w_m < len(self.omega_w) - 1)[0]
+        m_inb = np.where(w_m < len(self.wd.omega_w) - 1)[0]
         o1_m = np.empty(len(o_m))
         o2_m = np.empty(len(o_m))
-        o1_m[m_inb] = self.omega_w[w_m[m_inb]]
-        o2_m[m_inb] = self.omega_w[w_m[m_inb] + 1]
+        o1_m[m_inb] = self.wd.omega_w[w_m[m_inb]]
+        o2_m[m_inb] = self.wd.omega_w[w_m[m_inb] + 1]
 
         x = 1.0 / (self.qd.nbzkpts * 2 * pi * self.vol)
         sigma = 0.0
@@ -677,7 +677,7 @@ class G0W0(PairDensity):
         for o, o1, o2, sgn, s, w, n_G in zip(o_m, o1_m, o2_m,
                                              sgn_m, s_m, w_m, n_mG):
 
-            if w >= len(self.omega_w) - 1:
+            if w >= len(self.wd.omega_w) - 1:
                 continue
 
             C1_GG = C_swGG[s][w]
@@ -757,17 +757,16 @@ class G0W0(PairDensity):
         else:
             wstc = None
 
-        self.omega_w = chi0.omega_w
-        self.omegamax = chi0.omegamax
+        self.wd = chi0.wd
 
-        htp = HilbertTransform(self.omega_w, self.eta, gw=True)
-        htm = HilbertTransform(self.omega_w, -self.eta, gw=True)
+        htp = HilbertTransform(self.wd.omega_w, self.eta, gw=True)
+        htm = HilbertTransform(self.wd.omega_w, -self.eta, gw=True)
 
         # Find maximum size of chi-0 matrices:
         gd = self.calc.wfs.gd
         nGmax = max(count_reciprocal_vectors(self.ecut, gd, q_c)
                     for q_c in self.qd.ibzk_kc)
-        nw = len(self.omega_w)
+        nw = len(self.wd)
 
         size = self.blockcomm.size
 
@@ -831,7 +830,7 @@ class G0W0(PairDensity):
                     # We also need to initialize the PAW corrections
                     self.Q_aGii = self.initialize_paw_corrections(pdi)
 
-                    nw = len(self.omega_w)
+                    nw = len(self.wd)
                     self.GaGb = GaGb(self.blockcomm, pdi.ngmax)
                 else:
                     # First time calculation
@@ -885,7 +884,7 @@ class G0W0(PairDensity):
                     iq):
         """Calculates the screened potential for a specified q-point."""
 
-        nw = len(self.omega_w)
+        nw = len(self.wd)
         nG = pd.ngmax
         self.GaGb = chi0.GaGb
         shape = (nw, self.GaGb.nGlocal, nG)
@@ -933,7 +932,7 @@ class G0W0(PairDensity):
                                kd=pd.kd)
             nG = pdi.ngmax
             self.GaGb = GaGb(self.blockcomm, nG)
-            nw = len(self.omega_w)
+            nw = len(self.wd)
             mynw = (nw + self.blockcomm.size - 1) // self.blockcomm.size
 
             G2G = PWMapping(pdi, pd).G2_G1
