@@ -2,6 +2,7 @@ from __future__ import annotations
 import warnings
 from functools import partial
 from time import ctime
+from typing import Union
 
 import gpaw
 import gpaw.mpi as mpi
@@ -45,7 +46,7 @@ class Chi0:
                  calc,
                  *,
                  response='density',
-                 frequencies: dict | Array1D = None,
+                 frequencies: Union[dict, Array1D] = None,
                  ecut=50, gammacentered=False, hilbert=True, nbands=None,
                  timeordered=False, eta=0.2, ftol=1e-6, threshold=1,
                  real_space_derivatives=False, intraband=True,
