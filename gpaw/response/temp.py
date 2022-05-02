@@ -19,7 +19,7 @@ class DielectricFunctionCalculator:
         return gws_inverse_GG @ (self.I_GG - self.chiVV_GG)
 
     def e_GG_plain(self):
-        return self.I_GG - self.chiVVfv_GG
+        return self.I_GG - self.chiVV_GG
 
     def get_e_GG(self, mode):
         if mode == 'GWP':
