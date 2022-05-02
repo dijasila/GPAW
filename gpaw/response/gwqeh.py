@@ -11,8 +11,8 @@ from ase.dft.kpoints import monkhorst_pack
 
 import gpaw.mpi as mpi
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.response.chi0 import HilbertTransform
-from gpaw.response.frequencies import FrequencyDescriptor, find_maximum_frequency
+from gpaw.response.chi0 import HilbertTransform, find_maximum_frequency
+from gpaw.response.frequencies import FrequencyDescriptor
 from gpaw.response.pair import PairDensity
 from gpaw.pw.descriptor import PWDescriptor
 from gpaw.xc.exx import select_kpts
