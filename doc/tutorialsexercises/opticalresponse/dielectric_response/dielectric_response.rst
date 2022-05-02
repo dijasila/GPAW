@@ -50,7 +50,7 @@ and is in 3D related to the macroscopic dielectric function as,
 
 Refer to :ref:`df_theory`  for detailed documentation on theoretical part.
 
-.. _df_tutorial_freq:
+.. _frequency grid:
 
 Frequency grid
 ==============
@@ -91,8 +91,8 @@ might want it in cases where semi-core states are included where very large
 energy eigenvalue differences appear.
 
 
-.. autoclass:: gpaw.response.frequency.FrequencyDescriptor
-.. autoclass:: gpaw.response.frequency.NonLinearFrequencyDescriptor
+.. autoclass:: gpaw.response.frequencies.FrequencyDescriptor
+.. autoclass:: gpaw.response.frequencies.NonLinearFrequencyDescriptor
 
 
 Example 1: Optical absorption of semiconductor: Bulk silicon
