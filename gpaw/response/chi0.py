@@ -145,9 +145,7 @@ class Chi0:
             warnings.warn(f'Please use frequencies={frequencies}')
 
         elif frequencies is None:
-            frequencies = {'type': 'nonlinear',
-                           'domega0': 0.1,
-                           'omega2': 10.0}
+            frequencies = {'type': 'nonlinear'}
 
         self.response = response
 
