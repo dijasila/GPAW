@@ -116,21 +116,6 @@ class Grid:
             scalapack_solve(desc, desc, xtmp_gg, righthand)
             x_gg[:] = righthand.T
 
-def find_wgg_process_grid(commsize, nG):
-    # Use sqrt(cores) for w parallelization and the remaining sqrt(cores)
-    # for G parallelization.
-
-    # We first assume we have an infinite matrix and just want a "good"
-    # balance between frequency grid and ScaLAPACK:
-    # infinity = 10000 * nG
-    #ggsize, wsize, _ = suggest_blocking(infinity, commsize)
-    wsize = 2
-    ggsize = commsize
-
-    # Next get ScaLAPACK row and columns based on real matrix size:
-    gsize1, gsize2, _ = suggest_blocking(nG, ggsize)
-
-    return wsize, gsize1, gsize2
 
 def get_x_WGG(WGG_grid):
     x_WGG = WGG_grid.zeros(dtype=complex)
@@ -160,7 +145,6 @@ def main(comm=world):
     nW = 7
     nG = 31
 
-    #cpugrid = find_wgg_process_grid(comm.size, nG)
     cpugrid = (2, 3, 2)
     #cpugrid = (1, 1, 1)
     WGG = (nW, nG, nG)
