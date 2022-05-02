@@ -383,7 +383,9 @@ class DielectricFunction:
 
         if filename is not None and mpi.rank == 0:
             with open(filename, 'w') as fd:
-                for omega, rf0, rf in zip(self.wd.omega_w * Hartree, rf0_w, rf_w):
+                for omega, rf0, rf in zip(self.wd.omega_w * Hartree,
+                                          rf0_w,
+                                          rf_w):
                     print('%.6f, %.6f, %.6f, %.6f, %.6f' %
                           (omega, rf0.real, rf0.imag, rf.real, rf.imag),
                           file=fd)
