@@ -197,7 +197,7 @@ class Chi0:
         self.nbands = nbands or self.calc.wfs.bd.nbands
         self.include_intraband = intraband
 
-        if 'omegamax' not in frequencies:
+        if isinstance(frequencies, dict) and 'omegamax' not in frequencies:
             omegamax = find_maximum_frequency(self.calc,
                                               nbands=self.nbands,
                                               fd=self.fd)
