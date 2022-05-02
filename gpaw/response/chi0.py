@@ -1,4 +1,5 @@
 import numbers
+import warnings
 from functools import partial
 from time import ctime
 
@@ -10,32 +11,36 @@ from ase.utils.timing import Timer, timer
 from gpaw.blacs import BlacsDescriptor, BlacsGrid, Redistributor
 from gpaw.bztools import convex_hull_volume
 from gpaw.kpt_descriptor import KPointDescriptor
+from gpaw.pw.descriptor import PWDescriptor
+from gpaw.response.hacks import GaGb
 from gpaw.response.integrators import PointIntegrator, TetrahedronIntegrator
 from gpaw.response.pair import PairDensity, PWSymmetryAnalyzer
 from gpaw.utilities.blas import gemm
 from gpaw.utilities.memory import maxrss
-from gpaw.pw.descriptor import PWDescriptor
-from gpaw.response.hacks import GaGb
 
 
-class ArrayDescriptor:
+class FrequencyDescriptor:
     """Describes a single dimensional array."""
+    def __init__(self, omega_w):
+        self.omega_w = omega_w
 
-    def __init__(self, data_x):
-        self.data_x = np.array(np.sort(data_x))
-        self._data_len = len(data_x)
+    @staticmethod
+    def from_array_or_dict(input):
+        if isinstance(input, dict):
+            assert input.pop('type') == 'nonlinear'
+            return NonlinearFrequencyDescriptor(**input)
+        return LinearFrequencyDescriptor(**input)
 
+
+class LinearFrequencyDescriptor(FrequencyDescriptor):
     def __len__(self):
-        return self._data_len
-
-    def get_data(self):
-        return self.data_x
+        return len(self.omega_w)
 
     def get_closest_index(self, scalars_w):
         """Get closest index.
 
         Get closest index approximating scalars from below."""
-        diff_xw = self.data_x[:, np.newaxis] - scalars_w[np.newaxis]
+        diff_xw = self.omega_w[:, np.newaxis] - scalars_w[np.newaxis]
         return np.argmin(diff_xw, axis=0)
 
     def get_index_range(self, lim1_m, lim2_m):
@@ -45,8 +50,8 @@ class ArrayDescriptor:
         i1_m = np.zeros(len(lim2_m), int)
 
         for m, (lim1, lim2) in enumerate(zip(lim1_m, lim2_m)):
-            i_x = np.logical_and(lim1 <= self.data_x,
-                                 lim2 >= self.data_x)
+            i_x = np.logical_and(lim1 <= self.omega_w,
+                                 lim2 >= self.omega_w)
             if i_x.any():
                 inds = np.argwhere(i_x)
                 i0_m[m] = inds.min()
@@ -55,7 +60,7 @@ class ArrayDescriptor:
         return i0_m, i1_m
 
 
-class FrequencyDescriptor(ArrayDescriptor):
+class NonLinearFrequencyDescriptor(FrequencyDescriptor):
 
     def __init__(self, domega0, omega2, omegamax):
         beta = (2**0.5 - 1) * domega0 / omega2
@@ -63,7 +68,7 @@ class FrequencyDescriptor(ArrayDescriptor):
         w = np.arange(wmax + 2)  # + 2 is for buffer
         omega_w = w * domega0 / (1 - beta * w)
 
-        ArrayDescriptor.__init__(self, omega_w)
+        super().__init__(omega_w)
 
         self.domega0 = domega0
         self.omega2 = omega2
@@ -114,7 +119,10 @@ class Chi0:
     """Class for calculating non-interacting response functions."""
 
     def __init__(self, calc, response='density',
-                 frequencies=None, domega0=0.1, omega2=10.0, omegamax=None,
+                 frequencies=None,
+                 domega0=None,  # deprecated
+                 omega2=None,  # deprecated
+                 omegamax=None,  # deprecated
                  ecut=50, gammacentered=False, hilbert=True, nbands=None,
                  timeordered=False, eta=0.2, ftol=1e-6, threshold=1,
                  real_space_derivatives=False, intraband=True,
@@ -207,6 +215,18 @@ class Chi0:
             Class for calculating matrix elements of pairs of wavefunctions.
 
         """
+        if domega0 is not None or omega2 is not None or omegamax is not None:
+            assert frequencies is None
+            frequencies = {'type': 'nonlinear',
+                           'domega0': domega0,
+                           'omega2': omega2,
+                           'omegamax': omegamax}
+            warnings.warn(f'Please use frequencies={frequencies}')
+
+        elif frequencies is None:
+            frequencies = {'type': 'nonlinear',
+                           'domega0': 0.1,
+                           'omega2': 10.0}
 
         self.response = response
 
@@ -1013,7 +1033,7 @@ class Chi0:
         nG = in_wGG.shape[2]
         mynw = (nw + comm.size - 1) // comm.size
         mynG = (nG + comm.size - 1) // comm.size
-        
+
         bg1 = BlacsGrid(comm, comm.size, 1)
         bg2 = BlacsGrid(comm, 1, comm.size)
         md1 = BlacsDescriptor(bg1, nw, nG**2, mynw, nG**2)
