@@ -228,12 +228,11 @@ class PointIntegrator(Integrator):
     @timer('CHI_0 hermetian update')
     def update_hermitian(self, n_mG, deps_m, wd, chi0_wGG):
         """If eta=0 use hermitian update."""
-        omega_w = wd.get_data()
         deps_m += self.eshift * np.sign(deps_m)
 
         GaGb = self._GaGb(chi0_wGG.shape[2])
 
-        for w, omega in enumerate(omega_w):
+        for w, omega in enumerate(wd.omega_w):
             if self.blockcomm.size == 1:
                 x_m = (-2 * deps_m / (omega.imag**2 + deps_m**2) + 0j)**0.5
                 nx_mG = n_mG.conj() * x_m[:, np.newaxis]

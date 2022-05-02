@@ -19,6 +19,7 @@ from gpaw.response.integrators import PointIntegrator, TetrahedronIntegrator
 from gpaw.response.pair import PairDensity, PWSymmetryAnalyzer
 from gpaw.utilities.blas import gemm
 from gpaw.utilities.memory import maxrss
+from gpaw.typing import Array1D
 
 
 def find_maximum_frequency(calc, nbands=0, fd=None):
@@ -39,11 +40,11 @@ def find_maximum_frequency(calc, nbands=0, fd=None):
 class Chi0:
     """Class for calculating non-interacting response functions."""
 
-    def __init__(self, calc, response='density',
-                 frequencies=None,
-                 domega0=None,  # deprecated
-                 omega2=None,  # deprecated
-                 omegamax=None,  # deprecated
+    def __init__(self,
+                 calc,
+                 *,
+                 response='density',
+                 frequencies: dict | Array1D = None,
                  ecut=50, gammacentered=False, hilbert=True, nbands=None,
                  timeordered=False, eta=0.2, ftol=1e-6, threshold=1,
                  real_space_derivatives=False, intraband=True,
@@ -53,7 +54,11 @@ class Chi0:
                  disable_non_symmorphic=True,
                  integrationmode=None,
                  pbc=None, rate=0.0, eshift=0.0,
-                 paw_correction='brute-force'):
+                 paw_correction='brute-force',
+                 domega0=None,  # deprecated
+                 omega2=None,  # deprecated
+                 omegamax=None  # deprecated
+                 ):
         """Construct Chi0 object.
 
         Parameters
@@ -64,12 +69,11 @@ class Chi0:
         response : str
             Type of response function. Currently collinear, scalar options
             'density', '+-' and '-+' are implemented.
-        frequencies : ndarray or None
-            Array of frequencies to evaluate the response function at. If None,
-            frequencies are determined using the frequency_grid function in
-            gpaw.response.chi0.
-        domega0, omega2, omegamax : float
+        frequencies :
             Input parameters for frequency_grid.
+            Can be array of frequencies to evaluate the response function at
+            or dictionary of paramaters for build-in nonlinear grid
+            (see :ref:`frequency grid`).
         ecut : float
             Energy cutoff.
         gammacentered : bool

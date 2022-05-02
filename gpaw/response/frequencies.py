@@ -1,17 +1,22 @@
+from __future__ import annotations
+
 import numbers
+from typing import Any
 
 import numpy as np
 from ase.units import Ha
+from gpaw.typing import Array1D
 
 
 class FrequencyDescriptor:
-    def __init__(self, omega_w):
+    def __init__(self, omega_w: Array1D):
         """Frequency grid descriptor.
 
         Parameters
         ----------
         omega_w:
-            Frequency"""
+            Frequency grid in Hartree units.
+        """
         self.omega_w = np.asarray(omega_w).copy()
 
     def __len__(self):
@@ -24,7 +29,14 @@ class FrequencyDescriptor:
                 f'(from {emin:.3f} to {emax:.3f} eV, {len(self)} points)')
 
     @staticmethod
-    def from_array_or_dict(input):
+    def from_array_or_dict(input: dict[str, Any] | Array1D
+                           ) -> FrequencyDescriptor:
+        """Create frequency-grid descriptor.
+
+        In case *input* is a list on frequencies (in eV) a
+        :class:`LinearFrequencyDescriptor` instance is returned.
+        Othervice
+        """
         if isinstance(input, dict):
             assert input['type'] == 'nonlinear'
             domega0 = input.get('domega0')
@@ -67,6 +79,20 @@ class NonLinearFrequencyDescriptor(FrequencyDescriptor):
                  domega0: float,
                  omega2: float,
                  omegamax: float):
+        """Non-linear frequency grid.
+
+        Units are Hartree.  See :ref:`frequency grid`.
+
+        Parameters
+        ----------
+        domega0:
+            Frequency grid spacing for non-linear frequency grid at omega = 0.
+        omega2:
+            Frequency at which the non-linear frequency grid has doubled
+            the spacing.
+        omegamax:
+            The upper frequency bound for the non-linear frequency grid.
+        """
         beta = (2**0.5 - 1) * domega0 / omega2
         wmax = int(omegamax / (domega0 + beta * omegamax))
         w = np.arange(wmax + 2)  # + 2 is for buffer

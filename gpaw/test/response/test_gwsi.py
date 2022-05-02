@@ -58,7 +58,6 @@ def test_response_gwsi(in_tmp_dir, si, symm):
     results += [G[0], G[1] - G[0], X[1] - G[0], X[2] - X[1]]
 
     assert results == pytest.approx(
-        [-9.25,
-         5.44, 2.39, 0.40, 0,
-         6.26, 3.57, 1.32, 0], abs=0.025)
-    #assert np.ptp(results, 0).max() == pytest.approx(0, abs=0.007)
+        [-9.253,
+         5.442, 2.389, 0.403, 0.000,
+         6.261, 3.570, 1.323, 0.001], abs=0.003)
