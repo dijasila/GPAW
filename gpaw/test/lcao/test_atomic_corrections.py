@@ -10,13 +10,8 @@ from itertools import count
 import pytest
 from ase.build import molecule, bulk
 
-from gpaw.utilities import compiled_with_sl
 from gpaw import GPAW, LCAO
 from gpaw.mpi import world
-
-
-pytestmark = pytest.mark.skipif(not compiled_with_sl(),
-                                reason='not compiled_with_sl()')
 
 
 def run(system, **kwargs):
@@ -63,7 +58,7 @@ def run(system, **kwargs):
     assert maxerr < 1e-11, maxerr
 
 
-def test_lcao_atomic_corrections(in_tmp_dir):
+def test_lcao_atomic_corrections(in_tmp_dir, scalapack):
     # Use a cell large enough that some overlaps are zero.
     # Thus the matrices will have at least some sparsity.
     system = molecule('CH3CH2OH')

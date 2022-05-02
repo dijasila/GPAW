@@ -3,11 +3,7 @@ import pytest
 
 from ase.build import bulk
 from ase.parallel import world
-from gpaw.utilities import compiled_with_sl
 from gpaw import GPAW, FermiDirac, PW
-
-pytestmark = pytest.mark.skipif(not compiled_with_sl(),
-                                reason="Not compiled with Scalapack")
 
 
 def get_calculator(sl_auto, kpoint_gamma):
@@ -26,7 +22,7 @@ def get_calculator(sl_auto, kpoint_gamma):
     return calculator
 
 
-def test_davidson_scalapack_eigenvalues():
+def test_davidson_scalapack_eigenvalues(scalapack):
     atoms = bulk("Si", cubic=True) * [2, 2, 2]
     for kpoint_gamma in [True, False]:
 
