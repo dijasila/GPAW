@@ -37,7 +37,10 @@ class G0W0(PairDensity):
                  av_scheme=None, Eg=None,
                  truncation=None, integrate_gamma=0,
                  ecut=150.0, eta=0.1, E0=1.0 * Ha,
-                 domega0=0.025, omega2=10.0, q0_correction=False,
+                 frequencies=None,
+                 domega0=None,  # deprecated
+                 omega2=None,  # deprecated
+                 q0_correction=False,
                  anisotropy_correction=None,
                  nblocks=1, savew=False, savepckl=True,
                  maxiter=1, method='G0W0', mixing=0.2,
@@ -150,6 +153,18 @@ class G0W0(PairDensity):
         ecut_extrapolation: bool
             Carries out the extrapolation to infinite cutoff automatically.
         """
+        if domega0 is not None or omega2 is not None:
+            assert frequencies is None
+            frequencies = {'type': 'nonlinear',
+                           'domega0': 0.025 if domega0 is None else domega0,
+                           'omega2': 10.0 if omega2 is None else omega2}
+            warnings.warn(f'Please use frequencies={frequencies}')
+        elif frequencies is None:
+            frequencies = {'type': 'nonlinear',
+                           'domega0': 0.025,
+                           'omega2': 10.0}
+        else:
+            assert frequencies['type'] == 'nonlinear'
 
         self.inputcalc = calc
 
@@ -249,8 +264,10 @@ class G0W0(PairDensity):
         self.integrate_gamma = integrate_gamma
         self.eta = eta / Ha
         self.E0 = E0 / Ha
-        self.domega0 = domega0 / Ha
-        self.omega2 = omega2 / Ha
+
+        self.frequencies = frequencies
+        self.wd = None
+
         if anisotropy_correction is not None:
             self.ac = anisotropy_correction
             warnings.warn('anisotropy_correction changed name to '
@@ -662,8 +679,8 @@ class G0W0(PairDensity):
         # Pick +i*eta or -i*eta:
         s_m = (1 + sgn_m * np.sign(0.5 - f_m)).astype(int) // 2
 
-        beta = (2**0.5 - 1) * self.domega0 / self.omega2
-        w_m = (o_m / (self.domega0 + beta * o_m)).astype(int)
+        beta = self.wd.beta
+        w_m = (o_m / (self.wd.domega0 + beta * o_m)).astype(int)
         m_inb = np.where(w_m < len(self.wd.omega_w) - 1)[0]
         o1_m = np.empty(len(o_m))
         o2_m = np.empty(len(o_m))
@@ -724,16 +741,11 @@ class G0W0(PairDensity):
         else:
             if self.ite == 0:
                 print('Using full frequency integration:', file=self.fd)
-                print('  domega0: {0:g}'.format(self.domega0 * Ha),
-                      file=self.fd)
-                print('  omega2: {0:g}'.format(self.omega2 * Ha),
-                      file=self.fd)
 
             parameters = {'eta': self.eta * Ha,
                           'hilbert': True,
                           'timeordered': True,
-                          'domega0': self.domega0 * Ha,
-                          'omega2': self.omega2 * Ha}
+                          'frequencies': self.frequencies}
 
         self.fd.flush()
 
@@ -758,6 +770,7 @@ class G0W0(PairDensity):
             wstc = None
 
         self.wd = chi0.wd
+        print(self.wd, file=self.fd)
 
         htp = HilbertTransform(self.wd.omega_w, self.eta, gw=True)
         htm = HilbertTransform(self.wd.omega_w, -self.eta, gw=True)

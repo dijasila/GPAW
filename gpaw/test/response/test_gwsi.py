@@ -36,7 +36,8 @@ def test_response_gwsi(in_tmp_dir):
                   integrate_gamma=0,
                   kpts=[(0, 0, 0), (0.5, 0.5, 0)],  # Gamma, X
                   ecut=40,
-                  domega0=0.1,
+                  frequencies={'type': 'nonlinear',
+                               'domega0': 0.1},
                   eta=0.2,
                   relbands=(-1, 2))  # homo, lumo, lumo+1, same as bands=(3, 6)
         results = gw.calculate()

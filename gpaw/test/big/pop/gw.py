@@ -28,8 +28,9 @@ def gw(ecut2: float) -> dict:
     gw = G0W0(calc='gs.gpw',
               relbands=(-3, 3),
               ecut=ecut2,
-              domega0=0.025,
-              omega2=10.0,
+              frequencies={'type': 'nonlinear',
+                           'domega0': 0.025,
+                           'omega2': 10.0},
               eta=0.1,
               filename='gw',
               nblocks=size // 2)
