@@ -13,7 +13,6 @@ pytestmark = pytest.mark.skipif(
 
 
 @pytest.mark.response
-
 def test_vertex_GWP_hBN(in_tmp_dir):
     atoms = bulk('BN', 'zincblende', a=3.615)
 
@@ -41,15 +40,18 @@ def test_vertex_GWP_hBN(in_tmp_dir):
 
     result = gw.calculate()
 
-
     gap = 4.67
     
     equal(np.min(result['qp'][0, :, 1]) -
           np.max(result['qp'][0, :, 0]), gap, 0.01)
 
 
-@pytest.mark.response
+pytestmark = pytest.mark.skipif(
+    world.size != 1 and not compiled_with_sl(),
+    reason='world.size != 1 and not compiled_with_sl()')
 
+
+@pytest.mark.response
 def test_vertex_GWS_hBN(in_tmp_dir):
     atoms = bulk('BN', 'zincblende', a=3.615)
 
@@ -77,11 +79,9 @@ def test_vertex_GWS_hBN(in_tmp_dir):
 
     result = gw.calculate()
 
-
     gap = 4.99
     print(np.min(result['qp'][0, :, 1]) -
           np.max(result['qp'][0, :, 0]))
     
     equal(np.min(result['qp'][0, :, 1]) -
           np.max(result['qp'][0, :, 0]), gap, 0.01)
-
