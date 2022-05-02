@@ -48,16 +48,11 @@ class DielectricFunction:
 
             where q_c is the reduced momentum and N_c is the number of
             kpoints along each direction.
-        frequencies: np.ndarray
-            Specification of frequency grid. If not set the non-linear
-            frequency grid is used.
-        domega0: float
-            Frequency grid spacing for non-linear frequency grid at omega = 0.
-        omega2: float
-            Frequency at which the non-linear frequency grid has doubled
-            the spacing.
-        omegamax: float
-            The upper frequency bound for the non-linear frequency grid.
+        frequencies:
+            Input parameters for frequency_grid.
+            Can be array of frequencies to evaluate the response function at
+            or dictionary of paramaters for build-in nonlinear grid
+            (see :ref:`frequency grid`).
         ecut: float
             Plane-wave cut-off.
         gammacentered: bool
