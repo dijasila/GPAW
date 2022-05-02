@@ -1171,8 +1171,7 @@ class G0W0(PairDensity):
                     sqrV_G = get_sqrV_G(kd.N_c, q_v=qf_qv[iqf])
 
                     dfc = DielectricFunctionCalculator(sqrV_G, chi0_GG, fv)
-                    e_GG = dfc.get_e_GG(self.fxc_mode)
-                    einv_GG += np.linalg.inv(e_GG) * weight_q[iqf]
+                    einv_GG += dfc.get_einv_GG(self.fxc_mode) * weight_q[iqf]
 
                     if self.do_GW_too:
                         e_GW_GG = (I_GG -
@@ -1184,8 +1183,7 @@ class G0W0(PairDensity):
                 sqrV_G = get_sqrV_G(self.calc.wfs.kd.N_c)
 
                 dfc = DielectricFunctionCalculator(sqrV_G, chi0_GG, fv)
-                e_GG = dfc.get_e_GG(self.fxc_mode)
-                einv_GG = np.linalg.inv(e_GG)
+                einv_GG = dfc.get_einv_GG(self.fxc_mode)
 
                 if self.do_GW_too:
                     e_GW_GG = (delta_GG -

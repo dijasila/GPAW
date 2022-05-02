@@ -29,3 +29,7 @@ class DielectricFunctionCalculator:
         elif mode == 'GW':
             return self.e_GG_plain()
         raise ValueError(f'Unknown mode: {mode}')
+
+    def get_einv_GG(self, mode):
+        e_GG = self.get_e_GG(mode)
+        return np.linalg.inv(e_GG)
