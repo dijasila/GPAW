@@ -22,20 +22,28 @@ from gpaw.utilities.memory import maxrss
 class FrequencyDescriptor:
     """Describes a single dimensional array."""
     def __init__(self, omega_w):
-        self.omega_w = omega_w
+        self.omega_w = np.asarray(omega_w)
+
+    def __len__(self):
+        return len(self.omega_w)
+
+    def __repr__(self):
+        emin = self.omega_w[0] * Ha
+        emax = self.omega_w[-1] * Ha
+        return (f'{self.__class__.__name__}'
+                f'(from {emin:.3f} to {emax:.3f} eV, {len(self)} points)')
 
     @staticmethod
     def from_array_or_dict(input):
         if isinstance(input, dict):
-            assert input.pop('type') == 'nonlinear'
-            return NonlinearFrequencyDescriptor(**input)
-        return LinearFrequencyDescriptor(**input)
+            assert input['type'] == 'nonlinear'
+            return NonLinearFrequencyDescriptor(input['domega0'] * Ha,
+                                                input['omega2'] * Ha,
+                                                input['omegamax'] * Ha)
+        return LinearFrequencyDescriptor(np.asarray(input) * Ha)
 
 
 class LinearFrequencyDescriptor(FrequencyDescriptor):
-    def __len__(self):
-        return len(self.omega_w)
-
     def get_closest_index(self, scalars_w):
         """Get closest index.
 
@@ -79,7 +87,6 @@ class NonLinearFrequencyDescriptor(FrequencyDescriptor):
         self.wmax = wmax
         self.omega_w = omega_w
         self.wmax = wmax
-        self.nw = len(omega_w)
 
     def get_closest_index(self, o_m):
         beta = self.beta
@@ -291,17 +298,11 @@ class Chi0:
         self.nbands = nbands or self.calc.wfs.bd.nbands
         self.include_intraband = intraband
 
-        if frequencies is None:
-            # Unit conversion eV (external) -> Ha (internal)
-            domega0 = domega0 / Ha
-            omega2 = omega2 / Ha
-            omegamax = None if omegamax is None else omegamax / Ha
-            if omegamax is None:
-                omegamax = find_maximum_frequency(self.calc,
-                                                  nbands=self.nbands,
-                                                  fd=self.fd)
-            print('Using nonlinear frequency grid from 0 to %.3f eV' %
-                  (omegamax * Ha), file=self.fd)
+        if 'omegamax' not in frequencies:
+            omegamax = find_maximum_frequency(self.calc,
+                                              nbands=self.nbands,
+                                              fd=self.fd)
+            frequencies['omegamax'] = omegamax
             self.wd = FrequencyDescriptor(domega0, omega2, omegamax)
         else:
             self.wd = ArrayDescriptor(np.asarray(frequencies) / Ha)

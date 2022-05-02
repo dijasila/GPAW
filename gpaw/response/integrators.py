@@ -202,7 +202,6 @@ class PointIntegrator(Integrator):
     def update(self, n_mG, deps_m, wd, chi0_wGG, timeordered=False, eta=None):
         """Update chi."""
 
-        omega_w = wd.get_data()
         deps_m += self.eshift * np.sign(deps_m)
         if timeordered:
             deps1_m = deps_m + 1j * eta * np.sign(deps_m)
@@ -213,7 +212,7 @@ class PointIntegrator(Integrator):
 
         GaGb = self._GaGb(chi0_wGG.shape[2])
 
-        for omega, chi0_GG in zip(omega_w, chi0_wGG):
+        for omega, chi0_GG in zip(wd.omega_w, chi0_wGG):
             if self.response == 'density':
                 x_m = (1 / (omega + deps1_m) - 1 / (omega - deps2_m))
             else:
@@ -517,8 +516,6 @@ class TetrahedronIntegrator(Integrator):
                                             [nk], float)
                     deps_tMk[t, :, K] = deps_M
 
-        omega_w = x.get_data()
-
         # Calculate integrations weight
         pb = ProgressBar(self.fd)
         for _, arguments in pb.enumerate(myterms_t):
@@ -539,7 +536,7 @@ class TetrahedronIntegrator(Integrator):
                     continue
 
                 W_w = self.get_kpoint_weight(K, deps_k,
-                                             pts_k, omega_w[i0:i1],
+                                             pts_k, x.omega_w[i0:i1],
                                              td)
 
                 for iw, weight in enumerate(W_w):
