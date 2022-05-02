@@ -20,15 +20,19 @@ class DielectricFunction:
     """This class defines dielectric function related physical quantities."""
 
     def __init__(self, calc, response='density',
-                 name=None, frequencies=None, domega0=0.1,
-                 omega2=10.0, omegamax=None, ecut=50,
+                 name=None,
+                 frequencies=None,
+                 domega0=0.1,
+                 omega2=10.0,
+                 omegamax=None,
+                 ecut=50,
                  gammacentered=False, hilbert=True,
                  nbands=None, eta=0.2, ftol=1e-6, threshold=1,
                  intraband=True, nblocks=1, world=mpi.world, txt=sys.stdout,
                  gate_voltage=None, truncation=None, disable_point_group=False,
                  disable_time_reversal=False,
                  integrationmode=None, pbc=None, rate=0.0,
-                 omegacutlower=None, omegacutupper=None, eshift=0.0):
+                 eshift=0.0):
         """Creates a DielectricFunction object.
 
         calc: str
@@ -105,10 +109,6 @@ class DielectricFunction:
         self.name = name
 
         self.omega_w = self.chi0.omega_w
-        if omegacutlower is not None:
-            inds_w = np.logical_and(self.omega_w > omegacutlower / Hartree,
-                                    self.omega_w < omegacutupper / Hartree)
-            self.omega_w = self.omega_w[inds_w]
 
         nw = len(self.omega_w)
 
