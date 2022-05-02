@@ -252,21 +252,20 @@ class Chi0:
             self.rate = self.eta
         else:
             self.rate = rate / Ha
-        self.domega0 = domega0 / Ha
-        self.omega2 = omega2 / Ha
-        self.omegamax = None if omegamax is None else omegamax / Ha
+
         self.nbands = nbands or self.calc.wfs.bd.nbands
         self.include_intraband = intraband
 
-        omax = self.find_maximum_frequency()
-
         if frequencies is None:
-            if self.omegamax is None:
-                self.omegamax = omax
+            # Unit conversion eV (external) -> Ha (internal)
+            domega0 = domega0 / Ha
+            omega2 = omega2 / Ha
+            omegamax = None if omegamax is None else omegamax / Ha
+            if omegamax is None:
+                omegamax = self.find_maximum_frequency()
             print('Using nonlinear frequency grid from 0 to %.3f eV' %
-                  (self.omegamax * Ha), file=self.fd)
-            self.wd = FrequencyDescriptor(self.domega0, self.omega2,
-                                          self.omegamax)
+                  (omegamax * Ha), file=self.fd)
+            self.wd = FrequencyDescriptor(domega0, omega2, omegamax)
         else:
             self.wd = ArrayDescriptor(np.asarray(frequencies) / Ha)
             assert not hilbert
