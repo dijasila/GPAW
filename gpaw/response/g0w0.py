@@ -1170,25 +1170,26 @@ class G0W0(PairDensity):
 
                     sqrV_G = get_sqrV_G(kd.N_c, q_v=qf_qv[iqf])
 
-                    dfc = DielectricFunctionCalculator(sqrV_G, chi0_GG, fv)
-                    einv_GG += dfc.get_einv_GG(self.fxc_mode) * weight_q[iqf]
+                    dfc = DielectricFunctionCalculator(sqrV_G, chi0_GG,
+                                                       mode=self.fxc_mode, fv_GG=fv)
+                    einv_GG += dfc.get_einv_GG() * weight_q[iqf]
 
                     if self.do_GW_too:
-                        e_GW_GG = (I_GG -
-                                   chi0_GW_GG * sqrV_G *
-                                   sqrV_G[:, np.newaxis])
-                        einv_GW_GG += np.linalg.inv(e_GW_GG) * weight_q[iqf]
+                        gw_dfc = DielectricFunctionCalculator(sqrtV_G, chi0_GW_GG,
+                                                              mode='GW')
+                        einv_GW_GG += gw_dfc.get_einv_GG() * weight_q[iqf]
 
             else:
                 sqrV_G = get_sqrV_G(self.calc.wfs.kd.N_c)
 
-                dfc = DielectricFunctionCalculator(sqrV_G, chi0_GG, fv)
-                einv_GG = dfc.get_einv_GG(self.fxc_mode)
+                dfc = DielectricFunctionCalculator(sqrV_G, chi0_GG,
+                                                   mode=self.fxc_mode, fv_GG=fv)
+                einv_GG = dfc.get_einv_GG()
 
                 if self.do_GW_too:
-                    e_GW_GG = (delta_GG -
-                               chi0_GW_GG * sqrV_G * sqrV_G[:, np.newaxis])
-                    einv_GW_GG = np.linalg.inv(e_GW_GG)
+                    gw_dfc = DielectricFunctionCalculator(sqrtV_G, chi0_GW_GG,
+                                                          mode='GW')
+                    einv_GW_GG = gw_dfc.get_einv_GG()
 
             if self.ppa:
                 einv_wGG.append(einv_GG - delta_GG)
