@@ -215,7 +215,7 @@ class Chi0:
         if self.eta == 0.0:
             assert not hilbert
             assert not timeordered
-            assert not self.wd.get_data().real.any()
+            assert not self.wd.omega_w.real.any()
 
         self.nocc1 = self.pair.nocc1  # number of completely filled bands
         self.nocc2 = self.pair.nocc2  # number of non-empty bands
@@ -293,7 +293,7 @@ class Chi0:
             raise SystemExit
 
         nG = pd.ngmax + 2 * optical_limit
-        nw = len(self.omega_w)
+        nw = len(self.wd)
 
         self.GaGb = GaGb(self.blockcomm, nG)
         wGG_shape = (nw, self.GaGb.nGlocal, nG)
@@ -308,8 +308,8 @@ class Chi0:
             chi0_wGG = np.zeros(wGG_shape, complex)
 
         if optical_limit:
-            chi0_wxvG = np.zeros((len(self.omega_w), 2, 3, nG), complex)
-            chi0_wvv = np.zeros((len(self.omega_w), 3, 3), complex)
+            chi0_wxvG = np.zeros((nw, 2, 3, nG), complex)
+            chi0_wvv = np.zeros((nw, 3, 3), complex)
             self.plasmafreq_vv = np.zeros((3, 3), complex)
         else:
             chi0_wxvG = None
@@ -540,9 +540,8 @@ class Chi0:
             # transform is performed to return the real part of the density
             # response function.
             with self.timer('Hilbert transform'):
-                omega_w = self.wd.get_data()  # Get frequencies
                 # Make Hilbert transform
-                ht = HilbertTransform(np.array(omega_w), self.eta,
+                ht = HilbertTransform(np.array(self.wd.omega_w), self.eta,
                                       timeordered=self.timeordered)
                 ht(A_wxx)
                 if wings:
@@ -598,12 +597,12 @@ class Chi0:
                     va = min(GaGb.Ga, 3)
                     vb = min(GaGb.Gb, 3)
                     A_wxx[:, :vb - va, :3] += (plasmafreq_vv[va:vb] /
-                                               (self.omega_w[:, np.newaxis,
-                                                             np.newaxis] +
+                                               (self.wd.omega_w[:, np.newaxis,
+                                                                np.newaxis] +
                                                 1e-10 + self.rate * 1j)**2)
                 elif self.blockcomm.rank == 0:
                     A_wxx[:, 0, 0] += (plasmafreq_vv[2, 2] /
-                                       (self.omega_w + 1e-10 +
+                                       (self.wd.omega_w + 1e-10 +
                                         self.rate * 1j)**2)
 
             # Save the plasmafrequency
@@ -931,7 +930,7 @@ class Chi0:
         if comm.size == 1:
             return in_wGG
 
-        nw = len(self.omega_w)
+        nw = len(self.wd)
         nG = in_wGG.shape[2]
         mynw = (nw + comm.size - 1) // comm.size
         mynG = (nG + comm.size - 1) // comm.size
@@ -971,7 +970,7 @@ class Chi0:
         if world.size == 1:
             return chi0_wGG
 
-        nw = len(self.omega_w)
+        nw = len(self.wd)
         nG = chi0_wGG.shape[2]
         mynw = (nw + world.size - 1) // world.size
         mynG = (nG + comm.size - 1) // comm.size
@@ -1014,7 +1013,7 @@ class Chi0:
             world = self.world
 
         q_c = pd.kd.bzk_kc[0]
-        nw = len(self.omega_w)
+        nw = len(self.wd)
         ecut = self.ecut * Ha
         ns = calc.wfs.nspins
         nbands = self.nbands
