@@ -11,12 +11,14 @@ from gpaw.blacs import BlacsDescriptor, BlacsGrid, Redistributor
 from gpaw.bztools import convex_hull_volume
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.pw.descriptor import PWDescriptor
+from gpaw.response.frequencies import (FrequencyDescriptor,
+                                       LinearFrequencyDescriptor,
+                                       NonLinearFrequencyDescriptor)
 from gpaw.response.hacks import GaGb
 from gpaw.response.integrators import PointIntegrator, TetrahedronIntegrator
 from gpaw.response.pair import PairDensity, PWSymmetryAnalyzer
 from gpaw.utilities.blas import gemm
 from gpaw.utilities.memory import maxrss
-from gpaw.response.frequencies import FrequencyDescriptor
 
 
 def find_maximum_frequency(calc, nbands=0, fd=None):
@@ -201,9 +203,10 @@ class Chi0:
                                               fd=self.fd)
             frequencies['omegamax'] = omegamax
 
-        self.wd = FrequencyDescriptor.forom_array_or_dict(frequencies)
+        self.wd = FrequencyDescriptor.from_array_or_dict(frequencies)
+        print(self.wd, file=self.fd)
 
-        if self.wd.type != 'nonlinear':
+        if not isinstance(self.wd, NonLinearFrequencyDescriptor):
             assert not hilbert
 
         self.hilbert = hilbert
@@ -575,7 +578,7 @@ class Chi0:
                 extraargs['intraband'] = True  # Calculate intraband
             elif self.integrationmode == 'tetrahedron integration':
                 # Calculate intraband transitions at T=0
-                extraargs['x'] = ArrayDescriptor([-fermi_level])
+                extraargs['x'] = LinearFrequencyDescriptor([-fermi_level])
 
             intnoblock.integrate(kind='spectral function',  # Kind of integral
                                  domain=domain,  # Integration domain
@@ -1139,38 +1142,3 @@ class HilbertTransform:
             c_wx = tmp_wx[:, :b_wx.shape[1]]
             gemm(1.0, b_wx, self.H_ww, 0.0, c_wx)
             b_wx[:] = c_wx
-
-
-if __name__ == '__main__':
-    from gpaw.response.frequencies import frequency_grid
-    do = 0.025
-    eta = 0.1
-    omega_w = frequency_grid(do, 10.0, 3)
-    print(len(omega_w))
-    X_w = omega_w * 0j
-    Xt_w = omega_w * 0j
-    Xh_w = omega_w * 0j
-    for o in -np.linspace(2.5, 2.9, 10):
-        X_w += (1 / (omega_w + o + 1j * eta) -
-                1 / (omega_w - o + 1j * eta)) / o**2
-        Xt_w += (1 / (omega_w + o - 1j * eta) -
-                 1 / (omega_w - o + 1j * eta)) / o**2
-        w = int(-o / do / (1 + 3 * -o / 10))
-        o1, o2 = omega_w[w:w + 2]
-        assert o1 - 1e-12 <= -o <= o2 + 1e-12, (o1, -o, o2)
-        p = 1 / (o2 - o1)**2 / o**2
-        Xh_w[w] += p * (o2 - -o)
-        Xh_w[w + 1] += p * (-o - o1)
-
-    ht = HilbertTransform(omega_w, eta, 1)
-    ht(Xh_w)
-
-    import matplotlib.pyplot as plt
-    plt.plot(omega_w, X_w.imag, label='ImX')
-    plt.plot(omega_w, X_w.real, label='ReX')
-    plt.plot(omega_w, Xt_w.imag, label='ImXt')
-    plt.plot(omega_w, Xt_w.real, label='ReXt')
-    plt.plot(omega_w, Xh_w.imag, label='ImXh')
-    plt.plot(omega_w, Xh_w.real, label='ReXh')
-    plt.legend()
-    plt.show()

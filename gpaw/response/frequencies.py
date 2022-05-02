@@ -7,7 +7,7 @@ from ase.units import Ha
 class FrequencyDescriptor:
     """Describes a single dimensional array."""
     def __init__(self, omega_w):
-        self.omega_w = np.asarray(omega_w)
+        self.omega_w = np.asarray(omega_w).copy()
 
     def __len__(self):
         return len(self.omega_w)
@@ -22,9 +22,10 @@ class FrequencyDescriptor:
     def from_array_or_dict(input):
         if isinstance(input, dict):
             assert input['type'] == 'nonlinear'
-            return NonLinearFrequencyDescriptor(input['domega0'] * Ha,
-                                                input['omega2'] * Ha,
-                                                input['omegamax'] * Ha)
+            return NonLinearFrequencyDescriptor(
+                input.get('domega0', 0.1) * Ha,
+                input.get('omega2', 10.0) * Ha,
+                input['omegamax'] * Ha)
         return LinearFrequencyDescriptor(np.asarray(input) * Ha)
 
 
