@@ -5,7 +5,6 @@ import numpy as np
 from ase.build import bulk
 from gpaw import GPAW, FermiDirac, PW
 from gpaw.response.g0w0 import G0W0
-from gpaw.test import equal
 
 pytestmark = pytest.mark.skipif(
     world.size != 1 and not compiled_with_sl(),
@@ -17,8 +16,7 @@ pytestmark = pytest.mark.skipif(
     ('GWP', 4.6672015836973255),
     ('GWS', 4.988260472871817),
 ])
-
-def test_fxc_mode(in_tmp_dir,fxc_mode, ref_gap):
+def test_fxc_mode(in_tmp_dir, fxc_mode, ref_gap):
     atoms = bulk('BN', 'zincblende', a=3.615)
 
     calc = GPAW(mode=PW(400),
@@ -45,5 +43,6 @@ def test_fxc_mode(in_tmp_dir,fxc_mode, ref_gap):
 
     result = gw.calculate()
 
-    calculated_gap=np.min(result['qp'][0, :, 1]) - np.max(result['qp'][0, :, 0])
+    calculated_gap = np.min(result['qp'][0, :, 1])\
+        - np.max(result['qp'][0, :, 0])
     assert calculated_gap == pytest.approx(ref_gap)
