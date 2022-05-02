@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import importlib
 from types import SimpleNamespace
-from typing import Any, Union, Type
+from typing import Any, Union
 
 import numpy as np
 from ase import Atoms
 from ase.calculators.calculator import kpts2sizeandoffsets
 from ase.units import Bohr
+
 from gpaw.core import UniformGrid
 from gpaw.core.atom_arrays import (AtomArrays, AtomArraysLayout,
                                    AtomDistribution)
@@ -18,13 +19,14 @@ from gpaw.new.basis import create_basis
 from gpaw.new.brillouin import BZPoints, MonkhorstPackKPoints
 from gpaw.new.density import Density
 from gpaw.new.input_parameters import InputParameters
+from gpaw.new.noncollinear import SpinorWaveFunctionDescriptor
 from gpaw.new.scf import SCFLoop
 from gpaw.new.smearing import OccupationNumberCalculator
 from gpaw.new.symmetry import create_symmetries_object
 from gpaw.new.xc import XCFunctional
 from gpaw.setup import Setups
+from gpaw.typing import DTypeLike
 from gpaw.utilities.gpts import get_number_of_grid_points
-from gpaw.new.noncollinear import SpinorWaveFunctionDescriptor
 
 
 def builder(atoms: Atoms,
@@ -107,13 +109,13 @@ class DFTComponentsBuilder:
                                                 self.initial_magmoms,
                                                 self.mode == 'lcao')
 
-        self.dtype: Type[np.float64] | Type[np.complex128]
+        self.dtype: DTypeLike
         if params.force_complex_dtype:
-            self.dtype = np.complex128
+            self.dtype = complex
         elif self.ibz.bz.gamma_only:
-            self.dtype = np.float64
+            self.dtype = float
         else:
-            self.dtype = np.complex128
+            self.dtype = complex
 
         self.grid, self.fine_grid = self.create_uniform_grids()
 
