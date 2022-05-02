@@ -999,17 +999,11 @@ class G0W0(PairDensity):
 
         assert not np.allclose(q_c, 0)
 
-        #print(chi0_wGG.shape)
-        #step1_matrix = Matrix(nw, nG*nG, dist=(self.blockcomm, 1, self.blockcomm.size))
-
         nW = len(self.omega_w)
         nG = pd.ngmax
 
         from gpaw.response.wgg import Grid
-        from gpaw.matrix import suggest_blocking
-        # chi0 is currently WgG
 
-        gsize1, gsize2, _ = suggest_blocking(nG, self.blockcomm.size)
         WGG = (nW, nG, nG)
         WgG_grid = Grid(
             comm=self.blockcomm,
@@ -1030,10 +1024,7 @@ class G0W0(PairDensity):
 
             dielectric_WgG[iw, :, :] = e_gG
 
-        wgg_grid = Grid(
-            comm=self.blockcomm,
-            shape=WGG,
-            cpugrid=(1, gsize1, gsize2))  # TODO: actual 3D cpu grid
+        wgg_grid = Grid(comm=self.blockcomm, shape=WGG)
 
         dielectric_wgg = wgg_grid.zeros(dtype=complex)
         WgG_grid.redistribute(wgg_grid, dielectric_WgG, dielectric_wgg)

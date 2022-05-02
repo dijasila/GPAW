@@ -15,9 +15,16 @@ def get_strides(cpugrid):
 
 
 class Grid:
-    def __init__(self, comm, shape, cpugrid, blocksize=None):
+    def __init__(self, comm, shape, cpugrid=None, blocksize=None):
         self.comm = comm
         self.shape = shape
+
+        if cpugrid is None:
+            cpugrid = choose_parallelization(shape[0], shape[1],
+                                             comm.size)
+
+        self.cpugrid = cpugrid
+
         if blocksize is None:
             blocksize = [get_blocksize(size, commsize)
                          for size, commsize in zip(shape, cpugrid)]
