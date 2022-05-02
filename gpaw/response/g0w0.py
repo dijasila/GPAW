@@ -29,6 +29,7 @@ from gpaw.xc.exx import EXX, select_kpts
 from gpaw.xc.fxc import set_flags
 from gpaw.xc.tools import vxc
 from gpaw.core.matrix import Matrix
+from gpaw.response.temp import DielectricFunctionCalculator
 
 
 class G0W0(PairDensity):
@@ -1169,19 +1170,8 @@ class G0W0(PairDensity):
 
                     sqrV_G = get_sqrV_G(kd.N_c, q_v=qf_qv[iqf])
 
-                    chiVV_GG = chi0_GG * sqrV_G * sqrV_G[:, np.newaxis]
-                    chiVVfv_GG = chiVV_GG @ fv
-                    I_GG = np.eye(nG)
-
-                    if self.fxc_mode == 'GWP':
-                        gwp_inverse_GG = np.linalg.inv(I_GG - chiVVfv_GG + chiVV_GG)
-                        e_GG = I_GG - gwp_inverse_GG @ chiVV_GG
-                    elif self.fxc_mode == 'GWS':
-                        gws_inverse_GG = np.linalg.inv(I_GG + chiVVfv_GG - chiVV_GG)
-                        e_GG = gws_inverse_GG @ (I_GG - chiVV_GG)
-                    else:
-                        e_GG = I_GG - chiVVfv_GG
-
+                    dfc = DielectricFunctionCalculator(sqrV_G, chi0_GG, fv)
+                    e_GG = dfc.get_e_GG(self.fxc_mode)
                     einv_GG += np.linalg.inv(e_GG) * weight_q[iqf]
 
                     if self.do_GW_too:
@@ -1193,31 +1183,8 @@ class G0W0(PairDensity):
             else:
                 sqrV_G = get_sqrV_G(self.calc.wfs.kd.N_c)
 
-                if self.fxc_mode == 'GWP':
-                    e_GG = (np.eye(nG) -
-                            np.dot(
-                                np.linalg.inv(
-                                    np.eye(nG) -
-                                    np.dot(chi0_GG * sqrV_G *
-                                           sqrV_G[:, np.newaxis], fv) +
-                                    chi0_GG * sqrV_G *
-                                    sqrV_G[:, np.newaxis]),
-                                chi0_GG * sqrV_G * sqrV_G[:, np.newaxis]))
-                elif self.fxc_mode == 'GWS':
-                    e_GG = np.dot(
-                        np.linalg.inv(
-                            np.eye(nG) +
-                            np.dot(chi0_GG * sqrV_G *
-                                   sqrV_G[:, np.newaxis], fv) -
-                            chi0_GG * sqrV_G *
-                            sqrV_G[:, np.newaxis]),
-                        np.eye(nG) - chi0_GG *
-                        sqrV_G * sqrV_G[:, np.newaxis])
-                else:
-                    e_GG = (delta_GG -
-                            np.dot(chi0_GG * sqrV_G *
-                                   sqrV_G[:, np.newaxis], fv))
-
+                dfc = DielectricFunctionCalculator(sqrV_G, chi0_GG, fv)
+                e_GG = dfc.get_e_GG(self.fxc_mode)
                 einv_GG = np.linalg.inv(e_GG)
 
                 if self.do_GW_too:
