@@ -8,6 +8,7 @@ import numpy as np
 from ase import Atoms
 from ase.calculators.calculator import kpts2sizeandoffsets
 from ase.units import Bohr
+
 from gpaw.core import UniformGrid
 from gpaw.core.atom_arrays import (AtomArrays, AtomArraysLayout,
                                    AtomDistribution)
@@ -18,6 +19,7 @@ from gpaw.new.basis import create_basis
 from gpaw.new.brillouin import BZPoints, MonkhorstPackKPoints
 from gpaw.new.density import Density
 from gpaw.new.input_parameters import InputParameters
+from gpaw.new.noncollinear import SpinorWaveFunctionDescriptor
 from gpaw.new.scf import SCFLoop
 from gpaw.new.smearing import OccupationNumberCalculator
 from gpaw.new.symmetry import create_symmetries_object
@@ -62,6 +64,19 @@ class DFTComponentsBuilder:
 
         self.check_cell(atoms.cell)
 
+        self.initial_magmoms = normalize_initial_magnetic_moments(
+            params.magmoms, atoms, params.spinpol)
+
+        if self.initial_magmoms is None:
+            self.ncomponents = 1
+        elif self.initial_magmoms.ndim == 1:
+            self.ncomponents = 2
+        else:
+            self.ncomponents = 4
+
+        self.nspins = self.ncomponents % 3
+        self.spin_degeneracy = self.ncomponents % 2 + 1
+
         self.xc = self.create_xc_functional()
 
         self.setups = Setups(atoms.numbers,
@@ -69,9 +84,6 @@ class DFTComponentsBuilder:
                              params.basis,
                              self.xc.setup_name,
                              world)
-        self.initial_magmoms = normalize_initial_magnetic_moments(
-            params.magmoms, atoms, params.spinpol)
-
         symmetries = create_symmetries_object(atoms,
                                               self.setups.id_a,
                                               self.initial_magmoms,
@@ -107,16 +119,6 @@ class DFTComponentsBuilder:
 
         self.grid, self.fine_grid = self.create_uniform_grids()
 
-        if self.initial_magmoms is None:
-            self.ncomponents = 1
-        elif self.initial_magmoms.ndim == 1:
-            self.ncomponents = 2
-        else:
-            self.ncomponents = 4
-
-        self.nspins = self.ncomponents % 3
-        self.spin_degeneracy = self.ncomponents % 2 + 1
-
         self.fracpos_ac = self.atoms.get_scaled_positions()
         self.fracpos_ac %= 1
         self.fracpos_ac %= 1
@@ -125,7 +127,7 @@ class DFTComponentsBuilder:
         raise NotImplementedError
 
     def create_xc_functional(self):
-        return XCFunctional(self.params.xc)
+        return XCFunctional(self.params.xc, self.ncomponents)
 
     def check_cell(self, cell):
         number_of_lattice_vectors = cell.rank
@@ -142,7 +144,10 @@ class DFTComponentsBuilder:
 
     @cached_property
     def wf_desc(self):
-        return self.create_wf_description()
+        desc = self.create_wf_description()
+        if self.ncomponents == 4:
+            desc = SpinorWaveFunctionDescriptor(desc)
+        return desc
 
     def __repr__(self):
         return f'{self.__class__.__name__}({self.atoms}, {self.params})'
@@ -334,6 +339,9 @@ def calculate_number_of_bands(nbands, setups, charge, magmoms, is_lcao):
     if nvalence > 2 * nbands and not orbital_free:
         raise ValueError(
             f'Too few bands!  Electrons: {nvalence}, bands: {nbands}')
+
+    if magmoms is not None and magmoms.ndim == 2:
+        nbands *= 2
 
     return nbands
 

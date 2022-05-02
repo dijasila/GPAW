@@ -11,7 +11,7 @@ from gpaw.core.pwacf import PlaneWaveAtomCenteredFunctions
 from gpaw.core.uniform_grid import UniformGridFunctions
 from gpaw.mpi import MPIComm, serial_comm
 from gpaw.new import prod
-from gpaw.new import zip_strict as zip
+from gpaw.new import zip
 from gpaw.pw.descriptor import pad
 from gpaw.typing import (Array1D, Array2D, Array3D, ArrayLike1D, ArrayLike2D,
                          Vector)
@@ -111,6 +111,7 @@ class PlaneWaves(Domain):
         return PlaneWaveExpansions(self, dims, comm)
 
     def new(self,
+            *,
             ecut: float = None,
             kpt=None,
             comm: MPIComm | str = 'inherit') -> PlaneWaves:
@@ -168,7 +169,7 @@ class PlaneWaves(Domain):
         """
         size_c = tuple(self.indices_cG.ptp(axis=1) + 1)
         Q_G = self.indices(size_c)
-        G_Q = np.empty(np.prod(size_c), int)
+        G_Q = np.empty(prod(size_c), int)
         G_Q[Q_G] = np.arange(len(Q_G))
         G_g = G_Q[other.indices(size_c)]
         ng1 = 0
@@ -215,8 +216,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
         """
         DistributedArrays. __init__(self, dims, pw.myshape,
                                     comm, pw.comm,
-                                    data, pw.dv, complex,
-                                    transposed=False)
+                                    data, pw.dv, complex)
         self.desc = pw
         self._matrix: Matrix | None
 
@@ -232,7 +232,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
 
     def __iter__(self):
         for data in self.data:
-            yield PlaneWaveExpansions(self.desc, data=data)
+            yield PlaneWaveExpansions(self.desc, data.shape[:-1], data=data)
 
     def new(self, data=None):
         """Create new PlaneWaveExpansions object of same kind.
@@ -258,7 +258,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
 
     def _arrays(self):
         shape = self.data.shape
-        return self.data.reshape((np.prod(shape[:-1], dtype=int), shape[-1]))
+        return self.data.reshape((prod(shape[:-1]), shape[-1]))
 
     @property
     def matrix(self) -> Matrix:
@@ -266,8 +266,8 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
         if self._matrix is not None:
             return self._matrix
 
-        shape = (np.prod(self.dims), self.myshape[0])
-        myshape = (np.prod(self.mydims), self.myshape[0])
+        shape = (self.dims[0], prod(self.dims[1:]) * self.myshape[0])
+        myshape = (self.mydims[0], prod(self.mydims[1:]) * self.myshape[0])
         dist = (self.comm, -1, 1)
         data = self.data.reshape(myshape)
 
@@ -299,11 +299,8 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
 
         this = self.gather()
         if this is not None:
-            arrays_iG = this._arrays()
             plan = plan or out.desc.fft_plans()
-        for i, out1 in enumerate(out.flat()):
-            if comm.rank == 0:
-                coef_G = arrays_iG[i]
+            for coef_G, out1 in zip(this._arrays(), out.flat()):
                 self.desc.paste(coef_G, plan.tmp_Q)
                 if self.desc.dtype == float:
                     t = plan.tmp_Q[:, :, 0]
@@ -314,7 +311,8 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
                     t[-n:, 0] = t[n:0:-1, 0].conj()
                 plan.ifft()
                 out1.scatter_from(plan.tmp_R)
-            else:
+        else:
+            for out1 in out.flat():
                 out1.scatter_from(None)
 
         out.multiply_by_eikr()
