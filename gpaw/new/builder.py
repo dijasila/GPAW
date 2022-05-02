@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import importlib
 from types import SimpleNamespace
-from typing import Any, Union, Literal
+from typing import Any, Union, Type
 
 import numpy as np
 from ase import Atoms
@@ -107,13 +107,13 @@ class DFTComponentsBuilder:
                                                 self.initial_magmoms,
                                                 self.mode == 'lcao')
 
-        self.dtype: Literal[float, complex]
+        self.dtype: Type[np.float64] | Type[np.complex128]
         if params.force_complex_dtype:
-            self.dtype = complex
+            self.dtype = np.complex128
         elif self.ibz.bz.gamma_only:
-            self.dtype = float
+            self.dtype = np.float64
         else:
-            self.dtype = complex
+            self.dtype = np.complex128
 
         self.grid, self.fine_grid = self.create_uniform_grids()
 
