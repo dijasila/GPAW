@@ -17,6 +17,7 @@ from gpaw.setup_data import SetupData, search_for_file
 from gpaw.spline import Spline
 from gpaw.utilities import pack, unpack
 from gpaw.xc import XC
+from gpaw.new import zip
 
 
 def parse_hubbard_string(type: str) -> Tuple[str,
@@ -175,7 +176,8 @@ class BaseSetup:
         # projectors.  This should be the correct behaviour for all the
         # currently supported PAW/pseudopotentials.
         phit_j = []
-        for n, phit in zip(self.n_j, self.pseudo_partial_waves_j):
+        for n, phit in zip(self.n_j, self.pseudo_partial_waves_j,
+                           strict=False):
             if n > 0:
                 phit_j.append(phit)
         return phit_j
@@ -213,7 +215,7 @@ class BaseSetup:
         # 3) eigenvalues (e)
 
         states = []
-        for j, (f, d, e) in enumerate(zip(f_j, deg_j, eps_j)):
+        for j, (f, d, e) in enumerate(zip(f_j, deg_j, eps_j, strict=False)):
             if e < 0.0:
                 states.append((f == 0, d - f, e, j))
         states.sort()
@@ -1468,12 +1470,15 @@ class Setups(list):
             atomdist=atomdist,
             integral=sqrt(4 * pi))
 
-    def overlap_correction(self, projections, out):
-        for a, I1, I2 in projections.layout.myindices:
-            ds = self[a].dO_ii
-            # use mmm ?????
-            out.data[:, I1:I2] = projections.data[:, I1:I2] @ ds
-        return out
+    def overlap_correction(self, P_ani, out_ani):
+        if len(P_ani.dims) == 2:  # (band, spinor)
+            subscripts = 'nsi, ij -> nsj'
+        else:
+            subscripts = 'ni, ij -> nj'
+        for (a, P_ni), out_ni in zip(P_ani.items(), out_ani.values()):
+            dS_ii = self[a].dO_ii
+            np.einsum(subscripts, P_ni, dS_ii, out=out_ni)
+        return out_ani
 
     def partial_wave_corrections(self) -> list[list[Spline]]:
         splines: dict[Setup, list[Spline]] = {}

@@ -124,6 +124,12 @@ class Matrix:
         assert isinstance(value, Matrix)
         self.data[:] = value.data
 
+    def __iadd__(self, other):
+        if isinstance(other, Matrix):
+            other = other.data
+        self.data += other
+        return self
+
     def multiply(self,
                  other,
                  alpha=1.0,
