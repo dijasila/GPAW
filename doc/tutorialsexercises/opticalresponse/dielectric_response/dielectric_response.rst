@@ -78,16 +78,21 @@ Below, the frequency grid is visualized for different values of
 
 The parameters can be specified using keyword arguments::
 
-    df = DielectricFunction(...,
-                            domega0=0.05,   # eV. Default = 0.1
-                            omega2=5.0,     # Default = 10.0
-                            omegamax=15.0)  # eV. Default is the maximum
-                                            #  difference between energy
-                                            #  eigenvalues
+    df = DielectricFunction(
+        ...,
+        frequencies={'domega0: 0.05,    # eV. Default = 0.1 eV
+                     'omega2': 5.0,     # eV. Default = 10.0 eV
+                     'omegamax': 15.0)  # eV.  Default is the maximum
+                                        # difference between energy
+                                        # eigenvalues
 
 Setting ``omegamax`` manually is usually not advisable, however you
-might want it in cases where semi-core states  are included where very large
+might want it in cases where semi-core states are included where very large
 energy eigenvalue differences appear.
+
+
+.. autoclass:: gpaw.response.frequency.FrequencyDescriptor
+.. autoclass:: gpaw.response.frequency.NonLinearFrequencyDescriptor
 
 
 Example 1: Optical absorption of semiconductor: Bulk silicon
