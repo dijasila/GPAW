@@ -110,6 +110,21 @@ def frequency_grid(domega0, omega2, omegamax):
     return omega_w
 
 
+def find_maximum_frequency(calc, nbands=0, fd=None):
+    """Determine the maximum electron-hole pair transition energy."""
+    epsmin = 10000.0
+    epsmax = -10000.0
+    for kpt in calc.wfs.kpt_u:
+        epsmin = min(epsmin, kpt.eps_n[0])
+        epsmax = max(epsmax, kpt.eps_n[nbands - 1])
+
+    if fd is not None:
+        print('Minimum eigenvalue: %10.3f eV' % (epsmin * Ha), file=fd)
+        print('Maximum eigenvalue: %10.3f eV' % (epsmax * Ha), file=fd)
+
+    return epsmax - epsmin
+
+
 class Chi0:
     """Class for calculating non-interacting response functions."""
 
@@ -262,7 +277,9 @@ class Chi0:
             omega2 = omega2 / Ha
             omegamax = None if omegamax is None else omegamax / Ha
             if omegamax is None:
-                omegamax = self.find_maximum_frequency()
+                omegamax = find_maximum_frequency(self.calc,
+                                                  nbands=self.nbands,
+                                                  fd=self.fd)
             print('Using nonlinear frequency grid from 0 to %.3f eV' %
                   (omegamax * Ha), file=self.fd)
             self.wd = FrequencyDescriptor(domega0, omega2, omegamax)
@@ -299,21 +316,6 @@ class Chi0:
                   file=self.fd)
         else:
             print('Using integration method: PointIntegrator', file=self.fd)
-
-    def find_maximum_frequency(self):
-        """Determine the maximum electron-hole pair transition energy."""
-        self.epsmin = 10000.0
-        self.epsmax = -10000.0
-        for kpt in self.calc.wfs.kpt_u:
-            self.epsmin = min(self.epsmin, kpt.eps_n[0])
-            self.epsmax = max(self.epsmax, kpt.eps_n[self.nbands - 1])
-
-        print('Minimum eigenvalue: %10.3f eV' % (self.epsmin * Ha),
-              file=self.fd)
-        print('Maximum eigenvalue: %10.3f eV' % (self.epsmax * Ha),
-              file=self.fd)
-
-        return self.epsmax - self.epsmin
 
     def calculate(self, q_c, spin='all', A_x=None):
         """Calculate response function.
