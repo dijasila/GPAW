@@ -9,7 +9,9 @@ from gpaw.new.input_parameters import InputParameters
 from gpaw.new.ibzwfs import IBZWaveFunctions
 from gpaw.new.potential import Potential
 from gpaw.utilities import check_atoms_too_close
-
+from gpaw.new.density import Density
+from gpaw.core.arrays import DistributedArrays
+from gpaw.core.uniform_grid import UniformGridFunctions
 
 units = {'energy': Ha,
          'free_energy': Ha,
@@ -23,10 +25,10 @@ units = {'energy': Ha,
 class DFTState:
     def __init__(self,
                  ibzwfs: IBZWaveFunctions,
-                 density,
+                 density: Density,
                  potential: Potential,
-                 vHt_x=None,
-                 nct_R=None):
+                 vHt_x: DistributedArrays = None,
+                 nct_R: UniformGridFunctions = None):
         """State of a Kohn-Sham calculation."""
         self.ibzwfs = ibzwfs
         self.density = density
@@ -188,22 +190,22 @@ class DFTCalculation:
         F_av = self.state.ibzwfs.forces(self.state.potential.dH_asii)
 
         pot_calc = self.pot_calc
-        Fcc_aLv, Fnct_av, Fvbar_av = pot_calc.force_contributions(
+        Fcc_avL, Fnct_av, Fvbar_av = pot_calc.force_contributions(
             self.state)
 
         # Force from compensation charges:
         ccc_aL = \
             self.state.density.calculate_compensation_charge_coefficients()
-        for a, dF_Lv in Fcc_aLv.items():
-            F_av[a] += ccc_aL[a] @ dF_Lv
+        for a, dF_vL in Fcc_avL.items():
+            F_av[a] += dF_vL @ ccc_aL[a]
 
         # Force from smooth core charge:
         for a, dF_v in Fnct_av.items():
-            F_av[a] += dF_v[0]
+            F_av[a] += dF_v[:, 0]
 
         # Force from zero potential:
         for a, dF_v in Fvbar_av.items():
-            F_av[a] += dF_v[0]
+            F_av[a] += dF_v[:, 0]
 
         domain_comm = ccc_aL.layout.atomdist.comm
         domain_comm.sum(F_av)

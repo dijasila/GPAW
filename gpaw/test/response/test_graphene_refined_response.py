@@ -8,6 +8,7 @@ from gpaw.response.df import DielectricFunction
 from ase.units import Hartree
 
 
+@pytest.mark.response
 def test_response_graphene_refined_response(in_tmp_dir):
     system = Graphene(symbol='C',
                       latticeconstant={'a': 2.467710, 'c': 1.0},
@@ -34,7 +35,10 @@ def test_response_graphene_refined_response(in_tmp_dir):
         system.get_potential_energy()
         calc.write('graphene.gpw', 'all')
 
-    df = DielectricFunction('graphene.gpw', eta=25e-3, domega0=0.01)
+    df = DielectricFunction('graphene.gpw',
+                            eta=25e-3,
+                            frequencies={'type': 'nonlinear',
+                                         'domega0': 0.01})
     alpha0x_w, alphax_w = df.get_polarizability(
         q_c=[1 / (nk * nkrefine), 0, 0])
     omega_w = df.get_frequencies()

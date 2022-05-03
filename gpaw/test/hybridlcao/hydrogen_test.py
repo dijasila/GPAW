@@ -5,6 +5,7 @@ from ase.units import Ha
 from gpaw.new.ase_interface import GPAW
 
 
+@pytest.mark.serial
 @pytest.mark.xfail
 def test_h_exx_lcao():
     atoms = Atoms('H', magmoms=[1])

@@ -66,7 +66,7 @@ class Davidson(Eigensolver):
             dtype = state.ibzwfs.wfs_qs[0][0].psit_nX.data.dtype
             self.work_arrays = np.empty(shape, dtype)
 
-        dS = state.density.overlap_correction
+        dS = state.ibzwfs.wfs_qs[0][0].setups.overlap_correction
         dH = state.potential.dH
         Ht = partial(hamiltonian.apply, state.potential.vt_sR)
         ibzwfs = state.ibzwfs
@@ -93,9 +93,9 @@ class Davidson(Eigensolver):
                                  Htpsit_nX=psit3_nX)
         residual_nX = psit3_nX  # will become (H-e*S)|psit> later
 
-        P_ain = wfs.P_ain
-        P2_ain = P_ain.new()
-        P3_ain = P_ain.new()
+        P_ani = wfs.P_ani
+        P2_ani = P_ani.new()
+        P3_ani = P_ani.new()
 
         domain_comm = psit_nX.desc.comm
         band_comm = psit_nX.comm
@@ -109,13 +109,16 @@ class Davidson(Eigensolver):
 
         def me(a, b, function=None):
             """Matrix elements"""
-            return a.matrix_elements(b, domain_sum=False, out=M_nn,
-                                     function=function)
+            return a.matrix_elements(b,
+                                     domain_sum=False,
+                                     out=M_nn,
+                                     function=function,
+                                     cc=True)
 
         Ht = partial(Ht, out=residual_nX, spin=wfs.spin)
         dH = partial(dH, spin=wfs.spin)
 
-        calculate_residuals(residual_nX, dH, dS, wfs, P2_ain, P3_ain)
+        calculate_residuals(residual_nX, dH, dS, wfs, P2_ani, P3_ani)
 
         def copy(C_nn: Array2D) -> None:
             domain_comm.sum(M_nn.data, 0)
@@ -125,38 +128,43 @@ class Davidson(Eigensolver):
                     C_nn[:] = M0_nn.data
 
         for i in range(self.niter):
-            if i == self.niter - 1:
+            if i == self.niter - 1:  # last iteration
                 # Calulate error before we destroy residuals:
-                weights_n = calculate_weights(self.converge_bands, wfs)
-                error = weights_n @ residual_nX.norm2()
+                weight_n = calculate_weights(self.converge_bands, wfs)
+                if weight_n is None:
+                    error = np.inf
+                else:
+                    error = weight_n @ residual_nX.norm2()
+                    if wfs.ncomponents == 4:
+                        error = error.sum()
 
             self.preconditioner(psit_nX, residual_nX, out=psit2_nX)
 
             # Calculate projections
-            wfs.pt_aiX.integrate(psit2_nX, out=P2_ain)
+            wfs.pt_aiX.integrate(psit2_nX, out=P2_ani)
 
             # <psi2 | H | psi2>
             me(psit2_nX, psit2_nX, function=Ht)
-            dH(P2_ain, out=P3_ain)
-            P2_ain.matrix.multiply(P3_ain, opa='C', symmetric=True, beta=1,
+            dH(P2_ani, out_ani=P3_ani)
+            P2_ani.matrix.multiply(P3_ani, opb='C', symmetric=True, beta=1,
                                    out=M_nn)
             copy(H_NN.data[B:, B:])
 
             # <psi2 | H | psi>
             me(residual_nX, psit_nX)
-            P3_ain.matrix.multiply(P_ain, opa='C', beta=1.0, out=M_nn)
+            P3_ani.matrix.multiply(P_ani, opb='C', beta=1.0, out=M_nn)
             copy(H_NN.data[B:, :B])
 
             # <psi2 | S | psi2>
             me(psit2_nX, psit2_nX)
-            dS(P2_ain, out=P3_ain)
-            P2_ain.matrix.multiply(P3_ain, opa='C', symmetric=True, beta=1,
+            dS(P2_ani, out_ani=P3_ani)
+            P2_ani.matrix.multiply(P3_ani, opb='C', symmetric=True, beta=1,
                                    out=M_nn)
             copy(S_NN.data[B:, B:])
 
             # <psi2 | S | psi>
             me(psit2_nX, psit_nX)
-            P3_ain.matrix.multiply(P_ain, opa='C', beta=1.0, out=M_nn)
+            P3_ani.matrix.multiply(P_ani, opb='C', beta=1.0, out=M_nn)
             copy(S_NN.data[B:, :B])
 
             if is_domain_band_master:
@@ -171,35 +179,34 @@ class Davidson(Eigensolver):
                                               check_finite=debug,
                                               overwrite_b=True)
                 wfs._eig_n = eig_N[:B]
-
             if domain_comm.rank == 0:
                 band_comm.broadcast(wfs.eig_n, 0)
             domain_comm.broadcast(wfs.eig_n, 0)
 
             if domain_comm.rank == 0:
                 if band_comm.rank == 0:
-                    M0_nn.data[:] = H_NN.data[:B, :B].T
+                    M0_nn.data[:] = H_NN.data[:B, :B]
                 M0_nn.redist(M_nn)
             domain_comm.broadcast(M_nn.data, 0)
 
-            M_nn.multiply(psit_nX, out=residual_nX)
-            P_ain.matrix.multiply(M_nn, opb='T', out=P3_ain)
+            M_nn.multiply(psit_nX, opa='C', out=residual_nX)
+            M_nn.multiply(P_ani, opa='C', out=P3_ani)
 
             if domain_comm.rank == 0:
                 if band_comm.rank == 0:
-                    M0_nn.data[:] = H_NN.data[B:, :B].T
+                    M0_nn.data[:] = H_NN.data[B:, :B]
                 M0_nn.redist(M_nn)
             domain_comm.broadcast(M_nn.data, 0)
 
-            M_nn.multiply(psit2_nX, beta=1.0, out=residual_nX)
-            P2_ain.matrix.multiply(M_nn, opb='T', beta=1.0, out=P3_ain)
+            M_nn.multiply(psit2_nX, opa='C', beta=1.0, out=residual_nX)
+            M_nn.multiply(P2_ani, opa='C', beta=1.0, out=P3_ani)
             psit_nX.data[:] = residual_nX.data
-            P_ain, P3_ain = P3_ain, P_ain
-            wfs._P_ain = P_ain
+            P_ani, P3_ani = P3_ani, P_ani
+            wfs._P_ani = P_ani
 
             if i < self.niter - 1:
                 Ht(psit_nX)
-                calculate_residuals(residual_nX, dH, dS, wfs, P2_ain, P3_ain)
+                calculate_residuals(residual_nX, dH, dS, wfs, P2_ani, P3_ani)
 
         return error
 
@@ -208,20 +215,24 @@ def calculate_residuals(residuals_nX: DA,
                         dH: AAFunc,
                         dS: AAFunc,
                         wfs: PWFDWaveFunctions,
-                        P1_ain: AA,
-                        P2_ain: AA) -> None:
+                        P1_ani: AA,
+                        P2_ani: AA) -> None:
     for r, e, p in zip(residuals_nX.data, wfs.myeig_n, wfs.psit_nX.data):
         axpy(-e, p, r)
 
-    dH(wfs.P_ain, P1_ain)
-    P2_ain.data[:] = wfs.P_ain.data * wfs.myeig_n
-    dS(P2_ain, P2_ain)
-    P1_ain.data -= P2_ain.data
-    wfs.pt_aiX.add_to(residuals_nX, P1_ain)
+    dH(wfs.P_ani, P1_ani)
+    if wfs.ncomponents < 4:
+        subscripts = 'nI, n -> nI'
+    else:
+        subscripts = 'nsI, n -> nsI'
+    np.einsum(subscripts, wfs.P_ani.data, wfs.myeig_n, out=P2_ani.data)
+    dS(P2_ani, P2_ani)
+    P1_ani.data -= P2_ani.data
+    wfs.pt_aiX.add_to(residuals_nX, P1_ani)
 
 
 def calculate_weights(converge_bands: int | str,
-                      wfs: PWFDWaveFunctions) -> Array1D:
+                      wfs: PWFDWaveFunctions) -> Array1D | None:
     """Calculate convergence weights for all eigenstates."""
     if converge_bands == 'occupied':
         # Converge occupied bands:
@@ -231,7 +242,7 @@ def calculate_weights(converge_bands: int | str,
             return np.abs(wfs.occ_n)
         except ValueError:
             # No eigenvalues yet:
-            return np.zeros(wfs.psit_nX.mydims) + np.inf
+            return None
 
     if isinstance(converge_bands, int):
         # Converge fixed number of bands:

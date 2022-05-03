@@ -13,11 +13,11 @@ def check():
 
     with open('Fe.wout') as fd:
         dct = read_wout_all(fd)
-    x, y, z = dct['centers'].sum(axis=0)
+    xyz = dct['centers'].sum(axis=0)
     w = dct['spreads'].sum()
-    print(x, y, z, w)
-    assert abs(np.array([x, y, z,
-                         w / 10]) - [0, 0, 0, 1.449]).max() < 0.01
+    print(xyz, w)
+    assert abs(xyz).max() < 0.005
+    assert abs(w - 14.49) < 0.15
 
 
 def workflow():
@@ -27,3 +27,7 @@ def workflow():
         r2 = run(script='Fe_wannier.py', tmax='1h')
     with r1, r2:
         run(function=check)
+
+
+if __name__ == '__main__':
+    check()

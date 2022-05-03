@@ -124,6 +124,12 @@ class Matrix:
         assert isinstance(value, Matrix)
         self.data[:] = value.data
 
+    def __iadd__(self, other):
+        if isinstance(other, Matrix):
+            other = other.data
+        self.data += other
+        return self
+
     def multiply(self,
                  other,
                  alpha=1.0,
@@ -147,7 +153,7 @@ class Matrix:
         elif not isinstance(out, Matrix):
             out = out.matrix
 
-        if dist.comm.size > 1:
+        if 0:  # dist.comm.size > 1:
             # Special cases that don't need scalapack - most likely also
             # faster:
             if alpha == 1.0 and opa == 'N' and opb == 'N':
@@ -234,6 +240,24 @@ class Matrix:
             S = self
 
         return S
+
+    def inv(self, uplo='L'):
+        """Inplace inversion."""
+        assert uplo == 'L'
+        M, N = self.shape
+        assert M == N
+        dist = self.dist
+        if dist.comm.size == 1:
+            self.tril2full()
+            self.data[:] = linalg.inv(self.data,
+                                      overwrite_a=True,
+                                      check_finite=debug)
+            return
+        bc, br = dist.desc[4:6]
+        assert bc == br
+        info = _gpaw.scalapack_inverse(self.data, dist.desc, 'U')
+        if info != 0:
+            raise ValueError(f'scalapack_inverse error: {info}')
 
     def invcholesky(self) -> None:
         """Inverse of Cholesky decomposition.

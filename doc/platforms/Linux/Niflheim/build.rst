@@ -23,19 +23,17 @@ read the guide :ref:`Using a pre-installed GPAW on Niflheim <load on niflheim>`.
 Creating the venv
 =================
 
-Download the :download:`gpaw-venv.sh` script and run it like this::
+Download the :download:`gpaw_venv.py` script and run it like this::
 
-    $ ./gpaw-venv.sh <venv-name> [intel]
+    $ ./gpaw_venv.py <venv-name>
     ...
 
-After a few minutes, you will have a ``<venv-name>`` folder with
-a GPAW installation inside.  If you add the word ``intel`` as the
-second argument it will have been built with the Intel compilers,
-otherwise it will be built with the FOSS compilers.
+Type ``./gpaw_venv.py --help`` for help.  After a few minutes, you will have
+a ``<venv-name>`` folder with a GPAW installation inside.
 
 In the following, we will assume that your venv folder is ``~/venv1/``.
 
-The ``gpaw-venv.sh`` script does the following:
+The ``gpaw_venv.py`` script does the following:
 
 * load relevant modules from the foss toolchain
 * create the venv
@@ -85,6 +83,12 @@ submit to Niflheim.  Here are three ways to do it (pick one, and only one):
    in one of the parent folders and activate the venv automatically when
    your job starts running.
 
+   If you haven't configured MyQueue then you can do that with this command::
+
+       $ mq config slurm | grep -v sm3090 > ~/.myqueue/config.py
+
+   (skips the *sm3090* GPU-enabled nodes).
+
 
 Adding additional packages
 ==========================
@@ -105,4 +109,4 @@ to install ASR_::
 Full script
 ===========
 
-.. literalinclude:: gpaw-venv.sh
+.. literalinclude:: gpaw_venv.py

@@ -50,10 +50,12 @@ and is in 3D related to the macroscopic dielectric function as,
 
 Refer to :ref:`df_theory`  for detailed documentation on theoretical part.
 
-.. _df_tutorial_freq:
+.. _frequency grid:
 
 Frequency grid
 ==============
+
+.. module:: gpaw.response.frequencies
 
 The dielectric function is evaluted on a non-linear frequency grid according
 to the formula
@@ -78,16 +80,25 @@ Below, the frequency grid is visualized for different values of
 
 The parameters can be specified using keyword arguments::
 
-    df = DielectricFunction(...,
-                            domega0=0.05,   # eV. Default = 0.1
-                            omega2=5.0,     # Default = 10.0
-                            omegamax=15.0)  # eV. Default is the maximum
-                                            #  difference between energy
-                                            #  eigenvalues
+    df = DielectricFunction(
+        ...,
+        frequencies={'domega0: 0.05,    # eV. Default = 0.1 eV
+                     'omega2': 5.0,     # eV. Default = 10.0 eV
+                     'omegamax': 15.0)  # eV.  Default is the maximum
+                                        # difference between energy
+                                        # eigenvalues
 
 Setting ``omegamax`` manually is usually not advisable, however you
-might want it in cases where semi-core states  are included where very large
+might want it in cases where semi-core states are included where very large
 energy eigenvalue differences appear.
+
+
+.. autoclass:: gpaw.response.frequencies.FrequencyDescriptor
+   :members:
+.. autoclass:: gpaw.response.frequencies.NonLinearFrequencyDescriptor
+   :members:
+.. autoclass:: gpaw.response.frequencies.LinearFrequencyDescriptor
+   :members:
 
 
 Example 1: Optical absorption of semiconductor: Bulk silicon

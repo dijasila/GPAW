@@ -46,7 +46,7 @@ class WaveFunctions:
         self.nspins = ncomponents % 3
         self.spin_degeneracy = ncomponents % 2 + 1
 
-        self._P_ain: AtomArrays | None = None
+        self._P_ani: AtomArrays | None = None
 
         self._eig_n: Array1D | None = None
         self._occ_n: Array1D | None = None
@@ -83,16 +83,25 @@ class WaveFunctions:
         return self.occ_n
 
     @property
-    def P_ain(self) -> AtomArrays:
-        assert self._P_ain is not None
-        return self._P_ain
+    def P_ani(self) -> AtomArrays:
+        assert self._P_ani is not None
+        return self._P_ani
 
     def add_to_atomic_density_matrices(self,
                                        occ_n,
                                        D_asii: AtomArrays) -> None:
-        for D_sii, P_in in zip(D_asii.values(), self.P_ain.values()):
-            D_sii[self.spin] += np.einsum('in, n, jn -> ij',
-                                          P_in.conj(), occ_n, P_in).real
+        if self.ncomponents < 4:
+            for D_sii, P_ni in zip(D_asii.values(), self.P_ani.values()):
+                D_sii[self.spin] += np.einsum('ni, n, nj -> ij',
+                                              P_ni.conj(), occ_n, P_ni).real
+        else:
+            for D_xii, P_nsi in zip(D_asii.values(), self.P_ani.values()):
+                D_ssii = np.einsum('nsi, n, nzj -> szij',
+                                   P_nsi.conj(), occ_n, P_nsi)
+                D_xii[0] += (D_ssii[0, 0] + D_ssii[1, 1]).real
+                D_xii[1] += 2 * D_ssii[0, 1].real
+                D_xii[2] += 2 * D_ssii[0, 1].imag
+                D_xii[3] += (D_ssii[0, 0] - D_ssii[1, 1]).real
 
     def add_wave_functions_array(self,
                                  writer: Writer,
