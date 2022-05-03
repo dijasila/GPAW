@@ -25,7 +25,7 @@ class TransverseMagneticSusceptibility(FCST):
                                   filename=None, txt=None):
         """Calculates the spatially averaged (macroscopic) component of the
         transverse magnetic susceptibility and writes it to a file.
-        
+
         Parameters
         ----------
         spincomponent : str
@@ -46,7 +46,7 @@ class TransverseMagneticSusceptibility(FCST):
                             array_ecut=50, filename=None, txt=None):
         """Calculates a specific spin component of the
         transverse magnetic susceptibility and writes it to a file.
-        
+
         Parameters
         ----------
         spincomponent : str
@@ -93,9 +93,10 @@ class TransverseMagneticSusceptibility(FCST):
                     assert pd.kd.gamma
                     print('Finding rescaling of kernel to fulfill the '
                           'Goldstone theorem', file=self.fd)
-                    fxc_scaling[1] = find_goldstone_scaling(self.chiks.omega_w,
-                                                            chiks_wGG, Kxc_GG,
-                                                            world=self.world)
+                    fxc_scaling[1] = find_goldstone_scaling(
+                        self.chiks.wd.omega_w,
+                        chiks_wGG, Kxc_GG,
+                        world=self.world)
 
                 assert isinstance(fxc_scaling[1], float)
                 Kxc_GG *= fxc_scaling[1]

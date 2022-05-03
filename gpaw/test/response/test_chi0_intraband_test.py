@@ -46,7 +46,8 @@ def test_chi0_intraband(in_tmp_dir):
             pass
 
     df1 = DielectricFunction('intraband_spinpaired.gpw',
-                             domega0=0.03,
+                             frequencies={'type': 'nonlinear',
+                                          'domega0': 0.03},
                              ecut=10,
                              rate=0.1,
                              integrationmode='tetrahedron integration',
@@ -65,7 +66,8 @@ def test_chi0_intraband(in_tmp_dir):
             pass
 
     df2 = DielectricFunction('intraband_spinpolarized.gpw',
-                             domega0=0.03,
+                             frequencies={'type': 'nonlinear',
+                                          'domega0': 0.03},
                              ecut=10,
                              rate=0.1,
                              integrationmode='tetrahedron integration',
@@ -79,7 +81,7 @@ def test_chi0_intraband(in_tmp_dir):
     wp2 = wp2_vv[0, 0]
 
     # Compare plasmon frequencies and intensities
-    w_w = df1.chi0.omega_w
+    w_w = df1.chi0.wd.omega_w
 
     # Analytical Drude result
     n = 1 / (a1.get_volume() * Bohr**-3)

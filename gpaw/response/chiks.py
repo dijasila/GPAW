@@ -157,7 +157,7 @@ class ChiKS(PlaneWaveKSLRF):
         # Calculate nominator
         nom_t = scomps_t * df_t
         # Calculate denominator
-        denom_wt = self.omega_w[:, np.newaxis] - deps_t[np.newaxis, :]\
+        denom_wt = self.wd.omega_w[:, np.newaxis] - deps_t[np.newaxis, :]\
             + 1j * self.eta
         
         return nom_t[np.newaxis, :] / denom_wt
@@ -185,9 +185,9 @@ class ChiKS(PlaneWaveKSLRF):
         nom1_t = scomps1_t * df_t
         nom2_t = delta_t * scomps2_t * df_t
         # Calculate denominators
-        denom1_wt = self.omega_w[:, np.newaxis] - deps_t[np.newaxis, :]\
+        denom1_wt = self.wd.omega_w[:, np.newaxis] - deps_t[np.newaxis, :]\
             + 1j * self.eta
-        denom2_wt = self.omega_w[:, np.newaxis] + deps_t[np.newaxis, :]\
+        denom2_wt = self.wd.omega_w[:, np.newaxis] + deps_t[np.newaxis, :]\
             + 1j * self.eta
         
         return nom1_t[np.newaxis, :] / denom1_wt\
