@@ -1248,7 +1248,7 @@ class G0W0(PairDensity):
                 GW_return = None
 
         self.timer.stop('Dyson eq.')
-        return pdi, [ Wp_wGG, Wm_wGG ], GW_return
+        return pdi, [Wp_wGG, Wm_wGG], GW_return
 
     @timer('Kohn-Sham XC-contribution')
     def calculate_ks_xc_contribution(self):
