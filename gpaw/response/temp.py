@@ -17,7 +17,7 @@ class DielectricFunctionCalculator:
         return self.chiVV_GG @ self.fv_GG
 
     def e_GG_gwp(self):
-        gwp_inv_GG = np.linalg.inv(self.I_GG - self._chiVVfv_GG() + 
+        gwp_inv_GG = np.linalg.inv(self.I_GG - self._chiVVfv_GG() +
                                    self.chiVV_GG)
         return self.I_GG - gwp_inv_GG @ self.chiVV_GG
 

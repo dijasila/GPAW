@@ -38,7 +38,7 @@ class G0W0(PairDensity):
                  av_scheme=None, Eg=None,
                  truncation=None, integrate_gamma=0,
                  ecut=150.0, eta=0.1, E0=1.0 * Ha,
-                 domega0=0.025, omega2=10.0, omegamax=None, 
+                 domega0=0.025, omega2=10.0, omegamax=None,
                  q0_correction=False,
                  anisotropy_correction=None,
                  nblocks=1, savew=False, savepckl=True,
@@ -740,8 +740,8 @@ class G0W0(PairDensity):
                           'timeordered': True,
                           'domega0': self.domega0 * Ha,
                           'omega2': self.omega2 * Ha,
-                          'omegamax': 
-                          self.omegamax * Ha if self.omegamax is not None else None}
+                          'omegamax': self.omegamax * Ha 
+                          if self.omegamax is not None else None}
 
         self.fd.flush()
 
@@ -945,7 +945,8 @@ class G0W0(PairDensity):
             self.timer.start('old non gamma')
         else:
             self.timer.start('old gamma')
-        pdi, Wm_wGG, Wp_wGG = self.dyson_and_W_old(wstc, iq, q_c, chi0, chi0_wvv, chi0_wxvG, chi0_wGG, A1_x, A2_x, pd, ecut, htp, htm)
+        pdi, Wm_wGG, Wp_wGG = self.dyson_and_W_old(wstc, iq, q_c, chi0, 
+                chi0_wvv, chi0_wxvG, chi0_wGG, A1_x, A2_x, pd, ecut, htp, htm)
         if not np.allclose(q_c, 0):
             self.timer.stop('old non gamma')
         else:
@@ -953,7 +954,9 @@ class G0W0(PairDensity):
 
         if not np.allclose(q_c, 0):
             self.timer.start('new non gamma')
-            pdi, Wm2_wGG, Wp2_wGG = self.dyson_and_W_new(wstc, iq, q_c, chi0, chi0_wvv, chi0_wxvG, chi02_wGG, A1_2_x, A2_2_x, pd, ecut, htp, htm)
+            pdi, Wm2_wGG, Wp2_wGG = self.dyson_and_W_new(wstc, iq, q_c, chi0, 
+                    chi0_wvv, chi0_wxvG, chi02_wGG, A1_2_x, A2_2_x, pd, ecut,
+                    htp, htm)
             self.timer.stop('new non gamma')
 
             assert np.allclose(Wm_wGG, Wm2_wGG)
@@ -981,8 +984,8 @@ class G0W0(PairDensity):
         return pdi, [Wp_wGG, Wm_wGG], GW_return
 
     def dyson_and_W_new(self, wstc, iq, q_c, chi0, chi0_wvv, chi0_wxvG, chi0_WgG, A1_x, A2_x, pd, ecut, htp, htm):
-        assert self.ppa == False
-        assert self.do_GW_too == False
+        assert not self.ppa
+        assert not self.do_GW_too
         assert ecut == pd.ecut
         assert self.fxc_mode == 'GW'
 
@@ -1234,9 +1237,9 @@ class G0W0(PairDensity):
             # refactoring
             # return pdi, [W_GG, omegat_GG], None
 
-        if self.do_GW_too:
-            A1_GW_x = A1_x.copy()
-            A2_GW_x = A2_x.copy()
+        # if self.do_GW_too:
+        #     A1_GW_x = A1_x.copy()
+        #     A2_GW_x = A2_x.copy()
 
         if self.blockcomm.size > 1:
             Wm_wGG = chi0.redistribute(chi0_wGG, A1_x)
