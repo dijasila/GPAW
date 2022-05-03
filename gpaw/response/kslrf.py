@@ -12,6 +12,7 @@ from gpaw.blacs import (BlacsGrid, BlacsDescriptor, Redistributor)
 from gpaw.utilities.memory import maxrss
 from gpaw.utilities.progressbar import ProgressBar
 from gpaw.response.kspair import KohnShamPair, get_calc
+from gpaw.response.frequencies import FrequencyDescriptor
 
 
 class KohnShamLinearResponseFunction:
@@ -529,7 +530,6 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         self.pd = None  # Plane wave descriptor for given momentum transfer q
         self.pwsa = None  # Plane wave symmetry analyzer for given q
         self.wd = None  # Frequency descriptor for the given frequencies
-        self.omega_w = None  # Frequencies in code units
 
     @timer('Calculate Kohn-Sham linear response function in plane wave mode')
     def calculate(self, q_c, frequencies, spinrot=None, A_x=None):
@@ -538,8 +538,9 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         ----------
         q_c : list or ndarray or PWDescriptor
             Momentum transfer (and possibly plane wave basis)
-        frequencies : ndarray or FrequencyDescriptor
-            Array of frequencies to evaluate the response function at or
+        frequencies : ndarray, dict or FrequencyDescriptor
+            Array of frequencies to evaluate the response function at,
+            dictionary of parameters for build-in frequency grids or a
             descriptor of those frequencies.
 
         Returns
@@ -554,8 +555,7 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         self.pwsa = self.get_PWSymmetryAnalyzer(self.pd)
 
         # Set up frequency descriptor for the given frequencies
-        self.wd = self.get_FreqDescriptor(frequencies)
-        self.omega_w = self.wd.get_data()
+        self.wd = self.get_FrequencyDescriptor(frequencies)
 
         # In-place calculation
         return self._calculate(spinrot, A_x)
@@ -583,12 +583,12 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
                     disable_time_reversal=self.disable_time_reversal,
                     disable_non_symmorphic=self.disable_non_symmorphic)
 
-    def get_FreqDescriptor(self, frequencies):
+    def get_FrequencyDescriptor(self, frequencies):
         """Get the frequency descriptor for a certain input frequencies."""
         if isinstance(frequencies, FrequencyDescriptor):
             return frequencies
         else:
-            return FrequencyDescriptor(np.asarray(frequencies) / Hartree)
+            return FrequencyDescriptor.from_array_or_dict(frequencies)
 
     def print_information(self, nt):
         """Basic information about the input ground state, parallelization,
@@ -597,7 +597,7 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
 
         pd = self.pd
         q_c = pd.kd.bzk_kc[0]
-        nw = len(self.omega_w)
+        nw = len(self.wd)
         eta = self.eta * Hartree
         ecut = self.ecut * Hartree
         ngmax = pd.ngmax
@@ -626,7 +626,7 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         """Initialize the output array in blocks"""
         # Could use some more documentation XXX
         nG = self.pd.ngmax
-        nw = len(self.omega_w)
+        nw = len(self.wd)
 
         GaGb = self._GaGb(nG)
         nGlocal = GaGb.nGlocal
@@ -709,7 +709,7 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         if comm.size == 1:
             return in_wGG
 
-        nw = len(self.omega_w)
+        nw = len(self.wd)
         nG = in_wGG.shape[2]
         mynw = (nw + comm.size - 1) // comm.size
         mynG = (nG + comm.size - 1) // comm.size
@@ -738,20 +738,6 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
                        out_wGG.reshape(mdout.shape))
 
         return out_wGG
-
-
-class FrequencyDescriptor:
-    """Describes a one-dimensional array of frequencies."""
-
-    def __init__(self, data_x):
-        self.data_x = np.array(np.sort(data_x))
-        self._data_len = len(data_x)
-
-    def __len__(self):
-        return self._data_len
-
-    def get_data(self):
-        return self.data_x
 
 
 class Integrator:

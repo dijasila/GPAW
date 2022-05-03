@@ -22,6 +22,11 @@ Git master branch
   converge after 200 steps unless it already converged before that.  This is
   useful for structure optimizations that start far from the minimum.
 
+* New common interface to the implementation of both linear and nonlinear
+  frequency grids in the response code, now passed as a single input to e.g.
+  Chi0, DielectricFunction and G0W0. Explained in the :ref:`frequency grid`
+  tutorial.
+
 
 Version 22.1.0
 ==============

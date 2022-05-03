@@ -62,7 +62,8 @@ def test_response_graphene(in_tmp_dir):
         dfs = []
         for kwargs in DFsettings:
             DF = DielectricFunction(calc='gr.gpw',
-                                    domega0=0.2,
+                                    frequencies={'type': 'nonlinear',
+                                                 'domega0': 0.2},
                                     eta=0.2,
                                     ecut=15.0,
                                     **kwargs)
