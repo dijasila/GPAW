@@ -38,8 +38,7 @@ class G0W0(PairDensity):
                  av_scheme=None, Eg=None,
                  truncation=None, integrate_gamma=0,
                  ecut=150.0, eta=0.1, E0=1.0 * Ha,
-                 domega0=0.025, omega2=10.0, omegamax=None,
-                 q0_correction=False,
+                 domega0=0.025, omega2=10.0, q0_correction=False,
                  anisotropy_correction=None,
                  nblocks=1, savew=False, savepckl=True,
                  maxiter=1, method='G0W0', mixing=0.2,
@@ -253,10 +252,6 @@ class G0W0(PairDensity):
         self.E0 = E0 / Ha
         self.domega0 = domega0 / Ha
         self.omega2 = omega2 / Ha
-        if omegamax is not None:
-            self.omegamax = omegamax / Ha
-        else:
-            self.omegamax = None
         if anisotropy_correction is not None:
             self.ac = anisotropy_correction
             warnings.warn('anisotropy_correction changed name to '
@@ -739,9 +734,7 @@ class G0W0(PairDensity):
                           'hilbert': True,
                           'timeordered': True,
                           'domega0': self.domega0 * Ha,
-                          'omega2': self.omega2 * Ha,
-                          'omegamax': self.omegamax * Ha
-                          if self.omegamax is not None else None}
+                          'omega2': self.omega2 * Ha }
 
         self.fd.flush()
 
