@@ -127,7 +127,7 @@ def get_transverse_xc_kernel(pd, chi0, functional='ALDA_x',
                 assert pd.kd.gamma
                 print('Finding rescaling of kernel to fulfill the '
                       'Goldstone theorem', file=chi0.fd)
-                fxc_scaling[1] = find_goldstone_scaling(chi0.omega_w,
+                fxc_scaling[1] = find_goldstone_scaling(chi0.wd.omega_w,
                                                         -chi0_wGG, Kxc_GG,
                                                         world=chi0.world)
 
