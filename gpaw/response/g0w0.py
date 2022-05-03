@@ -977,7 +977,7 @@ class G0W0(PairDensity):
 
         assert not np.allclose(q_c, 0)
 
-        nW = len(self.omega_w)
+        nW = len(self.wd)
         nG = pd.ngmax
 
         from gpaw.response.wgg import Grid
@@ -1033,7 +1033,7 @@ class G0W0(PairDensity):
 
     def dyson_and_W_old(self, wstc, iq, q_c, chi0, chi0_wvv, chi0_wxvG,
                         chi0_wGG, A1_x, A2_x, pd, ecut, htp, htm):
-        nw = len(self.omega_w)
+        nw = len(self.wd)
         nG = pd.ngmax
 
         mynw = (nw + self.blockcomm.size - 1) // self.blockcomm.size
