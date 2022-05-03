@@ -923,52 +923,39 @@ class G0W0(PairDensity):
 
         self.Q_aGii = chi0.Q_aGii
 
-        """
-
-           ####################################################
-           # At this point, chi0_wGG is in decomposition WGg  #
-           ####################################################
-
-           1. Comminicate from WGg to w(gg)
-           2. Calculate W with scalapack
-           3. Communicate from w(gg) to WGg
-           4. Hilbert transform gw=True
-           5. Output gw=True Hilbert transformed in WGg form
-        """
-
-        chi02_wGG = chi0_wGG.copy()
-        A1_2_x = A1_x.copy()
-        A2_2_x = A2_x.copy()
+        # chi02_wGG = chi0_wGG.copy()
+        # A1_2_x = A1_x.copy()
+        # A2_2_x = A2_x.copy()
 
         # Old way
-        if not np.allclose(q_c, 0):
-            self.timer.start('old non gamma')
-        else:
-            self.timer.start('old gamma')
+        # if not np.allclose(q_c, 0):
+        #     self.timer.start('old non gamma')
+        # else:
+        #     self.timer.start('old gamma')
         pdi, Wm_wGG, Wp_wGG = self.dyson_and_W_old(wstc, iq, q_c, chi0,
                                                    chi0_wvv, chi0_wxvG,
                                                    chi0_wGG, A1_x, A2_x,
                                                    pd, ecut, htp, htm)
-        if not np.allclose(q_c, 0):
-            self.timer.stop('old non gamma')
-        else:
-            self.timer.stop('old gamma')
+        # if not np.allclose(q_c, 0):
+        #     self.timer.stop('old non gamma')
+        # else:
+        #     self.timer.stop('old gamma')
 
-        if not np.allclose(q_c, 0):
-            self.timer.start('new non gamma')
-            pdi, Wm2_wGG, Wp2_wGG = self.dyson_and_W_new(wstc, iq, q_c, chi0,
-                                                         chi0_wvv, chi0_wxvG,
-                                                         chi02_wGG, A1_2_x,
-                                                         A2_2_x, pd, ecut,
-                                                         htp, htm)
-            self.timer.stop('new non gamma')
+        # if not np.allclose(q_c, 0):
+        #     self.timer.start('new non gamma')
+        #     pdi, Wm2_wGG, Wp2_wGG = self.dyson_and_W_new(wstc, iq, q_c, chi0,
+        #                                                  chi0_wvv, chi0_wxvG,
+        #                                                  chi02_wGG, A1_2_x,
+        #                                                  A2_2_x, pd, ecut,
+        #                                                  htp, htm)
+        #     self.timer.stop('new non gamma')
 
-            assert np.allclose(Wm_wGG, Wm2_wGG)
-            assert np.allclose(Wp_wGG, Wp2_wGG)
+        #     assert np.allclose(Wm_wGG, Wm2_wGG)
+        #     assert np.allclose(Wp_wGG, Wp2_wGG)
 
-            # For further verification, use Wm2 and Wp2 values
-            Wm_wGG[:] = Wm2_wGG
-            Wp_wGG[:] = Wp2_wGG
+        #     # For further verification, use Wm2 and Wp2 values
+        #     Wm_wGG[:] = Wm2_wGG
+        #     Wp_wGG[:] = Wp2_wGG
 
         if self.do_GW_too:
             raise NotImplementedError('Check this. chi0_GW_GG not'
