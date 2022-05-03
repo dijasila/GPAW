@@ -39,10 +39,10 @@ def test_do_GW_too(in_tmp_dir):
               fxc_mode='GWP',
               do_GW_too=True)
 
-    result = gw.calculate()
+    gw.calculate()
 
     with open('gw_results_GW.pckl', 'rb') as handle:
         results_GW = pickle.load(handle)
     calculated_gap = np.min(results_GW['qp'][0, :, 1])\
-                     - np.max(results_GW['qp'][0, :, 0])
+        - np.max(results_GW['qp'][0, :, 0])
     assert calculated_gap == pytest.approx(ref_gap)
