@@ -1105,8 +1105,6 @@ class G0W0(PairDensity):
             Rq0 = (3 * bzvol / (4 * np.pi))**(1. / 3.)
             V0 = 16 * np.pi**2 * Rq0 / bzvol
             sqrtV0 = (4 * np.pi)**(1.5) * Rq0**2 / bzvol / 2
-        else:
-            pass
 
         delta_GG = np.eye(nG)
 
@@ -1670,7 +1668,6 @@ class G0W0(PairDensity):
                 kpt.eps_n[nb:] = (self.eps0_skn[s, kpt.k, nb:] +
                                   np.mean(shifts_skn[s, :, -1]))
                 """
-                pass
 
     def mixer(self, e0_skn, e1_skn, mixing=1.0):
         """Mix energies."""
