@@ -2,11 +2,11 @@ import numpy as np
 
 
 class DielectricFunctionCalculator:
-    def __init__(self, sqrV_G, chi0_GG, mode, fv_GG=None):
-        self.sqrV_G = sqrV_G
-        self.chiVV_GG = chi0_GG * sqrV_G * sqrV_G[:, np.newaxis]
+    def __init__(self, sqrtV_G, chi0_GG, mode, fv_GG=None):
+        self.sqrtV_G = sqrtV_G
+        self.chiVV_GG = chi0_GG * sqrtV_G * sqrtV_G[:, np.newaxis]
 
-        self.I_GG = np.eye(len(sqrV_G))
+        self.I_GG = np.eye(len(sqrtV_G))
 
         self.fv_GG = fv_GG
         self.chi0_GG = chi0_GG
@@ -18,15 +18,15 @@ class DielectricFunctionCalculator:
         return self.chiVV_GG @ self.fv_GG
 
     def e_GG_gwp(self):
-        gwp_inv_GG = np.linalg.inv(self.I_GG - self._chiVVfv_GG() +
-                                   self.chiVV_GG)
+        gwp_inv_GG = np.linalg.inv(
+            self.I_GG - self._chiVVfv_GG() + self.chiVV_GG)
         return self.I_GG - gwp_inv_GG @ self.chiVV_GG
 
     def e_GG_gws(self):
         # Note how the signs are different wrt. gwp.
         # Nobody knows why.
-        gws_inv_GG = np.linalg.inv(self.I_GG + self._chiVVfv_GG() -
-                                   self.chiVV_GG)
+        gws_inv_GG = np.linalg.inv(
+            self.I_GG + self._chiVVfv_GG() - self.chiVV_GG)
         return gws_inv_GG @ (self.I_GG - self.chiVV_GG)
 
     def e_GG_plain(self):
