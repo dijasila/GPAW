@@ -8,10 +8,14 @@ from gpaw.mpi import world
 from gpaw.response.g0w0 import G0W0
 from gpaw.utilities import compiled_with_sl
 
-a = 5.43
-si1 = bulk('Si', 'diamond', a=a)
-si2 = si1.copy()
-si2.positions -= a / 8
+def generate_si_systems():
+    a = 5.43
+    si1 = bulk('Si', 'diamond', a=a)
+    si2 = si1.copy()
+    si2.positions -= a / 8
+
+    return [si1, si2]
+
 
 pytestmark = pytest.mark.skipif(
     world.size != 1 and not compiled_with_sl(),
@@ -45,7 +49,7 @@ def run(atoms, symm):
 
 @pytest.mark.response
 @pytest.mark.slow
-@pytest.mark.parametrize('si', [si1, si2])
+@pytest.mark.parametrize('si', generate_si_systems())
 @pytest.mark.parametrize('symm', [{},
                                   'off',
                                   {'time_reversal': False},
