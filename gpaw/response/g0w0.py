@@ -1388,8 +1388,8 @@ class G0W0(PairDensity):
                 'bands': self.bands,
                 'nbands': self.nbands,
                 'ecut_e': self.ecut_e,
-                'domega0': self.domega0,
-                'omega2': self.omega2,
+                'domega0': self.wd.domega0,
+                'omega2': self.wd.omega2,
                 'integrate_gamma': self.integrate_gamma}
 
         if self.world.rank == 0:
@@ -1407,8 +1407,8 @@ class G0W0(PairDensity):
                 data['bands'] == self.bands and
                 data['nbands'] == self.nbands and
                 (data['ecut_e'] == self.ecut_e).all and
-                data['domega0'] == self.domega0 and
-                data['omega2'] == self.omega2 and
+                data['domega0'] == self.wd.domega0 and
+                data['omega2'] == self.wd.omega2 and
                 data['integrate_gamma'] == self.integrate_gamma):
                 self.last_q = data['last_q']
                 self.previous_sigma = data['sigma_eskn']
