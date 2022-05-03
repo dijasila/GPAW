@@ -4,7 +4,6 @@ from gpaw.utilities import compiled_with_sl
 import numpy as np
 from gpaw.response.g0w0 import G0W0
 import pickle
-import os
 
 pytestmark = pytest.mark.skipif(
     world.size != 1 and not compiled_with_sl(),
@@ -39,6 +38,6 @@ def test_do_GW_too(in_tmp_dir, gpw_files):
     with open('gw_results_GW.pckl', 'rb') as handle:
         results_GW = pickle.load(handle)
    
-    np.testing.assert_array_equal(results0['qp'], results_GW['qp'], 
-                                  err_msg='G0W0 and do_GW_too not equivalent', 
-                                  verbose=True)    
+    np.testing.assert_array_equal(results0['qp'], results_GW['qp'],
+                                  err_msg='G0W0 and do_GW_too not equivalent',
+                                  verbose=True)
