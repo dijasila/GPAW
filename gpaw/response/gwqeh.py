@@ -19,11 +19,15 @@ from gpaw.xc.exx import select_kpts
 
 
 class GWQEHCorrection(PairDensity):
-    def __init__(self, calc, gwfile, filename=None, kpts=[0], bands=None,
+    def __init__(self, calc, gwfile, *,
+                 filename=None, kpts=[0], bands=None,
                  structure=None, d=None, layer=0,
                  dW_qw=None, qqeh=None, wqeh=None,
-                 txt=sys.stdout, world=mpi.world, domega0=0.025,
-                 omega2=10.0, eta=0.1, include_q0=True, metal=False):
+                 txt=sys.stdout, world=mpi.world,
+                 frequencies=None,
+                 domega0=None,  # deprecated
+                 omega2=None,  # deprecated
+                 eta=0.1, include_q0=True, metal=False):
         """
         Class for calculating quasiparticle energies of van der Waals
         heterostructures using the GW approximation for the self-energy.
@@ -65,12 +69,11 @@ class GWQEHCorrection(PairDensity):
         wqeh: array of floats
             w-grid used for dW_qw. So far this have to be the same as for the
             GWQEH calculation.  (only needed if dW is given by hand).
-        domega0: float
-            Minimum frequency step (in eV) used in the generation of the non-
-            linear frequency grid.
-        omega2: float
-            Control parameter for the non-linear frequency grid, equal to the
-            frequency where the grid spacing has doubled in size.
+        frequencies:
+            Input parameters for frequency_grid.
+            Can be array of frequencies to evaluate the response function at
+            or dictionary of paramaters for build-in nonlinear grid
+            (see :ref:`frequency grid`).
         eta: float
             Broadening parameter.
         include_q0: bool
@@ -131,13 +134,23 @@ class GWQEHCorrection(PairDensity):
         self.qd = KPointDescriptor(bzq_qc)
         self.qd.set_symmetry(self.calc.atoms, kd.symmetry)
 
+        # Set up frequencies argument
+        if domega0 is not None or omega2 is not None:
+            assert frequencies is None
+            frequencies = {'type': 'nonlinear',
+                           'domega0': 0.025 if domega0 is None else domega0,
+                           'omega2': 10.0 if omega2 is None else omega2}
+            warnings.warn(f'Please use frequencies={frequencies}')
+        elif frequencies is None:
+            frequencies = {'type': 'nonlinear',
+                           'domega0': 0.025,
+                           'omega2': 10.0}
+        else:
+            assert frequencies['type'] == 'nonlinear'
         # Set up frequency descriptor
         omax = find_maximum_frequency(self.calc, nbands=self.nbands,
                                       fd=self.fd)
-        frequencies = {'type': 'nonlinear',
-                       'domega0': domega0,
-                       'omega2': omega2,
-                       'omegamax': omax}
+        frequencies['omegamax'] = omax
         self.wd = FrequencyDescriptor.from_array_or_dict(frequencies)
         nw = len(self.wd)
         self.wsize = 2 * nw
