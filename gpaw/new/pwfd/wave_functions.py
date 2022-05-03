@@ -11,6 +11,7 @@ from gpaw.new.wave_functions import WaveFunctions
 from gpaw.setup import Setups
 from gpaw.typing import Array2D, Array3D, ArrayND, Vector
 from gpaw.fftw import get_efficient_fft_size
+from gpaw.core.plane_waves import PlaneWaveExpansions
 
 
 class PWFDWaveFunctions(WaveFunctions):
@@ -43,14 +44,19 @@ class PWFDWaveFunctions(WaveFunctions):
         self.orthonormalized = False
 
     def __del__(self):
+        # We could be reading from a gpw-file
         data = self.psit_nX.data
         if hasattr(data, 'fd'):
             data.fd.close()
 
     def array_shape(self, global_shape=False):
         if global_shape:
-            return self.psit_nX.desc.global_shape()
-        return self.psit_nX.desc.myshape
+            shape = self.psit_nX.desc.global_shape()
+        else:
+            shape = self.psit_nX.desc.myshape
+        if self.ncomponents == 4:
+            shape = (2,) + shape
+        return shape
 
     def __len__(self):
         return self.psit_nX.dims[0]
@@ -70,50 +76,79 @@ class PWFDWaveFunctions(WaveFunctions):
                    wfs.spin_degeneracy)
 
     @property
-    def P_ain(self):
-        if self._P_ain is None:
+    def P_ani(self):
+        if self._P_ani is None:
             if self.pt_aiX is None:
                 self.pt_aiX = self.psit_nX.desc.atom_centered_functions(
                     [setup.pt_j for setup in self.setups],
                     self.fracpos_ac,
                     atomdist=self.atomdist)
-            self._P_ain = self.pt_aiX.empty(self.psit_nX.dims,
-                                            self.psit_nX.comm,
-                                            transposed=True)
-            self.pt_aiX.integrate(self.psit_nX, self._P_ain)
-        return self._P_ain
+            self._P_ani = self.pt_aiX.empty(self.psit_nX.dims,
+                                            self.psit_nX.comm)
+            self.pt_aiX.integrate(self.psit_nX, self._P_ani)
+        return self._P_ani
 
-    def move(self, fracpos_ac, atomdist):
-        self._P_ain = None
+    def move(self,
+             fracpos_ac: Array2D,
+             atomdist: AtomDistribution) -> None:
+        self._P_ani = None
         self.orthonormalized = False
         self.pt_aiX.move(fracpos_ac, atomdist)
         self._eig_n = None
         self._occ_n = None
 
     def add_to_density(self,
-                       nt_sR,
+                       nt_sR: UniformGridFunctions,
                        D_asii: AtomArrays) -> None:
         occ_n = self.weight * self.spin_degeneracy * self.myocc_n
-        self.psit_nX.abs_square(weights=occ_n, out=nt_sR[self.spin])
+
         self.add_to_atomic_density_matrices(occ_n, D_asii)
+
+        if self.ncomponents < 4:
+            self.psit_nX.abs_square(weights=occ_n, out=nt_sR[self.spin])
+            return
+
+        psit_nsG = self.psit_nX
+        assert isinstance(psit_nsG, PlaneWaveExpansions)
+
+        tmp_sR = nt_sR.desc.new(dtype=complex).empty(2)
+        p1_R, p2_R = tmp_sR.data
+        nt_xR = nt_sR.data
+
+        for f, psit_sG in zip(occ_n, psit_nsG):
+            psit_sG.ifft(out=tmp_sR)
+            p11_R = p1_R.real**2 + p1_R.imag**2
+            p22_R = p2_R.real**2 + p2_R.imag**2
+            p12_R = p1_R.conj() * p2_R
+            nt_xR[0] += f * (p11_R + p22_R)
+            nt_xR[1] += 2 * f * p12_R.real
+            nt_xR[2] += 2 * f * p12_R.imag
+            nt_xR[3] += f * (p11_R - p22_R)
 
     def orthonormalize(self, work_array_nX: ArrayND = None):
         r"""Orthonormalize wave functions.
 
         Computes the overlap matrix:::
 
-               /~ _ *~ _   _   ---  a  * a   a
-          S  = |ψ(r) ψ(r) dr + >  (P  ) P  ΔS
-           mn  / m    n        ---  im   jn  ij
-                               aij
+               / ~ _ *~ _   _   ---  a  * a   a
+          S  = | ψ(r) ψ(r) dr + >  (P  ) P  ΔS
+           mn  /  m    n        ---  im   jn  ij
+                                aij
 
         With `LSL^\dagger=1`, we update the wave functions and projections
         inplace like this:::
 
-                  -- *      a    -- *  a
-            Ψ  <- > L  Ψ,  P  <- > L  P
-             m    -- mn n   in   -- mn in
-                  n
+                --  *
+          Ψ  <- >  L  Ψ ,
+           m    --  mn n
+                n
+
+        and:::
+
+           a     --  *  a
+          P   <- >  L  P  .
+           mi    --  mn ni
+                 n
 
         """
         if self.orthonormalized:
@@ -121,29 +156,28 @@ class PWFDWaveFunctions(WaveFunctions):
         psit_nX = self.psit_nX
         domain_comm = psit_nX.desc.comm
 
-        P_ain = self.P_ain
+        P_ani = self.P_ani
 
-        P2_ain = P_ain.new()
+        P2_ani = P_ani.new()
         psit2_nX = psit_nX.new(data=work_array_nX)
 
         dS = self.setups.overlap_correction
 
-        S = psit_nX.matrix_elements(psit_nX, domain_sum=False)
-        dS(P_ain, out=P2_ain)
-        P_ain.matrix.multiply(P2_ain, opa='C', symmetric=True, out=S, beta=1.0)
+        # We are actually calculating S^*:
+        S = psit_nX.matrix_elements(psit_nX, domain_sum=False, cc=True)
+        dS(P_ani, out_ani=P2_ani)
+        P_ani.matrix.multiply(P2_ani, opb='C', symmetric=True, out=S, beta=1.0)
         domain_comm.sum(S.data, 0)
 
         if domain_comm.rank == 0:
             S.invcholesky()
-            S.complex_conjugate()
-
         domain_comm.broadcast(S.data, 0)
-        # cc ??????
+        # S now contains L^*
 
         S.multiply(psit_nX, out=psit2_nX)
-        P_ain.matrix.multiply(S, opb='T', out=P2_ain)
+        S.multiply(P_ani, out=P2_ani)
         psit_nX.data[:] = psit2_nX.data
-        P_ain.data[:] = P2_ain.data
+        P_ani.data[:] = P2_ani.data
 
         self.orthonormalized = True
 
@@ -168,15 +202,18 @@ class PWFDWaveFunctions(WaveFunctions):
         """
         self.orthonormalize(work_array)
         psit_nX = self.psit_nX
-        P_ain = self.P_ain
+        P_ani = self.P_ani
         psit2_nX = psit_nX.new(data=work_array)
-        P2_ain = P_ain.new()
+        P2_ani = P_ani.new()
         domain_comm = psit_nX.desc.comm
 
         Ht = partial(Ht, out=psit2_nX, spin=self.spin)
-        H = psit_nX.matrix_elements(psit_nX, function=Ht, domain_sum=False)
-        dH(P_ain, out=P2_ain, spin=self.spin)
-        P_ain.matrix.multiply(P2_ain, opa='C', symmetric=True,
+        H = psit_nX.matrix_elements(psit_nX,
+                                    function=Ht,
+                                    domain_sum=False,
+                                    cc=True)
+        dH(P_ani, out_ani=P2_ani, spin=self.spin)
+        P_ani.matrix.multiply(P2_ani, opb='C', symmetric=True,
                               out=H, beta=1.0)
         domain_comm.sum(H.data, 0)
 
@@ -185,6 +222,7 @@ class PWFDWaveFunctions(WaveFunctions):
             if r == c == 1:
                 slcomm = None
             self._eig_n = H.eigh(scalapack=(slcomm, r, c, b))
+            H.complex_conjugate()
             # H.data[n, :] now contains the n'th eigenvector and eps_n[n]
             # the n'th eigenvalue
         else:
@@ -197,21 +235,21 @@ class PWFDWaveFunctions(WaveFunctions):
 
         H.multiply(psit_nX, out=psit2_nX)
         psit_nX.data[:] = psit2_nX.data
-        P_ain.matrix.multiply(H, opb='T', out=P2_ain)
-        P_ain.data[:] = P2_ain.data
+        H.multiply(P_ani, out=P2_ani)
+        P_ani.data[:] = P2_ani.data
 
     def force_contribution(self, dH_asii: AtomArrays, F_av: Array2D):
-        F_ainv = self.pt_aiX.derivative(self.psit_nX)
+        F_avni = self.pt_aiX.derivative(self.psit_nX)
         myocc_n = self.weight * self.spin_degeneracy * self.myocc_n
-        for a, F_inv in F_ainv.items():
-            F_inv = F_inv.conj()
-            F_inv *= myocc_n[:, np.newaxis]
+        for a, F_vni in F_avni.items():
+            F_vni = F_vni.conj()
+            F_vni *= myocc_n[:, np.newaxis]
             dH_ii = dH_asii[a][self.spin]
-            P_in = self.P_ain[a]
-            F_vii = np.einsum('inv, jn, jk -> vik', F_inv, P_in, dH_ii)
-            F_inv *= self.myeig_n[:, np.newaxis]
+            P_ni = self.P_ani[a]
+            F_vii = np.einsum('vni, nj, jk -> vik', F_vni, P_ni, dH_ii)
+            F_vni *= self.myeig_n[:, np.newaxis]
             dO_ii = self.setups[a].dO_ii
-            F_vii -= np.einsum('inv, jn, jk -> vik', F_inv, P_in, dO_ii)
+            F_vii -= np.einsum('vni, nj, jk -> vik', F_vni, P_ni, dO_ii)
             F_av[a] += 2 * F_vii.real.trace(0, 1, 2)
 
     def collect(self,
@@ -310,9 +348,9 @@ class PWFDWaveFunctions(WaveFunctions):
             R_iiv += position_v * setup.Delta_iiL[:, :, :1] * (4 * pi)**0.5
             R_aiiv.append(R_iiv)
 
-        for a, P_in in self.P_ain.items():
-            dipole_nnv += np.einsum('im, ijv, jn -> mnv',
-                                    P_in, R_aiiv[a], P_in)
+        for a, P_ni in self.P_ani.items():
+            dipole_nnv += np.einsum('mi, ijv, nj -> mnv',
+                                    P_ni, R_aiiv[a], P_ni)
 
         self.psit_nX.desc.comm.sum(dipole_nnv)
 

@@ -1,6 +1,8 @@
-import numbers
+from __future__ import annotations
+import warnings
 from functools import partial
 from time import ctime
+from typing import Union
 
 import gpaw
 import gpaw.mpi as mpi
@@ -10,110 +12,41 @@ from ase.utils.timing import Timer, timer
 from gpaw.blacs import BlacsDescriptor, BlacsGrid, Redistributor
 from gpaw.bztools import convex_hull_volume
 from gpaw.kpt_descriptor import KPointDescriptor
+from gpaw.pw.descriptor import PWDescriptor
+from gpaw.response.frequencies import (FrequencyDescriptor,
+                                       LinearFrequencyDescriptor,
+                                       NonLinearFrequencyDescriptor)
+from gpaw.response.hacks import GaGb
 from gpaw.response.integrators import PointIntegrator, TetrahedronIntegrator
 from gpaw.response.pair import PairDensity, PWSymmetryAnalyzer
 from gpaw.utilities.blas import gemm
 from gpaw.utilities.memory import maxrss
-from gpaw.pw.descriptor import PWDescriptor
+from gpaw.typing import Array1D
 
 
-class ArrayDescriptor:
-    """Describes a single dimensional array."""
+def find_maximum_frequency(calc, nbands=0, fd=None):
+    """Determine the maximum electron-hole pair transition energy."""
+    epsmin = 10000.0
+    epsmax = -10000.0
+    for kpt in calc.wfs.kpt_u:
+        epsmin = min(epsmin, kpt.eps_n[0])
+        epsmax = max(epsmax, kpt.eps_n[nbands - 1])
 
-    def __init__(self, data_x):
-        self.data_x = np.array(np.sort(data_x))
-        self._data_len = len(data_x)
+    if fd is not None:
+        print('Minimum eigenvalue: %10.3f eV' % (epsmin * Ha), file=fd)
+        print('Maximum eigenvalue: %10.3f eV' % (epsmax * Ha), file=fd)
 
-    def __len__(self):
-        return self._data_len
-
-    def get_data(self):
-        return self.data_x
-
-    def get_closest_index(self, scalars_w):
-        """Get closest index.
-
-        Get closest index approximating scalars from below."""
-        diff_xw = self.data_x[:, np.newaxis] - scalars_w[np.newaxis]
-        return np.argmin(diff_xw, axis=0)
-
-    def get_index_range(self, lim1_m, lim2_m):
-        """Get index range. """
-
-        i0_m = np.zeros(len(lim1_m), int)
-        i1_m = np.zeros(len(lim2_m), int)
-
-        for m, (lim1, lim2) in enumerate(zip(lim1_m, lim2_m)):
-            i_x = np.logical_and(lim1 <= self.data_x,
-                                 lim2 >= self.data_x)
-            if i_x.any():
-                inds = np.argwhere(i_x)
-                i0_m[m] = inds.min()
-                i1_m[m] = inds.max() + 1
-
-        return i0_m, i1_m
-
-
-class FrequencyDescriptor(ArrayDescriptor):
-
-    def __init__(self, domega0, omega2, omegamax):
-        beta = (2**0.5 - 1) * domega0 / omega2
-        wmax = int(omegamax / (domega0 + beta * omegamax))
-        w = np.arange(wmax + 2)  # + 2 is for buffer
-        omega_w = w * domega0 / (1 - beta * w)
-
-        ArrayDescriptor.__init__(self, omega_w)
-
-        self.domega0 = domega0
-        self.omega2 = omega2
-        self.omegamax = omegamax
-        self.omegamin = 0
-
-        self.beta = beta
-        self.wmax = wmax
-        self.omega_w = omega_w
-        self.wmax = wmax
-        self.nw = len(omega_w)
-
-    def get_closest_index(self, o_m):
-        beta = self.beta
-        w_m = (o_m / (self.domega0 + beta * o_m)).astype(int)
-        if isinstance(w_m, np.ndarray):
-            w_m[w_m >= self.wmax] = self.wmax - 1
-        elif isinstance(w_m, numbers.Integral):
-            if w_m >= self.wmax:
-                w_m = self.wmax - 1
-        else:
-            raise TypeError
-        return w_m
-
-    def get_index_range(self, omega1_m, omega2_m):
-        omega1_m = omega1_m.copy()
-        omega2_m = omega2_m.copy()
-        omega1_m[omega1_m < 0] = 0
-        omega2_m[omega2_m < 0] = 0
-        w1_m = self.get_closest_index(omega1_m)
-        w2_m = self.get_closest_index(omega2_m)
-        o1_m = self.omega_w[w1_m]
-        o2_m = self.omega_w[w2_m]
-        w1_m[o1_m < omega1_m] += 1
-        w2_m[o2_m < omega2_m] += 1
-        return w1_m, w2_m
-
-
-def frequency_grid(domega0, omega2, omegamax):
-    beta = (2**0.5 - 1) * domega0 / omega2
-    wmax = int(omegamax / (domega0 + beta * omegamax)) + 2
-    w = np.arange(wmax)
-    omega_w = w * domega0 / (1 - beta * w)
-    return omega_w
+    return epsmax - epsmin
 
 
 class Chi0:
     """Class for calculating non-interacting response functions."""
 
-    def __init__(self, calc, response='density',
-                 frequencies=None, domega0=0.1, omega2=10.0, omegamax=None,
+    def __init__(self,
+                 calc,
+                 *,
+                 response='density',
+                 frequencies: Union[dict, Array1D] = None,
                  ecut=50, gammacentered=False, hilbert=True, nbands=None,
                  timeordered=False, eta=0.2, ftol=1e-6, threshold=1,
                  real_space_derivatives=False, intraband=True,
@@ -123,7 +56,11 @@ class Chi0:
                  disable_non_symmorphic=True,
                  integrationmode=None,
                  pbc=None, rate=0.0, eshift=0.0,
-                 paw_correction='brute-force'):
+                 paw_correction='brute-force',
+                 domega0=None,  # deprecated
+                 omega2=None,  # deprecated
+                 omegamax=None  # deprecated
+                 ):
         """Construct Chi0 object.
 
         Parameters
@@ -134,12 +71,11 @@ class Chi0:
         response : str
             Type of response function. Currently collinear, scalar options
             'density', '+-' and '-+' are implemented.
-        frequencies : ndarray or None
-            Array of frequencies to evaluate the response function at. If None,
-            frequencies are determined using the frequency_grid function in
-            gpaw.response.chi0.
-        domega0, omega2, omegamax : float
+        frequencies :
             Input parameters for frequency_grid.
+            Can be array of frequencies to evaluate the response function at
+            or dictionary of paramaters for build-in nonlinear grid
+            (see :ref:`frequency grid`).
         ecut : float
             Energy cutoff.
         gammacentered : bool
@@ -206,6 +142,16 @@ class Chi0:
             Class for calculating matrix elements of pairs of wavefunctions.
 
         """
+        if domega0 is not None or omega2 is not None or omegamax is not None:
+            assert frequencies is None
+            frequencies = {'type': 'nonlinear',
+                           'domega0': domega0,
+                           'omega2': omega2,
+                           'omegamax': omegamax}
+            warnings.warn(f'Please use frequencies={frequencies}')
+
+        elif frequencies is None:
+            frequencies = {'type': 'nonlinear'}
 
         self.response = response
 
@@ -234,16 +180,9 @@ class Chi0:
 
         self.world = world
 
-        if nblocks == 1:
-            self.blockcomm = self.world.new_communicator([world.rank])
-            self.kncomm = world
-        else:
-            assert world.size % nblocks == 0, world.size
-            rank1 = world.rank // nblocks * nblocks
-            rank2 = rank1 + nblocks
-            self.blockcomm = self.world.new_communicator(range(rank1, rank2))
-            ranks = range(world.rank % nblocks, world.size, nblocks)
-            self.kncomm = self.world.new_communicator(ranks)
+        from gpaw.response.hacks import block_partition
+
+        self.blockcomm, self.kncomm = block_partition(world, nblocks)
 
         self.nblocks = nblocks
 
@@ -258,33 +197,30 @@ class Chi0:
             self.rate = self.eta
         else:
             self.rate = rate / Ha
-        self.domega0 = domega0 / Ha
-        self.omega2 = omega2 / Ha
-        self.omegamax = None if omegamax is None else omegamax / Ha
+
         self.nbands = nbands or self.calc.wfs.bd.nbands
         self.include_intraband = intraband
 
-        omax = self.find_maximum_frequency()
+        if (isinstance(frequencies, dict) and
+            frequencies.get('omegamax') is None):
+            omegamax = find_maximum_frequency(self.calc,
+                                              nbands=self.nbands,
+                                              fd=self.fd)
+            frequencies['omegamax'] = omegamax * Ha
 
-        if frequencies is None:
-            if self.omegamax is None:
-                self.omegamax = omax
-            print('Using nonlinear frequency grid from 0 to %.3f eV' %
-                  (self.omegamax * Ha), file=self.fd)
-            self.wd = FrequencyDescriptor(self.domega0, self.omega2,
-                                          self.omegamax)
-        else:
-            self.wd = ArrayDescriptor(np.asarray(frequencies) / Ha)
+        self.wd = FrequencyDescriptor.from_array_or_dict(frequencies)
+        print(self.wd, file=self.fd)
+
+        if not isinstance(self.wd, NonLinearFrequencyDescriptor):
             assert not hilbert
 
-        self.omega_w = self.wd.get_data()
         self.hilbert = hilbert
         self.timeordered = bool(timeordered)
 
         if self.eta == 0.0:
             assert not hilbert
             assert not timeordered
-            assert not self.omega_w.real.any()
+            assert not self.wd.omega_w.real.any()
 
         self.nocc1 = self.pair.nocc1  # number of completely filled bands
         self.nocc2 = self.pair.nocc2  # number of non-empty bands
@@ -307,21 +243,6 @@ class Chi0:
                   file=self.fd)
         else:
             print('Using integration method: PointIntegrator', file=self.fd)
-
-    def find_maximum_frequency(self):
-        """Determine the maximum electron-hole pair transition energy."""
-        self.epsmin = 10000.0
-        self.epsmax = -10000.0
-        for kpt in self.calc.wfs.kpt_u:
-            self.epsmin = min(self.epsmin, kpt.eps_n[0])
-            self.epsmax = max(self.epsmax, kpt.eps_n[self.nbands - 1])
-
-        print('Minimum eigenvalue: %10.3f eV' % (self.epsmin * Ha),
-              file=self.fd)
-        print('Maximum eigenvalue: %10.3f eV' % (self.epsmax * Ha),
-              file=self.fd)
-
-        return self.epsmax - self.epsmin
 
     def calculate(self, q_c, spin='all', A_x=None):
         """Calculate response function.
@@ -377,23 +298,23 @@ class Chi0:
             raise SystemExit
 
         nG = pd.ngmax + 2 * optical_limit
-        nw = len(self.omega_w)
-        mynG = (nG + self.blockcomm.size - 1) // self.blockcomm.size
-        self.Ga = min(self.blockcomm.rank * mynG, nG)
-        self.Gb = min(self.Ga + mynG, nG)
+        nw = len(self.wd)
+
+        self.GaGb = GaGb(self.blockcomm, nG)
+        wGG_shape = (nw, self.GaGb.nGlocal, nG)
         # if self.blockcomm.rank == 0:
         #     assert self.Gb - self.Ga >= 3
         # assert mynG * (self.blockcomm.size - 1) < nG
         if A_x is not None:
-            nx = nw * (self.Gb - self.Ga) * nG
-            chi0_wGG = A_x[:nx].reshape((nw, self.Gb - self.Ga, nG))
+            nx = np.prod(wGG_shape)
+            chi0_wGG = A_x[:nx].reshape(wGG_shape)
             chi0_wGG[:] = 0.0
         else:
-            chi0_wGG = np.zeros((nw, self.Gb - self.Ga, nG), complex)
+            chi0_wGG = np.zeros(wGG_shape, complex)
 
         if optical_limit:
-            chi0_wxvG = np.zeros((len(self.omega_w), 2, 3, nG), complex)
-            chi0_wvv = np.zeros((len(self.omega_w), 3, 3), complex)
+            chi0_wxvG = np.zeros((nw, 2, 3, nG), complex)
+            chi0_wvv = np.zeros((nw, 3, 3), complex)
             self.plasmafreq_vv = np.zeros((3, 3), complex)
         else:
             chi0_wxvG = None
@@ -581,14 +502,10 @@ class Chi0:
         # Integrate response function
         print('Integrating response function.', file=self.fd)
         # Define band summation
-        if self.response == 'density':
-            bandsum = {'n1': 0, 'n2': self.nocc2, 'm1': m1, 'm2': m2}
-            mat_kwargs.update(bandsum)
-            eig_kwargs.update(bandsum)
-        else:
-            bandsum = {'n1': 0, 'n2': self.nbands, 'm1': m1, 'm2': m2}
-            mat_kwargs.update(bandsum)
-            eig_kwargs.update(bandsum)
+        bandsum = {'n1': 0, 'n2': self.nocc2 if self.response == 'density'
+                   else self.nbands, 'm1': m1, 'm2': m2}
+        mat_kwargs.update(bandsum)
+        eig_kwargs.update(bandsum)
 
         integrator.integrate(kind=kind,  # Kind of integral
                              domain=domain,  # Integration domain
@@ -628,9 +545,8 @@ class Chi0:
             # transform is performed to return the real part of the density
             # response function.
             with self.timer('Hilbert transform'):
-                omega_w = self.wd.get_data()  # Get frequencies
                 # Make Hilbert transform
-                ht = HilbertTransform(np.array(omega_w), self.eta,
+                ht = HilbertTransform(np.array(self.wd.omega_w), self.eta,
                                       timeordered=self.timeordered)
                 ht(A_wxx)
                 if wings:
@@ -666,7 +582,7 @@ class Chi0:
                 extraargs['intraband'] = True  # Calculate intraband
             elif self.integrationmode == 'tetrahedron integration':
                 # Calculate intraband transitions at T=0
-                extraargs['x'] = ArrayDescriptor([-fermi_level])
+                extraargs['x'] = LinearFrequencyDescriptor([-fermi_level])
 
             intnoblock.integrate(kind='spectral function',  # Kind of integral
                                  domain=domain,  # Integration domain
@@ -680,17 +596,18 @@ class Chi0:
 
             # Again, not so pretty but that's how it is
             plasmafreq_vv = plasmafreq_wvv[0].copy()
+            GaGb = self.GaGb
             if self.include_intraband:
                 if extend_head:
-                    va = min(self.Ga, 3)
-                    vb = min(self.Gb, 3)
+                    va = min(GaGb.Ga, 3)
+                    vb = min(GaGb.Gb, 3)
                     A_wxx[:, :vb - va, :3] += (plasmafreq_vv[va:vb] /
-                                               (self.omega_w[:, np.newaxis,
-                                                             np.newaxis] +
+                                               (self.wd.omega_w[:, np.newaxis,
+                                                                np.newaxis] +
                                                 1e-10 + self.rate * 1j)**2)
                 elif self.blockcomm.rank == 0:
                     A_wxx[:, 0, 0] += (plasmafreq_vv[2, 2] /
-                                       (self.omega_w + 1e-10 +
+                                       (self.wd.omega_w + 1e-10 +
                                         self.rate * 1j)**2)
 
             # Save the plasmafrequency
@@ -740,12 +657,14 @@ class Chi0:
         # the chi0_wGG matrix is nw * (nG + 2)**2. Below we extract these
         # parameters.
 
+        GaGb = self.GaGb
+
         if optical_limit and extend_head:
             # The wings are extracted
-            chi0_wxvG[:, 1, :, self.Ga:self.Gb] = np.transpose(A_wxx[..., 0:3],
-                                                               (0, 2, 1))
-            va = min(self.Ga, 3)
-            vb = min(self.Gb, 3)
+            chi0_wxvG[:, 1, :, GaGb.myslice] = np.transpose(
+                A_wxx[..., 0:3], (0, 2, 1))
+            va = min(GaGb.Ga, 3)
+            vb = min(GaGb.Gb, 3)
             # print(self.world.rank, va, vb, chi0_wxvG[:, 0, va:vb].shape,
             #       A_wxx[:, va:vb].shape, A_wxx.shape)
             chi0_wxvG[:, 0, va:vb] = A_wxx[:, :vb - va]
@@ -770,7 +689,7 @@ class Chi0:
             # and wings we have to take care that
             # these are handled correctly. Note that
             # it is important that the wings are overwritten first.
-            chi0_wGG[:, :, 0] = chi0_wxvG[:, 1, 2, self.Ga:self.Gb]
+            chi0_wGG[:, :, 0] = chi0_wxvG[:, 1, 2, self.GaGb.myslice]
 
             if self.blockcomm.rank == 0:
                 chi0_wGG[:, 0, :] = chi0_wxvG[:, 0, 2, :]
@@ -1016,7 +935,7 @@ class Chi0:
         if comm.size == 1:
             return in_wGG
 
-        nw = len(self.omega_w)
+        nw = len(self.wd)
         nG = in_wGG.shape[2]
         mynw = (nw + comm.size - 1) // comm.size
         mynG = (nG + comm.size - 1) // comm.size
@@ -1056,7 +975,7 @@ class Chi0:
         if world.size == 1:
             return chi0_wGG
 
-        nw = len(self.omega_w)
+        nw = len(self.wd)
         nG = chi0_wGG.shape[2]
         mynw = (nw + world.size - 1) // world.size
         mynG = (nG + comm.size - 1) // comm.size
@@ -1099,7 +1018,7 @@ class Chi0:
             world = self.world
 
         q_c = pd.kd.bzk_kc[0]
-        nw = len(self.omega_w)
+        nw = len(self.wd)
         ecut = self.ecut * Ha
         ns = calc.wfs.nspins
         nbands = self.nbands
@@ -1123,6 +1042,10 @@ class Chi0:
         p('Called response.chi0.calculate with')
         p('    q_c: [%f, %f, %f]' % (q_c[0], q_c[1], q_c[2]))
         p('    Number of frequency points: %d' % nw)
+        if bsize > nw:
+            p('WARNING! Your nblocks is larger than number of frequency'
+              ' points. Errors might occur, if your submodule don'''
+              't know how to handle this.')
         p('    Planewave cutoff: %f' % ecut)
         p('    Number of spins: %d' % ns)
         p('    Number of bands: %d' % nbands)
@@ -1223,37 +1146,3 @@ class HilbertTransform:
             c_wx = tmp_wx[:, :b_wx.shape[1]]
             gemm(1.0, b_wx, self.H_ww, 0.0, c_wx)
             b_wx[:] = c_wx
-
-
-if __name__ == '__main__':
-    do = 0.025
-    eta = 0.1
-    omega_w = frequency_grid(do, 10.0, 3)
-    print(len(omega_w))
-    X_w = omega_w * 0j
-    Xt_w = omega_w * 0j
-    Xh_w = omega_w * 0j
-    for o in -np.linspace(2.5, 2.9, 10):
-        X_w += (1 / (omega_w + o + 1j * eta) -
-                1 / (omega_w - o + 1j * eta)) / o**2
-        Xt_w += (1 / (omega_w + o - 1j * eta) -
-                 1 / (omega_w - o + 1j * eta)) / o**2
-        w = int(-o / do / (1 + 3 * -o / 10))
-        o1, o2 = omega_w[w:w + 2]
-        assert o1 - 1e-12 <= -o <= o2 + 1e-12, (o1, -o, o2)
-        p = 1 / (o2 - o1)**2 / o**2
-        Xh_w[w] += p * (o2 - -o)
-        Xh_w[w + 1] += p * (-o - o1)
-
-    ht = HilbertTransform(omega_w, eta, 1)
-    ht(Xh_w)
-
-    import matplotlib.pyplot as plt
-    plt.plot(omega_w, X_w.imag, label='ImX')
-    plt.plot(omega_w, X_w.real, label='ReX')
-    plt.plot(omega_w, Xt_w.imag, label='ImXt')
-    plt.plot(omega_w, Xt_w.real, label='ReXt')
-    plt.plot(omega_w, Xh_w.imag, label='ImXh')
-    plt.plot(omega_w, Xh_w.real, label='ReXh')
-    plt.legend()
-    plt.show()

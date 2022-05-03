@@ -265,7 +265,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         """
         DistributedArrays. __init__(self, dims, grid.myshape,
                                     comm, grid.comm, data, grid.dv,
-                                    grid.dtype, transposed=False)
+                                    grid.dtype)
         self.desc = grid
 
     def __repr__(self):

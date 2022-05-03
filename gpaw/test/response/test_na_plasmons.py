@@ -16,6 +16,7 @@ pytestmark = pytest.mark.skipif(
     reason='world.size < 4 or not compiled_with_sl()')
 
 
+@pytest.mark.response
 @pytest.mark.slow
 def test_response_na_plasmons(in_tmp_dir):
     a = 4.23 / 2.0
@@ -40,20 +41,16 @@ def test_response_na_plasmons(in_tmp_dir):
                              txt='1block.txt')
 
     df1NLFCx, df1LFCx = df1.get_dielectric_function(direction='x')
-    df1NLFCy, df1LFCy = df1.get_dielectric_function(direction='y')
-    df1NLFCz, df1LFCz = df1.get_dielectric_function(direction='z')
-
+    
     df2 = DielectricFunction('gs_Na.gpw',
                              nblocks=4,
                              ecut=40,
                              txt='4block.txt')
 
     df2NLFCx, df2LFCx = df2.get_dielectric_function(direction='x')
-    df2NLFCy, df2LFCy = df2.get_dielectric_function(direction='y')
-    df2NLFCz, df2LFCz = df2.get_dielectric_function(direction='z')
 
     # Compare plasmon frequencies and intensities
-    w_w = df1.chi0.omega_w
+    w_w = df1.chi0.wd.omega_w
     w1, I1 = findpeak(w_w, -(1. / df1LFCx).imag)
     w2, I2 = findpeak(w_w, -(1. / df2LFCx).imag)
     equal(w1, w2, 1e-2)

@@ -685,16 +685,9 @@ class PairDensity:
         self.real_space_derivatives = real_space_derivatives
         self.gate_voltage = gate_voltage
 
-        if nblocks == 1:
-            self.blockcomm = world.new_communicator([world.rank])
-            self.kncomm = world
-        else:
-            assert world.size % nblocks == 0, world.size
-            rank1 = world.rank // nblocks * nblocks
-            rank2 = rank1 + nblocks
-            self.blockcomm = self.world.new_communicator(range(rank1, rank2))
-            ranks = range(world.rank % nblocks, world.size, nblocks)
-            self.kncomm = self.world.new_communicator(ranks)
+        from gpaw.response.hacks import block_partition
+
+        self.blockcomm, self.kncomm = block_partition(world, nblocks)
 
         self.fermi_level = self.calc.wfs.fermi_level
 

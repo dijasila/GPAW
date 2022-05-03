@@ -10,10 +10,9 @@ from gpaw.spline import Spline
 from gpaw.utilities.blas import mmm
 
 
-def ft(spline):
+def ft(spline, N=2**10):
     l = spline.get_angular_momentum_number()
     rc = 50.0
-    N = 2**10
     assert spline.get_cutoff() <= rc
 
     dr = rc / N

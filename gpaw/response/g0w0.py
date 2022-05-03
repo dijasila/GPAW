@@ -21,6 +21,7 @@ from gpaw.response.fxckernel_calc import calculate_kernel
 from gpaw.response.kernels import get_coulomb_kernel, get_integrated_kernel
 from gpaw.response.pair import PairDensity
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
+from gpaw.response.hacks import GaGb
 from gpaw.utilities.progressbar import ProgressBar
 from gpaw.pw.descriptor import (PWDescriptor, PWMapping,
                                 count_reciprocal_vectors)
@@ -30,13 +31,17 @@ from gpaw.xc.tools import vxc
 
 
 class G0W0(PairDensity):
-    def __init__(self, calc, filename='gw', restartfile=None,
+    def __init__(self, calc, filename='gw', *,
+                 restartfile=None,
                  kpts=None, bands=None, relbands=None, nbands=None, ppa=False,
                  xc='RPA', fxc_mode='GW', density_cut=1.e-6, do_GW_too=False,
                  av_scheme=None, Eg=None,
                  truncation=None, integrate_gamma=0,
                  ecut=150.0, eta=0.1, E0=1.0 * Ha,
-                 domega0=0.025, omega2=10.0, q0_correction=False,
+                 frequencies=None,
+                 domega0=None,  # deprecated
+                 omega2=None,  # deprecated
+                 q0_correction=False,
                  anisotropy_correction=None,
                  nblocks=1, savew=False, savepckl=True,
                  maxiter=1, method='G0W0', mixing=0.2,
@@ -67,6 +72,11 @@ class G0W0(PairDensity):
             Same as *bands* except that the numbers are relative to the
             number of occupied bands.
             E.g. (-1, 1) will use HOMO+LUMO.
+        frequencies:
+            Input parameters for frequency_grid.
+            Can be array of frequencies to evaluate the response function at
+            or dictionary of paramaters for build-in nonlinear grid
+            (see :ref:`frequency grid`).
         ecut: float
             Plane wave cut-off energy in eV.
         ecut_extrapolation: bool or array
@@ -113,12 +123,6 @@ class G0W0(PairDensity):
             but the average is only carried out in the non-periodic directions.
         E0: float
             Energy (in eV) used for fitting in the plasmon-pole approximation.
-        domega0: float
-            Minimum frequency step (in eV) used in the generation of the non-
-            linear frequency grid.
-        omega2: float
-            Control parameter for the non-linear frequency grid, equal to the
-            frequency where the grid spacing has doubled in size.
         gate_voltage: float
             Shift Fermi level of ground state calculation by the
             specified amount.
@@ -149,6 +153,18 @@ class G0W0(PairDensity):
         ecut_extrapolation: bool
             Carries out the extrapolation to infinite cutoff automatically.
         """
+        if domega0 is not None or omega2 is not None:
+            assert frequencies is None
+            frequencies = {'type': 'nonlinear',
+                           'domega0': 0.025 if domega0 is None else domega0,
+                           'omega2': 10.0 if omega2 is None else omega2}
+            warnings.warn(f'Please use frequencies={frequencies}')
+        elif frequencies is None:
+            frequencies = {'type': 'nonlinear',
+                           'domega0': 0.025,
+                           'omega2': 10.0}
+        else:
+            assert frequencies['type'] == 'nonlinear'
 
         self.inputcalc = calc
 
@@ -248,8 +264,10 @@ class G0W0(PairDensity):
         self.integrate_gamma = integrate_gamma
         self.eta = eta / Ha
         self.E0 = E0 / Ha
-        self.domega0 = domega0 / Ha
-        self.omega2 = omega2 / Ha
+
+        self.frequencies = frequencies
+        self.wd = None
+
         if anisotropy_correction is not None:
             self.ac = anisotropy_correction
             warnings.warn('anisotropy_correction changed name to '
@@ -661,13 +679,12 @@ class G0W0(PairDensity):
         # Pick +i*eta or -i*eta:
         s_m = (1 + sgn_m * np.sign(0.5 - f_m)).astype(int) // 2
 
-        beta = (2**0.5 - 1) * self.domega0 / self.omega2
-        w_m = (o_m / (self.domega0 + beta * o_m)).astype(int)
-        m_inb = np.where(w_m < len(self.omega_w) - 1)[0]
+        w_m = self.wd.get_floor_index(o_m, safe=False)
+        m_inb = np.where(w_m < len(self.wd) - 1)[0]
         o1_m = np.empty(len(o_m))
         o2_m = np.empty(len(o_m))
-        o1_m[m_inb] = self.omega_w[w_m[m_inb]]
-        o2_m[m_inb] = self.omega_w[w_m[m_inb] + 1]
+        o1_m[m_inb] = self.wd.omega_w[w_m[m_inb]]
+        o2_m[m_inb] = self.wd.omega_w[w_m[m_inb] + 1]
 
         x = 1.0 / (self.qd.nbzkpts * 2 * pi * self.vol)
         sigma = 0.0
@@ -676,13 +693,13 @@ class G0W0(PairDensity):
         for o, o1, o2, sgn, s, w, n_G in zip(o_m, o1_m, o2_m,
                                              sgn_m, s_m, w_m, n_mG):
 
-            if w >= len(self.omega_w) - 1:
+            if w >= len(self.wd.omega_w) - 1:
                 continue
 
             C1_GG = C_swGG[s][w]
             C2_GG = C_swGG[s][w + 1]
             p = x * sgn
-            myn_G = n_G[self.Ga:self.Gb]
+            myn_G = n_G[self.GaGb.myslice]
 
             sigma1 = p * np.dot(np.dot(myn_G, C1_GG), n_G.conj()).imag
             sigma2 = p * np.dot(np.dot(myn_G, C2_GG), n_G.conj()).imag
@@ -723,16 +740,11 @@ class G0W0(PairDensity):
         else:
             if self.ite == 0:
                 print('Using full frequency integration:', file=self.fd)
-                print('  domega0: {0:g}'.format(self.domega0 * Ha),
-                      file=self.fd)
-                print('  omega2: {0:g}'.format(self.omega2 * Ha),
-                      file=self.fd)
 
             parameters = {'eta': self.eta * Ha,
                           'hilbert': True,
                           'timeordered': True,
-                          'domega0': self.domega0 * Ha,
-                          'omega2': self.omega2 * Ha}
+                          'frequencies': self.frequencies}
 
         self.fd.flush()
 
@@ -756,17 +768,17 @@ class G0W0(PairDensity):
         else:
             wstc = None
 
-        self.omega_w = chi0.omega_w
-        self.omegamax = chi0.omegamax
+        self.wd = chi0.wd
+        print(self.wd, file=self.fd)
 
-        htp = HilbertTransform(self.omega_w, self.eta, gw=True)
-        htm = HilbertTransform(self.omega_w, -self.eta, gw=True)
+        htp = HilbertTransform(self.wd.omega_w, self.eta, gw=True)
+        htm = HilbertTransform(self.wd.omega_w, -self.eta, gw=True)
 
         # Find maximum size of chi-0 matrices:
         gd = self.calc.wfs.gd
         nGmax = max(count_reciprocal_vectors(self.ecut, gd, q_c)
                     for q_c in self.qd.ibzk_kc)
-        nw = len(self.omega_w)
+        nw = len(self.wd)
 
         size = self.blockcomm.size
 
@@ -796,11 +808,11 @@ class G0W0(PairDensity):
             thisqd = KPointDescriptor([q_c])
             pd = PWDescriptor(self.ecut, self.calc.wfs.gd, complex, thisqd)
             nG = pd.ngmax
-            mynG = (nG + self.blockcomm.size - 1) // self.blockcomm.size
-            chi0.Ga = self.blockcomm.rank * mynG
-            chi0.Gb = min(chi0.Ga + mynG, nG)
+
+            chi0.GaGb = GaGb(self.blockcomm, nG)
+
             if len(self.ecut_e) > 1:
-                shape = (nw, chi0.Gb - chi0.Ga, nG)
+                shape = (nw, chi0.GaGb.nGlocal, nG)
                 chi0bands_wGG = A1_x[:np.prod(shape)].reshape(shape).copy()
                 chi0bands_wGG[:] = 0.0
 
@@ -830,13 +842,8 @@ class G0W0(PairDensity):
                     # We also need to initialize the PAW corrections
                     self.Q_aGii = self.initialize_paw_corrections(pdi)
 
-                    nG = pdi.ngmax
-                    nw = len(self.omega_w)
-                    mynG = (nG + self.blockcomm.size - 1) // \
-                        self.blockcomm.size
-                    self.Ga = self.blockcomm.rank * mynG
-                    self.Gb = min(self.Ga + mynG, nG)
-                    assert mynG * (self.blockcomm.size - 1) < nG
+                    nw = len(self.wd)
+                    self.GaGb = GaGb(self.blockcomm, pdi.ngmax)
                 else:
                     # First time calculation
                     if ecut == self.ecut:
@@ -889,12 +896,10 @@ class G0W0(PairDensity):
                     iq):
         """Calculates the screened potential for a specified q-point."""
 
-        nw = len(self.omega_w)
+        nw = len(self.wd)
         nG = pd.ngmax
-        mynG = (nG + self.blockcomm.size - 1) // self.blockcomm.size
-        self.Ga = chi0.Ga
-        self.Gb = chi0.Gb
-        shape = (nw, chi0.Gb - chi0.Ga, nG)
+        self.GaGb = chi0.GaGb
+        shape = (nw, self.GaGb.nGlocal, nG)
         # construct empty matrix for chi
         chi0_wGG = A1_x[:np.prod(shape)].reshape(shape).copy()
         chi0_wGG[:] = 0.0
@@ -938,10 +943,8 @@ class G0W0(PairDensity):
             pdi = PWDescriptor(ecut, pd.gd, dtype=pd.dtype,
                                kd=pd.kd)
             nG = pdi.ngmax
-            mynG = (nG + self.blockcomm.size - 1) // self.blockcomm.size
-            self.Ga = self.blockcomm.rank * mynG
-            self.Gb = min(self.Ga + mynG, nG)
-            nw = len(self.omega_w)
+            self.GaGb = GaGb(self.blockcomm, nG)
+            nw = len(self.wd)
             mynw = (nw + self.blockcomm.size - 1) // self.blockcomm.size
 
             G2G = PWMapping(pdi, pd).G2_G1

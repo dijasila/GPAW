@@ -46,6 +46,9 @@ class Density:
         self.collinear = self.ncomponents != 4
         self.natoms = len(delta0_a)
 
+    def __repr__(self):
+        return f'Density({self.nt_sR}, {self.D_asii}, charge={self.charge})'
+
     def calculate_compensation_charge_coefficients(self) -> AtomArrays:
         ccc_aL = AtomArraysLayout(
             [delta_iiL.shape[2] for delta_iiL in self.delta_aiiL],
@@ -68,7 +71,7 @@ class Density:
             comp_charge += self.delta0_a[a]
         comp_charge = self.nt_sR.desc.comm.sum(comp_charge * sqrt(4 * pi))
         charge = comp_charge + self.charge
-        pseudo_charge = self.nt_sR.integrate().sum()
+        pseudo_charge = self.nt_sR[:self.ndensities].integrate().sum()
         x = -charge / pseudo_charge
         self.nt_sR.data *= x
 
@@ -76,7 +79,7 @@ class Density:
         self.nt_sR.data[:] = 0.0
         self.D_asii.data[:] = 0.0
         ibzwfs.add_to_density(self.nt_sR, self.D_asii)
-        self.nt_sR.data[:] += nct_R.data
+        self.nt_sR.data[:self.ndensities] += nct_R.data
         self.symmetrize(ibzwfs.ibz.symmetries)
 
     def symmetrize(self, symmetries):
@@ -92,14 +95,14 @@ class Density:
                                    rotation_ii, D_asii[a2], rotation_ii)
         self.D_asii.data *= 1.0 / len(symmetries)
 
-    def overlap_correction(self,
-                           P_ain: AtomArrays,
-                           out: AtomArrays) -> AtomArrays:
+    def xxxxx_overlap_correction(self,
+                                 P_ani: AtomArrays,
+                                 out: AtomArrays) -> AtomArrays:
         x = (4 * np.pi)**0.5
-        for a, I1, I2 in P_ain.layout.myindices:
+        for a, I1, I2 in P_ani.layout.myindices:
             ds = self.delta_aiiL[a][:, :, 0] * x
             # use mmm ?????
-            out.data[I1:I2] = ds @ P_ain.data[I1:I2]
+            out.data[..., I1:I2] = P_ani.data[..., I1:I2] @ ds
         return out
 
     def move(self, delta_nct_R):
@@ -191,12 +194,11 @@ class Density:
                 M_vii = D_sii[1:4]
                 magmom_av[a] = np.einsum('vij, ij -> v',
                                          M_vii, self.N0_aii[a])
-                magmom_v += (np.einsum('vij, ij ->', M_vii,
+                magmom_v += (np.einsum('vij, ij -> v', M_vii,
                                        self.delta_aiiL[a][:, :, 0]) *
                              sqrt(4 * pi))
             domain_comm.sum(magmom_av)
             domain_comm.sum(magmom_v)
-
             magmom_v += self.nt_sR.integrate()[1:]
 
         return magmom_v, magmom_av

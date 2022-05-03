@@ -1,7 +1,7 @@
 import numpy as np
 from math import pi, cos, sin
 from ase import Atom, Atoms
-from gpaw import GPAW, setup_paths
+from gpaw import GPAW
 from gpaw.poisson import FDPoissonSolver
 from gpaw.xas import XAS
 from gpaw.test import equal
@@ -9,14 +9,12 @@ from gpaw.atom.generator2 import generate
 import gpaw.mpi as mpi
 
 
-def test_corehole_h2o(in_tmp_dir):
+def test_corehole_h2o(in_tmp_dir, add_cwd_to_setup_paths):
     # Generate setup for oxygen with half a core-hole:
     gen = generate('O', 8, '2s,s,2p,p,d', [1.2], 1.0, None, 2,
                    core_hole='1s,0.5')
     setup = gen.make_paw_setup('hch1s')
     setup.write_xml()
-    if setup_paths[0] != '.':
-        setup_paths.insert(0, '.')
 
     a = 5.0
     d = 0.9575

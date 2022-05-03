@@ -9,7 +9,7 @@ from ase import Atoms
 from ase.build import bulk
 from ase.io import read
 
-from gpaw import GPAW, PW, Davidson, FermiDirac
+from gpaw import GPAW, PW, Davidson, FermiDirac, setup_paths
 from gpaw.cli.info import info
 from gpaw.mpi import broadcast, world
 from gpaw.utilities import devnull
@@ -48,6 +48,16 @@ def module_tmp_path(request, tmp_path_factory):
         yield path
 
 
+@pytest.fixture
+def add_cwd_to_setup_paths():
+    """Temporarily add current working directory to setup_paths."""
+    try:
+        setup_paths[:0] = ['.']
+        yield
+    finally:
+        del setup_paths[:1]
+
+
 @pytest.fixture(scope='session')
 def gpw_files(request, tmp_path_factory):
     """Reuse gpw-files.
@@ -80,6 +90,9 @@ def gpw_files(request, tmp_path_factory):
       ``c2h4_pw_nosym``.  Three units: ``c6h12_pw``.
 
     * Bulk TiO2 with 4x4x4 k-points: ``ti2o4_pw`` and ``ti2o4_pw_nosym``.
+
+    * Bulk BN (zinkblende) with 2x2x2 k-points and 9 converged bands:
+      ``bn_pw``.
 
     Files with wave functions are also availabe (add ``_wfs`` to the names).
     """
@@ -263,6 +276,17 @@ class GPWFiles:
     def ti2o4_pw_nosym(self):
         return self.ti2o4('off')
 
+    def bn_pw(self):
+        atoms = bulk('BN', 'zincblende', a=3.615)
+        atoms.calc = GPAW(mode=PW(400),
+                          kpts={'size': (2, 2, 2), 'gamma': True},
+                          nbands=12,
+                          convergence={'bands': 9},
+                          occupations=FermiDirac(0.001),
+                          txt=self.path / 'bn_pw.txt')
+        atoms.get_potential_energy()
+        return atoms.calc
+
 
 class GPAWPlugin:
     def __init__(self):
@@ -296,6 +320,7 @@ def pytest_configure(config):
                  'gllb: GLLBSC tests',
                  'elph: Electron-phonon',
                  'intel: fails on INTEL toolchain',
+                 'response: tests of the response code',
                  'serial: run in serial only',
                  'skip_for_new_gpaw: know failure for new refactored GPAW']:
         config.addinivalue_line('markers', line)

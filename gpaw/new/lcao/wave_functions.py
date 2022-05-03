@@ -58,7 +58,14 @@ class LCAOWaveFunctions(WaveFunctions):
     def L_MM(self):
         S_MM = self.S_MM.copy()
         S_MM.invcholesky()
-        return S_MM
+        if self.ncomponents < 4:
+            return S_MM
+        M, M = S_MM.shape
+        L_sMsM = Matrix(2 * M, 2 * M, dtype=complex)
+        L_sMsM.data[:] = 0.0
+        L_sMsM.data[:M, :M] = S_MM.data
+        L_sMsM.data[M:, M:] = S_MM.data
+        return L_sMsM
 
     def array_shape(self, global_shape=False):
         if global_shape:
@@ -66,8 +73,8 @@ class LCAOWaveFunctions(WaveFunctions):
         1 / 0
 
     @property
-    def P_ain(self):
-        if self._P_ain is None:
+    def P_ani(self):
+        if self._P_ani is None:
             atomdist = AtomDistribution.from_atom_indices(
                 list(self.P_aMi),
                 self.domain_comm,
@@ -75,12 +82,11 @@ class LCAOWaveFunctions(WaveFunctions):
             layout = AtomArraysLayout([setup.ni for setup in self.setups],
                                       atomdist=atomdist,
                                       dtype=self.dtype)
-            self._P_ain = layout.empty(self.nbands,
-                                       comm=self.C_nM.dist.comm,
-                                       transposed=True)
+            self._P_ani = layout.empty(self.nbands,
+                                       comm=self.C_nM.dist.comm)
             for a, P_Mi in self.P_aMi.items():
-                self._P_ain[a][:] = (self.C_nM.data @ P_Mi).T
-        return self._P_ain
+                self._P_ani[a][:] = (self.C_nM.data @ P_Mi)
+        return self._P_ani
 
     def add_to_density(self,
                        nt_sR,
