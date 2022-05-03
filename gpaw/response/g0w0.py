@@ -1153,34 +1153,26 @@ class G0W0(PairDensity):
 
                     sqrtV_G = get_sqrtV_G(kd.N_c, q_v=qf_qv[iqf])
 
-                    dfc = DielectricFunctionCalculator(sqrtV_G, chi0_GG,
-                                                       mode=self.fxc_mode,
-                                                       fv_GG=fv)
+                    dfc = DielectricFunctionCalculator(
+                        sqrtV_G, chi0_GG, mode=self.fxc_mode, fv_GG=fv)
                     einv_GG += dfc.get_einv_GG() * weight_q[iqf]
 
                     if self.do_GW_too:
-                        raise NotImplementedError('TODO: Check this. sqrtV_G '
-                                                  'not defined below.')
-                        # gw_dfc = DielectricFunctionCalculator(sqrtV_G,
-                        #                                       chi0_GW_GG,
-                        #                                       mode='GW')
-                        # einv_GW_GG += gw_dfc.get_einv_GG() * weight_q[iqf]
+                        gw_dfc = DielectricFunctionCalculator(
+                            sqrtV_G, chi0_GW_GG, mode='GW')
+                        einv_GW_GG += gw_dfc.get_einv_GG() * weight_q[iqf]
 
             else:
                 sqrtV_G = get_sqrtV_G(self.calc.wfs.kd.N_c)
 
-                dfc = DielectricFunctionCalculator(sqrtV_G, chi0_GG,
-                                                   mode=self.fxc_mode,
-                                                   fv_GG=fv)
+                dfc = DielectricFunctionCalculator(
+                    sqrtV_G, chi0_GG, mode=self.fxc_mode, fv_GG=fv)
                 einv_GG = dfc.get_einv_GG()
 
                 if self.do_GW_too:
-                    raise NotImplementedError('TODO: Check this. sqrtV_G '
-                                              'not defined below.')
-                    # gw_dfc = DielectricFunctionCalculator(sqrtV_G,
-                    #                                       chi0_GW_GG,
-                    #                                       mode='GW')
-                    # einv_GW_GG = gw_dfc.get_einv_GG()
+                    gw_dfc = DielectricFunctionCalculator(
+                        sqrtV_G, chi0_GW_GG, mode='GW')
+                    einv_GW_GG = gw_dfc.get_einv_GG()
 
             if self.ppa:
                 einv_wGG.append(einv_GG - delta_GG)
