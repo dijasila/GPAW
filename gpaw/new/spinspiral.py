@@ -14,6 +14,11 @@ class SpinSpiralWaveFunctionDescriptor(SpinorWaveFunctionDescriptor):
         return SpinSpiralWaveFunctionDescriptor(self.desc.new(kpt=kpt),
                                                 self.qspiral_c)
 
+    def empty(self, nbands, band_comm):
+        psit_nsG = self.desc.empty((nbands, 2), band_comm)
+        psit_nsG.desc = self
+        return psit_nsG
+
     def atom_centered_functions(self,
                                 pt_aj,
                                 positions,
@@ -21,4 +26,16 @@ class SpinSpiralWaveFunctionDescriptor(SpinorWaveFunctionDescriptor):
                                 atomdist=None):
         pt_aiX = self.desc.atom_centered_functions(pt_aj, positions,
                                                    atomdist=atomdist)
-        return pt_aiX
+        return SpiralPWAFC(pt_aiX, self.qspiral_c)
+
+
+class QPWAFC:
+    def __init__(self, pt_aiG, qspiral_c):
+        self.pt_aiG = pt_aiG
+        self.qspiral_c = qspiral_c
+
+
+class SpiralPWAFC:
+    def __init__(self, pt_aiG, qspiral_c):
+        self.ptup_aiG = QPWAFC(pt_aiG, qspiral_c)
+        self.ptdn_aiG = QPWAFC(pt_aiG, -qspiral_c)
