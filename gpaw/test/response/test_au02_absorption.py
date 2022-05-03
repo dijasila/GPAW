@@ -21,7 +21,7 @@ def test_response_au02_absorption(in_tmp_dir):
         cluster = Atoms('Au2', [(0, 0, 0), (0, 0, 2.564)])
         cluster.set_cell((6, 6, 6), scale_atoms=False)
         cluster.center()
-        calc = GPAW(mode=PW(force_complex_dtype=True),
+        calc = GPAW(mode=PW(ecut=180, force_complex_dtype=True),
                     xc={'name': 'RPBE', 'stencil': 1},
                     nbands=16,
                     eigensolver='rmm-diis',
@@ -58,9 +58,9 @@ def test_response_au02_absorption(in_tmp_dir):
                                                direction='z')
 
         w0_ = 5.60491055
-        I0_ = 244.693028
-        w_ = 5.696528390
-        I_ = 207.8
+        I0_ = 227.23392824591642
+        w_ = 5.644900254787107
+        I_ = 184.4086028397282
 
         w, I = findpeak(frequencies, b0.imag)
         equal(w, w0_, 0.05)
