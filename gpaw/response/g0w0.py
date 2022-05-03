@@ -937,11 +937,14 @@ class G0W0(PairDensity):
         #     self.timer.start('old non gamma')
         # else:
         #     self.timer.start('old gamma')
-        pdi, Wm_wGG, Wp_wGG, GW_return = self.dyson_and_W_old(
+        pdi, W_xwGG, GW_return = self.dyson_and_W_old(
             wstc, iq, q_c, chi0,
             chi0_wvv, chi0_wxvG,
             chi0_wGG, A1_x, A2_x,
             pd, ecut, htp, htm)
+
+        # W_xwGG = [ Wm_wGG, Wp_wGG ] !
+
         # if not np.allclose(q_c, 0):
         #     self.timer.stop('old non gamma')
         # else:
@@ -963,7 +966,7 @@ class G0W0(PairDensity):
         #     Wm_wGG[:] = Wm2_wGG
         #     Wp_wGG[:] = Wp2_wGG
 
-        return pdi, [Wp_wGG, Wm_wGG], GW_return
+        return pdi, W_xwGG, GW_return
 
     def dyson_and_W_new(self, wstc, iq, q_c, chi0, chi0_wvv, chi0_wxvG,
                         chi0_WgG, A1_x, A2_x, pd, ecut, htp, htm):
@@ -1211,10 +1214,7 @@ class G0W0(PairDensity):
                 W_GG[1:, 0] = pi * R_GG[1:, 0] * sqrtV0 * sqrtV_G[1:]
 
             self.timer.stop('Dyson eq.')
-            raise SystemExit
-            # Disabled, because not sure what to return here during
-            # refactoring
-            # return pdi, [W_GG, omegat_GG], None
+            return pdi, [W_GG, omegat_GG], None
 
         if self.do_GW_too:
             A1_GW_x = A1_x.copy()
@@ -1248,7 +1248,7 @@ class G0W0(PairDensity):
                 GW_return = None
 
         self.timer.stop('Dyson eq.')
-        return pdi, Wm_wGG, Wp_wGG, GW_return
+        return pdi, [ Wp_wGG, Wm_wGG ], GW_return
 
     @timer('Kohn-Sham XC-contribution')
     def calculate_ks_xc_contribution(self):
