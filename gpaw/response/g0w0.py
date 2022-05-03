@@ -896,7 +896,7 @@ class G0W0(PairDensity):
         nG = pd.ngmax
         self.GaGb = chi0.GaGb
         shape = (nw, self.GaGb.nGlocal, nG)
-        
+
         chi0.fd = self.fd
         chi0.print_chi(pd)
 
@@ -907,7 +907,7 @@ class G0W0(PairDensity):
         else:
             chi0_wxvG = None
             chi0_wvv = None
-        
+
         chi0._calculate(pd, chi0_wGG, chi0_wxvG, chi0_wvv, m1, m2,
                         range(self.nspins), extend_head=False)
 
@@ -932,10 +932,11 @@ class G0W0(PairDensity):
         #     self.timer.start('old non gamma')
         # else:
         #     self.timer.start('old gamma')
-        pdi, Wm_wGG, Wp_wGG = self.dyson_and_W_old(wstc, iq, q_c, chi0,
-                                                   chi0_wvv, chi0_wxvG,
-                                                   chi0_wGG, A1_x, A2_x,
-                                                   pd, ecut, htp, htm)
+        pdi, Wm_wGG, Wp_wGG, GW_return = self.dyson_and_W_old(
+            wstc, iq, q_c, chi0,
+            chi0_wvv, chi0_wxvG,
+            chi0_wGG, A1_x, A2_x,
+            pd, ecut, htp, htm)
         # if not np.allclose(q_c, 0):
         #     self.timer.stop('old non gamma')
         # else:
@@ -956,23 +957,6 @@ class G0W0(PairDensity):
         #     # For further verification, use Wm2 and Wp2 values
         #     Wm_wGG[:] = Wm2_wGG
         #     Wp_wGG[:] = Wp2_wGG
-
-        if self.do_GW_too:
-            raise NotImplementedError('Check this. chi0_GW_GG not'
-                                      'defined below.')
-            # if self.blockcomm.size > 1:
-            #     Wm_GW_wGG = chi0.redistribute(chi0_GW_wGG, A1_GW_x)
-            # else:
-            #     Wm_GW_wGG = chi0_GW_wGG
-            #
-            # Wp_GW_wGG = A2_GW_x[:Wm_GW_wGG.size].reshape(Wm_GW_wGG.shape)
-            # Wp_GW_wGG[:] = Wm_GW_wGG
-            #
-            # htp(Wp_GW_wGG)
-            # htm(Wm_GW_wGG)
-            # GW_return = [Wp_GW_wGG, Wm_GW_wGG]
-        else:
-            GW_return = None
 
         return pdi, [Wp_wGG, Wm_wGG], GW_return
 
@@ -1229,9 +1213,9 @@ class G0W0(PairDensity):
             # refactoring
             # return pdi, [W_GG, omegat_GG], None
 
-        # if self.do_GW_too:
-        #     A1_GW_x = A1_x.copy()
-        #     A2_GW_x = A2_x.copy()
+        if self.do_GW_too:
+            A1_GW_x = A1_x.copy()
+            A2_GW_x = A2_x.copy()
 
         if self.blockcomm.size > 1:
             Wm_wGG = chi0.redistribute(chi0_wGG, A1_x)
@@ -1244,8 +1228,24 @@ class G0W0(PairDensity):
         with self.timer('Hilbert transform'):
             htp(Wp_wGG)
             htm(Wm_wGG)
+
+            if self.do_GW_too:
+                if self.blockcomm.size > 1:
+                    Wm_GW_wGG = chi0.redistribute(chi0_GW_wGG, A1_GW_x)
+                else:
+                    Wm_GW_wGG = chi0_GW_wGG
+
+                Wp_GW_wGG = A2_GW_x[:Wm_GW_wGG.size].reshape(Wm_GW_wGG.shape)
+                Wp_GW_wGG[:] = Wm_GW_wGG
+
+                htp(Wp_GW_wGG)
+                htm(Wm_GW_wGG)
+                GW_return = [Wp_GW_wGG, Wm_GW_wGG]
+            else:
+                GW_return = None
+
         self.timer.stop('Dyson eq.')
-        return pdi, Wm_wGG, Wp_wGG
+        return pdi, Wm_wGG, Wp_wGG, GW_return
 
     @timer('Kohn-Sham XC-contribution')
     def calculate_ks_xc_contribution(self):
