@@ -8,13 +8,15 @@ from gpaw.new.pwfd.builder import PWFDDFTComponentsBuilder
 from gpaw.typing import Array1D
 from gpaw.core.matrix import Matrix
 from gpaw.new.pw.hamiltonian import PWHamiltonian, SpinorPWHamiltonian
+from gpaw.new.spinspiral import SpinSpiralWaveFunctionDescriptor
 
 
 class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
     interpolation = 'fft'
 
-    def __init__(self, atoms, params, ecut=340):
+    def __init__(self, atoms, params, ecut=340, spiral=None):
         self.ecut = ecut / Ha
+        self.spiral = spiral
         super().__init__(atoms, params)
 
         self._nct_ag = None
@@ -35,10 +37,14 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
         return grid, fine_grid
 
     def create_wf_description(self) -> PlaneWaves:
-        return PlaneWaves(ecut=self.ecut,
-                          cell=self.grid.cell,
-                          comm=self.grid.comm,
-                          dtype=self.dtype)
+        pw = PlaneWaves(ecut=self.ecut,
+                        cell=self.grid.cell,
+                        comm=self.grid.comm,
+                        dtype=self.dtype)
+        if self.spiral is None:
+            return pw
+
+        return SpinSpiralWaveFunctionDescriptor(pw, qspiral=self.spiral)
 
     def create_xc_functional(self):
         if self.params.xc['name'] in ['HSE06', 'PBE0', 'EXX']:

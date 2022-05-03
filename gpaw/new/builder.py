@@ -19,7 +19,7 @@ from gpaw.new.basis import create_basis
 from gpaw.new.brillouin import BZPoints, MonkhorstPackKPoints
 from gpaw.new.density import Density
 from gpaw.new.input_parameters import InputParameters
-from gpaw.new.noncollinear import SpinorWaveFunctionDescriptor
+from gpaw.new.spinors import SpinorWaveFunctionDescriptor
 from gpaw.new.scf import SCFLoop
 from gpaw.new.smearing import OccupationNumberCalculator
 from gpaw.new.symmetry import create_symmetries_object
