@@ -2,15 +2,6 @@ import pytest
 from gpaw.mpi import world
 from gpaw.utilities import compiled_with_sl
 import numpy as np
-from ase.build import bulk
-from gpaw import GPAW, FermiDirac, PW
-from gpaw.response.g0w0 import G0W0
-import pickle
-
-import pytest
-from gpaw.mpi import world
-from gpaw.utilities import compiled_with_sl
-import numpy as np
 from gpaw.response.g0w0 import G0W0
 import pickle
 
