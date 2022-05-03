@@ -30,7 +30,7 @@ def test_response_bse_MoS2_cut(in_tmp_dir):
 
         cell = Hexagonal(symbol='Mo',
                          latticeconstant={'a': a, 'c': c}).get_cell()
-        layer = Atoms(symbols='MoS2', cell=cell, pbc=(1, 1, 1),
+        layer = Atoms(symbols='MoS2', cell=cell, pbc=(1, 1, 0),
                       scaled_positions=[(0, 0, 0),
                                         (2 / 3, 1 / 3, 0.3),
                                         (2 / 3, 1 / 3, -0.3)])
@@ -57,7 +57,6 @@ def test_response_bse_MoS2_cut(in_tmp_dir):
               truncation='2D')
 
     w_w, alpha_w = bse.get_polarizability(filename=None,
-                                          pbc=[True, True, False],
                                           write_eig=None,
                                           eta=0.02,
                                           w_w=np.linspace(0., 5., 5001))
