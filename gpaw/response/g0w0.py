@@ -31,7 +31,8 @@ from gpaw.xc.tools import vxc
 
 
 class G0W0(PairDensity):
-    def __init__(self, calc, filename='gw', restartfile=None,
+    def __init__(self, calc, *,
+                 filename='gw', restartfile=None,
                  kpts=None, bands=None, relbands=None, nbands=None, ppa=False,
                  xc='RPA', fxc_mode='GW', density_cut=1.e-6, do_GW_too=False,
                  av_scheme=None, Eg=None,

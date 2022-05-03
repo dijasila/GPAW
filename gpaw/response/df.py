@@ -19,12 +19,13 @@ from gpaw.response.fxc import get_xc_kernel
 class DielectricFunction:
     """This class defines dielectric function related physical quantities."""
 
-    def __init__(self, calc, response='density',
+    def __init__(self, calc, *,
+                 response='density',
                  name=None,
                  frequencies=None,
-                 domega0=None,
-                 omega2=None,
-                 omegamax=None,
+                 domega0=None,  # deprecated
+                 omega2=None,  # deprecated
+                 omegamax=None,  # deprecated
                  ecut=50,
                  gammacentered=False, hilbert=True,
                  nbands=None, eta=0.2, ftol=1e-6, threshold=1,
