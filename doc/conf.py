@@ -66,6 +66,7 @@ nitpick_ignore = [('py:class', 'gpaw.calculator.GPAW'),
                   ('py:class', 'Array2D'),
                   ('py:class', 'Array3D'),
                   ('py:class', 'MPIComm'),
+                  ('py:class', 'DomainType'),
                   ('py:class', 'IO')]
 
 html_theme = 'sphinx_rtd_theme'
