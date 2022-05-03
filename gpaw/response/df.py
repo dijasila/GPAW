@@ -19,16 +19,21 @@ from gpaw.response.fxc import get_xc_kernel
 class DielectricFunction:
     """This class defines dielectric function related physical quantities."""
 
-    def __init__(self, calc, response='density',
-                 name=None, frequencies=None, domega0=0.1,
-                 omega2=10.0, omegamax=None, ecut=50,
+    def __init__(self, calc, *,
+                 response='density',
+                 name=None,
+                 frequencies=None,
+                 domega0=None,  # deprecated
+                 omega2=None,  # deprecated
+                 omegamax=None,  # deprecated
+                 ecut=50,
                  gammacentered=False, hilbert=True,
                  nbands=None, eta=0.2, ftol=1e-6, threshold=1,
                  intraband=True, nblocks=1, world=mpi.world, txt=sys.stdout,
                  gate_voltage=None, truncation=None, disable_point_group=False,
                  disable_time_reversal=False,
                  integrationmode=None, pbc=None, rate=0.0,
-                 omegacutlower=None, omegacutupper=None, eshift=0.0):
+                 eshift=0.0):
         """Creates a DielectricFunction object.
 
         calc: str
@@ -44,16 +49,11 @@ class DielectricFunction:
 
             where q_c is the reduced momentum and N_c is the number of
             kpoints along each direction.
-        frequencies: np.ndarray
-            Specification of frequency grid. If not set the non-linear
-            frequency grid is used.
-        domega0: float
-            Frequency grid spacing for non-linear frequency grid at omega = 0.
-        omega2: float
-            Frequency at which the non-linear frequency grid has doubled
-            the spacing.
-        omegamax: float
-            The upper frequency bound for the non-linear frequency grid.
+        frequencies:
+            Input parameters for frequency_grid.
+            Can be array of frequencies to evaluate the response function at
+            or dictionary of paramaters for build-in nonlinear grid
+            (see :ref:`frequency grid`).
         ecut: float
             Plane-wave cut-off.
         gammacentered: bool
@@ -104,13 +104,9 @@ class DielectricFunction:
 
         self.name = name
 
-        self.omega_w = self.chi0.omega_w
-        if omegacutlower is not None:
-            inds_w = np.logical_and(self.omega_w > omegacutlower / Hartree,
-                                    self.omega_w < omegacutupper / Hartree)
-            self.omega_w = self.omega_w[inds_w]
+        self.wd = self.chi0.wd
 
-        nw = len(self.omega_w)
+        nw = len(self.wd)
 
         world = self.chi0.world
         self.mynw = (nw + world.size - 1) // world.size
@@ -146,13 +142,13 @@ class DielectricFunction:
         return pd, chi0_wGG, chi0_wxvG, chi0_wvv
 
     def write(self, name, pd, chi0_wGG, chi0_wxvG, chi0_wvv):
-        nw = len(self.omega_w)
+        nw = len(self.wd)
         nG = pd.ngmax
         world = self.chi0.world
 
         if world.rank == 0:
             fd = open(name, 'wb')
-            pickle.dump((self.omega_w, pd, None, chi0_wxvG, chi0_wvv),
+            pickle.dump((self.wd.omega_w, pd, None, chi0_wxvG, chi0_wvv),
                         fd, pickle.HIGHEST_PROTOCOL)
             for chi0_GG in chi0_wGG:
                 pickle.dump(chi0_GG, fd, pickle.HIGHEST_PROTOCOL)
@@ -173,10 +169,10 @@ class DielectricFunction:
         print('Reading from', name, file=self.chi0.fd)
         fd = open(name, 'rb')
         omega_w, pd, chi0_wGG, chi0_wxvG, chi0_wvv = pickle.load(fd)
-        for omega in self.omega_w:
+        for omega in self.wd.omega_w:
             assert np.any(np.abs(omega - omega_w) < 1e-8)
 
-        wmin = np.argmin(np.abs(np.min(self.omega_w) - omega_w))
+        wmin = np.argmin(np.abs(np.min(self.wd.omega_w) - omega_w))
         world = self.chi0.world
 
         nw = len(omega_w)
@@ -216,14 +212,14 @@ class DielectricFunction:
         world = self.chi0.world
         b_w = np.zeros(self.mynw, a_w.dtype)
         b_w[:self.w2 - self.w1] = a_w
-        nw = len(self.omega_w)
+        nw = len(self.wd)
         A_w = np.empty(world.size * self.mynw, a_w.dtype)
         world.all_gather(b_w, A_w)
         return A_w[:nw]
 
     def get_frequencies(self):
         """ Return frequencies that Chi is evaluated on"""
-        return self.omega_w * Hartree
+        return self.wd.omega_w * Hartree
 
     def get_chi(self, xc='RPA', q_c=[0, 0, 0], spin='all',
                 direction='x', return_VchiV=True, q_v=None,
@@ -388,7 +384,9 @@ class DielectricFunction:
 
         if filename is not None and mpi.rank == 0:
             with open(filename, 'w') as fd:
-                for omega, rf0, rf in zip(self.omega_w * Hartree, rf0_w, rf_w):
+                for omega, rf0, rf in zip(self.wd.omega_w * Hartree,
+                                          rf0_w,
+                                          rf_w):
                     print('%.6f, %.6f, %.6f, %.6f, %.6f' %
                           (omega, rf0.real, rf0.imag, rf.real, rf.imag),
                           file=fd)
@@ -524,7 +522,7 @@ class DielectricFunction:
 
         if filename is not None and mpi.rank == 0:
             with open(filename, 'w') as fd:
-                for omega, nlfc, lfc in zip(self.omega_w * Hartree,
+                for omega, nlfc, lfc in zip(self.wd.omega_w * Hartree,
                                             df_NLFC_w,
                                             df_LFC_w):
                     print('%.6f, %.6f, %.6f, %.6f, %.6f' %
@@ -581,7 +579,7 @@ class DielectricFunction:
         # Calculate V^1/2 \chi V^1/2
         pd, Vchi0_wGG, Vchi_wGG = self.get_chi(xc=xc, q_c=q_c,
                                                direction=direction)
-        Nw = self.omega_w.shape[0]
+        Nw = self.wd.omega_w.shape[0]
 
         # Calculate eels = -Im 4 \pi / q^2  \chi
         eels_NLFC_w = -(1. / (1. - Vchi0_wGG[:, 0, 0])).imag
@@ -597,7 +595,7 @@ class DielectricFunction:
             print('# energy, eels_NLFC_w, eels_LFC_w', file=fd)
             for iw in range(Nw):
                 print('%.6f, %.6f, %.6f' %
-                      (self.chi0.omega_w[iw] * Hartree,
+                      (self.chi0.wd.omega_w[iw] * Hartree,
                        eels_NLFC_w[iw], eels_LFC_w[iw]), file=fd)
             fd.close()
 
@@ -666,7 +664,7 @@ class DielectricFunction:
             fd = open(filename, 'w')
             for iw in range(Nw):
                 print('%.6f, %.6f, %.6f, %.6f, %.6f' %
-                      (self.chi0.omega_w[iw] * Hartree,
+                      (self.chi0.wd.omega_w[iw] * Hartree,
                        alpha0_w[iw].real * Bohr**(sum(~pbc_c)),
                        alpha0_w[iw].imag * Bohr**(sum(~pbc_c)),
                        alpha_w[iw].real * Bohr**(sum(~pbc_c)),
@@ -686,13 +684,13 @@ class DielectricFunction:
         Note: not tested for spin response
         """
 
-        assert (self.omega_w[1:] - self.omega_w[:-1]).ptp() < 1e-10
+        assert (self.wd.omega_w[1:] - self.wd.omega_w[:-1]).ptp() < 1e-10
 
         fd = self.chi0.fd
 
         if spectrum is None:
             raise ValueError('No spectrum input ')
-        dw = self.chi0.omega_w[1] - self.chi0.omega_w[0]
+        dw = self.chi0.wd.omega_w[1] - self.chi0.wd.omega_w[0]
         N1 = 0
         for iw in range(len(spectrum)):
             w = iw * dw
@@ -720,7 +718,7 @@ class DielectricFunction:
 
         # Get real space grid for plasmon modes:
         r = pd.gd.get_grid_point_coordinates()
-        w_w = self.omega_w * Hartree
+        w_w = self.wd.omega_w * Hartree
         if w_max:
             w_w = w_w[np.where(w_w < w_max)]
         Nw = len(w_w)
@@ -881,7 +879,7 @@ class DielectricFunction:
                 Glist.append(iG)
         qG = Gvec[Glist] + pd.K_qv
 
-        w_w = self.omega_w * Hartree
+        w_w = self.wd.omega_w * Hartree
         if w_max:
             w_w = w_w[np.where(w_w < w_max)]
         Nw = len(w_w)
