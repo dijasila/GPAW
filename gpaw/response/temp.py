@@ -17,13 +17,15 @@ class DielectricFunctionCalculator:
         return self.chiVV_GG @ self.fv_GG
 
     def e_GG_gwp(self):
-        gwp_inv_GG = np.linalg.inv(self.I_GG - self._chiVVfv_GG() + self.chiVV_GG)
+        gwp_inv_GG = np.linalg.inv(self.I_GG - self._chiVVfv_GG() + 
+                                   self.chiVV_GG)
         return self.I_GG - gwp_inv_GG @ self.chiVV_GG
 
     def e_GG_gws(self):
         # Note how the signs are different wrt. gwp.
         # Nobody knows why.
-        gws_inv_GG = np.linalg.inv(self.I_GG + self._chiVVfv_GG() - self.chiVV_GG)
+        gws_inv_GG = np.linalg.inv(self.I_GG + self._chiVVfv_GG() -
+                                   self.chiVV_GG)
         return gws_inv_GG @ (self.I_GG - self.chiVV_GG)
 
     def e_GG_plain(self):

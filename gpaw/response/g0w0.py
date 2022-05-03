@@ -28,7 +28,6 @@ from gpaw.pw.descriptor import (PWDescriptor, PWMapping,
 from gpaw.xc.exx import EXX, select_kpts
 from gpaw.xc.fxc import set_flags
 from gpaw.xc.tools import vxc
-from gpaw.core.matrix import Matrix
 from gpaw.response.temp import DielectricFunctionCalculator
 
 
@@ -39,7 +38,8 @@ class G0W0(PairDensity):
                  av_scheme=None, Eg=None,
                  truncation=None, integrate_gamma=0,
                  ecut=150.0, eta=0.1, E0=1.0 * Ha,
-                 domega0=0.025, omega2=10.0, omegamax=None, q0_correction=False,
+                 domega0=0.025, omega2=10.0, omegamax=None, 
+                 q0_correction=False,
                  anisotropy_correction=None,
                  nblocks=1, savew=False, savepckl=True,
                  maxiter=1, method='G0W0', mixing=0.2,
@@ -740,8 +740,8 @@ class G0W0(PairDensity):
                           'timeordered': True,
                           'domega0': self.domega0 * Ha,
                           'omega2': self.omega2 * Ha,
-                          'omegamax': self.omegamax * Ha if self.omegamax is not None else None}
-
+                          'omegamax': 
+                          self.omegamax * Ha if self.omegamax is not None else None}
 
         self.fd.flush()
 
@@ -896,15 +896,10 @@ class G0W0(PairDensity):
         nG = pd.ngmax
         self.GaGb = chi0.GaGb
         shape = (nw, self.GaGb.nGlocal, nG)
-        # construct empty matrix for chi
-        print('Number of frequencies', nw)
-        print('Frequencies', self.omega_w)
-        print('my shape', shape, self.world.rank)
+        
         chi0.fd = self.fd
         chi0.print_chi(pd)
 
-        #chi0_wGG = A1_x[:np.prod(shape)].reshape(shape).copy()
-        #chi0_wGG[:] = 0.0
         chi0_wGG = np.zeros(shape, dtype=complex)
         if np.allclose(q_c, 0.0):
             chi0_wxvG = np.zeros((nw, 2, 3, nG), complex)
@@ -968,10 +963,6 @@ class G0W0(PairDensity):
             Wm_wGG[:] = Wm2_wGG
             Wp_wGG[:] = Wp2_wGG
 
-        ###############################################################################
-        # At this stage, we have Wp_wGG, distributed over frequencies, and full G G   #
-        ###############################################################################
-
         if self.do_GW_too:
             if self.blockcomm.size > 1:
                 Wm_GW_wGG = chi0.redistribute(chi0_GW_wGG, A1_GW_x)
@@ -989,9 +980,6 @@ class G0W0(PairDensity):
 
         return pdi, [Wp_wGG, Wm_wGG], GW_return
 
-    #############
-    #### NEW ####
-    #############
     def dyson_and_W_new(self, wstc, iq, q_c, chi0, chi0_wvv, chi0_wxvG, chi0_WgG, A1_x, A2_x, pd, ecut, htp, htm):
         assert self.ppa == False
         assert self.do_GW_too == False
@@ -1054,7 +1042,8 @@ class G0W0(PairDensity):
         self.timer.stop('Dyson eq.')
         return pd, Wm_wGG, Wp_wGG
 
-    def dyson_and_W_old(self, wstc, iq, q_c, chi0, chi0_wvv, chi0_wxvG, chi0_wGG, A1_x, A2_x, pd, ecut, htp, htm):
+    def dyson_and_W_old(self, wstc, iq, q_c, chi0, chi0_wvv, chi0_wxvG, 
+                        chi0_wGG, A1_x, A2_x, pd, ecut, htp, htm):
         nw = len(self.omega_w)
         nG = pd.ngmax
 
@@ -1240,8 +1229,10 @@ class G0W0(PairDensity):
                 W_GG[1:, 0] = pi * R_GG[1:, 0] * sqrV0 * sqrV_G[1:]
 
             self.timer.stop('Dyson eq.')
-            xxx
-            return pdi, [W_GG, omegat_GG], None
+            raise SystemExit
+            # Disabled, because not sure what to return here during
+            # refactoring
+            # return pdi, [W_GG, omegat_GG], None
 
         if self.do_GW_too:
             A1_GW_x = A1_x.copy()
