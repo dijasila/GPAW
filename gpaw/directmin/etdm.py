@@ -723,7 +723,7 @@ class ETDM:
 
                 # Identity of the contrained orbitals has changed
                 self.constraints[k] = update_constraints(
-                    self.constraints[k], ind)
+                    self.constraints[k], list(ind))
 
                 changedocc = True
 
