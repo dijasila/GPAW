@@ -704,6 +704,7 @@ class ETDM:
         """
         changedocc = False
         for kpt in wfs.kpt_u:
+            k = self.kpointval(kpt)
             occupied = kpt.f_n > 1.0e-10
             n_occ = len(kpt.f_n[occupied])
             if n_occ == 0.0:
@@ -719,6 +720,10 @@ class ETDM:
 
                 # OccupationsMOM.numbers needs to be updated after sorting
                 self.update_mom_numbers(wfs, kpt)
+
+                # Identity of the contrained orbitals has changed
+                self.constraints[k] = update_constraints(
+                    self.constraints[k], ind)
 
                 changedocc = True
 
@@ -965,3 +970,11 @@ def find_all_pairs(ind, n_dim, n_occ, representation):
             for i in range(n_occ):
                 pairs.append([i, ind])
     return pairs
+
+
+def update_constraints(constraints, ind):
+    new = deepcopy(constraints)
+    for i in range(len(constraints)):
+        for k in range(len(constraints[i])):
+            new[i][k] = ind.index(constraints[i][k])
+    return new
