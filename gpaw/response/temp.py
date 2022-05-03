@@ -8,10 +8,11 @@ class DielectricFunctionCalculator:
 
         self.I_GG = np.eye(len(sqrV_G))
 
+        self.fv_GG = fv_GG
         self.chi0_GG = chi0_GG
         self.mode = mode
 
-    def _chiVVfv(self):
+    def _chiVVfv_GG(self):
         assert self.mode != 'GW'
         assert self.fv_GG is not None
         return self.chiVV_GG @ self.fv_GG
