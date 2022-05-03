@@ -12,6 +12,7 @@ pytestmark = pytest.mark.skipif(
     reason='world.size != 1 and not compiled_with_sl()')
 
 
+@pytest.mark.response
 def test_response_gw_MoS2_cut(in_tmp_dir):
     if 1:
         calc = GPAW(mode='pw',
@@ -45,8 +46,8 @@ def test_response_gw_MoS2_cut(in_tmp_dir):
               'gw-test',
               nbands=15,
               ecut=10,
-              domega0=0.1,
               eta=0.2,
+              frequencies={'type': 'nonlinear', 'domega0': 0.1},
               truncation='2D',
               kpts=[((1 / 3, 1 / 3, 0))],
               bands=(8, 10),

@@ -17,6 +17,7 @@ pytestmark = pytest.mark.skipif(
     reason='world.size != 1 and not compiled_with_sl()')
 
 
+@pytest.mark.response
 def test_response_gw_hBN_extrapolate(in_tmp_dir):
     if 1:
         calc = GPAW(mode='pw',
@@ -48,7 +49,8 @@ def test_response_gw_hBN_extrapolate(in_tmp_dir):
     gw = G0W0('hBN.gpw',
               'gw-hBN',
               ecut=50,
-              domega0=0.1,
+              frequencies={'type': 'nonlinear',
+                           'domega0': 0.1},
               eta=0.2,
               truncation='2D',
               kpts=[0],

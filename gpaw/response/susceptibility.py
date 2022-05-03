@@ -12,7 +12,7 @@ from ase.utils.timing import Timer, timer
 import gpaw.mpi as mpi
 from gpaw.blacs import BlacsGrid, BlacsDescriptor, Redistributor
 from gpaw.response.kspair import get_calc
-from gpaw.response.kslrf import FrequencyDescriptor
+from gpaw.response.frequencies import FrequencyDescriptor
 from gpaw.response.chiks import ChiKS
 from gpaw.response.kxc import get_fxc
 from gpaw.response.kernels import get_coulomb_kernel
@@ -141,7 +141,7 @@ class FourComponentSusceptibilityTensor:
         chi_w = chi_wGG[:, 0, 0]
 
         # Collect data for all frequencies
-        omega_w = wd.get_data() * Hartree
+        omega_w = wd.omega_w * Hartree
         chiks_w = self.collect(chiks_w)
         chi_w = self.collect(chi_w)
 
@@ -216,7 +216,7 @@ class FourComponentSusceptibilityTensor:
                                                         frequencies, txt=txt)
 
         # Get frequencies in eV
-        omega_w = wd.get_data() * Hartree
+        omega_w = wd.omega_w * Hartree
 
         # Get susceptibility in a reduced plane wave representation
         mask_G = get_pw_reduction_map(pd, array_ecut)
@@ -273,7 +273,7 @@ class FourComponentSusceptibilityTensor:
                   f'with q_c={pd.kd.bzk_kc[0]}', file=self.cfd)
             print('---------------', flush=True, file=self.cfd)
 
-        wd = FrequencyDescriptor(np.asarray(frequencies) / Hartree)
+        wd = FrequencyDescriptor.from_array_or_dict(frequencies)
 
         # Initialize parallelization over frequencies
         nw = len(wd)
@@ -378,7 +378,7 @@ class FourComponentSusceptibilityTensor:
         world = self.chiks.world
         b_w = np.zeros(self.mynw, a_w.dtype)
         b_w[:self.w2 - self.w1] = a_w
-        nw = len(self.chiks.omega_w)
+        nw = len(self.chiks.wd)
         A_w = np.empty(world.size * self.mynw, a_w.dtype)
         world.all_gather(b_w, A_w)
         return A_w[:nw]
@@ -416,7 +416,7 @@ class FourComponentSusceptibilityTensor:
         if world.size == 1:
             return chiks_wGG
 
-        nw = len(self.chiks.omega_w)
+        nw = len(self.chiks.wd)
         nG = chiks_wGG.shape[2]
         mynw = (nw + world.size - 1) // world.size
         mynG = (nG + comm.size - 1) // comm.size

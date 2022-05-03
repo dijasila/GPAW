@@ -62,7 +62,7 @@ class BuildingBlock:
 
         self.df = df  # dielectric function object
         self.df.truncation = '2D'  # in case you forgot!
-        self.omega_w = self.df.chi0.omega_w
+        self.wd = self.df.chi0.wd
         self.world = self.df.chi0.world
 
         if self.world.rank != 0:
@@ -78,7 +78,7 @@ class BuildingBlock:
         r = calc.wfs.gd.get_grid_point_coordinates()
         self.z = r[2, 0, 0, :]
 
-        nw = self.omega_w.shape[0]
+        nw = len(self.wd)
         self.chiM_qw = np.zeros([0, nw])
         self.chiD_qw = np.zeros([0, nw])
         self.drhoM_qz = np.zeros([0, self.z.shape[0]])
@@ -178,12 +178,12 @@ class BuildingBlock:
                     add_intraband=add_intraband)
             print('calculated chi!', file=self.fd)
 
-            nw = len(self.omega_w)
+            nw = len(self.wd)
             world = self.df.chi0.world
             w1 = min(self.df.mynw * world.rank, nw)
 
-            q, omega_w, chiM_qw, chiD_qw, z, drhoM_qz, drhoD_qz = \
-                get_chi_2D(self.omega_w, pd, chi_wGG)
+            _, _, chiM_qw, chiD_qw, _, drhoM_qz, drhoD_qz = \
+                get_chi_2D(self.wd.omega_w, pd, chi_wGG)
 
             chiM_w = chiM_qw[0]
             chiD_w = chiD_qw[0]
@@ -226,7 +226,7 @@ class BuildingBlock:
                 'q_cs': self.q_cs,
                 'q_vs': self.q_vs,
                 'q_abs': self.q_abs,
-                'omega_w': self.omega_w,
+                'omega_w': self.wd.omega_w,
                 'chiM_qw': self.chiM_qw,
                 'chiD_qw': self.chiD_qw,
                 'z': self.z,
@@ -243,7 +243,7 @@ class BuildingBlock:
             data = np.load(self.filename + '-chi.npz')
         except IOError:
             return False
-        if (np.all(data['omega_w'] == self.omega_w) and
+        if (np.all(data['omega_w'] == self.wd.omega_w) and
             np.all(data['q_cs'] == self.q_cs) and
             np.all(data['z'] == self.z)):
             self.nq = data['last_q']
@@ -266,6 +266,7 @@ class BuildingBlock:
 
         from scipy.interpolate import RectBivariateSpline
         from scipy.interpolate import interp1d
+        from gpaw.response.frequencies import LinearFrequencyDescriptor
         if not self.complete:
             self.calculate_building_block()
         q_grid *= Bohr
@@ -273,9 +274,9 @@ class BuildingBlock:
 
         assert np.max(q_grid) <= np.max(self.q_abs), \
             'q can not be larger that %1.2f Ang' % np.max(self.q_abs / Bohr)
-        assert np.max(w_grid) <= np.max(self.omega_w), \
+        assert np.max(w_grid) <= np.max(self.wd.omega_w), \
             'w can not be larger that %1.2f eV' % \
-            np.max(self.omega_w * Hartree)
+            np.max(self.wd.omega_w * Hartree)
 
         sort = np.argsort(self.q_abs)
         q_abs = self.q_abs[sort]
@@ -291,27 +292,27 @@ class BuildingBlock:
             chi0_w = self.chiM_qw[0].copy()
             self.chiM_qw[0] = np.zeros_like(chi0_w)
 
-        yr = RectBivariateSpline(q_abs, self.omega_w,
+        yr = RectBivariateSpline(q_abs, self.wd.omega_w,
                                  self.chiM_qw.real,
                                  s=0)
 
-        yi = RectBivariateSpline(q_abs, self.omega_w,
+        yi = RectBivariateSpline(q_abs, self.wd.omega_w,
                                  self.chiM_qw.imag, s=0)
 
         self.chiM_qw = yr(q_grid, w_grid) + 1j * yi(q_grid, w_grid)
         if omit_q0:
-            yr = interp1d(self.omega_w, chi0_w.real)
-            yi = interp1d(self.omega_w, chi0_w.imag)
+            yr = interp1d(self.wd.omega_w, chi0_w.real)
+            yi = interp1d(self.wd.omega_w, chi0_w.imag)
             chi0_w = yr(w_grid) + 1j * yi(w_grid)
             q_abs[0] = q0_abs
             if np.isclose(q_grid[0], 0):
                 self.chiM_qw[0] = chi0_w
 
         # chi dipole
-        yr = RectBivariateSpline(q_abs, self.omega_w,
+        yr = RectBivariateSpline(q_abs, self.wd.omega_w,
                                  self.chiD_qw[sort].real,
                                  s=0)
-        yi = RectBivariateSpline(q_abs, self.omega_w,
+        yi = RectBivariateSpline(q_abs, self.wd.omega_w,
                                  self.chiD_qw[sort].imag,
                                  s=0)
 
@@ -335,15 +336,14 @@ class BuildingBlock:
         self.drhoD_qz = yr(q_grid, self.z) + 1j * yi(q_grid, self.z)
 
         self.q_abs = q_grid
-        self.omega_w = w_grid
-
+        self.wd = LinearFrequencyDescriptor(w_grid)
         self.save_chi_file(filename=self.filename + '_int')
 
     def collect(self, a_w):
         world = self.df.chi0.world
         b_w = np.zeros(self.df.mynw, a_w.dtype)
         b_w[:self.df.w2 - self.df.w1] = a_w
-        nw = len(self.omega_w)
+        nw = len(self.wd)
         A_w = np.empty(world.size * self.df.mynw, a_w.dtype)
         world.all_gather(b_w, A_w)
         return A_w[:nw]

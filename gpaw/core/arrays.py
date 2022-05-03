@@ -1,12 +1,17 @@
 from __future__ import annotations
-import numpy as np
-from gpaw.mpi import MPIComm
-from gpaw.core.matrix import Matrix
-from gpaw.typing import Array1D
+
 from typing import TYPE_CHECKING, Generic, TypeVar
+
+import numpy as np
 from gpaw.core.domain import Domain
+from gpaw.core.matrix import Matrix
+from gpaw.mpi import MPIComm
+from gpaw.typing import Array1D
+
 if TYPE_CHECKING:
     from gpaw.core.uniform_grid import UniformGridFunctions
+
+from gpaw.new import prod
 
 DomainType = TypeVar('DomainType', bound=Domain)
 
@@ -21,13 +26,11 @@ class DistributedArrays(Generic[DomainType]):
                  domain_comm: MPIComm,
                  data: np.ndarray | None,
                  dv: float,
-                 dtype,
-                 transposed: bool):
+                 dtype):
         self.myshape = myshape
         self.comm = comm
         self.domain_comm = domain_comm
         self.dv = dv
-        self.transposed = transposed
 
         # convert int to tuple:
         self.dims = dims if isinstance(dims, tuple) else (dims,)
@@ -41,10 +44,7 @@ class DistributedArrays(Generic[DomainType]):
         else:
             self.mydims = ()
 
-        if transposed:
-            fullshape = self.myshape + self.mydims
-        else:
-            fullshape = self.mydims + self.myshape
+        fullshape = self.mydims + self.myshape
 
         if data is not None:
             if data.shape != fullshape:
@@ -81,14 +81,10 @@ class DistributedArrays(Generic[DomainType]):
         if self._matrix is not None:
             return self._matrix
 
-        if self.transposed:
-            shape = (np.prod(self.myshape), np.prod(self.dims))
-            myshape = (np.prod(self.myshape), np.prod(self.mydims))
-            dist = (self.comm, 1, -1)
-        else:
-            shape = (np.prod(self.dims), np.prod(self.myshape))
-            myshape = (np.prod(self.mydims), np.prod(self.myshape))
-            dist = (self.comm, -1, 1)
+        nx = prod(self.myshape)
+        shape = (self.dims[0], prod(self.dims[1:]) * nx)
+        myshape = (self.mydims[0], prod(self.mydims[1:]) * nx)
+        dist = (self.comm, -1, 1)
 
         data = self.data.reshape(myshape)
         self._matrix = Matrix(*shape, data=data, dist=dist)
@@ -109,7 +105,6 @@ class DistributedArrays(Generic[DomainType]):
             other = function(other)
         M1 = self.matrix
         M2 = other.matrix
-        assert not self.transposed and not other.transposed
         out = M1.multiply(M2, opb='C', alpha=self.dv,
                           symmetric=symmetric, out=out)
         if not cc:

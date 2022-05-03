@@ -99,6 +99,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         vt_sR[0].scatter_from(vt0_R if pw.comm.rank == 0 else None)
         if density.ndensities == 2:
             vt_sR.data[1] = vt_sR.data[0]
+        vt_sR.data[density.ndensities:] = 0.0
 
         vxct_sr = nt_sr.desc.zeros(density.nt_sR.dims)
         e_xc = self.xc.calculate(nt_sr, vxct_sr)

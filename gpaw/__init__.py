@@ -158,6 +158,7 @@ def main():
 if debug:
     np.seterr(over='raise', divide='raise', invalid='raise', under='ignore')
     oldempty = np.empty
+    oldempty_like = np.empty_like
 
     def empty(*args, **kwargs):
         a = oldempty(*args, **kwargs)
@@ -167,7 +168,16 @@ if debug:
             a.fill(-1000000)
         return a
 
+    def empty_like(*args, **kwargs):
+        a = oldempty_like(*args, **kwargs)
+        try:
+            a.fill(np.nan)
+        except ValueError:
+            a.fill(-2000000)
+        return a
+
     np.empty = empty
+    np.empty_like = empty_like
 
 
 with broadcast_imports:

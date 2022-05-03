@@ -1,5 +1,6 @@
 import os
 
+import pytest
 import numpy as np
 
 from ase import Atoms
@@ -14,6 +15,7 @@ from gpaw.response.df import DielectricFunction
 # physical sodium cell.
 
 
+@pytest.mark.response
 def test_response_na_plasmon(in_tmp_dir):
     a = 4.23 / 2.0
     a1 = Atoms('Na',
@@ -76,8 +78,6 @@ def test_response_na_plasmon(in_tmp_dir):
             pass
 
         df1 = DielectricFunction('gs_Na_small.gpw',
-                                 domega0=0.1,
-                                 omegamax=10,
                                  ecut=40,
                                  name='chi0',
                                  **kwargs)
@@ -92,8 +92,6 @@ def test_response_na_plasmon(in_tmp_dir):
             pass
 
         df2 = DielectricFunction('gs_Na_large.gpw',
-                                 domega0=0.1,
-                                 omegamax=10,
                                  ecut=40,
                                  name='chi1',
                                  **kwargs)
@@ -110,7 +108,7 @@ def test_response_na_plasmon(in_tmp_dir):
         dfs5.append(df1LFCz)
 
         # Compare plasmon frequencies and intensities
-        w_w = df1.chi0.omega_w
+        w_w = df1.chi0.wd.omega_w
         w1, I1 = findpeak(w_w, -(1. / df1LFCx).imag)
         w2, I2 = findpeak(w_w, -(1. / df2LFCx).imag)
         equal(w1, w2, 1e-2)
