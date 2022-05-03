@@ -678,9 +678,8 @@ class G0W0(PairDensity):
         # Pick +i*eta or -i*eta:
         s_m = (1 + sgn_m * np.sign(0.5 - f_m)).astype(int) // 2
 
-        beta = self.wd.beta
-        w_m = (o_m / (self.wd.domega0 + beta * o_m)).astype(int)
-        m_inb = np.where(w_m < len(self.wd.omega_w) - 1)[0]
+        w_m = self.wd.get_floor_index(o_m, safe=False)
+        m_inb = np.where(w_m < len(self.wd) - 1)[0]
         o1_m = np.empty(len(o_m))
         o2_m = np.empty(len(o_m))
         o1_m[m_inb] = self.wd.omega_w[w_m[m_inb]]

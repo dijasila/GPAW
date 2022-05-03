@@ -251,7 +251,7 @@ class PointIntegrator(Integrator):
 
         deps_m += self.eshift * np.sign(deps_m)
         o_m = abs(deps_m)
-        w_m = wd.get_closest_index(o_m)
+        w_m = wd.get_floor_index(o_m)
 
         o1_m = wd.omega_w[w_m]
         o2_m = wd.omega_w[w_m + 1]
@@ -284,7 +284,7 @@ class PointIntegrator(Integrator):
 
         deps_m += self.eshift * np.sign(deps_m)
         o_m = abs(deps_m)
-        w_m = wd.get_closest_index(o_m)
+        w_m = wd.get_floor_index(o_m)
 
         GaGb = self._GaGb(chi0_wGG.shape[2])
 
@@ -369,7 +369,7 @@ class PointIntegrator(Integrator):
 
         for deps, n_G in zip(deps_m, n_mG):
             o = abs(deps)
-            w = wd.get_closest_index(o)
+            w = wd.get_floor_index(o)
             if w + 2 > len(wd):
                 break
             o1, o2 = wd.omega_w[w:w + 2]

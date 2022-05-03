@@ -60,12 +60,6 @@ class FrequencyDescriptor:
 
 
 class LinearFrequencyDescriptor(FrequencyDescriptor):
-    def get_closest_index(self, scalars_w):
-        """Get closest index.
-
-        Get closest index approximating scalars from below."""
-        diff_xw = self.omega_w[:, np.newaxis] - scalars_w[np.newaxis]
-        return np.argmin(diff_xw, axis=0)
 
     def get_index_range(self, lim1_m, lim2_m):
         """Get index range. """
@@ -120,16 +114,18 @@ class NonLinearFrequencyDescriptor(FrequencyDescriptor):
         self.omega_w = omega_w
         self.wmax = wmax
 
-    def get_closest_index(self, o_m):
+    def get_floor_index(self, o_m, safe=True):
+        """Get closest index rounding down."""
         beta = self.beta
         w_m = (o_m / (self.domega0 + beta * o_m)).astype(int)
-        if isinstance(w_m, np.ndarray):
-            w_m[w_m >= self.wmax] = self.wmax - 1
-        elif isinstance(w_m, numbers.Integral):
-            if w_m >= self.wmax:
-                w_m = self.wmax - 1
-        else:
-            raise TypeError
+        if safe:
+            if isinstance(w_m, np.ndarray):
+                w_m[w_m >= self.wmax] = self.wmax - 1
+            elif isinstance(w_m, numbers.Integral):
+                if w_m >= self.wmax:
+                    w_m = self.wmax - 1
+            else:
+                raise TypeError
         return w_m
 
     def get_index_range(self, omega1_m, omega2_m):
@@ -137,8 +133,8 @@ class NonLinearFrequencyDescriptor(FrequencyDescriptor):
         omega2_m = omega2_m.copy()
         omega1_m[omega1_m < 0] = 0
         omega2_m[omega2_m < 0] = 0
-        w1_m = self.get_closest_index(omega1_m)
-        w2_m = self.get_closest_index(omega2_m)
+        w1_m = self.get_floor_index(omega1_m)
+        w2_m = self.get_floor_index(omega2_m)
         o1_m = self.omega_w[w1_m]
         o2_m = self.omega_w[w2_m]
         w1_m[o1_m < omega1_m] += 1

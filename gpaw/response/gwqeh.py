@@ -361,8 +361,7 @@ class GWQEHCorrection(PairDensity):
         mynG = (nG + comm.size - 1) // comm.size
         Ga = min(comm.rank * mynG, nG)
         Gb = min(Ga + mynG, nG)
-        beta = (2**0.5 - 1) * self.wd.domega0 / self.wd.omega2
-        w_m = (o_m / (self.wd.domega0 + beta * o_m)).astype(int)
+        w_m = self.wd.get_floor_index(o_m, safe=False)
         o1_m = self.wd.omega_w[w_m]
         o2_m = self.wd.omega_w[w_m + 1]
 
