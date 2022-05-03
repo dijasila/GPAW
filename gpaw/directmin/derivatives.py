@@ -155,7 +155,7 @@ class Davidson(object):
     """
 
     def __init__(self, etdm, logfile, fd_mode=None, m=None, h=None,
-                 eps=None, cap_krylov=None, mmf=None,
+                 eps=None, cap_krylov=None, mmf=False,
                  remember_sp_order=False, sp_order=None, seed=None):
         """
         :param etdm:              ETDM object for which the partial
