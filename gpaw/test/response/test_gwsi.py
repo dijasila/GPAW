@@ -8,6 +8,7 @@ from gpaw.mpi import world
 from gpaw.response.g0w0 import G0W0
 from gpaw.utilities import compiled_with_sl
 
+
 def generate_si_systems():
     a = 5.43
     si1 = bulk('Si', 'diamond', a=a)
