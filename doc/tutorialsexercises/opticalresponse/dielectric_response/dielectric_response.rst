@@ -97,6 +97,8 @@ energy eigenvalue differences appear.
    :members:
 .. autoclass:: gpaw.response.frequencies.NonLinearFrequencyDescriptor
    :members:
+.. autoclass:: gpaw.response.frequencies.LinearFrequencyDescriptor
+   :members:
 
 
 Example 1: Optical absorption of semiconductor: Bulk silicon
