@@ -1,9 +1,9 @@
 """Parallelization scheme for frequency–planewave–planewave arrays."""
 from gpaw.mpi import world
 from gpaw.response.hacks import block_partition
-import numpy as np
-from gpaw.matrix import suggest_blocking
 from gpaw.utilities.scalapack import scalapack_set, scalapack_solve
+from gpaw.blacs import BlacsGrid
+import numpy as np
 
 
 def get_blocksize(length, commsize):
@@ -100,9 +100,6 @@ class Grid:
                              srcarray, dstarray, behavior='overwrite')
 
     def invert_inplace(self, x_wgg):
-        from gpaw.blacs import BlacsGrid
-        from gpaw.utilities.scalapack import scalapack_inverse
-
         # Build wgg grid choosing scalapack
         nscalapack_cores = np.prod(self.cpugrid[1:])
         blacs_comm, wcomm = block_partition(self.comm, nscalapack_cores)
