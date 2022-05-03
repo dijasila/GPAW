@@ -740,7 +740,7 @@ class G0W0(PairDensity):
                           'timeordered': True,
                           'domega0': self.domega0 * Ha,
                           'omega2': self.omega2 * Ha,
-                          'omegamax': self.omegamax * Ha 
+                          'omegamax': self.omegamax * Ha
                           if self.omegamax is not None else None}
 
         self.fd.flush()
@@ -945,8 +945,10 @@ class G0W0(PairDensity):
             self.timer.start('old non gamma')
         else:
             self.timer.start('old gamma')
-        pdi, Wm_wGG, Wp_wGG = self.dyson_and_W_old(wstc, iq, q_c, chi0, 
-                chi0_wvv, chi0_wxvG, chi0_wGG, A1_x, A2_x, pd, ecut, htp, htm)
+        pdi, Wm_wGG, Wp_wGG = self.dyson_and_W_old(wstc, iq, q_c, chi0,
+                                                   chi0_wvv, chi0_wxvG,
+                                                   chi0_wGG, A1_x, A2_x,
+                                                   pd, ecut, htp, htm)
         if not np.allclose(q_c, 0):
             self.timer.stop('old non gamma')
         else:
@@ -954,9 +956,11 @@ class G0W0(PairDensity):
 
         if not np.allclose(q_c, 0):
             self.timer.start('new non gamma')
-            pdi, Wm2_wGG, Wp2_wGG = self.dyson_and_W_new(wstc, iq, q_c, chi0, 
-                    chi0_wvv, chi0_wxvG, chi02_wGG, A1_2_x, A2_2_x, pd, ecut,
-                    htp, htm)
+            pdi, Wm2_wGG, Wp2_wGG = self.dyson_and_W_new(wstc, iq, q_c, chi0,
+                                                         chi0_wvv, chi0_wxvG,
+                                                         chi02_wGG, A1_2_x,
+                                                         A2_2_x, pd, ecut,
+                                                         htp, htm)
             self.timer.stop('new non gamma')
 
             assert np.allclose(Wm_wGG, Wm2_wGG)
@@ -967,23 +971,26 @@ class G0W0(PairDensity):
             Wp_wGG[:] = Wp2_wGG
 
         if self.do_GW_too:
-            if self.blockcomm.size > 1:
-                Wm_GW_wGG = chi0.redistribute(chi0_GW_wGG, A1_GW_x)
-            else:
-                Wm_GW_wGG = chi0_GW_wGG
-
-            Wp_GW_wGG = A2_GW_x[:Wm_GW_wGG.size].reshape(Wm_GW_wGG.shape)
-            Wp_GW_wGG[:] = Wm_GW_wGG
-
-            htp(Wp_GW_wGG)
-            htm(Wm_GW_wGG)
-            GW_return = [Wp_GW_wGG, Wm_GW_wGG]
+            raise NotImplementedError('Check this. chi0_GW_GG not'
+                                      'defined below.')
+            # if self.blockcomm.size > 1:
+            #     Wm_GW_wGG = chi0.redistribute(chi0_GW_wGG, A1_GW_x)
+            # else:
+            #     Wm_GW_wGG = chi0_GW_wGG
+            #
+            # Wp_GW_wGG = A2_GW_x[:Wm_GW_wGG.size].reshape(Wm_GW_wGG.shape)
+            # Wp_GW_wGG[:] = Wm_GW_wGG
+            #
+            # htp(Wp_GW_wGG)
+            # htm(Wm_GW_wGG)
+            # GW_return = [Wp_GW_wGG, Wm_GW_wGG]
         else:
             GW_return = None
 
         return pdi, [Wp_wGG, Wm_wGG], GW_return
 
-    def dyson_and_W_new(self, wstc, iq, q_c, chi0, chi0_wvv, chi0_wxvG, chi0_WgG, A1_x, A2_x, pd, ecut, htp, htm):
+    def dyson_and_W_new(self, wstc, iq, q_c, chi0, chi0_wvv, chi0_wxvG,
+                        chi0_WgG, A1_x, A2_x, pd, ecut, htp, htm):
         assert not self.ppa
         assert not self.do_GW_too
         assert ecut == pd.ecut
@@ -1045,7 +1052,7 @@ class G0W0(PairDensity):
         self.timer.stop('Dyson eq.')
         return pd, Wm_wGG, Wp_wGG
 
-    def dyson_and_W_old(self, wstc, iq, q_c, chi0, chi0_wvv, chi0_wxvG, 
+    def dyson_and_W_old(self, wstc, iq, q_c, chi0, chi0_wvv, chi0_wxvG,
                         chi0_wGG, A1_x, A2_x, pd, ecut, htp, htm):
         nw = len(self.omega_w)
         nG = pd.ngmax
@@ -1060,7 +1067,6 @@ class G0W0(PairDensity):
             wb = nw
 
         if ecut == pd.ecut:
-            #nG = len(chi0_wGG[0])
             pdi = pd
             G2G = None
 
@@ -1163,25 +1169,33 @@ class G0W0(PairDensity):
                     sqrV_G = get_sqrV_G(kd.N_c, q_v=qf_qv[iqf])
 
                     dfc = DielectricFunctionCalculator(sqrV_G, chi0_GG,
-                                                       mode=self.fxc_mode, fv_GG=fv)
+                                                       mode=self.fxc_mode,
+                                                       fv_GG=fv)
                     einv_GG += dfc.get_einv_GG() * weight_q[iqf]
 
                     if self.do_GW_too:
-                        gw_dfc = DielectricFunctionCalculator(sqrtV_G, chi0_GW_GG,
-                                                              mode='GW')
-                        einv_GW_GG += gw_dfc.get_einv_GG() * weight_q[iqf]
+                        raise NotImplementedError('TODO: Check this. sqrtV_G '
+                                                  'not defined below.')
+                        # gw_dfc = DielectricFunctionCalculator(sqrtV_G,
+                        #                                       chi0_GW_GG,
+                        #                                       mode='GW')
+                        # einv_GW_GG += gw_dfc.get_einv_GG() * weight_q[iqf]
 
             else:
                 sqrV_G = get_sqrV_G(self.calc.wfs.kd.N_c)
 
                 dfc = DielectricFunctionCalculator(sqrV_G, chi0_GG,
-                                                   mode=self.fxc_mode, fv_GG=fv)
+                                                   mode=self.fxc_mode,
+                                                   fv_GG=fv)
                 einv_GG = dfc.get_einv_GG()
 
                 if self.do_GW_too:
-                    gw_dfc = DielectricFunctionCalculator(sqrtV_G, chi0_GW_GG,
-                                                          mode='GW')
-                    einv_GW_GG = gw_dfc.get_einv_GG()
+                    raise NotImplementedError('TODO: Check this. sqrtV_G '
+                                              'not defined below.')
+                    # gw_dfc = DielectricFunctionCalculator(sqrtV_G,
+                    #                                       chi0_GW_GG,
+                    #                                       mode='GW')
+                    # einv_GW_GG = gw_dfc.get_einv_GG()
 
             if self.ppa:
                 einv_wGG.append(einv_GG - delta_GG)
