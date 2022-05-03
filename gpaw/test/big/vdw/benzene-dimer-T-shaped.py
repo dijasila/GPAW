@@ -2,14 +2,15 @@ import numpy as np
 from ase.build import molecule
 from ase.constraints import FixedPlane
 from ase.optimize import QuasiNewton
-from gpaw import GPAW, FermiDirac
+from gpaw import GPAW, FermiDirac, PW
+from gpaw.xc.libvdwxc import vdw_df
 
 # Initialization
-molname = 'benzene-mol'
-dimername = 'benzene-dimer'
-f = open('benzene-dimer-T-shape.dat', 'w')
+molname = '2benzene-mol'
+dimername = '2benzene-dimer'
+f = open('2benzene-dimer-T-shape.dat', 'w')
 h = 0.18
-xc = 'vdW-DF'
+xc = vdw_df()
 
 # relaxation of the benzene molecule
 benz = molecule('C6H6')
@@ -19,7 +20,7 @@ benz.set_tags(tags)
 benz.center(vacuum=4.0)
 cell = benz.get_cell()
 
-calc = GPAW(nbands=-1,
+calc = GPAW(mode=PW(400),
             h=h,
             xc=xc,
             occupations=FermiDirac(0.0),
@@ -45,7 +46,7 @@ e_array = np.zeros(20)
 d_array = np.zeros(20)
 
 k = 0
-for i in np.linspace(-6, 6, 20):
+for i in np.linspace(-6, 6, 9):
     k_str = str(k)
     z = 6.0 + i * 0.3
     BENZ = benz.copy()
@@ -61,8 +62,7 @@ for i in np.linspace(-6, 6, 20):
     pos = dimer.get_positions()
     d = pos[21, 2] - pos[0, 2]
 
-    calc = GPAW(nbands=-2,
-                h=h,
+    calc = GPAW(mode=PW(400),
                 xc=xc,
                 occupations=FermiDirac(0.0),
                 txt=dimername + '_' + k_str + '.txt')

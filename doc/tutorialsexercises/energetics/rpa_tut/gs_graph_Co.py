@@ -1,9 +1,13 @@
+from pathlib import Path
+
 import numpy as np
+from ase.build import add_adsorbate, hcp0001
 from ase.dft.kpoints import monkhorst_pack
 from ase.parallel import paropen
-from ase.build import hcp0001, add_adsorbate
 from gpaw import GPAW, PW, FermiDirac
 from gpaw.hybrids.energy import non_self_consistent_energy as nsc_energy
+from gpaw.mpi import rank
+from gpaw.xc.rpa import RPACorrelation
 
 kpts = monkhorst_pack((16, 16, 1))
 kpts += np.array([1 / 32, 1 / 32, 0])
@@ -41,3 +45,18 @@ for d in ds:
     f.close()
 
     del slab[-2:]
+
+    ecut = 200
+
+    rpa = RPACorrelation(f'gs_{d}.gpw', txt=f'rpa_{ecut}_{d}.txt')
+    E_rpa = rpa.calculate(ecut=[ecut],
+                          frequency_scale=2.5,
+                          skip_gamma=True,
+                          filename=f'restart_{ecut}_{d}.txt')
+
+    f = paropen(f'rpa_{ecut}.dat', 'a')
+    print(d, E_rpa, file=f)
+    f.close()
+
+    if rank == 0:
+        Path(f'gs_{d}.gpw').unlink()
