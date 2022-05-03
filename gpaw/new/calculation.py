@@ -3,15 +3,17 @@ from __future__ import annotations
 from typing import Any
 
 import numpy as np
+from ase import Atoms
 from ase.units import Bohr, Ha
-from gpaw.new.builder import builder as create_builder
-from gpaw.new.input_parameters import InputParameters
-from gpaw.new.ibzwfs import IBZWaveFunctions
-from gpaw.new.potential import Potential
-from gpaw.utilities import check_atoms_too_close
-from gpaw.new.density import Density
 from gpaw.core.arrays import DistributedArrays
 from gpaw.core.uniform_grid import UniformGridFunctions
+from gpaw.new.builder import builder as create_builder
+from gpaw.new.density import Density
+from gpaw.new.ibzwfs import IBZWaveFunctions
+from gpaw.new.input_parameters import InputParameters
+from gpaw.new.potential import Potential
+from gpaw.utilities import (check_atoms_too_close,
+                            check_atoms_too_close_to_boundary)
 
 units = {'energy': Ha,
          'free_energy': Ha,
@@ -64,13 +66,14 @@ class DFTCalculation:
 
     @classmethod
     def from_parameters(cls,
-                        atoms,
-                        params=None,
+                        atoms: Atoms,
+                        params: dict | InputParameters = None,
                         log=None,
                         builder=None) -> DFTCalculation:
         """Create DFTCalculation object from parameters and atoms."""
 
         check_atoms_too_close(atoms)
+        check_atoms_too_close_to_boundary(atoms)
 
         if isinstance(params, dict):
             params = InputParameters(params)
