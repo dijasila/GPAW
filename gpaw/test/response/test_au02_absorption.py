@@ -33,9 +33,12 @@ def test_response_au02_absorption(in_tmp_dir):
         calc.diagonalize_full_hamiltonian(nbands=24, scalapack=True)
         calc.write('Au2.gpw', 'all')
 
+    nw = 141
+    frequencies = np.linspace(0, 14, nw)
+
     if ABS:
         df = DielectricFunction('Au2.gpw',
-                                frequencies=np.linspace(0, 14, 141),
+                                frequencies=frequencies,
                                 hilbert=not True,
                                 eta=0.1,
                                 ecut=10)
@@ -45,7 +48,7 @@ def test_response_au02_absorption(in_tmp_dir):
         a0, a = df.get_polarizability(filename=None,
                                       direction='z')
         df_ws = DielectricFunction('Au2.gpw',
-                                   frequencies=np.linspace(0, 14, 141),
+                                   frequencies=frequencies,
                                    hilbert=not True,
                                    eta=0.1,
                                    ecut=10,
@@ -59,23 +62,23 @@ def test_response_au02_absorption(in_tmp_dir):
         w_ = 5.696528390
         I_ = 207.8
 
-        w, I = findpeak(np.linspace(0, 14., 141), b0.imag)
+        w, I = findpeak(frequencies, b0.imag)
         equal(w, w0_, 0.05)
         equal(6**3 * I / (4 * np.pi), I0_, 0.5)
-        w, I = findpeak(np.linspace(0, 14., 141), a0.imag)
+        w, I = findpeak(frequencies, a0.imag)
         equal(w, w0_, 0.05)
         equal(I, I0_, 0.5)
-        w, I = findpeak(np.linspace(0, 14., 141), a0_ws.imag)
+        w, I = findpeak(frequencies, a0_ws.imag)
         equal(w, w0_, 0.05)
         equal(I, I0_, 0.5)
-        w, I = findpeak(np.linspace(0, 14., 141), b.imag)
+        w, I = findpeak(frequencies, b.imag)
         equal(w, w_, 0.05)
         equal(6**3 * I / (4 * np.pi), I_, 0.5)
-        w, I = findpeak(np.linspace(0, 14., 141), a.imag)
+        w, I = findpeak(frequencies, a.imag)
         equal(w, w_, 0.05)
         equal(I, I_, 0.5)
         # The Wigner-Seitz truncation does not give exactly the
         # same for small cell
-        w, I = findpeak(np.linspace(0, 14., 141), a_ws.imag)
+        w, I = findpeak(frequencies, a_ws.imag)
         equal(w, w_, 0.2)
         equal(I, I_, 8.0)
