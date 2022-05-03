@@ -28,6 +28,19 @@ def construct_symmetry_operators(self, K, k_c=None, *, apply_strange_shift,
 
     See the get_k_point() method for how to use these tuples.
     """
+
+    wfs = self.calc.wfs
+
+    R_asii = [setup.R_sii for setup in wfs.setups]
+    return _construct_symmetry_operators(
+        self, K, k_c=k_c,
+        apply_strange_shift=apply_strange_shift,
+        spos_ac=spos_ac,
+        R_asii=R_asii)
+
+
+def _construct_symmetry_operators(self, K, k_c=None, *, apply_strange_shift,
+                                  spos_ac, R_asii):
     wfs = self.calc.wfs
     kd = wfs.kd
 
@@ -76,11 +89,11 @@ def construct_symmetry_operators(self, K, k_c=None, *, apply_strange_shift,
 
     a_a = []
     U_aii = []
-    for a, id in enumerate(self.calc.wfs.setups.id_a):
+    for a, R_sii in enumerate(R_asii):
         b = kd.symmetry.a_sa[s, a]
         S_c = np.dot(spos_ac[a], U_cc) - spos_ac[b]
         x = np.exp(2j * np.pi * np.dot(ik_c, S_c))
-        U_ii = wfs.setups[a].R_sii[s].T * x
+        U_ii = R_sii[s].T * x
         a_a.append(b)
         U_aii.append(U_ii)
 
