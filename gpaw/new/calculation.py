@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Union
 
 import numpy as np
 from ase import Atoms
@@ -67,7 +67,7 @@ class DFTCalculation:
     @classmethod
     def from_parameters(cls,
                         atoms: Atoms,
-                        params: dict | InputParameters = None,
+                        params: Union[dict, InputParameters] = None,
                         log=None,
                         builder=None) -> DFTCalculation:
         """Create DFTCalculation object from parameters and atoms."""
@@ -75,6 +75,8 @@ class DFTCalculation:
         check_atoms_too_close(atoms)
         check_atoms_too_close_to_boundary(atoms)
 
+        if params is None:
+            params = {}
         if isinstance(params, dict):
             params = InputParameters(params)
 

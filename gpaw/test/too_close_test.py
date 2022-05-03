@@ -1,4 +1,5 @@
 """Make sure we get an exception when an atom is too close to the boundary."""
+import os
 from ase import Atoms
 from gpaw import GPAW
 from gpaw.grid_descriptor import GridBoundsError
@@ -16,6 +17,8 @@ def test_too_close():
         hydrogen.get_potential_energy()
 
 
+@pytest.mark.skipif(not os.environ.get('GPAW_NEW'),
+                    reason='ignore old code')
 def test_too_close_to_boundary():
     a = 4.0
     x = 0.1
