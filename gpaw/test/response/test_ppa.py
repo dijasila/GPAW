@@ -26,7 +26,6 @@ def test_do_GW_too(in_tmp_dir, gpw_files):
 
     results=gw.calculate()
     print(results['qp'])
-    np.testing.assert_array_equal(results['qp'], ref_result, 
-                                  err_msg='error in ppa', 
-                                  verbose=True)
+    np.testing.assert_allclose(results['qp'], ref_result, 
+                                  rtol=1e-03)
 
