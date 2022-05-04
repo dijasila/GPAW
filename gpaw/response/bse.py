@@ -20,6 +20,7 @@ from gpaw.response.kernels import get_coulomb_kernel
 from gpaw.response.kernels import get_integrated_kernel
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 from gpaw.response.pair import PairDensity
+from gpaw.response.pw_parallelization import GaGb, PlaneWaveBlockDistributor
 
 
 class BSE:
@@ -528,8 +529,18 @@ class BSE:
             pd = PWDescriptor(self.ecut, wfs.gd, complex, thisqd)
             nG = pd.ngmax
 
-            from gpaw.response.pw_parallelization import GaGb
-            chi0.GaGb = GaGb(self.blockcomm, nG)
+            # Since we do not call chi0.calculate() (which in of itself
+            # leads to massive code duplication), we have to manage the
+            # block parallelization here. Before calling chi0._calculate()
+            # we have to manually set the parallelization properties
+            # on the chi0 object, which seems very unsafe indeed.
+            chi0.GaGb = GaGb(chi0.blockcomm, nG)
+            chi0.blockdist = PlaneWaveBlockDistributor(chi0.world,
+                                                       chi0.blockcomm,
+                                                       chi0.kncomm,
+                                                       chi0.wd,
+                                                       chi0.GaGb)
+
             chi0_wGG = np.zeros((1, nG, nG), complex)
             if np.allclose(q_c, 0.0):
                 chi0_wxvG = np.zeros((1, 2, 3, nG), complex)
