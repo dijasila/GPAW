@@ -9,14 +9,14 @@ import gpaw.mpi as mpi
 import numpy as np
 from ase.units import Ha
 from ase.utils.timing import Timer, timer
-from gpaw.blacs import BlacsDescriptor, BlacsGrid, Redistributor
 from gpaw.bztools import convex_hull_volume
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.pw.descriptor import PWDescriptor
 from gpaw.response.frequencies import (FrequencyDescriptor,
                                        LinearFrequencyDescriptor,
                                        NonLinearFrequencyDescriptor)
-from gpaw.response.hacks import GaGb
+from gpaw.response.pw_parallelization import (block_partition, GaGb,
+                                              PlaneWaveBlockDistributor)
 from gpaw.response.integrators import PointIntegrator, TetrahedronIntegrator
 from gpaw.response.pair import PairDensity, PWSymmetryAnalyzer
 from gpaw.utilities.blas import gemm
@@ -180,8 +180,6 @@ class Chi0:
 
         self.world = world
 
-        from gpaw.response.hacks import block_partition
-
         self.blockcomm, self.kncomm = block_partition(world, nblocks)
 
         self.nblocks = nblocks
@@ -210,6 +208,9 @@ class Chi0:
 
         self.wd = FrequencyDescriptor.from_array_or_dict(frequencies)
         print(self.wd, file=self.fd)
+
+        self.GaGb = None  # Plane wave basis depends on q
+        self.blockdist = None
 
         if not isinstance(self.wd, NonLinearFrequencyDescriptor):
             assert not hilbert
@@ -297,10 +298,15 @@ class Chi0:
             print('    Dry run exit', file=self.fd)
             raise SystemExit
 
+        # Initialize block distibution of plane wave basis
         nG = pd.ngmax + 2 * optical_limit
-        nw = len(self.wd)
-
         self.GaGb = GaGb(self.blockcomm, nG)
+        self.blockdist = PlaneWaveBlockDistributor(self.world,
+                                                   self.blockcomm,
+                                                   self.kncomm,
+                                                   self.wd, self.GaGb)
+
+        nw = len(self.wd)
         wGG_shape = (nw, self.GaGb.nGlocal, nG)
         # if self.blockcomm.rank == 0:
         #     assert self.Gb - self.Ga >= 3
@@ -596,11 +602,10 @@ class Chi0:
 
             # Again, not so pretty but that's how it is
             plasmafreq_vv = plasmafreq_wvv[0].copy()
-            GaGb = self.GaGb
             if self.include_intraband:
                 if extend_head:
-                    va = min(GaGb.Ga, 3)
-                    vb = min(GaGb.Gb, 3)
+                    va = min(self.GaGb.Ga, 3)
+                    vb = min(self.GaGb.Gb, 3)
                     A_wxx[:, :vb - va, :3] += (plasmafreq_vv[va:vb] /
                                                (self.wd.omega_w[:, np.newaxis,
                                                                 np.newaxis] +
@@ -656,15 +661,12 @@ class Chi0:
         # account for their nonanalytic behaviour which means that the size of
         # the chi0_wGG matrix is nw * (nG + 2)**2. Below we extract these
         # parameters.
-
-        GaGb = self.GaGb
-
         if optical_limit and extend_head:
             # The wings are extracted
-            chi0_wxvG[:, 1, :, GaGb.myslice] = np.transpose(
+            chi0_wxvG[:, 1, :, self.GaGb.myslice] = np.transpose(
                 A_wxx[..., 0:3], (0, 2, 1))
-            va = min(GaGb.Ga, 3)
-            vb = min(GaGb.Gb, 3)
+            va = min(self.GaGb.Ga, 3)
+            vb = min(self.GaGb.Gb, 3)
             # print(self.world.rank, va, vb, chi0_wxvG[:, 0, va:vb].shape,
             #       A_wxx[:, va:vb].shape, A_wxx.shape)
             chi0_wxvG[:, 0, va:vb] = A_wxx[:, :vb - va]
@@ -920,90 +922,11 @@ class Chi0:
 
     @timer('redist')
     def redistribute(self, in_wGG, out_x=None):
-        """Redistribute array.
-
-        Switch between two kinds of parallel distributions:
-
-        1) parallel over G-vectors (second dimension of in_wGG)
-        2) parallel over frequency (first dimension of in_wGG)
-
-        Returns new array using the memory in the 1-d array out_x.
-        """
-
-        comm = self.blockcomm
-
-        if comm.size == 1:
-            return in_wGG
-
-        nw = len(self.wd)
-        nG = in_wGG.shape[2]
-        mynw = (nw + comm.size - 1) // comm.size
-        mynG = (nG + comm.size - 1) // comm.size
-
-        bg1 = BlacsGrid(comm, comm.size, 1)
-        bg2 = BlacsGrid(comm, 1, comm.size)
-        md1 = BlacsDescriptor(bg1, nw, nG**2, mynw, nG**2)
-        md2 = BlacsDescriptor(bg2, nw, nG**2, nw, mynG * nG)
-
-        if len(in_wGG) == nw:
-            mdin = md2
-            mdout = md1
-        else:
-            mdin = md1
-            mdout = md2
-
-        r = Redistributor(comm, mdin, mdout)
-
-        outshape = (mdout.shape[0], mdout.shape[1] // nG, nG)
-        if out_x is None:
-            out_wGG = np.empty(outshape, complex)
-        else:
-            out_wGG = out_x[:np.product(outshape)].reshape(outshape)
-
-        r.redistribute(in_wGG.reshape(mdin.shape),
-                       out_wGG.reshape(mdout.shape))
-
-        return out_wGG
+        return self.blockdist.redistribute(in_wGG, out_x)
 
     @timer('dist freq')
     def distribute_frequencies(self, chi0_wGG):
-        """Distribute frequencies to all cores."""
-
-        world = self.world
-        comm = self.blockcomm
-
-        if world.size == 1:
-            return chi0_wGG
-
-        nw = len(self.wd)
-        nG = chi0_wGG.shape[2]
-        mynw = (nw + world.size - 1) // world.size
-        mynG = (nG + comm.size - 1) // comm.size
-
-        wa = min(world.rank * mynw, nw)
-        wb = min(wa + mynw, nw)
-
-        if self.blockcomm.size == 1:
-            return chi0_wGG[wa:wb].copy()
-
-        if self.kncomm.rank == 0:
-            bg1 = BlacsGrid(comm, 1, comm.size)
-            in_wGG = chi0_wGG.reshape((nw, -1))
-        else:
-            bg1 = BlacsGrid(None, 1, 1)
-            # bg1 = DryRunBlacsGrid(mpi.serial_comm, 1, 1)
-            in_wGG = np.zeros((0, 0), complex)
-        md1 = BlacsDescriptor(bg1, nw, nG**2, nw, mynG * nG)
-
-        bg2 = BlacsGrid(world, world.size, 1)
-        md2 = BlacsDescriptor(bg2, nw, nG**2, mynw, nG**2)
-
-        r = Redistributor(world, md1, md2)
-        shape = (wb - wa, nG, nG)
-        out_wGG = np.empty(shape, complex)
-        r.redistribute(in_wGG, out_wGG.reshape((wb - wa, nG**2)))
-
-        return out_wGG
+        return self.blockdist.distribute_frequencies(chi0_wGG)
 
     def print_chi(self, pd):
         calc = self.calc

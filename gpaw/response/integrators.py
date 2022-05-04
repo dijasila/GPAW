@@ -10,7 +10,7 @@ import _gpaw
 import gpaw.mpi as mpi
 from gpaw.utilities.blas import gemm, rk, mmm
 from gpaw.utilities.progressbar import ProgressBar
-from gpaw.response.hacks import GaGb, block_partition
+from gpaw.response.pw_parallelization import GaGb, block_partition
 
 
 def czher(alpha: float, x, A) -> None:
