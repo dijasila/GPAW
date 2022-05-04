@@ -1,17 +1,12 @@
 import pytest
 from gpaw.mpi import world
-from gpaw.utilities import compiled_with_sl
 import numpy as np
 from gpaw.response.g0w0 import G0W0
 import pickle
 
-pytestmark = pytest.mark.skipif(
-    world.size != 1 and not compiled_with_sl(),
-    reason='world.size != 1 and not compiled_with_sl()')
-
 
 @pytest.mark.response
-def test_do_GW_too(in_tmp_dir, gpw_files):
+def test_do_GW_too(in_tmp_dir, gpw_files, scalapack):
     ref_gap = 4.7747
     gw = G0W0(gpw_files['bn_pw_wfs'],
               bands=(3, 5),
