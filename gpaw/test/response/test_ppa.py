@@ -10,23 +10,17 @@ pytestmark = pytest.mark.skipif(
 
 
 @pytest.mark.response
-@pytest.mark.parametrize('fxc_mode, ref_gap', [
-    ('GWP', 4.667170),
-    ('GWS', 4.988230),
-    ('GWG', 4.894904)
-])
-def test_fxc_mode(in_tmp_dir, gpw_files, fxc_mode, ref_gap):
+def test_ppa(in_tmp_dir, gpw_files):
+    ref_result = np.asarray([[[11.30094393, 21.62842077],
+                              [5.33751513, 16.06905725],
+                              [8.75269938, 22.46579489]]])
     gw = G0W0(gpw_files['bn_pw_wfs'],
               bands=(3, 5),
               nbands=9,
               nblocks=1,
-              xc='rALDA',
               method='G0W0',
               ecut=40,
-              fxc_mode=fxc_mode)
+              ppa=True)
 
-    result = gw.calculate()
-
-    calculated_gap = np.min(result['qp'][0, :, 1])\
-        - np.max(result['qp'][0, :, 0])
-    assert calculated_gap == pytest.approx(ref_gap)
+    results = gw.calculate()
+    np.testing.assert_allclose(results['qp'], ref_result, rtol=1e-03)
