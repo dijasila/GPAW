@@ -169,16 +169,6 @@ class FXCCorrelation(RPACorrelation):
             chi0_swxvG = range(2)  # Not used
             chi0_swvv = range(2)  # Not used
 
-        # Since we do not call chi0.calculate() (which in of itself leads
-        # to massive code duplication), we have to manage the block
-        # parallelization here. To use chi0._calculate(), we have to set
-        # manually parallelization properties on the chi0 object, which
-        # seems very unsafe indeed.
-        nG = chi0_swGG[0].shape[2]
-        chi0.GaGb = GaGb(chi0.blockcomm, nG)
-        chi0.blockdist = PlaneWaveBlockDistributor(chi0.world, chi0.blockcomm,
-                                                   chi0.kncomm, chi0.wd, chi0.GaGb)
-
         chi0._calculate(pd,
                         chi0_swGG[0],
                         chi0_swxvG[0],
