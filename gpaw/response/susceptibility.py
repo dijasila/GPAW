@@ -315,7 +315,7 @@ class FourComponentSusceptibilityTensor:
 
         chi_wGG = self.invert_dyson(chiks_wGG, K_GG)
 
-        print(f'\nFinished calculating component', file=self.cfd)
+        print('\nFinished calculating component', file=self.cfd)
         print('---------------', flush=True, file=self.cfd)
 
         return pd, wd, chiks_wGG, chi_wGG
