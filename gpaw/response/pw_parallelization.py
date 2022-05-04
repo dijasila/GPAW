@@ -5,11 +5,12 @@ from gpaw.blacs import BlacsDescriptor, BlacsGrid, Redistributor
 class GaGb:
     def __init__(self, blockcomm, nG):
         self.blockcomm = blockcomm
-        mynG = (nG + blockcomm.size - 1) // blockcomm.size
-        self.Ga = min(blockcomm.rank * mynG, nG)
-        self.Gb = min(self.Ga + mynG, nG)
-        self.nGlocal = self.Gb - self.Ga
         self.nG = nG
+
+        self.mynG = (nG + blockcomm.size - 1) // blockcomm.size
+        self.Ga = min(blockcomm.rank * self.mynG, nG)
+        self.Gb = min(self.Ga + self.mynG, nG)
+        self.nGlocal = self.Gb - self.Ga
 
         self.myslice = slice(self.Ga, self.Gb)
 
@@ -38,7 +39,17 @@ class PlaneWaveBlockDistributor:
         self.world = world
         self.blockcomm = blockcomm
         self.intrablockcomm = intrablockcomm
-        self.wd = wd
+
+        # NB: It seems that the only thing we need from the wd is
+        # nw, why we should consider simply passing nw instead.
+        # Also, it would seem beneficial to make a wawb object
+        # similar to GaGb, in order to reduce code duplication.
+        self.nw = len(wd)
+
+        # CAUTION: Currently the redistribute functionality is used
+        # also for arrays with different distribution than GaGb.
+        # For this reason, GaGb is actually not used below, but we
+        # keep for now, to make the vision more clear.
         self.GaGb = GaGb
 
     def redistribute(self, in_wGG, out_x=None):
@@ -57,9 +68,12 @@ class PlaneWaveBlockDistributor:
         if comm.size == 1:
             return in_wGG
 
-        nw = len(self.wd)
-        nG = in_wGG.shape[2]
+        nw = self.nw
         mynw = (nw + comm.size - 1) // comm.size
+        # CAUTION: It is not always the case that nG == self.GaGb.nG
+        # This happens, because chi0 wants to reuse the function
+        # for the heads and wings part as well
+        nG = in_wGG.shape[2]
         mynG = (nG + comm.size - 1) // comm.size
 
         bg1 = BlacsGrid(comm, comm.size, 1)
@@ -96,9 +110,9 @@ class PlaneWaveBlockDistributor:
         if world.size == 1:
             return in_wGG
 
-        nw = len(self.wd)
-        nG = in_wGG.shape[2]
+        nw = self.nw
         mynw = (nw + world.size - 1) // world.size
+        nG = in_wGG.shape[2]
         mynG = (nG + comm.size - 1) // comm.size
 
         wa = min(world.rank * mynw, nw)
