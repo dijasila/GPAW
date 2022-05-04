@@ -10,7 +10,7 @@ pytestmark = pytest.mark.skipif(
 
 
 @pytest.mark.response
-def test_do_GW_too(in_tmp_dir, gpw_files):
+def test_ppa(in_tmp_dir, gpw_files):
     ref_result = np.asarray([[[11.30094393, 21.62842077],
                               [5.33751513, 16.06905725],
                               [8.75269938, 22.46579489]]])
