@@ -260,8 +260,11 @@ class RPACorrelation:
             # parallelization properties on the chi0 object, which seems
             # very unsafe indeed.
             chi0.GaGb = GaGb(chi0.blockcomm, nG)
-            chi0.blockdist = PlaneWaveBlockDistributor(chi0.world, chi0.blockcomm,
-                                                       chi0.kncomm, chi0.wd, chi0.GaGb)
+            chi0.blockdist = PlaneWaveBlockDistributor(chi0.world,
+                                                       chi0.blockcomm,
+                                                       chi0.kncomm,
+                                                       chi0.wd,
+                                                       chi0.GaGb)
 
             shape = (1 + spin, nw, chi0.GaGb.nGlocal, nG)
             chi0_swGG = A1_x[:np.prod(shape)].reshape(shape)

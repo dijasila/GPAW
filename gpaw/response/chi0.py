@@ -302,8 +302,10 @@ class Chi0:
         # Initialize block distibution of plane wave basis
         nG = pd.ngmax + 2 * optical_limit
         self.GaGb = GaGb(self.blockcomm, nG)
-        self.blockdist = PlaneWaveBlockDistributor(self.world, self.blockcomm,
-                                                   self.kncomm, self.wd, self.GaGb)
+        self.blockdist = PlaneWaveBlockDistributor(self.world,
+                                                   self.blockcomm,
+                                                   self.kncomm,
+                                                   self.wd, self.GaGb)
 
         nw = len(self.wd)
         wGG_shape = (nw, self.GaGb.nGlocal, nG)
