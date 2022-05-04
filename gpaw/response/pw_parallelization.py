@@ -1,3 +1,4 @@
+import numpy as np
 from gpaw.blacs import BlacsDescriptor, BlacsGrid, Redistributor
 
 
