@@ -29,7 +29,7 @@ def run(atoms, symm, nblocks):
                       occupations=FermiDirac(0.01),
                       symmetry=symm,
                       kpts={'size': (2, 2, 2), 'gamma': True},
-                      convergence={'density': 1e-6},
+                      convergence={'density': 1e-7},
                       parallel={'domain': 1},
                       txt='si.txt')
     e = atoms.get_potential_energy()
