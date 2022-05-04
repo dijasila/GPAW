@@ -1,5 +1,4 @@
 import pytest
-from gpaw.mpi import world
 import numpy as np
 from ase.build import bulk
 from gpaw import GPAW, FermiDirac

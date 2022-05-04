@@ -1,6 +1,4 @@
 import pytest
-from gpaw.mpi import world
-from gpaw.utilities import compiled_with_sl
 import numpy as np
 from ase import Atoms
 from ase.lattice.hexagonal import Hexagonal

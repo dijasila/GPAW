@@ -1,10 +1,10 @@
 import pytest
-from gpaw.mpi import world
 import numpy as np
 from ase import Atoms
 from gpaw import GPAW, FermiDirac, PW
 from gpaw.response.df import DielectricFunction
 from gpaw.test import equal, findpeak
+
 
 @pytest.mark.response
 @pytest.mark.slow
