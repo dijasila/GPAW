@@ -19,7 +19,6 @@ from gpaw.new.basis import create_basis
 from gpaw.new.brillouin import BZPoints, MonkhorstPackKPoints
 from gpaw.new.density import Density
 from gpaw.new.input_parameters import InputParameters
-from gpaw.new.spinors import SpinorWaveFunctionDescriptor
 from gpaw.new.scf import SCFLoop
 from gpaw.new.smearing import OccupationNumberCalculator
 from gpaw.new.symmetry import create_symmetries_object
@@ -144,10 +143,7 @@ class DFTComponentsBuilder:
 
     @cached_property
     def wf_desc(self):
-        desc = self.create_wf_description()
-        if self.ncomponents == 4:
-            desc = SpinorWaveFunctionDescriptor(desc)
-        return desc
+        return self.create_wf_description()
 
     def __repr__(self):
         return f'{self.__class__.__name__}({self.atoms}, {self.params})'

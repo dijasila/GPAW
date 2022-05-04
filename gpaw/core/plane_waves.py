@@ -25,7 +25,7 @@ class PlaneWaves(Domain):
                  kpt: Vector = None,
                  comm: MPIComm = serial_comm,
                  dtype=None):
-        """Description of 3-D plane-wave expansion.
+        """Description of plane-wave basis.
 
         parameters
         ----------
@@ -69,6 +69,8 @@ class PlaneWaves(Domain):
         self.dv = abs(np.linalg.det(self.cell_cv))
 
         self._indices_cache: dict[tuple[int, ...], Array1D] = {}
+
+        self.qspiral_v = None
 
     def __repr__(self) -> str:
         m = self.myshape[0]
@@ -191,8 +193,14 @@ class PlaneWaves(Domain):
                                 integral=None,
                                 cut=False):
         """Create PlaneWaveAtomCenteredFunctions object."""
-        return PlaneWaveAtomCenteredFunctions(functions, positions, self,
-                                              atomdist=atomdist)
+        if self.qspiral_v is None:
+            return PlaneWaveAtomCenteredFunctions(functions, positions, self,
+                                                  atomdist=atomdist)
+
+        from gpaw.new.spinspiral import SpiralPWAFC
+        return SpiralPWAFC(functions, positions, self,
+                           atomdist=atomdist,
+                           qspiral_v=self.qspiral_v)
 
 
 class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):

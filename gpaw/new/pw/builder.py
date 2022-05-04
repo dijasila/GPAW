@@ -1,24 +1,26 @@
+from math import pi
 from ase.units import Ha
 from gpaw.core import PlaneWaves, UniformGrid
+from gpaw.core.matrix import Matrix
 from gpaw.core.plane_waves import PlaneWaveExpansions
 from gpaw.new.builder import create_uniform_grid
+from gpaw.new.pw.hamiltonian import PWHamiltonian, SpinorPWHamiltonian
 from gpaw.new.pw.poisson import ReciprocalSpacePoissonSolver
 from gpaw.new.pw.pot_calc import PlaneWavePotentialCalculator
 from gpaw.new.pwfd.builder import PWFDDFTComponentsBuilder
+from gpaw.new.spinors import SpinorWaveFunctionDescriptor
 from gpaw.typing import Array1D
-from gpaw.core.matrix import Matrix
-from gpaw.new.pw.hamiltonian import PWHamiltonian, SpinorPWHamiltonian
-from gpaw.new.spinspiral import SpinSpiralWaveFunctionDescriptor
 
 
 class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
     interpolation = 'fft'
 
-    def __init__(self, atoms, params, ecut=340, spiral=None):
+    def __init__(self, atoms, params, ecut=340, qspiral=None):
         self.ecut = ecut / Ha
-        self.spiral = spiral
         super().__init__(atoms, params)
 
+        self.qspiral_v = (None if qspiral is None else
+                          qspiral @ self.grid.icell * (2 * pi))
         self._nct_ag = None
 
     def create_uniform_grids(self):
@@ -41,10 +43,9 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
                         cell=self.grid.cell,
                         comm=self.grid.comm,
                         dtype=self.dtype)
-        if self.spiral is None:
-            return pw
-
-        return SpinSpiralWaveFunctionDescriptor(pw, qspiral=self.spiral)
+        if self.ncomponents == 4:
+            return SpinorWaveFunctionDescriptor(pw, qspiral_v=self.qspiral_v)
+        return pw
 
     def create_xc_functional(self):
         if self.params.xc['name'] in ['HSE06', 'PBE0', 'EXX']:

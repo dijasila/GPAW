@@ -1,41 +1,50 @@
-from gpaw.core.domain import Domain
-from gpaw.new.spinors import SpinorWaveFunctionDescriptor
-from gpaw.typing import Vector
+from math import pi
+from gpaw.core.plane_waves import PlaneWaves
+from gpaw.core.pwacf import PlaneWaveAtomCenteredFunctions
 
 
-class SpinSpiralWaveFunctionDescriptor(SpinorWaveFunctionDescriptor):
+class QPW:
     def __init__(self,
-                 desc: Domain,
-                 qspiral: Vector):
-        super().__init__(desc)
-        self.qspiral_c = qspiral
-
-    def new(self, *, kpt):
-        return SpinSpiralWaveFunctionDescriptor(self.desc.new(kpt=kpt),
-                                                self.qspiral_c)
-
-    def empty(self, nbands, band_comm):
-        psit_nsG = self.desc.empty((nbands, 2), band_comm)
-        psit_nsG.desc = self
-        return psit_nsG
-
-    def atom_centered_functions(self,
-                                pt_aj,
-                                positions,
-                                *,
-                                atomdist=None):
-        pt_aiX = self.desc.atom_centered_functions(pt_aj, positions,
-                                                   atomdist=atomdist)
-        return SpiralPWAFC(pt_aiX, self.qspiral_c)
-
-
-class QPWAFC:
-    def __init__(self, pt_aiG, qspiral_c):
-        self.pt_aiG = pt_aiG
-        self.qspiral_c = qspiral_c
+                 pw: PlaneWaves,
+                 qspiral_v):
+        self.pw = pw
+        self.qspiral_v = qspiral_v
+        self.dtype = complex
+        self.maxmysize = pw.maxmysize
+        self.comm = pw.comm
+        self.myshape = pw.myshape
+        self.G_plus_k_Gv = pw.G_plus_k_Gv + qspiral_v
+        self.ekin_G = 0.5 * (self.G_plus_k_Gv**2).sum(1)
+        self.kpt = pw.kpt_c + pw.cell_cv @ qspiral_v / (2 * pi)
+        self.cell = pw.cell
+        self.dv = pw.dv
 
 
 class SpiralPWAFC:
-    def __init__(self, pt_aiG, qspiral_c):
-        self.ptup_aiG = QPWAFC(pt_aiG, qspiral_c)
-        self.ptdn_aiG = QPWAFC(pt_aiG, -qspiral_c)
+    def __init__(self, functions, positions, pw,
+                 atomdist,
+                 qspiral_v):
+        self.pt_saiG = [
+            PlaneWaveAtomCenteredFunctions(functions,
+                                           positions,
+                                           QPW(pw, 0.5 * sign * qspiral_v),
+                                           atomdist=atomdist)
+            for sign in [1, -1]]
+
+    def empty(self, dims, comm):
+        return self.pt_saiG[0].empty(dims, comm)
+
+    def integrate(self, psit_nsG, out):
+        P_ansi = out
+        for s, pt_aiG in enumerate(self.pt_saiG):
+            pt_aiG._lazy_init()
+            pt_aiG._lfc.integrate(psit_nsG.data[:, s],
+                                  {a: P_nsi[:, s]
+                                   for a, P_nsi in P_ansi.items()})
+
+    def add_to(self, r_nsG, P_ansi):
+        for s, pt_aiG in enumerate(self.pt_saiG):
+            # pt_aiG._lazy_init()
+            pt_aiG._lfc.add(r_nsG.data[:, s],
+                            {a: P_nsi[:, s]
+                             for a, P_nsi in P_ansi.items()})
