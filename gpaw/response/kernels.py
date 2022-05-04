@@ -1,4 +1,3 @@
-# -*- coding: utf-8
 """This module defines Coulomb and XC kernels for the response model.
 """
 
