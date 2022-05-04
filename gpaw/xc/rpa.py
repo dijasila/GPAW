@@ -252,7 +252,7 @@ class RPACorrelation:
             pd = PWDescriptor(ecutmax, wfs.gd, complex, thisqd)
             nG = pd.ngmax
 
-            from gpaw.response.hacks import GaGb
+            from gpaw.response.pw_parallelization import GaGb
             blockdist = chi0.GaGb = GaGb(self.blockcomm, nG)
 
             shape = (1 + spin, nw, blockdist.nGlocal, nG)
