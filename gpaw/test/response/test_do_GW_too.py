@@ -25,6 +25,8 @@ def test_do_GW_too(in_tmp_dir, gpw_files):
 
     gw.calculate()
 
+    world.barrier()
+
     with open('gw_results_GW.pckl', 'rb') as handle:
         results_GW = pickle.load(handle)
     calculated_gap = np.min(results_GW['qp'][0, :, 1])\
