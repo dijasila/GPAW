@@ -21,7 +21,7 @@ from gpaw.response.fxckernel_calc import calculate_kernel
 from gpaw.response.kernels import get_coulomb_kernel, get_integrated_kernel
 from gpaw.response.pair import PairDensity
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
-from gpaw.response.pw_parallelization import GaGb
+from gpaw.response.pw_parallelization import GaGb, PlaneWaveBlockDistributor
 from gpaw.utilities.progressbar import ProgressBar
 from gpaw.pw.descriptor import (PWDescriptor, PWMapping,
                                 count_reciprocal_vectors)
@@ -267,6 +267,9 @@ class G0W0(PairDensity):
 
         self.frequencies = frequencies
         self.wd = None
+
+        self.GaGb = None
+        self.blockdist = None
 
         if anisotropy_correction is not None:
             self.ac = anisotropy_correction
@@ -809,6 +812,8 @@ class G0W0(PairDensity):
             pd = PWDescriptor(self.ecut, self.calc.wfs.gd, complex, thisqd)
             nG = pd.ngmax
 
+            # This does not seem healthy... G0W0 should not configure the
+            # properties of chi0 directly, see blockdist below
             chi0.GaGb = GaGb(self.blockcomm, nG)
 
             if len(self.ecut_e) > 1:
@@ -896,9 +901,20 @@ class G0W0(PairDensity):
                     iq):
         """Calculates the screened potential for a specified q-point."""
 
+        # Since we do not call chi0.calculate() (which in of itself leads
+        # to massive code duplication), we have to manage the block
+        # parallelization here.
+        self.GaGb = chi0.GaGb
+        self.blockdist = PlaneWaveBlockDistributor(self.world,
+                                                   self.blockcomm,
+                                                   chi0.kncomm,
+                                                   self.wd, self.GaGb)
+        # Because we do not call chi0.calculate(), we have to let it
+        # know about the block distributor by hand... Unsafe!
+        chi0.blockdist = self.blockdist
+
         nw = len(self.wd)
         nG = pd.ngmax
-        self.GaGb = chi0.GaGb
         shape = (nw, self.GaGb.nGlocal, nG)
         # construct empty matrix for chi
         chi0_wGG = A1_x[:np.prod(shape)].reshape(shape).copy()
@@ -927,7 +943,7 @@ class G0W0(PairDensity):
 
         mynw = (nw + self.blockcomm.size - 1) // self.blockcomm.size
         if self.blockcomm.size > 1:
-            chi0_wGG = chi0.redistribute(chi0_wGG, A2_x)
+            chi0_wGG = self.blockdist.redistribute(chi0_wGG, A2_x)
             wa = min(self.blockcomm.rank * mynw, nw)
             wb = min(wa + mynw, nw)
         else:
@@ -1169,7 +1185,7 @@ class G0W0(PairDensity):
             A2_GW_x = A2_x.copy()
 
         if self.blockcomm.size > 1:
-            Wm_wGG = chi0.redistribute(chi0_wGG, A1_x)
+            Wm_wGG = self.blockdist.redistribute(chi0_wGG, A1_x)
         else:
             Wm_wGG = chi0_wGG
 
@@ -1183,7 +1199,7 @@ class G0W0(PairDensity):
 
         if self.do_GW_too:
             if self.blockcomm.size > 1:
-                Wm_GW_wGG = chi0.redistribute(chi0_GW_wGG, A1_GW_x)
+                Wm_GW_wGG = self.blockdist.redistribute(chi0_GW_wGG, A1_GW_x)
             else:
                 Wm_GW_wGG = chi0_GW_wGG
 
