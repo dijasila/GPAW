@@ -1,4 +1,3 @@
-
 import functools
 import numbers
 import sys
@@ -17,6 +16,7 @@ from gpaw.fd_operators import Gradient
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.response.math_func import (two_phi_planewave_integrals,
                                      two_phi_nabla_planewave_integrals)
+from gpaw.response.pw_parallelization import block_partition
 from gpaw.utilities.blas import gemm
 from gpaw.utilities.progressbar import ProgressBar
 from gpaw.pw.lfc import PWLFC
@@ -684,8 +684,6 @@ class PairDensity:
         self.threshold = threshold
         self.real_space_derivatives = real_space_derivatives
         self.gate_voltage = gate_voltage
-
-        from gpaw.response.hacks import block_partition
 
         self.blockcomm, self.kncomm = block_partition(world, nblocks)
 

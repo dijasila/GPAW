@@ -15,6 +15,7 @@ from gpaw.pw.descriptor import PWDescriptor, count_reciprocal_vectors
 from gpaw.response.chi0 import Chi0
 from gpaw.response.kernels import get_coulomb_kernel
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
+from gpaw.response.pw_parallelization import GaGb, PlaneWaveBlockDistributor
 
 
 def rpa(filename, ecut=200.0, blocks=1, extrapolate=4):
@@ -252,10 +253,20 @@ class RPACorrelation:
             pd = PWDescriptor(ecutmax, wfs.gd, complex, thisqd)
             nG = pd.ngmax
 
-            from gpaw.response.hacks import GaGb
-            blockdist = chi0.GaGb = GaGb(self.blockcomm, nG)
+            # Since we do not call chi0.calculate() (which in of itself
+            # leads to massive code duplication), we have to manage the
+            # block parallelization here. To use chi0._calculate() (see
+            # calculate_q() below), we have to manually set the
+            # parallelization properties on the chi0 object, which seems
+            # very unsafe indeed.
+            chi0.GaGb = GaGb(chi0.blockcomm, nG)
+            chi0.blockdist = PlaneWaveBlockDistributor(chi0.world,
+                                                       chi0.blockcomm,
+                                                       chi0.kncomm,
+                                                       chi0.wd,
+                                                       chi0.GaGb)
 
-            shape = (1 + spin, nw, blockdist.nGlocal, nG)
+            shape = (1 + spin, nw, chi0.GaGb.nGlocal, nG)
             chi0_swGG = A1_x[:np.prod(shape)].reshape(shape)
             chi0_swGG[:] = 0.0
 
@@ -336,6 +347,7 @@ class RPACorrelation:
         else:
             chi0_wxvG = None
             chi0_wvv = None
+
         chi0._calculate(pd, chi0_wGG, chi0_wxvG, chi0_wvv,
                         m1, m2, spins='all', extend_head=False)
 
