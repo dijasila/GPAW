@@ -721,9 +721,10 @@ class ETDM:
                 # OccupationsMOM.numbers needs to be updated after sorting
                 self.update_mom_numbers(wfs, kpt)
 
-                # Identity of the contrained orbitals has changed
-                self.constraints[k] = update_constraints(
-                    self.constraints[k], list(ind))
+                if self.constraints:
+                    # Identity of the contrained orbitals has changed
+                    self.constraints[k] = update_constraints(
+                        self.constraints[k], list(ind))
 
                 changedocc = True
 
