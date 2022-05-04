@@ -178,7 +178,7 @@ class KohnShamLinearResponseFunction:
         """
         world = self.world
         self.blockcomm, self.intrablockcomm = block_partition(world,
-                                                                   nblocks)
+                                                              nblocks)
 
         print('Number of blocks:', nblocks, file=self.fd)
 
