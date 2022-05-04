@@ -10,7 +10,6 @@ from gpaw.utilities import convert_string_to_fd
 from ase.utils.timing import Timer, timer
 
 import gpaw.mpi as mpi
-from gpaw.blacs import BlacsGrid, BlacsDescriptor, Redistributor
 from gpaw.response.kspair import get_calc
 from gpaw.response.frequencies import FrequencyDescriptor
 from gpaw.response.chiks import ChiKS
@@ -262,11 +261,16 @@ class FourComponentSusceptibilityTensor:
                 self.cfd.close()
             # Initiate new output file
             self.cfd = convert_string_to_fd(txt, self.world)
-        # Print to output file
-        if str(self.fd) != str(self.cfd) or txt is not None:
+        # Print to output file(s)
+        if str(self.fd) != str(self.cfd):
             print('---------------', file=self.fd)
             print(f'Calculating susceptibility spincomponent={spincomponent}'
-                  f'with q_c={pd.kd.bzk_kc[0]}', file=self.fd)
+                  f'with q_c={pd.kd.bzk_kc[0]}', flush=True, file=self.fd)
+        if txt is not None:
+            print('---------------', file=self.fd)
+            print(f'Calculating susceptibility spincomponent={spincomponent}'
+                  f'with q_c={pd.kd.bzk_kc[0]}', file=self.cfd)
+            print('---------------', flush=True, file=self.cfd)
 
         wd = FrequencyDescriptor.from_array_or_dict(frequencies)
 
@@ -310,6 +314,9 @@ class FourComponentSusceptibilityTensor:
 
         chi_wGG = self.invert_dyson(chiks_wGG, K_GG)
 
+        print('\nFinished calculating component', file=self.cfd)
+        print('---------------', flush=True, file=self.cfd)
+
         return pd, wd, chiks_wGG, chi_wGG
 
     def write_timer(self):
@@ -343,7 +350,7 @@ class FourComponentSusceptibilityTensor:
 
         # Redistribute memory, so each block has its own frequencies, but all
         # plane waves (for easy invertion of the Dyson-like equation)
-        chiks_wGG = self.distribute_frequencies(chiks_wGG)
+        chiks_wGG = self.chiks.distribute_frequencies(chiks_wGG)
 
         return chiks_wGG
 
@@ -353,6 +360,7 @@ class FourComponentSusceptibilityTensor:
 
         chi = chi_ks + chi_ks Khxc chi
         """
+        print('Inverting Dyson-like equation', flush=True, file=self.cfd)
         chi_wGG = np.empty_like(chiks_wGG)
         for w, chiks_GG in enumerate(chiks_wGG):
             chi_GG = np.dot(np.linalg.inv(np.eye(len(chiks_GG)) +
@@ -396,46 +404,6 @@ class FourComponentSusceptibilityTensor:
             allA_wGG = allA_wGG[:len(wd), :, :]
 
         return allA_wGG
-
-    @timer('Distribute frequencies')
-    def distribute_frequencies(self, chiks_wGG):
-        """Distribute frequencies to all cores."""
-        # More documentation is needed! XXX
-        world = self.chiks.world
-        comm = self.chiks.interblockcomm
-
-        if world.size == 1:
-            return chiks_wGG
-
-        nw = len(self.chiks.wd)
-        nG = chiks_wGG.shape[2]
-        mynw = (nw + world.size - 1) // world.size
-        mynG = (nG + comm.size - 1) // comm.size
-
-        wa = min(world.rank * mynw, nw)
-        wb = min(wa + mynw, nw)
-
-        if self.chiks.interblockcomm.size == 1:
-            return chiks_wGG[wa:wb].copy()
-
-        if self.chiks.intrablockcomm.rank == 0:
-            bg1 = BlacsGrid(comm, 1, comm.size)
-            in_wGG = chiks_wGG.reshape((nw, -1))
-        else:
-            bg1 = BlacsGrid(None, 1, 1)
-            # bg1 = DryRunBlacsGrid(mpi.serial_comm, 1, 1)
-            in_wGG = np.zeros((0, 0), complex)
-        md1 = BlacsDescriptor(bg1, nw, nG**2, nw, mynG * nG)
-
-        bg2 = BlacsGrid(world, world.size, 1)
-        md2 = BlacsDescriptor(bg2, nw, nG**2, mynw, nG**2)
-
-        r = Redistributor(world, md1, md2)
-        shape = (wb - wa, nG, nG)
-        out_wGG = np.empty(shape, complex)
-        r.redistribute(in_wGG, out_wGG.reshape((wb - wa, nG**2)))
-
-        return out_wGG
 
     def close(self):
         self.timer.write(self.cfd)

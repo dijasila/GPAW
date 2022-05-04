@@ -8,11 +8,12 @@ from ase.utils.timing import Timer, timer
 
 import gpaw
 import gpaw.mpi as mpi
-from gpaw.blacs import (BlacsGrid, BlacsDescriptor, Redistributor)
 from gpaw.utilities.memory import maxrss
 from gpaw.utilities.progressbar import ProgressBar
 from gpaw.response.kspair import KohnShamPair, get_calc
 from gpaw.response.frequencies import FrequencyDescriptor
+from gpaw.response.pw_parallelization import (block_partition, GaGb,
+                                              PlaneWaveBlockDistributor)
 
 
 class KohnShamLinearResponseFunction:
@@ -109,10 +110,10 @@ class KohnShamLinearResponseFunction:
 
         # Communicators for parallelization
         self.world = world
-        self.interblockcomm = None
+        self.blockcomm = None
         self.intrablockcomm = None
         self.initialize_communicators(nblocks)
-        self.nblocks = self.interblockcomm.size
+        self.nblocks = self.blockcomm.size
 
         # Timer
         self.timer = timer or Timer()
@@ -125,9 +126,9 @@ class KohnShamLinearResponseFunction:
                                    # Let each process handle slow steps only
                                    # for a fraction of all transitions.
                                    # t-transitions are distributed through
-                                   # interblockcomm, k-points through
+                                   # blockcomm, k-points through
                                    # intrablockcomm.
-                                   transitionblockscomm=self.interblockcomm,
+                                   transitionblockscomm=self.blockcomm,
                                    kptblockcomm=self.intrablockcomm,
                                    txt=self.fd, timer=self.timer)
 
@@ -162,7 +163,7 @@ class KohnShamLinearResponseFunction:
 
         Sets
         ----
-        interblockcomm : gpaw.mpi.Communicator
+        blockcomm : gpaw.mpi.Communicator
             Communicate between processes belonging to different memory blocks.
             In every communicator, there is one process for each block of
             memory, so that all blocks are represented.
@@ -176,9 +177,8 @@ class KohnShamLinearResponseFunction:
             There will be size // nblocks processes per memory block.
         """
         world = self.world
-        from gpaw.response.hacks import block_partition
-        self.interblockcomm, self.intrablockcomm = block_partition(
-            world, nblocks)
+        self.blockcomm, self.intrablockcomm = block_partition(world,
+                                                              nblocks)
 
         print('Number of blocks:', nblocks, file=self.fd)
 
@@ -277,7 +277,7 @@ class KohnShamLinearResponseFunction:
             world = self.world
         wsize = world.size
         knsize = self.intrablockcomm.size
-        bsize = self.interblockcomm.size
+        bsize = self.blockcomm.size
 
         spinrot = self.spinrot
 
@@ -296,7 +296,7 @@ class KohnShamLinearResponseFunction:
         p('The response function calculation is performed in parallel with:')
         p('    world.size: %d' % wsize)
         p('    intrablockcomm.size: %d' % knsize)
-        p('    interblockcomm.size: %d' % bsize)
+        p('    blockcomm.size: %d' % bsize)
         p('')
         p('The sum over band and spin transitions is performed using:')
         p('    Spin rotation: %s' % spinrot)
@@ -530,6 +530,8 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         self.pd = None  # Plane wave descriptor for given momentum transfer q
         self.pwsa = None  # Plane wave symmetry analyzer for given q
         self.wd = None  # Frequency descriptor for the given frequencies
+        self.GaGb = None  # Plane wave block parallelization descriptor
+        self.blockdist = None  # Plane wave block distributor
 
     @timer('Calculate Kohn-Sham linear response function in plane wave mode')
     def calculate(self, q_c, frequencies, spinrot=None, A_x=None):
@@ -556,6 +558,13 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
 
         # Set up frequency descriptor for the given frequencies
         self.wd = self.get_FrequencyDescriptor(frequencies)
+
+        # Set up block parallelization
+        self.GaGb = GaGb(self.blockcomm, self.pd.ngmax)
+        self.blockdist = PlaneWaveBlockDistributor(self.world,
+                                                   self.blockcomm,
+                                                   self.intrablockcomm,
+                                                   self.wd, self.GaGb)
 
         # In-place calculation
         return self._calculate(spinrot, A_x)
@@ -601,7 +610,7 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         eta = self.eta * Hartree
         ecut = self.ecut * Hartree
         ngmax = pd.ngmax
-        Asize = nw * pd.ngmax**2 * 16. / 1024**2 / self.interblockcomm.size
+        Asize = nw * pd.ngmax**2 * 16. / 1024**2 / self.blockcomm.size
 
         p = partial(print, file=self.cfd)
 
@@ -618,22 +627,17 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
                                                                   1024**2))
         p('')
 
-    def _GaGb(self, nG):
-        from gpaw.response.hacks import GaGb
-        return GaGb(self.interblockcomm, nG)
-
     def setup_output_array(self, A_x=None):
         """Initialize the output array in blocks"""
         # Could use some more documentation XXX
-        nG = self.pd.ngmax
+        nG = self.GaGb.nG
         nw = len(self.wd)
 
-        GaGb = self._GaGb(nG)
-        nGlocal = GaGb.nGlocal
+        nGlocal = self.GaGb.nGlocal
         localsize = nw * nGlocal * nG
-        # if self.interblockcomm.rank == 0:
+        # if self.blockcomm.rank == 0:
         #     assert self.Gb - self.Ga >= 3
-        # assert mynG * (self.interblockcomm.size - 1) < nG
+        # assert mynG * (self.blockcomm.size - 1) < nG
         if self.bundle_integrals:
             # Setup A_GwG
             shape = (nG, nw, nGlocal)
@@ -694,50 +698,11 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
 
     @timer('Redistribute memory')
     def redistribute(self, in_wGG, out_x=None):
-        """Redistribute array.
+        return self.blockdist.redistribute(in_wGG, out_x)
 
-        Switch between two kinds of parallel distributions:
-
-        1) parallel over G-vectors (second dimension of in_wGG)
-        2) parallel over frequency (first dimension of in_wGG)
-
-        Returns new array using the memory in the 1-d array out_x.
-        """
-
-        comm = self.interblockcomm
-
-        if comm.size == 1:
-            return in_wGG
-
-        nw = len(self.wd)
-        nG = in_wGG.shape[2]
-        mynw = (nw + comm.size - 1) // comm.size
-        mynG = (nG + comm.size - 1) // comm.size
-
-        bg1 = BlacsGrid(comm, comm.size, 1)
-        bg2 = BlacsGrid(comm, 1, comm.size)
-        md1 = BlacsDescriptor(bg1, nw, nG**2, mynw, nG**2)
-        md2 = BlacsDescriptor(bg2, nw, nG**2, nw, mynG * nG)
-
-        if len(in_wGG) == nw:
-            mdin = md2
-            mdout = md1
-        else:
-            mdin = md1
-            mdout = md2
-
-        r = Redistributor(comm, mdin, mdout)
-
-        outshape = (mdout.shape[0], mdout.shape[1] // nG, nG)
-        if out_x is None:
-            out_wGG = np.empty(outshape, complex)
-        else:
-            out_wGG = out_x[:np.product(outshape)].reshape(outshape)
-
-        r.redistribute(in_wGG.reshape(mdin.shape),
-                       out_wGG.reshape(mdout.shape))
-
-        return out_wGG
+    @timer('Distribute frequencies')
+    def distribute_frequencies(self, chiks_wGG):
+        return self.blockdist.distribute_frequencies(chiks_wGG)
 
 
 class Integrator:

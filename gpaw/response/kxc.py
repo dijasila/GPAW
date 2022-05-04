@@ -180,7 +180,7 @@ class PlaneWaveAdiabaticFXC(FXC):
             KxcPAW_GG = self.calculate_kernel_paw_correction(pd)
             Kxc_GG += KxcPAW_GG
 
-        print('', file=self.cfd)
+        print('Finished calculating fxc\n', flush=True, file=self.cfd)
 
         return Kxc_GG / pd.gd.volume
 
