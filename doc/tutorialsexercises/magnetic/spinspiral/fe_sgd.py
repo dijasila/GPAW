@@ -1,10 +1,10 @@
 from ase.build import bulk
-from gpaw import GPAW, FermiDirac, PW, mpi
+from gpaw import GPAW, PW, mpi
 import numpy as np
 
 # Construct bulk iron with FCC lattice
-atoms = bulk('Fe', 'fcc', a=3.50) # V = 10.72
-#atoms = bulk('Fe', 'fcc', a=3.577) # V = 11.44
+atoms = bulk('Fe', 'fcc', a=3.50)  # V = 10.72
+# atoms = bulk('Fe', 'fcc', a=3.577)  # V = 11.44
 
 # Align the magnetic moment in the xy-plane
 magmoms = np.array([[1, 0, 0]])
@@ -23,9 +23,9 @@ for i, q_c in enumerate(Q):
     calc = GPAW(mode=PW(pw, qspiral=q_c),
                 xc='LDA',
                 symmetry='off',
-                experimental={'magmoms': magmoms, 'soc': False},
+                magmoms=magmoms,
                 kpts=(k, k, k),
-                txt=str(i)+'gs.txt')
+                txt=f'{i}gs.txt')
 
     atoms.set_calculator(calc)
     e.append(atoms.get_potential_energy())
@@ -41,4 +41,3 @@ if mpi.world.rank == 0:
         np.save(f, [path])
         np.save(f, e)
         np.save(f, mT)
-        
