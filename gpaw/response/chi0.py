@@ -16,7 +16,8 @@ from gpaw.pw.descriptor import PWDescriptor
 from gpaw.response.frequencies import (FrequencyDescriptor,
                                        LinearFrequencyDescriptor,
                                        NonLinearFrequencyDescriptor)
-from gpaw.response.hacks import GaGb
+from gpaw.response.pw_parallelization import (block_partition, GaGb,
+                                              PlaneWaveBlockDistributor)
 from gpaw.response.integrators import PointIntegrator, TetrahedronIntegrator
 from gpaw.response.pair import PairDensity, PWSymmetryAnalyzer
 from gpaw.utilities.blas import gemm
@@ -180,8 +181,6 @@ class Chi0:
 
         self.world = world
 
-        from gpaw.response.hacks import block_partition
-
         self.blockcomm, self.kncomm = block_partition(world, nblocks)
 
         self.nblocks = nblocks
@@ -210,6 +209,9 @@ class Chi0:
 
         self.wd = FrequencyDescriptor.from_array_or_dict(frequencies)
         print(self.wd, file=self.fd)
+
+        self.GaGb = None  # Plane wave basis depends on q
+        self.blockdist = None
 
         if not isinstance(self.wd, NonLinearFrequencyDescriptor):
             assert not hilbert
@@ -297,10 +299,13 @@ class Chi0:
             print('    Dry run exit', file=self.fd)
             raise SystemExit
 
+        # Initialize block distibution of plane wave basis
         nG = pd.ngmax + 2 * optical_limit
-        nw = len(self.wd)
-
         self.GaGb = GaGb(self.blockcomm, nG)
+        self.blockdist = PlaneWaveBlockDistributor(self.world, self.blockcomm,
+                                                   self.kncomm, self.wd, self.GaGb)
+
+        nw = len(self.wd)
         wGG_shape = (nw, self.GaGb.nGlocal, nG)
         # if self.blockcomm.rank == 0:
         #     assert self.Gb - self.Ga >= 3
@@ -920,50 +925,7 @@ class Chi0:
 
     @timer('redist')
     def redistribute(self, in_wGG, out_x=None):
-        """Redistribute array.
-
-        Switch between two kinds of parallel distributions:
-
-        1) parallel over G-vectors (second dimension of in_wGG)
-        2) parallel over frequency (first dimension of in_wGG)
-
-        Returns new array using the memory in the 1-d array out_x.
-        """
-
-        comm = self.blockcomm
-
-        if comm.size == 1:
-            return in_wGG
-
-        nw = len(self.wd)
-        nG = in_wGG.shape[2]
-        mynw = (nw + comm.size - 1) // comm.size
-        mynG = (nG + comm.size - 1) // comm.size
-
-        bg1 = BlacsGrid(comm, comm.size, 1)
-        bg2 = BlacsGrid(comm, 1, comm.size)
-        md1 = BlacsDescriptor(bg1, nw, nG**2, mynw, nG**2)
-        md2 = BlacsDescriptor(bg2, nw, nG**2, nw, mynG * nG)
-
-        if len(in_wGG) == nw:
-            mdin = md2
-            mdout = md1
-        else:
-            mdin = md1
-            mdout = md2
-
-        r = Redistributor(comm, mdin, mdout)
-
-        outshape = (mdout.shape[0], mdout.shape[1] // nG, nG)
-        if out_x is None:
-            out_wGG = np.empty(outshape, complex)
-        else:
-            out_wGG = out_x[:np.product(outshape)].reshape(outshape)
-
-        r.redistribute(in_wGG.reshape(mdin.shape),
-                       out_wGG.reshape(mdout.shape))
-
-        return out_wGG
+        return self.blockdist.redistribute(in_wGG, out_x)
 
     @timer('dist freq')
     def distribute_frequencies(self, chi0_wGG):

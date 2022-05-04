@@ -1,3 +1,6 @@
+from gpaw.blacs import BlacsDescriptor, BlacsGrid, Redistributor
+
+
 class GaGb:
     def __init__(self, blockcomm, nG):
         self.blockcomm = blockcomm
@@ -23,3 +26,62 @@ def block_partition(supercomm, nblocks):
         transverse_comm = supercomm.new_communicator(ranks)
     assert blockcomm.size * transverse_comm.size == supercomm.size
     return blockcomm, transverse_comm
+
+
+class PlaneWaveBlockDistributor:
+    """Functionality to shuffle block distribution of pair functions
+    in the plane wave basis."""
+
+    def __init__(self, world, blockcomm, intrablockcomm,
+                 wd, GaGb):
+        self.world = world
+        self.blockcomm = blockcomm
+        self.intrablockcomm = intrablockcomm
+        self.wd = wd
+        self.GaGb = GaGb
+
+    def redistribute(self, in_wGG, out_x=None):
+        """Redistribute array.
+
+        Switch between two kinds of parallel distributions:
+
+        1) parallel over G-vectors (second dimension of in_wGG)
+        2) parallel over frequency (first dimension of in_wGG)
+
+        Returns new array using the memory in the 1-d array out_x.
+        """
+
+        comm = self.blockcomm
+
+        if comm.size == 1:
+            return in_wGG
+
+        nw = len(self.wd)
+        nG = in_wGG.shape[2]
+        mynw = (nw + comm.size - 1) // comm.size
+        mynG = (nG + comm.size - 1) // comm.size
+
+        bg1 = BlacsGrid(comm, comm.size, 1)
+        bg2 = BlacsGrid(comm, 1, comm.size)
+        md1 = BlacsDescriptor(bg1, nw, nG**2, mynw, nG**2)
+        md2 = BlacsDescriptor(bg2, nw, nG**2, nw, mynG * nG)
+
+        if len(in_wGG) == nw:
+            mdin = md2
+            mdout = md1
+        else:
+            mdin = md1
+            mdout = md2
+
+        r = Redistributor(comm, mdin, mdout)
+
+        outshape = (mdout.shape[0], mdout.shape[1] // nG, nG)
+        if out_x is None:
+            out_wGG = np.empty(outshape, complex)
+        else:
+            out_wGG = out_x[:np.product(outshape)].reshape(outshape)
+
+        r.redistribute(in_wGG.reshape(mdin.shape),
+                       out_wGG.reshape(mdout.shape))
+
+        return out_wGG
