@@ -8,14 +8,37 @@
 from itertools import count
 
 import pytest
+import numpy as np
 from ase.build import molecule, bulk
 
 from gpaw import GPAW, LCAO
 from gpaw.mpi import world
 
 
-def run(system, **kwargs):
+def system1():
+    system = molecule('CH3CH2OH')
+    system.center(vacuum=3.0)
+    system.pbc = (0, 1, 1)
+    system = system.repeat((1, 1, 2))
+    system.rattle(stdev=0.05)
+    return system
+
+def system2():
+    return bulk('Cu', orthorhombic=True) * (2, 1, 2)
+
+
+@pytest.mark.parametrize('atoms, kpts', [
+    (system1(), [1, 1, 1]),
+    (system2(), [2, 3, 4]),
+])
+def test_lcao_atomic_corrections(atoms, in_tmp_dir, scalapack, kpts):
+    # Use a cell large enough that some overlaps are zero.
+    # Thus the matrices will have at least some sparsity.
+
     corrections = ['dense', 'sparse']
+
+    #kpts = np.array([2, 3, 4])
+    #kpts[~atoms.pbc] = 1
 
     counter = count()
     energies = []
@@ -30,14 +53,14 @@ def run(system, **kwargs):
                     # spinpol=True,
                     parallel=parallel,
                     txt='gpaw.{}.txt'.format(next(counter)),
-                    h=0.35, **kwargs)
+                    h=0.35, kpts=kpts)
 
         def stopcalc():
             calc.scf.converged = True
 
         calc.attach(stopcalc, 2)
-        system.calc = calc
-        energy = system.get_potential_energy()
+        atoms.calc = calc
+        energy = atoms.get_potential_energy()
         energies.append(energy)
         if calc.world.rank == 0:
             print('e', energy)
@@ -56,18 +79,3 @@ def run(system, **kwargs):
 
     maxerr = max(errs)
     assert maxerr < 1e-11, maxerr
-
-
-def test_lcao_atomic_corrections(in_tmp_dir, scalapack):
-    # Use a cell large enough that some overlaps are zero.
-    # Thus the matrices will have at least some sparsity.
-    system = molecule('CH3CH2OH')
-    system.center(vacuum=3.0)
-    system.pbc = (0, 1, 1)
-    system = system.repeat((1, 1, 2))
-    system.rattle(stdev=0.05)
-
-    run(system)
-
-    system2 = bulk('Cu', orthorhombic=True) * (2, 1, 2)
-    run(system2, kpts=[2, 3, 4])
