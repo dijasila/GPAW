@@ -23,12 +23,13 @@ pytestmark = pytest.mark.skipif(
     reason='world.size != 1 and not compiled_with_sl()')
 
 
-def run(atoms, symm):
+def run(atoms, symm, nblocks):
     atoms.calc = GPAW(mode=PW(250),
                       eigensolver='rmm-diis',
                       occupations=FermiDirac(0.01),
                       symmetry=symm,
                       kpts={'size': (2, 2, 2), 'gamma': True},
+                      convergence={'density': 1e-6},
                       parallel={'domain': 1},
                       txt='si.txt')
     e = atoms.get_potential_energy()
@@ -40,6 +41,7 @@ def run(atoms, symm):
               integrate_gamma=0,
               kpts=[(0, 0, 0), (0.5, 0.5, 0)],  # Gamma, X
               ecut=40,
+              nblocks=nblocks,
               frequencies={'type': 'nonlinear',
                            'domega0': 0.1},
               eta=0.2,
@@ -55,8 +57,10 @@ def run(atoms, symm):
                                   'off',
                                   {'time_reversal': False},
                                   {'point_group': False}])
-def test_response_gwsi(in_tmp_dir, si, symm):
-    e, r = run(si, symm)
+@pytest.mark.parametrize('nblocks',
+                         [x for x in [1, 2, 4, 8] if x <= world.size])
+def test_response_gwsi(in_tmp_dir, si, symm, nblocks):
+    e, r = run(si, symm, nblocks)
     G, X = r['eps'][0]
     results = [e, G[0], G[1] - G[0], X[1] - G[0], X[2] - X[1]]
     G, X = r['qp'][0]
