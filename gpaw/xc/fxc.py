@@ -15,7 +15,6 @@ from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.pw.descriptor import PWDescriptor
 from gpaw.utilities.blas import axpy, gemmdot
 from gpaw.xc.rpa import RPACorrelation
-from gpaw.response.pw_parallelization import GaGb, PlaneWaveBlockDistributor
 
 
 class FXCCorrelation(RPACorrelation):
