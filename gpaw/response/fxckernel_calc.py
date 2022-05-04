@@ -68,7 +68,7 @@ def calculate_kernel(self, nG, ns, iq, cut_G=None):
                                     self.fd,
                                     self.l_l,
                                     q_empty,
-                                    self.omega_w,
+                                    self.wd.omega_w,
                                     self.Eg,
                                     self.ecut_max,
                                     self.tag,

@@ -91,6 +91,9 @@ def gpw_files(request, tmp_path_factory):
 
     * Bulk TiO2 with 4x4x4 k-points: ``ti2o4_pw`` and ``ti2o4_pw_nosym``.
 
+    * Bulk BN (zinkblende) with 2x2x2 k-points and 9 converged bands:
+      ``bn_pw``.
+
     Files with wave functions are also availabe (add ``_wfs`` to the names).
     """
     path = os.environ.get('GPW_TEST_FILES')
@@ -272,6 +275,17 @@ class GPWFiles:
 
     def ti2o4_pw_nosym(self):
         return self.ti2o4('off')
+
+    def bn_pw(self):
+        atoms = bulk('BN', 'zincblende', a=3.615)
+        atoms.calc = GPAW(mode=PW(400),
+                          kpts={'size': (2, 2, 2), 'gamma': True},
+                          nbands=12,
+                          convergence={'bands': 9},
+                          occupations=FermiDirac(0.001),
+                          txt=self.path / 'bn_pw.txt')
+        atoms.get_potential_energy()
+        return atoms.calc
 
 
 class GPAWPlugin:
