@@ -15,7 +15,7 @@ pytestmark = pytest.mark.skipif(world.size > 2,
 
 
 @pytest.mark.response
-def test_response_pair(in_tmp_dir):
+def test_response_pair(in_tmp_dir, scalapack):
     np.set_printoptions(precision=1)
 
     nb = 6

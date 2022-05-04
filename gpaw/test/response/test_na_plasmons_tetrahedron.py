@@ -1,7 +1,6 @@
 import pytest
 from ase import Atoms
 from gpaw.mpi import world
-from gpaw.utilities import compiled_with_sl
 from gpaw import GPAW, PW
 from gpaw.response.df import DielectricFunction
 from gpaw.test import equal, findpeak
@@ -9,14 +8,12 @@ from gpaw.test import equal, findpeak
 # Comparing the EELS spectrum of sodium for different block
 # parallelizations. Intended to be run with 8 cores.
 
-pytestmark = pytest.mark.skipif(
-    world.size < 4 or not compiled_with_sl(),
-    reason='world.size < 4 or not compiled_with_sl()')
+pytestmark = pytest.mark.skipif(world.size < 4, reason='world.size < 4')
 
 
 @pytest.mark.response
 @pytest.mark.slow
-def test_response_na_plasmons_tetrahedron(in_tmp_dir):
+def test_response_na_plasmons_tetrahedron(in_tmp_dir, scalapack):
     a = 4.23 / 2.0
     a1 = Atoms('Na',
                scaled_positions=[[0, 0, 0]],

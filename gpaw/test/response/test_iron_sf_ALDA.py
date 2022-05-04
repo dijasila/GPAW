@@ -21,16 +21,13 @@ from gpaw.response.tms import TransverseMagneticSusceptibility
 from gpaw.response.susceptibility import read_macroscopic_component
 from gpaw.test import findpeak, equal
 from gpaw.mpi import world
-from gpaw.utilities import compiled_with_sl
 
 
-pytestmark = pytest.mark.skipif(
-    world.size < 4 or not compiled_with_sl(),
-    reason='world.size < 4 or not compiled_with_sl()')
+pytestmark = pytest.mark.skipif(world.size < 4, reason='world.size < 4')
 
 
 @pytest.mark.response
-def test_response_iron_sf_ALDA(in_tmp_dir):
+def test_response_iron_sf_ALDA(in_tmp_dir, scalapack):
     # ------------------- Inputs ------------------- #
 
     # Part 1: ground state calculation
