@@ -4,7 +4,6 @@ import pytest
 from ase.build import bulk
 
 from gpaw import GPAW, PW, FermiDirac
-from gpaw.mpi import world
 from gpaw.response.g0w0 import G0W0
 
 
