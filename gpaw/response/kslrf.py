@@ -700,6 +700,10 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
     def redistribute(self, in_wGG, out_x=None):
         return self.blockdist.redistribute(in_wGG, out_x)
 
+    @timer('Distribute frequencies')
+    def distribute_frequencies(self, chiks_wGG):
+        return self.blockdist.distribute_frequencies(chiks_wGG)
+
 
 class Integrator:
     """Baseclass for integrating over k-points in the first Brillouin Zone

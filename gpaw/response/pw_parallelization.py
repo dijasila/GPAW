@@ -86,3 +86,42 @@ class PlaneWaveBlockDistributor:
                        out_wGG.reshape(mdout.shape))
 
         return out_wGG
+
+    def distribute_frequencies(self, in_wGG):
+        """Distribute frequencies to all cores."""
+
+        world = self.world
+        comm = self.blockcomm
+
+        if world.size == 1:
+            return in_wGG
+
+        nw = len(self.wd)
+        nG = in_wGG.shape[2]
+        mynw = (nw + world.size - 1) // world.size
+        mynG = (nG + comm.size - 1) // comm.size
+
+        wa = min(world.rank * mynw, nw)
+        wb = min(wa + mynw, nw)
+
+        if self.blockcomm.size == 1:
+            return in_wGG[wa:wb].copy()
+
+        if self.intrablockcomm.rank == 0:
+            bg1 = BlacsGrid(comm, 1, comm.size)
+            in_wGG = in_wGG.reshape((nw, -1))
+        else:
+            bg1 = BlacsGrid(None, 1, 1)
+            # bg1 = DryRunBlacsGrid(mpi.serial_comm, 1, 1)
+            in_wGG = np.zeros((0, 0), complex)
+        md1 = BlacsDescriptor(bg1, nw, nG**2, nw, mynG * nG)
+
+        bg2 = BlacsGrid(world, world.size, 1)
+        md2 = BlacsDescriptor(bg2, nw, nG**2, mynw, nG**2)
+
+        r = Redistributor(world, md1, md2)
+        shape = (wb - wa, nG, nG)
+        out_wGG = np.empty(shape, complex)
+        r.redistribute(in_wGG, out_wGG.reshape((wb - wa, nG**2)))
+
+        return out_wGG
