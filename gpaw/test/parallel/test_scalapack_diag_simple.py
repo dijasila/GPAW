@@ -19,12 +19,16 @@ tol = 5e-12  # eigenvalue tolerance
 
 
 def test_parallel_scalapack_diag_simple(scalapack):
-    nbands = 1000,
-    mprocs = 2
+    nbands = 1000
     mb = 64
 
+    if world.size == 1:
+        blacsshape = (1, 1)
+    else:
+        blacsshape = (world.size // 2, 2)
+
     # Set-up BlacsGrud
-    grid = BlacsGrid(world, mprocs, mprocs)
+    grid = BlacsGrid(world, *blacsshape)
 
     # Create descriptor
     nndesc = grid.new_descriptor(nbands, nbands, mb, mb)
