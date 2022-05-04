@@ -1,5 +1,4 @@
 import pytest
-from gpaw.mpi import world
 import numpy as np
 
 from ase import Atoms
@@ -10,9 +9,6 @@ from gpaw.pw.descriptor import PWDescriptor
 from gpaw.response.pair import PairDensity
 from gpaw.response.math_func import two_phi_nabla_planewave_integrals
 
-pytestmark = pytest.mark.skipif(world.size > 2,
-                                reason='world.size > 2')
-
 
 @pytest.mark.response
 def test_response_pair(in_tmp_dir, scalapack):
@@ -22,7 +18,8 @@ def test_response_pair(in_tmp_dir, scalapack):
 
     a = Atoms('H', cell=(3 * np.eye(3)), pbc=True)
 
-    calc = GPAW(mode=PW(600), kpts=[[0, 0, 0], [0.25, 0, 0]])
+    calc = GPAW(mode=PW(600), kpts=[[0, 0, 0], [0.25, 0, 0]],
+                parallel=dict(domain=1))
     a.calc = calc
     a.get_potential_energy()
     calc.diagonalize_full_hamiltonian(nbands=nb, expert=True)
