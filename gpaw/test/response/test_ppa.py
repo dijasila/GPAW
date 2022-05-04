@@ -11,14 +11,13 @@ pytestmark = pytest.mark.skipif(
 
 @pytest.mark.response
 def test_do_GW_too(in_tmp_dir, gpw_files):
-    ref_result = np.asarray([[[11.23361945, 21.66191905],
-                              [5.26494026, 16.11789189],
-                              [8.68826104, 22.54448065]]])
+    ref_result = np.asarray([[[11.30094393, 21.62842077],
+                              [5.33751513, 16.06905725],
+                              [8.75269938, 22.46579489]]])
     gw = G0W0(gpw_files['bn_pw_wfs'],
               bands=(3, 5),
               nbands=9,
               nblocks=1,
-              xc='rALDA',
               method='G0W0',
               ecut=40,
               ppa=True)
