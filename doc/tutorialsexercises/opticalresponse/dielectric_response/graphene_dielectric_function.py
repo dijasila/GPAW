@@ -14,16 +14,17 @@ from gpaw.bztools import find_high_symmetry_monkhorst_pack
 a = 2.5
 c = 3.22
 
-GR = Atoms(symbols='C2', positions=[(0.5 * a, -np.sqrt(3) / 6 * a, 0.0),
-                                    (0.5 * a, np.sqrt(3) / 6 * a, 0.0)],
-           cell=[(0.5 * a, -0.5 * 3**0.5 * a, 0),
-                 (0.5 * a, 0.5 * 3**0.5 * a, 0),
-                 (0.0, 0.0, c * 2.0)],
-           pbc=[True, True, False])
-old_cell = GR.get_cell()
-old_cell[2, 2] = 2 * c
-GR.set_cell(old_cell)
-atoms = GR
+# Graphene:
+atoms = Atoms(
+    symbols='C2', positions=[(0.5 * a, -np.sqrt(3) / 6 * a, 0.0),
+                             (0.5 * a, np.sqrt(3) / 6 * a, 0.0)],
+    cell=[(0.5 * a, -0.5 * 3**0.5 * a, 0),
+          (0.5 * a, 0.5 * 3**0.5 * a, 0),
+          (0.0, 0.0, c * 2.0)],
+    pbc=[True, True, False])
+# (Note: the cell length in z direction is actually arbitrary)
+
+atoms.center(axis=2)
 
 calc = GPAW(h=0.18,
             mode=PW(400),
