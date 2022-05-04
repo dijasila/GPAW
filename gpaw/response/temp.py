@@ -32,6 +32,9 @@ class DielectricFunctionCalculator:
     def e_GG_plain(self):
         return self.I_GG - self.chiVV_GG
 
+    def e_GG_w_fxc(self):
+        return self.I_GG - self._chiVVfv_GG()
+
     def get_e_GG(self):
         mode = self.mode
         if mode == 'GWP':
@@ -40,6 +43,8 @@ class DielectricFunctionCalculator:
             return self.e_GG_gws()
         elif mode == 'GW':
             return self.e_GG_plain()
+        elif mode == 'GWG':
+            return self.e_GG_w_fxc()
         raise ValueError(f'Unknown mode: {mode}')
 
     def get_einv_GG(self):
