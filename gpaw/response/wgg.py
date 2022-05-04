@@ -1,6 +1,6 @@
 """Parallelization scheme for frequency–planewave–planewave arrays."""
 from gpaw.mpi import world
-from gpaw.response.hacks import block_partition
+from gpaw.response.pw_parallelization import block_partition
 from gpaw.utilities.scalapack import scalapack_set, scalapack_solve
 from gpaw.blacs import BlacsGrid
 import numpy as np
