@@ -602,11 +602,10 @@ class Chi0:
 
             # Again, not so pretty but that's how it is
             plasmafreq_vv = plasmafreq_wvv[0].copy()
-            GaGb = self.GaGb
             if self.include_intraband:
                 if extend_head:
-                    va = min(GaGb.Ga, 3)
-                    vb = min(GaGb.Gb, 3)
+                    va = min(self.GaGb.Ga, 3)
+                    vb = min(self.GaGb.Gb, 3)
                     A_wxx[:, :vb - va, :3] += (plasmafreq_vv[va:vb] /
                                                (self.wd.omega_w[:, np.newaxis,
                                                                 np.newaxis] +
@@ -662,15 +661,12 @@ class Chi0:
         # account for their nonanalytic behaviour which means that the size of
         # the chi0_wGG matrix is nw * (nG + 2)**2. Below we extract these
         # parameters.
-
-        GaGb = self.GaGb
-
         if optical_limit and extend_head:
             # The wings are extracted
-            chi0_wxvG[:, 1, :, GaGb.myslice] = np.transpose(
+            chi0_wxvG[:, 1, :, self.GaGb.myslice] = np.transpose(
                 A_wxx[..., 0:3], (0, 2, 1))
-            va = min(GaGb.Ga, 3)
-            vb = min(GaGb.Gb, 3)
+            va = min(self.GaGb.Ga, 3)
+            vb = min(self.GaGb.Gb, 3)
             # print(self.world.rank, va, vb, chi0_wxvG[:, 0, va:vb].shape,
             #       A_wxx[:, va:vb].shape, A_wxx.shape)
             chi0_wxvG[:, 0, va:vb] = A_wxx[:, :vb - va]
