@@ -36,17 +36,22 @@ def run(atoms, symm, nblocks):
     scalapack = atoms.calc.wfs.bd.comm.size
     atoms.calc.diagonalize_full_hamiltonian(nbands=8, scalapack=scalapack)
     atoms.calc.write('si.gpw', mode='all')
-    gw = G0W0('si.gpw', 'gw',
-              nbands=8,
-              integrate_gamma=0,
-              kpts=[(0, 0, 0), (0.5, 0.5, 0)],  # Gamma, X
-              ecut=40,
-              nblocks=nblocks,
-              frequencies={'type': 'nonlinear',
-                           'domega0': 0.1},
-              eta=0.2,
-              relbands=(-1, 2))  # homo, lumo, lumo+1, same as bands=(3, 6)
-    results = gw.calculate()
+    # The first iteration of the loop has very few frequencies.
+    # The test is, that code should still not crash.
+    # The second iteration is the actual numerical test, which
+    # will be returned and asserted outside this function.
+    for omegamax in [0.2, None]:
+        gw = G0W0('si.gpw', 'gw',
+                  nbands=8,
+                  integrate_gamma=0,
+                  kpts=[(0, 0, 0), (0.5, 0.5, 0)],  # Gamma, X
+                  ecut=40,
+                  nblocks=nblocks,
+                  frequencies={'type': 'nonlinear',
+                               'domega0': 0.1, 'omegamax': omegamax},
+                  eta=0.2,
+                  relbands=(-1, 2))
+        results = gw.calculate()
     return e, results
 
 
