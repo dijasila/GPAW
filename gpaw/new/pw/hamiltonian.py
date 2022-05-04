@@ -51,6 +51,7 @@ class SpinorPWHamiltonian(Hamiltonian):
               spin: int):
         out_nsG = out
 
+        # ekinup, ekindn: XXX
         np.multiply(psit_nsG.desc.ekin_G, psit_nsG.data, out_nsG.data)
 
         grid = vt_xR.desc.new(dtype=complex)

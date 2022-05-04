@@ -10,6 +10,7 @@ from gpaw.new.pw.pot_calc import PlaneWavePotentialCalculator
 from gpaw.new.pwfd.builder import PWFDDFTComponentsBuilder
 from gpaw.new.spinors import SpinorWaveFunctionDescriptor
 from gpaw.typing import Array1D
+from gpaw.core.domain import Domain
 
 
 class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
@@ -38,7 +39,7 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
         # decomposition=[2 * d for d in grid.decomposition]
         return grid, fine_grid
 
-    def create_wf_description(self) -> PlaneWaves:
+    def create_wf_description(self) -> Domain:
         pw = PlaneWaves(ecut=self.ecut,
                         cell=self.grid.cell,
                         comm=self.grid.comm,
