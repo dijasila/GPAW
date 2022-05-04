@@ -1,8 +1,6 @@
 """Test GW band-gaps for Si."""
 
 import pytest
-from gpaw.mpi import world
-from gpaw.utilities import compiled_with_sl
 from ase.build import bulk
 import numpy as np
 
@@ -11,14 +9,9 @@ from gpaw import GPAW, PW, FermiDirac
 from gpaw.response.g0w0 import G0W0
 
 
-pytestmark = pytest.mark.skipif(
-    world.size != 1 and not compiled_with_sl(),
-    reason='world.size != 1 and not compiled_with_sl()')
-
-
 @pytest.mark.response
 @pytest.mark.slow
-def test_response_gwsi(in_tmp_dir):
+def test_response_gwsi(in_tmp_dir, scalapack):
     def run(atoms, symm, name):
         atoms.calc = GPAW(mode=PW(250),
                           eigensolver='rmm-diis',
