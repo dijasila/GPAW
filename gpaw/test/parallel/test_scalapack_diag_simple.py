@@ -9,23 +9,20 @@ from scipy.linalg import eigh
 
 from gpaw.blacs import BlacsGrid
 from gpaw.mpi import world
-from gpaw.utilities import compiled_with_sl
 from gpaw.utilities.scalapack import scalapack_set, \
     scalapack_zero
 
-pytestmark = pytest.mark.skipif(world.size < 4 or not compiled_with_sl(),
-                                reason='world.size < 4')
-
 
 switch_uplo = {'U': 'L', 'L': 'U'}
-
 rank = world.rank
-
-# tol
 tol = 5e-12  # eigenvalue tolerance
 
 
-def main(nbands=1000, mprocs=2, mb=64):
+def test_parallel_scalapack_diag_simple(scalapack):
+    nbands = 1000,
+    mprocs = 2
+    mb = 64
+
     # Set-up BlacsGrud
     grid = BlacsGrid(world, mprocs, mprocs)
 
@@ -69,7 +66,3 @@ def main(nbands=1000, mprocs=2, mb=64):
     if rank == 0:
         print(delta)
         assert delta < tol
-
-
-def test_parallel_scalapack_diag_simple():
-    main()

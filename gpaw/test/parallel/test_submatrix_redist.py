@@ -1,18 +1,15 @@
 import pytest
 from gpaw.mpi import world
-from gpaw.utilities import compiled_with_sl
 from gpaw.blacs import BlacsGrid, Redistributor
 
-pytestmark = pytest.mark.skipif(
-    world.size == 1 or not compiled_with_sl(),
-    reason='world.size == 1 or not compiled_with_sl()')
 
+def test_parallel_submatrix_redist(scalapack):
+    if world.size > 1:
+        shape = (2, world.size // 2)
+    else:
+        shape = (1, 1)
 
-def test_parallel_submatrix_redist():
-    if world.size < 2:
-        raise ValueError('Runs on two or more processors')
-
-    grid = BlacsGrid(world, 2, world.size // 2)
+    grid = BlacsGrid(world, *shape)
 
     desc = grid.new_descriptor(12, 8, 2, 3)
 
