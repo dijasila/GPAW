@@ -14,19 +14,19 @@ class GaGb:
         self.myslice = slice(self.Ga, self.Gb)
 
 
-def block_partition(supercomm, nblocks):
-    assert supercomm.size % nblocks == 0, supercomm.size
-    rank1 = supercomm.rank // nblocks * nblocks
+def block_partition(comm, nblocks):
+    assert comm.size % nblocks == 0, comm.size
+    rank1 = comm.rank // nblocks * nblocks
     rank2 = rank1 + nblocks
-    blockcomm = supercomm.new_communicator(range(rank1, rank2))
-    ranks = range(supercomm.rank % nblocks, supercomm.size, nblocks)
+    blockcomm = comm.new_communicator(range(rank1, rank2))
+    ranks = range(comm.rank % nblocks, comm.size, nblocks)
     if nblocks == 1:
-        assert len(ranks) == supercomm.size
-        transverse_comm = supercomm
+        assert len(ranks) == comm.size
+        intrablockcomm = comm
     else:
-        transverse_comm = supercomm.new_communicator(ranks)
-    assert blockcomm.size * transverse_comm.size == supercomm.size
-    return blockcomm, transverse_comm
+        intrablockcomm = comm.new_communicator(ranks)
+    assert blockcomm.size * intrablockcomm.size == comm.size
+    return blockcomm, intrablockcomm
 
 
 class PlaneWaveBlockDistributor:

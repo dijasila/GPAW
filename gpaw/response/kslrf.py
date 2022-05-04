@@ -110,10 +110,10 @@ class KohnShamLinearResponseFunction:
 
         # Communicators for parallelization
         self.world = world
-        self.interblockcomm = None
+        self.blockcomm = None
         self.intrablockcomm = None
         self.initialize_communicators(nblocks)
-        self.nblocks = self.interblockcomm.size
+        self.nblocks = self.blockcomm.size
 
         # Timer
         self.timer = timer or Timer()
@@ -126,9 +126,9 @@ class KohnShamLinearResponseFunction:
                                    # Let each process handle slow steps only
                                    # for a fraction of all transitions.
                                    # t-transitions are distributed through
-                                   # interblockcomm, k-points through
+                                   # blockcomm, k-points through
                                    # intrablockcomm.
-                                   transitionblockscomm=self.interblockcomm,
+                                   transitionblockscomm=self.blockcomm,
                                    kptblockcomm=self.intrablockcomm,
                                    txt=self.fd, timer=self.timer)
 
@@ -163,7 +163,7 @@ class KohnShamLinearResponseFunction:
 
         Sets
         ----
-        interblockcomm : gpaw.mpi.Communicator
+        blockcomm : gpaw.mpi.Communicator
             Communicate between processes belonging to different memory blocks.
             In every communicator, there is one process for each block of
             memory, so that all blocks are represented.
@@ -177,7 +177,7 @@ class KohnShamLinearResponseFunction:
             There will be size // nblocks processes per memory block.
         """
         world = self.world
-        self.interblockcomm, self.intrablockcomm = block_partition(world,
+        self.blockcomm, self.intrablockcomm = block_partition(world,
                                                                    nblocks)
 
         print('Number of blocks:', nblocks, file=self.fd)
@@ -277,7 +277,7 @@ class KohnShamLinearResponseFunction:
             world = self.world
         wsize = world.size
         knsize = self.intrablockcomm.size
-        bsize = self.interblockcomm.size
+        bsize = self.blockcomm.size
 
         spinrot = self.spinrot
 
@@ -296,7 +296,7 @@ class KohnShamLinearResponseFunction:
         p('The response function calculation is performed in parallel with:')
         p('    world.size: %d' % wsize)
         p('    intrablockcomm.size: %d' % knsize)
-        p('    interblockcomm.size: %d' % bsize)
+        p('    blockcomm.size: %d' % bsize)
         p('')
         p('The sum over band and spin transitions is performed using:')
         p('    Spin rotation: %s' % spinrot)
@@ -560,9 +560,9 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         self.wd = self.get_FrequencyDescriptor(frequencies)
 
         # Set up block parallelization
-        self.GaGb = GaGb(self.interblockcomm, self.pd.ngmax)
+        self.GaGb = GaGb(self.blockcomm, self.pd.ngmax)
         self.blockdist = PlaneWaveBlockDistributor(self.world,
-                                                   self.interblockcomm,
+                                                   self.blockcomm,
                                                    self.intrablockcomm,
                                                    self.wd, self.GaGb)
 
@@ -610,7 +610,7 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         eta = self.eta * Hartree
         ecut = self.ecut * Hartree
         ngmax = pd.ngmax
-        Asize = nw * pd.ngmax**2 * 16. / 1024**2 / self.interblockcomm.size
+        Asize = nw * pd.ngmax**2 * 16. / 1024**2 / self.blockcomm.size
 
         p = partial(print, file=self.cfd)
 
@@ -635,9 +635,9 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
 
         nGlocal = self.GaGb.nGlocal
         localsize = nw * nGlocal * nG
-        # if self.interblockcomm.rank == 0:
+        # if self.blockcomm.rank == 0:
         #     assert self.Gb - self.Ga >= 3
-        # assert mynG * (self.interblockcomm.size - 1) < nG
+        # assert mynG * (self.blockcomm.size - 1) < nG
         if self.bundle_integrals:
             # Setup A_GwG
             shape = (nG, nw, nGlocal)
