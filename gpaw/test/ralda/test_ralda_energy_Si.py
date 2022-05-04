@@ -1,5 +1,4 @@
 import pytest
-from gpaw.mpi import world
 import numpy as np
 from ase import Atoms
 from ase.build import bulk

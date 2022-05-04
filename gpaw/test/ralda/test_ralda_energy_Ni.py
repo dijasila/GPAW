@@ -1,4 +1,3 @@
-import pytest
 from ase.build import bulk
 from ase.dft.kpoints import monkhorst_pack
 from gpaw import GPAW, FermiDirac

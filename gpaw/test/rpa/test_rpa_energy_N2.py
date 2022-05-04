@@ -1,5 +1,4 @@
 import pytest
-from gpaw.mpi import world
 from ase.build import molecule
 from gpaw import GPAW, PW
 from gpaw.test import equal

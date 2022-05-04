@@ -1,4 +1,3 @@
-import pytest
 from gpaw.mpi import world
 from gpaw.blacs import BlacsGrid, Redistributor
 

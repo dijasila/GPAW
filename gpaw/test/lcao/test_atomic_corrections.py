@@ -8,7 +8,6 @@
 from itertools import count
 
 import pytest
-import numpy as np
 from ase.build import molecule, bulk
 
 from gpaw import GPAW, LCAO
@@ -23,6 +22,7 @@ def system1():
     system.rattle(stdev=0.05)
     return system
 
+
 def system2():
     return bulk('Cu', orthorhombic=True) * (2, 1, 2)
 
@@ -36,9 +36,6 @@ def test_lcao_atomic_corrections(atoms, in_tmp_dir, scalapack, kpts):
     # Thus the matrices will have at least some sparsity.
 
     corrections = ['dense', 'sparse']
-
-    #kpts = np.array([2, 3, 4])
-    #kpts[~atoms.pbc] = 1
 
     counter = count()
     energies = []

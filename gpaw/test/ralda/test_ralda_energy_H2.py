@@ -1,4 +1,3 @@
-import pytest
 from gpaw.mpi import world
 from ase import Atoms
 from gpaw import GPAW
