@@ -21,7 +21,7 @@ from gpaw.response.fxckernel_calc import calculate_kernel
 from gpaw.response.kernels import get_coulomb_kernel, get_integrated_kernel
 from gpaw.response.pair import PairDensity
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
-from gpaw.response.hacks import GaGb
+from gpaw.response.pw_parallelization import GaGb
 from gpaw.utilities.progressbar import ProgressBar
 from gpaw.pw.descriptor import (PWDescriptor, PWMapping,
                                 count_reciprocal_vectors)

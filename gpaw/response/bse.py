@@ -528,7 +528,7 @@ class BSE:
             pd = PWDescriptor(self.ecut, wfs.gd, complex, thisqd)
             nG = pd.ngmax
 
-            from gpaw.response.hacks import GaGb
+            from gpaw.response.pw_parallelization import GaGb
             chi0.GaGb = GaGb(self.blockcomm, nG)
             chi0_wGG = np.zeros((1, nG, nG), complex)
             if np.allclose(q_c, 0.0):
