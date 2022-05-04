@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright (C) 2008  CSC Scientific Computing Ltd.
 # Please see the accompanying LICENSE file for further information.
 
