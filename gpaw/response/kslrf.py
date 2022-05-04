@@ -8,7 +8,6 @@ from ase.utils.timing import Timer, timer
 
 import gpaw
 import gpaw.mpi as mpi
-from gpaw.blacs import (BlacsGrid, BlacsDescriptor, Redistributor)
 from gpaw.utilities.memory import maxrss
 from gpaw.utilities.progressbar import ProgressBar
 from gpaw.response.kspair import KohnShamPair, get_calc
