@@ -8,6 +8,5 @@ df = DielectricFunction('gs_MoS2.gpw',
                         hilbert=False,
                         eta=0.1)
 
-alpha = df.get_polarizability(pbc=[True, True, False],
-                              filename=None)[1][0].real
+alpha = df.get_polarizability(filename=None)[1][0].real
 print('alpha = ', alpha, 'AA')

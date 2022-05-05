@@ -16,8 +16,7 @@ df = DielectricFunction('gs_MoS2.gpw',
                         eshift=eshift,
                         txt='rpa_MoS2.txt')
 
-df.get_polarizability(filename='pol_rpa_MoS2.csv',
-                      pbc=[True, True, False])
+df.get_polarizability(filename='pol_rpa_MoS2.csv')
 
 bse = BSE('gs_MoS2.gpw',
           spinors=True,
@@ -31,7 +30,6 @@ bse = BSE('gs_MoS2.gpw',
 
 bse.get_polarizability(filename='pol_bse_MoS2.csv',
                        eta=eta,
-                       pbc=[True, True, False],
                        write_eig='bse_MoS2_eig.dat',
                        w_w=np.linspace(0, 5, 5001))
 
@@ -48,6 +46,5 @@ bse = BSE('gs_MoS2.gpw',
 
 bse.get_polarizability(filename='pol_bse_MoS2_trun.csv',
                        eta=eta,
-                       pbc=[True, True, False],
                        write_eig='bse_MoS2_eig_trun.dat',
                        w_w=np.linspace(0, 5, 5001))
