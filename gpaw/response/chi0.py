@@ -55,7 +55,7 @@ class Chi0:
                  disable_point_group=False, disable_time_reversal=False,
                  disable_non_symmorphic=True,
                  integrationmode=None,
-                 pbc=None, rate=0.0, eshift=0.0,
+                 rate=0.0, eshift=0.0,
                  paw_correction='brute-force',
                  domega0=None,  # deprecated
                  omega2=None,  # deprecated
@@ -124,8 +124,6 @@ class Chi0:
             Integrator for the kpoint integration.
             If == 'tetrahedron integration' then the kpoint integral is
             performed using the linear tetrahedron method.
-        pbc : list
-            Periodic directions of the system. Defaults to [True, True, True].
         eshift : float
             Shift unoccupied bands
         rate : float,str
@@ -228,16 +226,12 @@ class Chi0:
 
         self.Q_aGii = None
 
-        if pbc is not None:
-            self.pbc = np.array(pbc)
-        else:
-            self.pbc = np.array([True, True, True])
+        self.pbc = self.calc.wfs.gd.pbc_c
+        if sum(self.pbc) < 2:
+            raise ValueError('Only one non-periodic direction supported atm.')
 
-        if self.pbc is not None and (~self.pbc).any():
-            assert np.sum((~self.pbc).astype(int)) == 1, \
-                print('Only one non-periodic direction supported atm.')
-            print('Nonperiodic BC\'s: ', (~self.pbc),
-                  file=self.fd)
+        print('Nonperiodic BCs: ', (~self.pbc),
+              file=self.fd)
 
         if integrationmode is not None:
             print('Using integration method: ' + self.integrationmode,

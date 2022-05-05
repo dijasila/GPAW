@@ -318,24 +318,6 @@ k-point sampling autimatically::
         'gs.gpw',  # Path to ground state .gpw file
         density=20.0)  # The required minimum density
 
-If the system is lower dimensional this function takes an optional argument
-``pbc`` a tuple of bools which for slab with a non-periodic z direction is
-given by ``pbc=[True, True, False]``. If combined with the tetrahedron method
-it is necessary to tell the ``DielectricFunction`` object which directions
-are non-periodic. The recipe for non-periodic systems is given below::
-
-    from gpaw.bztools import find_high_symmetry_monkhorst_pack
-    from gpaw.response.df import DielectricFunction
-    pbc = [True, True, False]
-    kpts = find_high_symmetry_monkhorst_pack(
-        'gs.gpw',  # Path to ground state .gpw file
-        density=20.0,  # The required minimum density
-        pbc=pbc)  # Periodic directions
-
-    df = DielectricFunction(...,
-                            integrationmode='tetrahedron integration',
-                            pbc=pbc,
-                            ...)
 
 Bulk TaS\ :sub:`2`
 ------------------
