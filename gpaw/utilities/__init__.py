@@ -30,7 +30,7 @@ min_locfun_radius = 0.85  # Bohr
 smallest_safe_grid_spacing = 2 * min_locfun_radius / np.sqrt(3)  # ~0.52 Ang
 
 
-class AtomsTooClose(RuntimeError):
+class AtomsTooClose(ValueError):
     pass
 
 
@@ -39,6 +39,38 @@ def check_atoms_too_close(atoms: Atoms) -> None:
     dists = neighbor_list('d', atoms, radii)
     if len(dists):
         raise AtomsTooClose(f'Atoms are too close, e.g. {dists[0]} Å')
+
+
+def check_atoms_too_close_to_boundary(atoms: Atoms,
+                                      dist: float = 0.2) -> None:
+    """Check if any atoms are too close to the boundary of the box.
+
+    >>> atoms = Atoms('H', cell=[1, 1, 1])
+    >>> check_atoms_too_close_to_boundary(atoms)
+    Traceback (most recent call last):
+    ...
+        raise AtomsTooClose('Atoms too close to boundary')
+    gpaw.utilities.AtomsTooClose: Atoms too close to boundary
+    >>> atoms.center()
+    >>> check_atoms_too_close_to_boundary(atoms)
+    >>> atoms = Atoms('H',
+    ...               positions=[[0.5, 0.5, 0.0]],
+    ...               cell=[1, 1, 0],  # no bounday in z-direction
+    ...               pbc=(1, 1, 0))
+    >>> check_atoms_too_close_to_boundary(atoms)
+    """
+    for axis_v, recip_v, pbc in zip(atoms.cell,
+                                    atoms.cell.reciprocal(),
+                                    atoms.pbc):
+        if pbc:
+            continue
+        L = np.linalg.norm(axis_v)
+        if L < 1e-12:  # L==0 means no boundary
+            continue
+        spos_a = atoms.positions @ recip_v
+        eps = dist / L
+        if (spos_a < eps).any() or (spos_a > 1 - eps).any():
+            raise AtomsTooClose('Atoms too close to boundary')
 
 
 def unpack_atomic_matrices(M_sP, setups):
