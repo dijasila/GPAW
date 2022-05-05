@@ -1,19 +1,13 @@
 import pytest
-from gpaw.mpi import world
-from gpaw.utilities import compiled_with_sl
 from ase.build import molecule
 from gpaw import GPAW, PW
 from gpaw.test import equal
 from gpaw.xc.rpa import RPACorrelation
 from gpaw.hybrids.energy import non_self_consistent_energy as nsc_energy
 
-pytestmark = pytest.mark.skipif(
-    world.size != 1 and not compiled_with_sl(),
-    reason='world.size != 1 and not compiled_with_sl()')
-
 
 @pytest.mark.response
-def test_rpa_rpa_energy_N2(in_tmp_dir):
+def test_rpa_rpa_energy_N2(in_tmp_dir, scalapack):
     ecut = 25
 
     N2 = molecule('N2')

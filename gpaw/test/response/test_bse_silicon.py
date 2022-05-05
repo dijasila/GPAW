@@ -1,19 +1,13 @@
 import pytest
-from gpaw.mpi import world
-from gpaw.utilities import compiled_with_sl
 import numpy as np
 from ase.build import bulk
 from gpaw import GPAW, FermiDirac
 from gpaw.response.bse import BSE
 from gpaw.test import findpeak, equal
 
-pytestmark = pytest.mark.skipif(
-    world.size != 4 or not compiled_with_sl(),
-    reason='world.size != 4 or not compiled_with_sl()')
-
 
 @pytest.mark.response
-def test_response_bse_silicon(in_tmp_dir):
+def test_response_bse_silicon(in_tmp_dir, scalapack):
     GS = 1
     nosym = 1
     bse = 1

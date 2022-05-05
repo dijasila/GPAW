@@ -351,3 +351,13 @@ def pytest_runtest_setup(item):
     if any(mark.name in {'libxc', 'mgga'}
            for mark in item.iter_markers()):
         pytest.skip('No LibXC.')
+
+
+@pytest.fixture
+def scalapack():
+    """Skip if not compiled with sl.
+
+    This fixture otherwise does not return or do anything."""
+    from gpaw.utilities import compiled_with_sl
+    if not compiled_with_sl():
+        pytest.skip(reason='no scalapack')

@@ -1,20 +1,14 @@
 import pytest
-from gpaw.mpi import world
-from gpaw.utilities import compiled_with_sl
 import numpy as np
 from ase import Atoms
 from gpaw import GPAW, FermiDirac, PW
 from gpaw.response.df import DielectricFunction
 from gpaw.test import equal, findpeak
 
-pytestmark = pytest.mark.skipif(
-    world.size != 1 and not compiled_with_sl(),
-    reason='world.size != 1 and not compiled_with_sl()')
-
 
 @pytest.mark.response
 @pytest.mark.slow
-def test_response_au02_absorption(in_tmp_dir):
+def test_response_au02_absorption(scalapack, in_tmp_dir):
     GS = 1
     ABS = 1
     if GS:
