@@ -8,7 +8,8 @@ class SpinorWaveFunctionDescriptor(Domain):
                  desc: Domain,
                  qspiral_v: Vector = None):
         self.desc = desc
-        self.qspiral_v = np.asarray(qspiral_v)
+        self.qspiral_v = (np.asarray(qspiral_v) if qspiral_v is not None else
+                          None)
         Domain.__init__(self, desc.cell_cv, desc.pbc_c, desc.kpt_c, desc.comm,
                         complex)
         self.myshape = (2,) + desc.myshape
