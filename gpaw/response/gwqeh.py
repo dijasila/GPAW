@@ -1,7 +1,7 @@
-
 import sys
 from math import pi
 import pickle
+import warnings
 
 import numpy as np
 
@@ -11,18 +11,23 @@ from ase.dft.kpoints import monkhorst_pack
 
 import gpaw.mpi as mpi
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.response.chi0 import HilbertTransform, frequency_grid
+from gpaw.response.chi0 import HilbertTransform, find_maximum_frequency
+from gpaw.response.frequencies import FrequencyDescriptor
 from gpaw.response.pair import PairDensity
 from gpaw.pw.descriptor import PWDescriptor
 from gpaw.xc.exx import select_kpts
 
 
 class GWQEHCorrection(PairDensity):
-    def __init__(self, calc, gwfile, filename=None, kpts=[0], bands=None,
+    def __init__(self, calc, gwfile, *,
+                 filename=None, kpts=[0], bands=None,
                  structure=None, d=None, layer=0,
                  dW_qw=None, qqeh=None, wqeh=None,
-                 txt=sys.stdout, world=mpi.world, domega0=0.025,
-                 omega2=10.0, eta=0.1, include_q0=True, metal=False):
+                 txt=sys.stdout, world=mpi.world,
+                 frequencies=None,
+                 domega0=None,  # deprecated
+                 omega2=None,  # deprecated
+                 eta=0.1, include_q0=True, metal=False):
         """
         Class for calculating quasiparticle energies of van der Waals
         heterostructures using the GW approximation for the self-energy.
@@ -64,12 +69,11 @@ class GWQEHCorrection(PairDensity):
         wqeh: array of floats
             w-grid used for dW_qw. So far this have to be the same as for the
             GWQEH calculation.  (only needed if dW is given by hand).
-        domega0: float
-            Minimum frequency step (in eV) used in the generation of the non-
-            linear frequency grid.
-        omega2: float
-            Control parameter for the non-linear frequency grid, equal to the
-            frequency where the grid spacing has doubled in size.
+        frequencies:
+            Input parameters for frequency_grid.
+            Can be array of frequencies to evaluate the response function at
+            or dictionary of paramaters for build-in nonlinear grid
+            (see :ref:`frequency grid`).
         eta: float
             Broadening parameter.
         include_q0: bool
@@ -92,8 +96,6 @@ class GWQEHCorrection(PairDensity):
         self.filename = filename
         self.ecut /= Hartree
         self.eta = eta / Hartree
-        self.domega0 = domega0 / Hartree
-        self.omega2 = omega2 / Hartree
 
         self.kpts = list(select_kpts(kpts, self.calc))
 
@@ -132,11 +134,26 @@ class GWQEHCorrection(PairDensity):
         self.qd = KPointDescriptor(bzq_qc)
         self.qd.set_symmetry(self.calc.atoms, kd.symmetry)
 
-        # frequency grid
-        omax = self.find_maximum_frequency()
-        self.omega_w = frequency_grid(self.domega0, self.omega2, omax)
-        self.nw = len(self.omega_w)
-        self.wsize = 2 * self.nw
+        # Set up frequencies argument
+        if domega0 is not None or omega2 is not None:
+            assert frequencies is None
+            frequencies = {'type': 'nonlinear',
+                           'domega0': 0.025 if domega0 is None else domega0,
+                           'omega2': 10.0 if omega2 is None else omega2}
+            warnings.warn(f'Please use frequencies={frequencies}')
+        elif frequencies is None:
+            frequencies = {'type': 'nonlinear',
+                           'domega0': 0.025,
+                           'omega2': 10.0}
+        else:
+            assert frequencies['type'] == 'nonlinear'
+        # Set up frequency descriptor
+        omax = find_maximum_frequency(self.calc, nbands=self.nbands,
+                                      fd=self.fd)
+        frequencies['omegamax'] = omax
+        self.wd = FrequencyDescriptor.from_array_or_dict(frequencies)
+        nw = len(self.wd)
+        self.wsize = 2 * nw
 
         # Calculate screened potential of Heterostructure
         if dW_qw is None:
@@ -154,11 +171,11 @@ class GWQEHCorrection(PairDensity):
         self.dW_qw = self.get_W_on_grid(dW_qw, include_q0=include_q0,
                                         metal=metal)
 
-        assert self.nw == self.dW_qw.shape[1], \
+        assert nw == self.dW_qw.shape[1], \
             ('Frequency grids doesnt match!')
 
-        self.htp = HilbertTransform(self.omega_w, self.eta, gw=True)
-        self.htm = HilbertTransform(self.omega_w, -self.eta, gw=True)
+        self.htp = HilbertTransform(self.wd.omega_w, self.eta, gw=True)
+        self.htm = HilbertTransform(self.wd.omega_w, -self.eta, gw=True)
 
         self.complete = False
         self.nq = 0
@@ -205,7 +222,7 @@ class GWQEHCorrection(PairDensity):
             L = abs(self.calc.wfs.gd.cell_cv[2, 2])
             dW_w *= L
 
-            nw = self.nw
+            nw = len(self.wd)
 
             Wpm_w = np.zeros([2 * nw, 1, 1], dtype=complex)
             Wpm_w[:nw] = dW_w
@@ -352,15 +369,14 @@ class GWQEHCorrection(PairDensity):
         # Pick +i*eta or -i*eta:
         s_m = (1 + sgn_m * np.sign(0.5 - f_m)).astype(int) // 2
         comm = self.blockcomm
-        nw = len(self.omega_w)
+        nw = len(self.wd)
         nG = n_mG.shape[1]
         mynG = (nG + comm.size - 1) // comm.size
         Ga = min(comm.rank * mynG, nG)
         Gb = min(Ga + mynG, nG)
-        beta = (2**0.5 - 1) * self.domega0 / self.omega2
-        w_m = (o_m / (self.domega0 + beta * o_m)).astype(int)
-        o1_m = self.omega_w[w_m]
-        o2_m = self.omega_w[w_m + 1]
+        w_m = self.wd.get_floor_index(o_m, safe=False)
+        o1_m = self.wd.omega_w[w_m]
+        o2_m = self.wd.omega_w[w_m + 1]
 
         x = 1.0 / (self.qd.nbzkpts * 2 * pi * self.vol)
         sigma = 0.0
@@ -423,9 +439,8 @@ class GWQEHCorrection(PairDensity):
         q_vs = np.dot(q_cs, rcell_cv)
         q_grid = (q_vs**2).sum(axis=1)**0.5
         self.q_grid = q_grid
-        w_grid = self.omega_w
 
-        wqeh = self.wqeh  # w_grid.copy() # self.qeh
+        wqeh = self.wqeh  # self.wd.omega_w.copy() # self.qeh
         qqeh = self.qqeh
         sortqeh = np.argsort(qqeh)
         qqeh = qqeh[sortqeh]
@@ -444,8 +459,9 @@ class GWQEHCorrection(PairDensity):
         yr = RectBivariateSpline(qqeh, wqeh, dW_qw.real, s=0)
         yi = RectBivariateSpline(qqeh, wqeh, dW_qw.imag, s=0)
 
-        dWgw_qw = yr(q_grid[sort], w_grid) + 1j * yi(q_grid[sort], w_grid)
-        dW_qw = yr(qqeh, w_grid) + 1j * yi(qqeh, w_grid)
+        dWgw_qw = yr(q_grid[sort], self.wd.omega_w)\
+            + 1j * yi(q_grid[sort], self.wd.omega_w)
+        dW_qw = yr(qqeh, self.wd.omega_w) + 1j * yi(qqeh, self.wd.omega_w)
 
         if metal:
             # Interpolation is done -> put back zeros at q=0
@@ -468,7 +484,7 @@ class GWQEHCorrection(PairDensity):
                 c = 1 / np.sum(q0)
                 weights = c * q0
 
-            dWgw_qw[0] = (np.repeat(weights[:, np.newaxis], len(w_grid),
+            dWgw_qw[0] = (np.repeat(weights[:, np.newaxis], len(self.wd),
                                     axis=1) * dW_qw[:len(q0)]).sum(axis=0)
 
         if not include_q0:  # Omit q=0 contrinution completely.
@@ -481,8 +497,7 @@ class GWQEHCorrection(PairDensity):
         from gpaw.response.qeh import Heterostructure, expand_layers
 
         structure = expand_layers(structure)
-        self.w_grid = self.omega_w
-        wmax = self.w_grid[-1]
+        wmax = self.wd.omega_w[-1]
         # qmax = (self.q_grid).max()
 
         # Single layer
@@ -519,17 +534,3 @@ class GWQEHCorrection(PairDensity):
                      **data)
 
         return dW_qw
-
-    def find_maximum_frequency(self):
-        self.epsmin = 10000.0
-        self.epsmax = -10000.0
-        for kpt in self.calc.wfs.kpt_u:
-            self.epsmin = min(self.epsmin, kpt.eps_n[0])
-            self.epsmax = max(self.epsmax, kpt.eps_n[self.nbands - 1])
-
-        print('Minimum eigenvalue: %10.3f eV' % (self.epsmin * Hartree),
-              file=self.fd)
-        print('Maximum eigenvalue: %10.3f eV' % (self.epsmax * Hartree),
-              file=self.fd)
-
-        return self.epsmax - self.epsmin

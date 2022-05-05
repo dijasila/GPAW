@@ -10,7 +10,7 @@ import _gpaw
 import gpaw.mpi as mpi
 from gpaw.utilities.blas import gemm, rk, mmm
 from gpaw.utilities.progressbar import ProgressBar
-from gpaw.response.hacks import GaGb, block_partition
+from gpaw.response.pw_parallelization import GaGb, block_partition
 
 
 def czher(alpha: float, x, A) -> None:
@@ -202,7 +202,6 @@ class PointIntegrator(Integrator):
     def update(self, n_mG, deps_m, wd, chi0_wGG, timeordered=False, eta=None):
         """Update chi."""
 
-        omega_w = wd.get_data()
         deps_m += self.eshift * np.sign(deps_m)
         if timeordered:
             deps1_m = deps_m + 1j * eta * np.sign(deps_m)
@@ -213,7 +212,7 @@ class PointIntegrator(Integrator):
 
         GaGb = self._GaGb(chi0_wGG.shape[2])
 
-        for omega, chi0_GG in zip(omega_w, chi0_wGG):
+        for omega, chi0_GG in zip(wd.omega_w, chi0_wGG):
             if self.response == 'density':
                 x_m = (1 / (omega + deps1_m) - 1 / (omega - deps2_m))
             else:
@@ -229,12 +228,11 @@ class PointIntegrator(Integrator):
     @timer('CHI_0 hermetian update')
     def update_hermitian(self, n_mG, deps_m, wd, chi0_wGG):
         """If eta=0 use hermitian update."""
-        omega_w = wd.get_data()
         deps_m += self.eshift * np.sign(deps_m)
 
         GaGb = self._GaGb(chi0_wGG.shape[2])
 
-        for w, omega in enumerate(omega_w):
+        for w, omega in enumerate(wd.omega_w):
             if self.blockcomm.size == 1:
                 x_m = (-2 * deps_m / (omega.imag**2 + deps_m**2) + 0j)**0.5
                 nx_mG = n_mG.conj() * x_m[:, np.newaxis]
@@ -251,13 +249,12 @@ class PointIntegrator(Integrator):
         Updates spectral function A_wGG and saves it to chi0_wGG for
         later hilbert-transform."""
 
-        omega_w = wd.get_data()
         deps_m += self.eshift * np.sign(deps_m)
         o_m = abs(deps_m)
-        w_m = wd.get_closest_index(o_m)
+        w_m = wd.get_floor_index(o_m)
 
-        o1_m = omega_w[w_m]
-        o2_m = omega_w[w_m + 1]
+        o1_m = wd.omega_w[w_m]
+        o2_m = wd.omega_w[w_m + 1]
         p_m = np.abs(1 / (o2_m - o1_m)**2)
         p1_m = p_m * (o2_m - o_m)
         p2_m = p_m * (o_m - o1_m)
@@ -285,10 +282,9 @@ class PointIntegrator(Integrator):
         Updates spectral function A_wGG and saves it to chi0_wGG for
         later hilbert-transform."""
 
-        omega_w = wd.get_data()
         deps_m += self.eshift * np.sign(deps_m)
         o_m = abs(deps_m)
-        w_m = wd.get_closest_index(o_m)
+        w_m = wd.get_floor_index(o_m)
 
         GaGb = self._GaGb(chi0_wGG.shape[2])
 
@@ -313,8 +309,8 @@ class PointIntegrator(Integrator):
 
             # Here, we have same frequency range w, for set of
             # electron-hole excitations from startindex to endindex.
-            o1 = omega_w[w]
-            o2 = omega_w[w + 1]
+            o1 = wd.omega_w[w]
+            o2 = wd.omega_w[w + 1]
             p = np.abs(1 / (o2 - o1)**2)
             p1_m = np.array(p * (o2 - sortedo_m[startindex:endindex]))
             p2_m = np.array(p * (sortedo_m[startindex:endindex] - o1))
@@ -354,7 +350,6 @@ class PointIntegrator(Integrator):
                              timeordered=False, eta=None):
         """Optical limit update of chi."""
 
-        omega_w = wd.get_data()
         if timeordered:
             # avoid getting a zero from np.sign():
             deps1_m = deps_m + 1j * eta * np.sign(deps_m + 1e-20)
@@ -363,7 +358,7 @@ class PointIntegrator(Integrator):
             deps1_m = deps_m + 1j * eta
             deps2_m = deps_m - 1j * eta
 
-        for w, omega in enumerate(omega_w):
+        for w, omega in enumerate(wd.omega_w):
             x_m = (1 / (omega + deps1_m) - 1 / (omega - deps2_m))
             chi0_wxvG[w, 0] += np.dot(x_m * n_mG[:, :3].T, n_mG.conj())
             chi0_wxvG[w, 1] += np.dot(x_m * n_mG[:, :3].T.conj(), n_mG)
@@ -372,13 +367,12 @@ class PointIntegrator(Integrator):
     def update_hilbert_optical_limit(self, n_mG, deps_m, wd, chi0_wxvG):
         """Optical limit update of chi-head and -wings."""
 
-        omega_w = wd.get_data()
         for deps, n_G in zip(deps_m, n_mG):
             o = abs(deps)
-            w = wd.get_closest_index(o)
-            if w + 2 > len(omega_w):
+            w = wd.get_floor_index(o)
+            if w + 2 > len(wd):
                 break
-            o1, o2 = omega_w[w:w + 2]
+            o1, o2 = wd.omega_w[w:w + 2]
             if o > o2:
                 continue
             else:
@@ -517,8 +511,6 @@ class TetrahedronIntegrator(Integrator):
                                             [nk], float)
                     deps_tMk[t, :, K] = deps_M
 
-        omega_w = x.get_data()
-
         # Calculate integrations weight
         pb = ProgressBar(self.fd)
         for _, arguments in pb.enumerate(myterms_t):
@@ -539,7 +531,7 @@ class TetrahedronIntegrator(Integrator):
                     continue
 
                 W_w = self.get_kpoint_weight(K, deps_k,
-                                             pts_k, omega_w[i0:i1],
+                                             pts_k, x.omega_w[i0:i1],
                                              td)
 
                 for iw, weight in enumerate(W_w):

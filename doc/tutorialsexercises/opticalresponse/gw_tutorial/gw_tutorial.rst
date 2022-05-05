@@ -107,7 +107,7 @@ Frequency dependence
 Next, we should check the quality of the frequency grid used in the
 calculation. Two parameters determine how the frequency grid looks.
 ``domega0`` and ``omega2``. Read more about these parameters in the tutorial
-for the dielectric function :ref:`df_tutorial_freq`.
+for the dielectric function :ref:`frequency grid`.
 
 Running script :download:`C_frequency_conv.py` calculates the direct band
 gap using different frequency grids with ``domega0`` varying from 0.005 to
@@ -187,11 +187,11 @@ More information can be found here:
 .. note::
     Including vertex corrections is currently not possible for spin-polarized systems.
 
-A `GW\Gamma` calculation requires that 3 additional keywords are specified in the GW calculator: 
+A `GW\Gamma` calculation requires that 3 additional keywords are specified in the GW calculator:
 
-1) Which kernel to use: ``xc='rALDA'``, ``xc='rAPBE'`` etc.. 
+1) Which kernel to use: ``xc='rALDA'``, ``xc='rAPBE'`` etc..
 
-2) How to construct the kernel: ``av_scheme='wavevector'`` or ``av_scheme='density'``. The wavevector scheme is preferred here. 
+2) How to construct the kernel: ``av_scheme='wavevector'`` or ``av_scheme='density'``. The wavevector scheme is preferred here.
 
 3) How to apply the kernel: ``fxc_mode = 'GWG'``, ``fxc_mode='GWP'`` or ``fxc_mode='GWS'``.
 

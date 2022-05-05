@@ -167,6 +167,7 @@ class FXCCorrelation(RPACorrelation):
         if chi0_swxvG is None:
             chi0_swxvG = range(2)  # Not used
             chi0_swvv = range(2)  # Not used
+
         chi0._calculate(pd,
                         chi0_swGG[0],
                         chi0_swxvG[0],

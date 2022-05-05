@@ -101,7 +101,7 @@ positive values only. This is done by rewriting the integral as:
 
 with the use of `W(\omega') = W(-\omega')`.
 
-The frequency grid is the same as that used for the dielectric function. Read more about it here: :ref:`df_tutorial_freq`.
+The frequency grid is the same as that used for the dielectric function. Read more about it here: :ref:`frequency grid`.
 
 
 
@@ -172,7 +172,7 @@ The results must be converged with respect to:
 - the number of bands included in the calculation of the self energy ``nbands``
 
 - the planewave energy cutoff ``ecut``
-    
+
     ``ecut`` and ``nbands`` do not converge independently. As a rough
     estimation, ``ecut`` should be around the energy of the highest included
     band. If ``nbands`` is not specified it will be set equal to the amount of plane waves determined by ``ecut``.

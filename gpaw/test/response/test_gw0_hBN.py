@@ -1,19 +1,13 @@
 import pytest
-from gpaw.mpi import world
-from gpaw.utilities import compiled_with_sl
 import numpy as np
 from ase.build import bulk
 from gpaw import GPAW, FermiDirac, PW
 from gpaw.response.g0w0 import G0W0
 from gpaw.test import equal
 
-pytestmark = pytest.mark.skipif(
-    world.size != 1 and not compiled_with_sl(),
-    reason='world.size != 1 and not compiled_with_sl()')
-
 
 @pytest.mark.response
-def test_response_gw0_hBN(in_tmp_dir):
+def test_response_gw0_hBN(in_tmp_dir, scalapack):
     atoms = bulk('BN', 'zincblende', a=3.615)
 
     calc = GPAW(mode=PW(400),

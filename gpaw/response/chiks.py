@@ -101,8 +101,7 @@ class ChiKS(PlaneWaveKSLRF):
         x_wt = weight * self.get_temporal_part(n1_t, n2_t,
                                                s1_t, s2_t, df_t, deps_t)
 
-        layout = self._GaGb(n_tG.shape[1])
-        myslice = layout.myslice
+        myslice = self.GaGb.myslice
 
         if self.bundle_integrals:
             # Specify notation
@@ -157,7 +156,7 @@ class ChiKS(PlaneWaveKSLRF):
         # Calculate nominator
         nom_t = scomps_t * df_t
         # Calculate denominator
-        denom_wt = self.omega_w[:, np.newaxis] - deps_t[np.newaxis, :]\
+        denom_wt = self.wd.omega_w[:, np.newaxis] - deps_t[np.newaxis, :]\
             + 1j * self.eta
         
         return nom_t[np.newaxis, :] / denom_wt
@@ -185,9 +184,9 @@ class ChiKS(PlaneWaveKSLRF):
         nom1_t = scomps1_t * df_t
         nom2_t = delta_t * scomps2_t * df_t
         # Calculate denominators
-        denom1_wt = self.omega_w[:, np.newaxis] - deps_t[np.newaxis, :]\
+        denom1_wt = self.wd.omega_w[:, np.newaxis] - deps_t[np.newaxis, :]\
             + 1j * self.eta
-        denom2_wt = self.omega_w[:, np.newaxis] + deps_t[np.newaxis, :]\
+        denom2_wt = self.wd.omega_w[:, np.newaxis] + deps_t[np.newaxis, :]\
             + 1j * self.eta
         
         return nom1_t[np.newaxis, :] / denom1_wt\

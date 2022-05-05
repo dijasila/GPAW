@@ -141,8 +141,7 @@ def test_solvation_poisson():
             rho += rho_tmp
             phi_expected += phi_tmp
 
-        # PolarizationPoissonSolver does not pass this test
-        for ps in psolvers[:-1]:
+        for ps in psolvers:
             phi = solve(ps, eps, rho)
             parprint(ps, np.abs(phi - phi_expected).max())
             equal(phi, phi_expected, 1e-3)

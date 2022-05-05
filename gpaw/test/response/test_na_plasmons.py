@@ -1,6 +1,5 @@
 import pytest
 from gpaw.mpi import world
-from gpaw.utilities import compiled_with_sl
 from ase import Atoms
 from gpaw import GPAW, PW
 from gpaw.response.df import DielectricFunction
@@ -11,14 +10,12 @@ from gpaw.test import equal, findpeak
 # Reasons that this can fail:
 # - Bug in block parallelization
 
-pytestmark = pytest.mark.skipif(
-    world.size < 4 or not compiled_with_sl(),
-    reason='world.size < 4 or not compiled_with_sl()')
+pytestmark = pytest.mark.skipif(world.size < 4, reason='world.size < 4')
 
 
 @pytest.mark.response
 @pytest.mark.slow
-def test_response_na_plasmons(in_tmp_dir):
+def test_response_na_plasmons(in_tmp_dir, scalapack):
     a = 4.23 / 2.0
     a1 = Atoms('Na',
                scaled_positions=[[0, 0, 0]],
@@ -50,7 +47,7 @@ def test_response_na_plasmons(in_tmp_dir):
     df2NLFCx, df2LFCx = df2.get_dielectric_function(direction='x')
 
     # Compare plasmon frequencies and intensities
-    w_w = df1.chi0.omega_w
+    w_w = df1.chi0.wd.omega_w
     w1, I1 = findpeak(w_w, -(1. / df1LFCx).imag)
     w2, I2 = findpeak(w_w, -(1. / df2LFCx).imag)
     equal(w1, w2, 1e-2)
