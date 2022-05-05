@@ -4,18 +4,13 @@ from ase.build import bulk
 
 from gpaw import GPAW, PW
 from gpaw.mpi import world
-from gpaw.utilities import compiled_with_sl
 
 # This test is asserting that the expert diagonalization
 # routine gives the same result as the non-expert version
 # in terms of eigenvalues and wavefunctions
 
-pytestmark = pytest.mark.skipif(
-    world.size != 1 and not compiled_with_sl(),
-    reason='world.size != 1 and not compiled_with_sl()')
 
-
-def test_pw_expert_diag(in_tmp_dir):
+def test_pw_expert_diag(in_tmp_dir, scalapack):
     wfs_e = []
     for i, expert in enumerate([True, False]):
         si = bulk('Si')

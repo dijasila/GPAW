@@ -1,6 +1,4 @@
 import pytest
-from gpaw.mpi import world
-from gpaw.utilities import compiled_with_sl
 import numpy as np
 from ase import Atoms
 from ase.build import bulk
@@ -12,13 +10,9 @@ from gpaw.test import equal
 from gpaw.xc.rpa import RPACorrelation
 from gpaw.xc.fxc import FXCCorrelation
 
-pytestmark = pytest.mark.skipif(
-    world.size != 1 and not compiled_with_sl(),
-    reason='world.size != 1 and not compiled_with_sl()')
-
 
 @pytest.mark.slow
-def test_ralda_ralda_energy_Si(in_tmp_dir):
+def test_ralda_ralda_energy_Si(in_tmp_dir, scalapack):
     a0 = 5.43
     cell = bulk('Si', 'fcc', a=a0).get_cell()
     Si = Atoms('Si2', cell=cell, pbc=True,

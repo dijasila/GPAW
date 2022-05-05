@@ -6,7 +6,6 @@ from ase.build import bulk
 from gpaw import GPAW, PW, FermiDirac
 from gpaw.mpi import world
 from gpaw.response.g0w0 import G0W0
-from gpaw.utilities import compiled_with_sl
 
 
 def generate_si_systems():
@@ -16,11 +15,6 @@ def generate_si_systems():
     si2.positions -= a / 8
 
     return [si1, si2]
-
-
-pytestmark = pytest.mark.skipif(
-    world.size != 1 and not compiled_with_sl(),
-    reason='world.size != 1 and not compiled_with_sl()')
 
 
 def run(atoms, symm, nblocks):
@@ -64,7 +58,7 @@ def run(atoms, symm, nblocks):
                                   {'point_group': False}])
 @pytest.mark.parametrize('nblocks',
                          [x for x in [1, 2, 4, 8] if x <= world.size])
-def test_response_gwsi(in_tmp_dir, si, symm, nblocks):
+def test_response_gwsi(in_tmp_dir, si, symm, nblocks, scalapack):
     e, r = run(si, symm, nblocks)
     G, X = r['eps'][0]
     results = [e, G[0], G[1] - G[0], X[1] - G[0], X[2] - X[1]]

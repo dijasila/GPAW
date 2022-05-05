@@ -1,19 +1,13 @@
 import pytest
-from gpaw.mpi import world
-from gpaw.utilities import compiled_with_sl
 from ase import Atoms
 from ase.lattice.hexagonal import Hexagonal
 from gpaw import GPAW, FermiDirac
 from gpaw.test import equal
 from gpaw.response.g0w0 import G0W0
 
-pytestmark = pytest.mark.skipif(
-    world.size != 1 and not compiled_with_sl(),
-    reason='world.size != 1 and not compiled_with_sl()')
-
 
 @pytest.mark.response
-def test_response_gw_MoS2_cut(in_tmp_dir):
+def test_response_gw_MoS2_cut(in_tmp_dir, scalapack):
     if 1:
         calc = GPAW(mode='pw',
                     xc='PBE',

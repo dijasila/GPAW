@@ -5,30 +5,31 @@ from gpaw.mpi import world
 from gpaw.utilities import compiled_with_sl
 
 
-def test_lcao_kpts_many_combinations(in_tmp_dir):
-    def ikwargs():
-        for augment_grids in [False, True]:
-            for sl_auto in ([0, 1] if compiled_with_sl() else [0]):
-                if world.size == 16:
-                    # This won't happen in ordinary test suite
-                    parsizes = [[4, 2, 2], [2, 4, 2], [2, 2, 4]]
-                elif world.size == 8:
-                    parsizes = [[2, 2, 2]]
-                elif world.size == 4:
-                    parsizes = [[1, 2, 2]]
-                elif world.size == 2:
-                    parsizes = [[1, 1, 2]]
-                else:
-                    assert world.size == 1
-                    parsizes = [[1, 1, 1]]
-                for kpt, band, domain in parsizes:
-                    parallel = dict(kpt=kpt,
-                                    band=band,
-                                    domain=domain,
-                                    sl_auto=sl_auto,
-                                    augment_grids=augment_grids)
-                    yield dict(parallel=parallel)
+def ikwargs():
+    for augment_grids in [False, True]:
+        for sl_auto in ([0, 1] if compiled_with_sl() else [0]):
+            if world.size == 16:
+                # This won't happen in ordinary test suite
+                parsizes = [[4, 2, 2], [2, 4, 2], [2, 2, 4]]
+            elif world.size == 8:
+                parsizes = [[2, 2, 2]]
+            elif world.size == 4:
+                parsizes = [[1, 2, 2]]
+            elif world.size == 2:
+                parsizes = [[1, 1, 2]]
+            else:
+                assert world.size == 1
+                parsizes = [[1, 1, 1]]
+            for kpt, band, domain in parsizes:
+                parallel = dict(kpt=kpt,
+                                band=band,
+                                domain=domain,
+                                sl_auto=sl_auto,
+                                augment_grids=augment_grids)
+                yield dict(parallel=parallel)
 
+
+def test_lcao_kpts_many_combinations(in_tmp_dir):
     counter = count()
 
     for spinpol in [False, True]:

@@ -2,8 +2,6 @@
 It takes ~109 s on one core"""
 
 import pytest
-from gpaw.mpi import world
-from gpaw.utilities import compiled_with_sl
 import numpy as np
 
 from ase.lattice.hexagonal import Graphene
@@ -12,15 +10,10 @@ from gpaw import GPAW, FermiDirac
 from gpaw.test import equal
 from gpaw.response.g0w0 import G0W0
 
-pytestmark = pytest.mark.skipif(
-    world.size != 1 and not compiled_with_sl(),
-    reason='world.size != 1 and not compiled_with_sl()')
-
 
 @pytest.mark.response
-def test_response_gw_hBN_extrapolate(in_tmp_dir):
+def test_response_gw_hBN_extrapolate(in_tmp_dir, scalapack):
     pytest.xfail('gw go brrr work in progress')
-
     if 1:
         calc = GPAW(mode='pw',
                     xc='PBE',
