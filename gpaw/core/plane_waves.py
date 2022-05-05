@@ -75,9 +75,13 @@ class PlaneWaves(Domain):
     def __repr__(self) -> str:
         m = self.myshape[0]
         n = self.shape[0]
-        return Domain.__repr__(self).replace(
+        r = Domain.__repr__(self).replace(
             'Domain(',
-            f'PlaneWaves(ecut={self.ecut} <{m}/{n}>, ')
+            f'PlaneWaves(ecut={self.ecut} <coefs={m}/{n}>, ')
+        if self.qspiral_v is None:
+            return r
+        q = self.cell_cv @ self.qspiral_v / (2 * pi)
+        return f'{r[:-1]}, qsiral={q}'
 
     def global_shape(self) -> tuple[int, ...]:
         """Tuple with one element: number of plane waves."""

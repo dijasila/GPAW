@@ -50,9 +50,15 @@ class SpinorPWHamiltonian(Hamiltonian):
               out: PlaneWaveExpansions,
               spin: int):
         out_nsG = out
+        pw = psit_nsG.desc
 
-        # ekinup, ekindn: XXX
-        np.multiply(psit_nsG.desc.ekin_G, psit_nsG.data, out_nsG.data)
+        if pw.qspiral_v is None:
+            np.multiply(pw.ekin_G, psit_nsG.data, out_nsG.data)
+        else:
+            for s, sign in enumerate([1, -1]):
+                ekin_G = 0.5 * ((pw.G_plus_k_Gv +
+                                 0.5 * sign * pw.qspiral_v)**2).sum(1)
+                np.multiply(ekin_G, psit_nsG.data[:, s], out_nsG.data[:, s])
 
         grid = vt_xR.desc.new(dtype=complex)
 
@@ -66,9 +72,9 @@ class SpinorPWHamiltonian(Hamiltonian):
             p_sG.ifft(out=f_sR)
             a, b = f_sR.data
             g_R.data = a * (v + z) + b * (x - iy)
-            o_sG.data[0] += g_R.fft(pw=p_sG.desc).data
+            o_sG.data[0] += g_R.fft(pw=pw).data
             g_R.data = a * (x + iy) + b * (v - z)
-            o_sG.data[1] += g_R.fft(pw=p_sG.desc).data
+            o_sG.data[1] += g_R.fft(pw=pw).data
 
         return out_nsG
 
