@@ -23,4 +23,4 @@ def test_fxc_mode(in_tmp_dir, gpw_files, fxc_mode, ref_gap, scalapack):
 
     calculated_gap = np.min(result['qp'][0, :, 1])\
         - np.max(result['qp'][0, :, 0])
-    assert calculated_gap == pytest.approx(ref_gap)
+    assert calculated_gap == pytest.approx(ref_gap, abs=1e-4)
