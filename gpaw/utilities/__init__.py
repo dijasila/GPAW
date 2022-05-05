@@ -56,7 +56,7 @@ def check_atoms_too_close_to_boundary(atoms: Atoms,
     >>> check_atoms_too_close_to_boundary(atoms)
     >>> atoms = Atoms('H',
     ...               positions=[[0.5, 0.5, 0.0]],
-    ...               cell=[1, 1, 0],
+    ...               cell=[1, 1, 0],  # no bounday in z-direction
     ...               pbc=(1, 1, 0))
     >>> check_atoms_too_close_to_boundary(atoms)
     """
@@ -66,7 +66,7 @@ def check_atoms_too_close_to_boundary(atoms: Atoms,
         if pbc:
             continue
         L = np.linalg.norm(axis_v)
-        if L < 1e-12:
+        if L < 1e-12:  # L==0 means no boundary
             continue
         spos_a = atoms.positions @ recip_v
         eps = dist / L
