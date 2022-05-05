@@ -4,6 +4,7 @@ import pytest
 from ase.build import bulk
 
 from gpaw import GPAW, PW, FermiDirac
+from gpaw.mpi import world
 from gpaw.response.g0w0 import G0W0
 
 
@@ -16,28 +17,35 @@ def generate_si_systems():
     return [si1, si2]
 
 
-def run(atoms, symm):
+def run(atoms, symm, nblocks):
     atoms.calc = GPAW(mode=PW(250),
                       eigensolver='rmm-diis',
                       occupations=FermiDirac(0.01),
                       symmetry=symm,
                       kpts={'size': (2, 2, 2), 'gamma': True},
+                      convergence={'density': 1e-7},
                       parallel={'domain': 1},
                       txt='si.txt')
     e = atoms.get_potential_energy()
     scalapack = atoms.calc.wfs.bd.comm.size
     atoms.calc.diagonalize_full_hamiltonian(nbands=8, scalapack=scalapack)
     atoms.calc.write('si.gpw', mode='all')
-    gw = G0W0('si.gpw', 'gw',
-              nbands=8,
-              integrate_gamma=0,
-              kpts=[(0, 0, 0), (0.5, 0.5, 0)],  # Gamma, X
-              ecut=40,
-              frequencies={'type': 'nonlinear',
-                           'domega0': 0.1},
-              eta=0.2,
-              relbands=(-1, 2))  # homo, lumo, lumo+1, same as bands=(3, 6)
-    results = gw.calculate()
+    # The first iteration of the loop has very few frequencies.
+    # The test is, that code should still not crash.
+    # The second iteration is the actual numerical test, which
+    # will be returned and asserted outside this function.
+    for omegamax in [0.2, None]:
+        gw = G0W0('si.gpw', 'gw',
+                  nbands=8,
+                  integrate_gamma=0,
+                  kpts=[(0, 0, 0), (0.5, 0.5, 0)],  # Gamma, X
+                  ecut=40,
+                  nblocks=nblocks,
+                  frequencies={'type': 'nonlinear',
+                               'domega0': 0.1, 'omegamax': omegamax},
+                  eta=0.2,
+                  relbands=(-1, 2))
+        results = gw.calculate()
     return e, results
 
 
@@ -48,8 +56,10 @@ def run(atoms, symm):
                                   'off',
                                   {'time_reversal': False},
                                   {'point_group': False}])
-def test_response_gwsi(in_tmp_dir, si, symm, scalapack):
-    e, r = run(si, symm)
+@pytest.mark.parametrize('nblocks',
+                         [x for x in [1, 2, 4, 8] if x <= world.size])
+def test_response_gwsi(in_tmp_dir, si, symm, nblocks, scalapack):
+    e, r = run(si, symm, nblocks)
     G, X = r['eps'][0]
     results = [e, G[0], G[1] - G[0], X[1] - G[0], X[2] - X[1]]
     G, X = r['qp'][0]
