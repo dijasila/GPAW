@@ -360,7 +360,7 @@ def plot_spectral_function(filename, color='blue', eref=None,
     plt.yticks(size=20)
     plt.ylabel('E(eV)', size=20)
     plt.axis([0, x[-1], emin, emax])
-    plt.savefig(filename + '.png')
+    plt.savefig(filename + '_spec.png')
     plt.show()
 
 
@@ -399,6 +399,7 @@ def plot_band_structure(e_mK, P_mK, x, X, points_name,
     plt.yticks(size=20)
     plt.ylabel('E(eV)', size=20)
     plt.axis([0, x[-1], emin, emax])
+    plt.savefig(filename + '_band.png')
     plt.show()
 
 
