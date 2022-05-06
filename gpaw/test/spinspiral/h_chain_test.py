@@ -20,6 +20,7 @@ def test_afm_h_chain():
                   symmetry='off',
                   kpts=(2 * k, 1, 1))
     e1 = h.get_potential_energy()
+    h1, l1 = h.calc.get_homo_lumo()
 
     h2 = Atoms('H2',
                [(0, 0, 0), (a, 0, 0)],
@@ -31,5 +32,8 @@ def test_afm_h_chain():
                          'ecut': 400},
                    kpts=(k, 1, 1))
     e2 = h2.get_potential_energy()
+    h2, l2 = h2.calc.get_homo_lumo()
 
     assert 2 * e1 == pytest.approx(e2, abs=0.002)
+    assert h1 == pytest.approx(h2, abs=0.001)
+    assert l1 == pytest.approx(l2, abs=0.001)
