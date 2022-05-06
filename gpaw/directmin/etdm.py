@@ -342,6 +342,8 @@ class ETDM:
             self.evals[u] = None
 
             if self.constraints:
+                from ase.parallel import parprint
+                parprint(self.constraints)
                 self.constraints[u] = convert_constraints(
                     self.constraints[u], self.n_dim[u],
                     len(kpt.f_n[kpt.f_n > 1e-10]), self.representation)
@@ -950,8 +952,6 @@ def check_indices(ind1, ind2, n_dim, n_occ, representation):
     elif representation == 'sparse':
         assert ind1 < n_occ and ind2 < n_dim, 'Check constraints.'
     elif representation == 'u-invar':
-        from ase.parallel import parprint
-        parprint([ind1, ind2])
         assert ind1 < n_occ and ind2 >= n_occ and ind2 < n_dim, \
             'Check constraints.'
 
