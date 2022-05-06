@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 from ase.dft.bandgap import bandgap
+from ase.io.ulm import Writer
 from ase.units import Bohr, Ha
 from gpaw.core.atom_arrays import AtomArrays
 from gpaw.mpi import MPIComm, serial_comm
@@ -9,7 +10,7 @@ from gpaw.new.brillouin import IBZ
 from gpaw.new.lcao.wave_functions import LCAOWaveFunctions
 from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 from gpaw.new.wave_functions import WaveFunctions
-from ase.io.ulm import Writer
+from gpaw.typing import Array1D
 
 
 def create_ibz_wave_functions(ibz: IBZ,
@@ -330,6 +331,10 @@ class IBZWaveFunctions:
         D = self.spin_degeneracy
 
         for k, (x, y, z) in enumerate(ibz.kpt_kc):
+            if k == 4:
+                log(f'(only showing first 4 out of {len(ibz)} k-points)')
+                break
+
             log(f'\nkpt = [{x:.3f}, {y:.3f}, {z:.3f}], '
                 f'weight = {ibz.weight_k[k]:.3f}:')
 
@@ -347,10 +352,9 @@ class IBZWaveFunctions:
                                                          occ_skn[1, k])):
                     log(f'  {n:4} {e1:13.3f}   {f1:9.3f}'
                         f'    {e2:10.3f}   {f2:9.3f}')
-            if k == 3:
-                break
 
         try:
+            log()
             bandgap(eigenvalues=eig_skn,
                     efermi=fl[0],
                     output=log.fd,
@@ -359,18 +363,28 @@ class IBZWaveFunctions:
             # Maybe we only have the occupied bands and no empty bands
             pass
 
-    def get_homo_lumo(self, spin=None):
+    def get_homo_lumo(self, spin: int = None) -> Array1D:
         """Return HOMO and LUMO eigenvalues."""
-        if spin is None:
-            if self.spin_degeneracy == 2:
-                return self.get_homo_lumo(0)
-            h0, l0 = self.get_homo_lumo(0)
-            h1, l1 = self.get_homo_lumo(1)
-            return np.array([max(h0, h1), min(l0, l1)])
+        if self.ncomponents == 1:
+            N = 2
+            assert spin != 1
+            spin = 0
+        elif self.ncomponents == 2:
+            N = 2
+            if spin is None:
+                h0, l0 = self.get_homo_lumo(0)
+                h1, l1 = self.get_homo_lumo(1)
+                return np.array([max(h0, h1), min(l0, l1)])
+        else:
+            N = 1
+            assert spin != 1
+            spin = 0
 
-        n = int(round(self.nelectrons)) // 2
-        assert 2 * n == self.nelectrons
-        homo = self.kpt_comm.max(max(wfs._eig_n[n - 1] for wfs in self))
-        lumo = self.kpt_comm.min(min(wfs._eig_n[n] for wfs in self))
+        n = int(round(self.nelectrons)) // N
+        assert N * n == self.nelectrons
+        homo = self.kpt_comm.max(max(wfs_s[spin].eig_n[n - 1]
+                                     for wfs_s in self.wfs_qs))
+        lumo = self.kpt_comm.min(min(wfs_s[spin].eig_n[n]
+                                     for wfs_s in self.wfs_qs))
 
         return np.array([homo, lumo])
