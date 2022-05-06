@@ -75,7 +75,7 @@ DFT simulations of :math:`{\gamma}-Fe` have found this system to be extremely
 sensitive to the lattice parameter. In fact we do not find the experimental
 spin spiral at the experimental volume. Instead we construct a fcc crystal
 with a slightly smaller unit cell of `{\Omega}=10.72\angstrom^3`. The
-following script :download:`Fe_sgs.py` (Warning, requires HPC resources) will
+following script :download:`fe_sgs.py` (Warning, requires HPC resources) will
 construct the Fe fcc lattice and calculate the spin spiral groundstates with q
 along the high symmetry axis in the reciprocal lattice. As a result we find a
 spectrum with two local minimum, one of which match the experimentally
