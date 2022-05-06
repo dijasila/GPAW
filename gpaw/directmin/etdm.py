@@ -108,8 +108,11 @@ class ETDM:
         self.mom_the_canonical_representation \
             = mom_the_canonical_representation
         self.constraints = constraints
-        self.initialize_constraints = need_to_convert_constraints(
-            self.constraints)
+        if self.constraints is None:
+            self.initialize_constraints = False
+        else:
+            self.initialize_constraints = need_to_convert_constraints(
+                self.constraints)
 
         self.mmf = False
         self.searchdir_algo = search_direction(
