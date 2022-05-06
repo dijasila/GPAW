@@ -114,6 +114,10 @@ class ETDM:
             self.initialize_constraints = need_to_convert_constraints(
                 self.constraints)
 
+        from ase.parallel import parprint
+        parprint(self.constraints)
+        parprint(self.initialize_constraints)
+
         self.mmf = False
         self.searchdir_algo = search_direction(
             searchdir_algo, self, partial_diagonalizer)
