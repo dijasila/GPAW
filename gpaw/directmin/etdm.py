@@ -108,6 +108,7 @@ class ETDM:
         self.mom_the_canonical_representation \
             = mom_the_canonical_representation
         self.constraints = constraints
+        self.initialized_constraints = self.constraints is None
 
         self.mmf = False
         self.searchdir_algo = search_direction(
@@ -341,12 +342,11 @@ class ETDM:
             self.evecs[u] = None
             self.evals[u] = None
 
-            if self.constraints:
-                from ase.parallel import parprint
-                parprint(self.constraints)
+            if self.constraints and not self.initialized_constraints:
                 self.constraints[u] = convert_constraints(
                     self.constraints[u], self.n_dim[u],
                     len(kpt.f_n[kpt.f_n > 1e-10]), self.representation)
+                self.initialized_constraints = True
 
         if self.constraints is None:
             self.constraints = [[] for _ in range(len(kpt_u))]
