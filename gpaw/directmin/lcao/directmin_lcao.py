@@ -19,8 +19,7 @@ class DirectMinLCAO(DirectLCAO):
 
     def __init__(self, wfs, ham, nkpts, diagonalizer=None,
                  orthonormalization='gramschmidt',
-                 need_init_orbs=True,
-                 constraints=[]):
+                 need_init_orbs=True):
 
         super(DirectMinLCAO, self).__init__(diagonalizer)
         super(DirectMinLCAO, self).initialize(wfs.gd, wfs.dtype,
@@ -30,7 +29,6 @@ class DirectMinLCAO(DirectLCAO):
         self.nkpts = nkpts
         self.reference_orbitals = {}
         self.initialize_orbitals(wfs, ham)
-        self.constraints = constraints
 
     def __repr__(self):
         pass
