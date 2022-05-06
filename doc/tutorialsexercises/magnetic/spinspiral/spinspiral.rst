@@ -77,10 +77,19 @@ spin spiral at the experimental volume. Instead we construct a fcc crystal
 with a slightly smaller unit cell of `{\Omega}=10.72\angstrom^3`. The
 following script :download:`fe_sgs.py` (Warning, requires HPC resources) will
 construct the Fe fcc lattice and calculate the spin spiral groundstates with q
-along the high symmetry axis in the reciprocal lattice. As a result we find a
+along the high symmetry axis in the reciprocal lattice.
+
+.. literalinclude:: fe_sgd.py
+
+As a result we find a
 spectrum with two local minimum, one of which match the experimentally
 measured spin spiral. Since only one atom is present in the unit cell, we do
 not need to worry about any magnetic structure inside the unit cell.
+
+.. figure:: e-spiral.png
+.. figure:: m-spiral.png
+
+   (see :download:`plot.py`)
 
 Calculating the energy of the spin spiral ground state could be done using a
 (2, 1, 10) supercell of the iron lattice in a standard noncollinear ground

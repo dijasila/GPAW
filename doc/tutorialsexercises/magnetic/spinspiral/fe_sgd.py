@@ -27,3 +27,4 @@ for i, q_c in enumerate(path.kpts):
                 txt=f'gs-{i:02}.txt')
     atoms.calc = calc
     atoms.get_potential_energy()
+    atoms.calc.write(f'gs-{i:02}.gpw')
