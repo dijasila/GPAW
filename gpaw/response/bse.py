@@ -535,12 +535,12 @@ class BSE:
             # block parallelization here. Before calling chi0._calculate()
             # we have to manually set the parallelization properties
             # on the chi0 object, which seems very unsafe indeed.
-            chi0.GaGb = Blocks1D(chi0.blockcomm, nG)
+            chi0.blocks1d = Blocks1D(chi0.blockcomm, nG)
             chi0.blockdist = PlaneWaveBlockDistributor(chi0.world,
                                                        chi0.blockcomm,
                                                        chi0.kncomm,
                                                        chi0.wd,
-                                                       chi0.GaGb)
+                                                       chi0.blocks1d)
 
             chi0_wGG = np.zeros((1, nG, nG), complex)
             if np.allclose(q_c, 0.0):

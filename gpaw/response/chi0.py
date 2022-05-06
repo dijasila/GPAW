@@ -207,7 +207,7 @@ class Chi0:
         self.wd = FrequencyDescriptor.from_array_or_dict(frequencies)
         print(self.wd, file=self.fd)
 
-        self.GaGb = None  # Plane wave basis depends on q
+        self.blocks1d = None  # Plane wave basis depends on q
         self.blockdist = None
 
         if not isinstance(self.wd, NonLinearFrequencyDescriptor):
@@ -294,14 +294,14 @@ class Chi0:
 
         # Initialize block distibution of plane wave basis
         nG = pd.ngmax + 2 * optical_limit
-        self.GaGb = Blocks1D(self.blockcomm, nG)
+        self.blocks1d = Blocks1D(self.blockcomm, nG)
         self.blockdist = PlaneWaveBlockDistributor(self.world,
                                                    self.blockcomm,
                                                    self.kncomm,
-                                                   self.wd, self.GaGb)
+                                                   self.wd, self.blocks1d)
 
         nw = len(self.wd)
-        wGG_shape = (nw, self.GaGb.nGlocal, nG)
+        wGG_shape = (nw, self.blocks1d.nlocal, nG)
         # if self.blockcomm.rank == 0:
         #     assert self.Gb - self.Ga >= 3
         # assert mynG * (self.blockcomm.size - 1) < nG
@@ -598,8 +598,8 @@ class Chi0:
             plasmafreq_vv = plasmafreq_wvv[0].copy()
             if self.include_intraband:
                 if extend_head:
-                    va = min(self.GaGb.Ga, 3)
-                    vb = min(self.GaGb.Gb, 3)
+                    va = min(self.blocks1d.a, 3)
+                    vb = min(self.blocks1d.b, 3)
                     A_wxx[:, :vb - va, :3] += (plasmafreq_vv[va:vb] /
                                                (self.wd.omega_w[:, np.newaxis,
                                                                 np.newaxis] +
@@ -657,10 +657,10 @@ class Chi0:
         # parameters.
         if optical_limit and extend_head:
             # The wings are extracted
-            chi0_wxvG[:, 1, :, self.GaGb.myslice] = np.transpose(
+            chi0_wxvG[:, 1, :, self.blocks1d.myslice] = np.transpose(
                 A_wxx[..., 0:3], (0, 2, 1))
-            va = min(self.GaGb.Ga, 3)
-            vb = min(self.GaGb.Gb, 3)
+            va = min(self.blocks1d.a, 3)
+            vb = min(self.blocks1d.b, 3)
             # print(self.world.rank, va, vb, chi0_wxvG[:, 0, va:vb].shape,
             #       A_wxx[:, va:vb].shape, A_wxx.shape)
             chi0_wxvG[:, 0, va:vb] = A_wxx[:, :vb - va]
@@ -685,7 +685,7 @@ class Chi0:
             # and wings we have to take care that
             # these are handled correctly. Note that
             # it is important that the wings are overwritten first.
-            chi0_wGG[:, :, 0] = chi0_wxvG[:, 1, 2, self.GaGb.myslice]
+            chi0_wGG[:, :, 0] = chi0_wxvG[:, 1, 2, self.blocks1d.myslice]
 
             if self.blockcomm.rank == 0:
                 chi0_wGG[:, 0, :] = chi0_wxvG[:, 0, 2, :]

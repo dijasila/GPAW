@@ -3,16 +3,16 @@ from gpaw.blacs import BlacsDescriptor, BlacsGrid, Redistributor
 
 
 class Blocks1D:
-    def __init__(self, blockcomm, nG):
+    def __init__(self, blockcomm, N):
         self.blockcomm = blockcomm
-        self.nG = nG
+        self.N = N
 
-        self.mynG = (nG + blockcomm.size - 1) // blockcomm.size
-        self.Ga = min(blockcomm.rank * self.mynG, nG)
-        self.Gb = min(self.Ga + self.mynG, nG)
-        self.nGlocal = self.Gb - self.Ga
+        myn = (N + blockcomm.size - 1) // blockcomm.size
+        self.a = min(blockcomm.rank * myn, N)
+        self.b = min(self.a + myn, N)
+        self.nlocal = self.b - self.a
 
-        self.myslice = slice(self.Ga, self.Gb)
+        self.myslice = slice(self.a, self.b)
 
 
 def block_partition(comm, nblocks):
@@ -35,22 +35,20 @@ class PlaneWaveBlockDistributor:
     in the plane wave basis."""
 
     def __init__(self, world, blockcomm, intrablockcomm,
-                 wd, GaGb):
+                 wd, blocks1d):
         self.world = world
         self.blockcomm = blockcomm
         self.intrablockcomm = intrablockcomm
 
         # NB: It seems that the only thing we need from the wd is
         # nw, why we should consider simply passing nw instead.
-        # Also, it would seem beneficial to make a wawb object
-        # similar to GaGb, in order to reduce code duplication.
         self.nw = len(wd)
 
         # CAUTION: Currently the redistribute functionality is used
-        # also for arrays with different distribution than GaGb.
-        # For this reason, GaGb is actually not used below, but we
+        # also for arrays with different distribution than Blocks1D.
+        # For this reason, Blocks1D is actually not used below, but we
         # keep for now, to make the vision more clear.
-        self.GaGb = GaGb
+        self.blocks1d = blocks1d
 
     def redistribute(self, in_wGG, out_x=None):
         """Redistribute array.
@@ -70,7 +68,7 @@ class PlaneWaveBlockDistributor:
 
         nw = self.nw
         mynw = (nw + comm.size - 1) // comm.size
-        # CAUTION: It is not always the case that nG == self.GaGb.nG
+        # CAUTION: It is not always the case that nG == self.blocks1d.nglobal
         # This happens, because chi0 wants to reuse the function
         # for the heads and wings part as well
         nG = in_wGG.shape[2]
