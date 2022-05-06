@@ -752,9 +752,6 @@ class PairDensity:
     def distribute_k_points_and_bands(self, band1, band2, kpts=None):
         """Distribute spins, k-points and bands.
 
-        nbands: int
-            Number of bands for each spin/k-point combination.
-
         The attribute self.mysKn1n2 will be set to a list of (s, K, n1, n2)
         tuples that this process handles.
         """
@@ -764,13 +761,14 @@ class PairDensity:
         if kpts is None:
             kpts = np.arange(wfs.kd.nbzkpts)
 
+        # nbands is the number of bands for each spin/k-point combination.
         nbands = band2 - band1
         size = self.kncomm.size
         rank = self.kncomm.rank
         ns = wfs.nspins
         nk = len(kpts)
         n = (ns * nk * nbands + size - 1) // size
-        i1 = rank * n
+        i1 = min(rank * n, ns * nk * nbands)
         i2 = min(i1 + n, ns * nk * nbands)
 
         self.mysKn1n2 = []
