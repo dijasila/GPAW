@@ -337,7 +337,6 @@ class PointIntegrator(Integrator):
                 l_Gm = (p2_m[:, None] * x_mG).T.copy()
                 gemm(1.0, l_Gm, r_Gm, 1.0, chi0_wGG[w + 1], 'c')
 
-
     @timer('CHI_0 intraband update')
     def update_intraband(self, vel_mv, chi0_wvv):
         """Add intraband contributions"""
