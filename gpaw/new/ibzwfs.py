@@ -382,9 +382,9 @@ class IBZWaveFunctions:
 
         n = int(round(self.nelectrons)) // N
         assert N * n == self.nelectrons
-        homo = self.kpt_comm.max(max(wfs_s[spin]._eig_n[n - 1]
+        homo = self.kpt_comm.max(max(wfs_s[spin].eig_n[n - 1]
                                      for wfs_s in self.wfs_qs))
-        lumo = self.kpt_comm.min(min(wfs_s[spin]._eig_n[n]
+        lumo = self.kpt_comm.min(min(wfs_s[spin].eig_n[n]
                                      for wfs_s in self.wfs_qs))
 
         return np.array([homo, lumo])
