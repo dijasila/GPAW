@@ -56,7 +56,7 @@ class Integrator:
         rank = self.kncomm.rank
 
         n = (nterms + size - 1) // size
-        i1 = rank * n
+        i1 = min(rank * n, nterms)
         i2 = min(i1 + n, nterms)
         mydomain = []
         for i in range(i1, i2):
