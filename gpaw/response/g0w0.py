@@ -21,7 +21,8 @@ from gpaw.response.fxckernel_calc import calculate_kernel
 from gpaw.response.kernels import get_coulomb_kernel, get_integrated_kernel
 from gpaw.response.pair import PairDensity
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
-from gpaw.response.pw_parallelization import GaGb, PlaneWaveBlockDistributor
+from gpaw.response.pw_parallelization import (Blocks1D,
+                                              PlaneWaveBlockDistributor)
 from gpaw.utilities.progressbar import ProgressBar
 from gpaw.pw.descriptor import (PWDescriptor, PWMapping,
                                 count_reciprocal_vectors)
@@ -815,7 +816,7 @@ class G0W0(PairDensity):
 
             # This does not seem healthy... G0W0 should not configure the
             # properties of chi0 directly, see blockdist below
-            chi0.GaGb = GaGb(self.blockcomm, nG)
+            chi0.GaGb = Blocks1D(self.blockcomm, nG)
 
             if len(self.ecut_e) > 1:
                 shape = (nw, chi0.GaGb.nGlocal, nG)
@@ -849,7 +850,7 @@ class G0W0(PairDensity):
                     self.Q_aGii = self.initialize_paw_corrections(pdi)
 
                     nw = len(self.wd)
-                    self.GaGb = GaGb(self.blockcomm, pdi.ngmax)
+                    self.GaGb = Blocks1D(self.blockcomm, pdi.ngmax)
                 else:
                     # First time calculation
                     if ecut == self.ecut:
@@ -1069,7 +1070,7 @@ class G0W0(PairDensity):
             pdi = PWDescriptor(ecut, pd.gd, dtype=pd.dtype,
                                kd=pd.kd)
             nG = pdi.ngmax
-            self.GaGb = GaGb(self.blockcomm, nG)
+            self.GaGb = Blocks1D(self.blockcomm, nG)
             nw = len(self.wd)
             mynw = (nw + self.blockcomm.size - 1) // self.blockcomm.size
 

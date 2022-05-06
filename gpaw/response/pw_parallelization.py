@@ -2,7 +2,7 @@ import numpy as np
 from gpaw.blacs import BlacsDescriptor, BlacsGrid, Redistributor
 
 
-class GaGb:
+class Blocks1D:
     def __init__(self, blockcomm, nG):
         self.blockcomm = blockcomm
         self.nG = nG

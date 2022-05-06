@@ -10,7 +10,7 @@ import _gpaw
 import gpaw.mpi as mpi
 from gpaw.utilities.blas import gemm, rk, mmm
 from gpaw.utilities.progressbar import ProgressBar
-from gpaw.response.pw_parallelization import GaGb, block_partition
+from gpaw.response.pw_parallelization import Blocks1D, block_partition
 
 
 def czher(alpha: float, x, A) -> None:
@@ -78,7 +78,7 @@ class Integrator:
         raise NotImplementedError
 
     def _GaGb(self, nG):
-        return GaGb(self.blockcomm, nG)
+        return Blocks1D(self.blockcomm, nG)
 
 
 class PointIntegrator(Integrator):

@@ -15,7 +15,7 @@ from gpaw.pw.descriptor import PWDescriptor
 from gpaw.response.frequencies import (FrequencyDescriptor,
                                        LinearFrequencyDescriptor,
                                        NonLinearFrequencyDescriptor)
-from gpaw.response.pw_parallelization import (block_partition, GaGb,
+from gpaw.response.pw_parallelization import (block_partition, Blocks1D,
                                               PlaneWaveBlockDistributor)
 from gpaw.response.integrators import PointIntegrator, TetrahedronIntegrator
 from gpaw.response.pair import PairDensity, PWSymmetryAnalyzer
@@ -294,7 +294,7 @@ class Chi0:
 
         # Initialize block distibution of plane wave basis
         nG = pd.ngmax + 2 * optical_limit
-        self.GaGb = GaGb(self.blockcomm, nG)
+        self.GaGb = Blocks1D(self.blockcomm, nG)
         self.blockdist = PlaneWaveBlockDistributor(self.world,
                                                    self.blockcomm,
                                                    self.kncomm,
