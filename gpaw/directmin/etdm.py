@@ -108,7 +108,9 @@ class ETDM:
         self.mom_the_canonical_representation \
             = mom_the_canonical_representation
         self.constraints = constraints
-        self.initialized_constraints = self.constraints is None
+        self.initialied_constraints = self.constraints is None
+        from ase.parallel import parprint
+        parprint(self.initialied_constraints)
 
         self.mmf = False
         self.searchdir_algo = search_direction(
