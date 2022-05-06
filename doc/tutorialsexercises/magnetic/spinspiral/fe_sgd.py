@@ -27,7 +27,7 @@ for i, q_c in enumerate(Q):
                 kpts=(k, k, k),
                 txt=f'{i}gs.txt')
 
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     e.append(atoms.get_potential_energy())
     totmom_v, magmom_av = calc.density.estimate_magnetic_moments()
     mT.append(totmom_v)

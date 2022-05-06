@@ -5,14 +5,23 @@
  Spin spiral calculations
 =========================
 
+.. warning::
+
+   This tutorial is *work in progress*
+
 In this tutorial we employ the Generalized Bloch's Theorem approach to
 calculate the spin spiral groundstate. In this approach we can choose any wave
 vector of the spin spiral `q`, and rotate the spin degrees through the
 periodic boundary conditions accordingly. This rotation can be included in
-Blochs thorem by applying a combined translation and spin rotation to the
+Blochs theorem by applying a combined translation and spin rotation to the
 wavefunction at the boundaries. Then we get the generalized Bloch's theorem,
 
-.. math:: \phi(\mathbf{k}, \mathbf{r}) = e^{i\mathbf{k} \cdot \mathbf{r}} [e^{-i\mathbf{q} \cdot \mathbf{r}/2} F(\mathbf{k}, \mathbf{r}), e^{i\mathbf{q} \cdot \mathbf{r}/2} G(\mathbf{k}, \mathbf{r})]^T
+.. math::
+
+   \phi(\mathbf{k}, \mathbf{r}) =
+   e^{i\mathbf{k} \cdot \mathbf{r}}
+   [e^{-i\mathbf{q} \cdot \mathbf{r}/2} F(\mathbf{k}, \mathbf{r}),
+    e^{i\mathbf{q} \cdot \mathbf{r}/2} G(\mathbf{k}, \mathbf{r})]^T
 
 With two new spin Bloch functions `F(\mathbf{k}, \mathbf{r})` and
 `G(\mathbf{k}, \mathbf{r})` replacing the regular Bloch function
@@ -21,17 +30,21 @@ wavefunctions, because the spin structure should decouple from the lattice
 such that the density matrix is invariant under the spin rotation.
 In order for this to be the case, we can only apply spin orbit coupling
 perturbatively, and not as part of the self consistent calculation.
-Furthermore, with the density is invariant under the this spin rotation, so
+Furthermore, with the density being invariant under the this spin rotation, so
 will also the z-compenent of the magnetization. This can be understood by
 looking at the  magnetization density `\tilde{\rho} = I_2\rho + \sigma\cdot\m`
 under the spin spiral rotation, where one sees that the entire diagonal is
 left invariant. Thus we are limited to spiral structures which have
 magnetization vectors
 
-.. math:: \hat{e} = [cos(\mathbf{q} \cdot \mathbf{r}), sin(\mathbf{q} \cdot \mathbf{r}), 0]^T
+.. math::
 
-which are called flat spin spirals, because they always rotate in the xy-
-plane. However, there is nothing special about the xy-plane, since spin-orbit
+   \hat{e} = [cos(\mathbf{q} \cdot \mathbf{r}),
+              sin(\mathbf{q} \cdot \mathbf{r}),
+              0]^T
+
+which are called flat spin spirals, because they always rotate in the
+xy-plane. However, there is nothing special about the xy-plane, since spin-orbit
 is neglected at this stage, the spin spiral is invariant under any global
 rotation. The reward is that we can simulate any incommensurate spin spiral of
 this type in the principle unit cell. Additional care does need to be taken
@@ -55,7 +68,7 @@ At high temperatures, elementary iron has a phase transition to the iron
 allotrope :math:`{\gamma}-Fe` which has a FCC lattice. The spin structure of
 :math:`{\gamma}-Fe` was measured by stabilizing the phase at lower
 temperatures using Co. [#Tsunoda]_ They found a spin spiral ground state with
-wave vector `q_{exp}=\frac{1}{5}XW = \frac{2\pi}{a}(1, 0, 0.1)` at an atomic
+wave vector `q_{exp}=\frac{1}{5}XW = \frac{2\pi}{a}(1, 0, 1/10)` at an atomic
 volume of `{\Omega}=11.44\angstrom^3`.
 
 DFT simulations of :math:`{\gamma}-Fe` have found this system to be extremely
