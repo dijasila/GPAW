@@ -243,8 +243,7 @@ class ETDM:
             wfs, ham, self.nkpts,
             diagonalizer=None,
             orthonormalization=self.orthonormalization,
-            need_init_orbs=self.need_init_orbs,
-            constraints=self.constraints
+            need_init_orbs=self.need_init_orbs
         )
         self.need_init_orbs = self.dm_helper.need_init_orbs
         # mom
