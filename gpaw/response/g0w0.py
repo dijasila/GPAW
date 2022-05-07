@@ -80,6 +80,15 @@ def get_frequencies(frequencies, domega0, omega2):
     return frequencies
 
 
+def get_eigenvalues_from_calc(calc):
+    ibzk_kc = calc.get_ibz_k_points()
+    nibzk = len(ibzk_kc)
+    eps0_skn = np.array([[calc.get_eigenvalues(kpt=k, spin=s)
+                          for k in range(nibzk)]
+                         for s in range(calc.wfs.nspins)]) / Ha
+    return eps0_skn
+
+
 class G0W0(PairDensity):
     def __init__(self, calc, filename='gw', *,
                  restartfile=None,
@@ -313,11 +322,7 @@ class G0W0(PairDensity):
 
         self.bands = bands
 
-        self.ibzk_kc = self.calc.get_ibz_k_points()
-        nibzk = len(self.ibzk_kc)
-        self.eps0_skn = np.array([[self.calc.get_eigenvalues(kpt=k, spin=s)
-                                   for k in range(nibzk)]
-                                  for s in range(self.calc.wfs.nspins)]) / Ha
+        self.eps0_skn = get_eigenvalues_from_calc(calc)
 
         b1, b2 = bands
         self.shape = shape = (self.calc.wfs.nspins, len(self.kpts), b2 - b1)
