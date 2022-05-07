@@ -40,6 +40,22 @@ gw_logo = """\
 """
 
 
+def get_frequencies(frequencies, domega0, omega2):
+    if domega0 is not None or omega2 is not None:
+        assert frequencies is None
+        frequencies = {'type': 'nonlinear',
+                       'domega0': 0.025 if domega0 is None else domega0,
+                       'omega2': 10.0 if omega2 is None else omega2}
+        warnings.warn(f'Please use frequencies={frequencies}')
+    elif frequencies is None:
+        frequencies = {'type': 'nonlinear',
+                       'domega0': 0.025,
+                       'omega2': 10.0}
+    else:
+        assert frequencies['type'] == 'nonlinear'
+    return frequencies
+
+
 class G0W0(PairDensity):
     def __init__(self, calc, filename='gw', *,
                  restartfile=None,
@@ -163,19 +179,7 @@ class G0W0(PairDensity):
         ecut_extrapolation: bool
             Carries out the extrapolation to infinite cutoff automatically.
         """
-        if domega0 is not None or omega2 is not None:
-            assert frequencies is None
-            frequencies = {'type': 'nonlinear',
-                           'domega0': 0.025 if domega0 is None else domega0,
-                           'omega2': 10.0 if omega2 is None else omega2}
-            warnings.warn(f'Please use frequencies={frequencies}')
-        elif frequencies is None:
-            frequencies = {'type': 'nonlinear',
-                           'domega0': 0.025,
-                           'omega2': 10.0}
-        else:
-            assert frequencies['type'] == 'nonlinear'
-
+        self.frequencies = get_frequencies(frequencies, domega0, omega2)
         self.inputcalc = calc
 
         if ppa and (nblocks > 1 or nblocksmax):
@@ -269,7 +273,6 @@ class G0W0(PairDensity):
         self.eta = eta / Ha
         self.E0 = E0 / Ha
 
-        self.frequencies = frequencies
         self.wd = None
 
         self.GaGb = None
@@ -341,6 +344,7 @@ class G0W0(PairDensity):
         bzq_qc = monkhorst_pack(kd.N_c) + offset_c
         self.qd = KPointDescriptor(bzq_qc)
         self.qd.set_symmetry(self.calc.atoms, kd.symmetry)
+
         self.print_parameters(kpts, b1, b2, ecut_extrapolation)
         self.fd.flush()
 
