@@ -89,6 +89,16 @@ def get_eigenvalues_from_calc(calc):
     return eps0_skn
 
 
+def get_qdescriptor(kd, atoms):
+    # Find q-vectors and weights in the IBZ:
+    assert -1 not in kd.bz2bz_ks
+    offset_c = 0.5 * ((kd.N_c + 1) % 2) / kd.N_c
+    bzq_qc = monkhorst_pack(kd.N_c) + offset_c
+    qd = KPointDescriptor(bzq_qc)
+    qd.set_symmetry(atoms, kd.symmetry)
+    return qd
+
+
 class G0W0(PairDensity):
     av_scheme = None  # to appease set_flags()
 
@@ -334,13 +344,7 @@ class G0W0(PairDensity):
         self.mysKn1n2 = None  # my (s, K, n1, n2) indices
         self.distribute_k_points_and_bands(b1, b2, kd.ibz2bz_k[self.kpts])
 
-        # Find q-vectors and weights in the IBZ:
-        assert -1 not in kd.bz2bz_ks
-        offset_c = 0.5 * ((kd.N_c + 1) % 2) / kd.N_c
-        bzq_qc = monkhorst_pack(kd.N_c) + offset_c
-        self.qd = KPointDescriptor(bzq_qc)
-        self.qd.set_symmetry(self.calc.atoms, kd.symmetry)
-
+        self.qd = get_qdescriptor(kd, self.calc.atoms)
         self.print_parameters(kpts, b1, b2, ecut_extrapolation)
         self.fd.flush()
 
