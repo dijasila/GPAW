@@ -95,7 +95,7 @@ class G0W0(PairDensity):
     def __init__(self, calc, filename='gw', *,
                  restartfile=None,
                  kpts=None, bands=None, relbands=None, nbands=None, ppa=False,
-                 xc='RPA', fxc_mode='GW', density_cut=1.e-6, do_GW_too=False,
+                 xc='RPA', fxc_mode='GW', do_GW_too=False,
                  Eg=None,
                  truncation=None, integrate_gamma=0,
                  ecut=150.0, eta=0.1, E0=1.0 * Ha,
@@ -159,8 +159,6 @@ class G0W0(PairDensity):
             Where to include the vertex corrections; polarizability and/or
             self-energy. 'GWP': Polarizability only, 'GWS': Self-energy only,
             'GWG': Both.
-        density_cut: float
-            Cutoff for density when constructing kernel.
         do_GW_too: bool
             When carrying out a calculation including vertex corrections, it
             is possible to get the standard GW results at the same time
@@ -241,10 +239,8 @@ class G0W0(PairDensity):
         print(gw_logo, file=self.fd)
 
         self.gate_voltage = gate_voltage
-        ecut /= Ha
 
         self.xc = xc
-        self.density_cut = density_cut
         self.fxc_mode = fxc_mode
         self.do_GW_too = do_GW_too
 
@@ -325,7 +321,7 @@ class G0W0(PairDensity):
         self.Z_skn = None                  # renormalization factors
 
         if nbands is None:
-            nbands = int(self.vol * ecut**1.5 * 2**0.5 / 3 / pi**2)
+            nbands = int(self.vol * self.ecut**1.5 * 2**0.5 / 3 / pi**2)
         self.nbands = nbands
         self.nspins = self.calc.wfs.nspins
 
