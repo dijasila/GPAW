@@ -7,29 +7,28 @@ from ase.io.aff import affopen
 
 
 def calculate_kernel(self, nG, ns, iq, cut_G=None):
-    self.unit_cells = self.calc.wfs.kd.N_c
     tag = self.calc.atoms.get_chemical_formula(mode='hill')
 
     if self.av_scheme is not None:
         tag += '_' + self.av_scheme + '_nspins' + str(self.nspins)
 
     kd = self.calc.wfs.kd
-    self.bzq_qc = kd.get_bz_q_points(first=True)
+    bzq_qc = kd.get_bz_q_points(first=True)
     U_scc = kd.symmetry.op_scc
-    self.ibzq_qc = kd.get_ibz_q_points(self.bzq_qc, U_scc)[0]
+    ibzq_qc = kd.get_ibz_q_points(bzq_qc, U_scc)[0]
 
     ecut = self.ecut * Ha
     if isinstance(ecut, (float, int)):
-        self.ecut_max = ecut
+        ecut_max = ecut
     else:
-        self.ecut_max = max(ecut)
+        ecut_max = max(ecut)
 
     q_empty = None
 
     def bloody_filename():
         return ('fhxc_%s_%s_%s_%s.ulm'
                 % (tag, self.xc,
-                   self.ecut_max, iq))
+                   ecut_max, iq))
 
     if not os.path.isfile(bloody_filename()):
         q_empty = iq
@@ -41,11 +40,11 @@ def calculate_kernel(self, nG, ns, iq, cut_G=None):
             kwargs = dict(
                 calc=self.calc,
                 xc=self.xc,
-                ibzq_qc=self.ibzq_qc,
+                ibzq_qc=ibzq_qc,
                 fd=self.fd,
                 q_empty=q_empty,
                 Eg=self.Eg,
-                ecut=self.ecut_max,
+                ecut=ecut_max,
                 tag=tag,
                 timer=self.timer)
 
