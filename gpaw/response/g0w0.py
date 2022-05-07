@@ -90,11 +90,13 @@ def get_eigenvalues_from_calc(calc):
 
 
 class G0W0(PairDensity):
+    av_scheme = None  # to appease set_flags()
+
     def __init__(self, calc, filename='gw', *,
                  restartfile=None,
                  kpts=None, bands=None, relbands=None, nbands=None, ppa=False,
                  xc='RPA', fxc_mode='GW', density_cut=1.e-6, do_GW_too=False,
-                 av_scheme=None, Eg=None,
+                 Eg=None,
                  truncation=None, integrate_gamma=0,
                  ecut=150.0, eta=0.1, E0=1.0 * Ha,
                  frequencies=None,
@@ -163,11 +165,6 @@ class G0W0(PairDensity):
             When carrying out a calculation including vertex corrections, it
             is possible to get the standard GW results at the same time
             (almost for free).
-        av_scheme: str
-            'wavevector'. Method to construct kernel. Only
-            'wavevector' has been tested and works here. The implementation
-            could be extended to include the 'density' method which has been
-            tested for total energy calculations (rALDA etc.)
         Eg: float
             Gap to apply in the 'JGMs' (simplified jellium-with-gap) kernel.
             If None the DFT gap is used.
@@ -248,12 +245,8 @@ class G0W0(PairDensity):
 
         self.xc = xc
         self.density_cut = density_cut
-        self.av_scheme = av_scheme
         self.fxc_mode = fxc_mode
         self.do_GW_too = do_GW_too
-
-        if self.av_scheme is not None:
-            assert self.av_scheme == 'wavevector'
 
         if not self.fxc_mode == 'GW':
             assert self.xc != 'RPA'
@@ -379,7 +372,6 @@ class G0W0(PairDensity):
         p('Self-consistency method:', self.method)
         p('fxc mode:', self.fxc_mode)
         p('Kernel:', self.xc)
-        p('Averaging scheme:', self.av_scheme)
         p('Do GW too:', self.do_GW_too)
 
         if self.method == 'GW0':
