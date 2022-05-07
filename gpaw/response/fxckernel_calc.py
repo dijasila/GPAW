@@ -35,16 +35,14 @@ def calculate_kernel(self, nG, ns, iq, cut_G=None):
 
     if self.xc not in ('RPA'):
         if q_empty is not None:
-            self.l_l = np.array([1.0])
+            l_l = np.array([1.0])
 
             if self.linear_kernel:
                 l_l = None
                 omega_w = None
             elif not self.dyn_kernel:
-                l_l = self.l_l
                 omega_w = None
             else:
-                l_l = self.l_l
                 omega_w = self.wd.omega_w
 
             kernel = KernelWave(
