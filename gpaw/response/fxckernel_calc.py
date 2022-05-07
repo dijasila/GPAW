@@ -37,17 +37,6 @@ def calculate_kernel(self, nG, ns, iq, cut_G=None):
         if q_empty is not None:
             self.l_l = np.array([1.0])
 
-            kwargs = dict(
-                calc=self.calc,
-                xc=self.xc,
-                ibzq_qc=ibzq_qc,
-                fd=self.fd,
-                q_empty=q_empty,
-                Eg=self.Eg,
-                ecut=ecut_max,
-                tag=tag,
-                timer=self.timer)
-
             if self.linear_kernel:
                 l_l = None
                 omega_w = None
@@ -58,7 +47,18 @@ def calculate_kernel(self, nG, ns, iq, cut_G=None):
                 l_l = self.l_l
                 omega_w = self.wd.omega_w
 
-            kernel = KernelWave(l_l=l_l, omega_w=omega_w, **kwargs)
+            kernel = KernelWave(
+                l_l=l_l,
+                omega_w=omega_w,
+                calc=self.calc,
+                xc=self.xc,
+                ibzq_qc=ibzq_qc,
+                fd=self.fd,
+                q_empty=q_empty,
+                Eg=self.Eg,
+                ecut=ecut_max,
+                tag=tag,
+                timer=self.timer)
 
             kernel.calculate_fhxc()
             del kernel
