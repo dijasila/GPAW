@@ -58,6 +58,7 @@ class Integrator:
         n = (nterms + size - 1) // size
         i1 = min(rank * n, nterms)
         i2 = min(i1 + n, nterms)
+        assert i1 <= i2
         mydomain = []
         for i in range(i1, i2):
             unravelled_d = np.unravel_index(i, domainsize)

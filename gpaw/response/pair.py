@@ -801,6 +801,8 @@ class PairDensity:
             Range of bands to include.
         """
 
+        assert n1 <= n2
+
         wfs = self.calc.wfs
         kd = wfs.kd
 
@@ -1036,6 +1038,8 @@ class PairDensity:
                         load_wfs=True, block=False):
         # wfs = self.calc.wfs
         # bzk_kc = wfs.kd.bzk_kc
+
+        assert m1 <= m2
 
         if isinstance(Kork_c, int):
             # If k_c is an integer then it refers to

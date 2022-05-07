@@ -369,7 +369,7 @@ class Chi0:
             for parts of the code that do not support this feature i.e., GW
             RPA total energy and RALDA.
         """
-
+        assert m1 <= m2
         # Parse spins
         wfs = self.calc.wfs
         if spins == 'all':
@@ -774,6 +774,8 @@ class Chi0:
         n_nmG : ndarray
             Pair densities.
         """
+        assert m1 <= m2
+
         k_c = np.dot(pd.gd.cell_cv, k_v) / (2 * np.pi)
 
         q_c = pd.kd.bzk_kc[0]
