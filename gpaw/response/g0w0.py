@@ -858,7 +858,10 @@ class G0W0(PairDensity):
                     else:
                         m2 = int(self.vol * ecut**1.5 * 2**0.5 / 3 / pi**2)
                         if m2 > self.nbands:
-                            raise ValueError(f'Trying to extrapolate ecut to larger number of bands ({m2}) than there are bands ({self.nbands}).')
+                            raise ValueError(f'Trying to extrapolate ecut to'
+                                             f'larger number of bands ({m2})'
+                                             f' than there are bands '
+                                             f'({self.nbands}).')
                     pdi, W, W_GW = self.calculate_w(
                         chi0, q_c, pd, chi0bands_wGG,
                         chi0bands_wxvG, chi0bands_wvv,
