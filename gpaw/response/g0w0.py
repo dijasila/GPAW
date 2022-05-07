@@ -311,18 +311,7 @@ class G0W0(PairDensity):
             assert self.maxiter > 1
 
         self.kpts = list(select_kpts(kpts, self.calc))
-
-        if bands is not None and relbands is not None:
-            raise ValueError('Use bands or relbands!')
-
-        if relbands is not None:
-            bands = [self.calc.wfs.nvalence // 2 + b for b in relbands]
-
-        if bands is None:
-            bands = [0, self.nocc2]
-
-        self.bands = bands
-
+        self.bands = bands = self.choose_bands(bands, relbands)
         self.eps0_skn = get_eigenvalues_from_calc(self.calc)
 
         b1, b2 = bands
@@ -352,6 +341,18 @@ class G0W0(PairDensity):
         self.qd = get_qdescriptor(kd, self.calc.atoms)
         self.print_parameters(kpts, b1, b2, ecut_extrapolation)
         self.fd.flush()
+
+    def choose_bands(self, bands, relbands):
+        if bands is not None and relbands is not None:
+            raise ValueError('Use bands or relbands!')
+
+        if relbands is not None:
+            bands = [self.calc.wfs.nvalence // 2 + b for b in relbands]
+
+        if bands is None:
+            bands = [0, self.nocc2]
+
+        return bands
 
     def print_parameters(self, kpts, b1, b2, ecut_extrapolation):
         p = functools.partial(print, file=self.fd)
