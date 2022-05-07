@@ -31,6 +31,15 @@ from gpaw.xc.tools import vxc
 from gpaw.response.temp import DielectricFunctionCalculator
 
 
+gw_logo = """\
+  ___  _ _ _
+ |   || | | |
+ | | || | | |
+ |__ ||_____|
+ |___|
+"""
+
+
 class G0W0(PairDensity):
     def __init__(self, calc, filename='gw', *,
                  restartfile=None,
@@ -217,13 +226,7 @@ class G0W0(PairDensity):
                              gate_voltage=gate_voltage, txt=filename + '.txt',
                              paw_correction=paw_correction)
 
-        p = functools.partial(print, file=self.fd)
-        p('  ___  _ _ _ ')
-        p(' |   || | | |')
-        p(' | | || | | |')
-        p(' |__ ||_____|')
-        p(' |___|')
-        p()
+        print(gw_logo, file=self.fd)
 
         self.gate_voltage = gate_voltage
         ecut /= Ha
@@ -327,6 +330,7 @@ class G0W0(PairDensity):
             raise RuntimeError('Including a xc kernel does currently not '
                                'work for spinpolarized systems.')
 
+        p = functools.partial(print, file=self.fd)
         p()
         p('Quasi particle states:')
         if kpts is None:
