@@ -237,7 +237,6 @@ class G0W0(PairDensity):
         if nblocksmax:
             nblocks = get_max_nblocks(world, calc, ecut)
 
-
         PairDensity.__init__(self, calc, ecut, world=world, nblocks=nblocks,
                              gate_voltage=gate_voltage, txt=filename + '.txt',
                              paw_correction=paw_correction)
@@ -320,7 +319,7 @@ class G0W0(PairDensity):
 
         self.bands = bands
 
-        self.eps0_skn = get_eigenvalues_from_calc(calc)
+        self.eps0_skn = get_eigenvalues_from_calc(self.calc)
 
         b1, b2 = bands
         self.shape = shape = (self.calc.wfs.nspins, len(self.kpts), b2 - b1)
