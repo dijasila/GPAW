@@ -99,6 +99,24 @@ def get_qdescriptor(kd, atoms):
     return qd
 
 
+def choose_ecut_things(ecut, ecut_extrapolation, savew):
+    if ecut_extrapolation is True:
+        pct = 0.8
+        necuts = 3
+        ecut_e = ecut * (1 + (1. / pct - 1) * np.arange(necuts)[::-1] /
+                         (necuts - 1))**(-2 / 3)
+        # It doesn't make sense to save W in this case since
+        # W is calculated for different cutoffs:
+        assert not savew
+    elif isinstance(ecut_extrapolation, (list, np.ndarray)):
+        ecut_e = np.array(np.sort(ecut_extrapolation))
+        ecut = ecut_e[-1]
+        assert not savew
+    else:
+        ecut_e = np.array([ecut])
+    return ecut, ecut_e
+
+
 class G0W0(PairDensity):
     av_scheme = None  # to appease set_flags()
 
@@ -222,20 +240,7 @@ class G0W0(PairDensity):
             raise ValueError(
                 'PPA is currently not compatible with block parallellisation.')
 
-        if ecut_extrapolation is True:
-            pct = 0.8
-            necuts = 3
-            ecut_e = ecut * (1 + (1. / pct - 1) * np.arange(necuts)[::-1] /
-                             (necuts - 1))**(-2 / 3)
-            """It doesn't make sence to save W in this case since
-            W is calculated for different cutoffs:"""
-            assert not savew
-        elif isinstance(ecut_extrapolation, (list, np.ndarray)):
-            ecut_e = np.array(np.sort(ecut_extrapolation))
-            ecut = ecut_e[-1]
-            assert not savew
-        else:
-            ecut_e = np.array([ecut])
+        ecut, ecut_e = choose_ecut_things(ecut, ecut_extrapolation, savew)
         self.ecut_e = ecut_e / Ha
 
         # Check if nblocks is compatible, adjust if not
