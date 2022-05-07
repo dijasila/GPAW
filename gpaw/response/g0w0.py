@@ -209,8 +209,6 @@ class G0W0(PairDensity):
         mixing: float
             Number between 0 and 1 determining how much of previous
             iteration's eigenvalues to mix with.
-        ecut_extrapolation: bool
-            Carries out the extrapolation to infinite cutoff automatically.
         """
         self.frequencies = get_frequencies(frequencies, domega0, omega2)
         self.inputcalc = calc
@@ -233,12 +231,12 @@ class G0W0(PairDensity):
             assert not savew
         else:
             ecut_e = np.array([ecut])
+        self.ecut_e = ecut_e / Ha
 
         # Check if nblocks is compatible, adjust if not
         if nblocksmax:
             nblocks = get_max_nblocks(world, calc, ecut)
 
-        self.ecut_e = ecut_e / Ha
 
         PairDensity.__init__(self, calc, ecut, world=world, nblocks=nblocks,
                              gate_voltage=gate_voltage, txt=filename + '.txt',
