@@ -330,6 +330,21 @@ class G0W0(PairDensity):
             raise RuntimeError('Including a xc kernel does currently not '
                                'work for spinpolarized systems.')
 
+        kd = self.calc.wfs.kd
+
+        self.mysKn1n2 = None  # my (s, K, n1, n2) indices
+        self.distribute_k_points_and_bands(b1, b2, kd.ibz2bz_k[self.kpts])
+
+        # Find q-vectors and weights in the IBZ:
+        assert -1 not in kd.bz2bz_ks
+        offset_c = 0.5 * ((kd.N_c + 1) % 2) / kd.N_c
+        bzq_qc = monkhorst_pack(kd.N_c) + offset_c
+        self.qd = KPointDescriptor(bzq_qc)
+        self.qd.set_symmetry(self.calc.atoms, kd.symmetry)
+        self.print_parameters(kpts, b1, b2, ecut_extrapolation)
+        self.fd.flush()
+
+    def print_parameters(self, kpts, b1, b2, ecut_extrapolation):
         p = functools.partial(print, file=self.fd)
         p()
         p('Quasi particle states:')
@@ -360,19 +375,6 @@ class G0W0(PairDensity):
             p('Number of iterations:', self.maxiter)
             p('Mixing:', self.mixing)
         p()
-        kd = self.calc.wfs.kd
-
-        self.mysKn1n2 = None  # my (s, K, n1, n2) indices
-        self.distribute_k_points_and_bands(b1, b2, kd.ibz2bz_k[self.kpts])
-
-        # Find q-vectors and weights in the IBZ:
-        assert -1 not in kd.bz2bz_ks
-        offset_c = 0.5 * ((kd.N_c + 1) % 2) / kd.N_c
-        bzq_qc = monkhorst_pack(kd.N_c) + offset_c
-        self.qd = KPointDescriptor(bzq_qc)
-        self.qd.set_symmetry(self.calc.atoms, kd.symmetry)
-
-        self.fd.flush()
 
     @timer('G0W0')
     def calculate(self):
