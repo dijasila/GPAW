@@ -47,7 +47,7 @@ class G0W0(PairDensity):
                  nblocks=1, savew=False, savepckl=True,
                  maxiter=1, method='G0W0', mixing=0.2,
                  world=mpi.world, ecut_extrapolation=False,
-                 nblocksmax=False, gate_voltage=None,
+                 nblocksmax=False,
                  paw_correction='brute-force'):
 
         """G0W0 calculator.
@@ -124,9 +124,6 @@ class G0W0(PairDensity):
             but the average is only carried out in the non-periodic directions.
         E0: float
             Energy (in eV) used for fitting in the plasmon-pole approximation.
-        gate_voltage: float
-            Shift Fermi level of ground state calculation by the
-            specified amount.
         q0_correction: bool
             Analytic correction to the q=0 contribution applicable to 2D
             systems.
@@ -214,7 +211,7 @@ class G0W0(PairDensity):
         self.ecut_e = ecut_e / Ha
 
         PairDensity.__init__(self, calc, ecut, world=world, nblocks=nblocks,
-                             gate_voltage=gate_voltage, txt=filename + '.txt',
+                             txt=filename + '.txt',
                              paw_correction=paw_correction)
 
         p = functools.partial(print, file=self.fd)
@@ -225,7 +222,6 @@ class G0W0(PairDensity):
         p(' |___|')
         p()
 
-        self.gate_voltage = gate_voltage
         ecut /= Ha
 
         self.xc = xc
@@ -760,7 +756,6 @@ class G0W0(PairDensity):
                     txt=self.filename + '.w.txt',
                     timer=self.timer,
                     nblocks=self.blockcomm.size,
-                    gate_voltage=self.gate_voltage,
                     paw_correction=self.paw_correction,
                     **parameters)
 
