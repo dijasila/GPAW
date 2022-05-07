@@ -40,6 +40,30 @@ gw_logo = """\
 """
 
 
+def get_max_nblocks(world, calc, ecut):
+    nblocks = world.size
+    if isinstance(calc, GPAW):
+        raise Exception('Using a calulator is not implemented at '
+                        'the moment, load from file!')
+        # nblocks_calc = calc
+    else:
+        nblocks_calc = GPAW(calc)
+    ngmax = []
+    for q_c in nblocks_calc.wfs.kd.bzk_kc:
+        qd = KPointDescriptor([q_c])
+        pd = PWDescriptor(np.min(ecut) / Ha,
+                          nblocks_calc.wfs.gd, complex, qd)
+        ngmax.append(pd.ngmax)
+    nG = np.min(ngmax)
+
+    while nblocks > nG**0.5 + 1 or world.size % nblocks != 0:
+        nblocks -= 1
+
+    mynG = (nG + nblocks - 1) // nblocks
+    assert mynG * (nblocks - 1) < nG
+    return nblocks
+
+
 def get_frequencies(frequencies, domega0, omega2):
     if domega0 is not None or omega2 is not None:
         assert frequencies is None
@@ -203,26 +227,7 @@ class G0W0(PairDensity):
 
         # Check if nblocks is compatible, adjust if not
         if nblocksmax:
-            nblocks = world.size
-            if isinstance(calc, GPAW):
-                raise Exception('Using a calulator is not implemented at '
-                                'the moment, load from file!')
-                # nblocks_calc = calc
-            else:
-                nblocks_calc = GPAW(calc)
-            ngmax = []
-            for q_c in nblocks_calc.wfs.kd.bzk_kc:
-                qd = KPointDescriptor([q_c])
-                pd = PWDescriptor(np.min(ecut) / Ha,
-                                  nblocks_calc.wfs.gd, complex, qd)
-                ngmax.append(pd.ngmax)
-            nG = np.min(ngmax)
-
-            while nblocks > nG**0.5 + 1 or world.size % nblocks != 0:
-                nblocks -= 1
-
-            mynG = (nG + nblocks - 1) // nblocks
-            assert mynG * (nblocks - 1) < nG
+            nblocks = get_max_nblocks(world, calc, ecut)
 
         self.ecut_e = ecut_e / Ha
 
