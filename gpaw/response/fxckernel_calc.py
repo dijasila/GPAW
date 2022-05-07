@@ -35,44 +35,28 @@ def calculate_kernel(self, nG, ns, iq, cut_G=None):
         if q_empty is not None:
             self.l_l = np.array([1.0])
 
+            kwargs = dict(
+                calc=self.calc,
+                xc=self.xc,
+                ibzq_qc=self.ibzq_qc,
+                fd=self.fd,
+                q_empty=q_empty,
+                Eg=self.Eg,
+                ecut=self.ecut_max,
+                tag=self.tag,
+                timer=self.timer)
+
             if self.linear_kernel:
-                kernel = KernelWave(self.calc,
-                                    self.xc,
-                                    self.ibzq_qc,
-                                    self.fd,
-                                    None,
-                                    q_empty,
-                                    None,
-                                    self.Eg,
-                                    self.ecut_max,
-                                    self.tag,
-                                    self.timer)
-
+                l_l = None
+                omega_w = None
             elif not self.dyn_kernel:
-                kernel = KernelWave(self.calc,
-                                    self.xc,
-                                    self.ibzq_qc,
-                                    self.fd,
-                                    self.l_l,
-                                    q_empty,
-                                    None,
-                                    self.Eg,
-                                    self.ecut_max,
-                                    self.tag,
-                                    self.timer)
-
+                l_l = self.l_l
+                omega_w = None
             else:
-                kernel = KernelWave(self.calc,
-                                    self.xc,
-                                    self.ibzq_qc,
-                                    self.fd,
-                                    self.l_l,
-                                    q_empty,
-                                    self.wd.omega_w,
-                                    self.Eg,
-                                    self.ecut_max,
-                                    self.tag,
-                                    self.timer)
+                l_l = self.l_l
+                omega_w = self.wd.omega_w
+
+            kernel = KernelWave(l_l=l_l, omega_w=omega_w, **kwargs)
 
             kernel.calculate_fhxc()
             del kernel
