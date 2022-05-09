@@ -863,6 +863,9 @@ class ETDM:
     def initialize_mom(self, wfs, dens):
         # Reinitialize the MOM reference orbitals
         # after orthogonalization/localization
+        parprint('init mom')
+        for kpt in wfs.kpt_u:
+            parprint(kpt.f_n)
         wfs.occupations.initialize_reference_orbitals()
         wfs.calculate_occupation_numbers(dens.fixed)
         self.sort_orbitals_mom(wfs)
