@@ -21,6 +21,7 @@ def test_afm_h_chain():
                   kpts=(2 * k, 1, 1))
     e1 = h.get_potential_energy()
     h1, l1 = h.calc.get_homo_lumo()
+    h.calc.write('h.gpw')
 
     h2 = Atoms('H2',
                [(0, 0, 0), (a, 0, 0)],

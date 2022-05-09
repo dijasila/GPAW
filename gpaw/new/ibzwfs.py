@@ -257,7 +257,6 @@ class IBZWaveFunctions:
             proj_shape = spin_k_shape + (self.nbands, nproj)
         else:
             proj_shape = (len(ibz), self.nbands, 2, nproj)
-            1 / 0
 
         writer.add_array('projections', proj_shape, self.dtype)
 
