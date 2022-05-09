@@ -272,7 +272,7 @@ class IBZWaveFunctions:
                             else:
                                 self.kpt_comm.send(P_nI.data, 0)
                 elif self.kpt_comm.rank == 0:
-                    data = np.empty((self.nbands, nproj), self.dtype)
+                    data = np.empty(proj_shape, self.dtype)
                     self.kpt_comm.receive(data, rank)
                     writer.fill(data)
 
