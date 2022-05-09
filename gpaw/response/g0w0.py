@@ -21,7 +21,8 @@ from gpaw.response.fxckernel_calc import calculate_kernel
 from gpaw.response.kernels import get_coulomb_kernel, get_integrated_kernel
 from gpaw.response.pair import PairDensity
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
-from gpaw.response.pw_parallelization import GaGb, PlaneWaveBlockDistributor
+from gpaw.response.pw_parallelization import (Blocks1D,
+                                              PlaneWaveBlockDistributor)
 from gpaw.utilities.progressbar import ProgressBar
 from gpaw.pw.descriptor import (PWDescriptor, PWMapping,
                                 count_reciprocal_vectors)
@@ -269,7 +270,7 @@ class G0W0(PairDensity):
         self.frequencies = frequencies
         self.wd = None
 
-        self.GaGb = None
+        self.blocks1d = None
         self.blockdist = None
 
         if anisotropy_correction is not None:
@@ -703,7 +704,7 @@ class G0W0(PairDensity):
             C1_GG = C_swGG[s][w]
             C2_GG = C_swGG[s][w + 1]
             p = x * sgn
-            myn_G = n_G[self.GaGb.myslice]
+            myn_G = n_G[self.blocks1d.myslice]
 
             sigma1 = p * np.dot(np.dot(myn_G, C1_GG), n_G.conj()).imag
             sigma2 = p * np.dot(np.dot(myn_G, C2_GG), n_G.conj()).imag
@@ -815,10 +816,10 @@ class G0W0(PairDensity):
 
             # This does not seem healthy... G0W0 should not configure the
             # properties of chi0 directly, see blockdist below
-            chi0.GaGb = GaGb(self.blockcomm, nG)
+            chi0.blocks1d = Blocks1D(self.blockcomm, nG)
 
             if len(self.ecut_e) > 1:
-                shape = (nw, chi0.GaGb.nGlocal, nG)
+                shape = (nw, chi0.blocks1d.nlocal, nG)
                 chi0bands_wGG = A1_x[:np.prod(shape)].reshape(shape).copy()
                 chi0bands_wGG[:] = 0.0
 
@@ -849,7 +850,7 @@ class G0W0(PairDensity):
                     self.Q_aGii = self.initialize_paw_corrections(pdi)
 
                     nw = len(self.wd)
-                    self.GaGb = GaGb(self.blockcomm, pdi.ngmax)
+                    self.blocks1d = Blocks1D(self.blockcomm, pdi.ngmax)
                 else:
                     # First time calculation
                     if ecut == self.ecut:
@@ -909,18 +910,18 @@ class G0W0(PairDensity):
         # Since we do not call chi0.calculate() (which in of itself leads
         # to massive code duplication), we have to manage the block
         # parallelization here.
-        self.GaGb = chi0.GaGb
+        self.blocks1d = chi0.blocks1d
         self.blockdist = PlaneWaveBlockDistributor(self.world,
                                                    self.blockcomm,
                                                    chi0.kncomm,
-                                                   self.wd, self.GaGb)
+                                                   self.wd, self.blocks1d)
         # Because we do not call chi0.calculate(), we have to let it
         # know about the block distributor by hand... Unsafe!
         chi0.blockdist = self.blockdist
 
         nw = len(self.wd)
         nG = pd.ngmax
-        shape = (nw, self.GaGb.nGlocal, nG)
+        shape = (nw, self.blocks1d.nlocal, nG)
 
         chi0.fd = self.fd
         chi0.print_chi(pd)
@@ -1073,7 +1074,7 @@ class G0W0(PairDensity):
             pdi = PWDescriptor(ecut, pd.gd, dtype=pd.dtype,
                                kd=pd.kd)
             nG = pdi.ngmax
-            self.GaGb = GaGb(self.blockcomm, nG)
+            self.blocks1d = Blocks1D(self.blockcomm, nG)
             nw = len(self.wd)
             mynw = (nw + self.blockcomm.size - 1) // self.blockcomm.size
 
