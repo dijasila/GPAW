@@ -44,7 +44,6 @@ class G0W0(PairDensity):
                  domega0=None,  # deprecated
                  omega2=None,  # deprecated
                  q0_correction=False,
-                 anisotropy_correction=None,
                  nblocks=1, savew=False, savepckl=True,
                  maxiter=1, method='G0W0', mixing=0.2,
                  world=mpi.world, ecut_extrapolation=False,
@@ -131,8 +130,6 @@ class G0W0(PairDensity):
         q0_correction: bool
             Analytic correction to the q=0 contribution applicable to 2D
             systems.
-        anisotropy_correction: bool
-            Old term for the q0_correction.
         nblocks: int
             Number of blocks chi0 should be distributed in so each core
             does not have to store the entire matrix. This is to reduce
@@ -273,12 +270,7 @@ class G0W0(PairDensity):
         self.blocks1d = None
         self.blockdist = None
 
-        if anisotropy_correction is not None:
-            self.ac = anisotropy_correction
-            warnings.warn('anisotropy_correction changed name to '
-                          'q0_correction. Please update your script(s).')
-        else:
-            self.ac = q0_correction
+        self.ac = q0_correction
 
         if self.ac:
             assert self.truncation == '2D'
