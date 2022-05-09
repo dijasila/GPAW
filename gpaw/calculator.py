@@ -416,6 +416,9 @@ class GPAW(Calculator):
                 occ = [self.wfs.kpt_u[x].f_n.copy() for x in
                        range(len(self.wfs.kpt_u))]
                 self.parameters.occupations['numbers'] = occ
+                from ase.parallel import parprint
+                parprint('end of scf')
+                parprint(occ)
 
             self.summary()
 
