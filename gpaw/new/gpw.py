@@ -105,8 +105,6 @@ def read_gpw(filename: Union[str, Path, IO[str]],
     bohr = reader.bohr
     ha = reader.ha
 
-    assert reader.version >= 4
-
     atoms = read_atoms(reader.atoms)
 
     kwargs = reader.parameters.asdict()
@@ -147,6 +145,10 @@ def read_gpw(filename: Union[str, Path, IO[str]],
         D_asp.scatter_from(D_sap_array)
         dH_asp.scatter_from(dH_sap_array)
 
+    if reader.version < 4:
+        convert_to_new_packing_convention(D_asp, density=True)
+        convert_to_new_packing_convention(dH_asp)
+
     kpt_band_comm.broadcast(nt_sR.data, 0)
     kpt_band_comm.broadcast(vt_sR.data, 0)
     kpt_band_comm.broadcast(D_asp.data, 0)
@@ -181,6 +183,16 @@ def read_gpw(filename: Union[str, Path, IO[str]],
         reader.close()
 
     return atoms, calculation, params, builder
+
+
+def convert_to_new_packing_convention(a_asp, density=False):
+    for a_sp in a_asp.values():
+        if density:
+            a_sii = unpack2(a_sp)
+        else:
+            a_sii = unpack(a_sp)
+        L = np.tril_indices(a_sii.shape[1])
+        a_sp[:] = a_sii[:, L]
 
 
 if __name__ == '__main__':
