@@ -51,7 +51,7 @@ class Chi0:
                  timeordered=False, eta=0.2, ftol=1e-6, threshold=1,
                  real_space_derivatives=False, intraband=True,
                  world=mpi.world, txt='-', timer=None,
-                 nblocks=1, gate_voltage=None,
+                 nblocks=1,
                  disable_point_group=False, disable_time_reversal=False,
                  disable_non_symmorphic=True,
                  integrationmode=None,
@@ -112,8 +112,6 @@ class Chi0:
         nblocks : int
             Divide the response function into nblocks. Useful when the response
             function is large.
-        gate_voltage : float
-            Shift the fermi level by gate_voltage [Hartree].
         disable_point_group : bool
             Do not use the point group symmetry operators.
         disable_time_reversal : bool
@@ -160,7 +158,6 @@ class Chi0:
                                 real_space_derivatives, world, txt,
                                 self.timer,
                                 nblocks=nblocks,
-                                gate_voltage=gate_voltage,
                                 paw_correction=paw_correction)
 
         self.disable_point_group = disable_point_group
