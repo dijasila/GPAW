@@ -248,17 +248,16 @@ class IBZWaveFunctions:
             translations=ibz.symmetries.translation_sc,
             weights=ibz.weight_k)
 
-        for wfs in self:
-            nproj = wfs.P_ani.layout.size
-            break
+        nproj = self.wfs_qs[0][0].P_ani.layout.size
 
         if self.collinear:
             spin_k_shape = (self.ncomponents, len(ibz))
-            proj_shape = spin_k_shape + (self.nbands, nproj)
+            proj_shape = (self.nbands, nproj)
         else:
-            proj_shape = (len(ibz), self.nbands, 2, nproj)
+            spin_k_shape = (len(ibz),)
+            proj_shape = (self.nbands, 2, nproj)
 
-        writer.add_array('projections', proj_shape, self.dtype)
+        writer.add_array('projections', spin_k_shape + proj_shape, self.dtype)
 
         for spin in range(self.nspins):
             for k, rank in enumerate(self.rank_k):
@@ -269,7 +268,7 @@ class IBZWaveFunctions:
                         P_nI = P_ani.matrix.gather()  # gather bands
                         if self.domain_comm.rank == 0:
                             if rank == 0:
-                                writer.fill(P_nI.data)
+                                writer.fill(P_nI.data.reshape(proj_shape))
                             else:
                                 self.kpt_comm.send(P_nI.data, 0)
                 elif self.kpt_comm.rank == 0:
