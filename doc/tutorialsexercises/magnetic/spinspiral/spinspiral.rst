@@ -79,12 +79,12 @@ following script :download:`fe_sgs.py` (Warning, requires HPC resources) will
 construct the Fe FCC lattice and calculate the spin spiral ground-states with q
 along the high symmetry axis in the reciprocal lattice.
 
-.. literalinclude:: fe_sgd.py
+.. literalinclude:: fe_sgs.py
 
-As a result we find a
-spectrum with two local minimum, one of which match the experimentally
-measured spin spiral. Since only one atom is present in the unit cell, we do
-not need to worry about any magnetic structure inside the unit cell.
+As a result we find a spectrum with two local minimum, one of which match the
+experimentally measured spin spiral. Since only one atom is present in the
+unit cell, we do not need to worry about any magnetic structure inside the
+unit cell.
 
 .. figure:: e-spiral.png
 .. figure:: m-spiral.png

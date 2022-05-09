@@ -3,7 +3,7 @@ from myqueue.workflow import run
 
 
 def workflow():
-    with run(script='fe_sgd.py', cores=40, tmax='4h'):
+    with run(script='fe_sgs.py', cores=40, tmax='4h'):
         run(script='plot.py')
         run(function=check)
 
