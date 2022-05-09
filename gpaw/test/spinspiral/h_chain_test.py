@@ -22,6 +22,9 @@ def test_afm_h_chain():
     e1 = h.get_potential_energy()
     h1, l1 = h.calc.get_homo_lumo()
     h.calc.write('h.gpw')
+    print(e1, h.get_magnetic_moment())
+    a1 = GPAW('h.gpw').get_atoms()
+    print(a1.get_potential_energy(), a1.calc.calculation.magmoms())
 
     h2 = Atoms('H2',
                [(0, 0, 0), (a, 0, 0)],

@@ -371,6 +371,7 @@ class AtomArrays:
                [2., 3., 5.],
                [4., 5., 6.]])
         """
+        assert self.layout.dtype == float
         shape_a = []
         for (p,) in self.layout.shape_a:
             i = int((2 * p + 0.25)**0.5)

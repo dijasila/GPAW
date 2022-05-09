@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import Generator
 
 import numpy as np
 from ase.dft.bandgap import bandgap
@@ -96,7 +97,7 @@ class IBZWaveFunctions:
                 f'Valence electrons: {self.nelectrons}\n'
                 f'Spin-degeneracy: {self.spin_degeneracy}')
 
-    def __iter__(self):
+    def __iter__(self) -> Generator[WaveFunctions, None, None]:
         for wfs_s in self.wfs_qs:
             yield from wfs_s
 

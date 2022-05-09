@@ -105,6 +105,8 @@ def read_gpw(filename: Union[str, Path, IO[str]],
     bohr = reader.bohr
     ha = reader.ha
 
+    assert reader.version >= 4
+
     atoms = read_atoms(reader.atoms)
 
     kwargs = reader.parameters.asdict()

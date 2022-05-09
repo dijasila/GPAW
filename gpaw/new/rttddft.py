@@ -55,11 +55,15 @@ class ECNAlgorithm(TDAlgorithm):
              state: DFTState,
              pot_calc: PotentialCalculator,
              dm_calc: HamiltonianMatrixCalculator):
-        """ Propagate wavefunctions by delta-kick, i.e. propagate using::
+        """Propagate wavefunctions by delta-kick.
 
-                     ^        -1  0+                      ^        -1
-          U(0+, 0) = T exp[-iS   ∫   δ(τ) V_ext(r) dτ ] = T exp[-iS  V_ext(r)]
-                                  0
+        ::
+
+                                 0+
+                     ^        -1 /                     ^        -1
+          U(0+, 0) = T exp[-iS   | δ(τ) V   (r) dτ ] = T exp[-iS  V   (r)]
+                                 /       ext                       ext
+                                 0
 
         (1) Calculate propagator U(0+, 0)
         (2) Update wavefunctions ψ_n(0+) ← U(0+, 0) ψ_n(0)

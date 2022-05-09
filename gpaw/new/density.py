@@ -215,9 +215,10 @@ class Density:
         n1 = 0
         for D_sii in D_asii.values():
             i1 = D_sii.shape[1]
+            L = np.tril_indices(i1)
             n2 = n1 + i1 * (i1 + 1) // 2
             for s, D_ii in enumerate(D_sii):
-                D[s, n1:n2] = pack(D_ii)
+                D[s, n1:n2] = D_ii[L]
             n1 = n2
 
         writer.write(
