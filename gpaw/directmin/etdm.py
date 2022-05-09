@@ -351,8 +351,6 @@ class ETDM:
             self.evecs[u] = None
             self.evals[u] = None
 
-            parprint('matrices')
-            parprint(kpt.f_n)
             if self.constraints and self.initialize_constraints:
                 self.constraints[u] = convert_constraints(
                     self.constraints[u], self.n_dim[u],
@@ -686,8 +684,10 @@ class ETDM:
         the diagonal elements of the Hamiltonian matrix
         """
 
+        parprint('sort')
         with wfs.timer('Sort WFS'):
             for kpt in wfs.kpt_u:
+                parprint(kpt.f_n)
                 k = self.kpointval(kpt)
                 if use_eps:
                     orbital_energies = kpt.eps_n
@@ -720,8 +720,10 @@ class ETDM:
         distribution of occupation numbers
         :return:
         """
+        parprint('sort mom')
         changedocc = False
         for kpt in wfs.kpt_u:
+            parprint(kpt.f_n)
             k = self.kpointval(kpt)
             occupied = kpt.f_n > 1.0e-10
             n_occ = len(kpt.f_n[occupied])
