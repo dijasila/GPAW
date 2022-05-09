@@ -1058,13 +1058,9 @@ class G0W0(PairDensity):
         nG = pd.ngmax
 
         mynw = (nw + self.blockcomm.size - 1) // self.blockcomm.size
-        if self.blockcomm.size > 1:
-            chi0_wGG = self.blockdist.redistribute(chi0_wGG, A2_x)
-            wa = min(self.blockcomm.rank * mynw, nw)
-            wb = min(wa + mynw, nw)
-        else:
-            wa = 0
-            wb = nw
+        chi0_wGG = self.blockdist.redistribute(chi0_wGG, A2_x)
+        wa = min(self.blockcomm.rank * mynw, nw)
+        wb = min(wa + mynw, nw)
 
         if ecut == pd.ecut:
             pdi = pd
@@ -1241,11 +1237,7 @@ class G0W0(PairDensity):
             A1_GW_x = A1_x.copy()
             A2_GW_x = A2_x.copy()
 
-        if self.blockcomm.size > 1:
-            Wm_wGG = self.blockdist.redistribute(chi0_wGG, A1_x)
-        else:
-            Wm_wGG = chi0_wGG
-
+        Wm_wGG = self.blockdist.redistribute(chi0_wGG, A1_x)
         Wp_wGG = A2_x[:Wm_wGG.size].reshape(Wm_wGG.shape)
         Wp_wGG[:] = Wm_wGG
 
@@ -1254,11 +1246,8 @@ class G0W0(PairDensity):
             htm(Wm_wGG)
 
             if self.do_GW_too:
-                if self.blockcomm.size > 1:
-                    Wm_GW_wGG = self.blockdist.redistribute(
-                        chi0_GW_wGG, A1_GW_x)
-                else:
-                    Wm_GW_wGG = chi0_GW_wGG
+                Wm_GW_wGG = self.blockdist.redistribute(
+                    chi0_GW_wGG, A1_GW_x)
 
                 Wp_GW_wGG = A2_GW_x[:Wm_GW_wGG.size].reshape(Wm_GW_wGG.shape)
                 Wp_GW_wGG[:] = Wm_GW_wGG
