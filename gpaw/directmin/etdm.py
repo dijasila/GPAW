@@ -712,6 +712,7 @@ class ETDM:
                         # Identity of the contrained orbitals has changed
                         self.constraints[k] = update_constraints(
                             self.constraints[k], list(ind))
+                        parprint(self.constraints[k])
 
     def sort_orbitals_mom(self, wfs):
         """
@@ -745,6 +746,7 @@ class ETDM:
                     # Identity of the contrained orbitals has changed
                     self.constraints[k] = update_constraints(
                         self.constraints[k], list(ind))
+                    parprint(self.constraints[k])
 
                 changedocc = True
 
