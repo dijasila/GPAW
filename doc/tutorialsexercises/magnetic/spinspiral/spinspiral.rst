@@ -1,9 +1,9 @@
 .. module:: gpaw.new.spinspiral
 .. _spinspiral tutorial:
 
-=========================
- Spin spiral calculations
-=========================
+========================
+Spin spiral calculations
+========================
 
 .. warning::
 
