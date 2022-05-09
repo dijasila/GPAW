@@ -343,6 +343,7 @@ class ETDM:
             self.evals[u] = None
 
             if self.constraints:
+                parprint('before convert')
                 parprint(self.constraints[u])
                 self.constraints[u] = convert_constraints(
                     self.constraints[u], self.n_dim[u],
