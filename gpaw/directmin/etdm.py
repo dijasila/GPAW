@@ -341,6 +341,8 @@ class ETDM:
             self.evals[u] = None
 
             if self.constraints:
+                from ase.parallel import parprint
+                parprint(self.constraints[u])
                 self.constraints[u] = convert_constraints(
                     self.constraints[u], self.n_dim[u],
                     len(kpt.f_n[kpt.f_n > 1e-10]), self.representation)
