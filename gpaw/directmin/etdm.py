@@ -20,6 +20,8 @@ from gpaw.directmin import search_direction, line_search_algorithm
 from gpaw.directmin.functional import get_functional
 from gpaw import BadParallelization
 
+from ase.parallel import parprint
+
 
 class ETDM:
 
@@ -114,7 +116,7 @@ class ETDM:
             self.initialize_constraints = need_to_convert_constraints(
                 self.constraints)
 
-        from ase.parallel import parprint
+        parprint('init')
         parprint(self.constraints)
         parprint(self.initialize_constraints)
 
@@ -349,6 +351,8 @@ class ETDM:
             self.evecs[u] = None
             self.evals[u] = None
 
+            parprint('matrices')
+            parprint(kpt.f_n)
             if self.constraints and self.initialize_constraints:
                 self.constraints[u] = convert_constraints(
                     self.constraints[u], self.n_dim[u],
