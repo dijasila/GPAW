@@ -56,8 +56,9 @@ class Integrator:
         rank = self.kncomm.rank
 
         n = (nterms + size - 1) // size
-        i1 = rank * n
+        i1 = min(rank * n, nterms)
         i2 = min(i1 + n, nterms)
+        assert i1 <= i2
         mydomain = []
         for i in range(i1, i2):
             unravelled_d = np.unravel_index(i, domainsize)
@@ -296,6 +297,9 @@ class PointIntegrator(Integrator):
 
         index = 0
         while 1:
+            if index == len(sortedw_m):
+                break
+            
             w = sortedw_m[index]
             startindex = index
             while 1:
@@ -333,9 +337,6 @@ class PointIntegrator(Integrator):
                 gemm(1.0, l_Gm, r_Gm, 1.0, chi0_wGG[w], 'c')
                 l_Gm = (p2_m[:, None] * x_mG).T.copy()
                 gemm(1.0, l_Gm, r_Gm, 1.0, chi0_wGG[w + 1], 'c')
-
-            if index == len(sortedw_m):
-                break
 
     @timer('CHI_0 intraband update')
     def update_intraband(self, vel_mv, chi0_wvv):

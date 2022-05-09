@@ -194,6 +194,9 @@ class Chi0:
         else:
             self.rate = rate / Ha
 
+        assert nbands <= self.calc.wfs.bd.nbands, 'Too many bands!'
+        'Maximum number of allowed bands with this'
+        f'KS calculation is {self.calc.wfs.bd.nbands}'
         self.nbands = nbands or self.calc.wfs.bd.nbands
         self.include_intraband = intraband
 
@@ -369,7 +372,7 @@ class Chi0:
             for parts of the code that do not support this feature i.e., GW
             RPA total energy and RALDA.
         """
-
+        assert m1 <= m2
         # Parse spins
         wfs = self.calc.wfs
         if spins == 'all':
@@ -774,6 +777,8 @@ class Chi0:
         n_nmG : ndarray
             Pair densities.
         """
+        assert m1 <= m2
+
         k_c = np.dot(pd.gd.cell_cv, k_v) / (2 * np.pi)
 
         q_c = pd.kd.bzk_kc[0]
