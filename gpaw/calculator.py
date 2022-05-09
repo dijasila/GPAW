@@ -942,6 +942,9 @@ class GPAW(Calculator):
         if name == 'mom':
             from gpaw.mom import OccupationsMOM
             occ = OccupationsMOM(self.wfs, **kwargs)
+            from ase.parallel import parprint
+            parprint('create occupations')
+            parprint(occ.numbers)
 
             self.log(occ)
             return occ
