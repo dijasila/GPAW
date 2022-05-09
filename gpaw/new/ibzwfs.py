@@ -251,6 +251,9 @@ class IBZWaveFunctions:
 
         nproj = self.wfs_qs[0][0].P_ani.layout.size
 
+        spin_k_shape: tuple[int, ...]
+        proj_shape: tuple[int, ...]
+
         if self.collinear:
             spin_k_shape = (self.ncomponents, len(ibz))
             proj_shape = (self.nbands, nproj)

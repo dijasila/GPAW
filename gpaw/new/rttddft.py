@@ -80,6 +80,7 @@ class ECNAlgorithm(TDAlgorithm):
             operator
         """
         for wfs in state.ibzwfs:
+            assert isinstance(wfs, LCAOWaveFunctions)
             V_MM = dm_calc.calculate_matrix(wfs)
 
             # Phi_n <- U(0+, 0) Phi_n
@@ -107,6 +108,7 @@ class ECNAlgorithm(TDAlgorithm):
         (3) Update density and hamiltonian H(t+dt)
         """
         for wfs in state.ibzwfs:
+            assert isinstance(wfs, LCAOWaveFunctions)
             H_MM = ham_calc.calculate_matrix(wfs)
 
             # Phi_n <- U[H(t)] Phi_n
@@ -338,8 +340,9 @@ class RTTDDFT:
             # TODO This seems to be broken
             # dipolemoment = self.state.density.calculate_dipole_moment(
             #     self.pot_calc.fracpos_ac)
-            dipolemoment_xv = [self.calculate_dipole_moment(wfs)
-                               for wfs in self.state.ibzwfs]
+            dipolemoment_xv = [
+                self.calculate_dipole_moment(wfs)  # type: ignore
+                for wfs in self.state.ibzwfs]
             dipolemoment_v = np.sum(dipolemoment_xv, axis=0)
             result = RTTDDFTResult(time=time, dipolemoment=dipolemoment_v)
             yield result

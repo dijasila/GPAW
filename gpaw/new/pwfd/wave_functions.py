@@ -387,16 +387,3 @@ class PWFDWaveFunctions(WaveFunctions):
                 return data_nX.data.view(
                     psit_nX.data.dtype).reshape(psit_nX.data.shape)
         return None
-
-    def receive(self, kpt_comm, rank):
-        """PWFDWaveFunctions(
-                 psit_nX: DistributedArrays,
-                 spin: int,
-                 q: int,
-                 k: int,
-                 setups: Setups,
-                 fracpos_ac: Array2D,
-                 weight: float = 1.0,
-                 ncomponents: int = 1):
-        """
-        return 42
