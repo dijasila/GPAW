@@ -20,6 +20,8 @@ from gpaw.directmin import search_direction, line_search_algorithm
 from gpaw.directmin.functional import get_functional
 from gpaw import BadParallelization
 
+from ase.parallel import parprint
+
 
 class ETDM:
 
@@ -341,7 +343,6 @@ class ETDM:
             self.evals[u] = None
 
             if self.constraints:
-                from ase.parallel import parprint
                 parprint(self.constraints[u])
                 self.constraints[u] = convert_constraints(
                     self.constraints[u], self.n_dim[u],
@@ -674,6 +675,7 @@ class ETDM:
         the diagonal elements of the Hamiltonian matrix
         """
 
+        parprint('sort')
         with wfs.timer('Sort WFS'):
             for kpt in wfs.kpt_u:
                 k = self.kpointval(kpt)
@@ -697,9 +699,11 @@ class ETDM:
                         # sorting
                         self.update_mom_numbers(wfs, kpt)
                     if self.constraints:
+                        parprint(self.constraints[k])
                         # Identity of the contrained orbitals has changed
                         self.constraints[k] = update_constraints(
                             self.constraints[k], list(ind))
+                        parprint(self.constraints[k])
 
     def sort_orbitals_mom(self, wfs):
         """
