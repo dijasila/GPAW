@@ -43,10 +43,10 @@ class Logger:
         if self.close_fd:
             self.fd.close()
 
-    def __call__(self, text='', **kwargs) -> None:
+    def __call__(self, *args, **kwargs) -> None:
         if not self.fd.closed:
             if kwargs:
                 for kw, arg in kwargs.items():
                     print(f'{kw} = {arg}', file=self.fd)
             else:
-                print(text, file=self.fd)
+                print(*args, file=self.fd)
