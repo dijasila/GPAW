@@ -256,7 +256,11 @@ class ETDM:
         wfs.calculate_occupation_numbers(dens.fixed)
         occ_name = getattr(wfs.occupations, "name", None)
         if occ_name == 'mom':
+            parprint('init dm helper')
+            for kpt in wfs.kpt_u:
+                parprint(kpt.f_n)
             self.initial_occupation_numbers = wfs.occupations.numbers.copy()
+            parprint(self.initial_occupation_numbers)
             self.initialize_mom(wfs, dens)
 
         for kpt in wfs.kpt_u:
