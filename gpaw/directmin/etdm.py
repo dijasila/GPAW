@@ -652,11 +652,11 @@ class ETDM:
                     self.sort_orbitals_mom(wfs)
                 else:
                     self.sort_orbitals(ham, wfs, use_eps=True)
-                    not_update = not wfs.occupations.update_numbers
-                    fixed_occ = wfs.occupations.use_fixed_occupations
-                    if not_update or fixed_occ:
-                        wfs.occupations.numbers = \
-                            self.initial_occupation_numbers
+                    #not_update = not wfs.occupations.update_numbers
+                    #fixed_occ = wfs.occupations.use_fixed_occupations
+                    #if not_update or fixed_occ:
+                    #    wfs.occupations.numbers = \
+                    #        self.initial_occupation_numbers
 
             self.dm_helper.set_reference_orbitals(wfs, self.n_dim)
             for kpt in wfs.kpt_u:
