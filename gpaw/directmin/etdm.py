@@ -20,8 +20,6 @@ from gpaw.directmin import search_direction, line_search_algorithm
 from gpaw.directmin.functional import get_functional
 from gpaw import BadParallelization
 
-from ase.parallel import parprint
-
 
 class ETDM:
 
@@ -115,10 +113,6 @@ class ETDM:
         else:
             self.initialize_constraints = need_to_convert_constraints(
                 self.constraints)
-
-        parprint('init')
-        parprint(self.constraints)
-        parprint(self.initialize_constraints)
 
         self.mmf = False
         self.searchdir_algo = search_direction(
@@ -256,11 +250,7 @@ class ETDM:
         wfs.calculate_occupation_numbers(dens.fixed)
         occ_name = getattr(wfs.occupations, "name", None)
         if occ_name == 'mom':
-            parprint('init dm helper')
-            for kpt in wfs.kpt_u:
-                parprint(kpt.f_n)
             self.initial_occupation_numbers = wfs.occupations.numbers.copy()
-            parprint(self.initial_occupation_numbers)
             self.initialize_mom(wfs, dens)
 
         for kpt in wfs.kpt_u:
@@ -688,10 +678,8 @@ class ETDM:
         the diagonal elements of the Hamiltonian matrix
         """
 
-        parprint('sort')
         with wfs.timer('Sort WFS'):
             for kpt in wfs.kpt_u:
-                parprint(kpt.f_n)
                 k = self.kpointval(kpt)
                 if use_eps:
                     orbital_energies = kpt.eps_n
@@ -716,7 +704,6 @@ class ETDM:
                         # Identity of the contrained orbitals has changed
                         self.constraints[k] = update_constraints(
                             self.constraints[k], list(ind))
-                        parprint(self.constraints[k])
 
     def sort_orbitals_mom(self, wfs):
         """
@@ -725,10 +712,8 @@ class ETDM:
         distribution of occupation numbers
         :return:
         """
-        parprint('sort mom')
         changedocc = False
         for kpt in wfs.kpt_u:
-            parprint(kpt.f_n)
             k = self.kpointval(kpt)
             occupied = kpt.f_n > 1.0e-10
             n_occ = len(kpt.f_n[occupied])
@@ -750,7 +735,6 @@ class ETDM:
                     # Identity of the contrained orbitals has changed
                     self.constraints[k] = update_constraints(
                         self.constraints[k], list(ind))
-                    parprint(self.constraints[k])
 
                 changedocc = True
 
@@ -867,9 +851,6 @@ class ETDM:
     def initialize_mom(self, wfs, dens):
         # Reinitialize the MOM reference orbitals
         # after orthogonalization/localization
-        parprint('init mom')
-        for kpt in wfs.kpt_u:
-            parprint(kpt.f_n)
         wfs.occupations.initialize_reference_orbitals()
         wfs.calculate_occupation_numbers(dens.fixed)
         self.sort_orbitals_mom(wfs)
