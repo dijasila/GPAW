@@ -713,7 +713,9 @@ class ETDM:
         :return:
         """
         changedocc = False
+        parprint('sort mom')
         for kpt in wfs.kpt_u:
+            parprint(kpt.f_n)
             k = self.kpointval(kpt)
             occupied = kpt.f_n > 1.0e-10
             n_occ = len(kpt.f_n[occupied])
