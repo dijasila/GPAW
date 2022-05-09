@@ -108,11 +108,6 @@ class ETDM:
         self.mom_the_canonical_representation \
             = mom_the_canonical_representation
         self.constraints = constraints
-        if self.constraints is None:
-            self.initialize_constraints = False
-        else:
-            self.initialize_constraints = need_to_convert_constraints(
-                self.constraints)
 
         self.mmf = False
         self.searchdir_algo = search_direction(
@@ -345,14 +340,13 @@ class ETDM:
             self.evecs[u] = None
             self.evals[u] = None
 
-            if self.constraints and self.initialize_constraints:
+            if self.constraints:
                 self.constraints[u] = convert_constraints(
                     self.constraints[u], self.n_dim[u],
                     len(kpt.f_n[kpt.f_n > 1e-10]), self.representation)
 
         if self.constraints is None:
             self.constraints = [[] for _ in range(len(kpt_u))]
-        self.initialize_constraints = False
 
         self.iters = 1
 
@@ -989,11 +983,3 @@ def update_constraints(constraints, ind):
         for k in range(len(constraints[i])):
             new[i][k] = ind.index(constraints[i][k])
     return new
-
-
-def need_to_convert_constraints(constraints):
-    dont = True
-    for channel in constraints:
-        for con in channel:
-            dont = dont and len(con) == 2
-    return not dont
