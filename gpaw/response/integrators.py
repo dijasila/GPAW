@@ -10,7 +10,7 @@ import _gpaw
 import gpaw.mpi as mpi
 from gpaw.utilities.blas import gemm, rk, mmm
 from gpaw.utilities.progressbar import ProgressBar
-from gpaw.response.pw_parallelization import GaGb, block_partition
+from gpaw.response.pw_parallelization import Blocks1D, block_partition
 
 
 def czher(alpha: float, x, A) -> None:
@@ -78,8 +78,8 @@ class Integrator:
     def integrate(self, *args, **kwargs):
         raise NotImplementedError
 
-    def _GaGb(self, nG):
-        return GaGb(self.blockcomm, nG)
+    def _blocks1d(self, nG):
+        return Blocks1D(self.blockcomm, nG)
 
 
 class PointIntegrator(Integrator):
@@ -211,7 +211,7 @@ class PointIntegrator(Integrator):
             deps1_m = deps_m + 1j * eta
             deps2_m = deps_m - 1j * eta
 
-        GaGb = self._GaGb(chi0_wGG.shape[2])
+        blocks1d = self._blocks1d(chi0_wGG.shape[2])
 
         for omega, chi0_GG in zip(wd.omega_w, chi0_wGG):
             if self.response == 'density':
@@ -219,7 +219,7 @@ class PointIntegrator(Integrator):
             else:
                 x_m = - np.sign(deps_m) * 1. / (omega + deps1_m)
             if self.blockcomm.size > 1:
-                nx_mG = n_mG[:, GaGb.myslice] * x_m[:, np.newaxis]
+                nx_mG = n_mG[:, blocks1d.myslice] * x_m[:, np.newaxis]
             else:
                 nx_mG = n_mG * x_m[:, np.newaxis]
 
@@ -231,7 +231,7 @@ class PointIntegrator(Integrator):
         """If eta=0 use hermitian update."""
         deps_m += self.eshift * np.sign(deps_m)
 
-        GaGb = self._GaGb(chi0_wGG.shape[2])
+        blocks1d = self._blocks1d(chi0_wGG.shape[2])
 
         for w, omega in enumerate(wd.omega_w):
             if self.blockcomm.size == 1:
@@ -240,7 +240,7 @@ class PointIntegrator(Integrator):
                 rk(-1.0, nx_mG, 1.0, chi0_wGG[w], 'n')
             else:
                 x_m = 2 * deps_m / (omega.imag**2 + deps_m**2)
-                mynx_mG = n_mG[:, GaGb.myslice] * x_m[:, np.newaxis]
+                mynx_mG = n_mG[:, blocks1d.myslice] * x_m[:, np.newaxis]
                 mmm(1.0, mynx_mG, 'C', n_mG, 'N', 1.0, chi0_wGG[w])
 
     @timer('CHI_0 spectral function update (old)')
@@ -260,12 +260,12 @@ class PointIntegrator(Integrator):
         p1_m = p_m * (o2_m - o_m)
         p2_m = p_m * (o_m - o1_m)
 
-        GaGb = self._GaGb(chi0_wGG.shape[2])
+        blocks1d = self._blocks1d(chi0_wGG.shape[2])
 
         if self.blockcomm.size > 1:
             for p1, p2, n_G, w in zip(p1_m, p2_m, n_mG, w_m):
                 if w + 1 < wd.wmax:  # The last frequency is not reliable
-                    myn_G = n_G[GaGb.myslice].reshape((-1, 1))
+                    myn_G = n_G[blocks1d.myslice].reshape((-1, 1))
                     gemm(p1, n_G.reshape((-1, 1)), myn_G,
                          1.0, chi0_wGG[w], 'c')
                     gemm(p2, n_G.reshape((-1, 1)), myn_G,
@@ -287,7 +287,7 @@ class PointIntegrator(Integrator):
         o_m = abs(deps_m)
         w_m = wd.get_floor_index(o_m)
 
-        GaGb = self._GaGb(chi0_wGG.shape[2])
+        blocks1d = self._blocks1d(chi0_wGG.shape[2])
 
         # Sort frequencies
         argsw_m = np.argsort(w_m)
@@ -320,14 +320,15 @@ class PointIntegrator(Integrator):
             p2_m = np.array(p * (sortedo_m[startindex:endindex] - o1))
 
             if self.blockcomm.size > 1 and w + 1 < wd.wmax:
-                x_mG = sortedn_mG[startindex:endindex, GaGb.myslice]
+                x_mG = sortedn_mG[startindex:endindex, blocks1d.myslice]
                 gemm(1.0,
                      sortedn_mG[startindex:endindex].T.copy(),
                      np.concatenate((p1_m[:, None] * x_mG,
                                      p2_m[:, None] * x_mG),
                                     axis=1).T.copy(),
                      1.0,
-                     chi0_wGG[w:w + 2].reshape((2 * GaGb.nGlocal, GaGb.nG)),
+                     chi0_wGG[w:w + 2].reshape((2 * blocks1d.nlocal,
+                                                blocks1d.N)),
                      'c')
 
             if self.blockcomm.size <= 1 and w + 1 < wd.wmax:
@@ -441,7 +442,7 @@ class TetrahedronIntegrator(Integrator):
         if out_wxx is None:
             raise NotImplementedError
 
-        GaGb = self._GaGb(out_wxx.shape[2])
+        blocks1d = self._blocks1d(out_wxx.shape[2])
 
         # Input domain
         td = self.tesselate(domain[0])
@@ -537,7 +538,7 @@ class TetrahedronIntegrator(Integrator):
 
                 for iw, weight in enumerate(W_w):
                     if self.blockcomm.size > 1:
-                        myn_G = n_G[GaGb.myslice].reshape((-1, 1))
+                        myn_G = n_G[blocks1d.myslice].reshape((-1, 1))
                         gemm(weight, n_G.reshape((-1, 1)), myn_G,
                              1.0, out_wxx[i0 + iw], 'c')
                     else:
