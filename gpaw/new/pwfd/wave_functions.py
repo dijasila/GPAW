@@ -2,16 +2,18 @@ from __future__ import annotations
 
 from functools import partial
 from math import pi
+from typing import Optional
 
 import numpy as np
 from gpaw.core.arrays import DistributedArrays
 from gpaw.core.atom_arrays import AtomArrays, AtomDistribution
+from gpaw.core.atom_centered_functions import AtomCenteredFunctions
+from gpaw.core.plane_waves import PlaneWaveExpansions
 from gpaw.core.uniform_grid import UniformGrid, UniformGridFunctions
+from gpaw.fftw import get_efficient_fft_size
 from gpaw.new.wave_functions import WaveFunctions
 from gpaw.setup import Setups
 from gpaw.typing import Array2D, Array3D, ArrayND, Vector
-from gpaw.fftw import get_efficient_fft_size
-from gpaw.core.plane_waves import PlaneWaveExpansions
 
 
 class PWFDWaveFunctions(WaveFunctions):
@@ -40,7 +42,7 @@ class PWFDWaveFunctions(WaveFunctions):
                          dtype=psit_nX.desc.dtype,
                          domain_comm=psit_nX.desc.comm,
                          band_comm=psit_nX.comm)
-        self.pt_aiX = None
+        self._pt_aiX: Optional[AtomCenteredFunctions] = None
         self.orthonormalized = False
 
     def __del__(self):
@@ -61,28 +63,18 @@ class PWFDWaveFunctions(WaveFunctions):
     def __len__(self):
         return self.psit_nX.dims[0]
 
-    @classmethod
-    def from_wfs(cls,
-                 wfs: WaveFunctions,
-                 psit_nX,
-                 fracpos_ac,
-                 atomdist):
-        return cls(psit_nX,
-                   wfs.spin,
-                   wfs.setups,
-                   fracpos_ac,
-                   atomdist,
-                   wfs.weight,
-                   wfs.spin_degeneracy)
+    @property
+    def pt_aiX(self) -> AtomCenteredFunctions:
+        if self._pt_aiX is None:
+            self._pt_aiX = self.psit_nX.desc.atom_centered_functions(
+                [setup.pt_j for setup in self.setups],
+                self.fracpos_ac,
+                atomdist=self.atomdist)
+        return self._pt_aiX
 
     @property
     def P_ani(self):
         if self._P_ani is None:
-            if self.pt_aiX is None:
-                self.pt_aiX = self.psit_nX.desc.atom_centered_functions(
-                    [setup.pt_j for setup in self.setups],
-                    self.fracpos_ac,
-                    atomdist=self.atomdist)
             self._P_ani = self.pt_aiX.empty(self.psit_nX.dims,
                                             self.psit_nX.comm)
             self.pt_aiX.integrate(self.psit_nX, self._P_ani)
@@ -93,6 +85,7 @@ class PWFDWaveFunctions(WaveFunctions):
              atomdist: AtomDistribution) -> None:
         self._P_ani = None
         self.orthonormalized = False
+        assert self.pt_aiX is not None
         self.pt_aiX.move(fracpos_ac, atomdist)
         self._eig_n = None
         self._occ_n = None
@@ -254,7 +247,7 @@ class PWFDWaveFunctions(WaveFunctions):
 
     def collect(self,
                 n1: int = 0,
-                n2: int = 0) -> PWFDWaveFunctions:
+                n2: int = 0) -> PWFDWaveFunctions | None:
         """Collect range of bands to master of band and domain
         communicators."""
         # Also collect projections instead of recomputing XXX
@@ -305,6 +298,8 @@ class PWFDWaveFunctions(WaveFunctions):
             if (ranka, ba) < (rankb, bb):
                 assert ranka == rankb == rank
                 band_comm.send(self.psit_nX.data[ba:bb])
+
+        return None
 
     def dipole_matrix_elements(self,
                                center_v: Vector = None) -> Array3D:
@@ -357,6 +352,7 @@ class PWFDWaveFunctions(WaveFunctions):
         if isinstance(self.psit_nX, UniformGridFunctions):
             psit_nR = self.psit_nX
         else:
+            assert isinstance(self.psit_nX, PlaneWaveExpansions)
             # Find size of fft grid large enough to store square of wfs.
             pw = self.psit_nX.desc
             s1, s2, s3 = pw.indices_cG.ptp(axis=1)
@@ -378,7 +374,7 @@ class PWFDWaveFunctions(WaveFunctions):
 
         return dipole_nnv
 
-    def gather_wave_function_coefficients(self) -> np.ndarray:
+    def gather_wave_function_coefficients(self) -> np.ndarray | None:
         psit_nX = self.psit_nX.gather()  # gather X
         if psit_nX is not None:
             data_nX = psit_nX.matrix.gather()  # gather n
@@ -387,16 +383,3 @@ class PWFDWaveFunctions(WaveFunctions):
                 return data_nX.data.view(
                     psit_nX.data.dtype).reshape(psit_nX.data.shape)
         return None
-
-    def receive(self, kpt_comm, rank):
-        """PWFDWaveFunctions(
-                 psit_nX: DistributedArrays,
-                 spin: int,
-                 q: int,
-                 k: int,
-                 setups: Setups,
-                 fracpos_ac: Array2D,
-                 weight: float = 1.0,
-                 ncomponents: int = 1):
-        """
-        return 42

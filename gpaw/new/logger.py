@@ -45,4 +45,8 @@ class Logger:
 
     def __call__(self, *args, **kwargs) -> None:
         if not self.fd.closed:
-            print(*args, **kwargs, file=self.fd)
+            if kwargs:
+                for kw, arg in kwargs.items():
+                    print(f'{kw} = {arg}', file=self.fd)
+            else:
+                print(*args, file=self.fd)

@@ -63,7 +63,9 @@ class Davidson(Eigensolver):
             # First time: allocate work-arrays
             shape = state.ibzwfs.get_max_shape()
             shape = (2, state.ibzwfs.nbands) + shape
-            dtype = state.ibzwfs.wfs_qs[0][0].psit_nX.data.dtype
+            wfs = state.ibzwfs.wfs_qs[0][0]
+            assert isinstance(wfs, PWFDWaveFunctions)
+            dtype = wfs.psit_nX.data.dtype
             self.work_arrays = np.empty(shape, dtype)
 
         dS = state.ibzwfs.wfs_qs[0][0].setups.overlap_correction
