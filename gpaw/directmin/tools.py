@@ -336,6 +336,7 @@ def real_to_complex(x):
     y = array[: length] + 1.0j * array[length:]
     return y
 
+
 def rotate_orbitals(wfs, orbitals, angle, channel):
     """
     Applies a single rotation between two orbitals.
@@ -353,3 +354,63 @@ def rotate_orbitals(wfs, orbitals, angle, channel):
         np.cos(a) * c[orbitals[0]] + np.sin(a) * c[orbitals[1]]
     wfs.kpt_u[i].C_nM[orbitals[1]] = \
         np.cos(a) * c[orbitals[1]] - np.sin(a) * c[orbitals[0]]
+
+
+def get_a_vec_u(etdm, indices, angles, channels, occ = None):
+    """
+    Creates an orbital rotation vector based on given indices, angles and
+    corresponding spin channels.
+
+    :param etdm:       ETDM object for a converged or at least initialized
+                       calculation
+    :param indices:    List of indices. Each element must be a list of an
+                       orbital pair corresponding to the orbital rotation.
+    :param angles:     List of angles in radians.
+    :param channels:   List of spin channels.
+    :param occ:        Occupation numbers for each k-point. Must be specified
+                       if the orbitals in the ETDM object are not ordered
+                       canonically, as the user orbital indexation is different
+                       from the one in the ETDM object then.
+
+    :return new_vec_u: Orbital rotation coordinate vector containing the
+                       specified values.
+    """
+
+    new_vec_u = {}
+    ind_up = etdm.ind_up
+    a_vec_u = etdm.a_vec_u
+    conversion = []
+    for k in a_vec_u.keys():
+        new_vec_u[k] = np.zeros_like(a_vec_u[k])
+        if occ is not None:
+            f_n = occ[k]
+            occupied = f_n > 1.0e-10
+            n_occ = len(f_n[occupied])
+            if n_occ == 0.0:
+                continue
+            if np.min(f_n[:n_occ]) == 0:
+                ind_occ = np.argwhere(occupied)
+                ind_unocc = np.argwhere(~occupied)
+                ind = np.vstack((ind_occ, ind_unocc))
+                ind = np.squeeze(ind)
+                conversion.append(ind)
+            else:
+                conversion.append(None)
+
+    for ind, ang, s in zip(indices, angles, channels):
+        if occ is not None:
+            if conversion[s] is not None:
+                ind[0] = conversion[s].index(ind[0])
+                ind[1] = conversion[s].index(ind[1])
+        m = np.where(ind_up[s][0] == ind[0])[0]
+        n = np.where(ind_up[s][1] == ind[1])[0]
+        res = None
+        for i in m:
+            for j in n:
+                if i == j:
+                    res = i
+        if res is None:
+            raise ValueError('Orbital rotation does not exist.')
+        new_vec_u[s][res] = ang
+
+    return new_vec_u
