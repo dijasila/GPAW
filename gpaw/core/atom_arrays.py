@@ -96,8 +96,8 @@ class AtomDistribution:
             MPI-communicator.
         """
         self.comm = comm
-        self.rank_a = ranks
-        self.indices = np.where(ranks == comm.rank)[0]
+        self.rank_a = np.array(ranks)
+        self.indices = np.where(self.rank_a == comm.rank)[0]
 
     @classmethod
     def from_number_of_atoms(cls,
@@ -325,6 +325,7 @@ class AtomArrays:
                 for a, size in size_a.items():
                     b2 = b1 + size
                     buf[..., b1:b2] = aa[a].reshape(self.mydims + (size,))
+                    b1 = b2
                 request = comm.send(buf, rank, 42, False)
                 # Remember to store a reference to the
                 # send buffer (buf) so that is isn't
