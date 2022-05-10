@@ -12,6 +12,7 @@ from gpaw.utilities.blas import gemm, rk, mmm
 from gpaw.utilities.progressbar import ProgressBar
 from gpaw.response.pw_parallelization import Blocks1D, block_partition
 
+
 def pair_densities_sorted(w_m, o_m, n_mG):
     # Sort frequencies
     argsw_m = np.argsort(w_m)
@@ -23,7 +24,7 @@ def pair_densities_sorted(w_m, o_m, n_mG):
     while 1:
         if index == len(sortedw_m):
             break
-        
+
         w = sortedw_m[index]
         startindex = index
         while 1:
@@ -36,6 +37,7 @@ def pair_densities_sorted(w_m, o_m, n_mG):
         endindex = index
         sl = slice(startindex, endindex)
         yield w, sortedo_m[sl], sortedn_mG[sl]
+
 
 def czher(alpha: float, x, A) -> None:
     """Hermetian rank-1 update of upper half of A.
