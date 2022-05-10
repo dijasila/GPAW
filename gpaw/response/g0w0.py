@@ -671,7 +671,48 @@ class G0W0(PairDensity):
             e = abs(Q_aGii[a] - Q_Gii[G_G]).max()
             assert e < 1e-12
 
-    @timer('Sigma')
+    @timer('Sigma (old)')
+    def calculate_sigma_old(self, n_mG, deps_m, f_m, C_swGG):
+        """Calculates a contribution to the self-energy and its derivative for
+        a given (k, k-q)-pair from its corresponding pair-density and
+        energy."""
+        o_m = abs(deps_m)
+        # Add small number to avoid zeros for degenerate states:
+        sgn_m = np.sign(deps_m + 1e-15)
+
+        # Pick +i*eta or -i*eta:
+        s_m = (1 + sgn_m * np.sign(0.5 - f_m)).astype(int) // 2
+
+        w_m = self.wd.get_floor_index(o_m, safe=False)
+        m_inb = np.where(w_m < len(self.wd) - 1)[0]
+        o1_m = np.empty(len(o_m))
+        o2_m = np.empty(len(o_m))
+        o1_m[m_inb] = self.wd.omega_w[w_m[m_inb]]
+        o2_m[m_inb] = self.wd.omega_w[w_m[m_inb] + 1]
+
+        x = 1.0 / (self.qd.nbzkpts * 2 * pi * self.vol)
+        sigma = 0.0
+        dsigma = 0.0
+        # Performing frequency integration
+        for o, o1, o2, sgn, s, w, n_G in zip(o_m, o1_m, o2_m,
+                                             sgn_m, s_m, w_m, n_mG):
+
+            if w >= len(self.wd.omega_w) - 1:
+                continue
+
+            C1_GG = C_swGG[s][w]
+            C2_GG = C_swGG[s][w + 1]
+            p = x * sgn
+            myn_G = n_G[self.GaGb.myslice]
+
+            sigma1 = p * np.dot(np.dot(myn_G, C1_GG), n_G.conj()).imag
+            sigma2 = p * np.dot(np.dot(myn_G, C2_GG), n_G.conj()).imag
+            sigma += ((o - o1) * sigma2 + (o2 - o) * sigma1) / (o2 - o1)
+            dsigma += sgn * (sigma2 - sigma1) / (o2 - o1)
+
+        return sigma, dsigma
+
+    @timer('Sigma (new)')
     def calculate_sigma(self, n_mG, deps_m, f_m, C_swGG):
         """Calculates a contribution to the self-energy and its derivative for
         a given (k, k-q)-pair from its corresponding pair-density and
@@ -709,6 +750,13 @@ class G0W0(PairDensity):
             sigma2 = p * np.dot(np.dot(myn_G, C2_GG), n_G.conj()).imag
             sigma += ((o - o1) * sigma2 + (o2 - o) * sigma1) / (o2 - o1)
             dsigma += sgn * (sigma2 - sigma1) / (o2 - o1)
+        self.timer.start('old ref')
+        sigmaref, dsigmaref = self.calculate_sigma_old(n_mG, deps_m, f_m, C_swGG)
+        self.timer.stop('old ref')
+        self.timer.start('allclose')
+        assert np.allclose(sigmaref, sigma)
+        assert np.allclose(dsigmaref, dsigma)
+        self.timer.stop('allclose')
 
         return sigma, dsigma
 
