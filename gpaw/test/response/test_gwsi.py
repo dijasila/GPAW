@@ -69,3 +69,19 @@ def test_response_gwsi(in_tmp_dir, si, symm, nblocks, scalapack):
         [-9.253,
          5.442, 2.389, 0.403, 0.000,
          6.261, 3.570, 1.323, 0.001], abs=0.003)
+
+@pytest.mark.response
+@pytest.mark.ci
+@pytest.mark.parametrize('si', generate_si_systems()[1])
+@pytest.mark.parametrize('symm', [{}])
+def test_small_response_gwsi(in_tmp_dir, si, symm, nblocks, scalapack):
+    e, r = run(si, symm, 1)
+    G, X = r['eps'][0]
+    results = [e, G[0], G[1] - G[0], X[1] - G[0], X[2] - X[1]]
+    G, X = r['qp'][0]
+    results += [G[0], G[1] - G[0], X[1] - G[0], X[2] - X[1]]
+
+    assert results == pytest.approx(
+        [-9.253,
+         5.442, 2.389, 0.403, 0.000,
+         6.261, 3.570, 1.323, 0.001], abs=0.003)
