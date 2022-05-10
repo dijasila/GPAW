@@ -30,7 +30,7 @@ from gpaw.xc.exx import EXX, select_kpts
 from gpaw.xc.fxc import set_flags
 from gpaw.xc.tools import vxc
 from gpaw.response.temp import DielectricFunctionCalculator
-
+from gpaw.utilities.blas import gemm
 
 class G0W0(PairDensity):
     def __init__(self, calc, filename='gw', *,
@@ -572,6 +572,47 @@ class G0W0(PairDensity):
 
         return results
 
+    @timer('Calculate pair-densities (new)')
+    def calculate_pair_densities_new(self, ut1cc_R, C1_aGi, kpt2, pd, Q_G,
+                                     block=True):
+        """Calculate FFT of pair-densities and add PAW corrections.
+
+        ut1cc_R: 3-d complex ndarray
+            Complex conjugate of the periodic part of the left hand side
+            wave function.
+        C1_aGi: list of ndarrays
+            PAW corrections for all atoms.
+        kpt2: KPoint object
+            Right hand side k-point object.
+        pd: PWDescriptor
+            Plane-wave descriptor for for q=k2-k1.
+        Q_G: 1-d int ndarray
+            Mapping from flattened 3-d FFT grid to 0.5(G+q)^2<ecut sphere.
+        """
+
+        dv = pd.gd.dv
+        n_mG = pd.empty(kpt2.blocksize)
+        myblocksize = kpt2.nb - kpt2.na
+
+        print('Pair density par:', mpi.world.rank, 'myblocksize:', myblocksize, 'ur_nR.shape', kpt2.ut_nR.shape, 'n_mG.shape', n_mG.shape)
+
+        for ut_R, n_G in zip(kpt2.ut_nR, n_mG):
+            n_R = ut1cc_R * ut_R
+            with self.timer('fft'):
+                n_G[:] = pd.fft(n_R, 0, Q_G) * dv
+        # PAW corrections:
+        with self.timer('gemm'):
+            for C1_Gi, P2_mi in zip(C1_aGi, kpt2.P_ani):
+                gemm(1.0, C1_Gi, P2_mi, 1.0, n_mG[:myblocksize], 't')
+
+        if not block or self.blockcomm.size == 1:
+            return n_mG
+        else:
+            n_MG = pd.empty(kpt2.blocksize * self.blockcomm.size)
+            self.blockcomm.all_gather(n_mG, n_MG)
+            return n_MG[:kpt2.n2 - kpt2.n1]
+
+
     def calculate_q(self, ie, k, kpt1, kpt2, pd0, W0, W0_GW=None):
         """Calculates the contribution to the self-energy and its derivative
         for a given set of k-points, kpt1 and kpt2."""
@@ -619,7 +660,9 @@ class G0W0(PairDensity):
         if self.ppa:
             calculate_sigma = self.calculate_sigma_ppa
         else:
-            calculate_sigma = self.calculate_sigma
+            # XXXXXXXXXXXXXXXXXXx
+            calculate_sigma = self.calculate_sigma_old # XXXXXXXXXXXXXXXXXXXXXXXXX
+            # XXXXXXXXXXXXXXXXXXx
 
         for n in range(kpt1.n2 - kpt1.n1):
             ut1cc_R = kpt1.ut_nR[n].conj()
@@ -628,6 +671,10 @@ class G0W0(PairDensity):
                       for Qa_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
             n_mG = self.calculate_pair_densities(ut1cc_R, C1_aGi, kpt2,
                                                  pd0, I_G)
+
+            n2_mG = self.calculate_pair_densities_new(ut1cc_R, C1_aGi, kpt2, pd0, I_G)
+            assert np.allclose(n_mG, n2_mG)
+
             if self.sign == 1:
                 n_mG = n_mG.conj()
 
@@ -692,7 +739,7 @@ class G0W0(PairDensity):
             C1_GG = C_swGG[s][w]
             C2_GG = C_swGG[s][w + 1]
             p = x * sgn
-            myn_G = n_G[self.GaGb.myslice]
+            myn_G = n_G[self.blocks1d.myslice]
 
             sigma1 = p * np.dot(np.dot(myn_G, C1_GG), n_G.conj()).imag
             sigma2 = p * np.dot(np.dot(myn_G, C2_GG), n_G.conj()).imag
@@ -740,7 +787,8 @@ class G0W0(PairDensity):
             sigma += ((o - o1) * sigma2 + (o2 - o) * sigma1) / (o2 - o1)
             dsigma += sgn * (sigma2 - sigma1) / (o2 - o1)
         self.timer.start('old ref')
-        sigmaref, dsigmaref = self.calculate_sigma_old(n_mG, deps_m, f_m, C_swGG)
+        sigmaref, dsigmaref = self.calculate_sigma_old(n_mG, deps_m, 
+                                                       f_m, C_swGG)
         self.timer.stop('old ref')
         self.timer.start('allclose')
         assert np.allclose(sigmaref, sigma)
@@ -1278,7 +1326,9 @@ class G0W0(PairDensity):
 
         with self.timer('Hilbert transform'):
             htp(Wp_wGG)
+            Wp_wGG = self.blockdist.redistribute(Wp_wGG) # New: Redistribute to wGG
             htm(Wm_wGG)
+            Wm_wGG = self.blockdist.redistribute(Wm_wGG) # New: Redistribute to wGG
 
             if self.do_GW_too:
                 Wm_GW_wGG = self.blockdist.redistribute(
