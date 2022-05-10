@@ -12,6 +12,7 @@ from gpaw.new.calculation import DFTCalculation, DFTState, units
 from gpaw.new.density import Density
 from gpaw.new.input_parameters import InputParameters
 from gpaw.new.potential import Potential
+from gpaw.utilities import unpack, unpack2
 
 
 def write_gpw(filename: str,
@@ -192,7 +193,7 @@ def convert_to_new_packing_convention(a_asp, density=False):
         else:
             a_sii = unpack(a_sp)
         L = np.tril_indices(a_sii.shape[1])
-        a_sp[:] = a_sii[:, L]
+        a_sp[:] = a_sii[(...,) + L]
 
 
 if __name__ == '__main__':
