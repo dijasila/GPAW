@@ -365,6 +365,12 @@ def get_a_vec_u(etdm, wfs, indices, angles, channels, occ = None):
                        calculation
     :param indices:    List of indices. Each element must be a list of an
                        orbital pair corresponding to the orbital rotation.
+                       For occupied-virtual rotations (unitary invariant or
+                       sparse representations), the first index represents the
+                       occupied, the second the virtual orbital.
+                       For occupied-occupied rotations (sparse representation
+                       only), the first index must always be smaller than the
+                       second.
     :param angles:     List of angles in radians.
     :param channels:   List of spin channels.
     :param occ:        Occupation numbers for each k-point. Must be specified
