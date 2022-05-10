@@ -401,7 +401,7 @@ def get_a_vec_u(etdm, wfs, indices, angles, channels, occ = None):
                 ind_unocc = np.argwhere(~occupied)
                 ind = np.vstack((ind_occ, ind_unocc))
                 ind = np.squeeze(ind)
-                conversion.append(ind)
+                conversion.append(list(ind))
             else:
                 conversion.append(None)
 
