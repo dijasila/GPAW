@@ -55,11 +55,13 @@ class DFTCalculation:
                  state: DFTState,
                  setups,
                  scf_loop,
-                 pot_calc):
+                 pot_calc,
+                 world):
         self.state = state
         self.setups = setups
         self.scf_loop = scf_loop
         self.pot_calc = pot_calc
+        self.world = world
 
         self.results: dict[str, Any] = {}
         self.fracpos_ac = self.pot_calc.fracpos_ac
@@ -67,7 +69,7 @@ class DFTCalculation:
     @classmethod
     def from_parameters(cls,
                         atoms: Atoms,
-                        params: Union[dict, InputParameters] = None,
+                        params: Union[dict, InputParameters],
                         log=None,
                         builder=None) -> DFTCalculation:
         """Create DFTCalculation object from parameters and atoms."""
@@ -82,6 +84,8 @@ class DFTCalculation:
 
         builder = builder or create_builder(atoms, params)
 
+        log = Logger(log, builder.world)
+
         basis_set = builder.create_basis_set()
 
         density = builder.density_from_superposition(basis_set)
@@ -93,17 +97,17 @@ class DFTCalculation:
         state = DFTState(ibzwfs, density, potential, vHt_x)
         scf_loop = builder.create_scf_loop()
 
-        if log is not None:
-            write_atoms(atoms, builder.grid, builder.initial_magmoms, log)
-            log(state)
-            log(builder.setups)
-            log(scf_loop)
-            log(pot_calc)
+        write_atoms(atoms, builder.grid, builder.initial_magmoms, log)
+        log(state)
+        log(builder.setups)
+        log(scf_loop)
+        log(pot_calc)
 
         return cls(state,
                    builder.setups,
                    scf_loop,
-                   pot_calc)
+                   pot_calc,
+                   builder.world)
 
     def move_atoms(self, atoms, log) -> DFTCalculation:
         check_atoms_too_close(atoms)
@@ -127,7 +131,9 @@ class DFTCalculation:
 
         return self
 
-    def iconverge(self, log, convergence=None, maxiter=None):
+    def iconverge(self, log=None, convergence=None, maxiter=None):
+        log = Logger(log, self.world)
+        self.state.ibzwfs.make_sure_wfs_are_read_from_gpw_file()
         for ctx in self.scf_loop.iterate(self.state,
                                          self.pot_calc,
                                          convergence,
@@ -141,12 +147,13 @@ class DFTCalculation:
                  maxiter=None,
                  steps=99999999999999999):
         """Converge to self-consistent solution of KS-equation."""
+        log = Logger(log, self.world)
         for step, _ in enumerate(self.iconverge(log, convergence, maxiter),
                                  start=1):
             if step == steps:
                 break
         else:  # no break
-            log(f'Converged in {step} steps')
+            log(scf_steps=step)
 
     def energies(self, log):
         energies1 = self.state.potential.energies.copy()

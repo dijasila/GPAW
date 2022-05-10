@@ -365,6 +365,14 @@ class IBZWaveFunctions:
             # Maybe we only have the occupied bands and no empty bands
             pass
 
+    def make_sure_wfs_are_read_from_gpw_file(self):
+        for wfs in self:
+            psit_nX = getattr(wfs, 'psit_nX', None)
+            if psit_nX is None:
+                return
+            if hasattr(psit_nX.data, 'fd'):
+                psit_nX.data = psit_nX.data[:]  # read
+
     def get_homo_lumo(self, spin: int = None) -> Array1D:
         """Return HOMO and LUMO eigenvalues."""
         if self.ncomponents == 1:
