@@ -175,11 +175,11 @@ class IBZWaveFunctions:
         rank = self.rank_k[kpt]
         if rank == self.kpt_comm.rank:
             wfs = self.wfs_qs[self.q_k[kpt]][spin]
-            wfs = wfs.collect(n1, n2)
+            wfs2 = wfs.collect(n1, n2)
             if rank == 0:
-                return wfs
-            if wfs is not None:
-                wfs.send(self.kpt_comm, 0)
+                return wfs2
+            if wfs2 is not None:
+                wfs2.send(self.kpt_comm, 0)
             return
         master = (self.kpt_comm.rank == 0 and
                   self.domain_comm.rank == 0 and

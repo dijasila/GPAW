@@ -74,7 +74,7 @@ class WaveFunctions:
 
     def collect(self,
                 n1: int = 0,
-                n2: int = 0) -> WaveFunctions:
+                n2: int = 0) -> WaveFunctions | None:
         raise NotImplementedError
 
     @property
@@ -154,5 +154,5 @@ class WaveFunctions:
     def force_contribution(self, dH_asii: AtomArrays, F_av: Array2D):
         raise NotImplementedError
 
-    def gather_wave_function_coefficients(self) -> np.ndarray:
+    def gather_wave_function_coefficients(self) -> np.ndarray | None:
         raise NotImplementedError

@@ -42,7 +42,7 @@ class PWFDDFTComponentsBuilder(DFTComponentsBuilder):
                 q=q,
                 k=k,
                 weight=weight,
-                psit_nX=psit_nG,
+                psit_nX=psit_nG,  # type: ignore
                 setups=self.setups,
                 fracpos_ac=self.fracpos_ac,
                 atomdist=self.atomdist,
