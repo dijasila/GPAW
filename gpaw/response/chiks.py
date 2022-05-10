@@ -101,7 +101,7 @@ class ChiKS(PlaneWaveKSLRF):
         x_wt = weight * self.get_temporal_part(n1_t, n2_t,
                                                s1_t, s2_t, df_t, deps_t)
 
-        myslice = self.GaGb.myslice
+        myslice = self.blocks1d.myslice
 
         if self.bundle_integrals:
             # Specify notation

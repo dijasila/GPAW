@@ -15,7 +15,8 @@ from gpaw.pw.descriptor import PWDescriptor, count_reciprocal_vectors
 from gpaw.response.chi0 import Chi0
 from gpaw.response.kernels import get_coulomb_kernel
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
-from gpaw.response.pw_parallelization import GaGb, PlaneWaveBlockDistributor
+from gpaw.response.pw_parallelization import (Blocks1D,
+                                              PlaneWaveBlockDistributor)
 
 
 def rpa(filename, ecut=200.0, blocks=1, extrapolate=4):
@@ -259,14 +260,14 @@ class RPACorrelation:
             # calculate_q() below), we have to manually set the
             # parallelization properties on the chi0 object, which seems
             # very unsafe indeed.
-            chi0.GaGb = GaGb(chi0.blockcomm, nG)
+            chi0.blocks1d = Blocks1D(chi0.blockcomm, nG)
             chi0.blockdist = PlaneWaveBlockDistributor(chi0.world,
                                                        chi0.blockcomm,
                                                        chi0.kncomm,
                                                        chi0.wd,
-                                                       chi0.GaGb)
+                                                       chi0.blocks1d)
 
-            shape = (1 + spin, nw, chi0.GaGb.nGlocal, nG)
+            shape = (1 + spin, nw, chi0.blocks1d.nlocal, nG)
             chi0_swGG = A1_x[:np.prod(shape)].reshape(shape)
             chi0_swGG[:] = 0.0
 

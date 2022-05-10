@@ -21,7 +21,8 @@ from gpaw.response.fxckernel_calc import calculate_kernel
 from gpaw.response.kernels import get_coulomb_kernel, get_integrated_kernel
 from gpaw.response.pair import PairDensity
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
-from gpaw.response.pw_parallelization import GaGb, PlaneWaveBlockDistributor
+from gpaw.response.pw_parallelization import (Blocks1D,
+                                              PlaneWaveBlockDistributor)
 from gpaw.utilities.progressbar import ProgressBar
 from gpaw.pw.descriptor import (PWDescriptor, PWMapping,
                                 count_reciprocal_vectors)
@@ -43,11 +44,10 @@ class G0W0(PairDensity):
                  domega0=None,  # deprecated
                  omega2=None,  # deprecated
                  q0_correction=False,
-                 anisotropy_correction=None,
                  nblocks=1, savew=False, savepckl=True,
                  maxiter=1, method='G0W0', mixing=0.2,
                  world=mpi.world, ecut_extrapolation=False,
-                 nblocksmax=False, gate_voltage=None,
+                 nblocksmax=False,
                  paw_correction='brute-force'):
 
         """G0W0 calculator.
@@ -124,14 +124,9 @@ class G0W0(PairDensity):
             but the average is only carried out in the non-periodic directions.
         E0: float
             Energy (in eV) used for fitting in the plasmon-pole approximation.
-        gate_voltage: float
-            Shift Fermi level of ground state calculation by the
-            specified amount.
         q0_correction: bool
             Analytic correction to the q=0 contribution applicable to 2D
             systems.
-        anisotropy_correction: bool
-            Old term for the q0_correction.
         nblocks: int
             Number of blocks chi0 should be distributed in so each core
             does not have to store the entire matrix. This is to reduce
@@ -214,7 +209,7 @@ class G0W0(PairDensity):
         self.ecut_e = ecut_e / Ha
 
         PairDensity.__init__(self, calc, ecut, world=world, nblocks=nblocks,
-                             gate_voltage=gate_voltage, txt=filename + '.txt',
+                             txt=filename + '.txt',
                              paw_correction=paw_correction)
 
         p = functools.partial(print, file=self.fd)
@@ -225,7 +220,6 @@ class G0W0(PairDensity):
         p(' |___|')
         p()
 
-        self.gate_voltage = gate_voltage
         ecut /= Ha
 
         self.xc = xc
@@ -269,15 +263,10 @@ class G0W0(PairDensity):
         self.frequencies = frequencies
         self.wd = None
 
-        self.GaGb = None
+        self.blocks1d = None
         self.blockdist = None
 
-        if anisotropy_correction is not None:
-            self.ac = anisotropy_correction
-            warnings.warn('anisotropy_correction changed name to '
-                          'q0_correction. Please update your script(s).')
-        else:
-            self.ac = q0_correction
+        self.ac = q0_correction
 
         if self.ac:
             assert self.truncation == '2D'
@@ -744,7 +733,7 @@ class G0W0(PairDensity):
             C1_GG = C_swGG[s][w]
             C2_GG = C_swGG[s][w + 1]
             p = x * sgn
-            myn_G = n_G[self.GaGb.myslice]
+            myn_G = n_G[self.blocks1d.myslice]
 
             sigma1 = p * np.dot(np.dot(myn_G, C1_GG), n_G.conj()).imag
             sigma2 = p * np.dot(np.dot(myn_G, C2_GG), n_G.conj()).imag
@@ -808,7 +797,6 @@ class G0W0(PairDensity):
                     txt=self.filename + '.w.txt',
                     timer=self.timer,
                     nblocks=self.blockcomm.size,
-                    gate_voltage=self.gate_voltage,
                     paw_correction=self.paw_correction,
                     **parameters)
 
@@ -863,10 +851,10 @@ class G0W0(PairDensity):
 
             # This does not seem healthy... G0W0 should not configure the
             # properties of chi0 directly, see blockdist below
-            chi0.GaGb = GaGb(self.blockcomm, nG)
+            chi0.blocks1d = Blocks1D(self.blockcomm, nG)
 
             if len(self.ecut_e) > 1:
-                shape = (nw, chi0.GaGb.nGlocal, nG)
+                shape = (nw, chi0.blocks1d.nlocal, nG)
                 chi0bands_wGG = A1_x[:np.prod(shape)].reshape(shape).copy()
                 chi0bands_wGG[:] = 0.0
 
@@ -897,7 +885,7 @@ class G0W0(PairDensity):
                     self.Q_aGii = self.initialize_paw_corrections(pdi)
 
                     nw = len(self.wd)
-                    self.GaGb = GaGb(self.blockcomm, pdi.ngmax)
+                    self.blocks1d = Blocks1D(self.blockcomm, pdi.ngmax)
                 else:
                     # First time calculation
                     if ecut == self.ecut:
@@ -957,18 +945,18 @@ class G0W0(PairDensity):
         # Since we do not call chi0.calculate() (which in of itself leads
         # to massive code duplication), we have to manage the block
         # parallelization here.
-        self.GaGb = chi0.GaGb
+        self.blocks1d = chi0.blocks1d
         self.blockdist = PlaneWaveBlockDistributor(self.world,
                                                    self.blockcomm,
                                                    chi0.kncomm,
-                                                   self.wd, self.GaGb)
+                                                   self.wd, self.blocks1d)
         # Because we do not call chi0.calculate(), we have to let it
         # know about the block distributor by hand... Unsafe!
         chi0.blockdist = self.blockdist
 
         nw = len(self.wd)
         nG = pd.ngmax
-        shape = (nw, self.GaGb.nGlocal, nG)
+        shape = (nw, self.blocks1d.nlocal, nG)
 
         chi0.fd = self.fd
         chi0.print_chi(pd)
@@ -1105,13 +1093,9 @@ class G0W0(PairDensity):
         nG = pd.ngmax
 
         mynw = (nw + self.blockcomm.size - 1) // self.blockcomm.size
-        if self.blockcomm.size > 1:
-            chi0_wGG = self.blockdist.redistribute(chi0_wGG, A2_x)
-            wa = min(self.blockcomm.rank * mynw, nw)
-            wb = min(wa + mynw, nw)
-        else:
-            wa = 0
-            wb = nw
+        chi0_wGG = self.blockdist.redistribute(chi0_wGG, A2_x)
+        wa = min(self.blockcomm.rank * mynw, nw)
+        wb = min(wa + mynw, nw)
 
         if ecut == pd.ecut:
             pdi = pd
@@ -1121,7 +1105,7 @@ class G0W0(PairDensity):
             pdi = PWDescriptor(ecut, pd.gd, dtype=pd.dtype,
                                kd=pd.kd)
             nG = pdi.ngmax
-            self.GaGb = GaGb(self.blockcomm, nG)
+            self.blocks1d = Blocks1D(self.blockcomm, nG)
             nw = len(self.wd)
             mynw = (nw + self.blockcomm.size - 1) // self.blockcomm.size
 
@@ -1288,11 +1272,7 @@ class G0W0(PairDensity):
             A1_GW_x = A1_x.copy()
             A2_GW_x = A2_x.copy()
 
-        if self.blockcomm.size > 1:
-            Wm_wGG = self.blockdist.redistribute(chi0_wGG, A1_x)
-        else:
-            Wm_wGG = chi0_wGG
-
+        Wm_wGG = self.blockdist.redistribute(chi0_wGG, A1_x)
         Wp_wGG = A2_x[:Wm_wGG.size].reshape(Wm_wGG.shape)
         Wp_wGG[:] = Wm_wGG
 
@@ -1301,11 +1281,8 @@ class G0W0(PairDensity):
             htm(Wm_wGG)
 
             if self.do_GW_too:
-                if self.blockcomm.size > 1:
-                    Wm_GW_wGG = self.blockdist.redistribute(
-                        chi0_GW_wGG, A1_GW_x)
-                else:
-                    Wm_GW_wGG = chi0_GW_wGG
+                Wm_GW_wGG = self.blockdist.redistribute(
+                    chi0_GW_wGG, A1_GW_x)
 
                 Wp_GW_wGG = A2_GW_x[:Wm_GW_wGG.size].reshape(Wm_GW_wGG.shape)
                 Wp_GW_wGG[:] = Wm_GW_wGG
