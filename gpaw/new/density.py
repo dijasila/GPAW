@@ -4,7 +4,7 @@ import numpy as np
 from ase.units import Bohr
 from gpaw.typing import ArrayLike1D
 from gpaw.core.atom_centered_functions import AtomArraysLayout
-from gpaw.utilities import unpack2, unpack, pack
+from gpaw.utilities import unpack2, unpack
 from typing import Union
 from gpaw.core.atom_arrays import AtomArrays
 
