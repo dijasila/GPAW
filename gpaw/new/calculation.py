@@ -171,12 +171,12 @@ class DFTCalculation:
         log(f'Dipole moment: ({x:.6f}, {y:.6f}, {z:.6f}) |e|*Ang\n')
         self.results['dipole'] = dipole_v
 
-    def magmoms(self, log):
+    def magmoms(self, log=None):
         mm_v, mm_av = self.state.density.calculate_magnetic_moments()
         self.results['magmom'] = mm_v[2]
         self.results['magmoms'] = mm_av[:, 2].copy()
 
-        if self.state.density.ncomponents > 1:
+        if self.state.density.ncomponents > 1 and log is not None:
             x, y, z = mm_v
             log(f'Total magnetic moment: ({x:.6f}, {y:.6f}, {z:.6f})')
             log('Local magnetic moments:')
@@ -184,6 +184,7 @@ class DFTCalculation:
                 x, y, z = m_v
                 log(f'{a:4} {setup.symbol:2} ({x:9.6f}, {y:9.6f}, {z:9.6f})')
             log()
+        return mm_v, mm_av
 
     def forces(self, log):
         """Return atomic force contributions."""

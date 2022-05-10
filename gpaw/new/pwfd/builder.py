@@ -35,13 +35,14 @@ class PWFDDFTComponentsBuilder(DFTComponentsBuilder):
                 dims=(self.nbands,),
                 desc=SimpleNamespace(comm=domain_comm,
                                      kpt_c=kpt_c,
-                                     dtype=self.dtype))
+                                     dtype=self.dtype),
+                data=None)
             wfs = PWFDWaveFunctions(
                 spin=spin,
                 q=q,
                 k=k,
                 weight=weight,
-                psit_nX=psit_nG,
+                psit_nX=psit_nG,  # type: ignore
                 setups=self.setups,
                 fracpos_ac=self.fracpos_ac,
                 atomdist=self.atomdist,

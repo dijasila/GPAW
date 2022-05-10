@@ -27,6 +27,9 @@ Git master branch
   Chi0, DielectricFunction and G0W0. Explained in the :ref:`frequency grid`
   tutorial.
 
+* :ref:`spinspiral calculations`.  See also
+  :git:`~gpaw/test/spinspiral/h_chain_test.py`.
+
 
 Version 22.1.0
 ==============
