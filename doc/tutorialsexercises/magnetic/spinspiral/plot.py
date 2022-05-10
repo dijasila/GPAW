@@ -2,7 +2,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from ase.spectrum.band_structure import BandStructure
-from gpaw import GPAW
+from gpaw.new.ase_interface import GPAW
 
 energies = []
 magmoms = []
