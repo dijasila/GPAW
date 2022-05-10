@@ -10,11 +10,12 @@ Spin spiral calculations
    This tutorial is *work in progress*
 
 In this tutorial we employ the Generalized Bloch's Theorem approach to
-calculate the spin spiral ground-state. In this approach we can choose any wave
-vector of the spin spiral `q`, and rotate the spin degrees through the
-periodic boundary conditions accordingly. This rotation can be included in
-Bloch's theorem by applying a combined translation and spin rotation to the
-wave function at the boundaries. Then we get the generalized Bloch's theorem,
+calculate the spin spiral ground-state [#Knöpfle]_. In this approach we can
+choose any wave vector of the spin spiral `q`, and rotate the spin degrees
+through the periodic boundary conditions accordingly. This rotation can be
+included in Bloch's theorem by applying a combined translation and spin
+rotation to the wave function at the boundaries. Then we get the generalized
+Bloch's theorem,
 
 .. math::
 
@@ -99,3 +100,8 @@ cell, and so a huge supercell would be required.
 
 
 .. [#Tsunoda] Y. Tsunoda 1989 J. Phys.: Condens. Matter 1 10427
+
+.. [#Knöpfle] K. Knöpfle, L. M. Sandratskii, and J. Kübler
+   Spin spiral ground state of γ-iron,
+   Phys. Rev. B 62, 5564 – Published 1 September 2000
+   :doi:`10.1103/PhysRevB.62.5564`
