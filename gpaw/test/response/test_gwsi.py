@@ -54,10 +54,10 @@ def run(atoms, symm, nblocks):
 
     return output
 
-reference = pytest.approx(
-        [-9.253,
-         5.442, 2.389, 0.403, 0.000,
-         6.261, 3.570, 1.323, 0.001], abs=0.003)
+
+reference = pytest.approx([-9.253, 5.442, 2.389, 0.403, 0.000,
+                           6.261, 3.570, 1.323, 0.001], abs=0.003)
+
 
 @pytest.mark.response
 @pytest.mark.slow
@@ -71,10 +71,10 @@ reference = pytest.approx(
 def test_response_gwsi(in_tmp_dir, si, symm, nblocks, scalapack):
     assert run(si, symm, nblocks) == reference
 
+
 @pytest.mark.response
 @pytest.mark.ci
 @pytest.mark.parametrize('si', generate_si_systems())
 @pytest.mark.parametrize('symm', [{}])
-
 def test_small_response_gwsi(in_tmp_dir, si, symm, scalapack):
     assert run(si, symm, 1) == reference
