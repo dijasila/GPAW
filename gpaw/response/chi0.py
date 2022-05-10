@@ -191,9 +191,6 @@ class Chi0:
         else:
             self.rate = rate / Ha
 
-        assert nbands <= self.calc.wfs.bd.nbands, 'Too many bands!'
-        'Maximum number of allowed bands with this'
-        f'KS calculation is {self.calc.wfs.bd.nbands}'
         self.nbands = nbands or self.calc.wfs.bd.nbands
         self.include_intraband = intraband
 
