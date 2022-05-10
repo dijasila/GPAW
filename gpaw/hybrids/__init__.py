@@ -14,6 +14,8 @@ def parse_name(name: str) -> Tuple[str, float, float]:
         return 'HYB_GGA_XC_HSE03', 0.25, 0.106
     if name == 'HSE06':
         return 'HYB_GGA_XC_HSE06', 0.25, 0.11
+    if name == 'HSEFAST':
+        return 'oldPBE', 0.25, 0.11
     if name == 'B3LYP':
         return 'HYB_GGA_XC_B3LYP', 0.2, 0.0
     assert False

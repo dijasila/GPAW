@@ -657,8 +657,12 @@ class GPAW(Calculator):
             par.mode = mode
 
         if xc.orbital_dependent and mode.name == 'lcao':
-            raise ValueError('LCAO mode does not support '
-                             'orbital-dependent XC functionals.')
+            if hasattr(xc, 'orbital_dependent_lcao') and \
+                xc.orbital_dependent_lcao:
+                pass
+            else:
+                raise ValueError('LCAO mode does not support '
+                                 'orbital-dependent XC functionals.')
 
         realspace = (mode.name != 'pw' and mode.interpolation != 'fft')
 

@@ -64,6 +64,9 @@ class DirectLCAO(object):
                               optimize=True)
             wfs.timer.stop('Sum over cells')
 
+        if hamiltonian.xc.type == 'auxhybrid':
+            hamiltonian.xc.add_nlxc_matrix(H_MM, dH_asp, wfs, kpt)
+
         # Add atomic contribution
         #
         #           --   a     a  a*
