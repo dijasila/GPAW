@@ -1,5 +1,5 @@
 .. module:: gpaw.new.spinspiral
-.. _spinspiral tutorial:
+.. _spinspiral calculations:
 
 ========================
 Spin spiral calculations
@@ -40,8 +40,8 @@ magnetization vectors
 
 .. math::
 
-   \hat{e} = [cos(\mathbf{q} \cdot \mathbf{r}),
-              sin(\mathbf{q} \cdot \mathbf{r}),
+   \hat{e} = [\cos(\mathbf{q} \cdot \mathbf{r}),
+              \sin(\mathbf{q} \cdot \mathbf{r}),
               0]^T
 
 which are called flat spin spirals, because they always rotate in the
@@ -70,12 +70,12 @@ allotrope :math:`{\gamma}-Fe` which has a FCC lattice. The spin structure of
 :math:`{\gamma}-Fe` was measured by stabilizing the phase at lower
 temperatures using Co. [#Tsunoda]_ They found a spin spiral ground state with
 wave vector `q_{exp}=\frac{1}{5}XW = \frac{2\pi}{a}(1, 0, 1/10)` at an atomic
-volume of `{\Omega}=11.44\angstrom^3`.
+volume of `{\Omega}=11.44 Å^3`.
 
 DFT simulations of :math:`{\gamma}-Fe` have found this system to be extremely
 sensitive to the lattice parameter. In fact we do not find the experimental
 spin spiral at the experimental volume. Instead we construct a FCC crystal
-with a slightly smaller unit cell of `{\Omega}=10.72\angstrom^3`. The
+with a slightly smaller unit cell of `{\Omega}=10.72 Å^3`. The
 following script :download:`fe_sgs.py` (Warning, requires HPC resources) will
 construct the Fe FCC lattice and calculate the spin spiral ground-states with q
 along the high symmetry axis in the reciprocal lattice.
