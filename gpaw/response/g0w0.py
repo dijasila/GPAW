@@ -32,12 +32,100 @@ from gpaw.xc.tools import vxc
 from gpaw.response.temp import DielectricFunctionCalculator
 
 
+gw_logo = """\
+  ___  _ _ _
+ |   || | | |
+ | | || | | |
+ |__ ||_____|
+ |___|
+"""
+
+
+def get_max_nblocks(world, calc, ecut):
+    nblocks = world.size
+    if isinstance(calc, GPAW):
+        raise Exception('Using a calulator is not implemented at '
+                        'the moment, load from file!')
+        # nblocks_calc = calc
+    else:
+        nblocks_calc = GPAW(calc)
+    ngmax = []
+    for q_c in nblocks_calc.wfs.kd.bzk_kc:
+        qd = KPointDescriptor([q_c])
+        pd = PWDescriptor(np.min(ecut) / Ha,
+                          nblocks_calc.wfs.gd, complex, qd)
+        ngmax.append(pd.ngmax)
+    nG = np.min(ngmax)
+
+    while nblocks > nG**0.5 + 1 or world.size % nblocks != 0:
+        nblocks -= 1
+
+    mynG = (nG + nblocks - 1) // nblocks
+    assert mynG * (nblocks - 1) < nG
+    return nblocks
+
+
+def get_frequencies(frequencies, domega0, omega2):
+    if domega0 is not None or omega2 is not None:
+        assert frequencies is None
+        frequencies = {'type': 'nonlinear',
+                       'domega0': 0.025 if domega0 is None else domega0,
+                       'omega2': 10.0 if omega2 is None else omega2}
+        warnings.warn(f'Please use frequencies={frequencies}')
+    elif frequencies is None:
+        frequencies = {'type': 'nonlinear',
+                       'domega0': 0.025,
+                       'omega2': 10.0}
+    else:
+        assert frequencies['type'] == 'nonlinear'
+    return frequencies
+
+
+def get_eigenvalues_from_calc(calc):
+    ibzk_kc = calc.get_ibz_k_points()
+    nibzk = len(ibzk_kc)
+    eps0_skn = np.array([[calc.get_eigenvalues(kpt=k, spin=s)
+                          for k in range(nibzk)]
+                         for s in range(calc.wfs.nspins)]) / Ha
+    return eps0_skn
+
+
+def get_qdescriptor(kd, atoms):
+    # Find q-vectors and weights in the IBZ:
+    assert -1 not in kd.bz2bz_ks
+    offset_c = 0.5 * ((kd.N_c + 1) % 2) / kd.N_c
+    bzq_qc = monkhorst_pack(kd.N_c) + offset_c
+    qd = KPointDescriptor(bzq_qc)
+    qd.set_symmetry(atoms, kd.symmetry)
+    return qd
+
+
+def choose_ecut_things(ecut, ecut_extrapolation, savew):
+    if ecut_extrapolation is True:
+        pct = 0.8
+        necuts = 3
+        ecut_e = ecut * (1 + (1. / pct - 1) * np.arange(necuts)[::-1] /
+                         (necuts - 1))**(-2 / 3)
+        # It doesn't make sense to save W in this case since
+        # W is calculated for different cutoffs:
+        assert not savew
+    elif isinstance(ecut_extrapolation, (list, np.ndarray)):
+        ecut_e = np.array(np.sort(ecut_extrapolation))
+        ecut = ecut_e[-1]
+        assert not savew
+    else:
+        ecut_e = np.array([ecut])
+    return ecut, ecut_e
+
+
 class G0W0(PairDensity):
+    av_scheme = None  # to appease set_flags()
+
     def __init__(self, calc, filename='gw', *,
                  restartfile=None,
                  kpts=None, bands=None, relbands=None, nbands=None, ppa=False,
-                 xc='RPA', fxc_mode='GW', density_cut=1.e-6, do_GW_too=False,
-                 av_scheme=None, Eg=None,
+                 xc='RPA', fxc_mode='GW', do_GW_too=False,
+                 Eg=None,
                  truncation=None, integrate_gamma=0,
                  ecut=150.0, eta=0.1, E0=1.0 * Ha,
                  frequencies=None,
@@ -99,17 +187,10 @@ class G0W0(PairDensity):
             Where to include the vertex corrections; polarizability and/or
             self-energy. 'GWP': Polarizability only, 'GWS': Self-energy only,
             'GWG': Both.
-        density_cut: float
-            Cutoff for density when constructing kernel.
         do_GW_too: bool
             When carrying out a calculation including vertex corrections, it
             is possible to get the standard GW results at the same time
             (almost for free).
-        av_scheme: str
-            'wavevector'. Method to construct kernel. Only
-            'wavevector' has been tested and works here. The implementation
-            could be extended to include the 'density' method which has been
-            tested for total energy calculations (rALDA etc.)
         Eg: float
             Gap to apply in the 'JGMs' (simplified jellium-with-gap) kernel.
             If None the DFT gap is used.
@@ -146,90 +227,30 @@ class G0W0(PairDensity):
         mixing: float
             Number between 0 and 1 determining how much of previous
             iteration's eigenvalues to mix with.
-        ecut_extrapolation: bool
-            Carries out the extrapolation to infinite cutoff automatically.
         """
-        if domega0 is not None or omega2 is not None:
-            assert frequencies is None
-            frequencies = {'type': 'nonlinear',
-                           'domega0': 0.025 if domega0 is None else domega0,
-                           'omega2': 10.0 if omega2 is None else omega2}
-            warnings.warn(f'Please use frequencies={frequencies}')
-        elif frequencies is None:
-            frequencies = {'type': 'nonlinear',
-                           'domega0': 0.025,
-                           'omega2': 10.0}
-        else:
-            assert frequencies['type'] == 'nonlinear'
-
+        self.frequencies = get_frequencies(frequencies, domega0, omega2)
         self.inputcalc = calc
 
         if ppa and (nblocks > 1 or nblocksmax):
             raise ValueError(
                 'PPA is currently not compatible with block parallellisation.')
 
-        if ecut_extrapolation is True:
-            pct = 0.8
-            necuts = 3
-            ecut_e = ecut * (1 + (1. / pct - 1) * np.arange(necuts)[::-1] /
-                             (necuts - 1))**(-2 / 3)
-            """It doesn't make sence to save W in this case since
-            W is calculated for different cutoffs:"""
-            assert not savew
-        elif isinstance(ecut_extrapolation, (list, np.ndarray)):
-            ecut_e = np.array(np.sort(ecut_extrapolation))
-            ecut = ecut_e[-1]
-            assert not savew
-        else:
-            ecut_e = np.array([ecut])
+        ecut, ecut_e = choose_ecut_things(ecut, ecut_extrapolation, savew)
+        self.ecut_e = ecut_e / Ha
 
         # Check if nblocks is compatible, adjust if not
         if nblocksmax:
-            nblocks = world.size
-            if isinstance(calc, GPAW):
-                raise Exception('Using a calulator is not implemented at '
-                                'the moment, load from file!')
-                # nblocks_calc = calc
-            else:
-                nblocks_calc = GPAW(calc)
-            ngmax = []
-            for q_c in nblocks_calc.wfs.kd.bzk_kc:
-                qd = KPointDescriptor([q_c])
-                pd = PWDescriptor(np.min(ecut) / Ha,
-                                  nblocks_calc.wfs.gd, complex, qd)
-                ngmax.append(pd.ngmax)
-            nG = np.min(ngmax)
-
-            while nblocks > nG**0.5 + 1 or world.size % nblocks != 0:
-                nblocks -= 1
-
-            mynG = (nG + nblocks - 1) // nblocks
-            assert mynG * (nblocks - 1) < nG
-
-        self.ecut_e = ecut_e / Ha
+            nblocks = get_max_nblocks(world, calc, ecut)
 
         PairDensity.__init__(self, calc, ecut, world=world, nblocks=nblocks,
                              txt=filename + '.txt',
                              paw_correction=paw_correction)
 
-        p = functools.partial(print, file=self.fd)
-        p('  ___  _ _ _ ')
-        p(' |   || | | |')
-        p(' | | || | | |')
-        p(' |__ ||_____|')
-        p(' |___|')
-        p()
-
-        ecut /= Ha
+        print(gw_logo, file=self.fd)
 
         self.xc = xc
-        self.density_cut = density_cut
-        self.av_scheme = av_scheme
         self.fxc_mode = fxc_mode
         self.do_GW_too = do_GW_too
-
-        if self.av_scheme is not None:
-            assert self.av_scheme == 'wavevector'
 
         if not self.fxc_mode == 'GW':
             assert self.xc != 'RPA'
@@ -260,7 +281,6 @@ class G0W0(PairDensity):
         self.eta = eta / Ha
         self.E0 = E0 / Ha
 
-        self.frequencies = frequencies
         self.wd = None
 
         self.blocks1d = None
@@ -279,23 +299,8 @@ class G0W0(PairDensity):
             assert self.maxiter > 1
 
         self.kpts = list(select_kpts(kpts, self.calc))
-
-        if bands is not None and relbands is not None:
-            raise ValueError('Use bands or relbands!')
-
-        if relbands is not None:
-            bands = [self.calc.wfs.nvalence // 2 + b for b in relbands]
-
-        if bands is None:
-            bands = [0, self.nocc2]
-
-        self.bands = bands
-
-        self.ibzk_kc = self.calc.get_ibz_k_points()
-        nibzk = len(self.ibzk_kc)
-        self.eps0_skn = np.array([[self.calc.get_eigenvalues(kpt=k, spin=s)
-                                   for k in range(nibzk)]
-                                  for s in range(self.calc.wfs.nspins)]) / Ha
+        self.bands = bands = self.choose_bands(bands, relbands)
+        self.eps0_skn = get_eigenvalues_from_calc(self.calc)
 
         b1, b2 = bands
         self.shape = shape = (self.calc.wfs.nspins, len(self.kpts), b2 - b1)
@@ -308,7 +313,7 @@ class G0W0(PairDensity):
         self.Z_skn = None                  # renormalization factors
 
         if nbands is None:
-            nbands = int(self.vol * ecut**1.5 * 2**0.5 / 3 / pi**2)
+            nbands = int(self.vol * self.ecut**1.5 * 2**0.5 / 3 / pi**2)
         self.nbands = nbands
         self.nspins = self.calc.wfs.nspins
 
@@ -316,6 +321,29 @@ class G0W0(PairDensity):
             raise RuntimeError('Including a xc kernel does currently not '
                                'work for spinpolarized systems.')
 
+        kd = self.calc.wfs.kd
+
+        self.mysKn1n2 = None  # my (s, K, n1, n2) indices
+        self.distribute_k_points_and_bands(b1, b2, kd.ibz2bz_k[self.kpts])
+
+        self.qd = get_qdescriptor(kd, self.calc.atoms)
+        self.print_parameters(kpts, b1, b2, ecut_extrapolation)
+        self.fd.flush()
+
+    def choose_bands(self, bands, relbands):
+        if bands is not None and relbands is not None:
+            raise ValueError('Use bands or relbands!')
+
+        if relbands is not None:
+            bands = [self.calc.wfs.nvalence // 2 + b for b in relbands]
+
+        if bands is None:
+            bands = [0, self.nocc2]
+
+        return bands
+
+    def print_parameters(self, kpts, b1, b2, ecut_extrapolation):
+        p = functools.partial(print, file=self.fd)
         p()
         p('Quasi particle states:')
         if kpts is None:
@@ -338,26 +366,12 @@ class G0W0(PairDensity):
         p('Self-consistency method:', self.method)
         p('fxc mode:', self.fxc_mode)
         p('Kernel:', self.xc)
-        p('Averaging scheme:', self.av_scheme)
         p('Do GW too:', self.do_GW_too)
 
         if self.method == 'GW0':
             p('Number of iterations:', self.maxiter)
             p('Mixing:', self.mixing)
         p()
-        kd = self.calc.wfs.kd
-
-        self.mysKn1n2 = None  # my (s, K, n1, n2) indices
-        self.distribute_k_points_and_bands(b1, b2, kd.ibz2bz_k[self.kpts])
-
-        # Find q-vectors and weights in the IBZ:
-        assert -1 not in kd.bz2bz_ks
-        offset_c = 0.5 * ((kd.N_c + 1) % 2) / kd.N_c
-        bzq_qc = monkhorst_pack(kd.N_c) + offset_c
-        self.qd = KPointDescriptor(bzq_qc)
-        self.qd.set_symmetry(self.calc.atoms, kd.symmetry)
-
-        self.fd.flush()
 
     @timer('G0W0')
     def calculate(self):
