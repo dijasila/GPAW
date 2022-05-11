@@ -135,8 +135,7 @@ class G0W0(PairDensity):
                  nblocks=1, savew=False, savepckl=True,
                  maxiter=1, method='G0W0', mixing=0.2,
                  world=mpi.world, ecut_extrapolation=False,
-                 nblocksmax=False,
-                 paw_correction='brute-force'):
+                 nblocksmax=False):
 
         """G0W0 calculator.
 
@@ -243,8 +242,7 @@ class G0W0(PairDensity):
             nblocks = get_max_nblocks(world, calc, ecut)
 
         PairDensity.__init__(self, calc, ecut, world=world, nblocks=nblocks,
-                             txt=filename + '.txt',
-                             paw_correction=paw_correction)
+                             txt=filename + '.txt')
 
         print(gw_logo, file=self.fd)
 
@@ -763,7 +761,6 @@ class G0W0(PairDensity):
                     txt=self.filename + '.w.txt',
                     timer=self.timer,
                     nblocks=self.blockcomm.size,
-                    paw_correction=self.paw_correction,
                     **parameters)
 
         if self.truncation == 'wigner-seitz':
