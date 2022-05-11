@@ -4,8 +4,9 @@ import numpy as np
 from ase.io.ulm import Writer
 from gpaw.core.atom_arrays import AtomArrays, AtomDistribution
 from gpaw.setup import Setups
-from gpaw.typing import Array1D, Array2D
+from gpaw.typing import Array1D, Array2D, ArrayND
 from gpaw.mpi import MPIComm, serial_comm
+from gpaw.core.uniform_grid import UniformGridFunctions
 
 
 class WaveFunctions:
@@ -59,6 +60,22 @@ class WaveFunctions:
                 f'weight={self.weight}, kpt_c={self.kpt_c}, '
                 f'ncomponents={self.ncomponents}, dtype={self.dtype} '
                 f'domain_comm={dc}, band_comm={bc})')
+
+    def array_shape(self, global_shape: bool = False) -> tuple[int, ...]:
+        raise NotImplementedError
+
+    def add_to_density(self,
+                       nt_sR: UniformGridFunctions,
+                       D_asii: AtomArrays) -> None:
+        raise NotImplementedError
+
+    def orthonormalize(self, work_array_nX: ArrayND = None):
+        raise NotImplementedError
+
+    def collect(self,
+                n1: int = 0,
+                n2: int = 0) -> WaveFunctions | None:
+        raise NotImplementedError
 
     @property
     def eig_n(self) -> Array1D:
@@ -128,8 +145,14 @@ class WaveFunctions:
         """
         raise NotImplementedError
 
+    def send(self, kpt_comm, rank):
+        raise NotImplementedError
+
     def receive(self, kpt_comm, rank):
         raise NotImplementedError
 
     def force_contribution(self, dH_asii: AtomArrays, F_av: Array2D):
+        raise NotImplementedError
+
+    def gather_wave_function_coefficients(self) -> np.ndarray | None:
         raise NotImplementedError

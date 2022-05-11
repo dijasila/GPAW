@@ -46,7 +46,17 @@ def run(atoms, symm, nblocks):
                   eta=0.2,
                   relbands=(-1, 2))
         results = gw.calculate()
-    return e, results
+
+    G, X = results['eps'][0]
+    output = [e, G[0], G[1] - G[0], X[1] - G[0], X[2] - X[1]]
+    G, X = results['qp'][0]
+    output += [G[0], G[1] - G[0], X[1] - G[0], X[2] - X[1]]
+
+    return output
+
+
+reference = pytest.approx([-9.253, 5.442, 2.389, 0.403, 0.000,
+                           6.261, 3.570, 1.323, 0.001], abs=0.003)
 
 
 @pytest.mark.response
@@ -59,13 +69,12 @@ def run(atoms, symm, nblocks):
 @pytest.mark.parametrize('nblocks',
                          [x for x in [1, 2, 4, 8] if x <= world.size])
 def test_response_gwsi(in_tmp_dir, si, symm, nblocks, scalapack):
-    e, r = run(si, symm, nblocks)
-    G, X = r['eps'][0]
-    results = [e, G[0], G[1] - G[0], X[1] - G[0], X[2] - X[1]]
-    G, X = r['qp'][0]
-    results += [G[0], G[1] - G[0], X[1] - G[0], X[2] - X[1]]
+    assert run(si, symm, nblocks) == reference
 
-    assert results == pytest.approx(
-        [-9.253,
-         5.442, 2.389, 0.403, 0.000,
-         6.261, 3.570, 1.323, 0.001], abs=0.003)
+
+@pytest.mark.response
+@pytest.mark.ci
+@pytest.mark.parametrize('si', generate_si_systems())
+@pytest.mark.parametrize('symm', [{}])
+def test_small_response_gwsi(in_tmp_dir, si, symm, scalapack):
+    assert run(si, symm, 1) == reference

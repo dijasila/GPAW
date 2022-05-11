@@ -97,7 +97,8 @@ class SCFLoop:
         eigerr = self.criteria['eigenstates'].get_error(context)
         if not np.isfinite(eigerr):
             msg = 'Not enough bands for ' + wfs.eigensolver.nbands_converge
-            log(msg, flush=True)
+            log(msg)
+            log.fd.flush()
             raise KohnShamConvergenceError(msg)
         log(oops, flush=True)
         raise KohnShamConvergenceError(
@@ -206,7 +207,8 @@ def write_iteration(criteria, converged_items, entries, ctx, log):
         else:
             line += ' {:+.1f},{:+.1f},{:+.1f}'.format(*totmom_v)
 
-    log(line.rstrip(), flush=True)
+    log(line.rstrip())
+    log.fd.flush()
 
 
 class SCFEvent:

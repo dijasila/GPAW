@@ -229,9 +229,14 @@ class DFTComponentsBuilder:
             wfs._occ_n = occ_skn[wfs.spin, wfs.k]
             layout = AtomArraysLayout([(setup.ni,) for setup in self.setups],
                                       dtype=self.dtype)
-            wfs._P_ani = AtomArrays(layout,
-                                    dims=(self.nbands,),
-                                    data=P_sknI[wfs.spin, wfs.k])
+            if self.ncomponents < 4:
+                wfs._P_ani = AtomArrays(layout,
+                                        dims=(self.nbands,),
+                                        data=P_sknI[wfs.spin, wfs.k])
+            else:
+                wfs._P_ani = AtomArrays(layout,
+                                        dims=(self.nbands, 2),
+                                        data=P_sknI[wfs.k])
 
         ibzwfs.fermi_levels = reader.wave_functions.fermi_levels / ha
 

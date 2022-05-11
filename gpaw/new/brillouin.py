@@ -121,11 +121,10 @@ def ranks(N, K) -> Array1D:
     array([0, 1, 2, 2, 3, 3])
     """
     n, x = divmod(K, N)
-
     rnks = np.empty(K, int)
-    k0 = K - x * (n + 1)
-    for k in range(k0):
+    r = N - x
+    for k in range(r * n):
         rnks[k] = k // n
-    for k in range(k0, K):
-        rnks[k] = (k - k0) // (n + 1) + x
+    for k in range(r * n, K):
+        rnks[k] = (k - r * n) // (n + 1) + r
     return rnks
