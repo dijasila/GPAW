@@ -250,7 +250,8 @@ class RTTDDFT:
     def from_dft_file(cls,
                       filepath: str,
                       propagator: TDAlgorithm | None = None):
-        _, calculation, params, builder = read_gpw(filepath, print,
+        _, calculation, params, builder = read_gpw(filepath,
+                                                   '-',
                                                    {'world': world},
                                                    force_complex_dtype=True)
 
