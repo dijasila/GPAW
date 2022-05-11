@@ -33,10 +33,43 @@ from gpaw.response.temp import DielectricFunctionCalculator
 
 
 class SymmetryThing:
-    def __init__(self, symno, U_cc, sign):
+    def __init__(self, symno, U_cc, sign, Q_c):
         self.symno = symno
         self.U_cc = U_cc
         self.sign = sign
+        self.Q_c = Q_c
+
+    def apply(self, q_c):
+        return self.sign * (self.U_cc @ q_c)
+
+    def check_q_Q_symmetry(self, Q_c, q_c):
+        d_c = self.apply(q_c) - Q_c
+        assert np.allclose(d_c.round(), d_c)
+
+    def get_shift0(self, q_c, Q_c):
+        shift0_c = q_c - self.apply(Q_c)
+        assert np.allclose(shift0_c.round(), shift0_c)
+        return shift0_c.round().astype(int)
+
+    def get_M_vv(self, cell_cv):
+        # We'll be inverting these cells a lot.
+        # Should have an object with the cell and its inverse which does this.
+        return cell_cv.T @ self.U_cc.T @ np.linalg.inv(cell_cv).T
+
+    @classmethod
+    def from_qd(cls, qd, iQ, q_c):
+        time_reversal = qd.time_reversal_k[iQ]
+        symno = qd.sym_k[iQ]
+        Q_c = qd.bzk_kc[iQ]
+
+        symthing = cls(
+            symno=symno,
+            U_cc=qd.symmetry.op_scc[symno],
+            sign=1 - 2 * time_reversal,
+            Q_c=Q_c)
+
+        symthing.check_q_Q_symmetry(Q_c, q_c)
+        return symthing
 
 
 gw_logo = """\
@@ -606,27 +639,19 @@ class G0W0(PairDensity):
 
         wfs = self.calc.wfs
 
-        sign = symthing.sign
-        U_cc = symthing.U_cc
-
         N_c = pd0.gd.N_c
-        i_cG = sign * np.dot(U_cc,
-                             np.unravel_index(pd0.Q_qG[0], N_c))
+        i_cG = symthing.apply(np.unravel_index(pd0.Q_qG[0], N_c))
 
         q_c = wfs.kd.bzk_kc[kpt2.K] - wfs.kd.bzk_kc[kpt1.K]
 
-        shift0_c = q_c - sign * np.dot(U_cc, pd0.kd.bzk_kc[0])
-        assert np.allclose(shift0_c.round(), shift0_c)
-        shift0_c = shift0_c.round().astype(int)
-
+        shift0_c = symthing.get_shift0(q_c, pd0.kd.bzk_kc[0])
         shift_c = kpt1.shift_c - kpt2.shift_c - shift0_c
+
         I_G = np.ravel_multi_index(i_cG + shift_c[:, None], N_c, 'wrap')
 
         G_Gv = pd0.get_reciprocal_vectors()
         pos_av = np.dot(self.spos_ac, pd0.gd.cell_cv)
-        M_vv = np.dot(pd0.gd.cell_cv.T,
-                      np.dot(U_cc.T,
-                             np.linalg.inv(pd0.gd.cell_cv).T))
+        M_vv = symthing.get_M_vv(pd0.gd.cell_cv)
 
         Q_aGii = []
         for a, Q_Gii in enumerate(self.Q_aGii):
@@ -900,18 +925,8 @@ class G0W0(PairDensity):
                 done = set()
                 for Q2 in self.qd.bz2bz_ks[Q1]:
                     if Q2 >= 0 and Q2 not in done:
-                        time_reversal = self.qd.time_reversal_k[Q2]
-
-                        symno = self.qd.sym_k[Q2]
-                        symthing = SymmetryThing(
-                            symno=symno,
-                            U_cc=self.qd.symmetry.op_scc[symno],
-                            sign=1 - 2 * time_reversal)
-
-                        Q_c = self.qd.bzk_kc[Q2]
-                        d_c = symthing.sign * np.dot(symthing.U_cc, q_c) - Q_c
-                        assert np.allclose(d_c.round(), d_c)
-                        yield ie, pdi, W, Q_c, m2, W_GW, symthing
+                        symthing = SymmetryThing.from_qd(self.qd, Q2, q_c)
+                        yield ie, pdi, W, symthing.Q_c, m2, W_GW, symthing
                         done.add(Q2)
 
                 if self.restartfile is not None:
