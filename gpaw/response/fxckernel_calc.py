@@ -10,9 +10,6 @@ def calculate_kernel(self, nG, ns, iq, cut_G=None):
     self.unit_cells = self.calc.wfs.kd.N_c
     self.tag = self.calc.atoms.get_chemical_formula(mode='hill')
 
-    if self.av_scheme is not None:
-        self.tag += '_' + self.av_scheme + '_nspins' + str(self.nspins)
-
     kd = self.calc.wfs.kd
     self.bzq_qc = kd.get_bz_q_points(first=True)
     U_scc = kd.symmetry.op_scc
