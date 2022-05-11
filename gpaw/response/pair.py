@@ -636,8 +636,7 @@ class PairDensity:
                  ftol=1e-6, threshold=1,
                  real_space_derivatives=False,
                  world=mpi.world, txt='-', timer=None,
-                 nblocks=1,
-                 paw_correction='brute-force', **unused):
+                 nblocks=1):
         """Density matrix elements
 
         Parameters
@@ -695,8 +694,6 @@ class PairDensity:
         kd = self.calc.wfs.kd
         self.KDTree = cKDTree(np.mod(np.mod(kd.bzk_kc, 1).round(6), 1))
         print('Number of blocks:', nblocks, file=self.fd)
-
-        self.paw_correction = paw_correction
 
     def __del__(self):
         self.iocontext.close()
@@ -1201,14 +1198,8 @@ class PairDensity:
 
         ut_vR = self.ut_sKnvR[kpt1.s][kpt1.K][n - kpt1.n1]
         atomdata_a = self.calc.wfs.setups
-        if self.paw_correction == 'brute-force':
-            C_avi = [np.dot(atomdata.nabla_iiv.T, P_ni[n - kpt1.na])
-                     for atomdata, P_ni in zip(atomdata_a, kpt1.P_ani)]
-        elif self.paw_correction == 'skip':
-            C_avi = [np.zeros((3, P_ni.shape[1]), complex)
-                     for atomdata, P_ni in zip(atomdata_a, kpt1.P_ani)]
-        else:
-            1 / 0
+        C_avi = [np.dot(atomdata.nabla_iiv.T, P_ni[n - kpt1.na])
+                 for atomdata, P_ni in zip(atomdata_a, kpt1.P_ani)]
 
         blockbands = kpt2.nb - kpt2.na
         n0_mv = np.empty((kpt2.blocksize, 3), dtype=complex)
@@ -1388,13 +1379,8 @@ class PairDensity:
                     Q_Gii = np.dot(atomdata.Delta_iiL, Q_LG).T
             else:
                 ni = atomdata.ni
-                if self.paw_correction == 'brute-force':
-                    Q_Gii = two_phi_planewave_integrals(G_Gv, atomdata)
-                    Q_Gii.shape = (-1, ni, ni)
-                elif self.paw_correction == 'skip':
-                    Q_Gii = np.zeros((len(G_Gv), ni, ni), complex)
-                else:
-                    1 / 0
+                Q_Gii = two_phi_planewave_integrals(G_Gv, atomdata)
+                Q_Gii.shape = (-1, ni, ni)
 
             Q_xGii[id] = Q_Gii
 
