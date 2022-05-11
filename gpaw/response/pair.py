@@ -636,7 +636,7 @@ class PairDensity:
                  ftol=1e-6, threshold=1,
                  real_space_derivatives=False,
                  world=mpi.world, txt='-', timer=None,
-                 nblocks=1, gate_voltage=None,
+                 nblocks=1,
                  paw_correction='brute-force', **unused):
         """Density matrix elements
 
@@ -651,8 +651,6 @@ class PairDensity:
         real_space_derivatives : bool
             Calculate nabla matrix elements (in the optical limit)
             using a real space finite difference approximation.
-        gate_voltage : float
-            Shift the fermi level by gate_voltage [Hartree].
         """
         self.world = world
         self.iocontext = IOContext()
@@ -675,23 +673,15 @@ class PairDensity:
         if ecut is not None:
             ecut /= Ha
 
-        if gate_voltage is not None:
-            gate_voltage = gate_voltage / Ha
-
         self.response = response
         self.ecut = ecut
         self.ftol = ftol
         self.threshold = threshold
         self.real_space_derivatives = real_space_derivatives
-        self.gate_voltage = gate_voltage
 
         self.blockcomm, self.kncomm = block_partition(world, nblocks)
 
         self.fermi_level = self.calc.wfs.fermi_level
-
-        if gate_voltage is not None:
-            self.add_gate_voltage(gate_voltage)
-
         self.spos_ac = calc.spos_ac
 
         self.nocc1 = None  # number of completely filled bands
@@ -714,29 +704,6 @@ class PairDensity:
     def find_kpoint(self, k_c):
         return self.KDTree.query(np.mod(np.mod(k_c, 1).round(6), 1))[1]
 
-    def add_gate_voltage(self, gate_voltage=0):
-        """Shifts the Fermi-level by e * Vg. By definition e = 1."""
-        assert self.calc.wfs.occupations.name in {'fermi-dirac', 'zero-width'}
-        print('Shifting Fermi-level by %.2f eV' % (gate_voltage * Ha),
-              file=self.fd)
-        self.fermi_level += gate_voltage
-        for kpt in self.calc.wfs.kpt_u:
-            kpt.f_n = (self.shift_occupations(kpt.eps_n, gate_voltage) *
-                       kpt.weight)
-
-    def shift_occupations(self, eps_n, gate_voltage):
-        """Shift fermilevel."""
-        fermi = self.fermi_level
-        width = getattr(self.calc.wfs.occupations, '_width', 0.0) / Ha
-        if width < 1e-9:
-            return (eps_n < fermi).astype(float)
-        else:
-            tmp = (eps_n - fermi) / width
-        f_n = np.zeros_like(eps_n)
-        f_n[tmp <= 100] = 1 / (1 + np.exp(tmp[tmp <= 100]))
-        f_n[tmp > 100] = 0.0
-        return f_n
-
     def count_occupied_bands(self):
         self.nocc1 = 9999999
         self.nocc2 = 0
@@ -752,9 +719,6 @@ class PairDensity:
     def distribute_k_points_and_bands(self, band1, band2, kpts=None):
         """Distribute spins, k-points and bands.
 
-        nbands: int
-            Number of bands for each spin/k-point combination.
-
         The attribute self.mysKn1n2 will be set to a list of (s, K, n1, n2)
         tuples that this process handles.
         """
@@ -764,13 +728,14 @@ class PairDensity:
         if kpts is None:
             kpts = np.arange(wfs.kd.nbzkpts)
 
+        # nbands is the number of bands for each spin/k-point combination.
         nbands = band2 - band1
         size = self.kncomm.size
         rank = self.kncomm.rank
         ns = wfs.nspins
         nk = len(kpts)
         n = (ns * nk * nbands + size - 1) // size
-        i1 = rank * n
+        i1 = min(rank * n, ns * nk * nbands)
         i2 = min(i1 + n, ns * nk * nbands)
 
         self.mysKn1n2 = []
@@ -802,6 +767,8 @@ class PairDensity:
         n1, n2: int
             Range of bands to include.
         """
+
+        assert n1 <= n2
 
         wfs = self.calc.wfs
         kd = wfs.kd
@@ -1038,6 +1005,9 @@ class PairDensity:
                         load_wfs=True, block=False):
         # wfs = self.calc.wfs
         # bzk_kc = wfs.kd.bzk_kc
+
+        assert m1 <= m2
+        assert n1 <= n2
 
         if isinstance(Kork_c, int):
             # If k_c is an integer then it refers to

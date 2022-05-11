@@ -30,7 +30,7 @@ class DielectricFunction:
                  gammacentered=False, hilbert=True,
                  nbands=None, eta=0.2, ftol=1e-6, threshold=1,
                  intraband=True, nblocks=1, world=mpi.world, txt=sys.stdout,
-                 gate_voltage=None, truncation=None, disable_point_group=False,
+                 truncation=None, disable_point_group=False,
                  disable_time_reversal=False,
                  integrationmode=None, rate=0.0,
                  eshift=0.0):
@@ -79,9 +79,6 @@ class DielectricFunction:
             frequencies over processes.
         txt: str
             Output file.
-        gate_voltage: float
-            Shift Fermi level of ground state calculation by the
-            specified amount.
         truncation: str
             'wigner-seitz' for Wigner Seitz truncated Coulomb.
             '2D, 1D or 0d for standard analytical truncation schemes.
@@ -96,7 +93,7 @@ class DielectricFunction:
                          gammacentered=gammacentered, hilbert=hilbert,
                          ftol=ftol, threshold=threshold,
                          intraband=intraband, world=world, nblocks=nblocks,
-                         txt=txt, gate_voltage=gate_voltage,
+                         txt=txt,
                          disable_point_group=disable_point_group,
                          disable_time_reversal=disable_time_reversal,
                          integrationmode=integrationmode,

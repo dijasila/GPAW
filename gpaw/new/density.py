@@ -4,7 +4,7 @@ import numpy as np
 from ase.units import Bohr
 from gpaw.typing import ArrayLike1D
 from gpaw.core.atom_centered_functions import AtomArraysLayout
-from gpaw.utilities import unpack2, unpack, pack
+from gpaw.utilities import unpack2, unpack
 from typing import Union
 from gpaw.core.atom_arrays import AtomArrays
 
@@ -204,25 +204,14 @@ class Density:
         return magmom_v, magmom_av
 
     def write(self, writer):
-        D_asii = self.D_asii.gather()
+        D_asp = self.D_asii.to_lower_triangle().gather()
         nt_sR = self.nt_sR.gather()
-        if D_asii is None:
+        if D_asp is None:
             return
-
-        # Pack matrices:
-        N = sum(i1 * (i1 + 1) // 2 for i1, i2 in D_asii.layout.shape_a)
-        D = np.zeros((self.ncomponents, N))
-        n1 = 0
-        for D_sii in D_asii.values():
-            i1 = D_sii.shape[1]
-            n2 = n1 + i1 * (i1 + 1) // 2
-            for s, D_ii in enumerate(D_sii):
-                D[s, n1:n2] = pack(D_ii)
-            n1 = n2
 
         writer.write(
             density=nt_sR.data * Bohr**-3,
-            atomic_density_matrices=D)
+            atomic_density_matrices=D_asp.data)
 
 
 def atomic_occupation_numbers(setup,

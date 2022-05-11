@@ -12,7 +12,7 @@ from gpaw.utilities.memory import maxrss
 from gpaw.utilities.progressbar import ProgressBar
 from gpaw.response.kspair import KohnShamPair, get_calc
 from gpaw.response.frequencies import FrequencyDescriptor
-from gpaw.response.pw_parallelization import (block_partition, GaGb,
+from gpaw.response.pw_parallelization import (block_partition, Blocks1D,
                                               PlaneWaveBlockDistributor)
 
 
@@ -530,7 +530,7 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         self.pd = None  # Plane wave descriptor for given momentum transfer q
         self.pwsa = None  # Plane wave symmetry analyzer for given q
         self.wd = None  # Frequency descriptor for the given frequencies
-        self.GaGb = None  # Plane wave block parallelization descriptor
+        self.blocks1d = None  # Plane wave block parallelization descriptor
         self.blockdist = None  # Plane wave block distributor
 
     @timer('Calculate Kohn-Sham linear response function in plane wave mode')
@@ -560,11 +560,11 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         self.wd = self.get_FrequencyDescriptor(frequencies)
 
         # Set up block parallelization
-        self.GaGb = GaGb(self.blockcomm, self.pd.ngmax)
+        self.blocks1d = Blocks1D(self.blockcomm, self.pd.ngmax)
         self.blockdist = PlaneWaveBlockDistributor(self.world,
                                                    self.blockcomm,
                                                    self.intrablockcomm,
-                                                   self.wd, self.GaGb)
+                                                   self.wd, self.blocks1d)
 
         # In-place calculation
         return self._calculate(spinrot, A_x)
@@ -630,10 +630,10 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
     def setup_output_array(self, A_x=None):
         """Initialize the output array in blocks"""
         # Could use some more documentation XXX
-        nG = self.GaGb.nG
+        nG = self.blocks1d.N
         nw = len(self.wd)
 
-        nGlocal = self.GaGb.nGlocal
+        nGlocal = self.blocks1d.nlocal
         localsize = nw * nGlocal * nG
         # if self.blockcomm.rank == 0:
         #     assert self.Gb - self.Ga >= 3
