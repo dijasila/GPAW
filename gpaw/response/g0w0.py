@@ -117,6 +117,20 @@ def choose_ecut_things(ecut, ecut_extrapolation, savew):
         ecut_e = np.array([ecut])
     return ecut, ecut_e
 
+class NewChi0BodyCalculator:
+    def __init__(self,
+                 calc,
+                 *,
+                 ecut=50, nbands=None,
+                 ftol=1e-6, 
+                 nblocks=1,
+                 frequencies=None):
+        self.calc = calc
+        self.ecut = ecut
+        self.nbands = nbands
+        self.ftol= ftol
+        self.nblocks = nblocks
+        self.frequencies = frequencies
 
 class G0W0(PairDensity):
     av_scheme = None  # to appease set_flags()
@@ -851,6 +865,15 @@ class G0W0(PairDensity):
 
         self.fd.flush()
 
+        self.newchi0calc = NewChi0Calculator(self.inputcalc,
+                                             nbands=self.nbands,
+                                             ecut=self.ecut * Ha,
+                                             timer=self.timer,
+                                             nblocks=self.blockcomm.size,
+                                             paw_correction=self.paw_correction,
+                                             **parameters)
+                              
+
         chi0 = Chi0(self.inputcalc,
                     nbands=self.nbands,
                     ecut=self.ecut * Ha,
@@ -1033,6 +1056,8 @@ class G0W0(PairDensity):
 
         chi0._calculate(pd, chi0_wGG, chi0_wxvG, chi0_wvv, m1, m2,
                         range(self.nspins), extend_head=False)
+        
+        LeanChi0 = LeanChi0()
 
         if len(self.ecut_e) > 1:
             # Add chi from previous cutoff with remaining bands
