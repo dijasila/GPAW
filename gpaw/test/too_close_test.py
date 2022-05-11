@@ -7,24 +7,15 @@ from gpaw.utilities import AtomsTooClose
 import pytest
 
 
-def test_too_close():
-    a = 4.0
-    x = 0.1
-    hydrogen = Atoms('H', [(x, x, x)],
-                     cell=(a, a, a))
-    hydrogen.calc = GPAW(mode='fd')
-    with pytest.raises((GridBoundsError, AtomsTooClose)):
-        hydrogen.get_potential_energy()
-
-
-@pytest.mark.skipif(not os.environ.get('GPAW_NEW'),
-                    reason='ignore old code')
-def test_too_close_to_boundary():
+@pytest.marp.parametrize('mode', ['fd', 'pw'])
+def test_too_close_to_boundary(mode):
+    if mode == 'pw' and not os.environ.get('GPAW_NEW'):
+        return
     a = 4.0
     x = 0.1
     hydrogen = Atoms('H', [(x, x, x)],
                      cell=(a, a, a),
                      pbc=(1, 1, 0))
-    hydrogen.calc = GPAW()
-    with pytest.raises(AtomsTooClose):
+    hydrogen.calc = GPAW(mode=mode)
+    with pytest.raises((GridBoundsError, AtomsTooClose)):
         hydrogen.get_potential_energy()
