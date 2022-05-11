@@ -637,7 +637,6 @@ class PairDensity:
                  real_space_derivatives=False,
                  world=mpi.world, txt='-', timer=None,
                  nblocks=1,
-                 paw_correction='brute-force', **unused
     ):
         """Density matrix elements
 
