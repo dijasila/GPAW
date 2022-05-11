@@ -118,7 +118,7 @@ def choose_ecut_things(ecut, ecut_extrapolation, savew):
     return ecut, ecut_e
 
 
-class G0W0(PairDensity):
+class G0W0:
     av_scheme = None  # to appease set_flags()
 
     def __init__(self, calc, filename='gw', *,
@@ -242,9 +242,18 @@ class G0W0(PairDensity):
         if nblocksmax:
             nblocks = get_max_nblocks(world, calc, ecut)
 
-        PairDensity.__init__(self, calc, ecut, world=world, nblocks=nblocks,
-                             txt=filename + '.txt',
-                             paw_correction=paw_correction)
+        self.pair = PairDensity(calc, ecut, world=world, nblocks=nblocks,
+                                txt=filename + '.txt',
+                                paw_correction=paw_correction)
+
+        # Steal attributes from self.pair:
+        self.timer = self.pair.timer
+        self.fd = self.pair.fd
+        self.calc = self.pair.calc
+        self.ecut = self.pair.ecut
+        self.blockcomm = self.pair.blockcomm
+        self.world = self.pair.world
+        self.vol = self.pair.vol
 
         print(gw_logo, file=self.fd)
 
@@ -323,8 +332,8 @@ class G0W0(PairDensity):
 
         kd = self.calc.wfs.kd
 
-        self.mysKn1n2 = None  # my (s, K, n1, n2) indices
-        self.distribute_k_points_and_bands(b1, b2, kd.ibz2bz_k[self.kpts])
+        # self.mysKn1n2 = None  # my (s, K, n1, n2) indices
+        self.pair.distribute_k_points_and_bands(b1, b2, kd.ibz2bz_k[self.kpts])
 
         self.qd = get_qdescriptor(kd, self.calc.atoms)
         self.print_parameters(kpts, b1, b2, ecut_extrapolation)
@@ -457,8 +466,8 @@ class G0W0(PairDensity):
                 self.update_energies(mixing=self.mixing)
 
             # My part of the states we want to calculate QP-energies for:
-            mykpts = [self.get_k_point(s, K, n1, n2)
-                      for s, K, n1, n2 in self.mysKn1n2]
+            mykpts = [self.pair.get_k_point(s, K, n1, n2)
+                      for s, K, n1, n2 in self.pair.mysKn1n2]
             nkpt = len(mykpts)
 
             # Loop over q in the IBZ:
@@ -472,8 +481,8 @@ class G0W0(PairDensity):
                     pb.update((nQ + 1) * u /
                               (nkpt * self.qd.mynk * self.qd.nspins))
                     K2 = kd.find_k_plus_q(q_c, [kpt1.K])[0]
-                    kpt2 = self.get_k_point(kpt1.s, K2, 0, m2,
-                                            block=True)
+                    kpt2 = self.pair.get_k_point(
+                        kpt1.s, K2, 0, m2, block=True)
                     k1 = kd.bz2ibz_k[kpt1.K]
                     i = self.kpts.index(k1)
 
@@ -611,7 +620,7 @@ class G0W0(PairDensity):
         I_G = np.ravel_multi_index(i_cG + shift_c[:, None], N_c, 'wrap')
 
         G_Gv = pd0.get_reciprocal_vectors()
-        pos_av = np.dot(self.spos_ac, pd0.gd.cell_cv)
+        pos_av = np.dot(self.pair.spos_ac, pd0.gd.cell_cv)
         M_vv = np.dot(pd0.gd.cell_cv.T,
                       np.dot(self.U_cc.T,
                              np.linalg.inv(pd0.gd.cell_cv).T))
@@ -640,8 +649,8 @@ class G0W0(PairDensity):
             eps1 = kpt1.eps_n[n]
             C1_aGi = [np.dot(Qa_Gii, P1_ni[n].conj())
                       for Qa_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
-            n_mG = self.calculate_pair_densities(ut1cc_R, C1_aGi, kpt2,
-                                                 pd0, I_G)
+            n_mG = self.pair.calculate_pair_densities(
+                ut1cc_R, C1_aGi, kpt2, pd0, I_G)
             if self.sign == 1:
                 n_mG = n_mG.conj()
 
@@ -763,7 +772,7 @@ class G0W0(PairDensity):
                     txt=self.filename + '.w.txt',
                     timer=self.timer,
                     nblocks=self.blockcomm.size,
-                    paw_correction=self.paw_correction,
+                    paw_correction=self.pair.paw_correction,
                     **parameters)
 
         if self.truncation == 'wigner-seitz':
