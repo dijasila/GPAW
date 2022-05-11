@@ -11,9 +11,11 @@ from gpaw.new.builder import builder as create_builder
 from gpaw.new.density import Density
 from gpaw.new.ibzwfs import IBZWaveFunctions
 from gpaw.new.input_parameters import InputParameters
+from gpaw.new.logger import Logger
 from gpaw.new.potential import Potential
 from gpaw.utilities import (check_atoms_too_close,
                             check_atoms_too_close_to_boundary)
+from gpaw.typing import Array1D, Array2D
 
 units = {'energy': Ha,
          'free_energy': Ha,
@@ -56,12 +58,12 @@ class DFTCalculation:
                  setups,
                  scf_loop,
                  pot_calc,
-                 world):
+                 log: Logger):
         self.state = state
         self.setups = setups
         self.scf_loop = scf_loop
         self.pot_calc = pot_calc
-        self.world = world
+        self.log = log
 
         self.results: dict[str, Any] = {}
         self.fracpos_ac = self.pot_calc.fracpos_ac
@@ -84,7 +86,8 @@ class DFTCalculation:
 
         builder = builder or create_builder(atoms, params)
 
-        log = Logger(log, builder.world)
+        if not isinstance(log, Logger):
+            log = Logger(log, builder.world)
 
         basis_set = builder.create_basis_set()
 
@@ -107,9 +110,9 @@ class DFTCalculation:
                    builder.setups,
                    scf_loop,
                    pot_calc,
-                   builder.world)
+                   log)
 
-    def move_atoms(self, atoms, log) -> DFTCalculation:
+    def move_atoms(self, atoms) -> DFTCalculation:
         check_atoms_too_close(atoms)
 
         self.fracpos_ac = atoms.get_scaled_positions()
@@ -125,37 +128,34 @@ class DFTCalculation:
         write_atoms(atoms,
                     self.state.density.nt_sR.desc,
                     magmoms,
-                    log)
+                    self.log)
 
         self.results = {}
 
         return self
 
-    def iconverge(self, log=None, convergence=None, maxiter=None):
-        log = Logger(log, self.world)
+    def iconverge(self, convergence=None, maxiter=None):
         self.state.ibzwfs.make_sure_wfs_are_read_from_gpw_file()
         for ctx in self.scf_loop.iterate(self.state,
                                          self.pot_calc,
                                          convergence,
                                          maxiter,
-                                         log=log):
+                                         log=self.log):
             yield ctx
 
     def converge(self,
-                 log,
                  convergence=None,
                  maxiter=None,
                  steps=99999999999999999):
         """Converge to self-consistent solution of KS-equation."""
-        log = Logger(log, self.world)
-        for step, _ in enumerate(self.iconverge(log, convergence, maxiter),
+        for step, _ in enumerate(self.iconverge(self.log, convergence, maxiter),
                                  start=1):
             if step == steps:
                 break
         else:  # no break
-            log(scf_steps=step)
+            self.log(scf_steps=step)
 
-    def energies(self, log):
+    def energies(self):
         energies1 = self.state.potential.energies.copy()
         energies2 = self.state.ibzwfs.energies
         energies1['kinetic'] += energies2['band']
@@ -163,37 +163,38 @@ class DFTCalculation:
         free_energy = sum(energies1.values())
         extrapolated_energy = free_energy + energies2['extrapolation']
 
-        log('\nEnergies (eV):')
+        self.log('\nEnergies (eV):')
         for name, e in energies1.items():
-            log(f'    {name + ":":10}   {e * Ha:14.6f}')
-        log(f'    Total:       {free_energy * Ha:14.6f}')
-        log(f'    Extrapolated:{extrapolated_energy * Ha:14.6f}')
+            self.log(f'    {name + ":":10}   {e * Ha:14.6f}')
+        self.log(f'    Total:       {free_energy * Ha:14.6f}')
+        self.log(f'    Extrapolated:{extrapolated_energy * Ha:14.6f}')
 
         self.results['free_energy'] = free_energy
         self.results['energy'] = extrapolated_energy
 
-    def dipole(self, log):
+    def dipole(self):
         dipole_v = self.state.density.calculate_dipole_moment(self.fracpos_ac)
         x, y, z = dipole_v * Bohr
-        log(f'Dipole moment: ({x:.6f}, {y:.6f}, {z:.6f}) |e|*Ang\n')
+        self.log(f'Dipole moment: ({x:.6f}, {y:.6f}, {z:.6f}) |e|*Ang\n')
         self.results['dipole'] = dipole_v
 
-    def magmoms(self, log=None):
+    def magmoms(self) -> tuple[Array1D, Array2D]:
         mm_v, mm_av = self.state.density.calculate_magnetic_moments()
         self.results['magmom'] = mm_v[2]
         self.results['magmoms'] = mm_av[:, 2].copy()
 
-        if self.state.density.ncomponents > 1 and log is not None:
+        if self.state.density.ncomponents > 1:
             x, y, z = mm_v
-            log(f'Total magnetic moment: ({x:.6f}, {y:.6f}, {z:.6f})')
-            log('Local magnetic moments:')
+            self.log(f'Total magnetic moment: ({x:.6f}, {y:.6f}, {z:.6f})')
+            self.log('Local magnetic moments:')
             for a, (setup, m_v) in enumerate(zip(self.setups, mm_av)):
                 x, y, z = m_v
-                log(f'{a:4} {setup.symbol:2} ({x:9.6f}, {y:9.6f}, {z:9.6f})')
-            log()
+                self.log(
+                    f'{a:4} {setup.symbol:2} ({x:9.6f}, {y:9.6f}, {z:9.6f})')
+            self.log()
         return mm_v, mm_av
 
-    def forces(self, log):
+    def forces(self):
         """Return atomic force contributions."""
         xc = self.pot_calc.xc
         assert not xc.no_forces
@@ -225,23 +226,23 @@ class DFTCalculation:
 
         F_av = self.state.ibzwfs.ibz.symmetries.symmetrize_forces(F_av)
 
-        log('\nForces [eV/Ang]:')
+        self.log('\nForces [eV/Ang]:')
         c = Ha / Bohr
         for a, setup in enumerate(self.setups):
             x, y, z = F_av[a] * c
-            log(f'{a:4} {setup.symbol:2} {x:10.3f} {y:10.3f} {z:10.3f}')
+            self.log(f'{a:4} {setup.symbol:2} {x:10.3f} {y:10.3f} {z:10.3f}')
 
         self.results['forces'] = F_av
 
-    def stress(self, log):
+    def stress(self):
         stress_vv = self.pot_calc.stress_contribution(self.state)
-        log('\nStress tensor [eV/Ang^3]:')
+        self.log('\nStress tensor [eV/Ang^3]:')
         for x, y, z in stress_vv * (Ha / Bohr**3):
-            log(f'{x:13.6f}{y:13.6f}{z:13.6f}')
+            self.log(f'{x:13.6f}{y:13.6f}{z:13.6f}')
         self.results['stress'] = stress_vv.flat[[0, 4, 8, 5, 2, 1]]
 
-    def write_converged(self, log):
-        self.state.ibzwfs.write_summary(log)
+    def write_converged(self):
+        self.state.ibzwfs.write_summary(self.log)
 
 
 def write_atoms(atoms, grid, magmoms, log):

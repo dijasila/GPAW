@@ -73,8 +73,6 @@ class ASECalculator:
         * magmoms
         * dipole
         """
-        log = self.log
-
         if self.calculation is not None:
             changes = compare_atoms(self.atoms, atoms)
             if changes & {'numbers', 'pbc', 'cell'}:
@@ -97,12 +95,12 @@ class ASECalculator:
         if prop not in self.calculation.results:
             if prop == 'forces':
                 with self.timer('Forces'):
-                    self.calculation.forces(log)
+                    self.calculation.forces()
             elif prop == 'stress':
                 with self.timer('Stress'):
-                    self.calculation.stress(log)
+                    self.calculation.stress()
             elif prop == 'dipole':
-                self.calculation.dipole(log)
+                self.calculation.dipole()
             else:
                 raise ValueError('Unknown property:', prop)
 
@@ -116,7 +114,7 @@ class ASECalculator:
 
     def move_atoms(self, atoms):
         with self.timer('Move'):
-            self.calculation = self.calculation.move_atoms(atoms, self.log)
+            self.calculation = self.calculation.move_atoms(atoms)
 
     def converge(self, atoms):
         """Iterate to self-consistent solution.
@@ -125,15 +123,15 @@ class ASECalculator:
         and dipole moment.
         """
         with self.timer('SCF'):
-            self.calculation.converge(self.log)
+            self.calculation.converge()
 
         # Calculate all the cheap things:
-        self.calculation.energies(self.log)
-        self.calculation.dipole(self.log)
-        self.calculation.magmoms(self.log)
+        self.calculation.energies()
+        self.calculation.dipole()
+        self.calculation.magmoms()
 
         self.atoms = atoms.copy()
-        self.calculation.write_converged(self.log)
+        self.calculation.write_converged()
 
     def __del__(self):
         self.timer.write(self.log)
@@ -198,9 +196,9 @@ class ASECalculator:
 
         Parameters
         ----------
-        filename
+        filename:
             File to be written
-        mode
+        mode:
             Write mode. Use ``mode='all'``
             to include wave functions in the file.
         """
