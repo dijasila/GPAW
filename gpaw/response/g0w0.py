@@ -32,6 +32,13 @@ from gpaw.xc.tools import vxc
 from gpaw.response.temp import DielectricFunctionCalculator
 
 
+class SymmetryThing:
+    def __init__(self, symno, U_cc, sign):
+        self.symno = symno
+        self.U_cc = U_cc
+        self.sign = sign
+
+
 gw_logo = """\
   ___  _ _ _
  |   || | | |
@@ -463,7 +470,7 @@ class G0W0(PairDensity):
 
             # Loop over q in the IBZ:
             nQ = 0
-            for ie, pd0, W0, q_c, m2, W0_GW in \
+            for ie, pd0, W0, q_c, m2, W0_GW, symthing in \
                     self.calculate_screened_potential():
                 if nQ == 0:
                     print('Summing all q:', file=self.fd)
@@ -477,7 +484,8 @@ class G0W0(PairDensity):
                     k1 = kd.bz2ibz_k[kpt1.K]
                     i = self.kpts.index(k1)
 
-                    self.calculate_q(ie, i, kpt1, kpt2, pd0, W0, W0_GW)
+                    self.calculate_q(ie, i, kpt1, kpt2, pd0, W0, W0_GW,
+                                     symthing=symthing)
                 nQ += 1
             pb.finish()
 
@@ -586,7 +594,8 @@ class G0W0(PairDensity):
 
         return results
 
-    def calculate_q(self, ie, k, kpt1, kpt2, pd0, W0, W0_GW=None):
+    def calculate_q(self, ie, k, kpt1, kpt2, pd0, W0, W0_GW=None,
+                    *, symthing):
         """Calculates the contribution to the self-energy and its derivative
         for a given set of k-points, kpt1 and kpt2."""
 
@@ -597,13 +606,16 @@ class G0W0(PairDensity):
 
         wfs = self.calc.wfs
 
+        sign = symthing.sign
+        U_cc = symthing.U_cc
+
         N_c = pd0.gd.N_c
-        i_cG = self.sign * np.dot(self.U_cc,
-                                  np.unravel_index(pd0.Q_qG[0], N_c))
+        i_cG = sign * np.dot(U_cc,
+                             np.unravel_index(pd0.Q_qG[0], N_c))
 
         q_c = wfs.kd.bzk_kc[kpt2.K] - wfs.kd.bzk_kc[kpt1.K]
 
-        shift0_c = q_c - self.sign * np.dot(self.U_cc, pd0.kd.bzk_kc[0])
+        shift0_c = q_c - sign * np.dot(U_cc, pd0.kd.bzk_kc[0])
         assert np.allclose(shift0_c.round(), shift0_c)
         shift0_c = shift0_c.round().astype(int)
 
@@ -613,17 +625,17 @@ class G0W0(PairDensity):
         G_Gv = pd0.get_reciprocal_vectors()
         pos_av = np.dot(self.spos_ac, pd0.gd.cell_cv)
         M_vv = np.dot(pd0.gd.cell_cv.T,
-                      np.dot(self.U_cc.T,
+                      np.dot(U_cc.T,
                              np.linalg.inv(pd0.gd.cell_cv).T))
 
         Q_aGii = []
         for a, Q_Gii in enumerate(self.Q_aGii):
             x_G = np.exp(1j * np.dot(G_Gv, (pos_av[a] -
                                             np.dot(M_vv, pos_av[a]))))
-            U_ii = self.calc.wfs.setups[a].R_sii[self.s]
+            U_ii = self.calc.wfs.setups[a].R_sii[symthing.symno]
             Q_Gii = np.dot(np.dot(U_ii, Q_Gii * x_G[:, None, None]),
                            U_ii.T).transpose(1, 0, 2)
-            if self.sign == -1:
+            if symthing.sign == -1:
                 Q_Gii = Q_Gii.conj()
             Q_aGii.append(Q_Gii)
 
@@ -642,7 +654,7 @@ class G0W0(PairDensity):
                       for Qa_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
             n_mG = self.calculate_pair_densities(ut1cc_R, C1_aGi, kpt2,
                                                  pd0, I_G)
-            if self.sign == 1:
+            if symthing.sign == 1:
                 n_mG = n_mG.conj()
 
             f_m = kpt2.f_n
@@ -888,15 +900,18 @@ class G0W0(PairDensity):
                 done = set()
                 for Q2 in self.qd.bz2bz_ks[Q1]:
                     if Q2 >= 0 and Q2 not in done:
-                        s = self.qd.sym_k[Q2]
-                        self.s = s
-                        self.U_cc = self.qd.symmetry.op_scc[s]
                         time_reversal = self.qd.time_reversal_k[Q2]
-                        self.sign = 1 - 2 * time_reversal
+
+                        symno = self.qd.sym_k[Q2]
+                        symthing = SymmetryThing(
+                            symno=symno,
+                            U_cc=self.qd.symmetry.op_scc[symno],
+                            sign=1 - 2 * time_reversal)
+
                         Q_c = self.qd.bzk_kc[Q2]
-                        d_c = self.sign * np.dot(self.U_cc, q_c) - Q_c
+                        d_c = symthing.sign * np.dot(symthing.U_cc, q_c) - Q_c
                         assert np.allclose(d_c.round(), d_c)
-                        yield ie, pdi, W, Q_c, m2, W_GW
+                        yield ie, pdi, W, Q_c, m2, W_GW, symthing
                         done.add(Q2)
 
                 if self.restartfile is not None:
