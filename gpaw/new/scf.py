@@ -109,7 +109,7 @@ class SCFContext:
             error=dens_error)
 
 
-def create_convergence_criteria(criteria: dict[str: Any]
+def create_convergence_criteria(criteria: dict[str, Any]
                                 ) -> dict[str, Criterion]:
     for k, v in [('energy', 0.0005),        # eV / electron
                  ('density', 1.0e-4),       # electrons / electron
