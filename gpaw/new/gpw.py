@@ -103,7 +103,7 @@ def read_gpw(filename: Union[str, Path, IO[str]],
     parallel = parallel or {}
     world = parallel.get('world', mpi.world)
 
-    if not isinstance(Logger):
+    if not isinstance(log, Logger):
         log = Logger(log, world)
 
     log(f'Reading from {filename}')
@@ -194,6 +194,14 @@ def read_gpw(filename: Union[str, Path, IO[str]],
 
 
 def convert_to_new_packing_convention(a_asp, density=False):
+    """Convert from old to new convention.
+
+    ::
+
+        1 2 3      1 2 4
+        . 4 5  ->  . 3 5
+        . . 6      . . 6
+    """
     for a_sp in a_asp.values():
         if density:
             a_sii = unpack2(a_sp)
@@ -201,10 +209,3 @@ def convert_to_new_packing_convention(a_asp, density=False):
             a_sii = unpack(a_sp)
         L = np.tril_indices(a_sii.shape[1])
         a_sp[:] = a_sii[(...,) + L]
-
-
-if __name__ == '__main__':
-    import sys
-
-    from gpaw.mpi import world
-    read_gpw(sys.argv[1], print, {'world': world})

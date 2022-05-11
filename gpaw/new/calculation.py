@@ -147,8 +147,8 @@ class DFTCalculation:
                  convergence=None,
                  maxiter=None,
                  steps=99999999999999999):
-        """Converge to self-consistent solution of KS-equation."""
-        for step, _ in enumerate(self.iconverge(self.log, convergence, maxiter),
+        """Converge to self-consistent solution of Kohn-Sham equation."""
+        for step, _ in enumerate(self.iconverge(convergence, maxiter),
                                  start=1):
             if step == steps:
                 break
