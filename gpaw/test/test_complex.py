@@ -27,6 +27,7 @@ def test_complex(in_tmp_dir):
     if os.environ.get('GPAW_NEW', ''):
         calc.calculation.converge({'eigenstates': 3.5e-9,
                                    'energy': energy_eps})
+        assert calc.calculation.state.ibzwfs.dtype == complex
     else:
         assert calc.wfs.dtype == complex
         assert calc.wfs.kpt_u[0].psit_nG.dtype == complex
