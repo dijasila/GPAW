@@ -21,7 +21,8 @@ master:
     - gpaw install-data --register pawdata
     - gpaw test
     - OMP_NUM_THREADS=2 pytest -v -m ci -We
-    - mypy -p gpaw --install-types
+    - pip install types-PyYAML
+    - mypy -p gpaw
     - flake8 --doctests gpaw
     - >
       flake8
