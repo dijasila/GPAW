@@ -636,8 +636,7 @@ class PairDensity:
                  ftol=1e-6, threshold=1,
                  real_space_derivatives=False,
                  world=mpi.world, txt='-', timer=None,
-                 nblocks=1,
-    ):
+                 nblocks=1):
         """Density matrix elements
 
         Parameters
