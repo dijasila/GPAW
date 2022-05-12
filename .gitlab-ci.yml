@@ -22,6 +22,10 @@ master:
     - gpaw test
     - pip list
     - ase info --formats
+    - ls -ltr
+    - ls -ltr ../venv
+    - find .. -name \*egg\*
+    - find .. -name \*entry_p\*
     - pytest -k yaml
     - OMP_NUM_THREADS=2 pytest -v -m ci -We
     - pip install types-PyYAML

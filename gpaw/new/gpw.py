@@ -41,7 +41,8 @@ def write_gpw(filename: str,
                    for key, value in calculation.results.items()}
         writer.child('results').write(**results)
         writer.child('parameters').write(
-            **{k: v for k, v in params.items() if k != 'txt'})
+            **{k: v for k, v in params.items()
+               if k not in ['txt', 'parallel']})
 
         state = calculation.state
         state.density.write(writer.child('density'))
