@@ -25,6 +25,7 @@ master:
     - ls -ltr
     - ls -ltr ../venv
     - cat gpaw.egg-info/entry_points.txt
+    - python3 -c "import importlib.metadata as m; print([d._path for d in m.distributions()])"
     - pytest -k yaml
     - find .. -name \*site-info\*
     - find .. -name \*egg\*
