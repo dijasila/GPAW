@@ -24,9 +24,10 @@ master:
     - ase info --formats
     - ls -ltr
     - ls -ltr ../venv
+    - pytest -k yaml
+    - find .. -name \*site-info\*
     - find .. -name \*egg\*
     - find .. -name \*entry_p\*
-    - pytest -k yaml
     - OMP_NUM_THREADS=2 pytest -v -m ci -We
     - pip install types-PyYAML
     - mypy -p gpaw
