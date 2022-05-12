@@ -20,6 +20,8 @@ master:
     - pip install -e .
     - gpaw install-data --register pawdata
     - gpaw test
+    - pip list
+    - ase info --formats
     - OMP_NUM_THREADS=2 pytest -v -m ci -We
     - pip install types-PyYAML
     - mypy -p gpaw
