@@ -120,31 +120,6 @@ class WaveFunctions:
                 D_xii[2] += 2 * D_ssii[0, 1].imag
                 D_xii[3] += (D_ssii[0, 0] - D_ssii[1, 1]).real
 
-    def add_wave_functions_array(self,
-                                 writer: Writer,
-                                 spin_k_shape: tuple[int, int]):
-        """ Write the array header for the wave functions
-
-        Parameters
-        ----------
-        writer:
-            Ulm writer
-
-        spin_k_shape:
-            Shape of the spin and k-point dimensions
-        """
-        raise NotImplementedError
-
-    def fill_wave_functions(self, writer: Writer):
-        """ Fill the wave function array using this wave function
-
-        Parameters
-        ----------
-        writer:
-            Ulm writer
-        """
-        raise NotImplementedError
-
     def send(self, kpt_comm, rank):
         raise NotImplementedError
 
