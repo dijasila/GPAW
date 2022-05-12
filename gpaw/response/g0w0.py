@@ -56,6 +56,8 @@ class G0W0(PairDensity):
         particle energies through the G0W0 approximation for a number
         of states.
 
+        Parameters
+        ----------
         calc: str or PAW object
             GPAW calculator object or filename of saved calculator object.
         filename: str

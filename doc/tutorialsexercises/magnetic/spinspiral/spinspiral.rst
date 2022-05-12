@@ -45,21 +45,22 @@ magnetization vectors
               0]^T
 
 which are called flat spin spirals, because they always rotate in the
-xy-plane. However, there is nothing special about the xy-plane, since spin-orbit
-is neglected at this stage, the spin spiral is invariant under any global
-rotation. The reward is that we can simulate any incommensurate spin spiral of
-this type in the principle unit cell. Additional care does need to be taken
-when taking structures with multiple magnetic atoms within the unit cell. This
-is because we only modify the boundary condition of the self-consistent
-calculation; the magnetization within the unit cell handled as a regular non-
-collinear magnetization density. For example, with two magnetic atoms in the
-unit cell, such as Cr2I6, one could consider parallel, anti-parallel or any
-canted alignment between the two Cr atoms on top of the spin spiral structure.
-In practice, canted order or ferrimagnetic order can be found self-
-consistently however finding antiferromagnetic order from a ferromagnetic
-starting point seem unlikely. Thus in order to find most spin spiral
-structures, one should in run calculations with both collinear starting
-structures.
+`xy`-plane. However, there is nothing special about the `xy`-plane, since
+spin-orbit is neglected at this stage, the spin spiral is invariant under any
+global rotation. The reward is that we can simulate any incommensurate spin
+spiral of this type in the principle unit cell. Additional care does need to
+be taken when taking structures with multiple magnetic atoms within the unit
+cell. This is because we only modify the boundary condition of the
+self-consistent calculation;
+the magnetization within the unit cell handled as a
+regular non-collinear magnetization density. For example, with two magnetic
+atoms in the unit cell, such as Cr2I6, one could consider parallel, anti-
+parallel or any canted alignment between the two Cr atoms on top of the spin
+spiral structure. In practice, canted order or ferrimagnetic order can be
+found self- consistently however finding anti-ferromagnetic order from a
+ferromagnetic starting point seem unlikely. Thus in order to find most spin
+spiral structures, one should in run calculations with both collinear
+starting structures.
 
 
 Ground state of FCC Fe
@@ -93,7 +94,7 @@ unit cell.
    (see :download:`plot.py`)
 
 Calculating the energy of the spin spiral ground state could be done using a
-(2, 1, 10) supercell of the iron lattice in a standard noncollinear ground
+(2, 1, 10) supercell of the iron lattice in a standard non-collinear ground
 state calculation. It would however be difficult to verify the local minimum
 since wave vectors close to the minimum are incommensurate with the unit
 cell, and so a huge supercell would be required.
