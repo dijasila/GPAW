@@ -80,18 +80,10 @@ class IBZ:
                 f'symmetries: {len(self.symmetries)}>)')
 
     def __str__(self):
-        return str(self.symmetries) + self.description(verbose=True)
-
-    def description(self, verbose=False):
-        # if -1 in self.bz2bz_Ks:
-        #    s += 'Note: your k-points are not as symmetric as your crystal!\n'
-        N = len(self)
-        s = str(self.bz)
-        nk = plural(N, 'k-point')
-        s += f'\n{nk} in the irreducible part of the Brillouin zone\n'
-
-        if not verbose:
-            return s
+        txt = (f'{self.symmetries}\n'
+               'bz sampling:\n'
+               f'  number of bz points: {len(self.bz})}\n'
+               f'  number of ibz points: {len(self})}\n')
 
         if isinstance(self.bz, MonkhorstPackKPoints):
             w_k = (self.weight_k * len(self.bz)).round().astype(int)

@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import IO
 
 from gpaw.mpi import MPIComm, world
-from gpaw.utilities.memory import maxrss
 
 
 class Logger:
@@ -34,15 +33,6 @@ class Logger:
         self.indentation = ''
 
     def __del__(self) -> None:
-        try:
-            mib = maxrss() / 1024**2
-        except (NameError, LookupError):
-            pass
-        else:
-            try:
-                self.fd.write(f'\nMax RSS: {mib:.3f} MiB\n')
-            except ValueError:
-                pass
         if self.close_fd:
             self.fd.close()
 

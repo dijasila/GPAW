@@ -6,6 +6,7 @@ from typing import IO, Any, Union
 
 from ase import Atoms
 from ase.units import Ha
+
 from gpaw import __version__
 from gpaw.new import Timer
 from gpaw.new.calculation import DFTCalculation, units
@@ -13,6 +14,7 @@ from gpaw.new.gpw import read_gpw, write_gpw
 from gpaw.new.input_parameters import InputParameters
 from gpaw.new.logger import Logger
 from gpaw.typing import Array1D, Array2D
+from gpaw.utilities.memory import maxrss
 
 
 def GPAW(filename: Union[str, Path, IO[str]] = None,
@@ -134,7 +136,10 @@ class ASECalculator:
         self.calculation.write_converged()
 
     def __del__(self):
+        self.log('---')
         self.timer.write(self.log)
+        mib = maxrss() / 1024**2
+        self.log(f'\nMax RSS: {mib:.3f}  # MiB')
 
     def get_potential_energy(self,
                              atoms: Atoms,
@@ -216,8 +221,9 @@ def write_header(log, world, params):
     from gpaw.io.logger import write_header as header
     log(f'#  __  _  _\n# | _ |_)|_||  |\n# |__||  | ||/\\| - {__version__}\n')
     header(log, world)
+    log('---')
     with log.indent('input parameters:'):
-        log({k: v for k, v in params.items()})
+        log(**{k: v for k, v in params.items()})
 
 
 def compare_atoms(a1: Atoms, a2: Atoms) -> set[str]:
