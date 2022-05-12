@@ -24,6 +24,7 @@ master:
     - ase info --formats
     - ls -ltr
     - ls -ltr ../venv
+    - cat gpaw.egg-info/entry_points.txt
     - pytest -k yaml
     - find .. -name \*site-info\*
     - find .. -name \*egg\*

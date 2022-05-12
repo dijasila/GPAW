@@ -191,6 +191,10 @@ class ASECalculator:
         Q_aL = Q_aL.gather()
         return Q_aL.data[::9] * (Ha / (4 * pi)**0.5)
 
+    def get_eigenvalues(self, kpt=0, spin=0):
+        state = self.calculation.state
+        return state.ibzwfs.get_eigs_and_occs(k=kpt, s=spin)[0] * Ha
+
     def write(self, filename, mode=''):
         """Write calculator object to a file.
 
