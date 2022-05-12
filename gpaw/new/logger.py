@@ -47,7 +47,8 @@ class Logger:
             self.fd.close()
 
     @contextlib.contextmanager
-    def indent(self):
+    def indent(self, text):
+        self(text)
         self.indentation += '  '
         yield
         self.indentation = self.indentation[2:]

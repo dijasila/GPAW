@@ -214,10 +214,10 @@ class ASECalculator:
 
 def write_header(log, world, params):
     from gpaw.io.logger import write_header as header
-    log(f' __  _  _\n| _ |_)|_||  |\n|__||  | ||/\\| - {__version__}\n')
+    log(f'#  __  _  _\n# | _ |_)|_||  |\n# |__||  | ||/\\| - {__version__}\n')
     header(log, world)
-    log('Input parameters = {\n   ',
-        ',\n    '.join(f'{k!r}: {v!r}' for k, v in params.items()) + '}')
+    with log.indent('input parameters:'):
+        log({k: v for k, v in params.items()})
 
 
 def compare_atoms(a1: Atoms, a2: Atoms) -> set[str]:
