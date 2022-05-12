@@ -919,18 +919,23 @@ class G0W0(PairDensity):
                                 pickle.dump((pdi, W), fd, 2)
 
                 self.timer.stop('W')
-                # Loop over all k-points in the BZ and find those that are
-                # related to the current IBZ k-point by symmetry
-                Q1 = self.qd.ibz2bz_k[iq]
-                done = set()
-                for Q2 in self.qd.bz2bz_ks[Q1]:
-                    if Q2 >= 0 and Q2 not in done:
-                        symthing = SymmetryThing.from_qd(self.qd, Q2, q_c)
-                        yield ie, pdi, W, symthing.Q_c, m2, W_GW, symthing
-                        done.add(Q2)
+
+                for symthing in self._symthings(iq, q_c):
+                    yield ie, pdi, W, symthing.Q_c, m2, W_GW, symthing
 
                 if self.restartfile is not None:
                     self.save_restart_file(iq)
+
+    def _symthings(self, iq, q_c):
+        # Loop over all k-points in the BZ and find those that are
+        # related to the current IBZ k-point by symmetry
+        Q1 = self.qd.ibz2bz_k[iq]
+        done = set()
+        for Q2 in self.qd.bz2bz_ks[Q1]:
+            if Q2 >= 0 and Q2 not in done:
+                symthing = SymmetryThing.from_qd(self.qd, Q2, q_c)
+                yield symthing
+                done.add(Q2)
 
     @timer('WW')
     def calculate_w(self, chi0, q_c, pd, chi0bands_wGG, chi0bands_wxvG,
