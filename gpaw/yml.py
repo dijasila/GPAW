@@ -6,7 +6,7 @@ gpaw_yaml = ExternalIOFormat(
     desc='GPAW-yaml output',
     code='+B',
     module='gpaw.yml',
-    magic=b'# gpaw2022',
+    magic=b'#   __  _  _',
     glob=['*.yaml', '*.yml'])
 
 

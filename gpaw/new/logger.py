@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import os
 import sys
 from pathlib import Path
@@ -30,6 +31,8 @@ class Logger:
             self.fd = filename
             self.close_fd = False
 
+        self.indentation = ''
+
     def __del__(self) -> None:
         try:
             mib = maxrss() / 1024**2
@@ -43,10 +46,16 @@ class Logger:
         if self.close_fd:
             self.fd.close()
 
+    @contextlib.contextmanager
+    def indent(self):
+        self.indentation += '  '
+        yield
+        self.indentation = self.indentation[2:]
+
     def __call__(self, *args, **kwargs) -> None:
         if not self.fd.closed:
             if kwargs:
                 for kw, arg in kwargs.items():
-                    print(f'{kw} = {arg}', file=self.fd)
+                    print(f'{self.indentation}{kw}: {arg}', file=self.fd)
             else:
-                print(*args, file=self.fd)
+                print('#', *args, file=self.fd)

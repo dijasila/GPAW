@@ -2,7 +2,6 @@ import pytest
 from ase.io import read
 
 
-def test_yaml(in_tmp_dir):
+def test_yaml(gpw_files):
     pytest.importorskip('yaml')
-    (in_tmp_dir / 'y.yaml').write_text('# gpaw2022  ')
-    read('y.yaml')
+    read(gpw_files['h2_pw'].with_name('h2_pw.txt'))
