@@ -58,4 +58,4 @@ class Logger:
                 for kw, arg in kwargs.items():
                     print(f'{self.indentation}{kw}: {arg}', file=self.fd)
             else:
-                print('#', *args, file=self.fd)
+                print(*args, file=self.fd)
