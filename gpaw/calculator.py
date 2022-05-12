@@ -415,7 +415,10 @@ class GPAW(Calculator):
             if occ_name == 'mom':
                 occ = [self.wfs.kpt_u[x].f_n.copy() for x in
                        range(len(self.wfs.kpt_u))]
-                self.parameters.occupations['numbers'] = occ
+                if type(self.parameters.occupations) == dict:
+                    self.parameters.occupations['numbers'] = occ
+                else:
+                    self.parameters.occupations.numbers = occ
 
             self.summary()
 
