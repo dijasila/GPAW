@@ -135,8 +135,7 @@ class G0W0:
                  nblocks=1, savew=False, savepckl=True,
                  maxiter=1, method='G0W0', mixing=0.2,
                  world=mpi.world, ecut_extrapolation=False,
-                 nblocksmax=False,
-                 paw_correction='brute-force'):
+                 nblocksmax=False):
 
         """G0W0 calculator.
 
@@ -243,8 +242,7 @@ class G0W0:
             nblocks = get_max_nblocks(world, calc, ecut)
 
         self.pair = PairDensity(calc, ecut, world=world, nblocks=nblocks,
-                                txt=filename + '.txt',
-                                paw_correction=paw_correction)
+                                txt=filename + '.txt')
 
         # Steal attributes from self.pair:
         self.timer = self.pair.timer
@@ -772,7 +770,6 @@ class G0W0:
                     txt=self.filename + '.w.txt',
                     timer=self.timer,
                     nblocks=self.blockcomm.size,
-                    paw_correction=self.pair.paw_correction,
                     **parameters)
 
         if self.truncation == 'wigner-seitz':

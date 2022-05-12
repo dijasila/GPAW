@@ -56,7 +56,6 @@ class Chi0:
                  disable_non_symmorphic=True,
                  integrationmode=None,
                  rate=0.0, eshift=0.0,
-                 paw_correction='brute-force',
                  domega0=None,  # deprecated
                  omega2=None,  # deprecated
                  omegamax=None  # deprecated
@@ -157,8 +156,7 @@ class Chi0:
                                 ftol, threshold,
                                 real_space_derivatives, world, txt,
                                 self.timer,
-                                nblocks=nblocks,
-                                paw_correction=paw_correction)
+                                nblocks=nblocks)
 
         self.disable_point_group = disable_point_group
         self.disable_time_reversal = disable_time_reversal
