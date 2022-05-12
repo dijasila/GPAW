@@ -7,7 +7,7 @@ from gpaw.utilities import AtomsTooClose
 import pytest
 
 
-@pytest.marp.parametrize('mode', ['fd', 'pw'])
+@pytest.mark.parametrize('mode', ['fd', 'pw'])
 def test_too_close_to_boundary(mode):
     if mode == 'pw' and not os.environ.get('GPAW_NEW'):
         return
