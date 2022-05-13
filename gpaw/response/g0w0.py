@@ -33,11 +33,10 @@ from gpaw.response.temp import DielectricFunctionCalculator
 
 
 class SymmetryThing:
-    def __init__(self, symno, U_cc, sign, Q_c):
+    def __init__(self, symno, U_cc, sign):
         self.symno = symno
         self.U_cc = U_cc
         self.sign = sign
-        self.Q_c = Q_c
 
     def apply(self, q_c):
         return self.sign * (self.U_cc @ q_c)
@@ -921,7 +920,7 @@ class G0W0(PairDensity):
                 self.timer.stop('W')
 
                 for symthing in self._symthings(iq, q_c):
-                    yield ie, pdi, W, symthing.Q_c, m2, W_GW, symthing
+                    yield ie, pdi, W, Q_c, m2, W_GW, symthing
 
                 if self.restartfile is not None:
                     self.save_restart_file(iq)
