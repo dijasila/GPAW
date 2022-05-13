@@ -1052,13 +1052,11 @@ class G0W0(PairDensity):
 
     def dyson_and_W_old(self, wstc, iq, q_c, chi0, chi0_wvv, chi0_wxvG,
                         chi0_wGG, A1_x, A2_x, pd, ecut, htp, htm):
-        nw = len(self.wd)
         nG = pd.ngmax
 
-        mynw = (nw + self.blockcomm.size - 1) // self.blockcomm.size
+        wblocks1d = Blocks1D(self.blockcomm, len(self.wd))
+
         chi0_wGG = self.blockdist.redistribute(chi0_wGG, A2_x)
-        wa = min(self.blockcomm.rank * mynw, nw)
-        wb = min(wa + mynw, nw)
 
         if ecut == pd.ecut:
             pdi = pd
@@ -1069,8 +1067,6 @@ class G0W0(PairDensity):
                                kd=pd.kd)
             nG = pdi.ngmax
             self.blocks1d = Blocks1D(self.blockcomm, nG)
-            nw = len(self.wd)
-            mynw = (nw + self.blockcomm.size - 1) // self.blockcomm.size
 
             G2G = PWMapping(pdi, pd).G2_G1
             chi0_wGG = chi0_wGG.take(G2G, axis=1).take(G2G, axis=2)
@@ -1121,9 +1117,9 @@ class G0W0(PairDensity):
             qf_qv = 2 * np.pi * np.dot(qf_qc, pd.gd.icell_cv)
             a_wq = np.sum([chi0_vq * qf_qv.T
                            for chi0_vq in
-                           np.dot(chi0_wvv[wa:wb], qf_qv.T)], axis=1)
-            a0_qwG = np.dot(qf_qv, chi0_wxvG[wa:wb, 0])
-            a1_qwG = np.dot(qf_qv, chi0_wxvG[wa:wb, 1])
+                           np.dot(chi0_wvv[wblocks1d.myslice], qf_qv.T)], axis=1)
+            a0_qwG = np.dot(qf_qv, chi0_wxvG[wblocks1d.myslice, 0])
+            a1_qwG = np.dot(qf_qv, chi0_wxvG[wblocks1d.myslice, 1])
 
         self.timer.start('Dyson eq.')
         # Calculate W and store it in chi0_wGG ndarray:
