@@ -32,7 +32,7 @@ from gpaw.xc.tools import vxc
 from gpaw.response.temp import DielectricFunctionCalculator
 
 
-class SymmetryThing:
+class QSymmetryOp:
     def __init__(self, symno, U_cc, sign):
         self.symno = symno
         self.U_cc = U_cc
@@ -56,19 +56,26 @@ class SymmetryThing:
         return cell_cv.T @ self.U_cc.T @ np.linalg.inv(cell_cv).T
 
     @classmethod
-    def from_qd(cls, qd, iQ, q_c):
-        time_reversal = qd.time_reversal_k[iQ]
-        symno = qd.sym_k[iQ]
-        Q_c = qd.bzk_kc[iQ]
+    def get_symops(cls, qd, iq, q_c):
+        # Loop over all k-points in the BZ and find those that are
+        # related to the current IBZ k-point by symmetry
+        Q1 = qd.ibz2bz_k[iq]
+        done = set()
+        for Q2 in qd.bz2bz_ks[Q1]:
+            if Q2 >= 0 and Q2 not in done:
+                time_reversal = qd.time_reversal_k[Q2]
+                symno = qd.sym_k[Q2]
+                Q_c = qd.bzk_kc[Q2]
 
-        symthing = cls(
-            symno=symno,
-            U_cc=qd.symmetry.op_scc[symno],
-            sign=1 - 2 * time_reversal,
-            Q_c=Q_c)
+                symop = cls(
+                    symno=symno,
+                    U_cc=qd.symmetry.op_scc[symno],
+                    sign=1 - 2 * time_reversal)
 
-        symthing.check_q_Q_symmetry(Q_c, q_c)
-        return symthing
+                symop.check_q_Q_symmetry(Q_c, q_c)
+                # Q_c, symop = QSymmetryOp.from_qd(qd, Q2, q_c)
+                yield Q_c, symop
+                done.add(Q2)
 
 
 gw_logo = """\
@@ -502,7 +509,7 @@ class G0W0(PairDensity):
 
             # Loop over q in the IBZ:
             nQ = 0
-            for ie, pd0, W0, q_c, m2, W0_GW, symthing in \
+            for ie, pd0, W0, q_c, m2, W0_GW, symop in \
                     self.calculate_screened_potential():
                 if nQ == 0:
                     print('Summing all q:', file=self.fd)
@@ -517,7 +524,7 @@ class G0W0(PairDensity):
                     i = self.kpts.index(k1)
 
                     self.calculate_q(ie, i, kpt1, kpt2, pd0, W0, W0_GW,
-                                     symthing=symthing)
+                                     symop=symop)
                 nQ += 1
             pb.finish()
 
@@ -627,7 +634,7 @@ class G0W0(PairDensity):
         return results
 
     def calculate_q(self, ie, k, kpt1, kpt2, pd0, W0, W0_GW=None,
-                    *, symthing):
+                    *, symop):
         """Calculates the contribution to the self-energy and its derivative
         for a given set of k-points, kpt1 and kpt2."""
 
@@ -639,27 +646,27 @@ class G0W0(PairDensity):
         wfs = self.calc.wfs
 
         N_c = pd0.gd.N_c
-        i_cG = symthing.apply(np.unravel_index(pd0.Q_qG[0], N_c))
+        i_cG = symop.apply(np.unravel_index(pd0.Q_qG[0], N_c))
 
         q_c = wfs.kd.bzk_kc[kpt2.K] - wfs.kd.bzk_kc[kpt1.K]
 
-        shift0_c = symthing.get_shift0(q_c, pd0.kd.bzk_kc[0])
+        shift0_c = symop.get_shift0(q_c, pd0.kd.bzk_kc[0])
         shift_c = kpt1.shift_c - kpt2.shift_c - shift0_c
 
         I_G = np.ravel_multi_index(i_cG + shift_c[:, None], N_c, 'wrap')
 
         G_Gv = pd0.get_reciprocal_vectors()
         pos_av = np.dot(self.spos_ac, pd0.gd.cell_cv)
-        M_vv = symthing.get_M_vv(pd0.gd.cell_cv)
+        M_vv = symop.get_M_vv(pd0.gd.cell_cv)
 
         Q_aGii = []
         for a, Q_Gii in enumerate(self.Q_aGii):
             x_G = np.exp(1j * np.dot(G_Gv, (pos_av[a] -
                                             np.dot(M_vv, pos_av[a]))))
-            U_ii = self.calc.wfs.setups[a].R_sii[symthing.symno]
+            U_ii = self.calc.wfs.setups[a].R_sii[symop.symno]
             Q_Gii = np.dot(np.dot(U_ii, Q_Gii * x_G[:, None, None]),
                            U_ii.T).transpose(1, 0, 2)
-            if symthing.sign == -1:
+            if symop.sign == -1:
                 Q_Gii = Q_Gii.conj()
             Q_aGii.append(Q_Gii)
 
@@ -678,7 +685,7 @@ class G0W0(PairDensity):
                       for Qa_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
             n_mG = self.calculate_pair_densities(ut1cc_R, C1_aGi, kpt2,
                                                  pd0, I_G)
-            if symthing.sign == 1:
+            if symop.sign == 1:
                 n_mG = n_mG.conj()
 
             f_m = kpt2.f_n
@@ -919,22 +926,11 @@ class G0W0(PairDensity):
 
                 self.timer.stop('W')
 
-                for symthing in self._symthings(iq, q_c):
-                    yield ie, pdi, W, Q_c, m2, W_GW, symthing
+                for Q_c, symop in QSymmetryOp.get_symops(self.qd, iq, q_c):
+                    yield ie, pdi, W, Q_c, m2, W_GW, symop
 
                 if self.restartfile is not None:
                     self.save_restart_file(iq)
-
-    def _symthings(self, iq, q_c):
-        # Loop over all k-points in the BZ and find those that are
-        # related to the current IBZ k-point by symmetry
-        Q1 = self.qd.ibz2bz_k[iq]
-        done = set()
-        for Q2 in self.qd.bz2bz_ks[Q1]:
-            if Q2 >= 0 and Q2 not in done:
-                symthing = SymmetryThing.from_qd(self.qd, Q2, q_c)
-                yield symthing
-                done.add(Q2)
 
     @timer('WW')
     def calculate_w(self, chi0, q_c, pd, chi0bands_wGG, chi0bands_wxvG,
