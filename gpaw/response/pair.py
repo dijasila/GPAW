@@ -117,10 +117,8 @@ class PWSymmetryAnalyzer:
         self.kd = kd
         self.fd = txt
 
-        # Caveats
-        assert disable_non_symmorphic, \
-            print('You are not allowed to use non symmorphic syms, sorry. ',
-                  file=self.fd)
+        assert disable_non_symmorphic, ('You are not allowed to use '
+                                        'non-symmorphic syms, sorry.')
 
         # Settings
         self.disable_point_group = disable_point_group
