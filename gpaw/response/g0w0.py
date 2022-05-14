@@ -1375,9 +1375,9 @@ class G0W0(PairDensity):
 
         with self.timer('Hilbert transform'):
             htp(Wp_wGG)
-            Wp_wGG = self.blockdist.redistribute(Wp_wGG) # New: Redistribute to wGG
+            # Wp_wGG = self.blockdist.redistribute(Wp_wGG) # New: Redistribute to wGG
             htm(Wm_wGG)
-            Wm_wGG = self.blockdist.redistribute(Wm_wGG) # New: Redistribute to wGG
+            # Wm_wGG = self.blockdist.redistribute(Wm_wGG) # New: Redistribute to wGG
 
             if self.do_GW_too:
                 Wm_GW_wGG = self.blockdist.redistribute(
