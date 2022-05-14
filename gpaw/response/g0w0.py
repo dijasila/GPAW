@@ -624,8 +624,6 @@ class G0W0(PairDensity):
         n_mG = pd.empty(kpt2.blocksize)
         myblocksize = kpt2.nb - kpt2.na
 
-        print('Pair density par:', mpi.world.rank, 'myblocksize:', myblocksize, 'ur_nR.shape', kpt2.ut_nR.shape, 'n_mG.shape', n_mG.shape)
-
         for ut_R, n_G in zip(kpt2.ut_nR, n_mG):
             n_R = ut1cc_R * ut_R
             with self.timer('fft'):
@@ -773,7 +771,6 @@ class G0W0(PairDensity):
 
             sigma1 = p * np.dot(np.dot(myn_G, C1_GG), n_G.conj()).imag
             sigma2 = p * np.dot(np.dot(myn_G, C2_GG), n_G.conj()).imag
-            print('Contribution', w, ((o - o1) * sigma2 + (o2 - o) * sigma1) / (o2 - o1))
             sigma += ((o - o1) * sigma2 + (o2 - o) * sigma1) / (o2 - o1)
             dsigma += sgn * (sigma2 - sigma1) / (o2 - o1)
 
@@ -793,7 +790,6 @@ class G0W0(PairDensity):
          
         s0 = np.where(s_m == 0)[0]
         s1 = np.where(s_m == 1)[0]
-        print(s0,s1)
         
         sigmam, dsigmam = self.calculate_sigma_sign(o_m[s0], n_mG[s0], C_swGG[0], sgn_m[s0])
         sigmap, dsigmap = self.calculate_sigma_sign(o_m[s1], n_mG[s1], C_swGG[1], sgn_m[s1])
@@ -816,17 +812,9 @@ class G0W0(PairDensity):
     def calculate_sigma_sign(self, o_m, n_mG, C_wGG, sgn_m):
         w_m = self.wd.get_floor_index(o_m, safe=False)
 
-
-        #m_inb = np.where(w_m < len(self.wd) - 1)[0]
-        #o1_m = np.empty(len(o_m))
-        #o2_m = np.empty(len(o_m))
-        #o1_m[m_inb] = self.wd.omega_w[w_m[m_inb]]
-        #o2_m[m_inb] = self.wd.omega_w[w_m[m_inb] + 1]
-
         x = 1.0 / (self.qd.nbzkpts * 2 * pi * self.vol)
         sigma = 0.0
         dsigma = 0.0
-        print(n_mG.shape)
         for w, o_m, n_mG, sgn_m in pair_densities_sorted(w_m, o_m, n_mG, sgn_m):
             if w >= len(self.wd.omega_w) - 1:
                 continue
@@ -836,23 +824,14 @@ class G0W0(PairDensity):
             C1_GG = C_wGG[w]
             C2_GG = C_wGG[w + 1]
             p_m = x * sgn_m
-            print(n_mG.shape,'n_mG')
-            print(C_wGG.shape, 'C_wGG')
             myn_mG = n_mG[:, self.blocks1d.myslice]
 
             # C1 and C2_GG can be concatenated automatically
             temp1_mG = myn_mG @ C1_GG
             temp2_mG = myn_mG @ C2_GG
-            print(temp1_mG.shape, 'temp1_mG')
-            print(n_mG.shape,'n_mG')
             sigma1_m = p_m * np.sum(temp1_mG * n_mG.conj(), axis=1).imag
             sigma2_m = p_m * np.sum(temp2_mG * n_mG.conj(), axis=1).imag
 
-            #sigma1 = p * np.dot(np.dot(myn_G, C1_GG), n_G.conj()).imag
-            #sigma2 = p * np.dot(np.dot(myn_G, C2_GG), n_G.conj()).imag
-            print(sigma1_m.shape,'sigma_m')
-            print(o_m.shape)
-            print(w, 'contributions',((o_m - o1) * sigma2_m + (o2 - o_m) * sigma1_m) / (o2 - o1))  
             sigma += np.sum(((o_m - o1) * sigma2_m + (o2 - o_m) * sigma1_m) / (o2 - o1))
             dsigma += np.sum(sgn_m * (sigma2_m - sigma1_m) / (o2 - o1))
 
