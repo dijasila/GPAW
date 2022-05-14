@@ -236,7 +236,7 @@ class DFTCalculation:
             x, y, z = F_av[a] * s
             c = ',' if a < len(F_av) - 1 else ']'
             self.log(f'  [{x:9.3f}, {y:9.3f}, {z:9.3f}]{c}'
-                     '  # {setup.symbol:2} {a}')
+                     f'  # {setup.symbol:2} {a}')
 
         self.results['forces'] = F_av
 
