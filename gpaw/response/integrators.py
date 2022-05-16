@@ -13,7 +13,7 @@ from gpaw.utilities.progressbar import ProgressBar
 from gpaw.response.pw_parallelization import Blocks1D, block_partition
 
 
-def pair_densities_sorted(w_m, o_m, n_mG, extra_mx=None):
+def pair_densities_sorted(w_m, o_m, n_mG, extra_mx=None, extra2_mx=None):
     # Sort frequencies
     argsw_m = np.argsort(w_m)
     sortedo_m = o_m[argsw_m]
@@ -21,6 +21,11 @@ def pair_densities_sorted(w_m, o_m, n_mG, extra_mx=None):
     sortedn_mG = n_mG[argsw_m]
     if extra_mx is not None:
         sortedextra_mx = extra_mx[argsw_m]
+    # Todo...
+    if extra2_mx is not None:
+        print(extra2_mx, argsw_m)
+        sortedextra2_mx = extra2_mx[argsw_m]
+
 
     index = 0
     while 1:
@@ -38,7 +43,9 @@ def pair_densities_sorted(w_m, o_m, n_mG, extra_mx=None):
 
         endindex = index
         sl = slice(startindex, endindex)
-        if extra_mx is not None:
+        if extra2_mx is not None:
+            yield w, sortedo_m[sl], sortedn_mG[sl], sortedextra_mx[sl], sortedextra2_mx[sl]
+        elif extra_mx is not None:
             yield w, sortedo_m[sl], sortedn_mG[sl], sortedextra_mx[sl]
         else:
             yield w, sortedo_m[sl], sortedn_mG[sl]
