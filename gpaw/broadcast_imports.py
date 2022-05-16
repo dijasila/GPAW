@@ -64,7 +64,7 @@ class BroadcastLoader:
         self.module_cache = module_cache
         self.spec = spec
 
-    def load_module(self, fullname):
+    def exec_module(self, fullname):
         if world.rank == 0:
             # Load from file and store in cache:
             code = self.spec.loader.get_code(fullname)
