@@ -43,7 +43,14 @@ class Symmetries:
         return len(self.rotation_scc)
 
     def __str__(self):
-        return str(self.symmetry)
+        return ('symmetry:\n'
+                f'  number of symmetries: {len(self)}\n' +
+                '  rotations = [\n    [[' +
+                ']],\n    [['.join('], ['.join(', '.join(f'{r:2}'
+                                                         for r in rot_c)
+                                               for rot_c in rot_cc)
+                                   for rot_cc in self.rotation_scc) +
+                ']]]\n')
 
     def reduce(self,
                bz: BZPoints,

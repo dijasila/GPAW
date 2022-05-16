@@ -163,7 +163,8 @@ class GPWFiles:
     def h2_pw_0(self):
         h2 = Atoms('H2',
                    positions=[[-0.37, 0, 0], [0.37, 0, 0]],
-                   cell=[5.74, 5, 5])
+                   cell=[5.74, 5, 5],
+                   pbc=True)
         h2.calc = GPAW(mode={'name': 'pw', 'ecut': 200},
                        txt=self.path / 'h2_pw_0.txt')
         h2.get_potential_energy()
