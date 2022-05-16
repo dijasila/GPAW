@@ -1,11 +1,14 @@
 from __future__ import annotations
+
 import itertools
 import warnings
 from types import SimpleNamespace
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from gpaw.convergence_criteria import dict2criterion, check_convergence
+from gpaw.convergence_criteria import (Criterion, check_convergence,
+                                       dict2criterion)
 from gpaw.scf import write_iteration
+
 if TYPE_CHECKING:
     from gpaw.new.calculation import DFTState
 
@@ -48,6 +51,7 @@ class SCFLoop:
                 convergence=None,
                 maxiter=None,
                 log=None):
+
         cc = create_convergence_criteria(convergence or self.convergence)
         maxiter = maxiter or self.maxiter
 
@@ -105,7 +109,13 @@ class SCFContext:
             error=dens_error)
 
 
-def create_convergence_criteria(criteria):
+def create_convergence_criteria(criteria: dict[str, Any]
+                                ) -> dict[str, Criterion]:
+    for k, v in [('energy', 0.0005),        # eV / electron
+                 ('density', 1.0e-4),       # electrons / electron
+                 ('eigenstates', 4.0e-8)]:  # eV^2 / electron
+        if k not in criteria:
+            criteria[k] = v
     # Gather convergence criteria for SCF loop.
     custom = criteria.pop('custom', [])
     for name, criterion in criteria.items():

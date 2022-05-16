@@ -140,7 +140,7 @@ class IBZWaveFunctions:
             'extrapolation': e_entropy * occ_calc.extrapolate_factor}
 
     def add_to_density(self, nt_sR, D_asii) -> None:
-        """ Compute density from wave functions and add to nt_sR and D_asii """
+        """Compute density from wave functions and add to nt_sR and D_asii."""
         for wfs in self:
             wfs.add_to_density(nt_sR, D_asii)
         self.kpt_comm.sum(nt_sR.data)
@@ -364,6 +364,14 @@ class IBZWaveFunctions:
         except ValueError:
             # Maybe we only have the occupied bands and no empty bands
             pass
+
+    def make_sure_wfs_are_read_from_gpw_file(self):
+        for wfs in self:
+            psit_nX = getattr(wfs, 'psit_nX', None)
+            if psit_nX is None:
+                return
+            if hasattr(psit_nX.data, 'fd'):
+                psit_nX.data = psit_nX.data[:]  # read
 
     def get_homo_lumo(self, spin: int = None) -> Array1D:
         """Return HOMO and LUMO eigenvalues."""
