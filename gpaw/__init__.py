@@ -45,7 +45,7 @@ if 'OMP_NUM_THREADS' not in os.environ:
 
 from gpaw.broadcast_imports import broadcast_imports  # noqa
 
-with broadcast_imports:
+if 1:#with broadcast_imports:
     import os
     import runpy
     import warnings
@@ -180,7 +180,7 @@ if debug:
     np.empty_like = empty_like
 
 
-with broadcast_imports:
+if 1:#with broadcast_imports:
     from gpaw.calculator import GPAW as OldGPAW
     from gpaw.mixer import Mixer, MixerSum, MixerDif, MixerSum2
     from gpaw.eigensolvers import Davidson, RMMDIIS, CG, DirectLCAO

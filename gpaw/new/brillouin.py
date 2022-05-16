@@ -71,7 +71,7 @@ class IBZ:
                f'  number of ibz points: {N}\n')
 
         if isinstance(self.bz, MonkhorstPackKPoints):
-            txt += '  ' + str(self.bz).replace('\n', '\n  ')
+            txt += '  ' + str(self.bz).replace('\n', '\n  ', 1)
 
         txt += '  points and weights: [\n'
         k = 0

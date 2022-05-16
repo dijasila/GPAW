@@ -45,7 +45,7 @@ class Symmetries:
     def __str__(self):
         return ('symmetry:\n'
                 f'  number of symmetries: {len(self)}\n' +
-                '  rotations = [\n    [[' +
+                '  rotations: [\n    [[' +
                 ']],\n    [['.join('], ['.join(', '.join(f'{r:2}'
                                                          for r in rot_c)
                                                for rot_c in rot_cc)
