@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import numpy as np
-from ase.io.ulm import Writer
 from gpaw.core.atom_arrays import AtomArrays, AtomDistribution
 from gpaw.setup import Setups
 from gpaw.typing import Array1D, Array2D, ArrayND

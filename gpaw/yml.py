@@ -58,4 +58,3 @@ if __name__ == '__main__':
     import yaml
     for dct in yaml.safe_load_all(open(sys.argv[1])):
         print(dct)
-    
