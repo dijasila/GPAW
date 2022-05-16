@@ -196,61 +196,31 @@ class DeferredSigmaIntegrator:
         full_index_m = np.array(lst_index_m, dtype=np.int)
 
         x = 1 / (self.g0w0.qd.nbzkpts * 2 * pi * self.g0w0.vol)
+        sigma_flat = self.sigma_eskn.ravel()
+        dsigma_flat = self.dsigma_eskn.ravel()
         for w, o_m, n_mG, sgn_m, index_m in pair_densities_sorted(full_w_m, full_o_m, full_n_mG, full_sgn_m, full_index_m):
             if w >= len(self.g0w0.wd.omega_w) - 1:
                 continue
-            #print('w', w,'o_m shape', o_m.shape, 'n_mG shape', n_mG.shape, sgn_m.shape)
             o1 = self.g0w0.wd.omega_w[w]
             o2 = self.g0w0.wd.omega_w[w+1]
             C1_GG = C_swGG[s][w]
             C2_GG = C_swGG[s][w + 1]
-            # print('sum of C1_GG', np.sum(C1_GG.ravel()))
             p_m = x * sgn_m
             myn_mG = n_mG[:, self.g0w0.blocks1d.myslice].copy()
-            # print('sum my myn_mg', np.sum(myn_mG))
-            # C1 and C2_GG can be concatenated automatically
             self.g0w0.timer.start('dot')
             temp1_mG = myn_mG @ C1_GG
             temp2_mG = myn_mG @ C2_GG
             self.g0w0.timer.stop('dot')
-            #myn_mG = myn_mG.copy()
-            #self.g0w0.timer.start('dot w. copy')
-            #temp1_mG = myn_mG @ C1_GG
-            #temp2_mG = myn_mG @ C2_GG
-            #self.g0w0.timer.stop('dot w. copy')
-
-
-            # n_mg S_gG' n_G'm:
-            #
-            """if self.blockcomm.size > 1:
-                x_mG = n_mG[:, blocks1d.myslice]
-                gemm(1.0,
-                     n_mG.T.copy(),
-                     np.concatenate((p1_m[:, None] * x_mG,
-                                     p2_m[:, None] * x_mG),
-                                    axis=1).T.copy(),
-                     1.0,
-                     chi0_wGG[w:w + 2].reshape((2 * blocks1d.nlocal,
-                                                blocks1d.N)),
-                     'c')
-            """
+            
             self.g0w0.timer.start('collect part 1')
             sigma1_m = p_m * np.sum(temp1_mG * n_mG.conj(), axis=1).imag
             sigma2_m = p_m * np.sum(temp2_mG * n_mG.conj(), axis=1).imag
             self.g0w0.timer.stop('collect part 1')
             self.g0w0.timer.start('collect part 2')
-            sigma_flat = self.sigma_eskn.ravel()
-            dsigma_flat = self.dsigma_eskn.ravel()
 
-            #for index, sigma1, sigma2, o, sgn in zip(index_m, sigma1_m, sigma2_m, o_m, sgn_m):
-            #    #print('sigmas new', sigma1_m, sigma2_m)
-            #    #print('Contribution', ( (o - o1) * sigma2 + (o2 - o) * sigma1 ) / (o2 - o1))
-            #    sigma_flat[index] += ( (o - o1) * sigma2 + (o2 - o) * sigma1 ) / (o2 - o1)
-            #    dsigma_flat[index]  += sgn * (sigma2 - sigma1) / (o2 - o1)
             np.add.at(sigma_flat, index_m, ( (o_m - o1) * sigma2_m + (o2 - o_m) * sigma1_m ) / (o2 - o1))
             np.add.at(dsigma_flat, index_m, sgn_m * (sigma2_m - sigma1_m) / (o2 - o1))
             self.g0w0.timer.stop('collect part 2')
-            #sigma += np.sum(((o_m - o1) * sigma2_m + (o2 - o_m) * sigma1_m) / (o2 - o1))
 
 
 
@@ -629,9 +599,7 @@ class G0W0(PairDensity):
         while self.ite < self.maxiter:
             # Reset calculation
             # self-energies
-            self.sigma_eskn = np.zeros((len(self.ecut_e), ) + self.shape)
             # derivatives of self-energies
-            self.dsigma_eskn = np.zeros((len(self.ecut_e), ) + self.shape)
             self.sigma_integrator = DeferredSigmaIntegrator(self, (len(self.ecut_e), ) + self.shape)
 
             if self.do_GW_too:
@@ -680,15 +648,13 @@ class G0W0(PairDensity):
                     k1 = kd.bz2ibz_k[kpt1.K]
                     i = self.kpts.index(k1)
 
-                    #self.calculate_q(ie, i, kpt1, kpt2, pd0, W0, W0_GW)
                     self.sigma_integrator.calculate_q(ie, i, kpt1, kpt2, pd0, W0, W0_GW, sign=self.sign, U_cc=self.U_cc)
                 self.sigma_integrator.flush(W0)
-                #print(self.sigma_eskn, self.sigma_integrator.sigma_eskn)
-                #assert np.allclose(self.sigma_eskn, self.sigma_integrator.sigma_eskn)
-                #assert np.allclose(self.dsigma_eskn, self.sigma_integrator.dsigma_eskn)
+
                 nQ += 1
             pb.finish()
-
+            self.sigma_eskn = self.sigma_integrator.sigma_eskn
+            self.dsigma_eskn = self.sigma_integrator.dsigma_eskn
             self.world.sum(self.sigma_eskn)
             self.world.sum(self.dsigma_eskn)
 
