@@ -437,6 +437,11 @@ class ETDM:
             phi_2i[1], der_phi_2i[1] = phi_2i[0], der_phi_2i[0]
             phi_2i[0], der_phi_2i[0] = phi_alpha, der_phi_alpha,
 
+            from ase.parallel import parprint
+            parprint('occ')
+            for kpt in wfs.kpt_u:
+                parprint(kpt.f_n)
+
     def get_energy_and_gradients(self, a_vec_u, n_dim, ham, wfs, dens, c_ref):
 
         """
