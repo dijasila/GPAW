@@ -4,7 +4,6 @@
 # Please see the accompanying LICENSE file for further information.
 from typing import Tuple
 
-from ase.io import read
 from ase.utils import gcd
 import numpy as np
 
@@ -588,6 +587,7 @@ class CLICommand:
         from gpaw.new.input_parameters import kpts
         from ase.cli.run import str2dict
         from ase.db import connect
+        from ase.io import read
 
         if args.filename == '-':
             atoms = next(connect(sys.stdin).select()).toatoms()

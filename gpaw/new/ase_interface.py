@@ -6,6 +6,7 @@ from typing import IO, Any, Union
 
 from ase import Atoms
 from ase.units import Ha
+
 from gpaw import __version__
 from gpaw.new import Timer
 from gpaw.new.calculation import DFTCalculation, units
@@ -13,6 +14,7 @@ from gpaw.new.gpw import read_gpw, write_gpw
 from gpaw.new.input_parameters import InputParameters
 from gpaw.new.logger import Logger
 from gpaw.typing import Array1D, Array2D
+from gpaw.utilities.memory import maxrss
 
 
 def GPAW(filename: Union[str, Path, IO[str]] = None,
@@ -73,8 +75,6 @@ class ASECalculator:
         * magmoms
         * dipole
         """
-        log = self.log
-
         if self.calculation is not None:
             changes = compare_atoms(self.atoms, atoms)
             if changes & {'numbers', 'pbc', 'cell'}:
@@ -97,12 +97,12 @@ class ASECalculator:
         if prop not in self.calculation.results:
             if prop == 'forces':
                 with self.timer('Forces'):
-                    self.calculation.forces(log)
+                    self.calculation.forces()
             elif prop == 'stress':
                 with self.timer('Stress'):
-                    self.calculation.stress(log)
+                    self.calculation.stress()
             elif prop == 'dipole':
-                self.calculation.dipole(log)
+                self.calculation.dipole()
             else:
                 raise ValueError('Unknown property:', prop)
 
@@ -116,7 +116,7 @@ class ASECalculator:
 
     def move_atoms(self, atoms):
         with self.timer('Move'):
-            self.calculation = self.calculation.move_atoms(atoms, self.log)
+            self.calculation = self.calculation.move_atoms(atoms)
 
     def converge(self, atoms):
         """Iterate to self-consistent solution.
@@ -125,18 +125,21 @@ class ASECalculator:
         and dipole moment.
         """
         with self.timer('SCF'):
-            self.calculation.converge(self.log)
+            self.calculation.converge()
 
         # Calculate all the cheap things:
-        self.calculation.energies(self.log)
-        self.calculation.dipole(self.log)
-        self.calculation.magmoms(self.log)
+        self.calculation.energies()
+        self.calculation.dipole()
+        self.calculation.magmoms()
 
         self.atoms = atoms.copy()
-        self.calculation.write_converged(self.log)
+        self.calculation.write_converged()
 
     def __del__(self):
+        self.log('---')
         self.timer.write(self.log)
+        mib = maxrss() / 1024**2
+        self.log(f'\nMax RSS: {mib:.3f}  # MiB')
 
     def get_potential_energy(self,
                              atoms: Atoms,
@@ -193,14 +196,18 @@ class ASECalculator:
         Q_aL = Q_aL.gather()
         return Q_aL.data[::9] * (Ha / (4 * pi)**0.5)
 
+    def get_eigenvalues(self, kpt=0, spin=0):
+        state = self.calculation.state
+        return state.ibzwfs.get_eigs_and_occs(k=kpt, s=spin)[0] * Ha
+
     def write(self, filename, mode=''):
         """Write calculator object to a file.
 
         Parameters
         ----------
-        filename
+        filename:
             File to be written
-        mode
+        mode:
             Write mode. Use ``mode='all'``
             to include wave functions in the file.
         """
@@ -212,10 +219,11 @@ class ASECalculator:
 
 def write_header(log, world, params):
     from gpaw.io.logger import write_header as header
-    log(f' __  _  _\n| _ |_)|_||  |\n|__||  | ||/\\| - {__version__}\n')
+    log(f'#  __  _  _\n# | _ |_)|_||  |\n# |__||  | ||/\\| - {__version__}\n')
     header(log, world)
-    log('Input parameters = {\n   ',
-        ',\n    '.join(f'{k!r}: {v!r}' for k, v in params.items()) + '}')
+    log('---')
+    with log.indent('input parameters:'):
+        log(**{k: v for k, v in params.items()})
 
 
 def compare_atoms(a1: Atoms, a2: Atoms) -> set[str]:
