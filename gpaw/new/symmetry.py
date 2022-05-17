@@ -24,7 +24,7 @@ def create_symmetries_object(atoms, ids=None, magmoms=None, parameters=None):
     return Symmetries(symmetry)
 
 
-def mat(rot_cc: ArrayLike2D) -> str:
+def mat(rot_cc) -> str:
     """Convert 3x3 matrix to str.
 
     >>> mat([[-1, 0, 0], [0, 1, 0], [0, 0, 1]])
