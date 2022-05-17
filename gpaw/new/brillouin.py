@@ -65,8 +65,7 @@ class IBZ:
 
     def __str__(self):
         N = len(self)
-        txt = (f'{self.symmetries}\n'
-               'bz sampling:\n'
+        txt = ('bz sampling:\n'
                f'  number of bz points: {len(self.bz)}\n'
                f'  number of ibz points: {N}\n')
 

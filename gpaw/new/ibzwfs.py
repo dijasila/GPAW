@@ -93,7 +93,8 @@ class IBZWaveFunctions:
                 self.kpt_comm.rank == 0)
 
     def __str__(self):
-        return (f'{self.ibz}\n'
+        return (f'{self.ibz.symmetries}\n'
+                f'{self.ibz}\n'
                 f'Valence electrons: {self.nelectrons}\n'
                 f'Spin-degeneracy: {self.spin_degeneracy}')
 
