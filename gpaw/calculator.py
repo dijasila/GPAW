@@ -52,8 +52,6 @@ from gpaw.xc import XC
 from gpaw.xc.kernel import XCKernel
 from gpaw.xc.sic import SIC
 
-globit = -1
-
 
 class GPAW(Calculator):
     """This is the ASE-calculator frontend for doing a GPAW calculation."""
