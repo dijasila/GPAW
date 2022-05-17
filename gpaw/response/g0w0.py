@@ -143,9 +143,12 @@ class DeferredSigmaIntegrator:
         self.sigma_eskn = np.zeros(shape)
         self.dsigma_eskn = np.zeros(shape)
         self.data_s = [ [], [] ]
+        self.memory = 0
 
     @timer('push')
     def push(self, index, n_mG, deps_m, f_m, C_swGG):
+        if len(deps_m) == 0:
+            return
         o_m = abs(deps_m)
         # Add small number to avoid zeros for degenerate states:
         sgn_m = np.sign(deps_m + 1e-15)
@@ -158,8 +161,8 @@ class DeferredSigmaIntegrator:
         s1 = np.where(s_m == 1)[0]
         self.data_s[0].append( (index, o_m[s0], n_mG[s0], w_m[s0], sgn_m[s0]) )
         self.data_s[1].append( (index, o_m[s1], n_mG[s1], w_m[s1], sgn_m[s1]) )
-
-        if len(self.data_s[0]) > 25000 or len(self.data_s[1]) > 25000:
+        self.memory += n_mG.nbytes        
+        if self.memory > 700*1024**2: # Buffer at most 300 MB of pair densities
             self.flush(C_swGG)
 
     @timer('flush')
@@ -172,6 +175,8 @@ class DeferredSigmaIntegrator:
             for s in range(2):
                 self.flush(C_swGG, s)
             return
+
+        self.memory = 0
         
         lst_o_m = []
         lst_w_m = []
@@ -188,10 +193,12 @@ class DeferredSigmaIntegrator:
                 lst_index_m.append(flat_index)
         
         self.data_s[s] = []
+        if len(lst_o_m) == 0:
+            return
 
         full_o_m = np.concatenate(lst_o_m)
         full_sgn_m = np.concatenate(lst_sgn_m)
-        full_n_mG = np.concatenate(lst_n_mG).copy()
+        full_n_mG = np.concatenate(lst_n_mG)
         full_w_m = np.concatenate(lst_w_m)
         full_index_m = np.array(lst_index_m, dtype=np.int)
 
