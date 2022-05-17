@@ -21,7 +21,7 @@ class Potential:
 
     def __str__(self) -> str:
         return (f'potential:\n'
-                f'  grid points: {self.nt_sR.desc.size}\n')
+                f'  grid points: {self.vt_sR.desc.size}\n')
 
     def dH(self, P_ani, out_ani, spin):
         if len(P_ani.dims) == 1:  # collinear wave functions
