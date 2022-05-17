@@ -51,7 +51,7 @@ libxc:
   script:
     - git clone https://gitlab.com/libxc/libxc.git
     - cd libxc
-    - git checkout 5.2.2
+    - git checkout 5.2.3
     - autoreconf -i
     - ./configure --enable-shared --disable-fortran --prefix=$HOME/libxc
     - make > libxc-install.out
