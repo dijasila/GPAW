@@ -7,8 +7,7 @@ gpaw_yaml = ExternalIOFormat(
     desc='GPAW-yaml output',
     code='+B',
     module='gpaw.yml',
-    magic=b'#  __  _  _',
-    glob=['*.yaml', '*.yml', '*.txt'])
+    magic=b'#  __  _  _')
 
 
 def read_gpaw_yaml(fd, index):
@@ -54,7 +53,6 @@ def dict2atoms(dct) -> Atoms:
 
 if __name__ == '__main__':
     import sys
-
     import yaml
     for dct in yaml.safe_load_all(open(sys.argv[1])):
         print(dct)
