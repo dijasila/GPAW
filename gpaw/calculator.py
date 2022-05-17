@@ -3,8 +3,6 @@
 The central object that glues everything together.
 """
 
-from ase.parallel import parprint
-
 import warnings
 from typing import Any, Dict
 
@@ -229,14 +227,6 @@ class GPAW(Calculator):
 
         if hasattr(self, 'reader') and self.reader is not None:
             self.reader.close()
-
-    def write_it(self):
-        global globit
-        globit += 1
-        self.write(str(globit) + '.gpw', mode = 'all')
-        for kpt in self.wfs.kpt_u:
-            parprint(kpt.f_n)
-        raise Exception()
 
     def write(self, filename, mode=''):
         """Write calculator object to a file.
