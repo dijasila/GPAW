@@ -20,7 +20,7 @@ master:
     - pip install -e .
     - gpaw install-data --register pawdata
     - gpaw test
-    - OMP_NUM_THREADS=2 pytest -v -m ci -We,i::ImportWarning
+    - OMP_NUM_THREADS=2 pytest -v -m ci -We -Wi::ImportWarning
     - pip install types-PyYAML
     - mypy -p gpaw
     - flake8 --doctests gpaw

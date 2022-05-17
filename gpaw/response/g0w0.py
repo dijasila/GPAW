@@ -165,7 +165,7 @@ class G0W0(PairDensity):
         frequencies:
             Input parameters for frequency_grid.
             Can be array of frequencies to evaluate the response function at
-            or dictionary of paramaters for build-in nonlinear grid
+            or dictionary of parameters for build-in nonlinear grid
             (see :ref:`frequency grid`).
         ecut: float
             Plane wave cut-off energy in eV.
