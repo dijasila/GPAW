@@ -5,6 +5,7 @@ from gpaw.mpi import MPIComm
 from gpaw.new.brillouin import IBZ, BZPoints
 from gpaw.rotation import rotation
 from gpaw.symmetry import Symmetry as OldSymmetry
+from gpaw.typing import ArrayLike2D
 
 
 def create_symmetries_object(atoms, ids=None, magmoms=None, parameters=None):
@@ -23,7 +24,20 @@ def create_symmetries_object(atoms, ids=None, magmoms=None, parameters=None):
     return Symmetries(symmetry)
 
 
+def mat(rot_cc: ArrayLike2D) -> str:
+    """Convert 3x3 matrix to str.
+
+    >>> mat([[-1, 0, 0], [0, 1, 0], [0, 0, 1]])
+    '[[-1,  0,  0], [ 0,  1,  0], [ 0,  0,  1]]'
+
+    """
+    return '[[' + '], ['.join(', '.join(f'{r:2}'
+                                        for r in rot_c)
+                              for rot_c in rot_cc) + ']]'
+
+
 class Symmetries:
+    """Wrapper for old symmetry object.  Exposes what we need now."""
     def __init__(self, symmetry):
         self.symmetry = symmetry
         self.rotation_scc = symmetry.op_scc
@@ -43,14 +57,22 @@ class Symmetries:
         return len(self.rotation_scc)
 
     def __str__(self):
-        return ('symmetry:\n'
-                f'  number of symmetries: {len(self)}\n' +
-                '  rotations = [\n    [[' +
-                ']],\n    [['.join('], ['.join(', '.join(f'{r:2}'
-                                                         for r in rot_c)
-                                               for rot_c in rot_cc)
-                                   for rot_cc in self.rotation_scc) +
-                ']]]\n')
+        lines = ['symmetry:',
+                 f'  number of symmetries: {len(self)}']
+        if self.symmetry.symmorphic:
+            lines.append('  rotations: [')
+            for rot_cc in self.rotation_scc:
+                lines.append(f'    {mat(rot_cc)},')
+        else:
+            nt = self.translation_sc.any(1).sum()
+            lines.append(f'  number of symmetries with translation: {nt}')
+            lines.append('  rotations and translations: [')
+            for rot_cc, t_c in zip(self.rotation_scc, self.translation_sc):
+                a, b, c = t_c
+                lines.append(f'    [{mat(rot_cc)}, '
+                             f'[{a:6.3f}, {b:6.3f}, {c:6.3f}]],')
+        lines[-1] = lines[-1][:-1] + ']\n'
+        return '\n'.join(lines)
 
     def reduce(self,
                bz: BZPoints,

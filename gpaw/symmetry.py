@@ -555,17 +555,21 @@ class CLICommand:
     Example:
 
         $ ase build -x bcc -a 3.5 Li | gpaw symmetry -k "{density:3,gamma:1}"
-        Symmetries present (total): 48
-        Symmetries with fractional translations: 0
-        1000 k-points: 10 x 10 x 10 Monkhorst-Pack grid + [1/20,1/20,1/20]
-        47 k-points in the irreducible part of the Brillouin zone
+        symmetry:
+          number of symmetries: 48
+          number of symmetries with translation: 0
 
+        bz sampling:
+          number of bz points: 512
+          number of ibz points: 29
+          monkhorst-pack size: [8, 8, 8]
+          monkhorst-pack shift: [0.0625, 0.0625, 0.0625]
     """
 
     @staticmethod
     def add_arguments(parser):
         parser.add_argument('-t', '--tolerance', type=float, default=1e-7,
-                            help='Tolerance used for idintifying symmetries.')
+                            help='Tolerance used for identifying symmetries.')
         parser.add_argument(
             '-k', '--k-points',
             help='Use symmetries to reduce number of k-points.  '
@@ -599,11 +603,13 @@ class CLICommand:
                         'symmorphic': args.symmorphic})
         txt = str(symmetries)
         if not args.verbose:
-            txt = txt.split('\n\n', 1)[0]
+            txt = txt.split('  rotations', 1)[0]
         print(txt)
         if args.k_points:
             k = str2dict('kpts=' + args.k_points)['kpts']
             bz = create_kpts(kpts(k), atoms)
             ibz = symmetries.reduce(bz)
-            txt = ibz.description(args.verbose)
-            print(txt.rstrip())
+            txt = str(ibz)
+            if not args.verbose:
+                txt = txt.split('  points and weights:', 1)[0]
+            print(txt)

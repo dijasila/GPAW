@@ -65,13 +65,12 @@ class IBZ:
 
     def __str__(self):
         N = len(self)
-        txt = (f'{self.symmetries}\n'
-               'bz sampling:\n'
+        txt = ('bz sampling:\n'
                f'  number of bz points: {len(self.bz)}\n'
                f'  number of ibz points: {N}\n')
 
         if isinstance(self.bz, MonkhorstPackKPoints):
-            txt += '  ' + str(self.bz).replace('\n', '\n  ')
+            txt += '  ' + str(self.bz).replace('\n', '\n  ', 1)
 
         txt += '  points and weights: [\n'
         k = 0
