@@ -213,15 +213,16 @@ class DeferredSigmaIntegrator:
             C1_GG = C_swGG[s][w]
             C2_GG = C_swGG[s][w + 1]
             p_m = x * sgn_m
-            myn_mG = n_mG[:, self.g0w0.blocks1d.myslice].copy()
+            myn_mG = n_mG[:, self.g0w0.blocks1d.myslice]
+            n_mG = n_mG.conj().copy()
             self.g0w0.timer.start('dot')
-            temp1_mG = myn_mG @ C1_GG
-            temp2_mG = myn_mG @ C2_GG
+            temp1_mg = n_mG @ C1_GG.T
+            temp2_mg = n_mG @ C2_GG.T
             self.g0w0.timer.stop('dot')
             
             self.g0w0.timer.start('collect part 1')
-            sigma1_m = p_m * np.sum(temp1_mG * n_mG.conj(), axis=1).imag
-            sigma2_m = p_m * np.sum(temp2_mG * n_mG.conj(), axis=1).imag
+            sigma1_m = p_m * np.sum(temp1_mg * myn_mG, axis=1).imag
+            sigma2_m = p_m * np.sum(temp2_mg * myn_mG, axis=1).imag
             self.g0w0.timer.stop('collect part 1')
             self.g0w0.timer.start('collect part 2')
 
