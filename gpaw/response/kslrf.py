@@ -705,11 +705,24 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         return self.blockdist.distribute_frequencies(chiks_wGG)
 
 
-class Integrator:
-    """Baseclass for integrating over k-points in the first Brillouin Zone
-    and summing over bands and spin.
+class Integrator:  # --> PairFunctionIntegrator in the future? XXX
+    r"""Baseclass for reciprocal space integrals of the first Brillouin Zone,
+    where the integrand is a sum over transitions in bands and spin.
+
+    Definition (V0 is the cell volume, V the crystal volume, Nk is the number
+    of k-points in the crystal and D is the dimension of the crystal):
+       __  __           __  __                   __
+    1  \   \       1    \   \         1     /    \
+    ‾  /   /   =  ‾‾‾‾  /   /   =  ‾‾‾‾‾‾‾  |dk  /
+    V  ‾‾  ‾‾     V0Nk  ‾‾  ‾‾     (2pi)^D  /    ‾‾
+       k   t            k   t                    t
+
+    NB: In the current implementation, the dimension is fixed to 3. This is
+    sensible for pair functions which are a function of position (such as the
+    susceptibility), but not for e.g. a joint density of states of a lower
+    dimensional crystal.
     """
-    def __init__(self, kslrf):
+    def __init__(self, kslrf):  # Make independent of kslrf in the future? XXX
         """
         Parameters
         ----------
@@ -747,14 +760,37 @@ class Integrator:
     @timer('Integrate response function')
     def integrate(self, n1_t, n2_t, s1_t, s2_t,
                   out_x=None, **kwargs):
-        if out_x is None:
+        r"""Estimate the reciprocal space integral as the sum over a discrete
+        k-point domain. The domain will genererally depend on the integration
+        method as well as the symmetry of the crystal.
+
+        Definition (here k denotes the k-point domain specified by the method,
+        which also defines an extra prefactor A and k-point weights wk):
+                      __             __               __
+           1     /    \   ~    A     \   (2pi)^D      \
+        ‾‾‾‾‾‾‾  |dk  /   = ‾‾‾‾‾‾‾  /   ‾‾‾‾‾‾‾  wk  /
+        (2pi)^D  /    ‾‾    (2pi)^D  ‾‾   Nk V0       ‾‾
+                      t              k                t
+
+        The actual reciprocal space integral,
+        __               __
+        \   (2pi)^D      \
+        /   ‾‾‾‾‾‾‾  wk  /
+        ‾‾   Nk V0       ‾‾
+        k                t
+        is implemented in the method specific class through the in-place
+        self._integrate() method.
+        """
+        if out_x is None:  # Why is it None by default then? XXX
             raise NotImplementedError
 
         bzk_kv, weight_k = self.get_kpoint_domain()
         prefactor = self.calculate_bzint_prefactor(bzk_kv)
         out_x /= prefactor
+        # Move slicing of domain here XXX
         self._integrate(bzk_kv, weight_k,
                         n1_t, n2_t, s1_t, s2_t, out_x, **kwargs)
+        # Move sum over kblockcomm here XXX
         out_x *= prefactor
 
         return out_x
