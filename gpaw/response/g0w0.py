@@ -30,6 +30,8 @@ from gpaw.xc.exx import EXX, select_kpts
 from gpaw.xc.fxc import set_flags
 from gpaw.xc.tools import vxc
 from gpaw.response.temp import DielectricFunctionCalculator
+from gpaw.utilities.blas import gemm
+from gpaw.response.integrators import pair_densities_sorted
 
 
 gw_logo = """\
@@ -40,7 +42,7 @@ gw_logo = """\
  |___|
 """
 
-
+ 
 def get_max_nblocks(world, calc, ecut):
     nblocks = world.size
     if isinstance(calc, GPAW):
@@ -117,6 +119,183 @@ def choose_ecut_things(ecut, ecut_extrapolation, savew):
         ecut_e = np.array([ecut])
     return ecut, ecut_e
 
+class NewChi0BodyCalculator:
+    def __init__(self,
+                 calc,
+                 *,
+                 ecut=50, nbands=None,
+                 ftol=1e-6, 
+                 nblocks=1,
+                 frequencies=None):
+        self.calc = calc
+        self.ecut = ecut
+        self.nbands = nbands
+        self.ftol= ftol
+        self.nblocks = nblocks
+        self.frequencies = frequencies
+
+
+
+class DeferredSigmaIntegrator:
+    def __init__(self, g0w0, shape):
+        self.g0w0 = g0w0
+        self.timer = g0w0.timer
+        self.sigma_eskn = np.zeros(shape)
+        self.dsigma_eskn = np.zeros(shape)
+        self.data_s = [ [], [] ]
+        self.memory = 0
+
+    @timer('push')
+    def push(self, index, n_mG, deps_m, f_m, C_swGG):
+        if len(deps_m) == 0:
+            return
+        o_m = abs(deps_m)
+        # Add small number to avoid zeros for degenerate states:
+        sgn_m = np.sign(deps_m + 1e-15)
+
+        # Pick +i*eta or -i*eta:
+        s_m = (1 + sgn_m * np.sign(0.5 - f_m)).astype(int) // 2
+        w_m = self.g0w0.wd.get_floor_index(o_m, safe=False)
+        
+        s0 = np.where(s_m == 0)[0]
+        s1 = np.where(s_m == 1)[0]
+        self.data_s[0].append( (index, o_m[s0], n_mG[s0], w_m[s0], sgn_m[s0]) )
+        self.data_s[1].append( (index, o_m[s1], n_mG[s1], w_m[s1], sgn_m[s1]) )
+        self.memory += n_mG.nbytes        
+        if self.memory > 700*1024**2: # Buffer at most 300 MB of pair densities
+            self.flush(C_swGG)
+
+    @timer('flush')
+    def flush(self, C_swGG, s=None):
+        """
+            Finalize the integration by emptying the integration buffers.
+
+        """
+        if s is None:
+            for s in range(2):
+                self.flush(C_swGG, s)
+            return
+
+        self.memory = 0
+        
+        lst_o_m = []
+        lst_w_m = []
+        lst_n_mG = []
+        lst_sgn_m = []
+        lst_index_m = []
+        for index, o_m, n_mG, w_m, sgn_m in self.data_s[s]:
+            lst_o_m.append(o_m)
+            lst_n_mG.append(n_mG)
+            lst_w_m.append(w_m)
+            lst_sgn_m.append(sgn_m)
+            flat_index = np.ravel_multi_index(index, self.sigma_eskn.shape)
+            for x in range(len(o_m)):
+                lst_index_m.append(flat_index)
+        
+        self.data_s[s] = []
+        if len(lst_o_m) == 0:
+            return
+
+        full_o_m = np.concatenate(lst_o_m)
+        full_sgn_m = np.concatenate(lst_sgn_m)
+        full_n_mG = np.concatenate(lst_n_mG)
+        full_w_m = np.concatenate(lst_w_m)
+        full_index_m = np.array(lst_index_m, dtype=np.int)
+
+        x = 1 / (self.g0w0.qd.nbzkpts * 2 * pi * self.g0w0.vol)
+        sigma_flat = self.sigma_eskn.ravel()
+        dsigma_flat = self.dsigma_eskn.ravel()
+        for w, o_m, n_mG, sgn_m, index_m in pair_densities_sorted(full_w_m, full_o_m, full_n_mG, full_sgn_m, full_index_m):
+            if w >= len(self.g0w0.wd.omega_w) - 1:
+                continue
+
+            o1 = self.g0w0.wd.omega_w[w]
+            o2 = self.g0w0.wd.omega_w[w+1]
+
+            C_wGG = C_swGG[s][w:w+2] # full G is the fastest running index, g is second, w is slowest
+            C_xG = C_wGG.reshape( (2*C_wGG.shape[1], C_wGG.shape[2]) ) # x = 2 frequencies x g
+
+            p_m = x * sgn_m
+            myn_mG = n_mG[:, self.g0w0.blocks1d.myslice].copy()
+            #n_mG = n_mG.conj().copy()
+            self.g0w0.timer.start('dot')
+            
+            temp_wgm = (C_xG @ n_mG.T.conj()).reshape( (2, myn_mG.shape[1], n_mG.shape[0]) )
+            self.g0w0.timer.stop('dot')
+            self.g0w0.timer.start('collect part 1')
+            sigma_wm = np.sum(temp_wgm * myn_mG.T[None, :, :], axis=1).imag
+            self.g0w0.timer.stop('collect part 1')
+            self.g0w0.timer.start('collect part 2')
+            np.add.at(sigma_flat, index_m, ( (o_m - o1) * p_m * sigma_wm[1] + (o2 - o_m) * p_m * sigma_wm[0] ) / (o2 - o1))
+            np.add.at(dsigma_flat, index_m, sgn_m * p_m * (sigma_wm[1] - sigma_wm[0]) / (o2 - o1))
+            self.g0w0.timer.stop('collect part 2')
+
+
+    def calculate_q(self, ie, k, kpt1, kpt2, pd0, W0, W0_GW=None, sign=None, U_cc=None):
+        """Calculates the contribution to the self-energy and its derivative
+        for a given set of k-points, kpt1 and kpt2."""
+
+        if W0_GW is None:
+            Ws = [W0]
+        else:
+            Ws = [W0, W0_GW]
+
+        wfs = self.g0w0.calc.wfs
+
+        N_c = pd0.gd.N_c
+        i_cG = sign * np.dot(U_cc,
+                             np.unravel_index(pd0.Q_qG[0], N_c))
+
+        q_c = wfs.kd.bzk_kc[kpt2.K] - wfs.kd.bzk_kc[kpt1.K]
+
+        shift0_c = q_c - sign * np.dot(U_cc, pd0.kd.bzk_kc[0])
+        assert np.allclose(shift0_c.round(), shift0_c)
+        shift0_c = shift0_c.round().astype(int)
+
+        shift_c = kpt1.shift_c - kpt2.shift_c - shift0_c
+        I_G = np.ravel_multi_index(i_cG + shift_c[:, None], N_c, 'wrap')
+
+        G_Gv = pd0.get_reciprocal_vectors()
+        pos_av = np.dot(self.g0w0.spos_ac, pd0.gd.cell_cv)
+        M_vv = np.dot(pd0.gd.cell_cv.T,
+                      np.dot(U_cc.T,
+                             np.linalg.inv(pd0.gd.cell_cv).T))
+
+        Q_aGii = []
+        for a, Q_Gii in enumerate(self.g0w0.Q_aGii):
+            x_G = np.exp(1j * np.dot(G_Gv, (pos_av[a] -
+                                            np.dot(M_vv, pos_av[a]))))
+            U_ii = self.g0w0.calc.wfs.setups[a].R_sii[self.g0w0.s]
+            Q_Gii = np.dot(np.dot(U_ii, Q_Gii * x_G[:, None, None]),
+                           U_ii.T).transpose(1, 0, 2)
+            if sign == -1:
+                Q_Gii = Q_Gii.conj()
+            Q_aGii.append(Q_Gii)
+
+        if debug:
+            self.g0w0.check(ie, i_cG, shift0_c, N_c, q_c, Q_aGii)
+
+        if self.g0w0.ppa:
+            raise SystemExit
+
+        for n in range(kpt1.n2 - kpt1.n1):
+            ut1cc_R = kpt1.ut_nR[n].conj()
+            eps1 = kpt1.eps_n[n]
+            C1_aGi = [np.dot(Qa_Gii, P1_ni[n].conj())
+                      for Qa_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
+            n_mG = self.g0w0.calculate_pair_densities(ut1cc_R, C1_aGi, kpt2,
+                                                 pd0, I_G)
+
+            if sign == 1:
+                n_mG = n_mG.conj()
+
+            f_m = kpt2.f_n
+            deps_m = eps1 - kpt2.eps_n
+
+            nn = kpt1.n1 + n - self.g0w0.bands[0]
+
+            assert len(Ws)==1 
+            self.push( (ie, kpt1.s, k, nn), n_mG, deps_m, f_m, Ws[0])
 
 class G0W0(PairDensity):
     av_scheme = None  # to appease set_flags()
@@ -427,9 +606,8 @@ class G0W0(PairDensity):
         while self.ite < self.maxiter:
             # Reset calculation
             # self-energies
-            self.sigma_eskn = np.zeros((len(self.ecut_e), ) + self.shape)
             # derivatives of self-energies
-            self.dsigma_eskn = np.zeros((len(self.ecut_e), ) + self.shape)
+            self.sigma_integrator = DeferredSigmaIntegrator(self, (len(self.ecut_e), ) + self.shape)
 
             if self.do_GW_too:
                 self.sigma_GW_eskn = np.zeros((len(self.ecut_e), ) +
@@ -477,10 +655,13 @@ class G0W0(PairDensity):
                     k1 = kd.bz2ibz_k[kpt1.K]
                     i = self.kpts.index(k1)
 
-                    self.calculate_q(ie, i, kpt1, kpt2, pd0, W0, W0_GW)
+                    self.sigma_integrator.calculate_q(ie, i, kpt1, kpt2, pd0, W0, W0_GW, sign=self.sign, U_cc=self.U_cc)
+                self.sigma_integrator.flush(W0)
+
                 nQ += 1
             pb.finish()
-
+            self.sigma_eskn = self.sigma_integrator.sigma_eskn
+            self.dsigma_eskn = self.sigma_integrator.dsigma_eskn
             self.world.sum(self.sigma_eskn)
             self.world.sum(self.dsigma_eskn)
 
@@ -586,6 +767,45 @@ class G0W0(PairDensity):
 
         return results
 
+    @timer('Calculate pair-densities (new)')
+    def calculate_pair_densities_new(self, ut1cc_R, C1_aGi, kpt2, pd, Q_G,
+                                     block=True):
+        """Calculate FFT of pair-densities and add PAW corrections.
+
+        ut1cc_R: 3-d complex ndarray
+            Complex conjugate of the periodic part of the left hand side
+            wave function.
+        C1_aGi: list of ndarrays
+            PAW corrections for all atoms.
+        kpt2: KPoint object
+            Right hand side k-point object.
+        pd: PWDescriptor
+            Plane-wave descriptor for for q=k2-k1.
+        Q_G: 1-d int ndarray
+            Mapping from flattened 3-d FFT grid to 0.5(G+q)^2<ecut sphere.
+        """
+
+        dv = pd.gd.dv
+        n_mG = pd.empty(kpt2.blocksize)
+        myblocksize = kpt2.nb - kpt2.na
+
+        for ut_R, n_G in zip(kpt2.ut_nR, n_mG):
+            n_R = ut1cc_R * ut_R
+            with self.timer('fft'):
+                n_G[:] = pd.fft(n_R, 0, Q_G) * dv
+        # PAW corrections:
+        with self.timer('gemm'):
+            for C1_Gi, P2_mi in zip(C1_aGi, kpt2.P_ani):
+                gemm(1.0, C1_Gi, P2_mi, 1.0, n_mG[:myblocksize], 't')
+
+        if not block or self.blockcomm.size == 1:
+            return n_mG
+        else:
+            n_MG = pd.empty(kpt2.blocksize * self.blockcomm.size)
+            self.blockcomm.all_gather(n_mG, n_MG)
+            return n_MG[:kpt2.n2 - kpt2.n1]
+    
+
     def calculate_q(self, ie, k, kpt1, kpt2, pd0, W0, W0_GW=None):
         """Calculates the contribution to the self-energy and its derivative
         for a given set of k-points, kpt1 and kpt2."""
@@ -633,7 +853,9 @@ class G0W0(PairDensity):
         if self.ppa:
             calculate_sigma = self.calculate_sigma_ppa
         else:
-            calculate_sigma = self.calculate_sigma
+            # XXXXXXXXXXXXXXXXXXx
+            calculate_sigma = self.calculate_sigma_old # XXXXXXXXXXXXXXXXXXXXXXXXX
+            # XXXXXXXXXXXXXXXXXXx
 
         for n in range(kpt1.n2 - kpt1.n1):
             ut1cc_R = kpt1.ut_nR[n].conj()
@@ -642,6 +864,10 @@ class G0W0(PairDensity):
                       for Qa_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
             n_mG = self.calculate_pair_densities(ut1cc_R, C1_aGi, kpt2,
                                                  pd0, I_G)
+
+            #n2_mG = self.calculate_pair_densities_new(ut1cc_R, C1_aGi, kpt2, pd0, I_G)
+            #assert np.allclose(n_mG, n2_mG)
+
             if self.sign == 1:
                 n_mG = n_mG.conj()
 
@@ -650,6 +876,7 @@ class G0W0(PairDensity):
 
             nn = kpt1.n1 + n - self.bands[0]
 
+            
             for jj, W in enumerate(Ws):
                 sigma, dsigma = calculate_sigma(n_mG, deps_m, f_m, W)
                 if jj == 0:
@@ -674,8 +901,8 @@ class G0W0(PairDensity):
             e = abs(Q_aGii[a] - Q_Gii[G_G]).max()
             assert e < 1e-12
 
-    @timer('Sigma')
-    def calculate_sigma(self, n_mG, deps_m, f_m, C_swGG):
+    @timer('Sigma (old)')
+    def calculate_sigma_old(self, n_mG, deps_m, f_m, C_swGG):
         """Calculates a contribution to the self-energy and its derivative for
         a given (k, k-q)-pair from its corresponding pair-density and
         energy."""
@@ -707,13 +934,102 @@ class G0W0(PairDensity):
             C2_GG = C_swGG[s][w + 1]
             p = x * sgn
             myn_G = n_G[self.blocks1d.myslice]
-
+            #print('sum of myn_G', np.sum(myn_G))
+            #print('sum of C1_GG ', np.sum(C1_GG.ravel()))
             sigma1 = p * np.dot(np.dot(myn_G, C1_GG), n_G.conj()).imag
             sigma2 = p * np.dot(np.dot(myn_G, C2_GG), n_G.conj()).imag
             sigma += ((o - o1) * sigma2 + (o2 - o) * sigma1) / (o2 - o1)
+            #print('old sigmas', sigma1, sigma2)
+            #print('adding old code',w,((o - o1) * sigma2 + (o2 - o) * sigma1) / (o2 - o1) ) 
             dsigma += sgn * (sigma2 - sigma1) / (o2 - o1)
 
         return sigma, dsigma
+
+    @timer('Sigma (new)')
+    def update_sigma(self, n_m, n_mG, deps_m, f_m, C_swGG):
+        """Calculates a contribution to the self-energy and its derivative for
+        a given (k, k-q)-pair from its corresponding pair-density and
+        energy."""
+        o_m = abs(deps_m)
+        # Add small number to avoid zeros for degenerate states:
+        sgn_m = np.sign(deps_m + 1e-15)
+
+        # Pick +i*eta or -i*eta:
+        s_m = (1 + sgn_m * np.sign(0.5 - f_m)).astype(int) // 2
+         
+        s0 = np.where(s_m == 0)[0]
+        s1 = np.where(s_m == 1)[0]
+        
+        sigmam, dsigmam = self.calculate_sigma_sign(o_m[s0], n_mG[s0], C_swGG[0], sgn_m[s0])
+        sigmap, dsigmap = self.calculate_sigma_sign(o_m[s1], n_mG[s1], C_swGG[1], sgn_m[s1])
+        sigma = sigmam + sigmap
+        dsigma = dsigmap + dsigmam
+
+        self.timer.start('old ref')
+        sigmaref, dsigmaref = self.calculate_sigma_old(n_mG, deps_m,
+                                                       f_m, C_swGG)
+        self.timer.stop('old ref')
+        self.timer.start('allclose')
+        print('ref', sigmaref, 'new', sigma)
+        #assert np.allclose(sigmaref, sigma)
+        #assert np.allclose(dsigmaref, dsigma)
+        self.timer.stop('allclose')
+
+        return sigma, dsigma
+
+
+    def calculate_sigma_sign(self, o_m, n_mG, C_wGG, sgn_m):
+        w_m = self.wd.get_floor_index(o_m, safe=False)
+
+        x = 1.0 / (self.qd.nbzkpts * 2 * pi * self.vol)
+        sigma = 0.0
+        dsigma = 0.0
+        for w, o_m, n_mG, sgn_m in pair_densities_sorted(w_m, o_m, n_mG, sgn_m):
+            if w >= len(self.wd.omega_w) - 1:
+                continue
+
+            o1 = self.wd.omega_w[w]
+            o2 = self.wd.omega_w[w+1]
+            C1_GG = C_wGG[w]
+            C2_GG = C_wGG[w + 1]
+            p_m = x * sgn_m
+            myn_mG = n_mG[:, self.blocks1d.myslice]
+
+            # C1 and C2_GG can be concatenated automatically
+            self.timer.start('dot')
+            temp1_mG = myn_mG @ C1_GG
+            temp2_mG = myn_mG @ C2_GG
+            self.timer.stop('dot')
+            myn_mG = myn_mG.copy()
+            self.timer.start('dot w. copy')
+            temp1_mG = myn_mG @ C1_GG
+            temp2_mG = myn_mG @ C2_GG
+            self.timer.stop('dot w. copy')
+
+
+            # n_mg S_gG' n_G'm:
+            #
+            """if self.blockcomm.size > 1:
+                x_mG = n_mG[:, blocks1d.myslice]
+                gemm(1.0,
+                     n_mG.T.copy(),
+                     np.concatenate((p1_m[:, None] * x_mG,
+                                     p2_m[:, None] * x_mG),
+                                    axis=1).T.copy(),
+                     1.0,
+                     chi0_wGG[w:w + 2].reshape((2 * blocks1d.nlocal,
+                                                blocks1d.N)),
+                     'c')
+            """
+            self.timer.start('collect')
+            sigma1_m = p_m * np.sum(temp1_mG * n_mG.conj(), axis=1).imag
+            sigma2_m = p_m * np.sum(temp2_mG * n_mG.conj(), axis=1).imag
+            self.timer.stop('collect')
+            sigma += np.sum(((o_m - o1) * sigma2_m + (o2 - o_m) * sigma1_m) / (o2 - o1))
+            dsigma += np.sum(sgn_m * (sigma2_m - sigma1_m) / (o2 - o1))
+
+        return sigma, dsigma
+
 
     def calculate_screened_potential(self):
         """Calculates the screened potential for each q-point in the 1st BZ.
@@ -754,6 +1070,12 @@ class G0W0(PairDensity):
                           'frequencies': self.frequencies}
 
         self.fd.flush()
+
+        # self.chi0body = NewChi0BodyCalculator(self.inputcalc,
+        #                                       nbands=self.nbands,
+        #                                       ecut=self.ecut * Ha,
+        #                                       timer=self.timer,
+        #                                       nblocks=self.blockcomm.size)
 
         chi0 = Chi0(self.inputcalc,
                     nbands=self.nbands,
@@ -936,6 +1258,8 @@ class G0W0(PairDensity):
 
         chi0._calculate(pd, chi0_wGG, chi0_wxvG, chi0_wvv, m1, m2,
                         range(self.nspins), extend_head=False)
+
+        # self.chi0body.calculate(pd, chi0_wGG)
 
         if len(self.ecut_e) > 1:
             # Add chi from previous cutoff with remaining bands
@@ -1243,7 +1567,9 @@ class G0W0(PairDensity):
 
         with self.timer('Hilbert transform'):
             htp(Wp_wGG)
+            # Wp_wGG = self.blockdist.redistribute(Wp_wGG) # New: Redistribute to wGG
             htm(Wm_wGG)
+            # Wm_wGG = self.blockdist.redistribute(Wm_wGG) # New: Redistribute to wGG
 
             if self.do_GW_too:
                 Wm_GW_wGG = self.blockdist.redistribute(

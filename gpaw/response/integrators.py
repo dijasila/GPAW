@@ -13,6 +13,44 @@ from gpaw.utilities.progressbar import ProgressBar
 from gpaw.response.pw_parallelization import Blocks1D, block_partition
 
 
+def pair_densities_sorted(w_m, o_m, n_mG, extra_mx=None, extra2_mx=None):
+    # Sort frequencies
+    argsw_m = np.argsort(w_m)
+    sortedo_m = o_m[argsw_m]
+    sortedw_m = w_m[argsw_m]
+    sortedn_mG = n_mG[argsw_m]
+    if extra_mx is not None:
+        sortedextra_mx = extra_mx[argsw_m]
+    # Todo...
+    if extra2_mx is not None:
+        print(extra2_mx, argsw_m)
+        sortedextra2_mx = extra2_mx[argsw_m]
+
+
+    index = 0
+    while 1:
+        if index == len(sortedw_m):
+            break
+
+        w = sortedw_m[index]
+        startindex = index
+        while 1:
+            index += 1
+            if index == len(sortedw_m):
+                break
+            if w != sortedw_m[index]:
+                break
+
+        endindex = index
+        sl = slice(startindex, endindex)
+        if extra2_mx is not None:
+            yield w, sortedo_m[sl], sortedn_mG[sl], sortedextra_mx[sl], sortedextra2_mx[sl]
+        elif extra_mx is not None:
+            yield w, sortedo_m[sl], sortedn_mG[sl], sortedextra_mx[sl]
+        else:
+            yield w, sortedo_m[sl], sortedn_mG[sl]
+
+
 def czher(alpha: float, x, A) -> None:
     """Hermetian rank-1 update of upper half of A.
 
@@ -289,40 +327,17 @@ class PointIntegrator(Integrator):
 
         blocks1d = self._blocks1d(chi0_wGG.shape[2])
 
-        # Sort frequencies
-        argsw_m = np.argsort(w_m)
-        sortedo_m = o_m[argsw_m]
-        sortedw_m = w_m[argsw_m]
-        sortedn_mG = n_mG[argsw_m]
-
-        index = 0
-        while 1:
-            if index == len(sortedw_m):
-                break
-            
-            w = sortedw_m[index]
-            startindex = index
-            while 1:
-                index += 1
-                if index == len(sortedw_m):
-                    break
-                if w != sortedw_m[index]:
-                    break
-
-            endindex = index
-
-            # Here, we have same frequency range w, for set of
-            # electron-hole excitations from startindex to endindex.
+        for w, o_m, n_mG in pair_densities_sorted(w_m, o_m, n_mG):
             o1 = wd.omega_w[w]
             o2 = wd.omega_w[w + 1]
             p = np.abs(1 / (o2 - o1)**2)
-            p1_m = np.array(p * (o2 - sortedo_m[startindex:endindex]))
-            p2_m = np.array(p * (sortedo_m[startindex:endindex] - o1))
+            p1_m = np.array(p * (o2 - o_m))
+            p2_m = np.array(p * (o_m - o1))
 
             if self.blockcomm.size > 1 and w + 1 < wd.wmax:
-                x_mG = sortedn_mG[startindex:endindex, blocks1d.myslice]
+                x_mG = n_mG[:, blocks1d.myslice]
                 gemm(1.0,
-                     sortedn_mG[startindex:endindex].T.copy(),
+                     n_mG.T.copy(),
                      np.concatenate((p1_m[:, None] * x_mG,
                                      p2_m[:, None] * x_mG),
                                     axis=1).T.copy(),
@@ -332,11 +347,10 @@ class PointIntegrator(Integrator):
                      'c')
 
             if self.blockcomm.size <= 1 and w + 1 < wd.wmax:
-                x_mG = sortedn_mG[startindex:endindex]
-                l_Gm = (p1_m[:, None] * x_mG).T.copy()
-                r_Gm = x_mG.T.copy()
+                l_Gm = (p1_m[:, None] * n_mG).T.copy()
+                r_Gm = n_mG.T.copy()
                 gemm(1.0, l_Gm, r_Gm, 1.0, chi0_wGG[w], 'c')
-                l_Gm = (p2_m[:, None] * x_mG).T.copy()
+                l_Gm = (p2_m[:, None] * n_mG).T.copy()
                 gemm(1.0, l_Gm, r_Gm, 1.0, chi0_wGG[w + 1], 'c')
 
     @timer('CHI_0 intraband update')
