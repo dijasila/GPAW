@@ -412,7 +412,7 @@ class Matrix:
             np.negative(self.data.imag, self.data.imag)
 
     def add_hermitian_conjugate(self, scale: float = 1.0) -> None:
-        """Add heritian conjugates to myself."""
+        """Add hermitian conjugate to myself."""
         if self.dist.comm.size == 1:
             self.data *= 0.5
             self.data += self.data.conj().T

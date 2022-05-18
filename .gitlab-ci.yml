@@ -1,5 +1,5 @@
 master:
-  image: python:3.9
+  image: python:3.10
   script:
     - apt-get update -qy
     - >
@@ -20,7 +20,7 @@ master:
     - pip install -e .
     - gpaw install-data --register pawdata
     - gpaw test
-    - OMP_NUM_THREADS=2 pytest -v -m ci -We
+    - OMP_NUM_THREADS=2 pytest -v -m ci -We -Wi::ImportWarning
     - pip install types-PyYAML
     - mypy -p gpaw
     - flake8 --doctests gpaw
@@ -51,7 +51,7 @@ libxc:
   script:
     - git clone https://gitlab.com/libxc/libxc.git
     - cd libxc
-    - git checkout 5.2.2
+    - git checkout 5.2.3
     - autoreconf -i
     - ./configure --enable-shared --disable-fortran --prefix=$HOME/libxc
     - make > libxc-install.out

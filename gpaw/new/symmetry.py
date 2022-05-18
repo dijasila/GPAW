@@ -5,7 +5,6 @@ from gpaw.mpi import MPIComm
 from gpaw.new.brillouin import IBZ, BZPoints
 from gpaw.rotation import rotation
 from gpaw.symmetry import Symmetry as OldSymmetry
-from gpaw.typing import ArrayLike2D
 
 
 def create_symmetries_object(atoms, ids=None, magmoms=None, parameters=None):

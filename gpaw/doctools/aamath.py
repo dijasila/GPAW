@@ -196,7 +196,7 @@ def parse(lines: str | list[str], n: int = None) -> str:
         latex.append(c)
 
     if superscripts or subscripts:
-        raise ParseError(f'{superscripts=}, {subscripts=}')
+        raise ParseError(f'suoer={superscripts}, sub={subscripts}')
 
     result = ''.join(latex).strip()
 
