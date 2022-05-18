@@ -145,7 +145,7 @@ class G0W0(PairDensity):
 
         Parameters
         ----------
-        calc: str or PAW object
+        calc:
             GPAW calculator object or filename of saved calculator object.
         filename: str
             Base filename of output files.
@@ -154,11 +154,11 @@ class G0W0(PairDensity):
         kpts: list
             List of indices of the IBZ k-points to calculate the quasi particle
             energies for.
-        bands: tuple of two ints
+        bands:
             Range of band indices, like (n1, n2), to calculate the quasi
             particle energies for. Bands n where n1<=n<n2 will be
             calculated.  Note that the second band index is not included.
-        relbands: tuple of two ints
+        relbands:
             Same as *bands* except that the numbers are relative to the
             number of occupied bands.
             E.g. (-1, 1) will use HOMO+LUMO.
@@ -169,7 +169,7 @@ class G0W0(PairDensity):
             (see :ref:`frequency grid`).
         ecut: float
             Plane wave cut-off energy in eV.
-        ecut_extrapolation: bool or array
+        ecut_extrapolation: bool or list
             If set to True an automatic extrapolation of the selfenergy to
             infinite cutoff will be performed based on three points
             for the cutoff energy.
