@@ -22,8 +22,9 @@ class OccupationNumberCalculator:
         kwargs = dct.copy()
         name = kwargs.pop('name', '')
         if name == 'mom':
-            from gpaw.mom import OccupationsMOM
-            return OccupationsMOM(..., **kwargs)
+            1 / 0
+            # from gpaw.mom import OccupationsMOM
+            # return OccupationsMOM(..., **kwargs)
 
         self.band_comm = comms['b']
         bd = BandDescriptor(nbands)
@@ -37,6 +38,9 @@ class OccupationNumberCalculator:
             monkhorst_pack_size=ibz.bz.size_c,
             bz2ibzmap=ibz.bz2ibz_K)
         self.extrapolate_factor = self.occ.extrapolate_factor
+
+    def __str__(self):
+        return str(self.occ)
 
     def calculate(self,
                   nelectrons: float,

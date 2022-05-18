@@ -95,8 +95,8 @@ class IBZWaveFunctions:
     def __str__(self):
         return (f'{self.ibz.symmetries}\n'
                 f'{self.ibz}\n'
-                f'Valence electrons: {self.nelectrons}\n'
-                f'Spin-degeneracy: {self.spin_degeneracy}')
+                f'valence electrons: {self.nelectrons}\n'
+                f'spin-degeneracy: {self.spin_degeneracy}\n')
 
     def __iter__(self) -> Generator[WaveFunctions, None, None]:
         for wfs_s in self.wfs_qs:

@@ -26,10 +26,19 @@ class UniformGridPotentialCalculator(PotentialCalculator):
         self.vbar_ar.to_uniform_grid(out=self.vbar_r)
 
         n = interpolation_stencil_range
+        self.interpolation_stencil_range = n
         self.interpolate = wf_grid.transformer(fine_grid, n)
         self.restrict = fine_grid.transformer(wf_grid, n)
 
         super().__init__(xc, poisson_solver, setups, nct_R, fracpos_ac)
+
+    def __str__(self):
+        txt = super().__str__()
+        degree = self.interpolation_stencil_range * 2 - 1
+        name = ['linear', 'cubic', 'quintic', 'heptic'][degree // 2]
+        txt += ('interpolation: tri-%s ' % name +
+                ' # %d. degree polynomial\n' % degree)
+        return txt
 
     def calculate_charges(self, vHt_r):
         return self.ghat_aLr.integrate(vHt_r)

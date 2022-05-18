@@ -4,17 +4,19 @@ from functools import partial
 from typing import Callable
 
 import numpy as np
+from scipy.linalg import eigh
+
 from gpaw import debug
 from gpaw.core.arrays import DistributedArrays as DA
 from gpaw.core.atom_centered_functions import AtomArrays as AA
 from gpaw.core.matrix import Matrix
-from gpaw.new.eigensolver import Eigensolver
-from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 from gpaw.new.calculation import DFTState
+from gpaw.new.eigensolver import Eigensolver
 from gpaw.new.hamiltonian import Hamiltonian
+from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 from gpaw.typing import Array1D, Array2D
 from gpaw.utilities.blas import axpy
-from scipy.linalg import eigh
+from gpaw.yml import obj2yaml as o2y
 
 AAFunc = Callable[[AA, AA], AA]
 
@@ -46,6 +48,11 @@ class Davidson(Eigensolver):
         self.work_arrays: np.ndarray | None = None
 
         self.preconditioner = preconditioner_factory(blocksize)
+
+    def __str__(self):
+        return o2y(dict(name='Davidson',
+                        niter=self.niter,
+                        converge_bands=self.converge_bands))
 
     def iterate(self, state: DFTState, hamiltonian: Hamiltonian) -> float:
         """Iterate on state given fixed hamiltonian.

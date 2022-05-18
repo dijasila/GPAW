@@ -22,6 +22,7 @@ from gpaw.new.xc import XCFunctional
 from gpaw.setup import Setup
 from gpaw.typing import Array1D, Array2D, Array3D
 from gpaw.utilities import pack, unpack
+from gpaw.yml import indent
 
 
 class PotentialCalculator:
@@ -38,7 +39,8 @@ class PotentialCalculator:
         self.fracpos_ac = fracpos_ac
 
     def __str__(self):
-        return f'\n{self.poisson_solver}\n{self.xc}'
+        return (f'{self.poisson_solver}\n'
+                f'xc functional:\n{indent(self.xc)}\n')
 
     def calculate(self, density, vHt_x=None):
         energies, vt_sR, vHt_x = self._calculate(density, vHt_x)
