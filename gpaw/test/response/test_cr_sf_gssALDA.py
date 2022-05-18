@@ -62,7 +62,6 @@ def test_response_cr_sf_gssALDA(in_tmp_dir):
     Crbcc.calc = calc
     Crbcc.get_potential_energy()
 
-
     # Part 2: Magnetic response calculation
     fxckwargs = {'rshelmax': rshelmax,
                  'rshewmin': rshewmin,
