@@ -208,28 +208,65 @@ class DeferredSigmaIntegrator:
         for w, o_m, n_mG, sgn_m, index_m in pair_densities_sorted(full_w_m, full_o_m, full_n_mG, full_sgn_m, full_index_m):
             if w >= len(self.g0w0.wd.omega_w) - 1:
                 continue
+
             o1 = self.g0w0.wd.omega_w[w]
             o2 = self.g0w0.wd.omega_w[w+1]
+
+            #C_swGG[s][w] = C_swGG[s][w].real
+            #C_swGG[s][w+1] = C_swGG[s][w+1].real
+
             C1_GG = C_swGG[s][w]
             C2_GG = C_swGG[s][w + 1]
             p_m = x * sgn_m
             myn_mG = n_mG[:, self.g0w0.blocks1d.myslice]
-            n_mG = n_mG.conj().copy()
-            self.g0w0.timer.start('dot')
-            temp1_mg = n_mG @ C1_GG.T
-            temp2_mg = n_mG @ C2_GG.T
-            self.g0w0.timer.stop('dot')
-            
-            self.g0w0.timer.start('collect part 1')
+            tempn_mG = n_mG.conj().copy()
+            temp1_mg = tempn_mG @ C1_GG.T
+            temp2_mg = tempn_mG @ C2_GG.T
             sigma1_m = p_m * np.sum(temp1_mg * myn_mG, axis=1).imag
             sigma2_m = p_m * np.sum(temp2_mg * myn_mG, axis=1).imag
+            sigma_flat2 = sigma_flat.copy()
+            dsigma_flat2 = dsigma_flat.copy()
+            np.add.at(sigma_flat, index_m, ( (o_m - o1) * sigma2_m + (o2 - o_m) * sigma1_m ) / (o2 - o1))
+            np.add.at(dsigma_flat, index_m, sgn_m * (sigma2_m - sigma1_m) / (o2 - o1))
+
+
+            C_wGG = C_swGG[s][w:w+2] # full G is the fastest running index, g is second, w is slowest
+            print(C_wGG.shape)
+            C_xG = C_wGG.reshape( (2*C_wGG.shape[1], C_wGG.shape[2]) ) # x = 2 frequencies x g
+
+            p_m = x * sgn_m
+            myn_mG = n_mG[:, self.g0w0.blocks1d.myslice]
+            #n_mG = n_mG.conj().copy()
+            self.g0w0.timer.start('dot')
+            
+            temp_wgm = (C_xG @ n_mG.T.conj()).reshape( (2, myn_mG.shape[1], n_mG.shape[0]) )
+            #temp2_mg = n_mG @ C2_GG.T
+            #xxxx, unpack temp_mx, recalculate sigma, etc.
+            print('temp1', temp1_mg[:2,:2])
+            print('temp2', temp2_mg[:2,:2])
+            print('temp', temp_wgm[:,:2,:2])
+            self.g0w0.timer.stop('dot')
+            for m in range(temp1_mg.shape[0]):
+                for g in range(temp1_mg.shape[1]):
+                    print(temp1_mg[m,g], temp_wgm[0,g,m])
+                    assert np.allclose(temp1_mg[m,g], temp_wgm[0,g,m])
+                    
+            assert np.allclose(temp1_mg, temp_wgm[0].T) 
+            assert np.allclose(temp2_mg, temp_wgm[1].T) 
+            self.g0w0.timer.start('collect part 1')
+            sigma_wm = np.sum(temp_wgm * myn_mG.T[None, :, :], axis=1).imag
+
+            print('sigma_wm.shape', sigma_wm.shape)
+            #sigma_wm *= p_m[np.newaxis, :]
             self.g0w0.timer.stop('collect part 1')
             self.g0w0.timer.start('collect part 2')
 
-            np.add.at(sigma_flat, index_m, ( (o_m - o1) * sigma2_m + (o2 - o_m) * sigma1_m ) / (o2 - o1))
-            np.add.at(dsigma_flat, index_m, sgn_m * (sigma2_m - sigma1_m) / (o2 - o1))
+            np.add.at(sigma_flat2, index_m, ( (o_m - o1) * p_m * sigma_wm[1] + (o2 - o_m) * p_m * sigma_wm[0] ) / (o2 - o1))
+            np.add.at(dsigma_flat2, index_m, sgn_m * p_m * (sigma_wm[1] - sigma_wm[0]) / (o2 - o1))
             self.g0w0.timer.stop('collect part 2')
-
+            print('Ref', sigma_flat)
+            print('New', sigma_flat2)
+            assert np.allclose(sigma_flat2, sigma_flat)
 
 
     def calculate_q(self, ie, k, kpt1, kpt2, pd0, W0, W0_GW=None, sign=None, U_cc=None):
