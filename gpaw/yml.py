@@ -1,3 +1,5 @@
+from typing import Any
+
 import numpy as np
 from ase import Atoms
 from ase.calculators.singlepoint import SinglePointCalculator
@@ -8,6 +10,32 @@ gpaw_yaml = ExternalIOFormat(
     code='+B',
     module='gpaw.yml',
     magic=b'#  __  _  _')
+
+
+def obj2yaml(obj: Any, indentation: str = '') -> str:
+    """Convert Python object to YAML string.
+
+    >>> obj2yaml({'a': {'b': 42}})
+    xxx
+    """
+    if isinstance(obj, dict):
+        i = indentation
+        txt = f'\n{i}'.join(f'{k}: {obj2yaml(v, i + "  ")}'
+                            for k, v in obj.items())
+        if i:
+            return '\n' + i + txt
+        return txt
+    return repr(obj)
+
+
+def indent(text: Any, indentation='  ') -> str:
+    if not isinstance(text, str):
+        text = str(text)
+    return indentation + text.replace('\n', '\n' + indentation)
+
+
+def comment(text: Any) -> str:
+    return indent(text, '# ')
 
 
 def read_gpaw_yaml(fd, index):
@@ -53,6 +81,8 @@ def dict2atoms(dct) -> Atoms:
 
 if __name__ == '__main__':
     import sys
+    import pprint
     import yaml
     for dct in yaml.safe_load_all(open(sys.argv[1])):
-        print(dct)
+        print('---')
+        pprint.pp(dct)

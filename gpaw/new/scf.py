@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 from gpaw.convergence_criteria import (Criterion, check_convergence,
                                        dict2criterion)
 from gpaw.scf import write_iteration
+from gpaw.yml import indent
 
 if TYPE_CHECKING:
     from gpaw.new.calculation import DFTState
@@ -38,12 +39,9 @@ class SCFLoop:
         return 'SCFLoop(...)'
 
     def __str__(self):
-        return (f'{self.hamiltonian}\n'
-                f'{self.eigensolver}\n'
+        return (f'eigensolver:\n{indent(self.eigensolver)}\n'
                 f'{self.mixer}\n'
-                f'{self.occ_calc}\n'
-                f'{self.convergence}\n'
-                f'Maximum number of iterations: {self.maxiter}')
+                f'occupation numbers:\n{indent(self.occ_calc)}\n')
 
     def iterate(self,
                 state: DFTState,
@@ -54,6 +52,13 @@ class SCFLoop:
 
         cc = create_convergence_criteria(convergence or self.convergence)
         maxiter = maxiter or self.maxiter
+
+        if log:
+            log('convergence criteria:')
+            for criterion in cc.values():
+                if criterion.description is not None:
+                    log('- ' + criterion.description)
+            log(f'maximum number of iterations: {self.maxiter}\n')
 
         self.mixer.reset()
 
@@ -72,7 +77,8 @@ class SCFLoop:
 
             converged, converged_items, entries = check_convergence(cc, ctx)
             if log:
-                write_iteration(cc, converged_items, entries, ctx, log)
+                with log.comment():
+                    write_iteration(cc, converged_items, entries, ctx, log)
             if converged:
                 break
             if niter == maxiter:

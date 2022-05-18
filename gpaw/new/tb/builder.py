@@ -63,6 +63,7 @@ class NoGrid(Domain):
             pbc_c=self.pbc_c,
             N_c=[0, 0, 0],
             dv=0.0)
+        self.size = (0, 0, 0)
 
     def empty(self, shape=(), comm=serial_comm):
         return DummyFunctions(self, shape, comm)
