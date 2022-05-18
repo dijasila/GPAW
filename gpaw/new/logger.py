@@ -52,14 +52,14 @@ class Logger:
 
     def __call__(self, *args, **kwargs) -> None:
         if not self.fd.closed:
+            i = self.indentation
             if kwargs:
                 for kw, arg in kwargs.items():
                     assert kw not in ['end', 'sep', 'flush', 'file'], kw
-                    print(f'{self.indentation}{kw}: {o2y(arg)}',
+                    print(f'{i}{kw}: {o2y(arg, i)}',
                           file=self.fd)
             else:
                 text = ' '.join(str(arg) for arg in args)
-                if self.indentation:
-                    text = self.indentation + text.replace(
-                        '\n', '\n' + self.indentation)
+                if i:
+                    text = i + text.replace('\n', '\n' + i)
                 print(text, file=self.fd)

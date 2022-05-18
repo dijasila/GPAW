@@ -15,8 +15,9 @@ gpaw_yaml = ExternalIOFormat(
 def obj2yaml(obj: Any, indentation: str = '') -> str:
     """Convert Python object to YAML string.
 
-    >>> obj2yaml({'a': {'b': 42}})
-    xxx
+    >>> print(obj2yaml({'a': {'b': 42}}))
+    a:
+      b: 42
     """
     if isinstance(obj, dict):
         i = indentation
@@ -24,7 +25,7 @@ def obj2yaml(obj: Any, indentation: str = '') -> str:
                             for k, v in obj.items())
         if i:
             return '\n' + i + txt
-        return txt
+        return txt.replace(': \n', ':\n')
     return repr(obj)
 
 
@@ -56,12 +57,15 @@ def dict2atoms(dct) -> Atoms:
         symbols.append(symbol)
         positions.append(position)
         magmoms.append(magmom)
+
     cell = dct['cell']
     pbc = dct['periodic']
+
     atoms = Atoms(symbols,
                   positions,
                   cell=cell,
                   pbc=pbc)
+
     if 'energies' in dct:
         energy = dct['energies']['extrapolated']
         if 'forces' in dct:
