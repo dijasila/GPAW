@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 from gpaw.convergence_criteria import (Criterion, check_convergence,
                                        dict2criterion)
 from gpaw.scf import write_iteration
+from gpaw.yml import indent
 
 if TYPE_CHECKING:
     from gpaw.new.calculation import DFTState
@@ -33,17 +34,15 @@ class SCFLoop:
         self.world = world
         self.convergence = convergence
         self.maxiter = maxiter
+        self.niter = 0
 
     def __repr__(self):
         return 'SCFLoop(...)'
 
     def __str__(self):
-        return (f'{self.hamiltonian}\n'
-                f'{self.eigensolver}\n'
+        return (f'eigensolver:\n{indent(self.eigensolver)}\n'
                 f'{self.mixer}\n'
-                f'{self.occ_calc}\n'
-                f'{self.convergence}\n'
-                f'Maximum number of iterations: {self.maxiter}')
+                f'occupation numbers:\n{indent(self.occ_calc)}\n')
 
     def iterate(self,
                 state: DFTState,
@@ -55,16 +54,23 @@ class SCFLoop:
         cc = create_convergence_criteria(convergence or self.convergence)
         maxiter = maxiter or self.maxiter
 
+        if log:
+            log('convergence criteria:')
+            for criterion in cc.values():
+                if criterion.description is not None:
+                    log('- ' + criterion.description)
+            log(f'maximum number of iterations: {self.maxiter}\n')
+
         self.mixer.reset()
 
         dens_error = self.mixer.mix(state.density)
 
-        for niter in itertools.count(start=1):
+        for self.niter in itertools.count(start=1):
             wfs_error = self.eigensolver.iterate(state, self.hamiltonian)
             state.ibzwfs.calculate_occs(self.occ_calc)
 
             ctx = SCFContext(
-                state, niter,
+                state, self.niter,
                 wfs_error, dens_error,
                 self.world)
 
@@ -72,10 +78,11 @@ class SCFLoop:
 
             converged, converged_items, entries = check_convergence(cc, ctx)
             if log:
-                write_iteration(cc, converged_items, entries, ctx, log)
+                with log.comment():
+                    write_iteration(cc, converged_items, entries, ctx, log)
             if converged:
                 break
-            if niter == maxiter:
+            if self.niter == maxiter:
                 raise SCFConvergenceError
 
             state.density.update(pot_calc.nct_R, state.ibzwfs)

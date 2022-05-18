@@ -285,6 +285,7 @@ class GPAW(Calculator):
         self.log('Reading from {}'.format(filename))
 
         self.reader = reader = Reader(filename)
+        assert reader.version <= 3
 
         atoms = read_atoms(reader.atoms)
         self._set_atoms(atoms)

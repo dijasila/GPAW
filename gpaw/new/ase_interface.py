@@ -89,10 +89,10 @@ class ASECalculator:
 
         if self.calculation is None:
             self.calculation = self.create_new_calculation(atoms)
-            self.converge(atoms)
+            self.converge()
         elif changes:
             self.move_atoms(atoms)
-            self.converge(atoms)
+            self.converge()
 
         if prop not in self.calculation.results:
             if prop == 'forces':
@@ -112,13 +112,15 @@ class ASECalculator:
         with self.timer('Init'):
             calculation = DFTCalculation.from_parameters(atoms, self.params,
                                                          self.log)
+        self.atoms = atoms.copy()
         return calculation
 
     def move_atoms(self, atoms):
         with self.timer('Move'):
             self.calculation = self.calculation.move_atoms(atoms)
+        self.atoms = atoms.copy()
 
-    def converge(self, atoms):
+    def converge(self):
         """Iterate to self-consistent solution.
 
         Will also calculate "cheap" properties: energy, magnetic moments
@@ -132,7 +134,6 @@ class ASECalculator:
         self.calculation.dipole()
         self.calculation.magmoms()
 
-        self.atoms = atoms.copy()
         self.calculation.write_converged()
 
     def __del__(self):
@@ -199,6 +200,23 @@ class ASECalculator:
     def get_eigenvalues(self, kpt=0, spin=0):
         state = self.calculation.state
         return state.ibzwfs.get_eigs_and_occs(k=kpt, s=spin)[0] * Ha
+
+    def get_reference_energy(self):
+        return self.calculation.setups.Eref * Ha
+
+    def get_number_of_iterations(self):
+        return self.calculation.scf_loop.niter
+
+    def get_bz_k_points(self):
+        state = self.calculation.state
+        return state.ibzwfs.ibz.bz.kpt_Kc.copy()
+
+    def get_ibz_k_points(self):
+        state = self.calculation.state
+        return state.ibzwfs.ibz.kpt_kc.copy()
+
+    def calculate(self, atoms):
+        self.get_potential_energy(atoms)
 
     def write(self, filename, mode=''):
         """Write calculator object to a file.
