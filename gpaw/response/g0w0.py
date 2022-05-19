@@ -1545,8 +1545,8 @@ class G0W0:
                           sqrtV_G, print_ac=False):
         from ase.dft import monkhorst_pack
         cell_cv = self.calc.wfs.gd.cell_cv
-        self.qpts_qc = self.kd.bzk_kc
-        self.weight_q = 1.0 * np.ones(len(self.qpts_qc)) / len(self.qpts_qc)
+        qpts_qc = self.kd.bzk_kc
+        self.weight_q = 1.0 * np.ones(len(qpts_qc)) / len(qpts_qc)
         L = cell_cv[2, 2]
         vc_G0 = sqrtV_G[1:]**2
 
@@ -1571,8 +1571,8 @@ class G0W0:
         rcell_cv = 2 * pi * np.linalg.inv(cell_cv).T
         N_c = self.qd.N_c
 
-        iq = np.argmin(np.sum(self.qpts_qc**2, axis=1))
-        assert np.allclose(self.qpts_qc[iq], 0)
+        iq = np.argmin(np.sum(qpts_qc**2, axis=1))
+        assert np.allclose(qpts_qc[iq], 0)
         q0cell_cv = np.array([1, 1, 1])**0.5 * rcell_cv / N_c
         q0vol = abs(np.linalg.det(q0cell_cv))
 
