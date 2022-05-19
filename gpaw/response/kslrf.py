@@ -731,32 +731,6 @@ class Integrator:  # --> KPointPairIntegrator in the future? XXX
         self.kslrf = kslrf
         self.timer = self.kslrf.timer
 
-    def slice_kpoint_domain(self, bzk_kv, weight_k):
-        """When integrating over k-points, slice the domain in pieces with one
-        k-point per process each.
-
-        Returns
-        -------
-        bzk_ipv : nd.array
-            k-points coordinates for each process for each iteration
-        """
-        nk = bzk_kv.shape[0]
-        size = self.kslrf.intrablockcomm.size
-        ni = (nk + size - 1) // size
-        bzk_ipv = np.array([bzk_kv[i * size:(i + 1) * size]
-                            for i in range(ni)])
-
-        # Extract the weight corresponding to the process' own k-point pair
-        weight_ip = np.array([weight_k[i * size:(i + 1) * size]
-                              for i in range(ni)])
-        weight_i = [None] * len(weight_ip)
-        krank = self.kslrf.intrablockcomm.rank
-        for i, w_p in enumerate(weight_ip):
-            if krank in range(len(w_p)):
-                weight_i[i] = w_p[krank]
-
-        return bzk_ipv, weight_i
-
     @timer('Integrate response function')
     def integrate(self, n1_t, n2_t, s1_t, s2_t,
                   out_x=None, **kwargs):
@@ -892,6 +866,32 @@ class Integrator:  # --> KPointPairIntegrator in the future? XXX
         # Sum over the k-points that have been distributed between processes
         with self.timer('Sum over distributed k-points'):
             self.kslrf.intrablockcomm.sum(tmp_x)
+
+    def slice_kpoint_domain(self, bzk_kv, weight_k):
+        """When integrating over k-points, slice the domain in pieces with one
+        k-point per process each.
+
+        Returns
+        -------
+        bzk_ipv : nd.array
+            k-points coordinates for each process for each iteration
+        """
+        nk = bzk_kv.shape[0]
+        size = self.kslrf.intrablockcomm.size
+        ni = (nk + size - 1) // size
+        bzk_ipv = np.array([bzk_kv[i * size:(i + 1) * size]
+                            for i in range(ni)])
+
+        # Extract the weight corresponding to the process' own k-point pair
+        weight_ip = np.array([weight_k[i * size:(i + 1) * size]
+                              for i in range(ni)])
+        weight_i = [None] * len(weight_ip)
+        krank = self.kslrf.intrablockcomm.rank
+        for i, w_p in enumerate(weight_ip):
+            if krank in range(len(w_p)):
+                weight_i[i] = w_p[krank]
+
+        return bzk_ipv, weight_i
 
 
 class PWPointIntegrator(Integrator):
