@@ -765,32 +765,35 @@ class Integrator:  # --> KPointPairIntegrator in the future? XXX
         method as well as the symmetry of the crystal.
 
         Definition (here k denotes the k-point domain specified by the method,
-        which also defines an integration prefactor A and k-point weights wk):
+        with the reduced Nkr number of k-points, giving rise to an extra
+        integration prefactor A and individual k-point weights wk):
                       __             __               __
            1     /    \   ~    A     \   (2pi)^D      \
         ‾‾‾‾‾‾‾  |dk  /   = ‾‾‾‾‾‾‾  /   ‾‾‾‾‾‾‾  wk  /
-        (2pi)^D  /    ‾‾    (2pi)^D  ‾‾   Nk V0       ‾‾
+        (2pi)^D  /    ‾‾    (2pi)^D  ‾‾  Nkr V0       ‾‾
                       t              k                t
-
-        The actual reciprocal space integral,
-        __               __
-        \   (2pi)^D      \
-        /   ‾‾‾‾‾‾‾  wk  /
-        ‾‾   Nk V0       ‾‾
-        k                t
-        is implemented in the method specific class through the in-place
-        self._integrate() method.
         """
         if out_x is None:  # Why is it None by default then? XXX
             raise NotImplementedError
 
         bzk_kv, weight_k = self.get_kpoint_domain()
-        prefactor = self.calculate_bzint_prefactor(bzk_kv) / (2 * np.pi)**3
-        out_x /= prefactor
-        # Move slicing of domain here XXX
+
+        # Calculate prefactors
+        A = self.calculate_bzint_prefactor(bzk_kv)
+        outer_prefactor = A / (2 * np.pi)**3
+        Nkr = bzk_kv.shape[0]
+        V0 = abs(np.linalg.det(self.kslrf.calc.wfs.gd.cell_cv))
+        kpointvol = (2 * np.pi)**3 / Nkr / V0
+        prefactor = outer_prefactor * kpointvol
+
+        # Perform the sum over the k-point domain w.o. prefactors
+        tmp_x = np.zeros_like(out_x)
         self._integrate(bzk_kv, weight_k,
-                        n1_t, n2_t, s1_t, s2_t, out_x, **kwargs)
-        # Move sum over kblockcomm here XXX
+                        n1_t, n2_t, s1_t, s2_t, tmp_x, **kwargs)
+
+        # Add integrated response function to the output with prefactors
+        out_x /= prefactor
+        out_x += tmp_x
         out_x *= prefactor
 
         return out_x
@@ -802,60 +805,22 @@ class Integrator:  # --> KPointPairIntegrator in the future? XXX
         raise NotImplementedError('Prefactor depends on integration method')
 
     def _integrate(self, bzk_kv, weight_k,
-                   n1_t, n2_t, s1_t, s2_t, out_x, **kwargs):
-        # Maybe the _integrate should actually be defined here? XXX
-        raise NotImplementedError('Integration method is defined by subclass')
+                   n1_t, n2_t, s1_t, s2_t, tmp_x, **kwargs):
+        r"""Do the actual reciprocal space integral as a simple weighted sum
+        over the k-point domain, where the integrand is calculated externally
+        as a sum over transitions in bands and spin.
 
+        Definition (k denotes the k-point domain and wk the weights):
+        __      __
+        \       \
+        /   wk  /
+        ‾‾      ‾‾
+        k       t
+        """
+        # tmp_x should be zero prior to the in-place integration
+        assert np.allclose(tmp_x, 0.)
 
-class PWPointIntegrator(Integrator):
-    """A simple point integrator for the plane wave mode."""
-
-    @timer('Get k-point domain')
-    def get_kpoint_domain(self):
-        """Use the PWSymmetryAnalyzer to define and weight the k-point domain
-        based on the ground state k-point grid."""
-        # Generate k-point domain in relative coordinates
-        K_gK = self.kslrf.pwsa.group_kpoints()  # What is g? XXX
-        bzk_kc = np.array([self.kslrf.calc.wfs.kd.bzk_kc[K_K[0]] for
-                           K_K in K_gK])  # Why only K=0? XXX
-        # Compute actual k-points in absolute reciprocal space coordinates
-        bzk_kv = np.dot(bzk_kc, self.kslrf.pd.gd.icell_cv) * 2 * np.pi
-
-        # Compute k-point reduction
-        if self.kslrf.calc.wfs.kd.refine_info is not None:
-            nbzkpts = self.kslrf.calc.wfs.kd.refine_info.mhnbzkpts
-        else:
-            nbzkpts = self.kslrf.calc.wfs.kd.nbzkpts
-        kfrac = len(bzk_kv) / nbzkpts
-        # Get the k-point weights from the symmetry analyzer
-        # Shouldn't the kpoint_weight of pwsa account for the reduction? XXX
-        weight_k = [self.kslrf.pwsa.get_kpoint_weight(k_c) * kfrac
-                    for k_c in bzk_kc]
-
-        return bzk_kv, weight_k
-
-    def calculate_bzint_prefactor(self, bzk_kv):
-        """Calculate the k-point intregral prefactor A."""
-        # The spin prefactor does not naturally belong to the k-point pair
-        # integrator. Move away and make the A prefactor redundant for now? XXX
-        sfrac = 2 / self.kslrf.calc.wfs.nspins
-
-        A = sfrac
-
-        return A
-
-    def _integrate(self, bzk_kv, weight_k,
-                   n1_t, n2_t, s1_t, s2_t, out_x, **kwargs):
-        """Do a simple sum over k-points in the first Brillouin Zone,
-        adding the integrand (summed over bands and spin) for each k-point."""
-
-        nk = bzk_kv.shape[0]
-        vol = abs(np.linalg.det(self.kslrf.calc.wfs.gd.cell_cv))
-
-        kpointvol = (2 * np.pi)**3 / vol / nk
-        out_x /= kpointvol
-
-        # Initialize pme
+        # Initialize pme  # Move away? XXX
         print('----------',
               file=self.kslrf.cfd)
         print('Initializing PairMatrixElement',
@@ -866,7 +831,6 @@ class PWPointIntegrator(Integrator):
         bzk_ipv, weight_i = self.slice_kpoint_domain(bzk_kv, weight_k)
 
         # Perform sum over k-points
-        tmp_x = np.zeros_like(out_x)
         pb = ProgressBar(self.kslrf.cfd)
         if self.kslrf.bundle_kptpairs:
             # Extract all the process' kptpairs at once, then do integration
@@ -908,8 +872,43 @@ class PWPointIntegrator(Integrator):
         with self.timer('Sum over distributed k-points'):
             self.kslrf.intrablockcomm.sum(tmp_x)
 
-        out_x += tmp_x
-        out_x *= kpointvol
+
+class PWPointIntegrator(Integrator):
+    """A simple point integrator for the plane wave mode."""
+
+    @timer('Get k-point domain')
+    def get_kpoint_domain(self):
+        """Use the PWSymmetryAnalyzer to define and weight the k-point domain
+        based on the ground state k-point grid."""
+        # Generate k-point domain in relative coordinates
+        K_gK = self.kslrf.pwsa.group_kpoints()  # What is g? XXX
+        bzk_kc = np.array([self.kslrf.calc.wfs.kd.bzk_kc[K_K[0]] for
+                           K_K in K_gK])  # Why only K=0? XXX
+        # Compute actual k-points in absolute reciprocal space coordinates
+        bzk_kv = np.dot(bzk_kc, self.kslrf.pd.gd.icell_cv) * 2 * np.pi
+
+        # Compute k-point reduction
+        if self.kslrf.calc.wfs.kd.refine_info is not None:
+            nbzkpts = self.kslrf.calc.wfs.kd.refine_info.mhnbzkpts
+        else:
+            nbzkpts = self.kslrf.calc.wfs.kd.nbzkpts
+        kfrac = len(bzk_kv) / nbzkpts
+        # Get the k-point weights from the symmetry analyzer
+        # Shouldn't the weights from pwsa account for the reduction? XXX
+        weight_k = [self.kslrf.pwsa.get_kpoint_weight(k_c) * kfrac
+                    for k_c in bzk_kc]
+
+        return bzk_kv, weight_k
+
+    def calculate_bzint_prefactor(self, bzk_kv):
+        """Calculate the k-point intregral prefactor A."""
+        # The spin prefactor does not naturally belong to the k-point pair
+        # integrator. Move away and make the A prefactor redundant for now? XXX
+        sfrac = 2 / self.kslrf.calc.wfs.nspins
+
+        A = sfrac
+
+        return A
 
 
 def create_integrator(kslrf):
