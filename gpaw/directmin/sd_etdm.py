@@ -46,14 +46,16 @@ class ModeFollowingBase(object):
     following
     """
 
-    def __init__(self, partial_diagonalizer, convex_step_length = 0.1):
+    def __init__(self, partial_diagonalizer, convex_step_length = 0.1,
+                 reset_on_convex = False):
         self.eigv = None
         self.eigvec = None
         self.eigvec_old = None
         self.partial_diagonalizer = partial_diagonalizer
         self.fixed_sp_order = None
-        self.was_concave = False
+        self.was_convex = False
         self.convex_step_length = convex_step_length
+        self.reset_on_convex = reset_on_convex
 
     def update_eigenpairs(self, g_k1, wfs, ham, dens):
         """
@@ -69,7 +71,8 @@ class ModeFollowingBase(object):
 
 
         self.partial_diagonalizer.grad = g_k1
-        use_prev = False if self.eigv is None or self.was_concave else True
+        use_prev = False if self.eigv is None or (self.was_convex \
+            and self.reset_on_convex) else True
         self.partial_diagonalizer.run(wfs, ham, dens, use_prev)
         self.eigv = copy.deepcopy(self.partial_diagonalizer.lambda_all)
         self.eigvec_old = copy.deepcopy(self.eigvec)
@@ -119,9 +122,9 @@ class ModeFollowingBase(object):
                         * np.dot(self.eigvec[i].conj(), grad.T).real
                 #if True:
                 grad_mod = grad - 2.0 * grad_par
-                if self.was_concave:
+                if self.was_convex:
                     self.partial_diagonalizer.etdm.searchdir_algo.reset()
-                    self.was_concave = False
+                    self.was_convex = False
             else:
                 for i in range(get_dots):
                     if i >= neg_temp:
@@ -130,7 +133,7 @@ class ModeFollowingBase(object):
                 grad_mod = -self.convex_step_length * grad_par \
                     / np.linalg.norm(grad_par)
                 self.partial_diagonalizer.etdm.searchdir_algo.reset()
-                self.was_concave = True
+                self.was_convex = True
         else:
             for i in range(get_dots):
                 grad_par += self.eigvec[i] \
@@ -140,12 +143,12 @@ class ModeFollowingBase(object):
                 grad_mod = -self.convex_step_length * grad_par \
                            / np.linalg.norm(grad_par)
                 self.partial_diagonalizer.etdm.searchdir_algo.reset()
-                self.was_concave = True
+                self.was_convex = True
             else:
                 grad_mod = grad - 2.0 * grad_par
-                if self.was_concave:
+                if self.was_convex:
                     self.partial_diagonalizer.etdm.searchdir_algo.reset()
-                    self.was_concave = False
+                    self.was_convex = False
         return array_to_dict(grad_mod, dim)
 
 
