@@ -208,6 +208,10 @@ class KohnShamLinearResponseFunction:  # Future PairFunctionIntegrator? XXX
             print('    Dry run exit', file=self.fd)
             raise SystemExit
 
+        print('----------', file=self.cfd)
+        print('Initializing PairMatrixElement', file=self.cfd, flush=True)
+        self.initialize_pme()
+
         A_x = self.setup_output_array(A_x)
 
         self.integrator.integrate(n1_t, n2_t, s1_t, s2_t, A_x,
@@ -810,13 +814,6 @@ class Integrator:  # --> KPointPairIntegrator in the future? XXX
         """
         # tmp_x should be zero prior to the in-place integration
         assert np.allclose(tmp_x, 0.)
-
-        # Initialize pme  # Move away? XXX
-        print('----------',
-              file=self.kslrf.cfd)
-        print('Initializing PairMatrixElement',
-              file=self.kslrf.cfd, flush=True)
-        self.kslrf.initialize_pme()
 
         # Slice domain
         bzk_ipv, weight_i = self.slice_kpoint_domain(bzk_kv, weight_k)
