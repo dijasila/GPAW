@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import IO
 
 from gpaw.mpi import MPIComm, world
+from gpaw.yml import obj2yaml as o2y
 
 
 class Logger:
@@ -43,10 +44,22 @@ class Logger:
         yield
         self.indentation = self.indentation[2:]
 
+    @contextlib.contextmanager
+    def comment(self):
+        self.indentation += '# '
+        yield
+        self.indentation = self.indentation[2:]
+
     def __call__(self, *args, **kwargs) -> None:
         if not self.fd.closed:
+            i = self.indentation
             if kwargs:
                 for kw, arg in kwargs.items():
-                    print(f'{self.indentation}{kw}: {arg}', file=self.fd)
+                    assert kw not in ['end', 'sep', 'flush', 'file'], kw
+                    print(f'{i}{kw}: {o2y(arg, i)}',
+                          file=self.fd)
             else:
-                print(*args, file=self.fd)
+                text = ' '.join(str(arg) for arg in args)
+                if i:
+                    text = i + text.replace('\n', '\n' + i)
+                print(text, file=self.fd)

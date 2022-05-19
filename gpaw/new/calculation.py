@@ -249,6 +249,7 @@ class DFTCalculation:
 
     def write_converged(self):
         self.state.ibzwfs.write_summary(self.log)
+        self.log.fd.flush()
 
 
 def write_atoms(atoms, grid, magmoms, log):
@@ -259,11 +260,11 @@ def write_atoms(atoms, grid, magmoms, log):
         magmoms = np.zeros((len(atoms), 3))
         magmoms[:, 2] = m1
 
-    for line in plot(atoms).splitlines():
-        log('#', line)
+    log()
+    with log.comment():
+        log(plot(atoms))
 
-    log('atoms: [')
-    log('# symbol,  position [Ang],                          mag. mom.')
+    log('\natoms: [  # symbols, positions [Ang] and initial magnetic moments')
     symbols = atoms.get_chemical_symbols()
     for a, ((x, y, z), (mx, my, mz)) in enumerate(zip(atoms.positions,
                                                       magmoms)):
@@ -272,12 +273,13 @@ def write_atoms(atoms, grid, magmoms, log):
         log(f'  [{symbol:>3}, [{x:11.6f}, {y:11.6f}, {z:11.6f}],'
             f' [{mx:6.3f}, {my:6.3f}, {mz:6.3f}]]{c} # {a}')
 
-    log('cell: [  # [Ang]')
-    log('#           x           y           z')
+    log('\ncell: [  # Ang')
+    log('#     x            y            z')
     for (x, y, z), c in zip(atoms.cell, ',,]'):
         log(f'  [{x:11.6f}, {y:11.6f}, {z:11.6f}]{c}')
 
-    log(periodic=atoms.pbc.tolist())
+    log()
+    log(f'periodic: [{", ".join(f"{str(p):10}" for p in atoms.pbc)}]')
     a, b, c, A, B, C = cell_to_cellpar(atoms.cell)
-    log(f'lengths: [{a:10.6f}, {b:10.6f}, {c:10.6f}]  # [Ang]')
-    log(f'angles:  [{A:10.6f}, {B:10.6f}, {C:10.6f}]')
+    log(f'lengths:  [{a:10.6f}, {b:10.6f}, {c:10.6f}]  # Ang')
+    log(f'angles:   [{A:10.6f}, {B:10.6f}, {C:10.6f}]\n')

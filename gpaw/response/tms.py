@@ -133,13 +133,13 @@ def get_goldstone_scaling(mode, omega_w, chiks_wGG, Kxc_GG, world=mpi.world):
 def find_goldstone_frequency(mode, omega_w):
     """Factory function for finding the appropriate frequency to determine
     the kernel scaling from according to different Goldstone criteria."""
-    assert mode in ['fm', 'afm'],\
-        f"Allowed Goldstone scaling modes are 'fm', 'afm'. Got: {mode}"
-
     if mode == 'fm':
         return find_fm_goldstone_frequency(omega_w)
     elif mode == 'afm':
         return find_afm_goldstone_frequency(omega_w)
+    else:
+        raise ValueError(
+            f"Allowed Goldstone scaling modes are 'fm', 'afm'. Got: {mode}")
 
 
 def find_fm_goldstone_frequency(omega_w):

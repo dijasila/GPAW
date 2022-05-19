@@ -5,14 +5,21 @@ from gpaw.blacs import BlacsDescriptor, BlacsGrid, Redistributor
 class Blocks1D:
     def __init__(self, blockcomm, N):
         self.blockcomm = blockcomm
-        self.N = N
+        self.N = N  # Global number of points
 
-        myn = (N + blockcomm.size - 1) // blockcomm.size
-        self.a = min(blockcomm.rank * myn, N)
-        self.b = min(self.a + myn, N)
+        self.blocksize = (N + blockcomm.size - 1) // blockcomm.size
+        self.a = min(blockcomm.rank * self.blocksize, N)
+        self.b = min(self.a + self.blocksize, N)
         self.nlocal = self.b - self.a
 
         self.myslice = slice(self.a, self.b)
+
+    def collect(self, array_w):
+        b_w = np.zeros(self.blocksize, array_w.dtype)
+        b_w[:self.nlocal] = array_w
+        A_w = np.empty(self.blockcomm.size * self.blocksize, array_w.dtype)
+        self.blockcomm.all_gather(b_w, A_w)
+        return A_w[:self.N]
 
 
 def block_partition(comm, nblocks):

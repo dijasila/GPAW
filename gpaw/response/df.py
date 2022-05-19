@@ -106,9 +106,9 @@ class DielectricFunction:
         nw = len(self.wd)
 
         world = self.chi0.world
-        self.mynw = (nw + world.size - 1) // world.size
-        self.w1 = min(self.mynw * world.rank, nw)
-        self.w2 = min(self.w1 + self.mynw, nw)
+        from gpaw.response.pw_parallelization import Blocks1D
+
+        self.blocks1d = Blocks1D(world, nw)
         self.truncation = truncation
 
     def calculate_chi0(self, q_c, spin='all'):
@@ -142,6 +142,7 @@ class DielectricFunction:
         nw = len(self.wd)
         nG = pd.ngmax
         world = self.chi0.world
+        mynw = self.blocks1d.blocksize
 
         if world.rank == 0:
             fd = open(name, 'wb')
@@ -150,10 +151,10 @@ class DielectricFunction:
             for chi0_GG in chi0_wGG:
                 pickle.dump(chi0_GG, fd, pickle.HIGHEST_PROTOCOL)
 
-            tmp_wGG = np.empty((self.mynw, nG, nG), complex)
-            w1 = self.mynw
+            tmp_wGG = np.empty((mynw, nG, nG), complex)
+            w1 = mynw
             for rank in range(1, world.size):
-                w2 = min(w1 + self.mynw, nw)
+                w2 = min(w1 + mynw, nw)
                 world.receive(tmp_wGG[:w2 - w1], rank)
                 for w in range(w2 - w1):
                     pickle.dump(tmp_wGG[w], fd, pickle.HIGHEST_PROTOCOL)
@@ -175,26 +176,30 @@ class DielectricFunction:
         nw = len(omega_w)
         nG = pd.ngmax
 
+        blocks1d = self.blocks1d
+
+        mynw = blocks1d.blocksize
+
         if chi0_wGG is not None:
             # Old file format:
-            chi0_wGG = chi0_wGG[wmin + self.w1:self.w2].copy()
+            chi0_wGG = chi0_wGG[wmin + blocks1d.a:blocks1d.b].copy()
         else:
             if world.rank == 0:
-                chi0_wGG = np.empty((self.mynw, nG, nG), complex)
+                chi0_wGG = np.empty((mynw, nG, nG), complex)
                 for _ in range(wmin):
                     pickle.load(fd)
                 for chi0_GG in chi0_wGG:
                     chi0_GG[:] = pickle.load(fd)
-                tmp_wGG = np.empty((self.mynw, nG, nG), complex)
-                w1 = self.mynw
+                tmp_wGG = np.empty((mynw, nG, nG), complex)
+                w1 = mynw
                 for rank in range(1, world.size):
-                    w2 = min(w1 + self.mynw, nw)
+                    w2 = min(w1 + mynw, nw)
                     for w in range(w2 - w1):
                         tmp_wGG[w] = pickle.load(fd)
                     world.send(tmp_wGG[:w2 - w1], rank)
                     w1 = w2
             else:
-                chi0_wGG = np.empty((self.w2 - self.w1, nG, nG), complex)
+                chi0_wGG = np.empty((self.blocks1d.nlocal, nG, nG), complex)
                 world.receive(chi0_wGG, 0)
 
         if chi0_wvv is not None:
@@ -206,13 +211,7 @@ class DielectricFunction:
         return pd, chi0_wGG, chi0_wxvG, chi0_wvv
 
     def collect(self, a_w):
-        world = self.chi0.world
-        b_w = np.zeros(self.mynw, a_w.dtype)
-        b_w[:self.w2 - self.w1] = a_w
-        nw = len(self.wd)
-        A_w = np.empty(world.size * self.mynw, a_w.dtype)
-        world.all_gather(b_w, A_w)
-        return A_w[:nw]
+        return self.blocks1d.collect(a_w)
 
     def get_frequencies(self):
         """ Return frequencies that Chi is evaluated on"""
@@ -295,7 +294,7 @@ class DielectricFunction:
                 else:
                     d_v = direction
                 d_v = np.asarray(d_v) / np.linalg.norm(d_v)
-                W = slice(self.w1, self.w2)
+                W = self.blocks1d.myslice
                 chi0_wGG[:, 0] = np.dot(d_v, chi0_wxvG[W, 0])
                 chi0_wGG[:, :, 0] = np.dot(d_v, chi0_wxvG[W, 1])
                 chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0_wvv[W], d_v).T)
@@ -446,7 +445,7 @@ class DielectricFunction:
                 d_v = direction
 
             d_v = np.asarray(d_v) / np.linalg.norm(d_v)
-            W = slice(self.w1, self.w2)
+            W = self.blocks1d.myslice
             chi0_wGG[:, 0] = np.dot(d_v, chi0_wxvG[W, 0])
             chi0_wGG[:, :, 0] = np.dot(d_v, chi0_wxvG[W, 1])
             chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0_wvv[W], d_v).T)
