@@ -16,7 +16,7 @@ from gpaw.response.pw_parallelization import (block_partition, Blocks1D,
                                               PlaneWaveBlockDistributor)
 
 
-class KohnShamLinearResponseFunction:
+class KohnShamLinearResponseFunction:  # Future PairFunctionIntegrator? XXX
     r"""Class calculating linear response functions in the Kohn-Sham system
 
     Any linear response function can be calculated as a sum over transitions
@@ -705,7 +705,7 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         return self.blockdist.distribute_frequencies(chiks_wGG)
 
 
-class Integrator:  # --> PairFunctionIntegrator in the future? XXX
+class Integrator:  # --> KPointPairIntegrator in the future? XXX
     r"""Baseclass for reciprocal space integrals of the first Brillouin Zone,
     where the integrand is a sum over transitions in bands and spin.
 
@@ -803,6 +803,7 @@ class Integrator:  # --> PairFunctionIntegrator in the future? XXX
 
     def _integrate(self, bzk_kv, weight_k,
                    n1_t, n2_t, s1_t, s2_t, out_x, **kwargs):
+        # Maybe the _integrate should actually be defined here? XXX
         raise NotImplementedError('Integration method is defined by subclass')
 
 
@@ -811,6 +812,8 @@ class PWPointIntegrator(Integrator):
 
     @timer('Get k-point domain')
     def get_kpoint_domain(self):
+        """Use the PWSymmetryAnalyzer to define and weight the k-point domain
+        based on the ground state k-point grid."""
         # Could use some more documentation XXX
         K_gK = self.kslrf.pwsa.group_kpoints()
         bzk_kc = np.array([self.kslrf.calc.wfs.kd.bzk_kc[K_K[0]] for
