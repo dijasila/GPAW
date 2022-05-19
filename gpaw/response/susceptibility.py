@@ -71,9 +71,6 @@ class FourComponentSusceptibilityTensor:
                            timer=self.timer, **fxckwargs)
 
         # Parallelization over frequencies depends on the frequency input
-        #self.mynw = None
-        #self.w1 = None
-        #self.w2 = None
         self.blocks1d = None
 
     def get_macroscopic_component(self, spincomponent, q_c, frequencies,
