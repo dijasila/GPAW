@@ -765,7 +765,7 @@ class Integrator:  # --> KPointPairIntegrator in the future? XXX
         method as well as the symmetry of the crystal.
 
         Definition (here k denotes the k-point domain specified by the method,
-        which also defines an extra prefactor A and k-point weights wk):
+        which also defines an integration prefactor A and k-point weights wk):
                       __             __               __
            1     /    \   ~    A     \   (2pi)^D      \
         ‾‾‾‾‾‾‾  |dk  /   = ‾‾‾‾‾‾‾  /   ‾‾‾‾‾‾‾  wk  /
@@ -785,7 +785,7 @@ class Integrator:  # --> KPointPairIntegrator in the future? XXX
             raise NotImplementedError
 
         bzk_kv, weight_k = self.get_kpoint_domain()
-        prefactor = self.calculate_bzint_prefactor(bzk_kv)
+        prefactor = self.calculate_bzint_prefactor(bzk_kv) / (2 * np.pi)**3
         out_x /= prefactor
         # Move slicing of domain here XXX
         self._integrate(bzk_kv, weight_k,
@@ -814,29 +814,35 @@ class PWPointIntegrator(Integrator):
     def get_kpoint_domain(self):
         """Use the PWSymmetryAnalyzer to define and weight the k-point domain
         based on the ground state k-point grid."""
-        # Could use some more documentation XXX
-        K_gK = self.kslrf.pwsa.group_kpoints()
+        # Generate k-point domain in relative coordinates
+        K_gK = self.kslrf.pwsa.group_kpoints()  # What is g? XXX
         bzk_kc = np.array([self.kslrf.calc.wfs.kd.bzk_kc[K_K[0]] for
-                           K_K in K_gK])
-
+                           K_K in K_gK])  # Why only K=0? XXX
+        # Compute actual k-points in absolute reciprocal space coordinates
         bzk_kv = np.dot(bzk_kc, self.kslrf.pd.gd.icell_cv) * 2 * np.pi
 
-        nsym = self.kslrf.pwsa.how_many_symmetries()
-        weight_k = [self.kslrf.pwsa.get_kpoint_weight(k_c) / nsym
+        # Compute k-point reduction
+        if self.kslrf.calc.wfs.kd.refine_info is not None:
+            nbzkpts = self.kslrf.calc.wfs.kd.refine_info.mhnbzkpts
+        else:
+            nbzkpts = self.kslrf.calc.wfs.kd.nbzkpts
+        kfrac = len(bzk_kv) / nbzkpts
+        # Get the k-point weights from the symmetry analyzer
+        # Shouldn't the kpoint_weight of pwsa account for the reduction? XXX
+        weight_k = [self.kslrf.pwsa.get_kpoint_weight(k_c) * kfrac
                     for k_c in bzk_kc]
 
         return bzk_kv, weight_k
 
     def calculate_bzint_prefactor(self, bzk_kv):
-        # Could use some more documentation XXX
-        if self.kslrf.calc.wfs.kd.refine_info is not None:
-            nbzkpts = self.kslrf.calc.wfs.kd.refine_info.mhnbzkpts
-        else:
-            nbzkpts = self.kslrf.calc.wfs.kd.nbzkpts
-        frac = len(bzk_kv) / nbzkpts
+        """Calculate the k-point intregral prefactor A."""
+        # The spin prefactor does not naturally belong to the k-point pair
+        # integrator. Move away and make the A prefactor redundant for now? XXX
+        sfrac = 2 / self.kslrf.calc.wfs.nspins
 
-        return (2 * frac * self.kslrf.pwsa.how_many_symmetries() /
-                (self.kslrf.calc.wfs.nspins * (2 * np.pi)**3))
+        A = sfrac
+
+        return A
 
     def _integrate(self, bzk_kv, weight_k,
                    n1_t, n2_t, s1_t, s2_t, out_x, **kwargs):
