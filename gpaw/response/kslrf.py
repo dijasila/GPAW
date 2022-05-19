@@ -210,8 +210,8 @@ class KohnShamLinearResponseFunction:  # Future PairFunctionIntegrator? XXX
 
         A_x = self.setup_output_array(A_x)
 
-        self.integrator.integrate(n1_t, n2_t, s1_t, s2_t,
-                                  out_x=A_x, **self.extraintargs)
+        self.integrator.integrate(n1_t, n2_t, s1_t, s2_t, A_x,
+                                  **self.extraintargs)
 
         # Different calculation modes might want the response function output
         # in different formats
@@ -732,8 +732,7 @@ class Integrator:  # --> KPointPairIntegrator in the future? XXX
         self.timer = self.kslrf.timer
 
     @timer('Integrate response function')
-    def integrate(self, n1_t, n2_t, s1_t, s2_t,
-                  out_x=None, **kwargs):
+    def integrate(self, n1_t, n2_t, s1_t, s2_t, out_x, **kwargs):
         r"""Estimate the reciprocal space integral as the sum over a discrete
         k-point domain. The domain will genererally depend on the integration
         method as well as the symmetry of the crystal.
@@ -755,9 +754,6 @@ class Integrator:  # --> KPointPairIntegrator in the future? XXX
         weight wkr, specific to the integration method. Furthermore, the
         integration method may define an extra integration prefactor A.
         """
-        if out_x is None:  # Why is it None by default then? XXX
-            raise NotImplementedError
-
         bzk_kv, weight_k = self.get_kpoint_domain()
 
         # Calculate prefactors
@@ -930,7 +926,8 @@ class PWPointIntegrator(Integrator):
     def calculate_bzint_prefactor(self, bzk_kv):
         """Calculate the k-point intregral prefactor A."""
         # The spin prefactor does not naturally belong to the k-point pair
-        # integrator. Move away and make the A prefactor redundant for now? XXX
+        # integrator. Move to "add_integrand" functionality, when Integrator is
+        # made independent of kslrf XXX.
         sfrac = 2 / self.kslrf.calc.wfs.nspins
 
         A = sfrac
