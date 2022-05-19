@@ -497,7 +497,6 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
             simultaneously for all frequencies.
             Can be switched of, if this step forces calculations out of memory.
         """
-        from gpaw.mpi import SerialCommunicator
 
         # Avoid any mode ambiguity
         if 'mode' in kwargs.keys():
