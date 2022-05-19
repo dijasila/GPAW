@@ -19,6 +19,10 @@ class Potential:
     def __repr__(self):
         return f'Potential({self.vt_sR}, {self.dH_asii}, {self.energies})'
 
+    def __str__(self) -> str:
+        return (f'potential:\n'
+                f'  grid points: {self.vt_sR.desc.size}\n')
+
     def dH(self, P_ani, out_ani, spin):
         if len(P_ani.dims) == 1:  # collinear wave functions
             for (a, P_ni), out_ni in zip(P_ani.items(), out_ani.values()):

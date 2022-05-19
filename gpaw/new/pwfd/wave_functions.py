@@ -334,7 +334,7 @@ class PWFDWaveFunctions(WaveFunctions):
         spos_ac -= scenter_c - 0.5
         spos_ac %= 1.0
         spos_ac += scenter_c - 0.5
-        position_av = spos_ac.dot(cell_cv)
+        position_av = spos_ac @ cell_cv
 
         R_aiiv = []
         for setup, position_v in zip(self.setups, position_av):
@@ -355,7 +355,7 @@ class PWFDWaveFunctions(WaveFunctions):
             assert isinstance(self.psit_nX, PlaneWaveExpansions)
             # Find size of fft grid large enough to store square of wfs.
             pw = self.psit_nX.desc
-            s1, s2, s3 = pw.indices_cG.ptp(axis=1)
+            s1, s2, s3 = pw.indices_cG.ptp(axis=1)  # type: ignore
             assert pw.dtype == float
             # Last dimension is special because dtype=float:
             size_c = [2 * s1 + 2,

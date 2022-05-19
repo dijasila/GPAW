@@ -27,7 +27,6 @@ def test_tpss(in_tmp_dir):
             if atom not in systems:
                 systems.append(atom)
     energies = {}
-    niters = {}
 
     # Calculate energies
     for formula in systems:
@@ -51,7 +50,6 @@ def test_tpss(in_tmp_dir):
             loa.center()
         loa.calc = calc
         energy = loa.get_potential_energy()
-        niters[formula] = calc.get_number_of_iterations()
         diff = calc.get_xc_difference('TPSS')
         energies[formula] = (energy, energy + diff)
         print(formula, energy, energy + diff)

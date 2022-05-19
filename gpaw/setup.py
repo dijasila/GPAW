@@ -1398,7 +1398,7 @@ class Setups(list):
     def __str__(self):
         # Write PAW setup information in order of appearance:
         ids = set()
-        s = ''
+        s = 'species:\n'
         for id in self.id_a:
             if id in ids:
                 continue
@@ -1407,11 +1407,12 @@ class Setups(list):
             output = StringIO()
             setup.print_info(functools.partial(print, file=output))
             txt = output.getvalue()
-            basis_descr = setup.get_basis_description()
-            basis_descr = basis_descr.replace('\n  ', '\n    ')
-            s += txt + '  ' + basis_descr + '\n\n'
+            txt += '  # ' + setup.get_basis_description().replace('\n',
+                                                                  '\n  # ')
+            txt = txt.replace('\n', '\n  ')
+            s += '  ' + txt + '\n\n'
 
-        s += f'Reference energy: {self.Eref * units.Hartree:.6f}\n'
+        s += f'Reference energy: {self.Eref * units.Hartree:.6f}  # eV\n'
         return s
 
     def set_symmetry(self, symmetry):

@@ -64,7 +64,7 @@ class Domain:
                 if not p and k != 0:
                     raise ValueError(f'Bad k-point {kpt} for pbc={pbc}')
 
-        self.dtype = np.dtype(dtype)
+        self.dtype = np.dtype(dtype)  # type: ignore
 
         self.myshape: tuple[int, ...]
 

@@ -164,7 +164,7 @@ def choose_ecut_things(ecut, ecut_extrapolation, savew):
     return ecut, ecut_e
 
 
-class G0W0(PairDensity):
+class G0W0:
     av_scheme = None  # to appease set_flags()
 
     def __init__(self, calc, filename='gw', *,
@@ -189,7 +189,9 @@ class G0W0(PairDensity):
         particle energies through the G0W0 approximation for a number
         of states.
 
-        calc: str or PAW object
+        Parameters
+        ----------
+        calc:
             GPAW calculator object or filename of saved calculator object.
         filename: str
             Base filename of output files.
@@ -198,22 +200,22 @@ class G0W0(PairDensity):
         kpts: list
             List of indices of the IBZ k-points to calculate the quasi particle
             energies for.
-        bands: tuple of two ints
+        bands:
             Range of band indices, like (n1, n2), to calculate the quasi
             particle energies for. Bands n where n1<=n<n2 will be
             calculated.  Note that the second band index is not included.
-        relbands: tuple of two ints
+        relbands:
             Same as *bands* except that the numbers are relative to the
             number of occupied bands.
             E.g. (-1, 1) will use HOMO+LUMO.
         frequencies:
             Input parameters for frequency_grid.
             Can be array of frequencies to evaluate the response function at
-            or dictionary of paramaters for build-in nonlinear grid
+            or dictionary of parameters for build-in nonlinear grid
             (see :ref:`frequency grid`).
         ecut: float
             Plane wave cut-off energy in eV.
-        ecut_extrapolation: bool or array
+        ecut_extrapolation: bool or list
             If set to True an automatic extrapolation of the selfenergy to
             infinite cutoff will be performed based on three points
             for the cutoff energy.
@@ -287,8 +289,17 @@ class G0W0(PairDensity):
         if nblocksmax:
             nblocks = get_max_nblocks(world, calc, ecut)
 
-        PairDensity.__init__(self, calc, ecut, world=world, nblocks=nblocks,
-                             txt=filename + '.txt')
+        self.pair = PairDensity(calc, ecut, world=world, nblocks=nblocks,
+                                txt=filename + '.txt')
+
+        # Steal attributes from self.pair:
+        self.timer = self.pair.timer
+        self.fd = self.pair.fd
+        self.calc = self.pair.calc
+        self.ecut = self.pair.ecut
+        self.blockcomm = self.pair.blockcomm
+        self.world = self.pair.world
+        self.vol = self.pair.vol
 
         print(gw_logo, file=self.fd)
 
@@ -367,8 +378,8 @@ class G0W0(PairDensity):
 
         kd = self.calc.wfs.kd
 
-        self.mysKn1n2 = None  # my (s, K, n1, n2) indices
-        self.distribute_k_points_and_bands(b1, b2, kd.ibz2bz_k[self.kpts])
+        # self.mysKn1n2 = None  # my (s, K, n1, n2) indices
+        self.pair.distribute_k_points_and_bands(b1, b2, kd.ibz2bz_k[self.kpts])
 
         self.qd = get_qdescriptor(kd, self.calc.atoms)
         self.print_parameters(kpts, b1, b2, ecut_extrapolation)
@@ -501,8 +512,8 @@ class G0W0(PairDensity):
                 self.update_energies(mixing=self.mixing)
 
             # My part of the states we want to calculate QP-energies for:
-            mykpts = [self.get_k_point(s, K, n1, n2)
-                      for s, K, n1, n2 in self.mysKn1n2]
+            mykpts = [self.pair.get_k_point(s, K, n1, n2)
+                      for s, K, n1, n2 in self.pair.mysKn1n2]
             nkpt = len(mykpts)
 
             # Loop over q in the IBZ:
@@ -516,8 +527,8 @@ class G0W0(PairDensity):
                     pb.update((nQ + 1) * u /
                               (nkpt * self.qd.mynk * self.qd.nspins))
                     K2 = kd.find_k_plus_q(q_c, [kpt1.K])[0]
-                    kpt2 = self.get_k_point(kpt1.s, K2, 0, m2,
-                                            block=True)
+                    kpt2 = self.pair.get_k_point(
+                        kpt1.s, K2, 0, m2, block=True)
                     k1 = kd.bz2ibz_k[kpt1.K]
                     i = self.kpts.index(k1)
 
@@ -654,7 +665,8 @@ class G0W0(PairDensity):
         I_G = np.ravel_multi_index(i_cG + shift_c[:, None], N_c, 'wrap')
 
         G_Gv = pd0.get_reciprocal_vectors()
-        pos_av = np.dot(self.spos_ac, pd0.gd.cell_cv)
+
+        pos_av = np.dot(self.pair.spos_ac, pd0.gd.cell_cv)
         M_vv = symop.get_M_vv(pd0.gd.cell_cv)
 
         Q_aGii = []
@@ -681,8 +693,8 @@ class G0W0(PairDensity):
             eps1 = kpt1.eps_n[n]
             C1_aGi = [np.dot(Qa_Gii, P1_ni[n].conj())
                       for Qa_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
-            n_mG = self.calculate_pair_densities(ut1cc_R, C1_aGi, kpt2,
-                                                 pd0, I_G)
+            n_mG = self.pair.calculate_pair_densities(
+                ut1cc_R, C1_aGi, kpt2, pd0, I_G)
             if symop.sign == 1:
                 n_mG = n_mG.conj()
 
@@ -1082,13 +1094,11 @@ class G0W0(PairDensity):
 
     def dyson_and_W_old(self, wstc, iq, q_c, chi0, chi0_wvv, chi0_wxvG,
                         chi0_wGG, A1_x, A2_x, pd, ecut, htp, htm):
-        nw = len(self.wd)
         nG = pd.ngmax
 
-        mynw = (nw + self.blockcomm.size - 1) // self.blockcomm.size
+        wblocks1d = Blocks1D(self.blockcomm, len(self.wd))
+
         chi0_wGG = self.blockdist.redistribute(chi0_wGG, A2_x)
-        wa = min(self.blockcomm.rank * mynw, nw)
-        wb = min(wa + mynw, nw)
 
         if ecut == pd.ecut:
             pdi = pd
@@ -1099,8 +1109,6 @@ class G0W0(PairDensity):
                                kd=pd.kd)
             nG = pdi.ngmax
             self.blocks1d = Blocks1D(self.blockcomm, nG)
-            nw = len(self.wd)
-            mynw = (nw + self.blockcomm.size - 1) // self.blockcomm.size
 
             G2G = PWMapping(pdi, pd).G2_G1
             chi0_wGG = chi0_wGG.take(G2G, axis=1).take(G2G, axis=2)
@@ -1151,9 +1159,10 @@ class G0W0(PairDensity):
             qf_qv = 2 * np.pi * np.dot(qf_qc, pd.gd.icell_cv)
             a_wq = np.sum([chi0_vq * qf_qv.T
                            for chi0_vq in
-                           np.dot(chi0_wvv[wa:wb], qf_qv.T)], axis=1)
-            a0_qwG = np.dot(qf_qv, chi0_wxvG[wa:wb, 0])
-            a1_qwG = np.dot(qf_qv, chi0_wxvG[wa:wb, 1])
+                           np.dot(chi0_wvv[wblocks1d.myslice], qf_qv.T)],
+                          axis=1)
+            a0_qwG = np.dot(qf_qv, chi0_wxvG[wblocks1d.myslice, 0])
+            a1_qwG = np.dot(qf_qv, chi0_wxvG[wblocks1d.myslice, 1])
 
         self.timer.start('Dyson eq.')
         # Calculate W and store it in chi0_wGG ndarray:
@@ -1226,15 +1235,16 @@ class G0W0(PairDensity):
                         print_ac = True
                     else:
                         print_ac = False
+                    this_w = wblocks1d.a + iw
                     self.add_q0_correction(pdi, W_GG, einv_GG,
-                                           chi0_wxvG[wa + iw],
-                                           chi0_wvv[wa + iw],
+                                           chi0_wxvG[this_w],
+                                           chi0_wvv[this_w],
                                            sqrtV_G,
                                            print_ac=print_ac)
                     if self.do_GW_too:
                         self.add_q0_correction(pdi, W_GW_GG, einv_GW_GG,
-                                               chi0_wxvG[wa + iw],
-                                               chi0_wvv[wa + iw],
+                                               chi0_wxvG[this_w],
+                                               chi0_wvv[this_w],
                                                sqrtV_G,
                                                print_ac=print_ac)
                 elif np.allclose(q_c, 0) or self.integrate_gamma != 0:
