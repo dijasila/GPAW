@@ -1119,7 +1119,8 @@ class G0W0(PairDensity):
             qf_qv = 2 * np.pi * np.dot(qf_qc, pd.gd.icell_cv)
             a_wq = np.sum([chi0_vq * qf_qv.T
                            for chi0_vq in
-                           np.dot(chi0_wvv[wblocks1d.myslice], qf_qv.T)], axis=1)
+                           np.dot(chi0_wvv[wblocks1d.myslice], qf_qv.T)],
+                          axis=1)
             a0_qwG = np.dot(qf_qv, chi0_wxvG[wblocks1d.myslice, 0])
             a1_qwG = np.dot(qf_qv, chi0_wxvG[wblocks1d.myslice, 1])
 
@@ -1194,15 +1195,16 @@ class G0W0(PairDensity):
                         print_ac = True
                     else:
                         print_ac = False
+                    this_w = wblocks1d.a + iw
                     self.add_q0_correction(pdi, W_GG, einv_GG,
-                                           chi0_wxvG[wa + iw],
-                                           chi0_wvv[wa + iw],
+                                           chi0_wxvG[this_w],
+                                           chi0_wvv[this_w],
                                            sqrtV_G,
                                            print_ac=print_ac)
                     if self.do_GW_too:
                         self.add_q0_correction(pdi, W_GW_GG, einv_GW_GG,
-                                               chi0_wxvG[wa + iw],
-                                               chi0_wvv[wa + iw],
+                                               chi0_wxvG[this_w],
+                                               chi0_wvv[this_w],
                                                sqrtV_G,
                                                print_ac=print_ac)
                 elif np.allclose(q_c, 0) or self.integrate_gamma != 0:
