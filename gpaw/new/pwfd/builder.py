@@ -1,5 +1,7 @@
 from types import SimpleNamespace
 
+import numpy as np
+
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.kohnsham_layouts import get_KohnSham_layouts
 from gpaw.lcao.eigensolver import DirectLCAO
@@ -35,13 +37,14 @@ class PWFDDFTComponentsBuilder(DFTComponentsBuilder):
                 dims=(self.nbands,),
                 desc=SimpleNamespace(comm=domain_comm,
                                      kpt_c=kpt_c,
-                                     dtype=self.dtype))
+                                     dtype=self.dtype),
+                data=None)
             wfs = PWFDWaveFunctions(
                 spin=spin,
                 q=q,
                 k=k,
                 weight=weight,
-                psit_nX=psit_nG,
+                psit_nX=psit_nG,  # type: ignore
                 setups=self.setups,
                 fracpos_ac=self.fracpos_ac,
                 atomdist=self.atomdist,
@@ -99,26 +102,31 @@ class PWFDDFTComponentsBuilder(DFTComponentsBuilder):
         LCAOEigensolver(basis).iterate(state, hamiltonian)
 
         def create_wfs(spin, q, k, kpt_c, weight):
-            wfs = lcao_ibzwfs.wfs_qs[q][spin]
-            assert wfs.spin == spin
-            mynbands = len(wfs.C_nM.data)
+            lcaowfs = lcao_ibzwfs.wfs_qs[q][spin]
+            assert lcaowfs.spin == spin
 
             # Convert to PW-coefs in PW-mode:
             psit_nX = self.convert_wave_functions_from_uniform_grid(
-                wfs.C_nM, basis, kpt_c, q)
+                lcaowfs.C_nM, basis, kpt_c, q)
+            eig_n = lcaowfs._eig_n
 
-            if mynbands < self.nbands:
-                psit_nX[mynbands:].randomize()
+            nao = lcaowfs.C_nM.shape[1]
+            if nao < self.nbands:
+                psit_nX[nao:].randomize()
+                eig_n[nao:] = np.inf
 
-            return PWFDWaveFunctions(psit_nX=psit_nX,
-                                     spin=spin,
-                                     q=q,
-                                     k=k,
-                                     weight=weight,
-                                     setups=self.setups,
-                                     fracpos_ac=self.fracpos_ac,
-                                     atomdist=self.atomdist,
-                                     ncomponents=self.ncomponents)
+            wfs = PWFDWaveFunctions(
+                psit_nX=psit_nX,
+                spin=spin,
+                q=q,
+                k=k,
+                weight=weight,
+                setups=self.setups,
+                fracpos_ac=self.fracpos_ac,
+                atomdist=self.atomdist,
+                ncomponents=self.ncomponents)
+            wfs._eig_n = eig_n
+            return wfs
 
         return create_ibzwfs(self.ibz, self.nelectrons, self.ncomponents,
                              create_wfs, self.communicators['k'])

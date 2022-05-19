@@ -41,9 +41,6 @@ def actually_calculate_kernel(self, q_empty, tag, ecut_max):
 def calculate_kernel(self, nG, ns, iq, cut_G=None):
     tag = self.calc.atoms.get_chemical_formula(mode='hill')
 
-    if self.av_scheme is not None:
-        tag += '_' + self.av_scheme + '_nspins' + str(self.nspins)
-
     ecut = self.ecut * Ha
     if isinstance(ecut, (float, int)):
         ecut_max = ecut

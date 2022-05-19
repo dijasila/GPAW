@@ -155,9 +155,9 @@ class PlaneWaves(Domain):
 
         Say we have 9 G-vector on two cores::
 
-           5 3 4          . 3 4          0 . .
-           2 0 1  rank=0: 2 0 1  rank=1: . . .
-           8 6 7          . . .          3 1 2
+           5 3 4             . 3 4           0 . .
+           2 0 1 -> rank=0:  2 0 1  rank=1:  . . .
+           8 6 7             . . .           3 1 2
 
         and we want a mapping to these 5 G-vectors::
 
@@ -173,7 +173,7 @@ class PlaneWaves(Domain):
 
            [1], [[0, 1, 2, 3], [4]]
         """
-        size_c = tuple(self.indices_cG.ptp(axis=1) + 1)
+        size_c = tuple(self.indices_cG.ptp(axis=1) + 1)  # type: ignore
         Q_G = self.indices(size_c)
         G_Q = np.empty(prod(size_c), int)
         G_Q[Q_G] = np.arange(len(Q_G))

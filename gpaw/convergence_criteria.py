@@ -97,6 +97,7 @@ class Criterion:
     # criteria have been met.
     calc_last = False
     override_others = False
+    description = None
 
     def __repr__(self):
         parameters = signature(self.__class__).parameters

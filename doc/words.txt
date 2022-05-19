@@ -142,3 +142,15 @@ login
 untrusted
 Blaha
 GPU
+ferrimagnetic
+perturbatively
+allotrope
+supercell
+refactored
+Brillouin
+refactoring
+radians
+optimizations
+perturbative
+supercells
+prefactor

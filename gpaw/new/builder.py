@@ -14,7 +14,7 @@ from gpaw.core.atom_arrays import (AtomArrays, AtomArraysLayout,
                                    AtomDistribution)
 from gpaw.mixer import MixerWrapper, get_mixer_from_keywords
 from gpaw.mpi import MPIComm, Parallelization, serial_comm, world
-from gpaw.new import cached_property
+from gpaw.new import cached_property, prod
 from gpaw.new.basis import create_basis
 from gpaw.new.brillouin import BZPoints, MonkhorstPackKPoints
 from gpaw.new.density import Density
@@ -229,9 +229,14 @@ class DFTComponentsBuilder:
             wfs._occ_n = occ_skn[wfs.spin, wfs.k]
             layout = AtomArraysLayout([(setup.ni,) for setup in self.setups],
                                       dtype=self.dtype)
-            wfs._P_ani = AtomArrays(layout,
-                                    dims=(self.nbands,),
-                                    data=P_sknI[wfs.spin, wfs.k])
+            if self.ncomponents < 4:
+                wfs._P_ani = AtomArrays(layout,
+                                        dims=(self.nbands,),
+                                        data=P_sknI[wfs.spin, wfs.k])
+            else:
+                wfs._P_ani = AtomArrays(layout,
+                                        dims=(self.nbands, 2),
+                                        data=P_sknI[wfs.k])
 
         ibzwfs.fermi_levels = reader.wave_functions.fermi_levels / ha
 
@@ -242,8 +247,8 @@ def create_communicators(comm: MPIComm = None,
                          kpt: int = None,
                          band: int = None) -> dict[str, MPIComm]:
     parallelization = Parallelization(comm or world, nibzkpts)
-    if domain is not None:
-        domain = np.prod(domain)
+    if domain is not None and not isinstance(domain, int):
+        domain = prod(domain)
     parallelization.set(kpt=kpt,
                         domain=domain,
                         band=band)

@@ -191,7 +191,8 @@ class GPAW(Calculator):
             if key not in {'nbands', 'occupations', 'poissonsolver', 'kpts',
                            'eigensolver', 'random', 'maxiter', 'basis',
                            'symmetry', 'convergence', 'verbose'}:
-                raise TypeError(f'{key:!r} is an invalid keyword argument')
+                raise TypeError(f'Cannot change {key!r} in '
+                                'fixed_density calculation!')
 
         params = self.parameters.copy()
         params.update(kwargs)
@@ -284,6 +285,7 @@ class GPAW(Calculator):
         self.log('Reading from {}'.format(filename))
 
         self.reader = reader = Reader(filename)
+        assert reader.version <= 3
 
         atoms = read_atoms(reader.atoms)
         self._set_atoms(atoms)
@@ -2001,7 +2003,7 @@ class GPAW(Calculator):
                    (np.sqrt(4 * np.pi) * fac(2 * l + 1)))
             splines_x.append([Spline(l, rmax=r[-1], f_g=f_g)])
 
-        lf = LFC(wfs.gd, splines_x, wfs.kd, dtype=wfs.dtype)
+        lf = LFC(wfs.gd, splines_x, wfs.kd, dtype=wfs.dtype, cut=True)
         lf.set_positions(spos_xc)
 
         assert wfs.gd.comm.size == 1

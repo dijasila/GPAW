@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import Generator
 
 import numpy as np
 from ase.dft.bandgap import bandgap
@@ -92,11 +93,12 @@ class IBZWaveFunctions:
                 self.kpt_comm.rank == 0)
 
     def __str__(self):
-        return (f'{self.ibz}\n'
-                f'Valence electrons: {self.nelectrons}\n'
-                f'Spin-degeneracy: {self.spin_degeneracy}')
+        return (f'{self.ibz.symmetries}\n'
+                f'{self.ibz}\n'
+                f'valence electrons: {self.nelectrons}\n'
+                f'spin-degeneracy: {self.spin_degeneracy}\n')
 
-    def __iter__(self):
+    def __iter__(self) -> Generator[WaveFunctions, None, None]:
         for wfs_s in self.wfs_qs:
             yield from wfs_s
 
@@ -139,7 +141,8 @@ class IBZWaveFunctions:
             'extrapolation': e_entropy * occ_calc.extrapolate_factor}
 
     def add_to_density(self, nt_sR, D_asii) -> None:
-        """ Compute density from wave functions and add to nt_sR and D_asii """
+        """Compute density from wave functions and add to ``nt_sR``
+        and ``D_asii``."""
         for wfs in self:
             wfs.add_to_density(nt_sR, D_asii)
         self.kpt_comm.sum(nt_sR.data)
@@ -174,11 +177,11 @@ class IBZWaveFunctions:
         rank = self.rank_k[kpt]
         if rank == self.kpt_comm.rank:
             wfs = self.wfs_qs[self.q_k[kpt]][spin]
-            wfs = wfs.collect(n1, n2)
+            wfs2 = wfs.collect(n1, n2)
             if rank == 0:
-                return wfs
-            if wfs is not None:
-                wfs.send(self.kpt_comm, 0)
+                return wfs2
+            if wfs2 is not None:
+                wfs2.send(self.kpt_comm, 0)
             return
         master = (self.kpt_comm.rank == 0 and
                   self.domain_comm.rank == 0 and
@@ -248,18 +251,19 @@ class IBZWaveFunctions:
             translations=ibz.symmetries.translation_sc,
             weights=ibz.weight_k)
 
-        for wfs in self:
-            nproj = wfs.P_ani.layout.size
-            break
+        nproj = self.wfs_qs[0][0].P_ani.layout.size
+
+        spin_k_shape: tuple[int, ...]
+        proj_shape: tuple[int, ...]
 
         if self.collinear:
             spin_k_shape = (self.ncomponents, len(ibz))
-            proj_shape = spin_k_shape + (self.nbands, nproj)
+            proj_shape = (self.nbands, nproj)
         else:
-            proj_shape = (len(ibz), self.nbands, 2, nproj)
-            1 / 0
+            spin_k_shape = (len(ibz),)
+            proj_shape = (self.nbands, 2, nproj)
 
-        writer.add_array('projections', proj_shape, self.dtype)
+        writer.add_array('projections', spin_k_shape + proj_shape, self.dtype)
 
         for spin in range(self.nspins):
             for k, rank in enumerate(self.rank_k):
@@ -270,11 +274,11 @@ class IBZWaveFunctions:
                         P_nI = P_ani.matrix.gather()  # gather bands
                         if self.domain_comm.rank == 0:
                             if rank == 0:
-                                writer.fill(P_nI.data)
+                                writer.fill(P_nI.data.reshape(proj_shape))
                             else:
                                 self.kpt_comm.send(P_nI.data, 0)
                 elif self.kpt_comm.rank == 0:
-                    data = np.empty((self.nbands, nproj), self.dtype)
+                    data = np.empty(proj_shape, self.dtype)
                     self.kpt_comm.receive(data, rank)
                     writer.fill(data)
 
@@ -362,6 +366,14 @@ class IBZWaveFunctions:
         except ValueError:
             # Maybe we only have the occupied bands and no empty bands
             pass
+
+    def make_sure_wfs_are_read_from_gpw_file(self):
+        for wfs in self:
+            psit_nX = getattr(wfs, 'psit_nX', None)
+            if psit_nX is None:
+                return
+            if hasattr(psit_nX.data, 'fd'):
+                psit_nX.data = psit_nX.data[:]  # read
 
     def get_homo_lumo(self, spin: int = None) -> Array1D:
         """Return HOMO and LUMO eigenvalues."""
