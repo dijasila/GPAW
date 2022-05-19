@@ -388,6 +388,10 @@ class G0W0:
     def kd(self):
         return self.calc.wfs.kd
 
+    @property
+    def gd(self):
+        return self.calc.wfs.gd
+
     def choose_bands(self, bands, relbands):
         if bands is not None and relbands is not None:
             raise ValueError('Use bands or relbands!')
@@ -716,7 +720,7 @@ class G0W0:
     def check(self, ie, i_cG, shift0_c, N_c, q_c, Q_aGii):
         I0_G = np.ravel_multi_index(i_cG - shift0_c[:, None], N_c, 'wrap')
         qd1 = KPointDescriptor([q_c])
-        pd1 = PWDescriptor(self.ecut_e[ie], self.calc.wfs.gd, complex, qd1)
+        pd1 = PWDescriptor(self.ecut_e[ie], self.gd, complex, qd1)
         G_I = np.empty(N_c.prod(), int)
         G_I[:] = -1
         I1_G = pd1.Q_qG[0]
@@ -821,7 +825,7 @@ class G0W0:
 
         if self.truncation == 'wigner-seitz':
             wstc = WignerSeitzTruncatedCoulomb(
-                self.calc.wfs.gd.cell_cv,
+                self.gd.cell_cv,
                 self.kd.N_c,
                 chi0.fd)
         else:
@@ -834,8 +838,7 @@ class G0W0:
         htm = HilbertTransform(self.wd.omega_w, -self.eta, gw=True)
 
         # Find maximum size of chi-0 matrices:
-        gd = self.calc.wfs.gd
-        nGmax = max(count_reciprocal_vectors(self.ecut, gd, q_c)
+        nGmax = max(count_reciprocal_vectors(self.ecut, self.gd, q_c)
                     for q_c in self.qd.ibzk_kc)
         nw = len(self.wd)
 
@@ -865,7 +868,7 @@ class G0W0:
                 continue
 
             thisqd = KPointDescriptor([q_c])
-            pd = PWDescriptor(self.ecut, self.calc.wfs.gd, complex, thisqd)
+            pd = PWDescriptor(self.ecut, self.gd, complex, thisqd)
             nG = pd.ngmax
 
             # This does not seem healthy... G0W0 should not configure the
@@ -1544,7 +1547,7 @@ class G0W0:
     def add_q0_correction(self, pd, W_GG, einv_GG, chi0_xvG, chi0_vv,
                           sqrtV_G, print_ac=False):
         from ase.dft import monkhorst_pack
-        cell_cv = self.calc.wfs.gd.cell_cv
+        cell_cv = self.gd.cell_cv
         qpts_qc = self.kd.bzk_kc
         L = cell_cv[2, 2]
         vc_G0 = sqrtV_G[1:]**2
