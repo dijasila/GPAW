@@ -461,8 +461,8 @@ class G0W0:
         All the values are ``ndarray``'s of shape
         (spins, IBZ k-points, bands)."""
 
-        self.calculate_ks_xc_contribution()
-        self.calculate_exact_exchange()
+        self.vxc_skn = self.calculate_ks_xc_contribution()
+        self.exx_skn = self.calculate_exact_exchange()
 
         if self.restartfile is not None:
             loaded = self.load_restart_file()
@@ -1304,27 +1304,29 @@ class G0W0:
     @timer('Kohn-Sham XC-contribution')
     def calculate_ks_xc_contribution(self):
         name = self.filename + '.vxc.npy'
-        fd, self.vxc_skn = self.read_contribution(name)
-        if self.vxc_skn is None:
+        fd, vxc_skn = self.read_contribution(name)
+        if vxc_skn is None:
             print('Calculating Kohn-Sham XC contribution', file=self.fd)
             vxc_skn = vxc(self.calc, self.calc.hamiltonian.xc) / Ha
             n1, n2 = self.bands
-            self.vxc_skn = vxc_skn[:, self.kpts, n1:n2]
-            np.save(fd, self.vxc_skn)
+            vxc_skn = vxc_skn[:, self.kpts, n1:n2]
+            np.save(fd, vxc_skn)
             fd.close()
+        return vxc_skn
 
     @timer('EXX')
     def calculate_exact_exchange(self):
         name = self.filename + '.exx.npy'
-        fd, self.exx_skn = self.read_contribution(name)
-        if self.exx_skn is None:
+        fd, exx_skn = self.read_contribution(name)
+        if exx_skn is None:
             print('Calculating EXX contribution', file=self.fd)
             exx = EXX(self.calc, kpts=self.kpts, bands=self.bands,
                       txt=self.filename + '.exx.txt', timer=self.timer)
             exx.calculate()
-            self.exx_skn = exx.get_eigenvalue_contributions() / Ha
-            np.save(fd, self.exx_skn)
+            exx_skn = exx.get_eigenvalue_contributions() / Ha
+            np.save(fd, exx_skn)
             fd.close()
+        return exx_skn
 
     def read_contribution(self, filename):
         fd = opencew(filename)  # create, exclusive, write
