@@ -376,14 +376,17 @@ class G0W0:
             raise RuntimeError('Including a xc kernel does currently not '
                                'work for spinpolarized systems.')
 
-        kd = self.calc.wfs.kd
-
         # self.mysKn1n2 = None  # my (s, K, n1, n2) indices
-        self.pair.distribute_k_points_and_bands(b1, b2, kd.ibz2bz_k[self.kpts])
+        self.pair.distribute_k_points_and_bands(b1, b2,
+                                                self.kd.ibz2bz_k[self.kpts])
 
-        self.qd = get_qdescriptor(kd, self.calc.atoms)
+        self.qd = get_qdescriptor(self.kd, self.calc.atoms)
         self.print_parameters(kpts, b1, b2, ecut_extrapolation)
         self.fd.flush()
+
+    @property
+    def kd(self):
+        return self.calc.wfs.kd
 
     def choose_bands(self, bands, relbands):
         if bands is not None and relbands is not None:
@@ -453,8 +456,6 @@ class G0W0:
 
         All the values are ``ndarray``'s of shape
         (spins, IBZ k-points, bands)."""
-
-        kd = self.calc.wfs.kd
 
         self.calculate_ks_xc_contribution()
         self.calculate_exact_exchange()
@@ -526,10 +527,10 @@ class G0W0:
                 for u, kpt1 in enumerate(mykpts):
                     pb.update((nQ + 1) * u /
                               (nkpt * self.qd.mynk * self.qd.nspins))
-                    K2 = kd.find_k_plus_q(q_c, [kpt1.K])[0]
+                    K2 = self.kd.find_k_plus_q(q_c, [kpt1.K])[0]
                     kpt2 = self.pair.get_k_point(
                         kpt1.s, K2, 0, m2, block=True)
-                    k1 = kd.bz2ibz_k[kpt1.K]
+                    k1 = self.kd.bz2ibz_k[kpt1.K]
                     i = self.kpts.index(k1)
 
                     self.calculate_q(ie, i, kpt1, kpt2, pd0, W0, W0_GW,
@@ -652,12 +653,12 @@ class G0W0:
         else:
             Ws = [W0, W0_GW]
 
-        wfs = self.calc.wfs
+        kd = self.kd
 
         N_c = pd0.gd.N_c
         i_cG = symop.apply(np.unravel_index(pd0.Q_qG[0], N_c))
 
-        q_c = wfs.kd.bzk_kc[kpt2.K] - wfs.kd.bzk_kc[kpt1.K]
+        q_c = kd.bzk_kc[kpt2.K] - kd.bzk_kc[kpt1.K]
 
         shift0_c = symop.get_shift0(q_c, pd0.kd.bzk_kc[0])
         shift_c = kpt1.shift_c - kpt2.shift_c - shift0_c
@@ -821,7 +822,7 @@ class G0W0:
         if self.truncation == 'wigner-seitz':
             wstc = WignerSeitzTruncatedCoulomb(
                 self.calc.wfs.gd.cell_cv,
-                self.calc.wfs.kd.N_c,
+                self.kd.N_c,
                 chi0.fd)
         else:
             wstc = None
@@ -1055,7 +1056,7 @@ class G0W0:
         dielectric_WgG = chi0_WgG  # XXX
         for iw, chi0_GG in enumerate(chi0_WgG):
             sqrtV_G = get_coulomb_kernel(pd,  # XXX was: pdi
-                                         self.calc.wfs.kd.N_c,
+                                         self.kd.N_c,
                                          truncation=self.truncation,
                                          wstc=wstc)**0.5
             e_GG = np.eye(nG) - chi0_GG * sqrtV_G * sqrtV_G[:, np.newaxis]
@@ -1126,7 +1127,7 @@ class G0W0:
             else:
                 reduced = False
             V0, sqrtV0 = get_integrated_kernel(pdi,
-                                               self.calc.wfs.kd.N_c,
+                                               self.kd.N_c,
                                                truncation=self.truncation,
                                                reduced=reduced,
                                                N=100)
@@ -1145,7 +1146,7 @@ class G0W0:
         fv = calculate_kernel(self, nG, self.nspins, iq, G2G)[0:nG, 0:nG]
         # Generate fine grid in vicinity of gamma
         if np.allclose(q_c, 0) and len(chi0_wGG) > 0:
-            kd = self.calc.wfs.kd
+            kd = self.kd
             N = 4
             N_c = np.array([N, N, N])
             if self.truncation is not None:
@@ -1207,7 +1208,7 @@ class G0W0:
                         einv_GW_GG += gw_dfc.get_einv_GG() * weight_q[iqf]
 
             else:
-                sqrtV_G = get_sqrtV_G(self.calc.wfs.kd.N_c)
+                sqrtV_G = get_sqrtV_G(self.kd.N_c)
 
                 dfc = DielectricFunctionCalculator(
                     sqrtV_G, chi0_GG, mode=self.fxc_mode, fv_GG=fv)
@@ -1363,7 +1364,7 @@ class G0W0:
 
         b1, b2 = self.bands
         names = [line.split(':', 1)[0] for line in description]
-        ibzk_kc = self.calc.wfs.kd.ibzk_kc
+        ibzk_kc = self.kd.ibzk_kc
         for s in range(self.calc.wfs.nspins):
             for i, ik in enumerate(self.kpts):
                 print('\nk-point ' +
@@ -1544,7 +1545,7 @@ class G0W0:
                           sqrtV_G, print_ac=False):
         from ase.dft import monkhorst_pack
         self.cell_cv = self.calc.wfs.gd.cell_cv
-        self.qpts_qc = self.calc.wfs.kd.bzk_kc
+        self.qpts_qc = self.kd.bzk_kc
         self.weight_q = 1.0 * np.ones(len(self.qpts_qc)) / len(self.qpts_qc)
         L = self.cell_cv[2, 2]
         vc_G0 = sqrtV_G[1:]**2
