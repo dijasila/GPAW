@@ -1546,7 +1546,6 @@ class G0W0:
         from ase.dft import monkhorst_pack
         cell_cv = self.calc.wfs.gd.cell_cv
         qpts_qc = self.kd.bzk_kc
-        self.weight_q = 1.0 * np.ones(len(qpts_qc)) / len(qpts_qc)
         L = cell_cv[2, 2]
         vc_G0 = sqrtV_G[1:]**2
 
