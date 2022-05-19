@@ -709,13 +709,13 @@ class Integrator:  # --> KPointPairIntegrator in the future? XXX
     r"""Baseclass for reciprocal space integrals of the first Brillouin Zone,
     where the integrand is a sum over transitions in bands and spin.
 
-    Definition (V0 is the cell volume, V the crystal volume, Nk is the number
-    of k-points in the crystal and D is the dimension of the crystal):
-       __  __           __  __                   __
-    1  \   \       1    \   \         1     /    \
-    ‾  /   /   =  ‾‾‾‾  /   /   =  ‾‾‾‾‾‾‾  |dk  /
-    V  ‾‾  ‾‾     V0Nk  ‾‾  ‾‾     (2pi)^D  /    ‾‾
-       k   t            k   t                    t
+    Definition (V is the total crystal volume and D is the dimension of the
+    crystal):
+       __  __                   __
+    1  \   \         1     /    \
+    ‾  /   /   =  ‾‾‾‾‾‾‾  |dk  /
+    V  ‾‾  ‾‾     (2pi)^D  /    ‾‾
+       k   t                    t
 
     NB: In the current implementation, the dimension is fixed to 3. This is
     sensible for pair functions which are a function of position (such as the
@@ -764,14 +764,22 @@ class Integrator:  # --> KPointPairIntegrator in the future? XXX
         k-point domain. The domain will genererally depend on the integration
         method as well as the symmetry of the crystal.
 
-        Definition (here k denotes the k-point domain specified by the method,
-        with the reduced Nkr number of k-points, giving rise to an extra
-        integration prefactor A and individual k-point weights wk):
-                      __             __               __
-           1     /    \   ~    A     \   (2pi)^D      \
-        ‾‾‾‾‾‾‾  |dk  /   = ‾‾‾‾‾‾‾  /   ‾‾‾‾‾‾‾  wk  /
-        (2pi)^D  /    ‾‾    (2pi)^D  ‾‾  Nkr V0       ‾‾
-                      t              k                t
+        Definition:
+                      __              __                __
+           1     /    \   ~     A     \   (2pi)^D       \
+        ‾‾‾‾‾‾‾  |dk  /   =  ‾‾‾‾‾‾‾  /   ‾‾‾‾‾‾‾  wkr  /
+        (2pi)^D  /    ‾‾     (2pi)^D  ‾‾   Nk V0        ‾‾
+                      t               kr                t
+        The sum over kr denotes the reduced k-point domain specified by the
+        integration method (a reduced selection of Nkr points from the ground
+        state k-point grid of Nk total points in the entire 1BZ). Each point
+        is weighted by its k-point volume on the ground state k-point grid
+                      (2pi)^D
+        kpointvol  =  ‾‾‾‾‾‾‾,
+                       Nk V0
+        where V0 is the cell volume, and an additional individual k-point
+        weight wkr, specific to the integration method. Furthermore, the
+        integration method may define an extra integration prefactor A.
         """
         if out_x is None:  # Why is it None by default then? XXX
             raise NotImplementedError
@@ -781,9 +789,8 @@ class Integrator:  # --> KPointPairIntegrator in the future? XXX
         # Calculate prefactors
         A = self.calculate_bzint_prefactor(bzk_kv)
         outer_prefactor = A / (2 * np.pi)**3
-        Nkr = bzk_kv.shape[0]
-        V0 = abs(np.linalg.det(self.kslrf.calc.wfs.gd.cell_cv))
-        kpointvol = (2 * np.pi)**3 / Nkr / V0
+        V = self.calculate_crystal_volume()  # V = Nk * V0
+        kpointvol = (2 * np.pi)**3 / V
         prefactor = outer_prefactor * kpointvol
 
         # Perform the sum over the k-point domain w.o. prefactors
@@ -804,18 +811,32 @@ class Integrator:  # --> KPointPairIntegrator in the future? XXX
     def calculate_bzint_prefactor(self, bzk_kv):
         raise NotImplementedError('Prefactor depends on integration method')
 
+    def calculate_crystal_volume(self):
+        """Calculate the total crystal volume, V = Nk * V0, corresponding to
+        the ground state k-point grid."""
+        # Get the total number of k-points on the ground state k-point grid
+        if self.kslrf.calc.wfs.kd.refine_info is not None:
+            Nk = self.kslrf.calc.wfs.kd.refine_info.mhnbzkpts
+        else:
+            Nk = self.kslrf.calc.wfs.kd.nbzkpts
+
+        # Calculate the cell volume
+        V0 = abs(np.linalg.det(self.kslrf.calc.wfs.gd.cell_cv))
+
+        return Nk * V0
+
     def _integrate(self, bzk_kv, weight_k,
                    n1_t, n2_t, s1_t, s2_t, tmp_x, **kwargs):
         r"""Do the actual reciprocal space integral as a simple weighted sum
         over the k-point domain, where the integrand is calculated externally
         as a sum over transitions in bands and spin.
 
-        Definition (k denotes the k-point domain and wk the weights):
-        __      __
-        \       \
-        /   wk  /
-        ‾‾      ‾‾
-        k       t
+        Definition (kr denotes the k-point domain and wkr the weights):
+        __       __
+        \        \
+        /   wkr  /
+        ‾‾       ‾‾
+        kr       t
         """
         # tmp_x should be zero prior to the in-place integration
         assert np.allclose(tmp_x, 0.)
@@ -832,7 +853,7 @@ class Integrator:  # --> KPointPairIntegrator in the future? XXX
 
         # Perform sum over k-points
         pb = ProgressBar(self.kslrf.cfd)
-        if self.kslrf.bundle_kptpairs:
+        if self.kslrf.bundle_kptpairs:  # Retire bundling of kptpairs? XXX
             # Extract all the process' kptpairs at once, then do integration
             print('\nExtracting Kohn-Sham k-point pairs',
                   file=self.kslrf.cfd, flush=True)
@@ -874,12 +895,26 @@ class Integrator:  # --> KPointPairIntegrator in the future? XXX
 
 
 class PWPointIntegrator(Integrator):
-    """A simple point integrator for the plane wave mode."""
+    r"""A simple point integrator for the plane wave mode, estimating the
+    k-point integral as a simple sum over all k-points of the ground state
+    k-point grid:
+                  __               __           __
+       1     /    \   ~  2/nspins  \   (2pi)^D  \
+    ‾‾‾‾‾‾‾  |dk  /   =  ‾‾‾‾‾‾‾‾  /   ‾‾‾‾‾‾‾  /
+    (2pi)^D  /    ‾‾     (2pi)^D   ‾‾   Nk V0   ‾‾
+                  t                k            t
+
+    Using the PWSymmetryAnalyzer, the k-point sum is reduced according to the
+    symmetries of the crystal.
+    """
 
     @timer('Get k-point domain')
     def get_kpoint_domain(self):
         """Use the PWSymmetryAnalyzer to define and weight the k-point domain
-        based on the ground state k-point grid."""
+        based on the ground state k-point grid.
+
+        NB: We could use some more documentation, see XXX below.
+        """
         # Generate k-point domain in relative coordinates
         K_gK = self.kslrf.pwsa.group_kpoints()  # What is g? XXX
         bzk_kc = np.array([self.kslrf.calc.wfs.kd.bzk_kc[K_K[0]] for
@@ -887,16 +922,8 @@ class PWPointIntegrator(Integrator):
         # Compute actual k-points in absolute reciprocal space coordinates
         bzk_kv = np.dot(bzk_kc, self.kslrf.pd.gd.icell_cv) * 2 * np.pi
 
-        # Compute k-point reduction
-        if self.kslrf.calc.wfs.kd.refine_info is not None:
-            nbzkpts = self.kslrf.calc.wfs.kd.refine_info.mhnbzkpts
-        else:
-            nbzkpts = self.kslrf.calc.wfs.kd.nbzkpts
-        kfrac = len(bzk_kv) / nbzkpts
         # Get the k-point weights from the symmetry analyzer
-        # Shouldn't the weights from pwsa account for the reduction? XXX
-        weight_k = [self.kslrf.pwsa.get_kpoint_weight(k_c) * kfrac
-                    for k_c in bzk_kc]
+        weight_k = [self.kslrf.pwsa.get_kpoint_weight(k_c) for k_c in bzk_kc]
 
         return bzk_kv, weight_k
 
