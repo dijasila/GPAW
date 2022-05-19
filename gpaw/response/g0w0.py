@@ -1544,10 +1544,10 @@ class G0W0:
     def add_q0_correction(self, pd, W_GG, einv_GG, chi0_xvG, chi0_vv,
                           sqrtV_G, print_ac=False):
         from ase.dft import monkhorst_pack
-        self.cell_cv = self.calc.wfs.gd.cell_cv
+        cell_cv = self.calc.wfs.gd.cell_cv
         self.qpts_qc = self.kd.bzk_kc
         self.weight_q = 1.0 * np.ones(len(self.qpts_qc)) / len(self.qpts_qc)
-        L = self.cell_cv[2, 2]
+        L = cell_cv[2, 2]
         vc_G0 = sqrtV_G[1:]**2
 
         B_GG = einv_GG[1:, 1:]
@@ -1568,7 +1568,7 @@ class G0W0:
         Gpar_G = np.sum(G_Gv[:, 0:2]**2, axis=1)**0.5
 
         # Generate numerical q-point grid
-        rcell_cv = 2 * pi * np.linalg.inv(self.cell_cv).T
+        rcell_cv = 2 * pi * np.linalg.inv(cell_cv).T
         N_c = self.qd.N_c
 
         iq = np.argmin(np.sum(self.qpts_qc**2, axis=1))
