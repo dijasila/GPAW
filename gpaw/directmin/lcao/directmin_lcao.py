@@ -10,7 +10,6 @@ https://doi.org/10.1016/j.cpc.2021.108047
 """
 
 import numpy as np
-from copy import deepcopy
 from gpaw.lcao.eigensolver import DirectLCAO
 from gpaw.utilities.tools import tri2full
 
