@@ -17,6 +17,8 @@ from scipy.linalg import expm
 from gpaw.directmin import search_direction, line_search_algorithm
 from gpaw.directmin.functional import get_functional
 from gpaw import BadParallelization
+import warnings
+from gpaw.mpi import rank, MASTER
 
 
 class ETDM:
@@ -215,6 +217,7 @@ class ETDM:
         self.need_init_orbs = self.dm_helper.need_init_orbs
         # mom
         wfs.calculate_occupation_numbers(dens.fixed)
+        check_not_aufbau_but_diag(wfs, self.dm_helper.was_diag)
         occ_name = getattr(wfs.occupations, "name", None)
         if occ_name == 'mom':
             self.initial_occupation_numbers = wfs.occupations.numbers.copy()
@@ -827,3 +830,21 @@ def vec2skewmat(a_vec, dim, ind_up, dtype):
     a_mat -= a_mat.T.conj()
     np.fill_diagonal(a_mat, a_mat.diagonal() * 0.5)
     return a_mat
+
+def check_not_aufbau_but_diag(wfs, was_diag):
+    is_aufbau_occupation = True
+    for kpt in wfs.kpt_u:
+        occupied = kpt.f_n > 1.0e-10
+        n_occ = len(kpt.f_n[occupied])
+        if n_occ == 0.0:
+            continue
+        if np.min(kpt.f_n[:n_occ]) == 0:
+            is_aufbau_occupation = False
+            break
+    if was_diag and not is_aufbau_occupation and rank == MASTER:
+        warnings.warn('Non-Aufbau occupation numbers detected, but '
+            '\"need_init_orbs\" set to \"True\". One direct '
+            'diagonalization step is performed at the start of the '
+            'optimization. As a result, the order of orbitals and '
+            'characters of particle and hole orbitals can change. '
+            'Set \"need_init_orbs\" to False to deactivate this.')
