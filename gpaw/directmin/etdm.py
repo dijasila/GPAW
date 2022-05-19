@@ -11,13 +11,14 @@ https://doi.org/10.1016/j.cpc.2021.108047
 
 import numpy as np
 from copy import deepcopy
-import warnings
 from gpaw.directmin.tools import expm_ed, expm_ed_unit_inv
 from gpaw.directmin.lcao.directmin_lcao import DirectMinLCAO
 from scipy.linalg import expm
 from gpaw.directmin import search_direction, line_search_algorithm
 from gpaw.directmin.functional import get_functional
 from gpaw import BadParallelization
+import warnings
+from gpaw.mpi import rank, MASTER
 
 
 class ETDM:
@@ -242,6 +243,7 @@ class ETDM:
         self.need_init_orbs = self.dm_helper.need_init_orbs
         # mom
         wfs.calculate_occupation_numbers(dens.fixed)
+        check_not_aufbau_but_diag(wfs, self.dm_helper.was_diag)
         occ_name = getattr(wfs.occupations, "name", None)
         if occ_name == 'mom':
             self.initial_occupation_numbers = wfs.occupations.numbers.copy()
@@ -981,3 +983,21 @@ def update_constraints(constraints, ind):
         for k in range(len(constraints[i])):
             new[i][k] = ind.index(constraints[i][k])
     return new
+
+def check_not_aufbau_but_diag(wfs, was_diag):
+    is_aufbau_occupation = True
+    for kpt in wfs.kpt_u:
+        occupied = kpt.f_n > 1.0e-10
+        n_occ = len(kpt.f_n[occupied])
+        if n_occ == 0.0:
+            continue
+        if np.min(kpt.f_n[:n_occ]) == 0:
+            is_aufbau_occupation = False
+            break
+    if was_diag and not is_aufbau_occupation and rank == MASTER:
+        warnings.warn('Non-Aufbau occupation numbers detected, but '
+            '\"need_init_orbs\" set to \"True\". One direct '
+            'diagonalization step is performed at the start of the '
+            'optimization. As a result, the order of orbitals and '
+            'characters of particle and hole orbitals can change. '
+            'Set \"need_init_orbs\" to False to deactivate this.')
