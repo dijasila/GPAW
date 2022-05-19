@@ -226,7 +226,7 @@ t = -1
 H = np.eye(6, 6, 1) + np.eye(6, 6, -1)
 H[0, -1] = H[-1, 0] = 1
 H *= t
-# H[0, 0] = 1.0e-5  # small pertubation
+# H[0, 0] = 1.0e-5  # small perturbation
 eps, U = np.linalg.eigh(H)
 
 # %%

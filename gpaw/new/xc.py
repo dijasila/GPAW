@@ -10,7 +10,7 @@ class XCFunctional:
         self.type = self.xc.type
 
     def __str__(self):
-        return str(self.xc)
+        return f'name: {self.name}'
 
     def calculate(self, density, out) -> float:
         return self.xc.calculate(density.desc._gd, density.data, out.data)

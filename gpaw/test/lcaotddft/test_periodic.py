@@ -43,6 +43,7 @@ def initialize_system():
                                communicator=comm)
 
 
+@pytest.mark.skip_for_new_gpaw
 def test_propagated_wave_function(initialize_system, module_tmp_path):
     wfr = WaveFunctionReader(module_tmp_path / 'wf.ulm')
     coeff = wfr[-1].wave_functions.coefficients
@@ -65,6 +66,7 @@ def test_propagated_wave_function(initialize_system, module_tmp_path):
     assert err < 5e-9
 
 
+@pytest.mark.skip_for_new_gpaw
 @pytest.mark.parametrize('parallel', parallel_i)
 def test_propagation(initialize_system, module_tmp_path, parallel, in_tmp_dir):
     calculate_time_propagation(module_tmp_path / 'gs.gpw',

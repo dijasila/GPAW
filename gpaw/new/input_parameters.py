@@ -128,14 +128,7 @@ def charge(value=0.0):
 @input_parameter
 def convergence(value=None):
     """Accuracy of the self-consistency cycle."""
-    dct = update_dict({'energy': 0.0005,  # eV / electron
-                       'density': 1.0e-4,  # electrons / electron
-                       'eigenstates': 4.0e-8,  # eV^2 / electron
-                       'forces': np.inf,
-                       'bands': None,
-                       'maximum iterations': None},
-                      value)
-    return {k: v for k, v in dct.items() if v is not None}
+    return value or {}
 
 
 @input_parameter

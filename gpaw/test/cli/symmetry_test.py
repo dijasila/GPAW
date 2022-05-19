@@ -3,10 +3,16 @@ import pytest
 from gpaw.cli.main import main
 
 result = """\
-Symmetries present (total): 48
-Symmetries with fractional translations: 0
-512 k-points: 8 x 8 x 8 Monkhorst-Pack grid + [1/16,1/16,1/16]
-29 k-points in the irreducible part of the Brillouin zone
+symmetry:
+  number of symmetries: 48
+  number of symmetries with translation: 0
+
+bz sampling:
+  number of bz points: 512
+  number of ibz points: 29
+  monkhorst-pack size: [8, 8, 8]
+  monkhorst-pack shift: [0.0625, 0.0625, 0.0625]
+
 """
 
 

@@ -47,7 +47,7 @@ section: :ref:`gw_theory`.
 Ground state calculation
 ------------------------
 
-As GW is a pertubative approach on top of a ground state, lets start by
+As GW is a perturbative approach on top of a ground state, lets start by
 calculating the ground state of Silicon. You can create a script yourself or
 reuse the one from the band structure calculation. Silicon has in diamond
 structure with a lattice constant of 5.431 Å.

@@ -717,11 +717,10 @@ class MixerWrapper:
                  'Method: ' + self.driver.name,
                  'Backend: ' + self.driver.basemixerclass.name,
                  'Linear mixing parameter: %g' % self.beta,
-                 'Mixing with %d old densities' % self.nmaxold]
+                 f'old densities: {self.nmaxold}',
+                 'Damping of long wavelength oscillations: %g' % self.weight]
         if self.weight == 1:
-            lines.append('No damping of long wave oscillations')
-        else:
-            lines.append('Damping of long wave oscillations: %g' % self.weight)
+            lines[-1] += '  # (no daming)'
         return '\n  '.join(lines)
 
 
