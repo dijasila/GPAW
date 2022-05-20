@@ -92,7 +92,7 @@ class ChiKS(PlaneWaveKSLRF):
         bandsummation: double
 
                    __
-                   \  smu_ss' snu_s's (f_n'k's' - f_nks)
+                   \  smu_ss' snu_s's (f_nks - f_n'k's')
         (...)_k =  /  ---------------------------------- n_kt(G+q) n_kt^*(G'+q)
                    ‾‾ hw - (eps_n'k's'-eps_nks) + ih eta
                    t
@@ -102,12 +102,12 @@ class ChiKS(PlaneWaveKSLRF):
         bandsummation: pairwise (using spin-conserving time-reversal symmetry)
 
                     __ /
-                    \  | smu_ss' snu_s's (f_n'k's' - f_nks)
+                    \  | smu_ss' snu_s's (f_nks - f_n'k's')
         (...)_k =   /  | ----------------------------------
                     ‾‾ | hw - (eps_n'k's'-eps_nks) + ih eta
                     t  \
                                                        \
-                    smu_s's snu_ss' (f_n'k's' - f_nks) |
+                    smu_s's snu_ss' (f_nks - f_n'k's') |
         -delta_n'>n ---------------------------------- | n_kt(G+q) n_kt^*(G'+q)
                     hw + (eps_n'k's'-eps_nks) + ih eta |
                                                        /
@@ -170,29 +170,30 @@ class ChiKS(PlaneWaveKSLRF):
     def get_double_temporal_part(self, n1_t, n2_t, s1_t, s2_t, df_t, deps_t):
         """Get:
         
-               smu_ss' snu_s's (f_n'k's' - f_nks)
+               smu_ss' snu_s's (f_nks - f_n'k's')
         x_wt = ----------------------------------
                hw - (eps_n'k's'-eps_nks) + ih eta
         """
         # Get the right spin components
         scomps_t = get_smat_components(self.spincomponent, s1_t, s2_t)
         # Calculate nominator
-        nom_t = scomps_t * df_t
+        nom_t = - scomps_t * df_t  # df = f2 - f1
         # Calculate denominator
-        denom_wt = self.wd.omega_w[:, np.newaxis] - deps_t[np.newaxis, :]\
-            + 1j * self.eta
+        denom_wt = self.wd.omega_w[:, np.newaxis] + 1j * self.eta\
+            - deps_t[np.newaxis, :]  # de = e2 - e1
+            
         
         return nom_t[np.newaxis, :] / denom_wt
 
     def get_pairwise_temporal_part(self, n1_t, n2_t, s1_t, s2_t, df_t, deps_t):
         """Get:
                /
-               | smu_ss' snu_s's (f_n'k's' - f_nks)
+               | smu_ss' snu_s's (f_nks - f_n'k's')
         x_wt = | ----------------------------------
                | hw - (eps_n'k's'-eps_nks) + ih eta
                \
                                                            \
-                        smu_s's snu_ss' (f_n'k's' - f_nks) |
+                        smu_s's snu_ss' (f_nks - f_n'k's') |
             -delta_n'>n ---------------------------------- |
                         hw + (eps_n'k's'-eps_nks) + ih eta |
                                                            /
@@ -204,13 +205,13 @@ class ChiKS(PlaneWaveKSLRF):
         scomps1_t = get_smat_components(self.spincomponent, s1_t, s2_t)
         scomps2_t = get_smat_components(self.spincomponent, s2_t, s1_t)
         # Calculate nominators
-        nom1_t = scomps1_t * df_t
-        nom2_t = delta_t * scomps2_t * df_t
+        nom1_t = - scomps1_t * df_t  # df = f2 - f1
+        nom2_t = - delta_t * scomps2_t * df_t
         # Calculate denominators
-        denom1_wt = self.wd.omega_w[:, np.newaxis] - deps_t[np.newaxis, :]\
-            + 1j * self.eta
-        denom2_wt = self.wd.omega_w[:, np.newaxis] + deps_t[np.newaxis, :]\
-            + 1j * self.eta
+        denom1_wt = self.wd.omega_w[:, np.newaxis] + 1j * self.eta\
+            - deps_t[np.newaxis, :]  # de = e2 - e1
+        denom2_wt = self.wd.omega_w[:, np.newaxis] + 1j * self.eta\
+            + deps_t[np.newaxis, :]
         
         return nom1_t[np.newaxis, :] / denom1_wt\
             - nom2_t[np.newaxis, :] / denom2_wt
