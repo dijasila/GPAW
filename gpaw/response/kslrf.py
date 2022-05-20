@@ -17,35 +17,68 @@ from gpaw.response.pw_parallelization import (block_partition, Blocks1D,
 
 
 class KohnShamLinearResponseFunction:  # Future PairFunctionIntegrator? XXX
-    r"""Class calculating linear response functions in the Kohn-Sham system
+    r"""Class calculating linear response functions in the Kohn-Sham system of
+    a periodic crystal.
 
-    Any linear response function can be calculated as a sum over transitions
-    between the ground state and excited energy eigenstates.
-
-    In the Kohn-Sham system this approach is particularly simple, as only
-    excited states, for which a single electron has been moved from an occupied
-    single-particle Kohn-Sham orbital to an unoccupied one, contribute.
+    In the Lehmann representation (frequency domain), linear response functions
+    are written as a sum over transitions between the ground and excited energy
+    eigenstates with poles at the transition energies. In the Kohn-Sham system
+    such a sum can be evaluated explicitly, as only excited states where a
+    single electron has been moved from an occupied single-particle Kohn-Sham
+    orbital to an unoccupied one contribute.
 
     Resultantly, any linear response function in the Kohn-Sham system can be
     written as a sum over transitions between pairs of occupied and unoccupied
     Kohn-Sham orbitals.
 
+    Furthermore, for periodic systems the response is diagonal in the reduced
+    wave vector q (confined to the 1st Brillouin Zone), meaning that one can
+    treat each momentum transfer (hbar q) independently.
+
     Currently, only collinear Kohn-Sham systems are supported. That is, all
-    transitions can be written in terms of band indexes, k-points and spins:
+    relevant transitions can be written in terms of band indexes, k-points and
+    spins for a given wave vector q, leading to the following definition of the
+    Kohn-Sham linear response function,
+                   __  __   __                         __
+                1  \   \    \                       1  \
+    chi(q,w) =  ‾  /   /    /   f_nks,n'k+qs'(w) =  ‾  /  f_T(q,w)
+                V  ‾‾  ‾‾   ‾‾                      V  ‾‾
+                   k   n,n' s,s'                       T
 
-    T (composit transition index): (n, k, s) -> (n', k', s')
+    where:
 
-    The sum over transitions is an integral over k-points in the 1st Brillouin
-    Zone and a sum over all bands and spins. Sums over bands and spins can be
-    handled together:
+    T (composit transition index): (n, k, s) -> (n', k + q, s')
+
+
+    The sum over transitions can be split into two steps: (1) an integral over
+    k-points k inside the 1st Brillouin Zone and (2) a sum over band and spin
+    transitions t:
 
     t (composit transition index): (n, s) -> (n', s')
+       __                __  __                  __
+    1  \              1  \   \                1  \
+    ‾  /  f_T(q,w) =  ‾  /   /  f_k,t(q,w) =  ‾  /  (...)_k
+    V  ‾‾             V  ‾‾  ‾‾               V  ‾‾
+       T                 k   t                   k
 
-    __               __   __               __
-    \      //        \    \      //        \
-    /   =  ||dk dk'  /    /   =  ||dk dk'  /
-    ‾‾     //        ‾‾   ‾‾     //        ‾‾
-    T               n,n' s,s'              t
+    In the code, the k-point integral is handled by the Integator object, and
+    the sum over band and spin transitions t is carried out in the
+    self.add_integrand() method, which also defines the specific response
+    function.
+
+    Integrator:
+       __
+    1  \
+    ‾  /  (...)_k
+    V  ‾‾
+       k
+    
+    self.add_integrand():
+                __                __   __
+                \                 \    \
+    (...)_k  =  /  f_k,t(q,w)  =  /    /   f_nks,n'k+qs'(w)
+                ‾‾                ‾‾   ‾‾
+                t                 n,n' s,s'
     """
 
     def __init__(self, gs, response=None, mode=None,
