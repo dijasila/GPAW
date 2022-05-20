@@ -90,8 +90,8 @@ def test_response_iron_sf_gssALDA(in_tmp_dir):
     w1_w, chiks1_w, chi1_w = read_macroscopic_component('iron_dsus_1.csv')
     w2_w, chiks2_w, chi2_w = read_macroscopic_component('iron_dsus_2.csv')
 
-    wpeak1, Ipeak1 = findpeak(w1_w, chi1_w.imag)
-    wpeak2, Ipeak2 = findpeak(w2_w, chi2_w.imag)
+    wpeak1, Ipeak1 = findpeak(w1_w, -chi1_w.imag)
+    wpeak2, Ipeak2 = findpeak(w2_w, -chi2_w.imag)
 
     mw1 = wpeak1 * 1000
     mw2 = wpeak2 * 1000
