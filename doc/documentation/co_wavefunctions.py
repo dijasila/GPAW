@@ -21,11 +21,12 @@ print(co.positions[:, 0] - L / 2)
 dpi = 100
 C = 'g'
 N = 100
-for a, pp in enumerate(co.calc.wfs.setups):
+escalc = co.calc.calculation
+for a, pp in enumerate(escalc.setups):
     rc = max(pp.rcut_j)
     print(pp.rcut_j)
     x = np.linspace(-rc, rc, 2 * N + 1)
-    P_i = co.calc.wfs.kpt_u[0].projections[a][1] / Bohr**1.5
+    P_i = escalc.state.ibzwfs.wfs_qs[0][0].P_ani[a][1] / Bohr**1.5
     phi_i = np.empty((len(P_i), len(x)))
     phit_i = np.empty((len(P_i), len(x)))
     i = 0
