@@ -45,7 +45,7 @@ class KohnShamLinearResponseFunction:  # Future PairFunctionIntegrator? XXX
                 V  ‾‾  ‾‾   ‾‾                      V  ‾‾
                    k   n,n' s,s'                       T
 
-    where:
+    where V is the crystal volume and,
 
     T (composit transition index): (n, k, s) -> (n', k + q, s')
 
@@ -55,11 +55,11 @@ class KohnShamLinearResponseFunction:  # Future PairFunctionIntegrator? XXX
     transitions t:
 
     t (composit transition index): (n, s) -> (n', s')
-       __                __  __                  __
-    1  \              1  \   \                1  \
-    ‾  /  f_T(q,w) =  ‾  /   /  f_k,t(q,w) =  ‾  /  (...)_k
-    V  ‾‾             V  ‾‾  ‾‾               V  ‾‾
-       T                 k   t                   k
+                   __                __  __                  __
+                1  \              1  \   \                1  \
+    chi(q,w) =  ‾  /  f_T(q,w) =  ‾  /   /  f_k,t(q,w) =  ‾  /  (...)_k
+                V  ‾‾             V  ‾‾  ‾‾               V  ‾‾
+                   T                 k   t                   k
 
     In the code, the k-point integral is handled by the Integator object, and
     the sum over band and spin transitions t is carried out in the
@@ -735,11 +735,11 @@ class Integrator:  # --> KPointPairIntegrator in the future? XXX
 
     Definition (V is the total crystal volume and D is the dimension of the
     crystal):
-       __  __                   __
-    1  \   \         1     /    \
-    ‾  /   /   =  ‾‾‾‾‾‾‾  |dk  /
-    V  ‾‾  ‾‾     (2pi)^D  /    ‾‾
-       k   t                    t
+       __
+    1  \                 1     /
+    ‾  /  (...)_k  =  ‾‾‾‾‾‾‾  |dk (...)_k
+    V  ‾‾             (2pi)^D  /
+       k
 
     NB: In the current implementation, the dimension is fixed to 3. This is
     sensible for pair functions which are a function of position (such as the
@@ -762,11 +762,11 @@ class Integrator:  # --> KPointPairIntegrator in the future? XXX
         method as well as the symmetry of the crystal.
 
         Definition:
-                      __              __                __
-           1     /    \   ~     A     \   (2pi)^D       \
-        ‾‾‾‾‾‾‾  |dk  /   =  ‾‾‾‾‾‾‾  /   ‾‾‾‾‾‾‾  wkr  /
-        (2pi)^D  /    ‾‾     (2pi)^D  ‾‾   Nk V0        ‾‾
-                      t               kr                t
+                                          __
+           1     /            ~     A     \   (2pi)^D
+        ‾‾‾‾‾‾‾  |dk (...)_k  =  ‾‾‾‾‾‾‾  /   ‾‾‾‾‾‾‾  wkr (...)_kr
+        (2pi)^D  /               (2pi)^D  ‾‾   Nk V0
+                                          kr
         The sum over kr denotes the reduced k-point domain specified by the
         integration method (a reduced selection of Nkr points from the ground
         state k-point grid of Nk total points in the entire 1BZ). Each point
@@ -774,8 +774,8 @@ class Integrator:  # --> KPointPairIntegrator in the future? XXX
                       (2pi)^D
         kpointvol  =  ‾‾‾‾‾‾‾,
                        Nk V0
-        where V0 is the cell volume, and an additional individual k-point
-        weight wkr, specific to the integration method. Furthermore, the
+        and an additional individual k-point weight wkr specific to the
+        integration method (V0 denotes the cell volume). Furthermore, the
         integration method may define an extra integration prefactor A.
         """
         bzk_kv, weight_k = self.get_kpoint_domain()
@@ -826,11 +826,11 @@ class Integrator:  # --> KPointPairIntegrator in the future? XXX
         as a sum over transitions in bands and spin.
 
         Definition (kr denotes the k-point domain and wkr the weights):
-        __       __
-        \        \
-        /   wkr  /
-        ‾‾       ‾‾
-        kr       t
+        __
+        \
+        /   wkr (...)_kr
+        ‾‾
+        kr
         """
         # tmp_x should be zero prior to the in-place integration
         assert np.allclose(tmp_x, 0.)
@@ -890,11 +890,11 @@ class PWPointIntegrator(Integrator):
     r"""A simple point integrator for the plane wave mode, estimating the
     k-point integral as a simple sum over all k-points of the ground state
     k-point grid:
-                  __               __           __
-       1     /    \   ~  2/nspins  \   (2pi)^D  \
-    ‾‾‾‾‾‾‾  |dk  /   =  ‾‾‾‾‾‾‾‾  /   ‾‾‾‾‾‾‾  /
-    (2pi)^D  /    ‾‾     (2pi)^D   ‾‾   Nk V0   ‾‾
-                  t                k            t
+                                      __
+       1     /           ~  2/nspins  \   (2pi)^D
+    ‾‾‾‾‾‾‾  |dk (...)_k =  ‾‾‾‾‾‾‾‾  /   ‾‾‾‾‾‾‾ (...)_k
+    (2pi)^D  /              (2pi)^D   ‾‾   Nk V0
+                                      k
 
     Using the PWSymmetryAnalyzer, the k-point sum is reduced according to the
     symmetries of the crystal.
