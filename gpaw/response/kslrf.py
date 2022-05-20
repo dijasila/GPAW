@@ -79,6 +79,10 @@ class KohnShamLinearResponseFunction:  # Future PairFunctionIntegrator? XXX
     (...)_k  =  /  f_k,t(q,w)  =  /    /   f_nks,n'k+qs'(w)
                 ‾‾                ‾‾   ‾‾
                 t                 n,n' s,s'
+
+    In practise, the Integrator supplies an individual k-point weight wk, for
+    the self.add_integrand() method to multiply each integrand with, so that
+    add_integrand adds wk (...)_k to the output array for each k-point.
     """
 
     def __init__(self, gs, response=None, mode=None,

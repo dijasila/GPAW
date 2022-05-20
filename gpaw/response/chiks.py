@@ -22,11 +22,11 @@ class ChiKS(PlaneWaveKSLRF):
                                      x ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
                                          hw - (eps_n'k+qs'-eps_nks) + ih eta
 
-    where n_nks,n'k+qs'(G+q) are the plane wave pair densities:
+    where the matrix elements
 
-                         /
-    n_nks,n'k+qs'(G+q) = | dr e^-i(G+q)r psi_nks^*(r) psi_n'k+qs'(r)
-                         /V0
+    n_nks,n'k+qs'(G+q) = <nks| e^-i(G+q)r |n'k+qs'>_V0
+
+    are unit cell normalized plane wave pair densities of each transition.
     """
 
     def __init__(self, *args, **kwargs):
@@ -83,31 +83,37 @@ class ChiKS(PlaneWaveKSLRF):
     @timer('Add integrand to chiks_wGG')
     def add_integrand(self, kskptpair, weight, A_x):
         r"""Use PairDensity object to calculate the integrand for all relevant
-        transitions of the given k-point.
+        transitions of the given k-point pair (k,k+q).
 
-        Depending on the bandsummation, the collinear four-component Kohn-Sham
-        susceptibility tensor as:
+        Depending on the bandsummation parameter, the integrand of the
+        collinear four-component Kohn-Sham susceptibility tensor is calculated
+        as:
 
         bandsummation: double
 
-                      __
-                      \  smu_ss' snu_s's (f_n'k's' - f_nks)
-        chiKSmunu =   /  ---------------------------------- n_T*(q+G) n_T(q+G')
-                      ‾‾ hw - (eps_n'k's'-eps_nks) + ih eta
-                      T
+                   __
+                   \  smu_ss' snu_s's (f_n'k's' - f_nks)
+        (...)_k =  /  ---------------------------------- n_kt(G+q) n_kt^*(G'+q)
+                   ‾‾ hw - (eps_n'k's'-eps_nks) + ih eta
+                   t
+
+        where n_kt(G+q) = n_nks,n'k+qs'(G+q) and
 
         bandsummation: pairwise (using spin-conserving time-reversal symmetry)
 
-                      __ /
-                      \  | smu_ss' snu_s's (f_n'k's' - f_nks)
-        chiKSmunu =   /  | ----------------------------------
-                      ‾‾ | hw - (eps_n'k's'-eps_nks) + ih eta
-                      T  \
-                                                          \
-                       smu_s's snu_ss' (f_n'k's' - f_nks) |
-           -delta_n'>n ---------------------------------- | n_T*(q+G) n_T(q+G')
-                       hw + (eps_n'k's'-eps_nks) + ih eta |
-                                                          /
+                    __ /
+                    \  | smu_ss' snu_s's (f_n'k's' - f_nks)
+        (...)_k =   /  | ----------------------------------
+                    ‾‾ | hw - (eps_n'k's'-eps_nks) + ih eta
+                    t  \
+                                                       \
+                    smu_s's snu_ss' (f_n'k's' - f_nks) |
+        -delta_n'>n ---------------------------------- | n_kt(G+q) n_kt^*(G'+q)
+                    hw + (eps_n'k's'-eps_nks) + ih eta |
+                                                       /
+
+        The integrand is added to the output array A_x multiplied with the
+        supplied k-point weight.
         """
         # Get data, distributed in memory
         # Get bands and spins of the transitions
