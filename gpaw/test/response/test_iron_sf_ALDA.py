@@ -121,13 +121,13 @@ def test_response_iron_sf_ALDA(in_tmp_dir, scalapack):
     w6_w, chiks6_w, chi6_w = read_macroscopic_component('iron_dsus_G6.csv')
     w7_w, chiks7_w, chi7_w = read_macroscopic_component('iron_dsus_G7.csv')
 
-    wpeak1, Ipeak1 = findpeak(w1_w, chi1_w.imag)
-    wpeak2, Ipeak2 = findpeak(w2_w, chi2_w.imag)
-    wpeak3, Ipeak3 = findpeak(w3_w, chi3_w.imag)
-    wpeak4, Ipeak4 = findpeak(w4_w, chi4_w.imag)
-    wpeak5, Ipeak5 = findpeak(w5_w, chi5_w.imag)
-    wpeak6, Ipeak6 = findpeak(w6_w, chi6_w.imag)
-    wpeak7, Ipeak7 = findpeak(w7_w, chi7_w.imag)
+    wpeak1, Ipeak1 = findpeak(w1_w, -chi1_w.imag)
+    wpeak2, Ipeak2 = findpeak(w2_w, -chi2_w.imag)
+    wpeak3, Ipeak3 = findpeak(w3_w, -chi3_w.imag)
+    wpeak4, Ipeak4 = findpeak(w4_w, -chi4_w.imag)
+    wpeak5, Ipeak5 = findpeak(w5_w, -chi5_w.imag)
+    wpeak6, Ipeak6 = findpeak(w6_w, -chi6_w.imag)
+    wpeak7, Ipeak7 = findpeak(w7_w, -chi7_w.imag)
 
     mw1 = wpeak1 * 1000
     mw2 = wpeak2 * 1000

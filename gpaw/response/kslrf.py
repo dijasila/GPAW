@@ -17,35 +17,72 @@ from gpaw.response.pw_parallelization import (block_partition, Blocks1D,
 
 
 class KohnShamLinearResponseFunction:  # Future PairFunctionIntegrator? XXX
-    r"""Class calculating linear response functions in the Kohn-Sham system
+    r"""Class calculating linear response functions in the Kohn-Sham system of
+    a periodic crystal.
 
-    Any linear response function can be calculated as a sum over transitions
-    between the ground state and excited energy eigenstates.
-
-    In the Kohn-Sham system this approach is particularly simple, as only
-    excited states, for which a single electron has been moved from an occupied
-    single-particle Kohn-Sham orbital to an unoccupied one, contribute.
+    In the Lehmann representation (frequency domain), linear response functions
+    are written as a sum over transitions between the ground and excited energy
+    eigenstates with poles at the transition energies. In the Kohn-Sham system
+    such a sum can be evaluated explicitly, as only excited states where a
+    single electron has been moved from an occupied single-particle Kohn-Sham
+    orbital to an unoccupied one contribute.
 
     Resultantly, any linear response function in the Kohn-Sham system can be
     written as a sum over transitions between pairs of occupied and unoccupied
     Kohn-Sham orbitals.
 
+    Furthermore, for periodic systems the response is diagonal in the reduced
+    wave vector q (confined to the 1st Brillouin Zone), meaning that one can
+    treat each momentum transfer (hbar q) independently.
+
     Currently, only collinear Kohn-Sham systems are supported. That is, all
-    transitions can be written in terms of band indexes, k-points and spins:
+    relevant transitions can be written in terms of band indexes, k-points and
+    spins for a given wave vector q, leading to the following definition of the
+    Kohn-Sham linear response function,
+                   __  __  __                         __
+                1  \   \   \                       1  \
+    chi(q,w) =  ‾  /   /   /   f_nks,n'k+qs'(w) =  ‾  /  f_T(q,w)
+                V  ‾‾  ‾‾  ‾‾                      V  ‾‾
+                   k  n,n' s,s'                       T
 
-    T (composit transition index): (n, k, s) -> (n', k', s')
+    where V is the crystal volume and,
 
-    The sum over transitions is an integral over k-points in the 1st Brillouin
-    Zone and a sum over all bands and spins. Sums over bands and spins can be
-    handled together:
+    T (composit transition index): (n, k, s) -> (n', k + q, s')
+
+
+    The sum over transitions can be split into two steps: (1) an integral over
+    k-points k inside the 1st Brillouin Zone and (2) a sum over band and spin
+    transitions t:
 
     t (composit transition index): (n, s) -> (n', s')
+                   __                __  __                  __
+                1  \              1  \   \                1  \
+    chi(q,w) =  ‾  /  f_T(q,w) =  ‾  /   /  f_k,t(q,w) =  ‾  /  (...)_k
+                V  ‾‾             V  ‾‾  ‾‾               V  ‾‾
+                   T                 k   t                   k
 
-    __               __   __               __
-    \      //        \    \      //        \
-    /   =  ||dk dk'  /    /   =  ||dk dk'  /
-    ‾‾     //        ‾‾   ‾‾     //        ‾‾
-    T               n,n' s,s'              t
+    In the code, the k-point integral is handled by the Integator object, and
+    the sum over band and spin transitions t is carried out in the
+    self.add_integrand() method, which also defines the specific response
+    function.
+
+    Integrator:
+       __
+    1  \
+    ‾  /  (...)_k
+    V  ‾‾
+       k
+    
+    self.add_integrand():
+                __                __   __
+                \                 \    \
+    (...)_k  =  /  f_k,t(q,w)  =  /    /   f_nks,n'k+qs'(w)
+                ‾‾                ‾‾   ‾‾
+                t                 n,n' s,s'
+
+    In practise, the Integrator supplies an individual k-point weight wk, for
+    the self.add_integrand() method to multiply each integrand with, so that
+    add_integrand adds wk (...)_k to the output array for each k-point.
     """
 
     def __init__(self, gs, response=None, mode=None,
@@ -702,11 +739,11 @@ class Integrator:  # --> KPointPairIntegrator in the future? XXX
 
     Definition (V is the total crystal volume and D is the dimension of the
     crystal):
-       __  __                   __
-    1  \   \         1     /    \
-    ‾  /   /   =  ‾‾‾‾‾‾‾  |dk  /
-    V  ‾‾  ‾‾     (2pi)^D  /    ‾‾
-       k   t                    t
+       __
+    1  \                 1     /
+    ‾  /  (...)_k  =  ‾‾‾‾‾‾‾  |dk (...)_k
+    V  ‾‾             (2pi)^D  /
+       k
 
     NB: In the current implementation, the dimension is fixed to 3. This is
     sensible for pair functions which are a function of position (such as the
@@ -729,11 +766,11 @@ class Integrator:  # --> KPointPairIntegrator in the future? XXX
         method as well as the symmetry of the crystal.
 
         Definition:
-                      __              __                __
-           1     /    \   ~     A     \   (2pi)^D       \
-        ‾‾‾‾‾‾‾  |dk  /   =  ‾‾‾‾‾‾‾  /   ‾‾‾‾‾‾‾  wkr  /
-        (2pi)^D  /    ‾‾     (2pi)^D  ‾‾   Nk V0        ‾‾
-                      t               kr                t
+                                          __
+           1     /            ~     A     \   (2pi)^D
+        ‾‾‾‾‾‾‾  |dk (...)_k  =  ‾‾‾‾‾‾‾  /   ‾‾‾‾‾‾‾  wkr (...)_kr
+        (2pi)^D  /               (2pi)^D  ‾‾   Nk V0
+                                          kr
         The sum over kr denotes the reduced k-point domain specified by the
         integration method (a reduced selection of Nkr points from the ground
         state k-point grid of Nk total points in the entire 1BZ). Each point
@@ -741,8 +778,8 @@ class Integrator:  # --> KPointPairIntegrator in the future? XXX
                       (2pi)^D
         kpointvol  =  ‾‾‾‾‾‾‾,
                        Nk V0
-        where V0 is the cell volume, and an additional individual k-point
-        weight wkr, specific to the integration method. Furthermore, the
+        and an additional individual k-point weight wkr specific to the
+        integration method (V0 denotes the cell volume). Furthermore, the
         integration method may define an extra integration prefactor A.
         """
         bzk_kv, weight_k = self.get_kpoint_domain()
@@ -793,11 +830,11 @@ class Integrator:  # --> KPointPairIntegrator in the future? XXX
         as a sum over transitions in bands and spin.
 
         Definition (kr denotes the k-point domain and wkr the weights):
-        __       __
-        \        \
-        /   wkr  /
-        ‾‾       ‾‾
-        kr       t
+        __
+        \
+        /   wkr (...)_kr
+        ‾‾
+        kr
         """
         # tmp_x should be zero prior to the in-place integration
         assert np.allclose(tmp_x, 0.)
@@ -857,11 +894,11 @@ class PWPointIntegrator(Integrator):
     r"""A simple point integrator for the plane wave mode, estimating the
     k-point integral as a simple sum over all k-points of the ground state
     k-point grid:
-                  __               __           __
-       1     /    \   ~  2/nspins  \   (2pi)^D  \
-    ‾‾‾‾‾‾‾  |dk  /   =  ‾‾‾‾‾‾‾‾  /   ‾‾‾‾‾‾‾  /
-    (2pi)^D  /    ‾‾     (2pi)^D   ‾‾   Nk V0   ‾‾
-                  t                k            t
+                                      __
+       1     /           ~  2/nspins  \   (2pi)^D
+    ‾‾‾‾‾‾‾  |dk (...)_k =  ‾‾‾‾‾‾‾‾  /   ‾‾‾‾‾‾‾ (...)_k
+    (2pi)^D  /              (2pi)^D   ‾‾   Nk V0
+                                      k
 
     Using the PWSymmetryAnalyzer, the k-point sum is reduced according to the
     symmetries of the crystal.

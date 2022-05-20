@@ -903,11 +903,11 @@ class PairMatrixElement:
 
 
 class PlaneWavePairDensity(PairMatrixElement):
-    """Class for calculating pair densities:
+    """Class for calculating pair densities
 
-    n_T(q+G) = <s'n'k'| e^(i (q + G) r) |snk>
+    n_kt(G+q) = n_nks,n'k+qs'(G+q) = <nks| e^-i(G+q)r |n'k+qs'>_V0
 
-    in the plane wave mode"""
+    for a single k-point pair (k,k+q) in the plane wave mode"""
     def __init__(self, kspair):
         PairMatrixElement.__init__(self, kspair)
 
@@ -954,9 +954,14 @@ class PlaneWavePairDensity(PairMatrixElement):
 
     @timer('Calculate pair density')
     def __call__(self, kskptpair, pd):
-        """Calculate the pair densities for all transitions:
-        n_t(q+G) = <s'n'k+q| e^(i (q + G) r) |snk>
-                 = <snk| e^(-i (q + G) r) |s'n'k+q>
+        """Calculate the pair densities for all transitions t of the (k,k+q)
+        k-point pair:
+        
+        n_kt(G+q) = <nks| e^-i(G+q)r |n'k+qs'>_V0
+
+                    /
+                  = | dr e^-i(G+q)r psi_nks^*(r) psi_n'k+qs'(r)
+                    /V0
         """
         Q_aGii = self.get_paw_projectors(pd)
         Q_G = self.get_fft_indices(kskptpair, pd)
