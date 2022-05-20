@@ -69,7 +69,6 @@ class ModeFollowingBase(object):
         :return:
         """
 
-
         self.partial_diagonalizer.grad = g_k1
         use_prev = False if self.eigv is None or (self.was_convex \
             and self.reset_on_convex) else True
@@ -127,9 +126,9 @@ class ModeFollowingBase(object):
                     self.was_convex = False
             else:
                 for i in range(get_dots):
-                    if i >= neg_temp:
-                        grad_par += self.eigvec[i] \
-                            * np.dot(self.eigvec[i].conj(), grad.T).real
+                    #if i >= neg_temp:
+                    grad_par += self.eigvec[i] \
+                        * np.dot(self.eigvec[i].conj(), grad.T).real
                 grad_mod = -self.convex_step_length * grad_par \
                     / np.linalg.norm(grad_par)
                 self.partial_diagonalizer.etdm.searchdir_algo.reset()
