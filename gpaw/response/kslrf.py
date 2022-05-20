@@ -16,7 +16,7 @@ from gpaw.response.pw_parallelization import (block_partition, Blocks1D,
                                               PlaneWaveBlockDistributor)
 
 
-class KohnShamLinearResponseFunction:
+class KohnShamLinearResponseFunction:  # Future PairFunctionIntegrator? XXX
     r"""Class calculating linear response functions in the Kohn-Sham system
 
     Any linear response function can be calculated as a sum over transitions
@@ -208,10 +208,14 @@ class KohnShamLinearResponseFunction:
             print('    Dry run exit', file=self.fd)
             raise SystemExit
 
+        print('----------', file=self.cfd)
+        print('Initializing PairMatrixElement', file=self.cfd, flush=True)
+        self.initialize_pme()
+
         A_x = self.setup_output_array(A_x)
 
-        self.integrator.integrate(n1_t, n2_t, s1_t, s2_t,
-                                  out_x=A_x, **self.extraintargs)
+        self.integrator.integrate(n1_t, n2_t, s1_t, s2_t, A_x,
+                                  **self.extraintargs)
 
         # Different calculation modes might want the response function output
         # in different formats
@@ -468,8 +472,7 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
     def __init__(self, *args, eta=0.2, ecut=50, gammacentered=False,
                  disable_point_group=True, disable_time_reversal=True,
                  disable_non_symmorphic=True, bundle_integrals=True,
-                 kpointintegration='point integration', bundle_kptpairs=False,
-                 **kwargs):
+                 kpointintegration='point integration', **kwargs):
         """Initialize the plane wave calculator mode.
         In plane wave mode, the linear response function is calculated for a
         given set of frequencies. The spatial part is expanded in plane waves
@@ -493,13 +496,7 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
             Do the k-point integrals (large matrix multiplications)
             simultaneously for all frequencies.
             Can be switched of, if this step forces calculations out of memory.
-        bundle_kptpairs : bool
-            Extract the k-point pairs simultaneously, so no process has to wait
-            for the others in the middle of the response function integration.
-            [Only relevant in the case where ground state is distributed]
-            Can be switched of, if this step forces calculations out of memory.
         """
-        from gpaw.mpi import SerialCommunicator
 
         # Avoid any mode ambiguity
         if 'mode' in kwargs.keys():
@@ -519,12 +516,6 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         self.disable_non_symmorphic = disable_non_symmorphic
 
         self.bundle_integrals = bundle_integrals
-
-        # Bundle kptpairs if specified and using a distributed ground state
-        cworld = self.calc.world
-        if isinstance(cworld, SerialCommunicator) or cworld.size == 1:
-            bundle_kptpairs = False
-        self.bundle_kptpairs = bundle_kptpairs
 
         # Attributes related to specific q, given to self.calculate()
         self.pd = None  # Plane wave descriptor for given momentum transfer q
@@ -705,11 +696,24 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         return self.blockdist.distribute_frequencies(chiks_wGG)
 
 
-class Integrator:
-    """Baseclass for integrating over k-points in the first Brillouin Zone
-    and summing over bands and spin.
+class Integrator:  # --> KPointPairIntegrator in the future? XXX
+    r"""Baseclass for reciprocal space integrals of the first Brillouin Zone,
+    where the integrand is a sum over transitions in bands and spin.
+
+    Definition (V is the total crystal volume and D is the dimension of the
+    crystal):
+       __  __                   __
+    1  \   \         1     /    \
+    ‾  /   /   =  ‾‾‾‾‾‾‾  |dk  /
+    V  ‾‾  ‾‾     (2pi)^D  /    ‾‾
+       k   t                    t
+
+    NB: In the current implementation, the dimension is fixed to 3. This is
+    sensible for pair functions which are a function of position (such as the
+    susceptibility), but not for e.g. a joint density of states of a lower
+    dimensional crystal.
     """
-    def __init__(self, kslrf):
+    def __init__(self, kslrf):  # Make independent of kslrf in the future? XXX
         """
         Parameters
         ----------
@@ -717,6 +721,110 @@ class Integrator:
         """
         self.kslrf = kslrf
         self.timer = self.kslrf.timer
+
+    @timer('Integrate response function')
+    def integrate(self, n1_t, n2_t, s1_t, s2_t, out_x, **kwargs):
+        r"""Estimate the reciprocal space integral as the sum over a discrete
+        k-point domain. The domain will genererally depend on the integration
+        method as well as the symmetry of the crystal.
+
+        Definition:
+                      __              __                __
+           1     /    \   ~     A     \   (2pi)^D       \
+        ‾‾‾‾‾‾‾  |dk  /   =  ‾‾‾‾‾‾‾  /   ‾‾‾‾‾‾‾  wkr  /
+        (2pi)^D  /    ‾‾     (2pi)^D  ‾‾   Nk V0        ‾‾
+                      t               kr                t
+        The sum over kr denotes the reduced k-point domain specified by the
+        integration method (a reduced selection of Nkr points from the ground
+        state k-point grid of Nk total points in the entire 1BZ). Each point
+        is weighted by its k-point volume on the ground state k-point grid
+                      (2pi)^D
+        kpointvol  =  ‾‾‾‾‾‾‾,
+                       Nk V0
+        where V0 is the cell volume, and an additional individual k-point
+        weight wkr, specific to the integration method. Furthermore, the
+        integration method may define an extra integration prefactor A.
+        """
+        bzk_kv, weight_k = self.get_kpoint_domain()
+
+        # Calculate prefactors
+        A = self.calculate_bzint_prefactor(bzk_kv)
+        outer_prefactor = A / (2 * np.pi)**3
+        V = self.calculate_crystal_volume()  # V = Nk * V0
+        kpointvol = (2 * np.pi)**3 / V
+        prefactor = outer_prefactor * kpointvol
+
+        # Perform the sum over the k-point domain w.o. prefactors
+        tmp_x = np.zeros_like(out_x)
+        self._integrate(bzk_kv, weight_k,
+                        n1_t, n2_t, s1_t, s2_t, tmp_x, **kwargs)
+
+        # Add integrated response function to the output with prefactors
+        out_x /= prefactor
+        out_x += tmp_x
+        out_x *= prefactor
+
+        return out_x
+
+    def get_kpoint_domain(self):
+        raise NotImplementedError('Domain depends on integration method')
+
+    def calculate_bzint_prefactor(self, bzk_kv):
+        raise NotImplementedError('Prefactor depends on integration method')
+
+    def calculate_crystal_volume(self):
+        """Calculate the total crystal volume, V = Nk * V0, corresponding to
+        the ground state k-point grid."""
+        # Get the total number of k-points on the ground state k-point grid
+        if self.kslrf.calc.wfs.kd.refine_info is not None:
+            Nk = self.kslrf.calc.wfs.kd.refine_info.mhnbzkpts
+        else:
+            Nk = self.kslrf.calc.wfs.kd.nbzkpts
+
+        # Calculate the cell volume
+        V0 = abs(np.linalg.det(self.kslrf.calc.wfs.gd.cell_cv))
+
+        return Nk * V0
+
+    def _integrate(self, bzk_kv, weight_k,
+                   n1_t, n2_t, s1_t, s2_t, tmp_x, **kwargs):
+        r"""Do the actual reciprocal space integral as a simple weighted sum
+        over the k-point domain, where the integrand is calculated externally
+        as a sum over transitions in bands and spin.
+
+        Definition (kr denotes the k-point domain and wkr the weights):
+        __       __
+        \        \
+        /   wkr  /
+        ‾‾       ‾‾
+        kr       t
+        """
+        # tmp_x should be zero prior to the in-place integration
+        assert np.allclose(tmp_x, 0.)
+
+        # Slice domain
+        bzk_ipv, weight_i = self.slice_kpoint_domain(bzk_kv, weight_k)
+
+        # Perform sum over k-points
+        pb = ProgressBar(self.kslrf.cfd)
+        # Each process will do its own k-points, but it has to follow the
+        # others, as it may have to send them information about its
+        # partition of the ground state
+        print('\nIntegrating response function',
+              file=self.kslrf.cfd, flush=True)
+        for i, k_pv in pb.enumerate(bzk_ipv):
+            kskptpair = self.kslrf.get_ks_kpoint_pairs(k_pv, n1_t, n2_t,
+                                                       s1_t, s2_t)
+            if kskptpair is not None:
+                weight = weight_i[i]
+                assert weight is not None
+                self.kslrf.calculate_pme(kskptpair)
+                self.kslrf.add_integrand(kskptpair, weight,
+                                         tmp_x, **kwargs)
+
+        # Sum over the k-points that have been distributed between processes
+        with self.timer('Sum over distributed k-points'):
+            self.kslrf.intrablockcomm.sum(tmp_x)
 
     def slice_kpoint_domain(self, bzk_kv, weight_k):
         """When integrating over k-points, slice the domain in pieces with one
@@ -744,127 +852,50 @@ class Integrator:
 
         return bzk_ipv, weight_i
 
-    @timer('Integrate response function')
-    def integrate(self, n1_t, n2_t, s1_t, s2_t,
-                  out_x=None, **kwargs):
-        if out_x is None:
-            raise NotImplementedError
-
-        bzk_kv, weight_k = self.get_kpoint_domain()
-        prefactor = self.calculate_bzint_prefactor(bzk_kv)
-        out_x /= prefactor
-        self._integrate(bzk_kv, weight_k,
-                        n1_t, n2_t, s1_t, s2_t, out_x, **kwargs)
-        out_x *= prefactor
-
-        return out_x
-
-    def get_kpoint_domain(self):
-        raise NotImplementedError('Domain depends on integration method')
-
-    def calculate_bzint_prefactor(self, bzk_kv):
-        raise NotImplementedError('Prefactor depends on integration method')
-
-    def _integrate(self, bzk_kv, weight_k,
-                   n1_t, n2_t, s1_t, s2_t, out_x, **kwargs):
-        raise NotImplementedError('Integration method is defined by subclass')
-
 
 class PWPointIntegrator(Integrator):
-    """A simple point integrator for the plane wave mode."""
+    r"""A simple point integrator for the plane wave mode, estimating the
+    k-point integral as a simple sum over all k-points of the ground state
+    k-point grid:
+                  __               __           __
+       1     /    \   ~  2/nspins  \   (2pi)^D  \
+    ‾‾‾‾‾‾‾  |dk  /   =  ‾‾‾‾‾‾‾‾  /   ‾‾‾‾‾‾‾  /
+    (2pi)^D  /    ‾‾     (2pi)^D   ‾‾   Nk V0   ‾‾
+                  t                k            t
+
+    Using the PWSymmetryAnalyzer, the k-point sum is reduced according to the
+    symmetries of the crystal.
+    """
 
     @timer('Get k-point domain')
     def get_kpoint_domain(self):
-        # Could use some more documentation XXX
-        K_gK = self.kslrf.pwsa.group_kpoints()
-        bzk_kc = np.array([self.kslrf.calc.wfs.kd.bzk_kc[K_K[0]] for
-                           K_K in K_gK])
+        """Use the PWSymmetryAnalyzer to define and weight the k-point domain
+        based on the ground state k-point grid.
 
+        NB: We could use some more documentation, see XXX below.
+        """
+        # Generate k-point domain in relative coordinates
+        K_gK = self.kslrf.pwsa.group_kpoints()  # What is g? XXX
+        bzk_kc = np.array([self.kslrf.calc.wfs.kd.bzk_kc[K_K[0]] for
+                           K_K in K_gK])  # Why only K=0? XXX
+        # Compute actual k-points in absolute reciprocal space coordinates
         bzk_kv = np.dot(bzk_kc, self.kslrf.pd.gd.icell_cv) * 2 * np.pi
 
-        nsym = self.kslrf.pwsa.how_many_symmetries()
-        weight_k = [self.kslrf.pwsa.get_kpoint_weight(k_c) / nsym
-                    for k_c in bzk_kc]
+        # Get the k-point weights from the symmetry analyzer
+        weight_k = [self.kslrf.pwsa.get_kpoint_weight(k_c) for k_c in bzk_kc]
 
         return bzk_kv, weight_k
 
     def calculate_bzint_prefactor(self, bzk_kv):
-        # Could use some more documentation XXX
-        if self.kslrf.calc.wfs.kd.refine_info is not None:
-            nbzkpts = self.kslrf.calc.wfs.kd.refine_info.mhnbzkpts
-        else:
-            nbzkpts = self.kslrf.calc.wfs.kd.nbzkpts
-        frac = len(bzk_kv) / nbzkpts
+        """Calculate the k-point intregral prefactor A."""
+        # The spin prefactor does not naturally belong to the k-point pair
+        # integrator. Move to "add_integrand" functionality, when Integrator is
+        # made independent of kslrf XXX.
+        sfrac = 2 / self.kslrf.calc.wfs.nspins
 
-        return (2 * frac * self.kslrf.pwsa.how_many_symmetries() /
-                (self.kslrf.calc.wfs.nspins * (2 * np.pi)**3))
+        A = sfrac
 
-    def _integrate(self, bzk_kv, weight_k,
-                   n1_t, n2_t, s1_t, s2_t, out_x, **kwargs):
-        """Do a simple sum over k-points in the first Brillouin Zone,
-        adding the integrand (summed over bands and spin) for each k-point."""
-
-        nk = bzk_kv.shape[0]
-        vol = abs(np.linalg.det(self.kslrf.calc.wfs.gd.cell_cv))
-
-        kpointvol = (2 * np.pi)**3 / vol / nk
-        out_x /= kpointvol
-
-        # Initialize pme
-        print('----------',
-              file=self.kslrf.cfd)
-        print('Initializing PairMatrixElement',
-              file=self.kslrf.cfd, flush=True)
-        self.kslrf.initialize_pme()
-
-        # Slice domain
-        bzk_ipv, weight_i = self.slice_kpoint_domain(bzk_kv, weight_k)
-
-        # Perform sum over k-points
-        tmp_x = np.zeros_like(out_x)
-        pb = ProgressBar(self.kslrf.cfd)
-        if self.kslrf.bundle_kptpairs:
-            # Extract all the process' kptpairs at once, then do integration
-            print('\nExtracting Kohn-Sham k-point pairs',
-                  file=self.kslrf.cfd, flush=True)
-            kskptpair_i = []
-            for k_pv in bzk_ipv:
-                kskptpair_i.append(self.kslrf.get_ks_kpoint_pairs(k_pv,
-                                                                  n1_t, n2_t,
-                                                                  s1_t, s2_t))
-
-            print('\nIntegrating response function',
-                  file=self.kslrf.cfd, flush=True)
-            # Carry out sum
-            for i, kskptpair in pb.enumerate(kskptpair_i):
-                if kskptpair is not None:
-                    weight = weight_i[i]
-                    assert weight is not None
-                    self.kslrf.calculate_pme(kskptpair)
-                    self.kslrf.add_integrand(kskptpair, weight,
-                                             tmp_x, **kwargs)
-        else:
-            # Each process will do its own k-points, but it has to follow the
-            # others, as it may have to send them information about its
-            # partition of the ground state
-            print('\nIntegrating response function',
-                  file=self.kslrf.cfd, flush=True)
-            for i, k_pv in pb.enumerate(bzk_ipv):
-                kskptpair = self.kslrf.get_ks_kpoint_pairs(k_pv, n1_t, n2_t,
-                                                           s1_t, s2_t)
-                if kskptpair is not None:
-                    weight = weight_i[i]
-                    assert weight is not None
-                    self.kslrf.calculate_pme(kskptpair)
-                    self.kslrf.add_integrand(kskptpair, weight,
-                                             tmp_x, **kwargs)
-
-        # Sum over the k-points that have been distributed between processes
-        with self.timer('Sum over distributed k-points'):
-            self.kslrf.intrablockcomm.sum(tmp_x)
-
-        out_x += tmp_x
-        out_x *= kpointvol
+        return A
 
 
 def create_integrator(kslrf):
