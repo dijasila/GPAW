@@ -39,11 +39,11 @@ class KohnShamLinearResponseFunction:  # Future PairFunctionIntegrator? XXX
     relevant transitions can be written in terms of band indexes, k-points and
     spins for a given wave vector q, leading to the following definition of the
     Kohn-Sham linear response function,
-                   __  __   __                         __
-                1  \   \    \                       1  \
-    chi(q,w) =  ‾  /   /    /   f_nks,n'k+qs'(w) =  ‾  /  f_T(q,w)
-                V  ‾‾  ‾‾   ‾‾                      V  ‾‾
-                   k   n,n' s,s'                       T
+                   __  __  __                         __
+                1  \   \   \                       1  \
+    chi(q,w) =  ‾  /   /   /   f_nks,n'k+qs'(w) =  ‾  /  f_T(q,w)
+                V  ‾‾  ‾‾  ‾‾                      V  ‾‾
+                   k  n,n' s,s'                       T
 
     where V is the crystal volume and,
 

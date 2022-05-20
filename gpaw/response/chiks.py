@@ -10,7 +10,24 @@ from gpaw.response.kspair import PlaneWavePairDensity
 
 
 class ChiKS(PlaneWaveKSLRF):
-    """Class calculating the four-component Kohn-Sham susceptibility tensor."""
+    r"""Class calculating the four-component Kohn-Sham susceptibility tensor,
+    see [PRB 103, 245110 (2021)]. For collinear systems, the susceptibility
+    tensor is defined as:
+                        __  __   __
+                     1  \   \    \
+    chiKSmunu(q,w) = ‾  /   /    /   (f_nks - f_n'k+qs') smu_ss' snu_s's
+                     V  ‾‾  ‾‾   ‾‾
+                        k  n,s  n',s'
+                                       n_nks,n'k+qs'(G+q) n_n'k+qs',nks(-G'-q)
+                                     x ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
+                                         hw - (eps_n'k+qs'-eps_nks) + ih eta
+
+    where n_nks,n'k+qs'(G+q) are the plane wave pair densities:
+
+                         /
+    n_nks,n'k+qs'(G+q) = | dr e^-i(G+q)r psi_nks^*(r) psi_n'k+qs'(r)
+                         /V0
+    """
 
     def __init__(self, *args, **kwargs):
         """Initialize the chiKS object in plane wave mode."""
