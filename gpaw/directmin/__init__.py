@@ -17,7 +17,7 @@ def search_direction(method, etdm=None, pd=None):
         names = kwargs.pop('name').replace('-', '').lower().split('_')
         concave_step_length = 0.1
         if 'concave_step_length' in kwargs.keys():
-            concave_step_length = kwargs['concave_step_length']
+            concave_step_length = kwargs.pop('concave_step_length')
 
         searchdir = {'sd': SteepestDescent,
                      'frcg': FRcg,
