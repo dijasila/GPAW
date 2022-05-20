@@ -6,79 +6,63 @@ from gpaw.xc.fxc import KernelWave
 from ase.io.aff import affopen
 
 
-def calculate_kernel(self, nG, ns, iq, cut_G=None):
-    self.unit_cells = self.calc.wfs.kd.N_c
-    self.tag = self.calc.atoms.get_chemical_formula(mode='hill')
-
+def actually_calculate_kernel(self, q_empty, tag, ecut_max):
     kd = self.calc.wfs.kd
-    self.bzq_qc = kd.get_bz_q_points(first=True)
+    bzq_qc = kd.get_bz_q_points(first=True)
     U_scc = kd.symmetry.op_scc
-    self.ibzq_qc = kd.get_ibz_q_points(self.bzq_qc, U_scc)[0]
+    ibzq_qc = kd.get_ibz_q_points(bzq_qc, U_scc)[0]
+
+    l_l = np.array([1.0])
+
+    if self.linear_kernel:
+        l_l = None
+        omega_w = None
+    elif not self.dyn_kernel:
+        omega_w = None
+    else:
+        omega_w = self.wd.omega_w
+
+    kernel = KernelWave(
+        l_l=l_l,
+        omega_w=omega_w,
+        calc=self.calc,
+        xc=self.xc,
+        ibzq_qc=ibzq_qc,
+        fd=self.fd,
+        q_empty=q_empty,
+        Eg=self.Eg,
+        ecut=ecut_max,
+        tag=tag,
+        timer=self.timer)
+
+    kernel.calculate_fhxc()
+
+
+def calculate_kernel(self, nG, ns, iq, cut_G=None):
+    tag = self.calc.atoms.get_chemical_formula(mode='hill')
 
     ecut = self.ecut * Ha
     if isinstance(ecut, (float, int)):
-        self.ecut_max = ecut
+        ecut_max = ecut
     else:
-        self.ecut_max = max(ecut)
+        ecut_max = max(ecut)
 
     q_empty = None
 
-    if not os.path.isfile('fhxc_%s_%s_%s_%s.ulm'
-                          % (self.tag, self.xc,
-                             self.ecut_max, iq)):
+    filename = 'fhxc_%s_%s_%s_%s.ulm' % (tag, self.xc, ecut_max, iq)
+
+    if not os.path.isfile(filename):
         q_empty = iq
 
     if self.xc not in ('RPA'):
         if q_empty is not None:
-            self.l_l = np.array([1.0])
-
-            if self.linear_kernel:
-                kernel = KernelWave(self.calc,
-                                    self.xc,
-                                    self.ibzq_qc,
-                                    self.fd,
-                                    None,
-                                    q_empty,
-                                    None,
-                                    self.Eg,
-                                    self.ecut_max,
-                                    self.tag,
-                                    self.timer)
-
-            elif not self.dyn_kernel:
-                kernel = KernelWave(self.calc,
-                                    self.xc,
-                                    self.ibzq_qc,
-                                    self.fd,
-                                    self.l_l,
-                                    q_empty,
-                                    None,
-                                    self.Eg,
-                                    self.ecut_max,
-                                    self.tag,
-                                    self.timer)
-
-            else:
-                kernel = KernelWave(self.calc,
-                                    self.xc,
-                                    self.ibzq_qc,
-                                    self.fd,
-                                    self.l_l,
-                                    q_empty,
-                                    self.wd.omega_w,
-                                    self.Eg,
-                                    self.ecut_max,
-                                    self.tag,
-                                    self.timer)
-
-            kernel.calculate_fhxc()
-            del kernel
+            actually_calculate_kernel(self, q_empty, tag, ecut_max)
+            # (This creates the ulm file above.  Probably.)
 
         mpi.world.barrier()
 
         if self.spin_kernel:
-            with affopen('fhxc_%s_%s_%s_%s.ulm' %
-                         (self.tag, self.xc, self.ecut_max, iq)) as r:
+            with affopen(filename) as r:
                 fv = r.fhxc_sGsG
 
             if cut_G is not None:
@@ -94,8 +78,7 @@ def calculate_kernel(self, nG, ns, iq, cut_G=None):
 #                    fv = np.exp(-0.25 * (G_G * self.range_rc) ** 2.0)
 
             elif self.linear_kernel:
-                with affopen('fhxc_%s_%s_%s_%s.ulm' %
-                             (self.tag, self.xc, self.ecut_max, iq)) as r:
+                with affopen(filename) as r:
                     fv = r.fhxc_sGsG
 
                 if cut_G is not None:
@@ -103,16 +86,14 @@ def calculate_kernel(self, nG, ns, iq, cut_G=None):
 
             elif not self.dyn_kernel:
                 # static kernel which does not scale with lambda
-                with affopen('fhxc_%s_%s_%s_%s.ulm' %
-                             (self.tag, self.xc, self.ecut_max, iq)) as r:
+                with affopen(filename) as r:
                     fv = r.fhxc_lGG
 
                 if cut_G is not None:
                     fv = fv.take(cut_G, 1).take(cut_G, 2)
 
             else:  # dynamical kernel
-                with affopen('fhxc_%s_%s_%s_%s.ulm' %
-                             (self.tag, self.xc, self.ecut_max, iq)) as r:
+                with affopen(filename) as r:
                     fv = r.fhxc_lwGG
 
                 if cut_G is not None:
