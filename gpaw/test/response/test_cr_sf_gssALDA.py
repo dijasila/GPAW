@@ -85,7 +85,7 @@ def test_response_cr_sf_gssALDA(in_tmp_dir):
     w0_w, chiks0_w, chi0_w = read_macroscopic_component('cr_macro_tms_q0.csv')
     w1_w, chiks1_w, chi1_w = read_macroscopic_component('cr_macro_tms_q1.csv')
 
-    wpeak, Ipeak = findpeak(w1_w, chi1_w.imag / np.pi)
+    wpeak, Ipeak = findpeak(w1_w, -chi1_w.imag / np.pi)
     mw = wpeak * 1000  # meV
 
     # Part 4: compare new results to test values

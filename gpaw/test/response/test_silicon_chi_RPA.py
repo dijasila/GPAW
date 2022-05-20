@@ -69,7 +69,7 @@ def test_response_silicon_chi_RPA(in_tmp_dir):
     d1 = np.loadtxt('Si_chi1.csv', delimiter=',')
     wpeak1, Ipeak1 = findpeak(d1[:, 0], -d1[:, 4])
     w_w, chiks_w, chi_w = read_macroscopic_component('Si_chi2.csv')
-    wpeak2, Ipeak2 = findpeak(w_w, chi_w.imag)
+    wpeak2, Ipeak2 = findpeak(w_w, -chi_w.imag)
 
     equal(wpeak1, wpeak2, 0.02)
     equal(Ipeak1, Ipeak2, 1.0)
