@@ -181,8 +181,7 @@ class ChiKS(PlaneWaveKSLRF):
         # Calculate denominator
         denom_wt = self.wd.omega_w[:, np.newaxis] + 1j * self.eta\
             - deps_t[np.newaxis, :]  # de = e2 - e1
-            
-        
+
         return nom_t[np.newaxis, :] / denom_wt
 
     def get_pairwise_temporal_part(self, n1_t, n2_t, s1_t, s2_t, df_t, deps_t):
