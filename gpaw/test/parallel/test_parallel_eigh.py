@@ -3,10 +3,6 @@ import numpy as np
 from gpaw.mpi import world
 from gpaw.blacs import BlacsGrid
 from gpaw.blacs import Redistributor
-from gpaw.utilities import compiled_with_sl
-
-pytestmark = pytest.mark.skipif(not compiled_with_sl(),
-                                reason='No scalapack')
 
 
 def parallel_eigh(matrixfile, blacsgrid=(4, 2), blocksize=64):
@@ -59,7 +55,7 @@ def parallel_eigh(matrixfile, blacsgrid=(4, 2), blocksize=64):
 
 
 @pytest.mark.intel
-def test_parallel_parallel_eigh(in_tmp_dir):
+def test_parallel_parallel_eigh(in_tmp_dir, scalapack):
     # Test script which should be run on 1, 2, 4, or 8 CPUs
 
     if world.size == 1:

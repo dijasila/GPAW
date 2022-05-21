@@ -6,7 +6,6 @@ from gpaw.test.big.g2_1.pbe_nwchem_def2_qzvppd_analyse import ref
 from ase.data.g2_1 import data
 from ase.build import molecule
 from ase.data import atomic_numbers
-from ase.data.molecules import latex
 import heapq
 import numpy as np
 import os
@@ -244,7 +243,7 @@ for n in range(len(no)):
 # plot compounds with largest errors
 for n, l in enumerate(largest):
     for n1, (c, e) in enumerate(l):
-        name = latex(c) + '\n'
+        name = c + '\n'
         # matplotlib.pyparsing.ParseFatalException: Expected end of math '$'
         # $\rm{SiH}2_\rm{s}3\rm{B}1\rm{d}$ (at char 0), (line:1, col:1)
         name = name.replace('\\rm', '')

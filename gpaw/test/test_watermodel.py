@@ -1,13 +1,15 @@
 import time
+
+import ase.units as units
+import numpy as np
 import pytest
 from ase import Atoms
-from ase.calculators.tip3p import TIP3P, rOH, angleHOH
-from ase.md import Langevin as Langevin0
-import ase.units as units
-from ase.io.trajectory import Trajectory
+from ase.calculators.tip3p import TIP3P, angleHOH, rOH
 from ase.constraints import FixBondLengths
-import numpy as np
 from ase.io import read
+from ase.io.trajectory import Trajectory
+from ase.md import Langevin as Langevin0
+
 from gpaw.utilities.watermodel import FixBondLengthsWaterModel, TIP3PWaterModel
 
 
@@ -62,7 +64,8 @@ def test_watermodel(in_tmp_dir):
     md.attach(traj.write, interval=1)
 
     start = time.time()
-    md.run(NSTEPS)
+    with md:
+        md.run(NSTEPS)
     end = time.time()
     Cversion = end - start
     print("%d steps of C-MD took %.3fs (%.0f ms/step)" % (
@@ -76,7 +79,8 @@ def test_watermodel(in_tmp_dir):
     traj_ref = Trajectory('ref.traj', 'w', atoms_ref)
     md_ref.attach(traj_ref.write, interval=1)
     start = time.time()
-    md_ref.run(NSTEPS / SCALE)
+    with md_ref:
+        md_ref.run(NSTEPS / SCALE)
     end = time.time()
     Pyversion = (end - start) * SCALE
     print("%d steps of Py-MD took %.3fs (%.0f ms/step)" % (

@@ -1,13 +1,11 @@
-import pytest
-from gpaw.mpi import world
-from distutils.version import LooseVersion
-
-from ase.phonons import Phonons
-from ase import Atoms, __version__
 import numpy as np
+import pytest
+from ase import Atoms
+from ase.phonons import Phonons
 
 from gpaw import GPAW
 from gpaw.elph.electronphonon import ElectronPhononCoupling
+from gpaw.mpi import world
 
 pytestmark = pytest.mark.skipif(world.size > 2,
                                 reason='world.size > 2')
@@ -15,10 +13,6 @@ pytestmark = pytest.mark.skipif(world.size > 2,
 
 @pytest.mark.elph
 def test_electronphonon(in_tmp_dir):
-    if LooseVersion(__version__) < '3.18':
-        from unittest import SkipTest
-        raise SkipTest
-
     a = 0.90
     atoms = Atoms('H',
                   cell=np.diag([a, 2.1, 2.1]),
@@ -32,6 +26,7 @@ def test_electronphonon(in_tmp_dir):
                   'txt': None,
                   'basis': 'dzp',
                   'symmetry': {'point_group': False},
+                  'parallel': {'domain': 1},
                   'xc': 'PBE'}
     elph_calc = GPAW(**parameters)
     atoms.calc = elph_calc
@@ -42,12 +37,8 @@ def test_electronphonon(in_tmp_dir):
                                   name='elph+ph', calculate_forces=True)
     elph.run()
 
-    parameters['parallel'] = {'domain': 1}
-    elph_calc = GPAW(**parameters)
-    elph = ElectronPhononCoupling(atoms, calc=None, supercell=supercell,
-                                  name='elph+ph', calculate_forces=True)
     elph.set_lcao_calculator(elph_calc)
-    elph.calculate_supercell_matrix(dump=1)
+    elph.calculate_supercell_matrix()
 
     ph = Phonons(atoms=atoms, name='elph+ph', supercell=supercell, calc=None)
     ph.read()

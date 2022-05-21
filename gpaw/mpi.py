@@ -17,6 +17,7 @@ from .broadcast_imports import world
 import _gpaw
 
 MASTER = 0
+MPIComm = Any  # for type hints
 
 
 def is_contiguous(*args, **kwargs):
@@ -687,6 +688,7 @@ class SerialCommunicator:
         if isinstance(other, SerialCommunicator):
             assert all(rank == 0 for rank in ranks) or gpaw.dry_run
             return np.zeros(len(ranks), dtype=int)
+        return np.array([other.rank for rank in ranks])
         raise NotImplementedError(
             'Translate non-trivial ranks with serial comm')
 
@@ -1065,9 +1067,9 @@ class Parallelization:
             assignments = dict(kpt=self.kpt,
                                domain=self.domain,
                                band=self.band)
-            raise RuntimeError('All the CPUs must be used.  Have %s but '
-                               '%d times more are available'
-                               % (assignments, self.navail))
+            raise gpaw.BadParallelization(
+                f'All the CPUs must be used.  Have {assignments} but '
+                f'{self.navail} times more are available.')
 
     def get_optimal_kpt_parallelization(self, kptprioritypower=1.4):
         if self.domain and self.band:

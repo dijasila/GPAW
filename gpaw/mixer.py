@@ -379,6 +379,9 @@ class DummyMixer:
     nmaxold = 1
     weight = 1
 
+    def __init__(self, *args, **kwargs):
+        return
+
     def mix(self, basemixers, nt_sG, D_asp):
         return 0.0
 
@@ -387,6 +390,63 @@ class DummyMixer:
 
     def todict(self):
         return {'name': 'dummy'}
+
+
+class NotMixingMixer:
+    name = 'no-mixing'
+
+    def __init__(self, beta, nmaxold, weight):
+        """Construct density-mixer object.
+        Parameters: they are ignored for this mixer
+        """
+
+        # whatever parameters you give it doesn't do anything with them
+        self.beta = 0
+        self.nmaxold = 0
+        self.weight = 0
+
+    def initialize_metric(self, gd):
+        self.gd = gd
+        self.metric = None
+
+    def reset(self):
+        """Reset Density-history.
+
+        Called at initialization and after each move of the atoms.
+
+        my_nuclei:   All nuclei in local domain.
+        """
+
+        # Previous density:
+        self.nt_iG = []  # Pseudo-electron densities
+
+    def calculate_charge_sloshing(self, R_G):
+        return self.gd.integrate(np.fabs(R_G))
+
+    def mix_single_density(self, nt_G, D_ap):
+        iold = len(self.nt_iG)
+
+        dNt = np.inf
+        if iold > 0:
+            # Calculate new residual (difference between input and
+            # output density):
+            dNt = self.calculate_charge_sloshing(nt_G - self.nt_iG[-1])
+        # Store new input density:
+        self.nt_iG = [nt_G.copy()]
+
+        return dNt
+
+    # may presently be overridden by passing argument in constructor
+    def dotprod(self, R1_G, R2_G, dD1_ap, dD2_ap):
+        pass
+
+    def estimate_memory(self, mem, gd):
+        gridbytes = gd.bytecount()
+        mem.subnode('nt_iG, R_iG', 2 * self.nmaxold * gridbytes)
+
+    def __repr__(self):
+        string = 'no mixing of density'
+        return string
 
 
 class SeparateSpinMixerDriver:
@@ -552,7 +612,7 @@ class SpinDifferenceMixerDriver:
 # Dictionaries to get mixers by name:
 _backends = {}
 _methods = {}
-for cls in [FFTBaseMixer, BroydenBaseMixer, BaseMixer]:
+for cls in [FFTBaseMixer, BroydenBaseMixer, BaseMixer, NotMixingMixer]:
     _backends[cls.name] = cls  # type:ignore
 for dcls in [SeparateSpinMixerDriver, SpinSumMixerDriver,
              SpinSumMixerDriver2,
@@ -566,6 +626,11 @@ for dcls in [SeparateSpinMixerDriver, SpinSumMixerDriver,
 def get_mixer_from_keywords(pbc, nspins, **mixerkwargs):
     if mixerkwargs.get('name') == 'dummy':
         return DummyMixer()
+
+    if mixerkwargs.get('backend') == 'no-mixing':
+        mixerkwargs['beta'] = 0
+        mixerkwargs['nmaxold'] = 0
+        mixerkwargs['weight'] = 0
 
     if nspins == 1:
         mixerkwargs['method'] = SeparateSpinMixerDriver
@@ -622,8 +687,22 @@ class MixerWrapper:
         for basemixer in self.basemixers:
             basemixer.initialize_metric(gd)
 
-    def mix(self, nt_sG, D_asp):
-        return self.driver.mix(self.basemixers, nt_sG, D_asp)
+    def mix(self, nt_sR, D_asp=None):
+        if D_asp is not None:
+            return self.driver.mix(self.basemixers, nt_sR, D_asp)
+
+        # new interface:
+        density = nt_sR
+        nspins = density.nt_sR.dims[0]
+        D_asp = {a: D_sii.copy().reshape((nspins, -1))
+                 for a, D_sii in density.D_asii.items()}
+        error = self.driver.mix(self.basemixers,
+                                density.nt_sR.data,
+                                D_asp)
+        for a, D_sii in density.D_asii.items():
+            ni = D_sii.shape[1]
+            D_sii[:] = D_asp[a].reshape((-1, ni, ni))
+        return error
 
     def estimate_memory(self, mem, gd):
         for i, basemixer in enumerate(self.basemixers):
@@ -638,11 +717,10 @@ class MixerWrapper:
                  'Method: ' + self.driver.name,
                  'Backend: ' + self.driver.basemixerclass.name,
                  'Linear mixing parameter: %g' % self.beta,
-                 'Mixing with %d old densities' % self.nmaxold]
+                 f'old densities: {self.nmaxold}',
+                 'Damping of long wavelength oscillations: %g' % self.weight]
         if self.weight == 1:
-            lines.append('No damping of long wave oscillations')
-        else:
-            lines.append('Damping of long wave oscillations: %g' % self.weight)
+            lines[-1] += '  # (no daming)'
         return '\n  '.join(lines)
 
 

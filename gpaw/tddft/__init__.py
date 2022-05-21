@@ -28,11 +28,13 @@ from gpaw.wavefunctions.fd import FD
 
 from gpaw.tddft.spectrum import photoabsorption_spectrum
 from gpaw.lcaotddft.dipolemomentwriter import DipoleMomentWriter
+from gpaw.lcaotddft.magneticmomentwriter import MagneticMomentWriter
 from gpaw.lcaotddft.restartfilewriter import RestartFileWriter
 
 
 __all__ = ['TDDFT', 'photoabsorption_spectrum',
-           'DipoleMomentWriter', 'RestartFileWriter']
+           'DipoleMomentWriter', 'MagneticMomentWriter',
+           'RestartFileWriter']
 
 
 # T^-1
@@ -304,6 +306,11 @@ class TDDFT(GPAW):
             After how many iterations restart data is dumped.
         """
         self.tddft_init()
+
+        if self.propagator.todict()['name'] in ['EFSICN', 'EFSICN_HGH']:
+            msg = ("You are using propagator for Ehrenfest dynamics. "
+                   "Please use regular propagator.")
+            raise RuntimeError(msg)
 
         def warn_deprecated(parameter, observer):
             warnings.warn(

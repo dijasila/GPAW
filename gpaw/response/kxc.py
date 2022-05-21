@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 from scipy.special import spherical_jn
 
-from ase.utils import convert_string_to_fd
+from gpaw.utilities import convert_string_to_fd
 from ase.utils.timing import Timer, timer
 from ase.units import Bohr
 
@@ -52,7 +52,7 @@ class FXC:
             Filename or GPAW calculator object of ground state calculation
         world : mpi.world
         txt : str or filehandle
-            defines output file through ase.utils.convert_string_to_fd
+            defines output file through gpaw.utilities.convert_string_to_fd
         timer : ase.utils.timing.Timer instance
         """
         # Output .txt filehandle and timer
@@ -180,7 +180,7 @@ class PlaneWaveAdiabaticFXC(FXC):
             KxcPAW_GG = self.calculate_kernel_paw_correction(pd)
             Kxc_GG += KxcPAW_GG
 
-        print('', file=self.cfd)
+        print('Finished calculating fxc\n', flush=True, file=self.cfd)
 
         return Kxc_GG / pd.gd.volume
 

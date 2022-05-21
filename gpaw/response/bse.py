@@ -5,13 +5,13 @@ import sys
 
 import numpy as np
 from ase.units import Hartree, Bohr
-from gpaw.utilities import devnull
+from ase.utils import IOContext
 from ase.dft import monkhorst_pack
 from scipy.linalg import eigh
 
 from gpaw import GPAW
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.wavefunctions.pw import PWDescriptor
+from gpaw.pw.descriptor import PWDescriptor
 from gpaw.spinorbit import soc_eigenstates
 from gpaw.blacs import BlacsGrid, Redistributor
 from gpaw.mpi import world, serial_comm, broadcast
@@ -20,6 +20,8 @@ from gpaw.response.kernels import get_coulomb_kernel
 from gpaw.response.kernels import get_integrated_kernel
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 from gpaw.response.pair import PairDensity
+from gpaw.response.pw_parallelization import (Blocks1D,
+                                              PlaneWaveBlockDistributor)
 
 
 class BSE:
@@ -83,7 +85,7 @@ class BSE:
 
         # Calculator
         if isinstance(calc, str):
-            calc = GPAW(calc, txt=None, communicator=serial_comm)
+            calc = GPAW(calc, communicator=serial_comm)
         self.calc = calc
         self.spinors = spinors
         self.scale = scale
@@ -91,12 +93,8 @@ class BSE:
         assert mode in ['RPA', 'TDHF', 'BSE']
         # assert calc.wfs.kd.nbzkpts % world.size == 0
 
-        # txt file
-        if world.rank != 0:
-            txt = devnull
-        elif isinstance(txt, str):
-            txt = open(txt, 'w', 1)
-        self.fd = txt
+        self.iocontext = IOContext()
+        self.fd = self.iocontext.openfile(txt)
 
         self.ecut = ecut / Hartree
         self.nbands = nbands
@@ -183,6 +181,9 @@ class BSE:
             self.wstc = None
 
         self.print_initialization(self.td, self.eshift, self.gw_skn)
+
+    def __del__(self):
+        self.iocontext.close()
 
     def calculate(self, optical=True, ac=1.0):
 
@@ -529,8 +530,18 @@ class BSE:
             pd = PWDescriptor(self.ecut, wfs.gd, complex, thisqd)
             nG = pd.ngmax
 
-            chi0.Ga = self.blockcomm.rank * nG
-            chi0.Gb = min(chi0.Ga + nG, nG)
+            # Since we do not call chi0.calculate() (which in of itself
+            # leads to massive code duplication), we have to manage the
+            # block parallelization here. Before calling chi0._calculate()
+            # we have to manually set the parallelization properties
+            # on the chi0 object, which seems very unsafe indeed.
+            chi0.blocks1d = Blocks1D(chi0.blockcomm, nG)
+            chi0.blockdist = PlaneWaveBlockDistributor(chi0.world,
+                                                       chi0.blockcomm,
+                                                       chi0.kncomm,
+                                                       chi0.wd,
+                                                       chi0.blocks1d)
+
             chi0_wGG = np.zeros((1, nG, nG), complex)
             if np.allclose(q_c, 0.0):
                 chi0_wxvG = np.zeros((1, 2, 3, nG), complex)
@@ -891,7 +902,7 @@ class BSE:
 
     def get_polarizability(self, w_w=None, eta=0.1,
                            q_c=[0.0, 0.0, 0.0], direction=0,
-                           filename='pol_bse.csv', readfile=None, pbc=None,
+                           filename='pol_bse.csv', readfile=None,
                            write_eig='eig.dat'):
         r"""Calculate the polarizability alpha.
         In 3D the imaginary part of the polarizability is related to the
@@ -908,10 +919,8 @@ class BSE:
         """
 
         cell_cv = self.calc.wfs.gd.cell_cv
-        if not pbc:
-            pbc_c = self.calc.atoms.pbc
-        else:
-            pbc_c = np.array(pbc)
+        pbc_c = self.calc.atoms.pbc
+
         if pbc_c.all():
             V = 1.0
         else:
@@ -942,7 +951,7 @@ class BSE:
 
     def get_2d_absorption(self, w_w=None, eta=0.1,
                           q_c=[0.0, 0.0, 0.0], direction=0,
-                          filename='abs_bse.csv', readfile=None, pbc=None,
+                          filename='abs_bse.csv', readfile=None,
                           write_eig='eig.dat'):
         r"""Calculate the dimensionless absorption for 2d materials.
         It is essentially related to the 2D polarizability \alpha_2d as
@@ -956,10 +965,7 @@ class BSE:
         c = 1.0 / alpha
 
         cell_cv = self.calc.wfs.gd.cell_cv
-        if not pbc:
-            pbc_c = self.calc.atoms.pbc
-        else:
-            pbc_c = np.array(pbc)
+        pbc_c = self.calc.atoms.pbc
 
         assert np.sum(pbc_c) == 2
         V = np.abs(np.linalg.det(cell_cv[~pbc_c][:, ~pbc_c]))

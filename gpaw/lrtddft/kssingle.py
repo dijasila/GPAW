@@ -53,7 +53,7 @@ class KSSingles(ExcitationList):
         self.calculator = calculator
 
         # LCAO calculation requires special actions
-        self.lcao = calculator.parameters.mode == 'lcao'
+        self.lcao = calculator.wfs.mode == 'lcao'
 
         # deny hybrids as their empty states are wrong
 #        gsxc = calculator.hamiltonian.xc
@@ -106,8 +106,8 @@ class KSSingles(ExcitationList):
             # throw away all not needed entries
             for i, ks in reversed(list(enumerate(self))):
                 if ((ks.fij / ks.weight) <= eps or
-                    ks.i < istart or ks.j > jend or
-                    ks.energy < emin or ks.energy > emax):
+                   ks.i < istart or ks.j > jend or
+                   ks.energy < emin or ks.energy > emax):
                     del(self[i])
             return None
 
@@ -194,7 +194,7 @@ class KSSingles(ExcitationList):
     def read(cls, filename=None, fh=None, restrict={}, log=None):
         """Read myself from a file"""
         assert (filename is not None) or (fh is not None)
-        
+
         def fail(f):
             raise RuntimeError(f.name + ' does not contain ' +
                                cls.__class__.__name__ + ' data')
@@ -235,7 +235,7 @@ class KSSingles(ExcitationList):
             kss = KSSingle(string=f.readline(), dtype=kssl.dtype)
             kssl.append(kss)
             kssl.npspins = max(kssl.npspins, kss.pspin + 1)
-        
+
         if fh is None:
             f.close()
 
@@ -244,7 +244,7 @@ class KSSingles(ExcitationList):
         if len(restrict):
             kssl.restrict.update(restrict)
             kssl.select()
-        
+
         return kssl
 
     def update(self):
@@ -355,7 +355,7 @@ class KSSRestrictor:
                 'istart': 0,
                 'jend': sys.maxsize,
                 'energy_range': None}
-    
+
     def __init__(self, dictionary={}):
         self._vals = {}
         self.update(dictionary)
@@ -363,15 +363,15 @@ class KSSRestrictor:
     def __getitem__(self, index):
         assert index in self.defaults
         return self._vals.get(index, self.defaults[index])
-    
+
     def __setitem__(self, index, value):
         assert index in self.defaults
         self._vals[index] = value
-        
+
     def update(self, dictionary):
         for key, value in dictionary.items():
             self[key] = value
-            
+
     def emin_emax(self):
         emin = -sys.float_info.max
         emax = sys.float_info.max
@@ -389,7 +389,7 @@ class KSSRestrictor:
         emin, emax = self.emin_emax()
         omin, omax = other.emin_emax()
         res = (emin <= omin) & (emax >= omax)
-        
+
         res &= self['istart'] <= other['istart']
         res &= self['jend'] >= other['jend']
         res &= self['eps'] < other['eps']
@@ -405,9 +405,8 @@ class KSSRestrictor:
 
 
 class KSSingle(Excitation, PairDensity):
-    """Single Kohn-Sham transition containing all it's indicees
+    """Single Kohn-Sham transition containing all its indices
 
-  
       pspin=physical spin
       spin=virtual  spin, i.e. spin in the ground state calc.
       kpt=the Kpoint object
@@ -502,8 +501,8 @@ class KSSingle(Excitation, PairDensity):
         # velocity form .............................
 
         if self.lcao:
-            # XXX Velocity form not supported in LCAO
-            return
+            self.wfi = _get_and_distribute_wf(wfs, iidx, kpt.k, pspin)
+            self.wfj = _get_and_distribute_wf(wfs, jidx, kpt.k, pspin)
 
         me = np.zeros(self.mur.shape, dtype=dtype)
 
@@ -714,3 +713,16 @@ class KSSingle(Excitation, PairDensity):
 
     def get_weight(self):
         return self.fij
+
+
+def _get_and_distribute_wf(wfs, n, k, s):
+    gd = wfs.gd
+    wf = wfs.get_wave_function_array(n=n, k=k, s=s, realspace=True,
+                                     periodic=False)
+    if wfs.world.rank != 0:
+        wf = gd.empty(dtype=wfs.dtype, global_array=True)
+    wf = np.ascontiguousarray(wf)
+    wfs.world.broadcast(wf, 0)
+    wfd = gd.empty(dtype=wfs.dtype, global_array=False)
+    wfd = gd.distribute(wf)
+    return wfd

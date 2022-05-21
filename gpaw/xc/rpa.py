@@ -4,17 +4,19 @@ from time import ctime
 
 import numpy as np
 from ase.units import Hartree
-from ase.utils import convert_string_to_fd
-from ase.utils.timing import timer, Timer
-from scipy.special.orthogonal import p_roots
+from ase.utils import IOContext
+from ase.utils.timing import Timer, timer
+from scipy.special import p_roots
 
 import gpaw.mpi as mpi
 from gpaw import GPAW
 from gpaw.kpt_descriptor import KPointDescriptor
+from gpaw.pw.descriptor import PWDescriptor, count_reciprocal_vectors
 from gpaw.response.chi0 import Chi0
 from gpaw.response.kernels import get_coulomb_kernel
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
-from gpaw.wavefunctions.pw import PWDescriptor, count_reciprocal_vectors
+from gpaw.response.pw_parallelization import (Blocks1D,
+                                              PlaneWaveBlockDistributor)
 
 
 def rpa(filename, ecut=200.0, blocks=1, extrapolate=4):
@@ -91,7 +93,8 @@ class RPACorrelation:
             calc = GPAW(calc, txt=None, communicator=mpi.serial_comm)
         self.calc = calc
 
-        self.fd = convert_string_to_fd(txt, world)
+        self.iocontext = IOContext()
+        self.fd = self.iocontext.openfile(txt, world)
 
         self.timer = Timer()
 
@@ -125,6 +128,9 @@ class RPACorrelation:
         self.filename = filename
 
         self.print_initialization(xc, frequency_scale, nlambda, user_spec)
+
+    def __del__(self):
+        self.iocontext.close()
 
     def initialize_q_points(self, qsym):
         kd = self.calc.wfs.kd
@@ -247,11 +253,21 @@ class RPACorrelation:
             thisqd = KPointDescriptor([q_c])
             pd = PWDescriptor(ecutmax, wfs.gd, complex, thisqd)
             nG = pd.ngmax
-            mynG = (nG + self.nblocks - 1) // self.nblocks
-            chi0.Ga = self.blockcomm.rank * mynG
-            chi0.Gb = min(chi0.Ga + mynG, nG)
 
-            shape = (1 + spin, nw, chi0.Gb - chi0.Ga, nG)
+            # Since we do not call chi0.calculate() (which in of itself
+            # leads to massive code duplication), we have to manage the
+            # block parallelization here. To use chi0._calculate() (see
+            # calculate_q() below), we have to manually set the
+            # parallelization properties on the chi0 object, which seems
+            # very unsafe indeed.
+            chi0.blocks1d = Blocks1D(chi0.blockcomm, nG)
+            chi0.blockdist = PlaneWaveBlockDistributor(chi0.world,
+                                                       chi0.blockcomm,
+                                                       chi0.kncomm,
+                                                       chi0.wd,
+                                                       chi0.blocks1d)
+
+            shape = (1 + spin, nw, chi0.blocks1d.nlocal, nG)
             chi0_swGG = A1_x[:np.prod(shape)].reshape(shape)
             chi0_swGG[:] = 0.0
 
@@ -332,6 +348,7 @@ class RPACorrelation:
         else:
             chi0_wxvG = None
             chi0_wvv = None
+
         chi0._calculate(pd, chi0_wGG, chi0_wxvG, chi0_wvv,
                         m1, m2, spins='all', extend_head=False)
 

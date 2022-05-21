@@ -28,7 +28,7 @@ Please join the ``#gpaw`` channel on Matrix_
 (also accessible via the Element_ webclient) if you have any questions.
 There is also a ``#ase`` channel for ASE questions.
 
-.. _Matrix: https://matrix.to/#/#gpaw:matrix.org
+.. _Matrix: https://matrix.io/#/#gpaw:matrix.org
 .. _Element: https://app.element.io/#/room/#gpaw:matrix.org
 
 

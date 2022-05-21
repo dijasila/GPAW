@@ -3,6 +3,7 @@ from math import sqrt, pi
 import numpy as np
 
 from ase.units import Ha
+from gpaw import BadParallelization
 from gpaw.mpi import world
 from gpaw.density import redistribute_array, redistribute_atomic_matrices
 from gpaw.sphere.lebedev import weight_n
@@ -399,8 +400,11 @@ class C_Response(Contribution):
         KSgap = lumo - homo
 
         # Find the lumo-orbital of this spin
+        if self.wfs.bd.comm.size != 1:
+            raise BadParallelization(
+                'Band parallelization is not supported by '
+                'calculate_discontinuity().')
         eps_n = self.wfs.kpt_qs[0][spin].eps_n
-        assert self.wfs.bd.comm.size == 1
         lumo_n = (eps_n < self.wfs.fermi_level).sum()
 
         # Calculate the expectation value for all k points, and keep

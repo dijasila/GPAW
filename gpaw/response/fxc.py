@@ -1,4 +1,3 @@
-# -*- coding: utf-8
 """This module calculates XC kernels for response function calculations.
 """
 
@@ -9,7 +8,7 @@ from ase.units import Ha
 
 from gpaw.io.tar import Reader
 from gpaw.response.kxc import AdiabaticSusceptibilityFXC
-from gpaw.response.tms import find_goldstone_scaling
+from gpaw.response.tms import get_goldstone_scaling
 
 
 def get_xc_kernel(pd, chi0, functional='ALDA', kernel='density',
@@ -127,9 +126,12 @@ def get_transverse_xc_kernel(pd, chi0, functional='ALDA_x',
                 assert pd.kd.gamma
                 print('Finding rescaling of kernel to fulfill the '
                       'Goldstone theorem', file=chi0.fd)
-                fxc_scaling[1] = find_goldstone_scaling(chi0.omega_w,
-                                                        -chi0_wGG, Kxc_GG,
-                                                        world=chi0.world)
+                mode = fxc_scaling[2]
+                assert mode in ['fm', 'afm']
+                fxc_scaling[1] = get_goldstone_scaling(mode,
+                                                       chi0.wd.omega_w,
+                                                       -chi0_wGG, Kxc_GG,
+                                                       world=chi0.world)
 
             assert isinstance(fxc_scaling[1], float)
             Kxc_GG *= fxc_scaling[1]

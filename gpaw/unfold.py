@@ -6,7 +6,7 @@ from ase.units import Hartree
 from gpaw import GPAW
 from gpaw.kpt_descriptor import to1bz
 from gpaw.spinorbit import soc_eigenstates
-from gpaw.wavefunctions.pw import PWDescriptor
+from gpaw.pw.descriptor import PWDescriptor
 import gpaw.mpi as mpi
 
 
@@ -360,7 +360,7 @@ def plot_spectral_function(filename, color='blue', eref=None,
     plt.yticks(size=20)
     plt.ylabel('E(eV)', size=20)
     plt.axis([0, x[-1], emin, emax])
-    plt.savefig(filename + '.png')
+    plt.savefig(filename + '_spec.png')
     plt.show()
 
 

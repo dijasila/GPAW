@@ -194,7 +194,7 @@ PyObject * NewLFCObject(PyObject *obj, PyObject *args)
   int nthreads = 1;
 #endif
 
-  // we need private volume for each thread. 
+  // we need private volume for each thread.
   // (Constant) data is same for all threads
   self->volume_W = GPAW_MALLOC(LFVolume, nthreads * nW);
   self->i_W      = GPAW_MALLOC(int, nthreads * nW);
@@ -249,7 +249,7 @@ PyObject* calculate_potential_matrix(LFCObject *lfc, PyObject *args)
     double* Vt_MM = (double*)PyArray_DATA(Vt_MM_obj);
     GRID_LOOP_START(lfc, -1, 0) { // ORDINARY/GAMMA-POINT
       for (int i1 = 0; i1 < ni; i1++) {
-	LFVolume* v1 = volume_i[i1];
+        LFVolume* v1 = volume_i[i1];
         int M1 = v1->M;
         int nm1 = v1->nm;
         int M1p = MAX(M1, Mstart);
@@ -265,7 +265,7 @@ PyObject* calculate_potential_matrix(LFCObject *lfc, PyObject *args)
             work_gm[gm1] = vtdv * A1_gm[gm];
         }
         for (int i2 = 0; i2 < ni; i2++) {
-	  LFVolume* v2 = volume_i[i2];
+          LFVolume* v2 = volume_i[i2];
           int M2 = v2->M;
           if (M1 >= M2) {
             int nm2 = v2->nm;
@@ -356,7 +356,7 @@ PyObject* calculate_potential_matrices(LFCObject *lfc, PyObject *args)
 
     GRID_LOOP_START(lfc, -1, 0) {
         for (int i1 = 0; i1 < ni; i1++) {
-	    LFVolume* v1 = volume_i[i1];
+            LFVolume* v1 = volume_i[i1];
             int M1 = v1->M;
             int nm1 = v1->nm;
             int M1p = MAX(M1, Mstart);
@@ -374,7 +374,7 @@ PyObject* calculate_potential_matrices(LFCObject *lfc, PyObject *args)
                     work_gm[gm1] = vtdv * A1_gm[gm];
             }
             for (int i2 = 0; i2 < ni; i2++) {
-	        LFVolume* v2 = volume_i[i2];
+                LFVolume* v2 = volume_i[i2];
                 int x = x_W[v2->W] - x1;
                 if (x >= 0) {
                     int M2 = v2->M;
@@ -420,7 +420,7 @@ PyObject* lfcintegrate(LFCObject *lfc, PyObject *args)
   #pragma omp parallel
   {
     int thread_id;
-#ifdef _OPENMP    
+#ifdef _OPENMP
     thread_id = omp_get_thread_num();
 #else
     thread_id = 0;
@@ -740,9 +740,9 @@ PyObject* lcao_to_grid_k(LFCObject *lfc, PyObject *args)
         for (int GM = 0; GM < Gmax * Mblock; GM++)
             tmp_GM[GM] = 0.0;
 
-	GRID_LOOP_START(lfc, k, 0) {
+        GRID_LOOP_START(lfc, k, 0) {
             for (int i = 0; i < ni; i++) {
-	        LFVolume* v = volume_i[i];
+                LFVolume* v = volume_i[i];
                 int M1 = v->M;
                 if (M1 >= Mstop)
                     continue;
@@ -763,10 +763,10 @@ PyObject* lcao_to_grid_k(LFCObject *lfc, PyObject *args)
                           A_gm[(G - Ga) * nm + M - M1] * phase;
             }
         }
-	GRID_LOOP_STOP(lfc, k, 0);
+        GRID_LOOP_STOP(lfc, k, 0);
 
         double complex one = 1.0;
-	zgemm_("C", "N", &Gmax, &nx, &Mblock, &one, tmp_GM, &Mblock,
+        myzgemm("C", "N", &Gmax, &nx, &Mblock, &one, tmp_GM, &Mblock,
                 c_xM + Mstart, &Mmax, &one, psit_xG, &Gmax);
     }
     free(tmp_GM);
@@ -791,7 +791,7 @@ PyObject* add(LFCObject *lfc, PyObject *args)
   #pragma omp parallel
   {
     int thread_id;
-#ifdef _OPENMP    
+#ifdef _OPENMP
     thread_id = omp_get_thread_num();
 #else
     thread_id = 0;
@@ -1668,14 +1668,14 @@ PyObject* ae_valence_density_correction(LFCObject *lfc, PyObject *args)
 
     GRID_LOOP_START(lfc, -1, 0) {
         for (int i1 = 0; i1 < ni; i1++) {
-	    LFVolume* v1 = volume_i[i1];
+            LFVolume* v1 = volume_i[i1];
             int x1 = x_W[v1->W];
             int a1 = a_W[v1->W];
             int M1 = v1->M;
             int nm1 = v1->nm;
             double Ia = 0.0;
             for (int i2 = 0; i2 < ni; i2++) {
-	        LFVolume* v2 = volume_i[i2];
+                LFVolume* v2 = volume_i[i2];
                 int x2 = x_W[v2->W];
                 if (x1 != x2)
                     continue;

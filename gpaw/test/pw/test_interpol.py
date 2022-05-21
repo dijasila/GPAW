@@ -2,7 +2,7 @@ import pytest
 import numpy as np
 from gpaw.test import equal
 from gpaw.grid_descriptor import GridDescriptor
-from gpaw.wavefunctions.pw import PWDescriptor
+from gpaw.pw.descriptor import PWDescriptor
 from gpaw.mpi import world
 
 

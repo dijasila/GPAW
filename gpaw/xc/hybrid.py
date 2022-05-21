@@ -89,14 +89,6 @@ class HybridXCBase(XCFunctional):
         elif name == 'B3LYP':
             hybrid = 0.2
             xc = XC(_xc('HYB_GGA_XC_B3LYP'))
-        elif name == 'HSE03':
-            hybrid = 0.25
-            omega = 0.106
-            xc = XC(_xc('HYB_GGA_XC_HSE03'))
-        elif name == 'HSE06':
-            hybrid = 0.25
-            omega = 0.11
-            xc = XC(_xc('HYB_GGA_XC_HSE06'))
         elif name in rsf_functionals:
             rsf_functional = rsf_functionals[name]
             self.cam_alpha = rsf_functional['alpha']

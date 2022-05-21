@@ -3,18 +3,20 @@ from functools import partial
 from time import ctime
 
 from ase.units import Hartree
-from ase.utils import convert_string_to_fd
+from gpaw.utilities import convert_string_to_fd
 from ase.utils.timing import Timer, timer
 
 import gpaw
 import gpaw.mpi as mpi
-from gpaw.blacs import (BlacsGrid, BlacsDescriptor, Redistributor)
 from gpaw.utilities.memory import maxrss
 from gpaw.utilities.progressbar import ProgressBar
 from gpaw.response.kspair import KohnShamPair, get_calc
+from gpaw.response.frequencies import FrequencyDescriptor
+from gpaw.response.pw_parallelization import (block_partition, Blocks1D,
+                                              PlaneWaveBlockDistributor)
 
 
-class KohnShamLinearResponseFunction:
+class KohnShamLinearResponseFunction:  # Future PairFunctionIntegrator? XXX
     r"""Class calculating linear response functions in the Kohn-Sham system
 
     Any linear response function can be calculated as a sum over transitions
@@ -108,10 +110,10 @@ class KohnShamLinearResponseFunction:
 
         # Communicators for parallelization
         self.world = world
-        self.interblockcomm = None
+        self.blockcomm = None
         self.intrablockcomm = None
         self.initialize_communicators(nblocks)
-        self.nblocks = self.interblockcomm.size
+        self.nblocks = self.blockcomm.size
 
         # Timer
         self.timer = timer or Timer()
@@ -124,9 +126,9 @@ class KohnShamLinearResponseFunction:
                                    # Let each process handle slow steps only
                                    # for a fraction of all transitions.
                                    # t-transitions are distributed through
-                                   # interblockcomm, k-points through
+                                   # blockcomm, k-points through
                                    # intrablockcomm.
-                                   transitionblockscomm=self.interblockcomm,
+                                   transitionblockscomm=self.blockcomm,
                                    kptblockcomm=self.intrablockcomm,
                                    txt=self.fd, timer=self.timer)
 
@@ -161,7 +163,7 @@ class KohnShamLinearResponseFunction:
 
         Sets
         ----
-        interblockcomm : gpaw.mpi.Communicator
+        blockcomm : gpaw.mpi.Communicator
             Communicate between processes belonging to different memory blocks.
             In every communicator, there is one process for each block of
             memory, so that all blocks are represented.
@@ -175,16 +177,9 @@ class KohnShamLinearResponseFunction:
             There will be size // nblocks processes per memory block.
         """
         world = self.world
-        if nblocks == 1:
-            self.interblockcomm = world.new_communicator([world.rank])
-            self.intrablockcomm = world
-        else:
-            assert world.size % nblocks == 0, world.size
-            rank1 = world.rank // nblocks * nblocks
-            rank2 = rank1 + nblocks
-            self.interblockcomm = world.new_communicator(range(rank1, rank2))
-            ranks = range(world.rank % nblocks, world.size, nblocks)
-            self.intrablockcomm = world.new_communicator(ranks)
+        self.blockcomm, self.intrablockcomm = block_partition(world,
+                                                              nblocks)
+
         print('Number of blocks:', nblocks, file=self.fd)
 
     @timer('Calculate Kohn-Sham linear response function')
@@ -213,10 +208,14 @@ class KohnShamLinearResponseFunction:
             print('    Dry run exit', file=self.fd)
             raise SystemExit
 
+        print('----------', file=self.cfd)
+        print('Initializing PairMatrixElement', file=self.cfd, flush=True)
+        self.initialize_pme()
+
         A_x = self.setup_output_array(A_x)
 
-        self.integrator.integrate(n1_t, n2_t, s1_t, s2_t,
-                                  out_x=A_x, **self.extraintargs)
+        self.integrator.integrate(n1_t, n2_t, s1_t, s2_t, A_x,
+                                  **self.extraintargs)
 
         # Different calculation modes might want the response function output
         # in different formats
@@ -282,7 +281,7 @@ class KohnShamLinearResponseFunction:
             world = self.world
         wsize = world.size
         knsize = self.intrablockcomm.size
-        bsize = self.interblockcomm.size
+        bsize = self.blockcomm.size
 
         spinrot = self.spinrot
 
@@ -301,7 +300,7 @@ class KohnShamLinearResponseFunction:
         p('The response function calculation is performed in parallel with:')
         p('    world.size: %d' % wsize)
         p('    intrablockcomm.size: %d' % knsize)
-        p('    interblockcomm.size: %d' % bsize)
+        p('    blockcomm.size: %d' % bsize)
         p('')
         p('The sum over band and spin transitions is performed using:')
         p('    Spin rotation: %s' % spinrot)
@@ -473,8 +472,7 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
     def __init__(self, *args, eta=0.2, ecut=50, gammacentered=False,
                  disable_point_group=True, disable_time_reversal=True,
                  disable_non_symmorphic=True, bundle_integrals=True,
-                 kpointintegration='point integration', bundle_kptpairs=False,
-                 **kwargs):
+                 kpointintegration='point integration', **kwargs):
         """Initialize the plane wave calculator mode.
         In plane wave mode, the linear response function is calculated for a
         given set of frequencies. The spatial part is expanded in plane waves
@@ -498,13 +496,7 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
             Do the k-point integrals (large matrix multiplications)
             simultaneously for all frequencies.
             Can be switched of, if this step forces calculations out of memory.
-        bundle_kptpairs : bool
-            Extract the k-point pairs simultaneously, so no process has to wait
-            for the others in the middle of the response function integration.
-            [Only relevant in the case where ground state is distributed]
-            Can be switched of, if this step forces calculations out of memory.
         """
-        from gpaw.mpi import SerialCommunicator
 
         # Avoid any mode ambiguity
         if 'mode' in kwargs.keys():
@@ -525,17 +517,12 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
 
         self.bundle_integrals = bundle_integrals
 
-        # Bundle kptpairs if specified and using a distributed ground state
-        cworld = self.calc.world
-        if isinstance(cworld, SerialCommunicator) or cworld.size == 1:
-            bundle_kptpairs = False
-        self.bundle_kptpairs = bundle_kptpairs
-
         # Attributes related to specific q, given to self.calculate()
         self.pd = None  # Plane wave descriptor for given momentum transfer q
         self.pwsa = None  # Plane wave symmetry analyzer for given q
         self.wd = None  # Frequency descriptor for the given frequencies
-        self.omega_w = None  # Frequencies in code units
+        self.blocks1d = None  # Plane wave block parallelization descriptor
+        self.blockdist = None  # Plane wave block distributor
 
     @timer('Calculate Kohn-Sham linear response function in plane wave mode')
     def calculate(self, q_c, frequencies, spinrot=None, A_x=None):
@@ -544,8 +531,9 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         ----------
         q_c : list or ndarray or PWDescriptor
             Momentum transfer (and possibly plane wave basis)
-        frequencies : ndarray or FrequencyDescriptor
-            Array of frequencies to evaluate the response function at or
+        frequencies : ndarray, dict or FrequencyDescriptor
+            Array of frequencies to evaluate the response function at,
+            dictionary of parameters for build-in frequency grids or a
             descriptor of those frequencies.
 
         Returns
@@ -560,15 +548,21 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         self.pwsa = self.get_PWSymmetryAnalyzer(self.pd)
 
         # Set up frequency descriptor for the given frequencies
-        self.wd = self.get_FreqDescriptor(frequencies)
-        self.omega_w = self.wd.get_data()
+        self.wd = self.get_FrequencyDescriptor(frequencies)
+
+        # Set up block parallelization
+        self.blocks1d = Blocks1D(self.blockcomm, self.pd.ngmax)
+        self.blockdist = PlaneWaveBlockDistributor(self.world,
+                                                   self.blockcomm,
+                                                   self.intrablockcomm,
+                                                   self.wd, self.blocks1d)
 
         # In-place calculation
         return self._calculate(spinrot, A_x)
 
     def get_PWDescriptor(self, q_c):
         """Get the planewave descriptor for a certain momentum transfer q_c."""
-        from gpaw.wavefunctions.pw import PWDescriptor
+        from gpaw.pw.descriptor import PWDescriptor
         if isinstance(q_c, PWDescriptor):
             return q_c
         else:
@@ -589,12 +583,12 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
                     disable_time_reversal=self.disable_time_reversal,
                     disable_non_symmorphic=self.disable_non_symmorphic)
 
-    def get_FreqDescriptor(self, frequencies):
+    def get_FrequencyDescriptor(self, frequencies):
         """Get the frequency descriptor for a certain input frequencies."""
         if isinstance(frequencies, FrequencyDescriptor):
             return frequencies
         else:
-            return FrequencyDescriptor(np.asarray(frequencies) / Hartree)
+            return FrequencyDescriptor.from_array_or_dict(frequencies)
 
     def print_information(self, nt):
         """Basic information about the input ground state, parallelization,
@@ -603,11 +597,11 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
 
         pd = self.pd
         q_c = pd.kd.bzk_kc[0]
-        nw = len(self.omega_w)
+        nw = len(self.wd)
         eta = self.eta * Hartree
         ecut = self.ecut * Hartree
         ngmax = pd.ngmax
-        Asize = nw * pd.ngmax**2 * 16. / 1024**2 / self.interblockcomm.size
+        Asize = nw * pd.ngmax**2 * 16. / 1024**2 / self.blockcomm.size
 
         p = partial(print, file=self.cfd)
 
@@ -627,32 +621,32 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
     def setup_output_array(self, A_x=None):
         """Initialize the output array in blocks"""
         # Could use some more documentation XXX
-        nG = self.pd.ngmax
-        nw = len(self.omega_w)
-        mynG = (nG + self.interblockcomm.size - 1) // self.interblockcomm.size
-        self.Ga = min(self.interblockcomm.rank * mynG, nG)
-        self.Gb = min(self.Ga + mynG, nG)
-        # if self.interblockcomm.rank == 0:
+        nG = self.blocks1d.N
+        nw = len(self.wd)
+
+        nGlocal = self.blocks1d.nlocal
+        localsize = nw * nGlocal * nG
+        # if self.blockcomm.rank == 0:
         #     assert self.Gb - self.Ga >= 3
-        # assert mynG * (self.interblockcomm.size - 1) < nG
+        # assert mynG * (self.blockcomm.size - 1) < nG
         if self.bundle_integrals:
             # Setup A_GwG
+            shape = (nG, nw, nGlocal)
             if A_x is not None:
-                nx = nw * (self.Gb - self.Ga) * nG
-                A_GwG = A_x[:nx].reshape((nG, nw, self.Gb - self.Ga))
+                A_GwG = A_x[:localsize].reshape(shape)
                 A_GwG[:] = 0.0
             else:
-                A_GwG = np.zeros((nG, nw, self.Gb - self.Ga), complex)
+                A_GwG = np.zeros(shape, complex)
 
             return A_GwG
         else:
             # Setup A_wGG
+            shape = (nw, nGlocal, nG)
             if A_x is not None:
-                nx = nw * (self.Gb - self.Ga) * nG
-                A_wGG = A_x[:nx].reshape((nw, self.Gb - self.Ga, nG))
+                A_wGG = A_x[:localsize].reshape(shape)
                 A_wGG[:] = 0.0
             else:
-                A_wGG = np.zeros((nw, self.Gb - self.Ga, nG), complex)
+                A_wGG = np.zeros(shape, complex)
 
             return A_wGG
 
@@ -695,71 +689,31 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
 
     @timer('Redistribute memory')
     def redistribute(self, in_wGG, out_x=None):
-        """Redistribute array.
+        return self.blockdist.redistribute(in_wGG, out_x)
 
-        Switch between two kinds of parallel distributions:
-
-        1) parallel over G-vectors (second dimension of in_wGG)
-        2) parallel over frequency (first dimension of in_wGG)
-
-        Returns new array using the memory in the 1-d array out_x.
-        """
-
-        comm = self.interblockcomm
-
-        if comm.size == 1:
-            return in_wGG
-
-        nw = len(self.omega_w)
-        nG = in_wGG.shape[2]
-        mynw = (nw + comm.size - 1) // comm.size
-        mynG = (nG + comm.size - 1) // comm.size
-
-        bg1 = BlacsGrid(comm, comm.size, 1)
-        bg2 = BlacsGrid(comm, 1, comm.size)
-        md1 = BlacsDescriptor(bg1, nw, nG**2, mynw, nG**2)
-        md2 = BlacsDescriptor(bg2, nw, nG**2, nw, mynG * nG)
-
-        if len(in_wGG) == nw:
-            mdin = md2
-            mdout = md1
-        else:
-            mdin = md1
-            mdout = md2
-
-        r = Redistributor(comm, mdin, mdout)
-
-        outshape = (mdout.shape[0], mdout.shape[1] // nG, nG)
-        if out_x is None:
-            out_wGG = np.empty(outshape, complex)
-        else:
-            out_wGG = out_x[:np.product(outshape)].reshape(outshape)
-
-        r.redistribute(in_wGG.reshape(mdin.shape),
-                       out_wGG.reshape(mdout.shape))
-
-        return out_wGG
+    @timer('Distribute frequencies')
+    def distribute_frequencies(self, chiks_wGG):
+        return self.blockdist.distribute_frequencies(chiks_wGG)
 
 
-class FrequencyDescriptor:
-    """Describes a one-dimensional array of frequencies."""
+class Integrator:  # --> KPointPairIntegrator in the future? XXX
+    r"""Baseclass for reciprocal space integrals of the first Brillouin Zone,
+    where the integrand is a sum over transitions in bands and spin.
 
-    def __init__(self, data_x):
-        self.data_x = np.array(np.sort(data_x))
-        self._data_len = len(data_x)
+    Definition (V is the total crystal volume and D is the dimension of the
+    crystal):
+       __  __                   __
+    1  \   \         1     /    \
+    ‾  /   /   =  ‾‾‾‾‾‾‾  |dk  /
+    V  ‾‾  ‾‾     (2pi)^D  /    ‾‾
+       k   t                    t
 
-    def __len__(self):
-        return self._data_len
-
-    def get_data(self):
-        return self.data_x
-
-
-class Integrator:
-    """Baseclass for integrating over k-points in the first Brillouin Zone
-    and summing over bands and spin.
+    NB: In the current implementation, the dimension is fixed to 3. This is
+    sensible for pair functions which are a function of position (such as the
+    susceptibility), but not for e.g. a joint density of states of a lower
+    dimensional crystal.
     """
-    def __init__(self, kslrf):
+    def __init__(self, kslrf):  # Make independent of kslrf in the future? XXX
         """
         Parameters
         ----------
@@ -767,6 +721,110 @@ class Integrator:
         """
         self.kslrf = kslrf
         self.timer = self.kslrf.timer
+
+    @timer('Integrate response function')
+    def integrate(self, n1_t, n2_t, s1_t, s2_t, out_x, **kwargs):
+        r"""Estimate the reciprocal space integral as the sum over a discrete
+        k-point domain. The domain will genererally depend on the integration
+        method as well as the symmetry of the crystal.
+
+        Definition:
+                      __              __                __
+           1     /    \   ~     A     \   (2pi)^D       \
+        ‾‾‾‾‾‾‾  |dk  /   =  ‾‾‾‾‾‾‾  /   ‾‾‾‾‾‾‾  wkr  /
+        (2pi)^D  /    ‾‾     (2pi)^D  ‾‾   Nk V0        ‾‾
+                      t               kr                t
+        The sum over kr denotes the reduced k-point domain specified by the
+        integration method (a reduced selection of Nkr points from the ground
+        state k-point grid of Nk total points in the entire 1BZ). Each point
+        is weighted by its k-point volume on the ground state k-point grid
+                      (2pi)^D
+        kpointvol  =  ‾‾‾‾‾‾‾,
+                       Nk V0
+        where V0 is the cell volume, and an additional individual k-point
+        weight wkr, specific to the integration method. Furthermore, the
+        integration method may define an extra integration prefactor A.
+        """
+        bzk_kv, weight_k = self.get_kpoint_domain()
+
+        # Calculate prefactors
+        A = self.calculate_bzint_prefactor(bzk_kv)
+        outer_prefactor = A / (2 * np.pi)**3
+        V = self.calculate_crystal_volume()  # V = Nk * V0
+        kpointvol = (2 * np.pi)**3 / V
+        prefactor = outer_prefactor * kpointvol
+
+        # Perform the sum over the k-point domain w.o. prefactors
+        tmp_x = np.zeros_like(out_x)
+        self._integrate(bzk_kv, weight_k,
+                        n1_t, n2_t, s1_t, s2_t, tmp_x, **kwargs)
+
+        # Add integrated response function to the output with prefactors
+        out_x /= prefactor
+        out_x += tmp_x
+        out_x *= prefactor
+
+        return out_x
+
+    def get_kpoint_domain(self):
+        raise NotImplementedError('Domain depends on integration method')
+
+    def calculate_bzint_prefactor(self, bzk_kv):
+        raise NotImplementedError('Prefactor depends on integration method')
+
+    def calculate_crystal_volume(self):
+        """Calculate the total crystal volume, V = Nk * V0, corresponding to
+        the ground state k-point grid."""
+        # Get the total number of k-points on the ground state k-point grid
+        if self.kslrf.calc.wfs.kd.refine_info is not None:
+            Nk = self.kslrf.calc.wfs.kd.refine_info.mhnbzkpts
+        else:
+            Nk = self.kslrf.calc.wfs.kd.nbzkpts
+
+        # Calculate the cell volume
+        V0 = abs(np.linalg.det(self.kslrf.calc.wfs.gd.cell_cv))
+
+        return Nk * V0
+
+    def _integrate(self, bzk_kv, weight_k,
+                   n1_t, n2_t, s1_t, s2_t, tmp_x, **kwargs):
+        r"""Do the actual reciprocal space integral as a simple weighted sum
+        over the k-point domain, where the integrand is calculated externally
+        as a sum over transitions in bands and spin.
+
+        Definition (kr denotes the k-point domain and wkr the weights):
+        __       __
+        \        \
+        /   wkr  /
+        ‾‾       ‾‾
+        kr       t
+        """
+        # tmp_x should be zero prior to the in-place integration
+        assert np.allclose(tmp_x, 0.)
+
+        # Slice domain
+        bzk_ipv, weight_i = self.slice_kpoint_domain(bzk_kv, weight_k)
+
+        # Perform sum over k-points
+        pb = ProgressBar(self.kslrf.cfd)
+        # Each process will do its own k-points, but it has to follow the
+        # others, as it may have to send them information about its
+        # partition of the ground state
+        print('\nIntegrating response function',
+              file=self.kslrf.cfd, flush=True)
+        for i, k_pv in pb.enumerate(bzk_ipv):
+            kskptpair = self.kslrf.get_ks_kpoint_pairs(k_pv, n1_t, n2_t,
+                                                       s1_t, s2_t)
+            if kskptpair is not None:
+                weight = weight_i[i]
+                assert weight is not None
+                self.kslrf.calculate_pme(kskptpair)
+                self.kslrf.add_integrand(kskptpair, weight,
+                                         tmp_x, **kwargs)
+
+        # Sum over the k-points that have been distributed between processes
+        with self.timer('Sum over distributed k-points'):
+            self.kslrf.intrablockcomm.sum(tmp_x)
 
     def slice_kpoint_domain(self, bzk_kv, weight_k):
         """When integrating over k-points, slice the domain in pieces with one
@@ -794,127 +852,50 @@ class Integrator:
 
         return bzk_ipv, weight_i
 
-    @timer('Integrate response function')
-    def integrate(self, n1_t, n2_t, s1_t, s2_t,
-                  out_x=None, **kwargs):
-        if out_x is None:
-            raise NotImplementedError
-
-        bzk_kv, weight_k = self.get_kpoint_domain()
-        prefactor = self.calculate_bzint_prefactor(bzk_kv)
-        out_x /= prefactor
-        self._integrate(bzk_kv, weight_k,
-                        n1_t, n2_t, s1_t, s2_t, out_x, **kwargs)
-        out_x *= prefactor
-
-        return out_x
-
-    def get_kpoint_domain(self):
-        raise NotImplementedError('Domain depends on integration method')
-
-    def calculate_bzint_prefactor(self, bzk_kv):
-        raise NotImplementedError('Prefactor depends on integration method')
-
-    def _integrate(self, bzk_kv, weight_k,
-                   n1_t, n2_t, s1_t, s2_t, out_x, **kwargs):
-        raise NotImplementedError('Integration method is defined by subclass')
-
 
 class PWPointIntegrator(Integrator):
-    """A simple point integrator for the plane wave mode."""
+    r"""A simple point integrator for the plane wave mode, estimating the
+    k-point integral as a simple sum over all k-points of the ground state
+    k-point grid:
+                  __               __           __
+       1     /    \   ~  2/nspins  \   (2pi)^D  \
+    ‾‾‾‾‾‾‾  |dk  /   =  ‾‾‾‾‾‾‾‾  /   ‾‾‾‾‾‾‾  /
+    (2pi)^D  /    ‾‾     (2pi)^D   ‾‾   Nk V0   ‾‾
+                  t                k            t
+
+    Using the PWSymmetryAnalyzer, the k-point sum is reduced according to the
+    symmetries of the crystal.
+    """
 
     @timer('Get k-point domain')
     def get_kpoint_domain(self):
-        # Could use some more documentation XXX
-        K_gK = self.kslrf.pwsa.group_kpoints()
-        bzk_kc = np.array([self.kslrf.calc.wfs.kd.bzk_kc[K_K[0]] for
-                           K_K in K_gK])
+        """Use the PWSymmetryAnalyzer to define and weight the k-point domain
+        based on the ground state k-point grid.
 
+        NB: We could use some more documentation, see XXX below.
+        """
+        # Generate k-point domain in relative coordinates
+        K_gK = self.kslrf.pwsa.group_kpoints()  # What is g? XXX
+        bzk_kc = np.array([self.kslrf.calc.wfs.kd.bzk_kc[K_K[0]] for
+                           K_K in K_gK])  # Why only K=0? XXX
+        # Compute actual k-points in absolute reciprocal space coordinates
         bzk_kv = np.dot(bzk_kc, self.kslrf.pd.gd.icell_cv) * 2 * np.pi
 
-        nsym = self.kslrf.pwsa.how_many_symmetries()
-        weight_k = [self.kslrf.pwsa.get_kpoint_weight(k_c) / nsym
-                    for k_c in bzk_kc]
+        # Get the k-point weights from the symmetry analyzer
+        weight_k = [self.kslrf.pwsa.get_kpoint_weight(k_c) for k_c in bzk_kc]
 
         return bzk_kv, weight_k
 
     def calculate_bzint_prefactor(self, bzk_kv):
-        # Could use some more documentation XXX
-        if self.kslrf.calc.wfs.kd.refine_info is not None:
-            nbzkpts = self.kslrf.calc.wfs.kd.refine_info.mhnbzkpts
-        else:
-            nbzkpts = self.kslrf.calc.wfs.kd.nbzkpts
-        frac = len(bzk_kv) / nbzkpts
+        """Calculate the k-point intregral prefactor A."""
+        # The spin prefactor does not naturally belong to the k-point pair
+        # integrator. Move to "add_integrand" functionality, when Integrator is
+        # made independent of kslrf XXX.
+        sfrac = 2 / self.kslrf.calc.wfs.nspins
 
-        return (2 * frac * self.kslrf.pwsa.how_many_symmetries() /
-                (self.kslrf.calc.wfs.nspins * (2 * np.pi)**3))
+        A = sfrac
 
-    def _integrate(self, bzk_kv, weight_k,
-                   n1_t, n2_t, s1_t, s2_t, out_x, **kwargs):
-        """Do a simple sum over k-points in the first Brillouin Zone,
-        adding the integrand (summed over bands and spin) for each k-point."""
-
-        nk = bzk_kv.shape[0]
-        vol = abs(np.linalg.det(self.kslrf.calc.wfs.gd.cell_cv))
-
-        kpointvol = (2 * np.pi)**3 / vol / nk
-        out_x /= kpointvol
-
-        # Initialize pme
-        print('----------',
-              file=self.kslrf.cfd)
-        print('Initializing PairMatrixElement',
-              file=self.kslrf.cfd, flush=True)
-        self.kslrf.initialize_pme()
-
-        # Slice domain
-        bzk_ipv, weight_i = self.slice_kpoint_domain(bzk_kv, weight_k)
-
-        # Perform sum over k-points
-        tmp_x = np.zeros_like(out_x)
-        pb = ProgressBar(self.kslrf.cfd)
-        if self.kslrf.bundle_kptpairs:
-            # Extract all the process' kptpairs at once, then do integration
-            print('\nExtracting Kohn-Sham k-point pairs',
-                  file=self.kslrf.cfd, flush=True)
-            kskptpair_i = []
-            for k_pv in bzk_ipv:
-                kskptpair_i.append(self.kslrf.get_ks_kpoint_pairs(k_pv,
-                                                                  n1_t, n2_t,
-                                                                  s1_t, s2_t))
-
-            print('\nIntegrating response function',
-                  file=self.kslrf.cfd, flush=True)
-            # Carry out sum
-            for i, kskptpair in pb.enumerate(kskptpair_i):
-                if kskptpair is not None:
-                    weight = weight_i[i]
-                    assert weight is not None
-                    self.kslrf.calculate_pme(kskptpair)
-                    self.kslrf.add_integrand(kskptpair, weight,
-                                             tmp_x, **kwargs)
-        else:
-            # Each process will do its own k-points, but it has to follow the
-            # others, as it may have to send them information about its
-            # partition of the ground state
-            print('\nIntegrating response function',
-                  file=self.kslrf.cfd, flush=True)
-            for i, k_pv in pb.enumerate(bzk_ipv):
-                kskptpair = self.kslrf.get_ks_kpoint_pairs(k_pv, n1_t, n2_t,
-                                                           s1_t, s2_t)
-                if kskptpair is not None:
-                    weight = weight_i[i]
-                    assert weight is not None
-                    self.kslrf.calculate_pme(kskptpair)
-                    self.kslrf.add_integrand(kskptpair, weight,
-                                             tmp_x, **kwargs)
-
-        # Sum over the k-points that have been distributed between processes
-        with self.timer('Sum over distributed k-points'):
-            self.kslrf.intrablockcomm.sum(tmp_x)
-
-        out_x += tmp_x
-        out_x *= kpointvol
+        return A
 
 
 def create_integrator(kslrf):

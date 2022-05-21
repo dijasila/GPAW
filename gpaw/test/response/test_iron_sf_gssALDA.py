@@ -5,6 +5,7 @@ Fast test, where the kernel is scaled to fulfill the Goldstone theorem.
 """
 
 # Workflow modules
+import pytest
 import numpy as np
 
 # Script modules
@@ -21,6 +22,7 @@ from gpaw.test import findpeak, equal
 from gpaw.mpi import world
 
 
+@pytest.mark.response
 def test_response_iron_sf_gssALDA(in_tmp_dir):
     # ------------------- Inputs ------------------- #
 
@@ -36,7 +38,7 @@ def test_response_iron_sf_gssALDA(in_tmp_dir):
     q_qc = [[0.0, 0.0, 0.0], [0.0, 0.0, 1. / 4.]]  # Two q-points along G-N
     frq_qw = [np.linspace(-0.080, 0.120, 26), np.linspace(0.100, 0.300, 26)]
     fxc = 'ALDA'
-    fxc_scaling = [True, None]
+    fxc_scaling = [True, None, 'fm']
     ecut = 300
     eta = 0.01
 

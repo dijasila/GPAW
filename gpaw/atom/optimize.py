@@ -161,9 +161,9 @@ class DatasetOptimizer:
 
         self.logfile = open(f'data-{id}.csv', 'a')
 
-        fd = open(f'out-{id}.txt', 'w')
-        errors, msg, convenergies, eggenergies, ips = \
-            self.test(fd, projectors, radii, r0)
+        with open(f'out-{id}.txt', 'w') as fd:
+            errors, msg, convenergies, eggenergies, ips = \
+                self.test(fd, projectors, radii, r0)
         error = ((errors / self.tolerances)**2).sum()
 
         if msg:
@@ -184,7 +184,10 @@ class DatasetOptimizer:
         return error
 
     def test_old_paw_data(self):
-        fd = open('old.txt', 'w')
+        with open('old.txt', 'w') as fd:
+            self._test_old_paw_data(fd)
+
+    def _test_old_paw_data(self, fd):
         area, niter, convenergies = self.convergence(fd, 'paw')
         eggenergies = self.eggbox(fd, 'paw')
         print('RESULTS:',

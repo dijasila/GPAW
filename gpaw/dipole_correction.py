@@ -70,11 +70,15 @@ class DipoleCorrection:
         self.poissonsolver.initialize()
 
     def solve(self, pot, dens, **kwargs):
+        # Note that fdsolve() returns number of iterations and pwsolve()
+        # returns the energy!!  This is because the
+        # ChargedReciprocalSpacePoissonSolver has corrections to
+        # the energy ...
         if isinstance(dens, np.ndarray):
             # finite-diference Poisson solver:
             return self.fdsolve(pot, dens, **kwargs)
         # Plane-wave solver:
-        self.pwsolve(pot, dens)
+        return self.pwsolve(pot, dens)
 
     def fdsolve(self, vHt_g, rhot_g, **kwargs):
         gd = self.poissonsolver.gd
@@ -91,16 +95,18 @@ class DipoleCorrection:
         if self.sawtooth_q is None:
             self.initialize_sawtooth()
 
-        self.poissonsolver.solve(vHt_q, dens)
+        epot = self.poissonsolver.solve(vHt_q, dens)
+
         dip_v = dens.calculate_dipole_moment()
         c = self.c
         L = gd.cell_cv[c, c]
         self.correction = 2 * np.pi * dip_v[c] * L / gd.volume
         vHt_q -= 2 * self.correction * self.sawtooth_q
 
+        return epot + 2 * np.pi * dip_v[c]**2 / gd.volume
+
     def initialize_sawtooth(self):
         gd = self.poissonsolver.pd.gd
-        self.check_direction(gd, self.poissonsolver.realpbc_c)
         if gd.comm.rank == 0:
             c = self.c
             L = gd.cell_cv[c, c]

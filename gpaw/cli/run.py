@@ -4,7 +4,7 @@ from gpaw import GPAW
 from gpaw.mixer import Mixer, MixerSum
 from gpaw.occupations import (FermiDirac, MethfesselPaxton,
                               MarzariVanderbilt)
-from gpaw.wavefunctions.pw import PW
+from gpaw import PW
 
 
 class GPAWRunner(Runner):

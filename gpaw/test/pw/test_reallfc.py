@@ -2,11 +2,11 @@ import numpy as np
 import pytest
 
 from gpaw.test import equal
-from gpaw.fftw import FFTPlan
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.spline import Spline
 import gpaw.mpi as mpi
-from gpaw.wavefunctions.pw import PWDescriptor, PWLFC
+from gpaw.pw.descriptor import PWDescriptor
+from gpaw.pw.lfc import PWLFC
 
 
 @pytest.mark.ci
@@ -23,8 +23,6 @@ def test_pw_reallfc():
 
     pd = PWDescriptor(45, gd, complex)
     pdr = PWDescriptor(45, gd)
-
-    print(FFTPlan)
 
     for l in range(4):
         print(l)

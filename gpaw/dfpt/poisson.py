@@ -22,7 +22,6 @@ class FFTPoissonSolver(poisson.FFTPoissonSolver):
         """Set the ``dtype`` of the source term array."""
 
         self.dtype = dtype
-        self.charged_periodic_correction = None
         self.eps = eps
 
     def set_q(self, q_c):

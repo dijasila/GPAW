@@ -1,25 +1,25 @@
-
 import functools
 import numbers
 import sys
-from math import pi
 
 import numpy as np
 from scipy.spatial import Delaunay, cKDTree
 
 from ase.units import Ha
-from ase.utils import convert_string_to_fd
+from ase.utils import IOContext
 from ase.utils.timing import timer, Timer
 
 import gpaw.mpi as mpi
-from gpaw import GPAW, disable_dry_run
+from gpaw.calculator import GPAW
+from gpaw import disable_dry_run
 from gpaw.fd_operators import Gradient
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.response.math_func import (two_phi_planewave_integrals,
                                      two_phi_nabla_planewave_integrals)
+from gpaw.response.pw_parallelization import block_partition
 from gpaw.utilities.blas import gemm
 from gpaw.utilities.progressbar import ProgressBar
-from gpaw.wavefunctions.pw import PWLFC
+from gpaw.pw.lfc import PWLFC
 from gpaw.bztools import get_reduced_bz, unique_rows
 
 
@@ -117,10 +117,8 @@ class PWSymmetryAnalyzer:
         self.kd = kd
         self.fd = txt
 
-        # Caveats
-        assert disable_non_symmorphic, \
-            print('You are not allowed to use non symmorphic syms, sorry. ',
-                  file=self.fd)
+        assert disable_non_symmorphic, ('You are not allowed to use '
+                                        'non-symmorphic syms, sorry.')
 
         # Settings
         self.disable_point_group = disable_point_group
@@ -636,8 +634,7 @@ class PairDensity:
                  ftol=1e-6, threshold=1,
                  real_space_derivatives=False,
                  world=mpi.world, txt='-', timer=None,
-                 nblocks=1, gate_voltage=None,
-                 paw_correction='brute-force', **unused):
+                 nblocks=1):
         """Density matrix elements
 
         Parameters
@@ -651,11 +648,10 @@ class PairDensity:
         real_space_derivatives : bool
             Calculate nabla matrix elements (in the optical limit)
             using a real space finite difference approximation.
-        gate_voltage : float
-            Shift the fermi level by gate_voltage [Hartree].
         """
         self.world = world
-        self.fd = convert_string_to_fd(txt, world)
+        self.iocontext = IOContext()
+        self.fd = self.iocontext.openfile(txt, world)
         self.timer = timer or Timer()
 
         with self.timer('Read ground state'):
@@ -674,32 +670,15 @@ class PairDensity:
         if ecut is not None:
             ecut /= Ha
 
-        if gate_voltage is not None:
-            gate_voltage = gate_voltage / Ha
-
         self.response = response
         self.ecut = ecut
         self.ftol = ftol
         self.threshold = threshold
         self.real_space_derivatives = real_space_derivatives
-        self.gate_voltage = gate_voltage
 
-        if nblocks == 1:
-            self.blockcomm = world.new_communicator([world.rank])
-            self.kncomm = world
-        else:
-            assert world.size % nblocks == 0, world.size
-            rank1 = world.rank // nblocks * nblocks
-            rank2 = rank1 + nblocks
-            self.blockcomm = self.world.new_communicator(range(rank1, rank2))
-            ranks = range(world.rank % nblocks, world.size, nblocks)
-            self.kncomm = self.world.new_communicator(ranks)
+        self.blockcomm, self.kncomm = block_partition(world, nblocks)
 
         self.fermi_level = self.calc.wfs.fermi_level
-
-        if gate_voltage is not None:
-            self.add_gate_voltage(gate_voltage)
-
         self.spos_ac = calc.spos_ac
 
         self.nocc1 = None  # number of completely filled bands
@@ -714,33 +693,11 @@ class PairDensity:
         self.KDTree = cKDTree(np.mod(np.mod(kd.bzk_kc, 1).round(6), 1))
         print('Number of blocks:', nblocks, file=self.fd)
 
-        self.paw_correction = paw_correction
+    def __del__(self):
+        self.iocontext.close()
 
     def find_kpoint(self, k_c):
         return self.KDTree.query(np.mod(np.mod(k_c, 1).round(6), 1))[1]
-
-    def add_gate_voltage(self, gate_voltage=0):
-        """Shifts the Fermi-level by e * Vg. By definition e = 1."""
-        assert self.calc.wfs.occupations.name in {'fermi-dirac', 'zero-width'}
-        print('Shifting Fermi-level by %.2f eV' % (gate_voltage * Ha),
-              file=self.fd)
-        self.fermi_level += gate_voltage
-        for kpt in self.calc.wfs.kpt_u:
-            kpt.f_n = (self.shift_occupations(kpt.eps_n, gate_voltage) *
-                       kpt.weight)
-
-    def shift_occupations(self, eps_n, gate_voltage):
-        """Shift fermilevel."""
-        fermi = self.fermi_level
-        width = getattr(self.calc.wfs.occupations, '_width', 0.0) / Ha
-        if width < 1e-9:
-            return (eps_n < fermi).astype(float)
-        else:
-            tmp = (eps_n - fermi) / width
-        f_n = np.zeros_like(eps_n)
-        f_n[tmp <= 100] = 1 / (1 + np.exp(tmp[tmp <= 100]))
-        f_n[tmp > 100] = 0.0
-        return f_n
 
     def count_occupied_bands(self):
         self.nocc1 = 9999999
@@ -757,9 +714,6 @@ class PairDensity:
     def distribute_k_points_and_bands(self, band1, band2, kpts=None):
         """Distribute spins, k-points and bands.
 
-        nbands: int
-            Number of bands for each spin/k-point combination.
-
         The attribute self.mysKn1n2 will be set to a list of (s, K, n1, n2)
         tuples that this process handles.
         """
@@ -769,13 +723,14 @@ class PairDensity:
         if kpts is None:
             kpts = np.arange(wfs.kd.nbzkpts)
 
+        # nbands is the number of bands for each spin/k-point combination.
         nbands = band2 - band1
         size = self.kncomm.size
         rank = self.kncomm.rank
         ns = wfs.nspins
         nk = len(kpts)
         n = (ns * nk * nbands + size - 1) // size
-        i1 = rank * n
+        i1 = min(rank * n, ns * nk * nbands)
         i2 = min(i1 + n, ns * nk * nbands)
 
         self.mysKn1n2 = []
@@ -807,6 +762,8 @@ class PairDensity:
         n1, n2: int
             Range of bands to include.
         """
+
+        assert n1 <= n2
 
         wfs = self.calc.wfs
         kd = wfs.kd
@@ -1044,6 +1001,9 @@ class PairDensity:
         # wfs = self.calc.wfs
         # bzk_kc = wfs.kd.bzk_kc
 
+        assert m1 <= m2
+        assert n1 <= n2
+
         if isinstance(Kork_c, int):
             # If k_c is an integer then it refers to
             # the index of the kpoint in the BZ
@@ -1236,14 +1196,8 @@ class PairDensity:
 
         ut_vR = self.ut_sKnvR[kpt1.s][kpt1.K][n - kpt1.n1]
         atomdata_a = self.calc.wfs.setups
-        if self.paw_correction == 'brute-force':
-            C_avi = [np.dot(atomdata.nabla_iiv.T, P_ni[n - kpt1.na])
-                     for atomdata, P_ni in zip(atomdata_a, kpt1.P_ani)]
-        elif self.paw_correction == 'skip':
-            C_avi = [np.zeros((3, P_ni.shape[1]), complex)
-                     for atomdata, P_ni in zip(atomdata_a, kpt1.P_ani)]
-        else:
-            1 / 0
+        C_avi = [np.dot(atomdata.nabla_iiv.T, P_ni[n - kpt1.na])
+                 for atomdata, P_ni in zip(atomdata_a, kpt1.P_ani)]
 
         blockbands = kpt2.nb - kpt2.na
         n0_mv = np.empty((kpt2.blocksize, 3), dtype=complex)
@@ -1393,81 +1347,9 @@ class PairDensity:
         return N_G
 
     def construct_symmetry_operators(self, K, k_c=None):
-        """Construct symmetry operators for wave function and PAW projections.
-
-        We want to transform a k-point in the irreducible part of the BZ to
-        the corresponding k-point with index K.
-
-        Returns U_cc, T, a_a, U_aii, shift_c and time_reversal, where:
-
-        * U_cc is a rotation matrix.
-        * T() is a function that transforms the periodic part of the wave
-          function.
-        * a_a is a list of symmetry related atom indices
-        * U_aii is a list of rotation matrices for the PAW projections
-        * shift_c is three integers: see code below.
-        * time_reversal is a flag - if True, projections should be complex
-          conjugated.
-
-        See the get_k_point() method for how to use these tuples.
-        """
-
-        wfs = self.calc.wfs
-        kd = wfs.kd
-
-        s = kd.sym_k[K]
-        U_cc = kd.symmetry.op_scc[s]
-        time_reversal = kd.time_reversal_k[K]
-        ik = kd.bz2ibz_k[K]
-        if k_c is None:
-            k_c = kd.bzk_kc[K]
-        ik_c = kd.ibzk_kc[ik]
-
-        sign = 1 - 2 * time_reversal
-        shift_c = np.dot(U_cc, ik_c) - k_c * sign
-
-        try:
-            assert np.allclose(shift_c.round(), shift_c)
-        except AssertionError:
-            print('shift_c ' + str(shift_c), file=self.fd)
-            print('k_c ' + str(k_c), file=self.fd)
-            print('kd.bzk_kc[K] ' + str(kd.bzk_kc[K]), file=self.fd)
-            print('ik_c ' + str(ik_c), file=self.fd)
-            print('U_cc ' + str(U_cc), file=self.fd)
-            print('sign ' + str(sign), file=self.fd)
-            raise AssertionError
-
-        shift_c = shift_c.round().astype(int)
-
-        if (U_cc == np.eye(3)).all():
-            def T(f_R):
-                return f_R
-        else:
-            N_c = self.calc.wfs.gd.N_c
-            i_cr = np.dot(U_cc.T, np.indices(N_c).reshape((3, -1)))
-            i = np.ravel_multi_index(i_cr, N_c, 'wrap')
-
-            def T(f_R):
-                return f_R.ravel()[i].reshape(N_c)
-
-        if time_reversal:
-            T0 = T
-
-            def T(f_R):
-                return T0(f_R).conj()
-            shift_c *= -1
-
-        a_a = []
-        U_aii = []
-        for a, id in enumerate(self.calc.wfs.setups.id_a):
-            b = kd.symmetry.a_sa[s, a]
-            S_c = np.dot(self.spos_ac[a], U_cc) - self.spos_ac[b]
-            x = np.exp(2j * pi * np.dot(ik_c, S_c))
-            U_ii = wfs.setups[a].R_sii[s].T * x
-            a_a.append(b)
-            U_aii.append(U_ii)
-
-        return U_cc, T, a_a, U_aii, shift_c, time_reversal
+        from gpaw.response.symmetry_ops import construct_symmetry_operators
+        return construct_symmetry_operators(
+            self, K, k_c, apply_strange_shift=False, spos_ac=self.spos_ac)
 
     @timer('Initialize PAW corrections')
     def initialize_paw_corrections(self, pd, soft=False):
@@ -1495,13 +1377,8 @@ class PairDensity:
                     Q_Gii = np.dot(atomdata.Delta_iiL, Q_LG).T
             else:
                 ni = atomdata.ni
-                if self.paw_correction == 'brute-force':
-                    Q_Gii = two_phi_planewave_integrals(G_Gv, atomdata)
-                    Q_Gii.shape = (-1, ni, ni)
-                elif self.paw_correction == 'skip':
-                    Q_Gii = np.zeros((len(G_Gv), ni, ni), complex)
-                else:
-                    1 / 0
+                Q_Gii = two_phi_planewave_integrals(G_Gv, atomdata)
+                Q_Gii.shape = (-1, ni, ni)
 
             Q_xGii[id] = Q_Gii
 

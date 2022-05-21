@@ -2,6 +2,9 @@
 Formulas
 ========
 
+See also :xkcd:`Useful geometry formulas <2509>`
+and :xkcd:`What greek letters mean in equations <2586>`.
+
 
 Coulomb
 =======
@@ -34,7 +37,7 @@ harmonic is:
     \int d\br e^{i\mathbf{G}\cdot\br} f(r)Y_{\ell m}(\br),
 
 where
-    
+
 .. math::
 
     f(G) = 4\pi i^\ell \int_0^\infty r^2 dr j_\ell(Gr) f(r).
@@ -170,9 +173,9 @@ where the relativistic mass is:
 With `u(r) = a(g) r^\alpha`, `\kappa = (dv/dr)/(2Mc^2)` and
 
 .. math::
-    
+
     \alpha = \sqrt{\ell^2 + \ell + 1 -(Z/c)^2},
-    
+
 we get:
 
 .. math::

@@ -1,9 +1,9 @@
 import numpy as np
 import pytest
 from ase import Atoms
+
 from gpaw import GPAW
 from gpaw.mom import prepare_mom_calculation
-from gpaw.test import equal
 
 
 @pytest.mark.mom
@@ -27,7 +27,7 @@ def test_mom_lcao_forces(in_tmp_dir):
                 spinpol=True,
                 symmetry='off',
                 convergence={'energy': 100,
-                             'density': 1e-3})
+                             'density': 1e-4})
 
     atoms.calc = calc
     prepare_mom_calculation(calc, atoms, f_sn)
@@ -52,8 +52,8 @@ def test_mom_lcao_forces(in_tmp_dir):
         E.append(atoms.get_potential_energy())
 
     f = np.sqrt(((F[1, :] - F[0, :])**2).sum()) * 0.5
-    fnum = (E[0] - E[1]) / (2. * delta)     # central difference
+    fnum = (E[0] - E[1]) / (2. * delta)  # central difference
 
     print(fnum)
-    equal(fnum, 11.5048143494, 0.01)
-    equal(f, fnum, 0.1)
+    assert fnum == pytest.approx(11.52, abs=0.015)
+    assert f == pytest.approx(fnum, abs=0.1)

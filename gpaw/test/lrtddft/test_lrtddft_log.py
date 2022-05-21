@@ -1,4 +1,5 @@
 from ase import Atom, Atoms
+from ase.parallel import world
 
 from gpaw import GPAW
 from gpaw.lrtddft import LrTDDFT
@@ -26,6 +27,7 @@ def run_and_delete(txt):
     exlst = LrTDDFT(calc, restrict={'eps': 0.4, 'jend': 3}, txt=txt)
     del(calc)
     del(exlst)
+    world.barrier()
     
 
 def test_log(in_tmp_dir):

@@ -2,19 +2,18 @@ import os
 import sys
 from time import time
 
-import numpy as np
-from scipy.special import sici
-from scipy.special.orthogonal import p_roots
 import ase.io.ulm as ulm
-from ase.units import Ha, Bohr
+import numpy as np
+from ase.units import Bohr, Ha
 from ase.utils.timing import timer
+from scipy.special import p_roots, sici
 
 import gpaw.mpi as mpi
 from gpaw.blacs import BlacsGrid, Redistributor
 from gpaw.fd_operators import Gradient
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.utilities.blas import gemmdot, axpy
-from gpaw.wavefunctions.pw import PWDescriptor
+from gpaw.pw.descriptor import PWDescriptor
+from gpaw.utilities.blas import axpy, gemmdot
 from gpaw.xc.rpa import RPACorrelation
 
 
@@ -168,6 +167,7 @@ class FXCCorrelation(RPACorrelation):
         if chi0_swxvG is None:
             chi0_swxvG = range(2)  # Not used
             chi0_swvv = range(2)  # Not used
+
         chi0._calculate(pd,
                         chi0_swGG[0],
                         chi0_swxvG[0],
@@ -255,9 +255,9 @@ class FXCCorrelation(RPACorrelation):
         #              the calculation is spin-polarized!)
 
         if self.spin_kernel:
-            r = ulm.open('fhxc_%s_%s_%s_%s.ulm' %
-                         (self.tag, self.xc, self.ecut_max, qi))
-            fv = r.fhxc_sGsG
+            with ulm.open('fhxc_%s_%s_%s_%s.ulm' %
+                          (self.tag, self.xc, self.ecut_max, qi)) as r:
+                fv = r.fhxc_sGsG
 
             if cut_G is not None:
                 cut_sG = np.tile(cut_G, ns)
@@ -353,9 +353,9 @@ class FXCCorrelation(RPACorrelation):
                 fv = np.exp(-0.25 * (G_G * self.range_rc)**2.0)
 
             elif self.linear_kernel:
-                r = ulm.open('fhxc_%s_%s_%s_%s.ulm' %
-                             (self.tag, self.xc, self.ecut_max, qi))
-                fv = r.fhxc_sGsG
+                with ulm.open('fhxc_%s_%s_%s_%s.ulm' %
+                              (self.tag, self.xc, self.ecut_max, qi)) as r:
+                    fv = r.fhxc_sGsG
 
                 if cut_G is not None:
                     fv = fv.take(cut_G, 0).take(cut_G, 1)
@@ -363,17 +363,17 @@ class FXCCorrelation(RPACorrelation):
             elif not self.dyn_kernel:
                 # static kernel which does not scale with lambda
 
-                r = ulm.open('fhxc_%s_%s_%s_%s.ulm' %
-                             (self.tag, self.xc, self.ecut_max, qi))
-                fv = r.fhxc_lGG
+                with ulm.open('fhxc_%s_%s_%s_%s.ulm' %
+                              (self.tag, self.xc, self.ecut_max, qi)) as r:
+                    fv = r.fhxc_lGG
 
                 if cut_G is not None:
                     fv = fv.take(cut_G, 1).take(cut_G, 2)
 
             else:  # dynamical kernel
-                r = ulm.open('fhxc_%s_%s_%s_%s.ulm' %
-                             (self.tag, self.xc, self.ecut_max, qi))
-                fv = r.fhxc_lwGG
+                with ulm.open('fhxc_%s_%s_%s_%s.ulm' %
+                              (self.tag, self.xc, self.ecut_max, qi)) as r:
+                    fv = r.fhxc_lwGG
 
                 if cut_G is not None:
                     fv = fv.take(cut_G, 2).take(cut_G, 3)

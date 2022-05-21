@@ -39,7 +39,7 @@ def test_lrtddft_placzek_profeta_albrecht(in_tmp_dir):
         txt=txt)
     H2.calc = calc
     # H2.get_potential_energy()
-    
+
     rr = ResonantRamanCalculator(
         H2, KSSingles, name=name, exname=exname,
         exkwargs=exkwargs,
