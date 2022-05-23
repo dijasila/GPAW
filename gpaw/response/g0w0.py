@@ -348,7 +348,6 @@ class G0W0:
             self.x0density = 0.1  # ? 0.01
 
         self.maxiter = maxiter
-        self.mixing = mixing
 
         self.kpts = list(select_kpts(kpts, self.calc))
         self.bands = bands = self.choose_bands(bands, relbands)
@@ -504,9 +503,6 @@ class G0W0:
                 if self.do_GW_too:
                     self.qp_GW_skn = self.eps_skn.copy()
                     self.qp_GW_iskn = np.array([self.qp_GW_skn])
-
-            if self.ite > 0:
-                self.update_energies(mixing=self.mixing)
 
             # My part of the states we want to calculate QP-energies for:
             mykpts = [self.pair.get_k_point(s, K, n1, n2)
