@@ -531,9 +531,6 @@ class G0W0:
         All the values are ``ndarray``'s of shape
         (spins, IBZ k-points, bands)."""
 
-        self.vxc_skn = self.calculate_ks_xc_contribution()
-        self.exx_skn = self.calculate_exact_exchange()
-
         if self.restartfile is not None:
             loaded = self.load_restart_file()
             if not loaded:
@@ -1451,8 +1448,8 @@ class G0W0:
             shape=self.shape,
             ecut_e=self.ecut_e,
             eps_skn=self.eps_skn,
-            vxc_skn=self.vxc_skn,
-            exx_skn=self.exx_skn,
+            vxc_skn=self.calculate_ks_xc_contribution(),
+            exx_skn=self.calculate_exact_exchange(),
             f_skn=self.f_skn)
 
         self.outputs = G0W0Outputs(sigma_eskn=self.sigma_eskn,
