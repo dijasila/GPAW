@@ -45,7 +45,6 @@ class Chi0:
     def __init__(self,
                  calc,
                  *,
-                 response='density',
                  frequencies: Union[dict, Array1D] = None,
                  ecut=50, gammacentered=False, hilbert=True, nbands=None,
                  timeordered=False, eta=0.2, ftol=1e-6, threshold=1,
@@ -67,9 +66,6 @@ class Chi0:
         calc : str
             The groundstate calculation file that the linear response
             calculation is based on.
-        response : str
-            Type of response function. Currently collinear, scalar options
-            'density', '+-' and '-+' are implemented.
         frequencies :
             Input parameters for frequency_grid.
             Can be array of frequencies to evaluate the response function at
@@ -148,7 +144,7 @@ class Chi0:
         elif frequencies is None:
             frequencies = {'type': 'nonlinear'}
 
-        self.response = response
+        self.response = 'density'
 
         self.timer = timer or Timer()
 

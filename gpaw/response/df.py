@@ -20,7 +20,6 @@ class DielectricFunction:
     """This class defines dielectric function related physical quantities."""
 
     def __init__(self, calc, *,
-                 response='density',
                  name=None,
                  frequencies=None,
                  domega0=None,  # deprecated
@@ -39,9 +38,6 @@ class DielectricFunction:
         calc: str
             The groundstate calculation file that the linear response
             calculation is based on.
-        response : str
-            Type of response function. Currently collinear, scalar options
-            'density', '+-' and '-+' are implemented. (move to general rf.py)
         name: str
             If defined, save the response function to::
 
@@ -87,7 +83,7 @@ class DielectricFunction:
             Shift unoccupied bands
         """
 
-        self.chi0 = Chi0(calc, response=response, frequencies=frequencies,
+        self.chi0 = Chi0(calc, frequencies=frequencies,
                          domega0=domega0, omega2=omega2, omegamax=omegamax,
                          ecut=ecut, nbands=nbands, eta=eta,
                          gammacentered=gammacentered, hilbert=hilbert,
