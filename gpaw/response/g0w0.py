@@ -429,10 +429,6 @@ class G0W0:
         p('fxc mode:', self.fxc_mode)
         p('Kernel:', self.xc)
         p('Do GW too:', self.do_GW_too)
-
-        if self.method == 'GW0':
-            p('Number of iterations:', self.maxiter)
-            p('Mixing:', self.mixing)
         p()
 
     @timer('G0W0')
@@ -635,15 +631,6 @@ class G0W0:
             if self.world.rank == 0:
                 if os.path.isfile(self.restartfile + '.sigma.pckl'):
                     os.remove(self.restartfile + '.sigma.pckl')
-
-        if self.method == 'GW0' and self.world.rank == 0:
-            for iq in range(len(self.qd.ibzk_kc)):
-                try:
-                    os.remove(self.filename + '.rank' +
-                              str(self.blockcomm.rank) + '.w.q' +
-                              str(iq) + '.pckl')
-                except OSError:
-                    pass
 
         return results
 
