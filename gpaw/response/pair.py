@@ -630,7 +630,7 @@ class PWSymmetryAnalyzer:
 
 
 class PairDensity:
-    def __init__(self, gs, ecut=50, response='density',
+    def __init__(self, gs, ecut=50,
                  ftol=1e-6, threshold=1,
                  real_space_derivatives=False,
                  world=mpi.world, txt='-', timer=None,
@@ -670,7 +670,6 @@ class PairDensity:
         if ecut is not None:
             ecut /= Ha
 
-        self.response = response
         self.ecut = ecut
         self.ftol = ftol
         self.threshold = threshold
@@ -857,7 +856,7 @@ class PairDensity:
         assert 0 <= use_more_memory <= 1
 
         q_c = pd.kd.bzk_kc[0]
-        optical_limit = np.allclose(q_c, 0.0) and self.response == 'density'
+        optical_limit = np.allclose(q_c, 0.0)
         optical_limit = not disable_optical_limit and optical_limit
 
         Q_aGii = self.initialize_paw_corrections(pd)
@@ -1015,11 +1014,7 @@ class PairDensity:
         with self.timer('get k-points'):
             kpt1 = self.get_k_point(s, k_c, n1, n2, load_wfs=load_wfs)
             # K2 = wfs.kd.find_k_plus_q(q_c, [kpt1.K])[0]
-            if self.response in ['+-', '-+']:
-                s2 = 1 - s
-            else:
-                s2 = s
-            kpt2 = self.get_k_point(s2, k_c + q_c, m1, m2,
+            kpt2 = self.get_k_point(s, k_c + q_c, m1, m2,
                                     load_wfs=load_wfs, block=block)
 
         with self.timer('fft indices'):
@@ -1034,8 +1029,7 @@ class PairDensity:
                          Q_aGii=None, block=False, direction=2,
                          extend_head=True):
         """Get pair density for a kpoint pair."""
-        ol = optical_limit = np.allclose(pd.kd.bzk_kc[0], 0.0) and \
-            self.response == 'density'
+        ol = optical_limit = np.allclose(pd.kd.bzk_kc[0], 0.0)
         eh = extend_head
         cpd = self.calculate_pair_densities  # General pair densities
         opd = self.optical_pair_density  # Interband pair densities / q
@@ -1355,7 +1349,7 @@ class PairDensity:
     def initialize_paw_corrections(self, pd, soft=False):
         wfs = self.calc.wfs
         q_v = pd.K_qv[0]
-        optical_limit = np.allclose(q_v, 0) and self.response == 'density'
+        optical_limit = np.allclose(q_v, 0)
 
         G_Gv = pd.get_reciprocal_vectors()
         if optical_limit:
