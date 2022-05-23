@@ -31,13 +31,7 @@ class ChiKS(PlaneWaveKSLRF):
 
     def __init__(self, *args, **kwargs):
         """Initialize the chiKS object in plane wave mode."""
-        # Avoid any response ambiguity
-        if 'response' in kwargs.keys():
-            response = kwargs.pop('response')
-            assert response == 'susceptibility'
-
-        PlaneWaveKSLRF.__init__(self, *args, response='susceptibility',
-                                **kwargs)
+        PlaneWaveKSLRF.__init__(self, *args, **kwargs)
 
         # Susceptibilities use pair densities as matrix elements
         self.pme = PlaneWavePairDensity(self.kspair)

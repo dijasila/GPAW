@@ -85,7 +85,7 @@ class KohnShamLinearResponseFunction:  # Future PairFunctionIntegrator? XXX
     add_integrand adds wk (...)_k to the output array for each k-point.
     """
 
-    def __init__(self, gs, response=None, mode=None,
+    def __init__(self, gs, mode=None,
                  bandsummation='pairwise', nbands=None, kpointintegration=None,
                  world=mpi.world, nblocks=1, txt='-', timer=None):
         """Construct the KSLRF object
@@ -95,9 +95,6 @@ class KohnShamLinearResponseFunction:  # Future PairFunctionIntegrator? XXX
         gs : str
             The groundstate calculation file that the linear response
             calculation is based on.
-        response : str
-            Type of response function.
-            Currently, only susceptibilities are supported.
         mode: str
             Calculation mode.
             Currently, only a plane wave mode is implemented.
@@ -169,7 +166,6 @@ class KohnShamLinearResponseFunction:  # Future PairFunctionIntegrator? XXX
                                    kptblockcomm=self.intrablockcomm,
                                    txt=self.fd, timer=self.timer)
 
-        self.response = response
         self.mode = mode
 
         self.bandsummation = bandsummation
