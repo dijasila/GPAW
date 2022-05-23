@@ -227,15 +227,6 @@ def get_frequencies(frequencies, domega0, omega2):
     return frequencies
 
 
-def get_eigenvalues_from_calc(calc):
-    ibzk_kc = calc.get_ibz_k_points()
-    nibzk = len(ibzk_kc)
-    eps0_skn = np.array([[calc.get_eigenvalues(kpt=k, spin=s)
-                          for k in range(nibzk)]
-                         for s in range(calc.wfs.nspins)]) / Ha
-    return eps0_skn
-
-
 def get_qdescriptor(kd, atoms):
     # Find q-vectors and weights in the IBZ:
     assert -1 not in kd.bz2bz_ks
@@ -441,7 +432,6 @@ class G0W0:
 
         self.kpts = list(select_kpts(kpts, self.calc))
         self.bands = bands = self.choose_bands(bands, relbands)
-        self.eps0_skn = get_eigenvalues_from_calc(self.calc)
 
         b1, b2 = bands
         self.shape = shape = (self.calc.wfs.nspins, len(self.kpts), b2 - b1)
