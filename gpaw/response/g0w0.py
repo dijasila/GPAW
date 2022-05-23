@@ -798,17 +798,12 @@ class G0W0:
 
         # some memory sizes...
         if self.world.rank == 0:
-            # A1_x, A2_x
             siz = (nw * mynGmax * nGmax +
                    max(mynw * nGmax, nw * mynGmax) * nGmax) * 16
             sizA = (nw * nGmax * nGmax + nw * nGmax * nGmax) * 16
             print('  memory estimate for chi0: local=%.2f MB, global=%.2f MB'
                   % (siz / 1024**2, sizA / 1024**2), file=self.fd)
             self.fd.flush()
-
-        # Allocate memory in the beginning and use for all q:
-        A1_x = np.empty(nw * mynGmax * nGmax, complex)
-        A2_x = np.empty(max(mynw * nGmax, nw * mynGmax) * nGmax, complex)
 
         # Need to pause the timer in between iterations
         self.timer.stop('W')
@@ -826,8 +821,7 @@ class G0W0:
 
             if len(self.ecut_e) > 1:
                 shape = (nw, chi0.blocks1d.nlocal, nG)
-                chi0bands_wGG = A1_x[:np.prod(shape)].reshape(shape).copy()
-                chi0bands_wGG[:] = 0.0
+                chi0bands_wGG = np.zeros(shape, dtype=complex)
 
                 if np.allclose(q_c, 0.0):
                     chi0bands_wxvG = np.zeros((nw, 2, 3, nG), complex)
@@ -872,8 +866,7 @@ class G0W0:
                     pdi, W, W_GW = self.calculate_w(
                         chi0, q_c, pd, chi0bands_wGG,
                         chi0bands_wxvG, chi0bands_wvv,
-                        m1, m2, ecut, htp, htm, wstc,
-                        A1_x, A2_x, iq)
+                        m1, m2, ecut, htp, htm, wstc, iq)
                     m1 = m2
                     if self.savew:
                         if self.blockcomm.size > 1:
@@ -896,7 +889,7 @@ class G0W0:
 
     @timer('WW')
     def calculate_w(self, chi0, q_c, pd, chi0bands_wGG, chi0bands_wxvG,
-                    chi0bands_wvv, m1, m2, ecut, htp, htm, wstc, A1_x, A2_x,
+                    chi0bands_wvv, m1, m2, ecut, htp, htm, wstc,
                     iq):
         """Calculates the screened potential for a specified q-point."""
 
@@ -942,10 +935,6 @@ class G0W0:
 
         self.Q_aGii = chi0.Q_aGii
 
-        # chi02_wGG = chi0_wGG.copy()
-        # A1_2_x = A1_x.copy()
-        # A2_2_x = A2_x.copy()
-
         # Old way
         # if not np.allclose(q_c, 0):
         #     self.timer.start('old non gamma')
@@ -954,7 +943,7 @@ class G0W0:
         pdi, W_xwGG, GW_return = self.dyson_and_W_old(
             wstc, iq, q_c, chi0,
             chi0_wvv, chi0_wxvG,
-            chi0_wGG, A1_x, A2_x,
+            chi0_wGG,
             pd, ecut, htp, htm)
 
         # W_xwGG = [ Wm_wGG, Wp_wGG ] !
@@ -968,8 +957,8 @@ class G0W0:
         #     self.timer.start('new non gamma')
         #     pdi, Wm2_wGG, Wp2_wGG = self.dyson_and_W_new(wstc, iq, q_c, chi0,
         #                                                  chi0_wvv, chi0_wxvG,
-        #                                                  chi02_wGG, A1_2_x,
-        #                                                  A2_2_x, pd, ecut,
+        #                                                  chi02_wGG,
+        #                                                  pd, ecut,
         #                                                  htp, htm)
         #     self.timer.stop('new non gamma')
 
@@ -983,7 +972,7 @@ class G0W0:
         return pdi, W_xwGG, GW_return
 
     def dyson_and_W_new(self, wstc, iq, q_c, chi0, chi0_wvv, chi0_wxvG,
-                        chi0_WgG, A1_x, A2_x, pd, ecut, htp, htm):
+                        chi0_WgG, pd, ecut, htp, htm):
         assert not self.ppa
         assert not self.do_GW_too
         assert ecut == pd.ecut
@@ -1046,12 +1035,12 @@ class G0W0:
         return pd, Wm_wGG, Wp_wGG
 
     def dyson_and_W_old(self, wstc, iq, q_c, chi0, chi0_wvv, chi0_wxvG,
-                        chi0_wGG, A1_x, A2_x, pd, ecut, htp, htm):
+                        chi0_wGG, pd, ecut, htp, htm):
         nG = pd.ngmax
 
         wblocks1d = Blocks1D(self.blockcomm, len(self.wd))
 
-        chi0_wGG = self.blockdist.redistribute(chi0_wGG, A2_x)
+        chi0_wGG = self.blockdist.redistribute(chi0_wGG)
 
         if ecut == pd.ecut:
             pdi = pd
@@ -1224,13 +1213,10 @@ class G0W0:
             self.timer.stop('Dyson eq.')
             return pdi, [W_GG, omegat_GG], None
 
-        if self.do_GW_too:
-            A1_GW_x = A1_x.copy()
-            A2_GW_x = A2_x.copy()
-
-        Wm_wGG = self.blockdist.redistribute(chi0_wGG, A1_x)
-        Wp_wGG = A2_x[:Wm_wGG.size].reshape(Wm_wGG.shape)
-        Wp_wGG[:] = Wm_wGG
+        # XXX This creates a new, large buffer.  We could perhaps
+        # avoid that.  Buffer used to exist but was removed due to #456.
+        Wm_wGG = self.blockdist.redistribute(chi0_wGG)
+        Wp_wGG = Wm_wGG.copy()
 
         with self.timer('Hilbert transform'):
             htp(Wp_wGG)
@@ -1238,10 +1224,9 @@ class G0W0:
 
             if self.do_GW_too:
                 Wm_GW_wGG = self.blockdist.redistribute(
-                    chi0_GW_wGG, A1_GW_x)
+                    chi0_GW_wGG)
 
-                Wp_GW_wGG = A2_GW_x[:Wm_GW_wGG.size].reshape(Wm_GW_wGG.shape)
-                Wp_GW_wGG[:] = Wm_GW_wGG
+                Wp_GW_wGG = Wm_GW_wGG.copy()
 
                 htp(Wp_GW_wGG)
                 htm(Wm_GW_wGG)
