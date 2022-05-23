@@ -23,6 +23,17 @@ from gpaw.pw.lfc import PWLFC
 from gpaw.bztools import get_reduced_bz, unique_rows
 
 
+class KPointFinder:
+    def __init__(self, bzk_kc):
+        self.kdtree = cKDTree(self._round(bzk_kc))
+
+    def _round(self, bzk_kc):
+        return np.mod(np.mod(bzk_kc, 1).round(6), 1)
+
+    def find(self, kpt_c):
+        return self.kdtree.query(self._round(kpt_c))[1]
+
+
 class KPoint:
     def __init__(self, s, K, n1, n2, blocksize, na, nb,
                  ut_nR, eps_n, f_n, P_ani, shift_c):
@@ -142,12 +153,8 @@ class PWSymmetryAnalyzer:
         self.nsym = 2 * self.nU
         self.use_time_reversal = not self.disable_time_reversal
 
-        # Which timer to use
         self.timer = timer or Timer()
-
-        self.KDTree = cKDTree(np.mod(np.mod(kd.bzk_kc, 1).round(6), 1))
-
-        # Initialize
+        self.kptfinder = KPointFinder(kd.bzk_kc)
         self.initialize()
 
     @timer('Initialize')
@@ -180,9 +187,6 @@ class PWSymmetryAnalyzer:
         # Print info
         print(self.infostring, file=self.fd)
         self.print_symmetries()
-
-    def find_kpoint(self, k_c):
-        return self.KDTree.query(np.mod(np.mod(k_c, 1).round(6), 1))[1]
 
     def print_symmetries(self):
         """Handsome print function for symmetry operations."""
@@ -383,7 +387,7 @@ class PWSymmetryAnalyzer:
         return points
 
     def get_kpoint_weight(self, k_c):
-        K = self.find_kpoint(k_c)
+        K = self.kptfinder.find(k_c)
         iK = self.kd.bz2ibz_k[K]
         K_k = self.unfold_ibz_kpoint(iK)
         K_gK = self.group_kpoints(K_k)
@@ -690,14 +694,14 @@ class PairDensity:
         self.vol = abs(np.linalg.det(calc.wfs.gd.cell_cv))
 
         kd = self.calc.wfs.kd
-        self.KDTree = cKDTree(np.mod(np.mod(kd.bzk_kc, 1).round(6), 1))
+        self.kptfinder = KPointFinder(kd.bzk_kc)
         print('Number of blocks:', nblocks, file=self.fd)
 
     def __del__(self):
         self.iocontext.close()
 
     def find_kpoint(self, k_c):
-        return self.KDTree.query(np.mod(np.mod(k_c, 1).round(6), 1))[1]
+        return self.kptfinder.find(k_c)
 
     def count_occupied_bands(self):
         self.nocc1 = 9999999
@@ -770,7 +774,7 @@ class PairDensity:
 
         # Parse kpoint: is k_c an index or a vector
         if not isinstance(k_c, numbers.Integral):
-            K = self.find_kpoint(k_c)
+            K = self.kptfinder.find(k_c)
             shift0_c = (kd.bzk_kc[K] - k_c).round().astype(int)
         else:
             # Fall back to index
