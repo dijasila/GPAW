@@ -144,8 +144,6 @@ class Chi0:
         elif frequencies is None:
             frequencies = {'type': 'nonlinear'}
 
-        self.response = 'density'
-
         self.timer = timer or Timer()
 
         self.pair = PairDensity(calc, ecut,
@@ -258,22 +256,14 @@ class Chi0:
         """
         wfs = self.calc.wfs
 
-        if self.response == 'density':
-            if spin == 'all':
-                spins = range(wfs.nspins)
-            else:
-                assert spin in range(wfs.nspins)
-                spins = [spin]
+        if spin == 'all':
+            spins = range(wfs.nspins)
         else:
-            if self.response == '+-':
-                spins = [0]
-            elif self.response == '-+':
-                spins = [1]
-            else:
-                raise ValueError('Invalid response %s' % self.response)
+            assert spin in range(wfs.nspins)
+            spins = [spin]
 
         q_c = np.asarray(q_c, dtype=float)
-        optical_limit = np.allclose(q_c, 0.0) and self.response == 'density'
+        optical_limit = np.allclose(q_c, 0.0)
 
         pd = self.get_PWDescriptor(q_c, self.gammacentered)
 
@@ -312,12 +302,8 @@ class Chi0:
             chi0_wvv = None
             self.plasmafreq_vv = None
 
-        if self.response in ['+-', '-+']:
-            # Do all bands
-            m1 = 0
-        else:
-            # Do all empty bands:
-            m1 = self.nocc1
+        # Do all transitions into partially filled and empty bands
+        m1 = self.nocc1
         m2 = self.nbands
 
         pd, chi0_wGG, chi0_wxvG, chi0_wvv = self._calculate(pd,
@@ -370,8 +356,7 @@ class Chi0:
                 assert spin in range(wfs.nspins)
 
         # Are we calculating the optical limit.
-        optical_limit = np.allclose(pd.kd.bzk_kc[0], 0.0) and \
-            self.response == 'density'
+        optical_limit = np.allclose(pd.kd.bzk_kc[0], 0.0)
 
         # Use wings in optical limit, if head cannot be extended
         if optical_limit and not extend_head:
@@ -488,9 +473,9 @@ class Chi0:
 
         # Integrate response function
         print('Integrating response function.', file=self.fd)
-        # Define band summation
-        bandsum = {'n1': 0, 'n2': self.nocc2 if self.response == 'density'
-                   else self.nbands, 'm1': m1, 'm2': m2}
+        # Define band summation. Includes transitions from all
+        # completely and partially filled bands to range(m1, m2)
+        bandsum = {'n1': 0, 'n2': self.nocc2, 'm1': m1, 'm2': m2}
         mat_kwargs.update(bandsum)
         eig_kwargs.update(bandsum)
 
@@ -767,7 +752,7 @@ class Chi0:
 
         q_c = pd.kd.bzk_kc[0]
 
-        optical_limit = np.allclose(q_c, 0.0) and self.response == 'density'
+        optical_limit = np.allclose(q_c, 0.0)
 
         extrapolate_q = False
         if self.calc.wfs.kd.refine_info is not None:
@@ -800,8 +785,6 @@ class Chi0:
             n_nmG *= weight
 
         df_nm = kptpair.get_occupation_differences(n_n, m_m)
-        if not self.response == 'density':
-            df_nm = np.abs(df_nm)
         df_nm[df_nm <= 1e-20] = 0.0
         n_nmG *= df_nm[..., np.newaxis]**0.5
 
@@ -844,11 +827,7 @@ class Chi0:
         ik2 = kd.bz2ibz_k[K2]
         kpt1 = wfs.kpt_qs[ik1][s]
         assert wfs.kd.comm.size == 1
-        if self.response in ['+-', '-+']:
-            s2 = 1 - s
-        else:
-            s2 = s
-        kpt2 = wfs.kpt_qs[ik2][s2]
+        kpt2 = wfs.kpt_qs[ik2][s]
         deps_nm = np.subtract(kpt1.eps_n[n1:n2][:, np.newaxis],
                               kpt2.eps_n[m1:m2])
 
