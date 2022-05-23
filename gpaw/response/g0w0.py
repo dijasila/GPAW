@@ -468,9 +468,7 @@ class G0W0:
 
         self.fd.flush()
 
-        self.ite = 0
-
-        while self.ite < self.maxiter:
+        if 1:
             # Reset calculation
             # self-energies
             self.sigma_eskn = np.zeros((len(self.ecut_e), ) + self.shape)
@@ -484,20 +482,19 @@ class G0W0:
                                                self.shape)
 
             # Get KS eigenvalues and occupation numbers:
-            if self.ite == 0:
-                b1, b2 = self.bands
-                for i, k in enumerate(self.kpts):
-                    for s in range(self.nspins):
-                        u = s + k * self.nspins
-                        kpt = self.calc.wfs.kpt_u[u]
-                        self.eps_skn[s, i] = kpt.eps_n[b1:b2]
-                        self.f_skn[s, i] = kpt.f_n[b1:b2] / kpt.weight
+            b1, b2 = self.bands
+            for i, k in enumerate(self.kpts):
+                for s in range(self.nspins):
+                    u = s + k * self.nspins
+                    kpt = self.calc.wfs.kpt_u[u]
+                    self.eps_skn[s, i] = kpt.eps_n[b1:b2]
+                    self.f_skn[s, i] = kpt.f_n[b1:b2] / kpt.weight
 
-                self.qp_skn = self.eps_skn.copy()
-                self.qp_iskn = np.array([self.qp_skn])
-                if self.do_GW_too:
-                    self.qp_GW_skn = self.eps_skn.copy()
-                    self.qp_GW_iskn = np.array([self.qp_GW_skn])
+            self.qp_skn = self.eps_skn.copy()
+            self.qp_iskn = np.array([self.qp_skn])
+            if self.do_GW_too:
+                self.qp_GW_skn = self.eps_skn.copy()
+                self.qp_GW_iskn = np.array([self.qp_GW_skn])
 
             # My part of the states we want to calculate QP-energies for:
             mykpts = [self.pair.get_k_point(s, K, n1, n2)
@@ -566,8 +563,6 @@ class G0W0:
                     self.sigma_GW_skn)
 
                 self.qp_GW_skn = qp_GW_skn
-
-            self.ite += 1
 
         results = {'f': self.f_skn,
                    'eps': self.eps_skn * Ha,
@@ -754,18 +749,16 @@ class G0W0:
         # The decorator $timer('W') doesn't work for generators, do we will
         # have to manually start and stop the timer here:
         self.timer.start('W')
-        if self.ite == 0:
-            print('\nCalculating screened Coulomb potential', file=self.fd)
-            if self.truncation is not None:
-                print('Using %s truncated Coloumb potential' % self.truncation,
-                      file=self.fd)
+        print('\nCalculating screened Coulomb potential', file=self.fd)
+        if self.truncation is not None:
+            print('Using %s truncated Coloumb potential' % self.truncation,
+                  file=self.fd)
 
         if self.ppa:
-            if self.ite == 0:
-                print('Using Godby-Needs plasmon-pole approximation:',
-                      file=self.fd)
-                print('  Fitting energy: i*E0, E0 = %.3f Hartee' % self.E0,
-                      file=self.fd)
+            print('Using Godby-Needs plasmon-pole approximation:',
+                  file=self.fd)
+            print('  Fitting energy: i*E0, E0 = %.3f Hartee' % self.E0,
+                  file=self.fd)
 
             # use small imaginary frequency to avoid dividing by zero:
             frequencies = [1e-10j, 1j * self.E0 * Ha]
@@ -775,8 +768,7 @@ class G0W0:
                           'timeordered': False,
                           'frequencies': frequencies}
         else:
-            if self.ite == 0:
-                print('Using full frequency integration:', file=self.fd)
+            print('Using full frequency integration:', file=self.fd)
 
             parameters = {'eta': self.eta * Ha,
                           'hilbert': True,
