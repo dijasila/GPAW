@@ -32,6 +32,50 @@ from gpaw.xc.tools import vxc
 from gpaw.response.temp import DielectricFunctionCalculator
 
 
+class SigmaValues:
+    def __init__(self, fd, shape, ecut_e, sigma_eskn, dsigma_eskn):
+        if len(ecut_e) == 1:
+            # Ugly, we are only setting some of the attributes
+            self.sigma_skn = sigma_eskn[0]
+            self.dsigma_skn = dsigma_eskn[0]
+            return
+
+        from scipy.stats import linregress
+        print('', file=fd)
+        print('Extrapolating selfenergy to infinite energy cutoff:',
+              file=fd)
+        print('  Performing linear fit to %d points' % len(ecut_e),
+              file=fd)
+        self.sigr2_skn = np.zeros(shape)
+        self.dsigr2_skn = np.zeros(shape)
+        self.sigma_skn = np.zeros(shape)
+        self.dsigma_skn = np.zeros(shape)
+        invN_i = ecut_e**(-3. / 2)
+        for m in range(np.product(shape)):
+            s, k, n = np.unravel_index(m, shape)
+
+            slope, intercept, r_value, p_value, std_err = \
+                linregress(invN_i, sigma_eskn[:, s, k, n])
+
+            self.sigr2_skn[s, k, n] = r_value**2
+            self.sigma_skn[s, k, n] = intercept
+
+            slope, intercept, r_value, p_value, std_err = \
+                linregress(invN_i, dsigma_eskn[:, s, k, n])
+
+            self.dsigr2_skn[s, k, n] = r_value**2
+            self.dsigma_skn[s, k, n] = intercept
+
+        if np.any(self.sigr2_skn < 0.9) or np.any(self.dsigr2_skn < 0.9):
+            print('  Warning: Bad quality of linear fit for some (n,k). ',
+                  file=fd)
+            print('           Higher cutoff might be necesarry.', file=fd)
+
+        print('  Minimum R^2 = %1.4f. (R^2 Should be close to 1)' %
+              min(np.min(self.sigr2_skn), np.min(self.dsigr2_skn)),
+              file=fd)
+
+
 class QSymmetryOp:
     def __init__(self, symno, U_cc, sign):
         self.symno = symno
@@ -361,8 +405,8 @@ class G0W0:
         self.shape = shape = (self.calc.wfs.nspins, len(self.kpts), b2 - b1)
         self.eps_skn = np.empty(shape)     # KS-eigenvalues
         self.f_skn = np.empty(shape)       # occupation numbers
-        self.sigma_skn = np.zeros(shape)   # self-energies
-        self.dsigma_skn = np.zeros(shape)  # derivatives of self-energies
+        #self.sigma_skn = np.zeros(shape)   # self-energies
+        #self.dsigma_skn = np.zeros(shape)  # derivatives of self-energies
         self.vxc_skn = None                # KS XC-contributions
         self.exx_skn = None                # exact exchange contributions
         self.Z_skn = None                  # renormalization factors
@@ -553,21 +597,36 @@ class G0W0:
                 self.sigma_eskn += self.previous_sigma
                 self.dsigma_eskn += self.previous_dsigma
 
-            if len(self.ecut_e) > 1:  # interpolate to infinite ecut
-                self.extrapolate_ecut()
-            else:
-                self.sigma_skn = self.sigma_eskn[0]
-                self.dsigma_skn = self.dsigma_eskn[0]
-                if self.do_GW_too:
-                    self.sigma_GW_skn = self.sigma_GW_eskn[0]
-                    self.dsigma_GW_skn = self.dsigma_GW_eskn[0]
 
-            self.Z_skn = 1 / (1 - self.dsigma_skn)
+            self.sigmavalues = SigmaValues(fd=self.fd,
+                                           shape=self.shape,
+                                           ecut_e=self.ecut_e,
+                                           sigma_eskn=self.sigma_eskn,
+                                           dsigma_eskn=self.dsigma_eskn)
+            if self.do_GW_too:
+                self.sigmavalues_GW = SigmaValues(
+                    fd=self.fd,
+                    shape=self.shape,
+                    ecut_e=self.ecut_e,
+                    sigma_eskn=self.sigma_GW_eskn * 0.1,  # XXX revert me
+                    dsigma_eskn=self.dsigma_GW_eskn)
+
+
+            #if len(self.ecut_e) > 1:  # interpolate to infinite ecut
+            #    self.extrapolate_ecut()
+            #else:
+            #    self.sigma_skn = self.sigma_eskn[0]
+            #    self.dsigma_skn = self.dsigma_eskn[0]
+            #    if self.do_GW_too:
+            #        self.sigma_GW_skn = self.sigma_GW_eskn[0]
+            #        self.dsigma_GW_skn = self.dsigma_GW_eskn[0]
+
+            self.Z_skn = 1 / (1 - self.sigmavalues.dsigma_skn)
 
             qp_skn = self.qp_skn + self.Z_skn * (
                 self.eps_skn -
                 self.vxc_skn - self.qp_skn + self.exx_skn +
-                self.sigma_skn)
+                self.sigmavalues.sigma_skn)
 
             self.qp_skn = qp_skn
 
@@ -575,12 +634,12 @@ class G0W0:
                                            np.array([self.qp_skn])))
 
             if self.do_GW_too:
-                self.Z_GW_skn = 1 / (1 - self.dsigma_GW_skn)
+                self.Z_GW_skn = 1 / (1 - self.sigmavalues_GW.dsigma_skn)
 
                 qp_GW_skn = self.qp_GW_skn + self.Z_GW_skn * (
                     self.eps_skn -
                     self.vxc_skn - self.qp_GW_skn + self.exx_skn +
-                    self.sigma_GW_skn)
+                    self.sigmavalues_GW.sigma_skn)
 
                 self.qp_GW_skn = qp_GW_skn
 
@@ -590,8 +649,8 @@ class G0W0:
                    'eps': self.eps_skn * Ha,
                    'vxc': self.vxc_skn * Ha,
                    'exx': self.exx_skn * Ha,
-                   'sigma': self.sigma_skn * Ha,
-                   'dsigma': self.dsigma_skn,
+                   'sigma': self.sigmavalues.sigma_skn * Ha,
+                   'dsigma': self.sigmavalues.dsigma_skn,
                    'Z': self.Z_skn,
                    'qp': self.qp_skn * Ha,
                    'iqp': self.qp_iskn * Ha}
@@ -601,8 +660,8 @@ class G0W0:
                                'eps': self.eps_skn * Ha,
                                'vxc': self.vxc_skn * Ha,
                                'exx': self.exx_skn * Ha,
-                               'sigma': self.sigma_GW_skn * Ha,
-                               'dsigma': self.dsigma_GW_skn,
+                               'sigma': self.sigmavalues_GW.sigma_skn * Ha,
+                               'dsigma': self.sigmavalues_GW.dsigma_skn,
                                'Z': self.Z_GW_skn,
                                'qp': self.qp_GW_skn * Ha,
                                'iqp': self.qp_GW_iskn * Ha}
@@ -612,16 +671,16 @@ class G0W0:
         if len(self.ecut_e) > 1:
             # save non-extrapolated result and R^2 value for fit quality.
             results.update({'sigma_eskn': self.sigma_eskn * Ha,
-                            'dsigma_eskn': self.dsigma_eskn * Ha,
-                            'sigr2_skn': self.sigr2_skn,
-                            'dsigr2_skn': self.dsigr2_skn})
+                            'dsigma_eskn': self.dsigma_eskn, #  * Ha, #!!!
+                            'sigr2_skn': self.sigmavalues.sigr2_skn,
+                            'dsigr2_skn': self.sigmavalues.dsigr2_skn})
 
             if self.do_GW_too:
                 self.results_GW.update(
                     {'sigma_GW_eskn': self.sigma_GW_eskn * Ha,
-                     'dsigma_GW_eskn': self.dsigma_GW_eskn * Ha,
-                     'sigr2_GW_skn': self.sigr2_GW_skn,
-                     'dsigr2_GW_skn': self.dsigr2_GW_skn})
+                     'dsigma_GW_eskn': self.dsigma_GW_eskn, #  * Ha,  #!!!
+                     'sigr2_GW_skn': self.sigmavalues_GW.sigr2_skn,
+                     'dsigr2_GW_skn': self.sigmavalues_GW.dsigr2_skn})
 
         if self.savepckl:
             with paropen(self.filename + '_results.pckl', 'wb') as fd:
@@ -1461,73 +1520,20 @@ class G0W0:
     def extrapolate_ecut(self):
         # Do linear fit of selfenergy vs. inverse of number of plane waves
         # to extrapolate to infinite number of plane waves
-        from scipy.stats import linregress
-        print('', file=self.fd)
-        print('Extrapolating selfenergy to infinite energy cutoff:',
-              file=self.fd)
-        print('  Performing linear fit to %d points' % len(self.ecut_e),
-              file=self.fd)
-        self.sigr2_skn = np.zeros(self.shape)
-        self.dsigr2_skn = np.zeros(self.shape)
-        self.sigma_skn = np.zeros(self.shape)
-        self.dsigma_skn = np.zeros(self.shape)
-        invN_i = self.ecut_e**(-3. / 2)
-        for m in range(np.product(self.shape)):
-            s, k, n = np.unravel_index(m, self.shape)
 
-            slope, intercept, r_value, p_value, std_err = \
-                linregress(invN_i, self.sigma_eskn[:, s, k, n])
-
-            self.sigr2_skn[s, k, n] = r_value**2
-            self.sigma_skn[s, k, n] = intercept
-
-            slope, intercept, r_value, p_value, std_err = \
-                linregress(invN_i, self.dsigma_eskn[:, s, k, n])
-
-            self.dsigr2_skn[s, k, n] = r_value**2
-            self.dsigma_skn[s, k, n] = intercept
-
-        if np.any(self.sigr2_skn < 0.9) or np.any(self.dsigr2_skn < 0.9):
-            print('  Warning: Bad quality of linear fit for some (n,k). ',
-                  file=self.fd)
-            print('           Higher cutoff might be necesarry.', file=self.fd)
-
-        print('  Minimum R^2 = %1.4f. (R^2 Should be close to 1)' %
-              min(np.min(self.sigr2_skn), np.min(self.dsigr2_skn)),
-              file=self.fd)
+        self.sigmavalues = SigmaValues(fd=self.fd,
+                                       shape=self.shape,
+                                       ecut_e=self.ecut_e,
+                                       sigma_eskn=self.sigma_eskn,
+                                       dsigma_eskn=self.dsigma_eskn)
 
         if self.do_GW_too:
-            self.sigr2_GW_skn = np.zeros(self.shape)
-            self.dsigr2_GW_skn = np.zeros(self.shape)
-            self.sigma_GW_skn = np.zeros(self.shape)
-            self.dsigma_GW_skn = np.zeros(self.shape)
-            invN_i = self.ecut_e**(-3. / 2)
-            for m in range(np.product(self.shape)):
-                s, k, n = np.unravel_index(m, self.shape)
-
-                slope, intercept, r_value, p_value, std_err = \
-                    linregress(invN_i, self.sigma_GW_eskn[:, s, k, n])
-
-                self.sigr2_GW_skn[s, k, n] = r_value**2
-                self.sigma_GW_skn[s, k, n] = intercept
-
-                slope, intercept, r_value, p_value, std_err = \
-                    linregress(invN_i, self.dsigma_GW_eskn[:, s, k, n])
-
-                self.dsigr2_GW_skn[s, k, n] = r_value**2
-                self.dsigma_GW_skn[s, k, n] = intercept
-
-            if np.any(self.sigr2_GW_skn < 0.9) or np.any(self.dsigr2_GW_skn <
-                                                         0.9):
-                print('  GW calculation. Warning: Bad quality of linear fit '
-                      'for some (n,k). ',
-                      file=self.fd)
-                print('           Higher cutoff might be necesarry.',
-                      file=self.fd)
-
-            print('  Minimum R^2 = %1.4f. (R^2 Should be close to 1)' %
-                  min(np.min(self.sigr2_GW_skn), np.min(self.dsigr2_GW_skn)),
-                  file=self.fd)
+            self.sigmavalues_GW = SigmaValues(
+                fd=self.fd,
+                shape=self.shape,
+                ecut_e=self.ecut_e,
+                sigma_eskn=self.sigma_GW_eskn,
+                dsigma_eskn=self.dsigma_GW_eskn)
 
     def add_q0_correction(self, pd, W_GG, einv_GG, chi0_xvG, chi0_vv,
                           sqrtV_G, print_ac=False):
@@ -1691,3 +1697,39 @@ class G0W0:
     def mixer(self, e0_skn, e1_skn, mixing=1.0):
         """Mix energies."""
         return e0_skn + mixing * (e1_skn - e0_skn)
+
+
+"""
+        if self.do_GW_too:
+            self.sigr2_GW_skn = np.zeros(self.shape)
+            self.dsigr2_GW_skn = np.zeros(self.shape)
+            self.sigma_GW_skn = np.zeros(self.shape)
+            self.dsigma_GW_skn = np.zeros(self.shape)
+            invN_i = self.ecut_e**(-3. / 2)
+            for m in range(np.product(self.shape)):
+                s, k, n = np.unravel_index(m, self.shape)
+
+                slope, intercept, r_value, p_value, std_err = \
+                    linregress(invN_i, self.sigma_GW_eskn[:, s, k, n])
+
+                self.sigr2_GW_skn[s, k, n] = r_value**2
+                self.sigma_GW_skn[s, k, n] = intercept
+
+                slope, intercept, r_value, p_value, std_err = \
+                    linregress(invN_i, self.dsigma_GW_eskn[:, s, k, n])
+
+                self.dsigr2_GW_skn[s, k, n] = r_value**2
+                self.dsigma_GW_skn[s, k, n] = intercept
+
+            if np.any(self.sigr2_GW_skn < 0.9) or np.any(self.dsigr2_GW_skn <
+                                                         0.9):
+                print('  GW calculation. Warning: Bad quality of linear fit '
+                      'for some (n,k). ',
+                      file=self.fd)
+                print('           Higher cutoff might be necesarry.',
+                      file=self.fd)
+
+            print('  Minimum R^2 = %1.4f. (R^2 Should be close to 1)' %
+                  min(np.min(self.sigr2_GW_skn), np.min(self.dsigr2_GW_skn)),
+         file=self.fd)
+"""
