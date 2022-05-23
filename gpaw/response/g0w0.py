@@ -564,20 +564,10 @@ class G0W0:
         # This can be removed when peace is restored.
         if 1:
             # Reset calculation
-
             sigmashape = (len(self.ecut_e), *self.shape)
             self.sigmas = [Sigma(sigmashape)]
             if self.do_GW_too:
                 self.sigmas.append(Sigma(sigmashape))
-
-            #self.sigma_eskn = np.zeros((len(self.ecut_e), ) + self.shape)
-            # self.dsigma_eskn = np.zeros((len(self.ecut_e), ) + self.shape)
-
-            #if self.do_GW_too:
-            #    self.sigma_GW_eskn = np.zeros((len(self.ecut_e), ) +
-            #                                  self.shape)
-            #    self.dsigma_GW_eskn = np.zeros((len(self.ecut_e), ) +
-            #                                   self.shape)
 
             # Get KS eigenvalues and occupation numbers:
             b1, b2 = self.bands
