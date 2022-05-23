@@ -611,7 +611,7 @@ class G0W0:
                 self.sigma_eskn += self.previous_sigma
                 self.dsigma_eskn += self.previous_dsigma
 
-            self.calculate_sigma_values()
+            self.outputs, self.outputs_GW = self.calculate_g0w0_outputs()
 
         results = self.outputs.get_results_eV()
         if self.do_GW_too:
@@ -1442,7 +1442,7 @@ class G0W0:
                     'current calculation. Check kpts, bands, nbands, ecut, '
                     'domega0, omega2, integrate_gamma.')
 
-    def calculate_sigma_values(self):
+    def calculate_g0w0_outputs(self):
         kwargs = dict(
             fd=self.fd,
             shape=self.shape,
@@ -1452,15 +1452,19 @@ class G0W0:
             exx_skn=self.calculate_exact_exchange(),
             f_skn=self.f_skn)
 
-        self.outputs = G0W0Outputs(sigma_eskn=self.sigma_eskn,
-                                   dsigma_eskn=self.dsigma_eskn,
-                                   **kwargs)
+        outputs = G0W0Outputs(sigma_eskn=self.sigma_eskn,
+                              dsigma_eskn=self.dsigma_eskn,
+                              **kwargs)
 
         if self.do_GW_too:
-            self.outputs_GW = G0W0Outputs(
+            outputs_GW = G0W0Outputs(
                 sigma_eskn=self.sigma_GW_eskn,
                 dsigma_eskn=self.dsigma_GW_eskn,
                 **kwargs)
+        else:
+            outputs_GW = None
+
+        return outputs, outputs_GW
 
     def add_q0_correction(self, pd, W_GG, einv_GG, chi0_xvG, chi0_vv,
                           sqrtV_G, print_ac=False):
