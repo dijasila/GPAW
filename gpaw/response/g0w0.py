@@ -612,14 +612,14 @@ class G0W0:
         if len(self.ecut_e) > 1:
             # save non-extrapolated result and R^2 value for fit quality.
             results.update({'sigma_eskn': self.sigma_eskn * Ha,
-                            'dsigma_eskn': self.dsigma_eskn, #  * Ha, #!!!
+                            'dsigma_eskn': self.dsigma_eskn,
                             'sigr2_skn': self.sigmavalues.sigr2_skn,
                             'dsigr2_skn': self.sigmavalues.dsigr2_skn})
 
             if self.do_GW_too:
                 self.results_GW.update(
                     {'sigma_GW_eskn': self.sigma_GW_eskn * Ha,
-                     'dsigma_GW_eskn': self.dsigma_GW_eskn, #  * Ha,  #!!!
+                     'dsigma_GW_eskn': self.dsigma_GW_eskn,
                      'sigr2_GW_skn': self.sigmavalues_GW.sigr2_skn,
                      'dsigr2_GW_skn': self.sigmavalues_GW.dsigr2_skn})
 
