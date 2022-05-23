@@ -608,7 +608,7 @@ class G0W0:
                     fd=self.fd,
                     shape=self.shape,
                     ecut_e=self.ecut_e,
-                    sigma_eskn=self.sigma_GW_eskn * 0.1,  # XXX revert me
+                    sigma_eskn=self.sigma_GW_eskn,
                     dsigma_eskn=self.dsigma_GW_eskn)
 
 
