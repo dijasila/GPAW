@@ -1003,7 +1003,7 @@ class G0W0:
         pdi, W_xwGG, GW_return = self.dyson_and_W_old(
             wstc, iq, q_c, chi0,
             chi0_wvv, chi0_wxvG,
-            chi0_wGG, A1_x, A2_x,
+            chi0_wGG,
             pd, ecut, htp, htm)
 
         # W_xwGG = [ Wm_wGG, Wp_wGG ] !
@@ -1095,12 +1095,12 @@ class G0W0:
         return pd, Wm_wGG, Wp_wGG
 
     def dyson_and_W_old(self, wstc, iq, q_c, chi0, chi0_wvv, chi0_wxvG,
-                        chi0_wGG, A1_x, A2_x, pd, ecut, htp, htm):
+                        chi0_wGG, pd, ecut, htp, htm):
         nG = pd.ngmax
 
         wblocks1d = Blocks1D(self.blockcomm, len(self.wd))
 
-        chi0_wGG = self.blockdist.redistribute(chi0_wGG, A2_x)
+        chi0_wGG = self.blockdist.redistribute(chi0_wGG)
 
         if ecut == pd.ecut:
             pdi = pd
