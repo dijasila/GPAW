@@ -447,10 +447,6 @@ class G0W0:
         self.shape = shape = (self.calc.wfs.nspins, len(self.kpts), b2 - b1)
         self.eps_skn = np.empty(shape)     # KS-eigenvalues
         self.f_skn = np.empty(shape)       # occupation numbers
-        #self.sigma_skn = np.zeros(shape)   # self-energies
-        #self.dsigma_skn = np.zeros(shape)  # derivatives of self-energies
-        self.vxc_skn = None                # KS XC-contributions
-        self.exx_skn = None                # exact exchange contributions
 
         if nbands is None:
             nbands = int(self.vol * self.ecut**1.5 * 2**0.5 / 3 / pi**2)
