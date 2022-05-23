@@ -32,7 +32,7 @@ from gpaw.xc.tools import vxc
 from gpaw.response.temp import DielectricFunctionCalculator
 
 
-class SigmaValues:
+class G0W0Outputs:
     def __init__(self, fd, shape, ecut_e, sigma_eskn, dsigma_eskn,
                  eps_skn, vxc_skn, exx_skn, f_skn):
         self.extrapolate(fd, shape, ecut_e, sigma_eskn, dsigma_eskn)
@@ -616,9 +616,9 @@ class G0W0:
 
             self.calculate_sigma_values()
 
-        results = self.sigmavalues.get_results_eV()
+        results = self.outputs.get_results_eV()
         if self.do_GW_too:
-            self.results_GW = self.sigmavalues_GW.get_results_eV()
+            self.results_GW = self.outputs_GW.get_results_eV()
 
         self.print_results(results)
 
@@ -1455,12 +1455,12 @@ class G0W0:
             exx_skn=self.exx_skn,
             f_skn=self.f_skn)
 
-        self.sigmavalues = SigmaValues(sigma_eskn=self.sigma_eskn,
-                                       dsigma_eskn=self.dsigma_eskn,
-                                       **kwargs)
+        self.outputs = G0W0Outputs(sigma_eskn=self.sigma_eskn,
+                                   dsigma_eskn=self.dsigma_eskn,
+                                   **kwargs)
 
         if self.do_GW_too:
-            self.sigmavalues_GW = SigmaValues(
+            self.outputs_GW = G0W0Outputs(
                 sigma_eskn=self.sigma_GW_eskn,
                 dsigma_eskn=self.dsigma_GW_eskn,
                 **kwargs)
