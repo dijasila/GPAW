@@ -179,7 +179,7 @@ class G0W0:
                  omega2=None,  # deprecated
                  q0_correction=False,
                  nblocks=1, savew=False, savepckl=True,
-                 maxiter=1, method='G0W0', mixing=0.2,
+                 maxiter=1, method='G0W0',
                  world=mpi.world, ecut_extrapolation=False,
                  nblocksmax=False):
 
@@ -271,9 +271,6 @@ class G0W0:
             G0W0 or GW0(eigenvalue selfconsistency in G) currently available.
         maxiter: int
             Number of iterations in a GW0 calculation.
-        mixing: float
-            Number between 0 and 1 determining how much of previous
-            iteration's eigenvalues to mix with.
         """
         self.frequencies = get_frequencies(frequencies, domega0, omega2)
         self.inputcalc = calc
