@@ -32,6 +32,15 @@ from gpaw.xc.tools import vxc
 from gpaw.response.temp import DielectricFunctionCalculator
 
 
+class Sigma:
+    def __init__(self, esknshape):
+        self._buf = np.zeros((2, * esknshape))
+        self.sigma_eskn, self.dsigma_eskn = self._buf
+
+    def sum(self, comm):
+        comm.sum(self._buf)
+
+
 class G0W0Outputs:
     def __init__(self, fd, shape, ecut_e, sigma_eskn, dsigma_eskn,
                  eps_skn, vxc_skn, exx_skn, f_skn):
@@ -555,15 +564,21 @@ class G0W0:
         if 1:
             # Reset calculation
             # self-energies
-            self.sigma_eskn = np.zeros((len(self.ecut_e), ) + self.shape)
-            # derivatives of self-energies
-            self.dsigma_eskn = np.zeros((len(self.ecut_e), ) + self.shape)
 
+            sigmashape = (len(self.ecut_e), *self.shape)
+            self.sigmas = [Sigma(sigmashape)]
             if self.do_GW_too:
-                self.sigma_GW_eskn = np.zeros((len(self.ecut_e), ) +
-                                              self.shape)
-                self.dsigma_GW_eskn = np.zeros((len(self.ecut_e), ) +
-                                               self.shape)
+                self.sigmas.append(Sigma(sigmashape))
+
+            #self.sigma_eskn = np.zeros((len(self.ecut_e), ) + self.shape)
+            # derivatives of self-energies
+            # self.dsigma_eskn = np.zeros((len(self.ecut_e), ) + self.shape)
+
+            #if self.do_GW_too:
+            #    self.sigma_GW_eskn = np.zeros((len(self.ecut_e), ) +
+            #                                  self.shape)
+            #    self.dsigma_GW_eskn = np.zeros((len(self.ecut_e), ) +
+            #                                   self.shape)
 
             # Get KS eigenvalues and occupation numbers:
             b1, b2 = self.bands
@@ -600,16 +615,13 @@ class G0W0:
                 nQ += 1
             pb.finish()
 
-            self.world.sum(self.sigma_eskn)
-            self.world.sum(self.dsigma_eskn)
-
-            if self.do_GW_too:
-                self.world.sum(self.sigma_GW_eskn)
-                self.world.sum(self.dsigma_GW_eskn)
+            for sigma in self.sigmas:
+                sigma.sum(self.world)
 
             if self.restartfile is not None and loaded:
-                self.sigma_eskn += self.previous_sigma
-                self.dsigma_eskn += self.previous_dsigma
+                assert not self.do_GW_too
+                self.sigmas[0].sigma_eskn += self.previous_sigma
+                self.sigmas[0].dsigma_eskn += self.previous_dsigma
 
             self.outputs, self.outputs_GW = self.calculate_g0w0_outputs()
 
@@ -696,11 +708,11 @@ class G0W0:
             for jj, W in enumerate(Ws):
                 sigma, dsigma = calculate_sigma(n_mG, deps_m, f_m, W)
                 if jj == 0:
-                    self.sigma_eskn[ie, kpt1.s, k, nn] += sigma
-                    self.dsigma_eskn[ie, kpt1.s, k, nn] += dsigma
+                    self.sigmas[0].sigma_eskn[ie, kpt1.s, k, nn] += sigma
+                    self.sigmas[0].dsigma_eskn[ie, kpt1.s, k, nn] += dsigma
                 else:
-                    self.sigma_GW_eskn[ie, kpt1.s, k, nn] += sigma
-                    self.dsigma_GW_eskn[ie, kpt1.s, k, nn] += dsigma
+                    self.sigmas[1].sigma_eskn[ie, kpt1.s, k, nn] += sigma
+                    self.sigmas[1].dsigma_eskn[ie, kpt1.s, k, nn] += dsigma
 
     def check(self, ie, i_cG, shift0_c, N_c, q_c, Q_aGii):
         I0_G = np.ravel_multi_index(i_cG - shift0_c[:, None], N_c, 'wrap')
@@ -1399,8 +1411,8 @@ class G0W0:
         return x * sigma, x * dsigma
 
     def save_restart_file(self, nQ):
-        sigma_eskn_write = self.sigma_eskn.copy()
-        dsigma_eskn_write = self.dsigma_eskn.copy()
+        sigma_eskn_write = self.sigmas[0].sigma_eskn.copy()
+        dsigma_eskn_write = self.sigmas[0].dsigma_eskn.copy()
         self.world.sum(sigma_eskn_write)
         self.world.sum(dsigma_eskn_write)
         data = {'last_q': nQ,
@@ -1452,14 +1464,14 @@ class G0W0:
             exx_skn=self.calculate_exact_exchange(),
             f_skn=self.f_skn)
 
-        outputs = G0W0Outputs(sigma_eskn=self.sigma_eskn,
-                              dsigma_eskn=self.dsigma_eskn,
+        outputs = G0W0Outputs(sigma_eskn=self.sigmas[0].sigma_eskn,
+                              dsigma_eskn=self.sigmas[0].dsigma_eskn,
                               **kwargs)
 
         if self.do_GW_too:
             outputs_GW = G0W0Outputs(
-                sigma_eskn=self.sigma_GW_eskn,
-                dsigma_eskn=self.dsigma_GW_eskn,
+                sigma_eskn=self.sigmas[1].sigma_eskn,
+                dsigma_eskn=self.sigmas[1].dsigma_eskn,
                 **kwargs)
         else:
             outputs_GW = None
