@@ -89,22 +89,17 @@ df = DielectricFunction('CdTe_12x12x4.gpw', **kwargs) # student: df = Dielectric
 #is needed or two or more of them will be the same. In that case only do the directions you will need (this is for saving
 #time and memory). Also remember to change the filename so it fits with your calculation.
 
-#For BN you need to put the last entry in pbc below to false:
-
 df.get_polarizability(xc='RPA',                         #We want to calculate the absorption spectrum within RPA
                       q_c = [0, 0, 0],                  #We consider the zero momentum wave vector
-                      pbc = [True, True, True],         #Define boundary conditions
                       direction = 'x',                  #Define real space direction
                       filename='CdTe_rpa_x.csv')  # student: filename='=???_rpa_x.csv'       #Name of output file
 
 df.get_polarizability(xc='RPA',
                       q_c = [0, 0, 0],
-                      pbc = [True, True, True],
                       direction = 'y',
                       filename='CdTe_rpa_y.csv')  # student: filename='=???_rpa_y.csv'
 df.get_polarizability(xc='RPA',
                       q_c = [0, 0, 0],
-                      pbc = [True, True, True],
                       direction = 'z',
                       filename='CdTe_rpa_z.csv') # student: filename='=???_rpa_z.csv'
 
