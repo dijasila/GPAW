@@ -179,7 +179,6 @@ class G0W0:
                  omega2=None,  # deprecated
                  q0_correction=False,
                  nblocks=1, savew=False, savepckl=True,
-                 maxiter=1,
                  world=mpi.world, ecut_extrapolation=False,
                  nblocksmax=False):
 
@@ -267,8 +266,6 @@ class G0W0:
             Save W to a file.
         savepckl: bool
             Save output to a pckl file.
-        maxiter: int
-            Number of iterations in a GW0 calculation.
         """
         self.frequencies = get_frequencies(frequencies, domega0, omega2)
         self.inputcalc = calc
@@ -341,8 +338,6 @@ class G0W0:
         if self.ac:
             assert self.truncation == '2D'
             self.x0density = 0.1  # ? 0.01
-
-        self.maxiter = maxiter
 
         self.kpts = list(select_kpts(kpts, self.calc))
         self.bands = bands = self.choose_bands(bands, relbands)
