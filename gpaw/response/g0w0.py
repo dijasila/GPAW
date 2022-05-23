@@ -348,10 +348,7 @@ class G0W0:
             self.x0density = 0.1  # ? 0.01
 
         self.maxiter = maxiter
-        self.method = method
         self.mixing = mixing
-        if self.method == 'GW0':
-            assert self.maxiter > 1
 
         self.kpts = list(select_kpts(kpts, self.calc))
         self.bands = bands = self.choose_bands(bands, relbands)
@@ -425,7 +422,6 @@ class G0W0:
         p('Coulomb cutoff:', self.truncation)
         p('Broadening: {0:g} eV'.format(self.eta * Ha))
         p()
-        p('Self-consistency method:', self.method)
         p('fxc mode:', self.fxc_mode)
         p('Kernel:', self.xc)
         p('Do GW too:', self.do_GW_too)
