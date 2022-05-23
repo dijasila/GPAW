@@ -1336,18 +1336,7 @@ class G0W0:
         sigma = 0.0
         dsigma = 0.0
 
-        # init variables (is this necessary?)
-        nG = n_mG.shape[1]
-        deps_GG = np.empty((nG, nG))
-        sign_GG = np.empty((nG, nG))
-        x1_GG = np.empty((nG, nG))
-        x2_GG = np.empty((nG, nG))
-        x3_GG = np.empty((nG, nG))
-        x4_GG = np.empty((nG, nG))
-        x_GG = np.empty((nG, nG))
-        dx_GG = np.empty((nG, nG))
-        nW_G = np.empty(nG)
-        for m in range(np.shape(n_mG)[0]):
+        for m in range(len(n_mG)):
             deps_GG = deps_m[m]
             sign_GG = 2 * f_m[m] - 1
             x1_GG = 1 / (deps_GG + omegat_GG - 1j * self.eta)
