@@ -686,7 +686,8 @@ class G0W0:
 
             assert len(Wlist) == len(sigmas)
             for W, sigma in zip(Wlist, sigmas):
-                sigma_contrib, dsigma_contrib = calculate_sigma(n_mG, deps_m, f_m, W)
+                sigma_contrib, dsigma_contrib = calculate_sigma(
+                    n_mG, deps_m, f_m, W)
                 sigma.sigma_eskn[ie, kpt1.s, k, nn] += sigma_contrib
                 sigma.dsigma_eskn[ie, kpt1.s, k, nn] += dsigma_contrib
 
