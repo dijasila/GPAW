@@ -35,6 +35,7 @@ from gpaw.response.temp import DielectricFunctionCalculator
 class Sigma:
     def __init__(self, esknshape):
         self._buf = np.zeros((2, * esknshape))
+        # self-energies and derivatives:
         self.sigma_eskn, self.dsigma_eskn = self._buf
 
     def sum(self, comm):
@@ -563,7 +564,6 @@ class G0W0:
         # This can be removed when peace is restored.
         if 1:
             # Reset calculation
-            # self-energies
 
             sigmashape = (len(self.ecut_e), *self.shape)
             self.sigmas = [Sigma(sigmashape)]
@@ -571,7 +571,6 @@ class G0W0:
                 self.sigmas.append(Sigma(sigmashape))
 
             #self.sigma_eskn = np.zeros((len(self.ecut_e), ) + self.shape)
-            # derivatives of self-energies
             # self.dsigma_eskn = np.zeros((len(self.ecut_e), ) + self.shape)
 
             #if self.do_GW_too:
@@ -615,7 +614,7 @@ class G0W0:
                         Wlist.append(W0_GW)
 
                     self.calculate_q(ie, i, kpt1, kpt2, pd0, Wlist,
-                                     symop=symop)
+                                     symop=symop, sigmas=self.sigmas)
                 nQ += 1
             pb.finish()
 
@@ -651,7 +650,7 @@ class G0W0:
         return results
 
     def calculate_q(self, ie, k, kpt1, kpt2, pd0, Wlist,  # W0, W0_GW=None,
-                    *, symop):
+                    *, symop, sigmas):
         """Calculates the contribution to the self-energy and its derivative
         for a given set of k-points, kpt1 and kpt2."""
 
@@ -704,14 +703,11 @@ class G0W0:
 
             nn = kpt1.n1 + n - self.bands[0]
 
-            for jj, W in enumerate(Wlist):
-                sigma, dsigma = calculate_sigma(n_mG, deps_m, f_m, W)
-                if jj == 0:
-                    self.sigmas[0].sigma_eskn[ie, kpt1.s, k, nn] += sigma
-                    self.sigmas[0].dsigma_eskn[ie, kpt1.s, k, nn] += dsigma
-                else:
-                    self.sigmas[1].sigma_eskn[ie, kpt1.s, k, nn] += sigma
-                    self.sigmas[1].dsigma_eskn[ie, kpt1.s, k, nn] += dsigma
+            assert len(Wlist) == len(sigmas)
+            for W, sigma in zip(Wlist, sigmas):
+                sigma_contrib, dsigma_contrib = calculate_sigma(n_mG, deps_m, f_m, W)
+                sigma.sigma_eskn[ie, kpt1.s, k, nn] += sigma_contrib
+                sigma.dsigma_eskn[ie, kpt1.s, k, nn] += dsigma_contrib
 
     def check(self, ie, i_cG, shift0_c, N_c, q_c, Q_aGii):
         I0_G = np.ravel_multi_index(i_cG - shift0_c[:, None], N_c, 'wrap')
