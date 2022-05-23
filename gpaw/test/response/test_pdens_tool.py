@@ -27,7 +27,6 @@ def test_response_pdens_tool(in_tmp_dir):
     nbands = 8
 
     # Part 2: optical transitions calculation
-    response = 'density'
     spins = 'all'
     q_c = [0., 0., 0.]
     bzk_kc = np.array([[0., 0., 0.]])
@@ -53,7 +52,7 @@ def test_response_pdens_tool(in_tmp_dir):
     # Part 2: optical transition calculation
 
     pair, pd, domainarg_td = get_bz_transitions('si.gpw', q_c, bzk_kc,
-                                                response=response, spins=spins,
+                                                spins=spins,
                                                 ecut=10)
 
     # non-empty bands
@@ -65,7 +64,7 @@ def test_response_pdens_tool(in_tmp_dir):
     nn = len(n_n)
     nm = len(m_m)
     nG = pd.ngmax
-    optical_limit = np.allclose(q_c, 0.) and response == 'density'
+    optical_limit = np.allclose(q_c, 0.)
 
     n_tnmG = np.zeros((nt, nn, nm, nG + 2 * optical_limit), dtype=complex)
     df_tnm = np.zeros((nt, nn, nm), dtype=float)
