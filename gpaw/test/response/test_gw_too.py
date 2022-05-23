@@ -12,18 +12,16 @@ def test_do_GW_too(in_tmp_dir, gpw_files, scalapack):
                bands=(3, 5),
                nbands=9,
                nblocks=1,
-               method='G0W0',
                ecut=40,
                restartfile=None)
 
     results0 = gw0.calculate()
-    
+
     gw = G0W0(gpw_files['bn_pw_wfs'],
               bands=(3, 5),
               nbands=9,
               nblocks=1,
               xc='rALDA',
-              method='G0W0',
               ecut=40,
               fxc_mode='GWP',
               do_GW_too=True,
