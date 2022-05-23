@@ -609,16 +609,18 @@ class G0W0:
 
         results = self.outputs.get_results_eV()
         if self.do_GW_too:
-            self.results_GW = self.outputs_GW.get_results_eV()
+            self.results_GW = results_GW = self.outputs_GW.get_results_eV()
+        else:
+            results_GW = None
 
-        self.print_results(results)
+        self.print_results(results, results_GW)
 
         if self.savepckl:
             with paropen(self.filename + '_results.pckl', 'wb') as fd:
                 pickle.dump(results, fd, 2)
             if self.do_GW_too:
                 with paropen(self.filename + '_results_GW.pckl', 'wb') as fd:
-                    pickle.dump(self.results_GW, fd, 2)
+                    pickle.dump(results_GW, fd, 2)
 
         # After we have written the results restartfile is obsolete
         if self.restartfile is not None:
@@ -1306,7 +1308,7 @@ class G0W0:
 
         return opencew(filename), None
 
-    def print_results(self, results):
+    def print_results(self, results, results_GW=None):
         description = ['f:      Occupation numbers',
                        'eps:     KS-eigenvalues [eV]',
                        'vxc:     KS vxc [eV]',
@@ -1332,19 +1334,19 @@ class G0W0:
                 print('band' +
                       ''.join('{0:>8}'.format(name) for name in names),
                       file=self.fd)
-                for n in range(b2 - b1):
-                    print('{0:4}'.format(n + b1) +
-                          ''.join('{0:8.3f}'.format(results[name][s, i, n])
-                                  for name in names),
-                          file=self.fd)
-                if self.do_GW_too:
-                    print(' ' * 67 + 'GW', file=self.fd)
+
+                def actually_print_results(results):
                     for n in range(b2 - b1):
                         print('{0:4}'.format(n + b1) +
-                              ''.join('{0:8.3f}'
-                                      .format(self.results_GW[name][s, i, n])
+                              ''.join('{0:8.3f}'.format(results[name][s, i, n])
                                       for name in names),
                               file=self.fd)
+
+                actually_print_results(results)
+
+                if results_GW is not None:
+                    print(' ' * 67 + 'GW', file=self.fd)
+                    actually_print_results(results_GW)
 
         self.timer.write(self.fd)
 
