@@ -1273,13 +1273,10 @@ class G0W0:
             self.timer.stop('Dyson eq.')
             return pdi, [W_GG, omegat_GG], None
 
-        if self.do_GW_too:
-            A1_GW_x = A1_x.copy()
-            A2_GW_x = A2_x.copy()
-
-        Wm_wGG = self.blockdist.redistribute(chi0_wGG, A1_x)
-        Wp_wGG = A2_x[:Wm_wGG.size].reshape(Wm_wGG.shape)
-        Wp_wGG[:] = Wm_wGG
+        # XXX This creates a new, large buffer.  We could perhaps
+        # avoid that.  Buffer used to exist but was removed due to #456.
+        Wm_wGG = self.blockdist.redistribute(chi0_wGG)
+        Wp_wGG = Wm_wGG.copy()
 
         with self.timer('Hilbert transform'):
             htp(Wp_wGG)
@@ -1287,10 +1284,9 @@ class G0W0:
 
             if self.do_GW_too:
                 Wm_GW_wGG = self.blockdist.redistribute(
-                    chi0_GW_wGG, A1_GW_x)
+                    chi0_GW_wGG)
 
-                Wp_GW_wGG = A2_GW_x[:Wm_GW_wGG.size].reshape(Wm_GW_wGG.shape)
-                Wp_GW_wGG[:] = Wm_GW_wGG
+                Wp_GW_wGG = Wm_GW_wGG.copy()
 
                 htp(Wp_GW_wGG)
                 htm(Wm_GW_wGG)
