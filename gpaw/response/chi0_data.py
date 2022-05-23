@@ -17,8 +17,6 @@ class Chi0Data:
         if self.optical_limit:
             self.chi0_wxvG = np.zeros((nw, 2, 3, nG), complex)
             self.chi0_wvv = np.zeros((nw, 3, 3), complex)
-            self.plasmafreq_vv = np.zeros((3, 3), complex)
         else:
             self.chi0_wxvG = None
             self.chi0_wvv = None
-            self.plasmafreq_vv = None

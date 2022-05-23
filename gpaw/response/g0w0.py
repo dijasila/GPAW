@@ -762,25 +762,25 @@ class G0W0:
 
         self.fd.flush()
 
-        chi0 = Chi0(self.inputcalc,
-                    nbands=self.nbands,
-                    ecut=self.ecut * Ha,
-                    intraband=False,
-                    real_space_derivatives=False,
-                    txt=self.filename + '.w.txt',
-                    timer=self.timer,
-                    nblocks=self.blockcomm.size,
-                    **parameters)
+        chi0calc = Chi0(self.inputcalc,
+                        nbands=self.nbands,
+                        ecut=self.ecut * Ha,
+                        intraband=False,
+                        real_space_derivatives=False,
+                        txt=self.filename + '.w.txt',
+                        timer=self.timer,
+                        nblocks=self.blockcomm.size,
+                        **parameters)
 
         if self.truncation == 'wigner-seitz':
             wstc = WignerSeitzTruncatedCoulomb(
                 self.gd.cell_cv,
                 self.kd.N_c,
-                chi0.fd)
+                chi0calc.fd)
         else:
             wstc = None
 
-        self.wd = chi0.wd
+        self.wd = chi0calc.wd
         print(self.wd, file=self.fd)
 
         htp = HilbertTransform(self.wd.omega_w, self.eta, gw=True)
@@ -811,30 +811,12 @@ class G0W0:
             if iq <= self.last_q:
                 continue
 
-            thisqd = KPointDescriptor([q_c])
-            pd = PWDescriptor(self.ecut, self.gd, complex, thisqd)
-            nG = pd.ngmax
-
-            # This does not seem healthy... G0W0 should not configure the
-            # properties of chi0 directly, see blockdist below
-            chi0.blocks1d = Blocks1D(self.blockcomm, nG)
-
             if len(self.ecut_e) > 1:
-                shape = (nw, chi0.blocks1d.nlocal, nG)
-                chi0bands_wGG = np.zeros(shape, dtype=complex)
-
-                if np.allclose(q_c, 0.0):
-                    chi0bands_wxvG = np.zeros((nw, 2, 3, nG), complex)
-                    chi0bands_wvv = np.zeros((nw, 3, 3), complex)
-                else:
-                    chi0bands_wxvG = None
-                    chi0bands_wvv = None
+                chi0bands = chi0calc.create_chi0(q_c, optical_limit=False)
             else:
-                chi0bands_wGG = None
-                chi0bands_wxvG = None
-                chi0bands_wvv = None
+                chi0bands = None
 
-            m1 = chi0.nocc1
+            m1 = chi0calc.nocc1
             for ie, ecut in enumerate(self.ecut_e):
                 self.timer.start('W')
                 if self.savew:
@@ -864,8 +846,7 @@ class G0W0:
                                              f' than there are bands '
                                              f'({self.nbands}).')
                     pdi, W, W_GW = self.calculate_w(
-                        chi0, q_c, pd, chi0bands_wGG,
-                        chi0bands_wxvG, chi0bands_wvv,
+                        chi0calc, q_c, chi0bands,
                         m1, m2, ecut, htp, htm, wstc, iq)
                     m1 = m2
                     if self.savew:
@@ -888,50 +869,27 @@ class G0W0:
                     self.save_restart_file(iq)
 
     @timer('WW')
-    def calculate_w(self, chi0, q_c, pd, chi0bands_wGG, chi0bands_wxvG,
-                    chi0bands_wvv, m1, m2, ecut, htp, htm, wstc,
+    def calculate_w(self, chi0calc, q_c, chi0bands,
+                    m1, m2, ecut, htp, htm, wstc,
                     iq):
         """Calculates the screened potential for a specified q-point."""
 
-        # Since we do not call chi0.calculate() (which in of itself leads
-        # to massive code duplication), we have to manage the block
-        # parallelization here.
-        self.blocks1d = chi0.blocks1d
-        self.blockdist = PlaneWaveBlockDistributor(self.world,
-                                                   self.blockcomm,
-                                                   chi0.kncomm,
-                                                   self.wd, self.blocks1d)
-        # Because we do not call chi0.calculate(), we have to let it
-        # know about the block distributor by hand... Unsafe!
-        chi0.blockdist = self.blockdist
+        chi0calc.fd = self.fd
+        chi0calc.print_chi(chi0bands.pd)
 
-        nw = len(self.wd)
-        nG = pd.ngmax
-        shape = (nw, self.blocks1d.nlocal, nG)
-
-        chi0.fd = self.fd
-        chi0.print_chi(pd)
-
-        chi0_wGG = np.zeros(shape, dtype=complex)
-        if np.allclose(q_c, 0.0):
-            chi0_wxvG = np.zeros((nw, 2, 3, nG), complex)
-            chi0_wvv = np.zeros((nw, 3, 3), complex)
-        else:
-            chi0_wxvG = None
-            chi0_wvv = None
-
-        chi0._calculate(pd, chi0_wGG, chi0_wxvG, chi0_wvv, m1, m2,
-                        range(self.nspins), extend_head=False)
+        chi0 = chi0calc.create_chi0(q_c, optical_limit=False)
+        chi0calc.update_chi0(chi0, m1, m2,
+                             range(self.nspins), extend_head=False)
 
         if len(self.ecut_e) > 1:
             # Add chi from previous cutoff with remaining bands
-            chi0_wGG += chi0bands_wGG
-            chi0bands_wGG[:] = chi0_wGG.copy()
-            if np.allclose(q_c, 0.0):
-                chi0_wxvG += chi0bands_wxvG
-                chi0bands_wxvG[:] = chi0_wxvG.copy()
-                chi0_wvv += chi0bands_wvv
-                chi0bands_wvv[:] = chi0_wvv.copy()
+            chi0.chi0_wGG += chi0bands.chi0_wGG
+            chi0bands.chi0_wGG[:] = chi0.chi0_wGG.copy()
+            if chi0.optical_limit:
+                chi0.chi0_wxvG += chi0bands.chi0_wxvG
+                chi0bands.chi0_wxvG[:] = chi0.chi0_wxvG.copy()
+                chi0.chi0_wvv += chi0bands.chi0_wvv
+                chi0bands.chi0_wvv[:] = chi0.chi0_wvv.copy()
 
         self.Q_aGii = chi0.Q_aGii
 
@@ -941,10 +899,9 @@ class G0W0:
         # else:
         #     self.timer.start('old gamma')
         pdi, W_xwGG, GW_return = self.dyson_and_W_old(
-            wstc, iq, q_c, chi0,
-            chi0_wvv, chi0_wxvG,
-            chi0_wGG,
-            pd, ecut, htp, htm)
+            wstc, iq, q_c, chi0calc,
+            chi0,
+            ecut, htp, htm)
 
         # W_xwGG = [ Wm_wGG, Wp_wGG ] !
 
@@ -971,8 +928,8 @@ class G0W0:
 
         return pdi, W_xwGG, GW_return
 
-    def dyson_and_W_new(self, wstc, iq, q_c, chi0, chi0_wvv, chi0_wxvG,
-                        chi0_WgG, pd, ecut, htp, htm):
+    def dyson_and_W_new(self, wstc, iq, q_c, chi0calc,
+                        ecut, htp, htm):
         assert not self.ppa
         assert not self.do_GW_too
         assert ecut == pd.ecut
