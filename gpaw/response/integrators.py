@@ -25,7 +25,7 @@ def czher(alpha: float, x, A) -> None:
 
 
 class Integrator:
-    def __init__(self, cell_cv, response='density', comm=mpi.world,
+    def __init__(self, cell_cv, comm=mpi.world,
                  txt='-', timer=None, nblocks=1, eshift=0.0):
         """Baseclass for Brillouin zone integration and band summation.
 
@@ -36,7 +36,6 @@ class Integrator:
         nblocks: block parallelization
         """
 
-        self.response = response
         self.comm = comm
         self.eshift = eshift
         self.nblocks = nblocks
@@ -214,10 +213,7 @@ class PointIntegrator(Integrator):
         blocks1d = self._blocks1d(chi0_wGG.shape[2])
 
         for omega, chi0_GG in zip(wd.omega_w, chi0_wGG):
-            if self.response == 'density':
-                x_m = (1 / (omega + deps1_m) - 1 / (omega - deps2_m))
-            else:
-                x_m = - np.sign(deps_m) * 1. / (omega + deps1_m)
+            x_m = (1 / (omega + deps1_m) - 1 / (omega - deps2_m))
             if self.blockcomm.size > 1:
                 nx_mG = n_mG[:, blocks1d.myslice] * x_m[:, np.newaxis]
             else:

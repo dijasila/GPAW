@@ -389,28 +389,24 @@ class Chi0:
         if self.integrationmode is None or \
            self.integrationmode == 'point integration':
             integrator = PointIntegrator(self.pair.calc.wfs.gd.cell_cv,
-                                         response=self.response,
                                          comm=self.world,
                                          timer=self.timer,
                                          txt=self.fd,
                                          eshift=self.eshift,
                                          nblocks=self.nblocks)
             intnoblock = PointIntegrator(self.pair.calc.wfs.gd.cell_cv,
-                                         response=self.response,
                                          comm=self.world,
                                          timer=self.timer,
                                          eshift=self.eshift,
                                          txt=self.fd)
         elif self.integrationmode == 'tetrahedron integration':
             integrator = TetrahedronIntegrator(self.pair.calc.wfs.gd.cell_cv,
-                                               response=self.response,
                                                comm=self.world,
                                                timer=self.timer,
                                                eshift=self.eshift,
                                                txt=self.fd,
                                                nblocks=self.nblocks)
             intnoblock = TetrahedronIntegrator(self.pair.calc.wfs.gd.cell_cv,
-                                               response=self.response,
                                                comm=self.world,
                                                timer=self.timer,
                                                eshift=self.eshift,
