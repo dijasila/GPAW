@@ -434,9 +434,7 @@ class G0W0:
         self.bands = bands = self.choose_bands(bands, relbands)
 
         b1, b2 = bands
-        self.shape = shape = (self.calc.wfs.nspins, len(self.kpts), b2 - b1)
-        self.eps_skn = np.empty(shape)     # KS-eigenvalues
-        self.f_skn = np.empty(shape)       # occupation numbers
+        self.shape = (self.calc.wfs.nspins, len(self.kpts), b2 - b1)
 
         if nbands is None:
             nbands = int(self.vol * self.ecut**1.5 * 2**0.5 / 3 / pi**2)
@@ -501,6 +499,20 @@ class G0W0:
         p('Do GW too:', self.do_GW_too)
         p()
 
+    def get_eps_and_occs(self):
+        eps_skn = np.empty(self.shape)  # KS-eigenvalues
+        f_skn = np.empty(self.shape)  # occupation numbers
+
+        b1, b2 = self.bands
+        for i, k in enumerate(self.kpts):
+            for s in range(self.nspins):
+                u = s + k * self.nspins
+                kpt = self.calc.wfs.kpt_u[u]
+                eps_skn[s, i] = kpt.eps_n[b1:b2]
+                f_skn[s, i] = kpt.f_n[b1:b2] / kpt.weight
+
+        return eps_skn, f_skn
+
     @timer('G0W0')
     def calculate(self):
         """Starts the G0W0 calculation.
@@ -554,15 +566,6 @@ class G0W0:
             self.sigmas = [Sigma(sigmashape)]
             if self.do_GW_too:
                 self.sigmas.append(Sigma(sigmashape))
-
-            # Get KS eigenvalues and occupation numbers:
-            b1, b2 = self.bands
-            for i, k in enumerate(self.kpts):
-                for s in range(self.nspins):
-                    u = s + k * self.nspins
-                    kpt = self.calc.wfs.kpt_u[u]
-                    self.eps_skn[s, i] = kpt.eps_n[b1:b2]
-                    self.f_skn[s, i] = kpt.f_n[b1:b2] / kpt.weight
 
             # My part of the states we want to calculate QP-energies for:
             mykpts = [self.pair.get_k_point(s, K, n1, n2)
@@ -1426,14 +1429,15 @@ class G0W0:
                     'domega0, omega2, integrate_gamma.')
 
     def calculate_g0w0_outputs(self):
+        eps_skn, f_skn = self.get_eps_and_occs()
         kwargs = dict(
             fd=self.fd,
             shape=self.shape,
             ecut_e=self.ecut_e,
-            eps_skn=self.eps_skn,
+            eps_skn=eps_skn,
             vxc_skn=self.calculate_ks_xc_contribution(),
             exx_skn=self.calculate_exact_exchange(),
-            f_skn=self.f_skn)
+            f_skn=f_skn)
 
         outputs = G0W0Outputs(sigma_eskn=self.sigmas[0].sigma_eskn,
                               dsigma_eskn=self.sigmas[0].dsigma_eskn,
