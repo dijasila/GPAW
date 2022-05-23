@@ -463,6 +463,9 @@ class G0W0:
 
         self.fd.flush()
 
+        # This used to be a loop and hence indented.
+        # We use if 1 to keep the indentation and avoid git conflicts.
+        # This can be removed when peace is restored.
         if 1:
             # Reset calculation
             # self-energies
