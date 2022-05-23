@@ -34,10 +34,15 @@ from gpaw.response.temp import DielectricFunctionCalculator
 
 class SigmaValues:
     def __init__(self, fd, shape, ecut_e, sigma_eskn, dsigma_eskn):
+        self.extrapolate(fd, shape, ecut_e, sigma_eskn, dsigma_eskn)
+        self.Z_skn = 1 / (1 - self.dsigma_skn)
+
+    def extrapolate(self, fd, shape, ecut_e, sigma_eskn, dsigma_eskn):
         if len(ecut_e) == 1:
-            # Ugly, we are only setting some of the attributes
             self.sigma_skn = sigma_eskn[0]
             self.dsigma_skn = dsigma_eskn[0]
+            self.sigr2_skn = None
+            self.dsigr2_skn = None
             return
 
         from scipy.stats import linregress
@@ -409,7 +414,6 @@ class G0W0:
         #self.dsigma_skn = np.zeros(shape)  # derivatives of self-energies
         self.vxc_skn = None                # KS XC-contributions
         self.exx_skn = None                # exact exchange contributions
-        self.Z_skn = None                  # renormalization factors
 
         if nbands is None:
             nbands = int(self.vol * self.ecut**1.5 * 2**0.5 / 3 / pi**2)
@@ -597,33 +601,9 @@ class G0W0:
                 self.sigma_eskn += self.previous_sigma
                 self.dsigma_eskn += self.previous_dsigma
 
+            self.calculate_sigma_values()
 
-            self.sigmavalues = SigmaValues(fd=self.fd,
-                                           shape=self.shape,
-                                           ecut_e=self.ecut_e,
-                                           sigma_eskn=self.sigma_eskn,
-                                           dsigma_eskn=self.dsigma_eskn)
-            if self.do_GW_too:
-                self.sigmavalues_GW = SigmaValues(
-                    fd=self.fd,
-                    shape=self.shape,
-                    ecut_e=self.ecut_e,
-                    sigma_eskn=self.sigma_GW_eskn,
-                    dsigma_eskn=self.dsigma_GW_eskn)
-
-
-            #if len(self.ecut_e) > 1:  # interpolate to infinite ecut
-            #    self.extrapolate_ecut()
-            #else:
-            #    self.sigma_skn = self.sigma_eskn[0]
-            #    self.dsigma_skn = self.dsigma_eskn[0]
-            #    if self.do_GW_too:
-            #        self.sigma_GW_skn = self.sigma_GW_eskn[0]
-            #        self.dsigma_GW_skn = self.dsigma_GW_eskn[0]
-
-            self.Z_skn = 1 / (1 - self.sigmavalues.dsigma_skn)
-
-            qp_skn = self.qp_skn + self.Z_skn * (
+            qp_skn = self.qp_skn + self.sigmavalues.Z_skn * (
                 self.eps_skn -
                 self.vxc_skn - self.qp_skn + self.exx_skn +
                 self.sigmavalues.sigma_skn)
@@ -634,9 +614,7 @@ class G0W0:
                                            np.array([self.qp_skn])))
 
             if self.do_GW_too:
-                self.Z_GW_skn = 1 / (1 - self.sigmavalues_GW.dsigma_skn)
-
-                qp_GW_skn = self.qp_GW_skn + self.Z_GW_skn * (
+                qp_GW_skn = self.qp_GW_skn + self.sigmavalues_GW.Z_skn * (
                     self.eps_skn -
                     self.vxc_skn - self.qp_GW_skn + self.exx_skn +
                     self.sigmavalues_GW.sigma_skn)
@@ -651,7 +629,7 @@ class G0W0:
                    'exx': self.exx_skn * Ha,
                    'sigma': self.sigmavalues.sigma_skn * Ha,
                    'dsigma': self.sigmavalues.dsigma_skn,
-                   'Z': self.Z_skn,
+                   'Z': self.sigmavalues.Z_skn,
                    'qp': self.qp_skn * Ha,
                    'iqp': self.qp_iskn * Ha}
 
@@ -662,7 +640,7 @@ class G0W0:
                                'exx': self.exx_skn * Ha,
                                'sigma': self.sigmavalues_GW.sigma_skn * Ha,
                                'dsigma': self.sigmavalues_GW.dsigma_skn,
-                               'Z': self.Z_GW_skn,
+                               'Z': self.sigmavalues_GW.Z_skn,
                                'qp': self.qp_GW_skn * Ha,
                                'iqp': self.qp_GW_iskn * Ha}
 
@@ -1517,7 +1495,7 @@ class G0W0:
                     'current calculation. Check kpts, bands, nbands, ecut, '
                     'domega0, omega2, integrate_gamma.')
 
-    def extrapolate_ecut(self):
+    def calculate_sigma_values(self):
         # Do linear fit of selfenergy vs. inverse of number of plane waves
         # to extrapolate to infinite number of plane waves
 
