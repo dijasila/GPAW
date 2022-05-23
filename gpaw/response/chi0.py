@@ -22,6 +22,7 @@ from gpaw.response.pair import PairDensity, PWSymmetryAnalyzer
 from gpaw.utilities.blas import gemm
 from gpaw.utilities.memory import maxrss
 from gpaw.typing import Array1D
+from gpaw.responce.chi0_data import Chi0Data
 
 
 def find_maximum_frequency(calc, nbands=0, fd=None):
@@ -202,8 +203,8 @@ class Chi0:
         self.wd = FrequencyDescriptor.from_array_or_dict(frequencies)
         print(self.wd, file=self.fd)
 
-        self.blocks1d = None  # Plane wave basis depends on q
-        self.blockdist = None
+        # self.blocks1d = None  # Plane wave basis depends on q
+        # self.blockdist = None
 
         if not isinstance(self.wd, NonLinearFrequencyDescriptor):
             assert not hilbert
@@ -234,7 +235,7 @@ class Chi0:
         else:
             print('Using integration method: PointIntegrator', file=self.fd)
 
-    def calculate(self, q_c, spin='all', A_x=None):
+    def calculate(self, q_c, spin='all'):
         """Calculate response function.
 
         Parameters
@@ -278,7 +279,6 @@ class Chi0:
 
         q_c = np.asarray(q_c, dtype=float)
         optical_limit = np.allclose(q_c, 0.0) and self.response == 'density'
-
         pd = self.get_PWDescriptor(q_c, self.gammacentered)
 
         self.print_chi(pd)
@@ -289,31 +289,17 @@ class Chi0:
 
         # Initialize block distibution of plane wave basis
         nG = pd.ngmax + 2 * optical_limit
-        self.blocks1d = Blocks1D(self.blockcomm, nG)
-        self.blockdist = PlaneWaveBlockDistributor(self.world,
-                                                   self.blockcomm,
-                                                   self.kncomm,
-                                                   self.wd, self.blocks1d)
+        blocks1d = Blocks1D(self.blockcomm, nG)
+        blockdist = PlaneWaveBlockDistributor(self.world,
+                                              self.blockcomm,
+                                              self.kncomm,
+                                              self.wd, blocks1d)
 
-        nw = len(self.wd)
-        wGG_shape = (nw, self.blocks1d.nlocal, nG)
-        # if self.blockcomm.rank == 0:
-        #     assert self.Gb - self.Ga >= 3
-        # assert mynG * (self.blockcomm.size - 1) < nG
-        if A_x is not None:
-            nx = np.prod(wGG_shape)
-            chi0_wGG = A_x[:nx].reshape(wGG_shape)
-            chi0_wGG[:] = 0.0
-        else:
-            chi0_wGG = np.zeros(wGG_shape, complex)
+        chi0 = Chi0Data(self.wd, blockdist, pd, optical_limit)
 
         if optical_limit:
-            chi0_wxvG = np.zeros((nw, 2, 3, nG), complex)
-            chi0_wvv = np.zeros((nw, 3, 3), complex)
             self.plasmafreq_vv = np.zeros((3, 3), complex)
         else:
-            chi0_wxvG = None
-            chi0_wvv = None
             self.plasmafreq_vv = None
 
         if self.response in ['+-', '-+']:
@@ -324,17 +310,12 @@ class Chi0:
             m1 = self.nocc1
         m2 = self.nbands
 
-        pd, chi0_wGG, chi0_wxvG, chi0_wvv = self._calculate(pd,
-                                                            chi0_wGG,
-                                                            chi0_wxvG,
-                                                            chi0_wvv,
-                                                            m1, m2, spins)
+        self.update_chi0(chi0, m1, m2, spins)
 
         return pd, chi0_wGG, chi0_wxvG, chi0_wvv
 
     @timer('Calculate CHI_0')
-    def _calculate(self, pd, chi0_wGG, chi0_wxvG, chi0_wvv, m1, m2, spins,
-                   extend_head=True):
+    def update_chi0(self, chi0, m1, m2, spins, extend_head=True):
         """In-place calculation of the response function.
 
         Parameters
