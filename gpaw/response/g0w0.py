@@ -490,12 +490,6 @@ class G0W0:
                     self.eps_skn[s, i] = kpt.eps_n[b1:b2]
                     self.f_skn[s, i] = kpt.f_n[b1:b2] / kpt.weight
 
-            self.qp_skn = self.eps_skn.copy()
-            self.qp_iskn = np.array([self.qp_skn])
-            if self.do_GW_too:
-                self.qp_GW_skn = self.eps_skn.copy()
-                self.qp_GW_iskn = np.array([self.qp_GW_skn])
-
             # My part of the states we want to calculate QP-energies for:
             mykpts = [self.pair.get_k_point(s, K, n1, n2)
                       for s, K, n1, n2 in self.pair.mysKn1n2]
@@ -544,23 +538,18 @@ class G0W0:
 
             self.Z_skn = 1 / (1 - self.dsigma_skn)
 
-            qp_skn = self.qp_skn + self.Z_skn * (
-                self.eps_skn -
-                self.vxc_skn - self.qp_skn + self.exx_skn +
-                self.sigma_skn)
-
-            self.qp_skn = qp_skn
-
-            self.qp_iskn = np.concatenate((self.qp_iskn,
-                                           np.array([self.qp_skn])))
+            # G0W0 single-step.
+            # If we want GW0 again, we need to grab the expressions
+            # from e.g. e73917fca5b9dc06c899f00b26a7c46e7d6fa749
+            # or earlier and use qp correctly.
+            self.qp_skn = self.eps_skn + self.Z_skn * (
+                -self.vxc_skn + self.exx_skn + self.sigma_skn)
 
             if self.do_GW_too:
                 self.Z_GW_skn = 1 / (1 - self.dsigma_GW_skn)
 
-                qp_GW_skn = self.qp_GW_skn + self.Z_GW_skn * (
-                    self.eps_skn -
-                    self.vxc_skn - self.qp_GW_skn + self.exx_skn +
-                    self.sigma_GW_skn)
+                qp_GW_skn = self.eps_skn + self.Z_GW_skn * (
+                    -self.vxc_skn + self.exx_skn + self.sigma_GW_skn)
 
                 self.qp_GW_skn = qp_GW_skn
 
@@ -571,8 +560,7 @@ class G0W0:
                    'sigma': self.sigma_skn * Ha,
                    'dsigma': self.dsigma_skn,
                    'Z': self.Z_skn,
-                   'qp': self.qp_skn * Ha,
-                   'iqp': self.qp_iskn * Ha}
+                   'qp': self.qp_skn * Ha}
 
         if self.do_GW_too:
             self.results_GW = {'f': self.f_skn,
@@ -582,8 +570,7 @@ class G0W0:
                                'sigma': self.sigma_GW_skn * Ha,
                                'dsigma': self.dsigma_GW_skn,
                                'Z': self.Z_GW_skn,
-                               'qp': self.qp_GW_skn * Ha,
-                               'iqp': self.qp_GW_iskn * Ha}
+                               'qp': self.qp_GW_skn * Ha}
 
         self.print_results(results)
 
