@@ -1697,39 +1697,3 @@ class G0W0:
     def mixer(self, e0_skn, e1_skn, mixing=1.0):
         """Mix energies."""
         return e0_skn + mixing * (e1_skn - e0_skn)
-
-
-"""
-        if self.do_GW_too:
-            self.sigr2_GW_skn = np.zeros(self.shape)
-            self.dsigr2_GW_skn = np.zeros(self.shape)
-            self.sigma_GW_skn = np.zeros(self.shape)
-            self.dsigma_GW_skn = np.zeros(self.shape)
-            invN_i = self.ecut_e**(-3. / 2)
-            for m in range(np.product(self.shape)):
-                s, k, n = np.unravel_index(m, self.shape)
-
-                slope, intercept, r_value, p_value, std_err = \
-                    linregress(invN_i, self.sigma_GW_eskn[:, s, k, n])
-
-                self.sigr2_GW_skn[s, k, n] = r_value**2
-                self.sigma_GW_skn[s, k, n] = intercept
-
-                slope, intercept, r_value, p_value, std_err = \
-                    linregress(invN_i, self.dsigma_GW_eskn[:, s, k, n])
-
-                self.dsigr2_GW_skn[s, k, n] = r_value**2
-                self.dsigma_GW_skn[s, k, n] = intercept
-
-            if np.any(self.sigr2_GW_skn < 0.9) or np.any(self.dsigr2_GW_skn <
-                                                         0.9):
-                print('  GW calculation. Warning: Bad quality of linear fit '
-                      'for some (n,k). ',
-                      file=self.fd)
-                print('           Higher cutoff might be necesarry.',
-                      file=self.fd)
-
-            print('  Minimum R^2 = %1.4f. (R^2 Should be close to 1)' %
-                  min(np.min(self.sigr2_GW_skn), np.min(self.dsigr2_GW_skn)),
-         file=self.fd)
-"""
