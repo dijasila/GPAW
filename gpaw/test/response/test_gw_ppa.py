@@ -12,7 +12,6 @@ def test_ppa(in_tmp_dir, gpw_files, scalapack):
               bands=(3, 5),
               nbands=9,
               nblocks=1,
-              method='G0W0',
               ecut=40,
               ppa=True)
 

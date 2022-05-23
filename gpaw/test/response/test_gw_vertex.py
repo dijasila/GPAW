@@ -15,7 +15,6 @@ def test_fxc_mode(in_tmp_dir, gpw_files, fxc_mode, ref_gap, scalapack):
               nbands=9,
               nblocks=1,
               xc='rALDA',
-              method='G0W0',
               ecut=40,
               fxc_mode=fxc_mode)
 

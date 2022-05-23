@@ -179,7 +179,6 @@ class G0W0:
                  omega2=None,  # deprecated
                  q0_correction=False,
                  nblocks=1, savew=False, savepckl=True,
-                 maxiter=1, method='G0W0', mixing=0.2,
                  world=mpi.world, ecut_extrapolation=False,
                  nblocksmax=False):
 
@@ -267,13 +266,6 @@ class G0W0:
             Save W to a file.
         savepckl: bool
             Save output to a pckl file.
-        method: str
-            G0W0 or GW0(eigenvalue selfconsistency in G) currently available.
-        maxiter: int
-            Number of iterations in a GW0 calculation.
-        mixing: float
-            Number between 0 and 1 determining how much of previous
-            iteration's eigenvalues to mix with.
         """
         self.frequencies = get_frequencies(frequencies, domega0, omega2)
         self.inputcalc = calc
@@ -347,12 +339,6 @@ class G0W0:
             assert self.truncation == '2D'
             self.x0density = 0.1  # ? 0.01
 
-        self.maxiter = maxiter
-        self.method = method
-        self.mixing = mixing
-        if self.method == 'GW0':
-            assert self.maxiter > 1
-
         self.kpts = list(select_kpts(kpts, self.calc))
         self.bands = bands = self.choose_bands(bands, relbands)
         self.eps0_skn = get_eigenvalues_from_calc(self.calc)
@@ -425,14 +411,9 @@ class G0W0:
         p('Coulomb cutoff:', self.truncation)
         p('Broadening: {0:g} eV'.format(self.eta * Ha))
         p()
-        p('Self-consistency method:', self.method)
         p('fxc mode:', self.fxc_mode)
         p('Kernel:', self.xc)
         p('Do GW too:', self.do_GW_too)
-
-        if self.method == 'GW0':
-            p('Number of iterations:', self.maxiter)
-            p('Mixing:', self.mixing)
         p()
 
     @timer('G0W0')
@@ -482,9 +463,10 @@ class G0W0:
 
         self.fd.flush()
 
-        self.ite = 0
-
-        while self.ite < self.maxiter:
+        # This used to be a loop and hence indented.
+        # We use if 1 to keep the indentation and avoid git conflicts.
+        # This can be removed when peace is restored.
+        if 1:
             # Reset calculation
             # self-energies
             self.sigma_eskn = np.zeros((len(self.ecut_e), ) + self.shape)
@@ -498,23 +480,13 @@ class G0W0:
                                                self.shape)
 
             # Get KS eigenvalues and occupation numbers:
-            if self.ite == 0:
-                b1, b2 = self.bands
-                for i, k in enumerate(self.kpts):
-                    for s in range(self.nspins):
-                        u = s + k * self.nspins
-                        kpt = self.calc.wfs.kpt_u[u]
-                        self.eps_skn[s, i] = kpt.eps_n[b1:b2]
-                        self.f_skn[s, i] = kpt.f_n[b1:b2] / kpt.weight
-
-                self.qp_skn = self.eps_skn.copy()
-                self.qp_iskn = np.array([self.qp_skn])
-                if self.do_GW_too:
-                    self.qp_GW_skn = self.eps_skn.copy()
-                    self.qp_GW_iskn = np.array([self.qp_GW_skn])
-
-            if self.ite > 0:
-                self.update_energies(mixing=self.mixing)
+            b1, b2 = self.bands
+            for i, k in enumerate(self.kpts):
+                for s in range(self.nspins):
+                    u = s + k * self.nspins
+                    kpt = self.calc.wfs.kpt_u[u]
+                    self.eps_skn[s, i] = kpt.eps_n[b1:b2]
+                    self.f_skn[s, i] = kpt.f_n[b1:b2] / kpt.weight
 
             # My part of the states we want to calculate QP-energies for:
             mykpts = [self.pair.get_k_point(s, K, n1, n2)
@@ -564,27 +536,20 @@ class G0W0:
 
             self.Z_skn = 1 / (1 - self.dsigma_skn)
 
-            qp_skn = self.qp_skn + self.Z_skn * (
-                self.eps_skn -
-                self.vxc_skn - self.qp_skn + self.exx_skn +
-                self.sigma_skn)
-
-            self.qp_skn = qp_skn
-
-            self.qp_iskn = np.concatenate((self.qp_iskn,
-                                           np.array([self.qp_skn])))
+            # G0W0 single-step.
+            # If we want GW0 again, we need to grab the expressions
+            # from e.g. e73917fca5b9dc06c899f00b26a7c46e7d6fa749
+            # or earlier and use qp correctly.
+            self.qp_skn = self.eps_skn + self.Z_skn * (
+                -self.vxc_skn + self.exx_skn + self.sigma_skn)
 
             if self.do_GW_too:
                 self.Z_GW_skn = 1 / (1 - self.dsigma_GW_skn)
 
-                qp_GW_skn = self.qp_GW_skn + self.Z_GW_skn * (
-                    self.eps_skn -
-                    self.vxc_skn - self.qp_GW_skn + self.exx_skn +
-                    self.sigma_GW_skn)
+                qp_GW_skn = self.eps_skn + self.Z_GW_skn * (
+                    -self.vxc_skn + self.exx_skn + self.sigma_GW_skn)
 
                 self.qp_GW_skn = qp_GW_skn
-
-            self.ite += 1
 
         results = {'f': self.f_skn,
                    'eps': self.eps_skn * Ha,
@@ -593,8 +558,7 @@ class G0W0:
                    'sigma': self.sigma_skn * Ha,
                    'dsigma': self.dsigma_skn,
                    'Z': self.Z_skn,
-                   'qp': self.qp_skn * Ha,
-                   'iqp': self.qp_iskn * Ha}
+                   'qp': self.qp_skn * Ha}
 
         if self.do_GW_too:
             self.results_GW = {'f': self.f_skn,
@@ -604,8 +568,7 @@ class G0W0:
                                'sigma': self.sigma_GW_skn * Ha,
                                'dsigma': self.dsigma_GW_skn,
                                'Z': self.Z_GW_skn,
-                               'qp': self.qp_GW_skn * Ha,
-                               'iqp': self.qp_GW_iskn * Ha}
+                               'qp': self.qp_GW_skn * Ha}
 
         self.print_results(results)
 
@@ -635,15 +598,6 @@ class G0W0:
             if self.world.rank == 0:
                 if os.path.isfile(self.restartfile + '.sigma.pckl'):
                     os.remove(self.restartfile + '.sigma.pckl')
-
-        if self.method == 'GW0' and self.world.rank == 0:
-            for iq in range(len(self.qd.ibzk_kc)):
-                try:
-                    os.remove(self.filename + '.rank' +
-                              str(self.blockcomm.rank) + '.w.q' +
-                              str(iq) + '.pckl')
-                except OSError:
-                    pass
 
         return results
 
@@ -780,18 +734,16 @@ class G0W0:
         # The decorator $timer('W') doesn't work for generators, do we will
         # have to manually start and stop the timer here:
         self.timer.start('W')
-        if self.ite == 0:
-            print('\nCalculating screened Coulomb potential', file=self.fd)
-            if self.truncation is not None:
-                print('Using %s truncated Coloumb potential' % self.truncation,
-                      file=self.fd)
+        print('\nCalculating screened Coulomb potential', file=self.fd)
+        if self.truncation is not None:
+            print('Using %s truncated Coloumb potential' % self.truncation,
+                  file=self.fd)
 
         if self.ppa:
-            if self.ite == 0:
-                print('Using Godby-Needs plasmon-pole approximation:',
-                      file=self.fd)
-                print('  Fitting energy: i*E0, E0 = %.3f Hartee' % self.E0,
-                      file=self.fd)
+            print('Using Godby-Needs plasmon-pole approximation:',
+                  file=self.fd)
+            print('  Fitting energy: i*E0, E0 = %.3f Hartee' % self.E0,
+                  file=self.fd)
 
             # use small imaginary frequency to avoid dividing by zero:
             frequencies = [1e-10j, 1j * self.E0 * Ha]
@@ -801,8 +753,7 @@ class G0W0:
                           'timeordered': False,
                           'frequencies': frequencies}
         else:
-            if self.ite == 0:
-                print('Using full frequency integration:', file=self.fd)
+            print('Using full frequency integration:', file=self.fd)
 
             parameters = {'eta': self.eta * Ha,
                           'hilbert': True,
@@ -1657,52 +1608,3 @@ class G0W0:
             dv_Gv[:, :, None] * np.tensordot(
                 S_v0G, np.tensordot(u_vvv, S_vG0 * sqrtV_G[None, 1:],
                                     axes=(2, 0)), axes=(0, 1)), axis=1)
-
-    def update_energies(self, mixing):
-        """Updates the energies of the calculator with the quasi-particle
-        energies."""
-        shifts_skn = np.zeros(self.shape)
-        na, nb = self.bands
-        i1 = len(self.qp_iskn) - 2
-        i2 = i1 + 1
-        if i1 < 0:
-            i1 = 0
-
-        for kpt in self.calc.wfs.kpt_u:
-            s = kpt.s
-            if kpt.k in self.kpts:
-                ik = self.kpts.index(kpt.k)
-                eps1_n = self.mixer(self.qp_iskn[i1, s, ik],
-                                    self.qp_iskn[i2, s, ik],
-                                    mixing)
-                kpt.eps_n[na:nb] = eps1_n
-                """
-                Should we do something smart with the bands outside the
-                interval?
-                Here we shift the unoccupied bands not included by the average
-                change of the top-most band and the occupied by the
-                bottom-most band included
-                """
-                shifts_skn[s, ik] = (eps1_n - self.eps0_skn[s, kpt.k, na:nb])
-
-        for kpt in self.calc.wfs.kpt_u:
-            s = kpt.s
-            if kpt.k in self.kpts:
-                ik = self.kpts.index(kpt.k)
-                kpt.eps_n[:na] = (self.eps0_skn[s, kpt.k, :na] +
-                                  np.mean(shifts_skn[s, :, 0]))
-                kpt.eps_n[nb:] = (self.eps0_skn[s, kpt.k, nb:] +
-                                  np.mean(shifts_skn[s, :, -1]))
-            else:
-                """
-                kpt.eps_n[:na] = (self.eps0_skn[s, kpt.k, :na] +
-                                  np.mean(shifts_skn[s, :, 0]))
-                kpt.eps_n[na:nb] = (self.eps0_skn[s, kpt.k, na:nb] +
-                                    np.mean(shifts_skn[s, :], axis=0))
-                kpt.eps_n[nb:] = (self.eps0_skn[s, kpt.k, nb:] +
-                                  np.mean(shifts_skn[s, :, -1]))
-                """
-
-    def mixer(self, e0_skn, e1_skn, mixing=1.0):
-        """Mix energies."""
-        return e0_skn + mixing * (e1_skn - e0_skn)
