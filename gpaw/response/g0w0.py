@@ -33,9 +33,25 @@ from gpaw.response.temp import DielectricFunctionCalculator
 
 
 class SigmaValues:
-    def __init__(self, fd, shape, ecut_e, sigma_eskn, dsigma_eskn):
+    def __init__(self, fd, shape, ecut_e, sigma_eskn, dsigma_eskn,
+                 eps_skn, vxc_skn, exx_skn, f_skn):
         self.extrapolate(fd, shape, ecut_e, sigma_eskn, dsigma_eskn)
         self.Z_skn = 1 / (1 - self.dsigma_skn)
+
+        # G0W0 single-step.
+        # If we want GW0 again, we need to grab the expressions
+        # from e.g. e73917fca5b9dc06c899f00b26a7c46e7d6fa749
+        # or earlier and use qp correctly.
+        self.qp_skn = eps_skn + self.Z_skn * (
+            -vxc_skn + exx_skn + self.sigma_skn)
+
+        self.sigma_eskn = sigma_eskn
+        self.dsigma_eskn = dsigma_eskn
+
+        self.eps_skn = eps_skn
+        self.vxc_skn = vxc_skn
+        self.exx_skn = exx_skn
+        self.f_skn = f_skn
 
     def extrapolate(self, fd, shape, ecut_e, sigma_eskn, dsigma_eskn):
         if len(ecut_e) == 1:
@@ -46,6 +62,9 @@ class SigmaValues:
             return
 
         from scipy.stats import linregress
+        # Do linear fit of selfenergy vs. inverse of number of plane waves
+        # to extrapolate to infinite number of plane waves
+
         print('', file=fd)
         print('Extrapolating selfenergy to infinite energy cutoff:',
               file=fd)
@@ -79,6 +98,28 @@ class SigmaValues:
         print('  Minimum R^2 = %1.4f. (R^2 Should be close to 1)' %
               min(np.min(self.sigr2_skn), np.min(self.dsigr2_skn)),
               file=fd)
+
+    def get_results_eV(self):
+        results = {
+            'f': self.f_skn,
+            'eps': self.eps_skn * Ha,
+            'vxc': self.vxc_skn * Ha,
+            'exx': self.exx_skn * Ha,
+            'sigma': self.sigma_skn * Ha,
+            'dsigma': self.dsigma_skn,
+            'Z': self.Z_skn,
+            'qp': self.qp_skn * Ha}
+
+        results.update(
+            sigma_eskn=self.sigma_eskn * Ha,
+            dsigma_eskn=self.dsigma_eskn)
+
+        if self.sigr2_skn is not None:
+            assert self.dsigr2_skn is not None
+            results['sigr2_skn'] = self.sigr2_skn
+            results['dsigr2_skn'] = self.dsigr2_skn
+
+        return results
 
 
 class QSymmetryOp:
@@ -575,53 +616,11 @@ class G0W0:
 
             self.calculate_sigma_values()
 
-            # G0W0 single-step.
-            # If we want GW0 again, we need to grab the expressions
-            # from e.g. e73917fca5b9dc06c899f00b26a7c46e7d6fa749
-            # or earlier and use qp correctly.
-            self.qp_skn = self.eps_skn + self.sigmavalues.Z_skn * (
-                -self.vxc_skn + self.exx_skn + self.sigmavalues.sigma_skn)
-
-            if self.do_GW_too:
-                qp_GW_skn = self.eps_skn + self.sigmavalues_GW.Z_skn * (
-                    -self.vxc_skn + self.exx_skn + self.sigmavalues_GW.sigma_skn)
-
-                self.qp_GW_skn = qp_GW_skn
-
-        results = {'f': self.f_skn,
-                   'eps': self.eps_skn * Ha,
-                   'vxc': self.vxc_skn * Ha,
-                   'exx': self.exx_skn * Ha,
-                   'sigma': self.sigmavalues.sigma_skn * Ha,
-                   'dsigma': self.sigmavalues.dsigma_skn,
-                   'Z': self.sigmavalues.Z_skn,
-                   'qp': self.qp_skn * Ha}
-
+        results = self.sigmavalues.get_results_eV()
         if self.do_GW_too:
-            self.results_GW = {'f': self.f_skn,
-                               'eps': self.eps_skn * Ha,
-                               'vxc': self.vxc_skn * Ha,
-                               'exx': self.exx_skn * Ha,
-                               'sigma': self.sigmavalues_GW.sigma_skn * Ha,
-                               'dsigma': self.sigmavalues_GW.dsigma_skn,
-                               'Z': self.sigmavalues_GW.Z_skn,
-                               'qp': self.qp_GW_skn * Ha}
+            self.results_GW = self.sigmavalues_GW.get_results_eV()
 
         self.print_results(results)
-
-        if len(self.ecut_e) > 1:
-            # save non-extrapolated result and R^2 value for fit quality.
-            results.update({'sigma_eskn': self.sigma_eskn * Ha,
-                            'dsigma_eskn': self.dsigma_eskn,
-                            'sigr2_skn': self.sigmavalues.sigr2_skn,
-                            'dsigr2_skn': self.sigmavalues.dsigr2_skn})
-
-            if self.do_GW_too:
-                self.results_GW.update(
-                    {'sigma_GW_eskn': self.sigma_GW_eskn * Ha,
-                     'dsigma_GW_eskn': self.dsigma_GW_eskn,
-                     'sigr2_GW_skn': self.sigmavalues_GW.sigr2_skn,
-                     'dsigr2_GW_skn': self.sigmavalues_GW.dsigr2_skn})
 
         if self.savepckl:
             with paropen(self.filename + '_results.pckl', 'wb') as fd:
@@ -1447,22 +1446,24 @@ class G0W0:
                     'domega0, omega2, integrate_gamma.')
 
     def calculate_sigma_values(self):
-        # Do linear fit of selfenergy vs. inverse of number of plane waves
-        # to extrapolate to infinite number of plane waves
+        kwargs = dict(
+            fd=self.fd,
+            shape=self.shape,
+            ecut_e=self.ecut_e,
+            eps_skn=self.eps_skn,
+            vxc_skn=self.vxc_skn,
+            exx_skn=self.exx_skn,
+            f_skn=self.f_skn)
 
-        self.sigmavalues = SigmaValues(fd=self.fd,
-                                       shape=self.shape,
-                                       ecut_e=self.ecut_e,
-                                       sigma_eskn=self.sigma_eskn,
-                                       dsigma_eskn=self.dsigma_eskn)
+        self.sigmavalues = SigmaValues(sigma_eskn=self.sigma_eskn,
+                                       dsigma_eskn=self.dsigma_eskn,
+                                       **kwargs)
 
         if self.do_GW_too:
             self.sigmavalues_GW = SigmaValues(
-                fd=self.fd,
-                shape=self.shape,
-                ecut_e=self.ecut_e,
                 sigma_eskn=self.sigma_GW_eskn,
-                dsigma_eskn=self.dsigma_GW_eskn)
+                dsigma_eskn=self.dsigma_GW_eskn,
+                **kwargs)
 
     def add_q0_correction(self, pd, W_GG, einv_GG, chi0_xvG, chi0_vv,
                           sqrtV_G, print_ac=False):
