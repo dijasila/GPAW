@@ -610,7 +610,11 @@ class G0W0:
                     k1 = self.kd.bz2ibz_k[kpt1.K]
                     i = self.kpts.index(k1)
 
-                    self.calculate_q(ie, i, kpt1, kpt2, pd0, W0, W0_GW,
+                    Wlist = [W0]
+                    if W0_GW is not None:
+                        Wlist.append(W0_GW)
+
+                    self.calculate_q(ie, i, kpt1, kpt2, pd0, Wlist,
                                      symop=symop)
                 nQ += 1
             pb.finish()
@@ -646,15 +650,10 @@ class G0W0:
 
         return results
 
-    def calculate_q(self, ie, k, kpt1, kpt2, pd0, W0, W0_GW=None,
+    def calculate_q(self, ie, k, kpt1, kpt2, pd0, Wlist,  # W0, W0_GW=None,
                     *, symop):
         """Calculates the contribution to the self-energy and its derivative
         for a given set of k-points, kpt1 and kpt2."""
-
-        if W0_GW is None:
-            Ws = [W0]
-        else:
-            Ws = [W0, W0_GW]
 
         N_c = pd0.gd.N_c
         i_cG = symop.apply(np.unravel_index(pd0.Q_qG[0], N_c))
@@ -705,7 +704,7 @@ class G0W0:
 
             nn = kpt1.n1 + n - self.bands[0]
 
-            for jj, W in enumerate(Ws):
+            for jj, W in enumerate(Wlist):
                 sigma, dsigma = calculate_sigma(n_mG, deps_m, f_m, W)
                 if jj == 0:
                     self.sigmas[0].sigma_eskn[ie, kpt1.s, k, nn] += sigma
