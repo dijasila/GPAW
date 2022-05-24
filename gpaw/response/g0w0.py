@@ -494,7 +494,7 @@ class G0W0:
 
             # Loop over q in the IBZ:
             nQ = 0
-            for ie, pd0, W0, q_c, m2, W0_GW, symop in \
+            for ie, pd0, W0, q_c, m2, W0_GW, symop, blocks1d in \
                     self.calculate_screened_potential():
                 if nQ == 0:
                     print('Summing all q:', file=self.fd)
@@ -509,7 +509,8 @@ class G0W0:
                     i = self.kpts.index(k1)
 
                     self.calculate_q(ie, i, kpt1, kpt2, pd0, W0, W0_GW,
-                                     symop=symop)
+                                     symop=symop,
+                                     blocks1d=blocks1d)
                 nQ += 1
             pb.finish()
 
@@ -601,7 +602,7 @@ class G0W0:
         return results
 
     def calculate_q(self, ie, k, kpt1, kpt2, pd0, W0, W0_GW=None,
-                    *, symop):
+                    *, symop, blocks1d):
         """Calculates the contribution to the self-energy and its derivative
         for a given set of k-points, kpt1 and kpt2."""
 
@@ -660,7 +661,7 @@ class G0W0:
             nn = kpt1.n1 + n - self.bands[0]
 
             for jj, W in enumerate(Ws):
-                sigma, dsigma = calculate_sigma(n_mG, deps_m, f_m, W)
+                sigma, dsigma = calculate_sigma(n_mG, deps_m, f_m, W, blocks1d)
                 if jj == 0:
                     self.sigma_eskn[ie, kpt1.s, k, nn] += sigma
                     self.dsigma_eskn[ie, kpt1.s, k, nn] += dsigma
@@ -684,7 +685,7 @@ class G0W0:
             assert e < 1e-12
 
     @timer('Sigma')
-    def calculate_sigma(self, n_mG, deps_m, f_m, C_swGG):
+    def calculate_sigma(self, n_mG, deps_m, f_m, C_swGG, blocks1d):
         """Calculates a contribution to the self-energy and its derivative for
         a given (k, k-q)-pair from its corresponding pair-density and
         energy."""
@@ -715,7 +716,7 @@ class G0W0:
             C1_GG = C_swGG[s][w]
             C2_GG = C_swGG[s][w + 1]
             p = x * sgn
-            myn_G = n_G[self.blocks1d.myslice]
+            myn_G = n_G[blocks1d.myslice]
 
             sigma1 = p * np.dot(np.dot(myn_G, C1_GG), n_G.conj()).imag
             sigma2 = p * np.dot(np.dot(myn_G, C2_GG), n_G.conj()).imag
@@ -830,8 +831,6 @@ class G0W0:
                     # We also need to initialize the PAW corrections
                     self.Q_aGii = self.initialize_paw_corrections(pdi)
 
-                    nw = len(self.wd)
-                    self.blocks1d = Blocks1D(self.blockcomm, pdi.ngmax)
                 else:
                     # First time calculation
                     if ecut == self.ecut:
@@ -844,7 +843,7 @@ class G0W0:
                                              f'larger number of bands ({m2})'
                                              f' than there are bands '
                                              f'({self.nbands}).')
-                    pdi, W, W_GW = self.calculate_w(
+                    pdi, W, W_GW, blocks1d = self.calculate_w(
                         chi0calc, q_c, chi0bands,
                         m1, m2, ecut, htp, htm, wstc, iq)
                     m1 = m2
@@ -862,7 +861,8 @@ class G0W0:
                 self.timer.stop('W')
 
                 for Q_c, symop in QSymmetryOp.get_symops(self.qd, iq, q_c):
-                    yield ie, pdi, W, Q_c, m2, W_GW, symop
+                    yield (ie, pdi, W, Q_c, m2, W_GW, symop,
+                           blocks1d)
 
                 if self.restartfile is not None:
                     self.save_restart_file(iq)
@@ -923,7 +923,7 @@ class G0W0:
         #     Wm_wGG[:] = Wm2_wGG
         #     Wp_wGG[:] = Wp2_wGG
 
-        return pdi, W_xwGG, GW_return
+        return pdi, W_xwGG, GW_return, chi0.blockdist.blocks1d
 
     def dyson_and_W_new(self, wstc, iq, q_c, chi0calc, chi0,
                         ecut, htp, htm):
@@ -1172,7 +1172,7 @@ class G0W0:
 
         # XXX This creates a new, large buffer.  We could perhaps
         # avoid that.  Buffer used to exist but was removed due to #456.
-        Wm_wGG = self.blockdist.redistribute(chi0_wGG)
+        Wm_wGG = chi0.blockdist.redistribute(chi0_wGG)
         Wp_wGG = Wm_wGG.copy()
 
         with self.timer('Hilbert transform'):
@@ -1180,7 +1180,7 @@ class G0W0:
             htm(Wm_wGG)
 
             if self.do_GW_too:
-                Wm_GW_wGG = self.blockdist.redistribute(
+                Wm_GW_wGG = chi0.blockdist.redistribute(
                     chi0_GW_wGG)
 
                 Wp_GW_wGG = Wm_GW_wGG.copy()
