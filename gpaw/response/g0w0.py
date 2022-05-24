@@ -873,11 +873,10 @@ class G0W0:
                     iq):
         """Calculates the screened potential for a specified q-point."""
 
-        chi0 = chi0calc.create_chi0(q_c, optical_limit=False)
+        chi0 = chi0calc.create_chi0(q_c, extend_head=False)
         chi0calc.fd = self.fd
         chi0calc.print_chi(chi0.pd)
-        chi0calc.update_chi0(chi0, m1, m2,
-                             range(self.nspins), extend_head=False)
+        chi0calc.update_chi0(chi0, m1, m2, range(self.nspins))
 
         if len(self.ecut_e) > 1:
             # Add chi from previous cutoff with remaining bands

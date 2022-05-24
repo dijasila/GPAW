@@ -229,19 +229,23 @@ class Chi0:
         else:
             print('Using integration method: PointIntegrator', file=self.fd)
 
-    def create_chi0(self, q_c, optical_limit=False):
+    def create_chi0(self, q_c, extend_head=True):
         q_c = np.asarray(q_c, dtype=float)
+        optical_limit = np.allclose(q_c, 0.0)
+
         pd = self.get_PWDescriptor(q_c, self.gammacentered)
 
         # Initialize block distibution of plane wave basis
-        nG = pd.ngmax + 2 * optical_limit
+        nG = pd.ngmax
+        if optical_limit and extend_head:
+            nG += 2
         blocks1d = Blocks1D(self.blockcomm, nG)
         blockdist = PlaneWaveBlockDistributor(self.world,
                                               self.blockcomm,
                                               self.kncomm,
                                               self.wd, blocks1d)
 
-        chi0 = Chi0Data(self.wd, blockdist, pd, optical_limit)
+        chi0 = Chi0Data(self.wd, blockdist, pd, optical_limit, extend_head)
 
         return chi0
 
@@ -279,9 +283,7 @@ class Chi0:
             assert spin in range(wfs.nspins)
             spins = [spin]
 
-        q_c = np.asarray(q_c, dtype=float)
-        optical_limit = np.allclose(q_c, 0.0)
-        chi0 = self.create_chi0(q_c, optical_limit)
+        chi0 = self.create_chi0(q_c)
 
         self.print_chi(chi0.pd)
 
@@ -301,7 +303,7 @@ class Chi0:
     @timer('Calculate CHI_0')
     def update_chi0(self,
                     chi0: Chi0Data,
-                    m1, m2, spins, extend_head=True):
+                    m1, m2, spins):
         """In-place calculation of the response function.
 
         Parameters
@@ -345,7 +347,7 @@ class Chi0:
         optical_limit = chi0.optical_limit
 
         # Use wings in optical limit, if head cannot be extended
-        if optical_limit and not extend_head:
+        if optical_limit and not chi0.extend_head:
             wings = True
         else:
             wings = False
@@ -431,7 +433,7 @@ class Chi0:
                       'integrationmode': self.integrationmode}
         eig_kwargs = {'kd': kd, 'pd': pd}
 
-        if not extend_head:
+        if not chi0.extend_head:
             mat_kwargs['extend_head'] = False
 
         # Determine what "kind" of integral to make.
@@ -555,7 +557,7 @@ class Chi0:
             # Again, not so pretty but that's how it is
             plasmafreq_vv = plasmafreq_wvv[0].copy()
             if self.include_intraband:
-                if extend_head:
+                if chi0.extend_head:
                     va = min(self.blocks1d.a, 3)
                     vb = min(self.blocks1d.b, 3)
                     A_wxx[:, :vb - va, :3] += (plasmafreq_vv[va:vb] /
@@ -589,7 +591,7 @@ class Chi0:
         A_wxx *= prefactor
 
         tmpA_wxx = chi0.blockdist.redistribute(A_wxx)
-        if extend_head:
+        if chi0.extend_head:
             PWSA.symmetrize_wxx(tmpA_wxx,
                                 optical_limit=optical_limit)
         else:
@@ -613,7 +615,7 @@ class Chi0:
         # account for their nonanalytic behaviour which means that the size of
         # the chi0_wGG matrix is nw * (nG + 2)**2. Below we extract these
         # parameters.
-        if optical_limit and extend_head:
+        if optical_limit and chi0.extend_head:
             # The wings are extracted
             chi0.chi0_wxvG[:, 1, :,
                            chi0.blockdist.blocks1d.myslice] = np.transpose(

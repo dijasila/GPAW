@@ -2,11 +2,12 @@ import numpy as np
 
 
 class Chi0Data:
-    def __init__(self, wd, blockdist, pd, optical_limit):
+    def __init__(self, wd, blockdist, pd, optical_limit, extend_head):
         self.wd = wd
         self.blockdist = blockdist
         self.pd = pd
         self.optical_limit = optical_limit
+        self.extend_head = extend_head
 
         nG = blockdist.blocks1d.N
         nw = len(self.wd)
@@ -14,7 +15,7 @@ class Chi0Data:
 
         self.chi0_wGG = np.zeros(wGG_shape, complex)
 
-        if self.optical_limit:
+        if self.optical_limit and not self.extend_head:
             self.chi0_wxvG = np.zeros((nw, 2, 3, nG), complex)
             self.chi0_wvv = np.zeros((nw, 3, 3), complex)
         else:
