@@ -34,7 +34,7 @@ class FrequencyDescriptor:
         """Create frequency-grid descriptor.
 
         In case *input* is a list on frequencies (in eV) a
-        :class:`LinearFrequencyDescriptor` instance is returned.
+        :class:`GridFrequencyDescriptor` instance is returned.
         Othervise a :class:`NonLinearFrequencyDescriptor` instance is
         returned.
 
@@ -59,7 +59,7 @@ class FrequencyDescriptor:
         return LinearFrequencyDescriptor(np.asarray(input) / Ha)
 
 
-class LinearFrequencyDescriptor(FrequencyDescriptor):
+class GridFrequencyDescriptor(FrequencyDescriptor):
 
     def get_index_range(self, lim1_m, lim2_m):
         """Get index range. """

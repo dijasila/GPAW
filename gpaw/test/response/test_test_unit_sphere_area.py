@@ -4,7 +4,7 @@ import pytest
 import numpy as np
 
 from gpaw.response.integrators import TetrahedronIntegrator
-from gpaw.response.chi0 import LinearFrequencyDescriptor
+from gpaw.response.chi0 import GridFrequencyDescriptor
 # from gpaw.test import equal
 
 
@@ -28,7 +28,7 @@ def test_tetrahedron_integrator():
     integrator.integrate(kind='spectral function',
                          domain=domain,
                          integrand=(unit, unit_sphere),
-                         x=LinearFrequencyDescriptor([-1.0]),
+                         x=GridFrequencyDescriptor([-1.0]),
                          out_wxx=out_wxx)
 
     assert abs(out_wxx[0, 0, 0] - 4 * np.pi) < 1e-2

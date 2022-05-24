@@ -13,7 +13,7 @@ from gpaw.bztools import convex_hull_volume
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.pw.descriptor import PWDescriptor
 from gpaw.response.frequencies import (FrequencyDescriptor,
-                                       LinearFrequencyDescriptor,
+                                       GridFrequencyDescriptor,
                                        NonLinearFrequencyDescriptor)
 from gpaw.response.pw_parallelization import (block_partition, Blocks1D,
                                               PlaneWaveBlockDistributor)
@@ -556,7 +556,7 @@ class Chi0:
                 extraargs['intraband'] = True  # Calculate intraband
             elif self.integrationmode == 'tetrahedron integration':
                 # Calculate intraband transitions at T=0
-                extraargs['x'] = LinearFrequencyDescriptor([-fermi_level])
+                extraargs['x'] = GridFrequencyDescriptor([-fermi_level])
 
             intnoblock.integrate(kind='spectral function',  # Kind of integral
                                  domain=domain,  # Integration domain
