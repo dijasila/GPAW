@@ -997,7 +997,8 @@ class G0W0:
 
         chi0_wGG = chi0.blockdist.redistribute(chi0.chi0_wGG)
         pd = chi0.pd
-        chi0_wxvG = chi0._wxvG
+        chi0_wxvG = chi0.chi0_wxvG
+        chi0_wvv = chi0.chi0_wvv
 
         if ecut == pd.ecut:
             pdi = pd
