@@ -177,7 +177,7 @@ class RPACorrelation:
         """Calculate RPA correlation energy for one or several cutoffs.
 
         ecut: float or list of floats
-            Plane-wave cutoff(s).
+            Plane-wave cutoff(s) in eV.
         nbands: int
             Number of bands (defaults to number of plane-waves).
         spin: bool
@@ -212,7 +212,8 @@ class RPACorrelation:
             self.calc, frequencies=1j * Hartree * self.omega_w,
             eta=0.0, intraband=False, hilbert=False,
             txt='chi0.txt', timer=self.timer, world=self.world,
-            nblocks=self.nblocks)
+            nblocks=self.nblocks,
+            ecut=ecutmax * Hartree)
 
         self.blockcomm = chi0calc.blockcomm
 
