@@ -33,6 +33,12 @@ from gpaw.response.temp import DielectricFunctionCalculator
 from gpaw.response.q0_correction import Q0Correction
 
 
+class HilbertTransforms:
+    def __init__(self, wd, eta):
+        self.htp = HilbertTransform(wd.omega_w, eta, gw=True)
+        self.htm = HilbertTransform(wd.omega_w, -eta, gw=True)
+
+
 class Sigma:
     def __init__(self, esknshape):
         self._buf = np.zeros((2, * esknshape))
@@ -456,6 +462,7 @@ class G0W0:
 
         self.print_parameters(kpts, b1, b2, ecut_extrapolation)
         self.fd.flush()
+        self.hilbert = None  # initialized when we create Chi0
 
     @property
     def kd(self):
@@ -807,10 +814,8 @@ class G0W0:
             wstc = None
 
         self.wd = chi0.wd
+        self.hilbert = HilbertTransforms(self.wd, self.eta)
         print(self.wd, file=self.fd)
-
-        htp = HilbertTransform(self.wd.omega_w, self.eta, gw=True)
-        htm = HilbertTransform(self.wd.omega_w, -self.eta, gw=True)
 
         # Find maximum size of chi-0 matrices:
         nGmax = max(count_reciprocal_vectors(self.ecut, self.gd, q_c)
@@ -892,7 +897,7 @@ class G0W0:
                     pdi, W, W_GW = self.calculate_w(
                         chi0, q_c, pd, chi0bands_wGG,
                         chi0bands_wxvG, chi0bands_wvv,
-                        m1, m2, ecut, htp, htm, wstc, iq)
+                        m1, m2, ecut, wstc, iq)
                     m1 = m2
                     if self.savew:
                         if self.blockcomm.size > 1:
@@ -915,7 +920,7 @@ class G0W0:
 
     @timer('WW')
     def calculate_w(self, chi0, q_c, pd, chi0bands_wGG, chi0bands_wxvG,
-                    chi0bands_wvv, m1, m2, ecut, htp, htm, wstc,
+                    chi0bands_wvv, m1, m2, ecut, wstc,
                     iq):
         """Calculates the screened potential for a specified q-point."""
 
@@ -970,7 +975,7 @@ class G0W0:
             wstc, iq, q_c, chi0,
             chi0_wvv, chi0_wxvG,
             chi0_wGG,
-            pd, ecut, htp, htm)
+            pd, ecut)
 
         # W_xwGG = [ Wm_wGG, Wp_wGG ] !
 
@@ -984,8 +989,7 @@ class G0W0:
         #     pdi, Wm2_wGG, Wp2_wGG = self.dyson_and_W_new(wstc, iq, q_c, chi0,
         #                                                  chi0_wvv, chi0_wxvG,
         #                                                  chi02_wGG,
-        #                                                  pd, ecut,
-        #                                                  htp, htm)
+        #                                                  pd, ecut)
         #     self.timer.stop('new non gamma')
 
         #     assert np.allclose(Wm_wGG, Wm2_wGG)
@@ -998,7 +1002,7 @@ class G0W0:
         return pdi, W_xwGG, GW_return
 
     def dyson_and_W_new(self, wstc, iq, q_c, chi0, chi0_wvv, chi0_wxvG,
-                        chi0_WgG, pd, ecut, htp, htm):
+                        chi0_WgG, pd, ecut):
         assert not self.ppa
         assert not self.do_GW_too
         assert ecut == pd.ecut
@@ -1053,15 +1057,10 @@ class G0W0:
         W_WgG = inveps_WgG
         Wp_wGG = W_WgG.copy()
         Wm_wGG = W_WgG.copy()
-
-        with self.timer('Hilbert transform'):
-            htp(Wp_wGG)
-            htm(Wm_wGG)
-        self.timer.stop('Dyson eq.')
-        return pd, Wm_wGG, Wp_wGG
+        return pd, Wm_wGG, Wp_wGG  # not Hilbert transformed yet
 
     def dyson_and_W_old(self, wstc, iq, q_c, chi0, chi0_wvv, chi0_wxvG,
-                        chi0_wGG, pd, ecut, htp, htm):
+                        chi0_wGG, pd, ecut):
         nG = pd.ngmax
 
         wblocks1d = Blocks1D(self.blockcomm, len(self.wd))
@@ -1245,8 +1244,8 @@ class G0W0:
         Wp_wGG = Wm_wGG.copy()
 
         with self.timer('Hilbert transform'):
-            htp(Wp_wGG)
-            htm(Wm_wGG)
+            self.hilbert.htp(Wp_wGG)
+            self.hilbert.htm(Wm_wGG)
 
             if self.do_GW_too:
                 Wm_GW_wGG = self.blockdist.redistribute(
@@ -1254,8 +1253,8 @@ class G0W0:
 
                 Wp_GW_wGG = Wm_GW_wGG.copy()
 
-                htp(Wp_GW_wGG)
-                htm(Wm_GW_wGG)
+                self.hilbert.htp(Wp_GW_wGG)
+                self.hilbert.htm(Wm_GW_wGG)
                 GW_return = [Wp_GW_wGG, Wm_GW_wGG]
             else:
                 GW_return = None
