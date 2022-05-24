@@ -988,13 +988,15 @@ class G0W0:
             chi0_wGG,
             pd, ecut)
 
+        GW_return = None
         if self.ppa:
-            GW_return = None
             W_xwGG = W_wGG
             # (We are ignoring some of the return values from dyson
             # because the ppa API is nonsense)
         else:
-            W_xwGG, GW_return = self.hilbert_transform(W_wGG, W_GW_wGG)
+            W_xwGG = self.hilbert_transform(W_wGG)
+            if self.do_GW_too:
+                GW_return = self.hilbert_transform(W_GW_wGG)
 
         # W_xwGG = [ Wm_wGG, Wp_wGG ] !
 
@@ -1270,7 +1272,7 @@ class G0W0:
         self.timer.stop('Dyson eq.')
         return pdi, W_wGG, W_GW_wGG
 
-    def hilbert_transform(self, W_wGG, W_GW_wGG):
+    def hilbert_transform(self, W_wGG):
         Wm_wGG = W_wGG
         Wp_wGG = W_wGG.copy()
         with self.timer('Hilbert transform'):
@@ -1284,17 +1286,7 @@ class G0W0:
             assert np.allclose(Wp_new_wGG, Wp_wGG)
             assert np.allclose(Wm_new_wGG, Wm_wGG)
 
-            if self.do_GW_too:
-                Wm_GW_wGG = W_GW_wGG
-                Wp_GW_wGG = W_GW_wGG.copy()
-
-                self.hilbert.htp(Wp_GW_wGG)
-                self.hilbert.htm(Wm_GW_wGG)
-                GW_return = [Wp_GW_wGG, Wm_GW_wGG]
-            else:
-                GW_return = None
-
-        return [Wp_wGG, Wm_wGG], GW_return
+        return [Wp_wGG, Wm_wGG]
 
     @timer('Kohn-Sham XC-contribution')
     def calculate_ks_xc_contribution(self):
