@@ -18,7 +18,8 @@ from gpaw.response.frequencies import (FrequencyDescriptor,
 from gpaw.response.pw_parallelization import (block_partition, Blocks1D,
                                               PlaneWaveBlockDistributor)
 from gpaw.response.integrators import PointIntegrator, TetrahedronIntegrator
-from gpaw.response.pair import PairDensity, PWSymmetryAnalyzer
+from gpaw.response.pair import PairDensity
+from gpaw.response.symmetry import PWSymmetryAnalyzer
 from gpaw.utilities.blas import gemm
 from gpaw.utilities.memory import maxrss
 from gpaw.typing import Array1D
@@ -404,8 +405,8 @@ class Chi0:
         # The integration domain is determined by the following function
         # that reduces the integration domain to the irreducible zone
         # of the little group of q.
-        bzk_kv, PWSA = self.get_kpoints(pd,
-                                        integrationmode=self.integrationmode)
+        bzk_kv, analyzer = self.get_kpoints(
+            pd, integrationmode=self.integrationmode)
         domain = (bzk_kv, spins)
 
         if self.integrationmode == 'tetrahedron integration':
@@ -414,13 +415,14 @@ class Chi0:
             # which essentially means that too large domains will be
             # integrated. We normalize by vol(BZ) / vol(domain) to make
             # sure that to fix this.
-            domainvol = convex_hull_volume(bzk_kv) * PWSA.how_many_symmetries()
+            domainvol = convex_hull_volume(
+                bzk_kv) * analyzer.how_many_symmetries()
             bzvol = (2 * np.pi)**3 / self.vol
             factor = bzvol / domainvol
         else:
             factor = 1
 
-        prefactor = (2 * factor * PWSA.how_many_symmetries() /
+        prefactor = (2 * factor * analyzer.how_many_symmetries() /
                      (wfs.nspins * (2 * np.pi)**3))  # Remember prefactor
 
         if self.integrationmode is None:
@@ -441,7 +443,7 @@ class Chi0:
         # kwargs keyword.
         kd = self.calc.wfs.kd
         mat_kwargs = {'kd': kd, 'pd': pd,
-                      'symmetry': PWSA,
+                      'symmetry': analyzer,
                       'integrationmode': self.integrationmode}
         eig_kwargs = {'kd': kd, 'pd': pd}
 
@@ -533,7 +535,7 @@ class Chi0:
             # The intraband response is essentially just the calculation
             # of the free space Drude plasma frequency. The calculation is
             # similarly to the interband transitions documented above.
-            mat_kwargs = {'kd': kd, 'symmetry': PWSA,
+            mat_kwargs = {'kd': kd, 'symmetry': analyzer,
                           'n1': self.nocc1, 'n2': self.nocc2,
                           'pd': pd}  # Integrand arguments
             eig_kwargs = {'kd': kd,
@@ -587,7 +589,7 @@ class Chi0:
             except AttributeError:
                 self.plasmafreq_vv = 4 * np.pi * plasmafreq_vv * prefactor
 
-            PWSA.symmetrize_wvv(self.plasmafreq_vv[np.newaxis])
+            analyzer.symmetrize_wvv(self.plasmafreq_vv[np.newaxis])
             print('Plasma frequency:', file=self.fd)
             print((self.plasmafreq_vv**0.5 * Ha).round(2),
                   file=self.fd)
@@ -604,15 +606,15 @@ class Chi0:
 
         tmpA_wxx = self.redistribute(A_wxx)
         if extend_head:
-            PWSA.symmetrize_wxx(tmpA_wxx,
-                                optical_limit=optical_limit)
+            analyzer.symmetrize_wxx(tmpA_wxx,
+                                    optical_limit=optical_limit)
         else:
-            PWSA.symmetrize_wGG(tmpA_wxx)
+            analyzer.symmetrize_wGG(tmpA_wxx)
             if wings:
                 chi0_wxvG += chi0_wxvx[..., 2:]
                 chi0_wvv += chi0_wxvx[:, 0, :3, :3]
-                PWSA.symmetrize_wxvG(chi0_wxvG)
-                PWSA.symmetrize_wvv(chi0_wvv)
+                analyzer.symmetrize_wxvG(chi0_wxvG)
+                analyzer.symmetrize_wvv(chi0_wvv)
         self.redistribute(tmpA_wxx, A_wxx)
 
         # If point summation was used then the normalization of the
@@ -677,20 +679,19 @@ class Chi0:
     @timer('Get kpoints')
     def get_kpoints(self, pd, integrationmode=None):
         """Get the integration domain."""
-        # Use symmetries
-        PWSA = PWSymmetryAnalyzer
-        PWSA = PWSA(self.calc.wfs.kd, pd,
-                    timer=self.timer, txt=self.fd,
-                    disable_point_group=self.disable_point_group,
-                    disable_time_reversal=self.disable_time_reversal,
-                    disable_non_symmorphic=self.disable_non_symmorphic)
+        analyzer = PWSymmetryAnalyzer(
+            self.calc.wfs.kd, pd,
+            timer=self.timer, txt=self.fd,
+            disable_point_group=self.disable_point_group,
+            disable_time_reversal=self.disable_time_reversal,
+            disable_non_symmorphic=self.disable_non_symmorphic)
 
         if integrationmode is None:
-            K_gK = PWSA.group_kpoints()
+            K_gK = analyzer.group_kpoints()
             bzk_kc = np.array([self.calc.wfs.kd.bzk_kc[K_K[0]] for
                                K_K in K_gK])
         elif integrationmode == 'tetrahedron integration':
-            bzk_kc = PWSA.get_reduced_kd(pbc_c=self.pbc).bzk_kc
+            bzk_kc = analyzer.get_reduced_kd(pbc_c=self.pbc).bzk_kc
             if (~self.pbc).any():
                 bzk_kc = np.append(bzk_kc,
                                    bzk_kc + (~self.pbc).astype(int),
@@ -698,7 +699,7 @@ class Chi0:
 
         bzk_kv = np.dot(bzk_kc, pd.gd.icell_cv) * 2 * np.pi
 
-        return bzk_kv, PWSA
+        return bzk_kv, analyzer
 
     @timer('Get matrix element')
     def get_matrix_element(self, k_v, s, n1=None, n2=None,
@@ -735,7 +736,7 @@ class Chi0:
         kd : KpointDescriptor instance
             Calculator kpoint descriptor.
         symmetry: gpaw.response.pair.PWSymmetryAnalyzer instance
-            PWSA object for handling symmetries of the kpoints.
+            Symmetry analyzer object for handling symmetries of the kpoints.
         integrationmode : str
             The integration mode employed.
         extend_head: Bool
