@@ -13,7 +13,6 @@ from gpaw.response.g0w0 import G0W0
 
 @pytest.mark.response
 def test_response_gw_hBN_extrapolate(in_tmp_dir, scalapack):
-    pytest.xfail('gw go brrr work in progress')
     if 1:
         calc = GPAW(mode='pw',
                     xc='PBE',
@@ -48,6 +47,7 @@ def test_response_gw_hBN_extrapolate(in_tmp_dir, scalapack):
                            'domega0': 0.1},
               eta=0.2,
               truncation='2D',
+              q0_correction=True,
               kpts=[0],
               bands=(3, 5),
               ecut_extrapolation=[30, 40, 50],
@@ -55,7 +55,8 @@ def test_response_gw_hBN_extrapolate(in_tmp_dir, scalapack):
 
     e_qp = gw.calculate()['qp'][0, 0]
 
-    ev = -4.381
-    ec = 3.71013806
+
+    ev = -3.9041
+    ec =  3.1858
     equal(e_qp[0], ev, 0.01)
     equal(e_qp[1], ec, 0.01)
