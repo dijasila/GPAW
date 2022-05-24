@@ -1,9 +1,10 @@
 class Q0Correction:
-    def __init__(self, x0density, cell_cv, bzk_kc, N_c):
-        self.x0density = x0density
+    def __init__(self, cell_cv, bzk_kc, N_c):
         self.cell_cv = cell_cv
         self.bzk_kc = bzk_kc
         self.N_c = N_c
+
+        self.x0density = 0.1  # ? 0.01
 
     def add_q0_correction(self, pd, W_GG, einv_GG, chi0_xvG, chi0_vv,
                           sqrtV_G, fd=None):

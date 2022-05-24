@@ -337,7 +337,6 @@ class G0W0:
 
         if self.ac:
             assert self.truncation == '2D'
-            self.x0density = 0.1  # ? 0.01
 
         self.kpts = list(select_kpts(kpts, self.calc))
         self.bands = bands = self.choose_bands(bands, relbands)
@@ -1472,8 +1471,7 @@ class G0W0:
     def add_q0_correction(self, pd, W_GG, einv_GG, chi0_xvG, chi0_vv,
                           sqrtV_G, print_ac=False):
         from gpaw.response.q0_correction import Q0Correction
-        q0c = Q0Correction(x0density=self.x0density,
-                           cell_cv=self.gd.cell_cv, bzk_kc=self.kd.bzk_kc,
+        q0c = Q0Correction(cell_cv=self.gd.cell_cv, bzk_kc=self.kd.bzk_kc,
                            N_c=self.qd.N_c)
 
         q0c.add_q0_correction(
