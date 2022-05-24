@@ -1287,7 +1287,7 @@ class G0W0:
         self.timer.write(self.fd)
 
     @timer('PPA-Sigma')
-    def calculate_sigma_ppa(self, n_mG, deps_m, f_m, W):
+    def calculate_sigma_ppa(self, n_mG, deps_m, f_m, W, *unused):
         W_GG, omegat_GG = W
 
         sigma = 0.0
