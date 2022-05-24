@@ -16,7 +16,7 @@ import gpaw.mpi as mpi
 from gpaw import debug
 from gpaw.calculator import GPAW
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.response.chi0 import Chi0, HilbertTransform
+from gpaw.response.chi0 import Chi0
 from gpaw.response.fxckernel_calc import calculate_kernel
 from gpaw.response.kernels import get_coulomb_kernel, get_integrated_kernel
 from gpaw.response.pair import PairDensity
@@ -31,6 +31,7 @@ from gpaw.xc.fxc import set_flags
 from gpaw.xc.tools import vxc
 from gpaw.response.temp import DielectricFunctionCalculator
 from gpaw.response.q0_correction import Q0Correction
+from gpaw.response.hilbert import GWHilbertTransforms
 
 
 class Sigma:
@@ -456,6 +457,7 @@ class G0W0:
 
         self.print_parameters(kpts, b1, b2, ecut_extrapolation)
         self.fd.flush()
+        self.hilbert_transform = None  # initialized when we create Chi0
 
     @property
     def kd(self):
@@ -807,10 +809,9 @@ class G0W0:
             wstc = None
 
         self.wd = chi0.wd
+        self.hilbert_transform = GWHilbertTransforms(
+            self.wd.omega_w, self.eta)
         print(self.wd, file=self.fd)
-
-        htp = HilbertTransform(self.wd.omega_w, self.eta, gw=True)
-        htm = HilbertTransform(self.wd.omega_w, -self.eta, gw=True)
 
         # Find maximum size of chi-0 matrices:
         nGmax = max(count_reciprocal_vectors(self.ecut, self.gd, q_c)
@@ -892,7 +893,7 @@ class G0W0:
                     pdi, W, W_GW = self.calculate_w(
                         chi0, q_c, pd, chi0bands_wGG,
                         chi0bands_wxvG, chi0bands_wvv,
-                        m1, m2, ecut, htp, htm, wstc, iq)
+                        m1, m2, ecut, wstc, iq)
                     m1 = m2
                     if self.savew:
                         if self.blockcomm.size > 1:
@@ -915,7 +916,7 @@ class G0W0:
 
     @timer('WW')
     def calculate_w(self, chi0, q_c, pd, chi0bands_wGG, chi0bands_wxvG,
-                    chi0bands_wvv, m1, m2, ecut, htp, htm, wstc,
+                    chi0bands_wvv, m1, m2, ecut, wstc,
                     iq):
         """Calculates the screened potential for a specified q-point."""
 
@@ -966,11 +967,23 @@ class G0W0:
         #     self.timer.start('old non gamma')
         # else:
         #     self.timer.start('old gamma')
-        pdi, W_xwGG, GW_return = self.dyson_and_W_old(
+
+        pdi, W_wGG, W_GW_wGG = self.dyson_and_W_old(
             wstc, iq, q_c, chi0,
             chi0_wvv, chi0_wxvG,
             chi0_wGG,
-            pd, ecut, htp, htm)
+            pd, ecut)
+
+        GW_return = None
+        if self.ppa:
+            W_xwGG = W_wGG
+            # (We are ignoring some of the return values from dyson
+            # because the ppa API is nonsense)
+        else:
+            with self.timer('Hilbert'):
+                W_xwGG = self.hilbert_transform(W_wGG)
+                if self.do_GW_too:
+                    GW_return = self.hilbert_transform(W_GW_wGG)
 
         # W_xwGG = [ Wm_wGG, Wp_wGG ] !
 
@@ -984,8 +997,7 @@ class G0W0:
         #     pdi, Wm2_wGG, Wp2_wGG = self.dyson_and_W_new(wstc, iq, q_c, chi0,
         #                                                  chi0_wvv, chi0_wxvG,
         #                                                  chi02_wGG,
-        #                                                  pd, ecut,
-        #                                                  htp, htm)
+        #                                                  pd, ecut)
         #     self.timer.stop('new non gamma')
 
         #     assert np.allclose(Wm_wGG, Wm2_wGG)
@@ -998,7 +1010,7 @@ class G0W0:
         return pdi, W_xwGG, GW_return
 
     def dyson_and_W_new(self, wstc, iq, q_c, chi0, chi0_wvv, chi0_wxvG,
-                        chi0_WgG, pd, ecut, htp, htm):
+                        chi0_WgG, pd, ecut):
         assert not self.ppa
         assert not self.do_GW_too
         assert ecut == pd.ecut
@@ -1053,15 +1065,10 @@ class G0W0:
         W_WgG = inveps_WgG
         Wp_wGG = W_WgG.copy()
         Wm_wGG = W_WgG.copy()
-
-        with self.timer('Hilbert transform'):
-            htp(Wp_wGG)
-            htm(Wm_wGG)
-        self.timer.stop('Dyson eq.')
-        return pd, Wm_wGG, Wp_wGG
+        return pd, Wm_wGG, Wp_wGG  # not Hilbert transformed yet
 
     def dyson_and_W_old(self, wstc, iq, q_c, chi0, chi0_wvv, chi0_wxvG,
-                        chi0_wGG, pd, ecut, htp, htm):
+                        chi0_wGG, pd, ecut):
         nG = pd.ngmax
 
         wblocks1d = Blocks1D(self.blockcomm, len(self.wd))
@@ -1241,27 +1248,16 @@ class G0W0:
 
         # XXX This creates a new, large buffer.  We could perhaps
         # avoid that.  Buffer used to exist but was removed due to #456.
-        Wm_wGG = self.blockdist.redistribute(chi0_wGG)
-        Wp_wGG = Wm_wGG.copy()
+        W_wGG = self.blockdist.redistribute(chi0_wGG)
 
-        with self.timer('Hilbert transform'):
-            htp(Wp_wGG)
-            htm(Wm_wGG)
-
-            if self.do_GW_too:
-                Wm_GW_wGG = self.blockdist.redistribute(
-                    chi0_GW_wGG)
-
-                Wp_GW_wGG = Wm_GW_wGG.copy()
-
-                htp(Wp_GW_wGG)
-                htm(Wm_GW_wGG)
-                GW_return = [Wp_GW_wGG, Wm_GW_wGG]
-            else:
-                GW_return = None
+        if self.do_GW_too:
+            W_GW_wGG = self.blockdist.redistribute(
+                chi0_GW_wGG)
+        else:
+            W_GW_wGG = None
 
         self.timer.stop('Dyson eq.')
-        return pdi, [Wp_wGG, Wm_wGG], GW_return
+        return pdi, W_wGG, W_GW_wGG
 
     @timer('Kohn-Sham XC-contribution')
     def calculate_ks_xc_contribution(self):

@@ -20,7 +20,7 @@ from gpaw.response.pw_parallelization import (block_partition, Blocks1D,
 from gpaw.response.integrators import PointIntegrator, TetrahedronIntegrator
 from gpaw.response.pair import PairDensity
 from gpaw.response.symmetry import PWSymmetryAnalyzer
-from gpaw.utilities.blas import gemm
+from gpaw.response.hilbert import HilbertTransform
 from gpaw.utilities.memory import maxrss
 from gpaw.typing import Array1D
 
@@ -951,84 +951,3 @@ class Chi0:
         p('        Memory usage before allocation: %f M / cpu' % (maxrss() /
                                                                   1024**2))
         p()
-
-
-class HilbertTransform:
-
-    def __init__(self, omega_w, eta, timeordered=False, gw=False,
-                 blocksize=500):
-        """Analytic Hilbert transformation using linear interpolation.
-
-        Hilbert transform::
-
-           oo
-          /           1                1
-          |dw' (-------------- - --------------) S(w').
-          /     w - w' + i eta   w + w' + i eta
-          0
-
-        With timeordered=True, you get::
-
-           oo
-          /           1                1
-          |dw' (-------------- - --------------) S(w').
-          /     w - w' - i eta   w + w' + i eta
-          0
-
-        With gw=True, you get::
-
-           oo
-          /           1                1
-          |dw' (-------------- + --------------) S(w').
-          /     w - w' + i eta   w + w' + i eta
-          0
-
-        """
-
-        self.blocksize = blocksize
-
-        if timeordered:
-            self.H_ww = self.H(omega_w, -eta) + self.H(omega_w, -eta, -1)
-        elif gw:
-            self.H_ww = self.H(omega_w, eta) - self.H(omega_w, -eta, -1)
-        else:
-            self.H_ww = self.H(omega_w, eta) + self.H(omega_w, -eta, -1)
-
-    def H(self, o_w, eta, sign=1):
-        """Calculate transformation matrix.
-
-        With s=sign (+1 or -1)::
-
-                        oo
-                       /       dw'
-          X (w, eta) = | ---------------- S(w').
-           s           / s w - w' + i eta
-                       0
-
-        Returns H_ij so that X_i = np.dot(H_ij, S_j), where::
-
-            X_i = X (omega_w[i]) and S_j = S(omega_w[j])
-                   s
-        """
-
-        nw = len(o_w)
-        H_ij = np.zeros((nw, nw), complex)
-        do_j = o_w[1:] - o_w[:-1]
-        for i, o in enumerate(o_w):
-            d_j = o_w - o * sign
-            y_j = 1j * np.arctan(d_j / eta) + 0.5 * np.log(d_j**2 + eta**2)
-            y_j = (y_j[1:] - y_j[:-1]) / do_j
-            H_ij[i, :-1] = 1 - (d_j[1:] - 1j * eta) * y_j
-            H_ij[i, 1:] -= 1 - (d_j[:-1] - 1j * eta) * y_j
-        return H_ij
-
-    def __call__(self, S_wx):
-        """Inplace transform"""
-        B_wx = S_wx.reshape((len(S_wx), -1))
-        nw, nx = B_wx.shape
-        tmp_wx = np.zeros((nw, min(nx, self.blocksize)), complex)
-        for x in range(0, nx, self.blocksize):
-            b_wx = B_wx[:, x:x + self.blocksize]
-            c_wx = tmp_wx[:, :b_wx.shape[1]]
-            gemm(1.0, b_wx, self.H_ww, 0.0, c_wx)
-            b_wx[:] = c_wx
