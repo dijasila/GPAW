@@ -12,6 +12,7 @@ pytestmark = pytest.mark.skipif(
     reason='world.size != 1 and not compiled_with_sl()')
 
 
+@pytest.mark.response
 def test_response_gw_MoS2_cut(in_tmp_dir):
     if 1:
         calc = GPAW(mode='pw',

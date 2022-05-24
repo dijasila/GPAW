@@ -82,6 +82,7 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
 
         dens.map23.add_to1(self.vt_Q, self.vHt_q)
 
+        # vt_sG[:] = pd2.ifft(vt_Q)
         eext = self.vext.update_potential_pw(self, dens)
         eext /= self.finegd.comm.size
 

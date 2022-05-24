@@ -1,5 +1,7 @@
 import numpy as np
 from ase.units import Bohr
+from ase.utils.timing import timer
+from gpaw.directmin.tools import loewdin_lcao, gramschmidt_lcao
 
 from gpaw.lfc import BasisFunctions
 from gpaw.utilities import unpack
@@ -12,6 +14,7 @@ from gpaw.wavefunctions.base import WaveFunctions
 from gpaw.lcao.atomic_correction import (DenseAtomicCorrection,
                                          SparseAtomicCorrection)
 from gpaw.wavefunctions.mode import Mode
+from gpaw.directmin.etdm import ETDM
 
 
 class LCAO(Mode):
@@ -120,8 +123,24 @@ class LCAOWaveFunctions(WaveFunctions):
                                               dtype=dtype,
                                               cut=True)
 
-    def set_orthonormalized(self, o):
-        pass
+        self.coefficients_read_from_file = False
+        self.set_orthonormalized(False)
+
+    def set_orthonormalized(self, flag):
+        self.orthonormalized = flag
+
+    @timer('Orthonormalize')
+    def orthonormalize(self, kpt=None, type='gramschmidt'):
+        assert type == 'gramschmidt' or type == 'loewdin'
+        if kpt is None:
+            for kpt in self.kpt_u:
+                self.orthonormalize(kpt)
+            self.orthonormalized = True
+            return
+        if type == 'loewdin':
+            kpt.C_nM[:] = loewdin_lcao(kpt.C_nM, kpt.S_MM.conj())
+        elif type == 'gramschmidt':
+            kpt.C_nM[:] = gramschmidt_lcao(kpt.C_nM, kpt.S_MM.conj())
 
     def empty(self, n=(), global_array=False, realspace=False):
         if realspace:
@@ -137,14 +156,20 @@ class LCAOWaveFunctions(WaveFunctions):
         s += '  Diagonalizer: %s\n' % self.ksl.get_description()
         s += ('  Atomic Correction: %s\n'
               % self.atomic_correction_cls.description)
-        s += '  Datatype: %s\n' % self.dtype.__name__
+        s += '  Data-type: %s\n' % self.dtype.__name__
         return s
 
     def set_eigensolver(self, eigensolver):
         WaveFunctions.set_eigensolver(self, eigensolver)
         if eigensolver:
-            eigensolver.initialize(self.gd, self.dtype, self.setups.nao,
-                                   self.ksl)
+            if isinstance(eigensolver, ETDM):
+                eigensolver.initialize(self.gd, self.dtype, self.bd.nbands,
+                                       self.kd.nibzkpts, self.setups.nao,
+                                       self.ksl.using_blacs,
+                                       self.bd.comm.size, self.kpt_u)
+            else:
+                eigensolver.initialize(self.gd, self.dtype, self.setups.nao,
+                                       self.ksl)
 
     def set_positions(self, spos_ac, atom_partition=None, move_wfs=False):
         oldspos_ac = self.spos_ac
@@ -302,6 +327,7 @@ class LCAOWaveFunctions(WaveFunctions):
         # since this is where we change S_qMM.  Hence, expect this to
         # become arrays after the first diagonalization:
         self.decomposed_S_qMM = [None] * len(self.S_qMM)
+        self.set_orthonormalized(False)
 
     def initialize(self, density, hamiltonian, spos_ac):
         # Note: The above line exists also in set_positions.
@@ -495,6 +521,8 @@ class LCAOWaveFunctions(WaveFunctions):
                     break
                 C_M[:] = C_nM[n] * Bohr**1.5
 
+        self.coefficients_read_from_file = True
+
     def estimate_memory(self, mem):
         nq = len(self.kd.ibzk_qc)
         nao = self.setups.nao
@@ -550,7 +578,7 @@ class LCAOforces:
                 self.gd.comm, self.Mstart, self.Mstop, False, derivative=True)
             self.dPdR_aqvMi = self.manytci.P_aqMi(self.bfs.my_atom_indices,
                                                   derivative=True)
-    
+
             self.gd.comm.sum(self.dThetadR_qvMM)
             self.gd.comm.sum(self.dTdR_qvMM)
             self.timer.stop('TCI derivative')
@@ -573,7 +601,7 @@ class LCAOforces:
             Fpot_av = self.get_pot_term_blacs()
             Fkin_av, Ftheta_av = self.get_kin_and_den_term_blacs()
             Fatom_av, Frho_av = self.get_at_den_and_den_paw_blacs()
-             
+
             F_av += Fkin_av + Fpot_av + Ftheta_av + Frho_av + Fatom_av
 
         self.timer.start('Wait for sum')

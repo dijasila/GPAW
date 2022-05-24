@@ -73,7 +73,7 @@ in the address bar::
 
   http://localhost:8080
 
-Your browser is now aking for your *Jupyter password* (the one you
+Your browser is now asking for your *Jupyter password* (the one you
 created when setting up your account).  You are now ready to open one
 of the notebooks, and run the exercises.
 

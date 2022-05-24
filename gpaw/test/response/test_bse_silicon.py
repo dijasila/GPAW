@@ -12,6 +12,7 @@ pytestmark = pytest.mark.skipif(
     reason='world.size != 4 or not compiled_with_sl()')
 
 
+@pytest.mark.response
 def test_response_bse_silicon(in_tmp_dir):
     GS = 1
     nosym = 1

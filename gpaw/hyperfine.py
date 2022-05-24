@@ -19,7 +19,7 @@ import ase.units as units
 import numpy as np
 from scipy.integrate import simps
 
-from gpaw import GPAW
+from gpaw.calculator import GPAW
 from gpaw.atom.aeatom import Channel
 from gpaw.atom.configurations import configurations
 from gpaw.atom.radialgd import RadialGridDescriptor
@@ -329,10 +329,7 @@ def main(argv: List[str] = None) -> None:
     add('-d', '--diagonalize', action='store_true',
         help='Show eigenvalues of tensor.')
 
-    if hasattr(parser, 'parse_intermixed_args'):
-        args = parser.parse_intermixed_args(argv)
-    else:
-        args = parser.parse_args(argv)
+    args = parser.parse_intermixed_args(argv)
 
     calc = GPAW(args.file)
     atoms = calc.get_atoms()
@@ -375,7 +372,7 @@ def main(argv: List[str] = None) -> None:
         used[symbol] = g_factor
         A_vv *= g_factor * scale
         if args.diagonalize:
-            numbers = np.linalg.eigvalsh(A_vv)
+            numbers = np.linalg.eigvalsh(A_vv).tolist()
         else:
             numbers = [A_vv[0, 0], A_vv[1, 1], A_vv[2, 2],
                        A_vv[1, 2], A_vv[0, 2], A_vv[0, 1]]

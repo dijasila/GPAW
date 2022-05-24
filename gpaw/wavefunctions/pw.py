@@ -53,7 +53,7 @@ class PW(Mode):
         Only one of dedecut and pulay_stress can be used.
         """
 
-        self.gammacentered = gammacentered
+        assert not gammacentered
         self.ecut = ecut / Ha
         # Don't do expensive planning in dry-run mode:
         self.fftwflags = fftwflags if not gpaw.dry_run else fftw.MEASURE
@@ -89,7 +89,7 @@ class PW(Mode):
             else:
                 dedepsilon = self.dedecut * 2 / 3 * ecut
 
-        wfs = PWWaveFunctions(ecut, self.gammacentered,
+        wfs = PWWaveFunctions(ecut,
                               self.fftwflags, dedepsilon,
                               parallel, initksl, gd=gd,
                               **kwargs)
@@ -99,7 +99,6 @@ class PW(Mode):
     def todict(self):
         dct = Mode.todict(self)
         dct['ecut'] = self.ecut * Ha
-        dct['gammacentered'] = self.gammacentered
 
         if self.cell_cv is not None:
             dct['cell'] = self.cell_cv * Bohr
@@ -159,13 +158,12 @@ class NonCollinearPreconditioner(Preconditioner):
 class PWWaveFunctions(FDPWWaveFunctions):
     mode = 'pw'
 
-    def __init__(self, ecut, gammacentered, fftwflags, dedepsilon,
+    def __init__(self, ecut, fftwflags, dedepsilon,
                  parallel, initksl,
                  reuse_wfs_method, collinear,
                  gd, nvalence, setups, bd, dtype,
                  world, kd, kptband_comm, timer):
         self.ecut = ecut
-        self.gammacentered = gammacentered
         self.fftwflags = fftwflags
         self.dedepsilon = dedepsilon  # Pulay correction for stress tensor
 
@@ -199,7 +197,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
     def set_setups(self, setups):
         self.timer.start('PWDescriptor')
         self.pd = PWDescriptor(self.ecut, self.gd, self.dtype, self.kd,
-                               self.fftwflags, self.gammacentered)
+                               self.fftwflags)
         self.timer.stop('PWDescriptor')
 
         # Build array of number of plane wave coefficiants for all k-points
@@ -238,10 +236,10 @@ class PWWaveFunctions(FDPWWaveFunctions):
         s += ('  Pulay-stress correction: {:.6f} eV/Ang^3 '
               '(de/decut={:.6f})\n'.format(stress, dedecut))
 
-        if fftw.FFTPlan is fftw.NumpyFFTPlan:
-            s += "  Using Numpy's FFT\n"
-        else:
+        if fftw.have_fftw():
             s += '  Using FFTW library\n'
+        else:
+            s += "  Using Numpy's FFT\n"
         return s + FDPWWaveFunctions.__str__(self)
 
     def make_preconditioner(self, block=1):

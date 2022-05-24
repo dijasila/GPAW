@@ -5,16 +5,16 @@ from time import ctime
 import numpy as np
 from ase.units import Hartree
 from ase.utils import IOContext
-from ase.utils.timing import timer, Timer
-from scipy.special.orthogonal import p_roots
+from ase.utils.timing import Timer, timer
+from scipy.special import p_roots
 
 import gpaw.mpi as mpi
 from gpaw import GPAW
 from gpaw.kpt_descriptor import KPointDescriptor
+from gpaw.pw.descriptor import PWDescriptor, count_reciprocal_vectors
 from gpaw.response.chi0 import Chi0
 from gpaw.response.kernels import get_coulomb_kernel
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
-from gpaw.pw.descriptor import PWDescriptor, count_reciprocal_vectors
 
 
 def rpa(filename, ecut=200.0, blocks=1, extrapolate=4):
@@ -251,11 +251,11 @@ class RPACorrelation:
             thisqd = KPointDescriptor([q_c])
             pd = PWDescriptor(ecutmax, wfs.gd, complex, thisqd)
             nG = pd.ngmax
-            mynG = (nG + self.nblocks - 1) // self.nblocks
-            chi0.Ga = self.blockcomm.rank * mynG
-            chi0.Gb = min(chi0.Ga + mynG, nG)
 
-            shape = (1 + spin, nw, chi0.Gb - chi0.Ga, nG)
+            from gpaw.response.hacks import GaGb
+            blockdist = chi0.GaGb = GaGb(self.blockcomm, nG)
+
+            shape = (1 + spin, nw, blockdist.nGlocal, nG)
             chi0_swGG = A1_x[:np.prod(shape)].reshape(shape)
             chi0_swGG[:] = 0.0
 

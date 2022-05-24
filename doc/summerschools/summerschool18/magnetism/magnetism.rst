@@ -18,8 +18,8 @@ coupling and non-collinear order. In the third part you will search for a new
 materials.
 
 
-Part 1: Critical temperaure of |CrI3|
-=====================================
+Part 1: Critical temperature of |CrI3|
+======================================
 
 :download:`magnetism1.ipynb`, :download:`CrI3.xyz`
 
@@ -45,13 +45,13 @@ If the magnetic atoms form a hexagonal lattice and the exchange coupling is
 anti-ferromagnetic, the ground state will have a non-collinear structure. In
 the notebook ``magnetism2.ipynb`` you will
 
-* Relax the atomic postions of the material
+* Relax the atomic positions of the material
 
 * Compare a collinear anti-ferromagnetic structure with the ferromagnetic state
 
 * Obtain the non-collinear ground state
 
-* Calculate the magnetic anisotropy and discuss whether or not the mateerial
+* Calculate the magnetic anisotropy and discuss whether or not the material
   will exhibit magnetic order at low temperature
 
 

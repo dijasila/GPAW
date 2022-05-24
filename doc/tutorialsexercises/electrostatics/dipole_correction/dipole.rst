@@ -21,7 +21,7 @@ the electrostatic potential in the z-direction as shown here:
 
 The blue line is the xy-averaged potential and the green line is the
 fermi-level.  See below how to extract the potential using the
-:meth:`~gpaw.GPAW.get_electrostatic_potential` method.
+:meth:`~gpaw.calculator.GPAW.get_electrostatic_potential` method.
 
 If we use periodic boundary conditions in all directions:
 

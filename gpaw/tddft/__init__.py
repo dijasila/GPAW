@@ -307,6 +307,11 @@ class TDDFT(GPAW):
         """
         self.tddft_init()
 
+        if self.propagator.todict()['name'] in ['EFSICN', 'EFSICN_HGH']:
+            msg = ("You are using propagator for Ehrenfest dynamics. "
+                   "Please use regular propagator.")
+            raise RuntimeError(msg)
+
         def warn_deprecated(parameter, observer):
             warnings.warn(
                 f"The {parameter} parameter is deprecated. "

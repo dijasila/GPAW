@@ -16,7 +16,7 @@ from setuptools.command.install import install as _install
 
 from config import build_interpreter, check_dependencies, write_configuration
 
-assert sys.version_info >= (3, 6)
+assert sys.version_info >= (3, 7)
 
 # Get the current version number:
 txt = Path('gpaw/__init__.py').read_text()
@@ -238,6 +238,12 @@ setup(name='gpaw',
       setup_requires=['numpy'],
       install_requires=[f'ase>={ase_version_required}',
                         'scipy>=1.2.0'],
+      extras_require={'docs': ['sphinx-rtd-theme',
+                               'graphviz'],
+                      'devel': ['flake8',
+                                'mypy',
+                                'pytest-xdist',
+                                'interrogate']},
       ext_modules=extensions,
       scripts=scripts,
       cmdclass=cmdclass,
@@ -247,8 +253,8 @@ setup(name='gpaw',
           'GNU General Public License v3 or later (GPLv3+)',
           'Operating System :: OS Independent',
           'Programming Language :: Python :: 3',
-          'Programming Language :: Python :: 3.6',
           'Programming Language :: Python :: 3.7',
           'Programming Language :: Python :: 3.8',
           'Programming Language :: Python :: 3.9',
+          'Programming Language :: Python :: 3.10',
           'Topic :: Scientific/Engineering :: Physics'])

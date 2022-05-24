@@ -17,6 +17,7 @@ from ase.utils.timing import Timer
 import gpaw
 import gpaw.mpi as mpi
 from gpaw.band_descriptor import BandDescriptor
+from gpaw.convergence_criteria import dict2criterion
 from gpaw.density import RealSpaceDensity
 from gpaw.dos import DOSCalculator
 from gpaw.eigensolvers import get_eigensolver
@@ -37,7 +38,7 @@ from gpaw.output import (print_cell, print_parallelization_details,
                          print_positions)
 from gpaw.pw.density import ReciprocalSpaceDensity
 from gpaw.pw.hamiltonian import ReciprocalSpaceHamiltonian
-from gpaw.scf import SCFLoop, dict2criterion
+from gpaw.scf import SCFLoop
 from gpaw.setup import Setups
 from gpaw.stress import calculate_stress
 from gpaw.symmetry import Symmetry
@@ -216,7 +217,16 @@ class GPAW(Calculator):
         calc.calculate(system_changes=[])
         return calc
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        self.close()
+
     def __del__(self):
+        self.close()
+
+    def close(self):
         # Write timings and close reader if necessary.
         # If we crashed in the constructor (e.g. a bad keyword), we may not
         # have the normally expected attributes:
@@ -471,6 +481,10 @@ class GPAW(Calculator):
                                         '"{}".  Must be one of: {}'
                                         .format(subkey, key, allowed))
 
+        # We need to handle txt early in order to get logging up and running:
+        if 'txt' in kwargs:
+            self.log.fd = kwargs.pop('txt')
+
         changed_parameters = Calculator.set(self, **kwargs)
 
         for key in ['setups', 'basis']:
@@ -480,10 +494,6 @@ class GPAW(Calculator):
                     dct['default'] = dct.pop(None)
                     warnings.warn('Please use {key}={dct}'
                                   .format(key=key, dct=dct))
-
-        # We need to handle txt early in order to get logging up and running:
-        if 'txt' in changed_parameters:
-            self.log.fd = changed_parameters.pop('txt')
 
         if not changed_parameters:
             return {}
@@ -656,15 +666,16 @@ class GPAW(Calculator):
         if not realspace:
             pbc_c = np.ones(3, bool)
 
+        magnetic = magmom_av.any()
+
         if par.hund:
-            if natoms != 1:
-                raise ValueError('hund=True arg only valid for single atoms!')
             spinpol = True
-            magmom_av[0, 2] = self.setups[0].get_hunds_rule_moment(par.charge)
+            magnetic = True
+            c = par.charge / natoms
+            for a, setup in enumerate(self.setups):
+                magmom_av[a, 2] = setup.get_hunds_rule_moment(c)
 
         if collinear:
-            magnetic = magmom_av.any()
-
             spinpol = par.spinpol
             if spinpol is None:
                 spinpol = magnetic
@@ -808,7 +819,7 @@ class GPAW(Calculator):
             self.wfs.set_setups(self.setups)
 
         occ = self.create_occupations(cell_cv, magmom_av[:, 2].sum(),
-                                      orbital_free)
+                                      orbital_free, nvalence)
         self.wfs.occupations = occ
 
         if not self.wfs.eigensolver:
@@ -919,7 +930,7 @@ class GPAW(Calculator):
         return GridDescriptor(N_c, cell_cv, pbc_c, domain_comm,
                               parsize_domain)
 
-    def create_occupations(self, cell_cv, magmom, orbital_free):
+    def create_occupations(self, cell_cv, magmom, orbital_free, nvalence):
         dct = self.parameters.occupations
 
         if dct is None:
@@ -954,7 +965,12 @@ class GPAW(Calculator):
             fixed_magmom_value=magmom,
             rcell=np.linalg.inv(cell_cv).T,
             monkhorst_pack_size=self.wfs.kd.N_c,
-            bz2ibzmap=self.wfs.kd.bz2ibz_k)
+            bz2ibzmap=self.wfs.kd.bz2ibz_k,
+            nspins=self.wfs.nspins,
+            nelectrons=nvalence,
+            nkpts=self.wfs.kd.nibzkpts,
+            nbands=self.wfs.bd.nbands
+        )
 
         self.log('Occupation numbers:', occ, '\n')
         return occ
@@ -1274,7 +1290,7 @@ class GPAW(Calculator):
         self.log.fd.flush()
 
         # Write timing info now before the interpreter shuts down:
-        self.__del__()
+        self.close()
 
         # Disable timing output during shut-down:
         del self.timer

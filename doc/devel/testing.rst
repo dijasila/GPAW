@@ -25,7 +25,7 @@ Use pytest_ and pytest-xdist_ to run the tests::
     If you don't have a git-clone from where you can run ``pytest``, but
     instead want to test an installed version of GPAW, then use::
 
-        $ pytest --pyargs=gpaw -n ...
+        $ pytest --pyargs gpaw -n ...
 
 The test suite consists of a large number of small and quick tests
 found in the :git:`gpaw/test/` directory.  The tests run nightly in serial
@@ -63,7 +63,7 @@ There are two special GPAW-fixtures:
 .. autofunction:: gpaw.test.conftest.gpw_files
 
 Check the :git:`~gpaw/test/conftest.py` to see which gpw-files are available.
-Use a ``_wfs`` postfix to get a gpw-file that contains the wave functions.
+Use a ``_wfs`` post-fix to get a gpw-file that contains the wave functions.
 
 .. autofunction:: gpaw.test.findpeak
 
@@ -106,9 +106,9 @@ Big tests
 The directories in :git:`gpaw/test/big/` and :git:`doc/tutorialsexercises/`
 contain longer and more
 realistic tests that we run every weekend.  These are submitted to a
-queueing system of a large computer.  The scripts in the :git:`doc` folder
+queuing system of a large computer.  The scripts in the :git:`doc` folder
 are used both for testing GPAW and for generating up to date figures and
-csv-file for inclsion in the documentation web-pages.
+CSV-file for inclusion in the documentation web-pages.
 
 
 Adding new tests
@@ -117,7 +117,7 @@ Adding new tests
 To add a new test, create a script somewhere in the file hierarchy ending with
 ``agts.py`` (e.g. ``submit.agts.py`` or just ``agts.py``). ``AGTS`` is short
 for Advanced GPAW Test System (or Another Great Time Sink). This script
-defines how a number of scripts should be submitted to niflheim and how they
+defines how a number of scripts should be submitted to Niflheim and how they
 depend on each other. Consider an example where one script, ``calculate.py``,
 calculates something and saves a ``.gpw`` file and another script,
 ``analyse.py``, analyses this output. Then the submit script should look

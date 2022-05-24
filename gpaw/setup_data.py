@@ -2,7 +2,6 @@ import hashlib
 import os
 import re
 import xml.sax
-from distutils.version import LooseVersion
 from glob import glob
 from math import pi, sqrt
 from pathlib import Path
@@ -72,6 +71,7 @@ class SetupData:
         self.nct_g = None
         self.nvt_g = None
         self.vbar_g = None
+        self.vt_g = None
 
         # Kinetic energy densities of core electrons
         self.tauc_g = None
@@ -346,6 +346,12 @@ class SetupData:
                     print(f'{x!r}', end=' ', file=xml)
                 print(f'\n  </{name}>', file=xml)
 
+        if self.vt_g is not None:
+            xml.write('  <pseudo_potential grid="g1">\n')
+            for x in self.vt_g:
+                print(f'{x!r}', end=' ', file=xml)
+            print('\n  </pseudo_potential>', file=xml)
+
         print('  <kinetic_energy_differences>', end=' ', file=xml)
         nj = len(self.e_kin_jj)
         for j1 in range(nj):
@@ -453,7 +459,7 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
         setup = self.setup
         if name == 'paw_setup' or name == 'paw_dataset':
             setup.version = attrs['version']
-            assert LooseVersion(setup.version) >= '0.4'
+            assert [int(v) for v in setup.version.split('.')] >= [0, 4]
         if name == 'atom':
             Z = float(attrs['Z'])
             setup.Z = Z
@@ -486,7 +492,8 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
             setup.rcut_j.append(float(attrs.get('rc', -1)))
             setup.id_j.append(attrs['id'])
             # Compatibility with old setups:
-            if LooseVersion(setup.version) < '0.6' and setup.f_j[-1] == 0:
+            version = [int(v) for v in setup.version.split('.')]
+            if version < [0, 6] and setup.f_j[-1] == 0:
                 setup.n_j[-1] = -1
         elif name == 'radial_grid':
             if attrs['eq'] == 'r=a*i/(n-i)':
@@ -515,7 +522,8 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
                       'localized_potential', 'yukawa_exchange_X_matrix',
                       'kinetic_energy_differences', 'exact_exchange_X_matrix',
                       'ae_core_kinetic_energy_density',
-                      'pseudo_core_kinetic_energy_density']:
+                      'pseudo_core_kinetic_energy_density',
+                      'pseudo_potential']:
             self.data = []
         elif name.startswith('GLLB_'):
             self.data = []
@@ -576,6 +584,8 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
             setup.tauct_g = x_g
         elif name in ['localized_potential', 'zero_potential']:  # XXX
             setup.vbar_g = x_g
+        elif name in ['pseudo_potential']:
+            setup.vt_g = x_g
         elif name.startswith('GLLB_'):
             # Add setup tags starting with GLLB_ to extra_xc_data. Remove
             # GLLB_ from front of string:

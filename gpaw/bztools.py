@@ -1,17 +1,19 @@
 
+from itertools import product
+
 import numpy as np
-
-from scipy.spatial import Delaunay, Voronoi, ConvexHull
-from scipy.spatial.qhull import QhullError
-
 from ase.dft.kpoints import monkhorst_pack
+from scipy.spatial import ConvexHull, Delaunay, Voronoi
+try:
+    from scipy.spatial import QhullError
+except ImportError:  # scipy < 1.8
+    from scipy.spatial.qhull import QhullError
 
 import gpaw.mpi as mpi
 from gpaw import GPAW, restart
-from gpaw.symmetry import Symmetry, aglomerate_points
-from gpaw.kpt_descriptor import to1bz, kpts2sizeandoffsets
-from itertools import product
+from gpaw.kpt_descriptor import kpts2sizeandoffsets, to1bz
 from gpaw.mpi import world
+from gpaw.symmetry import Symmetry, aglomerate_points
 
 
 def get_lattice_symmetry(cell_cv, tolerance=1e-7):
