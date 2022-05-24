@@ -364,7 +364,6 @@ class G0W0:
         self.qd = get_qdescriptor(self.kd, self.calc.atoms)
 
         if q0_correction:
-            from gpaw.response.q0correction import Q0Correction
             assert self.truncation == '2D'
             self.q0_corrector = Q0Correction(
                 cell_cv=self.gd.cell_cv, bzk_kc=self.kd.bzk_kc,

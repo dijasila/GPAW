@@ -12,6 +12,7 @@ class Q0Correction:
     def add_q0_correction(self, pd, W_GG, einv_GG, chi0_xvG, chi0_vv,
                           sqrtV_G, fd=None):
         from ase.dft import monkhorst_pack
+        pi = np.pi
         cell_cv = self.cell_cv
         qpts_qc = self.bzk_kc
         L = cell_cv[2, 2]
