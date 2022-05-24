@@ -457,7 +457,7 @@ class G0W0:
 
         self.print_parameters(kpts, b1, b2, ecut_extrapolation)
         self.fd.flush()
-        self.hilbert = None  # initialized when we create Chi0
+        self.hilbert_transform = None  # initialized when we create Chi0
 
     @property
     def kd(self):
@@ -809,7 +809,8 @@ class G0W0:
             wstc = None
 
         self.wd = chi0.wd
-        self.hilbert = GWHilbertTransforms(self.wd.omega_w, self.eta)
+        self.hilbert_transform = GWHilbertTransforms(
+            self.wd.omega_w, self.eta)
         print(self.wd, file=self.fd)
 
         # Find maximum size of chi-0 matrices:
@@ -980,9 +981,9 @@ class G0W0:
             # because the ppa API is nonsense)
         else:
             with self.timer('Hilbert'):
-                W_xwGG = self.hilbert(W_wGG)
+                W_xwGG = self.hilbert_transform(W_wGG)
                 if self.do_GW_too:
-                    GW_return = self.hilbert(W_GW_wGG)
+                    GW_return = self.hilbert_transform(W_GW_wGG)
 
         # W_xwGG = [ Wm_wGG, Wp_wGG ] !
 
