@@ -192,9 +192,9 @@ class FXCCorrelation(RPACorrelation):
             e = 0.0
             for v in range(3):
                 for chi0_wGG, chi0 in zip(chi0_swGG, chi0_s):
-                    chi0_swGG[:, 0] = chi0.chi0_wxvG[w1:w2, 0, v]
-                    chi0_swGG[:, :, 0] = chi0.chi0_wxvG[w1:w2, 1, v]
-                    chi0_swGG[:, 0, 0] = chi0.chi0_wvv[w1:w2, v, v]
+                    chi0_wGG[:, 0] = chi0.chi0_wxvG[w1:w2, 0, v]
+                    chi0_wGG[:, :, 0] = chi0.chi0_wxvG[w1:w2, 1, v]
+                    chi0_wGG[:, 0, 0] = chi0.chi0_wvv[w1:w2, v, v]
                 ev = self.calculate_energy(pd, chi0_swGG, cut_G)
                 e += ev
                 print('%.3f' % (ev * Ha), end='', file=self.fd)
