@@ -10,13 +10,9 @@ from scipy.special import p_roots
 
 import gpaw.mpi as mpi
 from gpaw import GPAW
-from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.pw.descriptor import PWDescriptor, count_reciprocal_vectors
 from gpaw.response.chi0 import Chi0
 from gpaw.response.kernels import get_coulomb_kernel
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
-from gpaw.response.pw_parallelization import (Blocks1D,
-                                              PlaneWaveBlockDistributor)
 
 
 def rpa(filename, ecut=200.0, blocks=1, extrapolate=4):
@@ -212,12 +208,13 @@ class RPACorrelation:
             self.read()
             self.world.barrier()
 
-        chi0 = Chi0(self.calc, frequencies=1j * Hartree * self.omega_w,
-                    eta=0.0, intraband=False, hilbert=False,
-                    txt='chi0.txt', timer=self.timer, world=self.world,
-                    nblocks=self.nblocks)
+        chi0calc = Chi0(
+            self.calc, frequencies=1j * Hartree * self.omega_w,
+            eta=0.0, intraband=False, hilbert=False,
+            txt='chi0.txt', timer=self.timer, world=self.world,
+            nblocks=self.nblocks)
 
-        self.blockcomm = chi0.blockcomm
+        self.blockcomm = chi0calc.blockcomm
 
         wfs = self.calc.wfs
 
@@ -228,17 +225,6 @@ class RPACorrelation:
             self.wstc = None
 
         nq = len(self.energy_qi)
-        nw = len(self.omega_w)
-        nGmax = max(count_reciprocal_vectors(ecutmax, wfs.gd, q_c)
-                    for q_c in self.ibzq_qc[nq:])
-        mynGmax = (nGmax + self.nblocks - 1) // self.nblocks
-
-        nx = (1 + spin) * nw * mynGmax * nGmax
-        A1_x = np.empty(nx, complex)
-        if self.nblocks > 1:
-            A2_x = np.empty(nx, complex)
-        else:
-            A2_x = None
 
         self.timer.start('RPA')
 
@@ -250,36 +236,15 @@ class RPACorrelation:
                 p()
                 continue
 
-            thisqd = KPointDescriptor([q_c])
-            pd = PWDescriptor(ecutmax, wfs.gd, complex, thisqd)
+            chi0_s = [chi0calc.create_chi0(q_c, extend_head=False)]
+            if spin:
+                chi0_s.append(chi0calc.create_chi0(q_c, extend_head=False))
+
+            pd = chi0_s[0].pd
             nG = pd.ngmax
 
-            # Since we do not call chi0.calculate() (which in of itself
-            # leads to massive code duplication), we have to manage the
-            # block parallelization here. To use chi0._calculate() (see
-            # calculate_q() below), we have to manually set the
-            # parallelization properties on the chi0 object, which seems
-            # very unsafe indeed.
-            chi0.blocks1d = Blocks1D(chi0.blockcomm, nG)
-            chi0.blockdist = PlaneWaveBlockDistributor(chi0.world,
-                                                       chi0.blockcomm,
-                                                       chi0.kncomm,
-                                                       chi0.wd,
-                                                       chi0.blocks1d)
-
-            shape = (1 + spin, nw, chi0.blocks1d.nlocal, nG)
-            chi0_swGG = A1_x[:np.prod(shape)].reshape(shape)
-            chi0_swGG[:] = 0.0
-
-            if np.allclose(q_c, 0.0):
-                chi0_swxvG = np.zeros((1 + spin, nw, 2, 3, nG), complex)
-                chi0_swvv = np.zeros((1 + spin, nw, 3, 3), complex)
-            else:
-                chi0_swxvG = None
-                chi0_swvv = None
-
             # First not completely filled band:
-            m1 = chi0.nocc1
+            m1 = chi0calc.nocc1
             p('# %s  -  %s' % (len(self.energy_qi), ctime().split()[-2]))
             p('q = [%1.3f %1.3f %1.3f]' % tuple(q_c))
 
@@ -296,18 +261,19 @@ class RPACorrelation:
                 p('E_cut = %d eV / Bands = %d:' % (ecut * Hartree, m2))
                 self.fd.flush()
 
-                energy = self.calculate_q(chi0, pd,
-                                          chi0_swGG, chi0_swxvG, chi0_swvv,
-                                          m1, m2, cut_G, A2_x)
+                energy = self.calculate_q(chi0calc,
+                                          chi0_s,
+                                          m1, m2, cut_G)
 
                 energy_i.append(energy)
                 m1 = m2
 
-                a = 1 / chi0.kncomm.size
+                a = 1 / chi0calc.kncomm.size
                 if ecut < ecutmax and a != 1.0:
                     # Chi0 will be summed again over chicomm, so we divide
                     # by its size:
-                    chi0_swGG *= a
+                    for chi0 in chi0_s:
+                        chi0.chi_wGG *= a
                     # if chi0_swxvG is not None:
                     #     chi0_swxvG *= a
                     #     chi0_swvv *= a
@@ -339,25 +305,18 @@ class RPACorrelation:
         return e_i * Hartree
 
     @timer('chi0(q)')
-    def calculate_q(self, chi0, pd, chi0_swGG, chi0_swxvG, chi0_swvv,
-                    m1, m2, cut_G, A2_x):
-        chi0_wGG = chi0_swGG[0]
-        if chi0_swxvG is not None:
-            chi0_wxvG = chi0_swxvG[0]
-            chi0_wvv = chi0_swvv[0]
-        else:
-            chi0_wxvG = None
-            chi0_wvv = None
-
-        chi0._calculate(pd, chi0_wGG, chi0_wxvG, chi0_wvv,
-                        m1, m2, spins='all', extend_head=False)
+    def calculate_q(self, chi0calc, chi0_s,
+                    m1, m2, cut_G):
+        chi0 = chi0_s[0]
+        chi0calc.update_chi0(chi0,
+                             m1, m2, spins='all')
 
         print('E_c(q) = ', end='', file=self.fd)
 
-        chi0_wGG = chi0.redistribute(chi0_wGG, A2_x)
+        chi0_wGG = chi0.blockdist.redistribute(chi0.chi0_wGG)
 
-        if not pd.kd.gamma:
-            e = self.calculate_energy(pd, chi0_wGG, cut_G)
+        if not chi0.pd.kd.gamma:
+            e = self.calculate_energy(chi0.pd, chi0_wGG, cut_G)
             print('%.3f eV' % (e * Hartree), file=self.fd)
             self.fd.flush()
         else:
@@ -372,22 +331,23 @@ class RPACorrelation:
             U_scc = kd.symmetry.op_scc
             q_qc = kd.get_ibz_q_points(q_qc, U_scc)[0]
             weight_q = kd.q_weights
-            q_qv = 2 * np.pi * np.dot(q_qc, pd.gd.icell_cv)
+            q_qv = 2 * np.pi * np.dot(q_qc, chi0.pd.gd.icell_cv)
 
             nw = len(self.omega_w)
             mynw = nw // self.nblocks
             w1 = self.blockcomm.rank * mynw
             w2 = w1 + mynw
-            a_qw = np.sum(np.dot(chi0_wvv[w1:w2], q_qv.T) * q_qv.T, axis=1).T
-            a0_qwG = np.dot(q_qv, chi0_wxvG[w1:w2, 0])
-            a1_qwG = np.dot(q_qv, chi0_wxvG[w1:w2, 1])
+            a_qw = np.sum(np.dot(chi0.chi0_wvv[w1:w2], q_qv.T) * q_qv.T,
+                          axis=1).T
+            a0_qwG = np.dot(q_qv, chi0.chi0_wxvG[w1:w2, 0])
+            a1_qwG = np.dot(q_qv, chi0.chi0_wxvG[w1:w2, 1])
 
             e = 0
             for iq in range(len(q_qv)):
                 chi0_wGG[:, 0] = a0_qwG[iq]
                 chi0_wGG[:, :, 0] = a1_qwG[iq]
                 chi0_wGG[:, 0, 0] = a_qw[iq]
-                ev = self.calculate_energy(pd, chi0_wGG, cut_G,
+                ev = self.calculate_energy(chi0.pd, chi0_wGG, cut_G,
                                            q_v=q_qv[iq])
                 e += ev * weight_q[iq]
             print('%.3f eV' % (e * Hartree), file=self.fd)
