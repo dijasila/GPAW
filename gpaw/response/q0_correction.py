@@ -1,3 +1,6 @@
+import numpy as np
+
+
 class Q0Correction:
     def __init__(self, cell_cv, bzk_kc, N_c):
         self.cell_cv = cell_cv
