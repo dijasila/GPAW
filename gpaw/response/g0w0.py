@@ -981,11 +981,20 @@ class G0W0:
         #     self.timer.start('old non gamma')
         # else:
         #     self.timer.start('old gamma')
-        pdi, W_xwGG, GW_return = self.dyson_and_W_old(
+
+        pdi, W_wGG, W_GW_wGG = self.dyson_and_W_old(
             wstc, iq, q_c, chi0,
             chi0_wvv, chi0_wxvG,
             chi0_wGG,
             pd, ecut)
+
+        if self.ppa:
+            GW_return = None
+            W_xwGG = W_wGG
+            # (We are ignoring some of the return values from dyson
+            # because the ppa API is nonsense)
+        else:
+            W_xwGG, GW_return = self.hilbert_transform(W_wGG, W_GW_wGG)
 
         # W_xwGG = [ Wm_wGG, Wp_wGG ] !
 
@@ -1250,9 +1259,20 @@ class G0W0:
 
         # XXX This creates a new, large buffer.  We could perhaps
         # avoid that.  Buffer used to exist but was removed due to #456.
-        Wm_wGG = self.blockdist.redistribute(chi0_wGG)
-        Wp_wGG = Wm_wGG.copy()
+        W_wGG = self.blockdist.redistribute(chi0_wGG)
 
+        if self.do_GW_too:
+            W_GW_wGG = self.blockdist.redistribute(
+                chi0_GW_wGG)
+        else:
+            W_GW_wGG = None
+
+        self.timer.stop('Dyson eq.')
+        return pdi, W_wGG, W_GW_wGG
+
+    def hilbert_transform(self, W_wGG, W_GW_wGG):
+        Wm_wGG = W_wGG
+        Wp_wGG = W_wGG.copy()
         with self.timer('Hilbert transform'):
             with self.timer('newhilbert'):
                 Wp_new_wGG, Wm_new_wGG = self.hilbert(Wm_wGG)
@@ -1265,10 +1285,8 @@ class G0W0:
             assert np.allclose(Wm_new_wGG, Wm_wGG)
 
             if self.do_GW_too:
-                Wm_GW_wGG = self.blockdist.redistribute(
-                    chi0_GW_wGG)
-
-                Wp_GW_wGG = Wm_GW_wGG.copy()
+                Wm_GW_wGG = W_GW_wGG
+                Wp_GW_wGG = W_GW_wGG.copy()
 
                 self.hilbert.htp(Wp_GW_wGG)
                 self.hilbert.htm(Wm_GW_wGG)
@@ -1276,8 +1294,7 @@ class G0W0:
             else:
                 GW_return = None
 
-        self.timer.stop('Dyson eq.')
-        return pdi, [Wp_wGG, Wm_wGG], GW_return
+        return [Wp_wGG, Wm_wGG], GW_return
 
     @timer('Kohn-Sham XC-contribution')
     def calculate_ks_xc_contribution(self):
