@@ -158,7 +158,11 @@ class PolarizationPoissonSolver(BasePoissonSolver):
 
     def solve(self, phi, rho, charge=None,
               maxcharge=1e-6,
-              zero_initial_phi=False, timer=NullTimer()):
+              zero_initial_phi=False, timer=NullTimer(),
+              eta: float = 0.6):
+        """Solve according to algorithm 1 from
+        http://dx.doi.org/10.1063/1.4939125
+        """
         # get initial meaningful phi -> only do this if necessary
         if zero_initial_phi:
             niter = self.gas_phase_poisson.solve(
@@ -168,23 +172,28 @@ class PolarizationPoissonSolver(BasePoissonSolver):
             niter = 0
 
         phi_old = phi.copy()
+        epsr, _, _, _ = self.dielectric.eps_gradeps
+        rho_pol = self.polarization_charge(phi, rho)
         while niter < self.maxiter:
-            rho_mod = self.rho_with_polarization_charge(phi, rho)
+            rho_mod = rho / epsr + rho_pol
             niter += self.gas_phase_poisson.solve(
                 phi, rho_mod, charge=None, maxcharge=maxcharge,
                 zero_initial_phi=zero_initial_phi, timer=timer)
             residual = phi - phi_old
             error = self.gd.comm.sum(np.dot(residual.ravel(),
                                             residual.ravel())) * self.gd.dv
+
             if error < self.eps:
                 return niter
+            rho_pol = ((1 - eta) * rho_pol +
+                       eta * self.polarization_charge(phi, rho))
             phi_old = phi.copy()
             
         raise PoissonConvergenceError(
             'PolarizationPoisson solver did not converge in '
             + f'{niter} iterations!')
 
-    def rho_with_polarization_charge(self, phi, rho):
+    def polarization_charge(self, phi, rho):
         epsr, dx_epsr, dy_epsr, dz_epsr = self.dielectric.eps_gradeps
         dx_phi = self.gd.empty()
         dy_phi = self.gd.empty()
@@ -198,7 +207,7 @@ class PolarizationPoissonSolver(BasePoissonSolver):
             dy_epsr * dy_phi +
             dz_epsr * dz_phi)
 
-        return (rho + scalar_product / (4. * np.pi)) / epsr
+        return scalar_product / (4. * np.pi) / epsr
 
     def estimate_memory(self, mem):
         # XXX estimate your own contribution
