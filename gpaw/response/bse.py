@@ -20,8 +20,6 @@ from gpaw.response.kernels import get_coulomb_kernel
 from gpaw.response.kernels import get_integrated_kernel
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 from gpaw.response.pair import PairDensity
-from gpaw.response.pw_parallelization import (Blocks1D,
-                                              PlaneWaveBlockDistributor)
 
 
 class BSE:
@@ -181,6 +179,9 @@ class BSE:
             self.wstc = None
 
         self.print_initialization(self.td, self.eshift, self.gw_skn)
+
+        # Chi0 object
+        self._chi0calc = None  # Initialized later
 
     def __del__(self):
         self.iocontext.close()
@@ -502,22 +503,35 @@ class BSE:
         else:
             self.calculate_screened_potential(ac)
 
+    def _calculate_chi0(self, q_c):
+        """Use the Chi0 object to calculate the static susceptibility."""
+        if self._chi0calc is None:
+            self.initialize_chi0_calculator()
+
+        chi0 = self._chi0calc.create_chi0(q_c, extend_head=False)
+        # Do all bands and all spins
+        m1, m2, spins = 0, self.nbands, 'all'
+        chi0 = self._chi0calc.update_chi0(chi0, m1, m2, spins)
+
+        return chi0.pd, chi0.chi0_wGG, chi0.chi0_wxvG, chi0.chi0_wvv
+
+    def initialize_chi0_calculator(self):
+        """Initialize the Chi0 object to compute the static
+        susceptibility."""
+        self._chi0calc = Chi0(self.calc,
+                              frequencies=[0.0],
+                              eta=0.001,
+                              ecut=self.ecut,
+                              intraband=False,
+                              hilbert=False,
+                              nbands=self.nbands,
+                              txt='chi0.txt',
+                              world=world,
+                              )
+        self.blockcomm = self._chi0calc.blockcomm
+
     def calculate_screened_potential(self, ac):
         """Calculate W_GG(q)"""
-
-        chi0 = Chi0(self.calc,
-                    frequencies=[0.0],
-                    eta=0.001,
-                    ecut=self.ecut,
-                    intraband=False,
-                    hilbert=False,
-                    nbands=self.nbands,
-                    txt='chi0.txt',
-                    world=world,
-                    )
-
-        self.blockcomm = chi0.blockcomm
-        wfs = self.calc.wfs
 
         self.Q_qaGii = []
         self.W_qGG = []
@@ -526,32 +540,9 @@ class BSE:
         t0 = time()
         print('Calculating screened potential', file=self.fd)
         for iq, q_c in enumerate(self.qd.ibzk_kc):
-            thisqd = KPointDescriptor([q_c])
-            pd = PWDescriptor(self.ecut, wfs.gd, complex, thisqd)
+
+            pd, chi0_wGG, chi0_wxvG, chi0_wvv = self._calculate_chi0(q_c)
             nG = pd.ngmax
-
-            # Since we do not call chi0.calculate() (which in of itself
-            # leads to massive code duplication), we have to manage the
-            # block parallelization here. Before calling chi0._calculate()
-            # we have to manually set the parallelization properties
-            # on the chi0 object, which seems very unsafe indeed.
-            chi0.blocks1d = Blocks1D(chi0.blockcomm, nG)
-            chi0.blockdist = PlaneWaveBlockDistributor(chi0.world,
-                                                       chi0.blockcomm,
-                                                       chi0.kncomm,
-                                                       chi0.wd,
-                                                       chi0.blocks1d)
-
-            chi0_wGG = np.zeros((1, nG, nG), complex)
-            if np.allclose(q_c, 0.0):
-                chi0_wxvG = np.zeros((1, 2, 3, nG), complex)
-                chi0_wvv = np.zeros((1, 3, 3), complex)
-            else:
-                chi0_wxvG = None
-                chi0_wvv = None
-
-            chi0._calculate(pd, chi0_wGG, chi0_wxvG, chi0_wvv,
-                            0, self.nbands, spins='all', extend_head=False)
             chi0_GG = chi0_wGG[0]
 
             # Calculate eps^{-1}_GG
@@ -638,7 +629,7 @@ class BSE:
                 e = 1 / einv_GG[0, 0].real
                 print('    RPA dielectric constant is: %3.3f' % e,
                       file=self.fd)
-            self.Q_qaGii.append(chi0.Q_aGii)
+            self.Q_qaGii.append(self._chi0calc.Q_aGii)
             self.pd_q.append(pd)
             self.W_qGG.append(W_GG)
 
