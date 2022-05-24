@@ -8,10 +8,12 @@ import pickle
 @pytest.mark.response
 def test_do_GW_too(in_tmp_dir, gpw_files, scalapack):
 
+    ecut_extrapolation = True
     gw0 = G0W0(gpw_files['bn_pw_wfs'],
                bands=(3, 5),
                nbands=9,
                nblocks=1,
+               ecut_extrapolation=ecut_extrapolation,
                ecut=40,
                restartfile=None)
 
@@ -22,6 +24,7 @@ def test_do_GW_too(in_tmp_dir, gpw_files, scalapack):
               nbands=9,
               nblocks=1,
               xc='rALDA',
+              ecut_extrapolation=ecut_extrapolation,
               ecut=40,
               fxc_mode='GWP',
               do_GW_too=True,
