@@ -133,7 +133,7 @@ class DielectricFunction:
         if self.name:
             self.write(name, chi0.pd, chi0_wGG, chi0.chi0_wxvG, chi0.chi0_wvv)
 
-        return chi0.pd, chi0.chi0_wGG, chi0.chi0_wxvG, chi0.chi0_wvv
+        return chi0.pd, chi0_wGG, chi0.chi0_wxvG, chi0.chi0_wvv
 
     def write(self, name, pd, chi0_wGG, chi0_wxvG, chi0_wvv):
         nw = len(self.wd)

@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import warnings
 from functools import partial
 from time import ctime
@@ -12,17 +13,19 @@ from ase.utils.timing import Timer, timer
 from gpaw.bztools import convex_hull_volume
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.pw.descriptor import PWDescriptor
+from gpaw.response.chi0_data import Chi0Data
 from gpaw.response.frequencies import (FrequencyDescriptor,
                                        LinearFrequencyDescriptor,
                                        NonLinearFrequencyDescriptor)
-from gpaw.response.pw_parallelization import (block_partition, Blocks1D,
-                                              PlaneWaveBlockDistributor)
-from gpaw.response.integrators import PointIntegrator, TetrahedronIntegrator
+from gpaw.response.integrators import (Integrator, PointIntegrator,
+                                       TetrahedronIntegrator)
 from gpaw.response.pair import PairDensity, PWSymmetryAnalyzer
+from gpaw.response.pw_parallelization import (Blocks1D,
+                                              PlaneWaveBlockDistributor,
+                                              block_partition)
+from gpaw.typing import Array1D
 from gpaw.utilities.blas import gemm
 from gpaw.utilities.memory import maxrss
-from gpaw.typing import Array1D
-from gpaw.response.chi0_data import Chi0Data
 
 
 def find_maximum_frequency(calc, nbands=0, fd=None):
@@ -359,6 +362,8 @@ class Chi0:
         # Initialize integrator. The integrator class is a general class
         # for brillouin zone integration that can integrate user defined
         # functions over user defined domains and sum over bands.
+        integrator: Integrator
+        intnoblock: Integrator
         if self.integrationmode is None or \
            self.integrationmode == 'point integration':
             integrator = PointIntegrator(self.pair.calc.wfs.gd.cell_cv,
@@ -646,7 +651,7 @@ class Chi0:
             # It is easiest to redistribute over freqs to pick body
             tmpA_wxx = chi0.blockdist.redistribute(A_wxx)
             chi0_wGG = tmpA_wxx[:, 2:, 2:]
-            chi0_new.chi0_wGG = chi0.blockdist.redistribute(chi0_wGG)
+            chi0_new.chi0_wGG = chi0_new.blockdist.redistribute(chi0_wGG)
 
             # Rename
             chi0 = chi0_new
