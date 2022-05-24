@@ -2,7 +2,28 @@ import numpy as np
 
 
 class Chi0Data:
+    """Data object containing the chi0 data arrays for a single q-point,
+    while holding also the corresponding basis descriptors and block
+    distributor."""
     def __init__(self, wd, blockdist, pd, optical_limit, extend_head):
+        """Construct the Chi0Data object
+
+        Parameters
+        ----------
+        wd : FrequencyDescriptor
+            Descriptor for the temporal (frequency) degrees of freedom
+        blockdist : PlaneWaveBlockDistributor
+            Distributor for the block parallelization
+        pd : PWDescriptor
+            Descriptor for the spatial (plane wave) degrees of freedom
+        optical_limit : bool
+            Are we in the q=0 limit?
+        extend_head : bool
+            If True: Extend the wings and head of chi in the optical limit to
+            take into account the non-analytic nature of chi. Effectively
+            means that chi has dimension (nw, nG + 2, nG + 2) in the optical
+            limit.
+        """
         self.wd = wd
         self.blockdist = blockdist
         self.pd = pd

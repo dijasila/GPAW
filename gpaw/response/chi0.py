@@ -233,6 +233,8 @@ class Chi0:
             print('Using integration method: PointIntegrator', file=self.fd)
 
     def create_chi0(self, q_c, extend_head=True):
+        # This function should be made redundant in the future. Instead
+        # Chi0Data should be able to initialize itself.
         q_c = np.asarray(q_c, dtype=float)
         optical_limit = np.allclose(q_c, 0.0)
 
@@ -263,20 +265,12 @@ class Chi0:
             If 'all' then include all spins.
             If 0 or 1, only include this specific spin.
             (not used in transverse response functions)
-        A_x : ndarray
-            Output array. If None, the output array is created.
 
         Returns
         -------
-        pd : Planewave descriptor
-            Planewave descriptor for q_c.
-        chi0_wGG : ndarray
-            The response function.
-        chi0_wxvG : ndarray or None
-            (Only in optical limit) Wings of the density response function.
-        chi0_wvv : ndarray or None
-            (Only in optical limit) Head of the density response function.
-
+        chi0 : Chi0Data
+            Data object containing the chi0 data arrays along with basis
+            representation descriptors and blocks distribution
         """
         wfs = self.calc.wfs
 
@@ -311,16 +305,8 @@ class Chi0:
 
         Parameters
         ----------
-        q_c : list or ndarray
-            Momentum vector..
-        pd : Planewave descriptor
-            Planewave descriptor for q_c.
-        chi0_wGG : ndarray
-            The response function.
-        chi0_wxvG : ndarray or None
-            Wings of the density response function.
-        chi0_wvv : ndarray or None
-            Head of the density response function.
+        chi0 : Chi0Data
+            Data and representation object
         m1 : int
             Lower band cutoff for band summation
         m2 : int
@@ -328,13 +314,10 @@ class Chi0:
         spins : str or list(ints)
             If 'all' then include all spins.
             If [0] or [1], only include this specific spin.
-        extend_head : bool
-            If True: Extend the wings and head of chi in the optical limit to
-            take into account the non-analytic nature of chi. Effectively
-            means that chi has dimension (nw, nG + 2, nG + 2) in the optical
-            limit. This simplifies the code and should only be switched off
-            for parts of the code that do not support this feature i.e., GW
-            RPA total energy and RALDA.
+
+        Returns
+        -------
+        chi0 : Chi0Data
         """
         assert m1 <= m2
         # Parse spins
