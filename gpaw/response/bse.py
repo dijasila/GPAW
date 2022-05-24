@@ -521,7 +521,7 @@ class BSE:
         self._chi0calc = Chi0(self.calc,
                               frequencies=[0.0],
                               eta=0.001,
-                              ecut=self.ecut,
+                              ecut=self.ecut * Hartree,
                               intraband=False,
                               hilbert=False,
                               nbands=self.nbands,
