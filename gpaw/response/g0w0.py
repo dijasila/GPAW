@@ -631,7 +631,7 @@ class G0W0:
             if self.world.rank == 0:
                 if os.path.isfile(self.restartfile + '.sigma.pckl'):
                     os.remove(self.restartfile + '.sigma.pckl')
-
+            
         return results
 
     def calculate_q(self, ie, k, kpt1, kpt2, pd0, Wlist,  # W0, W0_GW=None,
@@ -1392,8 +1392,7 @@ class G0W0:
                 'bands': self.bands,
                 'nbands': self.nbands,
                 'ecut_e': self.ecut_e,
-                'domega0': self.wd.domega0,
-                'omega2': self.wd.omega2,
+                'frequencies': self.frequencies,
                 'integrate_gamma': self.integrate_gamma}
 
         if self.world.rank == 0:
@@ -1411,8 +1410,9 @@ class G0W0:
                 data['bands'] == self.bands and
                 data['nbands'] == self.nbands and
                 (data['ecut_e'] == self.ecut_e).all and
-                data['domega0'] == self.wd.domega0 and
-                data['omega2'] == self.wd.omega2 and
+                data['frequencies']['type'] == self.frequencies['type'] and
+                data['frequencies']['domega0'] == self.frequencies['domega0'] and
+                data['frequencies']['omega2'] == self.frequencies['omega2'] and
                 data['integrate_gamma'] == self.integrate_gamma):
                 self.last_q = data['last_q']
                 self.previous_sigma = data['sigma_eskn']
