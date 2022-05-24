@@ -296,7 +296,7 @@ class Chi0:
         m1 = self.nocc1
         m2 = self.nbands
 
-        self.update_chi0(chi0, m1, m2, spins)
+        chi0 = self.update_chi0(chi0, m1, m2, spins)
 
         return chi0
 
@@ -617,31 +617,39 @@ class Chi0:
         # the chi0_wGG matrix is nw * (nG + 2)**2. Below we extract these
         # parameters.
         if optical_limit and chi0.extend_head:
+            # We always return chi0 in the extend_head=False format. This
+            # makes the update terminology inaccurate as we have to make a
+            # new Chi0Data instance. In the future, extend_head=True should
+            # be confined inside Chi0.update_chi0, so that the update
+            # terminology is self-consistent
+            chi0_new = self.create_chi0(pd.kd.bzk_kc[0], extend_head=False)
+            # Make a wings object, but extended
+            chi0_wxvG = np.zeros((len(chi0.wd), 2, 3,
+                                  chi0.blockdist.blocks1d.N), complex)
             # The wings are extracted
-            chi0.chi0_wxvG[:, 1, :,
-                           chi0.blockdist.blocks1d.myslice] = np.transpose(
+            chi0_wxvG[:, 1, :,
+                      chi0.blockdist.blocks1d.myslice] = np.transpose(
                 A_wxx[..., 0:3], (0, 2, 1))
             va = min(chi0.blockdist.blocks1d.a, 3)
             vb = min(chi0.blockdist.blocks1d.b, 3)
             # print(self.world.rank, va, vb, chi0_wxvG[:, 0, va:vb].shape,
             #       A_wxx[:, va:vb].shape, A_wxx.shape)
-            chi0.chi0_wxvG[:, 0, va:vb] = A_wxx[:, :vb - va]
+            chi0_wxvG[:, 0, va:vb] = A_wxx[:, :vb - va]
 
-            # Add contributions on different ranks
-            self.blockcomm.sum(chi0.chi0_wxvG)
-            chi0.chi0_wvv[:] = chi0.chi0_wxvG[:, 0, :3, :3]
-            chi0.chi0_wxvG = chi0.chi0_wxvG[..., 2:]
+            # Add contributions from different ranks
+            self.blockcomm.sum(chi0_wxvG)
+            # Insert values into the new Chi0Data object
+            chi0_new.chi0_wvv[:] = chi0_wxvG[:, 0, :3, :3]
+            chi0_new.chi0_wxvG = chi0_wxvG[..., 2:]
             # Jesus, this is complicated
-
-            # The head is extracted
-            # if self.blockcomm.rank == 0:
-            #     chi0_wvv[:] = A_wxx[:, :3, :3]
-            # self.blockcomm.broadcast(chi0_wvv, 0)
 
             # It is easiest to redistribute over freqs to pick body
             tmpA_wxx = chi0.blockdist.redistribute(A_wxx)
             chi0_wGG = tmpA_wxx[:, 2:, 2:]
-            chi0.chi0_wGG = chi0.blockdist.redistribute(chi0_wGG)
+            chi0_new.chi0_wGG = chi0.blockdist.redistribute(chi0_wGG)
+
+            # Rename
+            chi0 = chi0_new
 
         elif optical_limit:
             # Since chi_wGG is nonanalytic in the head
@@ -658,7 +666,7 @@ class Chi0:
         else:
             pass  # chi0_wGG = A_wxx
 
-        # return pd, chi0_wGG, chi0_wxvG, chi0_wvv
+        return chi0
 
     def get_PWDescriptor(self, q_c, gammacentered=False):
         """Get the planewave descriptor of q_c."""
