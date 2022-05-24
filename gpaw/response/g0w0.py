@@ -11,13 +11,12 @@ from ase.parallel import paropen
 from ase.units import Ha
 from ase.utils import opencew, pickleload
 from ase.utils.timing import timer
-from gpaw.utilities.blas import gemm
 
 import gpaw.mpi as mpi
 from gpaw import debug
 from gpaw.calculator import GPAW
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.response.chi0 import Chi0, HilbertTransform
+from gpaw.response.chi0 import Chi0
 from gpaw.response.fxckernel_calc import calculate_kernel
 from gpaw.response.kernels import get_coulomb_kernel, get_integrated_kernel
 from gpaw.response.pair import PairDensity
@@ -32,21 +31,7 @@ from gpaw.xc.fxc import set_flags
 from gpaw.xc.tools import vxc
 from gpaw.response.temp import DielectricFunctionCalculator
 from gpaw.response.q0_correction import Q0Correction
-
-
-class HilbertTransforms:
-    def __init__(self, wd, eta):
-        self.htp = htp = HilbertTransform(wd.omega_w, eta, gw=True)
-        self.htm = htm = HilbertTransform(wd.omega_w, -eta, gw=True)
-        self._stacked_H_nww = np.array([htp.H_ww, htm.H_ww])
-
-    def __call__(self, A_wGG):
-        nw = len(A_wGG)
-        H_xw = self._stacked_H_nww.reshape(-1, nw)
-        A_wy = A_wGG.reshape(nw, -1)
-        tmp_xy = np.zeros((H_xw.shape[0], A_wy.shape[1]), complex)
-        gemm(1.0, A_wy, H_xw, 0.0, tmp_xy)
-        return tmp_xy.reshape((2, *A_wGG.shape))
+from gpaw.response.hilbert import GWHilbertTransforms
 
 
 class Sigma:
@@ -824,7 +809,7 @@ class G0W0:
             wstc = None
 
         self.wd = chi0.wd
-        self.hilbert = HilbertTransforms(self.wd, self.eta)
+        self.hilbert = GWHilbertTransforms(self.wd.omega_w, self.eta)
         print(self.wd, file=self.fd)
 
         # Find maximum size of chi-0 matrices:
