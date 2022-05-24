@@ -557,9 +557,10 @@ class Chi0:
             # Again, not so pretty but that's how it is
             plasmafreq_vv = plasmafreq_wvv[0].copy()
             if self.include_intraband:
+
                 if chi0.extend_head:
-                    va = min(self.blocks1d.a, 3)
-                    vb = min(self.blocks1d.b, 3)
+                    va = min(chi0.blockdist.blocks1d.a, 3)
+                    vb = min(chi0.blockdist.blocks1d.b, 3)
                     A_wxx[:, :vb - va, :3] += (plasmafreq_vv[va:vb] /
                                                (self.wd.omega_w[:, np.newaxis,
                                                                 np.newaxis] +
