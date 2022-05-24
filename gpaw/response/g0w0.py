@@ -35,8 +35,16 @@ from gpaw.response.q0_correction import Q0Correction
 
 class HilbertTransforms:
     def __init__(self, wd, eta):
-        self.htp = HilbertTransform(wd.omega_w, eta, gw=True)
-        self.htm = HilbertTransform(wd.omega_w, -eta, gw=True)
+        self.htp = htp = HilbertTransform(wd.omega_w, eta, gw=True)
+        self.htm = htm = HilbertTransform(wd.omega_w, -eta, gw=True)
+        self._stacked_H_nww = np.array([htp.H_ww, htm.H_ww])
+
+    def __call__(self, A_wGG):
+        nw = len(A_wGG)
+        H_xw = self._stacked_H_nww.reshape(-1, nw)
+        A_wy = A_wGG.reshape(nw, -1)
+        tmp_xy = np.dot(H_xw, A_wy)
+        return tmp_xy.reshape((2, *A_wGG.shape))
 
 
 class Sigma:
@@ -1244,8 +1252,15 @@ class G0W0:
         Wp_wGG = Wm_wGG.copy()
 
         with self.timer('Hilbert transform'):
-            self.hilbert.htp(Wp_wGG)
-            self.hilbert.htm(Wm_wGG)
+            with self.timer('newhilbert'):
+                Wp_new_wGG, Wm_new_wGG = self.hilbert(Wm_wGG)
+
+            with self.timer('oldhilbert'):
+                self.hilbert.htp(Wp_wGG)
+                self.hilbert.htm(Wm_wGG)
+
+            assert np.allclose(Wp_new_wGG, Wp_wGG)
+            assert np.allclose(Wm_new_wGG, Wm_wGG)
 
             if self.do_GW_too:
                 Wm_GW_wGG = self.blockdist.redistribute(
