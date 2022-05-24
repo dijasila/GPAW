@@ -9,7 +9,7 @@ from gpaw import disable_dry_run
 from gpaw.calculator import GPAW
 import gpaw.mpi as mpi
 from gpaw.response.math_func import two_phi_planewave_integrals
-from gpaw.response.pair import KPointFinder
+from gpaw.response.symmetry import KPointFinder
 
 
 class KohnShamKPoint:

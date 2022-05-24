@@ -608,7 +608,7 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
 
     @timer('Get PW symmetry analyser')
     def get_PWSymmetryAnalyzer(self, pd):
-        from gpaw.response.pair import PWSymmetryAnalyzer as PWSA
+        from gpaw.response.symmetry import PWSymmetryAnalyzer as PWSA
 
         return PWSA(self.calc.wfs.kd, pd,
                     timer=self.timer, txt=self.fd,

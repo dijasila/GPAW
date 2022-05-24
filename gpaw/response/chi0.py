@@ -18,7 +18,8 @@ from gpaw.response.frequencies import (FrequencyDescriptor,
 from gpaw.response.pw_parallelization import (block_partition, Blocks1D,
                                               PlaneWaveBlockDistributor)
 from gpaw.response.integrators import PointIntegrator, TetrahedronIntegrator
-from gpaw.response.pair import PairDensity, PWSymmetryAnalyzer
+from gpaw.response.pair import PairDensity
+from gpaw.response.symmetry import PWSymmetryAnalyzer
 from gpaw.utilities.blas import gemm
 from gpaw.utilities.memory import maxrss
 from gpaw.typing import Array1D
