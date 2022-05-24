@@ -1265,6 +1265,7 @@ class G0W0:
         fd, vxc_skn = self.read_contribution(name)
         if vxc_skn is None:
             print('Calculating Kohn-Sham XC contribution', file=self.fd)
+            self.fd.flush()
             vxc_skn = vxc(self.calc, self.calc.hamiltonian.xc) / Ha
             n1, n2 = self.bands
             vxc_skn = vxc_skn[:, self.kpts, n1:n2]
@@ -1278,6 +1279,7 @@ class G0W0:
         fd, exx_skn = self.read_contribution(name)
         if exx_skn is None:
             print('Calculating EXX contribution', file=self.fd)
+            self.fd.flush()
             exx = EXX(self.calc, kpts=self.kpts, bands=self.bands,
                       txt=self.filename + '.exx.txt', timer=self.timer)
             exx.calculate()
