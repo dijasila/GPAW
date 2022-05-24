@@ -86,6 +86,7 @@ class PWSymmetryAnalyzer:
     def initialize(self):
         """Initialize relevant quantities."""
         self.infostring = ''
+
         if self.disable_point_group:
             self.infostring += 'Point group not included. '
         else:
@@ -97,9 +98,9 @@ class PWSymmetryAnalyzer:
             self.infostring += 'Time reversal included. '
 
         if self.disable_non_symmorphic:
-            self.infostring += 'Disabled non symmorphic symmetries. '
+            self.infostring += 'Disabled non-symmorphic symmetries. '
         else:
-            self.infostring += 'Time reversal included. '
+            self.infostring += 'Enabled non-symmorphic symmetries. '
 
         if self.disable_symmetries:
             self.infostring += 'All symmetries have been disabled. '
