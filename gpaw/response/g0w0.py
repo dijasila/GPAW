@@ -30,6 +30,7 @@ from gpaw.xc.exx import EXX, select_kpts
 from gpaw.xc.fxc import set_flags
 from gpaw.xc.tools import vxc
 from gpaw.response.temp import DielectricFunctionCalculator
+from gpaw.response.q0_correction import Q0Correction
 
 
 class QSymmetryOp:
@@ -333,11 +334,6 @@ class G0W0:
         self.blocks1d = None
         self.blockdist = None
 
-        self.ac = q0_correction
-
-        if self.ac:
-            assert self.truncation == '2D'
-
         self.kpts = list(select_kpts(kpts, self.calc))
         self.bands = bands = self.choose_bands(bands, relbands)
         self.eps0_skn = get_eigenvalues_from_calc(self.calc)
@@ -366,6 +362,16 @@ class G0W0:
                                                 self.kd.ibz2bz_k[self.kpts])
 
         self.qd = get_qdescriptor(self.kd, self.calc.atoms)
+
+        if q0_correction:
+            from gpaw.response.q0correction import Q0Correction
+            assert self.truncation == '2D'
+            self.q0_corrector = Q0Correction(
+                cell_cv=self.gd.cell_cv, bzk_kc=self.kd.bzk_kc,
+                N_c=self.qd.N_c)
+        else:
+            self.q0_corrector = None
+
         self.print_parameters(kpts, b1, b2, ecut_extrapolation)
         self.fd.flush()
 
@@ -1171,7 +1177,7 @@ class G0W0:
                     W_GW_GG[:] = ((einv_GW_GG - delta_GG) *
                                   sqrtV_G * sqrtV_G[:, np.newaxis])
 
-                if self.ac and np.allclose(q_c, 0):
+                if self.q0_corrector is not None and np.allclose(q_c, 0):
                     if iw == 0:
                         print_ac = True
                     else:
@@ -1470,11 +1476,7 @@ class G0W0:
 
     def add_q0_correction(self, pd, W_GG, einv_GG, chi0_xvG, chi0_vv,
                           sqrtV_G, print_ac=False):
-        from gpaw.response.q0_correction import Q0Correction
-        q0c = Q0Correction(cell_cv=self.gd.cell_cv, bzk_kc=self.kd.bzk_kc,
-                           N_c=self.qd.N_c)
-
-        q0c.add_q0_correction(
+        self.q0_corrector.add_q0_correction(
             pd, W_GG, einv_GG, chi0_xvG, chi0_vv,
             sqrtV_G,
             fd=self.fd if print_ac else None)
