@@ -12,6 +12,7 @@ from gpaw.xc.fxc import FXCCorrelation
 
 
 @pytest.mark.slow
+@pytest.mark.response
 def test_ralda_ralda_energy_Si(in_tmp_dir, scalapack):
     a0 = 5.43
     cell = bulk('Si', 'fcc', a=a0).get_cell()
