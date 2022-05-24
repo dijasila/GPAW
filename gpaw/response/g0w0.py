@@ -1411,7 +1411,8 @@ class G0W0:
                 data['nbands'] == self.nbands and
                 (data['ecut_e'] == self.ecut_e).all and
                 data['frequencies']['type'] == self.frequencies['type'] and
-                data['frequencies']['domega0'] == self.frequencies['domega0'] and
+                data['frequencies']['domega0'] ==
+                self.frequencies['domega0'] and
                 data['frequencies']['omega2'] == self.frequencies['omega2'] and
                 data['integrate_gamma'] == self.integrate_gamma):
                 self.last_q = data['last_q']
