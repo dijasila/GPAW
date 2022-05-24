@@ -651,7 +651,7 @@ class Chi0:
             # It is easiest to redistribute over freqs to pick body
             tmpA_wxx = chi0.blockdist.redistribute(A_wxx)
             chi0_wGG = tmpA_wxx[:, 2:, 2:]
-            chi0_new.chi0_wGG = chi0.blockdist.redistribute(chi0_wGG)
+            chi0_new.chi0_wGG = chi0_new.blockdist.redistribute(chi0_wGG)
 
             # Rename
             chi0 = chi0_new
