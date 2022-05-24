@@ -129,11 +129,15 @@ class PolarizationPoissonSolver(BasePoissonSolver):
 
     def __init__(self, nn=3, relax='J', eps=2e-10, maxiter=1000,
                  remove_moment=None, use_charge_center=False,
-                 gas_phase_poisson='fast'):
+                 gas_phase_poisson='fast', eta=0.6):
+        """
+        eta: mixing weight
+        """
         self.nn = nn
         self.eps = eps
         self.maxiter = maxiter
         self.phi_tilde = None
+        self.eta = eta
 
         self.gas_phase_poisson = PoissonSolver(
             name=gas_phase_poisson, nn=nn, eps=eps,
@@ -158,8 +162,7 @@ class PolarizationPoissonSolver(BasePoissonSolver):
 
     def solve(self, phi, rho, charge=None,
               maxcharge=1e-6,
-              zero_initial_phi=False, timer=NullTimer(),
-              eta: float = 0.6):
+              zero_initial_phi=False, timer=NullTimer()):
         """Solve according to algorithm 1 from
         http://dx.doi.org/10.1063/1.4939125
         """
@@ -185,8 +188,8 @@ class PolarizationPoissonSolver(BasePoissonSolver):
 
             if error < self.eps:
                 return niter
-            rho_pol = ((1 - eta) * rho_pol +
-                       eta * self.polarization_charge(phi, rho))
+            rho_pol = ((1 - self.eta) * rho_pol +
+                       self.eta * self.polarization_charge(phi, rho))
             phi_old = phi.copy()
             
         raise PoissonConvergenceError(
