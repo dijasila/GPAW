@@ -21,8 +21,7 @@ from gpaw.response.fxckernel_calc import calculate_kernel
 from gpaw.response.kernels import get_coulomb_kernel, get_integrated_kernel
 from gpaw.response.pair import PairDensity
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
-from gpaw.response.pw_parallelization import (Blocks1D,
-                                              PlaneWaveBlockDistributor)
+from gpaw.response.pw_parallelization import Blocks1D
 from gpaw.utilities.progressbar import ProgressBar
 from gpaw.pw.descriptor import (PWDescriptor, PWMapping,
                                 count_reciprocal_vectors)
@@ -874,10 +873,9 @@ class G0W0:
                     iq):
         """Calculates the screened potential for a specified q-point."""
 
-        chi0calc.fd = self.fd
-        chi0calc.print_chi(chi0bands.pd)
-
         chi0 = chi0calc.create_chi0(q_c, optical_limit=False)
+        chi0calc.fd = self.fd
+        chi0calc.print_chi(chi0.pd)
         chi0calc.update_chi0(chi0, m1, m2,
                              range(self.nspins), extend_head=False)
 
@@ -891,7 +889,7 @@ class G0W0:
                 chi0.chi0_wvv += chi0bands.chi0_wvv
                 chi0bands.chi0_wvv[:] = chi0.chi0_wvv.copy()
 
-        self.Q_aGii = chi0.Q_aGii
+        self.Q_aGii = chi0calc.Q_aGii
 
         # Old way
         # if not np.allclose(q_c, 0):
@@ -928,17 +926,17 @@ class G0W0:
 
         return pdi, W_xwGG, GW_return
 
-    def dyson_and_W_new(self, wstc, iq, q_c, chi0calc,
+    def dyson_and_W_new(self, wstc, iq, q_c, chi0calc, chi0,
                         ecut, htp, htm):
         assert not self.ppa
         assert not self.do_GW_too
-        assert ecut == pd.ecut
+        assert ecut == chi0.pd.ecut
         assert self.fxc_mode == 'GW'
 
         assert not np.allclose(q_c, 0)
 
         nW = len(self.wd)
-        nG = pd.ngmax
+        nG = chi0.pd.ngmax
 
         from gpaw.response.wgg import Grid
 
@@ -947,13 +945,13 @@ class G0W0:
             comm=self.blockcomm,
             shape=WGG,
             cpugrid=(1, self.blockcomm.size, 1))
-        assert chi0_WgG.shape == WgG_grid.myshape
+        assert chi0.chi0_wGG.shape == WgG_grid.myshape
 
         my_gslice = WgG_grid.myslice[1]
 
-        dielectric_WgG = chi0_WgG  # XXX
-        for iw, chi0_GG in enumerate(chi0_WgG):
-            sqrtV_G = get_coulomb_kernel(pd,  # XXX was: pdi
+        dielectric_WgG = chi0.chi0_wGG  # XXX
+        for iw, chi0_GG in enumerate(chi0.chi0_wGG):
+            sqrtV_G = get_coulomb_kernel(chi0.pd,  # XXX was: pdi
                                          self.kd.N_c,
                                          truncation=self.truncation,
                                          wstc=wstc)**0.5
@@ -989,15 +987,17 @@ class G0W0:
             htp(Wp_wGG)
             htm(Wm_wGG)
         self.timer.stop('Dyson eq.')
-        return pd, Wm_wGG, Wp_wGG
+        return chi0.pd, Wm_wGG, Wp_wGG
 
-    def dyson_and_W_old(self, wstc, iq, q_c, chi0, chi0_wvv, chi0_wxvG,
-                        chi0_wGG, pd, ecut, htp, htm):
-        nG = pd.ngmax
+    def dyson_and_W_old(self, wstc, iq, q_c, chi0calc, chi0,
+                        ecut, htp, htm):
+        nG = chi0.pd.ngmax
 
         wblocks1d = Blocks1D(self.blockcomm, len(self.wd))
 
-        chi0_wGG = self.blockdist.redistribute(chi0_wGG)
+        chi0_wGG = chi0.blockdist.redistribute(chi0.chi0_wGG)
+        pd = chi0.pd
+        chi0_wxvG = chi0._wxvG
 
         if ecut == pd.ecut:
             pdi = pd
@@ -1006,8 +1006,8 @@ class G0W0:
         elif ecut < pd.ecut:  # construct subset chi0 matrix with lower ecut
             pdi = PWDescriptor(ecut, pd.gd, dtype=pd.dtype,
                                kd=pd.kd)
-            nG = pdi.ngmax
-            self.blocks1d = Blocks1D(self.blockcomm, nG)
+            # nG = pdi.ngmax
+            # self.blocks1d = Blocks1D(self.blockcomm, nG)
 
             G2G = PWMapping(pdi, pd).G2_G1
             chi0_wGG = chi0_wGG.take(G2G, axis=1).take(G2G, axis=2)

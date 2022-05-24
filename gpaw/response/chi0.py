@@ -229,9 +229,8 @@ class Chi0:
         else:
             print('Using integration method: PointIntegrator', file=self.fd)
 
-    def create_chi0(self, q_c):
+    def create_chi0(self, q_c, optical_limit=False):
         q_c = np.asarray(q_c, dtype=float)
-        optical_limit = np.allclose(q_c, 0.0)
         pd = self.get_PWDescriptor(q_c, self.gammacentered)
 
         # Initialize block distibution of plane wave basis
@@ -281,7 +280,8 @@ class Chi0:
             spins = [spin]
 
         q_c = np.asarray(q_c, dtype=float)
-        chi0 = self.create_chi0(q_c)
+        optical_limit = np.allclose(q_c, 0.0)
+        chi0 = self.create_chi0(q_c, optical_limit)
 
         self.print_chi(chi0.pd)
 
