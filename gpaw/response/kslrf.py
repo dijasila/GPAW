@@ -608,13 +608,14 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
 
     @timer('Get PW symmetry analyser')
     def get_PWSymmetryAnalyzer(self, pd):
-        from gpaw.response.symmetry import PWSymmetryAnalyzer as PWSA
+        from gpaw.response.symmetry import PWSymmetryAnalyzer
 
-        return PWSA(self.calc.wfs.kd, pd,
-                    timer=self.timer, txt=self.fd,
-                    disable_point_group=self.disable_point_group,
-                    disable_time_reversal=self.disable_time_reversal,
-                    disable_non_symmorphic=self.disable_non_symmorphic)
+        return PWSymmetryAnalyzer(
+            self.calc.wfs.kd, pd,
+            timer=self.timer, txt=self.fd,
+            disable_point_group=self.disable_point_group,
+            disable_time_reversal=self.disable_time_reversal,
+            disable_non_symmorphic=self.disable_non_symmorphic)
 
     def get_FrequencyDescriptor(self, frequencies):
         """Get the frequency descriptor for a certain input frequencies."""

@@ -274,7 +274,7 @@ class PairDensity:
                       ut_nR, eps_n, f_n, P_ani, shift_c)
 
     def generate_pair_densities(self, pd, m1, m2, spins, intraband=True,
-                                PWSA=None, disable_optical_limit=False,
+                                analyzer=None, disable_optical_limit=False,
                                 unsymmetrized=False, use_more_memory=1):
         """Generator for returning pair densities.
 
@@ -291,7 +291,7 @@ class PairDensity:
             List of spin indices included.
         intraband: bool
             Include intraband transitions in optical limit.
-        PWSA: PlanewaveSymmetryAnalyzer
+        analyzer: PlanewaveSymmetryAnalyzer
             If supplied uses this object to determine the symmetries
             of the pair-densities.
         disable_optical_limit: bool
@@ -313,16 +313,16 @@ class PairDensity:
         Q_aGii = self.initialize_paw_corrections(pd)
         self.Q_aGii = Q_aGii  # This is used in g0w0
 
-        if PWSA is None:
+        if analyzer is None:
             with self.timer('Symmetry analyzer'):
-                from gpaw.response.symmetry import PWSymmetryAnalyzer as PWSA
-                PWSA = PWSA(self.calc.wfs.kd, pd,
-                            timer=self.timer, txt=self.fd)
+                from gpaw.response.symmetry import PWSymmetryAnalyzer
+                analyzer = PWSymmetryAnalyzer(self.calc.wfs.kd, pd,
+                                              timer=self.timer, txt=self.fd)
 
         pb = ProgressBar(self.fd)
         for kn, (s, ik, n1, n2) in pb.enumerate(self.mysKn1n2):
-            Kstar_k = PWSA.unfold_ibz_kpoint(ik)
-            for K_k in PWSA.group_kpoints(Kstar_k):
+            Kstar_k = analyzer.unfold_ibz_kpoint(ik)
+            for K_k in analyzer.group_kpoints(Kstar_k):
                 # Let the first kpoint of the group represent
                 # the rest of the kpoints
                 K1 = K_k[0]
@@ -337,7 +337,7 @@ class PairDensity:
 
                 if unsymmetrized:
                     # Number of times kpoints are mapped into themselves
-                    weight = np.sqrt(PWSA.how_many_symmetries() / len(K_k))
+                    weight = np.sqrt(analyzer.how_many_symmetries() / len(K_k))
 
                 # Use kpt2 to compute intraband transitions
                 # These conditions are sufficient to make sure
@@ -355,7 +355,7 @@ class PairDensity:
                                        None, None, vel0_mv / weight)
                             else:
                                 for K2 in K_k:
-                                    vel_mv = PWSA.map_v(K1, K2, vel0_mv)
+                                    vel_mv = analyzer.map_v(K1, K2, vel0_mv)
                                     yield (f_m, None, None,
                                            None, None, vel_mv)
 
@@ -429,10 +429,10 @@ class PairDensity:
                     for i, K2 in enumerate(K_k):
                         i1 = i * nm
                         i2 = (i + 1) * nm
-                        n_mG = PWSA.map_G(K1, K2, n0_mG)
+                        n_mG = analyzer.map_G(K1, K2, n0_mG)
 
                         if optical_limit:
-                            n_mv = PWSA.map_v(K1, K2, n0_mv)
+                            n_mv = analyzer.map_v(K1, K2, n0_mv)
                             n_mG[:, 0] = n_mv[:, 0]
                             n_Mv[i1:i2, :] = n_mv
 
