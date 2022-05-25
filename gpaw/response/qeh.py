@@ -266,7 +266,7 @@ class BuildingBlock:
 
         from scipy.interpolate import RectBivariateSpline
         from scipy.interpolate import interp1d
-        from gpaw.response.frequencies import GridFrequencyDescriptor
+        from gpaw.response.frequencies import FrequencyGridDescriptor
         if not self.complete:
             self.calculate_building_block()
         q_grid *= Bohr
@@ -336,7 +336,7 @@ class BuildingBlock:
         self.drhoD_qz = yr(q_grid, self.z) + 1j * yi(q_grid, self.z)
 
         self.q_abs = q_grid
-        self.wd = GridFrequencyDescriptor(w_grid)
+        self.wd = FrequencyGridDescriptor(w_grid)
         self.save_chi_file(filename=self.filename + '_int')
 
     def collect(self, a_w):
