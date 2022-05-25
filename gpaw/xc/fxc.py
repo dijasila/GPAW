@@ -172,9 +172,11 @@ class FXCCorrelation(RPACorrelation):
 
         pd = chi0.pd
         nw = len(chi0.wd)
+        mynw = nw // self.nblocks
+        assert nw % self.nblocks == 0
         nspins = len(chi0_s)
         nG = pd.ngmax
-        chi0_swGG = np.empty((nspins, nw, nG, nG), complex)
+        chi0_swGG = np.empty((nspins, mynw, nG, nG), complex)
         for chi0_wGG, chi0 in zip(chi0_swGG, chi0_s):
             chi0.blockdist.redistribute(chi0.chi0_wGG, chi0_wGG)
         if self.nblocks > 1:
@@ -185,8 +187,6 @@ class FXCCorrelation(RPACorrelation):
             print('%.3f eV' % (e * Ha), file=self.fd)
             self.fd.flush()
         else:
-            nw = len(self.omega_w)
-            mynw = nw // self.nblocks
             w1 = self.blockcomm.rank * mynw
             w2 = w1 + mynw
             e = 0.0
