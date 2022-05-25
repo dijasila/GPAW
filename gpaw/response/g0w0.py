@@ -680,7 +680,7 @@ class G0W0:
         G_G = G_I[I0_G]
         assert len(I0_G) == len(I1_G)
         assert (G_G >= 0).all()
-        for a, Q_Gii in enumerate(self.initialize_paw_corrections(pd1)):
+        for a, Q_Gii in enumerate(self.pair.initialize_paw_corrections(pd1)):
             e = abs(Q_aGii[a] - Q_Gii[G_G]).max()
             assert e < 1e-12
 
@@ -829,7 +829,7 @@ class G0W0:
                     with open(wfilename, 'rb') as fd:
                         pdi, W = pickleload(fd)
                     # We also need to initialize the PAW corrections
-                    self.Q_aGii = self.initialize_paw_corrections(pdi)
+                    self.Q_aGii = self.pair.initialize_paw_corrections(pdi)
 
                 else:
                     # First time calculation
