@@ -840,7 +840,7 @@ class G0W0:
                 continue
 
             if len(self.ecut_e) > 1:
-                chi0bands = chi0calc.create_chi0(q_c, optical_limit=False)
+                chi0bands = chi0calc.create_chi0(q_c, extend_head=False)
             else:
                 chi0bands = None
 
