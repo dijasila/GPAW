@@ -5,11 +5,11 @@ from typing import Any
 
 import numpy as np
 from ase.units import Ha
-from gpaw.typing import Array1D
+from gpaw.typing import ArrayLike1D
 
 
 class FrequencyDescriptor:
-    def __init__(self, omega_w: Array1D):
+    def __init__(self, omega_w: ArrayLike1D):
         """Frequency grid descriptor.
 
         Parameters
@@ -29,7 +29,7 @@ class FrequencyDescriptor:
                 f'(from {emin:.3f} to {emax:.3f} eV, {len(self)} points)')
 
     @staticmethod
-    def from_array_or_dict(input: dict[str, Any] | Array1D
+    def from_array_or_dict(input: dict[str, Any] | ArrayLike1D
                            ) -> FrequencyDescriptor:
         """Create frequency-grid descriptor.
 

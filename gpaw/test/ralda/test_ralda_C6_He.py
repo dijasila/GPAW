@@ -6,6 +6,7 @@ from gpaw.test import equal
 
 
 @pytest.mark.skip(reason='TODO')
+@pytest.mark.response
 def test_ralda_C6_He():
     from gpaw.xc.fxc_correlation_energy import FXCCorrelation
     ecut = 50
