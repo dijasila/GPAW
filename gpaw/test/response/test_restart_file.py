@@ -10,7 +10,7 @@ class FragileG0W0(G0W0):
             self.doom = 0
         self.doom += 1  # Advance doom
         if self.doom == 12:
-            raise ValueError
+            raise ValueError('Cthulhu awakens')
         G0W0.calculate_q(self, *args, **kwargs)
 
 
@@ -23,12 +23,8 @@ def test_restart_file(in_tmp_dir, gpw_files):
                   kpts=[0, 1],
                   restartfile='restartfile')
     gw = FragileG0W0(gpw_files['bn_pw_wfs'], **kwargs)
-    failed = False
-    try:
+    with pytest.raises(ValueError, match='Cthulhu*'):
         gw.calculate()
-    except ValueError:
-        failed = True
-    assert failed
 
     assert exists('restartfile.sigma.pckl')
 
