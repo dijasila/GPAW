@@ -1006,8 +1006,6 @@ class G0W0:
         elif ecut < pd.ecut:  # construct subset chi0 matrix with lower ecut
             pdi = PWDescriptor(ecut, pd.gd, dtype=pd.dtype,
                                kd=pd.kd)
-            # nG = pdi.ngmax
-            # self.blocks1d = Blocks1D(self.blockcomm, nG)
 
             G2G = PWMapping(pdi, pd).G2_G1
             chi0_wGG = chi0_wGG.take(G2G, axis=1).take(G2G, axis=2)

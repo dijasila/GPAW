@@ -648,8 +648,6 @@ class Chi0:
             if self.blockcomm.rank == 0:
                 chi0.chi0_wGG[:, 0, :] = chi0.chi0_wxvG[:, 0, 2, :]
                 chi0.chi0_wGG[:, 0, 0] = chi0.chi0_wvv[:, 2, 2]
-        else:
-            pass  # chi0_wGG = A_wxx
 
         return chi0
 
