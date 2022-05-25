@@ -1,7 +1,6 @@
 from pathlib import Path
 
 import numpy as np
-from scipy.spatial import cKDTree
 
 from gpaw.utilities import convert_string_to_fd
 from ase.utils.timing import Timer, timer
@@ -10,6 +9,7 @@ from gpaw import disable_dry_run
 from gpaw.calculator import GPAW
 import gpaw.mpi as mpi
 from gpaw.response.math_func import two_phi_planewave_integrals
+from gpaw.response.symmetry import KPointFinder
 
 
 class KohnShamKPoint:
@@ -145,7 +145,7 @@ class KohnShamPair:
 
         # Prepare to find k-point data from vector
         kd = self.calc.wfs.kd
-        self.kdtree = cKDTree(np.mod(np.mod(kd.bzk_kc, 1).round(6), 1))
+        self.kptfinder = KPointFinder(kd.bzk_kc)
 
         # Prepare to use other processes' k-points
         self._pd0 = None
@@ -399,7 +399,7 @@ class KohnShamPair:
         t_t = np.arange(nt)
         nh = 0
         for p, k_c in enumerate(k_pc):  # p indicates the receiving process
-            K = self.find_kpoint(k_c)
+            K = self.kptfinder.find(k_c)
             ik = wfs.kd.bz2ibz_k[K]
             for r2 in range(p * self.transitionblockscomm.size,
                             min((p + 1) * self.transitionblockscomm.size,
@@ -716,7 +716,7 @@ class KohnShamPair:
         if self.kptblockcomm.rank in range(len(k_pc)):
             # Find k-point indeces
             k_c = k_pc[self.kptblockcomm.rank]
-            K = self.find_kpoint(k_c)
+            K = self.kptfinder.find(k_c)
             ik = wfs.kd.bz2ibz_k[K]
             # Construct symmetry operators
             (_, T, a_a, U_aii, shift_c,
@@ -812,10 +812,6 @@ class KohnShamPair:
             myn_eurn.append(myn_rn)
 
         return myu_eu, myn_eurn, nh, h_eurn, h_myt, myt_myt
-
-    @timer('Identifying k-points')
-    def find_kpoint(self, k_c):
-        return self.kdtree.query(np.mod(np.mod(k_c, 1).round(6), 1))[1]
 
     @timer('Apply symmetry operations')
     def transform_and_symmetrize(self, K, k_c, Ph, psit_hG):

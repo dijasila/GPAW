@@ -5,11 +5,12 @@ from functools import partial
 from time import ctime
 from typing import Union
 
-import gpaw
-import gpaw.mpi as mpi
 import numpy as np
 from ase.units import Ha
 from ase.utils.timing import Timer, timer
+
+import gpaw
+import gpaw.mpi as mpi
 from gpaw.bztools import convex_hull_volume
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.pw.descriptor import PWDescriptor
@@ -17,14 +18,15 @@ from gpaw.response.chi0_data import Chi0Data
 from gpaw.response.frequencies import (FrequencyDescriptor,
                                        LinearFrequencyDescriptor,
                                        NonLinearFrequencyDescriptor)
+from gpaw.response.hilbert import HilbertTransform
 from gpaw.response.integrators import (Integrator, PointIntegrator,
                                        TetrahedronIntegrator)
-from gpaw.response.pair import PairDensity, PWSymmetryAnalyzer
+from gpaw.response.pair import PairDensity
 from gpaw.response.pw_parallelization import (Blocks1D,
                                               PlaneWaveBlockDistributor,
                                               block_partition)
+from gpaw.response.symmetry import PWSymmetryAnalyzer
 from gpaw.typing import Array1D
-from gpaw.utilities.blas import gemm
 from gpaw.utilities.memory import maxrss
 
 
@@ -377,8 +379,8 @@ class Chi0:
         # The integration domain is determined by the following function
         # that reduces the integration domain to the irreducible zone
         # of the little group of q.
-        bzk_kv, PWSA = self.get_kpoints(pd,
-                                        integrationmode=self.integrationmode)
+        bzk_kv, analyzer = self.get_kpoints(
+            pd, integrationmode=self.integrationmode)
         domain = (bzk_kv, spins)
 
         if self.integrationmode == 'tetrahedron integration':
@@ -387,13 +389,14 @@ class Chi0:
             # which essentially means that too large domains will be
             # integrated. We normalize by vol(BZ) / vol(domain) to make
             # sure that to fix this.
-            domainvol = convex_hull_volume(bzk_kv) * PWSA.how_many_symmetries()
+            domainvol = convex_hull_volume(
+                bzk_kv) * analyzer.how_many_symmetries()
             bzvol = (2 * np.pi)**3 / self.vol
             factor = bzvol / domainvol
         else:
             factor = 1
 
-        prefactor = (2 * factor * PWSA.how_many_symmetries() /
+        prefactor = (2 * factor * analyzer.how_many_symmetries() /
                      (wfs.nspins * (2 * np.pi)**3))  # Remember prefactor
 
         if self.integrationmode is None:
@@ -414,7 +417,7 @@ class Chi0:
         # kwargs keyword.
         kd = self.calc.wfs.kd
         mat_kwargs = {'kd': kd, 'pd': pd,
-                      'symmetry': PWSA,
+                      'symmetry': analyzer,
                       'integrationmode': self.integrationmode}
         eig_kwargs = {'kd': kd, 'pd': pd}
 
@@ -506,7 +509,7 @@ class Chi0:
             # The intraband response is essentially just the calculation
             # of the free space Drude plasma frequency. The calculation is
             # similarly to the interband transitions documented above.
-            mat_kwargs = {'kd': kd, 'symmetry': PWSA,
+            mat_kwargs = {'kd': kd, 'symmetry': analyzer,
                           'n1': self.nocc1, 'n2': self.nocc2,
                           'pd': pd}  # Integrand arguments
             eig_kwargs = {'kd': kd,
@@ -561,7 +564,7 @@ class Chi0:
             except AttributeError:
                 self.plasmafreq_vv = 4 * np.pi * plasmafreq_vv * prefactor
 
-            PWSA.symmetrize_wvv(self.plasmafreq_vv[np.newaxis])
+            analyzer.symmetrize_wvv(self.plasmafreq_vv[np.newaxis])
             print('Plasma frequency:', file=self.fd)
             print((self.plasmafreq_vv**0.5 * Ha).round(2),
                   file=self.fd)
@@ -578,15 +581,15 @@ class Chi0:
 
         tmpA_wxx = chi0.blockdist.redistribute(A_wxx)
         if chi0.extend_head:
-            PWSA.symmetrize_wxx(tmpA_wxx,
-                                optical_limit=optical_limit)
+            analyzer.symmetrize_wxx(tmpA_wxx,
+                                    optical_limit=optical_limit)
         else:
-            PWSA.symmetrize_wGG(tmpA_wxx)
+            analyzer.symmetrize_wGG(tmpA_wxx)
             if wings:
                 chi0.chi0_wxvG += chi0_wxvx[..., 2:]
                 chi0.chi0_wvv += chi0_wxvx[:, 0, :3, :3]
-                PWSA.symmetrize_wxvG(chi0.chi0_wxvG)
-                PWSA.symmetrize_wvv(chi0.chi0_wvv)
+                analyzer.symmetrize_wxvG(chi0.chi0_wxvG)
+                analyzer.symmetrize_wvv(chi0.chi0_wvv)
         chi0.blockdist.redistribute(tmpA_wxx, A_wxx)
 
         # If point summation was used then the normalization of the
@@ -661,20 +664,19 @@ class Chi0:
     @timer('Get kpoints')
     def get_kpoints(self, pd, integrationmode=None):
         """Get the integration domain."""
-        # Use symmetries
-        PWSA = PWSymmetryAnalyzer
-        PWSA = PWSA(self.calc.wfs.kd, pd,
-                    timer=self.timer, txt=self.fd,
-                    disable_point_group=self.disable_point_group,
-                    disable_time_reversal=self.disable_time_reversal,
-                    disable_non_symmorphic=self.disable_non_symmorphic)
+        analyzer = PWSymmetryAnalyzer(
+            self.calc.wfs.kd, pd,
+            timer=self.timer, txt=self.fd,
+            disable_point_group=self.disable_point_group,
+            disable_time_reversal=self.disable_time_reversal,
+            disable_non_symmorphic=self.disable_non_symmorphic)
 
         if integrationmode is None:
-            K_gK = PWSA.group_kpoints()
+            K_gK = analyzer.group_kpoints()
             bzk_kc = np.array([self.calc.wfs.kd.bzk_kc[K_K[0]] for
                                K_K in K_gK])
         elif integrationmode == 'tetrahedron integration':
-            bzk_kc = PWSA.get_reduced_kd(pbc_c=self.pbc).bzk_kc
+            bzk_kc = analyzer.get_reduced_kd(pbc_c=self.pbc).bzk_kc
             if (~self.pbc).any():
                 bzk_kc = np.append(bzk_kc,
                                    bzk_kc + (~self.pbc).astype(int),
@@ -682,7 +684,7 @@ class Chi0:
 
         bzk_kv = np.dot(bzk_kc, pd.gd.icell_cv) * 2 * np.pi
 
-        return bzk_kv, PWSA
+        return bzk_kv, analyzer
 
     @timer('Get matrix element')
     def get_matrix_element(self, k_v, s, n1=None, n2=None,
@@ -719,7 +721,7 @@ class Chi0:
         kd : KpointDescriptor instance
             Calculator kpoint descriptor.
         symmetry: gpaw.response.pair.PWSymmetryAnalyzer instance
-            PWSA object for handling symmetries of the kpoints.
+            Symmetry analyzer object for handling symmetries of the kpoints.
         integrationmode : str
             The integration mode employed.
         extend_head: Bool
@@ -926,84 +928,3 @@ class Chi0:
         p('        Memory usage before allocation: %f M / cpu' % (maxrss() /
                                                                   1024**2))
         p()
-
-
-class HilbertTransform:
-
-    def __init__(self, omega_w, eta, timeordered=False, gw=False,
-                 blocksize=500):
-        """Analytic Hilbert transformation using linear interpolation.
-
-        Hilbert transform::
-
-           oo
-          /           1                1
-          |dw' (-------------- - --------------) S(w').
-          /     w - w' + i eta   w + w' + i eta
-          0
-
-        With timeordered=True, you get::
-
-           oo
-          /           1                1
-          |dw' (-------------- - --------------) S(w').
-          /     w - w' - i eta   w + w' + i eta
-          0
-
-        With gw=True, you get::
-
-           oo
-          /           1                1
-          |dw' (-------------- + --------------) S(w').
-          /     w - w' + i eta   w + w' + i eta
-          0
-
-        """
-
-        self.blocksize = blocksize
-
-        if timeordered:
-            self.H_ww = self.H(omega_w, -eta) + self.H(omega_w, -eta, -1)
-        elif gw:
-            self.H_ww = self.H(omega_w, eta) - self.H(omega_w, -eta, -1)
-        else:
-            self.H_ww = self.H(omega_w, eta) + self.H(omega_w, -eta, -1)
-
-    def H(self, o_w, eta, sign=1):
-        """Calculate transformation matrix.
-
-        With s=sign (+1 or -1)::
-
-                        oo
-                       /       dw'
-          X (w, eta) = | ---------------- S(w').
-           s           / s w - w' + i eta
-                       0
-
-        Returns H_ij so that X_i = np.dot(H_ij, S_j), where::
-
-            X_i = X (omega_w[i]) and S_j = S(omega_w[j])
-                   s
-        """
-
-        nw = len(o_w)
-        H_ij = np.zeros((nw, nw), complex)
-        do_j = o_w[1:] - o_w[:-1]
-        for i, o in enumerate(o_w):
-            d_j = o_w - o * sign
-            y_j = 1j * np.arctan(d_j / eta) + 0.5 * np.log(d_j**2 + eta**2)
-            y_j = (y_j[1:] - y_j[:-1]) / do_j
-            H_ij[i, :-1] = 1 - (d_j[1:] - 1j * eta) * y_j
-            H_ij[i, 1:] -= 1 - (d_j[:-1] - 1j * eta) * y_j
-        return H_ij
-
-    def __call__(self, S_wx):
-        """Inplace transform"""
-        B_wx = S_wx.reshape((len(S_wx), -1))
-        nw, nx = B_wx.shape
-        tmp_wx = np.zeros((nw, min(nx, self.blocksize)), complex)
-        for x in range(0, nx, self.blocksize):
-            b_wx = B_wx[:, x:x + self.blocksize]
-            c_wx = tmp_wx[:, :b_wx.shape[1]]
-            gemm(1.0, b_wx, self.H_ww, 0.0, c_wx)
-            b_wx[:] = c_wx
