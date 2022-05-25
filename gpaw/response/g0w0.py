@@ -21,8 +21,7 @@ from gpaw.response.fxckernel_calc import calculate_kernel
 from gpaw.response.kernels import get_coulomb_kernel, get_integrated_kernel
 from gpaw.response.pair import PairDensity
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
-from gpaw.response.pw_parallelization import (Blocks1D,
-                                              PlaneWaveBlockDistributor)
+from gpaw.response.pw_parallelization import Blocks1D
 from gpaw.utilities.progressbar import ProgressBar
 from gpaw.pw.descriptor import (PWDescriptor, PWMapping,
                                 count_reciprocal_vectors)
@@ -580,7 +579,7 @@ class G0W0:
 
             # Loop over q in the IBZ:
             nQ = 0
-            for ie, pd0, W0, q_c, m2, W0_GW, symop in \
+            for ie, pd0, W0, q_c, m2, W0_GW, symop, blocks1d in \
                     self.calculate_screened_potential():
                 if nQ == 0:
                     print('Summing all q:', file=self.fd)
@@ -599,7 +598,9 @@ class G0W0:
                         Wlist.append(W0_GW)
 
                     self.calculate_q(ie, i, kpt1, kpt2, pd0, Wlist,
-                                     symop=symop, sigmas=self.sigmas)
+                                     symop=symop,
+                                     sigmas=self.sigmas,
+                                     blocks1d=blocks1d)
                 nQ += 1
             pb.finish()
 
@@ -637,7 +638,7 @@ class G0W0:
         return results
 
     def calculate_q(self, ie, k, kpt1, kpt2, pd0, Wlist,  # W0, W0_GW=None,
-                    *, symop, sigmas):
+                    *, symop, sigmas, blocks1d):
         """Calculates the contribution to the self-energy and its derivative
         for a given set of k-points, kpt1 and kpt2."""
 
@@ -693,7 +694,7 @@ class G0W0:
             assert len(Wlist) == len(sigmas)
             for W, sigma in zip(Wlist, sigmas):
                 sigma_contrib, dsigma_contrib = calculate_sigma(
-                    n_mG, deps_m, f_m, W)
+                    n_mG, deps_m, f_m, W, blocks1d)
                 sigma.sigma_eskn[ie, kpt1.s, k, nn] += sigma_contrib
                 sigma.dsigma_eskn[ie, kpt1.s, k, nn] += dsigma_contrib
 
@@ -708,12 +709,12 @@ class G0W0:
         G_G = G_I[I0_G]
         assert len(I0_G) == len(I1_G)
         assert (G_G >= 0).all()
-        for a, Q_Gii in enumerate(self.initialize_paw_corrections(pd1)):
+        for a, Q_Gii in enumerate(self.pair.initialize_paw_corrections(pd1)):
             e = abs(Q_aGii[a] - Q_Gii[G_G]).max()
             assert e < 1e-12
 
     @timer('Sigma')
-    def calculate_sigma(self, n_mG, deps_m, f_m, C_swGG):
+    def calculate_sigma(self, n_mG, deps_m, f_m, C_swGG, blocks1d):
         """Calculates a contribution to the self-energy and its derivative for
         a given (k, k-q)-pair from its corresponding pair-density and
         energy."""
@@ -744,7 +745,7 @@ class G0W0:
             C1_GG = C_swGG[s][w]
             C2_GG = C_swGG[s][w + 1]
             p = x * sgn
-            myn_G = n_G[self.blocks1d.myslice]
+            myn_G = n_G[blocks1d.myslice]
 
             sigma1 = p * np.dot(np.dot(myn_G, C1_GG), n_G.conj()).imag
             sigma2 = p * np.dot(np.dot(myn_G, C2_GG), n_G.conj()).imag
@@ -790,25 +791,25 @@ class G0W0:
 
         self.fd.flush()
 
-        chi0 = Chi0(self.inputcalc,
-                    nbands=self.nbands,
-                    ecut=self.ecut * Ha,
-                    intraband=False,
-                    real_space_derivatives=False,
-                    txt=self.filename + '.w.txt',
-                    timer=self.timer,
-                    nblocks=self.blockcomm.size,
-                    **parameters)
+        chi0calc = Chi0(self.inputcalc,
+                        nbands=self.nbands,
+                        ecut=self.ecut * Ha,
+                        intraband=False,
+                        real_space_derivatives=False,
+                        txt=self.filename + '.w.txt',
+                        timer=self.timer,
+                        nblocks=self.blockcomm.size,
+                        **parameters)
 
         if self.truncation == 'wigner-seitz':
             wstc = WignerSeitzTruncatedCoulomb(
                 self.gd.cell_cv,
                 self.kd.N_c,
-                chi0.fd)
+                chi0calc.fd)
         else:
             wstc = None
 
-        self.wd = chi0.wd
+        self.wd = chi0calc.wd
         self.hilbert_transform = GWHilbertTransforms(
             self.wd.omega_w, self.eta)
         print(self.wd, file=self.fd)
@@ -838,30 +839,12 @@ class G0W0:
             if iq <= self.last_q:
                 continue
 
-            thisqd = KPointDescriptor([q_c])
-            pd = PWDescriptor(self.ecut, self.gd, complex, thisqd)
-            nG = pd.ngmax
-
-            # This does not seem healthy... G0W0 should not configure the
-            # properties of chi0 directly, see blockdist below
-            chi0.blocks1d = Blocks1D(self.blockcomm, nG)
-
             if len(self.ecut_e) > 1:
-                shape = (nw, chi0.blocks1d.nlocal, nG)
-                chi0bands_wGG = np.zeros(shape, dtype=complex)
-
-                if np.allclose(q_c, 0.0):
-                    chi0bands_wxvG = np.zeros((nw, 2, 3, nG), complex)
-                    chi0bands_wvv = np.zeros((nw, 3, 3), complex)
-                else:
-                    chi0bands_wxvG = None
-                    chi0bands_wvv = None
+                chi0bands = chi0calc.create_chi0(q_c, extend_head=False)
             else:
-                chi0bands_wGG = None
-                chi0bands_wxvG = None
-                chi0bands_wvv = None
+                chi0bands = None
 
-            m1 = chi0.nocc1
+            m1 = chi0calc.nocc1
             for ie, ecut in enumerate(self.ecut_e):
                 self.timer.start('W')
                 if self.savew:
@@ -874,10 +857,8 @@ class G0W0:
                     with open(wfilename, 'rb') as fd:
                         pdi, W = pickleload(fd)
                     # We also need to initialize the PAW corrections
-                    self.Q_aGii = self.initialize_paw_corrections(pdi)
+                    self.Q_aGii = self.pair.initialize_paw_corrections(pdi)
 
-                    nw = len(self.wd)
-                    self.blocks1d = Blocks1D(self.blockcomm, pdi.ngmax)
                 else:
                     # First time calculation
                     if ecut == self.ecut:
@@ -890,9 +871,8 @@ class G0W0:
                                              f'larger number of bands ({m2})'
                                              f' than there are bands '
                                              f'({self.nbands}).')
-                    pdi, W, W_GW = self.calculate_w(
-                        chi0, q_c, pd, chi0bands_wGG,
-                        chi0bands_wxvG, chi0bands_wvv,
+                    pdi, W, W_GW, blocks1d = self.calculate_w(
+                        chi0calc, q_c, chi0bands,
                         m1, m2, ecut, wstc, iq)
                     m1 = m2
                     if self.savew:
@@ -909,70 +889,44 @@ class G0W0:
                 self.timer.stop('W')
 
                 for Q_c, symop in QSymmetryOp.get_symops(self.qd, iq, q_c):
-                    yield ie, pdi, W, Q_c, m2, W_GW, symop
+                    yield (ie, pdi, W, Q_c, m2, W_GW, symop,
+                           blocks1d)
 
                 if self.restartfile is not None:
                     self.save_restart_file(iq)
 
     @timer('WW')
-    def calculate_w(self, chi0, q_c, pd, chi0bands_wGG, chi0bands_wxvG,
-                    chi0bands_wvv, m1, m2, ecut, wstc,
+    def calculate_w(self, chi0calc, q_c, chi0bands,
+                    m1, m2, ecut, wstc,
                     iq):
         """Calculates the screened potential for a specified q-point."""
 
-        # Since we do not call chi0.calculate() (which in of itself leads
-        # to massive code duplication), we have to manage the block
-        # parallelization here.
-        self.blocks1d = chi0.blocks1d
-        self.blockdist = PlaneWaveBlockDistributor(self.world,
-                                                   self.blockcomm,
-                                                   chi0.kncomm,
-                                                   self.wd, self.blocks1d)
-        # Because we do not call chi0.calculate(), we have to let it
-        # know about the block distributor by hand... Unsafe!
-        chi0.blockdist = self.blockdist
-
-        nw = len(self.wd)
-        nG = pd.ngmax
-        shape = (nw, self.blocks1d.nlocal, nG)
-
-        chi0.fd = self.fd
-        chi0.print_chi(pd)
-
-        chi0_wGG = np.zeros(shape, dtype=complex)
-        if np.allclose(q_c, 0.0):
-            chi0_wxvG = np.zeros((nw, 2, 3, nG), complex)
-            chi0_wvv = np.zeros((nw, 3, 3), complex)
-        else:
-            chi0_wxvG = None
-            chi0_wvv = None
-
-        chi0._calculate(pd, chi0_wGG, chi0_wxvG, chi0_wvv, m1, m2,
-                        range(self.nspins), extend_head=False)
+        chi0 = chi0calc.create_chi0(q_c, extend_head=False)
+        chi0calc.fd = self.fd
+        chi0calc.print_chi(chi0.pd)
+        chi0calc.update_chi0(chi0, m1, m2, range(self.nspins))
 
         if len(self.ecut_e) > 1:
             # Add chi from previous cutoff with remaining bands
-            chi0_wGG += chi0bands_wGG
-            chi0bands_wGG[:] = chi0_wGG.copy()
-            if np.allclose(q_c, 0.0):
-                chi0_wxvG += chi0bands_wxvG
-                chi0bands_wxvG[:] = chi0_wxvG.copy()
-                chi0_wvv += chi0bands_wvv
-                chi0bands_wvv[:] = chi0_wvv.copy()
+            chi0.chi0_wGG += chi0bands.chi0_wGG
+            chi0bands.chi0_wGG[:] = chi0.chi0_wGG.copy()
+            if chi0.optical_limit:
+                chi0.chi0_wxvG += chi0bands.chi0_wxvG
+                chi0bands.chi0_wxvG[:] = chi0.chi0_wxvG.copy()
+                chi0.chi0_wvv += chi0bands.chi0_wvv
+                chi0bands.chi0_wvv[:] = chi0.chi0_wvv.copy()
 
-        self.Q_aGii = chi0.Q_aGii
+        self.Q_aGii = chi0calc.Q_aGii
 
         # Old way
         # if not np.allclose(q_c, 0):
         #     self.timer.start('old non gamma')
         # else:
         #     self.timer.start('old gamma')
-
-        pdi, W_wGG, W_GW_wGG = self.dyson_and_W_old(
-            wstc, iq, q_c, chi0,
-            chi0_wvv, chi0_wxvG,
-            chi0_wGG,
-            pd, ecut)
+        pdi, blocks1d, W_wGG, W_GW_wGG = self.dyson_and_W_old(
+            wstc, iq, q_c, chi0calc,
+            chi0,
+            ecut)
 
         GW_return = None
         if self.ppa:
@@ -1007,19 +961,18 @@ class G0W0:
         #     Wm_wGG[:] = Wm2_wGG
         #     Wp_wGG[:] = Wp2_wGG
 
-        return pdi, W_xwGG, GW_return
+        return pdi, W_xwGG, GW_return, blocks1d
 
-    def dyson_and_W_new(self, wstc, iq, q_c, chi0, chi0_wvv, chi0_wxvG,
-                        chi0_WgG, pd, ecut):
+    def dyson_and_W_new(self, wstc, iq, q_c, chi0calc, chi0, ecut):
         assert not self.ppa
         assert not self.do_GW_too
-        assert ecut == pd.ecut
+        assert ecut == chi0.pd.ecut
         assert self.fxc_mode == 'GW'
 
         assert not np.allclose(q_c, 0)
 
         nW = len(self.wd)
-        nG = pd.ngmax
+        nG = chi0.pd.ngmax
 
         from gpaw.response.wgg import Grid
 
@@ -1028,13 +981,13 @@ class G0W0:
             comm=self.blockcomm,
             shape=WGG,
             cpugrid=(1, self.blockcomm.size, 1))
-        assert chi0_WgG.shape == WgG_grid.myshape
+        assert chi0.chi0_wGG.shape == WgG_grid.myshape
 
         my_gslice = WgG_grid.myslice[1]
 
-        dielectric_WgG = chi0_WgG  # XXX
-        for iw, chi0_GG in enumerate(chi0_WgG):
-            sqrtV_G = get_coulomb_kernel(pd,  # XXX was: pdi
+        dielectric_WgG = chi0.chi0_wGG  # XXX
+        for iw, chi0_GG in enumerate(chi0.chi0_wGG):
+            sqrtV_G = get_coulomb_kernel(chi0.pd,  # XXX was: pdi
                                          self.kd.N_c,
                                          truncation=self.truncation,
                                          wstc=wstc)**0.5
@@ -1065,15 +1018,19 @@ class G0W0:
         W_WgG = inveps_WgG
         Wp_wGG = W_WgG.copy()
         Wm_wGG = W_WgG.copy()
-        return pd, Wm_wGG, Wp_wGG  # not Hilbert transformed yet
+        return chi0.pd, Wm_wGG, Wp_wGG  # not Hilbert transformed yet
 
-    def dyson_and_W_old(self, wstc, iq, q_c, chi0, chi0_wvv, chi0_wxvG,
-                        chi0_wGG, pd, ecut):
-        nG = pd.ngmax
+    def dyson_and_W_old(self, wstc, iq, q_c, chi0calc, chi0,
+                        ecut):
+        nG = chi0.pd.ngmax
+        blocks1d = chi0.blockdist.blocks1d
 
         wblocks1d = Blocks1D(self.blockcomm, len(self.wd))
 
-        chi0_wGG = self.blockdist.redistribute(chi0_wGG)
+        chi0_wGG = chi0.blockdist.redistribute(chi0.chi0_wGG)
+        pd = chi0.pd
+        chi0_wxvG = chi0.chi0_wxvG
+        chi0_wvv = chi0.chi0_wvv
 
         if ecut == pd.ecut:
             pdi = pd
@@ -1083,8 +1040,7 @@ class G0W0:
             pdi = PWDescriptor(ecut, pd.gd, dtype=pd.dtype,
                                kd=pd.kd)
             nG = pdi.ngmax
-            self.blocks1d = Blocks1D(self.blockcomm, nG)
-
+            blocks1d = Blocks1D(self.blockcomm, nG)
             G2G = PWMapping(pdi, pd).G2_G1
             chi0_wGG = chi0_wGG.take(G2G, axis=1).take(G2G, axis=2)
 
@@ -1244,20 +1200,20 @@ class G0W0:
                 W_GG[1:, 0] = pi * R_GG[1:, 0] * sqrtV0 * sqrtV_G[1:]
 
             self.timer.stop('Dyson eq.')
-            return pdi, [W_GG, omegat_GG], None
+            return pdi, blocks1d, [W_GG, omegat_GG], None
 
         # XXX This creates a new, large buffer.  We could perhaps
         # avoid that.  Buffer used to exist but was removed due to #456.
-        W_wGG = self.blockdist.redistribute(chi0_wGG)
+        W_wGG = chi0.blockdist.redistribute(chi0_wGG)
 
         if self.do_GW_too:
-            W_GW_wGG = self.blockdist.redistribute(
+            W_GW_wGG = chi0.blockdist.redistribute(
                 chi0_GW_wGG)
         else:
             W_GW_wGG = None
 
         self.timer.stop('Dyson eq.')
-        return pdi, W_wGG, W_GW_wGG
+        return pdi, blocks1d, W_wGG, W_GW_wGG
 
     @timer('Kohn-Sham XC-contribution')
     def calculate_ks_xc_contribution(self):
@@ -1354,7 +1310,7 @@ class G0W0:
         self.timer.write(self.fd)
 
     @timer('PPA-Sigma')
-    def calculate_sigma_ppa(self, n_mG, deps_m, f_m, W):
+    def calculate_sigma_ppa(self, n_mG, deps_m, f_m, W, *unused):
         W_GG, omegat_GG = W
 
         sigma = 0.0

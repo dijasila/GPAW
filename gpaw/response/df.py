@@ -126,13 +126,14 @@ class DielectricFunction:
             if os.path.isfile(name):
                 return self.read(name)
 
-        pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.chi0.calculate(q_c, spin)
-        chi0_wGG = self.chi0.distribute_frequencies(chi0_wGG)
+        chi0 = self.chi0.calculate(q_c, spin)
+        chi0_wGG = chi0.blockdist.distribute_frequencies(chi0.chi0_wGG)
+
         self.chi0.timer.write(self.chi0.fd)
         if self.name:
-            self.write(name, pd, chi0_wGG, chi0_wxvG, chi0_wvv)
+            self.write(name, chi0.pd, chi0_wGG, chi0.chi0_wxvG, chi0.chi0_wvv)
 
-        return pd, chi0_wGG, chi0_wxvG, chi0_wvv
+        return chi0.pd, chi0_wGG, chi0.chi0_wxvG, chi0.chi0_wvv
 
     def write(self, name, pd, chi0_wGG, chi0_wxvG, chi0_wvv):
         nw = len(self.wd)

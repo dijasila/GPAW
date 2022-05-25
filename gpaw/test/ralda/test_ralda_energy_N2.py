@@ -1,4 +1,5 @@
 from gpaw.mpi import world
+import pytest
 from ase import Atoms
 from ase.build import molecule
 from gpaw import GPAW, PW
@@ -6,6 +7,7 @@ from gpaw.xc.fxc import FXCCorrelation
 from gpaw.test import equal
 
 
+@pytest.mark.response
 def test_ralda_ralda_energy_N2(in_tmp_dir, scalapack):
     if world.size == 1:
         scalapack1 = None
