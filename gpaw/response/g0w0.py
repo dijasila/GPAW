@@ -923,7 +923,7 @@ class G0W0:
         #     self.timer.start('old non gamma')
         # else:
         #     self.timer.start('old gamma')
-        pdi, W_wGG, W_GW_wGG = self.dyson_and_W_old(
+        pdi, blocks1d, W_wGG, W_GW_wGG = self.dyson_and_W_old(
             wstc, iq, q_c, chi0calc,
             chi0,
             ecut)
@@ -961,7 +961,7 @@ class G0W0:
         #     Wm_wGG[:] = Wm2_wGG
         #     Wp_wGG[:] = Wp2_wGG
 
-        return pdi, W_xwGG, GW_return, chi0.blockdist.blocks1d
+        return pdi, W_xwGG, GW_return, blocks1d
 
     def dyson_and_W_new(self, wstc, iq, q_c, chi0calc, chi0, ecut):
         assert not self.ppa
@@ -1023,6 +1023,7 @@ class G0W0:
     def dyson_and_W_old(self, wstc, iq, q_c, chi0calc, chi0,
                         ecut):
         nG = chi0.pd.ngmax
+        blocks1d = chi0.blockdist.blocks1d
 
         wblocks1d = Blocks1D(self.blockcomm, len(self.wd))
 
@@ -1038,7 +1039,8 @@ class G0W0:
         elif ecut < pd.ecut:  # construct subset chi0 matrix with lower ecut
             pdi = PWDescriptor(ecut, pd.gd, dtype=pd.dtype,
                                kd=pd.kd)
-
+            nG = pdi.ngmax
+            blocks1d = Blocks1D(self.blockcomm, nG)
             G2G = PWMapping(pdi, pd).G2_G1
             chi0_wGG = chi0_wGG.take(G2G, axis=1).take(G2G, axis=2)
 
@@ -1211,7 +1213,7 @@ class G0W0:
             W_GW_wGG = None
 
         self.timer.stop('Dyson eq.')
-        return pdi, W_wGG, W_GW_wGG
+        return pdi, blocks1d, W_wGG, W_GW_wGG
 
     @timer('Kohn-Sham XC-contribution')
     def calculate_ks_xc_contribution(self):
