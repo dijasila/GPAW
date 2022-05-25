@@ -200,9 +200,6 @@ class Chi0:
         self.wd = FrequencyDescriptor.from_array_or_dict(frequencies)
         print(self.wd, file=self.fd)
 
-        # self.blocks1d = None  # Plane wave basis depends on q
-        # self.blockdist = None
-
         if not isinstance(self.wd, NonLinearFrequencyDescriptor):
             assert not hilbert
 
@@ -870,14 +867,6 @@ class Chi0:
         assert wfs.kd.comm.size == 1
 
         return kpt1.eps_n[n1:n2]
-
-    @timer('redist')
-    def xxxredistribute(self, in_wGG, out_x=None):
-        return self.blockdist.redistribute(in_wGG, out_x)
-
-    @timer('dist freq')
-    def xxxdistribute_frequencies(self, chi0_wGG):
-        return self.blockdist.distribute_frequencies(chi0_wGG)
 
     def print_chi(self, pd):
         calc = self.calc
