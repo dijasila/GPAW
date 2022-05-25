@@ -32,12 +32,10 @@ def test_restart_file(in_tmp_dir, gpw_files):
     assert exists('restartfile.sigma.pckl')
 
     gw = G0W0(gpw_files['bn_pw_wfs'], **kwargs)
-    gw.calculate()
     results = gw.calculate()
 
     kwargs.pop('restartfile')
     gw = G0W0(gpw_files['bn_pw_wfs'], **kwargs)
-    gw.calculate()
     results2 = gw.calculate()
 
     assert np.allclose(results['qp'], results2['qp'])
