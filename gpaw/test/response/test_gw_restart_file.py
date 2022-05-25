@@ -28,7 +28,11 @@ def test_restart_file(in_tmp_dir, gpw_files):
 
     assert exists('restartfile.sigma.pckl')
 
-    gw = G0W0(gpw_files['bn_pw_wfs'], **kwargs)
+    # Use FragileG0W0 also in the restart.
+    # The FragileG0W0 cannot by itself calculate the full thing because
+    # calculate_q is called 16 times in total. Thus, it must be that
+    # it was helped by the previous calculation.
+    gw = FragileG0W0(gpw_files['bn_pw_wfs'], **kwargs)
     results = gw.calculate()
 
     kwargs.pop('restartfile')
