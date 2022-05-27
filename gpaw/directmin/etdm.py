@@ -379,12 +379,12 @@ class ETDM:
                 g_vec_u = self.g_vec_u_original if self.mmf else self.g_vec_u
 
             make_pd = False
-            if self.mmf:
-                with wfs.timer('Partial Hessian diagonalization'):
-                    self.searchdir_algo.update_eigenpairs(
-                        g_vec_u, wfs, ham, dens)
-                # The diagonal Hessian approximation must be positive-definite
-                make_pd = True
+            #if self.mmf:
+            #    with wfs.timer('Partial Hessian diagonalization'):
+            #        self.searchdir_algo.update_eigenpairs(
+            #            g_vec_u, wfs, ham, dens)
+            #    # The diagonal Hessian approximation must be positive-definite
+            #    make_pd = True
 
             with wfs.timer('Preconditioning:'):
                 precond = self.get_preconditioning(
