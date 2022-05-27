@@ -391,6 +391,8 @@ class ETDM:
                     wfs, self.use_prec, make_pd=make_pd)
             from ase.parallel import parprint
             parprint('precond')
+            for k in precond.keys():
+                precond[k] = np.sort(precond[k])
             parprint(precond)
             raise Exception()
 
