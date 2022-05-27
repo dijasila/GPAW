@@ -2,7 +2,7 @@ import pytest
 import numpy as np
 from gpaw.response.g0w0 import G0W0
 from os.path import exists
-
+from gpaw.mpi import world
 
 class FragileG0W0(G0W0):
     def calculate_q(self, *args, **kwargs):
@@ -18,13 +18,15 @@ class FragileG0W0(G0W0):
 def test_restart_file(in_tmp_dir, gpw_files):
     kwargs = dict(bands=(3, 5),
                   nbands=9,
-                  nblocks=1,
+                  nblocks=world.size,
                   ecut=40,
                   kpts=[0, 1],
                   restartfile='restartfile')
     gw = FragileG0W0(gpw_files['bn_pw_wfs'], **kwargs)
     with pytest.raises(ValueError, match='Cthulhu*'):
         gw.calculate()
+
+    assert gw.doom == 12
 
     assert exists('restartfile.sigma.pckl')
 
