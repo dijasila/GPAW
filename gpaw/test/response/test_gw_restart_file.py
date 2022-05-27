@@ -4,6 +4,7 @@ from gpaw.response.g0w0 import G0W0
 from os.path import exists
 from gpaw.mpi import world
 
+
 class FragileG0W0(G0W0):
     def calculate_q(self, *args, **kwargs):
         if not hasattr(self, 'doom'):
