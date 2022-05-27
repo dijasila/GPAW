@@ -389,6 +389,10 @@ class ETDM:
             with wfs.timer('Preconditioning:'):
                 precond = self.get_preconditioning(
                     wfs, self.use_prec, make_pd=make_pd)
+            from ase.parallel import parprint
+            parprint('precond')
+            parprint(precond)
+            raise Exception()
 
             with wfs.timer('Get Search Direction'):
                 # calculate search direction according to chosen
