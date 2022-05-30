@@ -392,8 +392,7 @@ class ETDM:
             from ase.parallel import parprint
             parprint('precond')
             for k in precond.keys():
-                precond[k] = np.sort(precond[k])
-            parprint(precond)
+                parprint(np.sort(precond[k]))
             raise Exception()
 
             with wfs.timer('Get Search Direction'):
