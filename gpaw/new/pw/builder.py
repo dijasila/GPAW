@@ -79,7 +79,8 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
                                             self.setups,
                                             self.xc,
                                             poisson_solver,
-                                            nct_ag, self.nct_R)
+                                            nct_ag, self.nct_R,
+                                            self.soc)
 
     def create_hamiltonian_operator(self, blocksize=10):
         if self.ncomponents < 4:

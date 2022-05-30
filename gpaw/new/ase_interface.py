@@ -138,10 +138,13 @@ class ASECalculator:
         self.calculation.write_converged()
 
     def __del__(self):
-        self.log('---')
-        self.timer.write(self.log)
-        mib = maxrss() / 1024**2
-        self.log(f'\nMax RSS: {mib:.3f}  # MiB')
+        try:
+            self.log('---')
+            self.timer.write(self.log)
+            mib = maxrss() / 1024**2
+            self.log(f'\nMax RSS: {mib:.3f}  # MiB')
+        except NameError:
+            pass
 
     def get_potential_energy(self,
                              atoms: Atoms,

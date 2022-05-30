@@ -13,10 +13,11 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
                  xc,
                  poisson_solver,
                  nct_ag,
-                 nct_R):
+                 nct_R,
+                 soc=False):
         fracpos_ac = nct_ag.fracpos_ac
         atomdist = nct_ag.atomdist
-        super().__init__(xc, poisson_solver, setups, nct_R, fracpos_ac)
+        super().__init__(xc, poisson_solver, setups, nct_R, fracpos_ac, soc)
 
         self.nct_ag = nct_ag
         self.vbar_ag = setups.create_local_potentials(pw, fracpos_ac, atomdist)
