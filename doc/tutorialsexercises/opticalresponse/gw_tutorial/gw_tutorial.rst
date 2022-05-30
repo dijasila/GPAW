@@ -187,13 +187,11 @@ More information can be found here:
 .. note::
     Including vertex corrections is currently not possible for spin-polarized systems.
 
-A `GW\Gamma` calculation requires that 3 additional keywords are specified in the GW calculator:
+A `GW\Gamma` calculation requires that two additional keywords are specified in the GW calculator:
 
 1) Which kernel to use: ``xc='rALDA'``, ``xc='rAPBE'`` etc..
 
-2) How to construct the kernel: ``av_scheme='wavevector'`` or ``av_scheme='density'``. The wavevector scheme is preferred here.
-
-3) How to apply the kernel: ``fxc_mode = 'GWG'``, ``fxc_mode='GWP'`` or ``fxc_mode='GWS'``.
+2) How to apply the kernel: ``fxc_mode = 'GWG'``, ``fxc_mode='GWP'`` or ``fxc_mode='GWS'``.
 
 Carrying on from the ground state calculation in :download:`MoS2_gs_GW.py`, a `GW\Gamma` calculation can be done with the following script: :download:`MoS2_GWG.py`.
 
