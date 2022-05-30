@@ -8,7 +8,7 @@ from ase.parallel import parprint
 import ase.units as units
 from ase.utils.filecache import MultiFileJSONCache
 
-from gpaw import GPAW
+from gpaw.calculator import GPAW
 from gpaw.lcao.tightbinding import TightBinding
 from gpaw.utilities import unpack2
 from gpaw.utilities.tools import tri2full
@@ -99,7 +99,7 @@ class Supercell:
                 P1HP_MM = +1 * np.dot(dP_qvMi[kpt.q][v], np.dot(dH_ii,
                                       P_aqMi[a][kpt.q].T.conjugate()))
                 # Matrix elements
-                gp_MM = P1HP_MM + P1HP_MM.T.conjugate()
+                gp_MM += P1HP_MM + P1HP_MM.T.conjugate()
             wfs.gd.comm.sum(gp_MM)
             # print(world.rank, a,v, kpt.k, bfs.my_atom_indices, gp_MM)
             g_sqMM[kpt.s, kpt.q] += gp_MM

@@ -1,7 +1,7 @@
 import numpy as np
 from typing import Union
 
-from gpaw import GPAW
+from gpaw.calculator import GPAW
 from gpaw.typing import ArrayND
 
 

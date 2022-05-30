@@ -32,7 +32,7 @@ import ase.units as units
 from ase.utils.filecache import MultiFileJSONCache
 from ase.utils.timing import timer, Timer
 
-from gpaw import GPAW
+from gpaw.calculator import GPAW
 from gpaw.mpi import world
 from gpaw.typing import ArrayND
 

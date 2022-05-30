@@ -44,7 +44,7 @@ import numpy as np
 from ase import Atoms
 from ase.phonons import Displacement
 
-from gpaw import GPAW
+from gpaw.calculator import GPAW
 
 dr_version = 1
 # v1: saves natom, supercell, delta
