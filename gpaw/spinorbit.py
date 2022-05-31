@@ -574,7 +574,7 @@ def get_radial_potential(a: Setup, xc, D_sp: Array2D) -> Array1D:
     fc_g = a.Z / r_g**2
 
     # Hartree force
-    rho_g = 4 * np.pi * r_g**2 * dr_g * np.sum(n_sg, axis=0)
+    rho_g = 4 * np.pi * r_g**2 * dr_g * np.sum(n_sg[:Ns], axis=0)
     fh_g = -np.array([np.sum(rho_g[:ig]) for ig in range(len(r_g))]) / r_g**2
 
     f_g = fc_g + fh_g
