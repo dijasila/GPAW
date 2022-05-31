@@ -391,8 +391,13 @@ class ETDM:
                     wfs, self.use_prec, make_pd=make_pd)
             from ase.parallel import parprint
             parprint('precond')
-            for k in precond.keys():
-                parprint(np.sort(precond[k]))
+            eigvs0 = np.sort(precond[0])[: 4]
+            eigvs1 = np.sort(precond[1])[0]
+            parprint(np.where(precond[0] == eigvs0[0]))
+            parprint(np.where(precond[0] == eigvs0[1]))
+            parprint(np.where(precond[0] == eigvs0[2]))
+            parprint(np.where(precond[0] == eigvs0[3]))
+            parprint(np.where(precond[1] == eigvs0[1]))
             raise Exception()
 
             with wfs.timer('Get Search Direction'):
