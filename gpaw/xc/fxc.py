@@ -162,56 +162,39 @@ class FXCCorrelation(RPACorrelation):
         return e
 
     @timer('Chi0(q)')
-    def calculate_q(self, chi0, pd, chi0_swGG, chi0_swxvG, chi0_swvv, m1, m2,
-                    cut_G, A2_x):
-        if chi0_swxvG is None:
-            chi0_swxvG = range(2)  # Not used
-            chi0_swvv = range(2)  # Not used
-
-        chi0._calculate(pd,
-                        chi0_swGG[0],
-                        chi0_swxvG[0],
-                        chi0_swvv[0],
-                        m1,
-                        m2, [0],
-                        extend_head=False)
-        if len(chi0_swGG) == 2:
-            chi0._calculate(pd,
-                            chi0_swGG[1],
-                            chi0_swxvG[1],
-                            chi0_swvv[1],
-                            m1,
-                            m2, [1],
-                            extend_head=False)
+    def calculate_q(self, chi0calc, chi0_s, m1, m2,
+                    cut_G):
+        for s, chi0 in enumerate(chi0_s):
+            chi0calc.update_chi0(chi0,
+                                 m1,
+                                 m2, [s])
         print('E_c(q) = ', end='', file=self.fd)
 
+        pd = chi0.pd
+        nw = len(chi0.wd)
+        mynw = nw // self.nblocks
+        assert nw % self.nblocks == 0
+        nspins = len(chi0_s)
+        nG = pd.ngmax
+        chi0_swGG = np.empty((nspins, mynw, nG, nG), complex)
+        for chi0_wGG, chi0 in zip(chi0_swGG, chi0_s):
+            chi0.blockdist.redistribute(chi0.chi0_wGG, chi0_wGG)
         if self.nblocks > 1:
-            if len(chi0_swGG) == 2:
-                chi0_0wGG = chi0.redistribute(chi0_swGG[0], A2_x)
-                nredist = np.product(chi0_0wGG.shape)
-                chi0.redistribute(chi0_swGG[1], A2_x[nredist:])
-                chi0_swGG = A2_x[:2 * nredist].reshape((2, ) + chi0_0wGG.shape)
-                chi0_swGG = np.swapaxes(chi0_swGG, 2, 3)
-            else:
-                chi0_0wGG = chi0.redistribute(chi0_swGG[0], A2_x)
-                nredist = np.product(chi0_0wGG.shape)
-                chi0_swGG = A2_x[:1 * nredist].reshape((1, ) + chi0_0wGG.shape)
-                chi0_swGG = np.swapaxes(chi0_swGG, 2, 3)
+            chi0_swGG = np.swapaxes(chi0_swGG, 2, 3)
 
         if not pd.kd.gamma:
             e = self.calculate_energy(pd, chi0_swGG, cut_G)
             print('%.3f eV' % (e * Ha), file=self.fd)
             self.fd.flush()
         else:
-            nw = len(self.omega_w)
-            mynw = nw // self.nblocks
             w1 = self.blockcomm.rank * mynw
             w2 = w1 + mynw
             e = 0.0
             for v in range(3):
-                chi0_swGG[:, :, 0] = chi0_swxvG[:, w1:w2, 0, v]
-                chi0_swGG[:, :, :, 0] = chi0_swxvG[:, w1:w2, 1, v]
-                chi0_swGG[:, :, 0, 0] = chi0_swvv[:, w1:w2, v, v]
+                for chi0_wGG, chi0 in zip(chi0_swGG, chi0_s):
+                    chi0_wGG[:, 0] = chi0.chi0_wxvG[w1:w2, 0, v]
+                    chi0_wGG[:, :, 0] = chi0.chi0_wxvG[w1:w2, 1, v]
+                    chi0_wGG[:, 0, 0] = chi0.chi0_wvv[w1:w2, v, v]
                 ev = self.calculate_energy(pd, chi0_swGG, cut_G)
                 e += ev
                 print('%.3f' % (ev * Ha), end='', file=self.fd)

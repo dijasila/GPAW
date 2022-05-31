@@ -9,7 +9,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-version = '3.9'  # Python version in the venv that we are creating
+version = '3.8'  # Python version in the venv that we are creating
 
 module_cmds_all = """\
 module purge

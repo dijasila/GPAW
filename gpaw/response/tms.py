@@ -230,4 +230,4 @@ def calculate_macroscopic_spectrum(chiks_GG, Kxc_GG):
     """Invert dyson equation and extract the macroscopic spectrum."""
     chi_GG = invert_dyson_single_frequency(chiks_GG, Kxc_GG)
 
-    return chi_GG[0, 0].imag / np.pi
+    return - chi_GG[0, 0].imag / np.pi

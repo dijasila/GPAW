@@ -97,7 +97,7 @@ energy eigenvalue differences appear.
    :members:
 .. autoclass:: gpaw.response.frequencies.NonLinearFrequencyDescriptor
    :members:
-.. autoclass:: gpaw.response.frequencies.LinearFrequencyDescriptor
+.. autoclass:: gpaw.response.frequencies.FrequencyGridDescriptor
    :members:
 
 

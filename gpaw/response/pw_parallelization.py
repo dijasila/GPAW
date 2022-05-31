@@ -71,7 +71,10 @@ class PlaneWaveBlockDistributor:
         comm = self.blockcomm
 
         if comm.size == 1:
-            return in_wGG
+            if out_x is None:
+                return in_wGG
+            out_x[:] = in_wGG
+            return out_x
 
         nw = self.nw
         mynw = (nw + comm.size - 1) // comm.size
