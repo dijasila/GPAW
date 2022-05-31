@@ -384,21 +384,11 @@ class ETDM:
                     self.searchdir_algo.update_eigenpairs(
                         g_vec_u, wfs, ham, dens)
                 # The diagonal Hessian approximation must be positive-definite
-                #make_pd = True
+                make_pd = True
 
             with wfs.timer('Preconditioning:'):
                 precond = self.get_preconditioning(
                     wfs, self.use_prec, make_pd=make_pd)
-            from ase.parallel import parprint
-            parprint('precond')
-            eigvs0 = np.sort(precond[0])[: 4]
-            eigvs1 = np.sort(precond[1])[0]
-            parprint(np.where(precond[0] == eigvs0[0]))
-            parprint(np.where(precond[0] == eigvs0[1]))
-            parprint(np.where(precond[0] == eigvs0[2]))
-            parprint(np.where(precond[0] == eigvs0[3]))
-            parprint(np.where(precond[1] == eigvs1[0]))
-            raise Exception()
 
             with wfs.timer('Get Search Direction'):
                 # calculate search direction according to chosen
