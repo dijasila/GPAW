@@ -32,7 +32,7 @@ class PotentialCalculator:
                  setups: list[Setup],
                  nct_R: UniformGridFunctions,
                  fracpos_ac: Array2D,
-                 soc: bool):
+                 soc: bool = False):
         self.poisson_solver = poisson_solver
         self.xc = xc
         self.setups = setups
