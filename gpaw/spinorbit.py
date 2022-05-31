@@ -582,8 +582,8 @@ def get_radial_potential(a: Setup, xc, D_sp: Array2D) -> Array1D:
     # xc force
     if xc.type != 'GLLB':
         v_sg = np.zeros_like(n_sg)
-        xc.calculate_spherical(a.xc_correction.rgd, n_sg, v_sg)
-        fxc_g = np.mean([a.xc_correction.rgd.derivative(v_g) for v_g in v_sg],
+        xc.calculate_spherical(rgd, n_sg, v_sg)
+        fxc_g = np.mean([rgd.derivative(v_g) for v_g in v_sg[:Ns]],
                         axis=0)
         f_g += fxc_g
 
