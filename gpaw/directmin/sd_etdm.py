@@ -87,9 +87,9 @@ class ModeFollowingBase(object):
         self.fixed_sp_order = self.partial_diagonalizer.sp_order
         parprint('Davidson')
         parprint('Eigenvalues:')
-        parprint(self.eigv[: 4])
+        parprint(self.eigv)
         parprint('Eigenvectors:')
-        parprint(self.eigvec[: 4])
+        parprint(self.eigvec[: 10])
 
     def negate_parallel_grad(self, g_k1):
         """
