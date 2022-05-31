@@ -384,7 +384,7 @@ class ETDM:
                     self.searchdir_algo.update_eigenpairs(
                         g_vec_u, wfs, ham, dens)
                 # The diagonal Hessian approximation must be positive-definite
-                make_pd = True
+                #make_pd = True
 
             with wfs.timer('Preconditioning:'):
                 precond = self.get_preconditioning(
