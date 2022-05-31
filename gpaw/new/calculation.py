@@ -166,11 +166,11 @@ class DFTCalculation:
         free_energy = sum(energies1.values())
         extrapolated_energy = free_energy + energies2['extrapolation']
 
-        self.log('energies:  # [eV]')
+        self.log('energies:  # eV')
         for name, e in energies1.items():
             self.log(f'  {name + ":":10}   {e * Ha:14.6f}')
         self.log(f'  total:       {free_energy * Ha:14.6f}')
-        self.log(f'  extrapolated:{extrapolated_energy * Ha:14.6f}')
+        self.log(f'  extrapolated:{extrapolated_energy * Ha:14.6f}\n')
 
         self.results['free_energy'] = free_energy
         self.results['energy'] = extrapolated_energy
@@ -188,13 +188,13 @@ class DFTCalculation:
 
         if self.state.density.ncomponents > 1:
             x, y, z = mm_v
-            self.log(f'total magnetic moment: [{x:.6f}, {y:.6f}, {z:.6f}]')
+            self.log(f'total magnetic moment: [{x:.6f}, {y:.6f}, {z:.6f}]\n')
             self.log('local magnetic moments: [')
             for a, (setup, m_v) in enumerate(zip(self.setups, mm_av)):
                 x, y, z = m_v
                 c = ',' if a < len(mm_av) - 1 else ']'
                 self.log(f'  [{x:9.6f}, {y:9.6f}, {z:9.6f}]{c}'
-                         '  # {setup.symbol:2} {a}')
+                         f'  # {setup.symbol:2} {a}')
             self.log()
         return mm_v, mm_av
 

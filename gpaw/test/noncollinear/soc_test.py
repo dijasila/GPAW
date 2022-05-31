@@ -18,7 +18,8 @@ def check(E, hsplit, lsplit):
     assert abs(l2 - l1 - lsplit) < 0.002
 
 
-params = dict(mode='pw',
+params = dict(mode={'name': 'pw', 'ecut': 350},
+              symmetry='off',
               kpts={'size': (3, 3, 1),
                     'gamma': True})
 
@@ -42,7 +43,10 @@ def test_soc_self_consistent():
     a.calc = GPAW(convergence={'bands': 28},
                   **kwargs)
     a.get_potential_energy()
-    eigs = a.calc.get_eigenvalues(kpt=2)
+    for k in range(9):
+        eigs = a.calc.get_eigenvalues(kpt=k)
+        print(k, eigs[24:28])
+    eigs = a.calc.get_eigenvalues(kpt=0)
     check(eigs, 0.15, 0.002)
 
 
