@@ -4,9 +4,10 @@ Primarily based on the magnon dispersion relations."""
 import numpy as np
 
 
-def calculate_magnon_energy_single_site(J_qx, q_qc, mm):
-    """Compute the magnon energy from the isotropic exchange constants of a system
-    with a single magnetic site in the unit cell:
+def calculate_single_site_magnon_energies(J_qx, q_qc, mm):
+    """Compute the magnon energies from the isotropic exchange constants of a
+    system with a single magnetic site in the unit cell, as a function of the
+    wave vector q:
 
     hw(q) = g mu_B / M [J(0) - J(q)]
 
@@ -26,6 +27,8 @@ def calculate_magnon_energy_single_site(J_qx, q_qc, mm):
     E_qx : np.ndarray
         Magnon energies as a function of q and x. Same shape as input J_qx.
     """
+    assert J_qx.shape[0] == q_qc.shape[0]
+
     # Find index of Gamma point (q=0), i.e. row with all zeros
     zeroIndex = int(np.argwhere(np.all(q_qc == 0, axis=1))[0])
 
@@ -39,9 +42,15 @@ def calculate_magnon_energy_single_site(J_qx, q_qc, mm):
     return E_qx.real
 
 
-def compute_magnon_energy_FM(J_mnq, q_qc, mm, return_H=False):
-    """Compute magnon energy for ferromagnet with multiple sublattices
-    Gamma point (q=0) must be included in dataset.
+def calculate_FM_magnon_energies(J_mnq, q_qc, mm, return_H=False):
+    """Compute the magnon eigenmode energies from the isotropic exchange
+    constants of a ferromagnetic system with an arbitrary number of magnetic
+    sites in the unit cell, as a function of the wave vector q.
+
+    The eigenmodes are calculated as the eigenvalues to the dynamic spin wave
+    matrix:
+
+    H^ab(q) = g mu_B
     """
 
     import numpy as np

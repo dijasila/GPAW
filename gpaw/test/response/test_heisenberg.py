@@ -4,15 +4,18 @@
 import numpy as np
 
 # Script modules
-from gpaw.response.heisenberg import calculate_magnon_energy_single_site,\
-    compute_magnon_energy_FM
+from gpaw.response.heisenberg import calculate_single_site_magnon_energies,\
+    calculate_FM_magnon_energies
 
 
-# ---------- Main test functionality ---------- #
+# ---------- Main test ---------- #
 
 
 def test_heisenberg():
     magnon_dispersion_tests()
+
+
+# ---------- Test functionality ---------- #
 
 
 def magnon_dispersion_tests():
@@ -43,8 +46,8 @@ def single_site_magnons_test():
     # ---------- Script ---------- #
 
     # Calculate magnon energies
-    E_q = calculate_magnon_energy_single_site(J_q, q_qc, mm)
-    E_qD = calculate_magnon_energy_single_site(J_qD, q_qc, mm)
+    E_q = calculate_single_site_magnon_energies(J_q, q_qc, mm)
+    E_qD = calculate_single_site_magnon_energies(J_qD, q_qc, mm)
 
     # Check dimensions of arrays
     assert E_q.shape == (q_qc.shape[0],)
@@ -75,10 +78,11 @@ def single_site_magnons_consistency_test():
     # ---------- Script ---------- #
 
     # Calculate assuming a single site
-    E_q = calculate_magnon_energy_single_site(J_q, q_qc, mm)
+    E_q = calculate_single_site_magnon_energies(J_q, q_qc, mm)
 
     # Calcualte using generalized functionality
-    E_nq = compute_magnon_energy_FM(J_q[np.newaxis, np.newaxis, :], q_qc, mm)
+    E_nq = calculate_FM_magnon_energies(J_q[np.newaxis, np.newaxis, :],
+                                        q_qc, mm)
 
     # Test self-consistency
     assert E_nq.shape[0] == 1
