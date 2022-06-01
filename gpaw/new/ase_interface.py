@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import IO, Any, Union
 
 from ase import Atoms
-from ase.units import Ha
+from ase.units import Ha, Bohr
 
 from gpaw import __version__
 from gpaw.new import Timer
@@ -168,13 +168,16 @@ class ASECalculator:
     def get_magnetic_moments(self, atoms: Atoms) -> Array1D:
         return self.calculate_property(atoms, 'magmoms')
 
-    def get_pseudo_wave_function(self, band) -> Array3D:
+    def get_pseudo_wave_function(self, band, kpt=0, spin=0) -> Array3D:
         state = self.calculation.state
-        wfs = state.ibzwfs.get_wfs(0, 0, band, band + 1)
-        psit_R = wfs.psit_nX[0].to_pbc_grid()
-        if not isinstance(psit_R, UniformGridFunctions):
-            psit_R = psit_R.ifft(grid=state.density.nt_sR.desc)
-        return psit_R.data
+        wfs = state.ibzwfs.get_wfs(spin, kpt, band, band + 1)
+        basis = self.calculation.scf_loop.hamiltonian.basis
+        grid = state.density.nt_sR.desc
+        wfs = wfs.to_uniform_grid_wave_functions(grid, basis)
+        psit_R = wfs.psit_nX[0]
+        if not psit_R.desc.pbc.all():
+            psit_R = psit_R.to_pbc_grid()
+        return psit_R.data * Bohr**-1.5
 
     def get_atoms(self):
         atoms = self.atoms.copy()

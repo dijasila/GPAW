@@ -152,4 +152,25 @@ class LCAOWaveFunctions(WaveFunctions):
     def collect(self,
                 n1: int = 0,
                 n2: int = 0) -> LCAOWaveFunctions | None:
-        return self
+        # Quick'n'dirty implementation
+        # We should generalize the PW+FD method
+        assert self.band_comm.size == 1
+        assert self.domain_comm.size == 1
+        n2 = n2 or len(self) + n2
+        return LCAOWaveFunctions(
+            setups=self.setups,
+            density_adder=self.density_adder,
+            C_nM=Matrix(n2 - n1,
+                        self.C_nM.shape[1],
+                        data=self.C_nM.data[n1:n2].copy()),
+            S_MM=self.S_MM,
+            T_MM=self.T_MM,
+            P_aMi=self.P_aMi,
+            fracpos_ac=self.fracpos_ac,
+            atomdist=self.atomdist,
+            kpt_c=self.kpt_c,
+            spin=self.spin,
+            q=self.q,
+            k=self.k,
+            weight=self.weight,
+            ncomponents=self.ncomponents)

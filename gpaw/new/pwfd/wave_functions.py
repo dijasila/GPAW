@@ -383,3 +383,29 @@ class PWFDWaveFunctions(WaveFunctions):
                 return data_nX.data.view(
                     psit_nX.data.dtype).reshape(psit_nX.data.shape)
         return None
+
+    def to_uniform_grid_wave_functions(self,
+                                       grid,
+                                       basis):
+        if isinstance(self.psit_nX, UniformGridFunctions):
+            return self
+
+        grid = grid.new(kpt=self.kpt_c, dtype=self.dtype)
+        psit_nR = grid.zeros(self.nbands, self.band_comm)
+        self.psit_nX.ifft(out=psit_nR)
+        return PWFDWaveFunctions(
+            psit_nR,
+            self.spin,
+            self.q,
+            self.k,
+            self.setups,
+            self.fracpos_ac,
+            self.atomdist,
+            self.weight,
+            self.ncomponents)
+
+    def transform_to_uniform_grid(self,
+                                  band: int,
+                                  grid: UniformGrid) -> UniformGridFunctions:
+        psit_R = self.wfs.psit_nX[0].to_pbc_grid()
+        return psit_R.data
