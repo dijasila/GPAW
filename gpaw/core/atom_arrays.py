@@ -15,7 +15,7 @@ class AtomArraysLayout:
                  shapes: list[int | tuple[int, ...]],
                  atomdist: AtomDistribution | MPIComm = serial_comm,
                  dtype=float):
-        """Description of layour of atom arrays.
+        """Description of layout of atom arrays.
 
         Parameters
         ----------
