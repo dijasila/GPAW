@@ -95,17 +95,18 @@ def test_Fe_bcc():
 
     # Exchange constants
     assert np.allclose(J_rq.imag, 0.)
-    equal(J_rq.real, test_J_rq, 1e-3)
+    assert np.allclose(J_rq.real, test_J_rq, rtol=1e-3)
 
     # Bxc field
     Bxc_G = exchCalc.Bxc_G  # Could be tested elsewhere? XXX
     assert np.allclose(Bxc_G.imag, 0.)
-    equal(Bxc_G[:4].real, test_Bxc_G, 1e-3)
+    assert np.allclose(Bxc_G[:4].real, test_Bxc_G, rtol=1e-3)
 
     # Static reactive part of chiks
     assert np.allclose(chiks_GGq[0, 0, :].imag, 0.)
-    equal(chiks_GGq[0, 0, :].real, test_chiks_q, 1e-3)
+    assert np.allclose(chiks_GGq[0, 0, :].real, test_chiks_q, rtol=1e-3)
     
     # Magnon energies
-    equal(mw_mq[0, :], mw_q, 1e-10)  # Check for self-consistency
-    equal(mw_mq[0, :], test_mw_q, 1e-3)
+    # Check for self-consistency should be done elsewhere? XXX
+    assert np.allclose(mw_mq[0, :], mw_q, atol=1e-8)
+    assert np.allclose(mw_mq[0, :], test_mw_q, rtol=1e-3)
