@@ -16,7 +16,7 @@ from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.pw.descriptor import PWDescriptor
 from gpaw.response.chi0_data import Chi0Data
 from gpaw.response.frequencies import (FrequencyDescriptor,
-                                       LinearFrequencyDescriptor,
+                                       FrequencyGridDescriptor,
                                        NonLinearFrequencyDescriptor)
 from gpaw.response.hilbert import HilbertTransform
 from gpaw.response.integrators import (Integrator, PointIntegrator,
@@ -530,7 +530,7 @@ class Chi0:
                 extraargs['intraband'] = True  # Calculate intraband
             elif self.integrationmode == 'tetrahedron integration':
                 # Calculate intraband transitions at T=0
-                extraargs['x'] = LinearFrequencyDescriptor([-fermi_level])
+                extraargs['x'] = FrequencyGridDescriptor([-fermi_level])
 
             intnoblock.integrate(kind='spectral function',  # Kind of integral
                                  domain=domain,  # Integration domain
