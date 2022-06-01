@@ -15,7 +15,6 @@ from gpaw.new.input_parameters import InputParameters
 from gpaw.new.logger import Logger
 from gpaw.typing import Array1D, Array2D, Array3D
 from gpaw.utilities.memory import maxrss
-from gpaw.core.uniform_grid import UniformGridFunctions
 
 
 def GPAW(filename: Union[str, Path, IO[str]] = None,

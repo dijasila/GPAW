@@ -156,7 +156,7 @@ class LCAOWaveFunctions(WaveFunctions):
         # We should generalize the PW+FD method
         assert self.band_comm.size == 1
         assert self.domain_comm.size == 1
-        n2 = n2 or len(self) + n2
+        n2 = n2 or self.nbands + n2
         return LCAOWaveFunctions(
             setups=self.setups,
             density_adder=self.density_adder,
