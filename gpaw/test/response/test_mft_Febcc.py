@@ -2,7 +2,6 @@
 Test with unrealisticly loose parameters to catch if the numerics change.
 """
 from gpaw import GPAW, PW, FermiDirac
-from gpaw.test import equal
 from ase.build import bulk
 import numpy as np
 from gpaw.response.mft import IsotropicExchangeCalculator, \
