@@ -13,8 +13,9 @@ from gpaw.new.calculation import DFTCalculation, units
 from gpaw.new.gpw import read_gpw, write_gpw
 from gpaw.new.input_parameters import InputParameters
 from gpaw.new.logger import Logger
-from gpaw.typing import Array1D, Array2D
+from gpaw.typing import Array1D, Array2D, Array3D
 from gpaw.utilities.memory import maxrss
+from gpaw.core.uniform_grid import UniformGridFunctions
 
 
 def GPAW(filename: Union[str, Path, IO[str]] = None,
@@ -137,10 +138,13 @@ class ASECalculator:
         self.calculation.write_converged()
 
     def __del__(self):
-        self.log('---')
-        self.timer.write(self.log)
-        mib = maxrss() / 1024**2
-        self.log(f'\nMax RSS: {mib:.3f}  # MiB')
+        try:
+            self.log('---')
+            self.timer.write(self.log)
+            mib = maxrss() / 1024**2
+            self.log(f'\nMax RSS: {mib:.3f}  # MiB')
+        except NameError:
+            pass
 
     def get_potential_energy(self,
                              atoms: Atoms,
@@ -164,9 +168,13 @@ class ASECalculator:
     def get_magnetic_moments(self, atoms: Atoms) -> Array1D:
         return self.calculate_property(atoms, 'magmoms')
 
-    def get_pseudo_wave_function(self, n):
+    def get_pseudo_wave_function(self, band) -> Array3D:
         state = self.calculation.state
-        return state.ibzwfs[0].wave_functions.data[n]
+        wfs = state.ibzwfs.get_wfs(0, 0, band, band + 1)
+        psit_R = wfs.psit_nX[0].to_pbc_grid()
+        if not isinstance(psit_R, UniformGridFunctions):
+            psit_R = psit_R.ifft(grid=state.density.nt_sR.desc)
+        return psit_R.data
 
     def get_atoms(self):
         atoms = self.atoms.copy()
@@ -217,6 +225,25 @@ class ASECalculator:
 
     def calculate(self, atoms):
         self.get_potential_energy(atoms)
+
+    @property
+    def wfs(self):
+        from gpaw.new.backwards_compatibility import FakeWFS
+        return FakeWFS(self.calculation, self.atoms)
+
+    @property
+    def density(self):
+        from gpaw.new.backwards_compatibility import FakeDensity
+        return FakeDensity(self.calculation)
+
+    @property
+    def hamiltonian(self):
+        from gpaw.new.backwards_compatibility import FakeHamiltonian
+        return FakeHamiltonian(self.calculation)
+
+    @property
+    def spos_ac(self):
+        return self.atoms.get_scaled_positions()
 
     def write(self, filename, mode=''):
         """Write calculator object to a file.

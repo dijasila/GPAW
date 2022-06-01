@@ -73,6 +73,7 @@ class DFTComponentsBuilder:
         else:
             self.ncomponents = 4
 
+        self.soc = params.soc
         self.nspins = self.ncomponents % 3
         self.spin_degeneracy = self.ncomponents % 2 + 1
 

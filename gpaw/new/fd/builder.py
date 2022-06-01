@@ -13,6 +13,7 @@ from gpaw.new.hamiltonian import Hamiltonian
 class FDDFTComponentsBuilder(PWFDDFTComponentsBuilder):
     def __init__(self, atoms, params, nn=3, interpolation=3):
         super().__init__(atoms, params)
+        assert not self.soc
         self.kin_stencil_range = nn
         self.interpolation_stencil_range = interpolation
 

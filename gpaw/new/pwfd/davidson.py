@@ -260,7 +260,7 @@ def calculate_weights(converge_bands: int | str,
             raise NotImplementedError
             n -= 117
         if n > 0:
-            weight_n = np.zeros(wfs.psit_nX.mydims)
+            weight_n = np.zeros(wfs.psit_nX.mydims[0])
             weight_n[:n] = 1.0
             return weight_n
 

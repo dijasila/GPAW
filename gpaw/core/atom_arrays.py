@@ -48,10 +48,10 @@ class AtomArraysLayout:
         return (f'AtomArraysLayout({self.shape_a}, {self.atomdist}, '
                 f'{self.dtype})')
 
-    def new(self, atomdist=None):
+    def new(self, atomdist=None, dtype=None):
         """Create new AtomsArrayLayout object with new atomdist."""
         return AtomArraysLayout(self.shape_a, atomdist or self.atomdist,
-                                self.dtype)
+                                dtype or self.dtype)
 
     def empty(self,
               dims: int | tuple[int, ...] = (),
