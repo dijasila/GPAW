@@ -5,8 +5,7 @@ from gpaw import GPAW, PW, FermiDirac
 from ase.build import bulk
 import numpy as np
 from gpaw.response.mft import IsotropicExchangeCalculator
-from gpaw.response.heisenberg import compute_magnon_energy_simple,\
-    compute_magnon_energy_FM
+from gpaw.response.heisenberg import compute_magnon_energy_FM
 
 
 def test_Fe_bcc():
@@ -73,10 +72,8 @@ def test_Fe_bcc():
     J_rq = J_rmnq[:, 0, 0, :]
 
     # Calculate the magnon energies
-    # Could be unit tested? XXX
     # Should be vectorized, so we can do all integration domains at once? XXX
     mw_mq = compute_magnon_energy_FM(J_rmnq[0, :, :, :], q_qc, mm)
-    mw_q = compute_magnon_energy_simple(J_rq[0, :], q_qc, mm)
 
     # Run the chiks calculator individually
     chiks_GGq = []  # Could be tested elsewhere? XXX
@@ -107,6 +104,4 @@ def test_Fe_bcc():
     assert np.allclose(chiks_GGq[0, 0, :].real, test_chiks_q, rtol=1e-3)
     
     # Magnon energies
-    # Check for self-consistency should be done elsewhere? XXX
-    assert np.allclose(mw_mq[0, :], mw_q, atol=1e-8)
     assert np.allclose(mw_mq[0, :], test_mw_q, rtol=1e-3)
