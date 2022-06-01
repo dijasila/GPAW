@@ -53,7 +53,7 @@ class Density:
         return (f'density:\n'
                 f'  components: {self.ncomponents}\n'
                 f'  grid points: {self.nt_sR.desc.size}\n'
-                f'  charge: {self.charge}  # [|e|]\n')
+                f'  charge: {self.charge}  # |e|\n')
 
     def calculate_compensation_charge_coefficients(self) -> AtomArrays:
         ccc_aL = AtomArraysLayout(

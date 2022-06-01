@@ -6,19 +6,22 @@ import numpy as np
 from ase import Atoms
 from ase.geometry import cell_to_cellpar
 from ase.units import Bohr, Ha
-
 from gpaw.core.arrays import DistributedArrays
 from gpaw.core.uniform_grid import UniformGridFunctions
+from gpaw.new import cached_property
 from gpaw.new.builder import builder as create_builder
 from gpaw.new.density import Density
 from gpaw.new.ibzwfs import IBZWaveFunctions
 from gpaw.new.input_parameters import InputParameters
 from gpaw.new.logger import Logger
 from gpaw.new.potential import Potential
+from gpaw.new.scf import SCFLoop
 from gpaw.output import plot
+from gpaw.setup import Setups
 from gpaw.typing import Array1D, Array2D
 from gpaw.utilities import (check_atoms_too_close,
                             check_atoms_too_close_to_boundary)
+from gpaw.utilities.partition import AtomPartition
 
 units = {'energy': Ha,
          'free_energy': Ha,
@@ -58,8 +61,8 @@ class DFTState:
 class DFTCalculation:
     def __init__(self,
                  state: DFTState,
-                 setups,
-                 scf_loop,
+                 setups: Setups,
+                 scf_loop: SCFLoop,
                  pot_calc,
                  log: Logger):
         self.state = state
@@ -166,11 +169,11 @@ class DFTCalculation:
         free_energy = sum(energies1.values())
         extrapolated_energy = free_energy + energies2['extrapolation']
 
-        self.log('energies:  # [eV]')
+        self.log('energies:  # eV')
         for name, e in energies1.items():
             self.log(f'  {name + ":":10}   {e * Ha:14.6f}')
         self.log(f'  total:       {free_energy * Ha:14.6f}')
-        self.log(f'  extrapolated:{extrapolated_energy * Ha:14.6f}')
+        self.log(f'  extrapolated:{extrapolated_energy * Ha:14.6f}\n')
 
         self.results['free_energy'] = free_energy
         self.results['energy'] = extrapolated_energy
@@ -188,13 +191,13 @@ class DFTCalculation:
 
         if self.state.density.ncomponents > 1:
             x, y, z = mm_v
-            self.log(f'total magnetic moment: [{x:.6f}, {y:.6f}, {z:.6f}]')
+            self.log(f'total magnetic moment: [{x:.6f}, {y:.6f}, {z:.6f}]\n')
             self.log('local magnetic moments: [')
             for a, (setup, m_v) in enumerate(zip(self.setups, mm_av)):
                 x, y, z = m_v
                 c = ',' if a < len(mm_av) - 1 else ']'
                 self.log(f'  [{x:9.6f}, {y:9.6f}, {z:9.6f}]{c}'
-                         '  # {setup.symbol:2} {a}')
+                         f'  # {setup.symbol:2} {a}')
             self.log()
         return mm_v, mm_av
 
@@ -250,6 +253,11 @@ class DFTCalculation:
     def write_converged(self):
         self.state.ibzwfs.write_summary(self.log)
         self.log.fd.flush()
+
+    @cached_property
+    def _atom_partition(self):
+        atomdist = self.state.density.D_asii.layout.atomdist
+        return AtomPartition(atomdist.comm, atomdist.rank_a)
 
 
 def write_atoms(atoms, grid, magmoms, log):

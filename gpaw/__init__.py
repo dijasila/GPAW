@@ -22,8 +22,10 @@ setup_paths: List[Union[str, Path]] = []
 is_gpaw_python = '_gpaw' in sys.builtin_module_names
 dry_run = 0
 
-# When type-checking, we want the debug-wrappers enabled:
-debug: bool = TYPE_CHECKING or bool(sys.flags.debug)
+# When type-checking or running pytest, we want the debug-wrappers enabled:
+debug: bool = (TYPE_CHECKING or
+               'pytest' in sys.modules or
+               bool(sys.flags.debug))
 
 
 @contextlib.contextmanager
