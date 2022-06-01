@@ -65,8 +65,8 @@ def test_Fe_bcc():
     J_q = J_rmnq[0, 0, 0, :]
 
     # Compare with expected result (previous calculation with working code)
-    Jexp_q = np.array([1.67041012+0.0j, 0.92778989+0.0j,
-                       1.15502021+0.0j, 1.23368179+0.0j])
+    Jexp_q = np.array([1.67041012 + 0.0j, 0.92778989 + 0.0j,
+                       1.15502021 + 0.0j, 1.23368179 + 0.0j])
     equal(J_q, Jexp_q, 1e-3)
 
     # Test Bxc and chiks calculators individually
