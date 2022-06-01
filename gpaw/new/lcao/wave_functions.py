@@ -148,3 +148,8 @@ class LCAOWaveFunctions(WaveFunctions):
             self.atomdist,
             self.weight,
             self.ncomponents)
+
+    def collect(self,
+                n1: int = 0,
+                n2: int = 0) -> LCAOWaveFunctions | None:
+        return self
