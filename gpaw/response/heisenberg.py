@@ -4,25 +4,39 @@ Primarily based on the magnon dispersion relations."""
 import numpy as np
 
 
-def compute_magnon_energy_simple(J_q, q_qc, mm):
-    """Compute magnon energy with single atom in magnetic unit cell"""
-    # Check if J_mnq was passed instead of J_q
-    if len(J_q.shape) == 3:
-        J_q = J_q[0, 0, :]
+def calculate_magnon_energy_single_site(J_qx, q_qc, mm):
+    """Compute the magnon energy from the isotropic exchange constants of a system
+    with a single magnetic site in the unit cell:
 
+    hw(q) = g mu_B / M [J(0) - J(q)]
+
+    Parameters
+    ----------
+    J_qx : np.ndarray
+        Isotropic exchange constants as a function of q.
+        J_qx can have any number of additional dimensions x, which are treated
+        independently.
+    q_qc : np.ndarray
+        q-vectors in relative coordinates. Has to include q=0.
+    mm : float
+        Magnetic moment of the site in Bohr magnetons.
+
+    Returns
+    -------
+    E_qx : np.ndarray
+        Magnon energies as a function of q and x. Same shape as input J_qx.
+    """
     # Find index of Gamma point (q=0), i.e. row with all zeros
-    zeroIndex = np.argwhere(np.all(q_qc == 0, axis=1))
-    zeroIndex = int(zeroIndex[0])
+    zeroIndex = int(np.argwhere(np.all(q_qc == 0, axis=1))[0])
 
     # Compute energies
-    J0 = J_q[zeroIndex]
-    E_q = 2 / mm * (J0 - J_q)
+    J0_x = J_qx[zeroIndex]
+    E_qx = 2. / mm * (J0_x[np.newaxis, ...] - J_qx)
 
     # Imaginary part should be zero
-    assert np.all(np.isclose(np.imag(E_q), 0))
-    E_q = np.real(E_q)
+    assert np.allclose(E_qx.imag, 0.)
 
-    return E_q
+    return E_qx.real
 
 
 def compute_magnon_energy_FM(J_mnq, q_qc, mm, return_H=False):
