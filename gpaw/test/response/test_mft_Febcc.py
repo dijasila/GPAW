@@ -4,8 +4,9 @@ Test with unrealisticly loose parameters to catch if the numerics change.
 from gpaw import GPAW, PW, FermiDirac
 from ase.build import bulk
 import numpy as np
-from gpaw.response.mft import IsotropicExchangeCalculator, \
-    compute_magnon_energy_simple, compute_magnon_energy_FM
+from gpaw.response.mft import IsotropicExchangeCalculator
+from gpaw.response.heisenberg import compute_magnon_energy_simple,\
+    compute_magnon_energy_FM
 
 
 def test_Fe_bcc():
