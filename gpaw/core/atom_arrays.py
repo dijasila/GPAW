@@ -352,7 +352,9 @@ class AtomArrays:
         for i1, i2 in self.layout.shape_a:
             assert i1 == i2
             shape_a.append((i1 * (i1 + 1) // 2,))
-        layout = AtomArraysLayout(shape_a, self.layout.atomdist.comm)
+        layout = AtomArraysLayout(shape_a,
+                                  self.layout.atomdist.comm,
+                                  dtype=self.layout.dtype)
         a_axp = layout.empty(self.dims)
         for a_xii, a_xp in zip(self.values(), a_axp.values()):
             i = a_xii.shape[-1]
@@ -360,6 +362,7 @@ class AtomArrays:
             for a_p, a_ii in zip(a_xp.reshape((-1, i * (i + 1) // 2)),
                                  a_xii.reshape((-1, i, i))):
                 a_p[:] = a_ii[L]
+
         return a_axp
 
     def to_full(self):
