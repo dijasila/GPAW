@@ -13,6 +13,7 @@ x   r or h
 from __future__ import annotations
 
 from collections import defaultdict
+from typing import DefaultDict
 
 import numpy as np
 from gpaw.core.uniform_grid import UniformGridFunctions
@@ -72,14 +73,14 @@ def calculate_non_local_potential(setups,
                                   soc: bool):
     dtype = float if density.ncomponents < 4 else complex
     dH_asii = density.D_asii.layout.new(dtype=dtype).empty(density.ncomponents)
-    energy_corrections = defaultdict(float)
+    energy_corrections: DefaultDict[str, float] = defaultdict(float)
     for a, D_sii in density.D_asii.items():
         Q_L = Q_aL[a]
         setup = setups[a]
-        dH_sii, energies = calculate_non_local_potential1(
+        dH_sii, corrections = calculate_non_local_potential1(
             setup, xc, D_sii, Q_L, soc)
         dH_asii[a][:] = dH_sii
-        for key, e in energies.items():
+        for key, e in corrections.items():
             energy_corrections[key] += e
 
     # Sum over domain:
@@ -90,8 +91,7 @@ def calculate_non_local_potential(setups,
              'external']
     energies = np.array([energy_corrections[name] for name in names])
     density.D_asii.layout.atomdist.comm.sum(energies)
-    energy_corrections = {name: e for name, e in zip(names, energies)}
-    return dH_asii, energy_corrections
+    return dH_asii, {name: e for name, e in zip(names, energies)}
 
 
 def calculate_non_local_potential1(setup: Setup,

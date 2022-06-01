@@ -229,7 +229,21 @@ class ASECalculator:
     @property
     def wfs(self):
         from gpaw.new.backwards_compatibility import FakeWFS
-        return FakeWFS(self.calculation)
+        return FakeWFS(self.calculation, self.atoms)
+
+    @property
+    def density(self):
+        from gpaw.new.backwards_compatibility import FakeDensity
+        return FakeDensity(self.calculation)
+
+    @property
+    def hamiltonian(self):
+        from gpaw.new.backwards_compatibility import FakeHamiltonian
+        return FakeHamiltonian(self.calculation)
+
+    @property
+    def spos_ac(self):
+        return self.atoms.get_scaled_positions()
 
     def write(self, filename, mode=''):
         """Write calculator object to a file.
