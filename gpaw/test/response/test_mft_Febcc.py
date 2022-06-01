@@ -1,4 +1,6 @@
-# Import modules
+"""Calculate the Heisenberg exchange constants in Fe using the MFT.
+Test with unrealisticly loose parameters to catch if the numerics change.
+"""
 from gpaw import GPAW, PW, FermiDirac
 from gpaw.test import equal
 from ase.build import bulk
@@ -13,7 +15,7 @@ def test_Fe_bcc():
     # Part 1: ground state calculation
     xc = 'LDA'
     kpts = 4
-    nbands = 8
+    nbands = 6
     pw = 200
     occw = 0.01
     conv = {'density': 1e-8,
@@ -43,7 +45,7 @@ def test_Fe_bcc():
     calc = GPAW(xc=xc,
                 mode=PW(pw),
                 kpts={'size': (kpts, kpts, kpts), 'gamma': True},
-                nbands=nbands + 2,
+                nbands=nbands + 4,
                 occupations=FermiDirac(occw),
                 symmetry={'point_group': False},
                 idiotproof=False,
@@ -68,7 +70,7 @@ def test_Fe_bcc():
     J_rmnq = np.zeros([len(rc_rm), 1, 1, len(q_qc)], dtype=np.complex128)
     for q, q_c in enumerate(q_qc):
         J_rmnq[:, :, :, q] = exchCalc(q_c, rc_rm=rc_rm)
-    J_q = J_rmnq[0, 0, 0, :]
+    J_q = J_rmnq[0, 0, 0, :]  # The different r values are untested? XXX
 
     # Calculate the magnon energies
     mw_mq = compute_magnon_energy_FM(J_rmnq[0, :, :, :], q_qc, mm)
@@ -82,22 +84,22 @@ def test_Fe_bcc():
     chiks_GGq = np.dstack(chiks_GGq)
 
     # Part 3: compare new results to test values
-    test_J_q = np.array([1.67041012 + 0.0j, 0.92778989 + 0.0j,
-                         1.15502021 + 0.0j, 1.23368179 + 0.0j])
-    test_chiks_q = np.array([0.36527329, 0.21086173, 0.2479018, 0.26542496])
+    test_J_q = np.array([1.61643955 + 0.0j, 0.88155322 + 0.0j,
+                         1.10019274 + 0.0j, 1.18879169 + 0.0j])
+    test_chiks_q = np.array([0.36507507, 0.19186653, 0.23056424, 0.24705505])
     test_Bxc_G = np.array([-0.82801687, -0.28927704, -0.28927704, -0.28927704])
-    test_mw_q = np.array([0., 0.67205457, 0.46641622, 0.39522933])
+    test_mw_q = np.array([0., 0.6650555, 0.46719168, 0.38701164])
 
     # Exchange constants
     equal(J_q, test_J_q, 1e-3)
 
     # Bxc field
     Bxc_G = exchCalc.Bxc_G  # Could be tested elsewhere? XXX
-    equal(Bxc_G[:4], test_Bxc_G, 1e-4)
+    equal(Bxc_G[:4], test_Bxc_G, 1e-3)
 
     # Static reactive part of chiks
-    equal(chiks_GGq[0, 0, :], test_chiks_q, 1e-4)
+    equal(chiks_GGq[0, 0, :], test_chiks_q, 1e-3)
     
     # Magnon energies
     equal(mw_mq[0, :], mw_q, 1e-10)  # Check for self-consistency
-    equal(mw_mq[0, :], test_mw_q, 1e-4)
+    equal(mw_mq[0, :], test_mw_q, 1e-3)
