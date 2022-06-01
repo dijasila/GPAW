@@ -9,18 +9,18 @@ def calculate_single_site_magnon_energies(J_qx, q_qc, mm):
     system with a single magnetic site in the unit cell, as a function of the
     wave vector q:
 
-    hw(q) = g mu_B / M [J(0) - J(q)]
+    ħω(q) = g μ_B / M [J(0) - J(q)]
 
     Parameters
     ----------
     J_qx : np.ndarray
         Isotropic exchange constants as a function of q.
-        J_qx can have any number of additional dimensions x, which are treated
-        independently.
+        J_qx can have any number of additional dimensions x, which will be
+        treated independently.
     q_qc : np.ndarray
         q-vectors in relative coordinates. Has to include q=0.
     mm : float
-        Magnetic moment of the site in Bohr magnetons.
+        Magnetic moment of the site in μ_B.
 
     Returns
     -------
@@ -50,7 +50,27 @@ def calculate_FM_magnon_energies(J_mnq, q_qc, mm, return_H=False):
     The eigenmodes are calculated as the eigenvalues to the dynamic spin wave
     matrix:
 
-    H^ab(q) = g mu_B
+    H^ab(q) = g μ_B / sqrt(M_a M_b) [Σ_c J^ac(0) δ_ab - J^ab(q)]
+
+    Parameters
+    ----------
+    J_qabx : np.ndarray
+        Isotropic exchange constants as a function of q and sublattice indices
+        a and b. J_qabx can have any number of additional dimensions x, which
+        will be treated independently.
+    q_qc : np.ndarray
+        q-vectors in relative coordinates. Has to include q=0.
+    mm_ax : float
+        Magnetic moments of the sublattice sites in μ_B.
+    return_H : bool
+        Return also the dynamic spin wave matrix.
+
+    Returns
+    -------
+    E_qnx : np.ndarray
+        Magnon eigenmode energies as a function of q, mode index n and x.
+    H_qabx : np.ndarray (Optional)
+        Dynamic spin wave matrix. Has the same shape as the input J_qabx
     """
 
     import numpy as np
