@@ -3,6 +3,7 @@ Summer schools
 ==============
 
 .. toctree::
+    :maxdepth: 1
 
     summerschool18/summerschool18
     summerschool16
