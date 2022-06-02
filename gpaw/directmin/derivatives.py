@@ -358,6 +358,7 @@ class Davidson(object):
         if not self.mmf:
             for kpt in wfs.kpt_u:
                 self.etdm.sort_orbitals(ham, wfs, kpt)
+        self.first_run = False
 
     def initialize(self, wfs, use_prev=False):
         """
@@ -572,7 +573,6 @@ class Davidson(object):
         self.V = self.V.T
         wfs.timer.stop('Krylov space augmentation')
         self.log()
-        self.first_run = False
 
     def log(self):
         self.logger('Dimensionality of Krylov space: ' \
