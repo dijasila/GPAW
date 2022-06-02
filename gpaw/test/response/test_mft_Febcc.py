@@ -73,7 +73,9 @@ def test_Fe_bcc():
 
     # Calculate the magnon energies
     # Should be vectorized, so we can do all integration domains at once? XXX
-    mw_mq = calculate_FM_magnon_energies(J_rmnq[0, :, :, :], q_qc, mm)
+    mw_qm = calculate_FM_magnon_energies(np.transpose(J_rmnq[0, :, :, :],
+                                                      (2, 0, 1)), q_qc,
+                                         np.array([mm]))
 
     # Run the chiks calculator individually
     chiks_GGq = []  # Could be tested elsewhere? XXX
@@ -104,4 +106,4 @@ def test_Fe_bcc():
     assert np.allclose(chiks_GGq[0, 0, :].real, test_chiks_q, rtol=1e-3)
     
     # Magnon energies
-    assert np.allclose(mw_mq[0, :], test_mw_q, rtol=1e-3)
+    assert np.allclose(mw_qm[:, 0], test_mw_q, rtol=1e-3)

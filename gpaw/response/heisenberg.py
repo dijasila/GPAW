@@ -29,11 +29,10 @@ def calculate_single_site_magnon_energies(J_qx, q_qc, mm):
     """
     assert J_qx.shape[0] == q_qc.shape[0]
 
-    # Find index of Gamma point (q=0), i.e. row with all zeros
-    zeroIndex = int(np.argwhere(np.all(q_qc == 0, axis=1))[0])
+    q0 = get_q0_index(q_qc)
+    J0_x = J_qx[q0]
 
     # Compute energies
-    J0_x = J_qx[zeroIndex]
     E_qx = 2. / mm * (J0_x[np.newaxis, ...] - J_qx)
 
     # Imaginary part should be zero
@@ -42,7 +41,7 @@ def calculate_single_site_magnon_energies(J_qx, q_qc, mm):
     return E_qx.real
 
 
-def calculate_FM_magnon_energies(J_mnq, q_qc, mm, return_H=False):
+def calculate_FM_magnon_energies(J_qabx, q_qc, mm_ax, return_H=False):
     """Compute the magnon eigenmode energies from the isotropic exchange
     constants of a ferromagnetic system with an arbitrary number of magnetic
     sites in the unit cell, as a function of the wave vector q.
@@ -60,7 +59,7 @@ def calculate_FM_magnon_energies(J_mnq, q_qc, mm, return_H=False):
         will be treated independently.
     q_qc : np.ndarray
         q-vectors in relative coordinates. Has to include q=0.
-    mm_ax : float
+    mm_ax : np.ndarray
         Magnetic moments of the sublattice sites in μ_B.
     return_H : bool
         Return also the dynamic spin wave matrix.
@@ -72,25 +71,74 @@ def calculate_FM_magnon_energies(J_mnq, q_qc, mm, return_H=False):
     H_qabx : np.ndarray (Optional)
         Dynamic spin wave matrix. Has the same shape as the input J_qabx
     """
+    assert len(J_qabx.shape) >= 3
+    assert J_qabx.shape[1] == J_qabx.shape[2]
+    assert J_qabx.shape[1] == mm_ax.shape[0]
+    assert J_qabx.shape[0] == q_qc.shape[0]
+    assert J_qabx.shape[3:] == mm_ax.shape[1:]
 
-    import numpy as np
-    from numpy.linalg import eigvalsh
+    # Get J^ab(0)
+    q0 = get_q0_index(q_qc)
+    J0_abx = J_qabx[q0]
 
-    N_sites, N_sites, Nq = J_mnq.shape
+    H_qabx = generate_FM_dynamic_spin_wave_matrix(J_qabx, J0_abx, mm_ax)
 
-    # Reformat magnetisation
-    if type(mm) in {float, int}:
-        mm = np.ones(N_sites) * mm
+    # Move magnetic site axes in order to prepare for np.linalg.eig
+    H_qbxa = np.moveaxis(H_qabx, 1, -1)
+    H_qxab = np.moveaxis(H_qbxa, 1, -1)
 
-    # Find rows where all components of q_c are zero (Gamma point)
-    zeroIndex = np.argwhere([np.all(np.isclose(q_qc[q, :], 0))
-                             for q in range(Nq)])
-    try:
-        zeroIndex = int(zeroIndex[0])
-    except IndexError:
-        zeroIndex = 0
-    J0_mn = J_mnq[:, :, zeroIndex]   # Get J_mn(0)
+    # Diagonalize the matrix
+    E_qxn, _ = np.linalg.eig(H_qxab)
 
+    # Transpose to output format
+    E_qnx = np.moveaxis(E_qxn, -1, 1)
+
+    # Eigenvalues should be real, otherwise input J_qabx has been invalid
+    assert np.allclose(E_qnx.imag, 0.)
+    E_qnx = E_qnx.real
+    
+    """
+    # Diagonalise Hamiltonian for all q values
+    E_mq = np.zeros([N_sites, Nq])
+    for q in range(Nq):
+        H_mn = H_mnq[:, :, q]
+        assert np.all(np.isclose(np.conj(H_mn.T), H_mn, atol=np.inf,
+                                 rtol=1e-02))  # Check if Hermitian
+        # 'eigvalsh' takes the lower triangluar part, then assumes
+        #   Hermiticity to fill the rest of the matrix
+        # This is faster than 'eigvals' and guarantees that the computed
+        #   eigenvalues are real.
+        E_mq[:, q] = np.linalg.eigvalsh(H_mn, UPLO='L')
+    """
+
+    if return_H:
+        return E_qnx, H_qabx
+    else:
+        return E_qnx
+
+
+def generate_FM_dynamic_spin_wave_matrix(J_qabx, J0_acx, mm_ax):
+    """Generate the dynamic spin wave matrix from the isotropic exchange
+    constants of a ferromagnet:
+
+    H^ab(q) = g μ_B / sqrt(M_a M_b) [Σ_c J^ac(0) δ_ab - J^ab(q)]
+    """
+    na = mm_ax.shape[0]
+
+    # Set up magnetic moment prefactor as outer product
+    mm_inv_abx = 2. / np.sqrt(mm_ax[:, np.newaxis, ...]
+                              * mm_ax[np.newaxis, ...])
+
+    # Calculate diagonal component Σ_c J^ac(0) δ_ab
+    J0_ax = np.sum(J0_acx, axis=1)
+    diagonal_mapping = np.zeros((na, na, na))
+    np.fill_diagonal(diagonal_mapping, 1)
+    J0_abx = np.tensordot(diagonal_mapping, J0_ax, axes=(2, 0))
+
+    # Calculate the dynamic spin wave matrix
+    H_qabx = mm_inv_abx[np.newaxis, ...] * (J0_abx[np.newaxis, ...] -
+                                            J_qabx)
+    """
     # Set up Hamiltonian matrix
     mm_inv_mn = np.diag(1 / mm)  # 1/M_mu * delta_mu,nu
     # 2/M_mu * sum_nu' J_mu,nu'(0) delta_mu,nu
@@ -103,20 +151,16 @@ def calculate_FM_magnon_energies(J_mnq, q_qc, mm, return_H=False):
     # -2J^nu,mu(q) / sqrt(M_mu * M_nu)
     secondTerm_mnq = -2 * J_nmq / np.sqrt(mmProd_mnq)
     H_mnq = firstTerm_mnq + secondTerm_mnq
+    """
 
-    # Diagonalise Hamiltonian for all q values
-    E_mq = np.zeros([N_sites, Nq])
-    for q in range(Nq):
-        H_mn = H_mnq[:, :, q]
-        assert np.all(np.isclose(np.conj(H_mn.T), H_mn, atol=np.inf,
-                                 rtol=1e-02))  # Check if Hermitian
-        # 'eigvalsh' takes the lower triangluar part, then assumes
-        #   Hermiticity to fill the rest of the matrix
-        # This is faster than 'eigvals' and guarantees that the computed
-        #   eigenvalues are real.
-        E_mq[:, q] = eigvalsh(H_mn, UPLO='L')
+    return H_qabx
 
-    if return_H:
-        return E_mq, H_mnq
+
+def get_q0_index(q_qc):
+    """Find index corresponding q=0 in q-vector array."""
+    q0_indices = np.argwhere(np.all(q_qc == 0, axis=1))
+
+    if len(q0_indices) >= 1:
+        return int(q0_indices[0])
     else:
-        return E_mq
+        raise ValueError('q_qc has to include q=0, i.e. q_c = [0., 0., 0.]')

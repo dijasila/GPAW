@@ -81,13 +81,13 @@ def single_site_magnons_consistency_test():
     E_q = calculate_single_site_magnon_energies(J_q, q_qc, mm)
 
     # Calcualte using generalized functionality
-    E_nq = calculate_FM_magnon_energies(J_q[np.newaxis, np.newaxis, :],
-                                        q_qc, mm)
+    E_qn = calculate_FM_magnon_energies(J_q[:, np.newaxis, np.newaxis],
+                                        q_qc, np.array([mm]))
 
     # Test self-consistency
-    assert E_nq.shape[0] == 1
-    assert E_nq.shape[1] == len(E_q)
-    assert np.allclose(E_nq[0, :], E_q, atol=1e-8)
+    assert E_qn.shape[0] == len(E_q)
+    assert E_qn.shape[1] == 1
+    assert np.allclose(E_qn[:, 0], E_q, atol=1e-8)
 
 
 def multiple_sites_magnons_test():
