@@ -167,6 +167,24 @@ class ASECalculator:
     def get_magnetic_moments(self, atoms: Atoms) -> Array1D:
         return self.calculate_property(atoms, 'magmoms')
 
+    def write(self, filename, mode=''):
+        """Write calculator object to a file.
+
+        Parameters
+        ----------
+        filename:
+            File to be written
+        mode:
+            Write mode. Use ``mode='all'``
+            to include wave functions in the file.
+        """
+        self.log(f'Writing to {filename} (mode={mode!r})\n')
+
+        write_gpw(filename, self.atoms, self.params,
+                  self.calculation, skip_wfs=mode != 'all')
+
+    # Old API:
+
     def get_pseudo_wave_function(self, band, kpt=0, spin=0) -> Array3D:
         state = self.calculation.state
         wfs = state.ibzwfs.get_wfs(spin, kpt, band, band + 1)
@@ -246,22 +264,6 @@ class ASECalculator:
     @property
     def spos_ac(self):
         return self.atoms.get_scaled_positions()
-
-    def write(self, filename, mode=''):
-        """Write calculator object to a file.
-
-        Parameters
-        ----------
-        filename:
-            File to be written
-        mode:
-            Write mode. Use ``mode='all'``
-            to include wave functions in the file.
-        """
-        self.log(f'Writing to {filename} (mode={mode!r})\n')
-
-        write_gpw(filename, self.atoms, self.params,
-                  self.calculation, skip_wfs=mode != 'all')
 
 
 def write_header(log, world, params):
