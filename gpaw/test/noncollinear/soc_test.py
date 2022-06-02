@@ -37,14 +37,14 @@ def test_soc_self_consistent():
                   'soc': True}
     else:
         kwargs = {**params,
-                  # 'symmetry': 'off',
+                  'symmetry': 'off',
                   'experimental': {'magmoms': np.zeros((3, 3)),
                                    'soc': True}}
 
     a.calc = GPAW(convergence={'bands': 28},
                   **kwargs)
     a.get_potential_energy()
-    eigs = a.calc.get_eigenvalues(kpt=2)
+    eigs = a.calc.get_eigenvalues(kpt=0)
     check(eigs, 0.15, 0.002)
 
 
@@ -57,6 +57,7 @@ def test_non_collinear_plus_soc():
     a.calc = GPAW(experimental={'magmoms': np.zeros((3, 3)),
                                 'soc': False},
                   convergence={'bands': 28},
+                  symmetry='off',
                   parallel={'domain': 1},
                   **params)
     a.get_potential_energy()

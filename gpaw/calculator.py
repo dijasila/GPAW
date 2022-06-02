@@ -719,6 +719,10 @@ class GPAW(Calculator):
 
         self.setups.set_symmetry(self.symmetry)
 
+        if not collinear and len(self.symmetry.op_scc) > 1:
+            raise ValueError('Can''t use symmetries with non-collinear '
+                             'calculations')
+
         if isinstance(par.background_charge, dict):
             background = create_background_charge(**par.background_charge)
         else:
