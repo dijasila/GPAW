@@ -218,7 +218,6 @@ class Chi0:
 
         self.Q_aGii = None
 
-        self.pbc = self.calc.wfs.gd.pbc_c
         if sum(self.pbc) < 2:
             raise ValueError('Only one non-periodic direction supported atm.')
 
@@ -230,6 +229,10 @@ class Chi0:
                   file=self.fd)
         else:
             print('Using integration method: PointIntegrator', file=self.fd)
+
+    @property
+    def pbc(self):
+        return self.calc.atoms.pbc
 
     def create_chi0(self, q_c, extend_head=True):
         # This function should be made redundant in the future. Instead
