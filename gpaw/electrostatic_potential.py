@@ -1,17 +1,19 @@
 from __future__ import annotations
 
 from math import pi, sqrt
+from typing import TYPE_CHECKING
 
-from ase.units import Ha
-
+from ase.units import Bohr, Ha
 from gpaw.atom.shapefunc import shape_functions
 from gpaw.core.arrays import DistributedArrays
 from gpaw.core.atom_arrays import AtomArrays
 from gpaw.core.uniform_grid import UniformGridFunctions
-from gpaw.new.calculation import DFTCalculation
 from gpaw.setup import Setups
 from gpaw.typing import Array1D, ArrayLike2D
 from gpaw.utilities import pack
+
+if TYPE_CHECKING:
+    from gpaw.new.calculation import DFTCalculation
 
 
 class ElectrostaticPotential:
@@ -29,29 +31,37 @@ class ElectrostaticPotential:
 
         # Caching of interpolated pseudo-potential:
         self._grid_spacing = -1.0
-        self._vht_R: UniformGridFunctions | None = None
+        self._vHt_R: UniformGridFunctions | None = None
 
     @classmethod
     def from_calculation(cls, calculation: DFTCalculation):
         density = calculation.state.density
         potential, vHt_x, Q_aL = calculation.pot_calc.calculate(density)
-        return cls(vHt_x, Q_aL, calculation.setups, density.D_asii)
+        return cls(vHt_x,
+                   Q_aL,
+                   density.D_asii,
+                   calculation.fracpos_ac,
+                   calculation.setups)
 
     def atomic_potentials(self) -> Array1D:
         Q_aL = self.Q_aL.gather()
         return Q_aL.data[::9] * (Ha / (4 * pi)**0.5)
 
-    def psuedo_potential(self,
+    def pseudo_potential(self,
                          grid_spacing: float = 0.05,  # Ang
                          ) -> UniformGridFunctions:
+        return self._pseudo_potential(grid_spacing / Bohr).scaled(Bohr, Ha)
+
+    def _pseudo_potential(self,
+                          grid_spacing: float,  # Bohr
+                          ) -> UniformGridFunctions:
         if grid_spacing == self._grid_spacing:
             return self._vHt_R
 
         vHt_x = self.vHt_x.to_pbc_grid()
-        grid = vHt_x.desc.uniform_grid_with_grid_spacing(grid_spacing)
+        grid = vHt_x.desc.uniform_grid_with_grid_spacing(grid_spacing / Bohr)
         self._vHt_R = vHt_x.interpolate(grid=grid)
         self._grid_spacing = grid_spacing
-        self._vht_R.data *= Ha
         return self._vHt_R
 
     def all_electron_potential(self,
@@ -68,7 +78,7 @@ class ElectrostaticPotential:
             Width of gaussian (in Angstrom) used to represent the nuclear
             charge.
         """
-        vHt_R = self.pseuedo_potential(grid_spacing)
+        vHt_R = self._pseudo_potential(grid_spacing / Bohr)
 
         dv_a = []
         for a, D_sii in self.D_asii.items():
@@ -93,4 +103,4 @@ class ElectrostaticPotential:
 
         dv_aR = vHt_R.desc.atom_centered_functions(dv_a, self.fracpos_ac)
         dv_aR.add_to(vHt_R)
-        return vHt_R
+        return vHt_R.scaled(Bohr, Ha)
