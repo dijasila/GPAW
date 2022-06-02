@@ -8,6 +8,7 @@ from ase.geometry import cell_to_cellpar
 from ase.units import Bohr, Ha
 from gpaw.core.arrays import DistributedArrays
 from gpaw.core.uniform_grid import UniformGridFunctions
+from gpaw.electrostatic_potential import ElectrostaticPotential
 from gpaw.new import cached_property
 from gpaw.new.builder import builder as create_builder
 from gpaw.new.density import Density
@@ -253,6 +254,9 @@ class DFTCalculation:
     def write_converged(self):
         self.state.ibzwfs.write_summary(self.log)
         self.log.fd.flush()
+
+    def electrostatic_potential(self) -> ElectrostaticPotential:
+        return ElectrostaticPotential.from_calculation(self)
 
     @cached_property
     def _atom_partition(self):

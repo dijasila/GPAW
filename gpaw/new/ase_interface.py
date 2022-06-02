@@ -220,10 +220,7 @@ class ASECalculator:
         return state.ibzwfs.nbands
 
     def get_atomic_electrostatic_potentials(self):
-        _, _, Q_aL = self.calculation.pot_calc.calculate(
-            self.calculation.state.density)
-        Q_aL = Q_aL.gather()
-        return Q_aL.data[::9] * (Ha / (4 * pi)**0.5)
+        return self.calculation.electrostatic_potential().atomic_potentials()
 
     def get_eigenvalues(self, kpt=0, spin=0):
         state = self.calculation.state
