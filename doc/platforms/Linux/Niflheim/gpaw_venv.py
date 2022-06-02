@@ -8,6 +8,10 @@ import os
 import shutil
 import subprocess
 from pathlib import Path
+from sys import version_info
+
+if version_info < (3, 7):
+    raise ValueError('Please use Python-3.7 or later')
 
 version = '3.8'  # Python version in the venv that we are creating
 
@@ -158,7 +162,7 @@ def main():
     activate.write_text(activate.read_text() + extra)
 
     # Run tests:
-    run(f'. {activate} && mq info && ase info && gpaw test')
+    run(f'. {activate} && ase info && gpaw test')
 
     return 0
 
