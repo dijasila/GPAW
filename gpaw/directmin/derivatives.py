@@ -236,6 +236,7 @@ class Davidson(object):
         self.logfile = logfile
         self.logger = GPAWLogger(world)
         self.logger.fd = logfile
+        self.first_run = True
         if self.mmf:
             self.lambda_all = None
             self.y_all = None
@@ -542,7 +543,7 @@ class Davidson(object):
         wfs.timer.start('Krylov space augmentation')
         wfs.timer.start('New directions')
         for i in range(self.l):
-            if not self.converged[i]:
+            if not self.converged[i] or (self.mmf and self.first_run):
                 self.t.append(self.C[i] * self.r[i])
         self.t = np.asarray(self.t)
         if len(self.V[0]) <= self.m:
@@ -571,6 +572,7 @@ class Davidson(object):
         self.V = self.V.T
         wfs.timer.stop('Krylov space augmentation')
         self.log()
+        self.first_run = False
 
     def log(self):
         self.logger('Dimensionality of Krylov space: ' \
