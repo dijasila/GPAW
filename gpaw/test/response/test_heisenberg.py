@@ -15,13 +15,13 @@ def test_heisenberg():
     magnon_dispersion_tests()
 
 
-# ---------- Test functionality ---------- #
+# ---------- Actual tests ---------- #
 
 
 def magnon_dispersion_tests():
     single_site_magnons_test()
     single_site_magnons_consistency_test()
-    multiple_sites_magnons_test()
+    FM_random_magnons_test()
 
 
 def single_site_magnons_test():
@@ -31,9 +31,8 @@ def single_site_magnons_test():
     # Magnetic moment
     mm = 1.
     # q-point grid
-    q_qc = np.zeros((11, 3), dtype=np.float)
-    q_qc[:, 2] = np.linspace(0., np.pi, 11)
-    np.random.shuffle(q_qc[:, 2])
+    nq = 11
+    q_qc = get_randomized_qpoints(nq)
 
     # Random J_q, with J=0 at q=0
     J_q = np.random.rand(q_qc.shape[0])
@@ -68,9 +67,8 @@ def single_site_magnons_consistency_test():
     # Magnetic moment
     mm = 1.
     # q-point grid
-    q_qc = np.zeros((11, 3), dtype=np.float)
-    q_qc[:, 2] = np.linspace(0., np.pi, 11)
-    np.random.shuffle(q_qc[:, 2])
+    nq = 11
+    q_qc = get_randomized_qpoints(nq)
 
     # Random isotropic exchange constants
     J_q = np.random.rand(q_qc.shape[0])
@@ -90,5 +88,50 @@ def single_site_magnons_consistency_test():
     assert np.allclose(E_qn[:, 0], E_q, atol=1e-8)
 
 
-def multiple_sites_magnons_test():
-    pass
+def FM_random_magnons_test():
+    """Check that the functionality to calculate the magnon dispersion of a
+    ferromagnetic system with multiple sites works for a randomized system with
+    three sites."""
+    # ---------- Inputs ---------- #
+
+    # Magnetic moments
+    nsites = 3
+    mm_a = 5. * np.random.rand(nsites)
+    # q-point grid
+    nq = 11
+    q_qc = get_randomized_qpoints(nq)
+
+    # Random isotropic exchange constants
+    J_qab = 1.j * np.random.rand(q_qc.shape[0], nsites, nsites)
+    J_qab += np.random.rand(q_qc.shape[0], nsites, nsites)
+    # Take the Hermitian part of random tensor
+    J_qab = (J_qab + np.transpose(np.conjugate(J_qab), (0, 2, 1))) / 2.
+    # The q=0 component should furthermore be real
+    J_qab[list(q_qc[:, 2]).index(0.)].imag = 0.
+
+    # ---------- Script ---------- #
+
+    # Calculate magnon energies
+    E_qn = calculate_FM_magnon_energies(J_qab, q_qc, mm_a)
+
+    # Calculate the magnon energies manually
+    mm_inv_ab = 2. / np.sqrt(np.outer(mm_a, mm_a))
+    J0_ab = np.diag(np.sum(J_qab[list(q_qc[:, 2]).index(0.)], axis=1))
+    H_qab = mm_inv_ab[np.newaxis, ...] * (J0_ab[np.newaxis, ...] - J_qab)
+    test_E_qn, _ = np.linalg.eig(H_qab)
+
+    assert E_qn.shape == (q_qc.shape[0], nsites)
+    assert np.allclose(test_E_qn.imag, 0.)
+    assert np.allclose(E_qn, test_E_qn.real)
+
+
+# ---------- Test functionality ---------- #
+
+
+def get_randomized_qpoints(nq):
+    """Make a simple, but shuffled, q-point array."""
+    q_qc = np.zeros((nq, 3), dtype=np.float)
+    q_qc[:, 2] = np.linspace(0., np.pi, nq)
+    np.random.shuffle(q_qc[:, 2])
+
+    return q_qc
