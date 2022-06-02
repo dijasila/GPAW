@@ -88,6 +88,7 @@ class DFTComponentsBuilder:
                                               self.setups.id_a,
                                               self.initial_magmoms,
                                               params.symmetry)
+        assert not (self.ncomponents == 4 and len(symmetries) > 1)
         bz = create_kpts(params.kpts, atoms)
         self.ibz = symmetries.reduce(bz, strict=False)
 
