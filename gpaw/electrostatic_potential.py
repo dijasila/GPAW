@@ -49,6 +49,7 @@ class ElectrostaticPotential:
 
     def atomic_potentials(self) -> Array1D:
         W_aL = self.W_aL.gather()
+        assert W_aL is not None
         return W_aL.data[::9] * (Ha / (4 * pi)**0.5)
 
     def pseudo_potential(self,
@@ -60,9 +61,12 @@ class ElectrostaticPotential:
                           grid_spacing: float,  # Bohr
                           ) -> UniformGridFunctions:
         if grid_spacing == self._grid_spacing:
+            assert self._vHt_R is not None
             return self._vHt_R
 
-        vHt_x = self.vHt_x.to_pbc_grid()
+        vHt_x = self.vHt_x
+        if isinstance(self.vHt_x, UniformGridFunctions):
+            vHt_x = self.vHt_x.to_pbc_grid()
         grid = vHt_x.desc.uniform_grid_with_grid_spacing(grid_spacing / Bohr)
         self._vHt_R = vHt_x.interpolate(grid=grid)
         self._grid_spacing = grid_spacing
