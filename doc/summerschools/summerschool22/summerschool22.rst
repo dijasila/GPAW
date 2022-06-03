@@ -69,7 +69,7 @@ brief descriptions of what aspects of GPAW you learn from them.
 
 
 Instructions for instructors
-=====
+============================
 
 Instructions for the people testing and developing the projects can be
 found here:
@@ -77,4 +77,3 @@ found here:
 .. toctree::
 
    instructors
-   
