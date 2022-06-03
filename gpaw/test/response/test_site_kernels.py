@@ -76,11 +76,9 @@ def Co_hcp_test():
     V0 = atoms.get_volume()  # Volume of unit cell in Aa^3
 
     # Calculate integration volumes in Aa^3
-    Vsph1 = 4 / 3 * np.pi * rc_m[0]**3  # Volume of sphere on first site
-    Vsph2 = 4 / 3 * np.pi * rc_m[1]**3  # Volume of sphere on second site
-    Vcyl1 = np.pi * rc_m[0]**2 * (2 * rc_m[0])  # Volume of cylinder, 1st site
-    height = np.sum(atoms.cell[:, -1])  # Height of unit cell
-    Vcyl2 = np.pi * rc_m[1]**2 * height  # Volume of cylinder, 2nd site
+    Vsphere_m = 4 / 3 * np.pi * rc_m**3
+    height_m = np.array([2 * rc_m[0], np.sum(atoms.cell[:, -1])])
+    Vcylinder_m = np.pi * rc_m**2 * height_m
 
     # Check shape of K-arrays
     assert Kuc_GGm.shape == (nG, nG, 1)
@@ -95,5 +93,5 @@ def Co_hcp_test():
 
     # Check K_00(q=0) gives Vint / V0 (fractional integration volume)
     assert abs(Kuc_GGm[0, 0, 0] - 1.) < 1.e-8
-    assert np.allclose(Ksph_GGm[0, 0, :], np.array([Vsph1, Vsph2]) / V0)
-    assert np.allclose(Kcyl_GGm[0, 0, :], np.array([Vcyl1, Vcyl2]) / V0)
+    assert np.allclose(Ksph_GGm[0, 0, :], Vsphere_m / V0)
+    assert np.allclose(Kcyl_GGm[0, 0, :], Vcylinder_m / V0)
