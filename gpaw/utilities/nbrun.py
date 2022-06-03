@@ -2,7 +2,7 @@
 import json
 import sys
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 
 def py2ipynb(path: Path, kernel: Optional[Dict[str,str]] = None) -> None:
