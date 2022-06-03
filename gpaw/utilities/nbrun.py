@@ -2,10 +2,10 @@
 import json
 import sys
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 
-def py2ipynb(path: Path) -> None:
+def py2ipynb(path: Path, kernel: Optional[Dict[str, str]] = None) -> None:
     """Convert Python script to ipynb file.
 
     Hides cells marked with "# teacher" and replaces lines marked with
@@ -52,14 +52,15 @@ def py2ipynb(path: Path) -> None:
         cells.append(cell)
 
     outpath = path.with_suffix('.ipynb')
+    if kernel is None:
+        kernel = {'display_name': 'Python 3',
+                  'language': 'python',
+                  'name': 'python3'}
     outpath.write_text(
         json.dumps(
             {'cells': cells,
              'metadata': {
-                 'kernelspec': {
-                     'display_name': 'Python 3',
-                     'language': 'python',
-                     'name': 'python3'},
+                 'kernelspec': kernel,
                  'language_info': {
                      'codemirror_mode': {'name': 'ipython', 'version': 3},
                      'file_extension': '.py',
