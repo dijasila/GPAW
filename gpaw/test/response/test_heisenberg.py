@@ -22,6 +22,7 @@ def magnon_dispersion_tests():
     single_site_magnons_test()
     single_site_magnons_consistency_test()
     FM_random_magnons_test()
+    FM_vectorized_magnons_test()
 
 
 def single_site_magnons_test():
@@ -123,6 +124,48 @@ def FM_random_magnons_test():
     assert E_qn.shape == (q_qc.shape[0], nsites)
     assert np.allclose(test_E_qn.imag, 0.)
     assert np.allclose(E_qn, test_E_qn.real)
+
+
+def FM_vectorized_magnons_test():
+    """Check that the functionality to calculate the magnon dispersion of a
+    ferromagnetic system with multiple sites works when supplying multiple
+    sets of parameters for the same two-site systems."""
+    # ---------- Inputs ---------- #
+
+    # Magnetic moments
+    nsites = 2
+    mm_a = 5. * np.random.rand(nsites)
+    # q-point grid
+    nq = 11
+    q_qc = get_randomized_qpoints(nq)
+
+    # Use a fixed structure for J_qab with known eigenvalues
+    cos_q = np.cos(q_qc[:, 2])
+    sin_q = np.sin(q_qc[:, 2])
+    J_qab = np.empty((nq, nsites, nsites), dtype=np.complex)
+    J_qab[:, 0, 0] = cos_q
+    J_qab[:, 0, 1] = 1. + 1.j * sin_q
+    J_qab[:, 1, 0] = 1. - 1.j * sin_q
+    J_qab[:, 1, 1] = 2. * cos_q
+    
+    # ---------- Script ---------- #
+
+    # Calculate magnon energies
+    E_qn = calculate_FM_magnon_energies(J_qab, q_qc, mm_a)
+
+    # Calculate magnon energies analytically
+    H_diag_avg_q = (np.sqrt(mm_a[1] / mm_a[0]) * (2. - cos_q)
+                    + np.sqrt(mm_a[0] / mm_a[1]) * (3. - 2. * cos_q)) / 2.
+    H_diag_diff_q = (np.sqrt(mm_a[1] / mm_a[0]) * (2. - cos_q)
+                     - np.sqrt(mm_a[0] / mm_a[1]) * (3. - 2. * cos_q)) / 2.
+    pm_n = np.array([-1., 1.])
+    E_test_qn = H_diag_avg_q[:, np.newaxis]\
+        + pm_n[np.newaxis, :] * np.sqrt(H_diag_diff_q[:, np.newaxis]**2.
+                                        + (1 + sin_q[:, np.newaxis]**2.))
+    E_test_qn *= 2. / np.sqrt(np.prod(mm_a))
+
+    assert np.allclose(E_test_qn.imag, 0.)
+    assert np.allclose(E_qn, E_test_qn.real)
 
 
 # ---------- Test functionality ---------- #
