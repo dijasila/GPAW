@@ -61,7 +61,6 @@ def Co_hcp_test():
     pd0 = chiksf.get_PWDescriptor([0, 0, 0])
 
     # Part 3: Calculate site kernels
-    V0 = atoms.get_volume()  # Volume of unit cell in Bohr^3
     siteposition_mv = atoms.get_positions()
     nG = len(get_pw_coordinates(pd0))
 
@@ -74,6 +73,9 @@ def Co_hcp_test():
                                      shapes_m='cylinder', rc_m=rc_m, zc_m=zc_m)
 
     # Part 4: Check the calculated kernels
+    V0 = atoms.get_volume()  # Volume of unit cell in Aa^3
+
+    # Calculate integration volumes in Aa^3
     Vsph1 = 4 / 3 * np.pi * rc_m[0]**3  # Volume of sphere on first site
     Vsph2 = 4 / 3 * np.pi * rc_m[1]**3  # Volume of sphere on second site
     Vcyl1 = np.pi * rc_m[0]**2 * (2 * rc_m[0])  # Volume of cylinder, 1st site
@@ -85,16 +87,13 @@ def Co_hcp_test():
     assert Ksph_GGm.shape == (nG, nG, 2)
     assert Kcyl_GGm.shape == (nG, nG, 2)
 
-    # Remove constant prefactor (atomic units)
-    prefactor = np.sqrt(2 / (V0 / Bohr**3)**3)
-    Kuc_GGm, Ksph_GGm, Kcyl_GGm = (x / prefactor
+    # Remove constant prefactor (in atomic units)
+    # Should be made redundant! XXX
+    prefactor = np.sqrt(V0 / (2. * Bohr**3.))
+    Kuc_GGm, Ksph_GGm, Kcyl_GGm = (x * prefactor
                                    for x in [Kuc_GGm, Ksph_GGm, Kcyl_GGm])
 
-    # Convert to SI units
-    Kuc_GGm, Ksph_GGm, Kcyl_GGm = (x * Bohr**3
-                                   for x in [Kuc_GGm, Ksph_GGm, Kcyl_GGm])
-
-    # Check K_00(q=0) gives the volume of the integration region
-    assert abs(Kuc_GGm[0, 0, 0] - V0) < 1.e-8
-    assert np.allclose(Ksph_GGm[0, 0, :], [Vsph1, Vsph2], atol=1.e-8)
-    assert np.allclose(Kcyl_GGm[0, 0, :], [Vcyl1, Vcyl2], atol=1.e-8)
+    # Check K_00(q=0) gives Vint / V0 (fractional integration volume)
+    assert abs(Kuc_GGm[0, 0, 0] - 1.) < 1.e-8
+    assert np.allclose(Ksph_GGm[0, 0, :], np.array([Vsph1, Vsph2]) / V0)
+    assert np.allclose(Kcyl_GGm[0, 0, :], np.array([Vcyl1, Vcyl2]) / V0)
